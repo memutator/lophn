@@ -48,7 +48,9 @@ export interface TabStripProps {
   onSelect: (key: string, side: Side) => void;
   /** 닫을 tab의 key(split의 반쪽이면 그 반쪽). 닫기 단추는 split에서 focus 쪽을 닫는다. */
   onClose: (tabKey: string) => void;
-  onNewTab: () => void;
+  /** 새 tab 단추 자리. 주지 않으면 onNewTab을 부르는 + 단추다. */
+  newTab?: ReactNode;
+  onNewTab?: () => void;
   /** 칸을 끌어 놓았다. before 칸 앞에 넣고 null이면 끝이다. */
   onReorder: (key: string, before: string | null) => void;
   /** 접힌 float을 펴거나 접는다. */
@@ -68,6 +70,7 @@ export function TabStrip({
   floating,
   onSelect,
   onClose,
+  newTab,
   onNewTab,
   onReorder,
   onToggleFloat,
@@ -241,12 +244,14 @@ export function TabStrip({
       </div>
 
       <span className={styles.newTab}>
-        <IconButton
-          icon={shellIcons.add}
-          label={t("shell.button.new-tab")}
-          size="sm"
-          onClick={onNewTab}
-        />
+        {newTab ?? (
+          <IconButton
+            icon={shellIcons.add}
+            label={t("shell.button.new-tab")}
+            size="sm"
+            onClick={onNewTab}
+          />
+        )}
       </span>
       <span className={styles.drag} />
 

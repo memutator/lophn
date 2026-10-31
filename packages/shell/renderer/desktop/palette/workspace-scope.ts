@@ -4,11 +4,12 @@ import { t } from "@lophn/i18n";
 
 import { commandLabel, type KeyOverrides } from "../../../ipc/keybindings.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
-import type {
-  FloatItem,
-  TabItem,
-  WorkspaceView,
-} from "../../workspace/model.ts";
+import {
+  type Desk,
+  type FloatTab,
+  focusedKey,
+  type TabItem,
+} from "../../shell/desk-model.ts";
 import type { FileRow } from "../../workspace/source.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { windowShortcutLabel } from "./labels.ts";
@@ -29,7 +30,7 @@ type WorkspaceAction =
   | "minimize";
 
 type WorkspaceTarget =
-  | { readonly kind: "tab"; readonly pane: number; readonly key: string }
+  | { readonly kind: "tab"; readonly key: string }
   /** id는 파일의 절대 경로다. 파일 행의 문서 id는 옛 모양이라 목록에서 찾는다. */
   | {
       readonly kind: "document";
@@ -39,7 +40,8 @@ type WorkspaceTarget =
   | { readonly kind: "action"; readonly action: WorkspaceAction };
 
 interface WorkspaceScopeInput {
-  readonly view: WorkspaceView;
+  /** 보이는 desk. */
+  readonly desk: Desk;
   readonly files: readonly FileRow[];
   /** 읽은 bookmark. 목록을 못 읽었으면 비운다. 고르면 새 browser 탭에서 열린다. */
   readonly bookmarks: readonly {
@@ -58,35 +60,26 @@ interface WorkspaceScopeInput {
   readonly go: (target: WorkspaceTarget) => void;
 }
 
-function tabs(view: WorkspaceView): PaletteEntry<WorkspaceTarget>[] {
-  const split = view.panes.length > 1;
-  return view.panes.flatMap((pane, index) =>
-    pane.tabs.map((tab) => {
-      const kind = tabKindLabel(tab.kind);
-      const side = t("common.label.palette-pane", { number: index + 1 });
-      return {
-        group: "tabs" as const,
-        key: `tab:${index}:${tab.key}`,
-        label: tab.title,
-        detail: split
-          ? t("common.label.palette-tab-detail", { kind, pane: side })
-          : kind,
-        icon: tabKindOf(tab.kind)?.paletteIcon ?? ("tab" as const),
-        target: { kind: "tab" as const, pane: index, key: tab.key },
-      };
-    }),
-  );
+function tabs(desk: Desk): PaletteEntry<WorkspaceTarget>[] {
+  return desk.tabs.map((tab) => ({
+    group: "tabs" as const,
+    key: `tab:${tab.key}`,
+    label: tab.title,
+    detail: tabKindLabel(tab.kind),
+    icon: tabKindOf(tab.kind)?.paletteIcon ?? ("tab" as const),
+    target: { kind: "tab" as const, key: tab.key },
+  }));
 }
 
-/** focus 칸의 고른 탭. */
-export function focusTab(view: WorkspaceView): TabItem | undefined {
-  const pane = view.panes[view.focusedPane];
-  return pane?.tabs.find((tab) => tab.key === pane.selected);
+/** focus가 있는 탭. split이면 focus 쪽이다. */
+export function focusTab(desk: Desk): TabItem | undefined {
+  const key = focusedKey(desk);
+  return desk.tabs.find((tab) => tab.key === key);
 }
 
 /** 가장 위의 접히지 않은 floated 패널. */
-export function topFloat(view: WorkspaceView): FloatItem | undefined {
-  return view.floats.findLast((item) => !item.minimized);
+export function topFloat(desk: Desk): FloatTab | undefined {
+  return desk.floats.findLast((item) => !item.minimized);
 }
 
 function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
@@ -131,10 +124,10 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
       t("common.button.palette-project-settings"),
       "screen",
     ),
-    ...(focusTab(input.view)
+    ...(focusTab(input.desk)
       ? [action("float", t("common.button.palette-float-tab"), "tab")]
       : []),
-    ...(topFloat(input.view)
+    ...(topFloat(input.desk)
       ? [
           action("dock", t("common.button.palette-dock-panel"), "panel"),
           action(
@@ -155,7 +148,7 @@ export function workspaceScope(
     title: t("common.title.palette-workspace"),
     order: WORKSPACE_GROUPS,
     entries: () => [
-      ...tabs(input.view),
+      ...tabs(input.desk),
       ...input.files.map((file) => ({
         group: "files" as const,
         key: `file:${file.path}`,

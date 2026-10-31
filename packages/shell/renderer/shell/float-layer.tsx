@@ -6,6 +6,7 @@ import { type FloatEdge, FloatPanel, Tooltip } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
 
+import { ViewLayerProvider } from "../app-frame/webview-host.tsx";
 import { shellIcons } from "../icons/mod.ts";
 import {
   TabStateDot,
@@ -130,7 +131,8 @@ function FloatEntryView({
   return (
     <div
       className={styles.slot}
-      style={{ zIndex: `calc(var(--z-sticky) + ${layer})` }}
+      // 층 L의 패널은 --z-sticky + 2L이다. 그 사이 +1에 floated 화면의 <webview>가 온다(app-frame/webview-host).
+      style={{ zIndex: `calc(var(--z-sticky) + ${layer * 2})` }}
     >
       <FloatPanel
         title={float.title}
@@ -168,7 +170,9 @@ function FloatEntryView({
           </>
         }
       >
-        <div className={styles.body}>{float.body}</div>
+        <ViewLayerProvider value={layer}>
+          <div className={styles.body}>{float.body}</div>
+        </ViewLayerProvider>
       </FloatPanel>
     </div>
   );

@@ -7,7 +7,7 @@ import { AgentsPage } from "../agents/agents-page.tsx";
 import { isAgentId } from "../agents/agent-key.ts";
 import { TAB_KEY } from "../agent/tab-fields.ts";
 import type { TabItem } from "../model.ts";
-import { PaddedTab } from "../panes/padded-tab.tsx";
+import { PaddedTab } from "../padded-tab.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 

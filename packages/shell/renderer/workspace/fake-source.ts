@@ -1,5 +1,9 @@
 // WorkspaceSource의 메모리 구현. dev seed와 화면 시험이 쓴다. 연결 폴더 둘(하위 폴더 하나 포함)과 폴더별
 // 파일 tree를 갖고, `list(path)`가 폴더 한 단계씩 돌려준다. 문서 목록은 비어 있고 layout은 저장만 받는다.
+import {
+  createLayoutSource,
+  fakePlaceLayoutBridge,
+} from "../shell/layout-source.ts";
 import { fakeDomainStore } from "./domains/fake-domains.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
@@ -994,6 +998,11 @@ function summaryOf(
   };
 }
 
+function fakeLayoutSource() {
+  const bridge = fakePlaceLayoutBridge();
+  return createLayoutSource(() => bridge);
+}
+
 export function fakeWorkspaceSource(
   options: FakeWorkspaceOptions = {},
 ): WorkspaceSource {
@@ -1234,8 +1243,6 @@ export function fakeWorkspaceSource(
       return Promise.resolve({ ok: true, value: null });
     },
     files: () => Promise.resolve({ ok: true, value: [] }),
-    readLayout: () =>
-      Promise.resolve({ ok: true, available: false, reason: "no layout" }),
-    saveLayout: () => Promise.resolve({ ok: true }),
+    layout: fakeLayoutSource(),
   };
 }

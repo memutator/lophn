@@ -28,6 +28,8 @@ export function useWaitingPanel(): {
 export interface WaitingLayerProps {
   /** 질문 카드의 [Open session]. */
   readonly onOpenSession: (session: string) => void;
+  /** panel이 펼쳐지는 쪽. 기본은 단추 오른쪽 끝에 맞춰 왼쪽으로 펼친다(오른쪽 구역). start는 왼쪽 끝에 맞춰 오른쪽으로 편다. */
+  readonly align?: "start" | "end";
   /** gallery가 정해진 상태로 시작할 때만 준다. */
   readonly initial?: PanelInitial & {
     readonly open?: boolean;
@@ -36,7 +38,11 @@ export interface WaitingLayerProps {
   };
 }
 
-export function WaitingLayer({ onOpenSession, initial }: WaitingLayerProps) {
+export function WaitingLayer({
+  onOpenSession,
+  align = "end",
+  initial,
+}: WaitingLayerProps) {
   const { entries } = useWaiting();
   const finished = useFinished(initial?.finished);
   // 배지는 "볼 것이 있다"는 뜻이라 끝난 줄도 센다.
@@ -74,7 +80,7 @@ export function WaitingLayer({ onOpenSession, initial }: WaitingLayerProps) {
   const label = t("waiting.label.trigger", { count });
 
   return (
-    <div className={styles.layer} ref={layer}>
+    <div className={styles.layer} ref={layer} data-align={align}>
       <Tooltip content={label}>
         <IconButton
           icon={notificationsIcon}

@@ -1,27 +1,21 @@
-// workflow 탭 gallery. 실제 WorkflowPage를 Workspace 없이 세운다(탭 줄과 칸 본문만 같은 모양으로 두른다).
+// workflow 탭 gallery. 실제 WorkflowPage를 Workspace 없이 세운다(card만 같은 모양으로 두른다).
 // 바탕은 fake source가 정하고 사람이 하는 것(dialog 열기, 입력 채우기)은 drive가 한다. 화면에 gallery 전용 prop은 없다.
 import { useMemo, useState } from "react";
-import { Icon } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
 
 import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
-import { commonIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
+import { ContentCard } from "../../../../../packages/shell/renderer/shell/content-card.tsx";
 import { workflowTab } from "../../../../../packages/shell/renderer/workspace/kinds/workflow.tsx";
 import {
   FAKE_WORKFLOW_INSTANCES,
   FAKE_WORKFLOWS,
   fakeWorkspaceSource,
 } from "../../../../../packages/shell/renderer/workspace/fake-source.ts";
-import paneStyles from "../../../../../packages/shell/renderer/workspace/panes/panes.module.css";
-import { PaddedTab } from "../../../../../packages/shell/renderer/workspace/panes/padded-tab.tsx";
+import { PaddedTab } from "../../../../../packages/shell/renderer/workspace/padded-tab.tsx";
 import { WorkflowPage } from "../../../../../packages/shell/renderer/workflow/workflow-page.tsx";
-import { TabStrip } from "../../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
 import type { WorkspaceSource } from "../../../../../packages/shell/renderer/workspace/source.ts";
 import { click, type, useDrive } from "../../../mock/drive.ts";
-import { documentTab } from "../../../mock/phroner-data.ts";
-import { stripTabsOf } from "../project-window.tsx";
 
 const noop = () => {};
 
@@ -40,9 +34,8 @@ const [
 ] = FAKE_WORKFLOW_INSTANCES.map((detail) => detail.instance.id);
 
 const PROJECT = FAKE_WORKFLOWS[0].project;
-const [DOC_TAB] = stripTabsOf([documentTab("loop/findings/F-009.md")]);
 
-/** workflow 탭 한 개가 선 창. 탭 줄 아래 본문은 실제 칸처럼 여백 없이 붙고 page가 스스로 여백을 둔다. */
+/** workflow 탭 한 개가 선 창. 본문은 실제 card처럼 여백 없이 붙고 page가 스스로 여백을 둔다. */
 function WorkflowWindow({
   name,
   instance = null,
@@ -65,40 +58,41 @@ function WorkflowWindow({
           inset: 0,
           display: "flex",
           flexDirection: "column",
-          background: "var(--color-surface-base)",
+          padding: "var(--space-4)",
+          background: "var(--color-surface-shell)",
         }}
       >
-        <section className={paneStyles.pane}>
-          <TabStrip
-            tabs={[
-              {
-                key: tab.key,
-                title: tab.title,
-                icon: (
-                  <Icon
-                    icon={commonIcons.workflow}
-                    pixels={iconPixels("small")}
+        <ContentCard
+          panes={[
+            {
+              key: tab.key,
+              crumbs: ["phroner", tab.title],
+              body: (
+                <PaddedTab bare>
+                  <WorkflowPage
+                    project={PROJECT}
+                    workflow={name}
+                    instance={selected}
+                    source={source}
+                    onInstance={setSelected}
+                    onOpenArtifact={noop}
+                    onOpenConversation={noop}
                   />
-                ),
-              },
-              DOC_TAB,
-            ]}
-            selected={tab.key}
-          />
-          <div className={`${paneStyles.body} ${paneStyles.flush}`}>
-            <PaddedTab bare>
-              <WorkflowPage
-                project={PROJECT}
-                workflow={name}
-                instance={selected}
-                source={source}
-                onInstance={setSelected}
-                onOpenArtifact={noop}
-                onOpenConversation={noop}
-              />
-            </PaddedTab>
-          </div>
-        </section>
+                </PaddedTab>
+              ),
+            },
+          ]}
+          focus="a"
+          deskLabel="Main"
+          canBack={false}
+          canForward={false}
+          onBack={noop}
+          onForward={noop}
+          canSplit={false}
+          onFocus={noop}
+          onAction={noop}
+          onEmptyAction={noop}
+        />
       </div>
     </EventsProvider>
   );

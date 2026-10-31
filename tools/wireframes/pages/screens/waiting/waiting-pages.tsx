@@ -119,7 +119,9 @@ function Over({
       <ProjectApp
         sidebar={{ foldersClosed: true }}
         panes={[{ tabs: [DOC], selected: DOC.key }]}
-        titleExtra={<WaitingLayer onOpenSession={noop} initial={initial} />}
+        titleExtra={
+          <WaitingLayer align="start" onOpenSession={noop} initial={initial} />
+        }
       >
         {toasts ? <Toasts /> : null}
       </ProjectApp>

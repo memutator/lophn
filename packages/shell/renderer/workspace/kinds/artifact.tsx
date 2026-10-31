@@ -39,7 +39,7 @@ export function openArtifactFile(
       title: fileNameOf(path),
       fields: { project: host.projectId, path },
     },
-    showAfter(host.view, from),
+    showAfter(host.desk, from),
   );
 }
 

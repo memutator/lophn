@@ -42,7 +42,7 @@ export function openBridgeUrl(
       title,
       fields: { url: request.url },
     },
-    showAfter(host.view, terminal.key),
+    showAfter(host.desk, terminal.key),
   );
   return true;
 }

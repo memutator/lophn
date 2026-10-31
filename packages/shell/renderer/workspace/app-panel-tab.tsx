@@ -62,7 +62,7 @@ export function useScreensRead(enabled = true): {
   return { read, retry: () => setAttempt((count) => count + 1) };
 }
 
-/** 고를 수 있는 (앱, panel 화면) 목록. label은 "앱 · 화면"이다. picker와 activity bar의 + menu가 같이 쓴다. */
+/** 고를 수 있는 (앱, panel 화면) 목록. label은 "앱 · 화면"이다. picker가 쓴다. */
 export function panelChoices(
   apps: readonly AppScreens[],
 ): readonly (PanelChoice & { readonly label: string })[] {
@@ -77,19 +77,6 @@ export function panelChoices(
       }),
     })),
   );
-}
-
-/** 고정한 앱 패널의 이름. 앱 이름과 화면 이름을 읽었으면 "앱 · 화면", 아니면 저장해 둔 앱 이름이다. */
-export function railAppLabel(
-  apps: readonly AppScreens[],
-  item: { readonly app: string; readonly surface: string; title?: string },
-): string {
-  const app = apps.find((entry) => entry.app === item.app);
-  const screen = app?.screens.find((entry) => entry.key === item.surface);
-  if (app !== undefined && screen !== undefined) {
-    return t("app-panel.label.screen", { app: app.name, screen: screen.label });
-  }
-  return item.title ?? t("project-workspace.label.kind-app-panel");
 }
 
 interface AppPanelPickerProps {

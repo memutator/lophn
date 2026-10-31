@@ -1,7 +1,7 @@
-// 새 설계 page들이 같이 쓰는 project 화면 조각. 실제 TopBar·LauncherButton·Tooltip과 design
-// component를 그대로 쓰고, sidebar(`ProjectSidebar`)·탭 줄(design `TabStrip`)·새 탭 menu(`NewTabMenu`)도 실제
-// renderer component다. 여기는 고정 data를 그 component의 props로 옮기는 일(`PageSidebar`, `PageNewTabMenu`,
-// `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일(`useSidebarScript`)만 한다. 앱 코드는 고치지 않는다.
+// 새 설계 page들이 같이 쓰는 project 화면 조각. 왼쪽 sidebar(`AgentSidebar`)·오른쪽 panel(`ProjectPanel`)·탭 줄(shell
+// `TabStrip`)·새 탭 menu(`NewTabMenu`)는 실제 renderer component다. 여기는 고정 data를 그 component의 props로 옮기는 일
+// (`PageAgentSidebar`, `PageProjectPanel`, `PageNewTabMenu`, `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일
+// (`useSidebarScript`)만 한다. 앱 코드는 고치지 않는다.
 
 import { FileIcon, Icon, type IconProps } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
@@ -26,10 +26,8 @@ import {
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
-import type {
-  TabDot,
-  TabItem,
-} from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
+import type { TabDot } from "../../../../packages/shell/renderer/parts/tab-strip/tab-strip.tsx";
+import type { StripTab } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
 
 import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
 import {
@@ -37,9 +35,9 @@ import {
   FAKE_PROJECT_FOLDER,
   fakeWorkspaceSource,
 } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
-import type { RailAction as SidebarRailAction } from "../../../../packages/shell/renderer/workspace/sidebar/activity-bar.tsx";
 import {
-  ProjectSidebar,
+  AgentSidebar,
+  ProjectPanel,
   type SidebarTab,
 } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
@@ -130,33 +128,24 @@ function tabIcon(tab: TabSpec): ReactNode {
   return <Icon icon={KIND_ICON[tab.kind]} pixels={iconPixels("small")} />;
 }
 
-/** design `TabStrip`에 넘기는 탭. states는 Agent 탭의 상태 점(사람을 기다림·일하는 중)이다. */
+/** shell `TabStrip`에 넘기는 탭. states는 Agent 탭의 상태 점(사람을 기다림·일하는 중)이다. */
 export function stripTabsOf(
   tabs: readonly TabSpec[],
   states?: Readonly<Record<string, TabDot | null>>,
-): TabItem[] {
+): StripTab[] {
   return tabs.map((tab) => ({
     key: tab.key,
     title: tabTitle(tab),
     icon: tabIcon(tab),
     dot: states?.[tab.key],
-    preview: tab.preview,
-    unsaved: tab.unsaved,
   }));
 }
-
-/** activity bar 아래쪽 바로 가기. 누르면 그 탭을 연다. */
-export type RailAction = SidebarRailAction;
 
 export interface SidebarSpec {
   /** 고른 문서 행(첫 연결 폴더 기준 상대 경로, 또는 절대 경로). */
   readonly current?: string;
   /** 오른쪽 클릭 menu가 열린 행. 실제 menu가 그 행에서 열린다. */
   readonly menuFor?: string;
-  /** 접힌 sidebar로 시작한다. */
-  readonly collapsed?: boolean;
-  /** activity bar 아래쪽 바로 가기의 이 단추 tooltip을 열어 둔 채로 그린다. */
-  readonly railTooltip?: RailAction;
   /** 이 agent 줄에 hover한 것처럼 "+"를 보인다. */
   readonly hoverAgent?: string;
   /** 파일 tree를 모두 접어 그린다(Agents 묶음이 한 화면에 들어오게). */
@@ -165,8 +154,8 @@ export interface SidebarSpec {
   readonly scrollToAgents?: boolean;
   /** Agent 모양에 Background(run) 묶음을 둔다. 끄면 run도 run이 연 session도 넘기지 않는다. */
   readonly runs?: boolean;
-  /** 처음에 보이는 모양. 없으면 Explorer다. */
-  readonly mode?: SidebarTab;
+  /** 오른쪽 panel이 처음에 보이는 모양. 없거나 agent면 Files다(Agent 쪽은 늘 왼쪽 sidebar에 있다). */
+  readonly mode?: SidebarTab | "agent";
   /** 루트를 고르는 menu를 연 채 시작한다. */
   readonly rootMenu?: boolean;
   /** Scheduled jobs 탭에 이 project에 걸린 job이 하나도 없다. */
@@ -189,9 +178,6 @@ export type ExplorerAct =
   | "move";
 
 interface SidebarProps extends SidebarSpec {
-  readonly collapsed: boolean;
-  readonly onToggle: () => void;
-  readonly onRail: (action: RailAction) => void;
   readonly onOpenFile: (id: string) => void;
   readonly onAgent: (agent: string) => void;
   readonly onManage: () => void;
@@ -461,7 +447,7 @@ function useSidebarScript(
     const fileRow = (path: string) => `[data-file="${CSS.escape(path)}"]`;
     void (async () => {
       const explorer = spec.mode === undefined || spec.mode === "explorer";
-      if (spec.collapsed !== true && explorer) {
+      if (explorer) {
         if (spec.foldersClosed !== true) {
           for (const dir of ["eval", "eval/experiments"]) {
             const row = await waitFor(fileRow(absolute(dir)));
@@ -491,12 +477,6 @@ function useSidebarScript(
           );
         }
       }
-      if (spec.collapsed === true && spec.railTooltip !== undefined) {
-        const button = await waitFor(
-          `[data-rail-action="${spec.railTooltip}"]`,
-        );
-        button?.focus();
-      }
       if (spec.hoverAgent !== undefined) {
         const row = await waitFor(`[data-agent="${spec.hoverAgent}"]`);
         const plus =
@@ -504,7 +484,7 @@ function useSidebarScript(
         if (plus) plus.style.opacity = "1";
       }
       if (spec.scrollToAgents === true) {
-        const body = await waitFor("[data-sidebar-tab]");
+        const body = await waitFor('[data-sidebar-tab="agent"]');
         if (body) body.scrollTop = body.scrollHeight;
       }
     })();
@@ -621,14 +601,40 @@ const JOBS: readonly JobView[] = [
   }),
 ];
 
-/**
- * project sidebar. 실제 `ProjectSidebar`에 phroner의 고정 data(연결 폴더 둘, lophn과 사람이 만든 agent 셋과
- * 그 session)를 넘긴다. 접으면 activity bar만 남는다: 항목 넷(누르면 펼침) · 아래쪽 Terminal · Agent · Search.
- */
-export function PageSidebar(props: SidebarProps) {
+/** 왼쪽 sidebar. 실제 `AgentSidebar`에 lophn과 사람이 만든 agent 셋과 그 session의 고정 data를 넘긴다. */
+export function PageAgentSidebar(props: SidebarProps) {
   const ref = useRef<HTMLDivElement>(null);
-  useSidebarScript(ref, props);
-  // JobPanel과 WorkflowPanel이 event를 듣는다.
+  useSidebarScript(ref, { ...props, mode: "workflow" });
+  // WorkflowPanel과 JobPanel처럼 AgentPanel도 event를 듣는 부품이 있다.
+  const [client] = useState(() => createEventClient(createFakeSource()));
+  return (
+    <EventsProvider client={client}>
+      <div ref={ref} style={{ display: "contents" }}>
+        <AgentSidebar
+          projectId={PROJECT_ID}
+          agents={AGENTS}
+          sessions={PANEL_SESSIONS}
+          terminals={PANEL_TERMINALS}
+          {...(props.runs === true ? { runs: PANEL_RUNS } : {})}
+          onAgent={(agent) => props.onAgent(agent.assignment)}
+          onSession={(session) => {
+            const row = [...SESSIONS, ...RUN_SESSIONS].find(
+              (item) => item.id === session.id,
+            );
+            if (row) props.onSession?.(row);
+          }}
+          onTerminal={() => {}}
+          onManage={props.onManage}
+        />
+      </div>
+    </EventsProvider>
+  );
+}
+
+/** 오른쪽 panel. 실제 `ProjectPanel`에 phroner의 고정 data(연결 폴더 둘)를 넘긴다. */
+export function PageProjectPanel(props: SidebarProps & { tab: SidebarTab }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useSidebarScript(ref, { ...props, mode: props.tab });
   const [client] = useState(() => createEventClient(createFakeSource()));
   const [root, setRoot] = useState<string | null>(null);
   const jobs = useMemo(
@@ -638,19 +644,13 @@ export function PageSidebar(props: SidebarProps) {
   return (
     <EventsProvider client={client}>
       <div ref={ref} style={{ display: "contents" }}>
-        <ProjectSidebar
-          mode={props.collapsed ? "collapsed" : "open"}
-          width={props.collapsed ? 56 : 240}
+        <ProjectPanel
+          tab={props.tab}
           project={PROJECT}
           source={DEMO_SOURCE}
           jobs={jobs}
           onOpenJobs={() => {}}
-          agents={AGENTS}
-          sessions={PANEL_SESSIONS}
-          terminals={PANEL_TERMINALS}
-          {...(props.runs === true ? { runs: PANEL_RUNS } : {})}
           current={props.current === undefined ? null : absolute(props.current)}
-          initialTab={props.mode}
           onOpenFile={(path) =>
             props.onOpenFile(
               path.startsWith(`${FAKE_PROJECT_FOLDER}/`)
@@ -665,18 +665,6 @@ export function PageSidebar(props: SidebarProps) {
           onAddFolder={() => Promise.resolve(true)}
           onRemoveFolder={() => Promise.resolve(true)}
           onOpenTerminal={() => {}}
-          onRail={props.onRail}
-          onAgent={(agent) => props.onAgent(agent.assignment)}
-          onSession={(session) => {
-            const row = [...SESSIONS, ...RUN_SESSIONS].find(
-              (item) => item.id === session.id,
-            );
-            if (row) props.onSession?.(row);
-          }}
-          onTerminal={() => {}}
-          onManage={props.onManage}
-          onToggle={props.onToggle}
-          onSettings={() => {}}
         />
       </div>
     </EventsProvider>

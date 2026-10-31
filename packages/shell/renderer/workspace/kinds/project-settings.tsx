@@ -3,7 +3,7 @@ import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
 import { ProjectIconField } from "../../parts/project-icon/project-icon.tsx";
-import { PaddedTab } from "../panes/padded-tab.tsx";
+import { PaddedTab } from "../padded-tab.tsx";
 import { ProjectSettingsPage } from "../project-settings/project-settings-page.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -43,9 +43,6 @@ export const projectSettingsKind: TabKindDef = {
         <ProjectSettingsPage
           projectId={host.projectId}
           projects={slice.projects}
-          appScreens={host.appScreens}
-          railApps={slice.railApps}
-          onRailApps={slice.setRailApps}
           onProjectChanged={slice.projectChanged}
           iconField={
             <ProjectIconField

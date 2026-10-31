@@ -3,7 +3,7 @@
 import { commonIcons } from "../../icons/mod.ts";
 
 import type { TabItem } from "../model.ts";
-import { PaddedTab } from "../panes/padded-tab.tsx";
+import { PaddedTab } from "../padded-tab.tsx";
 import { WorkflowPage } from "../../workflow/workflow-page.tsx";
 import { openWorkflowArtifact } from "./artifact.tsx";
 import type { TabHost } from "./host.ts";

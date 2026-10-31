@@ -47,7 +47,7 @@ export function openFile(
       ...(fields === undefined ? {} : { fields }),
       ...(options.preview === true ? { preview: true } : {}),
     },
-    showAfter(host.view, options.from),
+    showAfter(host.desk, options.from),
   );
   if (fields !== undefined) host.patchTab(path, { fields });
 }

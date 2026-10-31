@@ -312,8 +312,6 @@ export function Desktop({
         source={workspace}
         windowWidth={windowWidth}
         onLauncher={launcher}
-        onOpenPlace={openPlace}
-        places={catalog}
         onSettings={settingsSpace}
         jobs={settingsPanels?.jobs}
         onOpenApp={apps ? appSpace : undefined}

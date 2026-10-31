@@ -4,10 +4,6 @@
 // 옮긴 것이다. layout 저장·복원은 preload의 lophnLayout이 있을 때만 main 통로를 쓴다.
 // bridge가 없으면 읽지 못함으로 답하고 작업대는 빈 배치로 시작한다.
 import type { FilesApi } from "../../ipc/files.ts";
-import type {
-  LayoutReadResult,
-  LayoutSaveResult,
-} from "../../ipc/workspace.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
@@ -16,6 +12,7 @@ import {
   readProjects,
   windowFolderPicker,
 } from "../desktop/launcher/projects/core-source.ts";
+import { createLayoutSource } from "../shell/layout-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreDomainActions } from "./domains/core-calls.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
@@ -23,7 +20,6 @@ import type {
   DomainView,
   FileOpResult,
   FileRow,
-  LayoutRead,
   ProjectView,
   ReadResult,
   RunFilter,
@@ -225,24 +221,6 @@ function locateInFolders(
   return hit === undefined
     ? null
     : { folder: hit.folder, relative: path.slice(hit.root.length + 1) };
-}
-
-const NO_LAYOUT: LayoutRead = { ok: false, message: "layout is unavailable" };
-
-function layoutBridge():
-  | {
-      read(input: { project: string }): Promise<LayoutReadResult>;
-      save(input: unknown): Promise<LayoutSaveResult>;
-    }
-  | undefined {
-  return (
-    globalThis as {
-      lophnLayout?: {
-        read(input: { project: string }): Promise<LayoutReadResult>;
-        save(input: unknown): Promise<LayoutSaveResult>;
-      };
-    }
-  ).lophnLayout;
 }
 
 const filesBridge = () => (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
@@ -631,30 +609,6 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       return { ok: true, value: rows };
     },
 
-    async readLayout(project) {
-      const bridge = layoutBridge();
-      if (!bridge) return NO_LAYOUT;
-      try {
-        const reply = await bridge.read({ project });
-        if (!reply.ok) return NO_LAYOUT;
-        if (!reply.available) {
-          return { ok: true, available: false, reason: reply.reason };
-        }
-        return { ok: true, available: true, layout: reply.layout };
-      } catch {
-        return NO_LAYOUT;
-      }
-    },
-
-    async saveLayout(layout) {
-      const bridge = layoutBridge();
-      if (!bridge) return { ok: false };
-      try {
-        const reply = await bridge.save(layout);
-        return { ok: reply.ok };
-      } catch {
-        return { ok: false };
-      }
-    },
+    layout: createLayoutSource(),
   };
 }

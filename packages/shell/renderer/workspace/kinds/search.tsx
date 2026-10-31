@@ -35,9 +35,7 @@ function openKeywordSearch(host: TabHost): void {
 
 /** 바로 가기 rail과 `+`가 부르는 Search 탭 열기. 열린 검색 탭이 있으면 그 탭을 고르고 없으면 새로 연다. */
 export function openSearchShortcut(host: TabHost): void {
-  const open = host.view.panes
-    .flatMap((pane) => pane.tabs)
-    .find((tab) => tab.kind === "search");
+  const open = host.windowTabs().find((tab) => tab.kind === "search");
   if (open !== undefined) {
     host.openTab(open);
     return;

@@ -5,7 +5,17 @@ import {
   fakeWorkspaceSource,
 } from "../workspace/fake-source.ts";
 import type { WorkspaceSource } from "../workspace/source.ts";
-import { DEFAULT_DESK } from "../workspace/model.ts";
+import {
+  createLayoutSource,
+  fakePlaceLayoutBridge,
+} from "../shell/layout-source.ts";
+import {
+  defaultPlaceLayout,
+  MAIN_DESK,
+  openTab,
+  selectTab,
+  updateDesk,
+} from "../shell/desk-model.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { fakeEditorFiles } from "../editor/fake-source.ts";
 import { readingWidthStore } from "../editor/reading-width.ts";
@@ -99,6 +109,26 @@ function seededEditor(): EditorDeps {
 // 연결 폴더와 파일 tree는 fake 통로의 것을 그대로 쓰고, 문서 탭과 배치만 이 시드가 얹는다.
 const FAKE = fakeWorkspaceSource();
 
+// 어느 project를 열어도 같은 처음 배치다.
+const SEED_LAYOUT_BRIDGE = fakePlaceLayoutBridge(
+  updateDesk(defaultPlaceLayout(), MAIN_DESK, (desk) =>
+    selectTab(
+      [
+        { key: "doc_notes", kind: "document_editor", title: "notes" },
+        { key: "doc_plan", kind: "document_editor", title: "plan" },
+        {
+          key: "term_1",
+          kind: "terminal",
+          title: "shell",
+          folder: FAKE_PROJECT_FOLDER,
+          fields: { auto: "shell" },
+        },
+      ].reduce((next, tab) => openTab(next, tab), desk),
+      "doc_notes",
+    ),
+  ),
+);
+
 const SEEDED: WorkspaceSource = {
   ...FAKE,
   project: async () => {
@@ -117,36 +147,7 @@ const SEEDED: WorkspaceSource = {
         title: seeded.info.fileName.replace(/\.md$/, ""),
       })),
     }),
-  readLayout: () =>
-    Promise.resolve({
-      ok: true,
-      available: true,
-      layout: {
-        active_desk: DEFAULT_DESK,
-        desks: {
-          [DEFAULT_DESK]: {
-            panes: [
-              {
-                tabs: [
-                  { key: "doc_notes", kind: "document_editor", title: "notes" },
-                  { key: "doc_plan", kind: "document_editor", title: "plan" },
-                ],
-                selected_tab: "doc_notes",
-              },
-              {
-                tabs: [{ key: "term_1", kind: "terminal", title: "shell" }],
-                selected_tab: "term_1",
-              },
-            ],
-            layout: { dir: "row", ratio: 0.5, a: "leaf", b: "leaf" },
-            focused_pane: 0,
-            floats: [],
-            detached: [],
-          },
-        },
-      },
-    }),
-  saveLayout: () => Promise.resolve({ ok: true }),
+  layout: createLayoutSource(() => SEED_LAYOUT_BRIDGE),
 };
 
 /** 시드 작업대와 문서 탭 통로. mock 모드도 같은 작업대를 쓴다. */

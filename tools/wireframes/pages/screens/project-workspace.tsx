@@ -5,7 +5,7 @@ import { createEventClient } from "../../../../packages/shell/renderer/desktop/c
 import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
 import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { fakeWorkspaceSource } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
-import { ProjectSidebar } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
+import { ProjectPanel } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import { openProject } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   AgentsGroup,
@@ -37,7 +37,6 @@ import {
   DocumentTabPage,
   EditorTabs,
   NewTabMenu,
-  SidebarCollapsed,
   TabKinds,
 } from "./project-pages.tsx";
 import {
@@ -69,10 +68,6 @@ import {
   NewTabMenuBrowser,
 } from "./browser/pages.tsx";
 import { ProjectApp } from "./project-app.tsx";
-import {
-  APP_BUDGET,
-  APP_PLANNER,
-} from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import { documentTab } from "../../mock/phroner-data.ts";
 import {
   MockDesktop,
@@ -113,30 +108,20 @@ function SidebarWorkflowsEmpty() {
           background: "var(--color-surface-base)",
         }}
       >
-        <ProjectSidebar
-          mode="open"
-          width={240}
-          project={{ id: "prj_empty", title: "phroner", folders: [] }}
-          source={source}
-          agents={[]}
-          sessions={[]}
-          terminals={[]}
-          initialTab="workflow"
-          onOpenFile={noop}
-          onMove={(from, to) => source.rename(from, to)}
-          onTrash={(path) => source.trash(path)}
-          explorerRoot={null}
-          onExplorerRoot={noop}
-          onAddFolder={() => Promise.resolve(true)}
-          onRemoveFolder={() => Promise.resolve(true)}
-          onRail={noop}
-          onAgent={noop}
-          onSession={noop}
-          onTerminal={noop}
-          onManage={noop}
-          onToggle={noop}
-          onSettings={noop}
-        />
+        <div style={{ width: 320, padding: "var(--space-4)" }}>
+          <ProjectPanel
+            tab="workflow"
+            project={{ id: "prj_empty", title: "phroner", folders: [] }}
+            source={source}
+            onOpenFile={noop}
+            onMove={(from: string, to: string) => source.rename(from, to)}
+            onTrash={(path: string) => source.trash(path)}
+            explorerRoot={null}
+            onExplorerRoot={noop}
+            onAddFolder={() => Promise.resolve(true)}
+            onRemoveFolder={() => Promise.resolve(true)}
+          />
+        </div>
       </div>
     </WithEvents>
   );
@@ -217,20 +202,11 @@ export const projectWorkspaceArea: Area = {
       id: "project-settings",
       title: "Project workspace · project settings tab",
       description:
-        "프로젝트 설정 탭. General은 런처 상세 dialog와 같은 form(이름·목적·폴더)이고, App panels는 activity bar에 고정한 앱 패널의 순서·열기 자리(Dock·Float)·제거를 고친다.",
+        "프로젝트 설정 탭. General은 런처 상세 dialog와 같은 form(이름·목적·폴더)이다.",
       render: () => (
         <MockDesktop
           route={openProject(PROJECT_GROCERY)}
           panes={SETTINGS_PANES}
-          railApps={[
-            { app: APP_PLANNER, surface: "home", title: "Meal planner" },
-            {
-              app: APP_BUDGET,
-              surface: "home",
-              title: "Grocery budget",
-              open: "float",
-            },
-          ]}
         />
       ),
     },
@@ -428,13 +404,6 @@ export const projectWorkspaceArea: Area = {
       description:
         "이 project에 걸린 job이 하나도 없을 때의 Scheduled jobs panel이다. 사람은 job을 만들지 못하고 agent에게 말하라는 안내와, 모든 job 화면(Settings)으로 가는 단추가 있다.",
       render: () => <SidebarJobs empty />,
-    },
-    {
-      id: "new-sidebar-collapsed",
-      title: "Sidebar · collapsed",
-      description:
-        "접은 sidebar는 activity bar의 icon 줄만 남는다. 항목을 누르면 그 panel이 열리고, 아래쪽 바로 가기는 Terminal, Agent, Search이며 Search는 project 키워드 검색을 연다.",
-      render: () => <SidebarCollapsed />,
     },
     {
       id: "new-project-tabs",

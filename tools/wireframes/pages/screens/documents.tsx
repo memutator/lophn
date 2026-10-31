@@ -1,5 +1,5 @@
 // 문서 탭. 탭 key는 파일 경로이고 확장자로 viewer를 고른다(md, text, 이미지, pdf). 본문이 탭 바로 아래부터 시작하고
-// 조작은 탭 안 맨 위의 view bar에 있다. Info는 탭 오른쪽에 붙어 본문 위로 뜬다(Outline은 Info 안).
+// 조작은 card 머리 줄에 있고 card 밖(float, detached)에서는 본문 맨 위 view bar에 있다. Info는 탭 오른쪽에 붙어 본문 위로 뜬다(Outline은 Info 안).
 // 틀·view bar·정보 panel·편집기·viewer는 모두 renderer 편집기(`packages/shell/renderer/editor`)의 component이고,
 // 이 파일은 고정 data(`editor/fake-source.ts`)와 gallery의 열기·상태 props를 이어 준다.
 import { useEffect, useRef, useState } from "react";

@@ -202,7 +202,7 @@ export interface PlaceWindowProps {
   notice?: ReactNode;
   /** Settings로 간다. 항목을 주면 그 항목부터 연다. */
   onSettings: (pane?: SettingsPane) => void;
-  /** sidebar Scheduled jobs 탭, Jobs overlay, Jobs 탭의 통로. 없으면 sidebar 항목을 두지 않고 Jobs overlay는 줄이 바로 탭을 연다. */
+  /** sidebar Jobs panel, Jobs overlay, Jobs 탭의 통로. 없으면 sidebar 항목을 두지 않고 Jobs overlay는 줄이 바로 탭을 연다. */
   jobs?: JobsSource;
   /** 파일 탭의 읽기·편집 통로. 없으면 파일 탭은 자리표시다. */
   editor?: EditorDeps;

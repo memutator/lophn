@@ -126,7 +126,7 @@ function SidebarWorkflowsEmpty() {
   );
 }
 
-/** sidebar · Scheduled jobs. phroner에 걸린 job 넷만 줄이 되고 Grocery의 job은 보이지 않는다. */
+/** sidebar · Jobs. phroner에 걸린 job 넷만 줄이 되고 Grocery의 job은 보이지 않는다. */
 function SidebarJobs({ empty = false }: { empty?: boolean }) {
   const tab = documentTab("eval/experiments/exp-008-query-tools.md");
   return (
@@ -385,16 +385,16 @@ export const projectWorkspaceArea: Area = {
     },
     {
       id: "project-window-jobs",
-      title: "Sidebar · Scheduled jobs",
+      title: "Sidebar · Jobs",
       description:
-        "오른쪽 sidebar의 Jobs panel이다. 그 project에 걸린 job만 줄로 보이고(다른 project의 job은 보이지 않는다), 줄은 제목, 오른쪽 끝 고정 열의 switch, 아래 줄(주기 글과 상태 하나, 실패는 표시)이다. 줄과 맨 아래 단추를 누르면 Settings의 Scheduled jobs로 간다.",
+        "오른쪽 sidebar의 Jobs panel이다. 그 project에 걸린 job만 줄로 보이고(다른 project의 job은 보이지 않는다), 줄은 제목, 오른쪽 끝 고정 열의 switch, 아래 줄(주기 글과 상태 하나, 실패는 표시)이다. 줄이나 [Open all jobs]를 누르면 Jobs 탭이 열린다.",
       render: () => <SidebarJobs />,
     },
     {
       id: "project-window-jobs-empty",
-      title: "Sidebar · Scheduled jobs · empty",
+      title: "Sidebar · Jobs · empty",
       description:
-        "이 project에 걸린 job이 하나도 없을 때의 Scheduled jobs panel이다. 사람은 job을 만들지 못하고 agent에게 말하라는 안내와, 모든 job 화면(Settings)으로 가는 단추가 있다.",
+        "이 project에 걸린 job이 하나도 없을 때의 Jobs panel이다. 사람은 job을 만들지 못하고 agent에게 말하라는 안내와, 모든 job을 보는 Jobs 탭을 여는 단추가 있다.",
       render: () => <SidebarJobs empty />,
     },
     {
@@ -499,21 +499,21 @@ export const projectWorkspaceArea: Area = {
       id: "new-file-outside",
       title: "Project · file outside the project",
       description:
-        "project 밖 파일을 연 문서 탭이다. view bar에는 경로 대신 Outside project 표시가 있고 경로는 위쪽 경로와 Info에 있다.",
+        "project 밖 파일을 연 문서 탭이다. card 머리 줄에는 경로 대신 Outside project 표시가 있고 경로는 Info에 있다.",
       render: () => <OutsideFile />,
     },
     {
       id: "new-document-tab",
       title: "Document",
       description:
-        "md 문서 탭이다. 탭 key는 파일 경로이고 view bar는 한 줄로, 오른쪽에 저장 상태, Info, …가 있다. 본문은 늘 live preview 편집기이고 Edit·Read 전환은 없다. Ctrl+F로 찾기 줄이, Ctrl+Alt+F로 바꾸기 줄이 편집기 위에 열린다. 판 번호, 판 hint, 형식 문제 표시는 없다.",
+        "md 문서 탭이다. 탭 key는 파일 경로이고, 저장 상태, Info, …는 card 머리 줄의 오른쪽에 있다. 본문은 늘 live preview 편집기이고 Edit·Read 전환은 없다. Ctrl+F로 찾기 줄이, Ctrl+Alt+F로 바꾸기 줄이 편집기 위에 열린다. 판 번호, 판 hint, 형식 문제 표시는 없다.",
       render: () => <DocumentTabPage />,
     },
     {
       id: "new-document-editing",
       title: "Document · saving",
       description:
-        "md를 고치는 중이고 view bar의 저장 상태가 Saving…이다. 저장 상태는 디스크 저장과 충돌만 있다.",
+        "md를 고치는 중이고 card 머리 줄의 저장 상태가 Saving…이다. 저장 상태는 디스크 저장과 충돌만 있다.",
       render: () => <MarkdownEditing />,
     },
     {
@@ -534,7 +534,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-viewer-media",
       title: "Document · image and pdf",
       description:
-        "이미지와 pdf viewer다. 보기만 하고, view bar는 한 줄이며 바탕이 탭 본문과 같다.",
+        "이미지와 pdf viewer다. 보기만 하고, 크기 같은 정보는 card 머리 줄에 있으며 바탕이 본문과 같다.",
       render: () => <MediaFiles />,
     },
     {
@@ -575,7 +575,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-file-search-opened",
       title: "Search · result opened at its line",
       description:
-        "결과를 눌러 연 뒤다. 오른쪽 문서가 일치한 줄로 scroll해 칠해져 있고 view bar에 Line 16이 보인다. 왼쪽 검색 탭은 그대로 남는다.",
+        "결과를 눌러 연 뒤다. 오른쪽 문서가 일치한 줄로 scroll해 칠해져 있고 card 머리 줄에 Line 16이 보인다. 왼쪽 검색 탭은 그대로 남는다.",
       render: () => <FileSearchOpened />,
     },
     {

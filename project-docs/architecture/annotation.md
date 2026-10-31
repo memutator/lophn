@@ -30,7 +30,7 @@ artifact 탭(target artifact):
         ▼
    shell main ── target은 view의 source로 정한다. artifact면 {kind: "artifact", domain, name}, 사람의 .html이면 {kind: "file", project}. release·screen은 null
         ▼
-   core-api: annotations.send {target, session(pane의 받는 쪽 session 또는 null), annotations}
+   core-api: annotations.send {target, session(창의 받는 쪽 session 또는 null), annotations}
         ├─ 묶음 저장(target_kind = artifact면 domain과 artifact 이름, file이면 project)
         ├─ deliverArtifact: 그 domain의 artifacts 폴더에 마지막으로 쓴 열린 session(rewind 기록) ─ 없으면 그 domain 그릇 place의 lophn session
         └─ deliverFile: 그 project place의 lophn session
@@ -46,7 +46,7 @@ artifact 탭(target artifact):
 - **묶음 하나의 target은 앱 하나, artifact 하나(`{domain, name}`), 사람의 `.html`이 있는 project 하나(file) 가운데 하나다.** 앱 target이면 annotation마다 release와 screen이 있고, 나머지는 둘 다 null이다. artifact와 file target은 저장 때 domain이나 project가 있는지 보지 않는다. 없거나 보관한 domain 그릇이나 project면 전달에서 session을 열지 못해 실패하고 방금 저장한 묶음을 지운다.
 - **앱 annotation은 앱 title bar agent select가 고른 agent의, 그 앱 place session이 받는다**(입력 `agent`, 없으면 lophn). 앱마다 정해진 agent가 없어 사람이 보고 있는 agent가 받는다. 받은 agent는 그 화면에 대한 사람의 요청으로 읽고 앱을 고친다(app place 지침).
 - **artifact annotation은 그 artifact 폴더에 마지막으로 쓴 session이 받는다.** rewind 기록에서 그 domain 그릇 place의 열린 session 가운데 마지막으로 쓴 것을 고르고, 없으면 그 그릇 place의 lophn session이다. 사람의 폴더에 있는 `.html`은 늘 그 project place의 lophn session이다. lophn은 늘 있어 받을 agent가 없어 실패하는 일이 없다. 다른 그릇의 session으로는 가지 않는다(rewind root가 domain마다 다르다).
-- **받는 session은 사람이 보고 있는 대화여야 한다.** agent pane에 받는 쪽(앱이면 고른 agent의 그 앱 place)의 열린 session이 있으면 그 session, 없으면 새 session이다. 지정한 session이 받는 쪽의 열린 session이 아니면 conflict로 거절한다. 다른 대화로 가면 사람이 이어서 이야기할 수 없다.
+- **받는 session은 사람이 보고 있는 대화여야 한다.** 창에 받는 쪽(앱이면 고른 agent의 그 앱 place)의 열린 session이 있으면 그 session, 없으면 새 session이다. 지정한 session이 받는 쪽의 열린 session이 아니면 conflict로 거절한다. 다른 대화로 가면 사람이 이어서 이야기할 수 없다.
 - **고르는 대상은 가리킨 요소에서 위로 올라가 처음 만나는 SDK component다.** 윤곽과 이름표는 그 가장 안쪽 component에 그린다. SDK component가 아니면 가리킨 요소 그대로이고, 이름표는 role과 접근 이름이다.
 - **`component`는 바깥에서 안쪽 순서의 SDK component 겹 문자열이다(`List > Card > Button`).** 안쪽 8개까지, 이름 하나는 60자까지다. SDK component 안이 아니거나 영역을 고르면 null이다. 칸 하나에 이어 붙여 표와 읽기의 모양이 그대로다. 요소의 글자는 `Element:` 줄에 따로 있다.
 - **selector와 source 위치는 저장하지 않는다.** 받은 agent는 component 겹, 요소 글자, 화면 이름으로 source를 검색해 찾는다. selector는 유일하지 않을 수 있다.

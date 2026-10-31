@@ -75,9 +75,9 @@ interface ProjectPanelProps {
   onOpenWorkflow?: (workflow: string) => void;
   /** 보이는 desk가 workflow의 것이면 그 이름. Workflows 줄이 강조한다. */
   activeWorkflow?: string;
-  /** Scheduled jobs 탭의 통로. 주지 않으면 그 항목을 두지 않는다. */
+  /** Jobs panel의 통로. 주지 않으면 그 항목을 두지 않는다. */
   jobs?: JobsSource;
-  /** Scheduled jobs 탭의 줄과 [Open all jobs]. Jobs 탭을 연다. */
+  /** Jobs panel의 줄과 [Open all jobs]. Jobs 탭을 연다. */
   onOpenJobs?: () => void;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;

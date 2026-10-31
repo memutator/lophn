@@ -6,7 +6,7 @@ export function AppPlaceScreen() {
   return <AppSpace />;
 }
 
-/** 앱 화면과 그 앱 place의 lophn session을 붙인 split. 오른쪽 sidebar는 접었다. */
+/** 앱 화면과 그 앱 place의 lophn session을 붙인 group. 오른쪽 sidebar는 접었다. */
 export function AppPlaceSplit() {
   return <AppSpace layout="split" rightClosed />;
 }

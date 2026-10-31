@@ -134,7 +134,7 @@ const FIXED: readonly Binding[] = [
   { command: "files.quick-open", other: ["Ctrl+KeyP"], mac: ["Cmd+KeyP"] },
 ];
 
-// split은 두 tab뿐이다. 1이 왼쪽 tab, 2가 오른쪽 tab이다.
+// group은 tab 2~4개다. 숫자는 고른 group의 leaf 순서(왼쪽·위에서부터)다.
 const PANES = [1, 2, 3, 4];
 // Alt+숫자는 macOS에서 Option 글자 입력이라 mac은 Ctrl+숫자다. 0은 마지막 탭.
 const TAB_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];

@@ -9,18 +9,18 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
         │ desktop.send("global-palette")
         ▼
  main before-input-event (main/desktop/shortcuts.ts) ── 창의 모든 webContents(창 본문, `<webview>` guest(앱·artifact·browser page), browser native popup·DevTools, overlay)
-   팔레트·런처 chord (ipc/shortcuts.ts WINDOW_SHORTCUTS)
+   팔레트·home chord (ipc/shortcuts.ts WINDOW_SHORTCUTS. home = Home place로 가기)
    표에서 `main`이 적힌 command (ipc/keybindings.ts)
-        │ shell:shortcut  { "palette" | "launcher" | MainCommand }
+        │ shell:shortcut  { "palette" | "home" | MainCommand }
         ▼
- renderer PaletteProvider ── palette·launcher는 자기가, 나머지는 registry.execute(id)
+ renderer PaletteProvider ── palette·home은 자기가, 나머지는 registry.execute(id)
                                                          │
  renderer document keydown capture ─▶ KeybindingService ─┤  (commands/keybinding-service.ts)
    listener 하나. 기본 바인딩 = 표(ipc/keybindings.ts)에 사람이 바꾼 키를 덮은 것
                                                          ▼
                                     CommandRegistry (commands/registry.ts) ── id → handler
                                                          ▲
-                                    기능이 useCommands(...)로 올린다 (workspace.tsx: tab.*, pane.*, sidebar.toggle …)
+                                    기능이 useCommands(...)로 올린다 (workspace/place-window.tsx: tab.*, pane.*, sidebar.toggle …)
 
  사람이 바꾼 키 (Settings › Keyboard, renderer/desktop/settings/keyboard/)
    선언 설정 shell.keybindings { mac?: {id → chord[]}, other?: {id → chord[]} }  ── core가 저장
@@ -32,14 +32,14 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
 
 - 창 하나에 registry·service가 하나다. `Desktop`(renderer/desktop/main.tsx)이 `createWindowCommands`로 만들고 `CommandsProvider`로 내리며 `document`에 listener를 하나 건다.
 - command id는 표의 `Command` 이름 그대로다(`tab.close`, `files.quick-open`). 팔레트·menu·사용자 설정이 같은 id로 부를 수 있다.
-- 사람이 바꾸는 단위는 binding id다. 번호가 없는 것은 command 이름, 번호가 있는 것은 `tab.nth:3`·`pane.focus:1`이다(`bindingId`).
+- 사람이 바꾸는 단위는 binding id다. 번호가 없는 것은 command 이름, 번호가 있는 것은 `tab.nth:3`·`pane.focus:1`이다(`bindingId`). `pane.*`는 이름만 남았고 고른 group 안의 칸(leaf)을 가리킨다: `pane.focus:N`은 N번째 칸, `pane.focus-left/right/up/down`(Ctrl+Alt+화살표, mac은 Cmd+Alt+화살표)은 맞닿은 칸, `pane.split`은 다음 plain tab과 오른쪽으로 묶기다. 칸 6개 시절의 pane id(칸 사이로 탭을 옮기는 것 등)는 지웠다.
 - React 쪽은 `useCommands`(commands/react.tsx) 하나다. mount 동안 등록하고 unmount에서 푼다. 판정은 하지 않는다.
 
 ## 불변 조건
 
-- **키는 받은 때만 삼킨다.** service는 맞는 chord가 있고 그 command를 지금 부를 수 있을 때(`registry.canRun`)만 `preventDefault`·`stopPropagation` 한다. 주인이 없는 공간(런처, Settings)에서는 Ctrl+B·Ctrl+P가 page로 간다.
+- **키는 받은 때만 삼킨다.** service는 맞는 chord가 있고 그 command를 지금 부를 수 있을 때(`registry.canRun`)만 `preventDefault`·`stopPropagation` 한다. 주인이 없는 공간(Settings)에서는 Ctrl+B·Ctrl+P가 page로 간다.
 - **같은 키는 나중에 묶은 바인딩부터 본다.** 그 command를 부를 수 없으면 다음 바인딩을 본다. 우선순위 수는 두지 않는다.
-- **같은 command id는 나중 주인이 받는다.** 그 주인이 풀리면 앞 주인이 다시 받는다. Workspace가 다시 mount될 때 앞 것의 정리와 새 것의 등록이 겹쳐도 command를 잃지 않는다.
+- **같은 command id는 나중 주인이 받는다.** 그 주인이 풀리면 앞 주인이 다시 받는다. place 창이 다시 mount될 때 앞 것의 정리와 새 것의 등록이 겹쳐도 command를 잃지 않는다.
 - **command `when`이 false면 없는 것과 같다.** 키를 넘기고 `execute`는 `unavailable`이다.
 - **handler가 던져도 입력은 산다.** registry가 잡아 log에 남기고 `internal`을 돌린다. listener까지 올라가지 않는다.
 - **한글 조합 중(`isComposing`)은 보지 않는다.** 판정은 `code`와 글자 키의 `key`를 같이 본다(ipc/keybindings.ts `chordMatches`).
@@ -48,14 +48,14 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
 - **main이 먼저 받는 키는 표의 `main`이 정한다.** `<webview>` guest(앱·artifact·browser page)나 native popup·DevTools에 focus가 있으면 renderer keydown이 못 받고, macOS menu key equivalent는 page keydown보다 앞선다. 이 키는 main이 삼켜 같은 command id로 보낸다. guest는 창의 자식 view가 아니라서 `wiring/desktop.ts`가 `contents.hostWebContents`로 그 창을 찾는다.
 - **사람이 바꾼 키는 검사를 지난 것만 덮는다.** `parseKeyOverrides`가 표에 있는 id와 읽을 수 있는 chord(최대 4개)만 남긴다. 저장 파일이 틀리거나 IPC 값이 틀려도 그 줄만 표의 키가 되고 나머지 키는 산다. main도 같은 함수로 다시 검사한다.
 - **빈 chord 목록은 키를 뺀 것이다.** 표와 같은 값은 저장에서 빠진다. OS마다 따로 저장하고 Keyboard 화면은 지금 OS의 것만 바꾼다.
-- **새 키는 받기 전에 막는다**(`checkChord`). modifier 없는 키(F1~F12 빼고)는 입력칸 글자를 삼키고, 팔레트·런처·전역 팔레트 키는 main이 먼저 가져가며, Linux·Windows 터미널의 Ctrl+Shift+C/V는 터미널이 복사·붙여 넣기로 쓰고(표 키는 document capture에서 터미널보다 먼저 받는다), 다른 바인딩과 같은 키는 한쪽이 듣지 않는다. 겹침은 modifier 순서와 상관없이 본다.
+- **새 키는 받기 전에 막는다**(`checkChord`). modifier 없는 키(F1~F12 빼고)는 입력칸 글자를 삼키고, 팔레트·home·전역 팔레트 키는 main이 먼저 가져가며, Linux·Windows 터미널의 Ctrl+Shift+C/V는 터미널이 복사·붙여 넣기로 쓰고(표 키는 document capture에서 터미널보다 먼저 받는다), 다른 바인딩과 같은 키는 한쪽이 듣지 않는다. 겹침은 modifier 순서와 상관없이 본다.
 - **새 키를 받는 칸(`[data-key-capture]`) 안의 키는 command로 보내지 않는다.** service가 그 target을 보지 않는다. 그래서 지금 듣는 키를 눌러도 command가 돌지 않고 칸이 받는다.
 - **기능이 `register`로 묶은 바인딩은 늘 기본 바인딩보다 먼저 본다.** 사람이 키를 바꿔 기본 바인딩을 갈아 끼워도 그 순서는 같다.
 
 ## 넣지 않은 것
 
 - context key(focus·UI 상태 식). 지금은 command마다 `when` 함수 하나다. 식이 필요해지면 `when`을 바꾸고 service의 순서 규칙은 그대로 둔다.
-- 사용자 키는 작업대 단축키 표의 줄만 바꾼다. 팔레트·런처·전역 팔레트 키(ipc/shortcuts.ts)는 바꾸지 않는다. chord는 한 키 조합이고 VS Code의 `Ctrl+K Ctrl+S` 같은 두 단계 chord는 없다.
+- 사용자 키는 작업대 단축키 표의 줄만 바꾼다. 팔레트·home·전역 팔레트 키(ipc/shortcuts.ts)는 바꾸지 않는다. chord는 한 키 조합이고 VS Code의 `Ctrl+K Ctrl+S` 같은 두 단계 chord는 없다.
 - 바인딩 소유자(extension)별 일괄 해제. `Disposable`을 모아 푸는 것으로 된다.
 - component 안에서만 뜻이 있는 키(목록 화살표, 입력칸 Enter·Esc, browser 머리 줄의 Ctrl/Cmd+D)는 그 component가 받는다. browser page focus의 Ctrl/Cmd+D는 main이 `bookmark-key`로 보낸다(browser-tab.md).
 

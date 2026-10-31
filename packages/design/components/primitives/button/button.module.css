@@ -91,6 +91,13 @@
   display: inline-block;
 }
 
+/* 글만 있는 label은 말줄임을 위해 block으로 둔다. 아이콘·StatusMark·Kbd 같은 요소가 섞이면 글 baseline에 붙어 위로 쏠리므로 flex로 세로 가운데에 놓는다. */
+.label:has(> *) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--control-gap);
+}
+
 .iconOnly {
   padding: var(--space-0);
 }

@@ -3,7 +3,7 @@
   min-width: var(--radix-dropdown-menu-trigger-width);
   max-height: var(--radix-dropdown-menu-content-available-height);
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--floating-surface);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-popover);
@@ -21,7 +21,7 @@
   gap: var(--control-gap);
   height: var(--menu-row);
   padding: var(--space-0) var(--space-4);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   outline: none;
 }

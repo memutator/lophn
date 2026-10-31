@@ -31,13 +31,15 @@ main  wiring/appearance.ts  (channel shell:appearance)
 |---|---|---|
 | `shell.theme` | system, light, dark | CSS가 아니라 `data-theme`과 `nativeTheme.themeSource` |
 | `shell.accent` | ink, blue, green, purple, orange | `color.ink`(background·text·hover), `color.focus`, `color.selection` |
-| `shell.background` | warm, neutral, cool | `color.surface` 넷, `color.border` 셋, `color.text` 넷, `code.foreground`, `tabStrip.bar·hover`, `floating.surface·hover` |
+| `shell.background` | warm, neutral, cool | `color.surface` 다섯(floor·base·subtle·muted·shell), `color.border` 셋, `color.text` 넷, `code.foreground`, `tabStrip.bar·hover`, `floating.surface·hover` |
 | `shell.font`, `shell.font_custom` | pretendard, system, custom | `font.sans` |
 | `shell.code_font`, `shell.code_font_custom` | jetbrains-mono, system, custom | `font.mono` |
 | `shell.text_size` | default, small, large | `type.*.size·line`(비율 0.92, 1.12) |
 | `shell.density` | comfortable, compact | `control`, `field.gap`, `menu.row`, `tree.row`, `palette.item`, `layout.panePadding`, `tab.contentGap` |
 | `shell.reading_width` | narrow, default, wide | CSS가 아니다. 문서가 따로 읽는다 |
 
+- `color.surface.shell`은 창 바탕(sidebar·title bar 뒤)이고 content card는 `surface.base`다. 각 preset의 shell은 그 preset의 `subtle` light 값과 `floor` dark 값을 다시 쓴다.
+- 모서리: `radius`는 xs 6, sm 8, md 10, lg 14, xl 20, full 9999px다(preset으로 바뀌지 않는다). Dialog·Sheet·Palette xl, 떠 있는 표면(FloatPanel·Menu·Popover·Toast) lg, Tooltip·입력·Button md, SegmentedControl full이다.
 - accent: 고른 tab 강조선(`TabStrip`의 focus 칸, design `Tabs`의 밑줄, 맨 위 `FloatPanel`의 bar 위 강조선), primary Button·Switch·badge, focus ring, 고른 행의 selection 바탕이 따른다.
 - 색 역할: "주 행동·고른 것·켜진 것·지금 것"의 표시(primary 단추, 강조선, marker, 고른 option 바탕)는 `color.ink.background`다. `color.focus`는 키보드 focus ring, 글 넣는 칸의 focus 테두리, drop 자리에만 쓴다. `color.text.*`를 표시 색으로 쓰지 않는다. 기본 Ink는 focus·selection·`ink.soft`까지 무채색이라 화면에 accent 색이 하나뿐이다(전에는 Ink에서 focus가 파랑이라 단추는 검정·흰색, 고른 표시는 파랑으로 갈렸다).
 - 되돌릴 수 없는 행동의 단추는 `color.danger`(채운 빨강, 흰 글자)다. accent에 묶지 않는다. link(`color.link`)는 accent에 묶지 않는다. link는 "누르는 것"을 알리는 뜻이라 accent가 Ink(검정)일 때도 파랑으로 남아야 한다.

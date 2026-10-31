@@ -155,7 +155,7 @@
 
 .codeBlock {
   margin: var(--space-0) var(--space-0) var(--space-6);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-subtle);
 }
 

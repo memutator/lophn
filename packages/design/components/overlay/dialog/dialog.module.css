@@ -16,7 +16,7 @@
   max-width: 100%;
   max-height: 100%;
   padding: var(--space-8);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--floating-surface);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-dialog);

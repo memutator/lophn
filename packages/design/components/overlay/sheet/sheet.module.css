@@ -11,6 +11,7 @@
   padding: var(--space-8);
   background: var(--floating-surface);
   color: var(--color-text-primary);
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
   box-shadow: var(--shadow-dialog);
   font-family: var(--font-sans);
   font-size: var(--type-body-size);

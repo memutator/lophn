@@ -8,6 +8,7 @@ export const vars = {
       base: "var(--color-surface-base)",
       subtle: "var(--color-surface-subtle)",
       muted: "var(--color-surface-muted)",
+      shell: "var(--color-surface-shell)",
     },
     border: {
       subtle: "var(--color-border-subtle)",
@@ -154,6 +155,7 @@ export const vars = {
     sm: "var(--radius-sm)",
     md: "var(--radius-md)",
     lg: "var(--radius-lg)",
+    xl: "var(--radius-xl)",
     full: "var(--radius-full)",
   },
   border: {

@@ -1,7 +1,7 @@
 .tooltip {
   box-sizing: border-box;
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--floating-surface);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-popover);

@@ -5,7 +5,7 @@
   min-width: var(--radix-popover-trigger-width);
   max-height: var(--radix-popover-content-available-height);
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--floating-surface);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-popover);
@@ -25,7 +25,7 @@
   margin: var(--space-0);
   padding: var(--space-0) var(--space-4);
   border: none;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-primary);
   font: inherit;

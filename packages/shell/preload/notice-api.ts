@@ -1,6 +1,7 @@
 // shell renderer가 쓰는 알림 통로. 채널 이름과 Electron event는 closure 안에만 있다.
 import {
   type LophnNoticeApi,
+  NOTICE_DISMISS_CHANNEL,
   NOTICE_OPEN_CHANNEL,
   NOTICE_REVEAL_CHANNEL,
   NOTICE_TOAST_CHANNEL,
@@ -45,6 +46,9 @@ export function createNoticeApi(transport: NoticeTransport): LophnNoticeApi {
     },
     open: async (target) => {
       await transport.invoke(NOTICE_OPEN_CHANNEL, target).catch(() => {});
+    },
+    dismiss: async (target) => {
+      await transport.invoke(NOTICE_DISMISS_CHANNEL, target).catch(() => {});
     },
     unseen: async () => {
       const sessions = await transport

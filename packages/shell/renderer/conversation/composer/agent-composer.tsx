@@ -170,14 +170,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     });
   };
 
-  // 글을 따라 높이를 맞춘다. 정한 높이를 넘으면 CSS max-height에서 멈추고 안에서 scroll한다.
-  useLayoutEffect(() => {
-    const element = input.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${element.scrollHeight}px`;
-  }, [draft.text]);
-
   const dragOver = (event: DragEvent<HTMLElement>) => {
     const types = event.dataTransfer.types;
     if (

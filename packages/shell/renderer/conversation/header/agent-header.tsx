@@ -1,11 +1,14 @@
-// Agent 탭 맨 위의 agent header. 탭 안 view bar의 왼쪽에 "[avatar] 이름 · session 제목 ▾"(session switcher),
-// 오른쪽에 "Archived" 표시, 보기 상세 menu, 더보기 menu가 있다. 더보기 menu는 열린 session이면
-// Rename·Fork·Archive, archive한 session이면 Fork뿐이다(기록만 읽고 입력칸이 없다).
+// Agent 탭의 agent header. card 안이면 card 머리 줄(shell/card-head.tsx)에 올린다: 가운데 칸(경로 자리)이
+// "[avatar] 이름 · session 제목 ▾"(session switcher), ⋯ 앞에 "Archived" 표시와 보기 상세 menu, Rename·Fork·Archive는
+// 탭 ⋯ 메뉴의 맨 위 묶음이다. card 밖(floated 패널, detached 창)이면 본문 위 view bar 한 줄에 그리고 더보기 menu가
+// 그 줄에 있다. 더보기 menu는 열린 session이면 Rename·Fork·Archive, archive한 session이면 Fork뿐이다(기록만 읽고 입력칸이 없다).
 // session을 바꾸는 일은 source를 부르고, 끝나면 `onChanged`로 목록을 다시 읽게 한다. agent를 고르는 칸은 없다.
 import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  useEffect,
+  useRef,
   useState,
 } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
@@ -14,6 +17,7 @@ import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/i18n";
 
 import { ViewBar } from "../../editor/view-bar.tsx";
+import { useCardHead } from "../../shell/card-head.tsx";
 import type { ViewDetail } from "../activity/model.ts";
 import type {
   AgentTabSource,
@@ -141,10 +145,34 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
   const archived = session?.archived === true;
   const items = archived ? ARCHIVED_ITEMS : MORE_ITEMS;
 
+  // 머리에 올린 요소의 callback은 deps에 없는 최신 값을 읽는다.
+  const act = useRef({
+    settle,
+    rename,
+    renameKeys,
+    onMore,
+    chooseDetail,
+  });
+  act.current = { settle, rename, renameKeys, onMore, chooseDetail };
+  const latest = useRef(props);
+  latest.current = props;
+  const renameInput = useRef<HTMLInputElement>(null);
+
+  // card의 ⋯ 메뉴는 닫힐 때 focus를 ⋯로 돌려 Rename 입력의 focus를 빼앗는다. 닫힌 뒤에 다시 준다.
+  useEffect(() => {
+    if (!renaming) return;
+    const timer = setTimeout(() => {
+      renameInput.current?.focus();
+      renameInput.current?.select();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [renaming]);
+
   const lead = renaming ? (
     <span className={styles.face}>
       <AgentFace agent={agent} />
       <input
+        ref={renameInput}
         className={styles.renameInput}
         data-header-rename
         aria-label={t("conversation.label.rename-session", {
@@ -154,7 +182,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
         autoFocus
         onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={renameKeys}
+        onKeyDown={(event) => act.current.renameKeys(event)}
       />
     </span>
   ) : (
@@ -163,58 +191,108 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       current={session}
       sessions={props.sessions}
       now={props.now}
-      onSwitch={host.switchSession}
-      onNew={host.newSession}
-      onRename={rename}
-      onArchive={(id) => void settle(source.archiveSession(id))}
-      onDelete={(id) => void settle(source.deleteSession(id))}
-      searchMessages={source.searchMessages}
-      onOpenMatch={host.openMatch}
+      onSwitch={(id) => latest.current.host.switchSession(id)}
+      onNew={() => latest.current.host.newSession()}
+      onRename={(id, title) => act.current.rename(id, title)}
+      onArchive={(id) =>
+        void act.current.settle(latest.current.source.archiveSession(id))
+      }
+      onDelete={(id) =>
+        void act.current.settle(latest.current.source.deleteSession(id))
+      }
+      searchMessages={(...args) =>
+        latest.current.source.searchMessages(...args)
+      }
+      onOpenMatch={(id, query) => latest.current.host.openMatch(id, query)}
     />
   );
+
+  const status = (
+    <>
+      {problem ? (
+        <span className={styles.problem} role="alert">
+          {t("conversation.error.action-failed")}
+        </span>
+      ) : null}
+      {archived ? (
+        <span className={styles.archivedMark} data-archived-mark>
+          {t("conversation.label.archived")}
+        </span>
+      ) : null}
+      {session === null ? null : (
+        <Menu
+          items={DETAIL_ITEMS.map((item) => ({
+            id: item.id,
+            label: t(item.label),
+            leading:
+              props.detail === item.id ? (
+                <MenuIcon icon={conversationIcons.current} />
+              ) : (
+                <MenuIcon />
+              ),
+          }))}
+          onSelect={(id) => act.current.chooseDetail(id)}
+          placement="beside"
+          trigger={
+            <Button
+              size="sm"
+              variant="ghost"
+              trailingIcon={conversationIcons.expand}
+              aria-label={t("conversation.label.steps-value", {
+                detail: t(DETAIL_LABEL[props.detail]),
+              })}
+              data-steps-detail=""
+            >
+              {t(DETAIL_LABEL[props.detail])}
+            </Button>
+          }
+        />
+      )}
+    </>
+  );
+
+  const inCard = useCardHead(
+    {
+      center: <div className={styles.lead}>{lead}</div>,
+      actions: (
+        <>
+          {status}
+          {props.trailing}
+        </>
+      ),
+      ...(session === null
+        ? {}
+        : {
+            menu: {
+              // id는 탭 기본 항목(rename, close 같은)과 겹치지 않게 접두어를 단다.
+              items: items.map((item) => ({
+                id: `agent:${item.id}`,
+                label: t(item.label),
+              })),
+              onSelect: (id) => act.current.onMore(id.slice("agent:".length)),
+            },
+          }),
+    },
+    [
+      agent,
+      session?.id,
+      session?.title,
+      archived,
+      props.sessions,
+      Math.floor(props.now.getTime() / 60_000),
+      props.detail,
+      props.trailing,
+      renaming,
+      draft,
+      problem,
+    ],
+  );
+  if (inCard) return <></>;
 
   return (
     <div className={styles.gap} data-agent-header>
       <ViewBar lead={<div className={styles.lead}>{lead}</div>}>
-        {problem ? (
-          <span className={styles.problem} role="alert">
-            {t("conversation.error.action-failed")}
-          </span>
-        ) : null}
-        {archived ? (
-          <span className={styles.archivedMark} data-archived-mark>
-            {t("conversation.label.archived")}
-          </span>
-        ) : null}
-        {session === null ? null : (
-          <Menu
-            items={DETAIL_ITEMS.map((item) => ({
-              id: item.id,
-              label: t(item.label),
-              leading:
-                props.detail === item.id ? (
-                  <MenuIcon icon={conversationIcons.current} />
-                ) : (
-                  <MenuIcon />
-                ),
-            }))}
-            onSelect={chooseDetail}
-            placement="beside"
-            trigger={
-              <Button
-                size="sm"
-                variant="ghost"
-                trailingIcon={conversationIcons.expand}
-                aria-label={t("conversation.label.steps-value", {
-                  detail: t(DETAIL_LABEL[props.detail]),
-                })}
-                data-steps-detail=""
-              >
-                {t(DETAIL_LABEL[props.detail])}
-              </Button>
-            }
-          />
-        )}
+        {status}
         {session === null ? null : (
           <Menu
             items={items.map((item) => ({

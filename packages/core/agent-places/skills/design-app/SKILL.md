@@ -1,6 +1,6 @@
 ---
 name: design-app
-description: Design an app or a change before you build it. Write DESIGN.md (Purpose, Reuse, Model, Journeys, Screens, Tools, Failure branches), find what lophn and other apps already give, and lay out screens without clutter.
+description: Design an app or a change before you build it. Read this skill and write DESIGN.md as it says.
 ---
 
 # Design an app

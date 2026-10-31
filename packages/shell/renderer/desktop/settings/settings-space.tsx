@@ -6,11 +6,7 @@ import { settingsEntryIcon, shellIcons } from "../../icons/mod.ts";
 import { ShellFrame } from "../../shell/shell-frame.tsx";
 import { TabStrip } from "../../shell/tab-strip.tsx";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
-import {
-  usePaletteEnv,
-  useOpenPalette,
-  usePaletteScope,
-} from "../palette/host.tsx";
+import { usePaletteEnv, usePaletteScope } from "../palette/host.tsx";
 import type { Catalog, CatalogSource } from "../palette/catalog.ts";
 import { desktopScope, type FileOpen } from "../palette/desktop-scope.ts";
 import { type SettingsPanels, SettingsScreen } from "./settings-screen.tsx";
@@ -67,7 +63,6 @@ export function SettingsSpace({
     initialPane ?? DEFAULT_PANE,
   );
   const [left, setLeft] = useState(true);
-  const openPalette = useOpenPalette();
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 
@@ -122,7 +117,6 @@ export function SettingsSpace({
         left={left}
         onToggleLeft={() => setLeft(!left)}
         right={false}
-        onSearch={openPalette}
         tabs={
           <TabStrip
             entries={[

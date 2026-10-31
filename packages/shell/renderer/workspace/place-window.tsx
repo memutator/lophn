@@ -1688,7 +1688,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
             onToggleLeft={() => setLeftOpen(!leftOpen)}
             right={rightOpen}
             onToggleRight={() => setRightOpen(!rightOpen)}
-            onSearch={openQuickFiles}
             deskSwitcher={
               projectId === null ? undefined : (
                 <DeskSwitcher

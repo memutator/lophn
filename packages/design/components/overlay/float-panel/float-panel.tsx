@@ -18,7 +18,7 @@ export interface FloatPanelProps {
   y: number;
   width: number;
   height: number;
-  // 맨 위 패널. 위 bar의 강조선이 focus 색이 된다.
+  // 맨 위 패널. 그림자가 조금 더 깊다.
   active?: boolean;
   // 그리지 않되 mount는 유지한다.
   // 전체 화면 모드. 테두리와 그림자, resize 손잡이가 없다.

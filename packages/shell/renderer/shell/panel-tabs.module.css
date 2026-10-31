@@ -1,6 +1,10 @@
+/* 오른쪽 구역에 자리가 모자라면 창 단추가 아니라 이 줄이 먼저 줄어든다: 단추 폭이 20px까지 좁아진다. */
 .tabs {
   display: flex;
+  flex: 0 1 auto;
   gap: var(--space-1);
+  min-width: var(--space-0);
+  overflow: hidden;
   padding: var(--space-1);
   background: var(--color-surface-muted);
   border-radius: var(--radius-full);
@@ -8,6 +12,8 @@
 
 .tab {
   display: inline-flex;
+  flex: 0 1 var(--control-sm-height);
+  min-width: var(--space-7);
   align-items: center;
   justify-content: center;
   width: var(--control-sm-height);

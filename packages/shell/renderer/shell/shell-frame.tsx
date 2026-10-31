@@ -1,6 +1,12 @@
 // 새 shell의 창 틀. title bar(왼쪽 구역, tab 줄, 오른쪽 구역)와 몸통(왼쪽 sidebar, 둥근 card가 서는 stage, 오른쪽 sidebar)이다.
 // 내용은 모두 slot으로 받는다: 틀은 칸의 폭, 접힘, 창 끌기 영역과 OS별 자리만 안다.
-import type { ReactNode } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefObject,
+  useRef,
+  useState,
+} from "react";
 import { t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 
@@ -22,8 +28,6 @@ export interface ShellFrameProps {
   right: boolean;
   /** 없으면 오른쪽 sidebar 단추를 그리지 않는다(오른쪽 sidebar가 없는 Settings). */
   onToggleRight?: () => void;
-  /** 검색 단추. 왼쪽 sidebar가 펼쳐져 있을 때만 보인다. */
-  onSearch?: () => void;
   /** 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
   platform?: WindowPlatform;
   /** 창 단추 통로. 기본은 preload가 둔 통로이고 없으면 단추를 그리지 않는다. */
@@ -42,12 +46,84 @@ export interface ShellFrameProps {
   children: ReactNode;
 }
 
+type Side = "left" | "right";
+
+// 폭은 창 UI 설정이라 사용자 data가 아니다. 쪽마다 localStorage에 둔다.
+const WIDTH_KEY = (side: Side) => `lophn.shell.sidebar-width.${side}`;
+
+function loadWidth(side: Side): number | null {
+  const value = Number(globalThis.localStorage?.getItem(WIDTH_KEY(side)));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/** 안쪽 가장자리의 폭 끌기 손잡이. 폭의 범위는 CSS가 clamp하고 여기서는 같은 값으로 끌기를 멈춘다. */
+function Resizer({
+  side,
+  width,
+  onWidth,
+}: {
+  side: Side;
+  /** 끌기 시작 때 sidebar의 실제 폭을 읽는 칸. */
+  width: RefObject<HTMLElement | null>;
+  onWidth: (px: number) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const start = useRef({ x: 0, width: 0, min: 0, max: 0 });
+  const bounds = (box: HTMLElement) => {
+    // 범위의 정본은 token(--layout-sidebar-min/max)과 칸의 CSS min-width다.
+    const style = getComputedStyle(box);
+    const token = (name: string, fallback: number) => {
+      const value = Number.parseFloat(style.getPropertyValue(name));
+      return Number.isFinite(value) ? value : fallback;
+    };
+    return {
+      min: Math.max(
+        token("--layout-sidebar-min", 200),
+        Number.parseFloat(style.minWidth) || 0,
+      ),
+      max: token("--layout-sidebar-max", 400),
+    };
+  };
+  const move = (event: ReactPointerEvent<HTMLElement>) => {
+    const { x, width: from, min, max } = start.current;
+    const delta = event.clientX - x;
+    const next = side === "left" ? from + delta : from - delta;
+    onWidth(Math.round(Math.min(max, Math.max(min, next))));
+  };
+  return (
+    <div
+      className={styles.resizer}
+      data-side={side}
+      data-dragging={dragging || undefined}
+      data-sidebar-resizer={side}
+      role="separator"
+      aria-orientation="vertical"
+      onPointerDown={(event) => {
+        const box = width.current;
+        if (box === null) return;
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        start.current = {
+          x: event.clientX,
+          width: box.getBoundingClientRect().width,
+          ...bounds(box),
+        };
+        setDragging(true);
+      }}
+      onPointerMove={(event) => {
+        if (dragging) move(event);
+      }}
+      onPointerUp={() => setDragging(false)}
+      onPointerCancel={() => setDragging(false)}
+    />
+  );
+}
+
 export function ShellFrame({
   left,
   onToggleLeft,
   right,
   onToggleRight,
-  onSearch,
   platform = currentPlatform(),
   windowApi = bridge(),
   deskSwitcher,
@@ -58,6 +134,27 @@ export function ShellFrame({
   floats,
   children,
 }: ShellFrameProps) {
+  const [widths, setWidths] = useState<Record<Side, number | null>>(() => ({
+    left: loadWidth("left"),
+    right: loadWidth("right"),
+  }));
+  const leftBox = useRef<HTMLElement>(null);
+  const rightBox = useRef<HTMLElement>(null);
+  const setWidth = (side: Side) => (px: number) => {
+    setWidths((current) => ({ ...current, [side]: px }));
+    globalThis.localStorage?.setItem(WIDTH_KEY(side), String(px));
+  };
+  // 저장된 폭이 범위를 벗어나도 CSS clamp가 token 범위로 되돌린다. 오른쪽의 하한은 CSS min-width다.
+  const widthOf = (side: Side) =>
+    widths[side] === null
+      ? undefined
+      : `clamp(var(--layout-sidebar-min), ${widths[side]}px, var(--layout-sidebar-max))`;
+  const leftWidth = widthOf("left");
+  const rightWidth = widthOf("right");
+  const titleLeftWidth =
+    leftWidth === undefined || platform !== "mac"
+      ? leftWidth
+      : `calc(${leftWidth} + var(--space-12))`;
   return (
     <div
       className={styles.shell}
@@ -66,7 +163,10 @@ export function ShellFrame({
       data-right={right ? "open" : "closed"}
     >
       <header className={styles.titlebar}>
-        <div className={styles.titleLeft}>
+        <div
+          className={styles.titleLeft}
+          style={left ? { width: titleLeftWidth } : undefined}
+        >
           <IconButton
             icon={shellIcons.leftPanel}
             label={t("shell.button.toggle-left")}
@@ -82,23 +182,16 @@ export function ShellFrame({
               lophn
             </span>
           ) : null}
+          <span className={styles.grow} />
           {deskSwitcher}
-          {left ? (
-            <>
-              <span className={styles.grow} />
-              <IconButton
-                icon={shellIcons.search}
-                label={t("shell.button.search")}
-                size="sm"
-                onClick={onSearch}
-              />
-            </>
-          ) : null}
         </div>
 
         <div className={styles.tabs}>{tabs}</div>
 
-        <div className={styles.titleRight}>
+        <div
+          className={styles.titleRight}
+          style={right ? { width: rightWidth } : undefined}
+        >
           {right ? panelTabs : null}
           <span className={styles.grow} />
           {onToggleRight ? (
@@ -118,12 +211,34 @@ export function ShellFrame({
       </header>
 
       <div className={styles.body}>
-        {left ? <nav className={styles.left}>{leftSidebar}</nav> : null}
+        {left ? (
+          <nav
+            ref={leftBox}
+            className={styles.left}
+            style={{ width: leftWidth }}
+          >
+            {leftSidebar}
+            <Resizer side="left" width={leftBox} onWidth={setWidth("left")} />
+          </nav>
+        ) : null}
         <main className={styles.stage}>
           {children}
           {floats}
         </main>
-        {right ? <aside className={styles.right}>{rightSidebar}</aside> : null}
+        {right ? (
+          <aside
+            ref={rightBox}
+            className={styles.right}
+            style={{ width: rightWidth }}
+          >
+            {rightSidebar}
+            <Resizer
+              side="right"
+              width={rightBox}
+              onWidth={setWidth("right")}
+            />
+          </aside>
+        ) : null}
       </div>
     </div>
   );

@@ -130,7 +130,11 @@ export function ProjectPanel({
     if (focusExplorer !== 0) setFocusAsked(hasFolders);
   }, [focusExplorer]);
   const folders = project?.folders ?? [];
-  const title = panelTabs(true).find((item) => item.key === tab)?.label ?? "";
+  // Files는 이름 대신 Explorer가 루트 폴더 선택을 머리 줄에 올린다.
+  const title =
+    tab === "explorer" && folders.length > 0
+      ? null
+      : (panelTabs(true).find((item) => item.key === tab)?.label ?? "");
   return (
     <RightSidebar title={title} panel={tab}>
       {tab === "explorer" ? (

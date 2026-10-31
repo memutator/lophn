@@ -21,7 +21,7 @@ import {
   workspaceIcons,
 } from "../../icons/mod.ts";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
-import { PanelActions } from "../../shell/right-sidebar.tsx";
+import { PanelActions, PanelTitle } from "../../shell/right-sidebar.tsx";
 import { t } from "@lophn/i18n";
 
 import { PATH_DRAG_TYPE } from "../drag.ts";
@@ -838,7 +838,7 @@ export function Explorer({
         onRefresh={tree.refresh}
         onCollapseAll={tree.collapseAll}
       />
-      <div className={styles.explorerHead}>
+      <PanelTitle>
         <RootPicker
           roots={roots}
           root={root}
@@ -848,7 +848,7 @@ export function Explorer({
             setDialog({ kind: "remove-folder", path, failed: false })
           }
         />
-      </div>
+      </PanelTitle>
       <div
         ref={treeRef}
         role="tree"

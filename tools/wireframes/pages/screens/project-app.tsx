@@ -469,6 +469,7 @@ export function ProjectApp({
                 onOpenFile={(id) => open(documentTab(id))}
                 onAgent={(id) => open(newConversationTab(id))}
                 onSession={(row) => open(sessionTab(row))}
+                onQuick={pick}
               />
             </div>
           }

@@ -17,6 +17,7 @@ import {
   decidePermission,
   readCommands,
   removeQueuedMessage,
+  repeatTurn,
   retryTurn,
   runCommand,
   sendQueuedNow,
@@ -112,6 +113,7 @@ function createSource(
     removeQueued: (queued) => removeQueuedMessage(env, queued),
     stop: (turn, key) => stopTurnOf(env, turn, key),
     retryTurn: (turn) => retryTurn(env, retryIds, turn),
+    repeatTurn: (turn) => repeatTurn(env, turn),
     answerQuestions: (input) => answerQuestions(env, input),
     decidePermission: (session, request, choice, reason) =>
       decidePermission(env, session, request, choice, reason),

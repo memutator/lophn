@@ -1,4 +1,6 @@
 export const conversation = {
+  "conversation.announce.replied": "{agent} replied",
+  "conversation.announce.response-started": "Response started",
   "conversation.body.delete-session":
     'Delete "{title}"? Anything other agents handed to this session and still waiting for an answer will fail. This can\'t be undone.',
   "conversation.body.skill-command-request":
@@ -278,13 +280,21 @@ export const conversation = {
   "conversation.label.status-turns-value":
     "{turns, plural, one {# turn} other {# turns}} · {calls, plural, one {# model request} other {# model requests}}",
   "conversation.label.status-of": "Status of this session",
+  "conversation.label.status-slow":
+    "Taking longer than usual · a large turn or a busy machine takes time",
+  "conversation.label.status-still-working":
+    "Slow response · the provider or network may be struggling",
   "conversation.label.status-stopped": "Stopped",
+  "conversation.label.status-waiting-answer": "Waiting for your answer",
+  "conversation.label.status-waiting-approval": "Waiting for your approval",
   "conversation.label.status-working": "Working",
   "conversation.label.steer": "Steer · went into the running turn",
   "conversation.label.stopped-after": "Stopped after {duration}",
   "conversation.label.thinking": "Thinking",
   "conversation.label.thought": "Thought",
   "conversation.label.thought-for": "Thought for {duration}",
+  "conversation.label.thought-for-words":
+    "Thought for {duration} · {words, plural, one {# word} other {# words}}",
   "conversation.label.tool-call-cancelled": "Cancelled",
   "conversation.label.tool-call-denied": "Denied",
   "conversation.label.tool-call-failed": "Failed",

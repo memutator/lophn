@@ -1222,6 +1222,18 @@ export function createFakeAgentTabSource(
     [...threads].find(([, view]) =>
       view.queued.some((item) => item.id === queued),
     )?.[0];
+  // 실패했거나 끝난 turn을 다시 도는 모습으로 되돌린다. fake는 turn의 입력 글을 보관하지 않아 그것을 새로 보내지
+  // 않고, 화면에서 [Retry]를 눌렀을 때 turn이 다시 서는 모습만 보인다.
+  const restartTurn = (turn: string): Promise<SourceResult<void>> => {
+    const session = sessionOfTurn(turn);
+    if (session === undefined) return fail("not_found");
+    return change(session, (view) => ({
+      ...view,
+      turn: { ...view.turn!, phase: "working" },
+      live: null,
+      entries: view.entries.filter((entry) => entry.kind !== "provider-error"),
+    }));
+  };
   const scenarioOf = (session: string | null) =>
     models.get(session ?? "new") ?? SCENARIOS[picker.current ?? ""] ?? SONNET;
 
@@ -1380,18 +1392,8 @@ export function createFakeAgentTabSource(
         ],
       }));
     },
-    retryTurn(turn) {
-      const session = sessionOfTurn(turn);
-      if (session === undefined) return fail("not_found");
-      return change(session, (view) => ({
-        ...view,
-        turn: { ...view.turn!, phase: "working" },
-        live: null,
-        entries: view.entries.filter(
-          (entry) => entry.kind !== "provider-error",
-        ),
-      }));
-    },
+    retryTurn: restartTurn,
+    repeatTurn: restartTurn,
     answerQuestions({ session, toolCall, answers }) {
       const asked = thread(session).pending.questions;
       if (asked?.toolCall !== toolCall) return fail("conflict");

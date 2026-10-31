@@ -103,3 +103,17 @@ guard: packages/shell/renderer/workspace/model_test.ts의 openAcrossDesks 줄 "�
 - 영향: 링크를 browser 탭으로 열게 설정한 사람이 숨은 desk의 terminal에서 연 URL(예: CLI login)이 OS browser에 열린다. URL은 잃지 않는다.
 - 고치려면: (작음) terminal을 `host.windowTabs()`에서 찾고, 그 terminal의 desk에 browser 탭을 연다. 지금 `openAcrossDesks`는 어디에도 없는 새 탭을 보이는 desk에 붙이므로 desk를 정하는 인자가 필요하다. 추천: 작음 안.
 - 닫음: `packages/shell/renderer/terminal/use-bridge-open-requests.ts`의 `openBridgeUrl`이 terminal을 `host.windowTabs()`(모든 desk)에서 찾고, 보이지 않는 desk의 terminal이면 `after: terminal.key`로 연다. `packages/shell/renderer/workspace/model.ts`의 `openAcrossDesks`는 새 탭의 `after`가 다른 desk에 있으면 그 desk로 건너가 그 탭 바로 뒤에 연다. 사람이 로그인 page를 보게 그 desk로 넘어간다.
+
+## desk를 떠났다 돌아오면 일반 browser 탭의 page가 다시 load된다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+closed: fixed
+guard: 없음
+```
+
+- 지금: `packages/shell/renderer/workspace/workspace.tsx`의 view 해제 effect가 `<webview>`를 남길 탭을 보이는 desk의 pane과 floats로만 잡았다. 다른 desk로 가면 떠난 desk의 browser 탭 `<webview>`가 `webviews.release`로 놓였다. app panel·artifact의 view는 `allDeskTabs`로 판정해 desk를 건너도 살았다.
+- 영향: workflow desk와 Main을 오가면 그 browser 탭에 쓰던 form, scroll, 로그인 전 흐름을 잃고 page가 url로 다시 load됐다. cookie는 partition에 남았다.
+- 고치려면: (작음~중간) `<webview>`를 모든 desk의 pane·floats 탭에서 숨긴 채 둔다. floats 층의 `<webview>` 그릇이 보이지 않는 desk의 탭 자리를 알지 못하므로 숨김 상태를 그릇에 넘겨야 한다(`renderer/app-frame/webview-host.tsx`). 추천: 사람이 실제로 불편을 말할 때 한다.
+- 닫음: `workspace.tsx`의 effect가 지난번 `allDeskTabs`에서 detached를 뺀 key와 지금 key의 차로 `webviews.release`를 부른다. 탭 key가 어느 desk에든 있는 동안 `<webview>`는 자리만 잃고(`useWebviewSlot`이 보이지 않으면 `visibility: hidden`) page는 그대로다. 모든 desk에서 사라지거나 detached가 될 때만 지운다. 앱 화면·artifact 화면도 같은 규칙이고, 앱 panel·artifact 탭의 view_session·state는 `ViewKeeps`가, element는 `webview-host`가 든다(`project-docs/architecture/workspace-layout.md`, `browser-tab.md`).

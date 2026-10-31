@@ -1,5 +1,5 @@
-// artifact 탭: 봉한 partition의 native view 목록과 renderer IPC. 위치·숨김 길은 artifact.frame으로
-// app-views.ts가 받는다. 층 순서는 browser와 같은 것을 쓴다(창마다 하나여야 한다).
+// artifact 탭: 봉한 partition의 `<webview>` guest 목록과 renderer IPC. 위치·보임은 renderer CSS이고,
+// 붙이기 판정은 browser의 combined `will-attach-webview` handler에 resolver로 넣는다.
 import { app } from "electron";
 import { randomUUID } from "node:crypto";
 import { watch } from "node:fs";
@@ -29,18 +29,16 @@ import { createArtifactServer } from "../../artifact/serve.ts";
 import { sealArtifactSession } from "../../artifact/session.ts";
 import { nodeArtifactFs, resolveSource } from "../../artifact/source.ts";
 import { watchFolder } from "../../artifact/watch.ts";
-import type { ArtifactFrame } from "../../browser/frame-router.ts";
 import type { BrowserWiring } from "./browser.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 export type ArtifactWiring = Registered & {
   views: ArtifactViews;
-  frame: ArtifactFrame;
 };
 
 export function register(
   ctx: ShellContext,
-  browser: Pick<BrowserWiring, "orderOf">,
+  browser: Pick<BrowserWiring, "webviewGuests">,
 ): ArtifactWiring {
   const { headless, ipc, windowRef, windowOfRef } = ctx;
 
@@ -114,12 +112,8 @@ export function register(
     ));
 
   const host = electronArtifactViews({
-    windowOf: (ref) => windowOfRef(ref),
-    // build가 artifact preload를 같은 dist에 .cjs로 낸다.
-    preload: join(ctx.here, "preload-artifact.cjs"),
     packaged: app.isPackaged,
     headless,
-    orderOf: browser.orderOf,
   });
 
   const sendTo = (channel: string) => (ref: string, payload: unknown) => {
@@ -165,6 +159,23 @@ export function register(
       list: (domain) => listArtifacts(ctx.dataRoot, domain, nodeArtifactFs),
     }),
   );
+  // build가 artifact preload를 같은 dist에 .cjs로 낸다. 붙이기에서 강제한다.
+  const preload = join(ctx.here, "preload-artifact.cjs");
+  browser.webviewGuests.add((window, src) => {
+    const accepted = views.acceptGuest(window, src);
+    if (accepted === undefined) return undefined;
+    return {
+      target: {
+        kind: "artifact",
+        partition: accepted.partition,
+        src: accepted.src,
+        preload,
+      },
+      bind: (guest) => views.bindGuest(accepted, guest),
+      drop: () => views.dropGuest(accepted),
+    };
+  });
+
   ctx.windowHooks.closed.push(({ ref }) => views.closeWindow(ref));
   // CLI로 낸 report는 session event가 없어 이 event가 view가 알 유일한 길이다. 이 event는 남지 않고
   // 놓친 view는 다시 열 때 다시 읽는다.
@@ -177,7 +188,6 @@ export function register(
 
   return {
     views,
-    frame: views,
     stop() {
       removeArtifactIpc(ipc);
       views.dispose();

@@ -46,6 +46,7 @@ export function fakeArtifactApi(
             : source.kind === "file"
               ? source.path
               : `/fake/workflows/${source.workflow}/artifacts/${source.view}/index.html`,
+        src: "about:blank",
         title: options.title ?? name,
         loading: false,
         health: "ok",

@@ -1,12 +1,15 @@
-// 앱 view·frame·visibility와 view IPC, 외부 링크, view 오류, 앱 전용 창, 창 열기 intent.
-import { app, BrowserWindow, shell } from "electron";
+// 앱 view·frame·guest 붙이기와 view IPC, 외부 링크, view 오류, 앱 전용 창, 창 열기 intent.
+import { app, shell } from "electron";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { appLogViewError } from "../../../../protocol/apps/mod.ts";
-import { VIEW_STATE_CHANNEL } from "../../../ipc/app-frame.ts";
+import {
+  VIEW_STATE_CHANNEL,
+  type AppViewOpen,
+} from "../../../ipc/app-frame.ts";
 import { createCoreUpstream } from "../../app-frame/app-protocol.ts";
 import { createEntryScreen } from "../../app-frame/declaration-source.ts";
 import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
@@ -20,16 +23,14 @@ import {
   registerViewIpc,
   removeViewIpc,
 } from "../../app-frame/view-ipc.ts";
-import { createViewVisibility } from "../../app-frame/visibility.ts";
-import { routeFrame } from "../../browser/frame-router.ts";
 import {
   createAppWindowIpc,
   registerAppWindowIpc,
   removeAppWindowIpc,
 } from "../app-window-ipc.ts";
-import { type AppWindowConfig, createAppWindows } from "../app-window.ts";
+import { createAppWindows } from "../app-window.ts";
 import { nodeExecutableProbe } from "../autostart.ts";
-import { reveal, surfaceOptions } from "../headless.ts";
+import { reveal } from "../headless.ts";
 import {
   type EntryFiles,
   installOsEntry,
@@ -37,10 +38,10 @@ import {
   removeOsEntry,
 } from "../os-entry/entry.ts";
 import type { OpenIntent } from "../open-intent.ts";
-import { TOP_BAR_HEIGHT } from "../window.ts";
 import type { ArtifactWiring } from "./artifact.ts";
 import type { BrowserWiring } from "./browser.ts";
 import type { Registered, ShellContext } from "./context.ts";
+import { openDesktopWindow } from "./desktop-window.ts";
 
 /** 뒤 영역이 쓰는 앱 view 값. */
 export type AppViews = Registered & {
@@ -49,9 +50,9 @@ export type AppViews = Registered & {
   viewErrors: ReturnType<typeof createViewErrors>;
   /** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
   openIntent(intent: OpenIntent): void;
-  /** 모두 window의 native view(앱 view, popup, DevTools)인가. */
+  /** 모두 window의 native view(크기 준 popup, DevTools)인가. */
   owns(window: string, view_sessions: readonly string[]): boolean;
-  /** view를 닫지 않고 from 창에서 to 창으로 옮긴다. 하나라도 from 창의 것이 아니면 아무것도 옮기지 않는다. */
+  /** native view를 닫지 않고 from 창에서 to 창으로 옮긴다. 하나라도 from 창의 것이 아니면 아무것도 옮기지 않는다. */
   moveViews(
     from: string,
     to: string,
@@ -61,15 +62,14 @@ export type AppViews = Registered & {
 
 export function register(
   ctx: ShellContext,
-  browser: Pick<BrowserWiring, "frame" | "orderOf">,
-  artifact: Pick<ArtifactWiring, "frame">,
+  browser: Pick<BrowserWiring, "nativeBounds" | "webviewGuests">,
+  artifact: Pick<ArtifactWiring, "views">,
 ): AppViews {
   const {
     here,
     headless,
     overlays,
     windows,
-    appWindowRefs,
     log,
     core,
     coreInternal,
@@ -78,15 +78,11 @@ export function register(
     windowOfRef,
   } = ctx;
 
-  // 앱 view registry. 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
-  // 붙이기·숨기기 IPC와 renderer 연결은 이 registry에 잇는다.
+  // 앱 view registry. 연결은 core 앱 통로로 main이 얻고, 화면은 renderer의 `<webview>`다.
   const appViews = electronAppViews({
     windowOf: (ref) => windowOfRef(ref),
-    // build가 앱 preload를 같은 dist에 .cjs로 낸다.
-    preload: join(here, "preload-app.cjs"),
     packaged: app.isPackaged,
     headless,
-    orderOf: browser.orderOf,
   });
   const appFrame = createAppFrame({
     connector: ctx.appConnector,
@@ -127,29 +123,21 @@ export function register(
     },
   });
 
-  // native view 배치. renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
-  const viewVisibility = createViewVisibility({
-    // browser·artifact 탭의 view는 앱 registry에 없다. view_session으로 갈라 보낸다.
-    frame: routeFrame(appFrame, browser.frame, artifact.frame),
-    geometry: {
-      // overlay와 같은 창 본문이다. 상단 바는 shell 크롬이라 앱 view가 덮지 않는다.
-      body(ref) {
-        const window = windowOfRef(ref);
-        if (window === undefined) return undefined;
-        const [width = 0, height = 0] = window.getContentSize();
-        return {
-          x: 0,
-          y: TOP_BAR_HEIGHT,
-          width: Math.max(0, width),
-          height: Math.max(0, height - TOP_BAR_HEIGHT),
-        };
+  // build가 앱 preload를 같은 dist에 .cjs로 낸다. 붙이기에서만 강제한다.
+  const preload = join(here, "preload-app.cjs");
+  browser.webviewGuests.add((window, src) => {
+    const accepted = appFrame.acceptGuest(window, src);
+    if (accepted === undefined) return undefined;
+    return {
+      target: {
+        kind: "app",
+        partition: accepted.partition,
+        src: accepted.src,
+        preload,
       },
-      zoom: (ref) => windowOfRef(ref)?.webContents.getZoomFactor() ?? 1,
-    },
-    timer: {
-      set: (callback, ms) => setTimeout(callback, ms),
-      clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
-    },
+      bind: (guest) => appFrame.bindGuest(accepted, guest),
+      drop: () => appFrame.dropGuest(accepted),
+    };
   });
   registerViewIpc(
     ipc,
@@ -161,7 +149,33 @@ export function register(
         );
         return window === undefined ? undefined : windowRef(window);
       },
-      visibility: viewVisibility,
+      views: {
+        openApp(window, input: AppViewOpen) {
+          return appFrame.open(window, input, input.card);
+        },
+        close(window, view_session) {
+          if (appFrame.owner(view_session) === window) {
+            appFrame.close(view_session);
+            return { ok: true, value: null };
+          }
+          if (artifact.views.owner(view_session) === window) {
+            artifact.views.close(view_session);
+            return { ok: true, value: null };
+          }
+          return {
+            ok: false,
+            error: { code: "invalid_input", message: "view is not open" },
+          };
+        },
+        reopen: (window, view_session) => appFrame.reopen(window, view_session),
+      },
+      // app view·artifact view는 `<webview>`라 위치·숨김을 renderer CSS가 정한다.
+      bounds: {
+        setBounds: (window, view_session, bounds, layer) =>
+          browser.nativeBounds.setBounds(window, view_session, bounds, layer),
+        hide: (window, view_sessions) =>
+          browser.nativeBounds.hide(window, view_sessions),
+      },
     }),
   );
 
@@ -191,10 +205,10 @@ export function register(
     log,
   });
 
-  // 앱 전용 창. 본문 view와 같은 appFrame·Electron adapter로 연다.
-  // 전용 창의 screen은 core의 `apps/tools` read로 읽은 선언이 정한다(`full` 크기를 선언한 첫
-  // screen). 읽지 못하거나 그런 screen이 없으면 unavailable이고, 그때 `--open-app`은 기본 창을
-  // 앞으로 가져온다.
+  // 앱 전용 창. shell 문서 하나를 열고 그 renderer가 app view를 `<webview>`로 연다. 전용 창의
+  // screen은 core의 `apps/tools` read로 읽은 선언이 정한다(`full` 크기를 선언한 첫 screen).
+  // 읽지 못하거나 그런 screen이 없으면 unavailable이고, 그때 `--open-app`은 기본 창을 앞으로
+  // 가져온다.
   const appWindows = createAppWindows({
     readApp: (app) => {
       const session = core.session();
@@ -208,30 +222,18 @@ export function register(
     entryScreen: createEntryScreen((app, release) =>
       coreInternal("read", "apps", "tools", { app, release }),
     ),
-    create: (config: AppWindowConfig) => {
-      const window = new BrowserWindow(
-        surfaceOptions({ ...config, icon: ctx.appIcon }, headless),
-      );
-      // 창 자신은 page가 없다. 새 창 요청도 받지 않는다.
-      window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-      const ref = windowRef(window);
-      appWindowRefs.set(ref, window);
-      window.on("closed", () => appWindowRefs.delete(ref));
+    open: ({ hash, title }) => {
+      const window = openDesktopWindow(ctx, { hash, title, detached: false });
+      if (window === undefined) return undefined;
+      // 전역 palette·tray가 탭 하나만 든 창으로 가지 않게 detached 창과 같이 표시한다.
+      ctx.appWindows.add(window);
+      window.on("closed", () => ctx.appWindows.delete(window));
       return {
-        ref,
-        body: () => {
-          const [width = 0, height = 0] = window.getContentSize();
-          return { x: 0, y: 0, width, height };
-        },
-        onResize: (listener) => void window.on("resize", listener),
-        onClosed: (listener) => void window.on("closed", listener),
+        ref: windowRef(window),
         reveal: () => reveal(window, headless),
-        close: () => window.destroy(),
+        alive: () => !window.isDestroyed(),
       };
     },
-    frame: appFrame,
-    packaged: app.isPackaged,
-    log,
   });
 
   // 앱 바로가기의 실제 OS 쓰기. 같은 디렉터리의 임시 파일을 rename해 쓰고,
@@ -295,17 +297,14 @@ export function register(
   ctx.relay.events.push((event) => {
     if (event.type === "AppViewChanged") void appFrame.refresh(event.subject);
   });
-  ctx.windowHooks.closed.push(({ ref }) => {
-    viewVisibility.closeWindow(ref);
-    appFrame.closeWindow(ref);
-  });
+  ctx.windowHooks.closed.push(({ ref }) => appFrame.closeWindow(ref));
 
   return {
     appFrame,
     externalLinks,
     viewErrors,
-    owns: viewVisibility.owns,
-    moveViews: viewVisibility.move,
+    owns: browser.nativeBounds.owns,
+    moveViews: browser.nativeBounds.move,
     openIntent(intent) {
       if (intent.kind === "app") {
         void appWindows.open(intent.app).then((opened) => {
@@ -318,7 +317,6 @@ export function register(
     stop() {
       removeViewIpc(ipc);
       removeAppWindowIpc(ipc);
-      viewVisibility.dispose();
       appFrame.dispose();
     },
   };

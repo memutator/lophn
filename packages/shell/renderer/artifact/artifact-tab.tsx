@@ -1,7 +1,7 @@
-// artifact 탭 본문. toolbar 아래 page 자리에 봉한 native view(`lophn-artifact:` 문서)를 붙인다. view는 DOM 위에
-// 그려지므로 알림은 overlay로, 모은 목록 panel은 덮개(useViewCover)로 알려 view가 줄어들게 한다.
-// 폴더가 없으면 view 없이 안내와 [Retry]만 그린다. 탭이 Float·Dock으로 다시 mount되면 keeps에서 view를 이어 쓰고,
-// 닫는 일은 보관소의 주인(Workspace)이 한다.
+// artifact 탭 본문. toolbar 아래 page 자리에 봉한 `lophn-artifact:` page를 창의 <webview> 그릇으로 그린다.
+// DOM 안에 그려지므로 알림과 annotation 목록은 z-index로 page 위에 겹친다. 폴더가 없으면 view 없이 안내와
+// [Retry]만 그린다. 탭이 Float·Dock으로 다시 mount되면 keeps에서 view를 이어 쓰고, 닫는 일은 보관소의
+// 주인(Workspace)이 한다.
 import { useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
@@ -13,12 +13,16 @@ import type {
   ArtifactViewState,
   LophnArtifactApi,
 } from "../../ipc/artifact.ts";
-import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import { AnnotationPanel } from "../app-frame/annotate/annotation-panel.tsx";
 import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
 import { STAY, useViewToast } from "../app-frame/annotate/use-view-toast.ts";
-import { useViewBounds, useViewCover } from "../app-frame/embedded-view.tsx";
+import {
+  useViewLayer,
+  useWebviewHost,
+  useWebviewSlot,
+  type WebviewHost,
+} from "../app-frame/webview-host.tsx";
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
 import { fileNameOf } from "../editor/model.ts";
@@ -61,7 +65,8 @@ function signatureOf(source: ArtifactSource): string {
 export function ArtifactTab(props: ArtifactTabProps) {
   const views = useAppViews()?.views;
   const api = useArtifactApi();
-  if (views === undefined || api === null) {
+  const webviews = useWebviewHost();
+  if (views === undefined || api === null || webviews === null) {
     return (
       <ErrorState
         target={t("artifact.label.kind")}
@@ -69,23 +74,23 @@ export function ArtifactTab(props: ArtifactTabProps) {
       />
     );
   }
-  return <OpenTab {...props} views={views} api={api} />;
+  return <OpenTab {...props} api={api} webviews={webviews} />;
 }
 
 function OpenTab(
   props: ArtifactTabProps & {
-    views: LophnShellViewsApi;
     api: LophnArtifactApi;
+    webviews: WebviewHost;
   },
 ) {
-  const { views, api, source, shown, keeps, keepKey } = props;
+  const { api, source, shown, keeps, keepKey, webviews } = props;
+  const layer = useViewLayer();
   const [viewSession, setViewSession] = useState<string | null>(null);
   const [state, setState] = useState<ArtifactViewState | null>(null);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const region = useRef<HTMLDivElement | null>(null);
-  const panel = useRef<HTMLElement | null>(null);
   const callbacks = useRef(props);
   callbacks.current = props;
   // 보관소에 넘길 마지막 state. view가 아직 없으면 null.
@@ -181,11 +186,15 @@ function OpenTab(
   }, [api, keeps, keepKey, signature, viewSession]);
 
   const crashed = state?.health === "crashed";
-  useViewBounds({
-    views,
-    viewSession,
-    shown: shown && !crashed,
+  useWebviewSlot({
+    host: webviews,
+    kind: "artifact",
+    enabled: state !== null && !missing && !failed && !crashed,
+    key: keepKey,
+    src: state?.src ?? "",
     ref: region,
+    shown: shown && !crashed,
+    layer,
   });
 
   // ---- annotate ----
@@ -196,7 +205,6 @@ function OpenTab(
   const annotateOn = annotating.state?.on ?? false;
   const items = annotating.state?.items ?? [];
   const panelOpen = annotateOn && items.length > 0;
-  useViewCover(panel, panelOpen);
   useEffect(() => {
     if (annotateOn) {
       toastKind.current = "on";
@@ -313,7 +321,6 @@ function OpenTab(
           onSend={() => void sendAnnotations()}
           sendLabel={t("artifact.button.send-annotations")}
           note={t("artifact.text.annotations-note")}
-          panelRef={panel}
         />
       ) : null}
     </div>

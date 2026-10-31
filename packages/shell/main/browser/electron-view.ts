@@ -1,6 +1,6 @@
 // browser 탭의 page를 Electron에 잇는다. 보통 탭은 shell renderer의 <webview> guest이고, 크기 준
 // popup만 native view다. 둘 다 persistent browser partition을 쓰고 preload가 없다. contents에 거는
-// hook은 한 함수로 묶어 guest와 popup이 같은 규칙을 쓴다. native view는 앱 view의 map과 따로 가진다.
+// hook은 한 함수로 묶어 guest와 popup이 같은 규칙을 쓴다. native view는 이 map에만 있다.
 import {
   type BrowserWindow,
   type Event as ElectronEvent,
@@ -11,10 +11,10 @@ import {
   type WindowOpenHandlerResponse,
 } from "electron";
 
-import type { AppViewOrder } from "../app-frame/view-order.ts";
+import type { BrowserViewOrder } from "./view-order.ts";
 import { type HeadlessMode, surfaceOptions } from "../desktop/headless.ts";
 import { webPreferences } from "../desktop/security.ts";
-import type { AppViewContents } from "../app-frame/view-model.ts";
+import type { NativeViewContents } from "./native-view.ts";
 import type {
   BrowserContents,
   BrowserHooks,
@@ -32,8 +32,8 @@ interface ElectronBrowserViewsInput {
   windowOf(ref: string): BrowserWindow | undefined;
   packaged: boolean;
   headless: HeadlessMode;
-  /** 창마다 하나인 native view 층 순서. 앱 view와 같이 쓴다. */
-  orderOf(window: BrowserWindow): AppViewOrder<WebContentsView>;
+  /** 창마다 하나인 native view 층 순서. overlay 아래에 둔다. */
+  orderOf(window: BrowserWindow): BrowserViewOrder<WebContentsView>;
 }
 
 type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
@@ -125,7 +125,7 @@ export type ElectronBrowserViews = BrowserViewHost & {
 export function electronBrowserViews(
   input: ElectronBrowserViewsInput,
 ): ElectronBrowserViews {
-  const native = new Map<AppViewContents, WebContentsView>();
+  const native = new Map<NativeViewContents, WebContentsView>();
 
   function live(ref: string): BrowserWindow | undefined {
     const window = input.windowOf(ref);

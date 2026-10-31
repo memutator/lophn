@@ -8,6 +8,7 @@ import { devMock } from "./dev-mock/mod.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
 import {
   openApp,
+  openAppWindow,
   openDetached,
   openProject,
   openSettings,
@@ -112,6 +113,22 @@ const conversation = { drafts: new DraftStore() };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource =
   mock?.agentViewSource ?? coreAgentTabSourceFactory(core);
+// main이 띄우는 앱 전용 창의 hash. `#app-window=<app>/<release>/<screen>`이고 각 부분은
+// encodeURIComponent된 값이다.
+function appWindowRoute(value: string): Route | undefined {
+  const parts = value.split("/");
+  if (parts.length !== 3) return undefined;
+  const [app, release, screen] = parts.map((part) => decodeURIComponent(part));
+  return app === undefined ||
+    release === undefined ||
+    screen === undefined ||
+    app === "" ||
+    release === "" ||
+    screen === ""
+    ? undefined
+    : openAppWindow(app, release, screen);
+}
+
 // 개발 확인용 시작 화면. `#settings`면 Settings부터 연다.
 // `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터 연다.
 // `#detached=<탭 key>`는 main이 띄우는 detached 창이다. 기본은 런처다.
@@ -121,13 +138,15 @@ const start: Route | undefined = seed
     ? openProject(location.hash.slice("#project=".length))
     : location.hash.startsWith("#app=")
       ? openApp(location.hash.slice("#app=".length))
-      : location.hash.startsWith("#detached=")
-        ? openDetached(
-            decodeURIComponent(location.hash.slice("#detached=".length)),
-          )
-        : location.hash === "#settings"
-          ? openSettings()
-          : undefined;
+      : location.hash.startsWith("#app-window=")
+        ? appWindowRoute(location.hash.slice("#app-window=".length))
+        : location.hash.startsWith("#detached=")
+          ? openDetached(
+              decodeURIComponent(location.hash.slice("#detached=".length)),
+            )
+          : location.hash === "#settings"
+            ? openSettings()
+            : undefined;
 // 창마다 하나. runtime의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다. 터미널 clipboard는 main이 쓴다.
 // view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다.
 const terminal = windowTerminalDeps(new TerminalStore(), (host, edge) => {

@@ -1,6 +1,6 @@
-// artifact view 목록. 봉한 partition의 native view(contents 하나와 그 위치 placement)이고, 앱 view
-// registry(app-frame/registry.ts)는 앱 연결에 묶여 있어 여기 넣지 않는다. 위치·숨김만 browser의 native
-// popup과 같은 createPlacement를 쓴다. 같은 창에서 같은 source의 view는 하나다(탭이 다시 mount되어도).
+// artifact view 목록. 봉한 partition의 shell renderer `<webview>` guest 하나이고, 앱 view
+// registry(app-frame/registry.ts)는 앱 연결에 묶여 있어 여기 넣지 않는다. 위치·숨김은 renderer
+// CSS다. 같은 창에서 같은 source의 view는 하나다(탭이 다시 mount되어도).
 import type {
   ArtifactEvent,
   ArtifactReply,
@@ -8,37 +8,35 @@ import type {
   ArtifactViewState,
 } from "../../ipc/artifact.ts";
 import type { AnnotateViewPort } from "../../ipc/annotation.ts";
-import { failure, type Outcome } from "../app-frame/app-connection.ts";
 import {
   nextHealth,
   type ViewHealth,
   type ViewHealthSignal,
 } from "../app-frame/crash.ts";
-import { createPlacement, type Placed } from "../app-frame/placement.ts";
-import type {
-  AppViewContents,
-  AppViewHost,
-  ViewBounds,
-} from "../app-frame/view-model.ts";
+import type { GuestContents } from "../app-frame/view-model.ts";
+import { ARTIFACT_PARTITION, ARTIFACT_SCHEME } from "./session.ts";
 import type { ResolvedSource } from "./source.ts";
 
 // 파일이 연달아 바뀌는 동안 한 번만 다시 load한다.
 const RELOAD_DEBOUNCE_MS = 150;
 
-export interface ArtifactContents extends AppViewContents {
+export interface ArtifactContents {
+  readonly id: number;
   title(): string;
   loading(): boolean;
   /** 캐시를 거치지 않고 다시 load한다. */
   reload(): void;
   pageUrl(): string | null;
-  /** 그 view의 페이지로 보낸다(`webContents.send`). */
+  /** 그 guest의 페이지로 보낸다(`webContents.send`). */
   send(channel: string, payload: unknown): void;
-  /** view의 PNG byte. */
+  /** 그 guest만 찍은 PNG byte. */
   capture(): Promise<Uint8Array>;
 }
 
-/** contents에 거는 hook이 부르는 것. */
+/** guest에 거는 hook이 부르는 것. */
 export interface ArtifactHooks {
+  /** 이 view의 origin host(registerRoot). */
+  host: string;
   activation: {
     mark(contentsId: number): void;
     fresh(contentsId: number): boolean;
@@ -49,14 +47,13 @@ export interface ArtifactHooks {
   onHealth(signal: ViewHealthSignal): void;
   /** 사용자 입력 직후 page에서 누른 http/https link. */
   openLink(url: string): void;
+  /** renderer가 `<webview>`를 지워 guest가 사라졌다. */
+  onDestroyed(): void;
 }
 
-export interface ArtifactViewHost
-  extends Pick<
-    AppViewHost,
-    "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
-  > {
-  create(host: string, hooks: ArtifactHooks): ArtifactContents;
+/** 붙은 guest를 artifact view로 감싸는 adapter. */
+export interface ArtifactViewHost {
+  guest(contents: GuestContents, hooks: ArtifactHooks): ArtifactContents;
 }
 
 interface ArtifactViewsDeps {
@@ -82,18 +79,32 @@ interface ArtifactViewsDeps {
   pushEvent(window: string, event: ArtifactEvent): void;
 }
 
-interface Entry extends Omit<Placed, "contents"> {
+interface Entry {
   view_session: string;
+  window: string;
   source: ArtifactSource;
   file: string;
   host: string;
   entry: string;
-  watch: { stop(): void };
-  contents: ArtifactContents;
+  /** 화면을 새로 여는 세대. `<webview src>`의 `mount` 값이다. */
+  mount: number;
+  /** renderer가 `<webview src>`에 넣을 주소. */
+  src: string;
+  /** 그 src를 붙이기로 이미 받았는가. 한 src는 1회만 받는다. */
+  srcUsed: boolean;
+  /** 지금 붙은 guest. renderer가 아직 안 붙였거나 지웠으면 undefined다. */
+  contents: ArtifactContents | undefined;
+  /** 붙이기로 받았지만 아직 did-attach가 오지 않은 guest. */
+  accepted: AcceptedArtifactGuest | undefined;
   health: ViewHealth;
+  watch: { stop(): void };
 }
 
-const notOpen = () => failure("invalid_input", "view is not open");
+/** `will-attach-webview`가 받은 이 view의 붙이기 하나. src 하나에 한 번만 준다. */
+export interface AcceptedArtifactGuest {
+  readonly src: string;
+  readonly partition: string;
+}
 
 const sameSource = (a: ArtifactSource, b: ArtifactSource) => {
   if (a.kind === "artifact") {
@@ -111,87 +122,74 @@ const sameSource = (a: ArtifactSource, b: ArtifactSource) => {
   );
 };
 
-export function createArtifactViews(deps: ArtifactViewsDeps) {
-  const entries = new Map<string, Entry>();
-  const placement = createPlacement<Entry>({
-    views: deps.host,
-    record: () => {},
-  });
+// view 하나가 화면을 열 때의 주소. `mount`가 바뀔 때마다 renderer가 guest를 새로 만든다.
+function viewUrl(entry: Entry): string {
+  return `${ARTIFACT_SCHEME}://${entry.host}/${encodeURIComponent(
+    entry.entry,
+  )}?mount=${entry.mount}`;
+}
 
-  const urlOf = (entry: Entry) =>
-    `lophn-artifact://${entry.host}/${encodeURIComponent(entry.entry)}`;
+export interface ArtifactViews {
+  open(
+    window: string,
+    source: ArtifactSource,
+  ): Promise<ArtifactReply<ArtifactViewState>>;
+  /** 건강한 view는 cache를 거치지 않고 다시 load하고, 깨진 view는 새 화면 세대를 연다. */
+  reload(window: string, view_session: string): ArtifactReply<null>;
+  reloadInstance(instance: string): void;
+  acceptGuest(window: string, src: string): AcceptedArtifactGuest | undefined;
+  dropGuest(accepted: AcceptedArtifactGuest): void;
+  bindGuest(accepted: AcceptedArtifactGuest, guest: GuestContents): void;
+  annotateView(view_session: string): AnnotateViewPort | undefined;
+  senderAnnotateView(contentsId: number): AnnotateViewPort | undefined;
+  owner(view_session: string): string | undefined;
+  close(view_session: string): void;
+  closeWindow(window: string): void;
+  dispose(): void;
+}
+
+export function createArtifactViews(deps: ArtifactViewsDeps): ArtifactViews {
+  const entries = new Map<string, Entry>();
+  const pending = new Map<AcceptedArtifactGuest, Entry>();
 
   function state(entry: Entry): ArtifactViewState {
     return {
       view_session: entry.view_session,
       source: entry.source,
       file: entry.file,
-      title: entry.contents.title(),
-      loading: entry.contents.loading(),
+      src: entry.src,
+      title: entry.contents?.title() ?? "",
+      loading: entry.contents?.loading() ?? false,
       health: entry.health,
     };
   }
 
   const push = (entry: Entry) => deps.pushState(entry.window, state(entry));
 
-  // 교체·폐기된 contents가 늦게 보낸 신호는 지금 view의 것이 아니다.
-  function spawn(view_session: string, host: string): ArtifactContents {
-    const live = () => {
-      const current = entries.get(view_session);
-      return current?.contents === contents ? current : undefined;
-    };
-    const contents: ArtifactContents = deps.host.create(host, {
-      activation: deps.activation,
-      onChange() {
-        const current = live();
-        if (current !== undefined) push(current);
-      },
-      onHealth(signal) {
-        const current = live();
-        if (current === undefined) return;
-        current.health = nextHealth(current.health, signal);
-        push(current);
-      },
-      openLink(url) {
-        const current = live();
-        if (current !== undefined) {
-          deps.pushEvent(current.window, {
-            kind: "open-link",
-            view_session,
-            url,
-          });
-        }
-      },
-    });
-    return contents;
+  // 새 화면 세대를 연다. 옛 guest 묶음은 즉시 버린다(그 guest의 신원·캡처는 더 없다).
+  function mount(entry: Entry): void {
+    entry.contents = undefined;
+    if (entry.accepted !== undefined) pending.delete(entry.accepted);
+    entry.accepted = undefined;
+    entry.mount += 1;
+    entry.src = viewUrl(entry);
+    entry.srcUsed = false;
   }
 
-  // 첫 load가 끝나면(실패도) 붙일 수 있다.
-  function load(entry: Entry): void {
-    const contents = entry.contents;
-    void contents
-      .load(urlOf(entry))
-      .catch(() => {})
-      .then(() => {
-        if (entries.get(entry.view_session) !== entry) return;
-        if (entry.contents !== contents || entry.ready) return;
-        placement.loaded(entry);
-      });
-  }
-
-  function dispose(entry: Entry): void {
+  // view를 버린다. watch와 받아 둔 붙이기를 함께 지운다.
+  function forget(entry: Entry): void {
     entries.delete(entry.view_session);
     entry.watch.stop();
-    placement.unmounted(entry);
-    entry.contents.destroy();
+    if (entry.accepted !== undefined) pending.delete(entry.accepted);
+    entry.accepted = undefined;
+    entry.contents = undefined;
   }
 
   function annotatePort(entry: Entry): AnnotateViewPort {
-    const contents = entry.contents;
-    const current = () =>
-      entries.get(entry.view_session) === entry && entry.contents === contents;
+    const view_session = entry.view_session;
+    const current = () => entries.get(view_session) === entry;
     return {
-      view_session: entry.view_session,
+      view_session,
       // page가 보낸 값이 아니라 open 때 main이 정한 source다.
       // workflow artifact는 사람의 .html과 같은 file 길로 그 project place의 lophn session이 받는다.
       target:
@@ -202,15 +200,18 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
               name: entry.source.name,
             }
           : { kind: "file", project: entry.source.project },
-      pageUrl: () => contents.pageUrl(),
+      pageUrl: () => entry.contents?.pageUrl() ?? null,
       current,
       send(channel, payload) {
-        if (current()) contents.send(channel, payload);
+        entry.contents?.send(channel, payload);
       },
-      capture() {
-        return current()
-          ? contents.capture()
-          : Promise.reject(new Error("view is gone"));
+      async capture() {
+        const contents = entry.contents;
+        if (contents === undefined) throw new Error("view is gone");
+        const png = await contents.capture();
+        // 캡처하는 사이 guest가 바뀌었으면 그 그림은 이 view의 것이 아니다.
+        if (entry.contents !== contents) throw new Error("view is gone");
+        return png;
       },
     };
   }
@@ -235,6 +236,7 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
         };
       }
       try {
+        // 붙이기가 sync로 받아야 해서 guest가 생기기 전에 봉해 둔다.
         await deps.ensureSession();
       } catch {
         return {
@@ -261,15 +263,12 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
         file,
         host,
         entry: entryName,
-        bounds: { x: 0, y: 0, width: 0, height: 0 },
-        generation: 0,
-        shown: false,
-        ready: false,
-        placed: false,
-        attached: false,
-        layer: 0,
+        mount: 0,
+        src: "",
+        srcUsed: false,
+        contents: undefined,
+        accepted: undefined,
         health: "ok",
-        contents: spawn(view_session, host),
         // 사람의 file은 그 폴더 바로 아래만 지켜본다.
         watch: deps.watch(
           {
@@ -279,17 +278,16 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
           },
           () => {
             const live = entries.get(view_session);
-            if (live?.health === "ok") live.contents.reload();
+            if (live?.health === "ok") live.contents?.reload();
           },
         ),
       };
+      mount(entry);
       entries.set(view_session, entry);
-      placement.mounted(entry);
-      load(entry);
       return { ok: true, value: state(entry) };
     },
 
-    /** 깨진 contents는 reload로 살아나지 않는다. 같은 view_session에 새 contents를 만든다. */
+    /** 깨진 view는 reload로 살아나지 않는다. 같은 view_session에 새 화면 세대를 연다. */
     reload(window: string, view_session: string): ArtifactReply<null> {
       const entry = entries.get(view_session);
       if (entry?.window !== window) {
@@ -298,14 +296,10 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
           error: { code: "invalid_input", message: "view is not open" },
         };
       }
-      if (entry.health === "ok") entry.contents.reload();
+      if (entry.health === "ok") entry.contents?.reload();
       else {
-        placement.unmounted(entry);
-        entry.contents.destroy();
-        entry.contents = spawn(view_session, entry.host);
         entry.health = "ok";
-        placement.mounted(entry);
-        load(entry);
+        mount(entry);
         push(entry);
       }
       return { ok: true, value: null };
@@ -319,8 +313,84 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
           entry.source.instance === instance &&
           entry.health === "ok"
         )
-          entry.contents.reload();
+          entry.contents?.reload();
       }
+    },
+
+    /**
+     * `<webview>` 붙이기 하나를 받는다. 이 창의 view이고 그 src를 아직 안 붙였을 때만 받는다
+     * (1회용). 아니면 undefined다.
+     */
+    acceptGuest(
+      window: string,
+      src: string,
+    ): AcceptedArtifactGuest | undefined {
+      for (const entry of entries.values()) {
+        if (entry.window !== window || entry.src !== src) continue;
+        if (entry.srcUsed || entry.contents !== undefined) return undefined;
+        entry.srcUsed = true;
+        const accepted: AcceptedArtifactGuest = Object.freeze({
+          src: entry.src,
+          partition: ARTIFACT_PARTITION,
+        });
+        entry.accepted = accepted;
+        pending.set(accepted, entry);
+        return accepted;
+      }
+      return undefined;
+    },
+
+    /** 받아 두었지만 붙지 못한 붙이기를 버린다(창이 닫히거나 규칙이 뒤에서 거절). */
+    dropGuest(accepted: AcceptedArtifactGuest): void {
+      const entry = pending.get(accepted);
+      if (entry === undefined || entry.accepted !== accepted) return;
+      pending.delete(accepted);
+      entry.accepted = undefined;
+    },
+
+    /** 받아 둔 붙이기의 guest를 view 신원·건강 감시에 묶는다(did-attach). */
+    bindGuest(accepted: AcceptedArtifactGuest, guest: GuestContents): void {
+      const entry = pending.get(accepted);
+      if (entry === undefined) return;
+      pending.delete(accepted);
+      if (entry.accepted !== accepted) return;
+      entry.accepted = undefined;
+      if (
+        entries.get(entry.view_session) !== entry ||
+        entry.src !== accepted.src
+      )
+        return;
+      let bound: ArtifactContents | undefined;
+      const contents = deps.host.guest(guest, {
+        host: entry.host,
+        activation: deps.activation,
+        onChange() {
+          if (entries.get(entry.view_session) !== entry) return;
+          if (bound === undefined || entry.contents !== bound) return;
+          push(entry);
+        },
+        onHealth(signal) {
+          if (entries.get(entry.view_session) !== entry) return;
+          if (bound === undefined || entry.contents !== bound) return;
+          entry.health = nextHealth(entry.health, signal);
+          push(entry);
+        },
+        openLink(url) {
+          if (entries.get(entry.view_session) !== entry) return;
+          if (bound === undefined || entry.contents !== bound) return;
+          deps.pushEvent(entry.window, {
+            kind: "open-link",
+            view_session: entry.view_session,
+            url,
+          });
+        },
+        onDestroyed() {
+          if (bound === undefined || entry.contents !== bound) return;
+          entry.contents = undefined;
+        },
+      });
+      bound = contents;
+      entry.contents = contents;
     },
 
     annotateView(view_session: string): AnnotateViewPort | undefined {
@@ -331,60 +401,28 @@ export function createArtifactViews(deps: ArtifactViewsDeps) {
     /** IPC sender webContents의 annotate 입구. 폐기·교체된 contents는 undefined다. */
     senderAnnotateView(contentsId: number): AnnotateViewPort | undefined {
       for (const entry of entries.values()) {
-        if (entry.contents.id === contentsId) return annotatePort(entry);
+        if (entry.contents?.id === contentsId) return annotatePort(entry);
       }
       return undefined;
     },
 
-    // frame-router 길.
-    has: (view_session: string) => entries.has(view_session),
-
-    owner: (view_session: string) => entries.get(view_session)?.window,
-
-    /**
-     * view를 닫지 않고 from 창에서 to 창으로 옮긴다. 떼어 숨긴 상태가 되고 새 창 renderer가
-     * bounds를 보내면 붙는다.
-     */
-    move(view_session: string, from: string, to: string): Outcome<null> {
-      const entry = entries.get(view_session);
-      if (entry === undefined || entry.window !== from) return notOpen();
-      if (!deps.host.hasWindow(to)) {
-        return failure("invalid_input", "window is not open");
-      }
-      // 떼기는 옛 창 기준이라 소유 창을 바꾸기 전에 한다.
-      placement.hide(entry);
-      entry.window = to;
-      push(entry);
-      return { ok: true, value: null };
-    },
-
-    setBounds(view_session: string, bounds: ViewBounds, layer: number) {
-      const entry = entries.get(view_session);
-      return entry === undefined
-        ? notOpen()
-        : placement.setBounds(entry, bounds, layer);
-    },
-
-    hide(view_session: string) {
-      const entry = entries.get(view_session);
-      return entry === undefined ? notOpen() : placement.hide(entry);
+    owner(view_session: string): string | undefined {
+      return entries.get(view_session)?.window;
     },
 
     close(view_session: string): void {
       const entry = entries.get(view_session);
-      if (entry !== undefined) dispose(entry);
+      if (entry !== undefined) forget(entry);
     },
 
     closeWindow(window: string): void {
       for (const entry of [...entries.values()]) {
-        if (entry.window === window) dispose(entry);
+        if (entry.window === window) forget(entry);
       }
     },
 
     dispose(): void {
-      for (const entry of [...entries.values()]) dispose(entry);
+      for (const entry of [...entries.values()]) forget(entry);
     },
   };
 }
-
-export type ArtifactViews = ReturnType<typeof createArtifactViews>;

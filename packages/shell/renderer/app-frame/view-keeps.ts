@@ -1,6 +1,6 @@
-// 숨겨 둔 탭 native view(앱 view, browser view)의 보관소. 탭이 Float·Dock으로 다시 mount해도
-// view(page 상태, 로그인 popup의 window.opener)를 닫지 않고 같은 session을 다시 쓰기 위한 것이다.
-// 닫는 때는 이 보관소가 아니라 Workspace가 정한다(탭이 layout에서 사라질 때).
+// 숨겨 둔 탭 view(앱 panel view, browser popup native view)의 보관소. 탭이 Float·Dock으로 다시
+// mount해도 view(page 상태, 로그인 popup의 window.opener)를 닫지 않고 같은 session을 다시 쓰기 위한
+// 것이다. 닫는 때는 이 보관소가 아니라 Workspace가 정한다(탭이 layout에서 사라질 때).
 export interface KeptView<State = unknown> {
   readonly session: string;
   /** 열기 입력을 이은 글. 입력이 바뀐 view를 다시 쓰지 않게 한다. */

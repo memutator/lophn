@@ -1,13 +1,13 @@
 // 앱 공간의 오른쪽 패널 하나. 머리는 TabStrip이고 열린 것이 탭이다: App details(운영 패널), Agent(Agent 화면, 또는
 // Manage가 여는 앱 자리의 agent 관리 화면). 창이 넓으면 앱 화면 옆 열이고 좁으면 앱 화면을
-// 덮는다. 덮는 동안에도 앱 view는 숨지 않고 패널이 덮지 않는 영역으로 준다. 탭 몸은 모두 mount해 두고 고르지 않은 것만
+// 덮는다. 앱 화면은 DOM 안의 <webview>라 덮는 패널(z-index --z-sheet)이 그 위에 그려진다. 탭 몸은 모두 mount해 두고 고르지 않은 것만
 // 숨겨, 탭을 바꿔도 안의 상태(app-detail 탭, 대화 입력)를 잃지 않는다.
 import type {
   PointerEvent as ReactPointerEvent,
   ReactElement,
   ReactNode,
 } from "react";
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { Avatar } from "../parts/avatar/avatar.tsx";
 import { type TabItem, TabStrip } from "../parts/tab-strip/tab-strip.tsx";
 import { Icon, IconButton } from "@lophn/ui/primitives";
@@ -24,7 +24,6 @@ import { AgentsPage } from "../workspace/agents/agents-page.tsx";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import { RunList, type RunRow } from "../workspace/sidebar/run-list.tsx";
 import type { AppSpaceAgent } from "./agent-select.tsx";
-import { useViewCover } from "./embedded-view.tsx";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { PANEL_BODY_MIN } from "./panel-width.ts";
@@ -95,12 +94,6 @@ interface SidePanelProps {
 }
 
 export function SidePanel(props: SidePanelProps): ReactElement | null {
-  const ref = useRef<HTMLElement>(null);
-  // 전체 모드도 앱 view 자리를 다 덮으므로 native view를 그 아래로 숨긴다.
-  useViewCover(
-    ref,
-    props.placement === "overlay" || props.placement === "full",
-  );
   const { state, tab } = props;
   if (props.tabs.length === 0) return null;
   const agentBody =
@@ -124,7 +117,6 @@ export function SidePanel(props: SidePanelProps): ReactElement | null {
   const docked = props.placement === "docked";
   return (
     <aside
-      ref={ref}
       className={`${styles.pane} ${
         props.placement === "overlay" ? styles.overlay : ""
       } ${full ? styles.full : ""} ${

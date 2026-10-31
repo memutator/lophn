@@ -1,6 +1,6 @@
-// 앱 공간(`/apps/:app`). 위쪽 바 아래 전체에 그 앱의 native view 하나를 붙이고, 옆에 오른쪽 패널 하나를 연다. 패널은
-// 탭 줄이 있고 App details·Agent가 탭이다. 좁은 창에서는 패널이 본문을 덮되 앱 view는 덮이지 않는 영역으로 줄어든다.
-// 다른 공간으로 가면 이 공간이 사라지며 그 view를 닫는다(EmbeddedView).
+// 앱 공간(`/apps/:app`). 위쪽 바 아래 전체에 그 앱 화면 하나를 창의 <webview> 그릇으로 그리고, 옆에 오른쪽 패널
+// 하나를 연다. 패널은 탭 줄이 있고 App details·Agent가 탭이다. 좁은 창에서는 패널이 본문을 덮고, 앱 화면은 DOM
+// 이라 패널 z-index(--z-sheet) 아래에 깔린다. 다른 공간으로 가면 이 공간이 사라지며 그 화면을 닫는다(EmbeddedView).
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
@@ -39,11 +39,12 @@ import { STAY, useViewToast } from "./annotate/use-view-toast.ts";
 import { useAppAgents } from "./app-agents.ts";
 import { useAppRuns } from "./app-runs.ts";
 import { AppBar } from "./app-bar.tsx";
+import { EmbeddedView } from "./embedded-view.tsx";
 import {
-  createViewCovers,
-  EmbeddedView,
-  ViewCoversProvider,
-} from "./embedded-view.tsx";
+  createWebviewHost,
+  WebviewHostProvider,
+  WebviewLayer,
+} from "./webview-host.tsx";
 import { useToastHandler } from "./toast-handler.ts";
 import type { CatalogSource } from "../desktop/palette/catalog.ts";
 import {
@@ -90,7 +91,7 @@ interface AppSpaceProps {
   onLauncher: () => void;
   /** Annotate 통로. 없으면 Annotate 단추를 두지 않는다. */
   annotate?: LophnShellAnnotateApi;
-  /** native view 위에 알림을 띄우는 overlay. 없으면 같은 모양의 toast를 앱 화면 위쪽에 그린다. */
+  /** overlay 알림 통로. 없으면 같은 모양의 toast를 앱 화면 위쪽에 DOM으로 그린다. */
   overlay?: OverlayApi;
   /** 처음에 pane에 열어 둘 agent session. */
   session?: string;
@@ -195,10 +196,8 @@ export function AppSpace({
   const contentSize = useObservedSize(contentRef);
   const width = frameSize?.width ?? windowWidth;
 
-  // 창마다 하나인 덮개 목록. 좁은 창의 오른쪽 패널이 앱 view 자리를 덮는다.
-  const covers = useMemo(createViewCovers, []);
-  // place switcher의 DOM menu는 native 앱 view 밑에 깔린다. 열려 있는 동안만 앱 view를 숨긴다(browser 탭의 menuOpen과 같다).
-  const [placeOpen, setPlaceOpen] = useState(false);
+  // 창마다 하나인 <webview> 그릇. 본문의 앱 화면과 이 공간의 agent 대화 안 앱 카드가 같이 쓴다.
+  const webviews = useMemo(createWebviewHost, []);
   // 오른쪽 패널. 열린 탭(details, agent)과 고른 탭, 패널을 보이는지는 따로 쥔다. 단추로 패널을 닫아도 탭의 상태는 남는다.
   // 앱마다 마지막 모양을 기억해 다른 place에 갔다 와도 이어진다. 새 session 요청(startLophn)은 저장값보다 먼저다.
   const [saved] = useState(() => readAppLayout(app));
@@ -440,7 +439,6 @@ export function AppSpace({
         screen={entry.screen}
         size="full"
         label={row.name}
-        shown={!placeOpen}
         onState={onViewState}
       />
     );
@@ -480,7 +478,6 @@ export function AppSpace({
                 apps={placeLists.apps}
                 recent={recentPlaces}
                 onOpenChange={(open) => {
-                  setPlaceOpen(open);
                   if (!open) return;
                   placeLists.read();
                   setRecentPlaces(readRecentPlaces());
@@ -529,7 +526,7 @@ export function AppSpace({
           }
         />
       </div>
-      <ViewCoversProvider value={covers}>
+      <WebviewHostProvider value={webviews}>
         <div className={styles.content} ref={contentRef}>
           <div className={styles.column}>
             <div className={styles.view}>
@@ -617,8 +614,9 @@ export function AppSpace({
             {...(onSettings === undefined ? {} : { onSettings })}
             onChanged={agentList.reload}
           />
+          <WebviewLayer host={webviews} />
         </div>
-      </ViewCoversProvider>
+      </WebviewHostProvider>
     </div>
   );
 }

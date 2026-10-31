@@ -1,8 +1,8 @@
 // shell renderer와 main 사이 artifact 탭 경계.
 // main·preload·renderer가 함께 부르므로 import는 zod뿐이다. main tsc는 protocol을 보지 않으므로
 // slug·ID 규칙은 app-frame.ts처럼 protocol의 사본이다.
-// view의 bounds·숨기기·폐기는 app-frame.ts의 shell:view-bounds, shell:views-hidden,
-// shell:view-close를 그대로 쓴다(frame-router가 view_session으로 가른다).
+// view의 폐기는 app-frame.ts의 shell:view-close를 그대로 쓴다(main이 view_session의 주인으로
+// 가른다). artifact 화면은 renderer의 <webview>라 bounds·숨기기를 쓰지 않는다.
 import { z } from "zod";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
@@ -69,6 +69,8 @@ export const artifactViewStateSchema = z
     source: artifactSourceSchema,
     // 입구 file의 절대 path. Edit source가 연다.
     file: z.string(),
+    // renderer가 <webview src>에 그대로 넣는 주소. 다시 열 때마다(mount) 새 주소다.
+    src: z.string(),
     // page의 title. load 전에는 빈 글이다.
     title: z.string(),
     loading: z.boolean(),

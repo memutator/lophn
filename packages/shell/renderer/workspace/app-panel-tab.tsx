@@ -40,7 +40,7 @@ interface AppPanelPickerProps {
   onClose: () => void;
 }
 
-/** 앱을 아직 고르지 않은 앱 패널 탭의 본문. native view가 없어 shell이 다 그린다. */
+/** 앱을 아직 고르지 않은 앱 패널 탭의 본문. 앱 화면 없이 shell이 다 그린다. */
 export function AppPanelPicker({
   onChoose,
   onOpenAppSpace,

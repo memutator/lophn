@@ -33,6 +33,9 @@ Package를 쓴다.
 - token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받고, 앱 CSS는 token
   변수만 쓴다. 사람이 고른 accent, 배경, 글꼴이 그 변수로 들어오므로 색과 글꼴
   값을 직접 쓰지 않는다.
+- 화면은 다른 창으로 옮겨지거나 다시 열리면 처음부터 다시 load된다. 사람이 잃으면
+  곤란한 화면 상태(고른 항목, 쓰던 글, 필터)는 `localStorage`에 둔다. 앱 저장소는
+  앱마다 따로이고 다시 load해도 남는다.
 - 실패 분기는 `@lophn/cap-problem`의 `reportProblem(name, message?, details?)`로
   앱 log에 error 한 줄을 쓴다(`guide.md`). 이름은 선언하지 않는다. 처리하지 못한
   예외는 lophn 진입점이 앱 log에 쓴다.

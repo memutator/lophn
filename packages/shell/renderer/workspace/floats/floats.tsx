@@ -3,7 +3,6 @@ import {
   type PointerEvent,
   type ReactElement,
   type ReactNode,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -13,10 +12,7 @@ import { t } from "@lophn/i18n";
 
 import type { TabItem as StripTab } from "../../parts/tab-strip/tab-strip.tsx";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
-import {
-  useViewCover,
-  ViewLayerProvider,
-} from "../../app-frame/embedded-view.tsx";
+import { ViewLayerProvider } from "../../app-frame/webview-host.tsx";
 import { workspaceIcons } from "../../icons/mod.ts";
 import {
   clampFloatRect,
@@ -51,8 +47,8 @@ interface FloatsProps {
   canDetach?(tab: TabItem): boolean;
   onClose(key: string): void;
   /**
-   * browser 탭의 <webview> 그릇. 패널과 같은 stacking context에 있어야 floated browser 탭이 자기
-   * 패널 바로 위에 온다. 옮기면 page가 다시 load되므로 패널이 없을 때도 늘 같은 자리에 둔다.
+   * 화면의 <webview> 그릇. 패널과 같은 stacking context에 있어야 floated 화면이 자기 패널
+   * 바로 위에 온다. 옮기면 page가 다시 load되므로 패널이 없을 때도 늘 같은 자리에 둔다.
    */
   webviews?: ReactNode;
 }
@@ -117,11 +113,6 @@ function FloatEntry({
   const base = clampFloatRect(item.rect, area);
   const rect = preview ?? base;
   const ref = useRef<HTMLElement>(null);
-  const coverChanged = useViewCover(ref, !item.minimized, layer);
-  // 옮기는 동안 native view가 비켜 가도록 크기 변화 없는 이동도 알린다.
-  useLayoutEffect(() => {
-    coverChanged();
-  }, [coverChanged, rect.x, rect.y, rect.width, rect.height]);
 
   const drag = (
     event: PointerEvent<HTMLElement>,
@@ -159,7 +150,7 @@ function FloatEntry({
     </Tooltip>
   );
   return (
-    // 층 L의 패널은 z-index --z-sticky + 2L이다. 그 사이 +1에 floated browser 탭의 <webview>가 온다(webview-host).
+    // 층 L의 패널은 z-index --z-sticky + 2L이다. 그 사이 +1에 floated 화면의 <webview>가 온다(app-frame/webview-host).
     <div
       className={styles.layer}
       style={{ zIndex: `calc(var(--z-sticky) + ${layer * 2})` }}

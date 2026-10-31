@@ -1,10 +1,13 @@
 // shell renderer의 앱 view IPC. 매 요청마다 sender가 살아 있는 desktop 창 main frame인지,
 // 입력이 schema에 맞는지 본다. overlay view와 앱 view는 부르지 못한다.
 // 창은 sender에서 main이 정한다.
+// openApp·close·reopen은 앱 view와 artifact view의 것이다. bounds·hidden은 browser의 native
+// popup·DevTools만 쓴다(앱 view·artifact view는 `<webview>`라 위치·보임을 renderer CSS가 정한다).
 import type { ZodType } from "zod";
 
 import {
   type AppFrameViewState,
+  type AppViewOpen,
   appViewOpenSchema,
   VIEW_BOUNDS_CHANNEL,
   VIEW_CLOSE_CHANNEL,
@@ -24,16 +27,41 @@ import {
   type ContentsRegistry,
   type IpcEvent,
 } from "../desktop/ipc-guard.ts";
-import type { ViewVisibility } from "./visibility.ts";
+import type { Outcome } from "./app-connection.ts";
+
+/** view가 붙을 창 본문 경계 안의 정수 rectangle(shell renderer의 CSS pixel). */
+interface NativeViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 interface ViewIpcDeps {
   registry: ContentsRegistry;
   /** sender webContents가 본문인 창. desktop 창이 아니면 undefined다. */
   windowOf(sender: CallerContents): string | undefined;
-  visibility: Pick<
-    ViewVisibility,
-    "openApp" | "setBounds" | "hide" | "close" | "reopen"
-  >;
+  views: {
+    openApp(
+      window: string,
+      input: AppViewOpen,
+    ): Promise<Outcome<AppFrameViewState>>;
+    close(window: string, view_session: string): Outcome<null>;
+    reopen(window: string, view_session: string): Outcome<AppFrameViewState>;
+  };
+  /** browser native popup·DevTools의 위치·숨김. 앱 view는 부르지 않는다. */
+  bounds: {
+    setBounds(
+      window: string,
+      view_session: string,
+      bounds: NativeViewBounds,
+      layer: number,
+    ): Promise<Outcome<{ generation: number }>>;
+    hide(
+      window: string,
+      view_sessions: readonly string[],
+    ): Outcome<{ generation: number }>;
+  };
 }
 
 interface ViewIpcHandlers {
@@ -86,7 +114,7 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
     async openApp(event, input) {
       const checked = guard(event, appViewOpenSchema, input);
       if (!checked.ok) return checked;
-      return await deps.visibility.openApp(
+      return await deps.views.openApp(
         checked.value.window,
         checked.value.input,
       );
@@ -94,7 +122,7 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
     async setBounds(event, input) {
       const checked = guard(event, viewBoundsRequestSchema, input);
       if (!checked.ok) return checked;
-      return await deps.visibility.setBounds(
+      return await deps.bounds.setBounds(
         checked.value.window,
         checked.value.input.view_session,
         checked.value.input.bounds,
@@ -105,7 +133,7 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
       const checked = guard(event, viewsHiddenSchema, input);
       if (!checked.ok) return Promise.resolve(checked);
       return Promise.resolve(
-        deps.visibility.hide(
+        deps.bounds.hide(
           checked.value.window,
           checked.value.input.view_sessions,
         ),
@@ -115,7 +143,7 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
       const checked = guard(event, viewCloseRequestSchema, input);
       if (!checked.ok) return Promise.resolve(checked);
       return Promise.resolve(
-        deps.visibility.close(
+        deps.views.close(
           checked.value.window,
           checked.value.input.view_session,
         ),
@@ -125,7 +153,7 @@ export function createViewIpc(deps: ViewIpcDeps): ViewIpcHandlers {
       const checked = guard(event, viewCloseRequestSchema, input);
       if (!checked.ok) return Promise.resolve(checked);
       return Promise.resolve(
-        deps.visibility.reopen(
+        deps.views.reopen(
           checked.value.window,
           checked.value.input.view_session,
         ),

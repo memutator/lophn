@@ -1,4 +1,4 @@
-// browser 탭 본문. toolbar 아래 page region 자리에 page를 그린다. 보통 탭은 <webview>이고(webview-host.tsx,
+// browser 탭 본문. toolbar 아래 page region 자리에 page를 그린다. 보통 탭은 <webview>이고(app-frame/webview-host.tsx,
 // DOM 안에 그려져 menu·패널이 위에 겹친다), 크기를 준 popup만 opener를 지키려고 main이 native view를
 // 붙인다(adopt). native view는 DOM 위에 그려지므로 알림은 toolbar와 region 사이 줄에 둔다. 주소가 빈
 // 탭은 page 대신 bookmark 목록을 그린다. DevTools는 page 옆(오른쪽·아래)에 붙거나, floated 패널이나 따로 뜬
@@ -21,7 +21,7 @@ import type {
 } from "../../ipc/browser.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
-import { useViewBounds } from "../app-frame/embedded-view.tsx";
+import { useViewBounds } from "./native-bounds.ts";
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { startPointerDrag } from "../workspace/drag.ts";
 import type {
@@ -37,7 +37,7 @@ import {
   useWebviewHost,
   useWebviewSlot,
   type WebviewHost,
-} from "./webview-host.tsx";
+} from "../app-frame/webview-host.tsx";
 import styles from "./browser-tab.module.css";
 
 interface BrowserTabProps {
@@ -205,9 +205,10 @@ function OpenTab(
   // guest 탭: <webview>가 붙으면 session을 얻는다. 다시 mount되면 지금 page를 element에서 읽는다.
   useWebviewSlot({
     host: webviews,
+    kind: "browser",
     enabled: !native,
     key: props.keepKey,
-    url: props.url,
+    src: props.url,
     ref: region,
     shown: !native && shown && state.url !== "" && state.health !== "crashed",
     layer: props.layer,

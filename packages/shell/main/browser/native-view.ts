@@ -1,24 +1,55 @@
-// 앱 view 하나를 창 본문에 붙이고 떼는 규칙. registry가 view마다
-// 부르고, 실제 native 붙이기·떼기는 이 함수들만 한다.
+// browser의 native view 하나(크기 준 popup·DevTools). 앱 view·artifact view는 renderer의
+// `<webview>`라 위치·보임을 renderer CSS가 정하고, native view는 이 폴더만 쓴다.
+// 붙이기·떼기·숨김 규칙은 createPlacement 하나가 정한다:
 // - 보이라는 요청(빈 bounds가 아닌 bounds)이 있고 지금 contents의 첫 load가 끝났을 때만 붙인다.
 //   준비 전에 온 bounds는 마지막 것만 기억한다.
 // - 다시 붙일 때만 generation이 오른다. 숨김은 바로 떼고 generation을 올린다.
 // - 뗀 view가 키보드 focus를 가졌으면 그 창의 shell renderer로 돌린다.
-import { failure, type Outcome } from "./app-connection.ts";
-import type { ViewEvent } from "./diagnostics.ts";
-import {
-  type AppViewContents,
-  type AppViewHost,
-  boundsEmpty,
-  type ViewBounds,
-} from "./view-model.ts";
+import { failure, type Outcome } from "../app-frame/app-connection.ts";
+import type { ViewEvent } from "../app-frame/diagnostics.ts";
+
+export interface ViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Electron native view 하나. */
+export interface NativeViewContents {
+  readonly id: number;
+  load(url: string): Promise<void>;
+  destroy(): void;
+}
+
+/** 창과 native view를 다루는 adapter. */
+export interface NativeViewHost {
+  hasWindow(window: string): boolean;
+  /** 창 본문에 붙이거나 bounds를 옮긴다. layer가 클수록 위다(0 = pane view). 창이 없으면 false다. */
+  attach(
+    window: string,
+    view: NativeViewContents,
+    bounds: ViewBounds,
+    layer: number,
+  ): boolean;
+  detach(window: string, view: NativeViewContents): void;
+  /** 이 view가 지금 키보드 focus를 가졌는가. */
+  focused?(view: NativeViewContents): boolean;
+  /** 키보드 focus를 그 창의 shell renderer로 돌린다. */
+  focusShell?(window: string): void;
+}
+
+/** 넓이가 없는 bounds다. 붙일 자리가 없으니 보이지 않는 view로 둔다. */
+export function boundsEmpty(bounds: ViewBounds): boolean {
+  return bounds.width <= 0 || bounds.height <= 0;
+}
 
 export interface Placed {
   window: string;
   bounds: ViewBounds;
   // 쌓는 층. 0 = pane view, 1.. = floated view. 클수록 위다.
   layer: number;
-  contents: AppViewContents;
+  contents: NativeViewContents;
   generation: number;
   // renderer가 보이라고 한 view다. 숨김 요청이나 빈 bounds면 false다.
   shown: boolean;
@@ -33,7 +64,7 @@ type Generation = Outcome<{ generation: number }>;
 
 export function createPlacement<T extends Placed>(deps: {
   views: Pick<
-    AppViewHost,
+    NativeViewHost,
     "hasWindow" | "attach" | "detach" | "focused" | "focusShell"
   >;
   record(entry: T, event: ViewEvent): void;

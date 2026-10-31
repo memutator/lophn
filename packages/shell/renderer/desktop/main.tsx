@@ -34,6 +34,7 @@ import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { DesktopTarget } from "./palette/desktop-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
+import { AppWindow } from "../app-frame/app-window.tsx";
 import type { AppsSource } from "../apps/source.ts";
 import type { SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
@@ -364,6 +365,21 @@ export function Desktop({
         onOpenPlace={openPlace}
       />
     );
+  } else if (
+    route.space === "app-window" &&
+    route.app &&
+    route.release &&
+    route.screen
+  ) {
+    // 앱 전용 창은 앱 화면 하나만 그린다. core 연결을 기다리지 않는다.
+    space = views ? (
+      <AppWindow
+        app={route.app}
+        release={route.release}
+        screen={route.screen}
+        views={views}
+      />
+    ) : null;
   } else if (route.space === "settings" && catalog) {
     space = (
       <SettingsSpace
@@ -409,13 +425,17 @@ export function Desktop({
           goApp={(app) => setRoute(openApp(app))}
         />
         {space}
-        {overlay && route.space !== "detached" ? (
+        {overlay &&
+        route.space !== "detached" &&
+        route.space !== "app-window" ? (
           <ToastHost overlay={overlay} />
         ) : null}
         {overlay && hookPrompt ? (
           <HookPromptHost overlay={overlay} coding={hookPrompt} />
         ) : null}
-        {intents && route.space !== "detached" ? (
+        {intents &&
+        route.space !== "detached" &&
+        route.space !== "app-window" ? (
           <DesktopIntents intents={intents} catalog={catalog} go={go} />
         ) : null}
       </PaletteProvider>

@@ -1,6 +1,5 @@
 // 모은 annotation 목록. 앱 화면 왼쪽 아래에 떠서 번호, 대상 이름, 메모를 보이고 하나씩 지우거나 모두 지우고 받는 쪽에 보낸다.
 // 고른 곳의 윤곽과 번호 표지, 메모 칸은 앱 view 안 preload가 그리므로 여기 없다.
-import type { RefObject } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
@@ -20,8 +19,6 @@ interface AnnotationPanelProps {
   /** 보내기 단추와 안내 글. 받는 쪽을 말한다. */
   sendLabel: string;
   note: string;
-  /** native view가 가리지 않게 덮개로 알리려는 쪽이 panel 요소를 얻는 ref. */
-  panelRef?: RefObject<HTMLElement | null>;
 }
 
 export function AnnotationPanel({
@@ -33,11 +30,9 @@ export function AnnotationPanel({
   onSend,
   sendLabel,
   note,
-  panelRef,
 }: AnnotationPanelProps) {
   return (
     <aside
-      ref={panelRef}
       className={styles.panel}
       aria-label={t("app-space.label.annotations")}
       data-annotations=""

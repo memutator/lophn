@@ -1,6 +1,6 @@
 // 창 하나의 모양. 시스템 제목 표시줄 없이 상단 바를 쓰고, 제목은 main이
 // 검증한 공간 이름에만 붙인다. Windows·Linux 창 단추는 OS가 아니라 상단 바가 그린다.
-import type { WindowBounds } from "../workspace/layout.ts";
+import type { WindowBounds } from "../workspace/schema.ts";
 import { type WebPreferences, webPreferences } from "./security.ts";
 
 export const MIN_WINDOW_WIDTH = 960;

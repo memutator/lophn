@@ -20,7 +20,7 @@
 - **split → group**: 처음 정한 "tab 둘을 붙인 split tab"은 버렸다. desk의 tab 2~4개를 한 칸(group)으로 묶고 배치는 나눔 tree(row·column, 몫 0.15~0.85)다. 칸마다 머리 줄이 있고 tab 줄은 하나다. 만들기: tab menu의 Split right·down, `pane.split`, tab을 끌어 card 가장자리에 놓기(pointer drag, drop zone). 칸이 가득(4)이면 가장자리 drop은 안 된다. 6칸 tree, 칸마다의 tab 줄, 옛 칸 focus·drop zone은 지운다. 칸 focus는 Ctrl+Alt+화살표(`pane.focus-*`)와 `pane.focus:N`이다.
 - **이동 기록**: ← →는 창 하나의 기록(place, desk, tab, group 안 focus)을 오간다. 저장하지 않는다.
 - **창**: 창은 여럿일 수 있고 창마다 지금 place 하나를 보인다. place를 옮기는 것은 창 안의 이동이다. 떼어 낸 창(detach)은 project만 하고, 그 project를 보이는 창이 주인이다.
-- **layout 저장**: place마다 file 하나 `<data>/shell/places/<place>.json`(project id, app id, `home`). schema v8의 desk는 `{ tabs, selected, groups: [{layout, focus}], floats, detached }`. 없으면 옛 `<data>/shell/layouts/<project>.json`(v5~v7)을 읽어 올린다: desk의 pane이 2~4개이고 모두 tab이 있으면 pane tree를 그대로 group 하나로 두고, 아니면 pane들의 tab을 왼쪽·위에서부터 한 줄로 합친다(중복 key는 하나). float의 `origin_pane`·`docked_at`은 버린다. tab을 잃거나 둘로 만들지 않는다(test). `rail_apps`(activity bar에 꽂은 앱)는 버린다. app의 localStorage `lophn.app-layout.<app>`은 읽지 않는다. 옛 `layouts/`는 읽기만 하고 고치지 않는다.
+- **layout 저장**: place마다 file 하나 `<data>/shell/places/<place>.json`(project id, app id, `home`). schema v8의 desk는 `{ tabs, selected, groups: [{layout, focus}], floats, detached }`. 없으면 기본 layout(빈 Main desk)이다. 옛 `<data>/shell/layouts/<project>.json`(v5~v7)은 읽지 않고 올리지도 않는다(사람이 결정: 이미 지웠고 새로 시작한다). `rail_apps`와 app의 localStorage `lophn.app-layout.<app>`도 읽지 않는다.
 - **Home**: folder가 없다(`place === null`). 터미널·Files·검색·project settings가 없다. launcher 화면은 없어졌고 Home이 새 기본 창의 첫 화면이다. 최근 Home session은 왼쪽 sidebar의 Home 묶음이 하고, register·create·archived는 오른쪽 Places panel이 한다.
 - **Jobs**: Settings의 Scheduled jobs 항목을 지우고 왼쪽 sidebar의 Jobs overlay, Jobs 탭(모든 place), 오른쪽 Jobs panel로 옮겼다. 대기 목록도 Inbox overlay와 Inbox 탭이다.
 - **둥근 모서리와 webview**: 앱 화면·browser·artifact `<webview>`는 slot 부모로 잘리지 않으므로 webview host의 page 요소가 아래 두 모서리에 radius를 준다. native view(browser popup, DevTools, overlay)는 각진 채다. `FloatPanel`도 둥글다.
@@ -33,7 +33,7 @@
 | wave | task | 하는 일 | 상태 |
 |---|---|---|---|
 | 1 | `uo-design` | token(radius, `surface.shell`), preset, design component 모양, kit, `architecture/appearance.md` | 합침 |
-| 1 | `uo-model` | 새 desk model(순수 함수, test), place layout 저장(v8, 옛 v5~v7 올리기, IPC `shell:place-layout-read/save`) | 합침 |
+| 1 | `uo-model` | 새 desk model(순수 함수, test), place layout 저장(v8, IPC `shell:place-layout-read/save`) | 합침 |
 | 2 | `uo-shell-frame` | shell 화면 부품(frame, title bar tab 줄, desk 단추, panel tab, card, float layer, 창 단추), gallery `shell-*` | 합침 |
 | 2 | `uo-shell-project` | project 창을 새 shell과 desk model로(옛 panes·floats·minimized·desk selector 지움) | 합침 |
 | 3 | `uo-left` | 왼쪽 sidebar(place·session·Recent·New session·Add place) | 합침 |
@@ -49,7 +49,7 @@
 | 6 | `uo-fb-tabs` | 고른 tab은 이름이 다 보이고 고르지 않은 split 칸은 아이콘만, 곡선 padding까지 scroll-into-view | 합침 |
 | 6 | `uo-fb-quick` | 왼쪽 sidebar 아래 빠른 실행(Terminal, Browser, App ▾) | 합침 |
 | 6 | `uo-fb-browser` | browser 탭이 card 머리 줄을 쓴다(nav, address, actions), DevTools는 tab menu의 Inspector, 빠른 실행 Search | 합침 |
-| 6 | `uo-layout` | 자유 split: group(2~4 tab)과 나눔 tree, v7 pane tree를 group으로, 평평한 absolute 칸 | 합침 |
+| 6 | `uo-layout` | 자유 split: group(2~4 tab)과 나눔 tree, 평평한 absolute 칸 | 합침 |
 | 6 | `uo-fb-heads` | file·agent·artifact 탭의 머리 줄을 card 머리 줄로(`useCardHead`) | 합침 |
 | 6 | `uo-dnd` | pointer drag and drop: 알약, 줄 밀리기, card drop zone(split·swap·ungroup), drag 중 webview 통과 | 합침 |
 | 6 | `uo-polish` | 고른 칸만 제목을 크게, desk 닫기가 일을 끝내기, Ctrl+Alt+화살표 칸 focus, card 여백 | 합침 |
@@ -58,15 +58,14 @@
 ## 끝남
 
 - `npm run check` 통과.
-- 위험 test: 옛 v7 layout을 올려도 tab을 잃거나 둘로 만들지 않는다(`place-layout_test.ts`). desk model의 모든 동작(열기, 닫기, split·group, float, dock, desk 옮기기·지우기·합치기)이 tab을 잃거나 둘로 만들지 않는다(`desk-model_test.ts`).
-- 사람의 `~/.lophn/shell/layouts/*.json`은 읽기만 하고 고치지 않는다.
+- 위험 test: desk model의 모든 동작(열기, 닫기, split·group, float, dock, desk 옮기기·지우기·합치기)이 tab을 잃거나 둘로 만들지 않는다(`desk-model_test.ts`).
 - 사람의 Electron 확인은 아직이다. 아래 "남은 것"의 첫 항목을 끝내야 main에 올린다.
 
 ## 남은 것
 
 실제 Electron 조작(`npm run dev:mock`)은 자동 test와 gallery로만 봤고 사람이 아직 직접 하지 않았다. 올리기 전에 볼 것:
 
-- layout 저장·복원, 그리고 사람의 실제 data **복사본**에서 v7 layout 올리기(tab이 그대로인지, `layouts/`가 안 바뀌는지).
+- layout 저장·복원.
 - detached 창: Detach, Dock, ×, desk를 바꿀 때 숨기기·다시 열기, 같은 실행의 terminal 다시 붙기.
 - webview(앱·artifact·browser)의 아래 모서리 radius와 잘림, group 안의 안쪽 모서리.
 - 탭을 끌 때 `<webview>` 위를 지나도 놓을 자리가 보이는지(pointer 통과), Esc 취소.

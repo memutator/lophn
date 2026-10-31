@@ -1,5 +1,5 @@
 // <home>/shell/places/<place>.json은 main만 쓴다(원자 교체와 mode는 atomic-file.ts). place는 `home`이거나
-// project id, app id다. 파일이 없는 project는 옛 layouts/<prj_id>.json을 읽어 올려 돌려주고, 그 파일은 고치지 않는다.
+// project id, app id다. 파일이 없으면 null(기본 layout)이다. 옛 layouts/<prj_id>.json은 읽지 않는다.
 import { join } from "node:path";
 
 import {
@@ -9,12 +9,10 @@ import {
   type StoreResult,
   writeFileAtomic,
 } from "./atomic-file.ts";
-import { createLayoutStore } from "./layout-store.ts";
 import {
   isPlaceKey,
   parsePlaceLayoutFile,
   type PlaceLayoutResult,
-  upgradeFromV7,
   validatePlaceLayout,
 } from "./place-layout.ts";
 
@@ -26,8 +24,6 @@ const INVALID_PLACE = {
   ok: false,
   error: { code: "invalid_input", message: "invalid place key" },
 } as const;
-
-const PROJECT_ID = /^prj_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 export interface PlaceLayoutStore {
   /** 그 place의 layout. 어디에도 없으면 null이고 손상·미지원 판은 안전한 오류 값이다. */
@@ -41,7 +37,6 @@ export function createPlaceLayoutStore(
   deps: Partial<StoreDeps> = {},
 ): PlaceLayoutStore {
   const impl: StoreDeps = { ...defaultStoreDeps, ...deps };
-  const legacy = createLayoutStore(dataRoot, impl);
   const fileOf = (place: string) =>
     join(dataRoot, "shell", "places", `${place}.json`);
 
@@ -62,21 +57,13 @@ export function createPlaceLayoutStore(
           };
         }
       }
-      if (raw !== null) {
-        try {
-          const parsed: unknown = JSON.parse(new TextDecoder().decode(raw));
-          return { ok: true, value: parsePlaceLayoutFile(parsed) };
-        } catch {
-          return { ok: true, value: { ok: false, reason: "corrupt" } };
-        }
+      if (raw === null) return { ok: true, value: null };
+      try {
+        const parsed: unknown = JSON.parse(new TextDecoder().decode(raw));
+        return { ok: true, value: parsePlaceLayoutFile(parsed) };
+      } catch {
+        return { ok: true, value: { ok: false, reason: "corrupt" } };
       }
-      if (!PROJECT_ID.test(place)) return { ok: true, value: null };
-      const old = await legacy.read(place);
-      if (!old.ok) return old;
-      if (old.value === null) return { ok: true, value: null };
-      if (!old.value.ok) return { ok: true, value: old.value };
-      if (old.value.layout.project !== place) return { ok: true, value: null };
-      return { ok: true, value: upgradeFromV7(old.value.layout) };
     },
     async write(place, layout) {
       if (!isPlaceKey(place)) return INVALID_PLACE;

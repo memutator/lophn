@@ -16,7 +16,7 @@ import {
   type IpcEvent,
 } from "../ipc-guard.ts";
 import type { PlaceLayoutStore } from "../../workspace/place-layout-store.ts";
-import type { WindowBounds } from "../../workspace/layout.ts";
+import type { WindowBounds } from "../../workspace/schema.ts";
 
 const placeReadInput = z.strictObject({ place: z.string() });
 

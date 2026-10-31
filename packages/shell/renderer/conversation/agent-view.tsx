@@ -14,7 +14,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { composeAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
-import { retryIcon } from "../icons/mod.ts";
+import { actionIcons } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
 import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
 import {
@@ -516,7 +516,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           <div className={styles.failed} data-load-failed="">
             <p>{t("conversation.error.load-failed")}</p>
             <IconButton
-              icon={retryIcon}
+              icon={actionIcons.retry}
               label={t("common.button.retry")}
               variant="secondary"
               size="sm"

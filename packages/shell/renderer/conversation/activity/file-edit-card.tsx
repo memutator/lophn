@@ -5,7 +5,7 @@ import { Card } from "@lophn/ui/layout";
 import { type DiffLine, DiffView } from "@lophn/ui/reading";
 import { t } from "@lophn/i18n";
 
-import { conversationIcons } from "../../icons/mod.ts";
+import { actionIcons, conversationIcons } from "../../icons/mod.ts";
 import { compareLines } from "../../editor/conflict/compare.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import styles from "./activity.module.css";
@@ -97,7 +97,7 @@ export function EditCard({
           <span className={styles.added}>+{added}</span>{" "}
           <span className={styles.removed}>−{removed}</span>
         </span>
-        <Button size="sm" onClick={onOpen}>
+        <Button size="sm" trailingIcon={actionIcons.open} onClick={onOpen}>
           {t("conversation.button.edit-open")}
         </Button>
       </div>

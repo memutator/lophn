@@ -29,6 +29,11 @@ export const vars = {
     link: "var(--color-link)",
     focus: "var(--color-focus)",
     selection: "var(--color-selection)",
+    danger: {
+      background: "var(--color-danger-background)",
+      text: "var(--color-danger-text)",
+      hover: "var(--color-danger-hover)",
+    },
   },
   status: {
     good: {

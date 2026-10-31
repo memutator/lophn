@@ -14,7 +14,7 @@ import {
   type EffortValue,
   MODEL_MEDIA,
 } from "../../../../protocol/lophn-agent/resolved-model.ts";
-import { modelIcons } from "../../icons/mod.ts";
+import { actionIcons, modelIcons } from "../../icons/mod.ts";
 import styles from "./model-info-form.module.css";
 import type { ModelMedia } from "./types.ts";
 
@@ -306,6 +306,7 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
           {editing ? (
             <Button
               variant="danger"
+              icon={actionIcons.remove}
               disabled={busy}
               onClick={() => void finish("remove-failed", props.onRemove)}
             >
@@ -315,7 +316,12 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
           <Button variant="secondary" onClick={props.onClose}>
             {t("common.button.cancel")}
           </Button>
-          <Button variant="primary" disabled={busy} onClick={save}>
+          <Button
+            variant="primary"
+            icon={actionIcons.save}
+            disabled={busy}
+            onClick={save}
+          >
             {t("conversation.button.save")}
           </Button>
         </>

@@ -6,6 +6,7 @@ import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog, Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../icons/mod.ts";
 
 import { useJobChanges } from "../../connection/events/hooks.tsx";
 import { useReload } from "../use-reload.ts";
@@ -163,6 +164,7 @@ export function JobsPanel({
             </Button>
             <Button
               variant="danger"
+              icon={actionIcons.delete}
               data-job-delete-confirm=""
               onClick={() => {
                 const job = deleting!.id;

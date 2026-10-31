@@ -10,7 +10,7 @@ import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
-import { commonIcons } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import { ServerForm } from "../../../workspace/agents/editor/server-form.tsx";
 import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
 import type {
@@ -156,7 +156,7 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
               </h2>
               <Button
                 size="sm"
-                icon={commonIcons.add}
+                icon={actionIcons.add}
                 data-action="add-skill"
                 onClick={() => void act(() => source.addSkill())}
               >
@@ -188,7 +188,7 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
               </h2>
               <Button
                 size="sm"
-                icon={commonIcons.add}
+                icon={actionIcons.add}
                 data-action="add-server"
                 disabled={adding}
                 onClick={() => setAdding(true)}

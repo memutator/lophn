@@ -6,12 +6,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
 import { FLOW_STEP_BY } from "../../../protocol/workflows/values.ts";
-import {
-  browserIcons,
-  commonIcons,
-  conversationIcons,
-  editorIcons,
-} from "../icons/mod.ts";
+import { actionIcons, commonIcons, editorIcons } from "../icons/mod.ts";
 import type {
   WorkflowInstanceDetailView,
   WorkflowInstanceView,
@@ -194,7 +189,7 @@ export function InstanceView({
           {hasArtifact ? (
             <Button
               size="sm"
-              icon={browserIcons.openExternal}
+              trailingIcon={actionIcons.open}
               onClick={onOpenArtifact}
             >
               {t("workflow.button.open-instance-artifact")}
@@ -203,7 +198,8 @@ export function InstanceView({
           {instance.state === "running" ? (
             <Button
               size="sm"
-              icon={conversationIcons.stop}
+              variant="danger"
+              icon={actionIcons.stop}
               onClick={onStop}
               data-stop=""
             >
@@ -233,7 +229,7 @@ export function InstanceView({
           {onOpenConversation === null ? null : (
             <Button
               size="sm"
-              icon={conversationIcons.dock}
+              trailingIcon={actionIcons.open}
               onClick={() => onOpenConversation(turn.receiver)}
             >
               {t("workflow.button.open-conversation")}

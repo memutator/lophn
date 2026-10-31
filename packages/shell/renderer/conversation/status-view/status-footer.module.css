@@ -65,7 +65,7 @@
   display: block;
   height: 100%;
   border-radius: var(--radius-full);
-  background: var(--color-text-secondary);
+  background: var(--color-ink-background);
 }
 
 .footer[data-level="warning"] .fill {

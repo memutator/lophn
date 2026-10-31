@@ -5,6 +5,7 @@ import type { IconProps } from "@lophn/ui/primitives";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import {
+  actionIcons,
   appSpaceIcons,
   commonIcons,
   connectionFailedIcon,
@@ -14,7 +15,6 @@ import {
   launcherEmptyIcon,
   launcherIcons,
   paletteIcons,
-  retryIcon,
   settingsEntryIcon,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
@@ -522,6 +522,7 @@ const ICON_SETS: readonly { title: string; file: string; icons: IconSet }[] = [
     file: "common-icons.ts",
     icons: commonIcons,
   },
+  { title: "actionIcons", file: "action-icons.ts", icons: actionIcons },
   { title: "appSpaceIcons", file: "app-space-icons.ts", icons: appSpaceIcons },
   { title: "paletteIcons", file: "palette-icons.ts", icons: paletteIcons },
   {
@@ -534,7 +535,6 @@ const ICON_SETS: readonly { title: string; file: string; icons: IconSet }[] = [
     file: "chrome-icons.ts",
     icons: {
       settingsEntryIcon,
-      retryIcon,
       connectionFailedIcon,
       connectionStaleIcon,
       launcherEmptyIcon,

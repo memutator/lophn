@@ -1,7 +1,14 @@
 // Kit · overlay. @lophn/ui/overlay의 모든 component를 실제로 그린다. 닫혀 있다가 열리는 modal(Menu·Dialog·Palette)은
 // 열면 page 전체가 inert가 되어 Light·Dark 단추까지 막히므로 단추로 연다. 열린 면은 Stage 상자 안에 그린다.
 import { type ReactNode, useState } from "react";
-import { FileText, Minimize2, PanelTop, X } from "lucide-react";
+import {
+  FileText,
+  Minimize2,
+  PanelTop,
+  RotateCcw,
+  RotateCw,
+  X,
+} from "lucide-react";
 import { t } from "@lophn/i18n";
 import { Button, FileIcon, Icon, IconButton } from "@lophn/ui/primitives";
 import {
@@ -428,7 +435,12 @@ export function KitOverlay() {
             actions={[
               { id: "later", label: "Later" },
               { id: "notes", label: "Release notes" },
-              { id: "restart", label: "Restart", variant: "primary" },
+              {
+                id: "restart",
+                label: "Restart",
+                icon: RotateCw,
+                variant: "primary",
+              },
             ]}
             {...stop}
           />
@@ -438,7 +450,7 @@ export function KitOverlay() {
             title="Couldn't save the document"
             body="The folder isn't reachable."
             tone="error"
-            actions={[{ id: "retry", label: "Try again" }]}
+            actions={[{ id: "retry", label: "Try again", icon: RotateCcw }]}
             {...stop}
           />
         </Row>

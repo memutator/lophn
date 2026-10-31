@@ -7,7 +7,7 @@ import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { type MessageKey, t } from "@lophn/i18n";
 
-import { conversationIcons } from "../../icons/mod.ts";
+import { actionIcons, conversationIcons } from "../../icons/mod.ts";
 import type {
   AgentTabSource,
   CallFailReason,
@@ -82,6 +82,7 @@ export function CallBlock({
             <Button
               size="sm"
               variant="ghost"
+              icon={actionIcons.stop}
               disabled={cancelling}
               onClick={() => void cancel()}
             >

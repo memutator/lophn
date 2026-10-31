@@ -66,8 +66,7 @@
   border-color: var(--color-border-base);
 }
 
-.secondary:hover:not(:disabled),
-.danger:hover:not(:disabled) {
+.secondary:hover:not(:disabled) {
   background: var(--color-surface-subtle);
   border-color: var(--color-border-strong);
 }
@@ -82,9 +81,27 @@
 }
 
 .danger {
-  background: var(--color-surface-base);
-  border-color: var(--color-border-base);
-  color: var(--status-critical-text);
+  background: var(--color-danger-background);
+  color: var(--color-danger-text);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+}
+
+.danger:disabled {
+  background: var(--color-surface-muted);
+}
+
+/* 켠 토글(aria-pressed). variant와 상관없이 같은 모양이고 accent를 따른다. */
+.button[aria-pressed="true"] {
+  border-color: var(--color-ink-background);
+  background: var(--color-selection);
+  color: var(--color-text-primary);
+}
+
+.button[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--color-ink-background);
 }
 
 .label {

@@ -8,7 +8,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
 import {
-  browserIcons,
+  actionIcons,
   commonIcons,
   editorIcons,
   launcherIcons,
@@ -221,18 +221,23 @@ function Head({
       </div>
       <span className={styles.actions}>
         {entry.artifacts.static ? (
-          <Button icon={browserIcons.openExternal} onClick={onOpenArtifact}>
+          <Button trailingIcon={actionIcons.open} onClick={onOpenArtifact}>
             {t("workflow.button.open-artifact")}
           </Button>
         ) : null}
         {entry.invalid ? null : entry.startable ? (
-          <Button variant="primary" onClick={onStart} data-start="">
+          <Button
+            variant="primary"
+            icon={actionIcons.run}
+            onClick={onStart}
+            data-start=""
+          >
             {t("workflow.button.start")}
           </Button>
         ) : (
           <Tooltip content={entry.problem?.message ?? ""}>
             <span className={styles.tipTarget} tabIndex={0} data-start-tip="">
-              <Button variant="primary" disabled>
+              <Button variant="primary" icon={actionIcons.run} disabled>
                 {t("workflow.button.start")}
               </Button>
             </span>

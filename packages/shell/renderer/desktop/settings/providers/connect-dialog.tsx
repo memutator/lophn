@@ -3,6 +3,7 @@ import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../icons/mod.ts";
 
 import { ProtectedKeyNote } from "../../../workspace/agents/editor/parts.tsx";
 import { waysOf } from "../model.ts";
@@ -421,6 +422,7 @@ function CustomDialog({ source, onClose, onConnected }: Props): ReactNode {
           <Button onClick={onClose}>{t("settings.button.cancel")}</Button>
           <Button
             variant="primary"
+            icon={actionIcons.connect}
             disabled={!valid || busy}
             onClick={() => void connect()}
           >

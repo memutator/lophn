@@ -14,7 +14,7 @@ import type {
 import { slimDetachedTab } from "../../../ipc/detached.ts";
 import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { TopBar } from "../../desktop/top-bar/top-bar.tsx";
-import { workspaceIcons } from "../../icons/mod.ts";
+import { actionIcons, workspaceIcons } from "../../icons/mod.ts";
 import { ViewKeepsProvider } from "../../app-frame/embedded-view.tsx";
 import { DetachedWindowProvider } from "../../browser/detached-window.ts";
 import {
@@ -98,7 +98,10 @@ export function DetachedSpace(props: DetachedSpaceProps): ReactElement {
         >
           <div className={styles.failed} data-detached-failed>
             <p>{t("project-workspace.error.load-failed")}</p>
-            <Button onClick={() => setAttempt((count) => count + 1)}>
+            <Button
+              icon={actionIcons.refresh}
+              onClick={() => setAttempt((count) => count + 1)}
+            >
               {t("common.button.reload")}
             </Button>
           </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../../icons/mod.ts";
 import type { CoreSource } from "../../connection.ts";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
 import { decideJobHold } from "../decide.ts";
@@ -65,6 +66,7 @@ export function JobHoldCard({
         <Button
           size="sm"
           variant="primary"
+          icon={actionIcons.run}
           disabled={busy}
           data-start-now=""
           onClick={() => decide("run_now")}

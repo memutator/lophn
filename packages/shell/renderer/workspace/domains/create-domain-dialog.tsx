@@ -9,6 +9,7 @@ import { t } from "@lophn/i18n";
 import { domainNameSchema } from "../../../../protocol/domains/values.ts";
 import type { DomainDraft, DomainOpResult } from "../source.ts";
 import styles from "./create-domain-dialog.module.css";
+import { actionIcons } from "../../icons/mod.ts";
 
 export function CreateDomainDialog({
   onCreate,
@@ -54,6 +55,7 @@ export function CreateDomainDialog({
           <Button onClick={onClose}>{t("common.button.cancel")}</Button>
           <Button
             variant="primary"
+            icon={actionIcons.create}
             disabled={!ready}
             onClick={() => void submit()}
           >

@@ -5,6 +5,7 @@ import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
+import { actionIcons, commonIcons } from "../../../icons/mod.ts";
 
 import { AgentEditor } from "../../../workspace/agents/editor/agent-editor.tsx";
 import { InstructionsEditor } from "../../../workspace/agents/editor/instructions-editor.tsx";
@@ -101,7 +102,12 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
     return (
       <div className={styles.page} data-agents-screen="lophn">
         <div className={styles.backRow}>
-          <Button size="sm" variant="ghost" onClick={back}>
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={commonIcons.back}
+            onClick={back}
+          >
             {t("agents.button.settings-back")}
           </Button>
         </div>
@@ -210,6 +216,7 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
               </ul>
               <div className={styles.actions}>
                 <Button
+                  trailingIcon={actionIcons.open}
                   data-action="open-lophn"
                   onClick={() => setScreen("lophn")}
                 >

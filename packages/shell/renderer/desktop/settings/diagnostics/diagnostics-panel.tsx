@@ -5,7 +5,7 @@ import { Button } from "@lophn/ui/primitives";
 import { Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
-import { retryIcon } from "../../../icons/mod.ts";
+import { actionIcons } from "../../../icons/mod.ts";
 import styles from "../settings.module.css";
 import { clockText, componentName } from "./model.ts";
 import type { DiagnosticsSource, DiagnosticsView } from "./source.ts";
@@ -53,7 +53,7 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
               })}
         </span>
         <Button
-          icon={retryIcon}
+          icon={actionIcons.run}
           data-action="check"
           disabled={loaded.state === "checking"}
           onClick={() => void check()}

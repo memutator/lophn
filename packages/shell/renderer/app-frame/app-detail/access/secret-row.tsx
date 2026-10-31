@@ -12,6 +12,7 @@ import { Mono, Pill } from "../parts.tsx";
 import type { SecretInfo } from "../source.ts";
 import appDetail from "../app-detail.module.css";
 import styles from "./secret-row.module.css";
+import { actionIcons } from "../../../icons/mod.ts";
 
 type OAuth = NonNullable<SecretInfo["oauth"]>;
 
@@ -115,6 +116,7 @@ function ClientId({
             )}
             <Button
               size="sm"
+              icon={actionIcons.save}
               disabled={text.trim() === ""}
               onClick={() => {
                 onSave(text.trim());
@@ -142,6 +144,7 @@ function ClientId({
       action={
         <Button
           size="sm"
+          icon={actionIcons.edit}
           onClick={() => {
             setText(value);
             setEditing(true);
@@ -163,7 +166,7 @@ function ClientSecret({ set, onSet }: { set: boolean; onSet: () => void }) {
     <Setting
       label={t("app-detail.label.client-secret")}
       action={
-        <Button size="sm" onClick={onSet}>
+        <Button size="sm" icon={actionIcons.edit} onClick={onSet}>
           {set
             ? t("app-detail.button.change-client-secret")
             : t("app-detail.button.set-client-secret")}
@@ -191,13 +194,18 @@ function SignIn({ oauth, actions }: { oauth: OAuth; actions: SecretActions }) {
     ) : (
       <>
         {canSignOut ? (
-          <Button size="sm" onClick={actions.signOut}>
+          <Button
+            size="sm"
+            icon={actionIcons.disconnect}
+            onClick={actions.signOut}
+          >
             {t("app-detail.button.sign-out")}
           </Button>
         ) : null}
         <Button
           size="sm"
           variant={state === "none" ? "primary" : undefined}
+          icon={actionIcons.connect}
           disabled={state === "none" && clientId === null}
           onClick={actions.signIn}
         >
@@ -255,13 +263,22 @@ export function SecretRow({
           >
             {revoking ? null : (
               <>
-                <Button size="sm" onClick={actions.setValue}>
+                <Button
+                  size="sm"
+                  icon={actionIcons.edit}
+                  onClick={actions.setValue}
+                >
                   {info.configured
                     ? t("app-detail.button.change-value")
                     : t("app-detail.button.set-value")}
                 </Button>
                 {info.configured ? (
-                  <Button size="sm" onClick={actions.removeValue}>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    icon={actionIcons.remove}
+                    onClick={actions.removeValue}
+                  >
                     {t("app-detail.button.remove-value")}
                   </Button>
                 ) : null}

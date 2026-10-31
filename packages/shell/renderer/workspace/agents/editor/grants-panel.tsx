@@ -10,7 +10,7 @@ import type { MessageKey } from "@lophn/i18n";
 
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../../protocol/lophn-agent/tool-values.ts";
-import { commonIcons } from "../../../icons/mod.ts";
+import { actionIcons, commonIcons } from "../../../icons/mod.ts";
 import type { GrantCatalog } from "../source.ts";
 import {
   appEntryOf,
@@ -105,7 +105,12 @@ function TargetCard({
           {name}
           <span className={styles.targetSummary}>{summary}</span>
         </button>
-        <Button size="sm" variant="ghost" onClick={remove.onClick}>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={actionIcons.remove}
+          onClick={remove.onClick}
+        >
           {remove.label}
         </Button>
       </div>
@@ -154,7 +159,7 @@ export function GrantsPanel({
             trigger={
               <Button
                 size="sm"
-                icon={commonIcons.add}
+                icon={actionIcons.add}
                 disabled={catalog.apps.length === apps.length}
               >
                 {t("agents.button.assign-app")}

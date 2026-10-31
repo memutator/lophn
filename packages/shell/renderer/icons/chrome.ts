@@ -8,7 +8,6 @@ import {
   FolderPlus,
   type LucideIcon,
   Minus,
-  RotateCw,
   Settings,
   Square,
   X,
@@ -18,8 +17,6 @@ import {
 export const notificationsIcon: LucideIcon = Bell;
 /** 런처와 작업대 바 오른쪽의 Settings 진입점. */
 export const settingsEntryIcon: LucideIcon = Settings;
-/** 연결 실패·단절에서 다시 시도·다시 연결. */
-export const retryIcon: LucideIcon = RotateCw;
 /** 준비하지 못한 연결. */
 export const connectionFailedIcon: LucideIcon = CircleX;
 /** 최신으로 확인하지 못한 연결. */

@@ -4,6 +4,7 @@ import { type KeyboardEvent, useCallback, useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
+import { actionIcons } from "../../../icons/mod.ts";
 
 import type { Bookmark } from "../../../../ipc/browser.ts";
 import { Favicon } from "../../../browser/favicon.tsx";
@@ -150,15 +151,16 @@ function BookmarkLine({ bookmark, source, onChanged }: BookmarkLineProps) {
         </div>
         <div className={styles.lineControl}>
           <div className={styles.actions}>
+            <Button onClick={() => setEditing(false)}>
+              {t("settings.button.cancel")}
+            </Button>
             <Button
               variant="primary"
+              icon={actionIcons.save}
               data-bookmark-save=""
               onClick={() => void save()}
             >
               {t("settings.button.bookmark-save")}
-            </Button>
-            <Button onClick={() => setEditing(false)}>
-              {t("settings.button.cancel")}
             </Button>
           </div>
         </div>
@@ -183,10 +185,15 @@ function BookmarkLine({ bookmark, source, onChanged }: BookmarkLineProps) {
       </div>
       <div className={styles.lineControl}>
         <div className={styles.actions}>
-          <Button data-bookmark-edit="" onClick={edit}>
+          <Button icon={actionIcons.edit} data-bookmark-edit="" onClick={edit}>
             {t("settings.button.bookmark-edit")}
           </Button>
-          <Button data-bookmark-remove="" onClick={() => void remove()}>
+          <Button
+            variant="secondary"
+            icon={actionIcons.delete}
+            data-bookmark-remove=""
+            onClick={() => void remove()}
+          >
             {t("settings.button.bookmark-remove")}
           </Button>
         </div>

@@ -12,7 +12,7 @@
 }
 
 .dot[data-state="working"] {
-  background: var(--color-focus);
+  background: var(--color-ink-background);
   animation: breathe var(--motion-pulse) ease-in-out infinite;
 }
 

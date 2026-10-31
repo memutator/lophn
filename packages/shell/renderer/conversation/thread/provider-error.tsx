@@ -2,6 +2,7 @@
 // turn이 끝난 이유(code)는 사람의 말로 옮긴다. 원시 이유("configuration unavailable")는 무엇을 하라는지 말하지 못한다.
 import { type ReactElement, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
+import { actionIcons } from "../../icons/mod.ts";
 import { StatusMark } from "@lophn/ui/feedback";
 import { type MessageKey, t } from "@lophn/i18n";
 
@@ -69,6 +70,7 @@ export function ProviderError({
       </div>
       <Button
         size="sm"
+        icon={actionIcons.retry}
         disabled={state === "sending"}
         onClick={() => void retry()}
       >

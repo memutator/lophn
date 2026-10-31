@@ -4,7 +4,7 @@ import { Field, Input, Textarea } from "@lophn/ui/input";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
-import { commonIcons, retryIcon } from "../../../icons/mod.ts";
+import { actionIcons, launcherIcons } from "../../../icons/mod.ts";
 
 import {
   addFolder,
@@ -93,7 +93,7 @@ function ProjectForm({
           <span>{t("projects.error.changed")}</span>
           <Tooltip content={t("projects.button.show-latest")}>
             <IconButton
-              icon={retryIcon}
+              icon={actionIcons.refresh}
               label={t("projects.button.show-latest")}
               size="sm"
               data-show-latest=""
@@ -143,7 +143,7 @@ function ProjectForm({
             </h2>
             <Button
               size="sm"
-              icon={commonIcons.add}
+              icon={actionIcons.add}
               data-add-folder=""
               onClick={() => void pickFolder()}
             >
@@ -174,7 +174,7 @@ function ProjectForm({
                         />
                         <Button
                           size="sm"
-                          variant="primary"
+                          icon={launcherIcons.chooseFolder}
                           data-relocate=""
                           onClick={() => void relocate(folder.path)}
                         >
@@ -185,6 +185,7 @@ function ProjectForm({
                     <Button
                       size="sm"
                       variant="ghost"
+                      icon={actionIcons.remove}
                       data-remove-folder=""
                       onClick={() => setDraft(removeFolder(draft, folder.path))}
                     >
@@ -221,6 +222,7 @@ function ProjectForm({
           <Button
             type="submit"
             variant="primary"
+            icon={actionIcons.save}
             data-project-save=""
             disabled={busy || change === null}
           >

@@ -8,6 +8,7 @@ import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import styles from "./view-chrome.module.css";
+import { actionIcons } from "../icons/mod.ts";
 
 type Connection = AppFrameViewState["connectionState"];
 type Health = NonNullable<AppFrameViewState["viewHealth"]>;
@@ -86,6 +87,7 @@ export function ViewChrome({
           <Button
             size="sm"
             variant="secondary"
+            icon={actionIcons.retry}
             data-reopen-view={viewSession ?? ""}
             disabled={viewSession === null || onReopen === undefined}
             onClick={() => {

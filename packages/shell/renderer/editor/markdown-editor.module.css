@@ -159,7 +159,7 @@
   height: var(--editor-check);
   margin: var(--space-0) var(--space-4) var(--space-0) var(--space-0);
   vertical-align: middle;
-  accent-color: var(--color-text-secondary);
+  accent-color: var(--color-ink-background);
   cursor: pointer;
 }
 

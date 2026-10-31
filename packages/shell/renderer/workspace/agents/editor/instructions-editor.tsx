@@ -8,6 +8,7 @@ import { MarkdownEditor } from "../../../editor/markdown-editor.tsx";
 import type { ReadResult } from "../source.ts";
 import type { InstructionsFile } from "../views.ts";
 import styles from "./agent-editor.module.css";
+import { actionIcons } from "../../../icons/mod.ts";
 
 /** 지침 파일 하나를 다시 읽고 쓰는 길. */
 export interface InstructionsPort {
@@ -57,6 +58,7 @@ export function InstructionsEditor(
           <span>{props.head}</span>
           <Button
             size="sm"
+            icon={actionIcons.edit}
             data-action="edit-instructions"
             onClick={() => setDraft(file.text)}
           >
@@ -125,6 +127,7 @@ export function InstructionsEditor(
       <div className={styles.formActions}>
         {failure === "conflict" ? (
           <Button
+            icon={actionIcons.refresh}
             data-action="reload-instructions"
             disabled={busy}
             onClick={() => void reload()}
@@ -137,6 +140,7 @@ export function InstructionsEditor(
         </Button>
         <Button
           variant="primary"
+          icon={actionIcons.save}
           data-action="save-instructions"
           disabled={busy || draft === file.text}
           onClick={() => void save()}

@@ -71,6 +71,7 @@ export function ProjectCard({
           />
           <Button
             size="sm"
+            icon={launcherIcons.chooseFolder}
             data-relocate=""
             onClick={() => onRelocate(card, missing.path)}
           >

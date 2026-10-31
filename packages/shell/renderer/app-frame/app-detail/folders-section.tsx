@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
-import { commonIcons } from "../../icons/mod.ts";
+import { actionIcons } from "../../icons/mod.ts";
 import type { AppDetailSource } from "./source.ts";
 import styles from "./domains-section.module.css";
 
@@ -50,7 +50,7 @@ export function FoldersSection({
     >
       <div className={styles.head}>
         <h4 className={styles.label}>{t("app-detail.heading.folders")}</h4>
-        <Button size="sm" icon={commonIcons.add} onClick={() => void add()}>
+        <Button size="sm" icon={actionIcons.add} onClick={() => void add()}>
           {t("app-detail.button.add-folder")}
         </Button>
       </div>
@@ -68,7 +68,11 @@ export function FoldersSection({
                 <span className={styles.name}>{path}</span>
               </span>
               <span className={styles.action}>
-                <Button size="sm" onClick={() => void remove(path)}>
+                <Button
+                  size="sm"
+                  icon={actionIcons.remove}
+                  onClick={() => void remove(path)}
+                >
                   {t("app-detail.button.remove-folder")}
                 </Button>
               </span>

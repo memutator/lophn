@@ -1,4 +1,5 @@
 import type { FocusEvent, ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { CircleX, X } from "lucide-react";
 import { t } from "@lophn/i18n";
 import { tokens } from "../../../tokens.ts";
@@ -24,6 +25,7 @@ export type ToastDuration = "default" | "brief";
 export interface ToastAction {
   id: string;
   label: string;
+  icon?: LucideIcon;
   // 마지막 단추를 주된 행동으로 보일 때.
   variant?: "primary";
 }
@@ -120,6 +122,7 @@ export function Toast({
               key={action.id}
               size="sm"
               variant={action.variant}
+              icon={action.icon}
               onClick={() => onAction?.(action.id)}
             >
               {action.label}

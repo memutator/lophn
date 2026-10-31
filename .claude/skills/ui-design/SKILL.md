@@ -20,6 +20,9 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 - 고른 탭과 탭 본문은 배경이 같다. 본문 안에 배경색이 다른 넓은 영역을 두지 않는다(image, pdf, terminal 바탕도 같다).
 - 탭 안 알림은 그 탭 위쪽 toast(design `Toast`)로 띄운다. 색 다른 띠나 상자를 쓰지 않는다. toast를 새로 만들지 않는다.
 - 글 넣는 칸(input, textarea, select)은 focus 때 바깥 outline 없이 테두리 색만 `--color-focus`로 바뀐다.
+- 색은 역할로 쓴다. 주 행동·고른 것·켜진 것의 표시는 `--color-ink-background`, `--color-focus`는 focus ring·입력칸 focus 테두리·drop 자리에만, `--color-text-*`는 글자에만 쓴다(`project-docs/architecture/appearance.md`).
+- 글자 단추에는 앞에 행동 아이콘을 붙인다(renderer `icons/action.ts`의 `actionIcons`, 같은 동사는 같은 아이콘). Cancel·Close 같은 닫기 단추만 글자뿐이다. 묶음에서 주 단추(primary·danger)가 오른쪽 끝이다.
+- `danger`(채운 빨강)는 되돌릴 수 없는 일을 실제로 하는 단추에만 쓴다. 거절·건너뛰기처럼 부정이지만 파괴가 아닌 선택은 `secondary`다.
 - harness와 provider 이름 옆에는 vendor 아이콘(`@lobehub/icons-static-svg`), 파일과 폴더에는 종류 아이콘(`@iconify-json/catppuccin`, light는 Latte, dark는 Macchiato), menu 항목에는 아이콘을 붙인다.
 
 ## 어디를 고치나

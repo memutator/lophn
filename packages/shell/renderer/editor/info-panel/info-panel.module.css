@@ -63,6 +63,6 @@
 }
 
 .current {
-  border-left: var(--border-focus-width) solid var(--color-focus);
+  border-left: var(--border-focus-width) solid var(--color-ink-background);
   font-weight: var(--font-weight-medium);
 }

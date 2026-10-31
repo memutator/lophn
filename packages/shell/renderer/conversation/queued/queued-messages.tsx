@@ -12,7 +12,11 @@ import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
-import { conversationIcons, workspaceIcons } from "../../icons/mod.ts";
+import {
+  actionIcons,
+  conversationIcons,
+  workspaceIcons,
+} from "../../icons/mod.ts";
 import type { QueuedView } from "../agent-tab-source.ts";
 import styles from "./queued-messages.module.css";
 
@@ -139,16 +143,17 @@ export function QueuedMessages({
             )}
             {editingThis ? (
               <>
+                <Button size="sm" variant="ghost" onClick={stop}>
+                  {t("common.button.cancel")}
+                </Button>
                 <Button
                   size="sm"
                   variant="primary"
+                  icon={actionIcons.save}
                   disabled={text.trim() === ""}
                   onClick={() => save(item.id)}
                 >
                   {t("conversation.button.save")}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={stop}>
-                  {t("common.button.cancel")}
                 </Button>
               </>
             ) : (
@@ -169,6 +174,7 @@ export function QueuedMessages({
                 />
                 <Button
                   size="sm"
+                  icon={actionIcons.send}
                   disabled={disabled}
                   data-send-now=""
                   onClick={() => onSendNow(item.id)}

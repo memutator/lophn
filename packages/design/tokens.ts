@@ -26,12 +26,19 @@ export const tokens = {
       background: { light: "#1a1a18", dark: "#f3f3f0" },
       text: { light: "#ffffff", dark: "#161615" },
       hover: { light: "#32322f", dark: "#d9d8d2" },
-      // accent를 옅게 깐 바탕(내 말 bubble). 글자는 text.primary다. focus를 base에 light 16%·dark 34% 섞었다.
-      soft: { light: "#dde9f8", dark: "#223c5c" },
+      // accent를 옅게 깐 바탕(내 말 bubble, 찾기의 현재 match). 글자는 text.primary다. selection보다 한 단계 짙다.
+      soft: { light: "#dcdbd4", dark: "#3a3a36" },
     },
+    // 기본 accent(ink)는 무채색이다. focus·selection도 회색이라 단추·고른 표시·focus가 한 색 계열로 보인다.
     link: { light: "#1f66c1", dark: "#6da7ec" },
-    focus: { light: "#2a78d6", dark: "#3987e5" },
-    selection: { light: "#e7f0fb", dark: "#16263b" },
+    focus: { light: "#6b6a65", dark: "#96958d" },
+    selection: { light: "#ebeae6", dark: "#2a2a28" },
+    // 되돌릴 수 없는 행동(지우기, 연결 끊기, 되돌리기)의 채운 단추. 흰 글자와 4.5:1 이상이다.
+    danger: {
+      background: { light: "#c42f2f", dark: "#c42f2f" },
+      text: { light: "#ffffff", dark: "#ffffff" },
+      hover: { light: "#a82626", dark: "#a82626" },
+    },
   },
   status: {
     good: {

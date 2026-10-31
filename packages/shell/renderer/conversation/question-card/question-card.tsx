@@ -11,7 +11,7 @@ import {
 import { Button, Icon, Kbd } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
-import { commonIcons } from "../../icons/mod.ts";
+import { actionIcons, commonIcons } from "../../icons/mod.ts";
 import type {
   AnsweredLine,
   AskedQuestion,
@@ -216,6 +216,7 @@ export function QuestionCard({
           <Button
             size="sm"
             variant="primary"
+            icon={actionIcons.send}
             disabled={busy || answers === null}
             onClick={submit}
           >
@@ -225,6 +226,7 @@ export function QuestionCard({
           <Button
             size="sm"
             variant="primary"
+            trailingIcon={commonIcons.expand}
             disabled={answerOf(question, pick) === null}
             onClick={() => setIndex(index + 1)}
           >

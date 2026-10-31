@@ -15,6 +15,7 @@ import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { Popover } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import {
+  actionIcons,
   commonIcons,
   editorIcons,
   launcherIcons,
@@ -301,16 +302,17 @@ function Switcher(
               }
             }}
           />
+          <Button size="sm" onClick={() => setEditing(null)}>
+            {t("common.button.cancel")}
+          </Button>
           <Button
             size="sm"
             variant="primary"
+            icon={actionIcons.save}
             disabled={draft.trim() === ""}
             onClick={() => save(entry)}
           >
             {t("conversation.button.save")}
-          </Button>
-          <Button size="sm" onClick={() => setEditing(null)}>
-            {t("common.button.cancel")}
           </Button>
         </div>
       );
@@ -327,9 +329,13 @@ function Switcher(
             {t("conversation.body.delete-session", { title })}
           </p>
           <div className={styles.confirmActions}>
+            <Button size="sm" onClick={() => setDeleting(null)}>
+              {t("common.button.cancel")}
+            </Button>
             <Button
               size="sm"
               variant="danger"
+              icon={actionIcons.delete}
               autoFocus
               onClick={() => {
                 props.onDelete(entry.id);
@@ -337,9 +343,6 @@ function Switcher(
               }}
             >
               {t("conversation.button.delete")}
-            </Button>
-            <Button size="sm" onClick={() => setDeleting(null)}>
-              {t("common.button.cancel")}
             </Button>
           </div>
         </div>
@@ -520,7 +523,7 @@ function Switcher(
             ))}
           </ul>
         )}
-        <Button size="sm" icon={commonIcons.add} onClick={props.onNew}>
+        <Button size="sm" icon={actionIcons.create} onClick={props.onNew}>
           {t("conversation.button.session-new")}
         </Button>
       </div>

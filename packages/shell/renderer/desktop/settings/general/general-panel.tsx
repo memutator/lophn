@@ -9,7 +9,7 @@ import { Toast } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
-import { connectionFailedIcon, launcherIcons } from "../../../icons/mod.ts";
+import { actionIcons, connectionFailedIcon } from "../../../icons/mod.ts";
 import type { SettingsPane } from "../model.ts";
 import type { SettingChange, SettingEntry, SettingsSource } from "../source.ts";
 import { useReload } from "../use-reload.ts";
@@ -244,7 +244,12 @@ function ResetButton({
   if (!entry.hasChosen) return null;
   return (
     <div className={styles.endSlot}>
-      <Button size="sm" variant="ghost" onClick={() => void reset()}>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={actionIcons.reset}
+        onClick={() => void reset()}
+      >
         {t("settings.button.reset-default")}
       </Button>
     </div>
@@ -358,7 +363,7 @@ function Tokens({
         <li key={item} className={styles.token}>
           {item}
           <IconButton
-            icon={launcherIcons.remove}
+            icon={actionIcons.remove}
             label={t("settings.button.remove-entry", { item })}
             size="sm"
             onClick={() => void change(items.filter((one) => one !== item))}
@@ -396,7 +401,7 @@ function AddEntry({
         />
       </Field>
       <div className={styles.endSlot}>
-        <Button size="sm" icon={launcherIcons.addRule} onClick={add}>
+        <Button size="sm" icon={actionIcons.add} onClick={add}>
           {t("settings.button.add-entry")}
         </Button>
       </div>

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { List, ListItem } from "@lophn/ui/data";
 import { EmptyState, ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { workspaceIcons } from "../icons/mod.ts";
+import { actionIcons, workspaceIcons } from "../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
@@ -97,7 +97,11 @@ export function AppPanelPicker({
                     {t("app-panel.notice.app-space-only", { app: app.name })}
                   </span>
                   {onOpenAppSpace === undefined ? null : (
-                    <Button size="sm" onClick={() => onOpenAppSpace(app.app)}>
+                    <Button
+                      size="sm"
+                      trailingIcon={actionIcons.open}
+                      onClick={() => onOpenAppSpace(app.app)}
+                    >
                       {t("app-panel.button.open-app-space")}
                     </Button>
                   )}
@@ -173,7 +177,11 @@ export function AppPanelTab({
     <div className={styles.notice} data-app-panel-notice="">
       <p className={styles.note}>{message}</p>
       {space && onOpenAppSpace !== undefined ? (
-        <Button size="sm" onClick={() => onOpenAppSpace(app)}>
+        <Button
+          size="sm"
+          trailingIcon={actionIcons.open}
+          onClick={() => onOpenAppSpace(app)}
+        >
           {t("app-panel.button.open-app-space")}
         </Button>
       ) : null}

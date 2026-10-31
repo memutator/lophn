@@ -11,7 +11,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
 import type { UserModelInfo } from "../../../../protocol/lophn-agent/models.ts";
-import { commonIcons, modelIcons } from "../../icons/mod.ts";
+import { actionIcons, commonIcons, modelIcons } from "../../icons/mod.ts";
 import { ModelInfoForm, type ModelInfoOutcome } from "./model-info-form.tsx";
 import { ProviderHeading } from "./model-picker.tsx";
 import styles from "./manage-models.module.css";
@@ -170,6 +170,7 @@ function ProviderGroup({
         <Button
           size="sm"
           variant="ghost"
+          icon={actionIcons.edit}
           data-edit-model=""
           onClick={() =>
             onForm({
@@ -203,6 +204,7 @@ function ProviderGroup({
           <Button
             size="sm"
             variant="ghost"
+            icon={actionIcons.refresh}
             data-refresh-models=""
             disabled={busy}
             onClick={() => onRefresh(provider.id)}
@@ -249,6 +251,7 @@ function ProviderGroup({
           <Button
             size="sm"
             variant="secondary"
+            icon={actionIcons.add}
             onClick={() =>
               onForm({ provider: provider.id, modelName: null, info: null })
             }
@@ -299,7 +302,7 @@ export function ManageModelsDialog(props: ManageModelsProps) {
             <Button
               size="sm"
               variant="secondary"
-              icon={commonIcons.add}
+              icon={actionIcons.connect}
               onClick={props.onConnect}
             >
               {t("conversation.button.connect-provider")}

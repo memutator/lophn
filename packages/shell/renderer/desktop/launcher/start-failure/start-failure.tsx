@@ -2,7 +2,7 @@
 import { type ReactElement, useId, useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { connectionFailedIcon, retryIcon } from "../../../icons/mod.ts";
+import { actionIcons, connectionFailedIcon } from "../../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import type { StartFailure } from "./model.ts";
@@ -34,7 +34,7 @@ export function StartFailureScreen({
       )}
       <Button
         variant="primary"
-        icon={retryIcon}
+        icon={actionIcons.retry}
         data-action="retry"
         onClick={onRetry}
       >

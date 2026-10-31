@@ -38,7 +38,9 @@ main  wiring/appearance.ts  (channel shell:appearance)
 | `shell.density` | comfortable, compact | `control`, `field.gap`, `menu.row`, `tree.row`, `palette.item`, `layout.panePadding`, `tab.contentGap` |
 | `shell.reading_width` | narrow, default, wide | CSS가 아니다. 문서가 따로 읽는다 |
 
-- accent: 고른 tab 강조선(`TabStrip`의 focus 칸, design `Tabs`의 밑줄, 맨 위 `FloatPanel`의 bar 위 강조선), primary Button·Switch·badge, focus ring, 고른 행의 selection 바탕이 따른다. link(`color.link`)는 accent에 묶지 않는다. link는 "누르는 것"을 알리는 뜻이라 accent가 Ink(검정)일 때도 파랑으로 남아야 한다.
+- accent: 고른 tab 강조선(`TabStrip`의 focus 칸, design `Tabs`의 밑줄, 맨 위 `FloatPanel`의 bar 위 강조선), primary Button·Switch·badge, focus ring, 고른 행의 selection 바탕이 따른다.
+- 색 역할: "주 행동·고른 것·켜진 것·지금 것"의 표시(primary 단추, 강조선, marker, 고른 option 바탕)는 `color.ink.background`다. `color.focus`는 키보드 focus ring, 글 넣는 칸의 focus 테두리, drop 자리에만 쓴다. `color.text.*`를 표시 색으로 쓰지 않는다. 기본 Ink는 focus·selection·`ink.soft`까지 무채색이라 화면에 accent 색이 하나뿐이다(전에는 Ink에서 focus가 파랑이라 단추는 검정·흰색, 고른 표시는 파랑으로 갈렸다).
+- 되돌릴 수 없는 행동의 단추는 `color.danger`(채운 빨강, 흰 글자)다. accent에 묶지 않는다. link(`color.link`)는 accent에 묶지 않는다. link는 "누르는 것"을 알리는 뜻이라 accent가 Ink(검정)일 때도 파랑으로 남아야 한다.
 - 대비를 지키는 값만 둔다. ink 글자와 바탕(hover 포함) 4.5:1 이상, focus ring과 모든 background preset의 surface 3:1 이상, selection 위 text 4.5:1 이상, primary·secondary·muted 글자와 모든 surface 4.5:1 이상이다. 값을 바꿀 때는 이 비율을 계산해 확인한다(WCAG 상대 휘도).
 - Custom 글꼴 이름은 CSS 문자열 안에 들어간다. `isFontName`이 글자·숫자·공백·`-`·`_`(1~64자)만 받는다. 따옴표, 괄호, 세미콜론, 중괄호, 역슬래시, 줄바꿈은 들어올 수 없어 문자열 밖으로 나갈 수 없다. renderer는 이 규칙으로 저장 전에 거절하고, main의 `parseAppearance`는 어긴 이름만 버려 기본 글꼴로 둔다. core는 길이만 본다. 이 규칙은 앱 화면 guest에 들어가는 CSS의 injection을 막는 경계다.
 - 글꼴 stack: custom은 `"<이름>", "Pretendard Variable", system-ui, sans-serif`처럼 기본 stack으로 이어진다. 이름의 글꼴이 설치돼 있지 않아도 깨지지 않는다.

@@ -41,6 +41,7 @@ export const shell = {
   "shell.label.app-release": "Release {number}",
   "shell.label.app-released": "Released",
   "shell.label.desk-name": "Desk name",
+  "shell.label.drop-full": "Group is full (4 tabs)",
   "shell.label.empty-desk":
     "No tabs in this desk yet. Open a session from the sidebar or start a new one.",
   "shell.label.minimized": "Minimized tabs",

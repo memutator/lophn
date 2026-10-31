@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   addDesk,
+  applyTabDrop,
   closeDetached,
   closeFloat,
   closeTargets,
@@ -24,6 +25,7 @@ import {
   moveTab,
   openTab,
   openTabInLayout,
+  type PaneZone,
   type PlaceLayout,
   reattachTab,
   removeDesk,
@@ -33,6 +35,9 @@ import {
   splitTab,
   stepTab,
   swapTabs,
+  type TabDragItem,
+  type TabDropHit,
+  tabDropState,
   type TabItem,
   ungroup,
   ungroupTab,
@@ -347,4 +352,75 @@ test("group의 몫은 범위를 지키고 한 칸으로 다니며 풀면 tab이 
   desk = ungroup(desk, "c");
   assert.deepEqual(desk.groups, []);
   assertValid(desk, ["a", "b", "c", "d"]);
+});
+
+test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 않고 가득 찬 group에는 놓이지 않는다", () => {
+  const all = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  let desk = deskOf(...all);
+  desk = splitTab(desk, "a", "b", "right"); // [a b]
+  desk = splitTab(desk, "d", "e", "right");
+  desk = splitTab(desk, "e", "f", "bottom");
+  desk = splitTab(desk, "d", "g", "top"); // [g d e f] 가득
+  assertValid(desk, all);
+  const zones: PaneZone[] = ["left", "right", "top", "bottom", "center"];
+  const hits: TabDropHit[] = [
+    ...deskEntries(desk).map(
+      (entry) => ({ kind: "strip", before: entry.key }) as const,
+    ),
+    { kind: "strip", before: null },
+    ...all.flatMap((target) =>
+      zones.map((zone) => ({ kind: "pane", target, zone }) as const),
+    ),
+  ];
+  for (const key of all) {
+    const own = groupOf(desk, key);
+    const items: TabDragItem[] = [
+      { key, whole: false },
+      ...(own === null ? [] : [{ key, whole: true }]),
+    ];
+    for (const item of items) {
+      for (const hit of hits) {
+        const state = tabDropState(desk, item, hit);
+        const next = applyTabDrop(desk, item, hit);
+        assertValid(next, all);
+        if (state !== "ok")
+          assert.equal(next, desk, `${state} must not change`);
+        if (hit.kind === "strip" && !item.whole && own !== null) {
+          assert.equal(groupOf(next, key), null, "leaf leaves the group");
+        }
+      }
+    }
+  }
+  // 가득 찬 group의 가장자리에는 밖의 tab이 못 놓이고, 가운데 swap과 안의 leaf 옮김은 된다.
+  assert.equal(
+    tabDropState(
+      desk,
+      { key: "c", whole: false },
+      { kind: "pane", target: "d", zone: "right" },
+    ),
+    "full",
+  );
+  assert.equal(
+    tabDropState(
+      desk,
+      { key: "c", whole: false },
+      { kind: "pane", target: "d", zone: "center" },
+    ),
+    "ok",
+  );
+  assert.equal(
+    tabDropState(
+      desk,
+      { key: "g", whole: false },
+      { kind: "pane", target: "f", zone: "left" },
+    ),
+    "ok",
+  );
+  // 보이는 칸과 자리를 바꾼 group 밖 tab이 보인다.
+  const swapped = applyTabDrop(
+    selectTab(desk, "c"),
+    { key: "h", whole: false },
+    { kind: "pane", target: "c", zone: "center" },
+  );
+  assert.equal(swapped.selected, "h");
 });

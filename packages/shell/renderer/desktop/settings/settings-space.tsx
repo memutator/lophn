@@ -137,7 +137,6 @@ export function SettingsSpace({
             onSelect={() => {}}
             onClose={onBack}
             newTab={<></>}
-            onReorder={() => {}}
             onToggleFloat={() => {}}
           />
         }

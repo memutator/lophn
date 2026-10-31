@@ -14,8 +14,10 @@ import {
 } from "../../../../../packages/shell/renderer/shell/tab-menu.tsx";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { TabDragProvider } from "../../../../../packages/shell/renderer/shell/tab-drag.tsx";
 import { TabStrip } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
 import {
+  applyTabDrop,
   closeFloat,
   closeTab,
   type Desk,
@@ -27,13 +29,13 @@ import {
   leavesOf,
   minimizeFloat,
   openTab,
-  reorderTab,
   restoreFloat,
   selectTab,
   setFloatRect,
   setRatio,
   splitPartner,
   splitTab,
+  tabDropState,
   type TabItem,
   ungroup,
   ungroupTab,
@@ -52,7 +54,13 @@ import {
 } from "../../../mock/shell-data.tsx";
 import { MockRightSidebar } from "../../../mock/shell-sidebars.tsx";
 import { PageLeftSidebar } from "../project-window.tsx";
-import { contextMenu, press, useDrive } from "../../../mock/drive.ts";
+import {
+  contextMenu,
+  dragPointer,
+  press,
+  type Spot,
+  useDrive,
+} from "../../../mock/drive.ts";
 
 const PANELS = [
   { key: "files", label: "Files", icon: shellIcons.folder },
@@ -68,6 +76,7 @@ export function ShellScene({
   right = true,
   open,
   context,
+  drag,
   recentOpen = false,
 }: {
   variant: Variant;
@@ -79,6 +88,8 @@ export function ShellScene({
   open?: string;
   /** mount 뒤 오른쪽 클릭할 tab의 이름 조각. 그 tab의 menu가 열린다. */
   context?: string;
+  /** mount 뒤 pointer로 끌 것. release가 false면 끄는 도중에 멈춘다. */
+  drag?: { from: Spot; to: Spot; release?: boolean };
 }) {
   const [desks, setDesks] = useState(() => mockDesks(variant));
   const [deskKey, setDeskKey] = useState("_default");
@@ -93,6 +104,9 @@ export function ShellScene({
   useDrive(async () => {
     if (open !== undefined) await press(open);
     if (context !== undefined) await contextMenu('[role="tab"]', context);
+    if (drag !== undefined) {
+      await dragPointer(drag.from, drag.to, drag.release ?? true);
+    }
   });
 
   const mock = desks.find((d) => d.key === deskKey) ?? desks[0]!;
@@ -163,145 +177,160 @@ export function ShellScene({
   const chosen = PANELS.find((p) => p.key === panel) ?? PANELS[0]!;
 
   return (
-    <ShellFrame
-      left={leftOpen}
-      onToggleLeft={() => setLeft(!leftOpen)}
-      right={rightOpen}
-      onToggleRight={() => setRight(!rightOpen)}
-      deskSwitcher={
-        <DeskSwitcher
-          desks={desks.map((d) => ({
-            key: d.key,
-            label: d.label,
-            workflow: d.workflow,
-            status: d.status,
-            manageable: d.key !== "_default" && !d.workflow,
-          }))}
-          current={mock.key}
-          onSelect={setDeskKey}
-          onNewDesk={() => {}}
-          onRename={(key, label) =>
-            setDesks((all) =>
-              all.map((d) => (d.key === key ? { ...d, label } : d)),
-            )
-          }
-          onDelete={(key) => {
-            const gone = desks.find((d) => d.key === key);
-            if (gone === undefined) return;
-            setDesks((all) =>
-              all
-                .filter((d) => d.key !== key)
-                .map((d) =>
-                  d.key === "_default"
-                    ? {
-                        ...d,
-                        model: gone.model.tabs.reduce(
-                          (now, tab) => openTab(now, tab, { select: false }),
-                          d.model,
-                        ),
-                      }
-                    : d,
-                ),
-            );
-            if (deskKey === key) setDeskKey("_default");
-          }}
-        />
-      }
-      tabs={
-        <TabStrip
-          entries={deskEntries(desk).map((entry) => ({
-            key: entry.key,
-            tabs: entry.tabs.map((tab) => stripTab(mockOf(tab))),
-            ...(entry.group === null
-              ? {}
-              : { dirs: dirsOf(entry.group.layout), focus: entry.group.focus }),
-          }))}
-          selected={group === null ? desk.selected : leavesOf(group.layout)[0]!}
-          minimized={desk.floats.map((f) => stripTab(mockOf(f.tab)))}
-          floating={desk.floats
-            .filter((f) => !f.minimized)
-            .map((f) => f.tab.key)}
-          onSelect={(key) => patch((d) => selectTab(d, key))}
-          onClose={close}
-          onMenu={(key, at) => setMenu({ key, ...at })}
-          onPin={(key) =>
-            patch((d) => ({
-              ...d,
-              tabs: d.tabs.map((tab) =>
-                tab.key === key
-                  ? {
-                      ...tab,
-                      fields: { mock: { ...mockOf(tab), preview: false } },
-                    }
-                  : tab,
-              ),
-            }))
-          }
-          onNewTab={() => {}}
-          onReorder={(key, before) => patch((d) => reorderTab(d, key, before))}
-          onToggleFloat={toggleFloat}
-        />
-      }
-      panelTabs={
-        <PanelTabs tabs={PANELS} selected={panel} onSelect={setPanel} />
-      }
-      leftSidebar={
-        <PageLeftSidebar
-          onOpenFile={() => {}}
-          onAgent={() => {}}
-          recentOpen={recentOpen}
-          selected="session:weekly"
-        />
-      }
-      rightSidebar={<MockRightSidebar title={chosen.label} />}
-      floats={
-        <FloatLayer
-          floats={desk.floats.flatMap((item, order) => {
-            if (item.minimized) return [];
-            const tab = mockOf(item.tab);
-            return [
-              {
-                key: tab.key,
-                title: tab.title,
-                icon: tabIcon(tab),
-                dot: tab.dot,
-                rect: item.rect,
-                body: floatBody(tab),
-              },
-            ];
-          })}
-          onRaise={(key) => patch((d) => restoreFloat(d, key))}
-          onRect={(key, rect) => patch((d) => setFloatRect(d, key, rect))}
-          onMinimize={toggleFloat}
-          onDock={(key) => patch((d) => dockFloat(d, key))}
-          onClose={close}
-        />
-      }
+    <TabDragProvider
+      describe={(key) => {
+        const found = desk.tabs.find((item) => item.key === key);
+        return found === undefined
+          ? undefined
+          : { title: mockOf(found).title, icon: tabIcon(mockOf(found)) };
+      }}
+      state={(item, hit) => tabDropState(desk, item, hit)}
+      onDrop={(item, hit) => patch((d) => applyTabDrop(d, item, hit))}
     >
-      <ContentCard
-        panes={panes}
-        {...(group === null ? {} : { layout: group.layout })}
-        focus={desk.selected}
-        onSplitRatio={(path, ratio) =>
-          patch((d) => setRatio(d, d.selected!, path, ratio))
+      <ShellFrame
+        left={leftOpen}
+        onToggleLeft={() => setLeft(!leftOpen)}
+        right={rightOpen}
+        onToggleRight={() => setRight(!rightOpen)}
+        deskSwitcher={
+          <DeskSwitcher
+            desks={desks.map((d) => ({
+              key: d.key,
+              label: d.label,
+              workflow: d.workflow,
+              status: d.status,
+              manageable: d.key !== "_default" && !d.workflow,
+            }))}
+            current={mock.key}
+            onSelect={setDeskKey}
+            onNewDesk={() => {}}
+            onRename={(key, label) =>
+              setDesks((all) =>
+                all.map((d) => (d.key === key ? { ...d, label } : d)),
+              )
+            }
+            onDelete={(key) => {
+              const gone = desks.find((d) => d.key === key);
+              if (gone === undefined) return;
+              setDesks((all) =>
+                all
+                  .filter((d) => d.key !== key)
+                  .map((d) =>
+                    d.key === "_default"
+                      ? {
+                          ...d,
+                          model: gone.model.tabs.reduce(
+                            (now, tab) => openTab(now, tab, { select: false }),
+                            d.model,
+                          ),
+                        }
+                      : d,
+                  ),
+              );
+              if (deskKey === key) setDeskKey("_default");
+            }}
+          />
         }
-        deskLabel={mock.label}
-        canBack
-        canForward={false}
-        onBack={() => {}}
-        onForward={() => {}}
-        onFocus={(key) => patch((d) => selectTab(d, key))}
-        onAction={action}
-        onEmptyAction={() => {}}
-      />
-      {menu === null || menuTab === undefined ? null : (
-        <TabContextMenu
-          at={menu}
-          state={menuState(menuTab)}
-          onSelect={(what) => action(what, menuTab.key)}
-          onClose={() => setMenu(null)}
+        tabs={
+          <TabStrip
+            entries={deskEntries(desk).map((entry) => ({
+              key: entry.key,
+              tabs: entry.tabs.map((tab) => stripTab(mockOf(tab))),
+              ...(entry.group === null
+                ? {}
+                : {
+                    dirs: dirsOf(entry.group.layout),
+                    focus: entry.group.focus,
+                  }),
+            }))}
+            selected={
+              group === null ? desk.selected : leavesOf(group.layout)[0]!
+            }
+            minimized={desk.floats.map((f) => stripTab(mockOf(f.tab)))}
+            floating={desk.floats
+              .filter((f) => !f.minimized)
+              .map((f) => f.tab.key)}
+            onSelect={(key) => patch((d) => selectTab(d, key))}
+            onClose={close}
+            onMenu={(key, at) => setMenu({ key, ...at })}
+            onPin={(key) =>
+              patch((d) => ({
+                ...d,
+                tabs: d.tabs.map((tab) =>
+                  tab.key === key
+                    ? {
+                        ...tab,
+                        fields: { mock: { ...mockOf(tab), preview: false } },
+                      }
+                    : tab,
+                ),
+              }))
+            }
+            onNewTab={() => {}}
+            onToggleFloat={toggleFloat}
+          />
+        }
+        panelTabs={
+          <PanelTabs tabs={PANELS} selected={panel} onSelect={setPanel} />
+        }
+        leftSidebar={
+          <PageLeftSidebar
+            onOpenFile={() => {}}
+            onAgent={() => {}}
+            recentOpen={recentOpen}
+            selected="session:weekly"
+          />
+        }
+        rightSidebar={<MockRightSidebar title={chosen.label} />}
+        floats={
+          <FloatLayer
+            floats={desk.floats.flatMap((item, order) => {
+              if (item.minimized) return [];
+              const tab = mockOf(item.tab);
+              return [
+                {
+                  key: tab.key,
+                  title: tab.title,
+                  icon: tabIcon(tab),
+                  dot: tab.dot,
+                  rect: item.rect,
+                  body: floatBody(tab),
+                },
+              ];
+            })}
+            onRaise={(key) => patch((d) => restoreFloat(d, key))}
+            onRect={(key, rect) => patch((d) => setFloatRect(d, key, rect))}
+            onMinimize={toggleFloat}
+            onDock={(key) => patch((d) => dockFloat(d, key))}
+            onClose={close}
+          />
+        }
+      >
+        <ContentCard
+          panes={panes}
+          {...(group === null ? {} : { layout: group.layout })}
+          focus={desk.selected}
+          onSplitRatio={(path, ratio) =>
+            patch((d) => setRatio(d, d.selected!, path, ratio))
+          }
+          deskLabel={mock.label}
+          canBack
+          canForward={false}
+          onBack={() => {}}
+          onForward={() => {}}
+          onFocus={(key) => patch((d) => selectTab(d, key))}
+          onAction={action}
+          onEmptyAction={() => {}}
         />
-      )}
-    </ShellFrame>
+        {menu === null || menuTab === undefined ? null : (
+          <TabContextMenu
+            at={menu}
+            state={menuState(menuTab)}
+            onSelect={(what) => action(what, menuTab.key)}
+            onClose={() => setMenu(null)}
+          />
+        )}
+      </ShellFrame>
+    </TabDragProvider>
   );
 }

@@ -123,3 +123,56 @@ export function useDrive(
     run().catch((error) => console.warn(error));
   }, deps);
 }
+
+/** 요소 안의 한 점. fx·fy는 요소 크기에 대한 몫(0~1)이다. */
+export interface Spot {
+  readonly selector: string;
+  readonly text?: string;
+  readonly fx?: number;
+  readonly fy?: number;
+}
+
+async function spotOf(spot: Spot): Promise<{ x: number; y: number }> {
+  const box = (await find(spot.selector, spot.text)).getBoundingClientRect();
+  return {
+    x: box.left + box.width * (spot.fx ?? 0.5),
+    y: box.top + box.height * (spot.fy ?? 0.5),
+  };
+}
+
+/**
+ * pointer로 끌어 놓기. from을 누르고 to까지 옮긴다. release가 false면 끄는 도중에서 멈춰 그 모양을 고정한다.
+ * 진짜 pointer event를 문서에 내므로 화면의 끌기 코드가 그대로 돈다.
+ */
+export async function dragPointer(
+  from: Spot,
+  to: Spot,
+  release = true,
+): Promise<void> {
+  const start = await spotOf(from);
+  const source = await find(from.selector, from.text);
+  const init = (x: number, y: number) => ({
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+    buttons: 1,
+    pointerId: 1,
+    pointerType: "mouse",
+    isPrimary: true,
+    clientX: x,
+    clientY: y,
+  });
+  source.dispatchEvent(new PointerEvent("pointerdown", init(start.x, start.y)));
+  const end = await spotOf(to);
+  for (let step = 1; step <= 6; step += 1) {
+    const x = start.x + ((end.x - start.x) * step) / 6;
+    const y = start.y + ((end.y - start.y) * step) / 6;
+    document.dispatchEvent(new PointerEvent("pointermove", init(x, y)));
+    await wait(16);
+  }
+  await wait(250);
+  if (release) {
+    document.dispatchEvent(new PointerEvent("pointerup", init(end.x, end.y)));
+    await wait(300);
+  }
+}

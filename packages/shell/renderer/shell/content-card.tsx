@@ -23,6 +23,7 @@ import {
   type CardHeadSpec,
 } from "./card-head.tsx";
 import styles from "./content-card.module.css";
+import { useTabDrag } from "./tab-drag.tsx";
 import { type GroupNode, type NodePath, setNodeRatio } from "./desk-model.ts";
 import { dragRatio, FULL, placeGroup } from "./group-geometry.ts";
 import {
@@ -99,6 +100,7 @@ export function ContentCard({
   onDropPath,
 }: ContentCardProps) {
   const grouped = panes.length > 1 && layout !== undefined;
+  const { start: startDrag } = useTabDrag();
   const [dropping, setDropping] = useState(false);
   const area = useRef<HTMLDivElement>(null);
   // 끄는 동안의 선과 몫. 놓을 때 onSplitRatio로 한 번만 저장한다.
@@ -198,6 +200,16 @@ export function ContentCard({
                   onBack={onBack}
                   onForward={onForward}
                   onAction={(action) => onAction(action, pane.key)}
+                  onDragStart={
+                    grouped
+                      ? (event) =>
+                          startDrag(
+                            event,
+                            { key: pane.key, whole: false },
+                            "pane",
+                          )
+                      : undefined
+                  }
                 />
                 <div className={styles.body}>
                   <HeadScope paneKey={pane.key} onHead={setHead}>
@@ -280,6 +292,7 @@ function CardHead({
   onBack,
   onForward,
   onAction,
+  onDragStart,
 }: {
   pane: CardPane;
   spec: CardHeadSpec | undefined;
@@ -288,11 +301,21 @@ function CardHead({
   onBack: () => void;
   onForward: () => void;
   onAction: (action: TabAction) => void;
+  /** group의 칸이면 머리 줄을 눌러 끌어 옮길 수 있다. */
+  onDragStart: ((event: PointerEvent<HTMLElement>) => void) | undefined;
 }) {
   const nav = spec?.nav ?? { canBack, canForward, onBack, onForward };
   const extra = spec?.menu;
   return (
-    <div className={styles.head}>
+    <div
+      className={styles.head}
+      data-draggable={onDragStart === undefined ? undefined : ""}
+      onPointerDown={(event) => {
+        // 단추와 입력은 제 일을 한다.
+        if ((event.target as HTMLElement).closest("button, input, a")) return;
+        onDragStart?.(event);
+      }}
+    >
       <IconButton
         icon={shellIcons.back}
         label={t("shell.button.back")}

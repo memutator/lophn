@@ -21,6 +21,11 @@
   padding-inline: var(--space-3);
 }
 
+.head[data-draggable] {
+  cursor: grab;
+  user-select: none;
+}
+
 .center {
   display: flex;
   flex: 1 1 auto;

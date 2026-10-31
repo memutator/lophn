@@ -154,8 +154,6 @@ export const conversation = {
   "conversation.label.evidence-file": "File",
   "conversation.label.evidence-session": "Session",
   "conversation.label.group-earlier": "Earlier",
-  "conversation.label.model-axis": "{axis}: {value}",
-  "conversation.label.model-axis-default": "Default",
   "conversation.label.model-changed": "Changed",
   "conversation.label.media-audio": "Audio",
   "conversation.label.media-image": "Image",
@@ -270,8 +268,6 @@ export const conversation = {
   "conversation.label.status-context-value":
     "{used, number} of {limit, number} tokens ({percent, number}% used)",
   "conversation.label.status-cost": "Cost",
-  "conversation.label.status-cost-estimated": "About {amount} {currency}",
-  "conversation.label.status-cost-reported": "{amount} {currency}",
   "conversation.label.status-cost-subscription": "Included in your plan",
   "conversation.label.status-cost-unknown": "Unknown",
   "conversation.label.status-footer-context": "{percent, number}% of {limit}",
@@ -286,10 +282,9 @@ export const conversation = {
     "{provider} · usage limit until {time}",
   "conversation.label.status-session": "Session",
   "conversation.label.status-tokens": "Tokens",
-  "conversation.label.status-tokens-value":
-    "{input, number} in ({cached, number} cached) · {output, number} out",
-  "conversation.label.status-tokens-value-uncached":
-    "{input, number} in · {output, number} out",
+  "conversation.label.status-tokens-input": "Input",
+  "conversation.label.status-tokens-cached": "Cached",
+  "conversation.label.status-tokens-output": "Output",
   "conversation.label.status-turns": "Turns",
   "conversation.label.status-turns-value":
     "{turns, plural, one {# turn} other {# turns}} · {calls, plural, one {# model request} other {# model requests}}",

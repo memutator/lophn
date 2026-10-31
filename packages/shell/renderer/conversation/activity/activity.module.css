@@ -84,24 +84,17 @@
 
 .editCard {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
+  gap: var(--space-3);
   color: var(--color-text-primary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
 }
 
 .editText {
+  flex: 1;
   min-width: var(--space-0);
   overflow-wrap: anywhere;
-}
-
-.editActions {
-  display: flex;
-  flex: none;
-  gap: var(--space-2);
 }
 
 /* Undo를 누를 수 없는 이유. 카드 폭을 다 쓰고 단추 아래에 놓인다. */
@@ -143,7 +136,6 @@
   content: "";
 }
 
-
 /* 편집 카드 아래 diff. 카드 여백은 Card가 정하고 여기서는 위에 한 줄만 띄운다. */
 .editDiff {
   margin-top: var(--space-4);
@@ -159,6 +151,6 @@
 }
 
 /* 펼친 상태의 단추 아이콘은 위를 향한다. */
-.editActions [data-edit-diff-toggle][aria-expanded="true"] svg {
+.editCard [data-edit-diff-toggle][aria-expanded="true"] svg {
   transform: rotate(180deg);
 }

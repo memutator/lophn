@@ -630,8 +630,6 @@ export interface AgentTabSource {
   stop(turn: string, key: string): Promise<SourceResult<void>>;
   /** 실패한 turn의 입력을 같은 session에 다시 보낸다. */
   retryTurn(turn: string): Promise<SourceResult<void>>;
-  /** 끝난 turn의 입력을 새 메시지로 다시 보낸다. 누를 때마다 새 turn이다. */
-  repeatTurn(turn: string): Promise<SourceResult<void>>;
   answerQuestions(input: {
     session: string;
     toolCall: string;

@@ -80,3 +80,54 @@
 .fill[data-level="critical"] {
   background: var(--status-critical-marker);
 }
+
+/* token을 입력·cache·출력으로 가른 띠. 색은 chart series token이고 칸 폭은 token 수에 비례한다. */
+.split {
+  display: flex;
+  gap: var(--space-1);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.splitPart {
+  flex-basis: var(--space-0);
+  min-width: var(--space-1);
+}
+
+.splitPart[data-part="input"],
+.swatch[data-part="input"] {
+  background: var(--chart-series-0);
+}
+
+.splitPart[data-part="cached"],
+.swatch[data-part="cached"] {
+  background: var(--chart-other);
+}
+
+.splitPart[data-part="output"],
+.swatch[data-part="output"] {
+  background: var(--chart-series-2);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.swatch {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+}

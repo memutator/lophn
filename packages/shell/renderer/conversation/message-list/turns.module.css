@@ -114,12 +114,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.agentTime {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
 .agentBody {
   display: flex;
   flex-direction: column;

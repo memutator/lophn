@@ -28,6 +28,20 @@ export function compactTokens(tokens: number): string {
   return String(tokens);
 }
 
+// 금액은 통화 기호와 소수 둘로 보인다($2.06). 추정인지 보고된 값인지는 가르지 않는다.
+function money(amount: string, currency: string): string {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return `${amount} ${currency}`;
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${currency}`;
+  }
+}
+
 export function costText(cost: StatusView["costs"][number]): string {
   if (cost.kind === "subscription" || cost.kind === "free") {
     return t("conversation.label.status-cost-subscription");
@@ -35,8 +49,5 @@ export function costText(cost: StatusView["costs"][number]): string {
   if (cost.amount === null || cost.currency === null) {
     return t("conversation.label.status-cost-unknown");
   }
-  const money = { amount: cost.amount, currency: cost.currency };
-  return cost.kind === "estimated"
-    ? t("conversation.label.status-cost-estimated", money)
-    : t("conversation.label.status-cost-reported", money);
+  return money(cost.amount, cost.currency);
 }

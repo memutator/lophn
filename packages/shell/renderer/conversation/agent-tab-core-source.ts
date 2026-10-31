@@ -19,7 +19,6 @@ import {
   moveQueuedMessage,
   readCommands,
   removeQueuedMessage,
-  repeatTurn,
   retryTurn,
   runCommand,
   sendQueuedNow,
@@ -125,7 +124,6 @@ function createSource(
       moveQueuedMessage(env, queued, direction),
     stop: (turn, key) => stopTurnOf(env, turn, key),
     retryTurn: (turn) => retryTurn(env, retryIds, turn),
-    repeatTurn: (turn) => repeatTurn(env, turn),
     answerQuestions: (input) => answerQuestions(env, input),
     decidePermission: (session, request, choice, reason) =>
       decidePermission(env, session, request, choice, reason),

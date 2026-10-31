@@ -1,5 +1,5 @@
-// Agent 탭의 composer. 입력칸 안 아래 줄에 [+], model 단추와 그 model의 option 축(effort·speed) 단추, 권한 하나(묻기/skip),
-// [Stop], [↑]가 있고, 입력칸 밖 아래 줄에는 project(또는 앱) 표시와 권한 요약 ▾(앱 할당)이 있다. 입력칸 안 글 위에 뗄 수
+// Agent 탭의 composer. 입력칸 안 아래 줄에 [+], model 단추(option 축 effort·speed는 그 menu 안), 권한 하나(묻기/skip),
+// 동작 단추 하나(보내기 ↑, 도는 중이고 글이 없으면 멈추기 ■)가 있고, 입력칸 밖 아래 줄에는 project(또는 앱) 표시와 권한 요약 ▾(앱 할당)이 왼쪽에, 사용량(`usage`)이 오른쪽 끝에 있다. 입력칸 안 글 위에 뗄 수
 // 있는 첨부 줄이 있다. 첨부는 [+]로 고르거나 OS 파일·Explorer 파일을 끌어 놓거나 붙여 넣는다. 입력칸은 글을 따라 정한
 // 높이까지 자란다. agent를 고르는 칸은 없다(session 안에서 agent를 바꾸지 않는다). 보내기 방식을 고르는 menu도 없다.
 // 일하는 중 보낸 메시지는 다음 turn을 기다리고, 도는 turn에 올리는 일은 `QueuedMessages`의 [Send now]가 한다. `/`로
@@ -41,7 +41,7 @@ import { useModelPicker } from "../use-model-picker.ts";
 import { useSlashMenu } from "../use-slash-menu.tsx";
 import styles from "./agent-composer.module.css";
 import { AttachmentChips } from "./attachment-chips.tsx";
-import { ModelAxisMenus, PermissionMenu } from "./session-controls.tsx";
+import { PermissionMenu } from "./session-controls.tsx";
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
 
@@ -95,6 +95,8 @@ interface AgentComposerProps {
   onCommand: (entry: SlashEntryView, argument: string) => void;
   /** model·명령 목록을 읽지 못했다. */
   onProblem: () => void;
+  /** 아래 줄 오른쪽 끝에 놓는 사용량(창·token·금액). 없으면 비운다. */
+  usage?: ReactNode;
 }
 
 export function AgentComposer(props: AgentComposerProps): ReactNode {
@@ -141,6 +143,10 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     !tooLong &&
     !picker.noModel &&
     (draft.text.trim().length > 0 || draft.attachments.length > 0);
+
+  // 도는 중이고 보낼 글이 없으면 같은 단추가 [Stop]이다. 글을 쓰면 다시 보내기(다음 turn 줄)가 된다.
+  const stopping =
+    working && draft.text.trim().length === 0 && draft.attachments.length === 0;
 
   const attach = (added: readonly Attachment[], missed: number) => {
     setSkipped(missed > 0);
@@ -365,37 +371,26 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             <span className={styles.spacer} />
             <div className={styles.actions} data-composer-actions="">
               <ModelPicker {...picker.props} />
-              <ModelAxisMenus
-                axes={picker.props.axes}
-                values={picker.props.optionValues}
-                onChange={picker.props.onOptionChange}
-              />
               {props.skip === undefined ? null : (
                 <PermissionMenu
                   on={props.skip.on}
                   onChange={props.skip.onChange}
                 />
               )}
-              {working ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={conversationIcons.stop}
-                  data-stop=""
-                  disabled={offline}
-                  onClick={props.onStop}
-                >
-                  {t("conversation.button.stop")}
-                </Button>
-              ) : null}
               <IconButton
-                icon={conversationIcons.send}
-                label={t("conversation.button.send")}
+                icon={
+                  stopping ? conversationIcons.stop : conversationIcons.send
+                }
+                label={t(
+                  stopping
+                    ? "conversation.button.stop"
+                    : "conversation.button.send",
+                )}
                 variant="secondary"
                 size="sm"
-                data-send=""
-                disabled={!canSend}
-                onClick={send}
+                data-composer-action={stopping ? "stop" : "send"}
+                disabled={stopping ? offline : !canSend}
+                onClick={stopping ? props.onStop : send}
               />
             </div>
           </div>
@@ -441,6 +436,9 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
           )}
         </Popover>
+        {props.usage === undefined || props.usage === null ? null : (
+          <span className={styles.usage}>{props.usage}</span>
+        )}
       </div>
     </div>
   );

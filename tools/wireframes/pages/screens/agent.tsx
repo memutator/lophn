@@ -30,6 +30,7 @@ import {
   AgentSessionsEdit,
   AgentSkip,
   AgentStatus,
+  AgentStatusCost,
   AgentStatusFromFooter,
   ManageModels,
   ManageModelsConnect,
@@ -166,8 +167,15 @@ export const agentArea: Area = {
       id: "new-agent-status",
       title: "Agent · status",
       description:
-        "/status 보기다. session id, model과 effort, provider 연결 상태와 계정, 마지막 요청이 창을 얼마나 썼는지, 이 session의 turn·token·금액이 이름·값 두 열로 보인다. 구독 연결은 금액 대신 plan에 포함됐다고 보인다. 창을 80% 넘게 쓰면 막대가 경고색, 90%부터 위험색이다. composer 아래 푸터를 눌러도 이 보기가 열린다.",
+        "/status 보기다. session id, model과 effort, provider 연결 상태와 계정, 마지막 요청이 창을 얼마나 썼는지, 이 session의 turn·token(입력·cache·출력 비율 띠)·금액이 이름·값 두 열로 보인다. 이 panel은 composer 위에 뜬다. 구독 연결은 금액 대신 plan에 포함됐다고 보인다. 창을 80% 넘게 쓰면 막대가 경고색, 90%부터 위험색이다. composer 아래 푸터를 눌러도 이 보기가 열린다.",
       render: () => <AgentStatus />,
+    },
+    {
+      id: "new-agent-status-cost",
+      title: "Agent · status with cost",
+      description:
+        "구독이 아닌 연결의 /status 보기다. Tokens 줄의 띠가 입력(cache 뺀 것)·cache에서 읽은 입력·출력의 비율을 보이고 옆에 개수가 있다. composer 아래 줄 오른쪽 끝 사용량과 Cost가 같은 $2.06 모양이다.",
+      render: () => <AgentStatusCost />,
     },
     {
       id: "new-agent-status-full",
@@ -187,7 +195,7 @@ export const agentArea: Area = {
       id: "new-agent-context-full",
       title: "Agent · context full",
       description:
-        "마지막 요청이 창을 94% 쓴 session이다. 푸터의 %와 막대가 위험색이고, 금액은 아는 값(About 0.42 USD)으로 짧게 보인다.",
+        "마지막 요청이 창을 94% 쓴 session이다. 푸터의 %와 막대가 위험색이고, 금액은 아는 값($0.42)으로 짧게 보인다.",
       render: () => <AgentContextFull />,
     },
     {

@@ -40,6 +40,7 @@ import {
   SenderChipsScene,
   SessionSearchScene,
   SkipScene,
+  StatusCostScene,
   StatusFromFooterScene,
   StatusScene,
 } from "./agent-tab/scenes.tsx";
@@ -204,6 +205,7 @@ export const AgentPermissions = PermissionsScene;
 /** `/status`의 보기. */
 export const AgentStatus = StatusScene;
 /** composer 아래 푸터를 눌러 연 `/status`. */
+export const AgentStatusCost = StatusCostScene;
 export const AgentStatusFromFooter = StatusFromFooterScene;
 /** composer에서 Ctrl/Cmd+Shift+M으로 연 model picker. */
 export const AgentModelShortcut = ModelShortcutScene;

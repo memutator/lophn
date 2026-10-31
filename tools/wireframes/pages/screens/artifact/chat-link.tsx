@@ -35,9 +35,9 @@ const ready = (text: string): BodyState => ({
   parts: [{ kind: "text", text }],
 });
 
-function Turn({ time, text, id }: { time: string; text: string; id: string }) {
+function Turn({ text, id }: { text: string; id: string }) {
   return (
-    <AgentTurn agent={AGENT} time={time}>
+    <AgentTurn agent={AGENT}>
       <Said id={id}>
         <MessageBody message={id} body={ready(text)} artifacts={SLICE} />
       </Said>
@@ -115,16 +115,14 @@ export function ChatLink() {
       <UserMessage>When are the tax dates?</UserMessage>
       <Turn
         id="msg_link_1"
-        time="10:42"
         text={`Written to ${FOLDER}/tax-deadlines/index.html. The older draft in ${FOLDER}/old-draft/index.html is gone, so it stays plain text.`}
       />
       <UserMessage>Show this month's spending as a chart.</UserMessage>
       <Turn
         id="msg_link_2"
-        time="10:44"
         text={`Done. I wrote the chart to ${FOLDER}/spending/index.html and put the figures in its data folder.`}
       />
-      <Turn id="msg_link_3" time="10:45" text={CHANGED} />
+      <Turn id="msg_link_3" text={CHANGED} />
     </Chat>
   );
 }

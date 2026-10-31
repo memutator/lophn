@@ -1,7 +1,7 @@
 // `/status`가 대화 화면 안 panel로 여는 session 요약. Codex `/status`처럼 session id와 model, 계정, 창을
 // 얼마나 썼는지, 이 session이 쓴 token과 금액을 이름·값 두 열로 보인다. core가 모르는 값(구독 남은 한도)은 줄을 두지 않는다.
 
-import { formatDate, t } from "@lophn/i18n";
+import { formatDate, formatNumber, t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 import type { ReactElement } from "react";
 import { workspaceIcons } from "../../icons/mod.ts";
@@ -39,6 +39,76 @@ function providerText(provider: NonNullable<StatusData["provider"]>): string {
     case "revoked":
       return t("conversation.label.status-provider-revoked", name);
   }
+}
+
+interface TokenSegment {
+  id: "input" | "cached" | "output";
+  label: string;
+  count: number;
+}
+
+function tokenSegments(
+  input: number,
+  cached: number | null,
+  output: number,
+): TokenSegment[] {
+  const segments: TokenSegment[] = [
+    {
+      id: "input",
+      label: t("conversation.label.status-tokens-input"),
+      count: input,
+    },
+  ];
+  if (cached !== null) {
+    segments.push({
+      id: "cached",
+      label: t("conversation.label.status-tokens-cached"),
+      count: cached,
+    });
+  }
+  segments.push({
+    id: "output",
+    label: t("conversation.label.status-tokens-output"),
+    count: output,
+  });
+  return segments;
+}
+
+// `inputTokens`는 cache에서 읽은 것을 뺀 입력이라 세 칸을 더해도 겹치지 않는다.
+function TokenBreakdown({
+  segments,
+}: {
+  segments: readonly TokenSegment[];
+}): ReactElement {
+  const total = segments.reduce((sum, one) => sum + one.count, 0);
+  return (
+    <>
+      <div className={styles.split} aria-hidden="true">
+        {segments.map((one) =>
+          one.count === 0 || total === 0 ? null : (
+            <div
+              key={one.id}
+              className={styles.splitPart}
+              data-part={one.id}
+              style={{ flexGrow: one.count }}
+            />
+          ),
+        )}
+      </div>
+      <ul className={styles.legend}>
+        {segments.map((one) => (
+          <li key={one.id} className={styles.legendItem}>
+            <span
+              className={styles.swatch}
+              data-part={one.id}
+              aria-hidden="true"
+            />
+            {one.label} {formatNumber(one.count)}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
 }
 
 export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
@@ -109,16 +179,13 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
         </Row>
         {status.inputTokens === null || status.outputTokens === null ? null : (
           <Row name={t("conversation.label.status-tokens")}>
-            {status.cacheReadTokens === null
-              ? t("conversation.label.status-tokens-value-uncached", {
-                  input: status.inputTokens,
-                  output: status.outputTokens,
-                })
-              : t("conversation.label.status-tokens-value", {
-                  input: status.inputTokens + status.cacheReadTokens,
-                  cached: status.cacheReadTokens,
-                  output: status.outputTokens,
-                })}
+            <TokenBreakdown
+              segments={tokenSegments(
+                status.inputTokens,
+                status.cacheReadTokens,
+                status.outputTokens,
+              )}
+            />
           </Row>
         )}
         {status.costs.length === 0 ? null : (

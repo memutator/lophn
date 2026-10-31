@@ -20,6 +20,7 @@ import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts"
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
 import { useConversation } from "../conversation/window-deps.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
+import { useReportVisible } from "../conversation/report-visible.ts";
 import { AgentsPage } from "../workspace/agents/agents-page.tsx";
 import type { AgentsSource } from "../workspace/agents/source.ts";
 import { RunList, type RunRow } from "../workspace/sidebar/run-list.tsx";
@@ -229,6 +230,11 @@ function AgentBody(
   },
 ): ReactElement {
   const { factory, assignment, app, onState } = props;
+  // 다른 탭을 고르거나 패널을 접어도 마운트는 남고 CSS로만 숨는다.
+  useReportVisible(
+    props.session,
+    props.tab === "agent" && props.placement !== "hidden",
+  );
   const source = useMemo(
     () => factory({ assignment, place: { kind: "app", id: app } }),
     [factory, assignment, app],

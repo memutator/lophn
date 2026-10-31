@@ -1,4 +1,5 @@
 // shell 틀 gallery page의 고정 data. desk 셋(Main, Review, Release check)과 tab 일곱. 본문은 틀을 보이려는 간단한 그림이다.
+// desk는 실제 desk model(`shell/desk-model.ts`)이고 group·float은 그 함수로 만든다.
 import type { ReactNode } from "react";
 import { FileIcon, Icon } from "@lophn/ui/primitives";
 import { Markdown } from "@lophn/ui/reading";
@@ -9,6 +10,16 @@ import {
   type Vendor,
   VendorIcon,
 } from "../../../packages/shell/renderer/parts/vendor-icon/vendor-icon.tsx";
+import {
+  type Desk,
+  emptyDesk,
+  floatTab,
+  selectTab,
+  setRatio,
+  splitTab,
+  type TabItem,
+} from "../../../packages/shell/renderer/shell/desk-model.ts";
+import type { FloatRect } from "../../../packages/shell/renderer/workspace/model.ts";
 import type { CardPane } from "../../../packages/shell/renderer/shell/content-card.tsx";
 import type { TabMenuState } from "../../../packages/shell/renderer/shell/tab-menu.tsx";
 import type { StripTab } from "../../../packages/shell/renderer/shell/tab-strip.tsx";
@@ -31,25 +42,13 @@ export interface MockTab {
   unsaved?: boolean;
 }
 
-export interface MockEntry {
-  key: string;
-  a: MockTab;
-  b?: MockTab;
-  /** split의 방향과 a의 몫. 없으면 좌우 반반이다. */
-  dir?: "row" | "column";
-  ratio?: number;
-}
-
 export interface MockDesk {
   key: string;
   label: string;
   workflow?: boolean;
   status?: string;
-  entries: MockEntry[];
-  selected: string | null;
-  focus: "a" | "b";
-  minimized: MockTab[];
-  floating: string[];
+  /** 실제 desk model. tab의 title·dot 같은 그림 값은 `fields.mock`에 있다(`mockOf`). */
+  model: Desk;
 }
 
 const LOPHN: Agent = { kind: "lophn", shape: "square", color: "coral" };
@@ -79,7 +78,6 @@ const terminal = (key: string, title: string): MockTab => ({
   title,
   crumbs: ["phroner", title],
 });
-const single = (tab: MockTab): MockEntry => ({ key: tab.key, a: tab });
 
 export const P1 = chat("p1", "Pick up the body refactor", "phroner");
 export const P2 = chat("p2", "Check the gaze on running", "phroner");
@@ -105,26 +103,87 @@ const R1: MockTab = {
 };
 const REL = chat("rel", "Release check · step 2", "phroner");
 
+// gallery 창 크기(1280x800)에 맞춘 float 자리. 띄운 차례대로 쓴다.
+export const FLOAT_RECTS: readonly FloatRect[] = [
+  { x: 300, y: 56, width: 396, height: 300 },
+  { x: 32, y: 420, width: 440, height: 220 },
+  { x: 180, y: 240, width: 400, height: 260 },
+];
+
+const itemOf = (tab: MockTab): TabItem => ({
+  key: tab.key,
+  kind: "mock",
+  title: tab.title,
+  fields: { mock: tab },
+});
+
+export const mockOf = (item: TabItem): MockTab => item.fields!.mock as MockTab;
+
+/** tabs를 차례로 연 desk. floats는 [tab, 펴 있나] 차례이고 그 차례가 위아래·접힌 칸의 차례다. */
 const desk = (
   key: string,
   label: string,
   tabs: MockTab[],
-  more: Partial<MockDesk> = {},
-): MockDesk => ({
-  key,
-  label,
-  entries: tabs.map(single),
-  selected: tabs[0]?.key ?? null,
-  focus: "a",
-  minimized: [],
-  floating: [],
-  ...more,
-});
+  more: {
+    selected?: string;
+    floats?: readonly (readonly [MockTab, boolean])[];
+    workflow?: boolean;
+    status?: string;
+  } = {},
+): MockDesk => {
+  const floats = more.floats ?? [];
+  let model: Desk = {
+    ...emptyDesk(key, label),
+    tabs: [...tabs, ...floats.map(([tab]) => tab)].map(itemOf),
+  };
+  model = selectTab(model, more.selected ?? tabs[0]?.key ?? "");
+  floats.forEach(([tab], at) => {
+    model = floatTab(model, tab.key, FLOAT_RECTS[at % FLOAT_RECTS.length]!);
+  });
+  model = {
+    ...model,
+    floats: model.floats.map((item, at) => ({
+      ...item,
+      minimized: !floats[at]![1],
+    })),
+  };
+  return {
+    key,
+    label,
+    ...(more.workflow ? { workflow: true } : {}),
+    ...(more.status === undefined ? {} : { status: more.status }),
+    model,
+  };
+};
+
+type Step = readonly [
+  target: string,
+  added: string,
+  side: "left" | "right" | "top" | "bottom",
+];
+
+/** 나눔 하나를 더한다. 첫 인자 desk model은 이미 tabs에 든 tab으로 만든다. */
+const grouped = (
+  main: MockDesk,
+  steps: readonly Step[],
+  select?: string,
+): MockDesk => {
+  let model = main.model;
+  for (const [target, added, side] of steps) {
+    model = splitTab(model, target, added, side, { select: "target" });
+  }
+  return { ...main, model: select ? selectTab(model, select) : model };
+};
 
 export type Variant =
   | "project"
   | "split"
   | "split-down"
+  | "group-top2"
+  | "group-right2"
+  | "group-columns"
+  | "group-grid"
+  | "group-menu"
   | "floats"
   | "empty"
   | "overflow"
@@ -136,7 +195,11 @@ export type Variant =
 /** variant마다 Main desk의 상태가 다르다. Review와 workflow desk는 같다. */
 export function mockDesks(variant: Variant): MockDesk[] {
   const main = desk("_default", "Main", [P1, C1, README, PLAN, TERM], {
-    minimized: [P2, DEV, POSE],
+    floats: [
+      [P2, false],
+      [DEV, false],
+      [POSE, false],
+    ],
   });
   const others = [
     desk("review", "Review", [R1]),
@@ -154,30 +217,72 @@ export function mockDesks(variant: Variant): MockDesk[] {
       },
     ),
   ];
+  // Main의 tab을 나눠 group 하나로 만든다. ratios는 [path, 몫]이다.
+  const groupMain = (
+    steps: readonly Step[],
+    ratios: readonly (readonly [readonly ("a" | "b")[], number])[] = [],
+  ): MockDesk[] => {
+    const made = grouped(main, steps, "p1");
+    const model = ratios.reduce(
+      (now, [path, ratio]) => setRatio(now, "p1", path, ratio),
+      made.model,
+    );
+    return [{ ...made, model }, ...others];
+  };
   switch (variant) {
     case "split":
-      return [
-        {
-          ...main,
-          entries: [{ key: "p1", a: P1, b: C1 }, single(README), single(PLAN)],
-        },
-        ...others,
-      ];
+      return [grouped(main, [["p1", "c1", "right"]]), ...others];
     case "split-down":
-      return [
-        {
-          ...main,
-          entries: [
-            { key: "p1", a: P1, b: C1, dir: "column" },
-            single(README),
-            single(PLAN),
-          ],
-        },
-        ...others,
-      ];
+      return [grouped(main, [["p1", "c1", "bottom"]]), ...others];
+    case "group-top2":
+      // 위에 둘, 아래에 하나.
+      return groupMain([
+        ["p1", "readme", "bottom"],
+        ["p1", "c1", "right"],
+      ]);
+    case "group-right2":
+      // 왼쪽에 하나, 오른쪽에 위아래 둘.
+      return groupMain(
+        [
+          ["p1", "c1", "right"],
+          ["c1", "readme", "bottom"],
+        ],
+        [[[], 0.45]],
+      );
+    case "group-columns":
+      // 세 열.
+      return groupMain(
+        [
+          ["p1", "c1", "right"],
+          ["c1", "readme", "right"],
+        ],
+        [[[], 1 / 3]],
+      );
+    case "group-grid":
+      // 2 x 2.
+      return groupMain([
+        ["p1", "readme", "bottom"],
+        ["p1", "c1", "right"],
+        ["readme", "plan", "right"],
+      ]);
+    case "group-menu":
+      // 세 칸 group의 둘째 칸 ⋯ menu를 연다. Remove from split과 Unsplit all이 나온다.
+      return groupMain([
+        ["p1", "c1", "right"],
+        ["c1", "readme", "bottom"],
+      ]);
     case "floats":
       return [
-        { ...main, selected: "readme", floating: ["p2", "dev"] },
+        {
+          ...desk("_default", "Main", [P1, C1, README, PLAN, TERM], {
+            selected: "readme",
+            floats: [
+              [P2, true],
+              [DEV, true],
+              [POSE, false],
+            ],
+          }),
+        },
         ...others,
       ];
     case "overflow": {
@@ -194,11 +299,11 @@ export function mockDesks(variant: Variant): MockDesk[] {
       ];
       const many = names.map((name) => file(name, `${name}.md`, "phroner"));
       return [
-        {
-          ...main,
-          ...desk("_default", "Main", [P1, C1, ...many]),
-          minimized: [P2, DEV, POSE, TERM, README, PLAN],
-        },
+        desk("_default", "Main", [P1, C1, ...many], {
+          floats: [P2, DEV, POSE, TERM, README, PLAN].map(
+            (tab) => [tab, false] as const,
+          ),
+        }),
         ...others,
       ];
     }
@@ -219,12 +324,13 @@ export function mockDesks(variant: Variant): MockDesk[] {
         "phroner",
       );
       return [
-        {
-          ...desk("_default", "Main", [P1, C1, ...many, README, PLAN, last], {
-            selected: "last",
-            minimized: [P2, DEV],
-          }),
-        },
+        desk("_default", "Main", [P1, C1, ...many, README, PLAN, last], {
+          selected: "last",
+          floats: [
+            [P2, false],
+            [DEV, false],
+          ],
+        }),
         ...others,
       ];
     }
@@ -235,60 +341,71 @@ export function mockDesks(variant: Variant): MockDesk[] {
         "phroner",
       );
       return [
-        {
-          ...desk(
-            "_default",
-            "Main",
-            [
-              file("doc1", "docs.md", "phroner"),
-              file("doc2", "domain.md", "phroner"),
-              long,
-              file("doc3", "design.md", "phroner"),
-              TERM,
-            ],
-            { selected: "long", minimized: [P2] },
-          ),
-        },
+        desk(
+          "_default",
+          "Main",
+          [
+            file("doc1", "docs.md", "phroner"),
+            file("doc2", "domain.md", "phroner"),
+            long,
+            file("doc3", "design.md", "phroner"),
+            TERM,
+          ],
+          { selected: "long", floats: [[P2, false]] },
+        ),
         ...others,
       ];
     }
-    case "split-compact":
+    case "split-compact": {
+      // 고르지 않은 group은 아이콘과 방향 표시만 보인다: 둘(좌우), 둘(위아래), 셋.
+      const doc1 = file("doc1", "docs.md", "phroner");
+      const ideas = file("ideas", "ideas.md", "phroner");
+      const todo = file("todo", "todo.md", "phroner");
+      const compact = desk(
+        "_default",
+        "Main",
+        [doc1, README, P1, C1, PLAN, TERM, POSE, ideas, todo],
+        { selected: "readme" },
+      );
       return [
-        {
-          ...main,
-          entries: [
-            single(file("doc1", "docs.md", "phroner")),
-            single(README),
-            { key: "p1", a: P1, b: C1 },
-            { key: "plan", a: PLAN, b: TERM, dir: "column" },
+        grouped(
+          compact,
+          [
+            ["p1", "c1", "right"],
+            ["plan", "term", "bottom"],
+            ["pose", "ideas", "right"],
+            ["ideas", "todo", "bottom"],
           ],
-          selected: "readme",
-        },
+          "readme",
+        ),
         ...others,
       ];
+    }
     case "marks":
       return [
-        {
-          ...desk(
-            "_default",
-            "Main",
-            [
-              P1,
-              C1,
-              { ...README, preview: true },
-              { ...PLAN, unsaved: true },
-              TERM,
+        desk(
+          "_default",
+          "Main",
+          [
+            P1,
+            C1,
+            { ...README, preview: true },
+            { ...PLAN, unsaved: true },
+            TERM,
+          ],
+          {
+            selected: "plan",
+            floats: [
+              [P2, false],
+              [DEV, false],
+              [POSE, false],
             ],
-            { selected: "plan", minimized: [P2, DEV, POSE] },
-          ),
-        },
+          },
+        ),
         ...others,
       ];
     case "empty":
-      return [
-        { ...main, entries: [], selected: null, minimized: [] },
-        ...others,
-      ];
+      return [{ ...main, model: emptyDesk("_default", "Main") }, ...others];
     default:
       return [main, ...others];
   }

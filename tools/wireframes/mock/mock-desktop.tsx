@@ -206,7 +206,7 @@ function storedTab(tab: TabSpec) {
     : { kind: tab.kind, key: tab.key, path: tab.key };
 }
 
-// 칸이 둘이면 둘째 칸의 고른 탭을 첫 칸의 고른 탭 바로 뒤에 붙여 split 하나로 만든다.
+// 칸이 둘이면 둘째 칸의 고른 탭을 첫 칸의 고른 탭 바로 뒤에 붙여 group 하나로 만든다.
 function layoutOf(panes: readonly PaneSpec[], floats: readonly FloatSpec[]) {
   const first = panes[0];
   const second = panes[1];
@@ -228,10 +228,20 @@ function layoutOf(panes: readonly PaneSpec[], floats: readonly FloatSpec[]) {
         label: "Main",
         tabs: tabs.map(storedTab),
         selected_tab: first?.selected ?? null,
-        split:
+        groups:
           partner === undefined || first === undefined
-            ? null
-            : { a: first.selected, b: partner.key, focus: "a" },
+            ? []
+            : [
+                {
+                  layout: {
+                    dir: "row",
+                    ratio: 0.5,
+                    a: { tab: first.selected },
+                    b: { tab: partner.key },
+                  },
+                  focus: first.selected,
+                },
+              ],
         floats: floats.map((float) => ({
           tab: storedTab(float.tab),
           rect: float.rect,

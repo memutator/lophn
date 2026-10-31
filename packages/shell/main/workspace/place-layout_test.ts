@@ -88,12 +88,28 @@ test("판 7 project layout을 올려 읽어도 tab이 desk마다 한 번씩 남�
     assert.equal(layout.active_desk, "review");
 
     const main = layout.desks._default!;
+    // 칸 셋이 group 하나가 된다: leaf = 칸의 고른 tab, 배치 tree는 그대로, tabs는 group이 맨 앞.
     assert.deepEqual(
       main.tabs.map((item) => item.key),
-      ["/a.md", "/dup.md", "/b.md", "/c.md"],
+      ["/a.md", "/b.md", "/c.md", "/dup.md"],
     );
     assert.equal(main.selected_tab, "/b.md"); // focus 칸의 선택
-    assert.equal(main.split, null);
+    assert.deepEqual(main.groups, [
+      {
+        layout: {
+          dir: "row",
+          ratio: 0.5,
+          a: { tab: "/a.md" },
+          b: {
+            dir: "column",
+            ratio: 0.5,
+            a: { tab: "/b.md" },
+            b: { tab: "/c.md" },
+          },
+        },
+        focus: "/b.md",
+      },
+    ]);
     assert.equal(main.label, "Main");
     assert.equal(main.workflow, undefined);
     assert.deepEqual(
@@ -124,6 +140,57 @@ test("판 7 project layout을 올려 읽어도 tab이 desk마다 한 번씩 남�
   });
 });
 
+test("판 7 칸이 5개 이상이거나 빈 칸이 있으면 group 없이 한 줄로 합치고 tab을 잃지 않는다", async () => {
+  await withRoot(async (root) => {
+    const names = ["a", "b", "c", "d", "e", "f"];
+    const chain = (index: number): unknown =>
+      index === names.length - 1
+        ? "leaf"
+        : { dir: "row", ratio: 0.5, a: "leaf", b: chain(index + 1) };
+    const file = v7File();
+    file.layout.desks = {
+      _default: {
+        panes: names.map((n) => ({
+          tabs: [tab(`/${n}.md`)],
+          selected_tab: `/${n}.md`,
+        })),
+        layout: chain(0),
+        focused_pane: 0,
+        floats: [],
+        detached: [],
+      },
+      review: {
+        panes: [
+          { tabs: [tab("/x.md")], selected_tab: "/x.md" },
+          { tabs: [], selected_tab: null },
+        ],
+        layout: { dir: "row", ratio: 0.5, a: "leaf", b: "leaf" },
+        focused_pane: 0,
+        floats: [],
+        detached: [],
+      },
+    } as never;
+    await mkdir(join(root, "shell", "layouts"), { recursive: true });
+    await writeFile(
+      join(root, "shell", "layouts", `${PROJECT}.json`),
+      JSON.stringify(file),
+    );
+    const read = await createPlaceLayoutStore(root).read(PROJECT);
+    assert.ok(read.ok && read.value?.ok);
+    const { desks } = read.value.layout;
+    assert.deepEqual(desks._default!.groups, []);
+    assert.deepEqual(
+      desks._default!.tabs.map((item) => item.key),
+      names.map((n) => `/${n}.md`),
+    );
+    assert.deepEqual(desks.review!.groups, []);
+    assert.deepEqual(
+      desks.review!.tabs.map((item) => item.key),
+      ["/x.md"],
+    );
+  });
+});
+
 test("판 8 파일은 쓴 대로 읽히고, place 파일이 있으면 옛 layout을 보지 않는다", async () => {
   await withRoot(async (root) => {
     const store = createPlaceLayoutStore(root);
@@ -134,13 +201,17 @@ test("판 8 파일은 쓴 대로 읽히고, place 파일이 있으면 옛 layout
           label: "Main",
           tabs: [tab("/a.md"), tab("/b.md")],
           selected_tab: "/b.md",
-          split: {
-            a: "/a.md",
-            b: "/b.md",
-            focus: "b",
-            dir: "column",
-            ratio: 0.3,
-          },
+          groups: [
+            {
+              layout: {
+                dir: "column",
+                ratio: 0.3,
+                a: { tab: "/a.md" },
+                b: { tab: "/b.md" },
+              },
+              focus: "/b.md",
+            },
+          ],
           floats: [{ tab: tab("/f.md"), rect: BOUNDS, minimized: false }],
           detached: [],
         },
@@ -167,48 +238,7 @@ test("판 8 파일은 쓴 대로 읽히고, place 파일이 있으면 옛 layout
   });
 });
 
-test("dir과 ratio가 없는 판 8 파일은 좌우 반반으로 읽고, 범위 밖 ratio는 저장하지 않는다", async () => {
-  await withRoot(async (root) => {
-    const store = createPlaceLayoutStore(root);
-    const file = (split: object) => ({
-      active_desk: "_default",
-      desks: {
-        _default: {
-          label: "Main",
-          tabs: [tab("/a.md"), tab("/b.md")],
-          selected_tab: "/a.md",
-          split,
-          floats: [],
-          detached: [],
-        },
-      },
-    });
-    await mkdir(join(root, "shell", "places"), { recursive: true });
-    await writeFile(
-      join(root, "shell", "places", "home.json"),
-      JSON.stringify({
-        schema_version: 8,
-        ...file({ a: "/a.md", b: "/b.md", focus: "a" }),
-      }),
-    );
-    const read = await store.read("home");
-    assert.ok(read.ok && read.value?.ok);
-    assert.deepEqual(read.value.layout.desks._default!.split, {
-      a: "/a.md",
-      b: "/b.md",
-      focus: "a",
-      dir: "row",
-      ratio: 0.5,
-    });
-    const wild = await store.write(
-      "home",
-      file({ a: "/a.md", b: "/b.md", focus: "a", dir: "row", ratio: 0.99 }),
-    );
-    assert.ok(!wild.ok && wild.error.code === "invalid_input");
-  });
-});
-
-test("tab을 둘로 만들거나 붙지 않은 split을 담은 layout은 저장하지 않는다", async () => {
+test("split을 가진 초기 판 8 파일은 group 하나로 읽고, 범위 밖 ratio는 저장하지 않는다", async () => {
   await withRoot(async (root) => {
     const store = createPlaceLayoutStore(root);
     const desk = (over: object) => ({
@@ -218,27 +248,116 @@ test("tab을 둘로 만들거나 붙지 않은 split을 담은 layout은 저장�
           label: "Main",
           tabs: [tab("/a.md"), tab("/b.md"), tab("/c.md")],
           selected_tab: "/a.md",
-          split: null,
           floats: [],
           detached: [],
           ...over,
         },
       },
     });
-    const twice = await store.write(
-      "home",
-      desk({ floats: [{ tab: tab("/a.md"), rect: BOUNDS, minimized: false }] }),
-    );
-    const apart = await store.write(
-      "home",
-      desk({
-        split: { a: "/a.md", b: "/c.md", focus: "a", dir: "row", ratio: 0.5 },
+    await mkdir(join(root, "shell", "places"), { recursive: true });
+    await writeFile(
+      join(root, "shell", "places", "home.json"),
+      JSON.stringify({
+        schema_version: 8,
+        ...desk({ split: { a: "/a.md", b: "/b.md", focus: "b" } }),
       }),
     );
-    for (const result of [twice, apart]) {
+    const read = await store.read("home");
+    assert.ok(read.ok && read.value?.ok);
+    assert.deepEqual(read.value.layout.desks._default!.groups, [
+      {
+        layout: {
+          dir: "row",
+          ratio: 0.5,
+          a: { tab: "/a.md" },
+          b: { tab: "/b.md" },
+        },
+        focus: "/b.md",
+      },
+    ]);
+    // groups도 split도 없는 파일은 group이 없다.
+    await writeFile(
+      join(root, "shell", "places", "home.json"),
+      JSON.stringify({ schema_version: 8, ...desk({}) }),
+    );
+    const none = await store.read("home");
+    assert.ok(none.ok && none.value?.ok);
+    assert.deepEqual(none.value.layout.desks._default!.groups, []);
+
+    const wild = await store.write(
+      "home",
+      desk({
+        groups: [
+          {
+            layout: {
+              dir: "row",
+              ratio: 0.99,
+              a: { tab: "/a.md" },
+              b: { tab: "/b.md" },
+            },
+            focus: "/a.md",
+          },
+        ],
+      }),
+    );
+    assert.ok(!wild.ok && wild.error.code === "invalid_input");
+  });
+});
+
+test("tab을 둘로 만들거나 group 규칙을 어긴 layout은 저장하지 않는다", async () => {
+  await withRoot(async (root) => {
+    const store = createPlaceLayoutStore(root);
+    const desk = (over: object) => ({
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [tab("/a.md"), tab("/b.md"), tab("/c.md"), tab("/d.md")],
+          selected_tab: "/a.md",
+          groups: [],
+          floats: [],
+          detached: [],
+          ...over,
+        },
+      },
+    });
+    const pair = (a: string, b: string, focus = a) => ({
+      layout: { dir: "row", ratio: 0.5, a: { tab: a }, b: { tab: b } },
+      focus,
+    });
+    const results = [
+      // 같은 tab이 float에도 있다.
+      desk({ floats: [{ tab: tab("/a.md"), rect: BOUNDS, minimized: false }] }),
+      // 붙어 있지 않다.
+      desk({ groups: [pair("/a.md", "/c.md")] }),
+      // leaf 순서와 tabs 순서가 다르다.
+      desk({ groups: [pair("/b.md", "/a.md")] }),
+      // 한 tab이 두 group에 든다.
+      desk({ groups: [pair("/a.md", "/b.md"), pair("/b.md", "/c.md")] }),
+      // leaf가 1개다.
+      desk({ groups: [{ layout: { tab: "/a.md" }, focus: "/a.md" }] }),
+      // focus가 leaf가 아니다.
+      desk({ groups: [pair("/a.md", "/b.md", "/c.md")] }),
+    ].map((layout) => store.write("home", layout));
+    for (const result of await Promise.all(results)) {
       assert.ok(!result.ok && result.error.code === "invalid_input");
     }
     assert.deepEqual(await store.read("home"), { ok: true, value: null });
+
+    // 4개 leaf까지는 저장된다.
+    const four = {
+      dir: "column",
+      ratio: 0.5,
+      a: pair("/a.md", "/b.md").layout,
+      b: pair("/c.md", "/d.md").layout,
+    };
+    assert.deepEqual(
+      await store.write(
+        "home",
+        desk({ groups: [{ layout: four, focus: "/c.md" }] }),
+      ),
+      { ok: true, value: null },
+    );
   });
 });
 
@@ -285,7 +404,7 @@ test("Home layout의 agent 탭(work_place home)은 저장이 거절되지 않고
           label: "Main",
           tabs: [agent],
           selected_tab: agent.key,
-          split: null,
+          groups: [],
           floats: [],
           detached: [],
         },
@@ -320,13 +439,17 @@ test("앱 place layout의 앱 화면 탭과 app work_place agent 탭은 저장�
           label: "Main",
           tabs: [screen, agent],
           selected_tab: screen.key,
-          split: {
-            a: screen.key,
-            b: agent.key,
-            focus: "a",
-            dir: "row",
-            ratio: 0.5,
-          },
+          groups: [
+            {
+              layout: {
+                dir: "row",
+                ratio: 0.5,
+                a: { tab: screen.key },
+                b: { tab: agent.key },
+              },
+              focus: screen.key,
+            },
+          ],
           floats: [],
           detached: [],
         },

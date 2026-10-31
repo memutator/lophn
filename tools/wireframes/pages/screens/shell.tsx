@@ -7,7 +7,7 @@ export const shellArea: Area = {
   id: "shell",
   title: "Shell",
   summary:
-    "모든 place가 쓰는 창 틀. title bar의 tab 줄과 desk 단추, 둥근 card, split, float.",
+    "모든 place가 쓰는 창 틀. title bar의 tab 줄과 desk 단추, 둥근 card, group(자유 split), float.",
   pages: [
     {
       id: "shell-project",
@@ -20,7 +20,7 @@ export const shellArea: Area = {
       id: "shell-split",
       title: "Shell · Split",
       description:
-        "두 tab을 한 칸으로 붙인 split tab(좌우, Split right). tab 줄에서는 한 칸에 반쪽 둘과 사이의 방향 아이콘이고 card는 좌우로 나뉘어 반쪽마다 머리 줄을 가진다. 누른 쪽이 강조되고 가운데 선을 끌어 몫을 바꾼다.",
+        "두 tab을 한 칸으로 붙인 group(좌우, Split right). tab 줄에서는 한 칸에 반쪽 둘과 사이의 방향 아이콘이고 card는 좌우로 나뉘어 반쪽마다 머리 줄을 가진다. 누른 쪽이 강조되고 가운데 선을 끌어 몫을 바꾼다(놓을 때 저장, 더블클릭하면 반반).",
       render: () => <ShellScene variant="split" />,
     },
     {
@@ -29,6 +29,45 @@ export const shellArea: Area = {
       description:
         "위아래로 나눈 split. tab 줄의 반쪽 사이 아이콘이 가로 나눔(Rows)이고 card는 위아래로 쌓여 반쪽마다 머리 줄을 가진다. 두 반쪽 사이의 선을 끌어 몫을 바꾼다.",
       render: () => <ShellScene variant="split-down" />,
+    },
+    {
+      id: "shell-group-top2",
+      title: "Shell · Group · 2 top + 1 bottom",
+      description:
+        "group은 tab 2~4개를 한 칸으로 붙이고 배치는 나눔 tree다. 위에 둘(좌우), 아래에 하나. tab 줄은 한 칸에 반쪽 셋과 사이의 방향 아이콘(좌우, 위아래)이다. 선마다 끌어 몫을 바꾼다.",
+      render: () => <ShellScene variant="group-top2" />,
+    },
+    {
+      id: "shell-group-right2",
+      title: "Shell · Group · 1 left + 2 right",
+      description:
+        "왼쪽에 하나, 오른쪽에 위아래 둘. 가운데 세로선은 처음 몫이 0.45이고 오른쪽 안의 가로선은 따로 끈다.",
+      render: () => <ShellScene variant="group-right2" />,
+    },
+    {
+      id: "shell-group-columns",
+      title: "Shell · Group · 3 columns",
+      description: "세 열. 두 세로선이 각각 자기 몫을 가진다(처음에는 3등분).",
+      render: () => <ShellScene variant="group-columns" />,
+    },
+    {
+      id: "shell-group-grid",
+      title: "Shell · Group · 2 x 2",
+      description:
+        "네 칸이 가득 찬 group(최대). 이 group은 다른 tab을 더 받지 않아 Split right·down이 흐리다. tab 줄에는 반쪽 넷이 한 칸이다.",
+      render: () => <ShellScene variant="group-grid" />,
+    },
+    {
+      id: "shell-group-menu",
+      title: "Shell · Tab menu on a group pane",
+      description:
+        "세 칸 group의 오른쪽 위 칸 머리 ⋯. Split right·down은 이 칸 옆에 다음 plain tab을 붙이고, Remove from split은 이 칸만 group에서 꺼내 plain tab으로 두며, Unsplit all은 group을 푼다(tab은 그 자리에 남는다).",
+      render: () => (
+        <ShellScene
+          variant="group-menu"
+          open='[data-pane="c1"] [data-tab-menu]'
+        />
+      ),
     },
     {
       id: "shell-floats",
@@ -68,7 +107,7 @@ export const shellArea: Area = {
       id: "shell-tab-menu",
       title: "Shell · Tab menu",
       description:
-        "card 머리 줄 ⋯의 tab 메뉴. Float, Split right·Split down(split이면 다른 방향과 Unsplit), Move to new window, Close tab.",
+        "card 머리 줄 ⋯의 tab 메뉴. Float, Split right·Split down(group이면 Unsplit도), Move to new window, Close tab.",
       render: () => <ShellScene variant="project" open="[data-tab-menu]" />,
     },
     {
@@ -84,14 +123,14 @@ export const shellArea: Area = {
       id: "shell-tab-menu-split",
       title: "Shell · Tab menu in a split",
       description:
-        "좌우 split의 반쪽 머리 ⋯. 방향을 바꾸는 Split down과 Unsplit이 나온다.",
+        "좌우 split(칸 둘)의 반쪽 머리 ⋯. 다음 plain tab을 더 붙이는 Split right·down과 Unsplit이 나온다.",
       render: () => <ShellScene variant="split" open="[data-tab-menu]" />,
     },
     {
       id: "shell-tab-context-menu",
       title: "Shell · Tab context menu",
       description:
-        "tab을 오른쪽 클릭한 menu. Rename(이름을 바꿀 수 있는 kind), Close 넷, Split/Unsplit, Float, Move to new window(noDetach면 없음), 파일 tab의 Copy path·Reveal, preview tab의 Keep open. 줄에는 preview tab의 italic 이름과 저장 안 된 tab의 ●가 있다.",
+        "tab을 오른쪽 클릭한 menu. Rename(이름을 바꿀 수 있는 kind), Close 넷, Split right·down(group이면 Unsplit도), Float, Move to new window(noDetach면 없음), 파일 tab의 Copy path·Reveal, preview tab의 Keep open. 줄에는 preview tab의 italic 이름과 저장 안 된 tab의 ●가 있다.",
       render: () => <ShellScene variant="marks" context="README.md" />,
     },
     {
@@ -133,7 +172,7 @@ export const shellArea: Area = {
       id: "shell-split-compact",
       title: "Shell · Split tabs compact",
       description:
-        "고르지 않은 split tab은 두 아이콘과 방향 표시만 보이는 좁은 칸이고 이름은 tooltip(두 이름)에 있다. 두 번째 split(위아래)도 같다. 고르면 두 이름이 다 보이게 펴진다.",
+        "고르지 않은 group은 아이콘과 방향 표시만 보이는 좁은 칸이고 이름은 tooltip(모든 이름)에 있다. 둘(좌우), 둘(위아래), 셋 모두 같다. 고르면 이름이 다 보이게 펴진다.",
       render: () => <ShellScene variant="split-compact" />,
     },
     {

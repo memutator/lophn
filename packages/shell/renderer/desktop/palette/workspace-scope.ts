@@ -7,7 +7,6 @@ import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import {
   type Desk,
   type FloatTab,
-  focusedKey,
   type TabItem,
 } from "../../shell/desk-model.ts";
 import type { FileRow } from "../../workspace/source.ts";
@@ -73,10 +72,9 @@ function tabs(desk: Desk): PaletteEntry<WorkspaceTarget>[] {
   }));
 }
 
-/** focus가 있는 탭. split이면 focus 쪽이다. */
+/** focus가 있는 탭. group이면 focus leaf이고 그 tab이 selected다. */
 export function focusTab(desk: Desk): TabItem | undefined {
-  const key = focusedKey(desk);
-  return desk.tabs.find((tab) => tab.key === key);
+  return desk.tabs.find((tab) => tab.key === desk.selected);
 }
 
 /** 가장 위의 접히지 않은 floated 패널. */

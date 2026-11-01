@@ -14,7 +14,7 @@ lead만 고친다. `tools/status.py command-surface build`가 `tasks/*.md`에서
 | `cmd-workflows` | cli | 1 | cs-foundation | merged | cli/cmd-workflows | b0732250e |  |
 | `cs-foundation` | cli | 1 | 없음 | merged | cli/cs-foundation | 6bf90d488 |  |
 | `defer-remove` | cli | 1 | cs-foundation | merged | cli/defer-remove | de91d807c |  |
-| `migrate-apps` | apps | 2 | 없음 | todo |  |  |  |
+| `migrate-apps` | apps | 2 | 없음 | review |  |  | 사본 branch(worktree .dev-data/migrate-apps)에 준비됨. 전환 때 사람 승인 |
 | `cmd-followups` | cli | 2 | 없음 | merged | cli/cmd-followups | 0dbb3d05b |  |
-| `e2e-rewrite` | text | 2 | cmd-followups | running | text/e2e-rewrite |  |  |
+| `e2e-rewrite` | text | 2 | cmd-followups | merged | text/e2e-rewrite | ae8462c1e |  |
 | `text-rewrite` | text | 2 | cmd-followups | merged | text/text-rewrite | c3ec7484e |  |

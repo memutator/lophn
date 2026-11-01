@@ -1,6 +1,6 @@
 # command surface: lophn agent와 coding agent가 같은 명령을 쓴다
 
-상태: 로드맵. 2026-11-01 사람과 planner가 논의를 시작했고 계획으로는 아직 열지 않았다.
+상태: 계획 `command-surface`로 구현했다(2026-11-01, `project-docs/products/change-log/0.14.0.md`). 사람 앱 전환(정한 것 16)이 남았다.
 배경 문서: `project-docs/architecture/app-call.md`, `project-docs/architecture/agent-definition.md`(tool 늦게 싣기), `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/agent-call.md`, `project-docs/products/roadmap/tool-lazy-loading.md`.
 
 ## 왜

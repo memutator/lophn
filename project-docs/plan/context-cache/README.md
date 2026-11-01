@@ -100,6 +100,7 @@ brief는 쓰지 않는다(task가 적고 결정이 위에 있다). lead가 worke
 0. **선행 조건은 끝났다.** 구독 OAuth(Claude, Antigravity)가 main에 land했고(`0dbf3658f`) `feat/auto-compact`가 그 위에 올라갔다. `feat/claude-subscription-oauth`와 `feat/subscription-oauth`는 main에 들어오지 않은 이전 branch이고 이 계획의 소유 file(`turn.ts`, `turn-prompt.ts`, `compactor.ts`, `messages.ts`)을 고친다. 그것을 합칠 일이 있으면 이 계획의 task보다 먼저 정한다.
 1. **wave 1**: `cache-tail` → `cache-openai`. 사람 결정이 필요 없다.
 2. **wave 2**: `cache-ttl` → `defer-responses`. live 확인 보류가 풀릴 때까지 `blocked`다.
+   - `defer-responses`는 하지 않는다. 계획 command-surface가 tool 정의를 늦게 싣는 장치를 지웠다(2026-11-01, `project-docs/products/roadmap/command-surface.md`).
 
 ## 돌리기 전에
 

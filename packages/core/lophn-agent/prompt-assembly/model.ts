@@ -13,9 +13,6 @@ export type PromptTool = {
   name: string;
   description: string;
   input_schema: unknown;
-  // 첫 요청에 정의를 싣지 않는 tool이다. 이름은 tool.load 설명이 알리고 정의는 tool.load 결과가 펼친다.
-  // native loading을 받는 packer는 defer_loading으로 싣고, 그 밖의 packer는 tools[]에서 뺀다(`inlineToolLoading`).
-  deferred?: boolean;
 };
 
 // 이력에 들어오는 조각. reasoning 본문은 조립에서 빠진다.
@@ -37,8 +34,6 @@ export type HistoryPart =
       media_type: string;
       data_base64: string;
     }
-  // tool.load가 불러온 tool의 wire 이름이다. id는 tool_result와 같고 packer가 tool reference나 정의 글로 바꾼다.
-  | { kind: "tool_result_reference"; id: string; names: string[] }
   | { kind: "reasoning"; text: string };
 
 export type HistoryMessage = {

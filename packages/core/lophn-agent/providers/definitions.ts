@@ -39,24 +39,3 @@ export function builtinProviderDefinition(
   }
   return ok(found);
 }
-
-// defer_loading과 tool_reference를 받는 model이다(Anthropic 문서 Tool search tool의 Model compatibility):
-// Haiku·Sonnet·Opus 4.5 이상, 5 세대, Fable, Mythos. built-in anthropic 정의에서만 켠다: custom provider는 protocol이
-// anthropic-messages여도 proxy가 이 칸을 모를 수 있어 key가 달라 꺼진다. ProviderDefinition은 strict 계약이라 칸을
-// 더하지 않고 여기에 둔다.
-const CLAUDE_VERSIONED =
-  /^claude-(?:haiku|sonnet|opus)-(\d+)(?:[-.](\d{1,2}))?(?:-\d{8})?$/;
-const CLAUDE_NAMED = /^claude-(?:fable|mythos)(?:-|$)/;
-
-export function supportsDeferredTools(
-  definitionKey: string,
-  modelName: string,
-): boolean {
-  if (definitionKey !== "anthropic") return false;
-  if (CLAUDE_NAMED.test(modelName)) return true;
-  const match = CLAUDE_VERSIONED.exec(modelName);
-  if (match === null) return false;
-  const major = Number(match[1]);
-  const minor = Number(match[2] ?? 0);
-  return major >= 5 || (major === 4 && minor >= 5);
-}

@@ -8,21 +8,19 @@ import type { CallResult } from "./tool-batch.ts";
 import { untrustedSource } from "./untrusted.ts";
 
 // 확정한 tool 결과를 다음 판단의 이력 글로 만든다. loop가 call마다 쓴다. web 결과만 바깥 글로 감싼다.
-// 이미지는 text에 base64로 싣지 않고 tool_result_image 조각으로 따로 싣는다. tool.load가 불러온 이름은
-// tool_result_reference 조각으로 따로 싣는다.
+// 이미지는 text에 base64로 싣지 않고 tool_result_image 조각으로 따로 싣는다.
 // 오래된 이미지는 omitOldImages가 뺀다. 요청 body 전체를 blob으로 저장하므로 이미지가 쌓이면 상한을 넘는다.
 export function historyResultParts(
   result: Pick<CallResult, "key" | "name" | "status" | "code" | "result">,
 ): HistoryPart[] {
   const image = imageOf(result.result.content);
-  const references = referencesOf(result.result.content);
   const content =
-    image === null && references === null
+    image === null
       ? result.result.content
       : Object.fromEntries(
           Object.entries(
             result.result.content as Record<string, unknown>,
-          ).filter(([key]) => key !== "image" && key !== "tool_reference"),
+          ).filter(([key]) => key !== "image"),
         );
   const text = JSON.stringify({
     status: result.status,
@@ -40,27 +38,9 @@ export function historyResultParts(
     id: result.key,
     text: source === null ? text : wrapUntrusted(source, text),
   };
-  if (references !== null) {
-    return [
-      part,
-      {
-        kind: "tool_result_reference",
-        id: result.key,
-        names: references,
-      },
-    ];
-  }
   return image === null
     ? [part]
     : [part, { kind: "tool_result_image", id: result.key, ...image }];
-}
-
-function referencesOf(content: unknown): string[] | null {
-  if (typeof content !== "object" || content === null) return null;
-  const names = (content as { tool_reference?: unknown }).tool_reference;
-  return Array.isArray(names) && names.every((n) => typeof n === "string")
-    ? names
-    : null;
 }
 
 function imageOf(
@@ -86,7 +66,7 @@ const PROTECTED_TOOLS = new Set(["skill.read", "skill_read"]);
 const MIN_SAVED_TOKENS = 50;
 
 // 가장 오래된 tool 결과부터 본문을 고정 문장으로 바꿔 need token 이상을 줄인다. 한 번 바꾼 결과는 다음
-// call에도 바뀐 채라 그 뒤 prefix가 다시 같다. tool_use와 결과의 짝, 이미지·참조 조각은 그대로 둔다.
+// call에도 바뀐 채라 그 뒤 prefix가 다시 같다. tool_use와 결과의 짝, 이미지 조각은 그대로 둔다.
 // 입력은 바꾸지 않는다. 줄인 것이 없으면 freed가 0이다.
 export function omitOldToolResults(
   history: readonly HistoryMessage[],

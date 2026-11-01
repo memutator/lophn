@@ -45,7 +45,6 @@ export function modelClassOf(model: string): "gemini" | "claude" | "other" {
 
 // ── 요청 번역 ─────────────────────────────────────────────────────────────
 
-// 공통 tool loading을 거친 이력이다. tool.load 결과는 이미 정의 글이라 참조 조각이 없다.
 type HistoryMessage = {
   role: "user" | "assistant";
   parts: readonly (

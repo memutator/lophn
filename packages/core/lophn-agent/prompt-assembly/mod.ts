@@ -22,11 +22,6 @@ export {
 } from "./summary.ts";
 export { anthropicSystem, anthropicTools } from "./layers.ts";
 export {
-  type InlinePart,
-  type InlineRequest,
-  inlineToolLoading,
-} from "./loading.ts";
-export {
   type BlockedReason,
   type CacheBoundary,
   type HistoryMessage,

@@ -3,8 +3,6 @@ import type { JsonObject } from "../../../protocol/base/mod.ts";
 import {
   anthropicSystem,
   anthropicTools,
-  type InlineRequest,
-  inlineToolLoading,
   type PromptMessage,
   type PromptRequest,
   type WirePacker,
@@ -55,44 +53,14 @@ export type ModelBinding = {
   invoke: InvokeModelCall;
   // provider가 켜져 있고 쓸 수 있는지.
   available(): Promise<boolean>;
-  // 이 provider·model이 native tool loading(defer_loading과 tool_reference)을 받는지. 아니면 packer가 공통 loading을 쓴다.
-  deferrable: boolean;
 };
-
-// 받는 model에는 beta header를 늘 붙인다. 쓰지 않는 요청에 붙어도 해가 없고, header가 요청마다 달라지지 않는다.
-// 옵션이 이미 정한 anthropic-beta 값이 있으면 쉼표로 잇는다.
-const DEFERRAL_BETA = "advanced-tool-use-2025-11-20";
-
-export function deferralHeaders(
-  headers: Readonly<Record<string, string>>,
-  deferrable: boolean,
-): Record<string, string> {
-  if (!deferrable) return { ...headers };
-  const name =
-    Object.keys(headers).find(
-      (key) => key.toLowerCase() === "anthropic-beta",
-    ) ?? "anthropic-beta";
-  const have = (headers[name] ?? "").split(",").filter((v) => v !== "");
-  return {
-    ...headers,
-    [name]: have.includes(DEFERRAL_BETA)
-      ? have.join(",")
-      : [...have, DEFERRAL_BETA].join(","),
-  };
-}
-
-// native 요청에서 불러온 tool이 지금 숨긴 정의에 하나도 없을 때(runtime이 다시 떠 목록이 바뀐 session) 쓰는 문장이다.
-const LOADED_GONE = "The loaded tools are no longer available.";
 
 // 이미지 입력이 없는 model에는 이미지를 보내지 않고 글 한 줄로 바꾼다.
 const IMAGE_OMITTED = "(image omitted: this model does not accept image input)";
 
-// tool.load 결과는 tool_reference로 싣는다: API가 그 자리에서 숨긴 정의를 펼친다. hidden은 이 요청의 숨긴 정의 이름이고,
-// 그 밖의 이름을 참조하면 API가 요청을 거절한다. 공통 loading 요청은 참조 조각이 이미 정의 글로 바뀌어 여기 오지 않는다.
 function anthropicMessages(
   messages: readonly PromptMessage[],
   images: boolean,
-  hidden: ReadonlySet<string>,
 ): unknown[] {
   return messages.map((message) => {
     const content: Record<string, unknown>[] = [];
@@ -138,26 +106,6 @@ function anthropicMessages(
             extra,
           ];
         }
-      } else if (part.kind === "tool_result_reference") {
-        const names = part.names.filter((name) => hidden.has(name));
-        const loaded =
-          names.length === 0
-            ? LOADED_GONE
-            : names.map((name) => ({
-                type: "tool_reference",
-                tool_name: name,
-              }));
-        const result = content.find(
-          (block) =>
-            block.type === "tool_result" && block.tool_use_id === part.id,
-        );
-        if (result === undefined) {
-          content.push({
-            type: "tool_result",
-            tool_use_id: part.id,
-            content: loaded,
-          });
-        } else result.content = loaded;
       }
     }
     return { role: message.role, content };
@@ -166,32 +114,20 @@ function anthropicMessages(
 
 // Anthropic Messages 번역. cache 표시는 system 층(anthropicSystem)과 대화 끝(buildRequest)이 단다.
 // model은 요청에 실을 이름(sent_model_name)이고 requestPatch는 option 값이 싣는 조각이다.
-// native면 숨긴 정의에 defer_loading을 붙여 모두 싣는다. anthropicTools는 request.tools와 같은 순서다.
 export function anthropicPacker(input: {
   model: string;
   maxTokens: number;
   images: boolean;
-  native: boolean;
   requestPatch?: JsonObject;
 }): WirePacker {
   return (request: PromptRequest) => {
-    const shaped = input.native ? request : inlineToolLoading(request);
-    const hidden = new Set(
-      shaped.tools
-        .filter((tool) => tool.deferred === true)
-        .map((tool) => tool.name),
-    );
     return {
       body: buildMessages({
         model: input.model,
         max_tokens: input.maxTokens,
-        system: anthropicSystem(shaped),
-        messages: anthropicMessages(shaped.messages, input.images, hidden),
-        tools: anthropicTools(shaped).map((tool, at) =>
-          shaped.tools[at].deferred === true
-            ? { ...tool, defer_loading: true }
-            : tool,
-        ),
+        system: anthropicSystem(request),
+        messages: anthropicMessages(request.messages, input.images),
+        tools: anthropicTools(request),
         request_patch: input.requestPatch,
       }),
       opaque_bytes: 0,
@@ -206,10 +142,7 @@ function systemText(request: Pick<PromptRequest, "system">): string {
 
 // OpenAI Responses 번역. function_call.call_id와 function_call_output.call_id가 대응한다.
 // 연속한 text 조각은 한 message item이고 tool 결과·호출은 자기 item이다.
-function responsesInput(
-  messages: InlineRequest["messages"],
-  images: boolean,
-): unknown[] {
+function responsesInput(messages: PromptMessage[], images: boolean): unknown[] {
   const items: unknown[] = [];
   for (const message of messages) {
     const text = message.role === "user" ? "input_text" : "output_text";
@@ -277,13 +210,12 @@ export function responsesPacker(input: {
   requestPatch?: JsonObject;
 }): WirePacker {
   return (request: PromptRequest) => {
-    const shaped = inlineToolLoading(request);
     return {
       body: buildResponses({
         model: input.model,
-        instructions: systemText(shaped),
-        input: responsesInput(shaped.messages, input.images),
-        tools: shaped.tools.map((tool) => ({
+        instructions: systemText(request),
+        input: responsesInput(request.messages, input.images),
+        tools: request.tools.map((tool) => ({
           type: "function" as const,
           name: tool.name,
           description: tool.description,
@@ -299,10 +231,7 @@ export function responsesPacker(input: {
 
 // OpenAI Chat Completions 번역. assistant의 tool_calls[].id와 tool message의
 // tool_call_id가 대응한다. 사람이 읽을 추론 본문은 보내지 않는다.
-function chatMessages(
-  messages: InlineRequest["messages"],
-  images: boolean,
-): unknown[] {
+function chatMessages(messages: PromptMessage[], images: boolean): unknown[] {
   const out: unknown[] = [];
   for (const message of messages) {
     if (message.role === "assistant") {
@@ -378,14 +307,13 @@ export function chatPacker(input: {
   requestPatch?: JsonObject;
 }): WirePacker {
   return (request: PromptRequest) => {
-    const shaped = inlineToolLoading(request);
     return {
       body: buildChat({
         model: input.model,
         provider: input.provider,
-        system: systemText(shaped),
-        messages: chatMessages(shaped.messages, input.images),
-        tools: shaped.tools.map((tool) => ({
+        system: systemText(request),
+        messages: chatMessages(request.messages, input.images),
+        tools: request.tools.map((tool) => ({
           type: "function" as const,
           function: {
             name: tool.name,
@@ -409,13 +337,12 @@ export function cloudCodePacker(input: {
   requestPatch?: JsonObject;
 }): WirePacker {
   return (request: PromptRequest) => {
-    const shaped = inlineToolLoading(request);
     return {
       body: buildCloudCode({
         model: input.model,
-        system: systemText(shaped),
-        messages: shaped.messages,
-        tools: shaped.tools,
+        system: systemText(request),
+        messages: request.messages,
+        tools: request.tools,
         images: input.images,
         request_patch: input.requestPatch,
       }),

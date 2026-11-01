@@ -38,13 +38,11 @@ import {
 import { codexShape } from "../providers/adapters/codex.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
-import { supportsDeferredTools } from "../providers/definitions.ts";
 import {
   anthropicPacker,
   cappedOutput,
   chatPacker,
   cloudCodePacker,
-  deferralHeaders,
   type ModelBinding,
   OUTPUT_CAP,
   responsesPacker,
@@ -227,11 +225,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
     if (!wire.ok) return wire;
     const limits = { ...resolved.value, ...wire.value };
 
-    const deferrable = supportsDeferredTools(
-      provider.definition.key,
-      selection.model_name,
-    );
-    const optionHeaders = deferralHeaders(limits.request_headers, deferrable);
+    const optionHeaders = limits.request_headers;
     // Claude 구독 token은 Claude Code client profile로만 보낸다. API key 요청 모양은 그대로다.
     const claude =
       credential.kind === "oauth" &&
@@ -291,7 +285,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
             model: limits.sent_model_name,
             images,
             maxTokens: anthropicMaxTokens(requestPatch, limits.output_limit),
-            native: deferrable,
             requestPatch,
           })
         : provider.protocol === "openai-responses"
@@ -349,7 +342,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
       usageRevision: limits.price_basis?.revision ?? "unknown",
       pack,
       invoke,
-      deferrable,
       // provider가 아직 연결돼 있고 같은 연결일 때만 보낸다. Disconnect하면 읽기가 없다고 답하고,
       // 같은 ID로 다시 Connect하면 logged_in_at이 달라진다.
       available: async () => {

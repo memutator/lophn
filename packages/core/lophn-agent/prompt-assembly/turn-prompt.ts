@@ -242,7 +242,6 @@ export async function assembleTurnPrompt(
       name: toWireToolName(t.name),
       description: t.description,
       input_schema: JSON.parse(canonicalize(t.input_schema)),
-      ...(t.deferred === true ? { deferred: true } : {}),
     }))
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 

@@ -37,7 +37,7 @@ test("profile은 billing·identity를 system 앞에 두고 custom tool 이름에
       project_id: null,
     },
     host: { os: "Linux", arch: "x64" },
-    betas: "advanced-tool-use-2025-11-20",
+    betas: "context-1m-2025-08-07",
   });
   const shaped = shape({
     endpoint: "https://api.anthropic.com/v1",
@@ -102,7 +102,7 @@ test("profile은 billing·identity를 system 앞에 두고 custom tool 이름에
       session: true,
       account: "11111111-1111-4111-8111-111111111111",
       betas:
-        "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,advanced-tool-use-2025-11-20",
+        "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-1m-2025-08-07",
     },
   );
   assert.match(

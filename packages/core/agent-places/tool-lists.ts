@@ -18,8 +18,6 @@ const COMMON_TOOLS = [
   "session.list",
   "ask",
   "skill.read",
-  "tool.load",
-  "tool.call",
 ] as const;
 
 // 작업 tool은 home이 빼고 project·app이 갖는다.
@@ -81,37 +79,6 @@ export function placeToolNames(kind: PlaceKind): readonly string[] {
   ];
 }
 
-// 첫 요청부터 정의를 싣는 tool이다. 처음부터 쓰는 작업·질문·협업·완료 보고와 tool 발견만 둔다. place 목록의 나머지와
-// 앱·MCP tool은 tool.load 설명에 이름과 짧은 안내만 싣고, 정의는 tool.load가 읽는다. 목록 밖 이름은 무시된다:
-// 이 정책은 보이는 방식만 정하고 쓸 수 있는 tool은 위 place 목록과 할당이 정한다.
-const EXPOSED_COMMON = [
-  "lophn",
-  "file.read",
-  "file.glob",
-  "file.grep",
-  "file.outline",
-  "image.read",
-  "web.search",
-  "web.fetch",
-  "ask",
-  "call",
-  "reply",
-  "cancel",
-  "skill.read",
-  "tool.load",
-  "tool.call",
-] as const;
-
-const EXPOSED = {
-  home: [...EXPOSED_COMMON, "app.read", "app.tools"],
-  project: [...EXPOSED_COMMON, ...WORK_TOOLS, "kind.list"],
-  app: [...EXPOSED_COMMON, ...WORK_TOOLS, "kind.list"],
-} as const satisfies Record<PlaceKind, readonly string[]>;
-
-export function exposedToolNames(kind: PlaceKind): readonly string[] {
-  return EXPOSED[kind];
-}
-
 // model에 보이는 tool 순서다. 순서가 바뀌면 같은 재료가 같은 bytes가 아니게 된다.
 export const TOOL_ORDER = [
   "file.read",
@@ -131,8 +98,6 @@ export const TOOL_ORDER = [
   "session.list",
   "ask",
   "skill.read",
-  "tool.load",
-  "tool.call",
   "app.read",
   "app.tools",
   "app.status",

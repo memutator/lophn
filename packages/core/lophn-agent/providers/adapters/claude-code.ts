@@ -149,18 +149,6 @@ function renameToolUses(messages: readonly unknown[]): unknown[] {
         if (block.type === "tool_use" && typeof block.name === "string") {
           return { ...block, name: wireToolName(block.name) };
         }
-        if (block.type === "tool_result" && Array.isArray(block.content)) {
-          return {
-            ...block,
-            content: block.content.map((item) =>
-              isRecord(item) &&
-              item.type === "tool_reference" &&
-              typeof item.tool_name === "string"
-                ? { ...item, tool_name: wireToolName(item.tool_name) }
-                : item,
-            ),
-          };
-        }
         return block;
       }),
     };
@@ -183,7 +171,7 @@ export function claudeCodeProfile(options: {
   provider: string;
   account: ProviderAccount | null;
   host: ClaudeHost;
-  // option·defer가 정한 anthropic-beta다. 같은 header로 합친다.
+  // option이 정한 anthropic-beta다. 같은 header로 합친다.
   betas?: string;
 }): (input: {
   endpoint: string;

@@ -8,7 +8,6 @@ test("Anthropic 요청은 대화 끝 content block에 cache 표시를 달고 표
     model: "m",
     maxTokens: 1000,
     images: false,
-    native: false,
   })({
     system: [
       { layer: "place_kind", text: "r", cache: true },

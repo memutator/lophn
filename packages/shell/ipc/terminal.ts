@@ -112,6 +112,14 @@ export const terminalFocusSchema = z
   })
   .strict();
 
+/** 탭 줄에 지금 보이는 터미널 탭의 이름. main이 OS 알림 제목에 쓴다. 빈 이름은 이름 없음이다. */
+export const terminalTabNameSchema = z
+  .object({
+    terminal_ref: ref,
+    name: z.string().max(200),
+  })
+  .strict();
+
 /** 터미널에서 고른 글. main이 OS clipboard에 쓴다. shell 창 session은 web clipboard permission을 거절한다. */
 export const terminalCopySchema = z
   .object({ text: z.string().min(1).max(60_000) })
@@ -175,6 +183,7 @@ export type TerminalFocus = {
   focused: boolean;
 };
 
+export type TerminalTabName = { terminal_ref: string; name: string };
 export type TerminalLink = { terminal_ref: string; url: string };
 export type TerminalBridgeAck = { request: string; opened: boolean };
 /** terminal 안 프로그램이 URL을 browser 탭으로 열어 달라고 했다. */
@@ -317,6 +326,8 @@ export interface TerminalApi {
   ): Promise<TerminalCall<TerminalSnapshotReply | TerminalReject>>;
   onOutput(listener: (output: readonly TerminalOutput[]) => void): () => void;
   focus(input: TerminalFocus): Promise<TerminalCall<null>>;
+  /** 탭 줄에 지금 보이는 이름을 main에 알린다. 이름이 바뀔 때마다 부른다. */
+  setTabName(input: TerminalTabName): Promise<TerminalCall<null>>;
   /** terminal에서 Ctrl/Cmd-click한 link를 main에 넘긴다. */
   openLink(input: TerminalLink): Promise<TerminalCall<null>>;
   /** 사람이 Ctrl+Shift+C로 고른 글을 OS clipboard에 쓴다. */
@@ -355,6 +366,7 @@ export const TERMINAL_RESTART_CHANNEL = "shell:terminal-restart";
 export const TERMINAL_SNAPSHOT_CHANNEL = "shell:terminal-snapshot";
 export const TERMINAL_OUTPUT_CHANNEL = "shell:terminal-output";
 export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";
+export const TERMINAL_TAB_NAME_CHANNEL = "shell:terminal-tab-name";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_COPY_CHANNEL = "shell:terminal-copy";
 export const TERMINAL_PASTE_CHANNEL = "shell:terminal-paste";

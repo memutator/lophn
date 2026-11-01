@@ -8,6 +8,7 @@ import {
   TERMINAL_BRIDGE_OPEN_CHANNEL,
   TERMINAL_CLOSE_CHANNEL,
   TERMINAL_FOCUS_CHANNEL,
+  TERMINAL_TAB_NAME_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
   TERMINAL_RESPONSE_CHANNEL,
   TERMINAL_LINK_CHANNEL,
@@ -112,6 +113,7 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
       return () => transport.removeListener(TERMINAL_OUTPUT_CHANNEL, callback);
     },
     focus: (input) => invoke(TERMINAL_FOCUS_CHANNEL, input),
+    setTabName: (input) => invoke(TERMINAL_TAB_NAME_CHANNEL, input),
     openLink: (input) => invoke(TERMINAL_LINK_CHANNEL, input),
     copy: (input) => invoke(TERMINAL_COPY_CHANNEL, input),
     paste: () => invoke(TERMINAL_PASTE_CHANNEL, null),

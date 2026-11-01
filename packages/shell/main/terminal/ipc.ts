@@ -10,6 +10,7 @@ import {
   type TerminalBridgeAck,
   type TerminalClose,
   type TerminalFocus,
+  type TerminalTabName,
   type TerminalInput,
   type TerminalLink,
   type TerminalOpen,
@@ -24,6 +25,7 @@ import {
   terminalBridgeAckSchema,
   terminalCloseSchema,
   terminalFocusSchema,
+  terminalTabNameSchema,
   terminalInputSchema,
   terminalCopySchema,
   terminalLinkSchema,
@@ -74,6 +76,8 @@ export type TerminalIpc = {
   ): Promise<IpcResult<TerminalReply | TerminalSnapshotReply>>;
   /** 사람이 고른 탭이 바뀌었다. 표에 적을 뿐 host에는 보내지 않는다. */
   focus(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
+  /** 탭 줄에 보이는 이름. 알림 제목용으로 적어 둘 뿐이다. */
+  tabName(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 bridge가 정한다. */
   link(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** 사람이 고른 터미널 글을 OS clipboard에 쓴다. */
@@ -135,6 +139,8 @@ export function createTerminalIpc(deps: {
   shellInit?: () => string | null;
   /** 터미널 안 coding agent 상태. runtime 답에 agent를 싣고, 사람의 입력·focus를 알린다. */
   agent?: Pick<AgentTracker, "decorate" | "humanInput" | "tabFocused">;
+  /** 탭 줄에 보이는 이름을 적는다. */
+  tabName?: (terminalRef: string, name: string) => void;
   /** 저장한 coding agent session. 꺼져 있으면 없다. */
   agentSessions?: (project: string) => Promise<TerminalAgentSession[]>;
   /** 저장한 session의 이름을 바꾸고 고정한다. 꺼져 있으면 없다. */
@@ -351,6 +357,14 @@ export function createTerminalIpc(deps: {
       } else {
         deps.focus.blur(event.sender.id, value.terminal_ref);
       }
+      return Promise.resolve({ ok: true, value: null });
+    },
+    tabName: (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return Promise.resolve(caller);
+      const parsed = checkInput<TerminalTabName>(terminalTabNameSchema, input);
+      if (!parsed.ok) return Promise.resolve(parsed);
+      deps.tabName?.(parsed.value.terminal_ref, parsed.value.name);
       return Promise.resolve({ ok: true, value: null });
     },
     link: async (event, input) => {

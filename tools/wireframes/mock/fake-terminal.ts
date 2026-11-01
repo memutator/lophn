@@ -77,6 +77,7 @@ export function fakeTerminal(project: string): TerminalApi {
       });
     },
     focus: () => ok(null),
+    setTabName: () => ok(null),
     onRuntime: () => () => {},
     openLink: () => ok(null),
     copy: () => ok(null),

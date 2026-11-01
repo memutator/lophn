@@ -1459,6 +1459,17 @@ export function PlaceWindow(props: PlaceWindowProps) {
     inboxPlaces.apps,
   ]);
 
+  // OS 알림 제목이 쓰도록 탭 이름을 main에 알린다. 바뀐 것만 보낸다.
+  const sentNames = useRef(new Map<string, string>());
+  useEffect(() => {
+    const api = terminal?.bridge;
+    for (const [ref, name] of inboxNames.terminals) {
+      if (sentNames.current.get(ref) === name) continue;
+      sentNames.current.set(ref, name);
+      void api?.setTabName({ terminal_ref: ref, name });
+    }
+  }, [inboxNames.terminals, terminal]);
+
   // card에 그릴 탭. 고른 탭이 group 구성원이면 그 group의 leaf 전부(leaf 순서), 아니면 고른 탭 하나다.
   const group = groupOf(desk, desk.selected);
   const deskTab = (key: string | null) =>

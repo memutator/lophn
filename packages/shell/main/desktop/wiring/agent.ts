@@ -53,6 +53,8 @@ export function createAgentWiring(options: {
   shellInit(): string | null;
   /** 창 모두에 runtime을 push한다. */
   publish(runtime: TerminalRuntime): void;
+  /** renderer가 알린 탭 줄의 이름. 알림 제목이 제품 이름 대신 쓴다. 빈 이름은 지운다. */
+  setTabName(terminalRef: string, name: string): void;
   /** 그 project에서 저장한 coding agent session. 새것부터다. */
   listSessions(project: string): Promise<TerminalAgentSession[]>;
   /** 탭 이름을 저장한 session에 쓰고 고정한다(null이면 고정을 푼다). 바뀐 목록을 push하고 돌려준다. */
@@ -71,6 +73,9 @@ export function createAgentWiring(options: {
     }
   }
 
+  // 터미널이 끝나면 지운다.
+  const tabNames = new Map<string, string>();
+
   function notify(notice_: AgentNotice): boolean {
     const runtime = terminals
       .runtimes()
@@ -82,7 +87,7 @@ export function createAgentWiring(options: {
     const place = basename(runtime?.cwd_at_start ?? "");
     return notice.show({
       kind: notice_.kind,
-      agent: label,
+      agent: tabNames.get(notice_.terminal_ref) ?? label,
       place: place === "" ? undefined : place,
       body: excerpt(notice_.body),
       lead: { kind: "harness", harness: notice_.harness },
@@ -151,6 +156,7 @@ export function createAgentWiring(options: {
     },
     runtime(runtime) {
       if (runtime.state === "exited" || runtime.state === "unknown") {
+        tabNames.delete(runtime.terminal_ref);
         tracker.gone(runtime.terminal_ref);
       }
     },
@@ -223,6 +229,10 @@ export function createAgentWiring(options: {
     tracker,
     shellInit: () => (live && !stopped ? shellInit : null),
     publish,
+    setTabName(terminalRef, name) {
+      if (name === "") tabNames.delete(terminalRef);
+      else tabNames.set(terminalRef, name);
+    },
     listSessions: (project) => sessions.list(project),
     async renameSession(input) {
       const list = await sessions.rename(input);

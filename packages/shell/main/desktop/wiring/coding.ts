@@ -233,6 +233,7 @@ export function register(ctx: ShellContext): Coding {
     hooks: agent.hooks,
     shellInit: agent.shellInit,
     agent: agent.tracker,
+    tabName: agent.setTabName,
     agentSessions: agent.listSessions,
     renameAgentSession: agent.renameSession,
     // headless 확인은 사람 장치의 clipboard를 건드리지 않는다.

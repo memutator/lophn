@@ -125,6 +125,7 @@ import {
   TabStrip,
 } from "../shell/tab-strip.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
+import type { TerminalStore } from "../terminal/store.ts";
 import {
   openBridgeUrl,
   useBridgeOpenRequests,
@@ -219,6 +220,8 @@ export interface PlaceWindowProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 항목을 두지 않는다. */
   terminal?: TerminalDeps;
+  /** 창의 터미널 store. 터미널이 없는 Home·앱 창의 sidebar도 다른 place의 coding agent 터미널을 이것으로 안다. 없으면 `terminal`의 store다. */
+  terminalStore?: TerminalStore;
   /** detached 창 통로. 없으면 Detach 항목과 단추를 두지 않는다. */
   detached?: LophnDetachedApi;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
@@ -299,6 +302,7 @@ const sameStop = (a: Stop, b: Stop) =>
 // Home과 앱은 project가 없어(projectId null) 폴더가 필요한 부분을 건너뛴다.
 export function PlaceWindow(props: PlaceWindowProps) {
   const { place, source, windowWidth, onHome, onSettings, terminal } = props;
+  const terminalStore = props.terminalStore ?? terminal?.store;
   const projectId = place.kind === "project" ? place.id : null;
   const appId = place.kind === "app" ? place.id : null;
   const isHome = place.kind === "home";
@@ -386,21 +390,26 @@ export function PlaceWindow(props: PlaceWindowProps) {
 
   useEffect(() => {
     let live = true;
-    const load = async () => {
-      const [project, read, files] = await Promise.all([
-        projectId === null ? null : source.project(projectId),
-        source.layout.readPlaceLayout(place),
-        projectId === null ? null : source.files(projectId),
-      ]);
-      if (!live) return;
-      if (project !== null && files !== null) {
-        setLoaded({
+    // project와 파일 목록은 배치를 기다리게 하지 않는다. 파일 목록은 큰 project에서 느리고 팔레트만 쓴다.
+    if (projectId !== null) {
+      void source.project(projectId).then((project) => {
+        if (!live) return;
+        setLoaded((now) => ({
+          ...now,
           project: project.ok ? project.value : null,
-          // 파일 목록은 팔레트만 쓴다. 읽지 못해도 작업대는 그대로 연다.
-          files: files.ok ? files.value : [],
           failed: !project.ok,
-        });
-      }
+        }));
+      });
+      void source.files(projectId).then((files) => {
+        // 읽지 못해도 작업대는 그대로 연다.
+        if (live && files.ok) {
+          setLoaded((now) => ({ ...now, files: files.value }));
+        }
+      });
+    }
+    const load = async () => {
+      const read = await source.layout.readPlaceLayout(place);
+      if (!live) return;
       const restored =
         read.ok && read.layout !== null ? read.layout : freshLayout();
       latestLayout.current = restored;
@@ -1781,6 +1790,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
           )
         }
         deskLabel={desk.label}
+        // 배치를 읽기 전에는 빈 desk 안내가 잠깐 떴다 사라지지 않게 빈 card를 둔다.
+        pending={readyPlace !== placeId}
         canBack={backAt >= 0}
         canForward={forwardAt >= 0}
         onBack={() => walk(backAt)}
@@ -1985,6 +1996,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   agents={sidebarAgents.agents}
                   openTitles={agentTabTitles}
                   terminals={panelTerminals}
+                  {...(terminalStore === undefined ? {} : { terminalStore })}
                   selected={selectedSessionKey}
                   canTerminal={terminal !== undefined}
                   onNewSession={() => void openLophn()}

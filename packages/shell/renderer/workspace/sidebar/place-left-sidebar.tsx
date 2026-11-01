@@ -1,6 +1,6 @@
 // place(Home, project) 창의 왼쪽 sidebar. 화면(LeftSidebar)에 이 창이 아는 값을 모아 준다: 모든 place의 session, 이 place의 열린 탭 제목,
 // 터미널 coding agent session, 사람 차례인 workflow desk(project만). 등록·생성 dialog도 여기서 연다.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
@@ -28,6 +28,11 @@ import {
   useTabsElsewhere,
   useSidebarPlaceList,
 } from "../../shell/use-left-sidebar.ts";
+import type { TerminalStore } from "../../terminal/store.ts";
+import {
+  otherPlaceTerminalTitle,
+  terminalAgentDot,
+} from "../kinds/terminal.tsx";
 import type { WorkspaceSource } from "../source.ts";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
@@ -78,6 +83,8 @@ export interface PlaceLeftSidebarProps {
   /** 이 창에 탭이 열린 session id → 그 탭의 제목. */
   openTitles: ReadonlyMap<string, string>;
   terminals: readonly PanelTerminal[];
+  /** 창의 터미널 store. place를 옮겨도 살아 있어 다른 place 터미널에서 agent가 지금 도는지 안다. 없으면 다른 place의 터미널 줄이 없다. */
+  terminalStore?: TerminalStore;
   /** 고른 tab의 줄(`sessionKey`). */
   selected?: string;
   /** 터미널 탭을 열 수 있다. 없으면 coding agent 항목이 없다. */
@@ -129,6 +136,39 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     current,
     sessions,
   );
+  // 다른 place의 터미널은 agent가 지금 도는 것만 current다. 끝난 agent는 탭이 남아도 빠진다.
+  const store = props.terminalStore;
+  const storeVersion = useSyncExternalStore(
+    (listener) => store?.subscribe(listener) ?? (() => {}),
+    () => store?.version() ?? 0,
+  );
+  const otherTerminals = useMemo(
+    () =>
+      new Map(
+        [...elsewhere.terminals].map(([key, tabs]) => [
+          key,
+          tabs.flatMap((tab): PanelTerminal[] => {
+            const agent = store?.agentOf(tab.key);
+            if (store === undefined || agent === undefined || !agent.hooked) {
+              return [];
+            }
+            return [
+              {
+                key: tab.key,
+                harness: agent.harness,
+                label: agent.harness,
+                title: otherPlaceTerminalTitle(tab, store),
+                dot: terminalAgentDot(agent),
+                at: 0,
+                live: { tabKey: tab.key },
+                saved: null,
+              },
+            ];
+          }),
+        ]),
+      ),
+    [elsewhere.terminals, store, storeVersion],
+  );
   const openTitles = useMemo(
     () => new Map(elsewhere.titles).set(placeKey(current), props.openTitles),
     [elsewhere.titles, current, props.openTitles],
@@ -148,7 +188,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         known,
         openTitles,
         terminals: props.terminals,
-        otherTerminals: elsewhere.terminals,
+        otherTerminals,
         workflows,
         hidden: recentHidden.hidden,
       }),
@@ -161,7 +201,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       known,
       openTitles,
       props.terminals,
-      elsewhere.terminals,
+      otherTerminals,
       workflows,
       recentHidden.hidden,
     ],

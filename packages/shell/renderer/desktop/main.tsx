@@ -354,6 +354,7 @@ export function Desktop({
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
+        terminalStore={terminal?.store}
         agentViewSource={agentViewSource}
         session={route.session}
       />
@@ -387,6 +388,7 @@ export function Desktop({
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
+        terminalStore={terminal?.store}
         agentViewSource={agentViewSource}
         session={route.session}
         startLophn={route.newSession}

@@ -491,12 +491,7 @@ export function LeftSidebar({
           const here = key === currentKey;
           const open = expanded.has(key);
           return (
-            <div
-              key={key}
-              className={styles.placeGroup}
-              data-place={key}
-              data-here={here || undefined}
-            >
+            <div key={key} className={styles.placeGroup} data-place={key}>
               <div className={styles.placeHead}>
                 <button
                   type="button"

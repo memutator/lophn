@@ -73,6 +73,8 @@ export interface ContentCardProps {
   onSplitRatio?: (path: NodePath, ratio: number) => void;
   /** 빈 desk 안내의 제목으로 쓰는 desk 이름. */
   deskLabel: string;
+  /** 저장된 배치를 아직 읽는 중이다. panes가 없어도 빈 desk 안내 대신 빈 card를 둔다. */
+  pending?: boolean;
   canBack: boolean;
   canForward: boolean;
   onBack: () => void;
@@ -95,6 +97,7 @@ export function ContentCard({
   focus,
   onSplitRatio,
   deskLabel,
+  pending = false,
   canBack,
   canForward,
   onBack,
@@ -177,7 +180,9 @@ export function ContentCard({
       }}
     >
       {panes.length === 0 ? (
-        <EmptyDesk label={deskLabel} onAction={onEmptyAction} />
+        pending ? null : (
+          <EmptyDesk label={deskLabel} onAction={onEmptyAction} />
+        )
       ) : (
         <div
           ref={area}

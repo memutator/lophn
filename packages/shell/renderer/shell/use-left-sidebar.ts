@@ -11,9 +11,13 @@ import type {
   ProjectsSource,
 } from "../desktop/places/projects/source.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
-import { harnessOf, savedAgentTitleOf } from "../workspace/kinds/terminal.tsx";
-import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
-import { allTabs, placeKey, type PlaceRef } from "./desk-model.ts";
+import { harnessOf } from "../workspace/kinds/terminal.tsx";
+import {
+  allTabs,
+  placeKey,
+  type PlaceRef,
+  type TabItem,
+} from "./desk-model.ts";
 import type { LayoutSource } from "./layout-source.ts";
 import type { KnownSessions } from "./left-sidebar-places.ts";
 
@@ -111,8 +115,8 @@ export function useKnownSessions(
 export interface TabsElsewhere {
   /** place key → session id → Agent 탭 제목. 저장된 Agent 탭은 제목을 남기지 않아 빈 글이다. */
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
-  /** place key → coding agent 터미널 탭(harness가 저장된 것). */
-  readonly terminals: ReadonlyMap<string, readonly PanelTerminal[]>;
+  /** place key → coding agent가 돈 적이 있는 터미널 탭(harness가 저장된 것). 지금 도는지는 창의 terminal store가 안다. */
+  readonly terminals: ReadonlyMap<string, readonly TabItem[]>;
 }
 
 const NONE: TabsElsewhere = { titles: new Map(), terminals: new Map() };
@@ -144,23 +148,13 @@ export function useTabsElsewhere(
         .map(async (ref) => {
           const read = await layout.readPlaceLayout(ref);
           const titles = new Map<string, string>();
-          const terminals: PanelTerminal[] = [];
+          const terminals: TabItem[] = [];
           if (read.ok && read.layout !== null) {
             for (const tab of allTabs(read.layout)) {
               const session = tab.kind === "agent" ? sessionOf(tab) : null;
               if (session !== null) titles.set(session, tab.title);
-              const harness = tab.kind === "terminal" ? harnessOf(tab) : null;
-              if (harness !== null) {
-                terminals.push({
-                  key: tab.key,
-                  harness,
-                  label: harness,
-                  title: savedAgentTitleOf(tab) ?? tab.title,
-                  dot: null,
-                  at: 0,
-                  live: { tabKey: tab.key },
-                  saved: null,
-                });
+              if (tab.kind === "terminal" && harnessOf(tab) !== null) {
+                terminals.push(tab);
               }
             }
           }

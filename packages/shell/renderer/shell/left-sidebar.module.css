@@ -114,19 +114,12 @@
   padding-block-end: var(--space-3);
 }
 
-/* 이 창이 보이는 place는 가운데 card와 같은 바탕의 상자로 묶어 다른 place와 갈린다. */
-.placeGroup[data-here] {
-  padding: var(--space-1);
-  background: var(--color-surface-base);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-}
-
 .placeRow {
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
 
+/* 이 창이 보이는 place는 이름만 진하게 해 다른 place와 갈린다. */
 .placeRow[aria-current="true"] {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);

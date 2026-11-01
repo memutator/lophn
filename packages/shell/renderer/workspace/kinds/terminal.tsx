@@ -2,7 +2,7 @@
 
 import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
-import type { TerminalResume } from "../../../ipc/terminal.ts";
+import type { TerminalAgent, TerminalResume } from "../../../ipc/terminal.ts";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import {
@@ -82,12 +82,6 @@ export function harnessOf(tab: TabItem): string | null {
     : null;
 }
 
-/** 저장된 layout에서 읽은 탭의, agent가 정한 마지막 이름. 다른 place의 sidebar가 쓴다. */
-export function savedAgentTitleOf(tab: TabItem): string | null {
-  const title = tab.fields?.agentTitle;
-  return typeof title === "string" && title.length > 0 ? title : null;
-}
-
 function autoOf(tab: TabItem): string {
   const auto = tab.fields?.auto;
   return typeof auto === "string" ? auto : tab.title;
@@ -106,6 +100,28 @@ export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
   });
 }
 
+/**
+ * 다른 place의 저장된 layout에서 읽은 탭의 이름. 창의 store가 아는 agent 이름이 먼저이고, 아직 없으면 그 place가
+ * 마지막으로 저장한 agent 이름(`agent_title`)이다.
+ */
+export function otherPlaceTerminalTitle(
+  tab: TabItem,
+  store: TerminalStore,
+): string {
+  const name = terminalTabTitle(tab, store);
+  const saved = tab.fields?.agentTitle;
+  return name === autoOf(tab) && typeof saved === "string" && saved.length > 0
+    ? saved
+    : name;
+}
+
+/** running은 일하는 중, waiting은 사람을 기다림, 끝났는데 안 본 turn은 finished다. */
+export function terminalAgentDot(agent: TerminalAgent): TabDot | null {
+  if (agent.state === "running") return "working";
+  if (agent.state === "waiting") return "waiting";
+  return agent.state === "idle" && agent.unseen ? "finished" : null;
+}
+
 // 사람이 plain 터미널에서 직접 띄운 coding agent도 main이 알려 주면 그 제품 아이콘을 쓴다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
@@ -114,13 +130,9 @@ function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
 }
 
-/** running은 일하는 중, waiting은 사람을 기다림, 끝났는데 안 본 turn은 finished다. */
 function agentTabDot(tab: TabItem, host: TabHost): TabDot | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
-  if (agent === undefined) return null;
-  if (agent.state === "running") return "working";
-  if (agent.state === "waiting") return "waiting";
-  return agent.state === "idle" && agent.unseen ? "finished" : null;
+  return agent === undefined ? null : terminalAgentDot(agent);
 }
 
 // 탭의 PTY 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다.

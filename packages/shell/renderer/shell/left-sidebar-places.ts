@@ -6,7 +6,7 @@
 // - recent: 나머지(끝났거나 닫았거나 가만히 있는). 이 창이 보이는 place에만 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 place의 것만 온다.
-//   다른 place는 layout에 탭이 열린 coding agent 터미널(`otherTerminals`)이 current로 온다.
+//   다른 place는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 import { t } from "@lophn/i18n";
 
@@ -42,7 +42,7 @@ export interface PlacesInput {
   readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** 이 창이 보이는 place의 터미널 coding agent session. */
   readonly terminals: readonly PanelTerminal[];
-  /** place key → 그 place의 layout에 탭이 열린 coding agent 터미널(이 창이 보이지 않는 place). */
+  /** place key → 그 place의 layout에 탭이 열렸고 agent가 지금 도는 터미널(이 창이 보이지 않는 place). */
   readonly otherTerminals: ReadonlyMap<string, readonly PanelTerminal[]>;
   /** 이 창이 보이는 place에서 사람 차례를 기다리는 workflow 이름. */
   readonly workflows: readonly string[];
@@ -121,7 +121,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
         ref: terminal.key,
         title: terminal.title,
         agent: { kind: "coding", vendor: harnessVendorOf(terminal.harness) },
-        dot: null,
+        dot: terminal.dot,
         at: 0,
       });
     }

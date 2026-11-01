@@ -6,8 +6,8 @@ import {
   AGENT_BODY_MAX_BYTES,
   type AgentDefinition,
   type AgentDefinitionIssue,
-  agentDefinitionSchema,
   type AgentId,
+  agentDefinitionSchema,
   agentNameKey,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
@@ -191,9 +191,11 @@ function checkDefinition(
 
 const EMPTY_DEFAULT_LISTS = [
   "skills",
+  "skills_off",
   "domains",
   "mcp_off",
   "mcp_servers",
+  "apps",
 ] as const;
 
 function pick(source: Plain, keys: readonly string[]): Plain {
@@ -231,6 +233,10 @@ function orderedFrontmatter(value: Plain): Plain {
         ? list.map((item) => pick(item, ["server_name", "original_tool"]))
         : list;
   }
+  const deny = (value.permissions as Plain | undefined)?.deny as
+    | string[]
+    | undefined;
+  if (deny !== undefined && deny.length > 0) out.permissions = { deny };
   if (value.skip !== undefined) out.skip = value.skip;
   return out;
 }

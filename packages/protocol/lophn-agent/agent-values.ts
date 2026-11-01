@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
+import { slugSchema } from "../projects/values.ts";
 import { profileOutputSchema, profileSchema } from "./agent-profile.ts";
+import { mcpServerSchema } from "./mcp-settings.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
-import { mcpServerSchema } from "./mcp-settings.ts";
 
 export * from "./agent-profile.ts";
 
@@ -76,6 +77,18 @@ function mcpKey(entry: { server_name: string; original_tool?: string }) {
 const skillsSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate skill",
 });
+// 할당한 앱의 slug. slug는 앱을 만들 때 정해지고 바뀌지 않아 사람이 손으로 읽고 고칠 수 있다.
+// 할당은 그 앱의 command를 부르게 하고 그 앱의 public skill을 받게 한다.
+const appsSchema = z.array(slugSchema).refine(unique, {
+  message: "duplicate app",
+});
+// agent 층 권한 규칙. 지금은 할당한 앱에서 뺀 command(`lophn(<domain> <command>)`)만 쓴다.
+const permissionsSchema = z.strictObject({
+  deny: z
+    .array(nonblankSchema)
+    .refine(unique, { message: "duplicate rule" })
+    .optional(),
+});
 // agent가 일하는 domain id. 비면 그릇의 domain 전부다. id가 그 그릇 것인지는 정의를 저장하는 쪽이 본다.
 const domainsSchema = z.array(idSchema("dom")).refine(unique, {
   message: "duplicate domain",
@@ -101,16 +114,19 @@ const mcpServersSchema = z
     { message: "mcp server names must be unique" },
   );
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile 잠금과 사람만 쓰는 칸(`mcp_servers`, `skip`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile 잠금과 사람만 쓰는 칸(`mcp_servers`, `apps`, `permissions`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   name: agentNameSchema,
   profile: profileSchema.optional(),
   model: modelChoiceSchema.optional(),
   skills: skillsSchema.optional(),
+  skills_off: skillsSchema.optional(),
   domains: domainsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
+  apps: appsSchema.optional(),
+  permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),
 };
 const frontmatterOutputFields = {
@@ -118,9 +134,12 @@ const frontmatterOutputFields = {
   profile: profileOutputSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   skills: skillsSchema.optional(),
+  skills_off: skillsSchema.optional(),
   domains: domainsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
+  apps: appsSchema.optional(),
+  permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),
 };
 

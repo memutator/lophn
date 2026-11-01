@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { defineRead } from "../base/route.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
+import { defineRead } from "../base/route.ts";
 import type { PlaceKind } from "./places.ts";
 
 // 전역에서 끈 skill의 정확한 이름이다. 전역 등록
@@ -15,7 +15,15 @@ export const SKILLS_OFF_MAX = 256;
 
 // skill의 층은 내장, 전역, domain이다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
 // 덮고, 같은 층의 domain끼리는 domain 이름이 앞서는 쪽이 이긴다.
-export const SKILL_SOURCES = ["builtin", "global", "domain"] as const;
+// project·app은 그 place 폴더의 `.lophn/skills`, shared는 할당한 앱의 active release가 내놓은 public skill이다.
+export const SKILL_SOURCES = [
+  "builtin",
+  "global",
+  "project",
+  "app",
+  "domain",
+  "shared",
+] as const;
 const skillSourceSchema = z.enum(SKILL_SOURCES);
 export type SkillSource = z.infer<typeof skillSourceSchema>;
 

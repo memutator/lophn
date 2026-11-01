@@ -99,10 +99,12 @@ export const agents = {
   "agents.label.instructions-head-unknown":
     "Project instructions \u00b7 LOPHN.md",
   "agents.label.layer-agent": "This agent",
+  "agents.label.layer-app": "App",
   "agents.label.layer-builtin": "Built-in",
   "agents.label.layer-domain": "Domain",
   "agents.label.layer-global": "Workspace",
   "agents.label.layer-project": "Project",
+  "agents.label.layer-shared": "Shared by an app",
   "agents.label.model-inherit":
     "Use {layer, select, project {project} other {Workspace}} default \u2014 {model}",
   "agents.label.model-overrides":

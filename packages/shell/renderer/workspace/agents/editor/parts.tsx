@@ -34,6 +34,8 @@ const LAYER_LABEL: Record<SkillLayer | McpLayer, MessageKey> = {
   global: "agents.label.layer-global",
   domain: "agents.label.layer-domain",
   project: "agents.label.layer-project",
+  app: "agents.label.layer-app",
+  shared: "agents.label.layer-shared",
   agent: "agents.label.layer-agent",
 };
 

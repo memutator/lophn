@@ -42,7 +42,13 @@ export interface Sourced<T> {
 }
 
 /** skill의 층. 내장은 place 종류가 가진 것이고 나머지는 전역과 domain이다. */
-export type SkillLayer = "builtin" | "global" | "domain";
+export type SkillLayer =
+  | "builtin"
+  | "global"
+  | "project"
+  | "app"
+  | "domain"
+  | "shared";
 
 /** skill 한 줄. 끈 skill도 줄로 남는다. 내장 skill은 끌 수 없어 builtIn이 참이다. */
 export interface SkillRow {

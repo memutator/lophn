@@ -34,3 +34,8 @@ e2e와 test 지원 code가 fake model에게 부르게 하던 옛 native tool(`ca
 - 정한 것, 넘길 줄
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함
+
+- 앱 command는 `lophn <domain> <command 낱말>`이고 기록 이름은 `<domain>.<command>`다(`tests/e2e/app-call_test.ts`가 옛 `<domain>_<tool>`을 쓴다). `preview.call`·`preview.start`는 `lophn preview call|start`다(`tests/e2e/app-release_test.ts` 104~113줄). `tests/eval/versions/components.ts`의 앱 tool 이름 가정은 text-rewrite가 고친다.
+- 기록 이름: `call.send`, `call.reply`, `call.cancel`, `session.list`, `app.create`, `release.prepare` 등 명령 이름. 화면(renderer)도 이 이름으로 call 블록을 찾는다.

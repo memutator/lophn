@@ -47,3 +47,4 @@ model이 읽는 글과 eval에서 옛 tool 이름(`release.prepare`, `job.create
 - `lophn workflow get`은 `--lines N`으로 최근 줄만 읽는다. 지침에는 `--lines 20`처럼 쓰게 한다. `lophn workflow edit`의 `add_step`은 `--new-step <json>`이다.
 - eval registry에서 낡은 것: `tests/eval/registry/tool/`의 job·workflow tool JSON, 지침 snapshot(`operator.json`, `app_engineer.json` 등).
 - cmd-calls·cmd-domains 보고에서 더한 곳: `prompts/{home,project,app}.md`와 `skills/{new-app,repair-app}/SKILL.md`의 `call`·`reply`(이제 `lophn call send|reply|cancel`), `prompts/prompts.ts`의 `agent.create`·`agent.update`, `prompt-assembly/kind-text.ts`의 `kind.check`·`kind.list`. registry의 `kind.list`·`kind.check`·`settings.get`·`domain.create` tool JSON도 낡았다.
+- cmd-followups 보고에서 더한 곳: `prompts/app.md`의 `preview.call`·`preview.start`·`preview.stop`(이제 `lophn preview call|start|stop`). 앱 command는 `lophn <domain> <command>`이고 place 정보의 domain 지도에 이름이 실린다(`packages/core/agent-places/place/`).

@@ -270,7 +270,8 @@ export const runsWiring: WiringFactory = () => {
         ) => {
           const call = {
             target: { mode: "live", app, release: null },
-            tool,
+            kind: "command",
+            name: tool,
             ...(input === undefined ? {} : { input }),
           } as const;
           if (origin !== undefined && "instance" in origin) {

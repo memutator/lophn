@@ -22,7 +22,7 @@ export function appToolUsers(
 ): Result<ToolUser[]> {
   const active = loadActiveDeclaration(sql, app);
   if (!active.ok) return active;
-  const tools = active.value?.declaration.tools ?? [];
+  const tools = active.value?.declaration.commands ?? [];
   const domainOfTool = new Map<string, string>();
   for (const tool of tools) {
     const domain = ports.domainOf(app, tool.domain);
@@ -51,10 +51,10 @@ export function appToolUsers(
   }
 
   const calls = sql.all(
-    `select distinct json_extract(operation, '$.tool') as tool, session
+    `select distinct json_extract(operation, '$.name') as tool, session
        from invocations
       where app = ? and caller_kind = 'agent'
-        and json_extract(operation, '$.kind') = 'tool'`,
+        and json_extract(operation, '$.kind') = 'command'`,
     [app],
   );
   for (const row of calls) {

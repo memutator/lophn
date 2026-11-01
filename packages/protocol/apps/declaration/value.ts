@@ -21,7 +21,7 @@ import {
   type ValidationResult,
 } from "./types.ts";
 import { normalizeJson, sortBy, unique } from "./json.ts";
-import { validateScreensAndTools } from "./tools.ts";
+import { validateLayers } from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { iconPath, permissionScope, scopeKey } from "./scope.ts";
 
@@ -70,7 +70,8 @@ export function validateDeclaration(
   const dependencyItems = value.sdk_dependencies;
   if (
     !Array.isArray(value.screens) ||
-    !Array.isArray(value.tools) ||
+    !Array.isArray(value.operations) ||
+    !Array.isArray(value.commands) ||
     !Array.isArray(permissionItems) ||
     !Array.isArray(connectionItems) ||
     !Array.isArray(dependencyItems)
@@ -78,10 +79,14 @@ export function validateDeclaration(
     return invalid("declaration collections must be arrays");
   }
 
-  const declared = validateScreensAndTools(value.screens, value.tools, domains);
+  const declared = validateLayers(
+    value.screens,
+    value.operations,
+    value.commands,
+    domains,
+  );
   if (!declared.ok) return declared;
-  const screens = declared.value.screens;
-  const tools = declared.value.tools;
+  const { screens, operations, commands } = declared.value;
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
@@ -142,7 +147,8 @@ export function validateDeclaration(
     // 없으면 칸을 두지 않는다. 옛 선언의 hash가 그대로이다.
     ...(typeof value.icon === "string" ? { icon: value.icon } : {}),
     screens: sortBy(screens, (screen) => screen.key),
-    tools: sortBy(tools, (tool) => tool.name),
+    operations: sortBy(operations, (operation) => operation.name),
+    commands: sortBy(commands, (command) => command.name),
     permissions: [...permissions].sort((left, right) =>
       scopeKey(left.kind, left.scope) < scopeKey(right.kind, right.scope)
         ? -1

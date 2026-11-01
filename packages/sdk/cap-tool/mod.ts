@@ -1,12 +1,17 @@
-export { currentContext, registeredTools, runWith, tool } from "./handlers.ts";
+export {
+  currentContext,
+  handle,
+  registeredHandlers,
+  runWith,
+} from "./handlers.ts";
 export type {
-  AppToolCaller,
-  AppToolPort,
+  AppCaller,
+  HandlerPort,
   InvocationContext,
   RegisteredHandler,
 } from "./context.ts";
 export { APP_TOOL_PORT } from "./context.ts";
-export { ToolRejection } from "./rejection.ts";
+export { HandlerRejection } from "./rejection.ts";
 export type { RejectionCode } from "./rejection.ts";
 export { TRACE_NAME_MAX_CHARS, traceName } from "./trace.ts";
 export {
@@ -23,12 +28,12 @@ export type {
   ReadQuery,
   ReadSource,
 } from "./results.ts";
-export { connectTools } from "./connect.ts";
+export { connectCommands } from "./connect.ts";
 export type {
   AppError,
   AppErrorCode,
   AppResult,
-  ToolCallOutput,
-  ToolClient,
-  ToolOutcome,
+  CallOutcome,
+  CallOutput,
+  CommandClient,
 } from "./connect.ts";

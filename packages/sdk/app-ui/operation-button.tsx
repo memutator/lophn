@@ -4,17 +4,17 @@ import { Button, type ButtonVariant, Icon } from "@lophn/ui/primitives";
 import { componentMark, type ControlSize, iconPixels } from "@lophn/ui/shared";
 import {
   type AppBridge,
-  type ToolInput,
-  type ToolSpec,
-  useTool,
-} from "./use-tool.ts";
+  type OperationInput,
+  type OperationSpec,
+  useOperation,
+} from "./use-operation.ts";
 import styles from "./action.module.css";
 
-export interface ToolButtonProps {
-  tool: ToolSpec;
+export interface OperationButtonProps {
+  operation: OperationSpec;
   // 입력, 또는 누를 때 입력을 만드는 함수. 없으면 null이다.
-  input?: ToolInput | (() => ToolInput);
-  // 버튼 글. 없으면 선언한 tool의 title이다.
+  input?: OperationInput | (() => OperationInput);
+  // 버튼 글. 없으면 선언한 operation의 title이다.
   children?: string;
   // 앱 view의 `lophnApp`. 없으면 window의 것을 쓴다.
   app?: AppBridge;
@@ -25,9 +25,9 @@ export interface ToolButtonProps {
   disabled?: boolean;
 }
 
-// 선언한 tool 하나의 버튼. 실행 중에는 다시 누를 수 없고 실패는 버튼 옆에 남는다.
-export function ToolButton({
-  tool,
+// 선언한 operation 하나의 버튼. 실행 중에는 다시 누를 수 없고 실패는 버튼 옆에 남는다.
+export function OperationButton({
+  operation,
   input = null,
   children,
   app,
@@ -36,10 +36,10 @@ export function ToolButton({
   variant = "secondary",
   size = "md",
   disabled = false,
-}: ToolButtonProps) {
-  const { state, run } = useTool(tool, app);
+}: OperationButtonProps) {
+  const { state, run } = useOperation(operation, app);
   const t = useLophnT();
-  const label = children ?? tool.title;
+  const label = children ?? operation.title;
   const pending = state.status === "pending";
   const press = async () => {
     const value = typeof input === "function" ? input() : input;
@@ -50,8 +50,8 @@ export function ToolButton({
   return (
     <span
       className={styles.action}
-      data-tool={tool.name}
-      {...componentMark("ToolButton")}
+      data-operation={operation.name}
+      {...componentMark("OperationButton")}
     >
       <Button
         variant={variant}

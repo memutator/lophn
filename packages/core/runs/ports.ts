@@ -58,6 +58,7 @@ export type RunAgents = {
 export type RunTools = {
   // 없으면 not_found.
   resolveApp(app: string): Promise<Result<Id<"app">>>;
+  // tool은 앱의 command 이름이다. job·flow·CLI의 tool run은 operation을 부르지 못한다.
   call(
     run: Id<"run">,
     app: Id<"app">,

@@ -52,7 +52,7 @@ function checkAt(every: string, at: string | null): Result<void> {
     : ok(undefined);
 }
 
-// 이름은 만들 때 풀어 id로 저장한다. 앱의 tool 이름과 workflow file은 부를 때 본다.
+// 이름은 만들 때 풀어 id로 저장한다. 앱의 command 이름과 workflow file은 부를 때 본다.
 function resolveAction(tx: Tx, input: JobActionInput): Result<JobAction> {
   const targets = tx.port(jobTargetsPort);
   switch (input.kind) {

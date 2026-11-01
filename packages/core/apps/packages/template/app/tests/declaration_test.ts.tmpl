@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 import { readFileSync, statSync } from "node:fs";
 import { test } from "node:test";
 
-import { registeredTools } from "@lophn/cap-tool";
+import { registeredHandlers } from "@lophn/cap-tool";
 import { validateDeclaration } from "@lophn/declaration";
 import declaration from "../lophn.ts";
-import { registerTools } from "../src/tools.ts";
+import { registerHandlers } from "../src/handlers.ts";
 
 const root = new URL("../", import.meta.url);
 
@@ -17,11 +17,13 @@ test("declaration: the declaration is valid and already canonical", () => {
   assert.deepStrictEqual(checked.value, declaration);
 });
 
-test("declaration: every declared tool has a registered handler and nothing else is registered", () => {
-  registerTools();
+test("declaration: every declared operation and command has a registered handler and nothing else is registered", () => {
+  registerHandlers();
   assert.deepStrictEqual(
-    [...registeredTools()].sort(),
-    declaration.tools.map((tool) => tool.name).sort(),
+    [...registeredHandlers()].sort(),
+    [...declaration.operations, ...declaration.commands]
+      .map((entry) => entry.name)
+      .sort(),
   );
 });
 

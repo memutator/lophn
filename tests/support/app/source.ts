@@ -48,7 +48,7 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
   return stdout.join("").trim();
 }
 
-// 제품 template에는 sample 업무가 없다. e2e patch가 기대하는 sample(items tool·screen·표)은 test가 소유한 이
+// 제품 template에는 sample 업무가 없다. e2e patch가 기대하는 sample(items command·screen·표)은 test가 소유한 이
 // overlay(`sample/`)로, core가 깐 template 위에 어떤 patch보다 먼저 얹는다. 파일 끝의 `.tmpl`은 저장소 도구가 읽지 않게 하는 표시다.
 const SAMPLE = new URL("./sample/", import.meta.url).pathname;
 
@@ -122,7 +122,7 @@ export async function createAppSource(
   return { dir, commit: await git(dir, "rev-parse", "HEAD") };
 }
 
-/** 견본의 첫 tool `domain`이다. 견본 위의 앱이면 앱 slug(= 앱 domain)다. patch가 새 tool의 domain을 이것으로 채운다. */
+/** 견본의 첫 command `domain`이다. 견본 위의 앱이면 앱 slug(= 앱 domain)다. patch가 새 tool의 domain을 이것으로 채운다. */
 export async function sampleDomain(dir: string): Promise<string> {
   const found = (await readFile(`${dir}/lophn.ts`, "utf8")).match(
     /domain:\s*"([a-z0-9-]+)"/,

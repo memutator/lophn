@@ -68,7 +68,7 @@ const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
   call_too_deep: "the call chain is too deep",
   app_archived: "the app is archived",
   app_unavailable: "the app is not running",
-  not_declared: "the app does not declare this tool",
+  not_declared: "the app does not declare this operation or command",
 };
 
 type Phase = "gate" | "queued" | "sent";
@@ -122,7 +122,8 @@ export function createAppCalls(deps: AppCallsDeps): {
   ): ProcessCallRequest {
     return {
       invocation: base.id,
-      tool: input.tool,
+      kind: input.kind,
+      name: input.name,
       ...(input.input === undefined ? {} : { input: input.input }),
       context: {
         app: base.app,
@@ -168,7 +169,8 @@ export function createAppCalls(deps: AppCallsDeps): {
     const found = deps.lookup.find(
       app,
       target.release as Id<"rel"> | null,
-      input.tool,
+      input.kind,
+      input.name,
     );
     if (!found.ok) return found;
     if (found.value === null) return ok(denied("not_declared", null));
@@ -180,11 +182,16 @@ export function createAppCalls(deps: AppCallsDeps): {
       app,
       release,
       mode: target.mode,
-      operation: { kind: "tool", tool: input.tool },
+      operation: { kind: input.kind, name: input.name },
       caller: input.caller,
       effect,
       input_hash: await fingerprint(input.input ?? null),
     };
+
+    // operation은 사람(화면)만 부른다. 다른 caller는 handler에 보내기 전에 막는다.
+    if (input.kind === "operation" && caller.kind !== "person") {
+      return recordDenied(base, "gate_blocked");
+    }
 
     const parent = caller.kind === "app" ? caller.parent : null;
     const refused = checkCallChain(
@@ -224,7 +231,8 @@ export function createAppCalls(deps: AppCallsDeps): {
     const found = await deps.lookup.findPreview(
       app,
       target.process_nonce,
-      input.tool,
+      input.kind,
+      input.name,
     );
     if (!found.ok) return found;
     if (found.value === null) return ok(denied("not_declared", null));
@@ -282,7 +290,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       if (caller.kind !== "person") {
         const allowed = await callAllowed(
           caller,
-          { app, tool: input.tool, effect: base.effect, ...declared },
+          { app, tool: input.name, effect: base.effect, ...declared },
           deps,
         );
         if (abandoned) return null;

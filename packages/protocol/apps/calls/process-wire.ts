@@ -9,6 +9,7 @@ import {
 } from "../channel-values.ts";
 import { appToolCallerSchema } from "./caller.ts";
 import { toolKeySchema } from "../channel-values.ts";
+import { callKindSchema } from "./call.ts";
 import { invocationEffectSchema } from "./invocation.ts";
 
 // core와 앱 process 사이. 앱 process는 supervisor만 이 socket으로 부른다.
@@ -22,7 +23,8 @@ const base64Schema = z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/);
 
 export const processCallRequestSchema = z.strictObject({
   invocation: invocationIdSchema,
-  tool: toolKeySchema,
+  kind: callKindSchema,
+  name: toolKeySchema,
   input: jsonValueSchema.optional(),
   context: z.strictObject({
     app: appIdSchema,

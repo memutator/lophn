@@ -3,7 +3,7 @@
 // 화면은 shell renderer의 `<webview>` guest다: 이 모듈은 view마다 지금 `src`와 붙은 guest 하나를
 // 쥐고, 붙이기 판정(acceptGuest)과 신원 묶기(bindGuest)만 한다. 위치·보임은 renderer CSS다.
 // view가 있다는 것만으로 권한이 생기지 않는다: view는 자기 대상의 화면 byte만 받는다.
-// tool은 `app:call-tool`(app-call.ts)이 이 view의 신원으로만 부른다.
+// operation은 `app:call-operation`(app-call.ts)이 이 view의 신원으로만 부른다.
 import {
   appEntryUrl,
   type ProtocolView,

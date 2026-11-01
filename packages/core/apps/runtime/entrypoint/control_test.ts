@@ -14,19 +14,23 @@ test("handler 없는 tool을 선언한 앱의 probe는 409로 거절하고 빠�
       mode: "preview",
       processNonce: "nonce",
     },
-    declaration: { tools: [{ name: "add_item" }] } as never,
+    declaration: {
+      operations: [{ name: "page" }],
+      commands: [{ name: "add_item" }],
+    } as never,
     broker: {} as never,
     store: {} as never,
     dataSchema: 1,
     controlSocket: "socket",
   });
   // handler 등록은 모듈 전역이라 이 file 안에서만 쓴다.
-  readAppToolPort()!.register({ tool: "stray_tool", handle: () => null });
+  readAppToolPort()!.register({ name: "stray_tool", handle: () => null });
 
   const rejected = handleControl(state, "/probe", { process_nonce: "nonce" });
   assert.deepStrictEqual(rejected.status, 409);
   const message = (rejected as { error: { message: string } }).error.message;
   assert.ok(message.includes("add_item"));
+  assert.ok(message.includes("page"));
   assert.ok(message.includes("stray_tool"));
   assert.deepStrictEqual(state.ready, false);
 });

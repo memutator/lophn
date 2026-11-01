@@ -75,8 +75,8 @@ type CapHostPort = {
     body: Record<string, unknown>,
     options?: { signal?: AbortSignal },
   ): Promise<BrokerResponse>;
-  // 지금 실행 중인 tool 호출의 문맥이다. 호출 밖(시작 코드 등)이면 null이다. `command`는 broker 요청이
-  // 쓰는 이름이고 tool key다.
+  // 지금 실행 중인 호출의 문맥이다. 호출 밖(시작 코드 등)이면 null이다. `command`는 broker 요청이
+  // 쓰는 이름이고 handler 이름(operation이든 command든)이다.
   call(): {
     command: string;
     inputHash: string;
@@ -128,14 +128,14 @@ export function createCapHost(deps: {
       const context = deps.current();
       if (
         context === null ||
-        context.tool === undefined ||
-        context.tool === null ||
+        context.name === undefined ||
+        context.name === null ||
         context.inputHash === undefined ||
         context.inputHash === null
       )
         return null;
       return {
-        command: context.tool,
+        command: context.name,
         inputHash: context.inputHash,
         release: context.release,
         invocation: context.invocation,

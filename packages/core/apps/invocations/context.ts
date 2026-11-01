@@ -20,14 +20,15 @@ export type InvocationContext = {
   release: string | null;
   mode: "live" | "preview";
   invocation: string | null;
-  // 이 호출의 tool key와 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
-  tool?: string | null;
+  // 이 호출의 대상(operation인지 command인지와 이름)과 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
+  kind?: "operation" | "command" | null;
+  name?: string | null;
   inputHash?: string | null;
   caller?: InvocationCaller | null;
 };
 
 export type RegisteredHandler = {
-  tool: string;
+  name: string;
   handle: (input: unknown) => Promise<unknown> | unknown;
 };
 

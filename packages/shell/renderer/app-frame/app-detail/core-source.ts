@@ -459,8 +459,16 @@ const startReason = (operation: AppInvocation["operation"]) =>
     ? ("restart" as const)
     : ("activation" as const);
 
+// operation과 command 호출은 화면에서 모두 "call" 줄이다. 이름이 호출 이름이다.
 const kindOf = (operation: AppInvocation["operation"]) =>
-  operation.kind === "tool" ? ("tool" as const) : operation.kind;
+  operation.kind === "start" || operation.kind === "data_change"
+    ? operation.kind
+    : ("call" as const);
+
+const nameOf = (operation: AppInvocation["operation"]) =>
+  operation.kind === "operation" || operation.kind === "command"
+    ? operation.name
+    : null;
 
 function rewindOutcome(item: RewindPlan["items"][number]) {
   if (item.external) return "stays" as const;
@@ -891,10 +899,7 @@ export function coreAppDetailSource(
             startReason(invocation.operation),
             names,
           ),
-          tool:
-            invocation.operation.kind === "tool"
-              ? invocation.operation.tool
-              : null,
+          tool: nameOf(invocation.operation),
           kind: kindOf(invocation.operation),
           effect: invocation.effect,
           state: stateOf(invocation),
@@ -932,7 +937,7 @@ export function coreAppDetailSource(
         plan.items.map(async (item) => ({
           invocation: item.invocation,
           at: item.started_at,
-          tool: item.operation.kind === "tool" ? item.operation.tool : null,
+          tool: nameOf(item.operation),
           kind: kindOf(item.operation),
           effect: item.effect,
           caller: await callerOf(
@@ -988,7 +993,7 @@ export function coreAppDetailSource(
             .filter((item) => item.running)
             .map((item) => ({
               invocation: item.invocation,
-              tool: item.operation.kind === "tool" ? item.operation.tool : null,
+              tool: nameOf(item.operation),
               at: item.started_at,
             })),
         },

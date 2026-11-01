@@ -1,10 +1,10 @@
-// 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callTool`과
+// 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`과
 // `lophnApp.openExternal`만 열고, 다른 앱·shell API·token·임의 method·경로·파일 통로는 없다.
 // 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
 import type { LophnApp } from "../../protocol/shell/app-bridge-types.ts";
 import {
-  APP_CALL_TOOL_CHANNEL,
+  APP_CALL_OPERATION_CHANNEL,
   APP_OPEN_EXTERNAL_CHANNEL,
   APP_VIEW_ERROR_CHANNEL,
   type AppReply,
@@ -48,8 +48,8 @@ async function request(
 
 export function createAppTool(transport: AppTransport): LophnApp {
   return Object.freeze({
-    callTool: (tool: string, input: unknown) =>
-      request(transport, APP_CALL_TOOL_CHANNEL, { tool, input }),
+    callOperation: (operation: string, input: unknown) =>
+      request(transport, APP_CALL_OPERATION_CHANNEL, { operation, input }),
     async openExternal(url: string): Promise<void> {
       await request(transport, APP_OPEN_EXTERNAL_CHANNEL, { url });
     },

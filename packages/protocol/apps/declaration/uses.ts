@@ -3,7 +3,7 @@
 
 import {
   APP_ID,
-  type AppToolUseDeclaration,
+  type AppCommandUseDeclaration,
   exactKeys,
   invalid,
   isObject,
@@ -20,16 +20,16 @@ export function validateUses(
   dependencyItems: unknown[],
   owner: string | undefined,
 ): ValidationResult<{
-  connections: AppToolUseDeclaration[];
+  connections: AppCommandUseDeclaration[];
   dependencies: SDKDependency[];
 }> {
-  const connections: AppToolUseDeclaration[] = [];
+  const connections: AppCommandUseDeclaration[] = [];
   for (const item of connectionItems) {
     if (!isObject(item)) return invalid("app connection must be an object");
     const bad = exactKeys(
       item,
-      ["app", "tools", "reason"],
-      ["app", "tools", "reason"],
+      ["app", "commands", "reason"],
+      ["app", "commands", "reason"],
     );
     if (bad) return invalid(`app connection ${bad}`);
     if (typeof item.app !== "string" || !APP_ID.test(item.app)) {
@@ -38,11 +38,11 @@ export function validateUses(
     if (owner !== undefined && item.app === owner) {
       return invalid("app connection cannot target the owner app");
     }
-    if (!Array.isArray(item.tools) || item.tools.length === 0) {
-      return invalid("app connection tools must be nonempty");
+    if (!Array.isArray(item.commands) || item.commands.length === 0) {
+      return invalid("app connection commands must be nonempty");
     }
     if (
-      item.tools.some(
+      item.commands.some(
         (name) =>
           typeof name !== "string" ||
           name.trim() !== name ||
@@ -50,17 +50,17 @@ export function validateUses(
           name.includes("*"),
       )
     ) {
-      return invalid("app connection tool must be an exact key");
+      return invalid("app connection command must be an exact key");
     }
-    if (unique(item.tools as string[], "tool")) {
-      return invalid("duplicate tool");
+    if (unique(item.commands as string[], "command")) {
+      return invalid("duplicate command");
     }
     if (!nonBlank(item.reason)) {
       return invalid("app connection reason is blank");
     }
     connections.push({
       app: item.app,
-      tools: [...(item.tools as string[])].sort(),
+      commands: [...(item.commands as string[])].sort(),
       reason: item.reason,
     });
   }

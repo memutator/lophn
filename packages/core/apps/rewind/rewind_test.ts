@@ -88,7 +88,7 @@ function invocation(
     app: APP,
     release: REL,
     mode: "live",
-    operation: { kind: "tool", tool: "app.save" },
+    operation: { kind: "command", name: "app.save" },
     caller: null,
     effect: "write",
     status: "succeeded",

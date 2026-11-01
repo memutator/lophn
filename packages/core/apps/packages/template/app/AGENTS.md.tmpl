@@ -23,13 +23,13 @@ Package를 쓴다.
 ## SDK 확인
 
 - 내장 SDK의 사용법은 설치 사본의 `guide.md`(예:
-  `.lophn/sdk/declaration/1.0.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
+  `.lophn/sdk/declaration/2.0.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
   필요하면 `lophn.ts`의 의존 선언과 `package.json`의 의존을 같은 정확한
   version으로 함께 고친 뒤 `npm install`을 돌린다(release 준비가 둘을 대조한다).
 - 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
   layout, navigation, data, feedback, overlay, reading이고, 분류의 `mod.ts`가
   목록이다(export마다 "언제 쓰나" 한 줄). 앱
-  bridge component(ToolButton, useTool, AppErrorBoundary)는 `@lophn/app-ui`다.
+  bridge component(OperationButton, useOperation, AppErrorBoundary)는 `@lophn/app-ui`다.
 - token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받고, 앱 CSS는 token
   변수만 쓴다. 사람이 고른 accent, 배경, 글꼴이 그 변수로 들어오므로 색과 글꼴
   값을 직접 쓰지 않는다.
@@ -49,7 +49,7 @@ Package를 쓴다.
 ## 테스트·preview·release·결과 알림
 
 - 앱 test는 `npm test`, type 검사는 `npm run check`로 돌린다.
-- preview는 fixture 격리 사본에서 화면·tool을 확인하는 것뿐이고 운영 정상의
+- preview는 fixture 격리 사본에서 화면·operation·command를 확인하는 것뿐이고 운영 정상의
   증거가 아니다.
 - release 준비는 source의 지금 commit(HEAD)으로 bundle을 만든다. commit하지 않은
   변경이나 ignore하지 않은 새 file이 있으면 거절하므로 고친 것은 모두 commit한 뒤
@@ -60,15 +60,16 @@ Package를 쓴다.
 
 ## 파일
 
-- `lophn.ts`: 앱의 정본 선언(화면·tool·고정 SDK 의존).
-  코드를 바꾸기 전에 먼저 바꾼다. tool 선언에는 tool마다 `domain`(이 앱의
-  domain 이름)이 필요하다. 앱 이름의 domain이 있다. 앱 icon이 필요하면 `icon`
+- `lophn.ts`: 앱의 정본 선언(화면·operation·command·고정 SDK 의존).
+  코드를 바꾸기 전에 먼저 바꾼다. operation(화면과 앱 자신이 쓰는 동작)은
+  `{name, title, effect}`뿐이고 agent는 못 본다. command(agent·다른 앱이 부르는
+  바깥 명령)에는 command마다 `domain`(이 앱의 domain 이름)이 필요하다. 앱 이름의 domain이 있다. 앱 icon이 필요하면 `icon`
   (bundle 안 경로, svg·png·webp, 64 KiB 이하)을 선언한다. lophn이 탭과 앱 목록에
   그 이미지를 보인다.
-- `main.ts`: 진입. tool 등록만 한다. 잡히지 않은 예외는 lophn 진입점이 앱
+- `main.ts`: 진입. handler 등록만 한다. 잡히지 않은 예외는 lophn 진입점이 앱
   log에 쓴다.
-- `src/tools.ts`: `registerTools`가 선언(`lophn.ts`)에 있는 tool마다 handler를
-  등록한다. 업무 규칙은 `src/` 아래 module로 나눈다.
+- `src/handlers.ts`: `registerHandlers`가 선언(`lophn.ts`)에 있는 operation과
+  command마다 handler를 등록한다. 업무 규칙은 `src/` 아래 module로 나눈다.
 - `migrations/<from>-<to>.sql`: 앱 DB schema 단계. DB를 쓰는 앱만 둔다.
 - `src/screens/<key>/`: React 화면(`index.html`, `main.tsx`). 선언의
   `screens`에 같은 key로 선언한다. root는 `AppErrorBoundary`로 감싼다. 화면

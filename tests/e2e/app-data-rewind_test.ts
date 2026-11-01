@@ -53,7 +53,8 @@ type Rows<T> = { rows: T[] };
 async function call(core: Core, app: TestApp, tool: string, input?: unknown) {
   const done = await core.call(appCallTool, {
     target: { mode: "live", app: app.app, release: null },
-    tool,
+    kind: "command",
+    name: tool,
     ...(input === undefined ? {} : { input: input as never }),
     caller: { kind: "person", view_session: "e2e" },
   });

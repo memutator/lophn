@@ -205,7 +205,7 @@ function row(
     at,
     caller,
     tool,
-    kind: tool === null ? "start" : "tool",
+    kind: tool === null ? "start" : "call",
     effect,
     state,
     undone: false,

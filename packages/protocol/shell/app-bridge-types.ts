@@ -12,6 +12,6 @@ export type Json =
   | { [key: string]: Json };
 
 export type LophnApp = {
-  callTool(tool: string, input: Json): Promise<unknown>;
+  callOperation(operation: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
 };

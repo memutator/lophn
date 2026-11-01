@@ -117,15 +117,17 @@ export const PREVIEW_TOOLS: readonly ToolDefinition[] = [
     name: "preview.call",
     input: z.strictObject({
       app: idSchema("app"),
-      tool: z.string().min(1),
+      // 화면이 부르는 operation도 확인할 수 있다. live에서는 agent가 operation을 부르지 못한다.
+      kind: z.enum(["operation", "command"]),
+      name: z.string().min(1),
       input: z.unknown().optional(),
     }),
     routes: [previewsGet, appCallTool],
     description:
-      "Call a tool of your app's running preview and return its outcome. Nothing is recorded and live data is never touched. Omit input for a tool that takes none.",
+      "Call an operation (what the app's screens call) or a command (what agents and other apps call) of your app's running preview and return its outcome. Nothing is recorded and live data is never touched. Omit input for one that takes none.",
     effect: "write",
     handler: async (input, ctx) => {
-      const { app, tool } = input;
+      const { app, kind, name } = input;
       const current = await currentOf(ctx, app);
       if (!current.ok) return current;
       const observation = current.value.observation;
@@ -142,7 +144,8 @@ export const PREVIEW_TOOLS: readonly ToolDefinition[] = [
           app,
           process_nonce: observation.process_nonce,
         },
-        tool,
+        kind,
+        name,
         ...(input.input === undefined ? {} : { input: input.input }),
         caller: {
           kind: "agent",
@@ -160,7 +163,7 @@ export const PREVIEW_TOOLS: readonly ToolDefinition[] = [
             ? ` (${outcome.error.code})`
             : "";
       return ok(
-        fitted(`preview call of ${tool} ${outcome.status}${detail}`, {
+        fitted(`preview call of ${name} ${outcome.status}${detail}`, {
           outcome,
         }),
       );

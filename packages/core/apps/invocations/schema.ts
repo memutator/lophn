@@ -31,6 +31,18 @@ const FROZEN_COLUMNS = [
   "detail_hash",
 ];
 
+// 종료한 행을 잠그는 trigger. 행 값을 옮기는 step이 잠시 내렸다가 같은 글로 다시 만든다.
+const TERMINAL_TRIGGER = `CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations
+    WHEN OLD.status <> 'running' AND (
+      ${FROZEN_COLUMNS.map(
+        (column) => `NEW.${column} IS NOT OLD.${column}`,
+      ).join("\n      OR ")}
+      OR (NEW.changeset_hash IS NOT NULL AND NEW.changeset_hash IS NOT OLD.changeset_hash)
+      OR (NEW.changeset_size IS NOT NULL AND NEW.changeset_size IS NOT OLD.changeset_size)
+      OR (OLD.reverted_by IS NOT NULL AND NEW.reverted_by IS NOT OLD.reverted_by)
+    )
+    BEGIN SELECT RAISE(ABORT, 'terminal invocation is immutable'); END;`;
+
 export const invocationsSchemaSteps: readonly SchemaStep[] = [
   {
     id: "apps.invocations.tables",
@@ -73,18 +85,23 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [
     CREATE INDEX invocations_app_id ON invocations (app, id);
     CREATE INDEX invocations_session_turn_id ON invocations (session, turn, id);
     CREATE INDEX invocations_status_id ON invocations (status, id);
-    CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations
-    WHEN OLD.status <> 'running' AND (
-      ${FROZEN_COLUMNS.map(
-        (column) => `NEW.${column} IS NOT OLD.${column}`,
-      ).join("\n      OR ")}
-      OR (NEW.changeset_hash IS NOT NULL AND NEW.changeset_hash IS NOT OLD.changeset_hash)
-      OR (NEW.changeset_size IS NOT NULL AND NEW.changeset_size IS NOT OLD.changeset_size)
-      OR (OLD.reverted_by IS NOT NULL AND NEW.reverted_by IS NOT OLD.reverted_by)
-    )
-    BEGIN SELECT RAISE(ABORT, 'terminal invocation is immutable'); END;
+    ${TERMINAL_TRIGGER}
     CREATE TRIGGER invocations_no_delete BEFORE DELETE ON invocations
     BEGIN SELECT RAISE(ABORT, 'invocations are recorded, not deleted'); END;
+  `,
+  },
+  // 호출 대상이 operation과 command로 갈렸다. 옛 `{kind:"tool", tool}` 행은 모두 command다.
+  {
+    id: "apps.invocations.operation-kinds",
+    sql: `
+    DROP TRIGGER invocations_terminal_no_update;
+    UPDATE invocations
+       SET operation = json_object(
+         'kind', 'command',
+         'name', json_extract(operation, '$.tool')
+       )
+     WHERE json_extract(operation, '$.kind') = 'tool';
+    ${TERMINAL_TRIGGER}
   `,
   },
 ];

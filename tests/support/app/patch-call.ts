@@ -1,4 +1,4 @@
-// tool 호출 길(call)의 E2E가 쓰는 patch다. template에 tool 둘을 더한다. 선언과 handler를 같이 더해 release 준비의
+// command 호출 길(call)의 E2E가 쓰는 patch다. template에 command 둘을 더한다. 선언과 handler를 같이 더해 release 준비의
 // handler 검사(봉인한 bundle을 preview로 한 번 띄워 선언과 등록 handler를 대조한다)를 지나야 한다.
 //
 // - big_write {kb}: write. `kb` KiB 글을 한 row에 넣고 표의 row 수를 돌려준다.
@@ -36,7 +36,6 @@ create table note (
         name: "add_item",`,
     `      {
         name: "big_write",
-        title: "Big write",
         description: "Write a text of the given size in KiB as one row.",
         effect: "write",
         inputSchema: {
@@ -52,7 +51,6 @@ create table note (
       },
       {
         name: "put_text",
-        title: "Put text",
         description: "Store a text of any length as one row.",
         effect: "write",
         inputSchema: {
@@ -67,10 +65,10 @@ create table note (
       {
         name: "add_item",`,
   );
-  const api = `${dir}/src/tools.ts`;
+  const api = `${dir}/src/handlers.ts`;
   await replaceOnce(
     api,
-    `export function registerTools(deps: Deps = defaults): void {`,
+    `export function registerHandlers(deps: Deps = defaults): void {`,
     `function putNote(store: Store, text: string): { rows: number } {
   store.db.prepare("insert into note (text) values (?)").run(text);
   const row = store.db.prepare("select count(*) as total from note").get() as {
@@ -79,8 +77,8 @@ create table note (
   return { rows: row.total };
 }
 
-export function registerTools(deps: Deps = defaults): void {
-  tool("big_write", async (input: unknown) => {
+export function registerHandlers(deps: Deps = defaults): void {
+  handle("big_write", async (input: unknown) => {
     const kb = Number((input as { kb?: unknown } | null)?.kb);
     return await withStore(
       deps,
@@ -88,7 +86,7 @@ export function registerTools(deps: Deps = defaults): void {
       (store) => putNote(store, "x".repeat(kb * 1024)),
     );
   });
-  tool("put_text", async (input: unknown) => {
+  handle("put_text", async (input: unknown) => {
     const text = String((input as { text?: unknown } | null)?.text ?? "");
     return await withStore(deps, "put_text", (store) => putNote(store, text));
   });`,

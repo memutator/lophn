@@ -7,6 +7,7 @@ import {
   parseControlShutdown,
 } from "./wire.ts";
 import type { RuntimeState } from "./state.ts";
+import { handlerNames } from "../../../../protocol/apps/declaration/mod.ts";
 import { readAppToolPort } from "../../invocations/context.ts";
 import { ensureAppToolPort } from "./tool-port.ts";
 
@@ -18,29 +19,29 @@ function error(status: number, code: string, message: string): ControlResult {
   return { status, error: { code, message } };
 }
 
-// 보고의 `tools` 칸은 등록된 tool key다.
+// 보고의 `tools` 칸은 등록된 handler 이름이다(operation과 command를 합친다).
 export function attestation(state: RuntimeState) {
   ensureAppToolPort();
   const port = readAppToolPort();
   return {
     release: state.identity.release,
     bundle_hash: state.identity.bundleHash,
-    tools: port ? port.handlers().map((handler) => handler.tool) : [],
+    tools: port ? port.handlers().map((handler) => handler.name) : [],
     data_schema: state.dataSchema,
     process_nonce: state.identity.processNonce,
     connection_ok: true as const,
   };
 }
 
-// tool 이름 5개와 "and N more". 앱 process가 preview 쪽을 import하지 않아 launcher의 같은 규칙을 여기 둔다.
+// 이름 5개와 "and N more". 앱 process가 preview 쪽을 import하지 않아 launcher의 같은 규칙을 여기 둔다.
 function listed(names: readonly string[]): string {
   const head = names.slice(0, 5).join(", ");
   return names.length > 5 ? `${head} and ${names.length - 5} more` : head;
 }
 
 // 선언과 등록된 handler의 차이. 둘 다 비면 맞는 것이다.
-function toolMismatch(state: RuntimeState): string {
-  const declared = state.declaration.tools.map((tool) => tool.name);
+function handlerMismatch(state: RuntimeState): string {
+  const declared = handlerNames(state.declaration);
   const registered = attestation(state).tools;
   const missing = declared.filter((name) => !registered.includes(name));
   const extra = registered.filter((name) => !declared.includes(name));
@@ -62,7 +63,7 @@ export function handleControl(
     if (!input || input.process_nonce !== state.identity.processNonce) {
       return error(401, "unauthorized", "probe nonce mismatch");
     }
-    const mismatch = toolMismatch(state);
+    const mismatch = handlerMismatch(state);
     if (mismatch !== "") return error(409, "conflict", mismatch);
     state.ready = true;
     return { status: 200, body: attestation(state) };

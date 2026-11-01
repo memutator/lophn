@@ -1,6 +1,6 @@
 import { currentContext } from "./handlers.ts";
 
-// 다른 앱의 tool은 core를 거쳐 부른다. core가 부른 쪽(이 앱과 release, 부모 invocation)을 정하고
+// 다른 앱의 command는 core를 거쳐 부른다. core가 부른 쪽(이 앱과 release, 부모 invocation)을 정하고
 // Gate로 판정한다. broker 경로는 protocol/apps/calls/broker.ts의 APP_BROKER_PATHS.call과 같다
 // (SDK는 zod를 import하지 않는다).
 const APP_CALL_PATH = "/_lophn/broker/apps/call";
@@ -40,23 +40,23 @@ type UnknownReason =
   | "core_restarted"
   | "timeout";
 
-export type ToolOutcome =
+export type CallOutcome =
   | { status: "succeeded"; result: unknown }
   | { status: "failed"; error: { code: string; message: string } }
   | { status: "denied"; denial: { code: string; message: string } }
   | { status: "unknown"; reason: UnknownReason };
 
-export type ToolCallOutput = {
+export type CallOutput = {
   // 기록을 남기지 않은 성공한 읽기에서만 null이다.
   invocation: string | null;
-  outcome: ToolOutcome;
+  outcome: CallOutcome;
 };
 
-export type ToolClient = {
+export type CommandClient = {
   readonly app: string;
-  // 이 client가 부르겠다고 연 tool 이름 목록이다. 허락은 호출마다 core가 판정한다.
-  readonly tools: readonly string[];
-  callTool(name: string, input?: unknown): Promise<AppResult<ToolCallOutput>>;
+  // 이 client가 부르겠다고 연 command 이름 목록이다. 허락은 호출마다 core가 판정한다.
+  readonly commands: readonly string[];
+  call(name: string, input?: unknown): Promise<AppResult<CallOutput>>;
 };
 
 const CODES: readonly string[] = [
@@ -114,7 +114,7 @@ function pair(value: unknown): { code: string; message: string } | undefined {
   return { code: item["code"], message: item["message"] };
 }
 
-function outcomeOf(value: unknown): ToolOutcome | undefined {
+function outcomeOf(value: unknown): CallOutcome | undefined {
   const outcome = plain(value);
   switch (outcome?.["status"]) {
     case "succeeded":
@@ -151,18 +151,18 @@ function host(): HostPort | undefined {
     : undefined;
 }
 
-// 다른 앱의 tool을 부르는 client를 준비한다. import만으로는 아무것도 열리지 않는다. 호출하는
+// 다른 앱의 command를 부르는 client를 준비한다. import만으로는 아무것도 열리지 않는다. 호출하는
 // invocation(현재 호출 문맥)이 부모로 자동으로 붙고 부른 쪽의 신원은 core가 정한다.
-export function connectTools(
+export function connectCommands(
   app: string,
-  tools: readonly string[],
-): ToolClient {
+  commands: readonly string[],
+): CommandClient {
   return {
     app,
-    tools,
-    async callTool(name, input) {
-      if (!tools.includes(name)) {
-        return failure("tool is outside the connection", "forbidden");
+    commands,
+    async call(name, input) {
+      if (!commands.includes(name)) {
+        return failure("command is outside the connection", "forbidden");
       }
       const port = host();
       if (port === undefined) return failure("app calls are not available");
@@ -170,7 +170,7 @@ export function connectTools(
       try {
         response = await port.post(APP_CALL_PATH, {
           target_app: app,
-          tool: name,
+          command: name,
           ...(input === undefined ? {} : { input }),
           parent_invocation: currentContext()?.invocation ?? null,
         });

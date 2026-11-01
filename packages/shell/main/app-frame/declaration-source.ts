@@ -36,21 +36,19 @@ export function createDeclarationSource(
     }
     const found = await readDeclaration(read, view.app, view.release);
     if (!found.ok) return found;
-    const tools = found.value.tools;
-    if (!Array.isArray(tools)) {
+    const operations = found.value.operations;
+    if (!Array.isArray(operations)) {
       return failure("unavailable", "declaration is not available");
     }
     return {
       ok: true,
       value: {
-        tools: tools.map((item) => {
-          const tool = record(item) ?? {};
+        operations: operations.map((item) => {
+          const operation = record(item) ?? {};
           return {
-            name: String(tool.name),
-            title: String(tool.title),
-            effect: tool.effect as "read" | "write" | "external",
-            hasInput:
-              tool.inputSchema !== null && tool.inputSchema !== undefined,
+            name: String(operation.name),
+            title: String(operation.title),
+            effect: operation.effect as "read" | "write" | "external",
           };
         }),
       },

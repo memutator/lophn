@@ -48,20 +48,26 @@ export type InputSchema = {
   maximum?: number;
 };
 
-// MCP tool 모양의 선언. effect와 public은 lophn 칸이다.
-export type ToolDeclaration = {
+// 앱 안의 operation. 화면과 앱 자신이 쓰는 저수준 동작이다. lophn이 아는 것은 이름과 effect뿐이고
+// effect는 write를 core로 보내 changeset을 뜨기 위해 필요하다. schema와 설명은 앱 code의 일이다.
+export type OperationDeclaration = {
   name: string;
+  // 화면 `OperationButton`이 쓰는 글.
   title: string;
+  effect: ToolEffect;
+};
+
+// 앱이 골라 내놓는 바깥 명령. agent, 다른 앱, job, flow가 부른다.
+export type CommandDeclaration = {
+  name: string;
   description: string;
   // null이면 인자가 없다. null이 아니면 root type은 object다.
   inputSchema: InputSchema | null;
-  // 없으면 칸을 두지 않는다. root type은 object다.
-  outputSchema?: InputSchema;
   // program이 강제하는 값이다. Gate와 runtime 권한이 쓴다.
   effect: ToolEffect;
   // 다른 domain에 보이는지.
   public: boolean;
-  // tool이 다루는 객체의 domain. 이 앱의 domain 이름 중 하나다.
+  // command가 다루는 객체의 domain. 이 앱의 domain 이름 중 하나다.
   domain: string;
 };
 
@@ -114,9 +120,9 @@ export type PermissionRequirement = {
   reason: string;
 };
 
-export type AppToolUseDeclaration = {
+export type AppCommandUseDeclaration = {
   app: string;
-  tools: string[];
+  commands: string[];
   reason: string;
 };
 
@@ -131,24 +137,27 @@ export type AppDeclaration = {
   // bundle 안 이미지 파일의 경로(`/assets/icon.svg`). svg·png·webp. lophn이 앱을 보이는 자리에 쓴다.
   icon?: string;
   screens: ScreenDeclaration[];
-  tools: ToolDeclaration[];
+  // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
+  operations: OperationDeclaration[];
+  commands: CommandDeclaration[];
   permissions: PermissionRequirement[];
-  app_connections: AppToolUseDeclaration[];
+  app_connections: AppCommandUseDeclaration[];
   sdk_dependencies: SDKDependency[];
 };
 
-// domains를 주면 모든 tool의 domain이 이 안에 있어야 한다. 안 주면 모양만 본다.
+// domains를 주면 모든 command의 domain이 이 안에 있어야 한다. 안 주면 모양만 본다.
 export type DeclarationOptions = { app?: string; domains?: readonly string[] };
 
 export const DECLARATION_KEYS = [
   "app_connections",
+  "commands",
   "description",
   "icon",
   "name",
+  "operations",
   "permissions",
   "screens",
   "sdk_dependencies",
-  "tools",
 ] as const;
 
 // icon만 칸이 없어도 된다.
@@ -186,7 +195,7 @@ export const INPUT_TYPES = new Set<InputType>([
 export const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 // slugSchema(protocol/projects/values.ts)와 같은 규칙. 이 file은 의존성이 없어 따로 쓴다.
 const DOMAIN_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-// 앱 tool의 agent 이름은 `<domain>_<tool>`이다. tool.load 묶음 규칙이 wire 이름 첫 `_` 앞을 묶음 이름으로 보므로,
+// 앱 command의 agent 이름은 `<domain>_<command>`이다. tool.load 묶음 규칙이 wire 이름 첫 `_` 앞을 묶음 이름으로 보므로,
 // 내장 tool의 자원 이름(wire 이름 첫 `_` 앞)과 `mcp`는 domain 이름이 될 수 없다. 새 내장 자원을 더하면 여기도 더한다
 // (core/main/tool-names_test.ts가 잡는다). 순수 declaration graph가 보도록 이 file에 둔다.
 export const RESERVED_DOMAIN_NAMES: readonly string[] = [

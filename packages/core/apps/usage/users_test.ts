@@ -17,7 +17,6 @@ const DOMAINS: Record<string, string> = {
 
 const tool = (name: string, domain: string) => ({
   name,
-  title: name,
   description: name,
   inputSchema: null,
   effect: "read",
@@ -63,7 +62,7 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   insertRelease(
     tx,
     record,
-    JSON.stringify({ tools: [tool("a", "alpha"), tool("b", "beta")] }),
+    JSON.stringify({ commands: [tool("a", "alpha"), tool("b", "beta")] }),
     {} as never,
   );
   db.prepare(

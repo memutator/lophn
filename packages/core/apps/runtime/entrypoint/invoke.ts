@@ -79,17 +79,31 @@ async function run(
   call: ProcessCall,
   record: boolean,
 ): Promise<InvokeResult> {
-  const declaration = state.declaration.tools.find(
-    (tool) => tool.name === call.tool,
-  );
-  if (!declaration) return failed("not_found", "tool is not declared", null);
+  // operation의 schema는 앱 code의 일이라 입력을 검사하지 않는다. command만 선언의 schema로 검사한다.
+  let input: { ok: true; value: unknown };
+  if (call.kind === "operation") {
+    if (!state.declaration.operations.some((item) => item.name === call.name)) {
+      return failed("not_found", "operation is not declared", null);
+    }
+    input = { ok: true, value: call.input };
+  } else {
+    const declaration = state.declaration.commands.find(
+      (item) => item.name === call.name,
+    );
+    if (!declaration) {
+      return failed("not_found", "command is not declared", null);
+    }
+    const checked = validateInput(declaration.inputSchema, call.input);
+    if (!checked.ok) {
+      return failed("invalid_input", checked.error.message, null);
+    }
+    input = checked;
+  }
   const port = ensureAppToolPort();
-  const handler = port.handlers().find((item) => item.tool === call.tool);
+  const handler = port.handlers().find((item) => item.name === call.name);
   if (!handler) {
     return failed("not_found", "handler is not registered", null);
   }
-  const input = validateInput(declaration.inputSchema, call.input);
-  if (!input.ok) return failed("invalid_input", input.error.message, null);
   if (record) state.store.begin();
   let outcome: { ok: true; result: unknown } | { ok: false; error: unknown };
   try {
@@ -101,7 +115,8 @@ async function run(
           release: state.identity.release,
           mode: state.identity.mode,
           invocation: call.invocation,
-          tool: call.tool,
+          kind: call.kind,
+          name: call.name,
           // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에 묶였음을
           // broker가 확인하는 근거다.
           inputHash: inputHashOf(input.value),

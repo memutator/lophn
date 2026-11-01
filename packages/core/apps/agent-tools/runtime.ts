@@ -69,7 +69,7 @@ export const RUNTIME_TOOLS: readonly ToolDefinition[] = [
     }),
     routes: [appInvocations],
     description:
-      "List an app's tool calls with their caller, effect, status and times, newest first. Successful reads are not recorded; failed reads, writes and denied calls are. Filter by status, effect, release, mode, session or turn.",
+      "List an app's calls (operations and commands) with their caller, effect, status and times, newest first. Successful reads are not recorded; failed reads, writes and denied calls are. Filter by status, effect, release, mode, session or turn.",
     effect: "read",
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appInvocations, input);

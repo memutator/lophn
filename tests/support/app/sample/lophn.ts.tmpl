@@ -1,7 +1,7 @@
 import { defineApp } from "@lophn/declaration";
 
 // 이 선언이 정본이다. 코드를 바꾸기 전에 먼저 바꾼다.
-// 사람에게 보이는 이름·설명은 문장이고, tool 이름·screen의 key는 문장과 별개의 식별자다.
+// 사람에게 보이는 이름·설명은 문장이고, operation·command 이름과 screen의 key는 문장과 별개의 식별자다.
 export default defineApp({
   name: "{{TITLE}}",
   description: "Keep a short list of items.",
@@ -13,10 +13,13 @@ export default defineApp({
       sizes: ["full", "panel", "card"],
     },
   ],
-  tools: [
+  operations: [
+    { name: "page_items", title: "Items page", effect: "read" },
+    { name: "save_item", title: "Save item", effect: "write" },
+  ],
+  commands: [
     {
       name: "list_items",
-      title: "List items",
       description: "Read the saved items, newest first.",
       effect: "read",
       inputSchema: null,
@@ -25,7 +28,6 @@ export default defineApp({
     },
     {
       name: "add_item",
-      title: "Add item",
       description: "Save one new item.",
       effect: "write",
       inputSchema: {
@@ -49,11 +51,11 @@ export default defineApp({
   app_connections: [],
   // 정확한 version만 쓴다. package.json의 SDK 의존과 같아야 한다(tests/declaration_test.ts).
   sdk_dependencies: [
-    { name: "@lophn/declaration", version: "1.0.0" },
+    { name: "@lophn/declaration", version: "2.0.0" },
     { name: "@lophn/cap-problem", version: "1.0.0" },
-    { name: "@lophn/cap-tool", version: "1.0.0" },
+    { name: "@lophn/cap-tool", version: "2.0.0" },
     { name: "@lophn/cap-store", version: "1.0.0" },
     { name: "@lophn/ui", version: "1.1.0" },
-    { name: "@lophn/app-ui", version: "1.1.0" },
+    { name: "@lophn/app-ui", version: "2.0.0" },
   ],
 });

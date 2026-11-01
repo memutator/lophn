@@ -58,12 +58,12 @@ export const APP_TOOLS: readonly ToolDefinition[] = [
     input: z.strictObject({ app: idSchema("app").optional() }),
     routes: [appToolIndex, domainList],
     description:
-      "List the apps with their tools, or read one app: name, title, description, effect and public of the active release's tools (and inputSchema, plus outputSchema when declared, when you give an app). Tools of other domains show only when public. Use it to see what apps already do and to get exact tool names for `app_connections` in the app's declaration.",
+      "List the apps with their commands, or read one app: name, description, effect and public of the active release's commands (and inputSchema when you give an app). Commands of other domains show only when public. An app's operations (what its screens call) are not listed. Use it to see what apps already do and to get exact command names for `app_connections` in the app's declaration.",
     effect: "read",
     handler: async (input, ctx) => {
       const read = await readOf(ctx.core, appToolIndex, input);
       if (!read.ok) return read;
-      // 다른 domain의 비공개 tool은 뺀다. 부른 agent가 맡은 domain은 `ctx.domains`다(그릇의 active domain id
+      // 다른 domain의 비공개 command는 뺀다. 부른 agent가 맡은 domain은 `ctx.domains`다(그릇의 active domain id
       // 목록이 이미 풀려 있다). 앱의 domain을 읽지 못하면 그 앱은 public tool만 둔다.
       const apps = [];
       for (const entry of read.value.apps) {

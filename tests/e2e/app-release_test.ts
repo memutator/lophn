@@ -55,8 +55,8 @@ async function countFiles(dir: string): Promise<number> {
 
 // 선언은 add_item을 선언한 채라 handler 검사(stage `handlers`)에서 떨어진다.
 const dropAddItemHandler: AppPatch = async (dir) => {
-  const path = `${dir}/src/tools.ts`;
-  const from = `  tool("add_item", addItemHandler(deps));\n`;
+  const path = `${dir}/src/handlers.ts`;
+  const from = `  handle("add_item", addItemHandler(deps));\n`;
   const text = await readFile(path, "utf8");
   if (!text.includes(from)) throw new Error(`${path}에 patch 자리가 없다`);
   await writeFile(path, text.replace(from, ""));
@@ -103,12 +103,14 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
                     tool(id("start"), "preview_start", { release }).calls[0]!,
                     tool(id("add"), "preview_call", {
                       app: notes.app,
-                      tool: "add_item",
+                      kind: "command",
+                      name: "add_item",
                       input: { title: "from preview" },
                     }).calls[0]!,
                     tool(id("list"), "preview_call", {
                       app: notes.app,
-                      tool: "list_items",
+                      kind: "command",
+                      name: "list_items",
                     }).calls[0]!,
                     tool(id("stop"), "preview_stop", { app: notes.app })
                       .calls[0]!,
@@ -229,7 +231,8 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
         assert.deepStrictEqual(observed.ready, true);
         const live = await c.call(appCallTool, {
           target: { mode: "live", app: notes.app, release: null },
-          tool: "list_items",
+          kind: "command",
+          name: "list_items",
           caller: { kind: "person", view_session: "e2e" },
         });
         assert.ok(live.outcome.status === "succeeded");

@@ -1,4 +1,4 @@
-// net·secret 길(cap-net·cap-secret)의 E2E가 쓰는 patch다. template에 external tool `fetch_local`을 더한다.
+// net·secret 길(cap-net·cap-secret)의 E2E가 쓰는 patch다. template에 external command `fetch_local`을 더한다.
 // 선언·package.json의 SDK 의존·handler를 같이 더해 release 준비의 handler 검사(선언과 등록 handler를 대조한다)를
 // 지나야 한다.
 //
@@ -44,7 +44,6 @@ export async function netFetchPatch(
         name: "add_item",`,
     `      {
         name: "fetch_local",
-        title: "Fetch local",
         description: "Fetch the local server with the stored token.",
         effect: "external",
         inputSchema: null,
@@ -72,8 +71,8 @@ export async function netFetchPatch(
   );
   await replaceOnce(
     declaration,
-    `      { name: "@lophn/cap-tool", version: "1.0.0" },`,
-    `      { name: "@lophn/cap-tool", version: "1.0.0" },
+    `      { name: "@lophn/cap-tool", version: "2.0.0" },`,
+    `      { name: "@lophn/cap-tool", version: "2.0.0" },
       { name: "@lophn/cap-net", version: "1.0.0" },
       { name: "@lophn/cap-secret", version: "1.0.0" },`,
   );
@@ -94,7 +93,7 @@ export async function netFetchPatch(
   // release 준비가 npm install로 새로 푼다.
   await rm(`${dir}/package-lock.json`, { force: true });
 
-  const api = `${dir}/src/tools.ts`;
+  const api = `${dir}/src/handlers.ts`;
   await replaceOnce(
     api,
     `import { openStore, type Store } from "@lophn/cap-store";`,
@@ -104,9 +103,9 @@ import { openStore, type Store } from "@lophn/cap-store";`,
   );
   await replaceOnce(
     api,
-    `export function registerTools(deps: Deps = defaults): void {`,
-    `export function registerTools(deps: Deps = defaults): void {
-  tool("fetch_local", async () => {
+    `export function registerHandlers(deps: Deps = defaults): void {`,
+    `export function registerHandlers(deps: Deps = defaults): void {
+  handle("fetch_local", async () => {
     const destination = { host: "127.0.0.1", port: ${port} };
     await useSecret({ name: "${secret}", destination });
     return await netFetch({ ...destination, path: "/" });

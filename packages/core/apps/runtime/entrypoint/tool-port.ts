@@ -14,8 +14,8 @@ function createPort(): AppToolPort {
   return {
     handlers: () => registry.slice(),
     register(handler) {
-      if (registry.some((known) => known.tool === handler.tool)) {
-        throw new Error(`tool already registered: ${handler.tool}`);
+      if (registry.some((known) => known.name === handler.name)) {
+        throw new Error(`handler already registered: ${handler.name}`);
       }
       registry.push(handler);
     },

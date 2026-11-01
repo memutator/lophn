@@ -1,5 +1,5 @@
-// 선언한 tool의 handler. 선언한 이름과 등록한 handler가 같아야 준비가 끝난다.
-import { readResult, tool, ToolRejection } from "@lophn/cap-tool";
+// 선언한 operation과 command의 handler. 선언한 이름과 등록한 handler가 같아야 준비가 끝난다.
+import { handle, HandlerRejection, readResult } from "@lophn/cap-tool";
 import { openStore, type Store } from "@lophn/cap-store";
 import { reportProblem } from "@lophn/cap-problem";
 import { addItem, ensureSchema, type Item, listItems } from "./items.ts";
@@ -32,7 +32,7 @@ async function withStore<T>(
     reportProblem("store_unavailable", "the item store could not be opened", {
       api: name,
     });
-    throw new ToolRejection("unavailable", "the item store is unavailable");
+    throw new HandlerRejection("unavailable", "the item store is unavailable");
   }
   return work(store);
 }
@@ -55,7 +55,7 @@ export function addItemHandler(deps: Deps = defaults) {
     const title = String((input as { title?: unknown } | null)?.title ?? "")
       .trim();
     if (title === "") {
-      throw new ToolRejection("invalid_input", "the item title is empty");
+      throw new HandlerRejection("invalid_input", "the item title is empty");
     }
     return await withStore(
       deps,
@@ -65,7 +65,11 @@ export function addItemHandler(deps: Deps = defaults) {
   };
 }
 
-export function registerTools(deps: Deps = defaults): void {
-  tool("list_items", listItemsHandler(deps));
-  tool("add_item", addItemHandler(deps));
+// 화면은 operation(`page_items`, `save_item`)을, agent와 다른 앱은 command(`list_items`, `add_item`)를 부른다.
+// 둘 다 같은 업무 함수를 감싼다.
+export function registerHandlers(deps: Deps = defaults): void {
+  handle("list_items", listItemsHandler(deps));
+  handle("add_item", addItemHandler(deps));
+  handle("page_items", listItemsHandler(deps));
+  handle("save_item", addItemHandler(deps));
 }

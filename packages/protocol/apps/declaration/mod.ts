@@ -2,20 +2,21 @@
 // route 정의(read.ts)는 zod를 쓰므로 여기서 내보내지 않는다.
 export type {
   AppDeclaration,
-  AppToolUseDeclaration,
+  CommandDeclaration,
+  AppCommandUseDeclaration,
   DeclarationOptions,
   InputSchema,
   InputType,
   JsonObject,
   JsonValue,
   OAuthDeclaration,
+  OperationDeclaration,
   PermissionKind,
   PermissionRequirement,
   PermissionScope,
   ScreenDeclaration,
   ScreenSize,
   SDKDependency,
-  ToolDeclaration,
   ToolEffect,
   ValidationError,
   ValidationResult,
@@ -25,8 +26,7 @@ export {
   OAUTH_RESERVED_PARAMS,
   RESERVED_DOMAIN_NAMES,
 } from "./types.ts";
+export { handlerNames } from "./tools.ts";
 export { canonicalInputHash, validateInput } from "./schema.ts";
 export { canonicalJson } from "./json.ts";
-export { toMcpTool, toolAnnotations } from "./tools.ts";
-export type { McpTool, ToolAnnotations } from "./tools.ts";
 export { validateDeclaration } from "./value.ts";

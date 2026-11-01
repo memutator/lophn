@@ -41,14 +41,7 @@ function setup() {
       Promise.resolve({
         ok: true,
         value: {
-          tools: [
-            {
-              name: "add",
-              title: "Add",
-              effect: "write",
-              hasInput: true,
-            },
-          ],
+          operations: [{ name: "add", title: "Add", effect: "write" }],
         },
       }),
     call,
@@ -59,7 +52,7 @@ function setup() {
 test("페이지가 보낸 앱·release·caller 주장은 쓰이지 않는다", async () => {
   const { appCall, sent } = setup();
   const claimed = await appCall.call(view("live"), {
-    tool: "add",
+    operation: "add",
     input: {},
     target: { mode: "live", app: "app_other", release: "rel_other" },
     caller: { kind: "agent" },
@@ -68,24 +61,25 @@ test("페이지가 보낸 앱·release·caller 주장은 쓰이지 않는다", a
   assert.equal(sent.length, 0);
 
   const done = await appCall.call(view("live"), {
-    tool: "add",
+    operation: "add",
     input: { a: 1 },
   });
   assert.deepEqual(done, { ok: true, value: 1 });
   assert.deepEqual(sent, [
     {
       target: { mode: "live", app: APP, release: RELEASE },
-      tool: "add",
+      kind: "operation",
+      name: "add",
       input: { a: 1 },
       caller: { kind: "person", view_session: "view-1" },
     },
   ]);
 });
 
-test("선언에 없는 tool은 core까지 가지 않는다", async () => {
+test("선언에 없는 operation(command 이름 포함)은 core까지 가지 않는다", async () => {
   const { appCall, sent } = setup();
   const reply = await appCall.call(view("live"), {
-    tool: "drop",
+    operation: "drop",
     input: null,
   });
   assert.equal(reply.ok, false);

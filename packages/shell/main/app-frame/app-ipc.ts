@@ -2,7 +2,7 @@
 // view이고 그 main frame이 자기 앱 주소(같은 screen)인지 본다. 페이지는 자기가 어느 앱인지 모른다.
 // 신원은 sender view에서 main이 정한다. 앱 view가 아닌 sender는 어느 통로도 쓰지 못한다.
 import {
-  APP_CALL_TOOL_CHANNEL,
+  APP_CALL_OPERATION_CHANNEL,
   APP_OPEN_EXTERNAL_CHANNEL,
   APP_VIEW_ERROR_CHANNEL,
   type AppReply,
@@ -69,7 +69,7 @@ const NOT_APP_VIEW: AppReply<never> = {
 };
 
 export function registerAppIpc(ipc: AppIpcHost, deps: AppIpcDeps): void {
-  ipc.handle(APP_CALL_TOOL_CHANNEL, async (event, input) => {
+  ipc.handle(APP_CALL_OPERATION_CHANNEL, async (event, input) => {
     const view = senderView(deps.view, event);
     return view === undefined ? NOT_APP_VIEW : await deps.call(view, input);
   });
@@ -86,7 +86,7 @@ export function registerAppIpc(ipc: AppIpcHost, deps: AppIpcDeps): void {
 }
 
 export function removeAppIpc(ipc: AppIpcHost): void {
-  ipc.removeHandler(APP_CALL_TOOL_CHANNEL);
+  ipc.removeHandler(APP_CALL_OPERATION_CHANNEL);
   ipc.removeHandler(APP_OPEN_EXTERNAL_CHANNEL);
   ipc.removeAllListeners(APP_VIEW_ERROR_CHANNEL);
 }

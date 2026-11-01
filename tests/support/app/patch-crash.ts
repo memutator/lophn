@@ -14,7 +14,7 @@ async function replaceOnce(
 }
 
 /**
- * read tool `crash`를 더한다. handler는 `{ok: true}`를 돌려주고 같은 tick 뒤에 처리되지 않는 오류를 던져
+ * read command `crash`를 더한다. handler는 `{ok: true}`를 돌려주고 같은 tick 뒤에 처리되지 않는 오류를 던져
  * 앱 process가 죽는다. 선언과 handler가 같아 release 준비의 handler 검사를 통과한다.
  */
 export async function crashPatch(dir: string): Promise<void> {
@@ -25,7 +25,6 @@ export async function crashPatch(dir: string): Promise<void> {
         name: "add_item",`,
     `      {
         name: "crash",
-        title: "Crash",
         description: "Reply, then throw an unhandled error.",
         effect: "read",
         inputSchema: null,
@@ -36,10 +35,10 @@ export async function crashPatch(dir: string): Promise<void> {
         name: "add_item",`,
   );
   await replaceOnce(
-    `${dir}/src/tools.ts`,
-    `  tool("add_item", addItemHandler(deps));`,
-    `  tool("add_item", addItemHandler(deps));
-  tool("crash", () => {
+    `${dir}/src/handlers.ts`,
+    `  handle("add_item", addItemHandler(deps));`,
+    `  handle("add_item", addItemHandler(deps));
+  handle("crash", () => {
     setTimeout(() => {
       throw new Error("e2e crash");
     }, 0);

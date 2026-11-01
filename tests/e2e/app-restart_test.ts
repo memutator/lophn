@@ -92,7 +92,8 @@ async function startSlowWrite(core: Core, app: TestApp, title: string) {
   const call = core
     .call(appCallTool, {
       target: { mode: "live", app: app.app, release: null },
-      tool: "slow_write",
+      kind: "command",
+      name: "slow_write",
       input: { title },
       caller,
     })
@@ -136,7 +137,8 @@ async function invocationOf(
 async function countSlow(core: Core, app: TestApp): Promise<number> {
   const called = await core.call(appCallTool, {
     target: { mode: "live", app: app.app, release: null },
-    tool: "count_slow",
+    kind: "command",
+    name: "count_slow",
     caller,
   });
   assert.deepStrictEqual(
@@ -322,7 +324,8 @@ test("E2E 앱 process가 거듭 죽으면 자동 재시작이 멈추고 Gateway�
       // node:assert의 assertion 시그니처와 loop가 엮여 추론이 돌므로 type을 적는다.
       const called: Output<typeof appCallTool> = await core.call(appCallTool, {
         target: { mode: "live", app: app.app, release: null },
-        tool: "crash",
+        kind: "command",
+        name: "crash",
         caller,
       });
       // 응답을 보낸 뒤 죽으므로 결과를 모를 수는 있어도 거절되거나 handler가 실패해서는 안 된다.

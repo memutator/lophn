@@ -30,10 +30,10 @@ test("bundle 사본 읽기는 앱의 domain에 없는 tool을 거절한다", asy
         name: "Items",
         description: "Keeps items.",
         screens: [],
-        tools: [
+        operations: [],
+        commands: [
           {
             name: "list_notes",
-            title: "List items",
             description: "Lists the items.",
             inputSchema: null,
             effect: "read",

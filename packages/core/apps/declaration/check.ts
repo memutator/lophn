@@ -19,7 +19,7 @@ type DeclarationCheckDeps = {
     ctx: Parameters<MemoryHandler>[0],
     app: string,
   ) => Promise<Result<string>>;
-  // 그 앱의 active domain 이름. 선언 tool의 domain은 이 안에 있어야 한다.
+  // 그 앱의 active domain 이름. 선언 command의 domain은 이 안에 있어야 한다.
   domainNamesOf: (app: string) => Promise<Result<string[]>>;
 };
 

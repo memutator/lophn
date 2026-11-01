@@ -170,31 +170,45 @@ export function appStatesOf(sql: Pick<Sql, "get" | "all">): AppStates {
   };
 }
 
-// release에 고정한 선언의 tool 선언. release가 null이면 지금 활성 release다.
+// release에 고정한 선언의 operation·command 선언. release가 null이면 지금 활성 release다.
 // preview 선언은 그 preview가 띄운 bundle의 것이다. 아직 release가 없어도 찾는다.
 export function appToolLookupOf(
   sql: Pick<Sql, "get" | "all">,
   previews: Pick<PreviewService, "declared">,
 ): AppToolLookup {
   return {
-    async findPreview(app, nonce, tool) {
+    async findPreview(app, nonce, kind, name) {
       const declared = await previews.declared(app, nonce);
       if (!declared.ok) return declared;
-      const found = declared.value?.find((entry) => entry.name === tool);
+      const found = (
+        kind === "operation"
+          ? declared.value?.operations
+          : declared.value?.commands
+      )?.find((entry) => entry.name === name);
       return ok(found === undefined ? null : { effect: found.effect });
     },
-    find(app, release, tool) {
+    find(app, release, kind, name) {
       const stored = loadActiveDeclaration(sql, app, release ?? undefined);
       if (!stored.ok) return stored;
       if (stored.value === null || stored.value.release.app !== app) {
         return ok(null);
       }
-      const declared = stored.value.declaration.tools.find(
-        (entry) => entry.name === tool,
-      );
+      const { operations, commands } = stored.value.declaration;
+      const releaseId = stored.value.release.id as Id<"rel">;
+      if (kind === "operation") {
+        const declared = operations.find((entry) => entry.name === name);
+        if (declared === undefined) return ok(null);
+        return ok({
+          release: releaseId,
+          effect: declared.effect,
+          public: false,
+          domain: "",
+        });
+      }
+      const declared = commands.find((entry) => entry.name === name);
       if (declared === undefined) return ok(null);
       return ok({
-        release: stored.value.release.id as Id<"rel">,
+        release: releaseId,
         effect: declared.effect,
         public: declared.public,
         domain: declared.domain,

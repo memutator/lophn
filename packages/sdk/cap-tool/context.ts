@@ -2,7 +2,7 @@
 // SDK는 packages/core/apps를 import하지 않는다.
 
 // core가 알려 준 부른 쪽이다(process-wire의 caller와 같다).
-export type AppToolCaller =
+export type AppCaller =
   | { kind: "person"; view_session: string }
   | { kind: "agent"; session: string; turn: string; tool_call: string }
   | {
@@ -19,18 +19,19 @@ export type InvocationContext = {
   release: string | null;
   mode: "live" | "preview" | "test";
   invocation: string | null;
-  // 이 호출의 tool 이름과 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
-  tool?: string | null;
+  // 이 호출의 대상(operation인지 command인지와 이름)과 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
+  kind?: "operation" | "command" | null;
+  name?: string | null;
   inputHash?: string | null;
-  caller?: AppToolCaller | null;
+  caller?: AppCaller | null;
 };
 
 export type RegisteredHandler = {
-  tool: string;
+  name: string;
   handle: (input: unknown) => Promise<unknown> | unknown;
 };
 
-export type AppToolPort = {
+export type HandlerPort = {
   handlers(): readonly RegisteredHandler[];
   register(handler: RegisteredHandler): void;
   run<T>(context: InvocationContext, fn: () => Promise<T> | T): Promise<T>;
@@ -41,15 +42,15 @@ export const APP_TOOL_PORT = Symbol.for("lophn.cap-tool");
 
 type Store = Record<symbol, unknown>;
 
-export function installPort(port: AppToolPort): AppToolPort {
+export function installPort(port: HandlerPort): HandlerPort {
   const store = globalThis as Store;
   const existing = store[APP_TOOL_PORT];
-  if (existing && typeof existing === "object") return existing as AppToolPort;
+  if (existing && typeof existing === "object") return existing as HandlerPort;
   store[APP_TOOL_PORT] = port;
   return port;
 }
 
-export function currentPort(): AppToolPort | undefined {
+export function currentPort(): HandlerPort | undefined {
   const port = (globalThis as Store)[APP_TOOL_PORT];
-  return port && typeof port === "object" ? (port as AppToolPort) : undefined;
+  return port && typeof port === "object" ? (port as HandlerPort) : undefined;
 }

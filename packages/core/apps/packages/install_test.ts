@@ -151,7 +151,11 @@ test("깐 declaration·cap-store·cap-problem 사본이 repo 없이 import된다
     });
     assert.ok(installed.ok);
     for (const name of ["declaration", "cap-store", "cap-problem"]) {
-      const copy = await import(`file://${dataRoot}/sdk/${name}/1.0.0/mod.ts`);
+      const installedCopy = installed.value.find(
+        (item) => item.name === `@lophn/${name}`,
+      );
+      assert.ok(installedCopy, name);
+      const copy = await import(`file://${installedCopy.install_path}/mod.ts`);
       assert.ok(Object.keys(copy).length > 0, name);
     }
   });

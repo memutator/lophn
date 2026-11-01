@@ -1,4 +1,4 @@
-// 재시작 E2E용 patch다. template 위에 write tool `slow_write {title}`와 read tool `count_slow`를 더한다.
+// 재시작 E2E용 patch다. template 위에 write command `slow_write {title}`와 read command `count_slow`를 더한다.
 // slow_write는 row를 넣고 live에서만 응답하지 않고 오래 기다린다. preview에서 부르면 바로 답한다.
 import { readFile, writeFile } from "node:fs/promises";
 
@@ -23,7 +23,6 @@ export async function slowPatch(dir: string): Promise<void> {
         name: "add_item",`,
     `      {
         name: "count_slow",
-        title: "Count slow",
         description: "Count the rows slow_write put in.",
         effect: "read",
         inputSchema: null,
@@ -32,7 +31,6 @@ export async function slowPatch(dir: string): Promise<void> {
       },
       {
         name: "slow_write",
-        title: "Slow write",
         description: "Put a row in and wait without answering.",
         effect: "write",
         inputSchema: {
@@ -49,20 +47,20 @@ export async function slowPatch(dir: string): Promise<void> {
       {
         name: "add_item",`,
   );
-  const api = `${dir}/src/tools.ts`;
+  const api = `${dir}/src/handlers.ts`;
   await replaceOnce(
     api,
-    `import { readResult, tool, ToolRejection } from "@lophn/cap-tool";`,
+    `import { handle, HandlerRejection, readResult } from "@lophn/cap-tool";`,
     `import {
-  tool,
-  ToolRejection,
+  handle,
+  HandlerRejection,
   currentContext,
   readResult,
 } from "@lophn/cap-tool";`,
   );
   await replaceOnce(
     api,
-    `export function registerTools(deps: Deps = defaults): void {`,
+    `export function registerHandlers(deps: Deps = defaults): void {`,
     `const SLOW_WAIT_MS = 600_000;
 
 export function slowWriteHandler(deps: Deps = defaults) {
@@ -70,7 +68,7 @@ export function slowWriteHandler(deps: Deps = defaults) {
     const title = String((input as { title?: unknown } | null)?.title ?? "")
       .trim();
     if (title === "") {
-      throw new ToolRejection("invalid_input", "the item title is empty");
+      throw new HandlerRejection("invalid_input", "the item title is empty");
     }
     const item = await withStore(
       deps,
@@ -84,14 +82,14 @@ export function slowWriteHandler(deps: Deps = defaults) {
   };
 }
 
-export function registerTools(deps: Deps = defaults): void {`,
+export function registerHandlers(deps: Deps = defaults): void {`,
   );
   await replaceOnce(
     api,
-    `  tool("add_item", addItemHandler(deps));`,
-    `  tool("add_item", addItemHandler(deps));
-  tool("slow_write", slowWriteHandler(deps));
-  tool("count_slow", () =>
+    `  handle("add_item", addItemHandler(deps));`,
+    `  handle("add_item", addItemHandler(deps));
+  handle("slow_write", slowWriteHandler(deps));
+  handle("count_slow", () =>
     withStore(
       deps,
       "count_slow",

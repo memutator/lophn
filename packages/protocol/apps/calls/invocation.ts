@@ -17,7 +17,8 @@ const sequence = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
 // data_change는 옛 모양 그대로다.
 export const appInvocationOperationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("tool"), tool: toolNameSchema }),
+  z.object({ kind: z.literal("operation"), name: toolNameSchema }),
+  z.object({ kind: z.literal("command"), name: toolNameSchema }),
   z.object({
     kind: z.literal("start"),
     reason: z.enum(["activation", "restart"]),

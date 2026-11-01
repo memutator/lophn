@@ -19,7 +19,9 @@ import {
   lossOfStepSql,
 } from "../../../../protocol/apps/mod.ts";
 import {
-  type ToolDeclaration,
+  type CommandDeclaration,
+  handlerNames,
+  type OperationDeclaration,
   validateDeclaration,
 } from "../../declaration/mod.ts";
 import type { PreviewBundle, PreviewBundles } from "../../preview/mod.ts";
@@ -37,7 +39,8 @@ type BundleParts = {
   root: string;
   manifest: BundleManifest;
   entry: string;
-  tools: ToolDeclaration[];
+  operations: OperationDeclaration[];
+  commands: CommandDeclaration[];
   screens: ScreenSizes;
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
   dataSchema: number;
@@ -170,7 +173,8 @@ export async function readBundleCopy(
     root,
     manifest,
     entry: `${root}/${manifest.entrypoint}`,
-    tools: declaration.value.tools,
+    operations: declaration.value.operations,
+    commands: declaration.value.commands,
     screens: Object.fromEntries(
       declaration.value.screens.map((screen) => [
         screen.key,
@@ -201,7 +205,7 @@ export function desiredFromBundle(
     bundleHash: input.bundleHash,
     runEnabled: input.runEnabled,
     archived: input.archived,
-    tools: parts.tools.map((tool) => tool.name),
+    tools: handlerNames(parts),
     screens: parts.screens,
     dataSchema: input.dataSchema,
     entry: parts.entry,
@@ -228,7 +232,8 @@ export function createCopyPreviewBundles(options: {
       const parts = read.value;
       const bundle: PreviewBundle = {
         entry: parts.entry,
-        tools: parts.tools,
+        operations: parts.operations,
+        commands: parts.commands,
         screens: parts.screens,
         dataSchema: parts.dataSchema,
         async fixture(path) {

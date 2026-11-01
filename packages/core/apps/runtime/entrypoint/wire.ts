@@ -77,7 +77,8 @@ function caller(value: unknown): InvocationCaller | undefined {
 
 export type ProcessCall = {
   invocation: string;
-  tool: string;
+  kind: "operation" | "command";
+  name: string;
   input?: Json;
   context: {
     app: string;
@@ -95,14 +96,18 @@ export function parseProcessCall(value: unknown): ProcessCall | undefined {
     !source ||
     exact(
       source,
-      ["invocation", "tool", "input", "context"],
-      ["invocation", "tool", "context"],
+      ["invocation", "kind", "name", "input", "context"],
+      ["invocation", "kind", "name", "context"],
     )
   )
     return;
   const invocation = id(source.invocation, "inv");
-  const tool = appToolKey(source.tool);
-  if (!invocation || !tool) return;
+  const name = appToolKey(source.name);
+  const kind =
+    source.kind === "operation" || source.kind === "command"
+      ? source.kind
+      : undefined;
+  if (!invocation || !name || !kind) return;
   if (source.input !== undefined && !isJson(source.input)) return;
   const context = record(source.context);
   if (
@@ -127,7 +132,8 @@ export function parseProcessCall(value: unknown): ProcessCall | undefined {
     return;
   return {
     invocation,
-    tool,
+    kind,
+    name,
     ...(source.input === undefined ? {} : { input: source.input }),
     context: { app, release, mode, effect, caller: from },
   };

@@ -56,13 +56,13 @@ export function widenPatch2(dir: string): Promise<void> {
 
 /** handler 파일에 주석 한 줄을 더한다. bundle과 release는 새로 생기고 schema와 선언은 그대로다. 몇 번이든 얹을 수 있다. */
 export async function codeOnlyPatch(dir: string): Promise<void> {
-  const api = `${dir}/src/tools.ts`;
+  const api = `${dir}/src/handlers.ts`;
   const text = await readFile(api, "utf8");
   const count = text.split("// code-only change").length;
   await writeFile(api, `${text}// code-only change ${count}\n`);
 }
 
-/** read tool `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
+/** read command `delay {ms}`를 더한다. 앱 안의 timer로 ms만큼 기다렸다 답한다. */
 export async function slowReadPatch(dir: string): Promise<void> {
   // source 폴더 이름은 slug가 아니라 앱 id라, 견본 선언에서 domain을 읽는다.
   const slug = await sampleDomain(dir);
@@ -72,7 +72,6 @@ export async function slowReadPatch(dir: string): Promise<void> {
         name: "add_item",`,
     `      {
         name: "delay",
-        title: "Delay",
         description: "Answer after waiting.",
         effect: "read",
         inputSchema: {
@@ -90,10 +89,10 @@ export async function slowReadPatch(dir: string): Promise<void> {
         name: "add_item",`,
   );
   await replaceOnce(
-    `${dir}/src/tools.ts`,
-    `  tool("add_item", addItemHandler(deps));`,
-    `  tool("add_item", addItemHandler(deps));
-  tool("delay", async (input: unknown) => {
+    `${dir}/src/handlers.ts`,
+    `  handle("add_item", addItemHandler(deps));`,
+    `  handle("add_item", addItemHandler(deps));
+  handle("delay", async (input: unknown) => {
     const ms = Number((input as { ms?: unknown } | null)?.ms ?? 0);
     await new Promise((resolve) => setTimeout(resolve, ms));
     return readResult([{ waited: ms }], {

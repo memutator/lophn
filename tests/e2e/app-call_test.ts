@@ -166,7 +166,8 @@ async function nonceOf(core: Core, app: string): Promise<string> {
 async function items(core: Core, app: string): Promise<string> {
   const listed = await core.call(appCallTool, {
     target: { mode: "live", app, release: null },
-    tool: "list_items",
+    kind: "command",
+    name: "list_items",
     caller: user,
   });
   return JSON.stringify(listed.outcome);
@@ -383,7 +384,8 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       const nonce = await nonceOf(c, id);
       const called = await c.call(appCallTool, {
         target,
-        tool: "big_write",
+        kind: "command",
+        name: "big_write",
         input: { kb: 300 },
         caller: user,
       });
@@ -421,7 +423,8 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     await t.test("call-from-person", async () => {
       const called = await c.call(appCallTool, {
         target,
-        tool: "add_item",
+        kind: "command",
+        name: "add_item",
         input: { title: "by-hand" },
         caller: user,
       });
@@ -438,10 +441,42 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       assert.ok((await items(c, id)).includes("by-hand"));
     });
 
+    await t.test("operation-from-person", async () => {
+      // 화면이 부르는 operation도 같은 길(줄, 기록, changeset)을 지나고 기록에 operation으로 남는다.
+      const called = await c.call(appCallTool, {
+        target,
+        kind: "operation",
+        name: "save_item",
+        input: { title: "from-screen" },
+        caller: user,
+      });
+      assert.deepStrictEqual(called.outcome.status, "succeeded");
+      assert.ok(called.invocation !== null);
+      const { invocation } = await c.call(appInvocation, {
+        invocation: called.invocation,
+      });
+      assert.deepStrictEqual(invocation?.operation, {
+        kind: "operation",
+        name: "save_item",
+      });
+      assert.notDeepStrictEqual(invocation?.changeset, null);
+      // 선언에 없는 이름은 kind가 달라도 handler에 닿지 않는다(command 이름을 operation으로 부른다).
+      const wrong = await c.call(appCallTool, {
+        target,
+        kind: "operation",
+        name: "add_item",
+        input: { title: "wrong" },
+        caller: user,
+      });
+      assert.deepStrictEqual(wrong.outcome.status, "denied");
+      assert.ok(!(await items(c, id)).includes("wrong"));
+    });
+
     await t.test("net-fetch-loopback", async () => {
       const called = await c.call(appCallTool, {
         target,
-        tool: "fetch_local",
+        kind: "command",
+        name: "fetch_local",
         caller: user,
       });
       // route: 앱이 secret 값을 모르므로 응답 어디에도 값이 없다.
@@ -466,7 +501,8 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
         .length;
       const refused = await c.tryCall(appCallTool, {
         target,
-        tool: "put_text",
+        kind: "command",
+        name: "put_text",
         input: { text: "a".repeat(CALL_BODY_MAX_BYTES + 1) },
         caller: user,
       });

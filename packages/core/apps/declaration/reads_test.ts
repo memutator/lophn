@@ -37,10 +37,10 @@ test("앱 하나에 묶인 agent 자격은 다른 앱의 tool 목록을 읽지�
       declaration: {
         name: `app ${app}`,
         description: "does things",
-        tools: [
+        operations: [],
+        commands: [
           {
             name: "add",
-            title: "Add",
             description: "adds",
             effect: "write",
             public: false,
@@ -76,7 +76,6 @@ test("앱 하나에 묶인 agent 자격은 다른 앱의 tool 목록을 읽지�
   assert.deepStrictEqual(one.value.apps[0].tools[0].inputSchema, {
     type: "object",
   });
-  assert.ok(!("outputSchema" in one.value.apps[0].tools[0]));
 
   const authorize = createTargetAuthorizer(ctx);
   for (const operation of ["app.logs", "app.invocations"]) {

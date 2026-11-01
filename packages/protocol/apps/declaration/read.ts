@@ -9,22 +9,28 @@ import { appInputSchema, releaseIdSchema } from "../apps.ts";
 import { permissionRequirementSchema } from "../permissions.ts";
 
 // 앱 하나의 active release 고정 선언을 사람과 agent가 읽는 모양이다.
-// 선언 전체가 아니라 tool·화면의 설명과 근거 구분이다. 범위 밖·없는 앱·active release가
+// 선언 전체가 아니라 바깥 명령(`tools`)과 화면·operation의 설명과 근거 구분이다. 범위 밖·없는 앱·active release가
 // 없는 앱은 같은 not_found로 답한다.
-const appToolSchema = z.object({
+const appCommandSchema = z.object({
   name: z.string().min(1),
-  title: z.string().min(1),
   description: z.string().min(1),
-  // 정규 InputSchema. 인자가 없는 tool은 null이다.
+  // 정규 InputSchema. 인자가 없는 command는 null이다.
   inputSchema: jsonValueSchema.nullable(),
-  outputSchema: jsonValueSchema.optional(),
   effect: z.enum(["read", "write", "external"]),
   // 다른 domain에 보이는지.
   public: z.boolean(),
-  // tool이 다루는 객체의 domain.
+  // command가 다루는 객체의 domain.
   domain: z.string().min(1),
 });
-export type AppTool = z.infer<typeof appToolSchema>;
+export type AppCommand = z.infer<typeof appCommandSchema>;
+
+// 화면이 부르는 앱 안의 operation. 화면 허용 목록의 재료이고 agent의 도구 목록에는 오르지 않는다.
+const appOperationSchema = z.object({
+  name: z.string().min(1),
+  title: z.string().min(1),
+  effect: z.enum(["read", "write", "external"]),
+});
+export type AppOperation = z.infer<typeof appOperationSchema>;
 
 const appDeclarationScreenSchema = z.object({
   key: z.string().min(1),
@@ -37,7 +43,7 @@ const appDeclarationScreenSchema = z.object({
 const appDeclarationEvidenceSchema = z.object({
   description: z.object({
     complete: z.boolean(),
-    // 설명이 비었거나 없는 자리. 예 `tools.add.inputSchema.title`.
+    // 설명이 비었거나 없는 자리. 예 `commands.add.inputSchema.title`.
     gaps: z.array(z.string().min(1)),
   }),
   structure: z.object({ validated: z.literal(true) }),
@@ -53,6 +59,7 @@ const appFactsSchema = z.object({
       tools: z.array(z.string().min(1)),
     }),
   ),
+  // operation과 command의 handler 이름 전부.
   tools: z.array(z.string().min(1)),
 });
 
@@ -63,7 +70,9 @@ const appDeclarationOutputSchema = withReadCommon(
     declaration_hash: sha256Schema,
     name: z.string().min(1),
     description: z.string().min(1),
-    tools: z.array(appToolSchema),
+    // 바깥 명령. 이름은 route 이름(`app.tools`)을 따른다.
+    tools: z.array(appCommandSchema),
+    operations: z.array(appOperationSchema),
     screens: z.array(appDeclarationScreenSchema),
     facts: appFactsSchema,
     evidence: appDeclarationEvidenceSchema,
@@ -98,10 +107,10 @@ export const appIcon = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
-// `app.tool_index`. 모든 앱의 이름·설명과 tool 목록이다. 앱 범위 판정을 하지 않는 대신
-// 돌려주는 칸이 이것뿐이라 source 경로, 앱 log, 호출 기록은 새지 않는다. 호출 모양(inputSchema, outputSchema)은
+// `app.tool_index`. 모든 앱의 이름·설명과 바깥 command 목록이다. 앱 범위 판정을 하지 않는 대신
+// 돌려주는 칸이 이것뿐이라 source 경로, 앱 log, 호출 기록은 새지 않는다. 호출 모양(inputSchema)은
 // 입력에 app이 있을 때만 싣는다(전체 목록에서는 칸이 없다). 목록이 앱 수에 비례해 커지는 것을 줄이기 위해서다.
-// inputSchema는 인자가 없으면 null, outputSchema는 선언했을 때만 있다.
+// inputSchema는 인자가 없으면 null이다.
 const appToolIndexEntrySchema = z.object({
   app: appIdSchema,
   name: z.string().min(1),
@@ -109,13 +118,11 @@ const appToolIndexEntrySchema = z.object({
   tools: z.array(
     z.object({
       name: z.string().min(1),
-      title: z.string().min(1),
       description: z.string().min(1),
       effect: z.enum(["read", "write", "external"]),
       public: z.boolean(),
       domain: z.string().min(1),
       inputSchema: jsonValueSchema.nullable().optional(),
-      outputSchema: jsonValueSchema.optional(),
     }),
   ),
 });

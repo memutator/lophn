@@ -184,7 +184,7 @@ async function readPlaceData(
       if (tools.ok) {
         release = {
           version: tools.value.release,
-          tool_names: tools.value.tools.map((tool) => tool.name),
+          command_names: tools.value.tools.map((tool) => tool.name),
         };
       }
     }

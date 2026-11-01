@@ -35,7 +35,8 @@ export function judge(
       ? askIn(mode)
       : { kind: "run" };
   }
-  // MCP server는 설정한 층이 곧 할당이라 할당을 보지 않는다.
+  // MCP server는 설정한 층이 곧 할당이라 할당을 보지 않는다. app_tool의 tool은 앱의 command 이름이고
+  // `removed_tools`도 command 이름을 담는다(operation은 할당 대상이 아니다).
   if (call.kind === "app_tool") {
     const entry = assignment?.entries.find((item) => item.app === call.app);
     if (!entry) return { kind: "deny", reason: "not_assigned", pattern: null };

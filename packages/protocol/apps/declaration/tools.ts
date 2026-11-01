@@ -1,23 +1,25 @@
 // 의존성 없는 선언 정본.
 // Zod·node·npm·IO·앱 코드 실행이 없다.
-
+// 화면, operation, command 선언을 검사한다(file 이름은 vendor 목록 때문에 옛 이름을 둔다).
 import {
+  type CommandDeclaration,
   exactKeys,
   type InputSchema,
   invalid,
   isDomainName,
   isObject,
   nonBlank,
+  type OperationDeclaration,
   type ScreenDeclaration,
   type ScreenSize,
-  type ToolDeclaration,
+  type ToolEffect,
   type ValidationResult,
 } from "./types.ts";
 import { unique } from "./json.ts";
 import { validateSchemaNode } from "./schema.ts";
 import { screenPath } from "./scope.ts";
 
-// toolNameSchema(channel-values.ts)와 같은 규칙. MCP tool 이름 문자 집합이다.
+// toolNameSchema(channel-values.ts)와 같은 규칙이다.
 // 이 file은 의존성이 없어 따로 쓴다.
 const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 
@@ -37,13 +39,15 @@ function blankDescription(schema: InputSchema): string | undefined {
   }
 }
 
-export function validateScreensAndTools(
+export function validateLayers(
   screenItems: unknown[],
-  toolItems: unknown[],
+  operationItems: unknown[],
+  commandItems: unknown[],
   domains?: readonly string[],
 ): ValidationResult<{
   screens: ScreenDeclaration[];
-  tools: ToolDeclaration[];
+  operations: OperationDeclaration[];
+  commands: CommandDeclaration[];
 }> {
   const screens: ScreenDeclaration[] = [];
   for (const item of screenItems) {
@@ -87,106 +91,106 @@ export function validateScreensAndTools(
     return invalid("duplicate screen");
   }
 
-  const tools: ToolDeclaration[] = [];
-  for (const item of toolItems) {
-    if (!isObject(item)) return invalid("tool must be an object");
+  const operations: OperationDeclaration[] = [];
+  for (const item of operationItems) {
+    if (!isObject(item)) return invalid("operation must be an object");
     const bad = exactKeys(
       item,
-      [
-        "description",
-        "domain",
-        "effect",
-        "inputSchema",
-        "name",
-        "outputSchema",
-        "public",
-        "title",
-      ],
-      [
-        "description",
-        "domain",
-        "effect",
-        "inputSchema",
-        "name",
-        "public",
-        "title",
-      ],
+      ["effect", "name", "title"],
+      ["effect", "name", "title"],
     );
-    if (bad) return invalid(`tool ${bad}`);
+    if (bad) return invalid(`operation ${bad}`);
     if (typeof item.name !== "string" || !TOOL_NAME.test(item.name)) {
       return invalid(
-        "tool name must be 1-64 characters of letters, digits, _ - .",
+        "operation name must be 1-64 characters of letters, digits, _ - .",
       );
     }
-    if (!nonBlank(item.title) || !nonBlank(item.description)) {
+    if (!nonBlank(item.title)) {
+      return invalid(`operation ${item.name} title must be nonblank`);
+    }
+    if (!isEffect(item.effect)) {
+      return invalid(`operation ${item.name} effect is unsupported`);
+    }
+    operations.push({
+      name: item.name,
+      title: item.title,
+      effect: item.effect,
+    });
+  }
+
+  const commands: CommandDeclaration[] = [];
+  for (const item of commandItems) {
+    if (!isObject(item)) return invalid("command must be an object");
+    const bad = exactKeys(
+      item,
+      ["description", "domain", "effect", "inputSchema", "name", "public"],
+      ["description", "domain", "effect", "inputSchema", "name", "public"],
+    );
+    if (bad) return invalid(`command ${bad}`);
+    if (typeof item.name !== "string" || !TOOL_NAME.test(item.name)) {
       return invalid(
-        `tool ${item.name} title and description must be nonblank`,
+        "command name must be 1-64 characters of letters, digits, _ - .",
       );
     }
-    if (
-      item.effect !== "read" &&
-      item.effect !== "write" &&
-      item.effect !== "external"
-    ) {
-      return invalid(`tool ${item.name} effect is unsupported`);
+    if (!nonBlank(item.description)) {
+      return invalid(`command ${item.name} description must be nonblank`);
+    }
+    if (!isEffect(item.effect)) {
+      return invalid(`command ${item.name} effect is unsupported`);
     }
     if (typeof item.public !== "boolean") {
-      return invalid(`tool ${item.name} public must be boolean`);
+      return invalid(`command ${item.name} public must be boolean`);
     }
     if (typeof item.domain !== "string" || !isDomainName(item.domain)) {
-      return invalid(`tool ${item.name} domain must be a domain name`);
+      return invalid(`command ${item.name} domain must be a domain name`);
     }
     if (domains && !domains.includes(item.domain)) {
       return invalid(
-        `tool ${item.name} domain ${item.domain} is not a domain of this app`,
+        `command ${item.name} domain ${item.domain} is not a domain of this app`,
       );
     }
     const inputSchema =
       item.inputSchema === null
         ? ({ ok: true, value: null } as const)
-        : objectSchema(item.inputSchema, `tool ${item.name} inputSchema`);
+        : objectSchema(item.inputSchema, `command ${item.name} inputSchema`);
     if (!inputSchema.ok) return inputSchema;
-    const tool: ToolDeclaration = {
+    commands.push({
       name: item.name,
-      title: item.title,
       description: item.description,
       inputSchema: inputSchema.value,
       effect: item.effect,
       public: item.public,
       domain: item.domain,
-    };
-    if (Object.hasOwn(item, "outputSchema")) {
-      const outputSchema = objectSchema(
-        item.outputSchema,
-        `tool ${item.name} outputSchema`,
-      );
-      if (!outputSchema.ok) return outputSchema;
-      tool.outputSchema = outputSchema.value;
-    }
-    tools.push(tool);
+    });
   }
+  // handler는 이름 하나로 등록하므로 operation과 command의 이름은 합쳐 하나다.
   if (
     unique(
-      tools.map((tool) => tool.name),
-      "tool",
+      [...operations, ...commands].map((entry) => entry.name),
+      "handler",
     )
   ) {
-    return invalid("duplicate tool");
+    return invalid("duplicate operation or command name");
   }
-  // agent tool 이름은 `<domain>_<tool의 . → _>`라 `event.list`와 `event_list`는 같은 이름이 된다.
+  // agent tool 이름은 `<domain>_<command의 . → _>`라 `event.list`와 `event_list`는 같은 이름이 된다.
+  // agent에게 보이는 것은 command뿐이라 command에만 건다.
   const seen = new Map<string, string>();
-  for (const tool of tools) {
-    const wire = `${tool.domain}_${tool.name.replaceAll(".", "_")}`;
+  for (const command of commands) {
+    const wire = `${command.domain}_${command.name.replaceAll(".", "_")}`;
     const other = seen.get(wire);
     if (other !== undefined) {
       return invalid(
-        `tools ${other} and ${tool.name} have the same agent tool name ${wire}`,
+        `commands ${other} and ${command.name} have the same agent tool name ${wire}`,
       );
     }
-    seen.set(wire, tool.name);
+    seen.set(wire, command.name);
   }
 
-  return { ok: true, value: { screens, tools } };
+  return { ok: true, value: { screens, operations, commands } };
+}
+
+function isEffect(value: unknown): value is ToolEffect {
+  return value === "read" || value === "write" || value === "external";
 }
 
 function objectSchema(
@@ -203,52 +207,13 @@ function objectSchema(
   return parsed;
 }
 
-// MCP `tools/list`의 annotation과 항목. annotation은 힌트일 뿐이고 강제는 Gate와 runtime 권한이 한다.
-export type ToolAnnotations = {
-  title: string;
-  readOnlyHint: boolean;
-  destructiveHint?: boolean;
-  openWorldHint: boolean;
-};
-
-export type McpTool = {
-  name: string;
-  title: string;
-  description: string;
-  inputSchema: InputSchema;
-  outputSchema?: InputSchema;
-  annotations: ToolAnnotations;
-};
-
-// tool이 지우는지 program이 알 수 없어 write·external의 destructiveHint는 MCP 기본값(true)을 따른다.
-// read에서는 의미가 없어 뺀다.
-export function toolAnnotations(
-  tool: Pick<ToolDeclaration, "title" | "effect">,
-): ToolAnnotations {
-  if (tool.effect === "read") {
-    return { title: tool.title, readOnlyHint: true, openWorldHint: false };
-  }
-  return {
-    title: tool.title,
-    readOnlyHint: false,
-    destructiveHint: true,
-    openWorldHint: tool.effect === "external",
-  };
-}
-
-// public·effect는 항목에 싣지 않는다(annotation만).
-export function toMcpTool(tool: ToolDeclaration): McpTool {
-  const mcp: McpTool = {
-    name: tool.name,
-    title: tool.title,
-    description: tool.description,
-    inputSchema: tool.inputSchema ?? {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-    annotations: toolAnnotations(tool),
-  };
-  if (tool.outputSchema) mcp.outputSchema = tool.outputSchema;
-  return mcp;
+// handler가 이름 하나로 등록되므로 선언과 대조하는 이름은 operation과 command를 합친 목록이다.
+export function handlerNames(declaration: {
+  operations: readonly Pick<OperationDeclaration, "name">[];
+  commands: readonly Pick<CommandDeclaration, "name">[];
+}): string[] {
+  return [
+    ...declaration.operations.map((operation) => operation.name),
+    ...declaration.commands.map((command) => command.name),
+  ];
 }

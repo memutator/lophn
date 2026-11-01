@@ -14,16 +14,16 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 
 - `defineApp(declaration)` — 앱의 선언(`lophn.ts`의 default export)을 만든다.
 - `validateDeclaration(value)` — 선언 값을 검사한다(`ValidationResult`).
-- `validateInput(schema, value)` — tool 입력을 검사한다.
+- `validateInput(schema, value)` — command 입력을 검사한다.
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
-- type: `AppDeclaration`, `ScreenDeclaration`, `ToolDeclaration`, `ToolEffect`,
-  `AppToolUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
+- type: `AppDeclaration`, `ScreenDeclaration`, `OperationDeclaration`,
+  `CommandDeclaration`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
   `SDKDependency`, `ValidationResult`, `ValidationError`
 
 ## 선언의 칸
 
-`name`, `description`, `screens`, `tools`, `permissions`, `app_connections`,
-`sdk_dependencies`와 선택 칸 `icon`만 있다. 알 수 없는 칸은 거절한다.
+`name`, `description`, `screens`, `operations`, `commands`, `permissions`,
+`app_connections`, `sdk_dependencies`와 선택 칸 `icon`만 있다. 알 수 없는 칸은 거절한다.
 
 - `screens` — 화면 목록이다. 항목은 `{key, label, path, sizes}`다. `sizes`는
   화면을 열 수 있는 자리다. `full`은 앱 창, `panel`은 project 창의 탭(사람이
@@ -37,15 +37,24 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   앱을 보일 때 쓴다. 없으면 기본 모양이다. 사람이 App details에서 올린 icon이 있으면
   그것이 먼저다.
 
-- `tools` — 다른 앱과 화면이 부르는 tool 목록이다. 항목은
-  `{name, title, description, inputSchema, outputSchema?, effect, public, domain}`다.
-  `name`은 MCP tool 이름 문자(1~64자)이고, `inputSchema`는 입력 schema나 입력이
-  없으면 `null`이다(`null`이 아니면 root type은 object). `outputSchema`는 없으면
-  칸을 두지 않는다. `effect`는 `read`·`write`·`external`이다. `public`은 필수
-  boolean이고 다른 domain에 보이는지를 뜻한다(읽는 쪽은 이 계획 밖이다).
-  `domain`은 필수이고 tool이 다루는 객체의 domain이다. 이 앱의 domain 이름 중
-  하나이고, 앱을 만들면 앱 이름의 domain이 하나 생긴다. 다른 domain은 사람이나 그
-  앱 place의 session이 `domain.create`로 만든 뒤 쓴다.
+- `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
+  자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
+  막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이
+  쓰는 글이고, `effect`는 `read`·`write`·`external`이다. lophn이 아는 것은 이
+  셋뿐이다. 입력 schema와 설명은 앱 code의 일이고, 결과 크기는 command보다 넉넉하다.
+  write·external operation도 core를 지나 줄, 기록, changeset을 거치므로 rewind
+  대상이다.
+- `commands` — 앱이 골라 내놓는 바깥 명령 목록이다. agent, 다른 앱, job, flow가
+  부른다. 의미 단위로 나누고 결과를 작게 둔다(모든 행 목록 같은 화면용 동작은
+  operation이다). 항목은 `{name, description, inputSchema, effect, public, domain}`다.
+  `inputSchema`는 입력 schema나 입력이 없으면 `null`이다(`null`이 아니면 root type은
+  object). `effect`는 `read`·`write`·`external`이다. `public`은 필수 boolean이고
+  다른 domain에 보이는지를 뜻한다. `domain`은 필수이고 command가 다루는 객체의
+  domain이다. 이 앱의 domain 이름 중 하나이고, 앱을 만들면 앱 이름의 domain이 하나
+  생긴다. 다른 domain은 사람이나 그 앱 place의 session이 `domain.create`로 만든 뒤
+  쓴다.
+  - operation과 command의 이름(1~64자, 영문·숫자·`_ - .`)은 합쳐 하나이고
+    handler는 이름 하나로 등록한다. 이름을 두 목록에 같이 쓰지 못한다.
 - `permissions` — 앱이 바깥에 닿는 자원이다. 항목은 `{kind, scope, reason}`이고
   kind는 `fs.read`·`fs.write`(`{path, recursive}`), `net.fetch`·`net.listen`
   (`{host, port}`), `secret.use`(`{name, oauth?}`)다. 같은 `name`의
@@ -58,8 +67,8 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
     `@lophn/cap-secret` guide다.
   - `oauth` 칸(끝점, scope, params)을 바꾸면 늘어난 선언이라 activation 때
     사람에게 다시 묻는다.
-- `app_connections` — 이 앱이 부를 다른 앱의 tool이다. 항목은
-  `{app, tools: string[], reason}`이고 자기 앱은 대상이 될 수 없다.
+- `app_connections` — 이 앱이 부를 다른 앱의 command다(operation은 못 부른다). 항목은
+  `{app, commands: string[], reason}`이고 자기 앱은 대상이 될 수 없다.
 
 ## 요구 permission
 
@@ -78,10 +87,11 @@ const declaration = defineApp({
   name: "notes",
   description: "메모 앱",
   screens: [],
-  tools: [],
+  operations: [],
+  commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "1.0.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "2.0.0" }],
 });
 
 const result = validateDeclaration(declaration);

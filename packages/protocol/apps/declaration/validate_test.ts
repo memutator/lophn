@@ -1,130 +1,118 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toMcpTool, type ToolDeclaration, validateDeclaration } from "./mod.ts";
+import { type CommandDeclaration, validateDeclaration } from "./mod.ts";
 
-const tool = {
+const command = {
   name: "list_items",
-  title: "List items",
   description: "Lists the items.",
   inputSchema: null,
   effect: "read",
   domain: "items",
   public: false,
 };
+const operation = { name: "items.page", title: "Items page", effect: "read" };
 const objectSchema = {
   type: "object",
   properties: { id: { type: "string", description: "item id" } },
   required: ["id"],
 };
 
-function declarationWith(tools: unknown[]) {
+function declarationWith(commands: unknown[], operations: unknown[] = []) {
   return {
     name: "Items",
     description: "Keeps items.",
     screens: [],
-    tools,
+    operations,
+    commands,
     permissions: [],
     app_connections: [],
     sdk_dependencies: [],
   };
 }
 
-// 선언 검사는 이름 노출(MCP tool 이름)과 program이 강제하는 effect·public을 정한다.
-test("tool 선언은 이름 규칙, object root, public, 알 수 없는 칸을 거절하고 올바른 선언만 MCP 항목이 된다", () => {
-  const rejected: [string, unknown[]][] = [
-    ["space in name", [{ ...tool, name: "list items" }]],
-    ["comma in name", [{ ...tool, name: "a,b" }]],
-    ["name too long", [{ ...tool, name: "a".repeat(65) }]],
-    ["empty name", [{ ...tool, name: "" }]],
-    ["duplicate name", [tool, { ...tool }]],
+// 선언 검사는 handler 이름 공간(operation과 command가 하나)과 command의 이름 노출 규칙을 정한다.
+test("선언은 이름 규칙, object root, 합친 이름의 중복, 알 수 없는 칸을 거절하고 올바른 선언만 정규형이 된다", () => {
+  const rejected: [string, unknown[], unknown[]?][] = [
+    ["space in name", [{ ...command, name: "list items" }]],
+    ["comma in name", [{ ...command, name: "a,b" }]],
+    ["name too long", [{ ...command, name: "a".repeat(65) }]],
+    ["empty name", [{ ...command, name: "" }]],
+    ["duplicate name", [command, { ...command }]],
+    [
+      "operation and command share a name",
+      [command],
+      [{ ...operation, name: command.name }],
+    ],
     [
       "array input root",
       [
         {
-          ...tool,
+          ...command,
           inputSchema: { type: "array", items: { type: "string" } },
         },
       ],
     ],
-    ["string output root", [{ ...tool, outputSchema: { type: "string" } }]],
-    ["missing public", [{ ...tool, public: undefined }]],
-    ["missing domain", [{ ...tool, domain: undefined }]],
-    ["domain not a slug", [{ ...tool, domain: "Items_1" }]],
-    ["reserved domain", [{ ...tool, domain: "file" }]],
+    ["output schema", [{ ...command, outputSchema: { type: "object" } }]],
+    ["command title", [{ ...command, title: "List" }]],
+    ["missing public", [{ ...command, public: undefined }]],
+    ["missing domain", [{ ...command, domain: undefined }]],
+    ["domain not a slug", [{ ...command, domain: "Items_1" }]],
+    ["reserved domain", [{ ...command, domain: "file" }]],
     [
       "same agent tool name",
       [
-        { ...tool, name: "event.list" },
-        { ...tool, name: "event_list" },
+        { ...command, name: "event.list" },
+        { ...command, name: "event_list" },
       ],
     ],
-    ["project_scope", [{ ...tool, project_scope: false }]],
-    ["old key field", [{ ...tool, key: "x" }]],
+    ["operation description", [], [{ ...operation, description: "x" }]],
+    ["operation without effect", [], [{ ...operation, effect: undefined }]],
+    ["operation without title", [], [{ ...operation, title: " " }]],
   ];
-  for (const [label, tools] of rejected) {
-    const result = validateDeclaration(declarationWith(tools));
+  for (const [label, commands, operations] of rejected) {
+    const result = validateDeclaration(declarationWith(commands, operations));
     assert.ok(!result.ok, label);
     assert.deepStrictEqual(result.error.code, "invalid_input", label);
   }
 
-  const outside = validateDeclaration(declarationWith([tool]), {
+  const outside = validateDeclaration(declarationWith([command]), {
     domains: ["other"],
   });
   assert.ok(!outside.ok);
   assert.deepStrictEqual(
     outside.error.message,
-    "tool list_items domain items is not a domain of this app",
+    "command list_items domain items is not a domain of this app",
   );
   assert.ok(
-    validateDeclaration(declarationWith([tool]), { domains: ["items"] }).ok,
+    validateDeclaration(declarationWith([command]), { domains: ["items"] }).ok,
   );
 
+  // operation끼리는 agent tool 이름이 겹쳐도 된다. agent에게 보이지 않는다.
   const accepted = validateDeclaration(
-    declarationWith([
-      {
-        ...tool,
-        name: "add.item-1_x",
-        effect: "external",
-        public: true,
-        inputSchema: objectSchema,
-        outputSchema: objectSchema,
-      },
-      tool,
-    ]),
+    declarationWith(
+      [
+        {
+          ...command,
+          name: "add.item-1_x",
+          effect: "external",
+          public: true,
+          inputSchema: objectSchema,
+        },
+        command,
+      ],
+      [operation, { ...operation, name: "items_page" }],
+    ),
   );
   assert.ok(accepted.ok);
-  const tools: ToolDeclaration[] = accepted.value.tools;
+  const commands: CommandDeclaration[] = accepted.value.commands;
   assert.deepStrictEqual(
-    tools.map((item) => item.name),
+    commands.map((item) => item.name),
     ["add.item-1_x", "list_items"],
   );
-
-  const none = toMcpTool(tools[1]);
-  assert.deepStrictEqual(none.inputSchema, {
-    type: "object",
-    properties: {},
-    additionalProperties: false,
-  });
-  assert.deepStrictEqual(none.annotations, {
-    title: "List items",
-    readOnlyHint: true,
-    openWorldHint: false,
-  });
-  assert.ok(
-    !("outputSchema" in none) && !("public" in none) && !("domain" in none),
-  );
-  const external = toMcpTool(tools[0]);
-  assert.deepStrictEqual(external.annotations, {
-    title: "List items",
-    readOnlyHint: false,
-    destructiveHint: true,
-    openWorldHint: true,
-  });
-  assert.deepStrictEqual(external.outputSchema, tools[0].outputSchema);
   assert.deepStrictEqual(
-    toMcpTool({ ...tools[0], effect: "write" }).annotations.openWorldHint,
-    false,
+    accepted.value.operations.map((item) => item.name),
+    ["items.page", "items_page"],
   );
 });
 

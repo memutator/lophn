@@ -1,15 +1,15 @@
-// `app.tools`. 앱 하나의 active release에 고정된 선언을 tool·화면의 설명으로 읽는다.
+// `app.tools`. 앱 하나의 active release에 고정된 선언을 command·operation·화면의 설명으로 읽는다.
 // 정본은 release에 고정한 선언이고 앱 source의 현재 파일이 아니다. release 읽기는 releases 조립이
 // loader로 준다(leaf 사이는 mod.ts로만 부르므로 여기서 releases를 import하지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import {
-  type AppTool,
+  type AppCommand,
   appToolIndex,
   type AppToolIndexEntry,
   appTools,
 } from "../../../protocol/apps/declaration/read.ts";
-import type { AppDeclaration } from "./mod.ts";
+import { type AppDeclaration, handlerNames } from "./mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
@@ -68,24 +68,18 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
             app: app.id,
             name: declaration.name,
             description: declaration.description,
-            tools: declaration.tools.map((tool) => ({
-              name: tool.name,
-              title: tool.title,
-              description: tool.description,
-              effect: tool.effect,
-              public: tool.public,
-              domain: tool.domain,
+            tools: declaration.commands.map((command) => ({
+              name: command.name,
+              description: command.description,
+              effect: command.effect,
+              public: command.public,
+              domain: command.domain,
               // 호출 모양은 앱 하나를 볼 때만 싣는다.
               ...(input.app === undefined
                 ? {}
                 : {
-                    inputSchema: tool.inputSchema as AppTool["inputSchema"],
-                    ...(tool.outputSchema === undefined
-                      ? {}
-                      : {
-                          outputSchema:
-                            tool.outputSchema as AppTool["outputSchema"],
-                        }),
+                    inputSchema:
+                      command.inputSchema as AppCommand["inputSchema"],
                   }),
             })),
           });
@@ -124,22 +118,21 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
           declaration_hash: release.declaration_hash,
           name: declaration.name,
           description: declaration.description,
-          tools: declaration.tools.map(
-            (tool): AppTool => ({
-              name: tool.name,
-              title: tool.title,
-              description: tool.description,
-              inputSchema: tool.inputSchema as AppTool["inputSchema"],
-              ...(tool.outputSchema === undefined
-                ? {}
-                : {
-                    outputSchema: tool.outputSchema as AppTool["outputSchema"],
-                  }),
-              effect: tool.effect,
-              public: tool.public,
-              domain: tool.domain,
+          tools: declaration.commands.map(
+            (command): AppCommand => ({
+              name: command.name,
+              description: command.description,
+              inputSchema: command.inputSchema as AppCommand["inputSchema"],
+              effect: command.effect,
+              public: command.public,
+              domain: command.domain,
             }),
           ),
+          operations: declaration.operations.map((operation) => ({
+            name: operation.name,
+            title: operation.title,
+            effect: operation.effect,
+          })),
           screens: declaration.screens.map((screen) => ({
             key: screen.key,
             label: screen.label,
@@ -151,9 +144,9 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
             permissions: declaration.permissions as never,
             app_connections: declaration.app_connections.map((use) => ({
               app: use.app,
-              tools: [...use.tools],
+              tools: [...use.commands],
             })),
-            tools: declaration.tools.map((tool) => tool.name),
+            tools: handlerNames(declaration),
           },
           // 설명과 구조는 서로 다른 근거다. 구조는 준비 때 검증기를 통과한 것만 저장된다.
           evidence: {

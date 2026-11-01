@@ -62,7 +62,8 @@ const person = { kind: "person", view_session: "e2e" } as const;
 function call(core: Core, app: string, tool: string, input?: unknown) {
   return core.call(appCallTool, {
     target: { mode: "live", app, release: null },
-    tool,
+    kind: "command",
+    name: tool,
     ...(input === undefined ? {} : { input: input as never }),
     caller: person,
   });

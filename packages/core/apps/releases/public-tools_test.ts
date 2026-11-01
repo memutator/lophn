@@ -3,7 +3,7 @@ import { test } from "node:test";
 import type { AppDeclaration } from "../declaration/mod.ts";
 import { removedPublicOf } from "./public-tools.ts";
 
-type Tool = AppDeclaration["tools"][number];
+type Tool = AppDeclaration["commands"][number];
 
 const tool = (
   name: string,
@@ -13,7 +13,6 @@ const tool = (
 ): Tool =>
   ({
     name,
-    title: name,
     description: name,
     inputSchema: null,
     effect,

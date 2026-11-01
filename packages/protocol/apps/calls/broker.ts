@@ -23,7 +23,8 @@ const childFields = {
 export const brokerAppCallInputSchema = z.strictObject({
   ...childFields,
   target_app: appIdSchema,
-  tool: toolKeySchema,
+  // 다른 앱은 command만 부른다.
+  command: toolKeySchema,
   input: jsonValueSchema.optional(),
   parent_invocation: invocationIdSchema.nullable(),
 });

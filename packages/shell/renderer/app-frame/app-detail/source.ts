@@ -191,9 +191,9 @@ export interface ActivityRow {
   /** 끝난 시각, 아직이면 시작 시각, 둘 다 없으면 null(ISO). */
   readonly at: string | null;
   readonly caller: Caller;
-  /** tool 이름. 앱 시작과 data 변경은 null이다. */
+  /** operation이나 command의 이름. 앱 시작과 data 변경은 null이다. */
   readonly tool: string | null;
-  readonly kind: "tool" | "start" | "data_change";
+  readonly kind: "call" | "start" | "data_change";
   readonly effect: Effect;
   readonly state: CallState;
   /** 되돌림이 이 호출을 되돌렸다. */

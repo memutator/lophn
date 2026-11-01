@@ -46,9 +46,9 @@ export type MapDomain = {
   // "project <name>" 또는 "app <name>"
   owner: string;
   purpose: string;
-  // 주인 앱의 활성 release가 내놓은 이 domain의 공개 tool
+  // 주인 앱의 활성 release가 내놓은 이 domain의 공개 command
   tools: readonly { key: string; effect: string; description: string }[];
-  // 이 tool을 쓰는 다른 domain
+  // 이 command를 쓰는 다른 domain
   usedBy: readonly { tool: string; domain: string }[];
 };
 
@@ -74,7 +74,7 @@ export type PlaceData = {
   // home만. domain마다 한 덩어리의 지도
   map: readonly MapDomain[];
   // 앱 place만. 앱의 활성 release가 없으면 null.
-  release: { version: string; tool_names: readonly string[] } | null;
+  release: { version: string; command_names: readonly string[] } | null;
   // project place만. 만들어 둔 workflows 폴더의 절대 path다. home과 app place는 null
   workflowsFolder: string | null;
 };
@@ -99,11 +99,13 @@ function appLines(
   }
   lines.push(`${indent}Declaration: ${app.declaration}`);
   if (release !== null) {
-    const tools =
-      release.tool_names.length > 0
-        ? [...release.tool_names].sort(cmp).join(", ")
+    const commands =
+      release.command_names.length > 0
+        ? [...release.command_names].sort(cmp).join(", ")
         : "none";
-    lines.push(`${indent}Active release: ${release.version}. tools: ${tools}`);
+    lines.push(
+      `${indent}Active release: ${release.version}. commands: ${commands}`,
+    );
   }
   return lines;
 }
@@ -210,7 +212,7 @@ function unique(items: readonly string[]): string[] {
   return [...new Set(items)].sort(cmp);
 }
 
-// full은 tool 설명까지, short는 tool 키만, bare는 domain 이름과 주인만 싣는다.
+// full은 command 설명까지, short는 command 키만, bare는 domain 이름과 주인만 싣는다.
 function mapLines(
   domains: readonly MapDomain[],
   level: "full" | "short" | "bare",
@@ -226,7 +228,7 @@ function mapLines(
           ? `${t.key} (${t.effect}) ${oneLine(t.description)}`
           : `${t.key} (${t.effect})`,
       );
-    if (tools.length > 0) lines.push(`  Public tools: ${tools.join("; ")}`);
+    if (tools.length > 0) lines.push(`  Public commands: ${tools.join("; ")}`);
     const usedBy = unique(d.usedBy.map((u) => `${u.tool} ← ${u.domain}`));
     if (usedBy.length > 0) {
       lines.push(`  Used by other domains: ${usedBy.join(", ")}`);

@@ -28,7 +28,6 @@ export async function rewindPatch(dir: string): Promise<void> {
         name: "add_item",`,
     `      {
         name: "add_blob",
-        title: "Add blob",
         description: "Store a row holding kb KiB of text.",
         effect: "write",
         inputSchema: {
@@ -49,7 +48,6 @@ export async function rewindPatch(dir: string): Promise<void> {
       },
       {
         name: "count_blobs",
-        title: "Count blobs",
         description: "Count the stored blob rows.",
         effect: "read",
         inputSchema: null,
@@ -58,7 +56,6 @@ export async function rewindPatch(dir: string): Promise<void> {
       },
       {
         name: "touch_blob",
-        title: "Touch blob",
         description: "Read the oldest blob row.",
         effect: "read",
         inputSchema: null,
@@ -78,14 +75,14 @@ export async function rewindPatch(dir: string): Promise<void> {
 `,
   );
   await replaceOnce(
-    `${dir}/src/tools.ts`,
-    `  tool("add_item", addItemHandler(deps));`,
-    `  tool("add_item", addItemHandler(deps));
-  tool("add_blob", (input) =>
+    `${dir}/src/handlers.ts`,
+    `  handle("add_item", addItemHandler(deps));`,
+    `  handle("add_item", addItemHandler(deps));
+  handle("add_blob", (input) =>
     withStore(deps, "add_blob", (store) => {
       const kb = (input as { kb?: unknown } | null)?.kb;
       if (!Number.isInteger(kb) || (kb as number) < 1 || (kb as number) > 200) {
-        throw new ToolRejection("invalid_input", "kb is out of range");
+        throw new HandlerRejection("invalid_input", "kb is out of range");
       }
       store.db.prepare("insert into blob (body) values (?)").run(
         "x".repeat((kb as number) * 1024),
@@ -93,14 +90,14 @@ export async function rewindPatch(dir: string): Promise<void> {
       return { kb };
     }));
   // touched는 touch_blob이 고친 row(길이가 KiB의 배수가 아니다)의 수다.
-  tool("count_blobs", () =>
+  handle("count_blobs", () =>
     withStore(deps, "count_blobs", (store) =>
       readResult([
         store.db.prepare(
           "select count(*) as count, coalesce(sum(length(body) % 1024 != 0), 0) as touched from blob",
         ).get() as { count: number; touched: number },
       ], { coverage: "complete", freshness: "fresh" })));
-  tool("touch_blob", () =>
+  handle("touch_blob", () =>
     withStore(deps, "touch_blob", (store) => {
       store.db.prepare(
         "update blob set body = body || 'y' where id = (select min(id) from blob)",

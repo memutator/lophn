@@ -109,17 +109,18 @@ function setup() {
         ),
     },
     lookup: {
-      find: (_app, _release, tool) =>
+      // 이름이 "op."로 시작하면 operation이다(비공개, domain 없음).
+      find: (_app, _release, kind, name) =>
         ok({
           release: state.release,
-          effect: tool.startsWith("w.") ? "write" : "read",
-          public: !tool.includes("priv."),
-          domain: "dom",
+          effect: name.includes("w.") ? "write" : "read",
+          public: kind === "command" && !name.includes("priv."),
+          domain: kind === "command" ? "dom" : "",
         }),
-      findPreview: (_app, nonce, tool) => {
+      findPreview: (_app, nonce, _kind, name) => {
         const effect =
           nonce === state.preview.nonce
-            ? state.preview.effects[tool]
+            ? state.preview.effects[name]
             : undefined;
         return Promise.resolve(
           ok(effect === undefined ? null : { effect: effect as "write" }),
@@ -180,7 +181,8 @@ function appCallGrant(
 function person(app: Id<"app">, tool: string): ToolCallInput {
   return {
     target: { mode: "live", app, release: null },
-    tool: tool,
+    kind: "command",
+    name: tool,
     caller: { kind: "person", view_session: "v1" },
   };
 }
@@ -193,7 +195,8 @@ function appCaller(
 ): ToolCallInput {
   return {
     target: { mode: "live", app: to, release: null },
-    tool: tool,
+    kind: "command",
+    name: tool,
     caller: {
       kind: "app",
       app: from,
@@ -431,15 +434,15 @@ test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다", 
   // 같은 앱의 write 하나만 돌고 나머지 하나는 기다린다.
   assert.deepStrictEqual(t.sent.length, 3);
   const aWrites = t.sent.filter(
-    (s) => s.app === a && s.request.tool.startsWith("w."),
+    (s) => s.app === a && s.request.name.startsWith("w."),
   );
   assert.deepStrictEqual(aWrites.length, 1);
   assert.deepStrictEqual(
-    t.sent.filter((s) => s.app === a && s.request.tool === "r.get").length,
+    t.sent.filter((s) => s.app === a && s.request.name === "r.get").length,
     1,
   );
   assert.deepStrictEqual(
-    t.sent.filter((s) => s.app === other).map((s) => s.request.tool),
+    t.sent.filter((s) => s.app === other).map((s) => s.request.name),
     ["w.one"],
   );
   const first = aWrites[0];
@@ -449,8 +452,8 @@ test("write는 앱마다 한 번에 하나씩 돌고 read는 동시에 돈다", 
   assert.deepStrictEqual(t.sent.length, 4);
   assert.deepStrictEqual(
     t.sent
-      .filter((s) => s.app === a && s.request.tool.startsWith("w."))
-      .map((s) => s.request.tool)
+      .filter((s) => s.app === a && s.request.name.startsWith("w."))
+      .map((s) => s.request.name)
       .sort(),
     ["w.one", "w.two"],
   );
@@ -645,7 +648,8 @@ test("그 앱 place의 session만 그 앱의 preview tool을 부르고, 다른 p
     const done = await t.path.call(
       {
         target: { mode: "preview", app: a, process_nonce: "pv-nonce-1" },
-        tool: "w.new",
+        kind: "command",
+        name: "w.new",
         caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
       },
       { actor: "agent" },
@@ -697,6 +701,77 @@ test("앱이 다른 앱 tool을 부를 때 active grant app.call이 그 tool을 
   };
   await t.path.call(person(from, "r.get"), { actor: "user" });
   assert.deepStrictEqual(seen.length, rows.length);
+});
+
+// 두 층을 core가 지키는 자리다. operation은 사람(화면) 말고는 handler에 닿지 못한다.
+test("agent, 다른 앱, job, flow가 operation을 부르면 handler에 보내기 전에 denied로 막고 사람은 부른다", async () => {
+  const t = setup();
+  const from = newApp();
+  const to = newApp();
+  const operation = (app: Id<"app">, name = "op.w.save"): ToolCallInput => ({
+    ...person(app, name),
+    kind: "operation",
+  });
+  const rows: [string, ToolCallInput, CallAuth][] = [
+    [
+      "agent",
+      {
+        ...operation(to),
+        caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
+      },
+      { actor: "agent" },
+    ],
+    [
+      "program",
+      { ...operation(to), caller: programCaller(JOB, RUN) },
+      programAuth(),
+    ],
+    ["flow", { ...operation(to), caller: flowCaller(WFI) }, flowAuth()],
+  ];
+  for (const [label, input, auth] of rows) {
+    const done = await t.path.call(input, auth);
+    assert.deepStrictEqual(status(done), "gate_blocked", label);
+  }
+  // 앱은 실행 중인 부모 invocation이 있어야 자격을 얻는다.
+  const gate = deferred<ProcessCallResponse>();
+  t.state.handler = (request) =>
+    request.name === "w.hold" ? gate.promise : Promise.resolve(okResponse);
+  const holding = t.path.call(person(from, "w.hold"), { actor: "user" });
+  await until(() => t.sent.length === 1);
+  const parentId = t.sent[0].request.invocation;
+  const byApp = await t.path.call(
+    {
+      ...operation(to),
+      caller: {
+        kind: "app",
+        app: from,
+        release: REL,
+        parent_invocation: parentId,
+      } as AppToolCaller,
+    },
+    { actor: "app", app: from },
+  );
+  assert.deepStrictEqual(status(byApp), "gate_blocked", "app");
+  gate.resolve(okResponse);
+  await holding;
+  // 막힌 호출은 handler에 가지 않았고 operation으로 기록에 남았다.
+  assert.deepStrictEqual(
+    t.sent.filter((s) => s.request.kind === "operation").length,
+    0,
+  );
+  assert.ok(
+    [...t.records.values()].some(
+      (row) =>
+        row.status === "denied" &&
+        row.operation.kind === "operation" &&
+        row.caller?.kind === "agent",
+    ),
+  );
+
+  const byPerson = await t.path.call(operation(to), { actor: "user" });
+  assert.deepStrictEqual(status(byPerson), "succeeded");
+  const sent = t.sent.at(-1)!.request;
+  assert.deepStrictEqual([sent.kind, sent.name], ["operation", "op.w.save"]);
 });
 
 test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부르지 못한다", async () => {
@@ -844,7 +919,8 @@ test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallR
   for (const [name, caller, accepted] of callers) {
     const request = {
       invocation: ids.newId("inv"),
-      tool: "r.get",
+      kind: "command",
+      name: "r.get",
       context: {
         app: newApp(),
         release: REL,

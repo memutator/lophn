@@ -605,7 +605,7 @@ export function createReleaseCommands(): {
         const chain = checkDataChanges(input.data_changes, input.data_schema);
         if (!chain.ok) return chain;
         const removedTools = (): ReturnType<typeof removedPublicToolsOf> =>
-          removedPublicToolsOf(tx, input.app, declaration.tools);
+          removedPublicToolsOf(tx, input.app, declaration.commands);
         const existing = findPreparedRelease(
           tx.sql,
           input.app,

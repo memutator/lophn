@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { openStore, type Store } from "@lophn/cap-store";
-import { ToolRejection } from "@lophn/cap-tool";
+import { HandlerRejection } from "@lophn/cap-tool";
 
 import {
   addItem,
@@ -13,7 +13,7 @@ import {
   listItems,
   SCHEMA_VERSION,
 } from "../src/items.ts";
-import { addItemHandler, listItemsHandler } from "../src/tools.ts";
+import { addItemHandler, listItemsHandler } from "../src/handlers.ts";
 
 type Seed = { title: string; created_at: string };
 
@@ -73,6 +73,6 @@ test("items: add_item rejects a blank title before touching the store", async ()
     },
     now: () => "2026-02-01T00:00:00.000Z",
   };
-  await assert.rejects(addItemHandler(deps)({ title: "   " }), ToolRejection);
+  await assert.rejects(addItemHandler(deps)({ title: "   " }), HandlerRejection);
   assert.equal(opened, false);
 });

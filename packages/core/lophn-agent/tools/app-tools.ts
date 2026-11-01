@@ -4,7 +4,7 @@ import {
   type InputSchema,
   type ToolCallOutput,
 } from "../../../protocol/apps/mod.ts";
-import type { AppTool } from "../../../protocol/apps/declaration/read.ts";
+import type { AppCommand } from "../../../protocol/apps/declaration/read.ts";
 import type { AssignmentEntry } from "../../../protocol/approvals/mod.ts";
 import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import { readOf } from "../run-loop/core-call.ts";
@@ -14,7 +14,7 @@ import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 
-// 앱 tool. 허락된 앱의 활성 release 선언에서 tool 하나마다 agent tool 하나를 만든다. 호출은 core의
+// 앱 command. 허락된 앱의 활성 release 선언에서 command 하나마다 agent tool 하나를 만든다(임시다. 명령 표가 서면 바뀐다). 호출은 core의
 // 호출 경로 route(`app.call_tool`) 하나로 간다. 묻기는 run-loop tool gate가, 막기는 core 호출 경로가 하고
 // invocation 기록, 결과 모름도 core가 다룬다. 이 tool은 core가 돌려준 상태를 ToolResult로 옮길 뿐이다.
 
@@ -30,12 +30,12 @@ function assigned(
   return entry !== undefined && !entry.removed_tools.includes(tool);
 }
 
-// 활성 release에서 읽은 tool 선언이다.
+// 활성 release에서 읽은 command 선언이다.
 export type AppToolView = {
   app: string;
   name: string;
   release: string;
-  tools: readonly AppTool[];
+  tools: readonly AppCommand[];
 };
 
 export type AppToolSource = {
@@ -67,7 +67,7 @@ export async function buildAppTools(
       const shape = toolInput(tool.inputSchema as InputSchema | null);
       const definition: ToolDefinition = {
         name,
-        description: `Domain ${tool.domain} of app ${view.name} (${view.app}), tool ${tool.name}: ${tool.title}. ${tool.description}`,
+        description: `Domain ${tool.domain} of app ${view.name} (${view.app}), command ${tool.name}. ${tool.description}`,
         input: shape.validator,
         inputSchema: shape.jsonSchema,
         effect: tool.effect,
@@ -75,7 +75,8 @@ export async function buildAppTools(
         handler: async (input, ctx) => {
           const reply = await readOf(ctx.core, appCallTool, {
             target: { mode: "live", app: view.app, release: null },
-            tool: tool.name,
+            kind: "command",
+            name: tool.name,
             ...(tool.inputSchema === null ? {} : { input }),
             caller: callerOf(ctx),
           });
@@ -128,10 +129,10 @@ function toolResult(
 function resultOf(
   appName: string,
   tool: string,
-  effect: AppTool["effect"],
+  effect: AppCommand["effect"],
   output: ToolCallOutput,
 ): ToolResult {
-  const label = `tool ${tool} of ${appName}`;
+  const label = `command ${tool} of ${appName}`;
   const { invocation, outcome } = output;
   switch (outcome.status) {
     case "succeeded": {

@@ -15,7 +15,11 @@ import type {
   previewsStopOutputSchema,
 } from "../../../protocol/apps/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
-import type { ToolDeclaration } from "../declaration/mod.ts";
+import {
+  type CommandDeclaration,
+  handlerNames,
+  type OperationDeclaration,
+} from "../declaration/mod.ts";
 import type { PreviewArea } from "./area.ts";
 import {
   type PreviewObservationWire as ObservationWire,
@@ -41,8 +45,9 @@ type PreviewSupervisor = {
 // 봉인된 bundle 사본을 preview 시작 입력으로 바꾸는 자리다. 앱의 것이 아니거나 없으면 undefined다.
 export type PreviewBundle = {
   entry: string;
-  // bundle 선언의 tool 선언. preview 대상 호출이 이 선언으로 판정된다.
-  tools: readonly ToolDeclaration[];
+  // bundle 선언의 operation과 command. preview 대상 호출이 이 선언으로 판정된다.
+  operations: readonly OperationDeclaration[];
+  commands: readonly CommandDeclaration[];
   screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;
   // bundle 파일 중 그 경로의 byte. fixture는 bundle 안의 파일이다.
@@ -109,14 +114,20 @@ export type PreviewService = {
   declared(
     app: string,
     process_nonce: string,
-  ): Promise<Result<readonly ToolDeclaration[] | null>>;
+  ): Promise<Result<PreviewDeclared | null>>;
 };
 
 export type CurrentPreview = {
   process_nonce: string;
   ready: boolean;
   bundle_hash: string;
-  tools: readonly ToolDeclaration[];
+  operations: readonly OperationDeclaration[];
+  commands: readonly CommandDeclaration[];
+};
+
+export type PreviewDeclared = {
+  operations: readonly OperationDeclaration[];
+  commands: readonly CommandDeclaration[];
 };
 
 function notFound(): Result<never> {
@@ -166,7 +177,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
   // 이 service가 시작한 살아 있는 preview. 앱마다 하나다.
   const live = new Map<
     string,
-    { nonce: string; tools: readonly ToolDeclaration[]; bundle_hash: string }
+    { nonce: string; declared: PreviewDeclared; bundle_hash: string }
   >();
 
   async function gate(
@@ -225,7 +236,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       nonce,
       release,
       bundleHash,
-      tools: bundle.tools.map((tool) => tool.name),
+      tools: handlerNames(bundle),
       screens: { ...bundle.screens },
       dataSchema: bundle.dataSchema,
       entry: bundle.entry,
@@ -236,7 +247,11 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       await deps.area.discard(app, nonce);
       return started;
     }
-    live.set(app, { nonce, tools: bundle.tools, bundle_hash: bundleHash });
+    live.set(app, {
+      nonce,
+      declared: { operations: bundle.operations, commands: bundle.commands },
+      bundle_hash: bundleHash,
+    });
     return ok(nonce);
   }
 
@@ -378,13 +393,13 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
         process_nonce: entry.nonce,
         ready: observed.value.ready,
         bundle_hash: entry.bundle_hash,
-        tools: entry.tools,
+        ...entry.declared,
       });
     },
     declared(app, process_nonce) {
       const entry = live.get(app);
       return Promise.resolve(
-        ok(entry?.nonce === process_nonce ? entry.tools : null),
+        ok(entry?.nonce === process_nonce ? entry.declared : null),
       );
     },
   };

@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
-  type AppToolPort,
+  type HandlerPort,
   currentPort,
   installPort,
   type InvocationContext,
@@ -10,12 +10,12 @@ import {
 const storage = new AsyncLocalStorage<InvocationContext>();
 const registry: RegisteredHandler[] = [];
 
-function port(): AppToolPort {
+function port(): HandlerPort {
   return {
     handlers: () => registry.slice(),
     register(handler) {
-      if (registry.some((known) => known.tool === handler.tool)) {
-        throw new Error(`tool already registered: ${handler.tool}`);
+      if (registry.some((known) => known.name === handler.name)) {
+        throw new Error(`handler already registered: ${handler.name}`);
       }
       registry.push(handler);
     },
@@ -29,12 +29,13 @@ function port(): AppToolPort {
 // 이미 설치된 port가 있으면 그 registry를 쓴다. 두 load가 문맥을 나누지 않는다.
 const installed = installPort(port());
 
-function live(): AppToolPort {
+function live(): HandlerPort {
   return currentPort() ?? installed;
 }
 
-export function tool(name: string, handle: RegisteredHandler["handle"]): void {
-  live().register({ tool: name, handle });
+// operation과 command의 handler는 이름 하나로 등록한다. 어느 쪽인지는 선언이 정한다.
+export function handle(name: string, run: RegisteredHandler["handle"]): void {
+  live().register({ name, handle: run });
 }
 
 export function currentContext(): InvocationContext | null {
@@ -48,8 +49,8 @@ export function runWith<T>(
   return live().run(context, fn);
 }
 
-export function registeredTools(): readonly string[] {
+export function registeredHandlers(): readonly string[] {
   return live()
     .handlers()
-    .map((handler) => handler.tool);
+    .map((handler) => handler.name);
 }

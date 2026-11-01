@@ -21,9 +21,35 @@ Sections, in this order:
 5. Screens: per screen, its regions and controls; how things are added, changed
    and removed; the empty, loading and error states; how it fits a full window,
    a panel and a card. Name the kit parts you use.
-6. Tools: from the model and the screens: name, effect, input, output, rules.
+6. Operations and commands, kept apart (see "Operations and commands").
+   - Operations: from the model and the screens: name, title, effect, and in
+     the code the input, output and rules.
+   - Commands: what an agent or another app will ask: name, effect, input,
+     output, rules, domain, public or not.
 7. Failure branches: refusals, failed outside calls, silent fallbacks. Name each
    cause differently and call `reportProblem` with it in the code.
+
+## Operations and commands
+
+An app has two layers. Give each action to the right one.
+
+- An operation is what the app's own screens and code need: low-level
+  actions that follow from the model and the screens, such as "list all
+  sessions", "save this row", "load the page for this filter". Lophn knows only
+  its name, title and effect. The screens call it with `OperationButton` or
+  `lophnApp.callOperation`. Agents, other apps, jobs and workflows cannot call
+  it. Its result may be large, so a screen can show 500 rows at once.
+- A command is a meaningful unit that an agent or another app will ask for, and
+  its result is small. Pick commands from the questions people ask, not from the
+  screens. A command wraps a function of the app's domain code, which the
+  operations use as well. Give it a `domain`, a `description` that says when to
+  use it, and an `inputSchema`. A command that an agent can call should hold
+  a promise you want to keep, so declare few of them.
+- Example, an app that shows token use of coding harnesses: "all sessions" is an
+  operation (a table, program work). "Token use of one session, given the
+  harness and the session id" and "cache hit rate of a period" are commands.
+- Both layers go through lophn, so a write of either is recorded and can be
+  rewound. Names are shared: one name is one handler.
 
 ## Find what exists
 
@@ -33,7 +59,7 @@ Look before you design, and write what you found under Reuse.
   published. `package.read` with a name gives a package's guide.
 - The guide of `@lophn/ui` is the screen kit: its parts by category, a line on
   when to use each, and their props. Read it before you write Screens.
-- `app.tools` lists other apps' tools. Declare the ones you use in
+- `app.tools` lists other apps' commands. Declare the ones you use in
   `app_connections`.
 
 Build screens from the kit. Write a part of your own only when nothing in the

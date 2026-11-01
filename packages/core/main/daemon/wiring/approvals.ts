@@ -25,7 +25,7 @@ import type {
 import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createApprovals } from "../../../approvals/mod.ts";
-import { loadAssignment } from "../../../approvals/assignment/mod.ts";
+import { agentAssignment } from "../../../apps/usage/users.ts";
 import {
   shellRuleLayers,
   shellRulesSetting,
@@ -110,12 +110,12 @@ export const approvalsWiring: WiringFactory = () => {
     build(ctx) {
       // Bus는 events가 만들어 slot으로 낸다. slot이 비어 있으면 event를 버린다.
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
-      // 할당은 ledger에서 그때그때 읽는다.
+      // 할당은 agent 정의 파일에서 그때그때 읽는다.
       const assignmentOf = (agent: AgentId) => {
         const connection = openConnection(ctx.ledgerPath);
         if (!connection.ok) return Promise.resolve(connection);
         try {
-          return Promise.resolve(loadAssignment(connection.value.sql, agent));
+          return Promise.resolve(agentAssignment(connection.value.sql, agent));
         } finally {
           connection.value.close();
         }

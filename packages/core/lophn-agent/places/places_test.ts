@@ -66,9 +66,16 @@ const deps: OpenDeps = {
   agents: {
     agent: (id) =>
       id === REVIEWER
-        ? { id, name: "reviewer", domains: [], skip: reviewerSkip }
+        ? {
+            id,
+            name: "reviewer",
+            domains: [],
+            skip: reviewerSkip,
+            apps: [],
+            deny: [],
+          }
         : id === LOPHN_AGENT_ID
-          ? { id, name: "lophn", domains: [], skip: false }
+          ? { id, name: "lophn", domains: [], skip: false, apps: [], deny: [] }
           : null,
     agents: () => [],
   },

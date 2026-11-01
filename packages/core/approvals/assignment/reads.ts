@@ -1,15 +1,15 @@
 import { ok } from "../../../base/mod.ts";
 import { assignmentGet } from "../../../protocol/approvals/mod.ts";
 import type { ReadDefinition } from "../../../protocol/server/mod.ts";
-import { loadAssignmentRow } from "./store.ts";
+import { assignmentPorts } from "./ports.ts";
 
 export const assignmentGetRead: ReadDefinition<typeof assignmentGet> = {
   route: assignmentGet,
   handle(snapshot, _ctx, input) {
-    const row = loadAssignmentRow(snapshot.sql, input.agent);
-    if (!row.ok) return row;
+    const state = snapshot.port(assignmentPorts).get(input.agent);
+    if (!state.ok) return state;
     return ok({
-      ...row.value,
+      ...state.value,
       as_of_seq: snapshot.as_of_seq,
       next_cursor: null,
     });

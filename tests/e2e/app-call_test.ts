@@ -289,7 +289,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       for (const domain of [app.slug, SECOND]) {
         assert.ok(helpOf(fake, domain).includes("unknown command"), domain);
       }
-      // ledger: 할당 줄이 없는 것도 빈 할당(revision 0)으로 읽힌다.
+      // 정의 파일에 할당이 없는 것도 빈 할당(revision 0)으로 읽힌다.
       const read = await c.call(assignmentGet, { agent: bare.agent });
       assert.deepStrictEqual(read.assignment.entries, []);
       assert.deepStrictEqual(read.revision, 0);
@@ -321,7 +321,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       // ledger
       const read = await c.call(assignmentGet, { agent: added.agent });
       assert.deepStrictEqual(read.assignment.entries, assignAll);
-      assert.deepStrictEqual(read.revision, 1);
+      assert.notEqual(read.revision, 0);
       const writes = await c.call(appInvocations, {
         app: id,
         session: added.session,

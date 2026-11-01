@@ -27,7 +27,7 @@ const lookups: AgentLookups = {
   projectModel: () => null,
 };
 
-test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름은 전역에 하나이며, agent 자격은 mcp_servers·skip을 넣지 못한다", async () => {
+test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름은 전역에 하나이며, agent 자격은 mcp_servers·skip·apps·permissions을 넣지 못한다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
   try {
     const files = createNodeAgentFiles();
@@ -96,19 +96,32 @@ test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름�
       { field: "name", code: "duplicate" },
     ]);
 
-    for (const field of ["skip", "mcp_servers"] as const) {
+    const humanOnly: Record<string, unknown> = {
+      skip: true,
+      mcp_servers: [],
+      apps: ["notes"],
+      permissions: { deny: ["lophn(notes read)"] },
+    };
+    for (const field of Object.keys(humanOnly)) {
       const refused = create(
         OTHER,
-        {
-          name: `with-${field}`,
-          body: "x",
-          [field]: field === "skip" ? true : [],
-        },
+        { name: `with-${field}`, body: "x", [field]: humanOnly[field] },
         agent,
       );
       assert.ok(!refused.ok, field);
       assert.equal(refused.error.code, "forbidden", field);
     }
+    const refusedChange = commands.change.handle(
+      tx,
+      agent,
+      {
+        agent: LOPHN_AGENT_ID,
+        definition: { name: "lophn", body: "x", apps: ["notes"] },
+      } as never,
+      { hash: beforeHash },
+    );
+    assert.ok(!refusedChange.ok);
+    assert.equal(refusedChange.error.code, "forbidden");
 
     const after = store.read(lophnSlot);
     assert.ok(after.ok && after.value?.hash === beforeHash);

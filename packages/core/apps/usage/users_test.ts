@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
+import { installPlaceEnvironment } from "../../lophn-agent/places/mod.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
 import { releasesSchemaSteps } from "../releases/schema.ts";
 import { insertRelease } from "../releases/store.ts";
@@ -29,12 +30,9 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
   }
-  const grant = (agent: string) =>
-    db
-      .prepare("INSERT INTO agent_assignments VALUES (?, ?)")
-      .run(agent, JSON.stringify([{ app: APP, removed_tools: [] }]));
-  db.exec(`CREATE TABLE agent_assignments (agent TEXT, entries TEXT);
-    CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`);
+  db.exec(
+    `CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`,
+  );
   db.prepare(
     `INSERT INTO apps VALUES (?, 'slug', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,
   ).run(APP);
@@ -72,8 +70,23 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   // 사람이 만든 agent는 alpha만 골랐고(그 port 규칙은 wiring이 갖는다), lophn은 beta를 맡는다.
   const reviewer = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
   const manager = "lophn";
-  grant(reviewer);
-  grant(manager);
+  const assigned = (id: string) => ({
+    id,
+    name: id,
+    domains: [],
+    skip: false,
+    apps: ["slug"],
+    deny: [],
+  });
+  installPlaceEnvironment({
+    deps: () =>
+      ({
+        agents: {
+          agent: () => null,
+          agents: () => [assigned(reviewer), assigned(manager)],
+        },
+      }) as never,
+  });
   const ports: UsagePorts = {
     sessionDomains: () => null,
     agentDomains: () => [],

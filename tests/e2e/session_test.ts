@@ -586,13 +586,15 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
         const made = await c.call(assignmentGet, { agent: helper.agent });
         assert.deepStrictEqual(made.assignment.entries, []);
         assert.deepStrictEqual(made.revision, 0);
-        // 명령: `agent create` 입력에 할당·mcp_servers·skip 칸이 없다.
+        // 명령: `agent create` 입력에 apps·permissions·mcp_servers·skip 칸이 없다.
         const createCommand = COMMANDS.find(
           (one) => one.name === "agent.create",
         );
         assert.ok(createCommand !== undefined);
         const keys = fieldsOf(createCommand.input).map((field) => field.name);
-        assert.ok(!keys.includes("mcp_servers") && !keys.includes("skip"));
+        for (const human of ["mcp_servers", "skip", "apps", "permissions"]) {
+          assert.ok(!keys.includes(human), human);
+        }
         assert.deepStrictEqual(
           keys.filter((key) => key.includes("assign") || key.includes("grant")),
           [],

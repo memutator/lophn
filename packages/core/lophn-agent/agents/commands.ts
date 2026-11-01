@@ -25,7 +25,10 @@ import { agentSlotOf } from "./store.ts";
 import { checkAgent } from "./validate.ts";
 
 // 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn의 이름·profile은 고정이고 lophn은 지울 수 없다.
-// agent 자격은 `mcp_servers`와 `skip`을 바꾸지 못한다: 그 두 칸은 사람의 승인 경계다.
+// agent 자격은 `mcp_servers`, `skip`, `apps`, `permissions`를 바꾸지 못한다: 그 칸들은 사람의 승인 경계다.
+
+const HUMAN_ONLY_MESSAGE =
+  "an agent cannot set MCP servers, skip, apps or permissions";
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
@@ -82,11 +85,13 @@ export function createAgentCommands(deps: AgentDeps): {
         if (
           agentActor(ctx) &&
           (input.definition.mcp_servers !== undefined ||
-            input.definition.skip !== undefined)
+            input.definition.skip !== undefined ||
+            input.definition.apps !== undefined ||
+            input.definition.permissions !== undefined)
         ) {
           return err({
             code: "forbidden",
-            message: "an agent cannot set MCP servers or skip",
+            message: HUMAN_ONLY_MESSAGE,
           });
         }
         const context = open(deps, tx);
@@ -133,11 +138,13 @@ export function createAgentCommands(deps: AgentDeps): {
             input.definition.mcp_servers,
             loaded.definition?.mcp_servers,
           ) ||
-            !same(input.definition.skip, loaded.definition?.skip))
+            !same(input.definition.skip, loaded.definition?.skip) ||
+            !same(input.definition.apps, loaded.definition?.apps) ||
+            !same(input.definition.permissions, loaded.definition?.permissions))
         ) {
           return err({
             code: "forbidden",
-            message: "an agent cannot set MCP servers or skip",
+            message: HUMAN_ONLY_MESSAGE,
           });
         }
         if (input.agent === LOPHN_AGENT_ID) {

@@ -49,6 +49,10 @@ import { createCoreRegistration as createRouterRegistration } from "./wiring/rou
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
+import {
+  assignmentFileWiring,
+  createCoreRegistration as createAssignmentRegistration,
+} from "./wiring/assignment-file.ts";
 import { createCoreRegistration as createDomainOwnersRegistration } from "./wiring/domains-registration.ts";
 
 export const TEAMS = [
@@ -66,6 +70,7 @@ export const TEAMS = [
   { createCoreRegistration: createAnnotationsRegistration },
   { createCoreRegistration: createPlaceRegistration },
   { createCoreRegistration: createUsageRegistration },
+  { createCoreRegistration: createAssignmentRegistration },
   { createCoreRegistration: createDomainOwnersRegistration },
 ];
 
@@ -90,6 +95,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
   new URL("./wiring/rewind-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-usage.ts", import.meta.url).href,
+  new URL("./wiring/assignment-file.ts", import.meta.url).href,
   new URL("./wiring/domains-registration.ts", import.meta.url).href,
 ];
 
@@ -118,6 +124,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentWiring,
   createSkillsOffWiring,
   approvalsWiring,
+  assignmentFileWiring,
   routerWiring,
   appsWiring,
   lophnAgentRewindWiring,

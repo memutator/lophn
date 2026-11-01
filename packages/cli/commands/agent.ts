@@ -1,5 +1,5 @@
 // `lophn agent create|update`: agent 정의를 만들고 고친다. 할당(권한)은 주지 못한다: 사람이 정한다.
-// `mcp_servers`·`skip`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
+// `mcp_servers`·`skip`·`apps`·`permissions`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import { domainList, domainNameSchema } from "../../protocol/domains/mod.ts";
 import {
@@ -46,7 +46,12 @@ const create = defineCommand({
   description:
     "Create an agent. Give its name (unique; `lophn` is reserved), profile, model, skills, domains (none means all domains of the project or app it works in), mcp_off and instructions (body). Its assignments are given by the person.",
   input: agentDefinitionSchema
-    .omit({ mcp_servers: true, skip: true })
+    .omit({
+      mcp_servers: true,
+      skip: true,
+      apps: true,
+      permissions: true,
+    })
     .extend({ domains: domainNames.optional() })
     .strict(),
   positional: ["name"],
@@ -84,7 +89,13 @@ const update = defineCommand({
   description:
     "Change an agent by name. Only the fields you send change. Its assignments are given by the person.",
   input: agentDefinitionSchema
-    .omit({ name: true, mcp_servers: true, skip: true })
+    .omit({
+      name: true,
+      mcp_servers: true,
+      skip: true,
+      apps: true,
+      permissions: true,
+    })
     .partial()
     .extend({ agent: agentNameSchema, domains: domainNames.optional() })
     .strict(),

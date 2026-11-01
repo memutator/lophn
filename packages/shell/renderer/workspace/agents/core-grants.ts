@@ -1,4 +1,4 @@
-// 할당을 읽고 저장하는 부분과 붙일 수 있는 앱 목록. 붙은 것은 agent_assignments가, 붙일 수 있는 앱과 tool은
+// 할당을 읽고 저장하는 부분과 붙일 수 있는 앱 목록. 붙은 것은 agent 정의 파일의 apps·permissions가, 붙일 수 있는 앱과 tool은
 // 앱 목록과 활성 release의 선언이 말한다. MCP server는 설정한 층이 곧 할당이라 여기에 없다.
 import {
   assignmentSet,

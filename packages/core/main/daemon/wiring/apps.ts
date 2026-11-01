@@ -29,8 +29,8 @@ import type {
   BlobReadInput,
   PreparedBlob,
 } from "../../../../protocol/storage/mod.ts";
-import { loadAssignment } from "../../../approvals/assignment/mod.ts";
 import { createAppCalls } from "../../../apps/calls/mod.ts";
+import { agentAssignment } from "../../../apps/usage/users.ts";
 import {
   APPS_CONTROL_CONTEXT,
   APPS_CONTROL_PRINCIPAL,
@@ -267,7 +267,7 @@ export const appsWiring: WiringFactory = () => {
         apps: states,
         ledger,
         link: appsControl.link,
-        assignmentOf: (agent) => loadAssignment(link.sql, agent),
+        assignmentOf: (agent) => agentAssignment(link.sql, agent),
         agentDomainsOf: (agent) =>
           readDomains(() => domains.agentDomains(agent)),
         toolDomainOf: (app, name) =>

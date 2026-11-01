@@ -1,2 +1,7 @@
-export { assignmentRegistration } from "./registration.ts";
-export { loadAssignment } from "./store.ts";
+export { assignmentSetCommand } from "./commands.ts";
+export { assignmentGetRead } from "./reads.ts";
+export {
+  type AssignmentPorts,
+  assignmentPorts,
+  type AssignmentState,
+} from "./ports.ts";

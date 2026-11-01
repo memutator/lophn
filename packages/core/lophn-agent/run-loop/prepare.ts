@@ -55,6 +55,8 @@ import {
   type ToolDefinition,
   type ToolHandler,
 } from "../tools/mod.ts";
+import { commandTools } from "../tools/lophn/command-tool.ts";
+import { describeLophn, LOPHN_TOOL_NAME } from "../tools/lophn/tool.ts";
 import type { AppToolkit } from "../tools/app-toolkit.ts";
 import { buildAppTools } from "../tools/app-tools.ts";
 import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
@@ -442,7 +444,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       );
     const hidden = plain.filter((tool) => deferred.has(tool.name));
     const current = plain.map((tool) =>
-      tool.name === "tool.load" ? describeToolLoad(tool, hidden) : tool,
+      tool.name === "tool.load"
+        ? describeToolLoad(tool, hidden)
+        : tool.name === LOPHN_TOOL_NAME
+          ? describeLophn(tool, kind)
+          : tool,
     );
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
@@ -507,6 +513,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           }),
       };
     });
+    // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의다. model에 보이는 tools[]에는 없고 이 session의 place 종류가
+    // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
+    listed.push(...commandTools(placeKindOf(session.place)));
     const place = session.place;
     // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
     const scope = {

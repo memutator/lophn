@@ -109,9 +109,9 @@ async function stagePlatform(pkg: string): Promise<void> {
 
 // core와 CLI는 Node로 뜨므로 platform/ 안에서 풀리는 npm production 의존이 있어야 한다.
 // npm workspace가 member를 상대 symlink로 잇고, 설치를 옮겨도 symlink가 설치 안을 가리킨다.
-// 설치본이 띄우는 package는 core와 coding-agent이고, member는 그 package.json들이 선언한 @lophn 의존을 따라 정한다.
+// 설치본이 띄우는 package는 core와 cli이고(cli가 coding-agent를 선언해 같이 온다), member는 그 package.json들이 선언한 @lophn 의존을 따라 정한다.
 // 손으로 적은 목록은 선언과 어긋나 설치본에서 import가 풀리지 않았다.
-const PLATFORM_ROOTS = ["packages/core", "packages/coding-agent"];
+const PLATFORM_ROOTS = ["packages/core", "packages/cli"];
 
 async function platformMembers(): Promise<string[]> {
   const lock = JSON.parse(await readFile(`${repo}/package-lock.json`, "utf8"));

@@ -16,12 +16,12 @@ import {
   type LophnError,
   ok,
   type Result,
-} from "../../../base/mod.ts";
+} from "../../base/mod.ts";
 import {
   type HarnessDetection,
   type HarnessId,
   HARNESS_IDS,
-} from "../../../protocol/coding-agent/mod.ts";
+} from "../../protocol/coding-agent/mod.ts";
 import {
   detectHarnesses,
   executableOf,
@@ -29,12 +29,12 @@ import {
   type InstallPorts,
   runProbe,
   uninstallGlobal,
-} from "../../harnesses/mod.ts";
-import type { LocalEnv } from "./types.ts";
+} from "../harnesses/mod.ts";
+import type { LocalContext } from "./types.ts";
 
 export function runHarnessDetect(
   mode: "detect" | "refresh",
-  local: LocalEnv,
+  local: LocalContext,
 ): Promise<Result<HarnessDetection[], LophnError>> {
   const probeEnv: Record<string, string> = {};
   for (const name of ["PATH", "HOME"]) {

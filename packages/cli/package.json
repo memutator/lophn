@@ -1,0 +1,12 @@
+{
+  "name": "@lophn/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": "./main.ts",
+  "dependencies": {
+    "@lophn/base": "0.0.0",
+    "@lophn/coding-agent": "0.0.0",
+    "@lophn/protocol": "0.0.0",
+    "zod": "4.6.5"
+  }
+}

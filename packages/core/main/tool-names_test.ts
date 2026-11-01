@@ -8,6 +8,8 @@ import { TOOL_ORDER } from "../agent-places/tool-lists.ts";
 // `conflict`로 막히고 tool.load 묶음도 섞인다.
 test("every builtin tool's resource name is a reserved domain name", () => {
   for (const name of TOOL_ORDER) {
+    // `lophn` tool은 자원이 아니라 명령 표의 입구다. 앱 tool 이름은 늘 `<domain>_<tool>`이라 이 이름과 겹치지 않는다.
+    if (name === "lophn") continue;
     const resource = toWireToolName(name).split("_")[0];
     assert.ok(RESERVED_DOMAIN_NAMES.includes(resource), `${name}: ${resource}`);
   }

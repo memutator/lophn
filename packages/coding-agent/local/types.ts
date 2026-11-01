@@ -1,0 +1,27 @@
+// `local` 명령의 모양이다. core를 부르지 않는 명령(`hook`, `harness *`)이라 `packages/cli`의 명령 표에 넣지 않고,
+// binary 입구(`packages/cli/main.ts`)만 이것을 받아 끼운다. 이름·summary·description·input·positional은 표의 명령과
+// 같은 칸이어서 parser와 help가 둘을 같게 다룬다(packages/cli는 이 package를 거꾸로 import하지 않으므로 모양만 맞춘다).
+import type { z } from "zod";
+import type { LophnError, Result } from "../../base/mod.ts";
+
+// local 명령이 쓰는 환경이다. main.ts가 채운다.
+export type LocalContext = {
+  env: { get(name: string): string | undefined };
+  home: string;
+  now(): string;
+  stdin(): Promise<string>;
+};
+
+export type LocalCommand = {
+  // `hook`처럼 한 단어이거나 `harness.install`처럼 점 이름이다.
+  name: string;
+  summary: string;
+  description: string;
+  input: z.ZodType;
+  positional?: readonly string[];
+  effect: "read" | "write";
+  run(
+    input: Record<string, unknown>,
+    ctx: LocalContext,
+  ): Promise<Result<unknown, LophnError>>;
+};

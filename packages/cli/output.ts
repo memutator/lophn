@@ -1,9 +1,9 @@
 // CLI 출력 계층. 기계 출력과 진단은 분리한다.
 // --json이면 stdout에 JSON 하나와 마지막 newline만 쓴다. 아니면 같은 data를 줄로 풀어 쓴다.
-// 받은 token(coding token, user token)은 어떤 출력에도 남지 않는다.
+// 받은 user token은 어떤 출력에도 남지 않는다.
 import process from "node:process";
 import { Writable } from "node:stream";
-import type { LophnError } from "../../base/mod.ts";
+import type { LophnError } from "../base/mod.ts";
 
 export const CLI_EXITS = {
   success: 0,
@@ -50,7 +50,7 @@ type OutputOptions = {
   json: boolean;
   stdout?: WritableStream<Uint8Array>;
   stderr?: WritableStream<Uint8Array>;
-  // 출력에서 지울 비밀 값이다(coding token, user token).
+  // 출력에서 지울 비밀 값이다(user token).
   secrets?: readonly string[];
 };
 

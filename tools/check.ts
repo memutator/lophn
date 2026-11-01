@@ -27,6 +27,7 @@ const ALL_PACKAGES = [
   "base",
   "protocol",
   "core",
+  "cli",
   "coding-agent",
   "design",
   "sdk",
@@ -44,6 +45,8 @@ const FOLDERS: Record<string, string> = Object.fromEntries(
 const USES: Record<string, string[]> = {
   ...PACKAGE_DEPENDENCIES,
   shell: [...PACKAGE_DEPENDENCIES.shell, "coding-agent"],
+  // binary 입구(main.ts)만 coding-agent의 local 명령을 끼운다.
+  cli: [...PACKAGE_DEPENDENCIES.cli, "coding-agent"],
   tools: ALL_PACKAGES.filter((p) => p !== "tools" && p !== "tests"),
   // 어느 package가 바뀌어도 harness가 같이 돈다.
   tests: ALL_PACKAGES.filter((p) => p !== "tests"),
@@ -170,6 +173,7 @@ const TSC_PROJECTS: Record<string, string[]> = {
   base: ["packages/base"],
   protocol: ["packages/protocol"],
   core: ["packages/core"],
+  cli: ["packages/cli"],
   "coding-agent": ["packages/coding-agent"],
   design: ["packages/design", "packages/design/i18n"],
   sdk: ["packages/sdk", "packages/sdk/flow"],

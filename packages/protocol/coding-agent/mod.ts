@@ -23,5 +23,5 @@ export {
 } from "./hook-signal.ts";
 
 export { harnessOfProcess } from "./harness-process.ts";
-export * from "./cli-commands.ts";
+export * from "./harness-install.ts";
 export * from "./terminal-hook.ts";

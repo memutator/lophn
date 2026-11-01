@@ -60,11 +60,11 @@ function runRecord(result: string) {
     state: "done",
     result,
     error: null,
+    job: null,
+    instance: null,
     created_at: "2026-10-22T00:00:00.000Z",
     finished_at: "2026-10-22T00:00:01.000Z",
     state_seq: "1",
-    as_of_seq: "1",
-    next_cursor: null,
   };
 }
 
@@ -84,7 +84,11 @@ for (const json of [true, false]) {
           authorization = init.headers.authorization;
           const body = fails
             ? { error: { code: "conflict", message: `bad ${FILE_TOKEN}` } }
-            : runRecord(`echo ${FILE_TOKEN}`);
+            : {
+                run: runRecord(`echo ${FILE_TOKEN}`),
+                as_of_seq: "1",
+                next_cursor: null,
+              };
           return Promise.resolve({
             status: fails ? 409 : 200,
             headers: new Headers(),
@@ -95,10 +99,9 @@ for (const json of [true, false]) {
         stderr: stderr.stream,
       });
       assert.deepStrictEqual(authorization, `Bearer ${FILE_TOKEN}`);
-      assert.deepStrictEqual(
-        (stdout.text() + stderr.text()).includes(FILE_TOKEN),
-        false,
-      );
+      const printed = stdout.text() + stderr.text();
+      assert.deepStrictEqual(printed.includes(FILE_TOKEN), false);
+      assert.ok(fails || printed.includes("[redacted]"));
     });
   }
 }

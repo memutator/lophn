@@ -16,6 +16,7 @@ import {
 } from "../../protocol/apps/declaration/read.ts";
 import { appUsage } from "../../protocol/apps/usage.ts";
 import { packagesList } from "../../protocol/apps/mod.ts";
+import { commandsForPlace } from "../../cli/commands/mod.ts";
 import { AGENT_BASE_OPERATIONS } from "../lophn-agent/run-loop/mod.ts";
 import {
   runOperations,
@@ -68,6 +69,10 @@ export function placeOperations(
   return [
     ...new Set([
       ...runOperations(tools),
+      // `lophn` tool이 그 place 종류에서 부를 수 있는 명령의 route다. 명령이 정의한 route만 더해 binary 전용 명령의 route는 닿지 않는다.
+      ...commandsForPlace(kind).flatMap((command) =>
+        command.routes.map((route) => route.name),
+      ),
       // 쓰는 tool(file.write, file.edit)이 쓰기 전후에 core에 pre-image를 남기는 route다.
       ...(tools.some((tool) => REWIND_WRITE_TOOLS.includes(tool.name))
         ? [stageRewindFile.name, recordRewindWrite.name]

@@ -123,7 +123,7 @@ function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
     "fi",
     "# CLI는 lophn 자신의 코드라 권한을 좁히지 않는다. shell main과 같은 Node runtime으로 돈다.",
     'ELECTRON_RUN_AS_NODE=1 exec "$ELECTRON_BIN" \\',
-    '  "$PLATFORM/packages/coding-agent/cli/main.ts" "$@"',
+    '  "$PLATFORM/packages/cli/main.ts" "$@"',
     "",
   ].join("\n");
 }

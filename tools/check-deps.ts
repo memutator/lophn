@@ -31,7 +31,8 @@ const EXCLUDED = new Set([
 export const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
   base: [],
   protocol: ["base"],
-  core: ["protocol", "base"],
+  core: ["protocol", "base", "cli"],
+  cli: ["protocol", "base"],
   "coding-agent": ["protocol", "base"],
   design: [],
   sdk: ["protocol", "design"],
@@ -42,6 +43,22 @@ const TERMINAL_HOST = [
   "packages/shell/terminal-host",
   "packages/shell/main/terminal",
 ];
+// core가 packages/cli에서 가져올 수 있는 것은 명령 표(commands/)와 parser·help뿐이다. binary 입구(main.ts)와 connection/,
+// 출력(output.ts)은 node 전용이고 HTTP client·harness code를 끌어와서 agent runtime에 실리면 안 된다.
+// 반대로 core가 가져오는 쪽(commands/, parser.ts, help.ts)도 그것들을 import하지 않는다.
+const CLI_FOR_CORE = [
+  "packages/cli/commands/",
+  "packages/cli/parser.ts",
+  "packages/cli/help.ts",
+];
+const CLI_BINARY_ONLY = [
+  "packages/cli/main.ts",
+  "packages/cli/connection/",
+  "packages/cli/output.ts",
+];
+// 폴더("/"로 끝)는 그 아래 전부, 아니면 그 file이다.
+const cliHit = (path: string, list: readonly string[]) =>
+  list.some((x) => (x.endsWith("/") ? path.startsWith(x) : path === x));
 // 앱 process 진입점만 sdk를 더 쓸 수 있다. 앱 code보다 먼저 cap-problem의 exception observer를 건다.
 const APP_ENTRYPOINT = "packages/core/apps/runtime/entrypoint";
 
@@ -173,7 +190,6 @@ const FEATURE_TOOL_PLACES = [
   "packages/core/apps/agent-tools/",
   "packages/core/domains/agent-tools.ts",
   "packages/core/workflows/agent-tools.ts",
-  "packages/core/jobs/agent-tools.ts",
 ];
 const PLACE_TOOL_DIR = `packages/core/${CORE_PLACES}/tools/`;
 const SPI = `packages/core/${CORE_HARNESS}/tools/spi.ts`;
@@ -373,6 +389,11 @@ async function checkRepo(root: string): Promise<Violation[]> {
           own === "core" &&
           specifier === "@lophn/cap-problem" &&
           inside(file, APP_ENTRYPOINT)
+        ) &&
+        !(
+          own === "cli" &&
+          targetPackage === "coding-agent" &&
+          file === "packages/cli/main.ts"
         )
       ) {
         add(
@@ -385,6 +406,26 @@ async function checkRepo(root: string): Promise<Violation[]> {
         );
       }
       if (!testCode && target) {
+        if (
+          own === "core" &&
+          targetPackage === "cli" &&
+          !cliHit(target, CLI_FOR_CORE)
+        ) {
+          add(
+            file,
+            line,
+            "cli-surface",
+            `core는 packages/cli에서 commands/, parser.ts, help.ts만 import한다: ${specifier}`,
+          );
+        }
+        if (cliHit(file, CLI_FOR_CORE) && cliHit(target, CLI_BINARY_ONLY)) {
+          add(
+            file,
+            line,
+            "cli-surface",
+            `commands/, parser.ts, help.ts는 main.ts, connection/, output.ts를 import하지 않는다: ${specifier}`,
+          );
+        }
         const message = coreLayerViolation(file, target);
         if (message) add(file, line, "core-layer", message);
         const protocol = harnessProtocol(file, target);

@@ -4,9 +4,11 @@
 // 어떤 실패도 내지 않는다. stdout은 harness가 요구하는 것(`hookStdout`)만 쓰고 나머지는 비운다(harness가 model context로
 // 읽을 수 있다). launcher가 env 없이 일찍 끝날 때도 같은 표를 쓴다.
 import { connect, type Socket } from "node:net";
-import { ok, type Result } from "../../../base/mod.ts";
-import type { LophnError } from "../../../base/mod.ts";
+import { ok, type Result } from "../../base/mod.ts";
+import type { LophnError } from "../../base/mod.ts";
 import {
+  harnessIdSchema,
+  HOOK_EVENT_MAX_CHARS,
   HOOK_PAYLOAD_MAX_BYTES,
   HOOK_STDIN_MAX_BYTES,
   HOOK_TEXT_FIELD_MAX_CHARS,
@@ -14,13 +16,14 @@ import {
   TERMINAL_HOOK_ENV,
   terminalHookEnvSchema,
   terminalHookLineSchema,
-} from "../../../protocol/coding-agent/mod.ts";
-import { type CommandEntry, entryOf, type RunContext } from "./types.ts";
+} from "../../protocol/coding-agent/mod.ts";
+import { z } from "zod";
+import type { LocalCommand, LocalContext } from "./types.ts";
 
 // 느린 shell main이 harness를 붙잡지 않게 한다.
 const HOOK_DEADLINE_MS = 1_000;
 
-function terminalHookOf(env: RunContext["local"]["env"]) {
+function terminalHookOf(env: LocalContext["env"]) {
   const raw = env.get(TERMINAL_HOOK_ENV);
   if (raw === undefined || raw === "") return null;
   try {
@@ -96,11 +99,11 @@ function shortened(payload: unknown): unknown {
 
 async function runHook(
   input: Record<string, unknown>,
-  ctx: RunContext,
+  ctx: LocalContext,
 ): Promise<Result<unknown, LophnError>> {
   const stdout =
     hookStdout(String(input.harness), String(input.event)) ?? undefined;
-  const target = terminalHookOf(ctx.local.env);
+  const target = terminalHookOf(ctx.env);
   if (target === null) return ok(stdout);
   try {
     const text = await ctx.stdin();
@@ -130,13 +133,18 @@ async function runHook(
   return ok(stdout);
 }
 
-export const HOOK_COMMANDS: readonly CommandEntry[] = [
-  entryOf(
-    "hook",
-    "harness hook 내용을 터미널의 hook socket에 넘긴다(stdin JSON)",
-    {
-      positional: ["harness", "event"],
-      run: runHook,
-    },
-  ),
+export const HOOK_COMMANDS: readonly LocalCommand[] = [
+  {
+    name: "hook",
+    summary: "Forward a harness hook event to the terminal hook socket",
+    description:
+      "Called by a harness hook with the event payload as JSON on stdin. Writes one line to the terminal's hook socket and never calls core. Does nothing when LPN_TERMINAL_HOOK is not set.",
+    input: z.strictObject({
+      harness: harnessIdSchema,
+      event: z.string().min(1).max(HOOK_EVENT_MAX_CHARS),
+    }),
+    positional: ["harness", "event"],
+    effect: "write",
+    run: runHook,
+  },
 ];

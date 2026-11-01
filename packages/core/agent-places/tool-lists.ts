@@ -11,6 +11,7 @@ const COMMON_TOOLS = [
   "image.read",
   "web.search",
   "web.fetch",
+  "lophn",
   "call",
   "reply",
   "cancel",
@@ -49,14 +50,6 @@ const APP_TOOL_NAMES = [
   "app.invocations",
 ] as const;
 
-// job tool은 세 place 종류가 모두 받는다.
-const JOB_TOOL_NAMES = [
-  "job.create",
-  "job.update",
-  "job.delete",
-  "job.list",
-] as const;
-
 // home에는 작업 domain이 없어 kind 조회·검사를 실행할 수 없다.
 const KIND_TOOL_NAMES = ["kind.list", "kind.check"] as const;
 
@@ -84,13 +77,13 @@ const PLACE_TOOLS = {
   ],
 } as const satisfies Record<PlaceKind, readonly string[]>;
 
-// place 종류 고정 목록 = 공통 + 읽기 + job + agent 정의 tool + place 종류 몫.
+// place 종류 고정 목록 = 공통 + 읽기 + agent 정의 tool + place 종류 몫. 명령(`lophn` tool로 부르는 job 등)은 여기 없고
+// 명령 표의 place 종류 칸이 정한다.
 // image.read를 vision 없는 model에서 빼는 일은 이 목록이 아니라 core registry가 한다.
 export function placeToolNames(kind: PlaceKind): readonly string[] {
   return [
     ...COMMON_TOOLS,
     ...READ_TOOLS,
-    ...JOB_TOOL_NAMES,
     "agent.create",
     "agent.update",
     ...PLACE_TOOLS[kind],
@@ -101,6 +94,7 @@ export function placeToolNames(kind: PlaceKind): readonly string[] {
 // 앱·MCP tool은 tool.load 설명에 이름과 짧은 안내만 싣고, 정의는 tool.load가 읽는다. 목록 밖 이름은 무시된다:
 // 이 정책은 보이는 방식만 정하고 쓸 수 있는 tool은 위 place 목록과 할당이 정한다.
 const EXPOSED_COMMON = [
+  "lophn",
   "file.read",
   "file.glob",
   "file.grep",
@@ -179,8 +173,5 @@ export const TOOL_ORDER = [
   "workflow.report",
   "workflow.edit",
   "workflow.check",
-  "job.create",
-  "job.update",
-  "job.delete",
-  "job.list",
+  "lophn",
 ] as const;

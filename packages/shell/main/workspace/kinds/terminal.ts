@@ -12,6 +12,11 @@ const layout = z.strictObject({
   // 사람이 탭에 붙인 이름. 있으면 자동 이름(title)과 agent의 터미널 제목보다 먼저 보인다.
   name: z.string().min(1).max(200).optional(),
   project_folder: z.string().min(1).max(4096),
+  // 이 터미널에서 coding agent(harness id)가 돈 적이 있다. 다른 place의 sidebar가 저장된 layout만 보고 coding agent 터미널을 알아본다.
+  harness: z
+    .string()
+    .regex(/^[a-z0-9_-]{1,64}$/)
+    .optional(),
 });
 
 type TerminalLayout = z.infer<typeof layout>;

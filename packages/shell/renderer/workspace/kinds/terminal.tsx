@@ -74,6 +74,14 @@ function personOf(tab: TabItem): string | null {
   return typeof name === "string" && name.length > 0 ? name : null;
 }
 
+/** 이 탭에서 coding agent가 돈 적이 있으면 그 harness id. */
+export function harnessOf(tab: TabItem): string | null {
+  const harness = tab.fields?.harness;
+  return typeof harness === "string" && /^[a-z0-9_-]{1,64}$/.test(harness)
+    ? harness
+    : null;
+}
+
 function autoOf(tab: TabItem): string {
   const auto = tab.fields?.auto;
   return typeof auto === "string" ? auto : tab.title;
@@ -169,7 +177,13 @@ export const terminalKind: TabKindDef = {
       kind: "terminal",
       title: person ?? auto,
       folder,
-      fields: { auto, ...(person === null ? {} : { name: person }) },
+      fields: {
+        auto,
+        ...(person === null ? {} : { name: person }),
+        ...(typeof stored.harness === "string"
+          ? { harness: stored.harness }
+          : {}),
+      },
     };
   },
   toStored(tab) {
@@ -189,6 +203,7 @@ export const terminalKind: TabKindDef = {
       // agent의 터미널 제목은 저장하지 않는다. 자동 이름과 사람이 붙인 이름만 남는다.
       ...(auto.length < 1 ? {} : { title: auto.slice(0, 200) }),
       ...(person === null ? {} : { name: person.slice(0, 200) }),
+      ...(harnessOf(tab) === null ? {} : { harness: harnessOf(tab) }),
     };
   },
   // PTY는 main이 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.

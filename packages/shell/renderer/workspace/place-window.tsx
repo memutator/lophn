@@ -149,6 +149,7 @@ import type { TabHost } from "./kinds/host.ts";
 import { tabKindOf } from "./kinds/registry.ts";
 import { openSearchShortcut } from "./kinds/search.tsx";
 import {
+  harnessOf,
   openTerminal as openTerminalTab,
   terminalTabTitle,
 } from "./kinds/terminal.tsx";
@@ -1434,6 +1435,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
       const title = terminalTabTitle(tab, terminal.store);
       if (title !== tab.title) {
         host.patchTab(tab.key, { title }, { later: true });
+      }
+      // 저장된 layout만 보는 다른 place의 sidebar가 coding agent 터미널을 알아보게 harness를 탭에 남긴다.
+      const agent = terminal.store.agentOf(tab.key);
+      if (agent?.hooked === true && harnessOf(tab) !== agent.harness) {
+        host.patchTab(tab.key, (current) => ({
+          fields: { ...current.fields, harness: agent.harness },
+        }));
       }
     }
   }, [terminalVersion, terminal, windowTabs]);

@@ -11,6 +11,8 @@ import type {
   ProjectsSource,
 } from "../desktop/places/projects/source.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
+import { harnessOf } from "../workspace/kinds/terminal.tsx";
+import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
 import { allTabs, placeKey, type PlaceRef } from "./desk-model.ts";
 import type { LayoutSource } from "./layout-source.ts";
 import type { KnownSessions } from "./left-sidebar-places.ts";
@@ -105,19 +107,27 @@ export function useKnownSessions(
   return known;
 }
 
+/** 이 창이 보이지 않는 place들의 저장된 layout에서 읽은 열린 탭. */
+export interface TabsElsewhere {
+  /** place key → session id → Agent 탭 제목. */
+  readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
+  /** place key → coding agent 터미널 탭(harness가 저장된 것). */
+  readonly terminals: ReadonlyMap<string, readonly PanelTerminal[]>;
+}
+
+const NONE: TabsElsewhere = { titles: new Map(), terminals: new Map() };
+
 /**
- * 이 창이 보이지 않는 place들의 layout에서 열린 Agent 탭을 읽는다: place key → session id → 탭 제목.
+ * 이 창이 보이지 않는 place들의 layout에서 열린 Agent 탭과 coding agent 터미널 탭을 읽는다.
  * 저장된 layout이라 창이 다시 포커스를 받거나 session 목록·place 목록이 바뀔 때 다시 읽는다.
  */
-export function useOpenTitlesElsewhere(
+export function useTabsElsewhere(
   layout: LayoutSource,
   places: readonly PlaceRef[],
   here: PlaceRef,
   entries: readonly SessionEntry[],
-): ReadonlyMap<string, ReadonlyMap<string, string>> {
-  const [titles, setTitles] = useState<
-    ReadonlyMap<string, ReadonlyMap<string, string>>
-  >(new Map());
+): TabsElsewhere {
+  const [tabs, setTabs] = useState<TabsElsewhere>(NONE);
   const [focuses, setFocuses] = useState(0);
   useEffect(() => {
     const onFocus = () => setFocuses((count) => count + 1);
@@ -133,21 +143,39 @@ export function useOpenTitlesElsewhere(
         .filter((ref) => placeKey(ref) !== hereKey)
         .map(async (ref) => {
           const read = await layout.readPlaceLayout(ref);
-          const found = new Map<string, string>();
+          const titles = new Map<string, string>();
+          const terminals: PanelTerminal[] = [];
           if (read.ok && read.layout !== null) {
             for (const tab of allTabs(read.layout)) {
               const session = tab.kind === "agent" ? sessionOf(tab) : null;
-              if (session !== null) found.set(session, tab.title);
+              if (session !== null) titles.set(session, tab.title);
+              const harness = tab.kind === "terminal" ? harnessOf(tab) : null;
+              if (harness !== null) {
+                terminals.push({
+                  key: tab.key,
+                  harness,
+                  label: harness,
+                  title: tab.title,
+                  dot: null,
+                  at: 0,
+                  live: { tabKey: tab.key },
+                  saved: null,
+                });
+              }
             }
           }
-          return [placeKey(ref), found as ReadonlyMap<string, string>] as const;
+          return { key: placeKey(ref), titles, terminals };
         }),
     ).then((rows) => {
-      if (live) setTitles(new Map(rows));
+      if (!live) return;
+      setTabs({
+        titles: new Map(rows.map((row) => [row.key, row.titles])),
+        terminals: new Map(rows.map((row) => [row.key, row.terminals])),
+      });
     });
     return () => {
       live = false;
     };
   }, [layout, places, hereKey, ids, focuses]);
-  return titles;
+  return tabs;
 }

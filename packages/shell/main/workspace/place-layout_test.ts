@@ -73,6 +73,42 @@ test("판 8 파일은 쓴 대로 읽힌다", async () => {
   });
 });
 
+test("터미널 탭은 harness가 없어도 읽히고 있으면 그대로 읽힌다", async () => {
+  await withRoot(async (root) => {
+    const store = createPlaceLayoutStore(root);
+    const terminal = (key: string, extra: object = {}) => ({
+      kind: "terminal",
+      key,
+      project_folder: "/work",
+      ...extra,
+    });
+    const layout = {
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [
+            terminal("t-plain"),
+            terminal("t-agent", { harness: "claude" }),
+          ],
+          selected_tab: "t-plain",
+          groups: [],
+          floats: [],
+          detached: [],
+        },
+      },
+    };
+    assert.deepEqual(await store.write("home", layout), {
+      ok: true,
+      value: null,
+    });
+    assert.deepEqual(await store.read("home"), {
+      ok: true,
+      value: { ok: true, layout: { schema_version: 8, ...layout } },
+    });
+  });
+});
+
 test("범위 밖 ratio는 저장하지 않는다", async () => {
   await withRoot(async (root) => {
     const store = createPlaceLayoutStore(root);

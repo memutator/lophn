@@ -15,7 +15,7 @@ import { CreateAppDialog } from "../../desktop/places/create-app-dialog.tsx";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import { RegisterDialog } from "../../desktop/places/register-dialog.tsx";
 import { harnessVendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
-import { placeKey, type PlaceRef } from "../../shell/desk-model.ts";
+import { placeKey, type PlaceRef, selectTab } from "../../shell/desk-model.ts";
 import type { WindowPlace } from "../place-window.tsx";
 import { LeftSidebar, type QuickLaunch } from "../../shell/left-sidebar.tsx";
 import {
@@ -25,7 +25,7 @@ import {
 import { sidebarPlaces } from "../../shell/left-sidebar-places.ts";
 import {
   useKnownSessions,
-  useOpenTitlesElsewhere,
+  useTabsElsewhere,
   useSidebarPlaceList,
 } from "../../shell/use-left-sidebar.ts";
 import type { WorkspaceSource } from "../source.ts";
@@ -121,15 +121,15 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     ],
     [list.projects, list.apps],
   );
-  const elsewhere = useOpenTitlesElsewhere(
+  const elsewhere = useTabsElsewhere(
     props.source.layout,
     placeRefs,
     current,
     sessions,
   );
   const openTitles = useMemo(
-    () => new Map(elsewhere).set(placeKey(current), props.openTitles),
-    [elsewhere, current, props.openTitles],
+    () => new Map(elsewhere.titles).set(placeKey(current), props.openTitles),
+    [elsewhere.titles, current, props.openTitles],
   );
   const workflows = useHumanTurnWorkflows(props.source, projectId);
   // 지운 줄은 session id와 터미널 key로 기억하고 둘 다 겹치지 않아 한 곳에 둔다.
@@ -146,6 +146,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         known,
         openTitles,
         terminals: props.terminals,
+        otherTerminals: elsewhere.terminals,
         workflows,
         hidden: recentHidden.hidden,
       }),
@@ -158,6 +159,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       known,
       openTitles,
       props.terminals,
+      elsewhere.terminals,
       workflows,
       recentHidden.hidden,
     ],
@@ -165,12 +167,30 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
   const [registering, setRegistering] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  // 다른 place의 터미널 탭: 그 place의 layout에서 탭을 골라 두고 place로 간다.
+  const showTerminalAt = async (ref: PlaceRef, tab: string) => {
+    const read = await props.source.layout.readPlaceLayout(ref);
+    if (read.ok && read.layout !== null) {
+      const desk = Object.values(read.layout.desks).find((item) =>
+        item.tabs.some((row) => row.key === tab),
+      );
+      if (desk !== undefined) {
+        await props.source.layout.savePlaceLayout(ref, {
+          active: desk.key,
+          desks: { ...read.layout.desks, [desk.key]: selectTab(desk, tab) },
+        });
+      }
+    }
+    props.onPlace(ref);
+  };
+
   const open = (place: SidebarPlace, item: SidebarSession) => {
     const here = placeKey(place.ref) === placeKey(current);
     if (item.kind === "workflow") props.onWorkflow(item.ref);
     else if (item.kind === "terminal") {
       const terminal = props.terminals.find((row) => row.key === item.ref);
       if (terminal !== undefined) props.onTerminal(terminal);
+      else if (!here) void showTerminalAt(place.ref, item.ref);
     } else if (here) {
       const agent = sessions.find((row) => row.session === item.ref)?.agent;
       if (agent !== null && agent !== undefined) {

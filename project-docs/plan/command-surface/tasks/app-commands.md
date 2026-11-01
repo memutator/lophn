@@ -2,7 +2,7 @@
 
 앱이 내놓은 바깥 명령을 `lophn <domain> <command>`로 부르게 한다. 앱 command마다 provider tool을 만들던 `buildAppTools`를 지운다.
 
-- 단위: apps (wave 2)
+- 단위: apps (wave 1)
 - 선행: defer-remove, app-layers. 둘 다 session의 tool 목록을 고정하는 곳(`prepare.ts`, `product-driver.ts`)을 바꾼다.
 - 소유(이 task만 고친다):
   - `packages/core/lophn-agent/tools/{app-tools.ts,app-toolkit.ts,app-public.ts,app-public_test.ts}`

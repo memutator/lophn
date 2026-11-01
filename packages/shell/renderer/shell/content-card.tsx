@@ -13,7 +13,7 @@ import {
 } from "react";
 import { t } from "@lophn/i18n";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { Menu } from "@lophn/ui/overlay";
+import { Menu, Popover } from "@lophn/ui/overlay";
 
 import { shellIcons } from "../icons/mod.ts";
 import { PATH_DRAG_TYPE } from "../workspace/drag.ts";
@@ -50,6 +50,11 @@ export interface CardPane {
   readonly key: string;
   /** 머리 줄의 경로. 마지막이 강조된다. */
   readonly crumbs: readonly string[];
+  /** 주면 crumbs[i]를 눌러 dirs[i] 폴더를 둘러보는 popover가 뜬다(길이는 crumbs와 같다). panel이 popover 안을 그린다. */
+  readonly browse?: {
+    readonly dirs: readonly string[];
+    readonly panel: (dir: string, close: () => void) => ReactNode;
+  };
   /** 경로 뒤 상태 글(예: "Ready"). 있으면 점이 붙는다. */
   readonly status?: string;
   /** ⋯ 메뉴가 이 tab에 보이는 항목. 주지 않으면 기본 항목이다. */
@@ -346,7 +351,16 @@ function CardHead({
             {pane.crumbs.map((crumb, index) => (
               <span key={index} className={styles.crumb}>
                 {index > 0 ? <span className={styles.sep}>/</span> : null}
-                {crumb}
+                {pane.browse === undefined ? (
+                  crumb
+                ) : (
+                  <CrumbButton
+                    label={crumb}
+                    panel={(close) =>
+                      pane.browse!.panel(pane.browse!.dirs[index], close)
+                    }
+                  />
+                )}
               </span>
             ))}
           </span>
@@ -380,6 +394,30 @@ function CardHead({
         }
       />
     </div>
+  );
+}
+
+function CrumbButton({
+  label,
+  panel,
+}: {
+  label: string;
+  panel: (close: () => void) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover
+      open={open}
+      onOpenChange={setOpen}
+      placement="beside"
+      trigger={
+        <button type="button" className={styles.crumbButton}>
+          {label}
+        </button>
+      }
+    >
+      {panel(() => setOpen(false))}
+    </Popover>
   );
 }
 

@@ -157,6 +157,7 @@ import { NoticeCard } from "./notice-card.tsx";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
+import { CrumbBrowse } from "./sidebar/crumb-browse.tsx";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
 import { sessionKey } from "../shell/left-sidebar-model.ts";
@@ -1575,11 +1576,42 @@ export function PlaceWindow(props: PlaceWindowProps) {
               .filter((part) => part !== ""),
           ];
   };
+  // 파일 탭의 경로 조각을 눌러 둘러볼 폴더. 조각마다 그 폴더, 파일 조각은 위쪽 폴더다. 연결 폴더 밖 파일이면 없다.
+  const browseOf = (tab: TabItem): CardPane["browse"] => {
+    const path = pathOfTab(tab);
+    const owner = (loaded.project?.folders ?? []).find((item) =>
+      path?.startsWith(`${item.path.replace(/\/+$/, "")}/`),
+    );
+    if (path === null || owner === undefined) return undefined;
+    const base = owner.path.replace(/\/+$/, "");
+    const parts = path.slice(base.length + 1).split("/");
+    const dirs = [base];
+    for (const part of parts.slice(0, -1)) {
+      dirs.push(`${dirs[dirs.length - 1]}/${part}`);
+    }
+    dirs.push(dirs[dirs.length - 1]);
+    return {
+      dirs,
+      panel: (dir, close) => (
+        <CrumbBrowse
+          source={source}
+          dir={dir}
+          current={path}
+          onOpenFile={(file, keep) => {
+            close();
+            openFile(host, file, { preview: keep !== true });
+          }}
+        />
+      ),
+    };
+  };
   const panes: CardPane[] = shown.map((tab) => {
     const dot = tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null;
+    const browse = browseOf(tab);
     return {
       key: tab.key,
       crumbs: crumbsOf(tab),
+      ...(browse === undefined ? {} : { browse }),
       ...(dot === null ? {} : { status: dotLabel(dot) }),
       menu: menuStateOf(tab),
       body: (

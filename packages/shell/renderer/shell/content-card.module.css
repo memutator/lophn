@@ -52,6 +52,22 @@
   color: var(--color-text-primary);
 }
 
+.crumbButton {
+  padding: var(--space-0) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.crumbButton:hover,
+.crumbButton[data-state="open"] {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
 .sep {
   padding-inline: var(--space-3);
   color: var(--color-text-disabled);

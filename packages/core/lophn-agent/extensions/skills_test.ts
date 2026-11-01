@@ -150,8 +150,7 @@ for (const one of CASES) {
     const port = treeOf(files);
     const globalOff = one.off.global ? ["write-kinds"] : [];
     const projectOff = one.off.project ? ["write-kinds"] : [];
-    // 정의가 다른 skill만 골랐다.
-    const chosen = one.off.agent ? ["spare-builtin"] : [];
+    const agentOff = one.off.agent ? ["write-kinds"] : [];
     const deps: SkillSnapshotDeps = {
       port,
       builtin_root: "/b",
@@ -159,6 +158,7 @@ for (const one of CASES) {
       global: () => Promise.resolve({ roots: ["/g"], off: globalOff }),
       place: () =>
         Promise.resolve({
+          place_skills: null,
           domain_stores: [{ domain: DOMAIN, folder: "/p" }],
           off: projectOff,
         }),
@@ -167,7 +167,7 @@ for (const one of CASES) {
       id: SESSION,
       kind: one.kind,
       place: PLACE,
-      skills: chosen,
+      off: agentOff,
     });
 
     const listed = snapshot.skills.find(
@@ -224,7 +224,7 @@ test("a skill that can be turned off goes off, and a human skill of the same nam
   );
 });
 
-test("the agent gets only the skills it chose, all when it chose none, and a built-in that cannot be turned off always", async () => {
+test("the agent gets every skill except the ones it turned off, and a built-in that cannot be turned off always", async () => {
   const port = treeOf({
     "/b/write-kinds/SKILL.md": skillFile("write-kinds", "BUILTIN"),
     "/g/a/SKILL.md": skillFile("a", "A"),
@@ -235,14 +235,15 @@ test("the agent gets only the skills it chose, all when it chose none, and a bui
     builtin_root: "/b",
     personal_store: null,
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
-    place: () => Promise.resolve({ domain_stores: [], off: [] }),
+    place: () =>
+      Promise.resolve({ place_skills: null, domain_stores: [], off: [] }),
   };
-  const receivedOf = async (skills: string[]) => {
+  const receivedOf = async (off: string[]) => {
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
       kind: "project",
       place: PLACE,
-      skills,
+      off,
     });
     const code = async (name: string) => {
       const read = await snapshot.reader.read(SESSION, name);
@@ -257,7 +258,7 @@ test("the agent gets only the skills it chose, all when it chose none, and a bui
     return {
       listed,
       // resolve가 받는 이름도 목록과 같다.
-      resolved: receivedSkills(available, skills, []),
+      resolved: receivedSkills(available, off, []),
       b: await code("b"),
       builtin: await code("write-kinds"),
     };
@@ -268,12 +269,44 @@ test("the agent gets only the skills it chose, all when it chose none, and a bui
     b: "ok",
     builtin: "ok",
   });
-  assert.deepStrictEqual(await receivedOf(["a", "missing"]), {
+  assert.deepStrictEqual(await receivedOf(["b", "write-kinds", "missing"]), {
     listed: ["a", "write-kinds"],
     resolved: ["a", "write-kinds"],
     b: "forbidden",
     builtin: "ok",
   });
+});
+
+// frontmatter가 진짜 YAML이라 접은 글(`>`)과 따옴표 값이 읽힌다. 못 읽으면 그 skill이 조용히 사라진다.
+// 층 순서는 전역, project·app, domain이고 뒤 층이 같은 이름을 덮는다.
+test("skills in the place folder read YAML descriptions and sit between the global and domain layers", () => {
+  const files = treeOf({
+    "/g/x/SKILL.md": skillFile("x", "", "global"),
+    "/g/folded/SKILL.md":
+      "---\nname: folded\ndescription: >\n  one\n  two\n---\nBODY",
+    "/g/quoted/SKILL.md": '---\nname: quoted\ndescription: "a: b"\n---\n',
+    "/s/.lophn/skills/x/SKILL.md": skillFile("x", "", "place"),
+    "/s/.lophn/skills/y/SKILL.md": skillFile("y", "", "place"),
+    "/d/y/SKILL.md": skillFile("y", "", "domain"),
+  });
+  const entries = discoverSkills(
+    files,
+    {
+      bundled: null,
+      registered: ["/g"],
+      personal: null,
+      place: { source: "app", folder: "/s/.lophn/skills" },
+      domains: [{ domain: DOMAIN, folder: "/d" }],
+    },
+    { kind: "app", off: [] },
+  ).entries.map((one) => [one.name, one.source, one.description]);
+  assert.deepStrictEqual(entries, [
+    ["folded", "global", "one two"],
+    ["quoted", "global", "a: b"],
+    ["x", "app", "place"],
+    ["y", "app", "place"],
+    ["y", "domain", "domain"],
+  ]);
 });
 
 // 합치기에서 진 skill은 agent가 그 domain을 고르지 않아도 돌아오지 않아, domain을 좁힌 agent가 받아야 할 skill을
@@ -291,6 +324,7 @@ test("same-name skills in a global layer and domains go to the agent by the doma
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
     place: () =>
       Promise.resolve({
+        place_skills: null,
         domain_stores: [
           { domain: "dom_a", folder: "/a" },
           {
@@ -306,7 +340,7 @@ test("same-name skills in a global layer and domains go to the agent by the doma
       id: SESSION,
       kind: "project",
       place: PLACE,
-      skills: [],
+      off: [],
       domains,
     });
     const read = await snapshot.reader.read(SESSION, "x");
@@ -342,6 +376,7 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
     extensionsFile: () => nowhere,
     settingsFolderArea: () => nowhere,
     projectIdOfFolder: () => null,
+    placeSkillsFolder: () => nowhere,
   };
   const registry = createExtensionRegistry({
     root: "/r",
@@ -349,6 +384,7 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
     files: { read: () => null, writeAtomic: () => {} },
     skillFiles: files,
     domains: () => [],
+    sourceFolder: () => null,
     global: {
       servers: [],
       skills: { bundled: "/b", registered: ["/g"], personal: null },
@@ -394,9 +430,10 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
       builtin_root: null,
       personal_store: null,
       global: () => Promise.resolve({ roots: ["/g"], off: [] }),
-      place: () => Promise.resolve({ domain_stores: [], off: [] }),
+      place: () =>
+        Promise.resolve({ place_skills: null, domain_stores: [], off: [] }),
     },
-    { id: SESSION, kind: "project", place: PLACE, skills: [] },
+    { id: SESSION, kind: "project", place: PLACE, off: [] },
   );
   const read = (name: string, path?: string) =>
     snapshot.reader.read(SESSION, name, path);

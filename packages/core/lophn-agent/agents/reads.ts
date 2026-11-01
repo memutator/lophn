@@ -69,7 +69,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
       : {
           skills: receivedSkills(
             skills,
-            definition?.skills ?? [],
+            definition?.skills_off ?? [],
             domainsOf(context, loaded, null),
           ).length,
           mcp: mcp.filter(

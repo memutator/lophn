@@ -400,7 +400,7 @@ type SkillLayers = {
 function globalSkillSources(
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
-): Omit<SkillSources, "domains"> {
+): Omit<SkillSources, "domains" | "place"> {
   const root = dataRootOf(sql, undefined);
   return {
     registered: registeredSkillFolders(sql),
@@ -438,6 +438,7 @@ function extensionRegistry(
     files: placeFiles,
     skillFiles,
     domains: (place) => layers.lookups.domains(sql, place),
+    sourceFolder: (place) => layers.lookups.sourceFolder(sql, place),
     global: {
       servers: registeredMcpServers(sql),
       skills: globalSkillSources(sql, layers),
@@ -695,6 +696,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       skillsOff: () => registeredSkillsOff(sql),
       placeExists: (place) => placeExists(ports.lookups, sql, place),
       placeDomains: (place) => ports.lookups.domains(sql, place),
+      sourceFolder: (place) => ports.lookups.sourceFolder(sql, place),
     }),
   });
   const projectExtensionDeps = {
@@ -710,30 +712,30 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   const projectExtensionReads =
     createProjectExtensionReads(projectExtensionDeps);
 
-  // 그 agent 정의가 고른 skill 이름과 일하는 domain id다. 정의를 읽지 못하면 고른 skill이 없고 domain은 없다.
-  function chosenOf(
+  // 그 agent 정의가 끈 skill 이름과 일하는 domain id다. 정의를 읽지 못하면 끈 skill이 없고 domain은 없다.
+  function ownOf(
     sql: Pick<Tx["sql"], "get" | "all">,
     agent: AgentId,
     place: Place | null,
-  ): { skills: readonly string[]; domains: readonly string[] } {
-    const none = { skills: [], domains: [] };
+  ): { skills_off: readonly string[]; domains: readonly string[] } {
+    const none = { skills_off: [], domains: [] };
     const opened = openAgentContext(agentDeps, sql);
     if (!opened.ok) return none;
     const loaded = loadAgent(opened.value, agent);
     if (!loaded.ok || loaded.value === null) return none;
     return {
-      skills: loaded.value.definition?.skills ?? [],
+      skills_off: loaded.value.definition?.skills_off ?? [],
       domains: domainsOf(opened.value, loaded.value, place),
     };
   }
 
   // `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
   // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 그릇의 domain 층을 더하고, 일하는 domain 밖의 domain skill과
-  // agent 정의가 고른 것이 있으면 그 밖의 것은 selected=false다.
+  // agent 정의가 끈 것은 selected=false다.
   // 내장 skill은 발견이 place 종류로 거른다.
   const commandReads = createCommandReads({
     skills: (sql, session) => {
-      const chosen = chosenOf(sql, session.agent, session.place);
+      const own = ownOf(sql, session.agent, session.place);
       const kind = placeKindOf(session.place);
       return commandSkillsOf(
         session.place === null
@@ -744,8 +746,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
             ).entries
           : (extensionRegistry(sql, ports)?.skills(session.place, kind)
               .entries ?? []),
-        chosen.skills,
-        chosen.domains,
+        own.skills_off,
+        own.domains,
       );
     },
   });

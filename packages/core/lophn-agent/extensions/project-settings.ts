@@ -20,6 +20,7 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { checkMcpConfig } from "./mcp-config.ts";
+import type { PlaceSkills } from "./skills.ts";
 import {
   dataRootOf,
   fileHash,
@@ -49,7 +50,20 @@ export type ProjectLayer = {
   settingsFolderArea(root: string): string;
   // 그 폴더 안의 이름이 project 폴더면 project id, 아니면 null이다.
   projectIdOfFolder(name: string): string | null;
+  // 그 폴더 안의 skill 꾸러미 폴더다.
+  placeSkillsFolder(sourceFolder: string): string;
 };
+
+// place 폴더의 `.lophn/skills`를 발견 출처로 바꾼다. 폴더가 없으면 null이다.
+export function placeSkillsOf(
+  layer: ProjectLayer,
+  place: AgentPlace,
+  sourceFolder: string | null,
+): PlaceSkills | null {
+  return sourceFolder === null
+    ? null
+    : { source: place.kind, folder: layer.placeSkillsFolder(sourceFolder) };
+}
 
 // 서버 한 칸, 끈 skill 이름, 이 project에서 끈 전역 서버 이름이다.
 export type ProjectExtensions = {

@@ -8,6 +8,7 @@ import type { PlaceFiles } from "./place-store.ts";
 import {
   EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
+  placeSkillsOf,
   type ProjectExtensions,
   type ProjectLayer,
 } from "./project-settings.ts";
@@ -37,17 +38,19 @@ type ExtensionRegistryDeps = {
   skillFiles: SkillFiles;
   // place 그릇의 active domain이다(이름순). skill의 domain 층이 이것이다.
   domains(place: AgentPlace): readonly { id: string; name: string }[];
+  // project의 첫 등록 폴더나 앱 source 폴더다. 없으면 null이다.
+  sourceFolder(place: AgentPlace): string | null;
   // 전역(Workspace) 층이다. 서버 목록은 platform/settings 값, skill 출처는 등록 폴더·개인 보관소·내장 폴더다.
   global: {
     servers: readonly McpServer[];
-    skills: Omit<SkillSources, "domains">;
+    skills: Omit<SkillSources, "domains" | "place">;
     // 전역에서 끈 skill의 정확한 이름이다.
     skillsOff: readonly string[];
   };
 };
 
 export type ExtensionRegistry = {
-  // 이 place의 agent가 발견하는 skill이다. 내장, 전역, domain 순으로 덮고 끈 것은 enabled false다. 내장 skill은
+  // 이 place의 agent가 발견하는 skill이다. 내장, 전역, project·app, domain 순으로 덮고 끈 것은 enabled false다. 내장 skill은
   // `places`에 선언된 종류만이고 null이면 모두다.
   skills(place: AgentPlace, kind: PlaceKind | null): SkillListing;
   // 이 place에서 쓸 수 있는 서버다. 전역에 project 층이 덮이고 이어진다. 앱 place에는 project 층이 없다.
@@ -99,6 +102,11 @@ export function createExtensionRegistry(
         deps.skillFiles,
         {
           ...deps.global.skills,
+          place: placeSkillsOf(
+            deps.projectLayer,
+            place,
+            deps.sourceFolder(place),
+          ),
           domains: deps.domains(place).map((domain) => ({
             domain: domain.id,
             folder: deps.projectLayer.domains.skillsFolder(
@@ -131,11 +139,11 @@ export function createExtensionRegistry(
   };
 }
 
-// `/` 메뉴의 skill 한 줄이다(이름마다 하나: `pickSkills`). 일하는 domain 밖의 domain skill과, agent 정의가 고른 이름이 있으면 그 밖의 skill은 selected=false다. 끌 수 없는 내장 skill은
-// 늘 켜져 있다. 지금 없는 고른 이름은 그대로 두어 아무 일도 하지 않는다. 받는 목록은 발견이 place 종류로 거른 것이다.
+// `/` 메뉴의 skill 한 줄이다(이름마다 하나: `pickSkills`). 일하는 domain 밖의 domain skill과, agent 정의가 끈 이름(`skills_off`)은 selected=false다.
+// 끌 수 없는 내장 skill은 늘 켜져 있다. 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다. 받는 목록은 발견이 place 종류로 거른 것이다.
 export function commandSkillsOf(
   entries: SkillListing["entries"],
-  chosen: readonly string[],
+  off: readonly string[],
   domains: readonly string[],
 ): {
   name: string;
@@ -144,7 +152,7 @@ export function commandSkillsOf(
   selected: boolean;
 }[] {
   const received = (entry: SkillListing["entries"][number]) =>
-    entry.enabled && skillReceived(entry, chosen, domains);
+    entry.enabled && skillReceived(entry, off, domains);
   return pickSkills(entries, received).map((entry) => ({
     name: entry.name,
     description: entry.description,

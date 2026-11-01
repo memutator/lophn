@@ -653,7 +653,7 @@ export function coreAgentsSource(
         : { ok: false, message: changed.code };
     },
 
-    // project 층에서 skill을 켜고 끈다. 끈 이름은 project 설정 파일의 skills_off에 둔다(agent 정의의 skills와 다른 층이다).
+    // project 층에서 skill을 켜고 끈다. 끈 이름은 project 설정 파일의 skills_off에 둔다(agent 정의의 skills_off와 다른 층이다).
     setSkill(project, name, on) {
       if (isAppPlace(project)) return Promise.resolve(unavailable);
       return changeProjectSettings(link, project, (current) => ({

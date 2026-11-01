@@ -15,6 +15,7 @@ import { appsWiring } from "./wiring/apps.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { configWiring } from "./wiring/config.ts";
+import { createSkillsOffWiring } from "./wiring/skills-off.ts";
 import { sdkInstallWiring } from "./wiring/sdk-install.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { eventsWiring } from "./wiring/events.ts";
@@ -115,6 +116,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   kindsWiring,
   lophnAgentSessionWiring,
   lophnAgentWiring,
+  createSkillsOffWiring,
   approvalsWiring,
   routerWiring,
   appsWiring,

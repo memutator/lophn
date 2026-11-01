@@ -13,7 +13,7 @@ import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import type { DomainView } from "../../source.ts";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
-import type { McpLogin, McpRow, SkillRow } from "../views.ts";
+import type { McpLogin, McpRow } from "../views.ts";
 import type { InstructionsPort } from "./instructions-editor.tsx";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
@@ -41,7 +41,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   profile: "profile",
   body: "instructions",
   model: "model",
-  skills: "skills",
+  skills_off: "skills",
   domains: "domains",
   mcp_off: "mcp",
   mcp_servers: "mcp",
@@ -156,8 +156,6 @@ interface DefinitionFormProps {
 export function DefinitionForm(props: DefinitionFormProps) {
   const { detail, definition, models, onChange } = props;
   const [addServer, setAddServer] = useState(false);
-  // domain을 바꿔 목록 밖이 된 skill 이름. 다음에 domain을 바꿀 때까지 알린다.
-  const [dropped, setDropped] = useState<readonly string[]>([]);
   const fresh = detail.assignment === null;
   const lophn = detail.assignment === LOPHN_AGENT_ID;
   // credential 이름이 쓰는 이 agent의 id. 새 agent는 저장 전에 미리 받은 id를 쓴다.
@@ -169,7 +167,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const set = (key: Exclude<keyof AgentDraft, "body">, value: unknown) =>
     onChange(withField(definition, key, value));
 
-  const picked = definition.skills ?? [];
+  const skillsOff = definition.skills_off ?? [];
   // agent는 일할 domain을 고르고(비면 그릇의 전부), skill은 고른 domain의 것만 목록에 든다.
   // domain 없는 skill(전역)은 어느 domain을 골라도 든다.
   const placeIsApp = detail.place.kind === "app";
@@ -180,8 +178,6 @@ export function DefinitionForm(props: DefinitionFormProps) {
     containerIds.includes(id),
   );
   const activeIds = chosenIds.length === 0 ? containerIds : chosenIds;
-  const visibleIn = (ids: readonly string[]) => (row: SkillRow) =>
-    !grouped || row.domain === undefined || ids.includes(row.domain);
   const toggleDomain = (id: string, on: boolean) => {
     const others = (definition.domains ?? []).filter(
       (one) => !containerIds.includes(one),
@@ -192,29 +188,17 @@ export function DefinitionForm(props: DefinitionFormProps) {
         one === id ? on : chosenIds.includes(one),
       ),
     ];
-    const nowVisible = detail.skills
-      .filter(visibleIn(next.length === 0 ? containerIds : next))
-      .map((row) => row.name);
-    const kept = picked.filter((name) => nowVisible.includes(name));
-    setDropped(picked.filter((name) => !kept.includes(name)));
-    onChange(withField(withField(definition, "domains", next), "skills", kept));
+    onChange(withField(definition, "domains", next));
   };
 
-  // 정의의 skills는 받을 이름이고 비면 보이는 skill을 모두 받는다. 화면은 받지 않는 줄을 꺼진 줄로 그린다.
-  const received = detail.skills
-    .filter((row) => !row.builtIn && row.on && visibleIn(activeIds)(row))
-    .map((row) => row.name);
-  const skillsOff =
-    picked.length === 0
-      ? []
-      : received.filter((name) => !picked.includes(name));
-  const toggleSkill = (name: string, on: boolean) => {
-    const base = picked.length === 0 ? received : picked;
-    const next = on
-      ? [...new Set([...base, name])]
-      : base.filter((one) => one !== name);
-    set("skills", received.every((one) => next.includes(one)) ? [] : next);
-  };
+  // 정의의 skills_off는 이 agent가 끈 이름이다. 끄지 않은 skill은 보이는 대로 받는다.
+  const toggleSkill = (name: string, on: boolean) =>
+    set(
+      "skills_off",
+      on
+        ? skillsOff.filter((one) => one !== name)
+        : [...new Set([...skillsOff, name])],
+    );
   const mcpOff = (definition.mcp_off ?? [])
     .filter((entry) => entry.original_tool === undefined)
     .map((entry) => entry.server_name);
@@ -394,11 +378,6 @@ export function DefinitionForm(props: DefinitionFormProps) {
           />
         )}
         <p className={styles.note}>{t("agents.notice.skills-agent-only")}</p>
-        {dropped.length > 0 ? (
-          <p className={styles.note} data-skills-dropped="">
-            {t("agents.notice.skills-dropped", { names: dropped.join(", ") })}
-          </p>
-        ) : null}
         <Issues issues={issuesOf("skills")} />
       </Group>
 

@@ -1,3 +1,4 @@
+import { parse } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   BUILTIN_SKILLS,
@@ -6,8 +7,8 @@ import {
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), domain
-// 셋이고 같은 이름은 마지막 층이 덮는다. 다만 domain 층 skill은 domain마다 따로 남는다. 어느 domain의 것이 이기는지는
+// skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), project·app(그 place 폴더의 `.lophn/skills`),
+// domain 순이고 같은 이름은 마지막 층이 덮는다. 다만 domain 층 skill은 domain마다 따로 남는다. 어느 domain의 것이 이기는지는
 // agent가 일하는 domain을 거른 뒤 `pickSkills`가 정한다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 발견은 동기다(core read handler가 동기라 비동기 발견을 부르지 못하고, 비동기 함수 안에서는 동기
 // 함수를 그대로 부를 수 있다). 파일 IO는 SkillFiles로 끼운다. 내장 skill은 `places`에 선언된 place 종류만 후보다. 이 모듈은
@@ -80,16 +81,11 @@ type SkillFrontmatter = {
   body: string;
 };
 
-// YAML 머리에서 name·description만 단순행으로 본다. 전체 YAML을 풀지
-// 않는다: 블록·flow 표기·중복 key·닫히지 않은 fence는 고치지 않고 실패 사유다.
-// 모르는 단순 key는 지우지 않고 무시한다(Agent Skills 형식의 다른 기록 필드를
-// 남기기 위해서다).
+// YAML 머리에서 name·description을 읽는다. 다른 key는 지우지 않고 무시한다(Agent Skills 형식의 다른 기록 필드를 남기기 위해서다).
+// 닫히지 않은 fence, 틀린 YAML, map이 아닌 머리는 고치지 않고 실패 사유다. `description: >`나 `|` 같은 block scalar도 읽는다.
 export function parseSkillFrontmatter(
   source: string,
 ): Result<SkillFrontmatter, string> {
-  if (!source.startsWith("---")) {
-    return err("skill manifest has no frontmatter");
-  }
   const lines = source.split("\n");
   if (lines[0].replace(/\r$/, "") !== "---") {
     return err("skill manifest has no frontmatter");
@@ -102,59 +98,25 @@ export function parseSkillFrontmatter(
     }
   }
   if (close === -1) return err("skill frontmatter is not closed");
-  const fields = new Map<string, string>();
-  for (const raw of lines.slice(1, close)) {
-    const line = raw.replace(/\r$/, "");
-    if (line.trim().length === 0) continue;
-    const match = /^([A-Za-z][A-Za-z0-9_-]*):(.*)$/.exec(line);
-    if (match === null) {
-      return err("skill frontmatter is not name and description lines");
-    }
-    const value = scalarReasonOrValue(match[2]);
-    if (typeof value === "string") return err(value);
-    if (fields.has(match[1])) {
-      return err(`skill frontmatter has a duplicated ${match[1]}`);
-    }
-    fields.set(match[1], value.value);
+  let fields: unknown;
+  try {
+    fields = parse(lines.slice(1, close).join("\n"), { schema: "core" });
+  } catch {
+    return err("skill frontmatter is not valid YAML");
   }
-  const name = fields.get("name");
-  const description = fields.get("description");
+  if (fields === null || typeof fields !== "object" || Array.isArray(fields)) {
+    return err("skill frontmatter is not a map");
+  }
+  const { name, description } = fields as Record<string, unknown>;
   const nameFail = skillNameReason(name);
   if (nameFail !== null) return err(nameFail);
   const descriptionFail = skillDescriptionReason(description);
   if (descriptionFail !== null) return err(descriptionFail);
   return ok({
     name: name as string,
-    description: description as string,
+    description: (description as string).trim(),
     body: lines.slice(close + 1).join("\n"),
   });
-}
-
-// 단순 scalar만 받는다. 따옴표는 한 겹까지만 벗긴다. 블록·flow 표기는
-// 고치지 않는다.
-function scalarReasonOrValue(raw: string): string | { value: string } {
-  const value = raw.replace(/^\s+/, "").replace(/\s+$/, "");
-  if (value.length === 0) return { value: "" };
-  if (
-    value.startsWith("|") ||
-    value.startsWith(">") ||
-    value.startsWith("[") ||
-    value.startsWith("{")
-  ) {
-    return "skill frontmatter value is not a plain scalar";
-  }
-  const quote = value[0];
-  if (quote === '"' || quote === "'") {
-    if (
-      value.length < 2 ||
-      !value.endsWith(quote) ||
-      value.slice(1, -1).includes(quote)
-    ) {
-      return "skill frontmatter value is not a closed scalar";
-    }
-    return { value: value.slice(1, -1) };
-  }
-  return { value };
 }
 
 // ---- 층 합치기 ----
@@ -187,7 +149,7 @@ export function builtinForPlace(name: string, kind: PlaceKind | null): boolean {
   );
 }
 
-// 층 순서(내장, 전역, domain)로 늘어선 후보를 합친다. 내장과 전역은 이름마다 하나이고 마지막 층이 덮는다. domain 층은
+// 층 순서(내장, 전역, project·app, domain)로 늘어선 후보를 합친다. domain 앞 층은 이름마다 하나이고 마지막 층이 덮는다. domain 층은
 // 합치지 않고 domain마다 남긴다(전역 `x`가 domain `x`에 가려져 그 domain을 고르지 않은 agent가 잃지 않게). 끌 수 없는 내장
 // skill은 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
 // 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이고 같은 이름은 전역, domain(받은 순서) 순이다.
@@ -229,17 +191,16 @@ export function mergeSkillLayers<T extends SkillCandidate>(
     });
 }
 
-// agent가 받는 skill인지다. domain 층 skill은 agent가 일하는 domain의 것만 받는다. 정의가 고른 이름이 없으면
-// 모두 받고, 있으면 고른 것만 받는다. 끌 수 없는 내장 skill은 고르지 않아도 받는다. resolve, skill.read, `/` 메뉴가
-// 모두 이 규칙을 쓴다.
+// agent가 받는 skill인지다. domain 층 skill은 agent가 일하는 domain의 것만 받는다. 정의가 끈 이름(`skills_off`)은
+// 받지 않는다. 끌 수 없는 내장 skill은 늘 받는다. resolve, skill.read, `/` 메뉴, 공유 skill이 모두 이 규칙을 쓴다.
 export function skillReceived(
   skill: { name: string; can_disable: boolean; domain: string | null },
-  chosen: readonly string[],
+  off: readonly string[],
   domains: readonly string[],
 ): boolean {
   return (
     (skill.domain === null || domains.includes(skill.domain)) &&
-    (!skill.can_disable || chosen.length === 0 || chosen.includes(skill.name))
+    (!skill.can_disable || !off.includes(skill.name))
   );
 }
 
@@ -259,14 +220,18 @@ export function pickSkills<T extends { name: string; domain: string | null }>(
   });
 }
 
-// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), domain 폴더들이다. null은 그 출처가 없는 것이다.
+// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), place 폴더, domain 폴더들이다. null은 그 출처가 없는 것이다.
 // domain은 이름순으로 받는다.
 export type SkillSources = {
   bundled: string | null;
   registered: readonly string[];
   personal: string | null;
+  // project나 app place의 `.lophn/skills` 폴더다. 전역 다음, domain 앞 층이다. 그 place 밖이나 폴더가 없으면 없다.
+  place?: PlaceSkills | null;
   domains: readonly DomainStore[];
 };
+
+export type PlaceSkills = { source: "project" | "app"; folder: string };
 
 // domain 층 skill은 `domain`이 그 domain id이고 아니면 null이다.
 export type SkillListing = {
@@ -418,6 +383,9 @@ export function discoverSkills(
     scanFolder(root, "global", true);
   }
   if (sources.personal !== null) scanFolder(sources.personal, "global", false);
+  if (sources.place != null) {
+    scanFolder(sources.place.folder, sources.place.source, false);
+  }
   for (const store of sources.domains) {
     scanFolder(store.folder, "domain", false, store.domain);
   }

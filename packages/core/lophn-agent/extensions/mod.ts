@@ -12,6 +12,7 @@ export {
   pickSkills,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
+  type PlaceSkills,
   type SkillCandidate,
   type SkillEntry,
   type SkillFiles,
@@ -26,6 +27,7 @@ export {
   createProjectExtensionReads,
   EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
+  placeSkillsOf,
   type ProjectExtensions,
   type ProjectLayer,
 } from "./project-settings.ts";

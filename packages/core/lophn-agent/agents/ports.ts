@@ -47,6 +47,8 @@ export type PlaceLookups = {
   appIds(sql: ReadSql): string[];
   // 그 place 그릇의 active domain이다(이름순). skill 층의 우선순위가 domain 이름이라 이름도 준다.
   domains(sql: ReadSql, place: Place): { id: string; name: string }[];
+  // project의 첫 등록 폴더나 앱의 source 폴더다. 폴더가 없으면 null이다. 그 폴더의 `.lophn/skills`가 skill 층이다.
+  sourceFolder(sql: ReadSql, place: Place): string | null;
 };
 
 export type AgentDeps = {

@@ -1,6 +1,6 @@
 ---
 name: write-workflow
-description: Write a workflow: how people and agents pass a job from step to step. Read this skill and write it as it says.
+description: "Write a workflow: how people and agents pass a job from step to step. Read this skill and write it as it says."
 ---
 
 # Workflow

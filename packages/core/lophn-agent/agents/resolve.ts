@@ -88,7 +88,7 @@ export type ResolvedAgent = {
 // - model은 ModelChoice 하나를 통째로 쓴다. 어느 층에도 없으면 turn을 시작하지 않는다.
 // - tools는 place 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다.
 // - domains는 정의가 고른 domain과 환경이 준 그릇의 domain의 교집합이다.
-// - skills는 환경이 준 것 가운데 전역·내장 skill과 맡은 domain의 skill이고, 정의가 고른 이름만 남긴다.
+// - skills는 환경이 준 것 가운데 전역·내장·project·app skill과 맡은 domain의 skill이고, 정의가 끈 이름(skills_off)은 뺀다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 export async function resolveAgent(
   input: ResolveInput,
@@ -114,11 +114,11 @@ export async function resolveAgent(
   const profile = lophn
     ? LOPHN_PROFILE
     : (definition?.profile ?? AGENT_DEFAULT_PROFILE);
-  const chosenSkills = definition?.skills ?? [];
+  const skillsOff = definition?.skills_off ?? [];
   const mcpOff = definition?.mcp_off ?? [];
   const chosenDomains = definition?.domains ?? [];
   const domains = workingDomains(environment.domains, chosenDomains);
-  const skills = receivedSkills(environment.skills, chosenSkills, domains);
+  const skills = receivedSkills(environment.skills, skillsOff, domains);
   const mcp = environment.mcp.filter(
     (tool) =>
       !mcpOff.some(
@@ -146,7 +146,7 @@ export async function resolveAgent(
       agent_instructions: body.length > 0 ? "agent" : "global",
       model: chosen[1],
       tools: "global",
-      skills: chosenSkills.length > 0 ? "agent" : "global",
+      skills: skillsOff.length > 0 ? "agent" : "global",
       mcp: mcpOff.length > 0 ? "agent" : "global",
       domains: chosenDomains.length > 0 ? "agent" : "global",
     },
@@ -165,13 +165,13 @@ export function workingDomains(
 
 export function receivedSkills(
   available: readonly AvailableSkill[],
-  chosen: readonly string[],
+  off: readonly string[],
   domains: readonly string[],
 ): string[] {
   return [
     ...new Set(
       available
-        .filter((skill) => skillReceived(skill, chosen, domains))
+        .filter((skill) => skillReceived(skill, off, domains))
         .map((skill) => skill.name),
     ),
   ];

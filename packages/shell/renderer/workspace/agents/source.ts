@@ -65,7 +65,7 @@ export interface AgentsOverview {
 }
 
 /**
- * 정의 파일 한 개의 값. 모든 agent가 같은 칸을 갖는다. `skills`는 받을 skill 이름이고 비면 보이는 skill을 모두 받는다.
+ * 정의 파일 한 개의 값. 모든 agent가 같은 칸을 갖는다. `skills_off`는 이 agent가 끈 skill 이름이고 없으면 보이는 skill을 모두 받는다.
  * `domains`는 일할 domain의 id이고 비면 그 그릇의 domain 전부다. lophn의 `name`·`profile`은 바꾸지 못하고
  * `mcp_servers`·`skip`은 사람만 쓴다. 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
  */
@@ -73,7 +73,7 @@ export interface AgentDraft {
   readonly name?: string;
   readonly profile?: Profile;
   readonly model?: ModelChoice;
-  readonly skills?: readonly string[];
+  readonly skills_off?: readonly string[];
   readonly domains?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
@@ -113,7 +113,7 @@ export interface AgentDetail {
   readonly inheritedModel: Sourced<ModelChoice> | null;
   /** 파일이 틀렸다면 읽기가 알린 항목별 이유다. */
   readonly issues: readonly AgentDefinitionIssue[];
-  /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, project). 이 agent가 받을 것은 정의의 skills가 말한다. */
+  /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, project). 이 agent가 끈 것은 정의의 skills_off가 말한다. */
   readonly skills: readonly SkillRow[];
   /** 전역과 project 층 MCP server. 이 agent 층은 정의의 mcp_servers다. */
   readonly mcpServers: readonly McpRow[];
@@ -266,7 +266,7 @@ export interface AgentsSource {
     project: string,
     choice: ModelChoice | null,
   ): Promise<ReadResult<null>>;
-  /** project 층에서 skill을 켜고 끈다. agent 층은 정의의 skills로 저장한다. */
+  /** project 층에서 skill을 켜고 끈다. agent 층은 정의의 skills_off로 저장한다. */
   setSkill(
     project: string,
     name: string,

@@ -335,12 +335,10 @@ export function createFakeAgentsSource(
 
   const rowOf = (key: string, item: Stored, at: PlaceKind): AgentListRow => {
     const definition = item.definition;
-    const picked = definition.skills ?? [];
+    const off = definition.skills_off ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
     const skills = skillsFor(at).filter(
-      (row) =>
-        row.on &&
-        (picked.length === 0 || row.builtIn || picked.includes(row.name)),
+      (row) => row.on && (row.builtIn || !off.includes(row.name)),
     ).length;
     const own = (definition.mcp_servers ?? []).filter(
       (server) => server.enabled,

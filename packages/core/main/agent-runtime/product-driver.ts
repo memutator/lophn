@@ -9,11 +9,14 @@ import {
   assignmentGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
+import { appGet } from "../../../protocol/apps/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
+import { projectApi } from "../../../protocol/projects/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
   type AgentAtPlace,
   type AgentId,
+  type AgentPlace,
   agentRead,
   instructionsGet,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -71,6 +74,17 @@ import { FILE_HOOKS } from "../../agent-places/hooks.ts";
 const SKILL_PLACES = {
   projectLayer: PROJECT_LAYER,
   bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
+  // 그 place의 `.lophn/skills`가 skill 층이다: project는 첫 등록 폴더, 앱은 source 폴더.
+  async sourceFolder(machine: CoreCall, place: AgentPlace) {
+    if (place.kind === "project") {
+      const read = await readOf(machine, projectApi.get, {
+        project: place.id,
+      });
+      return read.ok ? (read.value.project.folders[0]?.path ?? null) : null;
+    }
+    const read = await readOf(machine, appGet, { app: place.id });
+    return read.ok ? read.value.app.source_path : null;
+  },
 };
 
 // agent가 그 place에서 받는 domain id. 읽지 못하면 null.

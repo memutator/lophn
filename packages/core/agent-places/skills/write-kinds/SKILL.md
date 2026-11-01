@@ -1,6 +1,6 @@
 ---
 name: write-kinds
-description: Write or change a domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has. Also what to do when documents break the kinds.
+description: "Write or change a domain's kinds file (kinds.yaml): which documents are items of which kind, and which fields each kind has. Also what to do when documents break the kinds."
 ---
 
 # Write the kinds file

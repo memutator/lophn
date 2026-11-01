@@ -187,7 +187,7 @@ Explain what changed in the eval loop and why it matters.
 2. Say which results improved and which regressed.
 3. Link every claim to the document it came from.
 Keep answers short. Name the scenario for every regression.`,
-      skills: ["plain-writing", "cite-documents", "weekly-report"],
+      skills_off: ["cite-documents"],
       domains: [FINDINGS],
       mcp_off: [{ server_name: "fetch" }],
       mcp_servers: [
@@ -233,7 +233,7 @@ Keep answers short. Name the scenario for every regression.`,
       body: `# Experiment planner
 Propose at most three experiments. For each one write the question, the
 change to try and how you will know it worked. Ask before you create files.`,
-      skills: ["plain-writing", "cite-documents", "scenario-authoring"],
+      skills_off: ["eval-metrics"],
       domains: [EXPERIMENTS],
       mcp_off: [{ server_name: "fetch" }, { server_name: "github" }],
     },
@@ -248,7 +248,7 @@ change to try and how you will know it worked. Ask before you create files.`,
       body: `# Budget reviewer
 Read the expenses of the month and list the ones that look wrong.
 Never change an expense. Ask me first.`,
-      skills: ["plain-writing"],
+      skills_off: ["cite-documents"],
     },
   },
 ];

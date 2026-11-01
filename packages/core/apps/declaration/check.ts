@@ -3,7 +3,8 @@
 // 평가는 앱 폴더에서 그 폴더의 node_modules로 돈다. SDK는 앱이 `npm install`로 건 `.lophn/sdk` 사본이
 // `node_modules/@lophn/*`에서 풀린다.
 import { spawn } from "node:child_process";
-import { stat } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
+import { relative } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -32,13 +33,41 @@ function failed(...errors: string[]): Result<DeclarationCheckOutput> {
   return ok({ errors, warnings: [], permission_review: [] });
 }
 
-async function exists(path: string): Promise<boolean> {
+async function resolved(path: string): Promise<string | undefined> {
   try {
-    await stat(path);
-    return true;
+    return await realpath(path);
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+// 평가는 source의 node_modules로 돌고 release 준비는 HEAD의 package.json으로 새로 깐다. source가 agent 밖
+// (git pull, coding agent)에서 바뀌면 node_modules는 옛 SDK 판에 남아, 맞는 lophn.ts가 선언 오류로 보인다.
+// package.json이 거는 SDK 사본과 node_modules가 실제로 가리키는 곳을 대어 다른 것을 돌려준다.
+async function staleSdk(source: string): Promise<string[]> {
+  let manifest: {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  try {
+    manifest = JSON.parse(await readFile(`${source}/package.json`, "utf8"));
+  } catch {
+    return [];
+  }
+  const stale: string[] = [];
+  const deps = { ...manifest.dependencies, ...manifest.devDependencies };
+  for (const [name, value] of Object.entries(deps)) {
+    if (!value.startsWith("file:.lophn/sdk/")) continue;
+    const want = value.slice("file:".length);
+    const has = await resolved(`${source}/node_modules/${name}`);
+    if (has !== undefined && has === (await resolved(`${source}/${want}`))) {
+      continue;
+    }
+    stale.push(
+      `${name} wants ${want}, node_modules has ${has === undefined ? "nothing" : relative(source, has)}`,
+    );
+  }
+  return stale;
 }
 
 // 선언 평가 자식은 앱 source의 lophn.ts를 import하므로 lophn 자신의 process가 아니다. 앱 process와
@@ -101,12 +130,10 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
     } catch {
       return failed("lophn.ts is missing in the app source");
     }
-    if (
-      !(await exists(`${source.value}/node_modules`)) ||
-      !(await exists(`${source.value}/.lophn/sdk`))
-    ) {
+    const stale = await staleSdk(source.value);
+    if (stale.length > 0) {
       return failed(
-        "the app source has no node_modules or .lophn/sdk: run npm install in the app source folder, then check again",
+        `the app source's node_modules does not match package.json (${stale.join("; ")}): run npm install in the app source folder, then check again`,
       );
     }
     let output: { code: number | null; stdout: string; stderr: string };

@@ -2,8 +2,8 @@
 
 workflow tool 다섯(`workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`, `workflow.check`)을 명령으로 옮기고, binary에만 있던 `workflow start|report|stop|show`와 한 벌로 합친다.
 
-- 단위: cli (wave 2)
-- 선행: 없음
+- 단위: cli (wave 1)
+- 선행: cs-foundation. 명령 표와 `lophn` tool이 있어야 한다.
 - 소유(이 task만 고친다):
   - `packages/core/workflows/**`
   - `packages/cli/commands/{workflow.ts,workflow_test.ts}`
@@ -33,3 +33,10 @@ workflow tool 다섯(`workflow.list`, `workflow.get`, `workflow.report`, `workfl
 - 안 쓰게 된 export, 정한 것, 넘길 줄, 계약 바꾸기 요청
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함 (cs-foundation merge 뒤)
+
+- 명령 모양: `packages/cli/commands/types.ts`의 `defineCommand({...})`. 칸은 `name`(점 이름), `summary`, `description`, `input`(zod strict object), `positional`(칸 이름), `effect`, `routes: [{name}]`, `places`(`PlaceKind[]`, 빈 목록이면 binary만, 전부면 `PLACE_KINDS`), `run(input, ctx)`. 명령 file은 `JOB_COMMANDS` 같은 배열을 export한다. 본보기는 `packages/cli/commands/job.ts`다.
+- `ctx`: `core.read(route, input)`, `core.command(route, input, {key, compare?})`(key는 `lophn` tool에서 tool call id, binary에서 `--idempotency-key`나 무작위), `place`(binary는 undefined, home은 null), `clock`, `signal`. 결과는 `{summary, content, arrayKeys?, text?, failed?, note?}`(`CommandResult`).
+- 함정: 내장 tool을 명령으로 옮기면 같은 변경에서 옛 tool 정의와 `packages/core/agent-places/tool-lists.ts`의 그 이름을 지운다. wire 이름이 겹치면 `buildWireTable`이 실패해 그 session의 모든 tool이 "not available"이 된다(`packages/core/main/agent-tools_test.ts`가 잡는다).
+- 추가 소유(등록 줄만): `packages/cli/commands/mod.ts`에 이 task의 명령 배열 한 줄, `packages/core/agent-places/tool-lists.ts`에서 옮긴 tool 이름 지우기, `packages/core/main/agent-tools.ts`에서 옮긴 bundle 지우기. 다른 task도 같은 줄을 고치므로 merge 충돌은 lead가 푼다.

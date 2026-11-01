@@ -3,7 +3,7 @@
 앱이 내놓은 바깥 명령을 `lophn <domain> <command>`로 부르게 한다. 앱 command마다 provider tool을 만들던 `buildAppTools`를 지운다.
 
 - 단위: apps (wave 2)
-- 선행: defer-remove. 둘 다 session의 tool 목록을 고정하는 곳(`prepare.ts`, `product-driver.ts`)을 바꾼다.
+- 선행: defer-remove, app-layers. 둘 다 session의 tool 목록을 고정하는 곳(`prepare.ts`, `product-driver.ts`)을 바꾼다.
 - 소유(이 task만 고친다):
   - `packages/core/lophn-agent/tools/{app-tools.ts,app-toolkit.ts,app-public.ts,app-public_test.ts}`
   - `packages/core/lophn-agent/tools/app-tool/**`
@@ -43,3 +43,9 @@
 - 안 쓰게 된 export, 정한 것, 넘길 줄, 계약 바꾸기 요청
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함 (cs-foundation merge 뒤)
+
+- `lophn` tool: `packages/core/lophn-agent/tools/lophn/{tool,resolve,command-tool}.ts`. `dispatchTarget`(`packages/core/lophn-agent/tools/dispatch.ts`)이 `lophn {args}`를 명령의 wire 이름과 입력으로 푼다. `prepare.ts`가 `commandTools(kind)`를 `listed`에 더하고 `describeLophn`으로 설명에 명령 목록을 붙인다.
+- 명령 표: `packages/cli/commands/mod.ts`의 `COMMANDS`, `commandsForPlace(kind)`. parser는 `packages/cli/parser.ts`의 `parseCommandLine`.
+- core가 import할 수 있는 cli 쪽은 `packages/cli/{commands/,parser.ts,help.ts}`뿐이다(`tools/check-deps.ts`의 `cli-surface`).

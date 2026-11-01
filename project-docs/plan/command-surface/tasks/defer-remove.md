@@ -2,8 +2,8 @@
 
 tool 정의를 늦게 싣는 장치를 지운다. 내장 tool은 place 종류마다 고정된 작은 집합이고, 외부 MCP tool은 처음부터 `tools[]`에 싣는다.
 
-- 단위: cli (wave 2)
-- 선행: 없음
+- 단위: cli (wave 1)
+- 선행: cs-foundation. 명령 표와 `lophn` tool이 있어야 한다.
 - 소유(이 task만 고친다):
   - `packages/core/lophn-agent/prompt-assembly/**`
   - `packages/core/lophn-agent/run-loop/{prepare.ts,prepare_test.ts,history.ts,history_test.ts}`
@@ -39,3 +39,9 @@ tool 정의를 늦게 싣는 장치를 지운다. 내장 tool은 place 종류마
 - 안 쓰게 된 export, 정한 것, 넘길 줄, 계약 바꾸기 요청
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함 (cs-foundation merge 뒤)
+
+- `lophn` tool: `packages/core/lophn-agent/tools/lophn/{tool,resolve,command-tool}.ts`. `dispatchTarget`(`packages/core/lophn-agent/tools/dispatch.ts`)이 `lophn {args}`를 명령의 wire 이름과 입력으로 푼다. `prepare.ts`가 `commandTools(kind)`를 `listed`에 더하고 `describeLophn`으로 설명에 명령 목록을 붙인다.
+- 명령 표: `packages/cli/commands/mod.ts`의 `COMMANDS`, `commandsForPlace(kind)`. parser는 `packages/cli/parser.ts`의 `parseCommandLine`.
+- core가 import할 수 있는 cli 쪽은 `packages/cli/{commands/,parser.ts,help.ts}`뿐이다(`tools/check-deps.ts`의 `cli-surface`).

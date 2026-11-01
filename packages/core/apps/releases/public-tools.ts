@@ -4,8 +4,8 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { AppDeclaration } from "../declaration/mod.ts";
-import { appAssignees } from "../../approvals/assignment/usage.ts";
 import { appToolUsers, usagePorts } from "../usage/mod.ts";
+import { appAssignees } from "../usage/users.ts";
 import { loadActiveDeclaration } from "./store.ts";
 
 type Tool = AppDeclaration["commands"][number];

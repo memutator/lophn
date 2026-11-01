@@ -29,7 +29,10 @@ Package를 쓴다.
 - 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
   layout, navigation, data, feedback, overlay, reading이고, 분류의 `mod.ts`가
   목록이다(export마다 "언제 쓰나" 한 줄). 앱
-  bridge component(OperationButton, useOperation, AppErrorBoundary)는 `@lophn/app-ui`다.
+  bridge component(OperationButton, useOperation, AppErrorBoundary, useTabHead)는 `@lophn/app-ui`다.
+- 화면이 lophn 탭으로 열리면 그 위에 lophn 탭 머리 줄(← →, 앱 이름, ⋯ 메뉴)이 이미 있다.
+  화면의 보기 탭·상태 글·주 행동은 `useTabHead`로 그 줄에 올리고, `AppShell`의 `title`·`actions`는
+  `useTabHead`가 false를 돌려줄 때(앱 창, 떠 있는 패널, 세션 카드)만 준다. 자기 머리 줄을 따로 쌓지 않는다.
 - token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받고, 앱 CSS는 token
   변수만 쓴다. 사람이 고른 accent, 배경, 글꼴이 그 변수로 들어오므로 색과 글꼴
   값을 직접 쓰지 않는다.

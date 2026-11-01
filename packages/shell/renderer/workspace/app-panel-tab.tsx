@@ -268,6 +268,7 @@ export function AppPanelTab({
           shown={shown}
           keepKey={keepKey}
           onState={setState}
+          tabHead
           renderFailure={(code) =>
             // 패널을 선언하지 않은 화면은 줄여 열지 않고 앱 공간으로 안내한다.
             code === "invalid_input" || code === "forbidden"

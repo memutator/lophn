@@ -6,6 +6,13 @@
 // 층을 2배로 둔다).
 import { createContext, useContext, useEffect, useRef } from "react";
 
+import {
+  APP_TAB_HEAD_CHANNEL,
+  APP_TAB_HEAD_EVENT_CHANNEL,
+  readTabHead,
+  type TabHead,
+  type TabHeadEvent,
+} from "../../ipc/app-tab-head.ts";
 import styles from "./webview-host.module.css";
 
 // main의 BROWSER_PARTITION(main/browser/session.ts)과 같은 이름이다. 다르면 main이 attach를 거절한다.
@@ -27,6 +34,7 @@ interface WebviewElement extends HTMLElement {
   isLoading(): boolean;
   canGoBack(): boolean;
   canGoForward(): boolean;
+  send(channel: string, ...args: unknown[]): Promise<void>;
 }
 
 /** 붙기 전에도 읽을 수 있게 물어볼 때마다 실패를 삼킨다. */
@@ -59,6 +67,11 @@ interface Entry {
   layer: number;
   /** 앱·artifact는 첫 load가 끝날 때까지 보이지 않는다(예전 native view의 "첫 load 전 attach 없음"). */
   loaded: boolean;
+  /** 앱 page가 올린 탭 머리 줄(app-tab-head.ts). page가 새로 load되면 비운다. */
+  head: TabHead | null;
+  /** 이 화면의 머리 줄을 지금 shell이 그리는지. 다시 load된 page에도 알린다. */
+  headShown: boolean;
+  headListeners: Set<(head: TabHead | null) => void>;
 }
 
 export interface WebviewHost {
@@ -77,6 +90,10 @@ export interface WebviewHost {
     layer: number,
   ): void;
   page(key: string): GuestPage | null;
+  /** 앱 page가 올린 탭 머리 줄을 받는다. 지금 값을 바로 한 번 준다. */
+  onTabHead(key: string, listener: (head: TabHead | null) => void): () => void;
+  /** 앱 page에 머리 줄 event를 보낸다. */
+  sendTabHead(key: string, event: TabHeadEvent): void;
   release(key: string): void;
   keys(): readonly string[];
   /** 그릇 요소. WebviewLayer가 붙인다. */
@@ -196,6 +213,7 @@ export function createWebviewHost(): WebviewHost {
       };
       element.addEventListener("did-finish-load", loaded);
       element.addEventListener("did-fail-load", loaded);
+      if (entry.kind === "app") bindTabHead(entry, element);
       return;
     }
     if (!webviewSupported()) {
@@ -215,6 +233,40 @@ export function createWebviewHost(): WebviewHost {
     });
   }
 
+  function postTabHead(element: HTMLElement, event: TabHeadEvent): void {
+    // guest가 붙기 전(dom-ready 전)에는 send가 throw한다. 그때 놓친 shown은 dom-ready에서 다시 보낸다.
+    try {
+      void (element as WebviewElement)
+        .send(APP_TAB_HEAD_EVENT_CHANNEL, event)
+        .catch(() => {});
+    } catch {
+      // 위와 같다.
+    }
+  }
+
+  function setTabHead(entry: Entry, head: TabHead | null): void {
+    entry.head = head;
+    for (const listener of entry.headListeners) listener(head);
+  }
+
+  // page의 preload는 붙자마자 hello를 보내 shown을 묻는다. 첫 render 전에 답이 닿아야 앱이 자기 머리를
+  // 그렸다가 지우는 깜박임이 없다. 답을 못 보냈으면 dom-ready에서 다시 보낸다.
+  function bindTabHead(entry: Entry, element: HTMLElement): void {
+    const shown = () =>
+      postTabHead(element, { type: "shown", shown: entry.headShown });
+    element.addEventListener("ipc-message", (event) => {
+      const { channel, args } = event as unknown as {
+        channel: string;
+        args: unknown[];
+      };
+      if (channel !== APP_TAB_HEAD_CHANNEL || entry.element !== element) return;
+      const value = args[0] as { hello?: unknown } | null;
+      if (value?.hello === true) shown();
+      else setTabHead(entry, readTabHead(value));
+    });
+    element.addEventListener("dom-ready", shown);
+  }
+
   function make(key: string, src: string, kind: WebviewKind): Entry {
     const entry: Entry = {
       element: createElement(key, kind),
@@ -227,6 +279,9 @@ export function createWebviewHost(): WebviewHost {
       layer: 0,
       // webviewTag가 없는 환경(dev mock·gallery)은 빈 div가 곧 화면이라 load를 기다리지 않는다.
       loaded: kind === "browser" || !webviewSupported(),
+      head: null,
+      headShown: false,
+      headListeners: new Set(),
     };
     bind(entry, entry.element);
     if (kind === "browser") {
@@ -254,6 +309,7 @@ export function createWebviewHost(): WebviewHost {
     entry.loaded = !webviewSupported();
     if (container !== null) container.append(next);
     apply(entry);
+    setTabHead(entry, null);
   }
 
   return {
@@ -303,6 +359,22 @@ export function createWebviewHost(): WebviewHost {
       } catch {
         return null;
       }
+    },
+    onTabHead(key, listener) {
+      const entry = entries.get(key);
+      if (entry === undefined) return () => {};
+      listener(entry.head);
+      entry.headListeners.add(listener);
+      return () => entry.headListeners.delete(listener);
+    },
+    sendTabHead(key, event) {
+      const entry = entries.get(key);
+      if (entry === undefined || entry.kind !== "app") return;
+      if (event.type === "shown") {
+        if (entry.headShown === event.shown) return;
+        entry.headShown = event.shown;
+      }
+      postTabHead(entry.element, event);
     },
     release(key) {
       const entry = entries.get(key);

@@ -72,6 +72,9 @@ kit does the job, and style it with the token variables.
   the tab title when a screen is opened as a panel. Do not repeat it.
 - One header row per screen. What changes the whole view, such as the period,
   the view mode or the main action, goes in that row. Do not stack bars.
+- A screen opened as a lophn tab already has lophn's head row above it. Put the
+  screen's view tabs, status and main action in that row with `useTabHead` from
+  `@lophn/app-ui`, and draw them yourself only where it returns false.
 - Show what the journeys need. No heading that restates another, no text that
   explains the screen, no decoration.
 - The same thing sits in the same place on every screen.

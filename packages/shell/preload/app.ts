@@ -12,6 +12,10 @@ const transport = {
   invoke: (channel: string, input: unknown) =>
     ipcRenderer.invoke(channel, input),
   send: (channel: string, input: unknown) => ipcRenderer.send(channel, input),
+  sendToHost: (channel: string, input: unknown) =>
+    ipcRenderer.sendToHost(channel, input),
+  on: (channel: string, listener: (payload: unknown) => void) =>
+    ipcRenderer.on(channel, (_event, payload) => listener(payload)),
 };
 
 contextBridge.exposeInMainWorld("lophnApp", createAppTool(transport));

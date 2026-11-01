@@ -164,6 +164,7 @@ export function AppScreenTab(props: AppScreenTabProps) {
         label={row.name}
         shown={shown}
         keepKey={keepKey}
+        tabHead
         onState={(next) => {
           setState(next);
           onView.current(next);

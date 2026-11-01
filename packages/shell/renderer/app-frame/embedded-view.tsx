@@ -20,6 +20,7 @@ import type {
   AppViewOpen,
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
+import { useAppTabHead } from "./app-tab-head.tsx";
 import { createViewKeeps, type ViewKeeps } from "./view-keeps.ts";
 import {
   useViewLayer,
@@ -59,6 +60,8 @@ interface EmbeddedViewProps extends AppViewOpen {
   renderFailure?(code: string, retry: () => void): ReactNode | null;
   /** 열기가 거절됐다. code는 main이 준 거절 code다. */
   onFailed?(code: string): void;
+  /** 앱이 올린 탭 머리 줄을 이 자리가 선 card 칸의 머리 줄에 그린다. 탭 하나를 차지하는 화면만 준다. */
+  tabHead?: boolean;
 }
 
 export function EmbeddedView(props: EmbeddedViewProps) {
@@ -201,15 +204,22 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     previousKey.current = elementKey === "" ? null : elementKey;
   }, [host, elementKey]);
 
+  const slotEnabled = host !== null && elementKey !== "" && viewSrc !== null;
   useWebviewSlot({
     host,
     kind: "app",
-    enabled: host !== null && elementKey !== "" && viewSrc !== null,
+    enabled: slotEnabled,
     key: elementKey,
     src: viewSrc ?? "",
     ref,
     shown: shown && phase === "ready",
     layer,
+  });
+  useAppTabHead({
+    host,
+    viewKey: elementKey,
+    enabled: slotEnabled && props.tabHead === true,
+    label,
   });
 
   const retry = () => setAttempt((count) => count + 1);

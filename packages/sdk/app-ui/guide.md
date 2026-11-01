@@ -2,8 +2,9 @@
 
 ## 목적
 
-앱 view의 bridge(`lophnApp`)를 쓰는 UI 둘이다. 선언한 operation 하나를 부르는
-`OperationButton`·`useOperation`과 앱 화면 root의 `AppErrorBoundary`다. 화면은
+앱 view의 bridge(`lophnApp`)를 쓰는 UI 셋이다. 선언한 operation 하나를 부르는
+`OperationButton`·`useOperation`, 앱 화면 root의 `AppErrorBoundary`, 화면의 머리
+조작을 lophn 탭 머리 줄에 올리는 `useTabHead`다. 화면은
 operation만 부르고, 호출은 앱 view의 `lophnApp.callOperation` 하나로만 한다.
 호출이 허락되는지, 사람이 정해야 하는지는 lophn이 정하고 앱 안에 따로 확인
 dialog를 두지 않는다. 조작은 lophn 화면과 같은 component(`@lophn/ui`)다. bridge가
@@ -45,9 +46,24 @@ import {
 - 두 component의 문구(실패 문장과 [Try again])는 lophn 화면과 같은 언어로
   보인다. lophn이 앱 view 문서의 `<html data-lophn-locale>`에 그 언어를 적고,
   값이 없으면(앱 view 밖) en이다. 앱 자기 화면의 문구는 앱이 그대로 쓴다.
+- `useTabHead(head, handlers?, app?)` — 화면이 lophn 탭(앱 화면 탭, 앱 panel
+  탭)으로 열렸을 때 그 탭의 머리 줄(← →, 경로, ⋯ 메뉴가 있는 줄)에 `head`를
+  올린다. 앱 머리 줄과 lophn 머리 줄이 두 줄로 쌓이지 않게 한다.
+  - `head`는 글과 id뿐이다. `crumbs`(앱 이름 뒤 경로), `tabs`(`{items,
+    selected}`, 경로 뒤 탭), `status`(오른쪽 상태 글), `actions`(⋯ 앞 단추.
+    `primary`·`busy`·`disabled`), `menu`(⋯ 메뉴 맨 위 묶음), `nav`(`{canBack,
+    canForward}`. 주면 ← →가 앱 안의 뒤로·앞으로가 된다). 항목은 `{id, label}`
+    이고 글은 80자, 항목은 24개까지 보인다. 아이콘과 React 요소는 싣지 못한다.
+  - `handlers`는 `onTab(id)`·`onAction(id)`·`onMenu(id)`·`onBack()`·
+    `onForward()`다.
+  - 돌려주는 값은 lophn이 지금 그 머리 줄을 그리는지다. 앱 창, 떠 있는 패널,
+    세션 카드처럼 머리 줄이 없는 곳이면 false이고, 화면이 같은 조작을 스스로
+    그린다. `null`이나 화면이 사라지면 내린다. `head`는 값이 바뀔 때만 다시
+    올린다.
 - type: `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
-  `AppErrorBoundaryProps`
+  `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`,
+  `TabHeadEvent`, `TabHeadHandlers`, `TabHeadBridge`
 
 ## 요구 permission
 
@@ -91,6 +107,38 @@ createRoot(element).render(
 ```
 
 문구는 앱의 message key로 주고 operation 이름과 섞지 않는다.
+
+화면 안 보기 탭과 주 행동은 lophn 탭 머리 줄에 올리고, 올리지 못한 곳에서만
+스스로 그린다.
+
+```tsx
+import { useTabHead, useOperation } from "@lophn/app-ui";
+
+const collect = useOperation(collectOperation);
+const inHead = useTabHead(
+  {
+    tabs: { items: VIEWS, selected: view },
+    status: summary,
+    actions: [{
+      id: "collect",
+      label: "Collect now",
+      primary: true,
+      busy: collect.state.status === "pending",
+    }],
+  },
+  {
+    onTab: setView,
+    onAction: (id) => id === "collect" && void collect.run(null),
+  },
+);
+
+return (
+  <AppShell title="Usage" actions={inHead ? undefined : <CollectButton />}>
+    {inHead ? null : <ViewTabs />}
+    …
+  </AppShell>
+);
+```
 
 ## version 정책
 

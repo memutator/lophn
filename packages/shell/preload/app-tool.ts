@@ -1,18 +1,29 @@
-// 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`과
-// `lophnApp.openExternal`만 열고, 다른 앱·shell API·token·임의 method·경로·파일 통로는 없다.
-// 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
+// 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`,
+// `lophnApp.openExternal`과 자기 탭 머리 줄(`setTabHead`·`onTabHead`)만 열고, 다른 앱·shell API·token·임의
+// method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
-import type { LophnApp } from "../../protocol/shell/app-bridge-types.ts";
+import type {
+  LophnApp,
+  TabHead,
+  TabHeadEvent,
+} from "../../protocol/shell/app-bridge-types.ts";
 import {
   APP_CALL_OPERATION_CHANNEL,
   APP_OPEN_EXTERNAL_CHANNEL,
   APP_VIEW_ERROR_CHANNEL,
   type AppReply,
 } from "../ipc/app.ts";
+import {
+  APP_TAB_HEAD_CHANNEL,
+  APP_TAB_HEAD_EVENT_CHANNEL,
+} from "../ipc/app-tab-head.ts";
 
 interface AppTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
   send(channel: string, input: unknown): void;
+  /** 이 view를 품은 shell renderer(`<webview>` element)로 보낸다. */
+  sendToHost(channel: string, input: unknown): void;
+  on(channel: string, listener: (payload: unknown) => void): void;
 }
 
 function replyOf(value: unknown): AppReply<unknown> | undefined {
@@ -47,11 +58,44 @@ async function request(
 }
 
 export function createAppTool(transport: AppTransport): LophnApp {
+  // shell이 머리 줄을 그리는지는 page가 받기 시작하기 전에 올 수 있어 여기 쥐고 있다가 새 listener에 준다.
+  let shown = false;
+  const listeners = new Set<(event: TabHeadEvent) => void>();
+  transport.on(APP_TAB_HEAD_EVENT_CHANNEL, (payload) => {
+    const event = payload as TabHeadEvent;
+    if (event?.type === "shown") shown = event.shown === true;
+    for (const listener of listeners) {
+      try {
+        listener(event);
+      } catch {
+        // 한 listener의 오류가 다른 listener를 막지 않는다. 오류 자체는 main world가 본다.
+      }
+    }
+  });
+  try {
+    transport.sendToHost(APP_TAB_HEAD_CHANNEL, { hello: true });
+  } catch {
+    // shell 밖이면 머리 줄이 없다.
+  }
   return Object.freeze({
     callOperation: (operation: string, input: unknown) =>
       request(transport, APP_CALL_OPERATION_CHANNEL, { operation, input }),
     async openExternal(url: string): Promise<void> {
       await request(transport, APP_OPEN_EXTERNAL_CHANNEL, { url });
+    },
+    setTabHead(head: TabHead | null): void {
+      try {
+        transport.sendToHost(APP_TAB_HEAD_CHANNEL, head ?? null);
+      } catch {
+        // 보낼 수 없는 값(함수 등)이면 머리 줄을 바꾸지 않는다.
+      }
+    },
+    onTabHead(listener: (event: TabHeadEvent) => void): () => void {
+      listeners.add(listener);
+      listener({ type: "shown", shown });
+      return () => {
+        listeners.delete(listener);
+      };
     },
   });
 }

@@ -1,6 +1,6 @@
 // card 머리 경로의 한 조각을 눌렀을 때 뜨는 popover 안의 파일 tree. Explorer의 읽기(useFileTree)와 줄(Row)을 그대로 쓰고,
 // 폴더는 그 자리에서 펼치고 접으며 파일은 Explorer처럼 연다. Popover 안에서만 mount되어 열 때마다 새로 읽는다.
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import type { WorkspaceSource } from "../source.ts";
 import { Row } from "./explorer-row.tsx";
@@ -17,7 +17,7 @@ export function CrumbBrowse({
   onOpenFile,
 }: {
   source: WorkspaceSource;
-  /** 보여 줄 폴더(절대 경로). */
+  /** 보여 줄 폴더(절대 경로). 지금 파일까지의 길은 이 아래에서 펼친다. */
   dir: string;
   /** 지금 탭의 파일. 그쪽 길을 펼치고 고른다. */
   current: string;
@@ -25,15 +25,29 @@ export function CrumbBrowse({
   onOpenFile: (path: string, keep?: boolean) => void;
 }) {
   const tree = useFileTree(source, dir);
+  const panel = useRef<HTMLDivElement>(null);
+  const scrolled = useRef(false);
   useEffect(() => {
     tree.reveal(current);
   }, [current]);
+  // 긴 폴더에서도 지금 파일이 보이게, 그 줄이 처음 그려질 때 한 번 맞춘다.
+  useEffect(() => {
+    if (scrolled.current) return;
+    const row = panel.current?.querySelector("[data-current]");
+    if (row === null || row === undefined) return;
+    scrolled.current = true;
+    row.scrollIntoView?.({ block: "center" });
+  }, [tree.rows]);
   const activate = (row: FileRow, keep = false) => {
     if (row.folder) tree.toggle(row.id);
     else onOpenFile(row.id, keep);
   };
   return (
-    <div className={`${treeStyles.tree} ${styles.panel}`} role="tree">
+    <div
+      ref={panel}
+      className={`${treeStyles.tree} ${styles.panel}`}
+      role="tree"
+    >
       {tree.rows.map((row) => (
         <Row
           key={row.id}

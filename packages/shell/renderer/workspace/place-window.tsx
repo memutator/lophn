@@ -1576,7 +1576,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
               .filter((part) => part !== ""),
           ];
   };
-  // 파일 탭의 경로 조각을 눌러 둘러볼 폴더. 조각마다 그 폴더, 파일 조각은 위쪽 폴더다. 연결 폴더 밖 파일이면 없다.
+  // 파일 탭의 경로 조각을 눌러 둘러볼 폴더(VS Code breadcrumb처럼). 폴더 조각은 그 폴더가 든 위쪽 폴더, 연결 폴더 조각은
+  // 그 폴더 자신, 파일 조각은 파일이 든 폴더다. 연결 폴더 밖 파일이면 없다.
   const browseOf = (tab: TabItem): CardPane["browse"] => {
     const path = pathOfTab(tab);
     const owner = (loaded.project?.folders ?? []).find((item) =>
@@ -1585,11 +1586,14 @@ export function PlaceWindow(props: PlaceWindowProps) {
     if (path === null || owner === undefined) return undefined;
     const base = owner.path.replace(/\/+$/, "");
     const parts = path.slice(base.length + 1).split("/");
-    const dirs = [base];
+    const chain = [base];
     for (const part of parts.slice(0, -1)) {
-      dirs.push(`${dirs[dirs.length - 1]}/${part}`);
+      chain.push(`${chain[chain.length - 1]}/${part}`);
     }
-    dirs.push(dirs[dirs.length - 1]);
+    const dirs = [
+      ...chain.map((_, at) => chain[Math.max(at - 1, 0)]),
+      chain[chain.length - 1],
+    ];
     return {
       dirs,
       panel: (dir, close) => (

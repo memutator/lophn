@@ -8,7 +8,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
  보낸 쪽                                  Router (core/router)                    받는 쪽
  ───────                                  ────────────────────                    ───────
  person (메시지)             ─┐           받는 곳 풀기                        ┌─ lophn session
- agent-tools (call/reply/cancel) ─┤       ├ 새 session   : agent 이름+place로 하나 │   run-loop 입력함(메모리)
+ lophn call send|reply|cancel  ─┤       ├ 새 session   : agent 이름+place로 하나 │   run-loop 입력함(메모리)
  program (알림)              ─┘─ route ─▶ ├ 열린 session : session ID           │
                                           └ 둘 다        : 열려 있으면 거기,    │
                                             닫혔으면 fallback의 agent+place 새 session ┘
@@ -35,7 +35,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 부르는 것 자체에는 묻지도 막지도 않는다. call tool에 Gate가 없고 Router도 판정하지 않는다. 누구를 부르는지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
 - 받은 메시지는 허락이 아니다. 받은 agent는 자기 할당으로만 일한다(`products/AGENT.md` T6). program이 막는 것은 이것 하나다.
   - "거절당한 일을 다른 agent에게 돌려 시키지 않기"는 의미 판단이라 program이 막을 수 없고 agent 지침에 둔다.
-- unattended는 call을 따라 간다. unattended turn이 보낸 call과 답에 표시(`unattended`)가 실리고, Router가 그 표시를 봉투, 입력함 입력(`RoutedInput`), `agent_calls` 행에 옮긴다. 받는 turn은 그 입력으로 unattended가 된다(`architecture/approval.md`의 turn mode).
+- unattended는 call을 따라 간다. unattended turn이 보낸 call과 답에 표시(`unattended`)가 실리고(core의 `calls.send`·`calls.reply`가 부른 agent credential의 turn mode를 읽어 찍는다, `packages/core/router/commands.ts`), Router가 그 표시를 봉투, 입력함 입력(`RoutedInput`), `agent_calls` 행에 옮긴다. 받는 turn은 그 입력으로 unattended가 된다(`architecture/approval.md`의 turn mode).
   - 답의 표시는 call 행이 아니라 답한 turn에서 온다. unattended call을 받은 session에 사람이 끼어들어 attended turn이 답하면 그 답은 attended다.
   - 늦은 실패(receiver_ended, lophn_restarted)와 취소 알림은 그 call 행의 표시를 따른다. 그러지 않으면 unattended 사슬의 알림 turn이 attended가 되어 사람 없이 shell `ask`에 멈춘다.
   - reaction과 화면의 사람 메시지는 표시가 없어 attended다. skip은 실리지 않는다(사람이 정한 것은 그 대화다). 예외는 둘이다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)와 workflow가 넣은 step 입력(`architecture/workflow.md`)은 unattended turn을 연다.
@@ -45,7 +45,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - `agent_calls` 행은 agent가 보낸 call에만 둔다. 사람 메시지와 reaction(program 알림)은 행이 없다.
   - 이름을 풀지 못한 call도 행이 없다(받는 곳을 적을 수 없다). 끝난 행은 trigger가 막아 바뀌지 않는다. 이어지는 일은 새 call이다.
 - dedup(보낸 session + tool call ID)은 unique다.
-  - run-loop는 일시 실패한 read tool을 같은 tool call로 한 번 더 부른다. call tool의 효과는 read라 그 대상이고, 첫 시도가 call을 만들고 실패로 돌아오면 재시도가 call과 session을 하나 더 만든다.
+  - run-loop는 일시 실패한 read tool을 같은 tool call로 한 번 더 부른다. `call.send` 명령(`packages/cli/commands/call.ts`)의 효과는 read라 그 대상이고 dedup은 명령의 idempotency key(그 tool call ID)다. 첫 시도가 call을 만들고 실패로 돌아오면 재시도가 call과 session을 하나 더 만든다.
 - 입력함은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 failed(lophn_restarted)로 닫는다.
   - 같은 tx에서 돌던 turn도 interrupted로 닫고, agent runtime이 turn을 읽기 전에 끝낸다. durable queue를 만들지 않는 대신 조용히 사라지는 call이 없게 하는 장치다.
 - 답 없는 call(none)은 받는 turn이 입력을 가져갈 때(consumed) done이 된다. 그 전까지는 accepted다.

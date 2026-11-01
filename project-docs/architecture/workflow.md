@@ -103,10 +103,10 @@ flow
 - project의 `workflows/`는 그 project place의 session이 file tool로 읽고 쓴다(`placeScope`). app place와 home에는 열리지 않는다. 폴더는 project place의 turn 시작에 만들고, place 정보에 `Workflows folder:` 줄로 절대 경로가 보인다. rewind의 쓰기 폴더도 같은 규칙을 따른다(`architecture/domain.md`).
 - 정의를 만들고 고치는 법은 project place의 내장 skill `write-workflow`다.
 
-agent tool과 CLI
-- agent tool `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`을 모든 place 종류가 받는다. `workflow.check`는 project place만 받는다("flow"). 누구든 참가자일 수 있다. 시작하는 tool은 없다. 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project place를 쓴다.
-- 모든 place 종류의 제품 규칙이 step tag의 뜻과 report하는 법을 말한다. agent는 instance 상태를 늘 받지 않고 고칠 일이 있을 때 `workflow.get`으로 읽는다.
-- CLI는 `lophn workflow start <workflow> <text>`(`--step`), `report <instance> <step> <text>`(`--next`, `--session`), `stop <instance>`, `show <instance>`다. 자격은 user token이다(`architecture/run.md` "CLI와 자격"). lophn 밖의 program도 이 입구로 사람으로서 report한다. flow의 report는 이 입구가 아니라 core 안에서 `by: program`으로 들어간다.
+명령
+- workflow 명령은 `packages/cli/commands/workflow.ts` 하나이고 lophn agent의 `lophn` tool과 binary가 같이 쓴다. `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`은 모든 place 종류의 agent가 부른다. `workflow.check`는 project place만 부른다("flow"). 누구든 참가자일 수 있다. `workflow.start`, `workflow.stop`은 route가 사람만 받아 binary 전용이다. agent가 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project place를 쓴다.
+- 모든 place 종류의 제품 규칙이 step tag의 뜻과 report하는 법을 말한다. agent는 instance 상태를 늘 받지 않고 고칠 일이 있을 때 `lophn workflow get`(`--lines N`이면 최근 N줄)으로 읽는다.
+- binary는 `lophn workflow start <workflow> <text>`(`--step`), `report <instance> <step> <text>`(`--next`, `--session`), `stop <instance>`, `get <instance>`다. 자격은 user token이다(`architecture/run.md` "CLI와 자격"). lophn 밖의 program도 이 입구로 사람으로서 report한다. flow의 report는 이 입구가 아니라 core 안에서 `by: program`으로 들어간다.
 
 artifact
 - workflow artifact는 봉한 view로 연다(`architecture/artifact.md`). source는 `{kind: workflow, project, workflow, view: static | instance, instance?}`이고 root는 그 project의 `workflows/` 안이어야 한다(realpath). instance view는 instance마다 host가 달라 origin이 갈린다.

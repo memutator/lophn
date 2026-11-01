@@ -20,6 +20,7 @@ import {
   type DecideCardProps,
   PermissionCard,
 } from "./cards/permission-card.tsx";
+import { ShareCard } from "./cards/share-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
 import type { FinishedRow } from "./finished.ts";
 import { decideWaiting, type SettledState } from "./decide.ts";
@@ -35,6 +36,7 @@ const GROUPS = [
   },
   { title: "waiting.label.group-question", kinds: ["question"] },
   { title: "waiting.label.group-activation", kinds: ["activation"] },
+  { title: "waiting.label.group-share", kinds: ["share"] },
   { title: "waiting.label.group-job", kinds: ["job_approval", "job_hold"] },
 ] as const;
 
@@ -221,6 +223,10 @@ export function WaitingPanel({
         );
       case "activation":
         return <ActivationCard key={entry.id} {...props} />;
+      case "share":
+        return (
+          <ShareCard key={entry.id} entry={entry} view={view} core={core} />
+        );
       case "job_hold":
         return (
           <JobHoldCard key={entry.id} entry={entry} view={view} core={core} />

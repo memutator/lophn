@@ -19,6 +19,7 @@ export interface Reaction {
 /** toast가 듣는 event 종류. */
 export const REACTION_EVENT_TYPES = [
   "ActivationConsentRequested",
+  "ShareRequestOpened",
   "AppRestartHalted",
   "KindViolationFound",
 ] as const;
@@ -53,6 +54,14 @@ export function reactionsOf(
       return toast(
         "activation",
         event.payload.release,
+        { app: event.payload.app_name },
+        { kind: "waiting" },
+      );
+    case "ShareRequestOpened":
+      // 같은 앱이 다시 청하면 새 toast다.
+      return toast(
+        "share",
+        `${event.subject}:${event.at}`,
         { app: event.payload.app_name },
         { kind: "waiting" },
       );

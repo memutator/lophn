@@ -2,6 +2,7 @@
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
 import type { JobHold, JobRecord } from "../../../../../protocol/jobs/jobs.ts";
 import type {
   BusEvent,
@@ -20,6 +21,7 @@ import {
   readJobHolds,
   readJobPending,
   readSessionSnapshots,
+  readShareRequests,
 } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 
@@ -55,7 +57,9 @@ export type WaitingEntry =
   // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
   | (Common & { readonly kind: "job_hold"; readonly hold: JobHold })
   // agent가 만든 job의 등록 승인. id는 job이다.
-  | (Common & { readonly kind: "job_approval"; readonly job: JobRecord });
+  | (Common & { readonly kind: "job_approval"; readonly job: JobRecord })
+  // 앱 place의 agent가 청한 앱 공유. id는 앱이다(앱마다 열린 요청은 하나).
+  | (Common & { readonly kind: "share"; readonly request: ShareRequest });
 
 type JobReads = { holds: JobHold[]; pending: JobRecord[] };
 const JOB_KINDS: readonly WaitingEntry["kind"][] = ["job_hold", "job_approval"];
@@ -84,6 +88,8 @@ const WAITING_CONDITION: EventCondition = {
     "QuestionResolved",
     "ActivationConsentRequested",
     "ActivationConsentClosed",
+    "ShareRequestOpened",
+    "ShareRequestClosed",
     // session이 없는 event라 session 조건과 섞지 않고 types에만 건다.
     "JobChanged",
   ],
@@ -179,6 +185,18 @@ export function createWaitingStore(
     };
   }
 
+  function share(request: ShareRequest): WaitingEntry {
+    return {
+      id: request.app,
+      kind: "share",
+      session: request.session,
+      agent: null,
+      place: { kind: "app", id: request.app },
+      receivedAt: request.requested_at,
+      request,
+    };
+  }
+
   function jobHold(hold: JobHold): WaitingEntry {
     return {
       id: hold.job_run.id,
@@ -247,6 +265,13 @@ export function createWaitingStore(
       case "ActivationConsentClosed":
         entries.delete(event.payload.release);
         break;
+      case "ShareRequestOpened":
+        // 새 요청이 옛 것을 대신하고 내용은 event에 없다. 다시 읽어 맞추고, 그 읽기가 publish한다.
+        void refreshShares();
+        return;
+      case "ShareRequestClosed":
+        entries.delete(event.payload.app);
+        break;
       case "JobChanged":
         // 어느 줄이 바뀌었는지 event에 없다. hold와 승인 대기를 다시 읽어 맞추고, 그 읽기가 publish한다.
         void refreshJobs();
@@ -289,15 +314,18 @@ export function createWaitingStore(
   }
 
   async function readAll() {
-    const [snapshots, consents, jobs] = await Promise.all([
+    const [snapshots, consents, shares, jobs] = await Promise.all([
       readSessionSnapshots(client.core),
       readActivationConsents(client.core),
+      readShareRequests(client.core),
       readJobs(),
     ]);
-    // snapshot과 동의는 둘 다 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
+    // snapshot과 동의와 공유 요청은 모두 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
     // job은 따로 본다. 못 읽으면(null) 지금의 job 항목을 둔 채 나머지만 맞춘다.
-    if (snapshots === null || consents === null) return null;
-    return { snapshots, consents, jobs };
+    if (snapshots === null || consents === null || shares === null) {
+      return null;
+    }
+    return { snapshots, consents, shares, jobs };
   }
 
   async function refreshConsents() {
@@ -308,6 +336,17 @@ export function createWaitingStore(
       if (entry.kind === "activation" && !open.has(id)) entries.delete(id);
     }
     for (const one of consents) put(consent(one));
+    publish();
+  }
+
+  async function refreshShares() {
+    const shares = await readShareRequests(client.core);
+    if (shares === null) return;
+    const open = new Set(shares.map((one) => one.app));
+    for (const [id, entry] of entries) {
+      if (entry.kind === "share" && !open.has(id)) entries.delete(id);
+    }
+    for (const one of shares) entries.set(one.app, share(one));
     publish();
   }
 
@@ -326,6 +365,7 @@ export function createWaitingStore(
   function replace(read: {
     snapshots: SessionSnapshot[];
     consents: ActivationConsent[];
+    shares: ShareRequest[];
     jobs: JobReads | null;
   }) {
     // job을 못 읽었으면 지금의 job 항목도 그대로 둔다.
@@ -334,6 +374,7 @@ export function createWaitingStore(
     );
     const next = replaceTurnRequests(read.snapshots);
     for (const one of read.consents) next.push(consent(one));
+    for (const one of read.shares) next.push(share(one));
     if (read.jobs !== null) next.push(...jobEntries(read.jobs));
     next.sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : 1));
     entries = new Map();

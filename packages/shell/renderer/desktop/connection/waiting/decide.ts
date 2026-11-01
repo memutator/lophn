@@ -6,6 +6,7 @@ import {
   turnRequestDecide,
 } from "../../../../../protocol/approvals/turn-request.ts";
 import { activationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import { shareRequestDecide } from "../../../../../protocol/approvals/share-request.ts";
 import {
   jobApprove,
   jobDecideHold,
@@ -174,6 +175,30 @@ export async function decideJobApproval(
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
   return jobApprove.output.safeParse(reply.value).success
+    ? { ok: true }
+    : UNAVAILABLE;
+}
+
+/** 앱 공유 요청을 승인하거나 거절한다. 항목은 ShareRequestClosed가 목록에서 뺀다. */
+export async function decideShare(
+  core: CoreSource,
+  entry: WaitingEntry & { kind: "share" },
+  choice: "approve" | "reject",
+): Promise<
+  { readonly ok: true } | { readonly ok: false; readonly code: string }
+> {
+  const reply = await core
+    .call(
+      commandCall(shareRequestDecide, {
+        input: { app: entry.request.app, choice },
+        compare: { requested_at: entry.request.requested_at },
+        key: `share-${entry.request.app}-${entry.request.requested_at}-${choice}`,
+      }),
+    )
+    .catch(() => null);
+  if (!reply) return UNAVAILABLE;
+  if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
+  return shareRequestDecide.output.safeParse(reply.value).success
     ? { ok: true }
     : UNAVAILABLE;
 }

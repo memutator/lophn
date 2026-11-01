@@ -87,6 +87,8 @@ function metaOf(entry: WaitingEntry, names: InboxNames): string {
       : t("waiting.label.session", { id: shortId(entry.session) });
   // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다. 앱은 id 대신 이름이다.
   if (entry.kind === "activation") return entry.request.app_name;
+  // 공유 요청은 그 앱 place의 agent가 청했다. session의 agent 이름은 요청에 없어 앱 이름을 보인다.
+  if (entry.kind === "share") return entry.request.app_name;
   return [who, session, place].filter((part) => part !== "").join(" · ");
 }
 
@@ -308,6 +310,22 @@ export function cardOf(
         title: entry.job.title,
         description: jobActionText(entry.job.action, names),
       };
+    case "share": {
+      const { request } = entry;
+      const who = [
+        ...request.agents.map((agent) => agent.name),
+        ...(request.coding_agents ? [t("waiting.label.share-coding")] : []),
+      ].join(", ");
+      return {
+        ...base,
+        title: t("waiting.title.share", { app: request.app_name }),
+        description: t("waiting.notice.share", {
+          who,
+          skills: request.public_skills,
+          commands: request.public_commands,
+        }),
+      };
+    }
     case "activation": {
       const view = activationView(entry.request.comparison, names);
       const counts = { declared: view.added.length, lost: view.loss.length };

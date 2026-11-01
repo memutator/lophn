@@ -23,6 +23,8 @@ export const data = {
   "secret-input.title.provider": "Enter provider key",
   "waiting.button.allow": "Allow",
   "waiting.button.approve-job": "Approve",
+  "waiting.button.approve-share": "Share",
+  "waiting.button.reject-share": "Reject",
   "waiting.button.allow-always": "Always allow",
   "waiting.button.allow-once": "Allow once",
   "waiting.button.answer-in-terminal": "Answer in terminal",
@@ -59,6 +61,8 @@ export const data = {
   "waiting.label.group-permission": "Permission requests",
   "waiting.label.group-question": "Questions",
   "waiting.label.group-job": "Scheduled jobs",
+  "waiting.label.group-share": "App sharing",
+  "waiting.label.share-coding": "coding agents in terminals",
   "waiting.label.hide-details": "Hide details",
   "waiting.label.loss-drop-column": "Drops column",
   "waiting.label.loss-drop-table": "Drops table",
@@ -93,6 +97,8 @@ export const data = {
     "A coding agent is waiting for your answer in its terminal tab.",
   "waiting.notice.decide-failed": "Couldn't send your answer. Try again.",
   "waiting.notice.empty": "No notifications.",
+  "waiting.notice.share":
+    "Wants {who} to use its {skills, plural, one {# public skill} other {# public skills}} and {commands, plural, one {# public command} other {# public commands}}. Nothing changes until you approve.",
   "waiting.notice.job-agent": "Asks {agent}.",
   "waiting.notice.job-conflict":
     "The previous turn is still going. Try again when it finishes.",
@@ -120,10 +126,15 @@ export const data = {
   "waiting.toast-kind-violation.body":
     "A check found {count, plural, one {# new violation} other {# new violations}} in documents of a domain.",
   "waiting.toast-kind-violation.title": "Documents don't match the kinds",
+  "waiting.toast-share.body":
+    "An agent asks to share it with other agents. Look at who gets it before you decide.",
+  "waiting.toast-share.button": "Review",
+  "waiting.toast-share.title": "{app} asks to be shared",
   "waiting.toast-restart-halted.button": "Open app",
   "waiting.toast-restart-halted.body":
     "{app} kept crashing, so lophn stopped restarting it.",
   "waiting.toast-restart-halted.title": "App restart halted",
+  "waiting.title.share": "Share {app} with other agents",
   "waiting.title.activation": "Activate a new version of {app}",
   "waiting.title.tool": "Use {tool} in {app}",
   "waiting.title.coding": "Permission request in the terminal",

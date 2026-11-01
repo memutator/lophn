@@ -91,6 +91,24 @@ const activationConsentClosed = defineTransientEvent(
   },
 );
 
+// 앱 공유 요청이 표에 쓰이고 commit된 뒤 낸다. subject는 앱이다(앱마다 열린 요청은 하나이고 새 요청이 대신해도 낸다).
+const shareRequestOpened = defineTransientEvent("ShareRequestOpened", {
+  subject: idSchema("app"),
+  payload: z.strictObject({
+    app: idSchema("app"),
+    app_name: z.string().min(1),
+  }),
+});
+
+// 사람이 정해 앱 공유 요청이 닫힌 뒤 낸다.
+const shareRequestClosed = defineTransientEvent("ShareRequestClosed", {
+  subject: idSchema("app"),
+  payload: z.strictObject({
+    app: idSchema("app"),
+    outcome: z.enum(["approve", "reject"]),
+  }),
+});
+
 // kinds dispatcher가 앞 sync에 없던 위반을 볼 때 낸다. count는 그 새 위반 수다.
 const kindViolationFound = defineTransientEvent("KindViolationFound", {
   subject: idSchema("dom"),
@@ -127,6 +145,8 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(kindViolationFound),
   transientEventEnvelopeSchema(activationConsentRequested),
   transientEventEnvelopeSchema(activationConsentClosed),
+  transientEventEnvelopeSchema(shareRequestOpened),
+  transientEventEnvelopeSchema(shareRequestClosed),
   transientEventEnvelopeSchema(workflowInstanceChanged),
   transientEventEnvelopeSchema(jobChanged),
 ]);

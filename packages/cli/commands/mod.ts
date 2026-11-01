@@ -3,6 +3,7 @@
 import type { PlaceKind } from "../../protocol/lophn-agent/places.ts";
 import { AGENT_COMMANDS } from "./agent.ts";
 import { APP_COMMANDS } from "./app.ts";
+import { APP_SHARE_COMMANDS } from "./app-share.ts";
 import { CALL_COMMANDS } from "./call.ts";
 import { DOMAIN_COMMANDS } from "./domain.ts";
 import { JOB_COMMANDS } from "./job.ts";
@@ -33,6 +34,7 @@ export const COMMANDS: readonly Command[] = [
   ...JOB_COMMANDS,
   ...KIND_COMMANDS,
   ...APP_COMMANDS,
+  ...APP_SHARE_COMMANDS,
   ...PACKAGE_COMMANDS,
   ...PREVIEW_COMMANDS,
   ...RELEASE_COMMANDS,

@@ -17,6 +17,10 @@ import {
   assignmentFileWiring,
   createCoreRegistration as createAssignmentRegistration,
 } from "./wiring/assignment-file.ts";
+import {
+  createCoreRegistration as createShareRequestsRegistration,
+  shareRequestsWiring,
+} from "./wiring/share-requests.ts";
 import { configWiring } from "./wiring/config.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
@@ -71,6 +75,7 @@ export const TEAMS = [
   { createCoreRegistration: createPlaceRegistration },
   { createCoreRegistration: createUsageRegistration },
   { createCoreRegistration: createAssignmentRegistration },
+  { createCoreRegistration: createShareRequestsRegistration },
   { createCoreRegistration: createDomainOwnersRegistration },
 ];
 
@@ -96,6 +101,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/rewind-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-usage.ts", import.meta.url).href,
   new URL("./wiring/assignment-file.ts", import.meta.url).href,
+  new URL("./wiring/share-requests.ts", import.meta.url).href,
   new URL("./wiring/domains-registration.ts", import.meta.url).href,
 ];
 
@@ -126,6 +132,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   createSkillsOffWiring,
   approvalsWiring,
   assignmentFileWiring,
+  shareRequestsWiring,
   routerWiring,
   appsWiring,
   lophnAgentRewindWiring,

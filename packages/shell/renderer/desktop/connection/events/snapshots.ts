@@ -9,6 +9,10 @@ import {
   activationConsents,
 } from "../../../../../protocol/apps/activation/consent.ts";
 import {
+  type ShareRequest,
+  shareRequestList,
+} from "../../../../../protocol/approvals/share-request.ts";
+import {
   type JobHold,
   type JobRecord,
   jobHolds,
@@ -78,4 +82,20 @@ export async function readJobPending(
   if (!reply?.ok) return null;
   const parsed = jobPending.output.safeParse(reply.value);
   return parsed.success ? parsed.data.jobs : null;
+}
+
+export async function readShareRequests(
+  core: CoreSource,
+): Promise<ShareRequest[] | null> {
+  const reply = await core
+    .call({
+      kind: "read",
+      resource: shareRequestList.resource,
+      method: shareRequestList.method,
+      body: {},
+    })
+    .catch(() => null);
+  if (!reply?.ok) return null;
+  const parsed = shareRequestList.output.safeParse(reply.value);
+  return parsed.success ? parsed.data.requests : null;
 }

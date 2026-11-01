@@ -23,6 +23,12 @@ export function toastText(reaction: Reaction): ToastText {
         t("waiting.toast-activation.body"),
         t("waiting.toast-activation.button"),
       );
+    case "waiting.toast-share.title":
+      return text(
+        t("waiting.toast-share.title", { app: p.app }),
+        t("waiting.toast-share.body"),
+        t("waiting.toast-share.button"),
+      );
     case "waiting.toast-restart-halted.title":
       return text(
         t("waiting.toast-restart-halted.title"),

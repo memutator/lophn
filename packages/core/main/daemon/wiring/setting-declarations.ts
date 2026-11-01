@@ -1,4 +1,5 @@
 import { shellRulesSetting } from "../../../approvals/shell-rules/mod.ts";
+import { sharedAppsSetting } from "../../../approvals/share-requests/mod.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -9,6 +10,7 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
     ctx.provide("settingDeclarations", [
       ...lophnAgentSettings,
       shellRulesSetting,
+      sharedAppsSetting,
     ]);
   },
 });

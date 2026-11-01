@@ -1,59 +1,59 @@
 // core 조립 목록. lead가 고치는 유일한 조립 file이다. main.ts는 이 세 목록만 core에 넘긴다.
-import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
-import { createLedgerRegistration } from "../../projects/register.ts";
-import { createLedgerRegistration as createDomainsRegistration } from "../../domains/register.ts";
-import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
-import { createLedgerRegistration as createWorkflowsRegistration } from "../../workflows/register.ts";
-import { createLedgerRegistration as createJobsRegistration } from "../../jobs/register.ts";
-import { createCoreRegistration as createJobsCoreRegistration } from "./wiring/jobs-registration.ts";
-import {
-  createLedgerRegistration as createLophnAgentRegistration,
-  lophnAgentDefinitions,
-} from "./wiring/lophn-agent-team.ts";
-import type { WiringFactory } from "./wiring/context.ts";
-import { appsWiring } from "./wiring/apps.ts";
-import { annotationsWiring } from "./wiring/annotations.ts";
-import { approvalsWiring } from "./wiring/approvals.ts";
-import { configWiring } from "./wiring/config.ts";
-import { createSkillsOffWiring } from "./wiring/skills-off.ts";
-import { sdkInstallWiring } from "./wiring/sdk-install.ts";
-import { diagnosticsWiring } from "./wiring/diagnostics.ts";
-import { eventsWiring } from "./wiring/events.ts";
-import {
-  lophnAgentProviderLoginWiring,
-  lophnAgentWiring,
-} from "./wiring/lophn-agent.ts";
-import { lophnAgentExtensionsWiring } from "./wiring/lophn-agent-extensions.ts";
-import { lophnAgentRuntimeWiring } from "./wiring/lophn-agent-runtime.ts";
-import {
-  lophnAgentRewindWiring,
-  lophnAgentSessionWiring,
-} from "./wiring/lophn-agent-session.ts";
-import { routerWiring } from "./wiring/router.ts";
-import { runsWiring } from "./wiring/runs.ts";
-import { workflowsWiring } from "./wiring/workflows.ts";
-import { flowsWiring } from "./wiring/flows.ts";
-import { jobsWiring } from "./wiring/jobs.ts";
-import { projectsWiring } from "./wiring/projects.ts";
-import { kindsWiring } from "./wiring/kinds.ts";
-import { secretsWiring } from "./wiring/secrets.ts";
-import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
-import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
-import { serverWiring } from "./wiring/server.ts";
-import { storageWiring } from "./wiring/storage.ts";
-import { supervisionWiring } from "./wiring/supervision.ts";
 
 // 최상위 팀마다 등록 파일 하나.
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
-import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
-import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
+import { createLedgerRegistration as createDomainsRegistration } from "../../domains/register.ts";
+import { createLedgerRegistration as createJobsRegistration } from "../../jobs/register.ts";
+import { createLedgerRegistration } from "../../projects/register.ts";
+import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
+import { createLedgerRegistration as createWorkflowsRegistration } from "../../workflows/register.ts";
+import { annotationsWiring } from "./wiring/annotations.ts";
+import { approvalsWiring } from "./wiring/approvals.ts";
+import { appsWiring } from "./wiring/apps.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
 import {
   assignmentFileWiring,
   createCoreRegistration as createAssignmentRegistration,
 } from "./wiring/assignment-file.ts";
+import { configWiring } from "./wiring/config.ts";
+import type { WiringFactory } from "./wiring/context.ts";
+import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { createCoreRegistration as createDomainOwnersRegistration } from "./wiring/domains-registration.ts";
+import { eventsWiring } from "./wiring/events.ts";
+import { flowsWiring } from "./wiring/flows.ts";
+import { jobsWiring } from "./wiring/jobs.ts";
+import { createCoreRegistration as createJobsCoreRegistration } from "./wiring/jobs-registration.ts";
+import { kindsWiring } from "./wiring/kinds.ts";
+import {
+  lophnAgentProviderLoginWiring,
+  lophnAgentWiring,
+} from "./wiring/lophn-agent.ts";
+import { lophnAgentExtensionsWiring } from "./wiring/lophn-agent-extensions.ts";
+import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
+import { lophnAgentRuntimeWiring } from "./wiring/lophn-agent-runtime.ts";
+import {
+  lophnAgentRewindWiring,
+  lophnAgentSessionWiring,
+} from "./wiring/lophn-agent-session.ts";
+import {
+  createLedgerRegistration as createLophnAgentRegistration,
+  lophnAgentDefinitions,
+} from "./wiring/lophn-agent-team.ts";
+import { projectsWiring } from "./wiring/projects.ts";
+import { routerWiring } from "./wiring/router.ts";
+import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
+import { runsWiring } from "./wiring/runs.ts";
+import { sdkInstallWiring } from "./wiring/sdk-install.ts";
+import { secretsWiring } from "./wiring/secrets.ts";
+import { serverWiring } from "./wiring/server.ts";
+import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
+import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
+import { createSkillsOffWiring } from "./wiring/skills-off.ts";
+import { storageWiring } from "./wiring/storage.ts";
+import { supervisionWiring } from "./wiring/supervision.ts";
+import { workflowsWiring } from "./wiring/workflows.ts";
 
 export const TEAMS = [
   { createLedgerRegistration },
@@ -122,6 +122,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   kindsWiring,
   lophnAgentSessionWiring,
   lophnAgentWiring,
+  // data step은 이 순서로 돈다. skills-off가 먼저 `skills`를 옮겨야 assignment-file이 엄격한 schema로 agent 파일을 읽는다.
   createSkillsOffWiring,
   approvalsWiring,
   assignmentFileWiring,

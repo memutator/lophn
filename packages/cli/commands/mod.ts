@@ -8,6 +8,8 @@ import { DOMAIN_COMMANDS } from "./domain.ts";
 import { JOB_COMMANDS } from "./job.ts";
 import { KIND_COMMANDS } from "./kind.ts";
 import { PACKAGE_COMMANDS } from "./package.ts";
+import { PREVIEW_COMMANDS } from "./preview.ts";
+import { RELEASE_COMMANDS } from "./release.ts";
 import { RUN_COMMANDS } from "./run.ts";
 import { SESSION_COMMANDS } from "./session.ts";
 import { SETTINGS_COMMANDS } from "./settings.ts";
@@ -32,6 +34,8 @@ export const COMMANDS: readonly Command[] = [
   ...KIND_COMMANDS,
   ...APP_COMMANDS,
   ...PACKAGE_COMMANDS,
+  ...PREVIEW_COMMANDS,
+  ...RELEASE_COMMANDS,
   ...RUN_COMMANDS,
   ...SESSION_COMMANDS,
   ...SETTINGS_COMMANDS,

@@ -35,16 +35,7 @@ test("each tool appears only in the place kinds that do its work", () => {
       ["file.write", "file.edit", "shell.run"],
       ["project", "app"],
     ],
-    [
-      [
-        "release.prepare",
-        "release.activate",
-        "preview.start",
-        "preview.call",
-        "preview.stop",
-      ],
-      ["app"],
-    ],
+    [["preview.call"], ["app"]],
   ];
   for (const [names, kinds] of table) {
     for (const kind of PLACE_KINDS) {

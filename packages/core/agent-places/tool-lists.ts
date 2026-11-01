@@ -20,20 +20,13 @@ const COMMON_TOOLS = [
 const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 
 // 읽기 tool은 세 place 종류가 모두 갖는다.
-const READ_TOOLS = ["release.list", "release.get", "visual.show"] as const;
+const READ_TOOLS = ["visual.show"] as const;
 
 // place 종류가 더하는 tool이다.
 const PLACE_TOOLS = {
   home: [],
   project: [...WORK_TOOLS],
-  app: [
-    ...WORK_TOOLS,
-    "release.prepare",
-    "release.activate",
-    "preview.start",
-    "preview.call",
-    "preview.stop",
-  ],
+  app: [...WORK_TOOLS, "preview.call"],
 } as const satisfies Record<PlaceKind, readonly string[]>;
 
 // place 종류 고정 목록 = 공통 + 읽기 + place 종류 몫. 명령(`lophn` tool로 부르는 job 등)은 여기 없고
@@ -58,13 +51,7 @@ export const TOOL_ORDER = [
   "web.fetch",
   "ask",
   "skill.read",
-  "release.list",
-  "release.get",
-  "release.prepare",
-  "release.activate",
-  "preview.start",
   "preview.call",
-  "preview.stop",
   "visual.show",
   "lophn",
 ] as const;

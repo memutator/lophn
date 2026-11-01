@@ -10,6 +10,9 @@ import type {
   ProjectItem,
   ProjectsSource,
 } from "../desktop/places/projects/source.ts";
+import { sessionOf } from "../workspace/agent/tab-fields.ts";
+import { allTabs, placeKey, type PlaceRef } from "./desk-model.ts";
+import type { LayoutSource } from "./layout-source.ts";
 import type { KnownSessions } from "./left-sidebar-places.ts";
 
 /** 보관하지 않은 project와 앱. 순서는 런처와 같다. 등록·생성 뒤에는 reload로 다시 읽는다. */
@@ -100,4 +103,51 @@ export function useKnownSessions(
     };
   }, [factory, pairs, ids]);
   return known;
+}
+
+/**
+ * 이 창이 보이지 않는 place들의 layout에서 열린 Agent 탭을 읽는다: place key → session id → 탭 제목.
+ * 저장된 layout이라 창이 다시 포커스를 받거나 session 목록·place 목록이 바뀔 때 다시 읽는다.
+ */
+export function useOpenTitlesElsewhere(
+  layout: LayoutSource,
+  places: readonly PlaceRef[],
+  here: PlaceRef,
+  entries: readonly SessionEntry[],
+): ReadonlyMap<string, ReadonlyMap<string, string>> {
+  const [titles, setTitles] = useState<
+    ReadonlyMap<string, ReadonlyMap<string, string>>
+  >(new Map());
+  const [focuses, setFocuses] = useState(0);
+  useEffect(() => {
+    const onFocus = () => setFocuses((count) => count + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+  const hereKey = placeKey(here);
+  const ids = entries.map((entry) => entry.session).join();
+  useEffect(() => {
+    let live = true;
+    void Promise.all(
+      places
+        .filter((ref) => placeKey(ref) !== hereKey)
+        .map(async (ref) => {
+          const read = await layout.readPlaceLayout(ref);
+          const found = new Map<string, string>();
+          if (read.ok && read.layout !== null) {
+            for (const tab of allTabs(read.layout)) {
+              const session = tab.kind === "agent" ? sessionOf(tab) : null;
+              if (session !== null) found.set(session, tab.title);
+            }
+          }
+          return [placeKey(ref), found as ReadonlyMap<string, string>] as const;
+        }),
+    ).then((rows) => {
+      if (live) setTitles(new Map(rows));
+    });
+    return () => {
+      live = false;
+    };
+  }, [layout, places, hereKey, ids, focuses]);
+  return titles;
 }

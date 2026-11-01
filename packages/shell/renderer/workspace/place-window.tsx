@@ -115,7 +115,7 @@ import { DeskSwitcher } from "../shell/desk-switcher.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
 import { neighborLeaf, type PaneDirection } from "../shell/group-geometry.ts";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
-import { ShellFrame } from "../shell/shell-frame.tsx";
+import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import { TabDragProvider } from "../shell/tab-drag.tsx";
 import {
@@ -329,8 +329,14 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<PlaceLayout>(defaultPlaceLayout);
   const desk = activeDesk(layout);
-  const [leftOpen, setLeftOpen] = useState(windowWidth >= LEFT_OPEN_MIN);
-  const [rightOpen, setRightOpen] = useState(windowWidth >= RIGHT_OPEN_MIN);
+  const [leftOpen, setLeftOpen] = useSidebarOpen(
+    "left",
+    windowWidth >= LEFT_OPEN_MIN,
+  );
+  const [rightOpen, setRightOpen] = useSidebarOpen(
+    "right",
+    windowWidth >= RIGHT_OPEN_MIN,
+  );
   const [panel, setPanel] = useState<string>(
     isHome ? "places" : isApp ? "app" : "explorer",
   );

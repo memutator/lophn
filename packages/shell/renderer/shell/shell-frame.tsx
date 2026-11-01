@@ -4,6 +4,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
+  useCallback,
   useRef,
   useState,
 } from "react";
@@ -50,6 +51,31 @@ type Side = "left" | "right";
 
 // 폭은 창 UI 설정이라 사용자 data가 아니다. 쪽마다 localStorage에 둔다.
 const WIDTH_KEY = (side: Side) => `lophn.shell.sidebar-width.${side}`;
+
+const OPEN_KEY = (side: Side) => `lophn.shell.sidebar-open.${side}`;
+
+/** sidebar 열림. 저장한 값이 있으면 그것이 이기고 없으면 fallback이다. 값은 place와 무관하게 쪽마다 하나다. */
+export function useSidebarOpen(
+  side: Side,
+  fallback: boolean,
+): [boolean, (open: boolean | ((open: boolean) => boolean)) => void] {
+  const [open, setOpen] = useState(() => {
+    const stored = globalThis.localStorage?.getItem(OPEN_KEY(side));
+    return stored === null || stored === undefined
+      ? fallback
+      : stored === "true";
+  });
+  const set = useCallback(
+    (next: boolean | ((open: boolean) => boolean)) =>
+      setOpen((current) => {
+        const value = typeof next === "function" ? next(current) : next;
+        globalThis.localStorage?.setItem(OPEN_KEY(side), String(value));
+        return value;
+      }),
+    [side],
+  );
+  return [open, set];
+}
 
 function loadWidth(side: Side): number | null {
   const value = Number(globalThis.localStorage?.getItem(WIDTH_KEY(side)));

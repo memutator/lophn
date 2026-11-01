@@ -25,6 +25,7 @@ import {
 import { sidebarPlaces } from "../../shell/left-sidebar-places.ts";
 import {
   useKnownSessions,
+  useOpenTitlesElsewhere,
   useSidebarPlaceList,
 } from "../../shell/use-left-sidebar.ts";
 import type { WorkspaceSource } from "../source.ts";
@@ -107,6 +108,29 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
   const list = useSidebarPlaceList(projects, apps);
   const { sessions } = useSessions();
   const known = useKnownSessions(props.agentViewSource, sessions);
+  const placeRefs = useMemo(
+    (): PlaceRef[] => [
+      { kind: "home" },
+      ...list.projects.map(
+        (item): PlaceRef => ({
+          kind: "project",
+          id: item.id,
+        }),
+      ),
+      ...list.apps.map((item): PlaceRef => ({ kind: "app", id: item.id })),
+    ],
+    [list.projects, list.apps],
+  );
+  const elsewhere = useOpenTitlesElsewhere(
+    props.source.layout,
+    placeRefs,
+    current,
+    sessions,
+  );
+  const openTitles = useMemo(
+    () => new Map(elsewhere).set(placeKey(current), props.openTitles),
+    [elsewhere, current, props.openTitles],
+  );
   const workflows = useHumanTurnWorkflows(props.source, projectId);
   // 지운 줄은 session id와 터미널 key로 기억하고 둘 다 겹치지 않아 한 곳에 둔다.
   const recentHidden = useHiddenRecent(null);
@@ -120,7 +144,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         entries: sessions,
         agents: props.agents,
         known,
-        openTitles: props.openTitles,
+        openTitles,
         terminals: props.terminals,
         workflows,
         hidden: recentHidden.hidden,
@@ -132,7 +156,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       sessions,
       props.agents,
       known,
-      props.openTitles,
+      openTitles,
       props.terminals,
       workflows,
       recentHidden.hidden,

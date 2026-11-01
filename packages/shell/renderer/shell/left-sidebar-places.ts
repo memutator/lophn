@@ -2,10 +2,11 @@
 //
 // 규칙
 // - current: 이 창에 탭이 열린 session, 또는 끝나지 않았고 점이 있는 session(도는 중, 기다리는 중, 못 본 turn 끝).
-//   탭이 열렸는지는 이 창이 보이는 place만 안다(`openTitles`).
+//   탭이 열렸는지는 place마다 그 place의 layout에서 읽는다(`openTitles`). 닫기 전에는 current에 남는다.
 // - recent: 나머지(끝났거나 닫았거나 가만히 있는). 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session과 사람 차례인 workflow desk는 이 창이 보이는 place의 것만 온다.
+// - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 import { t } from "@lophn/i18n";
 
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
@@ -36,8 +37,8 @@ export interface PlacesInput {
   readonly entries: readonly SessionEntry[];
   readonly agents: readonly SidebarAgent[];
   readonly known: KnownSessions;
-  /** 이 창에 탭이 열린 session id → 그 탭의 제목. */
-  readonly openTitles: ReadonlyMap<string, string>;
+  /** place key → 그 place의 layout에 탭이 열린 session id → 그 탭의 제목. */
+  readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** 이 창이 보이는 place의 터미널 coding agent session. */
   readonly terminals: readonly PanelTerminal[];
   /** 이 창이 보이는 place에서 사람 차례를 기다리는 workflow 이름. */
@@ -77,8 +78,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
     if (agent === undefined || entry.archived) continue;
     const place = placeKeyOfEntry(entry);
     const read = input.known.get(entry.session);
-    const tabTitle =
-      place === here ? input.openTitles.get(entry.session) : undefined;
+    const tabTitle = input.openTitles.get(place)?.get(entry.session);
     const dot = sessionDot(input.entries, entry.session);
     const item: SidebarSession = {
       kind: "session",
@@ -111,6 +111,17 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
   }
 
   const byNewest = (a: SidebarSession, b: SidebarSession) => b.at - a.at;
+  // session id는 시각 순이라 만든 순이 된다. 새 줄은 끝에 붙고 다시 시작해도 같다.
+  const stable = (a: SidebarSession, b: SidebarSession) =>
+    a.kind === b.kind
+      ? a.ref < b.ref
+        ? -1
+        : a.ref > b.ref
+          ? 1
+          : 0
+      : a.kind === "session"
+        ? -1
+        : 1;
   const place = (ref: PlaceRef, name: string): SidebarPlace => {
     const key = placeKey(ref);
     const waiting: SidebarSession[] =
@@ -127,7 +138,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
     return {
       ref,
       name,
-      current: [...waiting, ...(current.get(key) ?? []).sort(byNewest)],
+      current: [...waiting, ...(current.get(key) ?? []).sort(stable)],
       recent: (recent.get(key) ?? []).sort(byNewest),
     };
   };

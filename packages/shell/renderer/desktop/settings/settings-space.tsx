@@ -3,7 +3,7 @@ import { Icon } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
 import { settingsEntryIcon, shellIcons } from "../../icons/mod.ts";
-import { ShellFrame } from "../../shell/shell-frame.tsx";
+import { ShellFrame, useSidebarOpen } from "../../shell/shell-frame.tsx";
 import { TabStrip } from "../../shell/tab-strip.tsx";
 import { WaitingLayer } from "../connection/waiting/waiting-layer.tsx";
 import { usePaletteEnv, usePaletteScope } from "../palette/host.tsx";
@@ -62,7 +62,7 @@ export function SettingsSpace({
   const [settingsPane, setSettingsPane] = useState<SettingsPane>(
     initialPane ?? DEFAULT_PANE,
   );
-  const [left, setLeft] = useState(true);
+  const [left, setLeft] = useSidebarOpen("left", true);
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 

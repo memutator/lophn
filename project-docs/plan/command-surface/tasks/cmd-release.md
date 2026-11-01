@@ -41,3 +41,12 @@
 - `ctx`: `core.read(route, input)`, `core.command(route, input, {key, compare?})`(key는 `lophn` tool에서 tool call id, binary에서 `--idempotency-key`나 무작위), `place`(binary는 undefined, home은 null), `clock`, `signal`. 결과는 `{summary, content, arrayKeys?, text?, failed?, note?}`(`CommandResult`).
 - 함정: 내장 tool을 명령으로 옮기면 같은 변경에서 옛 tool 정의와 `packages/core/agent-places/tool-lists.ts`의 그 이름을 지운다. wire 이름이 겹치면 `buildWireTable`이 실패해 그 session의 모든 tool이 "not available"이 된다(`packages/core/main/agent-tools_test.ts`가 잡는다).
 - 추가 소유(등록 줄만): `packages/cli/commands/mod.ts`에 이 task의 명령 배열 한 줄, `packages/core/agent-places/tool-lists.ts`에서 옮긴 tool 이름 지우기, `packages/core/main/agent-tools.ts`에서 옮긴 bundle 지우기. 다른 task도 같은 줄을 고치므로 merge 충돌은 lead가 푼다.
+
+## lead가 더함 (app-layers merge 뒤)
+
+- 선언: `operations[]` `{name, title, effect}`, `commands[]` `{name, description, inputSchema|null, effect, public, domain}`, `app_connections[]` `{app, commands[], reason}`. type은 `OperationDeclaration`, `CommandDeclaration`, `AppCommandUseDeclaration`이고 `handlerNames(declaration)`이 있다.
+- core 호출 route는 이름 그대로 `app.call_tool`(`appCallTool`)이고 입력은 `{target, kind: "operation"|"command", name, input?, caller}`다. 출력 type 이름(`ToolCallOutput` 등)도 그대로다. person이 아닌 쪽의 operation 호출은 `denied(gate_blocked)`다.
+- 앱 process wire는 `{invocation, kind, name, input?, context}`, 앱→앱 broker는 `{target_app, command, input?, parent_invocation}`, invocation 기록의 `operation`은 `{kind: "operation"|"command", name}`이다.
+- `apps/tools` 읽기의 `tools`는 command 목록이고 `operations`가 따로 있다. `app.tool_index`는 command만 싣는다. 저장된 칸 이름(`removed_tools`, grant의 `app_tools`, `facts.tools`)은 그대로이고 안에 command 이름이 든다.
+- 화면 bridge는 `lophnApp.callOperation(operation, input)`, IPC `app:call-operation`이다. SDK: `@lophn/cap-tool` 2.0.0(`handle`, `connectCommands`), `@lophn/app-ui` 2.0.0(`OperationButton`, `useOperation`), `@lophn/declaration` 2.0.0.
+- `preview.call` 입력은 `{app, kind, name, input?}`다.

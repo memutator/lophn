@@ -49,3 +49,12 @@
 - `lophn` tool: `packages/core/lophn-agent/tools/lophn/{tool,resolve,command-tool}.ts`. `dispatchTarget`(`packages/core/lophn-agent/tools/dispatch.ts`)이 `lophn {args}`를 명령의 wire 이름과 입력으로 푼다. `prepare.ts`가 `commandTools(kind)`를 `listed`에 더하고 `describeLophn`으로 설명에 명령 목록을 붙인다.
 - 명령 표: `packages/cli/commands/mod.ts`의 `COMMANDS`, `commandsForPlace(kind)`. parser는 `packages/cli/parser.ts`의 `parseCommandLine`.
 - core가 import할 수 있는 cli 쪽은 `packages/cli/{commands/,parser.ts,help.ts}`뿐이다(`tools/check-deps.ts`의 `cli-surface`).
+
+## lead가 더함 (app-layers merge 뒤)
+
+- 선언: `operations[]` `{name, title, effect}`, `commands[]` `{name, description, inputSchema|null, effect, public, domain}`, `app_connections[]` `{app, commands[], reason}`. type은 `OperationDeclaration`, `CommandDeclaration`, `AppCommandUseDeclaration`이고 `handlerNames(declaration)`이 있다.
+- core 호출 route는 이름 그대로 `app.call_tool`(`appCallTool`)이고 입력은 `{target, kind: "operation"|"command", name, input?, caller}`다. 출력 type 이름(`ToolCallOutput` 등)도 그대로다. person이 아닌 쪽의 operation 호출은 `denied(gate_blocked)`다.
+- 앱 process wire는 `{invocation, kind, name, input?, context}`, 앱→앱 broker는 `{target_app, command, input?, parent_invocation}`, invocation 기록의 `operation`은 `{kind: "operation"|"command", name}`이다.
+- `apps/tools` 읽기의 `tools`는 command 목록이고 `operations`가 따로 있다. `app.tool_index`는 command만 싣는다. 저장된 칸 이름(`removed_tools`, grant의 `app_tools`, `facts.tools`)은 그대로이고 안에 command 이름이 든다.
+- 화면 bridge는 `lophnApp.callOperation(operation, input)`, IPC `app:call-operation`이다. SDK: `@lophn/cap-tool` 2.0.0(`handle`, `connectCommands`), `@lophn/app-ui` 2.0.0(`OperationButton`, `useOperation`), `@lophn/declaration` 2.0.0.
+- `preview.call` 입력은 `{app, kind, name, input?}`다.

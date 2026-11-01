@@ -6,6 +6,8 @@ import type {
   PlaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
+import { sharedSkillsOf } from "./skill-folders.ts";
+import { ok } from "../../../base/mod.ts";
 import { receivedSkills } from "../agents/resolve.ts";
 import {
   discoverSkills,
@@ -155,6 +157,7 @@ for (const one of CASES) {
       port,
       builtin_root: "/b",
       personal_store: null,
+      shared: () => Promise.resolve([]),
       global: () => Promise.resolve({ roots: ["/g"], off: globalOff }),
       place: () =>
         Promise.resolve({
@@ -168,6 +171,7 @@ for (const one of CASES) {
       kind: one.kind,
       place: PLACE,
       off: agentOff,
+      apps: [],
     });
 
     const listed = snapshot.skills.find(
@@ -234,6 +238,7 @@ test("the agent gets every skill except the ones it turned off, and a built-in t
     port,
     builtin_root: "/b",
     personal_store: null,
+    shared: () => Promise.resolve([]),
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
     place: () =>
       Promise.resolve({ place_skills: null, domain_stores: [], off: [] }),
@@ -244,6 +249,7 @@ test("the agent gets every skill except the ones it turned off, and a built-in t
       kind: "project",
       place: PLACE,
       off,
+      apps: [],
     });
     const code = async (name: string) => {
       const read = await snapshot.reader.read(SESSION, name);
@@ -324,6 +330,7 @@ test("same-name skills in a global layer and domains go to the agent by the doma
     port,
     builtin_root: null,
     personal_store: null,
+    shared: () => Promise.resolve([]),
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
     place: () =>
       Promise.resolve({
@@ -344,6 +351,7 @@ test("same-name skills in a global layer and domains go to the agent by the doma
       kind: "project",
       place: PLACE,
       off: [],
+      apps: [],
       domains,
     });
     const read = await snapshot.reader.read(SESSION, "x");
@@ -395,7 +403,7 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
     },
   });
   const project: AgentPlace = { kind: "project", id: "prj_01" };
-  const app: AgentPlace = { kind: "app", id: "app_01" };
+  const app: AgentPlace = { kind: "app", id: "app_01h455vb4pex5v6nkc6gd5fd01" };
   const table: [PlaceKind, AgentPlace | null, string][] = [
     ["home", null, "human"],
     ["project", project, "built-in"],
@@ -432,11 +440,12 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
       port,
       builtin_root: null,
       personal_store: null,
+      shared: () => Promise.resolve([]),
       global: () => Promise.resolve({ roots: ["/g"], off: [] }),
       place: () =>
         Promise.resolve({ place_skills: null, domain_stores: [], off: [] }),
     },
-    { id: SESSION, kind: "project", place: PLACE, off: [] },
+    { id: SESSION, kind: "project", place: PLACE, off: [], apps: [] },
   );
   const read = (name: string, path?: string) =>
     snapshot.reader.read(SESSION, name, path);
@@ -459,4 +468,71 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
     await outcome("two", "design-app.md"),
     "not_found: skill two has no file design-app.md (no bundled files)",
   );
+});
+
+// 앱을 할당받지 않은 agent는 그 앱의 public skill을 목록에서도 skill.read로도 받지 않는다. 할당받아도 같은 이름의
+// 전역 skill이 이기고(공유 층은 내장 바로 위), 앱 자기 place에서는 `app` 층이 있어 공유로 또 싣지 않는다.
+test("shared skills reach only the agents the app is assigned to", async () => {
+  const slug = "notes";
+  const shared = {
+    app: "app_01h455vb4pex5v6nkc6gd5fd01",
+    slug,
+    release: "rel_01h455vb4pex5v6nkc6gd5fd01",
+    name: "share-me",
+    description: "shared",
+    skill_md: skillFile("share-me", "SHARED_BODY"),
+    files: [{ name: "extra.md", text: "EXTRA" }],
+  };
+  const clash = { ...shared, name: "x", skill_md: skillFile("x", "FROM_APP") };
+  // route처럼 요청한 slug의 것만 준다.
+  const machine = (path: string, body: unknown) => {
+    assert.strictEqual(path, "/apps/skills");
+    const { apps } = body as { apps: string[] };
+    return Promise.resolve(
+      ok({ skills: apps.includes(slug) ? [shared, clash] : [] }),
+    );
+  };
+  const deps: SkillSnapshotDeps = {
+    port: treeOf({ "/g/x/SKILL.md": skillFile("x", "GLOBAL") }),
+    builtin_root: null,
+    personal_store: null,
+    shared: (apps, place) => sharedSkillsOf(machine, apps, place),
+    global: () => Promise.resolve({ roots: ["/g"], off: [] }),
+    place: () =>
+      Promise.resolve({ place_skills: null, domain_stores: [], off: [] }),
+  };
+  const outcome = async (apps: string[], place: AgentPlace = PLACE) => {
+    const snapshot = await createSkillSnapshot(deps, {
+      id: SESSION,
+      kind: place.kind,
+      place,
+      off: [],
+      apps,
+    });
+    const text = async (name: string, path?: string) => {
+      const read = await snapshot.reader.read(SESSION, name, path);
+      return read.ok ? read.value.trim() : read.error.code;
+    };
+    return {
+      listed: snapshot.skills.map((skill) => skill.name),
+      body: await text("share-me"),
+      file: await text("share-me", "extra.md"),
+      clash: await text("x"),
+    };
+  };
+
+  assert.deepStrictEqual(await outcome([slug]), {
+    listed: ["share-me", "x"],
+    body: "SHARED_BODY",
+    file: "EXTRA",
+    clash: "GLOBAL",
+  });
+  assert.deepStrictEqual(await outcome([]), {
+    listed: ["x"],
+    body: "not_found",
+    file: "not_found",
+    clash: "GLOBAL",
+  });
+  const own: AgentPlace = { kind: "app", id: "app_01h455vb4pex5v6nkc6gd5fd01" };
+  assert.deepStrictEqual((await outcome([slug], own)).listed, ["x"]);
 });

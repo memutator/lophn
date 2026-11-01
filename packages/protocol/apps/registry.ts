@@ -15,7 +15,12 @@ import {
   annotationUploadScreenshot,
 } from "./annotation.ts";
 import { appLogViewError } from "./app-log.ts";
-import { appIcon, appToolIndex, appTools } from "./declaration/read.ts";
+import {
+  appIcon,
+  appSkills,
+  appToolIndex,
+  appTools,
+} from "./declaration/read.ts";
 import { declarationCheck } from "./declaration/check.ts";
 import {
   appCallTool,
@@ -79,6 +84,7 @@ export const ROUTES = [
   appTools,
   appToolIndex,
   appIcon,
+  appSkills,
   declarationCheck,
   appCallTool,
   appInvocations,

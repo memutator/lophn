@@ -61,7 +61,7 @@ import { createDataCommands } from "./data/commands.ts";
 import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
-import { appIcon } from "../../protocol/apps/declaration/read.ts";
+import { appIcon, appSkills } from "../../protocol/apps/declaration/read.ts";
 import { packagesGuideBody } from "../../protocol/apps/mod.ts";
 import type {
   ReaderRegistration,
@@ -92,7 +92,11 @@ const unattachedGuideBodyRead = {
 // 앱 process 같은 core 메모리를 읽는 route는 등록 때 unavailable로 올리고 core 조립
 // (wiring/apps.ts)이 handler로 덮는다. reader Worker는 이 메모리를 볼 수 없다.
 function unattachedRead<
-  R extends typeof appRewindPlan | typeof appRewinds | typeof appIcon,
+  R extends
+    | typeof appRewindPlan
+    | typeof appRewinds
+    | typeof appIcon
+    | typeof appSkills,
 >(route: R) {
   return {
     route,
@@ -141,6 +145,7 @@ export function createLedgerRegistration(
       unattachedRead(appRewinds),
       // 파일을 읽어야 해서 core 조립이 handler로 덮는다.
       unattachedRead(appIcon),
+      unattachedRead(appSkills),
       // 도는 줄은 core 메모리라 core 조립(apps control)이 driver가 읽는 줄로 덮는다.
       createActivationQueueRead({
         entries: () =>

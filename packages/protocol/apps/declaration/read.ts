@@ -4,7 +4,7 @@ import { iconReadOutputSchema, type IconImage } from "../../base/icon.ts";
 import { jsonValueSchema } from "../../base/json-values.ts";
 import { sha256Schema } from "../../base/values.ts";
 import { withReadCommon } from "../../base/envelope.ts";
-import { appIdSchema } from "../../projects/values.ts";
+import { appIdSchema, slugSchema } from "../../projects/values.ts";
 import { appInputSchema, releaseIdSchema } from "../apps.ts";
 import { permissionRequirementSchema } from "../permissions.ts";
 
@@ -104,6 +104,31 @@ export const appIcon = defineRead({
   input: appInputSchema,
   output: iconReadOutputSchema,
   actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+});
+
+// `app.skills`. 앱 slug마다 active release bundle의 public skill(선언 `skills[].public`)이다. SKILL.md 전체와 옆에 딸린
+// `.md` 파일 본문을 싣는다. 없는 slug, 보관한 앱, active release가 없는 앱, 읽을 수 없는 skill은 오류 없이 뺀다.
+// agent의 공유 skill 받기와 coding agent harness 사본이 같은 것을 읽는다.
+export const appSkills = defineRead({
+  resource: "apps",
+  method: "skills",
+  name: "app.skills",
+  input: z.strictObject({ apps: z.array(slugSchema).max(64) }),
+  output: z.object({
+    skills: z.array(
+      z.object({
+        app: appIdSchema,
+        slug: slugSchema,
+        release: releaseIdSchema,
+        name: z.string().min(1),
+        description: z.string().min(1),
+        skill_md: z.string(),
+        files: z.array(z.object({ name: z.string(), text: z.string() })),
+      }),
+    ),
+  }),
+  actors: ["user", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 

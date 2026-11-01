@@ -91,6 +91,7 @@ import {
 } from "../../../apps/rewind/mod.ts";
 import {
   appIconRead,
+  appSkillsRead,
   appStatesOf,
   appToolLookupOf,
   bundleLocatorOf,
@@ -104,6 +105,7 @@ import {
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
+import { createAppSkillsDeps } from "../../../apps/screens/skills.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { domainsOfOwner } from "../../../domains/mod.ts";
@@ -453,6 +455,10 @@ export const appsWiring: WiringFactory = () => {
               iconPath: iconPathOf(link.sql),
               uploaded: (app) => ok(loadAppIcon(link.sql, app)),
             }),
+          );
+          reads.set(
+            "apps/skills",
+            appSkillsRead(createAppSkillsDeps(locator), link.sql),
           );
           // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
           // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다.

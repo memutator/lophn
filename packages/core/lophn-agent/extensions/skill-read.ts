@@ -12,6 +12,8 @@ import {
   joinPath,
   type PlaceSkills,
   pickSkills,
+  type SharedSkill,
+  sharedPathOf,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
   type SkillEntry,
@@ -38,6 +40,11 @@ export type SkillSnapshotDeps = {
     domain_stores: readonly DomainStore[];
     off: readonly string[];
   }>;
+  // 이 agent에게 할당한 앱(slug)이 내놓은 public skill이다. 읽지 못하면 없는 것이다.
+  shared(
+    apps: readonly string[],
+    place: AgentPlace | null,
+  ): Promise<readonly SharedSkill[]>;
 };
 
 type SkillSession = {
@@ -47,6 +54,8 @@ type SkillSession = {
   place: AgentPlace | null;
   // agent 정의가 끈 이름(`skills_off`)이다.
   off: readonly string[];
+  // agent 정의에 할당된 앱 slug다.
+  apps: readonly string[];
   // agent가 일하는 domain id다. 없으면 place 그릇의 domain 전부다.
   domains?: readonly string[];
 };
@@ -73,9 +82,11 @@ export async function createSkillSnapshot(
           off: [] as readonly string[],
         }
       : await deps.place(session.place);
+  const shared = await deps.shared(session.apps, session.place);
   const found = discoverSkills(
     deps.port,
     {
+      shared,
       bundled: deps.builtin_root,
       registered: global.roots,
       personal: deps.personal_store,
@@ -101,7 +112,12 @@ export async function createSkillSnapshot(
   const fixed = new Map<string, Fixed>();
   for (const entry of entries) {
     if (!entry.enabled) continue;
-    const read = readFixed(deps.port, entry);
+    const read =
+      entry.source === "shared"
+        ? sharedFixed(
+            shared.find((one) => sharedPathOf(one) === entry.bundle_path),
+          )
+        : readFixed(deps.port, entry);
     if (read !== null) fixed.set(entry.name, read);
   }
 
@@ -164,6 +180,17 @@ export async function createSkillSnapshot(
   };
 }
 
+// 공유 skill은 core가 읽어 준 본문이 곧 skill이다.
+function sharedFixed(skill: SharedSkill | undefined): Fixed | null {
+  if (skill === undefined) return null;
+  const body = bodyOf(skill.skill_md);
+  if (body === null) return null;
+  return {
+    body,
+    files: new Map(skill.files.map((file) => [file.name, file.text])),
+  };
+}
+
 // SKILL.md 본문(frontmatter 뒤)과 딸린 `.md` 파일을 읽어 둔다. 딸린 파일은 읽기만 하고 실행하지 않는다. 본문을 온전히
 // 못 읽거나 보관소가 던지면 그 skill은 읽을 수 없다.
 function readFixed(port: SkillFiles, entry: SkillEntry): Fixed | null {
@@ -214,6 +241,7 @@ export function turnSkillReader(
   session: {
     id: string;
     place: AgentPlace | null;
+    apps: readonly string[];
   },
   enabled: readonly string[],
 ): SkillReader {
@@ -231,6 +259,7 @@ export function turnSkillReader(
         kind: placeKindOf(session.place),
         place: session.place,
         off: [],
+        apps: session.apps,
       });
       return (await snapshot).reader.read(id, name, path);
     },

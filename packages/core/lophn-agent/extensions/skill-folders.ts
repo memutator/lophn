@@ -4,6 +4,7 @@ import type {
   PlaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
+import { appSkills } from "../../../protocol/apps/declaration/read.ts";
 import { skillFoldersSetting, skillsOffSetting } from "./settings.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
@@ -12,6 +13,7 @@ import {
   type DomainStore,
   type PlaceSkills,
   SKILL_BODY_MAX_BYTES,
+  type SharedSkill,
   type SkillEntry,
   type SkillFiles,
 } from "./skills.ts";
@@ -24,11 +26,11 @@ import {
 } from "./project-settings.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
-// 제품 runtime의 skill 발견이다. 출처는 내장 skill 폴더, 등록 순서의 설정
+// 제품 runtime의 skill 발견이다. 파일 출처는 내장 skill 폴더, 등록 순서의 설정
 // `lophn-agent.extensions.skill_folders`, data root의 개인 보관소(`<LOPHN_HOME>/skills`), agent place의 첫 폴더나 앱 source의
 // `.lophn/skills`, agent place 그릇의 active domain마다의 skill 폴더(domain 층 규칙이 정한다) 다섯뿐이다. 다른 place의 폴더,
-// 상위 폴더, 다른 harness 보관소(`.agents/skills` 포함), 원격은 열지 않는다. 층은 내장, 전역(등록 폴더와 개인 보관소),
-// project·app, domain 순이다.
+// 상위 폴더, 다른 harness 보관소(`.agents/skills` 포함), 원격은 열지 않는다. 할당한 앱의 공유 skill은 파일을 열지 않고 core의
+// `app.skills`가 bundle에서 읽어 준 본문을 쓴다. 층은 내장, 공유, 전역(등록 폴더와 개인 보관소), project·app, domain 순이다.
 
 // 내장, 개인 보관소의 위치와 agent가 놓인 place다. null은 그 출처가 없는 것이다. 테스트는 temp 폴더를 끼운다.
 type SkillStores = {
@@ -124,11 +126,31 @@ async function placeSkillsOfStores(
   );
 }
 
+// 할당한 앱(slug)의 active release가 내놓은 public skill이다. 같은 이름은 slug 앞선 앱의 것만 남긴다. 앱 자기 place에서는
+// 그 앱의 `app` 층으로 이미 보이므로 싣지 않는다. 읽지 못하면 공유 skill이 없는 것으로 본다.
+export async function sharedSkillsOf(
+  machine: CoreCall,
+  apps: readonly string[],
+  place: AgentPlace | null,
+): Promise<readonly SharedSkill[]> {
+  if (apps.length === 0) return [];
+  const read = await readOf(machine, appSkills, { apps: [...apps] });
+  if (!read.ok) return [];
+  const names = new Set<string>();
+  return read.value.skills.filter((skill) => {
+    if (place?.kind === "app" && skill.app === place.id) return false;
+    if (names.has(skill.name)) return false;
+    names.add(skill.name);
+    return true;
+  });
+}
+
 // 층을 합친 목록이다. 내장 skill은 그 place 종류에 선언된 것만이다. 전역과 project에서 끈 것이 enabled false다.
 export async function registeredSkillEntries(
   machine: CoreCall,
   stores: SkillStores,
   kind: PlaceKind,
+  apps: readonly string[],
 ): Promise<readonly SkillEntry[]> {
   const { roots, off } = await globalSkillSettings(machine);
   const place = await placeSkillsOfStores(machine, stores);
@@ -141,6 +163,7 @@ export async function registeredSkillEntries(
       personal: stores.personal,
       place,
       domains: await domainStores(machine, stores),
+      shared: await sharedSkillsOf(machine, apps, stores.place),
     },
     {
       kind,
@@ -164,6 +187,7 @@ export function productSkillSnapshotDeps(
       const { roots, off } = await globalSkillSettings(machine);
       return { roots, off };
     },
+    shared: (apps, place) => sharedSkillsOf(machine, apps, place),
     place: async (place) => {
       const where = productSkillStores(place, deps);
       const place_skills = await placeSkillsOfStores(machine, where);

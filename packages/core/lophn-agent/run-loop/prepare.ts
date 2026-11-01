@@ -11,6 +11,7 @@ import {
 import {
   type AgentId,
   type AgentPlace,
+  agentRead,
   finishTurn,
   type McpServer,
   type ModelChoice,
@@ -153,10 +154,14 @@ type PreparerDeps = {
   }): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
   // ToolContext의 바깥 연결. 끼우지 않으면 tool 호출은 닫힌 채 실패한다.
-  // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름이다.
+  // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름, `apps`는 그 agent에게 할당한 앱 slug다.
   toolPorts(
     session: PlaceSession,
-    turn: { core: CoreCall; skills: readonly string[] },
+    turn: {
+      core: CoreCall;
+      skills: readonly string[];
+      apps: readonly string[];
+    },
   ): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
   events: AgentEventSink;
@@ -181,9 +186,11 @@ type PreparerDeps = {
   // turn 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
   // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다. 내장 skill은 그 place 종류에 선언된 것만이다.
+  // `apps`는 그 agent 정의에 할당된 앱 slug이고, 그 앱들의 public skill이 공유 층으로 더해진다.
   skills?(
     place: AgentPlace | null,
     kind: PlaceKind,
+    apps: readonly string[],
   ): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
@@ -353,6 +360,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     agent: ResolvedAgent,
     mcp: LoadedMcp,
     turn: string,
+    apps: readonly string[],
   ) {
     // 외부 MCP tool 등록이다. 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
     // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다.
@@ -400,6 +408,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat,
       mcpKit,
       session,
+      apps,
     });
   }
 
@@ -417,7 +426,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     instructions: TurnPromptInput["instructions"],
     mode: TurnMode,
   ) {
-    const { seat, model, agent: resolved, external, session } = m;
+    const {
+      seat,
+      model,
+      agent: resolved,
+      external,
+      session,
+      apps: assigned,
+    } = m;
     const toolkit = deps.toolkit;
     const externalByName = new Map(
       external.map((tool) => [tool.definition.name, tool]),
@@ -496,7 +512,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       },
     };
     const ports = {
-      ...deps.toolPorts(session, { core: agentCall, skills: resolved.skills }),
+      ...deps.toolPorts(session, {
+        core: agentCall,
+        skills: resolved.skills,
+        apps: assigned,
+      }),
       scope,
     };
     const toolSetup: ToolSetup = {
@@ -573,6 +593,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             (await deps.skills?.(
               resolved.place,
               placeKindOf(resolved.place),
+              assigned,
             )) ?? [],
             resolved,
           ),
@@ -714,7 +735,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
-    const skills = (await deps.skills?.(session.place, kind)) ?? [];
+    // 정의를 못 읽으면 할당이 없는 것이다. 정의 오류는 아래 resolveTurnAgent가 turn을 시작하지 않는 쪽으로 알린다.
+    const defined = await readOf(machine, agentRead, { agent: session.agent });
+    const apps = defined.ok ? (defined.value.definition?.apps ?? []) : [];
+    const skills = (await deps.skills?.(session.place, kind, apps)) ?? [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,
@@ -773,6 +797,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       agent,
       mcp ?? (await loadMcp(start.session, { place: agent.place })),
       turn,
+      apps,
     );
     if (!found.ok) {
       // model을 쓸 수 없으면 그 turn만 시작하지 않는다. 다른 일은 그대로다.

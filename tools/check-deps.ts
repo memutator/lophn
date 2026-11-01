@@ -164,6 +164,10 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "못 옮김: file.outline이 projects protocol의 parseOutline으로 md 제목 tree를 만든다",
   ],
   [
+    "packages/core/lophn-agent/extensions/skill-folders.ts",
+    "못 옮김: 공유 skill 받기가 apps protocol의 appSkills로 할당한 앱의 public skill 본문을 읽는다",
+  ],
+  [
     "packages/core/lophn-agent/tools/app-toolkit.ts",
     "못 옮김: 동적 tool 묶음이 apps protocol의 appTools를 읽는다",
   ],

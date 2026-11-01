@@ -230,6 +230,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
           {
             id: session.id,
             place: session.place,
+            apps: turn.apps,
           },
           turn.skills,
         ),
@@ -260,11 +261,12 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       redact: calls.redact,
       // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 내장 skill은 그 place 종류에 선언된 것만이다. 설정이 없으면
       // 빈 목록이다.
-      skills: (place, kind) =>
+      skills: (place, kind, apps) =>
         registeredSkillEntries(
           calls.machine,
           productSkillStores(place, SKILL_PLACES),
           kind,
+          apps,
         ),
     });
     // 사람이 요청한 Compact의 요약 call이다. 같은 model 선택 검증과 core 연결을 쓴다.

@@ -7,7 +7,7 @@ import {
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// skill 발견, 검증, 층 합치기. 층은 내장, 전역(등록 폴더와 개인 보관소), project·app(그 place 폴더의 `.lophn/skills`),
+// skill 발견, 검증, 층 합치기. 층은 내장, 공유(할당한 앱의 public skill), 전역(등록 폴더와 개인 보관소), project·app(그 place 폴더의 `.lophn/skills`),
 // domain 순이고 같은 이름은 마지막 층이 덮는다. 다만 domain 층 skill은 domain마다 따로 남는다. 어느 domain의 것이 이기는지는
 // agent가 일하는 domain을 거른 뒤 `pickSkills`가 정한다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 발견은 동기다(core read handler가 동기라 비동기 발견을 부르지 못하고, 비동기 함수 안에서는 동기
@@ -185,7 +185,7 @@ export function builtinForPlace(name: string, kind: PlaceKind | null): boolean {
   );
 }
 
-// 층 순서(내장, 전역, project·app, domain)로 늘어선 후보를 합친다. domain 앞 층은 이름마다 하나이고 마지막 층이 덮는다. domain 층은
+// 층 순서(내장, 공유, 전역, project·app, domain)로 늘어선 후보를 합친다. domain 앞 층은 이름마다 하나이고 마지막 층이 덮는다. domain 층은
 // 합치지 않고 domain마다 남긴다(전역 `x`가 domain `x`에 가려져 그 domain을 고르지 않은 agent가 잃지 않게). 끌 수 없는 내장
 // skill은 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
 // 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이고 같은 이름은 전역, domain(받은 순서) 순이다.
@@ -256,7 +256,7 @@ export function pickSkills<T extends { name: string; domain: string | null }>(
   });
 }
 
-// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), place 폴더, domain 폴더들이다. null은 그 출처가 없는 것이다.
+// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), place 폴더, domain 폴더들과 core가 읽어 준 공유 skill(`shared`)이다. null은 그 출처가 없는 것이다.
 // domain은 이름순으로 받는다.
 export type SkillSources = {
   bundled: string | null;
@@ -265,9 +265,30 @@ export type SkillSources = {
   // project나 app place의 `.lophn/skills` 폴더다. 전역 다음, domain 앞 층이다. 그 place 밖이나 폴더가 없으면 없다.
   place?: PlaceSkills | null;
   domains: readonly DomainStore[];
+  // 할당한 앱의 public skill이다. 내장 바로 위, 전역 아래 층이다. 같은 이름은 앞의 것이 이긴다(부르는 쪽이 slug 순으로 준다).
+  shared?: readonly SharedSkill[];
 };
 
 export type PlaceSkills = { source: "project" | "app"; folder: string };
+
+// 할당한 앱이 active release로 내놓은 public skill이다. 파일이 아니라 core가 bundle에서 읽어 준 본문이라 이 값이 곧 skill이다.
+export type SharedSkill = {
+  // 앱 id와 slug. slug 순이 같은 이름의 우선이다.
+  app: string;
+  slug: string;
+  name: string;
+  description: string;
+  // frontmatter까지 든 SKILL.md 전체와 딸린 `.md` 파일이다.
+  skill_md: string;
+  files: readonly { name: string; text: string }[];
+};
+
+// 공유 skill의 `bundle_path`다. 파일 위치가 아니라 이 값으로 snapshot이 본문을 찾는다.
+export function sharedPathOf(
+  skill: Pick<SharedSkill, "slug" | "name">,
+): string {
+  return `shared:${skill.slug}/${skill.name}`;
+}
 
 // domain 층 skill은 `domain`이 그 domain id이고 아니면 null이다.
 export type SkillListing = {
@@ -413,6 +434,15 @@ export function discoverSkills(
   };
 
   if (sources.bundled !== null) scanFolder(sources.bundled, "builtin", false);
+  for (const skill of sources.shared ?? []) {
+    candidates.push({
+      name: skill.name,
+      description: skill.description,
+      source: "shared",
+      domain: null,
+      bundle_path: sharedPathOf(skill),
+    });
+  }
   for (const root of sources.registered) {
     // 등록 폴더 자신이 꾸러미일 수 있다.
     addBundle(root, "global");

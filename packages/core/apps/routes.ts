@@ -28,7 +28,7 @@ import type {
   ReadHandler,
 } from "../server/mod.ts";
 import { createTargetAuthorizer, type Writer } from "../storage/ledger/mod.ts";
-import { loadApp } from "./registration/mod.ts";
+import { loadApp, loadApps } from "./registration/mod.ts";
 import type { PreviewService } from "./preview/mod.ts";
 import { loadActiveDeclaration, loadRelease } from "./releases/store.ts";
 import { type AppStates } from "./calls/mod.ts";
@@ -40,7 +40,12 @@ import {
   type ScreenFileDeps,
   serveScreenFile,
 } from "./screens/mod.ts";
-import { type AppIcon, appIcon } from "../../protocol/apps/declaration/read.ts";
+import {
+  type AppIcon,
+  appIcon,
+  appSkills,
+} from "../../protocol/apps/declaration/read.ts";
+import { type AppSkillsDeps, readAppSkills } from "./screens/skills.ts";
 import type {
   AppRewind,
   AppToolCallPath,
@@ -140,6 +145,43 @@ export function appIconRead(
     }
     const icon = await readAppIcon(deps, parsed.data.app);
     return icon.ok ? ok({ icon: icon.value, uploaded: false }) : icon;
+  };
+}
+
+// `app.skills`. 앱 slug마다 active release 선언의 public skill을 bundle 사본에서 읽는다. 파일을 읽으므로 메인 스레드 read다.
+// 같은 이름의 skill을 두 앱이 내는 경우의 우선은 받는 쪽이 정한다(slug 순).
+export function appSkillsRead(
+  deps: AppSkillsDeps,
+  sql: Pick<Sql, "get" | "all">,
+): ReadHandler {
+  return async (_ctx, input) => {
+    const parsed = appSkills.input.safeParse(input);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "invalid app skills input",
+      });
+    }
+    const apps = loadApps(sql, "active");
+    if (!apps.ok) return apps;
+    const skills = [];
+    for (const slug of [...new Set(parsed.data.apps)].sort()) {
+      const app = apps.value.find((item) => item.slug === slug);
+      if (app === undefined) continue;
+      const active = loadActiveDeclaration(sql, app.id);
+      if (!active.ok) return active;
+      if (active.value === null) continue;
+      const declared = active.value.declaration.skills ?? [];
+      for (const skill of await readAppSkills(deps, app.id, declared)) {
+        skills.push({
+          app: app.id,
+          slug,
+          release: active.value.release.id,
+          ...skill,
+        });
+      }
+    }
+    return ok({ skills });
   };
 }
 

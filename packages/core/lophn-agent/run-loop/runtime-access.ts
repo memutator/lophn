@@ -47,7 +47,10 @@ import {
   assignmentGet,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
-import { appTools } from "../../../protocol/apps/declaration/read.ts";
+import {
+  appSkills,
+  appTools,
+} from "../../../protocol/apps/declaration/read.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
@@ -112,6 +115,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   // tool의 정의 재료(활성 release 선언과 agent 할당)와 앱의 domain(다른 domain의 비공개 tool 거르기)을 읽는다.
   // domain 읽기는 turn을 시작할 때 맡은 domain의 이름과 purpose, skill 발견과 tool 목록이 쓴다.
   appTools,
+  // 할당한 앱이 내놓은 public skill(공유 skill). turn마다 읽는다.
+  appSkills,
   appGet,
   assignmentGet,
   domainList,

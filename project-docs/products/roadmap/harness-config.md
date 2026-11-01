@@ -118,7 +118,7 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
    - release bundle이 public skill 폴더를 담는다. 공유되는 판은 active release의 것이라 HEAD의 작업 중 판은 새지 않고, activation이 곧 갱신이다.
    - 앱을 할당받은 agent는 그 앱의 public command를 부르고(지금과 같다), 그 앱 active release의 public skill을 skill 목록과 `skill.read`로 받는다. `skills_off`로 뺄 수 있다. 공유받은 skill을 적는 칸은 따로 두지 않는다. lophn agent에게는 사본을 만들지 않고 bundle을 바로 읽는다.
    - 앱 place의 agent가 skill을 쓰고 "이 앱을 A, B에게 할당" 요청을 명령으로 낸다. 사람이 대기 목록에서 한 번 승인하면 agent 정의의 `apps`에 들어간다. agent가 할당을 직접 쓰는 길은 없다(지금과 같다).
-   - coding agent는 lophn 안에 정의가 없고 사람의 user token으로 부르므로 줄 것은 앎뿐이다. 승인 요청에서 harness도 고르고, 고른 것은 `~/.lophn/settings.json`에 남는다. 고른 harness의 전역 skill 폴더에 사본을 둔다: `~/.agents/skills/<name>`(Codex, OpenCode, omp)와 `~/.claude/skills/<name>`(Claude Code). session 시작 hook이 사본을 active release 판과 대어 다르면 다시 쓴다. 쓰는 장치는 `harness install`의 것(`packages/coding-agent/harnesses/install.ts`)이고, lophn이 쓴 표시가 있는 사본만 덮는다.
+   - coding agent는 lophn 안에 정의가 없고 사람의 user token으로 부르므로 줄 것은 앎뿐이다. 승인 요청에서 harness도 고르고, 고른 것은 `~/.lophn/settings.json`에 남는다. lophn hook을 설치한 harness마다 adapter의 전역 skill 폴더(`skill_dir`: Claude Code `~/.claude/skills`, Codex·pi `~/.agents/skills`, OpenCode `~/.config/opencode/skills`)에 사본을 둔다. core는 data root 밖을 쓰지 않으므로 `lophn harness` 쪽 코드가 core에서 공유 skill을 읽어 쓰고, shell main이 lophn 기동 때와 activation·설정 바뀜 때 부른다. session 시작 hook은 core를 부르지 않아 쓰지 않는다. lophn이 쓴 사본에는 표시 file을 두고 그것만 덮고 지운다.
    - 지침: `design-app`과 앱 template `AGENTS.md`(`packages/core/apps/packages/template/app/AGENTS.md.tmpl`)에 command가 다른 agent에게 `lophn <domain> <command>`로 보이고 `description`이 help가 된다는 것, 새로 만들 때와 바꿀 때 "이 기능이 다른 agent에게 쓸모 있나, 누구에게"를 묻고 쓸모 있으면 skill과 할당 요청을 내라는 것을 쓴다. `AGENTS.md`에 두는 것은 coding agent도 앱을 짓기 때문이다.
 
 순서:

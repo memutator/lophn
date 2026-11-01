@@ -133,7 +133,11 @@ const inHead = useTabHead(
 );
 
 return (
-  <AppShell title="Usage" actions={inHead ? undefined : <CollectButton />}>
+  // title과 actions를 다 빼면 AppShell은 자기 머리 줄을 그리지 않는다.
+  <AppShell
+    title={inHead ? undefined : "Usage"}
+    actions={inHead ? undefined : <CollectButton />}
+  >
     {inHead ? null : <ViewTabs />}
     …
   </AppShell>

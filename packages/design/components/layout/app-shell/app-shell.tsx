@@ -12,8 +12,9 @@ export function useContainerSpace(): ContainerSpace {
 }
 
 export interface AppShellProps {
-  // 앱이 정한 화면 이름. 앱의 message key 문구다.
-  title: string;
+  // 앱이 정한 화면 이름. 앱의 message key 문구다. title과 actions가 다 없으면 머리 줄을 그리지 않는다
+  // (화면의 머리를 lophn 탭 머리 줄에 올렸을 때, `@lophn/app-ui`의 useTabHead).
+  title?: string;
   // 머리 오른쪽 끝의 행동. 주 행동은 하나다.
   actions?: ReactNode;
   // 보통 Sidebar 하나.
@@ -35,12 +36,14 @@ export function AppShell({ title, actions, nav, children }: AppShellProps) {
         data-space={space}
         {...componentMark("AppShell")}
       >
-        <header className={styles.bar}>
-          <h1 className={styles.title}>{title}</h1>
-          {actions !== undefined && (
-            <div className={styles.actions}>{actions}</div>
-          )}
-        </header>
+        {(title !== undefined || actions !== undefined) && (
+          <header className={styles.bar}>
+            {title !== undefined && <h1 className={styles.title}>{title}</h1>}
+            {actions !== undefined && (
+              <div className={styles.actions}>{actions}</div>
+            )}
+          </header>
+        )}
         <div
           className={styles.body}
           data-nav={nav === undefined ? "none" : undefined}

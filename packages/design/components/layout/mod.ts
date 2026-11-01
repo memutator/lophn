@@ -37,7 +37,7 @@ export {
 export { useTocPlacement } from "./page-frames/toc-placement.ts";
 // 독립 객체 하나를 묶는 면. 카드 안에 카드를 두지 않는다.
 export { Card, type CardProps } from "./card/card.tsx";
-// 앱 view 안의 화면 틀. 머리(제목·행동)와 nav·본문을 두고, 넣은 영역이 좁으면 nav를 본문 위 한 줄로 옮긴다.
+// 앱 view 안의 화면 틀. 머리(제목·행동)와 nav·본문을 두고, 넣은 영역이 좁으면 nav를 본문 위 한 줄로 옮긴다. 제목·행동을 lophn 탭 머리 줄에 올렸으면 둘 다 빼서 머리를 없앤다.
 export { AppShell, type AppShellProps } from "./app-shell/app-shell.tsx";
 // AppShell 안의 화면이 놓인 영역 크기(card·panel·full)를 읽는 hook. 크기에 따라 모양을 바꾸는 component가 쓴다.
 export { useContainerSpace } from "./app-shell/app-shell.tsx";

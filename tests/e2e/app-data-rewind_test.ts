@@ -7,7 +7,7 @@
 //   비어 늘 rejected인 것(연결을 보는 test가 없었다).
 // - 왜 지금 test로 못 잡나: 한도 계산은 unit이 있지만 실제 pipe와 앱 process의 한 transaction은 process를 건너야 한다.
 //
-// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 앱 place lophn session 대답(`release_prepare`·`release_activate`)뿐이라
+// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 앱 place lophn session 대답(`release prepare`·`release activate`)뿐이라
 // 행의 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4). `session-rewind-with-app`은 case마다
 // agent의 앱 호출과 끝 text, 둘이다.
 import assert from "node:assert/strict";
@@ -45,7 +45,7 @@ import {
   type Output,
 } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
-import { toolNames } from "../support/fake-server/probe.ts";
+import { lophnReply } from "../support/fake-server/lophn.ts";
 
 type Rows<T> = { rows: T[] };
 
@@ -97,19 +97,8 @@ const rewindOf = async (core: Core, app: TestApp, from: string) =>
     (item) => item.from_invocation === from,
   );
 
-const addItemTool = (title: string) => ({
-  reply: (request: Parameters<typeof toolNames>[0]) => ({
-    kind: "tool" as const,
-    calls: [
-      {
-        id: "tc_add",
-        name:
-          toolNames(request).find((name) => name.endsWith("_add_item")) ??
-          "tool_not_offered",
-        arguments: JSON.stringify({ title }),
-      },
-    ],
-  }),
+const addItemTool = (domain: string, title: string) => ({
+  reply: lophnReply("tc_add", `${domain} add-item`, { title }),
 });
 
 test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌하면 아무것도 바꾸지 않고, 다른 write를 지우지 않는다", async () => {
@@ -234,7 +223,7 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
       id: agent,
       definition: { name: "Writer", body: "use the app" },
     });
-    // tool 목록은 session을 열 때 고정되므로 열기 전에 할당한다.
+    // 할당이 있어야 agent가 앱 command를 부를 수 있다.
     await core.call(
       assignmentSet,
       {
@@ -247,7 +236,7 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
       const title = choose ? "by-agent-chosen" : "by-agent-skipped";
       fake!.reset();
       fake!.script([
-        addItemTool(title),
+        addItemTool(live.slug, title),
         {
           reply: { kind: "text", text: "added" },
         },

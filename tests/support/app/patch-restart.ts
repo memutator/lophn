@@ -19,33 +19,33 @@ export async function slowPatch(dir: string): Promise<void> {
   const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/lophn.ts`,
-    `      {
-        name: "add_item",`,
-    `      {
-        name: "count_slow",
-        description: "Count the rows slow_write put in.",
-        effect: "read",
-        inputSchema: null,
-        domain: "${slug}",
-        public: false,
-      },
-      {
-        name: "slow_write",
-        description: "Put a row in and wait without answering.",
-        effect: "write",
-        inputSchema: {
-          type: "object",
-          properties: {
-            title: { type: "string", minLength: 1, maxLength: 200 },
-          },
-          required: ["title"],
-          additionalProperties: false,
+    `    {
+      name: "add_item",`,
+    `    {
+      name: "count_slow",
+      description: "Count the rows slow_write put in.",
+      effect: "read",
+      inputSchema: null,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "slow_write",
+      description: "Put a row in and wait without answering.",
+      effect: "write",
+      inputSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 200 },
         },
-        domain: "${slug}",
-        public: false,
+        required: ["title"],
+        additionalProperties: false,
       },
-      {
-        name: "add_item",`,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "add_item",`,
   );
   const api = `${dir}/src/handlers.ts`;
   await replaceOnce(

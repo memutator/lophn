@@ -19,25 +19,25 @@ async function replaceOnce(
 export function domainPatch(domain: string): AppPatch {
   return async (dir: string): Promise<void> => {
     const declare = (name: string, title: string, isPublic: boolean) =>
-      `      {
-        name: "${name}",
-        description: "${title}.",
-        effect: "read",
-        inputSchema: null,
-        domain: "${domain}",
-        public: ${isPublic},
-      },
+      `    {
+      name: "${name}",
+      description: "${title}.",
+      effect: "read",
+      inputSchema: null,
+      domain: "${domain}",
+      public: ${isPublic},
+    },
 `;
     await replaceOnce(
       `${dir}/lophn.ts`,
-      `      {
-        name: "add_item",`,
+      `    {
+      name: "add_item",`,
       `${declare("shelf_list", "List shelf", false)}${declare(
         "shelf_count",
         "Count shelf",
         true,
-      )}      {
-        name: "add_item",`,
+      )}    {
+      name: "add_item",`,
     );
     await replaceOnce(
       `${dir}/src/handlers.ts`,

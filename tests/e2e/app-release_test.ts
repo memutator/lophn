@@ -35,7 +35,6 @@ import {
   approveActivation,
   prepareRelease,
   startTestApp,
-  tool,
   waitRunning,
 } from "../support/app/activate.ts";
 import { appCoreEnv } from "../support/app/deps.ts";
@@ -43,6 +42,7 @@ import type { AppPatch } from "../support/app/source.ts";
 import { connectFakeProvider } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
+import { lophnCall } from "../support/fake-server/lophn.ts";
 
 async function countFiles(dir: string): Promise<number> {
   let count = 0;
@@ -100,20 +100,18 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
                 reply: {
                   kind: "tool" as const,
                   calls: [
-                    tool(id("start"), "preview_start", { release }).calls[0]!,
-                    tool(id("add"), "preview_call", {
-                      app: notes.app,
-                      kind: "command",
-                      name: "add_item",
-                      input: { title: "from preview" },
-                    }).calls[0]!,
-                    tool(id("list"), "preview_call", {
-                      app: notes.app,
-                      kind: "command",
-                      name: "list_items",
-                    }).calls[0]!,
-                    tool(id("stop"), "preview_stop", { app: notes.app })
-                      .calls[0]!,
+                    lophnCall(id("start"), `preview start ${release}`),
+                    // preview call의 칸 이름 `input`이 공통 flag `--input`과 겹쳐서 입력 object 안에 둔다.
+                    lophnCall(
+                      id("add"),
+                      `preview call ${notes.app} command add_item`,
+                      { input: { title: "from preview" } },
+                    ),
+                    lophnCall(
+                      id("list"),
+                      `preview call ${notes.app} command list_items`,
+                    ),
+                    lophnCall(id("stop"), `preview stop ${notes.app}`),
                   ],
                 },
               },

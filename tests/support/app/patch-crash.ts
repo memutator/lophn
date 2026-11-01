@@ -21,18 +21,18 @@ export async function crashPatch(dir: string): Promise<void> {
   const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/lophn.ts`,
-    `      {
-        name: "add_item",`,
-    `      {
-        name: "crash",
-        description: "Reply, then throw an unhandled error.",
-        effect: "read",
-        inputSchema: null,
-        domain: "${slug}",
-        public: false,
-      },
-      {
-        name: "add_item",`,
+    `    {
+      name: "add_item",`,
+    `    {
+      name: "crash",
+      description: "Reply, then throw an unhandled error.",
+      effect: "read",
+      inputSchema: null,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "add_item",`,
   );
   await replaceOnce(
     `${dir}/src/handlers.ts`,

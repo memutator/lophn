@@ -1,8 +1,8 @@
 // test용 앱을 제품의 길로 activate하는 준비다: `app.create`(core가 source 폴더를 깔고 앱에 잇는다) → 견본·patch commit →
-// 앱 place의 lophn session → 가짜 model이 그 session으로 `release_prepare` →
-// `release_activate` → 사람의 `activation.consent` → running. data root에 release를 직접 깔지 않는다.
+// 앱 place의 lophn session → 가짜 model이 그 session으로 `release prepare` →
+// `release activate` → 사람의 `activation.consent` → running. data root에 release를 직접 깔지 않는다.
 //
-// 앱 place session의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `release_prepare`가 있고 본문에
+// 앱 place session의 fake 대답은 session 하나의 줄(lane)로 건다. 줄은 요청의 tool 목록에 `release prepare`가 있고 본문에
 // 이 앱의 사람 메시지(`App <id>:`)가 있는 요청이 받는다. 앱 id만으로 가르면 다른 앱의 id를 싣는 prompt와 섞인다.
 import { mkdir } from "node:fs/promises";
 
@@ -32,7 +32,8 @@ import {
   until,
 } from "../core/human.ts";
 import type { FakeServer, JournalEntry, Step } from "../fake-server/mod.ts";
-import { lastToolResult, toolNames } from "../fake-server/probe.ts";
+import { lophnCommands, lophnReply } from "../fake-server/lophn.ts";
+import { lastToolResult } from "../fake-server/probe.ts";
 import { type AppPatch, createAppSource } from "./source.ts";
 
 export type TestApp = {
@@ -135,15 +136,13 @@ export function lophnLane(app: TestApp) {
   return {
     name: `lophn-${app.app}`,
     match: (request: JournalEntry) =>
-      toolNames(request).includes("release_prepare") &&
+      lophnCommands(request).includes("release prepare") &&
       JSON.stringify(request.body).includes(`App ${app.app}:`),
   };
 }
 
-export const tool = (id: string, name: string, args: unknown) => ({
-  kind: "tool" as const,
-  calls: [{ id, name, arguments: JSON.stringify(args) }],
-});
+// 앱 place session의 model이 `lophn <words> --input <input>`을 부르는 대답이다.
+export const lophnTool = lophnReply;
 
 // 이 turn에 aeLane이 받은 요청들(say 직전 journal 길이 뒤의 것)이다.
 export type LophnTurn = { turn: Turn; requests: JournalEntry[] };
@@ -213,8 +212,15 @@ export function lophnToolResult(turn: LophnTurn, id: string): LophnToolResult {
   );
 }
 
+// 검사에 떨어진 준비와 실패한 activation은 명령이 끝난 것이라 status가 failure여도 content에 결과(`status`, 이유)가 있다.
+// 그 결과를 읽는 것이 test의 일이므로 돌려준다. content에 결과가 없으면 호출 자체가 틀어진 것이다.
 function succeeded(name: string, result: LophnToolResult): unknown {
-  if (result.status !== "success") {
+  const finished =
+    result.status === "failure" &&
+    typeof result.content === "object" &&
+    result.content !== null &&
+    "status" in result.content;
+  if (result.status !== "success" && !finished) {
     throw new Error(`${name}: ${result.code} ${result.summary}`);
   }
   return result.content;
@@ -240,13 +246,13 @@ export async function prepareRelease(
     (n) => {
       index = n;
       return [
-        { reply: tool(id(n), "release_prepare", { app: app.app }) },
+        { reply: lophnTool(id(n), `release prepare ${app.app}`) },
         text("prepared"),
       ];
     },
   );
   return releasePrepare.output.parse(
-    succeeded("release_prepare", lophnToolResult(turn, id(index))),
+    succeeded("release prepare", lophnToolResult(turn, id(index))),
   );
 }
 
@@ -261,12 +267,12 @@ export async function activateRelease(
   const turn = await lophnTurn(core, fake, app, `Activate ${release}`, (n) => {
     index = n;
     return [
-      { reply: tool(id(n), "release_activate", { release }) },
+      { reply: lophnTool(id(n), `release activate ${release}`) },
       text("activated"),
     ];
   });
   return releaseActivate.output.parse(
-    succeeded("release_activate", lophnToolResult(turn, id(index))),
+    succeeded("release activate", lophnToolResult(turn, id(index))),
   );
 }
 
@@ -283,7 +289,7 @@ export async function deliverRelease(
   const turn = await lophnTurn(core, fake, app, options.goal, (n) => {
     index = n;
     return [
-      { reply: tool(prepareId(n), "release_prepare", { app: app.app }) },
+      { reply: lophnTool(prepareId(n), `release prepare ${app.app}`) },
       {
         // 여기서 던지면 fake가 400으로 답해 turn이 실패하므로 값으로만 가른다.
         reply: (request: JournalEntry) => {
@@ -296,9 +302,7 @@ export async function deliverRelease(
                   release?: { id: string };
                 });
           return out?.status === "prepared"
-            ? tool(activateId(n), "release_activate", {
-                release: out.release!.id,
-              })
+            ? lophnTool(activateId(n), `release activate ${out.release!.id}`)
             : { kind: "text" as const, text: "preparation failed" };
         },
       },
@@ -306,7 +310,7 @@ export async function deliverRelease(
     ];
   });
   const prepared = releasePrepare.output.parse(
-    succeeded("release_prepare", lophnToolResult(turn, prepareId(index))),
+    succeeded("release prepare", lophnToolResult(turn, prepareId(index))),
   );
   if (prepared.status !== "prepared") {
     throw new Error(
@@ -314,7 +318,7 @@ export async function deliverRelease(
     );
   }
   const activated = releaseActivate.output.parse(
-    succeeded("release_activate", lophnToolResult(turn, activateId(index))),
+    succeeded("release activate", lophnToolResult(turn, activateId(index))),
   );
   return { release: prepared.release.id, activated };
 }

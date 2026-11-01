@@ -24,46 +24,46 @@ export async function rewindPatch(dir: string): Promise<void> {
   const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/lophn.ts`,
-    `      {
-        name: "add_item",`,
-    `      {
-        name: "add_blob",
-        description: "Store a row holding kb KiB of text.",
-        effect: "write",
-        inputSchema: {
-          type: "object",
-          properties: {
-            kb: {
-              type: "integer",
-              description: "Size of the text in KiB.",
-              minimum: 1,
-              maximum: 200,
-            },
+    `    {
+      name: "add_item",`,
+    `    {
+      name: "add_blob",
+      description: "Store a row holding kb KiB of text.",
+      effect: "write",
+      inputSchema: {
+        type: "object",
+        properties: {
+          kb: {
+            type: "integer",
+            description: "Size of the text in KiB.",
+            minimum: 1,
+            maximum: 200,
           },
-          required: ["kb"],
-          additionalProperties: false,
         },
-        domain: "${slug}",
-        public: false,
+        required: ["kb"],
+        additionalProperties: false,
       },
-      {
-        name: "count_blobs",
-        description: "Count the stored blob rows.",
-        effect: "read",
-        inputSchema: null,
-        domain: "${slug}",
-        public: false,
-      },
-      {
-        name: "touch_blob",
-        description: "Read the oldest blob row.",
-        effect: "read",
-        inputSchema: null,
-        domain: "${slug}",
-        public: false,
-      },
-      {
-        name: "add_item",`,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "count_blobs",
+      description: "Count the stored blob rows.",
+      effect: "read",
+      inputSchema: null,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "touch_blob",
+      description: "Read the oldest blob row.",
+      effect: "read",
+      inputSchema: null,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "add_item",`,
   );
   const sql = `${dir}/migrations/0-1.sql`;
   await writeFile(

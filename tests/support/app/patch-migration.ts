@@ -35,12 +35,12 @@ create unique index item_title on item (title);
 async function addNetFetch(dir: string, host: string): Promise<void> {
   await replaceOnce(
     `${dir}/lophn.ts`,
-    `    permissions: [],`,
-    `    permissions: [{
-      kind: "net.fetch",
-      scope: { host: "${host}", port: 443 },
-      reason: "Fetch pages from ${host}.",
-    }],`,
+    `  permissions: [],`,
+    `  permissions: [{
+    kind: "net.fetch",
+    scope: { host: "${host}", port: 443 },
+    reason: "Fetch pages from ${host}.",
+  }],`,
   );
 }
 
@@ -68,25 +68,25 @@ export async function slowReadPatch(dir: string): Promise<void> {
   const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/lophn.ts`,
-    `      {
-        name: "add_item",`,
-    `      {
-        name: "delay",
-        description: "Answer after waiting.",
-        effect: "read",
-        inputSchema: {
-          type: "object",
-          properties: {
-            ms: { type: "integer", minimum: 0, maximum: 10000 },
-          },
-          required: ["ms"],
-          additionalProperties: false,
+    `    {
+      name: "add_item",`,
+    `    {
+      name: "delay",
+      description: "Answer after waiting.",
+      effect: "read",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ms: { type: "integer", minimum: 0, maximum: 10000 },
         },
-        domain: "${slug}",
-        public: false,
+        required: ["ms"],
+        additionalProperties: false,
       },
-      {
-        name: "add_item",`,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "add_item",`,
   );
   await replaceOnce(
     `${dir}/src/handlers.ts`,

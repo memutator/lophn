@@ -13,8 +13,8 @@
 // - 왜 지금 test로 못 잡나: lifecycle unit은 한 tx 안의 SQL만 본다. 도는 turn(child)과 허락 대기(core 메모리)와 보낸 session의 새 입력
 //   (Router → 입력함 → 다음 turn)이 같이 맞아야 보인다.
 // - 이 두 행은 fake 대답이 4개다(README 정한 것 11의 상한 3을 넘는 예외). session 둘이 한 flow에서 각자 turn을 돌려야 call이 열리고
-//   닫힌다(보낸 home lophn 3, 받는 project place lophn 1). 두 session이 같은 시각에 model을 부르므로 place 종류 전용 tool
-//   이름으로 줄을 가른다.
+//   닫힌다(보낸 home lophn 3, 받는 project place lophn 1). 두 session이 같은 시각에 model을 부르므로 place 종류 전용 명령
+//   (`lophn` tool 설명의 명령 목록)으로 줄을 가른다.
 //
 // project-tools-run 행
 // - contract: boundary `agent-tools`·`run-loop`(runtime child에서 tool이 돌고 place 종류의 operation 상한이 그 목록의 tool을
@@ -52,6 +52,8 @@ import {
   turnList,
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
+import { COMMANDS } from "../../packages/cli/commands/mod.ts";
+import { fieldsOf } from "../../packages/cli/parser.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
 import {
   connectFakeProvider,
@@ -71,6 +73,7 @@ import {
 import { shellAsk } from "../support/core/shell-ask.ts";
 import type { FakeServer } from "../support/fake-server/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
+import { lophnCall, lophnCommands } from "../support/fake-server/lophn.ts";
 import { toolNames } from "../support/fake-server/probe.ts";
 
 async function newProject(
@@ -158,11 +161,12 @@ async function exists(path: string): Promise<boolean> {
 }
 
 function callTool(to: unknown) {
-  return {
-    id: "t1",
-    name: "call",
-    arguments: JSON.stringify({ to, reply: "none", body: "hi", refs: [] }),
-  };
+  return lophnCall("t1", "call send", {
+    to,
+    reply: "none",
+    body: "hi",
+    refs: [],
+  });
 }
 
 async function messagesOf(core: Core, session: string) {
@@ -204,7 +208,7 @@ async function openCallWaitingPermission(
   fake.reset();
   const { place } = await newProject(core, name);
   const ask = await shellAsk(`${core.run.work}/${name}`);
-  const callBody = JSON.stringify({
+  const send = lophnCall("t1", "call send", {
     to: { agent: "lophn", place: { project: name } },
     reply: "result",
     body: "clean up",
@@ -215,7 +219,7 @@ async function openCallWaitingPermission(
       {
         reply: {
           kind: "tool",
-          calls: [{ id: "t1", name: "call", arguments: callBody }],
+          calls: [send],
         },
       },
       textReply("sent"),
@@ -223,15 +227,15 @@ async function openCallWaitingPermission(
     ],
     {
       name: "home",
-      match: (request) => toolNames(request).includes("app_create"),
+      match: (request) => lophnCommands(request).includes("app create"),
     },
   );
   fake.script([{ reply: ask.reply("w1") }], {
     name: "project",
     match: (request) =>
       toolNames(request).includes("file_write") &&
-      !toolNames(request).includes("app_create") &&
-      !toolNames(request).includes("release_prepare"),
+      !lophnCommands(request).includes("app create") &&
+      !lophnCommands(request).includes("release prepare"),
   });
   const src = await openPlaceSession(core, LOPHN_AGENT_ID);
   await say(core, src, "ask the project");
@@ -548,7 +552,7 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
                 call("image", "image_read", { path: "pic.png" }),
                 call("grep", "file_grep", { pattern: "notes" }),
                 call("web", "web_fetch", { url: `${f.url}/probe` }),
-                call("agent", "agent_create", {
+                lophnCall("agent", "agent create", {
                   name: "helper",
                   body: "Help.",
                 }),
@@ -582,14 +586,12 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
         const made = await c.call(assignmentGet, { agent: helper.agent });
         assert.deepStrictEqual(made.assignment.entries, []);
         assert.deepStrictEqual(made.revision, 0);
-        // fake: agent_create 입력에 할당·mcp_servers·skip 칸이 없다.
-        const createTool = (
-          f.journal()[0]!.body as {
-            tools: { name: string; input_schema: { properties: object } }[];
-          }
-        ).tools.find((tool) => tool.name === "agent_create");
-        assert.ok(createTool !== undefined);
-        const keys = Object.keys(createTool.input_schema.properties);
+        // 명령: `agent create` 입력에 할당·mcp_servers·skip 칸이 없다.
+        const createCommand = COMMANDS.find(
+          (one) => one.name === "agent.create",
+        );
+        assert.ok(createCommand !== undefined);
+        const keys = fieldsOf(createCommand.input).map((field) => field.name);
         assert.ok(!keys.includes("mcp_servers") && !keys.includes("skip"));
         assert.deepStrictEqual(
           keys.filter((key) => key.includes("assign") || key.includes("grant")),

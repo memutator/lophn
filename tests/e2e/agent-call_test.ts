@@ -1,6 +1,6 @@
 // 세 질문
 // - contract: boundary `router`(call 왕복, 실패는 보낸 쪽에 한 번만 돌아간다, 재시작에 사라지지 않는다), `agent-sessions`(받는
-//   session의 끝이 call을 닫는다), `agent-tools`(`call`·`reply`·`cancel`).
+//   session의 끝이 call을 닫는다), `agent-tools`(`lophn call send|reply|cancel`).
 // - 현실적 회귀: reply가 보낸 session의 새 입력이 되지 못하는 것, 받은 session이 archive됐는데 call이 `accepted`로 영영 남는 것,
 //   같은 실패가 tool 결과와 입력 둘로 가서 agent가 두 번 반응하는 것(전례: archived/agent-call.md), 재시작에 입력함의 call이
 //   말없이 사라지는 것, 취소한 call에 늦은 reply가 오류로 돌아가거나 닫힌 session이 다시 열리는 것.
@@ -9,7 +9,7 @@
 //
 // 행의 fake 대답이 3개를 넘는다(README 정한 것 11의 예외): 보내는 session A와 받는 session B가 각자 turn을 돌고 서로의 입력을
 // 기다려야 하는 flow라 한 행이 4~9개가 된다. 대신 단계와 단정 상한은 지킨다. 줄은 요청의 tool 목록으로 가른다
-// (home은 app_create, project는 file_write(app_create·release_prepare 없이), app은 release_prepare).
+// (home은 `app create`, project는 file_write(`app create`·`release prepare` 없이), app은 `release prepare`).
 //
 // call-dedup 행은 두지 않는다. 같은 reply에 같은 tool call id를 두 번 넣어도 core는 tool call마다 새 tcl id를 만들고
 // Router의 dedup 키는 그 tcl id라서 session 둘이 열린다(retry 흉내가 안 된다). dedup 규칙은 router_test.ts가 지킨다.
@@ -52,46 +52,38 @@ import {
   startFakeServer,
   type Step,
 } from "../support/fake-server/mod.ts";
+import { lophnCall, lophnCommands } from "../support/fake-server/lophn.ts";
 import {
   idIn,
   lastToolResult,
   toolNames,
 } from "../support/fake-server/probe.ts";
 
-const names = (request: JournalEntry) => toolNames(request);
-// place 종류 셋은 전용 tool 이름으로 가른다.
+// place 종류 셋은 부를 수 있는 명령과 native tool로 가른다.
 const HOME: Lane = {
   name: "home",
-  match: (r) => names(r).includes("app_create"),
+  match: (r) => lophnCommands(r).includes("app create"),
 };
 const PROJECT: Lane = {
   name: "project",
   match: (r) =>
-    names(r).includes("file_write") &&
-    !names(r).includes("app_create") &&
-    !names(r).includes("release_prepare"),
+    toolNames(r).includes("file_write") &&
+    !lophnCommands(r).includes("app create") &&
+    !lophnCommands(r).includes("release prepare"),
 };
 const APP: Lane = {
   name: "app",
-  match: (r) => names(r).includes("release_prepare"),
+  match: (r) => lophnCommands(r).includes("release prepare"),
 };
 
 const text = (value: string): Step => ({
   reply: { kind: "text", text: value },
 });
 
-function tool(
-  id: string,
-  name: string,
-  args: unknown,
-): { id: string; name: string; arguments: string } {
-  return { id, name, arguments: JSON.stringify(args) };
-}
-
 const callStep = (to: unknown, reply: string, body: string): Step => ({
   reply: {
     kind: "tool",
-    calls: [tool("c1", "call", { to, reply, body, refs: [] })],
+    calls: [lophnCall("c1", "call send", { to, reply, body, refs: [] })],
   },
 });
 
@@ -108,7 +100,7 @@ function withCallId(
       if (call === undefined) throw new Error("요청에 call id가 없다");
       return {
         kind: "tool",
-        calls: [tool(`t_${name}`, name, args(call))],
+        calls: [lophnCall(`t_${name.replace(" ", "_")}`, name, args(call))],
       };
     },
   };
@@ -232,7 +224,11 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         );
         fake.script(
           [
-            withCallId("reply", (call) => ({ call, body: "pong", refs: [] })),
+            withCallId("call reply", (call) => ({
+              call,
+              body: "pong",
+              refs: [],
+            })),
             text("replied"),
           ],
           PROJECT,
@@ -446,7 +442,11 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         );
         fake.script(
           [
-            withCallId("reply", (call) => ({ call, body: "fixed", refs: [] })),
+            withCallId("call reply", (call) => ({
+              call,
+              body: "fixed",
+              refs: [],
+            })),
             text("replied"),
           ],
           APP,
@@ -486,7 +486,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
             callStep(toProject, "result", "ping"),
             text("sent"),
             withCallId(
-              "cancel",
+              "call cancel",
               (call) => ({ call, reason: "no longer needed" }),
               () => sent,
             ),
@@ -497,7 +497,11 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script(
           [
             { reply: ask.reply("w1") },
-            withCallId("reply", (call) => ({ call, body: "late", refs: [] })),
+            withCallId("call reply", (call) => ({
+              call,
+              body: "late",
+              refs: [],
+            })),
             text("replied"),
             text("saw the cancel"),
           ],
@@ -520,7 +524,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         const call = await callOf(c, b);
         assert.deepStrictEqual((await callRecord(c, call)).state, "cancelled");
         // fake: B의 reply 결과는 오류가 아니라 closed: true다.
-        const result = resultOf(lane(fake, "project")[2], "t_reply");
+        const result = resultOf(lane(fake, "project")[2], "t_call_reply");
         assert.deepStrictEqual(
           [result.closed, result.delivered],
           [true, false],
@@ -545,7 +549,11 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script(
           [
             { reply: ask.reply("w1") },
-            withCallId("reply", (call) => ({ call, body: "late", refs: [] })),
+            withCallId("call reply", (call) => ({
+              call,
+              body: "late",
+              refs: [],
+            })),
             text("replied"),
           ],
           PROJECT,
@@ -571,7 +579,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           [],
         );
         // fake: B의 reply는 오류 없이 전해지지 않음(delivered: false)만 알린다.
-        const result = resultOf(lane(fake, "project")[2], "t_reply");
+        const result = resultOf(lane(fake, "project")[2], "t_call_reply");
         assert.deepStrictEqual(
           [result.closed, result.delivered],
           [false, false],

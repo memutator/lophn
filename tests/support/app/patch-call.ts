@@ -32,38 +32,38 @@ create table note (
   );
   await replaceOnce(
     `${dir}/lophn.ts`,
-    `      {
-        name: "add_item",`,
-    `      {
-        name: "big_write",
-        description: "Write a text of the given size in KiB as one row.",
-        effect: "write",
-        inputSchema: {
-          type: "object",
-          properties: {
-            kb: { type: "integer", minimum: 1, maximum: 1024 },
-          },
-          required: ["kb"],
-          additionalProperties: false,
+    `    {
+      name: "add_item",`,
+    `    {
+      name: "big_write",
+      description: "Write a text of the given size in KiB as one row.",
+      effect: "write",
+      inputSchema: {
+        type: "object",
+        properties: {
+          kb: { type: "integer", minimum: 1, maximum: 1024 },
         },
-        domain: "${slug}",
-        public: false,
+        required: ["kb"],
+        additionalProperties: false,
       },
-      {
-        name: "put_text",
-        description: "Store a text of any length as one row.",
-        effect: "write",
-        inputSchema: {
-          type: "object",
-          properties: { text: { type: "string", minLength: 1 } },
-          required: ["text"],
-          additionalProperties: false,
-        },
-        domain: "${slug}",
-        public: false,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "put_text",
+      description: "Store a text of any length as one row.",
+      effect: "write",
+      inputSchema: {
+        type: "object",
+        properties: { text: { type: "string", minLength: 1 } },
+        required: ["text"],
+        additionalProperties: false,
       },
-      {
-        name: "add_item",`,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "add_item",`,
   );
   const api = `${dir}/src/handlers.ts`;
   await replaceOnce(

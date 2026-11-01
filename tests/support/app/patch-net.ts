@@ -40,41 +40,41 @@ export async function netFetchPatch(
   const declaration = `${dir}/lophn.ts`;
   await replaceOnce(
     declaration,
-    `      {
-        name: "add_item",`,
-    `      {
-        name: "fetch_local",
-        description: "Fetch the local server with the stored token.",
-        effect: "external",
-        inputSchema: null,
-        domain: "${slug}",
-        public: false,
-      },
-      {
-        name: "add_item",`,
+    `    {
+      name: "add_item",`,
+    `    {
+      name: "fetch_local",
+      description: "Fetch the local server with the stored token.",
+      effect: "external",
+      inputSchema: null,
+      domain: "${slug}",
+      public: false,
+    },
+    {
+      name: "add_item",`,
   );
   await replaceOnce(
     declaration,
-    `    permissions: [],`,
-    `    permissions: [
-      {
-        kind: "net.fetch",
-        scope: { host: "127.0.0.1", port: ${port} },
-        reason: "Fetch the local test server.",
-      },
-      {
-        kind: "secret.use",
-        scope: { name: "${secret}" },
-        reason: "Send the token to the local test server.",
-      },
-    ],`,
+    `  permissions: [],`,
+    `  permissions: [
+    {
+      kind: "net.fetch",
+      scope: { host: "127.0.0.1", port: ${port} },
+      reason: "Fetch the local test server.",
+    },
+    {
+      kind: "secret.use",
+      scope: { name: "${secret}" },
+      reason: "Send the token to the local test server.",
+    },
+  ],`,
   );
   await replaceOnce(
     declaration,
-    `      { name: "@lophn/cap-tool", version: "2.0.0" },`,
-    `      { name: "@lophn/cap-tool", version: "2.0.0" },
-      { name: "@lophn/cap-net", version: "1.0.0" },
-      { name: "@lophn/cap-secret", version: "1.0.0" },`,
+    `    { name: "@lophn/cap-tool", version: "2.0.0" },`,
+    `    { name: "@lophn/cap-tool", version: "2.0.0" },
+    { name: "@lophn/cap-net", version: "1.0.0" },
+    { name: "@lophn/cap-secret", version: "1.0.0" },`,
   );
   const manifest = `${dir}/package.json`;
   const parsed = JSON.parse(await readFile(manifest, "utf8")) as {

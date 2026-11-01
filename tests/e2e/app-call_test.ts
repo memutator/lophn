@@ -1,6 +1,6 @@
 // 세 질문
 // - contract: boundary `app-runtime`·`app-spi`(tool 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
-//   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(tool),
+//   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(`lophn <domain> <command>`),
 //   `app-capability`(broker가 요청마다 선언∩grant를 보고 lophn이 secret을 붙인다. 앱은 값을 모른다),
 //   `approvals`(할당이 agent의 앱 호출을 연다).
 // - 현실적 회귀: 큰 changeset·결과가 frame 한도에서 거절되어 호출이 "결과 모름"이 되고 rewind가 막히는 것(세 번 난 일),
@@ -11,16 +11,16 @@
 //   process 경계를 지나지 않는다.
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 `agent-calls-app`의 둘뿐이다(호출과
-// text). 첫 대답은 요청의 tool 목록에서 tool로 끝나는 이름을 골라 부르는 함수 대답이다. tool 이름 규칙
-// (`<domain>_<tool>`, 길면 hash)을 test가 되풀이하지 않으려는 것이다. agent는 test가 만든 agent의 앱 place session이다(비공개
-// tool은 그 domain을 받은 session만 본다). 앱 activation helper의 앱 place lophn session 대답은 행 몫에 세지 않는다.
+// text). 앱 command는 `lophn <domain> <command 낱말>`로 부르고 기록 이름은 `<domain>.<command>`다. 앱 command는 model의
+// tools[]에 없고 부를 때 읽으므로, 무엇이 보이는지는 `lophn help`의 묶음 목록으로 본다. agent는 test가 만든 agent의 앱 place
+// session이다(비공개 command는 그 domain을 받은 session만 본다). 앱 activation helper의 앱 place lophn session 대답은 행 몫에 세지 않는다.
 // 할당 경계 행(removed-tool, domain-narrowed, no-assignment, assignment-added)
-// - contract: boundary `approvals`·`agent-tools`(앱 ∩ release 선언 ∩ 할당만 tool이 되고, 뺀 tool은 요청에 없고 불러도 core에
-//   닿지 않는다), `run-loop`(tool 목록은 session을 시작할 때 고정하고 바뀐 것은 program이 쓴 고정 notice로만 간다),
-//   `domains`(domain 하나로 좁힌 agent는 받은 domain의 `DOMAIN.md`·tool과 다른 domain의 public tool만 본다).
-// - 현실적 회귀: `removed_tools`가 무시되어 뺀 tool이 요청에 남는 것, 할당 없는 agent에 앱 tool이 보이는 것, session 도중
-//   할당이 바뀌어 `tools[]`가 달라져 prompt cache가 깨지는 것, notice에 tool 설명(앱 글)이 들어가는 것, child의 domain 거르기가
-//   `resolve.ts`와 갈라지는 것.
+// - contract: boundary `approvals`·`agent-tools`(앱 ∩ release 선언 ∩ 할당만 command가 되고, 뺀 command는 보이지 않고 불러도 core에
+//   닿지 않는다), `run-loop`(tools[]는 session을 시작할 때 고정하고 앱 command는 부를 때 읽는다),
+//   `domains`(domain 하나로 좁힌 agent는 받은 domain의 `DOMAIN.md`·command와 다른 domain의 public command만 본다).
+// - 현실적 회귀: `removed_tools`가 무시되어 뺀 command가 불리는 것, 할당 없는 agent에 앱 command가 보이는 것, session 도중
+//   할당이 바뀌어 `tools[]`가 달라져 prompt cache가 깨지는 것, 할당을 더했는데 새 command가 불리지 않는 것, child의 domain
+//   거르기가 `resolve.ts`와 갈라지는 것.
 // - 왜 지금 test로 못 잡나: `app-tools`·`judge`·`turn-prompt`·`tool-lists`의 unit은 입력으로 받은 할당과 목록만 본다. 사람의
 //   `SetAgentAssignment` 저장 → agent runtime child의 읽기 → model 요청의 `tools[]` → 호출이 core를 지나 앱 process에서
 //   실행되는 왕복은 process를 건너야 보인다.
@@ -36,8 +36,6 @@ import {
   assignmentSet,
   type AssignmentEntry,
 } from "../../packages/protocol/approvals/mod.ts";
-import { RESERVED_DOMAIN_NAMES } from "../../packages/protocol/apps/declaration/mod.ts";
-import { appTools } from "../../packages/protocol/apps/declaration/read.ts";
 import {
   domainCreate,
   domainDocFile,
@@ -75,14 +73,13 @@ import {
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   type FakeServer,
-  type JournalEntry,
   startFakeServer,
 } from "../support/fake-server/mod.ts";
+import { lophnReply } from "../support/fake-server/lophn.ts";
 import {
   lastToolResult,
   lastUserText,
   systemText,
-  toolNames,
 } from "../support/fake-server/probe.ts";
 
 const user = { kind: "person", view_session: "e2e" } as const;
@@ -113,10 +110,16 @@ async function agentWith(
   return { session: await openPlaceSession(core, agent, place), agent };
 }
 
-const appToolsOf = (fake: FakeServer, index = 0) =>
-  toolNames(fake.journal()[index])
-    .filter((name) => !RESERVED_DOMAIN_NAMES.includes(name.split("_")[0]))
-    .sort();
+// 앱 domain의 `lophn <domain> --help`다. 이 agent가 지금 부를 수 있는 그 domain의 command가 나온다.
+// 보이는 command가 없으면 모르는 명령이라는 오류가 나온다.
+const helpReply = (...domains: string[]) => ({
+  kind: "tool" as const,
+  calls: domains.map(
+    (domain) => lophnReply(domain, `${domain} --help`).calls[0],
+  ),
+});
+const helpOf = (fake: FakeServer, domain: string, index = 1) =>
+  lastToolResult(fake.journal()[index], domain) ?? "";
 
 const doneText = { reply: { kind: "text" as const, text: "done" } };
 
@@ -133,25 +136,9 @@ async function startLoopback() {
 
 const NET_SECRET = "e2e.net.token";
 
-// 이름을 아는 tool 하나를 부르는 대답.
-function callAppNamed(id: string, name: string, input: unknown) {
-  return {
-    kind: "tool" as const,
-    calls: [{ id, name, arguments: JSON.stringify(input) }],
-  };
-}
-
-// 요청의 tool 목록에서 tool로 끝나는 tool을 골라 부른다.
-function callApp(id: string, tool: string, input: unknown) {
-  return (request: JournalEntry) => {
-    const name = toolNames(request).find((item) => item.endsWith(`_${tool}`));
-    if (name === undefined) throw new Error(`${tool} tool이 요청에 없다`);
-    return {
-      kind: "tool" as const,
-      calls: [{ id, name, arguments: JSON.stringify(input) }],
-    };
-  };
-}
+// 앱 command 하나를 부르는 대답. words는 `<domain> <command 낱말>`, input은 그 command의 입력이다.
+const callApp = (id: string, line: string, input?: unknown) =>
+  lophnReply(id, line, input);
 
 const text = (value: string) => ({
   reply: { kind: "text" as const, text: value },
@@ -227,13 +214,11 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     const assignAll: AssignmentEntry[] = [{ app: id, removed_tools: [] }];
 
     await t.test("removed-tool", async () => {
-      // 할당에서 뺀 tool은 요청에 없고, model이 그래도 부르면 실행되지 않는다.
+      // 할당에서 뺀 command는 model이 그래도 부르면 실행되지 않는다.
       fake.reset();
       fake.script([
         {
-          reply: callAppNamed("t1", `${app.slug}_add_item`, {
-            title: "op-removed",
-          }),
+          reply: callApp("t1", `${app.slug} add-item`, { title: "op-removed" }),
         },
         doneText,
       ]);
@@ -243,8 +228,9 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       await say(c, removed.session, "add op-removed");
       await waitTurnEnd(c, removed.session);
       // fake
-      assert.ok(!appToolsOf(fake).includes(`${app.slug}_add_item`));
-      assert.ok(lastToolResult(fake.journal()[1], "t1")?.includes("not_found"));
+      assert.ok(
+        lastToolResult(fake.journal()[1], "t1")?.includes("unknown command"),
+      );
       // ledger
       const writes = await c.call(appInvocations, {
         app: id,
@@ -256,7 +242,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     });
 
     await t.test("domain-narrowed", async () => {
-      // domain 하나로 좁힌 agent의 요청에는 그 domain의 `DOMAIN.md`와 tool, 다른 domain의 public tool만 있다.
+      // domain 하나로 좁힌 agent에게는 그 domain의 `DOMAIN.md`와 command, 다른 domain의 public command만 보인다.
       const { domains } = await c.call(domainList, {
         owner: { kind: "app", id },
         status: "active",
@@ -275,7 +261,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
         );
       }
       fake.reset();
-      fake.script([doneText]);
+      fake.script([{ reply: helpReply(app.slug, SECOND) }, doneText]);
       const narrowed = await agentWith(c, place, "Narrowed", assignAll, [
         mine.id,
       ]);
@@ -285,24 +271,24 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       const system = systemText(fake.journal()[0]);
       assert.ok(system.includes("Zebra rule"));
       assert.ok(!system.includes("Quokka rule"));
-      const names = appToolsOf(fake);
-      // 다른 domain의 것은 public tool만, 받은 domain의 것은 비공개 tool도 보인다.
-      assert.deepStrictEqual(
-        names.filter((name) => name.startsWith(`${SECOND}_`)),
-        [`${SECOND}_shelf_count`],
-      );
-      assert.ok(names.includes(`${app.slug}_add_item`));
+      // 다른 domain의 것은 public command만, 받은 domain의 것은 비공개 command도 보인다.
+      const shelf = helpOf(fake, SECOND);
+      assert.ok(shelf.includes("shelf-count"));
+      assert.ok(!shelf.includes("shelf-list"));
+      assert.ok(helpOf(fake, app.slug).includes("add-item"));
     });
 
     await t.test("no-assignment", async () => {
-      // 할당 없이 만든 agent에는 활성 앱이 있어도 app tool이 하나도 없다.
+      // 할당 없이 만든 agent에는 활성 앱이 있어도 앱 command가 하나도 보이지 않는다.
       fake.reset();
-      fake.script([doneText]);
+      fake.script([{ reply: helpReply(app.slug, SECOND) }, doneText]);
       const bare = await agentWith(c, place, "NoAssignment", null);
       await say(c, bare.session, "hello");
       await waitTurnEnd(c, bare.session);
       // fake
-      assert.deepStrictEqual(appToolsOf(fake), []);
+      for (const domain of [app.slug, SECOND]) {
+        assert.ok(helpOf(fake, domain).includes("unknown command"), domain);
+      }
       // ledger: 할당 줄이 없는 것도 빈 할당(revision 0)으로 읽힌다.
       const read = await c.call(assignmentGet, { agent: bare.agent });
       assert.deepStrictEqual(read.assignment.entries, []);
@@ -310,9 +296,9 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     });
 
     await t.test("assignment-added", async () => {
-      // session 도중 할당을 더해도 tool 목록은 그대로이고, notice는 program이 쓴 문장으로 tool 이름만 말한다.
+      // session 도중 할당을 더해도 tools[]는 그대로이고 notice도 없지만, 새 command는 바로 불린다.
       fake.reset();
-      fake.script([doneText, doneText]);
+      fake.script([doneText, { reply: helpReply(app.slug) }, doneText]);
       const added = await agentWith(c, place, "AssignmentAdded", null);
       await say(c, added.session, "first");
       await waitTurnEnd(c, added.session, 0);
@@ -325,18 +311,13 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       await waitTurnEnd(c, added.session, 1);
       // fake
       const [before, after] = fake.journal();
+      const help = helpOf(fake, app.slug, 2);
       assert.deepStrictEqual(
         JSON.stringify((after!.body as { tools: unknown }).tools),
         JSON.stringify((before!.body as { tools: unknown }).tools),
       );
-      const notice = lastUserText(after!);
-      assert.ok(notice.includes("tools_changed"));
-      assert.ok(notice.includes(`${app.slug}_list_items`));
-      assert.ok(notice.includes(`${app.slug}_add_item`));
-      const declaration = await c.call(appTools, { app: id });
-      for (const api of declaration.tools) {
-        assert.ok(!notice.includes(api.description));
-      }
+      assert.ok(!lastUserText(after!).includes("tools_changed"));
+      assert.ok(help.includes("list-items") && help.includes("add-item"));
       // ledger
       const read = await c.call(assignmentGet, { agent: added.agent });
       assert.deepStrictEqual(read.assignment.entries, assignAll);
@@ -351,14 +332,15 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     await t.test("agent-calls-app", async () => {
       fake.reset();
       fake.script([
-        { reply: callApp("t1", "add_item", { title: "first" }) },
+        { reply: callApp("t1", `${app.slug} add-item`, { title: "first" }) },
         text("done"),
       ]);
       const session = await openPlaceSession(c, agent, place);
       await say(c, session, "add an item");
       const turn = await waitTurnEnd(c, session);
       const { tool_calls } = await c.call(toolCallList, { session });
-      // ledger
+      // ledger: 기록 이름은 `<domain>.<command>`다.
+      assert.deepStrictEqual(tool_calls[0].tool, `${app.slug}.add_item`);
       const { invocations } = await c.call(appInvocations, {
         app: id,
         session,

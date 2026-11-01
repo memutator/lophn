@@ -9,7 +9,7 @@
 //   허락의 재적용은 process를 건너야 한다.
 //
 // fake 대답: 행의 fake 대답은 앱 activation helper(`deliverRelease`, `prepareRelease`, `activateRelease`)가 거는 앱 place session의
-// `release_prepare`·`release_activate`뿐이라 행 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
+// `release prepare`·`release activate`뿐이라 행 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
 //
 // 한 test, core 하나, 앱 하나. `rewind-not-across-release` 이후 행은 앞 행이 만든 release를 이어 쓰므로 표 순서대로 돈다.
 // 모든 release는 처음 commit(v1)에 patch를 얹어 만든다.
@@ -173,7 +173,7 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
 
     // fail-keeps-data: v1 data가 있을 때 실패하는 migration. 데이터를 잃지 않고 이전 release가 계속 서빙한다.
     const failing = await deliver([failingMigrationPatch]);
-    // route(tool 결과): release_activate가 activation의 끝을 기다려 실패와 그 이유를 돌려준다.
+    // route(tool 결과): `release activate`가 activation의 끝을 기다려 실패와 그 이유를 돌려준다.
     assert.ok(failing.activated.status === "failed");
     assert.deepStrictEqual(failing.activated.failure.code, "migration_failed");
     assert.deepStrictEqual(failing.activated.failure.restored, true);

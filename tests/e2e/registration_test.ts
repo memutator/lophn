@@ -1,5 +1,5 @@
 // 세 질문
-// - contract: boundary `agent-tools`(lophn이 `app.create`와 `call`을 쓴다), `router`(이름으로 앱 place의 lophn session을 새로 연다).
+// - contract: boundary `agent-tools`(lophn이 `lophn app create`와 `lophn call send`를 쓴다), `router`(이름으로 앱 place의 lophn session을 새로 연다).
 // - 현실적 회귀: lophn이 앱을 등록했는데 그 앱 place의 lophn을 call로 부르지 못하는 것, 맡긴 글이 받는 session의 입력에
 //   닿지 않는 것.
 // - 왜 지금 test로 못 잡나: agent runtime child의 tool -> core `app.create` -> Router -> 새 session -> child의 새 turn은
@@ -23,6 +23,7 @@ import {
 } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
+import { lophnCall } from "../support/fake-server/lophn.ts";
 
 test("E2E lophn이 앱을 등록하고 그 앱 place의 lophn session에 맡긴다", async (t) => {
   const run = await createRun();
@@ -41,24 +42,16 @@ test("E2E lophn이 앱을 등록하고 그 앱 place의 lophn session에 맡긴�
           reply: {
             kind: "tool",
             calls: [
-              {
-                id: "t1",
-                name: "app_create",
-                arguments: JSON.stringify({
-                  name: "Todo List",
-                  purpose: "Keep a short list of todos.",
-                }),
-              },
-              {
-                id: "t2",
-                name: "call",
-                arguments: JSON.stringify({
-                  to: { agent: "lophn", place: { app: "Todo List" } },
-                  reply: "none",
-                  body,
-                  refs: [],
-                }),
-              },
+              lophnCall("t1", "app create", {
+                name: "Todo List",
+                purpose: "Keep a short list of todos.",
+              }),
+              lophnCall("t2", "call send", {
+                to: { agent: "lophn", place: { app: "Todo List" } },
+                reply: "none",
+                body,
+                refs: [],
+              }),
             ],
           },
         },
@@ -79,6 +72,11 @@ test("E2E lophn이 앱을 등록하고 그 앱 place의 lophn session에 맡긴�
         calls.map((call) => [call.response_key, call.outcome?.kind]),
       );
       assert.deepStrictEqual(outcomes, { t1: "success", t2: "success" });
+      // 기록 이름은 명령 이름이다.
+      assert.deepStrictEqual(
+        calls.map((call) => call.tool),
+        ["app.create", "call.send"],
+      );
 
       // route: 앱 place의 lophn session이 열리고 맡긴 글이 입력에 있다.
       const where = {

@@ -552,6 +552,8 @@ export const appsWiring: WiringFactory = () => {
               }
               appsControl.onSupervisorMessage(message);
             },
+            // 화면 operation의 큰 응답은 bytes frame과 end로 온다(`supervisor-link.ts`의 stream).
+            onFrame: (frame) => appsControl.channel.onFrame(frame),
             // supervisor child가 끝나면 답을 기다리던 질의를 기한(5초·재시작 30초)까지 두지 않고 끝낸다.
             onEnd: () =>
               appsControl.channel.failPending(

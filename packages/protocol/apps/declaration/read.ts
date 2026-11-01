@@ -134,7 +134,7 @@ export const appToolIndex = defineRead({
   name: "app.tool_index",
   input: z.strictObject({ app: appIdSchema.optional() }),
   output: withReadCommon(z.object({ apps: z.array(appToolIndexEntrySchema) })),
-  actors: ["agent"],
+  actors: ["user", "agent"],
   errors: [
     "invalid_input",
     "unauthorized",

@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py command-surface build`가 `tasks/*.md`에서
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `app-commands` | apps | 1 | defer-remove, app-layers | running | apps/app-commands |  |  |
-| `app-large-result` | apps | 1 | app-layers | running | apps/app-large-result |  |  |
+| `app-large-result` | apps | 1 | app-layers | merged | apps/app-large-result | f9576d189 |  |
 | `app-layers` | apps | 1 | 없음 | merged | apps/app-layers | f8f543dfe |  |
 | `cmd-apps` | cli | 1 | app-layers | merged | cli/cmd-apps | 53f0a7875 |  |
 | `cmd-calls` | cli | 1 | cs-foundation | merged | cli/cmd-calls | 8eff7018f |  |

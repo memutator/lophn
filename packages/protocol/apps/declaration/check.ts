@@ -17,7 +17,7 @@ export const declarationCheck = defineMemory({
     warnings: z.array(z.string().min(1)),
     permission_review: z.array(permissionRequirementSchema),
   }),
-  actors: ["agent"],
+  actors: ["user", "agent"],
   errors: [
     "invalid_input",
     "unauthorized",

@@ -137,7 +137,7 @@ export const packagesBuiltin = defineMemory({
   name: "packages.builtin",
   input: packagesBuiltinInputSchema,
   output: packagesBuiltinOutputSchema,
-  actors: ["agent"],
+  actors: ["user", "agent"],
   errors: [
     "invalid_input",
     "not_found",

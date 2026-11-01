@@ -161,9 +161,10 @@ export async function readRewindPoints(
 
 // ---------------------------------------------------------------- 사전 검사
 
-function operationText(operation: { kind: string; tool?: string }): string {
-  return operation.kind === "tool" && operation.tool !== undefined
-    ? operation.tool
+function operationText(operation: { kind: string; name?: string }): string {
+  return (operation.kind === "operation" || operation.kind === "command") &&
+    operation.name !== undefined
+    ? operation.name
     : operation.kind;
 }
 

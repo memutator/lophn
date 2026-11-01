@@ -7,6 +7,7 @@ import type {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 import { sharedSkillsOf } from "./skill-folders.ts";
+import { readSharedHeads } from "./skills.ts";
 import { ok } from "../../../base/mod.ts";
 import { receivedSkills } from "../agents/resolve.ts";
 import {
@@ -535,4 +536,30 @@ test("shared skills reach only the agents the app is assigned to", async () => {
   });
   const own: AgentPlace = { kind: "app", id: "app_01h455vb4pex5v6nkc6gd5fd01" };
   assert.deepStrictEqual((await outcome([slug], own)).listed, ["x"]);
+});
+
+// `/` 메뉴와 개수가 쓰는 동기 목록도 선언한 public skill만, bundle 안의 평범한 폴더에서만 읽는다.
+test("shared skill heads skip undeclared, mismatched and symlinked skills", () => {
+  const files = treeOf({
+    "/b/.lophn/skills/pub/SKILL.md": skillFile("pub", "B"),
+    "/b/.lophn/skills/private/SKILL.md": skillFile("private", "B"),
+    "/b/.lophn/skills/renamed/SKILL.md": skillFile("other", "B"),
+    "/b/.lophn/skills/linked/SKILL.md": skillFile("linked", "B"),
+  });
+  const guarded: SkillFiles = {
+    ...files,
+    kind: (path) => (path.endsWith("/linked") ? "symlink" : files.kind(path)),
+  };
+  const heads = readSharedHeads(guarded, [
+    {
+      app: "app_01",
+      slug: "notes",
+      bundle: "/b",
+      names: ["linked", "pub", "renamed"],
+    },
+  ]);
+  assert.deepStrictEqual(
+    heads.map((head) => head.name),
+    ["pub"],
+  );
 });

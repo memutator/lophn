@@ -22,6 +22,7 @@ const lookups: AgentLookups = {
   placeExists: () => false,
   domains: () => [],
   skills: () => [],
+  shared: () => [],
   mcp: () => [],
   modelDefault: () => null,
   projectModel: () => null,

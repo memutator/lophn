@@ -1,4 +1,7 @@
+import { appBundleCopy } from "../../protocol/apps/app-storage.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import { publicSkillNames } from "../lophn-agent/extensions/skills.ts";
+import { loadActiveDeclaration } from "./releases/store.ts";
 
 // 다른 concern(lophn-agent의 agent 정의 저장소 등)이 apps 표를 읽을 때 쓰는 읽기 함수다. 표는 이 module이 갖는다.
 // 조립(core/main)이 port로 꽂으므로 다른 module은 SQL을 직접 쓰지 않는다.
@@ -53,4 +56,33 @@ export function appStatusOf(
     : row["status"] === "archived"
       ? "archived"
       : "active";
+}
+
+// 할당한 앱(slug)의 active release bundle 사본과 그 선언의 public skill 이름이다. 보관한 앱, 없는 slug, active release가
+// 없는 앱, public skill이 없는 앱은 뺀다. 동기 목록(`/` 메뉴, Agents 탭 개수)이 이것을 읽고, 본문은 `app.skills`가 준다.
+export function sharedSkillFolders(
+  sql: ReadSql,
+  dataRoot: string,
+  slugs: readonly string[],
+): { app: string; slug: string; bundle: string; names: string[] }[] {
+  const folders = [];
+  for (const slug of [...new Set(slugs)].sort()) {
+    const row = sql.get(
+      "select id from apps where slug = ? and status = 'active'",
+      [slug],
+    );
+    if (row === undefined) continue;
+    const app = String(row["id"]);
+    const active = loadActiveDeclaration(sql, app);
+    if (!active.ok || active.value === null) continue;
+    const names = publicSkillNames(active.value.declaration.skills ?? []);
+    if (names.length === 0) continue;
+    folders.push({
+      app,
+      slug,
+      bundle: appBundleCopy(dataRoot, app, active.value.release.bundle_hash),
+      names,
+    });
+  }
+  return folders;
 }

@@ -4,6 +4,7 @@ import type {
   Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
+import type { SharedFolder } from "../extensions/skills.ts";
 import type { AvailableSkill } from "./resolve.ts";
 
 // agents가 바깥에서 받는 것들이다. 파일 IO와 다른 concern의 값은 모두 여기서 받아 시험이 바꿔 끼운다.
@@ -32,6 +33,8 @@ export type AgentLookups = {
   // 발견·등록 순서다(domain 층 skill은 domain마다 한 줄). home(place 없음)은 전역 층만이다. 그 place 종류에
   // 선언된 내장 skill과 켜진 skill만이다.
   skills(place: Place | null): readonly AvailableSkill[];
+  // 할당한 앱(slug)이 내놓은 public skill이다. slug 순에 같은 이름은 앞의 것만이다.
+  shared(apps: readonly string[]): readonly AvailableSkill[];
   mcp(place: Place | null): McpTool[];
   // 전역 기본 model. 없으면 null.
   modelDefault(): ModelChoice | null;
@@ -49,6 +52,12 @@ export type PlaceLookups = {
   domains(sql: ReadSql, place: Place): { id: string; name: string }[];
   // project의 첫 등록 폴더나 앱의 source 폴더다. 폴더가 없으면 null이다. 그 폴더의 `.lophn/skills`가 skill 층이다.
   sourceFolder(sql: ReadSql, place: Place): string | null;
+  // 할당한 앱(slug)의 active release bundle 사본과 선언의 public skill 이름이다. 공유 skill의 동기 목록 재료다.
+  sharedSkills(
+    sql: ReadSql,
+    dataRoot: string,
+    slugs: readonly string[],
+  ): SharedFolder[];
 };
 
 export type AgentDeps = {

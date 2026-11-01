@@ -13,6 +13,7 @@ import {
   type DomainStore,
   type PlaceSkills,
   SKILL_BODY_MAX_BYTES,
+  sharedFor,
   type SharedSkill,
   type SkillEntry,
   type SkillFiles,
@@ -135,14 +136,7 @@ export async function sharedSkillsOf(
 ): Promise<readonly SharedSkill[]> {
   if (apps.length === 0) return [];
   const read = await readOf(machine, appSkills, { apps: [...apps] });
-  if (!read.ok) return [];
-  const names = new Set<string>();
-  return read.value.skills.filter((skill) => {
-    if (place?.kind === "app" && skill.app === place.id) return false;
-    if (names.has(skill.name)) return false;
-    names.add(skill.name);
-    return true;
-  });
+  return read.ok ? sharedFor(read.value.skills, place) : [];
 }
 
 // 층을 합친 목록이다. 내장 skill은 그 place 종류에 선언된 것만이다. 전역과 project에서 끈 것이 enabled false다.

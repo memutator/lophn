@@ -83,7 +83,9 @@ import {
   globalMcpServersSetting,
   type PlaceFiles,
   type ProjectLayer,
+  readSharedHeads,
   runtimeServerOfLayer,
+  sharedFor,
   type SkillFiles,
   type SkillSources,
   skillFoldersSetting,
@@ -489,11 +491,33 @@ function agentLookups(
     },
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
+    // 할당한 앱의 public skill. 이름만 필요한 개수 계산이 쓴다.
+    shared: (apps) =>
+      sharedHeadsOf(places, sql, apps).map((head) => ({
+        name: head.name,
+        can_disable: true,
+        domain: null,
+      })),
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
     projectModel: (place) =>
       place?.kind === "project" ? loadChoice(sql, place.id) : null,
   };
+}
+
+// 할당한 앱의 public skill 목록이다(slug 순, 같은 이름은 앞의 것). data root를 모르면 없다.
+function sharedHeadsOf(
+  places: PlaceLookups,
+  sql: Pick<Tx["sql"], "get" | "all">,
+  apps: readonly string[],
+  place: Place | null = null,
+) {
+  const root = dataRootOf(sql, undefined);
+  if (!root.ok || apps.length === 0) return [];
+  return sharedFor(
+    readSharedHeads(skillFiles, places.sharedSkills(sql, root.value, apps)),
+    place,
+  );
 }
 
 // 전역 층에서 발견하는 skill이다. home에 선언된 내장 skill만이고 전역에서 끈 것은 뺀다.
@@ -717,8 +741,12 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     sql: Pick<Tx["sql"], "get" | "all">,
     agent: AgentId,
     place: Place | null,
-  ): { skills_off: readonly string[]; domains: readonly string[] } {
-    const none = { skills_off: [], domains: [] };
+  ): {
+    skills_off: readonly string[];
+    domains: readonly string[];
+    apps: readonly string[];
+  } {
+    const none = { skills_off: [], domains: [], apps: [] };
     const opened = openAgentContext(agentDeps, sql);
     if (!opened.ok) return none;
     const loaded = loadAgent(opened.value, agent);
@@ -726,6 +754,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     return {
       skills_off: loaded.value.definition?.skills_off ?? [],
       domains: domainsOf(opened.value, loaded.value, place),
+      apps: loaded.value.definition?.apps ?? [],
     };
   }
 
@@ -737,14 +766,15 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     skills: (sql, session) => {
       const own = ownOf(sql, session.agent, session.place);
       const kind = placeKindOf(session.place);
+      const shared = sharedHeadsOf(ports.lookups, sql, own.apps, session.place);
       return commandSkillsOf(
         session.place === null
           ? discoverSkills(
               skillFiles,
-              { ...globalSkillSources(sql, ports), domains: [] },
+              { ...globalSkillSources(sql, ports), shared, domains: [] },
               { kind, off: registeredSkillsOff(sql) },
             ).entries
-          : (extensionRegistry(sql, ports)?.skills(session.place, kind)
+          : (extensionRegistry(sql, ports)?.skills(session.place, kind, shared)
               .entries ?? []),
         own.skills_off,
         own.domains,

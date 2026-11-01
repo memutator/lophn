@@ -68,7 +68,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
       ? { skills: null, mcp: null }
       : {
           skills: receivedSkills(
-            skills,
+            [...skills, ...context.lookups.shared(definition?.apps ?? [])],
             definition?.skills_off ?? [],
             domainsOf(context, loaded, null),
           ).length,

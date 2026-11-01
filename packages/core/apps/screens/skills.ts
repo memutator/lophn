@@ -2,7 +2,10 @@ import { readdir } from "node:fs/promises";
 import type { BundleLocator } from "../ports.ts";
 import { createScreenFileDeps } from "./adapters.ts";
 import {
-  parseSkillFrontmatter,
+  isSharedCompanion,
+  publicSkillNames,
+  SHARED_SKILLS_DIR,
+  sharedManifestDescription,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
 } from "../../lophn-agent/extensions/skills.ts";
@@ -33,9 +36,7 @@ export async function readAppSkills(
   app: string,
   declared: readonly { name: string; public: boolean }[],
 ): Promise<AppSkill[]> {
-  const publicNames = declared
-    .filter((skill) => skill.public)
-    .map((skill) => skill.name);
+  const publicNames = publicSkillNames(declared);
   if (publicNames.length === 0) return [];
   const bundle = deps.bundles.dir({
     mode: "live",
@@ -58,29 +59,23 @@ export async function readAppSkills(
   };
 
   const skills: AppSkill[] = [];
-  for (const name of [...publicNames].sort()) {
-    const dir = await inside(`${root}/.lophn/skills/${name}`);
+  for (const name of publicNames) {
+    const dir = await inside(`${root}/${SHARED_SKILLS_DIR}/${name}`);
     if (dir === null) continue;
     const manifest = await text(`${dir}/${SKILL_MANIFEST}`);
     if (manifest === null) continue;
-    const parsed = parseSkillFrontmatter(manifest);
-    if (!parsed.ok || parsed.value.name !== name) continue;
+    const description = sharedManifestDescription(name, manifest);
+    if (description === null) continue;
     const files: AppSkill["files"] = [];
     for (const file of (await deps.list(dir)) ?? []) {
-      if (
-        file.startsWith(".") ||
-        file === SKILL_MANIFEST ||
-        !file.endsWith(".md")
-      ) {
-        continue;
-      }
+      if (!isSharedCompanion(file)) continue;
       const body = await text(`${dir}/${file}`);
       if (body !== null) files.push({ name: file, text: body });
     }
     files.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     skills.push({
       name,
-      description: parsed.value.description,
+      description,
       skill_md: manifest,
       files,
     });

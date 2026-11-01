@@ -1,6 +1,7 @@
 import { parse } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type AgentPlace,
   BUILTIN_SKILLS,
   type PlaceKind,
   type SkillEntry as SkillRow,
@@ -266,28 +267,126 @@ export type SkillSources = {
   place?: PlaceSkills | null;
   domains: readonly DomainStore[];
   // 할당한 앱의 public skill이다. 내장 바로 위, 전역 아래 층이다. 같은 이름은 앞의 것이 이긴다(부르는 쪽이 slug 순으로 준다).
-  shared?: readonly SharedSkill[];
+  shared?: readonly SharedSkillHead[];
 };
 
 export type PlaceSkills = { source: "project" | "app"; folder: string };
 
-// 할당한 앱이 active release로 내놓은 public skill이다. 파일이 아니라 core가 bundle에서 읽어 준 본문이라 이 값이 곧 skill이다.
-export type SharedSkill = {
+// 할당한 앱이 active release로 내놓은 public skill이다. 목록(prompt, `/` 메뉴, 개수)에는 head면 되고, `skill.read`는 본문까지 든
+// SharedSkill을 쓴다.
+export type SharedSkillHead = {
   // 앱 id와 slug. slug 순이 같은 이름의 우선이다.
   app: string;
   slug: string;
   name: string;
   description: string;
+};
+
+// core가 bundle에서 읽어 준 본문이다. 파일이 아니라 이 값이 곧 skill이다.
+export type SharedSkill = SharedSkillHead & {
   // frontmatter까지 든 SKILL.md 전체와 딸린 `.md` 파일이다.
   skill_md: string;
   files: readonly { name: string; text: string }[];
 };
 
+// 앱 bundle 안에서 skill 폴더들이 있는 자리다.
+const SHARED_ROOT_DIR = ".lophn";
+export const SHARED_SKILLS_DIR = `${SHARED_ROOT_DIR}/skills`;
+
+// 선언에서 다른 agent에게 주는 skill의 이름이다. 선언에 없는 폴더는 열지 않는다.
+export function publicSkillNames(
+  declared: readonly { name: string; public: boolean }[],
+): string[] {
+  return declared
+    .filter((skill) => skill.public)
+    .map((skill) => skill.name)
+    .sort();
+}
+
+// 공유 skill의 SKILL.md가 맞는 꼴이면 설명을 준다. 폴더 이름과 frontmatter 이름이 다르면 읽지 않는다.
+export function sharedManifestDescription(
+  name: string,
+  text: string,
+): string | null {
+  const parsed = parseSkillFrontmatter(text);
+  return parsed.ok && parsed.value.name === name
+    ? parsed.value.description
+    : null;
+}
+
+// SKILL.md 옆에서 같이 주는 file인지다.
+export function isSharedCompanion(file: string): boolean {
+  return (
+    !file.startsWith(".") && file !== SKILL_MANIFEST && file.endsWith(".md")
+  );
+}
+
+// 받는 쪽이 쓰는 공유 skill이다. slug 순으로 같은 이름은 앞의 것만 남기고, 앱 자기 place에서는 그 앱의 `app` 층으로
+// 이미 보이므로 싣지 않는다.
+export function sharedFor<T extends SharedSkillHead>(
+  shared: readonly T[],
+  place: AgentPlace | null,
+): T[] {
+  const names = new Set<string>();
+  return [...shared]
+    .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
+    .filter((skill) => {
+      if (place?.kind === "app" && skill.app === place.id) return false;
+      if (names.has(skill.name)) return false;
+      names.add(skill.name);
+      return true;
+    });
+}
+
 // 공유 skill의 `bundle_path`다. 파일 위치가 아니라 이 값으로 snapshot이 본문을 찾는다.
 export function sharedPathOf(
-  skill: Pick<SharedSkill, "slug" | "name">,
+  skill: Pick<SharedSkillHead, "slug" | "name">,
 ): string {
   return `shared:${skill.slug}/${skill.name}`;
+}
+
+// 한 앱의 active release bundle 사본과 그 선언의 public skill 이름이다(앱 module이 sql로 알려 준다).
+export type SharedFolder = {
+  app: string;
+  slug: string;
+  bundle: string;
+  names: readonly string[];
+};
+
+// 동기 목록 읽기다(`/` 메뉴, Agents 탭 개수). 이름과 설명만 읽는다. 본문 읽기(`app.skills`)와 같은 규칙을 쓰되 realpath 대신
+// bundle 아래 길의 마디마다 lstat로 symlink가 아닌 폴더인지 본다. 읽을 수 없는 skill은 오류 없이 뺀다.
+export function readSharedHeads(
+  files: SkillFiles,
+  folders: readonly SharedFolder[],
+): SharedSkillHead[] {
+  const heads: SharedSkillHead[] = [];
+  for (const folder of folders) {
+    for (const name of folder.names) {
+      const found = attempt(() => {
+        const lophn = joinPath(folder.bundle, SHARED_ROOT_DIR);
+        const skills = joinPath(folder.bundle, SHARED_SKILLS_DIR);
+        const dir = joinPath(skills, name);
+        if (![lophn, skills, dir].every((path) => files.kind(path) === "dir")) {
+          return null;
+        }
+        const read = files.read(
+          joinPath(dir, SKILL_MANIFEST),
+          SKILL_BODY_MAX_BYTES,
+        );
+        if (read === null || !read.complete) return null;
+        return sharedManifestDescription(name, read.text);
+      });
+      if (found.ok && found.value !== null) {
+        heads.push({
+          app: folder.app,
+          slug: folder.slug,
+          name,
+          description: found.value,
+        });
+      }
+    }
+  }
+  return heads;
 }
 
 // domain 층 skill은 `domain`이 그 domain id이고 아니면 null이다.

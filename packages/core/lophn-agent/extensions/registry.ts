@@ -20,6 +20,9 @@ import {
 import {
   discoverSkills,
   pickSkills,
+  type SharedSkillHead,
+  sharedFor,
+  sharedPathOf,
   type SkillFiles,
   type SkillListing,
   skillReceived,
@@ -52,7 +55,12 @@ type ExtensionRegistryDeps = {
 export type ExtensionRegistry = {
   // 이 place의 agent가 발견하는 skill이다. 내장, 전역, project·app, domain 순으로 덮고 끈 것은 enabled false다. 내장 skill은
   // `places`에 선언된 종류만이고 null이면 모두다.
-  skills(place: AgentPlace, kind: PlaceKind | null): SkillListing;
+  // `shared`는 그 agent에게 할당한 앱의 public skill이다. 내장 바로 위 층이다.
+  skills(
+    place: AgentPlace,
+    kind: PlaceKind | null,
+    shared?: readonly SharedSkillHead[],
+  ): SkillListing;
   // 이 place에서 쓸 수 있는 서버다. 전역에 project 층이 덮이고 이어진다. 앱 place에는 project 층이 없다.
   mcpServers(place: AgentPlace): readonly McpRuntimeServer[];
 };
@@ -62,8 +70,12 @@ function key(place: AgentPlace): string {
 }
 
 // 한 읽기의 등록부 하나를 같은 place의 여러 agent가 같이 쓴다. skill 목록은 place 종류마다 다르다.
-function skillKey(place: AgentPlace, kind: PlaceKind | null): string {
-  return `${key(place)}:${kind ?? "all"}`;
+function skillKey(
+  place: AgentPlace,
+  kind: PlaceKind | null,
+  shared: readonly SharedSkillHead[],
+): string {
+  return `${key(place)}:${kind ?? "all"}:${shared.map(sharedPathOf).join(",")}`;
 }
 
 export function createExtensionRegistry(
@@ -92,8 +104,8 @@ export function createExtensionRegistry(
   }
 
   return {
-    skills(place, kind) {
-      const found = skills.get(skillKey(place, kind));
+    skills(place, kind, shared = []) {
+      const found = skills.get(skillKey(place, kind, shared));
       if (found !== undefined) return found;
       const off = [
         ...new Set([...deps.global.skillsOff, ...projectOf(place).skills_off]),
@@ -102,6 +114,7 @@ export function createExtensionRegistry(
         deps.skillFiles,
         {
           ...deps.global.skills,
+          shared: sharedFor(shared, place),
           place: placeSkillsOf(
             deps.projectLayer,
             place,
@@ -117,7 +130,7 @@ export function createExtensionRegistry(
         },
         { kind, off },
       );
-      skills.set(skillKey(place, kind), listing);
+      skills.set(skillKey(place, kind, shared), listing);
       return listing;
     },
     mcpServers(place) {

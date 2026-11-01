@@ -6,7 +6,12 @@ import {
   projectFolderPaths,
   projectIds,
 } from "../../../projects/lookups.ts";
-import { appExists, appIds, appSourcePath } from "../../../apps/lookups.ts";
+import {
+  appExists,
+  appIds,
+  appSourcePath,
+  sharedSkillFolders,
+} from "../../../apps/lookups.ts";
 import { domainsOfOwner } from "../../../domains/lookups.ts";
 import { createAgentDirectory } from "../../../lophn-agent/agents/directory.ts";
 import { PROJECT_LAYER } from "../../../agent-places/place/project-layer.ts";
@@ -21,6 +26,7 @@ const agent = createLophnAgent({
     projectIds,
     appExists,
     appIds,
+    sharedSkills: sharedSkillFolders,
     sourceFolder: (sql, place) =>
       place.kind === "project"
         ? (projectFolderPaths(sql, place.id)[0] ?? null)

@@ -1,7 +1,13 @@
 // core가 보낸 call 요청 하나에 invocation 하나. 결과는 응답으로 돌려주고 기록은 core가 남긴다.
 import { validateInput } from "../../../../protocol/apps/declaration/mod.ts";
 import { encodeChangeset, inputHashOf } from "./cap-host.ts";
-import { CALL_BODY_MAX_BYTES, RESULT_MAX_BYTES } from "./limits.ts";
+import { CALL_RESPONSE_MAX_BYTES } from "../../../../protocol/base/frame.ts";
+import {
+  CALL_BODY_MAX_BYTES,
+  OPERATION_RESPONSE_MAX_BYTES,
+  OPERATION_RESULT_MAX_BYTES,
+  RESULT_MAX_BYTES,
+} from "./limits.ts";
 import { fitChangeset } from "./fit.ts";
 import { parseProcessCall, type ProcessCall } from "./wire.ts";
 import { isJson } from "./wire-check.ts";
@@ -67,7 +73,15 @@ export async function handleCall(
         ? await run(state, call, false)
         : await state.exclusive(() => run(state, call, true));
     return done.status === 200
-      ? { status: 200, body: fitChangeset(done.body) }
+      ? {
+          status: 200,
+          body: fitChangeset(
+            done.body,
+            call.kind === "operation"
+              ? OPERATION_RESPONSE_MAX_BYTES
+              : CALL_RESPONSE_MAX_BYTES,
+          ),
+        }
       : done;
   } finally {
     state.running--;
@@ -154,9 +168,10 @@ async function run(
   if (!isJson(result)) {
     return failed("internal", "result is not JSON", changeset);
   }
+  // 화면 operation의 응답은 frame을 넘어 stream으로 가고, 바깥 명령의 결과는 frame 하나에 든다.
   if (
     new TextEncoder().encode(JSON.stringify(result)).byteLength >
-    RESULT_MAX_BYTES
+    (call.kind === "operation" ? OPERATION_RESULT_MAX_BYTES : RESULT_MAX_BYTES)
   ) {
     return failed("internal", "result exceeds the size limit", changeset);
   }

@@ -201,7 +201,8 @@ export const releaseCancelOutputSchema = z.strictObject({
   accepted: z.literal(true),
 });
 
-// 호출 중계. 앱에 보내지 못했으면 `sent: false`, 보낸 뒤 연결이 끊기거나 시간이 넘으면 `response: null`이다.
+// 호출 중계. 출력이 control frame 하나에 안 들면 worker_response는 `{stream}`만 싣고 출력 JSON은 같은 channel의
+// bytes frame과 end로 온다(`StreamedPayload`). 앱에 보내지 못했으면 `sent: false`, 보낸 뒤 연결이 끊기거나 시간이 넘으면 `response: null`이다.
 export const callInputSchema = z.strictObject({
   target: appToolTargetSchema,
   request: processCallRequestSchema,

@@ -12,7 +12,10 @@ import {
 import type { ErrorCode } from "../../../../base/mod.ts";
 import type { z } from "zod";
 import type { Supervisor } from "./supervisor.ts";
-import { FrameDecoder } from "../../../../protocol/base/mod.ts";
+import {
+  FrameDecoder,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../../../../protocol/base/mod.ts";
 
 type AppCredentialResponse = z.infer<typeof appCredentialResponseSchema>;
 
@@ -31,6 +34,15 @@ export class OpError extends Error {
   }
 }
 
+// op 처리기가 control frame에 담기지 않는 응답 본문(JSON 글)을 돌려줄 때 감싼다. worker_response는
+// `{stream: channel}`만 싣고 본문은 같은 channel의 bytes frame과 end로 간다.
+export class StreamedPayload {
+  readonly body: Uint8Array;
+  constructor(body: Uint8Array) {
+    this.body = body;
+  }
+}
+
 // body는 worker_request에 channel이 실려 bytes stream이 온 op에만 있다.
 export type OpHandlers = Record<
   string,
@@ -46,6 +58,8 @@ type ControlHello = {
 type ControlLinkOptions = {
   // core로 frame 하나를 보낸다. 쓰기는 호출 순서대로 이어져야 한다.
   send: (message: unknown) => Promise<void> | void;
+  sendBytes: (channel: number, chunk: Uint8Array) => Promise<void> | void;
+  sendEnd: (channel: number) => Promise<void> | void;
   ops: OpHandlers;
   // hello를 받은 직후, `ready`를 보내기 전에 부른다.
   onHello?: (hello: ControlHello) => void;
@@ -70,6 +84,8 @@ export function attachControlLink(
   let stopped = false;
   const frames = new FrameDecoder();
   const inflight = new Set<Promise<void>>();
+  // core로 가는 응답 stream끼리 겹치지 않게 1부터 올린다.
+  let nextChannel = 0;
 
   function track(work: Promise<void>): void {
     inflight.add(work);
@@ -102,6 +118,27 @@ export function attachControlLink(
     }
     try {
       const payload = await handler(request.payload, body);
+      if (payload instanceof StreamedPayload) {
+        const channel = ++nextChannel;
+        await options.send({
+          type: "worker_response",
+          request_id: request.request_id,
+          ok: true,
+          payload: { stream: channel },
+        });
+        for (
+          let at = 0;
+          at < payload.body.length;
+          at += STREAM_CHUNK_MAX_BYTES
+        ) {
+          await options.sendBytes(
+            channel,
+            payload.body.subarray(at, at + STREAM_CHUNK_MAX_BYTES),
+          );
+        }
+        await options.sendEnd(channel);
+        return;
+      }
       await options.send({
         type: "worker_response",
         request_id: request.request_id,

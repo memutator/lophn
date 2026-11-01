@@ -4,6 +4,7 @@
 // socket I/O는 주입받는다.
 import {
   type AppToolTarget,
+  CALL_RESULT_MAX_BYTES,
   PROCESS_PATHS,
   type ProcessApplyRequest,
   type ProcessApplyResponse,
@@ -137,7 +138,11 @@ export function createRelay(deps: {
         path: PROCESS_PATHS.call,
         body: JSON.stringify(request),
         timeoutMs: CALL_TIMEOUT_MS,
-        maxBytes: CALL_RESPONSE_MAX_BYTES,
+        // 화면 operation의 응답만 control frame을 넘는다. 바깥 명령의 결과는 frame 하나에 든다.
+        maxBytes:
+          request.kind === "operation"
+            ? CALL_RESULT_MAX_BYTES
+            : CALL_RESPONSE_MAX_BYTES,
       });
       if (reply.kind === "not_sent") {
         return unavailable("the app process did not accept the connection");

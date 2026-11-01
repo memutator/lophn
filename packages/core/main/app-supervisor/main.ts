@@ -40,6 +40,12 @@ function send(message: unknown): Promise<void> {
     encodeFrame({ kind: "json", channel: 0, payload: message }),
   );
 }
+function sendBytes(channel: number, chunk: Uint8Array): Promise<void> {
+  return writeFrame(encodeFrame({ kind: "bytes", channel, payload: chunk }));
+}
+function sendEnd(channel: number): Promise<void> {
+  return writeFrame(encodeFrame({ kind: "end", channel }));
+}
 function writeFrame(bytes: Uint8Array): Promise<void> {
   writing = writing.then(() => stdout.write(bytes));
   return writing;
@@ -165,6 +171,8 @@ const assembled = assembleSupervisor({
 
 const link = attachControlLink(assembled.supervisor, stdin, {
   send,
+  sendBytes,
+  sendEnd,
   ops: assembled.ops,
   onHello(hello) {
     port.value = hello.apiPort;

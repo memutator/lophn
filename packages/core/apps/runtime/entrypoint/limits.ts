@@ -1,3 +1,4 @@
+import { CALL_RESULT_MAX_BYTES } from "../../../../protocol/apps/calls/limits.ts";
 import {
   CALL_RESPONSE_MAX_BYTES,
   CONTROL_MAX_BYTES,
@@ -26,11 +27,15 @@ export const BROKER_PATHS = {
 export const SOCKET_HOST = "lophn.invalid";
 export const SHUTDOWN_GRACE_MS = 10_000;
 export const SOCKET_PATH_MAX_BYTES = 104;
-// 호출 본문과 결과는 control frame 하나에 담겨 오가므로 그 한도 아래로 정한다. 넘치면 호출이 결과 모름으로
-// 닫힌다. 큰 값은 blob이나 file로 넘긴다.
+// 호출 본문과 바깥 명령의 결과는 control frame 하나에 담겨 오가므로 그 한도 아래로 정한다. 넘치면 호출이
+// 결과 모름으로 닫힌다. 큰 값은 blob이나 file로 넘긴다. 화면 operation의 응답만 frame을 넘어 bytes stream으로
+// 가므로 아래 OPERATION 한도를 쓴다.
 // 본문은 `apps.call` frame 안의 request다. frame의 target과 worker_request envelope 몫 2 KiB를 뺀다.
 export const CALL_BODY_MAX_BYTES = CONTROL_MAX_BYTES - 2 * 1024;
 // 응답에서 결과 밖 칸(status, changeset, changeset_dropped)이 쓰는 몫 1 KiB를 뺀다.
 export const RESULT_MAX_BYTES = CALL_RESPONSE_MAX_BYTES - 1024;
+// operation 응답 전체(결과·changeset·칸)의 상한과, 거기서 결과 밖 칸 몫 1 KiB를 뺀 결과 상한이다.
+export const OPERATION_RESPONSE_MAX_BYTES = CALL_RESULT_MAX_BYTES;
+export const OPERATION_RESULT_MAX_BYTES = CALL_RESULT_MAX_BYTES - 1024;
 // 뒤집은 changeset 목록의 본문 상한이다.
 export const APPLY_BODY_MAX_BYTES = 64 * 1_048_576;

@@ -36,8 +36,8 @@ export const processCallRequestSchema = z.strictObject({
 });
 export type ProcessCallRequest = z.infer<typeof processCallRequestSchema>;
 
-// 실패한 write도 DB가 일부 바뀌었을 수 있으므로 changeset을 싣는다. frame에 안 들어가면 빼고
-// `changeset_dropped`로 알린다. changeset이 null이고 이 칸이 있으면 DB를 바꿨을 수 있다는 뜻이다.
+// 실패한 write도 DB가 일부 바뀌었을 수 있으므로 changeset을 싣는다. 응답 한도(operation은
+// `CALL_RESULT_MAX_BYTES`, command는 control frame 하나)에 안 들어가면 빼고 `changeset_dropped`로 알린다. changeset이 null이고 이 칸이 있으면 DB를 바꿨을 수 있다는 뜻이다.
 export const processCallResponseSchema = z.discriminatedUnion("status", [
   z.strictObject({
     status: z.literal("ok"),

@@ -5,7 +5,7 @@ export {
   recentExits,
 } from "./restart-policy.ts";
 export type { UnexpectedExit } from "./restart-policy.ts";
-export { attachControlLink, OpError } from "./control-link.ts";
+export { attachControlLink, OpError, StreamedPayload } from "./control-link.ts";
 export type { OpHandlers } from "./control-link.ts";
 export { createSupervisor } from "./supervisor.ts";
 export type {

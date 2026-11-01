@@ -30,7 +30,10 @@ import {
   SUPERVISOR_OPS,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
-import { STREAM_CHUNK_MAX_BYTES } from "../../../protocol/base/mod.ts";
+import {
+  type Frame,
+  STREAM_CHUNK_MAX_BYTES,
+} from "../../../protocol/base/mod.ts";
 import { CALL_BODY_MAX_BYTES } from "./entrypoint/limits.ts";
 import { APPLY_TIMEOUT_MS, CALL_TIMEOUT_MS } from "./supervisor/relay.ts";
 
@@ -78,6 +81,9 @@ export type SupervisorChannel = {
   notify(payload: unknown): Promise<boolean>;
   // 감독 callback이 자식 message를 넘긴다. worker_response를 소비했으면 true다.
   onMessage(message: { type: string }): boolean;
+  // 감독 callback이 자식의 bytes·end·abort frame을 넘긴다. 응답이 control frame에 담기지 않아
+  // stream으로 오는 요청의 것만 쓰고 나머지는 버린다.
+  onFrame(frame: Frame): void;
   bind(senders: SupervisorSenders): void;
   // supervisor가 멈췄다. 기다리던 요청은 unavailable로 끝난다.
   unbind(): void;
@@ -93,9 +99,12 @@ export function createSupervisorChannel(): SupervisorChannel {
   // 진행 중인 apply끼리 겹치지 않게 1부터 올린다.
   let nextChannel = 0;
   const pending = new Map<string, (answer: Result<unknown>) => void>();
+  // 응답 본문이 bytes stream으로 오는 요청. supervisor가 고른 channel로 찾는다.
+  const streams = new Map<number, { id: string; chunks: Uint8Array[] }>();
   // 보낸 요청이 답 없이 끝났다. 앱 process까지 갔을 수 있다(`details.sent`).
   const SENT = { sent: true };
   function failPending(message: string) {
+    streams.clear();
     for (const [id, settle] of [...pending]) {
       pending.delete(id);
       settle(err({ code: "unavailable", message, details: SENT }));
@@ -184,6 +193,15 @@ export function createSupervisorChannel(): SupervisorChannel {
       const response = message as WorkerResponse;
       const settle = pending.get(response.request_id);
       if (!settle) return false;
+      // 본문이 control frame을 넘으면 supervisor는 `{stream}`만 답하고 본문을 bytes와 end로 보낸다.
+      if (response.ok) {
+        const stream = (response.payload as { stream?: unknown } | null)
+          ?.stream;
+        if (typeof stream === "number") {
+          streams.set(stream, { id: response.request_id, chunks: [] });
+          return true;
+        }
+      }
       pending.delete(response.request_id);
       settle(
         response.ok
@@ -195,6 +213,37 @@ export function createSupervisorChannel(): SupervisorChannel {
             }),
       );
       return true;
+    },
+    onFrame(frame) {
+      if (frame.kind === "json") return;
+      const stream = streams.get(frame.channel);
+      if (!stream) return;
+      if (frame.kind === "bytes") {
+        stream.chunks.push(frame.payload);
+        return;
+      }
+      streams.delete(frame.channel);
+      const settle = pending.get(stream.id);
+      if (!settle) return;
+      pending.delete(stream.id);
+      // 본문을 다 받지 못했으면 앱까지 갔다 온 응답을 잃은 것이라 결과 모름이다.
+      const lost = err({
+        code: "unavailable" as const,
+        message: "app supervisor response was cut off",
+        details: SENT,
+      });
+      if (frame.kind === "abort") return settle(lost);
+      try {
+        settle(
+          ok(
+            JSON.parse(
+              new TextDecoder().decode(concatChunks(stream.chunks)),
+            ) as unknown,
+          ),
+        );
+      } catch {
+        settle(lost);
+      }
     },
     bind(next) {
       senders = next;
@@ -208,6 +257,16 @@ export function createSupervisorChannel(): SupervisorChannel {
       return senders !== null;
     },
   };
+}
+
+function concatChunks(chunks: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(chunks.reduce((sum, c) => sum + c.length, 0));
+  let at = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, at);
+    at += chunk.length;
+  }
+  return out;
 }
 
 function shaped<T>(

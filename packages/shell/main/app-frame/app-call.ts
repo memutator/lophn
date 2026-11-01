@@ -2,6 +2,7 @@
 // IPC를 보낸 실제 view에서 main이 정한다(페이지는 자기가 어느 앱인지 모른다). 화면은 operation만 부른다:
 // 그 view의 고정 선언의 operations에 있는 것만 core의 `apps.call_tool`로 보낸다. operation의 입력은 앱 code가
 // 확인하고, 허락과 기록은 core가 정한다. 결과는 core가 호출을 마치고 돌려준 outcome이다.
+import { CALL_RESULT_MAX_BYTES } from "../../../protocol/apps/calls/limits.ts";
 import type { ConnectTarget, CoreCaller, Outcome } from "./app-connection.ts";
 import type { BoundView } from "./registry.ts";
 
@@ -35,9 +36,6 @@ function fail(code: string, message: string): CallOutcome<never> {
 
 // IPC 입력 상한. protocol의 IPC 상한(64 KiB)과 같다.
 const CALL_INPUT_MAX_BYTES = 64 * 1024;
-// 앱 응답을 페이지로 넘기는 상한. 넘으면 결과를 넘기지 않는다.
-const CALL_RESULT_MAX_BYTES = 8 * 1024 * 1024;
-
 /** 고정 bundle의 선언을 읽는다. 같은 bundle은 같은 선언이다. */
 export type DeclarationSource = (view: {
   app: string;

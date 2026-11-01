@@ -5,7 +5,11 @@ import {
   createAppProcessLink,
   createSupervisorChannel,
 } from "./supervisor-link.ts";
-import { attachControlLink, OpError } from "./supervisor/control-link.ts";
+import {
+  attachControlLink,
+  OpError,
+  StreamedPayload,
+} from "./supervisor/control-link.ts";
 import type { Supervisor } from "./supervisor/supervisor.ts";
 
 // 지우면 rewind가 changeset이 많을 때 control frame 한도(256 KiB)에서 통째로 실패한다.
@@ -46,7 +50,25 @@ test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", async ()
       send: (message) => {
         channel.onMessage(message as { type: string });
       },
+      sendBytes: (n, payload) =>
+        channel.onFrame({ kind: "bytes", channel: n, payload }),
+      sendEnd: (n) => channel.onFrame({ kind: "end", channel: n }),
       ops: {
+        // 응답이 frame 한도를 넘는 호출이다. 본문은 응답 stream으로 돌아온다.
+        "apps.call": () => {
+          const response = {
+            status: "ok",
+            result: "x".repeat(600 * 1024),
+            changeset: null,
+          };
+          return Promise.resolve(
+            new StreamedPayload(
+              new TextEncoder().encode(
+                JSON.stringify({ sent: true, response }),
+              ),
+            ),
+          );
+        },
         "apps.apply": (payload, body) => {
           assert.deepStrictEqual(payload, { app: "app_1" });
           if (!body) throw new OpError("invalid_input", "no body");
@@ -98,11 +120,47 @@ test("frame 한도를 넘는 rewind 적용도 한 번에 되돌린다", async ()
   const applied = await createAppProcessLink(channel).apply("app_1" as never, {
     changesets,
   });
+  // 응답이 frame 한도를 넘는 호출은 stream으로 돌아와 그대로 닿는다.
+  const called = await createAppProcessLink(channel).call(
+    {} as never,
+    {} as never,
+  );
   closed = true;
   wake?.();
   await link.closed;
 
+  assert.ok(called.sent && called.response?.status === "ok");
+  assert.deepStrictEqual(
+    (called.response as { result: string }).result.length,
+    600 * 1024,
+  );
+
   assert.ok(applied.ok);
   assert.deepStrictEqual(applied.value, { status: "applied", count: 40 });
   assert.deepStrictEqual(received, changesets);
+});
+
+// 보낸 뒤 응답을 잃은 호출은 실패가 아니라 결과 모름이다. 쓰기가 일어났는지 모르는 채 닫으면 안 된다.
+test("큰 응답을 받다 끊긴 호출은 결과 모름이다", async () => {
+  const channel = createSupervisorChannel();
+  channel.bind({
+    send: () => Promise.resolve(true),
+    sendBytes: () => Promise.resolve(true),
+    sendEnd: () => Promise.resolve(true),
+    sendAbort: () => Promise.resolve(true),
+  });
+  const called = createAppProcessLink(channel).call({} as never, {} as never);
+  channel.onMessage({
+    type: "worker_response",
+    request_id: "apps-request-1",
+    ok: true,
+    payload: { stream: 1 },
+  } as never);
+  channel.onFrame({
+    kind: "bytes",
+    channel: 1,
+    payload: new TextEncoder().encode('{"sent":true,'),
+  });
+  channel.onFrame({ kind: "abort", channel: 1 });
+  assert.deepStrictEqual(await called, { sent: true, response: null });
 });

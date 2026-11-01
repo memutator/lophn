@@ -15,6 +15,7 @@ import {
   toolCallOutputSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import { appsSecretValue, CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
+import { CALL_RESPONSE_MAX_BYTES } from "../../../protocol/base/mod.ts";
 import {
   type AppCallPort,
   type BrokerChild,
@@ -76,6 +77,7 @@ import {
   type DesiredApp,
   OpError,
   type OpHandlers,
+  StreamedPayload,
   type Supervisor,
   type SupervisorDeps,
   type SupervisorEvent,
@@ -877,9 +879,14 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       };
     },
     // core가 보낸 호출 하나와 뒤집은 changeset 적용을 그 앱 process의 control socket으로 중계한다.
-    [SUPERVISOR_OPS.call]: (payload) => {
+    [SUPERVISOR_OPS.call]: async (payload) => {
       const input = parse(callInputSchema, payload);
-      return relay.call(input.target, input.request);
+      const output = await relay.call(input.target, input.request);
+      // 화면 operation의 큰 응답은 control frame에 담기지 않아 bytes stream으로 보낸다.
+      const bytes = new TextEncoder().encode(JSON.stringify(output));
+      return bytes.length > CALL_RESPONSE_MAX_BYTES
+        ? new StreamedPayload(bytes)
+        : output;
     },
     [SUPERVISOR_OPS.apply]: async (payload, body) => {
       const input = parse(applyInputSchema, payload);

@@ -398,6 +398,40 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     });
   };
 
+  // 할당은 정의 파일의 apps·permissions라 Grants 저장이 파일 hash를 바꾼다. 들고 있는 hash와 두 칸을 파일에 맞춰,
+  // 이어지는 정의 저장이 conflict가 되거나 방금 바꾼 할당을 옛 값으로 덮지 않게 한다. 편집 중인 다른 칸은 그대로 둔다.
+  const syncGrantsFile = async (assignment: string) => {
+    const read = await source.readAgent(project, assignment);
+    if (!read.ok) return;
+    const stored = read.value.definition as {
+      apps?: unknown;
+      permissions?: unknown;
+    };
+    setState((current) => {
+      if (current.kind !== "ready") return current;
+      const {
+        apps: _apps,
+        permissions: _permissions,
+        ...rest
+      } = current.definition as AgentDraft & {
+        apps?: unknown;
+        permissions?: unknown;
+      };
+      const definition = {
+        ...rest,
+        ...(stored.apps === undefined ? {} : { apps: stored.apps }),
+        ...(stored.permissions === undefined
+          ? {}
+          : { permissions: stored.permissions }),
+      } as AgentDraft;
+      return {
+        ...current,
+        detail: { ...current.detail, hash: read.value.hash },
+        definition,
+      };
+    });
+  };
+
   // Grants의 변화는 바로 저장한다. 저장하지 못하면(다른 창이 먼저 고쳐 conflict인 때도) 다시 읽어 맞춘다.
   const changeGrants = (entries: readonly AssignmentEntry[]) => {
     if (grants.kind !== "ready" || detail.assignment === null) return;
@@ -413,6 +447,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       );
       if (result.ok) {
         revision.current = result.value.revision;
+        await syncGrantsFile(assignment);
         return;
       }
       const fresh = await source.grants(project, assignment);

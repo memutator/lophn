@@ -1,10 +1,14 @@
-/* 기둥: 폼 폭 640px, 위 24px·좌우 32px·아래 48px. */
+/* 기둥: 폼 폭 640px, card 가운데. */
 .gate {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   width: 100%;
   max-width: var(--page-form);
+  min-height: 100%;
   margin: var(--space-0) auto;
-  padding: var(--space-8) var(--layout-pane-padding-wide) var(--space-11);
+  padding: var(--space-9) var(--layout-pane-padding-wide);
 }
 
 @media (width < 1024px) {
@@ -16,48 +20,10 @@
 
 .starting {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-
-.heading {
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-title-size);
-  line-height: var(--type-title-line);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--type-tracking-title);
-}
-
-.skeleton {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.block {
-  display: block;
-  height: var(--space-12);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
-}
-
-.lineLong,
-.lineShort,
-.lineMiddle {
-  display: block;
-}
-
-.lineLong {
-  width: 80%;
-}
-
-.lineShort {
-  width: 65%;
-}
-
-.lineMiddle {
-  width: 72%;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
 }
 
 /* 실패: 테두리 카드 안에 아이콘·문장·다음 행동 하나. */

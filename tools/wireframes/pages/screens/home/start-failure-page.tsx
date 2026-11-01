@@ -2,13 +2,9 @@
 // StartFailureScreen이다. 셋 모두 원본을 그대로 두고 시작하지 않았다는 안내와 update 안내를 준다.
 import type { CSSProperties } from "react";
 
-import {
-  TopBar,
-  Wordmark,
-} from "../../../../../packages/shell/renderer/desktop/top-bar/top-bar.tsx";
+import { GateFrame } from "../../../../../packages/shell/renderer/desktop/places/home-gate.tsx";
 import { schemaFailure } from "../../../../../packages/shell/renderer/desktop/places/start-failure/model.ts";
 import { StartFailureScreen } from "../../../../../packages/shell/renderer/desktop/places/start-failure/start-failure.tsx";
-import gate from "../../../../../packages/shell/renderer/desktop/places/home-gate.module.css";
 
 const FAILURES: CSSProperties = {
   display: "grid",
@@ -55,9 +51,8 @@ const CASES = [
 
 export function StartFailures() {
   return (
-    <div className={gate.window} data-space="home" data-gated="">
-      <TopBar platform="linux" leading={<Wordmark>lophn</Wordmark>} />
-      <main style={FAILURES}>
+    <GateFrame platform="linux">
+      <div style={FAILURES}>
         {CASES.map((one) => (
           <section key={one.caption} style={FAILURE_CASE}>
             <span style={CAPTION}>{one.caption}</span>
@@ -69,7 +64,7 @@ export function StartFailures() {
             </div>
           </section>
         ))}
-      </main>
-    </div>
+      </div>
+    </GateFrame>
   );
 }

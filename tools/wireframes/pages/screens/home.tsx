@@ -12,10 +12,15 @@ import {
 import { StartFailures } from "./home/start-failure-page.tsx";
 import { MockDesktop } from "../../mock/mock-desktop.tsx";
 
-type FailureState = "failed-start" | "failed-sandbox" | "failed-schema";
+type GateState =
+  | "starting"
+  | "failed"
+  | "failed-start"
+  | "failed-sandbox"
+  | "failed-schema";
 
-// core 연결이 이 상태로 고정된 창. Home 자리에 시작 실패 화면이 선다.
-function failedCore(state: FailureState): CoreSource {
+// core 연결이 이 상태로 고정된 창. Home 자리에 시작 화면(준비 중, 연결 실패, 시작 실패)이 선다.
+function gatedCore(state: GateState): CoreSource {
   const current = { state, confirmedAt: null } as const;
   return {
     subscribe(listener) {
@@ -35,7 +40,7 @@ export const homeArea: Area = {
   id: "home",
   title: "Home",
   summary:
-    "처음 여는 Home place. project 창과 같은 shell을 쓴다: 왼쪽 place·session, 가운데 tab(Home lophn session 등), 오른쪽 Places·Jobs. desk 단추는 없다(Main 하나). core가 준비되지 않았거나 시작에 실패하면 shell 대신 연결·시작 실패 화면.",
+    "처음 여는 Home place. project 창과 같은 shell을 쓴다: 왼쪽 place·session, 가운데 tab(Home lophn session 등), 오른쪽 Places·Jobs. desk 단추는 없다(Main 하나). core가 준비되지 않았거나 시작에 실패하면 같은 shell 틀(빈 sidebar와 tab 줄)의 card에 연결·시작 실패 화면.",
   pages: [
     {
       id: "home-empty",
@@ -86,25 +91,39 @@ export const homeArea: Area = {
       render: () => <HomeNewApp />,
     },
     {
+      id: "home-starting",
+      title: "Start · getting ready",
+      description:
+        "앱을 켜고 core가 준비되기 전 Home 자리. shell 틀에 빈 sidebar와 tab 줄을 두고 card 가운데에 흐르는 한 줄을 보인다.",
+      render: () => <MockDesktop core={gatedCore("starting")} />,
+    },
+    {
+      id: "home-connection-failed",
+      title: "Start · connection failed",
+      description:
+        "core에 연결하지 못했을 때. card 가운데에 실패 문장과 [Retry] 하나를 보인다.",
+      render: () => <MockDesktop core={gatedCore("failed")} />,
+    },
+    {
       id: "home-start-failed",
       title: "Start failure · start",
       description:
-        "core가 시작하지 못했을 때 Home 자리에 뜨는 화면. shell 없이 실패 종류와 다음 행동 하나만 보인다.",
-      render: () => <MockDesktop core={failedCore("failed-start")} />,
+        "core가 시작하지 못했을 때 Home 자리에 뜨는 화면. 빈 shell 틀의 card에 실패 종류와 다음 행동 하나만 보인다.",
+      render: () => <MockDesktop core={gatedCore("failed-start")} />,
     },
     {
       id: "home-sandbox-failed",
       title: "Start failure · sandbox",
       description:
         "sandbox를 세우지 못했을 때의 시작 실패 화면. start failure와 구별되는 종류 이름과 다음 행동 하나를 보인다.",
-      render: () => <MockDesktop core={failedCore("failed-sandbox")} />,
+      render: () => <MockDesktop core={gatedCore("failed-sandbox")} />,
     },
     {
       id: "home-schema-failed",
       title: "Start failure · schema",
       description:
         "core와 shell의 schema 판이 맞지 않을 때의 시작 실패 화면. 업데이트 확인이 다음 행동이다.",
-      render: () => <MockDesktop core={failedCore("failed-schema")} />,
+      render: () => <MockDesktop core={gatedCore("failed-schema")} />,
     },
     {
       id: "home-start-failure-cases",

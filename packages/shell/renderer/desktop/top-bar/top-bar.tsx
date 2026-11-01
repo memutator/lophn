@@ -5,7 +5,7 @@ import { currentPlatform, type WindowPlatform } from "./platform.ts";
 import styles from "./top-bar.module.css";
 
 interface TopBarProps {
-  /** 바 왼쪽 자리. 시작 화면(HomeGate)은 wordmark를 둔다. */
+  /** 바 왼쪽 자리. */
   leading?: ReactNode;
   /** 바 오른쪽 자리. */
   trailing?: ReactNode;
@@ -13,7 +13,7 @@ interface TopBarProps {
   platform?: WindowPlatform;
 }
 
-// 36px 끌기 바(HomeGate·떼어 낸 창·앱 창). macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋을
+// 36px 끌기 바(떼어 낸 창·앱 창). macOS 신호등 80px을 비우고 Windows·Linux는 오른쪽 끝에 창 단추 셋을
 // 그린다(shell의 title bar와 같은 WindowButtons). 조작 요소만 끌기에서 뺀다.
 export function TopBar({
   leading,
@@ -31,9 +31,4 @@ export function TopBar({
       )}
     </header>
   );
-}
-
-/** 바 왼쪽의 제품 이름. */
-export function Wordmark({ children }: { children: ReactNode }) {
-  return <span className={styles.wordmark}>{children}</span>;
 }

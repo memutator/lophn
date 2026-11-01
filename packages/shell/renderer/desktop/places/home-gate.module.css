@@ -1,14 +1,15 @@
-/* core가 준비되기 전이나 시작에 실패했을 때 Home 자리에 서는 화면. shell 틀 없이 바닥 한 장이다. */
+/* core가 준비되기 전이나 시작에 실패했을 때 Home 자리에 서는 화면. 틀은 ShellFrame이 그리고 여기는 card만 안다. */
 .window {
-  position: absolute;
+  position: fixed;
   inset: var(--space-0);
-  display: flex;
-  flex-direction: column;
-  background: var(--color-surface-base);
+  min-width: var(--space-0);
+  overflow: hidden;
 }
 
-.body {
+.card {
   flex: 1;
-  min-height: var(--space-0);
+  min-width: var(--space-0);
   overflow-y: auto;
+  background: var(--color-surface-base);
+  border-radius: var(--radius-lg);
 }

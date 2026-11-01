@@ -85,7 +85,6 @@ export const workspace = {
   "home.label.name": "Name",
   "home.label.projects": "your projects",
   "home.label.purpose": "Purpose",
-  "home.label.wordmark": "lophn",
   "home.title.damaged-original": "Your data can't be read",
   "home.title.history-mismatch": "The saved history does not match",
   "home.title.new-app": "New app",

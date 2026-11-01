@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { t } from "@lophn/i18n";
 import { Button, Icon } from "@lophn/ui/primitives";
-import { Skeleton } from "@lophn/ui/feedback";
+import { Shimmer } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import {
   actionIcons,
@@ -37,7 +37,7 @@ interface ConnectionGateProps {
   onRetry: () => void;
 }
 
-// 준비 전·실패는 본문 대신 640px 기둥에 놓인다. 준비 전은 자리 모양만, 실패는 다음 행동
+// 준비 전·실패는 시작 화면 card 가운데 640px 기둥에 놓인다. 준비 전은 흐르는 한 줄만, 실패는 다음 행동
 // 하나를 보인다.
 export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
   if (connection.state === "failed") {
@@ -67,24 +67,8 @@ export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
   }
   return (
     <div className={styles.gate}>
-      <div
-        className={styles.starting}
-        role="status"
-        data-connection={connection.state}
-      >
-        <h1 className={styles.heading}>{t("home.connection.starting")}</h1>
-        <div className={styles.skeleton} aria-hidden="true">
-          <span className={styles.block} />
-          <span className={styles.lineLong}>
-            <Skeleton />
-          </span>
-          <span className={styles.lineShort}>
-            <Skeleton />
-          </span>
-          <span className={styles.lineMiddle}>
-            <Skeleton />
-          </span>
-        </div>
+      <div className={styles.starting} data-connection={connection.state}>
+        <Shimmer>{t("home.connection.starting")}</Shimmer>
       </div>
     </div>
   );

@@ -63,7 +63,7 @@ Home은 같은 `PlaceWindow`에 `place: { kind: "home" }`를 주어 그린다(`d
 - **project가 없다(`TabHost.projectId === null`).** 터미널(통로를 주지 않는다), Explorer·Domain·Artifacts·Workflows panel, 검색 탭, project settings, desk 단추(Main 하나), detached 창(`detached`를 주지 않는다)이 없다. 그 kind가 Home layout에 있어도(손상) `render`가 null을 돌려 크래시하지 않는다. html 파일은 artifact 탭이 project 파일로만 열리므로 Home에서는 문서 탭으로 연다.
 - **오른쪽 sidebar는 Places와 Jobs다**(`workspace/sidebar/home-panel.tsx`). Places는 `shell/places-panel.tsx`(project·앱 목록, 등록, New app, 보관)이고 줄을 누르면 그 place로 간다. Jobs는 project panel과 같은 `JobPanel`에 `project: null`을 주어 모든 job을 보인다.
 - **layout은 place key `home`(`<data>/shell/places/home.json`)이고 agent 탭은 `work_place: { kind: "home" }`로 저장한다**(project는 `{ kind: "project", id }`). 탭 `fields.place`는 `placeKey(place)`(project id 또는 `"home"`)이고 render는 이 창의 place와 다르면 그리지 않는다. Home session(`place === null`)은 그 session의 agent로 연 agent 탭이다(`agentRow`가 place가 null인 session을 찾는다). 다른 place의 session은 그 place 창으로 간다(toast 행동의 기본 처리기).
-- **core가 준비되지 않았거나 시작에 실패하면 shell 대신 `HomeGate`(`desktop/places/home-gate.tsx`)가 선다**: 연결 화면(`ConnectionGate`)이나 `StartFailureScreen`. 연결이 끊긴 채(stale) 마지막 화면이 있으면 Home 창이 `ConnectionNotice`를 card 위 한 줄(`notice` prop)로 얹는다.
+- **core가 준비되지 않았거나 시작에 실패하면 Home 창 대신 `HomeGate`(`desktop/places/home-gate.tsx`)가 선다**: 같은 `ShellFrame`에 빈 왼쪽 sidebar와 tab 줄을 두고, card 가운데에 연결 화면(`ConnectionGate`. 준비 중은 `Shimmer` 한 줄, 실패는 [Retry])이나 `StartFailureScreen`을 보인다. 준비되면 같은 틀의 Home 창으로 바뀐다. 연결이 끊긴 채(stale) 마지막 화면이 있으면 Home 창이 `ConnectionNotice`를 card 위 한 줄(`notice` prop)로 얹는다.
 
 ## 앱 place
 

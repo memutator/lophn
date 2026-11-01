@@ -56,10 +56,3 @@
 .trailing {
   flex: none;
 }
-
-.wordmark {
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-semibold);
-}

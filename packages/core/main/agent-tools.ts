@@ -1,11 +1,11 @@
 import { TOOL_ORDER } from "../agent-places/tool-lists.ts";
 import { APPS_AGENT_TOOLS } from "../apps/agent-tools/mod.ts";
-import { LOPHN_TOOLS } from "../lophn-agent/tools/lophn/tool.ts";
 import { ASK_TOOLS } from "../lophn-agent/tools/bundles/ask.ts";
 import { createFileTools } from "../lophn-agent/tools/bundles/file.ts";
 import { SHELL_TOOLS } from "../lophn-agent/tools/bundles/shell.ts";
 import { SKILL_TOOLS } from "../lophn-agent/tools/bundles/skill.ts";
 import { WEB_TOOLS } from "../lophn-agent/tools/bundles/web.ts";
+import { LOPHN_TOOLS } from "../lophn-agent/tools/lophn/tool.ts";
 import type { ToolDefinition } from "../lophn-agent/tools/mod.ts";
 import type { FileHooks } from "../lophn-agent/tools/ports.ts";
 

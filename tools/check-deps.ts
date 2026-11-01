@@ -186,9 +186,7 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
 ]);
 
 // tool 정의 file은 agent runtime child에서 실려서 store·DB 코드를 끌어오면 안 된다(rule tool-file).
-const FEATURE_TOOL_PLACES = [
-  "packages/core/apps/agent-tools/",
-];
+const FEATURE_TOOL_PLACES = ["packages/core/apps/agent-tools/"];
 const PLACE_TOOL_DIR = `packages/core/${CORE_PLACES}/tools/`;
 const SPI = `packages/core/${CORE_HARNESS}/tools/spi.ts`;
 function toolFileViolation(

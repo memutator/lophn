@@ -1,8 +1,8 @@
 // lophn이 내놓는 명령 전체의 표다. binary(`../main.ts`)와 core의 `lophn` tool이 같은 이 목록을 쓴다.
 // 명령을 더하려면 명령 file에서 `defineCommand`로 만들고 아래 COMMANDS에 올린다.
 import type { PlaceKind } from "../../protocol/lophn-agent/places.ts";
-import { CALL_COMMANDS } from "./call.ts";
 import { AGENT_COMMANDS } from "./agent.ts";
+import { CALL_COMMANDS } from "./call.ts";
 import { DOMAIN_COMMANDS } from "./domain.ts";
 import { JOB_COMMANDS } from "./job.ts";
 import { KIND_COMMANDS } from "./kind.ts";

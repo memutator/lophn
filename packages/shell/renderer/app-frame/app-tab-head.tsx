@@ -1,7 +1,7 @@
 // 앱 page가 올린 탭 머리 줄(ipc/app-tab-head.ts)을 이 화면이 선 card 칸의 머리 줄(shell/card-head.tsx)에 그린다.
 // 앱은 글과 id만 보내고 그리는 것은 shell component다. 누르면 그 id를 page로 돌려보낸다. card 밖(floated 패널,
 // detached 창, 세션 카드)이면 그리지 않고 page에 shown=false를 알려 앱이 스스로 그리게 한다.
-import { useContext, useEffect, useState } from "react";
+import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Tab, TabList, Tabs } from "@lophn/ui/navigation";
 
@@ -13,6 +13,16 @@ import styles from "./app-tab-head.module.css";
 // ⋯ 메뉴의 탭 기본 항목(close, float 등)과 id가 겹치지 않게 단다.
 const MENU_PREFIX = "app-head:";
 
+/**
+ * shell이 앱 머리 줄에 더하는 것(앱 화면 탭의 Annotate). center가 있으면 앱이 올린 머리 줄 대신 이것만 그린다(Annotate 중에는
+ * 앱 화면을 누를 수 없어 앱 단추가 뜻이 없다). 없으면 actions를 앱 단추 앞에 둔다. 모양이 바뀌면 key도 바꾼다.
+ */
+export interface ShellHead {
+  readonly key: string;
+  readonly actions: ReactNode;
+  readonly center?: ReactNode;
+}
+
 export function useAppTabHead(input: {
   host: WebviewHost | null;
   /** 그릇의 element key. */
@@ -21,11 +31,17 @@ export function useAppTabHead(input: {
   enabled: boolean;
   /** 경로의 첫 칸. 앱 이름이다. */
   label: string;
+  /** 앱이 머리 줄을 올리지 않아도 shell이 두는 것. */
+  shellHead?: ShellHead | undefined;
 }): void {
   const { host, viewKey, enabled, label } = input;
   const setCardHead = useContext(CardHeadContext);
   const [head, setHead] = useState<TabHead | null>(null);
   const live = enabled && host !== null && viewKey !== "";
+  // 단추의 callback은 최신 값을 읽으므로 key가 바뀔 때만 다시 올린다.
+  const shellHead = useRef(input.shellHead);
+  shellHead.current = input.shellHead;
+  const shellKey = input.shellHead?.key ?? null;
 
   useEffect(() => {
     if (!live) return;
@@ -44,17 +60,24 @@ export function useAppTabHead(input: {
   }, [live, host, viewKey, setCardHead]);
 
   useEffect(() => {
-    if (!live || setCardHead === null || head === null) return;
+    const shell = shellHead.current;
+    if (!live || setCardHead === null) return;
+    if (shell?.center !== undefined) {
+      setCardHead({ center: shell.center, actions: shell.actions });
+      return () => setCardHead(null);
+    }
+    if (head === null && shell === undefined) return;
     const send = (event: TabHeadEvent) => host!.sendTabHead(viewKey, event);
-    setCardHead(cardHeadOf(head, label, send));
+    setCardHead(cardHeadOf(head ?? {}, label, send, shell?.actions));
     return () => setCardHead(null);
-  }, [live, host, viewKey, setCardHead, head, label]);
+  }, [live, host, viewKey, setCardHead, head, label, shellKey]);
 }
 
 function cardHeadOf(
   head: TabHead,
   label: string,
   send: (event: TabHeadEvent) => void,
+  extra: ReactNode | undefined,
 ): CardHeadSpec {
   const spec: {
     -readonly [K in keyof CardHeadSpec]: CardHeadSpec[K];
@@ -74,10 +97,11 @@ function cardHeadOf(
   ) {
     spec.center = <HeadCenter head={head} label={label} send={send} />;
   }
-  if (head.actions !== undefined) {
+  if (head.actions !== undefined || extra !== undefined) {
     spec.actions = (
       <span className={styles.actions}>
-        {head.actions.map((action) => (
+        {extra}
+        {head.actions?.map((action) => (
           <Button
             key={action.id}
             size="sm"

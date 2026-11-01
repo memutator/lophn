@@ -15,7 +15,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
    sidebar Artifacts 탭 ── lophnArtifact.list(domain) ─▶ 줄을 누르면 openArtifact
    파일 열기(openFile)의 .html ─▶ openArtifactFile(path)        [Edit source] ─▶ openFile(file, {source: true})
    artifact 탭(kinds/artifact.tsx, keep) ─ toolbar + page 자리 ─ lophnArtifact.open({source}) ─▶ 창의 `<webview>` 그릇(useWebviewSlot, element src = state.src)
-     open-link event ─▶ browser 탭      annotate ─▶ AnnotationPanel ─▶ annotations.send(target artifact)
+     open-link event ─▶ browser 탭      annotate ─▶ 머리 줄 Annotate 줄(annotate-head) ─▶ annotations.send(target artifact)
    ▼
  shell main
    artifact-ipc.ts ── desktop 창 본문만, schema 검사

@@ -30,13 +30,13 @@ export const appSpaceArea: Area = {
   id: "app-space",
   title: "App place",
   summary:
-    "앱 place. project 창과 같은 shell 안에서 앱 화면 tab, 그 앱의 lophn session tab, 오른쪽 App·Domain·Logs panel. Version, Access, Activity, rewind, annotate.",
+    "앱 place. project 창과 같은 shell 안에서 앱 화면 tab, 그 앱의 lophn session tab, App details tab, 오른쪽 Domain·Logs panel. Version, Access, Activity, rewind, annotate.",
   pages: [
     {
       id: "app-space",
       title: "App place",
       description:
-        "앱 place를 처음 연 모양. 같은 shell 안에서 가운데 tab은 앱 화면 하나(앱 화면은 고정 그림), 왼쪽은 place·session, 오른쪽은 App panel(Icon, Folders, Version·Access·Activity)이다. title bar에 desk 단추가 없다.",
+        "앱 place를 처음 연 모양. 같은 shell 안에서 가운데 tab은 앱 화면 하나(앱 화면은 고정 그림), 왼쪽은 place·session이고 지금 앱 줄 오른쪽 끝 톱니가 App details 탭을 연다. 오른쪽은 Domain panel이고, 앱 화면 머리 줄 ⋯ 앞에 [Annotate]가 있다. title bar에 desk 단추가 없다.",
       render: () => <AppPlaceScreen />,
     },
     {
@@ -77,7 +77,7 @@ export const appSpaceArea: Area = {
       id: "new-app-version-applied",
       title: "App place · Version (applied)",
       description:
-        "오른쪽 App panel 안에 Version, Access, Activity 셋이 있다. Version 탭은 적용된 release, 늘어난 선언과 손실 단계만 보이는 what changes, 이전 release로 돌아가기를 보인다. 돌아가기는 data schema가 같은 release에만 켜지고 나머지는 이유와 함께 꺼진다.",
+        "App details 탭(왼쪽 sidebar 앱 줄의 톱니로 연다) 안에 Icon, Folders 아래 Version, Access, Activity 셋이 있다. Version 탭은 적용된 release, 늘어난 선언과 손실 단계만 보이는 what changes, 이전 release로 돌아가기를 보인다. 돌아가기는 data schema가 같은 release에만 켜지고 나머지는 이유와 함께 꺼진다.",
       render: () => <VersionApplied />,
     },
     {
@@ -189,14 +189,14 @@ export const appSpaceArea: Area = {
       id: "new-app-annotate",
       title: "App place · annotate (picking)",
       description:
-        "App panel 머리 줄의 [Annotate]를 켰다. 요소를 가리키면 윤곽과 이름표가 뜨고, 고른 요소에 번호와 메모 칸이 붙는다. 영역을 끄는 중인 모양도 있다.",
+        "앱 화면 탭 머리 줄의 [Annotate]를 켰다. 머리 줄이 Annotate 줄로 바뀐다: 가운데에 Annotate · 앱 이름과 고르는 법 한 줄, 오른쪽 끝에 모두 지우기(휴지통), [Done], [Send to lophn]. 아직 고른 것이 없어 지우기와 보내기는 꺼져 있다. 화면 옆이나 위에 목록이 없어 고를 요소를 가리지 않는다. 요소를 가리키면 윤곽과 이름표가 뜨고, 고른 요소에 번호와 메모 칸이 붙는다. 영역을 끄는 중인 모양도 있다.",
       render: () => <AnnotatePicking />,
     },
     {
       id: "new-app-annotate-list",
-      title: "App place · annotations list",
+      title: "App place · annotate (three picked)",
       description:
-        "모은 annotation 셋(요소 둘, 영역 하나)의 목록이다. 하나씩 지우거나 전부 지우고 [Send to agent]로 한 번에 보낸다. 이 앱 place의 lophn session 메시지가 된다.",
+        "annotation 셋(요소 둘, 영역 하나)을 모았다. 머리 줄 [Send to lophn] 안에 모은 수 3이 있고 누르면 한 번에 보낸다. 이 앱 place의 lophn session 메시지가 된다. 휴지통은 모두 지우고, 하나는 화면 안 메모 칸 아래 줄의 ×로 지운다.",
       render: () => <AnnotateList />,
     },
   ],

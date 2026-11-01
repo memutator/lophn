@@ -49,7 +49,6 @@ export const appScreenKind: TabKindDef = {
         source={host.props.apps}
         shown={shown}
         keepKey={tab.key}
-        onView={host.appScreen?.reportView ?? (() => {})}
         agentView={host.agentView}
       />
     );

@@ -1,7 +1,7 @@
 // 앱 place page들. 각 component는 인자 없이 한 상태를 고정해 그린다.
 import { AppSpace } from "./space.tsx";
 
-/** 앱 place를 처음 연 모양: 앱 화면 탭 하나, 오른쪽 App panel. */
+/** 앱 place를 처음 연 모양: 앱 화면 탭 하나, 오른쪽 Domain panel. */
 export function AppPlaceScreen() {
   return <AppSpace />;
 }

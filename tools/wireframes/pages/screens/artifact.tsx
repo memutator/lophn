@@ -27,7 +27,7 @@ export const artifactArea: Area = {
       id: "artifact-annotate",
       title: "Artifact · annotate",
       description:
-        "annotate가 켜진 탭이다. 막대에 번호 표지와 메모(고정 그림), 왼쪽 아래에 모은 목록 panel(앱 annotate와 같은 component), 위쪽에 켰다는 toast가 있다.",
+        "annotate가 켜진 탭이다. 머리 줄이 Annotate 줄(Annotate · page 제목, 휴지통, [Done], [Send to agent 2])로 바뀌고, 막대에 번호 표지와 메모 칸(고정 그림)이 있다. 목록은 따로 없고 메모 칸의 ×가 하나를 지운다.",
       render: () => <ArtifactScene tab="named" annotate />,
     },
     {

@@ -1,4 +1,4 @@
-// 앱 place gallery 화면. 진짜 Desktop(MockDesktop)의 앱 place를 그린다: 앱 화면 탭, 그 앱 place의 lophn session 탭, 오른쪽 App·Domain·Logs panel.
+// 앱 place gallery 화면. 진짜 Desktop(MockDesktop)의 앱 place를 그린다: 앱 화면 탭, 그 앱 place의 lophn session 탭, App details 탭, 오른쪽 Domain·Logs panel.
 // 상태는 layout(tab 배치)과 fake source의 설정, mount 뒤 단추 누르기(drive.ts)로 정하고 화면에는 gallery 전용 prop을 더하지 않는다.
 // 앱 화면은 <webview>라 gallery에서 돌 수 없으므로 앱 화면 탭의 webview 자리(빈 div) 안에 Orders 앱이 그린 고정 그림(orders-view.tsx)을 넣는다.
 // 고른 곳의 윤곽과 번호 표지는 실제로는 앱 view 안 preload가 그린다.
@@ -33,7 +33,7 @@ import { MockDesktop } from "../../../mock/mock-desktop.tsx";
 type OpsTab = "version" | "access" | "activity";
 type ActivationState = "applied" | "applying" | "failed";
 type RewindStage = "confirm" | "running" | "done" | "conflict";
-type Panel = "app" | "domain" | "logs";
+type Panel = "domain" | "logs";
 
 interface Annotation {
   readonly n: number;
@@ -45,9 +45,9 @@ interface Annotation {
 interface AppPlaceProps {
   /** tab 배치. screen은 앱 화면 탭 하나, split은 앱 화면과 lophn session을 붙인 것, session은 둘이 따로 서고 session을 골랐다. */
   readonly layout?: "screen" | "split" | "session";
-  /** 오른쪽 sidebar의 panel. 기본은 App이다. */
+  /** 오른쪽 sidebar의 panel. 기본은 Domain이다. */
   readonly panel?: Panel;
-  /** App panel 안에서 처음 열린 탭. 없으면 Version이다. */
+  /** 주면 App details 탭을 고른 채 그 안의 이 탭을 연다. */
   readonly ops?: OpsTab;
   readonly version?: ActivationState;
   /** Access 탭에서 이미 거두기를 요청한 항목. */
@@ -81,7 +81,6 @@ const TAB_LABEL = {
   activity: "app-detail.label.tab-activity",
 } as const satisfies Record<OpsTab, string>;
 const PANEL_LABEL = {
-  app: "app-space.heading.panel-app",
   domain: "domain.label.sidebar-tab",
   logs: "app-space.heading.panel-logs",
 } as const satisfies Record<Panel, string>;
@@ -93,6 +92,11 @@ const SCREEN = {
   kind: "app_screen",
   title: "Grocery budget",
   app: APP,
+} as const;
+const DETAIL = {
+  key: "app-detail",
+  kind: "app_detail",
+  title: "App details",
 } as const;
 const SESSION = {
   key: "agent:lophn:1",
@@ -227,27 +231,29 @@ export function AppSpace(props: AppPlaceProps = {}) {
   const layout = props.layout ?? "screen";
   const panes = useMemo(
     () =>
-      layout === "screen"
-        ? [{ tabs: [SCREEN], selected: SCREEN.key }]
-        : layout === "split"
-          ? [
-              { tabs: [SCREEN], selected: SCREEN.key },
-              { tabs: [SESSION], selected: SESSION.key },
-            ]
-          : [{ tabs: [SCREEN, SESSION], selected: SESSION.key }],
+      props.ops !== undefined
+        ? [{ tabs: [SCREEN, DETAIL], selected: DETAIL.key }]
+        : layout === "screen"
+          ? [{ tabs: [SCREEN], selected: SCREEN.key }]
+          : layout === "split"
+            ? [
+                { tabs: [SCREEN], selected: SCREEN.key },
+                { tabs: [SESSION], selected: SESSION.key },
+              ]
+            : [{ tabs: [SCREEN, SESSION], selected: SESSION.key }],
     [layout],
   );
 
   useDrive(async () => {
     const { ops, activity } = props;
-    if (props.panel !== undefined && props.panel !== "app") {
+    if (props.panel !== undefined) {
       await click(
         '[role="tab"]',
         new RegExp(`^${t(PANEL_LABEL[props.panel])}$`),
       );
     }
     if (ops !== undefined) {
-      await press('[data-sidebar-tab="app"] [role="tab"]', t(TAB_LABEL[ops]));
+      await press('[data-app-detail] [role="tab"]', t(TAB_LABEL[ops]));
       if (activity?.open) {
         const call = CALL_ID[activity.open] ?? activity.open;
         await click(`[data-invocation="${call}"] button`);

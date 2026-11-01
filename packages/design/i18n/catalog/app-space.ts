@@ -236,13 +236,10 @@ export const appSpace = {
     "This app is archived, so it can't take new messages. Restore it in Apps first.",
   "app-space.error.annotations-failed":
     "The annotations didn't go through. Try again.",
-  "app-space.heading.annotations": "Annotations ({count, number})",
   "app-space.label.kind-app-screen": "App screen",
   "app-space.label.menu-app-screen": "App screen",
-  "app-space.heading.panel-app": "App",
   "app-space.heading.panel-logs": "Logs",
-  "app-space.label.annotations": "Annotations",
-  "app-space.label.remove-annotation": "Remove annotation {number}",
+  "app-space.label.annotate-mode": "Annotate",
   "app-space.label.sending-annotations": "Sending…",
   "app-space.label.this-app": "this app",
   "app-space.text.annotate-on":
@@ -253,7 +250,6 @@ export const appSpace = {
     "They go to {agent} in this app as one message. They don't become problems.",
   "app-space.text.annotations-sent":
     "They arrive in its session as one message.",
-  "app-space.title.annotate-on": "Annotate is on",
   "app-space.title.annotations-sent":
     "{count, plural, one {# annotation} other {# annotations}} sent to the agent",
   "app-space.title.annotations-sent-to":

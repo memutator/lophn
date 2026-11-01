@@ -2,7 +2,8 @@
 // 통로를 건드린다.
 
 import type { TabItem } from "../model.ts";
-import type { Desk, PlaceRef } from "../../shell/desk-model.ts";
+import type { Desk, PlaceQuick, PlaceRef } from "../../shell/desk-model.ts";
+import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
 import type { PlaceWindowProps } from "../place-window.tsx";
 import type { AgentsSource } from "../agents/source.ts";
@@ -11,7 +12,6 @@ import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { ArtifactListItem } from "../../../ipc/artifact.ts";
-import type { AppFrameViewState } from "../../../ipc/app-frame.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
@@ -65,10 +65,15 @@ export interface ArtifactsSlice {
   reload(): void;
 }
 
-/** 앱 place의 앱 화면 탭이 작업대와 나누는 것. 앱 place가 아니면 host.appScreen은 null이다. */
-export interface AppScreenSlice {
-  /** 앱 화면의 view가 열리거나(state) 닫혔다(null). App panel의 Annotate가 그 view를 가리킨다. */
-  reportView(state: AppFrameViewState | null): void;
+/** project settings 탭이 작업대와 나누는 것. project 창이 아니면 host.projectSettings는 null이다. */
+export interface ProjectSettingsSlice {
+  /** project 등록(이름·폴더)을 읽고 쓰는 통로. 없으면 General은 안내 글만 둔다. */
+  readonly projects: ProjectsSource | undefined;
+  /** 등록을 저장했다. 작업대가 project 이름과 폴더를 다시 읽는다. */
+  projectChanged(): void;
+  /** 빠른 실행의 순서와 고정. layout 파일의 `quick`이다. */
+  readonly quick: PlaceQuick | undefined;
+  setQuick(next: PlaceQuick): void;
 }
 
 export interface TabHost {
@@ -83,8 +88,6 @@ export interface TabHost {
   readonly props: PlaceWindowProps;
   /** 앱 place의 이름. 읽기 전에는 undefined. 앱 화면 탭의 제목이다. */
   readonly appName: string | undefined;
-  /** 앱 화면 탭의 통로. */
-  readonly appScreen: AppScreenSlice | null;
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;
   /** 보이는 desk. */
@@ -129,4 +132,5 @@ export interface TabHost {
   readonly document: DocumentSlice;
   readonly agents: AgentsSlice | null;
   readonly agentView: AgentViewSlice | null;
+  readonly projectSettings: ProjectSettingsSlice | null;
 }

@@ -1,4 +1,4 @@
-/* 앱 화면 탭. 앱 view 자리가 탭 본문을 채우고, 화면이 멈췄을 때만 위에 shell 크롬 한 줄이 선다. 알림과 annotation 목록은 z-index로 view 위에 겹친다. */
+/* 앱 화면 탭. 앱 view 자리가 탭 본문을 채우고, 화면이 멈췄을 때만 위에 shell 크롬 한 줄이 선다. 알림은 z-index로 view 위에 겹친다. */
 .tab {
   position: relative;
   display: flex;

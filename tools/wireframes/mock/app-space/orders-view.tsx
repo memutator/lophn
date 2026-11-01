@@ -65,8 +65,13 @@ function Target({
             aria-label={`Note for ${id}`}
             style={{ font: "inherit", resize: "none" }}
           />
-          <span className={styles.muted}>
-            Notes stay here until you send them all.
+          <span className={styles.memoFoot}>
+            <span className={styles.muted}>
+              Notes stay here until you send them all.
+            </span>
+            <span className={styles.memoRemove} aria-hidden="true">
+              ×
+            </span>
           </span>
         </span>
       )}

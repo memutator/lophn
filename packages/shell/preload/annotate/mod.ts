@@ -54,12 +54,16 @@ export function installAnnotate(transport: AnnotateTransport): void {
       items: [...picks.values()].map(toItem),
     });
 
-  const overlay = createOverlay(document, (n, note) => {
-    const pick = picks.get(n);
-    if (pick === undefined) return;
-    pick.note = note;
-    sendItems();
-  });
+  const overlay = createOverlay(
+    document,
+    (n, note) => {
+      const pick = picks.get(n);
+      if (pick === undefined) return;
+      pick.note = note;
+      sendItems();
+    },
+    (n) => remove(n),
+  );
 
   // 요소가 아직 연결돼 있으면 지금 사각형, 사라졌으면 적어 둔 사각형을 지금 viewport로 옮긴다.
   const boxNow = (pick: Picked): Box => {

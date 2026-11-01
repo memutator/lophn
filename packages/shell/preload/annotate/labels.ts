@@ -3,4 +3,5 @@ export const labels = {
   notePlaceholder: "Add a note",
   noteHint: "Notes stay here until you send them all.",
   noteAria: (n: number) => `Note for annotation ${n}`,
+  removeAria: (n: number) => `Remove annotation ${n}`,
 } as const;

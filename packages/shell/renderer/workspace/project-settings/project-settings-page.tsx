@@ -1,5 +1,5 @@
-// project settings dialog. General(이름·목적·폴더, 런처 상세 dialog와 같은 form), Quick launch(왼쪽 sidebar 아래 단추의 순서),
-// App panels(단추로 고정할 앱 panel) 세 구역이다. 열려 있는 동안만 그린다.
+// project settings 탭 본문. General(이름·목적·폴더, Places panel 상세 dialog와 같은 form), Quick launch(왼쪽 sidebar 아래 단추의 순서),
+// App panels(단추로 고정할 앱 panel) 세 구역이다.
 import {
   type ReactNode,
   useCallback,
@@ -9,7 +9,6 @@ import {
 } from "react";
 import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
-import { Dialog } from "@lophn/ui/overlay";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
@@ -35,12 +34,10 @@ import type {
   ProjectItem,
   ProjectsSource,
 } from "../../desktop/places/projects/source.ts";
-import styles from "./project-settings-dialog.module.css";
+import styles from "./project-settings-page.module.css";
 
-export interface ProjectSettingsDialogProps {
+export interface ProjectSettingsPageProps {
   readonly projectId: string;
-  readonly title: string;
-  readonly onClose: () => void;
   readonly quick: PlaceQuick | undefined;
   readonly onQuick: (next: PlaceQuick) => void;
   /** 없으면 General은 안내 글만 둔다. */
@@ -260,7 +257,7 @@ function AppPanelsSection({
   );
 }
 
-export function ProjectSettingsDialog(props: ProjectSettingsDialogProps) {
+export function ProjectSettingsPage(props: ProjectSettingsPageProps) {
   const { projects, quick, onQuick } = props;
   const { read } = useScreensRead();
   // 다시 읽는 동안에도 목록이 비지 않게 마지막으로 읽은 값을 쓴다.
@@ -273,58 +270,45 @@ export function ProjectSettingsDialog(props: ProjectSettingsDialogProps) {
     )?.label ?? t("project-workspace.label.kind-app-panel");
 
   return (
-    <Dialog
-      open
-      width="wide"
-      title={props.title}
-      onOpenChange={(open) => {
-        if (!open) props.onClose();
-      }}
-    >
-      <div className={styles.page} data-project-settings="">
-        <section className={styles.section} data-section="general">
-          <h2 className={styles.sectionTitle}>
-            {t("project-settings.heading.general")}
-          </h2>
-          {projects === undefined ? (
-            <p className={styles.note}>
-              {t("project-settings.notice.general-unavailable")}
-            </p>
-          ) : (
-            <GeneralSection
-              projectId={props.projectId}
-              projects={projects}
-              onProjectChanged={props.onProjectChanged}
-              iconField={props.iconField}
-            />
-          )}
-        </section>
-        <section className={styles.section} data-section="quick-launch">
-          <h2 className={styles.sectionTitle}>
-            {t("project-settings.heading.quick-launch")}
-          </h2>
-          <QuickLaunchSection
-            quick={quick}
-            onQuick={onQuick}
-            labelOf={labelOf}
-          />
-        </section>
-        <section className={styles.section} data-section="app-panels">
-          <h2 className={styles.sectionTitle}>
-            {t("project-settings.heading.app-panels")}
-          </h2>
+    <div className={styles.page} data-project-settings="">
+      <section className={styles.section} data-section="general">
+        <h2 className={styles.sectionTitle}>
+          {t("project-settings.heading.general")}
+        </h2>
+        {projects === undefined ? (
           <p className={styles.note}>
-            {t("project-settings.notice.app-panels-lead")}
+            {t("project-settings.notice.general-unavailable")}
           </p>
-          <AppPanelsSection
-            apps={apps}
-            loading={read === null && apps.length === 0}
-            failed={read !== null && !read.ok && apps.length === 0}
-            quick={quick}
-            onQuick={onQuick}
+        ) : (
+          <GeneralSection
+            projectId={props.projectId}
+            projects={projects}
+            onProjectChanged={props.onProjectChanged}
+            iconField={props.iconField}
           />
-        </section>
-      </div>
-    </Dialog>
+        )}
+      </section>
+      <section className={styles.section} data-section="quick-launch">
+        <h2 className={styles.sectionTitle}>
+          {t("project-settings.heading.quick-launch")}
+        </h2>
+        <QuickLaunchSection quick={quick} onQuick={onQuick} labelOf={labelOf} />
+      </section>
+      <section className={styles.section} data-section="app-panels">
+        <h2 className={styles.sectionTitle}>
+          {t("project-settings.heading.app-panels")}
+        </h2>
+        <p className={styles.note}>
+          {t("project-settings.notice.app-panels-lead")}
+        </p>
+        <AppPanelsSection
+          apps={apps}
+          loading={read === null && apps.length === 0}
+          failed={read !== null && !read.ok && apps.length === 0}
+          quick={quick}
+          onQuick={onQuick}
+        />
+      </section>
+    </div>
   );
 }

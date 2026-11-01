@@ -130,8 +130,13 @@ export function SpendingView({
                         aria-label={t("artifact.label.note")}
                         style={{ font: "inherit", resize: "none" }}
                       />
-                      <span className={marks.muted}>
-                        {t("artifact.text.memo-note")}
+                      <span className={marks.memoFoot}>
+                        <span className={marks.muted}>
+                          {t("artifact.text.memo-note")}
+                        </span>
+                        <span className={marks.memoRemove} aria-hidden="true">
+                          ×
+                        </span>
                       </span>
                     </span>
                   )}

@@ -177,7 +177,6 @@ function DetachedTab({
     projectTitle: projectView?.title,
     explorerRoot: undefined,
     appName: undefined,
-    appScreen: null,
     props: hostProps,
     appScreens: false,
     desk,
@@ -218,6 +217,7 @@ function DetachedTab({
     document: { noteReadPosition: noop },
     agents,
     agentView,
+    projectSettings: null,
   };
   const hostRef = useRef(host);
   hostRef.current = host;

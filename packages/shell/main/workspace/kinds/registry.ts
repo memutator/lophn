@@ -4,6 +4,7 @@ import type { z } from "zod";
 
 import { agentKind } from "./agent.ts";
 import { agentsKind } from "./agents.ts";
+import { appDetailKind } from "./app-detail.ts";
 import { appPanelKind } from "./app-panel.ts";
 import { appScreenKind } from "./app-screen.ts";
 import { artifactKind } from "./artifact.ts";
@@ -12,6 +13,7 @@ import { documentEditorKind } from "./document-editor.ts";
 import { inboxKind } from "./inbox.ts";
 import { jobsKind } from "./jobs.ts";
 import { registerTabKind } from "./kind.ts";
+import { projectSettingsKind } from "./project-settings.ts";
 import { searchKind } from "./search.ts";
 import { terminalKind } from "./terminal.ts";
 import { workflowKind } from "./workflow.ts";
@@ -29,6 +31,8 @@ const BUILT_IN_TAB_KINDS = [
   workflowKind,
   jobsKind,
   inboxKind,
+  projectSettingsKind,
+  appDetailKind,
 ] as const;
 
 for (const kind of BUILT_IN_TAB_KINDS) registerTabKind(kind);

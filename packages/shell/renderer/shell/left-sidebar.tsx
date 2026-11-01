@@ -81,8 +81,8 @@ export interface LeftSidebarProps {
   onRegisterProject?: () => void;
   onCreateApp?: () => void;
   quick?: QuickLaunch;
-  /** 이 창의 project 줄에 설정 단추를 둔다(Home·앱 place는 주지 않는다). */
-  onProjectSettings?: () => void;
+  /** 이 창의 project·앱 줄 오른쪽 끝에 설정 단추를 둔다. project는 Project settings, 앱은 App details 탭을 연다. Home은 주지 않는다. */
+  onPlaceSettings?: () => void;
   onSettings: () => void;
 }
 
@@ -316,7 +316,7 @@ export function LeftSidebar({
   onRegisterProject,
   onCreateApp,
   quick,
-  onProjectSettings,
+  onPlaceSettings,
   onSettings,
 }: LeftSidebarProps) {
   // 펼친 Recent와 그 page는 place마다 기억한다. 저장하지 않는다.
@@ -520,14 +520,18 @@ export function LeftSidebar({
                   <span className={styles.rowLabel}>{place.name}</span>
                 </button>
                 {here &&
-                place.ref.kind === "project" &&
-                onProjectSettings !== undefined ? (
+                place.ref.kind !== "home" &&
+                onPlaceSettings !== undefined ? (
                   <IconButton
                     icon={commonIcons.settings}
-                    label={t("left-sidebar.button.project-settings")}
+                    label={t(
+                      place.ref.kind === "app"
+                        ? "left-sidebar.button.app-detail"
+                        : "left-sidebar.button.project-settings",
+                    )}
                     size="sm"
                     data-place-settings=""
-                    onClick={onProjectSettings}
+                    onClick={onPlaceSettings}
                   />
                 ) : null}
               </div>

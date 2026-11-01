@@ -12,10 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
-import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import { useAppRuns } from "../app-frame/app-runs.ts";
-import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
-import { useAnnotateApi } from "../artifact/artifact-api.tsx";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import {
   type DetachedEvent,
@@ -135,6 +132,7 @@ import { useScreensRead } from "./app-panel-tab.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
+import { openAppDetail } from "./kinds/app-detail.tsx";
 import { openAppPanel, openPinnedAppPanel } from "./kinds/app-panel.tsx";
 import {
   appScreenKey,
@@ -148,6 +146,7 @@ import { openBrowserTab } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { tabKindOf } from "./kinds/registry.ts";
+import { openProjectSettings } from "./kinds/project-settings.tsx";
 import { openSearchShortcut } from "./kinds/search.tsx";
 import {
   harnessOf,
@@ -156,9 +155,7 @@ import {
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
 import { NoticeCard } from "./notice-card.tsx";
-import { ProjectSettingsDialog } from "./project-settings/project-settings-dialog.tsx";
 import { pinId, quickOrder } from "./project-settings/quick-launch.ts";
-import { ProjectIconField } from "../parts/project-icon/project-icon.tsx";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
@@ -315,8 +312,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   // Explorer가 보이는 연결 폴더. 화면 상태일 뿐이라 저장하지 않는다. 터미널도 이 폴더에서 열린다.
   const [explorerRoot, setExplorerRoot] = useState<string | undefined>();
-  // 앱 place에서 지금 열려 있는 앱 화면 view. App panel의 Annotate가 이 view를 가리킨다.
-  const [screenView, setScreenView] = useState<AppFrameViewState | null>(null);
   const {
     domains,
     sidebarAgents,
@@ -344,8 +339,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<PlaceLayout>(defaultPlaceLayout);
   const desk = activeDesk(layout);
-  // project settings dialog. 빠른 실행의 고정 앱 panel은 설치된 앱 목록과 맞춰 그린다.
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // 빠른 실행의 고정 앱 panel은 설치된 앱 목록과 맞춰 그린다.
   const panelApps = useScreensRead(projectId !== null).read;
   const [leftOpen, setLeftOpen] = useSidebarOpen(
     "left",
@@ -356,7 +350,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     windowWidth >= RIGHT_OPEN_MIN,
   );
   const [panel, setPanel] = useState<string>(
-    isHome ? "places" : isApp ? "app" : "explorer",
+    isHome ? "places" : isApp ? "domain" : "explorer",
   );
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
@@ -818,7 +812,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
     projectId,
     projectTitle: loaded.project?.title,
     appName,
-    appScreen: isApp ? { reportView: setScreenView } : null,
     explorerRoot,
     props,
     appScreens: appViews?.screens !== undefined,
@@ -832,6 +825,15 @@ export function PlaceWindow(props: PlaceWindowProps) {
     document: { noteReadPosition: notePosition },
     agents,
     agentView,
+    projectSettings:
+      projectId === null
+        ? null
+        : {
+            projects: props.projects,
+            projectChanged: reloadProject,
+            quick: layout.quick,
+            setQuick: (quick) => commit({ ...latestLayout.current, quick }),
+          },
   };
 
   // 이 창이 보이는 동안 toast 행동을 받는다. 처리기는 열 때의 최신 작업대를 본다.
@@ -1268,7 +1270,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
         else if (target.action === "home") onHome();
         else if (target.action === "settings") onSettings();
         else if (target.action === "project-settings") {
-          setSettingsOpen(true);
+          openProjectSettings(host);
         } else if (target.action === "terminal") openTerminalTab(host);
         else if (target.action === "float") {
           const tab = focusTab(latestDesk());
@@ -1762,9 +1764,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     );
   };
 
-  // 앱 place의 오른쪽 panel. Annotate는 앱 화면 view를 가리키고, Logs는 이 앱의 run 기록이다.
-  const annotateApi = useAnnotateApi();
-  const annotating = useAnnotate(annotateApi, screenView?.view_session ?? null);
+  // 앱 place 오른쪽 Logs panel의 이 앱 run 기록.
   const readRuns = useCallback(
     () => source.runs({ place: { app: appId ?? "" } }),
     [source, appId],
@@ -2046,9 +2046,11 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     ref.kind === "home" ? onHome() : props.onPlace?.(ref)
                   }
                   onNewApp={(app) => props.onNewApp?.(app)}
-                  {...(projectId === null
-                    ? {}
-                    : { onProjectSettings: () => setSettingsOpen(true) })}
+                  {...(projectId !== null
+                    ? { onPlaceSettings: () => openProjectSettings(host) }
+                    : isApp && props.appDetail !== undefined
+                      ? { onPlaceSettings: () => openAppDetail(host) }
+                      : {})}
                   quick={{
                     ...(projectId === null
                       ? {}
@@ -2078,23 +2080,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   <AppPlacePanel
                     tab={panel as AppPlaceTab}
                     app={appId}
-                    name={appName ?? ""}
                     detail={props.appDetail}
                     runs={runRows}
-                    {...(annotateApi === undefined || screenView === null
-                      ? {}
-                      : {
-                          annotate: {
-                            on: annotating.state?.on ?? false,
-                            onToggle: () =>
-                              annotating.setMode(
-                                !(annotating.state?.on ?? false),
-                              ),
-                          },
-                        })}
-                    onOpenSession={(session) =>
-                      runToastAction({ kind: "session", session })
-                    }
                     onRunSession={(session) => {
                       const row = sidebarAgents.agents.find(
                         (item) => item.assignment === session.agent,
@@ -2207,23 +2194,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
                 setClosingDesk(null);
                 void finishDesk(closingDesk);
               }}
-            />
-          )}
-          {!settingsOpen || projectId === null ? null : (
-            <ProjectSettingsDialog
-              projectId={projectId}
-              title={loaded.project?.title ?? projectId}
-              onClose={() => setSettingsOpen(false)}
-              projects={props.projects}
-              onProjectChanged={reloadProject}
-              quick={layout.quick}
-              onQuick={(quick) => commit({ ...latestLayout.current, quick })}
-              iconField={
-                <ProjectIconField
-                  project={projectId}
-                  name={loaded.project?.title ?? projectId}
-                />
-              }
             />
           )}
           {tabMenu === null || menuTab === undefined ? null : (

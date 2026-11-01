@@ -20,7 +20,6 @@ export const artifact = {
   "artifact.text.annotations-sent":
     "They arrived as one message in its session.",
   "artifact.text.memo-note": "Notes stay here until you send them all.",
-  "artifact.title.annotate-on": "Annotate is on",
   "artifact.title.annotations-sent":
     "{count, plural, one {# annotation} other {# annotations}} sent to {agent}",
 } as const;

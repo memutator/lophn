@@ -1,5 +1,6 @@
 export const leftSidebar = {
   "left-sidebar.button.add-place": "Add place",
+  "left-sidebar.button.app-detail": "App details",
   "left-sidebar.button.create-app": "Create app",
   "left-sidebar.button.inbox": "Inbox",
   "left-sidebar.button.jobs": "Jobs",

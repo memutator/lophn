@@ -20,7 +20,7 @@ import type {
   AppViewOpen,
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
-import { useAppTabHead } from "./app-tab-head.tsx";
+import { type ShellHead, useAppTabHead } from "./app-tab-head.tsx";
 import { createViewKeeps, type ViewKeeps } from "./view-keeps.ts";
 import {
   useViewLayer,
@@ -62,6 +62,8 @@ interface EmbeddedViewProps extends AppViewOpen {
   onFailed?(code: string): void;
   /** 앱이 올린 탭 머리 줄을 이 자리가 선 card 칸의 머리 줄에 그린다. 탭 하나를 차지하는 화면만 준다. */
   tabHead?: boolean;
+  /** tabHead일 때 shell이 머리 줄에 더하는 것(app-tab-head.tsx의 ShellHead). */
+  shellHead?: ShellHead;
 }
 
 export function EmbeddedView(props: EmbeddedViewProps) {
@@ -220,6 +222,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     viewKey: elementKey,
     enabled: slotEnabled && props.tabHead === true,
     label,
+    shellHead: props.shellHead,
   });
 
   const retry = () => setAttempt((count) => count + 1);

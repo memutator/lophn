@@ -149,6 +149,21 @@
   z-index: var(--z-popover);
 }
 
+/* 메모 칸 아래 줄. 안내 글과 오른쪽 끝 지우기(×). 실제로는 preload overlay가 그린다. */
+.memoFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.memoRemove {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
 .memoRight {
   left: auto;
   right: var(--space-0);

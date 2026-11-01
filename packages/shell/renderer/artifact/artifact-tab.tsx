@@ -15,7 +15,7 @@ import type {
   LophnArtifactApi,
 } from "../../ipc/artifact.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
-import { AnnotationPanel } from "../app-frame/annotate/annotation-panel.tsx";
+import { annotateHead } from "../app-frame/annotate/annotate-head.tsx";
 import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
 import { STAY, useViewToast } from "../app-frame/annotate/use-view-toast.ts";
 import {
@@ -203,29 +203,25 @@ function OpenTab(
 
   const annotating = useAnnotate(useAnnotateApi(), viewSession);
   const toast = useViewToast(useBrowserOverlay() ?? undefined);
-  const toastKind = useRef<"on" | "sent" | null>(null);
   const annotateOn = annotating.state?.on ?? false;
-  const items = annotating.state?.items ?? [];
-  const panelOpen = annotateOn && items.length > 0;
+  const count = annotating.state?.items.length ?? 0;
+  const sending = annotating.state?.phase === "sending";
+  const failure = annotating.failure;
   useEffect(() => {
-    if (annotateOn) {
-      toastKind.current = "on";
-      toast.show({
-        title: t("artifact.title.annotate-on"),
-        body: t("artifact.text.annotate-on"),
-      });
-    } else if (toastKind.current === "on") {
-      toastKind.current = null;
-      toast.hide();
-    }
-  }, [annotateOn]);
+    if (failure === null) return;
+    toast.show({
+      title:
+        failure === "archived"
+          ? t("app-space.error.annotations-archived")
+          : t("app-space.error.annotations-failed"),
+    });
+  }, [failure]);
 
   async function sendAnnotations(): Promise<void> {
     const sent = await annotating.send({
       session: props.placeLophnSession(),
     });
     if (sent === null) return;
-    toastKind.current = "sent";
     toast.show({
       title: t("artifact.title.annotations-sent", {
         count: sent.sent,
@@ -249,8 +245,8 @@ function OpenTab(
   };
 
   // 머리에 올린 단추의 callback은 deps에 없는 최신 값을 읽는다.
-  const latest = useRef({ props, state, annotating, annotateOn });
-  latest.current = { props, state, annotating, annotateOn };
+  const latest = useRef({ props, state, annotating, sendAnnotations });
+  latest.current = { props, state, annotating, sendAnnotations };
   const rootNote =
     folder === null ? null : (
       <span className={styles.rootNote}>
@@ -275,19 +271,31 @@ function OpenTab(
         size="sm"
         variant="ghost"
         icon={editorIcons.edit}
-        aria-pressed={annotateOn}
+        aria-pressed={false}
         disabled={!ready}
-        onClick={() =>
-          latest.current.annotating.setMode(!latest.current.annotateOn)
-        }
+        onClick={() => latest.current.annotating.setMode(true)}
       >
         {t("artifact.button.annotate")}
       </Button>
     </span>
   );
+  // Annotate 중에는 머리 줄 전체가 Annotate 줄이다(annotate-head.tsx).
+  const annotateBar = annotateOn
+    ? annotateHead({
+        target: title,
+        count,
+        sending,
+        sendLabel: t("artifact.button.send-annotations"),
+        note: t("artifact.text.annotations-note"),
+        guide: t("artifact.text.annotate-on"),
+        onClear: () => latest.current.annotating.remove("all"),
+        onDone: () => latest.current.annotating.setMode(false),
+        onSend: () => void latest.current.sendAnnotations(),
+      })
+    : null;
   // card 안이면 단추와 폴더 안내를 card 머리 줄에 올린다. 제목은 경로가 이미 보인다.
   const inCard = useCardHead(
-    {
+    annotateBar ?? {
       actions: (
         <>
           {rootNote}
@@ -295,12 +303,17 @@ function OpenTab(
         </>
       ),
     },
-    [ready, annotateOn, folder],
+    [ready, annotateOn, folder, count, sending, title],
   );
 
   return (
     <div className={styles.tab}>
-      {inCard ? null : (
+      {inCard ? null : annotateBar !== null ? (
+        <div className={styles.toolbar}>
+          {annotateBar.center}
+          {annotateBar.actions}
+        </div>
+      ) : (
         <div className={styles.toolbar}>
           <span className={styles.heading}>
             <span className={styles.headTitle}>
@@ -341,18 +354,6 @@ function OpenTab(
           />
         </div>
       )}
-      {panelOpen ? (
-        <AnnotationPanel
-          items={items}
-          sending={annotating.state?.phase === "sending"}
-          failure={annotating.failure}
-          onRemove={annotating.remove}
-          onClear={() => annotating.remove("all")}
-          onSend={() => void sendAnnotations()}
-          sendLabel={t("artifact.button.send-annotations")}
-          note={t("artifact.text.annotations-note")}
-        />
-      ) : null}
     </div>
   );
 }

@@ -151,6 +151,14 @@ const PLAN = {
 const DOCUMENT_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, PLAN], selected: NOTES.key },
 ];
+const SETTINGS_TAB = {
+  key: "project-settings",
+  kind: "project_settings",
+  title: "Project settings",
+} as const;
+const SETTINGS_PANES: readonly PaneSpec[] = [
+  { tabs: [NOTES, SETTINGS_TAB], selected: SETTINGS_TAB.key },
+];
 const TERMINAL_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, PLAN], selected: NOTES.key },
   {
@@ -173,6 +181,18 @@ export const projectWorkspaceArea: Area = {
         <MockDesktop
           route={openProject(PROJECT_GROCERY)}
           panes={DOCUMENT_PANES}
+        />
+      ),
+    },
+    {
+      id: "project-settings",
+      title: "Project workspace · project settings tab",
+      description:
+        "Project settings 탭. 왼쪽 sidebar의 지금 project 줄 오른쪽 끝 톱니나 팔레트로 연다. General(이름·목적·폴더·아이콘), Quick launch(아래 빠른 실행 단추 순서), App panels(고정할 앱 panel)가 가운데 기둥에 쌓인다.",
+      render: () => (
+        <MockDesktop
+          route={openProject(PROJECT_GROCERY)}
+          panes={SETTINGS_PANES}
         />
       ),
     },

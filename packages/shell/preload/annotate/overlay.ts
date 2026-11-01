@@ -29,7 +29,11 @@ const CSS = `
   display: flex; flex-direction: column; gap: 4px; border-radius: 8px; background: #fff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); pointer-events: auto; }
 .memo textarea { font: inherit; resize: none; box-sizing: border-box; width: 100%; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .hint { color: #6b6b66; }
+.remove { flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px;
+  background: transparent; color: #6b6b66; font: 16px/20px system-ui, sans-serif; cursor: pointer; }
+.remove:hover { background: #ededeb; color: #161615; }
 .capturing .hover, .capturing .drag, .capturing .memo,
 .capturing .item:not(.target) { display: none; }
 `;
@@ -43,6 +47,8 @@ type Item = {
 export function createOverlay(
   doc: Document,
   onNote: (n: number, note: string) => void,
+  // 모은 목록이 shell에 따로 없어 메모 칸의 ×가 하나를 지운다.
+  onRemove: (n: number) => void,
 ) {
   const host = doc.createElement("div");
   const shadow = host.attachShadow({ mode: "closed" });
@@ -109,7 +115,17 @@ export function createOverlay(
       const hint = doc.createElement("span");
       hint.className = "hint";
       hint.textContent = labels.noteHint;
-      memo.append(textarea, hint);
+      const remove = doc.createElement("button");
+      remove.type = "button";
+      remove.className = "remove";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", labels.removeAria(n));
+      remove.title = labels.removeAria(n);
+      remove.addEventListener("click", () => onRemove(n));
+      const foot = doc.createElement("div");
+      foot.className = "foot";
+      foot.append(hint, remove);
+      memo.append(textarea, foot);
       root.append(box, memo);
       items.set(n, { box, memo, textarea });
     },

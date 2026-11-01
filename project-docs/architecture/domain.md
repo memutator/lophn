@@ -11,7 +11,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - 지침 층: `packages/core/lophn-agent/instructions/`
 - skill 층: `packages/core/lophn-agent/extensions/skills.ts`
 - place 정보와 file 범위: `packages/core/agent-places/place/`
-- tool 거르기: `packages/core/lophn-agent/tools/app-public.ts`, `packages/core/apps/agent-tools/app.ts`(`app.tools`)
+- tool 거르기: `packages/core/lophn-agent/tools/app-public.ts`, `app.tool_index` route(`packages/core/apps/declaration/reads.ts`의 `createToolIndexRead`, 명령 `app.tools`)
 - 공개 tool 장치: `packages/core/apps/releases/public-tools.ts`, `packages/core/apps/usage/`
 - kind 파일과 위반: `architecture/kinds.md`(`packages/core/projects/kinds/`), artifact: `architecture/artifact.md`
 

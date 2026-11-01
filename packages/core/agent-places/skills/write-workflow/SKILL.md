@@ -6,7 +6,7 @@ description: Write a workflow: how people and agents pass a job from step to ste
 # Workflow
 
 A workflow is how people and agents pass a job from step to step. You write its
-definition as files. A person or a job starts it. There is no tool that starts
+definition as files. A person or a job starts it. There is no command that starts
 an instance, so an agent cannot start one.
 
 lophn only records what the participants say and passes it on to the next step.
@@ -38,8 +38,8 @@ does not read it or call it wrong.
 
 - `kind`: `agent`, or `flow`. With `flow`, a program (`flow.ts`) runs the steps;
   see Flow workflows below.
-- `agent`: for a `flow`, the agent whose assignment and domains the app tool
-  calls use. It is an agent name; when left out it is lophn.
+- `agent`: for a `flow`, the agent whose assignment and domains the app
+  command calls use. It is an agent name; when left out it is lophn.
 - `participants`: a map from a key you choose to `{ agent, place? }`,
   `{ kind: human }` or `{ kind: harness }`.
   - `agent` is the agent's name. `place` is `{project: <name>}` or
@@ -124,8 +124,9 @@ The SDK `@lophn/flow` gives five things:
 - `agent({ agent, prompt, input?, schema? })`: calls one agent as a run, waits
   until it ends and gives its answer. `agent` is `{ agent, place? }` (place left
   out means this instance's project).
-- `tool({ app, tool, input? })`: calls one tool of an app.
-- `report({ step, text, next? })`: the same as `workflow.report`. `next: "end"`
+- `tool({ app, tool, input? })`: calls one command of an app (`tool` is the
+  command's name).
+- `report({ step, text, next? })`: the same as `lophn workflow report`. `next: "end"`
   ends the instance.
 
 `agent`, `tool` and `report` never throw. They give `{ ok: true, result }` or
@@ -140,22 +141,22 @@ closed as `ended`.
 
 The process: lophn runs a flow as one Node process. There is no sandbox and no
 permission limit, so it can read and write files, use the network and start
-programs. lophn records only what goes through an app tool (`tool`) or an agent
+programs. lophn records only what goes through an app command (`tool`) or an agent
 (`agent`); send outside effects that way so lophn records them.
 `console.log` and `process.stdout.write` go to stderr and show in the last line
 of the instance when it ends. Node runs the code itself, stripping type syntax,
 so import `@lophn/flow`, files of the same folder (write the `.ts` extension)
 and Node's built-in modules. Syntax that needs a transform, such as `enum` or
-`namespace`, fails at run; `workflow.check` reports it.
+`namespace`, fails at run; `lophn workflow check` reports it.
 
-Allotment: an app tool that a flow calls works only within the current
+Allotment: an app command that a flow calls works only within the current
 assignment of the agent named in `agent` of `workflow.yaml` (lophn when left
 out) and the domains that agent works with in this project. Before you write the
 flow, choose that agent and ask the person with `ask` to assign the app to it.
 Without the assignment, `tool` comes back with `ok: false`. An agent that a flow
 calls can be anyone, but the agent works only within its own assignment.
 
-After you write or change `flow.ts`, run `workflow.check` with
+After you write or change `flow.ts`, run `lophn workflow check` with
 `<project>/<name>` and read the type errors. It does not run the flow, so it
 does not show that the flow works. No errors means it passes.
 
@@ -176,7 +177,7 @@ participant has to read `workflow.md`, that step's `prompt` says so.
 
 ## After you write it
 
-Run `workflow.list`. A wrong declaration drops only that workflow, and its
+Run `lophn workflow list`. A wrong declaration drops only that workflow, and its
 `problem` says why. A flow whose declaration is wrong or whose `flow.ts` is
 missing shows a `problem` too (`no_flow_file`). The names that `by`, `with` and
 `next` point to are not checked when the file is read: a wrong one shows up when
@@ -184,7 +185,7 @@ a step is handed, as a step that could not be handed.
 
 The declaration is copied when an instance starts. Changing the file does not
 change a running instance. The participants of that instance change its steps
-with `workflow.edit`.
+with `lophn workflow edit`.
 
 ## Artifacts are optional: ask
 

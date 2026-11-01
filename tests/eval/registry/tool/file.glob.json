@@ -22,5 +22,11 @@
     "name": "file.glob",
     "n": 4,
     "hash": "36f96c15e18e49f760aabb468ac06dd49276a14828c07d8cefab10c0bcce6143"
+  },
+  {
+    "kind": "tool",
+    "name": "file.glob",
+    "n": 5,
+    "hash": "cfa901847b13b4066bdbe86e87a46c278158dc6ab7ed7a9991fe042eaf7c8974"
   }
 ]

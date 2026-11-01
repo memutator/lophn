@@ -28,5 +28,11 @@
     "name": "assembly",
     "n": 5,
     "hash": "a158848cb586b647d956f91e9c1b0b06d857baa2d7bb973fcf88c2b3eb4fc5e2"
+  },
+  {
+    "kind": "assembly",
+    "name": "assembly",
+    "n": 6,
+    "hash": "3da7b4a64e4ffa096669969040cb51b30010ef3a70b2ce5e2efda8b3a2663c75"
   }
 ]

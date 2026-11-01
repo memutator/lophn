@@ -5,7 +5,7 @@
 
 ## 목적
 
-workflow의 `flow.ts`가 바깥과 닿는 길이다. flow code는 agent를 부르고, 앱 tool을
+workflow의 `flow.ts`가 바깥과 닿는 길이다. flow code는 agent를 부르고, 앱 command를
 부르고, 진행을 report로 남긴다. 모두 core를 거친다.
 
 ## 공개 API와 type
@@ -20,7 +20,8 @@ import { agent, input, instance, report, tool } from "@lophn/flow";
   기다린다. `agent`는 `{ agent, place? }`다(`agent`는 agent 이름, `place`는
   `{ project }`나 `{ app }`의 이름이나 id. 없으면 이 workflow의 project).
   `schema`를 주면 답이 그 JSON schema 모양이다.
-- `tool({ app, tool, input? })` — 앱 tool을 부르고 결과를 기다린다.
+- `tool({ app, tool, input? })` — 앱 command를 부르고 결과를 기다린다. `tool`은
+  command 이름이다.
   `workflow.yaml`의 `agent`(없으면 lophn)의 지금 할당과 그 agent가 이
   project에서 받는 domain 안에서만 된다.
 - `report({ step, text, next? })` — 진행을 남긴다. `next`는 다음 step 이름이나
@@ -55,7 +56,7 @@ memory 한도는 없다. process가 끝나면 끝 code와 stderr 끝 줄이 inst
 
 Node가 type만 지우고 code를 바로 실행한다. import할 수 있는 것은 `@lophn/flow`,
 같은 폴더의 file(`.ts` 확장자를 쓴다), `node:` built-in module이다. `enum`이나
-`namespace`처럼 변환이 필요한 문법은 실행 중에 깨지고, `workflow.check`가 그런
+`namespace`처럼 변환이 필요한 문법은 실행 중에 깨지고, `lophn workflow check`가 그런
 것도 알려 준다.
 
 ## 하지 않는 것

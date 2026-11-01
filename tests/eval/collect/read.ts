@@ -182,7 +182,7 @@ async function readSession(
   );
   const sent_calls: SentCall[] = [];
   for (const t of tool_calls) {
-    if (t.call.tool !== "call" || superseded.has(t.call.id)) continue;
+    if (t.call.tool !== "call.send" || superseded.has(t.call.id)) continue;
     sent_calls.push(await sentCall(port, t, sent_calls.length, names));
   }
 

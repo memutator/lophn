@@ -4,7 +4,6 @@ import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
 import { placePrompt } from "../../../packages/core/agent-places/prompts/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
 import { PLACE_KINDS } from "../../../packages/protocol/lophn-agent/mod.ts";
-import { RESERVED_DOMAIN_NAMES } from "../../../packages/protocol/apps/declaration/mod.ts";
 import {
   MCP_TOOL_PREFIX,
   toWireToolName,
@@ -35,10 +34,8 @@ import {
 
 const SKILL_ROOTS = ["packages/core/agent-places/skills"];
 const TEMPLATE_DIR = "packages/core/apps/packages/template/app";
-// harness가 아니라 world의 tool이다. 앱 tool은 `<domain>_<tool>`이고 내장 자원 이름이 아닌 domain이다.
-const isWorldTool = (wireName: string) =>
-  wireName.startsWith(MCP_TOOL_PREFIX) ||
-  !RESERVED_DOMAIN_NAMES.includes(wireName.split("_")[0]);
+// harness가 아니라 world의 tool이다. 앱 command는 `lophn` tool로 부르는 명령이라 provider tool이 아니다.
+const isWorldTool = (wireName: string) => wireName.startsWith(MCP_TOOL_PREFIX);
 
 const collapse = (text: string) => text.replace(/\s+/g, " ");
 

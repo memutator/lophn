@@ -42,7 +42,7 @@ works with. At home an agent writes no files.
   next to it and are loaded by relative path. A relative link to another HTML
   file in the folder works.
 - `data/*.json` is the material the template reads. You usually build it by
-  calling a tool (for example an aggregate from `list`) and writing the result
+  running a command (for example an aggregate from `lophn kind list`) and writing the result
   into `data/`.
 
 ## How the data is held
@@ -82,7 +82,7 @@ one sentence.
 - One file can be at most 4 MiB.
 - Files outside the folder, other artifacts and the person's documents cannot be
   read.
-- The page has no lophn bridge. It cannot call tools or read app data. It shows
+- The page has no lophn bridge. It cannot run commands or read app data. It shows
   what is already in the folder.
 
 ## Appearance
@@ -152,16 +152,16 @@ Two things are worth drawing:
   kind that has the field to the kind in `to`, with the field name as the edge
   `label`. A `ref` to its own kind would be an edge from a node to itself: leave
   it out and, if it matters, say it in the node's `note`. For the number of
-  items, call `kind.list` with `aggregate: [{ op: "count", as: "n" }]` for each
+  items, run `lophn kind list` with a count aggregate for each
   kind and put it in the `note`.
 - **State flow:** if a kind has an `enum` field that means a state (`status`,
-  `stage`), each value is a node. Call `kind.list` with the same `aggregate` and
-  `group_by` set to that field, and put the number of items of each value in the
+  `stage`), each value is a node. Run `lophn kind list` with the same aggregate and
+  a group-by on that field, and put the number of items of each value in the
   `note`. The order between values (the edges) is the domain's meaning: take it
   from `DOMAIN.md` or from what the person says. If you do not know it, draw the
   values with no edges.
 
-The artifact cannot read `kinds.yaml` or call a tool, so you write the diagram
+The artifact cannot read `kinds.yaml` or run a command, so you write the diagram
 data into `data/*.json` yourself (for example `data/map.json` with `nodes` and
 `edges`) and the page reads it. When the kinds change, change the data too.
 
@@ -207,5 +207,5 @@ the domain gets them. Open the screenshot with `image.read`.
 
 ## What you do not do
 
-- Do not make a page that calls tools or reads live app data. A screen like that
+- Do not make a page that runs commands or reads live app data. A screen like that
   is an app, which is built in a conversation at that app.

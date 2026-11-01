@@ -4,7 +4,6 @@ import {
   type KindTextLevel,
   kindTextSchema,
 } from "../../../protocol/lophn-agent/kind-text.ts";
-import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
 import { escapeTagBody } from "./input-tags.ts";
 
 // kind 글이다. 쓰고 있는 kinds 파일에서 결정적으로 조립한다. 같은 prefix가 turn마다 같아야 cache가 맞는다.
@@ -101,7 +100,7 @@ function fullLines(kinds: KindText["domains"][number]["kinds"]): string[] {
 }
 
 // 글은 `Domain <name>` 머리 아래 domain마다 한 덩이다. level은 전체 예산에 걸려 모든 domain에 같이 쓴다.
-// `names`는 kind 이름만, `count`는 개수와 읽는 tool 안내만 쓴다.
+// `names`는 kind 이름만, `count`는 개수와 읽는 명령 안내만 쓴다.
 export function renderKindText(text: KindText, level: KindTextLevel): string {
   const lines: string[] = [];
   for (const { domain, kinds, warning } of text.domains) {
@@ -111,16 +110,12 @@ export function renderKindText(text: KindText, level: KindTextLevel): string {
       lines.push(`Kinds: ${kinds.map((k) => k.name).join(", ")}`);
     } else {
       lines.push(
-        `${kinds.length} kinds. Inspect them with ${toWireToolName(
-          "kind.check",
-        )} and read documents with ${toWireToolName("kind.list")}.`,
+        `${kinds.length} kinds. Inspect them with \`lophn kind check\` and read documents with \`lophn kind list\`.`,
       );
     }
     if (warning) {
       lines.push(
-        `The kinds file has errors; ${toWireToolName(
-          "kind.check",
-        )} lists them. The previous version is in use.`,
+        "The kinds file has errors; `lophn kind check` lists them. The previous version is in use.",
       );
     }
   }

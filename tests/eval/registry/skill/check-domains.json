@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "skill",
+    "name": "check-domains",
+    "n": 1,
+    "hash": "4b48b005eabd3fba871b7e0f87ae5e409afd15eaf50f201f4de635e6a76d434c",
+    "content": "{\n  \"SKILL.md\": \"\\n# Check domains\\n\\nThe person called this with `/check-domains`.\\n\\n1. For each domain in your place information, run `lophn kind check` for that\\n   domain.\\n2. For each violation, follow \\\"When documents break the kinds\\\" in the skill\\n   `write-kinds`: say whether the kinds file or the document is wrong and what\\n   you would change.\\n3. If the kinds file has to change, write it as that skill says. Summarize per\\n   domain.\\n\"\n}"
+  }
+]

@@ -21,10 +21,10 @@ folders of the domains it works with.
   when documents newly break it. One file per domain. Its globs are relative to
   the project's folders or the app's source folder. A saved file is checked and
   used at once, with no draft and no release. If it is wrong, the last valid one
-  keeps being used, and `kind.check` shows why. Other agents read the kinds with
-  `kind.list` and `kind.check`; with more than one domain they give `domain`. It
+  keeps being used, and `lophn kind check` shows why. Other agents read the kinds with
+  `lophn kind list` and `lophn kind check`; with more than one domain they give the domain. It
   is written with the skill `write-kinds`. An app domain usually has none,
-  because its objects live in the app's data and are reached through tools.
+  because its objects live in the app's data and are reached through the app's commands.
 - **`DOMAIN.md`**: what the domain means, how to use it, and the rules the
   program cannot check. Its text is in the prompt of every agent that works in
   the domain, as "Domain instructions (DOMAIN.md)", so nobody asks for it with a
@@ -33,13 +33,14 @@ folders of the domains it works with.
 - **Skills** (`skills/`): one folder per skill, a procedure for one job in the
   domain.
 - **Artifacts** (`artifacts/`): result pages agents wrote for the domain.
-- **Tools**: only an app has them. Every tool an app declares names the domain
-  of the object it handles, and may be `public`.
+- **Commands**: only an app has them. Every command an app declares names the
+  domain of the object it handles, and may be `public`. An app's operations
+  belong to no domain and only its own screens and code call them.
 
 ## Who makes and writes it
 
 An agent working in a project or an app makes that place's domains with
-`domain.create` (a name, a title and a purpose). The person can make one too. The
+`lophn domain create` (a name, a title and a purpose). The person can make one too. The
 name is a slug and never changes. Making a domain needs no approval, because it
 adds no access. It writes the kinds file, `DOMAIN.md` and skills of the domains
 it works with, with its file tools. When a domain it does not work with has to
@@ -51,10 +52,10 @@ merge; the person decides where the line goes.
 ## One container only
 
 A domain belongs to one project or one app, and stays there. Another place does
-not make a second copy. It uses the domain's public tools, which the person
-assigns to an agent. Private tools do not show up outside their domain. A
-release that removes a public tool another domain uses does not stop the
-release; the conversation that prepares the release sees the users of that tool
+not make a second copy. It uses the domain's public commands, which the person
+assigns to an agent. Private commands do not show up outside their domain. A
+release that removes a public command another domain uses does not stop the
+release; the conversation that prepares the release sees the users of that command
 when it prepares the release.
 
 ## What an agent sees
@@ -62,6 +63,6 @@ when it prepares the release.
 An agent in a project or an app sees the domains named in its definition that
 belong to that place, or all of them if none are named. At home it works with no
 domain. The prompt carries only those domains' `DOMAIN.md`, kinds and skills, and
-the tools list only those domains' tools plus the public tools the person
-assigned. Other files in the same project or app may be readable, but they are
+the commands list only those domains' commands plus the public commands the
+person assigned. Other files in the same project or app may be readable, but they are
 not the agent's work.

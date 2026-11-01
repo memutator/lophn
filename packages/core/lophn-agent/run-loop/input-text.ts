@@ -107,7 +107,7 @@ export function inputText(input: TextInput): string {
       const { instance, step } = input.step ?? { instance: "", step: "" };
       return [
         wrap(INPUT_TAGS.step, { instance, step }, input.body),
-        "This was sent by lophn for a workflow instance. When your step is done, report it with the workflow.report tool.",
+        "This was sent by lophn for a workflow instance. When your step is done, report it with `lophn workflow report`.",
       ].join("\n");
     }
     case "notice": {
@@ -152,7 +152,7 @@ function callText(input: TextInput): string {
   );
   if (reply === "result") {
     lines.push(
-      "When you finish, answer with the reply tool. If you will not take it, send the reason with reply.",
+      "When you finish, answer with `lophn call reply`. If you will not take it, send the reason with `lophn call reply`.",
     );
   }
   return lines.join("\n");

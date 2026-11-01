@@ -10,5 +10,11 @@
     "name": "ask",
     "n": 2,
     "hash": "d6001b6216ae41ae57702c44f33f78ccdeb97e83d47e05d29a3c3811a6e398e4"
+  },
+  {
+    "kind": "tool",
+    "name": "ask",
+    "n": 3,
+    "hash": "7f76e3212039c1d5e6c0c9967a4d99e0c5e3a726438b3d6d33133f1d71964244"
   }
 ]

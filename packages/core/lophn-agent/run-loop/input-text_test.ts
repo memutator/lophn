@@ -56,7 +56,7 @@ test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실패 답
   }
   assert.ok(
     receivedText({ ...envelope, reply: "result" }, body).includes(
-      "answer with the reply tool",
+      "answer with `lophn call reply`",
     ),
   );
   const program = { kind: "program" } as const;

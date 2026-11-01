@@ -55,11 +55,11 @@ An app has two layers. Give each action to the right one.
 
 Look before you design, and write what you found under Reuse.
 
-- `package.read` lists the installed SDK packages and the packages other apps
-  published. `package.read` with a name gives a package's guide.
+- `lophn package read` lists the installed SDK packages and the packages other
+  apps published. `lophn package read` with a name gives a package's guide.
 - The guide of `@lophn/ui` is the screen kit: its parts by category, a line on
   when to use each, and their props. Read it before you write Screens.
-- `app.tools` lists other apps' commands. Declare the ones you use in
+- `lophn app tools` lists other apps' commands. Declare the ones you use in
   `app_connections`.
 
 Build screens from the kit. Write a part of your own only when nothing in the

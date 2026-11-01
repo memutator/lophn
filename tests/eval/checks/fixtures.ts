@@ -178,7 +178,7 @@ export function fixtureSession(
 
     const { to, reply, fail, body = "fixture" } = step.call;
     const input = { to, reply, body, refs: [] };
-    const base = { tool: "call", effect: "read" as const };
+    const base = { tool: "call.send", effect: "read" as const };
     const receiver = refOf(to);
     const receiverPlace = placeName(to);
     const sent = {

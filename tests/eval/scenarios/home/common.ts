@@ -3,7 +3,7 @@ import type { AskInput } from "../../../../packages/protocol/lophn-agent/ask-too
 import { type CallWhere, sentCalls, toolCallsOf } from "../../checks/mod.ts";
 import type { Participant, TrialRecord } from "../../types.ts";
 
-// 이름은 call 도구의 `to`가 맞추는 이름과 같다. 앱은 app.name, project는 project.name이다.
+// 이름은 `call.send` 명령의 `to`가 맞추는 이름과 같다. 앱은 app.name, project는 project.name이다.
 export const LOPHN: Participant = { agent: "lophn" };
 export const LOPHN_가계부: Participant = {
   agent: "lophn",

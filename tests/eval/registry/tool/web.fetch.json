@@ -4,5 +4,11 @@
     "name": "web.fetch",
     "n": 1,
     "hash": "34774a800954e08f8f5d9ba8582a871f94dab4c72aa1a20be0312fb601ebc4c1"
+  },
+  {
+    "kind": "tool",
+    "name": "web.fetch",
+    "n": 2,
+    "hash": "41ed5cfcf636e8668455cb7234123fcde30cf8973daa21ea205219c3aed85c51"
   }
 ]

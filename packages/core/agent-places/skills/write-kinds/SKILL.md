@@ -14,8 +14,8 @@ domain. You write it in a conversation at that project or app.
 ## 1. Read
 
 Read the request and the documents with the file tools (`file.glob`,
-`file.grep`, `file.read`, `file.outline`). If the domain already has kinds, call
-`kind.check` to see the current state first (pass `domain` if you have more than
+`file.grep`, `file.read`, `file.outline`). If the domain already has kinds, run
+`lophn kind check` to see the current state first (pass the domain if you have more than
 one).
 
 ## 2. Ask what is the person's to decide
@@ -35,7 +35,7 @@ written in the domain it belongs to.
 
 ## 4. Check
 
-Call `kind.check` right away (with `domain` if you have more than one).
+Run `lophn kind check` right away (with the domain if you have more than one).
 
 - If `status.errors` is not empty, the file itself is wrong. Fix it and write it
   again. A wrong file does not replace the last valid one: that keeps being
@@ -45,7 +45,7 @@ Call `kind.check` right away (with `domain` if you have more than one).
 
 ## 5. Confirm
 
-Call `kind.list` for each new kind and check that the items you meant to include
+Run `lophn kind list` for each new kind and check that the items you meant to include
 come back. Tell the person which kinds you wrote and what is left undecided.
 
 If the domain has a kind map artifact (see "Drawing a domain" in
@@ -53,10 +53,10 @@ If the domain has a kind map artifact (see "Drawing a domain" in
 
 ## When documents break the kinds
 
-The person tells you, or `kind.check` shows violations. lophn does not open a
+The person tells you, or `lophn kind check` shows violations. lophn does not open a
 session for it; the person sees a notice and may ask you.
 
-1. Read the state with `kind.check` (with `domain` if you have more than one).
+1. Read the state with `lophn kind check` (with the domain if you have more than one).
 2. Decide whether the kinds file should change or the document is wrong. Say
    which, and why.
 3. If the kinds file should change, write it as above. If the document is wrong,
@@ -107,7 +107,7 @@ kinds:
   from its path. If a person needs the values inside, write an `.md` next to it
   when asked.
 - There is no series. A number is a `from: path` field, the order is the sort of
-  `kind.list`, duplicates are caught with `unique`, and the next number is `max`
+  `lophn kind list`, duplicates are caught with `unique`, and the next number is `max`
   plus one.
 
 ## What you do not do

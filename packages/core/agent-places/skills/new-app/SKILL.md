@@ -11,13 +11,13 @@ where you start; do not ask again for what they already said.
 1. Find out what the app should do and who it is for. Use `ask`, one question at
    a time.
 2. Look at what exists before you decide: the domain map in your place
-   information, `app.read`, `app.tools` and `package.read`. Compare
+   information, `lophn app read`, `lophn app tools` and `lophn package read`. Compare
    the options in the order of your instructions (change an existing app, build
    on a package, build a new app), recommend the first that fits, and let the
    person choose with `ask`.
-3. For a new app, pick a name and register it with `app.create`. It fails when a
+3. For a new app, pick a name and register it with `lophn app create`. It fails when a
    domain with that name exists, so pick another name then.
-4. Hand it to lophn at the chosen app with `call`
+4. Hand it to lophn at the chosen app with `lophn call send`
    (`to: {agent: "lophn", place: {app: "<app name>"}}`, no reply
    expected). Write in the body what the person wants, in their words, and what
    is decided and what is not. Do not design the app in detail; that is done in

@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "skill",
+    "name": "new-app",
+    "n": 1,
+    "hash": "01f39bb923f306908e4c2292b29347ab68bf906c41c321d3ea6dce89492b8925",
+    "content": "{\n  \"SKILL.md\": \"\\n# Start a new app\\n\\nThe person called this with `/new-app`. Anything they wrote after the name is\\nwhere you start; do not ask again for what they already said.\\n\\n1. Find out what the app should do and who it is for. Use `ask`, one question at\\n   a time.\\n2. Look at what exists before you decide: the domain map in your place\\n   information, `lophn app read`, `lophn app tools` and `lophn package read`. Compare\\n   the options in the order of your instructions (change an existing app, build\\n   on a package, build a new app), recommend the first that fits, and let the\\n   person choose with `ask`.\\n3. For a new app, pick a name and register it with `lophn app create`. It fails when a\\n   domain with that name exists, so pick another name then.\\n4. Hand it to lophn at the chosen app with `lophn call send`\\n   (`to: {agent: \\\"lophn\\\", place: {app: \\\"<app name>\\\"}}`, no reply\\n   expected). Write in the body what the person wants, in their words, and what\\n   is decided and what is not. Do not design the app in detail; that is done in\\n   the app's conversation.\\n5. Tell the person who took it and where they continue: the conversation your\\n   handoff opened. They open it with \\\"Open conversation\\\" on the handoff in\\n   this chat, or by opening the app and picking lophn in the app window.\\n\"\n}"
+  }
+]

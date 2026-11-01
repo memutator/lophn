@@ -51,7 +51,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   object). `effect`는 `read`·`write`·`external`이다. `public`은 필수 boolean이고
   다른 domain에 보이는지를 뜻한다. `domain`은 필수이고 command가 다루는 객체의
   domain이다. 이 앱의 domain 이름 중 하나이고, 앱을 만들면 앱 이름의 domain이 하나
-  생긴다. 다른 domain은 사람이나 그 앱 place의 session이 `domain.create`로 만든 뒤
+  생긴다. 다른 domain은 사람이나 그 앱 place의 session이 `lophn domain create`로 만든 뒤
   쓴다.
   - operation과 command의 이름(1~64자, 영문·숫자·`_ - .`)은 합쳐 하나이고
     handler는 이름 하나로 등록한다. 이름을 두 목록에 같이 쓰지 못한다.

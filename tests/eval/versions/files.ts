@@ -12,11 +12,6 @@ import {
 // 코드에서 `defineTool({ name:`으로 tool을 정의하는 file 전부다. 새 file이 생기면 runtime에 들어
 // 낡게 표시되는 쪽이라 안전하고, 어긋남은 currentVersions가 TOOL_ORDER와 맞춰 보아 드러낸다.
 export const TOOL_FILES: readonly string[] = [
-  "packages/core/apps/agent-tools/app.ts",
-  "packages/core/apps/agent-tools/package.ts",
-  "packages/core/apps/agent-tools/release.ts",
-  "packages/core/apps/agent-tools/preview.ts",
-  "packages/core/apps/agent-tools/runtime.ts",
   "packages/core/apps/agent-tools/visual.ts",
   "packages/core/lophn-agent/tools/lophn/tool.ts",
   "packages/core/lophn-agent/tools/bundles/skill.ts",
@@ -25,6 +20,12 @@ export const TOOL_FILES: readonly string[] = [
   "packages/core/lophn-agent/tools/bundles/ask.ts",
   "packages/core/lophn-agent/tools/bundles/shell.ts",
 ];
+
+// model은 명령의 이름, 설명, help를 `lophn` tool로 읽는다. 이 file들의 글이 `lophn` tool의 글이다.
+const LOPHN_COMMAND_DIR = "packages/cli/commands/";
+const LOPHN_COMMAND_FILES = ["packages/cli/help.ts", "packages/cli/parser.ts"];
+const isLophnCommandFile = (rel: string) =>
+  rel.startsWith(LOPHN_COMMAND_DIR) || LOPHN_COMMAND_FILES.includes(rel);
 
 export type FileGroup =
   | { group: "none" }
@@ -77,7 +78,9 @@ export function classifyPath(rel: string): FileGroup {
   if (rel.startsWith("packages/core/lophn-agent/prompt-assembly/")) {
     return { group: "assembly" };
   }
-  if (TOOL_FILES.includes(rel)) return { group: "tool" };
+  if (TOOL_FILES.includes(rel) || isLophnCommandFile(rel)) {
+    return { group: "tool" };
+  }
   if (RUNTIME.some((p) => rel.startsWith(p))) return { group: "runtime" };
   if (CORE.test(rel)) return { group: "core" };
   return none;
@@ -138,6 +141,7 @@ export async function hashGroup(
 }
 
 // tool 정본 이름 → 그것을 정의한 file과 그 글의 hash. 한 file이 정의한 tool은 함께 바뀐다.
+// `lophn` tool의 hash는 명령 표 file(`isLophnCommandFile`)을 함께 잰다.
 export async function toolFileTable(
   root: string,
 ): Promise<Map<string, { file: string; hash: string }>> {
@@ -154,6 +158,20 @@ export async function toolFileTable(
     for (const m of text.matchAll(/defineTool\(\{\s*name:\s*"([^"]+)"/g)) {
       table.set(m[1], { file, hash });
     }
+  }
+  const lophn = table.get("lophn");
+  if (lophn !== undefined) {
+    const commands = [
+      ...(await walkFiles(`${root}/${LOPHN_COMMAND_DIR}`, LOPHN_COMMAND_DIR)),
+      ...LOPHN_COMMAND_FILES,
+    ].filter((f) => !/_test\.tsx?$/.test(f));
+    table.set("lophn", {
+      file: lophn.file,
+      hash: await hashValue([
+        lophn.hash,
+        await hashPaths(root, commands.sort()),
+      ]),
+    });
   }
   return table;
 }

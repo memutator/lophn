@@ -7,8 +7,8 @@ description: Check every domain of the project against its kinds.
 
 The person called this with `/check-domains`.
 
-1. For each domain in your place information, call `kind.check` with that
-   `domain`.
+1. For each domain in your place information, run `lophn kind check` for that
+   domain.
 2. For each violation, follow "When documents break the kinds" in the skill
    `write-kinds`: say whether the kinds file or the document is wrong and what
    you would change.

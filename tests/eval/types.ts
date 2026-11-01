@@ -55,7 +55,7 @@ export type RegistryEntry = {
 
 // ---- 참가자와 단계 ----
 
-// call 도구의 `to`와 같은 이름 꼴이다: agent는 정의의 name(예 "lophn", "세무정리"), place는 앱이면 app.name
+// `call.send` 명령의 `to`와 같은 이름 꼴이다: agent는 정의의 name(예 "lophn", "세무정리"), place는 앱이면 app.name
 // (예 "가계부"), project면 project.name(예 "tax"). place가 없으면 home이다.
 export type Participant = AgentAddress;
 
@@ -140,11 +140,11 @@ export type CollectedToolCall = {
 
 export type SentCall = {
   tool_call: string; // tcl_...
-  order: number; // 이 session이 보낸 `call` tool call 순서. 0부터
-  to: unknown; // `call` 입력의 to 그대로
+  order: number; // 이 session이 보낸 `call.send` 호출 순서. 0부터
+  to: unknown; // `call.send` 입력의 to 그대로
   reply: CallReply; // 입력의 reply
   body: string; // 입력의 body
-  outcome: ToolOutcome | null; // `call` tool call의 outcome. Gate가 막으면 not_executed/denied
+  outcome: ToolOutcome | null; // `call.send` 호출의 outcome. Gate가 막으면 not_executed/denied
   call: string | null; // cal_... tool이 success로 끝났을 때 output.content.call
   state: CallState | null; // output.content.state
   fail_reason: CallFailReason | null; // output.content.fail_reason

@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "skill",
+    "name": "repair-app",
+    "n": 1,
+    "hash": "27c51a701fcd614a26e39ee87c30cd4a0f7fe6c413aff76ba840ea67c49cecf2",
+    "content": "{\n  \"SKILL.md\": \"\\n# Repair an app\\n\\nThe person called this with `/repair-app`. You do not fix the app yourself; you\\nfind out what went wrong and hand it to lophn at that app.\\n\\n1. Find which app. Take it from what the person wrote after the name. If it is\\n   not there, list the apps with `lophn app read` and ask which one with `ask`.\\n2. Read what happened: `lophn app read` with its ID, `lophn app status`,\\n   `lophn app logs` (recent errors; narrow by time) and `lophn app invocations`\\n   for failed calls.\\n3. Tell the person what you found. Separate what you confirmed from what you\\n   suppose, and say \\\"not confirmed\\\" for any number you did not read. Do not\\n   interpret the cause or change code.\\n4. Hand it to lophn at that app with `lophn call send`\\n   (`to: {agent: \\\"lophn\\\", place: {app: \\\"<app name>\\\"}}`, no reply expected). Keep\\n   the body short and point to the evidence by invocation id and log time. Do\\n   not paste the conversation.\\n5. Tell the person lophn at the app took it.\\n\"\n}"
+  }
+]

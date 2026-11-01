@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "skill-description",
+    "name": "write-artifact",
+    "n": 1,
+    "hash": "e0e37f17d5f9dfc2a0c69783d10996651d24f25962f21290555b54ce4dfd6f99",
+    "content": "Write an artifact: a static HTML page in a domain's artifacts folder that shows the person a result on screen. Where it goes, its folder and data, the sealed view and theme tokens."
+  }
+]

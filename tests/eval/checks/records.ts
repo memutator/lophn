@@ -50,7 +50,7 @@ export function matchWhere(c: SentCall, where: CallWhere): boolean {
 
 type NameForm = { agent: string; place?: unknown };
 
-// `call` 입력의 to 가운데 이름 꼴(`{ agent, place? }`). `{ session }`은 아니다.
+// `call.send` 입력의 to 가운데 이름 꼴(`{ agent, place? }`). `{ session }`은 아니다.
 function nameForm(to: unknown): NameForm | null {
   return typeof to === "object" &&
     to !== null &&
@@ -75,7 +75,7 @@ const samePlace = (
     : got !== null && got[0] === want[0] && got[1] === want[1];
 
 // 받는 agent 이름과 place가 같아야 한다. t.place가 없으면 받는 쪽이 home이어야 해서 home의 lophn과
-// 앱·project place의 lophn이 갈린다. 기록이 없으면 `call` 입력의 to에 같은 규칙을 쓴다.
+// 앱·project place의 lophn이 갈린다. 기록이 없으면 `call.send` 입력의 to에 같은 규칙을 쓴다.
 export function matchTarget(c: SentCall, t: Participant): boolean {
   const want = placeKindName(t.place);
   if (c.receiver_name !== null) {

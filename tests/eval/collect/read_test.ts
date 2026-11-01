@@ -45,7 +45,7 @@ const turns: Record<string, unknown[]> = {
 const toolCall = (id: string, turn: string, outcome: unknown) => ({
   id,
   turn,
-  tool: "call",
+  tool: "call.send",
   input: id,
   output: null,
   retry_of: null,

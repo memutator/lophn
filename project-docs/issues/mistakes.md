@@ -31,3 +31,18 @@ modules: [packages/core/lophn-agent]
 원인: dispatch를 바꾸는 task의 끝남에 "풀린 호출이 실행기의 찾기까지 이어진다"는 기준이 없었다. 내장 명령의 길(`resolveLophnCall`)은 wire 이름을 냈는데 새 길이 그것을 따르지 않았다.
 
 막기: `packages/core/lophn-agent/tools/app-public_test.ts`에 풀린 앱 command를 `toolForWireName`으로 찾는 test를 더했다. 실행 경로를 바꾸는 brief의 위험 test는 "입력부터 실행기까지 한 번 이어 본다"로 쓴다.
+
+## SDK 판을 올리면서 workspace pin 하나를 빠뜨려 새 `npm ci`가 깨짐
+
+```yaml
+kind: mistake
+modules: [packages/sdk, tools]
+```
+
+지금: skill-share 계획의 app-skill-decl task가 `@lophn/declaration`과 `@lophn/app-ui`를 2.1.0으로 올리며 `tools/wireframes/package.json`의 `"@lophn/app-ui": "2.0.0"`을 남겼다. workspace에 2.0.0이 없어 npm이 registry에서 찾다 404로 `npm ci`가 실패했다. merge.sh의 check:full과 core 기동은 이미 깔린 `node_modules`로 돌아 통과했고, 다음 worktree를 만드는 launch.sh(`worktree-prep.ts`의 `npm ci`)에서 드러났다. lead가 pin을 고쳤다.
+
+영향: plan branch가 새 clone, 새 worktree, 패키징(`tools/package-linux.ts`도 `npm ci`)에서 깨진 채 merge됐다. main에는 가지 않았다.
+
+원인: brief가 판이 박힌 곳을 조사 목록으로 줬는데 그 목록이 `tools/` 아래를 빠뜨렸다. 판 올림을 확인하는 check가 없다.
+
+막기: check의 deps 단계에 "workspace package의 `@lophn/*` 의존은 그 workspace의 지금 판과 같다"를 더한다(`package.json` 파일만 읽는다). 판을 올리는 brief의 끝남에는 `grep -rn '"@lophn/<이름>": "<옛 판>"' --include=package.json .`가 0줄을 넣는다.

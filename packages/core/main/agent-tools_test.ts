@@ -128,6 +128,7 @@ test("lophn tool의 write 명령은 tool call id를 idempotency key로 보낸다
   const ctx = {
     kind: "home",
     tool_call: "tcl_same",
+    scope: { read: [] },
     listed: commandTools("home"),
     core: (_path: string, body: { idempotency_key?: unknown }) => {
       keys.push(body.idempotency_key);

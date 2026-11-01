@@ -55,11 +55,13 @@ function commandTool(command: Command): ToolDefinition {
       title: commandLine(command, input as Record<string, unknown>),
     }),
     handler: async (input, ctx) => {
+      const cwd = ctx.scope.base ?? ctx.scope.read[0];
       const ran = await command.run(input as Record<string, unknown>, {
         core: coreOf(ctx.core),
         // 같은 tool call을 다시 보내도 같은 key라 효과가 한 번이다.
         key: ctx.tool_call,
         place: ctx.place,
+        ...(cwd === undefined ? {} : { cwd }),
         clock: ctx.clock,
         signal: ctx.signal ?? new AbortController().signal,
       });

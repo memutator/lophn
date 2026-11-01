@@ -27,14 +27,9 @@ test("place kind tool wire names fit the provider rule and never collide", () =>
   }
 });
 
-// 앱 진단 tool은 home과 app 종류가 받는다. `lophn` tool은 셋 다 받고, 작업 tool은 project와 app만,
-// 앱 쓰기는 app만 받는다.
+// `lophn` tool은 셋 다 받고, 작업 tool은 project와 app만, 앱 쓰기는 app만 받는다.
 test("each tool appears only in the place kinds that do its work", () => {
   const table: [string[], readonly PlaceKind[]][] = [
-    [
-      ["app.tools", "app.status", "app.logs", "app.invocations"],
-      ["home", "app"],
-    ],
     [["lophn"], PLACE_KINDS],
     [
       ["file.write", "file.edit", "shell.run"],
@@ -42,8 +37,6 @@ test("each tool appears only in the place kinds that do its work", () => {
     ],
     [
       [
-        "app.link_source",
-        "package.publish",
         "release.prepare",
         "release.activate",
         "preview.start",

@@ -2,6 +2,7 @@
 // 정본은 release에 고정한 선언이고 앱 source의 현재 파일이 아니다. release 읽기는 releases 조립이
 // loader로 준다(leaf 사이는 mod.ts로만 부르므로 여기서 releases를 import하지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import {
   type AppCommand,
@@ -20,6 +21,7 @@ import {
   loadApp,
   loadApps,
 } from "../registration/mod.ts";
+import { usagePorts } from "../usage/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 
 type ActiveDeclaration = {
@@ -38,60 +40,78 @@ function notFound(): Result<never> {
   return err({ code: "not_found", message: "app declaration not found" });
 }
 
+// `app.tool_index`. 모든 앱의 command 목록이다. 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: 앱 place의
+// session도 모든 앱의 목록과 command 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
+// 다른 domain의 비공개 command는 부른 쪽 credential로 거른다: agent는 session이 맡은 domain의 것과 public만 보고,
+// 사람(user)은 모두 본다. 같은 명령을 binary가 user token으로도 부르기 때문에 이 판단은 명령이 아니라 여기서 한다.
+// session의 domain 셈이 usage port에 있어서 이 read는 그 port를 가진 등록(apps-usage)에 붙는다.
+export function createToolIndexRead(
+  load: ActiveDeclarationLoader,
+): ReadDefinition<typeof appToolIndex> {
+  return {
+    route: appToolIndex,
+    handle(snapshot, ctx, input) {
+      const actor = parseActor(ctx.actor);
+      const ports = snapshot.port(usagePorts);
+      // session을 읽지 못한 agent는 맡은 domain이 없는 것으로 본다(public만 보인다).
+      const owned =
+        actor?.kind === "agent"
+          ? (ports.sessionDomains(actor.id)?.domains ?? [])
+          : [];
+      const listed =
+        input.app === undefined
+          ? loadApps(snapshot.sql, "active")
+          : loadApp(snapshot.sql, input.app);
+      if (!listed.ok) return listed;
+      const apps = Array.isArray(listed.value)
+        ? listed.value
+        : listed.value?.status === "active"
+          ? [listed.value]
+          : [];
+      const entries: AppToolIndexEntry[] = [];
+      for (const app of apps) {
+        const active = load(snapshot.sql, app.id);
+        if (!active.ok) return active;
+        if (active.value === null) continue;
+        const { declaration } = active.value;
+        const visible = declaration.commands.filter((command) => {
+          if (command.public || actor?.kind === "user") return true;
+          const domain = ports.domainOf(app.id, command.domain);
+          return domain !== null && owned.includes(domain);
+        });
+        entries.push({
+          app: app.id,
+          name: declaration.name,
+          description: declaration.description,
+          tools: visible.map((command) => ({
+            name: command.name,
+            description: command.description,
+            effect: command.effect,
+            public: command.public,
+            domain: command.domain,
+            // 호출 모양은 앱 하나를 볼 때만 싣는다.
+            ...(input.app === undefined
+              ? {}
+              : {
+                  inputSchema: command.inputSchema as AppCommand["inputSchema"],
+                }),
+          })),
+        });
+      }
+      if (input.app !== undefined && entries.length === 0) return notFound();
+      return ok({
+        apps: entries,
+        as_of_seq: snapshot.as_of_seq,
+        next_cursor: null,
+      });
+    },
+  };
+}
+
 export function createDeclarationReads(load: ActiveDeclarationLoader): {
   appTool: ReadDefinition<typeof appTools>;
-  appToolIndex: ReadDefinition<typeof appToolIndex>;
 } {
   return {
-    // 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: 앱 place의 session도 모든 앱의 목록과
-    // tool 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
-    appToolIndex: {
-      route: appToolIndex,
-      handle(snapshot, _ctx, input) {
-        const listed =
-          input.app === undefined
-            ? loadApps(snapshot.sql, "active")
-            : loadApp(snapshot.sql, input.app);
-        if (!listed.ok) return listed;
-        const apps = Array.isArray(listed.value)
-          ? listed.value
-          : listed.value?.status === "active"
-            ? [listed.value]
-            : [];
-        const entries: AppToolIndexEntry[] = [];
-        for (const app of apps) {
-          const active = load(snapshot.sql, app.id);
-          if (!active.ok) return active;
-          if (active.value === null) continue;
-          const { declaration } = active.value;
-          entries.push({
-            app: app.id,
-            name: declaration.name,
-            description: declaration.description,
-            tools: declaration.commands.map((command) => ({
-              name: command.name,
-              description: command.description,
-              effect: command.effect,
-              public: command.public,
-              domain: command.domain,
-              // 호출 모양은 앱 하나를 볼 때만 싣는다.
-              ...(input.app === undefined
-                ? {}
-                : {
-                    inputSchema:
-                      command.inputSchema as AppCommand["inputSchema"],
-                  }),
-            })),
-          });
-        }
-        if (input.app !== undefined && entries.length === 0) return notFound();
-        return ok({
-          apps: entries,
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
-        });
-      },
-    },
     appTool: {
       route: appTools,
       handle(snapshot, ctx, input) {
@@ -128,11 +148,17 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
               domain: command.domain,
             }),
           ),
-          operations: declaration.operations.map((operation) => ({
-            name: operation.name,
-            title: operation.title,
-            effect: operation.effect,
-          })),
+          // operation은 화면과 그 앱 자신이 쓰는 층이라 agent에게는 보이지 않는다. 예외는 그 앱 place의 session이다
+          // (preview에서 부를 수 있으니까). 화면을 허용하는 supervisor(machine)와 사람은 모두 본다.
+          operations:
+            parseActor(ctx.actor)?.kind === "agent" &&
+            ctx.conditions.app !== input.app
+              ? []
+              : declaration.operations.map((operation) => ({
+                  name: operation.name,
+                  title: operation.title,
+                  effect: operation.effect,
+                })),
           screens: declaration.screens.map((screen) => ({
             key: screen.key,
             label: screen.label,

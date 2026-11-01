@@ -33,6 +33,8 @@ export type CommandContext = {
   key: string;
   // lophn agent session의 place다(home이면 null). binary에는 session이 없어 undefined다.
   place: Place | null | undefined;
+  // 상대 path를 푸는 기준 폴더다. binary는 process cwd, `lophn` tool은 place의 첫 폴더다(home이면 없다).
+  cwd?: string;
   clock: Clock;
   signal: AbortSignal;
 };

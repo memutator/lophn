@@ -166,6 +166,7 @@ export async function cliMain(
     core: clientCore(client),
     key: line.key ?? crypto.randomUUID(),
     place: undefined,
+    cwd: process.cwd(),
     clock: systemClock,
     signal: new AbortController().signal,
   });

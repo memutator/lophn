@@ -20,33 +20,14 @@ const COMMON_TOOLS = [
 const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 
 // 읽기 tool은 세 place 종류가 모두 갖는다.
-const READ_TOOLS = [
-  "app.read",
-  "declaration.check",
-  "package.read",
-  "release.list",
-  "release.get",
-  "visual.show",
-] as const;
-
-// 모든 앱의 tool 목록은 사람이 home과 app 종류로만 좁혔다. 앱 상태·log·invocation 읽기도 앱을 진단하는
-// home과 app 종류만 갖는다.
-const APP_TOOL_NAMES = [
-  "app.tools",
-  "app.status",
-  "app.logs",
-  "app.invocations",
-] as const;
+const READ_TOOLS = ["release.list", "release.get", "visual.show"] as const;
 
 // place 종류가 더하는 tool이다.
 const PLACE_TOOLS = {
-  home: ["app.create", ...APP_TOOL_NAMES],
+  home: [],
   project: [...WORK_TOOLS],
   app: [
     ...WORK_TOOLS,
-    ...APP_TOOL_NAMES,
-    "app.link_source",
-    "package.publish",
     "release.prepare",
     "release.activate",
     "preview.start",
@@ -77,16 +58,6 @@ export const TOOL_ORDER = [
   "web.fetch",
   "ask",
   "skill.read",
-  "app.read",
-  "app.tools",
-  "app.status",
-  "app.logs",
-  "app.invocations",
-  "app.create",
-  "app.link_source",
-  "declaration.check",
-  "package.read",
-  "package.publish",
   "release.list",
   "release.get",
   "release.prepare",

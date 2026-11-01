@@ -189,7 +189,6 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
 const FEATURE_TOOL_PLACES = [
   "packages/core/apps/agent-tools/",
   "packages/core/domains/agent-tools.ts",
-  "packages/core/workflows/agent-tools.ts",
 ];
 const PLACE_TOOL_DIR = `packages/core/${CORE_PLACES}/tools/`;
 const SPI = `packages/core/${CORE_HARNESS}/tools/spi.ts`;

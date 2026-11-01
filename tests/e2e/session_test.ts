@@ -229,7 +229,7 @@ async function openCallWaitingPermission(
   fake.script([{ reply: ask.reply("w1") }], {
     name: "project",
     match: (request) =>
-      toolNames(request).includes("workflow_check") &&
+      toolNames(request).includes("file_write") &&
       !toolNames(request).includes("app_create") &&
       !toolNames(request).includes("release_prepare"),
   });

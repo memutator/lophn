@@ -1,17 +1,34 @@
-// `lophn workflow start|report|stop|show`: 사람과 program이 workflow instance를 시작하고, report하고, 멈추고, 읽는다.
-// 입력은 route 입력이 아니라 CLI 칸이다. report의 크기와 `--next` 값은 검사하지 않는다. core가 거절하거나 줄로 남긴다.
-// place 종류가 비어 있어 binary만 부른다.
+// `lophn workflow list|get|report|edit|check|start|stop`: workflow를 읽고, report하고, 고치고, 시작하고, 멈춘다.
+// lophn agent와 사람(binary)이 같은 명령을 쓰고, 부른 쪽은 core가 credential로 안다. start와 stop은 route가 user 전용이라
+// place 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 멈추는 것은 사람이 정한다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
+import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
 import {
   type HandResult,
+  sessionChoiceSchema,
+  stepNameSchema,
+  stepNextSchema,
+  workflowCheck,
+  workflowEdit,
+  workflowEditInputSchema,
   workflowInstanceRead,
+  workflowKeySchema,
+  workflowList,
   workflowReport,
   workflowStart,
   workflowStop,
+  workflowTextSchema,
 } from "../../protocol/workflows/mod.ts";
 import { defineCommand } from "./types.ts";
+
+const instance = idSchema("wfi");
+
+const TEXT_NOTE =
+  "text: at most 8 KiB UTF-8; put longer content in a file and pass its path.";
+const STATE_NOTE =
+  "User-stopped instances reject edits; reports are recorded but hand nothing. Handing a step resumes an instance ended by end.";
 
 function handedText(handed: HandResult | null): string {
   if (handed === null) return "none";
@@ -23,7 +40,174 @@ function handedText(handed: HandResult | null): string {
   }`;
 }
 
-const instance = idSchema("wfi");
+function handedSummary(
+  verb: string,
+  value: { line: string; handed: HandResult | null },
+): string {
+  const { line, handed } = value;
+  if (handed === null) return `${verb} (line ${line})`;
+  return handed.outcome === "handed"
+    ? `${verb}; step ${handed.step} handed`
+    : `${verb}; step ${handed.step} was not handed: ${handed.reason}`;
+}
+
+const list = defineCommand({
+  name: "workflow.list",
+  summary: "List the workflows of a project",
+  description:
+    "List the workflows of a project: key, state, steps and, for a broken declaration, the `problem`. Give the project by name or id; in a project place you may omit it.",
+  input: z.strictObject({ project: z.string().min(1).optional() }),
+  effect: "read",
+  routes: [workflowList],
+  places: PLACE_KINDS,
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(workflowList, input);
+    if (!read.ok) return read;
+    const { workflows } = read.value;
+    return ok({
+      summary: `${workflows.length} workflows`,
+      content: { workflows },
+      arrayKeys: ["workflows"],
+    });
+  },
+});
+
+const get = defineCommand({
+  name: "workflow.get",
+  summary: "Read a workflow instance and its lines",
+  description:
+    "Read a workflow instance's state, steps, the latest report of each step and its lines, newest first. --lines keeps only the newest N lines. After lophn_restarted, a step message may be undelivered; use workflow edit hand_now to resend if needed. program_exited ends a flow instance and records its exit code and last stderr line.",
+  input: z.strictObject({
+    instance,
+    lines: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("newest lines to keep (default: all)"),
+  }),
+  positional: ["instance"],
+  effect: "read",
+  routes: [workflowInstanceRead],
+  places: PLACE_KINDS,
+  run: async (input, ctx) => {
+    // `next_cursor`가 null일 때까지 줄을 모은다. instance와 last_reports는 마지막 page의 것이다.
+    let lines: unknown[] = [];
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await ctx.core.read(workflowInstanceRead, {
+        instance: input.instance,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      if (!page.ok) return page;
+      lines.push(...page.value.lines);
+      if (input.lines !== undefined) lines = lines.slice(-input.lines);
+      if (page.value.next_cursor === null) {
+        // 줄이 이미 step을 갖고 있어 map의 key는 버리고 배열로 둔다: 상한에 맞추는 일은 배열 key만 덜어 낸다.
+        const last_reports = Object.values(page.value.last_reports).sort(
+          (a, b) => (BigInt(a.seq) < BigInt(b.seq) ? 1 : -1),
+        );
+        return ok({
+          summary: `workflow ${page.value.instance.workflow} ${page.value.instance.state}`,
+          content: {
+            instance: page.value.instance,
+            last_reports,
+            lines: lines.toReversed(),
+          },
+          arrayKeys: ["lines", "last_reports"],
+        });
+      }
+      cursor = page.value.next_cursor;
+    }
+  },
+});
+
+const report = defineCommand({
+  name: "workflow.report",
+  summary: "Report a step's result and hand over to the next step",
+  description: `Report a step result. --next hands a step or ends the instance (end); omit it for a progress note. --session new|same chooses whether the next step opens a new session. The report stays even if handing fails; the summary explains why. ${TEXT_NOTE} ${STATE_NOTE}`,
+  input: z.strictObject({
+    instance,
+    step: stepNameSchema,
+    text: workflowTextSchema,
+    next: stepNextSchema.optional().describe("next step name or end"),
+    session: sessionChoiceSchema.optional(),
+  }),
+  positional: ["instance", "step", "text"],
+  effect: "write",
+  routes: [workflowReport],
+  places: PLACE_KINDS,
+  run: async (input, ctx) => {
+    const reported = await ctx.core.read(workflowReport, input);
+    if (!reported.ok) return reported;
+    const { line, handed } = reported.value;
+    return ok({
+      summary: handedSummary("reported", reported.value),
+      content: { line, handed },
+      text: `line: ${line}\nhanded: ${handedText(handed)}`,
+    });
+  },
+});
+
+// EditWorkflow 입력은 op로 가르는 합이라 flag로 못 만든다. 칸이 평평한 입력을 받아 합의 variant로 옮긴다.
+// 칸 모양은 합의 variant에서 가져와 복사본을 만들지 않는다. 칸이 op에 안 맞는 경우는 route의 검사가 돌려준다.
+const [addStep, updateStep] = workflowEditInputSchema.options;
+const edit = defineCommand({
+  name: "workflow.edit",
+  summary: "Edit a workflow instance",
+  description: `Edit an instance. add_step: --new-step object, optional --after. update_step: --name and --patch. remove_step: --name. end: no extra fields. hand_now: --step name, optional --text/--session. ${TEXT_NOTE} ${STATE_NOTE}`,
+  input: z.strictObject({
+    instance,
+    op: z.enum(["add_step", "update_step", "remove_step", "end", "hand_now"]),
+    new_step: addStep.shape.step.optional(),
+    after: addStep.shape.after,
+    name: stepNameSchema.optional(),
+    patch: updateStep.shape.patch.optional(),
+    step: stepNameSchema.optional(),
+    text: workflowTextSchema.optional(),
+    session: sessionChoiceSchema.optional(),
+  }),
+  positional: ["instance"],
+  effect: "write",
+  routes: [workflowEdit],
+  places: PLACE_KINDS,
+  run: async (input, ctx) => {
+    const { new_step, ...rest } = input;
+    const done = await ctx.core.read(workflowEdit, {
+      ...rest,
+      ...(new_step === undefined ? {} : { step: new_step }),
+    });
+    if (!done.ok) return done;
+    return ok({
+      summary: handedSummary("edited", done.value),
+      content: done.value,
+    });
+  },
+});
+
+const check = defineCommand({
+  name: "workflow.check",
+  summary: "Type-check a flow workflow",
+  description:
+    "Type-check the flow named <project>/<workflow> against the installed @lophn/flow SDK. Returns type errors; does not execute or start the flow.",
+  input: z.strictObject({ workflow: workflowKeySchema }),
+  positional: ["workflow"],
+  effect: "read",
+  routes: [workflowCheck],
+  places: ["project"],
+  run: async (input, ctx) => {
+    const checked = await ctx.core.read(workflowCheck, input);
+    if (!checked.ok) return checked;
+    const { errors } = checked.value;
+    return ok({
+      summary:
+        errors.length === 0
+          ? `flow.ts of ${input.workflow} has no type errors`
+          : `flow.ts of ${input.workflow} has ${errors.length} errors`,
+      content: { errors },
+    });
+  },
+});
 
 const start = defineCommand({
   name: "workflow.start",
@@ -31,11 +215,9 @@ const start = defineCommand({
   description:
     "Starts an instance of <project name>/<name> with the given text and prints its id. Without --step it begins at the declaration's start step.",
   input: z.strictObject({
-    workflow: z.string().min(1).describe("<project name>/<name>"),
+    workflow: workflowKeySchema,
     text: z.string().min(1),
-    step: z
-      .string()
-      .min(1)
+    step: stepNameSchema
       .optional()
       .describe("first step name (default: the declaration's start step)"),
   }),
@@ -59,34 +241,6 @@ const start = defineCommand({
   },
 });
 
-const report = defineCommand({
-  name: "workflow.report",
-  summary: "Report a step's result and hand over to the next step",
-  description:
-    "Records the step's result in the instance and hands over to --next (a step name or end). --session new|same chooses whether the next step opens a new session.",
-  input: z.strictObject({
-    instance,
-    step: z.string().min(1),
-    text: z.string().min(1),
-    next: z.string().min(1).optional().describe("next step name or end"),
-    session: z.enum(["new", "same"]).optional(),
-  }),
-  positional: ["instance", "step", "text"],
-  effect: "write",
-  routes: [workflowReport],
-  places: [],
-  run: async (input, ctx) => {
-    const reported = await ctx.core.read(workflowReport, input);
-    if (!reported.ok) return reported;
-    const { line, handed } = reported.value;
-    return ok({
-      summary: "reported",
-      content: { line, handed },
-      text: `line: ${line}\nhanded: ${handedText(handed)}`,
-    });
-  },
-});
-
 const stop = defineCommand({
   name: "workflow.stop",
   summary: "Stop a workflow instance",
@@ -97,9 +251,7 @@ const stop = defineCommand({
   routes: [workflowStop],
   places: [],
   run: async (input, ctx) => {
-    const stopped = await ctx.core.read(workflowStop, {
-      instance: input.instance,
-    });
+    const stopped = await ctx.core.read(workflowStop, input);
     return stopped.ok
       ? ok({
           summary: "workflow stopped",
@@ -109,41 +261,4 @@ const stop = defineCommand({
   },
 });
 
-const show = defineCommand({
-  name: "workflow.show",
-  summary: "Read a workflow instance and its lines",
-  description:
-    "Prints the instance, the last report of each step and all lines.",
-  input: z.strictObject({ instance }),
-  positional: ["instance"],
-  effect: "read",
-  routes: [workflowInstanceRead],
-  places: [],
-  run: async (input, ctx) => {
-    // `next_cursor`가 null일 때까지 줄을 모은다. instance와 last_reports는 마지막 page의 것이다.
-    const lines: unknown[] = [];
-    let cursor: string | undefined;
-    for (;;) {
-      const page = await ctx.core.read(workflowInstanceRead, {
-        instance: input.instance,
-        ...(cursor === undefined ? {} : { cursor }),
-      });
-      if (!page.ok) return page;
-      lines.push(...page.value.lines);
-      if (page.value.next_cursor === null) {
-        return ok({
-          summary: `${lines.length} lines`,
-          content: {
-            instance: page.value.instance,
-            last_reports: page.value.last_reports,
-            lines,
-          },
-          arrayKeys: ["lines"],
-        });
-      }
-      cursor = page.value.next_cursor;
-    }
-  },
-});
-
-export const WORKFLOW_COMMANDS = [start, report, stop, show];
+export const WORKFLOW_COMMANDS = [list, get, report, edit, check, start, stop];

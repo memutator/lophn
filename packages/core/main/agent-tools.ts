@@ -12,7 +12,6 @@ import { TOOL_TOOLS } from "../lophn-agent/tools/bundles/tool.ts";
 import { WEB_TOOLS } from "../lophn-agent/tools/bundles/web.ts";
 import type { ToolDefinition } from "../lophn-agent/tools/mod.ts";
 import type { FileHooks } from "../lophn-agent/tools/ports.ts";
-import { WORKFLOW_AGENT_TOOLS } from "../workflows/agent-tools.ts";
 
 // agent에게 줄 수 있는 내장 tool 전부를 모으는 유일한 곳(composition root)이다.
 // place 층(`agent-places`)이 채우는 hook은 인자로 받는다. 순서는 `TOOL_ORDER`다: model에 보이는 tool 순서가 바뀌면 같은 재료가 같은 bytes가 아니게 된다.
@@ -29,7 +28,6 @@ export function agentTools(hooks: {
     ...WEB_TOOLS,
     ...APPS_AGENT_TOOLS,
     ...DOMAIN_AGENT_TOOLS,
-    ...WORKFLOW_AGENT_TOOLS,
     ...LOPHN_TOOLS,
     ...PLACE_AGENT_TOOLS,
     ...CALL_TOOLS,

@@ -20,10 +20,6 @@ const COMMON_TOOLS = [
   "skill.read",
   "tool.load",
   "tool.call",
-  "workflow.list",
-  "workflow.get",
-  "workflow.report",
-  "workflow.edit",
 ] as const;
 
 // 작업 tool은 home이 빼고 project·app이 갖는다.
@@ -56,12 +52,7 @@ const KIND_TOOL_NAMES = ["kind.list", "kind.check"] as const;
 // place 종류가 더하는 tool이다. 정의가 전역이라 agent.create·agent.update는 셋 다 받는다.
 const PLACE_TOOLS = {
   home: ["app.create", ...APP_TOOL_NAMES],
-  project: [
-    ...WORK_TOOLS,
-    ...KIND_TOOL_NAMES,
-    "domain.create",
-    "workflow.check",
-  ],
+  project: [...WORK_TOOLS, ...KIND_TOOL_NAMES, "domain.create"],
   app: [
     ...WORK_TOOLS,
     ...KIND_TOOL_NAMES,
@@ -106,7 +97,6 @@ const EXPOSED_COMMON = [
   "call",
   "reply",
   "cancel",
-  "workflow.report",
   "skill.read",
   "tool.load",
   "tool.call",
@@ -168,10 +158,5 @@ export const TOOL_ORDER = [
   "visual.show",
   "agent.create",
   "agent.update",
-  "workflow.list",
-  "workflow.get",
-  "workflow.report",
-  "workflow.edit",
-  "workflow.check",
   "lophn",
 ] as const;

@@ -9,6 +9,7 @@ lead만 고친다. `tools/status.py skill-share build`가 `tasks/*.md`에서 id,
 | `assign-file` | approvals | 1 | 없음 | merged | approvals/assign-file | 1b7750596 |  |
 | `app-skill-decl` | apps | 1 | 없음 | merged | apps/app-skill-decl | 9f9b833fa |  |
 | `shared-skills` | agent | 2 | skill-places, assign-file, app-skill-decl | merged | agent/shared-skills | a81551365 |  |
-| `share-guidance` | agent-places | 2 | app-share-request | running | agent-places/share-guidance |  |  |
+| `share-guidance` | agent-places | 2 | app-share-request | merged | agent-places/share-guidance | 1131efdd2 |  |
 | `app-share-request` | approvals | 2 | assign-file | merged | approvals/app-share-request | 6098e9da5 |  |
-| `harness-skill-copies` | coding-agent | 2 | app-share-request | todo |  |  |  |
+| `harness-skill-copies` | coding-agent | 2 | app-share-request | running | coding-agent/harness-skill-copies |  |  |
+| `skill-share-docs` | docs | 3 | harness-skill-copies | todo |  |  |  |

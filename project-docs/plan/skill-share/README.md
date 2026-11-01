@@ -24,6 +24,7 @@ roadmap "정한 것"에 더해 lead가 정한 것이다.
 - wave 0(lead, 끝남): agent 정의 칸 `skills_off`·`apps`·`permissions`와 frontmatter 순서, skill source `project`·`app`·`shared`(`8ed85007c`).
 - wave 1: `instr-claude-fallback`, `skill-places`, `assign-file`, `app-skill-decl`. 서로 기대지 않는다.
 - wave 2: `app-share-request`, `shared-skills`, `harness-skill-copies`(선행 `app-share-request`), `share-guidance`(선행 `app-share-request`).
+- wave 3: `skill-share-docs`(선행 `harness-skill-copies`).
 
 ## lead가 할 일
 

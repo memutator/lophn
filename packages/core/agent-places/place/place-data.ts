@@ -210,7 +210,20 @@ async function readPlaceData(
     const mine = (listed.ok ? listed.value : []).filter((d) =>
       agent.domains.includes(d.id),
     );
+    // 맡은 domain의 command는 비공개까지 prompt에 싣는다. 읽지 못하면 비운다.
+    const index =
+      mine.length === 0 ? null : await readOf(call, appToolIndex, {});
     for (const d of mine) {
+      const commands =
+        index?.ok !== true || d.owner.kind !== "app"
+          ? []
+          : (index.value.apps.find((a) => a.app === d.owner.id)?.tools ?? [])
+              .filter((t) => t.domain === d.name)
+              .map((t) => ({
+                key: t.name,
+                effect: t.effect,
+                description: t.description,
+              }));
       let folder: string | null = null;
       let artifacts: PlaceDomain["artifacts"] = null;
       const root = files.domainFolder(d.id);
@@ -239,6 +252,7 @@ async function readPlaceData(
         purpose: d.purpose,
         folder,
         artifacts,
+        commands,
       });
       // kind 글만 비우고 turn은 계속한다.
       const got = await readOf(call, kindGet, { domain: d.id });

@@ -75,6 +75,11 @@ export type ToolSetup = {
   // tool call 하나의 실행 맥락. 사람의 결정을 기다리는 호출(`gate.check`, `questions.ask`)은
   // core-ports가 감싸 기다리는 동안 turn의 시간을 세지 않게 한다.
   context(toolCall: Id<"tcl">): ToolContext;
+  // `lophn {args}`를 부르는 명령의 이름과 입력으로 푼다. 없으면 명령 표만 쓴다.
+  dispatch?(
+    name: string,
+    input: unknown,
+  ): Promise<{ name: string; input: unknown }>;
   // 외부 MCP tool의 서버 이름. 없으면 내장 tool이다.
   server?(definition: ToolDefinition): string | null;
   // 외부 MCP tool의 기록 확장이다. 없는 tool·내장은 null이다.
@@ -780,7 +785,14 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       available: () => deps.model.available(),
       call: modelAttempt,
     },
-    tools: { info, attempt: attemptTool, close },
+    tools: {
+      info,
+      attempt: attemptTool,
+      close,
+      ...(deps.tools.dispatch === undefined
+        ? {}
+        : { dispatch: deps.tools.dispatch }),
+    },
     async checkpoint(elapsed) {
       const current = await turnRecord();
       if (!current.ok || current.value.turn.state !== "running") return;

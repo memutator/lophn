@@ -15,11 +15,11 @@ export {
 } from "./registry.ts";
 export {
   APP_TOOL_CONTRACT,
-  type AppToolEntry,
-  type AppToolSource,
+  type AppCommandEntry,
+  appCommandEntries,
+  appCommandTool,
   type AppToolView,
-  buildAppTools,
-} from "./app-tools.ts";
+} from "./app-tool/command.ts";
 export { type AppToolkit, createAppToolkit } from "./app-toolkit.ts";
 export { checkInput, unchanged } from "./schema.ts";
 export {

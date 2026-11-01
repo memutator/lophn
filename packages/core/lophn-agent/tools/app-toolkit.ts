@@ -9,22 +9,19 @@ import type {
   AgentId,
 } from "../../../protocol/lophn-agent/places.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
-import {
-  type AppToolEntry,
-  type AppToolSource,
-  type AppToolView,
-  buildAppTools,
-} from "./app-tools.ts";
+import type { AppToolView } from "./app-tool/command.ts";
 
-// agent runtime의 앱 tool 연결. session을 시작할 때 agent 할당에서 앱을 읽고, 그 앱의 활성 release
-// 선언을 읽어 tool 정의를 만든다. 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
+// agent runtime의 앱 command 연결. `lophn <domain> <command>`를 부를 때 agent 할당에서 앱을 읽고, 그 앱의 활성 release
+// 선언을 읽는다. 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
 
-type AppToolLoad = Pick<AppToolSource, "views" | "entries">;
+type AppToolLoad = {
+  views: readonly AppToolView[];
+  entries: readonly AssignmentEntry[];
+};
 
 export type AppToolkit = {
   // 지금의 선언과 할당.
   load(who: AgentAtPlace): Promise<Result<AppToolLoad>>;
-  define(who: AgentAtPlace): Promise<Result<readonly AppToolEntry[]>>;
 };
 
 export function createAppToolkit(options: {
@@ -53,12 +50,5 @@ export function createAppToolkit(options: {
     return ok({ views, entries });
   }
 
-  return {
-    load,
-    async define(who) {
-      const loaded = await load(who);
-      if (!loaded.ok) return loaded;
-      return ok(await buildAppTools(loaded.value));
-    },
-  };
+  return { load };
 }

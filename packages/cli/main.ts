@@ -4,10 +4,17 @@
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import process from "node:process";
-import { type LophnError, systemClock } from "../base/mod.ts";
+import {
+  err,
+  type LophnError,
+  ok,
+  type Result,
+  systemClock,
+} from "../base/mod.ts";
 import { LOCAL_COMMANDS, type LocalCommand } from "../coding-agent/mod.ts";
 import { type RpcFetch, USER_TOKEN_FILE_NAME } from "../protocol/client/mod.ts";
 import { HOOK_STDIN_MAX_BYTES } from "../protocol/coding-agent/mod.ts";
+import { loadAppCommands } from "./commands/app-command.ts";
 import { COMMANDS } from "./commands/mod.ts";
 import type { Command } from "./commands/types.ts";
 import {
@@ -18,7 +25,7 @@ import {
 } from "./connection/mod.ts";
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
-import { parseCommandLine } from "./parser.ts";
+import { parseCommandLine, wordsOf } from "./parser.ts";
 
 // 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package-linux.ts).
 import productPackage from "../../package.json" with { type: "json" };
@@ -93,14 +100,71 @@ export async function cliMain(
     ...COMMANDS,
     ...LOCAL_COMMANDS,
   ];
-  const parsed = parseCommandLine(argv, all, { readText });
+  // 표의 명령만 user token file을 읽는다. 앱 command(`lophn <domain> <command>`)는 표에 없어, 표에 없는 첫 낱말이면 core에서 읽어 이어 parse한다.
+  const dataRoot = dataRootOf(env, home);
+  const tokenPath = `${dataRoot ?? "<data root>"}/run/${USER_TOKEN_FILE_NAME}`;
+  const token =
+    dataRoot === undefined ? undefined : readText(tokenPath) || undefined;
+  const secret = createOutput({
+    json,
+    stdout: options.stdout,
+    stderr: options.stderr,
+    secrets: token === undefined ? [] : [token],
+  });
+  const fail = async (error: LophnError) => {
+    await secret.failure(error);
+    return exitOf(error);
+  };
+  const connect = (): Result<ReturnType<typeof clientCore>> => {
+    if (token === undefined) {
+      return err({
+        code: "unavailable",
+        message: `lophn is not running: ${tokenPath} is missing`,
+      });
+    }
+    const address = discoverDaemonAddress({
+      env: env.get(LOPHN_DAEMON_URL),
+      dataRoot,
+      readText,
+    });
+    if (!address.ok) return address;
+    return ok(
+      clientCore(
+        createCoreClient({
+          baseUrl: address.value.url,
+          token,
+          ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+        }),
+      ),
+    );
+  };
+
+  let commands: readonly (Command | LocalCommand)[] = all;
+  let core: ReturnType<typeof connect> | undefined;
+  let parsed = parseCommandLine(argv, commands, { readText });
+  const word = argv[0];
+  if (
+    !parsed.ok &&
+    word !== undefined &&
+    !word.startsWith("--") &&
+    !all.some((item) => wordsOf(item.name)[0] === word)
+  ) {
+    core = connect();
+    if (!core.ok) return await fail(core.error);
+    const app = await loadAppCommands(core.value, word);
+    if (!app.ok) return await fail(app.error);
+    if (app.value.length > 0) {
+      commands = [...all, ...app.value];
+      parsed = parseCommandLine(argv, commands, { readText });
+    }
+  }
   if (!parsed.ok) {
     await output.failure(parsed.error);
     return exitOf(parsed.error);
   }
   const line = parsed.value;
   if (line.kind === "help") {
-    const text = helpText(all, line.topic);
+    const text = helpText(commands, line.topic);
     if (text === undefined) {
       const error = {
         code: "invalid_input",
@@ -130,40 +194,10 @@ export async function cliMain(
     return CLI_EXITS.success;
   }
 
-  // 표의 명령만 user token file을 읽는다.
-  const dataRoot = dataRootOf(env, home);
-  const tokenPath = `${dataRoot ?? "<data root>"}/run/${USER_TOKEN_FILE_NAME}`;
-  const token =
-    dataRoot === undefined ? undefined : readText(tokenPath) || undefined;
-  const secret = createOutput({
-    json,
-    stdout: options.stdout,
-    stderr: options.stderr,
-    secrets: token === undefined ? [] : [token],
-  });
-  const fail = async (error: LophnError) => {
-    await secret.failure(error);
-    return exitOf(error);
-  };
-  if (token === undefined) {
-    return await fail({
-      code: "unavailable",
-      message: `lophn is not running: ${tokenPath} is missing`,
-    });
-  }
-  const address = discoverDaemonAddress({
-    env: env.get(LOPHN_DAEMON_URL),
-    dataRoot,
-    readText,
-  });
-  if (!address.ok) return await fail(address.error);
-  const client = createCoreClient({
-    baseUrl: address.value.url,
-    token,
-    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-  });
+  core ??= connect();
+  if (!core.ok) return await fail(core.error);
   const ran = await command.run(input, {
-    core: clientCore(client),
+    core: core.value,
     key: line.key ?? crypto.randomUUID(),
     place: undefined,
     cwd: process.cwd(),

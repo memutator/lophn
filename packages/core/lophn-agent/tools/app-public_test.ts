@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import { withPublicOnly } from "./app-public.ts";
+import { appCommandEntries } from "./app-tool/command.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
+import { resolveAppCall } from "./lophn/resolve.ts";
 
 const ULID = "01arz3ndektsv4rrffq69g5fav";
 const APP_A = `app_${ULID}`;
@@ -74,4 +76,53 @@ test("an agent sees the private tools of its own domains only, public tools of a
       [APP_B, ["items.open", "shown"]],
     ],
   );
+});
+
+// `lophn <domain> <command>`는 부를 때 푼다. 할당하지 않은 앱, 뺀 command, 다른 domain의 비공개 command는 풀리지 않아 실행되지 않는다.
+test("lophn resolves an app command only for an assigned app, a kept command, and a visible domain", async () => {
+  const kit = withPublicOnly(
+    {
+      load: () =>
+        Promise.resolve(
+          ok({
+            views: [APP_A, APP_B].map((app) => ({
+              app,
+              name: app,
+              release: "rel_x",
+              tools: [
+                tool("open", false, "items"),
+                tool("peek", false, "notes"),
+                tool("shown", true, "notes"),
+              ],
+            })),
+            // APP_A만 할당했고 shown은 뺐다.
+            entries: [{ app: APP_A, removed_tools: ["shown"] }],
+          }),
+        ),
+    } as unknown as AppToolkit,
+    {
+      callerDomains: () => Promise.resolve([idOf(APP_A, "items")]),
+      toolDomain: (app, name) => Promise.resolve(idOf(app, name)),
+    },
+  );
+  const loaded = await kit.load({ agent: "lophn", place: null });
+  if (!loaded.ok) throw new Error("load failed");
+  const entries = appCommandEntries(loaded.value);
+  const resolves = (...args: string[]) =>
+    resolveAppCall({ args }, entries)?.entry.doc.name;
+  // 맡은 domain의 비공개 command. 두 앱에 같은 이름이 있어도 할당한 앱 것만 푼다.
+  assert.deepStrictEqual(resolves("items", "open"), "items.open");
+  assert.deepStrictEqual(
+    resolveAppCall({ args: ["items", "open"] }, entries)?.entry.app,
+    APP_A,
+  );
+  // 다른 domain의 비공개 command와 뺀 public command.
+  assert.deepStrictEqual(resolves("notes", "peek"), undefined);
+  assert.deepStrictEqual(resolves("notes", "shown"), undefined);
+  // 할당하지 않은 앱의 command는 항목에 없다.
+  assert.deepStrictEqual(
+    entries.filter((entry) => entry.app === APP_B),
+    [],
+  );
+  assert.deepStrictEqual(resolves("items", "open", "--bogus"), undefined);
 });

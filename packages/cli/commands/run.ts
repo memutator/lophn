@@ -1,11 +1,10 @@
-// `lophn agent run`, `tool call`, `run wait|show|cancel`: 사람이 쓰는 run 명령이다. 입력은 route 입력이 아니라
-// CLI 칸이라 여기서 route 입력을 만든다. 기다리는 명령은 끝난 run의 값을 내고, 실패·취소는 `failed`로 알린다.
+// `lophn agent run`, `run wait|show|cancel`: 사람이 쓰는 run 명령이다. 앱 command(`lophn <domain> <command>`)도 `start`로
+// run을 시작한다(`app-command.ts`). 입력은 route 입력이 아니라 CLI 칸이라 여기서 route 입력을 만든다. 기다리는 명령은 끝난 run의 값을 내고, 실패·취소는 `failed`로 알린다.
 // place 종류가 비어 있어 binary만 부른다.
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import { jsonValueSchema } from "../../protocol/base/json-values.ts";
-import { toolNameSchema } from "../../protocol/apps/channel-values.ts";
 import {
   type AgentAddress,
   LOPHN_AGENT_NAME,
@@ -69,7 +68,7 @@ async function finish(ctx: CommandContext, first: RunRecord): Out {
   });
 }
 
-async function start(
+export async function start(
   ctx: CommandContext,
   input: Record<string, unknown>,
   wait: boolean,
@@ -176,34 +175,6 @@ const agentRun = defineCommand({
   },
 });
 
-const toolCall = defineCommand({
-  name: "tool.call",
-  summary: "Call an app tool and wait for the result",
-  description:
-    "Starts a run that calls one tool of an app and prints its result.",
-  input: z.strictObject({
-    app: z.string().min(1),
-    tool: toolNameSchema,
-    async: z.boolean().optional().describe("return the run id without waiting"),
-    args: jsonValueSchema.optional().describe("JSON input of the tool"),
-  }),
-  positional: ["app", "tool"],
-  effect: "external",
-  routes: [runStart, runWait],
-  places: [],
-  run: (input, ctx) =>
-    start(
-      ctx,
-      {
-        kind: "tool",
-        app: input.app,
-        tool: input.tool,
-        ...(input.args === undefined ? {} : { input: input.args }),
-      },
-      input.async !== true,
-    ),
-});
-
 const runRef = z.strictObject({ run: idSchema("run") });
 
 const runWaitCommand = defineCommand({
@@ -260,7 +231,6 @@ const runCancelCommand = defineCommand({
 
 export const RUN_COMMANDS = [
   agentRun,
-  toolCall,
   runWaitCommand,
   runShow,
   runCancelCommand,

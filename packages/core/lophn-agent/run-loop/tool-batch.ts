@@ -176,21 +176,27 @@ export async function runToolBatch(
       ...(call.signature === undefined ? {} : { signature: call.signature }),
     };
   });
-  const requests: ToolCallRequest[] = calls.map((call, order) => {
-    const args = parsed[order];
-    const target = args.ok
-      ? dispatchTarget(call.name, args.value)
-      : { name: call.name, input: call.args };
-    return {
-      model_call: control.modelCall,
-      key: call.id,
-      order,
-      name: target.name,
-      input: target.input,
-      attempt: 0,
-      retry_of: null,
-    };
-  });
+  // `lophn` 호출은 명령의 호출로 풀린다. 앱 command는 부를 때의 할당·release·domain 규칙으로 푸므로 비동기다.
+  const requests: ToolCallRequest[] = await Promise.all(
+    calls.map(async (call, order) => {
+      const args = parsed[order];
+      const target = args.ok
+        ? await (
+            control.tools.dispatch ??
+            (async (name, input) => dispatchTarget(name, input))
+          )(call.name, args.value)
+        : { name: call.name, input: call.args };
+      return {
+        model_call: control.modelCall,
+        key: call.id,
+        order,
+        name: target.name,
+        input: target.input,
+        attempt: 0 as const,
+        retry_of: null,
+      };
+    }),
+  );
   const infos = requests.map((request) => control.tools.info(request.name));
   const valid = parsed.map((args) => args.ok);
 

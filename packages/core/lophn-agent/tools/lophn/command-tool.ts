@@ -1,14 +1,14 @@
 import { ok } from "../../../../base/mod.ts";
-import { commandLine } from "../../../../cli/parser.ts";
 import {
   type Command,
   type CommandCore,
   type CommandResult,
   commandsForPlace,
 } from "../../../../cli/commands/mod.ts";
-import type { PlaceKind } from "../../../../protocol/lophn-agent/places.ts";
+import { commandLine } from "../../../../cli/parser.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
-import { commandOf, type CoreCall, readOf } from "../../run-loop/core-call.ts";
+import type { PlaceKind } from "../../../../protocol/lophn-agent/places.ts";
+import { type CoreCall, commandOf, readOf } from "../../run-loop/core-call.ts";
 import { fitted } from "../fit-result.ts";
 import type { ToolDefinition } from "../registry.ts";
 
@@ -62,6 +62,11 @@ function commandTool(command: Command): ToolDefinition {
         key: ctx.tool_call,
         place: ctx.place,
         ...(cwd === undefined ? {} : { cwd }),
+        caller: {
+          session: ctx.session,
+          turn: ctx.turn,
+          tool_call: ctx.tool_call,
+        },
         clock: ctx.clock,
         signal: ctx.signal ?? new AbortController().signal,
       });

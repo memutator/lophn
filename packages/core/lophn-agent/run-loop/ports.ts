@@ -167,6 +167,11 @@ export type ToolDone = {
 export type Pause = { begin(): void; end(): void };
 
 export type ToolPort = {
+  // 모델이 부른 이름과 입력을 실행할 tool의 이름과 입력으로 푼다. `lophn {args}`가 명령이 된다. 풀리지 않으면 그대로다.
+  dispatch?(
+    name: string,
+    input: unknown,
+  ): Promise<{ name: string; input: unknown }>;
   // 이번 turn이 제공한 tool의 정보. 없는 tool이면 undefined다.
   info(name: string): ToolInfo | undefined;
   // 판정→진입→실행→종료 기록의 한 번이다. 재시도는 이 한 번을 다시 부르며 진입 직전 판정을 매번

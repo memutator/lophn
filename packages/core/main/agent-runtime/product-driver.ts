@@ -96,8 +96,8 @@ function productToolkit(options: {
   return {
     ...createBuiltinToolkit(),
     definitions: options.definitions,
-    // 허락된 앱의 tool. 할당은 machine 자격의 loopback으로 읽는다.
-    // agent의 domain 집합 밖 domain의 비공개 tool은 목록에서 뺀다.
+    // 허락된 앱의 command를 `lophn <domain> <command>`를 부를 때 푸는 재료. 할당은 machine 자격의 loopback으로 읽는다.
+    // agent의 domain 집합 밖 domain의 비공개 command는 뺀다.
     appTool: withPublicOnly(
       createAppToolkit({
         machine: options.machine,

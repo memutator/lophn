@@ -54,10 +54,20 @@ import {
   type ToolDefinition,
   type ToolHandler,
 } from "../tools/mod.ts";
+import { dispatchTarget } from "../tools/dispatch.ts";
 import { commandTools } from "../tools/lophn/command-tool.ts";
-import { describeLophn, LOPHN_TOOL_NAME } from "../tools/lophn/tool.ts";
+import { resolveAppCall } from "../tools/lophn/resolve.ts";
+import {
+  type AppCommandLookup,
+  describeLophn,
+  LOPHN_TOOL_NAME,
+  withApps,
+} from "../tools/lophn/tool.ts";
 import type { AppToolkit } from "../tools/app-toolkit.ts";
-import { buildAppTools } from "../tools/app-tools.ts";
+import {
+  appCommandEntries,
+  appCommandTool,
+} from "../tools/app-tool/command.ts";
 import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
@@ -368,32 +378,19 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       }
     }
 
-    // 허락된 앱의 tool이다. 선언이나 할당을 읽지 못하면 그 앱은 없는 것과 같다.
-    const apiKit = deps.toolkit.appTool;
-    const loadedApi =
-      apiKit === undefined
-        ? null
-        : await apiKit.load({ agent: session.agent, place: session.place });
-    const appTool =
-      apiKit === undefined || loadedApi === null || !loadedApi.ok
-        ? null
-        : {
-            tools: await buildAppTools(loadedApi.value),
-          };
-
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
     const kind = placeKindOf(session.place);
 
-    // place 종류가 고정한 목록에 이 turn이 닿는 tool과 앱 tool, 외부 MCP tool을 더한다.
+    // place 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
+    // `lophn <domain> <command>`를 부를 때 푼다.
     const plain: readonly ToolDefinition[] = [
       ...selectTools(
         deps.placeTools(kind),
         { input_media: model.value.inputMedia },
         deps.toolkit.definitions,
       ),
-      ...(appTool?.tools ?? []).map((tool) => tool.definition),
       ...external.map((tool) => tool.definition),
     ];
     const current = plain.map((tool) =>
@@ -403,7 +400,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     return ok({
       agent,
       current,
-      appTool,
       external,
       model: model.value,
       seat,
@@ -446,8 +442,15 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat.session,
     ]);
     const operations = new Set(runOperations(fixed.definitions));
-    const listed: ToolDefinition[] = fixed.definitions.map((tool) => {
+    // 지금 부를 수 있는 앱 command. 부를 때마다 읽는다: session을 시작할 때 고정하지 않고 바뀌어도 notice를 내지 않는다.
+    const who = { agent: session.agent, place: session.place };
+    const apps: AppCommandLookup = async () => {
+      const loaded = await toolkit.appTool?.load(who);
+      return loaded?.ok ? appCommandEntries(loaded.value) : [];
+    };
+    const base: ToolDefinition[] = fixed.definitions.map((tool) => {
       const handler = legacy.get(tool.name);
+      if (tool.name === LOPHN_TOOL_NAME) return withApps(tool, apps);
       if (tool.handler !== undefined || handler === undefined) return tool;
       return {
         ...tool,
@@ -462,7 +465,30 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     });
     // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의다. model에 보이는 tools[]에는 없고 이 session의 place 종류가
     // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
-    listed.push(...commandTools(placeKindOf(session.place)));
+    base.push(...commandTools(placeKindOf(session.place)));
+    // 앱 command의 정의는 불린 것만 더한다. tool 표가 목록마다 한 번 만들어지므로 더할 때 목록을 새로 만든다.
+    // 같은 command는 같은 정의를 쓴다(loop가 정의의 동일성으로 진입 기록을 붙인다).
+    const called = new Map<
+      string,
+      { key: string; definition: ToolDefinition }
+    >();
+    let listed: readonly ToolDefinition[] = base;
+    const dispatch = async (name: string, input: unknown) => {
+      const target = dispatchTarget(name, input);
+      if (target.name !== LOPHN_TOOL_NAME) return target;
+      const hit = resolveAppCall(input, await apps());
+      if (hit === undefined) return target;
+      const definition = appCommandTool(hit.entry);
+      const key = JSON.stringify([hit.entry.app, hit.entry.command]);
+      if (called.get(definition.name)?.key !== key) {
+        called.set(definition.name, { key, definition });
+        listed = [
+          ...base,
+          ...[...called.values()].map((one) => one.definition),
+        ];
+      }
+      return { name: definition.name, input: hit.input };
+    };
     const place = session.place;
     // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
     const scope = {
@@ -479,7 +505,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       scope,
     };
     const toolSetup: ToolSetup = {
-      listed,
+      get listed() {
+        return listed;
+      },
+      dispatch,
       context: (toolCall: Id<"tcl">): ToolContext => ({
         session: seat.session as Id<"ses">,
         turn: seat.turn as Id<"trn">,

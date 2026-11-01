@@ -7,6 +7,7 @@ import type {
   PlaceAgent,
   PlaceKinds,
 } from "../../lophn-agent/prompt-assembly/model.ts";
+import { wordsOf } from "../../../cli/parser.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
 // place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 place 종류별로 글로 만든다. 순수 함수이고 data는 호출하는
@@ -38,7 +39,11 @@ export type PlaceDomain = {
   folder: string | null;
   // 폴더를 정할 수 없으면 null.
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
+  // 주인 앱의 활성 release가 내놓은 이 domain의 command 전부(비공개 포함). `lophn <domain> <command>`로 부른다.
+  commands: readonly CommandLine[];
 };
+
+type CommandLine = { key: string; effect: string; description: string };
 
 // home의 지도에서 domain 하나의 덩어리다.
 export type MapDomain = {
@@ -47,7 +52,7 @@ export type MapDomain = {
   owner: string;
   purpose: string;
   // 주인 앱의 활성 release가 내놓은 이 domain의 공개 command
-  tools: readonly { key: string; effect: string; description: string }[];
+  tools: readonly CommandLine[];
   // 이 command를 쓰는 다른 domain
   usedBy: readonly { tool: string; domain: string }[];
 };
@@ -168,6 +173,11 @@ function domainLines(domains: PlaceData["domains"]): string[] {
   for (const d of [...domains].sort((a, b) => cmp(a.name, b.name))) {
     lines.push(`- ${d.name} — ${d.title}: ${d.purpose}`);
     if (d.folder !== null) lines.push(`  Folder: ${d.folder}`);
+    if (d.commands.length > 0) {
+      lines.push(
+        `  Commands (run as \`lophn ${d.name} <command>\`): ${commandsText(d.commands, "full")}`,
+      );
+    }
   }
   return lines;
 }
@@ -212,6 +222,20 @@ function unique(items: readonly string[]): string[] {
   return [...new Set(items)].sort(cmp);
 }
 
+// command는 `lophn <domain> <command>`의 낱말로 적는다(`session_usage` → `session-usage`).
+function commandsText(
+  commands: readonly CommandLine[],
+  level: "full" | "short",
+): string {
+  return [...commands]
+    .sort((a, b) => cmp(a.key, b.key))
+    .map((t) => {
+      const name = `${wordsOf(t.key).join(" ")} (${t.effect})`;
+      return level === "full" ? `${name} ${oneLine(t.description)}` : name;
+    })
+    .join("; ");
+}
+
 // full은 command 설명까지, short는 command 키만, bare는 domain 이름과 주인만 싣는다.
 function mapLines(
   domains: readonly MapDomain[],
@@ -221,14 +245,11 @@ function mapLines(
   for (const d of [...domains].sort((a, b) => cmp(a.name, b.name))) {
     lines.push(`- ${d.name} (${d.owner}): ${oneLine(d.purpose)}`);
     if (level === "bare") continue;
-    const tools = [...d.tools]
-      .sort((a, b) => cmp(a.key, b.key))
-      .map((t) =>
-        level === "full"
-          ? `${t.key} (${t.effect}) ${oneLine(t.description)}`
-          : `${t.key} (${t.effect})`,
+    if (d.tools.length > 0) {
+      lines.push(
+        `  Public commands (run as \`lophn ${d.name} <command>\`): ${commandsText(d.tools, level)}`,
       );
-    if (tools.length > 0) lines.push(`  Public commands: ${tools.join("; ")}`);
+    }
     const usedBy = unique(d.usedBy.map((u) => `${u.tool} ← ${u.domain}`));
     if (usedBy.length > 0) {
       lines.push(`  Used by other domains: ${usedBy.join(", ")}`);

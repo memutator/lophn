@@ -8,6 +8,7 @@ model이 읽는 글과 eval에서 옛 tool 이름(`release.prepare`, `job.create
   - `packages/core/agent-places/prompts/**`
   - `packages/core/agent-places/skills/**`
   - `packages/core/lophn-agent/prompt-assembly/skill-list.ts`
+  - `packages/core/lophn-agent/run-loop/input-text.ts`
   - `packages/sdk/declaration/guide.md`
   - `packages/sdk/flow/guide.md`
   - `tests/eval/**`
@@ -38,3 +39,9 @@ model이 읽는 글과 eval에서 옛 tool 이름(`release.prepare`, `job.create
 - 정한 것, 넘길 줄
 - **무겁게 짠 것**: 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함 (wave 1 보고에서 모은 것)
+
+- 옛 이름이 남은 곳으로 보고된 것: `packages/core/agent-places/prompts/prompts.ts`(`workflow.report`), `packages/core/lophn-agent/run-loop/input-text.ts`(step 입력 글의 `workflow.report`), `packages/core/agent-places/skills/write-workflow/SKILL.md`, `packages/sdk/flow/guide.md`, `packages/core/agent-places/skills/make-domain/SKILL.md`("Every tool an app declares names the domain" → 앱 command).
+- `lophn workflow get`은 `--lines N`으로 최근 줄만 읽는다. 지침에는 `--lines 20`처럼 쓰게 한다. `lophn workflow edit`의 `add_step`은 `--new-step <json>`이다.
+- eval registry에서 낡은 것: `tests/eval/registry/tool/`의 job·workflow tool JSON, 지침 snapshot(`operator.json`, `app_engineer.json` 등).

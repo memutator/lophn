@@ -6,11 +6,11 @@ lead만 고친다. `tools/status.py command-surface build`가 `tasks/*.md`에서
 |---|---|---|---|---|---|---|---|
 | `app-large-result` | apps | 1 | app-layers | todo |  |  |  |
 | `app-layers` | apps | 1 | 없음 | merged | apps/app-layers | f8f543dfe |  |
-| `cmd-apps` | cli | 1 | app-layers | todo |  |  |  |
+| `cmd-apps` | cli | 1 | app-layers | running | cli/cmd-apps |  |  |
 | `cmd-calls` | cli | 1 | cs-foundation | running | cli/cmd-calls |  |  |
 | `cmd-domains` | cli | 1 | cs-foundation | running | cli/cmd-domains |  |  |
-| `cmd-release` | cli | 1 | app-layers | todo |  |  |  |
-| `cmd-workflows` | cli | 1 | cs-foundation | running | cli/cmd-workflows |  |  |
+| `cmd-release` | cli | 1 | app-layers | running | cli/cmd-release |  |  |
+| `cmd-workflows` | cli | 1 | cs-foundation | merged | cli/cmd-workflows | b0732250e |  |
 | `cs-foundation` | cli | 1 | 없음 | merged | cli/cs-foundation | 6bf90d488 |  |
 | `defer-remove` | cli | 1 | cs-foundation | running | cli/defer-remove |  |  |
 | `app-commands` | apps | 2 | defer-remove, app-layers | todo |  |  |  |

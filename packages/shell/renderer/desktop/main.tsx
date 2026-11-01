@@ -16,6 +16,10 @@ import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
 import { HomeGate } from "./places/home-gate.tsx";
 import {
+  createSidebarMemory,
+  SidebarMemoryProvider,
+} from "../shell/sidebar-memory.tsx";
+import {
   HOME,
   openApp,
   openHome,
@@ -196,6 +200,8 @@ export function Desktop({
   const [route, setRoute] = useState<Route>(initial);
   // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
+  // place를 옮겨도 왼쪽 sidebar가 빈 목록부터 다시 그리지 않게 마지막 읽기 값을 창에 둔다.
+  const [sidebarMemory] = useState(createSidebarMemory);
   const home = () => setRoute(HOME);
   // Settings를 열기 전 자리. Settings의 [Back]이 돌아가는 곳이고, 없으면(처음부터 Settings) Home으로 간다.
   const beforeSettings = useRef<Route | null>(null);
@@ -433,28 +439,30 @@ export function Desktop({
   }
   // 창 shortcut의 Home 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
   const tree = (
-    <CommandsProvider value={commands}>
-      <PaletteProvider deps={palette} onHome={home}>
-        <DefaultToastHandler
-          openSession={openSession}
-          goApp={(app) => setRoute(openApp(app))}
-        />
-        {space}
-        {overlay &&
-        route.space !== "detached" &&
-        route.space !== "app-window" ? (
-          <ToastHost overlay={overlay} />
-        ) : null}
-        {overlay && hookPrompt ? (
-          <HookPromptHost overlay={overlay} coding={hookPrompt} />
-        ) : null}
-        {intents &&
-        route.space !== "detached" &&
-        route.space !== "app-window" ? (
-          <DesktopIntents intents={intents} catalog={catalog} go={go} />
-        ) : null}
-      </PaletteProvider>
-    </CommandsProvider>
+    <SidebarMemoryProvider memory={sidebarMemory}>
+      <CommandsProvider value={commands}>
+        <PaletteProvider deps={palette} onHome={home}>
+          <DefaultToastHandler
+            openSession={openSession}
+            goApp={(app) => setRoute(openApp(app))}
+          />
+          {space}
+          {overlay &&
+          route.space !== "detached" &&
+          route.space !== "app-window" ? (
+            <ToastHost overlay={overlay} />
+          ) : null}
+          {overlay && hookPrompt ? (
+            <HookPromptHost overlay={overlay} coding={hookPrompt} />
+          ) : null}
+          {intents &&
+          route.space !== "detached" &&
+          route.space !== "app-window" ? (
+            <DesktopIntents intents={intents} catalog={catalog} go={go} />
+          ) : null}
+        </PaletteProvider>
+      </CommandsProvider>
+    </SidebarMemoryProvider>
   );
   // model picker 같은 곳에서도 provider 연결 화면을 열 수 있게 화면 전체를 감싼다.
   return settingsPanels?.providers && settingsPanels.agents ? (

@@ -28,6 +28,7 @@ import {
   useTabsElsewhere,
   useSidebarPlaceList,
 } from "../../shell/use-left-sidebar.ts";
+import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { TerminalStore } from "../../terminal/store.ts";
 import {
   otherPlaceTerminalTitle,
@@ -41,12 +42,15 @@ import type { PanelTerminal } from "./panel-types.ts";
 /** New session ▾에 올리는 coding agent. 터미널 탭에서 그 command를 연다. */
 const CODING_AGENTS: readonly HarnessId[] = ["claude", "codex", "opencode"];
 
+const NO_WORKFLOWS: readonly string[] = [];
+
 /** 이 project에서 사람 차례를 기다리는 workflow 이름(Home은 없다). instance가 바뀔 때마다 다시 읽는다. */
 function useHumanTurnWorkflows(
   source: WorkspaceSource,
   project: string | null,
 ): readonly string[] {
-  const [names, setNames] = useState<readonly string[]>([]);
+  // place를 옮기면 창의 마지막 값에서 시작한다.
+  const [all, setAll] = useRemembered("workflows");
   const [reads, setReads] = useState(0);
   useEffect(() => {
     if (project === null) return;
@@ -55,22 +59,23 @@ function useHumanTurnWorkflows(
       .workflowInstances({ project, state: "running" })
       .then((read) => {
         if (!live || !read.ok) return;
-        setNames([
+        const names = [
           ...new Set(
             read.value
               .filter((item) => item.current?.human_turn === true)
               .map((item) => item.workflow),
           ),
-        ]);
+        ];
+        setAll((now) => new Map(now).set(project, names));
       });
     return () => {
       live = false;
     };
-  }, [source, project, reads]);
+  }, [source, project, reads, setAll]);
   useWorkflowChanges((_instance, payload) => {
     if (payload.project === project) setReads((count) => count + 1);
   });
-  return names;
+  return (project === null ? undefined : all.get(project)) ?? NO_WORKFLOWS;
 }
 
 export interface PlaceLeftSidebarProps {
@@ -145,29 +150,32 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
   const otherTerminals = useMemo(
     () =>
       new Map(
-        [...elsewhere.terminals].map(([key, tabs]) => [
-          key,
-          tabs.flatMap((tab): PanelTerminal[] => {
-            const agent = store?.agentOf(tab.key);
-            if (store === undefined || agent === undefined || !agent.hooked) {
-              return [];
-            }
-            return [
-              {
-                key: tab.key,
-                harness: agent.harness,
-                label: agent.harness,
-                title: otherPlaceTerminalTitle(tab, store),
-                dot: terminalAgentDot(agent),
-                at: 0,
-                live: { tabKey: tab.key },
-                saved: null,
-              },
-            ];
-          }),
-        ]),
+        // 창의 마지막 값이라 지금 place가 들 수 있다. 지금 place의 터미널은 props.terminals가 준다.
+        [...elsewhere.terminals]
+          .filter(([key]) => key !== placeKey(current))
+          .map(([key, tabs]) => [
+            key,
+            tabs.flatMap((tab): PanelTerminal[] => {
+              const agent = store?.agentOf(tab.key);
+              if (store === undefined || agent === undefined || !agent.hooked) {
+                return [];
+              }
+              return [
+                {
+                  key: tab.key,
+                  harness: agent.harness,
+                  label: agent.harness,
+                  title: otherPlaceTerminalTitle(tab, store),
+                  dot: terminalAgentDot(agent),
+                  at: 0,
+                  live: { tabKey: tab.key },
+                  saved: null,
+                },
+              ];
+            }),
+          ]),
       ),
-    [elsewhere.terminals, store, storeVersion],
+    [elsewhere.terminals, store, storeVersion, placeKey(current)],
   );
   const openTitles = useMemo(
     () => new Map(elsewhere.titles).set(placeKey(current), props.openTitles),

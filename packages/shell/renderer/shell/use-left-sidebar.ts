@@ -20,6 +20,7 @@ import {
 } from "./desk-model.ts";
 import type { LayoutSource } from "./layout-source.ts";
 import type { KnownSessions } from "./left-sidebar-places.ts";
+import { useRemembered } from "./sidebar-memory.tsx";
 
 /** 보관하지 않은 project와 앱. 순서는 런처와 같다. 등록·생성 뒤에는 reload로 다시 읽는다. */
 export function useSidebarPlaceList(
@@ -30,24 +31,25 @@ export function useSidebarPlaceList(
   readonly apps: readonly AppRow[];
   readonly reload: () => void;
 } {
-  const [projectItems, setProjects] = useState<readonly ProjectItem[]>([]);
-  const [appItems, setApps] = useState<readonly AppRow[]>([]);
+  const [projectItems, setProjects] = useRemembered("projects");
+  const [appItems, setApps] = useRemembered("apps");
   const [reads, setReads] = useState(0);
   useEffect(() => {
     let live = true;
     void projects?.list().then((read) => {
-      if (live && read.ok)
-        setProjects(read.value.filter((item) => !item.archived));
+      if (live && read.ok) {
+        setProjects(() => read.value.filter((item) => !item.archived));
+      }
     });
     void apps?.list().then((read) => {
       if (live && read.ok) {
-        setApps(sortApps(read.value).filter((item) => !item.archived));
+        setApps(() => sortApps(read.value).filter((item) => !item.archived));
       }
     });
     return () => {
       live = false;
     };
-  }, [projects, apps, reads]);
+  }, [projects, apps, reads, setProjects, setApps]);
   const reload = useCallback(() => setReads((count) => count + 1), []);
   return { projects: projectItems, apps: appItems, reload };
 }
@@ -57,7 +59,7 @@ export function useKnownSessions(
   factory: AgentTabSourceFactory | undefined,
   entries: readonly SessionEntry[],
 ): KnownSessions {
-  const [known, setKnown] = useState<KnownSessions>(new Map());
+  const [known, setKnown] = useRemembered("known");
   // agent × place 쌍. 같은 쌍은 한 번만 읽는다.
   const pairs = useMemo(
     () =>
@@ -94,32 +96,31 @@ export function useKnownSessions(
     ).then((lists) => {
       if (!live) return;
       setKnown(
-        new Map(
-          lists
-            .flat()
-            .map((entry) => [
-              entry.id,
-              { title: entry.title, at: Date.parse(entry.activeAt) || 0 },
-            ]),
-        ),
+        () =>
+          new Map(
+            lists
+              .flat()
+              .map((entry) => [
+                entry.id,
+                { title: entry.title, at: Date.parse(entry.activeAt) || 0 },
+              ]),
+          ),
       );
     });
     return () => {
       live = false;
     };
-  }, [factory, pairs, ids]);
+  }, [factory, pairs, ids, setKnown]);
   return known;
 }
 
-/** 이 창이 보이지 않는 place들의 저장된 layout에서 읽은 열린 탭. */
+/** 이 창이 보이지 않는 place들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작해 지금 place도 들 수 있어 부르는 쪽이 지금 place를 거른다. */
 export interface TabsElsewhere {
   /** place key → session id → Agent 탭 제목. 저장된 Agent 탭은 제목을 남기지 않아 빈 글이다. */
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** place key → coding agent가 돈 적이 있는 터미널 탭(harness가 저장된 것). 지금 도는지는 창의 terminal store가 안다. */
   readonly terminals: ReadonlyMap<string, readonly TabItem[]>;
 }
-
-const NONE: TabsElsewhere = { titles: new Map(), terminals: new Map() };
 
 /**
  * 이 창이 보이지 않는 place들의 layout에서 열린 Agent 탭과 coding agent 터미널 탭을 읽는다.
@@ -131,7 +132,8 @@ export function useTabsElsewhere(
   here: PlaceRef,
   entries: readonly SessionEntry[],
 ): TabsElsewhere {
-  const [tabs, setTabs] = useState<TabsElsewhere>(NONE);
+  const [titles, setTitles] = useRemembered("elsewhereTitles");
+  const [terminals, setTerminals] = useRemembered("elsewhereTerminals");
   const [focuses, setFocuses] = useState(0);
   useEffect(() => {
     const onFocus = () => setFocuses((count) => count + 1);
@@ -162,14 +164,12 @@ export function useTabsElsewhere(
         }),
     ).then((rows) => {
       if (!live) return;
-      setTabs({
-        titles: new Map(rows.map((row) => [row.key, row.titles])),
-        terminals: new Map(rows.map((row) => [row.key, row.terminals])),
-      });
+      setTitles(() => new Map(rows.map((row) => [row.key, row.titles])));
+      setTerminals(() => new Map(rows.map((row) => [row.key, row.terminals])));
     });
     return () => {
       live = false;
     };
-  }, [layout, places, hereKey, ids, focuses]);
-  return tabs;
+  }, [layout, places, hereKey, ids, focuses, setTitles, setTerminals]);
+  return useMemo(() => ({ titles, terminals }), [titles, terminals]);
 }

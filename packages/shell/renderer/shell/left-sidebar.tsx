@@ -94,6 +94,9 @@ const PLACE_ICON = {
   app: shellIcons.app,
 } as const satisfies Record<PlaceRef["kind"], LucideIcon>;
 
+// 펼친 Recent가 한 번에 보이는 줄 수. 넘으면 page로 나눈다.
+const RECENT_PAGE = 10;
+
 // 줄 오른쪽 끝의 짧은 시각. Recent는 7일 안이라 일까지만 센다.
 function ageOf(at: number): string {
   const minutes = Math.floor((Date.now() - at) / 60_000);
@@ -316,8 +319,11 @@ export function LeftSidebar({
   onProjectSettings,
   onSettings,
 }: LeftSidebarProps) {
-  // 펼친 Recent는 place마다 기억한다. 저장하지 않는다.
+  // 펼친 Recent와 그 page는 place마다 기억한다. 저장하지 않는다.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [pages, setPages] = useState<ReadonlyMap<string, number>>(new Map());
+  const turnPage = (key: string, page: number) =>
+    setPages((all) => new Map(all).set(key, page));
   const toggle = (key: string) =>
     setExpanded((all) => {
       const next = new Set(all);
@@ -490,6 +496,16 @@ export function LeftSidebar({
           const key = placeKey(place.ref);
           const here = key === currentKey;
           const open = expanded.has(key);
+          // 줄이 줄어 page가 사라지면 마지막 page를 보인다.
+          const pageCount = Math.ceil(place.recent.length / RECENT_PAGE);
+          const page = Math.min(
+            pages.get(key) ?? 0,
+            Math.max(pageCount - 1, 0),
+          );
+          const shown = place.recent.slice(
+            page * RECENT_PAGE,
+            (page + 1) * RECENT_PAGE,
+          );
           return (
             <div key={key} className={styles.placeGroup} data-place={key}>
               <div className={styles.placeHead}>
@@ -541,7 +557,7 @@ export function LeftSidebar({
                 </button>
               )}
               {open
-                ? place.recent.map((item) => (
+                ? shown.map((item) => (
                     <SessionRow
                       key={sessionKey(item)}
                       item={item}
@@ -556,6 +572,31 @@ export function LeftSidebar({
                     />
                   ))
                 : null}
+              {open && pageCount > 1 ? (
+                <div className={styles.pager} data-recent-pager={key}>
+                  <IconButton
+                    icon={sidebarIcons.previous}
+                    label={t("left-sidebar.button.previous-page")}
+                    size="sm"
+                    disabled={page === 0}
+                    onClick={() => turnPage(key, page - 1)}
+                  />
+                  <span className={styles.pagerText}>
+                    {t("left-sidebar.label.recent-page", {
+                      start: page * RECENT_PAGE + 1,
+                      end: page * RECENT_PAGE + shown.length,
+                      total: place.recent.length,
+                    })}
+                  </span>
+                  <IconButton
+                    icon={sidebarIcons.next}
+                    label={t("left-sidebar.button.next-page")}
+                    size="sm"
+                    disabled={page >= pageCount - 1}
+                    onClick={() => turnPage(key, page + 1)}
+                  />
+                </div>
+              ) : null}
             </div>
           );
         })}

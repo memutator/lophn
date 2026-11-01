@@ -1,18 +1,13 @@
 // sidebar가 터미널 coding agent session을 그리는 값. 이 창의 터미널 탭 가운데 coding agent가 도는 것(live)과 main이
 // 저장한 session(saved)을 합친다. 저장한 것 가운데 지금 도는 session은 live 줄 하나로만 남는다.
 // live 줄의 제목과 상태 점은 탭 줄과 같은 값이다(부르는 쪽이 `tabs`로 넣는다).
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { TerminalAgentSession } from "../../../ipc/terminal.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import type { PanelTerminal } from "./panel-types.ts";
 
@@ -43,22 +38,26 @@ export function usePanelTerminals(
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
   );
-  const [saved, setSaved] = useState<readonly TerminalAgentSession[]>(NO_SAVED);
+  // place를 옮기면 창의 마지막 값에서 시작한다. 비면 Recent 수가 0에서 다시 차오른다.
+  const [savedAll, setSavedAll] = useRemembered("savedTerminals");
+  const saved =
+    (project === null ? undefined : savedAll.get(project)) ?? NO_SAVED;
   useEffect(() => {
-    setSaved(NO_SAVED);
     if (bridge === null || project === null) return;
     let live = true;
+    const put = (sessions: readonly TerminalAgentSession[]) =>
+      setSavedAll((all) => new Map(all).set(project, sessions));
     void bridge.agentSessions({ project }).then((reply) => {
-      if (live && reply.ok) setSaved(reply.value);
+      if (live && reply.ok) put(reply.value);
     });
     const off = bridge.onAgentSessions((change) => {
-      if (change.project === project) setSaved(change.sessions);
+      if (change.project === project) put(change.sessions);
     });
     return () => {
       live = false;
       off();
     };
-  }, [bridge, project]);
+  }, [bridge, project, setSavedAll]);
   // hook은 시각을 알리지 않는다. 저장한 session의 마지막 움직임을 쓰고, 아직 저장 전이면 처음 본 때를 쓴다.
   const firstSeen = useRef(new Map<string, number>());
   return useMemo(() => {

@@ -285,7 +285,7 @@ export const shellArea: Area = {
       id: "shell-left-sidebar",
       title: "Shell · Left sidebar",
       description:
-        "왼쪽 sidebar. New session(▾로 lophn agent와 coding agent), Inbox, Jobs, Places 아래 Home·project·앱과 place마다 열린 session. phroner의 Recent를 펼쳐 끝난 session과 저장한 터미널 session을 상대 시각으로 보인다.",
+        "왼쪽 sidebar. New session(▾로 lophn agent와 coding agent), Inbox, Jobs, Places 아래 Home·project·앱과 place마다 열린 session. phroner의 Recent를 펼쳐 끝난 session과 저장한 터미널 session을 상대 시각으로 보인다. Recent는 지금 place에만 있고 10줄이 넘으면 아래 page 줄(‹ 1–10 of 13 ›)로 넘긴다. 지금 place는 이름만 진하다.",
       render: () => <ShellScene variant="project" recentOpen />,
     },
     {

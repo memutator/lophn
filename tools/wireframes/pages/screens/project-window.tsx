@@ -273,6 +273,17 @@ const codingLine = (
 
 const byId = (id: string) => SESSIONS.find((item) => item.id === id)!;
 
+const OLDER_RECENT: readonly (readonly [string, string, string])[] = [
+  ["ses_old1", "Trim the judge prompt", "2 h ago"],
+  ["ses_old2", "Rename the scorecard columns", "3 h ago"],
+  ["ses_old3", "Cache the board fixtures", "5 h ago"],
+  ["ses_old4", "Check the retry backoff numbers", "yesterday"],
+  ["ses_old5", "Move the rubric files", "2 days ago"],
+  ["ses_old6", "Drop the unused eval flags", "3 days ago"],
+  ["ses_old7", "Read the failed run logs", "4 days ago"],
+  ["ses_old8", "Split the export test", "5 days ago"],
+];
+
 /** 왼쪽 sidebar의 place들. phroner가 이 창이 보이는 project이고 Recent도 phroner만 있다. Home·다른 project·앱은 열린 session만 있다. */
 const SIDEBAR_PLACES: readonly SidebarPlace[] = [
   {
@@ -334,6 +345,10 @@ const SIDEBAR_PLACES: readonly SidebarPlace[] = [
         "Why does the rubric loader skip yaml files",
         "45 min ago",
         null,
+      ),
+      // 한 page(10줄)를 넘겨 Recent의 page 줄이 보이게 한다.
+      ...OLDER_RECENT.map(([ref, title, when]) =>
+        codingLine(ref, "claude", title, when, null),
       ),
     ],
   },

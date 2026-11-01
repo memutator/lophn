@@ -5,6 +5,8 @@ export const leftSidebar = {
   "left-sidebar.button.jobs": "Jobs",
   "left-sidebar.button.new-session": "New session",
   "left-sidebar.button.new-session-with": "New session with…",
+  "left-sidebar.button.next-page": "Next page",
+  "left-sidebar.button.previous-page": "Previous page",
   "left-sidebar.button.project-settings": "Project settings",
   "left-sidebar.button.quick-app": "Open app…",
   "left-sidebar.button.quick-browser": "New browser",
@@ -21,6 +23,7 @@ export const leftSidebar = {
   "left-sidebar.label.home": "Home",
   "left-sidebar.label.nav": "Sidebar",
   "left-sidebar.label.recent": "Recent",
+  "left-sidebar.label.recent-page": "{start}–{end} of {total}",
   "left-sidebar.label.untitled": "Untitled session",
   "left-sidebar.label.your-turn": "Your turn",
 } as const;

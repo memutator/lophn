@@ -11,6 +11,7 @@ import {
 } from "../../../../../protocol/lophn-agent/places.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { turnChoicesOf, type WaitingChoice } from "./decide.ts";
+import { type InboxNames, NO_NAMES } from "./names.ts";
 
 type Effect = "read" | "write" | "external";
 
@@ -68,7 +69,7 @@ function requesterOf(entry: WaitingEntry): string | null {
   return entry.agent === null ? null : agentLabel(entry.agent);
 }
 
-function metaOf(entry: WaitingEntry): string {
+function metaOf(entry: WaitingEntry, names: InboxNames): string {
   const who =
     entry.agent !== null
       ? agentLabel(entry.agent)
@@ -77,8 +78,9 @@ function metaOf(entry: WaitingEntry): string {
     entry.place === null
       ? ""
       : entry.place.kind === "project"
-        ? t("waiting.label.place-project", { id: shortId(entry.place.id) })
-        : t("waiting.label.place-app", { id: shortId(entry.place.id) });
+        ? (names.projects.get(entry.place.id) ??
+          t("waiting.label.place-project", { id: shortId(entry.place.id) }))
+        : appText(entry.place.id, names);
   const session =
     entry.session === null
       ? ""
@@ -108,17 +110,20 @@ const LOSS_LABELS = {
   narrow_type: "waiting.label.loss-narrow-type",
 } as const;
 
-function appText(app: string): string {
-  return t("waiting.label.place-app", { id: shortId(app) });
+function appText(app: string, names: InboxNames): string {
+  return (
+    names.apps.get(app) ?? t("waiting.label.place-app", { id: shortId(app) })
+  );
 }
 
 /** 도구 물음의 대상 한 줄. shell은 명령 자체가 세부라 대상 칸이 없다. */
 function toolTarget(
   subject: Exclude<TurnRequest["subject"], { kind: "shell" | "harness" }>,
+  names: InboxNames,
 ): string {
   return subject.kind === "app_tool"
     ? t("waiting.label.target-tool", {
-        app: appText(subject.app),
+        app: appText(subject.app, names),
         tool: subject.tool,
       })
     : t("waiting.label.target-mcp-tool", {
@@ -127,7 +132,7 @@ function toolTarget(
       });
 }
 
-function permissionView(request: TurnRequest) {
+function permissionView(request: TurnRequest, names: InboxNames) {
   const subject = request.subject;
   const choices = turnChoicesOf(request);
   switch (subject.kind) {
@@ -155,11 +160,11 @@ function permissionView(request: TurnRequest) {
         choices,
       };
     case "app_tool": {
-      const target = toolTarget(subject);
+      const target = toolTarget(subject, names);
       return {
         title: t("waiting.title.tool", {
           tool: subject.tool,
-          app: appText(subject.app),
+          app: appText(subject.app, names),
         }),
         description:
           subject.effect === "read"
@@ -173,7 +178,7 @@ function permissionView(request: TurnRequest) {
       };
     }
     case "mcp_tool": {
-      const target = toolTarget(subject);
+      const target = toolTarget(subject, names);
       return {
         title: t("waiting.title.mcp-tool", { tool: subject.tool }),
         description: t("waiting.notice.mcp-tool", { target }),
@@ -219,12 +224,15 @@ function declaredLines(resources: readonly string[]): Line[] {
   });
 }
 
-function activationView(comparison: ActivationConsent["comparison"]) {
+function activationView(
+  comparison: ActivationConsent["comparison"],
+  names: InboxNames,
+) {
   const added: Line[] = [
     ...declaredLines(comparison.added_resources),
     ...comparison.added_tools.map((use) => ({
       label: t("waiting.label.declared-tool"),
-      value: `${appText(use.app)} › ${use.tool}`,
+      value: `${appText(use.app, names)} › ${use.tool}`,
     })),
   ];
   const loss: Line[] = comparison.loss_steps.flatMap((step) =>
@@ -237,15 +245,15 @@ function activationView(comparison: ActivationConsent["comparison"]) {
   return { added, loss, first: comparison.first };
 }
 
-/** job이 할 일 한 줄. 앱은 id뿐이라 짧은 id로 보인다. */
-function jobActionText(action: JobAction): string {
+/** job이 할 일 한 줄. */
+function jobActionText(action: JobAction, names: InboxNames): string {
   switch (action.kind) {
     case "agent_run":
       return t("waiting.notice.job-agent", { agent: agentLabel(action.agent) });
     case "tool_run":
       return t("waiting.notice.job-tool", {
         tool: action.tool,
-        app: appText(action.app),
+        app: appText(action.app, names),
       });
     case "workflow_start":
       return t("waiting.notice.job-workflow", { workflow: action.workflow });
@@ -262,10 +270,14 @@ export function jobHoldNote(hold: JobHold, now = new Date()): string {
 
 const NO_LINES: readonly Line[] = [];
 
-export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
+export function cardOf(
+  entry: WaitingEntry,
+  names: InboxNames = NO_NAMES,
+  now = new Date(),
+): CardView {
   const base = {
     kind: entry.kind,
-    meta: metaOf(entry),
+    meta: metaOf(entry, names),
     age: formatRelativeTime(new Date(entry.receivedAt), now),
     requester: requesterOf(entry),
     facts: [] as Fact[],
@@ -283,27 +295,27 @@ export function cardOf(entry: WaitingEntry, now = new Date()): CardView {
         description: t("waiting.notice.question-loading"),
       };
     case "permission":
-      return { ...base, ...permissionView(entry.request) };
+      return { ...base, ...permissionView(entry.request, names) };
     case "job_hold":
       return {
         ...base,
         title: entry.hold.job.title,
-        description: jobActionText(entry.hold.job.action),
+        description: jobActionText(entry.hold.job.action, names),
       };
     case "job_approval":
       return {
         ...base,
         title: entry.job.title,
-        description: jobActionText(entry.job.action),
+        description: jobActionText(entry.job.action, names),
       };
     case "activation": {
-      const view = activationView(entry.request.comparison);
+      const view = activationView(entry.request.comparison, names);
       const counts = { declared: view.added.length, lost: view.loss.length };
       return {
         ...base,
         ...view,
         title: t("waiting.title.activation", {
-          app: appText(entry.request.app),
+          app: appText(entry.request.app, names),
         }),
         description: view.first
           ? t("waiting.notice.activation-first", counts)

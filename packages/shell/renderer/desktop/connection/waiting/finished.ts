@@ -9,6 +9,7 @@ import type { AvatarFace } from "../../../../ipc/overlay.ts";
 import { useSessions, useWaiting } from "../events/hooks.tsx";
 import type { SessionEntry } from "../events/sessions-store.ts";
 import type { FinishedTerminal } from "../events/waiting-store.ts";
+import { type InboxNames, NO_NAMES, useInboxNames } from "./names.ts";
 
 export interface FinishedRow {
   readonly id: string;
@@ -25,17 +26,23 @@ export interface FinishedRow {
 export function finishedRows(
   terminals: readonly FinishedTerminal[],
   sessions: readonly SessionEntry[],
+  names: InboxNames = NO_NAMES,
 ): FinishedRow[] {
-  const rows: FinishedRow[] = terminals.map((terminal) => ({
-    id: `terminal:${terminal.terminalRef}`,
-    target: { kind: "terminal", terminal_ref: terminal.terminalRef },
-    face: { kind: "vendor", harness: terminal.harness },
-    label:
+  const rows: FinishedRow[] = terminals.map((terminal) => {
+    const harness =
       terminal.harness in HARNESS_ADAPTERS
         ? HARNESS_ADAPTERS[terminal.harness as HarnessId].label
-        : terminal.harness,
-    title: terminal.title,
-  }));
+        : terminal.harness;
+    // 탭 줄에 보이는 이름을 알면 그것이 주 이름이고, 제품 이름은 아이콘과 보조 줄로 내려간다.
+    const tab = names.terminals.get(terminal.terminalRef);
+    return {
+      id: `terminal:${terminal.terminalRef}`,
+      target: { kind: "terminal", terminal_ref: terminal.terminalRef },
+      face: { kind: "vendor", harness: terminal.harness },
+      label: tab ?? harness,
+      title: tab === undefined ? terminal.title : harness,
+    };
+  });
   for (const entry of sessions) {
     // unseen이 없는 session은 줄이 없다.
     if (entry.unseen === null) continue;
@@ -56,8 +63,9 @@ export function useFinished(
 ): readonly FinishedRow[] {
   const { finished } = useWaiting();
   const { sessions } = useSessions();
+  const names = useInboxNames();
   return useMemo(
-    () => override ?? finishedRows(finished, sessions),
-    [override, finished, sessions],
+    () => override ?? finishedRows(finished, sessions, names),
+    [override, finished, sessions, names],
   );
 }

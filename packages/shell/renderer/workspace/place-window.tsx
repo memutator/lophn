@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -160,6 +161,11 @@ import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
 import { sessionKey } from "../shell/left-sidebar-model.ts";
 import { PlaceLeftSidebar } from "./sidebar/place-left-sidebar.tsx";
+import { useSidebarPlaceList } from "../shell/use-left-sidebar.ts";
+import {
+  type InboxNames,
+  InboxNamesProvider,
+} from "../desktop/connection/waiting/names.ts";
 import {
   AppPlacePanel,
   appPanelTabs,
@@ -1431,6 +1437,27 @@ export function PlaceWindow(props: PlaceWindowProps) {
     }
   }, [terminalVersion, terminal, windowTabs]);
 
+  // Inbox 줄이 id와 제품 이름 대신 쓰는 이름. 이 창이 아는 것만 담고 모르는 것은 줄이 지금 글로 둔다.
+  const inboxPlaces = useSidebarPlaceList(props.projects, props.apps);
+  const inboxNames = useMemo<InboxNames>(() => {
+    const terminals = new Map<string, string>();
+    for (const tab of allTabs(layout)) {
+      const ref = tab.kind === "terminal" ? terminal?.store.get(tab.key) : null;
+      if (ref?.terminalRef != null) terminals.set(ref.terminalRef, tab.title);
+    }
+    return {
+      projects: new Map(inboxPlaces.projects.map((one) => [one.id, one.title])),
+      apps: new Map(inboxPlaces.apps.map((one) => [one.id, one.name])),
+      terminals,
+    };
+  }, [
+    layout,
+    terminalVersion,
+    terminal,
+    inboxPlaces.projects,
+    inboxPlaces.apps,
+  ]);
+
   // card에 그릴 탭. 고른 탭이 group 구성원이면 그 group의 leaf 전부(leaf 순서), 아니면 고른 탭 하나다.
   const group = groupOf(desk, desk.selected);
   const deskTab = (key: string | null) =>
@@ -1739,7 +1766,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     ...(host.appScreens ? { onAppPanel: () => openAppPanel(host) } : {}),
   });
 
-  return (
+  const workspace = (
     <ViewKeepsProvider value={keeps}>
       <WebviewHostProvider value={webviews}>
         <div
@@ -2092,5 +2119,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
         </div>
       </WebviewHostProvider>
     </ViewKeepsProvider>
+  );
+  return (
+    <InboxNamesProvider value={inboxNames}>{workspace}</InboxNamesProvider>
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { useEventClient } from "../events/hooks.tsx";
 import { cardOf } from "./model.ts";
+import { useInboxNames } from "./names.ts";
 import type { SettledState } from "./decide.ts";
 
 export interface SettledRow {
@@ -32,17 +33,21 @@ export function useSettled(
   const known = useRef(new Map<string, WaitingEntry>());
   for (const entry of entries) known.current.set(entry.id, entry);
 
-  const add = useCallback((entry: WaitingEntry, state: SettledState) => {
-    const view = cardOf(entry);
-    const row: SettledRow = {
-      id: entry.id,
-      title: view.title,
-      who: view.meta,
-      state,
-      agent: view.requester ?? undefined,
-    };
-    setRows((now) => [...now.filter((one) => one.id !== row.id), row]);
-  }, []);
+  const names = useInboxNames();
+  const add = useCallback(
+    (entry: WaitingEntry, state: SettledState) => {
+      const view = cardOf(entry, names);
+      const row: SettledRow = {
+        id: entry.id,
+        title: view.title,
+        who: view.meta,
+        state,
+        agent: view.requester ?? undefined,
+      };
+      setRows((now) => [...now.filter((one) => one.id !== row.id), row]);
+    },
+    [names],
+  );
   const clear = useCallback(() => setRows([]), []);
 
   useEffect(

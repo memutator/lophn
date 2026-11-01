@@ -24,6 +24,7 @@ import { QuestionCard } from "./cards/question-card.tsx";
 import type { FinishedRow } from "./finished.ts";
 import { decideWaiting, type SettledState } from "./decide.ts";
 import { cardOf } from "./model.ts";
+import { useInboxNames } from "./names.ts";
 import type { Settled, SettledRow } from "./settled.ts";
 import styles from "./waiting.module.css";
 
@@ -182,6 +183,7 @@ export function WaitingPanel({
   onDismissFinished: (target: NoticeTarget) => void;
 }) {
   const core = useEventClient().core;
+  const names = useInboxNames();
 
   function decider(entry: WaitingEntry): OnDecide {
     return async (choice, reason) => {
@@ -194,7 +196,7 @@ export function WaitingPanel({
   }
 
   function card(entry: WaitingEntry) {
-    const view = cardOf(entry);
+    const view = cardOf(entry, names);
     const props: DecideCardProps = {
       entry,
       view,

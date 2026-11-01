@@ -2,7 +2,7 @@
 
 배포 tool 일곱을 명령으로 옮긴다: `release.list`, `release.get`, `release.prepare`, `release.activate`, `preview.start`, `preview.call`, `preview.stop`.
 
-- 단위: cli (wave 2)
+- 단위: cli (wave 1)
 - 선행: app-layers. 새 선언과 호출 대상 모양을 쓴다.
 - 소유(이 task만 고친다):
   - `packages/core/apps/agent-tools/{release.ts,preview.ts}`

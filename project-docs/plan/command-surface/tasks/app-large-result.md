@@ -2,7 +2,7 @@
 
 화면 operation의 결과를 control frame 한도(약 254 KiB)에 묶지 않고 shell 한도(8 MiB)까지 받는다. 바깥 명령은 지금 한도를 둔다.
 
-- 단위: apps (wave 2)
+- 단위: apps (wave 1)
 - 선행: app-layers. 새 선언과 호출 대상 모양을 쓴다.
 - 소유(이 task만 고친다):
   - `packages/core/apps/runtime/**`

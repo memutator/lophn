@@ -2,7 +2,7 @@
 
 앱 관리 tool 열을 명령으로 옮긴다: `app.read`, `app.tools`, `app.create`, `app.link_source`, `declaration.check`, `app.status`, `app.logs`, `app.invocations`, `package.read`, `package.publish`.
 
-- 단위: cli (wave 2)
+- 단위: cli (wave 1)
 - 선행: app-layers. 새 선언과 호출 대상 모양을 쓴다.
 - 소유(이 task만 고친다):
   - `packages/core/apps/agent-tools/{app.ts,app_test.ts,runtime.ts,runtime_test.ts,package.ts,package_test.ts,app-card.ts}`

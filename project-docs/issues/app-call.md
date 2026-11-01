@@ -45,3 +45,14 @@ modules: [tests]
 
 고치려면:
 - 작음(추천): 한 test의 data root(`/tmp/lophn-e2e-*/home/apps/<app>/source/lophn.ts`)를 열어 patch 직전 모양을 보고, 견본 overlay와 patch 자리를 다시 맞춘다.
+
+## preview 화면은 operation을 부르지 못한다
+
+```yaml
+kind: bug
+modules: [packages/shell/main, packages/core/apps]
+```
+
+- 지금: shell main의 화면 호출(`packages/shell/main/app-frame/app-call.ts`)은 view의 고정 선언을 `declaration-source.ts`로 읽는데, live release일 때만 읽는다. preview view에서는 `unavailable`이다. core의 `callPreview`는 person의 preview 호출을 받는다.
+- 영향: 앱을 짓는 쪽이 preview에서 화면을 눌러 operation을 확인하지 못한다. agent는 `preview.call`로 부르지만 사람은 화면으로 확인할 길이 없다.
+- 고치려면: `declaration-source.ts`가 preview bundle의 선언도 읽고 호출 대상을 `{mode: "preview", app, process_nonce}`로 보낸다. 작다.

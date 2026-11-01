@@ -63,7 +63,7 @@ Package를 쓴다.
 
 ## 파일
 
-- `lophn.ts`: 앱의 정본 선언(화면·operation·command·고정 SDK 의존).
+- `lophn.ts`: 앱의 정본 선언(화면·operation·command·skill·고정 SDK 의존).
   코드를 바꾸기 전에 먼저 바꾼다. operation(화면과 앱 자신이 쓰는 동작)은
   `{name, title, effect}`뿐이고 agent는 못 본다. command(agent·다른 앱이 부르는
   바깥 명령)에는 command마다 `domain`(이 앱의 domain 이름)이 필요하다. 앱 이름의 domain이 있다. 앱 icon이 필요하면 `icon`
@@ -81,8 +81,10 @@ Package를 쓴다.
 - `tests/`: `declaration_test.ts`는 lophn가 만든 파일이라 고치지 않는다.
 - `package.json`: 정확한 SDK·npm 의존. SDK 의존은
   `file:.lophn/sdk/<이름>/<판>`이고 `lophn.ts`의 `sdk_dependencies`와 같아야
-  한다. `tsconfig.json`은 type 검사 설정이다. `.lophn/`은 lophn이 채우는 설치
-  사본이라 commit하지 않는다.
+  한다. `tsconfig.json`은 type 검사 설정이다. `.lophn/sdk/`는 lophn이 채우는 설치
+  사본이라 commit하지 않는다(`.gitignore`에 `.lophn/sdk/`만 둔다. `.lophn/` 전체를
+  ignore한 옛 앱은 고친다).
+- `.lophn/skills/<name>/SKILL.md`: 다른 agent에게 내놓는 skill. commit한다.
 
 ## 명령
 
@@ -93,6 +95,24 @@ Package를 쓴다.
 - `npm run build`: 화면을 `dist/screens/`에 build한다. release 준비가 같은
   결과를 bundle에 담는다.
 - `npm run check`: type 검사(`tsc --noEmit`).
+
+## command와 다른 agent
+
+- 앱의 동작은 두 층이다. operation은 화면과 앱 코드가 쓰는 낮은 단계 동작이고 agent는
+  못 본다. command는 agent와 다른 앱이 묻는 의미 있는 단위이고 결과가 작다. 둘이
+  쓰는 업무 함수는 같고, command는 적게 선언한다.
+- `public` command는 lophn을 쓰는 다른 agent와 사람의 coding agent에게
+  `lophn <domain> <command> --flag`로 보이고, 입력 field마다 flag가 된다. command의
+  `description`이 `--help` 글이 되므로 "언제 쓰나"로 쓴다.
+- 새 기능을 만들거나 바꿀 때마다 "이 기능이 다른 agent에게 쓸모 있나, 누구에게"를
+  묻는다. 쓸모 있으면 `.lophn/skills/<name>/SKILL.md`에 언제 쓰고 어떤 명령을 어떻게
+  부르고 결과를 어떻게 읽는지 쓰고, `lophn.ts`의 `skills`에
+  `{name, public: true, commands}`로 선언한다(`commands`는 이 앱의 public command).
+  `DESIGN.md`에도 적는다.
+- release를 활성화한 뒤 `lophn app share --agent <name>... [--coding-agents] --reason <글>`로
+  받을 agent를 제안한다. 요청은 사람이 대기 목록에서 승인해야 효력이 있고, 그제야 할당과
+  skill 복사가 일어난다. `--coding-agents`는 사람의 coding agent의 skill 폴더에
+  public skill을 복사한다.
 
 ## 재사용 기준
 

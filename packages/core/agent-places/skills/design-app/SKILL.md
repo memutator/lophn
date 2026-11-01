@@ -26,6 +26,8 @@ Sections, in this order:
      the code the input, output and rules.
    - Commands: what an agent or another app will ask: name, effect, input,
      output, rules, domain, public or not.
+   - Shared skills: the skills the app gives to other agents (see "Sharing
+     with other agents"): name, who it is for, the commands it calls.
 7. Failure branches: refusals, failed outside calls, silent fallbacks. Name each
    cause differently and call `reportProblem` with it in the code.
 
@@ -48,8 +50,35 @@ An app has two layers. Give each action to the right one.
 - Example, an app that shows token use of coding harnesses: "all sessions" is an
   operation (a table, program work). "Token use of one session, given the
   harness and the session id" and "cache hit rate of a period" are commands.
+- Other agents and coding agents see a public command as
+  `lophn <domain> <command> --flag`, one flag per input field, and its
+  `description` is the `--help` text. Write the `description` as when to use
+  it, so a reader who knows nothing else about the app picks the right command.
 - Both layers go through lophn, so a write of either is recorded and can be
   rewound. Names are shared: one name is one handler.
+
+## Sharing with other agents
+
+When you create or change a feature, ask: is this useful to other agents, and
+to which? A coding agent that could read the person's usage numbers, or an
+agent that files the person's receipts, are examples. If it is:
+
+1. Make the commands it needs public, and keep them few.
+2. Write `.lophn/skills/<name>/SKILL.md`: when to use the skill, which commands
+   it calls with `lophn <domain> <command>`, and how to read their results.
+   The description says only what the skill does. Commit the folder; release
+   prepare fails when it is missing from the commit.
+3. Declare it in `lophn.ts` `skills: [{name, public: true, commands}]`.
+   `commands` are the public commands of this app that the skill calls.
+4. Write it under "Shared skills" in DESIGN.md.
+5. After the release is active, run `lophn app share --agent <name>...
+   [--coding-agents] --reason <text>` for the agents that should get it. It only
+   opens a request; the person approves it in the waiting list, and only then
+   are the app assigned and the skill given. Tell the person it is waiting.
+
+A change that removes a public skill or a command it calls shows in
+`removed_public_skills` or `removed_public_tools` at release prepare. Keep the
+skill and its commands in step.
 
 ## Find what exists
 

@@ -49,7 +49,9 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    exact package versions. Declare other apps' commands in `app_connections`; `lophn app tools` lists them.
    Operations are what the app's own screens call and are hidden from agents;
    commands are the meaningful, small-result actions that agents and other apps
-   call. Read the skill `design-app` for how to split them.
+   call. A skill that other agents should get is declared in `skills`
+   (`{name, public, commands}`) and its `SKILL.md` lives in `.lophn/skills/<name>/`
+   in the source. Read the skill `design-app` for how to split them and when to share.
 2. Code: read `AGENTS.md` in the source folder (layout, commands, SDK guide),
    then write with the file tools.
 3. Test: `shell.run` in the source folder: `npm run check`, `npm test`.
@@ -57,7 +59,7 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    `lophn release prepare` builds from HEAD, so uncommitted changes are not in it.
 4. `lophn release prepare` builds from HEAD. `prepared` gives the release
    id. `failed` gives `stage` and `reason`: fix, commit, prepare again. It
-   replaces the app's preview. For `removed_public_tools` see "What you do".
+   replaces the app's preview. For `removed_public_tools` and `removed_public_skills` see "What you do".
 5. `lophn preview start` a prepared release (`--fixture` is a SQLite path inside
    the release, none means empty data). If `ready` is false read `reason`. Walk the
    journeys with `lophn preview call` (an operation or a command, with its
@@ -65,7 +67,9 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    outcome is `succeeded`, `failed` (the app's `error`), `denied` or `unknown`.
    Preview output and errors are not in `lophn app logs`. End with `lophn preview stop`.
 6. `lophn release activate` the release:
-   - `active`: tell the person.
+   - `active`: tell the person. If the app has public skills other agents should
+     get, run `lophn app share --agent <name>... [--coding-agents] --reason <text>`.
+     It opens a request that the person approves in the waiting list; say so.
    - `failed`: read `failure` (`code`, `summary`, `restored`: the previous
      release runs again) and `lophn app logs`, fix it, go back to step 3.
    - `waiting_consent`: a first activation, wider permissions or a data-loss
@@ -89,8 +93,9 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   release.
 - An annotation is the person's request about that screen. A note on an artifact
   arrives as a message; open the screenshot with `image.read`.
-- Public commands are promises; write them in `DESIGN.md`. `removed_public_tools`
-  lists each public command a release removes and the domains using it. The program
+- Public commands and public skills are promises; write them in `DESIGN.md`.
+  `removed_public_tools` lists each public command a release removes and the
+  domains using it; `removed_public_skills` does the same for public skills. The program
   does not block it. Before you activate, tell lophn at each such domain's
   project or app (`lophn domain read` with its ID gives the owner) with `lophn call send`, no
   reply expected, and ask the person, or bring the command back.

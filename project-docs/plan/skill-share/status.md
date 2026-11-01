@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py skill-share build`가 `tasks/*.md`에서 id,
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `instr-claude-fallback` | agent | 1 | 없음 | merged | agent/instr-claude-fallback | 8cf873d4a |  |
-| `skill-places` | agent | 1 | 없음 | running | agent/skill-places |  |  |
+| `skill-places` | agent | 1 | 없음 | merged | agent/skill-places | 77f0dc797 |  |
 | `assign-file` | approvals | 1 | 없음 | running | approvals/assign-file |  |  |
 | `app-skill-decl` | apps | 1 | 없음 | merged | apps/app-skill-decl | 9f9b833fa |  |
 | `shared-skills` | agent | 2 | skill-places, assign-file, app-skill-decl | todo |  |  |  |

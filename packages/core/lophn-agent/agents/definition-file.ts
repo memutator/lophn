@@ -190,7 +190,6 @@ function checkDefinition(
 }
 
 const EMPTY_DEFAULT_LISTS = [
-  "skills",
   "skills_off",
   "domains",
   "mcp_off",

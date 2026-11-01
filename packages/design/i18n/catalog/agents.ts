@@ -152,8 +152,6 @@ export const agents = {
     "A session started this way runs shell commands without asking. Deny rules still block them.",
   "agents.notice.skills-agent-only":
     "The chip says which layer a skill comes from. Switch a skill off to leave it out for this agent. A skill that is off in a layer above stays off.",
-  "agents.notice.skills-dropped":
-    "Left out because their domain is no longer chosen: {names}.",
   "agents.error.mcp-sign-in-failed":
     "The server didn't finish signing in. Try again.",
   "agents.title.change-failed": "Couldn't change that",

@@ -4,16 +4,15 @@ import { idSchema } from "../base/ids.ts";
 import { defineRead } from "../base/route.ts";
 import type { PlaceKind } from "./places.ts";
 
-// 전역에서 끈 skill의 정확한 이름이다. 전역 등록
-// 목록 쪽의 끄기라서 agent 정의의 `skills`(받을 것을 고른다)와 따로이고 여기서 끈 skill은 agent가 골라도 받지 못한다. 지금 발견되지
-// 않는 이름도 그대로 둔다: 그 skill이 다시 나타나도 끈 채다. 와일드카드·패턴은 이름 규칙이 거절한다.
+// 끈 skill의 정확한 이름이다(전역 설정, project `extensions.json`, agent 정의의 `skills_off`가 같은 규칙을 쓴다).
+// 지금 발견되지 않는 이름도 그대로 둔다: 그 skill이 다시 나타나도 끈 채다. 와일드카드·패턴은 이름 규칙이 거절한다.
 export const skillNameSchema = z
   .string()
   .max(64)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 export const SKILLS_OFF_MAX = 256;
 
-// skill의 층은 내장, 전역, domain이다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
+// skill의 층은 내장, 전역, project·app, domain이고 공유 skill(shared)이 더해진다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
 // 덮고, 같은 층의 domain끼리는 domain 이름이 앞서는 쪽이 이긴다.
 // project·app은 그 place 폴더의 `.lophn/skills`, shared는 할당한 앱의 active release가 내놓은 public skill이다.
 export const SKILL_SOURCES = [

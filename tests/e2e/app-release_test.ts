@@ -101,11 +101,11 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
                   kind: "tool" as const,
                   calls: [
                     lophnCall(id("start"), `preview start ${release}`),
-                    // preview call의 칸 이름 `input`이 공통 flag `--input`과 겹쳐서 입력 object 안에 둔다.
                     lophnCall(
                       id("add"),
                       `preview call ${notes.app} command add_item`,
-                      { input: { title: "from preview" } },
+                      undefined,
+                      ["--args", JSON.stringify({ title: "from preview" })],
                     ),
                     lophnCall(
                       id("list"),

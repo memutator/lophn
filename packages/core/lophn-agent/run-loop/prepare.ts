@@ -487,7 +487,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           ...[...called.values()].map((one) => one.definition),
         ];
       }
-      return { name: definition.name, input: hit.input };
+      return { name: hit.name, input: hit.input };
     };
     const place = session.place;
     // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).

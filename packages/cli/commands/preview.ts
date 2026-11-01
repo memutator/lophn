@@ -137,13 +137,14 @@ const call = defineCommand({
   name: "preview.call",
   summary: "Call an operation or command of the running preview",
   description:
-    "Call an operation (what the app's screens call) or a command (what agents and other apps call) of your app's running preview and return its outcome. Nothing is recorded and live data is never touched. Omit input for one that takes none.",
+    "Call an operation (what the app's screens call) or a command (what agents and other apps call) of your app's running preview and return its outcome. Nothing is recorded and live data is never touched. Omit args for one that takes none.",
   input: z.strictObject({
     app: idSchema("app"),
     // 화면이 부르는 operation도 확인할 수 있다. live에서는 agent가 operation을 부르지 못한다.
     kind: z.enum(["operation", "command"]),
     name: z.string().min(1),
-    input: z.unknown().optional(),
+    // `input`은 공통 flag `--input`과 겹쳐서 `args`로 받고 route의 input으로 넘긴다.
+    args: z.unknown().optional(),
   }),
   positional: ["app", "kind", "name"],
   effect: "write",
@@ -169,7 +170,7 @@ const call = defineCommand({
       },
       kind,
       name,
-      ...(input.input === undefined ? {} : { input: input.input }),
+      ...(input.args === undefined ? {} : { input: input.args }),
       caller:
         ctx.caller === undefined
           ? { kind: "person" }

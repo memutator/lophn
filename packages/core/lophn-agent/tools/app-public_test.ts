@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import { withPublicOnly } from "./app-public.ts";
-import { appCommandEntries } from "./app-tool/command.ts";
+import { appCommandEntries, appCommandTool } from "./app-tool/command.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import { resolveAppCall } from "./lophn/resolve.ts";
+import { toolForWireName } from "./wire.ts";
 
 const ULID = "01arz3ndektsv4rrffq69g5fav";
 const APP_A = `app_${ULID}`;
@@ -125,4 +126,24 @@ test("lophn resolves an app command only for an assigned app, a kept command, an
     [],
   );
   assert.deepStrictEqual(resolves("items", "open", "--bogus"), undefined);
+});
+
+test("a resolved app command is found by the executor's wire name lookup", () => {
+  const entries = appCommandEntries({
+    views: [
+      {
+        app: APP_A,
+        name: APP_A,
+        release: "rel_x",
+        tools: [tool("open", false, "items")],
+      },
+    ],
+    entries: [{ app: APP_A, removed_tools: [] }],
+  });
+  const hit = resolveAppCall({ args: ["items", "open"] }, entries);
+  assert.ok(hit !== undefined);
+  assert.deepStrictEqual(
+    toolForWireName([appCommandTool(hit.entry)], hit.name)?.name,
+    "items.open",
+  );
 });

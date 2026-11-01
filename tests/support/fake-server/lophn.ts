@@ -5,13 +5,15 @@ import type { JournalEntry } from "./types.ts";
 
 export type LophnCall = { id: string; name: string; arguments: string };
 
+// `flags`는 띄어 쓸 수 없는 값(JSON)을 단 flag다(["--args", "{...}"]).
 // `line`은 명령과 위치 인자를 띄어 쓴 것("call send", "release prepare app_..."), `input`은 그 명령의 입력 object다.
 export function lophnCall(
   id: string,
   line: string,
   input?: unknown,
+  flags: string[] = [],
 ): LophnCall {
-  const words = line.split(" ");
+  const words = [...line.split(" "), ...flags];
   const args =
     input === undefined ? words : [...words, "--input", JSON.stringify(input)];
   return { id, name: "lophn", arguments: JSON.stringify({ args }) };

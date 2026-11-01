@@ -35,7 +35,9 @@ export function isBuiltinWord(word: string): boolean {
 export function resolveAppCall(
   input: unknown,
   entries: readonly AppCommandEntry[],
-): { entry: AppCommandEntry; input: Record<string, unknown> } | undefined {
+):
+  | { entry: AppCommandEntry; name: string; input: Record<string, unknown> }
+  | undefined {
   const args = argsOf(input);
   if (args === undefined || isBuiltinWord(args[0])) return undefined;
   const parsed = parseCommandLine(
@@ -51,7 +53,12 @@ export function resolveAppCall(
   ) {
     return undefined;
   }
-  return { entry, input: parsed.value.input };
+  // 실행기는 wire 이름으로 목록에서 찾는다. 정본 이름(`calls.add_item`)을 주면 목록 밖으로 거절된다.
+  return {
+    entry,
+    name: toWireToolName(entry.doc.name),
+    input: parsed.value.input,
+  };
 }
 
 // `lophn {args}` 호출을 그 명령의 호출로 푼다. 명령줄이 모든 명령 중 하나로 읽히면 명령의 wire 이름과 입력이고,

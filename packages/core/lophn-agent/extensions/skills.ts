@@ -102,7 +102,11 @@ export function parseSkillFrontmatter(
   try {
     fields = parse(lines.slice(1, close).join("\n"), { schema: "core" });
   } catch {
-    return err("skill frontmatter is not valid YAML");
+    // 사람이 쓴 옛 skill에는 따옴표 없는 값에 ": "가 든 것이 있어 YAML이 못 읽는다. 옛 줄 단위 읽기로 되돌려
+    // 전에 읽히던 skill이 사라지지 않게 한다.
+    const lined = plainLineFields(lines.slice(1, close));
+    if (!lined.ok) return lined;
+    fields = lined.value;
   }
   if (fields === null || typeof fields !== "object" || Array.isArray(fields)) {
     return err("skill frontmatter is not a map");
@@ -117,6 +121,38 @@ export function parseSkillFrontmatter(
     description: (description as string).trim(),
     body: lines.slice(close + 1).join("\n"),
   });
+}
+
+// YAML이 못 읽는 머리의 옛 읽기다. `key: 단순 값` 줄만 받고 block·flow 표기와 중복 key는 실패다. 따옴표는 한 겹 벗긴다.
+function plainLineFields(
+  headLines: readonly string[],
+): Result<Record<string, string>, string> {
+  const fields: Record<string, string> = {};
+  for (const raw of headLines) {
+    const line = raw.replace(/\r$/, "");
+    if (line.trim().length === 0) continue;
+    const match = /^([A-Za-z][A-Za-z0-9_-]*):(.*)$/.exec(line);
+    if (match === null) return err("skill frontmatter is not valid YAML");
+    let value = match[2].trim();
+    if (/^[|>[{]/.test(value))
+      return err("skill frontmatter is not valid YAML");
+    const quote = value[0];
+    if (quote === '"' || quote === "'") {
+      if (
+        value.length < 2 ||
+        !value.endsWith(quote) ||
+        value.slice(1, -1).includes(quote)
+      ) {
+        return err("skill frontmatter is not valid YAML");
+      }
+      value = value.slice(1, -1);
+    }
+    if (Object.hasOwn(fields, match[1])) {
+      return err("skill frontmatter is not valid YAML");
+    }
+    fields[match[1]] = value;
+  }
+  return ok(fields);
 }
 
 // ---- 층 합치기 ----

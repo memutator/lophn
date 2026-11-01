@@ -285,6 +285,8 @@ test("skills in the place folder read YAML descriptions and sit between the glob
     "/g/folded/SKILL.md":
       "---\nname: folded\ndescription: >\n  one\n  two\n---\nBODY",
     "/g/quoted/SKILL.md": '---\nname: quoted\ndescription: "a: b"\n---\n',
+    // 따옴표 없는 ": "는 YAML이 못 읽지만 전에는 읽혔다.
+    "/g/colon/SKILL.md": "---\nname: colon\ndescription: Write it: how\n---\n",
     "/s/.lophn/skills/x/SKILL.md": skillFile("x", "", "place"),
     "/s/.lophn/skills/y/SKILL.md": skillFile("y", "", "place"),
     "/d/y/SKILL.md": skillFile("y", "", "domain"),
@@ -301,6 +303,7 @@ test("skills in the place folder read YAML descriptions and sit between the glob
     { kind: "app", off: [] },
   ).entries.map((one) => [one.name, one.source, one.description]);
   assert.deepStrictEqual(entries, [
+    ["colon", "global", "Write it: how"],
     ["folded", "global", "one two"],
     ["quoted", "global", "a: b"],
     ["x", "app", "place"],

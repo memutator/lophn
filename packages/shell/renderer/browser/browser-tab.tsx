@@ -59,6 +59,11 @@ interface BrowserTabProps {
   adopt?: string;
   /** adopt 응답을 받았다. 부른 쪽이 `adopt`를 지운다. */
   onAdopted(): void;
+  /**
+   * 탭이 마지막으로 받은 favicon. <webview> element는 favicon을 모르므로 다시 mount할 때 이어 쓴다
+   * (접힘·desk 전환·Float·Dock마다 mount되고, main은 바뀔 때만 밀어 준다).
+   */
+  favicon?: string;
   onState(state: { url: string; title: string; favicon?: string }): void;
   /** 이 탭의 page가 크기를 준 popup을 열었다(native view). */
   onPopup(event: Extract<BrowserEvent, { kind: "popup" }>): void;
@@ -147,6 +152,7 @@ function OpenTab(
     canGoBack: false,
     canGoForward: false,
     health: "ok",
+    ...(props.favicon === undefined ? {} : { favicon: props.favicon }),
   });
   const [failed, setFailed] = useState(false);
   // 값이 올 때마다 새로 띄우도록 번호를 key로 쓴다. null이면 알림 없음.
@@ -167,6 +173,7 @@ function OpenTab(
   const reported = useRef<{ url: string; title: string; favicon?: string }>({
     url: props.url,
     title: "",
+    favicon: props.favicon,
   });
   const callbacks = useRef(props);
   callbacks.current = props;
@@ -218,7 +225,14 @@ function OpenTab(
       // 막 붙은 guest는 아직 about:blank다. 그때는 처음 주소(props.url)를 그대로 보인다.
       const page = webviews.page(props.keepKey);
       if (page !== null && pageUrl(page.url) !== "") {
-        applyRef.current({ view_session: session, health: "ok", ...page });
+        applyRef.current({
+          view_session: session,
+          health: "ok",
+          ...page,
+          ...(reported.current.favicon === undefined
+            ? {}
+            : { favicon: reported.current.favicon }),
+        });
       }
     },
   });

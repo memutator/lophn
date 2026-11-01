@@ -43,7 +43,8 @@ export const browserKind: TabKindDef = {
   kind: "browser",
   labelKey: "browser.label.kind",
   icon: browserIcons.globe,
-  // page favicon(main이 준 data URL). 저장하지 않으므로 다시 열면 page가 다시 알린다.
+  // page favicon(main이 준 data URL). 저장하지 않으므로 다시 열면 page가 다시 알린다. 접힌 float은
+  // mount하지 않아 이 값이 유일한 출처라, BrowserTab이 다시 mount될 때 이 값을 이어 받는다.
   iconOf(tab) {
     const favicon = tab.fields?.favicon;
     return <Favicon src={typeof favicon === "string" ? favicon : undefined} />;
@@ -102,6 +103,7 @@ export const browserKind: TabKindDef = {
   keep(tab, shown, host) {
     const url = tab.fields?.url;
     const adopt = tab.fields?.adopt;
+    const favicon = tab.fields?.favicon;
     // floated 탭의 층(FloatLayer에 가는 펴진 float의 index + 1). detached 창의 탭은 1(그 창의 유일한 view라
     // card의 탭으로 오인돼 dock되지 않게 한다). card의 탭은 0이다.
     const floated =
@@ -117,6 +119,7 @@ export const browserKind: TabKindDef = {
       <BrowserTab
         url={typeof url === "string" ? url : ""}
         adopt={typeof adopt === "string" ? adopt : undefined}
+        favicon={typeof favicon === "string" ? favicon : undefined}
         native={tab.fields?.native === true}
         layer={layer}
         shown={shown}

@@ -1,9 +1,12 @@
 // lophn binary의 실행 entry다. 조립만 하고 업무 규칙을 두지 않는다. node 전용이라 core는 이 file을 import하지 않는다.
 // 명령 표(`commands/`)의 명령은 data root의 user token file을 자격으로 쓴다. 자격이 없으면 core를 부르는 명령은
-// 아무것도 보내지 않는다. `packages/coding-agent`의 local 명령(`hook`, `harness *`)은 token 없이 core를 부르지 않는다.
+// 아무것도 보내지 않는다. `packages/coding-agent`의 local 명령 가운데 `harness sync-skills`만 같은 token으로 core를 읽고,
+// `hook`과 그 밖의 `harness *`는 core를 부르지 않는다.
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import process from "node:process";
+// 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package-linux.ts).
+import productPackage from "../../package.json" with { type: "json" };
 import {
   err,
   type LophnError,
@@ -26,9 +29,6 @@ import {
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
 import { parseCommandLine, wordsOf } from "./parser.ts";
-
-// 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package-linux.ts).
-import productPackage from "../../package.json" with { type: "json" };
 
 // 시험이 끼우는 환경이다. 없으면 process의 것이다.
 type CliOptions = {

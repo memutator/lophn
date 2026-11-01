@@ -12,4 +12,4 @@ lead만 고친다. `tools/status.py skill-share build`가 `tasks/*.md`에서 id,
 | `share-guidance` | agent-places | 2 | app-share-request | merged | agent-places/share-guidance | 1131efdd2 |  |
 | `app-share-request` | approvals | 2 | assign-file | merged | approvals/app-share-request | 6098e9da5 |  |
 | `harness-skill-copies` | coding-agent | 2 | app-share-request | merged | coding-agent/harness-skill-copies | 1afbd8a57 |  |
-| `skill-share-docs` | docs | 3 | harness-skill-copies | todo |  |  |  |
+| `skill-share-docs` | docs | 3 | harness-skill-copies | merged | docs/skill-share-docs | 228df3e6c |  |

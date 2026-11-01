@@ -645,3 +645,23 @@ guard: packages/core/agent-places/skills/*/SKILL.md frontmatter description 다�
 - 추천: 앞의 것. description은 "읽을지 말지"를 고르는 재료여야 하고, 절차의 요약이면 안 된다.
 
 닫음: 다섯 내장 skill(`design-app`, `new-app`, `repair-app`, `check-domains`, `write-workflow`)의 `description`에서 절 이름·단계·파일 모양을 뺐다. `design-app`은 "Design an app or a change before you build it. Read this skill and write DESIGN.md as it says."다. `make-domain`, `write-kinds`, `write-artifact`는 본문이 다루는 주제만 이름으로 들어 규칙을 주지 않으므로 그대로 두었다. `architecture/agent-definition.md`에 그 규칙을 한 줄 더했고, shell의 dev-mock `/` 메뉴(`agent-tab-fake-commands.ts`)가 같은 글을 갖도록 고쳤다.
+
+## 한 place에서 skill 하나를 끄면 다른 place에서 받던 skill도 빠진다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/core/lophn-agent]
+closed: fixed
+guard: packages/core/lophn-agent/agents/skills-off-step_test.ts
+```
+
+지금: agent 정의의 `skills`는 받을 skill 이름 목록이고, 비면 보이는 skill을 모두 받는다. 정의는 전역인데 편집 화면은 지금 place에서 보이는 skill만 안다. `packages/shell/renderer/workspace/agents/editor/definition-form.tsx`의 `toggleSkill`은 `skills`가 비었을 때 이 place에서 받는 이름(`received`)에서 하나를 뺀 목록을 저장하고, `toggleDomain`은 이 place에서 안 보이는 이름을 `skills`에서 지운다.
+
+영향: 사람이 project A에서 agent의 skill 하나를 끄면, 그 agent가 project B의 domain에서 받던 skill이 목록에 없어 B에서도 받지 않는다. 사람은 B의 편집 화면을 열기 전에는 모른다.
+
+고치려면:
+- 정의 꼴을 `skills_off`(끈 이름)로 바꾼다. 비면 다 받고, 이름이 있으면 그것만 뺀다. place와 상관없이 뜻이 같다(중간, 정의 꼴과 core 거르기와 화면).
+- 화면이 모든 place의 skill을 읽어 목록을 만든다(중간, 읽기가 place 수만큼 는다).
+- 추천: 앞의 것. 정의가 전역이 된 뒤 받는 목록은 place마다 달라 "받을 이름"이 맞지 않는다.
+
+닫음: agent 정의의 `skills`(받을 이름)를 `skills_off`(끈 이름)로 바꿨다. 비면 다 받고 이름이 있으면 그것만 뺀다. place와 상관없이 뜻이 같다. data step `agents.skills-off`가 기존 파일을 옮긴다(계획 `skill-share`).

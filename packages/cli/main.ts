@@ -185,6 +185,7 @@ export async function cliMain(
       home,
       now: () => new Date().toISOString(),
       stdin: options.stdin ?? readProcessStdin,
+      core: () => (core ??= connect()),
     });
     if (!ran.ok) {
       await output.failure(ran.error);

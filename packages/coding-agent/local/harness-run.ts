@@ -18,6 +18,7 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import {
+  HARNESS_ADAPTERS,
   type HarnessDetection,
   type HarnessId,
   HARNESS_IDS,
@@ -28,6 +29,9 @@ import {
   installGlobal,
   type InstallPorts,
   runProbe,
+  type SharedSkill,
+  type SkillCopyResult,
+  syncSkillCopies,
   uninstallGlobal,
 } from "../harnesses/mod.ts";
 import type { LocalContext } from "./types.ts";
@@ -145,5 +149,65 @@ export async function runHarnessUninstall(
     harness: input.harness,
     home,
   });
-  return done.ok ? ok(done.value) : err(done.error);
+  if (!done.ok) return err(done.error);
+  // lophn이 쓴 공유 skill 사본도 같이 지운다. 같은 폴더를 쓰는 다른 harness의 hook이 남았으면 다음 sync-skills가 다시 둔다.
+  const skillDir = HARNESS_ADAPTERS[input.harness].skill_dir;
+  if (skillDir === null) return ok(done.value);
+  const dir = `${home.replace(/\/+$/, "")}/${skillDir}`;
+  const copies = await syncSkillCopies(nodePorts, { dir, skills: [] });
+  return ok({
+    hook: done.value.hook,
+    files: [
+      ...done.value.files,
+      ...copies.removed.map((name) => `${dir}/${name}`),
+    ],
+  });
+}
+
+export type SkillSyncRow = SkillCopyResult & {
+  /** 이 폴더를 쓰는 harness들. */
+  harnesses: HarnessId[];
+  dir: string;
+};
+
+// hook을 놓은 harness의 skill 폴더에 공유 skill 사본을 맞춘다. hook이 없는 harness의 폴더는 lophn이 쓴 사본만 지운다.
+// hook 상태를 못 읽은 폴더(`failed`)는 건드리지 않는다. codex와 pi는 폴더를 같이 쓰므로 하나라도 놓였으면 둔다.
+export async function runHarnessSyncSkills(
+  input: { skills: SharedSkill[] },
+  home: string,
+  now: string,
+): Promise<Result<SkillSyncRow[], LophnError>> {
+  const root = home.replace(/\/+$/, "");
+  const status = await runHarnessStatus({}, root, now);
+  if (!status.ok) return status;
+  const byDir = new Map<string, { id: HarnessId; hook: string }[]>();
+  for (const row of status.value) {
+    const skillDir = HARNESS_ADAPTERS[row.harness].skill_dir;
+    if (skillDir === null) continue;
+    byDir.set(skillDir, [
+      ...(byDir.get(skillDir) ?? []),
+      { id: row.harness, hook: row.hook },
+    ]);
+  }
+  const rows: SkillSyncRow[] = [];
+  for (const [skillDir, harnesses] of byDir) {
+    const installed = harnesses.some((one) => one.hook === "unchanged");
+    if (!installed && !harnesses.every((one) => one.hook === "missing")) {
+      continue;
+    }
+    const dir = `${root}/${skillDir}`;
+    try {
+      const done = await syncSkillCopies(nodePorts, {
+        dir,
+        skills: installed ? input.skills : [],
+      });
+      rows.push({ ...done, harnesses: harnesses.map((one) => one.id), dir });
+    } catch {
+      return err({
+        code: "unavailable",
+        message: `cannot write the skill copies in ${dir}`,
+      });
+    }
+  }
+  return ok(rows);
 }

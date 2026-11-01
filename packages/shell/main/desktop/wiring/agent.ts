@@ -4,6 +4,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
+import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/mod.ts";
 import {
   HARNESS_ADAPTERS,
   type HarnessId,
@@ -28,7 +29,9 @@ import {
   createHookIngress,
   type TerminalHooks,
 } from "../../terminal/agent/ingress.ts";
+import type { CliRun } from "../../terminal/agent/hook-install.ts";
 import { createAgentSessionStore } from "../../terminal/agent/session-store.ts";
+import { createSkillSync } from "../../terminal/agent/skill-sync.ts";
 import { listenHooks } from "../../terminal/agent/socket.ts";
 import {
   type AgentNotice,
@@ -46,11 +49,15 @@ export function createAgentWiring(options: {
   terminals: Pick<Supervisor, "on" | "runtimes">;
   /** 사람 터미널이 harness를 처음 알아봤다. hook 설치를 물을 때다. */
   identified(harness: string, terminalRef: string): void;
+  /** `lophn` CLI. 설치 경로를 모르면 null이다. */
+  cli: CliRun | null;
 }): {
   hooks: TerminalHooks;
   tracker: AgentTracker;
   /** 사람 터미널의 shell에 끼울 시작 층 폴더. hook이 꺼져 있으면 null. */
   shellInit(): string | null;
+  /** 공유 skill 사본을 다시 맞춘다(hook을 놓거나 지운 뒤). */
+  syncSkills(): void;
   /** 창 모두에 runtime을 push한다. */
   publish(runtime: TerminalRuntime): void;
   /** renderer가 알린 탭 줄의 이름. 알림 제목이 제품 이름 대신 쓴다. 빈 이름은 지운다. */
@@ -170,6 +177,29 @@ export function createAgentWiring(options: {
     window.on("focus", () => tracker.windowFocused()),
   );
 
+  // 공유 skill 사본은 lophn 기동 때, activation 뒤, 설정이 바뀔 때 맞춘다. 앱 view의 activation 신호는 앱을 가리지 않으므로
+  // 공유한 앱이 아닌 activation에도 돌지만 사본이 같으면 아무것도 쓰지 않는다.
+  const skillSync = createSkillSync({ runCli: options.cli, log: ctx.log });
+  ctx.relay.conditions.push({ types: ["AppViewChanged", "SettingsChanged"] });
+  ctx.relay.events.push((event) => {
+    if (event.type === "SettingsChanged") {
+      if (event.payload.keys.includes(SHARED_APPS_SETTING_KEY)) {
+        skillSync.request();
+      }
+    } else if (
+      event.type === "AppViewChanged" &&
+      event.payload.reason === "activation"
+    ) {
+      skillSync.request();
+    }
+  });
+  // core가 준비되면 한 번 맞춘다. 준비 신호를 main이 받는 길이 없어 상태를 본다.
+  const startup = setInterval(() => {
+    if (ctx.core.state.state === "starting") return;
+    clearInterval(startup);
+    if (ctx.core.state.state === "ready") skillSync.request();
+  }, 1000);
+
   // 서기 전과 꺼진 뒤에는 issue()가 null이라 그 터미널은 hook 없이 뜬다.
   let live: ReturnType<typeof createHookIngress> | null = null;
   let shellInit: string | null = null;
@@ -228,6 +258,7 @@ export function createAgentWiring(options: {
     hooks,
     tracker,
     shellInit: () => (live && !stopped ? shellInit : null),
+    syncSkills: () => skillSync.request(),
     publish,
     setTabName(terminalRef, name) {
       if (name === "") tabNames.delete(terminalRef);
@@ -241,6 +272,7 @@ export function createAgentWiring(options: {
     },
     stop() {
       stopped = true;
+      clearInterval(startup);
       void server.then((started) => started?.stop()).catch(() => {});
     },
   };

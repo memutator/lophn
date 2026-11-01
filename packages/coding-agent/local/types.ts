@@ -3,6 +3,15 @@
 // 같은 칸이어서 parser와 help가 둘을 같게 다룬다(packages/cli는 이 package를 거꾸로 import하지 않으므로 모양만 맞춘다).
 import type { z } from "zod";
 import type { LophnError, Result } from "../../base/mod.ts";
+import type { MemoryRoute, ReadRoute } from "../../protocol/base/route.ts";
+
+// user token으로 core를 읽는 길이다(`harness sync-skills`). 자격이 없으면 오류다. binary가 끼운다.
+export type LocalCore = {
+  read<R extends ReadRoute | MemoryRoute>(
+    route: R,
+    input: unknown,
+  ): Promise<Result<z.output<R["output"]>>>;
+};
 
 // local 명령이 쓰는 환경이다. main.ts가 채운다.
 export type LocalContext = {
@@ -10,6 +19,7 @@ export type LocalContext = {
   home: string;
   now(): string;
   stdin(): Promise<string>;
+  core(): Result<LocalCore>;
 };
 
 export type LocalCommand = {

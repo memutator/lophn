@@ -42,6 +42,8 @@ export type HookInstallerDeps = {
   hasHook(harness: string): boolean;
   /** 사람에게 묻고 결과를 보인다. 없으면 묻지 않고 놓지 않는다. */
   register?: HookRegister;
+  /** hook을 놓거나 지웠다. 공유 skill 사본이 hook이 놓인 harness를 따르므로 다시 맞춘다. */
+  changed?(): void;
 };
 
 export type HookInstaller = {
@@ -137,6 +139,7 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
       };
     }
     register.show({ ...shown, terminalRef });
+    deps.changed?.();
   }
 
   function ensureRegistered(
@@ -175,6 +178,7 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
     try {
       const ran = await runInstall(harness, dryRun);
       const found = ran.ok ? installResult(ran.data) : null;
+      if (!dryRun) deps.changed?.();
       return found === null
         ? viewOf(harness, "failed", [])
         : viewOf(harness, found.hook, found.files);
@@ -237,6 +241,7 @@ export function createHookInstaller(deps: HookInstallerDeps): HookInstaller {
       const done = ran.ok
         ? (ran.data as { hook?: unknown; files?: unknown } | null)
         : null;
+      deps.changed?.();
       const files = Array.isArray(done?.files)
         ? done.files.filter((file): file is string => typeof file === "string")
         : [];

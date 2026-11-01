@@ -2,6 +2,12 @@
 // core를 부르지 않는 local 명령이라 token이 없어도 돈다(Settings와 shell main이 exec로 부른다).
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
+import { appSkills } from "../../protocol/apps/declaration/read.ts";
+import {
+  SHARED_APPS_SETTING_KEY,
+  sharedAppsSettingSchema,
+} from "../../protocol/approvals/mod.ts";
+import { settingsList } from "../../protocol/config/mod.ts";
 import {
   harnessInstallInputSchema,
   harnessStatusInputSchema,
@@ -11,6 +17,7 @@ import {
   runHarnessDetect,
   runHarnessInstall,
   runHarnessStatus,
+  runHarnessSyncSkills,
   runHarnessUninstall,
 } from "./harness-run.ts";
 import type { LocalCommand } from "./types.ts";
@@ -71,6 +78,42 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
         });
       }
       return await runHarnessStatus(checked.data, ctx.home, ctx.now());
+    },
+  },
+  {
+    name: "harness.sync_skills",
+    summary: "Copy the shared apps' public skills into coding agent harnesses",
+    description:
+      "Reads the apps you gave to coding agents and copies their public skills into the skill folder of every harness whose lophn hook is installed. " +
+      "Only folders lophn wrote (they hold a .lophn-shared file) are overwritten or removed; a folder of yours with the same name is skipped. Needs lophn running.",
+    input: empty,
+    effect: "write",
+    run: async (_input, ctx) => {
+      const connected = ctx.core();
+      if (!connected.ok) return connected;
+      const core = connected.value;
+      const setting = await core.read(settingsList, {
+        keys: [SHARED_APPS_SETTING_KEY],
+      });
+      if (!setting.ok) return setting;
+      const entry = setting.value.settings.find(
+        (one) => one.key === SHARED_APPS_SETTING_KEY,
+      );
+      const apps = sharedAppsSettingSchema.safeParse(
+        entry?.chosen ?? entry?.default ?? [],
+      );
+      // route 입력의 상한이다.
+      const slugs = apps.success ? apps.data.slice(0, 64) : [];
+      const read =
+        slugs.length === 0
+          ? { ok: true as const, value: { skills: [] } }
+          : await core.read(appSkills, { apps: slugs });
+      if (!read.ok) return read;
+      return await runHarnessSyncSkills(
+        { skills: read.value.skills },
+        ctx.home,
+        ctx.now(),
+      );
     },
   },
   {

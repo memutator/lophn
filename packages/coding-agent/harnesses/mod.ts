@@ -3,3 +3,8 @@ export { detectHarnesses, discover, type ProbeOutput } from "./detect.ts";
 export { installGlobal, type InstallPorts } from "./install.ts";
 export { uninstallGlobal } from "./uninstall.ts";
 export { executableOf, runProbe } from "./system-ports.ts";
+export {
+  type SharedSkill,
+  type SkillCopyResult,
+  syncSkillCopies,
+} from "./skill-copies.ts";

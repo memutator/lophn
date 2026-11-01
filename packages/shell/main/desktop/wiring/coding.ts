@@ -179,6 +179,7 @@ export function register(ctx: ShellContext): Coding {
       harness in HARNESS_ADAPTERS &&
       HARNESS_ADAPTERS[harness as keyof typeof HARNESS_ADAPTERS].hook !== null,
     register,
+    changed: () => agent.syncSkills(),
   });
   const bridgeWiring = createBridgeWiring(ctx);
   // 터미널 안 coding agent의 hook socket·상태·알림. 사람 터미널은 foreground process가 harness를 알려 준다.
@@ -197,6 +198,10 @@ export function register(ctx: ShellContext): Coding {
     terminals,
     identified: (harness, terminalRef) =>
       installer.ensureOnce(harness, terminalRef),
+    cli:
+      lophnCli === null
+        ? null
+        : childCliRunner({ command: lophnCli, env: cliEnv }),
   });
   const outputs = new TerminalOutputs((contentsId, channel, value) => {
     const window = [...ctx.windows].find(

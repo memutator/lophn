@@ -6,7 +6,6 @@ import type {
   Place,
   PlaceKind,
 } from "../../../protocol/lophn-agent/places.ts";
-import type { CallRouting } from "../ports.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 import type {
   PlaceScope,
@@ -27,7 +26,7 @@ export type ToolContext = {
   agent: AgentId;
   // 이 session의 place 종류다. home이면 place가 null이다.
   kind: PlaceKind;
-  // 이 turn의 mode. 시작 때 정해 turn 동안 같다. call·reply가 unattended 표시를 싣고 ask가 사람 없음을 안다.
+  // 이 turn의 mode. 시작 때 정해 turn 동안 같다. ask가 사람 없음을 안다.
   // Gate 판정은 core가 turn 행에서 읽는다.
   mode: TurnMode;
   place: Place | null;
@@ -39,7 +38,6 @@ export type ToolContext = {
   core: CoreCall;
   // Gate가 걸리는 tool만 executeToolCall이 부른다. 판정, 사람에게 묻기, 기다리기를 core가 한 번에 한다.
   gate: ToolGatePort;
-  router: CallRouting;
   questions: QuestionWait;
   scope: PlaceScope;
   skills: SkillReader;

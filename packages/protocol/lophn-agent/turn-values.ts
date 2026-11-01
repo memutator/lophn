@@ -116,7 +116,7 @@ export const turnStateSchema = z.enum(TURN_STATES);
 //   받은 봉투(`receivedEnvelopeSchema`)와 태그 글에는 싣지 않는다. `messages`에는 사람 메시지의 표시만
 //   `unattended` 열로 남는다(켤 때 입력함에 되돌리지 않으려고). 받은 turn의 mode는 메모리의
 //   `RoutedInput`에서 정하고 `turns.mode`에 남는다. `SendCall`·`ReplyCall` 입력에는
-//   `unattended?: true`로 실린다. call·reply tool이 그 turn의 mode로 채우고 model 입력에는 없다.
+//   표시가 없다. core가 그 호출을 한 agent credential의 turn mode로 찍는다.
 //   `SendMessage` 입력에도 `unattended?: true`가 실린다(run만 싣는다).
 //   그 call의 답과 늦게 오는 실패, 취소 알림도 call의 표시를 싣는다.
 //

@@ -4,7 +4,6 @@ import { APPS_AGENT_TOOLS } from "../apps/agent-tools/mod.ts";
 import { DOMAIN_AGENT_TOOLS } from "../domains/agent-tools.ts";
 import { LOPHN_TOOLS } from "../lophn-agent/tools/lophn/tool.ts";
 import { ASK_TOOLS } from "../lophn-agent/tools/bundles/ask.ts";
-import { CALL_TOOLS } from "../lophn-agent/tools/bundles/call.ts";
 import { createFileTools } from "../lophn-agent/tools/bundles/file.ts";
 import { SHELL_TOOLS } from "../lophn-agent/tools/bundles/shell.ts";
 import { SKILL_TOOLS } from "../lophn-agent/tools/bundles/skill.ts";
@@ -29,7 +28,6 @@ export function agentTools(hooks: {
     ...DOMAIN_AGENT_TOOLS,
     ...LOPHN_TOOLS,
     ...PLACE_AGENT_TOOLS,
-    ...CALL_TOOLS,
     ...ASK_TOOLS,
     ...SKILL_TOOLS,
   ];

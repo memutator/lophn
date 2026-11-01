@@ -1,14 +1,8 @@
 import type { Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Seq } from "../../protocol/base/values.ts";
-import type { Input, Output, Tx } from "../../protocol/server/mod.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 import type { SessionAppWrites } from "../../protocol/lophn-agent/session-rewinds.ts";
-import type {
-  agentCallSend,
-  agentCallSendable,
-  callCancel,
-  callReply,
-} from "../../protocol/lophn-agent/calls.ts";
 
 // lophn-agent가 바깥에서 받는 것들이다. 다른 feature module은 직접 import할 수 없으므로
 // main/daemon/wiring이 구현해 끼운다.
@@ -57,19 +51,4 @@ export interface SessionEndEffects {
 // session rewind가 앱 rewind와 잇는 길(apps가 준다).
 export interface AppWrites {
   writesAfter(session: Id<"ses">, checkpointSeq: Seq): SessionAppWrites;
-}
-
-// agent tool(call, reply, cancel, session.list)이 Router를 부르는 길이다.
-// 구현은 core의 calls.* route를 부르는 CoreCall이다.
-export interface CallRouting {
-  send(
-    input: Input<typeof agentCallSend>,
-  ): Promise<Result<Output<typeof agentCallSend>>>;
-  reply(
-    input: Input<typeof callReply>,
-  ): Promise<Result<Output<typeof callReply>>>;
-  cancel(
-    input: Input<typeof callCancel>,
-  ): Promise<Result<Output<typeof callCancel>>>;
-  sendable(): Promise<Result<Output<typeof agentCallSendable>>>;
 }

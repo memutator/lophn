@@ -13,6 +13,9 @@ import type { SqlView } from "./store.ts";
 export type RouterEnvironment = {
   // `who`는 호출한 자격의 principal이다. 받는 session 기록의 본문 blob이 그 이름으로 준비돼 있다.
   deps(view: SqlView, who: () => string): RouterDeps;
+  // 부른 agent credential이 묶인 turn의 mode가 unattended인지. call과 답의 unattended 표시는 model 입력이 아니라 이 turn
+  // mode에서 찍는다. skip은 call을 따라 가지 않는다.
+  unattendedTurn(view: SqlView, turn: string): boolean;
   // 켤 때 잃어버린 call을 닫는 같은 tx에서 도는 turn도 닫는다(run-loop의 몫이라 wiring이 끼운다).
   interruptRunningTurns?(tx: Tx): Result<number>;
   // call이 닿을 session 목록에 더하는 정보. 없으면 상태는 unknown이다.

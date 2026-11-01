@@ -126,11 +126,11 @@ export type Toolkit = {
   appTool?: AppToolkit;
 };
 
-// ToolContext에서 이 turn이 정하지 않는 칸들이다. 사람의 결정을 기다리는 Gate, Router, 질문, 폴더 범위,
+// ToolContext에서 이 turn이 정하지 않는 칸들이다. 사람의 결정을 기다리는 Gate, 질문, 폴더 범위,
 // skill 읽기는 조립이 session마다 끼운다.
 export type ToolPorts = Pick<
   ToolContext,
-  "gate" | "router" | "questions" | "scope" | "skills" | "fetch"
+  "gate" | "questions" | "scope" | "skills" | "fetch"
 >;
 
 type PreparerDeps = {

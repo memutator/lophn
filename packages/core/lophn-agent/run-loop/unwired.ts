@@ -8,12 +8,6 @@ const unavailable = () =>
 
 export const UNWIRED_TOOL_PORTS: ToolPorts = {
   gate: { check: () => Promise.resolve(unavailable()) },
-  router: {
-    send: () => Promise.resolve(unavailable()),
-    reply: () => Promise.resolve(unavailable()),
-    cancel: () => Promise.resolve(unavailable()),
-    sendable: () => Promise.resolve(unavailable()),
-  },
   questions: { ask: () => Promise.resolve(unavailable()) },
   scope: { read: [], write: [], open: () => {} },
   skills: { read: () => Promise.resolve(unavailable()) },

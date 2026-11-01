@@ -40,6 +40,10 @@ const environment: RouterEnvironment = {
       store: createCallStore(),
     };
   },
+  // turn의 mode는 시작 때 정해져 바뀌지 않는다.
+  unattendedTurn: (view, turn) =>
+    view.sql.get("select mode from turns where id = ?", [turn])?.["mode"] ===
+    "unattended",
   interruptRunningTurns: (tx) =>
     interruptRunningTurns(tx, publishAfterCommit, "restarted"),
   describe(view, target) {

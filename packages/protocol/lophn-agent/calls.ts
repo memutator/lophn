@@ -88,8 +88,6 @@ export const callReply = defineCommand({
     call: idSchema("cal"),
     body: z.string().min(1),
     refs: z.array(callRefSchema).default([]),
-    // 보낸 turn의 mode가 unattended일 때만 tool이 싣는다. model 입력에는 없다.
-    unattended: z.literal(true).optional(),
   }),
   output: z.object({ delivered: z.boolean(), closed: z.boolean() }),
   actors: ["agent"],
@@ -192,8 +190,6 @@ export const agentCallSend = defineCommand({
     body: z.string().min(1),
     refs: z.array(callRefSchema),
     dedup: z.string().min(1),
-    // 보낸 turn의 mode가 unattended일 때만 tool이 싣는다. model 입력에는 없다.
-    unattended: z.literal(true).optional(),
   }),
   output: z.object({
     call: idSchema("cal"),

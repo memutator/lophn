@@ -340,7 +340,7 @@ function foldEvent(
             };
       if (
         tool === "ask" ||
-        tool === "call" ||
+        tool === "call.send" ||
         tool === "file.write" ||
         tool === "file.edit"
       )

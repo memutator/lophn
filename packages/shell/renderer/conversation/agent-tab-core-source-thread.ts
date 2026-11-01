@@ -449,7 +449,7 @@ async function toolEntries(
       // 풀리지 않은 묶음은 `pending.questions`가 보인다.
       if (!done) continue;
       own = await askEntry(env, memo, call, at);
-    } else if (call.tool === "call") {
+    } else if (call.tool === "call.send") {
       if (!ok) continue;
       const view = await callViewOf(
         env,

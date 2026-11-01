@@ -60,7 +60,6 @@ import {
   registeredSkillEntries,
 } from "../../lophn-agent/extensions/skill-folders.ts";
 import { turnSkillReader } from "../../lophn-agent/extensions/skill-read.ts";
-import { routerOverCore } from "../../lophn-agent/tools/call/routing.ts";
 import { agentTools } from "../agent-tools.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
@@ -212,7 +211,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
           ask: (call, questions) =>
             readOf(turn.core, askWait, { ...call, questions }),
         },
-        router: routerOverCore(turn.core),
         skills: turnSkillReader(
           productSkillSnapshotDeps(calls.machine, SKILL_PLACES),
           {

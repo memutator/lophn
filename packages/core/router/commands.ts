@@ -11,6 +11,7 @@ import {
 import type {
   CommandDefinition,
   RequestContext,
+  Tx,
 } from "../../protocol/server/mod.ts";
 import { routerEnvironment, routerFor } from "./environment.ts";
 
@@ -43,11 +44,23 @@ function agentSession(ctx: RequestContext): Result<string> {
   return ok(actor.id);
 }
 
+// 호출한 agent의 turn이 unattended면 call과 답에 표시를 찍는다. 보낸 쪽이 아니라 core가 credential의 turn에서 읽는다.
+function unattendedOf(tx: Tx, ctx: RequestContext): Result<boolean> {
+  const environment = routerEnvironment();
+  if (!environment.ok) return environment;
+  if (ctx.turn === undefined) {
+    return err({ code: "forbidden", message: "an agent call needs its turn" });
+  }
+  return ok(environment.value.unattendedTurn(tx, ctx.turn));
+}
+
 const sendCallCommand: CommandDefinition<typeof agentCallSend> = {
   route: agentCallSend,
   handle(tx, ctx, input) {
     const session = agentSession(ctx);
     if (!session.ok) return session;
+    const unattended = unattendedOf(tx, ctx);
+    if (!unattended.ok) return unattended;
     const router = routerFor(tx);
     if (!router.ok) return router;
     const routed = router.value.route(tx, {
@@ -60,7 +73,7 @@ const sendCallCommand: CommandDefinition<typeof agentCallSend> = {
       dedup: input.dedup,
       kind: "call",
       delivery: "next_turn",
-      unattended: input.unattended === true,
+      unattended: unattended.value,
     });
     if (!routed.ok) return routed;
     if (routed.value.call === null) {
@@ -79,9 +92,15 @@ const replyCallCommand: CommandDefinition<typeof callReply> = {
   handle(tx, ctx, input) {
     const session = agentSession(ctx);
     if (!session.ok) return session;
+    const unattended = unattendedOf(tx, ctx);
+    if (!unattended.ok) return unattended;
     const router = routerFor(tx);
     if (!router.ok) return router;
-    return router.value.reply(tx, { session: session.value }, input);
+    return router.value.reply(
+      tx,
+      { session: session.value },
+      { ...input, unattended: unattended.value },
+    );
   },
 };
 

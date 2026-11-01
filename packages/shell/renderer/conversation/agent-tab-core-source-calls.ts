@@ -1,5 +1,5 @@
 // call 읽기와 취소, 그리고 대화에 놓이는 call 블록. 상태 구독은 없고 thread를 읽을 때와 블록이 취소한 뒤 읽는다. 블록은
-// 이 session이 부른 `call` tool의 입력과 결과에서 그린다.
+// 이 session이 부른 `call.send` 명령의 입력과 결과에서 그린다.
 import {
   agentCallRead,
   callCancel,
@@ -70,7 +70,7 @@ function callIdIn(output: unknown): string | null {
 
 const REPLIES: readonly string[] = ["none", "result", "conversation"];
 
-/** 받는 곳을 사람이 읽는 말로: "Eval analyst · Eval board". `call` 입력의 이름을 그대로 쓴다. */
+/** 받는 곳을 사람이 읽는 말로: "Eval analyst · Eval board". `call.send` 입력의 이름을 그대로 쓴다. */
 async function toLabel(env: Env, to: Json): Promise<string> {
   if (typeof to["session"] === "string") {
     const read = await readSession(env, to["session"]);
@@ -91,7 +91,7 @@ async function toLabel(env: Env, to: Json): Promise<string> {
   return [agent, where].filter((part) => part !== "").join(" · ");
 }
 
-/** `call` tool의 입력과 결과로 블록 하나를 만든다. 결과에 call id가 없으면(배달 전 실패) 블록이 없다. */
+/** `call.send` 명령의 입력과 결과로 블록 하나를 만든다. 결과에 call id가 없으면(배달 전 실패) 블록이 없다. */
 export async function callViewOf(
   env: Env,
   input: unknown,

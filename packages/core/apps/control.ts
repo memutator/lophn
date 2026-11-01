@@ -670,6 +670,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           data_schema: release.data_schema,
         },
         removed_public_tools: recorded.removed_public_tools,
+        removed_public_skills: recorded.removed_public_skills,
       });
     } finally {
       preparing.delete(app);

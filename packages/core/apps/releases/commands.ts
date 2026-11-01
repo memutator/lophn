@@ -45,7 +45,7 @@ import {
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { factsOfDeclaration } from "./facts.ts";
-import { removedPublicToolsOf } from "./public-tools.ts";
+import { removedPublicSkillsOf, removedPublicToolsOf } from "./public-tools.ts";
 import {
   findPreparedRelease,
   insertRelease,
@@ -604,8 +604,24 @@ export function createReleaseCommands(): {
         }
         const chain = checkDataChanges(input.data_changes, input.data_schema);
         if (!chain.ok) return chain;
-        const removedTools = (): ReturnType<typeof removedPublicToolsOf> =>
-          removedPublicToolsOf(tx, input.app, declaration.commands);
+        const removedPublic = () => {
+          const tools = removedPublicToolsOf(
+            tx,
+            input.app,
+            declaration.commands,
+          );
+          if (!tools.ok) return tools;
+          const skills = removedPublicSkillsOf(
+            tx,
+            input.app,
+            declaration.skills ?? [],
+          );
+          if (!skills.ok) return skills;
+          return ok({
+            removed_public_tools: tools.value,
+            removed_public_skills: skills.value,
+          });
+        };
         const existing = findPreparedRelease(
           tx.sql,
           input.app,
@@ -613,12 +629,9 @@ export function createReleaseCommands(): {
         );
         if (!existing.ok) return existing;
         if (existing.value !== null) {
-          const removed = removedTools();
+          const removed = removedPublic();
           if (!removed.ok) return removed;
-          return ok({
-            release: existing.value,
-            removed_public_tools: removed.value,
-          });
+          return ok({ release: existing.value, ...removed.value });
         }
         const id = tx.newId("rel");
         const facts = factsOfDeclaration(id, declaration);
@@ -643,12 +656,9 @@ export function createReleaseCommands(): {
         });
         if (!release.success) return invalid("invalid release");
         insertRelease(tx, release.data, canonical, facts);
-        const removed = removedTools();
+        const removed = removedPublic();
         if (!removed.ok) return removed;
-        return ok({
-          release: release.data,
-          removed_public_tools: removed.value,
-        });
+        return ok({ release: release.data, ...removed.value });
       },
     },
   };

@@ -18,6 +18,7 @@ import {
   releasesGetInputSchema,
   releasesListInputSchema,
   releaseStatusValueSchema,
+  removedPublicSkillSchema,
   removedPublicToolSchema,
 } from "../releases.ts";
 import { lossStepSchema } from "./migration.ts";
@@ -117,6 +118,7 @@ export const releaseRecord = defineCommand({
   output: z.object({
     release: releaseRecordSchema,
     removed_public_tools: z.array(removedPublicToolSchema),
+    removed_public_skills: z.array(removedPublicSkillSchema),
   }),
   actors: ["machine"],
   errors: ["forbidden", "invalid_input", "conflict", "unavailable"],

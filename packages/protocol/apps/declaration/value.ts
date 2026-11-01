@@ -5,6 +5,7 @@
 import {
   APP_ID,
   type AppDeclaration,
+  type CommandDeclaration,
   asJson,
   DECLARATION_KEYS,
   DECLARATION_REQUIRED_KEYS,
@@ -18,12 +19,83 @@ import {
   type PermissionKind,
   type PermissionRequirement,
   singleLine,
+  type SkillDeclaration,
   type ValidationResult,
 } from "./types.ts";
 import { normalizeJson, sortBy, unique } from "./json.ts";
 import { validateLayers } from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { iconPath, permissionScope, scopeKey } from "./scope.ts";
+
+// skillNameSchema(protocol/lophn-agent/skill-settings.ts)와 같은 규칙이다. 이 file은 의존성이 없어 따로 쓴다.
+const SKILL_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function validateSkills(
+  items: unknown,
+  commands: readonly CommandDeclaration[],
+): ValidationResult<SkillDeclaration[]> {
+  if (items === undefined) return { ok: true, value: [] };
+  if (!Array.isArray(items)) return invalid("skills must be an array");
+  const byName = new Map(commands.map((command) => [command.name, command]));
+  const skills: SkillDeclaration[] = [];
+  for (const item of items) {
+    if (!isObject(item)) return invalid("skill must be an object");
+    const bad = exactKeys(
+      item,
+      ["commands", "name", "public"],
+      ["commands", "name", "public"],
+    );
+    if (bad) return invalid(`skill ${bad}`);
+    if (
+      typeof item.name !== "string" ||
+      item.name.length > 64 ||
+      !SKILL_NAME.test(item.name)
+    ) {
+      return invalid("skill name must be a skill folder name");
+    }
+    if (typeof item.public !== "boolean") {
+      return invalid(`skill ${item.name} public must be boolean`);
+    }
+    if (
+      !Array.isArray(item.commands) ||
+      item.commands.some((name) => typeof name !== "string")
+    ) {
+      return invalid(`skill ${item.name} commands must be command names`);
+    }
+    const names = item.commands as string[];
+    if (unique(names, "skill command")) {
+      return invalid(`skill ${item.name} has a duplicate command`);
+    }
+    for (const name of names) {
+      const command = byName.get(name);
+      if (command === undefined) {
+        return invalid(`skill ${item.name} uses unknown command ${name}`);
+      }
+      if (item.public && !command.public) {
+        return invalid(
+          `public skill ${item.name} uses non-public command ${name}`,
+        );
+      }
+    }
+    skills.push({
+      name: item.name,
+      public: item.public,
+      commands: [...names].sort(),
+    });
+  }
+  if (
+    unique(
+      skills.map((skill) => skill.name),
+      "skill",
+    )
+  ) {
+    return invalid("duplicate skill");
+  }
+  return {
+    ok: true,
+    value: sortBy(skills, (skill) => skill.name),
+  };
+}
 
 export function validateDeclaration(
   value: unknown,
@@ -88,6 +160,9 @@ export function validateDeclaration(
   if (!declared.ok) return declared;
   const { screens, operations, commands } = declared.value;
 
+  const skills = validateSkills(value.skills, commands);
+  if (!skills.ok) return skills;
+
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
     "fs.read",
@@ -146,6 +221,7 @@ export function validateDeclaration(
     description: value.description,
     // 없으면 칸을 두지 않는다. 옛 선언의 hash가 그대로이다.
     ...(typeof value.icon === "string" ? { icon: value.icon } : {}),
+    ...(skills.value.length > 0 ? { skills: skills.value } : {}),
     screens: sortBy(screens, (screen) => screen.key),
     operations: sortBy(operations, (operation) => operation.name),
     commands: sortBy(commands, (command) => command.name),

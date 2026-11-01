@@ -1,13 +1,15 @@
-// release가 지우는 공개 command와, 그것을 다른 domain이 쓰는지의 판정. 막지 않고 준비 결과의 알림으로 싣는다.
-// 비교 재료는 active release에 고정된 선언과 새 선언의 tool이다.
+// release가 지우는 공개 command와 공개 skill, 그것을 다른 domain이 쓰는지의 판정. 막지 않고 준비 결과의 알림으로 싣는다.
+// 비교 재료는 active release에 고정된 선언과 새 선언이다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { AppDeclaration } from "../declaration/mod.ts";
+import { appAssignees } from "../../approvals/assignment/usage.ts";
 import { appToolUsers, usagePorts } from "../usage/mod.ts";
 import { loadActiveDeclaration } from "./store.ts";
 
 type Tool = AppDeclaration["commands"][number];
+type Skill = NonNullable<AppDeclaration["skills"]>[number];
 
 // 공개였던 tool이 사라졌거나 비공개가 됐으면 지운 것이다.
 export function removedPublicOf(
@@ -57,4 +59,49 @@ export function removedPublicToolsOf(
       .map(([tool, names]) => ({ tool, domains: [...names].sort() }))
       .sort((a, b) => (a.tool < b.tool ? -1 : 1)),
   );
+}
+
+// 공개였던 skill이 사라졌거나 비공개가 됐으면 지운 것이다.
+export function removedPublicSkillsIn(
+  previous: readonly Skill[],
+  next: readonly Skill[],
+): string[] {
+  const after = new Map(next.map((skill) => [skill.name, skill]));
+  return previous
+    .filter((skill) => skill.public && after.get(skill.name)?.public !== true)
+    .map((skill) => skill.name)
+    .sort();
+}
+
+// 지우는 공개 skill마다, 그 앱이 할당된 agent가 맡은 domain의 이름을 싣는다. 받는 domain이 없는 skill은 싣지 않는다.
+export function removedPublicSkillsOf(
+  tx: Pick<Tx, "sql" | "port">,
+  app: string,
+  nextSkills: readonly Skill[],
+): Result<{ skill: string; domains: string[] }[]> {
+  const previous = loadActiveDeclaration(tx.sql, app);
+  if (!previous.ok) return previous;
+  const removed = removedPublicSkillsIn(
+    previous.value?.declaration.skills ?? [],
+    nextSkills,
+  );
+  if (removed.length === 0) return ok([]);
+  let ports, lookup;
+  try {
+    ports = tx.port(usagePorts);
+    lookup = tx.port(domainLookupPort);
+  } catch {
+    return err({ code: "unavailable", message: "app usage is unavailable" });
+  }
+  const assignees = appAssignees(tx.sql, app);
+  if (!assignees.ok) return assignees;
+  const names = new Set<string>();
+  for (const { agent } of assignees.value) {
+    for (const domain of ports.chosenDomains(agent)) {
+      names.add(lookup.get(domain)?.name ?? domain);
+    }
+  }
+  if (names.size === 0) return ok([]);
+  const domains = [...names].sort();
+  return ok(removed.map((skill) => ({ skill, domains })));
 }

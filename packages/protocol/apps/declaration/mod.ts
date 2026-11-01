@@ -17,6 +17,7 @@ export type {
   ScreenDeclaration,
   ScreenSize,
   SDKDependency,
+  SkillDeclaration,
   ToolEffect,
   ValidationError,
   ValidationResult,

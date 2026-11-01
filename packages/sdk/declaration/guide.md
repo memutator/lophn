@@ -18,12 +18,12 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `AppDeclaration`, `ScreenDeclaration`, `OperationDeclaration`,
   `CommandDeclaration`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
-  `SDKDependency`, `ValidationResult`, `ValidationError`
+  `SkillDeclaration`, `SDKDependency`, `ValidationResult`, `ValidationError`
 
 ## 선언의 칸
 
 `name`, `description`, `screens`, `operations`, `commands`, `permissions`,
-`app_connections`, `sdk_dependencies`와 선택 칸 `icon`만 있다. 알 수 없는 칸은 거절한다.
+`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`만 있다. 알 수 없는 칸은 거절한다.
 
 - `screens` — 화면 목록이다. 항목은 `{key, label, path, sizes}`다. `sizes`는
   화면을 열 수 있는 자리다. `full`은 앱 창, `panel`은 project 창의 탭(사람이
@@ -37,6 +37,14 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   앱을 보일 때 쓴다. 없으면 기본 모양이다. 사람이 App details에서 올린 icon이 있으면
   그것이 먼저다.
 
+- `skills` — 앱이 내놓는 skill 목록이다. 항목은 `{name, public, commands}`다. skill 본문은
+  source의 `.lophn/skills/<name>/SKILL.md`에 commit한다(release 준비가 없으면 거절한다.
+  `.gitignore`가 `.lophn/`을 통째로 빼면 `.lophn/sdk/`로 바꾼다). `name`은 skill 폴더 이름
+  규칙(소문자·숫자·`-`, 64자까지)이고 겹치지 못한다. `commands`는 이 선언의 command 이름이다.
+  `public`이 true인 skill은 다른 agent에게도 주므로 `commands`가 모두 public command여야
+  한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다.
+  공개 skill을 지우는 release는 막지 않고, 준비 결과의 `removed_public_skills`에 그 skill과
+  받던 domain이 실린다.
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
   자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
   막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이
@@ -91,7 +99,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "2.0.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "2.1.0" }],
 });
 
 const result = validateDeclaration(declaration);

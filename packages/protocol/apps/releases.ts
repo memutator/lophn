@@ -88,6 +88,12 @@ export const removedPublicToolSchema = z.object({
   domains: z.array(z.string().min(1)),
 });
 
+// 공개 skill을 지우는 release면 그 skill과, 그 앱이 할당된 agent가 맡은 domain의 이름을 싣는다. 막지 않고 알린다.
+export const removedPublicSkillSchema = z.object({
+  skill: z.string().min(1),
+  domains: z.array(z.string().min(1)),
+});
+
 // 앱 place의 session이 앱 source의 HEAD commit으로 release를 준비한다. 검사에 떨어진 것은 오류가 아니라
 // failed 출력이다: 오류 code는 model에 고정 글만 닿아 떨어진 이유가 가려진다.
 // source 폴더가 없거나 commit이 없는 것도 build 단계의 failed다.
@@ -103,6 +109,7 @@ const releasePrepareOutputSchema = z.discriminatedUnion("status", [
       data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     }),
     removed_public_tools: z.array(removedPublicToolSchema),
+    removed_public_skills: z.array(removedPublicSkillSchema),
   }),
   z.object({
     status: z.literal("failed"),

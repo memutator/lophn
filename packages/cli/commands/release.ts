@@ -102,9 +102,14 @@ const prepare = defineCommand({
       return ok({ summary, content: out, failed: out.reason });
     }
     const removed = out.removed_public_tools.length;
+    const removedSkills = out.removed_public_skills.length;
     return ok({
       summary: `prepared release #${out.release.number} (${out.release.id})${
         removed === 0 ? "" : `, removes ${removed} public commands in use`
+      }${
+        removedSkills === 0
+          ? ""
+          : `, removes ${removedSkills} public skills in use: ${out.removed_public_skills.map((entry) => entry.skill).join(", ")}`
       }`,
       content: out,
     });

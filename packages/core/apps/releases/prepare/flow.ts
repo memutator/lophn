@@ -188,9 +188,10 @@ export async function prepareRelease(
     { path: "declaration.json", bytes: declarationBytes },
   ];
   // 선언한 icon이 bundle에 없거나 `app.icon`의 상한보다 크면 보이지 않으므로 준비에서 알린다.
-  const icon = (
-    JSON.parse(declaration.value.canonicalJson) as { icon?: string }
-  ).icon;
+  const { icon, skills } = JSON.parse(declaration.value.canonicalJson) as {
+    icon?: string;
+    skills?: { name: string }[];
+  };
   if (icon !== undefined) {
     const found = files.find((file) => `/${file.path}` === icon);
     if (found === undefined) {
@@ -201,6 +202,15 @@ export async function prepareRelease(
     if (found.bytes.byteLength > ICON_MAX_BYTES) {
       return fail(
         `The declared icon ${icon} is larger than ${ICON_MAX_BYTES / 1024} KiB.`,
+      );
+    }
+  }
+  // 선언한 skill의 폴더가 commit에 없으면 shared-skill이 읽을 것이 없다. .gitignore가 .lophn/을 통째로 빼는 것이 흔한 원인이다.
+  for (const skill of skills ?? []) {
+    const path = `.lophn/skills/${skill.name}/SKILL.md`;
+    if (!files.some((file) => file.path === path)) {
+      return fail(
+        `The declared skill ${skill.name} has no ${path} in the commit. If .gitignore excludes .lophn/, change it to .lophn/sdk/.`,
       );
     }
   }

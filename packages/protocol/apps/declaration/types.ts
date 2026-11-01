@@ -131,11 +131,21 @@ export type SDKDependency = {
   version: string;
 };
 
+// 앱이 .lophn/skills/<name>/ 폴더로 내놓는 skill. commands는 이 선언의 command 이름이다.
+// public이 true면 다른 agent에게도 주므로 그 commands는 모두 public command여야 한다.
+export type SkillDeclaration = {
+  name: string;
+  public: boolean;
+  commands: string[];
+};
+
 export type AppDeclaration = {
   name: string;
   description: string;
   // bundle 안 이미지 파일의 경로(`/assets/icon.svg`). svg·png·webp. lophn이 앱을 보이는 자리에 쓴다.
   icon?: string;
+  // 없어도 된다. skill 폴더는 commit의 .lophn/skills/<name>/SKILL.md다.
+  skills?: SkillDeclaration[];
   screens: ScreenDeclaration[];
   // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
   operations: OperationDeclaration[];
@@ -158,11 +168,12 @@ export const DECLARATION_KEYS = [
   "permissions",
   "screens",
   "sdk_dependencies",
+  "skills",
 ] as const;
 
-// icon만 칸이 없어도 된다.
+// icon과 skills는 칸이 없어도 된다.
 export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(
-  (key) => key !== "icon",
+  (key) => key !== "icon" && key !== "skills",
 );
 
 export const INPUT_KEYS = [

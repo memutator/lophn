@@ -87,9 +87,16 @@ export interface Desk {
   readonly detached: readonly DetachedItem[];
 }
 
+/** project의 빠른 실행. order는 단추 id의 순서, apps는 고정한 앱 panel 화면이다. 없으면 기본 순서에 고정 없음. */
+export interface PlaceQuick {
+  readonly order: readonly string[];
+  readonly apps: readonly { readonly app: string; readonly surface: string }[];
+}
+
 export interface PlaceLayout {
   readonly active: string;
   readonly desks: Readonly<Record<string, Desk>>;
+  readonly quick?: PlaceQuick;
 }
 
 export function emptyDesk(key: string, label: string, workflow?: string): Desk {
@@ -1055,6 +1062,7 @@ export function removeDesk(layout: PlaceLayout, key: string): PlaceLayout {
     Object.entries(layout.desks).filter(([name]) => name !== key),
   );
   return {
+    ...layout,
     active: layout.active === key ? MAIN_DESK : layout.active,
     desks: rest,
   };
@@ -1115,6 +1123,7 @@ export function mergeDeskIntoMain(
     Object.entries(layout.desks).filter(([name]) => name !== key),
   );
   return {
+    ...layout,
     active: layout.active === key ? MAIN_DESK : layout.active,
     desks: { ...rest, [MAIN_DESK]: settle(main) },
   };

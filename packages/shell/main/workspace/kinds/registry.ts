@@ -12,7 +12,6 @@ import { documentEditorKind } from "./document-editor.ts";
 import { inboxKind } from "./inbox.ts";
 import { jobsKind } from "./jobs.ts";
 import { registerTabKind } from "./kind.ts";
-import { projectSettingsKind } from "./project-settings.ts";
 import { searchKind } from "./search.ts";
 import { terminalKind } from "./terminal.ts";
 import { workflowKind } from "./workflow.ts";
@@ -28,7 +27,6 @@ const BUILT_IN_TAB_KINDS = [
   browserKind,
   artifactKind,
   workflowKind,
-  projectSettingsKind,
   jobsKind,
   inboxKind,
 ] as const;

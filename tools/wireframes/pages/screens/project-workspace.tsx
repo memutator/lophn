@@ -151,14 +151,6 @@ const PLAN = {
 const DOCUMENT_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, PLAN], selected: NOTES.key },
 ];
-const SETTINGS_TAB = {
-  key: "project-settings",
-  kind: "project_settings",
-  title: "Project settings",
-} as const;
-const SETTINGS_PANES: readonly PaneSpec[] = [
-  { tabs: [NOTES, SETTINGS_TAB], selected: SETTINGS_TAB.key },
-];
 const TERMINAL_PANES: readonly PaneSpec[] = [
   { tabs: [NOTES, PLAN], selected: NOTES.key },
   {
@@ -194,18 +186,6 @@ export const projectWorkspaceArea: Area = {
           route={openProject(PROJECT_GROCERY)}
           panes={TERMINAL_PANES}
           openTerminal="term_1"
-        />
-      ),
-    },
-    {
-      id: "project-settings",
-      title: "Project workspace · project settings tab",
-      description:
-        "프로젝트 설정 탭. General은 Home의 project 상세 dialog와 같은 form(이름·목적·폴더)이다.",
-      render: () => (
-        <MockDesktop
-          route={openProject(PROJECT_GROCERY)}
-          panes={SETTINGS_PANES}
         />
       ),
     },

@@ -5,6 +5,7 @@ export const leftSidebar = {
   "left-sidebar.button.jobs": "Jobs",
   "left-sidebar.button.new-session": "New session",
   "left-sidebar.button.new-session-with": "New session with…",
+  "left-sidebar.button.project-settings": "Project settings",
   "left-sidebar.button.quick-app": "Open app…",
   "left-sidebar.button.quick-browser": "New browser",
   "left-sidebar.button.quick-search": "Search",

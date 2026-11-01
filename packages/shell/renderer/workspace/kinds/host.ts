@@ -3,7 +3,6 @@
 
 import type { TabItem } from "../model.ts";
 import type { Desk, PlaceRef } from "../../shell/desk-model.ts";
-import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
 import type { PlaceWindowProps } from "../place-window.tsx";
 import type { AgentsSource } from "../agents/source.ts";
@@ -56,14 +55,6 @@ export interface AgentViewSlice {
   nameOf(session: string): string | undefined;
   /** 이 project의 domain들의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
   readonly artifacts: ArtifactsSlice;
-}
-
-/** project settings 탭이 작업대와 나누는 것. */
-export interface ProjectSettingsSlice {
-  /** project 등록(이름·폴더)을 읽고 쓰는 통로. 없으면 General 구역은 쓸 수 없다. */
-  readonly projects: ProjectsSource | undefined;
-  /** 등록을 저장했다. 작업대가 project 이름과 폴더를 다시 읽는다. */
-  projectChanged(): void;
 }
 
 export interface ArtifactsSlice {
@@ -138,6 +129,4 @@ export interface TabHost {
   readonly document: DocumentSlice;
   readonly agents: AgentsSlice | null;
   readonly agentView: AgentViewSlice | null;
-  /** project settings 탭의 통로. detached 창에는 그 탭이 없어 null이다. */
-  readonly projectSettings: ProjectSettingsSlice | null;
 }

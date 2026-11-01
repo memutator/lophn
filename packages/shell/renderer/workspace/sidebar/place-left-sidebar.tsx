@@ -99,6 +99,8 @@ export interface PlaceLeftSidebarProps {
   onJobs: () => void;
   /** 맨 아래 줄의 Terminal · Browser · App ▾. + menu와 같은 핸들러라 이 place에 없는 것은 비어 있다. */
   quick?: QuickLaunch;
+  /** project 창에서 project 줄의 설정 단추. */
+  onProjectSettings?: () => void;
   onSettings: () => void;
 }
 
@@ -243,6 +245,9 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
           ? {}
           : { onCreateApp: () => setCreating(true) })}
         {...(props.quick === undefined ? {} : { quick: props.quick })}
+        {...(props.onProjectSettings === undefined
+          ? {}
+          : { onProjectSettings: props.onProjectSettings })}
         onSettings={props.onSettings}
       />
       {projects === undefined ? null : (

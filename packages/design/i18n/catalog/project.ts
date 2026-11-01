@@ -88,10 +88,21 @@ export const project = {
   "file-search.notice.type-text":
     "Type text to search the files in this project.",
   "file-search.notice.unavailable": "Search isn't available right now.",
+  "project-settings.button.move-down": "Move down",
+  "project-settings.button.move-up": "Move up",
+  "project-settings.button.pin": "Pin",
+  "project-settings.button.unpin": "Unpin",
+  "project-settings.heading.app-panels": "App panels",
   "project-settings.heading.general": "General",
+  "project-settings.heading.quick-launch": "Quick launch",
   "project-settings.label.project-target": "project details",
+  "project-settings.notice.app-panels-lead":
+    "A pinned app panel gets its own quick launch button that opens the panel in a tab.",
+  "project-settings.notice.apps-failed": "Couldn't read the installed apps.",
   "project-settings.notice.general-unavailable":
     "Project details can't be edited in this window.",
+  "project-settings.notice.no-app-panels":
+    "No installed app has a panel screen.",
   "project-workspace.button.detached-dock": "Dock",
   "project-workspace.button.explorer-collapse-all": "Collapse All",
   "project-workspace.button.explorer-add-folder": "Add folder",
@@ -142,7 +153,6 @@ export const project = {
   "project-workspace.label.kind-document-editor": "Document editor",
   "project-workspace.label.kind-inbox": "Inbox",
   "project-workspace.label.kind-jobs": "Jobs",
-  "project-workspace.label.kind-project-settings": "Project settings",
   "project-workspace.label.kind-terminal": "Terminal",
   "project-workspace.label.menu-agent": "Agent",
   "project-workspace.label.menu-app-panel": "App panel",

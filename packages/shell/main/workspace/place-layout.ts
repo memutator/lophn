@@ -119,11 +119,26 @@ const placeDeskSchema = z
 
 export type PlaceDesk = z.infer<typeof placeDeskSchema>;
 
+// project의 빠른 실행. order는 단추 id의 순서이고 apps는 고정한 앱 panel 화면이다. 필드가 없으면 기본 순서에 고정 없음이다.
+// 없어진 앱·모르는 id는 renderer가 그릴 때 건너뛰므로 여기서는 모양과 상한만 본다.
+const quickSchema = z.strictObject({
+  order: z.array(z.string().min(1).max(200)).max(64),
+  apps: z
+    .array(
+      z.strictObject({
+        app: z.string().min(1).max(64),
+        surface: z.string().min(1).max(128),
+      }),
+    )
+    .max(20),
+});
+
 export const placeLayoutSchema = z
   .strictObject({
     schema_version: z.literal(PLACE_SCHEMA_VERSION),
     active_desk: deskKey,
     desks: z.record(deskKey, placeDeskSchema),
+    quick: quickSchema.optional(),
   })
   .refine(
     (layout) => {

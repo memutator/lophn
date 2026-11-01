@@ -18,6 +18,7 @@ import {
   leavesOf,
   MAIN_DESK,
   type PlaceLayout,
+  type PlaceQuick,
   type PlaceRef,
   placeKey,
   type TabItem,
@@ -289,9 +290,29 @@ function deskFromStored(key: string, value: unknown): Desk | null {
   });
 }
 
+// main이 이미 검증했다. 모양이 틀리면 없는 것으로 본다.
+function quickFromStored(value: unknown): PlaceQuick | undefined {
+  const quick = value as { order?: unknown; apps?: unknown } | null;
+  if (!Array.isArray(quick?.order) || !Array.isArray(quick.apps)) {
+    return undefined;
+  }
+  return {
+    order: quick.order.filter((id): id is string => typeof id === "string"),
+    apps: quick.apps.flatMap((item: Stored | null) =>
+      typeof item?.app === "string" && typeof item.surface === "string"
+        ? [{ app: item.app, surface: item.surface }]
+        : [],
+    ),
+  };
+}
+
 /** 저장된 layout을 읽는다. main이 이미 검증했다. 모양이 틀리거나 Main이 없으면 null이다. */
 export function layoutFromStored(value: unknown): PlaceLayout | null {
-  const stored = value as { active_desk?: unknown; desks?: unknown } | null;
+  const stored = value as {
+    active_desk?: unknown;
+    desks?: unknown;
+    quick?: unknown;
+  } | null;
   if (typeof stored?.desks !== "object" || stored.desks === null) return null;
   const desks: Record<string, Desk> = {};
   for (const [key, desk] of Object.entries(stored.desks)) {
@@ -299,6 +320,7 @@ export function layoutFromStored(value: unknown): PlaceLayout | null {
     if (read !== null) desks[key] = read;
   }
   if (!Object.hasOwn(desks, MAIN_DESK)) return null;
+  const quick = quickFromStored(stored.quick);
   return {
     active:
       typeof stored.active_desk === "string" &&
@@ -306,6 +328,7 @@ export function layoutFromStored(value: unknown): PlaceLayout | null {
         ? stored.active_desk
         : MAIN_DESK,
     desks,
+    ...(quick === undefined ? {} : { quick }),
   };
 }
 
@@ -344,8 +367,10 @@ function deskToStored(input: Desk): Stored {
 export function layoutToStored(layout: PlaceLayout): {
   active_desk: string;
   desks: Record<string, Stored>;
+  quick?: PlaceQuick;
 } {
   return {
+    ...(layout.quick === undefined ? {} : { quick: layout.quick }),
     active_desk: layout.active,
     desks: Object.fromEntries(
       Object.entries(layout.desks).map(([key, desk]) => [

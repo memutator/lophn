@@ -55,7 +55,6 @@ interface TabSpec {
     | "document_editor"
     | "terminal"
     | "app_panel"
-    | "project_settings"
     | "jobs"
     | "inbox"
     | "browser"
@@ -189,11 +188,7 @@ function storedTab(tab: TabSpec) {
       surface: tab.screen,
     };
   }
-  if (
-    tab.kind === "project_settings" ||
-    tab.kind === "jobs" ||
-    tab.kind === "inbox"
-  ) {
+  if (tab.kind === "jobs" || tab.kind === "inbox") {
     return { kind: tab.kind, key: tab.key };
   }
   return tab.kind === "terminal"

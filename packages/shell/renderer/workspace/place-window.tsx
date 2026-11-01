@@ -130,10 +130,11 @@ import {
   useBridgeOpenRequests,
 } from "../terminal/use-bridge-open-requests.ts";
 import { appTabEntries, NewTabMenu } from "./add-tab-menu.tsx";
+import { useScreensRead } from "./app-panel-tab.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
-import { openAppPanel } from "./kinds/app-panel.tsx";
+import { openAppPanel, openPinnedAppPanel } from "./kinds/app-panel.tsx";
 import {
   appScreenKey,
   appScreenTab,
@@ -141,7 +142,6 @@ import {
 } from "./kinds/app-screen.tsx";
 import { openInbox } from "./kinds/inbox.tsx";
 import { openJobs } from "./kinds/jobs.tsx";
-import { openProjectSettings } from "./kinds/project-settings.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
@@ -155,6 +155,9 @@ import {
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
 import { NoticeCard } from "./notice-card.tsx";
+import { ProjectSettingsDialog } from "./project-settings/project-settings-dialog.tsx";
+import { pinId, quickOrder } from "./project-settings/quick-launch.ts";
+import { ProjectIconField } from "../parts/project-icon/project-icon.tsx";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
@@ -337,6 +340,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<PlaceLayout>(defaultPlaceLayout);
   const desk = activeDesk(layout);
+  // project settings dialog. 빠른 실행의 고정 앱 panel은 설치된 앱 목록과 맞춰 그린다.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const panelApps = useScreensRead(projectId !== null).read;
   const [leftOpen, setLeftOpen] = useSidebarOpen(
     "left",
     windowWidth >= LEFT_OPEN_MIN,
@@ -420,7 +426,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     };
   }, [placeId, source]);
 
-  // 이름이나 폴더를 settings 탭에서 저장하면 crumb과 sidebar가 새 값을 보이게 다시 읽는다.
+  // 이름이나 폴더를 project settings에서 저장하면 crumb과 sidebar가 새 값을 보이게 다시 읽는다.
   const reloadProject = () => {
     if (projectId === null) return;
     void source.project(projectId).then((read) => {
@@ -817,10 +823,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
     document: { noteReadPosition: notePosition },
     agents,
     agentView,
-    projectSettings: {
-      projects: props.projects,
-      projectChanged: reloadProject,
-    },
   };
 
   // 이 창이 보이는 동안 toast 행동을 받는다. 처리기는 열 때의 최신 작업대를 본다.
@@ -1257,7 +1259,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
         else if (target.action === "home") onHome();
         else if (target.action === "settings") onSettings();
         else if (target.action === "project-settings") {
-          openProjectSettings(host);
+          setSettingsOpen(true);
         } else if (target.action === "terminal") openTerminalTab(host);
         else if (target.action === "float") {
           const tab = focusTab(latestDesk());
@@ -1821,6 +1823,32 @@ export function PlaceWindow(props: PlaceWindowProps) {
     ...(host.appScreens ? { onAppPanel: () => openAppPanel(host) } : {}),
   });
 
+  // 고정한 앱 panel 단추. 앱이나 화면이 없어졌으면(목록을 읽은 뒤) 그리지 않는다.
+  const quickPins = (layout.quick?.apps ?? []).flatMap((pin) => {
+    const app = panelApps?.ok
+      ? panelApps.value.find((item) => item.app === pin.app)
+      : undefined;
+    const screen = app?.screens.find(
+      (item) => item.key === pin.surface && item.sizes.includes("panel"),
+    );
+    if (panelApps?.ok && screen === undefined) return [];
+    const title = app?.name ?? t("project-workspace.label.kind-app-panel");
+    return [
+      {
+        id: pinId(pin),
+        app: pin.app,
+        label:
+          app !== undefined && screen !== undefined
+            ? t("app-panel.label.screen", {
+                app: app.name,
+                screen: screen.label,
+              })
+            : title,
+        onOpen: () => openPinnedAppPanel(host, pin, title),
+      },
+    ];
+  });
+
   const workspace = (
     <ViewKeepsProvider value={keeps}>
       <WebviewHostProvider value={webviews}>
@@ -2006,7 +2034,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     ref.kind === "home" ? onHome() : props.onPlace?.(ref)
                   }
                   onNewApp={(app) => props.onNewApp?.(app)}
+                  {...(projectId === null
+                    ? {}
+                    : { onProjectSettings: () => setSettingsOpen(true) })}
                   quick={{
+                    ...(projectId === null
+                      ? {}
+                      : { order: quickOrder(layout.quick), pins: quickPins }),
                     ...(terminal === undefined
                       ? {}
                       : { onTerminal: () => openTerminalTab(host) }),
@@ -2161,6 +2195,23 @@ export function PlaceWindow(props: PlaceWindowProps) {
                 setClosingDesk(null);
                 void finishDesk(closingDesk);
               }}
+            />
+          )}
+          {!settingsOpen || projectId === null ? null : (
+            <ProjectSettingsDialog
+              projectId={projectId}
+              title={loaded.project?.title ?? projectId}
+              onClose={() => setSettingsOpen(false)}
+              projects={props.projects}
+              onProjectChanged={reloadProject}
+              quick={layout.quick}
+              onQuick={(quick) => commit({ ...latestLayout.current, quick })}
+              iconField={
+                <ProjectIconField
+                  project={projectId}
+                  name={loaded.project?.title ?? projectId}
+                />
+              }
             />
           )}
           {tabMenu === null || menuTab === undefined ? null : (

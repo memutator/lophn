@@ -303,3 +303,55 @@ test("앱 place layout의 앱 화면 탭과 app work_place agent 탭은 저장�
     });
   });
 });
+
+test("quick 필드가 없는 판 8 파일도 읽히고, quick이 있는 파일은 쓴 대로 읽힌다. 옛 project-settings 탭은 건너뛴다", async () => {
+  await withRoot(async (root) => {
+    const dir = join(root, "shell", "places");
+    await mkdir(dir, { recursive: true });
+    const desks = {
+      _default: {
+        label: "Main",
+        tabs: [
+          tab("/a.md"),
+          { kind: "project_settings", key: "project-settings" },
+        ],
+        selected_tab: "project-settings",
+        groups: [],
+        floats: [],
+        detached: [],
+      },
+    };
+    await writeFile(
+      join(dir, `${PROJECT}.json`),
+      JSON.stringify({ schema_version: 8, active_desk: "_default", desks }),
+    );
+    const store = createPlaceLayoutStore(root);
+    const old = await store.read(PROJECT);
+    assert.ok(old.ok && old.value?.ok);
+    assert.equal(old.value.layout.quick, undefined);
+    assert.deepEqual(
+      old.value.layout.desks._default?.tabs.map((item) => item.key),
+      ["/a.md"],
+    );
+
+    const quick = {
+      order: ["search", "terminal", "pin:app_x:main"],
+      apps: [{ app: "app_x", surface: "main" }],
+    };
+    // 옛 탭이 든 채로는 저장하지 못하므로 읽은 값에서 quick만 더해 쓴다.
+    const { schema_version: _, ...rest } = old.value.layout;
+    assert.deepEqual(await store.write(PROJECT, { ...rest, quick }), {
+      ok: true,
+      value: null,
+    });
+    const back = await store.read(PROJECT);
+    assert.ok(back.ok && back.value?.ok);
+    assert.deepEqual(back.value.layout.quick, quick);
+
+    const bad = await store.write(PROJECT, {
+      ...rest,
+      quick: { order: [], apps: [{ app: "app_x" }] },
+    });
+    assert.ok(!bad.ok && bad.error.code === "invalid_input");
+  });
+});

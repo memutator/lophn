@@ -54,7 +54,19 @@
   flex: 1;
 }
 
-.newSessionMore {
+.placeHead {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.placeHead .placeRow {
+  flex: 1;
+  width: auto;
+}
+
+.newSessionMore,
+.quickPin {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -68,7 +80,8 @@
   border-radius: var(--radius-md);
 }
 
-.newSessionMore:hover {
+.newSessionMore:hover,
+.quickPin:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-muted);
 }

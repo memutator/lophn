@@ -23,6 +23,29 @@ export function openAppPanel(host: TabHost): void {
   });
 }
 
+/** 고정한 앱 panel 열기. 같은 앱·화면 탭이 있으면 그 탭을 고르고, 없으면 그 화면으로 새 탭을 연다. */
+export function openPinnedAppPanel(
+  host: TabHost,
+  pin: { app: string; surface: string },
+  title: string,
+): void {
+  const open = host
+    .windowTabs()
+    .find(
+      (tab) =>
+        tab.kind === "app_panel" &&
+        tab.app === pin.app &&
+        tab.screen === pin.surface,
+    );
+  host.openTab({
+    key: open?.key ?? newKey(),
+    kind: "app_panel",
+    title,
+    app: pin.app,
+    screen: pin.surface,
+  });
+}
+
 export const appPanelKind: TabKindDef = {
   kind: "app_panel",
   labelKey: "project-workspace.label.kind-app-panel",

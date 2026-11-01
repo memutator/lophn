@@ -1,16 +1,18 @@
 // 왼쪽 sidebar. 위에 New session·Inbox·Jobs, 아래에 place(Home, project, app)마다 열린 session과 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(Terminal · Browser · App ▾ · Search)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
-import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 
+import { useAppIcon } from "../app-frame/app-icon.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";
 import {
   browserIcons,
+  commonIcons,
   notificationsIcon,
   settingsEntryIcon,
   shellIcons,
@@ -30,8 +32,19 @@ import {
 } from "./left-sidebar-model.ts";
 import styles from "./left-sidebar.module.css";
 
+/** 고정한 앱 panel 단추. id는 `order`의 id다. */
+export interface QuickPinButton {
+  id: string;
+  app: string;
+  label: string;
+  onOpen: () => void;
+}
+
 /** 맨 아래 줄의 빠른 실행. 핸들러·항목이 없는 단추는 그리지 않는다. */
 export interface QuickLaunch {
+  /** 단추 id(terminal · browser · app · search · 고정 id)의 순서. 없으면 기본 순서에 고정 없음이다. 모르는 id는 건너뛴다. */
+  order?: readonly string[];
+  pins?: readonly QuickPinButton[];
   onTerminal?: () => void;
   onBrowser?: () => void;
   /** Search 탭(project) 또는 팔레트(Home 등 검색 탭이 없는 place). */
@@ -68,8 +81,12 @@ export interface LeftSidebarProps {
   onRegisterProject?: () => void;
   onCreateApp?: () => void;
   quick?: QuickLaunch;
+  /** 이 창의 project 줄에 설정 단추를 둔다(Home·앱 place는 주지 않는다). */
+  onProjectSettings?: () => void;
   onSettings: () => void;
 }
+
+const DEFAULT_QUICK = ["terminal", "browser", "app", "search"] as const;
 
 const PLACE_ICON = {
   home: sidebarIcons.home,
@@ -107,6 +124,28 @@ function AgentMark({ agent }: { agent: SidebarSession["agent"] }) {
     <Icon icon={shellIcons.terminal} pixels={14} />
   ) : (
     <VendorIcon vendor={agent.vendor} size={16} />
+  );
+}
+
+function QuickPin({ pin }: { pin: QuickPinButton }) {
+  // 앱이 선언한 icon이 없으면 기본 앱 panel 아이콘이다.
+  const icon = useAppIcon(pin.app);
+  return (
+    <Tooltip content={pin.label}>
+      <button
+        type="button"
+        className={styles.quickPin}
+        aria-label={pin.label}
+        data-quick-pin={pin.app}
+        onClick={pin.onOpen}
+      >
+        {icon === undefined ? (
+          <Icon icon={workspaceIcons.appPanel} pixels={16} />
+        ) : (
+          <img src={icon} alt="" width={16} height={16} />
+        )}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -274,6 +313,7 @@ export function LeftSidebar({
   onRegisterProject,
   onCreateApp,
   quick,
+  onProjectSettings,
   onSettings,
 }: LeftSidebarProps) {
   // 펼친 Recent는 place마다 기억한다. 저장하지 않는다.
@@ -312,6 +352,57 @@ export function LeftSidebar({
         ]),
   ];
   const currentKey = placeKey(current);
+
+  const quickButtons: Record<string, ReactNode> = {
+    terminal:
+      quick?.onTerminal === undefined ? null : (
+        <IconButton
+          icon={workspaceIcons.terminal}
+          label={t("left-sidebar.button.quick-terminal")}
+          size="sm"
+          data-quick="terminal"
+          onClick={quick.onTerminal}
+        />
+      ),
+    browser:
+      quick?.onBrowser === undefined ? null : (
+        <IconButton
+          icon={browserIcons.globe}
+          label={t("left-sidebar.button.quick-browser")}
+          size="sm"
+          data-quick="browser"
+          onClick={quick.onBrowser}
+        />
+      ),
+    app:
+      quick?.appItems === undefined || quick.appItems.length === 0 ? null : (
+        <Menu
+          items={[...quick.appItems]}
+          onSelect={(id) => quick.onApp?.(id)}
+          trigger={
+            <IconButton
+              icon={workspaceIcons.appPanel}
+              label={t("left-sidebar.button.quick-app")}
+              size="sm"
+              data-quick="app"
+            />
+          }
+        />
+      ),
+    search:
+      quick?.onSearch === undefined ? null : (
+        <IconButton
+          icon={shellIcons.search}
+          label={t("left-sidebar.button.quick-search")}
+          size="sm"
+          data-quick="search"
+          onClick={quick.onSearch}
+        />
+      ),
+    ...Object.fromEntries(
+      (quick?.pins ?? []).map((pin) => [pin.id, <QuickPin pin={pin} />]),
+    ),
+  };
 
   return (
     <div
@@ -401,16 +492,29 @@ export function LeftSidebar({
           const open = expanded.has(key);
           return (
             <div key={key} className={styles.placeGroup} data-place={key}>
-              <button
-                type="button"
-                className={styles.placeRow}
-                data-current={here || undefined}
-                aria-current={here || undefined}
-                onClick={() => onPlace(place.ref)}
-              >
-                <Icon icon={PLACE_ICON[place.ref.kind]} pixels={16} />
-                <span className={styles.rowLabel}>{place.name}</span>
-              </button>
+              <div className={styles.placeHead}>
+                <button
+                  type="button"
+                  className={styles.placeRow}
+                  data-current={here || undefined}
+                  aria-current={here || undefined}
+                  onClick={() => onPlace(place.ref)}
+                >
+                  <Icon icon={PLACE_ICON[place.ref.kind]} pixels={16} />
+                  <span className={styles.rowLabel}>{place.name}</span>
+                </button>
+                {here &&
+                place.ref.kind === "project" &&
+                onProjectSettings !== undefined ? (
+                  <IconButton
+                    icon={commonIcons.settings}
+                    label={t("left-sidebar.button.project-settings")}
+                    size="sm"
+                    data-place-settings=""
+                    onClick={onProjectSettings}
+                  />
+                ) : null}
+              </div>
               {place.current.map((item) => (
                 <SessionRow
                   key={sessionKey(item)}
@@ -458,47 +562,9 @@ export function LeftSidebar({
       </div>
 
       <div className={styles.foot}>
-        {quick?.onTerminal === undefined ? null : (
-          <IconButton
-            icon={workspaceIcons.terminal}
-            label={t("left-sidebar.button.quick-terminal")}
-            size="sm"
-            data-quick="terminal"
-            onClick={quick.onTerminal}
-          />
-        )}
-        {quick?.onBrowser === undefined ? null : (
-          <IconButton
-            icon={browserIcons.globe}
-            label={t("left-sidebar.button.quick-browser")}
-            size="sm"
-            data-quick="browser"
-            onClick={quick.onBrowser}
-          />
-        )}
-        {quick?.appItems === undefined || quick.appItems.length === 0 ? null : (
-          <Menu
-            items={[...quick.appItems]}
-            onSelect={(id) => quick.onApp?.(id)}
-            trigger={
-              <IconButton
-                icon={workspaceIcons.appPanel}
-                label={t("left-sidebar.button.quick-app")}
-                size="sm"
-                data-quick="app"
-              />
-            }
-          />
-        )}
-        {quick?.onSearch === undefined ? null : (
-          <IconButton
-            icon={shellIcons.search}
-            label={t("left-sidebar.button.quick-search")}
-            size="sm"
-            data-quick="search"
-            onClick={quick.onSearch}
-          />
-        )}
+        {(quick?.order ?? DEFAULT_QUICK).map((id) => (
+          <Fragment key={id}>{quickButtons[id] ?? null}</Fragment>
+        ))}
         <span className={styles.grow} />
         <IconButton
           icon={settingsEntryIcon}

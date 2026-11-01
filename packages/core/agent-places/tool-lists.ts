@@ -26,7 +26,7 @@ const READ_TOOLS = ["visual.show"] as const;
 const PLACE_TOOLS = {
   home: [],
   project: [...WORK_TOOLS],
-  app: [...WORK_TOOLS, "preview.call"],
+  app: [...WORK_TOOLS],
 } as const satisfies Record<PlaceKind, readonly string[]>;
 
 // place 종류 고정 목록 = 공통 + 읽기 + place 종류 몫. 명령(`lophn` tool로 부르는 job 등)은 여기 없고
@@ -51,7 +51,6 @@ export const TOOL_ORDER = [
   "web.fetch",
   "ask",
   "skill.read",
-  "preview.call",
   "visual.show",
   "lophn",
 ] as const;

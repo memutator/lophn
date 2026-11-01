@@ -22,6 +22,8 @@ import { screenPath } from "./scope.ts";
 // toolNameSchema(channel-values.ts)와 같은 규칙이다.
 // 이 file은 의존성이 없어 따로 쓴다.
 const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
+// protocol/lophn-agent/tool-catalog.ts의 TOOL_NAME_MAX와 같은 값이다. 이 file은 의존성이 없어 따로 쓴다.
+const WIRE_NAME_MAX = 64;
 
 function blankDescription(schema: InputSchema): string | undefined {
   if (Object.hasOwn(schema, "description") && !nonBlank(schema.description)) {
@@ -172,11 +174,17 @@ export function validateLayers(
   ) {
     return invalid("duplicate operation or command name");
   }
-  // agent tool 이름은 `<domain>_<command의 . → _>`라 `event.list`와 `event_list`는 같은 이름이 된다.
+  // 명령 이름은 `lophn <domain> <command>`로 부르지만, 이름 하나를 `<domain>_<command의 . → _>`로 줄여 쓰는 곳이 있어
+  // `event.list`와 `event_list`는 같은 이름이 되고 64자를 넘으면 불리지 않는다.
   // agent에게 보이는 것은 command뿐이라 command에만 건다.
   const seen = new Map<string, string>();
   for (const command of commands) {
     const wire = `${command.domain}_${command.name.replaceAll(".", "_")}`;
+    if (wire.length > WIRE_NAME_MAX) {
+      return invalid(
+        `command ${command.name} has the agent tool name ${wire} longer than ${WIRE_NAME_MAX} characters`,
+      );
+    }
     const other = seen.get(wire);
     if (other !== undefined) {
       return invalid(

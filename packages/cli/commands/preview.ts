@@ -1,8 +1,9 @@
-// `lophn preview start|stop`: 앱의 봉인된 release를 fixture data로 띄우고 멈춘다. 앱 place의 agent가 쓴다.
+// `lophn preview start|stop|call`: 앱의 봉인된 release를 fixture data로 띄우고, 부르고, 멈춘다. 앱 place의 agent가 쓴다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import {
+  appCallTool,
   previewsGet,
   previewsStart,
   previewsStop,
@@ -132,4 +133,61 @@ const stop = defineCommand({
   },
 });
 
-export const PREVIEW_COMMANDS = [start, stop];
+const call = defineCommand({
+  name: "preview.call",
+  summary: "Call an operation or command of the running preview",
+  description:
+    "Call an operation (what the app's screens call) or a command (what agents and other apps call) of your app's running preview and return its outcome. Nothing is recorded and live data is never touched. Omit input for one that takes none.",
+  input: z.strictObject({
+    app: idSchema("app"),
+    // 화면이 부르는 operation도 확인할 수 있다. live에서는 agent가 operation을 부르지 못한다.
+    kind: z.enum(["operation", "command"]),
+    name: z.string().min(1),
+    input: z.unknown().optional(),
+  }),
+  positional: ["app", "kind", "name"],
+  effect: "write",
+  routes: [previewsGet, appCallTool],
+  places: ["app"],
+  run: async (input, ctx) => {
+    const { app, kind, name } = input;
+    const current = await ctx.core.read(previewsGet, { app });
+    if (!current.ok) return current;
+    const observation = current.value.observation;
+    if (observation === null) {
+      return ok({
+        summary:
+          "no preview is running for this app; start one with `lophn preview start`",
+        content: { running: false },
+      });
+    }
+    const reply = await ctx.core.read(appCallTool, {
+      target: {
+        mode: "preview",
+        app,
+        process_nonce: observation.process_nonce,
+      },
+      kind,
+      name,
+      ...(input.input === undefined ? {} : { input: input.input }),
+      caller:
+        ctx.caller === undefined
+          ? { kind: "person" }
+          : { kind: "agent", ...ctx.caller },
+    });
+    if (!reply.ok) return reply;
+    const { outcome } = reply.value;
+    const detail =
+      outcome.status === "denied"
+        ? ` (${outcome.denial.code})`
+        : outcome.status === "failed"
+          ? ` (${outcome.error.code})`
+          : "";
+    return ok({
+      summary: `preview call of ${name} ${outcome.status}${detail}`,
+      content: { outcome },
+    });
+  },
+});
+
+export const PREVIEW_COMMANDS = [start, stop, call];

@@ -27,7 +27,7 @@ test("place kind tool wire names fit the provider rule and never collide", () =>
   }
 });
 
-// `lophn` tool은 셋 다 받고, 작업 tool은 project와 app만, 앱 쓰기는 app만 받는다.
+// `lophn` tool은 셋 다 받고, 작업 tool은 project와 app만 받는다.
 test("each tool appears only in the place kinds that do its work", () => {
   const table: [string[], readonly PlaceKind[]][] = [
     [["lophn"], PLACE_KINDS],
@@ -35,7 +35,6 @@ test("each tool appears only in the place kinds that do its work", () => {
       ["file.write", "file.edit", "shell.run"],
       ["project", "app"],
     ],
-    [["preview.call"], ["app"]],
   ];
   for (const [names, kinds] of table) {
     for (const kind of PLACE_KINDS) {

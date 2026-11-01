@@ -66,6 +66,10 @@ test("선언은 이름 규칙, object root, 합친 이름의 중복, 알 수 없
         { ...command, name: "event_list" },
       ],
     ],
+    [
+      "agent tool name too long",
+      [{ ...command, domain: "items", name: "a".repeat(60) }],
+    ],
     ["operation description", [], [{ ...operation, description: "x" }]],
     ["operation without effect", [], [{ ...operation, effect: undefined }]],
     ["operation without title", [], [{ ...operation, title: " " }]],

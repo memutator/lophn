@@ -8,7 +8,7 @@ import {
 } from "../projects/values.ts";
 
 export const domainIdSchema = idSchema("dom");
-// domain 이름은 slug이고 보관한 것까지 전 domain에서 하나다. 앱 tool 이름 `<domain>_<tool>`이 내장 tool과 겹치지 않도록
+// domain 이름은 slug이고 보관한 것까지 전 domain에서 하나다. 앱 command는 `lophn <domain> <command>`로 부르는데 domain 이름이 내장 명령 이름과 겹치지 않도록
 // 예약 이름(declaration/types.ts)은 쓰지 못한다.
 export const domainNameSchema = slugSchema.refine(
   (name) => !RESERVED_DOMAIN_NAMES.includes(name),

@@ -1,4 +1,4 @@
-// 왼쪽 sidebar. 위에 New session·Inbox·Jobs, 아래에 place(Home, project, app)마다 열린 session과 접힌 Recent 줄 하나,
+// 왼쪽 sidebar. 위에 New session·Inbox·Jobs, 아래에 place(Home, project, app)마다 열린 session과 이 place의 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(Terminal · Browser · App ▾ · Search)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
@@ -491,7 +491,12 @@ export function LeftSidebar({
           const here = key === currentKey;
           const open = expanded.has(key);
           return (
-            <div key={key} className={styles.placeGroup} data-place={key}>
+            <div
+              key={key}
+              className={styles.placeGroup}
+              data-place={key}
+              data-here={here || undefined}
+            >
               <div className={styles.placeHead}>
                 <button
                   type="button"

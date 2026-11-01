@@ -273,7 +273,7 @@ const codingLine = (
 
 const byId = (id: string) => SESSIONS.find((item) => item.id === id)!;
 
-/** 왼쪽 sidebar의 place들. phroner가 이 창이 보이는 project이고 Home·다른 project·앱은 그 session만 있다. */
+/** 왼쪽 sidebar의 place들. phroner가 이 창이 보이는 project이고 Recent도 phroner만 있다. Home·다른 project·앱은 열린 session만 있다. */
 const SIDEBAR_PLACES: readonly SidebarPlace[] = [
   {
     ref: { kind: "home" },
@@ -286,14 +286,7 @@ const SIDEBAR_PLACES: readonly SidebarPlace[] = [
         state: "working",
       }),
     ],
-    recent: [
-      ...lophnLine({
-        ...byId("c049"),
-        id: "home-notes",
-        title: "Sort inbox notes",
-        when: "yesterday",
-      }),
-    ],
+    recent: [],
   },
   {
     ref: { kind: "project", id: PROJECT_ID },
@@ -347,15 +340,17 @@ const SIDEBAR_PLACES: readonly SidebarPlace[] = [
   {
     ref: { kind: "project", id: GROCERY_ID },
     name: "Grocery",
-    current: [],
-    recent: [
-      ...lophnLine({
-        ...byId("c049"),
-        id: "grocery-prices",
-        title: "Compare this week's prices",
-        when: "5 h ago",
-      }),
+    current: [
+      ...lophnLine(
+        {
+          ...byId("c049"),
+          id: "grocery-prices",
+          title: "Compare this week's prices",
+        },
+        "finished",
+      ),
     ],
+    recent: [],
   },
   {
     ref: { kind: "app", id: "app_orders" },

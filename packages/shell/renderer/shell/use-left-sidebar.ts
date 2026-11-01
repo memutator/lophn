@@ -11,7 +11,7 @@ import type {
   ProjectsSource,
 } from "../desktop/places/projects/source.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
-import { harnessOf } from "../workspace/kinds/terminal.tsx";
+import { harnessOf, savedAgentTitleOf } from "../workspace/kinds/terminal.tsx";
 import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
 import { allTabs, placeKey, type PlaceRef } from "./desk-model.ts";
 import type { LayoutSource } from "./layout-source.ts";
@@ -109,7 +109,7 @@ export function useKnownSessions(
 
 /** 이 창이 보이지 않는 place들의 저장된 layout에서 읽은 열린 탭. */
 export interface TabsElsewhere {
-  /** place key → session id → Agent 탭 제목. */
+  /** place key → session id → Agent 탭 제목. 저장된 Agent 탭은 제목을 남기지 않아 빈 글이다. */
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** place key → coding agent 터미널 탭(harness가 저장된 것). */
   readonly terminals: ReadonlyMap<string, readonly PanelTerminal[]>;
@@ -155,7 +155,7 @@ export function useTabsElsewhere(
                   key: tab.key,
                   harness,
                   label: harness,
-                  title: tab.title,
+                  title: savedAgentTitleOf(tab) ?? tab.title,
                   dot: null,
                   at: 0,
                   live: { tabKey: tab.key },

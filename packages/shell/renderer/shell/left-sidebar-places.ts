@@ -3,7 +3,7 @@
 // 규칙
 // - current: 이 창에 탭이 열린 session, 또는 끝나지 않았고 점이 있는 session(도는 중, 기다리는 중, 못 본 turn 끝).
 //   탭이 열렸는지는 place마다 그 place의 layout에서 읽는다(`openTitles`). 닫기 전에는 current에 남는다.
-// - recent: 나머지(끝났거나 닫았거나 가만히 있는). 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
+// - recent: 나머지(끝났거나 닫았거나 가만히 있는). 이 창이 보이는 place에만 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 place의 것만 온다.
 //   다른 place는 layout에 탭이 열린 coding agent 터미널(`otherTerminals`)이 current로 온다.
@@ -86,7 +86,8 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
     const item: SidebarSession = {
       kind: "session",
       ref: entry.session,
-      title: tabTitle ?? read?.title ?? t("left-sidebar.label.untitled"),
+      // 다른 place의 탭 제목은 저장된 layout에서 읽어 빈 글이다. 그때는 session 제목을 쓴다.
+      title: tabTitle || read?.title || t("left-sidebar.label.untitled"),
       agent: { kind: "lophn", profile: agent.profile },
       dot,
       at: read?.at ?? 0,
@@ -155,7 +156,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
       ref,
       name,
       current: [...waiting, ...(current.get(key) ?? []).sort(stable)],
-      recent: (recent.get(key) ?? []).sort(byNewest),
+      recent: key === here ? (recent.get(key) ?? []).sort(byNewest) : [],
     };
   };
 

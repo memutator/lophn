@@ -82,6 +82,12 @@ export function harnessOf(tab: TabItem): string | null {
     : null;
 }
 
+/** 저장된 layout에서 읽은 탭의, agent가 정한 마지막 이름. 다른 place의 sidebar가 쓴다. */
+export function savedAgentTitleOf(tab: TabItem): string | null {
+  const title = tab.fields?.agentTitle;
+  return typeof title === "string" && title.length > 0 ? title : null;
+}
+
 function autoOf(tab: TabItem): string {
   const auto = tab.fields?.auto;
   return typeof auto === "string" ? auto : tab.title;
@@ -183,6 +189,9 @@ export const terminalKind: TabKindDef = {
         ...(typeof stored.harness === "string"
           ? { harness: stored.harness }
           : {}),
+        ...(typeof stored.agent_title === "string"
+          ? { agentTitle: stored.agent_title }
+          : {}),
       },
     };
   },
@@ -196,14 +205,20 @@ export const terminalKind: TabKindDef = {
       return null;
     const auto = autoOf(tab);
     const person = personOf(tab);
+    const harness = harnessOf(tab);
+    // 복원은 자동 이름과 사람이 붙인 이름만 쓴다. agent가 정한 이름은 다른 place의 sidebar가 읽도록 따로 남긴다.
+    const agentTitle =
+      harness !== null && person === null && tab.title !== auto
+        ? tab.title.slice(0, 200)
+        : "";
     return {
       kind: "terminal",
       key: tab.key,
       project_folder: tab.folder,
-      // agent의 터미널 제목은 저장하지 않는다. 자동 이름과 사람이 붙인 이름만 남는다.
       ...(auto.length < 1 ? {} : { title: auto.slice(0, 200) }),
       ...(person === null ? {} : { name: person.slice(0, 200) }),
-      ...(harnessOf(tab) === null ? {} : { harness: harnessOf(tab) }),
+      ...(harness === null ? {} : { harness }),
+      ...(agentTitle.length < 1 ? {} : { agent_title: agentTitle }),
     };
   },
   // PTY는 main이 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.

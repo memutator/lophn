@@ -47,7 +47,7 @@ domain의 문서가 어떤 모양이어야 하는지는 그 domain의 kind 파�
   - 목록이 200개에서 잘렸어도(`truncated`) 같게 비교한다. 알림은 상태를 바꾸지 않으므로 잘린 목록 사이의 거짓 알림은 받아들인다.
   - agent는 사람이 말하거나 스스로 볼 때 `kind.check`로 지금 상태를 검사한다.
 - `kind.get`·`kind.list`·`kind.check`는 core memory route다(`packages/core/projects/kinds/host/handlers.ts`). 입력은 `{domain}`이다. handler는 agent의 자격 그릇(`conditions.project` 또는 `conditions.app`)이 그 domain의 owner일 때만 열고, 아니면 `not_found`다. 그릇 조건이 없는 home의 session은 `forbidden`이다. user와 machine은 막지 않는다. 같은 그릇 안에서 어느 domain을 읽을지는 tool이 정한다.
-  - tool `kind.list`·`kind.check`(`packages/core/agent-places/tools/kind.ts`)는 입력 `domain`이 agent가 맡은 domain(`ctx.domains`) 안이어야 하고 아니면 core를 부르지 않는다. 맡은 domain이 하나뿐이면 생략할 수 있다.
+  - 명령 `kind.list`·`kind.check`(`packages/cli/commands/kind.ts`)가 부르는 route(`packages/core/projects/kinds/host/handlers.ts`)는 agent가 부르면 `domain`이 그 session의 맡은 domain 안이어야 하고 아니면 `invalid_input`이다. 맡은 domain이 하나뿐이면 생략할 수 있다. 사람은 `domain`을 준다.
 - prompt의 kind 글(`<lophn-kinds>`)은 맡은 domain마다 한 덩이(`Domain <name>`)로 싣는다. 받는 domain은 정의의 `domains`와 place로 정한다(비면 그 그릇의 active domain 전부). kind 이름, 한 줄, glob, key, 칸 이름과 type(enum 값, ref 대상, required, list)을 domain 이름순, kind 이름순으로 결정적으로 조립한다. 예산을 넘으면 `full` → `names` → `count`다(모든 domain에 같은 level). kind 파일이 틀려 앞의 것을 쓰는 domain에는 그 사실을 한 줄 덧붙인다.
   - 바뀜은 쓰고 있는 kind 파일의 hash(`applied_hash`)로 본다. 다르면 `kinds_changed` notice와 새 글을 붙인다.
   - project·앱 place 정보에는 domain마다 폴더 경로(`Folder:`)가 있어, 파일이 아직 없어도 처음 쓸 자리를 안다.

@@ -195,8 +195,8 @@ export const INPUT_TYPES = new Set<InputType>([
 export const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 // slugSchema(protocol/projects/values.ts)와 같은 규칙. 이 file은 의존성이 없어 따로 쓴다.
 const DOMAIN_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-// 앱 command의 agent 이름은 `<domain>_<command>`이다. tool.load 묶음 규칙이 wire 이름 첫 `_` 앞을 묶음 이름으로 보므로,
-// 내장 tool의 자원 이름(wire 이름 첫 `_` 앞)과 `mcp`는 domain 이름이 될 수 없다. 새 내장 자원을 더하면 여기도 더한다
+// 앱 command의 agent 이름은 `<domain>_<command>`이다. wire 이름 첫 `_` 앞은 내장 tool과 명령의 묶음 이름(자원 이름)이라,
+// 내장 자원 이름과 `mcp`는 domain 이름이 될 수 없다. 겹치면 앱 command의 wire 이름이 내장 것과 부딪힌다. 새 내장 자원을 더하면 여기도 더한다
 // (core/main/tool-names_test.ts가 잡는다). 순수 declaration graph가 보도록 이 file에 둔다.
 export const RESERVED_DOMAIN_NAMES: readonly string[] = [
   "file",

@@ -247,6 +247,68 @@ test("loop의 안전 규칙이 지켜진다", async (t) => {
       ],
 
       [
+        "8b lophn으로 부른 쓰기 명령도 쓰기로 다뤄 다시 실행하지 않고 읽기와 병렬로 돌지 않는다",
+        async () => {
+          const wrapped = (id: string, args: string[]) =>
+            call(id, "lophn", JSON.stringify({ args }));
+          const order: string[] = [];
+          const slowRead: HarnessTool = {
+            name: "job_list",
+            effect: "read",
+            async run() {
+              // 병렬이면 이 사이에 쓰기가 먼저 끝난다.
+              const { promise, resolve } = Promise.withResolvers<void>();
+              setTimeout(resolve, 5);
+              await promise;
+              order.push("read");
+              return { status: "success", code: "ok", summary: "read ok" };
+            },
+          };
+          const write: HarnessTool = {
+            name: "job_delete",
+            effect: "write",
+            run() {
+              order.push("write");
+              return {
+                status: "failure",
+                code: "unavailable",
+                summary: "down",
+              };
+            },
+          };
+          const h = loopHarness({
+            steps: [
+              tools([
+                wrapped("t1", ["job", "list"]),
+                wrapped("t2", [
+                  "job",
+                  "delete",
+                  "job_00000000000000000000000001",
+                ]),
+              ]),
+              answer("done"),
+            ],
+            tools: [slowRead, write],
+          });
+          const end = await h.run().done;
+          settle(h);
+          // 읽기가 끝난 뒤 쓰기가 한 번만 돈다. 병렬이면 쓰기가 먼저 끝나고, retry면 두 번 돈다.
+          assert.deepStrictEqual(
+            [order, h.waits, end],
+            [["read", "write"], [], completed],
+          );
+          // 이력의 tool_use는 model이 보낸 lophn 그대로다.
+          const uses = h.model.requests[1].prompt.request.messages.flatMap(
+            (message) =>
+              message.parts.flatMap((part) =>
+                part.kind === "tool_use" ? [part.name] : [],
+              ),
+          );
+          assert.deepStrictEqual(uses, ["lophn", "lophn"]);
+        },
+      ],
+
+      [
         "9 일시 실패는 같은 입력으로 두 번까지 다시 보낸다",
         async () => {
           const h = loopHarness({

@@ -17,7 +17,7 @@ import {
 // 한 model 응답의 tool 묶음 처리.
 // 모든 call이 읽기로 확인된 묶음만 병렬이고 그 밖에는 요청 순서로 하나씩 한다. 결과는 언제나 요청
 // 순서다. 없는 tool·잘못된 인자는 인자를 고치지 않고 call별 결과로 돌려준다.
-// `tool_call`은 여기서 대상 tool의 호출로 푼다. 효과·병렬·retry·기록·Gate가 모두 대상 tool을 기준으로 한다.
+// `lophn {args}`는 여기서 그 명령의 호출로 푼다. 효과·병렬·retry·기록·Gate가 모두 대상 tool을 기준으로 한다.
 
 type ModelToolCall = {
   id: string;
@@ -29,7 +29,7 @@ type ModelToolCall = {
 export type CallResult = {
   key: string;
   order: number;
-  // 실행한 tool의 wire 이름과 입력이다. `tool_call`이면 푼 대상이다. 해석할 수 없었으면 원문 글이다.
+  // 실행한 tool의 wire 이름과 입력이다. `lophn`이면 푼 명령이다. 해석할 수 없었으면 원문 글이다.
   name: string;
   input: unknown;
   // model이 보낸 호출 그대로다. 이력의 tool_use 짝은 이 값으로 만든다.

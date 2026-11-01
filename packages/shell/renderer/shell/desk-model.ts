@@ -345,6 +345,11 @@ export interface OpenOptions {
   readonly select?: boolean;
   /** 이 tab 바로 뒤에 넣는다. tabs에 없으면 끝이다. group의 구성원이면 group 뒤로 비킨다. */
   readonly after?: string;
+  /**
+   * `after` tab(터미널)의 옆 칸에 연다. 새 tab일 때만이고, `after`가 tabs에 없거나 `select: false`면 `after` 뒤에
+   * 넣기만 한다. 자세한 칸 규칙은 `openBeside`다.
+   */
+  readonly beside?: boolean;
   /** 저장 안 된 변경이 있는 tab. preview 자리를 바꿔 쓸 때 이 tab은 사라지지 않고 고정 tab으로 남는다. */
   readonly unsaved?: (key: string) => boolean;
 }
@@ -370,14 +375,21 @@ export function openTab(
       return desk;
   }
   let base = desk;
+  const beside =
+    options.beside === true &&
+    select &&
+    options.after !== undefined &&
+    desk.tabs.some((item) => item.key === options.after);
   const old =
     tab.preview === true ? desk.tabs.find((item) => item.preview) : undefined;
   if (old !== undefined) {
     if (options.unsaved?.(old.key) !== true) {
-      return replaceTab(desk, old.key, tab, select);
-    }
-    base = pinTab(desk, old.key);
+      // 옆 칸에 열 때는 자리를 바꿔 쓰지 않고 지운다. 옛 preview가 멀리 있으면 새 tab이 안 보이기 때문이다.
+      if (!beside) return replaceTab(desk, old.key, tab, select);
+      base = dropTab(desk, old.key);
+    } else base = pinTab(desk, old.key);
   }
+  if (beside) return openBeside(base, tab, options.after!);
   const afterAt =
     options.after === undefined
       ? -1
@@ -399,6 +411,33 @@ export function openTab(
     tabs: [...base.tabs.slice(0, at), tab, ...base.tabs.slice(at)],
     selected: select ? tab.key : (base.selected ?? tab.key),
   };
+}
+
+// 새 tab을 source(터미널) 옆 칸에 열고 고른다. source가 group에 없으면 [source | tab]을 row 0.5로 새로 묶고,
+// group에 있으면 source 다음 leaf(돌아서)의 칸을 tab이 이어받는다. 밀려난 tab은 group에서만 빠지고 tabs에
+// 남으며 group은 자라지 않는다.
+function openBeside(desk: Desk, tab: TabItem, source: string): Desk {
+  const at = desk.tabs.findIndex((item) => item.key === source) + 1;
+  const added: Desk = {
+    ...desk,
+    tabs: [...desk.tabs.slice(0, at), settled(tab), ...desk.tabs.slice(at)],
+  };
+  const group = groupOf(desk, source);
+  if (group === null) return splitTab(added, source, tab.key, "right");
+  const leaves = leavesOf(group.layout);
+  const next = leaves[(leaves.indexOf(source) + 1) % leaves.length]!;
+  return settle({
+    ...added,
+    selected: tab.key,
+    groups: added.groups.map((item) =>
+      item === group
+        ? {
+            layout: replaceLeaf(group.layout, next, () => ({ tab: tab.key })),
+            focus: tab.key,
+          }
+        : item,
+    ),
+  });
 }
 
 // tabs의 old 자리에 tab을 넣는다. group 구성원이면 group도 새 key를 가리킨다.

@@ -24,8 +24,8 @@ const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 let terminalCount = 0;
 
 /**
- * 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다.
- * 저장한 session을 열 때만 폴더와 resume을 준다. `command`는 대화 코드 블록의 실행이고 floated로 연다
+ * 사람이 누른 터미널 열기. cwd를 주지 않으면 Explorer root에서 시작한다(없으면 시작 폴더를 탭 화면이 main에
+ * 묻는다). 저장한 session을 열 때만 폴더와 resume을 주고, 이때는 그 폴더가 우선이다. `command`는 대화 코드 블록의 실행이고 floated로 연다
  * (`openAt`의 run).
  */
 export function openTerminal(
@@ -44,10 +44,13 @@ export function openTerminal(
   if (!terminal || host.projectId === null) return;
   const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
   const title = host.projectTitle ?? t("project-workspace.label.kind-terminal");
+  const cwd =
+    options.cwd ??
+    (options.folderRef === undefined ? host.explorerRoot : undefined);
   terminal.store.request(key, options.folderRef ?? null, {
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     ...(options.command === undefined ? {} : { command: options.command }),
-    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+    ...(cwd === undefined ? {} : { cwd }),
   });
   const tab: TabItem = {
     key,

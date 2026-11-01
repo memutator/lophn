@@ -710,6 +710,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
       updateDesk(setActiveDesk(base, target), target, (item) =>
         openTabInDesk(item, tab, {
           after: options?.after,
+          beside: options?.beside,
           unsaved: isUnsaved,
         }),
       ),

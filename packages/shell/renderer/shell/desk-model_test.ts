@@ -322,6 +322,31 @@ test("preview tab은 자리를 바꿔 쓰고 저장 안 된 것은 남기며 gro
   assert.equal(desk.selected, "p3");
 });
 
+test("터미널 옆에 열기는 group을 만들거나 다음 칸을 이어받고 tab을 잃거나 둘로 만들지 않는다", () => {
+  // group이 없으면 [터미널 | 새 tab]이 된다.
+  let desk = deskOf("a", "t", "b");
+  desk = openTab(desk, tab("n1"), { after: "t", beside: true });
+  assertValid(desk, ["a", "t", "b", "n1"]);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n1"]);
+  assert.equal(desk.selected, "n1");
+
+  // group에 있으면 다음 leaf의 칸을 새 tab이 가져가고, 밀려난 tab은 tabs에 남으며 group은 자라지 않는다.
+  desk = splitTab(desk, "n1", "b", "right");
+  assertValid(desk, ["a", "t", "b", "n1"]);
+  desk = openTab(desk, tab("n2"), { after: "t", beside: true });
+  assertValid(desk, ["a", "t", "b", "n1", "n2"]);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n2", "b"]);
+  assert.equal(groupOf(desk, "n1"), null);
+
+  // 마지막 leaf에서는 첫 칸으로 돌아가고, 이미 열린 tab은 옛 규칙대로 고르기만 한다.
+  desk = openTab(desk, tab("n3"), { after: "b", beside: true });
+  assertValid(desk, ["a", "t", "b", "n1", "n2", "n3"]);
+  assert.deepEqual(leavesOf(groupOf(desk, "b")!.layout), ["n3", "n2", "b"]);
+  const again = openTab(desk, tab("n1"), { after: "t", beside: true });
+  assertValid(again, ["a", "t", "b", "n1", "n2", "n3"]);
+  assert.equal(again.groups.length, 1);
+});
+
 test("tab 메뉴의 여러 개 닫기는 의도한 tab만 닫고 group을 유효하게 둔다", () => {
   let desk = deskOf("a", "b", "c", "d", "e");
   desk = splitTab(desk, "b", "c", "right");

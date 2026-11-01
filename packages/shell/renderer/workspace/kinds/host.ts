@@ -107,11 +107,15 @@ export interface TabHost {
    * 끝에 붙이고 고른다. `preview` 탭은 그 desk의 preview 자리를 바꿔 쓴다(저장 안 된 변경이 있는 탭은
    * 남긴다). `select: false`면 붙이기만 하고 보고 있는 탭을 바꾸지 않는다(core 요청으로 열리는 coding 터미널 탭).
    * `after`는 그 key의 탭 바로 뒤에 넣는다(그 탭이 없으면 없는 것과 같다). 그 탭이 다른 desk에 있으면 그 desk로
-   * 건너가 연다.
+   * 건너가 연다. `beside`는 `after`(터미널)의 옆 칸에 연다(`openBeside`).
    */
   openTab(
     tab: TabItem,
-    options?: { readonly select?: boolean; readonly after?: string },
+    options?: {
+      readonly select?: boolean;
+      readonly after?: string;
+      readonly beside?: boolean;
+    },
   ): void;
   /**
    * 탭을 곧바로 floated로 연다(popup). size를 주면 그 크기로 stage 가운데에 열고 없으면 지금

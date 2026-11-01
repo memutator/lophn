@@ -1,6 +1,6 @@
 # run
 
-run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출 하나다. `claude -p`나 `codex exec`처럼 명령 하나로 시키고 결과를 받는다. 이 문서는 run이 무엇이고, 언제 시작해서 어떻게 끝났다고 아는지, 취소와 켤 때 복구와 session 끝이 run을 어떻게 닫는지, CLI와 자격, 화면이 run을 어떻게 보이는지를 정한다. 이 경계가 흐려지면 끝을 짐작하다 다른 입력의 답을 돌려주거나, 켤 때 닫힌 run 뒤에 같은 일이 한 번 더 돌거나, 끝난 session이 run을 영영 running으로 붙잡는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/runs`, 규칙은 `packages/core/runs`(runs), 끼우는 곳은 `packages/core/main/daemon/wiring/runs.ts`, 사람이 쓰는 입구는 `packages/coding-agent/cli/commands/run.ts`다.
+run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출 하나다. `claude -p`나 `codex exec`처럼 명령 하나로 시키고 결과를 받는다. 이 문서는 run이 무엇이고, 언제 시작해서 어떻게 끝났다고 아는지, 취소와 켤 때 복구와 session 끝이 run을 어떻게 닫는지, CLI와 자격, 화면이 run을 어떻게 보이는지를 정한다. 이 경계가 흐려지면 끝을 짐작하다 다른 입력의 답을 돌려주거나, 켤 때 닫힌 run 뒤에 같은 일이 한 번 더 돌거나, 끝난 session이 run을 영영 running으로 붙잡는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/runs`, 규칙은 `packages/core/runs`(runs), 끼우는 곳은 `packages/core/main/daemon/wiring/runs.ts`, 사람이 쓰는 입구는 `packages/cli/commands/run.ts`다.
 
 ## 흐름
 

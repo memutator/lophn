@@ -1,6 +1,6 @@
 # job
 
-job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`)와 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. 이 문서는 job이 무엇이고 누가 만들고 승인하고 고치는지, scheduler가 언제 깨어 무엇을 하는지, 놓친 차례와 겹침과 hold와 서머타임을 어떻게 다루는지, 할 일마다 어떻게 시작하고 끝을 아는지, 권한과 화면을 정한다. 이 경계가 흐려지면 꺼진 사이 놓친 차례가 몇 번이든 같은 바깥 효과가 여러 번 나거나, 앞 차례가 도는데 같은 job이 또 돌거나, 사람이 승인하지 않은 일이 사람 없이 되풀이되거나, 승인한 뒤 할 일이 바뀌거나, 켤 때 끊긴 차례가 영영 running으로 남는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/jobs`, 규칙은 `packages/core/jobs`(jobs), 끼우는 곳은 `packages/core/main/daemon/wiring/jobs.ts`와 `jobs-registration.ts`, agent tool은 `packages/core/jobs/agent-tools.ts`, 화면은 `packages/shell/renderer/desktop/jobs/`다.
+job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`)와 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. 이 문서는 job이 무엇이고 누가 만들고 승인하고 고치는지, scheduler가 언제 깨어 무엇을 하는지, 놓친 차례와 겹침과 hold와 서머타임을 어떻게 다루는지, 할 일마다 어떻게 시작하고 끝을 아는지, 권한과 화면을 정한다. 이 경계가 흐려지면 꺼진 사이 놓친 차례가 몇 번이든 같은 바깥 효과가 여러 번 나거나, 앞 차례가 도는데 같은 job이 또 돌거나, 사람이 승인하지 않은 일이 사람 없이 되풀이되거나, 승인한 뒤 할 일이 바뀌거나, 켤 때 끊긴 차례가 영영 running으로 남는다. 여러 곳에 걸쳐 있다. 계약은 `packages/protocol/jobs`, 규칙은 `packages/core/jobs`(jobs), 끼우는 곳은 `packages/core/main/daemon/wiring/jobs.ts`와 `jobs-registration.ts`, agent tool은 `packages/cli/commands/job.ts`, 화면은 `packages/shell/renderer/desktop/jobs/`다.
 
 ## 흐름
 

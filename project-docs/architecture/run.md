@@ -5,7 +5,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 ## 흐름
 
 ```
- CLI (lophn agent run | tool call | run wait|show|cancel)      user token
+ CLI (lophn agent run | <domain> <command> | run wait|show|cancel)   user token
    │  POST /runs/start | wait | cancel | read | list
    ▼
  runs service (core/runs)  ── port ──▶ wiring/runs.ts ──▶ lophn-agent 연산, 앱 호출 경로, ledger
@@ -96,11 +96,11 @@ tool run
 - run event는 계약에 없다. 화면은 session event 때 다시 읽는다.
 
 CLI와 자격(`architecture/coding-agent.md`)
-- 명령은 `lophn agent run <prompt>`(`--agent`, `--project`, `--app`, `--session`, `--schema`, `--input`, `--async`), `lophn tool call <app> <tool>`(`--input`, `--async`), `lophn run wait|show|cancel <run>`이다. `--agent`는 agent 이름(없으면 lophn)이고 `--project`나 `--app`이 place(이름이나 id, 둘을 같이 쓰지 않는다, 없으면 home)다. `--session`은 셋과 같이 쓰지 않는다. 이어 쓰는 session의 agent와 place는 열 때 정해졌다. `--schema`는 JSON 글이다.
-- 결과는 stdout에 낸다. 답이 글이면 그대로, 아니면 JSON이고 `--json`이면 run 전체다. `--async`는 run id(`--json`이면 run)를 내고 바로 끝난다.
+- 명령은 `lophn agent run <prompt>`(`--agent`, `--project`, `--app`, `--session`, `--schema`, `--data`, `--async`), `lophn <domain> <command>`(앱 command, command의 입력 칸이 flag다), `lophn run wait|show|cancel <run>`이다. `lophn <domain> <command>`는 첫 낱말이 명령 표에 없으면 binary가 사람 자격으로 `domain.list`와 `app.tools`를 읽어 찾고 tool run(`runs.start kind:tool`)으로 부른 뒤 기다린다(`packages/cli/commands/app-command.ts`). 사람은 그 domain의 command를 모두 본다. `--agent`는 agent 이름(없으면 lophn)이고 `--project`나 `--app`이 place(이름이나 id, 둘을 같이 쓰지 않는다, 없으면 home)다. `--session`은 셋과 같이 쓰지 않는다. 이어 쓰는 session의 agent와 place는 열 때 정해졌다. `--schema`는 JSON 글이다.
+- 결과는 stdout에 낸다. 답이 글이면 그대로, 아니면 JSON이고 `--json`이면 run 전체다. `agent run --async`는 run id(`--json`이면 run)를 내고 바로 끝난다.
 - 종료 코드는 0 성공, 1 internal, 2 invalid_input, 3 unauthorized·forbidden, 4 실패, 5 unavailable, 6 쓰기 응답을 잃음(effect_unknown)이다. 실패하거나 취소된 run은 `--json`이 없으면 stdout을 비우고 stderr에 한 줄(`failed: <reason>: <message>` 또는 `cancelled`)을 쓰고 4로 끝난다. `--json`이면 run을 stdout에 내고 4로 끝난다. `--async`, `run show`, `run cancel`은 명령 자체가 되면 0이다.
 - 자격은 `<data root>/run/user-token`이다. core가 부모가 있을 때 hello frame을 쓰며 같은 token을 0600 file로 쓴다. 켤 때(lock을 잡은 뒤)와 종료, 기동 실패 때 지운다. file을 쓰지 못하면 core는 시작을 멈춘다. file이 없으면 lophn이 꺼진 것이고 CLI는 core를 띄우지 않고 `unavailable`(exit 5)로 끝난다.
-- CLI 표(`CODING_CLI_COMMANDS`)의 이 다섯 명령은 `route`가 없고 `output`이 `z.unknown()`이다. protocol에서 coding-agent → runs → lophn-agent → coding-agent가 import 순환이 되기 때문이다. 명령(`cli/commands/run.ts`)이 `protocol/runs`의 route를 직접 부른다.
+- 명령은 명령 표(`packages/cli/commands/`)의 `packages/cli/commands/run.ts`에 있고 `protocol/runs`의 route를 부른다. 이 명령들은 place 종류가 비어 binary만 부른다.
 
 화면
 - run이 연 session은 sidebar에 그대로 두지 않고 그 run 아래로 묶어 보인다. 쌓일 session을 그대로 두면 job이 하루에 session을 수십 개 만든다. 묶는 것은 `session_opened`가 true인 run의 session뿐이다. `--session`으로 이어 쓴 session은 원래 자리에 둔다.

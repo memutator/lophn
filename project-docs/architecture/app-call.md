@@ -1,15 +1,15 @@
 # app-call
 
-앱은 선언의 `tools[]`에 MCP tool 모양으로 tool을 선언하고, 그 tool을 부르는 길은 다섯이다: 사람이 연 앱 화면, agent의 tool(그 앱 place의 session은 preview도), 다른 앱, job이 연 tool run(program), flow instance가 연 tool run(flow). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
+앱은 선언에서 두 층을 내놓는다. 화면과 앱 자신이 쓰는 저수준 동작인 operation(`operations[]`)과, 앱이 골라 바깥에 내놓는 command(`commands[]`)다. operation을 부르는 길은 사람이 연 앱 화면과 그 앱 place session의 preview다. command를 부르는 길은 넷이다: agent의 명령 `lophn <domain> <command>`, 다른 앱, job이 연 tool run(program), flow instance가 연 tool run(flow). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거쳐야 한다. 그래야 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 그래서 모든 호출은 core를 지나고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다.
 
 ## 흐름
 
 ```
- person ── shell 앱 화면 ─────┐
- agent  ── run-loop tool ─────┼─ core-api(app.call_tool) ─▶ 호출 경로 (core/apps/calls)
- app    ── sdk ─ broker ──────┤              1 부른 쪽 확인        (credential, 도는 turn·부모 invocation·job run·instance)
- program ── job run의 tool run ─┤   (core 안 run 연산만. route로는 못 연다)
- flow  ── instance의 tool run ──┘   (같다)
+ person ── shell 앱 화면 (operation) ──┐
+ agent  ── lophn <domain> <command> ───┼─ core-api(app.call_tool) ─▶ 호출 경로 (core/apps/calls)
+ app    ── sdk ─ broker (command) ─────┤              1 부른 쪽 확인        (credential, 도는 turn·부모 invocation·job run·instance)
+ program ── job run의 tool run ─────────┤   (core 안 run 연산만. route로는 못 연다)
+ flow  ── instance의 tool run ──────────┘   (같다)
                                              2 막기               agent는 할당(judge), program은 통과(사람이 등록을 승인한 job), flow는 PM의 할당(unattended)과 domain 거르기,
                                                                   앱은 active 앱 grant의 app.call. 묻지 않는다
                                              3 write·external이면 앱별 줄을 얻는다. read는 바로
@@ -43,15 +43,15 @@
 
 ## 지키는 것
 
-- tool 선언은 MCP tool 정의(`name`, `title`, `description`, `inputSchema`, 선택 `outputSchema`)에 lophn 칸 셋을 더한 것이다. `effect`(`read`, `write`, `external`)는 program이 강제하고(write 줄, 기록), `public`은 다른 domain에 보이는지, `domain`은 그 tool이 다루는 객체의 domain(그 앱의 domain 이름)이다. `domain`은 필수이고 앱의 active domain 이름이 아니면 release 준비, `declaration.check`, activation 직전 재검사가 거절한다(`architecture/domain.md`). 이름은 1~64자 `[A-Za-z0-9_.-]`이고 schema의 root는 `object`다(인자가 없으면 `inputSchema: null`).
-  - MCP annotation(`readOnlyHint`, `destructiveHint`, `openWorldHint`)은 effect에서 만들어(`toMcpTool`) 바깥에 보일 때만 싣는다. 힌트일 뿐이고 강제하지 않는다.
+- 선언은 두 목록이다. operation은 `{name, title, effect}`이고 입력 schema가 없다(입력 검사는 앱 code의 일이다). command는 `{name, description, inputSchema, effect, public, domain}`이다. 두 목록을 합쳐 이름이 하나이고 handler는 이름 하나로 등록한다(`@lophn/cap-tool`의 `handle`). `effect`(`read`, `write`, `external`)는 program이 강제하고(write 줄, 기록), command의 `public`은 다른 domain에 보이는지, `domain`은 그 command가 다루는 객체의 domain(그 앱의 domain 이름)이다. `domain`은 필수이고 앱의 active domain 이름이 아니면 release 준비, `declaration.check`, activation 직전 재검사가 거절한다(`architecture/domain.md`). 이름은 1~64자 `[A-Za-z0-9_.-]`이고 command schema의 root는 `object`다(인자가 없으면 `inputSchema: null`).
+- operation은 사람(화면)과 그 앱 place session의 preview만 부른다. agent·다른 앱·job·flow가 operation을 부르면 handler에 보내기 전에 `denied(gate_blocked)`다(`packages/core/apps/calls/service.ts`). 화면용 저수준 동작이 agent 계약(할당, 결과 크기)에 묶이지 않게 하려는 것이다.
 - 모든 tool 호출은 core를 지난다. 화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다.
   - 막기, 기록, write 줄이 core 한 곳에 있어야 changeset이 빠지지 않는다.
 - 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 하고, program은 본문의 job과 job run이, flow는 본문의 instance가 core가 만든 자격과 같아야 한다.
   - 끝난 turn이나 꺼진 판의 호출이 실수로 섞이면 막기와 기록이 틀린다. agent, 앱, program, flow는 늘 live 활성 release만 부른다.
 - tool 호출은 domain을 싣지 않고 invocation에도 domain이 없다. 어느 domain이 불렀는지는 부른 session의 agent가 맡은 domain으로 안다.
   - 앱 code가 호출자별로 data를 나누는 관례는 core가 지키지 못한다. 그래서 호출에 범위를 싣지 않는다.
-- 다른 domain의 agent는 앱의 `public` tool만 본다. 맡은 domain의 agent는 그 domain의 모든 tool을 본다. 같은 앱의 다른 domain도 다른 domain이다. 어느 domain을 맡았는지는 agent의 place와 정의가 정한다(`architecture/domain.md`, `agent-definition.md`).
+- 다른 domain의 agent는 앱의 `public` command만 본다. 맡은 domain의 agent는 그 domain의 모든 command를 본다. 같은 앱의 다른 domain도 다른 domain이다. 어느 domain을 맡았는지는 agent의 place와 정의가 정한다(`architecture/domain.md`, `agent-definition.md`).
 - 호출 경로는 묻지 않고 막기만 한다. agent의 호출은 그 agent의 지금 할당을 `judge`로 보고(할당 안 된 앱, 뺀 tool이면 막는다), 앱의 호출은 부른 앱의 active grant 가운데 `app.call`이 그 대상 앱의 그 tool을 덮는지 본다. 막히면 `denied(gate_blocked)`다. 판정 자리는 write 줄 앞이다.
   - 사람에게 묻는 자리는 run-loop tool gate 하나다(`architecture/approval.md`). agent의 호출이 여기 닿았으면 물을 것은 이미 물었다. 앱이 앱을 부르는 것은 activation 때 사람이 grant로 허락한 것이라 묻지 않는다.
 - program은 job이 연 tool run의 호출이다(`architecture/job.md`). 부른 쪽 사람이 없고 부른 turn도 없다. 자격(`CallAuth.program`: job, job run)은 route가 만들지 못하고 core 안 run 연산이 만든다(`packages/core/main/daemon/wiring/runs.ts`). caller 본문은 `{kind: program, job, job_run}`뿐이고 자격과 같아야 한다(`verifyCaller`).
@@ -74,8 +74,8 @@
   - changeset은 최신부터 뒤집어 한 transaction으로 적용하고, 충돌하면 통째로 취소한다. 반쯤 되돌아간 DB를 남기지 않는다.
   - 그래서 뒤집은 changeset 전부가 요청 하나로 간다. core는 control frame 한도를 넘을 수 있는 이 본문을 json 요청(`apps.apply`, payload는 `{ app }`) 뒤 같은 channel의 bytes frame과 `end`로 supervisor에 보낸다. 보내다 실패하거나 기한이 지나면 `abort`를 보내고 `unavailable`로 끝낸다. write 하나씩 나눠 보내면 중간 실패 때 일부만 되돌아간다.
 - 결과 모름으로 닫혀 changeset이 없는 write가 범위에 있으면 rewind를 막는다. 얼마나 바뀌었는지 모르기 때문이다. 크기 한도로 changeset을 못 붙인 write는 막지 않고 "DB를 되돌리지 못함"으로 표시한다.
-  - 앱 호출 입력과 응답은 supervisor control frame 하나씩으로 오간다. 응답이 frame 한도(`CALL_RESPONSE_MAX_BYTES`, 256KiB에서 envelope 여유를 뺀 값)를 넘으면 앱 process가 changeset만 빼고 `changeset_dropped: "too_large"`를 싣는다. 호출은 결과 모름이 아니라 성공·실패로 닫히고 요약에 `changeset_dropped`가 남는다. 빼지 않으면 frame에서 거절되어 결과 모름이 되고 rewind가 통째로 막힌다.
-  - 결과 상한(`RESULT_MAX_BYTES`)은 그 frame 한도에서 결과 밖 칸 몫을 뺀 값이라, 상한 안의 결과는 changeset을 빼면 늘 frame에 든다. 입력 상한(`CALL_BODY_MAX_BYTES`)도 frame 한도 아래이고, 넘는 입력은 core가 보내기 전에 `invalid_input`으로 거절한다. 큰 값은 blob이나 file로 넘긴다.
+  - command 호출의 입력과 응답, operation 호출의 입력은 supervisor control frame 하나씩으로 오간다. operation의 응답이 frame 하나를 넘으면 supervisor가 같은 channel의 bytes frame과 `end`로 보내고(응답 payload `{stream: <channel>}`, `packages/core/apps/runtime/supervisor/control-link.ts`, `packages/core/apps/runtime/supervisor-link.ts`), 응답 상한은 shell과 같은 `CALL_RESULT_MAX_BYTES`(8 MiB, `packages/protocol/apps/calls/limits.ts`)다. 화면 목록 같은 큰 읽기를 전송 단위에 묶지 않으려는 것이다. command는 agent가 읽을 작은 결과가 맞아 frame 하나에 둔다. 응답이 상한을 넘으면 앱 process가 changeset만 빼고 `changeset_dropped: "too_large"`를 싣는다. 호출은 결과 모름이 아니라 성공·실패로 닫히고 요약에 `changeset_dropped`가 남는다. 빼지 않으면 frame에서 거절되어 결과 모름이 되고 rewind가 통째로 막힌다. 받다 끊기거나 기한이 지나면 결과 모름이다.
+  - command의 결과 상한(`RESULT_MAX_BYTES`)은 그 frame 한도에서 결과 밖 칸 몫을 뺀 값이라, 상한 안의 결과는 changeset을 빼면 늘 frame에 든다. 입력 상한(`CALL_BODY_MAX_BYTES`)도 frame 한도 아래이고, 넘는 입력은 core가 보내기 전에 `invalid_input`으로 거절한다. 큰 값은 blob이나 file로 넘긴다. operation의 결과 상한은 `CALL_RESULT_MAX_BYTES`에서 1 KiB를 뺀 값이다.
 - release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
 - preview는 따로 띄운 process와 일회용 DB로 돈다. invocation을 남기지 않고(응답의 `invocation`은 null) rewind 대상이 아니다. 운영 앱의 drain과 정지에도 걸리지 않는다.
   - preview 호출은 그 preview bundle의 선언으로 tool과 effect를 판정한다. 아직 release에 없는 새 앱과 새 tool도 부를 수 있다. ledger의 `release`는 비울 수 없어 release 없는 bundle의 호출은 기록할 자리도 없다.
@@ -111,8 +111,8 @@
 - **program caller를 따로 둔다.** 사람이 연 run의 호출은 사람의 호출이라 Gate를 거치지 않는다. job의 호출은 사람이 등록을 승인한 job의 호출이라 판정 없이 지나가지만, 기록에는 어느 job, 어느 차례가 불렀는지 남아야 한다. agent caller는 도는 turn과 tool call을 싣고 그것으로 확인하는데 job에는 그것이 없다. 그래서 job과 job run을 싣고 core가 만든 자격과 맞춰 본다. agent를 빌려 쓰면 없는 turn을 만들어야 한다.
 - **job의 허락은 만든 agent의 할당이 아니라 사람의 등록 승인이다.** 할당으로 판정하면 job 하나를 돌리려고 만든 agent에게 그 앱 전체를 열어 줘야 하고(그 agent는 다른 session에서도 그 앱의 모든 tool을 부른다), job을 만든 agent는 그 tool을 직접 쓸 이유가 없을 때가 많다(앱 place에서 앱을 만든 agent가 그 앱의 수집 job을 만드는 경우). 할당이 없으면 job은 만들어지고 차례마다 말없이 막혔다. 사람이 job 하나(주기와 할 일)를 보고 승인하면 허락의 범위가 그 job의 할 일 하나로 맞는다.
 - **flow caller를 program에서 가른다.** flow instance의 호출도 사람이 없지만 자격의 agent(`workflow.yaml`의 `agent`, 없으면 lophn)의 할당으로 판정한다. job이 없으니 본문과 자격이 맞춰 볼 것이 instance다. 같은 kind에 job과 instance를 nullable로 두면 parser 손 사본마다 둘 중 하나만 있는지를 다시 검사해야 한다.
-- **agent에게는 앱 tool이 그대로 tool로 보인다**(`<domain>_<tool>`, tool 이름의 `.`은 `_`, 예: `calendar_event_list`). 내장 tool의 `<자원>_<동사>`와 같은 꼴이다. domain 이름은 모든 domain에서 하나이고 `_`가 없어 앱 id 없이 겹치지 않는다. 내장 자원 이름과 `mcp`는 domain 이름으로 쓰지 못하고(`RESERVED_DOMAIN_NAMES`), 한 앱 안에서 이름이 같아지는 두 tool은 선언 검사가 거절한다. hash는 64자를 넘을 때만 붙인다. 앱 tool은 deferral이 켜진 session에서 이름만 알리고 domain 묶음으로 불러온다(`architecture/agent-definition.md`). 앱 할당과 release 선언 사실(tool 이름)의 교집합만 tool 정의가 되고 사람이 뺀 tool은 요청에 아예 없다. 효과(read, write, external)와 `outputSchema`는 tool 정의에 싣지 않고 core가 release의 선언에서 읽어 줄 세우기와 기록에 쓴다. 조사한 harness 모두 정의에 효과를 싣지 않고 호출 때 판정한다. tool 이름은 parse하지 않고 정의 목록이 (앱, tool)을 안다.
-- **선언은 MCP tool 모양 하나다.** 화면 bridge(`window.lophnApp.callTool`), SDK(`tool(name, handler)`), agent tool이 모두 같은 이름과 schema를 쓴다. lophn 칸(`effect`, `public`)은 MCP 정의 밖에 두고, 바깥에는 annotation으로만 보인다.
+- **agent는 앱 command를 명령으로 부른다(`lophn <domain> <command>`, 사람 2026-11-01).** 앱 command마다 provider tool을 만들면 tool 정의가 앱 수만큼 늘고 늦게 싣기 장치가 필요했다. 지금은 `lophn` tool이 부를 때 지금 할당, 활성 release의 command 선언, domain 규칙(맡은 domain이면 전부, 아니면 public)으로 찾는다(`packages/core/lophn-agent/tools/lophn/resolve.ts`, `packages/core/lophn-agent/tools/app-tool/command.ts`). 기록 이름은 `<domain>.<command>`(argv 낱말은 `.`로 나누고 `_`는 `-`)이고 effect는 선언에서 온다. 앱 command는 session 시작 때 고정하지 않아 `tools_changed` notice가 없다. command 이름은 place 정보의 domain 지도에 실리고 `lophn <domain> --help`가 description과 입력을 보인다. 사람은 binary의 `lophn <domain> <command>`로 run을 거쳐 부른다. domain 이름은 모든 domain에서 하나이고 `_`가 없으며, 내장 명령 묶음 이름은 domain 이름으로 쓰지 못한다(`RESERVED_DOMAIN_NAMES`, `packages/cli/commands/domain-names_test.ts`).
+- **선언을 operation과 command 두 층으로 나눴다(사람, 2026-11-01).** 한 목록이던 때는 화면이 앱 process에 닿는 길이 tool뿐이라 화면용 저수준 동작이 모두 agent tool이 되었고, agent 계약의 결과 상한이 화면 기능을 깎았다(Mahas 세션 목록이 200행으로 줄었다). 앱 고유의 저수준 동작은 operation으로 화면과 앱이 쓰고, agent와 다른 앱에는 앱이 고른 의미 단위 command만 내놓는다. command handler는 앱 code의 같은 domain 함수를 감싼다. 화면은 `window.lophnApp.callOperation`(`@lophn/app-ui`의 `useOperation`, `OperationButton`)으로 부른다. MCP 모양과 annotation은 바깥에 내놓는 MCP endpoint가 없어 지웠다.
 - **session rewind가 앱 data를 저절로 되돌리지 않는다.** 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라지기 때문이다. 사람이 앱을 골랐을 때만, 함께 되돌아갈 목록을 보인 뒤 같은 rewind로 간다(Claude Code의 rewind 메뉴가 코드와 대화를 따로 고르게 하는 것과 같다).
 - **바깥 net의 목적지 검사는 broker가 요청마다 한다.** 앱 process의 OS 권한을 막지 않으므로(사람이 정했다) process 권한으로는 목적지를 가둘 수 없다. 그래서 SDK 요청마다 현재 선언 사실 ∩ grant를 읽는 쪽을 골랐다.
 - **secret은 값을 앱에 주지 않고 전송 직전에 붙인다.** 앱이 값을 쥐면 응답, 오류, log로 새는 길을 앱 코드마다 막아야 한다. 앱은 쓰겠다는 요청만 내고, 값은 core가 supervisor에게 한 번 주어 붙인다.

@@ -3,6 +3,7 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   agentChange,
   agentCreate,
+  type AgentId,
   agentDelete,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
@@ -90,27 +91,23 @@ export function createAgentCommands(deps: AgentDeps): {
         }
         const context = open(deps, tx);
         if (!context.ok) return context;
-        const existing = loadAgent(context.value, input.id);
+        const id = input.id ?? (tx.newId("agt") as AgentId);
+        const existing = loadAgent(context.value, id);
         if (!existing.ok) return existing;
         if (existing.value !== null) {
           return err({ code: "conflict", message: "agent already exists" });
         }
         const checked = checkAgent({
           context: context.value,
-          agent: input.id,
+          agent: id,
           definition: input.definition,
         });
         if (!checked.ok) return checked;
-        const slot = agentSlotOf(context.value.store.root, input.id);
+        const slot = agentSlotOf(context.value.store.root, id);
         const written = context.value.store.write(slot, checked.value);
         if (!written.ok) return written;
-        removeStaleImages(
-          deps,
-          context.value,
-          input.id,
-          input.definition.profile,
-        );
-        return ok({ agent: input.id, hash: written.value });
+        removeStaleImages(deps, context.value, id, input.definition.profile);
+        return ok({ agent: id, hash: written.value });
       },
     },
     change: {

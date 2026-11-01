@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { z } from "zod";
-import { KIND_TOOLS } from "../../agent-places/tools/kind.ts";
 import { defineTool } from "./define.ts";
 import { inputJsonSchema, normalizeTypeArrays } from "./wire.ts";
 
@@ -109,12 +108,4 @@ test("선언한 inputSchema도 정규화한다", () => {
     handler: () => Promise.reject(new Error("not called")),
   });
   assert.deepEqual(typeArraysIn(inputJsonSchema(tool)), []);
-});
-
-// 이 저장소에서 실제로 400을 낸 툴이다. where의 value가 타입 배열로 나가면 안 된다.
-test("kind.list의 where가 타입 배열을 싣지 않는다", () => {
-  const list = KIND_TOOLS.find((tool) => tool.name === "kind.list");
-  assert.ok(list !== undefined, "kind.list is missing");
-  const schema = inputJsonSchema(list);
-  assert.deepEqual(typeArraysIn(schema), []);
 });

@@ -60,7 +60,7 @@ function open() {
     compare: unknown = {},
   ) => (handle as (...a: unknown[]) => Out)(tx, ctx, input, compare);
   return {
-    create: (ctx: RequestContext, name: string, owner: DomainOwner) =>
+    create: (ctx: RequestContext, name: string, owner?: DomainOwner) =>
       call(commands.create.handle, ctx, {
         name,
         title: name,
@@ -113,6 +113,17 @@ test("agent는 자기 그릇이 아닌 owner에 domain을 못 만들고 이름�
     create(context(AGENT, {}), "free", mine).error?.code,
     "forbidden",
   );
+  // owner를 생략한 agent는 자격 조건의 그릇에 만들고, user는 생략하지 못한다.
+  assert.deepStrictEqual(create(agent, "implicit").ok, true);
+  assert.deepStrictEqual(
+    create(context(AGENT, { app: APP as never }), "in-app").ok,
+    true,
+  );
+  assert.deepStrictEqual(
+    create(context(AGENT, {}), "none").error?.code,
+    "invalid_input",
+  );
+  assert.deepStrictEqual(create(USER, "nobody").error?.code, "invalid_input");
   // 이름은 그릇과 상관없이 전 domain에서 하나다.
   assert.deepStrictEqual(create(USER, "mine", other).error?.code, "conflict");
 });

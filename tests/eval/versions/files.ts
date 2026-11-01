@@ -18,16 +18,12 @@ export const TOOL_FILES: readonly string[] = [
   "packages/core/apps/agent-tools/preview.ts",
   "packages/core/apps/agent-tools/runtime.ts",
   "packages/core/apps/agent-tools/visual.ts",
-  "packages/core/domains/agent-tools.ts",
   "packages/core/lophn-agent/tools/lophn/tool.ts",
   "packages/core/lophn-agent/tools/bundles/skill.ts",
   "packages/core/lophn-agent/tools/bundles/file.ts",
   "packages/core/lophn-agent/tools/bundles/web.ts",
   "packages/core/lophn-agent/tools/bundles/ask.ts",
   "packages/core/lophn-agent/tools/bundles/shell.ts",
-  "packages/core/agent-places/tools/agent.ts",
-  "packages/core/agent-places/tools/kind.ts",
-  "packages/core/agent-places/tools/settings.ts",
 ];
 
 export type FileGroup =

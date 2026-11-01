@@ -27,7 +27,7 @@ test("place kind tool wire names fit the provider rule and never collide", () =>
   }
 });
 
-// 앱 진단 tool은 home과 app 종류가 받는다. `lophn` tool과 agent 정의 tool은 셋 다 받고, 작업 tool은 project와 app만,
+// 앱 진단 tool은 home과 app 종류가 받는다. `lophn` tool은 셋 다 받고, 작업 tool은 project와 app만,
 // 앱 쓰기는 app만 받는다.
 test("each tool appears only in the place kinds that do its work", () => {
   const table: [string[], readonly PlaceKind[]][] = [
@@ -35,13 +35,9 @@ test("each tool appears only in the place kinds that do its work", () => {
       ["app.tools", "app.status", "app.logs", "app.invocations"],
       ["home", "app"],
     ],
-    [["lophn", "agent.create", "agent.update"], PLACE_KINDS],
+    [["lophn"], PLACE_KINDS],
     [
       ["file.write", "file.edit", "shell.run"],
-      ["project", "app"],
-    ],
-    [
-      ["kind.list", "kind.check"],
       ["project", "app"],
     ],
     [

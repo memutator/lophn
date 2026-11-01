@@ -1,26 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../../base/mod.ts";
-import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { KindsDispatcher } from "./dispatcher.ts";
 import { kindHandlers } from "./handlers.ts";
 
-const AGENT = "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza";
-const OWNERS: Record<string, DomainOwner> = {
-  dom_01hzzzzzzzzzzzzzzzzzzzzzza: {
-    kind: "project",
-    id: "prj_a",
-  } as DomainOwner,
-  dom_01hzzzzzzzzzzzzzzzzzzzzzzb: {
-    kind: "project",
-    id: "prj_b",
-  } as DomainOwner,
-  dom_01hzzzzzzzzzzzzzzzzzzzzzzc: { kind: "app", id: "app_a" } as DomainOwner,
-};
+const MINE = "dom_01hzzzzzzzzzzzzzzzzzzzzzza";
+const ALSO = "dom_01hzzzzzzzzzzzzzzzzzzzzzzb";
+const OTHER = "dom_01hzzzzzzzzzzzzzzzzzzzzzzc";
+const ses = (name: string) => `agent:ses_01hzzzzzzzzzzzzzzzzzzzzzz${name}`;
 
-// 자격 그릇이 owner가 아닌 domain은 읽을 수 없다. dispatcher까지 가지도 않는다.
-test("kind 읽기: agent는 자격 그릇이 owner인 domain만 읽는다", async () => {
+// agent가 맡지 않은 domain은 dispatcher까지 가지 못한다. 하나뿐이면 생략할 수 있고, 둘 이상인데 생략하면 거절이다.
+test("kind 읽기: agent는 자기 session이 맡은 domain만 읽는다", async () => {
   let asked = 0;
   const dispatcher = {
     ask: () => {
@@ -28,54 +19,55 @@ test("kind 읽기: agent는 자격 그릇이 owner인 domain만 읽는다", asyn
       return Promise.resolve(ok({}));
     },
   } as unknown as KindsDispatcher;
-  const handler = kindHandlers({
+  const sessions: Record<string, string[]> = {
+    [ses("a").slice(6)]: [MINE],
+    [ses("b").slice(6)]: [MINE, ALSO],
+    [ses("c").slice(6)]: [],
+  };
+  const handlers = kindHandlers({
     dispatcher: () => dispatcher,
-    ownerOf: (domain) => OWNERS[domain] ?? null,
+    domainsOfSession: (session) => sessions[session] ?? [],
     rootsOf: () => ["/work"],
-  }).get("kinds/get")!;
-  const call = (
+  });
+  const call = async (
+    route: "kinds/list" | "kinds/check",
     actor: string,
-    conditions: Record<string, string>,
-    domain: string,
-  ) =>
-    handler({ actor, conditions } as unknown as AuthenticatedContext, {
-      domain,
-    });
-  const code = async (result: ReturnType<typeof call>) => {
-    const done = await result;
+    domain: string | undefined,
+    conditions: Record<string, string> = { project: "prj_a" },
+  ) => {
+    const query = route === "kinds/list" ? { kind: "receipt" } : {};
+    const done = await handlers.get(route)!(
+      { actor, conditions } as unknown as AuthenticatedContext,
+      domain === undefined ? { query } : { domain, query },
+    );
     return done.ok ? "ok" : done.error.code;
   };
 
-  assert.deepStrictEqual(
-    await code(
-      call(AGENT, { project: "prj_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzza"),
-    ),
-    "ok",
-  );
-  assert.deepStrictEqual(asked, 1);
-  assert.deepStrictEqual(
-    await code(
-      call(AGENT, { project: "prj_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzb"),
-    ),
-    "not_found",
-  );
-  assert.deepStrictEqual(
-    await code(
-      call(AGENT, { project: "prj_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzc"),
-    ),
-    "not_found",
-  );
-  assert.deepStrictEqual(
-    await code(call(AGENT, { app: "app_a" }, "dom_01hzzzzzzzzzzzzzzzzzzzzzzc")),
-    "ok",
-  );
-  assert.deepStrictEqual(
-    await code(call(AGENT, {}, "dom_01hzzzzzzzzzzzzzzzzzzzzzza")),
-    "forbidden",
-  );
-  assert.deepStrictEqual(asked, 2);
-  assert.deepStrictEqual(
-    await code(call("user", {}, "dom_01hzzzzzzzzzzzzzzzzzzzzzzb")),
-    "ok",
-  );
+  for (const route of ["kinds/list", "kinds/check"] as const) {
+    asked = 0;
+    assert.deepStrictEqual(await call(route, ses("a"), undefined), "ok");
+    assert.deepStrictEqual(await call(route, ses("a"), MINE), "ok");
+    assert.deepStrictEqual(await call(route, ses("b"), ALSO), "ok");
+    assert.deepStrictEqual(asked, 3);
+    for (const [actor, domain] of [
+      [ses("a"), OTHER],
+      [ses("b"), OTHER],
+      [ses("b"), undefined],
+      [ses("c"), undefined],
+      [ses("c"), MINE],
+    ] as const) {
+      assert.deepStrictEqual(
+        await call(route, actor, domain),
+        "invalid_input",
+        `${actor} ${domain}`,
+      );
+    }
+    assert.deepStrictEqual(await call(route, ses("a"), MINE, {}), "forbidden");
+    assert.deepStrictEqual(await call(route, "user", OTHER, {}), "ok");
+    assert.deepStrictEqual(
+      await call(route, "user", undefined, {}),
+      "invalid_input",
+    );
+    assert.deepStrictEqual(asked, 4);
+  }
 });

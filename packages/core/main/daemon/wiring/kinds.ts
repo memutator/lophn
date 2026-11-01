@@ -3,7 +3,6 @@
 // 띄우지 못해도 core는 계속 선다: 읽기는 unavailable이다.
 import { mkdir } from "node:fs/promises";
 import { ok } from "../../../../base/mod.ts";
-import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
 import {
   appFolderPaths,
   appSourcePath,
@@ -24,6 +23,7 @@ import {
 import { projectRootsOf } from "../../../projects/lookups.ts";
 import type { Writer } from "../../../storage/ledger/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
+import { agentDomainPorts } from "../agent-domains.ts";
 import { createWorkerChannel, type WiringFactory } from "./context.ts";
 
 type Connection = Extract<
@@ -60,8 +60,9 @@ export const kindsWiring: WiringFactory = () => {
       link = connection;
       const handlers = kindHandlers({
         dispatcher: () => dispatcher,
-        ownerOf: (domain): DomainOwner | null =>
-          domainOwnerOf(connection.sql, domain),
+        domainsOfSession: (session) =>
+          agentDomainPorts(connection.sql).sessionDomains(session)?.domains ??
+          [],
         rootsOf: (domain) => rootsOfDomain(connection.sql, domain),
       });
       return ok({

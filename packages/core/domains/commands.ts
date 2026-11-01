@@ -35,6 +35,27 @@ function mayCreate(ctx: RequestContext, owner: DomainOwner): boolean {
     : ctx.conditions.app === owner.id;
 }
 
+// owner를 생략한 agent의 그릇은 자격 조건에서 정한다. user는 꼭 준다.
+function ownerOf(
+  ctx: RequestContext,
+  given?: DomainOwner,
+): Result<DomainOwner> {
+  if (given !== undefined) return ok(given);
+  const { app, project } = ctx.conditions;
+  if (parseActor(ctx.actor)?.kind === "agent") {
+    if (app !== undefined) {
+      return ok({ kind: "app", id: app } as DomainOwner);
+    }
+    if (project !== undefined) {
+      return ok({ kind: "project", id: project } as DomainOwner);
+    }
+  }
+  return err({
+    code: "invalid_input",
+    message: "owner is required (agents create in their project or app place)",
+  });
+}
+
 // 그릇 확인 없이 만든다. 확인은 부른 command가 한다(domain.create, 앱을 만드는 command).
 export function createDomain(
   tx: Pick<Tx, "sql" | "emit" | "newId">,
@@ -87,17 +108,20 @@ export function createDomainCommands(): {
       handle(tx, ctx, input) {
         if (input.id !== undefined && parseActor(ctx.actor)?.kind !== "user")
           return fail("forbidden", "only a person assigns a domain id");
-        if (!mayCreate(ctx, input.owner)) {
+        const given = ownerOf(ctx, input.owner);
+        if (!given.ok) return given;
+        const owner = given.value;
+        if (!mayCreate(ctx, owner)) {
           return fail("forbidden", "a domain is made in the actor's own owner");
         }
-        const owner = tx.port(ownerLookupPort).get(input.owner);
-        if (owner === null) {
-          return fail("not_found", `${input.owner.kind} not found`);
+        const found = tx.port(ownerLookupPort).get(owner);
+        if (found === null) {
+          return fail("not_found", `${owner.kind} not found`);
         }
-        if (owner.status === "archived") {
-          return fail("conflict", `${input.owner.kind} is archived`);
+        if (found.status === "archived") {
+          return fail("conflict", `${owner.kind} is archived`);
         }
-        return createDomain(tx, input);
+        return createDomain(tx, { ...input, owner });
       },
     },
     archive: {

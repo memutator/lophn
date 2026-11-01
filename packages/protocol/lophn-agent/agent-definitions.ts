@@ -136,7 +136,8 @@ export const agentCreate = defineCommand({
   method: "create",
   name: "CreateAgent",
   input: z.strictObject({
-    id: idSchema("agt"),
+    // 생략하면 core가 새로 정한다(명령 표의 `agent create`).
+    id: idSchema("agt").optional(),
     definition: agentDefinitionSchema,
   }),
   output: z.object({ agent: agentIdSchema, hash: sha256Schema }),

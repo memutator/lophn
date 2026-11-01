@@ -34,7 +34,8 @@ export const domainCreate = defineCommand({
     name: domainNameSchema,
     title: z.string().min(1),
     purpose: z.string(),
-    owner: domainOwnerSchema,
+    // agent는 생략하면 자격 조건의 project나 app이 그릇이다. user는 꼭 준다.
+    owner: domainOwnerSchema.optional(),
   }),
   output: domainRecordSchema,
   compare: z.strictObject({}),

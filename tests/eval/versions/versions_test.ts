@@ -58,7 +58,7 @@ test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 n이�
 });
 
 const TOOL_SKILL = "packages/core/lophn-agent/tools/bundles/skill.ts";
-const TOOL_SETTINGS = "packages/core/agent-places/tools/settings.ts";
+const TOOL_ASK = "packages/core/lophn-agent/tools/bundles/ask.ts";
 const SKILL_MD = "packages/core/agent-places/skills/foo/SKILL.md";
 
 async function write(root: string, rel: string, text: string) {
@@ -83,7 +83,7 @@ function modelCall(first: string): CollectedModelCall {
         { type: "text", text: first },
         { type: "text", text: "# Skills\nRead a skill.\n- foo: does foo" },
       ],
-      tools: [{ name: "skill_read" }, { name: "settings_get" }],
+      tools: [{ name: "skill_read" }, { name: "ask" }],
     },
   } as unknown as CollectedModelCall;
 }
@@ -99,7 +99,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
     const registryDir = `${dir}/registry`;
     await write(root, SKILL_MD, skillMd("does foo", "body 1"));
     await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" });');
-    await write(root, TOOL_SETTINGS, 'defineTool({ name: "settings.get" });');
+    await write(root, TOOL_ASK, 'defineTool({ name: "ask" });');
 
     const seen = async (tool_calls: CollectedToolCall[]) => {
       const r = await seenComponents(
@@ -113,7 +113,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
       "instruction:home@1",
       "model:claude-test@1",
       "skill-description:foo@1",
-      "tool:settings.get@1",
+      "tool:ask@1",
       "tool:skill.read@1",
     ];
 
@@ -139,7 +139,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
     await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" }); // v2');
     assert.deepStrictEqual(
       (await seen([])).filter((t) => t.startsWith("tool:")),
-      ["tool:settings.get@1", "tool:skill.read@2"],
+      ["tool:ask@1", "tool:skill.read@2"],
     );
 
     const bad = await seenComponents(
@@ -158,7 +158,6 @@ test("classifyPath는 component, tool, runtime, core를 가르고 shell·design�
     [`${R}/skills/write-kinds/SKILL.md`, "skill:write-kinds"],
     [`${R}/skills/root.ts`, "runtime"],
     [`${R}/skills/make-domain/SKILL.md`, "skill:make-domain"],
-    [`${R}/tools/settings.ts`, "tool"],
     [
       "packages/core/apps/packages/template/app/tests/items_test.ts.tmpl",
       "template",
@@ -207,7 +206,7 @@ test("texts를 주면 seenComponents가 variant의 place 종류 prompt body를 �
     const root = `${dir}/root`;
     const registryDir = `${dir}/registry`;
     await write(root, TOOL_SKILL, 'defineTool({ name: "skill.read" });');
-    await write(root, TOOL_SETTINGS, 'defineTool({ name: "settings.get" });');
+    await write(root, TOOL_ASK, 'defineTool({ name: "ask" });');
     const variantLophn = `${lophn.value}\nvariant edit`;
     const texts = {
       place_prompts: {

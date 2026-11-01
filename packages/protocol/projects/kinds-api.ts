@@ -1,4 +1,4 @@
-// kind 조회·검사 계약. 내장 tool `list`·`check`가 부르는 core 메모리 route 셋이다. handler는 core가 붙이고,
+// kind 조회·검사 계약. `lophn kind list|check` 명령이 부르는 core 메모리 route 셋이다. handler는 core가 붙이고,
 // 답은 kinds worker가 만든다(`kinds-work.ts`).
 import { z } from "zod";
 import { defineMemory } from "../base/route.ts";
@@ -184,7 +184,8 @@ export const kindList = defineMemory({
   method: "list",
   name: "kind.list",
   input: z.strictObject({
-    domain: idSchema("dom"),
+    // agent는 맡은 domain이 하나뿐이면 생략할 수 있다. user는 꼭 준다.
+    domain: idSchema("dom").optional(),
     query: kindListQuerySchema,
   }),
   output: z.discriminatedUnion("mode", [
@@ -228,7 +229,7 @@ export const kindCheck = defineMemory({
   method: "check",
   name: "kind.check",
   input: z.strictObject({
-    domain: idSchema("dom"),
+    domain: idSchema("dom").optional(),
     query: kindCheckQuerySchema,
   }),
   output: z.strictObject({

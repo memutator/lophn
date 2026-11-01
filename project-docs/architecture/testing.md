@@ -60,7 +60,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, crash, migration)는 그 위에 얹는 patch다. patch가 더하는 tool의 `domain`은 `sampleDomain(dir)`(견본 선언의 첫 domain = 앱 slug)으로 채운다. source 폴더의 마지막 조각은 `source`라 slug가 아니다.
 
 - 바깥 net·secret 행(`app-call_test.ts`의 `net-fetch-loopback`)은 loopback `serve` 서버를 test가 띄우고, `Calls` 앱에 `cap-net`·`cap-secret`을 쓰는 patch(`patch-net.ts`)를 얹어 앱이 broker를 지나 그 서버를 부르게 한다. 서버가 받은 요청의 `Authorization`, 호출 결과, ledger의 invocation으로 단정한다.
-- agent가 앱 tool을 부르는 행은 test가 만든 agent에 사람이 앱을 할당해 부른다(`assignmentSet {agent, entries: [{app, removed_tools: []}]}`, compare `{revision: 0}`. `app-call_test.ts`, `app-data-rewind_test.ts`). 할당한 앱의 tool만 tool 목록에 뜬다(`project-docs/architecture/approval.md` "할당").
+- agent가 앱 tool을 부르는 행은 test가 만든 agent에 사람이 앱을 할당해 부른다(`assignmentSet {agent, entries: [{app, removed_tools: []}]}`, compare `{revision: 0}`. `app-call_test.ts`, `app-data-rewind_test.ts`). 할당은 그 agent 정의 파일의 `apps`에 써지고, 할당이 없을 때 revision은 0이며 쓴 뒤의 revision은 내용의 hash라 값이 아니라 0이 아닌지로 본다. 할당한 앱의 tool만 tool 목록에 뜬다(`project-docs/architecture/approval.md` "할당").
 - 허락을 묻게 하는 행(turn request)은 file 쓰기가 아니라 `shellAsk`의 `shell_run "rm -r <폴더>"`로 묻는다. file 쓰기는 묻지 않는다(`project-docs/architecture/approval.md`). 실행 여부는 폴더가 남았나로 disk에서 본다.
 - Gateway 연결은 principal마다 4개 한도라 event가 필요한 test만 `connectGateway`를 스스로 열고 닫는다.
 - release 준비가 받는 npm 의존은 `npm run e2e:deps`가 `.dev-data/e2e/npm-cache` 하나에 미리 받는다. 앱 E2E의 core는 `appCoreEnv()`로 그 cache(`npm_config_cache`, `npm_config_offline=true`)를 받고, E2E 중 network는 loopback뿐이다.

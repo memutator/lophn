@@ -34,6 +34,7 @@ modules:
 
   - path: packages/core/approvals
     boundary: approvals
+    notes: 정의 파일도 앱 표도 모르고 import하지 않는다. 할당 읽기·쓰기와 앱 공유 요청이 이름을 푸는 길은 ports.ts의 port이고 core/main의 wiring/assignment-file.ts와 wiring/share-requests.ts가 끼운다. 옛 할당 표의 data step도 거기 있다.
 
   - path: packages/core/apps
     boundary: apps

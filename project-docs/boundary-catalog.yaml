@@ -137,7 +137,7 @@ elements:
 
       - id: approvals
         kind: component
-        description: tool 호출의 판정과 사람에게 묻는 길. 할당(앱과 뺀 tool), shell 규칙, turn mode로 판정하고, 물을 것은 기다리는 turn의 request 하나로 묻는다.
+        description: tool 호출의 판정과 사람에게 묻는 길. 할당(agent 정의 파일의 앱과 뺀 tool), shell 규칙, turn mode로 판정하고, 물을 것은 기다리는 turn의 request 하나로 묻는다. 앱이 청한 공유 요청(share_requests)도 사람이 한 번 승인한다.
 
       - id: config
         kind: component
@@ -170,7 +170,7 @@ elements:
 
       - id: coding-agent-cli
         kind: application
-        description: lophn이 내놓는 명령 표(`packages/cli`)와 그 binary. lophn agent는 native tool `lophn`으로, coding agent와 사람은 binary로 같은 명령을 부른다. binary는 user token을 쓰고, harness hook·감지 명령(local)은 coding-agent가 갖고 binary가 끼운다.
+        description: lophn이 내놓는 명령 표(`packages/cli`)와 그 binary. lophn agent는 native tool `lophn`으로, coding agent와 사람은 binary로 같은 명령을 부른다. binary는 user token을 쓰고, harness hook·감지·공유 skill 사본 명령(local)은 coding-agent가 갖고 binary가 끼운다.
 
   - id: design
     kind: library

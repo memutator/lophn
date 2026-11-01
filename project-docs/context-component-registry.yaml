@@ -185,10 +185,11 @@ components:
   - id: architecture-approval
     kind: doc
     roles: [planner, lead]
-    description: Gate 판정, 사람에게 묻는 request 두 길, 결정의 적용.
+    description: Gate 판정, 사람에게 묻는 request(turn 안, 앱 공유 요청), 할당 저장(agent 정의 파일)과 옮김, 결정의 적용.
     path: project-docs/architecture/approval.md
     change_reasons:
       boundaries: [approvals, agent-tools, agent-places, jobs]
+      paths: [packages/core/approvals/share-requests/, packages/core/main/daemon/wiring/assignment-file.ts, packages/core/main/daemon/wiring/share-requests.ts]
 
   - id: architecture-testing
     kind: doc
@@ -227,11 +228,11 @@ components:
   - id: architecture-app-call
     kind: doc
     roles: [planner, lead]
-    description: 사람, agent, 앱, job(program)이 앱의 tool을 부르는 길. tool 선언의 domain 칸, 부른 쪽 확인, 줄, 기록, rewind, 앱 log.
+    description: 사람, agent, 앱, job(program)이 앱의 tool을 부르는 길. tool 선언의 domain 칸과 skills 칸, 부른 쪽 확인, 줄, 기록, rewind, 앱 log, 공유 skill 읽기(`app.skills`).
     path: project-docs/architecture/app-call.md
     change_reasons:
       boundaries: [app-runtime, app-data, app-capability]
-      paths: [packages/protocol/apps/calls/, packages/core/apps/calls/]
+      paths: [packages/protocol/apps/calls/, packages/core/apps/calls/, packages/core/apps/screens/skills.ts, packages/core/apps/releases/public-tools.ts]
 
   - id: architecture-place-session
     kind: doc
@@ -270,7 +271,7 @@ components:
   - id: architecture-agent-definition
     kind: doc
     roles: [planner, lead]
-    description: agent 정의, prompt 조립, tool, model.
+    description: agent 정의(할당 칸 포함), prompt 조립, 지침 파일, skill 층과 공유 skill, tool, model.
     path: project-docs/architecture/agent-definition.md
     change_reasons:
       boundaries: [agent-places, agent-tools, run-loop, models, agent-tool-spi]
@@ -278,7 +279,7 @@ components:
   - id: architecture-coding-agent
     kind: doc
     roles: [planner, lead]
-    description: 사람이 쓰는 coding agent와 lophn을 잇는 CLI, 제품 감지, hook 설치.
+    description: 사람이 쓰는 coding agent와 lophn을 잇는 CLI, 제품 감지, hook 설치, 공유 skill 사본.
     path: project-docs/architecture/coding-agent.md
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-harness-api, coding-agent-cli-interface]

@@ -2,8 +2,8 @@
 
 model이 읽는 글과 eval에서 옛 tool 이름(`release.prepare`, `job.create`, `tool.load`, `<domain>_<tool>` 같은 것)을 명령 꼴(`lophn release prepare`, `lophn <domain> <command>`)로 고친다.
 
-- 단위: text (wave 3)
-- 선행: 없음
+- 단위: text (wave 2)
+- 선행: cmd-followups. `preview.call`이 명령으로 옮겨진 뒤의 이름을 쓴다.
 - 소유(이 task만 고친다):
   - `packages/core/agent-places/prompts/**`
   - `packages/core/agent-places/skills/**`

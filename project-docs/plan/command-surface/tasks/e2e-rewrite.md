@@ -2,8 +2,8 @@
 
 e2e와 test 지원 code가 fake model에게 부르게 하던 옛 native tool(`call`, `reply`, `cancel`, `app_create`, `release_prepare`, `preview_*`, `job_*`, `workflow_*`, 앱 tool `<domain>_<tool>` 등)을 `lophn {args}` 명령 호출로 고친다.
 
-- 단위: text (wave 3)
-- 선행: 없음
+- 단위: text (wave 2)
+- 선행: cmd-followups. `preview.call`이 명령으로 옮겨진 뒤의 이름을 쓴다.
 - 소유(이 task만 고친다):
   - `tests/e2e/**`
   - `tests/support/**`

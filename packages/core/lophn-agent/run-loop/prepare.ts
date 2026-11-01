@@ -41,11 +41,7 @@ import type { LoopDeps, TurnContext, TurnInput, TurnInputs } from "./ports.ts";
 import type { AgentEventSink } from "./ports.ts";
 import type { AgentTurnCredential, BeginTurnInput } from "./credentials.ts";
 import type { StartTurnResult } from "./credentials.ts";
-import type {
-  InstructionTexts,
-  SeenBasis,
-  TurnPromptInput,
-} from "../prompt-assembly/mod.ts";
+import type { SeenBasis, TurnPromptInput } from "../prompt-assembly/mod.ts";
 import {
   definitionHash,
   runOperations,
@@ -308,14 +304,13 @@ export function promptSkills(
 // 없는 층은 빈 글이다.
 function instructionTexts(
   layers: readonly TurnInstructionLayer[],
-): InstructionTexts {
-  const texts: InstructionTexts = {
-    global: "",
-    project: "",
-    domain: "",
-    agent: "",
-  };
-  for (const layer of layers) texts[layer.layer] = layer.text ?? "";
+): TurnPromptInput["instructions"] {
+  const files: Partial<Record<TurnInstructionLayer["layer"], string>> = {};
+  const texts = { global: "", project: "", domain: "", agent: "", files };
+  for (const layer of layers) {
+    texts[layer.layer] = layer.text ?? "";
+    if (layer.file !== null) files[layer.layer] = layer.file;
+  }
   return texts;
 }
 
@@ -419,7 +414,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     request: TurnStart,
     agentCall: CoreCall,
     inputs: TurnInputs,
-    instructions: InstructionTexts,
+    instructions: TurnPromptInput["instructions"],
     mode: TurnMode,
   ) {
     const { seat, model, agent: resolved, external, session } = m;

@@ -31,6 +31,7 @@ export function encodeInstructionFile(
   file: InstructionFile,
 ): InstructionReadFile {
   return {
+    ...(file.name === undefined ? {} : { name: file.name }),
     size_bytes: file.size_bytes,
     content_base64: toBase64(file.bytes),
   };
@@ -43,7 +44,11 @@ export function decodeInstructionFile(
   if (bytes === undefined) {
     return err({ code: "unavailable", message: "지침 본문을 읽지 못했다" });
   }
-  return ok({ size_bytes: file.size_bytes, bytes });
+  return ok({
+    ...(file.name === undefined ? {} : { name: file.name }),
+    size_bytes: file.size_bytes,
+    bytes,
+  });
 }
 
 // 한 session의 InstructionFiles. core의 GetInstructions를 그 session으로 부르는 `call`만 받는다. 어느 project의

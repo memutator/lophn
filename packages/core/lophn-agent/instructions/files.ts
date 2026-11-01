@@ -1,6 +1,7 @@
-// 사람 지침(LOPHN.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
+// 사람 지침(LOPHN.md, 없으면 CLAUDE.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
 // 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project의
-// LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`), domain의 DOMAIN.md(`<data>/domains/<dom>/`), 그리고 agent 정의 본문이다.
+// LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`). 전역과 project 자리는
+// LOPHN.md가 없으면(ENOENT) 같은 자리의 CLAUDE.md를 읽는다. domain의 DOMAIN.md(`<data>/domains/<dom>/`), 그리고 agent 정의 본문이다.
 // 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다.
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
@@ -16,6 +17,7 @@ import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { domainDocFile } from "../../../protocol/domains/paths.ts";
 import {
+  INSTRUCTION_FILE_NAMES,
   instructionsGet,
   type AgentId,
   type Place,
@@ -34,8 +36,6 @@ import {
   type InstructionLayerKind,
 } from "./mod.ts";
 
-const FILE_NAME = "LOPHN.md";
-
 function unavailable(): Result<never> {
   return err({ code: "unavailable", message: "지침 파일을 읽지 못했다" });
 }
@@ -45,7 +45,10 @@ function notFound(): Result<never> {
 }
 
 // 처음 INSTRUCTION_FILE_MAX_BYTES까지만 읽고 실제 크기를 함께 낸다. 파일이 없으면 null, 있는데 읽지 못하면(폴더·권한) unavailable이다.
-function openFile(path: string): Result<InstructionFile | null> {
+function openFile(
+  path: string,
+  name?: InstructionFile["name"],
+): Result<InstructionFile | null> {
   let fd: number;
   try {
     fd = openSync(path, "r");
@@ -64,12 +67,25 @@ function openFile(path: string): Result<InstructionFile | null> {
       if (count === 0) break;
       read += count;
     }
-    return ok({ size_bytes: stat.size, bytes: bytes.subarray(0, read) });
+    return ok({
+      ...(name === undefined ? {} : { name }),
+      size_bytes: stat.size,
+      bytes: bytes.subarray(0, read),
+    });
   } catch {
     return unavailable();
   } finally {
     closeSync(fd);
   }
+}
+
+// 전역·project 자리의 지침. LOPHN.md가 있으면 CLAUDE.md는 보지 않는다(있는데 못 읽어도 그대로 unavailable이다).
+function openInstructionFile(folder: string): Result<InstructionFile | null> {
+  for (const name of INSTRUCTION_FILE_NAMES) {
+    const file = openFile(`${folder}/${name}`, name);
+    if (!file.ok || file.value !== null) return file;
+  }
+  return ok(null);
 }
 
 export type SessionRow = {
@@ -166,7 +182,7 @@ function readInstruction(
   if (session === undefined) return notFound();
   const root = dataRootOf(snapshot.sql, undefined);
   if (!root.ok) return unavailable();
-  if (layer === "global") return openFile(`${root.value}/${FILE_NAME}`);
+  if (layer === "global") return openInstructionFile(root.value);
   if (layer === "agent") return readAgentBody(deps, root.value, session);
   if (layer === "domain") {
     const owner = deps.domainOwnerOf(snapshot.sql, domain!);
@@ -184,7 +200,7 @@ function readInstruction(
   const folder =
     deps.projectFirstFolder(snapshot.sql, project) ??
     deps.projectDataFolder(root.value, project);
-  return openFile(`${folder}/${FILE_NAME}`);
+  return openInstructionFile(folder);
 }
 
 // GetInstructions. machine만 읽는다(route의 actors). reader Worker의 동기 handler라 core 흐름과

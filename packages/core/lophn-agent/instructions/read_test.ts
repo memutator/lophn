@@ -33,9 +33,11 @@ function setup() {
   mkdirSync(folderA);
   mkdirSync(folderB);
   writeFileSync(join(folderA, "LOPHN.md"), "rules of A");
+  // LOPHN.md가 있으면 CLAUDE.md는 읽지 않는다.
+  writeFileSync(join(folderA, "CLAUDE.md"), "claude of A");
   writeFileSync(join(folderB, "LOPHN.md"), "rules of B");
   mkdirSync(join(root, "projects", PRJ_C), { recursive: true });
-  writeFileSync(join(root, "projects", PRJ_C, "LOPHN.md"), "rules of C");
+  writeFileSync(join(root, "projects", PRJ_C, "CLAUDE.md"), "rules of C");
   const db = new DatabaseSync(join(root, "ledger.db"));
   for (const step of [
     ...projectsSchemaSteps,
@@ -58,7 +60,7 @@ function setup() {
       folder,
     );
   }
-  // project C는 등록 폴더가 없다. 지침은 <data>/projects/<prj>/LOPHN.md다.
+  // project C는 등록 폴더가 없다. 지침은 <data>/projects/<prj>/에 있고 LOPHN.md 없이 CLAUDE.md뿐이다.
   db.prepare(
     "insert into projects values (?, 'c', 'c', '', '1', 'active')",
   ).run(PRJ_C);
@@ -98,18 +100,18 @@ function read(snapshot: ReadSnapshot, session: number) {
   );
   if (!result.ok) return result.error.code;
   const file = result.value.file;
-  return file === null ? null : atob(file.content_base64);
+  return file === null ? null : `${file.name}:${atob(file.content_base64)}`;
 }
 
-test("project 층은 session의 place가 가리키는 project의 LOPHN.md만 읽는다", () => {
+test("project 층은 session의 place가 가리키는 project의 LOPHN.md(없으면 CLAUDE.md)만 읽는다", () => {
   const { root, snapshot } = setup();
   try {
     const table: [number, string | null][] = [
       // [session, 결과]
       [1, null], // home session은 place가 없어 project 지침이 비어 있다
-      [2, "rules of A"],
+      [2, "LOPHN.md:rules of A"],
       [3, null], // 앱 그릇에는 LOPHN.md가 없다
-      [4, "rules of C"], // 폴더 없는 project는 data 자리의 파일이다
+      [4, "CLAUDE.md:rules of C"], // 폴더 없는 project는 data 자리의 파일이고 LOPHN.md가 없으면 CLAUDE.md다
     ];
     for (const [session, expected] of table) {
       assert.deepStrictEqual(read(snapshot, session), expected, `${session}`);

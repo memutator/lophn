@@ -18,6 +18,8 @@ export type TurnInstructionLayer = {
   text: string | null;
   // 본문의 sha256. 부재면 null이다.
   hash: string | null;
+  // 실제로 읽은 파일 이름(LOPHN.md 또는 CLAUDE.md). 전역·project 층만 있고 그 밖이거나 부재면 null이다.
+  file: string | null;
 };
 
 // 사람이 쓴 지침은 조용히 빼지 않는다: 한 층이라도 읽지 못했거나 상한을 넘으면 turn을 시작하지 않는다.
@@ -37,7 +39,7 @@ export type TurnDomain = { id: string; name: string; purpose: string };
 export const DOMAIN_TEXT_BUDGET = 24000;
 
 function absent(layer: InstructionLayerKind): TurnInstructionLayer {
-  return { layer, status: "absent", text: null, hash: null };
+  return { layer, status: "absent", text: null, hash: null, file: null };
 }
 
 function cmp(a: string, b: string): number {
@@ -58,7 +60,7 @@ export async function readTurnInstructions(
     reason: "unavailable" | "invalid" | "too_large",
     message: string,
   ) => ({ status: "blocked" as const, layer, reason, message });
-  // 한 층의 파일 하나. 읽은 본문(부재면 null)이나 막힘을 준다.
+  // 한 층의 파일 하나. 읽은 본문과 파일 이름(부재면 null)이나 막힘을 준다.
   const readFile = async (layer: InstructionLayerKind, domain?: string) => {
     const read = await deps.files.read(layer, domain);
     if (!read.ok) {
@@ -77,7 +79,7 @@ export async function readTurnInstructions(
         `${layer} instruction: ${inspected.reason}`,
       );
     }
-    return inspected.text;
+    return { text: inspected.text, file: read.value.name ?? null };
   };
   for (const layer of PROMPT_INSTRUCTION_LAYERS) {
     if (layer === "project" && session.kind === "home") {
@@ -85,14 +87,15 @@ export async function readTurnInstructions(
       continue;
     }
     let raw: string | null;
+    let file: string | null = null;
     if (layer === "domain") {
       const parts: string[] = [];
       let used = 0;
       for (const domain of [...domains].sort((a, b) => cmp(a.name, b.name))) {
         const body = await readFile(layer, domain.id);
-        if (typeof body === "object" && body !== null) return body;
-        if (body === null || body.trim() === "") continue;
-        const full = `## ${domain.name}\n${body.trim()}`;
+        if (body !== null && "status" in body) return body;
+        if (body === null || body.text.trim() === "") continue;
+        const full = `## ${domain.name}\n${body.text.trim()}`;
         // 예산을 한 번 넘기면 그 domain부터 뒤는 모두 본문 없이 싣는다.
         if (used + full.length <= DOMAIN_TEXT_BUDGET) {
           used += full.length;
@@ -109,8 +112,9 @@ export async function readTurnInstructions(
       raw = parts.length === 0 ? null : parts.join("\n\n");
     } else {
       const read = await readFile(layer);
-      if (typeof read === "object" && read !== null) return read;
-      raw = read;
+      if (read !== null && "status" in read) return read;
+      raw = read?.text ?? null;
+      file = read?.file ?? null;
     }
     if (raw === null) {
       layers.push(absent(layer));
@@ -129,6 +133,7 @@ export async function readTurnInstructions(
       status: "present",
       text,
       hash: await sha256Hex(text),
+      file,
     });
   }
   return { status: "ready", layers };

@@ -42,7 +42,10 @@ export type TurnPromptInput = {
   place_kind_prompt: string;
   // 정본 이름이다. model에는 `toWireToolName`을 거쳐 보낸다. 목록은 session을 시작할 때 고정한다.
   tools: readonly PromptTool[];
-  instructions: InstructionTexts;
+  // files는 전역·project 층이 실제로 읽은 파일 이름이다(LOPHN.md 또는 CLAUDE.md). 제목에 쓴다.
+  instructions: InstructionTexts & {
+    files?: Partial<Record<(typeof INSTRUCTION_LAYERS)[number], string>>;
+  };
   skills: readonly SkillListItem[];
   // place 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 kind 글과 agent다.
   place: {
@@ -84,16 +87,28 @@ export type TurnPromptResult =
 
 const INSTRUCTION_TITLE = {
   global: "Global instructions",
-  project: "Project instructions (LOPHN.md)",
+  project: "Project instructions",
   domain: "Domain instructions (DOMAIN.md)",
   agent: "Agent instructions",
 } as const;
 
-function instructionsBlock(texts: InstructionTexts): string {
+// 읽은 파일 이름이 없으면(eval 재조립) project만 LOPHN.md로 본다.
+function titleOf(
+  layer: keyof typeof INSTRUCTION_TITLE,
+  input: TurnPromptInput["instructions"],
+): string {
+  const name =
+    input.files?.[layer] ?? (layer === "project" ? "LOPHN.md" : undefined);
+  return name === undefined
+    ? INSTRUCTION_TITLE[layer]
+    : `${INSTRUCTION_TITLE[layer]} (${name})`;
+}
+
+function instructionsBlock(texts: TurnPromptInput["instructions"]): string {
   const sections = INSTRUCTION_LAYERS.flatMap((layer) =>
     texts[layer].trim() === ""
       ? []
-      : [`## ${INSTRUCTION_TITLE[layer]}\n${texts[layer]}`],
+      : [`## ${titleOf(layer, texts)}\n${texts[layer]}`],
   );
   return sections.length === 0
     ? ""
@@ -123,7 +138,7 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
   if (diff.instructions.length > 0) {
     const body = diff.instructions.map((layer) => {
       const text = input.instructions[layer].trim();
-      return `## ${INSTRUCTION_TITLE[layer]}\n${
+      return `## ${titleOf(layer, input.instructions)}\n${
         text === "" ? "(empty now)" : text
       }`;
     });

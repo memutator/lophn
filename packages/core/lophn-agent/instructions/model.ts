@@ -1,5 +1,8 @@
 import type { Result } from "../../../base/mod.ts";
-import type { PROMPT_INSTRUCTION_LAYERS } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  InstructionFileName,
+  PROMPT_INSTRUCTION_LAYERS,
+} from "../../../protocol/lophn-agent/mod.ts";
 
 // 사람 지침(LOPHN.md)의 층과 상한을 고르는 순수 규칙이다. LOPHN.md는 document·판을 쓰지 않는 그냥 파일이다.
 // turn 시작에 읽는 쪽은 turn.ts, 파일을 여는 쪽은 core(files.ts)다.
@@ -11,6 +14,8 @@ export type InstructionLayerKind = (typeof PROMPT_INSTRUCTION_LAYERS)[number];
 // 지침을 읽는 쪽이 보는 한 층의 파일. bytes는 처음부터 최대 INSTRUCTION_FILE_MAX_BYTES 만큼이다.
 // 상한을 넘는 파일은 size_bytes로만 알면 되므로 끝까지 읽지 않는다.
 export type InstructionFile = {
+  // 전역·project 층이 실제로 연 파일(LOPHN.md 또는 CLAUDE.md).
+  name?: InstructionFileName;
   size_bytes: number;
   bytes: Uint8Array;
 };

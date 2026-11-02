@@ -43,10 +43,32 @@ function inside(root: string, path: string): boolean {
   return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 }
 
+// 있는 가장 가까운 상위 폴더까지 올라가 실제 경로를 구하고 남은 이름을 붙인다. 끊어진 symlink는 따라 쓰면 밖에 쓰게 되어 null이다.
+async function planned(candidate: string): Promise<string | null> {
+  let probe = candidate;
+  const rest: string[] = [];
+  for (;;) {
+    const resolved = await real(probe);
+    if (resolved !== null)
+      return rest.length === 0 ? resolved : join(resolved, ...rest);
+    const probeStat = await lstat(probe).catch(() => null);
+    if (probeStat?.isSymbolicLink()) return null;
+    const parent = dirname(probe);
+    if (parent === probe) return null;
+    rest.unshift(basename(probe));
+    probe = parent;
+  }
+}
+
 // entry의 실제 경로와 파일인지 여부. 없는 entry는 부모 폴더가 있으면 파일 하나로 본다.
 async function entryOf(
   entry: string,
 ): Promise<{ path: string; file: boolean } | null> {
+  // 끝이 /인 entry는 아직 없어도 폴더다(session의 tool-results 폴더는 첫 spill 때 생긴다).
+  if (entry.endsWith(sep)) {
+    const folder = await planned(entry.slice(0, -1));
+    return folder === null ? null : { path: folder, file: false };
+  }
   const actual = await real(entry);
   if (actual !== null) {
     const actualStat = await stat(actual).catch(() => null);
@@ -70,21 +92,8 @@ export async function resolveInPlace(
   if (allowed.length === 0 || base === undefined) return forbidden();
   const candidate = normalize(isAbsolute(path) ? path : join(base, path));
 
-  // 있는 가장 가까운 상위 폴더까지 올라가 실제 경로를 구한다. 끊어진 symlink는 따라 쓰면 밖에 쓰게 되어 거절한다.
-  let probe = candidate;
-  const rest: string[] = [];
-  let resolved: string | null = null;
-  for (;;) {
-    resolved = await real(probe);
-    if (resolved !== null) break;
-    const probeStat = await lstat(probe).catch(() => null);
-    if (probeStat?.isSymbolicLink()) return forbidden();
-    const parent = dirname(probe);
-    if (parent === probe) return forbidden();
-    rest.unshift(basename(probe));
-    probe = parent;
-  }
-  const actual = rest.length === 0 ? resolved : join(resolved, ...rest);
+  const actual = await planned(candidate);
+  if (actual === null) return forbidden();
 
   for (const entry of allowed) {
     const found = await entryOf(entry);

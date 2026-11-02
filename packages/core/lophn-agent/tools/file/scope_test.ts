@@ -135,3 +135,66 @@ test("파일 entry는 그 파일(아직 없는 파일 포함)만 열고 같은 �
     await rm(temp, { recursive: true });
   }
 });
+
+test("session은 자기 tool-results 폴더만 읽고 쓰지 못하며 data root의 나머지는 거절한다", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "lophn-scope-"));
+  try {
+    const root = join(temp, "data");
+    const place = join(temp, "place");
+    await mkdir(join(root, "tool-results", "ses_other"), { recursive: true });
+    await mkdir(join(root, "tool-results", "ses_me"));
+    await mkdir(place);
+    await writeFile(join(root, "tool-results", "ses_me", "tcl_1.json"), "{}");
+    await writeFile(
+      join(root, "tool-results", "ses_other", "tcl_2.json"),
+      "{}",
+    );
+    await writeFile(join(root, "secrets.json"), "{}");
+    await symlink(
+      join(root, "secrets.json"),
+      join(root, "tool-results", "ses_me", "link.json"),
+    );
+    const mine = join(root, "tool-results", "ses_me");
+    // 끝의 /는 폴더가 아직 없어도 폴더로 본다.
+    const roots = { read: [place, `${mine}/`], write: [place], base: place };
+
+    const cases: [string, string, Mode, boolean][] = [
+      ["자기 파일 읽기", join(mine, "tcl_1.json"), "read", true],
+      ["자기 폴더 읽기", mine, "read", true],
+      ["없는 자기 파일", join(mine, "tcl_9.json"), "read", true],
+      ["자기 파일 쓰기", join(mine, "tcl_1.json"), "write", false],
+      ["자기 폴더에 새 파일 쓰기", join(mine, "new.json"), "write", false],
+      [
+        "다른 session의 파일",
+        join(root, "tool-results", "ses_other", "tcl_2.json"),
+        "read",
+        false,
+      ],
+      ["tool-results 폴더", join(root, "tool-results"), "read", false],
+      ["data root의 다른 파일", join(root, "secrets.json"), "read", false],
+      [
+        "..로 다른 session",
+        join(mine, "..", "ses_other", "tcl_2.json"),
+        "read",
+        false,
+      ],
+      ["밖을 가리키는 symlink", join(mine, "link.json"), "read", false],
+    ];
+    for (const [name, path, mode, allowed] of cases) {
+      const resolved = await resolveInPlace(roots, path, mode);
+      assert.equal(resolved.ok, allowed, name);
+      if (!resolved.ok) assert.equal(resolved.error.code, "forbidden", name);
+    }
+
+    // 첫 spill 전에는 폴더가 없다. 읽기는 forbidden이 아니라 파일이 없는 것(not_found)이어야 한다.
+    const fresh = join(temp, "fresh", "tool-results", "ses_new");
+    const before = await resolveInPlace(
+      { read: [place, `${fresh}/`], write: [place], base: place },
+      join(fresh, "tcl_1.json"),
+      "read",
+    );
+    assert.equal(before.ok, true);
+  } finally {
+    await rm(temp, { recursive: true });
+  }
+});

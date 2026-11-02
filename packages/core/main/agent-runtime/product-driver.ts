@@ -3,6 +3,7 @@ import {
   cryptoRandom,
   err,
   ok,
+  type Result,
   systemClock,
 } from "../../../base/mod.ts";
 import {
@@ -55,6 +56,7 @@ import { listArtifactEntries } from "../../agent-places/place/artifact-list.ts";
 import { placeDataFolder } from "../../agent-places/place/data-folder.ts";
 import { domainFolder } from "../../../protocol/domains/paths.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
+import { toolResultFolder } from "../../../protocol/lophn-agent/tool-results.ts";
 import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
 import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
 import {
@@ -205,6 +207,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       machine: calls.machine,
       connections: mcpConnectionsDeps(calls.secrets),
     });
+    // placeData는 session을 받지 않는다. turn마다 하나인 core 호출(call)로 toolPorts가 본 session을 찾는다.
+    const sessionOfCall = new WeakMap<object, string>();
     const preparer = createTurnPreparer({
       clock: systemClock,
       ids,
@@ -239,7 +243,11 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       }),
       events: calls.events,
       placePrompt,
-      placeData: (call, agent) => placeData(call, agent, placeFiles()),
+      placeData: async (call, agent) =>
+        withToolResults(
+          await placeData(call, agent, placeFiles()),
+          sessionOfCall.get(call),
+        ),
       placeTools: placeToolNames,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
@@ -283,6 +291,18 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
     });
     return { preparer, compactor, listMcpTools: mcpKit.listTools };
   };
+}
+
+// 자기 session의 tool-results 폴더를 읽기에만 더한다(쓰기는 없다). 끝의 /는 폴더가 아직 없어도 폴더로 본다는 표시다(file/scope.ts).
+function withToolResults<T extends { scope: { read: string[] } }>(
+  placed: Result<T>,
+  session: string | undefined,
+): Result<T> {
+  const home = process.env.LOPHN_HOME;
+  if (!placed.ok || session === undefined) return placed;
+  if (home === undefined || !isAbsolute(home)) return placed;
+  placed.value.scope.read.push(`${toolResultFolder(home, session)}/`);
+  return placed;
 }
 
 // 입력함의 turn을 계속 시작한다(source → preparer → StartTurn → loop → end). 시작할 turn이 없으면 쉰다.

@@ -761,6 +761,31 @@ export function PlaceWindow(props: PlaceWindowProps) {
       persistLater();
     } else commit(next);
   };
+  const patchTabRef = useRef(patchTab);
+  patchTabRef.current = patchTab;
+
+  // 접힌 float·다른 desk의 browser 탭은 BrowserTab이 mount되지 않아 state를 못 받고, main은 favicon을
+  // 바뀔 때만 민다. 그 사이 온 favicon을 놓치면 아이콘이 기본으로 남으므로 mount와 상관없이 여기서 받는다.
+  useEffect(() => {
+    if (browserApi === null) return;
+    return browserApi.subscribeState((state) => {
+      const key = webviews.keyOf(state.view_session);
+      if (key === undefined) return;
+      const tab = allTabs(latestLayout.current).find(
+        (item) => item.key === key,
+      );
+      if (tab?.kind !== "browser" || tab.fields?.favicon === state.favicon) {
+        return;
+      }
+      patchTabRef.current(
+        key,
+        (current) => ({
+          fields: { ...current.fields, favicon: state.favicon },
+        }),
+        { later: true },
+      );
+    });
+  }, [browserApi, webviews]);
 
   // 팔레트 파일 행이 주는 문서 행을 파일 탭으로 연다. id가 경로면 그대로 연다.
   const openDocumentRow = (row: { id: string }) => {

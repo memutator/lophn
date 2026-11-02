@@ -90,6 +90,8 @@ export interface WebviewHost {
     layer: number,
   ): void;
   page(key: string): GuestPage | null;
+  /** guest session을 가진 화면의 key. 모르면 undefined. */
+  keyOf(session: string): string | undefined;
   /** 앱 page가 올린 탭 머리 줄을 받는다. 지금 값을 바로 한 번 준다. */
   onTabHead(key: string, listener: (head: TabHead | null) => void): () => void;
   /** 앱 page에 머리 줄 event를 보낸다. */
@@ -359,6 +361,12 @@ export function createWebviewHost(): WebviewHost {
       } catch {
         return null;
       }
+    },
+    keyOf(session) {
+      for (const [key, entry] of entries) {
+        if (entry.session === session) return key;
+      }
+      return undefined;
     },
     onTabHead(key, listener) {
       const entry = entries.get(key);

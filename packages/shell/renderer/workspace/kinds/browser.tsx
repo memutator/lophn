@@ -44,7 +44,8 @@ export const browserKind: TabKindDef = {
   labelKey: "browser.label.kind",
   icon: browserIcons.globe,
   // page favicon(main이 준 data URL). 저장하지 않으므로 다시 열면 page가 다시 알린다. 접힌 float은
-  // mount하지 않아 이 값이 유일한 출처라, BrowserTab이 다시 mount될 때 이 값을 이어 받는다.
+  // mount하지 않아 이 값이 유일한 출처라, BrowserTab이 다시 mount될 때 이 값을 이어 받고
+  // 접힌 동안 온 favicon은 PlaceWindow가 받아 적는다.
   iconOf(tab) {
     const favicon = tab.fields?.favicon;
     return <Favicon src={typeof favicon === "string" ? favicon : undefined} />;

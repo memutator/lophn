@@ -16,6 +16,7 @@ import {
   SwatchPicker,
   Switch,
   Textarea,
+  TimePicker,
 } from "@lophn/ui/input";
 
 import { FileIcon } from "@lophn/ui/primitives";
@@ -80,6 +81,9 @@ export function KitInput() {
   const [view, setView] = useState("week");
   const [day, setDay] = useState("2026-10-09");
   const [due, setDue] = useState("");
+  const [start, setStart] = useState("10:00");
+  const [end, setEnd] = useState("11:00");
+  const [reminder, setReminder] = useState("");
   const [span, setSpan] = useState<DaySpan | undefined>({
     from: "2026-10-12",
     to: "2026-10-16",
@@ -268,6 +272,81 @@ export function KitInput() {
                   value={undefined}
                   onValueChange={() => {}}
                   now={EXAMPLE_NOW}
+                  size="sm"
+                />
+              </Field>
+            </div>
+          </div>
+        </div>
+      </Section>
+      <Section
+        title="TimePicker"
+        note="Select와 같은 칸이고 누르면 step 간격 시각 목록이 뜬다. 열면 고른 시각이 가운데에 온다. 끝 시각은 from에 시작 시각을 넘겨 시작 다음 칸부터 길이와 같이 보인다."
+      >
+        <div className={kit.colTwo}>
+          <div className={kit.column}>
+            <div className={kit.row}>
+              <Field label="Date">
+                <DatePicker
+                  value={day}
+                  onValueChange={setDay}
+                  now={EXAMPLE_NOW}
+                />
+              </Field>
+              <Field label="Starts">
+                <TimePicker
+                  value={start}
+                  onValueChange={setStart}
+                  now={EXAMPLE_NOW}
+                />
+              </Field>
+              <Field label="Ends">
+                <TimePicker
+                  value={end}
+                  onValueChange={setEnd}
+                  now={EXAMPLE_NOW}
+                  from={start}
+                />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Remind at" help="Every 30 minutes.">
+                <TimePicker
+                  value={reminder}
+                  onValueChange={setReminder}
+                  now={EXAMPLE_NOW}
+                  step={30}
+                />
+              </Field>
+            </div>
+          </div>
+          <div className={kit.column}>
+            <div className={kit.field}>
+              <Field label="Ends" error="Pick a time after the start.">
+                <TimePicker
+                  value="09:00"
+                  onValueChange={NOOP}
+                  now={EXAMPLE_NOW}
+                />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Disabled time">
+                <TimePicker
+                  value="14:30"
+                  onValueChange={NOOP}
+                  now={EXAMPLE_NOW}
+                  disabled
+                />
+              </Field>
+            </div>
+            <div className={kit.field}>
+              <Field label="Size sm, 24-hour locale">
+                <TimePicker
+                  value="18:45"
+                  onValueChange={NOOP}
+                  now={EXAMPLE_NOW}
+                  locale="en-GB"
                   size="sm"
                 />
               </Field>

@@ -41,6 +41,9 @@ export const common = {
   "common.label.date-from": "From",
   "common.label.date-to": "To",
   "common.label.date-with-weekday": "{date} ({weekday})",
+  "common.label.duration-hours": "{count, plural, one {# hr} other {# hrs}}",
+  "common.label.duration-minutes":
+    "{count, plural, one {# min} other {# mins}}",
   "common.label.first-and-more":
     "{first} and {count, plural, one {# more} other {# more}}",
   "common.label.on-this-page": "On this page",
@@ -51,6 +54,7 @@ export const common = {
   "common.label.palette-key-open": "Open",
   "common.label.pick-date": "Pick a date",
   "common.label.pick-dates": "Pick dates",
+  "common.label.pick-time": "Pick a time",
   "common.label.range-custom": "Custom range",
   "common.label.range-last-30-days": "Last 30 days",
   "common.label.range-last-7-days": "Last 7 days",

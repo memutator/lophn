@@ -3,7 +3,7 @@
 export { Field, type FieldProps } from "./field/field.tsx";
 // Field가 자식 입력에 id와 오류 상태를 넘기는 context. 새 입력 control을 만들 때만 쓴다.
 export { FieldContext, type FieldContextValue } from "./field/field-context.ts";
-// 한 줄 글 입력. 여러 줄이면 Textarea, 정해진 목록이면 Select, 날짜면 DatePicker를 쓴다.
+// 한 줄 글 입력. 여러 줄이면 Textarea, 정해진 목록이면 Select, 날짜면 DatePicker, 시각이면 TimePicker를 쓴다.
 export { Input, type InputProps } from "./input/input.tsx";
 // 여러 줄 글 입력. 설명·메모처럼 길어질 수 있는 글에 쓴다.
 export { Textarea, type TextareaProps } from "./textarea/textarea.tsx";
@@ -48,6 +48,11 @@ export {
   DateRangePicker,
   type DateRangePickerProps,
 } from "./date-picker/date-range-picker.tsx";
+// 시각 하나("HH:mm")를 받는 입력 칸. 누르면 step 간격 시각 목록이 뜬다. 일정의 끝 시각이면 from에 시작 시각을 넘겨 길이를 보인다. 날짜는 옆의 DatePicker가 받는다.
+export {
+  TimePicker,
+  type TimePickerProps,
+} from "./time-picker/time-picker.tsx";
 // 보낼 말에 붙였거나 보낸 말에 붙어 있는 파일 하나. 종류 아이콘과 이름, 붙이는 중이면 작은 [x]다.
 export {
   AttachmentChip,

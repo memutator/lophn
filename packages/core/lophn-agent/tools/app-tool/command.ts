@@ -10,8 +10,8 @@ import type { CommandDoc } from "../../../../cli/commands/types.ts";
 import { appCommandDoc } from "../../../../cli/commands/app-command.ts";
 import { commandLine } from "../../../../cli/parser.ts";
 import { readOf } from "../../run-loop/core-call.ts";
-import { limitJson } from "../result.ts";
 import type { ToolDefinition } from "../registry.ts";
+import type { SpillableResult } from "../spill.ts";
 import type { ToolContext } from "../tool-context.ts";
 
 // 앱 command를 `lophn <domain> <command>`로 부르는 길이다. 어느 command가 지금 불리는지는 부를 때 정한다: 지금 할당(앱, 뺀 command),
@@ -82,7 +82,7 @@ function toolResult(
   summary: string,
   content: unknown,
   extra: Partial<Pick<ToolResult, "complete" | "pending">> = {},
-): ToolResult {
+): SpillableResult {
   return {
     status,
     summary,
@@ -91,6 +91,8 @@ function toolResult(
     source: null,
     continuation: null,
     pending: [],
+    // 크기 상한은 runtime이 맞춘다(spill.ts). 앱 결과는 여기서 줄이지 않는다.
+    spill: { arrayKeys: [] },
     ...extra,
   };
 }
@@ -134,25 +136,15 @@ function resultOf(
   appName: string,
   command: AppCommand,
   output: ToolCallOutput,
-): ToolResult {
+): SpillableResult {
   const label = `command ${command.name} of ${appName}`;
   const { invocation, outcome } = output;
   switch (outcome.status) {
-    case "succeeded": {
-      const full = { invocation, result: outcome.result };
-      const limited = limitJson(full);
-      return limited.complete
-        ? toolResult("success", `${label} finished`, full)
-        : toolResult(
-            "success",
-            `${label} finished`,
-            { invocation, result: null, omitted: true },
-            {
-              complete: false,
-              pending: ["the result was too large to show"],
-            },
-          );
-    }
+    case "succeeded":
+      return toolResult("success", `${label} finished`, {
+        invocation,
+        result: outcome.result,
+      });
     case "failed":
       return toolResult("failure", `${label} failed`, {
         invocation,

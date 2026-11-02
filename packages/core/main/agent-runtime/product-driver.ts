@@ -67,6 +67,7 @@ import { agentTools } from "../agent-tools.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
+import { fileResultSpill } from "../../lophn-agent/tools/spill.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
 import { FILE_HOOKS } from "../../agent-places/hooks.ts";
 
@@ -220,6 +221,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       // gate와 questions는 core가 기다림을 쥐고 runtime은 긴 한 번의 호출로 결과를 받는다.
       toolPorts: (session, turn) => ({
         ...UNWIRED_TOOL_PORTS,
+        spill: fileResultSpill(process.env.LOPHN_HOME),
         gate: { check: (input) => readOf(turn.core, toolGateCheck, input) },
         questions: {
           ask: (call, questions) =>

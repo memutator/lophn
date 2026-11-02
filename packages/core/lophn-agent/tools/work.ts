@@ -6,6 +6,7 @@ import type {
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { checkInput, unchanged } from "./schema.ts";
+import { spillLarge } from "./spill.ts";
 import type { ToolDefinition } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 import { toolForWireName } from "./wire.ts";
@@ -161,7 +162,8 @@ export async function executeToolCall(
     effect,
     executed: true,
     outcome: { kind: status, code: status === "success" ? "ok" : status },
-    result: produced.value,
+    // 기록과 model에 가는 결과는 늘 이 판이다. 상한을 넘은 전체는 파일에만 있다.
+    result: await spillLarge(ctx, produced.value),
   };
 }
 

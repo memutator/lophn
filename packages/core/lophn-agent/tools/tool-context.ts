@@ -6,6 +6,7 @@ import type {
   Place,
   PlaceKind,
 } from "../../../protocol/lophn-agent/places.ts";
+import type { ResultSpill } from "./spill.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 import type {
   PlaceScope,
@@ -44,6 +45,8 @@ export type ToolContext = {
   clock: Clock;
   ids: IdSource;
   fetch: typeof fetch;
+  // 상한을 넘는 tool 결과의 전체를 쓰는 길. 없으면 미리보기만 간다.
+  spill?: ResultSpill;
   // turn이 멈추면 중단된다. 오래 도는 tool(shell)이 자기 process를 정리하는 데 쓴다.
   signal?: AbortSignal;
 };

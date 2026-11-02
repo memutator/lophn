@@ -9,8 +9,8 @@ import { commandLine } from "../../../../cli/parser.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import type { PlaceKind } from "../../../../protocol/lophn-agent/places.ts";
 import { type CoreCall, commandOf, readOf } from "../../run-loop/core-call.ts";
-import { fitted } from "../fit-result.ts";
 import type { ToolDefinition } from "../registry.ts";
+import type { SpillableResult } from "../spill.ts";
 
 // agent credential의 `CoreCall`을 명령 code가 쓰는 core 호출로 바꾼다. 쓰기의 idempotency key는 호출한 쪽이 준다.
 // route의 output schema로 이미 검사한 값이라 type만 맞춘다.
@@ -28,16 +28,25 @@ function coreOf(call: CoreCall): CommandCore {
   };
 }
 
-// 24 KiB에 맞추는 일은 여기서 한다. binary는 전부 찍는다.
-function toolResultOf(result: CommandResult): ToolResult {
+// 전체를 돌려준다. 상한을 넘으면 runtime이 파일로 빼고 arrayKeys로 미리보기를 만든다(spill.ts).
+function toolResultOf(result: CommandResult): SpillableResult {
   const summary =
     result.note === undefined
       ? result.summary
       : `${result.summary} (${result.note})`;
-  const fit = fitted(summary, result.content, result.arrayKeys);
+  const full: SpillableResult = {
+    status: "success",
+    summary,
+    content: result.content as ToolResult["content"],
+    complete: true,
+    source: null,
+    continuation: null,
+    pending: [],
+    spill: { arrayKeys: result.arrayKeys ?? [] },
+  };
   return result.failed === undefined
-    ? fit
-    : { ...fit, status: "failure", summary: `${summary}: ${result.failed}` };
+    ? full
+    : { ...full, status: "failure", summary: `${summary}: ${result.failed}` };
 }
 
 // 명령 하나를 loop가 기록·Gate·retry·실행에 쓰는 tool 정의로 만든다. model에는 보이지 않는다: model은 `lophn` tool 하나를 보고

@@ -137,7 +137,7 @@ export type Toolkit = {
 // skill 읽기는 조립이 session마다 끼운다.
 export type ToolPorts = Pick<
   ToolContext,
-  "gate" | "questions" | "scope" | "skills" | "fetch"
+  "gate" | "questions" | "scope" | "skills" | "fetch" | "spill"
 >;
 
 type PreparerDeps = {

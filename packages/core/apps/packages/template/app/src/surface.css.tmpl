@@ -1,8 +1,9 @@
 /* 앱 화면의 바탕을 lophn 탭 본문과 같은 면(--color-surface-base)으로 둔다. lophn은 탭 줄과 본문을
    한 면으로 이어 보이게 하는데, base.css·AppShell의 기본 바탕(--color-surface-floor)은 그보다 어둡다.
-   앱이 다른 바탕을 원하면 이 파일을 고치거나 지운다. 화면마다 main.tsx가 import한다. */
+   AppShell은 class 하나(같은 특이도)로 바탕을 칠하고 bundle에서 이 파일보다 뒤에 오므로, `body`를 앞에 붙여
+   특이도로 이긴다. 앱이 다른 바탕을 원하면 이 파일을 고치거나 지운다. 화면마다 main.tsx가 import한다. */
 html,
 body,
-[data-lophn-component="AppShell"] {
+body [data-lophn-component="AppShell"] {
   background: var(--color-surface-base);
 }

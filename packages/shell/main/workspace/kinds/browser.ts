@@ -1,4 +1,4 @@
-// browser 탭 kind. url만 저장하고 title과 history는 저장하지 않는다.
+// browser 탭 kind. url과 favicon만 저장하고 title과 history는 저장하지 않는다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";
@@ -9,6 +9,12 @@ const layout = z.strictObject({
   key: tabKey,
   // 빈 글은 빈 주소 칸으로 열린 탭이다.
   url: z.string().max(8192),
+  // 접힌 탭은 다시 열어도 mount되지 않아 page가 favicon을 다시 알릴 길이 없다. main이 만든 data URL만 받는다.
+  favicon: z
+    .string()
+    .max(65536)
+    .regex(/^data:image\//)
+    .optional(),
 });
 
 type BrowserLayout = z.infer<typeof layout>;

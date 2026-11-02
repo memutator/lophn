@@ -1,4 +1,4 @@
-// browser 탭 kind. url만 저장하고 title은 page가 알려 주는 대로 탭 이름에 쓴다.
+// browser 탭 kind. url과 favicon만 저장하고 title은 page가 알려 주는 대로 탭 이름에 쓴다.
 import { t } from "@lophn/i18n";
 
 import type { BrowserViewState } from "../../../ipc/browser.ts";
@@ -10,6 +10,7 @@ import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
 const MAX_URL = 8192;
+const MAX_FAVICON = 65536;
 
 let browserCount = 0;
 
@@ -43,27 +44,38 @@ export const browserKind: TabKindDef = {
   kind: "browser",
   labelKey: "browser.label.kind",
   icon: browserIcons.globe,
-  // page favicon(main이 준 data URL). 저장하지 않으므로 다시 열면 page가 다시 알린다. 접힌 float은
-  // mount하지 않아 이 값이 유일한 출처라, BrowserTab이 다시 mount될 때 이 값을 이어 받고
-  // 접힌 동안 온 favicon은 PlaceWindow가 받아 적는다.
+  // page favicon(main이 준 data URL). 접힌 float과 다른 desk의 탭은 mount하지 않아 이 값이 유일한
+  // 출처라 layout에 저장하고, BrowserTab이 다시 mount될 때 이어 받으며, 접힌 동안 온 favicon은
+  // PlaceWindow가 받아 적는다.
   iconOf(tab) {
     const favicon = tab.fields?.favicon;
     return <Favicon src={typeof favicon === "string" ? favicon : undefined} />;
   },
   fromStored(stored, { key }) {
-    const { url } = stored;
+    const { url, favicon } = stored;
     if (typeof url !== "string" || url.length > MAX_URL) return null;
     return {
       key,
       kind: "browser",
       title: nameOf("", url),
-      fields: { url },
+      fields: { url, ...(typeof favicon === "string" ? { favicon } : {}) },
     };
   },
   toStored(tab) {
     const url = tab.fields?.url;
     if (typeof url !== "string" || url.length > MAX_URL) return null;
-    return { kind: "browser", key: tab.key, url };
+    const favicon = tab.fields?.favicon;
+    // main schema가 받지 않는 값은 빼고 저장한다. 탭 전체를 잃지 않게 한다.
+    const keep =
+      typeof favicon === "string" &&
+      favicon.startsWith("data:image/") &&
+      favicon.length <= MAX_FAVICON;
+    return {
+      kind: "browser",
+      key: tab.key,
+      url,
+      ...(keep ? { favicon } : {}),
+    };
   },
   // 보통 탭은 옮길 상태가 없다(받는 창이 저장된 url을 다시 load한다). 크기 준 popup의 native view는
   // 닫지 않고 옮겨 window.opener를 지킨다.

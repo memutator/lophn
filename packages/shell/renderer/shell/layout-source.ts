@@ -292,7 +292,11 @@ function deskFromStored(key: string, value: unknown): Desk | null {
 
 // main이 이미 검증했다. 모양이 틀리면 없는 것으로 본다.
 function quickFromStored(value: unknown): PlaceQuick | undefined {
-  const quick = value as { order?: unknown; apps?: unknown } | null;
+  const quick = value as {
+    order?: unknown;
+    apps?: unknown;
+    hidden?: unknown;
+  } | null;
   if (!Array.isArray(quick?.order) || !Array.isArray(quick.apps)) {
     return undefined;
   }
@@ -303,6 +307,13 @@ function quickFromStored(value: unknown): PlaceQuick | undefined {
         ? [{ app: item.app, surface: item.surface }]
         : [],
     ),
+    ...(Array.isArray(quick.hidden)
+      ? {
+          hidden: quick.hidden.filter(
+            (id): id is string => typeof id === "string",
+          ),
+        }
+      : {}),
   };
 }
 

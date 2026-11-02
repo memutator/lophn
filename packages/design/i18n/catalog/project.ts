@@ -96,6 +96,7 @@ export const project = {
   "project-settings.heading.general": "General",
   "project-settings.heading.quick-launch": "Quick launch",
   "project-settings.label.project-target": "project details",
+  "project-settings.label.use-global-quick": "Use the global quick launch",
   "project-settings.notice.app-panels-lead":
     "A pinned app panel gets its own quick launch button that opens the panel in a tab.",
   "project-settings.notice.apps-failed": "Couldn't read the installed apps.",
@@ -103,6 +104,10 @@ export const project = {
     "Project details can't be edited in this window.",
   "project-settings.notice.no-app-panels":
     "No installed app has a panel screen.",
+  "project-settings.notice.quick-global":
+    "Buttons and pinned app panels come from Settings \u203a Quick launch.",
+  "project-settings.notice.quick-own":
+    "The buttons and pinned app panels below apply to this project only.",
   "project-workspace.button.detached-dock": "Dock",
   "project-workspace.button.explorer-collapse-all": "Collapse All",
   "project-workspace.button.explorer-add-folder": "Add folder",

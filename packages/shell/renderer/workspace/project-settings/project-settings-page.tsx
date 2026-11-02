@@ -1,33 +1,17 @@
 // project settings 탭 본문. General(이름·목적·폴더, Places panel 상세 dialog와 같은 form), Quick launch(왼쪽 sidebar 아래 단추의 순서),
-// App panels(단추로 고정할 앱 panel) 세 구역이다.
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+// App panels(단추로 고정할 앱 panel) 세 구역이다. 빠른 실행은 전역 값(Settings › Quick launch)을 따르거나 이 project만의 값을 둔다.
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
-import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { Switch } from "@lophn/ui/input";
 
-import { AppTabIcon } from "../../app-frame/app-icon.tsx";
-import type { AppScreens } from "../../app-frame/app-views.tsx";
-import {
-  actionIcons,
-  browserIcons,
-  shellIcons,
-  workspaceIcons,
-} from "../../icons/mod.ts";
+import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import type { PlaceQuick } from "../../shell/desk-model.ts";
-import { panelChoices, useScreensRead } from "../app-panel-tab.tsx";
 import {
-  isPinned,
-  moveQuick,
-  pinId,
-  quickOrder,
-  setPinned,
-} from "./quick-launch.ts";
+  AppPanelList,
+  QuickOrderList,
+  useAppPanelApps,
+} from "./quick-launch-editor.tsx";
 
 import { ProjectForm } from "../../desktop/places/projects/project-form.tsx";
 import type {
@@ -38,8 +22,10 @@ import styles from "./project-settings-page.module.css";
 
 export interface ProjectSettingsPageProps {
   readonly projectId: string;
+  /** 이 project만의 빠른 실행. 없으면 전역 값을 따른다. */
   readonly quick: PlaceQuick | undefined;
-  readonly onQuick: (next: PlaceQuick) => void;
+  /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
+  readonly onQuick: (next: PlaceQuick | undefined) => void;
   /** 없으면 General은 안내 글만 둔다. */
   readonly projects: ProjectsSource | undefined;
   /** 이름·폴더를 저장했다. */
@@ -126,148 +112,14 @@ function GeneralSection({
   return body;
 }
 
-const BUILTIN_LABEL = {
-  terminal: "left-sidebar.button.quick-terminal",
-  browser: "left-sidebar.button.quick-browser",
-  app: "left-sidebar.button.quick-app",
-  search: "left-sidebar.button.quick-search",
-} as const;
-
-const BUILTIN_ICON = {
-  terminal: workspaceIcons.terminal,
-  browser: browserIcons.globe,
-  app: workspaceIcons.appPanel,
-  search: shellIcons.search,
-} as const;
-
-function QuickLaunchSection({
-  quick,
-  onQuick,
-  labelOf,
-}: {
-  quick: PlaceQuick | undefined;
-  onQuick: (next: PlaceQuick) => void;
-  labelOf: (app: string, surface: string) => string;
-}) {
-  const order = quickOrder(quick);
-  return (
-    <ul className={styles.rows} data-quick-rows="">
-      {order.map((id, index) => {
-        const builtin =
-          id in BUILTIN_LABEL ? (id as keyof typeof BUILTIN_LABEL) : null;
-        const pin = quick?.apps.find((item) => pinId(item) === id);
-        const label =
-          builtin !== null
-            ? t(BUILTIN_LABEL[builtin])
-            : labelOf(pin?.app ?? "", pin?.surface ?? "");
-        return (
-          <li key={id} className={styles.row} data-quick-row={id}>
-            <span className={styles.rowName}>
-              {builtin === null ? (
-                <AppTabIcon app={pin?.app} />
-              ) : (
-                <Icon icon={BUILTIN_ICON[builtin]} pixels={16} />
-              )}
-              <span className={styles.rowLabel}>{label}</span>
-            </span>
-            <IconButton
-              icon={actionIcons.moveUp}
-              label={t("project-settings.button.move-up")}
-              size="sm"
-              disabled={index === 0}
-              onClick={() => onQuick(moveQuick(quick, id, -1))}
-            />
-            <IconButton
-              icon={actionIcons.moveDown}
-              label={t("project-settings.button.move-down")}
-              size="sm"
-              disabled={index === order.length - 1}
-              onClick={() => onQuick(moveQuick(quick, id, 1))}
-            />
-            {pin === undefined ? null : (
-              // 없어진 앱의 고정도 여기서 풀 수 있다.
-              <IconButton
-                icon={actionIcons.remove}
-                label={t("project-settings.button.unpin")}
-                size="sm"
-                onClick={() => onQuick(setPinned(quick, pin, false))}
-              />
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-function AppPanelsSection({
-  apps,
-  failed,
-  loading,
-  quick,
-  onQuick,
-}: {
-  apps: readonly AppScreens[];
-  failed: boolean;
-  loading: boolean;
-  quick: PlaceQuick | undefined;
-  onQuick: (next: PlaceQuick) => void;
-}) {
-  const choices = panelChoices(apps);
-  if (loading) return <Skeleton lines={3} />;
-  if (failed) {
-    return (
-      <p className={styles.note}>{t("project-settings.notice.apps-failed")}</p>
-    );
-  }
-  if (choices.length === 0) {
-    return (
-      <p className={styles.note}>
-        {t("project-settings.notice.no-app-panels")}
-      </p>
-    );
-  }
-  return (
-    <ul className={styles.rows} data-app-panel-rows="">
-      {choices.map((choice) => {
-        const pin = { app: choice.app, surface: choice.screen };
-        const on = isPinned(quick, pin);
-        return (
-          <li
-            key={`${choice.app}:${choice.screen}`}
-            className={styles.row}
-            data-app-panel-row={choice.app}
-          >
-            <span className={styles.rowName}>
-              <AppTabIcon app={choice.app} />
-              <span className={styles.rowLabel}>{choice.label}</span>
-            </span>
-            <Button
-              size="sm"
-              onClick={() => onQuick(setPinned(quick, pin, !on))}
-            >
-              {on
-                ? t("project-settings.button.unpin")
-                : t("project-settings.button.pin")}
-            </Button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 export function ProjectSettingsPage(props: ProjectSettingsPageProps) {
   const { projects, quick, onQuick } = props;
-  const { read } = useScreensRead();
-  // 다시 읽는 동안에도 목록이 비지 않게 마지막으로 읽은 값을 쓴다.
-  const known = useRef<readonly AppScreens[]>([]);
-  if (read?.ok) known.current = read.value;
-  const apps = known.current;
-  const labelOf = (app: string, surface: string) =>
-    panelChoices(apps).find(
-      (choice) => choice.app === app && choice.screen === surface,
-    )?.label ?? t("project-workspace.label.kind-app-panel");
+  const { apps, loading, failed } = useAppPanelApps();
+  const global = useQuickPrefs().prefs.quick;
+  // 전역 값을 따르는 동안은 고칠 수 없고 보이기만 한다. 끄면 지금 전역 값에서 시작한다.
+  const own = quick !== undefined;
+  const shown = quick ?? global;
+  const change = own ? onQuick : undefined;
 
   return (
     <div className={styles.page} data-project-settings="">
@@ -292,23 +144,41 @@ export function ProjectSettingsPage(props: ProjectSettingsPageProps) {
         <h2 className={styles.sectionTitle}>
           {t("project-settings.heading.quick-launch")}
         </h2>
-        <QuickLaunchSection quick={quick} onQuick={onQuick} labelOf={labelOf} />
-      </section>
-      <section className={styles.section} data-section="app-panels">
-        <h2 className={styles.sectionTitle}>
-          {t("project-settings.heading.app-panels")}
-        </h2>
-        <p className={styles.note}>
-          {t("project-settings.notice.app-panels-lead")}
-        </p>
-        <AppPanelsSection
-          apps={apps}
-          loading={read === null && apps.length === 0}
-          failed={read !== null && !read.ok && apps.length === 0}
-          quick={quick}
-          onQuick={onQuick}
+        <Switch
+          label={t("project-settings.label.use-global-quick")}
+          checked={!own}
+          onCheckedChange={(checked) =>
+            onQuick(checked ? undefined : { ...global })
+          }
         />
+        <p className={styles.note}>
+          {t(
+            own
+              ? "project-settings.notice.quick-own"
+              : "project-settings.notice.quick-global",
+          )}
+        </p>
+        {change === undefined ? null : (
+          <QuickOrderList quick={shown} onQuick={change} apps={apps} />
+        )}
       </section>
+      {change === undefined ? null : (
+        <section className={styles.section} data-section="app-panels">
+          <h2 className={styles.sectionTitle}>
+            {t("project-settings.heading.app-panels")}
+          </h2>
+          <p className={styles.note}>
+            {t("project-settings.notice.app-panels-lead")}
+          </p>
+          <AppPanelList
+            apps={apps}
+            loading={loading}
+            failed={failed}
+            quick={shown}
+            onQuick={change}
+          />
+        </section>
+      )}
     </div>
   );
 }

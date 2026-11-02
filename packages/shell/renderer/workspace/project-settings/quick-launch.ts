@@ -1,4 +1,4 @@
-// project의 빠른 실행 순서와 고정한 앱 panel. 저장은 place layout의 `quick`이고 없으면 기본 순서에 고정 없음이다.
+// 빠른 실행의 순서, 고정한 앱 panel, 끈 단추. 전역 값(`shell.quick_launch`)과 project layout의 `quick`이 같은 모양이다.
 import type { PlaceQuick } from "../../shell/desk-model.ts";
 
 const PINS_MAX = 20;
@@ -39,7 +39,29 @@ export function moveQuick(
   if (at >= 0 && to >= 0 && to < order.length) {
     [order[at], order[to]] = [order[to]!, order[at]!];
   }
-  return { order, apps: quick?.apps ?? [] };
+  return { ...quick, order, apps: quick?.apps ?? [] };
+}
+
+export const isQuickHidden = (quick: PlaceQuick | undefined, id: string) =>
+  quick?.hidden?.includes(id) ?? false;
+
+/** 단추를 끄거나 켠다. 끈 단추도 순서에 남아 다시 켜면 그 자리로 돌아온다. */
+export function setQuickHidden(
+  quick: PlaceQuick | undefined,
+  id: string,
+  hidden: boolean,
+): PlaceQuick {
+  const rest = (quick?.hidden ?? []).filter((item) => item !== id);
+  return {
+    order: quickOrder(quick),
+    apps: quick?.apps ?? [],
+    hidden: hidden ? [...rest, id] : rest,
+  };
+}
+
+/** 왼쪽 sidebar에 그릴 단추 id. 끈 것을 뺀 순서다. */
+export function shownQuickOrder(quick: PlaceQuick | undefined): string[] {
+  return quickOrder(quick).filter((id) => !isQuickHidden(quick, id));
 }
 
 export function setPinned(
@@ -51,5 +73,11 @@ export function setPinned(
   // main schema의 상한과 같다.
   if (on && apps.length >= PINS_MAX) return quick ?? { order: [], apps: [] };
   if (on) apps.push({ app: pin.app, surface: pin.surface });
-  return { order: quickOrder({ order: quick?.order ?? [], apps }), apps };
+  // 고정을 풀면 그 단추의 꺼짐 표시도 버린다.
+  const hidden = (quick?.hidden ?? []).filter((id) => on || id !== pinId(pin));
+  return {
+    order: quickOrder({ order: quick?.order ?? [], apps }),
+    apps,
+    hidden,
+  };
 }

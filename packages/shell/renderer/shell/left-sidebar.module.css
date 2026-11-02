@@ -86,6 +86,30 @@
   background: var(--color-surface-muted);
 }
 
+/* 빠른 실행 hover 목록. 면은 portal이라 sidebar 폭에 묶이지 않는다. */
+.quickHoverHead {
+  padding: var(--space-1) var(--space-4) var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.quickHoverIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-base);
+  height: var(--icon-size-base);
+}
+
+.quickHoverLabel {
+  max-width: var(--layout-container-panel);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sectionHead {
   display: flex;
   flex: none;

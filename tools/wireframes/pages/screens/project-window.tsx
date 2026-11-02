@@ -29,10 +29,8 @@ import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.
 import type { TabDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
 import type { StripTab } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
 
-import {
-  appTabEntries,
-  NewTabMenu,
-} from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
+import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
+import { VendorIcon } from "../../../../packages/shell/renderer/parts/vendor-icon/vendor-icon.tsx";
 import {
   FAKE_NOTES_FOLDER,
   FAKE_PROJECT_FOLDER,
@@ -632,16 +630,40 @@ export function PageLeftSidebar(props: SidebarProps) {
   const [client] = useState(() => createEventClient(createFakeSource()));
   const jobs = useMemo(() => fakeJobs({ jobs: JOBS }).source, []);
   const pick = props.onQuick ?? (() => {});
-  const app = appTabEntries({
-    ...(props.place === "app" ? { onAppScreen: () => pick("app-screen") } : {}),
-    onAppPanel: () => pick("app-panel"),
-  });
+  // hover 목록: 즐겨찾기 coding agent와 앱 화면(앱 place).
   const quick = {
-    ...(props.place === "home" ? {} : { onTerminal: () => pick("terminal") }),
+    ...(props.place === "home"
+      ? {}
+      : {
+          onTerminal: () => pick("terminal"),
+          terminalItems: [
+            {
+              id: "claude",
+              label: "Claude Code",
+              leading: <VendorIcon vendor="claude" size={16} />,
+              onSelect: () => pick("terminal"),
+            },
+          ],
+        }),
     onBrowser: () => pick("browser"),
     onSearch: () => pick("search"),
-    appItems: app.items,
-    onApp: app.select,
+    onApp: () => pick("app-panel"),
+    appItems:
+      props.place === "app"
+        ? [
+            {
+              id: "app-screen",
+              label: "App screen",
+              leading: (
+                <Icon
+                  icon={workspaceIcons.appPanel}
+                  pixels={iconPixels("base")}
+                />
+              ),
+              onSelect: () => pick("app-screen"),
+            },
+          ]
+        : [],
   };
   return (
     <EventsProvider client={client}>

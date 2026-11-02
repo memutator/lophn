@@ -99,6 +99,7 @@ import {
   stepTab,
   tabDropState,
   type PlaceRef,
+  type FloatRect,
   type TabItem,
   ungroup,
   ungroupTab,
@@ -127,8 +128,8 @@ import {
   openBridgeUrl,
   useBridgeOpenRequests,
 } from "../terminal/use-bridge-open-requests.ts";
-import { appTabEntries, NewTabMenu } from "./add-tab-menu.tsx";
-import { useScreensRead } from "./app-panel-tab.tsx";
+import { NewTabMenu } from "./add-tab-menu.tsx";
+import { panelChoices, useScreensRead } from "./app-panel-tab.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
@@ -155,7 +156,12 @@ import {
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
 import { NoticeCard } from "./notice-card.tsx";
-import { pinId, quickOrder } from "./project-settings/quick-launch.ts";
+import { pinId, shownQuickOrder } from "./project-settings/quick-launch.ts";
+import { clampFloatRect } from "./model.ts";
+import { AppTabIcon } from "../app-frame/app-icon.tsx";
+import { Favicon } from "../browser/favicon.tsx";
+import { launchKey } from "../desktop/settings/quick-launch/source.ts";
+import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
 import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
@@ -164,6 +170,7 @@ import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
 import { sessionKey } from "../shell/left-sidebar-model.ts";
 import { PlaceLeftSidebar } from "./sidebar/place-left-sidebar.tsx";
+import type { QuickHoverItem } from "../shell/left-sidebar.tsx";
 import { useSidebarPlaceList } from "../shell/use-left-sidebar.ts";
 import {
   type InboxNames,
@@ -339,8 +346,34 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<PlaceLayout>(defaultPlaceLayout);
   const desk = activeDesk(layout);
-  // 빠른 실행의 고정 앱 panel은 설치된 앱 목록과 맞춰 그린다.
-  const panelApps = useScreensRead(projectId !== null).read;
+  // 빠른 실행의 App hover 목록과 고정 앱 panel은 설치된 앱 목록과 맞춰 그린다.
+  const panelApps = useScreensRead(appViews?.screens !== undefined).read;
+  const { prefs: quickPrefs, set: setQuickPrefs } = useQuickPrefs();
+  // 앱 panel 화면 탭의 여는 자리와 마지막 float 자리. 앱을 아직 고르지 않은 탭과 다른 kind는 없다.
+  const launchOf = (tab: TabItem | undefined) =>
+    tab?.kind === "app_panel" &&
+    tab.app !== undefined &&
+    tab.screen !== undefined
+      ? quickPrefs.launch[launchKey(tab.app, tab.screen)]
+      : undefined;
+  // 사람이 앱 panel float을 옮기거나 크기를 바꾸면 그 화면의 다음 float 자리로 기억한다. 여는 자리(dock·float)는 그대로다.
+  const rememberFloatRect = (key: string, rect: FloatRect) => {
+    const tab = activeDesk(latestLayout.current).floats.find(
+      (item) => item.tab.key === key,
+    )?.tab;
+    if (
+      tab?.kind !== "app_panel" ||
+      tab.app === undefined ||
+      tab.screen === undefined
+    ) {
+      return;
+    }
+    const id = launchKey(tab.app, tab.screen);
+    setQuickPrefs("launch", {
+      ...quickPrefs.launch,
+      [id]: { open: quickPrefs.launch[id]?.open ?? "dock", rect },
+    });
+  };
   const [leftOpen, setLeftOpen] = useSidebarOpen(
     "left",
     windowWidth >= LEFT_OPEN_MIN,
@@ -741,12 +774,16 @@ export function PlaceWindow(props: PlaceWindowProps) {
   };
 
   // popup 같은 탭을 floated로 연다. stage를 못 쟀으면 tabs에 붙인다.
-  const openFloatInStage: TabHost["openFloat"] = (tab, size) => {
+  const openFloatInStage: TabHost["openFloat"] = (tab, at) => {
     if (stageSize === undefined) {
       openTab(tab);
       return;
     }
-    update((item) => openFloatTab(item, tab, newFloatRect(stageSize, size)));
+    const rect =
+      at !== undefined && "x" in at
+        ? clampFloatRect(at, stageSize)
+        : newFloatRect(stageSize, at);
+    update((item) => openFloatTab(item, tab, rect));
   };
 
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
@@ -857,7 +894,10 @@ export function PlaceWindow(props: PlaceWindowProps) {
             projects: props.projects,
             projectChanged: reloadProject,
             quick: layout.quick,
-            setQuick: (quick) => commit({ ...latestLayout.current, quick }),
+            setQuick: (quick) => {
+              const { quick: _old, ...rest } = latestLayout.current;
+              commit(quick === undefined ? rest : { ...rest, quick });
+            },
           },
   };
 
@@ -1268,10 +1308,17 @@ export function PlaceWindow(props: PlaceWindowProps) {
     update((item) => selectTab(item, key));
     focusTabBody(key);
   };
-  // tabs의 탭을 stage 가운데 60% 크기의 패널로 띄운다. stage를 못 쟀으면 아무것도 하지 않는다.
+  // tabs의 탭을 stage 가운데 60% 크기의 패널로 띄운다. 앱 panel 화면은 마지막 float 자리가 있으면 거기다.
+  // stage를 못 쟀으면 아무것도 하지 않는다.
   const floatByKey = (key: string) => {
     if (stageSize === undefined) return;
-    const rect = newFloatRect(stageSize);
+    const remembered = launchOf(
+      desk.tabs.find((item) => item.key === key),
+    )?.rect;
+    const rect =
+      remembered === undefined
+        ? newFloatRect(stageSize)
+        : clampFloatRect(remembered, stageSize);
     update((item) => floatTab(item, key, rect));
   };
   usePaletteScope(() =>
@@ -1853,37 +1900,85 @@ export function PlaceWindow(props: PlaceWindowProps) {
     </div>
   );
 
-  // + menu의 앱 항목과 같은 데이터·핸들러다.
-  const quickApp = appTabEntries({
-    ...(isApp ? { onAppScreen: () => openAppScreen(host) } : {}),
-    ...(host.appScreens ? { onAppPanel: () => openAppPanel(host) } : {}),
-  });
+  // 앱 panel 화면을 연다. 새 탭이면 그 화면의 여는 자리(Settings › Quick launch)와 마지막 float 자리를 따른다.
+  const launchAppPanel = (
+    pin: { app: string; surface: string },
+    title: string,
+  ) =>
+    openPinnedAppPanel(
+      host,
+      pin,
+      title,
+      quickPrefs.launch[launchKey(pin.app, pin.surface)],
+    );
+
+  // 이 place의 빠른 실행. project가 자기 값을 두었으면 그것이고 아니면 전역 값이다.
+  const quickNow = layout.quick ?? quickPrefs.quick;
+
+  // App hover 목록: 앱 place의 앱 화면과 모든 앱 panel 화면. 누르면 바로 연다.
+  const quickAppItems: QuickHoverItem[] = [
+    ...(isApp
+      ? [
+          {
+            id: "app-screen",
+            label: t("app-space.label.menu-app-screen"),
+            leading: <AppTabIcon app={appId ?? undefined} />,
+            onSelect: () => openAppScreen(host),
+          },
+        ]
+      : []),
+    ...(host.appScreens && panelApps?.ok
+      ? panelChoices(panelApps.value).map((choice) => ({
+          id: launchKey(choice.app, choice.screen),
+          label: choice.label,
+          leading: <AppTabIcon app={choice.app} />,
+          onSelect: () =>
+            launchAppPanel(
+              { app: choice.app, surface: choice.screen },
+              choice.title,
+            ),
+        }))
+      : []),
+  ];
+
+  // Browser hover 목록: bookmark. 누르면 그 주소로 새 browser 탭이다.
+  const quickBrowserItems: QuickHoverItem[] =
+    bookmarkList.state === "ok"
+      ? bookmarkList.bookmarks.map((item) => ({
+          id: item.id,
+          label: item.title,
+          leading: <Favicon src={item.favicon} />,
+          onSelect: () => openBrowserTab(host, item.url),
+        }))
+      : [];
 
   // 고정한 앱 panel 단추. 앱이나 화면이 없어졌으면(목록을 읽은 뒤) 그리지 않는다.
-  const quickPins = (layout.quick?.apps ?? []).flatMap((pin) => {
-    const app = panelApps?.ok
-      ? panelApps.value.find((item) => item.app === pin.app)
-      : undefined;
-    const screen = app?.screens.find(
-      (item) => item.key === pin.surface && item.sizes.includes("panel"),
-    );
-    if (panelApps?.ok && screen === undefined) return [];
-    const title = app?.name ?? t("project-workspace.label.kind-app-panel");
-    return [
-      {
-        id: pinId(pin),
-        app: pin.app,
-        label:
-          app !== undefined && screen !== undefined
-            ? t("app-panel.label.screen", {
-                app: app.name,
-                screen: screen.label,
-              })
-            : title,
-        onOpen: () => openPinnedAppPanel(host, pin, title),
-      },
-    ];
-  });
+  const quickPins = host.appScreens
+    ? quickNow.apps.flatMap((pin) => {
+        const app = panelApps?.ok
+          ? panelApps.value.find((item) => item.app === pin.app)
+          : undefined;
+        const screen = app?.screens.find(
+          (item) => item.key === pin.surface && item.sizes.includes("panel"),
+        );
+        if (panelApps?.ok && screen === undefined) return [];
+        const title = app?.name ?? t("project-workspace.label.kind-app-panel");
+        return [
+          {
+            id: pinId(pin),
+            app: pin.app,
+            label:
+              app !== undefined && screen !== undefined
+                ? t("app-panel.label.screen", {
+                    app: app.name,
+                    screen: screen.label,
+                  })
+                : title,
+            onOpen: () => launchAppPanel(pin, title),
+          },
+        ];
+      })
+    : [];
 
   const workspace = (
     <ViewKeepsProvider value={keeps}>
@@ -2077,17 +2172,21 @@ export function PlaceWindow(props: PlaceWindowProps) {
                       ? { onPlaceSettings: () => openAppDetail(host) }
                       : {})}
                   quick={{
-                    ...(projectId === null
-                      ? {}
-                      : { order: quickOrder(layout.quick), pins: quickPins }),
+                    order: shownQuickOrder(quickNow),
+                    pins: quickPins,
                     ...(terminal === undefined
                       ? {}
                       : { onTerminal: () => openTerminalTab(host) }),
                     ...(browserApi === null
                       ? {}
-                      : { onBrowser: () => openBrowserTab(host) }),
-                    appItems: quickApp.items,
-                    onApp: quickApp.select,
+                      : {
+                          onBrowser: () => openBrowserTab(host),
+                          browserItems: quickBrowserItems,
+                        }),
+                    ...(host.appScreens
+                      ? { onApp: () => openAppPanel(host) }
+                      : {}),
+                    appItems: quickAppItems,
                     // project의 Search 탭. 검색 통로가 없는 place(Home 등)는 팔레트를 연다.
                     onSearch:
                       source.searchSource === undefined || projectId === null
@@ -2191,9 +2290,10 @@ export function PlaceWindow(props: PlaceWindowProps) {
                         body: bodyOf(item.tab, true),
                       }))}
                     onRaise={(key) => update((item) => restoreFloat(item, key))}
-                    onRect={(key, rect) =>
-                      update((item) => setFloatRect(item, key, rect))
-                    }
+                    onRect={(key, rect) => {
+                      update((item) => setFloatRect(item, key, rect));
+                      rememberFloatRect(key, rect);
+                    }}
                     onMinimize={(key) =>
                       update((item) => minimizeFloat(item, key))
                     }

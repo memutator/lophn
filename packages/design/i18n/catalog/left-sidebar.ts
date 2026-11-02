@@ -9,7 +9,7 @@ export const leftSidebar = {
   "left-sidebar.button.next-page": "Next page",
   "left-sidebar.button.previous-page": "Previous page",
   "left-sidebar.button.project-settings": "Project settings",
-  "left-sidebar.button.quick-app": "Open app…",
+  "left-sidebar.button.quick-app": "App panel",
   "left-sidebar.button.quick-browser": "New browser",
   "left-sidebar.button.quick-search": "Search",
   "left-sidebar.button.quick-terminal": "New terminal",

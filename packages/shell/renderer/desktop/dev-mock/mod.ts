@@ -34,6 +34,8 @@ import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
 import { mockProjects } from "./projects.ts";
 import { mockProjectIcons } from "./project-icons.ts";
 import { mockCore, mockEvents } from "./requests.ts";
+import { memoryQuickPrefsSource } from "../settings/quick-launch/testdata/fake-source.ts";
+import type { QuickPrefsSource } from "../settings/quick-launch/source.ts";
 
 export interface DevMock {
   readonly core: CoreSource;
@@ -47,6 +49,8 @@ export interface DevMock {
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
   readonly settingsPanels: SettingsPanels;
+  /** 빠른 실행 전역 값. 메모리에만 쥔다. */
+  readonly quickPrefs: QuickPrefsSource;
   readonly jobs: JobsSource;
   readonly appDetail: AppDetailSource;
   readonly views: LophnShellViewsApi;
@@ -114,6 +118,7 @@ export function devMock(
     apps,
     settings: mockSettings(),
     settingsPanels: mockSettingsPanels(),
+    quickPrefs: memoryQuickPrefsSource(),
     jobs: mockJobs(),
     appDetail: mockAppDetail(),
     views,

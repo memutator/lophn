@@ -3,6 +3,7 @@ import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
+import type { AppLaunch } from "../../desktop/settings/quick-launch/source.ts";
 import { AppPanelPicker, AppPanelTab } from "../app-panel-tab.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -23,11 +24,15 @@ export function openAppPanel(host: TabHost): void {
   });
 }
 
-/** 고정한 앱 panel 열기. 같은 앱·화면 탭이 있으면 그 탭을 고르고, 없으면 그 화면으로 새 탭을 연다. */
+/**
+ * 앱 panel 화면 하나를 연다(빠른 실행의 고정 단추와 App hover 목록). 같은 앱·화면 탭이 있으면 그 탭을 그 자리에서
+ * 보이고, 없으면 그 화면의 여는 자리(`launch`)대로 새 탭을 연다: float면 마지막 float 자리, 없으면 stage 가운데다.
+ */
 export function openPinnedAppPanel(
   host: TabHost,
   pin: { app: string; surface: string },
   title: string,
+  launch?: AppLaunch,
 ): void {
   const open = host
     .windowTabs()
@@ -37,13 +42,16 @@ export function openPinnedAppPanel(
         tab.app === pin.app &&
         tab.screen === pin.surface,
     );
-  host.openTab({
+  const tab = {
     key: open?.key ?? newKey(),
     kind: "app_panel",
     title,
     app: pin.app,
     screen: pin.surface,
-  });
+  } as const;
+  if (open === undefined && launch?.open === "float") {
+    host.openFloat(tab, launch.rect);
+  } else host.openTab(tab);
 }
 
 export const appPanelKind: TabKindDef = {

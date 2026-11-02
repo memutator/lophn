@@ -40,8 +40,8 @@ const lead = (icon: Parameters<typeof MenuIcon>[0]["icon"]): ReactNode => (
   <MenuIcon icon={icon} />
 );
 
-/** + menu와 왼쪽 sidebar의 App ▾가 같이 쓰는 앱 항목. 핸들러가 없는 항목은 없고, 둘 다 없으면 items가 비어 있다. */
-export function appTabEntries(
+/** + menu의 앱 항목. 핸들러가 없는 항목은 없고, 둘 다 없으면 items가 비어 있다. */
+function appTabEntries(
   props: Pick<NewTabMenuProps, "onAppScreen" | "onAppPanel">,
 ): { items: MenuItem[]; select: (id: string) => void } {
   const items: MenuItem[] = [];

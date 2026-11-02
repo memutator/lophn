@@ -20,6 +20,7 @@ import { KeyboardPanel } from "./keyboard/keyboard-panel.tsx";
 import type { KeyboardSource } from "./keyboard/source.ts";
 import type { SettingsPane } from "./model.ts";
 import { ProviderList } from "./providers/provider-list.tsx";
+import { QuickLaunchPanel } from "./quick-launch/quick-launch-panel.tsx";
 import type { ProviderSettingsSource } from "./providers/settings-source.ts";
 import { ShellRulesPanel } from "./shell-rules/shell-rules-panel.tsx";
 import type { ShellRulesSource } from "./shell-rules/source.ts";
@@ -129,6 +130,8 @@ export function SettingsScreen({
         );
       case "keyboard":
         return keyboard && <KeyboardPanel source={keyboard} />;
+      case "quick-launch":
+        return <QuickLaunchPanel />;
       case "providers":
         return (
           providers && (

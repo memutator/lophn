@@ -1,7 +1,7 @@
 // kind 선언이 작업대에서 받는 것이다. Workspace가 만들어 넘기고, kind는 이 모양으로만 배치와
 // 통로를 건드린다.
 
-import type { TabItem } from "../model.ts";
+import type { FloatRect, TabItem } from "../model.ts";
 import type { Desk, PlaceQuick, PlaceRef } from "../../shell/desk-model.ts";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
@@ -71,9 +71,10 @@ export interface ProjectSettingsSlice {
   readonly projects: ProjectsSource | undefined;
   /** 등록을 저장했다. 작업대가 project 이름과 폴더를 다시 읽는다. */
   projectChanged(): void;
-  /** 빠른 실행의 순서와 고정. layout 파일의 `quick`이다. */
+  /** 빠른 실행의 순서와 고정. layout 파일의 `quick`이고 없으면 전역 값을 쓴다. */
   readonly quick: PlaceQuick | undefined;
-  setQuick(next: PlaceQuick): void;
+  /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
+  setQuick(next: PlaceQuick | undefined): void;
 }
 
 export interface TabHost {
@@ -112,12 +113,12 @@ export interface TabHost {
     },
   ): void;
   /**
-   * 탭을 곧바로 floated로 연다(popup). size를 주면 그 크기로 stage 가운데에 열고 없으면 지금
-   * 크기의 60%다. stage를 아직 못 쟀으면 tabs에 붙여 연다.
+   * 탭을 곧바로 floated로 연다(popup). size를 주면 그 크기로 stage 가운데에 열고, 자리(x·y)까지 주면
+   * 그 자리를 지금 stage 안으로 당겨 연다. 없으면 지금 크기의 60%다. stage를 아직 못 쟀으면 tabs에 붙여 연다.
    */
   openFloat(
     tab: TabItem,
-    size?: { readonly width: number; readonly height: number },
+    at?: { readonly width: number; readonly height: number } | FloatRect,
   ): void;
   /**
    * key의 탭 필드를 바꾸고 저장한다. 함수를 주면 그 사이 바뀐 탭에서 계산한다. 타이핑처럼 잦은

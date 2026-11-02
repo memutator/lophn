@@ -337,6 +337,7 @@ test("quick 필드가 없는 판 8 파일도 읽히고, quick이 있는 파일�
     const quick = {
       order: ["search", "terminal", "pin:app_x:main"],
       apps: [{ app: "app_x", surface: "main" }],
+      hidden: ["search"],
     };
     const { schema_version: _, ...rest } = old.value.layout;
     assert.deepEqual(await store.write(PROJECT, { ...rest, quick }), {

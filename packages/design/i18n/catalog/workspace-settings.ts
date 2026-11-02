@@ -103,6 +103,8 @@ export const workspaceSettings = {
   "settings.button.back-to-home": "Back to Home",
   "settings.button.add-rule": "Add rule",
   "settings.button.choose-in-agents": "Choose in Agents",
+  "settings.button.coding-favorite": "Add to favorites",
+  "settings.button.coding-unfavorite": "Remove from favorites",
   "settings.button.connect-with": "Connect {name}",
   "settings.button.detect-again": "Detect again",
   "settings.button.install-hooks": "Install hooks",
@@ -150,6 +152,8 @@ export const workspaceSettings = {
     "lophn doesn't know this setting. Nothing was saved.",
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
+  "settings.heading.quick-app-panels": "App panels",
+  "settings.heading.quick-buttons": "Buttons",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-workspace": "Workspace",
@@ -163,6 +167,8 @@ export const workspaceSettings = {
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
   "settings.intro.keyboard":
     "Shortcuts for tabs, the split, and the sidebar. Changes apply on this computer's system only, as soon as you press the new key.",
+  "settings.intro.quick-launch":
+    "The buttons at the bottom of the left sidebar. Hover Terminal, Browser or App to open a favorite coding agent, a bookmark or an app panel directly. A project can keep its own buttons in Project settings.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after Workspace rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
@@ -186,7 +192,9 @@ export const workspaceSettings = {
   "settings.label.code-font-jetbrains": "JetBrains Mono",
   "settings.label.code-font-system": "System monospace",
   "settings.label.coding-check-failed": "Couldn't check",
+  "settings.label.coding-col-command": "Command",
   "settings.label.coding-col-executable": "Executable",
+  "settings.label.coding-col-favorite": "Favorite",
   "settings.label.coding-col-hooks": "Hooks",
   "settings.label.coding-col-product": "Product",
   "settings.label.coding-col-turn-end": "Turn-end signal",
@@ -244,6 +252,10 @@ export const workspaceSettings = {
   "settings.label.key-tab-prev": "Previous tab",
   "settings.label.key-tab-reopen": "Reopen the closed tab",
   "settings.label.key-terminal-focus": "Open or focus the terminal",
+  "settings.label.quick-open-as": "Open as",
+  "settings.label.quick-open-float": "Float",
+  "settings.label.quick-open-tab": "Tab",
+  "settings.label.quick-show": "Show {name}",
   "settings.label.shell-action-allow": "Allow",
   "settings.label.shell-action-ask": "Ask",
   "settings.label.shell-action-deny": "Deny",
@@ -265,6 +277,7 @@ export const workspaceSettings = {
   "settings.label.tab-general": "General",
   "settings.label.tab-keyboard": "Keyboard",
   "settings.label.tab-providers": "Providers",
+  "settings.label.tab-quick-launch": "Quick launch",
   "settings.label.tab-shell-rules": "Shell rules",
   "settings.label.text-size": "Text size",
   "settings.label.theme": "Theme",
@@ -287,6 +300,8 @@ export const workspaceSettings = {
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
+  "settings.note.coding-favorites":
+    "Favorites appear under New session and when you hover Terminal in the left sidebar. Command is what the terminal runs; leave it empty for the default.",
   "settings.note.coding-hooks":
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
   "settings.note.key-capture":
@@ -324,6 +339,8 @@ export const workspaceSettings = {
     "Goes to a terminal tab in this project, or opens one if there is none.",
   "settings.note.not-set":
     "That feature won't start. Everything else keeps working.",
+  "settings.note.quick-app-panels":
+    "Pin an app panel to give it its own button. Tab opens it as a tab; Float opens it as a floating panel where you last left it.",
   "settings.note.shell-rules-built-in":
     "Rules you add can't unblock anything that is always blocked.",
   "settings.note.shell-rules-project":

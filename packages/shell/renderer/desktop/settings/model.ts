@@ -13,6 +13,7 @@ export type SettingsPane =
   | "appearance"
   | "browser"
   | "keyboard"
+  | "quick-launch"
   | "providers"
   | "agents"
   | "tools"
@@ -60,6 +61,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
         id: "keyboard",
         label: "settings.label.tab-keyboard",
         icon: settingsIcons.keyboard,
+      },
+      {
+        id: "quick-launch",
+        label: "settings.label.tab-quick-launch",
+        icon: settingsIcons.quickLaunch,
       },
     ],
   },

@@ -89,6 +89,57 @@ const keybindingsSetting = declareSetting({
   default: {},
 });
 
+// 왼쪽 sidebar 빠른 실행의 전역 값. 모양은 place layout의 `quick`과 같고(packages/shell/main/workspace/place-layout.ts),
+// place가 자기 `quick`을 두지 않으면 이 값을 쓴다. 모르는 id와 없어진 앱은 shell이 그릴 때 건너뛴다.
+const quickLaunchSetting = declareSetting({
+  key: "shell.quick_launch",
+  type: z.object({
+    order: z.array(z.string().min(1).max(200)).max(64),
+    apps: z
+      .array(
+        z.object({
+          app: z.string().min(1).max(64),
+          surface: z.string().min(1).max(128),
+        }),
+      )
+      .max(20),
+    // 끈 단추 id. 순서에는 남아 다시 켜면 그 자리로 돌아온다.
+    hidden: z.array(z.string().min(1).max(200)).max(64).optional(),
+  }),
+  default: { order: [], apps: [] },
+});
+
+// 앱 panel 화면(`<app>:<surface>`)마다 여는 자리와 마지막 float 자리·크기(stage 기준 CSS px).
+const floatRect = z.object({
+  x: z.number().int(),
+  y: z.number().int(),
+  width: z.number().int().min(1),
+  height: z.number().int().min(1),
+});
+const appLaunchSetting = declareSetting({
+  key: "shell.app_launch",
+  type: z
+    .record(
+      z.string().min(1).max(200),
+      z.object({ open: z.enum(["dock", "float"]), rect: floatRect.optional() }),
+    )
+    .refine((value) => Object.keys(value).length <= 200),
+  default: {},
+});
+
+// coding agent 즐겨찾기(빠른 실행 Terminal hover와 New session ▾에 나온다)와 사람이 바꾼 실행 명령어.
+// harness id는 shell이 검사하고 모르는 것은 버린다.
+const codingAgentsSetting = declareSetting({
+  key: "shell.coding_agents",
+  type: z.object({
+    favorites: z.array(z.string().min(1).max(64)).max(64),
+    commands: z
+      .record(z.string().min(1).max(64), z.string().min(1).max(500))
+      .refine((value) => Object.keys(value).length <= 64),
+  }),
+  default: { favorites: ["claude", "codex", "opencode"], commands: {} },
+});
+
 export const shellSettings = [
   themeSetting,
   accentSetting,
@@ -103,4 +154,7 @@ export const shellSettings = [
   webLinksSetting,
   localLinksSetting,
   keybindingsSetting,
+  quickLaunchSetting,
+  appLaunchSetting,
+  codingAgentsSetting,
 ] as const;

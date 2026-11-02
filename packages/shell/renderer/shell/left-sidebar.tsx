@@ -1,7 +1,14 @@
 // 왼쪽 sidebar. 위에 New session·Inbox·Jobs, 아래에 place(Home, project, app)마다 열린 session과 이 place의 접힌 Recent 줄 하나,
-// 맨 아래에 빠른 실행(Terminal · Browser · App ▾ · Search)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
+// 맨 아래에 빠른 실행(Terminal · Browser · App · Search와 고정 앱 panel. 앞 셋은 hover 목록이 있다)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
-import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
+import {
+  Menu,
+  MenuIcon,
+  type MenuItem,
+  Popover,
+  PopoverRow,
+  Tooltip,
+} from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import { Fragment, type ReactNode, useState } from "react";
@@ -40,18 +47,32 @@ export interface QuickPinButton {
   onOpen: () => void;
 }
 
+/** 빠른 실행 단추에 hover하면 뜨는 목록의 한 줄. 누르면 바로 연다. */
+export interface QuickHoverItem {
+  id: string;
+  label: string;
+  /** 줄 앞 아이콘(앱 icon, favicon, vendor 아이콘). */
+  leading: ReactNode;
+  onSelect: () => void;
+}
+
 /** 맨 아래 줄의 빠른 실행. 핸들러·항목이 없는 단추는 그리지 않는다. */
 export interface QuickLaunch {
   /** 단추 id(terminal · browser · app · search · 고정 id)의 순서. 없으면 기본 순서에 고정 없음이다. 모르는 id는 건너뛴다. */
   order?: readonly string[];
   pins?: readonly QuickPinButton[];
   onTerminal?: () => void;
+  /** Terminal hover: 즐겨찾기한 coding agent. 누르면 그 명령어로 새 터미널이다. */
+  terminalItems?: readonly QuickHoverItem[];
   onBrowser?: () => void;
+  /** Browser hover: bookmark. 누르면 그 주소로 새 browser 탭이다. */
+  browserItems?: readonly QuickHoverItem[];
   /** Search 탭(project) 또는 팔레트(Home 등 검색 탭이 없는 place). */
   onSearch?: () => void;
-  /** App ▾의 항목(이 place의 앱 화면·앱 panel). 비면 단추가 없다. */
-  appItems?: readonly MenuItem[];
-  onApp?: (id: string) => void;
+  /** App 단추 누르기: 앱을 고르는 앱 panel 탭. */
+  onApp?: () => void;
+  /** App hover: 앱 화면(앱 place)과 앱 panel 화면. 둘 다 없으면 단추가 없다. */
+  appItems?: readonly QuickHoverItem[];
 }
 
 export interface LeftSidebarProps {
@@ -149,6 +170,45 @@ function QuickPin({ pin }: { pin: QuickPinButton }) {
         )}
       </button>
     </Tooltip>
+  );
+}
+
+/** 빠른 실행 단추. hover 목록이 있으면 pointer를 올릴 때 그 목록이 뜨고, 누르기는 단추 자기 일이다. */
+function QuickButton({
+  id,
+  icon,
+  label,
+  items,
+  onClick,
+}: {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  items?: readonly QuickHoverItem[];
+  onClick?: () => void;
+}) {
+  const button = (
+    <IconButton
+      icon={icon}
+      label={label}
+      size="sm"
+      data-quick={id}
+      onClick={onClick}
+    />
+  );
+  if (items === undefined || items.length === 0) return button;
+  return (
+    <Popover hover trigger={button}>
+      <div className={styles.quickHoverHead} data-quick-hover={id}>
+        {label}
+      </div>
+      {items.map((item) => (
+        <PopoverRow key={item.id} onSelect={item.onSelect}>
+          <span className={styles.quickHoverIcon}>{item.leading}</span>
+          <span className={styles.quickHoverLabel}>{item.label}</span>
+        </PopoverRow>
+      ))}
+    </Popover>
   );
 }
 
@@ -362,46 +422,41 @@ export function LeftSidebar({
   const quickButtons: Record<string, ReactNode> = {
     terminal:
       quick?.onTerminal === undefined ? null : (
-        <IconButton
+        <QuickButton
+          id="terminal"
           icon={workspaceIcons.terminal}
           label={t("left-sidebar.button.quick-terminal")}
-          size="sm"
-          data-quick="terminal"
+          items={quick.terminalItems}
           onClick={quick.onTerminal}
         />
       ),
     browser:
       quick?.onBrowser === undefined ? null : (
-        <IconButton
+        <QuickButton
+          id="browser"
           icon={browserIcons.globe}
           label={t("left-sidebar.button.quick-browser")}
-          size="sm"
-          data-quick="browser"
+          items={quick.browserItems}
           onClick={quick.onBrowser}
         />
       ),
     app:
-      quick?.appItems === undefined || quick.appItems.length === 0 ? null : (
-        <Menu
-          items={[...quick.appItems]}
-          onSelect={(id) => quick.onApp?.(id)}
-          trigger={
-            <IconButton
-              icon={workspaceIcons.appPanel}
-              label={t("left-sidebar.button.quick-app")}
-              size="sm"
-              data-quick="app"
-            />
-          }
+      quick?.onApp === undefined &&
+      (quick?.appItems ?? []).length === 0 ? null : (
+        <QuickButton
+          id="app"
+          icon={workspaceIcons.appPanel}
+          label={t("left-sidebar.button.quick-app")}
+          items={quick?.appItems}
+          onClick={quick?.onApp}
         />
       ),
     search:
       quick?.onSearch === undefined ? null : (
-        <IconButton
+        <QuickButton
+          id="search"
           icon={shellIcons.search}
           label={t("left-sidebar.button.quick-search")}
-          size="sm"
-          data-quick="search"
           onClick={quick.onSearch}
         />
       ),

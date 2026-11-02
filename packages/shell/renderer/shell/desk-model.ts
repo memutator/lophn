@@ -87,10 +87,11 @@ export interface Desk {
   readonly detached: readonly DetachedItem[];
 }
 
-/** project의 빠른 실행. order는 단추 id의 순서, apps는 고정한 앱 panel 화면이다. 없으면 기본 순서에 고정 없음. */
+/** 빠른 실행. order는 단추 id의 순서, apps는 고정한 앱 panel 화면, hidden은 끈 단추 id다. project layout에 없으면 전역 값이다. */
 export interface PlaceQuick {
   readonly order: readonly string[];
   readonly apps: readonly { readonly app: string; readonly surface: string }[];
+  readonly hidden?: readonly string[];
 }
 
 export interface PlaceLayout {

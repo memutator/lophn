@@ -1,5 +1,11 @@
 import * as Radix from "@radix-ui/react-popover";
-import type { ReactElement, ReactNode } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { keepFocus } from "../return-focus.ts";
 import {
   componentMark,
@@ -21,7 +27,13 @@ export interface PopoverProps {
   onEscapeKeyDown?: (event: KeyboardEvent) => void;
   // 닫힐 때 trigger로 focus를 돌린다. 연 자리가 다른 renderer에 있으면 끈다.
   returnFocus?: boolean;
+  // trigger에 pointer를 올리면 열고, trigger와 면 밖으로 나가면 닫는다. 누르기는 trigger 자기 일이라 열지 않는다.
+  hover?: boolean;
 }
+
+// 지나가는 pointer에 열리지 않고, trigger에서 면으로 건너가는 동안 닫히지 않는 틈.
+const HOVER_OPEN_MS = 250;
+const HOVER_CLOSE_MS = 200;
 
 // modal이 아니라서 바깥 click·focus 이동·Escape에 닫히고 trigger로 focus를 돌린다.
 export function Popover({
@@ -31,8 +43,20 @@ export function Popover({
   placement = "beside",
   returnFocus = true,
   onEscapeKeyDown,
+  hover = false,
   ...state
 }: PopoverProps) {
+  if (hover) {
+    return (
+      <HoverPopover
+        trigger={trigger}
+        container={container}
+        placement={placement}
+      >
+        {children}
+      </HoverPopover>
+    );
+  }
   return (
     <Radix.Root {...state}>
       <Radix.Trigger asChild>{trigger}</Radix.Trigger>
@@ -70,5 +94,58 @@ export function PopoverRow({ children, onSelect, disabled }: PopoverRowProps) {
     >
       {children}
     </button>
+  );
+}
+
+function HoverPopover({
+  trigger,
+  children,
+  container,
+  placement,
+}: Pick<PopoverProps, "trigger" | "children" | "container"> & {
+  placement: Placement;
+}) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const later = (next: boolean) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(
+      () => setOpen(next),
+      next ? HOVER_OPEN_MS : HOVER_CLOSE_MS,
+    );
+  };
+  const now = (next: boolean) => {
+    clearTimeout(timer.current);
+    setOpen(next);
+  };
+  useEffect(() => () => clearTimeout(timer.current), []);
+  return (
+    <Radix.Root open={open} onOpenChange={now}>
+      {/* Trigger가 아니라 Anchor라서 누르기가 면을 토글하지 않는다. 누르면 trigger의 일을 하고 닫는다. */}
+      <Radix.Anchor
+        asChild
+        onPointerEnter={() => later(true)}
+        onPointerLeave={() => later(false)}
+        onClick={() => now(false)}
+      >
+        {trigger}
+      </Radix.Anchor>
+      <Radix.Portal container={container}>
+        <Radix.Content
+          className={styles.popover}
+          side="bottom"
+          {...placementProps(placement)}
+          // pointer로 연 면이 trigger의 focus를 빼앗지 않는다.
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onCloseAutoFocus={keepFocus}
+          onPointerEnter={() => later(true)}
+          onPointerLeave={() => later(false)}
+          onClick={() => now(false)}
+          {...componentMark("Popover")}
+        >
+          {children}
+        </Radix.Content>
+      </Radix.Portal>
+    </Radix.Root>
   );
 }

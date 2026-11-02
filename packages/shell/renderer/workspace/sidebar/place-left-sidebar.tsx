@@ -14,7 +14,14 @@ import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { CreateAppDialog } from "../../desktop/places/create-app-dialog.tsx";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import { RegisterDialog } from "../../desktop/places/register-dialog.tsx";
-import { harnessVendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
+import { Icon } from "@lophn/ui/primitives";
+
+import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
+import { shellIcons } from "../../icons/mod.ts";
+import {
+  harnessVendorOf,
+  VendorIcon,
+} from "../../parts/vendor-icon/vendor-icon.tsx";
 import { placeKey, type PlaceRef, selectTab } from "../../shell/desk-model.ts";
 import type { WindowPlace } from "../place-window.tsx";
 import { LeftSidebar, type QuickLaunch } from "../../shell/left-sidebar.tsx";
@@ -38,9 +45,6 @@ import type { WorkspaceSource } from "../source.ts";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 import type { PanelTerminal } from "./panel-types.ts";
-
-/** New session ▾에 올리는 coding agent. 터미널 탭에서 그 command를 연다. */
-const CODING_AGENTS: readonly HarnessId[] = ["claude", "codex", "opencode"];
 
 const NO_WORKFLOWS: readonly string[] = [];
 
@@ -109,7 +113,7 @@ export interface PlaceLeftSidebarProps {
   jobs?: JobsSource;
   onInbox: () => void;
   onJobs: () => void;
-  /** 맨 아래 줄의 Terminal · Browser · App ▾. + menu와 같은 핸들러라 이 place에 없는 것은 비어 있다. */
+  /** 맨 아래 줄의 빠른 실행. Terminal hover 목록(즐겨찾기 coding agent)은 여기서 붙인다. */
   quick?: QuickLaunch;
   /** 이 place 줄의 설정 단추(project는 Project settings, 앱은 App details). */
   onPlaceSettings?: () => void;
@@ -214,6 +218,35 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       recentHidden.hidden,
     ],
   );
+  // 즐겨찾기 coding agent(Settings › Coding agents). New session ▾와 Terminal hover가 같이 쓴다.
+  const { coding } = useQuickPrefs().prefs;
+  const commandOf = (id: HarnessId) =>
+    coding.commands[id] ?? HARNESS_ADAPTERS[id].commands[0];
+  const favorites = props.canTerminal ? coding.favorites : [];
+  const runCoding = (id: HarnessId) => {
+    const command = commandOf(id);
+    if (command !== undefined) props.onNewCoding(command);
+  };
+  const quick =
+    props.quick === undefined
+      ? undefined
+      : {
+          ...props.quick,
+          terminalItems: favorites.map((id) => {
+            const vendor = harnessVendorOf(id);
+            return {
+              id,
+              label: HARNESS_ADAPTERS[id].label,
+              leading:
+                vendor === undefined ? (
+                  <Icon icon={shellIcons.terminal} pixels={14} />
+                ) : (
+                  <VendorIcon vendor={vendor} size={16} />
+                ),
+              onSelect: () => runCoding(id),
+            };
+          }),
+        };
   const [registering, setRegistering] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -260,20 +293,15 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
           name: agent.name,
           profile: agent.profile,
         }))}
-        coding={
-          props.canTerminal
-            ? CODING_AGENTS.map((id) => ({
-                id,
-                name: HARNESS_ADAPTERS[id].label,
-                vendor: harnessVendorOf(id),
-              }))
-            : []
-        }
+        coding={favorites.map((id) => ({
+          id,
+          name: HARNESS_ADAPTERS[id].label,
+          vendor: harnessVendorOf(id),
+        }))}
         onNewSession={props.onNewSession}
         onNewSessionWith={(kind, id) => {
           if (kind === "coding") {
-            const command = HARNESS_ADAPTERS[id as HarnessId].commands[0];
-            if (command !== undefined) props.onNewCoding(command);
+            runCoding(id as HarnessId);
             return;
           }
           const agent = props.agents.find((row) => row.assignment === id);
@@ -292,7 +320,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         {...(apps === undefined
           ? {}
           : { onCreateApp: () => setCreating(true) })}
-        {...(props.quick === undefined ? {} : { quick: props.quick })}
+        {...(quick === undefined ? {} : { quick })}
         {...(props.onPlaceSettings === undefined
           ? {}
           : { onPlaceSettings: props.onPlaceSettings })}

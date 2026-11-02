@@ -1,16 +1,20 @@
-// Settings › Coding agents. 제품마다 실행 파일, version, turn 끝 신호를 보인다. 연결 만들기·범위·이름·회수와
-// doctor 단계는 없다. 감지는 사람이 [Detect again]을 누를 때만 다시 한다.
-import { useCallback, useState } from "react";
+// Settings › Coding agents. 제품마다 실행 파일, version, turn 끝 신호, hook, 실행 명령어, 즐겨찾기를 보인다. 연결 만들기·범위·
+// 이름·회수와 doctor 단계는 없다. 감지는 사람이 [Detect again]을 누를 때만 다시 한다. 즐겨찾기와 명령어는 빠른 실행 전역 값이다.
+import { useCallback, useId, useState } from "react";
 import {
   harnessVendorOf,
   VendorIcon,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
-import { Button } from "@lophn/ui/primitives";
-import { SearchFilter } from "@lophn/ui/input";
+import { Button, IconButton } from "@lophn/ui/primitives";
+import { FieldContext, Input, SearchFilter } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
-import { actionIcons } from "../../../icons/mod.ts";
+import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
+import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
+import { actionIcons, browserIcons } from "../../../icons/mod.ts";
+import { useQuickPrefs } from "../quick-launch/store.tsx";
+import starStyles from "../../../browser/bookmark.module.css";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
@@ -71,6 +75,23 @@ export function CodingConnectionsPanel({
   const [changing, setChanging] = useState<HarnessName | null>(null);
   const [hookFailed, setHookFailed] = useState<HookAction | null>(null);
   const [query, setQuery] = useState("");
+  const { prefs, set } = useQuickPrefs();
+  const coding = prefs.coding;
+  const toggleFavorite = (id: HarnessId) =>
+    set("coding", {
+      ...coding,
+      favorites: coding.favorites.includes(id)
+        ? coding.favorites.filter((item) => item !== id)
+        : [...coding.favorites, id],
+    });
+  const setCommand = (id: HarnessId, command: string) => {
+    const { [id]: _old, ...rest } = coding.commands;
+    const text = command.trim();
+    set("coding", {
+      ...coding,
+      commands: text === "" ? rest : { ...rest, [id]: text },
+    });
+  };
 
   const load = useCallback(() => {
     void source.harnesses().then((read) => {
@@ -175,6 +196,8 @@ export function CodingConnectionsPanel({
                 <th scope="col">{t("settings.label.coding-col-executable")}</th>
                 <th scope="col">{t("settings.label.coding-col-turn-end")}</th>
                 <th scope="col">{t("settings.label.coding-col-hooks")}</th>
+                <th scope="col">{t("settings.label.coding-col-command")}</th>
+                <th scope="col">{t("settings.label.coding-col-favorite")}</th>
               </tr>
             </thead>
             <tbody>
@@ -188,6 +211,16 @@ export function CodingConnectionsPanel({
                   changing={changing === harness.harness_id}
                   onChange={(action) =>
                     void changeHooks(harness.harness_id, action)
+                  }
+                  command={coding.commands[harness.harness_id as HarnessId]}
+                  onCommand={(command) =>
+                    setCommand(harness.harness_id as HarnessId, command)
+                  }
+                  favorite={coding.favorites.includes(
+                    harness.harness_id as HarnessId,
+                  )}
+                  onFavorite={() =>
+                    toggleFavorite(harness.harness_id as HarnessId)
                   }
                 />
               ))}
@@ -205,6 +238,9 @@ export function CodingConnectionsPanel({
         <p className={`${styles.lineHelp} ${styles.tableNote}`}>
           {t("settings.note.coding-hooks")}
         </p>
+        <p className={`${styles.lineHelp} ${styles.tableNote}`}>
+          {t("settings.note.coding-favorites")}
+        </p>
       </Loading>
     </div>
   );
@@ -215,11 +251,19 @@ function HarnessRow({
   hook,
   changing,
   onChange,
+  command,
+  onCommand,
+  favorite,
+  onFavorite,
 }: {
   harness: HarnessSettingsView;
   hook: HarnessHookView | undefined;
   changing: boolean;
   onChange: (action: HookAction) => void;
+  command: string | undefined;
+  onCommand: (command: string) => void;
+  favorite: boolean;
+  onFavorite: () => void;
 }) {
   const found = shown(harness);
   const version = versionText(harness);
@@ -255,6 +299,29 @@ function HarnessRow({
       </td>
       <td>
         <HookCell hook={hook} changing={changing} onChange={onChange} />
+      </td>
+      <td>
+        <CommandCell
+          harness={harness}
+          command={command}
+          onCommand={onCommand}
+        />
+      </td>
+      <td>
+        <span className={favorite ? starStyles.filled : undefined}>
+          <IconButton
+            icon={browserIcons.star}
+            label={t(
+              favorite
+                ? "settings.button.coding-unfavorite"
+                : "settings.button.coding-favorite",
+            )}
+            size="sm"
+            aria-pressed={favorite}
+            data-action="favorite"
+            onClick={onFavorite}
+          />
+        </span>
       </td>
     </tr>
   );
@@ -299,5 +366,42 @@ function HookCell({
         </Button>
       ) : null}
     </div>
+  );
+}
+
+/** 터미널에서 실행할 명령어. 비우면 adapter의 기본 명령어이고, 칸을 떠나거나 Enter를 누를 때 저장한다. */
+function CommandCell({
+  harness,
+  command,
+  onCommand,
+}: {
+  harness: HarnessSettingsView;
+  command: string | undefined;
+  onCommand: (command: string) => void;
+}) {
+  const id = useId();
+  const [draft, setDraft] = useState<string | null>(null);
+  const fallback =
+    HARNESS_ADAPTERS[harness.harness_id as HarnessId]?.commands[0] ?? "";
+  const commit = () => {
+    if (draft !== null && draft.trim() !== (command ?? "")) onCommand(draft);
+    setDraft(null);
+  };
+  return (
+    <FieldContext.Provider value={{ id, invalid: false }}>
+      <Input
+        size="sm"
+        aria-label={t("settings.label.coding-col-command")}
+        placeholder={fallback}
+        value={draft ?? command ?? ""}
+        data-command={harness.harness_id}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") commit();
+          if (event.key === "Escape") setDraft(null);
+        }}
+      />
+    </FieldContext.Provider>
   );
 }

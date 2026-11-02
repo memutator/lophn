@@ -76,6 +76,8 @@ import {
   BrowserOverlayProvider,
 } from "../browser/browser-api.tsx";
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
+import { coreQuickPrefsSource } from "./settings/quick-launch/core-source.ts";
+import { QuickPrefsProvider } from "./settings/quick-launch/store.tsx";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -112,6 +114,8 @@ const settingsPanels = mock?.settingsPanels ?? {
   coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
   browser: windowBrowserSettings(),
 };
+// 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 place 창이 같이 쓴다.
+const quickPrefs = mock?.quickPrefs ?? coreQuickPrefsSource(core);
 // 작업대는 제품 core 통로로 읽고 쓴다.
 const workspace = bench?.source ?? coreWorkspaceSource(core);
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
@@ -238,28 +242,30 @@ mount(
                 <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
                   <ConversationProvider deps={conversation}>
                     <EventsProvider client={events}>
-                      <Desktop
-                        source={core}
-                        initial={start}
-                        workspace={workspace}
-                        editor={bench ? bench.editor : editor}
-                        windowWidth={seed ? 1440 : undefined}
-                        terminal={terminal}
-                        catalog={catalog}
-                        palette={palette}
-                        projects={projects}
-                        intents={bridges.lophnIntents}
-                        apps={apps}
-                        settings={settings}
-                        settingsPanels={settingsPanels}
-                        jobs={jobs}
-                        appDetail={appDetail}
-                        views={views}
-                        overlay={bridges.lophnShell}
-                        hookPrompt={hookPrompt}
-                        agentViewSource={agentViewSource}
-                        detached={bridges.lophnDetached}
-                      />
+                      <QuickPrefsProvider source={quickPrefs}>
+                        <Desktop
+                          source={core}
+                          initial={start}
+                          workspace={workspace}
+                          editor={bench ? bench.editor : editor}
+                          windowWidth={seed ? 1440 : undefined}
+                          terminal={terminal}
+                          catalog={catalog}
+                          palette={palette}
+                          projects={projects}
+                          intents={bridges.lophnIntents}
+                          apps={apps}
+                          settings={settings}
+                          settingsPanels={settingsPanels}
+                          jobs={jobs}
+                          appDetail={appDetail}
+                          views={views}
+                          overlay={bridges.lophnShell}
+                          hookPrompt={hookPrompt}
+                          agentViewSource={agentViewSource}
+                          detached={bridges.lophnDetached}
+                        />
+                      </QuickPrefsProvider>
                     </EventsProvider>
                   </ConversationProvider>
                 </BrowserOverlayProvider>

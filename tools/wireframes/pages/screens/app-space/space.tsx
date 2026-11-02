@@ -67,6 +67,8 @@ interface AppPlaceProps {
   };
   /** 오른쪽 sidebar를 접은 채 시작한다. */
   readonly rightClosed?: boolean;
+  /** 앱 화면 탭 머리 줄의 ⋯ 메뉴를 연 채 둔다. */
+  readonly menu?: boolean;
 }
 
 const APP = APP_BUDGET;
@@ -264,8 +266,10 @@ export function AppSpace(props: AppPlaceProps = {}) {
       }
     }
     if (props.annotate !== undefined) {
-      await click('[data-app-bar="annotate"]');
+      await press("[data-tab-menu]");
+      await click('[role="menuitem"]', t("app-space.button.annotate"));
     }
+    if (props.menu === true) await press("[data-tab-menu]");
     if (props.rightClosed === true) {
       await click("button", new RegExp(`^${t("shell.button.toggle-right")}$`));
     }

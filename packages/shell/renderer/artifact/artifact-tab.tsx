@@ -5,7 +5,7 @@
 // 주인(Workspace)이 한다.
 import { useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState } from "@lophn/ui/feedback";
-import { Toast } from "@lophn/ui/overlay";
+import { MenuIcon, Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
@@ -31,6 +31,9 @@ import { fileNameOf } from "../editor/model.ts";
 import { artifactIcons, editorIcons } from "../icons/mod.ts";
 import { useAnnotateApi, useArtifactApi } from "./artifact-api.tsx";
 import styles from "./artifact-tab.module.css";
+
+// ⋯ 메뉴 항목 id. 탭 기본 항목과 겹치지 않는다.
+const ANNOTATE_ITEM = "shell:annotate";
 
 interface ArtifactTabProps {
   source: ArtifactSource;
@@ -253,25 +256,28 @@ function OpenTab(
         {t("artifact.note.file-root", { folder })}
       </span>
     );
+  const editSource = (
+    <Button
+      size="sm"
+      variant="ghost"
+      icon={artifactIcons.editSource}
+      disabled={!ready}
+      onClick={() => {
+        const { props: current, state: now } = latest.current;
+        if (now !== null) current.onEditSource(now.file);
+      }}
+    >
+      {t("artifact.button.edit-source")}
+    </Button>
+  );
+  // card 밖(floated)에는 ⋯ 메뉴가 없어 Annotate도 단추로 둔다.
   const buttons = (
     <span className={styles.actions} data-artifact-toolbar="">
-      <Button
-        size="sm"
-        variant="ghost"
-        icon={artifactIcons.editSource}
-        disabled={!ready}
-        onClick={() => {
-          const { props: current, state: now } = latest.current;
-          if (now !== null) current.onEditSource(now.file);
-        }}
-      >
-        {t("artifact.button.edit-source")}
-      </Button>
+      {editSource}
       <Button
         size="sm"
         variant="ghost"
         icon={editorIcons.edit}
-        aria-pressed={false}
         disabled={!ready}
         onClick={() => latest.current.annotating.setMode(true)}
       >
@@ -293,15 +299,28 @@ function OpenTab(
         onSend: () => void latest.current.sendAnnotations(),
       })
     : null;
-  // card 안이면 단추와 폴더 안내를 card 머리 줄에 올린다. 제목은 경로가 이미 보인다.
+  // card 안이면 Edit source와 폴더 안내를 card 머리 줄에, Annotate를 ⋯ 메뉴 맨 위에 올린다. 제목은 경로가 이미 보인다.
   const inCard = useCardHead(
     annotateBar ?? {
       actions: (
         <>
           {rootNote}
-          {buttons}
+          <span className={styles.actions} data-artifact-toolbar="">
+            {editSource}
+          </span>
         </>
       ),
+      menu: {
+        items: [
+          {
+            id: ANNOTATE_ITEM,
+            label: t("artifact.button.annotate"),
+            leading: <MenuIcon icon={editorIcons.edit} />,
+            ...(ready ? {} : { disabled: true }),
+          },
+        ],
+        onSelect: () => latest.current.annotating.setMode(true),
+      },
     },
     [ready, annotateOn, folder, count, sending, title],
   );

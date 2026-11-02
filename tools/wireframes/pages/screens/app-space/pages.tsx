@@ -6,6 +6,11 @@ export function AppPlaceScreen() {
   return <AppSpace />;
 }
 
+/** 앱 화면 탭 머리 줄의 ⋯ 메뉴를 열었다. 맨 위가 Annotate다. */
+export function AppPlaceMenu() {
+  return <AppSpace menu />;
+}
+
 /** 앱 화면과 그 앱 place의 lophn session을 붙인 group. 오른쪽 sidebar는 접었다. */
 export function AppPlaceSplit() {
   return <AppSpace layout="split" rightClosed />;

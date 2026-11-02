@@ -22,7 +22,7 @@ import {
   SPENDING,
 } from "../../../mock/artifact/data.ts";
 import { SpendingView } from "../../../mock/artifact/spending-view.tsx";
-import { click, useDrive } from "../../../mock/drive.ts";
+import { click, press, useDrive } from "../../../mock/drive.ts";
 
 const NAMED = {
   key: `artifact:${FAKE_DOMAINS[0]!.id}:${SPENDING.name}`,
@@ -72,10 +72,8 @@ export function ArtifactScene({
 
   useDrive(async () => {
     if (annotate) {
-      await click(
-        "[data-artifact-toolbar] button",
-        t("artifact.button.annotate"),
-      );
+      await press("[data-tab-menu]");
+      await click('[role="menuitem"]', t("artifact.button.annotate"));
     }
   });
   // 탭이 mount되면 view 자리가 생긴다.

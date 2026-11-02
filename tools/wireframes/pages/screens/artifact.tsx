@@ -13,7 +13,7 @@ export const artifactArea: Area = {
       id: "artifact-tab",
       title: "Artifact · tab",
       description:
-        "artifact 탭이다. 탭 줄에 종류 아이콘과 page 제목, toolbar에 제목과 폴더 이름, 오른쪽 끝 열에 [Edit source]와 [Annotate]가 있고, 아래 page 영역은 `spending` artifact가 그린 막대 그래프다(page는 native view라 고정 그림이다).",
+        "artifact 탭이다. 탭 줄에 종류 아이콘과 page 제목, toolbar에 제목과 폴더 이름, 오른쪽 끝 열에 [Edit source]가 있고 Annotate는 ⋯ 메뉴 맨 위 항목이며, 아래 page 영역은 `spending` artifact가 그린 막대 그래프다(page는 native view라 고정 그림이다).",
       render: () => <ArtifactScene tab="named" />,
     },
     {

@@ -1,10 +1,9 @@
 // 앱 place의 앱 화면 탭. 앱의 현재 release entry screen 하나를 full 크기로 연다. 탭이 안 보이거나 다시 mount돼도
-// view는 남겨 숨기고(keepKey), 탭이 layout에서 사라지면 폐기한다. Annotate 단추는 card 머리 줄(⋯ 앞)에 앱 단추와 같이 서고,
+// view는 남겨 숨기고(keepKey), 탭이 layout에서 사라지면 폐기한다. Annotate는 card 머리 줄 ⋯ 메뉴의 맨 위 항목(앱 항목 앞)이고,
 // 켜진 동안은 머리 줄 전체가 Annotate 줄(annotate-head.tsx)로 바뀐다. 보냄·실패 알림은 view 위쪽 toast다.
 import { useEffect, useRef, useState } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { Toast } from "@lophn/ui/overlay";
-import { Button } from "@lophn/ui/primitives";
+import { MenuIcon, Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
@@ -22,6 +21,9 @@ import { editorIcons } from "../icons/mod.ts";
 import type { AppRow, AppsSource } from "../apps/source.ts";
 import type { AgentViewSlice } from "./kinds/host.ts";
 import styles from "./app-screen-tab.module.css";
+
+// ⋯ 메뉴 항목 id. 앱 항목(`app-head:`)과 탭 기본 항목과 겹치지 않는다.
+const ANNOTATE_ITEM = "shell:annotate";
 
 type AppRecord =
   | { readonly state: "loading" }
@@ -142,18 +144,16 @@ export function AppScreenTab(props: AppScreenTabProps) {
   } else {
     shellHead = {
       key: "off",
-      actions: (
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={editorIcons.edit}
-          aria-pressed={false}
-          data-app-bar="annotate"
-          onClick={() => latest.current.annotating.setMode(true)}
-        >
-          {t("app-space.button.annotate")}
-        </Button>
-      ),
+      menu: {
+        items: [
+          {
+            id: ANNOTATE_ITEM,
+            label: t("app-space.button.annotate"),
+            leading: <MenuIcon icon={editorIcons.edit} />,
+          },
+        ],
+        onSelect: () => latest.current.annotating.setMode(true),
+      },
     };
   }
   let body;

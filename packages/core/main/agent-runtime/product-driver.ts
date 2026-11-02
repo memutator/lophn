@@ -293,15 +293,15 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
   };
 }
 
-// 자기 session의 tool-results 폴더를 읽기에만 더한다(쓰기는 없다). 끝의 /는 폴더가 아직 없어도 폴더로 본다는 표시다(file/scope.ts).
-function withToolResults<T extends { scope: { read: string[] } }>(
+// 자기 session의 tool-results 폴더를 읽기 전용 칸(results)에 둔다. read 목록에 넣으면 cwd가 될 수 있다.
+function withToolResults<T extends { scope: { results?: string } }>(
   placed: Result<T>,
   session: string | undefined,
 ): Result<T> {
   const home = process.env.LOPHN_HOME;
   if (!placed.ok || session === undefined) return placed;
   if (home === undefined || !isAbsolute(home)) return placed;
-  placed.value.scope.read.push(`${toolResultFolder(home, session)}/`);
+  placed.value.scope.results = toolResultFolder(home, session);
   return placed;
 }
 

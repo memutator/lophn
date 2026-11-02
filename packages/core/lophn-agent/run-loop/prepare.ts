@@ -174,7 +174,12 @@ type PreparerDeps = {
   ): Promise<
     Result<{
       place: TurnPromptInput["place"];
-      scope: { read: string[]; write: string[]; base?: string };
+      scope: {
+        read: string[];
+        write: string[];
+        base?: string;
+        results?: string;
+      };
     }>
   >;
   // place 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 place 층이 정한다.
@@ -506,6 +511,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       read: [] as string[],
       write: [] as string[],
       base: undefined as string | undefined,
+      results: undefined as string | undefined,
       open(folder: string) {
         if (!scope.read.includes(folder)) scope.read.push(folder);
         if (!scope.write.includes(folder)) scope.write.push(folder);
@@ -571,6 +577,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       scope.read.push(...placed.value.scope.read);
       scope.write.push(...placed.value.scope.write);
       scope.base = placed.value.scope.base;
+      scope.results = placed.value.scope.results;
       const compaction =
         read.value.compaction === null
           ? null

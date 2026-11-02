@@ -83,14 +83,21 @@ async function entryOf(
 }
 
 export async function resolveInPlace(
-  roots: Pick<PlaceScope, "read" | "write" | "base">,
+  roots: Pick<PlaceScope, "read" | "write" | "base" | "results">,
   path: string,
   mode: Mode,
 ): Promise<Result<Resolved>> {
-  const allowed = roots[mode];
-  const base = roots.base ?? roots.read[0] ?? allowed[0];
-  if (allowed.length === 0 || base === undefined) return forbidden();
-  const candidate = normalize(isAbsolute(path) ? path : join(base, path));
+  const base = roots.base ?? roots.read[0] ?? roots[mode][0];
+  // 결과 폴더는 읽기에만 더한다. base와 cwd 대신 쓰는 read[0]에는 끼지 않는다. 끝의 /는 폴더가 아직 없어도 폴더라는 표시다.
+  const allowed =
+    mode === "read" && roots.results !== undefined
+      ? [...roots.read, `${roots.results}${sep}`]
+      : roots[mode];
+  if (allowed.length === 0) return forbidden();
+  if (base === undefined && !isAbsolute(path)) return forbidden();
+  const candidate = normalize(
+    isAbsolute(path) ? path : join(base as string, path),
+  );
 
   const actual = await planned(candidate);
   if (actual === null) return forbidden();

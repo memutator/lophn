@@ -17,7 +17,13 @@ export type PlaceFacts = {
 };
 
 // base는 상대 경로를 푸는 기준일 뿐 읽기·쓰기 허락이 아니다.
-export type FolderScope = { read: string[]; write: string[]; base?: string };
+export type FolderScope = {
+  read: string[];
+  write: string[];
+  base?: string;
+  // 이 session의 tool-results 폴더. 읽기 전용이고 read 목록과 별개다
+  results?: string;
+};
 
 // 어떤 place 종류가 어떤 폴더를 읽고 쓰는가의 규칙 하나. file tool scope(place-data)와 rewind가 이것을 쓴다.
 // 앱·project의 data·release 사본(`<data>/apps/<app>/{data,bundles,staging,preview}`)과 agent 정의 폴더는 어느 place 종류에도 열지 않는다.

@@ -155,8 +155,7 @@ test("session은 자기 tool-results 폴더만 읽고 쓰지 못하며 data root
       join(root, "tool-results", "ses_me", "link.json"),
     );
     const mine = join(root, "tool-results", "ses_me");
-    // 끝의 /는 폴더가 아직 없어도 폴더로 본다.
-    const roots = { read: [place, `${mine}/`], write: [place], base: place };
+    const roots = { read: [place], write: [place], base: place, results: mine };
 
     const cases: [string, string, Mode, boolean][] = [
       ["자기 파일 읽기", join(mine, "tcl_1.json"), "read", true],
@@ -189,11 +188,23 @@ test("session은 자기 tool-results 폴더만 읽고 쓰지 못하며 data root
     // 첫 spill 전에는 폴더가 없다. 읽기는 forbidden이 아니라 파일이 없는 것(not_found)이어야 한다.
     const fresh = join(temp, "fresh", "tool-results", "ses_new");
     const before = await resolveInPlace(
-      { read: [place, `${fresh}/`], write: [place], base: place },
+      { read: [place], write: [place], base: place, results: fresh },
       join(fresh, "tcl_1.json"),
       "read",
     );
     assert.equal(before.ok, true);
+
+    // 폴더 없는 home: results만 있어도 상대 경로는 풀리지 않고(base 없음) 절대 경로 읽기만 열린다.
+    const home = { read: [], write: [], results: mine };
+    assert.equal((await resolveInPlace(home, "tcl_1.json", "read")).ok, false);
+    assert.equal(
+      (await resolveInPlace(home, join(mine, "tcl_1.json"), "read")).ok,
+      true,
+    );
+    assert.equal(
+      (await resolveInPlace(home, join(mine, "tcl_1.json"), "write")).ok,
+      false,
+    );
   } finally {
     await rm(temp, { recursive: true });
   }

@@ -42,3 +42,16 @@ modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
 
 정할 것:
 - C를 할지. 오류 본문에는 provider가 되돌려 보낸 credential 조각(예: "Incorrect API key provided: sk-…")이 섞일 수 있어 규칙이 생긴 것으로 보인다. redaction을 거치면 그 위험은 출력 blob과 같다. 추천: A·B를 먼저 하고, C는 같이 해도 되지만 secret 경계의 규칙을 바꾸는 것이라 사람이 정한다.
+
+## 넘친 tool 결과 파일을 지우지 않는다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent]
+```
+
+지금: `spillLarge`(`packages/core/lophn-agent/tools/spill.ts`)가 쓴 `<data root>/tool-results/<session>/<tool call>.json`은 session을 보관하거나 지워도 남는다.
+
+영향: 큰 결과를 자주 받는 사람의 data root가 계속 커진다.
+
+고치려면: session 보관·삭제 때 그 폴더를 지운다(작음). 추천.

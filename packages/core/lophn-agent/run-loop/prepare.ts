@@ -1,13 +1,16 @@
 import { z } from "zod";
 import {
-  canonicalize,
   type Clock,
+  canonicalize,
   err,
   fingerprint,
   type IdSource,
   ok,
   type Result,
 } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
+import { domainList } from "../../../protocol/domains/mod.ts";
 import {
   type AgentId,
   type AgentPlace,
@@ -16,8 +19,8 @@ import {
   type McpServer,
   type ModelChoice,
   type PlaceKind,
-  placeKindOf,
   type PlaceSession,
+  placeKindOf,
   placeSessionRead,
   startTurn,
   TURN_BLOB_PURPOSES,
@@ -25,60 +28,10 @@ import {
   type TurnMode,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
-import { settingsList } from "../../../protocol/config/mod.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
-import {
-  type InstructionDeps,
-  readTurnInstructions,
-  type TurnDomain,
-  type TurnInstructionLayer,
-} from "../instructions/mod.ts";
-import { domainList } from "../../../protocol/domains/mod.ts";
-import type { SkillEntry } from "../extensions/mod.ts";
-import { abortableWait } from "./retry.ts";
-import { TURN_LIMIT_SETTING_KEYS, turnLimitsOf } from "./limits.ts";
-import type { LoopDeps, TurnContext, TurnInput, TurnInputs } from "./ports.ts";
-import type { AgentEventSink } from "./ports.ts";
-import type { AgentTurnCredential, BeginTurnInput } from "./credentials.ts";
-import type { StartTurnResult } from "./credentials.ts";
-import type { SeenBasis, TurnPromptInput } from "../prompt-assembly/mod.ts";
-import {
-  definitionHash,
-  runOperations,
-  selectTools,
-  type ToolContext,
-  type ToolDefinition,
-  type ToolHandler,
-} from "../tools/mod.ts";
-import { dispatchTarget } from "../tools/dispatch.ts";
-import { commandTools } from "../tools/lophn/command-tool.ts";
-import { resolveAppCall } from "../tools/lophn/resolve.ts";
-import {
-  type AppCommandLookup,
-  describeLophn,
-  LOPHN_TOOL_NAME,
-  withApps,
-} from "../tools/lophn/tool.ts";
-import type { AppToolkit } from "../tools/app-toolkit.ts";
-import {
-  appCommandEntries,
-  appCommandTool,
-} from "../tools/app-tool/command.ts";
 import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
 import type { ResolvedAgent } from "../agents/mod.ts";
-import { commandOf, type CoreCall, readOf } from "./core-call.ts";
-import {
-  createCorePorts,
-  type ToolSetup,
-  type TurnSeat,
-} from "./core-ports.ts";
-import { readSessionConversation } from "../session/history.ts";
-import { cappedOutput, type ModelBinding } from "../models/binding.ts";
-import { type BlobPort, type RedactText, storeValue } from "./blobs.ts";
-import { inputText } from "./input-text.ts";
-import type { TurnStart } from "./work.ts";
-import { turnModeOf } from "./turn-mode.ts";
+import type { SkillEntry } from "../extensions/mod.ts";
 import {
   buildMcpTools,
   createMcpToolHandlers,
@@ -88,6 +41,61 @@ import {
   type McpToolsSource,
   pickSkills,
 } from "../extensions/mod.ts";
+import {
+  type InstructionDeps,
+  readTurnInstructions,
+  type TurnDomain,
+  type TurnInstructionLayer,
+} from "../instructions/mod.ts";
+import { cappedOutput, type ModelBinding } from "../models/binding.ts";
+import type { SeenBasis, TurnPromptInput } from "../prompt-assembly/mod.ts";
+import { readSessionConversation } from "../session/history.ts";
+import {
+  appCommandEntries,
+  appCommandTool,
+} from "../tools/app-tool/command.ts";
+import type { AppToolkit } from "../tools/app-toolkit.ts";
+import { dispatchTarget } from "../tools/dispatch.ts";
+import { commandTools } from "../tools/lophn/command-tool.ts";
+import { resolveAppCall } from "../tools/lophn/resolve.ts";
+import {
+  type AppCommandLookup,
+  describeLophn,
+  LOPHN_TOOL_NAME,
+  withApps,
+} from "../tools/lophn/tool.ts";
+import {
+  definitionHash,
+  runOperations,
+  selectTools,
+  type ToolContext,
+  type ToolDefinition,
+  type ToolHandler,
+} from "../tools/mod.ts";
+import { type BlobPort, type RedactText, storeValue } from "./blobs.ts";
+import { type CoreCall, commandOf, readOf } from "./core-call.ts";
+import {
+  createCorePorts,
+  type ToolSetup,
+  type TurnSeat,
+} from "./core-ports.ts";
+import type {
+  AgentTurnCredential,
+  BeginTurnInput,
+  StartTurnResult,
+} from "./credentials.ts";
+import { inputText } from "./input-text.ts";
+import { TURN_LIMIT_SETTING_KEYS, turnLimitsOf } from "./limits.ts";
+import type {
+  AgentEventSink,
+  LoopDeps,
+  TurnContext,
+  TurnInput,
+  TurnInputs,
+} from "./ports.ts";
+import { abortableWait } from "./retry.ts";
+import { turnModeOf } from "./turn-mode.ts";
+import type { TurnStart } from "./work.ts";
 
 // 시작할 turn의 재료를 core 기록에서 모은다. session의 agent id와 place, 이번 turn의 resolved agent
 // (층을 합친 값), tool 목록, 적용 한도, 고정할 turn 근거(basis)를 만든다. tool 목록은 turn마다 새로 만들지
@@ -171,6 +179,7 @@ type PreparerDeps = {
   placeData(
     call: CoreCall,
     resolved: ResolvedAgent,
+    session: string,
   ): Promise<
     Result<{
       place: TurnPromptInput["place"];
@@ -572,7 +581,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         request: request.input.message,
       });
       if (!read.ok) return read;
-      const placed = await deps.placeData(agentCall, resolved);
+      const placed = await deps.placeData(agentCall, resolved, seat.session);
       if (!placed.ok) return placed;
       scope.read.push(...placed.value.scope.read);
       scope.write.push(...placed.value.scope.write);

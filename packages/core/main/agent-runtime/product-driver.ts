@@ -1,3 +1,6 @@
+import { lstat, mkdir, open, readdir } from "node:fs/promises";
+import { isAbsolute } from "node:path";
+import process from "node:process";
 import {
   createIdSource,
   cryptoRandom,
@@ -12,7 +15,7 @@ import {
 } from "../../../protocol/approvals/mod.ts";
 import { appGet } from "../../../protocol/apps/mod.ts";
 import { domainList } from "../../../protocol/domains/mod.ts";
-import { projectApi } from "../../../protocol/projects/mod.ts";
+import { domainFolder } from "../../../protocol/domains/paths.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
   type AgentAtPlace,
@@ -21,57 +24,54 @@ import {
   agentRead,
   instructionsGet,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
-import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
-import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
-import type { McpConnectionsDeps } from "../../lophn-agent/extensions/mod.ts";
-import type { CoreCalls } from "./main.ts";
+import { toolResultFolder } from "../../../protocol/lophn-agent/tool-results.ts";
+import { projectApi } from "../../../protocol/projects/mod.ts";
+import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
+import { FILE_HOOKS } from "../../agent-places/hooks.ts";
+import { listArtifactEntries } from "../../agent-places/place/artifact-list.ts";
+import { placeDataFolder } from "../../agent-places/place/data-folder.ts";
+import {
+  type PlaceFiles,
+  placeData,
+} from "../../agent-places/place/place-data.ts";
+import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
+import { placePrompt } from "../../agent-places/prompts/prompts.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
+import { placeToolNames } from "../../agent-places/tool-lists.ts";
 import {
   createMcpToolkit,
   type McpKit,
 } from "../../lophn-agent/extensions/mcp-toolkit.ts";
-import {
-  createTurnPreparer,
-  type Toolkit,
-  type TurnPreparer,
-} from "../../lophn-agent/run-loop/prepare.ts";
-import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
-import {
-  type Compactor,
-  createCompactor,
-} from "../../lophn-agent/session/compactor.ts";
-import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
-import { placeToolNames } from "../../agent-places/tool-lists.ts";
-import { placePrompt } from "../../agent-places/prompts/prompts.ts";
-import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
-import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
-import {
-  placeData,
-  type PlaceFiles,
-} from "../../agent-places/place/place-data.ts";
-import { isAbsolute } from "node:path";
-import { lstat, mkdir, open, readdir } from "node:fs/promises";
-import process from "node:process";
-import { listArtifactEntries } from "../../agent-places/place/artifact-list.ts";
-import { placeDataFolder } from "../../agent-places/place/data-folder.ts";
-import { domainFolder } from "../../../protocol/domains/paths.ts";
-import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
-import { toolResultFolder } from "../../../protocol/lophn-agent/tool-results.ts";
-import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
-import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
+import type { McpConnectionsDeps } from "../../lophn-agent/extensions/mod.ts";
+import { spawnStdioMcp } from "../../lophn-agent/extensions/mod.ts";
 import {
   productSkillSnapshotDeps,
   productSkillStores,
   registeredSkillEntries,
 } from "../../lophn-agent/extensions/skill-folders.ts";
 import { turnSkillReader } from "../../lophn-agent/extensions/skill-read.ts";
-import { agentTools } from "../agent-tools.ts";
-import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
-import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
-import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
-import { fileResultSpill } from "../../lophn-agent/tools/spill.ts";
+import { instructionFilesOverCore } from "../../lophn-agent/instructions/mod.ts";
+import { createModelResolver } from "../../lophn-agent/models/resolve.ts";
+import type { ProviderWatch } from "../../lophn-agent/providers/watch.ts";
+import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
+import type { TurnDriver } from "../../lophn-agent/run-loop/driver.ts";
+import { abortableWait } from "../../lophn-agent/run-loop/mod.ts";
+import {
+  createTurnPreparer,
+  type Toolkit,
+  type TurnPreparer,
+} from "../../lophn-agent/run-loop/prepare.ts";
 import { UNWIRED_TOOL_PORTS } from "../../lophn-agent/run-loop/unwired.ts";
-import { FILE_HOOKS } from "../../agent-places/hooks.ts";
+import {
+  type Compactor,
+  createCompactor,
+} from "../../lophn-agent/session/compactor.ts";
+import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
+import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
+import { fileResultSpill } from "../../lophn-agent/tools/spill.ts";
+import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
+import { agentTools } from "../agent-tools.ts";
+import type { CoreCalls } from "./main.ts";
 
 // skill 발견이 쓰는 place 층의 자리 규칙이다. agent runtime child는 조립이라 place 층을 안다.
 const SKILL_PLACES = {
@@ -207,8 +207,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       machine: calls.machine,
       connections: mcpConnectionsDeps(calls.secrets),
     });
-    // placeData는 session을 받지 않는다. turn마다 하나인 core 호출(call)로 toolPorts가 본 session을 찾는다.
-    const sessionOfCall = new WeakMap<object, string>();
     const preparer = createTurnPreparer({
       clock: systemClock,
       ids,
@@ -243,11 +241,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       }),
       events: calls.events,
       placePrompt,
-      placeData: async (call, agent) =>
-        withToolResults(
-          await placeData(call, agent, placeFiles()),
-          sessionOfCall.get(call),
-        ),
+      placeData: async (call, agent, session) =>
+        withToolResults(await placeData(call, agent, placeFiles()), session),
       placeTools: placeToolNames,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
@@ -296,10 +291,10 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
 // 자기 session의 tool-results 폴더를 읽기 전용 칸(results)에 둔다. read 목록에 넣으면 cwd가 될 수 있다.
 function withToolResults<T extends { scope: { results?: string } }>(
   placed: Result<T>,
-  session: string | undefined,
+  session: string,
 ): Result<T> {
   const home = process.env.LOPHN_HOME;
-  if (!placed.ok || session === undefined) return placed;
+  if (!placed.ok) return placed;
   if (home === undefined || !isAbsolute(home)) return placed;
   placed.value.scope.results = toolResultFolder(home, session);
   return placed;

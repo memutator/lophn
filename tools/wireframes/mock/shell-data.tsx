@@ -14,6 +14,7 @@ import {
   type Desk,
   emptyDesk,
   floatTab,
+  openTab,
   selectTab,
   setRatio,
   splitTab,
@@ -191,6 +192,7 @@ export type Variant =
   | "overflow-end"
   | "long-title"
   | "split-compact"
+  | "pane-stack"
   | "marks";
 
 /** variant마다 Main desk의 상태가 다르다. Review와 workflow desk는 같다. */
@@ -233,6 +235,19 @@ export function mockDesks(variant: Variant): MockDesk[] {
   switch (variant) {
     case "split":
       return [grouped(main, [["p1", "c1", "right"]]), ...others];
+    case "pane-stack": {
+      // coding agent(c1)가 문서 셋을 차례로 보냈다. 첫 것은 [c1 | brief] split을 만들고, 다음 것들은 그 칸에 쌓인다.
+      const sent = [
+        file("brief", "brief.md", "phroner", "plan"),
+        file("gaze", "gaze-notes.md", "phroner", "plan"),
+        file("diff", "body-refactor.md", "phroner", "plan"),
+      ];
+      let model = desk("_default", "Main", [C1, README, PLAN, TERM]).model;
+      for (const doc of sent) {
+        model = openTab(model, itemOf(doc), { after: "c1", beside: true });
+      }
+      return [{ ...main, model }, ...others];
+    }
     case "split-down":
       return [grouped(main, [["p1", "c1", "bottom"]]), ...others];
     case "group-top2":

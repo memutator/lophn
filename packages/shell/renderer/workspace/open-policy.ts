@@ -22,7 +22,7 @@ export type OpenAt =
  * 연 탭(source)이 있는 자리로 새 탭의 자리를 정한다.
  * - run은 floated다. 실행을 보고 닫는 잠깐의 터미널이라 tab 배치를 바꾸지 않는다.
  * - source가 이 desk의 tab 줄에 있는 터미널(shell, coding agent)이면 그 옆 칸이다. 터미널을 가리지 않으려고
- *   오른쪽 split으로 열고, 터미널이 이미 group에 있으면 다음 칸을 이어받는다. 이미 열린 탭은 옛 규칙대로 고르기만 한다.
+ *   오른쪽 split으로 열고, 터미널이 이미 group에 있으면 다음 칸에 쌓는다(칸의 stack). 이미 열린 탭은 고르기만 한다.
  * - source가 다른 종류의 tab이거나 다른 desk에 있으면 source 바로 뒤다. `openTab`이 그 desk로 건너간다.
  * - source가 floated·detached이거나 없으면 끝이다. 패널과 창은 그대로 둔다.
  */

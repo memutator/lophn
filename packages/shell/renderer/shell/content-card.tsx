@@ -24,7 +24,12 @@ import {
 } from "./card-head.tsx";
 import styles from "./content-card.module.css";
 import { useTabDrag } from "./tab-drag.tsx";
-import { type GroupNode, type NodePath, setNodeRatio } from "./desk-model.ts";
+import {
+  type GroupNode,
+  type NodePath,
+  setNodeRatio,
+  stackOfLeaf,
+} from "./desk-model.ts";
 import { dragRatio, FULL, placeGroup } from "./group-geometry.ts";
 import {
   type TabAction,
@@ -81,6 +86,8 @@ export interface ContentCardProps {
   onForward: () => void;
   /** group에서 칸을 눌렀다. */
   onFocus: (key: string) => void;
+  /** 칸 머리의 ‹ ›. key가 보이는 칸에서 delta(-1, 1)만큼 넘긴다. 칸이 여러 tab을 돌려 볼 때만 보인다. */
+  onCycle?: (key: string, delta: number) => void;
   onAction: (action: TabAction, key: string) => void;
   /** 빈 desk의 단추. */
   onEmptyAction: (action: "new-session" | "open-file") => void;
@@ -103,6 +110,7 @@ export function ContentCard({
   onBack,
   onForward,
   onFocus,
+  onCycle,
   onAction,
   onEmptyAction,
   onDropPath,
@@ -191,6 +199,7 @@ export function ContentCard({
         >
           {ordered.map((pane) => {
             const box = placed?.leaves.get(pane.key) ?? FULL;
+            const stack = grouped ? stackOfLeaf(layout, pane.key) : [];
             return (
               <section
                 key={pane.key}
@@ -211,13 +220,22 @@ export function ContentCard({
                   onBack={onBack}
                   onForward={onForward}
                   onAction={(action) => onAction(action, pane.key)}
+                  cycle={
+                    stack.length < 2 || onCycle === undefined
+                      ? undefined
+                      : {
+                          at: stack.indexOf(pane.key) + 1,
+                          count: stack.length,
+                          onStep: (delta) => onCycle(pane.key, delta),
+                        }
+                  }
                   onDragStart={
                     grouped
                       ? (event) =>
                           startDrag(
                             event,
                             { key: pane.key, whole: false },
-                            "pane",
+                            "leaf",
                           )
                       : undefined
                   }
@@ -303,6 +321,7 @@ function CardHead({
   onBack,
   onForward,
   onAction,
+  cycle,
   onDragStart,
 }: {
   pane: CardPane;
@@ -312,6 +331,14 @@ function CardHead({
   onBack: () => void;
   onForward: () => void;
   onAction: (action: TabAction) => void;
+  /** 칸이 돌려 보는 tab 중 몇째(1부터)인지와 넘기기. 하나뿐이면 없다. */
+  cycle:
+    | {
+        readonly at: number;
+        readonly count: number;
+        readonly onStep: (delta: number) => void;
+      }
+    | undefined;
   /** group의 칸이면 머리 줄을 눌러 끌어 옮길 수 있다. */
   onDragStart: ((event: PointerEvent<HTMLElement>) => void) | undefined;
 }) {
@@ -381,6 +408,28 @@ function CardHead({
         <span className={styles.center}>{spec.center}</span>
       )}
       {spec?.actions}
+      {cycle === undefined ? null : (
+        <span className={styles.cycle}>
+          <IconButton
+            icon={shellIcons.panePrevious}
+            label={t("shell.button.pane-previous")}
+            size="sm"
+            onClick={() => cycle.onStep(-1)}
+          />
+          <span className={styles.cycleAt}>
+            {t("shell.label.pane-position", {
+              at: cycle.at,
+              count: cycle.count,
+            })}
+          </span>
+          <IconButton
+            icon={shellIcons.paneNext}
+            label={t("shell.button.pane-next")}
+            size="sm"
+            onClick={() => cycle.onStep(1)}
+          />
+        </span>
+      )}
       <Menu
         placement="corner-end"
         onOpenChange={extra?.onOpenChange}

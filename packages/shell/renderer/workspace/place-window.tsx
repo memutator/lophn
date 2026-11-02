@@ -61,6 +61,7 @@ import {
   closeFloat,
   closeTab,
   closeTargets,
+  cyclePane,
   type Desk,
   deskEntries,
   deskTabs,
@@ -74,6 +75,7 @@ import {
   groupOf,
   leavesOf,
   mapLayoutTabs,
+  membersOf,
   minimizeFloat,
   MAIN_DESK,
   moveTab,
@@ -81,6 +83,7 @@ import {
   openDetachedTab,
   openFloatTab,
   openTab as openTabInDesk,
+  paneStackOf,
   type PlaceLayout,
   defaultPlaceLayout,
   pinTab,
@@ -1581,7 +1584,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const menuStateOf = (tab: TabItem): TabMenuState => {
     const tabs = desk.tabs;
     const own = groupOf(desk, tab.key);
-    const span = own === null ? [tab.key] : leavesOf(own.layout);
+    const span = own === null ? [tab.key] : membersOf(own.layout);
     const lastAt = Math.max(
       ...span.map((key) => tabs.findIndex((item) => item.key === key)),
     );
@@ -1591,8 +1594,12 @@ export function PlaceWindow(props: PlaceWindowProps) {
       file: pathOfTab(tab) !== null,
       canDetach:
         props.detached !== undefined && tabKindOf(tab.kind)?.noDetach !== true,
-      group: own === null ? 0 : span.length,
-      canSplit: splitPartner(desk, tab.key) !== null,
+      group: own === null ? 0 : leavesOf(own.layout).length,
+      stacked: paneStackOf(desk, tab.key).length > 1,
+      // 칸에 숨은 tab은 나눌 자리가 없다.
+      canSplit:
+        (own === null || leavesOf(own.layout).includes(tab.key)) &&
+        splitPartner(desk, tab.key) !== null,
       hasOthers: tabs.length > span.length,
       hasRight: lastAt < tabs.length - 1,
     };
@@ -1643,6 +1650,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
         splitNext(key, action === "split-right" ? "right" : "bottom");
         return;
       case "split-remove":
+      case "unstack":
         update((item) => ungroupTab(item, key));
         return;
       case "unsplit":
@@ -1733,7 +1741,18 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // tab 줄의 한 칸. group은 칸 하나에 leaf 순서로 붙는다.
   const entries: StripEntry[] = deskEntries(desk).map((entry) => ({
     key: entry.key,
-    tabs: entry.tabs.map(stripTab),
+    tabs: entry.tabs.map((tab) => {
+      const stack = paneStackOf(desk, tab.key);
+      return stack.length < 2
+        ? stripTab(tab)
+        : {
+            ...stripTab(tab),
+            stack: stack.flatMap((key) => {
+              const item = desk.tabs.find((each) => each.key === key);
+              return item === undefined ? [] : [stripTab(item)];
+            }),
+          };
+    }),
     ...(entry.group === null
       ? {}
       : { dirs: dirsOf(entry.group.layout), focus: entry.group.focus }),
@@ -1869,6 +1888,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
         onBack={() => walk(backAt)}
         onForward={() => walk(forwardAt)}
         onFocus={(key) => update((item) => selectTab(item, key))}
+        onCycle={(key, delta) => update((item) => cyclePane(item, key, delta))}
         onAction={runTabAction}
         onDropPath={(path) =>
           openFile(host, path, {

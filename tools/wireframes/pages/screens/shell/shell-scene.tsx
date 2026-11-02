@@ -26,6 +26,7 @@ import {
   applyTabDrop,
   closeFloat,
   closeTab,
+  cyclePane,
   type Desk,
   deskEntries,
   deskTabs,
@@ -34,8 +35,10 @@ import {
   floatTab,
   groupOf,
   leavesOf,
+  membersOf,
   minimizeFloat,
   openTab,
+  paneStackOf,
   restoreFloat,
   selectTab,
   setFloatRect,
@@ -215,7 +218,9 @@ export function ShellScene({
         }),
       );
     }
-    if (what === "split-remove") patch((d) => ungroupTab(d, key));
+    if (what === "split-remove" || what === "unstack") {
+      patch((d) => ungroupTab(d, key));
+    }
     if (what === "unsplit") patch((d) => ungroup(d, key));
   };
 
@@ -228,7 +233,7 @@ export function ShellScene({
 
   const menuState = (tab: TabItem): TabMenuState => {
     const own = groupOf(desk, tab.key);
-    const span = own === null ? [tab.key] : leavesOf(own.layout);
+    const span = own === null ? [tab.key] : membersOf(own.layout);
     const at = Math.max(
       ...span.map((key) => desk.tabs.findIndex((item) => item.key === key)),
     );
@@ -237,8 +242,12 @@ export function ShellScene({
       preview: mockOf(tab).preview === true,
       file: mockOf(tab).kind === "file",
       canDetach: mockOf(tab).kind !== "terminal",
-      group: own === null ? 0 : span.length,
-      canSplit: splitPartner(desk, tab.key) !== null,
+      group: own === null ? 0 : leavesOf(own.layout).length,
+      stacked: paneStackOf(desk, tab.key).length > 1,
+      // 칸에 숨은 tab은 나눌 자리가 없다.
+      canSplit:
+        (own === null || leavesOf(own.layout).includes(tab.key)) &&
+        splitPartner(desk, tab.key) !== null,
       hasOthers: desk.tabs.length > span.length,
       hasRight: at < desk.tabs.length - 1,
     };
@@ -295,7 +304,19 @@ export function ShellScene({
           <TabStrip
             entries={deskEntries(desk).map((entry) => ({
               key: entry.key,
-              tabs: entry.tabs.map((tab) => stripTab(mockOf(tab))),
+              tabs: entry.tabs.map((tab) => {
+                const stack = paneStackOf(desk, tab.key);
+                return stack.length < 2
+                  ? stripTab(mockOf(tab))
+                  : {
+                      ...stripTab(mockOf(tab)),
+                      stack: stack.map((key) =>
+                        stripTab(
+                          mockOf(desk.tabs.find((each) => each.key === key)!),
+                        ),
+                      ),
+                    };
+              }),
               ...(entry.group === null
                 ? {}
                 : {
@@ -379,6 +400,7 @@ export function ShellScene({
           onBack={() => {}}
           onForward={() => {}}
           onFocus={(key) => patch((d) => selectTab(d, key))}
+          onCycle={(key, delta) => patch((d) => cyclePane(d, key, delta))}
           onAction={action}
           onEmptyAction={() => {}}
         />

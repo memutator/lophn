@@ -1,4 +1,4 @@
-// tab을 끄는 pointer drag. tab 줄의 칸과 group 칸의 머리 줄이 start로 시작하고, 끄는 동안 이 provider가 놓을 자리를 좌표로
+// tab을 끄는 pointer drag. tab 줄의 칸(group 칸이면 그 안의 tab 하나나 칸 통째)과 group 칸의 머리 줄이 start로 시작하고, 끄는 동안 이 provider가 놓을 자리를 좌표로
 // 찾는다(요소 위의 event가 아니라 칸·줄의 사각형으로 찾아서 <webview> 위에서도 같다). 모양은 셋이다: 커서를 따라가는 알약,
 // 칸 위의 놓을 구역 미리보기, 줄이 쓰는 자리 비우기(TabStrip이 drag 값으로 그린다). 알약과 미리보기는 portal이라 webview
 // 그릇보다 위에 선다. 어디에 놓으면 무엇이 되는지는 provider 밖(desk model의 tabDropState·applyTabDrop)이 정한다.
@@ -26,12 +26,14 @@ import styles from "./tab-drag.module.css";
 
 /** 이만큼 움직여야 drag가 시작된다. 그 전에는 click이다. */
 const THRESHOLD = 4;
-/** 칸의 가장자리 구역 폭(칸 크기의 몫). 안쪽은 가운데(swap)다. */
+/** 칸의 가장자리 구역 폭(칸 크기의 몫). 안쪽은 가운데(group 칸이면 쌓기, 아니면 swap)다. */
 const EDGE = 0.28;
 /** 놓은 알약이 자리에 앉는 시간. motion token의 short와 맞춘다. */
 const SETTLE_MS = 140;
 /** 알약이 커서에서 떨어진 거리. */
 const PILL_OFFSET = 14;
+/** tab 줄 group 칸의 양 끝 이만큼(px)은 칸 안이 아니라 칸 앞뒤(줄 순서)다. */
+const GROUP_EDGE = 12;
 
 export interface Rect {
   readonly left: number;
@@ -49,8 +51,8 @@ export interface TabDragSpec {
 
 export interface ActiveDrag {
   readonly item: TabDragItem;
-  /** 끌기가 시작된 곳. strip이면 그 칸이 자리 표시로 남는다. */
-  readonly origin: "strip" | "pane";
+  /** strip은 줄의 칸 하나를 통째로 끌어 그 칸이 자리 표시로 남는다. leaf는 group의 tab 하나(칸 머리나 줄의 group 칸에서)다. */
+  readonly origin: "strip" | "leaf";
   readonly x: number;
   readonly y: number;
   readonly hit: TabDropHit | null;
@@ -68,7 +70,7 @@ interface Drag {
   start: (
     event: ReactPointerEvent<HTMLElement>,
     item: TabDragItem,
-    origin: "strip" | "pane",
+    origin: "strip" | "leaf",
   ) => void;
 }
 
@@ -136,6 +138,27 @@ function stripEntries(): (Rect & { key: string })[] {
   ].map((element) => ({ key: element.dataset.entryKey!, ...rectOf(element) }));
 }
 
+/** tab 줄 group 칸 안의 tab들. pane은 그 tab이 든 칸에 보이는 tab, index는 칸 stack 안의 자리다. */
+interface StripItem extends Rect {
+  readonly entry: string;
+  readonly pane: string;
+  readonly index: number;
+}
+
+function stripItems(): StripItem[] {
+  return [
+    ...document.querySelectorAll<HTMLElement>(
+      "[data-tab-strip] [data-pane-key]",
+    ),
+  ].map((element) => ({
+    entry:
+      element.closest<HTMLElement>("[data-entry-key]")?.dataset.entryKey ?? "",
+    pane: element.dataset.paneKey!,
+    index: Number(element.dataset.paneIndex),
+    ...rectOf(element),
+  }));
+}
+
 export function TabDragProvider({
   describe,
   state,
@@ -156,6 +179,7 @@ export function TabDragProvider({
     const source = event.currentTarget;
     const doc = source.ownerDocument;
     let strip: ActiveDrag["strip"] = [];
+    let items: StripItem[] = [];
     let live: ActiveDrag | null = null;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -163,6 +187,33 @@ export function TabDragProvider({
       // title bar의 tab 구역 전체(줄 위의 빈 곳도)가 줄이다.
       const bar = doc.querySelector("[data-tab-strip]")?.parentElement;
       if (bar && inside(rectOf(bar), x, y)) {
+        // group 칸의 안쪽이면 가장 가까운 tab의 앞이나 뒤, 그 칸 stack의 자리다.
+        const group = item.whole
+          ? undefined
+          : strip.find(
+              (entry) =>
+                x > entry.left + GROUP_EDGE &&
+                x < entry.left + entry.width - GROUP_EDGE &&
+                items.some((one) => one.entry === entry.key),
+            );
+        if (group !== undefined) {
+          const near = items
+            .filter((one) => one.entry === group.key)
+            .reduce((best, one) =>
+              Math.abs(x - (one.left + one.width / 2)) <
+              Math.abs(x - (best.left + best.width / 2))
+                ? one
+                : best,
+            );
+          const after = x > near.left + near.width / 2;
+          return {
+            hit: {
+              kind: "stack",
+              target: near.pane,
+              index: near.index + (after ? 1 : 0),
+            } as const,
+          };
+        }
         const others = strip.filter(
           (entry) => !(origin === "strip" && entry.key === item.key),
         );
@@ -242,6 +293,7 @@ export function TabDragProvider({
         }
         // 끌기가 시작됐다. 놓은 뒤의 click이 tab을 고르지 않게 한 번 삼킨다.
         strip = stripEntries();
+        items = stripItems();
         doc.documentElement.dataset.tabDragging = "";
         try {
           source.setPointerCapture(event.pointerId);

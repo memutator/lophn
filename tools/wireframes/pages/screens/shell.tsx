@@ -24,6 +24,13 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="split" />,
     },
     {
+      id: "shell-pane-stack",
+      title: "Shell · Pane stack",
+      description:
+        "coding agent가 문서를 차례로 보내면 첫 것은 agent 옆 split 칸이 되고, 다음 것들은 그 칸에 쌓여 마지막 것이 보인다. 먼저 온 것은 빠지지 않고 tab 줄의 group 칸에 차례로 보이며(누르면 그것이 칸에 보인다) 칸 머리의 ‹ 3/3 ›로도 돌려 본다(끝에서 처음으로). group을 고르면 칸의 tab이 이름까지 보이고, 고르지 않으면 숨은 tab은 아이콘으로 보인다. 줄이 모자라면 다른 group처럼 접힌다. group 칸 안의 tab을 끌면 그 tab 하나가 움직이고(줄에 놓으면 group에서 나온다), 다른 tab을 card의 칸 가운데에 놓으면 그 칸에 쌓이고, tab 줄의 group 칸 안 두 tab 사이에 놓으면 그 자리에 들어간다(세로 줄이 자리를 보인다). 칸의 빈 곳(방향 표시)을 끌면 group 통째다. 칸에서 닫으면 이웃이 보이고, ⋯의 Move out of pane은 보이는 tab을 tab 줄의 tab으로 꺼낸다.",
+      render: () => <ShellScene variant="pane-stack" />,
+    },
+    {
       id: "shell-split-down",
       title: "Shell · Split down",
       description:
@@ -278,7 +285,7 @@ export const shellArea: Area = {
       id: "shell-split-compact",
       title: "Shell · Split tabs compact",
       description:
-        "고르지 않은 group은 아이콘과 방향 표시만 보이는 좁은 칸이고 이름은 tooltip(모든 이름)에 있다. 둘(좌우), 둘(위아래), 셋 모두 같다. 고르면 이름이 다 보이게 펴진다.",
+        "tab 줄이 넘치면 고르지 않은 group은 아이콘과 방향 표시만 보이는 좁은 칸이 되고 이름은 tooltip(모든 이름)에 있다. 둘(좌우), 둘(위아래), 셋 모두 같다. 창이 넓어 줄이 넘치지 않으면 group도 이름을 다 보인다.",
       render: () => <ShellScene variant="split-compact" />,
     },
     {

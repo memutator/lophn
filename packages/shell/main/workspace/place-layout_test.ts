@@ -202,6 +202,76 @@ test("tab을 둘로 만들거나 group 규칙을 어긴 layout은 저장하지 �
   });
 });
 
+test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 칸의 다른 tab이 남는다", async () => {
+  await withRoot(async (root) => {
+    const store = createPlaceLayoutStore(root);
+    const desk = (tabs: object[], pane: object) => ({
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs,
+          selected_tab: "/t.md",
+          groups: [
+            {
+              layout: { dir: "row", ratio: 0.5, a: { tab: "/t.md" }, b: pane },
+              focus: "/t.md",
+            },
+          ],
+          floats: [],
+          detached: [],
+        },
+      },
+    });
+    const stacked = desk(
+      [tab("/t.md"), tab("/c.md"), tab("/a.md"), tab("/b.md")],
+      { tab: "/c.md", stack: ["/a.md", "/b.md", "/c.md"] },
+    );
+    assert.deepEqual(await store.write("home", stacked), {
+      ok: true,
+      value: null,
+    });
+    assert.deepEqual(await store.read("home"), {
+      ok: true,
+      value: { ok: true, layout: { schema_version: 8, ...stacked } },
+    });
+
+    // 숨은 tab이 group 밖에 떨어져 있으면 저장하지 않는다.
+    const apart = desk(
+      [tab("/t.md"), tab("/c.md"), tab("/x.md"), tab("/a.md")],
+      { tab: "/c.md", stack: ["/a.md", "/c.md"] },
+    );
+    const write = await store.write("home", apart);
+    assert.ok(!write.ok && write.error.code === "invalid_input");
+
+    // 보이던 tab의 kind가 없어지면 이웃이 보이고 group의 tab은 다시 붙는다.
+    const gone = { kind: "gone_kind", key: "/c.md" };
+    await writeFile(
+      join(root, "shell", "places", "home.json"),
+      JSON.stringify({
+        schema_version: 8,
+        ...desk(
+          [tab("/t.md"), gone, tab("/x.md"), tab("/a.md"), tab("/b.md")],
+          { tab: "/c.md", stack: ["/a.md", "/b.md", "/c.md"] },
+        ),
+      }),
+    );
+    const read = await store.read("home");
+    assert.ok(read.ok && read.value?.ok);
+    const main = read.value.layout.desks._default!;
+    assert.deepEqual(
+      main.tabs.map((item) => item.key),
+      ["/t.md", "/b.md", "/a.md", "/x.md"],
+    );
+    assert.deepEqual(main.groups[0]!.layout, {
+      dir: "row",
+      ratio: 0.5,
+      a: { tab: "/t.md" },
+      b: { tab: "/b.md", stack: ["/a.md", "/b.md"] },
+    });
+  });
+});
+
 test("다른 판 파일은 unsupported_schema로 읽고 고치지 않는다", async () => {
   await withRoot(async (root) => {
     const file = join(root, "shell", "places", "home.json");

@@ -1,11 +1,13 @@
 // title bar에 올라가는 tab 줄. 고른 tab은 아래 card와 곡선으로 이어지고(Chrome), group은 tab 2~4개가 한 칸으로
-// 붙은 tab 하나다. 오른쪽 끝에는 접힌 float이 아이콘 칸으로 모인다. 데이터와 callback만 받고 model은 모른다.
+// 붙은 tab 하나다. 줄이 모자랄 때만 group이 아이콘으로 접힌다. 오른쪽 끝에는 접힌 float이 아이콘 칸으로 모인다.
+// 데이터와 callback만 받고 model은 모른다.
 import {
   Fragment,
   type ReactNode,
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import { t } from "@lophn/i18n";
 import { Icon, IconButton } from "@lophn/ui/primitives";
@@ -32,6 +34,11 @@ export interface StripTab {
   readonly unsaved?: boolean;
   /** 이름을 바꿀 수 있는 tab. double-click하면 이름 자리가 입력이 된다. */
   readonly renamable?: boolean;
+  /**
+   * group의 칸이 돌려 보는 tab들(온 순서, 이 tab 포함). 둘 이상이면 칸의 tab이 모두 차례로 보인다. 고른 group은
+   * 이름까지, 고르지 않은 group은 숨은 tab을 아이콘으로 보인다.
+   */
+  readonly stack?: readonly StripTab[];
 }
 
 /** 줄의 한 칸. tab이 둘 이상이면 group이고 한 칸에 붙는다. key는 첫 tab의 key다. */
@@ -76,6 +83,10 @@ export interface TabStripProps {
 // 접힌 칸이 이만큼을 넘으면 나머지는 +N 메뉴로 들어간다. tab이 쓸 폭을 지킨다.
 const MINIMIZED_SHOWN = 4;
 
+/** group을 얼마나 접나. groups는 고르지 않은 group, all은 고른 group의 focus 아닌 반쪽까지 아이콘만 보인다. */
+type Fold = "groups" | "all" | null;
+const FOLDS: readonly Fold[] = [null, "groups", "all"];
+
 export function TabStrip({
   entries,
   selected,
@@ -92,8 +103,39 @@ export function TabStrip({
   onNewTab,
   onToggleFloat,
 }: TabStripProps) {
+  const strip = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const { active: drag, start } = useTabDrag();
+  const [fold, setFold] = useState<Fold>(null);
+  // 창 폭이 바뀌면 다시 그려서 아래에서 다시 잰다.
+  const [, setWidth] = useState(0);
+  useEffect(() => {
+    const element = strip.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([size]) => {
+      if (size) setWidth(size.contentRect.width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  // tab이 좁아지기 전 폭으로 줄이 넘치지 않는 가장 덜 접힌 모양을 고른다. 이름, 점, 이름 바꾸기 입력도 폭을 바꾸므로
+  // 그릴 때마다 잰다. 끄는 동안은 칸이 비켜서 있으므로 재지 않는다.
+  useLayoutEffect(() => {
+    const element = list.current;
+    if (!element || drag !== null) return;
+    element.dataset.measure = "";
+    const at = FOLDS.findIndex((level) => {
+      if (level === null) delete element.dataset.fold;
+      else element.dataset.fold = level;
+      return element.scrollWidth <= element.clientWidth;
+    });
+    const pick = at < 0 ? "all" : FOLDS[at]!;
+    delete element.dataset.measure;
+    if (pick === null) delete element.dataset.fold;
+    else element.dataset.fold = pick;
+    setFold(pick);
+  });
 
   // 고른 칸이 줄 밖이면 줄 안에서만 scroll해 보이게 한다.
   useLayoutEffect(() => {
@@ -109,7 +151,7 @@ export function TabStrip({
     if (tab.offsetLeft - pad < element.scrollLeft) {
       element.scrollLeft = tab.offsetLeft - pad;
     }
-  }, [selected, entries]);
+  }, [selected, entries, fold]);
 
   // 세로 wheel도 가로로 옮긴다.
   const onWheel = (event: { deltaX: number; deltaY: number }) => {
@@ -138,11 +180,12 @@ export function TabStrip({
   const hidden = minimized.slice(MINIMIZED_SHOWN);
 
   return (
-    <div className={styles.strip} data-tab-strip="">
+    <div ref={strip} className={styles.strip} data-tab-strip="">
       <div
         ref={list}
         className={styles.list}
         role="tablist"
+        data-fold={fold ?? undefined}
         data-sorting={drag?.origin === "strip" ? "" : undefined}
         onWheel={onWheel}
       >
@@ -173,10 +216,21 @@ export function TabStrip({
               }
               onPointerDown={(event) => {
                 if (renaming !== null) return;
-                if ((event.target as HTMLElement).closest("button, input")) {
-                  return;
+                const target = event.target as HTMLElement;
+                if (target.closest("button, input")) return;
+                // group 칸 안의 tab을 누르면 그 tab 하나를, 칸의 빈 곳(방향 표시, 가장자리)을 누르면 group 통째를 끈다.
+                const half = grouped
+                  ? target.closest<HTMLElement>("[data-tab-key]")
+                  : null;
+                if (half?.dataset.tabKey !== undefined) {
+                  start(
+                    event,
+                    { key: half.dataset.tabKey, whole: false },
+                    "leaf",
+                  );
+                } else {
+                  start(event, { key: entry.key, whole: grouped }, "strip");
                 }
-                start(event, { key: entry.key, whole: grouped }, "strip");
               }}
               onClick={() => onSelect(focused.key)}
               onContextMenu={(event) => {
@@ -197,20 +251,107 @@ export function TabStrip({
             >
               <span className={styles.flareStart} aria-hidden />
               {entry.tabs.map((tab, at) => {
-                const editing = tab.key === renaming;
-                // ●는 닫기 단추 자리에 있다. 그 단추가 닫지 않는 반쪽만 이름 뒤에 따로 그린다.
-                const markHere = tab.unsaved === true && tab !== closing;
-                const one = tab.dot
-                  ? t("project-workspace.label.tab-tooltip", {
-                      title: tab.title,
-                      state: dotLabel(tab.dot),
-                    })
-                  : tab.title;
-                // 이름이 안 보이는 접힌 group은 어느 쪽에 올려도 이름을 다 보인다.
-                const tip =
-                  grouped && !active
-                    ? entry.tabs.map((item) => item.title).join(" | ")
-                    : one;
+                const items = tab.stack ?? [tab];
+                // 끄는 tab을 이 칸 stack의 어디에 넣을지(tab 줄 group 칸 안에 놓을 때).
+                const dropAt =
+                  drag?.hit?.kind === "stack" && drag.hit.target === tab.key
+                    ? drag.hit.index
+                    : null;
+                const halves = items.map((item, place) => {
+                  const editing = item.key === renaming;
+                  // ●는 닫기 단추 자리에 있다. 그 단추가 닫지 않는 tab만 이름 뒤에 따로 그린다.
+                  const markHere =
+                    item.unsaved === true && item.key !== closing.key;
+                  const one = item.dot
+                    ? t("project-workspace.label.tab-tooltip", {
+                        title: item.title,
+                        state: dotLabel(item.dot),
+                      })
+                    : item.title;
+                  // 이름이 안 보이는 접힌 group은 어느 쪽에 올려도 이름을 다 보인다.
+                  const tip =
+                    grouped && !active && fold !== null
+                      ? entry.tabs
+                          .flatMap((half) => half.stack ?? [half])
+                          .map((each) => each.title)
+                          .join(" | ")
+                      : one;
+                  return (
+                    <Tooltip
+                      key={item.key}
+                      content={tip}
+                      open={editing ? false : undefined}
+                    >
+                      <span
+                        className={styles.half}
+                        data-tab-key={item.key}
+                        data-focused={
+                          (grouped && active && focused.key === item.key) ||
+                          undefined
+                        }
+                        data-hidden={item.key !== tab.key || undefined}
+                        data-pane-key={grouped ? tab.key : undefined}
+                        data-pane-index={grouped ? place : undefined}
+                        data-drop-item={
+                          dropAt === place
+                            ? "before"
+                            : dropAt === items.length &&
+                                place === items.length - 1
+                              ? "after"
+                              : undefined
+                        }
+                        data-dragging={
+                          (drag?.origin === "leaf" &&
+                            drag.item.key === item.key) ||
+                          undefined
+                        }
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(item.key);
+                        }}
+                        onDoubleClick={() => {
+                          if (item.preview) onPin?.(item.key);
+                          else if (item.renamable) onRenaming?.(item.key);
+                        }}
+                        onAuxClick={(event) => {
+                          if (event.button !== 1 || editing) return;
+                          event.preventDefault();
+                          onClose(item.key);
+                        }}
+                      >
+                        <span className={styles.icon}>{item.icon}</span>
+                        {editing ? (
+                          <RenameInput
+                            title={item.title}
+                            onDone={(name) => {
+                              if (name !== undefined) {
+                                onRename?.(item.key, name);
+                              }
+                              onRenaming?.(null);
+                            }}
+                          />
+                        ) : (
+                          <span
+                            className={styles.title}
+                            data-preview={item.preview || undefined}
+                          >
+                            {item.title}
+                          </span>
+                        )}
+                        {item.dot ? <TabStateDot dot={item.dot} /> : null}
+                        {markHere ? (
+                          <span
+                            className={styles.mark}
+                            role="img"
+                            aria-label={t(
+                              "project-workspace.label.tab-unsaved",
+                            )}
+                          />
+                        ) : null}
+                      </span>
+                    </Tooltip>
+                  );
+                });
                 return (
                   <Fragment key={tab.key}>
                     {at > 0 ? (
@@ -225,57 +366,11 @@ export function TabStrip({
                         />
                       </span>
                     ) : null}
-                    <Tooltip content={tip} open={editing ? false : undefined}>
-                      <span
-                        className={styles.half}
-                        data-tab-key={tab.key}
-                        data-focused={
-                          (grouped && active && focused.key === tab.key) ||
-                          undefined
-                        }
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onSelect(tab.key);
-                        }}
-                        onDoubleClick={() => {
-                          if (tab.preview) onPin?.(tab.key);
-                          else if (tab.renamable) onRenaming?.(tab.key);
-                        }}
-                        onAuxClick={(event) => {
-                          if (event.button !== 1 || editing) return;
-                          event.preventDefault();
-                          onClose(tab.key);
-                        }}
-                      >
-                        <span className={styles.icon}>{tab.icon}</span>
-                        {editing ? (
-                          <RenameInput
-                            title={tab.title}
-                            onDone={(name) => {
-                              if (name !== undefined) onRename?.(tab.key, name);
-                              onRenaming?.(null);
-                            }}
-                          />
-                        ) : (
-                          <span
-                            className={styles.title}
-                            data-preview={tab.preview || undefined}
-                          >
-                            {tab.title}
-                          </span>
-                        )}
-                        {tab.dot ? <TabStateDot dot={tab.dot} /> : null}
-                        {markHere ? (
-                          <span
-                            className={styles.mark}
-                            role="img"
-                            aria-label={t(
-                              "project-workspace.label.tab-unsaved",
-                            )}
-                          />
-                        ) : null}
-                      </span>
-                    </Tooltip>
+                    {items.length > 1 ? (
+                      <span className={styles.pane}>{halves}</span>
+                    ) : (
+                      halves
+                    )}
                   </Fragment>
                 );
               })}

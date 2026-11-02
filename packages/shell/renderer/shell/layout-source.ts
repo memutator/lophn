@@ -15,12 +15,12 @@ import {
   GROUP_MAX,
   type Group,
   type GroupNode,
-  leavesOf,
   MAIN_DESK,
   type PlaceLayout,
   type PlaceQuick,
   type PlaceRef,
   placeKey,
+  settle,
   type TabItem,
 } from "./desk-model.ts";
 
@@ -175,44 +175,16 @@ function rectOf(value: unknown): FloatRect | null {
 }
 
 // tab이 빠졌을 때(알 수 없는 kind, 저장할 수 없는 tab) 고른 tab과 group이 남은 tabs 안에 있게 고친다. group은
-// leaf가 빠지면 그 leaf를 걷어내고 1개로 줄면 푼다. tabs 순서는 건드리지 않는다(main이 이미 붙어 있게 검증했다).
+// tab이 빠지면 칸에서 걷어내고(보이던 tab이면 stack의 이웃이 보인다) 1개로 줄면 풀며, 구성원을 다시 붙인다.
 function repaired(desk: Desk): Desk {
   const keys = new Set(desk.tabs.map((tab) => tab.key));
-  const groups = desk.groups.flatMap((group): Group[] => {
-    const layout = prune(group.layout, keys);
-    if (layout === null) return [];
-    const leaves = leavesOf(layout);
-    return leaves.length < 2
-      ? []
-      : [
-          {
-            layout,
-            focus: leaves.includes(group.focus) ? group.focus : leaves[0]!,
-          },
-        ];
-  });
-  const selected =
-    desk.selected !== null && keys.has(desk.selected)
-      ? desk.selected
-      : (desk.tabs[0]?.key ?? null);
-  return {
+  return settle({
     ...desk,
-    selected,
-    groups: groups.map((group) =>
-      selected !== null && leavesOf(group.layout).includes(selected)
-        ? { ...group, focus: selected }
-        : group,
-    ),
-  };
-}
-
-function prune(node: GroupNode, keys: ReadonlySet<string>): GroupNode | null {
-  if ("tab" in node) return keys.has(node.tab) ? node : null;
-  const a = prune(node.a, keys);
-  const b = prune(node.b, keys);
-  if (a === null) return b;
-  if (b === null) return a;
-  return { ...node, a, b };
+    selected:
+      desk.selected !== null && keys.has(desk.selected)
+        ? desk.selected
+        : (desk.tabs[0]?.key ?? null),
+  });
 }
 
 function compact<T>(items: readonly (T | null)[]): T[] {
@@ -227,7 +199,14 @@ function nodeFromStored(value: unknown, depth = 0): GroupNode | null {
   if (typeof node !== "object" || node === null || depth > GROUP_MAX) {
     return null;
   }
-  if (typeof node.tab === "string") return { tab: node.tab };
+  if (typeof node.tab === "string") {
+    const stack = Array.isArray(node.stack)
+      ? node.stack.filter((key): key is string => typeof key === "string")
+      : [];
+    return stack.length >= 2 && stack.includes(node.tab)
+      ? { tab: node.tab, stack }
+      : { tab: node.tab };
+  }
   const a = nodeFromStored(node.a, depth + 1);
   const b = nodeFromStored(node.b, depth + 1);
   if (a === null || b === null) return null;
@@ -241,7 +220,9 @@ function nodeFromStored(value: unknown, depth = 0): GroupNode | null {
 
 function nodeToStored(node: GroupNode): Stored {
   return "tab" in node
-    ? { tab: node.tab }
+    ? node.stack === undefined
+      ? { tab: node.tab }
+      : { tab: node.tab, stack: [...node.stack] }
     : {
         dir: node.dir,
         ratio: node.ratio,

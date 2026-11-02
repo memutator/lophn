@@ -1,7 +1,7 @@
 // place(Home, project, app) layout 파일의 값. 파일 하나가 place 하나이고 desk 여럿을 가진다. 판 8부터다.
 // 옛 `layouts/<prj_id>.json`(판 5~7)은 읽지 않는다. 파일이 없으면 기본 layout으로 시작한다.
 // 상한과 불변 조건(tab key는 desk 안에서 한 번, selected·group의 leaf는 tabs 안, group은 leaf 2~4개이고 tabs에서
-// leaf 순서로 붙어 있음)은 renderer shell/desk-model.ts와 짝이다.
+// leaf 순서로 붙어 있고 칸에 숨은 tab이 그 바로 뒤에 붙어 있음)은 renderer shell/desk-model.ts와 짝이다.
 import { z } from "zod";
 
 import {
@@ -22,14 +22,28 @@ export function isPlaceKey(value: unknown): value is string {
 
 const TABS_MAX = 1200;
 
-// group의 배치 tree. leaf는 tab key, 나눔은 row(a가 왼쪽)나 column(a가 위)이고 ratio는 a의 몫이다.
+// group의 배치 tree. leaf는 칸(보이는 tab key와, 돌려 보는 tab이 둘 이상이면 온 순서의 stack), 나눔은 row(a가
+// 왼쪽)나 column(a가 위)이고 ratio는 a의 몫이다. stack은 판 8 안에서 더한 선택 필드라 옛 파일도 그대로 맞다.
 export type StoredNode =
-  | { tab: string }
+  | { tab: string; stack?: string[] | undefined }
   | { dir: "row" | "column"; ratio: number; a: StoredNode; b: StoredNode };
+
+const leafSchema = z
+  .strictObject({
+    tab: tabKey,
+    stack: z.array(tabKey).min(2).max(TABS_MAX).optional(),
+  })
+  .refine(
+    (leaf) =>
+      leaf.stack === undefined ||
+      (leaf.stack.includes(leaf.tab) &&
+        new Set(leaf.stack).size === leaf.stack.length),
+    { message: "a pane stack holds its tab once" },
+  );
 
 const nodeSchema: z.ZodType<StoredNode> = z.lazy(() =>
   z.union([
-    z.strictObject({ tab: tabKey }),
+    leafSchema,
     z.strictObject({
       dir: z.enum(["row", "column"]),
       ratio: z.number().min(0.15).max(0.85),
@@ -45,6 +59,13 @@ export function leavesOf(node: StoredNode): string[] {
   return "tab" in node
     ? [node.tab]
     : [...leavesOf(node.a), ...leavesOf(node.b)];
+}
+
+// 칸에 숨은 tab들(leaf 순서, 칸 안에서는 온 순서).
+function hiddenOf(node: StoredNode): string[] {
+  return "tab" in node
+    ? (node.stack ?? []).filter((key) => key !== node.tab)
+    : [...hiddenOf(node.a), ...hiddenOf(node.b)];
 }
 
 const groupSchema = z
@@ -103,18 +124,25 @@ const placeDeskSchema = z
       const keys = desk.tabs.map((tab) => tab.key);
       const used = new Set<string>();
       for (const group of desk.groups) {
-        const leaves = leavesOf(group.layout);
-        const at = keys.indexOf(leaves[0]!);
-        // leaf가 모두 tabs에 leaf 순서대로 붙어 있고 다른 group에 들지 않는다.
-        if (at < 0 || leaves.some((leaf, i) => keys[at + i] !== leaf)) {
+        const members = [...leavesOf(group.layout), ...hiddenOf(group.layout)];
+        const at = keys.indexOf(members[0]!);
+        // leaf가 모두 tabs에 leaf 순서대로 붙어 있고 칸에 숨은 tab이 그 뒤에 붙으며, 다른 group에 들지 않는다.
+        if (at < 0 || members.some((key, i) => keys[at + i] !== key)) {
           return false;
         }
-        if (leaves.some((leaf) => used.has(leaf))) return false;
-        for (const leaf of leaves) used.add(leaf);
+        if (members.some((key) => used.has(key))) return false;
+        for (const key of members) used.add(key);
       }
       return true;
     },
     { message: "group leaves are not adjacent tabs in leaf order" },
+  )
+  .refine(
+    (desk) =>
+      !desk.groups.some((group) =>
+        hiddenOf(group.layout).includes(desk.selected_tab ?? ""),
+      ),
+    { message: "selected_tab is hidden in a pane" },
   );
 
 export type PlaceDesk = z.infer<typeof placeDeskSchema>;
@@ -218,15 +246,19 @@ function skipInDesk(value: unknown): unknown {
   const keptTabs = tabs.filter(registered);
   const keys = new Set(keptTabs.map((tab: { key?: unknown }) => tab?.key));
   const selected = desk.selected_tab;
+  // 한쪽이 빠지면 짝만 남은 group은 의미가 없다.
+  const groups = groupsWithin(
+    Array.isArray(desk.groups) ? desk.groups : [],
+    keys,
+  );
   return {
     ...desk,
-    tabs: keptTabs,
+    tabs: keptTabs.length === tabs.length ? tabs : glued(keptTabs, groups),
     selected_tab:
       selected === null || keys.has(selected)
         ? selected
         : ((keptTabs[0] as { key?: unknown } | undefined)?.key ?? null),
-    // 한쪽이 빠지면 짝만 남은 group은 의미가 없다.
-    groups: groupsWithin(Array.isArray(desk.groups) ? desk.groups : [], keys),
+    groups,
     floats: floats.filter((item: { tab?: unknown } | null) =>
       registered(item?.tab),
     ),
@@ -234,6 +266,45 @@ function skipInDesk(value: unknown): unknown {
       registered(item?.tab),
     ),
   };
+}
+
+// 칸의 보이던 tab이 빠져 stack의 이웃이 보이면 group의 tab이 떨어질 수 있다. 첫 구성원 자리에 다시 붙인다.
+function glued(tabs: unknown[], groups: unknown[]): unknown[] {
+  const keyOf = (tab: unknown) => (tab as { key?: unknown } | null)?.key;
+  const owner = new Map<unknown, unknown[]>();
+  for (const group of groups) {
+    const layout = (group as { layout?: unknown } | null)?.layout;
+    const members = [...leavesIn(layout), ...hiddenIn(layout)];
+    for (const key of members) owner.set(key, members);
+  }
+  const byKey = new Map(tabs.map((tab) => [keyOf(tab), tab]));
+  const done = new Set<unknown[]>();
+  return tabs.flatMap((tab) => {
+    const members = owner.get(keyOf(tab));
+    if (members === undefined) return [tab];
+    if (done.has(members)) return [];
+    done.add(members);
+    return members.flatMap((key) => (byKey.has(key) ? [byKey.get(key)] : []));
+  });
+}
+
+// 칸의 stack에서 빠진 tab을 걷어낸다. 보이던 tab이 빠지면 stack의 이웃이 보이고, 칸이 비면 null이다.
+function pruneLeaf(
+  value: { tab?: unknown; stack?: unknown },
+  keys: ReadonlySet<unknown>,
+): unknown {
+  if (!Array.isArray(value.stack)) return keys.has(value.tab) ? value : null;
+  const all: unknown[] = value.stack;
+  const stack = all.filter((key) => keys.has(key));
+  if (stack.length === all.length) return value;
+  if (stack.length === 0) return null;
+  const at = all.indexOf(value.tab);
+  const tab = keys.has(value.tab)
+    ? value.tab
+    : (all.slice(at + 1).find((key) => keys.has(key)) ??
+      all.slice(0, at).findLast((key) => keys.has(key)));
+  const { stack: _old, ...rest } = value;
+  return stack.length < 2 ? { ...rest, tab } : { ...rest, tab, stack };
 }
 
 const leavesIn = (node: unknown): unknown[] => {
@@ -244,6 +315,20 @@ const leavesIn = (node: unknown): unknown[] => {
     : [...leavesIn(value.a), ...leavesIn(value.b)];
 };
 
+const hiddenIn = (node: unknown): unknown[] => {
+  const value = node as {
+    tab?: unknown;
+    stack?: unknown;
+    a?: unknown;
+    b?: unknown;
+  } | null;
+  if (typeof value !== "object" || value === null) return [];
+  if (!("tab" in value)) return [...hiddenIn(value.a), ...hiddenIn(value.b)];
+  return Array.isArray(value.stack)
+    ? value.stack.filter((key) => key !== value.tab)
+    : [];
+};
+
 // 등록된 tab만 남은 tabs 안에서 leaf를 걷어내고, 2개 미만이 된 group은 버린다. 모양이 틀린 group은 그대로 둬서 schema가 거절한다.
 function groupsWithin(
   groups: unknown[],
@@ -252,7 +337,7 @@ function groupsWithin(
   const prune = (node: unknown): unknown => {
     const value = node as { tab?: unknown; a?: unknown; b?: unknown } | null;
     if (typeof value !== "object" || value === null) return node;
-    if ("tab" in value) return keys.has(value.tab) ? node : null;
+    if ("tab" in value) return pruneLeaf(value, keys);
     const a = prune(value.a);
     const b = prune(value.b);
     if (a === null) return b;

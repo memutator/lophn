@@ -17,6 +17,7 @@ export type TabAction =
   | "split-right"
   | "split-down"
   | "split-remove"
+  | "unstack"
   | "unsplit"
   | "detach"
   | "copy-path"
@@ -34,6 +35,8 @@ export interface TabMenuState {
   readonly canDetach: boolean;
   /** tab이 든 group의 leaf 수. group에 들지 않았으면 0. */
   readonly group: number;
+  /** tab이 보이는 칸이 다른 tab도 돌려 본다(Move out of pane). */
+  readonly stacked?: boolean;
   /** 옆에 붙일 plain tab이 있고 group이 가득 차지 않았다(Split right·down을 할 수 있다). */
   readonly canSplit: boolean;
   /** desk에 이 칸 말고 tab이 있다. */
@@ -42,8 +45,9 @@ export interface TabMenuState {
   readonly hasRight: boolean;
 }
 
-// Split right·down은 늘 있다(group 안에서는 그 leaf 옆에 다음 plain tab을 붙인다). group 구성원이면 그 뒤에
-// 꺼내기(Remove from split)와 풀기가 온다: leaf가 둘이면 Unsplit 하나, 셋 이상이면 Remove from split과 Unsplit all.
+// Split right·down은 늘 있다(group 안에서는 그 leaf 옆에 다음 plain tab을 붙인다). 칸이 여러 tab을 돌려 보면
+// 칸에서 꺼내기(Move out of pane)가 오고, group 구성원이면 그 뒤에 꺼내기(Remove from split)와 풀기가 온다: leaf가
+// 둘이면 Unsplit 하나, 셋 이상이면 Remove from split과 Unsplit all.
 function splitItems(state: TabMenuState): MenuItem[] {
   const items: MenuItem[] = [
     {
@@ -60,6 +64,13 @@ function splitItems(state: TabMenuState): MenuItem[] {
       disabled: !state.canSplit,
     },
   ];
+  if (state.stacked === true) {
+    items.push({
+      id: "unstack",
+      label: t("shell.button.tab-unstack"),
+      leading: <MenuIcon icon={shellIcons.splitRemove} />,
+    });
+  }
   if (state.group >= 3) {
     items.push({
       id: "split-remove",

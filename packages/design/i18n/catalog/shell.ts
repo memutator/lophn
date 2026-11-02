@@ -13,6 +13,8 @@ export const shell = {
   "shell.button.minimized-more": "{count} more minimized tabs",
   "shell.button.new-desk": "New desk",
   "shell.button.new-tab": "New tab",
+  "shell.button.pane-next": "Next in this pane",
+  "shell.button.pane-previous": "Previous in this pane",
   "shell.button.reload": "Reload",
   "shell.button.strip-close": "Close {title}",
   "shell.button.tab-close": "Close",
@@ -31,6 +33,7 @@ export const shell = {
   "shell.button.tab-split-down": "Split down",
   "shell.button.tab-split-remove": "Remove from split",
   "shell.button.tab-split-right": "Split right",
+  "shell.button.tab-unstack": "Move out of pane",
   "shell.button.tab-unsplit": "Unsplit",
   "shell.button.tab-unsplit-all": "Unsplit all",
   "shell.button.toggle-left": "Toggle left sidebar",
@@ -58,5 +61,6 @@ export const shell = {
     "No tabs in this desk yet. Open a session from the sidebar or start a new one.",
   "shell.label.minimized": "Minimized tabs",
   "shell.label.new-desk-name": "Desk {number}",
+  "shell.label.pane-position": "{at}/{count}",
   "shell.label.split-resize": "Resize split",
 } as const;

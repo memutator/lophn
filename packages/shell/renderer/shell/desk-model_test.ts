@@ -8,6 +8,7 @@ import {
   closeFloat,
   closeTargets,
   closeTab,
+  cyclePane,
   defaultPlaceLayout,
   type Desk,
   deskEntries,
@@ -21,11 +22,13 @@ import {
   groupOf,
   leavesOf,
   MAIN_DESK,
+  membersOf,
   mergeDeskIntoMain,
   minimizeFloat,
   moveTab,
   openTab,
   openTabInLayout,
+  paneStackOf,
   type PaneZone,
   type PlaceLayout,
   reattachTab,
@@ -34,6 +37,7 @@ import {
   selectTab,
   setRatio,
   splitTab,
+  stackTab,
   stepTab,
   swapTabs,
   type TabDragItem,
@@ -78,18 +82,25 @@ function assertValid(desk: Desk, expected: readonly string[]) {
   const used = new Set<string>();
   for (const group of desk.groups) {
     const leaves = leavesOf(group.layout);
+    const members = membersOf(group.layout);
     assert.ok(leaves.length >= 2 && leaves.length <= 4, "group size");
-    const at = tabKeys.indexOf(leaves[0]!);
+    const at = tabKeys.indexOf(members[0]!);
     assert.ok(at >= 0, "leaf is not in tabs");
     assert.deepEqual(
-      tabKeys.slice(at, at + leaves.length),
-      leaves,
+      tabKeys.slice(at, at + members.length),
+      members,
       "contiguous",
     );
-    for (const leaf of leaves) {
-      assert.ok(!used.has(leaf), "tab in two groups");
-      used.add(leaf);
+    for (const key of members) {
+      assert.ok(!used.has(key), "tab in two groups");
+      used.add(key);
     }
+    assert.ok(
+      desk.selected === null ||
+        !members.includes(desk.selected) ||
+        leaves.includes(desk.selected),
+      "selected is hidden in a pane",
+    );
     assert.ok(leaves.includes(group.focus), "focus is not a leaf");
     if (desk.selected !== null && leaves.includes(desk.selected)) {
       assert.equal(group.focus, desk.selected, "focus follows selected");
@@ -322,7 +333,7 @@ test("preview tab은 자리를 바꿔 쓰고 저장 안 된 것은 남기며 gro
   assert.equal(desk.selected, "p3");
 });
 
-test("터미널 옆에 열기는 group을 만들거나 다음 칸을 이어받고 tab을 잃거나 둘로 만들지 않는다", () => {
+test("터미널 옆에 열기는 group을 만들거나 다음 칸에 쌓고, 칸의 tab을 잃거나 둘로 만들지 않는다", () => {
   // group이 없으면 [터미널 | 새 tab]이 된다.
   let desk = deskOf("a", "t", "b");
   desk = openTab(desk, tab("n1"), { after: "t", beside: true });
@@ -330,21 +341,44 @@ test("터미널 옆에 열기는 group을 만들거나 다음 칸을 이어받�
   assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n1"]);
   assert.equal(desk.selected, "n1");
 
-  // group에 있으면 다음 leaf의 칸을 새 tab이 가져가고, 밀려난 tab은 tabs에 남으며 group은 자라지 않는다.
-  desk = splitTab(desk, "n1", "b", "right");
-  assertValid(desk, ["a", "t", "b", "n1"]);
+  // group에 있으면 다음 칸에 쌓여 보이고, 전에 보이던 tab은 그 칸에 숨어 남는다. group은 자라지 않는다.
   desk = openTab(desk, tab("n2"), { after: "t", beside: true });
-  assertValid(desk, ["a", "t", "b", "n1", "n2"]);
-  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n2", "b"]);
-  assert.equal(groupOf(desk, "n1"), null);
+  desk = openTab(desk, tab("n3"), { after: "t", beside: true });
+  const all = ["a", "t", "b", "n1", "n2", "n3"];
+  assertValid(desk, all);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n3"]);
+  assert.deepEqual(paneStackOf(desk, "n3"), ["n1", "n2", "n3"]);
+  assert.deepEqual(
+    deskEntries(desk).map((entry) => entry.key),
+    ["a", "t", "b"],
+    "hidden tabs are not strip entries",
+  );
 
-  // 마지막 leaf에서는 첫 칸으로 돌아가고, 이미 열린 tab은 옛 규칙대로 고르기만 한다.
-  desk = openTab(desk, tab("n3"), { after: "b", beside: true });
-  assertValid(desk, ["a", "t", "b", "n1", "n2", "n3"]);
-  assert.deepEqual(leavesOf(groupOf(desk, "b")!.layout), ["n3", "n2", "b"]);
-  const again = openTab(desk, tab("n1"), { after: "t", beside: true });
-  assertValid(again, ["a", "t", "b", "n1", "n2", "n3"]);
-  assert.equal(again.groups.length, 1);
+  // 칸 안에서 돌려 보고, 끝에서 처음으로 돈다. 이미 열린 숨은 tab을 다시 열면 그 칸에 보인다.
+  desk = cyclePane(desk, "n3", 1);
+  assertValid(desk, all);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n1"]);
+  assert.equal(desk.selected, "n1");
+  desk = openTab(desk, tab("n2"), { after: "t", beside: true });
+  assertValid(desk, all);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n2"]);
+
+  // 보이는 tab을 닫으면 칸의 이웃이 보이고, 칸에서 꺼내면 tab 줄의 tab이 된다.
+  desk = closeTab(desk, "n2");
+  assertValid(desk, ["a", "t", "b", "n1", "n3"]);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n3"]);
+  assert.equal(desk.selected, "n3");
+  desk = ungroupTab(desk, "n3");
+  assertValid(desk, ["a", "t", "b", "n1", "n3"]);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n1"]);
+  assert.deepEqual(paneStackOf(desk, "n1"), ["n1"]);
+  assert.equal(groupOf(desk, "n3"), null);
+
+  // group을 풀면 칸에 숨은 tab도 tab 줄에 나온다.
+  desk = openTab(desk, tab("n4"), { after: "t", beside: true });
+  desk = ungroup(desk, "t");
+  assertValid(desk, ["a", "t", "b", "n1", "n3", "n4"]);
+  assert.equal(deskEntries(desk).length, 6);
 });
 
 test("tab 메뉴의 여러 개 닫기는 의도한 tab만 닫고 group을 유효하게 둔다", () => {
@@ -423,7 +457,9 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
   desk = splitTab(desk, "d", "e", "right");
   desk = splitTab(desk, "e", "f", "bottom");
   desk = splitTab(desk, "d", "g", "top"); // [g d e f] 가득
+  desk = stackTab(desk, "b", "h"); // b 칸이 [b h]를 돌려 보고 h가 보인다
   assertValid(desk, all);
+  assert.deepEqual(paneStackOf(desk, "h"), ["b", "h"]);
   const zones: PaneZone[] = ["left", "right", "top", "bottom", "center"];
   const hits: TabDropHit[] = [
     ...deskEntries(desk).map(
@@ -432,6 +468,14 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
     { kind: "strip", before: null },
     ...all.flatMap((target) =>
       zones.map((zone) => ({ kind: "pane", target, zone }) as const),
+    ),
+    // tab 줄 group 칸 안의 자리: 칸마다 stack의 앞·사이·끝.
+    ...desk.groups.flatMap((group) =>
+      leavesOf(group.layout).flatMap((target) =>
+        [...paneStackOf(desk, target), ""].map(
+          (_, index) => ({ kind: "stack", target, index }) as const,
+        ),
+      ),
     ),
   ];
   for (const key of all) {
@@ -449,6 +493,18 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
           assert.equal(next, desk, `${state} must not change`);
         if (hit.kind === "strip" && !item.whole && own !== null) {
           assert.equal(groupOf(next, key), null, "leaf leaves the group");
+        }
+        if (hit.kind === "stack" && state === "ok") {
+          assert.equal(next.selected, key, "dropped tab is shown");
+          assert.equal(
+            paneStackOf(next, key).indexOf(key),
+            hit.index -
+              (paneStackOf(desk, hit.target).indexOf(key) >= 0 &&
+              paneStackOf(desk, hit.target).indexOf(key) < hit.index
+                ? 1
+                : 0),
+            "dropped where pointed",
+          );
         }
       }
     }
@@ -478,11 +534,27 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
     ),
     "ok",
   );
-  // 보이는 칸과 자리를 바꾼 group 밖 tab이 보인다.
-  const swapped = applyTabDrop(
-    selectTab(desk, "c"),
-    { key: "h", whole: false },
-    { kind: "pane", target: "c", zone: "center" },
+  // group 칸 가운데에 놓으면 그 칸에 쌓이고, 둘뿐인 group의 짝을 놓으면 group이 풀리므로 놓지 않는다.
+  const stacked = applyTabDrop(
+    desk,
+    { key: "c", whole: false },
+    { kind: "pane", target: "h", zone: "center" },
   );
-  assert.equal(swapped.selected, "h");
+  assert.deepEqual(paneStackOf(stacked, "c"), ["b", "h", "c"]);
+  assert.equal(stacked.selected, "c");
+  assert.equal(
+    tabDropState(
+      desk,
+      { key: "a", whole: false },
+      { kind: "pane", target: "h", zone: "center" },
+    ),
+    "none",
+  );
+  // group이 아닌 보이는 칸과 자리를 바꾼 tab이 보인다.
+  const swapped = applyTabDrop(
+    deskOf("x", "y"),
+    { key: "x", whole: false },
+    { kind: "pane", target: "y", zone: "center" },
+  );
+  assert.equal(swapped.selected, "x");
 });

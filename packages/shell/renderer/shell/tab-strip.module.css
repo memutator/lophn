@@ -77,12 +77,10 @@
   flex-shrink: 0;
 }
 
-/* 고른 tab은 이름이 길어도 줄이지 않고 다 보인다. 말도 안 되게 긴 이름만 줄 폭의 80%에서 ...로 자른다.
-   % 기준은 줄(list)의 폭이다. */
+/* 고른 tab은 이름이 길어도 줄이지 않고 다 보인다. 최대 폭(strip 폭의 80%)은 TabStrip이 inline으로 준다. */
 .tab[data-active] {
   flex-shrink: 0;
   width: max-content;
-  max-width: 80%;
   color: var(--color-text-primary);
   background: var(--color-surface-base);
 }

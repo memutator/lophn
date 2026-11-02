@@ -107,8 +107,8 @@ export function TabStrip({
   const list = useRef<HTMLDivElement>(null);
   const { active: drag, start } = useTabDrag();
   const [fold, setFold] = useState<Fold>(null);
-  // 창 폭이 바뀌면 다시 그려서 아래에서 다시 잰다.
-  const [, setWidth] = useState(0);
+  // 창 폭이 바뀌면 다시 그려서 아래에서 다시 잰다. 고른 tab의 최대 폭도 이 폭에서 나온다.
+  const [width, setWidth] = useState(0);
   useEffect(() => {
     const element = strip.current;
     if (!element) return;
@@ -209,11 +209,14 @@ export function TabStrip({
                 (drag?.origin === "strip" && drag.item.key === entry.key) ||
                 undefined
               }
-              style={
-                slide?.get(entry.key)
-                  ? { transform: `translateX(${slide.get(entry.key)}px)` }
-                  : undefined
-              }
+              style={{
+                transform: slide?.get(entry.key)
+                  ? `translateX(${slide.get(entry.key)}px)`
+                  : undefined,
+                // 말도 안 되게 긴 이름만 strip 폭의 80%에서 자른다. CSS %는 tab 폭만큼인 list 기준이라 tab이 하나면
+                // 자기 폭의 80%가 되어 늘 잘린다.
+                maxWidth: active && width > 0 ? width * 0.8 : undefined,
+              }}
               onPointerDown={(event) => {
                 if (renaming !== null) return;
                 const target = event.target as HTMLElement;

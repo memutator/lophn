@@ -1,8 +1,9 @@
 // 인터넷 탭이 함께 쓰는 persistent session의 정책. permission은 기본 거절(clipboard write만 허락),
-// download는 사용자 입력 직후만, UA에서는 Electron·앱 이름을 뺀다. 이 session은 browser 탭만 쓰므로
-// onBeforeSendHeaders도 여기서 한 번만 단다.
+// download는 사용자 입력 직후만, UA에서는 Electron·앱 이름을 빼고 brand header를 Chrome 값으로 바꾼다.
+// 이 session은 browser 탭만 쓰므로 onBeforeSendHeaders도 여기서 한 번만 단다. page JS가 보는 값은
+// contents마다 electron-view.ts가 CDP로 맞춘다.
 import { decidePermission } from "./permission.ts";
-import { clientHintHeaders, sanitizeUserAgent } from "./user-agent.ts";
+import { rewriteBrandHeaders, sanitizeUserAgent } from "./user-agent.ts";
 
 export const BROWSER_PARTITION = "persist:lophn-browser";
 
@@ -59,7 +60,6 @@ export function installBrowserSession(
   deps: {
     activation: { fresh(contentsId: number): boolean };
     product: string;
-    platform: string;
   },
 ): { clearData(): Promise<void> } {
   handle.onPermissionRequest(decidePermission);
@@ -83,11 +83,7 @@ export function installBrowserSession(
     if (original !== undefined) {
       const userAgent = sanitizeUserAgent(original[1], deps.product);
       setHeader(headers, "User-Agent", userAgent);
-      for (const [name, value] of Object.entries(
-        clientHintHeaders(userAgent, deps.platform),
-      )) {
-        setHeader(headers, name, value);
-      }
+      rewriteBrandHeaders(headers, userAgent);
     }
     callback({ requestHeaders: headers });
   });

@@ -62,7 +62,6 @@ export function register(ctx: ShellContext): BrowserWiring {
     (session ??= installBrowserSession(electronBrowserSession(), {
       activation,
       product: app.getName(),
-      platform: process.platform,
     }));
 
   const orderOf = windowBrowserViewOrders<BrowserWindow, WebContentsView>(

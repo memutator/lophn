@@ -21,11 +21,12 @@ place 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커니�
    │     will-frame-navigate / will-redirect ─▶ decideNavigation (main frame은 will-frame-navigate가 먼저 오고, 막으면 will-navigate는 오지 않는다)
    │     input-event(mouseDown, rawKeyDown) ─▶ activation.mark
    │     setWindowOpenHandler ─▶ popup-host.ts ─▶ decidePopup
+   │     debugger(CDP) Emulation.setUserAgentOverride ─▶ page JS의 userAgentData를 Chrome brand로
    │     before-input-event Ctrl/Cmd+D ─▶ bookmark-key event
    │     did-navigate·title·loading·favicon·crash ─▶ shell:browser-state push (favicon은 session.fetch로 받아 data URL)
    │   native 항목 위치: browser/native-bounds.ts(renderer 사각형 → DIP), 붙이기·떼기 규칙은 browser/native-view.ts의 createPlacement, 층은 창마다 하나인 browser/view-order.ts
    session.ts (첫 view나 지우기 때 한 번 설치)
-   │   permission ─▶ decidePermission, device 거절 / will-download ─▶ activation.fresh 아니면 거절 / UA·client hints에서 Electron·앱 token 빼기
+   │   permission ─▶ decidePermission, device 거절 / will-download ─▶ activation.fresh 아니면 거절 / UA에서 Electron·앱 token 빼고 brand header를 Chrome 값으로
    bookmark-ipc.ts ── bookmarks.ts ── <dataRoot>/shell/bookmarks.json (atomic write, 0600) ── 바뀌면 모든 창에 shell:bookmarks-changed
 
  popup: page의 window.open (입력 5000ms 안)
@@ -71,7 +72,7 @@ place 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커니�
 - **모든 browser 탭과 project가 persistent partition 하나(`persist:lophn-browser`)를 같이 쓴다.** 앱 저장소 partition과 나뉘어 page가 앱 화면의 cookie·storage를 보지 못한다. session 설치는 `userData`를 data root로 잡은 뒤 첫 view, 첫 `<webview>` attach, 첫 지우기 때 한 번 한다.
 - **permission은 clipboard write(`clipboard-sanitized-write`)를 main frame의 http/https가 요청할 때만 허락한다.** 그 밖(clipboard read, media, 위치, 알림, device)은 모두 거절한다. 표는 `permission_test.ts`가 지킨다.
 - **download는 저장 경로를 정하지 않아 Electron 저장 dialog가 뜬다.** 시작한 contents를 모르거나 입력 직후가 아니면 거절한다.
-- **UA와 모든 요청 header에서 `Electron/x`와 앱 이름 token을 빼고 client hints를 Chrome처럼 맞춘다.** JS의 `navigator.userAgentData.brands`는 header만으로 고쳐지지 않는다.
+- **page가 보는 식별은 그 Chromium 판의 Google Chrome과 같아야 하고, header와 page JS가 같은 값을 말해야 한다.** session UA와 모든 요청 header에서 `Electron/x`와 앱 이름 token을 뺀다(`session.ts`). 요청에 실린 `sec-ch-ua`·`sec-ch-ua-full-version-list`는 `user-agent.ts`의 `chromeBrands`로 바꾸고, Chromium이 싣지 않은 brand header는 더하지 않는다. page JS의 `navigator.userAgentData`는 header로 바뀌지 않으므로 guest와 popup contents마다 debugger를 붙여 CDP `Emulation.setUserAgentOverride`로 같은 metadata를 넣는다(`electron-view.ts`). brand 목록의 GREASE brand와 순서는 Chromium의 `GenerateBrandVersionList`를 따른다. 표는 `user-agent_test.ts`가 지킨다.
 - **favicon은 main이 그 page의 session으로 받아 data URL로 바꿔 싣는다.** shell CSP가 `img-src 'self' data: blob:`이고 shell 화면이 인터넷에 직접 요청하지 않는다. image type, 받은 byte 48KB, data URL 65536자까지다. 다른 origin으로 가면 비운다. 탭 favicon은 탭의 `fields.favicon`에 두고 layout에도 저장한다. BrowserTab이 다시 mount될 때(접힘 해제, Float·Dock, desk 전환) 이 값을 이어 받는다(`<webview>` element는 favicon을 모른다). 접힌 float과 다른 desk의 탭은 mount하지 않아 이 값이 접힌 아이콘의 출처인데, main은 favicon을 바뀔 때만 밀므로 mount와 상관없이 PlaceWindow가 state push를 받아 `fields.favicon`을 갱신한다(session → 탭 key는 `WebviewHost.keyOf`). place를 옮겼다 오거나 다시 시작하면 webview가 새로 생기고 접힌 탭은 펴기 전까지 page가 없으므로, 저장한 favicon이 그 사이 아이콘이다. bookmark favicon은 더할 때 한 번 저장한다.
 - **Clear browsing data는 `clearStorageData()`를 인자 없이 부르고 cache를 지운 뒤 열린 page를 다시 load한다.** Electron 44의 storage 이름이 rea·Chrome 문서의 이름과 달라 이름을 적으면 덜 지워진다.
 - **DevTools는 page마다 새 native view 하나에 붙인다.** `<webview>`는 DevTools를 담지 못한다(frontend가 page에 붙지 않는다). 붙은 view는 탭 안, floated 패널, 다른 OS 창으로 옮겨도 끊기지 않는다. 닫을 때는 view를 부순다. `closeDevTools()` 뒤 같은 view로 다시 열면 붙지 않는다. 열린 상태는 main이 든다(`isDevToolsOpened()`가 이 방식에서는 늘 false다).
@@ -94,6 +95,7 @@ place 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커니�
 - **앱 화면과 artifact 화면도 이 그릇을 쓴다(사람, 2026-10-31).** 같은 겹침 문제를 갖고 있어서 한 그릇으로 모았다. 그래서 native view의 층 순서는 browser의 popup·DevTools만의 것이고, 앱 view와 같이 쌓던 `appViewOrder`는 없다(`workspace-layout.md`).
 - **규칙을 rea `desktop-embeded-browser`에서 TS로 옮겨 짰다.** library를 dependency로 넣지 않았다. CommonJS 그대로는 Result·Clock 같은 lophn 규칙과 맞지 않는다.
 - **localhost와 사설 IP를 막지 않는다.** 가장 많이 쓸 곳이 사람의 dev server다. core API는 token으로 막혀 있다.
+- **Google 로그인을 위해 page 식별을 Chrome에 맞춘다(사람, 2026-11-03).** 전에는 header에만 `Google Chrome` brand를 지어 넣었다. page JS는 Electron 값(`Not?A_Brand`, `Chromium` 둘)을 보고 header는 다른 GREASE(`Not=A?Brand`)를 말해, 두 값이 어긋났고 Google 로그인이 막혔다. ChatGPT desktop은 고친 Chromium(Owl)이 native에서 UA와 client hints를 바꾼다(harness-lab `chatgpt-desktop-browser-auth-report.md` 4.3). 표준 Electron에서 page JS 값까지 바꾸는 길은 CDP라 debugger를 쓴다. 이 override는 cross-site navigation과 DevTools를 열어도 남는다. service worker는 override 밖이라 header만 맞는다.
 - **subresource 요청 guard(`webRequest.onBeforeRequest`)는 두지 않는다.** 이 partition에는 `lophn-shell`·`lophn-app` protocol handler가 없어 그 요청은 어차피 실패한다.
 - **tab 수 cap을 두지 않는다.** layout 파일의 tabs 상한(desk당 1200개)이 이미 있다.
 - **머리 줄의 bookmark menu와 card 밖 줄의 ⋮ menu는 overlay view로 띄운다.** card의 ⋯ menu는 DOM이라 열려 있는 동안 탭이 native view(DevTools 자리, popup)를 숨긴다(`menu.onOpenChange`). native popup 탭과 DevTools 위에서도 보여야 해서 한 길로 둔다. menu·popover의 overlay view는 창 본문 전체를 덮고(`ipc/overlay.ts`의 `fullBody`) 부르는 쪽은 trigger 사각형을 보낸다. 별 popover는 `<webview>` 탭에서는 DOM popover(이름 칸과 [Remove])이고, native popup 탭에서는 overlay(이름과 [Remove])다.

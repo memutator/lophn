@@ -177,8 +177,13 @@
   max-width: none;
 }
 
-.tab[data-active] .close,
-.tab:hover .close {
+/* 닫기 자리가 보이는 때: 고른 tab, 고른 group의 focus tab, hover한 tab(group은 그 칸). ●나 상태 점이 있으면 늘 보인다. */
+.tab[data-active]:not([data-split]) .close,
+.tab[data-active][data-split] .half[data-focused] .close,
+.tab:not([data-split]):hover .close,
+.tab[data-split] .half:hover .close,
+.close[data-unsaved],
+.close[data-dot] {
   visibility: visible;
 }
 
@@ -363,9 +368,8 @@
   user-select: text;
 }
 
-/* 저장 안 된 변경의 ●. 닫기 자리에서는 ×를 대신하다가 hover하면 ×가 된다. */
+/* 저장 안 된 변경의 ●. 닫기 자리에서 ×를 대신하다가 hover하면 ×가 된다. 상태 점도 같다. */
 .mark {
-  display: none;
   flex: none;
   width: var(--space-4);
   height: var(--space-4);
@@ -373,25 +377,19 @@
   border-radius: var(--radius-full);
 }
 
-.half > .mark {
-  display: block;
-}
-
-.close[data-unsaved] {
-  visibility: visible;
-}
-
-.close[data-unsaved] .mark {
-  display: block;
-}
-
 .close[data-unsaved] .cross,
-.close[data-unsaved]:focus-visible .mark,
-.tab:hover .close[data-unsaved] .mark {
+.close[data-dot] .cross,
+.close:focus-visible .mark,
+.close:focus-visible .stateDot,
+.tab:not([data-split]):hover .mark,
+.tab:not([data-split]):hover .stateDot,
+.tab[data-split] .half:hover .mark,
+.tab[data-split] .half:hover .stateDot {
   display: none;
 }
 
-.tab:hover .close[data-unsaved] .cross,
-.close[data-unsaved]:focus-visible .cross {
+.close:focus-visible .cross,
+.tab:not([data-split]):hover .close .cross,
+.tab[data-split] .half:hover .close .cross {
   display: inline-block;
 }

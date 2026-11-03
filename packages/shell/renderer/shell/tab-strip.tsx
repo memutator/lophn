@@ -30,7 +30,7 @@ export interface StripTab {
   readonly dot?: TabDot | null;
   /** preview tab. 이름이 italic이다. */
   readonly preview?: boolean;
-  /** 저장 안 된 변경이 있다. 닫기 자리에 ●가 보이고 hover하면 ×가 된다. */
+  /** 저장 안 된 변경이 있다. 닫기 자리에 ●가 보이고 hover하면 ×가 된다(상태 점도 같은 자리를 쓴다). */
   readonly unsaved?: boolean;
   /** 이름을 바꿀 수 있는 tab. double-click하면 이름 자리가 입력이 된다. */
   readonly renamable?: boolean;
@@ -61,7 +61,7 @@ export interface TabStripProps {
   floating: readonly string[];
   /** 누른 tab의 key. 칸의 빈 곳을 누르면 group이면 focus tab이다. */
   onSelect: (tabKey: string) => void;
-  /** 닫을 tab의 key(group의 한 tab이면 그 tab). 닫기 단추는 group에서 focus tab을 닫는다. */
+  /** 닫을 tab의 key. group은 tab마다 자기 닫기 단추가 있어 그 tab만 닫는다. */
   onClose: (tabKey: string) => void;
   /** tab 오른쪽 클릭. tab key(group이면 누른 반쪽)와 화면 좌표. */
   onMenu?: (tabKey: string, at: { x: number; y: number }) => void;
@@ -194,7 +194,6 @@ export function TabStrip({
           const grouped = entry.tabs.length > 1;
           const focused =
             entry.tabs.find((tab) => tab.key === entry.focus) ?? entry.tabs[0]!;
-          const closing = active ? focused : entry.tabs[0]!;
           return (
             <div
               key={entry.key}
@@ -262,9 +261,6 @@ export function TabStrip({
                     : null;
                 const halves = items.map((item, place) => {
                   const editing = item.key === renaming;
-                  // ●는 닫기 단추 자리에 있다. 그 단추가 닫지 않는 tab만 이름 뒤에 따로 그린다.
-                  const markHere =
-                    item.unsaved === true && item.key !== closing.key;
                   const one = item.dot
                     ? t("project-workspace.label.tab-tooltip", {
                         title: item.title,
@@ -341,16 +337,10 @@ export function TabStrip({
                             {item.title}
                           </span>
                         )}
-                        {item.dot ? <TabStateDot dot={item.dot} /> : null}
-                        {markHere ? (
-                          <span
-                            className={styles.mark}
-                            role="img"
-                            aria-label={t(
-                              "project-workspace.label.tab-unsaved",
-                            )}
-                          />
-                        ) : null}
+                        <CloseSlot
+                          tab={item}
+                          onClose={() => onClose(item.key)}
+                        />
                       </span>
                     </Tooltip>
                   );
@@ -377,31 +367,6 @@ export function TabStrip({
                   </Fragment>
                 );
               })}
-              <button
-                type="button"
-                className={styles.close}
-                data-unsaved={closing.unsaved || undefined}
-                aria-label={t("shell.button.strip-close", {
-                  title: closing.title,
-                })}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClose(closing.key);
-                }}
-              >
-                {closing.unsaved ? (
-                  <span
-                    className={styles.mark}
-                    role="img"
-                    aria-label={t("project-workspace.label.tab-unsaved")}
-                  />
-                ) : null}
-                <Icon
-                  icon={shellIcons.close}
-                  pixels={12}
-                  className={styles.cross}
-                />
-              </button>
               <span className={styles.flareEnd} aria-hidden />
             </div>
           );
@@ -465,6 +430,38 @@ export function TabStrip({
         </div>
       )}
     </div>
+  );
+}
+
+// tab 하나의 닫기 단추. 저장 안 된 ●나 상태 점이 있으면 평소에 그것을 보이고, 그 tab에 hover하거나 단추에 focus가
+// 오면 ×로 바뀐다. 둘 다 없으면 고른 tab과 hover한 tab에만 ×가 보인다.
+function CloseSlot({ tab, onClose }: { tab: StripTab; onClose: () => void }) {
+  const unsaved = tab.unsaved === true;
+  const dot = !unsaved && tab.dot ? tab.dot : null;
+  return (
+    <button
+      type="button"
+      className={styles.close}
+      data-unsaved={unsaved || undefined}
+      data-dot={dot === null ? undefined : ""}
+      aria-label={t("shell.button.strip-close", { title: tab.title })}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClose();
+      }}
+    >
+      {unsaved ? (
+        <span
+          className={styles.mark}
+          role="img"
+          aria-label={t("project-workspace.label.tab-unsaved")}
+        />
+      ) : null}
+      {dot === null ? null : (
+        <TabStateDot dot={dot} className={styles.stateDot} />
+      )}
+      <Icon icon={shellIcons.close} pixels={12} className={styles.cross} />
+    </button>
   );
 }
 

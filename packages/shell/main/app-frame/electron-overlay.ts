@@ -22,6 +22,7 @@ import {
 import {
   overlaySecurityFactory,
   type OverlaySecuritySession,
+  shellPermission,
 } from "./overlay-security.ts";
 
 function contents(contents: WebContents): OverlayContents {
@@ -36,11 +37,25 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
     let adapter = sessions.get(session);
     if (!adapter) {
       adapter = {
-        denyPermissions() {
+        restrictPermissions() {
           session.setPermissionRequestHandler(
-            (_contents, _permission, callback) => callback(false),
+            (_contents, permission, callback, details) =>
+              callback(
+                shellPermission({
+                  permission,
+                  requestingUrl: details.requestingUrl,
+                  isMainFrame: details.isMainFrame,
+                }),
+              ),
           );
-          session.setPermissionCheckHandler(() => false);
+          session.setPermissionCheckHandler(
+            (_contents, permission, _origin, details) =>
+              shellPermission({
+                permission,
+                requestingUrl: details.requestingUrl ?? "",
+                isMainFrame: details.isMainFrame,
+              }),
+          );
           session.setDevicePermissionHandler(() => false);
         },
         onDownload(listener) {

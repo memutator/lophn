@@ -47,7 +47,7 @@ export interface FileAdapterOptions {
   /** 밖에서 바뀐 파일을 그 창에 알린다. */
   notify: (owner: number, change: FileChanged) => void;
   /**
-   * OS 휴지통으로 보낸다(Electron `shell.trashItem`). 못 보내면 던진다. 지우기는 이것만 쓰고
+   * OS 휴지통으로 보낸다(Linux는 `gio trash`, 안 되면 Electron `shell.trashItem`). 못 보내면 던진다. 지우기는 이것만 쓰고
    * 영구 삭제로 되돌아가지 않는다.
    */
   trash: (path: string) => Promise<void>;

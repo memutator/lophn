@@ -27,7 +27,6 @@ import { decideNavigation } from "./navigation.ts";
 import { faviconData } from "./favicon.ts";
 import { windowOpenHandler } from "./popup-host.ts";
 import { BROWSER_PARTITION } from "./session.ts";
-import { userAgentMetadata } from "./user-agent.ts";
 
 interface ElectronBrowserViewsInput {
   windowOf(ref: string): BrowserWindow | undefined;
@@ -118,33 +117,6 @@ function hookBrowserContents(
   contents.once("destroyed", () => hooks.activation.forget(id));
 }
 
-/**
- * page JS의 `navigator.userAgentData`를 header와 같은 Chrome 값으로 맞춘다. session UA는 이미 다듬어져
- * 있다(session.ts). 표준 Electron에서 page 쪽 brand를 바꾸는 길은 CDP뿐이다. override는 debugger가
- * 붙어 있는 동안 cross-site navigation과 DevTools를 열어도 남는다. 못 붙이면 header만 맞는다.
- */
-function matchChromeIdentity(contents: WebContents): void {
-  const userAgent = contents.session.getUserAgent();
-  const metadata = userAgentMetadata({
-    userAgent,
-    platform: process.platform,
-    arch: process.arch,
-    systemVersion: process.getSystemVersion(),
-  });
-  if (metadata === undefined) return;
-  try {
-    contents.debugger.attach("1.3");
-  } catch {
-    return;
-  }
-  contents.debugger
-    .sendCommand("Emulation.setUserAgentOverride", {
-      userAgent,
-      userAgentMetadata: metadata,
-    })
-    .catch(() => {});
-}
-
 export type ElectronBrowserViews = BrowserViewHost & {
   /** shell 창에 붙은 <webview> guest contents에 hook을 건다. contents는 <webview>가 가진다. */
   guest(contents: WebContents, hooks: BrowserHooks): BrowserContents;
@@ -175,7 +147,6 @@ export function electronBrowserViews(
     hooks: BrowserHooks,
     release?: () => void,
   ): BrowserContents {
-    matchChromeIdentity(contents);
     hookBrowserContents(
       contents,
       hooks,

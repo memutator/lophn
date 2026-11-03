@@ -1,9 +1,8 @@
 // 인터넷 탭이 함께 쓰는 persistent session의 정책. permission은 기본 거절(clipboard write만 허락),
-// download는 사용자 입력 직후만, UA에서는 Electron·앱 이름을 빼고 brand header를 Chrome 값으로 바꾼다.
-// 이 session은 browser 탭만 쓰므로 onBeforeSendHeaders도 여기서 한 번만 단다. page JS가 보는 값은
-// contents마다 electron-view.ts가 CDP로 맞춘다.
+// download는 사용자 입력 직후만, UA에서는 Electron token을 뺀다(앱 이름은 남긴다, user-agent.ts).
+// 이 session은 browser 탭만 쓰므로 onBeforeSendHeaders도 여기서 한 번만 단다.
 import { decidePermission } from "./permission.ts";
-import { rewriteBrandHeaders, sanitizeUserAgent } from "./user-agent.ts";
+import { browserUserAgent } from "./user-agent.ts";
 
 export const BROWSER_PARTITION = "persist:lophn-browser";
 
@@ -59,7 +58,6 @@ export function installBrowserSession(
   handle: BrowserSessionHandle,
   deps: {
     activation: { fresh(contentsId: number): boolean };
-    product: string;
   },
 ): { clearData(): Promise<void> } {
   handle.onPermissionRequest(decidePermission);
@@ -74,16 +72,14 @@ export function installBrowserSession(
     }
   });
 
-  handle.setUserAgent(sanitizeUserAgent(handle.getUserAgent(), deps.product));
+  handle.setUserAgent(browserUserAgent(handle.getUserAgent()));
   handle.onBeforeSendHeaders((details, callback) => {
     const headers = { ...details.requestHeaders };
     const original = Object.entries(headers).find(
       ([name]) => name.toLowerCase() === "user-agent",
     );
     if (original !== undefined) {
-      const userAgent = sanitizeUserAgent(original[1], deps.product);
-      setHeader(headers, "User-Agent", userAgent);
-      rewriteBrandHeaders(headers, userAgent);
+      setHeader(headers, "User-Agent", browserUserAgent(original[1]));
     }
     callback({ requestHeaders: headers });
   });

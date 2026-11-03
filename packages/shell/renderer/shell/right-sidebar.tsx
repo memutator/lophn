@@ -24,8 +24,11 @@ export function RightSidebar({ title, panel, children }: RightSidebarProps) {
       <TitleSlot.Provider value={titleSlot}>
         <div className={styles.panel}>
           <div className={styles.head}>
-            <h2 ref={setTitleSlot} className={styles.title}>
+            <h2 className={styles.title}>
               {title}
+              {/* portal을 받는 자리는 React가 자식을 그리지 않는 따로 된 element여야 한다. h2에 같이 두면
+                  title 문자열이 portal의 노드를 지우고, portal unmount의 removeChild가 실패해 root가 내려간다. */}
+              <span ref={setTitleSlot} className={styles.titleSlot} />
             </h2>
             <span ref={setSlot} className={styles.actions} />
           </div>

@@ -16,8 +16,13 @@
 }
 
 /* Files의 루트 선택 단추는 자기 안쪽 여백이 있어 머리 줄 왼쪽 여백만큼 당긴다. */
-.title > button {
+.titleSlot > button {
   margin-inline-start: calc(var(--space-3) * -1);
+}
+
+/* portal을 받기만 하는 자리다. 배치는 h2의 flex가 그대로 한다. */
+.titleSlot {
+  display: contents;
 }
 
 .title {

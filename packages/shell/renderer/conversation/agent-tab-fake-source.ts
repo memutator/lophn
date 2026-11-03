@@ -1250,6 +1250,28 @@ export function createFakeAgentTabSource(
     [...threads].find(([, view]) =>
       view.queued.some((item) => item.id === queued),
     )?.[0];
+  const stopTurn = (turn: string): Promise<SourceResult<void>> => {
+    const session = sessionOfTurn(turn);
+    if (session === undefined) return fail("not_found");
+    return change(session, (view) => ({
+      ...view,
+      turn: { ...view.turn!, phase: "ended" },
+      live: null,
+      pending: EMPTY_THREAD.pending,
+      entries: [
+        ...view.entries,
+        {
+          kind: "turn-end",
+          id: nextId("end"),
+          at: at(52),
+          turn,
+          outcome: "stopped",
+          activeMs: 4000,
+          waitedMs: 0,
+        },
+      ],
+    }));
+  };
   // 실패했거나 끝난 turn을 다시 도는 모습으로 되돌린다. fake는 turn의 입력 글을 보관하지 않아 그것을 새로 보내지
   // 않고, 화면에서 오류 줄의 [Retry]를 눌렀을 때 turn이 다시 서는 모습만 보인다.
   const restartTurn = (turn: string): Promise<SourceResult<void>> => {
@@ -1450,28 +1472,7 @@ export function createFakeAgentTabSource(
         return { ...view, queued: queuedItems };
       });
     },
-    stop(turn) {
-      const session = sessionOfTurn(turn);
-      if (session === undefined) return fail("not_found");
-      return change(session, (view) => ({
-        ...view,
-        turn: { ...view.turn!, phase: "ended" },
-        live: null,
-        pending: EMPTY_THREAD.pending,
-        entries: [
-          ...view.entries,
-          {
-            kind: "turn-end",
-            id: nextId("end"),
-            at: at(52),
-            turn,
-            outcome: "stopped",
-            activeMs: 4000,
-            waitedMs: 0,
-          },
-        ],
-      }));
-    },
+    stop: (turn) => stopTurn(turn),
     retryTurn: restartTurn,
     answerQuestions({ session, toolCall, answers }) {
       const asked = thread(session).pending.questions;
@@ -1570,6 +1571,10 @@ export function createFakeAgentTabSource(
       patchSession(session, { title });
       notify();
       return DONE;
+    },
+    stopSession(session) {
+      const turn = thread(session).turn;
+      return turn === null || turn.phase === "ended" ? DONE : stopTurn(turn.id);
     },
     changeSkip(session, skip) {
       patchSession(session, { skip });

@@ -660,6 +660,8 @@ export interface AgentTabSource {
   /** 첫 말을 보내기 전에 만든다. */
   openSession(input: { id: string }): Promise<SourceResult<void>>;
   renameSession(session: string, title: string): Promise<SourceResult<void>>;
+  /** 그 session에서 도는 turn을 멈춘다. 도는 turn이 없으면 할 일이 없어 ok다. */
+  stopSession(session: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;
   /** 사람만 바꾼다. 바꾼 값은 다음 turn부터다(turn mode는 turn을 시작할 때 정한다). */
   changeSkip(session: string, skip: boolean): Promise<SourceResult<void>>;

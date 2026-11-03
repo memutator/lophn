@@ -23,6 +23,7 @@ import {
   runCommand,
   sendQueuedNow,
   sendText,
+  stopSessionOf,
   stopTurnOf,
 } from "./agent-tab-core-source-commands.ts";
 import { createImageSource } from "./agent-tab-core-source-images.ts";
@@ -136,6 +137,7 @@ function createSource(
       return { ok: true, value: undefined };
     },
     renameSession: (session, title) => renameSessionTo(env, session, title),
+    stopSession: (session) => stopSessionOf(env, session),
     archiveSession: (session) => archiveSessionOf(env, session),
     changeSkip: (session, skip) => changeSkipOf(env, session, skip),
     deleteSession: (session) => deleteSessionOf(env, session),

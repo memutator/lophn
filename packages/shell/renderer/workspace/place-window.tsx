@@ -171,7 +171,10 @@ import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import { CrumbBrowse } from "./sidebar/crumb-browse.tsx";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
-import { sessionKey } from "../shell/left-sidebar-model.ts";
+import {
+  type SidebarSession,
+  sessionKey,
+} from "../shell/left-sidebar-model.ts";
 import { PlaceLeftSidebar } from "./sidebar/place-left-sidebar.tsx";
 import type { QuickHoverItem } from "../shell/left-sidebar.tsx";
 import { useSidebarPlaceList } from "../shell/use-left-sidebar.ts";
@@ -254,6 +257,10 @@ export interface PlaceWindowProps {
   appDetail?: AppDetailSource;
   /** 처음 열 때 한 번 이 place의 lophn을 연다. 앱 place는 앱 화면과 붙인 split으로 연다. */
   startLophn?: true;
+  /** 처음 열 때 한 번 이 place의 lophn 새 session 탭을 연다(다른 place 줄의 +로 왔다). */
+  startSession?: true;
+  /** 왼쪽 sidebar 다른 place 줄의 +. 그 place로 가서 새 session을 연다. */
+  onNewSessionAt?: (place: PlaceRef) => void;
   /** 처음 열 때 한 번 고를 터미널의 terminal_ref(다른 project의 터미널 알림). */
   revealTerminal?: string;
   /** 처음 열 때 한 번 열 파일. path는 디스크의 절대 경로다. */
@@ -925,6 +932,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const started = useRef<{
     session?: string;
     lophn?: true;
+    fresh?: true;
     open?: object;
     terminal?: string;
   }>({});
@@ -937,6 +945,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
     }
     if (session !== undefined && started.current.session !== session) {
       if (openSessionTab(session)) started.current.session = session;
+    }
+    if (
+      props.startSession !== undefined &&
+      started.current.fresh !== props.startSession &&
+      openLophn()
+    ) {
+      started.current.fresh = props.startSession;
     }
     const reveal = props.revealTerminal;
     if (
@@ -970,6 +985,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     placeId,
     props.session,
     props.startLophn,
+    props.startSession,
     props.revealTerminal,
     props.open,
     sidebarAgents.agents,
@@ -1485,6 +1501,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
       return session === null ? [] : [[session, tab.title] as const];
     }),
   );
+  // 왼쪽 sidebar 줄(lophn session, 터미널)의 탭. 모든 desk에서 찾는다.
+  const sidebarTabOf = (item: SidebarSession): TabItem | undefined =>
+    allTabs(latestLayout.current).find((tab) =>
+      item.kind === "terminal"
+        ? tab.kind === "terminal" && tab.key === item.ref
+        : tab.kind === "agent" && sessionOf(tab) === item.ref,
+    );
   // 왼쪽 sidebar가 강조할 줄: 고른 tab의 session이나 터미널.
   const selectedSessionKey =
     currentTab === null || currentTab === undefined
@@ -2140,6 +2163,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   selected={selectedSessionKey}
                   canTerminal={terminal !== undefined}
                   onNewSession={() => void openLophn()}
+                  {...(props.onNewSessionAt === undefined
+                    ? {}
+                    : { onNewSessionAt: props.onNewSessionAt })}
                   onNewLophn={(agent) =>
                     openAgent(host, {
                       agent: agent.assignment,
@@ -2179,6 +2205,16 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     }
                   }}
                   onWorkflow={selectDesk}
+                  onRenameTab={(item, title) => {
+                    const tab = sidebarTabOf(item);
+                    if (tab === undefined) return false;
+                    tabKindOf(tab.kind)?.rename?.(tab, title, host);
+                    return true;
+                  }}
+                  onCloseTab={(item) => {
+                    const tab = sidebarTabOf(item);
+                    if (tab !== undefined) close(tab.key);
+                  }}
                   onOpenSession={(session) =>
                     runToastAction({ kind: "session", session })
                   }

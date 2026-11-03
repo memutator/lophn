@@ -44,16 +44,6 @@
   background: var(--color-surface-muted);
 }
 
-.newSession {
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-}
-
-.newSession .navRow {
-  flex: 1;
-}
-
 .placeHead {
   display: flex;
   gap: var(--space-1);
@@ -65,7 +55,23 @@
   width: auto;
 }
 
-.newSessionMore,
+/* 설정 단추와 다른 place의 +는 place 줄에 hover하거나 focus가 있을 때만 보인다. 이 창 place의 +는 늘 보인다.
+   자리는 남겨 이름 폭이 흔들리지 않는다. */
+.placeSettings,
+.placeNew {
+  display: inline-flex;
+  flex: none;
+  visibility: hidden;
+}
+
+.placeNew[data-here],
+.placeHead:hover .placeSettings,
+.placeHead:hover .placeNew,
+.placeHead:focus-within .placeSettings,
+.placeHead:focus-within .placeNew {
+  visibility: visible;
+}
+
 .quickPin {
   display: inline-flex;
   flex: none;
@@ -80,7 +86,6 @@
   border-radius: var(--radius-md);
 }
 
-.newSessionMore:hover,
 .quickPin:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-muted);
@@ -161,6 +166,92 @@
 .sessionRow[aria-current="true"] {
   color: var(--color-text-primary);
   background: var(--color-selection);
+}
+
+/* current 줄의 Rename·Stop. Stop 자리는 늘 있어 평소 상태 점을 보이고, 줄에 hover하거나 focus가 오면 x가 된다.
+   연필은 hover·focus 때만 그 왼쪽에 뜬다. Stop 자리의 가운데는 다른 줄의 점(.rowDot)과 같은 곳이다. */
+.sessionLine {
+  position: relative;
+}
+
+.sessionLine > .sessionRow {
+  padding-inline-end: var(--space-7);
+}
+
+.sessionLine:hover > .sessionRow,
+.sessionLine:focus-within > .sessionRow {
+  padding-inline-end: calc(var(--space-7) * 2 + var(--space-1));
+}
+
+.sessionActions {
+  position: absolute;
+  inset-block: var(--space-0);
+  inset-inline-end: var(--space-0);
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.sessionAction {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  padding: var(--space-0);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+}
+
+.sessionAction:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+.sessionAction[data-session-rename],
+.stopCross {
+  display: none;
+}
+
+.sessionLine:hover .sessionAction[data-session-rename],
+.sessionLine:focus-within .sessionAction[data-session-rename] {
+  display: inline-flex;
+}
+
+.sessionLine:hover .stopCross,
+.sessionLine:focus-within .stopCross {
+  display: inline-block;
+}
+
+.sessionLine:hover .stopDot,
+.sessionLine:focus-within .stopDot {
+  display: none;
+}
+
+.sessionRenameLine {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-sm-height);
+  padding-inline: calc(var(--space-3) + var(--space-6) - var(--space-2))
+    var(--space-1);
+}
+
+.sessionRename {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: var(--space-0);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-2);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  background: var(--color-surface-base);
+  border: var(--border-width) solid var(--color-focus);
+  border-radius: var(--radius-xs);
+  outline: none;
 }
 
 .recentToggle {

@@ -21,7 +21,10 @@ import {
 } from "../../../protocol/lophn-agent/inputs.ts";
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
 import { receivedMessageRead } from "../../../protocol/lophn-agent/received-messages.ts";
-import { turnRead } from "../../../protocol/lophn-agent/turn-reads.ts";
+import {
+  turnList,
+  turnRead,
+} from "../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../protocol/lophn-agent/turns.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
 import { newId } from "../prefixed-id.ts";
@@ -223,6 +226,19 @@ export async function stopTurnOf(
       key,
     }),
   );
+}
+
+export async function stopSessionOf(
+  env: Env,
+  session: string,
+): Promise<SourceResult<void>> {
+  const listed = await env.read(turnList, { session, state: "running" });
+  if (!listed.ok) return listed;
+  for (const turn of listed.value.turns) {
+    const stopped = await stopTurnOf(env, turn.id, newId("stop", env.now()));
+    if (!stopped.ok) return stopped;
+  }
+  return { ok: true, value: undefined };
 }
 
 /**

@@ -58,8 +58,10 @@ export function useSidebarPlaceList(
 export function useKnownSessions(
   factory: AgentTabSourceFactory | undefined,
   entries: readonly SessionEntry[],
-): KnownSessions {
+): { known: KnownSessions; reload: () => void } {
   const [known, setKnown] = useRemembered("known");
+  // 제목만 바뀐 것(sidebar의 Rename)은 entries가 그대로라 부르는 쪽이 reload로 다시 읽게 한다.
+  const [reads, setReads] = useState(0);
   // agent × place 쌍. 같은 쌍은 한 번만 읽는다.
   const pairs = useMemo(
     () =>
@@ -110,8 +112,8 @@ export function useKnownSessions(
     return () => {
       live = false;
     };
-  }, [factory, pairs, ids, setKnown]);
-  return known;
+  }, [factory, pairs, ids, reads, setKnown]);
+  return { known, reload: () => setReads((count) => count + 1) };
 }
 
 /** 이 창이 보이지 않는 place들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작해 지금 place도 들 수 있어 부르는 쪽이 지금 place를 거른다. */

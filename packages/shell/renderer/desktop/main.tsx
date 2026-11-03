@@ -24,6 +24,7 @@ import {
   openApp,
   openHome,
   openNewApp,
+  openPlaceNewSession,
   openProject,
   openSettings,
   type Route,
@@ -330,6 +331,8 @@ export function Desktop({
         detached={detached}
         agentViewSource={agentViewSource}
         session={route.session}
+        startSession={route.startSession}
+        onNewSessionAt={(place) => setRoute(openPlaceNewSession(place))}
         revealTerminal={route.terminal}
         open={route.open}
       />
@@ -363,6 +366,8 @@ export function Desktop({
         terminalStore={terminal?.store}
         agentViewSource={agentViewSource}
         session={route.session}
+        startSession={route.startSession}
+        onNewSessionAt={(place) => setRoute(openPlaceNewSession(place))}
       />
     );
   } else if (route.space === "detached") {
@@ -397,6 +402,8 @@ export function Desktop({
         terminalStore={terminal?.store}
         agentViewSource={agentViewSource}
         session={route.session}
+        startSession={route.startSession}
+        onNewSessionAt={(place) => setRoute(openPlaceNewSession(place))}
         startLophn={route.newSession}
       />
     );

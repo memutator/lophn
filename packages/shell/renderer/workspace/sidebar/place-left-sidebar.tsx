@@ -98,7 +98,10 @@ export interface PlaceLeftSidebarProps {
   selected?: string;
   /** 터미널 탭을 열 수 있다. 없으면 coding agent 항목이 없다. */
   canTerminal: boolean;
+  /** 이 place 줄의 +. */
   onNewSession: () => void;
+  /** 다른 place 줄의 +. 그 place로 가서 새 session을 연다. 없으면 그 +는 그 place로 가기만 한다. */
+  onNewSessionAt?: (place: PlaceRef) => void;
   onNewLophn: (agent: SidebarAgent) => void;
   onNewCoding: (command: string) => void;
   /** 이 project의 session을 desk 규칙으로 연다. */
@@ -115,6 +118,10 @@ export interface PlaceLeftSidebarProps {
   onJobs: () => void;
   /** 맨 아래 줄의 빠른 실행. Terminal hover 목록(즐겨찾기 coding agent)은 여기서 붙인다. */
   quick?: QuickLaunch;
+  /** 이 창의 탭이 그 session·터미널이면 탭 이름 바꾸기와 같은 길로 바꾸고 true다. 탭이 없으면 false다. */
+  onRenameTab?: (item: SidebarSession, title: string) => boolean;
+  /** 그 session·터미널의 탭을 보통 닫기 길로 닫는다(터미널은 확인을 묻는다). 탭이 없으면 아무것도 하지 않는다. */
+  onCloseTab?: (item: SidebarSession) => void;
   /** 이 place 줄의 설정 단추(project는 Project settings, 앱은 App details). */
   onPlaceSettings?: () => void;
   onSettings: () => void;
@@ -125,7 +132,10 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
   const projectId = current.kind === "project" ? current.id : null;
   const list = useSidebarPlaceList(projects, apps);
   const { sessions } = useSessions();
-  const known = useKnownSessions(props.agentViewSource, sessions);
+  const { known, reload: reloadKnown } = useKnownSessions(
+    props.agentViewSource,
+    sessions,
+  );
   const placeRefs = useMemo(
     (): PlaceRef[] => [
       { kind: "home" },
@@ -282,6 +292,38 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     } else props.onOpenSession(item.ref);
   };
 
+  // tab 없이 current에 있는 lophn session(도는 중, 기다리는 중)은 그 agent의 source로 바로 부른다.
+  const sourceOf = (session: string) => {
+    const entry = sessions.find((row) => row.session === session);
+    if (props.agentViewSource === undefined || !entry?.agent) return undefined;
+    return props.agentViewSource({
+      assignment: entry.agent,
+      place: entry.place ?? { kind: "global", id: "" },
+    });
+  };
+  const renameSession = (item: SidebarSession, title: string) => {
+    if (props.onRenameTab?.(item, title) === true) return;
+    if (item.kind === "session") {
+      void sourceOf(item.ref)
+        ?.renameSession(item.ref, title)
+        .then((result) => {
+          if (result.ok) reloadKnown();
+        });
+    }
+  };
+  // Stop은 session을 current에서 내린다: 도는 turn을 멈추고 탭을 닫는다. 멈추지 못하면 탭을 남긴다.
+  const stopSession = (item: SidebarSession) => {
+    if (item.kind !== "session") {
+      props.onCloseTab?.(item);
+      return;
+    }
+    const source = sourceOf(item.ref);
+    if (source === undefined) return;
+    void source.stopSession(item.ref).then((result) => {
+      if (result.ok) props.onCloseTab?.(item);
+    });
+  };
+
   return (
     <>
       <LeftSidebar
@@ -298,7 +340,12 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
           name: HARNESS_ADAPTERS[id].label,
           vendor: harnessVendorOf(id),
         }))}
-        onNewSession={props.onNewSession}
+        onNewSession={(ref) => {
+          if (placeKey(ref) === placeKey(current)) props.onNewSession();
+          else if (props.onNewSessionAt !== undefined) {
+            props.onNewSessionAt(ref);
+          } else props.onPlace(ref);
+        }}
         onNewSessionWith={(kind, id) => {
           if (kind === "coding") {
             runCoding(id as HarnessId);
@@ -314,6 +361,8 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         onPlace={props.onPlace}
         onSession={open}
         onRemoveRecent={(_place, item) => recentHidden.hide(item.ref, item.at)}
+        onRenameSession={(_place, item, title) => renameSession(item, title)}
+        onStopSession={(_place, item) => stopSession(item)}
         {...(projects === undefined
           ? {}
           : { onRegisterProject: () => setRegistering(true) })}

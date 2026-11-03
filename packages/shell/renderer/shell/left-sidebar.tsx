@@ -1,4 +1,4 @@
-// 왼쪽 sidebar. 위에 New session·Inbox·Jobs, 아래에 place(Home, project, app)마다 열린 session과 이 place의 접힌 Recent 줄 하나,
+// 왼쪽 sidebar. 위에 Inbox·Jobs, 아래에 place(Home, project, app)마다 줄 오른쪽 끝의 +(새 session)와 열린 session과 이 place의 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(Terminal · Browser · App · Search와 고정 앱 panel. 앞 셋은 hover 목록이 있다)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
 import {
@@ -11,13 +11,14 @@ import {
 } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
-import { Fragment, type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 
 import { useAppIcon } from "../app-frame/app-icon.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";
 import {
+  actionIcons,
   browserIcons,
   commonIcons,
   notificationsIcon,
@@ -81,11 +82,12 @@ export interface LeftSidebarProps {
   current: PlaceRef;
   /** 고른 tab의 session 줄(`sessionKey`). 없으면 강조하지 않는다. */
   selected?: string;
-  /** New session ▾의 lophn agent와 coding agent. coding이 비면 그 묶음이 없다. */
+  /** 이 창 place의 + 오른쪽 클릭 menu의 lophn agent와 coding agent. coding이 비면 그 묶음이 없다. */
   agents: readonly NewSessionAgent[];
   coding: readonly NewSessionCoding[];
-  /** New session 줄을 누른다. 이 place의 lophn에서 새 session이다. */
-  onNewSession: () => void;
+  /** place 줄의 +. 그 place의 lophn에서 새 session이다. 다른 place면 그 place로 가서 연다. */
+  onNewSession: (place: PlaceRef) => void;
+  /** 이 창 place의 + 오른쪽 클릭 menu에서 고른 agent로 새 session이다. */
   onNewSessionWith: (kind: "lophn" | "coding", id: string) => void;
   /** Inbox 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
@@ -102,7 +104,15 @@ export interface LeftSidebarProps {
   onRegisterProject?: () => void;
   onCreateApp?: () => void;
   quick?: QuickLaunch;
-  /** 이 창의 project·앱 줄 오른쪽 끝에 설정 단추를 둔다. project는 Project settings, 앱은 App details 탭을 연다. Home은 주지 않는다. */
+  /** 이 창이 보이는 place의 current 줄(workflow 밖)에 hover하면 연필이 뜬다. 누르면 줄이 이름 칸이 된다. */
+  onRenameSession?: (
+    place: SidebarPlace,
+    session: SidebarSession,
+    title: string,
+  ) => void;
+  /** 같은 줄의 x. 도는 turn을 멈추고 탭을 닫아 Recent로 보낸다. */
+  onStopSession?: (place: SidebarPlace, session: SidebarSession) => void;
+  /** 이 창의 project·앱 줄 오른쪽 끝에 설정 단추를 둔다. hover와 focus 때만 보인다. project는 Project settings, 앱은 App details 탭을 연다. Home은 주지 않는다. */
   onPlaceSettings?: () => void;
   onSettings: () => void;
 }
@@ -236,76 +246,43 @@ function NavRow({
   );
 }
 
-function NewSessionRow({
-  agents,
-  coding,
-  onNewSession,
-  onNewSessionWith,
-}: Pick<
-  LeftSidebarProps,
-  "agents" | "coding" | "onNewSession" | "onNewSessionWith"
->) {
-  const items: MenuItem[] = [
-    ...agents.map((agent, index) => ({
-      id: `lophn:${agent.id}`,
-      label: agent.name,
-      heading: index === 0 ? t("left-sidebar.heading.lophn-agents") : undefined,
-      leading: (
-        <MenuIcon>
-          <Avatar profile={agent.profile} size="sm" />
-        </MenuIcon>
-      ),
-    })),
-    ...coding.map((agent, index) => ({
-      id: `coding:${agent.id}`,
-      label: agent.name,
-      heading:
-        index === 0 ? t("left-sidebar.heading.coding-agents") : undefined,
-      separatorBefore: index === 0 && agents.length > 0,
-      leading: (
-        <MenuIcon>
-          {agent.vendor === undefined ? (
-            <Icon icon={shellIcons.terminal} pixels={14} />
-          ) : (
-            <VendorIcon vendor={agent.vendor} size={16} />
-          )}
-        </MenuIcon>
-      ),
-    })),
-  ];
+// Enter나 blur는 확정(빈 이름이나 같은 이름은 아무것도 하지 않는다), Escape는 취소다. unmount 때 blur가 한 번 더
+// 와도 두 번 확정하지 않는다.
+function SessionRename({
+  title,
+  onDone,
+}: {
+  title: string;
+  onDone: (name: string | null) => void;
+}) {
+  const done = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, []);
+  const finish = (name: string | null) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(name === null || name === title ? null : name);
+  };
   return (
-    <div className={styles.newSession}>
-      <button
-        type="button"
-        className={styles.navRow}
-        data-nav="new-session"
-        onClick={onNewSession}
-      >
-        <Icon icon={shellIcons.newSession} pixels={16} />
-        <span className={styles.rowLabel}>
-          {t("left-sidebar.button.new-session")}
-        </span>
-      </button>
-      {items.length === 0 ? null : (
-        <Menu
-          placement="corner"
-          items={items}
-          onSelect={(id) => {
-            const [kind, ...rest] = id.split(":");
-            onNewSessionWith(kind as "lophn" | "coding", rest.join(":"));
-          }}
-          trigger={
-            <button
-              type="button"
-              className={styles.newSessionMore}
-              aria-label={t("left-sidebar.button.new-session-with")}
-              data-new-session-menu=""
-            >
-              <Icon icon={shellIcons.expand} pixels={14} />
-            </button>
-          }
-        />
-      )}
+    <div className={styles.sessionRenameLine}>
+      <input
+        ref={input}
+        className={styles.sessionRename}
+        aria-label={t("left-sidebar.label.session-name")}
+        defaultValue={title}
+        data-session-rename-input=""
+        onBlur={(event) => finish(event.currentTarget.value.trim() || null)}
+        onKeyDown={(event) => {
+          // 작업대 단축키로 키가 새지 않게 한다.
+          event.stopPropagation();
+          if (event.key === "Enter") {
+            finish(event.currentTarget.value.trim() || null);
+          } else if (event.key === "Escape") finish(null);
+        }}
+      />
     </div>
   );
 }
@@ -316,12 +293,15 @@ function SessionRow({
   recent,
   onClick,
   onMenu,
+  dot = true,
 }: {
   item: SidebarSession;
   selected: boolean;
   recent: boolean;
   onClick: () => void;
   onMenu?: (at: { x: number; y: number }) => void;
+  /** false면 줄 끝 점을 그리지 않는다. 점은 줄 밖의 Stop 단추가 대신 보인다. */
+  dot?: boolean;
 }) {
   return (
     <button
@@ -351,9 +331,11 @@ function SessionRow({
           {t("left-sidebar.label.your-turn")}
         </span>
       ) : null}
-      <span className={styles.rowDot}>
-        {recent || item.dot === null ? null : <TabStateDot dot={item.dot} />}
-      </span>
+      {dot ? (
+        <span className={styles.rowDot}>
+          {recent || item.dot === null ? null : <TabStateDot dot={item.dot} />}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -376,9 +358,43 @@ export function LeftSidebar({
   onRegisterProject,
   onCreateApp,
   quick,
+  onRenameSession,
+  onStopSession,
   onPlaceSettings,
   onSettings,
 }: LeftSidebarProps) {
+  // 이 창 place의 + 오른쪽 클릭 menu 자리.
+  const [newMenu, setNewMenu] = useState<{ x: number; y: number } | null>(null);
+  const newItems: MenuItem[] = [
+    ...agents.map((agent, index) => ({
+      id: `lophn:${agent.id}`,
+      label: agent.name,
+      heading: index === 0 ? t("left-sidebar.heading.lophn-agents") : undefined,
+      leading: (
+        <MenuIcon>
+          <Avatar profile={agent.profile} size="sm" />
+        </MenuIcon>
+      ),
+    })),
+    ...coding.map((agent, index) => ({
+      id: `coding:${agent.id}`,
+      label: agent.name,
+      heading:
+        index === 0 ? t("left-sidebar.heading.coding-agents") : undefined,
+      separatorBefore: index === 0 && agents.length > 0,
+      leading: (
+        <MenuIcon>
+          {agent.vendor === undefined ? (
+            <Icon icon={shellIcons.terminal} pixels={14} />
+          ) : (
+            <VendorIcon vendor={agent.vendor} size={16} />
+          )}
+        </MenuIcon>
+      ),
+    })),
+  ];
+  // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
+  const [renaming, setRenaming] = useState<string | null>(null);
   // 펼친 Recent와 그 page는 place마다 기억한다. 저장하지 않는다.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [pages, setPages] = useState<ReadonlyMap<string, number>>(new Map());
@@ -472,12 +488,6 @@ export function LeftSidebar({
       aria-label={t("left-sidebar.label.nav")}
     >
       <div className={styles.navGroup}>
-        <NewSessionRow
-          agents={agents}
-          coding={coding}
-          onNewSession={onNewSession}
-          onNewSessionWith={onNewSessionWith}
-        />
         <WaitingLayer
           align="side"
           onOpenSession={onOpenSession}
@@ -577,28 +587,112 @@ export function LeftSidebar({
                 {here &&
                 place.ref.kind !== "home" &&
                 onPlaceSettings !== undefined ? (
-                  <IconButton
-                    icon={commonIcons.settings}
-                    label={t(
-                      place.ref.kind === "app"
-                        ? "left-sidebar.button.app-detail"
-                        : "left-sidebar.button.project-settings",
-                    )}
-                    size="sm"
-                    data-place-settings=""
-                    onClick={onPlaceSettings}
-                  />
+                  <span className={styles.placeSettings}>
+                    <IconButton
+                      icon={commonIcons.settings}
+                      label={t(
+                        place.ref.kind === "app"
+                          ? "left-sidebar.button.app-detail"
+                          : "left-sidebar.button.project-settings",
+                      )}
+                      size="sm"
+                      data-place-settings=""
+                      onClick={onPlaceSettings}
+                    />
+                  </span>
                 ) : null}
+                <span className={styles.placeNew} data-here={here || undefined}>
+                  <IconButton
+                    icon={shellIcons.add}
+                    label={t("left-sidebar.button.new-session-in", {
+                      place: place.name,
+                    })}
+                    size="sm"
+                    data-place-new={key}
+                    onClick={() => onNewSession(place.ref)}
+                    onContextMenu={(event) => {
+                      if (!here || newItems.length === 0) return;
+                      event.preventDefault();
+                      setNewMenu({ x: event.clientX, y: event.clientY });
+                    }}
+                  />
+                </span>
               </div>
-              {place.current.map((item) => (
-                <SessionRow
-                  key={sessionKey(item)}
-                  item={item}
-                  selected={here && sessionKey(item) === selected}
-                  recent={false}
-                  onClick={() => onSession(place, item)}
-                />
-              ))}
+              {place.current.map((item) => {
+                const itemKey = sessionKey(item);
+                const actions =
+                  here &&
+                  item.kind !== "workflow" &&
+                  (onRenameSession !== undefined ||
+                    onStopSession !== undefined);
+                // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
+                const row = (
+                  <SessionRow
+                    item={item}
+                    selected={here && itemKey === selected}
+                    recent={false}
+                    dot={!actions || onStopSession === undefined}
+                    onClick={() => onSession(place, item)}
+                  />
+                );
+                if (!actions) return <Fragment key={itemKey}>{row}</Fragment>;
+                if (renaming === itemKey) {
+                  return (
+                    <SessionRename
+                      key={itemKey}
+                      title={item.title}
+                      onDone={(name) => {
+                        setRenaming(null);
+                        if (name !== null) onRenameSession?.(place, item, name);
+                      }}
+                    />
+                  );
+                }
+                return (
+                  <div
+                    key={itemKey}
+                    className={styles.sessionLine}
+                    data-session-line={itemKey}
+                  >
+                    {row}
+                    <span className={styles.sessionActions}>
+                      {onRenameSession === undefined ? null : (
+                        <button
+                          type="button"
+                          className={styles.sessionAction}
+                          aria-label={t("left-sidebar.button.rename-session")}
+                          data-session-rename=""
+                          onClick={() => setRenaming(itemKey)}
+                        >
+                          <Icon icon={actionIcons.edit} pixels={14} />
+                        </button>
+                      )}
+                      {onStopSession === undefined ? null : (
+                        <button
+                          type="button"
+                          className={styles.sessionAction}
+                          aria-label={t("left-sidebar.button.stop-session")}
+                          data-session-stop=""
+                          data-dot={item.dot === null ? undefined : ""}
+                          onClick={() => onStopSession(place, item)}
+                        >
+                          {item.dot === null ? null : (
+                            <TabStateDot
+                              dot={item.dot}
+                              className={styles.stopDot}
+                            />
+                          )}
+                          <Icon
+                            icon={shellIcons.close}
+                            pixels={14}
+                            className={styles.stopCross}
+                          />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
               {place.recent.length === 0 ? null : (
                 <button
                   type="button"
@@ -675,6 +769,26 @@ export function LeftSidebar({
         />
       </div>
 
+      {newMenu === null ? null : (
+        <Menu
+          open
+          onOpenChange={(next) => {
+            if (!next) setNewMenu(null);
+          }}
+          trigger={
+            <span
+              className={styles.menuAnchor}
+              style={{ left: newMenu.x, top: newMenu.y }}
+            />
+          }
+          items={newItems}
+          onSelect={(id) => {
+            const [kind, ...rest] = id.split(":");
+            onNewSessionWith(kind as "lophn" | "coding", rest.join(":"));
+            setNewMenu(null);
+          }}
+        />
+      )}
       {menu === null ? null : (
         <Menu
           open

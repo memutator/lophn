@@ -1,5 +1,6 @@
-// artifact 탭 kind. domain의 artifact(domain, name), 사람의 폴더에 있는 .html(project, path), project의 workflow artifact
-// (project, workflow, view[, instance]) 하나를 연다. 셋 중 정확히 하나다. instance는 view가 instance일 때만 있고 그때는 꼭 있다.
+// artifact 탭 kind. project나 앱의 artifact(project·app 가운데 하나와 name), 사람의 폴더에 있는 .html(project, path),
+// project의 workflow artifact(project, workflow, view[, instance]) 하나를 연다. 넷 중 정확히 하나다.
+// instance는 view가 instance일 때만 있고 그때는 꼭 있다.
 import { z } from "zod";
 
 import {
@@ -9,19 +10,29 @@ import {
 import { defineTabKind } from "./kind.ts";
 import { idOf, tabKey } from "./values.ts";
 
+const FIELDS = [
+  "project",
+  "app",
+  "name",
+  "path",
+  "workflow",
+  "view",
+  "instance",
+] as const;
+
 const layout = z
   .strictObject({
     kind: z.literal("artifact"),
     key: tabKey,
-    domain: z
-      .string()
-      .refine((value) => idOf("dom", value) !== null)
-      .optional(),
-    name: artifactNameSchema.optional(),
     project: z
       .string()
       .refine((value) => idOf("prj", value) !== null)
       .optional(),
+    app: z
+      .string()
+      .refine((value) => idOf("app", value) !== null)
+      .optional(),
+    name: artifactNameSchema.optional(),
     path: z.string().min(1).max(4096).optional(),
     workflow: workflowNameSchema.optional(),
     view: z.enum(["static", "instance"]).optional(),
@@ -32,35 +43,18 @@ const layout = z
   })
   .refine(
     (tab) => {
-      const artifact =
-        tab.domain !== undefined &&
-        tab.name !== undefined &&
-        tab.project === undefined &&
-        tab.path === undefined &&
-        tab.workflow === undefined &&
-        tab.view === undefined &&
-        tab.instance === undefined;
-      const file =
-        tab.project !== undefined &&
-        tab.path !== undefined &&
-        tab.domain === undefined &&
-        tab.name === undefined &&
-        tab.workflow === undefined &&
-        tab.view === undefined &&
-        tab.instance === undefined;
-      const workflow =
-        tab.project !== undefined &&
-        tab.workflow !== undefined &&
-        tab.view !== undefined &&
-        tab.path === undefined &&
-        tab.domain === undefined &&
-        tab.name === undefined &&
-        (tab.view === "instance") === (tab.instance !== undefined);
-      return artifact || file || workflow;
+      const shape = FIELDS.filter((field) => tab[field] !== undefined).join();
+      return (
+        shape === "project,name" ||
+        shape === "app,name" ||
+        shape === "project,path" ||
+        (shape === "project,workflow,view" && tab.view === "static") ||
+        (shape === "project,workflow,view,instance" && tab.view === "instance")
+      );
     },
     {
       message:
-        "exactly one of (domain, name), (project, path) and (project, workflow, view[, instance])",
+        "exactly one of (project|app, name), (project, path) and (project, workflow, view[, instance])",
     },
   );
 

@@ -8,7 +8,7 @@ import { nodeArtifactFs, resolveSource } from "./source.ts";
 
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), "lophn-artifact-source-"));
-  const artifacts = join(root, "domains", "dom_a", "artifacts");
+  const artifacts = join(root, "projects", "prj_a", "artifacts");
   await mkdir(artifacts, { recursive: true });
   return { root, artifacts };
 }
@@ -20,8 +20,8 @@ test("artifact 이름이 slug가 아니거나 폴더가 artifacts 밖을 가리�
     await mkdir(outside);
     await writeFile(join(outside, "index.html"), "<html></html>");
     await symlink(outside, join(artifacts, "escape"));
-    // 다른 domain의 artifact를 가리키는 symlink도 artifacts 밖이다.
-    const other = join(root, "domains", "dom_b", "artifacts", "theirs");
+    // 다른 그릇의 artifact를 가리키는 symlink도 artifacts 밖이다.
+    const other = join(root, "apps", "app_b", "artifacts", "theirs");
     await mkdir(other, { recursive: true });
     await writeFile(join(other, "index.html"), "<html></html>");
     await symlink(other, join(artifacts, "borrowed"));
@@ -31,7 +31,7 @@ test("artifact 이름이 slug가 아니거나 폴더가 artifacts 밖을 가리�
     const open = (name: string) =>
       resolveSource(
         root,
-        { kind: "artifact", domain: "dom_a", name },
+        { kind: "artifact", project: "prj_a", name },
         nodeArtifactFs,
       );
     const bad = await open("../outside");

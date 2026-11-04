@@ -1,5 +1,6 @@
-// place(Home, project, app) layout 파일의 값. 파일 하나가 place 하나이고 desk 여럿을 가진다. 판 8부터다.
-// 옛 `layouts/<prj_id>.json`(판 5~7)은 읽지 않는다. 파일이 없으면 기본 layout으로 시작한다.
+// place(Home, project, app) layout 파일의 값. 파일 하나가 place 하나이고 desk 여럿을 가진다. 판 9다(artifact 탭이
+// domain이 아니라 project나 앱을 가리킨다. 판 8 파일은 core의 data step이 판 9로 옮겨 쓴다). 다른 판은 읽지 않는다.
+// 파일이 없으면 기본 layout으로 시작한다.
 // 상한과 불변 조건(tab key는 desk 안에서 한 번, selected·group의 leaf는 tabs 안, group은 leaf 2~4개이고 tabs에서
 // leaf 순서로 붙어 있고 칸에 숨은 tab이 그 바로 뒤에 붙어 있음)은 renderer shell/desk-model.ts와 짝이다.
 import { z } from "zod";
@@ -13,7 +14,7 @@ import {
 import { tabKindOf } from "./kinds/registry.ts";
 import { tabKey } from "./kinds/values.ts";
 
-export const PLACE_SCHEMA_VERSION = 8;
+export const PLACE_SCHEMA_VERSION = 9;
 
 // 파일 이름이 되는 key라 폴더 밖으로 나갈 수 있는 글자(`.`, `/`, `\`)는 아예 받지 않는다.
 export function isPlaceKey(value: unknown): value is string {
@@ -23,7 +24,7 @@ export function isPlaceKey(value: unknown): value is string {
 const TABS_MAX = 1200;
 
 // group의 배치 tree. leaf는 칸(보이는 tab key와, 돌려 보는 tab이 둘 이상이면 온 순서의 stack), 나눔은 row(a가
-// 왼쪽)나 column(a가 위)이고 ratio는 a의 몫이다. stack은 판 8 안에서 더한 선택 필드라 옛 파일도 그대로 맞다.
+// 왼쪽)나 column(a가 위)이고 ratio는 a의 몫이다. stack은 선택 필드라 없어도 맞다.
 export type StoredNode =
   | { tab: string; stack?: string[] | undefined }
   | { dir: "row" | "column"; ratio: number; a: StoredNode; b: StoredNode };

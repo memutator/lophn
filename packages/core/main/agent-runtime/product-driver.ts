@@ -15,6 +15,7 @@ import {
 } from "../../../protocol/approvals/mod.ts";
 import { appGet } from "../../../protocol/apps/mod.ts";
 import { domainFolder } from "../../../protocol/domains/paths.ts";
+import { artifactsFolder } from "../../../protocol/projects/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
   type AgentId,
@@ -123,6 +124,8 @@ function placeFiles(): PlaceFiles {
       root === null ? null : domainFolder(root, domain),
     dataFolder: (place) =>
       root === null ? null : placeDataFolder(root, place as never),
+    artifactsFolder: (place) =>
+      root === null ? null : artifactsFolder(root, place),
     workflowsFolder: (project) =>
       root === null ? null : workflowsFolder(root, project),
     ensureDir: async (path) => {

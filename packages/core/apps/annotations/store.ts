@@ -27,12 +27,12 @@ function targetOf(row: Record<string, unknown>): AnnotationTarget {
   switch (row["target_kind"]) {
     case "app":
       return { kind: "app", app: String(row["app"]) as never };
-    case "artifact":
-      return {
-        kind: "artifact",
-        domain: String(row["domain"]) as never,
-        name: String(row["artifact"]),
-      };
+    case "artifact": {
+      const name = String(row["artifact"]);
+      return row["app"] === null
+        ? { kind: "artifact", project: String(row["project"]) as never, name }
+        : { kind: "artifact", app: String(row["app"]) as never, name };
+    }
     default:
       return { kind: "file", project: String(row["project"]) as never };
   }
@@ -69,7 +69,7 @@ export function loadAnnotations(
   const root = dataRootOf(sql);
   return ids.flatMap((id) => {
     const row = sql.get(
-      `SELECT a.*, b.target_kind, b.app, b.project, b.domain, b.artifact
+      `SELECT a.*, b.target_kind, b.app, b.project, b.artifact
        FROM annotations a JOIN annotation_batches b ON b.id = a.batch
        WHERE a.id = ?`,
       [id],

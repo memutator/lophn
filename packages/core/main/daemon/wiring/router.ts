@@ -2,8 +2,10 @@ import { realpath } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { createProductRedactor } from "../../../../base/redaction/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import type { DomainOwner } from "../../../../protocol/domains/mod.ts";
-import { domainArtifactsFolder } from "../../../../protocol/domains/paths.ts";
+import {
+  type ArtifactPlace,
+  artifactsFolder,
+} from "../../../../protocol/projects/mod.ts";
 import {
   placeSessionOpen,
   placeSessionRead,
@@ -30,7 +32,6 @@ import {
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import { appExists, appStatusOf } from "../../../apps/lookups.ts";
-import { domainOwnerOf } from "../../../domains/lookups.ts";
 import {
   createSessionDirectory,
   placeDepsOf,
@@ -199,21 +200,19 @@ export const routerWiring: WiringFactory = () => {
         inbox: ctx.inbox,
         publish: (event) => ctx.bus.publish(event),
       });
-      // domain을 받는 일은 그 domain 그릇 place의 lophn이 맡는다. 없는 domain이나 보관한 owner는 not_found다.
-      const ownerOfDomain = (domain: string): Result<DomainOwner> => {
-        const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
-          const owner = domainOwnerOf(lookup.sql, domain);
-          if (owner === null) return null;
-          const status =
-            owner.kind === "project"
-              ? projectStatusOf(lookup.sql, owner.id)
-              : appStatusOf(lookup.sql, owner.id);
-          return status === "active" ? owner : null;
-        });
+      // artifact를 받는 일은 그 그릇 place의 lophn이 맡는다. 없거나 보관한 그릇은 not_found다.
+      const activePlace = (place: ArtifactPlace): Result<ArtifactPlace> => {
+        const found = ledgerSnapshot(
+          ctx.ledgerPath,
+          (lookup) =>
+            (place.kind === "project"
+              ? projectStatusOf(lookup.sql, place.id)
+              : appStatusOf(lookup.sql, place.id)) === "active",
+        );
         if (!found.ok) return found;
-        return found.value === null
-          ? err({ code: "not_found", message: "domain or its owner not found" })
-          : ok(found.value);
+        return found.value
+          ? ok(place)
+          : err({ code: "not_found", message: "artifact place not found" });
       };
       // 사람 메시지는 이미지를 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
@@ -322,20 +321,17 @@ export const routerWiring: WiringFactory = () => {
             "not an open session of this agent in this app",
           );
         },
-        // 받는 쪽 후보 순서: (a) 그 domain의 artifacts 폴더에 마지막으로 쓴 주인 그릇 place의 열린 session(rewind 기록),
-        // (b) 입력 session(주인 그릇 place의 lophn 열린 session), (c) 주인 그릇 place의 lophn 새 session.
+        // 받는 쪽 후보 순서: (a) 그 그릇의 artifacts 폴더에 마지막으로 쓴 그 그릇 place의 열린 session(rewind 기록),
+        // (b) 입력 session(그 그릇 place의 lophn 열린 session), (c) 그 그릇 place의 lophn 새 session.
         async deliverArtifact(input) {
-          const owner = ownerOfDomain(input.domain);
+          const owner = activePlace(input.place);
           if (!owner.ok) return owner;
           const target: AgentAtPlace = {
             agent: LOPHN_AGENT_ID,
-            place:
-              owner.value.kind === "project"
-                ? { kind: "project", id: owner.value.id }
-                : { kind: "app", id: owner.value.id },
+            place: { kind: owner.value.kind, id: owner.value.id as never },
           };
           const root = await realpath(
-            domainArtifactsFolder(ctx.root.path, input.domain),
+            artifactsFolder(ctx.root.path, owner.value),
           ).catch(() => null);
           if (root !== null) {
             const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
@@ -354,7 +350,7 @@ export const routerWiring: WiringFactory = () => {
             target,
             input.session,
             input,
-            "not an open session of lophn in the domain's owner",
+            "not an open session of lophn in the artifact's place",
           );
         },
         // 사람의 폴더에 있는 `.html`은 그 project place의 lophn이 받는다.

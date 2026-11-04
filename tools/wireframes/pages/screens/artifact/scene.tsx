@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { t } from "@lophn/i18n";
 
-import { FAKE_DOMAINS } from "../../../../../packages/shell/renderer/workspace/fake-source.ts";
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";
 import { fakeArtifactApi } from "../../../../../packages/shell/renderer/artifact/testdata/fake-artifact-api.ts";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
@@ -25,10 +24,9 @@ import { SpendingView } from "../../../mock/artifact/spending-view.tsx";
 import { click, press, useDrive } from "../../../mock/drive.ts";
 
 const NAMED = {
-  key: `artifact:${FAKE_DOMAINS[0]!.id}:${SPENDING.name}`,
+  key: `artifact:project:${PROJECT_GROCERY}:${SPENDING.name}`,
   kind: "artifact",
   title: SPENDING.name,
-  domain: FAKE_DOMAINS[0]!.id,
   name: SPENDING.name,
 } as const;
 const FILE = {

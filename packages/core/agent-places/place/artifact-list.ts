@@ -1,8 +1,8 @@
 import {
   ARTIFACT_ENTRY,
+  artifactNameSchema,
   parseArtifactMeta,
-} from "../../../protocol/domains/artifact.ts";
-import { artifactNameSchema } from "../../../protocol/domains/values.ts";
+} from "../../../protocol/projects/mod.ts";
 
 export type ArtifactEntry = {
   name: string;

@@ -41,28 +41,27 @@ export const artifactArea: Area = {
       id: "artifact-chat-link",
       title: "Artifact · chat link",
       description:
-        "대화 글 안에서 그 project의 domain artifact path가 link로 그려진 모양이다. 앞에 종류 아이콘이 붙고 hover하면 제목, 설명, 누르면 하는 일이 뜬다. 목록에 없는 path는 link가 아닌 글 그대로다.",
+        "대화 글 안에서 그 project의 artifact path가 link로 그려진 모양이다. 앞에 종류 아이콘이 붙고 hover하면 제목, 설명, 누르면 하는 일이 뜬다. 목록에 없는 path는 link가 아닌 글 그대로다.",
       render: () => <ChatLink />,
     },
     {
       id: "artifact-sidebar-list",
       title: "Artifact · sidebar list",
       description:
-        "project sidebar의 Artifacts 탭에 domain이 둘 이상일 때의 목록이다. domain 제목 아래에 artifact 묶음이 서고 제목을 누르면 묶음이 접힌다(제목 오른쪽 끝에 개수). 줄마다 종류 아이콘, 제목과 폴더 이름, 설명 한 줄이고 누르면 그 artifact가 탭으로 열린다. artifact가 없는 domain은 묶음에 안내 한 문장이 선다.",
+        "project sidebar의 Artifacts 탭 목록이다. 줄마다 종류 아이콘, 제목과 폴더 이름, 설명 한 줄이고 누르면 그 artifact가 탭으로 열린다.",
       render: () => <ArtifactSidebar />,
     },
     {
       id: "artifact-sidebar-single",
-      title: "Artifact · sidebar one domain",
-      description:
-        "domain이 하나뿐인 project의 Artifacts 목록이다. 묶음 제목 없이 한 줄 목록이다. 고정 크기 칸에 목록만 그린다.",
+      title: "Artifact · sidebar list only",
+      description: "Artifacts 목록만 고정 크기 칸에 그린다.",
       render: () => <ArtifactSidebarSingle />,
     },
     {
       id: "artifact-sidebar-empty",
       title: "Artifact · sidebar empty",
       description:
-        "artifact가 하나도 없을 때(domain 개수와 상관없이)의 Artifacts 탭이다. 본문에는 단추 없이 안내 한 문장만 있다.",
+        "artifact가 하나도 없을 때의 Artifacts 탭이다. 본문에는 단추 없이 안내 한 문장만 있다.",
       render: () => <ArtifactSidebar empty />,
     },
   ],

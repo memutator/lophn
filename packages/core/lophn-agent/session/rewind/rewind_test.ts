@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ok } from "../../../../base/mod.ts";
@@ -15,6 +22,7 @@ import type { Writer } from "../../../storage/ledger/mod.ts";
 import { conversationSchemaSteps } from "../model.ts";
 import { turnSchemaSteps } from "../../run-loop/schema.ts";
 import { toolsSchemaSteps } from "../../tools/model.ts";
+import { domainsSchemaSteps } from "../../../domains/schema.ts";
 import {
   createRewindStore,
   createSessionRewindCommands,
@@ -22,6 +30,7 @@ import {
   planRewind,
   prepareRestore,
   revertSchemaSteps,
+  rewindContainerRootSteps,
 } from "./mod.ts";
 import { observeFiles } from "./prepare.ts";
 import { requestApps } from "./files.ts";
@@ -37,12 +46,13 @@ const user: RequestContext = {
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 
-// 실제 schema step 그대로인 표와 임시 폴더다.
-function setup() {
+// 실제 schema step 그대로인 표와 임시 폴더다. `legacy`가 있으면 root step 앞에서 옛 기록을 넣고 그 step을 돌린다.
+function setup(legacy?: (sql: Sql) => void) {
   const db = new DatabaseSync(":memory:");
   // tool call 같은 앞 표의 행은 이 시험이 판정하지 않으므로 외래 키를 켜지 않는다.
   db.exec("pragma foreign_keys = off");
   for (const step of [
+    ...domainsSchemaSteps,
     ...conversationSchemaSteps,
     ...turnSchemaSteps,
     ...toolsSchemaSteps,
@@ -79,6 +89,8 @@ function setup() {
       SESSION,
     ]);
   }
+  legacy?.(sql);
+  for (const step of rewindContainerRootSteps) db.exec(step.sql);
   return { sql, tx };
 }
 
@@ -248,4 +260,95 @@ test("apps를 고르지 않으면 앱 rewind를 요청하지 않고, 고르면 �
   });
   assert.deepStrictEqual(asked, ["app_1:inv_2"]);
   assert.deepStrictEqual(recorded.length, 1);
+});
+
+test("root step 뒤에 domain 폴더 root로 남은 옛 checkpoint를 되돌리면 그릇 폴더의 artifacts에 쓰고 옛 domains 자리에는 쓰지 않는다", async () => {
+  const data = await mkdtemp(join(tmpdir(), "lophn-rewind-root-"));
+  const store = await mkdtemp(join(tmpdir(), "lophn-rewind-store-"));
+  try {
+    const oldRoot = join(data, "domains", "dom_a");
+    const container = join(data, "projects", "prj_1");
+    const page = join("artifacts", "report", "index.html");
+    // 옮기기가 끝난 자리다: 파일은 그릇 폴더에 있고 옛 domains 폴더는 없다.
+    await mkdir(join(container, "artifacts", "report"), { recursive: true });
+    await writeFile(join(container, page), "new");
+    const rewind = createRewindStore(store);
+    const blob = (await rewind.put(SESSION, new TextEncoder().encode("old")))
+      .key;
+    const { sql, tx } = setup((sql) => {
+      sql.run(
+        `insert into domains (id, name, title, purpose, owner_kind, owner_id, revision, status)
+         values ('dom_a', 'alpha', 't', '', 'project', 'prj_1', '1', 'active')`,
+        [],
+      );
+      sql.run(
+        `insert into rewind_files
+           (tool_call, root, path, checkpoint, seq, before_exists, before_sha256, before_blob,
+            before_size, after_exists, after_sha256, moved_from, reverted_by)
+         values ('tcl_1', ?, ?, 'msg_2', 1, 1, ?, ?, 3, 1, ?, null, null)`,
+        [oldRoot, page, sha("old"), blob, sha("new")],
+      );
+    });
+
+    const plan = planRewind(
+      { sql },
+      {
+        observe: (files) => {
+          const seen = new Map();
+          for (const file of files) {
+            for (const [path, stat] of observeFiles(file.root, [file.path])) {
+              seen.set(path, stat);
+            }
+          }
+          return seen;
+        },
+      },
+      { session: SESSION, checkpoint: "msg_2", choice: "restore_all" },
+    );
+    assert.ok(plan.ok);
+    const files = await prepareRestore({
+      store: rewind,
+      session: SESSION,
+      judged: plan.value.judged,
+      current: plan.value.current,
+    });
+    const commands = createSessionRewindCommands({
+      effects: { summaryOk: () => true, cancelWaiting: () => ok(undefined) },
+    });
+    const done = commands.rewind.handle(
+      tx,
+      user,
+      {
+        id: "rwd_1",
+        session: SESSION,
+        checkpoint: "msg_2",
+        choice: "restore_all",
+        accept_remaining: true,
+        preview_hash: plan.value.preview.preview_hash,
+        summary_call: null,
+        files,
+        apps: [],
+      } as never,
+      {} as never,
+    );
+    assert.ok(done.ok);
+    await installRestore({
+      store: rewind,
+      session: SESSION,
+      judged: plan.value.judged,
+      prepared: files,
+    });
+
+    assert.deepStrictEqual(
+      await readFile(join(container, page), "utf8"),
+      "old",
+    );
+    assert.deepStrictEqual(
+      await stat(join(data, "domains")).catch(() => null),
+      null,
+    );
+  } finally {
+    await rm(data, { recursive: true, force: true });
+    await rm(store, { recursive: true, force: true });
+  }
 });

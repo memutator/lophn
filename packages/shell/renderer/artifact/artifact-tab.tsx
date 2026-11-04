@@ -59,7 +59,7 @@ interface ArtifactTabProps {
 // 열기 입력을 이은 글. 입력이 바뀐 view를 다시 쓰지 않게 한다.
 function signatureOf(source: ArtifactSource): string {
   return source.kind === "artifact"
-    ? `artifact\n${source.domain}\n${source.name}`
+    ? `artifact\n${"app" in source ? source.app : source.project}\n${source.name}`
     : source.kind === "file"
       ? `file\n${source.project}\n${source.path}`
       : `workflow\n${source.project}\n${source.workflow}\n${source.view}\n${

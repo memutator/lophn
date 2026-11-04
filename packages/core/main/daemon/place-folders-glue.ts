@@ -2,6 +2,7 @@
 // 여기는 project·앱·feature module의 lookups로 사실을 모아 넘긴다.
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { domainFolder } from "../../../protocol/domains/paths.ts";
+import { artifactsFolder } from "../../../protocol/projects/mod.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import {
   type PlaceFacts,
@@ -50,6 +51,7 @@ export function placeFoldersOf(
     allProjectFolders: [],
     workflowsFolder:
       place?.kind === "project" ? workflowsFolder(dataRoot, place.id) : null,
+    artifactsFolder: place === null ? null : artifactsFolder(dataRoot, place),
   };
   return placeScope(facts).write;
 }

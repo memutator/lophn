@@ -15,8 +15,6 @@ export const domainNameSchema = slugSchema.refine(
     message: "domain name is reserved",
   },
 );
-// artifact 이름은 폴더 이름이라 slug다.
-export const artifactNameSchema = slugSchema;
 
 // domain을 담는 그릇. project나 app 하나다.
 export const domainOwnerSchema = z.discriminatedUnion("kind", [

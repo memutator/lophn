@@ -32,8 +32,6 @@ export type PlaceDomain = {
   title: string;
   purpose: string;
   folder: string | null;
-  // 폴더를 정할 수 없으면 null.
-  artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
   // 주인 앱의 활성 release가 내놓은 이 domain의 command 전부(비공개 포함). `lophn <앱 slug> <command>`로 부른다.
   commands: readonly CommandLine[];
 };
@@ -75,6 +73,8 @@ export type PlaceData = {
   release: { version: string; command_names: readonly string[] } | null;
   // project place만. 만들어 둔 workflows 폴더의 절대 path다. home과 app place는 null
   workflowsFolder: string | null;
+  // project·앱 place의 artifacts 폴더와 목록. 폴더를 만들지 못했거나 home이면 null
+  artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
 };
 
 function cmp(a: string, b: string): number {
@@ -175,31 +175,22 @@ function domainLines(domains: PlaceData["domains"]): string[] {
   return lines;
 }
 
-// prompt 안의 글이라 앞쪽만 싣는다. 전체 domain을 합쳐서 센다.
+// prompt 안의 글이라 앞쪽만 싣는다.
 const ARTIFACT_LIST_MAX = 50;
 
-function artifactLines(domains: PlaceData["domains"]): string[] {
-  const lines: string[] = [];
-  let shown = 0;
-  let more = 0;
-  for (const d of [...domains].sort((a, b) => cmp(a.name, b.name))) {
-    if (d.artifacts === null) continue;
-    lines.push(`Domain ${d.name}`, `Folder: ${d.artifacts.folder}`);
-    const sorted = [...d.artifacts.items].sort((a, b) => cmp(a.name, b.name));
-    for (const a of sorted) {
-      if (shown >= ARTIFACT_LIST_MAX) {
-        more += 1;
-        continue;
-      }
-      shown += 1;
-      const description = a.description === "" ? "" : ` — ${a.description}`;
-      lines.push(
-        `- ${a.name}: ${a.title}${description} (artifacts/${a.name}/index.html)`,
-      );
-    }
+function artifactLines(artifacts: PlaceData["artifacts"]): string[] {
+  if (artifacts === null) return [];
+  const lines = [`Folder: ${artifacts.folder}`];
+  const sorted = [...artifacts.items].sort((a, b) => cmp(a.name, b.name));
+  for (const a of sorted.slice(0, ARTIFACT_LIST_MAX)) {
+    const description = a.description === "" ? "" : ` — ${a.description}`;
+    lines.push(
+      `- ${a.name}: ${a.title}${description} (artifacts/${a.name}/index.html)`,
+    );
   }
-  if (lines.length === 0) return [];
-  if (more > 0) lines.push(`${more} more`);
+  if (sorted.length > ARTIFACT_LIST_MAX) {
+    lines.push(`${sorted.length - ARTIFACT_LIST_MAX} more`);
+  }
   return ["Artifacts", ...lines];
 }
 
@@ -281,7 +272,7 @@ export function placeInfo(
     sections.push(domainMapLines(data.map, budget));
   }
   sections.push(domainLines(data.domains));
-  sections.push(artifactLines(data.domains));
+  sections.push(artifactLines(data.artifacts));
   for (const section of sections) {
     if (section.length > 0) lines.push("", ...section);
   }

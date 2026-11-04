@@ -36,11 +36,13 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
     "/work/a",
     "/data/domains/dom_pa",
     "/data/projects/prj_a/workflows",
+    "/data/projects/prj_a/artifacts",
   ]);
   assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_ae"), [
     "/src/a",
     "/shared/a",
     "/data/domains/dom_aa",
+    "/data/apps/app_a/artifacts",
   ]);
   assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_home"), []);
   assert.deepStrictEqual(placeFoldersOf({ sql }, "/data", "ses_missing"), []);

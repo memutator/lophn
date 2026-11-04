@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { useArtifactList } from "../artifact/use-artifact-list.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
@@ -27,7 +20,7 @@ import {
   openedPlaceLophnSession,
   sessionDot,
 } from "./sidebar/panel-sessions.ts";
-import type { DomainView, WorkspaceSource } from "./source.ts";
+import type { WorkspaceSource } from "./source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import type { PlaceRef } from "../shell/desk-model.ts";
 
@@ -50,7 +43,6 @@ interface TabHostSlicesInput {
 // 창마다 다른 것(openTab·openFloat·patchTab·removeTab·view)은 호출하는 쪽이 host에 직접 넣는다.
 export function useTabHostSlices(input: TabHostSlicesInput) {
   const { place, source, agentViewSource, onSettings } = input;
-  const project = place.kind === "project" ? place.id : null;
   const agentsSource = source.agentsSource;
   // 값은 쓰지 않고 agent가 바뀔 때 이 hook을 쓴 창이 다시 그려지게만 한다.
   const terminalStore = input.terminalStore;
@@ -69,27 +61,8 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
-  // 창이 mount될 때 한 번 읽는다. 대화 글의 artifact link와 sidebar의 Artifacts 묶음이 쓴다.
-  const [domains, setDomains] = useState<readonly DomainView[]>([]);
-  useEffect(() => {
-    if (project === null) return;
-    let live = true;
-    void source.domains(project).then((read) => {
-      if (live && read.ok) setDomains(read.value);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, project]);
-  const artifactList = useArtifactList(domains.map((domain) => domain.id));
-  const artifactNames = useMemo(
-    () =>
-      artifactList.items.map((item) => ({
-        domain: item.domain,
-        name: item.name,
-      })),
-    [artifactList.items],
-  );
+  const artifactPlace = place.kind === "home" ? null : place;
+  const artifactList = useArtifactList(artifactPlace);
   const hostRef = useRef(input.host);
   hostRef.current = input.host;
 
@@ -149,10 +122,9 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
             openedPlaceLophnSession(sessionStates, place),
           nameOf: (session) => rowOfSession(session)?.name,
           artifacts: {
+            place: artifactPlace,
             items: artifactList.items,
-            names: artifactNames,
-            open: (domain, name) =>
-              openArtifact(hostRef.current(), domain, name),
+            open: (name) => openArtifact(hostRef.current(), name),
             reload: artifactList.reload,
           },
         };
@@ -167,7 +139,6 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
         };
 
   return {
-    domains,
     sidebarAgents,
     sessionStates,
     agentView,

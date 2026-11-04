@@ -1,5 +1,5 @@
-// artifact 탭 kind. domain의 artifact(domain, name), 사람의 폴더에 있는 .html(project, path), project의 workflow artifact
-// (project, workflow, view[, instance]) 하나를 보인다. layout에는 대상만
+// artifact 탭 kind. project나 앱의 artifact(project·app 가운데 하나와 name), 사람의 폴더에 있는 .html(project, path),
+// project의 workflow artifact(project, workflow, view[, instance]) 하나를 보인다. layout에는 대상만
 // 남기고 title은 page가 알려 주는 대로 탭 이름에 쓴다. view는 다른 탭으로 가도 남기고 숨긴다(BrowserTab과 같다).
 import { ArtifactTab } from "../../artifact/artifact-tab.tsx";
 import { fileNameOf } from "../../editor/model.ts";
@@ -12,17 +12,15 @@ import type { TabKindDef } from "./kind.ts";
 import type { TabItem } from "../model.ts";
 import { showAfter } from "../open-policy.ts";
 
-/** domain의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
-export function openArtifact(
-  host: TabHost,
-  domain: string,
-  name: string,
-): void {
+/** 이 창 place(project나 앱)의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
+export function openArtifact(host: TabHost, name: string): void {
+  const { place } = host;
+  if (place.kind === "home") return;
   host.openTab({
-    key: `artifact:${domain}:${name}`,
+    key: `artifact:${place.kind}:${place.id}:${name}`,
     kind: "artifact",
     title: name,
-    fields: { domain, name },
+    fields: { [place.kind]: place.id, name },
   });
 }
 
@@ -70,11 +68,11 @@ export function openWorkflowArtifact(
   });
 }
 
-// 세 꼴은 workflow 필드의 유무로 가른다(project는 file 꼴에도 있다).
+// 꼴은 workflow 필드의 유무와 name의 유무로 가른다(project는 file 꼴에도 있다).
 function sourceFrom(
   fields: Readonly<Record<string, unknown>>,
 ): ArtifactSource | null {
-  const { domain, name, project, path, workflow, view, instance } = fields;
+  const { app, name, project, path, workflow, view, instance } = fields;
   if (workflow !== undefined) {
     if (typeof project !== "string" || typeof workflow !== "string") {
       return null;
@@ -87,8 +85,10 @@ function sourceFrom(
     }
     return null;
   }
-  if (typeof domain === "string" && typeof name === "string") {
-    return { kind: "artifact", domain, name };
+  if (typeof name === "string") {
+    if (typeof project === "string") return { kind: "artifact", project, name };
+    if (typeof app === "string") return { kind: "artifact", app, name };
+    return null;
   }
   if (typeof project === "string" && typeof path === "string") {
     return { kind: "file", project, path };

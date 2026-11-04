@@ -81,7 +81,7 @@ function setup() {
 const PROJECT = { kind: "project", id: "prj_a" } as const;
 const APP = { kind: "app", id: "app_1" } as const;
 
-test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 쓴 그 owner place의 열린 session이다", () => {
+test("artifact annotation의 받는 쪽은 그 artifacts 폴더에 마지막으로 쓴 그 owner place의 열린 session이다", () => {
   const { sql, session, write } = setup();
   session("ses_a", {});
   session("ses_b", { place: { kind: "project", id: "prj_b" } });
@@ -100,7 +100,7 @@ test("artifact annotation의 받는 쪽은 그 domain 폴더에 마지막으로 
       owner,
     })?.session ?? null;
 
-  // 같은 이름이 두 domain에 있어도 그 domain의 root에 쓴 session만 나온다.
+  // 같은 이름이 두 그릇에 있어도 그 그릇의 root에 쓴 session만 나온다.
   write("ses_a", ROOT_A, "report/index.html");
   write("ses_b", ROOT_B, "report/index.html");
   assert.deepStrictEqual(find(ROOT_A, "report"), "ses_a");

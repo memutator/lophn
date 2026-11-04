@@ -330,7 +330,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // Explorer가 보이는 연결 폴더. 화면 상태일 뿐이라 저장하지 않는다. 터미널도 이 폴더에서 열린다.
   const [explorerRoot, setExplorerRoot] = useState<string | undefined>();
   const {
-    domains,
     sidebarAgents,
     sessionStates,
     agentView,
@@ -2295,10 +2294,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     source={source}
                     artifactPanel={
                       <ArtifactPanel
-                        domains={domains}
-                        onOpen={(domain, name) =>
-                          openArtifact(host, domain, name)
-                        }
+                        project={projectId}
+                        onOpen={(name) => openArtifact(host, name)}
                       />
                     }
                     jobs={props.jobs}

@@ -36,7 +36,7 @@ test("옛 layouts/ 파일이 있어도 읽지 않고 place 파일이 없으면 n
   });
 });
 
-test("판 8 파일은 쓴 대로 읽힌다", async () => {
+test("판 9 파일은 쓴 대로 읽힌다", async () => {
   await withRoot(async (root) => {
     const store = createPlaceLayoutStore(root);
     const layout = {
@@ -68,7 +68,7 @@ test("판 8 파일은 쓴 대로 읽힌다", async () => {
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 8, ...layout } },
+      value: { ok: true, layout: { schema_version: 9, ...layout } },
     });
   });
 });
@@ -104,7 +104,7 @@ test("터미널 탭은 harness가 없어도 읽히고 있으면 그대로 읽힌
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 8, ...layout } },
+      value: { ok: true, layout: { schema_version: 9, ...layout } },
     });
   });
 });
@@ -233,7 +233,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 8, ...stacked } },
+      value: { ok: true, layout: { schema_version: 9, ...stacked } },
     });
 
     // 숨은 tab이 group 밖에 떨어져 있으면 저장하지 않는다.
@@ -249,7 +249,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     await writeFile(
       join(root, "shell", "places", "home.json"),
       JSON.stringify({
-        schema_version: 8,
+        schema_version: 9,
         ...desk(
           [tab("/t.md"), gone, tab("/x.md"), tab("/a.md"), tab("/b.md")],
           { tab: "/c.md", stack: ["/a.md", "/b.md", "/c.md"] },
@@ -276,7 +276,7 @@ test("다른 판 파일은 unsupported_schema로 읽고 고치지 않는다", as
   await withRoot(async (root) => {
     const file = join(root, "shell", "places", "home.json");
     await mkdir(join(root, "shell", "places"), { recursive: true });
-    const text = JSON.stringify({ schema_version: 9, desks: {} });
+    const text = JSON.stringify({ schema_version: 8, desks: {} });
     await writeFile(file, text);
     assert.deepEqual(await createPlaceLayoutStore(root).read("home"), {
       ok: true,
@@ -327,7 +327,7 @@ test("Home layout의 agent 탭(work_place home)은 저장이 거절되지 않고
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 8, ...layout } },
+      value: { ok: true, layout: { schema_version: 9, ...layout } },
     });
   });
 });
@@ -369,12 +369,12 @@ test("앱 place layout의 앱 화면 탭과 app work_place agent 탭은 저장�
     assert.deepEqual(await store.write(app, layout), { ok: true, value: null });
     assert.deepEqual(await store.read(app), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 8, ...layout } },
+      value: { ok: true, layout: { schema_version: 9, ...layout } },
     });
   });
 });
 
-test("quick 필드가 없는 판 8 파일도 읽히고, quick이 있는 파일은 쓴 대로 읽힌다", async () => {
+test("quick 필드가 없는 파일도 읽히고, quick이 있는 파일은 쓴 대로 읽힌다", async () => {
   await withRoot(async (root) => {
     const dir = join(root, "shell", "places");
     await mkdir(dir, { recursive: true });
@@ -393,7 +393,7 @@ test("quick 필드가 없는 판 8 파일도 읽히고, quick이 있는 파일�
     };
     await writeFile(
       join(dir, `${PROJECT}.json`),
-      JSON.stringify({ schema_version: 8, active_desk: "_default", desks }),
+      JSON.stringify({ schema_version: 9, active_desk: "_default", desks }),
     );
     const store = createPlaceLayoutStore(root);
     const old = await store.read(PROJECT);

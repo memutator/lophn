@@ -70,8 +70,7 @@ interface TabSpec {
   readonly screen?: string;
   /** browser 탭이 처음 여는 주소. 빈 글이면 빈 주소 칸이다. */
   readonly url?: string;
-  /** artifact 탭이 여는 대상. (domain, name)은 domain의 artifact, path는 사람의 폴더에 있는 .html이다. */
-  readonly domain?: string;
+  /** artifact 탭이 여는 대상. name은 fake project의 artifact, path는 사람의 폴더에 있는 .html이다. */
   readonly name?: string;
   readonly path?: string;
   /** agent 탭이 보는 agent(기본 lophn). */
@@ -172,7 +171,7 @@ function storedTab(tab: TabSpec) {
       ? {
           kind: tab.kind,
           key: tab.key,
-          domain: tab.domain,
+          project: PROJECT_GROCERY,
           name: tab.name,
         }
       : {

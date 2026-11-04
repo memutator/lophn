@@ -8,8 +8,8 @@ import { agentIdSchema } from "../lophn-agent/places.ts";
 import { preparedBlobSchema } from "../storage/blob.ts";
 import {
   appIdSchema,
+  artifactNameSchema,
   projectIdSchema,
-  slugSchema,
 } from "../projects/values.ts";
 import { screenKeySchema } from "./channel-values.ts";
 import { releaseIdSchema } from "./apps.ts";
@@ -52,13 +52,19 @@ const annotationViewSchema = z.strictObject({
   path: z.string(),
 });
 
-// annotation을 붙이는 곳. artifact는 domain 그릇 안의 artifact이고, file은 사람의 폴더에 있는 `.html`이다.
-export const annotationTargetSchema = z.discriminatedUnion("kind", [
+// annotation을 붙이는 곳. artifact는 project나 앱의 artifacts 폴더 안 artifact이고, file은 사람의 폴더에 있는 `.html`이다.
+// kind가 같은 artifact 둘은 그릇 칸(project, app)으로 가른다.
+export const annotationTargetSchema = z.union([
   z.strictObject({ kind: z.literal("app"), app: appIdSchema }),
   z.strictObject({
     kind: z.literal("artifact"),
-    domain: idSchema("dom"),
-    name: slugSchema,
+    project: projectIdSchema,
+    name: artifactNameSchema,
+  }),
+  z.strictObject({
+    kind: z.literal("artifact"),
+    app: appIdSchema,
+    name: artifactNameSchema,
   }),
   z.strictObject({ kind: z.literal("file"), project: projectIdSchema }),
 ]);
@@ -141,7 +147,7 @@ export const annotationUploadScreenshot = defineUpload({
 // 묶음 하나를 target의 받는 쪽에게 사람 메시지로 보낸다. Router 전달이
 // 비동기라 ledger command가 아니라 memory route다. 저장은 core의 annotation module이 한다.
 // app이면 agent(없으면 lophn)의 그 앱 place session이고, session이 null이면 새로 연다.
-// artifact이면 그 artifact를 마지막으로 쓴 열린 session이고, 없으면 domain 주인 그릇 place의 lophn session이다.
+// artifact이면 그 artifact를 마지막으로 쓴 열린 session이고, 없으면 그 그릇 place의 lophn session이다.
 // file이면 그 project place의 lophn session이다.
 export const annotationSendInputSchema = z
   .strictObject({

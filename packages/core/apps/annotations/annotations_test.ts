@@ -9,6 +9,7 @@ import { ok } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import type { AnnotationInput } from "../../../protocol/apps/annotation.ts";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
+import { domainsSchemaSteps } from "../../domains/schema.ts";
 import { createAnnotationCommands } from "./commands.ts";
 import { createAnnotationReads } from "./reads.ts";
 import { annotationSchemaSteps } from "./schema.ts";
@@ -58,7 +59,9 @@ function input(n: number, patch: Partial<AnnotationInput> = {}) {
 function open(status: "active" | "archived" = "active") {
   const dir = mkdtempSync(join(tmpdir(), "lophn-annotations-"));
   const db = new DatabaseSync(`${dir}/ledger.sqlite`);
-  for (const step of annotationSchemaSteps) db.exec(step.sql);
+  for (const step of [...domainsSchemaSteps, ...annotationSchemaSteps]) {
+    db.exec(step.sql);
+  }
   db.exec("CREATE TABLE events (seq INTEGER)");
   const sql = {
     run: (text: string, params: never[]) => {
@@ -208,26 +211,10 @@ test("메모와 요소 글에 든 닫는 tag는 escape되어 메시지의 tag를
   world.close();
 });
 
-// domain의 owner를 읽는 port. 앱이 owner인 domain은 그 앱 범위가 읽는다.
-const DOMAIN_OF_PROJECT = "dom_01hzzzzzzzzzzzzzzzzzzzzzza";
-const DOMAIN_OF_OTHER = "dom_01hzzzzzzzzzzzzzzzzzzzzzzb";
-const DOMAIN_OF_APP = "dom_01hzzzzzzzzzzzzzzzzzzzzzzc";
-const OWNERS: Record<string, unknown> = {
-  [DOMAIN_OF_PROJECT]: { kind: "project", id: PROJECT },
-  [DOMAIN_OF_OTHER]: { kind: "project", id: "prj_01hzzzzzzzzzzzzzzzzzzzzzzb" },
-  [DOMAIN_OF_APP]: { kind: "app", id: APP },
-};
-const snapshotOf = (sql: unknown) =>
-  ({
-    sql,
-    as_of_seq: "1",
-    port: () => ({
-      get: (id: string) =>
-        OWNERS[id] === undefined ? null : { owner: OWNERS[id] },
-    }),
-  }) as never;
+const OTHER_PROJECT = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
+const snapshotOf = (sql: unknown) => ({ sql, as_of_seq: "1" }) as never;
 
-test("annotations.get: project place session은 자기 project의 file과 그 project가 주인인 domain의 artifact만, app place session은 자기 앱 것과 그 앱이 주인인 domain의 artifact만 읽는다", async () => {
+test("annotations.get: project place session은 자기 project의 file과 artifact만, app place session은 자기 앱 것과 그 앱의 artifact만 읽는다", async () => {
   const world = open();
   const send = async (target: { kind: string; [key: string]: unknown }) => {
     const sent = await world.send(USER, {
@@ -248,19 +235,15 @@ test("annotations.get: project place session은 자기 project의 file과 그 pr
   };
   const mine = await send({
     kind: "artifact",
-    domain: DOMAIN_OF_PROJECT,
+    project: PROJECT,
     name: "orders",
   });
   const theirs = await send({
     kind: "artifact",
-    domain: DOMAIN_OF_OTHER,
+    project: OTHER_PROJECT,
     name: "x",
   });
-  const ofApp = await send({
-    kind: "artifact",
-    domain: DOMAIN_OF_APP,
-    name: "y",
-  });
+  const ofApp = await send({ kind: "artifact", app: APP, name: "y" });
   const file = await send({ kind: "file", project: PROJECT });
   const app = await send({ kind: "app", app: APP });
   const get = (conditions: RequestContext["conditions"], annotation: string) =>
@@ -314,7 +297,93 @@ test("annotations.get: project place session은 자기 project의 file과 그 pr
         annotation: mine,
       } as never) as { value: { annotations: { target: unknown }[] } }
     ).value.annotations[0]!.target,
-    { kind: "artifact", domain: DOMAIN_OF_PROJECT, name: "orders" },
+    { kind: "artifact", project: PROJECT, name: "orders" },
   );
   world.close();
+});
+
+test("artifact 묶음의 domain 칸이 그 domain의 그릇 칸으로 옮겨지고 annotation과 ref는 그대로다", () => {
+  const db = new DatabaseSync(":memory:");
+  const [tables, container] = annotationSchemaSteps;
+  for (const step of domainsSchemaSteps) db.exec(step.sql);
+  db.exec(tables!.sql);
+  const domain = (id: string, kind: string, owner: string) =>
+    db
+      .prepare(
+        `INSERT INTO domains (id, name, title, purpose, owner_kind, owner_id, revision, status)
+         VALUES (?, ?, 't', '', ?, ?, '1', 'active')`,
+      )
+      .run(id, `name-${id}`, kind, owner);
+  domain("dom_a", "project", PROJECT);
+  domain("dom_b", "app", APP);
+  const batch = db.prepare(
+    `INSERT INTO annotation_batches (id, target_kind, app, project, domain, artifact, sent_at, sent_by)
+     VALUES (?, ?, ?, ?, ?, ?, 't', 'user')`,
+  );
+  batch.run("anb_1", "artifact", null, null, "dom_a", "orders");
+  batch.run("anb_2", "artifact", null, null, "dom_b", "y");
+  batch.run("anb_3", "file", null, PROJECT, null, null);
+  batch.run("anb_4", "app", APP, null, null, null);
+  for (const [id, owner] of [
+    ["ann_1", "anb_1"],
+    ["ann_2", "anb_2"],
+    ["ann_3", "anb_3"],
+    ["ann_4", "anb_4"],
+  ] as const) {
+    db.prepare(
+      `INSERT INTO annotations (id, batch, n, kind, note, element, rect, view)
+       VALUES (?, ?, 1, 'element', 'note', '{}', '{}', '{}')`,
+    ).run(id, owner);
+    db.prepare(
+      `INSERT INTO annotation_refs (annotation, owner_kind, owner_id)
+       VALUES (?, 'session_message', 'msg_1')`,
+    ).run(id);
+  }
+
+  db.exec(container!.sql);
+
+  const rows = db
+    .prepare(
+      "SELECT id, target_kind, app, project, artifact FROM annotation_batches ORDER BY id",
+    )
+    .all();
+  assert.deepStrictEqual(
+    rows.map((row) => ({ ...row })),
+    [
+      {
+        id: "anb_1",
+        target_kind: "artifact",
+        app: null,
+        project: PROJECT,
+        artifact: "orders",
+      },
+      {
+        id: "anb_2",
+        target_kind: "artifact",
+        app: APP,
+        project: null,
+        artifact: "y",
+      },
+      {
+        id: "anb_3",
+        target_kind: "file",
+        app: null,
+        project: PROJECT,
+        artifact: null,
+      },
+      {
+        id: "anb_4",
+        target_kind: "app",
+        app: APP,
+        project: null,
+        artifact: null,
+      },
+    ],
+  );
+  for (const table of ["annotations", "annotation_refs"]) {
+    assert.deepStrictEqual(
+      db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!["n"],
+      4,
+    );
+  }
 });

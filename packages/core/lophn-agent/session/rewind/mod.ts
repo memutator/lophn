@@ -1,4 +1,4 @@
-export { revertSchemaSteps } from "./schema.ts";
+export { revertSchemaSteps, rewindContainerRootSteps } from "./schema.ts";
 export { createCheckpoint } from "./checkpoints.ts";
 export {
   createRecordRewindFile,

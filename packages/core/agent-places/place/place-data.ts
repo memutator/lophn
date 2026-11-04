@@ -10,10 +10,7 @@ import {
   packagesList,
 } from "../../../protocol/apps/mod.ts";
 import type { App } from "../../../protocol/apps/apps.ts";
-import {
-  DOMAIN_ARTIFACTS_FOLDER,
-  DOMAIN_SKILLS_FOLDER,
-} from "../../../protocol/domains/paths.ts";
+import { DOMAIN_SKILLS_FOLDER } from "../../../protocol/domains/paths.ts";
 import {
   domainList,
   type DomainRecord,
@@ -41,10 +38,15 @@ import {
 } from "./place-folders.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
-// domain 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
+// domain·place 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
 export type PlaceFiles = {
-  // domain의 폴더(`DOMAIN.md`, `skills/`, `artifacts/`). data root를 모르면 null.
+  // domain의 폴더(`DOMAIN.md`, `skills/`). data root를 모르면 null.
   domainFolder(domain: string): string | null;
+  // project·앱 place의 `artifacts/` 폴더. data root를 모르면 null.
+  artifactsFolder(place: {
+    kind: "project" | "app";
+    id: string;
+  }): string | null;
   // place의 data 폴더. 폴더 자체는 core가 place를 만들 때 이미 만든다.
   dataFolder(place: { kind: "project" | "app"; id: string }): string | null;
   // project의 `workflows/` 폴더. data root를 모르면 null.
@@ -220,33 +222,23 @@ async function readPlaceData(
               description: t.description,
             }));
       let folder: string | null = null;
-      let artifacts: PlaceDomain["artifacts"] = null;
       const root = files.domainFolder(d.id);
       if (root !== null) {
-        const artifactsFolder = `${root}/${DOMAIN_ARTIFACTS_FOLDER}`;
         // 첫 쓰기 전에 폴더가 있어야 한다. 없는 허용 폴더는 file scope가 건너뛴다. 만들지 못하면 범위에서 빠진 채 간다.
         try {
           await files.ensureDir(root);
           await files.ensureDir(`${root}/${DOMAIN_SKILLS_FOLDER}`);
-          await files.ensureDir(artifactsFolder);
           folder = root;
         } catch {
           /* 폴더가 없으면 범위에서 빠진다 */
         }
-        if (folder !== null) {
-          scopeDomains.push({ id: d.id, folder });
-          artifacts = {
-            folder: artifactsFolder,
-            items: await files.listArtifacts(artifactsFolder).catch(() => []),
-          };
-        }
+        if (folder !== null) scopeDomains.push({ id: d.id, folder });
       }
       domains.push({
         name: d.name,
         title: d.title,
         purpose: d.purpose,
         folder,
-        artifacts,
         commands,
       });
     }
@@ -378,6 +370,23 @@ async function readPlaceData(
     }
   }
 
+  // project·앱 place의 turn 시작에 artifacts 폴더를 만든다(workflows와 같다).
+  let artifacts: PlaceData["artifacts"] = null;
+  if (place !== null) {
+    const folder = files.artifactsFolder(place);
+    if (folder !== null) {
+      try {
+        await files.ensureDir(folder);
+        artifacts = {
+          folder,
+          items: await files.listArtifacts(folder).catch(() => []),
+        };
+      } catch {
+        /* 폴더가 없으면 범위에서 빠진다 */
+      }
+    }
+  }
+
   const scope = placeScope({
     place,
     projectFolders,
@@ -387,6 +396,7 @@ async function readPlaceData(
     dataFolder: place === null ? null : files.dataFolder(place),
     allProjectFolders,
     workflowsFolder,
+    artifactsFolder: artifacts?.folder ?? null,
   });
   return ok({
     place: {
@@ -400,6 +410,7 @@ async function readPlaceData(
       map,
       release,
       workflowsFolder,
+      artifacts,
     },
     scope,
   });

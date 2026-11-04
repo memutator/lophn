@@ -1,4 +1,4 @@
-// 대화 글 안 artifact link. 진짜 MessageBody가 이 project의 domain artifact 목록(ArtifactsSlice)으로 path를 link로 그린다.
+// 대화 글 안 artifact link. 진짜 MessageBody가 이 project의 artifact 목록(ArtifactsSlice)으로 path를 link로 그린다.
 // 목록에 없는 path는 link가 아닌 글 그대로다. hover한 모양은 mount 뒤 link에 pointer를 올려 만든다.
 import type { ReactNode } from "react";
 
@@ -10,17 +10,16 @@ import {
 import { MessageBody } from "../../../../../packages/shell/renderer/conversation/message-list/message-body.tsx";
 import type { BodyState } from "../../../../../packages/shell/renderer/conversation/drafts.ts";
 import type { ArtifactsSlice } from "../../../../../packages/shell/renderer/workspace/kinds/host.ts";
-import { FAKE_DOMAINS } from "../../../../../packages/shell/renderer/workspace/fake-source.ts";
+import { PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
 import { ARTIFACTS } from "../../../mock/artifact/data.ts";
 import { find, useDrive, wait } from "../../../mock/drive.ts";
 
 const noop = () => {};
-const DOMAIN = FAKE_DOMAINS[0]!.id;
-const FOLDER = `domains/${DOMAIN}/artifacts`;
+const FOLDER = `projects/${PROJECT_GROCERY}/artifacts`;
 
 const SLICE: ArtifactsSlice = {
-  items: ARTIFACTS.map((item) => ({ ...item, domain: DOMAIN })),
-  names: ARTIFACTS.map((item) => ({ domain: DOMAIN, name: item.name })),
+  place: { kind: "project", id: PROJECT_GROCERY },
+  items: ARTIFACTS,
   open: noop,
   reload: noop,
 };

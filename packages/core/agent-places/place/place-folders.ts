@@ -14,6 +14,8 @@ export type PlaceFacts = {
   allProjectFolders: readonly string[];
   // place가 project일 때 그 project의 `workflows/` 절대 경로. 그 project place의 session이 쓴다(아래 placeScope)
   workflowsFolder: string | null;
+  // place의 `artifacts/` 절대 경로. project·앱 place의 session이 쓴다(아래 placeScope)
+  artifactsFolder: string | null;
 };
 
 // base는 상대 경로를 푸는 기준일 뿐 읽기·쓰기 허락이 아니다.
@@ -53,5 +55,7 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   // workflows/는 그 project place의 session이 쓴다.
   if (place.kind === "project" && facts.workflowsFolder !== null)
     folders.push(facts.workflowsFolder);
+  // artifacts/는 project·앱 place의 session이 쓴다. 폴더 자체가 허용 폴더라 rewind 기록의 root가 되고 path는 `<name>/…`이다.
+  if (facts.artifactsFolder !== null) folders.push(facts.artifactsFolder);
   return withBase(folders);
 }

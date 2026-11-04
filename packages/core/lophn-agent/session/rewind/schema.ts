@@ -141,3 +141,31 @@ begin
 end;`,
   },
 ];
+
+// domain 폴더(`<data>/domains/<dom>`)를 root로 남긴 옛 기록의 root를 그 domain의 그릇 폴더(`<data>/projects/<prj>`,
+// `<data>/apps/<app>`)로 바꾼다. 옛 checkpoint를 되돌릴 때 옛 자리에 쓰는 틀린 복원을 막으려는 것이다. domains 표를
+// 읽어서 revertSchemaSteps에 넣지 않고, domains 표가 있는 조립(wiring/artifact-move.ts)이 낸다.
+// root는 기록한 뒤 바뀌지 않는 칸이라 trigger를 내렸다 다시 만든다. 새 trigger는 위 것과 같다.
+export const rewindContainerRootSteps: readonly SchemaStep[] = [
+  {
+    id: "lophn-agent.revert.artifact-container",
+    sql: `
+drop trigger rewind_files_immutable;
+update rewind_files
+   set root = (
+     select substr(rewind_files.root, 1, length(rewind_files.root) - length('/domains/' || d.id))
+            || '/' || d.owner_kind || 's/' || d.owner_id
+       from domains d
+      where substr(rewind_files.root, -length('/domains/' || d.id)) = '/domains/' || d.id
+   )
+ where exists (
+   select 1 from domains d
+    where substr(rewind_files.root, -length('/domains/' || d.id)) = '/domains/' || d.id
+ );
+create trigger rewind_files_immutable
+before update of tool_call, root, path, checkpoint, seq, before_exists, before_sha256, before_blob, before_size, after_exists, after_sha256, moved_from on rewind_files
+begin
+  select raise(abort, 'a rewind record is never rewritten');
+end;`,
+  },
+];

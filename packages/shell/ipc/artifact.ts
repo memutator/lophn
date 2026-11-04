@@ -7,7 +7,7 @@ import { z } from "zod";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const projectId = z.string().regex(new RegExp(`^prj_${ULID}$`));
-const domainId = z.string().regex(new RegExp(`^dom_${ULID}$`));
+const appId = z.string().regex(new RegExp(`^app_${ULID}$`));
 const workflowInstanceId = z.string().regex(new RegExp(`^wfi_${ULID}$`));
 // artifact 이름(폴더 이름). protocol slugSchema의 사본이다.
 export const artifactNameSchema = z
@@ -26,13 +26,20 @@ export const ARTIFACT_LIST_CHANNEL = "shell:artifact-list";
 export const ARTIFACT_STATE_CHANNEL = "shell:artifact-state";
 export const ARTIFACT_EVENT_CHANNEL = "shell:artifact-event";
 
-// artifact는 domain의 artifacts 폴더 안 이름이고, file은 사람이 고른 절대 path의 .html이다(domain이 없다).
-// workflow는 project의 workflow artifact다. view가 instance일 때만 instance가 있고 그때는 꼭 있다.
-export const artifactSourceSchema = z.discriminatedUnion("kind", [
+// artifact는 project나 앱의 artifacts 폴더 안 이름이고(그릇 칸 project·app 가운데 하나), file은 사람이 고른 절대 path의
+// .html이다. workflow는 project의 workflow artifact다. view가 instance일 때만 instance가 있고 그때는 꼭 있다.
+export const artifactSourceSchema = z.union([
   z
     .object({
       kind: z.literal("artifact"),
-      domain: domainId,
+      project: projectId,
+      name: artifactNameSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("artifact"),
+      app: appId,
       name: artifactNameSchema,
     })
     .strict(),
@@ -61,7 +68,10 @@ export const artifactOpenSchema = z
 export const artifactReloadSchema = z
   .object({ view_session: viewSession })
   .strict();
-export const artifactListSchema = z.object({ domain: domainId }).strict();
+export const artifactListSchema = z.union([
+  z.object({ project: projectId }).strict(),
+  z.object({ app: appId }).strict(),
+]);
 
 export const artifactViewStateSchema = z
   .object({

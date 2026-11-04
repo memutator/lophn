@@ -42,15 +42,10 @@ const files: PlaceFiles = {
   domainFolder: (dom) => `/d/${dom}`,
   dataFolder: (place) => `/data/${place.id}`,
   workflowsFolder: (project) => `/data/${project}/workflows`,
+  artifactsFolder: (place) => `/data/${place.id}/artifacts`,
   ensureDir: () => Promise.resolve(),
-  listArtifacts: (folder) =>
-    Promise.resolve([
-      {
-        name: folder.includes(DOM_A) ? "a-page" : "b-page",
-        title: "T",
-        description: "",
-      },
-    ]),
+  listArtifacts: () =>
+    Promise.resolve([{ name: "a-page", title: "T", description: "" }]),
 };
 
 function agent(place: unknown, domains: string[], name = "x") {
@@ -73,6 +68,7 @@ function fakeCall(replies: Record<string, unknown>): CoreCall {
 }
 
 const appPlace = { kind: "app", id: APP };
+const ARTIFACTS = `/data/${APP}/artifacts`;
 
 test("받은 domain이 A뿐인 session의 place 정보와 쓰기 범위에는 A의 것만 있다", async () => {
   const call = fakeCall({
@@ -86,26 +82,28 @@ test("받은 domain이 A뿐인 session의 place 정보와 쓰기 범위에는 A�
   assert.ok(one.ok);
   const text = one.value.place.text;
   assert.ok(text.includes("alpha"));
-  assert.ok(text.includes("a-page") && text.includes(`/d/${DOM_A}/artifacts`));
+  assert.ok(text.includes("a-page") && text.includes(`${ARTIFACTS}\n`));
   assert.ok(text.includes(`Folder: /d/${DOM_A}\n`));
-  for (const other of ["beta", "b-page", DOM_B]) {
+  for (const other of ["beta", DOM_B]) {
     assert.ok(!text.includes(other), other);
   }
+  // artifacts/는 받은 domain과 상관없이 그 앱 place의 session이 쓴다.
   assert.deepStrictEqual(one.value.scope, {
-    read: ["/src/ledger", `/d/${DOM_A}`],
-    write: ["/src/ledger", `/d/${DOM_A}`],
+    read: ["/src/ledger", `/d/${DOM_A}`, ARTIFACTS],
+    write: ["/src/ledger", `/d/${DOM_A}`, ARTIFACTS],
     base: "/src/ledger",
   });
 
   const both = await placeData(call, agent(appPlace, [DOM_A, DOM_B]), files);
   assert.ok(both.ok);
-  for (const seen of ["alpha", "beta", "a-page", "b-page"]) {
+  for (const seen of ["alpha", "beta", "a-page"]) {
     assert.ok(both.value.place.text.includes(seen), seen);
   }
   assert.deepStrictEqual(both.value.scope.write, [
     "/src/ledger",
     `/d/${DOM_A}`,
     `/d/${DOM_B}`,
+    ARTIFACTS,
   ]);
 });
 

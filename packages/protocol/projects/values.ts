@@ -8,6 +8,9 @@ export const slugSchema = z
   .max(SLUG_MAX_LENGTH)
   .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/);
 
+// artifact 이름은 폴더 이름이라 slug다.
+export const artifactNameSchema = slugSchema;
+
 export const projectIdSchema = idSchema("prj");
 export const versionIdSchema = idSchema("ver");
 export const appIdSchema = idSchema("app");

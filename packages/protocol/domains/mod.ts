@@ -2,7 +2,6 @@ export * from "./values.ts";
 export * from "./domains.ts";
 export * from "./ports.ts";
 export * from "./paths.ts";
-export * from "./artifact.ts";
 
 import { DOMAIN_ROUTES } from "./domains.ts";
 

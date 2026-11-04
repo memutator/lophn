@@ -9,7 +9,7 @@ import { workspaceIcons } from "../../icons/mod.ts";
 import { MermaidBlock } from "./mermaid-block.tsx";
 import { runnable, useRunCode } from "./run-code.ts";
 
-import { artifactMentions } from "../../../../protocol/domains/artifact.ts";
+import { artifactMentions } from "../../../../protocol/projects/artifact.ts";
 import { windowLinkOpener } from "../../desktop/settings/core-call.ts";
 import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
 import {
@@ -21,7 +21,7 @@ import {
 export interface ChatMarkdownProps {
   /** agent가 쓴 markdown 원문. 사람 글은 넘기지 않는다(사람 글은 `ArtifactText`). */
   readonly text: string;
-  /** 이 project의 domain artifact 목록. 있으면 글과 inline code 속 path를 link로 그리고 모르는 path를 보면 목록을 다시 읽는다. 없으면 path는 글 그대로다. */
+  /** 이 창 place(project나 앱)의 artifact 목록. 있으면 글과 inline code 속 path를 link로 그리고 모르는 path를 보면 목록을 다시 읽는다. 없으면 path는 글 그대로다. */
   readonly artifacts?: ArtifactsSlice | undefined;
   /**
    * 아직 자라는 중인 code fence의 내용(openFenceContent). 이 글과 같은 code block은 아직 닫히지
@@ -45,18 +45,18 @@ export function ChatMarkdown({
       : (piece: string, kind: "text" | "code"): ReactNode => {
           if (kind === "text") return artifactPieces(piece, artifacts);
           // agent는 path를 backtick에 넣는 일이 많다. inline code 전체가 path이면 그것도 link로 둔다.
-          const mentions = artifactMentions(piece, artifacts.names);
+          if (artifacts.place === null) return undefined;
+          const mentions = artifactMentions(
+            piece,
+            artifacts.place,
+            artifacts.items.map((item) => item.name),
+          );
           const one = mentions[0];
           return mentions.length === 1 &&
             one !== undefined &&
             one.start === 0 &&
             one.end === piece.length ? (
-            <ArtifactLink
-              artifacts={artifacts}
-              domain={one.domain}
-              name={one.name}
-              label={piece}
-            />
+            <ArtifactLink artifacts={artifacts} name={one.name} label={piece} />
           ) : undefined;
         };
   return (

@@ -72,6 +72,9 @@ export const agents = {
   "agents.label.runtime": "Runtime",
   "agents.label.runtime-lophn": "lophn",
   "agents.label.runtime-bare": "Bare",
+  "agents.label.runtime-claude-code": "Claude Code",
+  "agents.label.runtime-codex": "Codex",
+  "agents.label.runtime-opencode": "OpenCode",
   "agents.label.tools-add": "Add a tool by name",
   "agents.label.tools-add-placeholder":
     "call.reply, my-app.command or mcp__server__tool",

@@ -142,6 +142,8 @@ export interface AgentDetail {
   readonly agentMcpLogins: Readonly<Record<string, McpLogin>>;
   /** project 지침. lophn은 project 지침을 받지 않아 null이다. */
   readonly instructions: ProjectInstructionsView | null;
+  /** 설정 `harness.enabled`. 꺼져 있으면 runtime 고르기가 harness 값을 내지 않는다. */
+  readonly harnessEnabled: boolean;
 }
 
 /** 연결된 provider. definition은 catalog 항목과 맞추는 key다. */

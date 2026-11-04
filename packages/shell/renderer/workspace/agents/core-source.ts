@@ -21,6 +21,7 @@ import {
   removeUserModelInfo,
   saveUserModelInfo,
 } from "../../../../protocol/lophn-agent/models.ts";
+import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
 import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
@@ -51,6 +52,19 @@ import {
 import { readGrants, saveGrants } from "./core-grants.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
 import { providerChoiceOf } from "./model-picker-data.ts";
+
+// 설정 `harness.enabled`. 읽지 못하면 꺼진 것으로 본다.
+async function harnessEnabledOf(link: Link): Promise<boolean> {
+  const result = await link.memory<{
+    settings: { key: string; default?: unknown; chosen?: unknown }[];
+  }>("settings", "list", { keys: [HARNESS_SETTING_KEY] });
+  if (!result.ok) return false;
+  const entry = result.value.settings.find(
+    (one) => one.key === HARNESS_SETTING_KEY,
+  );
+  return (entry?.chosen ?? entry?.default) === true;
+}
+
 import type {
   AgentDetail,
   AgentDraft,
@@ -360,6 +374,7 @@ export function coreAgentsSource(
           saved.mcp_servers ?? [],
         ),
         instructions: text,
+        harnessEnabled: await harnessEnabledOf(link),
       },
     };
   };
@@ -522,6 +537,7 @@ export function coreAgentsSource(
         skills: skills.value,
         mcpServers: servers.value,
         agentMcpLogins: {},
+        harnessEnabled: await harnessEnabledOf(link),
         instructions: text,
       };
       return { ok: true, value: detail };

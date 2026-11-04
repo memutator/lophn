@@ -438,6 +438,7 @@ export function createFakeAgentsSource(
             : [],
         ),
       ),
+      harnessEnabled: true,
       instructions:
         at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
     };
@@ -610,6 +611,7 @@ export function createFakeAgentsSource(
           skills: skillsFor(at),
           mcpServers: mcpFor(at),
           agentMcpLogins: {},
+          harnessEnabled: true,
           instructions:
             at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
         } satisfies AgentDetail),

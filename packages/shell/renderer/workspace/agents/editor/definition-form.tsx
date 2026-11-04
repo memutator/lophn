@@ -8,7 +8,10 @@ import { t } from "@lophn/i18n";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
-import type { Modality } from "../../../../../protocol/lophn-agent/agent-values.ts";
+import {
+  isHarnessRuntime,
+  type Modality,
+} from "../../../../../protocol/lophn-agent/agent-values.ts";
 import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
@@ -199,12 +202,24 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const set = (key: Exclude<keyof AgentDraft, "body">, value: unknown) =>
     onChange(withField(definition, key, value));
 
-  const bare = definition.runtime === "bare";
+  const runtime = definition.runtime ?? "lophn";
+  const bare = runtime === "bare";
+  // harness(third-party CLI)는 자기 model·skill·MCP를 쓴다.
+  const harness = isHarnessRuntime(runtime);
+  // harness 값은 설정 `harness.enabled`가 켜졌을 때만 고르게 한다. 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
+  const harnessOptions = (["claude-code", "codex", "opencode"] as const)
+    .filter((one) => detail.harnessEnabled || one === runtime)
+    .map((one) => ({
+      value: one,
+      label: t(`agents.label.runtime-${one}`),
+    }));
   // lophn에서는 tools를 쓰지 못해(저장 거절) lophn으로 돌아가면 함께 지운다. 기본값이라 runtime 칸도 지운다.
-  const setRuntime = (runtime: string) => {
+  const setRuntime = (picked: string) => {
     const next: Record<string, unknown> = { ...definition };
-    if (runtime === "bare") next.runtime = "bare";
-    else {
+    if (picked === "bare" || isHarnessRuntime(picked as never)) {
+      next.runtime = picked;
+      if (picked !== "bare") delete next.tools;
+    } else {
       delete next.runtime;
       delete next.tools;
     }
@@ -316,10 +331,11 @@ export function DefinitionForm(props: DefinitionFormProps) {
             <SegmentedControl
               size="sm"
               label={t("agents.label.runtime")}
-              value={bare ? "bare" : "lophn"}
+              value={runtime}
               options={[
                 { value: "lophn", label: t("agents.label.runtime-lophn") },
                 { value: "bare", label: t("agents.label.runtime-bare") },
+                ...harnessOptions,
               ]}
               onValueChange={setRuntime}
             />
@@ -382,26 +398,28 @@ export function DefinitionForm(props: DefinitionFormProps) {
         onChange={(body) => onChange({ ...definition, body })}
       />
 
-      <div className={styles.group} data-field="model">
-        <ModelField
-          models={models}
-          source={props.source}
-          label={t("project-workspace.heading.agent-editor-model")}
-          inheritLabel={inheritLabel}
-          inherited={inherited?.value ?? null}
-          value={definition.model ?? null}
-          layer={
-            definition.model === undefined
-              ? (inherited?.source ?? null)
-              : "agent"
-          }
-          overrideNote={t("agents.label.model-overrides", { layer })}
-          onChange={(choice) => set("model", choice ?? undefined)}
-        />
-        <Issues issues={issuesOf("model")} />
-      </div>
+      {harness ? null : (
+        <div className={styles.group} data-field="model">
+          <ModelField
+            models={models}
+            source={props.source}
+            label={t("project-workspace.heading.agent-editor-model")}
+            inheritLabel={inheritLabel}
+            inherited={inherited?.value ?? null}
+            value={definition.model ?? null}
+            layer={
+              definition.model === undefined
+                ? (inherited?.source ?? null)
+                : "agent"
+            }
+            overrideNote={t("agents.label.model-overrides", { layer })}
+            onChange={(choice) => set("model", choice ?? undefined)}
+          />
+          <Issues issues={issuesOf("model")} />
+        </div>
+      )}
 
-      {bare ? (
+      {harness ? null : bare ? (
         <Group name="tools" heading={t("agents.heading.tools")}>
           <ToolPicks
             value={definition.tools ?? []}
@@ -426,61 +444,63 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </Group>
       )}
 
-      <Group
-        name="mcp"
-        heading={t("project-workspace.heading.agent-editor-mcp")}
-      >
-        <McpList
-          items={[...detail.mcpServers, ...own]}
-          offNames={mcpOff}
-          lockOff
-          onSignIn={props.onSignIn}
-          onCancelSignIn={props.onCancelSignIn}
-          signingIn={props.signingIn}
-          onToggle={(name, on) => {
-            if (own.some((row) => row.name === name)) {
-              set(
-                "mcp_servers",
-                (definition.mcp_servers ?? []).map((server) =>
-                  server.name === name ? { ...server, enabled: on } : server,
-                ),
+      {harness ? null : (
+        <Group
+          name="mcp"
+          heading={t("project-workspace.heading.agent-editor-mcp")}
+        >
+          <McpList
+            items={[...detail.mcpServers, ...own]}
+            offNames={mcpOff}
+            lockOff
+            onSignIn={props.onSignIn}
+            onCancelSignIn={props.onCancelSignIn}
+            signingIn={props.signingIn}
+            onToggle={(name, on) => {
+              if (own.some((row) => row.name === name)) {
+                set(
+                  "mcp_servers",
+                  (definition.mcp_servers ?? []).map((server) =>
+                    server.name === name ? { ...server, enabled: on } : server,
+                  ),
+                );
+                return;
+              }
+              const rest = (definition.mcp_off ?? []).filter(
+                (entry) =>
+                  !(
+                    entry.server_name === name &&
+                    entry.original_tool === undefined
+                  ),
               );
-              return;
-            }
-            const rest = (definition.mcp_off ?? []).filter(
-              (entry) =>
-                !(
-                  entry.server_name === name &&
-                  entry.original_tool === undefined
-                ),
-            );
-            set("mcp_off", on ? rest : [...rest, { server_name: name }]);
-          }}
-        />
-        {agentId === null ? null : addServer ? (
-          <ServerForm
-            scope={agentId}
-            oauth
-            taken={[...detail.mcpServers, ...own].map((row) => row.name)}
-            onCancel={() => setAddServer(false)}
-            onAdd={(server: McpServer) => {
-              set("mcp_servers", [...(definition.mcp_servers ?? []), server]);
-              setAddServer(false);
+              set("mcp_off", on ? rest : [...rest, { server_name: name }]);
             }}
           />
-        ) : (
-          <div className={styles.rightEnd}>
-            <Button
-              size="sm"
-              icon={actionIcons.add}
-              onClick={() => setAddServer(true)}
-            >
-              {t("settings.button.add-server")}
-            </Button>
-          </div>
-        )}
-        <Issues issues={issuesOf("mcp")} />
-      </Group>
+          {agentId === null ? null : addServer ? (
+            <ServerForm
+              scope={agentId}
+              oauth
+              taken={[...detail.mcpServers, ...own].map((row) => row.name)}
+              onCancel={() => setAddServer(false)}
+              onAdd={(server: McpServer) => {
+                set("mcp_servers", [...(definition.mcp_servers ?? []), server]);
+                setAddServer(false);
+              }}
+            />
+          ) : (
+            <div className={styles.rightEnd}>
+              <Button
+                size="sm"
+                icon={actionIcons.add}
+                onClick={() => setAddServer(true)}
+              >
+                {t("settings.button.add-server")}
+              </Button>
+            </div>
+          )}
+          <Issues issues={issuesOf("mcp")} />
+        </Group>
+      )}
 
       <Group name="skip" heading={t("agents.heading.skip")}>
         <Checkbox

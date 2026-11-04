@@ -58,7 +58,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 끝을 아는 법
 - 끝은 늘 run의 `input_message`를 가져간 turn에서만 본다. 받은 메시지의 `turn`을 읽고 그 turn의 state와 outcome을 읽는다. Bus 이벤트가 알려 준 turn id는 어느 run의 것인지 찾는 데만 쓰고 믿지 않는다. 같은 session에 먼저 들어온 다른 입력의 답을 돌려주면 안 된다.
 - Bus는 놓칠 수 있다. 정본은 표이고, `TurnEnded` 구독과 `WaitRun`의 깨움은 표를 다시 보게 하는 신호일 뿐이다. `WaitRun`은 기다리기 전과 깬 뒤에 표를 읽고, 끝나지 않은 agent run이면 turn을 직접 한 번 본다. `ReadRun`과 `ListRuns`는 표만 읽는다.
-- 답은 그 turn에서 그 session의 agent가 남긴 마지막 메시지의 글이다(text part를 줄바꿈으로 이은 것). agent message는 model 응답마다 하나이고 마지막 응답은 글이 비어도 남는다(`architecture/agent-chat.md`). 그래서 마지막 응답의 글이 비면 앞 응답의 글("X를 확인하겠다")로 내려가지 않고 답이 없다. agent가 다른 agent에게 call을 보내고 turn을 끝내면 그때의 답이 결과이고, 나중에 온 답은 session에만 남는다.
+- 답은 그 turn에서 그 session의 agent가 남긴 마지막 메시지의 글이다(text part를 줄바꿈으로 이은 것, `packages/core/main/daemon/wiring/turn-answer.ts`의 `turnAnswer`. bare의 result call 자동 답도 같은 함수다, `architecture/agent-call.md`). agent message는 model 응답마다 하나이고 마지막 응답은 글이 비어도 남는다(`architecture/agent-chat.md`). 그래서 마지막 응답의 글이 비면 앞 응답의 글("X를 확인하겠다")로 내려가지 않고 답이 없다. agent가 다른 agent에게 call을 보내고 turn을 끝내면 그때의 답이 결과이고, 나중에 온 답은 session에만 남는다.
 - schema가 있으면 글 전체를 감싼 code fence 하나는 벗기고 JSON으로 읽어 schema로 검사한다. 그 밖에는 고치지 않는다. 틀리면 `invalid_output`이다.
 - outcome이 failed면 `turn_failed`, interrupted면 `turn_interrupted`(reason이 `restarted`면 `lophn_restarted`), completed인데 답이 없으면 `no_answer`다.
 - `WaitRun`은 끝났거나 `timeout_ms`(최대 60초)가 지나면 돌려준다. 그때는 running일 수 있어 CLI가 되풀이해 기다린다.

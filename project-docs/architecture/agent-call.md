@@ -62,7 +62,13 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - image part는 blob hash만 갖고, `loadParts`가 같은 reader로 bytes를 붙인다. reader는 agent 자격의 `message-images/path`로 파일 경로를 푼다. 그래서 받은 turn과 뒤 이력은 이미지까지 같은 bytes다. 읽지 못한 이미지는 두 길 모두 `[image unavailable]` 글이 되어, 깨진 이미지 하나가 session을 막지 않는다. 두 길이 같은 bytes를 만들도록 받은 메시지의 봉투가 call의 답 방식(`reply`), reaction이 알리는 사실 이름(`event`), 실패한 답의 이유(`fail_reason`)를 같이 저장한다. 앞 두 속성 중 하나라도 이력에서 빠지면 call·reaction을 받은 turn 다음 요청부터 그 자리의 prefix가 달라져 cache가 한 번 깨지고, 답 방식 줄이 빠지면 결과를 받는 call을 받은 agent가 답해야 한다는 것을 잊는다.
 - 그래서 받은 순서와 turn 순서가 다르다. turn의 이력은 앞 turn들이 가져간 message를 turn 순서로 놓고 그 turn의 입력을 붙인다. 받은 순서로 자르면 아직 아무 turn도 가져가지 않은 call이 앞 turn의 prompt에 들어간다.
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
-- result의 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다. conversation은 program이 done으로 만들지 않는다. 취소나 실패로 끝난다.
+- lophn runtime의 result 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다. conversation은 program이 done으로 만들지 않는다. 취소나 실패로 끝난다.
+- bare runtime(`architecture/agent-definition.md`)은 result call을 받은 turn이 끝날 때 마지막 응답 글이 답이다. 받은 call 글도 `lophn call reply` 대신 그렇게 알린다.
+  - core wiring(`packages/core/main/daemon/wiring/bare-reply.ts`)이 `TurnEnded`를 구독해, outcome이 `completed`이고, turn 입력이 result call이고, 그 call이 아직 이 session이 받은 `accepted`이고, turn이 고정한 resolved agent(`turn_resolved`)가 bare이고, 그 turn의 마지막 agent 메시지 글이 비지 않았을 때만 보낸다.
+  - 답은 redaction과 본문 준비를 거쳐 machine 명령 `AutoReplyCall`(`calls/auto-reply`, `packages/core/router/commands.ts`)로 `router.reply`를 부른다. agent의 `ReplyCall`과 같은 규칙이고, 이 session이 받는 쪽이라 call이 done이 된다. unattended 표시는 그 turn의 mode를 따른다.
+  - 그 밖(멈춤, 실패, 빈 글, conversation·none call)에는 보내지 않는다. call은 lophn에서 답하지 않은 때처럼 accepted로 남고, 받은 session을 archive하거나 지울 때 `receiver_ended`로 닫힌다. turn 도중 bare가 고른 `call.reply`로 이미 답했으면 call이 done이라 다시 보내지 않는다.
+  - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고, 본문 blob은 tx 안에서 만들 수 없다.
+  - 마지막 응답 읽기는 run의 결과와 같은 함수다(`wiring/turn-answer.ts`의 `turnAnswer`, `architecture/run.md`). 글만 싣는다.
 - 화면의 call 블록은 펼치지 않는다. 머리 줄이 답 방식에 맞는 말(none은 "Handoff to", result는 "Asked", conversation은 "Working with")과 받는 곳이고, 오른쪽 끝 [Open conversation]이 받은 session을 연다. 실패만 그 자리에 이유 한 줄로 보이고, 답과 늦게 안 실패는 이어지는 새 메시지다(`packages/shell/renderer/conversation/thread/call-block.tsx`).
 - call의 `to`는 `{session}`이나 `{agent, place?}`(+ `fallback`)다(`packages/protocol/lophn-agent/calls.ts`). `agent`는 agent 이름이고 place가 없으면 home이다. 이름은 전역에 하나라 하나로 풀린다. `fallback`은 session이 닫혔을 때 열 `{agent, place?}`다. 보낸 이(`from`)는 사람, program, agent session 셋이다.
 
@@ -77,4 +83,5 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **call을 판정하지 않는다.** 예전에는 call tool이 turn 안에서 묻고 Router가 tx 안에서 한 번 더 판정해 둘을 `gate_allowed`로 이었다. 부르는 것을 막아도 받은 agent의 할당이 이미 일을 거르고, 사람이 workflow에서 "call 금지 같은 딱딱한 규칙을 두지 않는다"고 정했다(`project-docs/products/roadmap/approval.md`).
 - **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
 - **넘길 것은 값(content block)으로 싣고 읽기 grant를 만들지 않는다.** call 동안 file을 읽게 해 주는 장치를 두면 grant의 범위와 끝을 따로 관리해야 한다. 값으로 실으면 부른 쪽이 봉투에 실은 것이 곧 불린 agent에게 여는 시야다. block 꼴을 MCP ContentBlock에서 빌린 것은 ACP와 MCP tool 결과가 같은 꼴이라 harness 쪽과 그대로 이어지기 때문이다.
+- **reply 명령을 모르는 runtime은 turn 끝의 마지막 응답이 답이다(agent, 2026-11-04).** bare는 고른 tool만 받아 사람이 `call.reply`를 고르는 것을 잊으면 result call이 영영 accepted로 남아 부른 쪽(workflow 포함)이 멈춘다. lophn은 지금처럼 reply 명령이다. lophn은 한 turn에 답 말고도 할 말이 많아 마지막 응답을 답으로 보면 틀린다.
 - **원문 넘기기와 fuzzy 매칭을 버렸다.** OpenAI handoff의 history 전달은 맥락 비용과 오염이 크고, CrewAI식 비슷한 이름 짐작은 엉뚱한 agent에게 일을 맡긴다.

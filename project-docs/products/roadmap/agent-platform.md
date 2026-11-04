@@ -1,6 +1,6 @@
 # agent platform: 사람이 정한 agent를 앱, workflow, 다른 harness와 잇는다
 
-상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 계획 content-block으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md`). 단계 3은 `project-docs/plan/bare-runtime/`으로 열었다(2026-11-04).
+상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 계획 content-block으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md`). 단계 3은 계획 bare-runtime으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md` "bare runtime"). 아래 "지금 코드"의 정의 칸, P4, result 답 줄은 그 앞 기준이다.
 배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
 
 ## 왜
@@ -101,13 +101,13 @@
 |---|---|---|---|
 | 1 domain 지우기 (끝남) | domain, kind, `DOMAIN.md` 층, domain skill 층을 지우고 경계를 그릇으로 접는다. migration, Domain panel 지우기 | 없음 | 빼는 일이 먼저다. 뒤 단계가 고칠 자리(정의 칸, prompt 층, skill 층, command 이름)가 줄어든다 |
 | 2 content block | protocol에 block type 하나. call 본문과 답, 사람 입력의 첨부 줄을 옮긴다 | 1의 `rd-layers` | 3~7이 모두 이 단위로 주고받는다 |
-| 3 runtime 칸과 bare | 정의에 `runtime`, `description`. bare 조립. 답 규칙 | 1, 2의 `cb-core`(같은 run-loop file) | 1이 정의 칸과 prompt 조립을 먼저 줄인다 |
+| 3 runtime 칸과 bare (끝남) | 정의에 `runtime`, `description`. bare 조립. 답 규칙 | 1, 2의 `cb-core`(같은 run-loop file) | 1이 정의 칸과 prompt 조립을 먼저 줄인다 |
 | 4 명함 | 명함 읽기, 차이 계산, modality 검사, 결과를 content로 돌려주기 | 2, 3 | 명함의 runtime·modality 칸이 2·3의 값이다 |
 | 5 앱 화면의 client인 agent | `@lophn/agent`: 화면 context, 화면 action, agent가 열린 화면에 붙는 길 | 1, 2, 3 | 코치 agent가 bare이고, 화면 context가 content block이고, 앱 command 이름이 1의 규칙이다 |
 | 6 harness host와 gui | shell 쪽 harness host, ACP client, session 기록, `<harness> gui` | 2, 3 | 7이 같은 host를 쓴다. 사람이 보는 길에서 ACP 옮기기를 먼저 검증한다 |
 | 7 harness agent | harness session이 call, run, step 입력을 받는다. workflow harness 참가자, TUI resume, harness가 `lophn` CLI로 답하고 부르기 | 4, 6 | `roadmap/workflow.md`의 harness 참가자와 `issues/coding-agent.md`를 닫는다 |
 
-1과 2는 둘 다 계획으로 열었다. 2의 core task는 prompt 조립·run-loop·router file을 1과 같이 고치므로 1의 `rd-layers`가 land한 뒤 돌았다. 1과 2는 끝났다(2026-11-04). 3 뒤에 4·5·6을 나란히, 마지막에 7이다. 1과 3은 같은 prompt 조립 file(`packages/core/lophn-agent/prompt-assembly/`)을 고치므로 차례로 land한다. 4가 명함을 prompt에 싣기로 하면 4도 그 차례에 든다.
+1과 2는 둘 다 계획으로 열었다. 2의 core task는 prompt 조립·run-loop·router file을 1과 같이 고치므로 1의 `rd-layers`가 land한 뒤 돌았다. 1, 2, 3은 끝났다(2026-11-04). 3 뒤에 4·5·6을 나란히, 마지막에 7이다. 1과 3은 같은 prompt 조립 file(`packages/core/lophn-agent/prompt-assembly/`)을 고치므로 차례로 land한다. 4가 명함을 prompt에 싣기로 하면 4도 그 차례에 든다.
 
 ## 다른 계획, roadmap, 이슈
 
@@ -166,8 +166,8 @@
 | "lophn은 coding agent에게 일을 맡기지 않는다" | `products/AGENT.md` P6, `PRODUCT.md`, `architecture/terminal-agent.md` | | 6, 7 |
 | coding session 층 삭제 | `architecture/coding-agent.md` "왜" | 사람, 2026-10-28 ("다시 필요해지면 새로 설계한다") | 6, 7 |
 | coding agent에게 맡기는 call 거절(workflow 때문에 보류해 둔 것) | `roadmap/problem-ticket.md` 정한 것 | 2026-10-21 | 7 |
-| 같은 place 종류면 같은 tool 목록·지침·내장 skill이고 사람은 목록을 넓히거나 좁히지 않는다, 내장 skill은 끌 수 없다 | `products/AGENT.md` P4, `architecture/agent-definition.md` | 사람, 2026-10-28 | 3 (bare만. credential 상한은 그대로) |
-| `result`의 답은 reply 명령으로만 done | `architecture/agent-call.md` | | 3 (bare, harness만) |
+| 같은 place 종류면 같은 tool 목록·지침·내장 skill이고 사람은 목록을 넓히거나 좁히지 않는다, 내장 skill은 끌 수 없다 | `products/AGENT.md` P4, `architecture/agent-definition.md` | 사람, 2026-10-28 | 3 (bare만. credential 상한은 그대로). 뒤집었다(2026-11-04) |
+| `result`의 답은 reply 명령으로만 done | `architecture/agent-call.md` | | 3 (bare, harness만). bare는 뒤집었다(2026-11-04). harness는 7 |
 | 경계는 그릇이 아니라 domain이고 모든 앱은 domain을 하나 이상 갖는다 | `architecture/domain.md` "왜", `roadmap/domain.md`, `products/AGENT.md` P11·P12·H6·C1~C3·C24~C29, `PRODUCT.md` | 사람·planner 2026-10-19, 사람 2026-10-28 | 1 |
 | workflow 캡슐화의 근거가 domain | `roadmap/workflow.md`, `PRODUCT.md` | 사람 | 1 (원칙은 앱 경계로 남긴다) |
 | kind 파일과 위반 알림 | `architecture/kinds.md`, `PRODUCT.md` MVP | | 1 |

@@ -23,7 +23,7 @@ type Failed =
 type Outcome =
   | { kind: "completed"; reason: "answer_completed" }
   | { kind: "failed"; reason: Failed };
-// runtime 값 → `HARNESS_ADAPTERS`의 id. `harness-host.ts`의 HARNESS_ADAPTER_ID와 같은 표다.
+// runtime 값 → `HARNESS_ADAPTERS`의 id. shell main의 tsc가 `harness-host.ts`를 읽지 못해 여기에 둔다(이 표 하나뿐이다).
 const ADAPTER_ID = {
   "claude-code": "claude",
   codex: "codex",

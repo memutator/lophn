@@ -9,6 +9,7 @@ import {
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   type AgentRuntime,
+  bindHarnessSession,
   blocksOfContent,
   type ContentBlock,
   finishTurn,
@@ -21,12 +22,12 @@ import {
   recordMessage,
   startTurn,
   turnRead,
-  bindHarnessSession,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   Output,
 } from "../../../../protocol/server/mod.ts";
+import { harnessExtensionSetting } from "../../../config/mod.ts";
 import {
   createSessionDirectory,
   placeDepsOf,
@@ -39,19 +40,18 @@ import {
   inputParts,
   turnLimitsOf,
 } from "../../../lophn-agent/run-loop/mod.ts";
+import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import {
-  harnessOf,
   HARNESS_INBOX_PUT_TOPIC,
+  harnessOf,
 } from "../../../lophn-agent/session/mod.ts";
 import { loadSession } from "../../../lophn-agent/session/model.ts";
-import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import type { MemoryHandler } from "../../../server/mod.ts";
 import {
   openConnection,
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
-import type { MemoryHandler } from "../../../server/mod.ts";
-import { harnessExtensionSetting } from "../../../config/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 // shell main의 harness host가 부르는 core 쪽이다. 입력함(메모리)을 쥐고, turn과 메시지는 machine 자격으로 기존
@@ -105,12 +105,16 @@ export const harnessWiring: WiringFactory = () => {
           prepared: [],
         });
 
-      // 사람 token을 가진 shell main만 부른다. 꺼져 있으면 host는 일하지 않는다.
-      const gate = (who: AuthenticatedContext): Result<void> => {
+      // 사람 token을 가진 shell main만 부른다. 새 turn을 여는 route(`needsOn`)는 꺼져 있으면 일하지 않는다.
+      // 나머지는 꺼져 있어도 일한다: 꺼질 때 돌던 turn이 끝날 수 있어야 한다.
+      const gate = (
+        who: AuthenticatedContext,
+        needsOn = false,
+      ): Result<void> => {
         if (who.actor !== "user") {
           return err({ code: "forbidden", message: "only the shell host" });
         }
-        return ctx.settings.get(harnessExtensionSetting) === true
+        return !needsOn || ctx.settings.get(harnessExtensionSetting) === true
           ? ok(undefined)
           : err({ code: "unavailable", message: "harness is turned off" });
       };
@@ -137,7 +141,7 @@ export const harnessWiring: WiringFactory = () => {
       };
 
       const take: MemoryHandler = async (who) => {
-        const allowed = gate(who);
+        const allowed = gate(who, true);
         if (!allowed.ok) return allowed;
         for (const session of inbox.waiting()) {
           if (inbox.isRunning(session)) continue;
@@ -165,7 +169,11 @@ export const harnessWiring: WiringFactory = () => {
             { ...head, body: blocksOfContent(body.value.content) },
             row.harness as AgentRuntime,
           )
-            .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+            .map((part) =>
+              part.kind === "text"
+                ? part.text
+                : `[image: ${part.media_type} not passed to the harness]`,
+            )
             .join("\n");
           return ok({
             input: {
@@ -191,7 +199,7 @@ export const harnessWiring: WiringFactory = () => {
       };
 
       const startTurnHandler: MemoryHandler = async (who, body) => {
-        const allowed = gate(who);
+        const allowed = gate(who, true);
         if (!allowed.ok) return allowed;
         const input = harnessStartTurn.input.parse(body);
         const found = harnessSession(input.session);

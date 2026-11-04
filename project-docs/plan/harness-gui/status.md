@@ -9,6 +9,6 @@ lead만 고친다. `tools/status.py harness-gui build`가 `tasks/*.md`에서 id,
 | `gui-window` | gui | 2 | gui-protocol | merged | gui/gui-window | 56c29b6f0 |  |
 | `fix-gui-data-root` | fix | 3 | 없음 | merged | fix/fix-gui-data-root | 8c6c5c54a |  |
 | `fix-gui-dev-sandbox` | fix | 3 | 없음 | merged | fix/fix-gui-dev-sandbox | 6a761b281 |  |
-| `fix-gui-intent-argv` | fix | 3 | 없음 | todo |  |  |  |
+| `fix-gui-intent-argv` | fix | 3 | 없음 | merged | fix/fix-gui-intent-argv | 9637a8797 |  |
 | `gui-codex` | gui | 3 | gui-claude | merged | gui/gui-codex | 97c2f4a62 |  |
 | `gui-opencode` | gui | 3 | gui-claude | merged | gui/gui-opencode | b9bc05b77 |  |

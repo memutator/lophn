@@ -14,7 +14,7 @@ registry.sync()
   ─▶ 꺼졌으면: 켜져 있던 것만 deactivate()
 Settings › System › Extensions ─ IPC shell:extensions(list|install|remove) ─▶ registry
 Settings › System › Extensions [Turn on|off] ─ settings 쓰기 extensions.<id>.enabled ─▶ SettingsChanged ─▶ registry.sync()
-open intent --harness-gui(첫 시작 argv, second-instance) ─▶ registry.sync() ─▶ ctx.acp.onOpenIntent로 건 함수(없으면 Settings › System › Extensions)
+open intent --harness-gui=<harness>(첫 시작 argv, second-instance) ─▶ registry.sync() ─▶ ctx.acp.onOpenIntent로 건 함수(없으면 Settings › System › Extensions)
 registry.install(id) ─▶ 표시 file만 둔다(다시 해도 같다)
 registry.remove(id) ─▶ 꺼져 있을 때만 표시 file에 적힌 file과 표시 file, 비게 된 폴더를 지운다
 앱 끝 ─▶ registry.stop() ─▶ 켜진 것을 모두 deactivate()

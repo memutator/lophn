@@ -8,7 +8,7 @@
 lophn 터미널 탭: claude gui [--resume <id>]   (shell 시작 층의 함수. 첫 인자가 gui가 아니면 원래 명령)
   ─▶ <lophn CLI> gui claude [--resume <id>]
 lophn gui <harness> [--resume <id>]   (packages/cli/commands/gui.ts, core를 부르지 않는 local 명령)
-  ─▶ lophn 앱 실행 파일을 --harness-gui <harness> --cwd <친 곳> [--resume <id>]로 떼어 띄운다
+  ─▶ lophn 앱 실행 파일을 --harness-gui=<harness> --cwd=<친 곳> [--resume=<id>]로 떼어 띄운다
        └ 이미 떠 있으면 second-instance가 argv를 받는다
 shell main readOpenIntent(argv) ─▶ {kind:"harness-gui", harness, cwd, resume?}
   ─▶ openHarnessGui(intent)   core가 starting이면 준비될 때까지 줄에 둔다
@@ -32,7 +32,7 @@ extension을 끔 ─▶ deactivate() ─▶ intent 함수를 풀고 연 handle�
 ## 지키는 것
 
 - **harness는 `claude`, `codex`, `opencode` 셋이다.** 목록은 `GUI_HARNESSES` 하나이고 CLI 입력, open intent, adapter 표가 모두 이것을 쓴다.
-- **open intent는 모양만 본다.** `--harness-gui`가 있으면 그 꼴로만 읽는다: harness가 목록에 있고, `--cwd`가 절대 경로이고, `--resume`이 있으면 `-`로 시작하지 않는다(CLI의 flag가 되지 않게). flag는 하나씩만 있어야 한다. 틀리면 기본 창이다. 폴더가 있는지는 여는 쪽이 본다.
+- **open intent는 모양만 본다.** harness-gui의 flag는 `--harness-gui=<harness>`, `--cwd=<dir>`, `--resume=<id>`처럼 값을 `=`로 붙인 꼴만 읽는다. 이미 떠 있는 앱이 받는 second-instance argv는 Chromium이 스위치 먼저, 값 나중으로 다시 늘어놓고 자기 스위치(`--allow-file-access-from-files` 등)를 끼워서, 값을 따로 넘기면 flag에서 떨어진다(창 없는 Electron으로 확인했다). harness가 목록에 있고, `--cwd`가 절대 경로이고, `--resume`이 `-`로 시작하지 않아야 한다(CLI의 flag가 되지 않게). flag는 하나씩만 있어야 한다. 틀리면 기본 창이다. 폴더가 있는지는 여는 쪽이 본다. `--open-app <app ID>`도 같은 문제가 있지만 바로가기를 만드는 화면이 아직 없어 그대로다.
 - **`lophn gui`는 core 자격이 없어도 된다.** core가 꺼져 있어도 user token 없이 앱을 띄운다. CLI는 앱과 같은 Electron binary를 Node로 돌리므로, `ELECTRON_RUN_AS_NODE`만 빼고 같은 binary를 띄운다. 저장소 실행(shell main bundle `packages/shell/main/dist/main.cjs`가 있으면)은 `LOPHN_HOME`이 없거나 사람의 `~/.lophn`이면 띄우지 않고 `invalid_input`이다(개발 code가 사람의 실제 data root로 뜨거나 설치본 창이 뜨지 않게. data root가 다르면 single-instance lock도 달라 그 data root의 앱으로 간다). 띄울 때는 그 bundle과 `--no-sandbox`를 인자로 준다(저장소의 `chrome-sandbox`는 setuid가 아니라 flag 없이는 argv를 넘기기 전에 죽고, 터미널 env는 `ELECTRON_*`를 지워 env로 받을 수 없다). agent의 `lophn` 도구 목록에는 없다(표의 명령이 아니다).
 - **handle 하나는 창 하나다.** `id`(`win_…`)는 lophn session id가 아니다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
 - **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 창은 닫지 않고 오류를 끝난 turn으로 보인다. 사람이 닫는다.

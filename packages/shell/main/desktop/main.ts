@@ -18,6 +18,7 @@ import * as desktop from "./wiring/desktop.ts";
 import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
 import * as extensions from "./wiring/extensions.ts";
+import * as guiWindow from "./gui-window.ts";
 import * as layout from "./wiring/layout.ts";
 
 const ctx = createShellContext();
@@ -37,10 +38,10 @@ add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(bookmarks.register(ctx));
-// 창을 여는 port의 open은 gui-window가 채운다.
+const guiWindows = add(guiWindow.register(ctx));
 const harnessGui = add(
   extensions.register(ctx, {
-    open: () => {},
+    open: guiWindows.open,
     showExtensionSettings: () => ctx.desktop.send("extension-settings"),
   }),
 );

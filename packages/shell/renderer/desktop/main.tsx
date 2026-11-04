@@ -43,6 +43,7 @@ import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { DesktopTarget } from "./palette/desktop-scope.ts";
 import { AppWindow } from "../app-frame/app-window.tsx";
+import { HarnessGuiApp } from "../harness-gui/harness-gui-window.tsx";
 import type { AppsSource } from "../apps/source.ts";
 import type { SettingsPane } from "./settings/model.ts";
 import type { SettingsSource } from "./settings/source.ts";
@@ -422,6 +423,9 @@ export function Desktop({
         views={views}
       />
     ) : null;
+  } else if (route.space === "harness-gui") {
+    // CLI의 화면을 대신하는 창이라 core 연결을 기다리지 않는다.
+    space = <HarnessGuiApp />;
   } else if (route.space === "settings" && catalog) {
     space = (
       <SettingsSpace
@@ -456,7 +460,8 @@ export function Desktop({
           {space}
           {overlay &&
           route.space !== "detached" &&
-          route.space !== "app-window" ? (
+          route.space !== "app-window" &&
+          route.space !== "harness-gui" ? (
             <ToastHost overlay={overlay} />
           ) : null}
           {overlay && hookPrompt ? (
@@ -464,7 +469,8 @@ export function Desktop({
           ) : null}
           {intents &&
           route.space !== "detached" &&
-          route.space !== "app-window" ? (
+          route.space !== "app-window" &&
+          route.space !== "harness-gui" ? (
             <DesktopIntents
               intents={intents}
               catalog={catalog}

@@ -7,6 +7,7 @@
   },
   "include": [
     "desktop/main.ts",
+    "desktop/gui-window.ts",
     "desktop/core/**/*.ts",
     "desktop/wiring/**/*.ts",
     "../terminal-host/cli.ts"

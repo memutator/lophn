@@ -10,6 +10,7 @@ import {
   openApp,
   openAppWindow,
   openDetached,
+  openHarnessGui,
   openProject,
   openSettings,
   type Route,
@@ -148,7 +149,7 @@ function appWindowRoute(value: string): Route | undefined {
 
 // 개발 확인용 시작 화면. `#settings`면 Settings부터 연다.
 // `#project=<id>`면 그 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터 연다.
-// `#detached=<탭 key>`는 main이 띄우는 detached 창이다. 기본은 Home이다.
+// `#detached=<탭 key>`는 main이 띄우는 detached 창이고 `#harness-gui=<창 id>`는 harness-gui 창이다. 기본은 Home이다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
   : location.hash.startsWith("#project=")
@@ -161,9 +162,11 @@ const start: Route | undefined = seed
           ? openDetached(
               decodeURIComponent(location.hash.slice("#detached=".length)),
             )
-          : location.hash === "#settings"
-            ? openSettings()
-            : undefined;
+          : location.hash.startsWith("#harness-gui=")
+            ? openHarnessGui()
+            : location.hash === "#settings"
+              ? openSettings()
+              : undefined;
 // 창마다 하나. runtime의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다. 터미널 clipboard는 main이 쓴다.
 // view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다.
 const terminal = windowTerminalDeps(new TerminalStore(), (host, edge) => {

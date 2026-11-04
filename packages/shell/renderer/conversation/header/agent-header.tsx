@@ -45,7 +45,9 @@ interface AgentHeaderHost {
 }
 
 interface AgentHeaderProps {
-  agent: SessionSwitcherProps["agent"];
+  agent: SessionSwitcherProps["agent"] & {
+    readonly place?: { readonly name: string } | null;
+  };
   /** 지금 보는 session. null은 아직 만들지 않은 새 session이다. */
   session: SessionEntry | null;
   /** 그 agent의 session 전부(archive한 것 포함). */
@@ -68,6 +70,8 @@ interface AgentHeaderProps {
   onChanged: () => void;
   /** menu 오른쪽 끝에 더할 조각 (예: home full mode controller). */
   trailing?: ReactNode;
+  /** lophn session이 아니다(`AgentTabSource.external`). session을 고르고 고치는 칸이 없고 누구의 어디인지만 보인다. */
+  external?: boolean;
 }
 
 type MoreAction = "rename" | "fork" | "archive";
@@ -168,7 +172,12 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
     return () => clearTimeout(timer);
   }, [renaming]);
 
-  const lead = renaming ? (
+  const lead = props.external ? (
+    <span className={styles.face}>
+      <AgentFace agent={agent} />
+      <span>{props.agent.place?.name}</span>
+    </span>
+  ) : renaming ? (
     <span className={styles.face}>
       <AgentFace agent={agent} />
       <input
@@ -260,7 +269,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
           {props.trailing}
         </>
       ),
-      ...(session === null
+      ...(session === null || props.external
         ? {}
         : {
             menu: {
@@ -293,7 +302,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
     <div className={styles.gap} data-agent-header>
       <ViewBar lead={<div className={styles.lead}>{lead}</div>}>
         {status}
-        {session === null ? null : (
+        {session === null || props.external ? null : (
           <Menu
             items={items.map((item) => ({
               id: item.id,

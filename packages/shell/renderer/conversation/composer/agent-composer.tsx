@@ -97,6 +97,8 @@ interface AgentComposerProps {
   onProblem: () => void;
   /** 아래 줄 오른쪽 끝에 놓는 사용량(창·token·금액). 없으면 비운다. */
   usage?: ReactNode;
+  /** lophn session이 아니다(`AgentTabSource.external`). model·권한 단추와 `/` 명령이 없고 `/…`도 그대로 보낸다. */
+  external?: boolean;
 }
 
 export function AgentComposer(props: AgentComposerProps): ReactNode {
@@ -225,8 +227,9 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
 
   const send = () => {
     if (!canSend) return;
-    if (draft.text.startsWith("/")) void slash.submit();
-    else props.onSend();
+    if (draft.text.startsWith("/") && props.external !== true) {
+      void slash.submit();
+    } else props.onSend();
   };
 
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -362,7 +365,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
             <span className={styles.spacer} />
             <div className={styles.actions} data-composer-actions="">
-              <ModelPicker {...picker.props} />
+              {props.external ? null : <ModelPicker {...picker.props} />}
               {props.skip === undefined ? null : (
                 <PermissionMenu
                   on={props.skip.on}
@@ -402,33 +405,35 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             {props.place.name}
           </span>
         )}
-        <Popover
-          open={permissionsOpen}
-          onOpenChange={(next) => {
-            setPermissionsOpen(next);
-            if (next) props.onLoadPermissions();
-          }}
-          placement="beside"
-          trigger={
-            <Button
-              size="sm"
-              variant="ghost"
-              trailingIcon={conversationIcons.expand}
-              data-composer-permissions=""
-            >
-              {props.permissionSummary}
-            </Button>
-          }
-        >
-          {props.permissions === null ? null : (
-            <PermissionsView
-              agent={props.agentName}
-              permissions={props.permissions}
-              popover
-              onEdit={props.onEditPermissions}
-            />
-          )}
-        </Popover>
+        {props.external ? null : (
+          <Popover
+            open={permissionsOpen}
+            onOpenChange={(next) => {
+              setPermissionsOpen(next);
+              if (next) props.onLoadPermissions();
+            }}
+            placement="beside"
+            trigger={
+              <Button
+                size="sm"
+                variant="ghost"
+                trailingIcon={conversationIcons.expand}
+                data-composer-permissions=""
+              >
+                {props.permissionSummary}
+              </Button>
+            }
+          >
+            {props.permissions === null ? null : (
+              <PermissionsView
+                agent={props.agentName}
+                permissions={props.permissions}
+                popover
+                onEdit={props.onEditPermissions}
+              />
+            )}
+          </Popover>
+        )}
         {props.usage === undefined || props.usage === null ? null : (
           <span className={styles.usage}>{props.usage}</span>
         )}

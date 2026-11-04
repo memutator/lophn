@@ -70,6 +70,8 @@ interface AgentThreadProps {
   imageUrl: (id: string) => Promise<string | null>;
   /** archive한 session이다. 내 말의 Rewind 단추와 agent 말의 Fork 단추가 없다. */
   readOnly: boolean;
+  /** lophn session이 아니라 Rewind와 Fork가 없다(`AgentTabSource.external`). */
+  external?: boolean;
   source: Pick<
     AgentTabSource,
     "envelope" | "callState" | "cancelCall" | "retryTurn" | "toolCallBody"
@@ -221,7 +223,9 @@ function itemsOf(
         {...(actions
           ? {
               copyText: () => copyTextOf(said),
-              onFork: () => props.onFork(said[said.length - 1]!.id),
+              ...(props.external === true
+                ? {}
+                : { onFork: () => props.onFork(said[said.length - 1]!.id) }),
             }
           : {})}
       >
@@ -412,7 +416,7 @@ function userMessage(
   props: AgentThreadProps,
   nested: boolean,
 ): ReactElement {
-  const actions = !nested && !props.readOnly;
+  const actions = !nested && !props.readOnly && props.external !== true;
   return (
     <UserMessage
       key={message.id}

@@ -198,6 +198,7 @@ function OpenSession(props: AgentViewProps & ViewSeed & { session: string }) {
 
 function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const { source, drafts, session, host, data } = props;
+  const external = source.external === true;
   // 보던 session이 사라진 읽기와 지운 쓰기가 같은 말을 두 번 하지 않게 한다.
   const current = useRef(session);
   current.current = session;
@@ -607,6 +608,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         }}
         onChanged={() => void refresh()}
         trailing={props.trailing}
+        external={external}
       />
       {offline || data.failed ? (
         <p className={styles.stale} data-stale="">
@@ -649,6 +651,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             now={now}
             imageUrl={imageUrl}
             readOnly={readOnly}
+            external={external}
             source={source}
             initialScroll={draft.scroll}
             onScroll={(position) => drafts.save(key, { scroll: position })}
@@ -802,6 +805,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             onStop={() => void stop()}
             onCommand={runSlash}
             onProblem={fail}
+            external={external}
             usage={
               status === null ? null : (
                 <StatusFooter

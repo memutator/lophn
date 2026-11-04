@@ -1,6 +1,7 @@
 // 사람 터미널의 shell에 끼우는 시작 층. 사용자의 startup file을 login shell처럼 모두 읽은 뒤에
 // `codex`·`opencode`·`kilo`·`cline` 함수를 정의해, 사람이 친 명령이 공유 background server가 아니라
-// 그 탭의 private server로 돈다.
+// 그 탭의 private server로 돈다. `claude`·`codex`·`opencode` 함수는 첫 인자가 `gui`일 때만 `lophn gui <harness>`로
+// 가고(CLI 화면 대신 lophn 창), 그 밖의 인자는 원래 명령에 그대로 넘긴다.
 //
 // 왜: Codex(0.156+)와 OpenCode(2.x)는 TUI를 사용자당 하나인 background server에 붙이고 turn과 hook(plugin)을
 // 그 server에서 돌린다. server는 처음 뜰 때의 env를 그대로 쓰므로(Codex `app-server-daemon/README.md`:
@@ -99,7 +100,7 @@ if [[ -r "\${ZDOTDIR:-$HOME}/.zshenv" ]]; then
 fi
 `;
 
-// codex·opencode·kilo·cline이 사용자의 alias나 function이면 정의하지 않는다(실행 파일일 때만 감싼다).
+// claude·codex·opencode·kilo·cline이 사용자의 alias나 function이면 정의하지 않는다(실행 파일일 때만 감싼다).
 // codex·opencode는 호출마다 --help로 flag 지원을 본다. 옛 버전은 모르는 flag에 오류로 끝난다.
 // kilo·cline은 env라 모르는 판이 무시한다. 공유 daemon을 다루는 subcommand(kilo daemon·console, cline hub)에는
 // 붙이지 않는다.
@@ -114,8 +115,24 @@ __lophn_external() {
   fi
 }
 
+if __lophn_external claude; then
+  function claude {
+    if [ "\${1-}" = gui ]; then
+      shift
+      command lophn gui claude "$@"
+      return
+    fi
+    command claude "$@"
+  }
+fi
+
 if __lophn_external codex; then
   function codex {
+    if [ "\${1-}" = gui ]; then
+      shift
+      command lophn gui codex "$@"
+      return
+    fi
     local __arg __flag=1
     for __arg in "$@"; do
       case "$__arg" in
@@ -133,6 +150,11 @@ fi
 
 if __lophn_external opencode; then
   function opencode {
+    if [ "\${1-}" = gui ]; then
+      shift
+      command lophn gui opencode "$@"
+      return
+    fi
     local __arg __first=""
     for __arg in "$@"; do
       case "$__arg" in
@@ -180,9 +202,26 @@ unset -f __lophn_external
 `;
 
 const FISH = `# lophn shell integration
-set -l __lophn_kind (type -t codex 2>/dev/null)
+set -l __lophn_kind (type -t claude 2>/dev/null)
+if test "$__lophn_kind" = file
+  function claude
+    if test "$argv[1]" = gui
+      set -e argv[1]
+      command lophn gui claude $argv
+      return
+    end
+    command claude $argv
+  end
+end
+
+set __lophn_kind (type -t codex 2>/dev/null)
 if test "$__lophn_kind" = file
   function codex
+    if test "$argv[1]" = gui
+      set -e argv[1]
+      command lophn gui codex $argv
+      return
+    end
     if not string match -qr -- '^(agents|queue|--remote|--no-daemon|--remote=.*)$' $argv
       and command codex --help 2>/dev/null </dev/null | string match -q -- '*--no-daemon*'
       set argv --no-daemon $argv
@@ -194,6 +233,11 @@ end
 set __lophn_kind (type -t opencode 2>/dev/null)
 if test "$__lophn_kind" = file
   function opencode
+    if test "$argv[1]" = gui
+      set -e argv[1]
+      command lophn gui opencode $argv
+      return
+    end
     if string match -qr -- '^(--standalone|--server|--server=.*|-h|--help|-v|--version|--completions|--completions=.*)$' $argv
       command opencode $argv
       return

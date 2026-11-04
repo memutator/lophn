@@ -16,6 +16,7 @@ import { createDetachedApi } from "./detached-api.ts";
 import { createExtensionsApi } from "./extensions-api.ts";
 import { createFilesApi } from "./files-api.ts";
 import { createFolderApi } from "./folder-api.ts";
+import { createHarnessGuiApi } from "./harness-gui-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
 import { createAnnotateApi } from "./annotate-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
@@ -115,6 +116,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnExtensions",
     createExtensionsApi(ipcRenderer),
+  );
+  // harness-gui 창(`claude gui`)이 자기 ACP session을 읽고 조작을 보낸다. 창은 main이 sender로 가린다.
+  contextBridge.exposeInMainWorld(
+    "lophnHarnessGui",
+    createHarnessGuiApi(ipcRenderer),
   );
   // 앱 공간의 [Open in new window]와 OS 앱 바로가기. 앱 ID만 보낸다.
   contextBridge.exposeInMainWorld(

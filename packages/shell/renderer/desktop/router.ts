@@ -8,7 +8,8 @@ type Space =
   | "project"
   | "app"
   | "app-window"
-  | "detached";
+  | "detached"
+  | "harness-gui";
 
 export interface Route {
   readonly space: Space;
@@ -90,4 +91,9 @@ export function openAppWindow(
 /** detached 창(탭 하나만 그리는 OS 창)으로 시작한다. */
 export function openDetached(key: string): Route {
   return { space: "detached", detached: key };
+}
+
+/** harness-gui 창(extension이 연 ACP session 하나만 그리는 OS 창)으로 시작한다. main이 이 hash로 창을 연다. */
+export function openHarnessGui(): Route {
+  return { space: "harness-gui" };
 }

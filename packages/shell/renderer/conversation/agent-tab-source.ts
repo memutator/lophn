@@ -554,6 +554,13 @@ export interface SendInput {
 }
 
 export interface AgentTabSource {
+  /**
+   * lophn session이 아니라 ACP session 하나만 그리는 source(harness-gui의 창)다. 참이면 화면이 lophn 전용 칸을 그리지
+   * 않는다: session 목록·이름 바꾸기·archive·fork 머리 menu, model·skip·권한·`/` 명령, 메시지의 Rewind·Fork.
+   * 그 칸들의 읽기와 쓰기는 source가 unavailable로 답한다.
+   */
+  readonly external?: true;
+
   // 읽기
   agent(): Promise<SourceResult<AgentFace>>;
   /** 그 agent의 session 전부. archive한 것도 들어 있다. */

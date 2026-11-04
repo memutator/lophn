@@ -33,6 +33,11 @@ function store() {
   for (const step of [...conversationSchemaSteps, ...revertSchemaSteps]) {
     db.exec(step.sql);
   }
+  // fork가 복사한 메시지의 이미지 참조를 읽는다.
+  db.exec(
+    `create table blob_refs (owner_kind text, owner_key text, field text,
+       hash text, size_bytes integer, registered_seq integer)`,
+  );
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,

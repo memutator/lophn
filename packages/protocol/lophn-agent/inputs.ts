@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
-import { userMessageContentInputSchema } from "./message-content.ts";
+import { userContentBlocksSchema } from "./message-content.ts";
 import {
   callFailReasonSchema,
   callFromOutputSchema,
@@ -21,7 +21,7 @@ export type InputDelivery = z.infer<typeof inputDeliverySchema>;
 const sendMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
-  content: userMessageContentInputSchema,
+  content: userContentBlocksSchema,
   delivery: inputDeliverySchema,
   refs: z.array(callRefSchema),
   // 사람 화면은 싣지 않고 run만 싣는다. 이 메시지가 연 turn은 unattended다(approval.md "turn mode").
@@ -119,7 +119,7 @@ export const editQueued = defineMemory({
   input: z.strictObject({
     session: idSchema("ses"),
     message: idSchema("msg"),
-    content: userMessageContentInputSchema,
+    content: userContentBlocksSchema,
   }),
   output: z.strictObject({ message: idSchema("msg") }),
   actors: ["user"],

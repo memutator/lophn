@@ -98,6 +98,8 @@ export async function readBody(
             durationMs: part.duration_ms,
           },
         ];
+      default:
+        return [];
     }
   });
   memo.bodies.set(message, parts);

@@ -93,7 +93,10 @@ export function loopHarness(init: {
 
   const ports: TurnPorts = {
     stop: () => Promise.resolve({ stopped: false }),
-    inputs: () => Promise.resolve(ok({ request: "go", steering: [] })),
+    inputs: () =>
+      Promise.resolve(
+        ok({ request: [{ kind: "text", text: "go" }], steering: [] }),
+      ),
     context: () => {
       const context: TurnContext = {
         prompt: {

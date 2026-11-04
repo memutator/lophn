@@ -1,6 +1,7 @@
 import type { Result } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
+import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
 import type {
   AgentCallRow,
   CallFailReason,
@@ -38,7 +39,7 @@ export type RoutedInput = {
   from: CallFrom;
   call: Id<"cal"> | null;
   reply_to: Id<"cal"> | null;
-  body: string;
+  body: ContentBlock[];
   refs: readonly CallRef[];
   // 사람 메시지만 steer가 될 수 있다.
   delivery: InputDelivery;

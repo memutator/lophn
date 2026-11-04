@@ -2,6 +2,7 @@
 // machine만 부른다: 부르는 곳은 core의 `release.prepare` handler 하나이고, 검사에 떨어진 준비는 이 command까지
 // 오지 않아 release 행을 남기지 않는다. 같은 bundle의 prepared release가 이미 있으면 새로 만들지 않고 그것을 준다.
 // activation 쪽 command는 activation driver가 machine 자격으로 순서대로 부른다(activation/assembly.ts).
+import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -381,7 +382,7 @@ export function createReleaseCommands(): {
           from: { kind: "program" },
           to: { session: creator.id },
           reply: "none",
-          body: activationReportText(release, app.name),
+          body: textBlocks(activationReportText(release, app.name)),
           refs: [],
           reply_to: null,
           dedup: null,

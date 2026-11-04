@@ -1,3 +1,4 @@
+import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
@@ -91,7 +92,7 @@ function setup(sessions: Record<string, TargetSession>) {
 const base = {
   from: { kind: "agent", session: SENDER },
   reply: "result",
-  body: "do it",
+  body: textBlocks("do it"),
   refs: [],
   reply_to: null,
   kind: "call",
@@ -140,7 +141,7 @@ test("a late reply to an ended call returns closed and sends nothing", () => {
     { session: RECEIVER },
     {
       call: routed.value.call,
-      body: "done",
+      body: textBlocks("done"),
       refs: [],
     },
   );
@@ -180,7 +181,7 @@ test("step 입력은 unattended 표시를 싣고 받는 session 하나에만 닿
       from: { kind: "program" },
       to,
       reply: "none",
-      body: "do the step",
+      body: textBlocks("do the step"),
       refs: [],
       reply_to: null,
       dedup: null,
@@ -234,7 +235,7 @@ test("attended turn이 보낸 call은 attended로 열린다. unattended가 atten
         { session: RECEIVER },
         {
           call,
-          body: "done",
+          body: textBlocks("done"),
           refs: [],
           unattended: replyMark,
         },

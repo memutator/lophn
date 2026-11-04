@@ -38,7 +38,7 @@ import { dropValue, type Env } from "./agent-tab-core-source-env.ts";
 
 // ---------------------------------------------------------------- `/` 명령
 
-type UserPart = z.input<typeof sendMessage.input>["content"]["parts"][number];
+type UserPart = z.input<typeof sendMessage.input>["content"][number];
 
 /** 그 session의 registry. */
 async function readRegistry(
@@ -131,10 +131,7 @@ export function sendText(
       input: {
         id: input.id,
         session: input.session,
-        content: {
-          schema_version: 1,
-          parts: [{ kind: "text", text: input.text }],
-        },
+        content: [{ type: "text", text: input.text }],
         delivery: input.delivery,
         refs: [],
       },
@@ -187,10 +184,7 @@ export async function editQueuedMessage(
     await env.read(editQueued, {
       session: session.value,
       message: queued,
-      content: {
-        schema_version: 1,
-        parts: [{ kind: "text", text }],
-      },
+      content: [{ type: "text", text }],
     }),
   );
 }
@@ -257,7 +251,7 @@ export async function retryTurn(
   if (!body.ok) return body;
   const parts: UserPart[] = [];
   for (const part of body.value.content.parts) {
-    if (part.kind === "text") parts.push({ kind: "text", text: part.text });
+    if (part.kind === "text") parts.push({ type: "text", text: part.text });
   }
   if (parts.length === 0) return { ok: false, code: "invalid_input" };
   let id = retryIds.get(turn);
@@ -270,7 +264,7 @@ export async function retryTurn(
       input: {
         id,
         session: body.value.session,
-        content: { schema_version: 1, parts },
+        content: parts,
         delivery: "next_turn",
         refs: [],
       },

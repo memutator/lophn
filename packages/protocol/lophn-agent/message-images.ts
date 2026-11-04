@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { defineFile, defineMemory, defineUpload } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
+import { sha256Schema } from "../base/values.ts";
 
-// 사람이 메시지에 붙인 이미지다. 메시지 content는 글뿐이라 이미지는 먼저 올려 id를 받고, 글 끝에
-// `Attached image: open with image.read path "attachment:<id>".` 줄을 적는다. agent는 image.read로 연다.
-// 이미지는 session에 묶인다: 다른 session의 id로는 열리지 않는다.
+// 메시지에 싣는 이미지다. 바이트는 먼저 올려 blob이 되고(`UploadMessageImage`, agent는 `PrepareMessageImage`),
+// 그 hash를 image block에 싣는다(`content-block.ts`). 블록을 쓴 메시지가 그 blob의 영구 참조를 등록하고,
+// 이미지는 그 참조를 가진 메시지의 session에서만 읽힌다.
+// 옛 메시지는 글 끝에 `Attached image: ... "attachment:<id>"` 줄을 가진다. 그 id(`att_…`)는 올린 파일을 가리키고
+// `image.read`와 `ReadMessageImage`가 그대로 읽는다.
 export const MESSAGE_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const MESSAGE_IMAGE_TYPES = {
   "image/png": "png",
@@ -19,36 +22,60 @@ export const messageImageTypeSchema = z.enum(
   ],
 );
 
-export const messageImageIdSchema = idSchema("att");
+// 이미지 blob의 준비 용도와, 이미지를 담은 메시지가 영구 참조를 등록하는 field다(owner는 본문과 같은 message).
+export const MESSAGE_IMAGE_PURPOSE = "message_image";
+export const MESSAGE_IMAGE_FIELD = "image";
 
-// 바이트는 body이고 input은 header로 온다.
+export const messageImageIdSchema = idSchema("att");
+// 옛 첨부 id이거나 image block의 blob hash다.
+const messageImageRefSchema = z.union([messageImageIdSchema, sha256Schema]);
+
+const imageErrors = [
+  "invalid_input",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "unavailable",
+] as const;
+
+// 사람 화면이 올린다. 바이트는 body이고 input은 header로 온다. 결과 blob hash를 image block에 싣는다.
 export const messageImageUpload = defineUpload({
   resource: "message-images",
   method: "upload",
   name: "UploadMessageImage",
   input: z.strictObject({
-    session: idSchema("ses"),
     content_type: messageImageTypeSchema,
     bytes: z.number().int().min(1).max(MESSAGE_IMAGE_MAX_BYTES),
   }),
-  output: z.object({ id: messageImageIdSchema }),
+  output: z.object({ blob: sha256Schema }),
   actors: ["user"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "not_found",
-    "unavailable",
-  ],
+  errors: [...imageErrors],
   max_bytes: MESSAGE_IMAGE_MAX_BYTES,
+});
+
+// agent는 runtime loopback이 JSON뿐이라 바이트를 base64로 싣는다. 요청 상한(256KiB) 안에 들어가는 크기다.
+export const MESSAGE_IMAGE_CALL_MAX_BYTES = 180_000;
+export const messageImagePrepare = defineMemory({
+  resource: "message-images",
+  method: "prepare",
+  name: "PrepareMessageImage",
+  input: z.strictObject({
+    data_base64: z
+      .string()
+      .min(1)
+      .max(Math.ceil(MESSAGE_IMAGE_CALL_MAX_BYTES / 3) * 4),
+  }),
+  output: z.object({ blob: sha256Schema, mimeType: messageImageTypeSchema }),
+  actors: ["agent"],
+  errors: [...imageErrors],
 });
 
 const messageImageTarget = {
   session: idSchema("ses"),
-  image: messageImageIdSchema,
+  image: messageImageRefSchema,
 };
 
-// 사람 화면이 다시 열 때 그린다. Content-Type은 파일의 실제 형식이다.
+// 사람 화면이 그린다. Content-Type은 파일의 실제 형식이다. session의 메시지가 참조하지 않는 blob은 not_found다.
 export const messageImageRead = defineFile({
   resource: "message-images",
   method: "read",
@@ -56,16 +83,11 @@ export const messageImageRead = defineFile({
   input: z.strictObject(messageImageTarget),
   contentType: "application/octet-stream",
   actors: ["user"],
-  errors: [
-    "invalid_input",
-    "unauthorized",
-    "forbidden",
-    "not_found",
-    "unavailable",
-  ],
+  errors: [...imageErrors],
 });
 
-// image.read가 `attachment:<id>`를 파일 경로로 푼다. credential의 session과 입력의 session이 다르면 forbidden이다.
+// runtime이 model에 싣기 전에 읽을 파일 경로를 푼다(`image.read`의 `attachment:<id>`도 같다). credential의 session과
+// 입력의 session이 다르면 forbidden이고, session의 메시지가 참조하지 않는 blob은 not_found다.
 export const messageImagePath = defineMemory({
   resource: "message-images",
   method: "path",

@@ -1,10 +1,11 @@
 // lophn-agent의 정의 쪽(provider login, agent profile). 쓰기 앞 처리기가 두 곳이라
 // wiring이 둘이다(assembly.ts의 순서가 접는 순서다).
-import { createIdSource, ok } from "../../../../base/mod.ts";
+import { ok } from "../../../../base/mod.ts";
 import {
   agentProfileImageRead,
   agentProfileImageUpload,
   messageImagePath,
+  messageImagePrepare,
   messageImageRead,
   messageImageUpload,
   providerRead,
@@ -15,6 +16,8 @@ import {
   messageImageHandlers,
 } from "../../../lophn-agent/register.ts";
 import { ensureLophn } from "../../../agent-places/agents/ensure.ts";
+import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
@@ -41,16 +44,22 @@ export const lophnAgentWiring: WiringFactory = () => ({
   },
   build(ctx) {
     const profiles = agentProfileHandlers(ctx.runtime.readers, ctx.root.path);
-    const images = messageImageHandlers(
-      ctx.runtime.readers,
-      ctx.root.path,
-      createIdSource({ clock: ctx.clock, random: ctx.random }),
-    );
+    const images = messageImageHandlers(ctx.root.path, {
+      relay: () => ctx.bodyPrepare,
+      referenced: (session, blob) =>
+        ledgerSnapshot(ctx.ledgerPath, ({ sql }) =>
+          imageReferenced(sql, session, blob),
+        ),
+    });
     const key = (route: { resource: string; method: string }) =>
       `${route.resource}/${route.method}`;
     return ok({
-      // image.read의 `attachment:<id>` 풀이: agent가 자기 session의 이미지만 푼다.
-      memory: [[key(messageImagePath), images.path]],
+      // 받은 이미지 풀이(image block의 hash, image.read의 `attachment:<id>`): agent가 자기 session의 이미지만 푼다.
+      // 이미지 올리기: agent는 바이트를 JSON으로 싣고 blob 준비는 core가 한다.
+      memory: [
+        [key(messageImagePath), images.path],
+        [key(messageImagePrepare), images.prepare],
+      ],
       // profile 이미지 올리기: agent는 reader가 보고 파일은 core가 비동기로 쓴다.
       uploads: [
         [key(agentProfileImageUpload), profiles.upload],

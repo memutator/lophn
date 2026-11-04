@@ -132,7 +132,7 @@ export async function say(
   const sent = await core.call(sendMessage, {
     id: core.ids.newId("msg"),
     session,
-    content: { schema_version: 1, parts: [{ kind: "text", text }] },
+    content: [{ type: "text", text }],
     delivery: "next_turn",
     refs: [],
   });

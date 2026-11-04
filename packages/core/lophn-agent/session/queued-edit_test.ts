@@ -4,8 +4,10 @@ import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../../base/mod.ts";
 import {
+  contentOfBlocks,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
+  MESSAGE_IMAGE_FIELD,
   serializeMessageContent,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -27,6 +29,7 @@ function store() {
   for (const step of conversationSchemaSteps) db.exec(step.sql);
   db.exec(`
     create table events (seq integer primary key);
+    create table erase_windows (table_name text primary key);
     insert into events (seq) values (10);
     create table blob_refs (
       owner_kind text not null,
@@ -86,25 +89,7 @@ function store() {
   return { db, sql, tx, message };
 }
 
-// 본문 저장 경로를 건너뛰고 blob_refs를 지우는 core 안 erase와 같은 효과만 낸다.
-const eraseBlobRefs = (
-  tx: Tx,
-  ownerKind: string,
-  ownerKeys: readonly string[],
-) => {
-  for (const key of ownerKeys) {
-    tx.sql.run("delete from blob_refs where owner_kind = ? and owner_key = ?", [
-      ownerKind,
-      key,
-    ]);
-  }
-  return ok(undefined);
-};
-
-const content = {
-  schema_version: 1 as const,
-  parts: [{ kind: "text" as const, text: "edited text" }],
-};
+const content = [{ type: "text" as const, text: "edited text" }];
 
 test("큐의 글을 고치면 저장된 본문과 blob 참조가 새 글 하나로 바뀌고, 가져간 메시지는 conflict다", () => {
   const { db, sql, tx, message } = store();
@@ -112,9 +97,9 @@ test("큐의 글을 고치면 저장된 본문과 blob 참조가 새 글 하나�
     const oldHash = "0".repeat(64);
     message("msg_queued", null, oldHash);
     message("msg_taken", "trn_1", oldHash);
-    const edit = editQueuedCommand({ eraseBlobRefs });
+    const edit = editQueuedCommand();
     const expected = createHash("sha256")
-      .update(serializeMessageContent(content))
+      .update(serializeMessageContent(contentOfBlocks(content)))
       .digest("hex");
 
     const edited = edit.handle(
@@ -150,6 +135,57 @@ test("큐의 글을 고치면 저장된 본문과 blob 참조가 새 글 하나�
       "msg_taken",
     ]);
     assert.equal(untouched?.["body"], oldHash);
+  } finally {
+    db.close();
+  }
+});
+
+// 이미 건 이미지는 글을 고쳐도 남고, 새 이미지는 이 자격으로 올리지 않아 걸지 못한다.
+test("큐의 글을 고쳐도 건 이미지 참조는 남고 새 이미지를 더하는 고침은 거절된다", () => {
+  const { db, sql, tx, message } = store();
+  try {
+    message("msg_queued", null, "0".repeat(64));
+    const image = "a".repeat(64);
+    sql.run("insert into blob_refs values (?, ?, ?, ?, 0, 0)", [
+      MESSAGE_BODY_OWNER_KIND,
+      "msg_queued",
+      MESSAGE_IMAGE_FIELD,
+      image,
+    ]);
+    const edit = editQueuedCommand();
+    const block = { type: "image" as const, mimeType: "image/png" as const };
+
+    const kept = edit.handle(
+      tx,
+      machine,
+      {
+        session: "ses_x",
+        message: "msg_queued",
+        content: [...content, { ...block, blob: image }],
+      },
+      {},
+    );
+    assert.ok(kept.ok);
+    const added = edit.handle(
+      tx,
+      machine,
+      {
+        session: "ses_x",
+        message: "msg_queued",
+        content: [...content, { ...block, blob: "b".repeat(64) }],
+      },
+      {},
+    );
+    assert.ok(!added.ok);
+    assert.equal(added.error.code, "invalid_input");
+    assert.deepStrictEqual(
+      sql
+        .all("select hash from blob_refs where field = ?", [
+          MESSAGE_IMAGE_FIELD,
+        ])
+        .map((row) => row["hash"]),
+      [image],
+    );
   } finally {
     db.close();
   }

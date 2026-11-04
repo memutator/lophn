@@ -1,3 +1,4 @@
+import type { ContentBlock } from "../../../../protocol/lophn-agent/content-block.ts";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
@@ -178,9 +179,9 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           prepared: [],
         });
         if (!done.ok) return done;
-        // command가 redaction을 거친 글을 돌려준다. 입력함도 그 글로 바꾼다.
-        const { text } = done.value.result as { text: string };
-        inbox.edit(input.session as Id<"ses">, input.message, text);
+        // command가 redaction을 거친 block을 돌려준다. 입력함도 그 본문으로 바꾼다.
+        const { content } = done.value.result as { content: ContentBlock[] };
+        inbox.edit(input.session as Id<"ses">, input.message, content);
         return ok({ message: input.message });
       };
       // 표의 순서를 먼저 바꾼다. 켤 때 입력함에 다시 넣는 순서도 같은 표를 따른다.

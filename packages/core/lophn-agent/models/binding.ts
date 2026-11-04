@@ -67,6 +67,15 @@ function anthropicMessages(
     for (const part of message.parts) {
       if (part.kind === "text") {
         content.push({ type: "text", text: part.text });
+      } else if (part.kind === "image") {
+        content.push(
+          images
+            ? (imageBlock(part.media_type, part.data_base64) as Record<
+                string,
+                unknown
+              >)
+            : { type: "text", text: IMAGE_OMITTED },
+        );
       } else if (part.kind === "tool_use") {
         content.push({
           type: "tool_use",
@@ -146,14 +155,20 @@ function responsesInput(messages: PromptMessage[], images: boolean): unknown[] {
   const items: unknown[] = [];
   for (const message of messages) {
     const text = message.role === "user" ? "input_text" : "output_text";
-    let open: { type: string; text: string }[] | undefined;
+    let open: unknown[] | undefined;
     for (const part of message.parts) {
-      if (part.kind === "text") {
+      if (part.kind === "text" || part.kind === "image") {
         if (open === undefined) {
           open = [];
           items.push({ type: "message", role: message.role, content: open });
         }
-        open.push({ type: text, text: part.text });
+        open.push(
+          part.kind === "text"
+            ? { type: text, text: part.text }
+            : images
+              ? imageItem(part.media_type, part.data_base64)
+              : { type: "input_text", text: IMAGE_OMITTED },
+        );
         continue;
       }
       open = undefined;
@@ -261,16 +276,33 @@ function chatMessages(messages: PromptMessage[], images: boolean): unknown[] {
       });
       continue;
     }
-    let texts: string[] = [];
+    // user가 보낸 글과 이미지. 이미지가 있으면 content가 배열이고 없으면 글 하나다.
+    let pieces: unknown[] = [];
+    let hasImage = false;
     // tool message에는 이미지를 실을 수 없다. tool message가 모두 나간 뒤 user message 하나로 보낸다.
     const pictures: unknown[] = [];
     const flush = () => {
-      if (texts.length > 0) out.push({ role: "user", content: texts.join("") });
-      texts = [];
+      if (pieces.length > 0) {
+        out.push({
+          role: "user",
+          content: hasImage
+            ? pieces
+            : pieces.map((piece) => (piece as { text: string }).text).join(""),
+        });
+      }
+      pieces = [];
+      hasImage = false;
     };
     for (const part of message.parts) {
       if (part.kind === "text") {
-        texts.push(part.text);
+        pieces.push({ type: "text", text: part.text });
+        continue;
+      }
+      if (part.kind === "image") {
+        if (images) {
+          pieces.push(imagePart(part.media_type, part.data_base64));
+          hasImage = true;
+        } else pieces.push({ type: "text", text: IMAGE_OMITTED });
         continue;
       }
       flush();

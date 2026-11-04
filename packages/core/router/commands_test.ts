@@ -1,3 +1,4 @@
+import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
@@ -96,7 +97,7 @@ test("calls.send and calls.reply stamp unattended from the turn mode of the call
       {
         to: { agent: "lophn" },
         reply: "result",
-        body: "do it",
+        body: textBlocks("do it"),
         refs: [],
         dedup: "tool-1",
       },
@@ -113,7 +114,7 @@ test("calls.send and calls.reply stamp unattended from the turn mode of the call
       as(RECEIVER, turn),
       {
         call,
-        body: "done",
+        body: textBlocks("done"),
         refs: [],
       },
       {},

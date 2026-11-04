@@ -3,6 +3,7 @@ import {
   forkSession,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
+  MESSAGE_IMAGE_FIELD,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -13,6 +14,7 @@ import { startSession } from "../places/lifecycle.ts";
 import type { OpenDeps } from "../places/ports.ts";
 import { hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser } from "./guards.ts";
+import { imageRefsOf } from "./message-images.ts";
 import {
   loadSession,
   MESSAGE_COLUMNS,
@@ -158,6 +160,26 @@ export function createForkCommand(
           },
         });
         if (!registered.ok) return registered;
+        // 복사한 메시지가 같은 이미지를 읽도록 이미지 참조도 따로 등록한다.
+        for (const hash of imageRefsOf(tx.sql, original.id)) {
+          const copied = tx.registerBlobRef({
+            owner_kind: MESSAGE_BODY_OWNER_KIND,
+            owner_key: copy,
+            field: MESSAGE_IMAGE_FIELD,
+            registered_seq: String(seq),
+            source: {
+              kind: "existing",
+              reference: {
+                owner_kind: MESSAGE_BODY_OWNER_KIND,
+                owner_key: original.id,
+                field: MESSAGE_IMAGE_FIELD,
+                hash,
+                registered_seq: original.created_seq,
+              },
+            },
+          });
+          if (!copied.ok) return copied;
+        }
       }
       return ok({
         id: input.id,

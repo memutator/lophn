@@ -4,6 +4,7 @@ import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { annotationIdSchema } from "../apps/annotation.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { contentBlocksSchema } from "./content-block.ts";
 import {
   agentAddressSchema,
   agentAtPlaceOutputSchema,
@@ -86,7 +87,7 @@ export const callReply = defineCommand({
   name: "ReplyCall",
   input: z.strictObject({
     call: idSchema("cal"),
-    body: z.string().min(1),
+    body: contentBlocksSchema,
     refs: z.array(callRefSchema).default([]),
   }),
   output: z.object({ delivered: z.boolean(), closed: z.boolean() }),
@@ -146,7 +147,7 @@ export const agentCallEnvelopeSchema = z
     from: callFromOutputSchema,
     to: callTargetSchema,
     reply: callReplySchema,
-    body: z.string().min(1),
+    body: contentBlocksSchema,
     refs: z.array(callRefOutputSchema),
     reply_to: idSchema("cal").nullable(),
     // 보낸 쪽 tool call ID. agent가 보낸 call에만 있다.
@@ -187,7 +188,7 @@ export const agentCallSend = defineCommand({
   input: z.strictObject({
     to: callAddressInputSchema,
     reply: callReplySchema,
-    body: z.string().min(1),
+    body: contentBlocksSchema,
     refs: z.array(callRefSchema),
     dedup: z.string().min(1),
   }),

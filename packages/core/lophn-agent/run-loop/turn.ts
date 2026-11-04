@@ -4,6 +4,7 @@ import {
   estimateTokens,
   type HistoryMessage,
   type HistoryPart,
+  IMAGE_TOKENS,
   type PromptAnchor,
   sessionMaterial,
   textTokens,
@@ -36,7 +37,6 @@ import type {
   TurnContext,
   TurnInput,
 } from "./ports.ts";
-import { inputText } from "./input-text.ts";
 import {
   abortableWait,
   isTransientFailure,
@@ -249,6 +249,8 @@ function sessionTokens(context: TurnContext): number {
     for (const part of message.parts) {
       if (part.kind === "text" || part.kind === "tool_result") {
         tokens += textTokens(part.text);
+      } else if (part.kind === "image") {
+        tokens += IMAGE_TOKENS;
       }
     }
   }
@@ -304,22 +306,16 @@ function historyOf(
     pushHistory(messages, message.role, message.parts);
   }
   if (inputs.request !== null) {
-    pushHistory(messages, "user", [{ kind: "text", text: inputs.request }]);
+    pushHistory(messages, "user", inputs.request);
   }
   for (const message of omitOldImages(state.history, KEEP_IMAGES)) {
     pushHistory(messages, message.role, message.parts);
   }
-  const tail = [
-    ...inputs.steering.map((item) => inputText(item.input)),
-    ...context.notices,
+  const tail: HistoryPart[] = [
+    ...inputs.steering.flatMap((item) => item.parts),
+    ...context.notices.map((text): HistoryPart => ({ kind: "text", text })),
   ];
-  if (tail.length > 0) {
-    pushHistory(
-      messages,
-      "user",
-      tail.map((text) => ({ kind: "text", text })),
-    );
-  }
+  if (tail.length > 0) pushHistory(messages, "user", tail);
   return messages;
 }
 
@@ -579,15 +575,8 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   const step = await callModel(state, prepared);
   if (step.kind === "end") return step.end;
   // 보낸 steering은 이 call에 반영됐다. 이후 이력에서 이어진다.
-  const steering = prepared.inputs.steering.map((item) =>
-    inputText(item.input),
-  );
-  if (steering.length > 0) {
-    appendUser(
-      state,
-      steering.map((text) => ({ kind: "text", text })),
-    );
-  }
+  const steering = prepared.inputs.steering.flatMap((item) => item.parts);
+  if (steering.length > 0) appendUser(state, steering);
   if (step.kind === "restart") return continueTurn;
   if (step.kind === "overflow") return await afterOverflow(state, prepared);
   const attempt = step.attempt;

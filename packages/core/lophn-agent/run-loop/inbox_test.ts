@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import {
+  blocksText,
+  textBlocks,
+} from "../../../protocol/lophn-agent/content-block.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import { createInbox } from "./inbox.ts";
 
@@ -21,7 +25,7 @@ function input(
           },
     call: null,
     reply_to: null,
-    body,
+    body: textBlocks(body),
     refs: [],
     delivery,
     message: null,
@@ -41,7 +45,7 @@ test("사람 메시지가 call보다 먼저 나오고 steer는 도는 turn이 �
   inbox.put(SESSION, input("call", "c2"));
   inbox.put(SESSION, input("message", "m2", "steer"));
   assert.deepStrictEqual(inbox.pendingSteering(SESSION), []);
-  const order = [1, 2, 3, 4].map(() => inbox.take(SESSION)?.body);
+  const order = [1, 2, 3, 4].map(() => blocksText(inbox.take(SESSION)!.body));
   assert.deepStrictEqual(order, ["m1", "m2", "c1", "c2"]);
   assert.deepStrictEqual(inbox.take(SESSION), undefined);
 
@@ -50,7 +54,7 @@ test("사람 메시지가 call보다 먼저 나오고 steer는 도는 turn이 �
   inbox.put(SESSION, input("message", "s1", "steer"));
   assert.deepStrictEqual(inbox.next(SESSION), undefined);
   assert.deepStrictEqual(
-    inbox.pendingSteering(SESSION).map((i) => i.body),
+    inbox.pendingSteering(SESSION).map((i) => blocksText(i.body)),
     ["s1"],
   );
 });
@@ -67,14 +71,23 @@ test("큐의 글을 고치면 다음 turn이 고친 글을 가져가고, 순서�
     message: "msg_q2",
   } as RoutedInput);
 
-  assert.deepStrictEqual(inbox.edit(SESSION, "msg_q1", "edited"), true);
+  assert.deepStrictEqual(
+    inbox.edit(SESSION, "msg_q1", textBlocks("edited")),
+    true,
+  );
   assert.deepStrictEqual(inbox.move(SESSION, "msg_q2", "up"), true);
   assert.deepStrictEqual(
-    [inbox.take(SESSION)?.body, inbox.take(SESSION)?.body],
+    [
+      blocksText(inbox.take(SESSION)!.body),
+      blocksText(inbox.take(SESSION)!.body),
+    ],
     ["q2", "edited"],
   );
   // 이미 가져간 메시지는 고칠 수 없다.
-  assert.deepStrictEqual(inbox.edit(SESSION, "msg_q1", "again"), false);
+  assert.deepStrictEqual(
+    inbox.edit(SESSION, "msg_q1", textBlocks("again")),
+    false,
+  );
 });
 
 test("지금 올리기와 빼기는 아직 가져가지 않은 사람 메시지에만 먹는다", () => {

@@ -4,11 +4,12 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { contentBlocksSchema } from "./content-block.ts";
 import { inputDeliverySchema } from "./inputs.ts";
 import {
   messageContentInputSchema,
   messageContentSchema,
-  userMessageContentInputSchema,
+  userContentBlocksSchema,
 } from "./message-content.ts";
 
 function links(strict: boolean) {
@@ -97,13 +98,14 @@ const commandErrors = [
   "conflict",
   "unavailable",
 ] as const;
-// 본문은 값 그대로 싣는다. core가 redaction을 거쳐 blob으로 준비하고 command가 영구
-// 참조를 등록한다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다.
+// 본문은 content block 값 그대로 싣는다. core가 글을 redaction하고 저장되는 본문(`contentOfBlocks`)을 blob으로
+// 준비하고 command가 영구 참조를 등록한다. 호출자는 hash를 만들지도 본문 blob을 준비하지도 않는다. 이미지만 예외다:
+// image block은 호출자가 먼저 올린 blob의 hash를 싣고(`UploadMessageImage`) command가 그 참조를 같은 자격으로 건다.
 const receiveMessageInputSchema = z
   .strictObject({
     id: idSchema("msg"),
     session: idSchema("ses"),
-    content: userMessageContentInputSchema,
+    content: userContentBlocksSchema,
     delivery: inputDeliverySchema,
     turn: idSchema("trn").optional(),
   })
@@ -231,12 +233,12 @@ export const editQueuedMessage = defineCommand({
   input: z.strictObject({
     session: idSchema("ses"),
     message: idSchema("msg"),
-    content: userMessageContentInputSchema,
+    content: userContentBlocksSchema,
   }),
   output: z.strictObject({
     message: idSchema("msg"),
-    // redaction을 거친 본문 글. 부르는 쪽(wiring)이 입력함의 글도 같은 값으로 바꾼다.
-    text: z.string(),
+    // redaction을 거친 block. 부르는 쪽(wiring)이 입력함의 본문도 같은 값으로 바꾼다.
+    content: contentBlocksSchema,
   }),
   compare: z.strictObject({}),
   actors: ["machine"],

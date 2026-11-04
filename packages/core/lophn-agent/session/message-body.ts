@@ -11,16 +11,18 @@ import {
 } from "../../../base/mod.ts";
 import {
   agentMessageContentInputSchema,
+  type ContentBlock,
+  contentBlocksSchema,
+  contentOfBlocks,
   editQueuedMessage,
   machineMessageContentInputSchema,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
-  MESSAGE_TEXT_CONTENT_MAX_BYTES,
   receiveMessage,
   recordMessage,
   sendMessage,
   serializeMessageContent,
-  userMessageContentInputSchema,
+  userContentBlocksSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
@@ -84,6 +86,51 @@ function redactValue(
   return { value };
 }
 
+// 글을 가진 칸만 redaction한다. type, mimeType, blob hash는 그대로 둔다: hash 모양의 글을 secret으로 오인해
+// 이미지 참조를 깨지 않게 한다. 안전화를 끝내지 못하면 null이다.
+export function redactBlocks(
+  redactText: TextRedactor,
+  blocks: readonly ContentBlock[],
+): ContentBlock[] | null {
+  const safe = (text: string) => redactText(SOURCE, "text/plain", text);
+  const out: ContentBlock[] = [];
+  for (const block of blocks) {
+    switch (block.type) {
+      case "image":
+        out.push(block);
+        break;
+      case "text": {
+        const text = safe(block.text);
+        if (text === null) return null;
+        out.push({ ...block, text });
+        break;
+      }
+      case "resource": {
+        const uri = safe(block.uri);
+        const text = safe(block.text);
+        if (uri === null || text === null) return null;
+        out.push({ ...block, uri, text });
+        break;
+      }
+      case "resource_link": {
+        const uri = safe(block.uri);
+        const name = safe(block.name);
+        const description =
+          block.description === undefined ? undefined : safe(block.description);
+        if (uri === null || name === null || description === null) return null;
+        out.push({
+          ...block,
+          uri,
+          name,
+          ...(description === undefined ? {} : { description }),
+        });
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 export function rejected(
   code: LophnError["code"],
   message: string,
@@ -129,6 +176,8 @@ export async function prepareBytes(
 
 // 본문을 싣는 command의 앞 단계. 값은 redaction을 거친 값으로 바뀌어 writer에 가고,
 // 그 바이트는 보낸 자격의 이름으로 준비되어 있다. 다른 command는 그대로 지나간다.
+// 사람 메시지는 content block이고 저장되는 본문(`contentOfBlocks`)이 blob이 된다. 이미지는 hash만 싣는다:
+// bytes는 보낸 자격으로 먼저 올린 blob이고 command가 같은 transaction에서 그 참조를 등록한다.
 export function createMessageBodyPreparer(deps: {
   // 준비 통로. I/O worker가 뜨기 전에는 없다(unavailable).
   relay(): BodyPrepare | undefined;
@@ -141,46 +190,57 @@ export function createMessageBodyPreparer(deps: {
   envelope: CommandEnvelope,
 ) => Promise<Result<CommandEnvelope>> {
   return async (ctx, envelope) => {
-    if (
-      envelope.command !== sendMessage.name &&
-      envelope.command !== receiveMessage.name &&
-      envelope.command !== recordMessage.name &&
-      envelope.command !== editQueuedMessage.name
-    )
+    const blocksCommand =
+      envelope.command === sendMessage.name ||
+      envelope.command === receiveMessage.name ||
+      envelope.command === editQueuedMessage.name;
+    if (!blocksCommand && envelope.command !== recordMessage.name) {
       return ok(envelope);
-    const kind = parseActor(ctx.actor)?.kind;
-    // 큐에 있는 사람 메시지 고치기도 사람 메시지와 같은 글 모양·상한을 쓴다. 저장 경로는
-    // machine이지만 값은 사람이 쓴 글이다.
-    const editingQueued = envelope.command === editQueuedMessage.name;
+    }
     const record = envelope.input as { content?: unknown };
-    // 사람은 글만, machine은 글과 reasoning, agent는 글과 카드다(MessageContent).
-    const schema = editingQueued
-      ? userMessageContentInputSchema
-      : kind === "agent"
-        ? agentMessageContentInputSchema
-        : kind === "machine"
-          ? machineMessageContentInputSchema
-          : userMessageContentInputSchema;
-    // 답 글에 reasoning이 붙으면 64KiB를 넘기 쉽다. agent와 같은 상한을 쓴다.
-    const max =
-      !editingQueued && (kind === "agent" || kind === "machine")
-        ? MESSAGE_CONTENT_MAX_BYTES
-        : MESSAGE_TEXT_CONTENT_MAX_BYTES;
-    const redacted = redactValue(
-      createProductRedactor(deps.known?.()),
-      record.content,
-    );
-    if (redacted === null) {
-      return rejected("unavailable", "message redaction did not finish");
-    }
-    // redaction 뒤 값이 다시 계약 안인지 본다. 대체 문구가 길어 상한을 넘을 수 있다.
-    const checked = schema.safeParse(redacted.value);
-    if (!checked.success) {
-      return rejected("invalid_input", "message content is not valid");
-    }
-    const bytes = serializeMessageContent(checked.data);
-    if (bytes.length > max) {
-      return rejected("invalid_input", "message content is too large");
+    const redact = createProductRedactor(deps.known?.());
+    let content: unknown;
+    let bytes: Uint8Array;
+    if (blocksCommand) {
+      const shaped = contentBlocksSchema.safeParse(record.content);
+      if (!shaped.success) {
+        return rejected("invalid_input", "message content is not valid");
+      }
+      const redacted = redactBlocks(redact, shaped.data);
+      if (redacted === null) {
+        return rejected("unavailable", "message redaction did not finish");
+      }
+      // redaction 뒤 값이 다시 계약 안인지 본다. 대체 문구가 길어 상한을 넘을 수 있다.
+      const checked = userContentBlocksSchema.safeParse(redacted);
+      if (!checked.success) {
+        return rejected("invalid_input", "message content is not valid");
+      }
+      content = checked.data;
+      bytes = serializeMessageContent(contentOfBlocks(checked.data));
+    } else {
+      const kind = parseActor(ctx.actor)?.kind;
+      // agent는 글과 카드, machine은 글과 reasoning이다(MessageContent).
+      const schema =
+        kind === "agent"
+          ? agentMessageContentInputSchema
+          : kind === "machine"
+            ? machineMessageContentInputSchema
+            : undefined;
+      if (schema === undefined) return ok(envelope);
+      const redacted = redactValue(redact, record.content);
+      if (redacted === null) {
+        return rejected("unavailable", "message redaction did not finish");
+      }
+      const checked = schema.safeParse(redacted.value);
+      if (!checked.success) {
+        return rejected("invalid_input", "message content is not valid");
+      }
+      content = checked.data;
+      bytes = serializeMessageContent(checked.data);
+      // 답 글에 reasoning이 붙으면 64KiB를 넘기 쉽다. 사람 메시지보다 큰 상한을 쓴다.
+      if (bytes.length > MESSAGE_CONTENT_MAX_BYTES) {
+        return rejected("invalid_input", "message content is too large");
+      }
     }
     const relay = deps.relay();
     if (relay === undefined) {
@@ -194,10 +254,7 @@ export function createMessageBodyPreparer(deps: {
       "message body",
     );
     if (!prepared.ok) return prepared;
-    return ok({
-      ...envelope,
-      input: { ...record, content: checked.data },
-    });
+    return ok({ ...envelope, input: { ...record, content } });
   };
 }
 

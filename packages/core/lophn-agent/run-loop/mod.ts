@@ -35,7 +35,7 @@ export {
 } from "./work.ts";
 export { createInbox, type Inbox } from "./inbox.ts";
 export { createTurnPipe } from "./turn-pipe.ts";
-export { inputText } from "./input-text.ts";
+export { inputParts } from "./input-text.ts";
 export { untrustedSource } from "./untrusted.ts";
 export {
   type AgentCredentialIssuer,

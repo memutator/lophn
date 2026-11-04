@@ -5,7 +5,7 @@ import {
   defuseTransmittedText,
 } from "../safety/mod.ts";
 import { textTokens } from "./budget.ts";
-import type { HistoryMessage, PromptRequest } from "./model.ts";
+import type { HistoryMessage, HistoryPart, PromptRequest } from "./model.ts";
 
 // Compact summary의 준비이다. 순수 값과 계산만
 // 두고 I/O는 없다. 요약 call은 agent runtime이 하고, 여기는 요약 요청의 모양과 본문 크기를 정한다.
@@ -18,10 +18,13 @@ export function summaryBodyTokens(text: string): number {
 // ---- 이후 call의 조립 ----
 
 // session의 확정 메시지 하나. 사람의 말은 user이고 agent의 답과 machine의 확인은 assistant다.
+// text는 요약과 token 세기가 쓰는 글이고 이미지 자리는 고정 글이다. parts는 이미지를 실을 때만 있다: 없으면
+// text 하나가 조각이다.
 export type SessionMessage = {
   seq: bigint;
   role: "user" | "assistant";
   text: string;
+  parts?: readonly HistoryPart[];
 };
 
 // rewind가 숨기거나 접은 구간(lophn-agent/revert). 원문은 session에 그대로 있고 이후 model 입력에서만
@@ -98,7 +101,9 @@ export function sessionMaterial(conversation: SessionConversation): {
 } {
   const history: HistoryMessage[] = [];
   for (const message of visibleMessages(conversation)) {
-    const parts = [{ kind: "text" as const, text: message.text }];
+    const parts: readonly HistoryPart[] = message.parts ?? [
+      { kind: "text", text: message.text },
+    ];
     const last = history[history.length - 1];
     if (last !== undefined && last.role === message.role) {
       history[history.length - 1] = {

@@ -18,11 +18,16 @@ import {
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import {
   archiveSession,
+  blocksOfContent,
+  type ContentBlock,
+  contentBlocksSchema,
+  contentOfBlocks,
   deleteSession,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
   messageBody,
   serializeMessageContent,
+  textBlocks,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   type AgentAtPlace,
@@ -41,6 +46,7 @@ import { INBOX_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import {
   prepareBytes,
+  redactBlocks,
   rejected,
 } from "../../../lophn-agent/session/message-body.ts";
 import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
@@ -94,28 +100,16 @@ const ANNOTATION_DELIVERY_CONTEXT: AuthenticatedContext = {
   credential_ref: ANNOTATION_DELIVERY_PRINCIPAL,
 };
 
-const SOURCE = {
-  concern: "router",
-  revision: "1",
-  scope: "call-body",
-};
-
-export function textBytes(text: string): Uint8Array {
-  return serializeMessageContent({
-    schema_version: 1,
-    parts: [{ kind: "text", text }],
-  });
-}
-
-// 받는 session 기록은 글을 blob으로 둔다. command 안에서 쓰는 글은 그 command를 부른 자격의 이름으로 미리
-// 준비돼 있어야 한다. 보낸 call의 본문, 실패를 보낸 session에 돌려주는 고정 문구, 취소 알림이다.
-export async function prepareTexts(
+// 받는 session 기록은 본문을 blob으로 둔다. command 안에서 쓰는 본문은 그 command를 부른 자격의 이름으로 미리
+// 준비돼 있어야 한다. 보낸 call의 본문, 실패를 보낸 session에 돌려주는 고정 문구, 취소 알림이다. 이미지는 hash만
+// 싣는다: bytes는 보낸 자격이 먼저 올린 blob이고 command가 같은 transaction에서 참조를 건다.
+export async function prepareBodies(
   relay: BodyPrepare,
   ctx: AuthenticatedContext,
-  texts: readonly string[],
+  bodies: readonly (readonly ContentBlock[])[],
 ): Promise<Result<void>> {
-  for (const text of new Set(texts)) {
-    const bytes = textBytes(text);
+  for (const body of bodies) {
+    const bytes = serializeMessageContent(contentOfBlocks(body));
     if (bytes.length > MESSAGE_CONTENT_MAX_BYTES) {
       return rejected("invalid_input", "call text is too large");
     }
@@ -131,6 +125,19 @@ export async function prepareTexts(
   return ok(undefined);
 }
 
+// 글 하나짜리 본문들을 준비한다. 같은 글은 한 번만 준비한다.
+export async function prepareTexts(
+  relay: BodyPrepare,
+  ctx: AuthenticatedContext,
+  texts: readonly string[],
+): Promise<Result<void>> {
+  return await prepareBodies(
+    relay,
+    ctx,
+    [...new Set(texts)].map((text) => textBlocks(text)),
+  );
+}
+
 function createCallBodyPreparer(deps: {
   relay(): BodyPrepare | undefined;
   known?(): KnownSecretMatch | undefined;
@@ -141,33 +148,35 @@ function createCallBodyPreparer(deps: {
   ): Promise<Result<CommandEnvelope>> => {
     const name = envelope.command;
     const input = envelope.input;
-    const texts: string[] = [];
+    const bodies: ContentBlock[][] = [];
     let next = envelope;
     if (name === agentCallSend.name || name === callReply.name) {
-      const body = (input as { body?: unknown } | null)?.body;
       // 모양이 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
-      if (typeof body !== "string") return ok(envelope);
-      const safe = createProductRedactor(deps.known?.())(
-        SOURCE,
-        "text/plain",
-        body,
+      const shaped = contentBlocksSchema.safeParse(
+        (input as { body?: unknown } | null)?.body,
+      );
+      if (!shaped.success) return ok(envelope);
+      // 글(text, link, resource text)만 redaction한다. 이미지는 hash를 그대로 둔다.
+      const safe = redactBlocks(
+        createProductRedactor(deps.known?.()),
+        shaped.data,
       );
       if (safe === null) {
         return rejected("unavailable", "call redaction did not finish");
       }
-      texts.push(safe);
+      bodies.push(safe);
       next = { ...envelope, input: { ...(input as object), body: safe } };
     } else if (name === callCancel.name) {
-      texts.push(CANCEL_TEXT);
+      bodies.push(textBlocks(CANCEL_TEXT));
     } else if (name === archiveSession.name || name === deleteSession.name) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
-      texts.push(FAILURE_TEXTS.receiver_ended);
+      bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
     } else return ok(envelope);
     const relay = deps.relay();
     if (relay === undefined) {
       return rejected("unavailable", "blob preparation is not available");
     }
-    const prepared = await prepareTexts(relay, ctx, texts);
+    const prepared = await prepareBodies(relay, ctx, bodies);
     return prepared.ok ? ok(next) : prepared;
   };
 }
@@ -278,10 +287,7 @@ export const routerWiring: WiringFactory = () => {
         const sent = await run(sendMessage, {
           id: message,
           session,
-          content: {
-            schema_version: 1,
-            parts: [{ kind: "text", text: input.text }],
-          },
+          content: textBlocks(input.text),
           delivery: "next_turn",
           refs: input.annotations.map((id) => ({ kind: "annotation", id })),
         });
@@ -440,11 +446,8 @@ export const routerWiring: WiringFactory = () => {
             continue;
           }
           const { content } = body.value as {
-            content: { parts: { kind: string; text?: string }[] };
+            content: Parameters<typeof blocksOfContent>[0];
           };
-          const text = content.parts
-            .flatMap((part) => (part.kind === "text" ? [part.text ?? ""] : []))
-            .join("\n");
           apply([
             {
               topic: INBOX_PUT_TOPIC,
@@ -455,7 +458,7 @@ export const routerWiring: WiringFactory = () => {
                   from: { kind: "human" },
                   call: null,
                   reply_to: null,
-                  body: text,
+                  body: blocksOfContent(content),
                   refs: pending.refs,
                   delivery: "next_turn",
                   message: pending.id,

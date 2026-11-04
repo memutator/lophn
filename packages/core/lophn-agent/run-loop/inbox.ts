@@ -1,4 +1,5 @@
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 
 // session마다 하나인 메모리 입력함이다. 꺼졌다 켜지면 사라지고, 기다리던 call은 Router가
@@ -27,9 +28,9 @@ export type Inbox = {
   steerNow(session: Session, message: string): boolean;
   // 입력함에서 메시지 하나를 뺀다. 이미 가져갔으면 false다.
   remove(session: Session, message: string): boolean;
-  // 아직 가져가지 않은 사람 메시지의 글이나 순서를 바꾼다. 없으면 false다. 사람 메시지끼리만
+  // 아직 가져가지 않은 사람 메시지의 본문이나 순서를 바꾼다. 없으면 false다. 사람 메시지끼리만
   // 순서를 맞바꾸므로 사람 메시지가 먼저라는 규칙은 그대로다.
-  edit(session: Session, message: string, body: string): boolean;
+  edit(session: Session, message: string, body: ContentBlock[]): boolean;
   move(session: Session, message: string, direction: "up" | "down"): boolean;
   // 입력이 기다리는 session을 먼저 시작할 순서대로 준다.
   waiting(): readonly Session[];

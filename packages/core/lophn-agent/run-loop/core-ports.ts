@@ -48,7 +48,7 @@ import type {
   TurnPorts,
 } from "./ports.ts";
 import { createLiveOutput, messageIdOf } from "./live-turns.ts";
-import { inputText } from "./input-text.ts";
+import { type ImageReader, inputParts, loadParts } from "./input-text.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import {
@@ -96,6 +96,8 @@ type CorePortsDeps = {
   clock: Clock;
   ids: IdSource;
   machine: CoreCall;
+  // 받은 image part의 bytes를 읽는다. 이 session의 메시지가 참조하는 blob만 읽힌다.
+  images: ImageReader;
   // 기록이 hash로 가리키는 본문을 먼저 저장하는 통로와 전송 전 redaction.
   blobs: BlobPort;
   redact: RedactText;
@@ -184,9 +186,18 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     if (!first.ok) return first;
     const steering = await deps.turnInputs.steering();
     if (!steering.ok) return steering;
+    // 받은 turn의 입력과 뒤 이력이 같은 part 함수(inputParts)와 같은 reader를 쓴다.
     return ok({
-      request: first.value === null ? null : inputText(first.value),
-      steering: steering.value,
+      request:
+        first.value === null
+          ? null
+          : await loadParts(inputParts(first.value), deps.images),
+      steering: await Promise.all(
+        steering.value.map(async (item) => ({
+          ...item,
+          parts: await loadParts(inputParts(item.input), deps.images),
+        })),
+      ),
     });
   }
 

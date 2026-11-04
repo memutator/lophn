@@ -54,7 +54,7 @@ export function wireSize(pack: WirePack, request: PromptRequest): WireSize {
   for (const message of request.messages) {
     for (const part of message.parts) {
       if (
-        part.kind === "tool_result_image" &&
+        (part.kind === "tool_result_image" || part.kind === "image") &&
         json.includes(part.data_base64)
       ) {
         bytes -= part.data_base64.length;

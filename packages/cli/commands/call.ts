@@ -2,16 +2,93 @@
 // call.send·call.reply route는 actor가 agent뿐이라 binary(사람)에서는 forbidden이다. 보낸 turn의 unattended 표시는 core가
 // agent credential의 turn mode에서 찍으므로 여기서 다루지 않는다.
 // effect가 read인 것은 run-loop가 실패한 read를 같은 tool call로 다시 부를 때 key가 같아서 call이 하나만 생기기 때문이다.
+import { readFile, realpath, stat } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
-import { ok } from "../../base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   agentCallSend,
   callCancel,
   callRefSchema,
   callReply,
 } from "../../protocol/lophn-agent/calls.ts";
+import {
+  type ContentBlock,
+  textBlocks,
+} from "../../protocol/lophn-agent/content-block.ts";
+import {
+  MESSAGE_IMAGE_CALL_MAX_BYTES,
+  messageImagePrepare,
+} from "../../protocol/lophn-agent/message-images.ts";
 import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
-import { defineCommand } from "./types.ts";
+import { defineCommand, type CommandContext } from "./types.ts";
+
+// 본문은 글 하나다. `--image <path>`는 file을 image block으로 더한다: 받는 쪽에 읽기 허락을 주지 않고 값을 싣는다.
+const bodyFields = {
+  body: z.string().min(1),
+  image: z.array(z.string().min(1)).default([]),
+};
+
+function fail(code: LophnError["code"], message: string): Result<never> {
+  return err({ code, message });
+}
+
+// lophn agent가 부를 때는 place의 폴더 안 file만 싣는다. binary는 process cwd 기준이고 막지 않는다.
+async function imageBlock(
+  path: string,
+  ctx: CommandContext,
+): Promise<Result<ContentBlock>> {
+  const at = resolve(ctx.cwd ?? ".", path);
+  let real: string;
+  try {
+    real = await realpath(at);
+  } catch {
+    return fail("not_found", `image not found: ${path}`);
+  }
+  if (ctx.caller !== undefined) {
+    const rel =
+      ctx.cwd === undefined ? null : relative(await realpath(ctx.cwd), real);
+    if (
+      rel === null ||
+      rel === ".." ||
+      rel.startsWith(`..${sep}`) ||
+      isAbsolute(rel)
+    ) {
+      return fail("forbidden", "image is outside the place folder");
+    }
+  }
+  const info = await stat(real);
+  if (!info.isFile()) return fail("invalid_input", `not a file: ${path}`);
+  if (info.size > MESSAGE_IMAGE_CALL_MAX_BYTES) {
+    return fail(
+      "invalid_input",
+      `image is larger than ${MESSAGE_IMAGE_CALL_MAX_BYTES} bytes: ${path}`,
+    );
+  }
+  const prepared = await ctx.core.read(messageImagePrepare, {
+    data_base64: (await readFile(real)).toString("base64"),
+  });
+  return prepared.ok
+    ? ok({
+        type: "image",
+        mimeType: prepared.value.mimeType,
+        blob: prepared.value.blob,
+      })
+    : prepared;
+}
+
+async function bodyOf(
+  input: { body: string; image: string[] },
+  ctx: CommandContext,
+): Promise<Result<ContentBlock[]>> {
+  const blocks = textBlocks(input.body);
+  for (const path of input.image) {
+    const block = await imageBlock(path, ctx);
+    if (!block.ok) return block;
+    blocks.push(block.value);
+  }
+  return ok(blocks);
+}
 
 const send = defineCommand({
   name: "call.send",
@@ -19,18 +96,23 @@ const send = defineCommand({
   description:
     "Hand work to an agent asynchronously; returns a call ID. to.session uses an open session (session list); to.agent/place opens a new one using exact names (no place means home). " +
     'Supply both with fallback:"new" to open a replacement when the session is closed. Closed sessions stay closed. ' +
-    "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply.",
-  input: agentCallSend.input
-    .omit({ dedup: true })
-    .extend({ refs: z.array(callRefSchema).default([]) }),
+    "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply. " +
+    "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from this place's folder; the receiver gets the image itself and no read access to the file.",
+  input: agentCallSend.input.omit({ dedup: true, body: true }).extend({
+    ...bodyFields,
+    refs: z.array(callRefSchema).default([]),
+  }),
   effect: "read",
-  routes: [agentCallSend],
+  routes: [agentCallSend, messageImagePrepare],
   places: PLACE_KINDS,
   run: async (input, ctx) => {
+    const body = await bodyOf(input, ctx);
+    if (!body.ok) return body;
+    const { image: _image, ...rest } = input;
     // 같은 tool call을 다시 보내도 같은 dedup이라 call과 session이 하나만 생긴다.
     const sent = await ctx.core.command(
       agentCallSend,
-      { ...input, dedup: ctx.key },
+      { ...rest, body: body.value, dedup: ctx.key },
       { key: ctx.key },
     );
     if (!sent.ok) return sent;
@@ -58,14 +140,23 @@ const reply = defineCommand({
   name: "call.reply",
   summary: "Answer a call you received",
   description:
-    "Answer a call you received, with call (its ID), body and refs. If you will not take the work, reply with the reason. closed: true means the call already ended and the reply was not delivered.",
-  input: callReply.input,
+    "Answer a call you received, with call (its ID), body (text), optional --image <path> files and refs. If you will not take the work, reply with the reason. closed: true means the call already ended and the reply was not delivered.",
+  input: callReply.input
+    .omit({ body: true })
+    .extend({ ...bodyFields, refs: z.array(callRefSchema).default([]) }),
   positional: ["call"],
   effect: "read",
-  routes: [callReply],
+  routes: [callReply, messageImagePrepare],
   places: PLACE_KINDS,
   run: async (input, ctx) => {
-    const sent = await ctx.core.command(callReply, input, { key: ctx.key });
+    const body = await bodyOf(input, ctx);
+    if (!body.ok) return body;
+    const { image: _image, ...rest } = input;
+    const sent = await ctx.core.command(
+      callReply,
+      { ...rest, body: body.value },
+      { key: ctx.key },
+    );
     if (!sent.ok) return sent;
     return ok({
       summary: sent.value.closed ? "the call is closed" : "reply delivered",

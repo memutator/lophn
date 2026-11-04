@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { ok, type Result } from "../../../base/mod.ts";
 import {
+  blocksSummary,
+  type ContentBlock,
+  contentOfBlocks,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_CONTENT_PURPOSE,
@@ -27,6 +30,7 @@ import type { SessionDirectory } from "../../router/ports.ts";
 import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
 import { createCheckpoint, hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
+import { registerImageRefs } from "./message-images.ts";
 import { loadSession } from "./model.ts";
 import { titleOnReceive } from "./session-title.ts";
 
@@ -46,7 +50,7 @@ type MessageRouter = {
       from: CallFrom;
       to: { session: Id<"ses"> };
       reply: CallReply;
-      body: string;
+      body: ContentBlock[];
       refs: CallRef[];
       reply_to: null;
       dedup: null;
@@ -114,13 +118,6 @@ function registerBody(
   return registered.ok ? ok(undefined) : registered;
 }
 
-// 제목을 정하는 글. 글 part만 읽고 줄 구분은 줄바꿈이다.
-function textOf(content: Input<typeof sendMessage>["content"]): string {
-  return content.parts
-    .flatMap((part) => (part.kind === "text" ? [part.text] : []))
-    .join("\n");
-}
-
 // 이 session에 도는 turn이 있는지. steer가 도는 turn 안으로 들어가는지 가른다.
 function hasRunningTurn(tx: Tx, session: string): boolean {
   return (
@@ -145,7 +142,7 @@ type SentMessage = { message: string; state_seq: string };
 type HumanMessage = {
   id: string;
   session: string;
-  content: Input<typeof sendMessage>["content"];
+  content: ContentBlock[];
   delivery: InputDelivery;
   refs: CallRef[];
   unattended: boolean;
@@ -159,11 +156,11 @@ function writeHuman(
   ctx: RequestContext,
   input: HumanMessage,
   existingBody: PermanentBlobReference | undefined,
-): Result<{ replayed: boolean; text: string; state_seq: string }> {
+): Result<{ replayed: boolean; state_seq: string }> {
   const user = requireUser(ctx);
   if (!user.ok) return user;
-  const text = textOf(input.content);
-  const body = bodyBlob(ctx.principal, input.content);
+  const text = blocksSummary(input.content);
+  const body = bodyBlob(ctx.principal, contentOfBlocks(input.content));
   if (existingBody !== undefined && existingBody.hash !== body.hash) {
     return reject("invalid_input", "the stored body is not this content");
   }
@@ -179,7 +176,6 @@ function writeHuman(
     return same
       ? ok({
           replayed: true,
-          text,
           state_seq: String(existing["created_seq"]),
         })
       : reject("conflict", "message id already used for other input");
@@ -218,6 +214,14 @@ function writeHuman(
     existingBody,
   );
   if (!registered.ok) return registered;
+  const images = registerImageRefs(
+    tx,
+    input.id,
+    String(seq),
+    ctx.principal,
+    input.content,
+  );
+  if (!images.ok) return images;
   // 도는 turn 안으로 들어간 steer는 checkpoint가 아니다.
   const checkpoint = createCheckpoint(tx, {
     id: input.id,
@@ -241,7 +245,7 @@ function writeHuman(
       session.id,
     ]);
   }
-  return ok({ replayed: false, text, state_seq: String(seq) });
+  return ok({ replayed: false, state_seq: String(seq) });
 }
 
 // SendMessage의 본체. 사람 메시지는 접수할 때 session 기록에 쓰고 Router(`from: human`)를 거쳐 입력함에
@@ -279,7 +283,7 @@ function sendWith(
     from: { kind: "human" },
     to: { session: input.session as Id<"ses"> },
     reply: "none",
-    body: written.value.text,
+    body: input.content,
     refs: input.refs,
     reply_to: null,
     dedup: null,

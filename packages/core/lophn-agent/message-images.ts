@@ -1,31 +1,38 @@
-import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  MESSAGE_IMAGE_CALL_MAX_BYTES,
+  MESSAGE_IMAGE_PURPOSE,
   MESSAGE_IMAGE_TYPES,
   messageImagePath,
+  messageImagePrepare,
   messageImageRead,
   messageImageUpload,
-  placeSessionRead,
 } from "../../protocol/lophn-agent/mod.ts";
+import { sha256Schema } from "../../protocol/base/values.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
-import type { ProfileReaders } from "./agents/profile-asset.ts";
+import { objectPathFor } from "../storage/blobs/mod.ts";
+import { type BodyPrepare, prepareBytes } from "./session/message-body.ts";
 
-// 사람이 메시지에 붙인 이미지다. 바이트는 core data root 아래 `message-images/<session>/<id>.<ext>`에 둔다
-// (project 폴더 밖이라 agent의 file tool이 닿지 않고, image.read의 `attachment:<id>`만 연다).
-// session과 id는 protocol schema의 id 모양(소문자·숫자·밑줄)만 통과해 경로에 ".."나 "/"가 들어올 수 없다.
+// 메시지에 싣는 이미지다. 올린 바이트는 blob store의 blob이고(사람은 `UploadMessageImage`, agent는
+// `PrepareMessageImage`), 읽는 길은 둘이다. image block의 hash는 그 session의 메시지가 참조할 때만 열린다(`referenced`):
+// 다른 session은 hash를 알아도 읽지 못한다. 옛 첨부(`attachment:<id>`)는 core data root 아래
+// `message-images/<session>/<id>.<ext>` 파일이고 session 폴더가 경계다. session과 id는 protocol schema의 id 모양
+// (소문자·숫자·밑줄)만 통과해 경로에 ".."나 "/"가 들어올 수 없다.
 
 type ImageType = keyof typeof MESSAGE_IMAGE_TYPES;
 
 export interface MessageImageFiles {
   read(path: string): Promise<Uint8Array | null>;
-  writeAtomic(path: string, bytes: Uint8Array): Promise<void>;
   exists(path: string): Promise<boolean>;
 }
 
 export type MessageImageDeps = {
   root: string;
   files: MessageImageFiles;
-  readers: ProfileReaders;
-  ids: IdSource;
+  // 준비 통로. I/O worker가 뜨기 전에는 없다(unavailable).
+  relay(): BodyPrepare | undefined;
+  // 이 session의 메시지가 그 blob을 참조하는지.
+  referenced(session: string, blob: string): Result<boolean>;
 };
 
 type Body = { bytes: ReadableStream<Uint8Array>; length: number | undefined };
@@ -65,7 +72,7 @@ const notFound = (): Result<never> =>
 const folderOf = (root: string, session: string) =>
   `${root}/message-images/${session}`;
 
-// 확장자를 모르는 id를 파일로 찾는다.
+// 확장자를 모르는 옛 첨부 id를 파일로 찾는다.
 async function locate(
   deps: MessageImageDeps,
   session: string,
@@ -78,6 +85,32 @@ async function locate(
   return null;
 }
 
+// image block의 blob. 그 session의 메시지가 참조하는 hash만 파일로 풀린다.
+async function locateBlob(
+  deps: MessageImageDeps,
+  session: string,
+  blob: string,
+): Promise<Result<{ path: string; type: ImageType }>> {
+  const referenced = deps.referenced(session, blob);
+  if (!referenced.ok) return referenced;
+  if (!referenced.value) return notFound();
+  const path = objectPathFor(deps.root, blob);
+  let bytes: Uint8Array | null;
+  try {
+    bytes = await deps.files.read(path);
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "message image could not be read",
+    });
+  }
+  if (bytes === null) return notFound();
+  const type = sniff(bytes);
+  return type === null
+    ? invalid("the blob is not an image")
+    : ok({ path, type });
+}
+
 function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
@@ -87,12 +120,34 @@ function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
   });
 }
 
+// 이미지 바이트를 보낸 자격의 이름으로 blob에 준비한다. 이어지는 메시지 command가 같은 자격으로 참조를 건다.
+async function prepareImage(
+  deps: MessageImageDeps,
+  ctx: AuthenticatedContext,
+  bytes: Uint8Array,
+): Promise<Result<string>> {
+  const relay = deps.relay();
+  if (relay === undefined) {
+    return err({
+      code: "unavailable",
+      message: "blob preparation is not available",
+    });
+  }
+  return await prepareBytes(
+    relay,
+    ctx,
+    MESSAGE_IMAGE_PURPOSE,
+    bytes,
+    "message image",
+  );
+}
+
 export function messageImageUploadHandler(deps: MessageImageDeps) {
   return async (
     ctx: AuthenticatedContext,
     rawInput: unknown,
     body: Body,
-  ): Promise<Result<{ id: string }>> => {
+  ): Promise<Result<{ blob: string }>> => {
     const input = messageImageUpload.input.safeParse(rawInput);
     if (
       !input.success ||
@@ -113,25 +168,26 @@ export function messageImageUploadHandler(deps: MessageImageDeps) {
     ) {
       return invalid("image bytes do not match the declared type and length");
     }
-    // 없는 session 아래에 폴더를 만들지 않는다.
-    const session = await deps.readers.read(placeSessionRead, ctx, {
-      session: input.data.session,
-    });
-    if (!session.ok) return session;
-    const id = deps.ids.newId("att");
-    const ext = MESSAGE_IMAGE_TYPES[input.data.content_type];
-    try {
-      await deps.files.writeAtomic(
-        `${folderOf(deps.root, input.data.session)}/${id}.${ext}`,
-        bytes,
-      );
-    } catch {
-      return err({
-        code: "unavailable",
-        message: "message image could not be written",
-      });
+    const blob = await prepareImage(deps, ctx, bytes);
+    return blob.ok ? ok({ blob: blob.value }) : blob;
+  };
+}
+
+// agent의 `lophn call send --image`가 쓴다. runtime loopback이 JSON뿐이라 바이트가 base64로 온다.
+export function messageImagePrepareHandler(deps: MessageImageDeps) {
+  return async (
+    ctx: AuthenticatedContext,
+    rawInput: unknown,
+  ): Promise<Result<{ blob: string; mimeType: ImageType }>> => {
+    const input = messageImagePrepare.input.safeParse(rawInput);
+    if (!input.success) return invalid("image input is not valid");
+    const bytes = new Uint8Array(Buffer.from(input.data.data_base64, "base64"));
+    const mimeType = sniff(bytes);
+    if (mimeType === null || bytes.length > MESSAGE_IMAGE_CALL_MAX_BYTES) {
+      return invalid("image must be png, jpeg, gif or webp within the limit");
     }
-    return ok({ id });
+    const blob = await prepareImage(deps, ctx, bytes);
+    return blob.ok ? ok({ blob: blob.value, mimeType }) : blob;
   };
 }
 
@@ -148,11 +204,15 @@ export function messageImageFileHandler(deps: MessageImageDeps) {
   > => {
     const input = messageImageRead.input.safeParse(rawInput);
     if (!input.success) return invalid("read input is not valid");
-    const found = await locate(deps, input.data.session, input.data.image);
-    if (found === null) return notFound();
+    const found = sha256Schema.safeParse(input.data.image).success
+      ? await locateBlob(deps, input.data.session, input.data.image)
+      : await locate(deps, input.data.session, input.data.image).then((at) =>
+          at === null ? notFound() : ok(at),
+        );
+    if (!found.ok) return found;
     let bytes: Uint8Array | null;
     try {
-      bytes = await deps.files.read(found.path);
+      bytes = await deps.files.read(found.value.path);
     } catch {
       return err({
         code: "unavailable",
@@ -161,7 +221,7 @@ export function messageImageFileHandler(deps: MessageImageDeps) {
     }
     if (bytes === null) return notFound();
     return ok({
-      contentType: sniff(bytes) ?? found.type,
+      contentType: sniff(bytes) ?? found.value.type,
       length: bytes.length,
       body: streamOf(bytes),
     });
@@ -185,9 +245,13 @@ export function messageImagePathHandler(deps: MessageImageDeps) {
         message: "the credential belongs to another session",
       });
     }
-    const found = await locate(deps, input.data.session, input.data.image);
-    return found === null
-      ? notFound()
-      : ok({ path: found.path, media_type: found.type });
+    const found = sha256Schema.safeParse(input.data.image).success
+      ? await locateBlob(deps, input.data.session, input.data.image)
+      : await locate(deps, input.data.session, input.data.image).then((at) =>
+          at === null ? notFound() : ok(at),
+        );
+    return found.ok
+      ? ok({ path: found.value.path, media_type: found.value.type })
+      : found;
   };
 }

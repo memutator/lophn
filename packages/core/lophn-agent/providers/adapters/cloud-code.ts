@@ -57,6 +57,7 @@ type HistoryMessage = {
         signature?: string;
       }
     | { kind: "tool_result"; id: string; text: string }
+    | { kind: "image"; media_type: string; data_base64: string }
     | {
         kind: "tool_result_image";
         id: string;
@@ -107,20 +108,32 @@ export function cloudCodeContents(
       continue;
     }
     const responses = new Map<string, { output: string }>();
-    const texts: string[] = [];
+    // 글과 user가 보낸 이미지는 들어온 순서대로 간다.
+    const inline: Part[] = [];
     const pictures: Part[] = [];
     for (const part of message.parts) {
       if (part.kind === "text") {
-        if (part.text.trim() !== "") texts.push(part.text);
+        if (part.text.trim() !== "") inline.push({ text: part.text });
+      } else if (part.kind === "image") {
+        inline.push(
+          options.images
+            ? {
+                inlineData: {
+                  mimeType: part.media_type,
+                  data: part.data_base64,
+                },
+              }
+            : { text: IMAGE_OMITTED },
+        );
       } else if (part.kind === "tool_result") {
         if (names.has(part.id)) responses.set(part.id, { output: part.text });
-        else texts.push(part.text);
+        else inline.push({ text: part.text });
       } else if (part.kind === "tool_result_image") {
         if (options.images) {
           pictures.push({
             inlineData: { mimeType: part.media_type, data: part.data_base64 },
           });
-        } else texts.push(IMAGE_OMITTED);
+        } else inline.push({ text: IMAGE_OMITTED });
       }
     }
     const parts: Part[] = [...responses.entries()]
@@ -128,7 +141,7 @@ export function cloudCodeContents(
       .map(([id, response]) => ({
         functionResponse: { name: names.get(id)!, response, id },
       }));
-    for (const text of texts) parts.push({ text });
+    parts.push(...inline);
     if (pictures.length > 0) {
       parts.push({ text: "Images from the tool results:" }, ...pictures);
     }

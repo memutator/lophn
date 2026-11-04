@@ -2,6 +2,7 @@ import {
   type AgentId,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
+  MESSAGE_IMAGE_FIELD,
   type Place,
   type PlaceSession,
   type ReceivedMessage,
@@ -21,11 +22,18 @@ import {
 } from "../../../protocol/storage/mod.ts";
 
 // 본문 blob은 영구 보존이다. 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람,
-// 그 session의 agent, machine)는 ReadMessageBody가 판정한다.
+// 그 session의 agent, machine)는 ReadMessageBody가 판정한다. 이미지도 같다. 그 session의 메시지가 참조하는 것만
+// ReadMessageImage·ResolveMessageImage가 연다.
 export const messageBodyFields: readonly BlobFieldDefinition[] = [
   defineBlobField({
     owner_kind: MESSAGE_BODY_OWNER_KIND,
     field: MESSAGE_BODY_FIELD,
+    retention: { kind: "permanent" },
+    general_read: false,
+  }),
+  defineBlobField({
+    owner_kind: MESSAGE_BODY_OWNER_KIND,
+    field: MESSAGE_IMAGE_FIELD,
     retention: { kind: "permanent" },
     general_read: false,
   }),

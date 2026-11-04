@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import { declareSetting } from "../../protocol/config/mod.ts";
 import {
   askAnswer,
@@ -23,6 +23,7 @@ import {
   mcpToolsRequestDone,
   mcpToolsRequestTake,
   messageImagePath,
+  messageImagePrepare,
   messageImageRead,
   messageImageUpload,
   type Place,
@@ -95,6 +96,7 @@ import {
   type MessageImageFiles,
   messageImageFileHandler,
   messageImagePathHandler,
+  messageImagePrepareHandler,
   messageImageUploadHandler,
 } from "./message-images.ts";
 import { CATALOG_AUTO_UPDATE_KEY } from "./models/catalog-refresh.ts";
@@ -554,20 +556,19 @@ export function agentProfileHandlers(
   };
 }
 
-// 메시지에 붙인 이미지의 upload·file·path 처리기다. core.ts가 route 이름으로 붙인다.
+// 메시지에 싣는 이미지의 upload·prepare·file·path 처리기다. core.ts가 route 이름으로 붙인다.
 export function messageImageHandlers(
-  readers: ProfileReaders,
   dataRoot: string,
-  ids: IdSource,
+  access: Pick<MessageImageDeps, "relay" | "referenced">,
 ) {
   const deps: MessageImageDeps = {
     root: dataRoot,
     files: createNodeMessageImageFiles(),
-    readers,
-    ids,
+    ...access,
   };
   return {
     upload: messageImageUploadHandler(deps),
+    prepare: messageImagePrepareHandler(deps),
     file: messageImageFileHandler(deps),
     path: messageImagePathHandler(deps),
   };
@@ -815,7 +816,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.send,
       conversationCommands.record,
       removeQueuedCommand({ eraseBlobRefs }),
-      editQueuedCommand({ eraseBlobRefs }),
+      editQueuedCommand(),
       moveQueuedCommand(),
       toolCommands.request,
       toolCommands.decide,
@@ -891,8 +892,10 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       askWait,
       askRead,
       askAnswer,
-      // image.read가 `attachment:<id>`를 파일 경로로 푸는 입구. handler는 wiring/lophn-agent.ts가 붙인다.
+      // 받은 이미지의 파일 경로를 푸는 입구(image block의 hash와 `attachment:<id>`)와 agent가 이미지를 blob으로 올리는
+      // 입구. handler는 wiring/lophn-agent.ts가 붙인다.
       messageImagePath,
+      messageImagePrepare,
       // 대기 메시지의 지금 끼워 넣기와 지우기. handler는 wiring/lophn-agent-runtime.ts가 붙인다.
       ...QUEUED_INPUT_ROUTES,
     ],

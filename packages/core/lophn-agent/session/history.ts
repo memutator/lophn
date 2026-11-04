@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  blocksOfContent,
   messageBody,
   placeSessionRead,
   type ReceivedMessage,
@@ -20,7 +21,12 @@ import {
   type RevertRow,
 } from "./rewind/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
-import { receivedText } from "../run-loop/input-text.ts";
+import {
+  type ImageReader,
+  loadParts,
+  partsText,
+  receivedParts,
+} from "../run-loop/input-text.ts";
 
 // 새 turn의 prompt가 쓰는 session의 이전 대화다. Compact한
 // session이면 요약과 그것이 덮은 구간 뒤의 원문만 읽는다: 덮인 구간의 원문은 읽지도 않는다(원문은 session에
@@ -76,6 +82,8 @@ export async function readSessionConversation(
     session: string | null;
     // 이 turn의 요청 메시지. 없으면(session 없는 turn, 다른 출처) 자른 곳이 없다.
     request: string | null;
+    // 받은 이미지의 bytes를 읽는 길. 없으면(Compact) 이미지는 고정 글로만 간다.
+    images?: ImageReader;
   },
 ): Promise<Result<SessionConversation>> {
   if (input.session === null) return ok({ compaction: null, messages: [] });
@@ -193,11 +201,12 @@ export async function readSessionConversation(
         });
         continue;
       }
+      const blocks = blocksOfContent(body.value.content);
       // 카드뿐인 답은 글이 없어 이력에 넣지 않는다. 글 없는 취소 알림은 tag만으로 뜻이 있다.
-      const text = body.value.content.parts
-        .flatMap((part) => (part.kind === "text" ? [part.text] : []))
-        .join("\n");
       if (entry.role === "assistant") {
+        const text = blocks
+          .flatMap((block) => (block.type === "text" ? [block.text] : []))
+          .join("\n");
         if (text.trim() !== "") {
           built.push({
             turn: entry.turn,
@@ -206,13 +215,20 @@ export async function readSessionConversation(
         }
         continue;
       }
+      // 받은 turn의 입력과 같은 part 함수로 싼다. 이미지가 있으면 같은 bytes를 붙여 part를 그대로 둔다.
+      const parts = receivedParts(entry.received, blocks);
+      const text = partsText(parts);
       if (text.trim() === "" && entry.received.from.kind === "human") continue;
+      const withImage = parts.some((part) => part.kind === "image");
       built.push({
         turn: entry.turn,
         message: {
           seq: entry.seq,
           role: entry.role,
-          text: receivedText(entry.received, text),
+          text,
+          ...(withImage && input.images !== undefined
+            ? { parts: await loadParts(parts, input.images) }
+            : {}),
         },
       });
     }

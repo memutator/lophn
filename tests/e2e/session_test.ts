@@ -117,7 +117,7 @@ function trySay(core: Core, session: string, text: string) {
   return core.tryCall(sendMessage, {
     id: core.ids.newId("msg"),
     session,
-    content: { schema_version: 1, parts: [{ kind: "text", text }] },
+    content: [{ type: "text", text }],
     delivery: "next_turn",
     refs: [],
   });

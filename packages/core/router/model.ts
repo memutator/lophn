@@ -1,4 +1,8 @@
 import type { Id } from "../../protocol/base/ids.ts";
+import {
+  type ContentBlock,
+  textBlocks,
+} from "../../protocol/lophn-agent/content-block.ts";
 import type {
   CallAddressInput,
   CallFailReason,
@@ -23,7 +27,7 @@ export type RouteInput = {
   from: CallFrom;
   to: CallAddressInput;
   reply: CallReply;
-  body: string;
+  body: ContentBlock[];
   refs: readonly CallRef[];
   reply_to: string | null;
   // agent가 보낸 call에만 있다(tool call ID).
@@ -109,7 +113,7 @@ export function failureInput(
     from: { kind: "program" },
     call,
     reply_to: call,
-    body: FAILURE_TEXTS[reason],
+    body: textBlocks(FAILURE_TEXTS[reason]),
     refs: [],
     delivery: "next_turn",
     message: null,

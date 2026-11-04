@@ -1,3 +1,4 @@
+import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { type Id, parseActor } from "../../protocol/base/mod.ts";
 import type {
@@ -93,7 +94,7 @@ function handOff(
     from: { kind: "program" },
     to: delivery.to,
     reply: "none",
-    body: delivery.body,
+    body: textBlocks(delivery.body),
     refs: [],
     reply_to: null,
     dedup: null,

@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
 import type {
   AgentCallRow,
   CallFailReason,
@@ -46,7 +47,7 @@ export interface Router {
     from: { session: string },
     input: {
       call: string;
-      body: string;
+      body: ContentBlock[];
       refs: CallRef[];
       unattended?: boolean;
     },
@@ -295,7 +296,7 @@ export function createRouter(deps: RouterDeps): Router {
     from: { session: Id<"ses"> },
     input: {
       call: Id<"cal">;
-      body: string;
+      body: ContentBlock[];
       refs: CallRef[];
       unattended?: boolean;
     },

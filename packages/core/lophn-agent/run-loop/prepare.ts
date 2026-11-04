@@ -22,6 +22,7 @@ import {
   placeKindOf,
   placeSessionRead,
   startTurn,
+  textBlocks,
   TURN_BLOB_PURPOSES,
   type TurnLimits,
   type TurnMode,
@@ -81,7 +82,7 @@ import type {
   BeginTurnInput,
   StartTurnResult,
 } from "./credentials.ts";
-import { inputText } from "./input-text.ts";
+import { createImageReader, inputParts, partsText } from "./input-text.ts";
 import { TURN_LIMIT_SETTING_KEYS, turnLimitsOf } from "./limits.ts";
 import type {
   AgentEventSink,
@@ -285,21 +286,23 @@ function toolsNotice(
 }
 
 function noticeText(body: string): string {
-  return inputText({
-    kind: "notice",
-    from: { kind: "program" },
-    call: null,
-    reply_to: null,
-    body,
-    refs: [],
-    delivery: "next_turn",
-    message: null,
-    reply: null,
-    outcome: null,
-    event: null,
-    notice: "tools_changed",
-    step: null,
-  });
+  return partsText(
+    inputParts({
+      kind: "notice",
+      from: { kind: "program" },
+      call: null,
+      reply_to: null,
+      body: textBlocks(body),
+      refs: [],
+      delivery: "next_turn",
+      message: null,
+      reply: null,
+      outcome: null,
+      event: null,
+      notice: "tools_changed",
+      step: null,
+    }),
+  );
 }
 
 // prompt에 싣는 skill 목록이다. agent가 끄지 않은 이름만 켜진다.
@@ -489,6 +492,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       return { name: hit.name, input: hit.input };
     };
     const place = session.place;
+    const images = createImageReader(agentCall, seat.session);
     // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
     const scope = {
       read: [] as string[],
@@ -552,6 +556,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       const read = await readSessionConversation(machine, {
         session: seat.session,
         request: request.input.message,
+        images,
       });
       if (!read.ok) return read;
       const placed = await deps.placeData(agentCall, resolved, seat.session);
@@ -617,6 +622,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       clock,
       ids,
       machine,
+      images,
       blobs: deps.blobs,
       redact: deps.instructions.redact,
       turnInputs: inputs,

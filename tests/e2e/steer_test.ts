@@ -56,10 +56,7 @@ test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 
       await core.call(sendMessage, {
         id: core.ids.newId("msg"),
         session,
-        content: {
-          schema_version: 1,
-          parts: [{ kind: "text", text: "steer text" }],
-        },
+        content: [{ type: "text", text: "steer text" }],
         delivery: "steer",
         refs: [],
       })

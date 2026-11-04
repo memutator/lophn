@@ -3,6 +3,7 @@ import {
   type ModelChoice,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
+  MESSAGE_IMAGE_FIELD,
   type TokenUsage,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { ReadSnapshot } from "../../../protocol/server/mod.ts";
@@ -131,13 +132,22 @@ function tailTokens(sql: Sql, session: string, anchor: Anchor): number {
       anchor.turn,
     ],
   );
+  // 뒤에 받은 메시지의 이미지도 wire에서 base64가 빠지고 하나로 센다.
+  const received = sql.get(
+    `select count(*) as images
+      from messages m join blob_refs b
+        on b.owner_kind = ? and b.owner_key = m.id and b.field = ?
+      where m.session = ? and m.created_at > ?`,
+    [MESSAGE_BODY_OWNER_KIND, MESSAGE_IMAGE_FIELD, session, anchor.finished_at],
+  );
   const bytes =
     Number(output?.["bytes"] ?? 0) +
     Number(tools?.["bytes"] ?? 0) +
     Number(messages?.["bytes"] ?? 0);
   return (
     Math.ceil(bytes / BYTES_PER_TOKEN) +
-    Number(tools?.["images"] ?? 0) * IMAGE_TOKENS
+    (Number(tools?.["images"] ?? 0) + Number(received?.["images"] ?? 0)) *
+      IMAGE_TOKENS
   );
 }
 

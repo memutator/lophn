@@ -32,6 +32,8 @@ export type HistoryPart =
       media_type: string;
       data_base64: string;
     }
+  // 사람이나 다른 agent가 보낸 이미지다. user role에 놓이고 provider adapter가 image block으로 바꾼다.
+  | { kind: "image"; media_type: string; data_base64: string }
   | { kind: "reasoning"; text: string };
 
 export type HistoryMessage = {

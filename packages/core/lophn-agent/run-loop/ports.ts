@@ -11,6 +11,7 @@ import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import type { TurnStart } from "./work.ts";
 import type {
+  HistoryPart,
   SeenBasis,
   SessionConversation,
   TurnPromptInput,
@@ -38,11 +39,11 @@ export type StopCheck =
 // steering 입력 하나. id는 그 입력의 session 기록 message다(반영 기록의 key).
 export type SteeringInput = { id: string; input: RoutedInput };
 
-// 아직 model에 반영하지 않은 입력. request는 이 turn을 시작한 입력의 본문 전문이고 steering은 도는
-// 중에 들어온 사람의 steer 입력이다.
+// 아직 model에 반영하지 않은 입력. request는 이 turn을 시작한 입력의 part이고 steering은 도는
+// 중에 들어온 사람의 steer 입력이다. 이미지는 bytes까지 읽은 part다.
 export type PendingInputs = {
-  request: string | null;
-  steering: readonly SteeringInput[];
+  request: readonly HistoryPart[] | null;
+  steering: readonly (SteeringInput & { parts: readonly HistoryPart[] })[];
 };
 
 // turn이 시작한 입력과 steer를 읽는 길이다. 입력함은 core process의 메모리에 있고 agent runtime은

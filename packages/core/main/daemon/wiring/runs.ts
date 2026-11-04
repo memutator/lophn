@@ -1,3 +1,4 @@
+import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
@@ -163,7 +164,7 @@ export const runsWiring: WiringFactory = () => {
           const sent = await command(RUNS_CONTEXT, sendMessage, {
             id: message,
             session,
-            content: { schema_version: 1, parts: [{ kind: "text", text }] },
+            content: textBlocks(text),
             delivery: "next_turn",
             refs: [],
             unattended: true,

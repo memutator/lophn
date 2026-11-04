@@ -19,6 +19,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
 import { appCreate } from "../../packages/protocol/apps/mod.ts";
+import { settingsUpdate } from "../../packages/protocol/config/file.ts";
+import { CALL_POLICY_SETTING_KEY } from "../../packages/protocol/lophn-agent/call-policy.ts";
 import {
   agentCallRead,
   agentCreate,
@@ -410,7 +412,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
     );
 
     await step(
-      "agent-to-app: test가 만든 agent가 앱 이름으로 앱 place의 lophn을 부르면 같은 왕복이 돈다",
+      "agent-to-app: place 덧쓰기가 project → 앱을 허용하면 test가 만든 agent가 앱 이름으로 앱 place의 lophn을 불러 같은 왕복이 돈다",
       async () => {
         fake.reset();
         const app = await c.call(
@@ -423,6 +425,26 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           {},
         );
         const atApp: Place = { kind: "app", id: app.id };
+        // 기본 표는 project → 다른 앱을 거절한다. 덧쓰기가 허용해야 call이 간다(writer Worker가 call마다 settings.json을 읽는다).
+        const updated = await c.call(settingsUpdate, {
+          changes: [
+            {
+              key: CALL_POLICY_SETTING_KEY,
+              action: "set",
+              value: {
+                places: [
+                  {
+                    from: { kind: "project", id: project },
+                    to: { kind: "app", id: app.id },
+                    allow: true,
+                  },
+                ],
+                agents: [],
+              },
+            },
+          ],
+        });
+        assert.deepStrictEqual(updated.rejected, []);
         const agent = c.ids.newId("agt");
         await c.call(agentCreate, {
           id: agent,

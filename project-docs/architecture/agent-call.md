@@ -41,6 +41,10 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - reaction과 화면의 사람 메시지는 표시가 없어 attended다. skip은 실리지 않는다(사람이 정한 것은 그 대화다). 예외는 둘이다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)와 workflow가 넣은 step 입력(`architecture/workflow.md`)은 unattended turn을 연다.
   - agent call의 표시는 받은 메시지 기록(`messages`)과 태그 글에 넣지 않는다. 받은 turn과 뒤 이력이 같은 bytes를 만들고, mode는 `turns.mode`에 남는다. run 입력은 `messages.unattended`에 남기되(켤 때 입력함에 되돌리지 않으려고) 태그 글과 받은 봉투에는 싣지 않는다. step 입력의 표시는 입력함 입력(`RoutedInput`)에만 있고, 받은 봉투와 `messages`에는 instance와 step(`step_instance`, `step_name`)만 남는다.
 - 보낸 쪽의 대화 원문은 넘기지 않는다. body와 refs만 간다. body는 redaction을 거친 뒤에만 받는 session 기록에 들어간다.
+  - body는 content block 배열이다(`packages/protocol/lophn-agent/content-block.ts`). MCP ContentBlock 꼴인 `text`, `image {mimeType, blob}`, `resource_link`, `resource`이고 사람 메시지(`SendMessage.content`)도 같은 꼴이다. 저장할 때는 block마다 메시지 content의 part 하나가 된다.
+  - redaction은 글(text, link, resource text)에만 한다. 이미지는 bytes 대신 blob hash를 싣는다. 본문 상한(240 KiB)에 이미지가 들어가지 않기 때문이다. bytes는 보낸 자격이 먼저 올린 blob이다. 사람은 `message-images/upload`, agent는 `message-images/prepare`로 올린다. command는 같은 transaction에서 그 blob의 참조를 그 이미지를 담은 메시지에 건다.
+  - 넘길 것은 값으로 싣는다. agent는 `lophn call send|reply --image <path>`로 자기 session이 읽을 수 있는 file(file tool과 같은 `resolveInPlace` 검사, 180 KB 이하)을 image block으로 싣는다. 받는 쪽에는 그 file의 읽기 허락이 가지 않는다.
+  - 이미지는 그 blob을 참조하는 메시지가 있는 session에서만 읽힌다(`imageReferenced`). 다른 session은 hash를 알아도 읽지 못한다. 참조를 걸 때 blob store가 현재 자격이 그 hash를 준비했는지 확인하므로, 남의 hash를 자기 메시지에 실어 읽기를 얻을 수도 없다.
   - 고정 문구(늦은 실패 알림, 취소 알림)와 body는 tx 안에서 blob을 만들 수 없어서 command 앞단이 미리 준비해 둔다.
 - `agent_calls` 행은 agent가 보낸 call에만 둔다. 사람 메시지와 reaction(program 알림)은 행이 없다.
   - 이름을 풀지 못한 call도 행이 없다(받는 곳을 적을 수 없다). 끝난 행은 trigger가 막아 바뀌지 않는다. 이어지는 일은 새 call이다.
@@ -52,8 +56,10 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - 배달할 때 done으로 두면 켤 때 입력함과 함께 잃은 handoff를 위 장치가 가리지 못한다. 가져간 뒤에도 accepted로 두면 받은 session을 archive할 때 이미 넘어간 일에 receiver_ended가 가고 화면의 [Cancel]이 남는다.
 - 같은 사실을 두 길로 알리지 않는다. 이미 끝난 call(취소, Router가 먼저 닫음)에는 Router의 실패 알림이 다시 가지 않는다.
 - 입력함 순서는 사람 메시지가 먼저, 그다음 들어온 순서다. steer(도는 turn의 다음 model 요청 앞에 넣기)는 사람 메시지만 고른다. call, 답, reaction, 알림은 항상 다음 turn이다.
-  - 아직 turn이 가져가지 않은 사람 메시지는 사람이 글을 고치거나 사람 메시지끼리 순서를 바꿀 수 있다. 고치면 redaction을 거친 새 본문 blob으로 `messages.body`와 blob 참조를 같은 transaction에서 바꾸고 입력함의 글도 command가 돌려준 값으로 바꾼다. 순서는 `created_seq`를 이웃과 맞바꿔 켤 때 입력함에 다시 넣는 순서까지 같게 한다. 가져간 뒤에는 본문과 순서가 trigger로 고정된다.
-- 다른 agent·program이 보낸 입력(call, 답, reaction, 알림)은 받은 turn의 입력과 뒤 turn의 이력에서 같은 함수로 태그에 싼다. 그 turn이 끝나도 사람 글과 구별되어야 한다. 사람 메시지는 싸지 않는다. 두 길이 같은 bytes를 만들도록 받은 메시지의 봉투가 call의 답 방식(`reply`), reaction이 알리는 사실 이름(`event`), 실패한 답의 이유(`fail_reason`)를 같이 저장한다. 앞 두 속성 중 하나라도 이력에서 빠지면 call·reaction을 받은 turn 다음 요청부터 그 자리의 prefix가 달라져 cache가 한 번 깨지고, 답 방식 줄이 빠지면 결과를 받는 call을 받은 agent가 답해야 한다는 것을 잊는다.
+  - 아직 turn이 가져가지 않은 사람 메시지는 사람이 글을 고치거나 사람 메시지끼리 순서를 바꿀 수 있다. 고치면 redaction을 거친 새 본문 blob으로 `messages.body`와 blob 참조를 같은 transaction에서 바꾸고 입력함의 본문도 command가 돌려준 값으로 바꾼다. 고친 본문에는 이미 있던 image block만 남길 수 있다(새 이미지는 `invalid_input`). 이미지 참조는 본문 참조와 따로라 고쳐도 남는다. 순서는 `created_seq`를 이웃과 맞바꿔 켤 때 입력함에 다시 넣는 순서까지 같게 한다. 가져간 뒤에는 본문과 순서가 trigger로 고정된다.
+- 다른 agent·program이 보낸 입력(call, 답, reaction, 알림)은 받은 turn의 입력과 뒤 turn의 이력에서 같은 함수로 태그에 싼다. 그 turn이 끝나도 사람 글과 구별되어야 한다. 사람 메시지는 싸지 않는다.
+  - 그 함수는 `packages/core/lophn-agent/run-loop/input-text.ts`의 `inputParts` 하나다. 이력 재생(`receivedParts`, `session/history.ts`)도 같은 함수를 부른다. 결과는 part 목록이다. 순서는 tag를 여는 글과 본문 글 줄, 그 뒤 image part를 block 차례대로, 마지막에 닫는 글이다. `resource_link`·`resource`는 본문과 같은 escape를 거쳐 글 줄이 된다.
+  - image part는 blob hash만 갖고, `loadParts`가 같은 reader로 bytes를 붙인다. reader는 agent 자격의 `message-images/path`로 파일 경로를 푼다. 그래서 받은 turn과 뒤 이력은 이미지까지 같은 bytes다. 읽지 못한 이미지는 두 길 모두 `[image unavailable]` 글이 되어, 깨진 이미지 하나가 session을 막지 않는다. 두 길이 같은 bytes를 만들도록 받은 메시지의 봉투가 call의 답 방식(`reply`), reaction이 알리는 사실 이름(`event`), 실패한 답의 이유(`fail_reason`)를 같이 저장한다. 앞 두 속성 중 하나라도 이력에서 빠지면 call·reaction을 받은 turn 다음 요청부터 그 자리의 prefix가 달라져 cache가 한 번 깨지고, 답 방식 줄이 빠지면 결과를 받는 call을 받은 agent가 답해야 한다는 것을 잊는다.
 - 그래서 받은 순서와 turn 순서가 다르다. turn의 이력은 앞 turn들이 가져간 message를 turn 순서로 놓고 그 turn의 입력을 붙인다. 받은 순서로 자르면 아직 아무 turn도 가져가지 않은 call이 앞 turn의 prompt에 들어간다.
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
 - result의 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다. conversation은 program이 done으로 만들지 않는다. 취소나 실패로 끝난다.
@@ -70,4 +76,5 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록(ID와 상태)은 prompt가 아니라 tool result(`session.list`)로만 주어 prompt cache를 깨지 않는다. place prompt의 "Agents you can call"은 ID 없이 agent 이름만 싣고, session이 아직 없는 agent도 넣는다. call이 새 session을 열 수 있기 때문이다. 어느 place에서 열지는 보내는 쪽이 고른다.
 - **call을 판정하지 않는다.** 예전에는 call tool이 turn 안에서 묻고 Router가 tx 안에서 한 번 더 판정해 둘을 `gate_allowed`로 이었다. 부르는 것을 막아도 받은 agent의 할당이 이미 일을 거르고, 사람이 workflow에서 "call 금지 같은 딱딱한 규칙을 두지 않는다"고 정했다(`project-docs/products/roadmap/approval.md`).
 - **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
+- **넘길 것은 값(content block)으로 싣고 읽기 grant를 만들지 않는다.** call 동안 file을 읽게 해 주는 장치를 두면 grant의 범위와 끝을 따로 관리해야 한다. 값으로 실으면 부른 쪽이 봉투에 실은 것이 곧 불린 agent에게 여는 시야다. block 꼴을 MCP ContentBlock에서 빌린 것은 ACP와 MCP tool 결과가 같은 꼴이라 harness 쪽과 그대로 이어지기 때문이다.
 - **원문 넘기기와 fuzzy 매칭을 버렸다.** OpenAI handoff의 history 전달은 맥락 비용과 오염이 크고, CrewAI식 비슷한 이름 짐작은 엉뚱한 agent에게 일을 맡긴다.

@@ -57,10 +57,11 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱 source가 있으면 source, 없으면 앱의 첫 더한 폴더)이고, 없으면 place의 data 폴더(`<data>/projects/<prj>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
   - `placeScope`(`packages/core/agent-places/place/place-folders.ts`)가 place에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다(`main/daemon/place-folders-glue.ts`). 범위 밖은 file tool이 `resolveInPlace`(`packages/core/lophn-agent/tools/file/scope.ts`)로 realpath를 보고 `forbidden` "path is outside the place"로 거절한다.
   - agent runtime child(`kind` `lophn-agent/runtime`)는 Electron의 Node로 뜨고 권한 flag가 없다(사람이 정했다). launch spec(`packages/core/supervision/security/launch-spec.ts`)에는 권한 칸이 없다(kind, entry, policy, memory limit만). child 하나가 여러 session을 돌리므로 session마다 띄우지 않고, 폴더·provider·MCP·skill 목록이 바뀌어도 child를 다시 띄우지 않는다.
-- 사람이 메시지에 붙인 이미지는 메시지 content(글뿐)에 넣지 않는다. 화면이 먼저 `message-images/upload`로 session에 올려 id(`att_...`)를 받고, 글 끝에 `Attached image: open with image.read path "attachment:<id>".` 줄을 적는다. agent는 `image.read`로 연다.
-  - 바이트는 project 폴더 밖인 `<data>/message-images/<session>/<id>.<ext>`에 둔다(png, jpeg, gif, webp, 5 MiB 이하, 내용의 첫 byte로 형식 확인). agent의 file tool 범위 밖이고 `attachment:<id>`로만 열린다.
-  - `image.read`는 `message-images/path`(agent 전용 memory route)로 경로를 푼다. core는 입력의 session이 credential의 session과 같을 때만 풀어서, 다른 session의 id는 forbidden이거나 not_found다. 사람 화면은 `message-images/read`(file route)로 다시 그린다.
-  - session을 지워도 이미지 파일은 지우지 않는다(알려진 빈틈).
+- 사람이 메시지에 붙인 이미지는 메시지 content의 image block이다(`architecture/agent-call.md`의 content block). 화면이 먼저 `message-images/upload`로 올려 blob hash를 받고, `SendMessage.content`에 `{type: "image", mimeType, blob}`을 싣는다. 올림과 `SendMessage`는 같은 자격이어야 한다. 참조되지 않은 올림은 blob 준비의 수명(10분)이 지나면 사라진다.
+  - 바이트는 blob store의 blob이다(png, jpeg, gif, webp, 사람은 5 MiB 이하, 내용의 첫 byte로 형식 확인). 메시지가 blob 참조(field `image`)를 갖고, 이미지는 그 참조를 가진 메시지의 session에서만 읽힌다. fork 사본은 참조를 같이 복사한다. 대기 메시지를 고쳐도 이미지 참조는 남는다.
+  - runtime은 `message-images/path`(agent 전용 memory route)로 파일 경로를 풀어 bytes를 읽고 model에 image part로 싣는다. core는 입력의 session이 credential의 session과 같고 그 session의 메시지가 blob을 참조할 때만 풀어서, 다른 session의 이미지는 forbidden이거나 not_found다. 사람 화면은 `message-images/read`(file route)로 다시 그린다.
+  - 옛 메시지는 글 끝에 `Attached image: open with image.read path "attachment:<id>".` 줄을 가진다. 가져간 메시지 본문은 trigger가 고정해서 그 줄을 block으로 옮기지 않고 글 그대로 둔다. 그 바이트는 `<data>/message-images/<session>/<id>.<ext>`에 남고, `image.read`와 `message-images/path`·`read`가 `attachment:<id>`(`att_…`)를 같은 session 경계로 계속 연다.
+  - session을 지워도 이미지 blob과 옛 이미지 파일은 지우지 않는다(알려진 빈틈).
 
 ## 왜 이 모양인가
 

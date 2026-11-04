@@ -4,5 +4,5 @@ lead만 고친다. `tools/status.py content-block build`가 `tasks/*.md`에서 i
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `cb-core` | core | 1 | 없음 | running | core/cb-core |  |  |
+| `cb-core` | core | 1 | 없음 | merged | core/cb-core | 4a489e0c7 |  |
 | `cb-screen` | screen | 2 | cb-core | todo |  |  |  |

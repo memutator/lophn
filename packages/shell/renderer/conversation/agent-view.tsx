@@ -710,6 +710,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             key={approval.id}
             agent={agent.name}
             request={approval}
+            external={external}
             focusOnMount={draft.text === "" && draft.attachments.length === 0}
             onDecide={(choice, reason) =>
               accepted(

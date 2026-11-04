@@ -331,7 +331,14 @@ function itemsOf(
         );
         break;
       case "approval-result":
-        add(entry, <ApprovalResult key={entry.id} result={entry.result} />);
+        add(
+          entry,
+          <ApprovalResult
+            key={entry.id}
+            result={entry.result}
+            external={props.external === true}
+          />,
+        );
         break;
       case "turn-end": {
         const node =

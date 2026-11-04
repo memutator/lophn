@@ -32,6 +32,8 @@ interface ApprovalCardProps {
   /** 거절 이유 칸을 연 채 시작한다. */
   denying?: boolean;
   reason?: string;
+  /** lophn session이 아니다(`AgentTabSource.external`). always가 그 CLI session 동안만이라 그렇게 읽힌다. */
+  external?: boolean;
   /** 카드가 나올 때 [Allow once]로 초점을 옮긴다. composer에 글이 있으면 사람의 입력을 빼앗지 않는다. */
   focusOnMount: boolean;
 }
@@ -43,6 +45,7 @@ export function ApprovalCard({
   denying = false,
   reason: initialReason = "",
   focusOnMount,
+  external = false,
 }: ApprovalCardProps): ReactElement {
   const { subject } = request;
   const effect = effectOf(subject);
@@ -155,7 +158,13 @@ export function ApprovalCard({
           )}
           {request.always_patterns.length === 0 ? null : (
             <>
-              <dt>{t("conversation.label.approval-always")}</dt>
+              <dt>
+                {t(
+                  external
+                    ? "conversation.label.approval-session"
+                    : "conversation.label.approval-always",
+                )}
+              </dt>
               <dd>
                 {request.always_patterns.map((pattern) => (
                   <code key={pattern} className={styles.pattern}>
@@ -240,7 +249,11 @@ export function ApprovalCard({
                   {choice === "once"
                     ? t("conversation.button.approval-allow-once")
                     : choice === "always"
-                      ? t("conversation.button.approval-allow-always")
+                      ? t(
+                          external
+                            ? "conversation.button.approval-allow-session"
+                            : "conversation.button.approval-allow-always",
+                        )
                       : t("conversation.button.approval-deny")}
                   <Kbd keys={[keyHint[choice]]} />
                 </span>
@@ -270,12 +283,19 @@ function markLabel(result: ApprovalResultView): string {
   }
 }
 
-function scopeLabel(choice: ApprovalResultView["choice"]): string | null {
+function scopeLabel(
+  choice: ApprovalResultView["choice"],
+  external: boolean,
+): string | null {
   switch (choice) {
     case "once":
       return t("conversation.label.approval-scope-once");
     case "always":
-      return t("conversation.label.approval-scope-always");
+      return t(
+        external
+          ? "conversation.label.approval-scope-session"
+          : "conversation.label.approval-scope-always",
+      );
     default:
       return null;
   }
@@ -287,11 +307,13 @@ function scopeLabel(choice: ApprovalResultView["choice"]): string | null {
  */
 export function ApprovalResult({
   result,
+  external = false,
 }: {
   result: ApprovalResultView;
+  external?: boolean;
 }): ReactElement {
   const detail = [
-    scopeLabel(result.choice),
+    scopeLabel(result.choice, external),
     result.reason === null
       ? null
       : t("conversation.label.approval-reason-given", {

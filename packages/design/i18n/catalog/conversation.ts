@@ -7,6 +7,7 @@ export const conversation = {
     'Use the "{skill}" skill for this request.',
   "conversation.button.add-model": "Add model",
   "conversation.button.approval-allow-always": "Always allow",
+  "conversation.button.approval-allow-session": "Allow for this session",
   "conversation.button.approval-allow-once": "Allow once",
   "conversation.button.approval-deny": "Deny",
   "conversation.button.archive": "Archive",
@@ -115,6 +116,7 @@ export const conversation = {
   "conversation.label.approval-app": "App {id}",
   "conversation.label.approval-allowed": "Allowed",
   "conversation.label.approval-always": "Always allow adds",
+  "conversation.label.approval-session": "Allow for this session adds",
   "conversation.label.approval-cancelled": "Cancelled",
   "conversation.label.approval-cancelled-detail": "The work ended first",
   "conversation.label.approval-command": "Command",
@@ -132,6 +134,7 @@ export const conversation = {
   "conversation.label.approval-reason-placeholder":
     "Why not? {agent} reads this (optional)",
   "conversation.label.approval-scope-always": "Always",
+  "conversation.label.approval-scope-session": "This session",
   "conversation.label.approval-scope-once": "Once",
   "conversation.label.approval-target": "Target",
   "conversation.label.approval-target-tool": "{tool} in {app}",

@@ -7,5 +7,5 @@ lead만 고친다. `tools/status.py harness-gui build`가 `tasks/*.md`에서 id,
 | `gui-protocol` | gui | 1 | 없음 | merged | gui/gui-protocol | c04844eec |  |
 | `gui-claude` | gui | 2 | gui-protocol | merged | gui/gui-claude | c5918b26a |  |
 | `gui-window` | gui | 2 | gui-protocol | merged | gui/gui-window | 56c29b6f0 |  |
-| `gui-codex` | gui | 3 | gui-claude | todo |  |  |  |
-| `gui-opencode` | gui | 3 | gui-claude | todo |  |  |  |
+| `gui-codex` | gui | 3 | gui-claude | running | gui/gui-codex |  |  |
+| `gui-opencode` | gui | 3 | gui-claude | running | gui/gui-opencode |  |  |

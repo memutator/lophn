@@ -31,8 +31,13 @@ const card = defineCommand({
   run: async (input, ctx) => {
     const read = await ctx.core.read(agentCard, { name: input.name });
     if (!read.ok) return read;
+    const { callable } = read.value.card;
     return ok({
-      summary: `card of ${read.value.card.name}`,
+      summary: `card of ${read.value.card.name}${
+        callable === undefined
+          ? ""
+          : `\ncallable from this place: ${callable ? "yes" : "no"}`
+      }`,
       content: read.value.card,
     });
   },

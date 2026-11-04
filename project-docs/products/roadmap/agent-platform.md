@@ -84,11 +84,11 @@
  ──────────                             ─────────────────                       ──────
  Agent 탭 (사람)                  ─┐   lophn      지금 그대로            ─▶  lophn run-loop (agent runtime child)
  call (agent)                         ─┤   bare       정의가 고른 것만        ─▶  lophn run-loop
- run (job, flow, `lophn agent run`)   ─┤   <harness>  claude-code, codex …  ─▶  harness host (shell 쪽) ─ ACP ─▶ harness
- step 입력 (workflow)                 ─┤
- 터미널 `<harness> gui` (사람)        ─┘
+ run (job, flow, `lophn agent run`)   ─┤   <harness>  claude-code, codex …  ─▶  harness host (shell 쪽) ─ lophn A2A, headless CLI 명령 ─▶ harness
+ step 입력 (workflow)                 ─┘
+ 터미널 `<harness> gui` (사람)        ──── lophn GUI가 ACP client ─ ACP(CLI process의 stdio) ─▶ harness
 
- 주고받는 단위   content block (text, image, resource): 사람 입력, call 본문과 답, 앱 context, ACP prompt
+ 주고받는 단위   content block (text, image, resource): 사람 입력, call 본문과 답, 앱 context, harness prompt
  고르는 단위     명함: 목적, runtime, modality, 답 방식, 차이(skill, tool)
  시야            부른 쪽이 고른 place의 규칙 + 실어 보낸 content
  앱 화면         agent가 client: 화면 context 읽기, 화면 action (주석 달기 …)
@@ -104,8 +104,8 @@
 | 3 runtime 칸과 bare (끝남) | 정의에 `runtime`, `description`. bare 조립. 답 규칙 | 1, 2의 `cb-core`(같은 run-loop file) | 1이 정의 칸과 prompt 조립을 먼저 줄인다 |
 | 4 명함 | 명함 읽기, 차이 계산, modality 검사, 결과를 content로 돌려주기 | 2, 3 | 명함의 runtime·modality 칸이 2·3의 값이다 |
 | 5 앱 화면의 client인 agent | `@lophn/agent`: 화면 context, 화면 action, agent가 열린 화면에 붙는 길 | 1, 2, 3 | 코치 agent가 bare이고, 화면 context가 content block이고, 앱 command 이름이 1의 규칙이다 |
-| 6 harness host와 gui | shell 쪽 harness host, ACP client, session 기록, `<harness> gui` | 2, 3 | 7이 같은 host를 쓴다. 사람이 보는 길에서 ACP 옮기기를 먼저 검증한다 |
-| 7 harness agent | harness session이 call, run, step 입력을 받는다. workflow harness 참가자, TUI resume, harness가 `lophn` CLI로 답하고 부르기 | 4, 6 | `roadmap/workflow.md`의 harness 참가자와 `issues/coding-agent.md`를 닫는다 |
+| 6 harness host와 gui | shell 쪽 harness host(PATH의 CLI 띄우기), ACP client, session 기록, `<harness> gui` | 2, 3 | 7이 같은 host와 session 기록을 쓴다 |
+| 7 harness agent | lophn A2A로 harness를 agent로 쓴다: call, run, step 입력을 headless CLI 명령으로 실행하고 답을 받는다. workflow harness 참가자, TUI resume, harness가 `lophn` CLI로 답하고 부르기 | 4, 6 | `roadmap/workflow.md`의 harness 참가자와 `issues/coding-agent.md`를 닫는다 |
 
 1과 2는 둘 다 계획으로 열었다. 2의 core task는 prompt 조립·run-loop·router file을 1과 같이 고치므로 1의 `rd-layers`가 land한 뒤 돌았다. 1, 2, 3은 끝났다(2026-11-04). 3 뒤에 4·5·6을 나란히, 마지막에 7이다. 1과 3은 같은 prompt 조립 file(`packages/core/lophn-agent/prompt-assembly/`)을 고치므로 차례로 land한다. 4가 명함을 prompt에 싣기로 하면 4도 그 차례에 든다.
 
@@ -115,7 +115,7 @@
 |---|---|---|---|
 | `roadmap/workflow.md` 남은 일 1 | 열지 않음 | 서드 파티 harness 참가자(`not_handed`·`harness`) | 7이 닫는다 |
 | `roadmap/workflow.md` "domain을 둔 가장 큰 이유가 추상화와 캡슐화", `PRODUCT.md` "domain처럼 workflow도 캡슐화를 지킨다" | | domain이 원칙의 근거다 | 1이 원칙("agent는 상대의 in/out만 알면 된다")을 앱 경계로 고쳐 쓴다 |
-| `roadmap/problem-ticket.md` B | 보류 | PTY 일회 실행, call 본문이 첫 prompt | ACP(정한 것 26)로 대체한다 |
+| `roadmap/problem-ticket.md` B | 보류 | PTY 일회 실행, call 본문이 첫 prompt | 7이 headless CLI 명령으로 받는다 |
 | `roadmap/harness-config.md` 남은 단계 3·4·5·7 | 열지 않음 | 5가 `lophn(<domain> <command>)`, 정의의 `domains`, `DOMAIN.md`를 쓴다 | 1 뒤에 연다. 1이 그 표기를 고친다 |
 | `roadmap/eval.md`, `roadmap/artifact.md`, `roadmap/app-preview.md` | | domain과 kind를 말한다 | 1이 고친다 |
 | `roadmap/domain.md` | | 이 문서가 뒤집는다 | 1이 지운다 |
@@ -135,8 +135,8 @@
 | 2 | 앱 안 agent의 응답을 "앱 operation 호출"로 적었다. operation은 화면과 preview만 부르고 agent가 부르면 `denied`다(사람, 2026-11-01) | 화면 action(화면이 열린 동안 화면 code가 처리)과 앱 command(지금 길) 둘(정한 것 25) |
 | 3 | bare가 "앱 operation"을 고른다고 적었다 | 앱 command |
 | 4 | bare 초안은 `base: lophn \| bare`, harness 초안은 `runtime: lophn \| claude-code …`, 명함은 두 값을 한 칸에 섞었다 | 칸 하나 `runtime: lophn \| bare \| <harness>`. 두 칸이면 `runtime: codex` + `base: bare` 같은 뜻 없는 조합이 생긴다 |
-| 5 | harness 실행 길이 둘: gui 초안은 ACP, agent 초안은 headless CLI(`claude -p`, `codex exec`) | ACP 하나. harness host 하나에 들어오는 길이 여럿이다 |
-| 6 | ACP를 옮기는 자리: gui 초안은 renderer의 source, agent 초안은 core Router 쪽 실행 | harness host가 ACP를 lophn session 기록으로 옮기고 대화 화면은 lophn session과 같은 source로 읽는다. host는 shell 쪽이다("core는 사람의 PATH와 실행 파일을 모른다") |
+| 5 | harness 실행 길이 둘: gui 초안은 ACP, agent 초안은 headless CLI(`claude -p`, `codex exec`) | 둘 다 둔다(사람, 2026-11-04). 사람이 보는 gui는 ACP, agent로 쓰는 길(call, run, step)은 lophn A2A이고 headless CLI 명령으로 실행한다. 처음 정리의 "ACP 하나"는 사람의 뜻("lophn ↔ third-party도 A2A", "실행은 cli command")과 달랐다 |
+| 6 | harness 출력을 옮기는 자리: gui 초안은 renderer의 source, agent 초안은 core Router 쪽 실행 | harness host(shell 쪽)가 ACP update와 headless 출력을 lophn session 기록으로 옮기고 대화 화면은 lophn session과 같은 source로 읽는다("core는 사람의 PATH와 실행 파일을 모른다") |
 | 7 | 끝과 답: bare 초안은 "마지막 응답이 reply", harness 초안은 "headless 출력 끝이냐 hook이냐" | reply 명령을 모르는 runtime(bare, harness)은 `result` call을 받은 turn이 끝날 때 마지막 응답이 답이다. harness turn의 끝은 ACP `session/prompt` 응답이다. lophn runtime은 지금처럼 reply 명령 |
 | 8 | harness 초안은 call만 말했다. workflow는 step 입력을 넣고 flow·job은 run을 연다(W6, R8) | harness session도 lophn session처럼 입력함의 call, run 입력, step 입력을 다 받는다 |
 | 9 | app-context 초안의 `callAgent`와 "`@lophn/flow`는 `@lophn/agent`의 call type을 쓴다" vs flow가 agent를 부르는 것은 run이고, 앱 code가 call을 보내면 보낸 이가 넷째(앱)가 된다 | `callAgent`를 뺀다. 사람의 요구에 없다 |
@@ -154,8 +154,8 @@
 | 20 | bare 초안의 비용 근거 "9~13k token"은 0.9.0 전 값이다 | 3을 열 때 다시 잰다. 사람이 든 이유는 비용과 "방해" 둘이다 |
 | 21 | gui 초안의 `claude gui` 예 vs `claude` 함수가 없다 | 6이 더한다 |
 | 22 | gui 초안의 "Gemini CLI는 ACP를 직접 말한다" vs lophn은 Gemini CLI를 감지 표에서 지웠다 | ACP를 직접 말하는 것으로 확인한 것은 OpenCode(`opencode acp`)뿐이다. 나머지는 "확인할 것" |
-| 23 | harness 초안의 headless CLI와 `roadmap/problem-ticket.md` B(PTY 일회 실행, call 본문이 첫 prompt)가 같은 생각이다 | 둘 다 ACP로 대체한다(정한 것 26) |
-| 24 | harness 초안은 "unattended면 harness 권한 mode를 정의에 미리 정한다"를 열어 두었다 vs "정의에 권한 칸은 없다"(P2) | 칸을 더하지 않는다. ACP 권한 요청을 lophn이 판정한다(정한 것 31) |
+| 23 | harness 초안의 headless CLI와 `roadmap/problem-ticket.md` B(PTY 일회 실행, call 본문이 첫 prompt)가 같은 생각이다 | 7이 그 생각을 받는다. PTY 대신 headless 명령의 구조 출력이다 |
+| 24 | harness 초안은 "unattended면 harness 권한 mode를 정의에 미리 정한다"를 열어 두었다 vs "정의에 권한 칸은 없다"(P2) | gui(ACP)는 권한 요청을 lophn이 판정한다. headless 실행은 도중에 묻지 못하므로 권한을 띄울 때의 flag로 정한다. 그 값을 어디서 정하나는 7을 열 때 정한다 |
 | 25 | domain 초안의 migration은 표와 `domains/<dom>/` 폴더뿐이었다 | 정의의 `domains`·`permissions.deny`, 앱 선언의 `domain` 칸과 봉인한 bundle·ledger 선언, layout의 artifact tab key, annotation 행, `coding-agent.shared_apps` 공유 skill, 폴더 없는 project까지 넓혔다(정한 것 10) |
 | 26 | domain 초안의 "지금 코드"와 고칠 문서는 core와 architecture 문서뿐이었다 | shell, protocol, cli, i18n, `PRODUCT.md`, `products/AGENT.md`, catalog, roadmap, 이슈, test, eval까지 넓혔다(정한 것 11) |
 
@@ -177,7 +177,7 @@
 ### 함께
 
 1. **앱 ↔ lophn은 자체 규격이다(사람, 2026-11-02).** 앱과 lophn 양쪽이 모두 lophn 것(판 고정 sdk 사본, lophn 호스트)이라 표준이 주는 상호운용 이득을 받을 상대가 없다. lophn만의 뜻(place, approval, unattended)을 그대로 담는다.
-2. **ACP는 외부 CLI ↔ lophn 경계에만 쓴다(사람·agent, 2026-11-02).** 두 경계는 따로다.
+2. **ACP는 외부 CLI ↔ lophn GUI 경계에만 쓴다(사람·agent, 2026-11-02).** agent 사이(lophn끼리, lophn ↔ third-party harness)는 lophn 자체 A2A다(사람, 2026-11-02·04). 두 경계는 따로다.
 3. **새 이름에 "ACP"를 쓰지 않는다(agent).** Agent Client Protocol, IBM Agent Communication Protocol과 겹친다.
 4. **content block은 MCP ContentBlock 꼴(text, image, resource_link, resource)을 빌린다(agent).** ACP의 content block이 MCP 꼴이라 harness 쪽이 그대로 이어지고, MCP tool 결과도 같은 꼴이다.
 5. **plugin system은 지금 만들지 않는다(agent).** 따로 설치할 기능이 둘 이상 생긴 뒤 공통 모양을 보고 뽑는다(AGENTS.md "속도").
@@ -247,13 +247,13 @@
 
 ### 6·7 harness
 
-26. **lophn이 ACP client다. harness를 띄우는 길은 ACP 하나다(agent).** headless CLI 길을 따로 두지 않는다. ACP가 turn 끝, tool call, 권한 요청을 구조로 주므로 hook이나 출력 끝으로 짐작하지 않는다.
+26. **harness를 띄우는 길은 둘이다(사람, 2026-11-04).** 사람이 보는 `<harness> gui`는 lophn GUI가 ACP client가 되어 harness CLI를 ACP 모드 process로 띄우고 stdio로 ACP를 말한다. agent로 쓰는 길(call, run, step)은 lophn A2A다: 받은 입력(content block)을 prompt로 harness의 headless CLI 명령(`claude -p`, `codex exec` 등, 구조 출력)을 실행하고 그 결과가 답이다. 둘 다 CLI 명령이 실행을 맡는다("실행은 cli command가 맡는다"). harness가 programmatic 실행을 공식으로 지원하므로 사람 없이(workflow, job) 돌려도 된다(사람, 2026-11-04).
 27. **harness host는 shell 쪽에 둔다(agent).** core는 사람의 PATH와 실행 파일을 모르고(`architecture/coding-agent.md`), TUI resume은 terminal-host가 한다. session 기록(입력함, call 행, 이력)은 core가 갖고, host는 core에 runtime으로 붙는다.
-28. **renderer는 ACP를 모른다(agent).** host가 ACP session update를 lophn session 기록으로 옮기고, 대화 화면은 lophn session과 같은 source로 읽는다.
-29. **새 A2A를 따로 만들지 않고 지금 봉투를 넓힌다(agent).** harness session도 lophn session처럼 입력함의 call, run 입력, step 입력을 받고 같은 실패 규칙을 쓴다.
-30. **harness가 lophn에 답하고 다른 agent를 부르는 길은 `lophn` CLI 명령이다(사람, 2026-11-02 "실행은 cli command가 맡는다").** 해석은 "사람이 정할 것" 3에서 확인한다.
-31. **ACP 권한 요청은 lophn이 판정한다(agent).** deny 규칙은 늘 막고, `ask`는 attended에서만 대화 화면에 묻는다(`architecture/approval.md` turn mode). 정의에 harness 권한 칸을 더하지 않는다(P2 "정의에 권한 칸은 없다"). harness가 자기 설정으로 허락해 묻지 않은 tool 호출은 lophn이 보지 못한다. 명함이 이것을 알린다.
-32. **TUI 열기는 같은 harness session을 터미널 탭에서 resume하는 것이다(agent).** resume 인자는 `HARNESS_ADAPTERS`에 있다.
+28. **renderer는 ACP도 headless 출력 꼴도 모른다(agent).** host가 ACP session update와 headless 구조 출력을 lophn session 기록으로 옮기고, 대화 화면은 lophn session과 같은 source로 읽는다.
+29. **lophn A2A는 지금 call 봉투를 넓힌 것이다(agent).** 새 protocol을 따로 만들지 않는다. harness session도 lophn session처럼 입력함의 call, run 입력, step 입력을 받고 같은 실패 규칙을 쓴다.
+30. **harness가 lophn에 답하고 다른 agent를 부르는 길은 `lophn` CLI 명령이다(사람, 2026-11-02 "실행은 cli command가 맡는다").** headless 실행이면 마지막 출력이 답이고(정한 것 17과 같은 규칙), harness가 `lophn call reply`를 부르면 그것이 먼저다.
+31. **gui(ACP)의 권한 요청은 lophn이 판정한다(agent).** deny 규칙은 늘 막고, `ask`는 대화 화면에 묻는다(`architecture/approval.md` turn mode). headless 실행은 도중에 묻지 못하므로 띄울 때 권한 flag를 넘긴다. 정의에 harness 권한 칸을 더하지 않는다(P2). harness가 자기 설정으로 허락한 tool 호출은 lophn이 보지 못한다. 명함이 이것을 알린다.
+32. **TUI 열기는 같은 harness session을 터미널 탭에서 resume하는 것이다(agent).** resume 인자는 `HARNESS_ADAPTERS`에 있다. headless 실행의 session id도 같은 인자로 이어 간다(`conversation` 답 방식).
 
 ## 정할 것
 
@@ -264,8 +264,8 @@
    - 이유: 따로 배포하면 lophn과 판이 어긋나 protocol을 공개 계약으로 굳혀야 한다. AGENTS.md "protocol을 바꾸면 쓰는 쪽을 같은 변경에서 고친다, `v2`를 만들지 않는다"와 MVP 이전의 설계 자유에 부딪친다.
    - 빼기 쉽게: harness host는 core에 공개 면(protocol route, `lophn` CLI)으로만 붙고 core 내부를 import하지 않는다. `tools/check-deps.ts`로 막는다.
 2. **place 없이 부른 session(home)의 읽기 범위.** home은 등록된 모든 project 폴더를 읽는다. Image Generator를 place 없이 불러도 그렇다. 추천: 그대로. 읽기는 AGENTS.md가 막는 것(데이터 잃기, 폴더 밖 쓰기, 틀린 되돌리기, 인터넷에서 온 것) 밖이고, bare면 file tool이 없다.
-3. **"실행은 cli command가 맡는다"의 뜻.** 이 문서는 "harness → lophn(답하기, 다른 agent 부르기)은 `lophn` CLI, lophn → harness는 ACP"로 읽었다. 다른 뜻이면 6·7이 바뀐다.
-4. **사람 구독으로 harness를 사람 없이(workflow, job) 돌리는 것.** 허용하나, 한도를 두나. Claude Code ACP adapter가 사람의 Claude 로그인으로 도는지와 약관은 `roadmap/subscription-oauth.md`의 "제3자 앱의 구독 credential 사용을 허락하지 않는다"와 같은 위험이다.
+3. ~~"실행은 cli command가 맡는다"의 뜻~~ 정했다(사람, 2026-11-04): ACP는 규격이고 실행은 CLI process다. gui는 ACP, agent 사이는 lophn A2A(headless CLI 명령). 정한 것 26.
+4. ~~사람 구독으로 harness를 사람 없이 돌리는 것~~ 정했다(사람, 2026-11-04): 허용한다. harness가 programmatic 실행을 공식으로 지원한다.
 5. **내용이 있는 `DOMAIN.md`(1).** 사람의 data root에 domain이 4개 있다. 추천: 지우지 않고 그릇 자리의 파일로 옮긴 뒤 사람에게 알린다. 그릇 지침에 붙이면 사람이 모르게 prompt가 바뀐다.
 6. **사람이 둔 untracked eval 자료의 `domain`.** `tests/eval/materials/calendar-app-dev`, `calendar-app-user`를 1이 같이 고쳐도 되나.
 
@@ -277,7 +277,7 @@
 - **4:** 명함을 model에 싣는 자리(`session.list` 결과인가, place 정보 층인가). prompt cache와 맞물리고, "Agents you can call" 목록이 넘기기를 좌우한다(`tests/eval/experiments/call-list-without-session`). modality를 선언만 믿나, runtime의 provider 능력과 대조하나. third-party 능력 선언의 꼴.
 - **5:** 어느 session이 열린 화면의 client가 되나(그 앱 place의 session만인가, 다른 place의 agent도인가). app place의 lophn runtime agent는 앱을 짓는 tool(source 쓰기, release)을 같이 가진다: 코치 같은 agent는 bare로 두나. 같은 앱 화면이 여럿 열렸을 때 고르기. 화면이 닫혔을 때의 오류(`unavailable`). context 크기 상한. agent가 부르는 화면 action을 사람이 화면에서 보는 법. annotation(사람이 화면 상태를 보내는 길)과 합치나.
 - **6:** ACP adapter 번들(추천: 판을 고정해 번들한다. AGENTS.md "의존성은 판을 정확히 고정한다"). `gui` 진입이 shell 함수(`claude` 함수를 더한다)인가 `lophn gui <harness>`인가. gui로 연 session의 place(터미널 cwd가 이은 project 폴더 안이면 그 project). harness 정의를 사람이 등록하나, 켜면 감지한 harness마다 생기나. 앱 context를 ACP resource block으로 넘기나.
-- **7:** `conversation` 답 방식과 ACP session 잇기. run의 답(R8 "답은 run 기록에 남고 code가 받는다")을 harness turn 끝에서 만드는 법. harness가 `lophn` CLI를 쓸 자격(user token은 사람의 모든 권한이라 쓰지 않는다. session 범위 agent 자격을 env로 넣는 쪽). workflow `not_handed`·`harness` 참가자를 넘기는 법.
+- **7:** harness마다 headless 명령과 구조 출력 꼴, 권한 flag를 어디서 정하나(정의 칸 없이, P2). `conversation` 답 방식과 headless session id 잇기. run의 답(R8 "답은 run 기록에 남고 code가 받는다")을 harness turn 끝에서 만드는 법. harness가 `lophn` CLI를 쓸 자격(user token은 사람의 모든 권한이라 쓰지 않는다. session 범위 agent 자격을 env로 넣는 쪽). workflow `not_handed`·`harness` 참가자를 넘기는 법.
 
 ## 확인할 것 (바깥 사실, 계획을 열 때)
 
@@ -295,5 +295,4 @@
 - call의 읽기 grant(정한 것 12).
 - 명함의 발견 범위(정한 것 21).
 - 봉투의 여는 방식 칸 되살리기(겹침 14).
-- headless CLI로 harness 띄우기(정한 것 26).
 - 정의의 harness 권한 칸(정한 것 31).

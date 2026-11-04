@@ -22,7 +22,7 @@ export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
 const EVAL_BOARD_ID = id("app", "eb1");
 const NOTES_SYNC_ID = id("app", "ns1");
-// agent에게는 일할 domain의 tool이 모두, 다른 domain의 tool은 public만 보인다. domain 이름은 전체에서 하나라 project의 domain은 앱의 tool과 겹치지 않는다.
+// agent에게는 일하는 자리가 그 앱일 때 tool이 모두, 다른 앱의 tool은 public만 보인다.
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 export const BUDGET_REVIEWER_ID = id("agt", "br1");
 const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
@@ -389,13 +389,12 @@ export const PROJECT_MCP: readonly McpRow[] = [
 // ---- 할당 ----
 
 function tool(
-  domain: string,
   name: string,
   detail: string,
   effect: ToolEffect,
   isPublic = false,
 ) {
-  return { tool: name, detail, effect, public: isPublic, domain };
+  return { tool: name, detail, effect, public: isPublic };
 }
 
 const APPS: readonly GrantApp[] = [
@@ -403,65 +402,37 @@ const APPS: readonly GrantApp[] = [
     app: APP_ID,
     name: APP_NAME,
     tools: [
+      tool("list_expenses", "Lists the expenses of a month", "read", true),
+      tool("get_budget", "Reads the budget and what is left", "read", true),
+      tool("summarize_month", "Totals a month by category", "read"),
+      tool("add_expense", "Adds one expense", "write"),
       tool(
-        "expenses",
-        "list_expenses",
-        "Lists the expenses of a month",
-        "read",
-        true,
-      ),
-      tool(
-        "budgets",
-        "get_budget",
-        "Reads the budget and what is left",
-        "read",
-        true,
-      ),
-      tool("budgets", "summarize_month", "Totals a month by category", "read"),
-      tool("expenses", "add_expense", "Adds one expense", "write"),
-      tool(
-        "budgets",
         "set_alert_threshold",
         "Sets when the app warns about spending",
         "write",
       ),
-      tool("expenses", "delete_expense", "Deletes one expense", "write"),
-      tool(
-        "expenses",
-        "export_to_sheet",
-        "Sends a month to a spreadsheet",
-        "external",
-      ),
-      tool(
-        "budgets",
-        "send_report_mail",
-        "Mails the monthly report",
-        "external",
-      ),
-      tool("expenses", "tag_expense", "Puts a tag on an expense", "write"),
+      tool("delete_expense", "Deletes one expense", "write"),
+      tool("export_to_sheet", "Sends a month to a spreadsheet", "external"),
+      tool("send_report_mail", "Mails the monthly report", "external"),
+      tool("tag_expense", "Puts a tag on an expense", "write"),
     ],
   },
   {
     app: EVAL_BOARD_ID,
     name: "Eval board",
     tools: [
-      tool("runs", "list_runs", "Lists eval runs", "read", true),
-      tool("runs", "get_run", "Reads one run with its scores", "read", true),
-      tool("runs", "pin_run", "Pins a run to the board", "write"),
-      tool(
-        "runs",
-        "post_to_chat",
-        "Posts a run summary to the team chat",
-        "external",
-      ),
+      tool("list_runs", "Lists eval runs", "read", true),
+      tool("get_run", "Reads one run with its scores", "read", true),
+      tool("pin_run", "Pins a run to the board", "write"),
+      tool("post_to_chat", "Posts a run summary to the team chat", "external"),
     ],
   },
   {
     app: NOTES_SYNC_ID,
     name: "Notes sync",
     tools: [
-      tool("notes", "list_notes", "Lists notes", "read", true),
-      tool("notes", "push_note", "Sends a note to the cloud", "external"),
+      tool("list_notes", "Lists notes", "read", true),
+      tool("push_note", "Sends a note to the cloud", "external"),
     ],
   },
 ];

@@ -19,7 +19,7 @@ const USAGE =
   "Fields are flags: --field-name value (the field field_name); repeat a flag for a list; a boolean is --flag or --no-flag; --input '<JSON object>' sets several fields at once and takes JSON values for fields that need one.\n" +
   'Run ["help"] for the groups, ["<group>", "--help"] for the commands of a group and ["<group>", "<command>", "--help"] for the fields of a command.';
 
-// 지금 부를 수 있는 앱 command다. 부를 때마다 읽는다(`apps`가 지금 할당, 활성 release 선언, domain 규칙으로 정한다).
+// 지금 부를 수 있는 앱 command다. 부를 때마다 읽는다(`apps`가 지금 할당, 활성 release 선언, 비공개 규칙으로 정한다).
 export type AppCommandLookup = () => Promise<readonly AppCommandEntry[]>;
 
 function lophnHandler(apps?: AppCommandLookup): ToolCallHandler {
@@ -58,7 +58,7 @@ export const LOPHN_TOOLS: readonly ToolDefinition[] = [
   }),
 ];
 
-// 앱 command의 도움말(`lophn <domain> --help`)을 답하는 `lophn` tool이다. 정의의 나머지는 그대로다.
+// 앱 command의 도움말(`lophn <slug> --help`)을 답하는 `lophn` tool이다. 정의의 나머지는 그대로다.
 export function withApps(
   tool: ToolDefinition,
   apps: AppCommandLookup,

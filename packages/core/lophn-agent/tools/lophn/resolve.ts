@@ -24,7 +24,7 @@ export function argsOf(input: unknown): string[] | undefined {
   return args as string[];
 }
 
-// 내장 명령 묶음의 첫 낱말이다(`RESERVED_DOMAIN_NAMES`가 domain 이름과 겹치지 않게 한다). 앱 domain은 이 밖이다.
+// 내장 명령 묶음의 첫 낱말이다(`RESERVED_APP_SLUGS`가 앱 slug와 겹치지 않게 한다). 앱 slug는 이 밖이다.
 export function isBuiltinWord(word: string): boolean {
   return word === "help" || COMMANDS.some((c) => wordsOf(c.name)[0] === word);
 }

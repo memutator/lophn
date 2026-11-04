@@ -12,7 +12,6 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 
 import { packageInstallPath } from "../../../packages/core/apps/packages/install.ts";
 import { appSdkDependency } from "../../../packages/core/apps/packages/sdk-sync.ts";
-import { sampleDomain } from "./source.ts";
 
 async function replaceOnce(
   path: string,
@@ -36,7 +35,6 @@ export async function netFetchPatch(
   options: { port: number; secret: string },
 ): Promise<void> {
   const { port, secret } = options;
-  const slug = await sampleDomain(dir);
   const declaration = `${dir}/lophn.ts`;
   await replaceOnce(
     declaration,
@@ -47,7 +45,6 @@ export async function netFetchPatch(
       description: "Fetch the local server with the stored token.",
       effect: "external",
       inputSchema: null,
-      domain: "${slug}",
       public: false,
     },
     {

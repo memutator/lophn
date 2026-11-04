@@ -8,7 +8,6 @@ const command = {
   description: "Lists the items.",
   inputSchema: null,
   effect: "read",
-  domain: "items",
   public: false,
 };
 const operation = { name: "items.page", title: "Items page", effect: "read" };
@@ -56,9 +55,7 @@ test("선언은 이름 규칙, object root, 합친 이름의 중복, 알 수 없
     ["output schema", [{ ...command, outputSchema: { type: "object" } }]],
     ["command title", [{ ...command, title: "List" }]],
     ["missing public", [{ ...command, public: undefined }]],
-    ["missing domain", [{ ...command, domain: undefined }]],
-    ["domain not a slug", [{ ...command, domain: "Items_1" }]],
-    ["reserved domain", [{ ...command, domain: "file" }]],
+    ["domain field", [{ ...command, domain: "items" }]],
     [
       "same agent tool name",
       [
@@ -66,31 +63,18 @@ test("선언은 이름 규칙, object root, 합친 이름의 중복, 알 수 없
         { ...command, name: "event_list" },
       ],
     ],
-    [
-      "agent tool name too long",
-      [{ ...command, domain: "items", name: "a".repeat(60) }],
-    ],
+    ["agent tool name too long", [{ ...command, name: "a".repeat(60) }]],
     ["operation description", [], [{ ...operation, description: "x" }]],
     ["operation without effect", [], [{ ...operation, effect: undefined }]],
     ["operation without title", [], [{ ...operation, title: " " }]],
   ];
   for (const [label, commands, operations] of rejected) {
-    const result = validateDeclaration(declarationWith(commands, operations));
+    const result = validateDeclaration(declarationWith(commands, operations), {
+      slug: "items",
+    });
     assert.ok(!result.ok, label);
     assert.deepStrictEqual(result.error.code, "invalid_input", label);
   }
-
-  const outside = validateDeclaration(declarationWith([command]), {
-    domains: ["other"],
-  });
-  assert.ok(!outside.ok);
-  assert.deepStrictEqual(
-    outside.error.message,
-    "command list_items domain items is not a domain of this app",
-  );
-  assert.ok(
-    validateDeclaration(declarationWith([command]), { domains: ["items"] }).ok,
-  );
 
   // operation끼리는 agent tool 이름이 겹쳐도 된다. agent에게 보이지 않는다.
   const accepted = validateDeclaration(

@@ -100,6 +100,14 @@ test("app.create는 앱 이름의 domain을 함께 만들고, 이미 그 이름�
   assert.deepStrictEqual(domains.length, 1);
 });
 
+// 내장 명령 이름과 같은 slug는 `lophn <slug> <command>`가 내장 명령인지 앱 command인지 가를 수 없게 만든다.
+test("예약어 slug의 app.create는 invalid_input이고 앱도 domain도 남지 않는다", () => {
+  const { create, domains, apps } = open();
+  assert.deepStrictEqual(create("run").error?.code, "invalid_input");
+  assert.deepStrictEqual(apps(), 0);
+  assert.deepStrictEqual(domains.length, 0);
+});
+
 test("app.set_icon은 큰 파일과 이미지 아닌 것을 invalid_input으로 거절하고, 없는 앱은 not_found다", () => {
   const { create, setIcon, sql } = open();
   const app = create("first").value!.id;

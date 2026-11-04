@@ -12,7 +12,6 @@ import {
   type DeclarationOptions,
   exactKeys,
   invalid,
-  isDomainName,
   isObject,
   type JsonValue,
   nonBlank,
@@ -106,7 +105,7 @@ export function validateDeclaration(
   if (options !== undefined && !isObject(options)) {
     return invalid("declaration options must be an object");
   }
-  if (options && exactKeys(options, ["app", "domains"], [])) {
+  if (options && exactKeys(options, ["app", "slug"], [])) {
     return invalid("declaration options have an unknown field");
   }
   const owner = options?.app;
@@ -116,13 +115,9 @@ export function validateDeclaration(
   ) {
     return invalid("owner app must be an app ID");
   }
-  const domains = options?.domains;
-  if (
-    domains !== undefined &&
-    (!Array.isArray(domains) ||
-      domains.some((name) => typeof name !== "string" || !isDomainName(name)))
-  ) {
-    return invalid("domains must be domain names");
+  const slug = options?.slug;
+  if (slug !== undefined && typeof slug !== "string") {
+    return invalid("slug must be a string");
   }
   const unexpected = exactKeys(
     value,
@@ -155,7 +150,7 @@ export function validateDeclaration(
     value.screens,
     value.operations,
     value.commands,
-    domains,
+    slug,
   );
   if (!declared.ok) return declared;
   const { screens, operations, commands } = declared.value;

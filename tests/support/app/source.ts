@@ -122,15 +122,6 @@ export async function createAppSource(
   return { dir, commit: await git(dir, "rev-parse", "HEAD") };
 }
 
-/** 견본의 첫 command `domain`이다. 견본 위의 앱이면 앱 slug(= 앱 domain)다. patch가 새 tool의 domain을 이것으로 채운다. */
-export async function sampleDomain(dir: string): Promise<string> {
-  const found = (await readFile(`${dir}/lophn.ts`, "utf8")).match(
-    /domain:\s*"([a-z0-9-]+)"/,
-  );
-  if (found === null) throw new Error(`${dir}/lophn.ts에 domain이 없다`);
-  return found[1]!;
-}
-
 /** 둘째 release용. patch를 적용한 뒤 새 commit을 만든다. */
 export async function amendAppSource(
   dir: string,

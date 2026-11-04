@@ -175,7 +175,7 @@ export function createAppCalls(deps: AppCallsDeps): {
     if (!found.ok) return found;
     if (found.value === null) return ok(denied("not_declared", null));
     const { release, effect } = found.value;
-    const declared = { public: found.value.public, domain: found.value.domain };
+    const declared = { public: found.value.public };
 
     const base: CallRecordBase = {
       id: deps.ids.newId("inv") as Id<"inv">,
@@ -258,7 +258,7 @@ export function createAppCalls(deps: AppCallsDeps): {
     input: ToolCallInput,
     caller: VerifiedCaller,
     base: CallRecordBase,
-    declared: { public: boolean; domain: string },
+    declared: { public: boolean },
   ): Promise<Result<ToolCallOutput>> {
     const app = base.app;
     let phase: Phase = "gate";

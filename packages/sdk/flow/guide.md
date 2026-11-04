@@ -22,8 +22,8 @@ import { agent, input, instance, report, tool } from "@lophn/flow";
   `schema`를 주면 답이 그 JSON schema 모양이다.
 - `tool({ app, tool, input? })` — 앱 command를 부르고 결과를 기다린다. `tool`은
   command 이름이다.
-  `workflow.yaml`의 `agent`(없으면 lophn)의 지금 할당과 그 agent가 이
-  project에서 받는 domain 안에서만 된다.
+  `workflow.yaml`의 `agent`(없으면 lophn)의 지금 할당 안에서만 되고, flow는
+  project에서 돌므로 public command만 부른다.
 - `report({ step, text, next? })` — 진행을 남긴다. `next`는 다음 step 이름이나
   `"end"`다. 인자 검사는 core가 한다.
 - `Outcome<T> = { ok: true, result: T } | { ok: false, reason, message }`

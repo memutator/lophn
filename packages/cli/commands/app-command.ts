@@ -1,13 +1,16 @@
-// 앱이 내놓은 바깥 command를 `lophn <domain> <command>`로 부르는 입구의 binary(사람) 쪽이다. command는 앱의 활성 release 선언에
-// 있어 표(`mod.ts`)에 정적으로 없다. binary가 domain 이름으로 앱을 찾아 선언을 읽고, 지금 `agent run`처럼 run(`runs.start kind:tool`)으로
+// 앱이 내놓은 바깥 command를 `lophn <slug> <command>`로 부르는 입구의 binary(사람) 쪽이다. command는 앱의 활성 release 선언에
+// 있어 표(`mod.ts`)에 정적으로 없다. binary가 앱 slug로 앱을 찾아 선언을 읽고, 지금 `agent run`처럼 run(`runs.start kind:tool`)으로
 // 불러 결과를 기다린다. 사람은 그 앱의 command를 비공개까지 모두 부른다. lophn agent는 같은 `appCommandDoc`으로 명령줄을 읽되
-// 부를 때 할당·domain 규칙으로 거른 목록을 core가 쓴다(`core/lophn-agent/tools/app-tool`).
+// 부를 때 할당·비공개 규칙으로 거른 목록을 core가 쓴다(`core/lophn-agent/tools/app-tool`).
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
 import type { AppCommand } from "../../protocol/apps/declaration/read.ts";
-import { type InputSchema, validateInput } from "../../protocol/apps/mod.ts";
-import { domainList } from "../../protocol/domains/mod.ts";
+import {
+  appList,
+  type InputSchema,
+  validateInput,
+} from "../../protocol/apps/mod.ts";
 import { runStart, runWait } from "../../protocol/runs/mod.ts";
 import { start } from "./run.ts";
 import {
@@ -41,10 +44,10 @@ export function appCommandInput(schema: InputSchema | null): z.ZodType {
   return validator.meta(schema === null ? { ...NO_INPUT } : { ...schema });
 }
 
-// 이름은 `<domain>.<command>`다. 기록 이름도 이것이다.
-export function appCommandDoc(command: AppCommand): CommandDoc {
+// 이름은 `<slug>.<command>`다. 기록 이름도 이것이다.
+export function appCommandDoc(slug: string, command: AppCommand): CommandDoc {
   return {
-    name: `${command.domain}.${command.name}`,
+    name: `${slug}.${command.name}`,
     summary: command.description.split("\n")[0],
     description: command.description,
     input: appCommandInput(command.inputSchema as InputSchema | null),
@@ -52,9 +55,9 @@ export function appCommandDoc(command: AppCommand): CommandDoc {
   };
 }
 
-function appCommand(app: string, command: AppCommand): Command {
+function appCommand(app: string, slug: string, command: AppCommand): Command {
   return defineCommand({
-    ...appCommandDoc(command),
+    ...appCommandDoc(slug, command),
     routes: [runStart, runWait],
     places: [],
     run: (input, ctx) =>
@@ -73,33 +76,32 @@ function appCommand(app: string, command: AppCommand): Command {
 
 const MAX_PAGES = 20;
 
-// domain 이름의 앱 command 전부다. 앱 domain이 아니거나 없는 이름이면 빈 목록이다.
+// 앱 slug의 앱 command 전부다. 없는 slug면 빈 목록이다.
 export async function loadAppCommands(
   core: CommandCore,
-  domain: string,
+  slug: string,
 ): Promise<Result<readonly Command[]>> {
   let cursor: string | undefined;
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const listed = await core.read(domainList, {
+    const listed = await core.read(appList, {
       status: "active",
       ...(cursor === undefined ? {} : { cursor }),
     });
     if (!listed.ok) return listed;
-    const found = listed.value.domains.find((item) => item.name === domain);
+    const found = listed.value.apps.find((item) => item.slug === slug);
     if (found !== undefined) {
-      if (found.owner.kind !== "app") return ok([]);
-      const declaration = await core.read(appTools, { app: found.owner.id });
+      const declaration = await core.read(appTools, { app: found.id });
       if (!declaration.ok) {
         return declaration.error.code === "not_found" ? ok([]) : declaration;
       }
       return ok(
-        declaration.value.tools
-          .filter((command) => command.domain === domain)
-          .map((command) => appCommand(found.owner.id, command)),
+        declaration.value.tools.map((command) =>
+          appCommand(found.id, slug, command),
+        ),
       );
     }
     if (listed.value.next_cursor === null) return ok([]);
     cursor = listed.value.next_cursor;
   }
-  return err({ code: "unavailable", message: "the domain list is too long" });
+  return err({ code: "unavailable", message: "the app list is too long" });
 }

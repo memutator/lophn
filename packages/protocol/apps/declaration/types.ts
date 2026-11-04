@@ -65,10 +65,8 @@ export type CommandDeclaration = {
   inputSchema: InputSchema | null;
   // program이 강제하는 값이다. Gate와 runtime 권한이 쓴다.
   effect: ToolEffect;
-  // 다른 domain에 보이는지.
+  // 다른 앱의 agent에 보이는지.
   public: boolean;
-  // command가 다루는 객체의 domain. 이 앱의 domain 이름 중 하나다.
-  domain: string;
 };
 
 export type ScreenDeclaration = {
@@ -155,8 +153,8 @@ export type AppDeclaration = {
   sdk_dependencies: SDKDependency[];
 };
 
-// domains를 주면 모든 command의 domain이 이 안에 있어야 한다. 안 주면 모양만 본다.
-export type DeclarationOptions = { app?: string; domains?: readonly string[] };
+// slug를 주면 command의 wire 이름(`<slug>_<command>`)도 본다. 안 주면 모양만 본다.
+export type DeclarationOptions = { app?: string; slug?: string };
 
 export const DECLARATION_KEYS = [
   "app_connections",
@@ -204,12 +202,10 @@ export const INPUT_TYPES = new Set<InputType>([
 ]);
 
 export const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-// slugSchema(protocol/projects/values.ts)와 같은 규칙. 이 file은 의존성이 없어 따로 쓴다.
-const DOMAIN_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
-// domain 이름은 `lophn <domain> <command>`의 첫 낱말이라 내장 명령 묶음의 첫 낱말과 겹치면 안 된다(`lophn run …`이
+// 앱 slug는 `lophn <slug> <command>`의 첫 낱말이라 내장 명령 묶음의 첫 낱말과 겹치면 안 된다(`lophn run …`이
 // 앱 command인지 내장 명령인지 가를 수 없다). 새 내장 명령 묶음을 더하면 여기도 더한다(cli/commands/domain-names_test.ts가 잡는다).
 // 내장 tool의 자원 이름과 `mcp`도 지금처럼 쓰지 못한다. 순수 declaration graph가 보도록 이 file에 둔다.
-export const RESERVED_DOMAIN_NAMES: readonly string[] = [
+export const RESERVED_APP_SLUGS: readonly string[] = [
   "file",
   "pdf",
   "image",
@@ -241,13 +237,6 @@ export const RESERVED_DOMAIN_NAMES: readonly string[] = [
   "hook",
   "harness",
 ];
-export function isDomainName(name: string): boolean {
-  return (
-    name.length <= 63 &&
-    DOMAIN_NAME.test(name) &&
-    !RESERVED_DOMAIN_NAMES.includes(name)
-  );
-}
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;
 export const PACKAGE_NAME = /^@(?:me|lophn)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SEMVER =

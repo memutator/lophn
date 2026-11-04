@@ -110,4 +110,22 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [
     ${RELEASES_IMMUTABLE}
   `,
   },
+  // command의 `domain` 칸이 없어졌다. 칸이 남은 선언은 새 검사가 알 수 없는 칸으로 거절한다.
+  // declaration_hash는 준비 때 낸 값이라 바꾸지 않는다.
+  {
+    id: "apps.releases.declaration-no-domain",
+    sql: `
+    DROP TRIGGER releases_immutable;
+    UPDATE releases
+       SET declaration = json_set(
+         declaration,
+         '$.commands', (
+           SELECT json_group_array(json_remove(command.value, '$.domain'))
+             FROM json_each(releases.declaration, '$.commands') AS command
+         )
+       )
+     WHERE json_type(declaration, '$.commands[0].domain') IS NOT NULL;
+    ${RELEASES_IMMUTABLE}
+  `,
+  },
 ];

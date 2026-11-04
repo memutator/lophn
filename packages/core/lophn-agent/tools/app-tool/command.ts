@@ -14,8 +14,8 @@ import type { ToolDefinition } from "../registry.ts";
 import type { SpillableResult } from "../spill.ts";
 import type { ToolContext } from "../tool-context.ts";
 
-// 앱 command를 `lophn <domain> <command>`로 부르는 길이다. 어느 command가 지금 불리는지는 부를 때 정한다: 지금 할당(앱, 뺀 command),
-// 활성 release의 선언, domain 규칙(맡은 domain이면 전부, 아니면 public만). 묻기는 run-loop tool gate가, 막기는 core 호출 경로가 하고
+// 앱 command를 `lophn <slug> <command>`로 부르는 길이다. 어느 command가 지금 불리는지는 부를 때 정한다: 지금 할당(앱, 뺀 command),
+// 활성 release의 선언, 비공개 규칙(그 앱 place의 session이면 전부, 아니면 public만). 묻기는 run-loop tool gate가, 막기는 core 호출 경로가 하고
 // invocation 기록, 결과 모름도 core가 다룬다. 정의는 loop가 기록·Gate·retry에 쓰는 것이고 model에는 보이지 않는다.
 
 export const APP_TOOL_CONTRACT = appCallTool.name;
@@ -23,6 +23,7 @@ export const APP_TOOL_CONTRACT = appCallTool.name;
 // 활성 release에서 읽은 command 선언이다.
 export type AppToolView = {
   app: string;
+  slug: string;
   name: string;
   release: string;
   tools: readonly AppCommand[];
@@ -32,7 +33,7 @@ export type AppCommandEntry = {
   app: string;
   appName: string;
   command: AppCommand;
-  // parser와 help가 읽는다. 이름은 `<domain>.<command>`이고 기록 이름도 이것이다.
+  // parser와 help가 읽는다. 이름은 `<slug>.<command>`이고 기록 이름도 이것이다.
   doc: CommandDoc;
 };
 
@@ -46,7 +47,7 @@ function assigned(
   return entry !== undefined && !entry.removed_tools.includes(command);
 }
 
-// 앱 ∩ 선언 ∩ 할당. 순서는 앱, command 이름 순이다. domain 규칙은 views를 거른 쪽(`withPublicOnly`)이 한다.
+// 앱 ∩ 선언 ∩ 할당. 순서는 앱, command 이름 순이다. 비공개 규칙은 views를 거른 쪽(`withPublicOnly`)이 한다.
 export function appCommandEntries(source: {
   views: readonly AppToolView[];
   entries: readonly AssignmentEntry[];
@@ -61,7 +62,7 @@ export function appCommandEntries(source: {
         app: view.app,
         appName: view.name,
         command,
-        doc: appCommandDoc(command),
+        doc: appCommandDoc(view.slug, command),
       });
     }
   }

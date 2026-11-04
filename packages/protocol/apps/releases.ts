@@ -81,17 +81,14 @@ export const bundleManifestSchema = z.object({
 });
 export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 
-// 다른 domain이 쓰는 공개 tool을 지우는 release면 준비 결과가 그 tool과 쓰는 domain의 이름을 싣는다.
-// 막지 않고 알린다.
+// 다른 앱·project가 쓰는 공개 tool을 지우는 release면 준비 결과가 그 tool을 싣는다. 막지 않고 알린다.
 export const removedPublicToolSchema = z.object({
   tool: toolKeySchema,
-  domains: z.array(z.string().min(1)),
 });
 
-// 공개 skill을 지우는 release면 그 skill과, 그 앱이 할당된 agent가 맡은 domain의 이름을 싣는다. 막지 않고 알린다.
+// 공개 skill을 지우는 release면, 그 앱이 할당된 agent가 있을 때 그 skill을 싣는다. 막지 않고 알린다.
 export const removedPublicSkillSchema = z.object({
   skill: z.string().min(1),
-  domains: z.array(z.string().min(1)),
 });
 
 // 앱 place의 session이 앱 source의 HEAD commit으로 release를 준비한다. 검사에 떨어진 것은 오류가 아니라

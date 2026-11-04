@@ -14,14 +14,11 @@ import {
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appGet } from "../../../protocol/apps/mod.ts";
-import { domainList } from "../../../protocol/domains/mod.ts";
 import { domainFolder } from "../../../protocol/domains/paths.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
-  type AgentAtPlace,
   type AgentId,
   type AgentPlace,
-  agentRead,
   instructionsGet,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { toolResultFolder } from "../../../protocol/lophn-agent/tool-results.ts";
@@ -90,19 +87,6 @@ const SKILL_PLACES = {
   },
 };
 
-// agent가 그 place에서 받는 domain id. 읽지 못하면 null.
-async function callerDomains(
-  machine: CoreCall,
-  who: AgentAtPlace,
-): Promise<string[] | null> {
-  const read = await readOf(machine, agentRead, {
-    agent: who.agent,
-    ...(who.place === null ? {} : { place: who.place }),
-  });
-  if (!read.ok || read.value.issues.length > 0) return null;
-  return read.value.effective.domains;
-}
-
 // 제품 runtime의 tool 묶음이다. 내장 tool의 정의·handler와 외부 MCP 등록 통로를 한 곳에서 낸다.
 // 시험도 같은 묶음을 쓴다.
 function productToolkit(options: {
@@ -113,8 +97,8 @@ function productToolkit(options: {
   return {
     ...createBuiltinToolkit(),
     definitions: options.definitions,
-    // 허락된 앱의 command를 `lophn <domain> <command>`를 부를 때 푸는 재료. 할당은 machine 자격의 loopback으로 읽는다.
-    // agent의 domain 집합 밖 domain의 비공개 command는 뺀다.
+    // 허락된 앱의 command를 `lophn <slug> <command>`를 부를 때 푸는 재료. 할당은 machine 자격의 loopback으로 읽는다.
+    // 다른 앱의 비공개 command는 뺀다.
     appTool: withPublicOnly(
       createAppToolkit({
         machine: options.machine,
@@ -125,18 +109,6 @@ function productToolkit(options: {
           return read.ok ? ok(read.value.assignment) : read;
         },
       }),
-      {
-        callerDomains: (agent) => callerDomains(options.machine, agent),
-        async toolDomain(app, name) {
-          const read = await readOf(options.machine, domainList, {
-            owner: { kind: "app", id: app as never },
-          });
-          if (!read.ok) return null;
-          return (
-            read.value.domains.find((one) => one.name === name)?.id ?? null
-          );
-        },
-      },
     ),
     ...(options.mcp === undefined ? {} : { mcp: options.mcp }),
   };

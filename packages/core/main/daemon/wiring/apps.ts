@@ -108,7 +108,6 @@ import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import { createAppSkillsDeps } from "../../../apps/screens/skills.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
-import { domainsOfOwner } from "../../../domains/mod.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
 import {
@@ -119,7 +118,6 @@ import {
   openConnection,
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
-import { agentDomainPorts } from "../agent-domains.ts";
 import { blobReadHandler } from "../runtime.ts";
 import {
   type AppsControl,
@@ -166,23 +164,24 @@ export const appsWiring: WiringFactory = () => {
         const current = runtime.current(APPS_CONTROL_PRINCIPAL);
         return current.ok ? current.value : undefined;
       };
-      // 앱의 active domain 이름. link가 열린 뒤에 읽는다(선언 검사, 실행을 여는 사본 읽기, preview).
-      const domainNamesOf = (app: string): Promise<Result<string[]>> => {
-        try {
+      // 앱 slug. link가 열린 뒤에 읽는다(선언 검사).
+      const slugOf = (app: string): Promise<Result<string>> => {
+        if (write === undefined) {
           return Promise.resolve(
-            write === undefined
-              ? err({ code: "unavailable", message: "ledger is not open" })
-              : ok(
-                  domainsOfOwner(
-                    write.sql,
-                    { kind: "app", id: app },
-                    "active",
-                  ).map((domain) => domain.name),
-                ),
+            err({ code: "unavailable", message: "ledger is not open" }),
+          );
+        }
+        try {
+          const found = loadApp(write.sql, app);
+          if (!found.ok) return Promise.resolve(found);
+          return Promise.resolve(
+            found.value === null
+              ? err({ code: "not_found", message: "app not found" })
+              : ok(found.value.slug),
           );
         } catch {
           return Promise.resolve(
-            err({ code: "unavailable", message: "app domains cannot be read" }),
+            err({ code: "unavailable", message: "app cannot be read" }),
           );
         }
       };
@@ -203,13 +202,11 @@ export const appsWiring: WiringFactory = () => {
             ctx.writer.command(context as never, envelope as never),
           machine,
           prepareBlob: (call) => ctx.blobRelay.prepare(call),
-          domainNamesOf,
         },
         previews: {
           dataRoot: ctx.root.path,
           bundles: createCopyPreviewBundles({
             dataRoot: ctx.root.path,
-            domainNamesOf,
           }),
         },
       });
@@ -251,18 +248,6 @@ export const appsWiring: WiringFactory = () => {
       const callers: CallerDirectory = createCallerDirectory(link.sql);
       ctx.provide("callerDirectory", callers);
       const states = appStatesOf(link.sql);
-      const domains = agentDomainPorts(link.sql);
-      // 읽지 못하면 unavailable로 올려 Gate가 막는 쪽으로 실패하게 한다.
-      const readDomains = <T>(read: () => T): Result<T> => {
-        try {
-          return ok(read());
-        } catch {
-          return err({
-            code: "unavailable",
-            message: "domains cannot be read",
-          });
-        }
-      };
       const { path, intake } = createAppCalls({
         callers,
         lookup: appToolLookupOf(link.sql, appsControl.previews),
@@ -270,10 +255,6 @@ export const appsWiring: WiringFactory = () => {
         ledger,
         link: appsControl.link,
         assignmentOf: (agent) => agentAssignment(link.sql, agent),
-        agentDomainsOf: (agent) =>
-          readDomains(() => domains.agentDomains(agent)),
-        toolDomainOf: (app, name) =>
-          readDomains(() => domains.domainOf(app, name)),
         async appGrantsOf(app) {
           const listed = await ctx.runtime.readers.read(
             appGrantsList,
@@ -399,7 +380,7 @@ export const appsWiring: WiringFactory = () => {
           [
             `${declarationCheck.resource}/${declarationCheck.method}`,
             checkDeclaration({
-              domainNamesOf,
+              slugOf,
               sourceRootOf: (context, app) =>
                 appsControl.sourceRootOf(
                   context,

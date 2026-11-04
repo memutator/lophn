@@ -63,11 +63,7 @@ import {
   loadStoredDeclaration,
 } from "../store.ts";
 import { allowedConsents, waitingConsents } from "./consents.ts";
-import {
-  type DomainNamesOf,
-  desiredFromBundle,
-  readBundleCopy,
-} from "./desired.ts";
+import { desiredFromBundle, readBundleCopy } from "./desired.ts";
 import { createActivationHandlers } from "./handler.ts";
 import { runActivation } from "./orchestrator.ts";
 import { createActivationQueue, type QueueEntry } from "./queue.ts";
@@ -106,7 +102,6 @@ type ActivationDeps = {
   machine(): RequestContext | undefined;
   // blob 준비(I/O worker 중계). 바이트는 해석하지 않고 흘린다.
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
-  domainNamesOf: DomainNamesOf;
   // 원하는 앱 상태를 supervisor에 알린다(마지막 상태를 기억한다).
   reconcile(desired: DesiredApp): Promise<Result<void>>;
 };
@@ -190,12 +185,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (!row.ok) return row;
     if (row.value === undefined) return unavailable("release is unavailable");
     const bundleHash = String(row.value.bundle_hash);
-    const copy = await readBundleCopy(
-      deps.dataRoot,
-      app,
-      bundleHash,
-      deps.domainNamesOf,
-    );
+    const copy = await readBundleCopy(deps.dataRoot, app, bundleHash);
     if (!copy.ok) return copy;
     if (copy.value === undefined) return unavailable("bundle copy is missing");
     const dataPath = appDataFolder(deps.dataRoot, app);

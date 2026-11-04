@@ -2,8 +2,6 @@
 // slow_write는 row를 넣고 live에서만 응답하지 않고 오래 기다린다. preview에서 부르면 바로 답한다.
 import { readFile, writeFile } from "node:fs/promises";
 
-import { sampleDomain } from "./source.ts";
-
 async function replaceOnce(
   path: string,
   from: string,
@@ -15,8 +13,6 @@ async function replaceOnce(
 }
 
 export async function slowPatch(dir: string): Promise<void> {
-  // 견본 선언의 domain이 그 앱의 domain 이름이다.
-  const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/lophn.ts`,
     `    {
@@ -26,7 +22,6 @@ export async function slowPatch(dir: string): Promise<void> {
       description: "Count the rows slow_write put in.",
       effect: "read",
       inputSchema: null,
-      domain: "${slug}",
       public: false,
     },
     {
@@ -41,7 +36,6 @@ export async function slowPatch(dir: string): Promise<void> {
         required: ["title"],
         additionalProperties: false,
       },
-      domain: "${slug}",
       public: false,
     },
     {

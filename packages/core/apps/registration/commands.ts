@@ -22,6 +22,7 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { checkIconUpload, parseActor } from "../../../protocol/base/mod.ts";
+import { RESERVED_APP_SLUGS } from "../../../protocol/apps/declaration/mod.ts";
 import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
 import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
@@ -128,6 +129,10 @@ export function createAppCommands(): {
           if (parseActor(ctx.actor)?.kind !== "user") {
             return forbidden("only a person assigns an app id");
           }
+        }
+        // 앱 slug는 `lophn <slug> <command>`의 첫 낱말이라 내장 명령 이름은 쓰지 못한다.
+        if (RESERVED_APP_SLUGS.includes(input.slug)) {
+          return invalid(`app slug ${input.slug} is reserved`);
         }
         const id = input.id ?? tx.newId("app");
         const candidate: App = {

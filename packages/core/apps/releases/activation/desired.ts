@@ -46,8 +46,6 @@ type BundleParts = {
   dataSchema: number;
 };
 
-export type DomainNamesOf = (app: string) => Promise<Result<string[]>>;
-
 function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
@@ -111,13 +109,10 @@ export async function dataChangesOf(
 
 // 앱의 bundle 사본을 읽는다. 없는 사본·다른 앱의 hash는 undefined다. 사본이 있는데 manifest가 hash와 다르거나
 // 선언을 읽지 못하면 unavailable이다. 사본 파일은 읽기만 한다.
-// `domainNamesOf`를 주면 declaration tool의 domain을 그 앱의 domain 목록에 대조한다(실행하려고 여는 쪽이 준다).
-// 목록을 읽지 못하면 unavailable이다. 없으면 domain은 보지 않는다.
 export async function readBundleCopy(
   dataRoot: string,
   app: string,
   bundleHash: string,
-  domainNamesOf?: DomainNamesOf,
 ): Promise<Result<BundleParts | undefined>> {
   const copy = bundleCopyPath(dataRoot, app, bundleHash);
   if (!copy.ok) return ok(undefined);
@@ -157,13 +152,7 @@ export async function readBundleCopy(
   } catch {
     return unavailable("bundle declaration is invalid");
   }
-  let domains: string[] | undefined;
-  if (domainNamesOf !== undefined) {
-    const names = await domainNamesOf(app);
-    if (!names.ok) return unavailable("app domains cannot be read");
-    domains = names.value;
-  }
-  const declaration = validateDeclaration(raw, { app, domains });
+  const declaration = validateDeclaration(raw, { app });
   if (!declaration.ok) {
     return unavailable(
       `bundle declaration is invalid: ${declaration.error.message}`,
@@ -217,16 +206,10 @@ export function desiredFromBundle(
 // 그 경로의 byte다.
 export function createCopyPreviewBundles(options: {
   dataRoot: string;
-  domainNamesOf: DomainNamesOf;
 }): PreviewBundles {
   return {
     async open(app, bundleHash) {
-      const read = await readBundleCopy(
-        options.dataRoot,
-        app,
-        bundleHash,
-        options.domainNamesOf,
-      );
+      const read = await readBundleCopy(options.dataRoot, app, bundleHash);
       if (!read.ok) return read;
       if (read.value === undefined) return ok(undefined);
       const parts = read.value;

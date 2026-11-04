@@ -11,7 +11,7 @@ import type {
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { AppToolView } from "./app-tool/command.ts";
 
-// agent runtime의 앱 command 연결. `lophn <domain> <command>`를 부를 때 agent 할당에서 앱을 읽고, 그 앱의 활성 release
+// agent runtime의 앱 command 연결. `lophn <slug> <command>`를 부를 때 agent 할당에서 앱을 읽고, 그 앱의 활성 release
 // 선언을 읽는다. 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
 
 type AppToolLoad = {
@@ -42,6 +42,7 @@ export function createAppToolkit(options: {
       if (!read.ok) continue;
       views.push({
         app: read.value.app,
+        slug: read.value.slug,
         name: read.value.name,
         release: read.value.release,
         tools: read.value.tools,

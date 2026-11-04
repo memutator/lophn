@@ -1,5 +1,5 @@
 // `lophn app read|tools|create|link-source|status|logs|invocations`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
-// 다른 domain의 비공개 command를 숨기는 일은 `app.tool_index` route가 부른 쪽 credential을 보고 한다. 여기서는 부르기만 한다.
+// 다른 앱의 비공개 command를 숨기는 일은 `app.tool_index` route가 부른 쪽 credential을 보고 한다. 여기서는 부르기만 한다.
 import { resolve } from "node:path";
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
@@ -84,7 +84,7 @@ const tools = defineCommand({
   name: "app.tools",
   summary: "List apps with their commands",
   description:
-    "List the apps with their commands, or read one app: name, description, effect and public of the active release's commands (and inputSchema when you give an app). Commands of other domains show only when public. An app's operations (what its screens call) are not listed. Use it to see what apps already do and to get exact command names for `app_connections` in the app's declaration.",
+    "List the apps with their commands, or read one app: name, description, effect and public of the active release's commands (and inputSchema when you give an app). Commands of other apps show only when public. An app's operations (what its screens call) are not listed. Use it to see what apps already do and to get exact command names for `app_connections` in the app's declaration.",
   input: z.strictObject({ app: idSchema("app").optional() }),
   positional: ["app"],
   effect: "read",

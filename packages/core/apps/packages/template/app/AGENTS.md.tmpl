@@ -23,7 +23,7 @@ Package를 쓴다.
 ## SDK 확인
 
 - 내장 SDK의 사용법은 설치 사본의 `guide.md`(예:
-  `.lophn/sdk/declaration/2.1.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
+  `.lophn/sdk/declaration/3.0.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
   필요하면 `lophn.ts`의 의존 선언과 `package.json`의 의존을 같은 정확한
   version으로 함께 고친 뒤 `npm install`을 돌린다(release 준비가 둘을 대조한다).
 - 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
@@ -66,7 +66,7 @@ Package를 쓴다.
 - `lophn.ts`: 앱의 정본 선언(화면·operation·command·skill·고정 SDK 의존).
   코드를 바꾸기 전에 먼저 바꾼다. operation(화면과 앱 자신이 쓰는 동작)은
   `{name, title, effect}`뿐이고 agent는 못 본다. command(agent·다른 앱이 부르는
-  바깥 명령)에는 command마다 `domain`(이 앱의 domain 이름)이 필요하다. 앱 이름의 domain이 있다. 앱 icon이 필요하면 `icon`
+  바깥 명령)는 `public`이 아니면 이 앱 place에서만 보인다. 앱 icon이 필요하면 `icon`
   (bundle 안 경로, svg·png·webp, 64 KiB 이하)을 선언한다. lophn이 탭과 앱 목록에
   그 이미지를 보인다.
 - `main.ts`: 진입. handler 등록만 한다. 잡히지 않은 예외는 lophn 진입점이 앱
@@ -102,7 +102,7 @@ Package를 쓴다.
   못 본다. command는 agent와 다른 앱이 묻는 의미 있는 단위이고 결과가 작다. 둘이
   쓰는 업무 함수는 같고, command는 적게 선언한다.
 - `public` command는 lophn을 쓰는 다른 agent와 사람의 coding agent에게
-  `lophn <domain> <command> --flag`로 보이고, 입력 field마다 flag가 된다. command의
+  `lophn <앱 slug> <command> --flag`로 보이고, 입력 field마다 flag가 된다. command의
   `description`이 `--help` 글이 되므로 "언제 쓰나"로 쓴다.
 - 새 기능을 만들거나 바꿀 때마다 "이 기능이 다른 agent에게 쓸모 있나, 누구에게"를
   묻는다. 쓸모 있으면 `.lophn/skills/<name>/SKILL.md`에 언제 쓰고 어떤 명령을 어떻게

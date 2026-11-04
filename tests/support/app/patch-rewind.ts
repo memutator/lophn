@@ -7,8 +7,6 @@
 // 충돌한다: 앞선 둘이 이미 적용된 채 남으면 통째로 취소가 깨진 것이 보인다.
 import { readFile, writeFile } from "node:fs/promises";
 
-import { sampleDomain } from "./source.ts";
-
 async function replaceOnce(
   path: string,
   from: string,
@@ -20,8 +18,6 @@ async function replaceOnce(
 }
 
 export async function rewindPatch(dir: string): Promise<void> {
-  // 견본 선언의 domain이 그 앱의 domain 이름이다.
-  const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/lophn.ts`,
     `    {
@@ -43,7 +39,6 @@ export async function rewindPatch(dir: string): Promise<void> {
         required: ["kb"],
         additionalProperties: false,
       },
-      domain: "${slug}",
       public: false,
     },
     {
@@ -51,7 +46,6 @@ export async function rewindPatch(dir: string): Promise<void> {
       description: "Count the stored blob rows.",
       effect: "read",
       inputSchema: null,
-      domain: "${slug}",
       public: false,
     },
     {
@@ -59,7 +53,6 @@ export async function rewindPatch(dir: string): Promise<void> {
       description: "Read the oldest blob row.",
       effect: "read",
       inputSchema: null,
-      domain: "${slug}",
       public: false,
     },
     {

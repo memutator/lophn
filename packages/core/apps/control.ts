@@ -242,7 +242,6 @@ type AppsControlDeps = {
     ): Promise<Result<unknown>> | undefined;
     machine(): RequestContext | undefined;
     prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
-    domainNamesOf(app: string): Promise<Result<string[]>>;
   };
   // preview(`/previews/*`). disposable 영역은 data root 아래에 만든다. bundle을 여는 자리가
   // 없으면 시작은 unavailable이고 조회·종료는 그대로 된다(apps/preview).
@@ -734,7 +733,6 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           command: deps.activation.command,
           machine: deps.activation.machine,
           prepareBlob: deps.activation.prepareBlob,
-          domainNamesOf: deps.activation.domainNamesOf,
           reconcile: reconcileApp,
         });
 

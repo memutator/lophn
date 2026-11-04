@@ -4,9 +4,7 @@ import {
   assignmentSet,
   type AssignmentEntry,
 } from "../../../../protocol/approvals/assignment.ts";
-import type { DomainView } from "../source.ts";
 import { isAgentId } from "./agent-key.ts";
-import { placeOf } from "./core-extensions.ts";
 import { type Link, unavailable } from "./core-link.ts";
 import { appsFor } from "./editor/grants-model.ts";
 import type { GrantApp, GrantsView, ReadResult } from "./source.ts";
@@ -23,7 +21,6 @@ interface DeclarationValue {
     description: string;
     effect: "read" | "write" | "external";
     public: boolean;
-    domain: string;
   }[];
 }
 
@@ -50,40 +47,16 @@ async function appCatalog(link: Link): Promise<GrantApp[]> {
         detail: command.description,
         effect: command.effect,
         public: command.public,
-        domain: command.domain,
       })),
     });
   }
   return found;
 }
 
-/** agent가 이 자리에서 받는 domain의 이름. `effective.domains`를 그 자리 그릇의 것으로 바꾼다. */
-async function agentDomainNames(
-  link: Link,
-  place: string | null,
-  agent: string,
-  domains: (place: string) => Promise<ReadResult<readonly DomainView[]>>,
-): Promise<string[]> {
-  if (place === null) return [];
-  const container = await domains(place);
-  if (!container.ok) return [];
-  const read = await link.read<{ effective: { domains: string[] } }>(
-    "agents",
-    "read",
-    { agent, place: placeOf(place) },
-  );
-  if (!read.ok) return [];
-  const received = read.value.effective.domains;
-  return container.value
-    .filter((one) => received.includes(one.id))
-    .map((one) => one.name);
-}
-
 export async function readGrants(
   link: Link,
   place: string | null,
   agent: string,
-  domains: (place: string) => Promise<ReadResult<readonly DomainView[]>>,
 ): Promise<ReadResult<GrantsView>> {
   if (!isAgentId(agent)) return { ok: false, message: "not_found" };
   const read = await link.read<{
@@ -91,15 +64,12 @@ export async function readGrants(
     revision: number;
   }>("agent_assignments", "get", { agent });
   if (!read.ok) return read;
-  const [apps, agentDomains] = await Promise.all([
-    appCatalog(link),
-    agentDomainNames(link, place, agent, domains),
-  ]);
+  const apps = await appCatalog(link);
   return {
     ok: true,
     value: {
       entries: read.value.assignment.entries,
-      catalog: { apps: appsFor(apps, agentDomains) },
+      catalog: { apps: appsFor(apps, place) },
       revision: read.value.revision,
     },
   };

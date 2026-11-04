@@ -23,9 +23,8 @@ export type {
   ValidationResult,
 } from "./types.ts";
 export {
-  isDomainName,
   OAUTH_RESERVED_PARAMS,
-  RESERVED_DOMAIN_NAMES,
+  RESERVED_APP_SLUGS,
 } from "./types.ts";
 export { handlerNames } from "./tools.ts";
 export { canonicalInputHash, validateInput } from "./schema.ts";

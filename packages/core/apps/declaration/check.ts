@@ -20,8 +20,8 @@ type DeclarationCheckDeps = {
     ctx: Parameters<MemoryHandler>[0],
     app: string,
   ) => Promise<Result<string>>;
-  // 그 앱의 active domain 이름. 선언 command의 domain은 이 안에 있어야 한다.
-  domainNamesOf: (app: string) => Promise<Result<string[]>>;
+  // 그 앱의 slug. command의 wire 이름(`<slug>_<command>`)을 검사하는 재료다.
+  slugOf: (app: string) => Promise<Result<string>>;
 };
 
 const EVAL_DECLARATION = fileURLToPath(
@@ -156,12 +156,9 @@ export function checkDeclaration(deps: DeclarationCheckDeps): MemoryHandler {
     } catch {
       return failed("lophn.ts default export is not JSON");
     }
-    const domains = await deps.domainNamesOf(app);
-    if (!domains.ok) return domains;
-    const checked = validateDeclaration(value, {
-      app,
-      domains: domains.value,
-    });
+    const slug = await deps.slugOf(app);
+    if (!slug.ok) return slug;
+    const checked = validateDeclaration(value, { app, slug: slug.value });
     if (!checked.ok) return failed(checked.error.message);
     return ok({
       errors: [],

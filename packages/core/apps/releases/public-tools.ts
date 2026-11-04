@@ -1,7 +1,6 @@
-// release가 지우는 공개 command와 공개 skill, 그것을 다른 domain이 쓰는지의 판정. 막지 않고 준비 결과의 알림으로 싣는다.
+// release가 지우는 공개 command와 공개 skill, 그것을 다른 앱·project가 쓰는지의 판정. 막지 않고 준비 결과의 알림으로 싣는다.
 // 비교 재료는 active release에 고정된 선언과 새 선언이다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { AppDeclaration } from "../declaration/mod.ts";
 import { appToolUsers, usagePorts } from "../usage/mod.ts";
@@ -23,13 +22,13 @@ export function removedPublicOf(
     .sort();
 }
 
-// 지우는 공개 tool 가운데 다른 domain이 쓰는 것을 tool별로 묶는다. domain은 이름으로 낸다.
+// 지우는 공개 tool 가운데 다른 앱·project가 쓰는 것이다.
 // 이전 active release가 없거나 지우는 tool이 없으면 비어 있다.
 export function removedPublicToolsOf(
   tx: Pick<Tx, "sql" | "port">,
   app: string,
   nextTools: readonly Tool[],
-): Result<{ tool: string; domains: string[] }[]> {
+): Result<{ tool: string }[]> {
   const previous = loadActiveDeclaration(tx.sql, app);
   if (!previous.ok) return previous;
   if (previous.value === null) return ok([]);
@@ -38,27 +37,16 @@ export function removedPublicToolsOf(
     nextTools,
   );
   if (removed.length === 0) return ok([]);
-  let ports, lookup;
+  let ports;
   try {
     ports = tx.port(usagePorts);
-    lookup = tx.port(domainLookupPort);
   } catch {
     return err({ code: "unavailable", message: "app usage is unavailable" });
   }
   const users = appToolUsers(tx.sql, ports, app);
   if (!users.ok) return users;
-  const byTool = new Map<string, Set<string>>();
-  for (const user of users.value) {
-    if (!removed.includes(user.tool)) continue;
-    const names = byTool.get(user.tool) ?? new Set<string>();
-    names.add(lookup.get(user.domain)?.name ?? user.domain);
-    byTool.set(user.tool, names);
-  }
-  return ok(
-    [...byTool]
-      .map(([tool, names]) => ({ tool, domains: [...names].sort() }))
-      .sort((a, b) => (a.tool < b.tool ? -1 : 1)),
-  );
+  const used = new Set(users.value.map((user) => user.tool));
+  return ok(removed.filter((tool) => used.has(tool)).map((tool) => ({ tool })));
 }
 
 // 공개였던 skill이 사라졌거나 비공개가 됐으면 지운 것이다.
@@ -73,12 +61,12 @@ export function removedPublicSkillsIn(
     .sort();
 }
 
-// 지우는 공개 skill마다, 그 앱이 할당된 agent가 맡은 domain의 이름을 싣는다. 받는 domain이 없는 skill은 싣지 않는다.
+// 지우는 공개 skill을 싣는다. 그 앱을 할당받은 agent가 없으면 받는 쪽이 없어 싣지 않는다.
 export function removedPublicSkillsOf(
-  tx: Pick<Tx, "sql" | "port">,
+  tx: Pick<Tx, "sql">,
   app: string,
   nextSkills: readonly Skill[],
-): Result<{ skill: string; domains: string[] }[]> {
+): Result<{ skill: string }[]> {
   const previous = loadActiveDeclaration(tx.sql, app);
   if (!previous.ok) return previous;
   const removed = removedPublicSkillsIn(
@@ -86,22 +74,8 @@ export function removedPublicSkillsOf(
     nextSkills,
   );
   if (removed.length === 0) return ok([]);
-  let ports, lookup;
-  try {
-    ports = tx.port(usagePorts);
-    lookup = tx.port(domainLookupPort);
-  } catch {
-    return err({ code: "unavailable", message: "app usage is unavailable" });
-  }
   const assignees = appAssignees(tx.sql, app);
   if (!assignees.ok) return assignees;
-  const names = new Set<string>();
-  for (const { agent } of assignees.value) {
-    for (const domain of ports.chosenDomains(agent)) {
-      names.add(lookup.get(domain)?.name ?? domain);
-    }
-  }
-  if (names.size === 0) return ok([]);
-  const domains = [...names].sort();
-  return ok(removed.map((skill) => ({ skill, domains })));
+  if (assignees.value.length === 0) return ok([]);
+  return ok(removed.map((skill) => ({ skill })));
 }

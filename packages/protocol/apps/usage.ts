@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
-import { appIdSchema } from "../projects/values.ts";
+import { appIdSchema, projectIdSchema } from "../projects/values.ts";
 import { toolNameSchema } from "./channel-values.ts";
 
 const readErrors = [
@@ -13,12 +12,15 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-// 다른 domain이 쓰는 앱의 tool. domain은 쓰는 쪽 domain id이고 tool 자신의 domain은 싣지 않는다.
+// 다른 앱·project가 쓰는 앱의 tool. place는 쓰는 쪽 agent가 놓인 곳이고 그 앱 자신은 싣지 않는다.
 // grant는 열려 있는 쪽이고 invocation은 실제로 부른 쪽이다.
 export const appToolUseSchema = z.object({
   app: appIdSchema,
   tool: toolNameSchema,
-  domain: idSchema("dom"),
+  place: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("project"), id: projectIdSchema }),
+    z.object({ kind: z.literal("app"), id: appIdSchema }),
+  ]),
   source: z.enum(["grant", "invocation"]),
 });
 export type AppToolUse = z.infer<typeof appToolUseSchema>;

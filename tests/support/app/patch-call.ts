@@ -6,8 +6,6 @@
 
 import { readFile, writeFile } from "node:fs/promises";
 
-import { sampleDomain } from "./source.ts";
-
 async function replaceOnce(
   path: string,
   from: string,
@@ -19,7 +17,6 @@ async function replaceOnce(
 }
 
 export async function callPatch(dir: string): Promise<void> {
-  const slug = await sampleDomain(dir);
   // 같은 첫 단계에 표를 더한다. 이 release가 처음이라 공개한 단계를 고치는 것이 아니다.
   await replaceOnce(
     `${dir}/migrations/0-1.sql`,
@@ -46,7 +43,6 @@ create table note (
         required: ["kb"],
         additionalProperties: false,
       },
-      domain: "${slug}",
       public: false,
     },
     {
@@ -59,7 +55,6 @@ create table note (
         required: ["text"],
         additionalProperties: false,
       },
-      domain: "${slug}",
       public: false,
     },
     {

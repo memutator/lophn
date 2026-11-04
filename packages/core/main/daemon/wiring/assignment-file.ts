@@ -2,6 +2,8 @@
 // approvals는 정의 파일도 앱 표도 모르므로 읽고 쓰는 길을 이 조립이 port로 꽂는다.
 // writer·reader Worker가 팀 등록 file로 import하고, core는 data step을 낸다.
 import { createHash } from "node:crypto";
+import { readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { parse, stringify } from "yaml";
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/mod.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/places.ts";
@@ -16,6 +18,7 @@ import {
 import { loadApp } from "../../../apps/registration/store.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import { agentAssignment, denyRuleOf } from "../../../apps/usage/users.ts";
+import { domainByName } from "../../../domains/lookups.ts";
 import type { AgentInfo } from "../../../lophn-agent/agents/directory.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import {
@@ -101,7 +104,7 @@ function fileValuesOf(
     if (!active.ok) return active;
     for (const command of active.value?.declaration.commands ?? []) {
       if (entry.removed_tools.includes(command.name)) {
-        deny.push(denyRuleOf(command));
+        deny.push(denyRuleOf(app.value.slug, command.name));
       }
     }
   }
@@ -114,11 +117,14 @@ function managedRules(
   apps: readonly string[],
 ): Result<Set<string>> {
   const rules = new Set<string>();
-  for (const app of apps) {
-    const active = loadActiveDeclaration(sql, app);
+  for (const id of apps) {
+    const app = loadApp(sql, id);
+    if (!app.ok) return app;
+    if (app.value === null) continue;
+    const active = loadActiveDeclaration(sql, id);
     if (!active.ok) return active;
     for (const command of active.value?.declaration.commands ?? []) {
-      rules.add(denyRuleOf(command));
+      rules.add(denyRuleOf(app.value.slug, command.name));
     }
   }
   return ok(rules);
@@ -241,7 +247,84 @@ export const assignmentFileStep: DataStep = {
   },
 };
 
+const DENY_RULE = /^lophn\(([^\s()]+)((?: [^()]*)?)\)$/;
+
+// 옛 규칙 `lophn(<domain> <낱말>)`의 domain이 앱이 가진 domain이면 그 앱 slug로 바꾼다. 못 찾은 규칙은 그대로다.
+export function rewriteDenyRule(
+  rule: string,
+  slugOf: (domain: string) => string | null,
+): string {
+  const match = DENY_RULE.exec(rule);
+  if (match === null) return rule;
+  const slug = slugOf(match[1]);
+  return slug === null ? rule : `lophn(${slug}${match[2]})`;
+}
+
+// 앱 command의 deny 규칙이 domain이 아니라 앱 slug를 가리키게 한다. 정의 파일은 schema 없이 YAML로 읽는다
+// (정의 schema가 바뀌어도 이 step은 같게 돈다). 이미 slug인 규칙은 같은 글로 남아 다시 돌아도 같은 결과다.
+export const denyRuleSlugStep: DataStep = {
+  id: "approvals.deny-rule-slug",
+  async run(root) {
+    const opened = openConnection(`${root}/lophn.db`);
+    if (!opened.ok) return opened;
+    const connection = opened.value;
+    try {
+      const slugOf = (domain: string): string | null => {
+        const found = domainByName(connection.sql, domain);
+        if (found === null || found.owner.kind !== "app") return null;
+        const app = loadApp(connection.sql, found.owner.id);
+        return app.ok && app.value !== null ? app.value.slug : null;
+      };
+      let files: string[];
+      try {
+        files = await readdir(`${root}/agents`);
+      } catch {
+        return ok(undefined);
+      }
+      for (const file of files) {
+        if (!file.endsWith(".md")) continue;
+        const path = `${root}/agents/${file}`;
+        const text = await readFile(path, "utf8");
+        const lines = text.split("\n");
+        const close = lines.findIndex(
+          (line, i) => i > 0 && line.replace(/\r$/, "") === "---",
+        );
+        if (lines[0].replace(/\r$/, "") !== "---" || close === -1) continue;
+        let fields;
+        try {
+          fields = parse(lines.slice(1, close).join("\n"), { schema: "core" });
+        } catch {
+          continue;
+        }
+        const deny = fields?.permissions?.deny;
+        if (!Array.isArray(deny)) continue;
+        const rewritten = deny.map((rule: unknown) =>
+          typeof rule === "string" ? rewriteDenyRule(rule, slugOf) : rule,
+        );
+        if (rewritten.every((rule, i) => rule === deny[i])) continue;
+        fields.permissions.deny = rewritten;
+        const front = stringify(fields, {
+          schema: "core",
+          lineWidth: 0,
+          aliasDuplicateObjects: false,
+        });
+        const body = lines.slice(close + 1).join("\n");
+        await writeFile(`${path}.tmp`, `---\n${front}---\n${body}`, "utf8");
+        await rename(`${path}.tmp`, path);
+      }
+      return ok(undefined);
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "agent deny rules could not be moved to app slugs",
+      });
+    } finally {
+      connection.close();
+    }
+  },
+};
+
 export const assignmentFileWiring: WiringFactory = () => ({
   name: "assignment-file",
-  dataSteps: [assignmentFileStep],
+  dataSteps: [assignmentFileStep, denyRuleSlugStep],
 });

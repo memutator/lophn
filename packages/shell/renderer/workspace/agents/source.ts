@@ -191,10 +191,8 @@ interface GrantTool {
   readonly tool: string;
   readonly detail: string;
   readonly effect: ToolEffect;
-  /** 다른 domain에 보이는 tool인가. */
+  /** 다른 앱의 agent에 보이는 tool인가. */
   readonly public: boolean;
-  /** tool이 다루는 객체의 domain 이름. */
-  readonly domain: string;
 }
 
 export interface GrantApp {

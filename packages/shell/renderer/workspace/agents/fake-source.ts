@@ -14,7 +14,7 @@ import {
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { DomainView, ReadResult } from "../source.ts";
 import { isAppPlace } from "./agent-key.ts";
-import { appsFor, domainNamesOf } from "./editor/grants-model.ts";
+import { appsFor } from "./editor/grants-model.ts";
 import {
   ANTHROPIC,
   APP_DOMAINS,
@@ -699,15 +699,10 @@ export function createFakeAgentsSource(
     },
 
     grants(_project, key): Promise<ReadResult<GrantsView>> {
-      const item = stored.get(key);
-      const agentDomains =
-        item === undefined || _project === null
-          ? []
-          : domainNamesOf(item.definition.domains ?? [], domainsAt(_project));
       return Promise.resolve(
         ok({
           entries: grants.get(key) ?? [],
-          catalog: { apps: appsFor(GRANT_CATALOG.apps, agentDomains) },
+          catalog: { apps: appsFor(GRANT_CATALOG.apps, _project) },
           revision: grantRevisions.get(key) ?? 0,
         }),
       );

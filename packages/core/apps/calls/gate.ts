@@ -6,19 +6,13 @@ import type {
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { ToolEffect } from "../../../protocol/lophn-agent/tool-values.ts";
-import type {
-  AgentAtPlace,
-  AgentId,
-} from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import { judge } from "../../approvals/gate/mod.ts";
 import type { VerifiedCaller } from "./caller.ts";
 
 export type CallGateDeps = {
   assignmentOf(agent: AgentId): Result<Assignment>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
-  // flow caller의 domain 거르기 재료. creator가 맡은 domain id와 앱 domain 이름의 id다.
-  agentDomainsOf(agent: AgentAtPlace): Result<readonly string[]>;
-  toolDomainOf(app: Id<"app">, name: string): Result<string | null>;
 };
 
 function assignmentOf(
@@ -43,7 +37,6 @@ export async function callAllowed(
     tool: string;
     effect: ToolEffect;
     public: boolean;
-    domain: string;
   },
   deps: CallGateDeps,
 ): Promise<Result<boolean>> {
@@ -65,15 +58,8 @@ export async function callAllowed(
     );
     if (judged.kind === "deny") return ok(false);
     if (target.public) return ok(true);
-    // agent의 tool 목록과 같은 규칙: 공개 tool이거나 creator가 맡은 domain의 tool.
-    // 읽지 못하면 막는다.
-    const id = deps.toolDomainOf(target.app, target.domain);
-    const domains = deps.agentDomainsOf({
-      agent: caller.agent,
-      place: caller.place,
-    });
-    if (!id.ok || !domains.ok || id.value === null) return ok(false);
-    return ok(domains.value.includes(id.value));
+    // agent의 tool 목록과 같은 규칙: 공개 tool이거나 creator가 그 앱 place에 있는 tool.
+    return ok(caller.place?.kind === "app" && caller.place.id === target.app);
   }
   if (caller.kind === "agent") {
     const assignment = assignmentOf(caller.agent, deps);

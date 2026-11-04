@@ -6,7 +6,6 @@ import {
   exactKeys,
   type InputSchema,
   invalid,
-  isDomainName,
   isObject,
   nonBlank,
   type OperationDeclaration,
@@ -45,7 +44,7 @@ export function validateLayers(
   screenItems: unknown[],
   operationItems: unknown[],
   commandItems: unknown[],
-  domains?: readonly string[],
+  slug?: string,
 ): ValidationResult<{
   screens: ScreenDeclaration[];
   operations: OperationDeclaration[];
@@ -125,8 +124,8 @@ export function validateLayers(
     if (!isObject(item)) return invalid("command must be an object");
     const bad = exactKeys(
       item,
-      ["description", "domain", "effect", "inputSchema", "name", "public"],
-      ["description", "domain", "effect", "inputSchema", "name", "public"],
+      ["description", "effect", "inputSchema", "name", "public"],
+      ["description", "effect", "inputSchema", "name", "public"],
     );
     if (bad) return invalid(`command ${bad}`);
     if (typeof item.name !== "string" || !TOOL_NAME.test(item.name)) {
@@ -143,14 +142,6 @@ export function validateLayers(
     if (typeof item.public !== "boolean") {
       return invalid(`command ${item.name} public must be boolean`);
     }
-    if (typeof item.domain !== "string" || !isDomainName(item.domain)) {
-      return invalid(`command ${item.name} domain must be a domain name`);
-    }
-    if (domains && !domains.includes(item.domain)) {
-      return invalid(
-        `command ${item.name} domain ${item.domain} is not a domain of this app`,
-      );
-    }
     const inputSchema =
       item.inputSchema === null
         ? ({ ok: true, value: null } as const)
@@ -162,7 +153,6 @@ export function validateLayers(
       inputSchema: inputSchema.value,
       effect: item.effect,
       public: item.public,
-      domain: item.domain,
     });
   }
   // handler는 이름 하나로 등록하므로 operation과 command의 이름은 합쳐 하나다.
@@ -174,12 +164,12 @@ export function validateLayers(
   ) {
     return invalid("duplicate operation or command name");
   }
-  // 명령 이름은 `lophn <domain> <command>`로 부르지만, 이름 하나를 `<domain>_<command의 . → _>`로 줄여 쓰는 곳이 있어
+  // 명령 이름은 `lophn <slug> <command>`로 부르지만, 이름 하나를 `<slug>_<command의 . → _>`로 줄여 쓰는 곳이 있어
   // `event.list`와 `event_list`는 같은 이름이 되고 64자를 넘으면 불리지 않는다.
-  // agent에게 보이는 것은 command뿐이라 command에만 건다.
+  // agent에게 보이는 것은 command뿐이라 command에만 건다. slug를 모르면(SDK의 defineApp) 검사하지 않고 release 준비가 본다.
   const seen = new Map<string, string>();
-  for (const command of commands) {
-    const wire = `${command.domain}_${command.name.replaceAll(".", "_")}`;
+  for (const command of slug === undefined ? [] : commands) {
+    const wire = `${slug}_${command.name.replaceAll(".", "_")}`;
     if (wire.length > WIRE_NAME_MAX) {
       return invalid(
         `command ${command.name} has the agent tool name ${wire} longer than ${WIRE_NAME_MAX} characters`,

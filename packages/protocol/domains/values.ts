@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { RESERVED_DOMAIN_NAMES } from "../apps/declaration/mod.ts";
+import { RESERVED_APP_SLUGS } from "../apps/declaration/mod.ts";
 import {
   appIdSchema,
   projectIdSchema,
@@ -8,10 +8,9 @@ import {
 } from "../projects/values.ts";
 
 export const domainIdSchema = idSchema("dom");
-// domain 이름은 slug이고 보관한 것까지 전 domain에서 하나다. 앱 command는 `lophn <domain> <command>`로 부르는데 domain 이름이 내장 명령 이름과 겹치지 않도록
-// 예약 이름(declaration/types.ts)은 쓰지 못한다.
+// domain 이름은 slug이고 보관한 것까지 전 domain에서 하나다. 앱 slug와 같은 예약 이름(declaration/types.ts)은 쓰지 못한다(앱 이름의 domain이 같이 만들어진다).
 export const domainNameSchema = slugSchema.refine(
-  (name) => !RESERVED_DOMAIN_NAMES.includes(name),
+  (name) => !RESERVED_APP_SLUGS.includes(name),
   {
     message: "domain name is reserved",
   },

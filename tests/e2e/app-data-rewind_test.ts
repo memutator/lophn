@@ -97,8 +97,8 @@ const rewindOf = async (core: Core, app: TestApp, from: string) =>
     (item) => item.from_invocation === from,
   );
 
-const addItemTool = (domain: string, title: string) => ({
-  reply: lophnReply("tc_add", `${domain} add-item`, { title }),
+const addItemTool = (slug: string, title: string) => ({
+  reply: lophnReply("tc_add", `${slug} add-item`, { title }),
 });
 
 test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌하면 아무것도 바꾸지 않고, 다른 write를 지우지 않는다", async () => {
@@ -216,7 +216,7 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
     assert.deepStrictEqual(await titles(core, live), [kept_title]);
 
     // session-rewind-with-app: test가 만든 agent의 앱 place session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
-    // 비공개 tool은 그 domain을 받은 session만 보고, domains를 고르지 않은 agent는 앱 place에서 앱의 domain을 모두 받는다.
+    // 비공개 tool은 그 앱 place의 session만 본다.
     const place = { kind: "app", id: live.app } as const;
     const agent = core.ids.newId("agt");
     await core.call(agentCreate, {

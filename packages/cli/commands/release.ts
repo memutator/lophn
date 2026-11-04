@@ -85,7 +85,7 @@ const prepare = defineCommand({
   name: "release.prepare",
   summary: "Prepare a release from the HEAD commit",
   description:
-    "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the declaration (this replaces the app's current preview). Returns the prepared release and the public commands it removes that other domains use, or the failed stage and its reason.",
+    "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the declaration (this replaces the app's current preview). Returns the prepared release and the public commands it removes that other apps or projects use, or the failed stage and its reason.",
   input: z.strictObject({ app }),
   positional: ["app"],
   effect: "write",

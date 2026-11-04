@@ -33,7 +33,7 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
  * - actor가 agent면 할당으로 `judge`를 부른다. `deny`면 `denied(gate_blocked)`이고 `ask`는 run-loop tool gate가
  *   이미 물은 것이라 지나간다.
  * - actor가 program(job이 연 tool run)이나 flow(workflow instance가 연 tool run)이면 만든 agent(job의 creator, flow instance의 creator)의 할당을 mode `unattended`로 `judge`한 뒤, 공개 tool이 아니면
- *   creator가 맡은 domain의 tool인지 본다. 아니거나 domain을 읽지 못하면 `denied(gate_blocked)`.
+ *   creator가 그 앱 place에 있는 tool인지 본다. 아니면 `denied(gate_blocked)`.
  * - actor가 app이면 부른 앱의 active grant `app.call`이 그 앱의 그 tool을 덮는지 본다. 아니면 `denied(gate_blocked)`.
  */
 export interface AppToolCallPath {
@@ -55,7 +55,7 @@ export interface CallerDirectory {
 /**
  * 구현: app-calls-assembly(`core/apps/declaration` 읽기). 쓰는 곳: app-calls-path.
  * 활성 release(release가 null일 때) 또는 고정 release의 선언. 없는 operation·command는 null.
- * operation은 `public`이 false이고 `domain`이 빈 문자열이다(Gate가 아니라 caller 종류로 막는다).
+ * operation은 `public`이 false다(Gate가 아니라 caller 종류로 막는다).
  * `findPreview`는 그 앱의 지금 preview(nonce가 맞을 때)가 띄운 bundle의 선언이다.
  */
 export interface AppToolLookup {
@@ -67,9 +67,8 @@ export interface AppToolLookup {
   ): Result<{
     release: Id<"rel">;
     effect: "read" | "write" | "external";
-    // 공개 command 여부와 command의 domain 이름(program·flow caller의 domain 거르기 재료).
+    // 공개 command 여부(flow caller의 비공개 거르기 재료).
     public: boolean;
-    domain: string;
   } | null>;
   findPreview(
     app: Id<"app">,

@@ -690,7 +690,7 @@ export function coreAgentsSource(
 
     cancelMcpSignIn: (name, login) => cancelMcpSignIn(link, { name, login }),
 
-    grants: (project, agent) => readGrants(link, project, agent, domains),
+    grants: (project, agent) => readGrants(link, project, agent),
 
     setGrants: (project, agent, entries, revision) =>
       saveGrants(link, project, agent, entries, revision),

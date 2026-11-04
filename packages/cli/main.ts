@@ -100,7 +100,7 @@ export async function cliMain(
     ...COMMANDS,
     ...LOCAL_COMMANDS,
   ];
-  // 표의 명령만 user token file을 읽는다. 앱 command(`lophn <domain> <command>`)는 표에 없어, 표에 없는 첫 낱말이면 core에서 읽어 이어 parse한다.
+  // 표의 명령만 user token file을 읽는다. 앱 command(`lophn <slug> <command>`)는 표에 없어, 표에 없는 첫 낱말이면 core에서 읽어 이어 parse한다.
   const dataRoot = dataRootOf(env, home);
   const tokenPath = `${dataRoot ?? "<data root>"}/run/${USER_TOKEN_FILE_NAME}`;
   const token =

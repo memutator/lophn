@@ -212,13 +212,13 @@ async function readPlaceData(
       const commands =
         index?.ok !== true || d.owner.kind !== "app"
           ? []
-          : (index.value.apps.find((a) => a.app === d.owner.id)?.tools ?? [])
-              .filter((t) => t.domain === d.name)
-              .map((t) => ({
-                key: t.name,
-                effect: t.effect,
-                description: t.description,
-              }));
+          : (
+              index.value.apps.find((a) => a.app === d.owner.id)?.tools ?? []
+            ).map((t) => ({
+              key: t.name,
+              effect: t.effect,
+              description: t.description,
+            }));
       let folder: string | null = null;
       let artifacts: PlaceDomain["artifacts"] = null;
       const root = files.domainFolder(d.id);
@@ -321,25 +321,18 @@ async function readPlaceData(
         packages: packagesOf.get(a.id) ?? [],
       });
     }
-    const domainNameOf = (id: string) =>
-      records.find((d) => d.id === id)?.name ?? id;
     for (const d of records) {
       const ownerApp = d.owner.kind === "app" ? d.owner.id : null;
       const tools =
         ownerApp === null
           ? []
-          : (toolsOf.get(ownerApp) ?? []).filter(
-              (t) => t.public && t.domain === d.name,
-            );
+          : (toolsOf.get(ownerApp) ?? []).filter((t) => t.public);
       const toolNames = new Set(tools.map((t) => t.name));
       const uses =
         ownerApp === null || !usage.ok
           ? []
           : usage.value.uses.filter(
-              (u) =>
-                u.app === ownerApp &&
-                toolNames.has(u.tool) &&
-                u.domain !== d.id,
+              (u) => u.app === ownerApp && toolNames.has(u.tool),
             );
       map.push({
         name: d.name,
@@ -355,7 +348,10 @@ async function readPlaceData(
         })),
         usedBy: uses.map((u) => ({
           tool: u.tool,
-          domain: domainNameOf(u.domain),
+          domain:
+            (u.place.kind === "project"
+              ? projects.get(u.place.id)?.name
+              : appRecords.get(u.place.id)?.name) ?? u.place.id,
         })),
       });
     }

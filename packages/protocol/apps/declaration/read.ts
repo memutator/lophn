@@ -17,10 +17,8 @@ const appCommandSchema = z.object({
   // 정규 InputSchema. 인자가 없는 command는 null이다.
   inputSchema: jsonValueSchema.nullable(),
   effect: z.enum(["read", "write", "external"]),
-  // 다른 domain에 보이는지.
+  // 다른 앱의 agent에 보이는지.
   public: z.boolean(),
-  // command가 다루는 객체의 domain.
-  domain: z.string().min(1),
 });
 export type AppCommand = z.infer<typeof appCommandSchema>;
 
@@ -66,6 +64,8 @@ const appFactsSchema = z.object({
 const appDeclarationOutputSchema = withReadCommon(
   z.object({
     app: appIdSchema,
+    // command 명령줄의 첫 낱말이다: `lophn <slug> <command>`.
+    slug: slugSchema,
     release: releaseIdSchema,
     declaration_hash: sha256Schema,
     name: z.string().min(1),
@@ -146,7 +146,6 @@ const appToolIndexEntrySchema = z.object({
       description: z.string().min(1),
       effect: z.enum(["read", "write", "external"]),
       public: z.boolean(),
-      domain: z.string().min(1),
       inputSchema: jsonValueSchema.nullable().optional(),
     }),
   ),

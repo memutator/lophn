@@ -63,11 +63,7 @@ function setup() {
     // agentToolCall이 돌려주는 agent와 place. agent가 null이면 tool call을 모른다.
     agent: "lophn" as AgentId | null,
     place: null as Place | null,
-    // 이름에 "priv."가 붙은 tool만 비공개고 domain은 "dom"이다. 기본 tool은 공개다.
-    // creator가 맡은 domain id. null이면 읽지 못한다.
-    domains: [] as string[] | null,
-    // 앱 domain 이름 "dom"의 id. null이면 찾지 못한다.
-    toolDomainId: "dom_a" as string | null,
+    // 이름에 "priv."가 붙은 tool만 비공개다. 기본 tool은 공개다.
   };
 
   const ledger: Pick<InvocationLedger, "begin" | "finish" | "recordOnce"> = {
@@ -109,13 +105,12 @@ function setup() {
         ),
     },
     lookup: {
-      // 이름이 "op."로 시작하면 operation이다(비공개, domain 없음).
+      // 이름이 "op."로 시작하면 operation이다(비공개).
       find: (_app, _release, kind, name) =>
         ok({
           release: state.release,
           effect: name.includes("w.") ? "write" : "read",
           public: kind === "command" && !name.includes("priv."),
-          domain: kind === "command" ? "dom" : "",
         }),
       findPreview: (_app, nonce, _kind, name) => {
         const effect =
@@ -140,11 +135,6 @@ function setup() {
           state.assignment ??
           madeApps.map((app) => ({ app, removed_tools: [] })),
       }),
-    agentDomainsOf: () =>
-      state.domains === null
-        ? err({ code: "unavailable", message: "unreadable" })
-        : ok(state.domains),
-    toolDomainOf: () => ok(state.toolDomainId),
     appGrantsOf: (app) =>
       Promise.resolve(
         ok(
@@ -220,15 +210,11 @@ function flowCaller(instance: Id<"wfi">): AppToolCaller {
   return { kind: "flow", instance };
 }
 
-function flowAuth(instance = WFI): CallAuth {
-  return {
-    actor: "flow",
-    flow: {
-      instance,
-      agent: "lophn",
-      place: { kind: "project", id: PRJ },
-    },
-  };
+function flowAuth(
+  instance = WFI,
+  place: Place | null = { kind: "project", id: PRJ },
+): CallAuth {
+  return { actor: "flow", flow: { instance, agent: "lophn", place } };
 }
 
 function programAuth(): CallAuth {
@@ -803,15 +789,14 @@ test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부�
   }
 });
 
-test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할당이나 domain 밖이면 실행되지 않는다", async () => {
+test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할당이나 앱 place 밖이면 실행되지 않는다", async () => {
   const assigned = newApp();
   const other = newApp();
   const rows: {
     name: string;
     app: Id<"app">;
     tool: string;
-    domains?: string[] | null;
-    toolDomainId?: string | null;
+    place?: (app: Id<"app">) => Place | null;
     want: string;
   }[] = [
     { name: "not assigned", app: other, tool: "r.get", want: "gate_blocked" },
@@ -822,74 +807,57 @@ test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할
       want: "gate_blocked",
     },
     {
-      name: "private tool of another domain",
+      name: "private tool from a project place",
       app: assigned,
       tool: "priv.get",
-      domains: ["dom_b"],
       want: "gate_blocked",
     },
     {
-      name: "unreadable creator domains",
+      name: "private tool from another app place",
       app: assigned,
       tool: "priv.get",
-      domains: null,
-      want: "gate_blocked",
-    },
-    {
-      name: "tool domain not found",
-      app: assigned,
-      tool: "priv.get",
-      domains: ["dom_a"],
-      toolDomainId: null,
+      place: () => ({ kind: "app", id: other }),
       want: "gate_blocked",
     },
     {
       name: "lophn creator, private tool",
       app: assigned,
       tool: "priv.get",
-      domains: [],
+      place: () => null,
       want: "gate_blocked",
     },
     {
-      name: "public tool of another domain",
+      name: "public tool from a project place",
       app: assigned,
       tool: "r.get",
-      domains: ["dom_b"],
       want: "succeeded",
     },
     {
-      name: "private tool of own domain",
+      name: "private tool of the app's own place",
       app: assigned,
       tool: "priv.get",
-      domains: ["dom_a"],
+      place: (app) => ({ kind: "app", id: app }),
       want: "succeeded",
     },
   ];
-  const kinds: [string, AppToolCaller, () => CallAuth][] = [
-    ["flow", flowCaller(WFI), flowAuth],
-  ];
-  for (const [kind, caller, auth] of kinds) {
-    for (const row of rows) {
-      const name = `${kind}: ${row.name}`;
-      const t = setup();
-      t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
-      t.state.domains = row.domains === undefined ? [] : row.domains;
-      if (row.toolDomainId !== undefined) {
-        t.state.toolDomainId = row.toolDomainId;
-      }
-      const result = await t.path.call(
-        { ...person(row.app, row.tool), caller },
-        auth(),
-      );
-      assert.deepStrictEqual(status(result), row.want, name);
-      if (row.want === "gate_blocked") {
-        assert.deepStrictEqual(t.sent.length, 0, name);
-        const [record] = [...t.records.values()];
-        assert.deepStrictEqual(record.status, "denied", name);
-        assert.deepStrictEqual(record.caller, caller, name);
-      } else {
-        assert.deepStrictEqual(t.sent.length, 1, name);
-      }
+  const caller = flowCaller(WFI);
+  for (const row of rows) {
+    const name = `flow: ${row.name}`;
+    const t = setup();
+    t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
+    const place = row.place === undefined ? undefined : row.place(row.app);
+    const result = await t.path.call(
+      { ...person(row.app, row.tool), caller },
+      place === undefined ? flowAuth() : flowAuth(WFI, place),
+    );
+    assert.deepStrictEqual(status(result), row.want, name);
+    if (row.want === "gate_blocked") {
+      assert.deepStrictEqual(t.sent.length, 0, name);
+      const [record] = [...t.records.values()];
+      assert.deepStrictEqual(record.status, "denied", name);
+      assert.deepStrictEqual(record.caller, caller, name);
+    } else {
+      assert.deepStrictEqual(t.sent.length, 1, name);
     }
   }
 });

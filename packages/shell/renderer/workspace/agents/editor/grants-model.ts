@@ -1,35 +1,18 @@
 // 할당 화면의 순수한 계산. entries(계약의 AssignmentEntry 배열)에서 앱 줄의 상태를 읽고, 줄을 바꾼 새 entries를 만든다.
 // 줄은 앱뿐이고 뺀 tool만 removed_tools에 든다.
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
-import type { DomainView } from "../../source.ts";
 import type { GrantApp } from "../source.ts";
 
 /**
- * agent가 일할 domain의 이름. 고른 domain(id)이 없으면 그릇의 모든 domain이고, 그릇에 없는 id는 센 것에서 뺀다.
- * tool의 domain은 이름이라 이름으로 돌려준다.
- */
-export function domainNamesOf(
-  chosen: readonly string[],
-  container: readonly DomainView[],
-): string[] {
-  return container
-    .filter((one) => chosen.length === 0 || chosen.includes(one.id))
-    .map((one) => one.name);
-}
-
-/**
- * 붙일 수 있는 앱 목록. agent가 일할 domain(이름)의 tool은 모두, 다른 domain의 tool은 public만 남기고, 남은 tool이
- * 없는 앱은 뺀다(domain 이름은 전체에서 하나라 다른 앱이나 그릇의 domain과 겹치지 않는다). 이미 붙은 entry는 건드리지 않는다:
- * 실행 때 목록에서 빠질 뿐이다.
+ * 붙일 수 있는 앱 목록. agent가 일하는 자리가 그 앱이면 tool은 모두, 다른 앱은 public만 남기고, 남은 tool이
+ * 없는 앱은 뺀다. 이미 붙은 entry는 건드리지 않는다: 실행 때 목록에서 빠질 뿐이다.
  */
 export function appsFor(
   apps: readonly GrantApp[],
-  agentDomains: readonly string[],
+  place: string | null,
 ): GrantApp[] {
   return apps.flatMap((app) => {
-    const tools = app.tools.filter(
-      (tool) => tool.public || agentDomains.includes(tool.domain),
-    );
+    const tools = app.tools.filter((tool) => tool.public || app.app === place);
     return tools.length === 0 ? [] : [{ ...app, tools }];
   });
 }

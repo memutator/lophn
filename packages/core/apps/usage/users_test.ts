@@ -8,24 +8,20 @@ import { appsSchemaSteps } from "../registration/schema.ts";
 import { releasesSchemaSteps } from "../releases/schema.ts";
 import { insertRelease } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
+
+type UsageSession = NonNullable<ReturnType<UsagePorts["sessionPlace"]>>;
 import { appToolUsers } from "./users.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
-const DOMAINS: Record<string, string> = {
-  alpha: "dom_alpha",
-  beta: "dom_beta",
-};
-
-const tool = (name: string, domain: string) => ({
+const tool = (name: string, isPublic = true) => ({
   name,
   description: name,
   inputSchema: null,
   effect: "read",
-  public: true,
-  domain,
+  public: isPublic,
 });
 
-test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain이 하나인 agent는 그 domain만 쓰는 쪽으로 센다", () => {
+test("사용 관계는 그 앱 자신의 place와 home의 사용을 세지 않고, 할당받은 agent의 place와 부른 session의 place를 쓰는 쪽으로 센다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
@@ -33,6 +29,12 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   db.exec(
     `CREATE TABLE invocations (app TEXT, caller_kind TEXT, operation TEXT, session TEXT)`,
   );
+  const call = db.prepare(
+    `INSERT INTO invocations VALUES (?, 'agent', '{"kind":"command","name":"a"}', ?)`,
+  );
+  call.run(APP, "ses_project");
+  call.run(APP, "ses_home");
+  call.run(APP, "ses_self");
   db.prepare(
     `INSERT INTO apps VALUES (?, 'slug', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,
   ).run(APP);
@@ -60,46 +62,48 @@ test("사용 관계는 자기 domain의 사용을 세지 않고, 고른 domain�
   insertRelease(
     tx,
     record,
-    JSON.stringify({ commands: [tool("a", "alpha"), tool("b", "beta")] }),
+    JSON.stringify({ commands: [tool("a"), tool("b"), tool("c", false)] }),
     {} as never,
   );
   db.prepare(
     "UPDATE releases SET status = 'active', activated_at = ? WHERE id = ?",
   ).run(record.created_at, record.id);
 
-  // 사람이 만든 agent는 alpha만 골랐고(그 port 규칙은 wiring이 갖는다), lophn은 beta를 맡는다.
   const reviewer = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
-  const manager = "lophn";
-  const assigned = (id: string) => ({
+  const assigned = (id: string, deny: string[] = []) => ({
     id,
     name: id,
     domains: [],
     skip: false,
     apps: ["slug"],
-    deny: [],
+    deny,
   });
   installPlaceEnvironment({
     deps: () =>
       ({
         agents: {
           agent: () => null,
-          agents: () => [assigned(reviewer), assigned(manager)],
+          // reviewer는 b를 뺐다.
+          agents: () => [assigned(reviewer, ["lophn(slug b)"])],
         },
       }) as never,
   });
+  const PROJECT = { kind: "project", id: "prj_1" } as const;
+  const places: Record<string, UsageSession> = {
+    ses_project: { place: PROJECT },
+    ses_home: { place: null },
+    ses_self: { place: { kind: "app", id: APP } },
+  };
   const ports: UsagePorts = {
-    sessionDomains: () => null,
-    agentDomains: () => [],
-    chosenDomains: (agent) =>
-      agent === reviewer ? ["dom_alpha"] : ["dom_beta"],
-    domainOf: (_app, name) => DOMAINS[name] ?? null,
+    sessionPlace: (session) => places[session] ?? null,
+    agentPlaces: () => [PROJECT, { kind: "app", id: APP }],
   };
 
   const users = appToolUsers(sql, ports, APP);
   if (!users.ok) throw new Error(JSON.stringify(users.error));
-  // a(alpha)는 beta를 맡은 lophn이, b(beta)는 alpha를 고른 agent가 쓴다. 자기 domain의 사용은 없다.
+  // 공개 tool a는 project의 호출과 reviewer의 할당으로, b는 뺐으니 할당으로 세지 않는다. 비공개 c, home, 앱 자신은 세지 않는다.
   assert.deepStrictEqual(
-    users.ok && users.value.map((u) => `${u.tool}:${u.domain}`),
-    ["a:dom_beta", "b:dom_alpha"],
+    users.value.map((u) => `${u.tool}:${u.place.kind}:${u.source}`),
+    ["a:project:grant", "a:project:invocation"],
   );
 });

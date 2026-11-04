@@ -1,8 +1,6 @@
 // 앱 process를 죽이는 patch. crash loop e2e(`app-restart_test.ts`)가 쓴다.
 import { readFile, writeFile } from "node:fs/promises";
 
-import { sampleDomain } from "./source.ts";
-
 async function replaceOnce(
   path: string,
   from: string,
@@ -18,7 +16,6 @@ async function replaceOnce(
  * 앱 process가 죽는다. 선언과 handler가 같아 release 준비의 handler 검사를 통과한다.
  */
 export async function crashPatch(dir: string): Promise<void> {
-  const slug = await sampleDomain(dir);
   await replaceOnce(
     `${dir}/lophn.ts`,
     `    {
@@ -28,7 +25,6 @@ export async function crashPatch(dir: string): Promise<void> {
       description: "Reply, then throw an unhandled error.",
       effect: "read",
       inputSchema: null,
-      domain: "${slug}",
       public: false,
     },
     {

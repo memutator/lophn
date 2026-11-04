@@ -20,7 +20,6 @@ import {
   releaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
-import { domainLookupPort } from "../../../protocol/domains/mod.ts";
 import { canonicalJson, validateDeclaration } from "../declaration/mod.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import type {
@@ -550,17 +549,9 @@ export function createReleaseCommands(): {
           return conflict("archived app cannot prepare a release");
         }
         // 정규 선언은 검증기를 통과한 것만 hash로 고정한다.
-        let lookup;
-        try {
-          lookup = tx.port(domainLookupPort);
-        } catch {
-          return unavailable("domains are unavailable");
-        }
         const validated = validateDeclaration(input.declaration, {
           app: input.app,
-          domains: lookup
-            .ofOwner({ kind: "app", id: input.app }, "active")
-            .map((domain) => domain.name),
+          slug: app.value.slug,
         });
         if (!validated.ok) return invalid(validated.error.message);
         const declaration = validated.value;

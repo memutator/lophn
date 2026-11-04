@@ -116,7 +116,6 @@ test("home의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에
     description: `${name} does it`,
     effect: "read",
     public: isPublic,
-    domain: "alpha",
   });
   const call = fakeCall({
     "/projects/list": { projects: [] },
@@ -136,7 +135,14 @@ test("home의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에
       ],
     },
     "/apps/usage": {
-      uses: [{ app: APP, tool: "show", domain: DOM_B, source: "grant" }],
+      uses: [
+        {
+          app: APP,
+          tool: "show",
+          place: { kind: "project", id: id("prj", "2") },
+          source: "grant",
+        },
+      ],
     },
     "/packages/list": {
       packages: [
@@ -161,7 +167,7 @@ test("home의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에
   const text = read.value.place.text;
   assert.ok(text.includes("show (read) show does it"));
   assert.ok(!text.includes("hidden"));
-  assert.ok(text.includes("show ← beta"));
+  assert.ok(text.includes(`show ← ${id("prj", "2")}`));
   assert.ok(
     text.includes("- Ledger: keeps the books\n  Packages: @me/ui@1.0.0"),
   );

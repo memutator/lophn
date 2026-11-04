@@ -1,4 +1,4 @@
-// `lophn agent run`, `run wait|show|cancel`: 사람이 쓰는 run 명령이다. 앱 command(`lophn <domain> <command>`)도 `start`로
+// `lophn agent run`, `run wait|show|cancel`: 사람이 쓰는 run 명령이다. 앱 command(`lophn <slug> <command>`)도 `start`로
 // run을 시작한다(`app-command.ts`). 입력은 route 입력이 아니라 CLI 칸이라 여기서 route 입력을 만든다. 기다리는 명령은 끝난 run의 값을 내고, 실패·취소는 `failed`로 알린다.
 // place 종류가 비어 있어 binary만 부른다.
 import { z } from "zod";

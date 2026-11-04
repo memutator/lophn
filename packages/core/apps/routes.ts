@@ -244,7 +244,6 @@ export function appToolLookupOf(
           release: releaseId,
           effect: declared.effect,
           public: false,
-          domain: "",
         });
       }
       const declared = commands.find((entry) => entry.name === name);
@@ -253,7 +252,6 @@ export function appToolLookupOf(
         release: releaseId,
         effect: declared.effect,
         public: declared.public,
-        domain: declared.domain,
       });
     },
   };

@@ -43,8 +43,8 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   규칙(소문자·숫자·`-`, 64자까지)이고 겹치지 못한다. `commands`는 이 선언의 command 이름이다.
   `public`이 true인 skill은 다른 agent에게도 주므로 `commands`가 모두 public command여야
   한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다.
-  공개 skill을 지우는 release는 막지 않고, 준비 결과의 `removed_public_skills`에 그 skill과
-  받던 domain이 실린다.
+  공개 skill을 지우는 release는 막지 않고, 그 앱을 할당받은 agent가 있으면 준비 결과의
+  `removed_public_skills`에 그 skill이 실린다.
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
   자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
   막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이
@@ -54,13 +54,11 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   대상이다.
 - `commands` — 앱이 골라 내놓는 바깥 명령 목록이다. agent, 다른 앱, job, flow가
   부른다. 의미 단위로 나누고 결과를 작게 둔다(모든 행 목록 같은 화면용 동작은
-  operation이다). 항목은 `{name, description, inputSchema, effect, public, domain}`다.
+  operation이다). 항목은 `{name, description, inputSchema, effect, public}`다.
   `inputSchema`는 입력 schema나 입력이 없으면 `null`이다(`null`이 아니면 root type은
   object). `effect`는 `read`·`write`·`external`이다. `public`은 필수 boolean이고
-  다른 domain에 보이는지를 뜻한다. `domain`은 필수이고 command가 다루는 객체의
-  domain이다. 이 앱의 domain 이름 중 하나이고, 앱을 만들면 앱 이름의 domain이 하나
-  생긴다. 다른 domain은 사람이나 그 앱 place의 session이 `lophn domain create`로 만든 뒤
-  쓴다.
+  다른 앱의 agent에 보이는지를 뜻한다. 비공개 command는 그 앱 place의 session만 본다.
+  agent는 `lophn <앱 slug> <command>`로 부른다.
   - operation과 command의 이름(1~64자, 영문·숫자·`_ - .`)은 합쳐 하나이고
     handler는 이름 하나로 등록한다. 이름을 두 목록에 같이 쓰지 못한다.
 - `permissions` — 앱이 바깥에 닿는 자원이다. 항목은 `{kind, scope, reason}`이고
@@ -99,7 +97,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "2.1.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "3.0.0" }],
 });
 
 const result = validateDeclaration(declaration);

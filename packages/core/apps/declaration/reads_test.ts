@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
+import type { Place } from "../../../protocol/lophn-agent/places.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { createTargetAuthorizer } from "../../storage/ledger/target-authorization.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
@@ -11,8 +12,6 @@ import { createDeclarationReads, createToolIndexRead } from "./reads.ts";
 const APP_A = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const APP_B = "app_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const AGENT = "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzza";
-
-const NOTES = "dom_01hzzzzzzzzzzzzzzzzzzzzzza";
 
 const load: Parameters<typeof createDeclarationReads>[0] = (_sql, app) =>
   ok({
@@ -27,7 +26,6 @@ const load: Parameters<typeof createDeclarationReads>[0] = (_sql, app) =>
           description: "adds",
           effect: "write",
           public: true,
-          domain: "notes",
           inputSchema: { type: "object" },
         },
         {
@@ -35,21 +33,17 @@ const load: Parameters<typeof createDeclarationReads>[0] = (_sql, app) =>
           description: "keeps",
           effect: "read",
           public: false,
-          domain: "notes",
           inputSchema: null,
         },
       ],
     },
   } as never);
 
-// session이 맡은 domain만 흉내 낸 usage port다. 모르는 session은 null이다.
-const usage = (domains: string[]) =>
+// session이 놓인 곳만 흉내 낸 usage port다. 모르는 session은 null이다.
+const usage = (place: Place | null) =>
   ({
-    sessionDomains: (session: string) =>
-      session === "ses_01hzzzzzzzzzzzzzzzzzzzzzza"
-        ? { kind: "app", domains }
-        : null,
-    domainOf: (_app: string, name: string) => (name === "notes" ? NOTES : null),
+    sessionPlace: (session: string) =>
+      session === "ses_01hzzzzzzzzzzzzzzzzzzzzzza" ? { place } : null,
   }) as unknown as UsagePorts;
 const port = (ports: UsagePorts) => (key: unknown) =>
   key === usagePorts ? ports : undefined;
@@ -85,7 +79,7 @@ test("앱 하나에 묶인 agent 자격은 다른 앱의 tool 목록을 읽지�
     conditions: { app: APP_A },
     credential_ref: "agent",
   };
-  const snapshot = { sql, as_of_seq: "1", port: port(usage([])) } as never;
+  const snapshot = { sql, as_of_seq: "1", port: port(usage(null)) } as never;
 
   const list = reads.appToolIndex.handle(snapshot, ctx, {});
   assert.ok(list.ok);
@@ -112,9 +106,9 @@ test("앱 하나에 묶인 agent 자격은 다른 앱의 tool 목록을 읽지�
   }
 });
 
-// 다른 domain의 비공개 command가 결과에 새면 그 domain 밖 agent가 command 이름과 모양을 얻는다.
+// 다른 앱의 비공개 command가 결과에 새면 그 앱 밖 agent가 command 이름과 모양을 얻는다.
 // 같은 route를 user token으로도 부르므로 거르는 쪽은 route다.
-test("app.tool_index는 agent에게 맡지 않은 domain의 비공개 command를 싣지 않고 사람에게는 모두 싣는다", () => {
+test("app.tool_index는 agent에게 다른 앱 place의 비공개 command를 싣지 않고 사람에게는 모두 싣는다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
   db.prepare(
@@ -128,7 +122,7 @@ test("app.tool_index는 agent에게 맡지 않은 domain의 비공개 command를
       db.prepare(text).all(...params) as never,
   };
   const read = createToolIndexRead(load);
-  const names = (actor: string, domains: string[]) => {
+  const names = (actor: string, place: Place | null) => {
     const ctx = {
       principal: actor,
       actor,
@@ -136,12 +130,16 @@ test("app.tool_index는 agent에게 맡지 않은 domain의 비공개 command를
       conditions: {},
       credential_ref: "c",
     } as RequestContext;
-    const snapshot = { sql, as_of_seq: "1", port: port(usage(domains)) };
+    const snapshot = { sql, as_of_seq: "1", port: port(usage(place)) };
     const got = read.handle(snapshot as never, ctx, {});
     assert.ok(got.ok);
     return got.value.apps[0].tools.map((t) => t.name);
   };
-  assert.deepStrictEqual(names(AGENT, [NOTES]), ["add", "secret"]);
-  assert.deepStrictEqual(names(AGENT, []), ["add"]);
-  assert.deepStrictEqual(names("user", []), ["add", "secret"]);
+  assert.deepStrictEqual(names(AGENT, { kind: "app", id: APP_A }), [
+    "add",
+    "secret",
+  ]);
+  assert.deepStrictEqual(names(AGENT, { kind: "app", id: APP_B }), ["add"]);
+  assert.deepStrictEqual(names(AGENT, null), ["add"]);
+  assert.deepStrictEqual(names("user", null), ["add", "secret"]);
 });

@@ -241,7 +241,7 @@ export function callStateOf(call: {
   return "error";
 }
 
-/** tool을 시작할 때 이미 아는 칸. 문서 편집과 call은 끝나야 안다. */
+/** 입력을 못 읽어도 tool 이름만으로 아는 종류. 질문뿐이다. */
 export function startDetail(tool: string): AcpToolDetail | null {
   return tool === "ask"
     ? { kind: "question", group: null, outcome: null, lines: [] }
@@ -273,16 +273,18 @@ async function toLabel(env: AcpEnv, to: Json): Promise<string> {
 }
 
 /**
- * 끝난 tool call의 종류와 칸. 모르면 null(generic)이다. 큰 본문은 싣지 않고 화면에 필요한 칸만 뽑는다.
- * 묻기는 끝난 call마다, 나머지는 성공한 call만이다.
+ * tool call의 종류와 칸. 모르면 null(generic)이다. 큰 본문은 싣지 않고 화면에 필요한 칸만 뽑는다.
+ * 종류는 tool 이름이 정하므로 시작 때부터 있고 실패해도 지킨다(실패는 item의 state가 말한다).
+ * 입력에서 뽑는 칸은 시작 때부터 채우고, 결과에서 아는 칸(call id·state, 동의 대기)은 성공하고 끝난 call만이다.
  */
 export async function toolDetailOf(
   env: AcpEnv,
   call: Pick<ToolCall, "id" | "tool" | "state" | "outcome">,
 ): Promise<AcpToolDetail | null> {
-  if (call.state !== "finished") return startDetail(call.tool);
-  const ok = call.outcome?.kind === "success";
+  const finished = call.state === "finished";
+  const ok = finished && call.outcome?.kind === "success";
   if (call.tool === "ask") {
+    if (!finished) return startDetail(call.tool);
     const input = asRecord(await bodyOf(env, "tool_call_input", call.id));
     const output = asRecord(await bodyOf(env, "tool_call_output", call.id));
     const questions = Array.isArray(input?.["questions"])
@@ -316,33 +318,42 @@ export async function toolDetailOf(
       }),
     };
   }
-  if (!ok) return null;
   if (call.tool === "call.send") {
     const input = asRecord(await bodyOf(env, "tool_call_input", call.id));
-    const output = await bodyOf(env, "tool_call_output", call.id);
-    const id = CALL_ID.exec(JSON.stringify(output) ?? "")?.[0];
-    if (id === undefined || input === null) return null;
-    const read = await env.read<Output<typeof agentCallRead>>(agentCallRead, {
-      call: id,
-    });
-    if (!read.ok) return null;
-    const body = typeof input["body"] === "string" ? input["body"] : "";
-    const reply = input["reply"];
-    return {
+    const body = typeof input?.["body"] === "string" ? input["body"] : "";
+    const reply = input?.["reply"];
+    const detail: Extract<AcpToolDetail, { kind: "call" }> = {
       kind: "call",
-      call: id,
-      to: await toLabel(env, asRecord(input["to"]) ?? {}),
+      call: null,
+      to: await toLabel(env, asRecord(input?.["to"]) ?? {}),
       task: body.split("\n")[0] ?? "",
       reply:
         reply === "result" || reply === "conversation" || reply === "none"
           ? reply
           : "none",
-      state: read.value.call.state,
-      fail_reason: read.value.call.fail_reason,
-      session: read.value.call.receiver_session,
+      state: null,
+      fail_reason: null,
+      session: null,
     };
+    if (!ok) return detail;
+    const output = await bodyOf(env, "tool_call_output", call.id);
+    const id = CALL_ID.exec(JSON.stringify(output) ?? "")?.[0];
+    if (id === undefined) return detail;
+    const read = await env.read<Output<typeof agentCallRead>>(agentCallRead, {
+      call: id,
+    });
+    return read.ok
+      ? {
+          ...detail,
+          call: id,
+          state: read.value.call.state,
+          fail_reason: read.value.call.fail_reason,
+          session: read.value.call.receiver_session,
+        }
+      : detail;
   }
   if (call.tool === "release.activate") {
+    if (!ok) return null;
     // 동의 대기만 카드로 올린다. 나머지(active·failed)는 일반 tool 줄로 충분하다.
     const output = asRecord(await bodyOf(env, "tool_call_output", call.id));
     const result = asRecord(output?.["content"]) ?? output;
@@ -1015,6 +1026,10 @@ export async function acpUpdatesFor(
         at: event.at,
         data: null,
       });
+      // 입력은 시작 event 전에 저장되므로 종류와 입력에서 뽑는 칸을 시작 때부터 낸다.
+      detail =
+        (await readToolDetail(env, event.payload.tool_call)) ??
+        startDetail(event.payload.tool);
       break;
     case "ToolCallEnded":
       detail = await readToolDetail(env, event.payload.tool_call);
@@ -1073,10 +1088,9 @@ export async function acpUpdatesFor(
     if (!allocated.ok) return [];
     seqs = allocated.value;
   }
-  const started = event.type === "ToolCallStarted" ? event.payload.tool : "";
   return acpUpdatesOf(projected, {
     seq: (id) => seqs.get(id) ?? null,
-    tool: () => (started === "" ? detail : startDetail(started)),
+    tool: () => detail,
     questions: () =>
       cap.questions === null ? null : redactDeep(env, cap.questions),
     agentOf: (from) => agents.get(from) ?? null,

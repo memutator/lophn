@@ -149,7 +149,9 @@ export const conversation = {
   "conversation.label.duration-minutes-seconds":
     "{minutes, number}m {seconds, number}s",
   "conversation.label.duration-seconds": "{seconds, number}s",
+  "conversation.label.edit-failed": "Edit",
   "conversation.label.edit-made": "Edited",
+  "conversation.label.edit-running": "Editing",
   "conversation.label.evidence-annotation": "Annotation",
   "conversation.label.evidence-file": "File",
   "conversation.label.evidence-session": "Session",

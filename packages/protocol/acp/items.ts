@@ -72,7 +72,7 @@ export type AcpMessageItem = z.infer<typeof acpMessageItemSchema>;
 
 // tool의 종류. 종류마다 화면에 필요한 칸만 싣고 큰 본문(입력, 출력, diff)은 따로 읽는다.
 export const acpToolDetailSchema = z.discriminatedUnion("kind", [
-  /** 문서를 바꾼 tool. 끝나야 안다. */
+  /** 문서를 바꾼 tool. 칸은 입력에서 뽑아 시작 때부터 있고, 실패한 편집도 이 종류를 지킨다(실패는 item의 state). */
   z.strictObject({
     kind: z.literal("edit"),
     document: id,
@@ -80,14 +80,17 @@ export const acpToolDetailSchema = z.discriminatedUnion("kind", [
     added: count,
     removed: count,
   }),
-  /** 다른 session에 일을 맡긴 call. 상태는 읽은 때의 것이다. */
+  /**
+   * 다른 session에 일을 맡긴 call. 상태는 읽은 때의 것이다. to·task·reply는 입력에서 뽑아 시작 때부터 있고,
+   * call id와 state는 보내져서 call이 생긴 뒤에야 안다(실패한 tool은 끝까지 null).
+   */
   z.strictObject({
     kind: z.literal("call"),
-    call: id,
+    call: id.nullable(),
     to: z.string(),
     task: z.string(),
     reply: z.enum(CALL_REPLIES),
-    state: z.enum(CALL_STATES),
+    state: z.enum(CALL_STATES).nullable(),
     fail_reason: z.enum(CALL_FAIL_REASONS).nullable(),
     session: id.nullable(),
   }),

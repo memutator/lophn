@@ -5,6 +5,8 @@ import {
   AgentApprovalStates,
   AgentCallOpen,
   AgentCallReplies,
+  AgentToolFailed,
+  AgentToolRunning,
   AgentCommands,
   AgentCommandsFiltered,
   AgentContextFull,
@@ -94,6 +96,20 @@ export const agentArea: Area = {
       description:
         "답과 실패가 블록 안이 아니라 그 일에 이어진 새 메시지로 보인다. 답이 온 경우와 받은 session이 답 없이 끝나 실패한 경우다.",
       render: () => <AgentCallReplies />,
+    },
+    {
+      id: "new-agent-tool-running",
+      title: "Agent · running edit and call",
+      description:
+        "도는 중인 편집과 call이다. 종류가 시작 때부터 정해져서 일반 tool 줄이 아니라 편집 카드(Editing, 줄 수는 입력에서 온다)와 call 블록으로 보인다. 아직 보내지 않은 call에는 id와 상태가 없어 단추가 없다.",
+      render: () => <AgentToolRunning />,
+    },
+    {
+      id: "new-agent-tool-failed",
+      title: "Agent · failed edit and call",
+      description:
+        "실패·거절한 편집과 call이다. 같은 편집 카드와 call 블록을 지키고 Failed·Denied 표시가 붙는다. 바뀌지 않은 편집이라 줄 수와 [Open]은 없다.",
+      render: () => <AgentToolFailed />,
     },
     {
       id: "new-agent-question",

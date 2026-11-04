@@ -15,6 +15,7 @@ import type {
   CallStatus,
   CallView,
 } from "../agent-tab-source.ts";
+import { ToolStateMark } from "../activity/tool-state-mark.tsx";
 import styles from "./thread.module.css";
 
 const TITLE = {
@@ -42,12 +43,13 @@ export function CallBlock({
   source,
   onOpenSession,
 }: CallBlockProps): ReactElement {
-  // thread를 읽은 때의 상태에서 시작하고, 취소한 뒤에 다시 읽는다.
-  const [status, setStatus] = useState<CallStatus>(call.status);
+  // thread를 읽은 때의 상태에서 시작하고, 취소한 뒤에 다시 읽는다. call이 생기기 전이면 상태가 없다.
+  const [status, setStatus] = useState<CallStatus | null>(call.status);
   const [cancelling, setCancelling] = useState(false);
   const [cancelFailed, setCancelFailed] = useState(false);
 
   const cancel = async () => {
+    if (call.call === null) return;
     setCancelling(true);
     const result = await source.cancelCall(call.call);
     setCancelFailed(!result.ok);
@@ -57,12 +59,14 @@ export function CallBlock({
     setCancelling(false);
   };
 
-  const failed = status.state === "failed";
+  const failed = status?.state === "failed";
+  // call이 생기기 전에 tool call이 실패했거나 거절·취소됐으면 그 표시를 붙인다.
+  const unsent = status === null && call.toolState !== "running";
   return (
     <div
       className={styles.call}
-      data-call={call.call}
-      data-state={status.state}
+      data-call={call.call ?? ""}
+      data-state={status?.state ?? call.toolState}
     >
       <div className={styles.callHead}>
         <span className={styles.callTitle}>
@@ -75,10 +79,11 @@ export function CallBlock({
               label={t("conversation.label.call-failed")}
             />
           ) : null}
+          {unsent ? <ToolStateMark state={call.toolState} /> : null}
         </span>
         {/* [Open conversation]이 늘 오른쪽 끝에 오도록 있다 없다 하는 [Cancel]을 앞에 둔다. */}
         <span className={styles.callActions}>
-          {status.state === "accepted" ? (
+          {status?.state === "accepted" ? (
             <Button
               size="sm"
               variant="ghost"
@@ -104,10 +109,10 @@ export function CallBlock({
       <p className={styles.callTask}>{call.task}</p>
       {failed ? (
         <p className={styles.callNote}>
-          {t(FAIL_DETAIL[status.reason ?? "receiver_ended"])}
+          {t(FAIL_DETAIL[status?.reason ?? "receiver_ended"])}
         </p>
       ) : null}
-      {cancelFailed && status.state === "accepted" ? (
+      {cancelFailed && status?.state === "accepted" ? (
         <p className={styles.callNote}>
           {t("conversation.notice.call-cancel-failed")}
         </p>

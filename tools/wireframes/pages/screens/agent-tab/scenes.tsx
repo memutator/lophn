@@ -47,6 +47,10 @@ export const SenderChipsScene = () => <Scene sub="sender-chips" />;
 export const CallOpenScene = () => <Scene sub="call-open" />;
 /** call이 끝난 모습 둘. 답과 실패는 블록이 아니라 그 call에 이어지는 새 메시지로 보인다. */
 export const CallRepliesScene = () => <Scene sub="call-replies" />;
+/** 도는 편집과 call. 종류가 시작 때부터 있어 일반 tool 줄이 아닌 편집 카드("Editing")와 call 블록으로 보인다. */
+export const ToolRunningScene = () => <Scene sub="tool-running" />;
+/** 실패·거절한 편집과 call. 편집 카드와 call 블록 그대로 두고 Failed·Denied 표시만 붙는다. */
+export const ToolFailedScene = () => <Scene sub="tool-failed" />;
 /** 질문 카드: header, 선택지 2~4개(label과 description), multiSelect, 늘 붙는 Other. 기한도 Skip도 없다. */
 export const QuestionScene = () => <Scene sub="question" />;
 /** 답한 뒤: 카드가 대화 안의 접힌 요약이 되고 일이 이어진다. */

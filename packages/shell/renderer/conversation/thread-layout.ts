@@ -186,6 +186,7 @@ function entryOf(item: AcpItem): ThreadEntry | null {
               path: detail.path,
               added: detail.added,
               removed: detail.removed,
+              toolState: item.state,
             },
           };
         case "call":
@@ -198,7 +199,11 @@ function entryOf(item: AcpItem): ThreadEntry | null {
               to: detail.to,
               task: detail.task,
               reply: detail.reply,
-              status: { state: detail.state, reason: detail.fail_reason },
+              status:
+                detail.state === null
+                  ? null
+                  : { state: detail.state, reason: detail.fail_reason },
+              toolState: item.state,
               session: detail.session,
             },
           };

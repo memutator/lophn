@@ -8,6 +8,8 @@ import { t } from "@lophn/i18n";
 import { actionIcons, conversationIcons } from "../../icons/mod.ts";
 import { compareLines } from "../../editor/conflict/compare.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
+import type { ToolCallState } from "./model.ts";
+import { ToolStateMark } from "./tool-state-mark.tsx";
 import styles from "./activity.module.css";
 
 interface EditCardProps {
@@ -15,6 +17,8 @@ interface EditCardProps {
   path: string;
   added: number;
   removed: number;
+  /** 편집 tool call의 상태. 도는 중이면 "Editing", 실패·거절·취소면 바뀌지 않은 편집이라 줄 수와 [Open] 없이 그 표시를 붙인다. */
+  state: ToolCallState;
   /** 이 편집을 만든 tool call id. 펼치면 그 call의 입력에서 diff를 만든다. */
   call: string;
   /** call 입력을 읽는 통로. 없으면 diff를 펼치는 단추가 없다. */
@@ -46,6 +50,7 @@ export function EditCard({
   path,
   added,
   removed,
+  state,
   call,
   readInput,
   onOpen,
@@ -53,6 +58,7 @@ export function EditCard({
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<readonly DiffLine[] | null>(null);
   const [missing, setMissing] = useState(false);
+  const applied = state === "running" || state === "ok";
 
   useEffect(() => {
     if (!open || readInput === undefined) return;
@@ -92,14 +98,28 @@ export function EditCard({
           />
         )}
         <span className={styles.editText} data-edit-summary="">
-          {t("conversation.label.edit-made")}{" "}
+          {t(
+            state === "ok"
+              ? "conversation.label.edit-made"
+              : applied
+                ? "conversation.label.edit-running"
+                : "conversation.label.edit-failed",
+          )}{" "}
           <span className={styles.mono}>{path}</span>{" "}
-          <span className={styles.added}>+{added}</span>{" "}
-          <span className={styles.removed}>−{removed}</span>
+          {applied ? (
+            <>
+              <span className={styles.added}>+{added}</span>{" "}
+              <span className={styles.removed}>−{removed}</span>
+            </>
+          ) : (
+            <ToolStateMark state={state} />
+          )}
         </span>
-        <Button size="sm" trailingIcon={actionIcons.open} onClick={onOpen}>
-          {t("conversation.button.edit-open")}
-        </Button>
+        {applied ? (
+          <Button size="sm" trailingIcon={actionIcons.open} onClick={onOpen}>
+            {t("conversation.button.edit-open")}
+          </Button>
+        ) : null}
       </div>
       {open ? (
         <div className={styles.editDiff} data-edit-diff="">

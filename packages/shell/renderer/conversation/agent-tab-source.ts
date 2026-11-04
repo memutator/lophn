@@ -19,7 +19,7 @@ import {
 import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type { AcpState, AcpWriting } from "../../../protocol/acp/mod.ts";
-import type { ToolCallView } from "./activity/model.ts";
+import type { ToolCallState, ToolCallView } from "./activity/model.ts";
 import type {
   PickerAxisView,
   PickerLayoutView,
@@ -162,14 +162,17 @@ export interface CallStatus {
 
 /** 이 session이 보낸 call 블록. 상태는 thread를 읽은 때의 것이고 취소한 뒤 `callState`로 다시 읽는다. */
 export interface CallView {
-  /** call id(`cal_…`). */
-  readonly call: string;
+  /** call id(`cal_…`). 아직 보내지 못했거나 보내다 실패했으면 null이다. */
+  readonly call: string | null;
   /** 받는 곳. */
   readonly to: string;
   /** 맡긴 글 한 줄. */
   readonly task: string;
   readonly reply: CallReply;
-  readonly status: CallStatus;
+  /** call의 상태. call이 생기기 전(보내는 중, 보내다 실패)에는 null이다. */
+  readonly status: CallStatus | null;
+  /** call을 보낸 tool call의 상태. 도는 중이거나 실패한 때도 이 블록으로 그린다. */
+  readonly toolState: ToolCallState;
   /** 받은 session. 받는 곳을 풀지 못했으면 null이다. */
   readonly session: string | null;
 }
@@ -282,6 +285,8 @@ interface EditView {
   readonly path: string;
   readonly added: number;
   readonly removed: number;
+  /** 편집 tool call의 상태. 도는 중이거나 실패한 편집도 이 줄로 그린다. */
+  readonly toolState: ToolCallState;
 }
 
 /** 이어진 call 묶음 하나. call이 하나면 그 call 줄이다. */

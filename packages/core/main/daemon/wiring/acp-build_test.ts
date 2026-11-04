@@ -302,3 +302,87 @@ test("snapshot과 갱신을 접은 상태가 같고 ACP에 redaction 안 된 글
     text: "done [redacted]",
   });
 });
+
+// 편집·call·질문은 tool 이름이 정하는 종류를 시작 때부터 갖고, 실패해도 generic으로 돌아가지 않는다.
+test("tool의 종류는 시작 때부터 있고 실패해도 지킨다", async () => {
+  const base = env();
+  const allocate = (_session: string, items: AcpAlloc[]) =>
+    Promise.resolve(ok(new Map(items.map((item) => [item.id, 1]))));
+  const run = async (tool: string, outcome: "ok" | "error" | "denied") => {
+    const reads = (state: "running" | "finished"): AcpEnv => ({
+      read: <T>(route: { resource: string; method: string }, input: unknown) =>
+        key(route) === key(toolCallRead)
+          ? Promise.resolve(
+              ok({
+                tool_call: {
+                  id: TOOL,
+                  tool,
+                  state,
+                  outcome:
+                    state === "running"
+                      ? null
+                      : outcome === "ok"
+                        ? { kind: "success" }
+                        : { kind: "failed", code: "x" },
+                },
+              } as T),
+            )
+          : base.read<T>(route, input),
+      redact: base.redact,
+    });
+    const deps = (state: "running" | "finished") => ({
+      env: reads(state),
+      allocate,
+      openRequests: new Map(),
+    });
+    const started = await acpUpdatesFor(
+      deps("running"),
+      event("ToolCallStarted", 2, {
+        turn: TURN,
+        tool_call: TOOL,
+        tool,
+        display: { category: "other", title: tool },
+      }),
+      NONE,
+    );
+    const ended = await acpUpdatesFor(
+      deps("finished"),
+      event("ToolCallEnded", 4, { turn: TURN, tool_call: TOOL, outcome }),
+      NONE,
+    );
+    let state = EMPTY_ACP_STATE;
+    for (const update of [...started, ...ended]) {
+      state = reduceAcp(state, update);
+    }
+    return { started, state };
+  };
+
+  const edit = await run("file.edit", "error");
+  const first = edit.started[0];
+  assert.ok(first?.type === "tool_started");
+  // 입력(path, new_string)에서 뽑은 칸이 시작 때부터 차 있다.
+  assert.deepStrictEqual(first.item.detail, {
+    kind: "edit",
+    document: "a-[redacted].md",
+    path: "a-[redacted].md",
+    added: 2,
+    removed: 0,
+  });
+  const failedEdit = edit.state.items[0];
+  assert.ok(failedEdit?.kind === "tool");
+  assert.equal(failedEdit.state, "error");
+  assert.equal(failedEdit.detail.kind, "edit");
+
+  // 보내지 못한 call은 id와 상태가 끝까지 없다.
+  const send = await run("call.send", "denied");
+  const sent = send.state.items[0];
+  assert.ok(sent?.kind === "tool");
+  assert.equal(sent.state, "denied");
+  assert.ok(sent.detail.kind === "call" && sent.detail.call === null);
+
+  // 질문은 실제 core도 도는 ask에 question을 단다(fake scene과 같다).
+  const ask = await run("ask", "ok");
+  const asked = ask.started[0];
+  assert.ok(asked?.type === "tool_started");
+  assert.equal(asked.item.detail.kind, "question");
+});

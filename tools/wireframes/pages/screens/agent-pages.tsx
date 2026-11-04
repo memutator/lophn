@@ -33,6 +33,8 @@ import {
   PermissionsScene,
   QuestionAnsweredScene,
   QuestionEndedScene,
+  ToolFailedScene,
+  ToolRunningScene,
   QuestionScene,
   QueuedEditScene,
   QueuedMessageScene,
@@ -224,6 +226,10 @@ export const AgentApprovalDeny = ApprovalDenyScene;
 export const AgentApprovalStates = ApprovalStatesScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
+/** 도는 편집과 call: 일반 tool 줄이 아니라 편집 카드와 call 블록으로 보인다. */
+export const AgentToolRunning = ToolRunningScene;
+/** 실패·거절한 편집과 call: 같은 카드와 블록에 Failed·Denied 표시가 붙는다. */
+export const AgentToolFailed = ToolFailedScene;
 /** 편집 카드를 펼친 모습. 바뀐 줄은 unified diff로 보인다. */
 export const AgentEditDiff = EditDiffScene;
 /** skip을 켠 session. */

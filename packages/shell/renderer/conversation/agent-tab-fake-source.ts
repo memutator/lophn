@@ -63,6 +63,10 @@ export const AGENT_TAB_SCENES = [
   "sender-chips",
   "call-open",
   "call-replies",
+  /** 도는 편집과 call. 종류가 시작 때부터 있어 일반 tool 줄이 아닌 카드와 블록으로 그려진다. */
+  "tool-running",
+  /** 실패·거절한 편집과 call. 종류를 지키고 실패 표시가 붙는다. */
+  "tool-failed",
   "question",
   "question-answered",
   "question-ended",
@@ -516,6 +520,59 @@ function call(
   );
 }
 
+// 종류는 시작 때부터 있다. 입력에서 뽑는 칸은 차 있고, 보내지 못한 call은 id와 상태가 없다.
+const editOf = (
+  n: number,
+  minutes: number,
+  state: AcpToolItem["state"],
+  path: string,
+): AcpToolItem =>
+  tool(
+    n,
+    minutes,
+    { tool: "file.edit", category: "other", title: `Edit ${path}` },
+    {
+      state,
+      duration_ms: state === "running" ? null : 300,
+      detail: {
+        kind: "edit",
+        document: fakeId("doc", n),
+        path,
+        added: 4,
+        removed: 1,
+      },
+    },
+  );
+
+const unsentCall = (
+  n: number,
+  minutes: number,
+  state: AcpToolItem["state"],
+): AcpToolItem =>
+  tool(
+    20 + n,
+    minutes,
+    {
+      tool: "call.send",
+      category: "other",
+      title: "Send a call to Eval analyst",
+    },
+    {
+      state,
+      duration_ms: state === "running" ? null : 300,
+      detail: {
+        kind: "call",
+        call: null,
+        to: "Eval analyst",
+        task: "Find what the 3 regressions have in common.",
+        reply: "result",
+        state: null,
+        fail_reason: null,
+        session: null,
+      },
+    },
+  );
+
 const CALL_HANDOFF = {
   to: "lophn · Recipes",
   task: "The person wants a weekly meal plan screen in Recipes. Decided: plans by week, one recipe per meal.",
@@ -807,6 +864,40 @@ function sceneData(scene: AgentTabScene): SceneData {
             call(2, 47, CALL_CANCELLED),
           ],
           { turn: turnOf("working") },
+        ),
+      };
+    case "tool-running":
+      return {
+        agent: LOPHN,
+        title: "Week 41 summary",
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            agent(
+              2,
+              42,
+              "I am updating the report and asking the Eval analyst about the regressions.",
+            ),
+            editOf(1, 42, "running", "docs/reports/2026-w41.md"),
+            unsentCall(1, 42, "running"),
+          ],
+          { turn: turnOf("working") },
+        ),
+      };
+    case "tool-failed":
+      return {
+        agent: LOPHN,
+        title: "Week 41 summary",
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            agent(2, 42, "Some changes did not go through."),
+            editOf(1, 42, "error", "docs/reports/2026-w41.md"),
+            editOf(2, 42, "denied", "docs/reports/2026-w40.md"),
+            unsentCall(1, 43, "error"),
+            unsentCall(2, 43, "denied"),
+          ],
+          { turn: turnOf("ended") },
         ),
       };
     case "call-replies": {
@@ -1391,7 +1482,7 @@ export function createFakeAgentTabSource(
     },
     callState(call) {
       const found = callItemOf(call);
-      return found === undefined
+      return found === undefined || found.detail.state === null
         ? fail("not_found")
         : ok({ state: found.detail.state, reason: found.detail.fail_reason });
     },

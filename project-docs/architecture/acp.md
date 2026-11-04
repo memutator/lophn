@@ -23,7 +23,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
   - `approval`: 승인 결정 뒤 남는 줄(subject, outcome, choice, reason).
   - `notice`: turn의 꼬리. 정상·멈춤은 `turn_end`(active_ms, waited_ms), 실패는 `error`(code, message).
   - `hidden`: rewind가 숨긴 구간. 숨긴 항목은 `items`(평평한 목록)에 들고, `seq`는 숨긴 첫 항목의 순번이다. top-level에서는 그 항목들이 빠진다.
-- tool 종류(`detail.kind`): `edit`(document, path, added, removed), `call`(call, to, task, reply, state, fail_reason, session), `question`(group, outcome, lines), `consent`(release), `generic`. 종류마다 화면에 필요한 칸만 싣고 입력·출력·diff 같은 큰 본문은 싣지 않는다(따로 읽는다). 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
+- tool 종류(`detail.kind`): `edit`(document, path, added, removed), `call`(call, to, task, reply, state, fail_reason, session), `question`(group, outcome, lines), `consent`(release), `generic`. `edit`·`call`·`question`은 tool 이름이 정하므로 시작 때부터 그 종류이고 실패·거절·취소해도 지킨다(실패는 항목의 `state`가 말한다). 입력에서 뽑는 칸(`edit`의 path·줄 수, `call`의 to·task·reply)은 시작 때부터 차고, 결과에서 아는 칸(`call`의 call id·state·fail_reason·session)은 call이 생긴 뒤에야 알아 그 전과 실패한 tool에서는 null이다. 종류마다 화면에 필요한 칸만 싣고 입력·출력·diff 같은 큰 본문은 싣지 않는다(따로 읽는다). 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
 - `AcpState`의 나머지: `turn`(가장 늦게 시작한 turn: phase, started_at, elapsed), `queued`(도는 중에 다음 turn으로 보낸 사람 메시지. 순번이 없다), `pending`(composer 위에 놓이는 승인 카드와 질문 묶음. 둘 다 있으면 turn은 waiting), `writing`(저장 전 model 호출 하나의 글), `dropped`(늦은 조각을 거를 기억), `reread`.
 - message의 `content`는 content block이다(`contentBlockSchema`). `message_recorded`는 core가 읽은 저장된 본문(`body`)을 싣고, 그러면 항목은 `complete`이고 snapshot과 같다. 본문을 못 읽었으면(`body` null) `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있고 `complete`가 false라 snapshot을 다시 읽는다. harness가 쓴 tool 줄(`harness_tool` part)은 전용 항목이 생기기 전까지 `[상태] 이름: 요약` 글 block 하나다.
 - `cards`는 content block이 아니라 message의 따로 칸이다. agent message의 `app_card` part를 `{app, view}`로 옮긴다.
@@ -48,7 +48,7 @@ secret
 | context | 내용 | core가 채우는 곳 |
 |---|---|---|
 | `seq(id)` | 항목이 대화에 들 때 session마다 1부터 이어 붙여 **저장한** 순번. message id, tool_call id, 승인 request id, `acpNoticeId(turn)`로 찾는다. 줄에 선 메시지는 null | 표 `acp_items(session, id, seq, kind, turn, at, data)`. event를 처리할 때 command `AllocateAcpItems`가 붙이고(이미 있는 id는 그 순번) snapshot도 같은 표를 읽는다 |
-| `tool(toolCall)` | tool 종류와 칸. 모르면 null(=generic) | 시작 때는 `ask`만 안다. `ToolCallEnded`에서 저장된 입력·결과를 읽어(redaction을 한 번 더 거쳐) `edit`·`call`·`question`·`consent`를 만든다. snapshot도 같은 함수 |
+| `tool(toolCall)` | tool 종류와 칸. 모르면 null(=generic) | 종류는 tool 이름이 정한다: `file.write`·`file.edit`→`edit`, `call.send`→`call`, `ask`→`question`. `ToolCallStarted`(입력은 이 event 전에 저장됨)와 `ToolCallEnded`에서 저장된 입력·결과를 읽어(redaction을 한 번 더 거쳐) 칸을 채운다. 시작 때 입력을 못 읽는 `edit`는 generic, `ask`는 빈 `question`이다. `consent`(`release.activate`)는 결과를 봐야 알아 성공해 끝난 뒤에만 생긴다. snapshot도 같은 함수 |
 | `questions(toolCall)` | 대기 중인 질문 묶음 내용 | event를 받는 순간 메모리 기다림에서 읽어 redaction한다(풀리면 사라진다) |
 | `agentOf(session)`, `agentName(agent)` | 보낸 session의 agent와 그 이름 | session·agent 정의 read. 그래서 snapshot과 갱신이 같은 이름을 낸다 |
 | `body(message)` | 저장된 agent message의 본문 | `ReadMessageBody`를 읽어 redaction한 content·reasoning·cards |

@@ -20,7 +20,7 @@ clipboard는 사람이 누른 키로만 쓴다. Linux·Windows는 xterm의 key h
 
 ```
 사람이 터미널을 연다 ─ shell main: 터미널 key 발급, env LPN_TERMINAL_HOOK={socket,key}(+ browser bridge env)
-                      ─▶ terminal-host PTY($SHELL -l, bash·zsh·fish는 시작 층으로 `codex`·`opencode`·`kilo`·`cline` 함수를 끼운다)
+                      ─▶ terminal-host PTY($SHELL -l, bash·zsh·fish는 시작 층으로 `claude`·`codex`·`opencode`·`kilo`·`cline` 함수를 끼운다)
 terminal-host ─ 1초마다 foreground process argv(shell launch만), 바뀔 때만 ─▶ shell main tracker
                 harnessOfProcess(argv)가 harness를 고르면 그 harness(unknown). 이 실행에서 처음 본 harness면 hook 설치를 묻는다
 harness(claude 등) ─ 전역 hook ─▶ lophn hook <harness> <event> ─ env가 없으면 바로 끝
@@ -56,6 +56,7 @@ tracker ─ 바뀔 때 runtime.agent를 실어 모든 창에 push ─▶ rendere
   - 시작 층은 shell이 사용자 startup file을 모두 읽은 뒤에 함수를 정의한다. bash는 `-l`을 빼고 `--init-file`로 뜨며(`-l`이면 init file을 무시한다) `bash.sh`가 login bash의 순서(`/etc/profile`, 그다음 `~/.bash_profile`·`~/.bash_login`·`~/.profile` 중 처음 있는 것)를 따라 한다. zsh는 `ZDOTDIR`을 우리 폴더로 줘 `.zshenv`만 먼저 읽히고, 그 안에서 사용자 값(없으면 unset)으로 돌린 뒤 사용자 `.zshenv`를 읽는다. 나머지 file은 사용자 자리에서 읽히고 함수는 첫 prompt 직전에 정의한다(PATH가 그때 완성된다). fish는 `--init-command`로 config 뒤에 source한다. 그 밖의 shell(sh, dash, nu 등)은 그대로다.
   - file은 hook socket과 같은 per-run 폴더의 `shell-init/`에 앱이 켜질 때 쓴다(packaged의 asar 안 file은 외부 shell이 읽지 못한다). 폴더 경로는 env `LPN_SHELL_INIT`으로 터미널에 준다. hook이 꺼지면(run dir 없음, win32) 시작 층도 없다.
   - 함수는 `command codex`·`command opencode`·`command kilo`·`command cline`을 부르고 인자와 종료 상태를 그대로 둔다. 실행 파일일 때만 정의해서 사용자의 alias·function과 없는 명령은 건드리지 않는다. 호출마다 `--help`로 flag를 지원하는지 본다(옛 버전은 모르는 flag에 오류로 끝난다). Codex는 인자에 `--no-daemon`, `agents`, `queue`, `--remote`, `--remote=*`가 있으면 붙이지 않는다(shared server가 목적인 명령). OpenCode는 `--standalone`, `--server`, `--help`, `--version`, `--completions`가 있거나 첫 인자가 `run`·`mini`가 아닌 subcommand(`acp`, `api`, `serve`, `service` 등)면 붙이지 않고, `run`·`mini`는 subcommand 뒤에, TUI는 맨 앞에 붙인다. Kilo와 Cline은 flag가 아니라 env라 `--help`를 보지 않는다(모르는 판은 env를 무시한다). 공유 daemon을 다루는 명령인 `kilo daemon`·`kilo console`, `cline hub`는 env 없이 부른다.
+  - `claude`·`codex`·`opencode` 함수는 첫 인자가 `gui`면 그 앞의 일을 하지 않고 lophn CLI로 `gui <harness> <나머지>`를 부른다(CLI 화면 대신 lophn 창, [harness-gui.md](harness-gui.md)). 터미널 env에는 `LOPHN_*`가 없어서 CLI 경로는 shell main이 시작 층을 쓸 때 넣는다(개발은 `LOPHN_CLI`의 절대 경로, 설치본은 `lophn`, `writeShellInit`의 인자). `claude` 함수는 이 분기만 한다.
 - **알림은 사람이 보고 있지 않을 때만이고, 어디에 띄울지는 shell main 한 곳이 정한다.** turn 끝(완료, 실패)과 권한 물음·질문만 알린다. 사람이 끊은 turn(interrupted), `/clear`, compact는 알리지 않는다. 터미널의 turn 끝 알림은 일이 다 끝났을 때 한 번 간다. TurnEnded가 알림을 기다리게 둔다. child가 남았으면 보내지 않고, 보이는 상태가 idle이 되면 1.5초 기다린다. 그 사이 다시 running이나 waiting이 되면 보내지 않는다. 다시 깨어난 main turn(TurnStarted)은 기다리던 알림을 지운다. 그래서 background agent가 끝나 main이 잠깐 깨는 경우에 알림이 두 번 가지 않는다. 상태와 unseen은 늦추지 않고 바로 바꾼다. 실패한 turn도 같다. 권한 물음 알림은 늦추지 않는다. 터미널 안 coding agent와 lophn의 Agent 탭(lophn agent session)이 같은 규칙이다(`packages/shell/main/notice/rule.ts`의 `routeNotice`, 띄우는 곳은 `packages/shell/main/desktop/wiring/notice.ts`).
 
   | 상황 | 알림 |

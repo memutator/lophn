@@ -1,6 +1,6 @@
 # coding-agent
 
-coding agent 연결 장치는 사람이 쓰는 coding agent(`external-coding-agent`)와 lophn을 잇는 남은 부분이다. lophn CLI(`packages/cli/`), 제품 감지와 hook 설치와 공유 skill 사본(`packages/coding-agent/harnesses/`), 제품별 표(`packages/protocol/coding-agent/`)다. 사람이 연 터미널 탭에서 도는 coding agent의 상태, 탭 icon·점, 알림은 [terminal-agent.md](terminal-agent.md)다. lophn이 coding agent를 띄워 일을 맡기는 길(coding session)은 없다.
+coding agent 연결 장치는 사람이 쓰는 coding agent(`external-coding-agent`)와 lophn을 잇는 남은 부분이다. lophn CLI(`packages/cli/`), 제품 감지와 hook 설치와 공유 skill 사본(`packages/coding-agent/harnesses/`), 제품별 표(`packages/protocol/coding-agent/`)다. 사람이 연 터미널 탭에서 도는 coding agent의 상태, 탭 icon·점, 알림은 [terminal-agent.md](terminal-agent.md)다. lophn agent로 쓰는 harness(정의의 `runtime`이 `claude-code`, `codex`, `opencode`)는 아래 "harness agent" 절이다. 사람 터미널 탭에 coding agent를 띄워 일을 맡기던 길(coding session)은 없다.
 
 ## 흐름
 
@@ -37,8 +37,26 @@ harness ─ 전역 hook ─▶ lophn hook <harness> <event> ─▶ shell main ho
 - **설치는 전에 놓은 지운 skill의 얇은 사본도 지운다.** 지우는 이름은 상수 `RETIRED_SKILL_NAMES`(`lophn-build-app`, `lophn-repair`, `packages/coding-agent/harnesses/install.ts`)이고 패턴이나 목록 읽기로 고르지 않는다. 폴더에 `SKILL.md` 하나뿐이고, 그 글이 lophn이 쓰던 꼴과 byte까지 같고, `dry_run`이 아닐 때만 file 하나와 빈 폴더 하나를 지운다(recursive가 아니다). 사람이 고친 사본, 다른 file이 든 폴더, 다른 이름의 skill은 남긴다. 사람 home에 쓰는 일이라서다. 출력의 `skill` 칸은 이 지우기만 알린다. 옛 사본이 있는 사람은 `lophn harness install`을 한 번 돌려야 지워진다.
 - **전역 hook은 lophn과 상관없는 harness 실행에서도 불린다.** lophn 터미널이 넣는 `LPN_TERMINAL_HOOK`이 없으면 launcher가 CLI를 띄우지 않고 끝나고, `lophn hook`도 stdin을 읽지 않고 아무것도 보내지 않은 채 성공한다. pi extension과 OpenCode plugin은 그 env가 없으면 hook을 등록하지 않는다. launcher는 CLI를 Electron의 Node로 띄운다(권한 flag 없음).
 
+## harness agent
+
+정의의 `runtime`이 harness 값인 agent는 lophn session을 갖되 run-loop가 돌리지 않는다. 입력(사람 메시지, call, run, step)은 shell main의 harness host가 그 harness의 headless CLI 명령으로 실행한다(`claude -p`, `codex exec`, `opencode run`). 지금은 core 쪽(route, 입력함, 기록)만 있고 host는 계획 harness-agent가 짓는 중이다.
+
+```
+Router ─ session.transport = harness ─▶ harness 입력함(core 메모리, run-loop 입력함과 따로)
+shell main host ─ user token, memory route ─▶ harness/take → start_turn → record(여러 번) → finish_turn
+                                          └▶ harness/set_external_id (harness의 session id, resume에 쓴다)
+TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(bare 자동 답과 같은 길, wiring/bare-reply.ts)
+```
+
+- **켜기는 설정 `harness.enabled`(기본 꺼짐)다.** 꺼져 있으면 harness runtime session을 열지 않고(`unavailable`), 그 session으로 가는 메시지·call·step도 `unavailable`이며, host route도 `unavailable`이다. 답·reaction·알림은 받아 열린 call이 닫힌다. 편집기의 runtime 고르기는 켜졌을 때만 harness 값을 내고, 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
+- **session의 harness는 열 때 정해 바뀌지 않는다.** `sessions.harness`(trigger로 고정)와 외부 session id `sessions.harness_session`이 ledger step `lophn-agent.sessions.harness`다. 외부 id는 machine 전용 command `BindHarnessSession`만 쓰고, runtime이 harness가 아닌 session은 고치지 못한다(`packages/core/lophn-agent/session/harness_test.ts`).
+- **host route는 사람 token(actor user)만, runtime이 harness인 session만 고친다**(`packages/protocol/lophn-agent/harness-host.ts`, `packages/core/main/daemon/wiring/harness.ts`). memory route라 renderer 통로에는 없다. 기록은 core 안 machine 자격으로 기존 command(StartTurn, RecordMessage, FinishTurn)에 남는다. turn은 시작 → 기록 → 끝 순서이고 `TurnEnded`는 한 번이다. 재시작하면 끝나지 않은 harness turn은 interrupted(restarted)로 끝나고 늦은 FinishTurn은 `conflict`다(`packages/core/lophn-agent/run-loop/harness-turn_test.ts`).
+- **harness가 쓴 tool은 lophn이 실행한 것이 아니다.** 메시지 part `harness_tool {name, summary, status}`로만 남고 gate·rewind의 tool-call chain에 들지 않는다. 기록마다 `MessageRecorded`(`model_call: null`)를 내 대화가 바로 갱신된다.
+- **run-loop는 harness 입력을 돌리지 않는다.** 닿으면 turn을 시작하지 않고 `target_unavailable`로 닫는다(`run-loop/prepare.ts`). 켤 때 접수만 된 사람 메시지는 harness wiring이 harness 입력함에 되돌린다.
+
 ## 왜 이 모양인가
 
+- **harness는 shell host가 CLI 명령으로 돌린다(사람, 2026-11-04).** harness가 programmatic 실행을 공식으로 지원하므로 workflow와 job처럼 사람 없이 돌려도 된다. core는 사람의 PATH와 실행 파일을 모르므로 host는 shell main에 있고, core에는 route로만 붙는다. 이어 가기는 harness 자신의 session id라 TUI 열기와 다음 입력이 같은 대화를 resume한다.
 - **coding session 층을 지웠다(사람, 2026-10-28).** lophn이 coding agent를 터미널에 띄우고 token·MCP endpoint·메시지 줄로 맡기던 층은 부르는 곳이 없었다. 앱 일은 그 앱 place의 lophn agent가 직접 지었고, 그 뒤 role이 없어져 맡길 쪽도 사라졌다. 지운 것: core apps module의 coding 폴더와 표 셋, coding token, `POST /mcp`, Router의 coding transport, shell의 coding 터미널 탭과 대기 목록 항목, CLI의 token 명령(`message send`, `app …`, `package …`). 다시 필요해지면 새로 설계한다. 사람이 연 터미널이 쓰는 hook, 감지, 설치는 남겼다(사람, 2026-10-26).
 - **hook으로 상태를 안다.** herdr는 화면을 읽어 짐작하고 orca는 hook이 없으면 title 글리프로 짐작하지만 lophn은 짐작하지 않는다. 그 대가로 Claude Code를 Esc로 끊으면 `Stop`이 오지 않는다. 끊김 신호가 없는 harness에 한해 shell main의 터미널 상태는 사람이 친 단독 Esc·Ctrl-C를 보고 unknown으로 내린다. 끊김을 hook으로 알리는 harness(`interrupt_keys`가 빈 것)는 이 key를 보지 않는다([terminal-agent.md](terminal-agent.md)). turn 끝 신호가 있는 제품은 Claude Code `Stop`·`StopFailure`, Codex `Stop`·`Interrupt`(0.150 이상, interrupted), OpenCode `session.status` idle(전역 plugin이 root session의 event만 넘긴다. 뒤따르는 deprecated `session.idle`은 같은 끝이라 듣지 않는다. 2.x는 plugin이 `{id, setup}` default export로 event를 직접 구독하고 `session.execution.started`·`succeeded`·`failed`·`interrupted`가 `session.status` busy·idle로, `permission.asked`·`replied`는 그대로 1.x 모양으로 바뀌어 넘어가므로 shell main은 두 판을 구별하지 않는다. 2.x는 plugin을 공유 background service가 돌려 터미널 env가 닿지 않으므로 터미널이 `opencode --standalone`으로 띄운다), pi `agent_settled`다. pi는 `agent_end` 뒤에 retry와 compaction이 남을 수 있어 끝이 확정되는 쪽을 쓴다. plugin·extension 본문은 turn 끝 payload에 마지막 assistant 답(text block만)을 `lophn_message`로 싣는다. OpenCode 계열은 completed idle에서 1.x는 `client.session.messages`, 2.x는 `ctx.session.context`로 읽고(못 읽으면 뺀다), pi는 `agent_end`의 `messages`를 기억했다가 `agent_settled`에, omp·amp는 `agent_end`·`agent.end`의 `messages`에서 뽑는다.
 - **coding agent에게는 사본을 두고 lophn agent에게는 두지 않는다(agent).** coding agent는 lophn 안에 정의가 없고 사람의 user token으로 부르므로 줄 것은 앎뿐이고, 자기 skill 폴더만 읽는다. lophn agent는 bundle을 바로 읽으면 되고(`architecture/agent-definition.md`) 사본은 동기화가 틀릴 길만 늘린다. 쓸 harness는 hook을 놓은 harness로 정해, 사람이 hook을 허락한 도구에만 lophn이 파일을 둔다.

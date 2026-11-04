@@ -15,7 +15,7 @@ agent는 lophn과 사람이 만든 agent 둘이다. agent는 place에 놓이지 
 - P3. session은 열 때 agent 하나와 place 하나를 정하고 바꾸지 않는다. place는 home(place 없음), project, app 셋 가운데 하나다. 창에서 열면 그 창의 place다.
 - P4. 같은 place 종류의 lophn runtime session은 agent가 누구든 같은 tool 목록, 지침, 내장 skill, credential 상한, file 범위를 받는다. 좁히는 것은 정의의 `skills_off`와 사람의 할당이다. 정의가 `runtime: bare`인 agent는 제품 규칙, place 지침, 전역·project 지침, skill 없이 정의 본문과 정의 `tools`가 고른 tool만 받는다. 고를 수 있는 것은 그 place 종류 목록 안의 tool과 명령, 할당한 앱 command, 설정한 MCP tool이고, credential 상한과 file 범위는 place 종류 그대로다. result call은 turn이 끝날 때 마지막 응답이 답이다(`architecture/agent-definition.md`, `architecture/agent-call.md`).
 - P5. 앱은 project에 묶이지 않는다. 앱마다 app place가 있고 앱은 home에서 등록한다. 등록할 때 agent를 만들지 않는다. project도 마찬가지다.
-- P6. coding agent는 lophn 밖의 harness다. lophn은 coding agent에게 일을 맡기지 않는다. 사람이 터미널 탭에서 자기 coding agent를 쓰는 것은 lophn agent의 일과 별개이고, lophn은 그 탭의 상태(icon, 점, 알림)만 보인다(`architecture/terminal-agent.md`).
+- P6. coding agent는 lophn 밖의 harness다. 사람이 터미널 탭에서 자기 coding agent를 쓰는 것은 lophn agent의 일과 별개이고, lophn은 그 탭의 상태(icon, 점, 알림)만 보인다(`architecture/terminal-agent.md`). 사람이 harness(Claude Code, Codex, OpenCode)를 정의의 runtime으로 두면 그 agent는 lophn A2A로 일을 받고, lophn이 그 harness의 headless CLI 명령으로 실행한다. 켜기는 설정 `harness.enabled`다(`architecture/coding-agent.md`).
 - P7. 사람은 왼쪽 sidebar의 New session(▾로 agent 고르기. Home, project, 앱 place 어디서나), toast로 agent를 부른다. 고르면 그 place의 session이 열린다.
 - P8. project place의 session은 그 project의 `LOPHN.md`를 지침으로 같이 읽는다. app place와 home에는 project 지침이 없다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, project place session의 file 범위 밖이라 사람이 editor로 고친다.

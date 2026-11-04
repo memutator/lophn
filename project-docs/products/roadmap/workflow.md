@@ -10,7 +10,7 @@
 
 ## 남은 일
 
-1. **서드 파티 harness 참가자.** 선언으로 받되 넘기지 못한다(`not_handed`·`harness`). lophn agent가 coding agent에게 맡기는 길(Router가 `coding_agent`를 거절한다)을 열 때 같이 연다(2026-10-21, `problem-ticket.md`).
+1. ~~서드 파티 harness 참가자~~ 끝남(계획 harness-agent, 2026-11-04): harness agent는 runtime이 harness인 이름 있는 agent라 `{agent}` 참가자로 넘긴다. 남은 이름 없는 `{kind: harness}` 지우기는 `project-docs/issues/workflow.md`.
 
 ## 정한 것 (사람)
 

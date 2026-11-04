@@ -14,7 +14,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
-  blocksText,
   type ContentBlock,
   textBlocks,
 } from "../../../protocol/lophn-agent/content-block.ts";
@@ -40,11 +39,10 @@ import {
   excerptOf,
   messagesOf,
   newSessionKey,
-  textOfBody,
+  textOfParts,
 } from "./agent-view-model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
 import { fileBlock } from "./attachments.ts";
-import { loadBodies } from "./bodies.ts";
 import { AgentComposer } from "./composer/agent-composer.tsx";
 import {
   afterCheck,
@@ -67,6 +65,7 @@ import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
 import { StatusFooter } from "./status-view/status-footer.tsx";
 import { StatusView } from "./status-view/status-view.tsx";
+import { layoutOf } from "./thread-layout.ts";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
 
 /** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
@@ -266,12 +265,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     if (data.gone) onSessionChange(null);
   }, [data.gone]);
 
-  // 본문은 한 번 읽으면 바뀌지 않는다. 새 메시지가 오면 그것만 읽는다.
-  const messageIds = messages.map((message) => message.id).join();
-  useEffect(() => {
-    void loadBodies(source, drafts, messages);
-  }, [source, drafts, messageIds]);
-
   // 보낸 말이 확정 메시지로 대화에 오면 임시로 보이던 것을 지운다.
   const sentId =
     draft.outgoing?.phase === "accepted" ? draft.outgoing.id : null;
@@ -304,11 +297,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     void data.reload();
     if (session === null || drafts.draft(session).text !== "") return;
     const found = messages.find((item) => item.id === message);
-    const text =
-      textOfBody(drafts.body(message)) ??
-      found?.text ??
-      drafts.textOf(message) ??
-      "";
+    const text = found === undefined ? "" : textOfParts(found.parts);
     if (text !== "") {
       drafts.save(session, { text, selection: [text.length, text.length] });
     }
@@ -352,7 +341,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   const dispatch = async (content: ContentBlock[], target: string) => {
     const id = newId("msg", now());
-    drafts.remember(id, blocksText(content));
     // 일하는 중에 보낸 말은 다음 turn을 기다린다. 도는 turn에 올리는 일은 "다음 turn" 줄의 [Send now]가 한다.
     const outgoing = startSend({
       id,
@@ -402,11 +390,12 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const check = async () => {
     const outgoing = draft.outgoing;
     if (session === null || outgoing === null) return;
-    const read = await source.thread(session);
+    const read = await source.acp(session);
     if (!read.ok) return;
+    const view = layoutOf(read.value);
     const found =
-      messagesOf(read.value).some((item) => item.id === outgoing.id) ||
-      read.value.queued.some((item) => item.id === outgoing.id);
+      messagesOf(view).some((item) => item.id === outgoing.id) ||
+      view.queued.some((item) => item.id === outgoing.id);
     const next = afterCheck(outgoing, found);
     if (next.phase === "accepted") drafts.accepted(session, next);
     else drafts.save(session, { outgoing: next });
@@ -660,7 +649,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             now={now}
             imageUrl={imageUrl}
             readOnly={readOnly}
-            drafts={drafts}
             source={source}
             initialScroll={draft.scroll}
             onScroll={(position) => drafts.save(key, { scroll: position })}
@@ -690,7 +678,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 source={source}
                 session={session}
                 message={layer.message}
-                excerpt={excerptOf(drafts.body(layer.message))}
+                excerpt={excerptOf(
+                  messages.find((item) => item.id === layer.message)?.parts,
+                )}
                 onClose={() => setLayer(null)}
                 onRewound={() => rewound(layer.message)}
               />

@@ -1,4 +1,4 @@
-// rewind: 시점으로 고를 수 있는 메시지, 시점을 고르면 보이는 것(파일과 앱별 write), 적용, 그리고 되돌린 구간.
+// rewind: 시점으로 고를 수 있는 메시지, 시점을 고르면 보이는 것(파일과 앱별 write), 적용.
 // 확인은 대화 화면 안의 panel이라 확인 창이 없다. 앱 data는 session rewind가 저절로 되돌리지 않고 사람이 고른 앱만
 // 같은 시점으로 되돌아간다. 편집 undo와 되돌린 구간 redo는 없다.
 import { t } from "@lophn/i18n";
@@ -6,157 +6,32 @@ import { t } from "@lophn/i18n";
 import type { AppToolCaller } from "../../../protocol/apps/calls/caller.ts";
 import { appRewindPlan } from "../../../protocol/apps/calls/rewind.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";
-import { receivedMessageList } from "../../../protocol/lophn-agent/received-messages.ts";
-import {
-  type RevertRecord,
-  rewindList,
-} from "../../../protocol/lophn-agent/reverts.ts";
+import { acpSnapshot } from "../../../protocol/acp/mod.ts";
 import {
   sessionRewind,
   sessionRewindPreview,
 } from "../../../protocol/lophn-agent/session-rewinds.ts";
-import { turnList } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { newId } from "../prefixed-id.ts";
+import { rewindPointsOf } from "./agent-view-model.ts";
 import type {
   RewindApp,
   RewindChoice,
   RewindFileView,
   RewindPreviewView,
-  RewindResultView,
   RewindWrite,
   SourceResult,
 } from "./agent-tab-source.ts";
 import { done, type Env } from "./agent-tab-core-source-env.ts";
 import { agentNameOf, readSession } from "./agent-tab-core-source-sessions.ts";
 
-// ---------------------------------------------------------------- 되돌린 구간
-
-/** 숨기는 rewind 하나: 메시지를 되돌렸고(restore_all·messages_only) 적용됐다. */
-export interface HiddenGroup {
-  readonly from: bigint;
-  readonly through: bigint;
-  /** 이 구간을 숨긴 rewind들. */
-  readonly rewinds: readonly RewindRow[];
-}
-
-type RewindRow = RevertRecord;
-
-/** 숨김 구간은 rewind의 boundary_seq부터 result_seq까지다. 겹치거나 이어지면 합친다. 오래된 쪽부터다. */
-export async function readHiddenGroups(
-  env: Env,
-  session: string,
-): Promise<HiddenGroup[]> {
-  const read = await env.pages(rewindList, { session }, (out) => out.reverts);
-  // 읽지 못하면 접지 않는다. 대화는 그대로 보인다.
-  if (!read.ok) return [];
-  const hiding = read.value
-    .flatMap((row) =>
-      row.kind === "rewind" &&
-      (row.choice === "restore_all" || row.choice === "messages_only") &&
-      (row.outcome === "applied" ||
-        row.outcome === "partial" ||
-        row.outcome === "uncertain") &&
-      row.boundary_seq !== null &&
-      row.result_seq !== null
-        ? [
-            {
-              row,
-              from: BigInt(row.boundary_seq),
-              through: BigInt(row.result_seq),
-            },
-          ]
-        : [],
-    )
-    .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
-  const groups: { from: bigint; through: bigint; rewinds: RewindRow[] }[] = [];
-  for (const item of hiding) {
-    const last = groups.at(-1);
-    if (last !== undefined && item.from <= last.through + 1n) {
-      if (item.through > last.through) last.through = item.through;
-      last.rewinds.push(item.row);
-    } else {
-      groups.push({
-        from: item.from,
-        through: item.through,
-        rewinds: [item.row],
-      });
-    }
-  }
-  return groups;
-}
-
-export function groupAt(
-  groups: readonly HiddenGroup[],
-  seq: string,
-): HiddenGroup | undefined {
-  const at = BigInt(seq);
-  return groups.find((group) => at >= group.from && at <= group.through);
-}
-
-const LEFT_RESULTS = new Set(["skipped", "remained", "failure", "uncertain"]);
-
-/** 접힌 줄이 말하는 것: 구간을 숨긴 가장 나중 rewind의 결과. */
-export function hiddenFacts(group: HiddenGroup): {
-  checkpoint: string;
-  choice: "restore_all" | "messages_only";
-  restored: number;
-  left: RewindResultView[];
-} {
-  const latest = [...group.rewinds].sort((a, b) =>
-    BigInt(a.result_seq!) < BigInt(b.result_seq!) ? 1 : -1,
-  )[0]!;
-  return {
-    checkpoint: latest.checkpoint!,
-    choice: latest.choice as "restore_all" | "messages_only",
-    restored: latest.items.filter(
-      (item) => item.class === "file" && item.result === "restored",
-    ).length,
-    left: latest.items
-      .filter(
-        (item) =>
-          LEFT_RESULTS.has(item.result) ||
-          (item.result === "unchanged" && item.reason !== null),
-      )
-      .map(
-        (item): RewindResultView => ({
-          kind: item.class,
-          target: item.target,
-          result: item.result as RewindResultView["result"],
-          reason: item.reason,
-        }),
-      ),
-  };
-}
-
 // ---------------------------------------------------------------- 시점
 
-/**
- * 시점은 turn을 시작한 사람 메시지다(steer는 아니다). 숨긴 구간 안의 메시지는 고를 수 없다. 오래된 순.
- */
 export async function readRewindPoints(
   env: Env,
   session: string,
 ): Promise<SourceResult<readonly string[]>> {
-  const [messages, turns, hidden] = await Promise.all([
-    env.pages(receivedMessageList, { session }, (out) => out.messages),
-    env.pages(turnList, { session }, (out) => out.turns),
-    readHiddenGroups(env, session),
-  ]);
-  if (!messages.ok) return messages;
-  if (!turns.ok) return turns;
-  const started = new Set(turns.value.map((turn) => turn.input_message));
-  return {
-    ok: true,
-    value: messages.value
-      .filter(
-        (message) =>
-          message.from.kind === "human" &&
-          message.delivery === "next_turn" &&
-          started.has(message.id) &&
-          groupAt(hidden, message.created_seq) === undefined,
-      )
-      .map((message) => message.id),
-  };
+  const read = await env.read(acpSnapshot, { session });
+  return read.ok ? { ok: true, value: rewindPointsOf(read.value) } : read;
 }
 
 // ---------------------------------------------------------------- 사전 검사

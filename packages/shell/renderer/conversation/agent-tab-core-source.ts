@@ -2,8 +2,10 @@
 // 함수가 `coreAgentTabSourceFactory`다. 이 쪽은 route 이름·입력을 맞춰 부르고 값을 화면 값으로 옮긴다. 응답은 main의
 // contract client가 route output schema로 이미 검사했다.
 //
-// 읽기는 모두 snapshot이다(처음, 다시 붙을 때, turn이 끝났을 때 화면이 부른다). 그 사이의 진행은 화면이 agent event를 받아
-// 줄로 접으므로 source는 event를 듣지도 polling하지도 않는다. 결과를 모르는 호출(통로가 끊김)은 unavailable이다.
+// 대화 읽기는 ACP snapshot이다(처음, 다시 붙을 때, `reread`가 설 때 화면이 부른다). 그 사이의 진행은 화면이 `AcpUpdated`
+// 갱신을 `reduceAcp`로 접으므로 source는 event를 듣지도 polling하지도 않는다. 결과를 모르는 호출(통로가 끊김)은
+// unavailable이다.
+import { acpSnapshot } from "../../../protocol/acp/mod.ts";
 import type {
   AgentTabSource,
   AgentTabSourceFactory,
@@ -51,11 +53,8 @@ import {
   renameSessionTo,
 } from "./agent-tab-core-source-sessions.ts";
 import {
-  createThreadMemo,
-  readAskedQuestions,
-  readBody,
+  createBodiesMemo,
   readEnvelope,
-  readThread,
   readToolCallBody,
 } from "./agent-tab-core-source-thread.ts";
 
@@ -77,7 +76,7 @@ function createSource(
   target: AgentTarget,
 ): AgentTabSource {
   const env = createEnv(core, target, deps.now ?? Date.now);
-  const memo = createThreadMemo();
+  const memo = createBodiesMemo();
   const faceCache = createFaceCache(env);
   const activeTimes = createActiveTimes();
   const modelPart = createModelPart(env);
@@ -89,12 +88,9 @@ function createSource(
     agent: () => readFace(env, faceCache),
     sessions: () => readSessions(env, activeTimes),
     searchMessages: (query) => searchMessages(env, query),
-    thread: (session) => readThread(env, memo, session),
-    body: (message) => readBody(env, memo, message),
+    acp: (session) => env.read(acpSnapshot, { session }),
     envelope: (message) => readEnvelope(env, memo, message),
     callState: (call) => readCallState(env, call),
-    questions: (session, toolCall) =>
-      readAskedQuestions(env, session, toolCall),
     toolCallBody: (toolCall, part) =>
       readToolCallBody(env, memo, toolCall, part),
 
@@ -115,12 +111,7 @@ function createSource(
     imageUrl: (session, id) => images.imageUrl(session, id),
     sendQueuedNow: (queued) => sendQueuedNow(env, queued),
     removeQueued: (queued) => removeQueuedMessage(env, queued),
-    editQueued: async (queued, text) => {
-      const result = await editQueuedMessage(env, queued, text);
-      // 같은 id의 본문은 원래 바뀌지 않지만 큐에서 고치면 바뀐다. 기억한 본문을 버린다.
-      if (result.ok) memo.bodies.delete(queued);
-      return result;
-    },
+    editQueued: (queued, text) => editQueuedMessage(env, queued, text),
     moveQueued: (queued, direction) =>
       moveQueuedMessage(env, queued, direction),
     stop: (turn, key) => stopTurnOf(env, turn, key),

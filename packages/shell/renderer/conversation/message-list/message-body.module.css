@@ -60,29 +60,6 @@ button.reasoningHead:hover {
   user-select: text;
 }
 
-.unreadable {
-  margin: var(--space-0);
-  color: var(--color-text-muted);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-style: italic;
-}
-
-/* 읽는 중 자리. skeleton 세 줄이 들어와도 글이 오갈 때 줄이 흔들리지 않게 같은 폭을 쓴다. */
-.loadingBody {
-  width: 100%;
-}
-
-/* 화면에는 보이지 않고 화면 읽기만 읽는 글. */
-.srOnly {
-  position: absolute;
-  width: var(--border-width);
-  height: var(--border-width);
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .mine {
   display: flex;
   flex-direction: column;

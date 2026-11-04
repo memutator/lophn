@@ -1,515 +1,26 @@
-// Agent 탭이 core의 현재 기록을 읽어 맞추는 일. 열린 session의 agent event(useSessionEvents)를 받아 줄을 이어
-// 붙이고, thread snapshot은 처음과 다시 붙을 때, turn이 끝났을 때, live 글의 offset이 맞지 않았을 때(gap)만 읽는다.
-// 끊기면 마지막 내용과 확인 시각을 둔다.
+// Agent 탭이 core의 현재 기록을 읽어 맞추는 일. ACP snapshot(`AcpState`)을 처음과 다시 붙을 때, `reread`가 설 때만
+// 읽고 그 사이는 열린 session의 `AcpUpdated` 갱신을 `reduceAcp`로 접는다. 접은 상태를 줄로 늘어놓는 일은
+// `thread-layout.ts`다. 끊기면 마지막 내용과 확인 시각을 둔다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { AgentEvent } from "../../../protocol/events/mod.ts";
-import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
-import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import {
-  type AgentId,
-  LOPHN_AGENT_ID,
-} from "../../../protocol/lophn-agent/places.ts";
+  type AcpState,
+  type AcpUpdate,
+  reduceAcp,
+} from "../../../protocol/acp/mod.ts";
 import {
-  useSessionEvents,
+  useAcpUpdates,
   useSessions,
 } from "../desktop/connection/events/hooks.tsx";
 import type { SessionEntry as KnownSession } from "../desktop/connection/events/sessions-store.ts";
 import type {
   AgentFace,
   AgentTabSource,
-  AskedQuestion,
-  Sender,
   SessionEntry,
   SessionStatus,
-  ThreadEntry,
-  ThreadMessage,
   ThreadView,
-  TurnView,
 } from "./agent-tab-source.ts";
-import { turnEndTimes } from "./agent-tab-source.ts";
-import type { ToolCallView } from "./activity/model.ts";
-import { toolEntriesOf } from "./activity/tool-groups.ts";
-import { foldDelta } from "./live-text.ts";
-
-// ---- event를 줄로 접는 규칙 ----
-
-/** event만으로는 알 수 없는 것을 아는 대로 채운다. */
-interface FoldContext {
-  /** 보낸 session의 agent. 모르면 chip은 이름 없이 그려지고 누르면 읽는다. */
-  readonly agentOf: (session: string) => AgentId | null;
-}
-
-const running = (turn: TurnView | null) =>
-  turn !== null && turn.phase !== "ended";
-
-function has(view: ThreadView, id: string): boolean {
-  return (
-    view.entries.some((entry) => entry.id === id) ||
-    view.queued.some((queued) => queued.id === id)
-  );
-}
-
-function withEntries(
-  view: ThreadView,
-  more: readonly ThreadEntry[],
-): ThreadView {
-  const fresh = more.filter((entry) => !has(view, entry.id));
-  return fresh.length === 0
-    ? view
-    : { ...view, entries: [...view.entries, ...fresh] };
-}
-
-/** 사람이 답할 것이 남았으면 waiting이다. */
-function settle(view: ThreadView): ThreadView {
-  if (view.turn === null || view.turn.phase === "ended") return view;
-  const phase =
-    view.pending.approval !== null || view.pending.questions !== null
-      ? "waiting"
-      : "working";
-  return phase === view.turn.phase
-    ? view
-    : { ...view, turn: { ...view.turn, phase } };
-}
-
-function senderOf(
-  from: Extract<AgentEvent, { type: "MessageReceived" }>["payload"]["from"],
-  ctx: FoldContext,
-): Sender | null {
-  switch (from.kind) {
-    case "human":
-      return null;
-    case "program":
-      return { kind: "program", label: null };
-    default: {
-      // lophn은 이름이 고정이다. 다른 agent의 이름은 다음 thread 읽기가 채운다.
-      const agent = ctx.agentOf(from.session);
-      return {
-        kind: "agent",
-        agent,
-        name: agent === LOPHN_AGENT_ID ? LOPHN_AGENT_NAME : null,
-      };
-    }
-  }
-}
-
-/**
- * event 하나를 줄에 접는다. 같은 event를 두 번 접어도 같은 결과다(id로 한 번만 든다).
- * - MessageReceived: 사람이 도는 중에 다음 turn으로 보낸 것은 `queued`에, 나머지는 줄에 든다.
- * - MessageSteered·MessageRemoved: 다음 turn 줄의 메시지가 [Send now]로 대화의 steer 줄이 되거나 [x]로 빠진다.
- * - TurnStarted: 그 입력 메시지를 줄로 올리고 turn을 연다. 다른 turn의 live 글은 버린다.
- * - TurnResumed: 마지막 사람 기다림이 닫혀 다시 도는 순간이다. 그 turn의 elapsed를 event의 active와 at으로 맞춘다.
- * - TurnEnded: 응답 글(`messages`)과 꼬리를 붙이고 그 turn의 live 글을 버린다. 실패하고 오류가 있으면 꼬리
- *   대신 오류 줄이다.
- * - ModelOutputStreamed: 그 model 호출의 live 글을 delta로 잇는다. offset이 앞 글 길이를 넘으면 gap을 세운다.
- *   이미 저장된 model 호출이나 끝난 turn의 늦은 조각은 버린다.
- * - MessageRecorded: agent message 줄 하나를 더하고 그 model 호출의 live 글을 버린다. 줄의 `text`는 그때의
- *   live 글이라 본문을 읽기 전에 빈 자리가 없다.
- * - ToolCallStarted·ToolCallEnded: tool 줄은 snapshot과 같은 묶기 함수(`toolEntriesOf`)로 묶는다. ask·call·
- *   edit/write는 줄을 만들지 않는다. 그 turn의 live 글은 버린다(글이 있는 응답은 tool보다 먼저 저장되어
- *   `MessageRecorded`가 먼저 온다).
- * - TurnRequest*·Question*: `pending`과 결과 줄. harness 물음은 이 대화에 그리지 않는다. 질문 내용은
- *   event에 없어 따로 읽고, 허락 범위(once·always)도 event에 없어 결과 줄은 범위를 모른다.
- * 모자란 칸(편집 카드, call 블록, 답 내용)은 turn이 끝난 뒤 snapshot을 다시 읽어 채운다.
- */
-function foldEvent(
-  view: ThreadView,
-  event: AgentEvent,
-  ctx: FoldContext,
-): ThreadView {
-  switch (event.type) {
-    case "MessageReceived": {
-      const { message, from, call, reply_to, steer } = event.payload;
-      const body = blocksText(event.payload.body);
-      if (has(view, message)) return view;
-      const sender = senderOf(from, ctx);
-      if (sender === null && !steer && running(view.turn)) {
-        return {
-          ...view,
-          queued: [
-            ...view.queued,
-            { id: message, at: event.at, text: body, summary: body },
-          ],
-        };
-      }
-      const entry: ThreadMessage = {
-        kind: "message",
-        id: message,
-        at: event.at,
-        actor: sender === null ? "user" : "received",
-        sender,
-        call,
-        replyTo: reply_to,
-        delivery: steer ? "steer" : "next_turn",
-        turn: steer && running(view.turn) ? view.turn!.id : null,
-        text: body,
-      };
-      return { ...view, entries: [...view.entries, entry] };
-    }
-    case "MessageSteered": {
-      const queued = view.queued.find(
-        (item) => item.id === event.payload.message,
-      );
-      if (queued === undefined) return view;
-      return {
-        ...view,
-        queued: view.queued.filter((item) => item.id !== queued.id),
-        entries: [
-          ...view.entries,
-          {
-            kind: "message",
-            id: queued.id,
-            at: queued.at,
-            actor: "user",
-            sender: null,
-            call: null,
-            replyTo: null,
-            delivery: "steer",
-            turn: running(view.turn) ? view.turn!.id : null,
-            text: queued.text,
-          },
-        ],
-      };
-    }
-    case "MessageRemoved":
-      return {
-        ...view,
-        queued: view.queued.filter((item) => item.id !== event.payload.message),
-      };
-    case "TurnStarted": {
-      const { turn, input_message } = event.payload;
-      const queued = view.queued.find((item) => item.id === input_message);
-      const started: TurnView = {
-        id: turn,
-        phase: "working",
-        startedAt: event.at,
-        elapsed: { activeMs: 0, at: event.at },
-      };
-      const next: ThreadView = {
-        ...view,
-        turn: started,
-        queued: view.queued.filter((item) => item.id !== input_message),
-        entries:
-          queued === undefined
-            ? view.entries
-            : [
-                ...view.entries,
-                {
-                  kind: "message",
-                  id: queued.id,
-                  at: queued.at,
-                  actor: "user",
-                  sender: null,
-                  call: null,
-                  replyTo: null,
-                  delivery: "next_turn",
-                  turn,
-                  text: queued.text,
-                },
-              ],
-      };
-      const stale =
-        next.live !== null && next.live.turn !== turn
-          ? next.live.modelCall
-          : null;
-      return {
-        ...next,
-        live: stale === null ? next.live : null,
-        dropped:
-          stale === null ? next.dropped : { ...next.dropped, modelCall: stale },
-        entries: next.entries.map((entry) =>
-          entry.kind === "message" && entry.id === input_message
-            ? { ...entry, turn }
-            : entry,
-        ),
-      };
-    }
-    case "ModelOutputStreamed": {
-      const { turn, model_call: modelCall } = event.payload;
-      // 저장됐거나 다음 호출로 바뀐 model 호출, 끝난 turn의 늦은 조각은 새 글이 아니다.
-      if (view.dropped.modelCall === modelCall || view.dropped.turn === turn) {
-        return view;
-      }
-      return {
-        ...view,
-        live: foldDelta(view.live, event.payload, event.at),
-      };
-    }
-    case "MessageRecorded": {
-      const { turn, message, model_call: modelCall } = event.payload;
-      const live = view.live;
-      return withEntries(
-        {
-          ...view,
-          live: live?.modelCall === modelCall ? null : live,
-          dropped: {
-            ...view.dropped,
-            modelCall: modelCall ?? view.dropped.modelCall,
-          },
-        },
-        [
-          {
-            kind: "message",
-            id: message,
-            at: event.at,
-            actor: "agent",
-            sender: null,
-            call: null,
-            replyTo: null,
-            delivery: "next_turn",
-            turn,
-            text:
-              live !== null && live.modelCall === modelCall && live.text !== ""
-                ? live.text
-                : null,
-            liveReasoning:
-              live !== null &&
-              live.modelCall === modelCall &&
-              live.reasoning !== ""
-                ? live.reasoning
-                : null,
-          },
-        ],
-      );
-    }
-    case "TurnResumed": {
-      const { turn, active_ms } = event.payload;
-      if (view.turn?.id !== turn) return view;
-      return {
-        ...view,
-        turn: {
-          ...view.turn,
-          elapsed: { activeMs: active_ms, at: event.at },
-        },
-      };
-    }
-    case "TurnEnded": {
-      const { turn, outcome, messages, error, active_ms } = event.payload;
-      const startedAt = view.turn?.id === turn ? view.turn.startedAt : null;
-      const times = turnEndTimes(startedAt, event.at, active_ms);
-      const answers: ThreadEntry[] = messages.map((id) => ({
-        kind: "message",
-        id,
-        at: event.at,
-        actor: "agent",
-        sender: null,
-        call: null,
-        replyTo: null,
-        delivery: "next_turn",
-        turn,
-        text: null,
-      }));
-      const tail: ThreadEntry =
-        outcome.kind === "failed" && error !== null
-          ? {
-              kind: "provider-error",
-              id: `error-${turn}`,
-              at: event.at,
-              turn,
-              code: error.code,
-              message: error.message,
-            }
-          : {
-              kind: "turn-end",
-              id: `end-${turn}`,
-              at: event.at,
-              turn,
-              outcome:
-                outcome.kind === "completed"
-                  ? "completed"
-                  : outcome.kind === "failed"
-                    ? "failed"
-                    : "stopped",
-              activeMs: times.activeMs,
-              waitedMs: times.waitedMs,
-            };
-      return withEntries(
-        {
-          ...view,
-          turn: { id: turn, phase: "ended", startedAt, elapsed: null },
-          pending: { approval: null, questions: null },
-          live: view.live?.turn === turn ? null : view.live,
-          dropped: { ...view.dropped, turn },
-        },
-        [...answers, tail],
-      );
-    }
-    case "ToolCallStarted": {
-      const { tool_call: toolCall, tool, turn, display } = event.payload;
-      const live =
-        view.live !== null && view.live.turn === turn ? view.live : null;
-      const cleared: ThreadView =
-        live === null
-          ? view
-          : {
-              ...view,
-              live: null,
-              dropped: { ...view.dropped, modelCall: live.modelCall },
-            };
-      if (
-        tool === "ask" ||
-        tool === "call.send" ||
-        tool === "file.write" ||
-        tool === "file.edit"
-      )
-        return cleared;
-      // 같은 event를 두 번 접어도 같은 결과다.
-      const known = cleared.entries.some(
-        (entry) =>
-          entry.kind === "tools" &&
-          entry.calls.some((call) => call.id === toolCall),
-      );
-      if (known) return cleared;
-      // 끝에 이어진 tools 줄에 이 call을 더해 다시 묶는다. 사이에 메시지가 있으면 거기서 묶음이 끊긴다.
-      let from = cleared.entries.length;
-      while (from > 0 && cleared.entries[from - 1]!.kind === "tools") from -= 1;
-      const tail = cleared.entries.slice(from);
-      const calls: ToolCallView[] = [
-        ...tail.flatMap((entry) => (entry.kind === "tools" ? entry.calls : [])),
-        {
-          id: toolCall,
-          tool,
-          category: display.category,
-          title: display.title,
-          state: "running",
-          startedAt: event.at,
-          durationMs: null,
-        },
-      ];
-      return {
-        ...cleared,
-        entries: [
-          ...cleared.entries.slice(0, from),
-          ...toolEntriesOf(calls, event.at),
-        ],
-      };
-    }
-    case "ToolCallEnded": {
-      const { tool_call: toolCall, outcome } = event.payload;
-      let found = false;
-      const entries = view.entries.map((entry): ThreadEntry => {
-        if (
-          entry.kind !== "tools" ||
-          !entry.calls.some((call) => call.id === toolCall)
-        )
-          return entry;
-        found = true;
-        return {
-          ...entry,
-          calls: entry.calls.map(
-            (call): ToolCallView =>
-              call.id !== toolCall
-                ? call
-                : {
-                    ...call,
-                    state: outcome,
-                    durationMs:
-                      call.startedAt === null
-                        ? null
-                        : Math.max(
-                            0,
-                            Date.parse(event.at) - Date.parse(call.startedAt),
-                          ),
-                  },
-          ),
-        };
-      });
-      return found ? { ...view, entries } : view;
-    }
-    case "TurnRequestOpened": {
-      const { id, subject, always_patterns } = event.payload.request;
-      if (subject.kind === "harness") return view;
-      return settle({
-        ...view,
-        pending: {
-          ...view.pending,
-          approval: { id, subject, always_patterns },
-        },
-      });
-    }
-    case "TurnRequestClosed": {
-      const { request, outcome } = event.payload;
-      const approval = view.pending.approval;
-      if (approval?.id !== request) return view;
-      return settle(
-        withEntries(
-          {
-            ...view,
-            pending: { ...view.pending, approval: null },
-          },
-          [
-            {
-              kind: "approval-result",
-              id: request,
-              at: event.at,
-              result: {
-                request,
-                subject: approval.subject,
-                outcome:
-                  outcome === "allow"
-                    ? "allowed"
-                    : outcome === "reject"
-                      ? "denied"
-                      : "cancelled",
-                choice: null,
-                reason: null,
-              },
-            },
-          ],
-        ),
-      );
-    }
-    case "QuestionAsked": {
-      const { group, tool_call } = event.payload;
-      if (view.pending.questions?.group === group) return view;
-      return settle({
-        ...view,
-        pending: {
-          ...view.pending,
-          questions: { group, toolCall: tool_call, questions: null },
-        },
-      });
-    }
-    case "QuestionResolved": {
-      const { group, outcome } = event.payload;
-      const asked = view.pending.questions;
-      if (asked?.group !== group) return view;
-      return settle(
-        withEntries(
-          {
-            ...view,
-            pending: { ...view.pending, questions: null },
-          },
-          [
-            {
-              kind: "questions",
-              id: group,
-              at: event.at,
-              group,
-              outcome,
-              lines: (asked.questions ?? []).map((question) => ({
-                header: question.header,
-                answer: null,
-              })),
-            },
-          ],
-        ),
-      );
-    }
-    default:
-      return view;
-  }
-}
-
-function foldEvents(
-  view: ThreadView,
-  events: readonly AgentEvent[],
-  ctx: FoldContext,
-): ThreadView {
-  return events.reduce((next, event) => foldEvent(next, event, ctx), view);
-}
-
-// ---- hook ----
+import { createLayoutCache, layoutOf } from "./thread-layout.ts";
 
 type TabConnection = "loading" | "live" | "reconnecting";
 
@@ -584,49 +95,45 @@ export interface AgentTabData extends AgentTabList {
   readonly checkedAt: number | null;
   /** 보던 session이 없어졌다. */
   readonly gone: boolean;
-  /** event가 알리지 않는 변경(rewind 등) 뒤에 현재 기록을 다시 읽는다. */
+  /** 갱신이 알리지 않는 변경(rewind 등) 뒤에 현재 기록을 다시 읽는다. */
   readonly reload: () => Promise<void>;
 }
 
-/** 열린 session 하나의 화면 값. snapshot은 처음과 다시 붙을 때, turn이 끝났을 때, live 글의 offset이 맞지 않았을 때(gap)만 읽고 그 사이는 event를 접는다. */
+/** 열린 session 하나의 화면 값. snapshot은 처음과 다시 붙을 때, `reread`가 설 때만 읽고 그 사이는 갱신을 접는다. */
 export function useAgentTabData(
   source: AgentTabSource,
   session: string,
   now: () => number = Date.now,
 ): AgentTabData {
   const list = useAgentTabList(source);
-  const stream = useSessionEvents(session);
-  const known = useSessions().sessions;
+  const stream = useAcpUpdates(session);
   const [base, setBase] = useState<{
     session: string;
-    view: ThreadView;
+    state: AcpState;
     mark: number;
   } | null>(null);
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [threadFailed, setThreadFailed] = useState(false);
   const [gone, setGone] = useState(false);
-  const [asked, setAsked] = useState<
-    ReadonlyMap<string, readonly AskedQuestion[]>
-  >(new Map());
   const sequence = useRef(0);
-  // 읽기를 시작한 때 이미 쌓인 event는 그 snapshot이 담고 있다.
-  const eventCount = useRef(0);
-  eventCount.current = stream.count;
-  // 접은 결과와 접은 개수를 기억해 새 event만 접는다. delta가 초당 여럿 와도 앞 event를 다시 접지 않는다.
+  // 읽기를 시작한 때 이미 쌓인 갱신은 그 snapshot이 담고 있다.
+  const updateCount = useRef(0);
+  updateCount.current = stream.count;
+  // 접은 결과와 접은 개수를 기억해 새 갱신만 접는다. delta가 초당 여럿 와도 앞 갱신을 다시 접지 않는다.
   const foldedRef = useRef<{
-    base: ThreadView;
-    ctx: FoldContext;
+    base: AcpState;
     upTo: number;
-    view: ThreadView;
+    state: AcpState;
   } | null>(null);
+  const layoutCache = useRef(createLayoutCache());
 
-  const readThread = useCallback(async () => {
+  const readAcp = useCallback(async () => {
     const token = (sequence.current += 1);
-    const mark = eventCount.current;
-    const result = await source.thread(session);
+    const mark = updateCount.current;
+    const result = await source.acp(session);
     if (token !== sequence.current) return;
     if (result.ok) {
-      setBase({ session, view: result.value, mark });
+      setBase({ session, state: result.value, mark });
       setCheckedAt(now());
       setThreadFailed(false);
       setGone(false);
@@ -635,97 +142,53 @@ export function useAgentTabData(
   }, [source, session, now]);
 
   useEffect(() => {
-    void readThread();
-  }, [readThread]);
-  useEffect(
-    () => source.changed?.(() => void readThread()),
-    [source, readThread],
-  );
+    void readAcp();
+  }, [readAcp]);
+  useEffect(() => source.changed?.(() => void readAcp()), [source, readAcp]);
 
-  // 끊겼다 다시 붙으면 놓친 진행을 하나씩 다시 보이지 않고 현재 기록으로 맞춘다.
+  // 끊겼다 다시 붙으면 놓친 갱신을 하나씩 다시 보이지 않고 현재 기록으로 맞춘다.
   const previous = useRef(stream.status);
   useEffect(() => {
     if (previous.current === "reconnecting" && stream.status === "live") {
-      void readThread();
+      void readAcp();
     }
     previous.current = stream.status;
-  }, [stream.status, readThread]);
+  }, [stream.status, readAcp]);
 
-  // 조건이 다시 걸려(다른 구독자가 생기거나 사라져도 걸린다) ready가 또 오면 그 사이 놓친 event가 있을 수 있다.
+  // 조건이 다시 걸려(다른 구독자가 생기거나 사라져도 걸린다) ready가 또 오면 그 사이 놓친 갱신이 있을 수 있다.
   // 끊김으로 나타나지 않으니 맞춘 횟수가 늘 때마다 현재 기록으로 다시 맞춘다. 처음 맞춤은 위의 첫 읽기가 맡는다.
   const syncedBefore = useRef(stream.synced);
   useEffect(() => {
     if (stream.synced > syncedBefore.current && syncedBefore.current > 0) {
-      void readThread();
+      void readAcp();
     }
     syncedBefore.current = stream.synced;
-  }, [stream.synced, readThread]);
-
-  // event가 싣지 못한 줄(편집 카드, call 블록, 답)은 turn이 끝났을 때 한 번 읽어 채운다.
-  const seen = useRef(0);
-  useEffect(() => {
-    if (
-      stream.since(seen.current).some((event) => event.type === "TurnEnded")
-    ) {
-      void readThread();
-    }
-    seen.current = stream.count;
-  }, [stream, readThread]);
-
-  const ctx = useMemo<FoldContext>(
-    () => ({
-      agentOf: (other) =>
-        known.find((one) => one.session === other)?.agent ?? null,
-    }),
-    [known],
-  );
+  }, [stream.synced, readAcp]);
 
   const folded = useMemo(() => {
     if (base === null || base.session !== session) return null;
-    const previous = foldedRef.current;
-    // base와 ctx가 그대로면 앞 view에 새 event만 접는다. 둘이 바뀌면 snapshot 뒤의 event를 다시 접는다.
-    const view =
-      previous !== null && previous.base === base.view && previous.ctx === ctx
-        ? foldEvents(previous.view, stream.since(previous.upTo), ctx)
-        : foldEvents(base.view, stream.since(base.mark), ctx);
-    foldedRef.current = { base: base.view, ctx, upTo: stream.count, view };
-    return view;
-  }, [base, session, ctx, stream]);
+    const known = foldedRef.current;
+    const fold = (state: AcpState, updates: readonly AcpUpdate[]) =>
+      updates.reduce(reduceAcp, state);
+    const state =
+      known !== null && known.base === base.state
+        ? fold(known.state, stream.since(known.upTo))
+        : fold(base.state, stream.since(base.mark));
+    foldedRef.current = { base: base.state, upTo: stream.count, state };
+    return state;
+  }, [base, session, stream]);
 
-  // offset이 맞지 않았다. 그 model 호출에서 한 번만 다시 읽는다. 그러고도 맞지 않으면 그 응답의
-  // `MessageRecorded` 본문이 맞추므로 읽기를 되풀이하는 고리를 만들지 않는다.
-  const gap = folded?.live?.gap === true ? folded.live.modelCall : null;
+  // 순번이 빠졌거나 글의 offset이 맞지 않았다. 현재 기록으로 맞춘다. 읽고도 같은 까닭으로 서 있으면 값이 그대로라
+  // 다시 읽지 않으므로 읽기를 되풀이하는 고리를 만들지 않는다(글 조각의 어긋남은 `message_recorded`가 맞춘다).
+  const reread = folded?.reread === true;
   useEffect(() => {
-    if (gap !== null) void readThread();
-  }, [gap, readThread]);
+    if (reread) void readAcp();
+  }, [reread, readAcp]);
 
-  // 질문 내용은 event에 없다. 대기 중인 묶음이 생기면 한 번 읽는다.
-  const waiting = folded?.pending.questions ?? null;
-  const waitingTool = waiting?.questions === null ? waiting.toolCall : null;
-  useEffect(() => {
-    if (waitingTool === null || asked.has(waitingTool)) return;
-    void source.questions(session, waitingTool).then((result) => {
-      if (result.ok) {
-        setAsked((state) => new Map(state).set(waitingTool, result.value));
-      }
-    });
-  }, [source, session, waitingTool, asked]);
-
-  const thread = useMemo(() => {
-    if (folded === null) return null;
-    const questions = folded.pending.questions;
-    const filled =
-      questions?.questions === null ? asked.get(questions.toolCall) : undefined;
-    return filled === undefined || questions === null
-      ? folded
-      : {
-          ...folded,
-          pending: {
-            ...folded.pending,
-            questions: { ...questions, questions: filled },
-          },
-        };
-  }, [folded, asked]);
+  const thread = useMemo<ThreadView | null>(
+    () => (folded === null ? null : layoutOf(folded, layoutCache.current)),
+    [folded],
+  );
 
   return {
     ...list,
@@ -734,6 +197,6 @@ export function useAgentTabData(
     checkedAt,
     failed: list.failed || threadFailed,
     gone,
-    reload: readThread,
+    reload: readAcp,
   };
 }

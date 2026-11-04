@@ -1,4 +1,4 @@
-// Agent 화면의 대화 줄. source가 준 시간순 줄을 그린다. 내 말은 오른쪽 bubble, 받은 메시지는 보낸 쪽 chip을 단
+// Agent 화면의 대화 줄. ACP 순번 순서의 줄(thread-layout.ts)을 그린다. 내 말은 오른쪽 bubble, 받은 메시지는 보낸 쪽 chip을 단
 // 왼쪽 메시지, 그 밖(agent의 말, tool 줄, call 블록, 편집 카드, 질문 요약, 허락 결과, 끝 줄, 오류)은 사이에 내 말이 없는
 // 동안 agent 한 덩어리로 묶는다. agent가 일하는 동안에는 끝에 일하는 중 줄이 서고, 쓰는 중인 글은 끝 agent 묶음의
 // 마지막에 선다.
@@ -15,7 +15,7 @@ import {
   messageTime,
   shownEntries,
   taskOfCall,
-  textOfBody,
+  textOfParts,
 } from "./agent-view-model.ts";
 import type {
   AgentFace,
@@ -24,10 +24,10 @@ import type {
   ThreadEntry,
   ThreadMessage,
 } from "./agent-tab-source.ts";
-import type { LiveText } from "./live-text.ts";
+import type { AcpWriting } from "../../../protocol/acp/mod.ts";
+import { partsOfContent } from "./thread-layout.ts";
 import { ApprovalResult } from "./approval-card/approval-card.tsx";
 import { deliveryAction, type Outgoing } from "./delivery-state.ts";
-import type { DraftStore } from "./drafts.ts";
 import {
   agentReplyIds,
   useThreadAnnouncement,
@@ -56,7 +56,7 @@ interface AgentThreadProps {
   entries: readonly ThreadEntry[];
   detail: ViewDetail;
   /** 아직 저장되지 않은 model 호출 하나의 글. */
-  live: LiveText | null;
+  live: AcpWriting | null;
   /** 아직 확정되지 않은 보낸 말. 같은 id의 확정 메시지가 오면 그것으로 바뀐다. */
   outgoing: Outgoing | null;
   /** agent가 일하는 중이다. `clock`은 core가 센 active와 그 기준 시각(ms)이고 모르면 null이다. */
@@ -70,7 +70,6 @@ interface AgentThreadProps {
   imageUrl: (id: string) => Promise<string | null>;
   /** archive한 session이다. 내 말의 Rewind 단추와 agent 말의 Fork 단추가 없다. */
   readOnly: boolean;
-  drafts: DraftStore;
   source: Pick<
     AgentTabSource,
     "envelope" | "callState" | "cancelCall" | "retryTurn" | "toolCallBody"
@@ -101,9 +100,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
     live: live !== null,
     replies: agentReplyIds(entries),
   });
-  const shown = shownEntries(entries, props.detail, (id) =>
-    props.drafts.body(id),
-  );
+  const shown = shownEntries(entries, props.detail);
   const nodes = itemsOf(shown, props, entries, false, live);
   // 확정 메시지가 오면 같은 key의 줄로 바뀌어 다시 그려지지 않는다.
   if (outgoing !== null && !hasEntry(entries, outgoing.id)) {
@@ -115,8 +112,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
       >
         <UserBody
           message={outgoing.id}
-          body={props.drafts.body(outgoing.id)}
-          fallback={props.drafts.textOf(outgoing.id)}
+          parts={partsOfContent(outgoing.content)}
           artifacts={props.artifacts}
           imageUrl={props.imageUrl}
           onOpenFile={props.onOpenFile}
@@ -162,7 +158,7 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
 /** 일하는 중 줄에 붙일 지금 하는 일. 글이 흐르면 그 글이 진행 표시라 붙이지 않는다. */
 function activityOf(
   entries: readonly ThreadEntry[],
-  live: LiveText | null,
+  live: AcpWriting | null,
 ): string | undefined {
   if (live !== null) {
     return live.text === "" && live.reasoning !== ""
@@ -203,7 +199,7 @@ function itemsOf(
   props: AgentThreadProps,
   all: readonly ThreadEntry[],
   nested: boolean,
-  live: LiveText | null,
+  live: AcpWriting | null,
 ): ReactElement[] {
   const out: ReactElement[] = [];
   // 묶음은 닫혀 있을 때 group이 null이다. closure가 열고 닫으므로 상자에 담아 읽는다(TS는 closure의 대입을
@@ -224,7 +220,7 @@ function itemsOf(
         }
         {...(actions
           ? {
-              copyText: () => copyTextOf(said, props),
+              copyText: () => copyTextOf(said),
               onFork: () => props.onFork(said[said.length - 1]!.id),
             }
           : {})}
@@ -259,9 +255,7 @@ function itemsOf(
             <Said key={entry.id} id={entry.id}>
               <MessageBody
                 message={entry.id}
-                body={props.drafts.body(entry.id)}
-                fallback={entry.text ?? undefined}
-                fallbackReasoning={entry.liveReasoning ?? undefined}
+                parts={entry.parts}
                 artifacts={props.artifacts}
                 reasoning={props.detail !== "messages"}
               />
@@ -380,9 +374,7 @@ function itemsOf(
           >
             <div className={turns.turns}>
               {itemsOf(
-                shownEntries(entry.entries, props.detail, (id) =>
-                  props.drafts.body(id),
-                ),
+                shownEntries(entry.entries, props.detail),
                 props,
                 all,
                 true,
@@ -399,7 +391,7 @@ function itemsOf(
     live !== null &&
     (live.text !== "" || (props.detail !== "messages" && live.reasoning !== ""))
   ) {
-    const id = `live-${live.modelCall}`;
+    const id = `live-${live.model_call}`;
     add(
       { id, at: live.at },
       <LiveMessage
@@ -427,7 +419,7 @@ function userMessage(
       steer={message.delivery === "steer"}
       time={messageTime(message.at, new Date(props.now()))}
       rewindOpen={props.rewindOpen === message.id}
-      {...(nested ? {} : { copyText: () => textOf(message, props) })}
+      {...(nested ? {} : { copyText: () => textOfParts(message.parts) })}
       {...(actions
         ? {
             onRewind: () => props.onRewind(message.id),
@@ -436,8 +428,7 @@ function userMessage(
     >
       <UserBody
         message={message.id}
-        body={props.drafts.body(message.id)}
-        fallback={message.text ?? props.drafts.textOf(message.id)}
+        parts={message.parts}
         artifacts={props.artifacts}
         imageUrl={props.imageUrl}
         onOpenFile={props.onOpenFile}
@@ -449,23 +440,10 @@ function userMessage(
   );
 }
 
-/** 복사할 메시지 글. 본문을 읽었으면 그 글이고, 아니면 이 창이 아는 글이다. */
-function textOf(message: ThreadMessage, props: AgentThreadProps): string {
-  return (
-    textOfBody(props.drafts.body(message.id)) ??
-    message.text ??
-    props.drafts.textOf(message.id) ??
-    ""
-  );
-}
-
 /** 묶음의 복사 글. 뒤에서부터 글이 있는 첫 message다(reasoning뿐인 message는 글을 내지 않는다). */
-function copyTextOf(
-  messages: readonly ThreadMessage[],
-  props: AgentThreadProps,
-): string {
+function copyTextOf(messages: readonly ThreadMessage[]): string {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const text = textOf(messages[index]!, props);
+    const text = textOfParts(messages[index]!.parts);
     if (text !== "") return text;
   }
   return "";
@@ -479,8 +457,7 @@ function receivedMessage(
   const body = (
     <MessageBody
       message={message.id}
-      body={props.drafts.body(message.id)}
-      fallback={message.text ?? undefined}
+      parts={message.parts}
       artifacts={props.artifacts}
       imageUrl={props.imageUrl}
     />

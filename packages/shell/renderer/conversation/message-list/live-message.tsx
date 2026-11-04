@@ -3,14 +3,11 @@
 // reasoning이 있으면 글 위에 reasoning 줄을 두고, 아직 글이 없으면 그 줄만 그린다.
 import { memo, useEffect, useRef, useState } from "react";
 import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import type { AcpWriting } from "../../../../protocol/acp/mod.ts";
 import { Said } from "./agent-turn.tsx";
 import { ChatMarkdown } from "./chat-markdown.tsx";
 import { Reasoning } from "./reasoning.tsx";
-import {
-  closeOpenFence,
-  type LiveText,
-  openFenceContent,
-} from "../live-text.ts";
+import { closeOpenFence, openFenceContent } from "../live-text.ts";
 
 /** 긴 글을 delta마다 markdown으로 다시 parse하지 않는다. */
 export const LIVE_RENDER_MS = 100;
@@ -20,7 +17,7 @@ export const LiveMessage = memo(function LiveMessage({
   reasoning,
   artifacts,
 }: {
-  live: LiveText;
+  live: AcpWriting;
   reasoning: boolean;
   artifacts: ArtifactsSlice | undefined;
 }) {
@@ -53,13 +50,13 @@ export const LiveMessage = memo(function LiveMessage({
  * 바꾼다. 마지막 값은 늦어도 100ms 뒤에 보인다.
  */
 export function useThrottledLive(
-  live: LiveText | null,
+  live: AcpWriting | null,
   now: () => number,
-): LiveText | null {
-  const [shown, setShown] = useState<LiveText | null>(live);
+): AcpWriting | null {
+  const [shown, setShown] = useState<AcpWriting | null>(live);
   const changedAt = useRef(0);
   const fresh =
-    live === null || shown === null || live.modelCall !== shown.modelCall;
+    live === null || shown === null || live.model_call !== shown.model_call;
 
   useEffect(() => {
     if (live === shown) return;

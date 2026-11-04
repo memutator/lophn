@@ -8,7 +8,7 @@ import {
   UserMessage,
 } from "../../../../../packages/shell/renderer/conversation/message-list/agent-turn.tsx";
 import { MessageBody } from "../../../../../packages/shell/renderer/conversation/message-list/message-body.tsx";
-import type { BodyState } from "../../../../../packages/shell/renderer/conversation/drafts.ts";
+import type { BodyPart } from "../../../../../packages/shell/renderer/conversation/agent-tab-source.ts";
 import type { ArtifactsSlice } from "../../../../../packages/shell/renderer/workspace/kinds/host.ts";
 import { PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
 import { ARTIFACTS } from "../../../mock/artifact/data.ts";
@@ -29,16 +29,13 @@ const AGENT = {
   profile: { kind: "initial", text: "E" },
 } as const;
 
-const ready = (text: string): BodyState => ({
-  state: "ready",
-  parts: [{ kind: "text", text }],
-});
+const ready = (text: string): BodyPart[] => [{ kind: "text", text }];
 
 function Turn({ text, id }: { text: string; id: string }) {
   return (
     <AgentTurn agent={AGENT}>
       <Said id={id}>
-        <MessageBody message={id} body={ready(text)} artifacts={SLICE} />
+        <MessageBody message={id} parts={ready(text)} artifacts={SLICE} />
       </Said>
     </AgentTurn>
   );

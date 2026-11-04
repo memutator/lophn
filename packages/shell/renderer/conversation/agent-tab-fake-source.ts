@@ -1,14 +1,24 @@
 // AgentTabSource의 메모리 fake. wireframe의 Agent 탭 장면 전부를 `scene` 이름으로 골라 낸다(gallery와 dev-mock이 쓴다).
-// 쓰기는 기록을 바꾸고 `changed`로 알려 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
+// 대화는 session마다 ACP 상태(`AcpState`)이고, 쓰기는 ACP 갱신을 `reduceAcp`로 접어 상태를 바꾼 뒤 `changed`로
+// 알린다. 그래서 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
 
 import { t } from "@lophn/i18n";
-import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import {
-  blocksText,
-  type ContentBlock,
-} from "../../../protocol/lophn-agent/content-block.ts";
-import type { ToolCallView } from "./activity/model.ts";
-import { toolEntriesOf } from "./activity/tool-groups.ts";
+  type AcpEntry,
+  type AcpItem,
+  type AcpMessageItem,
+  type AcpNoticeItem,
+  type AcpSender,
+  type AcpState,
+  type AcpToolItem,
+  type AcpTurn,
+  acpNoticeId,
+  EMPTY_ACP_STATE,
+  reduceAcp,
+  type AcpUpdate,
+} from "../../../protocol/acp/mod.ts";
+import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import { COMMANDS_GROUP, SKILLS_GROUP } from "./agent-tab-fake-commands.ts";
 import {
   effortLowToMax,
@@ -22,27 +32,18 @@ import {
 import type {
   AgentFace,
   AgentTabSource,
-  ApprovalResultView,
-  AskedQuestion,
-  BodyPart,
-  CallView,
   Envelope,
   ModelView,
   PermissionsView,
   QuestionAnswer,
-  QueuedView,
   RewindPreviewView,
   SessionEntry,
   SessionSearchMatch,
   SourceResult,
   StatusView,
-  ThreadEntry,
-  ThreadMessage,
-  ThreadView,
   ToolCallBodyView,
 } from "./agent-tab-source.ts";
-import { EMPTY_THREAD, summaryOfParts } from "./agent-tab-source.ts";
-import type { LiveText } from "./live-text.ts";
+import { rewindPointsOf } from "./agent-view-model.ts";
 import type {
   PickerModelRef,
   PickerProviderGroup,
@@ -167,19 +168,23 @@ function user(
   n: number,
   minutes: number,
   text: string,
-  over: Partial<ThreadMessage> = {},
-): ThreadMessage {
+  over: Partial<AcpMessageItem> = {},
+): AcpMessageItem {
   return {
     kind: "message",
     id: messageId(n),
+    seq: 0,
     at: at(minutes),
     actor: "user",
     sender: null,
     call: null,
-    replyTo: null,
+    reply_to: null,
     delivery: "next_turn",
     turn: turn1,
-    text,
+    content: text === "" ? [] : [{ type: "text", text }],
+    reasoning: null,
+    cards: [],
+    complete: true,
     ...over,
   };
 }
@@ -187,33 +192,36 @@ function user(
 function agent(
   n: number,
   minutes: number,
-  over: Partial<ThreadMessage> = {},
-): ThreadMessage {
-  return user(n, minutes, "", { actor: "agent", text: null, ...over });
+  text: string,
+  over: Partial<AcpMessageItem> = {},
+): AcpMessageItem {
+  return user(n, minutes, text, { actor: "agent", ...over });
 }
 
-/** call 하나. 시각은 장면의 분 단위 시각이다. */
-function toolCall(
+/** tool call 하나. 시각은 장면의 분 단위 시각이다. */
+function tool(
   n: number,
   minutes: number,
-  fields: Pick<ToolCallView, "tool" | "category" | "title">,
-  over: Partial<ToolCallView> = {},
-): ToolCallView {
+  fields: Pick<AcpToolItem, "tool" | "category" | "title">,
+  over: Partial<AcpToolItem> = {},
+): AcpToolItem {
   return {
+    kind: "tool",
     id: toolId(n),
-    tool: fields.tool,
-    category: fields.category,
-    title: fields.title,
+    seq: 0,
+    at: at(minutes),
+    turn: turn1,
+    ...fields,
     state: "ok",
-    startedAt: at(minutes),
-    durationMs: 1_200,
+    duration_ms: 1_200,
+    detail: { kind: "generic" },
     ...over,
   };
 }
 
 // report 장면: 탐색 묶음 하나와 description을 제목으로 쓰는 command 하나.
-const REPORT_CALLS: readonly ToolCallView[] = [
-  toolCall(
+const REPORT_CALLS: readonly AcpToolItem[] = [
+  tool(
     1,
     41,
     {
@@ -221,9 +229,9 @@ const REPORT_CALLS: readonly ToolCallView[] = [
       category: "read",
       title: "Read docs/reports/2026-w39.md",
     },
-    { durationMs: 900 },
+    { duration_ms: 900 },
   ),
-  toolCall(
+  tool(
     2,
     41,
     {
@@ -231,9 +239,9 @@ const REPORT_CALLS: readonly ToolCallView[] = [
       category: "read",
       title: "Read eval/findings.md",
     },
-    { durationMs: 700 },
+    { duration_ms: 700 },
   ),
-  toolCall(
+  tool(
     3,
     41,
     {
@@ -241,9 +249,9 @@ const REPORT_CALLS: readonly ToolCallView[] = [
       category: "search",
       title: "Search regression in eval",
     },
-    { durationMs: 2_400 },
+    { duration_ms: 2_400 },
   ),
-  toolCall(
+  tool(
     4,
     41,
     {
@@ -251,9 +259,9 @@ const REPORT_CALLS: readonly ToolCallView[] = [
       category: "list",
       title: "List eval/runs/*.json",
     },
-    { durationMs: 300 },
+    { duration_ms: 300 },
   ),
-  toolCall(
+  tool(
     5,
     42,
     {
@@ -261,13 +269,13 @@ const REPORT_CALLS: readonly ToolCallView[] = [
       category: "command",
       title: "Count regressions per scenario",
     },
-    { durationMs: 3_100 },
+    { duration_ms: 3_100 },
   ),
 ];
 
 // working 장면: 끝난 command와 도는 command 하나.
-const WORKING_CALLS: readonly ToolCallView[] = [
-  toolCall(
+const WORKING_CALLS: readonly AcpToolItem[] = [
+  tool(
     6,
     41,
     {
@@ -275,9 +283,9 @@ const WORKING_CALLS: readonly ToolCallView[] = [
       category: "command",
       title: "Run the weekly eval",
     },
-    { durationMs: 4_200 },
+    { duration_ms: 4_200 },
   ),
-  toolCall(
+  tool(
     7,
     41,
     {
@@ -287,8 +295,8 @@ const WORKING_CALLS: readonly ToolCallView[] = [
     },
     {
       state: "running",
-      startedAt: new Date(NOW - 5_000).toISOString(),
-      durationMs: null,
+      at: new Date(NOW - 5_000).toISOString(),
+      duration_ms: null,
     },
   ),
 ];
@@ -323,6 +331,9 @@ function shellBody(stdout: string): ToolCallBodyView {
   });
 }
 
+/** 편집 카드가 되는 tool call. [Show diff]가 읽는 입력이 `toolBodies`에 있다. */
+const EDIT_TOOL = toolId(8);
+
 // 편집 카드의 [Show diff]가 읽는 file.edit 입력. 앞뒤 글에서 unified diff를 만든다.
 const REPORT_EDIT_INPUT = inputBody({
   path: "docs/reports/2026-w41.md",
@@ -332,7 +343,7 @@ const REPORT_EDIT_INPUT = inputBody({
 });
 
 const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
-  ["edit-1"]: { input: REPORT_EDIT_INPUT },
+  [EDIT_TOOL]: { input: REPORT_EDIT_INPUT },
   [toolId(1)]: {
     input: inputBody({ path: "docs/reports/2026-w39.md" }),
     output: resultBody("read docs/reports/2026-w39.md lines 1-28", {
@@ -386,7 +397,7 @@ const REPORT_TOOL_BODIES: SceneData["toolBodies"] = {
 };
 
 const WORKING_TOOL_BODIES: SceneData["toolBodies"] = {
-  ["edit-1"]: { input: REPORT_EDIT_INPUT },
+  [EDIT_TOOL]: { input: REPORT_EDIT_INPUT },
   [toolId(6)]: {
     input: inputBody({
       command: "npm run eval -- --week 41",
@@ -403,36 +414,83 @@ const WORKING_TOOL_BODIES: SceneData["toolBodies"] = {
   },
 };
 
-const reportEdit = (minutes: number): ThreadEntry => ({
-  kind: "edit",
-  id: "edit-1",
+const reportEdit = (minutes: number): AcpToolItem =>
+  tool(
+    8,
+    minutes,
+    {
+      tool: "file.edit",
+      category: "other",
+      title: "Edit docs/reports/2026-w41.md",
+    },
+    {
+      detail: {
+        kind: "edit",
+        document: fakeId("doc", 1),
+        path: "docs/reports/2026-w41.md",
+        added: 3,
+        removed: 2,
+      },
+    },
+  );
+
+const turnEnd = (
+  minutes: number,
+  activeMs: number,
+  waitedMs: number,
+): AcpNoticeItem => ({
+  kind: "notice",
+  id: acpNoticeId(turn1),
+  seq: 0,
   at: at(minutes),
-  edit: {
-    id: "edit-1",
-    document: fakeId("doc", 1),
-    path: "docs/reports/2026-w41.md",
-    added: 3,
-    removed: 2,
+  turn: turn1,
+  notice: {
+    type: "turn_end",
+    outcome: "completed",
+    active_ms: activeMs,
+    waited_ms: waitedMs,
   },
 });
 
-const working = (): ThreadView["turn"] => ({
+const turnOf = (phase: AcpTurn["phase"]): AcpTurn => ({
   id: turn1,
-  phase: "working",
-  startedAt: at(41),
-  elapsed: { activeMs: 0, at: at(41) },
+  phase,
+  started_at: at(41),
+  elapsed: phase === "ended" ? null : { active_ms: 0, at: at(41) },
 });
+
+/** 항목에 1부터 순번을 붙여 상태를 만든다. */
+function numbered(
+  items: readonly AcpItem[],
+  extra: Partial<AcpState> = {},
+): AcpState {
+  const numbered = items.map((item, index) => ({
+    ...item,
+    seq: index + 1,
+  })) as AcpItem[];
+  return {
+    ...EMPTY_ACP_STATE,
+    seq: numbered.length,
+    items: numbered,
+    ...extra,
+  };
+}
+
+const fromEnvelope = (sender: Envelope["sender"]): AcpSender =>
+  sender.kind === "program"
+    ? { kind: "program" }
+    : { kind: "agent", agent: sender.agent, name: sender.name };
 
 function received(
   n: number,
   minutes: number,
   text: string,
-  sender: NonNullable<ThreadMessage["sender"]>,
-  over: Partial<ThreadMessage> = {},
-): ThreadMessage {
+  sender: Envelope["sender"],
+  over: Partial<AcpMessageItem> = {},
+): AcpMessageItem {
   return user(n, minutes, text, {
     actor: "received",
-    sender,
+    sender: fromEnvelope(sender),
     turn: null,
     ...over,
   });
@@ -441,21 +499,29 @@ function received(
 function call(
   n: number,
   minutes: number,
-  view: Omit<CallView, "call">,
-): ThreadEntry {
-  return {
-    kind: "call",
-    id: callId(n),
-    at: at(minutes),
-    call: { call: callId(n), ...view },
-  };
+  detail: Omit<
+    Extract<AcpToolItem["detail"], { kind: "call" }>,
+    "kind" | "call"
+  >,
+): AcpToolItem {
+  return tool(
+    20 + n,
+    minutes,
+    {
+      tool: "call.send",
+      category: "other",
+      title: `Send a call to ${detail.to}`,
+    },
+    { detail: { kind: "call", call: callId(n), ...detail } },
+  );
 }
 
 const CALL_HANDOFF = {
   to: "lophn · Recipes",
   task: "The person wants a weekly meal plan screen in Recipes. Decided: plans by week, one recipe per meal.",
   reply: "none",
-  status: { state: "done", reason: null },
+  state: "done",
+  fail_reason: null,
   session: sessionId(12),
 } as const;
 
@@ -463,7 +529,8 @@ const CALL_OPEN = {
   to: "Eval analyst",
   task: "Find what the 3 regressions have in common.",
   reply: "result",
-  status: { state: "accepted", reason: null },
+  state: "accepted",
+  fail_reason: null,
   session: sessionId(10),
 } as const;
 
@@ -471,7 +538,8 @@ const CALL_FAILED = {
   to: "Experiment planner",
   task: "Plan exp-013 so it isolates the recipe lookup.",
   reply: "result",
-  status: { state: "failed", reason: "receiver_ended" },
+  state: "failed",
+  fail_reason: "receiver_ended",
   session: sessionId(8),
 } as const;
 
@@ -479,13 +547,17 @@ const CALL_CANCELLED = {
   to: "lophn · phroner",
   task: "Check the eval context against the new reports.",
   reply: "result",
-  status: { state: "cancelled", reason: null },
+  state: "cancelled",
+  fail_reason: null,
   session: sessionId(11),
 } as const;
 
-const ASKED: readonly AskedQuestion[] = [
+type AskedQuestions = NonNullable<
+  NonNullable<AcpState["pending"]["question"]>["questions"]
+>;
+
+const ASKED: AskedQuestions = [
   {
-    id: `${groupId(1)}:0`,
     header: "Report place",
     question: "Where should the weekly report go?",
     multiSelect: false,
@@ -499,7 +571,6 @@ const ASKED: readonly AskedQuestion[] = [
     ],
   },
   {
-    id: `${groupId(1)}:1`,
     header: "Sections",
     question: "Which sections should the report have?",
     multiSelect: true,
@@ -510,6 +581,19 @@ const ASKED: readonly AskedQuestion[] = [
     ],
   },
 ];
+
+/** 사람에게 묻는 `ask` tool call. 풀리기 전에는 outcome이 null이다. */
+function askTool(
+  detail: Extract<AcpToolItem["detail"], { kind: "question" }>,
+  over: Partial<AcpToolItem> = {},
+): AcpToolItem {
+  return tool(
+    4,
+    41,
+    { tool: "ask", category: "other", title: "Ask the person" },
+    { detail, ...over },
+  );
+}
 
 function envelope(
   sender: Envelope["sender"],
@@ -523,14 +607,7 @@ function envelope(
 interface SceneData {
   agent: AgentFace;
   title: string;
-  entries: ThreadEntry[];
-  turn: ThreadView["turn"];
-  /** 아직 저장되지 않은 쓰는 중인 글. 없으면 null이다. */
-  live?: LiveText | null;
-  queued?: QueuedView[];
-  pending?: ThreadView["pending"];
-  /** 메시지 id별 본문. 글만인 message는 text에서 만든다. */
-  bodies?: Record<string, readonly BodyPart[]>;
+  state: AcpState;
   envelopes?: Record<string, Envelope>;
   /** call id별 입력·출력. 없는 칸은 not_found다. */
   toolBodies?: Record<
@@ -549,99 +626,87 @@ function sceneData(scene: AgentTabScene): SceneData {
       return {
         agent: LOPHN,
         title: "Week 41 summary",
-        entries: [
-          user(1, 41, REQUEST),
-          ...toolEntriesOf(REPORT_CALLS, at(41)),
-          agent(2, 42),
-          reportEdit(42),
-          {
-            kind: "turn-end",
-            id: "end-1",
-            at: at(43),
-            turn: turn1,
-            outcome: "completed",
-            activeMs: 18_000,
-            waitedMs: 0,
-          },
-        ],
-        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
-        bodies: {
-          [messageId(2)]: [
-            { kind: "reasoning", text: REASONING, durationMs: 12_000 },
-            {
-              kind: "text",
-              text: REPORT_ANSWER,
-            },
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            ...REPORT_CALLS,
+            agent(2, 42, REPORT_ANSWER, {
+              reasoning: { text: REASONING, duration_ms: 12_000 },
+            }),
+            reportEdit(42),
+            turnEnd(43, 18_000, 0),
           ],
-        },
+          { turn: turnOf("ended") },
+        ),
         toolBodies: REPORT_TOOL_BODIES,
       };
     case "working":
     case "rewind":
     case "queued": {
-      const entries: ThreadEntry[] = [
+      const items: AcpItem[] = [
         user(1, 41, REQUEST),
-        agent(2, 41),
+        agent(
+          2,
+          41,
+          "F-011 is a regression on query-recipe-gap. Here is the run from Eval board.",
+          { cards: [{ app: appId(1), view: "run" }] },
+        ),
         reportEdit(41),
-        ...toolEntriesOf(WORKING_CALLS, at(41)),
+        ...WORKING_CALLS,
       ];
-      const bodies: SceneData["bodies"] = {
-        [messageId(2)]: [
-          {
-            kind: "text",
-            text: "F-011 is a regression on query-recipe-gap. Here is the run from Eval board.",
-          },
-          { kind: "app_card", app: appId(1), view: "run" },
-        ],
-      };
       const steer = scene !== "queued";
       if (steer) {
-        entries.push(
+        items.push(
           user(3, 42, "Also add the exp-008 numbers to the report.", {
             delivery: "steer",
           }),
-          agent(4, 42),
+          agent(
+            4,
+            42,
+            "Got it. I will add the exp-008 numbers when I reach the regression section.",
+          ),
         );
-        bodies[messageId(4)] = [
-          {
-            kind: "text",
-            text: "Got it. I will add the exp-008 numbers when I reach the regression section.",
-          },
-        ];
       }
       return {
         agent: LOPHN,
         title: "Week 41 summary",
-        entries,
-        turn: working(),
-        live:
-          scene === "working"
-            ? {
-                turn: turn1,
-                modelCall: fakeId("mcl", 1),
-                text: LIVE_TEXT,
-                reasoning: "",
-                at: at(42),
-                gap: false,
-              }
-            : null,
-        queued: steer
-          ? []
-          : [
-              {
-                id: messageId(5),
-                at: at(42),
-                text: "Also add the exp-008 numbers to the report.",
-                summary: "Also add the exp-008 numbers to the report.",
-              },
-              {
-                id: messageId(6),
-                at: at(43),
-                text: "Then check the latency table against the raw runs.",
-                summary: "Then check the latency table against the raw runs.",
-              },
-            ],
-        bodies,
+        state: numbered(items, {
+          turn: turnOf("working"),
+          writing:
+            scene === "working"
+              ? {
+                  turn: turn1,
+                  model_call: fakeId("mcl", 1),
+                  text: LIVE_TEXT,
+                  reasoning: "",
+                  at: at(42),
+                }
+              : null,
+          queued: steer
+            ? []
+            : [
+                {
+                  id: messageId(5),
+                  at: at(42),
+                  content: [
+                    {
+                      type: "text",
+                      text: "Also add the exp-008 numbers to the report.",
+                    },
+                  ],
+                },
+                {
+                  id: messageId(6),
+                  at: at(43),
+                  content: [
+                    {
+                      type: "text",
+                      text: "Then check the latency table against the raw runs.",
+                    },
+                  ],
+                },
+              ],
+        }),
         toolBodies: WORKING_TOOL_BODIES,
       };
     }
@@ -649,19 +714,25 @@ function sceneData(scene: AgentTabScene): SceneData {
       return {
         agent: LOPHN,
         title: "Week 41 summary",
-        entries: [
-          user(1, 41, REQUEST),
-          {
-            kind: "provider-error",
-            id: "error-1",
-            at: at(42),
-            turn: turn1,
-            code: "request_rejected",
-            message:
-              "OpenAI rejected the request (400): the Priority speed option is not enabled for this account. Nothing was changed.",
-          },
-        ],
-        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            {
+              kind: "notice",
+              id: acpNoticeId(turn1),
+              seq: 0,
+              at: at(42),
+              turn: turn1,
+              notice: {
+                type: "error",
+                code: "request_rejected",
+                message:
+                  "OpenAI rejected the request (400): the Priority speed option is not enabled for this account. Nothing was changed.",
+              },
+            },
+          ],
+          { turn: turnOf("ended") },
+        ),
       };
     case "sender-chips": {
       const notice = envelope(
@@ -691,21 +762,23 @@ function sceneData(scene: AgentTabScene): SceneData {
       return {
         agent: EVAL_ANALYST,
         title: "Eval board keeps crashing",
-        entries: [
-          received(
-            1,
-            30,
-            "The nightly eval moved to 08:00. The next run starts in 20 minutes.",
-            notice.sender,
-          ),
-          received(
-            2,
-            36,
-            "About the fix for P-12: keep the scenario names as they are.",
-            lophn.sender,
-          ),
-        ],
-        turn: working(),
+        state: numbered(
+          [
+            received(
+              1,
+              30,
+              "The nightly eval moved to 08:00. The next run starts in 20 minutes.",
+              notice.sender,
+            ),
+            received(
+              2,
+              36,
+              "About the fix for P-12: keep the scenario names as they are.",
+              lophn.sender,
+            ),
+          ],
+          { turn: turnOf("working") },
+        ),
         envelopes: {
           [messageId(1)]: notice,
           [messageId(2)]: lophn,
@@ -716,29 +789,25 @@ function sceneData(scene: AgentTabScene): SceneData {
       return {
         agent: LOPHN,
         title: "Week 41 summary",
-        entries: [
-          user(1, 43, "Why did those 3 scenarios regress?"),
-          agent(2, 44),
-          call(4, 44, CALL_HANDOFF),
-          call(1, 44, CALL_OPEN),
-          agent(3, 45),
-          call(2, 47, CALL_CANCELLED),
-        ],
-        turn: working(),
-        bodies: {
-          [messageId(2)]: [
-            {
-              kind: "text",
-              text: "I will ask the Eval analyst to look for what they have in common, and go on with the report meanwhile.",
-            },
+        state: numbered(
+          [
+            user(1, 43, "Why did those 3 scenarios regress?"),
+            agent(
+              2,
+              44,
+              "I will ask the Eval analyst to look for what they have in common, and go on with the report meanwhile.",
+            ),
+            call(4, 44, CALL_HANDOFF),
+            call(1, 44, CALL_OPEN),
+            agent(
+              3,
+              45,
+              "While that runs, I am drafting the sections that do not need it. I cancelled the check on the eval context, because the answer changed nothing.",
+            ),
+            call(2, 47, CALL_CANCELLED),
           ],
-          [messageId(3)]: [
-            {
-              kind: "text",
-              text: "While that runs, I am drafting the sections that do not need it. I cancelled the check on the eval context, because the answer changed nothing.",
-            },
-          ],
-        },
+          { turn: turnOf("working") },
+        ),
       };
     case "call-replies": {
       const answer = envelope(
@@ -762,16 +831,19 @@ function sceneData(scene: AgentTabScene): SceneData {
       return {
         agent: LOPHN,
         title: "Week 41 summary",
-        entries: [
-          call(1, 44, {
-            ...CALL_OPEN,
-            status: { state: "done", reason: null },
-          }),
-          received(1, 48, answer.task, answer.sender, { replyTo: callId(1) }),
-          call(3, 49, CALL_FAILED),
-          received(2, 50, notice.task, notice.sender, { replyTo: callId(3) }),
-        ],
-        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
+        state: numbered(
+          [
+            call(1, 44, { ...CALL_OPEN, state: "done" }),
+            received(1, 48, answer.task, answer.sender, {
+              reply_to: callId(1),
+            }),
+            call(3, 49, CALL_FAILED),
+            received(2, 50, notice.task, notice.sender, {
+              reply_to: callId(3),
+            }),
+          ],
+          { turn: turnOf("ended") },
+        ),
         envelopes: { [messageId(1)]: answer, [messageId(2)]: notice },
       };
     }
@@ -779,155 +851,147 @@ function sceneData(scene: AgentTabScene): SceneData {
       return {
         agent: LOPHN,
         title: "Weekly report",
-        entries: [user(1, 41, REQUEST), agent(2, 41)],
-        turn: { id: turn1, phase: "waiting", startedAt: at(41), elapsed: null },
-        pending: {
-          approval: null,
-          questions: {
-            group: groupId(1),
-            toolCall: toolId(4),
-            questions: ASKED,
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            agent(2, 41, QUESTION_LEAD),
+            askTool(
+              { kind: "question", group: groupId(1), outcome: null, lines: [] },
+              { state: "running", duration_ms: null },
+            ),
+          ],
+          {
+            turn: turnOf("waiting"),
+            pending: {
+              approval: null,
+              question: {
+                group: groupId(1),
+                tool_call: toolId(4),
+                questions: ASKED,
+              },
+            },
           },
-        },
-        bodies: { [messageId(2)]: [{ kind: "text", text: QUESTION_LEAD }] },
+        ),
       };
     case "question-answered":
       return {
         agent: LOPHN,
         title: "Weekly report",
-        entries: [
-          user(1, 41, REQUEST),
-          agent(2, 41),
-          {
-            kind: "questions",
-            id: groupId(1),
-            at: at(41),
-            group: groupId(1),
-            outcome: "submitted",
-            lines: [
-              { header: "Report place", answer: "docs/reports/" },
-              { header: "Sections", answer: "Improvements, Regressions" },
-            ],
-          },
-          agent(3, 41),
-        ],
-        turn: working(),
-        live: {
-          turn: turn1,
-          modelCall: fakeId("mcl", 2),
-          at: at(41),
-          gap: false,
-          text: "",
-          reasoning: LIVE_REASONING,
-        },
-        bodies: {
-          [messageId(2)]: [{ kind: "text", text: QUESTION_LEAD }],
-          [messageId(3)]: [
-            {
-              kind: "text",
-              text: "Thanks. I am writing the report into docs/reports/ with the sections you picked.",
-            },
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            agent(2, 41, QUESTION_LEAD),
+            askTool({
+              kind: "question",
+              group: groupId(1),
+              outcome: "submitted",
+              lines: [
+                { header: "Report place", answer: "docs/reports/" },
+                { header: "Sections", answer: "Improvements, Regressions" },
+              ],
+            }),
+            agent(
+              3,
+              41,
+              "Thanks. I am writing the report into docs/reports/ with the sections you picked.",
+            ),
           ],
-        },
+          {
+            turn: turnOf("working"),
+            writing: {
+              turn: turn1,
+              model_call: fakeId("mcl", 2),
+              at: at(41),
+              text: "",
+              reasoning: LIVE_REASONING,
+            },
+          },
+        ),
       };
     case "question-ended":
       return {
         agent: LOPHN,
         title: "Weekly report",
-        entries: [
-          user(1, 41, REQUEST),
-          agent(2, 41),
-          {
-            kind: "questions",
-            id: groupId(1),
-            at: at(41),
-            group: groupId(1),
-            outcome: "human_message",
-            lines: ASKED.map((question) => ({
-              header: question.header,
-              answer: null,
-            })),
-          },
-          user(
-            3,
-            42,
-            "Just put it in docs/reports/ with the regressions, no other sections.",
-          ),
-          agent(4, 42),
-        ],
-        turn: working(),
-        bodies: {
-          [messageId(2)]: [{ kind: "text", text: QUESTION_LEAD }],
-          [messageId(4)]: [
-            {
-              kind: "text",
-              text: "Understood. docs/reports/ with the regressions section only.",
-            },
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            agent(2, 41, QUESTION_LEAD),
+            askTool({
+              kind: "question",
+              group: groupId(1),
+              outcome: "human_message",
+              lines: ASKED.map((question) => ({
+                header: question.header,
+                answer: null,
+              })),
+            }),
+            user(
+              3,
+              42,
+              "Just put it in docs/reports/ with the regressions, no other sections.",
+            ),
+            agent(
+              4,
+              42,
+              "Understood. docs/reports/ with the regressions section only.",
+            ),
           ],
-        },
+          { turn: turnOf("working") },
+        ),
       };
     case "approval":
       return {
         agent: LOPHN,
         title: "Weekly report",
-        entries: [user(1, 41, REQUEST), agent(2, 41)],
-        turn: { id: turn1, phase: "waiting", startedAt: at(41), elapsed: null },
-        pending: {
-          approval: {
-            id: requestId(1),
-            subject: { kind: "shell", command: CLEANUP_COMMAND },
-            always_patterns: ["rm -r *"],
+        state: numbered([user(1, 41, REQUEST), agent(2, 41, CLEANUP_LEAD)], {
+          turn: turnOf("waiting"),
+          pending: {
+            approval: {
+              id: requestId(1),
+              subject: { kind: "shell", command: CLEANUP_COMMAND },
+              always_patterns: ["rm -r *"],
+            },
+            question: null,
           },
-          questions: null,
-        },
-        bodies: { [messageId(2)]: [{ kind: "text", text: CLEANUP_LEAD }] },
+        }),
       };
     case "approval-states": {
       const result = (
         n: number,
-        outcome: ApprovalResultView["outcome"],
-        choice: ApprovalResultView["choice"],
+        outcome: "allowed" | "denied" | "cancelled",
+        choice: "once" | "always" | null,
         reason: string | null,
-      ): ThreadEntry => ({
-        kind: "approval-result",
+      ): AcpItem => ({
+        kind: "approval",
         id: requestId(n),
+        seq: 0,
         at: at(41),
-        result: {
-          request: requestId(n),
-          subject: { kind: "shell", command: CLEANUP_COMMAND },
-          outcome,
-          choice,
-          reason,
-        },
+        subject: { kind: "shell", command: CLEANUP_COMMAND },
+        outcome,
+        choice,
+        reason,
       });
       return {
         agent: LOPHN,
         title: "Weekly report",
-        entries: [
-          user(1, 41, "Go on with the cleanup."),
-          result(1, "allowed", "once", null),
-          result(2, "allowed", "always", null),
-          result(3, "denied", null, "Keep last week's report for now."),
-          result(4, "cancelled", null, null),
-          {
-            kind: "turn-end",
-            id: "end-1",
-            at: at(43),
-            turn: turn1,
-            outcome: "completed",
-            activeMs: 3_900_000,
-            waitedMs: 300_000,
-          },
-        ],
-        turn: { id: turn1, phase: "ended", startedAt: at(41), elapsed: null },
+        state: numbered(
+          [
+            user(1, 41, "Go on with the cleanup."),
+            result(1, "allowed", "once", null),
+            result(2, "allowed", "always", null),
+            result(3, "denied", null, "Keep last week's report for now."),
+            result(4, "cancelled", null, null),
+            turnEnd(43, 3_900_000, 300_000),
+          ],
+          { turn: turnOf("ended") },
+        ),
       };
     }
     case "empty":
       return {
         agent: LOPHN,
         title: "",
-        entries: [],
-        turn: null,
+        state: EMPTY_ACP_STATE,
       };
   }
 }
@@ -1134,19 +1198,6 @@ const SEARCH_SNIPPET_AFTER = 80;
 const SEARCH_MATCH_MAX = 20;
 
 /** 처음 맞은 곳 앞뒤를 한 줄로 줄인다. core의 SearchSessionMessages와 같은 모양이다. */
-function partOf(block: ContentBlock): BodyPart {
-  switch (block.type) {
-    case "text":
-      return { kind: "text", text: block.text };
-    case "image":
-      return { kind: "image", blob: block.blob };
-    case "resource_link":
-      return { kind: "resource_link", uri: block.uri, name: block.name };
-    case "resource":
-      return { kind: "resource", uri: block.uri, text: block.text };
-  }
-}
-
 function searchSnippet(text: string, needle: string): string | null {
   const flat = text.replace(/\s+/g, " ").trim();
   const at = flat.toLowerCase().indexOf(needle);
@@ -1156,10 +1207,10 @@ function searchSnippet(text: string, needle: string): string | null {
   return `${start > 0 ? "…" : ""}${flat.slice(start, end)}${end < flat.length ? "…" : ""}`;
 }
 
-/** 숨긴 구간 안의 메시지도 기록이므로 같이 본다. */
-function allEntries(entries: readonly ThreadEntry[]): readonly ThreadEntry[] {
-  return entries.flatMap((entry) =>
-    entry.kind === "hidden" ? allEntries(entry.entries) : [entry],
+/** 숨긴 구간 안의 항목도 기록이므로 같이 본다. */
+function allItems(items: readonly AcpItem[]): readonly AcpEntry[] {
+  return items.flatMap((item) =>
+    item.kind === "hidden" ? allItems(item.items) : [item],
   );
 }
 
@@ -1179,9 +1230,6 @@ export function createFakeAgentTabSource(
   const pickerView = (scenario: PickerScenario, query: string) =>
     modelView(scenario, query, picker);
   const data = sceneData(options.scene ?? "report");
-  const bodies = new Map<string, readonly BodyPart[]>(
-    Object.entries(data.bodies ?? {}),
-  );
   const envelopes = new Map(Object.entries(data.envelopes ?? {}));
   const models = new Map<string, PickerScenario>();
   let sessions: SessionEntry[] =
@@ -1192,9 +1240,9 @@ export function createFakeAgentTabSource(
             id: SESSION_MAIN,
             title: data.title,
             status:
-              data.turn?.phase === "waiting"
+              data.state.turn?.phase === "waiting"
                 ? "waiting"
-                : data.turn?.phase === "working"
+                : data.state.turn?.phase === "working"
                   ? "working"
                   : "idle",
             activeAt: at(-5),
@@ -1218,31 +1266,17 @@ export function createFakeAgentTabSource(
             skip: false,
           },
         ];
-  const threads = new Map<string, ThreadView>();
+  const states = new Map<string, AcpState>();
   if (options.scene !== "empty") {
-    threads.set(SESSION_MAIN, {
-      entries: data.entries,
-      turn: data.turn,
-      queued: data.queued ?? [],
-      pending: data.pending ?? EMPTY_THREAD.pending,
-      live: data.live ?? null,
-      dropped: EMPTY_THREAD.dropped,
-    });
-    threads.set(SESSION_EARLIER, EMPTY_THREAD);
+    states.set(SESSION_MAIN, data.state);
+    states.set(SESSION_EARLIER, EMPTY_ACP_STATE);
     // archive한 session도 report 장면과 같은 기록을 보인다.
-    threads.set(SESSION_ARCHIVED, {
-      ...EMPTY_THREAD,
-      entries: data.entries,
-      turn: data.turn,
+    states.set(SESSION_ARCHIVED, {
+      ...EMPTY_ACP_STATE,
+      seq: data.state.seq,
+      items: data.state.items,
+      turn: data.state.turn,
     });
-  }
-  for (const entry of data.entries) {
-    if (entry.kind === "message" && entry.text !== null) {
-      bodies.set(entry.id, [{ kind: "text", text: entry.text }]);
-    }
-  }
-  for (const queued of data.queued ?? []) {
-    bodies.set(queued.id, [{ kind: "text", text: queued.text }]);
   }
 
   const listeners = new Set<() => void>();
@@ -1251,56 +1285,72 @@ export function createFakeAgentTabSource(
   // 올린 이미지의 blob 주소. 메모리에만 있다.
   const images = new Map<string, string>();
   const notify = () => listeners.forEach((listener) => listener());
-  const thread = (session: string) => threads.get(session) ?? EMPTY_THREAD;
-  const change = (session: string, patch: (view: ThreadView) => ThreadView) => {
-    threads.set(session, patch(thread(session)));
+  const stateOf = (session: string) => states.get(session) ?? EMPTY_ACP_STATE;
+  /** 상태를 바꾸고 알린다. 갱신이 없는 변경(대기 줄 고치기 등)도 이 길로 낸다. */
+  const change = (session: string, next: (state: AcpState) => AcpState) => {
+    states.set(session, next(stateOf(session)));
     notify();
     return DONE;
   };
+  /** ACP 갱신을 `reduceAcp`로 접는다. core가 내는 갱신과 같은 모양이다. */
+  const apply = (session: string, ...updates: readonly AcpUpdate[]) =>
+    change(session, (state) => updates.reduce(reduceAcp, state));
   const patchSession = (session: string, patch: Partial<SessionEntry>) => {
     sessions = sessions.map((item) =>
       item.id === session ? { ...item, ...patch } : item,
     );
   };
   const sessionOfTurn = (turn: string) =>
-    [...threads].find(([, view]) => view.turn?.id === turn)?.[0];
+    [...states].find(([, state]) => state.turn?.id === turn)?.[0];
   const sessionOfQueued = (queued: string) =>
-    [...threads].find(([, view]) =>
-      view.queued.some((item) => item.id === queued),
+    [...states].find(([, state]) =>
+      state.queued.some((item) => item.id === queued),
     )?.[0];
+  /** 이 call을 든 tool 항목. */
+  const callItemOf = (call: string) => {
+    for (const [session, state] of states) {
+      for (const item of state.items) {
+        if (
+          item.kind === "tool" &&
+          item.detail.kind === "call" &&
+          item.detail.call === call
+        ) {
+          return { session, state, item, detail: item.detail };
+        }
+      }
+    }
+    return undefined;
+  };
   const stopTurn = (turn: string): Promise<SourceResult<void>> => {
     const session = sessionOfTurn(turn);
     if (session === undefined) return fail("not_found");
-    return change(session, (view) => ({
-      ...view,
-      turn: { ...view.turn!, phase: "ended" },
-      live: null,
-      pending: EMPTY_THREAD.pending,
-      entries: [
-        ...view.entries,
-        {
-          kind: "turn-end",
-          id: nextId("end"),
-          at: at(52),
-          turn,
-          outcome: "stopped",
-          activeMs: 4000,
-          waitedMs: 0,
-        },
-      ],
-    }));
+    return apply(session, {
+      type: "turn_ended",
+      turn,
+      at: at(52),
+      outcome: "stopped",
+      active_ms: 4000,
+      error: null,
+      messages: [],
+      seq: stateOf(session).seq + 1,
+    });
   };
   // 실패했거나 끝난 turn을 다시 도는 모습으로 되돌린다. fake는 turn의 입력 글을 보관하지 않아 그것을 새로 보내지
   // 않고, 화면에서 오류 줄의 [Retry]를 눌렀을 때 turn이 다시 서는 모습만 보인다.
   const restartTurn = (turn: string): Promise<SourceResult<void>> => {
     const session = sessionOfTurn(turn);
     if (session === undefined) return fail("not_found");
-    return change(session, (view) => ({
-      ...view,
-      turn: { ...view.turn!, phase: "working" },
-      live: null,
-      entries: view.entries.filter((entry) => entry.kind !== "provider-error"),
-    }));
+    return change(session, (state) =>
+      reduceAcp(
+        {
+          ...state,
+          items: state.items.filter(
+            (item) => !(item.kind === "notice" && item.notice.type === "error"),
+          ),
+        },
+        { type: "turn_started", turn: nextId("trn"), at: sentAt() },
+      ),
+    );
   };
   const scenarioOf = (session: string | null) =>
     models.get(session ?? "new") ?? SCENARIOS[picker.current ?? ""] ?? SONNET;
@@ -1313,14 +1363,11 @@ export function createFakeAgentTabSource(
       if (needle === "") return ok([]);
       const matches: SessionSearchMatch[] = [];
       for (const entry of sessions) {
-        const view = threads.get(entry.id);
-        if (view === undefined) continue;
-        for (const item of allEntries(view.entries)) {
+        const state = states.get(entry.id);
+        if (state === undefined) continue;
+        for (const item of allItems(state.items)) {
           if (item.kind !== "message" || item.actor === "received") continue;
-          const text = (bodies.get(item.id) ?? [])
-            .flatMap((part) => (part.kind === "text" ? [part.text] : []))
-            .join("\n");
-          const snippet = searchSnippet(text, needle);
+          const snippet = searchSnippet(blocksText(item.content), needle);
           if (snippet === null) continue;
           matches.push({
             session: entry.id,
@@ -1333,34 +1380,20 @@ export function createFakeAgentTabSource(
       matches.sort((a, b) => b.at.localeCompare(a.at));
       return ok(matches.slice(0, SEARCH_MATCH_MAX));
     },
-    thread(session) {
+    acp(session) {
       return sessions.some((item) => item.id === session)
-        ? ok(thread(session))
+        ? ok(stateOf(session))
         : fail("not_found");
-    },
-    body(message) {
-      const parts = bodies.get(message);
-      return parts === undefined ? fail("not_found") : ok(parts);
     },
     envelope(message) {
       const found = envelopes.get(message);
       return found === undefined ? fail("not_found") : ok(found);
     },
     callState(call) {
-      for (const view of threads.values()) {
-        for (const entry of view.entries) {
-          if (entry.kind === "call" && entry.call.call === call) {
-            return ok(entry.call.status);
-          }
-        }
-      }
-      return fail("not_found");
-    },
-    questions(session, toolCall) {
-      const asked = thread(session).pending.questions;
-      return asked?.toolCall === toolCall && asked.questions !== null
-        ? ok(asked.questions)
-        : fail("not_found");
+      const found = callItemOf(call);
+      return found === undefined
+        ? fail("not_found")
+        : ok({ state: found.detail.state, reason: found.detail.fail_reason });
     },
     toolCallBody(toolCall, part) {
       const found = data.toolBodies?.[toolCall]?.[part];
@@ -1398,94 +1431,68 @@ export function createFakeAgentTabSource(
 
     send({ session, id, content, delivery }) {
       const text = blocksText(content);
-      bodies.set(id, content.map(partOf));
-      const view = thread(session);
+      const state = stateOf(session);
       const running =
-        view.turn?.phase === "working" || view.turn?.phase === "waiting";
+        state.turn?.phase === "working" || state.turn?.phase === "waiting";
       if (session && sessions.some((item) => item.id === session)) {
         const known = sessions.find((item) => item.id === session)!;
         if (known.title === null && text !== "") {
           patchSession(session, { title: text.slice(0, 60) });
         }
       }
-      if (running && delivery === "next_turn") {
-        return change(session, (current) => ({
-          ...current,
-          queued: [
-            ...current.queued,
-            {
-              id,
-              at: sentAt(),
-              text,
-              summary: summaryOfParts(bodies.get(id) ?? []),
-            },
-          ],
-        }));
-      }
-      const turn = running ? view.turn!.id : nextId("trn");
       const startedAt = sentAt();
+      if (running && delivery === "next_turn") {
+        return apply(session, {
+          type: "message_queued",
+          queued: { id, at: startedAt, content: [...content] },
+        });
+      }
+      const turn = running ? state.turn!.id : nextId("trn");
       patchSession(session, { status: "working" });
-      return change(session, (current) => ({
-        ...current,
-        entries: [
-          ...current.entries,
-          {
-            ...user(0, 50, text, { id, delivery, turn }),
+      return apply(
+        session,
+        ...(running
+          ? []
+          : [{ type: "turn_started", turn, at: startedAt } as const]),
+        {
+          type: "message_added",
+          item: {
+            ...user(0, 50, "", { id, delivery, turn, content: [...content] }),
+            seq: state.seq + 1,
             at: startedAt,
           },
-        ],
-        turn: running
-          ? current.turn
-          : {
-              id: turn,
-              phase: "working",
-              startedAt,
-              elapsed: { activeMs: 0, at: startedAt },
-            },
-      }));
+        },
+      );
     },
     sendQueuedNow(queued) {
       const session = sessionOfQueued(queued);
       if (session === undefined) return fail("not_found");
-      return change(session, (view) => {
-        const item = view.queued.find((one) => one.id === queued)!;
-        return {
-          ...view,
-          queued: view.queued.filter((one) => one.id !== queued),
-          entries: [
-            ...view.entries,
-            user(0, 51, item.text, {
-              id: item.id,
-              delivery: "steer",
-              turn: view.turn?.id ?? null,
-            }),
-          ],
-        };
+      return apply(session, {
+        type: "message_taken",
+        message: queued,
+        seq: stateOf(session).seq + 1,
+        delivery: "steer",
+        turn: null,
       });
     },
     removeQueued(queued) {
       const session = sessionOfQueued(queued);
       if (session === undefined) return fail("not_found");
-      return change(session, (view) => ({
-        ...view,
-        queued: view.queued.filter((one) => one.id !== queued),
-      }));
+      return apply(session, { type: "message_removed", message: queued });
     },
     editQueued(queued, text) {
       const session = sessionOfQueued(queued);
       if (session === undefined) return fail("not_found");
-      bodies.set(queued, [
-        { kind: "text", text },
-        ...(bodies.get(queued) ?? []).filter((part) => part.kind !== "text"),
-      ]);
-      return change(session, (view) => ({
-        ...view,
-        queued: view.queued.map((one) =>
+      return change(session, (state) => ({
+        ...state,
+        queued: state.queued.map((one) =>
           one.id === queued
             ? {
                 ...one,
-                text,
-                summary: summaryOfParts(bodies.get(queued) ?? []),
+                content: [
+                  { type: "text", text },
+                  ...one.content.filter((block) => block.type !== "text"),
+                ],
               }
             : one,
         ),
@@ -1494,91 +1501,67 @@ export function createFakeAgentTabSource(
     moveQueued(queued, direction) {
       const session = sessionOfQueued(queued);
       if (session === undefined) return fail("not_found");
-      return change(session, (view) => {
-        const index = view.queued.findIndex((one) => one.id === queued);
+      return change(session, (state) => {
+        const index = state.queued.findIndex((one) => one.id === queued);
         const target = index + (direction === "up" ? -1 : 1);
-        if (index < 0 || target < 0 || target >= view.queued.length)
-          return view;
-        const queuedItems = [...view.queued];
-        [queuedItems[index], queuedItems[target]] = [
-          queuedItems[target],
-          queuedItems[index],
-        ];
-        return { ...view, queued: queuedItems };
+        if (index < 0 || target < 0 || target >= state.queued.length) {
+          return state;
+        }
+        const list = [...state.queued];
+        [list[index], list[target]] = [list[target]!, list[index]!];
+        return { ...state, queued: list };
       });
     },
     stop: (turn) => stopTurn(turn),
     retryTurn: restartTurn,
     answerQuestions({ session, toolCall, answers }) {
-      const asked = thread(session).pending.questions;
-      if (asked?.toolCall !== toolCall) return fail("conflict");
-      return change(session, (view) => ({
-        ...view,
-        turn: view.turn && { ...view.turn, phase: "working" },
-        pending: { ...view.pending, questions: null },
-        entries: [
-          ...view.entries,
-          {
-            kind: "questions",
-            id: asked.group,
-            at: at(51),
+      const state = stateOf(session);
+      const asked = state.pending.question;
+      if (asked?.tool_call !== toolCall) return fail("conflict");
+      return apply(
+        session,
+        { type: "question_resolved", group: asked.group, outcome: "submitted" },
+        // 접은 갱신은 답 글을 모른다. 실제로는 snapshot을 다시 읽어 채우는 자리다.
+        {
+          type: "tool_ended",
+          tool_call: toolCall,
+          state: "ok",
+          at: sentAt(),
+          detail: {
+            kind: "question",
             group: asked.group,
             outcome: "submitted",
             lines: (asked.questions ?? []).map((question) => ({
               header: question.header,
-              answer: answerText(answers, question),
+              answer: answerText(answers, question.question),
             })),
           },
-        ],
-      }));
+        },
+      );
     },
     decidePermission(session, request, choice, reason) {
-      const approval = thread(session).pending.approval;
-      if (approval?.id !== request) return fail("conflict");
-      const denied = choice === "reject";
-      return change(session, (view) => ({
-        ...view,
-        turn: view.turn && { ...view.turn, phase: "working" },
-        pending: { ...view.pending, approval: null },
-        entries: [
-          ...view.entries,
-          {
-            kind: "approval-result",
-            id: request,
-            at: at(51),
-            result: {
-              request,
-              subject: approval.subject,
-              outcome: denied ? "denied" : "allowed",
-              choice: choice === "reject" ? null : choice,
-              reason: reason ?? null,
-            },
-          },
-        ],
-      }));
+      const state = stateOf(session);
+      if (state.pending.approval?.id !== request) return fail("conflict");
+      return apply(session, {
+        type: "approval_closed",
+        request,
+        outcome: choice === "reject" ? "denied" : "allowed",
+        choice: choice === "reject" ? null : choice,
+        reason: reason ?? null,
+        seq: state.seq + 1,
+        at: sentAt(),
+      });
     },
     cancelCall(call) {
-      for (const [session, view] of threads) {
-        const found = view.entries.some(
-          (entry) => entry.kind === "call" && entry.call.call === call,
-        );
-        if (!found) continue;
-        return change(session, (current) => ({
-          ...current,
-          entries: current.entries.map((entry) =>
-            entry.kind === "call" && entry.call.call === call
-              ? {
-                  ...entry,
-                  call: {
-                    ...entry.call,
-                    status: { state: "cancelled", reason: null },
-                  },
-                }
-              : entry,
-          ),
-        }));
-      }
-      return fail("not_found");
+      const found = callItemOf(call);
+      if (found === undefined) return fail("not_found");
+      return apply(found.session, {
+        type: "tool_ended",
+        tool_call: found.item.id,
+        state: "ok",
+        at: sentAt(),
+        detail: { ...found.detail, state: "cancelled", fail_reason: null },
+      });
     },
 
     openSession({ id }) {
@@ -1593,7 +1576,7 @@ export function createFakeAgentTabSource(
           skip: false,
         },
       ];
-      threads.set(id, EMPTY_THREAD);
+      states.set(id, EMPTY_ACP_STATE);
       const picked = models.get("new");
       if (picked !== undefined) {
         models.set(id, picked);
@@ -1608,7 +1591,7 @@ export function createFakeAgentTabSource(
       return DONE;
     },
     stopSession(session) {
-      const turn = thread(session).turn;
+      const turn = stateOf(session).turn;
       return turn === null || turn.phase === "ended" ? DONE : stopTurn(turn.id);
     },
     changeSkip(session, skip) {
@@ -1623,72 +1606,53 @@ export function createFakeAgentTabSource(
     },
     deleteSession(session) {
       sessions = sessions.filter((item) => item.id !== session);
-      threads.delete(session);
+      states.delete(session);
       notify();
       return DONE;
     },
     forkSession({ id, session, through }) {
       const origin = sessions.find((item) => item.id === session);
       if (origin === undefined) return fail("not_found");
-      const entries = thread(session).entries;
+      const items = stateOf(session).items;
       const last =
         through === null
-          ? entries.length
-          : entries.findIndex((entry) => entry.id === through) + 1;
+          ? items.length
+          : items.findIndex((item) => item.id === through) + 1;
       // fork는 skip을 가져가지 않는다.
       sessions = [...sessions, { ...origin, id, status: "idle", skip: false }];
-      threads.set(id, {
-        ...EMPTY_THREAD,
-        entries: entries
-          .slice(0, last)
-          .filter((entry) => entry.kind === "message"),
-      });
+      states.set(
+        id,
+        numbered(
+          items.slice(0, last).filter((item) => item.kind === "message"),
+        ),
+      );
       notify();
       return DONE;
     },
     compactSession: () => DONE,
 
-    rewindPoints(session) {
-      const hidden = new Set<string>();
-      for (const entry of thread(session).entries) {
-        if (entry.kind === "hidden") {
-          entry.entries.forEach((inner) => hidden.add(inner.id));
-        }
-      }
-      return ok(
-        thread(session).entries.flatMap((entry) =>
-          entry.kind === "message" &&
-          entry.actor === "user" &&
-          entry.delivery === "next_turn" &&
-          !hidden.has(entry.id)
-            ? [entry.id]
-            : [],
-        ),
-      );
-    },
+    rewindPoints: (session) => ok(rewindPointsOf(stateOf(session))),
     rewindPreview: () => ok(REWIND_PREVIEW),
     rewind(session, message, choice) {
-      const view = thread(session);
-      const from = view.entries.findIndex((entry) => entry.id === message);
-      if (from < 0 || view.turn?.phase === "working") return fail("conflict");
-      const hidden = view.entries.slice(from);
-      return change(session, (current) => ({
-        ...current,
-        entries: [
-          ...current.entries.slice(0, from),
-          {
-            kind: "hidden",
-            id: nextId("rwd"),
-            at: at(53),
-            checkpoint: message,
-            choice: choice.files ? "restore_all" : "messages_only",
-            count: hidden.length,
-            restored: choice.files ? REWIND_PREVIEW.files.length : 0,
-            left: [],
-            entries: hidden,
-          },
-        ],
-      }));
+      const state = stateOf(session);
+      const from = state.items.findIndex((item) => item.id === message);
+      if (from < 0 || state.turn?.phase === "working") return fail("conflict");
+      const hidden = state.items.slice(from) as AcpEntry[];
+      return apply(session, {
+        type: "hidden_added",
+        item: {
+          kind: "hidden",
+          id: nextId("rwd"),
+          seq: hidden[0]!.seq,
+          at: at(53),
+          checkpoint: message,
+          choice: choice.files ? "restore_all" : "messages_only",
+          count: hidden.filter((item) => item.kind === "message").length,
+          restored: choice.files ? REWIND_PREVIEW.files.length : 0,
+          left: [],
+          items: hidden,
+        },
+      });
     },
 
     changed(listener) {
@@ -1701,9 +1665,9 @@ export function createFakeAgentTabSource(
 
 function answerText(
   answers: readonly QuestionAnswer[],
-  question: AskedQuestion,
+  question: string,
 ): string | null {
-  const found = answers.find((item) => item.question === question.question);
+  const found = answers.find((item) => item.question === question);
   return found === undefined || found.status === "unanswered"
     ? null
     : found.answer.join(", ");

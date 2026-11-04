@@ -2,9 +2,9 @@ import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
 // Agent 탭이 core에 묻고 쓰는 통로와 그 화면 값. 화면 부품(thread, cards, composer, sessions)은 모두 이 타입 위에 선다.
-// 값은 contract(lophn-agent의 agent-sessions·received-messages·turns·calls·ask-tool·session-rewinds·commands·models,
-// events의 agent event, approvals)를 부품 props의 모양으로 옮긴 화면 값이다. 구현하는 쪽(source)이 contract 값과
-// 화면 값을 잇고, 화면은 event를 줄로 접는 규칙(agent-tab-data.ts)으로 snapshot 뒤를 이어 붙인다.
+// 대화는 ACP다: source가 snapshot(`AcpState`)을 주고 화면이 갱신을 `reduceAcp`로 접은 뒤 줄 모양으로 늘어놓는다
+// (`thread-layout.ts`). 그 밖의 값은 contract(lophn-agent의 agent-sessions·received-messages·calls·session-rewinds·
+// commands·models, approvals)를 부품 props의 모양으로 옮긴 화면 값이고 source가 contract 값과 화면 값을 잇는다.
 //
 // source는 agent 하나에 묶여 있다. 화면이 열려 있는 동안 agent는 바뀌지 않는다.
 import type {
@@ -18,8 +18,8 @@ import {
 } from "../../../protocol/lophn-agent/content-block.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
+import type { AcpState, AcpWriting } from "../../../protocol/acp/mod.ts";
 import type { ToolCallView } from "./activity/model.ts";
-import type { LiveText } from "./live-text.ts";
 import type {
   PickerAxisView,
   PickerLayoutView,
@@ -123,7 +123,7 @@ export function summaryOfParts(parts: readonly BodyPart[]): string {
 // ---- 보낸 쪽 ----
 
 /**
- * 받은 메시지를 보낸 쪽. 사람이 직접 쓴 메시지는 여기에 없다. 이름은 event만으로는 알 수 없어 null일 수 있고,
+ * 받은 메시지를 보낸 쪽. 사람이 직접 쓴 메시지는 여기에 없다. 이름은 ACP가 모를 수 있어 null일 수 있고,
  * chip을 누르면 `envelope`가 읽어 온다.
  */
 export type Sender =
@@ -193,7 +193,7 @@ export interface AskedQuestion {
   readonly multiSelect: boolean;
 }
 
-/** 답을 기다리는 질문 묶음. event는 내용을 싣지 않아 `questions`가 읽히기 전에는 null이다. */
+/** 답을 기다리는 질문 묶음. 질문 내용을 모르면 `questions`가 null이다. */
 export interface AskedGroup {
   readonly group: string;
   /** 이 묶음을 만든 `ask` tool call. 답할 때 session과 함께 낸다. */
@@ -271,10 +271,8 @@ export interface ThreadMessage extends EntryBase {
   readonly delivery: Delivery;
   /** 이 메시지를 가져간 turn. 아직이면 null이다. */
   readonly turn: string | null;
-  /** event나 snapshot이 이미 가진 글. 본문을 읽기 전에 보인다. 모르면 null이고 `body`로 읽는다. */
-  readonly text: string | null;
-  /** 저장되기 전 live였던 reasoning 글. 본문을 읽기 전 자리를 채워 저장되는 순간 줄이 비었다 채워지지 않게 한다. */
-  readonly liveReasoning?: string | null;
+  /** 본문: reasoning, 글·이미지·링크 block, 앱 카드 차례다. */
+  readonly parts: readonly BodyPart[];
 }
 
 interface EditView {
@@ -331,24 +329,6 @@ interface ThreadTurnEnd extends EntryBase {
   readonly activeMs: number;
   /** 사람을 기다린 시간(wall − active). */
   readonly waitedMs: number;
-}
-
-/**
- * 끝난 turn의 두 시간. wall은 시작부터 끝까지이고, active를 모르면(coding agent) wall을 active로 쓴다.
- * 시작도 모르면 둘 다 0이다.
- */
-export function turnEndTimes(
-  startedAt: string | null,
-  finishedAt: string,
-  activeMs: number | null,
-): { activeMs: number; waitedMs: number } {
-  const wall =
-    startedAt === null
-      ? null
-      : Math.max(0, Date.parse(finishedAt) - Date.parse(startedAt));
-  const active = activeMs ?? wall ?? 0;
-  const waited = wall === null ? 0 : Math.max(0, wall - active);
-  return { activeMs: active, waitedMs: waited };
 }
 
 /** 요청이 거절되는 등 server 요청이 실패했다. 오류와 [Retry]가 대화에 남는다. */
@@ -439,25 +419,8 @@ export interface ThreadView {
   readonly queued: readonly QueuedView[];
   readonly pending: PendingView;
   /** 아직 저장되지 않은 model 호출 하나의 글. 저장되면 그 message 줄로 바뀐다. */
-  readonly live: LiveText | null;
-  /**
-   * 마지막으로 글을 버린 model 호출(저장됐거나 tool call이 시작된)과 끝난 turn. 그 늦은 delta가 새 live
-   * 글로 보이지 않게 한다(core의 live-turns와 같은 규칙).
-   */
-  readonly dropped: {
-    readonly modelCall: string | null;
-    readonly turn: string | null;
-  };
+  readonly live: AcpWriting | null;
 }
-
-export const EMPTY_THREAD: ThreadView = {
-  entries: [],
-  turn: null,
-  queued: [],
-  pending: { approval: null, questions: null },
-  live: null,
-  dropped: { modelCall: null, turn: null },
-};
 
 // ---- model, 명령, 권한 ----
 
@@ -597,19 +560,12 @@ export interface AgentTabSource {
   searchMessages(
     query: string,
   ): Promise<SourceResult<readonly SessionSearchMatch[]>>;
-  /** snapshot이다. 처음과 다시 붙을 때 읽고, 그 사이는 agent event가 줄을 이어 붙인다. 없는 session은 not_found다. */
-  thread(session: string): Promise<SourceResult<ThreadView>>;
-  /** 확정 메시지 하나의 본문. 범위 밖이나 없는 메시지는 not_found다. */
-  body(message: string): Promise<SourceResult<readonly BodyPart[]>>;
+  /** ACP snapshot이다. 처음과 다시 붙을 때 읽고, 그 사이는 `AcpUpdated` 갱신이 상태를 접는다. 없는 session은 not_found다. */
+  acp(session: string): Promise<SourceResult<AcpState>>;
   /** 보낸 쪽 chip을 누르면 읽는다: 맡긴 글, 근거 링크, 보낸 session. */
   envelope(message: string): Promise<SourceResult<Envelope>>;
   /** call 블록이 취소한 뒤 읽는다. 상태가 바뀌어도 따로 알리지 않는다. */
   callState(call: string): Promise<SourceResult<CallStatus>>;
-  /** QuestionAsked는 내용을 싣지 않는다. 풀린 묶음은 not_found다. */
-  questions(
-    session: string,
-    toolCall: string,
-  ): Promise<SourceResult<readonly AskedQuestion[]>>;
   /** call 줄을 펼칠 때 읽는다. 아직 출력이 없으면 output은 not_found다. */
   toolCallBody(
     toolCall: string,
@@ -721,7 +677,7 @@ export interface AgentTabSource {
   ): Promise<SourceResult<void>>;
 
   /**
-   * event 밖에서 바뀐 것을 알린다. 실제 source는 두지 않는다(event가 알린다). 메모리 fake가 쓴다.
+   * 갱신 event 밖에서 바뀐 것을 알린다. 실제 source는 두지 않는다(`AcpUpdated`가 알린다). 메모리 fake가 쓴다.
    */
   changed?(listener: () => void): () => void;
 }

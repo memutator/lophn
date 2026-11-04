@@ -1,13 +1,14 @@
 // Agent 화면의 순수 규칙. 화면은 이 값을 그대로 그린다. 시각은 인자로 받는다.
-import type { BodyState } from "./drafts.ts";
 import type {
   AgentFace,
+  BodyPart,
   ThreadEntry,
   ThreadMessage,
   ThreadView,
 } from "./agent-tab-source.ts";
 import { summaryOfParts } from "./agent-tab-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
+import type { AcpState } from "../../../protocol/acp/mod.ts";
 
 /** 아직 만들지 않은 새 session의 입력 메모리 key. 같은 창의 다른 agent와 섞이지 않는다. */
 export function newSessionKey(agent: AgentFace | null): string {
@@ -42,12 +43,11 @@ export function messageTime(at: string, now: Date): string {
 
 /**
  * Messages는 tool 줄과 끝난 turn의 꼬리를 그리지 않는다. 줄만 있는 agent 묶음이 이름만 남지 않게 걸러 낸다.
- * reasoning뿐인 agent message도 같은 이유로 뺀다(글 없는 묶음이 남는다). 아직 읽지 않은 본문은 남긴다.
+ * reasoning뿐인 agent message도 같은 이유로 뺀다(글 없는 묶음이 남는다).
  */
 export function shownEntries(
   entries: readonly ThreadEntry[],
   detail: ViewDetail,
-  bodyOf: (message: string) => BodyState | undefined,
 ): readonly ThreadEntry[] {
   return detail === "messages"
     ? entries.filter(
@@ -57,21 +57,18 @@ export function shownEntries(
           !(
             entry.kind === "message" &&
             entry.actor === "agent" &&
-            reasoningOnly(bodyOf(entry.id))
+            reasoningOnly(entry.parts)
           ),
       )
     : entries;
 }
 
-/** 읽은 본문에 reasoning 밖의 part가 없다. */
-function reasoningOnly(body: BodyState | undefined): boolean {
-  return (
-    body?.state === "ready" &&
-    body.parts.every((part) => part.kind === "reasoning")
-  );
+/** 본문에 reasoning 밖의 part가 없다. */
+function reasoningOnly(parts: readonly BodyPart[]): boolean {
+  return parts.every((part) => part.kind === "reasoning");
 }
 
-/** 대화의 확정 메시지 전부. 접힌 숨긴 구간 안의 메시지도 든다(펼치면 읽으므로 본문을 읽어 둔다). */
+/** 대화의 확정 메시지 전부. 접힌 숨긴 구간 안의 메시지도 든다. */
 export function messagesOf(thread: ThreadView | null): ThreadMessage[] {
   return flatMessages(thread?.entries ?? []);
 }
@@ -88,17 +85,16 @@ function flatMessages(entries: readonly ThreadEntry[]): ThreadMessage[] {
 
 const EXCERPT_CHARS = 60;
 
-/** 글 part만 이은 본문. 읽지 못했으면 null이다. */
-export function textOfBody(body: BodyState | undefined): string | null {
-  if (body?.state !== "ready") return null;
-  return body.parts
+/** 글 part만 이은 본문. */
+export function textOfParts(parts: readonly BodyPart[]): string {
+  return parts
     .flatMap((part) => (part.kind === "text" ? [part.text] : []))
     .join("\n");
 }
 
-/** 시점을 고르는 목록에서 메시지를 알아볼 한 줄. 본문을 아직 읽지 못했으면 줄임표다. */
-export function excerptOf(body: BodyState | undefined): string {
-  const text = (body?.state === "ready" ? summaryOfParts(body.parts) : "")
+/** 시점을 고르는 목록에서 메시지를 알아볼 한 줄. 메시지가 대화에 없으면 줄임표다. */
+export function excerptOf(parts: readonly BodyPart[] | undefined): string {
+  const text = summaryOfParts(parts ?? [])
     .replace(/\s+/g, " ")
     .trim();
   if (text === "") return "…";
@@ -123,4 +119,19 @@ export function taskOfCall(
     }
   }
   return undefined;
+}
+
+/**
+ * rewind의 시점으로 고를 수 있는 메시지: turn을 시작한 사람 메시지다(steer는 아니다). 숨긴 구간 안의 메시지는
+ * `hidden` 항목 안에 있어 top-level만 보면 빠진다. 오래된 순.
+ */
+export function rewindPointsOf(state: AcpState): string[] {
+  return state.items.flatMap((item) =>
+    item.kind === "message" &&
+    item.actor === "user" &&
+    item.delivery === "next_turn" &&
+    item.turn !== null
+      ? [item.id]
+      : [],
+  );
 }

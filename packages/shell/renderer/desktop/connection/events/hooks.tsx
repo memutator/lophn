@@ -13,10 +13,10 @@ import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import type { TerminalApi } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
 import {
-  createSessionEventsStore,
-  NO_SESSION_EVENTS,
-  type SessionEventsState,
-} from "./session-events-store.ts";
+  type AcpUpdatesState,
+  createAcpUpdatesStore,
+  NO_ACP_UPDATES,
+} from "./acp-updates-store.ts";
 import { createSessionsStore, type SessionsState } from "./sessions-store.ts";
 import { createWaitingStore, type WaitingState } from "./waiting-store.ts";
 
@@ -24,7 +24,7 @@ interface Stores {
   readonly client: EventClient;
   readonly waiting: ReturnType<typeof createWaitingStore>;
   readonly sessions: ReturnType<typeof createSessionsStore>;
-  readonly sessionEvents: ReturnType<typeof createSessionEventsStore>;
+  readonly acpUpdates: ReturnType<typeof createAcpUpdatesStore>;
 }
 
 const EventsContext = createContext<Stores | null>(null);
@@ -55,7 +55,7 @@ export function EventsProvider({
         client,
         (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice ?? null,
       ),
-      sessionEvents: createSessionEventsStore(client),
+      acpUpdates: createAcpUpdatesStore(client),
     }),
     [client],
   );
@@ -78,14 +78,14 @@ export function useSessions(): SessionsState {
   return useSyncExternalStore(sessions.subscribe, sessions.get);
 }
 
-export function useSessionEvents(session: string): SessionEventsState {
-  const { sessionEvents } = useStores();
-  useEffect(() => sessionEvents.open(session), [sessionEvents, session]);
+export function useAcpUpdates(session: string): AcpUpdatesState {
+  const { acpUpdates } = useStores();
+  useEffect(() => acpUpdates.open(session), [acpUpdates, session]);
   const get = useCallback(
-    () => sessionEvents.get().get(session) ?? NO_SESSION_EVENTS,
-    [sessionEvents, session],
+    () => acpUpdates.get().get(session) ?? NO_ACP_UPDATES,
+    [acpUpdates, session],
   );
-  return useSyncExternalStore(sessionEvents.subscribe, get);
+  return useSyncExternalStore(acpUpdates.subscribe, get);
 }
 
 /** store 없이 event를 직접 듣는 쪽(toast 호스트)이 쓴다. */

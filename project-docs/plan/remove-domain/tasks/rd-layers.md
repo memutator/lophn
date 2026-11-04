@@ -47,3 +47,5 @@ agent가 domain을 보는 층을 지운다: `DOMAIN.md` 지침 층, domain skill
 
 - `rd-kinds`가 내장 skill `check-domains`를 이미 지웠다(`skill-settings.ts` 목록 포함). 남은 것은 `make-domain`이다. eval registry의 옛 version 기록은 남긴다.
 - `rd-kinds`가 place 지침과 `make-domain`·`write-artifact` SKILL.md에서 kind 글을 이미 뺐다.
+- `packages/core/agent-places/prompts/prompts.ts`의 "A domain's `DOMAIN.md`, kinds file and skills…" 줄이 남아 있다. kind 글과 domain 글을 같이 지운다.
+- `rd-commands`가 앱 command 표기를 `lophn <app> <command>`로, `app.usage`를 invocation만 세는 `{tool, place}`로 바꿨다(`grant` 출처 없음). place 정보 "Used by"는 이 값을 쓴다.

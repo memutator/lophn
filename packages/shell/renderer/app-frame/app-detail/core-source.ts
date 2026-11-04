@@ -554,24 +554,9 @@ export function coreAppDetailSource(
       return done.ok ? { ok: true, value: true } : done;
     },
 
-    async readDomainDoc(domain) {
-      const read = await readInstructions(instructions, files, {
-        layer: "domain",
-        place: domain,
-      });
-      return read.ok ? read : { ok: false, code: read.message };
-    },
-
-    async writeDomainDoc(domain, text, hash) {
-      const written = await writeInstructions(
-        instructions,
-        files,
-        { layer: "domain", place: domain },
-        text,
-        hash,
-      );
-      return written.ok ? written : { ok: false, code: written.message };
-    },
+    // DOMAIN.md는 더 읽히지 않는다(옛 자리의 file은 `old-domains/`로 옮겼다). domain 화면을 걷을 때 함께 지운다.
+    readDomainDoc: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    writeDomainDoc: () => Promise.resolve({ ok: false, code: "unavailable" }),
 
     async domains(app) {
       const [list, declared] = await Promise.all([

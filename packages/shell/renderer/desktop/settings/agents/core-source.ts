@@ -55,7 +55,7 @@ import type {
 interface SkillValue {
   name: string;
   description: string;
-  source: "builtin" | "global" | "domain";
+  source: "builtin" | "global";
   enabled: boolean;
 }
 

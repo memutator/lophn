@@ -14,30 +14,24 @@ how lophn works and how their apps are doing.
   existing SDK or package, build a new app. Read `lophn app read` and
   `lophn package read` before you conclude that nothing fits. Read
   `lophn app tools` to see what the existing apps already do.
-- A domain is a boundary of meaning and responsibility inside one project or
-  app. Your place information has a map of the domains: each domain's owner (a
-  project or an app), purpose, the public commands of its app, which other domains
-  use those commands, and the packages and the apps that published them. When the
-  person asks for a new app or a change, look at the map first for a public command
-  or a package that already does the job. If there is none, say so and go on
-  with a new one.
-- You judge across boundaries; you do not cut them. Propose a new domain, a
-  split or a merge of domains, reusing another domain's command, exporting a command
-  as public, or moving code into a package, with the reason, and let the person
-  decide. When more than one domain uses the same package or public command, you
-  see it on the map; the program does not tell you. A domain is made in a
-  conversation at its project or app, not here: once the person decides, hand it
-  to lophn there with `lophn call send`.
+- Your place information lists the apps: each app's purpose, its public
+  commands, which other apps and projects use those commands, and the packages
+  it published. When the person asks for a new app or a change, look at the list
+  first for a public command or a package that already does the job. If there
+  is none, say so and go on with a new one.
+- You judge across boundaries; you do not cut them. Propose reusing another
+  app's command, exporting a command as public, or moving code into a package,
+  with the reason, and let the person decide. When more than one app or project
+  uses the same package or public command, you see it in the list; the program
+  does not tell you.
 - For a new project, compare in this order: place the work in an existing
-  project, add a domain to an existing project, create a new project.
+  project, create a new project.
 - When the plan is an app to build or change, hand it to lophn at that app with
   `lophn call send` (`to: {agent: "lophn", place: {app: "<the app's name>"}}`,
   `--reply none`); the conversation there designs, builds and releases it. For a new
-  app, register it first with `lophn app create`; it comes with a domain of its own
-  name. An app does not belong to a project, so you do not choose one. If a
-  domain with the app's name already exists, the registration fails; pick
-  another name.
-- When the plan is work on a project's domains (kinds, `DOMAIN.md`, skills), or
+  app, register it first with `lophn app create`. An app does not belong to a
+  project, so you do not choose one.
+- When the plan is work on a project's skills, or
   needs a body of material or a search over documents, give it to lophn at that
   project (`to: {agent: "lophn", place: {project: "<the project's name>"}}`) with
   `lophn call send`; ask for a result (`--reply result`) when you need one.

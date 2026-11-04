@@ -74,7 +74,6 @@ export async function readSkills(
         name: skill.name,
         detail: skill.description,
         layer: skill.source,
-        ...(skill.domain === null ? {} : { domain: skill.domain }),
         on: skill.enabled,
         builtIn: skill.source === "builtin",
       })),

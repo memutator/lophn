@@ -55,7 +55,6 @@ import {
   type AgentLookups,
   createAgentCommands,
   createAgentReads,
-  domainsOf,
   listAgents,
   loadAgent,
   openAgentContext,
@@ -391,7 +390,7 @@ function registeredSkillsOff(sql: Pick<Tx["sql"], "get" | "all">): string[] {
   return settingsOf(sql)?.get(skillsOffSetting) ?? [];
 }
 
-// place 층이 정하는 skill 자리와 place 그릇의 domain을 읽는 길이다. 조립이 넘긴다.
+// place 층이 정하는 skill 자리와 place 그릇을 읽는 길이다. 조립이 넘긴다.
 type SkillLayers = {
   projectLayer: ProjectLayer;
   bundledSkillsRoot: string;
@@ -402,7 +401,7 @@ type SkillLayers = {
 function globalSkillSources(
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
-): Omit<SkillSources, "domains" | "place"> {
+): Omit<SkillSources, "placeData" | "place"> {
   const root = dataRootOf(sql, undefined);
   return {
     registered: registeredSkillFolders(sql),
@@ -439,7 +438,6 @@ function extensionRegistry(
     projectLayer: layers.projectLayer,
     files: placeFiles,
     skillFiles,
-    domains: (place) => layers.lookups.domains(sql, place),
     sourceFolder: (place) => layers.lookups.sourceFolder(sql, place),
     global: {
       servers: registeredMcpServers(sql),
@@ -473,14 +471,7 @@ function agentLookups(
   };
   return {
     placeExists: (place) => placeExists(places, sql, place),
-    domains: (place) =>
-      place === null
-        ? []
-        : places
-            .domains(sql, place)
-            .map((domain) => domain.id)
-            .sort(),
-    // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇의 domain 층을 더한다. 한 읽기 안에서 같은
+    // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇 자리의 place-data 층을 더한다. 한 읽기 안에서 같은
     // place는 같은 목록이다. home(place 없음)은 전역 층만이다.
     skills: (place) => {
       return place === null
@@ -496,7 +487,6 @@ function agentLookups(
       sharedHeadsOf(places, sql, apps).map((head) => ({
         name: head.name,
         can_disable: true,
-        domain: null,
       })),
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
@@ -525,11 +515,10 @@ function globalSkillNames(
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
 ) {
-  return discoverSkills(
-    skillFiles,
-    { ...globalSkillSources(sql, layers), domains: [] },
-    { kind: "home", off: registeredSkillsOff(sql) },
-  ).entries.filter((entry) => entry.enabled);
+  return discoverSkills(skillFiles, globalSkillSources(sql, layers), {
+    kind: "home",
+    off: registeredSkillsOff(sql),
+  }).entries.filter((entry) => entry.enabled);
 }
 
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
@@ -719,7 +708,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       skillSources: () => globalSkillSources(sql, ports),
       skillsOff: () => registeredSkillsOff(sql),
       placeExists: (place) => placeExists(ports.lookups, sql, place),
-      placeDomains: (place) => ports.lookups.domains(sql, place),
       sourceFolder: (place) => ports.lookups.sourceFolder(sql, place),
     }),
   });
@@ -736,48 +724,43 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   const projectExtensionReads =
     createProjectExtensionReads(projectExtensionDeps);
 
-  // 그 agent 정의가 끈 skill 이름과 일하는 domain id다. 정의를 읽지 못하면 끈 skill이 없고 domain은 없다.
+  // 그 agent 정의가 끈 skill 이름과 할당한 앱이다. 정의를 읽지 못하면 끈 skill이 없다.
   function ownOf(
     sql: Pick<Tx["sql"], "get" | "all">,
     agent: AgentId,
-    place: Place | null,
   ): {
     skills_off: readonly string[];
-    domains: readonly string[];
     apps: readonly string[];
   } {
-    const none = { skills_off: [], domains: [], apps: [] };
+    const none = { skills_off: [], apps: [] };
     const opened = openAgentContext(agentDeps, sql);
     if (!opened.ok) return none;
     const loaded = loadAgent(opened.value, agent);
     if (!loaded.ok || loaded.value === null) return none;
     return {
       skills_off: loaded.value.definition?.skills_off ?? [],
-      domains: domainsOf(opened.value, loaded.value, place),
       apps: loaded.value.definition?.apps ?? [],
     };
   }
 
   // `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
-  // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 그릇의 domain 층을 더하고, 일하는 domain 밖의 domain skill과
-  // agent 정의가 끈 것은 selected=false다.
+  // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 그릇 자리의 place-data 층을 더하고, agent 정의가 끈 것은 selected=false다.
   // 내장 skill은 발견이 place 종류로 거른다.
   const commandReads = createCommandReads({
     skills: (sql, session) => {
-      const own = ownOf(sql, session.agent, session.place);
+      const own = ownOf(sql, session.agent);
       const kind = placeKindOf(session.place);
       const shared = sharedHeadsOf(ports.lookups, sql, own.apps, session.place);
       return commandSkillsOf(
         session.place === null
           ? discoverSkills(
               skillFiles,
-              { ...globalSkillSources(sql, ports), shared, domains: [] },
+              { ...globalSkillSources(sql, ports), shared },
               { kind, off: registeredSkillsOff(sql) },
             ).entries
           : (extensionRegistry(sql, ports)?.skills(session.place, kind, shared)
               .entries ?? []),
         own.skills_off,
-        own.domains,
       );
     },
   });

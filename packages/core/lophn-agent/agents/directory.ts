@@ -12,7 +12,6 @@ import type { ReadSql } from "./ports.ts";
 export type AgentInfo = {
   id: AgentId;
   name: string;
-  domains: readonly string[];
   skip: boolean;
   // 할당: 앱 slug와 permissions.deny 규칙. 사람만 쓰는 칸이다.
   apps: readonly string[];
@@ -28,7 +27,6 @@ function infoOf(loaded: Loaded): AgentInfo {
   return {
     id: loaded.agent,
     name: nameOf(loaded),
-    domains: loaded.definition?.domains ?? [],
     skip: loaded.definition?.skip === true,
     apps: loaded.definition?.apps ?? [],
     deny: loaded.definition?.permissions?.deny ?? [],

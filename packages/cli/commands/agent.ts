@@ -1,7 +1,6 @@
 // `lophn agent create|update`: agent 정의를 만들고 고친다. 할당(권한)은 주지 못한다: 사람이 정한다.
 // `mcp_servers`·`skip`·`apps`·`permissions`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
-import { err, ok, type Result } from "../../base/mod.ts";
-import { domainList, domainNameSchema } from "../../protocol/domains/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import {
   type AgentDefinition,
   agentChange,
@@ -15,36 +14,13 @@ import {
   LOPHN_AGENT_NAME,
 } from "../../protocol/lophn-agent/mod.ts";
 import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
-import { type CommandContext, defineCommand } from "./types.ts";
-
-const domainNames = domainNameSchema.array();
-
-// 정의 파일에는 domain id가 들어간다. 이름은 core가 보여 주는 active domain에서 찾는다.
-async function domainIdsOf(
-  names: readonly string[],
-  ctx: CommandContext,
-): Promise<Result<string[]>> {
-  const read = await ctx.core.read(domainList, { status: "active" });
-  if (!read.ok) return read;
-  const ids: string[] = [];
-  for (const name of names) {
-    const found = read.value.domains.find((domain) => domain.name === name);
-    if (found === undefined) {
-      return err({
-        code: "invalid_input",
-        message: `domain ${name} not found`,
-      });
-    }
-    ids.push(found.id);
-  }
-  return ok(ids);
-}
+import { defineCommand } from "./types.ts";
 
 const create = defineCommand({
   name: "agent.create",
   summary: "Create an agent",
   description:
-    "Create an agent. Give its name (unique; `lophn` is reserved), profile, model, skills, domains (none means all domains of the project or app it works in), mcp_off and instructions (body). Its assignments are given by the person.",
+    "Create an agent. Give its name (unique; `lophn` is reserved), profile, model, skills_off, mcp_off and instructions (body). Its assignments are given by the person.",
   input: agentDefinitionSchema
     .omit({
       mcp_servers: true,
@@ -52,32 +28,22 @@ const create = defineCommand({
       apps: true,
       permissions: true,
     })
-    .extend({ domains: domainNames.optional() })
     .strict(),
   positional: ["name"],
   effect: "write",
-  routes: [domainList, agentCreate],
+  routes: [agentCreate],
   places: PLACE_KINDS,
   run: async (input, ctx) => {
-    const { domains, ...rest } = input;
-    const definition = { ...rest } as Omit<AgentDefinition, "domains"> & {
-      domains?: string[];
-    };
-    if (domains !== undefined) {
-      const ids = await domainIdsOf(domains, ctx);
-      if (!ids.ok) return ids;
-      definition.domains = ids.value;
-    }
     const made = await ctx.core.command(
       agentCreate,
-      { definition },
+      { definition: input },
       {
         key: ctx.key,
       },
     );
     if (!made.ok) return made;
     return ok({
-      summary: `created agent ${definition.name}`,
+      summary: `created agent ${input.name}`,
       content: made.value,
     });
   },
@@ -97,14 +63,14 @@ const update = defineCommand({
       permissions: true,
     })
     .partial()
-    .extend({ agent: agentNameSchema, domains: domainNames.optional() })
+    .extend({ agent: agentNameSchema })
     .strict(),
   positional: ["agent"],
   effect: "write",
-  routes: [agentList, agentRead, domainList, agentChange],
+  routes: [agentList, agentRead, agentChange],
   places: PLACE_KINDS,
   run: async (input, ctx) => {
-    const { agent, domains, ...rest } = input;
+    const { agent, ...rest } = input;
     const listed = await ctx.core.read(agentList, {});
     if (!listed.ok) return listed;
     const key = agentNameKey(agent);
@@ -130,17 +96,9 @@ const update = defineCommand({
       name: LOPHN_AGENT_NAME,
       body: "",
     };
-    const patch = { ...rest } as Partial<AgentDefinition> & {
-      domains?: string[];
-    };
-    if (domains !== undefined) {
-      const ids = await domainIdsOf(domains, ctx);
-      if (!ids.ok) return ids;
-      patch.domains = ids.value;
-    }
     const changed = await ctx.core.command(
       agentChange,
-      { agent: row.agent, definition: { ...base, ...patch } },
+      { agent: row.agent, definition: { ...base, ...rest } },
       { key: ctx.key, compare: { hash } },
     );
     if (!changed.ok) return changed;

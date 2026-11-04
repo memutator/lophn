@@ -34,7 +34,6 @@ test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같�
       instructions: {
         global: "be brief",
         project: "",
-        domain: "",
         agent: "no emoji",
       },
       skills: [{ name: "calendar", description: "plan days", enabled: true }],

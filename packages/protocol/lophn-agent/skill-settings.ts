@@ -12,15 +12,15 @@ export const skillNameSchema = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 export const SKILLS_OFF_MAX = 256;
 
-// skill의 층은 내장, 전역, project·app, domain이고 공유 skill(shared)이 더해진다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
-// 덮고, 같은 층의 domain끼리는 domain 이름이 앞서는 쪽이 이긴다.
-// project·app은 그 place 폴더의 `.lophn/skills`, shared는 할당한 앱의 active release가 내놓은 public skill이다.
+// skill의 층은 내장, 전역, project·app, place-data이고 공유 skill(shared)이 더해진다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
+// 덮는다. project·app은 그 place 폴더의 `.lophn/skills`, place-data는 project나 앱 그릇 자리의 `skills/`(폴더 없는 project도 받는다),
+// shared는 할당한 앱의 active release가 내놓은 public skill이다.
 export const SKILL_SOURCES = [
   "builtin",
   "global",
   "project",
   "app",
-  "domain",
+  "place-data",
   "shared",
 ] as const;
 const skillSourceSchema = z.enum(SKILL_SOURCES);
@@ -45,12 +45,6 @@ export const BUILTIN_SKILLS: readonly {
     places: ["home"],
     can_disable: false,
     menu: true,
-  },
-  {
-    name: "make-domain",
-    places: ["home", "project", "app"],
-    can_disable: false,
-    menu: false,
   },
   {
     name: "write-artifact",
@@ -78,12 +72,10 @@ const skillEntrySchema = z.object({
   source: skillSourceSchema,
   enabled: z.boolean(),
   can_disable: z.boolean(),
-  // domain 층 skill이면 그 domain id다. 내장·전역 skill은 null이다.
-  domain: z.string().min(1).nullable(),
 });
 export type SkillEntry = z.infer<typeof skillEntrySchema>;
 
-// agent 설정 화면이 보는 skill 목록이다. `project`나 `app`을 주면 전역과 내장에 그 그릇의 domain 층을 더한다. 같은 이름은
+// agent 설정 화면이 보는 skill 목록이다. `project`나 `app`을 주면 전역과 내장에 그 place의 층을 더한다. 같은 이름은
 // 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도 목록에 남고 enabled만 false다. can_disable이
 // false인 내장 skill은 끌 수 없다.
 const skillsReadInputSchema = z

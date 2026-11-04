@@ -8,7 +8,6 @@ import type {
   OptionAxis,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
-import type { DomainView } from "../source.ts";
 import type { AgentDraft, GrantApp, GrantCatalog } from "./source.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 
@@ -26,30 +25,6 @@ const NOTES_SYNC_ID = id("app", "ns1");
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 export const BUDGET_REVIEWER_ID = id("agt", "br1");
 const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
-
-const domain = (
-  seed: string,
-  name: string,
-  title: string,
-  purpose: string,
-): DomainView => ({
-  id: id("dom", seed),
-  name,
-  title,
-  purpose,
-  status: "active",
-});
-
-export const PROJECT_DOMAINS: readonly DomainView[] = [
-  domain("ex1", "experiments", "Experiments", "Scenario runs and rubrics."),
-  domain("fi1", "findings", "Findings", "What each experiment taught us."),
-];
-export const APP_DOMAINS: readonly DomainView[] = [
-  domain("xp1", "expenses", "Expenses", "What was spent and where."),
-  domain("bu1", "budgets", "Budgets", "What may be spent in a month."),
-];
-const [EXPERIMENTS, FINDINGS] = PROJECT_DOMAINS.map((one) => one.id);
-const [EXPENSES, BUDGETS] = APP_DOMAINS.map((one) => one.id);
 
 /** 전역 model 하나. */
 export const GLOBAL_MODEL: ModelChoice = {
@@ -188,7 +163,6 @@ Explain what changed in the eval loop and why it matters.
 3. Link every claim to the document it came from.
 Keep answers short. Name the scenario for every regression.`,
       skills_off: ["cite-documents"],
-      domains: [FINDINGS],
       mcp_off: [{ server_name: "fetch" }],
       mcp_servers: [
         {
@@ -234,7 +208,6 @@ Keep answers short. Name the scenario for every regression.`,
 Propose at most three experiments. For each one write the question, the
 change to try and how you will know it worked. Ask before you create files.`,
       skills_off: ["eval-metrics"],
-      domains: [EXPERIMENTS],
       mcp_off: [{ server_name: "fetch" }, { server_name: "github" }],
     },
   },
@@ -276,24 +249,21 @@ export const PROJECT_SKILLS: readonly SkillRow[] = [
   {
     name: "weekly-report",
     detail: "Writes the weekly eval report from new findings.",
-    layer: "domain",
-    domain: FINDINGS,
+    layer: "place-data",
     on: true,
     builtIn: false,
   },
   {
     name: "eval-metrics",
     detail: "Explains the eval metrics and their ranges.",
-    layer: "domain",
-    domain: EXPERIMENTS,
+    layer: "place-data",
     on: true,
     builtIn: false,
   },
   {
     name: "scenario-authoring",
     detail: "Drafts scenario files under eval/scenarios.",
-    layer: "domain",
-    domain: EXPERIMENTS,
+    layer: "place-data",
     on: false,
     builtIn: false,
   },
@@ -303,16 +273,14 @@ export const APP_SKILLS: readonly SkillRow[] = [
   {
     name: "expense-categories",
     detail: "Sorts a new expense into the app's categories.",
-    layer: "domain",
-    domain: EXPENSES,
+    layer: "place-data",
     on: true,
     builtIn: false,
   },
   {
     name: "budget-limits",
     detail: "Explains how the monthly limits are set.",
-    layer: "domain",
-    domain: BUDGETS,
+    layer: "place-data",
     on: true,
     builtIn: false,
   },

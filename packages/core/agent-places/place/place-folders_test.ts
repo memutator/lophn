@@ -2,65 +2,54 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { type PlaceFacts, placeScope } from "./place-folders.ts";
 
-const domain = (id: string) => ({
-  id,
-  folder: `/data/domains/${id}`,
-});
 const base: PlaceFacts = {
   place: null,
   projectFolders: ["/p1", "/p2"],
   appSource: "/app",
   appFolders: ["/shared"],
-  domains: [domain("dom_a"), domain("dom_b")],
   dataFolder: "/data/projects/prj_a",
   allProjectFolders: ["/p1", "/p2", "/q"],
   workflowsFolder: "/data/projects/prj_a/workflows",
+  skillsFolder: "/data/projects/prj_a/skills",
   artifactsFolder: "/data/projects/prj_a/artifacts",
 };
 const workflows = "/data/projects/prj_a/workflows";
+const skills = "/data/projects/prj_a/skills";
 const artifacts = "/data/projects/prj_a/artifacts";
+const appSkills = "/data/apps/app_a/skills";
 const appArtifacts = "/data/apps/app_a/artifacts";
 const project = { kind: "project", id: "prj_a" } as const;
 const app = { kind: "app", id: "app_a" } as const;
 
 // 이 규칙이 넓어지면 project place session이 앱 source를, app place session이 사람의 project 폴더나
 // workflows/를, home session이 아무 폴더나 쓴다.
-test("place 종류마다 쓰기 폴더는 그 그릇의 폴더와 받은 domain 폴더뿐이다", () => {
-  const projectPlace = placeScope({
-    ...base,
-    place: project,
-    domains: [domain("dom_a")],
-  });
+test("place 종류마다 쓰기 폴더는 그 그릇의 폴더뿐이다", () => {
+  const projectPlace = placeScope({ ...base, place: project });
   assert.deepStrictEqual(projectPlace, {
-    read: ["/p1", "/p2", "/data/domains/dom_a", workflows, artifacts],
-    write: ["/p1", "/p2", "/data/domains/dom_a", workflows, artifacts],
+    read: ["/p1", "/p2", workflows, skills, artifacts],
+    write: ["/p1", "/p2", workflows, skills, artifacts],
     base: "/p1",
   });
   const appPlace = placeScope({
     ...base,
     place: app,
-    domains: [domain("dom_a")],
+    skillsFolder: appSkills,
     artifactsFolder: appArtifacts,
   });
   // 앱 source 다음에 사람이 더 이은 폴더가 오고, 상대 경로 기준은 source다
   assert.deepStrictEqual(appPlace, {
-    read: ["/app", "/shared", "/data/domains/dom_a", appArtifacts],
-    write: ["/app", "/shared", "/data/domains/dom_a", appArtifacts],
+    read: ["/app", "/shared", appSkills, appArtifacts],
+    write: ["/app", "/shared", appSkills, appArtifacts],
     base: "/app",
   });
   // project place는 앱에 더한 폴더를 받지 않는다
   assert.ok(!projectPlace.write.includes("/shared"));
-  // 폴더 없는 project는 domain 폴더와 workflows/, artifacts/만 열고 상대 경로 기준은 data 폴더다
+  // 폴더 없는 project는 workflows/, skills/, artifacts/만 열고 상대 경로 기준은 data 폴더다
   assert.deepStrictEqual(
-    placeScope({
-      ...base,
-      place: project,
-      projectFolders: [],
-      domains: [domain("dom_a")],
-    }),
+    placeScope({ ...base, place: project, projectFolders: [] }),
     {
-      read: ["/data/domains/dom_a", workflows, artifacts],
-      write: ["/data/domains/dom_a", workflows, artifacts],
+      read: [workflows, skills, artifacts],
+      write: [workflows, skills, artifacts],
       base: "/data/projects/prj_a",
     },
   );

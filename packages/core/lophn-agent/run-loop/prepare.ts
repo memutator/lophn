@@ -10,7 +10,6 @@ import {
 } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
-import { domainList } from "../../../protocol/domains/mod.ts";
 import {
   type AgentId,
   type AgentPlace,
@@ -39,12 +38,10 @@ import {
   type McpSelection,
   type McpToolCall,
   type McpToolsSource,
-  pickSkills,
 } from "../extensions/mod.ts";
 import {
   type InstructionDeps,
   readTurnInstructions,
-  type TurnDomain,
   type TurnInstructionLayer,
 } from "../instructions/mod.ts";
 import { cappedOutput, type ModelBinding } from "../models/binding.ts";
@@ -305,20 +302,15 @@ function noticeText(body: string): string {
   });
 }
 
-// prompt에 싣는 skill 목록이다. agent가 끄지 않은 이름만 켜지고, domain 층 skill은 agent가 맡은 domain의 것만 켜진다.
-// 같은 이름은 한 줄이다(`pickSkills`).
+// prompt에 싣는 skill 목록이다. agent가 끄지 않은 이름만 켜진다.
 export function promptSkills(
   entries: readonly SkillEntry[],
-  resolved: Pick<ResolvedAgent, "skills" | "domains">,
+  resolved: Pick<ResolvedAgent, "skills">,
 ) {
-  const enabled = (entry: SkillEntry) =>
-    entry.enabled &&
-    resolved.skills.includes(entry.name) &&
-    (entry.domain === null || resolved.domains.includes(entry.domain));
-  return pickSkills(entries, enabled).map((entry) => ({
+  return entries.map((entry) => ({
     name: entry.name,
     description: entry.description,
-    enabled: enabled(entry),
+    enabled: entry.enabled && resolved.skills.includes(entry.name),
   }));
 }
 
@@ -327,30 +319,12 @@ function instructionTexts(
   layers: readonly TurnInstructionLayer[],
 ): TurnPromptInput["instructions"] {
   const files: Partial<Record<TurnInstructionLayer["layer"], string>> = {};
-  const texts = { global: "", project: "", domain: "", agent: "", files };
+  const texts = { global: "", project: "", agent: "", files };
   for (const layer of layers) {
     texts[layer.layer] = layer.text ?? "";
     if (layer.file !== null) files[layer.layer] = layer.file;
   }
   return texts;
-}
-
-// agent가 맡은 domain의 이름과 purpose다(이름은 turn.ts가 순서를 정한다). turn을 시작하기 전이라 agent credential이
-// 아직 없어 machine 자격으로 그릇의 domain 목록을 읽는다. 읽지 못하면 domain 층만 비우고 turn은 계속한다(prompt를
-// 줄이는 쪽으로 실패한다).
-async function readTurnDomains(
-  machine: CoreCall,
-  agent: ResolvedAgent,
-): Promise<TurnDomain[]> {
-  if (agent.domains.length === 0 || agent.place === null) return [];
-  const listed = await readOf(machine, domainList, {
-    owner: agent.place,
-    limit: 1000,
-  });
-  if (!listed.ok) return [];
-  return listed.value.domains
-    .filter((domain) => agent.domains.includes(domain.id))
-    .map(({ id, name, purpose }) => ({ id, name, purpose }));
 }
 
 export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
@@ -547,7 +521,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         kind: placeKindOf(session.place),
         mode,
         place,
-        domains: resolved.domains,
         listed,
         core: agentCall,
         clock,
@@ -790,7 +763,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           deps.instructionFilesFor?.(start.session) ?? deps.instructions.files,
       },
       { kind },
-      await readTurnDomains(machine, agent),
     );
     if (instructions.status === "blocked") {
       return await closeUnstarted(

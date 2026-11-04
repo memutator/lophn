@@ -1,6 +1,6 @@
 ---
 name: write-artifact
-description: "Write an artifact: a static HTML page in a domain's artifacts folder that shows the person a result on screen. Where it goes, its folder and data, the sealed view and theme tokens."
+description: "Write an artifact: a static HTML page in the artifacts folder of a project or app that shows the person a result on screen. Where it goes, its folder and data, the sealed view and theme tokens."
 ---
 
 # Artifact
@@ -11,21 +11,20 @@ no artifact tool: you make one by writing files.
 
 ## Where it goes
 
-An artifact belongs to a domain. Its place is `domains/<dom>/artifacts/<name>/`
-in lophn's data, and a domain is one of the domains listed in your place
-information. Write `<Folder>/<name>/index.html` with `file.write`. `<Folder>` is
-the absolute `artifacts` folder of that domain, given in the Artifacts section
-of your place information. Always use that absolute path: a relative
+An artifact belongs to the project or app you work in. Its place is the
+`artifacts/<name>/` folder of that project or app in lophn's data. Write
+`<Folder>/<name>/index.html` with `file.write`. `<Folder>` is the absolute
+`artifacts` folder, given in the Artifacts section of your place information. Always use that absolute path: a relative
 `artifacts/...` path lands in the person's project folder, which is wrong.
 `<name>` is a lowercase slug (`spending`, `weekly-report`). Once an `index.html`
 exists at that spot, it is an artifact. Tell the person its path in your answer;
-the path becomes a link that opens it. The same name in two domains is two
+the path becomes a link that opens it. The same name in two places is two
 artifacts.
 
 ## Who writes
 
-An agent working in a project or app writes the artifacts of the domains it
-works with. At home an agent writes no files.
+An agent working in a project or app writes the artifacts of that project or
+app. At home an agent writes no files.
 
 ## Folder shape
 
@@ -120,7 +119,7 @@ body {
 ## Drawing nodes with the kit
 
 The kit draws a node diagram. It is the one library the sealed view gives you,
-and it works in a workflow artifact and in a domain artifact.
+and it works in a workflow artifact and in a project or app artifact.
 
 - Load it with a plain `<script>` (not a module) and a stylesheet:
   `<link rel="stylesheet" href="/_lophn/kit.css">` and
@@ -150,7 +149,7 @@ To go back, the person uses rewind.
 The person can mark the screen and send notes. They go to the last open session
 that wrote to that artifact's folder, as a message. If there is none (those
 sessions are closed or have no record), lophn at the project or app that holds
-the domain gets them. Open the screenshot with `image.read`.
+the artifact gets them. Open the screenshot with `image.read`.
 
 ## What you do not do
 

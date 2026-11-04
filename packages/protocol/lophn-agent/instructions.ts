@@ -23,21 +23,19 @@ const instructionReadFileSchema = z.object({
 
 export type InstructionReadFile = z.infer<typeof instructionReadFileSchema>;
 
-// 지침은 4층이 이어 붙는다: 전역, project(LOPHN.md 또는 CLAUDE.md), domain(DOMAIN.md), agent. place 종류 지침은 prompt의
+// 지침은 3층이 이어 붙는다: 전역, project(LOPHN.md 또는 CLAUDE.md), agent. place 종류 지침은 prompt의
 // 고정 본문이라 층이 아니고 app 층은 없다. 이어 붙이는 순서가 이 배열 순서다.
 export const PROMPT_INSTRUCTION_LAYERS = [
   "global",
   "project",
-  "domain",
   "agent",
 ] as const;
 
-// 어느 project의 LOPHN.md인지는 session의 place로 정한다. `domain`은 layer가 `domain`일 때 필수이고 아니면 거절이다.
+// 어느 project의 LOPHN.md인지는 session의 place로 정한다.
 // 출력과 상한은 위 `instructionReadFileSchema`다.
 const instructionsGetInputSchema = z.strictObject({
   session: idSchema("ses"),
   layer: z.enum(PROMPT_INSTRUCTION_LAYERS),
-  domain: idSchema("dom").optional(),
 });
 
 export const instructionsGet = defineRead({

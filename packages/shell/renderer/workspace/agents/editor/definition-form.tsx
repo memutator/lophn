@@ -1,4 +1,4 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Instructions · Model · Domains · Skills · MCP servers · Skip permissions.
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Instructions · Model · Skills · MCP servers · Skip permissions.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
@@ -11,7 +11,6 @@ import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings
 import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
-import type { DomainView } from "../../source.ts";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
 import type { McpLogin, McpRow } from "../views.ts";
 import type { InstructionsPort } from "./instructions-editor.tsx";
@@ -30,7 +29,6 @@ type FieldName =
   | "name"
   | "instructions"
   | "model"
-  | "domains"
   | "skills"
   | "mcp"
   | "skip";
@@ -42,7 +40,6 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   body: "instructions",
   model: "model",
   skills_off: "skills",
-  domains: "domains",
   mcp_off: "mcp",
   mcp_servers: "mcp",
   skip: "skip",
@@ -138,8 +135,6 @@ interface DefinitionFormProps {
   readonly source: ModelFieldSource;
   /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
   readonly placeName: string;
-  /** 화면을 연 자리 그릇의 active domain. 읽지 못했으면 null이다. */
-  readonly domains: readonly DomainView[] | null;
   readonly imageSrc: (image: string) => string;
   readonly onChange: (definition: AgentDraft) => void;
   readonly onUpload: (file: File) => void;
@@ -168,29 +163,6 @@ export function DefinitionForm(props: DefinitionFormProps) {
     onChange(withField(definition, key, value));
 
   const skillsOff = definition.skills_off ?? [];
-  // agent는 일할 domain을 고르고(비면 그릇의 전부), skill은 고른 domain의 것만 목록에 든다.
-  // domain 없는 skill(전역)은 어느 domain을 골라도 든다.
-  const placeIsApp = detail.place.kind === "app";
-  const grouped = props.domains !== null;
-  const containerDomains = props.domains ?? [];
-  const containerIds = containerDomains.map((one) => one.id);
-  const chosenIds = (definition.domains ?? []).filter((id) =>
-    containerIds.includes(id),
-  );
-  const activeIds = chosenIds.length === 0 ? containerIds : chosenIds;
-  const toggleDomain = (id: string, on: boolean) => {
-    const others = (definition.domains ?? []).filter(
-      (one) => !containerIds.includes(one),
-    );
-    const next = [
-      ...others,
-      ...containerIds.filter((one) =>
-        one === id ? on : chosenIds.includes(one),
-      ),
-    ];
-    onChange(withField(definition, "domains", next));
-  };
-
   // 정의의 skills_off는 이 agent가 끈 이름이다. 끄지 않은 skill은 보이는 대로 받는다.
   const toggleSkill = (name: string, on: boolean) =>
     set(
@@ -306,77 +278,16 @@ export function DefinitionForm(props: DefinitionFormProps) {
         <Issues issues={issuesOf("model")} />
       </div>
 
-      {grouped && containerDomains.length > 0 ? (
-        <Group name="domains" heading={t("domain.heading.list")}>
-          <div className={styles.checks}>
-            {containerDomains.map((one) => (
-              <Checkbox
-                key={one.id}
-                size="sm"
-                label={one.title}
-                checked={chosenIds.includes(one.id)}
-                onCheckedChange={(on) => toggleDomain(one.id, on)}
-              />
-            ))}
-          </div>
-          <p className={styles.note}>
-            {(definition.domains ?? []).length === 0
-              ? t(
-                  placeIsApp
-                    ? "domain.notice.all-of-app"
-                    : "domain.notice.all-of-project",
-                )
-              : chosenIds.length > 0
-                ? t("domain.notice.only-chosen")
-                : t("domain.notice.none-here")}
-          </p>
-          <Issues issues={issuesOf("domains")} />
-        </Group>
-      ) : null}
-
       <Group
         name="skills"
         heading={t("project-workspace.heading.agent-editor-skills")}
       >
-        {grouped ? (
-          <>
-            <SkillList
-              items={detail.skills.filter((row) => row.domain === undefined)}
-              offNames={skillsOff}
-              lockOff
-              onToggle={toggleSkill}
-            />
-            {containerDomains
-              .filter((one) => activeIds.includes(one.id))
-              .map((one) => {
-                const rows = detail.skills.filter(
-                  (row) => row.domain === one.id,
-                );
-                return rows.length === 0 ? null : (
-                  <div
-                    key={one.id}
-                    className={styles.skillGroup}
-                    data-skill-domain={one.name}
-                  >
-                    <h3 className={styles.skillGroupTitle}>{one.title}</h3>
-                    <SkillList
-                      items={rows}
-                      offNames={skillsOff}
-                      lockOff
-                      onToggle={toggleSkill}
-                    />
-                  </div>
-                );
-              })}
-          </>
-        ) : (
-          <SkillList
-            items={detail.skills}
-            offNames={skillsOff}
-            lockOff
-            onToggle={toggleSkill}
-          />
-        )}
+        <SkillList
+          items={detail.skills}
+          offNames={skillsOff}
+          lockOff
+          onToggle={toggleSkill}
+        />
         <p className={styles.note}>{t("agents.notice.skills-agent-only")}</p>
         <Issues issues={issuesOf("skills")} />
       </Group>

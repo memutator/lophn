@@ -7,21 +7,7 @@ import { placeData, type PlaceFiles } from "./place-data.ts";
 
 const id = (prefix: string, n: string) => `${prefix}_0${"0".repeat(24)}${n}`;
 const APP = id("app", "1");
-const DOM_A = id("dom", "1");
-const DOM_B = id("dom", "2");
 const common = { as_of_seq: "1", next_cursor: null };
-
-function domain(dom: string, name: string, owner = APP) {
-  return {
-    id: dom,
-    name,
-    title: `${name} title`,
-    purpose: `${name} purpose`,
-    owner: { kind: "app", id: owner },
-    revision: "1",
-    status: "active",
-  };
-}
 
 const app = {
   id: APP,
@@ -39,7 +25,7 @@ const app = {
 };
 
 const files: PlaceFiles = {
-  domainFolder: (dom) => `/d/${dom}`,
+  skillsFolder: (place) => `/data/${place.id}/skills`,
   dataFolder: (place) => `/data/${place.id}`,
   workflowsFolder: (project) => `/data/${project}/workflows`,
   artifactsFolder: (place) => `/data/${place.id}/artifacts`,
@@ -48,8 +34,8 @@ const files: PlaceFiles = {
     Promise.resolve([{ name: "a-page", title: "T", description: "" }]),
 };
 
-function agent(place: unknown, domains: string[], name = "x") {
-  return { place, name, domains } as unknown as ResolvedAgent;
+function agent(place: unknown, name = "x") {
+  return { place, name } as unknown as ResolvedAgent;
 }
 
 // 응답은 route의 output schema로 다시 검사되므로 모양이 틀리면 읽기가 실패해 시험이 깨진다.
@@ -69,45 +55,26 @@ function fakeCall(replies: Record<string, unknown>): CoreCall {
 
 const appPlace = { kind: "app", id: APP };
 const ARTIFACTS = `/data/${APP}/artifacts`;
+const SKILLS = `/data/${APP}/skills`;
 
-test("받은 domain이 A뿐인 session의 place 정보와 쓰기 범위에는 A의 것만 있다", async () => {
+test("앱 place의 정보와 쓰기 범위에는 그 앱의 skills·artifacts 폴더가 있다", async () => {
   const call = fakeCall({
     "/apps/get": { app },
     "/agents/list": { agents: [] },
-    "/domains/list": {
-      domains: [domain(DOM_A, "alpha"), domain(DOM_B, "beta")],
-    },
   });
-  const one = await placeData(call, agent(appPlace, [DOM_A]), files);
-  assert.ok(one.ok);
-  const text = one.value.place.text;
-  assert.ok(text.includes("alpha"));
+  const read = await placeData(call, agent(appPlace), files);
+  assert.ok(read.ok);
+  const text = read.value.place.text;
+  assert.ok(text.includes(`Skills folder: ${SKILLS}\n`));
   assert.ok(text.includes("a-page") && text.includes(`${ARTIFACTS}\n`));
-  assert.ok(text.includes(`Folder: /d/${DOM_A}\n`));
-  for (const other of ["beta", DOM_B]) {
-    assert.ok(!text.includes(other), other);
-  }
-  // artifacts/는 받은 domain과 상관없이 그 앱 place의 session이 쓴다.
-  assert.deepStrictEqual(one.value.scope, {
-    read: ["/src/ledger", `/d/${DOM_A}`, ARTIFACTS],
-    write: ["/src/ledger", `/d/${DOM_A}`, ARTIFACTS],
+  assert.deepStrictEqual(read.value.scope, {
+    read: ["/src/ledger", SKILLS, ARTIFACTS],
+    write: ["/src/ledger", SKILLS, ARTIFACTS],
     base: "/src/ledger",
   });
-
-  const both = await placeData(call, agent(appPlace, [DOM_A, DOM_B]), files);
-  assert.ok(both.ok);
-  for (const seen of ["alpha", "beta", "a-page"]) {
-    assert.ok(both.value.place.text.includes(seen), seen);
-  }
-  assert.deepStrictEqual(both.value.scope.write, [
-    "/src/ledger",
-    `/d/${DOM_A}`,
-    `/d/${DOM_B}`,
-    ARTIFACTS,
-  ]);
 });
 
-test("home의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에 실린다", async () => {
+test("home의 앱 목록에는 공개 command와 쓰는 곳이 실리고 package는 주인 앱 줄에 실린다", async () => {
   const tool = (name: string, isPublic: boolean) => ({
     name,
     title: name,
@@ -119,9 +86,6 @@ test("home의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에
     "/projects/list": { projects: [] },
     "/apps/list": { apps: [app] },
     "/agents/list": { agents: [] },
-    "/domains/list": {
-      domains: [domain(DOM_A, "alpha"), domain(DOM_B, "beta")],
-    },
     "/apps/tool_index": {
       apps: [
         {
@@ -160,10 +124,12 @@ test("home의 지도에는 공개 tool만 실리고 package는 주인 앱 줄에
       ],
     },
   });
-  const read = await placeData(call, agent(null, [], "lophn"), files);
+  const read = await placeData(call, agent(null, "lophn"), files);
   assert.ok(read.ok);
   const text = read.value.place.text;
-  assert.ok(text.includes("show (read) show does it"));
+  assert.ok(
+    text.includes("`lophn ledger <command>`): show (read) show does it"),
+  );
   assert.ok(!text.includes("hidden"));
   assert.ok(text.includes(`show ← ${id("prj", "2")}`));
   assert.ok(

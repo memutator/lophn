@@ -12,6 +12,12 @@ export function placeDataFolder(root: string, place: Place): string {
   return `${area}/${place.id}`;
 }
 
+// place 그릇 자리의 skill 꾸러미 폴더. 이 자리의 skill이 place-data 층이다.
+export const PLACE_DATA_SKILLS = "skills";
+export function placeDataSkillsFolder(root: string, place: Place): string {
+  return `${placeDataFolder(root, place)}/${PLACE_DATA_SKILLS}`;
+}
+
 // projects 폴더 안에서 project 폴더만 가려낸다.
 export function projectIdOfFolder(name: string): string | null {
   return /^prj_[0-9a-z]+$/.test(name) ? name : null;

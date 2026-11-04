@@ -1,7 +1,7 @@
 // 사람 지침(LOPHN.md, 없으면 CLAUDE.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
 // 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project의
 // LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`). 전역과 project 자리는
-// LOPHN.md가 없으면(ENOENT) 같은 자리의 CLAUDE.md를 읽는다. domain의 DOMAIN.md(`<data>/domains/<dom>/`), 그리고 agent 정의 본문이다.
+// LOPHN.md가 없으면(ENOENT) 같은 자리의 CLAUDE.md를 읽는다. 그리고 agent 정의 본문이다.
 // 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다.
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
@@ -15,7 +15,6 @@ import {
 } from "node:fs";
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { domainDocFile } from "../../../protocol/domains/paths.ts";
 import {
   INSTRUCTION_FILE_NAMES,
   instructionsGet,
@@ -108,16 +107,6 @@ export type InstructionReadDeps = {
   // 등록 폴더가 없는 project의 지침은 data root의 project 자리에 있다.
   projectDataFolder(root: string, project: string): string;
   agentFilePathOf(root: string, session: SessionRow): string | null;
-  // domain의 그릇. 없는 domain이면 null이다.
-  domainOwnerOf(
-    sql: ReadSnapshot["sql"],
-    domain: string,
-  ): { kind: string; id: string } | null;
-  // 어느 place 종류든 자기 place 그릇의 domain만 읽는다.
-  mayReadDomain(
-    place: Place | null,
-    owner: { kind: string; id: string },
-  ): boolean;
 };
 
 // 그 session의 agent가 prompt로 읽는 project. home은 place가 없어 없고, 앱 그릇에는 LOPHN.md가 없다.
@@ -162,39 +151,19 @@ function readAgentBody(
 }
 
 // GetInstructions의 읽기. 층 하나의 파일을 돌려준다(부재는 null).
-// - domain 칸은 session의 place 그릇에 든 domain만 받는다. 아니면 forbidden이다.
 // - project 층은 session의 place가 가리키는 project다. home과 앱 place는 project 지침이 없다.
 function readInstruction(
   deps: InstructionReadDeps,
   snapshot: ReadSnapshot,
   sessionId: string,
   layer: InstructionLayerKind,
-  domain: string | undefined,
 ): Result<InstructionFile | null> {
-  if ((layer === "domain") !== (domain !== undefined)) {
-    return err({
-      code: "invalid_input",
-      message:
-        "domain is for the domain layer only, and the domain layer needs it",
-    });
-  }
   const session = loadInstructionSession(snapshot, sessionId);
   if (session === undefined) return notFound();
   const root = dataRootOf(snapshot.sql, undefined);
   if (!root.ok) return unavailable();
   if (layer === "global") return openInstructionFile(root.value);
   if (layer === "agent") return readAgentBody(deps, root.value, session);
-  if (layer === "domain") {
-    const owner = deps.domainOwnerOf(snapshot.sql, domain!);
-    if (owner === null) return notFound();
-    if (!deps.mayReadDomain(session.place, owner)) {
-      return err({
-        code: "forbidden",
-        message: "a session reads the DOMAIN.md of its own place only",
-      });
-    }
-    return openFile(domainDocFile(root.value, domain!));
-  }
   const project = ownProject(session);
   if (project === null) return ok(null);
   const folder =
@@ -225,7 +194,6 @@ function instructionsGetHandler(
           snapshot,
           input.session,
           input.layer,
-          input.domain,
         );
         if (!file.ok) return file;
         return ok({

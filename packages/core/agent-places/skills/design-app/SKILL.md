@@ -25,7 +25,7 @@ Sections, in this order:
    - Operations: from the model and the screens: name, title, effect, and in
      the code the input, output and rules.
    - Commands: what an agent or another app will ask: name, effect, input,
-     output, rules, domain, public or not.
+     output, rules, public or not.
    - Shared skills: the skills the app gives to other agents (see "Sharing
      with other agents"): name, who it is for, the commands it calls.
 7. Failure branches: refusals, failed outside calls, silent fallbacks. Name each
@@ -44,7 +44,7 @@ An app has two layers. Give each action to the right one.
 - A command is a meaningful unit that an agent or another app will ask for, and
   its result is small. Pick commands from the questions people ask, not from the
   screens. A command wraps a function of the app's domain code, which the
-  operations use as well. Give it a `domain`, a `description` that says when to
+  operations use as well. Give it a `description` that says when to
   use it, and an `inputSchema`. A command that an agent can call should hold
   a promise you want to keep, so declare few of them.
 - Example, an app that shows token use of coding harnesses: "all sessions" is an

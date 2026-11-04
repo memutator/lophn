@@ -38,7 +38,7 @@ does not read it or call it wrong.
 
 - `kind`: `agent`, or `flow`. With `flow`, a program (`flow.ts`) runs the steps;
   see Flow workflows below.
-- `agent`: for a `flow`, the agent whose assignment and domains the app
+- `agent`: for a `flow`, the agent whose assignment the app
   command calls use. It is an agent name; when left out it is lophn.
 - `participants`: a map from a key you choose to `{ agent, place? }`,
   `{ kind: human }` or `{ kind: harness }`.
@@ -151,7 +151,7 @@ and Node's built-in modules. Syntax that needs a transform, such as `enum` or
 
 Allotment: an app command that a flow calls works only within the current
 assignment of the agent named in `agent` of `workflow.yaml` (lophn when left
-out) and the domains that agent works with in this project. Before you write the
+out). Before you write the
 flow, choose that agent and ask the person with `ask` to assign the app to it.
 Without the assignment, `tool` comes back with `ok: false`. An agent that a flow
 calls can be anyone, but the agent works only within its own assignment.

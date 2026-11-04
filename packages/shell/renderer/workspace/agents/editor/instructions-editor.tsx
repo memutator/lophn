@@ -1,4 +1,4 @@
-// 지침 파일(LOPHN.md, DOMAIN.md) 하나를 그 자리에서 보고 고친다. 평소에는 상자에 글을 보이고 [Edit]을 누르면 같은 자리가
+// 지침 파일(LOPHN.md) 하나를 그 자리에서 보고 고친다. 평소에는 상자에 글을 보이고 [Edit]을 누르면 같은 자리가
 // 파일 탭과 같은 markdown 편집기(live preview)가 된다. 저장은 이 파일만 통째로 쓴다. 다른 곳에서 파일이 바뀌었으면(conflict)
 // 디스크를 덮지 않고 고친 글을 둔 채 [Reload]를 보인다.
 import { Button } from "@lophn/ui/primitives";
@@ -30,7 +30,7 @@ interface InstructionsEditorProps {
   /** 파일이 비었을 때의 한 줄. */
   readonly empty: string;
   readonly port: InstructionsPort;
-  /** 있으면 보기 없이 편집으로 열리고, [Cancel]·저장·[Reload] 뒤에 이것을 부른다(줄 menu에서 연 DOMAIN.md). */
+  /** 있으면 보기 없이 편집으로 열리고, [Cancel]·저장·[Reload] 뒤에 이것을 부른다(줄 menu에서 연 문서). */
   readonly onClose?: () => void;
 }
 

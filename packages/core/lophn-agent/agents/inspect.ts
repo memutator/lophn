@@ -4,15 +4,10 @@ import {
   type AgentId,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
-  type Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type AgentFileDefinition, parseAgentFile } from "./definition-file.ts";
 import type { AgentDeps, AgentLookups, ReadSql } from "./ports.ts";
-import {
-  AGENT_DEFAULT_PROFILE,
-  LOPHN_PROFILE,
-  workingDomains,
-} from "./resolve.ts";
+import { AGENT_DEFAULT_PROFILE, LOPHN_PROFILE } from "./resolve.ts";
 import {
   type AgentFile,
   agentSlotOf,
@@ -55,16 +50,6 @@ export type Loaded = {
   definition: AgentFileDefinition | null;
   issues: AgentDefinitionIssue[];
 };
-
-// agent가 일하는 domain id다. 정의가 고른 것과 그 place 그릇의 active domain의 교집합이다.
-export function domainsOf(
-  context: AgentContext,
-  loaded: Loaded,
-  place: Place | null,
-): string[] {
-  const chosen = loaded.definition?.domains ?? [];
-  return workingDomains(context.lookups.domains(place), chosen);
-}
 
 export function loadAgent(
   context: AgentContext,

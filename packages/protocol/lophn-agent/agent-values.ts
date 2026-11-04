@@ -89,10 +89,6 @@ const permissionsSchema = z.strictObject({
     .refine(unique, { message: "duplicate rule" })
     .optional(),
 });
-// agent가 일하는 domain id. 비면 그릇의 domain 전부다. id가 그 그릇 것인지는 정의를 저장하는 쪽이 본다.
-const domainsSchema = z.array(idSchema("dom")).refine(unique, {
-  message: "duplicate domain",
-});
 const mcpOffListSchema = z
   .array(mcpOffSchema)
   .refine((entries) => unique(entries.map(mcpKey)), {
@@ -121,7 +117,6 @@ const frontmatterFields = {
   profile: profileSchema.optional(),
   model: modelChoiceSchema.optional(),
   skills_off: skillsSchema.optional(),
-  domains: domainsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),
@@ -133,7 +128,6 @@ const frontmatterOutputFields = {
   profile: profileOutputSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   skills_off: skillsSchema.optional(),
-  domains: domainsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),

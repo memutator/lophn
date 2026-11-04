@@ -32,7 +32,7 @@ import {
 const LAYER_LABEL: Record<SkillLayer | McpLayer, MessageKey> = {
   builtin: "agents.label.layer-builtin",
   global: "agents.label.layer-global",
-  domain: "agents.label.layer-domain",
+  "place-data": "agents.label.layer-place-data",
   project: "agents.label.layer-project",
   app: "agents.label.layer-app",
   shared: "agents.label.layer-shared",
@@ -91,11 +91,7 @@ export function SkillList({
   return (
     <ul className={styles.toggleList}>
       {items.map((item) => (
-        <li
-          key={`${item.domain ?? ""}/${item.name}`}
-          className={styles.toggleRow}
-          data-skill={item.name}
-        >
+        <li key={item.name} className={styles.toggleRow} data-skill={item.name}>
           <span className={styles.toggleMain}>
             <span className={styles.toggleName}>{item.name}</span>
             <span className={styles.toggleDetail}>{item.detail}</span>

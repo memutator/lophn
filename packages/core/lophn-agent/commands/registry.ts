@@ -10,7 +10,7 @@ import {
 // model 정책). IO가 없는 순수 함수다.
 
 // extensions의 skill 발견 결과에서 registry가 쓰는 칸만이다. `origin`은 skill을 찾은
-// 층(builtin, global, domain)이고, `selected`는 agent 정의에서
+// 층(builtin, global, place-data 등)이고, `selected`는 agent 정의에서
 // 끄지 않았는지다. 같은 이름은 발견이 한 줄로 줄여 준다.
 export type RegistrySkill = {
   name: string;

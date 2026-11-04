@@ -16,7 +16,6 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import {
   type AgentContext,
-  domainsOf,
   listAgents,
   loadAgent,
   type Loaded,
@@ -70,7 +69,6 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
           skills: receivedSkills(
             [...skills, ...context.lookups.shared(definition?.apps ?? [])],
             definition?.skills_off ?? [],
-            domainsOf(context, loaded, null),
           ).length,
           mcp: mcp.filter(
             (tool) =>
@@ -145,7 +143,6 @@ export function createAgentReads(deps: AgentDeps): {
                   : "global",
             },
             model,
-            domains: domainsOf(context.value, loaded, place),
           },
           issues: loaded.issues,
           as_of_seq: snapshot.as_of_seq,

@@ -11,6 +11,7 @@ import { createLedgerRegistration as createRunsRegistration } from "../../runs/r
 import { createLedgerRegistration as createWorkflowsRegistration } from "../../workflows/register.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
 import { artifactMoveWiring } from "./wiring/artifact-move.ts";
+import { placeDataMoveWiring } from "./wiring/place-data-move.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
@@ -130,8 +131,10 @@ export const WIRINGS: readonly WiringFactory[] = [
   createSkillsOffWiring,
   approvalsWiring,
   assignmentFileWiring,
-  // artifact 옮기기는 domains 표를 읽는다. 표를 거두는 data step보다 앞에 둔다.
+  // artifact·skill·문서 옮기기는 domains 표를 읽는다. 표를 거두는 data step보다 앞에 둔다.
+  // 같은 domain 폴더의 rewind 기록을 나눠 고치므로 artifact가 먼저, 그 뒤에 skill과 문서다.
   artifactMoveWiring,
+  placeDataMoveWiring,
   shareRequestsWiring,
   routerWiring,
   appsWiring,

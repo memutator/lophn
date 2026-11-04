@@ -10,8 +10,4 @@ export {
   encodeInstructionFile,
   instructionFilesOverCore,
 } from "./read.ts";
-export {
-  readTurnInstructions,
-  type TurnDomain,
-  type TurnInstructionLayer,
-} from "./turn.ts";
+export { readTurnInstructions, type TurnInstructionLayer } from "./turn.ts";

@@ -19,7 +19,6 @@ import {
 } from "./mcp-server.ts";
 import {
   discoverSkills,
-  pickSkills,
   type SharedSkillHead,
   sharedFor,
   sharedPathOf,
@@ -39,21 +38,19 @@ type ExtensionRegistryDeps = {
   projectLayer: ProjectLayer;
   files: PlaceFiles;
   skillFiles: SkillFiles;
-  // place 그릇의 active domain이다(이름순). skill의 domain 층이 이것이다.
-  domains(place: AgentPlace): readonly { id: string; name: string }[];
   // project의 첫 등록 폴더나 앱 source 폴더다. 없으면 null이다.
   sourceFolder(place: AgentPlace): string | null;
   // 전역(Workspace) 층이다. 서버 목록은 platform/settings 값, skill 출처는 등록 폴더·개인 보관소·내장 폴더다.
   global: {
     servers: readonly McpServer[];
-    skills: Omit<SkillSources, "domains" | "place">;
+    skills: Omit<SkillSources, "placeData" | "place">;
     // 전역에서 끈 skill의 정확한 이름이다.
     skillsOff: readonly string[];
   };
 };
 
 export type ExtensionRegistry = {
-  // 이 place의 agent가 발견하는 skill이다. 내장, 전역, project·app, domain 순으로 덮고 끈 것은 enabled false다. 내장 skill은
+  // 이 place의 agent가 발견하는 skill이다. 내장, 전역, project·app, place-data 순으로 덮고 끈 것은 enabled false다. 내장 skill은
   // `places`에 선언된 종류만이고 null이면 모두다.
   // `shared`는 그 agent에게 할당한 앱의 public skill이다. 내장 바로 위 층이다.
   skills(
@@ -120,13 +117,7 @@ export function createExtensionRegistry(
             place,
             deps.sourceFolder(place),
           ),
-          domains: deps.domains(place).map((domain) => ({
-            domain: domain.id,
-            folder: deps.projectLayer.domains.skillsFolder(
-              deps.root,
-              domain.id,
-            ),
-          })),
+          placeData: deps.projectLayer.placeDataSkillsFolder(deps.root, place),
         },
         { kind, off },
       );
@@ -152,24 +143,21 @@ export function createExtensionRegistry(
   };
 }
 
-// `/` 메뉴의 skill 한 줄이다(이름마다 하나: `pickSkills`). 일하는 domain 밖의 domain skill과, agent 정의가 끈 이름(`skills_off`)은 selected=false다.
+// `/` 메뉴의 skill 한 줄이다. agent 정의가 끈 이름(`skills_off`)은 selected=false다.
 // 끌 수 없는 내장 skill은 늘 켜져 있다. 지금 없는 끈 이름은 그대로 두어 아무 일도 하지 않는다. 받는 목록은 발견이 place 종류로 거른 것이다.
 export function commandSkillsOf(
   entries: SkillListing["entries"],
   off: readonly string[],
-  domains: readonly string[],
 ): {
   name: string;
   description: string;
   origin: SkillSource;
   selected: boolean;
 }[] {
-  const received = (entry: SkillListing["entries"][number]) =>
-    entry.enabled && skillReceived(entry, off, domains);
-  return pickSkills(entries, received).map((entry) => ({
+  return entries.map((entry) => ({
     name: entry.name,
     description: entry.description,
     origin: entry.source,
-    selected: received(entry),
+    selected: entry.enabled && skillReceived(entry, off),
   }));
 }

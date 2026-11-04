@@ -9,7 +9,7 @@ import type {
 
 export const INSTRUCTION_FILE_MAX_BYTES = 32768;
 
-// 전역, project(LOPHN.md), domain(DOMAIN.md), agent 순서다.
+// 전역, project(LOPHN.md), agent 순서다.
 export type InstructionLayerKind = (typeof PROMPT_INSTRUCTION_LAYERS)[number];
 // 지침을 읽는 쪽이 보는 한 층의 파일. bytes는 처음부터 최대 INSTRUCTION_FILE_MAX_BYTES 만큼이다.
 // 상한을 넘는 파일은 size_bytes로만 알면 되므로 끝까지 읽지 않는다.
@@ -23,11 +23,8 @@ export type InstructionFile = {
 // 읽기 통로는 읽기만 있다. 지침 파일 저장은 사람이 editor에서 파일을 저장하는 일이다. 어느 project의
 // 파일인지는 통로가 이미 안다(그 session의 place).
 export interface InstructionFiles {
-  // 그 층의 지금 파일. 파일이 없으면 null(부재)이고 읽지 못하면 err다. `domain` 층은 domain id를 함께 준다.
-  read(
-    layer: InstructionLayerKind,
-    domain?: string,
-  ): Promise<Result<InstructionFile | null>>;
+  // 그 층의 지금 파일. 파일이 없으면 null(부재)이고 읽지 못하면 err다.
+  read(layer: InstructionLayerKind): Promise<Result<InstructionFile | null>>;
 }
 
 export type InstructionDeps = {

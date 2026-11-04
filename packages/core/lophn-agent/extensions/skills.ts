@@ -9,8 +9,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 
 // skill 발견, 검증, 층 합치기. 층은 내장, 공유(할당한 앱의 public skill), 전역(등록 폴더와 개인 보관소), project·app(그 place 폴더의 `.lophn/skills`),
-// domain 순이고 같은 이름은 마지막 층이 덮는다. 다만 domain 층 skill은 domain마다 따로 남는다. 어느 domain의 것이 이기는지는
-// agent가 일하는 domain을 거른 뒤 `pickSkills`가 정한다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
+// place-data(그 place 그릇 자리의 `skills/`) 순이고 같은 이름은 마지막 층이 덮는다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 발견은 동기다(core read handler가 동기라 비동기 발견을 부르지 못하고, 비동기 함수 안에서는 동기
 // 함수를 그대로 부를 수 있다). 파일 IO는 SkillFiles로 끼운다. 내장 skill은 `places`에 선언된 place 종류만 후보다. 이 모듈은
 // 사람의 실제 home이나 다른 harness 보관소를 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다.
@@ -26,7 +25,7 @@ export type SkillFiles = {
   ): { text: string; complete: boolean } | null;
 };
 
-// 층을 합친 skill 하나다. 앞 여섯 칸(domain 포함)은 `ReadSkills`가 내는 것과 같다.
+// 층을 합친 skill 하나다. 앞 다섯 칸은 `ReadSkills`가 내는 것과 같다.
 export type SkillEntry = SkillRow & {
   // 읽는 쪽만 쓰는 절대 위치다. prompt에는 나가지 않는다.
   bundle_path: string;
@@ -162,8 +161,6 @@ export type SkillCandidate = {
   name: string;
   source: SkillSource;
   bundle_path: string;
-  // domain 층 skill이 속한 domain id다. 그 밖의 skill은 null이다.
-  domain: string | null;
 };
 
 function declaredBuiltin(name: string) {
@@ -186,10 +183,9 @@ export function builtinForPlace(name: string, kind: PlaceKind | null): boolean {
   );
 }
 
-// 층 순서(내장, 공유, 전역, project·app, domain)로 늘어선 후보를 합친다. domain 앞 층은 이름마다 하나이고 마지막 층이 덮는다. domain 층은
-// 합치지 않고 domain마다 남긴다(전역 `x`가 domain `x`에 가려져 그 domain을 고르지 않은 agent가 잃지 않게). 끌 수 없는 내장
+// 층 순서(내장, 공유, 전역, project·app, place-data)로 늘어선 후보를 이름마다 하나로 합친다. 마지막 층이 덮는다. 끌 수 없는 내장
 // skill은 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
-// 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이고 같은 이름은 전역, domain(받은 순서) 순이다.
+// 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이다.
 export function mergeSkillLayers<T extends SkillCandidate>(
   candidates: readonly T[],
   off: readonly string[],
@@ -201,7 +197,6 @@ export function mergeSkillLayers<T extends SkillCandidate>(
   const canDisable = (candidate: SkillCandidate): boolean =>
     candidate.source !== "builtin" || builtinCanDisable(candidate.name);
   const byName = new Map<string, T>();
-  const perDomain: T[] = [];
   for (const candidate of candidates) {
     const kept = byName.get(candidate.name);
     if (kept !== undefined && kept.source === "builtin" && !canDisable(kept)) {
@@ -212,11 +207,10 @@ export function mergeSkillLayers<T extends SkillCandidate>(
       });
       continue;
     }
-    if (candidate.domain === null) byName.set(candidate.name, candidate);
-    else perDomain.push(candidate);
+    byName.set(candidate.name, candidate);
   }
   const offNames = new Set(off);
-  return [...byName.values(), ...perDomain]
+  return [...byName.values()]
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
     .map((candidate) => {
       const disable = canDisable(candidate);
@@ -228,44 +222,24 @@ export function mergeSkillLayers<T extends SkillCandidate>(
     });
 }
 
-// agent가 받는 skill인지다. domain 층 skill은 agent가 일하는 domain의 것만 받는다. 정의가 끈 이름(`skills_off`)은
-// 받지 않는다. 끌 수 없는 내장 skill은 늘 받는다. resolve, skill.read, `/` 메뉴, 공유 skill이 모두 이 규칙을 쓴다.
+// agent가 받는 skill인지다. 정의가 끈 이름(`skills_off`)은 받지 않는다. 끌 수 없는 내장 skill은 늘 받는다.
+// resolve, skill.read, `/` 메뉴, 공유 skill이 모두 이 규칙을 쓴다.
 export function skillReceived(
-  skill: { name: string; can_disable: boolean; domain: string | null },
+  skill: { name: string; can_disable: boolean },
   off: readonly string[],
-  domains: readonly string[],
 ): boolean {
-  return (
-    (skill.domain === null || domains.includes(skill.domain)) &&
-    (!skill.can_disable || !off.includes(skill.name))
-  );
+  return !skill.can_disable || !off.includes(skill.name);
 }
 
-// 합친 목록에서 이름마다 한 줄만 남긴다. 받는 줄 가운데 domain 층이 전역을 덮고, domain 사이는 목록에서 앞선 쪽이
-// 이긴다. 받는 줄이 없으면 첫 줄이다. 받는 쪽(`received`)은 resolve, skill.read, `/` 메뉴가 `skillReceived`로 정한다.
-export function pickSkills<T extends { name: string; domain: string | null }>(
-  entries: readonly T[],
-  received: (entry: T) => boolean,
-): T[] {
-  const groups = new Map<string, T[]>();
-  for (const entry of entries) {
-    groups.set(entry.name, [...(groups.get(entry.name) ?? []), entry]);
-  }
-  return [...groups.values()].map((group) => {
-    const got = group.filter(received);
-    return got.find((entry) => entry.domain !== null) ?? got[0] ?? group[0];
-  });
-}
-
-// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), place 폴더, domain 폴더들과 core가 읽어 준 공유 skill(`shared`)이다. null은 그 출처가 없는 것이다.
-// domain은 이름순으로 받는다.
+// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), place 폴더, place 그릇 자리의 `skills/`와 core가 읽어 준 공유 skill(`shared`)이다. null은 그 출처가 없는 것이다.
 export type SkillSources = {
   bundled: string | null;
   registered: readonly string[];
   personal: string | null;
-  // project나 app place의 `.lophn/skills` 폴더다. 전역 다음, domain 앞 층이다. 그 place 밖이나 폴더가 없으면 없다.
+  // project나 app place의 `.lophn/skills` 폴더다. 전역 다음 층이다. 그 place 밖이나 폴더가 없으면 없다.
   place?: PlaceSkills | null;
-  domains: readonly DomainStore[];
+  // place 그릇 자리(`<data>/projects/<prj>`, `<data>/apps/<app>`)의 `skills/` 폴더다. 마지막 층이고 폴더 없는 project도 받는다. home이면 없다.
+  placeData?: string | null;
   // 할당한 앱의 public skill이다. 내장 바로 위, 전역 아래 층이다. 같은 이름은 앞의 것이 이긴다(부르는 쪽이 slug 순으로 준다).
   shared?: readonly SharedSkillHead[];
 };
@@ -389,15 +363,12 @@ export function readSharedHeads(
   return heads;
 }
 
-// domain 층 skill은 `domain`이 그 domain id이고 아니면 null이다.
 export type SkillListing = {
   entries: readonly SkillEntry[];
   skipped: readonly SkillSkipped[];
 };
 
 type Candidate = SkillCandidate & { description: string };
-
-export type DomainStore = { domain: string; folder: string };
 
 function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
   try {
@@ -416,11 +387,7 @@ export function discoverSkills(
   const candidates: Candidate[] = [];
   const skipped: SkillSkipped[] = [];
 
-  const addBundle = (
-    bundle: string,
-    source: SkillSource,
-    domain: string | null = null,
-  ): void => {
+  const addBundle = (bundle: string, source: SkillSource): void => {
     const manifest = joinPath(bundle, SKILL_MANIFEST);
     const kind = attempt(() => files.kind(manifest));
     // 검사 실패와 manifest 없음은 조용히 건너뛴다: 꾸러미가 아닌 폴더이거나 보관소 오류다.
@@ -470,18 +437,16 @@ export function discoverSkills(
       name: parsed.value.name,
       description: parsed.value.description,
       source,
-      domain,
       bundle_path: bundle,
     });
   };
 
   // container 바로 아래 꾸러미를 폴더 이름의 영문 사전순으로 본다.
-  // 개인·내장·domain 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
+  // 개인·내장·place-data 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
   const scanFolder = (
     container: string,
     source: SkillSource,
     reportMissing: boolean,
-    domain: string | null = null,
   ): void => {
     const folder = attempt(() => files.kind(container));
     if (folder.ok && folder.value === null && !reportMissing) return;
@@ -528,7 +493,7 @@ export function discoverSkills(
         });
         continue;
       }
-      addBundle(bundle, source, domain);
+      addBundle(bundle, source);
     }
   };
 
@@ -538,7 +503,6 @@ export function discoverSkills(
       name: skill.name,
       description: skill.description,
       source: "shared",
-      domain: null,
       bundle_path: sharedPathOf(skill),
     });
   }
@@ -551,8 +515,8 @@ export function discoverSkills(
   if (sources.place != null) {
     scanFolder(sources.place.folder, sources.place.source, false);
   }
-  for (const store of sources.domains) {
-    scanFolder(store.folder, "domain", false, store.domain);
+  if (sources.placeData != null) {
+    scanFolder(sources.placeData, "place-data", false);
   }
 
   const visible = candidates.filter(

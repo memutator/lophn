@@ -5,12 +5,7 @@ import type { PlaceAgent } from "./model.ts";
 // 이름 목록은 "무엇이 더해지고 빠졌는지"를 쓰려고 hash가 아니라 목록으로 둔다. 긴 글(지침, 용어집)은 hash다.
 // session 기록에 쓰는 일은 호출하는 쪽이 한다.
 
-export const INSTRUCTION_LAYERS = [
-  "global",
-  "project",
-  "domain",
-  "agent",
-] as const;
+export const INSTRUCTION_LAYERS = ["global", "project", "agent"] as const;
 type InstructionLayerName = (typeof INSTRUCTION_LAYERS)[number];
 
 // 층별 지침 전문. 없는 층은 빈 문자열이다.

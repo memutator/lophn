@@ -41,7 +41,6 @@ import {
   turnRead,
   userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { domainList } from "../../../protocol/domains/mod.ts";
 import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
 import {
   assignmentGet,
@@ -112,14 +111,12 @@ export const RUNTIME_MACHINE_ROUTES = [
   // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
-  // tool의 정의 재료(활성 release 선언과 agent 할당)와 앱의 domain(다른 domain의 비공개 tool 거르기)을 읽는다.
-  // domain 읽기는 turn을 시작할 때 맡은 domain의 이름과 purpose, skill 발견과 tool 목록이 쓴다.
+  // tool의 정의 재료(활성 release 선언과 agent 할당)를 읽는다.
   appTools,
   // 할당한 앱이 내놓은 public skill(공유 skill). turn마다 읽는다.
   appSkills,
   appGet,
   assignmentGet,
-  domainList,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
 ] as const;

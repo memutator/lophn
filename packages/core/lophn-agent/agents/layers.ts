@@ -112,7 +112,6 @@ export async function resolveTurnAgent(
     environment: {
       skills: input.skills,
       mcp,
-      domains: read.value.effective.domains,
     },
   });
   if (resolved.ok) {

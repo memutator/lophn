@@ -6,14 +6,14 @@ export type PlaceFacts = {
   appSource: string | null;
   // place가 app일 때 사람이 source 밖에 더 이은 폴더(position 순)
   appFolders: readonly string[];
-  // 이 session이 맡은 domain의 폴더. turn은 받은 domain만, rewind는 그릇의 domain 전부를 넘긴다.
-  domains: readonly { id: string; folder: string }[];
   // place의 data 폴더. 폴더가 없는 place의 상대 경로 기준이다
   dataFolder: string | null;
   // active project 전체 폴더. home만 쓴다
   allProjectFolders: readonly string[];
   // place가 project일 때 그 project의 `workflows/` 절대 경로. 그 project place의 session이 쓴다(아래 placeScope)
   workflowsFolder: string | null;
+  // place의 `skills/` 절대 경로. project·앱 place의 session이 쓴다(아래 placeScope)
+  skillsFolder: string | null;
   // place의 `artifacts/` 절대 경로. project·앱 place의 session이 쓴다(아래 placeScope)
   artifactsFolder: string | null;
 };
@@ -34,7 +34,7 @@ export function placeScope(facts: PlaceFacts): FolderScope {
   if (place === null) {
     return { read: [...facts.allProjectFolders], write: [] };
   }
-  // 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 domain 폴더보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
+  // 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 data 폴더들보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
   const own =
     place.kind === "project"
       ? [...facts.projectFolders]
@@ -50,11 +50,12 @@ export function placeScope(facts: PlaceFacts): FolderScope {
       ...(base === undefined ? {} : { base }),
     };
   };
-  const domainFolders = facts.domains.map((d) => d.folder);
-  const folders = [...own, ...domainFolders];
+  const folders = [...own];
   // workflows/는 그 project place의 session이 쓴다.
   if (place.kind === "project" && facts.workflowsFolder !== null)
     folders.push(facts.workflowsFolder);
+  // skills/도 project·앱 place의 session이 쓴다. rewind 기록의 root가 되고 path는 `<skill 이름>/…`이다.
+  if (facts.skillsFolder !== null) folders.push(facts.skillsFolder);
   // artifacts/는 project·앱 place의 session이 쓴다. 폴더 자체가 허용 폴더라 rewind 기록의 root가 되고 path는 `<name>/…`이다.
   if (facts.artifactsFolder !== null) folders.push(facts.artifactsFolder);
   return withBase(folders);

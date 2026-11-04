@@ -19,7 +19,7 @@ import type {
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
-import type { DomainView, ReadResult } from "../source.ts";
+import type { ReadResult } from "../source.ts";
 import type {
   McpLogin,
   InstructionsFile,
@@ -66,7 +66,7 @@ export interface AgentsOverview {
 
 /**
  * 정의 파일 한 개의 값. 모든 agent가 같은 칸을 갖는다. `skills_off`는 이 agent가 끈 skill 이름이고 없으면 보이는 skill을 모두 받는다.
- * `domains`는 일할 domain의 id이고 비면 그 그릇의 domain 전부다. lophn의 `name`·`profile`은 바꾸지 못하고
+ * lophn의 `name`·`profile`은 바꾸지 못하고
  * `mcp_servers`·`skip`은 사람만 쓴다. 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
  */
 export interface AgentDraft {
@@ -74,7 +74,6 @@ export interface AgentDraft {
   readonly profile?: Profile;
   readonly model?: ModelChoice;
   readonly skills_off?: readonly string[];
-  readonly domains?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
   /** 새 session을 skip으로 시작한다. 사람만 쓴다. */
@@ -218,8 +217,6 @@ export interface AgentsSource {
   list(project: string): Promise<ReadResult<readonly AgentListRow[]>>;
   overview(project: string): Promise<ReadResult<AgentsOverview>>;
   models(): Promise<ReadResult<ModelsView>>;
-  /** 이 자리(project나 앱) 그릇의 active domain 목록. agent가 고를 수 있는 domain이다. */
-  domains(place: string): Promise<ReadResult<readonly DomainView[]>>;
   /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
   refreshModels(provider: string): Promise<boolean>;
   /** 켠 model 목록 전체를 바꾸고 바뀐 목록을 돌려준다. */

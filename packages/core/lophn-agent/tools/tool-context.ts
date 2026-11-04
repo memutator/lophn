@@ -31,8 +31,6 @@ export type ToolContext = {
   // Gate 판정은 core가 turn 행에서 읽는다.
   mode: TurnMode;
   place: Place | null;
-  // agent가 일하는 domain id. 비면 그릇의 domain 전부다.
-  domains: readonly string[];
   // 그 session이 시작할 때 고정한 tool 목록.
   listed: readonly ToolDefinition[];
   // core route를 부른다. agent 자격이다.

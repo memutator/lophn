@@ -7,7 +7,6 @@ import {
   stageRewindFile,
 } from "../../protocol/lophn-agent/mod.ts";
 import { projectApi } from "../../protocol/projects/mod.ts";
-import { domainGet, domainList } from "../../protocol/domains/mod.ts";
 import { annotationsGet } from "../../protocol/apps/annotation.ts";
 import { appGet, appList } from "../../protocol/apps/mod.ts";
 import {
@@ -29,14 +28,12 @@ import { placeToolNames } from "./tool-lists.ts";
 // 자격으로 읽으므로 모든 place 종류의 상한에 읽기로만 더한다. 어느 대상을 보는지는 core가 credential의 scope로 정한다.
 // `place/place-data.ts`가 읽는 route와 같아야 한다.
 const PLACE_READS: readonly string[] = [
-  domainList.name,
-  domainGet.name,
   projectApi.get.name,
   projectApi.list.name,
   appGet.name,
   appList.name,
   appTools.name,
-  // lophn의 domain 지도: 공개 tool, 사용 관계, 앱이 주인인 package 목록. 사용 관계는 lophn session만 받는다.
+  // lophn의 앱 목록: 공개 tool, 사용 관계, 앱이 주인인 package 목록. 사용 관계는 lophn session만 받는다.
   appToolIndex.name,
   appUsage.name,
   packagesList.name,
@@ -87,7 +84,7 @@ export function placeOperations(
 
 // agent credential의 고정 조건이다. session과 turn에 묶인다. app place는 그 앱을 `app` 조건으로 고정한다: 다른 앱·project와
 // 그 앱이 아닌 release·앱 log·invocation 같은 자료는 요청 범위 밖이라 없는 자료와 같은 답이다. project place는 그 project를
-// `project` 조건으로 고정한다(kind·annotation 읽기와 domain 범위가 이 조건을 읽는다). home은 조건이 없다. 앱 호출을 해도 되는지는
+// `project` 조건으로 고정한다(annotation 읽기가 이 조건을 읽는다). home은 조건이 없다. 앱 호출을 해도 되는지는
 // Gate와 agent 할당이 가른다.
 export function agentConditions(input: {
   session: string;

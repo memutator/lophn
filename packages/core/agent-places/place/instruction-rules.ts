@@ -7,11 +7,3 @@ export function agentFilePathOf(
 ): string {
   return `${root}/agents/${session.agent}.md`;
 }
-
-// 어느 place 종류든 자기 place 그릇의 domain만 읽는다. home은 place가 없어 읽을 domain이 없다.
-export function mayReadDomain(
-  place: Place | null,
-  owner: { kind: string; id: string },
-): boolean {
-  return place !== null && place.kind === owner.kind && place.id === owner.id;
-}

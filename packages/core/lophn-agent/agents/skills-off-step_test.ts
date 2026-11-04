@@ -33,24 +33,29 @@ test("옛 skills를 옮긴 뒤에도 agent가 받는 skill 집합이 같다", as
       `---\nname: Writer\nskills: [a, in-a, new-app]\ndomains: [${DOM_A}]\n---\nHello\n`,
     );
 
+    // 옛 규칙의 후보: 전역 층과 맡은 domain(DOM_A)의 skill.
     const sources = {
       bundled: `${root}/bundled`,
       registered: [],
       personal: `${root}/skills`,
-      domains: [DOM_A, DOM_B].map((domain) => ({
-        domain,
-        folder: `${root}/domains/${domain}/skills`,
-      })),
     };
-    const listed = discoverSkills(createNodeSkillFiles(), sources, {
-      kind: null,
-      off: [],
-    }).entries;
+    const listed = [
+      null,
+      `${root}/domains/${DOM_A}/skills`,
+      `${root}/domains/${DOM_B}/skills`,
+    ]
+      .flatMap((placeData, at) =>
+        discoverSkills(
+          createNodeSkillFiles(),
+          { ...sources, placeData },
+          { kind: null, off: [] },
+        ).entries.map((one) => ({ ...one, mine: at !== 2 })),
+      )
+      .filter((one) => one.mine);
     const before = listed
       .filter(
         (one) =>
-          (one.domain === null || one.domain === DOM_A) &&
-          (!one.can_disable || ["a", "in-a", "new-app"].includes(one.name)),
+          !one.can_disable || ["a", "in-a", "new-app"].includes(one.name),
       )
       .map((one) => one.name);
 
@@ -62,11 +67,12 @@ test("옛 skills를 옮긴 뒤에도 agent가 받는 skill 집합이 같다", as
     const moved = parseAgentFile(text, { agent: "agt_01" as never });
     assert.ok(moved.ok);
     const after = listed
-      .filter((one) =>
-        skillReceived(one, moved.value.skills_off ?? [], [DOM_A]),
-      )
+      .filter((one) => skillReceived(one, moved.value.skills_off ?? []))
       .map((one) => one.name);
-    assert.deepStrictEqual(after, before);
+    assert.deepStrictEqual(
+      [...new Set(after)].sort(),
+      [...new Set(before)].sort(),
+    );
     assert.deepStrictEqual(moved.value.skills_off, ["b"]);
   } finally {
     await rm(root, { recursive: true, force: true });

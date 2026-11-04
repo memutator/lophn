@@ -86,37 +86,43 @@ export function createSkillsOffStep(bundledSkillsRoot: string): DataStep {
             ? (kept.skills_off as string[])
             : [];
           // 옛 규칙에서 고른 이름이 없으면 모두 받았다.
+          // 발견은 domain 층을 따로 갖지 않으므로 domain마다 한 번씩 돌려 합친다. 이름 집합은 같다.
+          const folders = (
+            Array.isArray(kept.domains)
+              ? (kept.domains as string[])
+              : allDomains
+          ).map((domain) => domainSkillsFolder(root, domain));
           const off =
             chosen.length === 0
               ? own
               : [
                   ...new Set([
                     ...own,
-                    ...discoverSkills(
-                      files,
-                      {
-                        bundled: bundledSkillsRoot,
-                        registered,
-                        personal: `${root}/skills`,
-                        domains: (Array.isArray(kept.domains)
-                          ? (kept.domains as string[])
-                          : allDomains
-                        ).map((domain) => ({
-                          domain,
-                          folder: domainSkillsFolder(root, domain),
-                        })),
-                      },
-                      { kind: null, off: [] },
-                    )
-                      .entries.filter(
+                    ...[null, ...folders]
+                      .flatMap(
+                        (placeData) =>
+                          discoverSkills(
+                            files,
+                            {
+                              bundled: bundledSkillsRoot,
+                              registered,
+                              personal: `${root}/skills`,
+                              placeData,
+                            },
+                            { kind: null, off: [] },
+                          ).entries,
+                      )
+                      .filter(
                         (skill) =>
                           skill.can_disable && !chosen.includes(skill.name),
                       )
                       .map((skill) => skill.name),
                   ]),
                 ];
+          // 정의 schema는 `domains` 칸을 더 받지 않아 여기서 함께 뺀다(남기면 아래 검사가 파일을 틀렸다고 본다).
+          const { domains: _domains, ...rest } = kept;
           const moved = {
-            ...kept,
+            ...rest,
             ...(off.length > 0 ? { skills_off: off } : {}),
           };
           const parsed = parseAgentFile(

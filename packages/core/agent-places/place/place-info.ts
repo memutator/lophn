@@ -5,7 +5,7 @@ import type { ArtifactEntry } from "./artifact-list.ts";
 
 // place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 place 종류별로 글로 만든다. 순수 함수이고 data는 호출하는
 // 쪽이 core 읽기로 모은다. 열린 session 목록과 앱 화면의 상태는 자주 바뀌어서 넣지 않는다.
-// 예산은 글자 수이고 domain 지도에 건다. session을 시작할 때 값을 고정해서 넘긴다.
+// 예산은 글자 수이고 home의 앱 목록(앱마다 공개 command와 쓰는 곳)에 건다. session을 시작할 때 값을 고정해서 넘긴다.
 
 export type FolderRead = { path: string; description: string };
 
@@ -26,28 +26,19 @@ type PlaceApp = {
   folders: readonly FolderRead[];
 };
 
-// 이 session이 맡은 domain 하나다. folder는 폴더를 만들지 못했으면 null이다.
-export type PlaceDomain = {
-  name: string;
-  title: string;
-  purpose: string;
-  folder: string | null;
-  // 주인 앱의 활성 release가 내놓은 이 domain의 command 전부(비공개 포함). `lophn <앱 slug> <command>`로 부른다.
-  commands: readonly CommandLine[];
-};
-
 type CommandLine = { key: string; effect: string; description: string };
 
-// home의 지도에서 domain 하나의 덩어리다.
-export type MapDomain = {
+// home의 앱 목록에서 앱 하나의 덩어리다. packages는 그 앱이 주인인 package(name@version)다.
+export type PlaceAppItem = {
   name: string;
-  // "project <name>" 또는 "app <name>"
-  owner: string;
+  // `lophn <slug> <command>`로 부르는 이름
+  slug: string;
   purpose: string;
-  // 주인 앱의 활성 release가 내놓은 이 domain의 공개 command
-  tools: readonly CommandLine[];
-  // 이 command를 쓰는 다른 domain
-  usedBy: readonly { tool: string; domain: string }[];
+  packages: readonly string[];
+  // 활성 release가 내놓은 공개 command
+  commands: readonly CommandLine[];
+  // 이 command를 쓰는 다른 앱·project
+  usedBy: readonly { tool: string; place: string }[];
 };
 
 export type PlaceData = {
@@ -57,22 +48,16 @@ export type PlaceData = {
   app: (PlaceApp & { declaration: string }) | null;
   // grant 안의 다른 agent
   agents: readonly PlaceAgent[];
-  // 이 session이 받은 domain. home은 없다.
-  domains: readonly PlaceDomain[];
-  // home은 모든 앱. packages는 그 앱이 주인인 package(name@version)다.
-  apps: readonly {
-    name: string;
-    purpose: string;
-    packages: readonly string[];
-  }[];
+  // home만. 모든 앱
+  apps: readonly PlaceAppItem[];
   // home만
   projects: readonly { name: string; purpose: string }[];
-  // home만. domain마다 한 덩어리의 지도
-  map: readonly MapDomain[];
   // 앱 place만. 앱의 활성 release가 없으면 null.
   release: { version: string; command_names: readonly string[] } | null;
   // project place만. 만들어 둔 workflows 폴더의 절대 path다. home과 app place는 null
   workflowsFolder: string | null;
+  // project·앱 place의 `skills/` 폴더 절대 path다. 폴더를 만들지 못했거나 home이면 null
+  skillsFolder: string | null;
   // project·앱 place의 artifacts 폴더와 목록. 폴더를 만들지 못했거나 home이면 null
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
 };
@@ -118,12 +103,18 @@ function placeLines(data: PlaceData): string[] {
     if (data.workflowsFolder !== null) {
       lines.push(`  Workflows folder: ${data.workflowsFolder}`);
     }
+    if (data.skillsFolder !== null) {
+      lines.push(`  Skills folder: ${data.skillsFolder}`);
+    }
     return lines;
   }
   if (app !== null) {
     return [
       `Place: app ${app.name}. ${app.purpose}`,
       ...appLines(app, release, "  "),
+      ...(data.skillsFolder === null
+        ? []
+        : [`  Skills folder: ${data.skillsFolder}`]),
     ];
   }
   return ["Place: none"];
@@ -145,34 +136,6 @@ function listLines(
   if (items.length === 0) return [];
   const sorted = [...items].sort((a, b) => cmp(a.name, b.name));
   return [title, ...sorted.map((i) => `- ${i.name}: ${i.purpose}`)];
-}
-
-// 앱 줄 밑에 그 앱이 주인인 package가 붙는다.
-function appListLines(apps: PlaceData["apps"]): string[] {
-  if (apps.length === 0) return [];
-  const lines = ["Apps"];
-  for (const a of [...apps].sort((x, y) => cmp(x.name, y.name))) {
-    lines.push(`- ${a.name}: ${a.purpose}`);
-    const packages = unique(a.packages);
-    if (packages.length > 0) lines.push(`  Packages: ${packages.join(", ")}`);
-  }
-  return lines;
-}
-
-// 이 agent가 맡은 domain의 목록이다. 이 줄은 예산으로 줄이지 않는다. 폴더 경로가 여기에만 있다.
-function domainLines(domains: PlaceData["domains"]): string[] {
-  if (domains.length === 0) return [];
-  const lines = ["Domains"];
-  for (const d of [...domains].sort((a, b) => cmp(a.name, b.name))) {
-    lines.push(`- ${d.name} — ${d.title}: ${d.purpose}`);
-    if (d.folder !== null) lines.push(`  Folder: ${d.folder}`);
-    if (d.commands.length > 0) {
-      lines.push(
-        `  Commands (run as \`lophn ${d.name} <command>\`): ${commandsText(d.commands, "full")}`,
-      );
-    }
-  }
-  return lines;
 }
 
 // prompt 안의 글이라 앞쪽만 싣는다.
@@ -220,21 +183,23 @@ function commandsText(
     .join("; ");
 }
 
-// full은 command 설명까지, short는 command 키만, bare는 domain 이름과 주인만 싣는다.
-function mapLines(
-  domains: readonly MapDomain[],
+// full은 command 설명까지, short는 command 키만, bare는 앱 이름과 목적만 싣는다. 앱 줄 밑에 그 앱이 주인인 package가 붙는다.
+function appListLines(
+  apps: readonly PlaceAppItem[],
   level: "full" | "short" | "bare",
 ): string[] {
   const lines: string[] = [];
-  for (const d of [...domains].sort((a, b) => cmp(a.name, b.name))) {
-    lines.push(`- ${d.name} (${d.owner}): ${oneLine(d.purpose)}`);
+  for (const a of [...apps].sort((x, y) => cmp(x.name, y.name))) {
+    lines.push(`- ${a.name}: ${oneLine(a.purpose)}`);
+    const packages = unique(a.packages);
+    if (packages.length > 0) lines.push(`  Packages: ${packages.join(", ")}`);
     if (level === "bare") continue;
-    if (d.tools.length > 0) {
+    if (a.commands.length > 0) {
       lines.push(
-        `  Public commands (run as \`lophn ${d.name} <command>\`): ${commandsText(d.tools, level)}`,
+        `  Public commands (run as \`lophn ${a.slug} <command>\`): ${commandsText(a.commands, level)}`,
       );
     }
-    const usedBy = unique(d.usedBy.map((u) => `${u.tool} ← ${u.domain}`));
+    const usedBy = unique(a.usedBy.map((u) => `${u.tool} ← ${u.place}`));
     if (usedBy.length > 0) {
       lines.push(`  Used by other apps and projects: ${usedBy.join(", ")}`);
     }
@@ -243,16 +208,16 @@ function mapLines(
 }
 
 // 예산 안이면 full, 넘으면 short, 그래도 넘으면 bare다.
-function domainMapLines(
-  domains: readonly MapDomain[],
+function appSectionLines(
+  apps: readonly PlaceAppItem[],
   budget: number,
 ): string[] {
-  if (domains.length === 0) return [];
+  if (apps.length === 0) return [];
   for (const level of ["full", "short"] as const) {
-    const lines = mapLines(domains, level);
-    if (lines.join("\n").length <= budget) return ["Domains", ...lines];
+    const lines = appListLines(apps, level);
+    if (lines.join("\n").length <= budget) return ["Apps", ...lines];
   }
-  return ["Domains", ...mapLines(domains, "bare")];
+  return ["Apps", ...appListLines(apps, "bare")];
 }
 
 export function placeInfo(
@@ -268,10 +233,8 @@ export function placeInfo(
   const sections: string[][] = [agentLines(data.agents)];
   if (kind === "home") {
     sections.push(listLines("Projects", data.projects));
-    sections.push(appListLines(data.apps));
-    sections.push(domainMapLines(data.map, budget));
+    sections.push(appSectionLines(data.apps, budget));
   }
-  sections.push(domainLines(data.domains));
   sections.push(artifactLines(data.artifacts));
   for (const section of sections) {
     if (section.length > 0) lines.push("", ...section);

@@ -122,7 +122,6 @@ export const agentRead = defineRead({
         name: agentSourced(agentNameSchema),
         profile: agentSourced(profileOutputSchema),
         model: agentSourced(modelChoiceOutputSchema).nullable(),
-        domains: z.array(idSchema("dom")),
       }),
       issues: z.array(agentDefinitionIssueSchema),
     }),

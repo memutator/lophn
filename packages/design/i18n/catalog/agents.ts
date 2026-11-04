@@ -101,8 +101,8 @@ export const agents = {
   "agents.label.layer-agent": "This agent",
   "agents.label.layer-app": "App",
   "agents.label.layer-builtin": "Built-in",
-  "agents.label.layer-domain": "Domain",
   "agents.label.layer-global": "Workspace",
+  "agents.label.layer-place-data": "Data folder",
   "agents.label.layer-project": "Project",
   "agents.label.layer-shared": "Shared by an app",
   "agents.label.model-inherit":
@@ -123,8 +123,6 @@ export const agents = {
   "agents.label.tab-grants": "Grants",
   "agents.notice.credential-later":
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
-  "agents.notice.domains-gone":
-    "A domain this agent had chosen is gone from here. It is dropped when you save.",
   "agents.notice.grants-after-create":
     "You can assign apps in the Grants tab once the agent exists.",
   "agents.notice.app-no-project":

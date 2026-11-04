@@ -33,17 +33,15 @@ export const AGENT_DEFAULT_PROFILE: Profile = {
   color: "sage",
 };
 
-// 환경이 준 skill 한 개다. 끌 수 없는 내장 skill인지와 domain 층 skill의 domain을 같이 알린다(아니면 null).
+// 환경이 준 skill 한 개다. 끌 수 없는 내장 skill인지를 같이 알린다.
 export type AvailableSkill = {
   name: string;
   can_disable: boolean;
-  domain: string | null;
 };
 
 type ResolveEnvironment = {
   skills: readonly AvailableSkill[];
   mcp: readonly McpTool[];
-  domains: readonly string[];
 };
 
 type ResolveInput = {
@@ -65,7 +63,6 @@ const RESOLVED_FIELDS = [
   "tools",
   "skills",
   "mcp",
-  "domains",
 ] as const;
 type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
@@ -79,7 +76,6 @@ export type ResolvedAgent = {
   tools: string[];
   skills: string[];
   mcp: McpTool[];
-  domains: string[];
   sources: Record<ResolvedField, AgentValueLayer>;
   hash: string;
 };
@@ -87,8 +83,7 @@ export type ResolvedAgent = {
 // 값마다 마지막 층이 이긴다(전역 → project → agent → session).
 // - model은 ModelChoice 하나를 통째로 쓴다. 어느 층에도 없으면 turn을 시작하지 않는다.
 // - tools는 place 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다.
-// - domains는 정의가 고른 domain과 환경이 준 그릇의 domain의 교집합이다.
-// - skills는 환경이 준 것 가운데 전역·내장·project·app skill과 맡은 domain의 skill이고, 정의가 끈 이름(skills_off)은 뺀다.
+// - skills는 환경이 준 것 가운데 정의가 끈 이름(skills_off)을 뺀 것이다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 export async function resolveAgent(
   input: ResolveInput,
@@ -116,9 +111,7 @@ export async function resolveAgent(
     : (definition?.profile ?? AGENT_DEFAULT_PROFILE);
   const skillsOff = definition?.skills_off ?? [];
   const mcpOff = definition?.mcp_off ?? [];
-  const chosenDomains = definition?.domains ?? [];
-  const domains = workingDomains(environment.domains, chosenDomains);
-  const skills = receivedSkills(environment.skills, skillsOff, domains);
+  const skills = receivedSkills(environment.skills, skillsOff);
   const mcp = environment.mcp.filter(
     (tool) =>
       !mcpOff.some(
@@ -139,7 +132,6 @@ export async function resolveAgent(
     tools: [...input.tools],
     skills,
     mcp: copy(mcp),
-    domains,
     sources: {
       name: lophn ? "global" : "agent",
       profile: lophn || definition?.profile === undefined ? "global" : "agent",
@@ -148,30 +140,19 @@ export async function resolveAgent(
       tools: "global",
       skills: skillsOff.length > 0 ? "agent" : "global",
       mcp: mcpOff.length > 0 ? "agent" : "global",
-      domains: chosenDomains.length > 0 ? "agent" : "global",
     },
   };
   return ok({ ...value, hash: await fingerprint(value) });
 }
 
-export function workingDomains(
-  container: readonly string[],
-  chosen: readonly string[],
-): string[] {
-  return chosen.length === 0
-    ? [...container]
-    : container.filter((id) => chosen.includes(id));
-}
-
 export function receivedSkills(
   available: readonly AvailableSkill[],
   off: readonly string[],
-  domains: readonly string[],
 ): string[] {
   return [
     ...new Set(
       available
-        .filter((skill) => skillReceived(skill, off, domains))
+        .filter((skill) => skillReceived(skill, off))
         .map((skill) => skill.name),
     ),
   ];

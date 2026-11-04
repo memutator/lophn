@@ -58,16 +58,11 @@ export function instructionFilesOverCore(
   call: (input: {
     session: Id<"ses">;
     layer: InstructionLayerKind;
-    domain?: Id<"dom">;
   }) => Promise<Result<{ file: InstructionReadFile | null }>>,
 ): InstructionFiles {
   return {
-    async read(layer, domain) {
-      const read = await call({
-        session,
-        layer,
-        ...(domain === undefined ? {} : { domain: domain as Id<"dom"> }),
-      });
+    async read(layer) {
+      const read = await call({ session, layer });
       if (!read.ok) return read;
       return read.value.file === null
         ? ok(null)

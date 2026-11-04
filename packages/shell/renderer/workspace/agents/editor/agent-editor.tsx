@@ -15,7 +15,6 @@ import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/a
 import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
-import type { DomainView } from "../../source.ts";
 import type {
   AgentDetail,
   AgentDraft,
@@ -38,7 +37,6 @@ export type AgentEditorSource = Pick<
   | "uploadImage"
   | "imageSrc"
   | "models"
-  | "domains"
   | "refreshModels"
   | "setShown"
   | "userModels"
@@ -153,7 +151,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   // 저장은 한 줄로 이어 보낸다. 앞 저장이 끝나기 전에 다음 변화를 보내면 옛 revision이라 conflict가 난다.
   const saving = useRef<Promise<void>>(Promise.resolve());
   const revision = useRef(0);
-  const [domains, setDomains] = useState<readonly DomainView[] | null>(null);
   // 이 화면이 시작해 아직 callback을 기다리는 MCP 로그인이다.
   const [signingIn, setSigningIn] = useState<readonly string[]>([]);
 
@@ -194,19 +191,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     };
     // props.onDone은 부르는 쪽이 만드는 함수라 바뀔 때마다 다시 읽지 않는다.
   }, [source, project, agent, attempt]);
-
-  // agent가 고를 domain은 화면을 연 자리 그릇의 것이다. Settings에는 그릇이 없다.
-  useEffect(() => {
-    setDomains(null);
-    if (project === null) return;
-    let live = true;
-    void source.domains(project).then((result) => {
-      if (live) setDomains(result.ok ? result.value : null);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, project]);
 
   // Grants 탭은 열 때 읽는다. 새 agent는 저장하기 전에는 붙일 수 없다.
   useEffect(() => {
@@ -504,7 +488,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             models={models}
             source={source}
             placeName={props.projectName}
-            domains={domains}
             imageSrc={(image) =>
               detail.assignment === null
                 ? ""

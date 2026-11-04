@@ -12,12 +12,11 @@ import {
   type UserModelItem,
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
-import type { DomainView, ReadResult } from "../source.ts";
+import type { ReadResult } from "../source.ts";
 import { isAppPlace } from "./agent-key.ts";
 import { appsFor } from "./editor/grants-model.ts";
 import {
   ANTHROPIC,
-  APP_DOMAINS,
   APP_NAME,
   APP_SKILLS,
   AVATAR_SRC,
@@ -31,7 +30,6 @@ import {
   GRANT_CATALOG,
   LOPHN_MD,
   PROJECT_ID as PROJECT,
-  PROJECT_DOMAINS,
   PROJECT_MCP,
   PROJECT_NAME,
   PROJECT_SKILLS,
@@ -136,9 +134,6 @@ const BUILT_IN_PROFILE = {
 } as const;
 
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
-
-const domainsAt = (place: string): readonly DomainView[] =>
-  isAppPlace(place) ? APP_DOMAINS : place === PROJECT ? PROJECT_DOMAINS : [];
 
 /** gallery가 provider와 project 층 model의 상태를 정하는 설정. 기본은 내장 provider 하나와 project 층 model 없음이다. */
 export interface FakeAgentsOptions {
@@ -692,10 +687,6 @@ export function createFakeAgentsSource(
       if (on) projectMcpOff.delete(name);
       else projectMcpOff.add(name);
       return Promise.resolve(ok(null));
-    },
-
-    domains(place) {
-      return Promise.resolve(ok(domainsAt(place)));
     },
 
     grants(_project, key): Promise<ReadResult<GrantsView>> {

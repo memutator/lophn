@@ -846,13 +846,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
     openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
   };
 
-  // domain의 DOMAIN.md를 파일 탭으로 연다. 경로는 main이 알려 주고 없는 파일은 첫 저장이 만든다.
-  const openDomainDoc = async (domain: string) => {
-    const reply = await windowInstructions()?.open({
-      target: { layer: "domain", place: domain },
-    });
-    if (reply?.ok) openFile(host, reply.value.path);
-  };
+  // DOMAIN.md는 더 읽히지 않는다. domain 화면을 걷을 때 함께 지운다.
+  const openDomainDoc = (_domain: string) => {};
 
   // 이 place의 lophn Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
   const openLophn = (): boolean => {
@@ -2322,7 +2317,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
                           onOpenTerminal: (cwd: string) =>
                             openTerminalTab(host, { cwd }),
                         })}
-                    onOpenDomainDoc={(domain) => void openDomainDoc(domain)}
+                    onOpenDomainDoc={openDomainDoc}
                     onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
                     activeWorkflow={desk.workflow}
                   />

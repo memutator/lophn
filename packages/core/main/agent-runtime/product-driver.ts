@@ -14,7 +14,6 @@ import {
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appGet } from "../../../protocol/apps/mod.ts";
-import { domainFolder } from "../../../protocol/domains/paths.ts";
 import { artifactsFolder } from "../../../protocol/projects/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
@@ -27,7 +26,10 @@ import { projectApi } from "../../../protocol/projects/mod.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import { FILE_HOOKS } from "../../agent-places/hooks.ts";
 import { listArtifactEntries } from "../../agent-places/place/artifact-list.ts";
-import { placeDataFolder } from "../../agent-places/place/data-folder.ts";
+import {
+  placeDataFolder,
+  placeDataSkillsFolder,
+} from "../../agent-places/place/data-folder.ts";
 import {
   type PlaceFiles,
   placeData,
@@ -115,13 +117,13 @@ function productToolkit(options: {
   };
 }
 
-// domain 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
+// place 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
 function placeFiles(): PlaceFiles {
   const home = process.env.LOPHN_HOME;
   const root = home !== undefined && isAbsolute(home) ? home : null;
   return {
-    domainFolder: (domain) =>
-      root === null ? null : domainFolder(root, domain),
+    skillsFolder: (place) =>
+      root === null ? null : placeDataSkillsFolder(root, place as never),
     dataFolder: (place) =>
       root === null ? null : placeDataFolder(root, place as never),
     artifactsFolder: (place) =>

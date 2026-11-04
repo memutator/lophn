@@ -10,11 +10,6 @@ import {
   packagesList,
 } from "../../../protocol/apps/mod.ts";
 import type { App } from "../../../protocol/apps/apps.ts";
-import { DOMAIN_SKILLS_FOLDER } from "../../../protocol/domains/paths.ts";
-import {
-  domainList,
-  type DomainRecord,
-} from "../../../protocol/domains/mod.ts";
 import { agentList, placeKindOf } from "../../../protocol/lophn-agent/mod.ts";
 import { projectApi } from "../../../protocol/projects/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
@@ -24,24 +19,19 @@ import {
 } from "../../lophn-agent/prompt-assembly/mod.ts";
 import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 import {
-  type MapDomain,
   type FolderRead,
+  type PlaceAppItem,
   type PlaceData,
-  type PlaceDomain,
   placeInfo,
   type PlaceProject,
 } from "./place-info.ts";
-import {
-  type FolderScope,
-  type PlaceFacts,
-  placeScope,
-} from "./place-folders.ts";
+import { type FolderScope, placeScope } from "./place-folders.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
-// domain·place 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
+// place 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
 export type PlaceFiles = {
-  // domain의 폴더(`DOMAIN.md`, `skills/`). data root를 모르면 null.
-  domainFolder(domain: string): string | null;
+  // project·앱 place의 `skills/` 폴더. data root를 모르면 null.
+  skillsFolder(place: { kind: "project" | "app"; id: string }): string | null;
   // project·앱 place의 `artifacts/` 폴더. data root를 모르면 null.
   artifactsFolder(place: {
     kind: "project" | "app";
@@ -63,7 +53,7 @@ type PlaceRead = {
   scope: FolderScope;
 };
 
-// place 정보의 domain 지도 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
+// place 정보의 앱 목록 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
 const PLACE_TEXT_BUDGET = 12000;
 
 const MAX_PAGES = 50;
@@ -190,64 +180,9 @@ async function readPlaceData(
     }
   }
 
-  // 이 session이 받은 domain. 읽지 못한 domain은 빼고 turn은 계속한다.
-  const domains: PlaceDomain[] = [];
-  const scopeDomains: PlaceFacts["domains"][number][] = [];
-  if (place !== null) {
-    const listed = await pages(async (cursor) => {
-      const read = await readOf(call, domainList, {
-        owner: place,
-        status: "active",
-        ...(cursor === undefined ? {} : { cursor }),
-      });
-      return read.ok
-        ? ok({ items: read.value.domains, next_cursor: read.value.next_cursor })
-        : read;
-    });
-    const mine = (listed.ok ? listed.value : []).filter((d) =>
-      agent.domains.includes(d.id),
-    );
-    // 맡은 domain의 command는 비공개까지 prompt에 싣는다. 읽지 못하면 비운다.
-    const index =
-      mine.length === 0 ? null : await readOf(call, appToolIndex, {});
-    for (const d of mine) {
-      const commands =
-        index?.ok !== true || d.owner.kind !== "app"
-          ? []
-          : (
-              index.value.apps.find((a) => a.app === d.owner.id)?.tools ?? []
-            ).map((t) => ({
-              key: t.name,
-              effect: t.effect,
-              description: t.description,
-            }));
-      let folder: string | null = null;
-      const root = files.domainFolder(d.id);
-      if (root !== null) {
-        // 첫 쓰기 전에 폴더가 있어야 한다. 없는 허용 폴더는 file scope가 건너뛴다. 만들지 못하면 범위에서 빠진 채 간다.
-        try {
-          await files.ensureDir(root);
-          await files.ensureDir(`${root}/${DOMAIN_SKILLS_FOLDER}`);
-          folder = root;
-        } catch {
-          /* 폴더가 없으면 범위에서 빠진다 */
-        }
-        if (folder !== null) scopeDomains.push({ id: d.id, folder });
-      }
-      domains.push({
-        name: d.name,
-        title: d.title,
-        purpose: d.purpose,
-        folder,
-        commands,
-      });
-    }
-  }
-
-  // home: 모든 project와 앱의 목록과 domain 지도. 폴더는 읽기만 열린다.
+  // home: 모든 project와 앱의 목록(앱마다 공개 command와 쓰는 곳). 폴더는 읽기만 열린다.
   const projectList: { name: string; purpose: string }[] = [];
-  const appItems: PlaceData["apps"][number][] = [];
-  const map: MapDomain[] = [];
+  const appItems: PlaceAppItem[] = [];
   const allProjectFolders: string[] = [];
   if (place === null) {
     const listed = await pages(async (cursor) => {
@@ -270,17 +205,7 @@ async function readPlaceData(
       projectList.push({ name: record.name, purpose: record.purpose });
       allProjectFolders.push(...record.folders.map((f) => f.path));
     }
-    // 지도 재료. 읽기 오류는 그 덩어리만 비우고 간다.
-    const domainRecords = await pages(async (cursor) => {
-      const read = await readOf(call, domainList, {
-        status: "active",
-        ...(cursor === undefined ? {} : { cursor }),
-      });
-      return read.ok
-        ? ok({ items: read.value.domains, next_cursor: read.value.next_cursor })
-        : read;
-    });
-    const records: DomainRecord[] = domainRecords.ok ? domainRecords.value : [];
+    // 읽기 오류는 그 덩어리만 비우고 간다.
     const index = await readOf(call, appToolIndex, {});
     const toolsOf = new Map(
       (index.ok ? index.value.apps : []).map((a) => [a.app, a.tools]),
@@ -307,40 +232,26 @@ async function readPlaceData(
       packagesOf.set(pkg.owner_app, list);
     }
     for (const a of apps.value) {
+      const tools = (toolsOf.get(a.id) ?? []).filter((t) => t.public);
+      const toolNames = new Set(tools.map((t) => t.name));
+      const uses = !usage.ok
+        ? []
+        : usage.value.uses.filter(
+            (u) => u.app === a.id && toolNames.has(u.tool),
+          );
       appItems.push({
         name: a.name,
+        slug: a.slug,
         purpose: a.description,
         packages: packagesOf.get(a.id) ?? [],
-      });
-    }
-    for (const d of records) {
-      const ownerApp = d.owner.kind === "app" ? d.owner.id : null;
-      const tools =
-        ownerApp === null
-          ? []
-          : (toolsOf.get(ownerApp) ?? []).filter((t) => t.public);
-      const toolNames = new Set(tools.map((t) => t.name));
-      const uses =
-        ownerApp === null || !usage.ok
-          ? []
-          : usage.value.uses.filter(
-              (u) => u.app === ownerApp && toolNames.has(u.tool),
-            );
-      map.push({
-        name: d.name,
-        owner:
-          d.owner.kind === "project"
-            ? `project ${projects.get(d.owner.id)?.name ?? d.owner.id}`
-            : `app ${appRecords.get(d.owner.id)?.name ?? d.owner.id}`,
-        purpose: d.purpose,
-        tools: tools.map((t) => ({
+        commands: tools.map((t) => ({
           key: t.name,
           effect: t.effect,
           description: t.description,
         })),
         usedBy: uses.map((u) => ({
           tool: u.tool,
-          domain:
+          place:
             (u.place.kind === "project"
               ? projects.get(u.place.id)?.name
               : appRecords.get(u.place.id)?.name) ?? u.place.id,
@@ -370,6 +281,20 @@ async function readPlaceData(
     }
   }
 
+  // project·앱 place의 turn 시작에 skills 폴더를 만든다(workflows와 같다).
+  let skillsFolder: string | null = null;
+  if (place !== null) {
+    const folder = files.skillsFolder(place);
+    if (folder !== null) {
+      try {
+        await files.ensureDir(folder);
+        skillsFolder = folder;
+      } catch {
+        /* 폴더가 없으면 범위에서 빠진다 */
+      }
+    }
+  }
+
   // project·앱 place의 turn 시작에 artifacts 폴더를 만든다(workflows와 같다).
   let artifacts: PlaceData["artifacts"] = null;
   if (place !== null) {
@@ -392,10 +317,10 @@ async function readPlaceData(
     projectFolders,
     appSource,
     appFolders,
-    domains: scopeDomains,
     dataFolder: place === null ? null : files.dataFolder(place),
     allProjectFolders,
     workflowsFolder,
+    skillsFolder,
     artifactsFolder: artifacts?.folder ?? null,
   });
   return ok({
@@ -404,12 +329,11 @@ async function readPlaceData(
       project,
       app,
       agents,
-      domains,
       apps: appItems,
       projects: projectList,
-      map,
       release,
       workflowsFolder,
+      skillsFolder,
       artifacts,
     },
     scope,

@@ -176,7 +176,7 @@ export async function runToolBatch(
       ...(call.signature === undefined ? {} : { signature: call.signature }),
     };
   });
-  // `lophn` 호출은 명령의 호출로 풀린다. 앱 command는 부를 때의 할당·release·domain 규칙으로 푸므로 비동기다.
+  // `lophn` 호출은 명령의 호출로 풀린다. 앱 command는 부를 때의 할당·release 규칙으로 푸므로 비동기다.
   const requests: ToolCallRequest[] = await Promise.all(
     calls.map(async (call, order) => {
       const args = parsed[order];

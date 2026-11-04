@@ -12,6 +12,9 @@ registry.sync()
   ─▶ 판 검사(manifest.version == 제품 판) · 설정 extensions.<id>.enabled 읽기(core settings.list)
   ─▶ 켜졌고 판이 맞으면: 표시 file을 두고 entry를 require → activate(ctx)
   ─▶ 꺼졌으면: 켜져 있던 것만 deactivate()
+Settings › System › Extensions ─ IPC shell:extensions(list|install|remove) ─▶ registry
+Settings › System › Extensions [Turn on|off] ─ settings 쓰기 extensions.<id>.enabled ─▶ SettingsChanged ─▶ registry.sync()
+registry.install(id) ─▶ 표시 file만 둔다(다시 해도 같다)
 registry.remove(id) ─▶ 꺼져 있을 때만 표시 file에 적힌 file과 표시 file, 비게 된 폴더를 지운다
 앱 끝 ─▶ registry.stop() ─▶ 켜진 것을 모두 deactivate()
 ```
@@ -25,6 +28,7 @@ registry.remove(id) ─▶ 꺼져 있을 때만 표시 file에 적힌 file과 �
 - **code는 켜진 것만, shell main bundle 밖에서 load한다.** extension은 esbuild의 shell main bundle에 섞지 않고, 따로 빌드한 CJS file을 `entry` 경로로 `require`한다. 꺼진 extension은 manifest만 읽힌다. entry가 `activate`·`deactivate`를 내지 않거나 `activate`가 throw하면 `failed`이고(throw면 `deactivate`를 한 번 부른다) 다른 extension은 그대로 돈다.
 - **extension code는 `ctx`로만 lophn에 닿는다.** `ExtensionContext`는 `{core, settings, spawn, clock, ids, files}`다. `core.call(kind, resource, method, input)`은 core protocol route를 사람 권한으로 부르고, `settings.get(key)`는 선언된 설정 값(기본값 포함)이고, 둘 다 `Result`다. `spawn`은 node type이 아닌 구조 type이고 시작하지 못하면 exit code null로 온다. `files.write(name, text)`는 `<data>/extensions/<id>/` 안에만 쓴다. shell main 안 `extensions/bundled/<id>/` 아래 code는 protocol, base, 자기 폴더만 import한다. shell main 내부, 다른 extension, `electron`을 import하면 `tools/check-deps.ts`(rule `extension`)가 막는다.
 - **지우기는 extension이 쓴 file만 지운다.** `<data>/extensions/<id>/.lophn-extension`(JSON `{files[]}`)이 표시 file이다. 켤 때 먼저 두고, `ctx.files.write`가 쓰기 전에 그 이름을 더한다. `remove(id)`는 켜져 있거나 설정이 켜져 있으면 `conflict`이고, 아니면 적힌 file과 표시 file만 지운 뒤 비게 된 폴더만 치운다(recursive가 아니다). 사람이 그 폴더에 넣은 file과 다른 설정은 남는다.
+- **사람은 Settings › System › Extensions에서 다룬다**(`packages/shell/renderer/desktop/settings/extension-packages/`, pane id `extension-packages`). 줄마다 이름, 설명, 판, 상태(설치 안 됨 · 꺼짐 · 켜짐 · 판 다름 · 문제와 이유)다. 설치는 표시 file만 둔다(아직 내려받기는 없다). 켜기 단추는 설치되고 설정이 선언된 것에만 있고, 켜기·끄기는 IPC가 아니라 설정 쓰기다. 지우기는 확인 dialog를 거치고, 켜져 있으면 먼저 끄라고 보인다. IPC(`packages/shell/ipc/extensions.ts`)는 desktop 창 본문만 부르고 `list`는 먼저 `sync`해 방금 바꾼 켜기가 보인다. Settings › General은 `extensions.*` 설정을 보이지 않는다. Settings › Agents의 `tools` pane(문구 "Extensions")은 lophn agent의 skill·MCP라 이것과 다르다.
 - **설정을 읽지 못하면 켜진 것을 끄지 않는다.** core가 잠시 불안정해도 extension이 꺼졌다 켜지지 않는다. `sync`와 `remove`는 차례로 돈다.
 - **extension이 띄운 process는 extension이 끈다.** registry는 `ctx.spawn`으로 띄운 process를 따라가지 않는다. `deactivate`에서 끈다. 다시 켜면 같은 `require` cache의 module에 `activate`가 다시 불린다.
 

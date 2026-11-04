@@ -1,0 +1,205 @@
+import { z } from "zod";
+import { gateCallSchema } from "../approvals/gate-call.ts";
+import { shellPatternSchema } from "../approvals/shell-rules.ts";
+import { atSchema } from "../base/values.ts";
+import { askInputSchema } from "../lophn-agent/ask-tool.ts";
+import { contentBlockSchema } from "../lophn-agent/content-block.ts";
+import { inputDeliverySchema } from "../lophn-agent/inputs.ts";
+import {
+  acpApprovalItemSchema,
+  acpHiddenItemSchema,
+  acpItemSchema,
+  acpMessageItemSchema,
+  acpToolDetailSchema,
+  acpToolItemSchema,
+  acpToolStateSchema,
+} from "./items.ts";
+
+// ACP의 상태(snapshot)와 갱신(stream). core가 만들고 화면은 읽기만 한다. `reduceAcp`가 갱신을 상태에 접는다.
+
+const id = z.string().min(1);
+const seq = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const ms = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+
+export const acpTurnSchema = z.strictObject({
+  id,
+  /** 사람이 답할 것(`pending`)이 남았으면 waiting이다. */
+  phase: z.enum(["working", "waiting", "ended"]),
+  /** 걸린 시간을 셀 때 쓴다. 모르면 null. */
+  started_at: atSchema.nullable(),
+  /** 도는 turn이 `at`까지 일한 시간(사람 기다림 제외). 일하는 중 줄은 `active_ms + (now − at)`을 보인다. */
+  elapsed: z.strictObject({ active_ms: ms, at: atSchema }).nullable(),
+});
+export type AcpTurn = z.infer<typeof acpTurnSchema>;
+
+/** 다음 turn을 기다리는 사람 메시지. 도는 중에 보냈다. 순번이 없고 turn이 가져가면 항목이 된다. */
+export const acpQueuedSchema = z.strictObject({
+  id,
+  at: atSchema,
+  content: z.array(contentBlockSchema),
+});
+export type AcpQueued = z.infer<typeof acpQueuedSchema>;
+
+const acpAskedQuestionsSchema = askInputSchema.shape.questions;
+
+export const acpPendingSchema = z.strictObject({
+  /** composer 위의 승인 카드. harness 물음은 이 대화에 오지 않는다. */
+  approval: z
+    .strictObject({
+      id,
+      subject: gateCallSchema,
+      always_patterns: z.array(shellPatternSchema),
+    })
+    .nullable(),
+  /** 답을 기다리는 질문 묶음. 질문 내용을 모르면 questions가 null이다. */
+  question: z
+    .strictObject({
+      group: id,
+      tool_call: id,
+      questions: acpAskedQuestionsSchema.nullable(),
+    })
+    .nullable(),
+});
+export type AcpPending = z.infer<typeof acpPendingSchema>;
+
+/** 아직 저장되지 않은 model 호출 하나의 글(redaction을 거친 것). 저장되면 그 message 항목으로 바뀐다. */
+export const acpWritingSchema = z.strictObject({
+  turn: id,
+  model_call: id,
+  text: z.string(),
+  reasoning: z.string(),
+  /** 이 글이 새 묶음을 열 때 위에 보일 시각. */
+  at: atSchema,
+});
+export type AcpWriting = z.infer<typeof acpWritingSchema>;
+
+export const acpStateSchema = z.strictObject({
+  /** 가진 항목 중 가장 큰 순번. 비었으면 0. 다음 항목은 이보다 1 크다. */
+  seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  /** 순번 순서. */
+  items: z.array(acpItemSchema),
+  /** 가장 늦게 시작한 turn. 멈춤과 다시 하기의 대상이다. */
+  turn: acpTurnSchema.nullable(),
+  queued: z.array(acpQueuedSchema),
+  pending: acpPendingSchema,
+  writing: acpWritingSchema.nullable(),
+  /**
+   * 마지막으로 글을 버린 model 호출(저장됐거나 tool call이 시작된)과 끝난 turn. 그 늦은 조각이 새 글로
+   * 보이지 않게 한다(core의 live-turns와 같은 규칙).
+   */
+  dropped: z.strictObject({ model_call: id.nullable(), turn: id.nullable() }),
+  /** 순번이 빠졌거나 글의 offset이 맞지 않았다. 읽은 상태가 맞지 않으니 snapshot을 다시 읽는다. */
+  reread: z.boolean(),
+});
+export type AcpState = z.infer<typeof acpStateSchema>;
+
+// 갱신. 같은 갱신을 두 번 접어도 같다(항목은 id로 한 번만 든다).
+export const acpUpdateSchema = z.discriminatedUnion("type", [
+  /** 순번이 있는 message 항목(사람 말, 받은 메시지, steer). 이미 있는 id는 무시한다. */
+  z.strictObject({
+    type: z.literal("message_added"),
+    item: acpMessageItemSchema,
+  }),
+  /** 사람이 도는 중에 다음 turn으로 보낸 메시지가 줄을 섰다. */
+  z.strictObject({
+    type: z.literal("message_queued"),
+    queued: acpQueuedSchema,
+  }),
+  /** 다음 turn 줄의 메시지를 뺐다. */
+  z.strictObject({ type: z.literal("message_removed"), message: id }),
+  /**
+   * 줄을 선 메시지를 turn이 가져가거나(next_turn) 도는 turn에 steer로 올렸다. 줄에서 빠져 `seq`의 항목이
+   * 된다. `turn`이 null이면 도는 turn이다.
+   */
+  z.strictObject({
+    type: z.literal("message_taken"),
+    message: id,
+    seq,
+    delivery: inputDeliverySchema,
+    turn: id.nullable(),
+  }),
+  z.strictObject({ type: z.literal("turn_started"), turn: id, at: atSchema }),
+  /** 마지막 사람 기다림이 닫혀 다시 도는 순간이다. */
+  z.strictObject({
+    type: z.literal("turn_resumed"),
+    turn: id,
+    active_ms: ms,
+    at: atSchema,
+  }),
+  /**
+   * turn이 끝났다. `messages`는 그 turn의 agent message(본문은 snapshot이 준다)이고, `seq`는 꼬리(notice)의
+   * 순번이다. error가 있으면 꼬리는 시간 대신 오류다.
+   */
+  z.strictObject({
+    type: z.literal("turn_ended"),
+    turn: id,
+    at: atSchema,
+    outcome: z.enum(["completed", "stopped", "failed"]),
+    active_ms: ms.nullable(),
+    error: z
+      .strictObject({ code: z.string().min(1), message: z.string() })
+      .nullable(),
+    messages: z.array(z.strictObject({ message: id, seq })),
+    seq,
+  }),
+  /** 흘러나온 글의 조각. offset은 같은 model_call·kind에서 앞서 낸 글의 UTF-16 길이다. */
+  z.strictObject({
+    type: z.literal("writing_streamed"),
+    turn: id,
+    model_call: id,
+    kind: z.enum(["text", "reasoning"]),
+    offset: ms,
+    text: z.string().min(1),
+    at: atSchema,
+  }),
+  /** model 응답의 agent message가 저장됐다. 그 model 호출의 흘러나온 글이 항목의 첫 글이 된다. */
+  z.strictObject({
+    type: z.literal("message_recorded"),
+    turn: id,
+    message: id,
+    model_call: id,
+    seq,
+    at: atSchema,
+  }),
+  /** tool call이 시작됐다. 그 turn의 흘러나온 글을 버린다(글이 있는 응답은 tool보다 먼저 저장된다). */
+  z.strictObject({ type: z.literal("tool_started"), item: acpToolItemSchema }),
+  /** `detail`이 null이면 시작 때 정해진 종류를 그대로 둔다. */
+  z.strictObject({
+    type: z.literal("tool_ended"),
+    tool_call: id,
+    state: acpToolStateSchema.exclude(["running"]),
+    at: atSchema,
+    detail: acpToolDetailSchema.nullable(),
+  }),
+  z.strictObject({
+    type: z.literal("approval_opened"),
+    approval: acpPendingSchema.shape.approval.unwrap(),
+  }),
+  /** 결정으로 카드가 닫히고 결과 항목이 생긴다. choice와 reason은 core가 알면 싣는다. */
+  z.strictObject({
+    type: z.literal("approval_closed"),
+    request: id,
+    outcome: z.enum(["allowed", "denied", "cancelled"]),
+    choice: acpApprovalItemSchema.shape.choice,
+    reason: acpApprovalItemSchema.shape.reason,
+    seq,
+    at: atSchema,
+  }),
+  z.strictObject({
+    type: z.literal("question_asked"),
+    group: id,
+    tool_call: id,
+    questions: acpAskedQuestionsSchema.nullable(),
+  }),
+  z.strictObject({
+    type: z.literal("question_resolved"),
+    group: id,
+    outcome: z.enum(["submitted", "cancelled", "human_message"]),
+  }),
+  /** rewind가 구간을 숨겼다. 구간의 항목이 top-level에서 빠져 이 항목 안으로 든다. */
+  z.strictObject({
+    type: z.literal("hidden_added"),
+    item: acpHiddenItemSchema,
+  }),
+]);
+export type AcpUpdate = z.infer<typeof acpUpdateSchema>;

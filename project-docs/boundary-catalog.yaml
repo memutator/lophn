@@ -233,6 +233,17 @@ interfaces:
     used_by:
       - shell
 
+  - id: acp
+    kind: interface
+    description: lophn의 App Context Protocol. agent 쪽이 내는 대화 상태·갱신(항목, tool 종류, 묻기·승인, 흘러나오는 글)과 화면이 보내는 대화 조작 입력의 규격이고 순수 reducer와 event projection을 함께 둔다. 표준 Agent Client Protocol이 아니다.
+    interface_type: protocol
+    defined_by: protocol
+    provided_by:
+      - agent-sessions
+      - events
+    used_by:
+      - shell
+
   - id: child-supervision-protocol
     kind: interface
     description: core daemon과 child process(shell main과 core 사이 포함) 사이의 감독 계약. control frame은 json 하나가 256KiB 안이고, 넘는 본문은 같은 request의 channel에 bytes frame과 end·abort로 보낸다(blob 준비, 앱 rewind 적용). child의 crash는 진단 한 줄로 core에 오고 core가 component·location을 정해 log에 쓴다.

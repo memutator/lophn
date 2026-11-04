@@ -17,7 +17,7 @@ modules:
 
   - path: packages/protocol
     boundary: protocol
-    notes: 구현을 두지 않는다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다).
+    notes: 구현을 두지 않는다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp·acpUpdatesOf가 그 예다.
 
   - path: packages/cli
     boundary: coding-agent-cli

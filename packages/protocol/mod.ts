@@ -1,5 +1,6 @@
 // 최상위 contracts를 다시 내보내고 route·event 목록을 모은다. 정의는 각 최상위에 둔다.
 
+export * as acp from "./acp/mod.ts";
 export * as apps from "./apps/mod.ts";
 export * as problems from "./problems/mod.ts";
 export * as codingAgent from "./coding-agent/mod.ts";

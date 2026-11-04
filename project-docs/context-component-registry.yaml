@@ -342,6 +342,15 @@ components:
     change_reasons:
       boundaries: [run-loop, agent-sessions, agent-tools, events, event-stream, child-supervision-protocol, shell, design]
 
+  - id: architecture-acp
+    kind: doc
+    roles: [planner, lead]
+    description: lophn ACP(App Context Protocol)의 모양인 항목, 순번, tool 종류, 갱신, 입력과 순수 reducer, AgentEvent projection, core가 채울 context, reread 조건, redaction이 지나는 길.
+    path: project-docs/architecture/acp.md
+    change_reasons:
+      boundaries: [acp, agent-sessions, run-loop, events, shell]
+      paths: [packages/protocol/acp/]
+
   - id: architecture-artifact
     kind: doc
     roles: [planner, lead]

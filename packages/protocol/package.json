@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./mod.ts",
+    "./acp": "./acp/mod.ts",
     "./approvals": "./approvals/mod.ts",
     "./apps": "./apps/mod.ts",
     "./base": "./base/mod.ts",

@@ -2,9 +2,10 @@
 // sandbox preload는 Node 모듈을 못 읽으므로 electron 말고는 아무것도 묶인 채 남기면 안 된다.
 // 저장소의 .ts 원본이 import한 zod는 root npm workspace의 node_modules에서 찾는다.
 // package.json의 "type": "module"이 .js를 ESM으로 읽으므로 출력은 .cjs로 낸다.
-import * as esbuild from "esbuild";
+
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import * as esbuild from "esbuild";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const shell = dirname(here);
@@ -60,6 +61,22 @@ function build(outdir: string, extra: BuildEntry[] = []): Promise<void> {
     .then(() => {});
 }
 
+// 본체 안 extension의 entry는 shell main bundle과 따로 CJS 한 파일로 묶는다. registry가 manifest의 `entry`로 require한다.
+const bundledExtensions = join(here, "extensions/bundled");
+const extensionEntries = [join(bundledExtensions, "harness/index.ts")];
+
+function buildExtensions(): Promise<void> {
+  return Promise.all(
+    extensionEntries.map((entry) =>
+      esbuild.build({
+        ...shared,
+        entryPoints: [entry],
+        outdir: join(dirname(entry), "dist"),
+      }),
+    ),
+  ).then(() => {});
+}
+
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
   const { spawnSync } = await import("node:child_process");
   const rebuilt = spawnSync(
@@ -74,4 +91,5 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
   );
   if (rebuilt.status !== 0) process.exit(rebuilt.status ?? 1);
   await build(join(here, "dist"));
+  await buildExtensions();
 }

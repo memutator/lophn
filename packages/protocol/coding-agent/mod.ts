@@ -1,15 +1,4 @@
 export {
-  HARNESS_IDS,
-  type HarnessCandidate,
-  type HarnessDetection,
-  harnessDetectionSchema,
-  type HarnessId,
-  harnessIdSchema,
-  type HarnessProbeResult,
-  type HarnessVersion,
-} from "./harnesses.ts";
-export { ROUTES } from "./registry.ts";
-export {
   canDeliverMessages,
   HARNESS_ADAPTERS,
   type HarnessAdapter,
@@ -17,11 +6,26 @@ export {
   hookStdout,
   hookStdoutRows,
 } from "./harness-adapter.ts";
+export * from "./harness-install.ts";
+export { harnessOfProcess } from "./harness-process.ts";
+export {
+  HARNESS_IDS,
+  type HarnessCandidate,
+  type HarnessDetection,
+  type HarnessId,
+  type HarnessProbeResult,
+  type HarnessVersion,
+  harnessDetectionSchema,
+  harnessIdSchema,
+} from "./harnesses.ts";
+export type {
+  HeadlessEvent,
+  HeadlessParser,
+  HeadlessSpec,
+} from "./headless/mod.ts";
 export {
   type HookSignal,
   hookSignalOf,
 } from "./hook-signal.ts";
-
-export { harnessOfProcess } from "./harness-process.ts";
-export * from "./harness-install.ts";
+export { ROUTES } from "./registry.ts";
 export * from "./terminal-hook.ts";

@@ -10,6 +10,7 @@
 //   lophn-desktop, chrome-sandbox(root 소유 4755), resources/  Electron(electron-builder `--linux dir`)
 //   platform/                  packages source, npm production node_modules/
 //   desktop/                   빌드된 desktop 화면
+//   extensions/                본체 안 extension(manifest.json과 빌드한 dist/)
 //   skills/                    coding agent skill 배포 원본
 //   sdk -> platform/packages/sdk
 // /usr/bin/{lophn-desktop,lophn} launcher, 데스크톱 항목, 아이콘.
@@ -158,6 +159,21 @@ async function stageNodeModules(platform: string): Promise<void> {
   );
 }
 
+// 본체 안 extension은 manifest와 따로 빌드한 entry(dist/)만 설치 root의 extensions/로 간다. registry가 거기서 찾는다.
+async function stageExtensions(pkg: string): Promise<void> {
+  const dest = await ensure(`${inPkg(pkg, layout.root)}/extensions`);
+  await run("rsync", [
+    "-a",
+    "--prune-empty-dirs",
+    "--include=*/",
+    "--include=manifest.json",
+    "--include=dist/***",
+    "--exclude=*",
+    `${shellMain}/extensions/bundled/`,
+    `${dest}/`,
+  ]);
+}
+
 async function stageContent(pkg: string): Promise<void> {
   await copy(
     `${repo}/packages/shell/renderer/dist`,
@@ -269,6 +285,7 @@ async function main(): Promise<void> {
   );
   await chmod(inPkg(pkg, layout.chromeSandbox), SANDBOX_MODE);
   await stagePlatform(pkg);
+  await stageExtensions(pkg);
   await stageContent(pkg);
   await stageSystem(pkg);
   // 그룹·기타의 쓰기 권한을 뺀다(umask와 무관하게 설치 묶음은 root만 쓴다). setuid는 그대로다.

@@ -1,7 +1,7 @@
 # agent platform: 사람이 정한 agent를 앱, workflow, 다른 harness와 잇는다
 
 상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 `project-docs/plan/content-block/`, 단계 3은 `project-docs/plan/bare-runtime/`으로 열었다(2026-11-04).
-배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/architecture/domain.md`, `project-docs/architecture/kinds.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
+배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
 
 ## 왜
 
@@ -66,6 +66,8 @@
 
 ### domain과 kind
 
+단계 1(계획 remove-domain)이 land해 아래는 지금 없다(2026-11-04). 무엇을 어디로 옮겼는지는 `products/change-log/0.17.0.md` "domain과 kind를 지우고 경계를 그릇으로 접었다"다.
+
 - domain은 그릇(project·app) 안의 책임 경계이고 id는 `dom_`이다. 값은 `packages/protocol/domains/`, core module은 `packages/core/domains/`(표 `domains`)다.
 - 쓰는 곳이 넓다. test가 아닌 file로 `packages/core` 101개, `packages/shell/renderer` 43개이고 protocol, cli(`domain.ts`, `kind.ts`, `app-command.ts` 등), design i18n에도 있다. 문서는 `PRODUCT.md`, `products/AGENT.md`, `boundary-catalog.yaml`, `module-catalog.yaml`, architecture 대부분이다.
 - 앱을 만들면 같은 tx에서 앱 slug 이름의 domain 하나가 생긴다. 그래서 대부분 그릇과 domain이 1:1이다.
@@ -97,7 +99,7 @@
 
 | 단계 | 할 일 | 선행 | 이 자리인 이유 |
 |---|---|---|---|
-| 1 domain 지우기 | domain, kind, `DOMAIN.md` 층, domain skill 층을 지우고 경계를 그릇으로 접는다. migration, Domain panel 지우기 | 없음(2와 나란히) | 빼는 일이 먼저다. 뒤 단계가 고칠 자리(정의 칸, prompt 층, skill 층, command 이름)가 줄어든다 |
+| 1 domain 지우기 (끝남) | domain, kind, `DOMAIN.md` 층, domain skill 층을 지우고 경계를 그릇으로 접는다. migration, Domain panel 지우기 | 없음 | 빼는 일이 먼저다. 뒤 단계가 고칠 자리(정의 칸, prompt 층, skill 층, command 이름)가 줄어든다 |
 | 2 content block | protocol에 block type 하나. call 본문과 답, 사람 입력의 첨부 줄을 옮긴다 | 1의 `rd-layers` | 3~7이 모두 이 단위로 주고받는다 |
 | 3 runtime 칸과 bare | 정의에 `runtime`, `description`. bare 조립. 답 규칙 | 1, 2의 `cb-core`(같은 run-loop file) | 1이 정의 칸과 prompt 조립을 먼저 줄인다 |
 | 4 명함 | 명함 읽기, 차이 계산, modality 검사, 결과를 content로 돌려주기 | 2, 3 | 명함의 runtime·modality 칸이 2·3의 값이다 |

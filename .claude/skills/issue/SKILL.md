@@ -23,7 +23,7 @@ description: lophn의 `project-docs/issues/`에 이슈를 올리고, 정하고, 
    - "제한이 없다", "~뿐이다", "~가 없다"는 grep으로 확인한다. file과 함수 이름, 개수는 열어 본 것만 쓴다. 세 계획이 올린 이슈 여섯 중 다섯이 이 칸에서 틀렸다.
 2. **같은 이슈를 찾는다.** `grep -rn "<함수나 파일 이름>" project-docs/issues`로 열린 것과 `archived/`를 같이 본다. 열린 것에 있으면 그 절에 덧붙인다. archived에 있으면 새로 쓰지 않고 회귀로 되살린다(아래).
    - 겉 문구(실패 이름, 오류 code)가 같다고 같은 이슈가 아니다. 실패의 detail(이유, 증거, log)을 읽어 원인이 같은지 본 뒤에 덧붙인다. detail을 못 읽으면 "원인 확인 못 함"으로 따로 쓴다. 새 wire 회귀를 옛 입력 이슈의 "막힌 앱"으로 붙였다가 진단이 늦어진 일이 있다.
-3. **주제 파일을 고른다.** architecture 문서가 있는 주제면 같은 이름(`approval`, `coding-agent` …), 없으면 `domain`, `shell`, `platform`, `code-health`, `mistakes`. 맞는 것이 없으면 새 주제 파일을 만들고 첫 줄에 다루는 것을 쓴다.
+3. **주제 파일을 고른다.** architecture 문서가 있는 주제면 같은 이름(`approval`, `coding-agent` …), 없으면 `shell`, `platform`, `code-health`, `mistakes`. 맞는 것이 없으면 새 주제 파일을 만들고 첫 줄에 다루는 것을 쓴다.
 4. **kind를 고른다.** 동작이 틀리거나 아직 안 되면 bug, 동작은 맞는데 코드가 문제면 defect, worker가 크게 잘못했으면 mistake. worker 보고의 "알려진 미완 동작"은 bug, "무겁게 짠 것"은 defect다.
 5. **쓴다.**
    - 지금: 파일 path와 함수 이름, 어떻게 그렇게 되나. 읽는 사람이 코드를 바로 열 수 있게.

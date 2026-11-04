@@ -78,7 +78,7 @@ C7~C9는 용어와 그릇 밖의 일, C24 이후는 그릇의 skill과 artifact,
 - C26. 그 project가 쓰는 package에서 난 문제는, project place의 session이 package 주인 앱 place의 lophn에게 답을 받지 않는 call로 맡긴다.
 - C27. 그 project가 쓰는 공개 command가 바뀌었다고 알림이 오면, project place의 session이 바뀐 command를 읽고 그 command를 부르는 skill을 다시 본다.
 - C28. agent가 쓴 결과 문서가 필요하면, 그 그릇 place의 session이 그릇의 artifact를 쓴다. node 그림(상태 흐름 같은 것)은 둘지 사람에게 묻고 정한다. workflow 그림(C29)과 같다.
-- C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, project place의 session이 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)는 둘지 사람에게 묻고 정한다. workflow 정의를 쓰는 것은 그 project place의 session뿐이다(`architecture/workflow.md`). 결정적인 처리가 필요한 workflow는 `kind: flow`로 두고 같은 폴더에 code(`flow.ts`)를 쓴다. 쓴 뒤 `workflow.check`로 type check한다. flow가 부를 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)의 할당과 그 project에서 받는 domain 안에서만 되므로, 그 앱이 할당에 없으면 사람에게 할당을 청한다.
+- C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, project place의 session이 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)는 둘지 사람에게 묻고 정한다. workflow 정의를 쓰는 것은 그 project place의 session뿐이다(`architecture/workflow.md`). 결정적인 처리가 필요한 workflow는 `kind: flow`로 두고 같은 폴더에 code(`flow.ts`)를 쓴다. 쓴 뒤 `workflow.check`로 type check한다. flow가 부를 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)에게 할당한 공개 command만 되므로, 그 앱이 할당에 없으면 사람에게 할당을 청한다.
 
 ### workflow 참가자
 
@@ -106,7 +106,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 
 - H1. 사람은 무엇을 만들고 무엇을 원하는지 agent에게 이야기한다.
 - H2. 앱을 처음 activation하거나 새 release가 선언을 넓히면, 사람이 앱 grant를 허락한다.
-- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(Workspace, project, 그 agent의 정의)이 할당이고 정의에서 끈다. Workspace와 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. session이 받지 않은 domain의 tool은 공개(`public`) tool만 쓸 수 있다.
+- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(Workspace, project, 그 agent의 정의)이 할당이고 정의에서 끈다. Workspace와 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. 다른 앱의 command는 공개(`public`) command만 쓸 수 있다(비공개는 그 앱 place의 session만, P12).
 - H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 거절하며 적은 이유는 agent에게 그대로 간다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
 - H5. 앱 place의 session이 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
 - H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.

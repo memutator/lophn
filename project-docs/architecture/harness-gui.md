@@ -1,6 +1,6 @@
 # harness-gui
 
-`claude gui`(또는 `codex gui`, `opencode gui`)를 치면 그 CLI의 TUI 대신 lophn 창이 뜬다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 그대로 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 창의 ACP 입력을 CLI 호출로 옮긴다. 창은 lophn 채팅 화면이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다. 계약은 `packages/protocol/extensions/acp-session.ts`, shell main 쪽은 `packages/shell/main/desktop/wiring/extensions.ts`(handle과 창 port)와 `packages/shell/main/desktop/open-intent.ts`, extension은 `packages/shell/main/extensions/bundled/harness-gui/`(adapter는 harness마다 file 하나, 지금 `claude.ts`), 창은 `packages/shell/main/desktop/gui-window.ts`와 `packages/shell/renderer/harness-gui/`, 채팅 화면의 source는 `packages/shell/renderer/conversation/agent-tab-gui-source.ts`, CLI는 `packages/cli/commands/gui.ts`, 터미널의 `claude gui`는 `packages/shell/terminal-host/shell-integration.ts`다.
+`claude gui`(또는 `codex gui`, `opencode gui`)를 치면 그 CLI의 TUI 대신 lophn 창이 뜬다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 그대로 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 창의 ACP 입력을 CLI 호출로 옮긴다. 창은 lophn 채팅 화면이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다. 계약은 `packages/protocol/extensions/acp-session.ts`, shell main 쪽은 `packages/shell/main/desktop/wiring/extensions.ts`(handle과 창 port)와 `packages/shell/main/desktop/open-intent.ts`, extension은 `packages/shell/main/extensions/bundled/harness-gui/`(adapter는 harness마다 file 하나: `claude.ts`, `codex.ts`, `opencode.ts`), 창은 `packages/shell/main/desktop/gui-window.ts`와 `packages/shell/renderer/harness-gui/`, 채팅 화면의 source는 `packages/shell/renderer/conversation/agent-tab-gui-source.ts`, CLI는 `packages/cli/commands/gui.ts`, 터미널의 `claude gui`는 `packages/shell/terminal-host/shell-integration.ts`다.
 
 ## 흐름
 
@@ -33,7 +33,7 @@ extension을 끔 ─▶ deactivate() ─▶ intent 함수를 풀고 연 handle�
 
 - **harness는 `claude`, `codex`, `opencode` 셋이다.** 목록은 `GUI_HARNESSES` 하나이고 CLI 입력, open intent, adapter 표가 모두 이것을 쓴다.
 - **open intent는 모양만 본다.** `--harness-gui`가 있으면 그 꼴로만 읽는다: harness가 목록에 있고, `--cwd`가 절대 경로이고, `--resume`이 있으면 `-`로 시작하지 않는다(CLI의 flag가 되지 않게). flag는 하나씩만 있어야 한다. 틀리면 기본 창이다. 폴더가 있는지는 여는 쪽이 본다.
-- **`lophn gui`는 core 자격이 없어도 된다.** core가 꺼져 있어도 user token 없이 앱을 띄운다. CLI는 앱과 같은 Electron binary를 Node로 돌리므로, `ELECTRON_RUN_AS_NODE`만 빼고 같은 binary를 띄운다. 저장소 실행(shell main bundle `packages/shell/main/dist/main.cjs`가 있으면)은 그 bundle을 인자로 준다. agent의 `lophn` 도구 목록에는 없다(표의 명령이 아니다).
+- **`lophn gui`는 core 자격이 없어도 된다.** core가 꺼져 있어도 user token 없이 앱을 띄운다. CLI는 앱과 같은 Electron binary를 Node로 돌리므로, `ELECTRON_RUN_AS_NODE`만 빼고 같은 binary를 띄운다. 저장소 실행(shell main bundle `packages/shell/main/dist/main.cjs`가 있으면)은 그 bundle과 `--no-sandbox`를 인자로 준다(저장소의 `chrome-sandbox`는 setuid가 아니라 flag 없이는 argv를 넘기기 전에 죽고, 터미널 env는 `ELECTRON_*`를 지워 env로 받을 수 없다). agent의 `lophn` 도구 목록에는 없다(표의 명령이 아니다).
 - **handle 하나는 창 하나다.** `id`(`win_…`)는 lophn session id가 아니다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
 - **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 창은 닫지 않고 오류를 끝난 turn으로 보인다. 사람이 닫는다.
 - **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다.
@@ -53,11 +53,28 @@ extension을 끔 ─▶ deactivate() ─▶ intent 함수를 풀고 연 handle�
 - 도는 중에 보낸 메시지는 adapter가 줄에 세웠다가(`message_queued`) `result` 뒤에 SDK에 넣는다(`message_taken`, 새 turn). 멈추기는 `interrupt()`이고 그 turn은 멈춘 turn으로 끝난다. 같은 query로 이어 보낸다.
 - `--resume <id>`는 SDK `resume`이다. SDK는 앞 대화를 다시 흘리지 않아 `getSessionMessages(id, {dir: cwd})`로 앞 대화를 그린 뒤 입력을 받는다.
 
+## Codex adapter
+
+`codex.ts`. 사람 PATH의 `codex`로 `codex app-server`를 stdio로 띄운다(JSON-RPC 줄, `jsonrpc` 칸이 없다). `initialize` → `initialized` → `thread/start`(resume이면 `thread/resume`).
+- `thread/start`·`thread/resume`에 `approvalPolicy: "on-request"`, `sandbox: "workspace-write"`를 늘 넘긴다. 사람 설정이 `never`·`danger-full-access`여도 창은 승인 카드로 묻고 전부 허락 sandbox를 쓰지 않는다.
+- item → ACP: `agentMessage`는 흘러나오는 글과 저장된 메시지, `reasoning`은 다음 메시지의 reasoning, `commandExecution`은 명령 tool, `fileChange`는 `edit`(path와 줄 수), `mcpToolCall`도 tool이다. `declined`는 거절로 끝난 tool이다.
+- 승인: `item/commandExecution/requestApproval`·`item/fileChange/requestApproval`이 카드를 연다. 한 번은 `accept`, 이 session 동안은 `acceptForSession`(요청의 `availableDecisions`에 있을 때만 내놓는다), 거절은 `decline`, 멈춘 turn은 `cancel`이다. 다른 서버 요청(질문, 권한 확장, MCP elicitation)은 `-32601` 오류로 답한다(답하지 않으면 turn이 멈춘다).
+- 도는 중에 보낸 메시지는 `turn/steer`로 같은 turn에 넣고, 다음 turn으로 보낸 것은 줄에 세웠다가 turn 뒤에 보낸다. 멈추기는 `turn/interrupt`, 다시 하기는 그 turn의 사람 메시지를 새 turn으로 보낸다. resume 응답의 `thread.turns`로 앞 대화를 그린다.
+
+## OpenCode adapter
+
+`opencode.ts`. 사람 PATH의 `opencode`로 `opencode acp`를 stdio로 띄워 표준 Agent Client Protocol(v1)을 손으로 짠 JSON-RPC로 말한다. 표준 protocol은 이 file 안에서만 쓴다. `initialize` → `session/load`(resume이고 `loadSession`이면) 또는 `session/new`. 불러오지 못하면 실패한 turn으로 알리고 새 session을 연다.
+- `session/update` → ACP: `agent_message_chunk`·`agent_thought_chunk`는 글과 reasoning, `tool_call`·`tool_call_update`는 tool 줄(첫 `tool_call`은 제목과 입력이 비어 첫 `in_progress`나 승인 요청에서 줄을 연다). prompt 응답의 `stopReason`이 turn 끝이다(`end_turn` 완료, `cancelled` 멈춤, 나머지 실패).
+- 승인: `session/request_permission`이 카드를 연다. 한 번은 `once`, 거절은 `reject`다. `always`는 내놓지 않는다(OpenCode의 always는 project 권한 표에 영구 규칙을 쓴다). 거절하면 OpenCode가 prompt 전체를 `cancelled`로 끝낸다. 모르는 요청은 `-32601`로 답한다.
+- 사람 설정을 바꾸지 않는다. OpenCode 기본 설정은 shell과 edit를 묻지 않아, 사람이 ask 규칙을 두지 않았으면 승인 카드가 뜨지 않는다.
+- 표준 protocol에는 steer가 없어 도는 중에 보낸 메시지는 줄에 세웠다가 prompt가 답한 뒤 보낸다. 멈추기는 `session/cancel`(기다리던 승인은 `cancelled`로 먼저 답한다), 다시 하기는 그 turn의 사람 메시지를 새 prompt로 보낸다. `session/load`가 응답 전에 다시 흘리는 `session/update`로 앞 대화를 그린다.
+
 ## 왜 이 모양인가
 
 - **CLI 코어는 두고 화면만 바꾼다(사람, 2026-11-04 "CLI 화면을 대체하는 GUI").** Claude·Codex 데스크톱이 CLI 코어를 두고 화면만 바꾸는 것과 같은 꼴이라, session·resume·설정은 CLI의 것을 쓴다. 그래서 lophn ledger에 기록하지 않고 lophn project가 아닌 폴더에서도 돈다.
 - **각 CLI의 공식 GUI 경계로 붙는다.** Claude Code는 Agent SDK, Codex는 `codex app-server`, OpenCode는 `opencode acp`다. TUI 화면을 긁지 않는다.
 - **Claude는 stream-json을 직접 말하지 않고 SDK를 쓴다(사람, 2026-11-05).** 승인·멈추기·resume을 Anthropic이 맞춰 둔 것을 쓰고 CLI 판이 바뀌면 SDK 판을 올린다. 비용은 개발 `node_modules`의 SDK와 peer dependency(약 40MB)와 bundle의 1.3MB이고, 쓰지 않는 claude 사본(linux-x64 약 323MB)은 `overrides`로 뺐다.
+- **Codex는 sandbox와 승인 정책을 늘 넘기고 OpenCode는 사람 설정을 그대로 쓴다.** brief가 full access를 금했고 Codex는 thread마다 정책을 받는다. OpenCode의 권한은 사람이 쓴 규칙표라 adapter가 덮어쓰면 사람의 규칙을 바꾸게 된다.
 - **창이 채팅 화면을 다시 짜지 않는다.** source만 바꿔 `AgentView`를 쓰고, 없는 기능은 source의 칸 하나(`external`)로 숨긴다.
 - **handle이 갱신을 쌓는다.** adapter는 창이 뜨기를 기다리지 않고 바로 publish한다. 창 쪽이 snapshot 없이 처음부터 접으면 되어 snapshot route가 필요 없다.
 - **open intent를 extension이 건다.** 꺼진 extension은 code를 load하지 않으므로(extension.md) intent를 받을 함수가 없는 것이 곧 "꺼짐"이다. 그때 Settings를 연다.

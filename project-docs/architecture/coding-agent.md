@@ -39,19 +39,29 @@ harness ─ 전역 hook ─▶ lophn hook <harness> <event> ─▶ shell main ho
 
 ## harness agent
 
-정의의 `runtime`이 harness 값인 agent는 lophn session을 갖되 run-loop가 돌리지 않는다. 입력(사람 메시지, call, run, step)은 shell main의 harness host가 그 harness의 headless CLI 명령으로 실행한다(`claude -p`, `codex exec`, `opencode run`). 지금은 core 쪽(route, 입력함, 기록)만 있고 host는 계획 harness-agent가 짓는 중이다.
+정의의 `runtime`이 harness 값인 agent는 lophn session을 갖되 run-loop가 돌리지 않는다. 입력(사람 메시지, call, run, step)은 shell main의 harness host가 그 harness의 headless CLI 명령으로 실행한다(`claude -p`, `codex exec`, `opencode run`). host는 extension `harness`(`packages/shell/main/extensions/bundled/harness/`)이고 `ExtensionContext`로만 lophn에 닿는다([extension.md](extension.md)).
 
 ```
 Router ─ session.transport = harness ─▶ harness 입력함(core 메모리, run-loop 입력함과 따로)
-shell main host ─ user token, memory route ─▶ harness/take → start_turn → record(여러 번) → finish_turn
+extension harness(1초마다) ─ ctx.core, 사람 권한 ─▶ harness/take → start_turn
+   ─ agents/read(permissions.deny), projects/get·apps/get(place 폴더) ─▶ 권한 flag, cwd
+   ─ ctx.spawn(<harness headless 명령>, cwd = place 폴더, stdin 닫음) ─ 줄마다 parser ─▶ harness/record(글, harness_tool)
+   ─ 1초마다 turns/read: core가 닫았으면(멈춤) process를 끈다 ─ process 끝 ─▶ finish_turn
                                           └▶ harness/set_external_id (harness의 session id, resume에 쓴다)
 TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(bare 자동 답과 같은 길, wiring/bare-reply.ts)
 ```
 
-- **켜기는 설정 `extensions.harness.enabled`(Settings › System › Extensions)(기본 꺼짐)다.** 꺼져 있으면 harness runtime session을 열지 않고(`unavailable`), 그 session으로 가는 메시지·call·step도 `unavailable`이며, host route도 `unavailable`이다. 답·reaction·알림은 받아 열린 call이 닫힌다. 편집기의 runtime 고르기는 켜졌을 때만 harness 값을 내고, 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
+- **켜기는 설정 `extensions.harness.enabled`(Settings › System › Extensions, 기본 꺼짐)다.** 꺼져 있으면 extension을 load하지 않고, harness runtime session을 열지 않고(`unavailable`), 그 session으로 가는 메시지·call·step도 `unavailable`이며, 새 turn을 여는 host route(`take`, `start_turn`)도 `unavailable`이다. 기록·끝냄·외부 id route는 꺼져 있어도 받아, 끌 때 돌던 turn이 끝난다. 답·reaction·알림은 받아 열린 call이 닫힌다. 편집기의 runtime 고르기는 켜졌을 때만 harness 값을 내고, 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
 - **session의 harness는 열 때 정해 바뀌지 않는다.** `sessions.harness`(trigger로 고정)와 외부 session id `sessions.harness_session`이 ledger step `lophn-agent.sessions.harness`다. 외부 id는 machine 전용 command `BindHarnessSession`만 쓰고, runtime이 harness가 아닌 session은 고치지 못한다(`packages/core/lophn-agent/session/harness_test.ts`).
 - **host route는 사람 token(actor user)만, runtime이 harness인 session만 고친다**(`packages/protocol/lophn-agent/harness-host.ts`, `packages/core/main/daemon/wiring/harness.ts`). memory route라 renderer 통로에는 없다. 기록은 core 안 machine 자격으로 기존 command(StartTurn, RecordMessage, FinishTurn)에 남는다. turn은 시작 → 기록 → 끝 순서이고 `TurnEnded`는 한 번이다. 재시작하면 끝나지 않은 harness turn은 interrupted(restarted)로 끝나고 늦은 FinishTurn은 `conflict`다(`packages/core/lophn-agent/run-loop/harness-turn_test.ts`).
 - **harness가 쓴 tool은 lophn이 실행한 것이 아니다.** 메시지 part `harness_tool {name, summary, status}`로만 남고 gate·rewind의 tool-call chain에 들지 않는다. 기록마다 `MessageRecorded`(`model_call: null`)를 내 대화가 바로 갱신된다.
+- **headless 명령, parser, 권한 표는 harness마다 `HARNESS_ADAPTERS[id].headless` 한 항목이다**(`packages/protocol/coding-agent/headless/`). parser는 순수 함수이고 실제 녹화에서 만든 fixture로 본다(`headless_test.ts`, Claude Code 2.1.318, codex-cli 0.166.0, opencode 2.1.4).
+  - Claude Code: `claude -p --output-format stream-json --verbose --permission-mode acceptEdits [--resume <id>] [--disallowed-tools …] -- <prompt>`. 편집은 묻지 않고 Bash는 거절된다. 정의의 deny `lophn(<slug> <command>)`는 `Bash(lophn <slug> <command>)`와 그 뒤 인자 꼴의 disallow다.
+  - Codex: `codex exec --json --skip-git-repo-check -s workspace-write -- <prompt>`, 이어 가기는 `codex exec resume … -c sandbox_mode="workspace-write" -- <id> <prompt>`. stdin 끝을 기다리므로 host가 띄우자마자 닫는다.
+  - opencode: `opencode run --standalone --format json [--session <id>] <prompt>`. 권한 flag가 없어 사람의 opencode 설정대로 돈다(사람, 2026-11-04). 끝 event가 없어 process의 exit code가 끝이다.
+  - 전부 허락(`bypassPermissions`, `danger-full-access`)은 쓰지 않는다. deny를 옮길 수 없는 harness(Codex, opencode)는 정의에 deny가 있으면 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄).
+- **cwd는 session place의 폴더다.** project는 첫 폴더, 앱은 source 폴더(없으면 첫 폴더)다. 폴더가 없는 place(home, 폴더 없는 project·app)에서는 띄우지 않는다. 띄우는 env는 shell main의 것이고(harness가 자기 API key를 쓴다) lophn user token을 넣지 않는다.
+- **끝은 parser의 끝 event나 exit code다.** 실패는 `model_error`, 시작하지 못하면 `target_unavailable`, 글 없이 끝나면 `no_answer`다. 사람이 멈추거나 core가 turn을 닫으면 host가 process를 끈다. 사람 메시지의 이미지는 `[image: <mime> not passed to the harness]` 글로 바뀐다.
 - **run-loop는 harness 입력을 돌리지 않는다.** 닿으면 turn을 시작하지 않고 `target_unavailable`로 닫는다(`run-loop/prepare.ts`). 켤 때 접수만 된 사람 메시지는 harness wiring이 harness 입력함에 되돌린다.
 
 ## 왜 이 모양인가

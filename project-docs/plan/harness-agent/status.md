@@ -5,5 +5,5 @@ lead만 고친다. `tools/status.py harness-agent build`가 `tasks/*.md`에서 i
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `harness-core` | harness | 1 | 없음 | merged | harness/harness-core | ee4ee840a |  |
-| `harness-headless` | harness | 2 | harness-core | todo |  |  |  |
+| `harness-headless` | harness | 2 | harness-core | merged | harness/harness-headless | b488869cb |  |
 | `harness-reply` | harness | 3 | harness-headless | todo |  |  |  |

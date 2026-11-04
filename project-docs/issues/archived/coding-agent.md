@@ -625,3 +625,18 @@ guard: "codex hook install은 config.toml의 기존 내용을 그대로 두고 �
 - `config.toml`에 trust 기록을 쓴다(중간. toml을 고치는 코드와 hash 규칙을 알아야 한다).
 
 닫음: 설치가 `~/.codex/config.toml`에 lophn hook마다 Codex와 같은 계산의 `trusted_hash`를 쓴다(`packages/coding-agent/harnesses/codex-trust.ts`, `install.ts`). 사람 허락은 lophn 창의 설치 dialog 한 번이고 `/hooks` trust가 필요 없다.
+
+## harness agent를 켜는 화면에 harness가 아직 없다
+
+```yaml
+kind: bug
+modules: [packages/shell/main, packages/core/config]
+closed: fixed
+guard: 없음
+```
+
+- 지금: harness agent의 켜기는 extension `harness`의 설정 `extensions.harness.enabled`(`packages/core/config/shell-settings.ts` `harnessExtensionSetting`, 기본 꺼짐)다. Settings › System › Extensions는 roots(개발은 shell main 안 `extensions/bundled/`)에서 manifest를 찾은 extension만 보이는데, harness의 manifest가 아직 없어 그 줄이 없다.
+- 영향: harness agent를 쓰려는 사람이 data root의 `settings.json`을 직접 고쳐야 한다.
+- 고치려면: harness host를 extension `harness`(manifest와 entry)로 둔다(계획 harness-agent의 headless host, 작음).
+
+닫음: extension `harness`의 manifest(`packages/shell/main/extensions/bundled/harness/manifest.json`)가 있어 Settings › System › Extensions에 harness 줄이 보이고 켠다.

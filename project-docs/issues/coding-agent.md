@@ -37,17 +37,6 @@ modules: [packages/core/main, packages/core/lophn-agent]
 - 영향: 사람이 harness session에서 steer를 누르면 틀린 이유로 거절되고, fork하면 harness가 앞 대화를 모른다.
 - 고치려면: steer는 harness session이면 버튼을 숨기거나 `unavailable`("harness는 turn 중에 받지 못한다")로 거절한다(작음, 추천). fork는 headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주고 나머지는 지금처럼 새로 시작한다(중간).
 
-## harness agent를 켜는 화면에 harness가 아직 없다
-
-```yaml
-kind: bug
-modules: [packages/shell/main, packages/core/config]
-```
-
-- 지금: harness agent의 켜기는 extension `harness`의 설정 `extensions.harness.enabled`(`packages/core/config/shell-settings.ts` `harnessExtensionSetting`, 기본 꺼짐)다. Settings › System › Extensions는 roots(개발은 shell main 안 `extensions/bundled/`)에서 manifest를 찾은 extension만 보이는데, harness의 manifest가 아직 없어 그 줄이 없다.
-- 영향: harness agent를 쓰려는 사람이 data root의 `settings.json`을 직접 고쳐야 한다.
-- 고치려면: harness host를 extension `harness`(manifest와 entry)로 둔다(계획 harness-agent의 headless host, 작음).
-
 ## harness agent는 home에서 돌지 않고, opencode는 git root에 쓴다
 
 ```yaml

@@ -547,11 +547,16 @@ const start: HarnessGuiAdapter["start"] = async ({
           if (turn !== null) endTurn("completed");
           return;
         } catch {
-          // 그 session을 못 읽으면 새 session으로 연다.
         } finally {
           replaying = false;
         }
       }
+      // 그 session을 못 읽으면 새 session으로 열고, 조용히 넘기지 않고 끝난 turn으로 알린다.
+      if (resume !== undefined && dead === null)
+        endTurn("failed", {
+          code: "not_found",
+          message: `The session ${resume} could not be loaded, so a new session was started.`,
+        });
       sessionId = str(
         (await request("session/new", { cwd, mcpServers: [] })).sessionId,
       );

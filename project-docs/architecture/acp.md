@@ -90,6 +90,10 @@ redaction
 - 앱 화면도 ACP 화면이다. 앱 bridge(`lophnApp.agent`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 place의 session으로 묶어 사람 자격으로 넘긴다(`architecture/app-call.md`의 "앱 화면의 agent session"). core는 앱이 연 session을 따로 다루지 않는다. 앱 code는 SDK `@lophn/agent`로 쓰고, 그 SDK가 snapshot 위에 갱신을 `reduceAcp`로 접는다.
 - 앱 SDK의 설치 사본은 zod도 저장소도 없이 앱 bundle 안에서 읽혀 protocol의 ACP type(zod 정본)을 싣지 못한다. 그래서 `packages/sdk/agent/acp-types.ts`가 zod 없는 사본이고, 설치 사본의 `reduce.ts`는 그 type을 본다(`packages/core/apps/packages/vendor.ts`). ACP 항목·상태·갱신의 모양을 바꾸면 그 사본도 같이 고친다. 어긋나면 `packages/sdk/agent/agent_test.ts`의 type 검사(서로 대입되는지)가 `npm run check`에서 깨진다. `reduce.ts`가 runtime import를 더하면 설치 사본 import test(`packages/core/apps/packages/install_test.ts`)가 깨진다.
 
+## core 밖에서 내는 ACP
+
+third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))는 core를 거치지 않는다. adapter가 shell main의 `AcpSessionHandle`에 `AcpUpdate`를 publish하고 창의 `AcpInput`을 받는다. `AcpSnapshot`과 `AcpSend` route는 쓰지 않고, 창은 handle이 쌓아 둔 갱신을 처음부터 `reduceAcp`로 접는다. 순번(`seq`)은 adapter가 1부터 이어 붙인다. 위 "core가 하는 것"과 "입력"은 core session만의 이야기다.
+
 ## 옛 `ThreadView`와의 대응
 
 | 옛 | ACP |

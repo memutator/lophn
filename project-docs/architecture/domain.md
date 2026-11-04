@@ -1,6 +1,6 @@
 # domain
 
-domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity이고 id는 `dom_`이다. domain마다 kind 파일, `DOMAIN.md`, skill, artifact가 있고, 앱의 domain에는 앱 tool이 있다. agent가 받는 최소 context와 domain 사이 장치(공개 tool 거르기, 공개 tool을 지우는 release의 알림, lophn 지도)의 단위가 domain이다. 그릇은 경계가 아니다. 이 경계가 흐려지면 agent가 맡지 않은 domain의 지침과 비공개 tool을 받거나, 다른 domain이 쓰는 공개 tool이 말없이 지워지거나, 앱의 tool이 어느 domain 것인지 아무도 모른다.
+domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity이고 id는 `dom_`이다. domain마다 `DOMAIN.md`, skill, artifact가 있고, 앱의 domain에는 앱 tool이 있다. agent가 받는 최소 context와 domain 사이 장치(공개 tool 거르기, 공개 tool을 지우는 release의 알림, lophn 지도)의 단위가 domain이다. 그릇은 경계가 아니다. 이 경계가 흐려지면 agent가 맡지 않은 domain의 지침과 비공개 tool을 받거나, 다른 domain이 쓰는 공개 tool이 말없이 지워지거나, 앱의 tool이 어느 domain 것인지 아무도 모른다.
 
 여러 곳에 걸친다.
 - 값: `packages/protocol/domains/`(id·이름·owner `values.ts`, route·event `domains.ts`, port `ports.ts`, 자리 `paths.ts`, artifact 값 `artifact.ts`)
@@ -13,7 +13,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - place 정보와 file 범위: `packages/core/agent-places/place/`
 - tool 거르기: `packages/core/lophn-agent/tools/app-public.ts`, `app.tool_index` route(`packages/core/apps/declaration/reads.ts`의 `createToolIndexRead`, 명령 `app.tools`)
 - 공개 tool 장치: `packages/core/apps/releases/public-tools.ts`, `packages/core/apps/usage/`
-- kind 파일과 위반: `architecture/kinds.md`(`packages/core/projects/kinds/`), artifact: `architecture/artifact.md`
+- artifact: `architecture/artifact.md`
 
 ## 흐름
 
@@ -26,7 +26,6 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 
  <data>/domains/<dom>/
    DOMAIN.md   ── 그 domain을 받은 그릇 place의 session이 file tool로 쓴다 ──▶ 지침 층(그 domain을 받은 session만)
-   kinds.yaml  ── 같은 쪽 ──▶ kinds worker(glob은 그릇 폴더 기준) ──▶ 새 위반이면 KindViolationFound(남지 않는 event, 사람에게 toast)
    skills/     ── 같은 쪽 ──▶ skill 층(내장 < 전역 < domain)
    artifacts/  ── 같은 쪽 ──▶ sidebar Artifacts, 봉한 view
 
@@ -38,7 +37,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
    있으면: 그 가운데 그 그릇에 있는 것만(0개일 수 있다)
    home: 없다(place가 없다)
      지침   전역 → LOPHN.md(없으면 CLAUDE.md, project 그릇만) → DOMAIN.md(맡은 domain을 이름순으로) → agent 본문
-     place  Domains 절(이름, 제목, 목적, 폴더), domain별 kind 글, domain별 artifact 목록
+     place  Domains 절(이름, 제목, 목적, 폴더), domain별 artifact 목록
      명령   할당된 앱 가운데 맡은 domain의 command 전부 + 다른 domain의 public command   (lophn <domain> <command>)
      file   project: project 폴더 + 받은 domain 폴더 + project의 workflows/ / app: 앱 source + 받은 domain 폴더
             home: 모든 project 폴더를 읽기만
@@ -62,7 +61,7 @@ domain은 그릇(project나 app) 하나 안에 있는 책임 경계다. entity�
 - **prompt·tool·file 범위의 단위는 맡은 domain이다.** 같은 그릇 안의 다른 파일을 읽는 것은 막지 않는다. 사람은 공격자가 아니고, 막을 것은 agent의 실수다. 폴더 경계와 rewind가 그것을 막는다.
 - **`DOMAIN.md`는 맡은 domain의 것만 읽는다.** reader는 session의 place 그릇이 그 domain의 owner일 때만 열고, 아니면 `forbidden`이다(`instructions/files.ts`). 맡은 domain의 파일만 읽고 다른 domain에는 읽기 요청도 내지 않는다. 한 domain이라도 크기 상한을 넘거나 UTF-8이 아니면 다른 층처럼 turn을 시작하지 않는다. 없는 파일은 건너뛴다.
   - 이은 글이 24000자(`DOMAIN_TEXT_BUDGET`)를 넘으면 넘은 domain부터 본문 대신 목적 한 줄과 "full text: read DOMAIN.md"만 싣는다. domains를 고르지 않은 agent는 그릇의 domain을 모두 받으므로 domain이 많으면 여기에 걸린다.
-- **`DOMAIN.md`·`kinds.yaml`·`skills/`·`artifacts/`는 그 domain을 받은 그릇 place의 session이 쓴다.** 넷 다 Gate 없이 file tool로 쓰고 rewind로 되돌린다. 지침 Gate는 project의 `LOPHN.md`뿐이다.
+- **`DOMAIN.md`·`skills/`·`artifacts/`는 그 domain을 받은 그릇 place의 session이 쓴다.** 셋 다 Gate 없이 file tool로 쓰고 rewind로 되돌린다. 지침 Gate는 project의 `LOPHN.md`뿐이다.
   - rewind의 쓰기 폴더는 그릇의 domain 폴더 전부로 넉넉히 잡는다. 실제 쓰기는 file tool이 받은 domain으로 좁힌다(`placeScope`).
   - project의 `workflows/`는 그 project place의 session이 읽고 쓴다. app place와 home에는 열리지 않는다. rewind의 쓰기 폴더(`placeScope(...).write`)도 같이 따른다(`architecture/workflow.md`).
 - **앱 tool의 `domain`은 필수이고 그 앱의 active domain 이름이어야 한다.** 정본 검사 `validateDeclaration`에 앱의 domain 목록을 주는 곳은 넷이다: release를 기록하는 command `release.record`(`packages/core/apps/releases/commands.ts`, 준비의 검사가 끝난 뒤라 domain이 틀리면 release가 생기지 않는다), release 준비의 preview bundle 사본(`createCopyPreviewBundles`), `declaration.check`, activation 직전 재검사. 목록을 읽지 못하면 `unavailable`이다. 모든 domain이 보관된 앱은 모든 tool이 거절된다.

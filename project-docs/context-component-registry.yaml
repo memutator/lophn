@@ -371,14 +371,6 @@ components:
       paths: [packages/design/presets.ts, packages/design/appearance.ts, packages/shell/ipc/appearance.ts, packages/core/config/shell-settings.ts]
       note: preset을 더하거나 바꿀 때, 적용 통로(channel, insertCSS 시점)가 바뀔 때.
 
-  - id: architecture-kinds
-    kind: doc
-    roles: [planner, lead]
-    description: domain의 kind 파일과 그 자리, 바뀔 때 검사, kinds worker pipeline, kind.list·kind.check, 새 위반을 사람에게 알리는 길, prompt의 kind 글.
-    path: project-docs/architecture/kinds.md
-    change_reasons:
-      boundaries: [kinds, domains]
-      paths: [packages/core/agent-places/place/place-folders.ts, packages/core/lophn-agent/prompt-assembly/kind-text.ts, packages/protocol/domains/paths.ts]
 
   - id: architecture-domain
     kind: doc

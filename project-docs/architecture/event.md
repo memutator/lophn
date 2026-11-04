@@ -23,7 +23,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 
 - 기록 event: command가 `tx.emit`으로 상태 변경과 같은 tx에 `events` 표에 남긴다(앱 상태 `AppStarted` 등, tool call 이력, rewind, domain). 읽는 곳은 `events/list`, 관측 읽기, compare 기준(표의 마지막 seq)이다. Bus에 싣지 않고 반응하는 곳이 없다.
 - agent event: session에서 일어나는 turn, tool call, 물음(turn 안 request `TurnRequestOpened`·`TurnRequestClosed`, 질문), 쓰는 중인 model 글의 조각(`ModelOutputStreamed`), 저장된 agent message(`MessageRecorded`), 사람 기다림 뒤 다시 도는 순간(`TurnResumed`), 다음 turn 줄의 사람 메시지를 steer로 올리거나 뺀 일(`MessageSteered`·`MessageRemoved`; 입력함이 메모리라 화면이 아는 길이 이 event와 snapshot의 `steering`뿐이다). 메모리뿐이고 seq가 없다. 글이 흐르는 길과 시간은 `architecture/agent-chat.md`다.
-- 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, 새 kind 위반 `KindViolationFound`, workflow instance를 다시 읽으라는 신호 `WorkflowInstanceChanged`, job이나 job run이 바뀌었다는 신호 `JobChanged`). 메모리뿐이다.
+- 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, workflow instance를 다시 읽으라는 신호 `WorkflowInstanceChanged`, job이나 job run이 바뀌었다는 신호 `JobChanged`). 메모리뿐이다.
 - Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림, workflow의 step 메시지가 모두 여기로 들어가 run-loop 입력함으로 간다.
 - 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다.
 - session snapshot은 session의 지금 상태와 대기 중인 turn 안 request(`turn_requests`), 질문을 담는다. lophn session은 아직 저장되지 않은 model 호출 하나의 글(`writing`, redaction을 거친 것)과 도는 turn의 active(`elapsed`), [Send now]로 올렸지만 아직 model 요청에 싣지 않은 steer(`steering`, 기록에는 turn이 비어 있다)도 싣는다. 화면이 붙거나 다시 붙을 때 읽는다.
@@ -37,7 +37,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 - 정해진 때 agent를 부르는 것은 사람이 시킨 일이다. agent가 만든 job이 차례가 되면 run으로 agent를 부르는데(`architecture/job.md`), 이것은 program이 정한 반응이 아니라 사람이 agent에게 시킨 일의 실행이다. 앱 상태나 event에 반응해 부르는 길이 아니고 시각만 본다.
 - job의 scheduler는 기록 event나 Bus에 얹지 않는다. 뒤에 움직일 일은 그 일을 아는 job command가 같은 tx에서 표를 고치고, scheduler는 표를 읽는다. 꺼진 사이 놓친 차례는 켤 때 첫 claim이 표에서 찾아 접는다.
 - job이나 job run을 바꾼 command가 commit되면 jobs wiring이 `JobChanged`(subject job, payload `job_run`)를 한 번 낸다. 남지 않는 event다. 받는 곳은 대기 목록(hold card)과 job 화면과 Jobs 탭·overlay와 project 창 오른쪽 sidebar의 Jobs panel이고, 받으면 다시 읽는다. 같은 commit 뒤에 scheduler도 깨워 timer를 다시 건다. 놓친 화면은 열 때 다시 읽고, 정본은 표다(`architecture/job.md`).
-- 앱 재시작 멈춤(`AppRestartHalted`)과 새 kind 위반(`KindViolationFound`)은 사람에게 toast만 띄우는 일이라 남지 않는 event다. 앞은 crash loop로 멈춘 기록(`AppUnavailable`)을 commit한 뒤 apps wiring이 내고, 뒤는 kinds dispatcher가 앞 sync에 없던 위반을 볼 때 낸다(`architecture/kinds.md`). 놓쳐도 앱 상태와 `kind.check`가 지금 상태를 보여 준다.
+- 앱 재시작 멈춤(`AppRestartHalted`)은 사람에게 toast만 띄우는 일이라 남지 않는 event다. crash loop로 멈춘 기록(`AppUnavailable`)을 commit한 뒤 apps wiring이 낸다. 놓쳐도 앱 상태가 지금 상태를 보여 준다.
 - workflow instance의 행이나 줄을 바꾼 command가 commit되면 workflows wiring이 `WorkflowInstanceChanged`(subject instance, payload project와 workflow)를 한 번 낸다. CLI로 낸 report는 session event가 없어 사람 화면과 instance artifact view가 알 길이 이것뿐이다. 받으면 다시 읽고, 놓친 화면은 열 때 다시 읽는다. 정의 file이 바뀐 것은 알리지 않는다(`architecture/workflow.md`).
 
 events 표

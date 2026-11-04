@@ -66,6 +66,8 @@ const SHOWN_ELSEWHERE = [
   "shell.",
   "approvals.shell_rules",
   "lophn-agent.extensions.",
+  // Extensions 항목이 설치와 함께 켜고 끈다.
+  "extensions.",
 ];
 
 function shownInGeneral(key: string): boolean {

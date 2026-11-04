@@ -108,7 +108,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
       {
         id: "extension-packages",
         label: "settings.label.tab-extension-packages",
-        icon: settingsIcons.tools,
+        icon: settingsIcons.extensionPackages,
       },
       {
         id: "diagnostics",

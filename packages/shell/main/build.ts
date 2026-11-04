@@ -3,6 +3,7 @@
 // 저장소의 .ts 원본이 import한 zod는 root npm workspace의 node_modules에서 찾는다.
 // package.json의 "type": "module"이 .js를 ESM으로 읽으므로 출력은 .cjs로 낸다.
 
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
@@ -65,7 +66,24 @@ function build(outdir: string, extra: BuildEntry[] = []): Promise<void> {
 const bundledExtensions = join(here, "extensions/bundled");
 const extensionEntries = [join(bundledExtensions, "harness/index.ts")];
 
+// manifest 판이 제품 판과 다르면 registry가 incompatible로 두어 extension이 말없이 멈춘다. 빌드에서 막는다.
+function checkExtensionVersions(): void {
+  const product = JSON.parse(
+    readFileSync(join(root, "package.json"), "utf8"),
+  ).version;
+  for (const entry of extensionEntries) {
+    const manifestPath = join(dirname(entry), "manifest.json");
+    const version = JSON.parse(readFileSync(manifestPath, "utf8")).version;
+    if (version !== product) {
+      throw new Error(
+        `${manifestPath} version ${version} differs from the product version ${product}; bump it with package.json`,
+      );
+    }
+  }
+}
+
 function buildExtensions(): Promise<void> {
+  checkExtensionVersions();
   return Promise.all(
     extensionEntries.map((entry) =>
       esbuild.build({

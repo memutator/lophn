@@ -82,6 +82,19 @@ export function placeOperations(
   ];
 }
 
+// harness가 자기 shell에서 부르는 `lophn` CLI의 상한이다. 그 place 종류의 `lophn` 명령이 정의한 route뿐이다:
+// harness가 쓰는 file·shell은 harness 자신의 도구라 lophn의 tool route(file, rewind, gate)가 닿을 이유가 없다.
+export function harnessOperations(kind: string): readonly string[] {
+  if (!isPlaceKind(kind)) return [];
+  return [
+    ...new Set(
+      commandsForPlace(kind).flatMap((command) =>
+        command.routes.map((route) => route.name),
+      ),
+    ),
+  ];
+}
+
 // agent credential의 고정 조건이다. session과 turn에 묶인다. app place는 그 앱을 `app` 조건으로 고정한다: 다른 앱·project와
 // 그 앱이 아닌 release·앱 log·invocation 같은 자료는 요청 범위 밖이라 없는 자료와 같은 답이다. project place는 그 project를
 // `project` 조건으로 고정한다(annotation 읽기가 이 조건을 읽는다). home은 조건이 없다. 앱 호출을 해도 되는지는

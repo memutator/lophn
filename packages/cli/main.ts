@@ -1,5 +1,5 @@
 // lophn binary의 실행 entry다. 조립만 하고 업무 규칙을 두지 않는다. node 전용이라 core는 이 file을 import하지 않는다.
-// 명령 표(`commands/`)의 명령은 data root의 user token file을 자격으로 쓴다. 자격이 없으면 core를 부르는 명령은
+// 명령 표(`commands/`)의 명령은 자격으로 data root의 user token file을 쓴다(harness가 띄운 shell이면 env의 turn 자격). 자격이 없으면 core를 부르는 명령은
 // 아무것도 보내지 않는다. `packages/coding-agent`의 local 명령 가운데 `harness sync-skills`만 같은 token으로 core를 읽고,
 // `hook`과 그 밖의 `harness *`는 core를 부르지 않는다.
 import { Buffer } from "node:buffer";
@@ -22,6 +22,7 @@ import { COMMANDS } from "./commands/mod.ts";
 import type { Command } from "./commands/types.ts";
 import {
   clientCore,
+  connectionToken,
   createCoreClient,
   discoverDaemonAddress,
   LOPHN_DAEMON_URL,
@@ -100,11 +101,12 @@ export async function cliMain(
     ...COMMANDS,
     ...LOCAL_COMMANDS,
   ];
-  // 표의 명령만 user token file을 읽는다. 앱 command(`lophn <slug> <command>`)는 표에 없어, 표에 없는 첫 낱말이면 core에서 읽어 이어 parse한다.
+  // 표의 명령만 token을 쓴다: harness가 띄운 shell이면 env의 turn 자격(agent), 아니면 user token file이다. 앱 command(`lophn <slug> <command>`)는 표에 없어, 표에 없는 첫 낱말이면 core에서 읽어 이어 parse한다.
   const dataRoot = dataRootOf(env, home);
   const tokenPath = `${dataRoot ?? "<data root>"}/run/${USER_TOKEN_FILE_NAME}`;
-  const token =
-    dataRoot === undefined ? undefined : readText(tokenPath) || undefined;
+  const token = connectionToken(env, () =>
+    dataRoot === undefined ? undefined : readText(tokenPath),
+  );
   const secret = createOutput({
     json,
     stdout: options.stdout,

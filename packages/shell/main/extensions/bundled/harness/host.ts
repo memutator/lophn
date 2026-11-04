@@ -2,6 +2,7 @@
 // core에는 `ctx.core`로만 닿는다. 흐름과 route 순서는 `protocol/lophn-agent/harness-host.ts`.
 import type { Result } from "../../../../../base/result.ts";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
+import { AGENT_CREDENTIAL_ENV } from "../../../../../protocol/coding-agent/headless/env.ts";
 import type { ExtensionContext } from "../../../../../protocol/extensions/manifest.ts";
 
 // host route의 입출력은 `protocol/lophn-agent/harness-host.ts`가 정한다. shell main의 tsc가 그 파일(과 route 기계)을
@@ -37,6 +38,17 @@ type Part =
       summary: string;
       status: "done" | "failed";
     };
+
+// harness가 `lophn`을 부를 env다. 자격은 이 turn에만 쓰이고(core가 turn 끝에 만료한다) user token은 넣지 않는다.
+// 개발 실행에는 PATH에 `lophn`이 없고 `LOPHN_CLI`가 launcher 경로(파일 이름이 `lophn`)라서, 그 폴더를 PATH 앞에 둔다.
+function harnessEnv(credential: string): Record<string, string> {
+  const cli = process.env.LOPHN_CLI;
+  const env: Record<string, string> = { [AGENT_CREDENTIAL_ENV]: credential };
+  if (cli !== undefined && cli.startsWith("/")) {
+    env.PATH = `${cli.slice(0, cli.lastIndexOf("/"))}:${process.env.PATH ?? ""}`;
+  }
+  return env;
+}
 
 const TICK_MS = 1000;
 const STDERR_TAIL = 500;
@@ -102,7 +114,12 @@ export function createHarnessHost(
       : null;
   }
 
-  async function execute(input: Taken, turn: string, entry: Running) {
+  async function execute(
+    input: Taken,
+    turn: string,
+    credential: string,
+    entry: Running,
+  ) {
     const spec = HARNESS_ADAPTERS[ADAPTER_ID[input.harness]].headless;
     if (spec === undefined) {
       return await fail(
@@ -159,7 +176,7 @@ export function createHarnessHost(
         sessionId: input.external_session_id,
         deny,
       }),
-      { cwd },
+      { cwd, env: harnessEnv(credential) },
     );
     entry.kill = () => proc.kill();
     if (entry.shutdown) proc.kill();
@@ -256,11 +273,11 @@ export function createHarnessHost(
     await finish(turn, { kind: "completed", reason: "answer_completed" });
   }
 
-  async function runTurn(input: Taken, turn: string) {
+  async function runTurn(input: Taken, turn: string, credential: string) {
     const entry: Running = { kill() {}, stopped: false, shutdown: stopping };
     running.set(turn, entry);
     try {
-      await execute(input, turn, entry);
+      await execute(input, turn, credential, entry);
     } catch {
       await finish(turn, { kind: "failed", reason: "target_unavailable" });
     } finally {
@@ -282,7 +299,11 @@ export function createHarnessHost(
           input_message: input.input_message,
         });
         if (!started.ok) return;
-        const run = runTurn(input, (started.value as { turn: string }).turn);
+        const { turn, credential } = started.value as {
+          turn: string;
+          credential: string;
+        };
+        const run = runTurn(input, turn, credential);
         turns.add(run);
         void run.finally(() => turns.delete(run));
       }

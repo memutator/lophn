@@ -53,6 +53,10 @@ import {
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
+import {
+  createHarnessCredentials,
+  type HarnessCredentials,
+} from "./harness-credential.ts";
 
 // shell main의 harness host가 부르는 core 쪽이다. 입력함(메모리)을 쥐고, turn과 메시지는 machine 자격으로 기존
 // command(StartTurn, RecordMessage, FinishTurn)에 기록한다. host는 사람 token의 memory route로만 닿고
@@ -83,11 +87,18 @@ export const harnessWiring: WiringFactory = () => {
   // harness session의 입력함이다. run-loop의 입력함과 따로여서 run-loop가 harness 입력을 가져가지 않는다.
   const inbox = createInbox();
   let unsubscribe: (() => void) | undefined;
+  // harness가 `lophn`을 부를 turn 자격. build에서 만들고 TurnEnded가 끝낸다.
+  let credentials: HarnessCredentials | undefined;
   return {
     name: "harness",
     records: () => [HARNESS_CONTEXT],
     build(ctx) {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+      const turnCredentials = createHarnessCredentials({
+        registry: ctx.registry,
+        record: (context) => ctx.runtime.record(context),
+      });
+      credentials = turnCredentials;
       const read = async <T>(
         r: { resource: string; method: string },
         input: unknown,
@@ -219,6 +230,19 @@ export const harnessWiring: WiringFactory = () => {
         const limits = turnLimitsOf(ctx.settings);
         if (!limits.ok) return limits;
         const turn = ids.newId("trn");
+        const credential = await turnCredentials.issue({
+          session: input.session,
+          turn,
+          place:
+            found.value.row.place_kind === null ||
+            found.value.row.place_id === null
+              ? null
+              : {
+                  kind: found.value.row.place_kind,
+                  id: found.value.row.place_id,
+                },
+        });
+        if (!credential.ok) return credential;
         const started = await command(startTurn.name, {
           id: turn,
           session: input.session,
@@ -234,6 +258,7 @@ export const harnessWiring: WiringFactory = () => {
           mode: head.unattended ? "unattended" : "attended",
         });
         if (!started.ok) {
+          turnCredentials.end(turn);
           // 입력의 메시지가 없어졌으면 입력함에 남겨 Take가 같은 입력을 되풀이하게 두지 않는다.
           if (started.error.code === "not_found") {
             inbox.remove(input.session as Id<"ses">, input.input_message);
@@ -242,7 +267,7 @@ export const harnessWiring: WiringFactory = () => {
         }
         inbox.take(input.session as Id<"ses">);
         inbox.setRunning(input.session as Id<"ses">, true);
-        return ok({ turn });
+        return ok({ turn, credential: credential.value });
       };
 
       const recordHandler: MemoryHandler = async (who, body) => {
@@ -381,6 +406,7 @@ export const harnessWiring: WiringFactory = () => {
       unsubscribe = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
         send(event) {
           if (event.type === "TurnEnded") {
+            credentials?.end(event.payload.turn);
             inbox.setRunning(event.session as Id<"ses">, false);
           }
         },

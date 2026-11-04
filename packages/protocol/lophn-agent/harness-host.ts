@@ -61,6 +61,8 @@ export const harnessTake = defineMemory({
 });
 
 // Take가 준 입력(맨 앞이어야 한다)을 입력함에서 꺼내 turn을 시작한다. 그 session은 turn이 끝날 때까지 도는 중이다.
+// `credential`은 harness가 자기 shell에서 `lophn`을 부를 agent 자격이다. 이 session·turn에만 쓰이고 turn이 끝나면 만료된다.
+// host는 harness process의 env로만 넘긴다(`LOPHN_AGENT_CREDENTIAL`).
 export const harnessStartTurn = defineMemory({
   resource: "harness",
   method: "start_turn",
@@ -69,7 +71,7 @@ export const harnessStartTurn = defineMemory({
     session: idSchema("ses"),
     input_message: idSchema("msg"),
   }),
-  output: z.strictObject({ turn: idSchema("trn") }),
+  output: z.strictObject({ turn: idSchema("trn"), credential: z.string() }),
   actors: ["user"],
   errors,
 });

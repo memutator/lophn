@@ -17,6 +17,7 @@ import { redactBlocks } from "../../../lophn-agent/session/message-body.ts";
 import { callsAutoReply } from "../../../router/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import { prepareBodies } from "./router.ts";
+import { turnAnswer } from "./turn-answer.ts";
 
 // bare session의 turn이 끝나면 마지막 응답 글을 result call의 답으로 보내는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
 const BARE_REPLY_PRINCIPAL = "machine:bare-reply";
@@ -152,35 +153,7 @@ export const bareReplyWiring: WiringFactory = () => {
             (found.value.value as { runtime?: string }).runtime === "bare",
           );
         },
-        // runs의 answer()와 같은 읽기다.
-        async answer(session, turn) {
-          let last: string | null = null;
-          let cursor: string | undefined;
-          for (;;) {
-            const page = await read<Output<typeof receivedMessageList>>(
-              receivedMessageList,
-              { session, turn, ...(cursor === undefined ? {} : { cursor }) },
-            );
-            if (!page.ok) return page;
-            for (const m of page.value.messages) {
-              if (m.from.kind === "agent" && m.from.session === session) {
-                last = m.id;
-              }
-            }
-            const next = page.value.next_cursor;
-            if (next === null || next === undefined) break;
-            cursor = next;
-          }
-          if (last === null) return ok(null);
-          const body = await read<Output<typeof messageBody>>(messageBody, {
-            message: last,
-          });
-          if (!body.ok) return body;
-          const text = body.value.content.parts
-            .flatMap((part) => (part.kind === "text" ? [part.text] : []))
-            .join("\n");
-          return ok(text.trim() === "" ? null : text);
-        },
+        answer: (session, turn) => turnAnswer(read, session, turn),
         async reply(input) {
           const safe = redactBlocks(
             createProductRedactor(ctx.knownSecrets),

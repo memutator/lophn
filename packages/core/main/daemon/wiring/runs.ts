@@ -41,6 +41,7 @@ import {
 } from "../../../runs/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
+import { turnAnswer } from "./turn-answer.ts";
 
 // run이 사람 입력으로 session을 열고 메시지를 넣고 읽는 core 안 자격이다. 사람 메시지를 넣는 route는 user만
 // 받는다(annotation 전달과 같은 꼴). 기동 때 ledger에 기록한다.
@@ -187,36 +188,8 @@ export const runsWiring: WiringFactory = () => {
           const { state, outcome } = record.value.turn;
           return ok({ turn: turn as Id<"trn">, state, outcome });
         },
-        // 그 turn에서 그 session의 agent가 RecordMessage로 남긴 마지막 메시지의 글. 없으면 null이다.
-        async answer(session: Id<"ses">, turn: Id<"trn">) {
-          let last: string | null = null;
-          let cursor: string | undefined;
-          for (;;) {
-            const page = await read<Output<typeof receivedMessageList>>(
-              receivedMessageList,
-              { session, turn, ...(cursor === undefined ? {} : { cursor }) },
-            );
-            if (!page.ok) return page;
-            for (const m of page.value.messages) {
-              if (m.from.kind === "agent" && m.from.session === session) {
-                last = m.id;
-              }
-            }
-            const next = page.value.next_cursor;
-            if (next === null || next === undefined) break;
-            cursor = next;
-          }
-          if (last === null) return ok(null);
-          const body = await read<Output<typeof messageBody>>(messageBody, {
-            message: last,
-          });
-          if (!body.ok) return body;
-          const text = body.value.content.parts
-            .flatMap((part) => (part.kind === "text" ? [part.text] : []))
-            .join("\n");
-          // 마지막 응답은 글이 비어도 message로 남는다. 그때 run은 답이 없는 것으로 끝나야 한다.
-          return ok(text.trim() === "" ? null : text);
-        },
+        answer: (session: Id<"ses">, turn: Id<"trn">) =>
+          turnAnswer(read, session, turn),
         // turn을 닫은 TurnEnded가 agent runtime의 구독으로 child에 turn_stop을 보낸다.
         // state_seq가 checkpoint로 움직여 compare가 어긋나면 다시 읽어 건다.
         async stop(turn: Id<"trn">) {

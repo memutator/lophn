@@ -1,8 +1,7 @@
 // session의 지금 상태, 대기 중인 turn request, 질문을 모아 내는 read. 화면이 붙거나 다시 붙을 때 읽는다.
 // 상태는 각 module이 내놓는 read와 함수에서 모으고(lophn-agent session·turn, approvals의 turn 안 request),
-// 질문은 approvals가 낸 메모리 기다림에서 읽는다. 쓰는 중인 model 글(`writing`)은 같은 곳에서 만들고 여기서 싣는다.
+// 질문은 approvals가 낸 메모리 기다림에서 읽는다. 쓰는 중인 model 글은 같은 곳에서 만들고 ACP snapshot이 싣는다.
 import { createIdSource, ok } from "../../../../base/mod.ts";
-import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   type SessionSnapshot,
   sessionSnapshotsList,
@@ -111,13 +110,6 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
                 : hasUnfinishedTurn(lookup, row.id)
                   ? "running"
                   : "idle",
-            writing: liveTurns.writing(row.id),
-            steering: ctx.inbox
-              .pendingSteering(row.id as Id<"ses">)
-              .flatMap((input) =>
-                input.message === null ? [] : [input.message],
-              ),
-            elapsed: liveTurns.elapsed(row.id),
             turn_requests,
             questions,
           } satisfies SessionSnapshot);

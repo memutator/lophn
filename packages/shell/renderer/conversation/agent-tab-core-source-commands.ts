@@ -1,23 +1,16 @@
 // composer의 `/` 명령(목록과 실행)과 대화의 쓰기: 보내기, 입력함의 메시지, 멈춤, 다시 하기, 질문 답, 허락 결정.
+// 대화의 쓰기는 모두 core의 `AcpSend` 하나로 보낸다(session 관리인 fork, rewind, model 바꾸기, compact는 제 route다).
 // 명령 목록은 그 session의 agent 기준 registry를 core에서 읽어 protocol의 거르기 규칙에 먹인 것이다(표를 여기에 다시
 // 적지 않는다). 일하는 중 고른 명령도 모두 다음 turn에 들어가므로 끝나기를 기다리지 않는다.
 import { t } from "@lophn/i18n";
 
-import { turnRequestDecide } from "../../../protocol/approvals/turn-request.ts";
+import { acpSend } from "../../../protocol/acp/routes.ts";
 import { placeSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import { listCommands } from "../../../protocol/lophn-agent/command-filter.ts";
 import {
   type CommandEntry,
   commandsList,
 } from "../../../protocol/lophn-agent/commands.ts";
-import { askAnswer } from "../../../protocol/lophn-agent/ask-tool.ts";
-import {
-  editQueued,
-  moveQueued,
-  removeQueued,
-  sendMessage,
-  steerQueuedNow,
-} from "../../../protocol/lophn-agent/inputs.ts";
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
 import { blocksOfContent } from "../../../protocol/lophn-agent/message-content.ts";
 import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
@@ -26,7 +19,6 @@ import {
   turnList,
   turnRead,
 } from "../../../protocol/lophn-agent/turn-reads.ts";
-import { stopTurn } from "../../../protocol/lophn-agent/turns.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
 import { newId } from "../prefixed-id.ts";
 import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
@@ -128,16 +120,13 @@ export function sendContent(
   input: SendInput,
 ): Promise<SourceResult<void>> {
   return env
-    .command(sendMessage, {
-      input: {
-        id: input.id,
-        session: input.session,
-        content: [...input.content],
-        delivery: input.delivery,
-        refs: [],
-      },
-      compare: {},
+    .read(acpSend, {
+      type: "send",
+      session: input.session,
+      id: input.id,
       key: input.key,
+      content: [...input.content],
+      delivery: input.delivery,
     })
     .then(dropValue);
 }
@@ -158,7 +147,11 @@ export async function sendQueuedNow(
   const session = await sessionOfMessage(env, queued);
   if (!session.ok) return session;
   return dropValue(
-    await env.read(steerQueuedNow, { session: session.value, message: queued }),
+    await env.read(acpSend, {
+      type: "send_queued",
+      session: session.value,
+      message: queued,
+    }),
   );
 }
 
@@ -169,7 +162,11 @@ export async function removeQueuedMessage(
   const session = await sessionOfMessage(env, queued);
   if (!session.ok) return session;
   return dropValue(
-    await env.read(removeQueued, { session: session.value, message: queued }),
+    await env.read(acpSend, {
+      type: "remove_queued",
+      session: session.value,
+      message: queued,
+    }),
   );
 }
 
@@ -190,7 +187,8 @@ export async function editQueuedMessage(
     (block) => block.type !== "text",
   );
   return dropValue(
-    await env.read(editQueued, {
+    await env.read(acpSend, {
+      type: "edit_queued",
       session: session.value,
       message: queued,
       content: [{ type: "text", text }, ...kept],
@@ -207,11 +205,23 @@ export async function moveQueuedMessage(
   const session = await sessionOfMessage(env, queued);
   if (!session.ok) return session;
   return dropValue(
-    await env.read(moveQueued, {
+    await env.read(acpSend, {
+      type: "move_queued",
       session: session.value,
       message: queued,
       direction,
     }),
+  );
+}
+
+async function stopTurnIn(
+  env: Env,
+  session: string,
+  turn: string,
+  key: string,
+): Promise<SourceResult<void>> {
+  return dropValue(
+    await env.read(acpSend, { type: "stop", session, turn, key }),
   );
 }
 
@@ -222,13 +232,7 @@ export async function stopTurnOf(
 ): Promise<SourceResult<void>> {
   const read = await env.read(turnRead, { turn });
   if (!read.ok) return read;
-  return dropValue(
-    await env.command(stopTurn, {
-      input: { turn, request_key: key, reason: "user_stopped" },
-      compare: { state_seq: read.value.turn.state_seq },
-      key,
-    }),
-  );
+  return await stopTurnIn(env, read.value.turn.session, turn, key);
 }
 
 export async function stopSessionOf(
@@ -238,44 +242,29 @@ export async function stopSessionOf(
   const listed = await env.read(turnList, { session, state: "running" });
   if (!listed.ok) return listed;
   for (const turn of listed.value.turns) {
-    const stopped = await stopTurnOf(env, turn.id, newId("stop", env.now()));
+    const stopped = await stopTurnIn(
+      env,
+      session,
+      turn.id,
+      newId("stop", env.now()),
+    );
     if (!stopped.ok) return stopped;
   }
   return { ok: true, value: undefined };
 }
 
-/**
- * 실패한 turn을 시작한 입력 메시지를 같은 session에 다시 보낸다(새 route는 없다). 새 메시지 id를 쓰고, 결과를 몰라
- * 다시 눌러도 같은 id와 key로 보내 core가 한 번만 접수한다.
- */
+/** 실패한 turn을 시작한 입력 메시지를 같은 session에 다시 보낸다. 새 메시지 id와 key는 core가 정한다. */
 export async function retryTurn(
   env: Env,
-  retryIds: Map<string, string>,
   turn: string,
 ): Promise<SourceResult<void>> {
   const read = await env.read(turnRead, { turn });
   if (!read.ok) return read;
-  const original = read.value.turn.input_message;
-  const body = await env.read(messageBody, { message: original });
-  if (!body.ok) return body;
-  const parts = blocksOfContent(body.value.content);
-  if (parts.length === 0) return { ok: false, code: "invalid_input" };
-  let id = retryIds.get(turn);
-  if (id === undefined) {
-    id = newId("msg", env.now());
-    retryIds.set(turn, id);
-  }
   return dropValue(
-    await env.command(sendMessage, {
-      input: {
-        id,
-        session: body.value.session,
-        content: parts,
-        delivery: "next_turn",
-        refs: [],
-      },
-      compare: {},
-      key: `retry-turn-${turn}`,
+    await env.read(acpSend, {
+      type: "retry",
+      session: read.value.turn.session,
+      turn,
     }),
   );
 }
@@ -291,7 +280,8 @@ export async function answerQuestions(
   },
 ): Promise<SourceResult<void>> {
   return dropValue(
-    await env.read(askAnswer, {
+    await env.read(acpSend, {
+      type: "answer",
       session: input.session,
       tool_call: input.toolCall,
       answers: input.answers.map((one) => ({
@@ -303,7 +293,7 @@ export async function answerQuestions(
   );
 }
 
-/** waiting 목록의 결정과 같은 memory route다. 허락한 범위(once·always)나 거절을 보낸다. */
+/** 허락한 범위(once·always)나 거절을 보낸다. */
 export async function decidePermission(
   env: Env,
   session: string,
@@ -312,7 +302,8 @@ export async function decidePermission(
   reason?: string,
 ): Promise<SourceResult<void>> {
   return dropValue(
-    await env.read(turnRequestDecide, {
+    await env.read(acpSend, {
+      type: "decide",
       session,
       request,
       choice: turnChoiceOf(choice, reason),

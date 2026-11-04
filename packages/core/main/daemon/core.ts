@@ -344,10 +344,11 @@ async function open(
       runtime.writer,
     ),
   );
-  const memory = new Map([
-    ...runtime.memory.handlers,
-    ...merged((built) => built.memory),
-  ]);
+  // 같은 Map에 모은다. AcpSend가 부를 때 읽는 ctx.runtime.memory.handlers가 완성된 목록이다.
+  const memory = runtime.memory.handlers;
+  for (const [route, handler] of merged((built) => built.memory)) {
+    memory.set(route, handler);
+  }
   // memory route는 등록(팀 registration)과 handler(wiring)가 따로 붙는다. 한쪽만 있으면 그 route가 늘
   // not_found나 unavailable로 끝나는데 check와 기동은 통과했다. 그렇게 여러 번 빠졌다.
   const unmatched = memoryRouteMismatch(allRoutes, memory);

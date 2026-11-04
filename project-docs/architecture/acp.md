@@ -1,6 +1,6 @@
 # acp
 
-ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면이 이 규격만 보고 그리고, 뒤에 앱 화면과 third-party CLI GUI가 같은 규격을 쓴다. 정의는 `packages/protocol/acp/`(항목, 상태, 갱신, `reduceAcp`, route)와 `packages/protocol/events/acp-project.ts`(`acpUpdatesOf`)다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 events에 둔다. core가 만든다: route `AcpSnapshot {session}`(→ `AcpState`)과 transient event `AcpUpdated`(payload `{session, update}`, subject는 null이라 화면은 type으로 건 구독에서 session을 고른다). 읽는 화면은 뒤 wave에서 옮기고, 그동안 옛 길(`ThreadView`, `foldEvent`)과 나란히 있다.
+ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면이 이 규격만 보고 그리고, 뒤에 앱 화면과 third-party CLI GUI가 같은 규격을 쓴다. 정의는 `packages/protocol/acp/`(항목, 상태, 갱신, `reduceAcp`, route)와 `packages/protocol/events/acp-project.ts`(`acpUpdatesOf`)다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 events에 둔다. core가 만든다: route `AcpSnapshot {session}`(→ `AcpState`)과 transient event `AcpUpdated`(payload `{session, update}`, subject는 null이라 화면은 type으로 건 구독에서 session을 고른다). 화면의 조작은 route `AcpSend {AcpInput}` 하나로 받는다. lophn 채팅 화면은 ACP만 읽고 보낸다(옛 `ThreadView`, `foldEvent`는 지웠다).
 
 ## 모양
 
@@ -27,7 +27,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 - `AcpState`의 나머지: `turn`(가장 늦게 시작한 turn: phase, started_at, elapsed), `queued`(도는 중에 다음 turn으로 보낸 사람 메시지. 순번이 없다), `pending`(composer 위에 놓이는 승인 카드와 질문 묶음. 둘 다 있으면 turn은 waiting), `writing`(저장 전 model 호출 하나의 글), `dropped`(늦은 조각을 거를 기억), `reread`.
 - message의 `content`는 content block이다(`contentBlockSchema`). `message_recorded`는 core가 읽은 저장된 본문(`body`)을 싣고, 그러면 항목은 `complete`이고 snapshot과 같다. 본문을 못 읽었으면(`body` null) `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있고 `complete`가 false라 snapshot을 다시 읽는다. harness가 쓴 tool 줄(`harness_tool` part)은 전용 항목이 생기기 전까지 `[상태] 이름: 요약` 글 block 하나다.
 - `cards`는 content block이 아니라 message의 따로 칸이다. agent message의 `app_card` part를 `{app, view}`로 옮긴다.
-- `AcpInput`은 대화 조작뿐이다: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(`TurnRequestChoice` 그대로), 다음 turn 줄 고치기 넷. session 관리(fork, rewind, model 바꾸기, compact)는 ACP 입력이 아니다.
+- `AcpInput`은 대화 조작뿐이다: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(`TurnRequestChoice` 그대로), 다음 turn 줄 고치기 넷. session 관리(fork, rewind, model 바꾸기, compact)는 ACP 입력이 아니고 제 route로 보낸다. 보내는 길은 아래 "입력"이다.
 
 ## 지키는 것
 
@@ -66,6 +66,28 @@ secret
 redaction
 - 나가는 글(message의 글·reasoning, tool의 칸, 승인 subject·reason, 질문 글, 접힌 구간의 대상)은 모두 core의 지금 redaction을 한 번 더 거친다. 저장된 본문이어도 같다. 알려진 secret을 다 모르는 동안은 빈 글이다. `MessageReceived.body`도 갱신에 싣기 전에 거친다. 흘러나온 글(`ModelOutputStreamed`)은 live-turns가 이미 거친 것이다.
 
+## 입력
+
+`AcpSend {AcpInput}`은 core memory route(actor user)다. 입력 꼴마다 지금 있는 route로 보내고 새 권한이나 새 처리를 더하지 않는다. 코드는 `wiring/acp-send.ts`(분배)와 `wiring/acp.ts`(route 등록)다.
+
+| 입력 | 가는 route | 더 하는 일 |
+|---|---|---|
+| `send` | `SendMessage` (`refs: []`) | `key`가 idempotency key다 |
+| `stop` | `StopTurn` | 부른 사람의 자격으로 `ReadTurn`을 읽어 `state_seq`를 compare에 싣는다. `key`가 `request_key`와 idempotency key다 |
+| `retry` | `SendMessage` | 실패한 turn의 입력 메시지(`ReadTurn`의 `input_message`, `ReadMessageBody`)를 `next_turn`으로 다시 보낸다. 새 메시지 id는 core가 turn마다 한 번 정하고(메모리에 기억) key는 `retry-turn-<turn>`이라 다시 눌러도 한 번만 접수된다 |
+| `answer` | `AnswerAskQuestions` | |
+| `decide` | `DecideTurnRequest` | |
+| `send_queued`, `remove_queued`, `edit_queued`, `move_queued` | `SteerQueuedNow`, `RemoveQueued`, `EditQueued`, `MoveQueued` | |
+
+권한
+- 분배는 부른 사람의 `AuthenticatedContext`로 한다. core 안 machine 자격(`machine:acp`)으로 대신 부르지 않는다. 그러면 `SendMessage`나 `StopTurn` 권한이 없는 호출자도 `AcpSend`로는 할 수 있게 되어 새 권한 경계가 생긴다. command는 `ctx.writer`(접힌 writer)에, read는 `runtime.reads`에, memory route는 `ctx.runtime.memory.handlers`(core가 모든 wiring의 memory handler를 모은 같은 Map)에 부른 사람의 자격으로 넘기고, 각 route가 자기 scope와 actor를 본다. `AcpSend` 자체는 scope 검사를 더하지 않는다.
+- 입력 검사는 두 번이다. `AcpSend`의 input schema(`acpInputSchema`)와, 가는 route의 input schema. content block이 사람 메시지로 허용되는 꼴인지(`userContentBlocksSchema`)는 가는 route가 본다.
+- test는 이 경계 하나만 본다: 가는 route의 scope가 없는 호출자는 `AcpSend`로도 `forbidden`이다(`acp-send_test.ts`).
+
+화면
+- 화면(`agent-tab-core-source-commands.ts`)은 대화 조작을 모두 `AcpSend`로 보낸다. 줄 고치기는 메시지 id만 알아서 `ReadReceivedMessage`로 session을 찾아 싣는다. `edit_queued`의 글이 아닌 block(이미지, 링크)을 지키는 것은 보내는 쪽(화면)의 몫이다.
+- 대기 목록(waiting store)은 승인 결정과 질문 답을 제 memory route(`turn_requests/decide`, `ask/answer`)로 그대로 보낸다. 대화 화면이 아닌 곳의 조작이라 `AcpSend`를 거치지 않는다.
+
 ## 옛 `ThreadView`와의 대응
 
 | 옛 | ACP |
@@ -79,6 +101,8 @@ redaction
 | `foldEvent`, `foldDelta`, `turnEndTimes` | `reduceAcp`, `acpUpdatesOf`, `acpTurnTimes` |
 
 ## 왜 이 모양인가
+
+- 입력 입구를 하나로 둔 것: 화면이 route 여러 개와 그 입력 모양을 알면 third-party GUI가 같은 대화를 하려 할 때 그 지식을 다시 짜야 한다. 입구는 ACP 한 곳만 알게 하고, 일은 지금 route가 하게 둬서 권한과 멱등을 새로 만들지 않았다.
 
 - 순번이 항목을 정하는 것으로 한 것: 시각으로 merge하면 같은 시각의 항목과 늦게 온 항목의 자리가 흔들리고, snapshot과 stream이 겹칠 때 중복·누락을 알아볼 방법이 없다. 순번은 빠짐을 곧바로 알려 주고 `reread`로 맞춘다.
 - reducer를 protocol에 둔 것: core(snapshot 확인)와 화면(상태 접기)과 뒤의 third-party GUI가 같은 접기를 써야 같은 상태가 나온다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때의 예외다(module-catalog).

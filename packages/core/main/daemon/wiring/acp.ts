@@ -1,10 +1,13 @@
 // ACP: snapshot route(`AcpSnapshot`)와 갱신 event(`AcpUpdated`). 기록을 읽어 상태를 만드는 일은 `acp-build.ts`이고,
 // 여기서는 Bus의 agent event를 ACP 갱신으로 바꿔 내고(`acpUpdatesOf`), 항목이 대화에 들 때 session 순번을
 // 저장하며(`AllocateAcpItems`), rewind가 끝나면 숨긴 구간을 낸다. event를 하나씩 차례로 처리해 갱신 순서가 event 순서다.
+// 화면의 대화 조작은 `AcpSend` 하나로 받아 지금 route로 보낸다(`acp-send.ts`).
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
+  type AcpInput,
   type AcpUpdate,
   acpItemsAllocate,
+  acpSend,
   acpSnapshot,
 } from "../../../../protocol/acp/mod.ts";
 import { agentCallRead } from "../../../../protocol/lophn-agent/calls.ts";
@@ -42,6 +45,7 @@ import {
   buildAcpState,
   redactDeep,
 } from "./acp-build.ts";
+import { createAcpSend } from "./acp-send.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
 // 항목 순번을 붙이고 기록을 읽는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -300,7 +304,34 @@ export const acpWiring: WiringFactory = () => {
         );
       };
 
+      // 조작은 부른 사람의 자격으로 지금 route에 보낸다. 여기 machine 자격을 쓰지 않는다.
+      const send = createAcpSend({
+        command: (who, envelope) => ctx.writer.command(who, envelope),
+        read: async (who, route, input) => {
+          const handler = ctx.runtime.reads.get(key(route));
+          return handler === undefined
+            ? err({ code: "unavailable", message: "read not served" })
+            : await handler(who, input);
+        },
+        memory: async (who, route, input) => {
+          const handler = ctx.runtime.memory.handlers.get(key(route));
+          return handler === undefined
+            ? err({ code: "unavailable", message: "route unavailable" })
+            : await handler(who, input);
+        },
+        newMessageId: () => ids.newId("msg"),
+      });
+
       return ok({
+        memory: [
+          [
+            key(acpSend),
+            async (who, body) => {
+              const done = await send(who, body as AcpInput);
+              return done.ok ? ok({}) : done;
+            },
+          ],
+        ],
         reads: (reads) =>
           reads.set(key(acpSnapshot), async (_who, input) => {
             const parsed = acpSnapshot.input.safeParse(input);

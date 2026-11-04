@@ -56,7 +56,7 @@ import {
   createBodiesMemo,
   readEnvelope,
   readToolCallBody,
-} from "./agent-tab-core-source-thread.ts";
+} from "./agent-tab-core-source-bodies.ts";
 
 interface AgentCoreDeps {
   /** 지금 시각(ms). */
@@ -81,7 +81,6 @@ function createSource(
   const activeTimes = createActiveTimes();
   const modelPart = createModelPart(env);
   const images = createImageSource(core);
-  const retryIds = new Map<string, string>();
   const rewindIds = createRewindIds();
 
   return {
@@ -115,7 +114,7 @@ function createSource(
     moveQueued: (queued, direction) =>
       moveQueuedMessage(env, queued, direction),
     stop: (turn, key) => stopTurnOf(env, turn, key),
-    retryTurn: (turn) => retryTurn(env, retryIds, turn),
+    retryTurn: (turn) => retryTurn(env, turn),
     answerQuestions: (input) => answerQuestions(env, input),
     decidePermission: (session, request, choice, reason) =>
       decidePermission(env, session, request, choice, reason),

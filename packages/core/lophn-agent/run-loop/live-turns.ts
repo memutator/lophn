@@ -1,7 +1,6 @@
 import { type Clock, formatAt, type IdSource } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AgentEvent, BusEvent } from "../../../protocol/events/mod.ts";
-import type { SessionSnapshot } from "../../../protocol/events/snapshot.ts";
 import {
   checkpointTurn,
   interruptTurns,
@@ -17,7 +16,7 @@ import { redactSettled } from "./runtime-redaction.ts";
 
 // 쓰는 중인 model 글의 두 자리다. child는 attempt 하나에서 받은 날 delta를 짧게 묶어 감독 pipe로 보내고
 // (`createLiveOutput`), core는 그 날 글을 session마다 쌓아 redaction해 `ModelOutputStreamed`로 내고
-// snapshot의 `writing`을 든다(`createLiveTurns`). redaction은 core만 한다: child가 붙잡을 자리를 물을 수
+// ACP snapshot의 `writing`을 든다(`createLiveTurns`). redaction은 core만 한다: child가 붙잡을 자리를 물을 수
 // 있으면 글을 골라 secret 값을 알아낼 수 있다. Retry로 바뀐 attempt의 글은 버리고, 멈춘 답은 core의 writer
 // 앞 처리기가 사람이 본 데까지 저장한다(`withLiveTurns`).
 //
@@ -88,7 +87,12 @@ export function createLiveOutput(deps: {
   };
 }
 
-export type Writing = NonNullable<SessionSnapshot["writing"]>;
+export type Writing = {
+  turn: string;
+  model_call: string;
+  text: string;
+  reasoning: string;
+};
 
 type Attempt = {
   turn: string;

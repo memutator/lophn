@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { defineCommand, defineRead } from "../base/route.ts";
+import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
+import { acpInputSchema } from "./input.ts";
 import { acpStateSchema, acpUpdateSchema } from "./state.ts";
 
 // core가 내놓는 ACP의 길이다. snapshot read와 갱신 event(`AcpUpdated`, events/transient.ts)가 짝이다.
@@ -47,4 +48,23 @@ export const acpItemsAllocate = defineCommand({
   }),
   actors: ["machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
+});
+
+// 화면이 대화를 조작하는 입구 하나. 입력 꼴마다 지금 있는 route(SendMessage, StopTurn, AnswerAskQuestions,
+// DecideTurnRequest, 줄 고치기 넷)로 보내고, 권한은 부른 사람의 자격으로 그 route가 본다.
+export const acpSend = defineMemory({
+  resource: "acp",
+  method: "send",
+  name: "AcpSend",
+  input: acpInputSchema,
+  output: z.strictObject({}),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
 });

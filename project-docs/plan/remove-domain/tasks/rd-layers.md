@@ -49,3 +49,5 @@ agent가 domain을 보는 층을 지운다: `DOMAIN.md` 지침 층, domain skill
 - `rd-kinds`가 place 지침과 `make-domain`·`write-artifact` SKILL.md에서 kind 글을 이미 뺐다.
 - `packages/core/agent-places/prompts/prompts.ts`의 "A domain's `DOMAIN.md`, kinds file and skills…" 줄이 남아 있다. kind 글과 domain 글을 같이 지운다.
 - `rd-commands`가 앱 command 표기를 `lophn <app> <command>`로, `app.usage`를 invocation만 세는 `{tool, place}`로 바꿨다(`grant` 출처 없음). place 정보 "Used by"는 이 값을 쓴다.
+- rewind: `rd-artifacts`는 `rewind_files`에서 domain 폴더의 `artifacts/` 행만 새 자리로 옮겼다. 같은 domain 폴더의 `skills/`, `DOMAIN.md`, `kinds.yaml` 행은 이 task의 data step이 file을 옮기면서 같은 자리(그릇 `skills/`, `old-domains/<domain 이름>/`)로 옮긴다(rewind trigger를 내렸다 다시 만든다, rd-artifacts의 `artifact-move.ts` 꼴). 옛 checkpoint를 되돌려 옛 자리나 그릇 root에 쓰면 안 된다. 위험 test에 넣는다.
+- `rd-artifacts`가 그릇 session file 범위에 `artifacts/`를 허용 폴더로 열었다(`place-folders.ts`, `place-folders-glue.ts`의 `artifactsFolder`). `skills/`도 같은 꼴로 연다. `write-artifact`·`make-domain` SKILL.md의 `domains/<dom>/artifacts/` 글을 `<그릇 자리>/artifacts/`로 고친다.

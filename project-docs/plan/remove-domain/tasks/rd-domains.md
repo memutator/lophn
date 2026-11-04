@@ -43,3 +43,5 @@
 
 - `rd-kinds`가 scenario O6와 그 registry 항목, material `tax-kinds`를 이미 지웠다. L4-app·L5만 남았다.
 - `protocol/domains/paths.ts`의 `DOMAIN_KINDS_FILE`·`domainKindsFile`도 같이 지운다.
+- data step은 `WIRINGS` 순서로 돈다. `domains.retire`는 `artifactMoveWiring`(`artifacts.container`)과 `rd-layers`의 옮기기 step 뒤, 맨 끝에 둔다. 이름이 둘 다 차서 못 옮긴 artifact는 `domains/<dom>/artifacts/`에 남으므로 retire가 폴더를 지우지 않는다.
+- wireframes의 artifact sidebar page "one domain"과 "list"가 거의 같아졌다(`rd-artifacts`). 하나를 지운다.

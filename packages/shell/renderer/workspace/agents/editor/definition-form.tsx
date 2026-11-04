@@ -340,7 +340,6 @@ export function DefinitionForm(props: DefinitionFormProps) {
       {bare ? (
         <Group name="tools" heading={t("agents.heading.tools")}>
           <ToolPicks
-            place={detail.place.kind}
             value={definition.tools ?? []}
             onChange={(tools) => set("tools", tools)}
           />

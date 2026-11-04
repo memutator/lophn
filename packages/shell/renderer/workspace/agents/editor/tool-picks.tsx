@@ -1,4 +1,4 @@
-// bare agent가 고르는 tool. 그 place 종류의 내장 tool은 체크로 고르고, lophn 명령(`call.reply`), 앱 command(`<slug>.<command>`),
+// bare agent가 고르는 tool. 내장 tool은 체크로 고르고, lophn 명령(`call.reply`), 앱 command(`<slug>.<command>`),
 // MCP tool(`mcp__<server>__<tool>`)은 이름을 적어 더한다. 고른 이름 그대로 정의의 `tools`가 된다.
 // 상한 안인지(place 종류 목록, 할당한 앱, 설정한 MCP)는 turn 조립이 본다.
 import { useState } from "react";
@@ -6,40 +6,24 @@ import { Checkbox, Input } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
-import type { PlaceView } from "../source.ts";
+import { PLACE_KINDS } from "../../../../../protocol/lophn-agent/places.ts";
+import { placeToolNames } from "../../../../../protocol/lophn-agent/tool-lists.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import styles from "./agent-editor.module.css";
 
-// core `agent-places/tool-lists.ts`의 place 종류 목록(`lophn` tool 제외: 명령을 고른다)과 같아야 한다.
-const COMMON = [
-  "file.read",
-  "file.glob",
-  "file.grep",
-  "file.outline",
-  "pdf.read",
-  "image.read",
-  "web.search",
-  "web.fetch",
-  "ask",
-  "skill.read",
-  "visual.show",
-] as const;
-const WORK = ["file.write", "file.edit", "shell.run"] as const;
-
-function builtinTools(place: PlaceView["kind"]): readonly string[] {
-  return place === "none" ? COMMON : [...COMMON, ...WORK];
-}
+// 정의는 전역이고 어느 place에서도 열려서 모든 place 종류의 내장 tool을 보인다. `lophn` tool은 빼고 명령을 이름으로 고른다.
+const BUILTIN: readonly string[] = [
+  ...new Set(PLACE_KINDS.flatMap((kind) => placeToolNames(kind))),
+].filter((name) => name !== "lophn");
 
 interface ToolPicksProps {
-  readonly place: PlaceView["kind"];
   readonly value: readonly string[];
   readonly onChange: (tools: string[]) => void;
 }
 
-export function ToolPicks({ place, value, onChange }: ToolPicksProps) {
+export function ToolPicks({ value, onChange }: ToolPicksProps) {
   const [draft, setDraft] = useState("");
-  const builtin = builtinTools(place);
-  const others = value.filter((name) => !builtin.includes(name));
+  const others = value.filter((name) => !BUILTIN.includes(name));
   const toggle = (name: string, on: boolean) =>
     onChange(on ? [...value, name] : value.filter((one) => one !== name));
   const add = () => {
@@ -49,7 +33,7 @@ export function ToolPicks({ place, value, onChange }: ToolPicksProps) {
   };
   return (
     <>
-      {builtin.map((name) => (
+      {BUILTIN.map((name) => (
         <Checkbox
           key={name}
           size="sm"

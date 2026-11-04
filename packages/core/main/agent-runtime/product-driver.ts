@@ -37,7 +37,7 @@ import {
 import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
 import { placePrompt } from "../../agent-places/prompts/prompts.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
-import { placeToolNames } from "../../agent-places/tool-lists.ts";
+import { placeToolNames } from "../../../protocol/lophn-agent/tool-lists.ts";
 import {
   createMcpToolkit,
   type McpKit,

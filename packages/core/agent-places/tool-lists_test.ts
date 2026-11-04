@@ -6,7 +6,7 @@ import {
   toWireToolName,
   WIRE_TOOL_NAME_PATTERN,
 } from "../../protocol/lophn-agent/mod.ts";
-import { placeToolNames } from "./tool-lists.ts";
+import { placeToolNames } from "../../protocol/lophn-agent/tool-lists.ts";
 
 // 이름이 겹치면 tool 실행이 다른 tool로 간다.
 test("place kind tool wire names fit the provider rule and never collide", () => {

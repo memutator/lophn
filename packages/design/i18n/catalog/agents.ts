@@ -162,7 +162,7 @@ export const agents = {
   "agents.notice.runtime-help":
     "lophn adds the lophn rules, skills and built-in tools. Bare sends only the instructions above and the tools you pick, and has no skills.",
   "agents.notice.tools-help":
-    "Only tools this place and this agent's apps and MCP servers allow are used.",
+    "A session only gets a picked tool its place kind (home, project, app), the agent's apps and its MCP servers allow.",
   "agents.notice.skip-help":
     "A session started this way runs shell commands without asking. Deny rules still block them.",
   "agents.notice.skills-agent-only":

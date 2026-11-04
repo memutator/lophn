@@ -22,7 +22,7 @@ import {
   selectTools,
   type ToolDefinition,
 } from "../lophn-agent/tools/mod.ts";
-import { placeToolNames } from "./tool-lists.ts";
+import { placeToolNames } from "../../protocol/lophn-agent/tool-lists.ts";
 
 // prompt의 place 정보(project·앱·부를 수 있는 agent)를 읽는 route의 operation이다. turn의 agent
 // 자격으로 읽으므로 모든 place 종류의 상한에 읽기로만 더한다. 어느 대상을 보는지는 core가 credential의 scope로 정한다.

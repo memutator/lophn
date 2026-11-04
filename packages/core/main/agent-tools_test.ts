@@ -4,7 +4,7 @@ import { ok } from "../../base/mod.ts";
 import { jobCreate } from "../../protocol/jobs/mod.ts";
 import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
 import { runStart } from "../../protocol/runs/mod.ts";
-import { placeToolNames } from "../agent-places/tool-lists.ts";
+import { placeToolNames } from "../../protocol/lophn-agent/tool-lists.ts";
 import { appConnectSource } from "../../protocol/apps/apps.ts";
 import { packagePublish } from "../../protocol/apps/package-routes.ts";
 import { previewsStart } from "../../protocol/apps/previews.ts";

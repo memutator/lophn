@@ -65,7 +65,7 @@
 | 1 | domain과 kind 지우기 | 없음 | 끝남(계획 remove-domain) |
 | 2 | content block: call 본문과 답, 사람 메시지가 block으로 | 없음 | 끝남(계획 content-block) |
 | 3 | bare runtime: 정의 본문과 고른 tool만 | 1, 2 | 끝남(계획 bare-runtime). 남은 것(bare가 skill도 더하기)은 계획 agent-card의 `bare-skills` |
-| 4 | ACP 규격과 채팅 화면: protocol에 ACP를 정하고 lophn agent가 내놓는 것과 채팅 화면이 그리는 것을 ACP로 | 2 | 계획을 열지 않음 |
+| 4 | ACP 규격과 채팅 화면: protocol에 ACP를 정하고 lophn agent가 내놓는 것과 채팅 화면이 그리는 것을 ACP로 | 2 | 계획 acp |
 | 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 4 뒤에 연다(옛 계획 agent-screen은 agent가 client인 꼴이라 지웠다) |
 | 6 | 별도 설치 구조: 본체와 따로 설치하고 켜는 기능 묶음 | 없음 | 계획 extension |
 | 7 | harness agent(A2A): Claude Code, Codex, OpenCode를 정의의 runtime으로 두고 call, run, step 입력을 CLI 명령(headless)으로 실행한다. TUI 열기, workflow 참가자 | 3 | 계획 harness-agent |
@@ -92,5 +92,5 @@
 - 단계 9와 3의 남은 것: `project-docs/plan/agent-card/`(lead가 돌고 있다. card-read land 전, card-check 중).
 - 단계 7: `project-docs/plan/harness-agent/`.
 - 단계 6: `project-docs/plan/extension/`.
-- 단계 4: 계획을 연다(조사 중).
+- 단계 4: `project-docs/plan/acp/`.
 - 단계 5, 8: 4·6 뒤.

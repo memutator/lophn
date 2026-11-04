@@ -20,6 +20,7 @@ import {
   MESSAGE_COLUMNS,
   messageRowOf,
   nextMessageSeq,
+  calledFromOf,
   placeOf,
   type SessionRow,
 } from "./model.ts";
@@ -106,6 +107,7 @@ export function createForkCommand(
         id: input.id,
         agent: source.agent,
         place: placeOf(source),
+        calledFrom: calledFromOf(source),
         inherit: {
           title: source.title,
           model_selection: source.model_selection,

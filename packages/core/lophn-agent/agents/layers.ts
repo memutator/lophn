@@ -104,6 +104,7 @@ export async function resolveTurnAgent(
   const resolved = await resolveAgent({
     agent,
     place,
+    called_from: session.called_from,
     definition,
     global_model: globalModel,
     project_model: projectModel,

@@ -179,6 +179,20 @@ begin
   select raise(abort, 'session harness is immutable');
 end;`,
   },
+  {
+    // 다른 place의 session이 불러 열린 session은 부른 place를 남긴다(home 세션의 읽기 범위를 좁히는 근거).
+    id: "lophn-agent.sessions.called-from",
+    sql: `
+alter table sessions add column called_from_kind text
+  check (called_from_kind is null or called_from_kind in ('project', 'app'));
+alter table sessions add column called_from_id text
+  check ((called_from_kind is null) = (called_from_id is null));
+create trigger sessions_called_from_immutable
+before update of called_from_kind, called_from_id on sessions
+begin
+  select raise(abort, 'session call origin is immutable');
+end;`,
+  },
 ];
 
 type Lookup = {
@@ -207,6 +221,9 @@ export type AgentSessionRow = {
   // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
   harness: HarnessRuntime | null;
   harness_session: string | null;
+  // 다른 place의 session이 불러 열렸으면 그 place. 열 때 정해 바뀌지 않는다.
+  called_from_kind: "project" | "app" | null;
+  called_from_id: string | null;
   created_seq: string;
   state_seq: string;
 };
@@ -216,7 +233,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, place_kind,
   place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, harness, harness_session, created_seq, state_seq`;
+  compaction_summary_call, skip, harness, harness_session, called_from_kind, called_from_id, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -236,6 +253,10 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     skip: Number(row["skip"]) === 1,
     harness: text(row["harness"]) as HarnessRuntime | null,
     harness_session: text(row["harness_session"]),
+    called_from_kind: text(
+      row["called_from_kind"],
+    ) as AgentSessionRow["called_from_kind"],
+    called_from_id: text(row["called_from_id"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };
@@ -268,6 +289,12 @@ export function placeOf(row: AgentSessionRow): Place | null {
   return row.place_kind === null || row.place_id === null
     ? null
     : ({ kind: row.place_kind, id: row.place_id } as Place);
+}
+
+export function calledFromOf(row: AgentSessionRow): Place | null {
+  return row.called_from_kind === null || row.called_from_id === null
+    ? null
+    : ({ kind: row.called_from_kind, id: row.called_from_id } as Place);
 }
 
 // 같은 agent와 place의 session인지 가르는 조건.
@@ -316,6 +343,7 @@ export function placeSessionOf(row: AgentSessionRow): PlaceSession {
             summary_call: row.compaction_summary_call,
           },
     skip: row.skip,
+    called_from: calledFromOf(row),
     state_seq: row.state_seq,
   } as PlaceSession;
 }

@@ -13,6 +13,7 @@ import { DefaultModelField } from "../../../workspace/agents/editor/model-field.
 import { modelLabelOf } from "../../../workspace/agents/model-picker-data.ts";
 import type { ModelsView } from "../../../workspace/agents/source.ts";
 import styles from "./agents.module.css";
+import { CallPolicySection } from "./call-policy-section.tsx";
 import type {
   AgentsSettingsSource,
   AgentsSettingsView,
@@ -254,6 +255,8 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
               {t("agents.notice.settings-tools-elsewhere")}
             </p>
           </section>
+
+          <CallPolicySection source={source.callPolicy} />
         </div>
       )}
     </Loading>

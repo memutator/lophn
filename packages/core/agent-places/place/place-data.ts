@@ -324,6 +324,7 @@ async function readPlaceData(
     appFolders,
     dataFolder: place === null ? null : files.dataFolder(place),
     allProjectFolders,
+    calledFromPlace: agent.called_from !== null,
     workflowsFolder,
     skillsFolder,
     artifactsFolder: artifacts?.folder ?? null,

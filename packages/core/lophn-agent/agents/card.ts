@@ -1,5 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type CallPolicy,
+  mayCall,
+} from "../../../protocol/lophn-agent/call-policy.ts";
+import {
+  type AgentAtPlace,
   type AgentCard,
   agentNameKey,
   MODALITIES,
@@ -23,8 +28,16 @@ export function repliesOf(
     : ["none", "result"];
 }
 
+// 부르는 agent session의 자리와 call 정책. 명함의 callable을 정한다.
+export type CardCaller = { from: AgentAtPlace; policy: CallPolicy };
+
 // 명함의 차이는 place와 상관없다(place = null). prompt 원문은 싣지 않는다.
-function cardOf(context: AgentContext, loaded: Loaded): AgentCard {
+// callable은 부르는 session의 place에서 이 agent로 보낼 수 있는지다.
+function cardOf(
+  context: AgentContext,
+  loaded: Loaded,
+  caller: CardCaller | null,
+): AgentCard {
   const definition = loaded.definition;
   const runtime = definition?.runtime ?? "lophn";
   const input = definition?.modality?.input ?? [...MODALITIES];
@@ -73,6 +86,14 @@ function cardOf(context: AgentContext, loaded: Loaded): AgentCard {
     replies: repliesOf({ runtime, tools: definition?.tools }),
     diff,
     notes,
+    ...(caller === null
+      ? {}
+      : {
+          callable: mayCall(caller.policy, caller.from, {
+            agent: loaded.agent,
+            place: caller.from.place,
+          }),
+        }),
   };
 }
 
@@ -80,6 +101,7 @@ function cardOf(context: AgentContext, loaded: Loaded): AgentCard {
 export function cardByName(
   context: AgentContext,
   name: string,
+  caller: CardCaller | null,
 ): Result<AgentCard> {
   const listed = listAgents(context);
   if (!listed.ok) return listed;
@@ -93,5 +115,5 @@ export function cardByName(
   if (loaded.issues.length > 0) {
     return err({ code: "invalid_input", message: "the agent file is broken" });
   }
-  return ok(cardOf(context, loaded));
+  return ok(cardOf(context, loaded, caller));
 }

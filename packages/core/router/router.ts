@@ -11,6 +11,10 @@ import type {
   CallTarget,
 } from "../../protocol/lophn-agent/calls.ts";
 import type { Modality } from "../../protocol/lophn-agent/agent-values.ts";
+import {
+  type CallPolicy,
+  mayCall,
+} from "../../protocol/lophn-agent/call-policy.ts";
 import type {
   AgentAddress,
   AgentAtPlace,
@@ -39,6 +43,8 @@ export type RouterDeps = {
   directory: SessionDirectory;
   transport: InputTransport;
   store: CallStore;
+  // 지금 call 정책. 설정이 바뀌면 다음 call부터 닿는다.
+  callPolicy(): CallPolicy;
 };
 
 // 받는 session의 transport에 따라 입력함을 고른다. 받을 곳이 없는 취소는 lophn 쪽이 조용히 넘긴다.
@@ -98,7 +104,7 @@ const MODALITY_OF = {
 } as const satisfies Record<ContentBlock["type"], Modality>;
 
 export function createRouter(deps: RouterDeps): Router {
-  const { directory, transport, store } = deps;
+  const { directory, transport, store, callPolicy } = deps;
 
   function open(
     tx: Tx,
@@ -286,6 +292,23 @@ export function createRouter(deps: RouterDeps): Router {
     return null;
   }
 
+  // agent가 보낸 call만 place 정책과 agent 정책으로 거른다. refusal과 같이 err로 돌려 tx가 되돌아간다.
+  function policyRefusal(
+    sender: string,
+    to: AgentAtPlace,
+  ): Result<RouteResult> | null {
+    const from = directory.find(sesId(sender));
+    if (from === null) {
+      return err({ code: "not_found", message: "sender session not found" });
+    }
+    return mayCall(callPolicy(), from.agent, to)
+      ? null
+      : err({
+          code: "forbidden",
+          message: "the call policy does not allow this call",
+        });
+  }
+
   function route(tx: Tx, input: RouteInput): Result<RouteResult> {
     const from = input.from;
     if (from.kind === "agent" && input.dedup !== null) {
@@ -311,7 +334,9 @@ export function createRouter(deps: RouterDeps): Router {
     }
     const { to, target } = resolved.value;
     if (from.kind === "agent") {
-      const refused = refusal(target.agent.agent, input);
+      const refused =
+        policyRefusal(from.session, target.agent) ??
+        refusal(target.agent.agent, input);
       if (refused !== null) return refused;
     }
     const call = from.kind === "agent" ? tx.newId("cal") : null;

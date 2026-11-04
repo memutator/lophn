@@ -34,6 +34,7 @@ function world() {
   installRouterEnvironment({
     unattendedTurn: (_view, turn) => MODES[turn] === "unattended",
     deps: () => ({
+      callPolicy: () => ({ places: [], agents: [] }),
       directory: {
         find: (session) => target(session),
         resolveAddress: () => ok({ agent: "lophn", place: null }),

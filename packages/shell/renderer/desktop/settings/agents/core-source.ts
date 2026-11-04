@@ -8,6 +8,12 @@
 //   Agents 화면이 그 자리에서 고친다.
 // - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
 // - 전역 skill 목록: skills/read(project·app 없이 읽으면 내장과 전역 층). 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
+import { t } from "@lophn/i18n";
+import {
+  CALL_POLICY_SETTING_KEY,
+  type CallPlace,
+  callPolicySchema,
+} from "../../../../../protocol/lophn-agent/call-policy.ts";
 import { modelDefaultChange } from "../../../../../protocol/lophn-agent/models.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import {
@@ -24,7 +30,11 @@ import { createLink } from "../../../workspace/agents/core-link.ts";
 import type { InstructionsApi } from "../../../../ipc/instructions.ts";
 import type { FilesApi } from "../../../../ipc/files.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { windowFolderPicker } from "../../places/projects/core-source.ts";
+import {
+  readProjects,
+  windowFolderPicker,
+} from "../../places/projects/core-source.ts";
+import { chooseSetting, readEffective } from "../declared.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
@@ -47,6 +57,8 @@ import {
 } from "../extension-settings.ts";
 import type {
   AgentsSettingsSource,
+  CallPolicySource,
+  CallRule,
   LophnSummary,
   McpRow,
   SourceResult,
@@ -90,6 +102,88 @@ function statusOf(
   return secret !== null && states?.get(secret) === "missing"
     ? "needs-sign-in"
     : "connected";
+}
+
+// 정책의 place는 목록의 option 값(`home`, `project:<id>`, `app:<id>`)으로 바꿔 화면에 건넨다.
+const placeKey = (place: CallPlace): string =>
+  place.kind === "home" ? "home" : `${place.kind}:${place.id}`;
+const placeOfKey = (key: string): CallPlace =>
+  key === "home"
+    ? { kind: "home" }
+    : ({
+        kind: key.slice(0, key.indexOf(":")),
+        id: key.slice(key.indexOf(":") + 1),
+      } as CallPlace);
+
+function callPolicySource(core: CoreSource): CallPolicySource {
+  return {
+    async read() {
+      const value = await readEffective(core, [CALL_POLICY_SETTING_KEY]);
+      if (!value.ok) return value;
+      const policy = callPolicySchema.safeParse(
+        value.value.get(CALL_POLICY_SETTING_KEY),
+      );
+      if (!policy.success) return { ok: false, code: "internal" };
+      const projects = await readProjects(core, "active");
+      if (!projects.ok) return projects;
+      const apps = await call<{ apps: { id: string; name: string }[] }>(
+        core,
+        "read",
+        "apps",
+        "list",
+        { status: "active" },
+      );
+      if (!apps.ok) return apps;
+      const agents = await call<{ agents: { agent: string; name: string }[] }>(
+        core,
+        "read",
+        "agents",
+        "list",
+        {},
+      );
+      if (!agents.ok) return agents;
+      return {
+        ok: true,
+        value: {
+          places: {
+            options: [
+              { value: "home", label: t("settings.label.call-home") },
+              ...projects.value.map((one) => ({
+                value: `project:${one.id}`,
+                label: one.title,
+              })),
+              ...apps.value.apps.map((one) => ({
+                value: `app:${one.id}`,
+                label: one.name,
+              })),
+            ],
+            rules: policy.data.places.map((rule) => ({
+              from: placeKey(rule.from),
+              to: placeKey(rule.to),
+              allow: rule.allow,
+            })),
+          },
+          agents: {
+            options: agents.value.agents.map((one) => ({
+              value: one.agent,
+              label: one.name,
+            })),
+            rules: policy.data.agents,
+          },
+        },
+      };
+    },
+
+    write: (next) =>
+      chooseSetting(core, CALL_POLICY_SETTING_KEY, {
+        places: next.places.map((rule: CallRule) => ({
+          from: placeOfKey(rule.from),
+          to: placeOfKey(rule.to),
+          allow: rule.allow,
+        })),
+        agents: next.agents,
+      }),
+  };
 }
 
 interface AgentsDeps {
@@ -140,6 +234,7 @@ export function coreAgentsSettingsSource(
 
   return {
     editor,
+    callPolicy: callPolicySource(core),
 
     async read() {
       // core reader는 한 사람의 동시 읽기 수를 제한하므로 하나씩 읽는다.

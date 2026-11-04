@@ -56,6 +56,7 @@ test("a stopped instance is not handed: report with next records the line only a
         listOpen: () => [],
       },
       store: {} as never,
+      callPolicy: () => ({ places: [], agents: [] }),
       transport: {
         deliver: (_tx, _to, input) => {
           delivered.push(input);

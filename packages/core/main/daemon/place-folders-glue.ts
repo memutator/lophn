@@ -43,6 +43,8 @@ export function placeFoldersOf(
         ? null
         : placeDataFolder(dataRoot, { kind: place.kind, id } as never),
     allProjectFolders: [],
+    // 쓰기 폴더만 쓰므로 읽기 범위를 좁히는 값은 보지 않는다.
+    calledFromPlace: false,
     workflowsFolder:
       place?.kind === "project" ? workflowsFolder(dataRoot, place.id) : null,
     skillsFolder:

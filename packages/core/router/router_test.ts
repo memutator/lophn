@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import type { AgentCallRow } from "../../protocol/lophn-agent/calls.ts";
+import {
+  type CallPolicy,
+  DEFAULT_CALL_POLICY,
+} from "../../protocol/lophn-agent/call-policy.ts";
+import type { AgentAtPlace } from "../../protocol/lophn-agent/places.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createRouter } from "./router.ts";
 import type {
@@ -18,11 +23,15 @@ const SENDER = "ses_sender";
 const RECEIVER = "ses_receiver";
 const lophn = { agent: "lophn", place: null } as const;
 
-function target(session: string, accepting: boolean): TargetSession {
+function target(
+  session: string,
+  accepting: boolean,
+  agent: AgentAtPlace = lophn,
+): TargetSession {
   return {
     session: session as TargetSession["session"],
     transport: "lophn",
-    agent: lophn,
+    agent,
     accepting,
   };
 }
@@ -30,6 +39,7 @@ function target(session: string, accepting: boolean): TargetSession {
 function setup(
   sessions: Record<string, TargetSession>,
   accepts: SessionDirectory["accepts"] = () => null,
+  policy: CallPolicy = DEFAULT_CALL_POLICY,
 ) {
   let counter = 0;
   const tx = {
@@ -68,7 +78,7 @@ function setup(
   };
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
-    resolveAddress: () => ok(lophn),
+    resolveAddress: () => ok(sessions[RECEIVER]?.agent ?? lophn),
     open: () => {
       opened += 1;
       return ok(sessions[RECEIVER]!);
@@ -79,6 +89,7 @@ function setup(
   const router = createRouter({
     directory,
     store,
+    callPolicy: () => policy,
     transport: {
       deliver: (_tx, to, input) => {
         delivered.push({ to: to.session, input });
@@ -319,4 +330,38 @@ test("a call the receiving agent cannot take is rejected and leaves no call row,
     dedup: null,
   } as never);
   assert.ok(human.ok);
+});
+
+// 권한 경계다. project A의 agent가 project B로 보내는 call은 기본으로 거절되고 call 행도 session도 남지 않는다.
+// agent 예외가 허용하면 간다. 사람이 보낸 call은 보지 않는다.
+test("a call from project A to project B is forbidden by default and leaves no row or session; an agent exception allows it", () => {
+  const projectA = { kind: "project", id: "prj_a" } as const;
+  const projectB = { kind: "project", id: "prj_b" } as const;
+  const sessions = {
+    [SENDER]: target(SENDER, true, { agent: "lophn", place: projectA }),
+    [RECEIVER]: target(RECEIVER, true, { agent: "lophn", place: projectB }),
+  };
+  const input = { ...base, to: { agent: "lophn" }, dedup: "tool-1" } as const;
+
+  const refused = setup(sessions);
+  const forbidden = refused.router.route(refused.tx, input);
+  assert.ok(!forbidden.ok);
+  assert.deepStrictEqual(forbidden.error.code, "forbidden");
+  assert.deepStrictEqual(refused.rows.size, 0);
+  assert.deepStrictEqual(refused.delivered, []);
+
+  const human = refused.router.route(refused.tx, {
+    ...input,
+    from: { kind: "human" },
+    dedup: null,
+  });
+  assert.ok(human.ok);
+
+  const allowed = setup(sessions, undefined, {
+    places: [],
+    agents: [{ from: "lophn", to: "lophn", allow: true }],
+  });
+  const sent = allowed.router.route(allowed.tx, input);
+  assert.ok(sent.ok);
+  assert.deepStrictEqual(allowed.rows.size, 1);
 });

@@ -17,6 +17,7 @@ const resolve = (definition: AgentFileDefinition) =>
   resolveAgent({
     agent: AGENT,
     place: { kind: "project", id: PROJECT },
+    called_from: null,
     definition,
     global_model: MODEL,
     session_model: null,
@@ -46,6 +47,7 @@ test("bare는 고른 tool 이름을 그대로 picks로 갖고 skill을 받지 �
   const lophn = await resolveAgent({
     agent: LOPHN_AGENT_ID,
     place: null,
+    called_from: null,
     definition: null,
     global_model: MODEL,
     session_model: null,

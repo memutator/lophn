@@ -57,7 +57,7 @@ export function createAgentDirectory(
       },
       cardOf(name) {
         if (!opened.ok) return null;
-        const card = cardByName(opened.value, name);
+        const card = cardByName(opened.value, name, null);
         return card.ok ? card.value : null;
       },
       agents() {

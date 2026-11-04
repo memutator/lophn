@@ -43,7 +43,39 @@ export interface ExtensionsView {
   readonly servers: readonly McpRow[];
 }
 
+/** 정책의 한 줄. from·to는 목록의 option 값이다. */
+export interface CallRule {
+  readonly from: string;
+  readonly to: string;
+  readonly allow: boolean;
+}
+
+/** 고를 수 있는 값(place나 agent)과 그것으로 적힌 줄. */
+export interface CallRuleList {
+  readonly options: readonly {
+    readonly value: string;
+    readonly label: string;
+  }[];
+  readonly rules: readonly CallRule[];
+}
+
+export interface CallPolicyView {
+  readonly places: CallRuleList;
+  readonly agents: CallRuleList;
+}
+
+export interface CallPolicySource {
+  read(): Promise<SourceResult<CallPolicyView>>;
+  /** 정책 전체를 쓴다. 이 화면만 쓰는 값이라 통째로 쓴다. */
+  write(next: {
+    readonly places: readonly CallRule[];
+    readonly agents: readonly CallRule[];
+  }): Promise<SourceResult<null>>;
+}
+
 export interface AgentsSettingsSource {
+  /** agent가 보내는 call의 place 쌍·agent 쌍 정책. */
+  readonly callPolicy: CallPolicySource;
   read(): Promise<SourceResult<AgentsSettingsView>>;
   /** 전역 기본 model을 바꾼다. 새 값은 다음 일부터 적용되고 이미 시작한 일은 바뀌지 않는다. */
   changeDefaultModel(choice: ModelChoice): Promise<SourceResult<null>>;

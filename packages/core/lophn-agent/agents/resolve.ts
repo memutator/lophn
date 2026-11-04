@@ -49,6 +49,8 @@ type ResolveEnvironment = {
 type ResolveInput = {
   agent: AgentId;
   place: Place | null;
+  // 다른 place의 session이 불러 열린 session이면 그 place.
+  called_from: Place | null;
   definition: AgentFileDefinition | null;
   global_model: ModelChoice | null;
   project_model?: ModelChoice | null;
@@ -73,6 +75,7 @@ type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 export type ResolvedAgent = {
   agent: AgentId;
   place: Place | null;
+  called_from: Place | null;
   name: string;
   profile: Profile;
   agent_instructions: string;
@@ -146,6 +149,7 @@ export async function resolveAgent(
   const value: Omit<ResolvedAgent, "hash"> = {
     agent: copy(agent),
     place: copy(place),
+    called_from: copy(input.called_from),
     name: lophn ? LOPHN_AGENT_NAME : (definition as AgentDefinition).name,
     profile: copy(profile),
     agent_instructions: await sha256Hex(body),

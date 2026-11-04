@@ -9,6 +9,7 @@ const base: PlaceFacts = {
   appFolders: ["/shared"],
   dataFolder: "/data/projects/prj_a",
   allProjectFolders: ["/p1", "/p2", "/q"],
+  calledFromPlace: false,
   workflowsFolder: "/data/projects/prj_a/workflows",
   skillsFolder: "/data/projects/prj_a/skills",
   artifactsFolder: "/data/projects/prj_a/artifacts",
@@ -58,4 +59,12 @@ test("place 종류마다 쓰기 폴더는 그 그릇의 폴더뿐이다", () => 
     read: ["/p1", "/p2", "/q"],
     write: [],
   });
+});
+
+// 이 규칙이 풀리면 project A가 부른 home의 전역 agent가 project B의 폴더를 읽는다.
+test("다른 place의 session이 불러 열린 home session은 project 폴더를 읽지 못한다", () => {
+  assert.deepStrictEqual(
+    placeScope({ ...base, place: null, calledFromPlace: true }),
+    { read: [], write: [] },
+  );
 });

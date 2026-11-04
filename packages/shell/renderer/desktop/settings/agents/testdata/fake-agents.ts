@@ -12,6 +12,7 @@ import {
 import type {
   AgentsSettingsSource,
   AgentsSettingsView,
+  CallPolicyView,
   ExtensionsView,
   InstructionsFile,
   McpRow,
@@ -21,6 +22,7 @@ import type {
 } from "../settings-source.ts";
 
 type AgentsCall =
+  | readonly ["call-policy"]
   | readonly ["change-model", ModelChoice]
   | readonly ["instructions", string]
   | readonly ["add-skill"]
@@ -33,6 +35,7 @@ type AgentsCall =
 
 type Failing =
   | "read"
+  | "call-policy"
   | "change-model"
   | "instructions"
   | "extensions"
@@ -67,6 +70,24 @@ const VIEW: AgentsSettingsView = {
   instructions: { text: GLOBAL_LOPHN_MD, hash: "1".padStart(64, "0") },
 };
 
+const CALL_POLICY: CallPolicyView = {
+  places: {
+    options: [
+      { value: "home", label: "Home" },
+      { value: "project:prj_a", label: "Project A" },
+      { value: "project:prj_b", label: "Project B" },
+    ],
+    rules: [],
+  },
+  agents: {
+    options: [
+      { value: "lophn", label: "lophn" },
+      { value: "agt_images", label: "Image Generator" },
+    ],
+    rules: [],
+  },
+};
+
 const EXTENSIONS: ExtensionsView = {
   skills: GLOBAL_SKILLS,
   servers: GLOBAL_MCP,
@@ -85,8 +106,22 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
   const fail = (name: Failing): SourceResult<null> | null =>
     failing[name] === undefined ? null : { ok: false, code: failing[name]! };
 
+  let callPolicy = CALL_POLICY;
   const source: AgentsSettingsSource = {
     editor: createFakeAgentsSource(options.editor),
+    callPolicy: {
+      read: () => Promise.resolve({ ok: true, value: callPolicy }),
+      write(next) {
+        calls.push(["call-policy"]);
+        const failed = fail("call-policy");
+        if (failed) return Promise.resolve(failed);
+        callPolicy = {
+          places: { ...callPolicy.places, rules: next.places },
+          agents: { ...callPolicy.agents, rules: next.agents },
+        };
+        return Promise.resolve(ok());
+      },
+    },
     read() {
       counts.reads += 1;
       return Promise.resolve(

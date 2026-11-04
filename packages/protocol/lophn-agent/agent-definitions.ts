@@ -147,6 +147,8 @@ export const agentCardSchema = z.object({
   replies: z.array(z.enum(AGENT_REPLIES)),
   diff: z.object({ plus: z.array(z.string()), minus: z.array(z.string()) }),
   notes: z.array(z.string()),
+  // 읽는 agent session의 place에서 부를 수 있는가(call 정책). agent session이 읽을 때만 있다.
+  callable: z.boolean().optional(),
 });
 export type AgentCard = z.infer<typeof agentCardSchema>;
 

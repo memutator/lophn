@@ -25,7 +25,9 @@ import {
   openAgentContext,
   profileOf,
 } from "./inspect.ts";
-import { cardByName } from "./card.ts";
+import { callPolicyAt } from "../../config/setting-declarations.ts";
+import { loadSession, placeOf } from "../session/model.ts";
+import { type CardCaller, cardByName } from "./card.ts";
 import type { AgentDeps } from "./ports.ts";
 import { receivedSkills } from "./resolve.ts";
 
@@ -110,12 +112,24 @@ export function createAgentReads(deps: AgentDeps): {
       route: agentCard,
       handle(
         snapshot: ReadSnapshot,
-        _ctx,
+        ctx,
         input: Input<typeof agentCard>,
       ): Result<Output<typeof agentCard>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
-        const card = cardByName(context.value, input.name);
+        // agent session이 읽을 때만 그 session의 place에서 부를 수 있는지 싣는다.
+        const session =
+          ctx.conditions.session === undefined
+            ? undefined
+            : loadSession(snapshot, ctx.conditions.session);
+        const caller: CardCaller | null =
+          session === undefined
+            ? null
+            : {
+                from: { agent: session.agent, place: placeOf(session) },
+                policy: callPolicyAt(context.value.store.root),
+              };
+        const card = cardByName(context.value, input.name, caller);
         if (!card.ok) return card;
         return ok({
           card: card.value,

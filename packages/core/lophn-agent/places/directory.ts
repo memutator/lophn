@@ -48,11 +48,24 @@ export function createSessionDirectory(
       return row === undefined ? null : targetOf(row);
     },
     resolveAddress: deps.names.resolveAddress,
-    open(tx, agent, _opener) {
+    open(tx, agent, opener) {
+      // 다른 place의 session이 불러 열린 session은 부른 place를 남긴다.
+      const sender =
+        opener.kind === "agent"
+          ? loadSession({ sql: tx.sql }, opener.session)
+          : undefined;
+      const from = sender === undefined ? null : placeOf(sender);
       const started = startSession(tx, deps, {
         id: tx.newId("ses"),
         agent: agent.agent,
         place: agent.place,
+        calledFrom:
+          from !== null &&
+          (agent.place === null ||
+            agent.place.kind !== from.kind ||
+            agent.place.id !== from.id)
+            ? from
+            : null,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

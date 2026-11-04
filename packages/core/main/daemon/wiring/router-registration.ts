@@ -1,5 +1,8 @@
 // Router의 writer·reader Worker 쪽 등록 file이다. Worker가 팀 등록 file로 import하면 Router가 쓸 바깥 구현
 // (session 목록, 입력 transport)을 이 file이 끼운다. main thread의 wiring은 router.ts다.
+import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import { callPolicyAt } from "../../../config/setting-declarations.ts";
+import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import {
   createReceivedRecorder,
   createSessionDirectory,
@@ -41,6 +44,11 @@ const environment: RouterEnvironment = {
       directory,
       transport,
       store: createCallStore(),
+      // writer Worker 안에서 설정 파일을 읽는다. data root는 ledger 파일이 있는 폴더이고, 읽지 못하면 기본 표다.
+      callPolicy: () => {
+        const root = dataRootOf(view.sql, undefined);
+        return root.ok ? callPolicyAt(root.value) : DEFAULT_CALL_POLICY;
+      },
     };
   },
   // turn의 mode는 시작 때 정해져 바뀌지 않는다.

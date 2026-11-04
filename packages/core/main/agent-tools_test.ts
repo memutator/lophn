@@ -264,6 +264,7 @@ test("place 종류 목록 밖을 고른 bare는 그 tool을 보지도 부르지�
   const resolved = await resolveAgent({
     agent: "agt_00000000000000000000000001",
     place: null,
+    called_from: null,
     definition: {
       name: "reviewer",
       body: "review",

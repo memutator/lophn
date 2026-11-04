@@ -106,6 +106,7 @@ export const workspaceSettings = {
   "settings.button.back-to": "Back to {place}",
   "settings.button.back-to-home": "Back to Home",
   "settings.button.add-rule": "Add rule",
+  "settings.button.add-call-rule": "Add",
   "settings.button.choose-in-agents": "Choose in Agents",
   "settings.button.coding-favorite": "Add to favorites",
   "settings.button.coding-unfavorite": "Remove from favorites",
@@ -136,6 +137,7 @@ export const workspaceSettings = {
   "settings.empty.general": "No settings are declared yet.",
   "settings.empty.key-search": "No shortcut matches your search.",
   "settings.empty.shell-rules": "No rules here yet.",
+  "settings.empty.call-rules": "No overrides. The built-in rules apply.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
   "settings.error.coding-hooks-install":
@@ -163,6 +165,7 @@ export const workspaceSettings = {
     "lophn doesn't know this setting. Nothing was saved.",
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
+  "settings.heading.call-policy": "Calls between places",
   "settings.heading.quick-app-panels": "App panels",
   "settings.heading.quick-buttons": "Buttons",
   "settings.heading.shell-rules-built-in": "Built in",
@@ -199,6 +202,15 @@ export const workspaceSettings = {
   "settings.label.background-cool": "Cool",
   "settings.label.background-neutral": "Neutral",
   "settings.label.background-warm": "Warm",
+  "settings.label.call-agents": "Agent pairs",
+  "settings.label.call-allow": "Allow",
+  "settings.label.call-effect": "Rule",
+  "settings.label.call-from": "From",
+  "settings.label.call-home": "Home",
+  "settings.label.call-pair": "{from} to {to}",
+  "settings.label.call-places": "Place pairs",
+  "settings.label.call-refuse": "Refuse",
+  "settings.label.call-to": "To",
   "settings.label.checked-at": "Checked",
   "settings.label.chosen-default": "Set by you · Default: {value}",
   "settings.label.code-font": "Code font",
@@ -331,6 +343,8 @@ export const workspaceSettings = {
   "settings.note.allowed-max": "Allowed: up to {max, number}.",
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
+  "settings.note.call-policy":
+    "Which places an agent may call. Calls inside one place, between a project or app and Home, are allowed. A call from one project or app to another is refused unless you allow it here. An agent pair beats a place pair.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
   "settings.note.coding-favorites":

@@ -43,6 +43,8 @@ export function startSession(
     id: string;
     agent: AgentId;
     place: Place | null;
+    // 다른 place의 session이 불러 열었으면 그 place.
+    calledFrom?: Place | null;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
     // 새 session은 정의의 기본값으로 시작한다(place-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
     inherit?: {
@@ -73,8 +75,8 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, agent, project, app, place_kind,
        place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       model_selection, skip, harness, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?)`,
+       model_selection, skip, harness, called_from_kind, called_from_id, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
       input.agent,
@@ -88,6 +90,8 @@ export function startSession(
       inherit?.model_selection ?? null,
       definition.skip ? 1 : 0,
       harness,
+      input.calledFrom?.kind ?? null,
+      input.calledFrom?.id ?? null,
       seq,
       seq,
     ],

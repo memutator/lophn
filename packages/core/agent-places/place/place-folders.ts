@@ -10,6 +10,8 @@ export type PlaceFacts = {
   dataFolder: string | null;
   // active project 전체 폴더. home만 쓴다
   allProjectFolders: readonly string[];
+  // home session이 다른 place의 session이 부른 call로 열렸는가. 그런 session은 project 폴더를 읽지 않고 실어 보낸 것만 본다.
+  calledFromPlace: boolean;
   // place가 project일 때 그 project의 `workflows/` 절대 경로. 그 project place의 session이 쓴다(아래 placeScope)
   workflowsFolder: string | null;
   // place의 `skills/` 절대 경로. project·앱 place의 session이 쓴다(아래 placeScope)
@@ -32,7 +34,10 @@ export type FolderScope = {
 export function placeScope(facts: PlaceFacts): FolderScope {
   const { place } = facts;
   if (place === null) {
-    return { read: [...facts.allProjectFolders], write: [] };
+    return {
+      read: facts.calledFromPlace ? [] : [...facts.allProjectFolders],
+      write: [],
+    };
   }
   // 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 data 폴더들보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
   const own =

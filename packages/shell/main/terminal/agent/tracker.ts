@@ -45,6 +45,8 @@ export type AgentTrackerDeps = {
   ): AgentSignal | null;
   /** 지금 알려진 터미널 runtime. 없으면 push할 것이 없다. */
   runtimeOf(terminalRef: string): TerminalRuntime | undefined;
+  /** 창이 알린 탭 이름. runtime에 실려 나간다. */
+  tabNameOf?(terminalRef: string): string | undefined;
   publish(runtime: TerminalRuntime): void;
   /** 사람이 그 탭을 보고 있다(그 탭을 고른 창에 OS focus가 있다). */
   looking(terminalRef: string): boolean;
@@ -158,7 +160,7 @@ export type AgentTracker = {
   windowFocused(): void;
   /** 터미널이 끝났다. */
   gone(terminalRef: string): void;
-  /** runtime에 지금의 agent를 싣는다. harness가 없으면 agent 칸이 없다. */
+  /** runtime에 지금의 agent와 탭 이름을 싣는다. harness가 없으면 agent 칸이 없다. */
   decorate(runtime: TerminalRuntime): TerminalRuntime;
 };
 
@@ -194,10 +196,15 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
   }
 
   function decorate(runtime: TerminalRuntime): TerminalRuntime {
-    const { agent: _stale, ...rest } = runtime;
+    const { agent: _stale, tab_name: _old, ...rest } = runtime;
     const entry = entries.get(runtime.terminal_ref);
     const agent = entry === undefined ? undefined : agentOf(entry);
-    return agent === undefined ? rest : { ...rest, agent };
+    const name = deps.tabNameOf?.(runtime.terminal_ref);
+    return {
+      ...rest,
+      ...(agent === undefined ? {} : { agent }),
+      ...(name === undefined ? {} : { tab_name: name }),
+    };
   }
 
   function notify(

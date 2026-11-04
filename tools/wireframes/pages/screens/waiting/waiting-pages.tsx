@@ -129,15 +129,15 @@ const FINISHED = [
     id: "terminal:term_1",
     target: { kind: "terminal", terminal_ref: "term_1" },
     face: { kind: "vendor", harness: "claude" },
-    label: "Claude Code",
-    title: "orders-api",
+    label: "간단한 ui 수정",
+    title: "Claude Code",
   },
   {
     id: "session:1",
     target: { kind: "session", session: sid("ses", 1) },
     face: { kind: "avatar", profile: { kind: "initial", text: "B" } },
-    label: "Bookkeeper",
-    title: "Invoice import",
+    label: "Invoice import",
+    title: "Bookkeeper",
   },
 ] as const satisfies NonNullable<
   NonNullable<WaitingLayerProps["initial"]>["finished"]

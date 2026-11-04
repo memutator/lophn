@@ -129,6 +129,7 @@ export function createAgentWiring(options: {
       hookSignalOf(harness as HarnessId, event, payload),
     runtimeOf: (ref) =>
       terminals.runtimes().find((item) => item.terminal_ref === ref),
+    tabNameOf: (ref) => tabNames.get(ref),
     publish,
     looking: (ref) => notice.looking({ kind: "terminal", terminal_ref: ref }),
     notify,
@@ -263,6 +264,11 @@ export function createAgentWiring(options: {
     setTabName(terminalRef, name) {
       if (name === "") tabNames.delete(terminalRef);
       else tabNames.set(terminalRef, name);
+      // 다른 창의 Inbox도 새 이름을 쓰도록 runtime을 다시 보낸다.
+      const runtime = terminals
+        .runtimes()
+        .find((item) => item.terminal_ref === terminalRef);
+      if (runtime !== undefined) publish(tracker.decorate(runtime));
     },
     listSessions: (project) => sessions.list(project),
     async renameSession(input) {

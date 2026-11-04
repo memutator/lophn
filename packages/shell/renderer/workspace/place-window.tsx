@@ -1551,37 +1551,35 @@ export function PlaceWindow(props: PlaceWindowProps) {
     }
   }, [terminalVersion, terminal, windowTabs]);
 
-  // Inbox 줄이 id와 제품 이름 대신 쓰는 이름. 이 창이 아는 것만 담고 모르는 것은 줄이 지금 글로 둔다.
+  // Inbox 줄이 id 대신 쓰는 place 이름.
   const inboxPlaces = useSidebarPlaceList(props.projects, props.apps);
-  const inboxNames = useMemo<InboxNames>(() => {
-    const terminals = new Map<string, string>();
-    for (const tab of allTabs(layout)) {
-      const ref = tab.kind === "terminal" ? terminal?.store.get(tab.key) : null;
-      if (ref?.terminalRef != null) terminals.set(ref.terminalRef, tab.title);
-    }
-    return {
+  const inboxNames = useMemo<InboxNames>(
+    () => ({
       projects: new Map(inboxPlaces.projects.map((one) => [one.id, one.title])),
       apps: new Map(inboxPlaces.apps.map((one) => [one.id, one.name])),
-      terminals,
-    };
-  }, [
-    layout,
-    terminalVersion,
-    terminal,
-    inboxPlaces.projects,
-    inboxPlaces.apps,
-  ]);
+    }),
+    [inboxPlaces.projects, inboxPlaces.apps],
+  );
 
-  // OS 알림 제목이 쓰도록 탭 이름을 main에 알린다. 바뀐 것만 보낸다.
+  // 터미널 탭 이름을 main에 알린다. main이 runtime에 실어 모든 창에 보내므로 OS 알림과 다른 창·place의 Inbox도
+  // 탭 이름을 안다. 바뀐 것만 보낸다.
+  const terminalNames = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const tab of allTabs(layout)) {
+      const ref = tab.kind === "terminal" ? terminal?.store.get(tab.key) : null;
+      if (ref?.terminalRef != null) names.set(ref.terminalRef, tab.title);
+    }
+    return names;
+  }, [layout, terminalVersion, terminal]);
   const sentNames = useRef(new Map<string, string>());
   useEffect(() => {
     const api = terminal?.bridge;
-    for (const [ref, name] of inboxNames.terminals) {
+    for (const [ref, name] of terminalNames) {
       if (sentNames.current.get(ref) === name) continue;
       sentNames.current.set(ref, name);
       void api?.setTabName({ terminal_ref: ref, name });
     }
-  }, [inboxNames.terminals, terminal]);
+  }, [terminalNames, terminal]);
 
   // card에 그릴 탭. 고른 탭이 group 구성원이면 그 group의 leaf 전부(leaf 순서), 아니면 고른 탭 하나다.
   const group = groupOf(desk, desk.selected);

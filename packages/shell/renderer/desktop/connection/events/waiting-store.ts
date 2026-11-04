@@ -68,7 +68,7 @@ const JOB_KINDS: readonly WaitingEntry["kind"][] = ["job_hold", "job_approval"];
 export interface FinishedTerminal {
   readonly terminalRef: string;
   readonly harness: string;
-  /** 탭 제목. 없으면 시작 폴더 이름이다(OS 알림과 같은 규칙). */
+  /** 탭 줄에 보이는 이름(main이 runtime에 싣는다). 탭을 그린 창이 아직 이름을 알리기 전에만 시작 폴더 이름이다. */
   readonly title: string;
 }
 
@@ -144,7 +144,7 @@ export function createWaitingStore(
       const next = {
         terminalRef: ref,
         harness: agent.harness,
-        title: folderName(runtime.cwd_at_start),
+        title: runtime.tab_name ?? folderName(runtime.cwd_at_start),
       };
       const before = finished.get(ref);
       if (before?.harness === next.harness && before.title === next.title) {

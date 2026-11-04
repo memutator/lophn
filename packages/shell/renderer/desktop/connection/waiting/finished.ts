@@ -9,7 +9,6 @@ import type { AvatarFace } from "../../../../ipc/overlay.ts";
 import { useSessions, useWaiting } from "../events/hooks.tsx";
 import type { SessionEntry } from "../events/sessions-store.ts";
 import type { FinishedTerminal } from "../events/waiting-store.ts";
-import { type InboxNames, NO_NAMES, useInboxNames } from "./names.ts";
 
 export interface FinishedRow {
   readonly id: string;
@@ -23,26 +22,21 @@ export interface FinishedRow {
   readonly title: string;
 }
 
+// 굵은 윗줄은 그 탭·session의 이름이고, 작은 아랫줄이 누가(coding agent 제품, lophn agent) 끝냈는지다.
 export function finishedRows(
   terminals: readonly FinishedTerminal[],
   sessions: readonly SessionEntry[],
-  names: InboxNames = NO_NAMES,
 ): FinishedRow[] {
-  const rows: FinishedRow[] = terminals.map((terminal) => {
-    const harness =
+  const rows: FinishedRow[] = terminals.map((terminal) => ({
+    id: `terminal:${terminal.terminalRef}`,
+    target: { kind: "terminal", terminal_ref: terminal.terminalRef },
+    face: { kind: "vendor", harness: terminal.harness },
+    label: terminal.title,
+    title:
       terminal.harness in HARNESS_ADAPTERS
         ? HARNESS_ADAPTERS[terminal.harness as HarnessId].label
-        : terminal.harness;
-    // 탭 줄에 보이는 이름을 알면 그것이 주 이름이고, 제품 이름은 아이콘과 보조 줄로 내려간다.
-    const tab = names.terminals.get(terminal.terminalRef);
-    return {
-      id: `terminal:${terminal.terminalRef}`,
-      target: { kind: "terminal", terminal_ref: terminal.terminalRef },
-      face: { kind: "vendor", harness: terminal.harness },
-      label: tab ?? harness,
-      title: tab === undefined ? terminal.title : harness,
-    };
-  });
+        : terminal.harness,
+  }));
   for (const entry of sessions) {
     // unseen이 없는 session은 줄이 없다.
     if (entry.unseen === null) continue;
@@ -50,8 +44,8 @@ export function finishedRows(
       id: `session:${entry.session}`,
       target: { kind: "session", session: entry.session },
       face: { kind: "avatar", profile: entry.unseen.profile },
-      label: entry.unseen.agent,
-      title: entry.unseen.title ?? t("conversation.label.session-untitled"),
+      label: entry.unseen.title ?? t("conversation.label.session-untitled"),
+      title: entry.unseen.agent,
     });
   }
   return rows;
@@ -63,9 +57,8 @@ export function useFinished(
 ): readonly FinishedRow[] {
   const { finished } = useWaiting();
   const { sessions } = useSessions();
-  const names = useInboxNames();
   return useMemo(
-    () => override ?? finishedRows(finished, sessions, names),
-    [override, finished, sessions, names],
+    () => override ?? finishedRows(finished, sessions),
+    [override, finished, sessions],
   );
 }

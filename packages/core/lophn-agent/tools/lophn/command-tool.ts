@@ -9,6 +9,7 @@ import { commandLine } from "../../../../cli/parser.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import type { PlaceKind } from "../../../../protocol/lophn-agent/places.ts";
 import { type CoreCall, commandOf, readOf } from "../../run-loop/core-call.ts";
+import { resolveInPlace } from "../file/scope.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { SpillableResult } from "../spill.ts";
 
@@ -71,6 +72,10 @@ function commandTool(command: Command): ToolDefinition {
         key: ctx.tool_call,
         place: ctx.place,
         ...(cwd === undefined ? {} : { cwd }),
+        resolveRead: async (path) => {
+          const at = await resolveInPlace(ctx.scope, path, "read");
+          return at.ok ? ok(at.value.path) : at;
+        },
         caller: {
           session: ctx.session,
           turn: ctx.turn,

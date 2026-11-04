@@ -1,3 +1,4 @@
+import { IMAGE_NOTE } from "../../../protocol/lophn-agent/content-block.ts";
 import {
   type HistoryMessage,
   type HistoryPart,
@@ -102,27 +103,45 @@ export function omitOldToolResults(
   return { history: next, freed };
 }
 
-// 최대 크기 이미지 둘이 blob 상한(16 MiB) 안에 들어가는 개수다.
-export const KEEP_IMAGES = 2;
+// 이미지 base64 합계의 상한이다. 요청 body 전체가 blob 상한(16 MiB) 안에 들어가도록 나머지 body 몫을 남긴다.
+export const KEEP_IMAGE_BYTES = 12 * 1024 * 1024;
 
-// 최신 keep개만 남기고 오래된 이미지 조각을 뺀다. 짝 tool_result 글 끝에 표시를 붙인다.
+// 최신 이미지부터 base64 합계가 budget 안인 것만 남기고 오래된 이미지는 뺀다. tool 결과 이미지는 조각을 빼고 짝
+// tool_result 글 끝에 표시를 붙이며, 사람이 보낸 이미지는 자리에서 같은 고정 글이 된다(조각 순서가 안 바뀐다).
 // 입력은 바꾸지 않는다.
 export function omitOldImages(
   history: readonly HistoryMessage[],
-  keep: number,
+  budget: number,
 ): HistoryMessage[] {
   const images = history.flatMap((message) =>
     message.parts.flatMap((part) =>
-      part.kind === "tool_result_image" ? [part] : [],
+      part.kind === "tool_result_image" || part.kind === "image" ? [part] : [],
     ),
   );
-  const old = new Set(images.slice(0, Math.max(0, images.length - keep)));
-  if (old.size === 0) return [...history];
-  const ids = new Set([...old].map((part) => part.id));
+  const kept = new Set<HistoryPart>();
+  let used = 0;
+  for (const part of images.reverse()) {
+    used += part.data_base64.length;
+    if (used > budget) break;
+    kept.add(part);
+  }
+  const old = images.filter((part) => !kept.has(part));
+  if (old.length === 0) return [...history];
+  const dropped = new Set(old);
+  const ids = new Set(
+    old.flatMap((part) => (part.kind === "tool_result_image" ? [part.id] : [])),
+  );
   return history.map((message) => ({
     ...message,
     parts: message.parts.flatMap((part): HistoryPart[] => {
-      if (part.kind === "tool_result_image") return old.has(part) ? [] : [part];
+      if (part.kind === "tool_result_image") {
+        return dropped.has(part) ? [] : [part];
+      }
+      if (part.kind === "image") {
+        return dropped.has(part)
+          ? [{ kind: "text", text: IMAGE_NOTE }]
+          : [part];
+      }
       if (part.kind === "tool_result" && ids.has(part.id)) {
         return [{ ...part, text: `${part.text}\n[image omitted]` }];
       }

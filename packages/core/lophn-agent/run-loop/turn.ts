@@ -13,7 +13,7 @@ import {
 } from "../prompt-assembly/mod.ts";
 import {
   historyResultParts,
-  KEEP_IMAGES,
+  KEEP_IMAGE_BYTES,
   omitOldImages,
   omitOldToolResults,
 } from "./history.ts";
@@ -308,7 +308,7 @@ function historyOf(
   if (inputs.request !== null) {
     pushHistory(messages, "user", inputs.request);
   }
-  for (const message of omitOldImages(state.history, KEEP_IMAGES)) {
+  for (const message of omitOldImages(state.history, KEEP_IMAGE_BYTES)) {
     pushHistory(messages, message.role, message.parts);
   }
   const tail: HistoryPart[] = [

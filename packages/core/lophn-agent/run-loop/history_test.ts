@@ -33,11 +33,11 @@ function historyWith(images: number): HistoryMessage[] {
   return history;
 }
 
-test("이미지가 2개를 넘으면 오래된 것부터 빠지고 짝 글에 표시가 붙는다", () => {
+test("이미지 base64 합계가 상한을 넘으면 오래된 것부터 빠지고 짝 글에 표시가 붙는다", () => {
   for (const count of [0, 2, 3, 5]) {
     const input = historyWith(count);
     const before = structuredClone(input);
-    const out = omitOldImages(input, 2);
+    const out = omitOldImages(input, 8);
     assert.deepStrictEqual(input, before);
 
     const omitted = Math.max(0, count - 2);
@@ -63,6 +63,29 @@ test("이미지가 2개를 넘으면 오래된 것부터 빠지고 짝 글에 �
       );
     }
   }
+});
+
+// 요청 body가 blob 상한을 넘으면 그 session의 뒤 turn이 모두 실패한다. 사람이 보낸 이미지도 같은 상한으로 센다.
+test("사람이 보낸 이미지도 합계가 상한을 넘으면 오래된 것이 자리에서 고정 글이 되고 tool 이미지와 함께 센다", () => {
+  const user = (data: string): HistoryMessage => ({
+    role: "user",
+    parts: [
+      { kind: "text", text: "head" },
+      { kind: "image", media_type: "image/png", data_base64: data },
+      { kind: "text", text: "tail" },
+    ],
+  });
+  const input = [user("aaaa"), ...historyWith(1), user("bbbb")];
+  const out = omitOldImages(input, 8);
+  assert.deepStrictEqual(out[0].parts, [
+    { kind: "text", text: "head" },
+    { kind: "text", text: "[image]" },
+    { kind: "text", text: "tail" },
+  ]);
+  // 새 두 개(tool 결과 img0 4자와 user bbbb 4자)는 상한 안이다.
+  assert.deepStrictEqual(out[2].parts[1].kind, "tool_result_image");
+  assert.deepStrictEqual(out[3].parts[1].kind, "image");
+  assert.deepStrictEqual(omitOldImages(input, 100), input);
 });
 
 // tool 묶음 n개. 각 결과 본문은 약 1,000 token이고 t1은 skill 본문이다.

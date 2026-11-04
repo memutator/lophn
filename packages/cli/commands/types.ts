@@ -35,6 +35,8 @@ export type CommandContext = {
   place: Place | null | undefined;
   // 상대 path를 푸는 기준 폴더다. binary는 process cwd, `lophn` tool은 place의 첫 폴더다(home이면 없다).
   cwd?: string;
+  // lophn tool이 file을 읽기 전에 거치는 읽기 범위 검사다. 허용하면 실제 경로를, 아니면 오류를 돌려준다. binary에는 없다.
+  resolveRead?: (path: string) => Promise<Result<string>>;
   // lophn agent의 tool call 신원이다. core가 agent caller를 기록된 tool call과 대조하므로 명령이 앱 호출 같은 caller를 받는 route에 넘긴다.
   // binary에는 없다(사람은 run을 거친다).
   caller?: { session: string; turn: string; tool_call: string };

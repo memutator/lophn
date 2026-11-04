@@ -3,7 +3,7 @@
 // agent credential의 turn mode에서 찍으므로 여기서 다루지 않는다.
 // effect가 read인 것은 run-loop가 실패한 read를 같은 tool call로 다시 부를 때 key가 같아서 call이 하나만 생기기 때문이다.
 import { readFile, realpath, stat } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { resolve } from "node:path";
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
@@ -33,31 +33,25 @@ function fail(code: LophnError["code"], message: string): Result<never> {
   return err({ code, message });
 }
 
-// lophn agent가 부를 때는 place의 폴더 안 file만 싣는다. binary는 process cwd 기준이고 막지 않는다.
+// lophn tool로 부르면 그 session이 읽을 수 있는 file만 싣는다(file tool과 같은 검사). binary는 process cwd 기준이고 막지 않는다.
 async function imageBlock(
   path: string,
   ctx: CommandContext,
 ): Promise<Result<ContentBlock>> {
-  const at = resolve(ctx.cwd ?? ".", path);
   let real: string;
-  try {
-    real = await realpath(at);
-  } catch {
-    return fail("not_found", `image not found: ${path}`);
-  }
-  if (ctx.caller !== undefined) {
-    const rel =
-      ctx.cwd === undefined ? null : relative(await realpath(ctx.cwd), real);
-    if (
-      rel === null ||
-      rel === ".." ||
-      rel.startsWith(`..${sep}`) ||
-      isAbsolute(rel)
-    ) {
-      return fail("forbidden", "image is outside the place folder");
+  if (ctx.resolveRead !== undefined) {
+    const allowed = await ctx.resolveRead(path);
+    if (!allowed.ok) return allowed;
+    real = allowed.value;
+  } else {
+    try {
+      real = await realpath(resolve(ctx.cwd ?? ".", path));
+    } catch {
+      return fail("not_found", `image not found: ${path}`);
     }
   }
-  const info = await stat(real);
+  const info = await stat(real).catch(() => null);
+  if (info === null) return fail("not_found", `image not found: ${path}`);
   if (!info.isFile()) return fail("invalid_input", `not a file: ${path}`);
   if (info.size > MESSAGE_IMAGE_CALL_MAX_BYTES) {
     return fail(
@@ -97,7 +91,7 @@ const send = defineCommand({
     "Hand work to an agent asynchronously; returns a call ID. to.session uses an open session (session list); to.agent/place opens a new one using exact names (no place means home). " +
     'Supply both with fallback:"new" to open a replacement when the session is closed. Closed sessions stay closed. ' +
     "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply. " +
-    "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from this place's folder; the receiver gets the image itself and no read access to the file.",
+    "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from a folder this session can read; the receiver gets the image itself and no read access to the file.",
   input: agentCallSend.input.omit({ dedup: true, body: true }).extend({
     ...bodyFields,
     refs: z.array(callRefSchema).default([]),

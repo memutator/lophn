@@ -51,29 +51,32 @@ const nodeFiles: ExtensionFiles = {
   },
 };
 
-const nodeSpawn: ExtensionSpawn = (command, args, options) => {
-  const child = spawn(command, [...args], {
-    cwd: options?.cwd,
-    env: { ...process.env, ...options?.env },
-  });
-  // 시작하지 못하면 'error'가 오고, 처리하지 않으면 main이 죽는다.
-  const exits: Array<(code: number | null) => void> = [];
-  child.on("error", () => exits.forEach((listener) => listener(null)));
-  child.on("exit", (code) => exits.forEach((listener) => listener(code)));
-  return {
-    pid: child.pid,
-    write: (text) => void child.stdin.write(text),
-    end: () => void child.stdin.end(),
-    kill: () => void child.kill(),
-    onStdout(listener) {
-      child.stdout.setEncoding("utf8").on("data", listener);
-    },
-    onStderr(listener) {
-      child.stderr.setEncoding("utf8").on("data", listener);
-    },
-    onExit: (listener) => void exits.push(listener),
+// 띄운 process의 `lophn`이 이 shell의 core에 닿게 data root를 늘 넣는다(`--home`만으로 띄우면 env에 없다).
+const nodeSpawn =
+  (dataRoot: string): ExtensionSpawn =>
+  (command, args, options) => {
+    const child = spawn(command, [...args], {
+      cwd: options?.cwd,
+      env: { ...process.env, LOPHN_HOME: dataRoot, ...options?.env },
+    });
+    // 시작하지 못하면 'error'가 오고, 처리하지 않으면 main이 죽는다.
+    const exits: Array<(code: number | null) => void> = [];
+    child.on("error", () => exits.forEach((listener) => listener(null)));
+    child.on("exit", (code) => exits.forEach((listener) => listener(code)));
+    return {
+      pid: child.pid,
+      write: (text) => void child.stdin.write(text),
+      end: () => void child.stdin.end(),
+      kill: () => void child.kill(),
+      onStdout(listener) {
+        child.stdout.setEncoding("utf8").on("data", listener);
+      },
+      onStderr(listener) {
+        child.stderr.setEncoding("utf8").on("data", listener);
+      },
+      onExit: (listener) => void exits.push(listener),
+    };
   };
-};
 
 export function register(ctx: ShellContext): Registered {
   const repoRoot = join(ctx.here, "..", "..", "..", "..");
@@ -118,7 +121,7 @@ export function register(ctx: ShellContext): Registered {
         };
       },
     },
-    spawn: nodeSpawn,
+    spawn: nodeSpawn(ctx.dataRoot),
     clock,
     ids: createIdSource({ clock, random: cryptoRandom }),
     log: ctx.log,

@@ -6,4 +6,5 @@ lead만 고친다. `tools/status.py harness-agent build`가 `tasks/*.md`에서 i
 |---|---|---|---|---|---|---|---|
 | `harness-core` | harness | 1 | 없음 | merged | harness/harness-core | ee4ee840a |  |
 | `harness-headless` | harness | 2 | harness-core | merged | harness/harness-headless | b488869cb |  |
-| `harness-reply` | harness | 3 | harness-headless | todo |  |  |  |
+| `harness-reply` | harness | 3 | harness-headless | merged | harness/harness-reply | 357a4b7fa |  |
+| `harness-skill` | harness | 4 | harness-reply | todo |  |  |  |

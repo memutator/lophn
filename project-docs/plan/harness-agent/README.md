@@ -21,6 +21,7 @@
 | 1 | `harness-core` | runtime 값, 설정, Router harness transport와 입력함, host route, `harness_tool` part, 외부 session id |
 | 2 | `harness-headless` | headless 명령 data, 출력 parser, 권한 표, shell host가 입력을 실행하고 기록 |
 | 3 | `harness-reply` | harness가 `lophn call reply|send`를 쓰는 turn 자격, workflow harness 참가자 |
+| 4 | `harness-skill` | harness가 `lophn` CLI 쓰는 법을 skill로 받는다(extension이 켜지면 harness skill 폴더에) |
 
 ## lead가 할 일
 

@@ -64,7 +64,7 @@ report와 고치기
 넘기기
 - 담당 풀기는 command 앞(`plan.ts`)이 한다. step이 instance에 없으면 `unknown_step`, `by`가 참가자에 없으면 `unknown_participant`다.
   - agent 참가자는 `place`가 없으면 instance의 project다. 이름이 풀리지 않으면 `unresolved`다.
-  - `harness`는 선언으로 받되 넘기지 못한다(`harness`).
+  - harness agent(정의의 runtime이 harness)는 이름이 있는 agent라 `{agent}` 참가자로 넘긴다(Router가 harness 입력함으로 보낸다, `architecture/coding-agent.md`). 이름 없는 `{kind: harness}`는 받을 곳이 없어 `not_handed`(`unresolved`)다.
   - `human`이면 `with`의 참가자로 같은 풀이를 하고 instance에 사람 차례(`current.human_turn`)를 적는다. `with`가 없으면 `no_with`다.
 - `session: same`이면 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session(가장 나중 `handed` 줄의 `receiver`)에 `fallback: new`로 보낸다. 없으면 새 session이다. 안 적으면 `new`다.
 - command는 받은 plan대로 Router에 넣는다(`from: program`, `reply: none`, `kind: step`, `unattended: true`). Router가 `ok`의 `accepted`를 주면 받은 session으로 `handed` 줄을 남기고 `current`를 그 step으로 한다. `failed`(없는 담당, 닫힌 session)면 `not_handed`(`unresolved`) 줄이다. Router가 `err`를 주면 tx 전체가 되돌아가 줄도 상태도 남지 않는다.

@@ -35,3 +35,14 @@ modules: [packages/core/lophn-agent, packages/core/main]
 - 편집 화면 Tools의 도움말에 workflow 참가자는 `workflow.report`를 골라야 한다고 적는다. 잊는 것은 그대로 막지 못한다. 작음.
 
 추천: 첫째. harness 참가자(roadmap `agent-platform.md` 단계 7)도 같은 길이 필요하다.
+
+## 이름 없는 `{kind: harness}` 참가자가 아직 선언된다
+
+```yaml
+kind: defect
+modules: [packages/protocol, packages/core/workflows, packages/shell/renderer]
+```
+
+- 지금: harness agent는 runtime이 harness인 이름 있는 agent라 `{agent}` 참가자로 넘긴다. 그런데 옛 설계의 `{kind: "harness"}`가 protocol(`packages/protocol/workflows/declaration.ts`, `values.ts`, `instances.ts`의 not_handed 이유 `harness`), core(`packages/core/workflows/declaration.ts`, `plan.ts`), renderer(`packages/shell/renderer/workspace/source.ts`)에 남아 선언으로 받고 넘길 때 `not_handed`(`unresolved`)가 된다.
+- 영향: workflow를 쓰는 사람이나 agent가 받을 곳 없는 참가자를 선언할 수 있고, 지울 때까지 세 package가 쓰이지 않는 꼴을 지닌다.
+- 고치려면: kind를 지우고 저장된 instance `participants`의 `{kind: "harness"}`를 옮기는 ledger step을 더한다(중간). 추천.

@@ -9,7 +9,7 @@ kind: bug
 modules: [packages/core/lophn-agent, packages/core/agent-places]
 ```
 
-지금: project와 app place 종류의 tool 목록에 `shell.run`이 있다(`packages/core/agent-places/tool-lists.ts`의 `WORK_TOOLS`). home에는 없다. `packages/core/lophn-agent/tools/shell/run.ts`의 `runShell`은 범위의 base 폴더에서 `/bin/sh`를 띄운다. 자식 process에는 아무 권한 제한이 없다. OS sandbox는 없다. 판정은 shell 규칙(제품 floor·ask, Settings의 전역·project 층, `architecture/approval.md`)이 하고 effect는 `external`이다. 규칙에 걸리지 않는 명령은 묻지 않고 돈다. rewind 기록은 `file.write`·`file.edit`만 남긴다(`packages/core/agent-places/hooks.ts`의 `FILE_HOOKS`).
+지금: project와 app place 종류의 tool 목록에 `shell.run`이 있다(`packages/protocol/lophn-agent/tool-lists.ts`의 `WORK_TOOLS`). home에는 없다. `packages/core/lophn-agent/tools/shell/run.ts`의 `runShell`은 범위의 base 폴더에서 `/bin/sh`를 띄운다. 자식 process에는 아무 권한 제한이 없다. OS sandbox는 없다. 판정은 shell 규칙(제품 floor·ask, Settings의 전역·project 층, `architecture/approval.md`)이 하고 effect는 `external`이다. 규칙에 걸리지 않는 명령은 묻지 않고 돈다. rewind 기록은 `file.write`·`file.edit`만 남긴다(`packages/core/agent-places/hooks.ts`의 `FILE_HOOKS`).
 
 영향: agent가 shell로 file 범위 밖 파일을 읽고 쓰거나 지워도 막는 것이 없다. 그렇게 바꾼 사람의 파일은 session rewind로 되돌아오지 않는다. AGENTS.md "속도"가 막으라는 agent 실수(데이터 잃기, 폴더 밖 쓰기)다. place 종류의 file 범위(project는 project 폴더, 받은 domain 폴더, `workflows/`, app은 앱 source와 받은 domain 폴더)도 shell로는 지켜지지 않는다.
 

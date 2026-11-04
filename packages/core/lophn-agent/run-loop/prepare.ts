@@ -8,6 +8,10 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
+import {
+  type CommandDoc,
+  commandsForPlace,
+} from "../../../cli/commands/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import {
@@ -93,6 +97,7 @@ import type {
 } from "./ports.ts";
 import { abortableWait } from "./retry.ts";
 import { turnModeOf } from "./turn-mode.ts";
+import { untrustedSource } from "./untrusted.ts";
 import type { TurnStart } from "./work.ts";
 
 // 시작할 turn의 재료를 core 기록에서 모은다. session의 agent id와 place, 이번 turn의 resolved agent
@@ -242,6 +247,8 @@ export type TurnPreparer = {
 type FixedTools = {
   definitions: readonly ToolDefinition[];
   key: string;
+  // bare가 그 session을 시작할 때 고른 이름이다. 뒤 turn에 고른 이름이 늘어도 이 밖은 실행하지 않는다.
+  picks: ReadonlySet<string>;
 };
 
 // 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
@@ -261,6 +268,66 @@ async function keyOf(definitions: readonly ToolDefinition[]): Promise<string> {
 
 function names(definitions: readonly ToolDefinition[]): Set<string> {
   return new Set(definitions.map((tool) => tool.name));
+}
+
+// model에 보이는 tool 목록(session의 고정 목록이 될 재료)이다. lophn은 place 종류 목록 전부이고, bare는 그 목록 ∩ 고른 이름이다.
+// 상한은 그대로다: 목록 밖 이름을 골라도 보이지 않는다. 앱 command는 목록에 없고 `lophn` tool로 부르므로 고른 명령이 있을 때만
+// (앱 command는 할당 안의 것만: `appDocs`) `lophn` tool이 서고, 그 설명에는 고른 명령만 싣는다. MCP는 resolve가 이미 고른 것만 `external`에 넘긴다.
+export function visibleTools(input: {
+  kind: PlaceKind;
+  agent: Pick<ResolvedAgent, "runtime" | "picks">;
+  names: readonly string[];
+  definitions: readonly ToolDefinition[];
+  inputMedia: readonly string[];
+  external: readonly ToolDefinition[];
+  appDocs: readonly CommandDoc[];
+}): ToolDefinition[] {
+  const picked = new Set(input.agent.picks);
+  const commands =
+    input.agent.runtime === "bare"
+      ? [
+          ...commandsForPlace(input.kind).filter((command) =>
+            picked.has(command.name),
+          ),
+          ...input.appDocs.filter((doc) => picked.has(doc.name)),
+        ]
+      : undefined;
+  const names =
+    commands === undefined
+      ? input.names
+      : [
+          ...input.names.filter(
+            (name) => name !== LOPHN_TOOL_NAME && picked.has(name),
+          ),
+          ...(commands.length > 0 ? [LOPHN_TOOL_NAME] : []),
+        ];
+  return [
+    ...selectTools(names, { input_media: input.inputMedia }, input.definitions),
+    ...input.external,
+  ].map((tool) =>
+    tool.name === LOPHN_TOOL_NAME
+      ? describeLophn(tool, input.kind, commands)
+      : tool,
+  );
+}
+
+// session이 실행하는 tool의 정의(handler 붙이기 전)다. 고정 목록에 그 place 종류의 명령 정의를 더한다. bare는 고정 목록 중 지금도
+// 고른 것(`current`)과 고른 명령(`usable`)만이라 고르지 않은 tool은 실행기가 "not available"로 거절한다.
+export function runnableTools(input: {
+  fixed: readonly ToolDefinition[];
+  kind: PlaceKind;
+  bare: {
+    current: ReadonlySet<string>;
+    usable: ReadonlySet<string>;
+  } | null;
+}): ToolDefinition[] {
+  const { fixed, kind, bare } = input;
+  return bare === null
+    ? [...fixed, ...commandTools(kind)]
+    : [
+        ...fixed.filter((tool) => bare.current.has(tool.name)),
+        ...commandTools(kind, bare.usable),
+      ];
 }
 
 // 고정한 목록과 지금 목록이 다를 때 대화 끝에 붙는 notice 본문이다. 이 session은 고정한 목록만 실행하므로 더한 tool은 새 session부터다. 빠진 tool은 Gate가 call 때 지금 할당을 읽어 바로 막으므로 지금부터 못 쓴다.
@@ -378,18 +445,25 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const kind = placeKindOf(session.place);
 
     // place 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
-    // `lophn <앱 slug> <command>`를 부를 때 푼다.
-    const plain: readonly ToolDefinition[] = [
-      ...selectTools(
-        deps.placeTools(kind),
-        { input_media: model.value.inputMedia },
-        deps.toolkit.definitions,
-      ),
-      ...external.map((tool) => tool.definition),
-    ];
-    const current = plain.map((tool) =>
-      tool.name === LOPHN_TOOL_NAME ? describeLophn(tool, kind) : tool,
-    );
+    // `lophn <앱 slug> <command>`를 부를 때 푼다. bare는 그 중 고른 것만이다.
+    const loaded =
+      agent.runtime === "bare"
+        ? await deps.toolkit.appTool?.load({
+            agent: session.agent,
+            place: session.place,
+          })
+        : undefined;
+    const current = visibleTools({
+      kind,
+      agent,
+      names: deps.placeTools(kind),
+      definitions: deps.toolkit.definitions,
+      inputMedia: model.value.inputMedia,
+      external: external.map((tool) => tool.definition),
+      appDocs: loaded?.ok
+        ? appCommandEntries(loaded.value).map((entry) => entry.doc)
+        : [],
+    });
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
       agent,
@@ -444,15 +518,38 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat.session,
     ]);
     const operations = new Set(runOperations(fixed.definitions));
+    // bare가 부를 수 있는 것: 이 session의 고정 목록 ∩ 지금 정의가 고른 것. 정의를 고쳐 늘린 이름은 새 session부터다.
+    const bare =
+      resolved.runtime === "bare"
+        ? {
+            current: names(m.current),
+            usable: new Set(resolved.picks.filter((p) => fixed.picks.has(p))),
+          }
+        : null;
     // 지금 부를 수 있는 앱 command. 부를 때마다 읽는다: session을 시작할 때 고정하지 않고 바뀌어도 notice를 내지 않는다.
     const who = { agent: session.agent, place: session.place };
     const apps: AppCommandLookup = async () => {
       const loaded = await toolkit.appTool?.load(who);
-      return loaded?.ok ? appCommandEntries(loaded.value) : [];
+      const entries = loaded?.ok ? appCommandEntries(loaded.value) : [];
+      return bare === null
+        ? entries
+        : entries.filter((entry) => bare.usable.has(entry.doc.name));
     };
-    const base: ToolDefinition[] = fixed.definitions.map((tool) => {
+    // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 place 종류가
+    // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
+    const help =
+      bare === null
+        ? undefined
+        : commandsForPlace(placeKindOf(session.place)).filter((command) =>
+            bare.usable.has(command.name),
+          );
+    const base: ToolDefinition[] = runnableTools({
+      fixed: fixed.definitions,
+      kind: placeKindOf(session.place),
+      bare,
+    }).map((tool) => {
       const handler = legacy.get(tool.name);
-      if (tool.name === LOPHN_TOOL_NAME) return withApps(tool, apps);
+      if (tool.name === LOPHN_TOOL_NAME) return withApps(tool, apps, help);
       if (tool.handler !== undefined || handler === undefined) return tool;
       return {
         ...tool,
@@ -465,9 +562,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           }),
       };
     });
-    // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의다. model에 보이는 tools[]에는 없고 이 session의 place 종류가
-    // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
-    base.push(...commandTools(placeKindOf(session.place)));
     // 앱 command의 정의는 불린 것만 더한다. tool 표가 목록마다 한 번 만들어지므로 더할 때 목록을 새로 만든다.
     // 같은 command는 같은 정의를 쓴다(loop가 정의의 동일성으로 진입 기록을 붙인다).
     const called = new Map<
@@ -551,12 +645,17 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     type Built = Omit<TurnContext, "keep"> & { compaction: string | null };
     let built: Promise<Result<Built>> | undefined;
     const build = async (): Promise<Result<Built>> => {
-      const prompt = await deps.placePrompt(placeKindOf(resolved.place));
+      // bare는 place 종류 지침(제품 고정 규칙)을 싣지 않는다.
+      const prompt =
+        resolved.runtime === "bare"
+          ? ok("")
+          : await deps.placePrompt(placeKindOf(resolved.place));
       if (!prompt.ok) return prompt;
       const read = await readSessionConversation(machine, {
         session: seat.session,
         request: request.input.message,
         images,
+        runtime: resolved.runtime,
       });
       if (!read.ok) return read;
       const placed = await deps.placeData(agentCall, resolved, seat.session);
@@ -583,14 +682,27 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
           })),
           instructions,
-          skills: promptSkills(
-            (await deps.skills?.(
-              resolved.place,
-              placeKindOf(resolved.place),
-              assigned,
-            )) ?? [],
-            resolved,
-          ),
+          skills:
+            resolved.runtime === "bare"
+              ? []
+              : promptSkills(
+                  (await deps.skills?.(
+                    resolved.place,
+                    placeKindOf(resolved.place),
+                    assigned,
+                  )) ?? [],
+                  resolved,
+                ),
+          ...(resolved.runtime === "bare"
+            ? {
+                bare: {
+                  system: instructions.agent,
+                  untrusted: fixed.definitions.some(
+                    (tool) => untrustedSource(tool.name) !== null,
+                  ),
+                },
+              }
+            : {}),
           place: placed.value.place,
           ...(seenAtStart !== undefined && seenAtStart.compaction === compaction
             ? { seen: seenAtStart.basis }
@@ -629,6 +741,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       events: deps.events,
       wait: abortableWait,
       agentHash: resolved.hash,
+      runtime: resolved.runtime,
       model,
       tools: toolSetup,
       context,
@@ -762,11 +875,21 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const agent = made.value.agent;
 
     // 사람 지침은 turn을 시작할 때 한 번 읽고 turn 끝까지 쓴다. 한 층이라도 읽지 못했으면 turn을 시작하지 않는다.
+    // bare는 전역·project 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.
+    const files =
+      deps.instructionFilesFor?.(start.session) ?? deps.instructions.files;
     const instructions = await readTurnInstructions(
       {
         ...deps.instructions,
         files:
-          deps.instructionFilesFor?.(start.session) ?? deps.instructions.files,
+          agent.runtime === "bare"
+            ? {
+                read: (layer) =>
+                  layer === "agent"
+                    ? files.read(layer)
+                    : Promise.resolve(ok(null)),
+              }
+            : files,
       },
       { kind },
     );
@@ -813,6 +936,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       fixedBySession.set(start.session, {
         definitions: m.current,
         key: await keyOf(m.current),
+        picks: new Set(agent.picks),
       });
     }
     const fixed = fixedBySession.get(start.session)!;

@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type AgentRuntime,
   blocksOfContent,
   messageBody,
   placeSessionRead,
@@ -84,6 +85,8 @@ export async function readSessionConversation(
     request: string | null;
     // 받은 이미지의 bytes를 읽는 길. 없으면(Compact) 이미지는 고정 글로만 간다.
     images?: ImageReader;
+    // 받은 call 글이 runtime마다 다르다. 없으면 lophn이다.
+    runtime?: AgentRuntime;
   },
 ): Promise<Result<SessionConversation>> {
   if (input.session === null) return ok({ compaction: null, messages: [] });
@@ -216,7 +219,7 @@ export async function readSessionConversation(
         continue;
       }
       // 받은 turn의 입력과 같은 part 함수로 싼다. 이미지가 있으면 같은 bytes를 붙여 part를 그대로 둔다.
-      const parts = receivedParts(entry.received, blocks);
+      const parts = receivedParts(entry.received, blocks, input.runtime);
       const text = partsText(parts);
       if (text.trim() === "" && entry.received.from.kind === "human") continue;
       const withImage = parts.some((part) => part.kind === "image");

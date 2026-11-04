@@ -14,6 +14,7 @@ import {
   type AgentValueLayer,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
+  MCP_TOOL_PREFIX,
   type McpTool,
   type ModelChoice,
   type Place,
@@ -121,15 +122,24 @@ export async function resolveAgent(
   const picks = runtime === "bare" ? (definition?.tools ?? []) : [];
   const skills =
     runtime === "bare" ? [] : receivedSkills(environment.skills, skillsOff);
-  const mcp = environment.mcp.filter(
-    (tool) =>
-      !mcpOff.some(
-        (off) =>
-          off.server_name === tool.server_name &&
-          (off.original_tool === undefined ||
-            off.original_tool === tool.original_tool),
-      ),
-  );
+  // bare는 `mcp__<server>__<tool>`로 고른 tool만 받는다. 고르지 않은 서버는 연결 목록에도 서지 않는다.
+  const mcp = environment.mcp
+    .filter(
+      (tool) =>
+        runtime !== "bare" ||
+        picks.includes(
+          `${MCP_TOOL_PREFIX}${tool.server_name}__${tool.original_tool}`,
+        ),
+    )
+    .filter(
+      (tool) =>
+        !mcpOff.some(
+          (off) =>
+            off.server_name === tool.server_name &&
+            (off.original_tool === undefined ||
+              off.original_tool === tool.original_tool),
+        ),
+    );
 
   const value: Omit<ResolvedAgent, "hash"> = {
     agent: copy(agent),

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
+import { appCreate } from "../../protocol/apps/apps.ts";
 import { jobCreate } from "../../protocol/jobs/mod.ts";
 import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
 import { runStart } from "../../protocol/runs/mod.ts";
@@ -20,6 +21,11 @@ import { FILE_HOOKS } from "../agent-places/hooks.ts";
 import { agentTools } from "./agent-tools.ts";
 import { dispatchTarget } from "../lophn-agent/tools/dispatch.ts";
 import { commandTools } from "../lophn-agent/tools/lophn/command-tool.ts";
+import { resolveAgent } from "../lophn-agent/agents/resolve.ts";
+import {
+  runnableTools,
+  visibleTools,
+} from "../lophn-agent/run-loop/prepare.ts";
 import { selectTools, type ToolContext } from "../lophn-agent/tools/mod.ts";
 import { buildWireTable, inputJsonSchema } from "../lophn-agent/tools/wire.ts";
 import { executeToolCall } from "../lophn-agent/tools/work.ts";
@@ -168,4 +174,120 @@ test("place 종류의 tool 목록과 명령 정의의 wire 이름이 겹치지 �
     ]);
     assert.ok(table.ok, kind);
   }
+});
+
+// 고른 이름은 상한 안에서만 보이고 돈다. 목록 밖(home의 shell.run, project의 app.create), 고르지 않은 명령, 고르지 않은 MCP, 할당 밖 앱 command는
+// tools[]에도 실행 목록에도 없고, credential 상한은 고른 것과 상관없이 place 종류 그대로다.
+test("place 종류 목록 밖을 고른 bare는 그 tool을 보지도 부르지도 못하고 credential 작업은 place 종류 그대로다", async () => {
+  const definitions = agentTools({ file: FILE_HOOKS });
+  const picks = [
+    "file.read",
+    "shell.run",
+    "app.create",
+    "call.reply",
+    "notes.add",
+  ];
+  const calls: unknown[] = [];
+  for (const kind of ["home", "project"] as const) {
+    const visible = visibleTools({
+      kind,
+      agent: { runtime: "bare", picks },
+      names: placeToolNames(kind),
+      definitions,
+      inputMedia: ["image"],
+      external: [],
+      appDocs: [],
+    });
+    const names = visible.map((tool) => tool.name);
+    // project는 shell.run이 목록 안이라 보인다. home은 밖이라 안 보인다.
+    assert.deepStrictEqual(
+      names,
+      kind === "home"
+        ? ["file.read", "lophn"]
+        : ["file.read", "shell.run", "lophn"],
+      kind,
+    );
+    const lophn = visible.find((tool) => tool.name === "lophn")!;
+    assert.ok(lophn.description.includes("call reply"), kind);
+    // app.create는 home의 명령이라 home에서는 고른 대로 보이고, project에서는 밖이다.
+    assert.deepStrictEqual(
+      lophn.description.includes("app create - "),
+      kind === "home",
+      kind,
+    );
+    assert.ok(!lophn.description.includes("job create - "), kind);
+    assert.ok(!lophn.description.includes("notes"), kind);
+
+    const listed = runnableTools({
+      fixed: visible,
+      kind,
+      bare: { current: new Set(names), usable: new Set(picks) },
+    });
+    const ctx = {
+      kind,
+      tool_call: "tcl_1",
+      listed,
+      core: (path: string, body: unknown) => {
+        calls.push({ path, body });
+        return Promise.resolve(ok({}));
+      },
+    } as unknown as ToolContext;
+    const tries: [string, unknown][] = [["lophn", { args: ["job", "list"] }]];
+    if (kind === "project") {
+      tries.push(["lophn", { args: ["app", "create", "x", "y"] }]);
+    } else {
+      tries.push(["shell_run", { command: "true" }]);
+    }
+    for (const [name, input] of tries) {
+      const target = dispatchTarget(name, input);
+      const denied = await executeToolCall(ctx, target.name, target.input);
+      assert.deepStrictEqual(denied.executed, false, `${kind} ${name}`);
+    }
+    assert.deepStrictEqual(calls, []);
+    // 고른 명령은 돈다.
+    const reply = dispatchTarget("lophn", { args: ["call", "reply"] });
+    assert.ok(
+      listed.some((tool) => tool.name === reply.name),
+      kind,
+    );
+
+    // credential 상한은 place 종류의 것이다: 고르지 않은 명령의 route도 있고 목록 밖 명령의 route는 없다.
+    const operations = placeOperations(kind, definitions);
+    assert.ok(operations.includes(jobCreate.name), kind);
+    assert.deepStrictEqual(
+      operations.includes(appCreate.name),
+      kind === "home",
+    );
+  }
+
+  // 고르지 않은 MCP tool은 resolved agent에 닿지 않는다.
+  const resolved = await resolveAgent({
+    agent: "agt_00000000000000000000000001",
+    place: null,
+    definition: {
+      name: "reviewer",
+      body: "review",
+      runtime: "bare",
+      tools: ["mcp__s__a"],
+    },
+    global_model: {
+      provider: "pvd_00000000000000000000000001",
+      model_name: "m",
+      option_values: {},
+    },
+    session_model: null,
+    environment: {
+      skills: [],
+      mcp: [
+        { server_name: "s", original_tool: "a" },
+        { server_name: "s", original_tool: "b" },
+        { server_name: "t", original_tool: "a" },
+      ],
+    },
+    tools: [],
+  });
+  assert.ok(resolved.ok);
+  assert.deepStrictEqual(resolved.value.mcp, [
+    { server_name: "s", original_tool: "a" },
+  ]);
 });

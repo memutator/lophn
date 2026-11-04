@@ -6,6 +6,7 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import {
+  type AgentRuntime,
   type CallCost,
   checkpointTurn,
   decideToolCall,
@@ -103,6 +104,8 @@ type CorePortsDeps = {
   redact: RedactText;
   // turn 기준이 고정한 resolved agent의 hash. model call·tool call 기록이 이 값을 가리킨다.
   agentHash: string;
+  // 받은 call 글이 runtime마다 달라 이력 재생과 같은 runtime으로 입력을 싼다.
+  runtime: AgentRuntime;
   model: ModelBinding;
   tools: ToolSetup;
   context(): Promise<Result<TurnContext>>;
@@ -191,11 +194,14 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       request:
         first.value === null
           ? null
-          : await loadParts(inputParts(first.value), deps.images),
+          : await loadParts(inputParts(first.value, deps.runtime), deps.images),
       steering: await Promise.all(
         steering.value.map(async (item) => ({
           ...item,
-          parts: await loadParts(inputParts(item.input), deps.images),
+          parts: await loadParts(
+            inputParts(item.input, deps.runtime),
+            deps.images,
+          ),
         })),
       ),
     });

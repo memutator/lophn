@@ -74,6 +74,21 @@ test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실패 답
       "answer with `lophn call reply`",
     ),
   );
+  // bare의 result call은 `lophn call reply` 대신 마지막 응답이 답이라고 알리고, 받은 turn과 이력 재생이 같은 bytes다.
+  const bare = partsText(
+    receivedParts({ ...envelope, reply: "result" }, textBlocks(body), "bare"),
+  );
+  assert.deepStrictEqual(
+    bare,
+    partsText(
+      inputParts(
+        { ...call, body: textBlocks(body), reply: "result" } as RoutedInput,
+        "bare",
+      ),
+    ),
+  );
+  assert.ok(bare.includes("your last response is the answer"));
+  assert.ok(!bare.includes("lophn call reply"));
   const program = { kind: "program" } as const;
   const reaction = {
     ...call,

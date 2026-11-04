@@ -89,7 +89,12 @@ function commandTool(command: Command): ToolDefinition {
   };
 }
 
-// 그 place 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다.
-export function commandTools(kind: PlaceKind): readonly ToolDefinition[] {
-  return commandsForPlace(kind).map(commandTool);
+// 그 place 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다. bare는 고른 이름(`only`)만 낸다.
+export function commandTools(
+  kind: PlaceKind,
+  only?: ReadonlySet<string>,
+): readonly ToolDefinition[] {
+  return commandsForPlace(kind)
+    .filter((command) => only === undefined || only.has(command.name))
+    .map(commandTool);
 }

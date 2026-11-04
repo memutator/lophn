@@ -1,6 +1,6 @@
 # agent platform: 사람이 정한 agent를 앱, workflow, 다른 harness와 잇는다
 
-상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 `project-docs/plan/content-block/`, 단계 3은 `project-docs/plan/bare-runtime/`으로 열었다(2026-11-04).
+상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 계획 content-block으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md`). 단계 3은 `project-docs/plan/bare-runtime/`으로 열었다(2026-11-04).
 배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
 
 ## 왜
@@ -24,7 +24,7 @@
 - 같은 place 종류의 session은 agent가 누구든 같은 tool 목록, 지침, 내장 skill, credential 상한, file 범위를 받는다(P4). tool 목록은 `packages/core/agent-places/tool-lists.ts`가 고정하고, credential 상한은 그 목록에서 계산한다(`packages/core/agent-places/credentials.ts`의 `placeOperations`). 내장 skill은 끌 수 없고 system 1층은 늘 제품 고정 규칙 + place 종류 지침이다(`architecture/agent-definition.md`).
 - 첫 요청의 내장 tool 정의는 0.9.0 뒤 home 2,988 / project 3,929 / app 4,145 token이다(o200k, `products/change-log/0.9.0.md`). 0.14.0이 명령을 `lophn` tool 하나로 옮긴 뒤로는 재지 않았다.
 - place 정보에는 잘 안 바뀌는 목록만 넣는다. 앱 화면 상태는 넣지 않고, 화면에서 본 것은 annotation이나 메시지로만 들어온다(`architecture/agent-definition.md`).
-- 사람 메시지는 글뿐이다. 붙인 이미지는 `Attached image: open with image.read path "attachment:<id>".` 줄로 싣고 agent가 `image.read`로 연다(`packages/protocol/lophn-agent/message-attachments.ts`).
+- 사람 메시지와 call 본문·답은 content block 배열이다(단계 2가 land함). 붙인 이미지는 image block으로 model에 바로 간다(`packages/protocol/lophn-agent/content-block.ts`, `architecture/agent-call.md`). 그 전에는 글 끝의 `Attached image: ... "attachment:<id>"` 줄을 agent가 `image.read`로 열었다.
 
 ### session에 들어오는 입력: call, run, step
 
@@ -107,7 +107,7 @@
 | 6 harness host와 gui | shell 쪽 harness host, ACP client, session 기록, `<harness> gui` | 2, 3 | 7이 같은 host를 쓴다. 사람이 보는 길에서 ACP 옮기기를 먼저 검증한다 |
 | 7 harness agent | harness session이 call, run, step 입력을 받는다. workflow harness 참가자, TUI resume, harness가 `lophn` CLI로 답하고 부르기 | 4, 6 | `roadmap/workflow.md`의 harness 참가자와 `issues/coding-agent.md`를 닫는다 |
 
-1과 2는 둘 다 계획으로 열었다. 2의 core task는 prompt 조립·run-loop·router file을 1과 같이 고치므로 1의 `rd-layers`가 land한 뒤 돈다(2026-11-04). 3 뒤에 4·5·6을 나란히, 마지막에 7이다. 1과 3은 같은 prompt 조립 file(`packages/core/lophn-agent/prompt-assembly/`)을 고치므로 차례로 land한다. 4가 명함을 prompt에 싣기로 하면 4도 그 차례에 든다.
+1과 2는 둘 다 계획으로 열었다. 2의 core task는 prompt 조립·run-loop·router file을 1과 같이 고치므로 1의 `rd-layers`가 land한 뒤 돌았다. 1과 2는 끝났다(2026-11-04). 3 뒤에 4·5·6을 나란히, 마지막에 7이다. 1과 3은 같은 prompt 조립 file(`packages/core/lophn-agent/prompt-assembly/`)을 고치므로 차례로 land한다. 4가 명함을 prompt에 싣기로 하면 4도 그 차례에 든다.
 
 ## 다른 계획, roadmap, 이슈
 
@@ -272,7 +272,7 @@
 ### 계획을 열 때 정할 것
 
 - **1:** 계획 `remove-domain`의 정한 것이 정했다.
-- **2:** 계획 `content-block`의 정한 것이 정했다.
+- **2:** 계획 `content-block`이 정했다(`project-docs/products/change-log/0.17.0.md`의 content block 항목).
 - **3:** 계획 `bare-runtime`의 정한 것이 정했다.
 - **4:** 명함을 model에 싣는 자리(`session.list` 결과인가, place 정보 층인가). prompt cache와 맞물리고, "Agents you can call" 목록이 넘기기를 좌우한다(`tests/eval/experiments/call-list-without-session`). modality를 선언만 믿나, runtime의 provider 능력과 대조하나. third-party 능력 선언의 꼴.
 - **5:** 어느 session이 열린 화면의 client가 되나(그 앱 place의 session만인가, 다른 place의 agent도인가). app place의 lophn runtime agent는 앱을 짓는 tool(source 쓰기, release)을 같이 가진다: 코치 같은 agent는 bare로 두나. 같은 앱 화면이 여럿 열렸을 때 고르기. 화면이 닫혔을 때의 오류(`unavailable`). context 크기 상한. agent가 부르는 화면 action을 사람이 화면에서 보는 법. annotation(사람이 화면 상태를 보내는 길)과 합치나.

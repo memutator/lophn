@@ -7,12 +7,18 @@ export { FieldContext, type FieldContextValue } from "./field/field-context.ts";
 export { Input, type InputProps } from "./input/input.tsx";
 // 여러 줄 글 입력. 설명·메모처럼 길어질 수 있는 글에 쓴다.
 export { Textarea, type TextareaProps } from "./textarea/textarea.tsx";
-// 정해진 목록에서 하나 고른다. 목록이 길어 검색이 필요하면 Palette, 두세 개를 늘 펼쳐 두려면 SegmentedControl이다.
+// 정해진 목록에서 하나 고른다. 목록이 길어 검색이 필요하면 SearchSelect, 두세 개를 늘 펼쳐 두려면 SegmentedControl이다.
 export {
   Select,
   type SelectOption,
   type SelectProps,
 } from "./select/select.tsx";
+// 긴 목록(설치된 글꼴처럼 수십 개 이상)에서 하나 고른다. 열면 목록 위 검색 칸으로 거른다. 짧으면 Select다.
+export {
+  SearchSelect,
+  type SearchSelectOption,
+  type SearchSelectProps,
+} from "./search-select/search-select.tsx";
 // 두세 개의 보기·상태 가운데 하나를 늘 펼친 단추 줄로 고른다. 화면 영역을 바꾸면 Tabs, 선택지가 많으면 Select다.
 export {
   SegmentedControl,

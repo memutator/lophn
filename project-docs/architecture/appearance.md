@@ -8,7 +8,7 @@
 Settings › Appearance (renderer/desktop/settings/appearance)
   고르면 core 선언 설정 shell.*(아래 표의 key)에 저장 ─┐
   시작 때 core가 준비되면 같은 설정을 읽는다           │
-        │ lophnAppearance.set(Appearance 열한 값)      │
+        │ lophnAppearance.set(Appearance 열네 값)      │
         ▼                                              │
 main  wiring/appearance.ts  (channel shell:appearance)
   1. parseAppearance로 검사(목록 밖 값이면 전체 거절)
@@ -21,7 +21,7 @@ main  wiring/appearance.ts  (channel shell:appearance)
 
 - desktop renderer가 유일한 보내는 쪽이다. main은 caller host가 `desktop`인지 보고 값을 다시 검사한다. renderer는 자기 문서의 `data-theme`만 직접 쓴다. 나머지는 모든 문서가 같은 경로(main의 insertCSS)로 받아 desktop 창도 앱 화면 guest와 같은 CSS를 받는다.
 - main은 처음에 값을 모른다. desktop 창이 core가 준비된 뒤 읽어 보내면 그때부터 지금 열린 모든 문서와 이후 열리는 문서에 넣는다. 그 전 한 번은 기본 모양이다.
-- CSS는 insertCSS라 앱 화면 guest의 CSP를 지나서도 들어간다. 그래서 CSS 문자열에 들어가는 값은 모두 `packages/design/presets.ts`의 상수이거나 검사한 Custom 글꼴 이름이다. guest도 `web-contents-created`의 `dom-ready`마다 같은 길로 받는다(문서 URL로 고른다).
+- CSS는 insertCSS라 앱 화면 guest의 CSP를 지나서도 들어간다. 그래서 CSS 문자열에 들어가는 값은 모두 `packages/design/presets.ts`의 상수, `FONT_WEIGHTS` 안의 굵기, 검사한 Custom 글꼴 이름이다. guest도 `web-contents-created`의 `dom-ready`마다 같은 길로 받는다(문서 URL로 고른다).
 
 ## 값과 preset
 
@@ -32,9 +32,9 @@ main  wiring/appearance.ts  (channel shell:appearance)
 | `shell.theme` | system, light, dark | CSS가 아니라 `data-theme`과 `nativeTheme.themeSource` |
 | `shell.accent` | ink, blue, green, purple, orange | `color.ink`(background·text·hover), `color.focus`, `color.selection` |
 | `shell.background` | warm, neutral, cool | `color.surface` 다섯(floor·base·subtle·muted·shell), `color.border` 셋, `color.text` 넷, `code.foreground`, `tabStrip.bar·hover`, `floating.surface·hover` |
-| `shell.font`, `shell.font_custom` | pretendard, system, custom | `font.sans` |
-| `shell.code_font`, `shell.code_font_custom` | jetbrains-mono, system, custom | `font.mono` |
-| `shell.reading_font`, `shell.reading_font_custom` | ui, serif, custom | `font.reading`(문서·대화 본문: design `Markdown`, markdown 편집기). ui는 `font.sans`를 따른다. serif는 글꼴을 싣지 않고 OS serif stack이다 |
+| `shell.font`, `shell.font_custom`, `shell.font_weight` | pretendard, system, custom / 100~900(400) | `font.sans`, `font.weight.regular`(UI 본문 굵기. medium·semibold는 그대로라 강조·제목은 따로 굵다) |
+| `shell.code_font`, `shell.code_font_custom`, `shell.code_font_weight` | jetbrains-mono, system, custom / 100~900(400) | `font.mono`, `font.weight.mono`(`code`·`pre`·`.mono`, 코드 편집기, xterm) |
+| `shell.reading_font`, `shell.reading_font_custom`, `shell.reading_font_weight` | ui, serif, custom / 100~900(400) | `font.reading`(문서·대화 본문: design `Markdown`, markdown 편집기), `font.weight.reading`. ui는 `font.sans`와 그 굵기를 따른다. serif는 글꼴을 싣지 않고 OS serif stack이다 |
 | `shell.text_size` | default, small, large | `type.*.size·line`(비율 0.92, 1.12) |
 | `shell.density` | comfortable, compact | `control`, `field.gap`, `menu.row`, `tree.row`, `palette.item`, `layout.panePadding`, `tab.contentGap` |
 | `shell.reading_width` | narrow, default, wide | CSS가 아니다. 문서가 따로 읽는다 |
@@ -47,6 +47,8 @@ main  wiring/appearance.ts  (channel shell:appearance)
 - 대비를 지키는 값만 둔다. ink 글자와 바탕(hover 포함) 4.5:1 이상, focus ring과 모든 background preset의 surface 3:1 이상, selection 위 text 4.5:1 이상, primary·secondary·muted 글자와 모든 surface 4.5:1 이상이다. 값을 바꿀 때는 이 비율을 계산해 확인한다(WCAG 상대 휘도).
 - Custom 글꼴 이름은 CSS 문자열 안에 들어간다. `isFontName`이 글자·숫자·공백·`-`·`_`(1~64자)만 받는다. 따옴표, 괄호, 세미콜론, 중괄호, 역슬래시, 줄바꿈은 들어올 수 없어 문자열 밖으로 나갈 수 없다. renderer는 이 규칙으로 저장 전에 거절하고, main의 `parseAppearance`는 어긴 이름만 버려 기본 글꼴로 둔다. core는 길이만 본다. 이 규칙은 앱 화면 guest에 들어가는 CSS의 injection을 막는 경계다.
 - 글꼴 stack: custom은 `"<이름>", "Pretendard Variable", system-ui, sans-serif`처럼 기본 stack으로 이어진다. 이름의 글꼴이 설치돼 있지 않아도 깨지지 않는다.
+- 글꼴 고르기: 화면은 이름을 직접 받지 않는다. 글꼴 줄은 design `SearchSelect`(목록 위 검색 칸)에 preset과 설치된 글꼴을 두고, 설치된 글꼴을 고르면 `*_custom`에 family 이름을 쓰고 줄 값을 `custom`으로 한다. 옆 Select가 그 글꼴에 있는 굵기를 고르고, 글꼴을 바꿔 지금 굵기가 없으면 가장 가까운 굵기로 옮긴다. 앱에 실은 Pretendard·JetBrains Mono는 400~600, OS stack(system, serif)과 목록에 없는 이름은 400·700이다.
+- 설치된 글꼴: renderer가 Chromium Local Font Access(`queryLocalFonts`, `appearance/local-fonts.ts`)로 OS 글꼴을 읽어 family와 굵기(style 이름에서, 기울임은 뺀다)로 묶는다. desktop 창은 기본 session이라 권한 handler 없이 허용된다. 화면을 열 때 읽고, 비어 있으면 글꼴 칸을 열 때(사람이 누른 때) 다시 읽는다. `isFontName`을 어기는 family는 목록에서 뺀다. 저장된 이름이 목록에 없으면 그 이름에 Not installed를 붙여 preset 다음에 두고, 줄 아래에 기본 글꼴을 쓴다고 알린다.
 
 ## CSS 모양
 
@@ -71,6 +73,6 @@ html[data-theme="dark"] { dark 값 }
 ## 하지 않는 것
 
 - 사용자가 임의의 token 값이나 CSS를 넣는 길. 고르는 것은 preset과 설치된 글꼴 이름뿐이다.
-- 이미 만든 xterm 터미널의 글꼴 갱신. xterm은 만들 때 `--font-mono`를 한 번 읽어서 새로 연 터미널부터 바뀐다.
+- 이미 만든 xterm 터미널의 글꼴 갱신. xterm은 만들 때 `--font-mono`와 `--font-weight-mono`를 한 번 읽어서 새로 연 터미널부터 바뀐다.
 - 다른 desktop 창의 `data-theme` 즉시 갱신. CSS 값은 모든 창에 바로 가지만 `data-theme`은 그 창이 설정을 다시 읽을 때 맞춘다.
 - shadow의 색조(popover·dialog 그림자는 background preset과 상관없이 같다).

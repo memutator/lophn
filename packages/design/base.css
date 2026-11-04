@@ -32,6 +32,7 @@ samp,
 pre,
 .mono {
   font-family: var(--font-mono);
+  font-weight: var(--font-weight-mono);
 }
 
 .tabular {

@@ -99,6 +99,8 @@ export const vars = {
       regular: "var(--font-weight-regular)",
       medium: "var(--font-weight-medium)",
       semibold: "var(--font-weight-semibold)",
+      mono: "var(--font-weight-mono)",
+      reading: "var(--font-weight-reading)",
     },
     numeric: "var(--font-numeric)",
   },
@@ -306,6 +308,9 @@ export const vars = {
   },
   menu: {
     row: "var(--menu-row)",
+  },
+  searchSelect: {
+    list: "var(--search-select-list)",
   },
   dialog: {
     width: {

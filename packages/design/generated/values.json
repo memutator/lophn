@@ -240,7 +240,9 @@
       "weight": {
         "regular": 400,
         "medium": 500,
-        "semibold": 600
+        "semibold": 600,
+        "mono": 400,
+        "reading": 400
       },
       "numeric": "tabular-nums"
     },
@@ -454,6 +456,9 @@
     },
     "menu": {
       "row": "32px"
+    },
+    "searchSelect": {
+      "list": "320px"
     },
     "dialog": {
       "width": {

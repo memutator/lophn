@@ -51,6 +51,7 @@ import {
 } from "./places/projects/core-source.ts";
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
+import type { QueryLocalFonts } from "./settings/appearance/local-fonts.ts";
 import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";
 import { coreJobsSource } from "./jobs/core-source.ts";
 import { coreShellRulesSource } from "./settings/shell-rules/core-source.ts";
@@ -109,7 +110,13 @@ const settingsPanels = mock?.settingsPanels ?? {
   agents: coreAgentsSettingsSource(core),
   diagnostics: coreDiagnosticsSource(core),
   shellRules: coreShellRulesSource(core),
-  appearance: coreAppearanceSource(core),
+  // 설치된 글꼴은 Chromium Local Font Access로 읽는다. 권한은 desktop 창 session이 준다.
+  appearance: coreAppearanceSource(
+    core,
+    (globalThis as { queryLocalFonts?: QueryLocalFonts }).queryLocalFonts?.bind(
+      globalThis,
+    ),
+  ),
   keyboard: coreKeyboardSource(core),
   coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
   browser: windowBrowserSettings(),

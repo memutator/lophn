@@ -11,6 +11,7 @@ import {
   Field,
   FieldContext,
   Input,
+  SearchSelect,
   SegmentedControl,
   Select,
   SwatchPicker,
@@ -31,6 +32,25 @@ const SAMPLE_IMAGE = `data:image/svg+xml;utf8,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90"><rect width="120" height="90" fill="#2a78d6"/><circle cx="40" cy="40" r="18" fill="#fab219"/></svg>',
 )}`;
 const NOOP = () => {};
+// 긴 목록 견본: 설치된 글꼴처럼 수십 개.
+const FONT_FAMILIES = [
+  "D2Coding",
+  "DejaVu Sans",
+  "DejaVu Sans Mono",
+  "Fira Code",
+  "Hack",
+  "IBM Plex Sans",
+  "Inter",
+  "JetBrains Mono",
+  "MaruBuri",
+  "Nanum Gothic",
+  "Noto Sans",
+  "Noto Sans CJK KR",
+  "Noto Serif CJK KR",
+  "Pretendard",
+  "Sarasa Mono K",
+  "Sarasa Term K",
+].map((family) => ({ value: family, label: family }));
 
 // Field가 넘기는 id·오류 상태를 FieldContext로 읽어 보이는 최소 입력.
 function ContextReader() {
@@ -80,6 +100,7 @@ export function KitInput() {
   const [status, setStatus] = useState("complete");
   const [view, setView] = useState("week");
   const [day, setDay] = useState("2026-10-09");
+  const [font, setFont] = useState("D2Coding");
   const [due, setDue] = useState("");
   const [start, setStart] = useState("10:00");
   const [end, setEnd] = useState("11:00");
@@ -201,6 +222,40 @@ export function KitInput() {
                 options={options}
                 value="weekly"
                 onValueChange={() => {}}
+              />
+            </Field>
+          </div>
+        </div>
+      </Section>
+      <Section
+        title="SearchSelect"
+        note="Select와 같은 칸이고, 열면 목록 위 검색 칸에 focus가 간다. 위아래 화살표로 옮기고 Enter로 고른다. 목록 밖의 저장 값은 note를 붙인 줄로 앞에 둔다."
+      >
+        <div className={kit.colTwo}>
+          <div className={kit.field}>
+            <Field label="UI font">
+              <SearchSelect
+                label="UI font"
+                options={FONT_FAMILIES}
+                value={font}
+                onValueChange={setFont}
+              />
+            </Field>
+          </div>
+          <div className={kit.field}>
+            <Field label="Code font">
+              <SearchSelect
+                label="Code font"
+                options={[
+                  {
+                    value: "Berkeley Mono",
+                    label: "Berkeley Mono",
+                    note: "Not installed",
+                  },
+                  ...FONT_FAMILIES,
+                ]}
+                value="Berkeley Mono"
+                onValueChange={NOOP}
               />
             </Field>
           </div>

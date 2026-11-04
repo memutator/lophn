@@ -64,6 +64,8 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --font-weight-mono: 400;
+  --font-weight-reading: 400;
   --font-numeric: tabular-nums;
   --type-caption-size: 12px;
   --type-caption-line: 16px;
@@ -184,6 +186,7 @@
   --palette-top: 12%;
   --tooltip-delay: 400ms;
   --menu-row: 32px;
+  --search-select-list: 320px;
   --dialog-width-default: 480px;
   --dialog-width-wide: 640px;
   --toast-width: 360px;

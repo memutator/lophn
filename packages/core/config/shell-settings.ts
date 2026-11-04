@@ -34,6 +34,25 @@ const fontCustomSetting = declareSetting({
   default: "",
 });
 
+// 글꼴마다 고르는 본문 굵기(CSS font-weight). 목록은 packages/design/appearance.ts의 FONT_WEIGHTS와 같다.
+const FONT_WEIGHTS = [
+  "100",
+  "200",
+  "300",
+  "400",
+  "500",
+  "600",
+  "700",
+  "800",
+  "900",
+] as const;
+
+const fontWeightSetting = declareSetting({
+  key: "shell.font_weight",
+  type: z.enum(FONT_WEIGHTS),
+  default: "400",
+});
+
 const codeFontSetting = declareSetting({
   key: "shell.code_font",
   type: z.enum(["jetbrains-mono", "system", "custom"]),
@@ -46,6 +65,12 @@ const codeFontCustomSetting = declareSetting({
   default: "",
 });
 
+const codeFontWeightSetting = declareSetting({
+  key: "shell.code_font_weight",
+  type: z.enum(FONT_WEIGHTS),
+  default: "400",
+});
+
 const readingFontSetting = declareSetting({
   key: "shell.reading_font",
   type: z.enum(["ui", "serif", "custom"]),
@@ -56,6 +81,12 @@ const readingFontCustomSetting = declareSetting({
   key: "shell.reading_font_custom",
   type: z.string().max(64),
   default: "",
+});
+
+const readingFontWeightSetting = declareSetting({
+  key: "shell.reading_font_weight",
+  type: z.enum(FONT_WEIGHTS),
+  default: "400",
 });
 
 const textSizeSetting = declareSetting({
@@ -158,10 +189,13 @@ export const shellSettings = [
   backgroundSetting,
   fontSetting,
   fontCustomSetting,
+  fontWeightSetting,
   codeFontSetting,
   codeFontCustomSetting,
+  codeFontWeightSetting,
   readingFontSetting,
   readingFontCustomSetting,
+  readingFontWeightSetting,
   textSizeSetting,
   readingWidthSetting,
   densitySetting,

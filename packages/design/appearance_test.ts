@@ -72,6 +72,11 @@ test("목록 밖 선택은 appearance 전체가 거절된다", () => {
     parseAppearance({ ...APPEARANCE_DEFAULTS, density: "9" }),
     undefined,
   );
+  // 굵기도 모든 문서의 CSS에 그대로 들어간다.
+  assert.deepStrictEqual(
+    parseAppearance({ ...APPEARANCE_DEFAULTS, code_font_weight: "400; }" }),
+    undefined,
+  );
   assert.deepStrictEqual(parseAppearance(null), undefined);
   assert.deepStrictEqual(
     parseAppearance(APPEARANCE_DEFAULTS),

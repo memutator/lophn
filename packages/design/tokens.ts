@@ -99,7 +99,14 @@ export const tokens = {
     mono: '"JetBrains Mono", monospace',
     // 문서와 대화 본문. 기본은 UI 글꼴과 같고 사람이 Settings › Appearance에서 따로 고른다.
     reading: '"Pretendard Variable", system-ui, sans-serif',
-    weight: { regular: 400, medium: 500, semibold: 600 },
+    // regular는 UI 본문 굵기다. mono(코드)와 reading(문서 본문)은 사람이 글꼴마다 따로 고르는 굵기다.
+    weight: {
+      regular: 400,
+      medium: 500,
+      semibold: 600,
+      mono: 400,
+      reading: 400,
+    },
     numeric: "tabular-nums",
   },
   type: {
@@ -228,6 +235,8 @@ export const tokens = {
   // 떠 있는 표면의 지연·행·폭·시간. dialog 안 여백 24px은 space 값을 쓴다.
   tooltip: { delay: "400ms" },
   menu: { row: "32px" },
+  // 검색 칸이 붙은 Select(SearchSelect)의 목록 최대 높이.
+  searchSelect: { list: "320px" },
   dialog: { width: { default: "480px", wide: "640px" } },
   toast: {
     width: "360px",

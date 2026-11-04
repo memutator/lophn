@@ -13,6 +13,18 @@ export const FONTS = ["pretendard", "system", "custom"] as const;
 export const CODE_FONTS = ["jetbrains-mono", "system", "custom"] as const;
 /** ui는 UI 글꼴(`font`)을 따른다. */
 export const READING_FONTS = ["ui", "serif", "custom"] as const;
+/** 글꼴마다 고르는 본문 굵기(CSS font-weight). 강조·제목 굵기는 바뀌지 않는다. */
+export const FONT_WEIGHTS = [
+  "100",
+  "200",
+  "300",
+  "400",
+  "500",
+  "600",
+  "700",
+  "800",
+  "900",
+] as const;
 
 export type Theme = (typeof THEMES)[number];
 export type Accent = keyof typeof appearancePresets.accent;
@@ -20,6 +32,7 @@ export type Background = keyof typeof appearancePresets.background;
 export type Font = (typeof FONTS)[number];
 export type CodeFont = (typeof CODE_FONTS)[number];
 export type ReadingFont = (typeof READING_FONTS)[number];
+export type FontWeight = (typeof FONT_WEIGHTS)[number];
 export type TextSize = keyof typeof appearancePresets.textSize;
 export type Density = keyof typeof appearancePresets.density;
 
@@ -30,7 +43,7 @@ export const BACKGROUNDS = Object.keys(
 export const TEXT_SIZES = Object.keys(appearancePresets.textSize) as TextSize[];
 export const DENSITIES = Object.keys(appearancePresets.density) as Density[];
 
-/** 화면 모양 열한 값. 문서 읽기 폭은 문서가 따로 읽어서 여기 없다. */
+/** 화면 모양 열네 값. 문서 읽기 폭은 문서가 따로 읽어서 여기 없다. */
 export interface Appearance {
   readonly theme: Theme;
   readonly accent: Accent;
@@ -38,11 +51,15 @@ export interface Appearance {
   readonly font: Font;
   /** font가 custom일 때 설치된 글꼴 이름. */
   readonly font_custom: string;
+  readonly font_weight: FontWeight;
   readonly code_font: CodeFont;
   readonly code_font_custom: string;
+  readonly code_font_weight: FontWeight;
   /** 문서와 대화 본문의 글꼴. */
   readonly reading_font: ReadingFont;
   readonly reading_font_custom: string;
+  /** reading_font가 ui면 쓰지 않고 font_weight를 따른다. */
+  readonly reading_font_weight: FontWeight;
   readonly text_size: TextSize;
   readonly density: Density;
 }
@@ -53,10 +70,13 @@ export const APPEARANCE_DEFAULTS: Appearance = {
   background: "warm",
   font: "pretendard",
   font_custom: "",
+  font_weight: "400",
   code_font: "jetbrains-mono",
   code_font_custom: "",
+  code_font_weight: "400",
   reading_font: "ui",
   reading_font_custom: "",
+  reading_font_weight: "400",
   text_size: "default",
   density: "comfortable",
 };
@@ -88,6 +108,9 @@ export function parseAppearance(input: unknown): Appearance | undefined {
   const font = oneOf(FONTS, raw.font);
   const code_font = oneOf(CODE_FONTS, raw.code_font);
   const reading_font = oneOf(READING_FONTS, raw.reading_font);
+  const font_weight = oneOf(FONT_WEIGHTS, raw.font_weight);
+  const code_font_weight = oneOf(FONT_WEIGHTS, raw.code_font_weight);
+  const reading_font_weight = oneOf(FONT_WEIGHTS, raw.reading_font_weight);
   const text_size = oneOf(TEXT_SIZES, raw.text_size);
   const density = oneOf(DENSITIES, raw.density);
   if (
@@ -97,6 +120,9 @@ export function parseAppearance(input: unknown): Appearance | undefined {
     !font ||
     !code_font ||
     !reading_font ||
+    !font_weight ||
+    !code_font_weight ||
+    !reading_font_weight ||
     !text_size ||
     !density
   )
@@ -109,10 +135,13 @@ export function parseAppearance(input: unknown): Appearance | undefined {
     background,
     font,
     font_custom: name(raw.font_custom),
+    font_weight,
     code_font,
     code_font_custom: name(raw.code_font_custom),
+    code_font_weight,
     reading_font,
     reading_font_custom: name(raw.reading_font_custom),
+    reading_font_weight,
     text_size,
     density,
   };
@@ -138,11 +167,25 @@ function fontOverride(a: Appearance): TokenOverride {
       : a.reading_font === "custom" && isFontName(a.reading_font_custom)
         ? fontStacks.reading.custom(a.reading_font_custom)
         : sans;
+  // ui인 읽기 글꼴은 굵기도 UI 글꼴을 따른다.
+  const readingWeight =
+    a.reading_font === "ui" ? a.font_weight : a.reading_font_weight;
+  const d = APPEARANCE_DEFAULTS;
+  const weight = {
+    ...(a.font_weight === d.font_weight ? {} : { regular: a.font_weight }),
+    ...(a.code_font_weight === d.code_font_weight
+      ? {}
+      : { mono: a.code_font_weight }),
+    ...(readingWeight === d.reading_font_weight
+      ? {}
+      : { reading: readingWeight }),
+  };
   return {
     font: {
       ...(sans === undefined ? {} : { sans }),
       ...(mono === undefined ? {} : { mono }),
       ...(reading === undefined ? {} : { reading }),
+      ...(Object.keys(weight).length === 0 ? {} : { weight }),
     },
   };
 }

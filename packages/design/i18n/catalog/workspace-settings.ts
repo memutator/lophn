@@ -93,6 +93,8 @@ export const workspaceSettings = {
   "settings.appearance.density-help":
     "How much room lists and tables leave between rows.",
   "settings.appearance.font-help": "The font of text across lophn.",
+  "settings.appearance.font-missing":
+    "{name} isn't installed on this computer, so lophn uses its default font.",
   "settings.appearance.reading-font-help":
     "The font of documents and agent replies. Interface text keeps its own font.",
   "settings.appearance.reading-width-help":
@@ -134,8 +136,6 @@ export const workspaceSettings = {
     "The hooks weren't installed. Nothing changed. Try again.",
   "settings.error.coding-hooks-uninstall":
     "The hooks weren't uninstalled. Try again.",
-  "settings.error.font-name":
-    "Use only letters, numbers, spaces, hyphens, and underscores.",
   "settings.error.key-needs-modifier":
     "Hold {modifiers} with the key. A key on its own would stop you typing it.",
   "settings.error.key-numbered-needs-modifier":
@@ -191,7 +191,7 @@ export const workspaceSettings = {
   "settings.label.checked-at": "Checked",
   "settings.label.chosen-default": "Set by you · Default: {value}",
   "settings.label.code-font": "Code font",
-  "settings.label.code-font-jetbrains": "JetBrains Mono",
+  "settings.label.code-font-jetbrains": "JetBrains Mono (built in)",
   "settings.label.code-font-system": "System monospace",
   "settings.label.coding-check-failed": "Couldn't check",
   "settings.label.coding-col-command": "Command",
@@ -222,9 +222,9 @@ export const workspaceSettings = {
   "settings.label.density-comfortable": "Comfortable",
   "settings.label.density-compact": "Compact",
   "settings.label.font": "Font",
-  "settings.label.font-custom": "Custom",
-  "settings.label.font-custom-name": "Installed font name",
-  "settings.label.font-pretendard": "Pretendard",
+  "settings.label.font-not-installed": "Not installed",
+  "settings.label.font-weight": "{name} weight",
+  "settings.label.font-pretendard": "Pretendard (built in)",
   "settings.label.font-system": "System UI",
   "settings.label.general-target": "your settings",
   "settings.label.group-agents": "Agents",
@@ -297,6 +297,15 @@ export const workspaceSettings = {
   "settings.label.value-on": "On",
   "settings.label.way-local": "On this computer",
   "settings.label.way-sign-in": "Sign in with an account",
+  "settings.label.weight-100": "Thin",
+  "settings.label.weight-200": "Extra light",
+  "settings.label.weight-300": "Light",
+  "settings.label.weight-400": "Regular",
+  "settings.label.weight-500": "Medium",
+  "settings.label.weight-600": "Semibold",
+  "settings.label.weight-700": "Bold",
+  "settings.label.weight-800": "Extra bold",
+  "settings.label.weight-900": "Black",
   "settings.label.width-narrow": "Narrow",
   "settings.label.width-standard": "Standard",
   "settings.label.width-wide": "Wide",

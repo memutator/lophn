@@ -146,6 +146,15 @@ function token(element: HTMLElement, name: string): string | undefined {
   return value.length > 0 ? value : undefined;
 }
 
+/** 사람이 고른 코드 글꼴 굵기. xterm은 CSS를 따르지 않아 token을 숫자로 넘긴다. */
+function monoWeight(element: HTMLElement): number | undefined {
+  const weight = Number.parseInt(
+    token(element, "--font-weight-mono") ?? "",
+    10,
+  );
+  return Number.isFinite(weight) ? weight : undefined;
+}
+
 const ANSI = [
   "black",
   "red",
@@ -373,6 +382,7 @@ export function createXtermView(
   const term = new parts.Terminal({
     // 색·글꼴은 design token을 읽는다. clipboard 관련 option은 주지 않는다.
     fontFamily: token(host, "--font-mono"),
+    fontWeight: monoWeight(host),
     fontSize: Number.parseFloat(token(host, "--type-small-size") ?? "") || 13,
     cursorBlink: true,
     scrollback: 10_000,

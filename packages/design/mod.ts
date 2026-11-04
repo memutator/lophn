@@ -17,6 +17,7 @@ export {
   BACKGROUNDS,
   CODE_FONTS,
   DENSITIES,
+  FONT_WEIGHTS,
   FONTS,
   isFontName,
   parseAppearance,
@@ -30,6 +31,7 @@ export type {
   CodeFont,
   Density,
   Font,
+  FontWeight,
   TextSize,
   Theme as ThemeChoice,
 } from "./appearance.ts";

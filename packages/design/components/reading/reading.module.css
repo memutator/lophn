@@ -2,6 +2,7 @@
 .markdown {
   color: var(--color-text-primary);
   font-family: var(--font-reading);
+  font-weight: var(--font-weight-reading);
   font-size: var(--type-reading-size);
   line-height: var(--type-reading-line);
   letter-spacing: var(--type-tracking-normal);

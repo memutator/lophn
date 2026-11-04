@@ -18,13 +18,14 @@ export const SettingsRequiredEmpty = () => (
 /** Settings › Appearance. */
 export const SettingsAppearance = () => <SettingsFrame pane="appearance" />;
 
-// 처음 값과 다르게 고른 preset. Purple, Cool, System UI, 설치된 코드 글꼴 이름, Serif 본문, Large, Compact다.
+// 처음 값과 다르게 고른 preset. Purple, Cool, System UI, 설치된 코드 글꼴(D2Coding Bold), Serif 본문, Large, Compact다.
 const PRESETS = {
   accent: "purple",
   background: "cool",
   font: "system",
   code_font: "custom",
-  code_font_custom: "Fira Code",
+  code_font_custom: "D2Coding",
+  code_font_weight: "700",
   reading_font: "serif",
   text_size: "large",
   density: "compact",
@@ -41,6 +42,29 @@ export const SettingsAppearancePresets = () => (
 /** Settings › Appearance: preset을 바꾼 상태(Dark). */
 export const SettingsAppearancePresetsDark = () => (
   <SettingsFrame pane="appearance" appearance={{ ...PRESETS, theme: "dark" }} />
+);
+
+/** Settings › Appearance: UI 글꼴 칸을 열고 검색 칸에 "no"를 쳐 설치된 글꼴을 거른 상태. */
+export const SettingsAppearanceFontSearch = () => (
+  <SettingsFrame
+    pane="appearance"
+    appearance={{}}
+    steps={[
+      () => click('[data-appearance-row="font"] button[aria-haspopup]'),
+      () => type('input[type="search"]', "no"),
+    ]}
+  />
+);
+
+/** Settings › Appearance: 저장된 코드 글꼴이 이 컴퓨터에 없어 그 이름에 Not installed가 붙은 상태. */
+export const SettingsAppearanceFontMissing = () => (
+  <SettingsFrame
+    pane="appearance"
+    appearance={{ code_font: "custom", code_font_custom: "Berkeley Mono" }}
+    steps={[
+      () => click('[data-appearance-row="code_font"] button[aria-haspopup]'),
+    ]}
+  />
 );
 
 /** Settings › Coding agents. */

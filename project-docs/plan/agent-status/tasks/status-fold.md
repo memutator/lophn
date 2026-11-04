@@ -34,3 +34,10 @@ tracker가 terminal마다 main turn 상태와 child 집합을 따로 들고, 보
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고"대로.
+
+## lead가 더함
+
+- (lead가 더함) `ChildStarted`는 대기 중인 권한 물음도 푼다(`PermissionResolved`처럼 waiting을 0으로). 앞 task에서 `agent_id`가 붙은 Claude `PostToolUse`·`PostToolUseFailure`가 `PermissionResolved`에서 `ChildStarted`로 바뀌었다. 그래서 지금은 subagent의 권한 물음을 허락한 뒤 main의 다음 hook이 올 때까지 탭이 waiting에 남는다. 이 규칙이 그것을 되돌린다. 위험 test에 한 줄 더한다: "subagent의 권한 물음 뒤 그 subagent의 tool hook(ChildStarted)이 오면 waiting이 풀린다".
+- (lead가 더함) 앞 task가 tracker에 넣은 임시 줄을 지운다: `AgentSignal`의 `ChildStarted`·`ChildEnded`는 두고, `hook()`이 child 신호를 바로 버리는 early return은 지운다. `AgentSignal`에 `child?: string`, `children?: readonly string[]`를 더한다. wiring의 `signalOf`는 `hookSignalOf`의 결과를 그대로 넘기므로 칸은 runtime에 이미 실려 온다.
+- (lead가 더함) `TurnEnded.children`의 id는 `ChildEnded.child`와 같은 값이다(Claude Code CLI 2.1.316 bundle을 읽어 확인했다. local_agent task id = agentId = `SubagentStart`·`SubagentStop`의 `agent_id`). 실제 harness로는 확인하지 않았다. test fixture도 문서와 bundle을 근거로 만들고 그렇다고 한 줄 적는다.
+- (lead가 더함) 시각과 timer: tracker deps에 `now(): number`와 timer를 거는 함수(취소할 수 있는 것)를 더하고, `desktop/wiring/agent.ts`에서 `Date.now`와 `setTimeout`·`clearTimeout`을 넘긴다. tracker 머리 주석대로 shell tsc는 `packages/base`를 따라가지 못하므로 `Clock` type을 import하지 말고 deps 함수로 받는다. child timeout은 child마다 timer를 걸지 말고, 신호가 올 때와 알림 timer가 돌 때 오래된 child를 거르는 쪽이 단순하면 그쪽을 고른다. 다만 아무 신호도 오지 않아도 10분 뒤에는 빠져야 한다.

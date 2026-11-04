@@ -28,7 +28,7 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 ```
 
 - 화살표 방향으로만 import한다. 거꾸로 가는 import가 문제다.
-- feature module끼리는 import하지 않는다. 마지막 예외(problems → apps)는 test runner와 함께 없어졌다. release의 data 검사는 apps 안의 release 준비가 하고(`packages/core/apps/releases/prepare/checks.ts`), 앱 log와 예외 stack 풀이도 apps 안에 있다(`packages/core/apps/runtime/observations/`). `domains`는 projects·apps를 import하지 않는다. 그릇 확인은 wiring이 꽂는 port다(`architecture/domain.md`).
+- feature module끼리는 import하지 않는다. 마지막 예외(problems → apps)는 test runner와 함께 없어졌다. release의 data 검사는 apps 안의 release 준비가 하고(`packages/core/apps/releases/prepare/checks.ts`), 앱 log와 예외 stack 풀이도 apps 안에 있다(`packages/core/apps/runtime/observations/`).
 - `runs`는 lophn-agent와 다른 feature module을 import하지 않는다. agent 이름 풀기, 메시지 넣기, turn 읽기, 앱 tool 호출은 `runs/ports.ts`의 port이고 `core/main/daemon/wiring/runs.ts`가 끼운다(`architecture/run.md`).
 - `workflows`도 lophn-agent와 다른 feature module을 import하지 않는다. 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, flow process 띄우기와 멈추기(`WorkflowFlows`)는 `workflows/ports.ts`의 port이고 `core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`가 끼운다(`architecture/workflow.md`). flow process를 띄우는 host와 `workflow.check`는 runs와 apps(SDK 설치 사본)를 같이 알아야 해서 `core/main/flow-host/`에 두고 `core/main/daemon/wiring/flows.ts`가 끼운다.
 - `jobs`도 lophn-agent와 다른 feature module을 import하지 않는다. agent·앱·project 이름 풀기와 시간대는 `jobs/ports.ts`의 port(`jobs.targets`, `jobs.zone`)이고 `core/main/daemon/wiring/jobs-registration.ts`가 꽂는다. scheduler가 run과 workflow instance를 시작하고 읽는 길(`runService`, `workflowService`, `ReadWorkflowInstance`)은 `core/main/daemon/wiring/jobs.ts`가 끼운다. 그래서 jobs의 규칙은 runs와 workflows의 표를 SQL로 읽지 않는다(`architecture/job.md`).
@@ -58,7 +58,7 @@ core는 daemon main thread, writer·reader Worker, I/O child process(`platform/i
 
 **lophn-agent는 agent-places와 feature module을 import하지 않는다. agent-places와 feature module은 서로 import하지 않는다. feature module끼리도 import하지 않는다.**
 - 막는 것: harness가 꽂히는 쪽을 알게 되는 것(feature module이나 place 규칙을 더하고 뺄 때마다 harness를 고치게 된다). place 규칙과 feature module 구현이 엉키는 것. feature module 사이의 순환(하나만 떼어 이해하고 고칠 수 없다).
-- 둘을 다 알아야 하는 일(feature module의 읽기 함수를 place 종류 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps·domains의 lookups와 agent 이름 풀기를 `lophn-agent/register.ts`의 factory에 꽂는다.
+- 둘을 다 알아야 하는 일(feature module의 읽기 함수를 place 종류 층 규칙과 함께 harness에 꽂기)은 `core/main`이 한다. 예: reader·writer Worker가 싣는 팀 file `main/daemon/wiring/lophn-agent-team.ts`가 projects·apps의 lookups와 agent 이름 풀기를 `lophn-agent/register.ts`의 factory에 꽂는다.
 - 처음 규칙은 "feature module끼리 import 금지"였다. test runner(problems)가 앱을 띄우려 apps를 import해 한때 problems → apps 한 방향을 허락했고, test runner를 지워 처음 규칙으로 돌아왔다.
 - import를 지우려고 다른 module의 표를 SQL로 직접 읽게 바꾸지 않는다. 의존이 없어지지 않고 check가 못 보는 곳으로 숨는다. 못 끊으면 예외로 드러낸다.
 

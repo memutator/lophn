@@ -87,7 +87,8 @@ redaction
 화면
 - 화면(`agent-tab-core-source-commands.ts`)은 대화 조작을 모두 `AcpSend`로 보낸다. 줄 고치기는 메시지 id만 알아서 `ReadReceivedMessage`로 session을 찾아 싣는다. `edit_queued`의 글이 아닌 block(이미지, 링크)을 지키는 것은 보내는 쪽(화면)의 몫이다.
 - 대기 목록(waiting store)은 승인 결정과 질문 답을 제 memory route(`turn_requests/decide`, `ask/answer`)로 그대로 보낸다. 대화 화면이 아닌 곳의 조작이라 `AcpSend`를 거치지 않는다.
-- 앱 화면도 ACP 화면이다. 앱 bridge(`lophnApp.agent`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 place의 session으로 묶어 사람 자격으로 넘긴다(`architecture/app-call.md`의 "앱 화면의 agent session"). core는 앱이 연 session을 따로 다루지 않는다.
+- 앱 화면도 ACP 화면이다. 앱 bridge(`lophnApp.agent`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 place의 session으로 묶어 사람 자격으로 넘긴다(`architecture/app-call.md`의 "앱 화면의 agent session"). core는 앱이 연 session을 따로 다루지 않는다. 앱 code는 SDK `@lophn/agent`로 쓰고, 그 SDK가 snapshot 위에 갱신을 `reduceAcp`로 접는다.
+- 앱 SDK의 설치 사본은 zod도 저장소도 없이 앱 bundle 안에서 읽혀 protocol의 ACP type(zod 정본)을 싣지 못한다. 그래서 `packages/sdk/agent/acp-types.ts`가 zod 없는 사본이고, 설치 사본의 `reduce.ts`는 그 type을 본다(`packages/core/apps/packages/vendor.ts`). ACP 항목·상태·갱신의 모양을 바꾸면 그 사본도 같이 고친다. 어긋나면 `packages/sdk/agent/agent_test.ts`의 type 검사(서로 대입되는지)가 `npm run check`에서 깨진다. `reduce.ts`가 runtime import를 더하면 설치 사본 import test(`packages/core/apps/packages/install_test.ts`)가 깨진다.
 
 ## 옛 `ThreadView`와의 대응
 
@@ -106,6 +107,6 @@ redaction
 - 입력 입구를 하나로 둔 것: 화면이 route 여러 개와 그 입력 모양을 알면 third-party GUI가 같은 대화를 하려 할 때 그 지식을 다시 짜야 한다. 입구는 ACP 한 곳만 알게 하고, 일은 지금 route가 하게 둬서 권한과 멱등을 새로 만들지 않았다.
 
 - 순번이 항목을 정하는 것으로 한 것: 시각으로 merge하면 같은 시각의 항목과 늦게 온 항목의 자리가 흔들리고, snapshot과 stream이 겹칠 때 중복·누락을 알아볼 방법이 없다. 순번은 빠짐을 곧바로 알려 주고 `reread`로 맞춘다.
-- reducer를 protocol에 둔 것: core(snapshot 확인)와 화면(상태 접기)과 뒤의 third-party GUI가 같은 접기를 써야 같은 상태가 나온다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때의 예외다(module-catalog).
+- reducer를 protocol에 둔 것: core(snapshot 확인)와 화면(상태 접기)과 앱 SDK와 뒤의 third-party GUI가 같은 접기를 써야 같은 상태가 나온다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때의 예외다(module-catalog).
 - projection이 context를 받는 것: event를 바꾸지 않고(`AgentEvent`를 쓰는 곳이 많다) event에 없는 칸만 core가 채우게 했다. 모두 이미 있는 값을 찾는 함수라 IO가 없고, `acpUpdatesOf`는 순수하다.
 - `queued`가 항목이 아닌 것: 줄에 선 메시지는 아직 대화의 일이 아니다(고치고 빼고 순서를 바꿀 수 있다).

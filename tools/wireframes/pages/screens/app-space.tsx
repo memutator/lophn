@@ -15,6 +15,10 @@ import {
   AppPlaceScreen,
   AppPlaceSession,
   AppPlaceSplit,
+  CoachFailed,
+  CoachIdle,
+  CoachReviewed,
+  CoachWorking,
   RewindConfirm,
   RewindConflict,
   RewindDone,
@@ -198,6 +202,34 @@ export const appSpaceArea: Area = {
       description:
         "annotation 셋(요소 둘, 영역 하나)을 모았다. 머리 줄 [Send to lophn] 안에 모은 수 3이 있고 누르면 한 번에 보낸다. 이 앱 place의 lophn session 메시지가 된다. 휴지통은 모두 지우고, 하나는 화면 안 메모 칸 아래 줄의 ×로 지운다.",
       render: () => <AnnotateList />,
+    },
+    {
+      id: "coach-idle",
+      title: "Coding coach app · before review",
+      description:
+        "앱이 `@lophn/agent`로 agent와 이야기하는 예(앱이 그린 화면이라 lophn 창은 없다). 사람이 코드 textarea에 코드를 썼고 [Send for review]를 아직 누르지 않았다. session은 첫 보내기 때 열린다.",
+      render: () => <CoachIdle />,
+    },
+    {
+      id: "coach-working",
+      title: "Coding coach app · reviewing",
+      description:
+        "앱이 attempt와 코드를 context block으로, 줄 주석 답 꼴을 붙여 보냈고 그 앱 place session의 turn이 도는 중이다. 보내기는 꺼진다. 같은 session이 sidebar와 채팅 탭에도 보인다.",
+      render: () => <CoachWorking />,
+    },
+    {
+      id: "coach-reviewed",
+      title: "Coding coach app · line notes",
+      description:
+        "turn이 끝나 마지막 agent 메시지의 JSON이 답 꼴 검사를 통과했다. 앱이 그 값으로 textarea 줄 옆 gutter에 표시를 달고 아래에 줄 주석 목록을 그린다.",
+      render: () => <CoachReviewed />,
+    },
+    {
+      id: "coach-failed",
+      title: "Coding coach app · reply did not fit",
+      description:
+        "agent 답이 꼴에 맞지 않아 값이 아니라 오류로 나왔다. 앱은 다시 보내기를 보인다.",
+      render: () => <CoachFailed />,
     },
   ],
 };

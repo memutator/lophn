@@ -56,6 +56,9 @@
   - `AcpUpdated`는 main이 type으로 구독해(`ctx.relay`) 그 session을 열었거나 확인한 view로만 보낸다. 그래서 앱이 기억해 둔 session에 다시 붙을 때는 `snapshot`부터 읽어야 갱신이 온다. view가 새로 열리면 기억도 비어 있다.
   - bridge의 type은 `LophnAppAgent<State, Update, Input>`(`packages/protocol/shell/app-bridge-types.ts`)이고 SDK가 ACP의 `AcpState`·`AcpUpdate`·`AcpInput`을 채운다. 이 portable entry가 `protocol/acp`를 import하면 shell main tsc가 base까지 읽어 깨지기 때문이다.
   - test는 경계 하나다: 앱 view는 다른 앱·project·home의 session을 읽지도 보내지도 못하고, 열기는 늘 그 앱 place이며, 갱신은 그 앱 place의 것만 받는다(`packages/shell/main/app-frame/app-agent_test.ts`).
+  - 앱 code는 bridge를 직접 부르지 않고 SDK `@lophn/agent`(`packages/sdk/agent/`, 1.0.0, template이 의존으로 싣는다)를 쓴다. `useAgentSession({agent})`는 첫 `send`에서 session을 연다. 화면을 연 것만으로 열면 sidebar에 빈 session이 쌓인다. 열자마자 snapshot을 읽고, 그동안 온 갱신은 모았다가 접고, `reread`가 서면 다시 읽는다. 앱 context는 `contextBlock({name, mimeType, text})`가 `resource` block(uri `app-context:<name>`)으로 싼다. prompt 조립은 앱 code의 몫이다.
+  - 꼴이 있는 답은 `send(blocks, {reply: schema})`다. SDK가 꼴을 알리는 글 block을 덧붙이고, 그 turn이 끝나면 마지막 agent 메시지 글의 마지막 ```` ```json ```` 블록(없으면 글 전체)을 꺼내 schema의 `type`·`properties`·`required`·`items`·`enum`만 검사한다. 맞지 않으면 값이 아니라 오류(`{ok: false}`)이고, 멈추거나 실패한 turn도 오류다. core는 꼴을 모른다. test는 "꼴에 맞지 않는 답은 오류로 나온다"이다(`packages/sdk/agent/agent_test.ts`).
+  - SDK가 보내는 입력은 `send`, `stop`, `answer`뿐이다. 승인 결정과 줄 고치기는 lophn 채팅 탭에서 한다. 화면이 열릴 때마다 새 session이고 앞 session에 다시 붙는 길은 없다.
 - 모든 tool 호출은 core를 지난다. 화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다.
   - 막기, 기록, write 줄이 core 한 곳에 있어야 changeset이 빠지지 않는다.
 - 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 하고, program은 본문의 job과 job run이, flow는 본문의 instance가 core가 만든 자격과 같아야 한다.

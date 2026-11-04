@@ -65,6 +65,7 @@ A1~A15는 앱을 짓는 일이다(A16은 없앴다). A17 이후는 앱의 source
 - A17. 앱의 source 폴더를 잇거나 앱이 만든 package를 publish하는 것은 그 앱 place의 session만 한다. 다른 앱의 것은 자격이 막는다. publish한 앱이 그 package의 주인이 된다.
 - A20. 자기 앱이 쓰는 package에서 난 문제는, 앱 place의 session이 고치지 않고 package 주인 앱(`package.get`의 `owner_app`) place의 lophn에게 답을 받지 않는 call로 맡긴다.
 - A21. 공개 command는 다른 앱·project가 기대는 약속이다. 다른 곳이 쓰는 공개 command를 지우는 release는 program이 막지 않고 `release.prepare`의 결과에 그 command를 싣는다. 지우려면 앱 place의 session이 activate하기 전에 쓰는 그릇 place의 lophn에게 답을 받지 않는 call로 알리고 사람에게 묻는다. 아니면 tool을 되살린다.
+- A22. 앱 화면이 agent에게 일을 시켜야 하면(사람이 쓴 것 검토, 결과 설명), 앱 place의 session은 화면 code에서 `@lophn/agent`로 그 앱 place의 session에 보낸다. 화면의 context는 `contextBlock`으로 싸고, 값이 필요하면 답 꼴(`reply`)을 붙이고 꼴에 맞지 않는 답의 화면(다시 보내기)을 둔다. agent에게 닿으려고 operation이나 command를 더하지 않는다. 그 session은 그 앱을 쓰는 사람의 session이라 sidebar에 보이고 승인은 채팅 탭에서 한다. (제안)
 
 ### project
 

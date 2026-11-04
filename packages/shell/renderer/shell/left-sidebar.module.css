@@ -56,7 +56,7 @@
 }
 
 /* 설정 단추와 다른 place의 +는 place 줄에 hover하거나 focus가 있을 때만 보인다. 이 창 place의 +는 늘 보인다.
-   자리는 남겨 이름 폭이 흔들리지 않는다. */
+   자리는 남겨 이름 폭이 흔들리지 않는다. +는 session 줄의 Stop 단추(.sessionAction)와 같은 칸이라 점과 세로로 맞는다. */
 .placeSettings,
 .placeNew {
   display: inline-flex;
@@ -97,6 +97,12 @@
   color: var(--color-text-secondary);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
+}
+
+.quickHoverDivider {
+  height: var(--border-width);
+  margin: var(--space-2) var(--space-0);
+  background: var(--color-border-base);
 }
 
 .quickHoverIcon {

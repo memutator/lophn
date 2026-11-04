@@ -15,11 +15,8 @@ import { openArtifact } from "./kinds/artifact.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { AgentsSlice, AgentViewSlice, TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
-import {
-  agentRow,
-  openedPlaceLophnSession,
-  sessionDot,
-} from "./sidebar/panel-sessions.ts";
+import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
+import { agentRow, openedPlaceLophnSession } from "./sidebar/panel-sessions.ts";
 import type { WorkspaceSource } from "./source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import type { PlaceRef } from "../shell/desk-model.ts";
@@ -106,7 +103,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
           profileOf: (agent) =>
             sidebarAgents.agents.find((row) => row.assignment === agent)
               ?.profile,
-          dotOf: (session) => sessionDot(sessionStates, session),
+          dotOf: (session) => lophnSessionDot(sessionStates, session),
           openSettings: () => onSettings("tools"),
           openConnections: () => onSettings("providers"),
           openSession: (session) => {

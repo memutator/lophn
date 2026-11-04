@@ -177,11 +177,11 @@
   max-width: none;
 }
 
-/* 닫기 자리가 보이는 때: 고른 tab, 고른 group의 focus tab, hover한 tab(group은 그 칸). ●나 상태 점이 있으면 늘 보인다. */
+/* 닫기 자리가 보이는 때: 고른 tab, 고른 group의 focus tab, hover한 tab(고른 group은 그 칸). ●나 상태 점이 있으면 늘 보인다. */
 .tab[data-active]:not([data-split]) .close,
 .tab[data-active][data-split] .half[data-focused] .close,
 .tab:not([data-split]):hover .close,
-.tab[data-split] .half:hover .close,
+.tab[data-active][data-split] .half:hover .close,
 .close[data-unsaved],
 .close[data-dot] {
   visibility: visible;
@@ -190,6 +190,20 @@
 .close:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-muted);
+}
+
+/* 고르지 않은 group에는 ×가 없다. 숨은 닫기 자리가 이름 사이에 빈 칸을 만들어서다. 닫기는 가운데 클릭과 tab 메뉴, group을 고른
+   뒤의 ×다. ●나 상태 점은 남기되 누르면 닫지 않고 그 tab을 고른다. */
+.tab[data-split]:not([data-active]) {
+  padding-inline-end: var(--space-4);
+}
+
+.tab[data-split]:not([data-active]) .close {
+  pointer-events: none;
+}
+
+.tab[data-split]:not([data-active]) .close:not([data-unsaved], [data-dot]) {
+  display: none;
 }
 
 /* 고른 tab 아래 두 모서리의 바깥 곡선. 원 밖만 card 색으로 칠해 오목한 모서리를 만든다. */
@@ -262,6 +276,31 @@
   gap: var(--space-5);
   align-items: center;
   min-width: var(--space-0);
+}
+
+/* 같은 칸의 tab 사이는 세로 선으로 가른다. 반쪽 사이의 방향 표시(.splitMark)와 달리 이 tab들은 한 자리를 돌려 본다. */
+.pane > .half {
+  position: relative;
+}
+
+.pane > .half + .half::before {
+  position: absolute;
+  top: 50%;
+  height: var(--space-6);
+  inset-inline-start: calc(-1 * (var(--space-5) + var(--border-width)) / 2);
+  width: var(--border-width);
+  content: "";
+  background: var(--color-border-strong);
+  transform: translateY(-50%);
+}
+
+/* 칸에 숨은 tab도 ×가 없다(빈 닫기 자리가 선을 한쪽으로 민다). 누르면 그 tab이 보이고 그때 ×가 생긴다. */
+.pane > .half[data-hidden] .close {
+  pointer-events: none;
+}
+
+.pane > .half[data-hidden] .close:not([data-unsaved], [data-dot]) {
+  display: none;
 }
 
 .pane > .half[data-hidden] {
@@ -383,13 +422,13 @@
 .close:focus-visible .stateDot,
 .tab:not([data-split]):hover .mark,
 .tab:not([data-split]):hover .stateDot,
-.tab[data-split] .half:hover .mark,
-.tab[data-split] .half:hover .stateDot {
+.tab[data-active][data-split] .half:not([data-hidden]):hover .mark,
+.tab[data-active][data-split] .half:not([data-hidden]):hover .stateDot {
   display: none;
 }
 
 .close:focus-visible .cross,
 .tab:not([data-split]):hover .close .cross,
-.tab[data-split] .half:hover .close .cross {
+.tab[data-active][data-split] .half:not([data-hidden]):hover .close .cross {
   display: inline-block;
 }

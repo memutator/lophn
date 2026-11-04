@@ -249,6 +249,7 @@ const lophnLine = (
           title: row.title,
           agent: { kind: "lophn", profile: agent.profile },
           dot,
+          actions: true,
           at: whenMs(row.when),
         },
       ];
@@ -266,6 +267,7 @@ const codingLine = (
   title,
   agent: { kind: "coding", vendor: harness },
   dot,
+  actions: true,
   at: whenMs(when),
 });
 
@@ -307,6 +309,7 @@ const SIDEBAR_PLACES: readonly SidebarPlace[] = [
         title: "weekly-review",
         agent: { kind: "workflow" },
         dot: "waiting",
+        actions: false,
         at: 0,
       },
       ...lophnLine(byId("weekly")),
@@ -679,18 +682,27 @@ export function PageLeftSidebar(props: SidebarProps) {
           }
           selected={props.selected}
           quick={quick}
-          agents={AGENTS.map((agent) => ({
-            id: agent.assignment,
-            name: agent.name,
-            profile: agent.profile,
-          }))}
-          coding={[
-            { id: "claude", name: "Claude Code", vendor: "claude" },
-            { id: "codex", name: "Codex", vendor: "openai" },
-            { id: "opencode", name: "OpenCode", vendor: "opencode" },
+          choices={[
+            ...AGENTS.map((agent) => ({
+              kind: "lophn" as const,
+              id: agent.assignment,
+              name: agent.name,
+              face: { kind: "lophn" as const, profile: agent.profile },
+            })),
+            ...[
+              { id: "claude", name: "Claude Code", vendor: "claude" as const },
+              { id: "codex", name: "Codex", vendor: "openai" as const },
+              { id: "opencode", name: "OpenCode", vendor: "opencode" as const },
+            ].map(({ vendor, ...choice }) => ({
+              kind: "coding" as const,
+              ...choice,
+              face: { kind: "coding" as const, vendor },
+            })),
           ]}
           onNewSession={() => props.onAgent("lophn")}
-          onNewSessionWith={(kind, id) => kind === "lophn" && props.onAgent(id)}
+          onNewSessionWith={(choice) =>
+            choice.kind === "lophn" && props.onAgent(choice.id)
+          }
           onOpenSession={() => {}}
           jobs={jobs}
           onInbox={() => {}}

@@ -28,5 +28,4 @@ export const leftSidebar = {
   "left-sidebar.label.session-name": "Session name",
   "left-sidebar.label.recent-page": "{start}–{end} of {total}",
   "left-sidebar.label.untitled": "Untitled session",
-  "left-sidebar.label.your-turn": "Your turn",
 } as const;

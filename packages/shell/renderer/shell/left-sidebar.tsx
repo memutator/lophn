@@ -1,4 +1,4 @@
-// 왼쪽 sidebar. 위에 Inbox·Jobs, 아래에 place(Home, project, app)마다 줄 오른쪽 끝의 +(새 session)와 열린 session과 이 place의 접힌 Recent 줄 하나,
+// 왼쪽 sidebar. 위에 Inbox·Jobs, 아래에 place(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 이 place의 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(Terminal · Browser · App · Search와 고정 앱 panel. 앞 셋은 hover 목록이 있다)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
 import {
@@ -11,7 +11,14 @@ import {
 } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { useAppIcon } from "../app-frame/app-icon.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
@@ -27,13 +34,13 @@ import {
   sidebarIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
-import { Avatar } from "../parts/avatar/avatar.tsx";
+import {
+  AgentFaceIcon,
+  type AgentChoice,
+} from "../parts/agent-session/agent-session.tsx";
 import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
-import { VendorIcon } from "../parts/vendor-icon/vendor-icon.tsx";
 import { placeKey, type PlaceRef } from "./desk-model.ts";
 import {
-  type NewSessionAgent,
-  type NewSessionCoding,
   type SidebarPlace,
   type SidebarSession,
   sessionKey,
@@ -82,13 +89,12 @@ export interface LeftSidebarProps {
   current: PlaceRef;
   /** 고른 tab의 session 줄(`sessionKey`). 없으면 강조하지 않는다. */
   selected?: string;
-  /** 이 창 place의 + 오른쪽 클릭 menu의 lophn agent와 coding agent. coding이 비면 그 묶음이 없다. */
-  agents: readonly NewSessionAgent[];
-  coding: readonly NewSessionCoding[];
+  /** 이 창 place의 +에 hover하면 뜨는 agent. lophn agent와 coding agent 묶음으로 나뉘고 빈 묶음은 없다. */
+  choices: readonly AgentChoice[];
   /** place 줄의 +. 그 place의 lophn에서 새 session이다. 다른 place면 그 place로 가서 연다. */
   onNewSession: (place: PlaceRef) => void;
-  /** 이 창 place의 + 오른쪽 클릭 menu에서 고른 agent로 새 session이다. */
-  onNewSessionWith: (kind: "lophn" | "coding", id: string) => void;
+  /** 이 창 place의 + hover 목록에서 고른 agent로 새 session이다. */
+  onNewSessionWith: (choice: AgentChoice) => void;
   /** Inbox 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
   /** Jobs overlay의 통로. 없으면 Jobs 줄이 바로 Jobs 탭을 연다. */
@@ -104,7 +110,7 @@ export interface LeftSidebarProps {
   onRegisterProject?: () => void;
   onCreateApp?: () => void;
   quick?: QuickLaunch;
-  /** 이 창이 보이는 place의 current 줄(workflow 밖)에 hover하면 연필이 뜬다. 누르면 줄이 이름 칸이 된다. */
+  /** `actions`가 있는 current 줄에 hover하면 연필이 뜬다. 누르면 줄이 이름 칸이 된다. */
   onRenameSession?: (
     place: SidebarPlace,
     session: SidebarSession,
@@ -149,15 +155,10 @@ function ageOf(at: number): string {
 }
 
 function AgentMark({ agent }: { agent: SidebarSession["agent"] }) {
-  if (agent.kind === "lophn")
-    return <Avatar profile={agent.profile} size="sm" />;
-  if (agent.kind === "workflow") {
-    return <Icon icon={shellIcons.workflow} pixels={14} />;
-  }
-  return agent.vendor === undefined ? (
-    <Icon icon={shellIcons.terminal} pixels={14} />
+  return agent.kind === "workflow" ? (
+    <Icon icon={shellIcons.workflow} pixels={14} />
   ) : (
-    <VendorIcon vendor={agent.vendor} size={16} />
+    <AgentFaceIcon face={agent} />
   );
 }
 
@@ -183,7 +184,46 @@ function QuickPin({ pin }: { pin: QuickPinButton }) {
   );
 }
 
-/** 빠른 실행 단추. hover 목록이 있으면 pointer를 올릴 때 그 목록이 뜨고, 누르기는 단추 자기 일이다. */
+/** hover 목록의 한 묶음. 묶음 사이에는 divider가 들어간다. */
+interface HoverSection {
+  id: string;
+  heading: string;
+  items: readonly QuickHoverItem[];
+}
+
+/** pointer를 올리면 묶음 목록이 뜨는 단추. 누르기는 단추 자기 일이다. 빈 묶음은 그리지 않는다. */
+function HoverList({
+  id,
+  trigger,
+  sections,
+}: {
+  id: string;
+  trigger: ReactElement;
+  sections: readonly HoverSection[];
+}) {
+  const shown = sections.filter((section) => section.items.length > 0);
+  if (shown.length === 0) return trigger;
+  return (
+    <Popover hover trigger={trigger}>
+      {shown.map((section, index) => (
+        <Fragment key={section.id}>
+          {index === 0 ? null : <div className={styles.quickHoverDivider} />}
+          <div className={styles.quickHoverHead} data-quick-hover={id}>
+            {section.heading}
+          </div>
+          {section.items.map((item) => (
+            <PopoverRow key={item.id} onSelect={item.onSelect}>
+              <span className={styles.quickHoverIcon}>{item.leading}</span>
+              <span className={styles.quickHoverLabel}>{item.label}</span>
+            </PopoverRow>
+          ))}
+        </Fragment>
+      ))}
+    </Popover>
+  );
+}
+
+/** 빠른 실행 단추. hover 목록이 있으면 pointer를 올릴 때 그 목록이 뜬다. */
 function QuickButton({
   id,
   icon,
@@ -197,28 +237,20 @@ function QuickButton({
   items?: readonly QuickHoverItem[];
   onClick?: () => void;
 }) {
-  const button = (
-    <IconButton
-      icon={icon}
-      label={label}
-      size="sm"
-      data-quick={id}
-      onClick={onClick}
-    />
-  );
-  if (items === undefined || items.length === 0) return button;
   return (
-    <Popover hover trigger={button}>
-      <div className={styles.quickHoverHead} data-quick-hover={id}>
-        {label}
-      </div>
-      {items.map((item) => (
-        <PopoverRow key={item.id} onSelect={item.onSelect}>
-          <span className={styles.quickHoverIcon}>{item.leading}</span>
-          <span className={styles.quickHoverLabel}>{item.label}</span>
-        </PopoverRow>
-      ))}
-    </Popover>
+    <HoverList
+      id={id}
+      trigger={
+        <IconButton
+          icon={icon}
+          label={label}
+          size="sm"
+          data-quick={id}
+          onClick={onClick}
+        />
+      }
+      sections={[{ id, heading: label, items: items ?? [] }]}
+    />
   );
 }
 
@@ -326,11 +358,6 @@ function SessionRow({
       {recent && item.at > 0 ? (
         <span className={styles.rowMeta}>{ageOf(item.at)}</span>
       ) : null}
-      {!recent && item.kind === "workflow" ? (
-        <span className={styles.rowMeta}>
-          {t("left-sidebar.label.your-turn")}
-        </span>
-      ) : null}
       {dot ? (
         <span className={styles.rowDot}>
           {recent || item.dot === null ? null : <TabStateDot dot={item.dot} />}
@@ -344,8 +371,7 @@ export function LeftSidebar({
   places,
   current,
   selected,
-  agents,
-  coding,
+  choices,
   onNewSession,
   onNewSessionWith,
   onOpenSession,
@@ -363,35 +389,26 @@ export function LeftSidebar({
   onPlaceSettings,
   onSettings,
 }: LeftSidebarProps) {
-  // 이 창 place의 + 오른쪽 클릭 menu 자리.
-  const [newMenu, setNewMenu] = useState<{ x: number; y: number } | null>(null);
-  const newItems: MenuItem[] = [
-    ...agents.map((agent, index) => ({
-      id: `lophn:${agent.id}`,
-      label: agent.name,
-      heading: index === 0 ? t("left-sidebar.heading.lophn-agents") : undefined,
-      leading: (
-        <MenuIcon>
-          <Avatar profile={agent.profile} size="sm" />
-        </MenuIcon>
-      ),
-    })),
-    ...coding.map((agent, index) => ({
-      id: `coding:${agent.id}`,
-      label: agent.name,
-      heading:
-        index === 0 ? t("left-sidebar.heading.coding-agents") : undefined,
-      separatorBefore: index === 0 && agents.length > 0,
-      leading: (
-        <MenuIcon>
-          {agent.vendor === undefined ? (
-            <Icon icon={shellIcons.terminal} pixels={14} />
-          ) : (
-            <VendorIcon vendor={agent.vendor} size={16} />
-          )}
-        </MenuIcon>
-      ),
-    })),
+  const choiceItems = (kind: AgentChoice["kind"]): QuickHoverItem[] =>
+    choices
+      .filter((choice) => choice.kind === kind)
+      .map((choice) => ({
+        id: `${choice.kind}:${choice.id}`,
+        label: choice.name,
+        leading: <AgentFaceIcon face={choice.face} />,
+        onSelect: () => onNewSessionWith(choice),
+      }));
+  const newSections: HoverSection[] = [
+    {
+      id: "lophn",
+      heading: t("left-sidebar.heading.lophn-agents"),
+      items: choiceItems("lophn"),
+    },
+    {
+      id: "coding",
+      heading: t("left-sidebar.heading.coding-agents"),
+      items: choiceItems("coding"),
+    },
   ];
   // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -602,27 +619,29 @@ export function LeftSidebar({
                   </span>
                 ) : null}
                 <span className={styles.placeNew} data-here={here || undefined}>
-                  <IconButton
-                    icon={shellIcons.add}
-                    label={t("left-sidebar.button.new-session-in", {
-                      place: place.name,
-                    })}
-                    size="sm"
-                    data-place-new={key}
-                    onClick={() => onNewSession(place.ref)}
-                    onContextMenu={(event) => {
-                      if (!here || newItems.length === 0) return;
-                      event.preventDefault();
-                      setNewMenu({ x: event.clientX, y: event.clientY });
-                    }}
+                  <HoverList
+                    id="new-session"
+                    sections={here ? newSections : []}
+                    trigger={
+                      <button
+                        type="button"
+                        className={styles.sessionAction}
+                        aria-label={t("left-sidebar.button.new-session-in", {
+                          place: place.name,
+                        })}
+                        data-place-new={key}
+                        onClick={() => onNewSession(place.ref)}
+                      >
+                        <Icon icon={shellIcons.add} pixels={14} />
+                      </button>
+                    }
                   />
                 </span>
               </div>
               {place.current.map((item) => {
                 const itemKey = sessionKey(item);
                 const actions =
-                  here &&
-                  item.kind !== "workflow" &&
+                  item.actions &&
                   (onRenameSession !== undefined ||
                     onStopSession !== undefined);
                 // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
@@ -769,26 +788,6 @@ export function LeftSidebar({
         />
       </div>
 
-      {newMenu === null ? null : (
-        <Menu
-          open
-          onOpenChange={(next) => {
-            if (!next) setNewMenu(null);
-          }}
-          trigger={
-            <span
-              className={styles.menuAnchor}
-              style={{ left: newMenu.x, top: newMenu.y }}
-            />
-          }
-          items={newItems}
-          onSelect={(id) => {
-            const [kind, ...rest] = id.split(":");
-            onNewSessionWith(kind as "lophn" | "coding", rest.join(":"));
-            setNewMenu(null);
-          }}
-        />
-      )}
       {menu === null ? null : (
         <Menu
           open

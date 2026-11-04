@@ -7,7 +7,7 @@ import { t } from "@lophn/i18n";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import type { ReadResult } from "../workspace/source.ts";
-import { sessionDot } from "../workspace/sidebar/panel-sessions.ts";
+import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
 import type { PanelSession } from "../workspace/sidebar/panel-types.ts";
 import type { RunRecordView, RunRow } from "../workspace/sidebar/run-list.tsx";
 import type { AvatarProfile } from "../parts/avatar/avatar.tsx";
@@ -128,7 +128,7 @@ function panelSessionOf(
     id,
     title: read?.title ?? t("conversation.label.session-untitled"),
     agent: agent.assignment,
-    dot: sessionDot(sessions, id),
+    dot: lophnSessionDot(sessions, id),
     open: entry !== undefined && entry.ended === null,
     // 대화 source가 시각을 모르면 run을 시작한 때다.
     at: read?.at ?? runAt,

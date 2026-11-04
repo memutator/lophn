@@ -2,13 +2,11 @@
 
 import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
-import type { TerminalAgent, TerminalResume } from "../../../ipc/terminal.ts";
+import type { TerminalResume } from "../../../ipc/terminal.ts";
 import { workspaceIcons } from "../../icons/mod.ts";
+import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
+import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
-import {
-  harnessVendorOf,
-  VendorIcon,
-} from "../../parts/vendor-icon/vendor-icon.tsx";
 import { closeTerminalTab } from "../../terminal/deps.ts";
 import { tabName } from "../../terminal/model.ts";
 import type { TerminalStore } from "../../terminal/store.ts";
@@ -115,24 +113,19 @@ export function otherPlaceTerminalTitle(
     : name;
 }
 
-/** running은 일하는 중, waiting은 사람을 기다림, 끝났는데 안 본 turn은 finished다. */
-export function terminalAgentDot(agent: TerminalAgent): TabDot | null {
-  if (agent.state === "running") return "working";
-  if (agent.state === "waiting") return "waiting";
-  return agent.state === "idle" && agent.unseen ? "finished" : null;
-}
-
-// 사람이 plain 터미널에서 직접 띄운 coding agent도 main이 알려 주면 그 제품 아이콘을 쓴다.
+// 사람이 plain 터미널에서 직접 띄운 coding agent도 main이 알려 주면 그 제품 아이콘을 쓴다. 모르는 제품은 kind 아이콘이다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
-  const vendor =
-    agent === undefined ? undefined : harnessVendorOf(agent.harness);
-  return vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />;
+  if (agent === undefined) return null;
+  const face = codingFace(agent.harness);
+  return face.vendor === undefined ? null : (
+    <AgentFaceIcon face={face} vendorSize={14} />
+  );
 }
 
 function agentTabDot(tab: TabItem, host: TabHost): TabDot | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
-  return agent === undefined ? null : terminalAgentDot(agent);
+  return agent === undefined ? null : codingDot(agent);
 }
 
 // 탭의 PTY 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다.

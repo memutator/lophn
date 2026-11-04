@@ -14,15 +14,19 @@ import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { CreateAppDialog } from "../../desktop/places/create-app-dialog.tsx";
 import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
 import { RegisterDialog } from "../../desktop/places/register-dialog.tsx";
-import { Icon } from "@lophn/ui/primitives";
-
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
-import { shellIcons } from "../../icons/mod.ts";
 import {
-  harnessVendorOf,
-  VendorIcon,
-} from "../../parts/vendor-icon/vendor-icon.tsx";
-import { placeKey, type PlaceRef, selectTab } from "../../shell/desk-model.ts";
+  AgentFaceIcon,
+  type AgentChoice,
+} from "../../parts/agent-session/agent-session.tsx";
+import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
+import {
+  closeTab,
+  placeKey,
+  type PlaceRef,
+  selectTab,
+} from "../../shell/desk-model.ts";
+import { sessionOf } from "../agent/tab-fields.ts";
 import type { WindowPlace } from "../place-window.tsx";
 import { LeftSidebar, type QuickLaunch } from "../../shell/left-sidebar.tsx";
 import {
@@ -37,10 +41,7 @@ import {
 } from "../../shell/use-left-sidebar.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { TerminalStore } from "../../terminal/store.ts";
-import {
-  otherPlaceTerminalTitle,
-  terminalAgentDot,
-} from "../kinds/terminal.tsx";
+import { otherPlaceTerminalTitle } from "../kinds/terminal.tsx";
 import type { WorkspaceSource } from "../source.ts";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
@@ -180,7 +181,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
                   harness: agent.harness,
                   label: agent.harness,
                   title: otherPlaceTerminalTitle(tab, store),
-                  dot: terminalAgentDot(agent),
+                  dot: codingDot(agent),
                   at: 0,
                   live: { tabKey: tab.key },
                   saved: null,
@@ -228,7 +229,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       recentHidden.hidden,
     ],
   );
-  // 즐겨찾기 coding agent(Settings › Coding agents). New session ▾와 Terminal hover가 같이 쓴다.
+  // 즐겨찾기 coding agent(Settings › Coding agents). + hover와 Terminal hover가 같이 쓴다.
   const { coding } = useQuickPrefs().prefs;
   const commandOf = (id: HarnessId) =>
     coding.commands[id] ?? HARNESS_ADAPTERS[id].commands[0];
@@ -242,21 +243,27 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       ? undefined
       : {
           ...props.quick,
-          terminalItems: favorites.map((id) => {
-            const vendor = harnessVendorOf(id);
-            return {
-              id,
-              label: HARNESS_ADAPTERS[id].label,
-              leading:
-                vendor === undefined ? (
-                  <Icon icon={shellIcons.terminal} pixels={14} />
-                ) : (
-                  <VendorIcon vendor={vendor} size={16} />
-                ),
-              onSelect: () => runCoding(id),
-            };
-          }),
+          terminalItems: favorites.map((id) => ({
+            id,
+            label: HARNESS_ADAPTERS[id].label,
+            leading: <AgentFaceIcon face={codingFace(id)} />,
+            onSelect: () => runCoding(id),
+          })),
         };
+  const choices: AgentChoice[] = [
+    ...props.agents.map((agent) => ({
+      kind: "lophn" as const,
+      id: agent.assignment,
+      name: agent.name,
+      face: { kind: "lophn" as const, profile: agent.profile },
+    })),
+    ...favorites.map((id) => ({
+      kind: "coding" as const,
+      id,
+      name: HARNESS_ADAPTERS[id].label,
+      face: codingFace(id),
+    })),
+  ];
   const [registering, setRegistering] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -275,6 +282,21 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       }
     }
     props.onPlace(ref);
+  };
+
+  // 다른 place의 Agent 탭 닫기: 그 place의 저장된 layout에서 지운다. 그 place를 열면 탭 없이 시작한다.
+  const closeAgentTabAt = async (ref: PlaceRef, session: string) => {
+    const read = await props.source.layout.readPlaceLayout(ref);
+    if (!read.ok || read.layout === null) return;
+    const desks = { ...read.layout.desks };
+    for (const desk of Object.values(desks)) {
+      const tab = desk.tabs.find(
+        (row) => row.kind === "agent" && sessionOf(row) === session,
+      );
+      if (tab !== undefined) desks[desk.key] = closeTab(desk, tab.key);
+    }
+    await props.source.layout.savePlaceLayout(ref, { ...read.layout, desks });
+    elsewhere.reload();
   };
 
   const open = (place: SidebarPlace, item: SidebarSession) => {
@@ -312,7 +334,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     }
   };
   // Stop은 session을 current에서 내린다: 도는 turn을 멈추고 탭을 닫는다. 멈추지 못하면 탭을 남긴다.
-  const stopSession = (item: SidebarSession) => {
+  const stopSession = (place: SidebarPlace, item: SidebarSession) => {
     if (item.kind !== "session") {
       props.onCloseTab?.(item);
       return;
@@ -320,7 +342,9 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     const source = sourceOf(item.ref);
     if (source === undefined) return;
     void source.stopSession(item.ref).then((result) => {
-      if (result.ok) props.onCloseTab?.(item);
+      if (!result.ok) return;
+      if (placeKey(place.ref) === placeKey(current)) props.onCloseTab?.(item);
+      else void closeAgentTabAt(place.ref, item.ref);
     });
   };
 
@@ -330,28 +354,21 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         places={places}
         current={current}
         selected={props.selected}
-        agents={props.agents.map((agent) => ({
-          id: agent.assignment,
-          name: agent.name,
-          profile: agent.profile,
-        }))}
-        coding={favorites.map((id) => ({
-          id,
-          name: HARNESS_ADAPTERS[id].label,
-          vendor: harnessVendorOf(id),
-        }))}
+        choices={choices}
         onNewSession={(ref) => {
           if (placeKey(ref) === placeKey(current)) props.onNewSession();
           else if (props.onNewSessionAt !== undefined) {
             props.onNewSessionAt(ref);
           } else props.onPlace(ref);
         }}
-        onNewSessionWith={(kind, id) => {
-          if (kind === "coding") {
-            runCoding(id as HarnessId);
+        onNewSessionWith={(choice) => {
+          if (choice.kind === "coding") {
+            runCoding(choice.id as HarnessId);
             return;
           }
-          const agent = props.agents.find((row) => row.assignment === id);
+          const agent = props.agents.find(
+            (row) => row.assignment === choice.id,
+          );
           if (agent !== undefined) props.onNewLophn(agent);
         }}
         onOpenSession={props.onOpenSession}
@@ -362,7 +379,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         onSession={open}
         onRemoveRecent={(_place, item) => recentHidden.hide(item.ref, item.at)}
         onRenameSession={(_place, item, title) => renameSession(item, title)}
-        onStopSession={(_place, item) => stopSession(item)}
+        onStopSession={stopSession}
         {...(projects === undefined
           ? {}
           : { onRegisterProject: () => setRegistering(true) })}

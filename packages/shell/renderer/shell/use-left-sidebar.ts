@@ -122,6 +122,8 @@ export interface TabsElsewhere {
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** place key → coding agent가 돈 적이 있는 터미널 탭(harness가 저장된 것). 지금 도는지는 창의 terminal store가 안다. */
   readonly terminals: ReadonlyMap<string, readonly TabItem[]>;
+  /** 이 창이 다른 place의 layout을 고친 뒤 다시 읽는다. */
+  readonly reload: () => void;
 }
 
 /**
@@ -173,5 +175,9 @@ export function useTabsElsewhere(
       live = false;
     };
   }, [layout, places, hereKey, ids, focuses, setTitles, setTerminals]);
-  return useMemo(() => ({ titles, terminals }), [titles, terminals]);
+  const reload = useCallback(() => setFocuses((count) => count + 1), []);
+  return useMemo(
+    () => ({ titles, terminals, reload }),
+    [titles, terminals, reload],
+  );
 }

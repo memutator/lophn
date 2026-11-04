@@ -15,7 +15,7 @@ export interface AppLaunch {
 export type AppLaunchMap = Readonly<Record<string, AppLaunch>>;
 
 export interface CodingPrefs {
-  /** 빠른 실행 Terminal hover와 New session ▾의 coding agent. 고른 순서다. */
+  /** 빠른 실행 Terminal hover와 place +의 hover 목록의 coding agent. 고른 순서다. */
   readonly favorites: readonly HarnessId[];
   /** 사람이 바꾼 실행 명령어. 없으면 adapter의 첫 명령어다. */
   readonly commands: Readonly<Partial<Record<HarnessId, string>>>;

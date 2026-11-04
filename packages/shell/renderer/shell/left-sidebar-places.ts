@@ -7,12 +7,13 @@
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 place의 것만 온다.
 //   다른 place는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
+// - 줄의 연필·x(actions)는 lophn session은 어느 place든, 터미널은 이 창이 보이는 place의 것만 있다. workflow desk는 없다.
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 import { t } from "@lophn/i18n";
 
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
-import { harnessVendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
-import { sessionDot } from "../workspace/sidebar/panel-sessions.ts";
+import { codingFace } from "../parts/agent-session/coding.ts";
+import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
 import { placeKey, type PlaceRef } from "./desk-model.ts";
@@ -82,7 +83,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
     const place = placeKeyOfEntry(entry);
     const read = input.known.get(entry.session);
     const tabTitle = input.openTitles.get(place)?.get(entry.session);
-    const dot = sessionDot(input.entries, entry.session);
+    const dot = lophnSessionDot(input.entries, entry.session);
     const item: SidebarSession = {
       kind: "session",
       ref: entry.session,
@@ -90,6 +91,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
       title: tabTitle || read?.title || t("left-sidebar.label.untitled"),
       agent: { kind: "lophn", profile: agent.profile },
       dot,
+      actions: true,
       at: read?.at ?? 0,
     };
     if (tabTitle !== undefined || (dot !== null && dot !== "ended")) {
@@ -104,8 +106,9 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
       kind: "terminal",
       ref: terminal.key,
       title: terminal.title,
-      agent: { kind: "coding", vendor: harnessVendorOf(terminal.harness) },
+      agent: codingFace(terminal.harness),
       dot: terminal.dot,
+      actions: true,
       at: terminal.at,
     };
     if (terminal.live !== null) add(current, here, item);
@@ -120,8 +123,9 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
         kind: "terminal",
         ref: terminal.key,
         title: terminal.title,
-        agent: { kind: "coding", vendor: harnessVendorOf(terminal.harness) },
+        agent: codingFace(terminal.harness),
         dot: terminal.dot,
+        actions: false,
         at: 0,
       });
     }
@@ -149,6 +153,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
             title: workflow,
             agent: { kind: "workflow" },
             dot: "waiting",
+            actions: false,
             at: 0,
           }))
         : [];

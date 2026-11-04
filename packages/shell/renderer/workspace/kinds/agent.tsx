@@ -7,7 +7,7 @@ import type { Draft } from "../../conversation/drafts.ts";
 import { useReportVisible } from "../../conversation/report-visible.ts";
 import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { conversationIcons } from "../../icons/mod.ts";
-import { Avatar } from "../../parts/avatar/avatar.tsx";
+import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import {
   agentOf,
@@ -157,7 +157,7 @@ export const agentKind: TabKindDef = {
     const profile =
       agent === null ? undefined : host.agentView?.profileOf(agent);
     return profile === undefined ? null : (
-      <Avatar profile={profile} size="sm" />
+      <AgentFaceIcon face={{ kind: "lophn", profile }} />
     );
   },
   dotOf: (tab, host) => host.agentView?.dotOf(sessionOf(tab)) ?? null,

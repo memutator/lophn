@@ -32,3 +32,12 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## cb-core가 넘긴 것 (lead가 더함)
+
+- upload 계약이 바뀌었다: `UploadMessageImage` 입력은 `{content_type, bytes}`(session 없음), 출력은 `{blob}`이다. `agent-tab-core-source-images.ts`가 아직 옛 꼴(session을 보내고 `{id}`를 읽음)이라 cb-core 뒤 main에서 composer 이미지 첨부가 실패한다. 이 task가 고친다. 올림과 `SendMessage`는 같은 자격이어야 하고, 참조되지 않은 올림은 10분 뒤 만료된다.
+- 대기 메시지 고치기: `EditQueued.content`는 block 배열이고 이미 있는 image block만 남길 수 있다(새 이미지는 `invalid_input`). 지금 renderer `editQueued`는 글만 보내서 이미지가 든 대기 메시지를 고치면 본문에서 이미지가 빠진다. 기존 image block을 그대로 실어 보낸다.
+- `MessageReceived` event의 `body`는 아직 글이다. 이미지만 든 메시지는 live view에서 빈 줄로 보이다가 snapshot을 다시 읽으면 보인다. `ReadMessageBody`는 새 part kind(`image`, `resource_link`, `resource`)를 돌려주는데 `agent-tab-core-source-thread.ts`의 `readBody`가 `default: return []`로 버린다. 그것을 그린다.
+- block 이미지는 `ReadMessageImage`(file route, `{session, image: <blob hash>}`)로 그린다. 옛 `att_` id도 같은 route로 읽힌다.
+- 옛 주석: `attachments.ts` 1행, `agent-tab-core-source-images.ts` 2행, `message-attachments.ts` 1행.
+- cb-core가 compile만 맞춘 곳: `agent-tab-core-source-commands.ts`(send, edit, retry를 block으로, `UserPart`), `agent-tab-core-source-thread.ts`(`default: return []`). 이 task가 제대로 고친다.

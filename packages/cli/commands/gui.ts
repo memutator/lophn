@@ -16,6 +16,7 @@ export type GuiLaunch = (
 
 // CLI는 앱과 같은 Electron binary를 Node로(ELECTRON_RUN_AS_NODE) 돌린다. 그 플래그만 빼면 같은 binary가 앱으로 뜬다.
 // 설치본은 binary가 앱 자원을 알아서 찾고, 저장소 실행은 shell main bundle을 인자로 줘야 한다(없는 쪽이 설치본이다).
+// 저장소 실행의 Electron은 chrome-sandbox가 setuid가 아니라서 flag 없이는 argv를 읽기 전에 죽는다. 터미널 탭 env는 ELECTRON_*를 지워 env로는 못 받으므로 늘 붙인다.
 // 앱은 CLI가 끝난 뒤에도 살아야 하므로 떼어 낸다.
 export const launchDesktop: GuiLaunch = async (args) => {
   const devMain = join(
@@ -27,11 +28,7 @@ export const launchDesktop: GuiLaunch = async (args) => {
   delete env.ELECTRON_RUN_AS_NODE;
   const child = spawn(
     process.execPath,
-    [
-      ...(dev && env.ELECTRON_NO_SANDBOX === "1" ? ["--no-sandbox"] : []),
-      ...(dev ? [devMain] : []),
-      ...args,
-    ],
+    [...(dev ? ["--no-sandbox", devMain] : []), ...args],
     { detached: true, stdio: "ignore", env },
   );
   const started = await new Promise<Error | null>((resolve) => {

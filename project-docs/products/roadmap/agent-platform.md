@@ -1,6 +1,6 @@
 # agent platform: 사람이 정한 agent를 앱, workflow, 다른 harness와 잇는다
 
-상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 `project-docs/plan/remove-domain/`으로 열었다(2026-11-04).
+상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 `project-docs/plan/remove-domain/`, 단계 2는 `project-docs/plan/content-block/`으로 열었다(2026-11-04).
 배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/architecture/domain.md`, `project-docs/architecture/kinds.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
 
 ## 왜
@@ -98,14 +98,14 @@
 | 단계 | 할 일 | 선행 | 이 자리인 이유 |
 |---|---|---|---|
 | 1 domain 지우기 | domain, kind, `DOMAIN.md` 층, domain skill 층을 지우고 경계를 그릇으로 접는다. migration, Domain panel 지우기 | 없음(2와 나란히) | 빼는 일이 먼저다. 뒤 단계가 고칠 자리(정의 칸, prompt 층, skill 층, command 이름)가 줄어든다 |
-| 2 content block | protocol에 block type 하나. call 본문과 답, 사람 입력의 첨부 줄을 옮긴다 | 없음(1과 나란히) | 3~7이 모두 이 단위로 주고받는다 |
+| 2 content block | protocol에 block type 하나. call 본문과 답, 사람 입력의 첨부 줄을 옮긴다 | 1의 `rd-layers` | 3~7이 모두 이 단위로 주고받는다 |
 | 3 runtime 칸과 bare | 정의에 `runtime`, `description`. bare 조립. 답 규칙 | 1 | 1이 정의 칸과 prompt 조립을 먼저 줄인다 |
 | 4 명함 | 명함 읽기, 차이 계산, modality 검사, 결과를 content로 돌려주기 | 2, 3 | 명함의 runtime·modality 칸이 2·3의 값이다 |
 | 5 앱 화면의 client인 agent | `@lophn/agent`: 화면 context, 화면 action, agent가 열린 화면에 붙는 길 | 1, 2, 3 | 코치 agent가 bare이고, 화면 context가 content block이고, 앱 command 이름이 1의 규칙이다 |
 | 6 harness host와 gui | shell 쪽 harness host, ACP client, session 기록, `<harness> gui` | 2, 3 | 7이 같은 host를 쓴다. 사람이 보는 길에서 ACP 옮기기를 먼저 검증한다 |
 | 7 harness agent | harness session이 call, run, step 입력을 받는다. workflow harness 참가자, TUI resume, harness가 `lophn` CLI로 답하고 부르기 | 4, 6 | `roadmap/workflow.md`의 harness 참가자와 `issues/coding-agent.md`를 닫는다 |
 
-지금 열린 다른 계획은 없다(사람, 2026-11-03). 1과 2를 바로 나란히 열고, 3 뒤에 4·5·6을 나란히, 마지막에 7이다. 1과 3은 같은 prompt 조립 file(`packages/core/lophn-agent/prompt-assembly/`)을 고치므로 차례로 land한다. 4가 명함을 prompt에 싣기로 하면 4도 그 차례에 든다.
+1과 2는 둘 다 계획으로 열었다. 2의 core task는 prompt 조립·run-loop·router file을 1과 같이 고치므로 1의 `rd-layers`가 land한 뒤 돈다(2026-11-04). 3 뒤에 4·5·6을 나란히, 마지막에 7이다. 1과 3은 같은 prompt 조립 file(`packages/core/lophn-agent/prompt-assembly/`)을 고치므로 차례로 land한다. 4가 명함을 prompt에 싣기로 하면 4도 그 차례에 든다.
 
 ## 다른 계획, roadmap, 이슈
 
@@ -270,7 +270,7 @@
 ### 계획을 열 때 정할 것
 
 - **1:** 계획 `remove-domain`의 정한 것이 정했다.
-- **2:** 사람 입력의 첨부 줄을 block으로 옮기나. 이미지를 이력에 싣는 비용과 cache. 받은 메시지를 `lophn-` tag로 쌀 때 block을 어떻게 싸나.
+- **2:** 계획 `content-block`의 정한 것이 정했다.
 - **3:** bare에서 제품 규칙의 `lophn-` tag·`<lophn-steer>` 믿음 문장을 뺄 때 받은 메시지 경계를 알리는 법. 비용 다시 재기.
 - **4:** 명함을 model에 싣는 자리(`session.list` 결과인가, place 정보 층인가). prompt cache와 맞물리고, "Agents you can call" 목록이 넘기기를 좌우한다(`tests/eval/experiments/call-list-without-session`). modality를 선언만 믿나, runtime의 provider 능력과 대조하나. third-party 능력 선언의 꼴.
 - **5:** 어느 session이 열린 화면의 client가 되나(그 앱 place의 session만인가, 다른 place의 agent도인가). app place의 lophn runtime agent는 앱을 짓는 tool(source 쓰기, release)을 같이 가진다: 코치 같은 agent는 bare로 두나. 같은 앱 화면이 여럿 열렸을 때 고르기. 화면이 닫혔을 때의 오류(`unavailable`). context 크기 상한. agent가 부르는 화면 action을 사람이 화면에서 보는 법. annotation(사람이 화면 상태를 보내는 길)과 합치나.

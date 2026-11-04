@@ -372,15 +372,6 @@ components:
       note: preset을 더하거나 바꿀 때, 적용 통로(channel, insertCSS 시점)가 바뀔 때.
 
 
-  - id: architecture-domain
-    kind: doc
-    roles: [planner, lead]
-    description: domain entity(project나 app 안의 책임 경계). owner, 앱의 첫 domain, 지침 층과 정의의 domain 좁히기, 앱 tool의 domain, 다른 domain의 비공개 tool 거르기, domain 사이 장치(release 막기, 깨우기, lophn 지도, package 주인).
-    path: project-docs/architecture/domain.md
-    change_reasons:
-      boundaries: [domains, apps, agent-places, agents, agent-tools, kinds]
-      paths: [packages/protocol/domains/, packages/core/lophn-agent/instructions/, packages/core/lophn-agent/extensions/skills.ts, packages/core/apps/usage/, packages/core/apps/calls/gate.ts]
-      note: domain을 만들거나 보관하는 규칙, 앱 tool의 domain 칸, 맡은 domain을 정하는 규칙이 바뀔 때.
 
   - id: skill-planner-persona
     kind: skill

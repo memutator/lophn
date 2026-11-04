@@ -39,11 +39,6 @@ elements:
       - id: projects
         kind: subsystem
         description: project place와 그 폴더의 파일(문서).
-        children:
-
-          - id: kinds
-            kind: component
-            description: domain의 kind 파일(kinds.yaml)과 그것으로 문서를 읽고 검사하고 조회하는 pipeline.
 
       - id: apps
         kind: subsystem
@@ -65,10 +60,6 @@ elements:
           - id: package-registry
             kind: component
             description: lophn이 가진 package와 버전의 목록, 읽기 전용 설치 사본, 사용자 package 받기.
-
-      - id: domains
-        kind: subsystem
-        description: domain entity(project나 app 안의 책임 경계)와 그 owner·이름 규칙. kind 파일, DOMAIN.md, skill, artifact, 앱 tool이 이 단위로 모인다.
 
       - id: runs
         kind: subsystem
@@ -251,7 +242,6 @@ interfaces:
     defined_by: agent-tools
     provided_by:
       - apps
-      - domains
       - agent-places
       - workflows
       - jobs
@@ -325,7 +315,7 @@ interfaces:
 
   - id: coding-agent-cli-interface
     kind: interface
-    description: lophn 명령의 계약(`lophn <group> <verb>`, 앱 command는 `lophn <domain> <command>`). lophn agent는 `lophn` tool로, 사람과 coding agent는 user token(data root의 run/user-token)으로 binary를 쓰고, harness는 hook 명령만 부른다.
+    description: lophn 명령의 계약(`lophn <group> <verb>`, 앱 command는 `lophn <app> <command>`). lophn agent는 `lophn` tool로, 사람과 coding agent는 user token(data root의 run/user-token)으로 binary를 쓰고, harness는 hook 명령만 부른다.
     interface_type: protocol
     defined_by: coding-agent
     provided_by:

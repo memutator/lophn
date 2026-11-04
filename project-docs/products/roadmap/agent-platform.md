@@ -1,6 +1,6 @@
 # agent platform: 사람이 정한 agent를 앱, workflow, 다른 harness와 잇는다
 
-상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 계획 content-block으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md`). 단계 3은 계획 bare-runtime으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md` "bare runtime"). 단계 4는 계획 `project-docs/plan/agent-card/`, 단계 5는 `project-docs/plan/agent-screen/`으로 열었다(2026-11-04). 아래 "지금 코드"의 정의 칸, P4, result 답 줄은 그 앞 기준이다.
+상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 계획 content-block으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md`). 단계 3은 계획 bare-runtime으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md` "bare runtime"). 단계 4는 계획 `project-docs/plan/agent-card/`, 단계 5는 `project-docs/plan/agent-screen/`, 단계 6·7은 계획 하나 `project-docs/plan/harness/`로 열었다(2026-11-04). 아래 "지금 코드"의 정의 칸, P4, result 답 줄은 그 앞 기준이다.
 배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
 
 ## 왜
@@ -276,8 +276,8 @@
 - **3:** 계획 `bare-runtime`의 정한 것이 정했다.
 - **4:** 계획 `agent-card`의 정한 것이 정했다.
 - **5:** 계획 `agent-screen`의 정한 것이 정했다.
-- **6:** ACP adapter 번들(추천: 판을 고정해 번들한다. AGENTS.md "의존성은 판을 정확히 고정한다"). `gui` 진입이 shell 함수(`claude` 함수를 더한다)인가 `lophn gui <harness>`인가. gui로 연 session의 place(터미널 cwd가 이은 project 폴더 안이면 그 project). harness 정의를 사람이 등록하나, 켜면 감지한 harness마다 생기나. 앱 context를 ACP resource block으로 넘기나.
-- **7:** harness마다 headless 명령과 구조 출력 꼴, 권한 flag를 어디서 정하나(정의 칸 없이, P2). `conversation` 답 방식과 headless session id 잇기. run의 답(R8 "답은 run 기록에 남고 code가 받는다")을 harness turn 끝에서 만드는 법. harness가 `lophn` CLI를 쓸 자격(user token은 사람의 모든 권한이라 쓰지 않는다. session 범위 agent 자격을 env로 넣는 쪽). workflow `not_handed`·`harness` 참가자를 넘기는 법.
+- **6:** 계획 `harness`의 정한 것이 정했다.
+- **7:** 계획 `harness`의 정한 것이 정했다.
 
 ## 확인할 것 (바깥 사실, 계획을 열 때)
 

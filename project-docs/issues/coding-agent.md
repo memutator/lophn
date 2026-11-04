@@ -47,3 +47,25 @@ modules: [packages/shell/main, packages/core/config]
 - 지금: harness agent의 켜기는 extension `harness`의 설정 `extensions.harness.enabled`(`packages/core/config/shell-settings.ts` `harnessExtensionSetting`, 기본 꺼짐)다. Settings › System › Extensions는 roots(개발은 shell main 안 `extensions/bundled/`)에서 manifest를 찾은 extension만 보이는데, harness의 manifest가 아직 없어 그 줄이 없다.
 - 영향: harness agent를 쓰려는 사람이 data root의 `settings.json`을 직접 고쳐야 한다.
 - 고치려면: harness host를 extension `harness`(manifest와 entry)로 둔다(계획 harness-agent의 headless host, 작음).
+
+## harness agent는 home에서 돌지 않고, opencode는 git root에 쓴다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+```
+
+- 지금: harness host(`packages/shell/main/extensions/bundled/harness/host.ts`)는 session place의 폴더를 cwd로 띄운다. place가 home이거나 폴더 없는 project·app이면 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄). opencode(`opencode run --standalone`, v2.1.4)는 spawn cwd가 아니라 그 위 git root를 작업 폴더로 써서, git 저장소 안 하위 폴더를 project 폴더로 둔 곳에서는 저장소 맨 위에 쓴다(lead가 실제 실행으로 봤다).
+- 영향: home의 전역 agent(Image Generator 같은 것)를 harness로 두면 부를 때마다 실패한다. 하위 폴더 project의 opencode agent는 폴더 밖 파일을 고친다. 앱 source 폴더는 늘 git root라 앱에서는 생기지 않는다.
+- 고치려면: home은 data root 안 session마다 빈 작업 폴더를 cwd로 준다(작음). opencode는 project 폴더가 git root가 아니면 띄우지 않거나, opencode의 directory 지정 수단을 찾아 넘긴다(작음). 추천: 둘 다.
+
+## opencode harness agent는 사람의 opencode 권한 설정대로 돈다
+
+```yaml
+kind: bug
+modules: [packages/protocol/coding-agent]
+```
+
+- 지금: Claude Code는 `--permission-mode acceptEdits`(Bash 거절), Codex는 `-s workspace-write`로 띄운다(`packages/protocol/coding-agent/headless/`). opencode `run`에는 권한 flag가 없어 아무것도 넘기지 않고, 정의의 `permissions.deny`가 있으면 Codex·opencode는 띄우지 않는다.
+- 영향: opencode agent는 사람의 opencode 설정(기본은 대부분 허락)으로 shell과 폴더 밖 쓰기를 한다. 사람이 자기 터미널에서 opencode를 쓸 때와 같다(사람, 2026-11-04: 이대로 둔다).
+- 고치려면: opencode의 config env(inline config의 `permission`)로 bash deny, 바깥 폴더 deny를 넘기고 실제 실행으로 확인한다(작음).

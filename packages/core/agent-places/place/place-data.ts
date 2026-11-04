@@ -19,18 +19,16 @@ import {
   type DomainRecord,
 } from "../../../protocol/domains/mod.ts";
 import { agentList, placeKindOf } from "../../../protocol/lophn-agent/mod.ts";
-import { kindGet, projectApi } from "../../../protocol/projects/mod.ts";
+import { projectApi } from "../../../protocol/projects/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
-  buildKindText,
-  type FolderRead,
   type PlaceAgent,
-  type PlaceKinds,
   type TurnPromptInput,
 } from "../../lophn-agent/prompt-assembly/mod.ts";
 import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 import {
   type MapDomain,
+  type FolderRead,
   type PlaceData,
   type PlaceDomain,
   placeInfo,
@@ -45,7 +43,7 @@ import type { ArtifactEntry } from "./artifact-list.ts";
 
 // domain 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
 export type PlaceFiles = {
-  // domain의 폴더(`DOMAIN.md`, `kinds.yaml`, `skills/`, `artifacts/`). data root를 모르면 null.
+  // domain의 폴더(`DOMAIN.md`, `skills/`, `artifacts/`). data root를 모르면 null.
   domainFolder(domain: string): string | null;
   // place의 data 폴더. 폴더 자체는 core가 place를 만들 때 이미 만든다.
   dataFolder(place: { kind: "project" | "app"; id: string }): string | null;
@@ -63,8 +61,8 @@ type PlaceRead = {
   scope: FolderScope;
 };
 
-// place 정보의 kind 글 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
-const KIND_TEXT_BUDGET = 12000;
+// place 정보의 domain 지도 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
+const PLACE_TEXT_BUDGET = 12000;
 
 const MAX_PAGES = 50;
 
@@ -193,9 +191,6 @@ async function readPlaceData(
   // 이 session이 받은 domain. 읽지 못한 domain은 빼고 turn은 계속한다.
   const domains: PlaceDomain[] = [];
   const scopeDomains: PlaceFacts["domains"][number][] = [];
-  const kindDomains: Parameters<typeof buildKindText>[0]["domains"][number][] =
-    [];
-  const kindHashes: string[] = [];
   if (place !== null) {
     const listed = await pages(async (cursor) => {
       const read = await readOf(call, domainList, {
@@ -254,32 +249,8 @@ async function readPlaceData(
         artifacts,
         commands,
       });
-      // kind 글만 비우고 turn은 계속한다.
-      const got = await readOf(call, kindGet, { domain: d.id });
-      if (got.ok) {
-        const { status } = got.value;
-        if (
-          status.state !== "none" &&
-          got.value.kinds !== null &&
-          status.applied_hash !== null
-        ) {
-          kindDomains.push({
-            name: d.name,
-            kinds: got.value.kinds,
-            warning: status.state === "invalid",
-          });
-          kindHashes.push(`${d.name}:${status.applied_hash}`);
-        }
-      }
     }
   }
-  const kinds: PlaceKinds | null =
-    kindDomains.length === 0
-      ? null
-      : {
-          hash: kindHashes.sort(cmp).join(","),
-          text: buildKindText({ domains: kindDomains }),
-        };
 
   // home: 모든 project와 앱의 목록과 domain 지도. 폴더는 읽기만 열린다.
   const projectList: { name: string; purpose: string }[] = [];
@@ -427,7 +398,6 @@ async function readPlaceData(
       project,
       app,
       agents,
-      kinds,
       domains,
       apps: appItems,
       projects: projectList,
@@ -439,7 +409,7 @@ async function readPlaceData(
   });
 }
 
-// prompt가 받는 place 값과 file 범위다. 글과 kind 글은 여기서 정해 harness는 place 종류만 안다.
+// prompt가 받는 place 값과 file 범위다. 글은 여기서 정해 harness는 place 종류만 안다.
 export async function placeData(
   call: CoreCall,
   agent: ResolvedAgent,
@@ -452,8 +422,7 @@ export async function placeData(
   const { place, scope } = read.value;
   return ok({
     place: {
-      text: placeInfo(placeKindOf(agent.place), place, KIND_TEXT_BUDGET),
-      kinds: place.kinds,
+      text: placeInfo(placeKindOf(agent.place), place, PLACE_TEXT_BUDGET),
       agents: place.agents,
     },
     scope,

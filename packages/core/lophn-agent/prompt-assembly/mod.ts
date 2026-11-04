@@ -28,7 +28,6 @@ export {
   type HistoryPart,
   type ModelLimits,
   type PlaceAgent,
-  type PlaceKinds,
   type PromptMessage,
   type PromptPart,
   type PromptRequest,
@@ -47,7 +46,6 @@ export {
   type InstructionTexts,
   type SeenBasis,
 } from "./basis.ts";
-export { buildKindText, type FolderRead, renderKindText } from "./kind-text.ts";
 export { type SkillListItem, skillListText } from "./skill-list.ts";
 export {
   assembleTurnPrompt,

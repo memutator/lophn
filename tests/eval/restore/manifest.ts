@@ -17,7 +17,6 @@ export type Material = {
 const ID_PREFIX = {
   app: "app",
   project: "prj",
-  kinds: "prj",
   agent: "agt",
 } as const satisfies Record<MaterialKind, string>;
 

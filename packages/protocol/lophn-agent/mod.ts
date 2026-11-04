@@ -9,7 +9,6 @@ export * from "./input-tags.ts";
 export * from "./inputs.ts";
 export * from "./instructions.ts";
 export * from "./issuer-requests.ts";
-export * from "./kind-text.ts";
 export * from "./mcp-settings.ts";
 export * from "./message-attachments.ts";
 export * from "./message-content.ts";

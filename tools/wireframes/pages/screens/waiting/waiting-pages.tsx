@@ -60,12 +60,6 @@ const FAKE_EVENTS = [
     at: AT,
     payload: { release: sid("rel", 7), app_name: "Orders", crashes: 3 },
   },
-  {
-    type: "KindViolationFound",
-    subject: sid("dom", 1),
-    at: AT,
-    payload: { domain: sid("dom", 1), count: 2 },
-  },
 ].flatMap((event) => reactionsOf(busEventSchema.parse(event), "live"));
 
 // 시간이 가지 않는 timer를 주어 화면에 남은 채로 보인다. ×와 행동으로 닫는다.

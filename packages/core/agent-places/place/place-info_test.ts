@@ -75,41 +75,20 @@ function fakeCall(replies: Record<string, unknown>): CoreCall {
 const appPlace = { kind: "app", id: APP };
 
 test("받은 domain이 A뿐인 session의 place 정보와 쓰기 범위에는 A의 것만 있다", async () => {
-  const kind = (name: string) => ({
-    name,
-    summary: `${name} doc`,
-    files: ["*.md"],
-    key: "path",
-    fields: {},
-  });
   const call = fakeCall({
     "/apps/get": { app },
     "/agents/list": { agents: [] },
     "/domains/list": {
       domains: [domain(DOM_A, "alpha"), domain(DOM_B, "beta")],
     },
-    "/kinds/get": (body: unknown) => {
-      const dom = (body as { domain: string }).domain;
-      return {
-        domain: dom,
-        status: {
-          file: `/d/${dom}/kinds.yaml`,
-          state: "valid",
-          using: "current",
-          errors: [],
-          applied_hash: "a".repeat(64),
-        },
-        kinds: [kind(dom === DOM_A ? "note" : "secret")],
-      };
-    },
   });
   const one = await placeData(call, agent(appPlace, [DOM_A]), files);
   assert.ok(one.ok);
   const text = one.value.place.text;
-  assert.ok(text.includes("alpha") && text.includes("note"));
+  assert.ok(text.includes("alpha"));
   assert.ok(text.includes("a-page") && text.includes(`/d/${DOM_A}/artifacts`));
   assert.ok(text.includes(`Folder: /d/${DOM_A}\n`));
-  for (const other of ["beta", "secret", "b-page", DOM_B]) {
+  for (const other of ["beta", "b-page", DOM_B]) {
     assert.ok(!text.includes(other), other);
   }
   assert.deepStrictEqual(one.value.scope, {
@@ -120,7 +99,7 @@ test("받은 domain이 A뿐인 session의 place 정보와 쓰기 범위에는 A�
 
   const both = await placeData(call, agent(appPlace, [DOM_A, DOM_B]), files);
   assert.ok(both.ok);
-  for (const seen of ["alpha", "beta", "note", "secret", "a-page", "b-page"]) {
+  for (const seen of ["alpha", "beta", "a-page", "b-page"]) {
     assert.ok(both.value.place.text.includes(seen), seen);
   }
   assert.deepStrictEqual(both.value.scope.write, [

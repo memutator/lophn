@@ -123,9 +123,6 @@ export const data = {
   "waiting.toast-activation.body": "Look at what it changes before you decide.",
   "waiting.toast-activation.button": "Review",
   "waiting.toast-activation.title": "{app} has an update that needs approval",
-  "waiting.toast-kind-violation.body":
-    "A check found {count, plural, one {# new violation} other {# new violations}} in documents of a domain.",
-  "waiting.toast-kind-violation.title": "Documents don't match the kinds",
   "waiting.toast-share.body":
     "An agent asks to share it with other agents. Look at who gets it before you decide.",
   "waiting.toast-share.button": "Review",

@@ -1,18 +1,13 @@
 import type { PlaceKind } from "../../../protocol/lophn-agent/places.ts";
-import {
-  type FolderRead,
-  renderKindText,
-} from "../../lophn-agent/prompt-assembly/kind-text.ts";
-import type {
-  PlaceAgent,
-  PlaceKinds,
-} from "../../lophn-agent/prompt-assembly/model.ts";
+import type { PlaceAgent } from "../../lophn-agent/prompt-assembly/model.ts";
 import { wordsOf } from "../../../cli/parser.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
 // place 정보다. prompt에 넣을 잘 안 바뀌는 목록을 place 종류별로 글로 만든다. 순수 함수이고 data는 호출하는
 // 쪽이 core 읽기로 모은다. 열린 session 목록과 앱 화면의 상태는 자주 바뀌어서 넣지 않는다.
-// 예산은 글자 수이고 kind 글과 domain 지도에 각각 건다. session을 시작할 때 값을 고정해서 넘긴다.
+// 예산은 글자 수이고 domain 지도에 건다. session을 시작할 때 값을 고정해서 넘긴다.
+
+export type FolderRead = { path: string; description: string };
 
 export type PlaceProject = {
   id: string;
@@ -64,8 +59,6 @@ export type PlaceData = {
   app: (PlaceApp & { declaration: string }) | null;
   // grant 안의 다른 agent
   agents: readonly PlaceAgent[];
-  // 쓰고 있는 kind 글. home과 kind가 없는 그릇은 null.
-  kinds: PlaceKinds | null;
   // 이 session이 받은 domain. home은 없다.
   domains: readonly PlaceDomain[];
   // home은 모든 앱. packages는 그 앱이 주인인 package(name@version)다.
@@ -271,16 +264,6 @@ function domainMapLines(
   return ["Domains", ...mapLines(domains, "bare")];
 }
 
-// 예산 안이면 full, 넘으면 names(kind 이름), 그래도 넘으면 count다.
-function kindLines(kinds: PlaceKinds | null, budget: number): string[] {
-  if (kinds === null) return [];
-  for (const level of ["full", "names"] as const) {
-    const text = renderKindText(kinds.text, level);
-    if (text.length <= budget) return ["Kinds", text];
-  }
-  return ["Kinds", renderKindText(kinds.text, "count")];
-}
-
 export function placeInfo(
   kind: PlaceKind,
   data: PlaceData,
@@ -299,7 +282,6 @@ export function placeInfo(
   }
   sections.push(domainLines(data.domains));
   sections.push(artifactLines(data.domains));
-  sections.push(kindLines(data.kinds, budget));
   for (const section of sections) {
     if (section.length > 0) lines.push("", ...section);
   }

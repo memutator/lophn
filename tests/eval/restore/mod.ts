@@ -9,7 +9,6 @@ import type { Core } from "../../support/core/mod.ts";
 import type { Participant, RestoreContext, WorldIds } from "../types.ts";
 import { restoreAgents } from "./agents.ts";
 import { restoreApps } from "./apps.ts";
-import { restoreKinds } from "./kinds.ts";
 import {
   type Material,
   MATERIALS_ROOT,
@@ -33,8 +32,6 @@ async function restoreOne(
     case "project":
       await restoreProjects(ctx, material);
       return ok(undefined);
-    case "kinds":
-      return await restoreKinds(ctx, material);
     case "agent":
       await restoreAgents(ctx, material);
       return ok(undefined);

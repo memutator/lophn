@@ -27,7 +27,6 @@ export const INPUT_TAG_ATTRIBUTES = {
 const NOTICE_KINDS = [
   "instructions_changed",
   "tools_changed",
-  "kinds_changed",
   "agents_changed",
   "call_cancelled",
   "activation_finished",

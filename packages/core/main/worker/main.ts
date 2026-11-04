@@ -1,9 +1,5 @@
 import process from "node:process";
 import { runPlatformIo } from "./io.ts";
-import {
-  KINDS_WORKER_KIND,
-  runKindsWorker,
-} from "../../projects/kinds/worker/run.ts";
 import { runReleaseWorker } from "../../apps/releases/worker/run.ts";
 import { runDataWorker } from "../../apps/data/worker/run.ts";
 
@@ -11,7 +7,6 @@ const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
 > = {
   "platform/io": runPlatformIo,
-  [KINDS_WORKER_KIND]: runKindsWorker,
   "apps/release": runReleaseWorker,
   "apps/data": runDataWorker,
 };

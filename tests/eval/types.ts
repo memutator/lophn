@@ -279,7 +279,7 @@ export type RunRecord = {
 // ---- 재료 ----
 
 // `app`은 앱 source만, `active_app`은 source에 active 표시와 release 이력을 얹은 것이다.
-export type MaterialKind = "app" | "project" | "kinds" | "agent";
+export type MaterialKind = "app" | "project" | "agent";
 
 // `tests/eval/materials/<이름>/<n>/material.json`의 내용이다. 이름과 n은 폴더가 정한다.
 export type MaterialManifest = {

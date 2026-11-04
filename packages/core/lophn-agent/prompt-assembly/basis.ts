@@ -1,5 +1,5 @@
 import { sha256Hex } from "../../../base/mod.ts";
-import type { PlaceAgent, PlaceKinds } from "./model.ts";
+import type { PlaceAgent } from "./model.ts";
 
 // 지난 turn이 본 prompt의 판이다. turn이 시작할 때 지금 판과 비교해 바뀐 것마다 notice를 만든다.
 // 이름 목록은 "무엇이 더해지고 빠졌는지"를 쓰려고 hash가 아니라 목록으로 둔다. 긴 글(지침, 용어집)은 hash다.
@@ -20,8 +20,6 @@ export type SeenBasis = {
   instructions: Record<InstructionLayerName, string>;
   // 정본 tool 이름, 이름 순
   tools: string[];
-  // 쓰고 있는 kinds 파일의 hash. kind가 없으면 null.
-  kinds: { hash: string } | null;
   // 이름, 정렬
   agents: string[];
 };
@@ -37,7 +35,6 @@ function agentLine(agent: PlaceAgent): string {
 export async function basisOf(input: {
   instructions: InstructionTexts;
   tool_names: readonly string[];
-  kinds: PlaceKinds | null;
   agents: readonly PlaceAgent[];
 }): Promise<SeenBasis> {
   const instructions = {} as SeenBasis["instructions"];
@@ -47,7 +44,6 @@ export async function basisOf(input: {
   return {
     instructions,
     tools: [...input.tool_names].sort(cmp),
-    kinds: input.kinds === null ? null : { hash: input.kinds.hash },
     agents: input.agents.map(agentLine).sort(cmp),
   };
 }
@@ -57,8 +53,6 @@ type ListChange = { added: string[]; removed: string[] };
 export type BasisDiff = {
   instructions: InstructionLayerName[];
   tools: ListChange | null;
-  // 있었는가, 지금 있는가
-  kinds: { was: boolean; now: boolean } | null;
   agents: ListChange | null;
 };
 
@@ -80,13 +74,6 @@ export function diffBasis(seen: SeenBasis, now: SeenBasis): BasisDiff {
       (layer) => seen.instructions[layer] !== now.instructions[layer],
     ),
     tools: listChange(seen.tools, now.tools),
-    kinds:
-      seen.kinds?.hash === now.kinds?.hash
-        ? null
-        : {
-            was: seen.kinds !== null,
-            now: now.kinds !== null,
-          },
     agents: listChange(seen.agents, now.agents),
   };
 }

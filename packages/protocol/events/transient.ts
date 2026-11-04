@@ -109,15 +109,6 @@ const shareRequestClosed = defineTransientEvent("ShareRequestClosed", {
   }),
 });
 
-// kinds dispatcher가 앞 sync에 없던 위반을 볼 때 낸다. count는 그 새 위반 수다.
-const kindViolationFound = defineTransientEvent("KindViolationFound", {
-  subject: idSchema("dom"),
-  payload: z.strictObject({
-    domain: idSchema("dom"),
-    count: z.number().int().min(1),
-  }),
-});
-
 // instance 행이나 줄이 바뀐 command가 commit된 뒤 한 번 낸다. 화면과 artifact view가 다시 읽으라는 신호다.
 // CLI로 낸 report는 session event가 없어 화면이 알 길이 이것뿐이다. 정의 file이 바뀐 것은 알리지 않는다.
 const workflowInstanceChanged = defineTransientEvent(
@@ -142,7 +133,6 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(settingsChanged),
   transientEventEnvelopeSchema(appRestartHalted),
-  transientEventEnvelopeSchema(kindViolationFound),
   transientEventEnvelopeSchema(activationConsentRequested),
   transientEventEnvelopeSchema(activationConsentClosed),
   transientEventEnvelopeSchema(shareRequestOpened),

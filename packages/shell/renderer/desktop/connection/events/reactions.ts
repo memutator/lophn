@@ -21,7 +21,6 @@ export const REACTION_EVENT_TYPES = [
   "ActivationConsentRequested",
   "ShareRequestOpened",
   "AppRestartHalted",
-  "KindViolationFound",
 ] as const;
 
 const NONE: readonly Reaction[] = [];
@@ -76,11 +75,6 @@ export function reactionsOf(
         },
         { kind: "session", session: null, app: event.subject },
       );
-    case "KindViolationFound":
-      // 단추가 없다. 알림만 하고, 위반은 domain 화면에서 본다.
-      return toast("kind-violation", `${event.subject}:${event.at}`, {
-        count: String(event.payload.count),
-      });
     default:
       return NONE;
   }

@@ -76,12 +76,6 @@ export const BUILTIN_SKILLS: readonly {
     can_disable: false,
     menu: false,
   },
-  {
-    name: "write-kinds",
-    places: ["project", "app"],
-    can_disable: false,
-    menu: false,
-  },
 ];
 
 const skillEntrySchema = z.object({

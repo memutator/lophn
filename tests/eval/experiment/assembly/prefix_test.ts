@@ -40,7 +40,6 @@ test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같�
       skills: [{ name: "calendar", description: "plan days", enabled: true }],
       place: {
         text: "# Place\nproject p1",
-        kinds: null,
         agents: [],
       },
       history: [{ role: "user", parts: [{ kind: "text", text: "hi" }] }],

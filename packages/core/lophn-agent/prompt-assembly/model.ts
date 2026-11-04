@@ -1,5 +1,3 @@
-import type { KindText } from "../../../protocol/lophn-agent/kind-text.ts";
-
 // prompt 조립의 값이다. 순수 값만 두고 I/O와 hash는 `assembleTurnPrompt`가 한다.
 // 자료·tool 결과의 포장(`~~~data`)은 safety가 하고 이 층은 이미 포장된 문자열을 순서대로 놓기만 한다.
 
@@ -83,9 +81,5 @@ export type BlockedReason =
 // provider 포장. 번역된 wire body와 전송 adapter가 따로 쥔 opaque 상태의 byte 수다.
 export type WirePack = { body: unknown; opaque_bytes: number };
 export type WirePacker = (request: PromptRequest) => WirePack;
-
-// place 정보에서 notice와 판 비교(basis)가 쓰는 kind 글이다. hash는 호출하는 쪽이 domain별로 쓰고 있는 kinds 파일의
-// hash를 이어 낸 하나의 값이다(판 번호가 없다).
-export type PlaceKinds = { hash: string; text: KindText };
 
 export type PlaceAgent = { name: string };

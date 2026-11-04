@@ -1,6 +1,5 @@
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
 import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
-import { renderKindText } from "./kind-text.ts";
 import {
   inputBudget,
   measureSize,
@@ -24,7 +23,6 @@ import type {
   HistoryMessage,
   ModelLimits,
   PlaceAgent,
-  PlaceKinds,
   PromptMessage,
   PromptRequest,
   PromptTool,
@@ -47,10 +45,9 @@ export type TurnPromptInput = {
     files?: Partial<Record<(typeof INSTRUCTION_LAYERS)[number], string>>;
   };
   skills: readonly SkillListItem[];
-  // place 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 kind 글과 agent다.
+  // place 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 agent다.
   place: {
     text: string;
-    kinds: PlaceKinds | null;
     agents: readonly PlaceAgent[];
   };
   history: readonly HistoryMessage[];
@@ -160,23 +157,6 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
       }),
     );
   }
-  if (diff.kinds !== null) {
-    const kinds = input.place.kinds;
-    notices.push(
-      kinds === null
-        ? noticeInput({
-            kind: "kinds_changed",
-            body: "The kinds were removed.",
-          })
-        : [
-            noticeInput({
-              kind: "kinds_changed",
-              body: "The kinds changed. The new text follows.",
-            }),
-            renderKindText(kinds.text, "full"),
-          ].join("\n"),
-    );
-  }
   if (diff.agents !== null) {
     notices.push(
       noticeInput({
@@ -190,10 +170,7 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
 
 function changed(diff: BasisDiff): boolean {
   return (
-    diff.instructions.length > 0 ||
-    diff.tools !== null ||
-    diff.kinds !== null ||
-    diff.agents !== null
+    diff.instructions.length > 0 || diff.tools !== null || diff.agents !== null
   );
 }
 
@@ -263,7 +240,6 @@ export async function assembleTurnPrompt(
   const basis = await basisOf({
     instructions: input.instructions,
     tool_names: input.tools.map((t) => t.name),
-    kinds: input.place.kinds,
     agents: input.place.agents,
   });
   const diff = input.seen === undefined ? null : diffBasis(input.seen, basis);

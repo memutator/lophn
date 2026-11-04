@@ -35,13 +35,6 @@ export function toastText(reaction: Reaction): ToastText {
         t("waiting.toast-restart-halted.body", { app: p.app }),
         t("waiting.toast-restart-halted.button"),
       );
-    case "waiting.toast-kind-violation.title":
-      return {
-        title: t("waiting.toast-kind-violation.title"),
-        body: t("waiting.toast-kind-violation.body", {
-          count: Number(p.count),
-        }),
-      };
     default:
       throw new Error(`unknown toast ${reaction.titleKey}`);
   }

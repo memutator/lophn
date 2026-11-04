@@ -150,6 +150,18 @@ elements:
       - base
       - design
       - coding-agent-harness-api
+    children:
+
+      - id: extension-host
+        kind: component
+        description: shell main에서 extension 폴더의 manifest를 읽고, 설정 `extensions.<id>.enabled`가 켜진 것만 load해 activate하는 registry. 설치 표시 file로 extension이 쓴 file만 지운다.
+
+  - id: shell-extension
+    kind: extension
+    description: 본체와 따로 설치하는 기능 묶음 하나(폴더, manifest, 따로 빌드한 진입점). ctx로만 lophn에 닿는다.
+    depends_on:
+      - protocol
+      - base
 
   - id: coding-agent
     kind: subsystem
@@ -324,3 +336,12 @@ interfaces:
       - external-coding-agent
       - person
 
+  - id: extension-api
+    kind: interface
+    description: extension 하나의 계약. manifest(id, 이름, 설명, 판, 진입점, 들어 있는 것)와 activate(ctx)·deactivate, ctx(core, settings, spawn, clock, ids, files). 판은 제품 판과 같아야 켠다.
+    interface_type: spi
+    defined_by: protocol
+    provided_by:
+      - extension-host
+    used_by:
+      - shell-extension

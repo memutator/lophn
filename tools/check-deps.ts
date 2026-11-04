@@ -59,6 +59,28 @@ const CLI_BINARY_ONLY = [
 // 폴더("/"로 끝)는 그 아래 전부, 아니면 그 file이다.
 const cliHit = (path: string, list: readonly string[]) =>
   list.some((x) => (x.endsWith("/") ? path.startsWith(x) : path === x));
+// 본체 안 extension 폴더의 code는 ctx로만 lophn에 닿는다(protocol/extensions의 ExtensionContext). shell main 내부와 electron을
+// import하지 못하고 protocol, base, 자기 폴더만 쓴다. 따로 받는 package로 옮겨도 구조가 같도록 하는 규칙이다.
+const EXTENSION_DIR = "packages/shell/main/extensions/bundled/";
+function extensionViolation(
+  file: string,
+  specifier: string,
+  target: string | undefined,
+): string | undefined {
+  if (!file.startsWith(EXTENSION_DIR)) return;
+  if (specifier === "electron" || specifier.startsWith("electron/")) {
+    return `extension은 electron을 import하지 않고 ctx로만 닿는다: ${specifier}`;
+  }
+  if (!target) return;
+  return target.startsWith("packages/protocol/") ||
+    target.startsWith("packages/base/") ||
+    target.startsWith(
+      `${EXTENSION_DIR}${file.slice(EXTENSION_DIR.length).split("/")[0]}/`,
+    )
+    ? undefined
+    : `extension은 protocol, base, 자기 폴더만 import: ${specifier}`;
+}
+
 // 앱 process 진입점만 sdk를 더 쓸 수 있다. 앱 code보다 먼저 cap-problem의 exception observer를 건다.
 const APP_ENTRYPOINT = "packages/core/apps/runtime/entrypoint";
 
@@ -260,7 +282,7 @@ const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
   "packages/protocol/apps/annotation.ts\0../lophn-agent/places.ts",
 ]);
 
-async function checkRepo(root: string): Promise<Violation[]> {
+export async function checkRepo(root: string): Promise<Violation[]> {
   root = normalize(root.startsWith("/") ? root : `${process.cwd()}/${root}`);
   const { files, paths } = await walk(root);
   const members = await readMembers(root, files);
@@ -426,6 +448,8 @@ async function checkRepo(root: string): Promise<Violation[]> {
         const protocol = harnessProtocol(file, target);
         if (protocol) harness(file, line, protocol);
       }
+      const extension = extensionViolation(file, specifier, target);
+      if (extension) add(file, line, "extension", extension);
       if (!testCode) {
         const tool = toolFileViolation(file, specifier, target);
         if (tool) add(file, line, "tool-file", tool);

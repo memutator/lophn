@@ -3,6 +3,7 @@
 // Custom 글꼴 이름의 글자 규칙은 CSS를 만드는 main이 검사한다. 여기는 길이만 본다.
 import { z } from "zod";
 import { declareSetting } from "../../protocol/config/mod.ts";
+import { extensionSettingKey } from "../../protocol/extensions/mod.ts";
 
 const themeSetting = declareSetting({
   key: "shell.theme",
@@ -183,6 +184,16 @@ const codingAgentsSetting = declareSetting({
   default: { favorites: ["claude", "codex", "opencode"], commands: {} },
 });
 
+// extension은 id마다 켜는 설정이 하나씩 정적으로 선언된다(core는 manifest를 읽지 못한다). 새 extension은 여기에 한 줄을 더하고
+// shellSettings에 올린다. 선언이 없는 id는 shell의 registry가 켜지 않는다. 사람만 켠다(settings/update는 user만).
+const extensionEnabled = (id: string) =>
+  declareSetting({
+    key: extensionSettingKey(id),
+    type: z.boolean(),
+    default: false,
+  });
+const harnessExtensionSetting = extensionEnabled("harness");
+
 export const shellSettings = [
   themeSetting,
   accentSetting,
@@ -205,4 +216,5 @@ export const shellSettings = [
   quickLaunchSetting,
   appLaunchSetting,
   codingAgentsSetting,
+  harnessExtensionSetting,
 ] as const;

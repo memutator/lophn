@@ -1,0 +1,91 @@
+import { z } from "zod";
+// shell main tsc는 noUncheckedIndexedAccess를 켠 채 보므로 base/mod.ts 전체 대신 쓰는 file만 import한다.
+import type { Clock } from "../../base/clock.ts";
+import type { IdSource } from "../../base/id.ts";
+import type { Result } from "../../base/result.ts";
+
+// extension 하나는 폴더 하나다. 폴더 이름이 id이고 manifest.json이 그 안에 있다.
+// 켜기는 사람이 설정 `extensions.<id>.enabled`로만 한다. core가 manifest를 읽지 못하므로 id마다 설정 선언이 따로 있어야 한다.
+export const EXTENSION_ID = /^[a-z][a-z0-9-]*$/;
+export const EXTENSION_MANIFEST_FILE = "manifest.json";
+
+export function extensionSettingKey(id: string): string {
+  return `extensions.${id}.enabled`;
+}
+
+export const extensionManifestSchema = z.strictObject({
+  id: z.string().regex(EXTENSION_ID).max(64),
+  name: z.string().min(1).max(80),
+  description: z.string().max(500),
+  /** 제품 판(root package.json의 version)과 같아야 켠다. */
+  version: z.string().min(1).max(32),
+  /** 폴더 안 상대 경로. 따로 빌드한 CJS file이고, 폴더 밖을 가리키지 못한다. */
+  entry: z
+    .string()
+    .min(1)
+    .max(200)
+    .refine(
+      (path) =>
+        !path.startsWith("/") &&
+        !path.includes("\\") &&
+        path.split("/").every((part) => part !== ".." && part !== ""),
+      { message: "entry must stay inside the extension folder" },
+    ),
+  /** 들어 있는 것의 이름들(설정 화면에 보인다). */
+  provides: z.array(z.string().min(1).max(64)).max(16),
+});
+export type ExtensionManifest = z.infer<typeof extensionManifestSchema>;
+
+/** 판이 제품 판과 다르면 오류 문구, 같으면 null. */
+export function extensionVersionError(
+  manifest: Pick<ExtensionManifest, "version">,
+  productVersion: string,
+): string | null {
+  return manifest.version === productVersion
+    ? null
+    : `extension version ${manifest.version} is not the product version ${productVersion}`;
+}
+
+export type ExtensionProcess = {
+  readonly pid: number | undefined;
+  write(text: string): void;
+  kill(): void;
+  /** stdout와 stderr를 섞은 글. */
+  onData(listener: (text: string) => void): void;
+  /** 시작하지 못한 경우도 code null로 온다. */
+  onExit(listener: (code: number | null) => void): void;
+};
+export type ExtensionSpawn = (
+  command: string,
+  args: readonly string[],
+  options?: { cwd?: string; env?: Record<string, string> },
+) => ExtensionProcess;
+
+/** extension code가 lophn에 닿는 유일한 길이다. shell main 내부 module은 import하지 못한다. */
+export type ExtensionContext = {
+  /** core protocol route 호출. 사람 권한이다. */
+  core: {
+    call(
+      kind: string,
+      resource: string,
+      method: string,
+      input: unknown,
+    ): Promise<Result<unknown>>;
+  };
+  /** 선언된 설정 값(기본값 포함). 선언이 없거나 기본값 없이 고르지 않았으면 undefined다. */
+  settings: { get(key: string): Promise<Result<unknown>> };
+  spawn: ExtensionSpawn;
+  clock: Clock;
+  ids: IdSource;
+  /**
+   * `<data root>/extensions/<id>/` 안에 쓴다. 쓴 file 이름이 표시 file에 남아 지울 때 이것만 지운다.
+   * 이름은 폴더 안 상대 경로다.
+   */
+  files: { write(name: string, text: string): Promise<Result<void>> };
+};
+
+/** entry file이 내는 것. */
+export type ExtensionModule = {
+  activate(ctx: ExtensionContext): void | Promise<void>;
+  deactivate(): void | Promise<void>;
+};

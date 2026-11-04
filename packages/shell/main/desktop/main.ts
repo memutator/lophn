@@ -17,6 +17,7 @@ import * as crash from "./wiring/crash.ts";
 import * as desktop from "./wiring/desktop.ts";
 import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
+import * as extensions from "./wiring/extensions.ts";
 import * as layout from "./wiring/layout.ts";
 
 const ctx = createShellContext();
@@ -36,6 +37,7 @@ add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(bookmarks.register(ctx));
+add(extensions.register(ctx));
 add(editor.register(ctx));
 const detachedWindows = add(detached.register(ctx, views));
 add(layout.register(ctx, detachedWindows));

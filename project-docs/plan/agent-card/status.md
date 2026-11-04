@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py agent-card build`가 `tasks/*.md`에서 id, 
 | `card-check` | card | 2 | card-read | merged | card/card-check | e8ac72313 |  |
 | `card-show` | card | 3 | card-check | merged | card/card-show | 7dde63db1 |  |
 | `card-policy` | card | 4 | card-show | merged | card/card-policy | 88acc432d |  |
-| `bare-skills` | card | 5 | card-policy | todo |  |  |  |
+| `bare-skills` | card | 5 | card-policy | running | card/bare-skills |  |  |

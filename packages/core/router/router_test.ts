@@ -332,9 +332,9 @@ test("a call the receiving agent cannot take is rejected and leaves no call row,
   assert.ok(human.ok);
 });
 
-// 권한 경계다. project A의 agent가 project B로 보내는 call은 기본으로 거절되고 call 행도 session도 남지 않는다.
-// agent 예외가 허용하면 간다. 사람이 보낸 call은 보지 않는다.
-test("a call from project A to project B is forbidden by default and leaves no row or session; an agent exception allows it", () => {
+// 권한 경계다. 기본은 모두 허용이다. place 쌍 거절 규칙이 project A → project B call을 막으면 call 행도 session도 남지 않고,
+// agent 쌍 허용 규칙은 그 거절을 덮는다. 사람이 보낸 call은 보지 않는다.
+test("a place-pair deny rule forbids a call and leaves no row or session; an agent-pair allow overrides it; no rule allows", () => {
   const projectA = { kind: "project", id: "prj_a" } as const;
   const projectB = { kind: "project", id: "prj_b" } as const;
   const sessions = {
@@ -342,8 +342,20 @@ test("a call from project A to project B is forbidden by default and leaves no r
     [RECEIVER]: target(RECEIVER, true, { agent: "lophn", place: projectB }),
   };
   const input = { ...base, to: { agent: "lophn" }, dedup: "tool-1" } as const;
+  const denyPlace = {
+    from: projectA,
+    to: projectB,
+    allow: false,
+  } as const;
 
-  const refused = setup(sessions);
+  const open = setup(sessions);
+  assert.ok(open.router.route(open.tx, input).ok);
+  assert.deepStrictEqual(open.rows.size, 1);
+
+  const refused = setup(sessions, undefined, {
+    places: [denyPlace],
+    agents: [],
+  });
   const forbidden = refused.router.route(refused.tx, input);
   assert.ok(!forbidden.ok);
   assert.deepStrictEqual(forbidden.error.code, "forbidden");
@@ -358,7 +370,7 @@ test("a call from project A to project B is forbidden by default and leaves no r
   assert.ok(human.ok);
 
   const allowed = setup(sessions, undefined, {
-    places: [],
+    places: [denyPlace],
     agents: [{ from: "lophn", to: "lophn", allow: true }],
   });
   const sent = allowed.router.route(allowed.tx, input);

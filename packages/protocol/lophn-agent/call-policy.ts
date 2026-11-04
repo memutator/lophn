@@ -3,8 +3,8 @@ import { idSchema } from "../base/ids.ts";
 import { type AgentAtPlace, agentIdSchema, type Place } from "./places.ts";
 
 // agent가 보내는 call을 어느 place 쌍과 agent 쌍으로 허용하는가. 사람이 보낸 call과 workflow step은 보지 않는다.
-// 판정 순서: agent 쌍 예외 → place 쌍 덧쓰기 → 기본 표. 같은 쌍이 여럿이면 먼저 적힌 것이 이긴다.
-// 기본 표: 같은 place, project·앱 → home, home → project·앱은 허용하고 다른 project나 다른 앱으로는 거절한다.
+// 판정 순서: agent 쌍 규칙 → place 쌍 규칙 → 기본(허용). 같은 쌍이 여럿이면 먼저 적힌 것이 이긴다.
+// 기본은 모두 허용이다. lophn의 위임(project → 앱의 lophn 등)을 program이 막지 않고, 사람이 place 쌍 거절로 크게 좁히고 agent 쌍으로 예외를 둔다.
 export const CALL_POLICY_SETTING_KEY = "lophn-agent.call_policy";
 
 export const callPlaceSchema = z.discriminatedUnion("kind", [
@@ -44,10 +44,6 @@ function samePlace(a: CallPlace, b: CallPlace): boolean {
   );
 }
 
-function defaultAllows(from: CallPlace, to: CallPlace): boolean {
-  return samePlace(from, to) || from.kind === "home" || to.kind === "home";
-}
-
 // 보내는 session(from)이 받는 agent와 place(to)로 call을 보내도 되는가.
 export function mayCall(
   policy: CallPolicy,
@@ -63,5 +59,5 @@ export function mayCall(
   const byPlace = policy.places.find(
     (rule) => samePlace(rule.from, fromPlace) && samePlace(rule.to, toPlace),
   );
-  return byPlace?.allow ?? defaultAllows(fromPlace, toPlace);
+  return byPlace?.allow ?? true;
 }

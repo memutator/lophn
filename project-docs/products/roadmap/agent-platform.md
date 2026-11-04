@@ -84,7 +84,7 @@
 
 ## 정한 것 (시야, 2026-11-04)
 
-6. 시야는 place 정책이 크게 정하고 agent 정책이 예외로 덧쓴다(사람). 기본: 같은 place 허용, project·app → home 허용, home → project·app 허용, 다른 project·다른 앱으로는 거절(agent 추천을 사람이 받음). 판정은 agent 예외 → place 덧쓰기 → 기본 순서이고 거절은 `forbidden`이다.
+6. 시야는 place 정책이 크게 정하고 agent 정책이 예외로 덧쓴다(사람). 기본은 모두 허용이고 사람이 place 규칙으로 크게 거절하고 agent 예외로 푼다(사람, 2026-11-04). 판정은 agent 예외 → place 규칙 → 기본(허용) 순서이고 거절은 `forbidden`이다. 먼저 있던 기본 거절 표(다른 project·다른 앱으로 거절)는 agent의 추천이었고, lophn의 container 넘는 위임(project → 앱의 lophn)을 막아 2026-11-04에 되돌렸다.
 7. 다른 place에서 불려 home에 열린 session은 폴더를 읽지 않고 실어 보낸 것만 본다(사람이 추천을 받음).
 
 ## 계획

@@ -137,7 +137,7 @@ export const workspaceSettings = {
   "settings.empty.general": "No settings are declared yet.",
   "settings.empty.key-search": "No shortcut matches your search.",
   "settings.empty.shell-rules": "No rules here yet.",
-  "settings.empty.call-rules": "No overrides. The built-in rules apply.",
+  "settings.empty.call-rules": "No rules. Every call is allowed.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
   "settings.error.coding-hooks-install":
@@ -344,7 +344,7 @@ export const workspaceSettings = {
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
   "settings.note.call-policy":
-    "Which places an agent may call. Calls inside one place, between a project or app and Home, are allowed. A call from one project or app to another is refused unless you allow it here. An agent pair beats a place pair.",
+    "Agents may call each other across places unless you add a refuse rule here. A place pair refuses or allows calls between two places; an agent pair is an exception that beats a place pair.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
   "settings.note.coding-favorites":

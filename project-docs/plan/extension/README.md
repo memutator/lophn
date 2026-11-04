@@ -10,11 +10,7 @@
 2. shell main의 registry가 manifest를 읽고, 켜진 extension의 진입점만 load한다. extension은 `activate(ctx)`·`deactivate()`를 내고 ctx로 core client, 설정, spawn, Clock, IdSource를 받는다. core에는 protocol route로만 붙는다. (agent)
 3. 켜기는 사람이 설정 화면에서만 한다. 설정 키는 `extensions.<id>.enabled`이고 harness의 `harness.enabled`는 `extensions.harness.enabled`로 바꾼다. (agent)
 4. 끄고 지우면 extension이 쓴 file만 지운다(표시 file로 안다). 사람 file과 다른 설정은 그대로다. (agent)
-5. 어떻게 받나(같은 .deb 안에 넣고 꺼 두기, 따로 받는 package)는 사람이 정할 것 1이다. 1·2 task는 어느 쪽이든 같다. (agent)
-
-## 사람이 정할 것
-
-1. **배달.** (가) 본체 .deb 안에 넣어 두고 설치 = 켜기(가볍고 offline에서 된다, 내려받는 크기는 그대로) (나) 따로 받는 package(.deb 하나 더 또는 내려받기: 본체가 작아지지만 받을 곳과 서명 key가 지금 없다). 추천: 구조를 (가)로 먼저 세우고 (나)는 같은 registry에 manifest를 넣는 길로 뒤에 더한다.
+5. 받는 길은 먼저 (가) 본체 .deb 안에 넣어 두고 설정에서 켠다. 뒤에 (나) 따로 받는 package로 옮긴다(사람, 2026-11-04). 그 전환이 구조를 고치지 않게 extension은 (1) shell main bundle과 따로 빌드한 file을 경로로 load하고 (2) registry는 manifest가 든 폴더 목록만 읽고(지금은 본체 안 폴더, 뒤에 `<data>/extensions/<id>/`를 더한다) (3) `ctx`로만 lophn에 닿고 shell main 내부를 import하지 않는다(`tools/check-deps.ts`가 막는다). (사람·agent)
 
 ## task
 

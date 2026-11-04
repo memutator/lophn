@@ -24,7 +24,9 @@ extension 단위의 바탕: manifest를 읽는 registry, 켜진 것만 load하�
 2. shell main registry: manifest를 읽어 목록을 낸다(code를 load하지 않고). 켜진 것만 진입점을 load해 `activate`한다. 끄면 `deactivate`.
 3. 설정 `extensions.<id>.enabled`(기본 false). 사람만 켠다.
 4. 설치 표시: `<data>/extensions/<id>/`에 표시 file. 지우기는 extension이 쓴 file만.
-5. esbuild bundle에서 extension 진입점은 따로 load되는 꼴로 둔다(본체 bundle에 묶여 늘 load되지 않게).
+5. extension은 shell main의 esbuild bundle에 섞지 않는다. 따로 빌드한 file을 manifest의 `entry` 경로로 load한다.
+6. registry는 manifest가 든 폴더 목록만 읽는다. 지금 목록은 본체 안 extension 폴더 하나이고, 뒤에 따로 받는 package가 `<data>/extensions/<id>/`를 더한다(그 일은 이 계획 밖).
+7. extension code는 `ctx`로만 lophn에 닿는다. shell main 내부 module을 import하면 `tools/check-deps.ts`가 막는다.
 
 ## 끝남
 
@@ -32,6 +34,7 @@ extension 단위의 바탕: manifest를 읽는 registry, 켜진 것만 load하�
 - 위험 test:
   - "켰다가 끄고 지우면 data root가 처음과 같고 사람 file과 다른 설정은 그대로다"
   - "manifest 판이 제품 판과 다르면 켜지 않고, 꺼진 extension은 code를 load하지 않고 아무것도 등록하지 않는다"
+  - check-deps 규칙: extension 폴더가 shell main 내부를 import하면 `npm run check`가 실패한다(규칙 test가 있는 꼴이면 그것을 따른다)
 - 남지 않음: 없음
 
 ## 보고

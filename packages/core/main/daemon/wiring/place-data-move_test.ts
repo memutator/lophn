@@ -85,7 +85,7 @@ const sqlOf = (target: DatabaseSync): Sql => ({
 
 // 사용자 data를 잃으면 안 된다: 같은 그릇 안 이름이 겹쳐도, skill 안 하위 폴더가 있어도, 대상에 이미 있어도,
 // 보관한 domain이어도 file이 모두 남고, 다시 돌려도 아무것도 옮기지 않는다.
-test("skill과 DOMAIN.md 옮기기는 이름이 겹쳐도 file을 잃지 않고 다시 돌아도 같다", async () => {
+test("skill 옮기기는 이름이 겹쳐도 file을 잃지 않고, DOMAIN.md와 kinds.yaml은 지우며, 다시 돌아도 같다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-place-data-move-"));
   try {
     const db = openLedger(join(root, "lophn.db"));
@@ -125,11 +125,6 @@ test("skill과 DOMAIN.md 옮기기는 이름이 겹쳐도 file을 잃지 않고 
       join(root, "projects", OTHER, "skills/util-gamma/SKILL.md"),
       skill("util-gamma", "kept2"),
     );
-    // 이미 옮겨 둔 문서가 있으면 덮지 않는다.
-    await put(
-      join(root, "projects", PRJ, "old-domains/alpha/kinds.yaml"),
-      "kept kinds",
-    );
 
     const first = await placeDataMoveStep.run(root);
     assert.ok(first.ok);
@@ -155,30 +150,20 @@ test("skill과 DOMAIN.md 옮기기는 이름이 겹쳐도 file을 잃지 않고 
     assert.deepStrictEqual(await snapshot(join(root, "apps", APP, "skills")), [
       `util/SKILL.md=${skill("util", "delta")}`,
     ]);
-    assert.deepStrictEqual(
-      await snapshot(join(root, "projects", PRJ, "old-domains")),
-      [
-        "alpha/DOMAIN.md=alpha doc",
-        "alpha/kinds.yaml=kept kinds",
-        "beta/DOMAIN.md=beta doc",
-      ],
-    );
-    assert.deepStrictEqual(
-      await snapshot(join(root, "apps", APP, "old-domains")),
-      ["delta/DOMAIN.md=delta doc"],
-    );
-    // 못 옮긴 것은 제자리에 남는다: gamma의 skill, 덮이지 않으려고 둔 alpha의 kinds.yaml.
-    assert.deepStrictEqual(
-      await snapshot(join(root, "domains")),
-      [
-        "dom_a/kinds.yaml=alpha kinds",
-        `dom_c/skills/util/SKILL.md=${skill("util", "gamma")}`,
-      ].sort(),
-    );
-    assert.deepStrictEqual(
-      await snapshot(join(root, "projects", OTHER, "old-domains")),
-      ["gamma/DOMAIN.md=gamma doc"],
-    );
+    // DOMAIN.md와 kinds.yaml은 지워지고 그릇에는 skills/ 밖에 아무 폴더도 생기지 않는다. 못 옮긴 gamma의 skill만 제자리에 남는다.
+    assert.deepStrictEqual(await snapshot(join(root, "domains")), [
+      `dom_c/skills/util/SKILL.md=${skill("util", "gamma")}`,
+    ]);
+    for (const container of [
+      join(root, "projects", PRJ),
+      join(root, "projects", OTHER),
+      join(root, "apps", APP),
+    ]) {
+      assert.deepStrictEqual(
+        (await readdir(container)).filter((name) => name !== "skills"),
+        [],
+      );
+    }
 
     const before = [
       await snapshot(join(root, "projects")),
@@ -212,7 +197,7 @@ const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 const text = (path: string) => readFile(path, "utf8").catch(() => null);
 
 // 옛 모양의 rewind 기록(domain 폴더 root)을 둔 ledger로 data step을 돌린 뒤 진짜 복원 code로 되돌린다. 복원은
-// 그릇의 `skills/<최종 이름>/`과 `old-domains/<domain 이름>/`에 쓰고 `domains/`나 그릇 root에는 쓰지 않는다.
+// 그릇의 `skills/<최종 이름>/`에 쓰고, 지운 `DOMAIN.md`는 되살리지 않으며, `domains/`나 그릇 root에는 쓰지 않는다.
 test("skill 옮기기 뒤 옛 checkpoint를 되돌리면 최종 이름의 새 자리에 쓴다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-place-data-rewind-"));
   const store = await mkdtemp(join(tmpdir(), "lophn-place-data-store-"));
@@ -307,14 +292,12 @@ test("skill 옮기기 뒤 옛 checkpoint를 되돌리면 최종 이름의 새 �
     reopened.exec("pragma foreign_keys = off");
     const after = sqlOf(reopened);
     const skills = join(root, "projects", PRJ, "skills");
-    const oldBeta = join(root, "projects", PRJ, "old-domains", "beta");
     const rows = after
       .all("select tool_call, root, path from rewind_files order by seq", [])
       .map((row) => [row["root"], row["path"]]);
     assert.deepStrictEqual(rows, [
       [skills, "util/notes.md"],
       [skills, "util-beta/refs/b.md"],
-      [oldBeta, "DOMAIN.md"],
       [skills, "gone/SKILL.md"],
       [domainA, "artifacts/page/index.html"],
     ]);
@@ -376,7 +359,6 @@ test("skill 옮기기 뒤 옛 checkpoint를 되돌리면 최종 이름의 새 �
 
     assert.equal(await text(join(skills, "util/notes.md")), "a-old");
     assert.equal(await text(join(skills, "util-beta/refs/b.md")), "b-old");
-    assert.equal(await text(join(oldBeta, "DOMAIN.md")), "doc-old");
     // 이긴 쪽에는 beta의 기록이 닿지 않았다.
     assert.equal(await stat(join(skills, "util/refs")).catch(() => null), null);
     // 옛 자리와 그릇 root에는 아무것도 쓰지 않았다.
@@ -384,10 +366,7 @@ test("skill 옮기기 뒤 옛 checkpoint를 되돌리면 최종 이름의 새 �
     assert.equal(await stat(join(domainB, "skills")).catch(() => null), null);
     assert.equal(await text(join(domainB, "DOMAIN.md")), null);
     const container = join(root, "projects", PRJ);
-    assert.deepStrictEqual((await readdir(container)).sort(), [
-      "old-domains",
-      "skills",
-    ]);
+    assert.deepStrictEqual(await readdir(container), ["skills"]);
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(store, { recursive: true, force: true });

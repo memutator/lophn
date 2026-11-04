@@ -1,10 +1,11 @@
 // domain 폴더에 있던 agent용 file을 그 그릇(project나 앱)의 자리로 옮기는 wiring이다. data step 하나가 한다
 // (옮길 곳의 계획을 아는 곳이 여기라서다):
 // - `domains/<dom>/skills/*`를 그 그릇 자리의 `skills/`로 옮긴다. 이름이 겹치면 `artifact-move.ts`와 같은 규칙이다.
-// - `DOMAIN.md`와 `kinds.yaml`은 그릇 자리의 `old-domains/<domain 이름>/`로 옮긴다. 읽는 쪽이 없는 보관본이다.
-// - rewind 기록 가운데 그 file의 것을 새 자리(root = 그릇의 `skills/` 또는 `old-domains/<이름>`)로 다시 쓴다.
-//   옛 checkpoint를 되돌릴 때 `domains/<dom>`이나 그릇 root에 쓰거나 이름이 바뀐 skill 대신 이긴 쪽에 쓰는 틀린 복원을 막는다.
-// 옮기는 쪽은 rename뿐이라 file을 복사하거나 지우지 않고, 있는 대상은 덮지 않는다.
+// - `DOMAIN.md`와 `kinds.yaml`은 지운다(레거시를 남기지 않는다는 결정). 읽는 쪽이 없다.
+// - rewind 기록 가운데 skill의 것은 새 자리(root = 그릇의 `skills/`)로 다시 쓰고, `DOMAIN.md`·`kinds.yaml`의 것은 지운다.
+//   옛 checkpoint를 되돌릴 때 `domains/<dom>`이나 그릇 root에 쓰거나 이름이 바뀐 skill 대신 이긴 쪽에 쓰는 틀린 복원과,
+//   지운 문서를 되살리는 복원을 막는다.
+// skill은 rename뿐이라 복사하지 않고 있는 대상은 덮지 않는다.
 // domains 표가 필요해서 표를 거두는 data step(`domains.retire`)보다 앞에 등록한다(assembly.ts의 WIRINGS 순서).
 import {
   lstat,
@@ -12,14 +13,12 @@ import {
   readdir,
   readFile,
   rename,
+  rm,
   rmdir,
   writeFile,
 } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import {
-  placeDataFolder,
-  placeDataSkillsFolder,
-} from "../../../agent-places/place/data-folder.ts";
+import { placeDataSkillsFolder } from "../../../agent-places/place/data-folder.ts";
 import { dropDomainsFieldStep } from "../../../lophn-agent/agents/domains-field-step.ts";
 import { REWIND_FILES_IMMUTABLE } from "../../../lophn-agent/session/rewind/mod.ts";
 import {
@@ -35,10 +34,9 @@ type DomainRow = { id: string; name: string; place: Place };
 // 옮길 곳의 data 폴더는 root에서 정하고, 기록의 root는 기록된 접두(realpath)에서 정한다.
 const skillsOf = (root: string, place: Place) =>
   placeDataSkillsFolder(root, place as never);
-const oldDomainsOf = (root: string, place: Place, domain: string) =>
-  `${placeDataFolder(root, place as never)}/old-domains/${domain}`;
 
-const DOCS = ["DOMAIN.md", "kinds.yaml"] as const;
+const DOCS: readonly string[] = ["DOMAIN.md", "kinds.yaml"];
+const isDoc = (rel: string) => DOCS.includes(rel);
 
 type Move = {
   domain: string;
@@ -132,30 +130,10 @@ async function renameInManifest(
   await rename(`${path}.tmp`, path);
 }
 
-type DocMove = { domain: DomainRow; name: string; from: string; to: string };
-
-// 옮길 곳에 이미 있으면 옮기지 않고 제자리에 둔다.
-async function planDocMoves(
-  root: string,
-  domains: readonly DomainRow[],
-): Promise<DocMove[]> {
-  const moves: DocMove[] = [];
-  for (const domain of domains) {
-    for (const name of DOCS) {
-      const from = `${root}/domains/${domain.id}/${name}`;
-      const to = `${oldDomainsOf(root, domain.place, domain.name)}/${name}`;
-      if ((await exists(from)) && !(await exists(to))) {
-        moves.push({ domain, name, from, to });
-      }
-    }
-  }
-  return moves;
-}
-
 const DOMAIN_ROOT = /^(.*)\/domains\/(dom_[0-9a-z]+)$/;
 
 // 옛 rewind 기록의 root는 realpath로 `<data>/domains/<dom>`였고 path가 `skills/<name>/…`, `DOMAIN.md`, `kinds.yaml`이었다.
-// skill은 root를 그 그릇의 `skills/`로 path의 첫 마디를 최종 이름으로, 문서는 root를 `old-domains/<domain 이름>`으로 바꾼다.
+// skill은 root를 그 그릇의 `skills/`로 path의 첫 마디를 최종 이름으로 바꾼다. 문서의 기록은 지운다.
 // `artifacts/` 아래 기록은 artifact 옮기기가 먼저 바꿨거나(root가 이미 맞지 않는다) 제자리에 남은 것이라 건드리지 않는다.
 // 옮기지 못하고 제자리에 남는 file의 기록도 그대로 둔다. 다시 돌면 이미 바뀐 기록은 root가 맞지 않아 아무것도 바뀌지 않는다.
 async function rewriteRewindRows(
@@ -163,13 +141,9 @@ async function rewriteRewindRows(
   root: string,
   domains: ReadonlyMap<string, DomainRow>,
   skillMoves: readonly Move[],
-  docMoves: readonly DocMove[],
 ): Promise<void> {
   const planned = new Map(
     skillMoves.map((move) => [`${move.domain}\n${move.name}`, move.newName]),
-  );
-  const docsPlanned = new Set(
-    docMoves.map((move) => `${move.domain.id}\n${move.name}`),
   );
   // 계획에 없는 이름은 이미 없는 file(같은 이름)이거나 제자리에 남는 것이다. 아직 있으면 남는 것이다.
   const finalName = async (domain: string, name: string) => {
@@ -184,14 +158,6 @@ async function rewriteRewindRows(
     domain: DomainRow,
     rel: string,
   ): Promise<{ root: string; path: string } | null> => {
-    if ((DOCS as readonly string[]).includes(rel)) {
-      const stays =
-        !docsPlanned.has(`${domain.id}\n${rel}`) &&
-        (await exists(`${root}/domains/${domain.id}/${rel}`));
-      return stays
-        ? null
-        : { root: oldDomainsOf(data, domain.place, domain.name), path: rel };
-    }
     if (!rel.startsWith("skills/")) return null;
     const inner = rel.slice("skills/".length);
     const old = inner.split("/")[0]!;
@@ -203,6 +169,7 @@ async function rewriteRewindRows(
           path: `${name}${inner.slice(old.length)}`,
         };
   };
+  const deletes: { tool_call: string; path: string }[] = [];
   const updates: {
     tool_call: string;
     path: string;
@@ -218,6 +185,13 @@ async function rewriteRewindRows(
     const domain = match === null ? undefined : domains.get(match[2]!);
     if (match === null || domain === undefined) continue;
     const moved = row["moved_from"] === null ? null : String(row["moved_from"]);
+    if (isDoc(String(row["path"])) || (moved !== null && isDoc(moved))) {
+      deletes.push({
+        tool_call: String(row["tool_call"]),
+        path: String(row["path"]),
+      });
+      continue;
+    }
     const now = await target(match[1]!, domain, String(row["path"]));
     const from = moved === null ? null : await target(match[1]!, domain, moved);
     if (now === null || (moved !== null && from?.root !== now.root)) continue;
@@ -229,10 +203,16 @@ async function rewriteRewindRows(
       movedFrom: from?.path ?? null,
     });
   }
-  if (updates.length === 0) return;
+  if (updates.length === 0 && deletes.length === 0) return;
   // 기록의 root·path는 바뀌지 않는 칸이라 trigger를 내렸다 다시 만든다.
   connection.exec("begin immediate");
   try {
+    for (const gone of deletes) {
+      connection.sql.run(
+        "delete from rewind_files where tool_call = ? and path = ?",
+        [gone.tool_call, gone.path],
+      );
+    }
     connection.exec("drop trigger rewind_files_immutable");
     for (const update of updates) {
       connection.sql.run(
@@ -273,9 +253,8 @@ export const placeDataMoveStep: DataStep = {
         }));
       const byId = new Map(rows.map((row) => [row.id, row]));
       const skillMoves = await planSkillMoves(root, rows);
-      const docMoves = await planDocMoves(root, rows);
       // 기록을 먼저 쓴다. 옮기다 끊겨 다시 돌아도 같은 계획이 나오고, 이미 쓴 기록은 건너뛴다.
-      await rewriteRewindRows(connection, root, byId, skillMoves, docMoves);
+      await rewriteRewindRows(connection, root, byId, skillMoves);
       for (const move of skillMoves) {
         const owner = byId.get(move.domain)!;
         await mkdir(skillsOf(root, owner.place), { recursive: true });
@@ -284,13 +263,10 @@ export const placeDataMoveStep: DataStep = {
         }
         await rename(move.from, move.to);
       }
-      for (const move of docMoves) {
-        await mkdir(oldDomainsOf(root, move.domain.place, move.domain.name), {
-          recursive: true,
-        });
-        await rename(move.from, move.to);
-      }
       for (const row of rows) {
+        for (const name of DOCS) {
+          await rm(`${root}/domains/${row.id}/${name}`, { force: true });
+        }
         // 비게 된 옛 폴더만 치운다. 제자리에 둔 것이 있으면 남는다.
         await rmdir(`${root}/domains/${row.id}/skills`).catch(() => {});
       }
@@ -299,7 +275,7 @@ export const placeDataMoveStep: DataStep = {
       return err({
         code: "unavailable",
         message:
-          "domain skills and documents could not be moved to their project or app folder",
+          "domain skills could not be moved to their project or app folder and its documents could not be removed",
       });
     } finally {
       connection.close();

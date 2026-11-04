@@ -33,3 +33,10 @@ OpenCode adapter. `opencode acp`를 stdio로 띄워 표준 Agent Client Protocol
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고"대로.
+
+## lead가 더한 것
+
+- (lead가 더함) 실제 녹화가 `/home/pyosechang/projects/lophn/.claude/worktrees/plan-harness-gui/.dev-data/recordings/opencode/`에 있다(먼저 `/home/pyosechang/projects/lophn/.claude/worktrees/plan-harness-gui/.dev-data/recordings/README.md`). fixture는 여기서 test에 필요한 것만 README의 scrub 규칙대로 `fixtures/opencode/`에 옮긴다. 문서·type으로 만든 fixture는 쓰지 않는다.
+- (lead가 더함) ACP 약속은 `gui-claude.md`의 "lead가 더한 것" 마지막 항목(seq, session, message id, id 짝, start)과 같다.
+- (lead가 더함) OpenCode 기본 설정은 shell과 edit를 묻지 않고 실행한다(녹화는 `OPENCODE_CONFIG_CONTENT`로 ask를 걸었다). adapter는 사람 설정을 그대로 쓰고 바꾸지 않는다. 그래서 사람이 ask를 걸지 않았으면 승인 카드가 뜨지 않는다. 그렇다고 보고에 적는다.
+- (lead가 더함) `session/load`는 응답 전에 앞 대화를 `session/update`로 다시 흘린다. 그것으로 앞 대화를 그린다. reject는 prompt 전체를 `stopReason: "cancelled"`로 끝낸다.

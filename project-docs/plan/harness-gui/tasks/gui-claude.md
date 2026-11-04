@@ -35,3 +35,12 @@ Claude Code adapter. Agent SDK로 사람의 `claude`를 띄워 streaming input�
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고"대로. 실제 실행으로 확인하지 못한 SDK 동작을 적는다.
+
+## lead가 더한 것
+
+- (lead가 더함) SDK는 lead가 `packages/shell/main/package.json`에 `@anthropic-ai/claude-agent-sdk` 0.3.318로 넣었다. SDK가 끌고 오는 OS별 claude 사본은 root `package.json`의 `overrides`가 빈 package(`tools/empty-package`)로 바꿨다(사람, 2026-11-05). 그래서 `pathToClaudeCodeExecutable`에 사람 PATH의 `claude`를 늘 넘긴다. 이 꼴로 `query()`가 도는 것은 lead가 확인했다.
+- (lead가 더함) process는 SDK option `spawnClaudeCodeProcess`로 `ctx.spawn`을 거쳐 띄운다(`ExtensionProcess`를 SDK의 `SpawnedProcess`로 맞춘다).
+- (lead가 더함) 실제 녹화가 `/home/pyosechang/projects/lophn/.claude/worktrees/plan-harness-gui/.dev-data/recordings/`에 있다(먼저 `README.md`). claude는 9 scenario: text, approve, approve_session, deny, question, interrupt, queue, subagent, resume과 `resume-history.json`. fixture는 여기서 test에 필요한 것만 README의 scrub 규칙대로 `fixtures/claude/`에 옮긴다. 문서·type으로 만든 fixture는 쓰지 않는다.
+- (lead가 더함) 녹화에서 안 것: interrupt 뒤 `result`는 `error_during_execution`(`terminal_reason: aborted_streaming`)이고 같은 query로 다음 메시지를 보낼 수 있다. input이 끝난 뒤 error result로 `for await`가 throw한 일이 있다(잡는다). 실행 중 보낸 메시지는 다음 turn으로 줄 선다(ACP `message_queued` → `message_taken`). resume은 앞 대화를 다시 흘리지 않으니 `getSessionMessages(id, {dir: cwd})`로 앞 대화를 그린다(그러면 "앞 대화는 CLI에 있다" notice는 필요 없다). "이 session 동안" 허락은 `updatedPermissions: options.suggestions`이다.
+- (lead가 더함) permission mode는 넘기지 않는다(사람 설정 `settingSources`를 따른다. 이 기계의 사람 설정은 `auto`다). `bypassPermissions`는 어떤 길로도 쓰지 않는다.
+- (lead가 더함) ACP 약속(gui-window와 같이 지킨다): ① `seq`는 adapter가 창마다 1부터 빈틈없이 붙인다(창은 snapshot이 없어 빈틈을 다시 읽지 못한다). ② 입력의 `session`은 창이 만든 값이라 adapter는 보지 않는다. ③ 사람 메시지는 `send` 입력의 `id`로 `message_added`를 낸다. ④ turn·tool·승인·질문 id는 `ctx.ids.newId("trn"|"tcl"|"apr")`로 만들고 CLI의 id와 짝지어 둔다. ⑤ `start`는 CLI를 띄우면 바로 `ok`를 돌려준다(첫 turn을 기다리지 않는다). 띄우지 못하면(`claude`가 PATH에 없음 등) 아무것도 publish하지 않고 `unavailable`을 돌려준다(index.ts가 그것을 실패한 turn으로 보인다).

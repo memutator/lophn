@@ -6,7 +6,7 @@
 
 ## 정한 것
 
-1. CLI에는 각 CLI의 공식 GUI 경계로 붙는다. Claude Code는 Agent SDK(streaming input), Codex는 `codex app-server`(stdio JSON-RPC), OpenCode는 `opencode acp`(stdio). 사람이 설치하고 로그인한 CLI를 쓴다(보고서 §4). (agent)
+1. CLI에는 각 CLI의 공식 GUI 경계로 붙는다. Claude Code는 Agent SDK(streaming input), Codex는 `codex app-server`(stdio JSON-RPC), OpenCode는 `opencode acp`(stdio). 사람이 설치하고 로그인한 CLI를 쓴다(보고서 §4). (agent) SDK는 판을 고정해 쓰고, SDK가 끌고 오는 OS별 claude 사본은 root `package.json`의 `overrides`로 빈 package로 바꿔 받지 않는다. 사람 PATH의 `claude`를 넘긴다. (사람, 2026-11-05)
 2. GUI는 사람이 쓰는 화면이라 harness의 승인 요청과 질문을 lophn 승인 카드·질문 카드로 묻는다. 글은 흘러나오고 tool 줄은 도는 중부터 보인다. (agent)
 3. GUI session은 그 CLI 자신의 session이다. lophn ledger에 기록하지 않고, 친 폴더(cwd)에서 돈다. lophn project가 아니어도 된다. 다시 열기는 `claude gui --resume <id>`처럼 CLI의 resume이다. (사람이 2026-11-04 "CLI 화면을 대체하는 GUI"라고 함)
 4. 창은 그 session 하나만 보이는 lophn 창이다. lophn이 꺼져 있으면 띄운다. lophn 터미널 탭에서는 `claude gui`가 바로 되고, 바깥 터미널에서는 `lophn gui claude`로 연다. (agent)

@@ -32,3 +32,10 @@ Codex adapter. `codex app-server`를 stdio로 띄워 JSON-RPC로 대화하고, �
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고"대로.
+
+## lead가 더한 것
+
+- (lead가 더함) 실제 녹화가 `/home/pyosechang/projects/lophn/.claude/worktrees/plan-harness-gui/.dev-data/recordings/codex/`에 있다(먼저 `/home/pyosechang/projects/lophn/.claude/worktrees/plan-harness-gui/.dev-data/recordings/README.md`). fixture는 여기서 test에 필요한 것만 README의 scrub 규칙대로 `fixtures/codex/`에 옮긴다. 문서·type으로 만든 fixture는 쓰지 않는다.
+- (lead가 더함) ACP 약속은 `gui-claude.md`의 "lead가 더한 것" 마지막 항목(seq, session, message id, id 짝, start)과 같다.
+- (lead가 더함) 이 기계의 사람 설정은 `approval_policy = "never"`, `sandbox_mode = "danger-full-access"`다. 그대로면 승인 카드가 뜨지 않고 brief가 금한 full access다. `thread/start`·`thread/resume`에 `sandbox: "workspace-write"`, `approvalPolicy: "on-request"`를 늘 넘긴다(Codex 데스크톱의 기본). 이 판의 protocol type은 `codex app-server generate-ts --out <dir>`로 뽑는다(model을 부르지 않는다. `.dev-data/gui-codex/`에 둔다).
+- (lead가 더함) resume 응답의 `thread.turns`에 앞 turn과 item이 실려 온다. 그것으로 앞 대화를 그린다.

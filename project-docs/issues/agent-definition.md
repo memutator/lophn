@@ -55,3 +55,20 @@ modules: [packages/core/lophn-agent]
 영향: 큰 결과를 자주 받는 사람의 data root가 계속 커진다.
 
 고치려면: session 보관·삭제 때 그 폴더를 지운다(작음). 추천.
+
+## bare의 고른 이름이 틀리거나 상한 밖이면 말없이 빠진다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/shell/renderer]
+```
+
+지금: 정의의 `tools`는 아무 nonblank 이름이나 받는다(`packages/protocol/lophn-agent/agent-values.ts`). turn 조립(`packages/core/lophn-agent/run-loop/prepare.ts`의 `visibleTools`)은 place 종류 목록, 명령의 `places`, 할당한 앱 command, 설정한 MCP에 없는 이름을 오류 없이 뺀다. 편집 화면(`packages/shell/renderer/workspace/agents/editor/tool-picks.tsx`)은 내장 tool만 체크로 고르고 lophn 명령, 앱 command, MCP tool은 글로 적는다.
+
+영향: 사람이 `call.reply`를 `call.replay`로 적거나 할당하지 않은 앱 command를 고르면 그 agent는 그 tool 없이 일한다. 저장도 turn도 알리지 않아 사람은 agent가 왜 못 하는지 모른다.
+
+고치려면:
+- 편집 화면이 명령 표(`packages/cli/commands/`의 `COMMANDS`), 할당한 앱 command, 설정한 MCP tool을 후보 목록으로 보이고, 적은 이름 중 어느 후보에도 없는 것은 그 칸 옆에 표시한다. 저장은 막지 않는다(place 종류와 할당은 나중에 바뀐다). 중간.
+- 저장 때 명령 표에도 `<slug>.<command>`·`mcp__` 꼴에도 맞지 않는 이름을 `invalid_input`으로 거절한다. 오타 대부분을 잡는다. 작음.
+
+추천: 둘째를 먼저, 첫째는 bare를 실제로 쓰며 필요해지면.

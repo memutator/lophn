@@ -1,9 +1,9 @@
-import { LOPHN_AGENT_NAME } from "../lophn-agent/agent-values.ts";
-import { type AgentId, LOPHN_AGENT_ID } from "../lophn-agent/places.ts";
-import type { AgentEvent } from "../events/agent.ts";
-import type { AcpToolDetail } from "./items.ts";
-import { acpNoticeId } from "./reduce.ts";
-import type { AcpPending, AcpUpdate } from "./state.ts";
+import type { AgentId } from "../lophn-agent/places.ts";
+import type { AcpToolDetail, AcpCard, AcpReasoning } from "../acp/items.ts";
+import { acpNoticeId } from "../acp/reduce.ts";
+import type { AcpPending, AcpUpdate } from "../acp/state.ts";
+import type { AgentEvent } from "./agent.ts";
+import type { ContentBlock } from "../lophn-agent/content-block.ts";
 
 // AgentEvent 하나를 ACP 갱신으로 바꾸는 순수 projection이다. event는 core Bus에서 나온 것이라 흘러나온 글
 // (`ModelOutputStreamed`)과 tool 제목(`display`)이 이미 redaction을 거쳤다. 이 함수는 redaction을 하지 않고
@@ -26,15 +26,19 @@ export interface AcpContext {
   questions(toolCall: string): NonNullable<AcpPending["question"]>["questions"];
   /** 메시지를 보낸 session의 agent. 모르면 null. */
   agentOf(session: string): AgentId | null;
+  /** agent의 이름. 모르면 null. */
+  agentName(agent: AgentId): string | null;
+  /** 저장된 agent message의 본문. 못 읽었으면 null이다(항목은 `complete` false로 서고 snapshot을 다시 읽는다). */
+  body(message: string): {
+    readonly content: ContentBlock[];
+    readonly reasoning: AcpReasoning | null;
+    readonly cards: AcpCard[];
+  } | null;
   /** 승인 결정 때 사람이 고른 범위와 거절 이유. 모르면 null. */
   decision(request: string): {
     readonly choice: "once" | "always" | null;
     readonly reason: string | null;
   } | null;
-}
-
-function textContent(body: string) {
-  return [{ type: "text" as const, text: body }];
 }
 
 export function acpUpdatesOf(
@@ -44,7 +48,6 @@ export function acpUpdatesOf(
   switch (event.type) {
     case "MessageReceived": {
       const { message, body, from, call, reply_to, steer } = event.payload;
-      const content = textContent(body);
       const seq = context.seq(message);
       if (seq === null) {
         // 사람이 도는 중에 다음 turn으로 보낸 말이다.
@@ -52,7 +55,7 @@ export function acpUpdatesOf(
           ? [
               {
                 type: "message_queued",
-                queued: { id: message, at: event.at, content },
+                queued: { id: message, at: event.at, content: body },
               },
             ]
           : [];
@@ -76,15 +79,15 @@ export function acpUpdatesOf(
                   : {
                       kind: "agent",
                       agent,
-                      // lophn은 이름이 고정이다. 다른 agent의 이름은 snapshot이 채운다.
-                      name: agent === LOPHN_AGENT_ID ? LOPHN_AGENT_NAME : null,
+                      name: agent === null ? null : context.agentName(agent),
                     },
             call,
             reply_to,
             delivery: steer ? "steer" : "next_turn",
             turn: null,
-            content,
+            content: body,
             reasoning: null,
+            cards: [],
             complete: true,
           },
         },
@@ -185,6 +188,7 @@ export function acpUpdatesOf(
               model_call,
               seq,
               at: event.at,
+              body: context.body(message),
             },
           ];
     }

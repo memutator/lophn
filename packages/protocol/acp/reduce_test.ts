@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { type AcpContext, acpUpdatesOf } from "../events/acp-project.ts";
 import type { AgentEvent } from "../events/agent.ts";
 import {
-  type AcpContext,
   type AcpItem,
   type AcpState,
   type AcpUpdate,
   acpStateSchema,
-  acpUpdatesOf,
   acpUpdateSchema,
   EMPTY_ACP_STATE,
   reduceAcp,
@@ -147,6 +146,13 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
     }),
     questions: () => null,
     agentOf: () => null,
+    agentName: () => null,
+    // 저장된 본문을 실어 보내므로 snapshot을 다시 읽지 않아도 같은 상태가 된다.
+    body: () => ({
+      content: [{ type: "text", text: "Hi there" }],
+      reasoning: null,
+      cards: [],
+    }),
     decision: () => ({ choice: "once", reason: null }),
   };
   const at = (n: number) => `2026-10-26T09:00:0${n}.000Z`;
@@ -156,7 +162,7 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
       at: at(0),
       payload: {
         message: "msg_01h455vb4pex5v6nkc6gd5f001",
-        body: "go",
+        body: [{ type: "text", text: "go" }],
         from: { kind: "human" },
         call: null,
         reply_to: null,
@@ -173,7 +179,7 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
       at: at(1),
       payload: {
         message: queuedId,
-        body: "also",
+        body: [{ type: "text", text: "also" }],
         from: { kind: "human" },
         call: null,
         reply_to: null,
@@ -281,15 +287,38 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
   assert.equal(once.turn?.phase, "ended");
   const recorded = once.items[1];
   assert.deepStrictEqual(recorded?.kind === "message" && recorded.content, [
-    { type: "text", text: "Hi" },
+    { type: "text", text: "Hi there" },
   ]);
   const tool = once.items[2];
   assert.deepStrictEqual(
     tool?.kind === "tool" && [tool.state, tool.duration_ms, tool.detail.kind],
     ["ok", 2000, "edit"],
   );
-  // 저장된 agent message의 최종 본문은 stream이 싣지 않아 turn이 끝나면 다시 읽는다.
-  assert.equal(once.reread, true);
+  assert.equal(once.reread, false);
+
+  // 본문을 못 읽은 agent message는 turn이 끝나면 다시 읽게 한다.
+  const unread = reduceAcp(EMPTY_ACP_STATE, {
+    type: "message_recorded",
+    turn: TURN,
+    message: "msg_01h455vb4pex5v6nkc6gd5f001",
+    model_call: null,
+    seq: 1,
+    at: AT,
+    body: null,
+  });
+  assert.equal(
+    reduceAcp(unread, {
+      type: "turn_ended",
+      turn: TURN,
+      at: AT,
+      outcome: "completed",
+      active_ms: 1,
+      error: null,
+      messages: [],
+      seq: 2,
+    }).reread,
+    true,
+  );
 
   // 순번을 건너뛴 항목이 오면 snapshot을 다시 읽으라는 표시가 선다.
   const skipped = reduceAcp(EMPTY_ACP_STATE, {
@@ -307,6 +336,7 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
       turn: null,
       content: [{ type: "text", text: "hi" }],
       reasoning: null,
+      cards: [],
       complete: true,
     },
   });

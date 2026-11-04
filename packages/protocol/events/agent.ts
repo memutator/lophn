@@ -3,6 +3,7 @@ import { idSchema } from "../base/ids.ts";
 import { atSchema, durationMsSchema } from "../base/values.ts";
 import { turnRequestSchema } from "../approvals/mod.ts";
 import { callFromOutputSchema } from "../lophn-agent/calls.ts";
+import { contentBlockSchema } from "../lophn-agent/content-block.ts";
 import { agentIdSchema, placeOutputSchema } from "../lophn-agent/places.ts";
 import { toolCallDisplaySchema } from "../lophn-agent/tool-values.ts";
 import { turnOutcomeOutputSchema } from "../lophn-agent/turn-values.ts";
@@ -60,7 +61,7 @@ const messageReceived = defineAgentEvent(
   "MessageReceived",
   z.strictObject({
     message: idSchema("msg"),
-    body: z.string(),
+    body: z.array(contentBlockSchema),
     from: callFromOutputSchema,
     call: idSchema("cal").nullable(),
     reply_to: idSchema("cal").nullable(),

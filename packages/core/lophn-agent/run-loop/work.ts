@@ -1,10 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import {
-  blocksText,
-  textBlocks,
-} from "../../../protocol/lophn-agent/content-block.ts";
+import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
 import type { InputTransport, RoutedInput } from "../../router/ports.ts";
 import type { Inbox } from "./inbox.ts";
 import type { SteeringInput, TurnSource } from "./ports.ts";
@@ -165,7 +162,7 @@ export function createInboxApplier(deps: {
           at,
           payload: {
             message: input.message,
-            body: blocksText(input.body),
+            body: input.body,
             from: input.from,
             call: input.call,
             reply_to: input.reply_to,

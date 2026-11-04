@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
+import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import {
   type AgentId,
   LOPHN_AGENT_ID,
@@ -118,7 +119,8 @@ function foldEvent(
 ): ThreadView {
   switch (event.type) {
     case "MessageReceived": {
-      const { message, body, from, call, reply_to, steer } = event.payload;
+      const { message, from, call, reply_to, steer } = event.payload;
+      const body = blocksText(event.payload.body);
       if (has(view, message)) return view;
       const sender = senderOf(from, ctx);
       if (sender === null && !steer && running(view.turn)) {

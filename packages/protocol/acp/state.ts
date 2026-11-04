@@ -7,9 +7,11 @@ import { contentBlockSchema } from "../lophn-agent/content-block.ts";
 import { inputDeliverySchema } from "../lophn-agent/inputs.ts";
 import {
   acpApprovalItemSchema,
+  acpCardSchema,
   acpHiddenItemSchema,
   acpItemSchema,
   acpMessageItemSchema,
+  acpReasoningSchema,
   acpToolDetailSchema,
   acpToolItemSchema,
   acpToolStateSchema,
@@ -152,8 +154,12 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
     text: z.string().min(1),
     at: atSchema,
   }),
-  /** model 응답의 agent message가 저장됐다. 그 model 호출의 흘러나온 글이 항목의 첫 글이 된다.
-   * harness session의 메시지는 lophn model 호출이 없어 `model_call`이 null이고 흘러나온 글도 없다. */
+  /**
+   * model 응답의 agent message가 저장됐다. `body`가 있으면 저장된 본문이라 항목은 `complete`이고 snapshot과
+   * 같다. 없으면(core가 본문을 읽지 못했다) 그 model 호출의 흘러나온 글이 항목의 첫 글이 되고 `complete`가
+   * false라 snapshot을 다시 읽는다. harness session의 메시지는 lophn model 호출이 없어 `model_call`이 null이고
+   * 흘러나온 글도 없다.
+   */
   z.strictObject({
     type: z.literal("message_recorded"),
     turn: id,
@@ -161,6 +167,13 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
     model_call: id.nullable(),
     seq,
     at: atSchema,
+    body: z
+      .strictObject({
+        content: z.array(contentBlockSchema),
+        reasoning: acpReasoningSchema.nullable(),
+        cards: z.array(acpCardSchema),
+      })
+      .nullable(),
   }),
   /** tool call이 시작됐다. 그 turn의 흘러나온 글을 버린다(글이 있는 응답은 tool보다 먼저 저장된다). */
   z.strictObject({ type: z.literal("tool_started"), item: acpToolItemSchema }),

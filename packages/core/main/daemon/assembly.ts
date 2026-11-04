@@ -8,6 +8,8 @@ import { createLedgerRegistration as createJobsRegistration } from "../../jobs/r
 import { createLedgerRegistration } from "../../projects/register.ts";
 import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
 import { createLedgerRegistration as createWorkflowsRegistration } from "../../workflows/register.ts";
+import { createCoreRegistration as createAcpRegistration } from "./wiring/acp-registration.ts";
+import { acpWiring } from "./wiring/acp.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
 import { artifactMoveWiring } from "./wiring/artifact-move.ts";
 import { placeDataMoveWiring } from "./wiring/place-data-move.ts";
@@ -77,6 +79,7 @@ export const TEAMS = [
   { createCoreRegistration: createUsageRegistration },
   { createCoreRegistration: createAssignmentRegistration },
   { createCoreRegistration: createShareRequestsRegistration },
+  { createCoreRegistration: createAcpRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -101,6 +104,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/apps-usage.ts", import.meta.url).href,
   new URL("./wiring/assignment-file.ts", import.meta.url).href,
   new URL("./wiring/share-requests.ts", import.meta.url).href,
+  new URL("./wiring/acp-registration.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.
@@ -148,6 +152,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentExtensionsWiring,
   lophnAgentRuntimeWiring,
   sessionSnapshotsWiring,
+  acpWiring,
   serverWiring,
   // data step이 마지막이어야 한다. 앞선 옮기기 step이 다 끝난 뒤에 domains 표와 폴더를 거둔다.
   domainsRetireWiring,

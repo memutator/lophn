@@ -6,6 +6,7 @@ import {
   toolGateInputSchema,
   turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
+import { blocksText } from "../../../../protocol/lophn-agent/content-block.ts";
 import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
@@ -177,7 +178,7 @@ export const approvalsWiring: WiringFactory = () => {
               event.type === "MessageReceived" &&
               event.payload.from.kind === "human"
             ) {
-              waits.humanMessage(event.session, event.payload.body);
+              waits.humanMessage(event.session, blocksText(event.payload.body));
             }
           },
           close() {},

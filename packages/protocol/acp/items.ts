@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { gateCallSchema } from "../approvals/gate-call.ts";
+import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { agentIdSchema } from "../lophn-agent/places.ts";
 import {
@@ -35,6 +36,14 @@ export const acpReasoningSchema = z.strictObject({
   text: z.string(),
   duration_ms: count.nullable(),
 });
+export type AcpReasoning = z.infer<typeof acpReasoningSchema>;
+
+/** `visual.show`가 대화에 올린 앱 카드. content block이 아니라 message의 따로 칸이다. */
+export const acpCardSchema = z.strictObject({
+  app: idSchema("app"),
+  view: id,
+});
+export type AcpCard = z.infer<typeof acpCardSchema>;
 
 /**
  * 메시지 하나. `complete`가 false면 `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있고, 최종 본문은
@@ -56,6 +65,7 @@ export const acpMessageItemSchema = z.strictObject({
   turn: id.nullable(),
   content: z.array(contentBlockSchema),
   reasoning: acpReasoningSchema.nullable(),
+  cards: z.array(acpCardSchema),
   complete: z.boolean(),
 });
 export type AcpMessageItem = z.infer<typeof acpMessageItemSchema>;

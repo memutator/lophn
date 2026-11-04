@@ -107,7 +107,16 @@ function textBlocks(text: string): AcpMessageItem["content"] {
 export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
   switch (update.type) {
     case "message_added":
-      return put(state, update.item);
+      // steer로 받은 메시지는 도는 turn이 가져간 것이다.
+      return put(
+        state,
+        update.item.kind === "message" &&
+          update.item.delivery === "steer" &&
+          update.item.turn === null &&
+          running(state.turn)
+          ? { ...update.item, turn: state.turn.id }
+          : update.item,
+      );
     case "message_queued":
       return known(state, update.queued.id)
         ? state
@@ -151,6 +160,7 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
           turn,
           content: queued.content,
           reasoning: null,
+          cards: [],
           complete: true,
         },
       );
@@ -213,6 +223,7 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
           turn: update.turn,
           content: [],
           reasoning: null,
+          cards: [],
           complete: false,
         });
       }
@@ -289,12 +300,15 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
         reply_to: null,
         delivery: "next_turn",
         turn: update.turn,
-        content: textBlocks(writing?.text ?? ""),
+        content: update.body?.content ?? textBlocks(writing?.text ?? ""),
         reasoning:
-          writing === null || writing.reasoning === ""
-            ? null
-            : { text: writing.reasoning, duration_ms: null },
-        complete: false,
+          update.body !== null
+            ? update.body.reasoning
+            : writing === null || writing.reasoning === ""
+              ? null
+              : { text: writing.reasoning, duration_ms: null },
+        cards: update.body?.cards ?? [],
+        complete: update.body !== null,
       });
     }
     case "tool_started": {
@@ -397,10 +411,18 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
     case "hidden_added": {
       if (known(state, update.item.id)) return state;
       const hidden = new Set(update.item.items.map((item) => item.id));
+      // 앞서 숨은 구간은 새 구간이 평평하게 품으므로 따로 두지 않는다.
       return put(
         {
           ...state,
-          items: state.items.filter((item) => !hidden.has(item.id)),
+          items: state.items.filter(
+            (item) =>
+              !hidden.has(item.id) &&
+              !(
+                item.kind === "hidden" &&
+                item.items.every((inner) => hidden.has(inner.id))
+              ),
+          ),
         },
         update.item,
       );

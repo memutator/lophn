@@ -3,6 +3,7 @@ import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { eventTypeSchema } from "../base/event.ts";
 import { workflowNameSchema } from "../workflows/values.ts";
+import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
 // 놓쳐도 그 대상은 표에 남아 있어 snapshot으로 맞춘다.
@@ -129,7 +130,14 @@ const jobChanged = defineTransientEvent("JobChanged", {
   payload: z.strictObject({ job_run: idSchema("jbr").nullable() }),
 });
 
+// ACP 갱신 하나. session은 payload에 있다. 화면은 type으로 건 구독에서 session을 골라 `reduceAcp`로 접는다.
+const acpUpdated = defineTransientEvent("AcpUpdated", {
+  subject: z.null(),
+  payload: acpUpdatedPayloadSchema,
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
+  transientEventEnvelopeSchema(acpUpdated),
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(settingsChanged),
   transientEventEnvelopeSchema(appRestartHalted),

@@ -1,3 +1,4 @@
+export * from "./acp-project.ts";
 export * from "./agent.ts";
 export * from "./bus.ts";
 export * from "./events.ts";

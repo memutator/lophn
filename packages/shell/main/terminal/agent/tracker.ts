@@ -469,8 +469,15 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     },
     gone(ref) {
       const entry = entries.get(ref);
-      if (entry !== undefined) drop(entry);
+      if (entry === undefined) return;
+      drop(entry);
       entries.delete(ref);
+      // 끝난 runtime은 그 터미널을 구독한 창에만 간다. agent를 알린 적이 있으면 모든 창에 agent가 빠진 runtime을
+      // 보낸다. 안 그러면 구독하지 않은 창(다른 place, 다른 창)의 Finished 줄이 남고, main에 entry가 없어 그 줄의
+      // [x]도 지우지 못한다.
+      if (entry.pushed === "null") return;
+      const runtime = deps.runtimeOf(ref);
+      if (runtime !== undefined) deps.publish(decorate(runtime));
     },
     decorate(runtime) {
       return decorate(runtime);

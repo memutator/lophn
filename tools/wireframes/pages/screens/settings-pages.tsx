@@ -18,13 +18,14 @@ export const SettingsRequiredEmpty = () => (
 /** Settings › Appearance. */
 export const SettingsAppearance = () => <SettingsFrame pane="appearance" />;
 
-// 처음 값과 다르게 고른 preset. Purple, Cool, System UI, 설치된 코드 글꼴 이름, Large, Compact다.
+// 처음 값과 다르게 고른 preset. Purple, Cool, System UI, 설치된 코드 글꼴 이름, Serif 본문, Large, Compact다.
 const PRESETS = {
   accent: "purple",
   background: "cool",
   font: "system",
   code_font: "custom",
   code_font_custom: "Fira Code",
+  reading_font: "serif",
   text_size: "large",
   density: "compact",
 } as const;

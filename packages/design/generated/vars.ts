@@ -94,6 +94,7 @@ export const vars = {
   font: {
     sans: "var(--font-sans)",
     mono: "var(--font-mono)",
+    reading: "var(--font-reading)",
     weight: {
       regular: "var(--font-weight-regular)",
       medium: "var(--font-weight-medium)",

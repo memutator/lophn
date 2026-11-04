@@ -203,6 +203,9 @@ const backgrounds = {
 const SANS_SYSTEM = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 const MONO_SYSTEM =
   'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+// 글꼴을 싣지 않고 OS의 serif를 쓴다. 한글은 Noto Serif KR(나눔명조) 쪽으로 간다.
+const READING_SERIF =
+  '"Noto Serif KR", "Noto Serif CJK KR", "Nanum Myeongjo", Georgia, "Times New Roman", serif';
 
 export const fontStacks = {
   sans: {
@@ -214,6 +217,10 @@ export const fontStacks = {
     "jetbrains-mono": tokens.font.mono,
     system: MONO_SYSTEM,
     custom: (name: string) => `"${name}", ${tokens.font.mono}`,
+  },
+  reading: {
+    serif: READING_SERIF,
+    custom: (name: string) => `"${name}", ${tokens.font.reading}`,
   },
 } as const;
 

@@ -11,12 +11,15 @@ import {
 export const THEMES = ["light", "dark", "system"] as const;
 export const FONTS = ["pretendard", "system", "custom"] as const;
 export const CODE_FONTS = ["jetbrains-mono", "system", "custom"] as const;
+/** ui는 UI 글꼴(`font`)을 따른다. */
+export const READING_FONTS = ["ui", "serif", "custom"] as const;
 
 export type Theme = (typeof THEMES)[number];
 export type Accent = keyof typeof appearancePresets.accent;
 export type Background = keyof typeof appearancePresets.background;
 export type Font = (typeof FONTS)[number];
 export type CodeFont = (typeof CODE_FONTS)[number];
+export type ReadingFont = (typeof READING_FONTS)[number];
 export type TextSize = keyof typeof appearancePresets.textSize;
 export type Density = keyof typeof appearancePresets.density;
 
@@ -27,7 +30,7 @@ export const BACKGROUNDS = Object.keys(
 export const TEXT_SIZES = Object.keys(appearancePresets.textSize) as TextSize[];
 export const DENSITIES = Object.keys(appearancePresets.density) as Density[];
 
-/** 화면 모양 아홉 값. 문서 읽기 폭은 문서가 따로 읽어서 여기 없다. */
+/** 화면 모양 열한 값. 문서 읽기 폭은 문서가 따로 읽어서 여기 없다. */
 export interface Appearance {
   readonly theme: Theme;
   readonly accent: Accent;
@@ -37,6 +40,9 @@ export interface Appearance {
   readonly font_custom: string;
   readonly code_font: CodeFont;
   readonly code_font_custom: string;
+  /** 문서와 대화 본문의 글꼴. */
+  readonly reading_font: ReadingFont;
+  readonly reading_font_custom: string;
   readonly text_size: TextSize;
   readonly density: Density;
 }
@@ -49,6 +55,8 @@ export const APPEARANCE_DEFAULTS: Appearance = {
   font_custom: "",
   code_font: "jetbrains-mono",
   code_font_custom: "",
+  reading_font: "ui",
+  reading_font_custom: "",
   text_size: "default",
   density: "comfortable",
 };
@@ -79,6 +87,7 @@ export function parseAppearance(input: unknown): Appearance | undefined {
   const background = oneOf(BACKGROUNDS, raw.background);
   const font = oneOf(FONTS, raw.font);
   const code_font = oneOf(CODE_FONTS, raw.code_font);
+  const reading_font = oneOf(READING_FONTS, raw.reading_font);
   const text_size = oneOf(TEXT_SIZES, raw.text_size);
   const density = oneOf(DENSITIES, raw.density);
   if (
@@ -87,6 +96,7 @@ export function parseAppearance(input: unknown): Appearance | undefined {
     !background ||
     !font ||
     !code_font ||
+    !reading_font ||
     !text_size ||
     !density
   )
@@ -101,6 +111,8 @@ export function parseAppearance(input: unknown): Appearance | undefined {
     font_custom: name(raw.font_custom),
     code_font,
     code_font_custom: name(raw.code_font_custom),
+    reading_font,
+    reading_font_custom: name(raw.reading_font_custom),
     text_size,
     density,
   };
@@ -119,10 +131,18 @@ function fontOverride(a: Appearance): TokenOverride {
       : a.code_font === "custom" && isFontName(a.code_font_custom)
         ? fontStacks.mono.custom(a.code_font_custom)
         : undefined;
+  // ui나 이름이 틀린 custom은 UI 글꼴을 따른다.
+  const reading =
+    a.reading_font === "serif"
+      ? fontStacks.reading.serif
+      : a.reading_font === "custom" && isFontName(a.reading_font_custom)
+        ? fontStacks.reading.custom(a.reading_font_custom)
+        : sans;
   return {
     font: {
       ...(sans === undefined ? {} : { sans }),
       ...(mono === undefined ? {} : { mono }),
+      ...(reading === undefined ? {} : { reading }),
     },
   };
 }

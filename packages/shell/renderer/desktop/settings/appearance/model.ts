@@ -142,6 +142,19 @@ export const APPEARANCE_ROWS: readonly AppearanceRow[] = [
     ],
   },
   {
+    id: "reading_font",
+    settingKey: "shell.reading_font",
+    name: "settings.label.reading-font",
+    help: "settings.appearance.reading-font-help",
+    control: "select",
+    customId: "reading_font_custom",
+    options: [
+      { value: "ui", label: "settings.label.reading-font-ui" },
+      { value: "serif", label: "settings.label.reading-font-serif" },
+      { value: "custom", label: "settings.label.font-custom" },
+    ],
+  },
+  {
     id: "text_size",
     settingKey: "shell.text_size",
     name: "settings.label.text-size",
@@ -179,7 +192,11 @@ export const APPEARANCE_ROWS: readonly AppearanceRow[] = [
 ];
 
 /** Custom 이름을 적는 설정의 key. 이름은 선택지가 없는 글 값이다. */
-export const CUSTOM_IDS = ["font_custom", "code_font_custom"] as const;
+export const CUSTOM_IDS = [
+  "font_custom",
+  "code_font_custom",
+  "reading_font_custom",
+] as const;
 
 export function settingKeyOf(id: AppearanceId): string {
   return `shell.${id}`;
@@ -194,6 +211,8 @@ export const APPEARANCE_DEFAULTS: AppearanceValues = {
   font_custom: "",
   code_font: "jetbrains-mono",
   code_font_custom: "",
+  reading_font: "ui",
+  reading_font_custom: "",
   text_size: "default",
   reading_width: "default",
   density: "comfortable",

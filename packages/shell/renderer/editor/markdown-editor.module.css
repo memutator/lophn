@@ -19,7 +19,7 @@
 .editor :global(.cm-editor) {
   background: transparent;
   color: var(--color-text-primary);
-  font-family: var(--font-sans);
+  font-family: var(--font-reading);
   font-size: var(--type-reading-size);
   line-height: var(--type-reading-line);
   letter-spacing: var(--type-tracking-normal);

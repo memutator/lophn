@@ -93,6 +93,8 @@ export const workspaceSettings = {
   "settings.appearance.density-help":
     "How much room lists and tables leave between rows.",
   "settings.appearance.font-help": "The font of text across lophn.",
+  "settings.appearance.reading-font-help":
+    "The font of documents and agent replies. Interface text keeps its own font.",
   "settings.appearance.reading-width-help":
     "How wide documents are laid out when you read them.",
   "settings.appearance.text-size-help": "The size of text across lophn.",
@@ -264,6 +266,9 @@ export const workspaceSettings = {
   "settings.label.shell-rules-ask-first": "Ask first ({count, number})",
   "settings.label.shell-rules-blocked": "Always blocked ({count, number})",
   "settings.label.shell-rules-target": "your shell rules",
+  "settings.label.reading-font": "Reading font",
+  "settings.label.reading-font-serif": "Serif",
+  "settings.label.reading-font-ui": "Same as interface",
   "settings.label.reading-width": "Reading width",
   "settings.label.reason": "Reason",
   "settings.label.size-default": "Default",

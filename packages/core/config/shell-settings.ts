@@ -46,6 +46,18 @@ const codeFontCustomSetting = declareSetting({
   default: "",
 });
 
+const readingFontSetting = declareSetting({
+  key: "shell.reading_font",
+  type: z.enum(["ui", "serif", "custom"]),
+  default: "ui",
+});
+
+const readingFontCustomSetting = declareSetting({
+  key: "shell.reading_font_custom",
+  type: z.string().max(64),
+  default: "",
+});
+
 const textSizeSetting = declareSetting({
   key: "shell.text_size",
   type: z.enum(["small", "default", "large"]),
@@ -148,6 +160,8 @@ export const shellSettings = [
   fontCustomSetting,
   codeFontSetting,
   codeFontCustomSetting,
+  readingFontSetting,
+  readingFontCustomSetting,
   textSizeSetting,
   readingWidthSetting,
   densitySetting,

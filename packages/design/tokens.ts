@@ -97,6 +97,8 @@ export const tokens = {
   font: {
     sans: '"Pretendard Variable", system-ui, sans-serif',
     mono: '"JetBrains Mono", monospace',
+    // 문서와 대화 본문. 기본은 UI 글꼴과 같고 사람이 Settings › Appearance에서 따로 고른다.
+    reading: '"Pretendard Variable", system-ui, sans-serif',
     weight: { regular: 400, medium: 500, semibold: 600 },
     numeric: "tabular-nums",
   },

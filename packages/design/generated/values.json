@@ -236,6 +236,7 @@
     "font": {
       "sans": "\"Pretendard Variable\", system-ui, sans-serif",
       "mono": "\"JetBrains Mono\", monospace",
+      "reading": "\"Pretendard Variable\", system-ui, sans-serif",
       "weight": {
         "regular": 400,
         "medium": 500,

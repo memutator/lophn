@@ -8,7 +8,7 @@
 Settings › Appearance (renderer/desktop/settings/appearance)
   고르면 core 선언 설정 shell.*(아래 표의 key)에 저장 ─┐
   시작 때 core가 준비되면 같은 설정을 읽는다           │
-        │ lophnAppearance.set(Appearance 아홉 값)      │
+        │ lophnAppearance.set(Appearance 열한 값)      │
         ▼                                              │
 main  wiring/appearance.ts  (channel shell:appearance)
   1. parseAppearance로 검사(목록 밖 값이면 전체 거절)
@@ -34,6 +34,7 @@ main  wiring/appearance.ts  (channel shell:appearance)
 | `shell.background` | warm, neutral, cool | `color.surface` 다섯(floor·base·subtle·muted·shell), `color.border` 셋, `color.text` 넷, `code.foreground`, `tabStrip.bar·hover`, `floating.surface·hover` |
 | `shell.font`, `shell.font_custom` | pretendard, system, custom | `font.sans` |
 | `shell.code_font`, `shell.code_font_custom` | jetbrains-mono, system, custom | `font.mono` |
+| `shell.reading_font`, `shell.reading_font_custom` | ui, serif, custom | `font.reading`(문서·대화 본문: design `Markdown`, markdown 편집기). ui는 `font.sans`를 따른다. serif는 글꼴을 싣지 않고 OS serif stack이다 |
 | `shell.text_size` | default, small, large | `type.*.size·line`(비율 0.92, 1.12) |
 | `shell.density` | comfortable, compact | `control`, `field.gap`, `menu.row`, `tree.row`, `palette.item`, `layout.panePadding`, `tab.contentGap` |
 | `shell.reading_width` | narrow, default, wide | CSS가 아니다. 문서가 따로 읽는다 |

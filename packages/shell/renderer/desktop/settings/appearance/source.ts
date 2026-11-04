@@ -12,6 +12,8 @@ export type AppearanceId =
   | "font_custom"
   | "code_font"
   | "code_font_custom"
+  | "reading_font"
+  | "reading_font_custom"
   | "text_size"
   | "reading_width"
   | "density";

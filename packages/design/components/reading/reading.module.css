@@ -1,7 +1,7 @@
 /* 읽기 본문 16/28. Markdown·code·diff·목차가 함께 쓴다. */
 .markdown {
   color: var(--color-text-primary);
-  font-family: var(--font-sans);
+  font-family: var(--font-reading);
   font-size: var(--type-reading-size);
   line-height: var(--type-reading-line);
   letter-spacing: var(--type-tracking-normal);

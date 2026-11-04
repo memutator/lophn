@@ -59,6 +59,7 @@ export const tokenNames = [
   "--diff-delete-word",
   "--font-sans",
   "--font-mono",
+  "--font-reading",
   "--font-weight-regular",
   "--font-weight-medium",
   "--font-weight-semibold",

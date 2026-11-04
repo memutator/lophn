@@ -22,6 +22,12 @@ import {
   createExtensionRegistry,
   type ExtensionFiles,
 } from "../../extensions/registry.ts";
+import {
+  EXTENSIONS_CHANNEL,
+  extensionsCallSchema,
+  type ExtensionsReply,
+} from "../../../ipc/extensions.ts";
+import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { packagedInstall } from "../paths.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
@@ -119,6 +125,40 @@ export function register(ctx: ShellContext): Registered {
       .sync()
       .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
 
+  // Settings › Extensions. desktop 창 본문만 부른다. list는 먼저 맞춰 두어 방금 바꾼 켜기·끄기가 보인다.
+  const refused = (
+    code: "forbidden" | "invalid_input",
+  ): ExtensionsReply<never> => ({
+    ok: false,
+    error: { code, message: "request was refused" },
+  });
+  ctx.ipc.handle(
+    EXTENSIONS_CHANNEL,
+    async (
+      event: IpcEvent,
+      input: unknown,
+    ): Promise<ExtensionsReply<unknown>> => {
+      const caller = checkCaller(ctx.overlays.overlayRegistry(), event);
+      if (!caller.ok || caller.value.origin.host !== "desktop") {
+        return refused("forbidden");
+      }
+      const parsed = checkInput(extensionsCallSchema, input);
+      if (!parsed.ok) return refused("invalid_input");
+      const call = parsed.value;
+      if (call.op === "list") {
+        await registry
+          .sync()
+          .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
+        return { ok: true, value: await registry.list() };
+      }
+      const done =
+        call.op === "install"
+          ? await registry.install(call.id)
+          : await registry.remove(call.id);
+      return done.ok ? { ok: true, value: null } : done;
+    },
+  );
+
   ctx.relay.conditions.push({ types: ["SettingsChanged"] });
   ctx.relay.events.push((event) => {
     if (
@@ -137,6 +177,7 @@ export function register(ctx: ShellContext): Registered {
 
   return {
     stop() {
+      ctx.ipc.removeHandler(EXTENSIONS_CHANNEL);
       clearInterval(startup);
       void registry.stop();
     },

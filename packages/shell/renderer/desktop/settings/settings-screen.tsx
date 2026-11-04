@@ -14,6 +14,7 @@ import { CodingConnectionsPanel } from "./connections/connections-panel.tsx";
 import type { CodingConnectionsSource } from "./connections/source.ts";
 import { DiagnosticsPanel } from "./diagnostics/diagnostics-panel.tsx";
 import type { DiagnosticsSource } from "./diagnostics/source.ts";
+import { ExtensionPackagesPanel } from "./extension-packages/extension-packages-panel.tsx";
 import { ExtensionsPanel } from "./extensions/extensions-panel.tsx";
 import { GeneralPanel } from "./general/general-panel.tsx";
 import { KeyboardPanel } from "./keyboard/keyboard-panel.tsx";
@@ -160,6 +161,8 @@ export function SettingsScreen({
         return coding && <CodingConnectionsPanel source={coding} />;
       case "shell-rules":
         return shellRules && <ShellRulesPanel source={shellRules} />;
+      case "extension-packages":
+        return <ExtensionPackagesPanel source={source} />;
       case "diagnostics":
         return diagnostics && <DiagnosticsPanel source={diagnostics} />;
     }

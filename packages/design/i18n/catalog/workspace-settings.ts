@@ -111,6 +111,10 @@ export const workspaceSettings = {
   "settings.button.coding-unfavorite": "Remove from favorites",
   "settings.button.connect-with": "Connect {name}",
   "settings.button.detect-again": "Detect again",
+  "settings.button.extension-install": "Install",
+  "settings.button.extension-remove": "Remove",
+  "settings.button.extension-turn-off": "Turn off",
+  "settings.button.extension-turn-on": "Turn on",
   "settings.button.install-hooks": "Install hooks",
   "settings.button.key-change": "Change {name}",
   "settings.button.key-reset": "Reset {name}",
@@ -127,6 +131,8 @@ export const workspaceSettings = {
   "settings.diagnostics.not-run":
     "No check has run yet. Checks run only when you press the button.",
   "settings.empty.coding-search": "No product matches your search.",
+  "settings.empty.extension-packages":
+    "No extensions come with this version of lophn.",
   "settings.empty.general": "No settings are declared yet.",
   "settings.empty.key-search": "No shortcut matches your search.",
   "settings.empty.shell-rules": "No rules here yet.",
@@ -136,6 +142,9 @@ export const workspaceSettings = {
     "The hooks weren't installed. Nothing changed. Try again.",
   "settings.error.coding-hooks-uninstall":
     "The hooks weren't uninstalled. Try again.",
+  "settings.error.extension-action": "Could not change {name}. Try again.",
+  "settings.error.extension-turn-off-first":
+    "Turn {name} off before removing it.",
   "settings.error.key-needs-modifier":
     "Hold {modifiers} with the key. A key on its own would stop you typing it.",
   "settings.error.key-numbered-needs-modifier":
@@ -165,6 +174,8 @@ export const workspaceSettings = {
     "Coding agents on this computer that lophn can set up.",
   "settings.intro.diagnostics":
     "Whether each part of lophn can be used right now. Checks run only when you press the button.",
+  "settings.intro.extension-packages":
+    "Features you turn on separately. Removing an extension deletes only the files it wrote on this computer.",
   "settings.intro.general":
     "Settings that lophn declares. Only values you change are saved; every other value follows its default.",
   "settings.intro.keyboard":
@@ -208,6 +219,13 @@ export const workspaceSettings = {
   "settings.label.coding-not-found": "Not found",
   "settings.label.coding-signal-no": "No signal",
   "settings.label.coding-signal-yes": "Has signal",
+  "settings.label.extension-not-installed": "Not installed",
+  "settings.label.extension-off": "Off",
+  "settings.label.extension-on": "On",
+  "settings.label.extension-problem": "Problem",
+  "settings.label.extension-target": "your extensions",
+  "settings.label.extension-version": "Version {version}",
+  "settings.label.extension-version-mismatch": "Version mismatch",
   "settings.label.coding-target": "your coding agents",
   "settings.label.coding-version": "Version {version}",
   "settings.label.coding-version-unknown": "Version unknown",
@@ -278,6 +296,7 @@ export const workspaceSettings = {
   "settings.label.tab-appearance": "Appearance",
   "settings.label.tab-coding": "Coding agents",
   "settings.label.tab-diagnostics": "Diagnostics",
+  "settings.label.tab-extension-packages": "Extensions",
   "settings.label.tab-extensions": "Tools and skills",
   "settings.label.tab-general": "General",
   "settings.label.tab-keyboard": "Keyboard",
@@ -371,6 +390,9 @@ export const workspaceSettings = {
   "settings.shell-text_size.name": "Text size",
   "settings.shell-theme.help": "Light, dark, or follow the system setting.",
   "settings.shell-theme.name": "Theme",
+  "settings.note.extension-remove":
+    "This deletes the files {name} wrote on this computer. Files you put in its folder stay.",
+  "settings.title.extension-remove": "Remove {name}?",
   "settings.title.not-set": "{name} is not set",
   "settings.title.screen": "Settings",
 } as const;

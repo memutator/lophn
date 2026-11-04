@@ -266,6 +266,34 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       return infos;
     },
 
+    /** 표시 file만 둔다(내려받기는 아직 없다). 이미 있으면 그대로다. */
+    async install(id: string): Promise<Result<void>> {
+      if (!EXTENSION_ID.test(id)) {
+        return {
+          ok: false,
+          error: {
+            code: "invalid_input",
+            message: "extension id is not valid",
+          },
+        };
+      }
+      const run = async (): Promise<Result<void>> => {
+        if (!(await discover()).some((found) => found.id === id)) {
+          return {
+            ok: false,
+            error: { code: "not_found", message: "extension is not found" },
+          };
+        }
+        if ((await files.read(`${base}/${id}/${EXTENSION_MARKER}`)) === null) {
+          await writeMarker(id, []);
+        }
+        return { ok: true, value: undefined };
+      };
+      const result = queue.then(run, run);
+      queue = result.catch(() => {});
+      return result;
+    },
+
     /** extension이 쓴 file과 표시 file만 지운다. 켜져 있으면 conflict다. */
     async remove(id: string): Promise<Result<void>> {
       if (!EXTENSION_ID.test(id)) {

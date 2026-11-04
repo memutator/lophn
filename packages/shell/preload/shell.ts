@@ -13,6 +13,7 @@ import { createCoreApi } from "./core-api.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createCodingApi } from "./coding-api.ts";
 import { createDetachedApi } from "./detached-api.ts";
+import { createExtensionsApi } from "./extensions-api.ts";
 import { createFilesApi } from "./files-api.ts";
 import { createFolderApi } from "./folder-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
@@ -110,6 +111,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld("lophnIntents", createIntentApi(ipcRenderer));
   // coding agent 연결과 [Start]. 고정 intent와 사람이 고른 값만 보내고 main이 다시 검사한다.
   contextBridge.exposeInMainWorld("lophnCoding", createCodingApi(ipcRenderer));
+  // Settings › Extensions의 목록·설치·지우기. 켜기·끄기는 설정 쓰기라 이 통로에 없다.
+  contextBridge.exposeInMainWorld(
+    "lophnExtensions",
+    createExtensionsApi(ipcRenderer),
+  );
   // 앱 공간의 [Open in new window]와 OS 앱 바로가기. 앱 ID만 보낸다.
   contextBridge.exposeInMainWorld(
     "lophnAppWindows",

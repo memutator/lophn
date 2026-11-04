@@ -260,12 +260,17 @@ async function readPlaceData(
     }
   }
 
-  // 부를 수 있는 agent는 전역 정의 목록의 이름뿐이다. 자기 자신도 넣는다: 다른 place의 자기에게 call할 수 있다.
+  // 부를 수 있는 agent는 전역 정의 목록의 이름과 한 줄 목적이다. 자기 자신도 넣는다: 다른 place의 자기에게 call할 수 있다.
   const listed = await readOf(call, agentList, {});
   if (!listed.ok) return listed;
   const agents: PlaceAgent[] = listed.value.agents
     .filter((row) => row.issues.length === 0)
-    .map((row) => ({ name: row.name }));
+    .map((row) => ({
+      name: row.name,
+      ...(row.description === undefined
+        ? {}
+        : { description: row.description }),
+    }));
 
   // project place의 turn 시작에 workflows 폴더를 만든다(없는 허용 폴더는 file scope가 건너뛴다). 만들지 못하면 범위에서 빠진 채 간다.
   let workflowsFolder: string | null = null;

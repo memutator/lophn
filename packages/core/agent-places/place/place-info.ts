@@ -1,4 +1,5 @@
 import type { PlaceKind } from "../../../protocol/lophn-agent/places.ts";
+import { agentLine } from "../../lophn-agent/prompt-assembly/basis.ts";
 import type { PlaceAgent } from "../../lophn-agent/prompt-assembly/model.ts";
 import { wordsOf } from "../../../cli/parser.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
@@ -125,7 +126,7 @@ function agentLines(agents: readonly PlaceAgent[]): string[] {
   const sorted = [...agents].sort((a, b) => cmp(a.name, b.name));
   return [
     "Agents you can call (use the name as `to.agent` of a call; add `place` for a project or an app, none for no place)",
-    ...sorted.map((a) => `- ${a.name}`),
+    ...sorted.map((a) => `- ${agentLine(a)}`),
   ];
 }
 

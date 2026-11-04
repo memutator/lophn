@@ -9,6 +9,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { actionIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
+import { CardFacts } from "./agent-card.tsx";
 import styles from "./agents-tab.module.css";
 import {
   InstructionsEditor,
@@ -102,6 +103,7 @@ function AgentCardView({
             </li>
             <li data-agent-counts="">{countsText(row)}</li>
           </ul>
+          {row.card === undefined ? null : <CardFacts card={row.card} />}
           <div className={styles.actions}>
             <Button
               aria-label={t("project-workspace.label.open-agent-named", {

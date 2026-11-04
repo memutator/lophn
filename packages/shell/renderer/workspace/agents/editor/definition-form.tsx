@@ -1,4 +1,4 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Instructions · Model · Tools(bare) · Skills(lophn) · MCP servers · Skip permissions.
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Input and output · Card · Instructions · Model · Tools(bare) · Skills(lophn) · MCP servers · Skip permissions.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
@@ -8,9 +8,11 @@ import { t } from "@lophn/i18n";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import type { Modality } from "../../../../../protocol/lophn-agent/agent-values.ts";
 import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
+import { CardFacts, modalityLabel } from "../agent-card.tsx";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
 import type { McpLogin, McpRow } from "../views.ts";
 import type { InstructionsPort } from "./instructions-editor.tsx";
@@ -30,12 +32,14 @@ type FieldName =
   | "name"
   | "description"
   | "runtime"
+  | "modality"
   | "tools"
   | "instructions"
   | "model"
   | "skills"
   | "mcp"
-  | "skip";
+  | "skip"
+  | "card";
 
 // 거절된 항목의 점 경로 첫 구간이 어느 칸에 속하는지. 칸에 없는 경로(frontmatter 등)는 맨 아래에 보인다.
 const FIELD_OF: Readonly<Record<string, FieldName>> = {
@@ -43,6 +47,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   profile: "profile",
   description: "description",
   runtime: "runtime",
+  modality: "modality",
   tools: "tools",
   body: "instructions",
   model: "model",
@@ -84,6 +89,31 @@ function Group({
       {children}
     </fieldset>
   );
+}
+
+const ALL_MODALITIES: readonly Modality[] = ["text", "image", "file"];
+
+// 셋 다 고른 쪽은 칸에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.
+function withModality(
+  definition: AgentDraft,
+  side: "input" | "output",
+  mode: Modality,
+  on: boolean,
+): AgentDraft["modality"] {
+  const current = (side: "input" | "output") =>
+    definition.modality?.[side] ?? ALL_MODALITIES;
+  const chosen = ALL_MODALITIES.filter((one) =>
+    one === mode ? on : current(side).includes(one),
+  );
+  const next = { ...definition.modality, [side]: chosen };
+  const input = next.input ?? ALL_MODALITIES;
+  const output = next.output ?? ALL_MODALITIES;
+  const full = (list: readonly Modality[]) => list.length === 3;
+  if (full(input) && full(output)) return undefined;
+  return {
+    ...(full(input) ? {} : { input }),
+    ...(full(output) ? {} : { output }),
+  };
 }
 
 function instructionsHead(detail: AgentDetail, placeName: string): string {
@@ -297,6 +327,40 @@ export function DefinitionForm(props: DefinitionFormProps) {
             <Issues issues={issuesOf("runtime")} />
           </Group>
         </>
+      )}
+
+      <Group name="modality" heading={t("agents.heading.modality")}>
+        {(["input", "output"] as const).map((side) => (
+          <div key={side} className={styles.checks} data-modality={side}>
+            <span className={styles.note}>
+              {side === "input"
+                ? t("agents.label.modality-input")
+                : t("agents.label.modality-output")}
+            </span>
+            {ALL_MODALITIES.map((mode) => (
+              <Checkbox
+                key={mode}
+                size="sm"
+                label={modalityLabel(mode)}
+                checked={(
+                  definition.modality?.[side] ?? ALL_MODALITIES
+                ).includes(mode)}
+                onCheckedChange={(on) =>
+                  set("modality", withModality(definition, side, mode, on))
+                }
+              />
+            ))}
+          </div>
+        ))}
+        <p className={styles.note}>{t("agents.notice.modality-help")}</p>
+        <Issues issues={issuesOf("modality")} />
+      </Group>
+
+      {detail.card === undefined ? null : (
+        <Group name="card" heading={t("agents.heading.card")}>
+          <CardFacts card={detail.card} />
+          <p className={styles.note}>{t("agents.notice.card-help")}</p>
+        </Group>
       )}
 
       <InstructionsBlock

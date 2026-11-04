@@ -84,4 +84,4 @@ export type BlockedReason =
 export type WirePack = { body: unknown; opaque_bytes: number };
 export type WirePacker = (request: PromptRequest) => WirePack;
 
-export type PlaceAgent = { name: string };
+export type PlaceAgent = { name: string; description?: string };

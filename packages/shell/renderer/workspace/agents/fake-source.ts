@@ -3,7 +3,10 @@
 // 순서대로 calls에 남긴다. 실제 core의 거절(항목별 이유·conflict)은 failNext…로 세운다.
 
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
-import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import type {
+  AgentCard,
+  AgentDefinitionIssue,
+} from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { Place } from "../../../../protocol/lophn-agent/places.ts";
 import {
   type CatalogEntry,
@@ -328,6 +331,35 @@ export function createFakeAgentsSource(
     item.definition.profile ??
     (key === "lophn" ? BUILT_IN_PROFILE.lophn : DEFAULT_PROFILE);
 
+  const ALL_MODALITIES = ["text", "image", "file"] as const;
+
+  // core의 cardOf를 줄인 것: 차이는 skill·MCP 이름만 센다.
+  const cardOf = (item: Stored): AgentCard => {
+    const definition = item.definition;
+    const bare = definition.runtime === "bare";
+    return {
+      name: item.name,
+      ...(definition.description === undefined
+        ? {}
+        : { description: definition.description }),
+      runtime: bare ? "bare" : "lophn",
+      modality: {
+        input: [...(definition.modality?.input ?? ALL_MODALITIES)],
+        output: [...(definition.modality?.output ?? ALL_MODALITIES)],
+      },
+      replies: bare ? ["none", "result"] : ["none", "result", "conversation"],
+      diff: bare
+        ? { plus: [...(definition.tools ?? [])], minus: ["lophn built-ins"] }
+        : {
+            plus: (definition.mcp_servers ?? []).map(
+              (server) => `mcp: ${server.name}`,
+            ),
+            minus: (definition.skills_off ?? []).map((n) => `skill: ${n}`),
+          },
+      notes: [],
+    };
+  };
+
   const rowOf = (key: string, item: Stored, at: PlaceKind): AgentListRow => {
     const definition = item.definition;
     const off = definition.skills_off ?? [];
@@ -363,6 +395,7 @@ export function createFakeAgentsSource(
         skills,
         mcp,
       },
+      card: cardOf(item),
     };
   };
 
@@ -382,6 +415,7 @@ export function createFakeAgentsSource(
       },
       inheritedModel: inheritedModel(at),
       issues: [],
+      card: cardOf(item),
       skills: skillsFor(at),
       mcpServers: mcpFor(at),
       // 저장된 정의의 OAuth server는 로그인 전이다. 화면은 그 줄에 [Sign in]을 그린다.

@@ -6,6 +6,7 @@
 import {
   agentChange,
   agentCreate,
+  type AgentCard,
   agentDelete,
   type AgentRow,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -227,6 +228,14 @@ export function coreAgentsSource(
       : result;
   };
 
+  // 명함은 core가 계산한다. 틀린 정의 file은 만들지 못해 없는 채로 둔다.
+  const cardOf = async (name: string): Promise<AgentCard | undefined> => {
+    const read = await link.read<{ card: AgentCard }>("agents", "card", {
+      name,
+    });
+    return read.ok ? read.value.card : undefined;
+  };
+
   // 전역 목록이다. 첫 인자는 화면을 연 자리지만 목록은 자리에 속하지 않아 쓰지 않는다.
   const list = async (_place: string): Promise<ReadResult<AgentListRow[]>> => {
     const result = await link.read<{ agents: AgentRow[] }>(
@@ -324,6 +333,7 @@ export function coreAgentsSource(
     if (!servers.ok) return servers;
     const text = place === null ? null : await instructionsOf(place);
     const saved = value.definition ?? { body: "" };
+    const card = await cardOf(value.effective.name.value);
     if (value.effective.profile.value.kind === "image") {
       await loadImage(agent, value.effective.profile.value.image);
     }
@@ -341,6 +351,7 @@ export function coreAgentsSource(
         },
         inheritedModel: await inheritedOf(value.effective.model),
         issues: value.issues,
+        ...(card === undefined ? {} : { card }),
         skills: skills.value,
         mcpServers: servers.value,
         agentMcpLogins: await readAgentServerLogins(
@@ -386,7 +397,12 @@ export function coreAgentsSource(
           );
       const text = await instructionsOf(project);
       const view: AgentsOverview = {
-        agents: agents.value,
+        agents: await Promise.all(
+          agents.value.map(async (row) => {
+            const card = await cardOf(row.name);
+            return card === undefined ? row : { ...row, card };
+          }),
+        ),
         instructions: text,
         projectModel: {
           chosen: chosen?.ok ? chosen.value.model : null,

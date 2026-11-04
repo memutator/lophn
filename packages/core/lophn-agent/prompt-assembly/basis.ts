@@ -15,7 +15,7 @@ export type SeenBasis = {
   instructions: Record<InstructionLayerName, string>;
   // 정본 tool 이름, 이름 순
   tools: string[];
-  // 이름, 정렬
+  // `이름: 목적` 줄, 정렬
   agents: string[];
 };
 
@@ -23,8 +23,11 @@ function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-function agentLine(agent: PlaceAgent): string {
-  return agent.name;
+// place 정보의 목록 줄과 판 비교가 같은 글을 쓴다. 목적이 바뀌면 system 글이 바뀌므로 notice도 가야 한다.
+export function agentLine(agent: PlaceAgent): string {
+  return agent.description === undefined
+    ? agent.name
+    : `${agent.name}: ${agent.description}`;
 }
 
 export async function basisOf(input: {

@@ -428,3 +428,10 @@
   justify-content: space-between;
   gap: var(--space-4);
 }
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}

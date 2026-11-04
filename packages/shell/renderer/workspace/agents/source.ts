@@ -9,6 +9,7 @@ import type {
   AgentCounts,
   AgentRuntime,
   McpOff,
+  Modality,
   Profile,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
@@ -20,6 +21,7 @@ import type {
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
+import type { AgentCard } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { ReadResult } from "../source.ts";
 import type {
   McpLogin,
@@ -47,6 +49,8 @@ export interface AgentListRow {
   } | null;
   readonly issues: readonly AgentDefinitionIssue[];
   readonly counts: AgentCounts;
+  /** core가 계산한 명함. 틀린 정의 file이면 없다. */
+  readonly card?: AgentCard;
 }
 
 /** Agents 탭 본문 한 번에 필요한 값. */
@@ -78,6 +82,11 @@ export interface AgentDraft {
   readonly runtime?: AgentRuntime;
   /** 한 줄 목적. */
   readonly description?: string;
+  /** 받고 내는 내용 종류. 없는 칸은 셋 다다. */
+  readonly modality?: {
+    readonly input?: readonly Modality[];
+    readonly output?: readonly Modality[];
+  };
   /** bare가 고른 tool 이름. runtime이 bare일 때만 둔다. */
   readonly tools?: readonly string[];
   readonly model?: ModelChoice;
@@ -120,6 +129,8 @@ export interface AgentDetail {
   readonly inheritedModel: Sourced<ModelChoice> | null;
   /** 파일이 틀렸다면 읽기가 알린 항목별 이유다. */
   readonly issues: readonly AgentDefinitionIssue[];
+  /** 저장된 정의로 계산한 명함. 새 agent와 틀린 file은 없다. */
+  readonly card?: AgentCard;
   /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, project). 이 agent가 끈 것은 정의의 skills_off가 말한다. */
   readonly skills: readonly SkillRow[];
   /** 전역과 project 층 MCP server. 이 agent 층은 정의의 mcp_servers다. */

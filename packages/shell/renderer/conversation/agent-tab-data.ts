@@ -124,7 +124,10 @@ function foldEvent(
       if (sender === null && !steer && running(view.turn)) {
         return {
           ...view,
-          queued: [...view.queued, { id: message, at: event.at, text: body }],
+          queued: [
+            ...view.queued,
+            { id: message, at: event.at, text: body, summary: body },
+          ],
         };
       }
       const entry: ThreadMessage = {

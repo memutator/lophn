@@ -12,7 +12,10 @@ import type {
   CallReply,
   CallState,
 } from "../../../protocol/lophn-agent/calls.ts";
-import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
+import {
+  type ContentBlock,
+  IMAGE_NOTE,
+} from "../../../protocol/lophn-agent/content-block.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type { ToolCallView } from "./activity/model.ts";
@@ -101,6 +104,21 @@ export type BodyPart =
       readonly text: string;
       readonly durationMs: number | null;
     };
+
+/** 글 part, 이미지 자리의 고정 글, 링크 이름을 이은 한 줄감. 글이 없는 메시지를 목록에서 알아보게 한다(`blocksSummary`와 같다). */
+export function summaryOfParts(parts: readonly BodyPart[]): string {
+  return parts
+    .flatMap((part) =>
+      part.kind === "text"
+        ? [part.text]
+        : part.kind === "image"
+          ? [IMAGE_NOTE]
+          : part.kind === "resource_link"
+            ? [part.name]
+            : [],
+    )
+    .join("\n");
+}
 
 // ---- 보낸 쪽 ----
 
@@ -402,7 +420,10 @@ export interface QueuedView {
   /** 메시지 id. */
   readonly id: string;
   readonly at: string;
+  /** 고칠 때 입력칸에 채우는 글. */
   readonly text: string;
+  /** 줄에 보이는 글. 이미지나 파일만 든 메시지는 그 표시다. */
+  readonly summary: string;
 }
 
 /** 사람이 답할 것. 둘 다 composer 위에 놓인다. */

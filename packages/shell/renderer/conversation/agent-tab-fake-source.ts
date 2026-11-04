@@ -41,7 +41,7 @@ import type {
   ThreadView,
   ToolCallBodyView,
 } from "./agent-tab-source.ts";
-import { EMPTY_THREAD } from "./agent-tab-source.ts";
+import { EMPTY_THREAD, summaryOfParts } from "./agent-tab-source.ts";
 import type { LiveText } from "./live-text.ts";
 import type {
   PickerModelRef,
@@ -632,11 +632,13 @@ function sceneData(scene: AgentTabScene): SceneData {
                 id: messageId(5),
                 at: at(42),
                 text: "Also add the exp-008 numbers to the report.",
+                summary: "Also add the exp-008 numbers to the report.",
               },
               {
                 id: messageId(6),
                 at: at(43),
                 text: "Then check the latency table against the raw runs.",
+                summary: "Then check the latency table against the raw runs.",
               },
             ],
         bodies,
@@ -1409,7 +1411,15 @@ export function createFakeAgentTabSource(
       if (running && delivery === "next_turn") {
         return change(session, (current) => ({
           ...current,
-          queued: [...current.queued, { id, at: sentAt(), text }],
+          queued: [
+            ...current.queued,
+            {
+              id,
+              at: sentAt(),
+              text,
+              summary: summaryOfParts(bodies.get(id) ?? []),
+            },
+          ],
         }));
       }
       const turn = running ? view.turn!.id : nextId("trn");
@@ -1471,7 +1481,13 @@ export function createFakeAgentTabSource(
       return change(session, (view) => ({
         ...view,
         queued: view.queued.map((one) =>
-          one.id === queued ? { ...one, text } : one,
+          one.id === queued
+            ? {
+                ...one,
+                text,
+                summary: summaryOfParts(bodies.get(queued) ?? []),
+              }
+            : one,
         ),
       }));
     },

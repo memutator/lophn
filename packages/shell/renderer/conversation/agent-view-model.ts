@@ -6,6 +6,7 @@ import type {
   ThreadMessage,
   ThreadView,
 } from "./agent-tab-source.ts";
+import { summaryOfParts } from "./agent-tab-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
 
 /** 아직 만들지 않은 새 session의 입력 메모리 key. 같은 창의 다른 agent와 섞이지 않는다. */
@@ -97,7 +98,9 @@ export function textOfBody(body: BodyState | undefined): string | null {
 
 /** 시점을 고르는 목록에서 메시지를 알아볼 한 줄. 본문을 아직 읽지 못했으면 줄임표다. */
 export function excerptOf(body: BodyState | undefined): string {
-  const text = textOfBody(body)?.replace(/\s+/g, " ").trim() ?? "";
+  const text = (body?.state === "ready" ? summaryOfParts(body.parts) : "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (text === "") return "…";
   return text.length > EXCERPT_CHARS
     ? `${text.slice(0, EXCERPT_CHARS)}…`

@@ -130,7 +130,7 @@ export function QueuedMessages({
                 type="button"
                 className={styles.text}
                 aria-label={t("conversation.label.queued-edit-message", {
-                  text: item.text,
+                  text: item.summary,
                 })}
                 disabled={disabled}
                 onClick={() => {
@@ -138,7 +138,7 @@ export function QueuedMessages({
                   setText(item.text);
                 }}
               >
-                {item.text}
+                {item.summary}
               </button>
             )}
             {editingThis ? (

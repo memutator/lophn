@@ -38,7 +38,7 @@ import type {
   ToolCallBodyView,
   TurnView,
 } from "./agent-tab-source.ts";
-import { turnEndTimes } from "./agent-tab-source.ts";
+import { summaryOfParts, turnEndTimes } from "./agent-tab-source.ts";
 import type { ToolCallState, ToolCallView } from "./activity/model.ts";
 import { toolEntriesOf } from "./activity/tool-groups.ts";
 import type { Env } from "./agent-tab-core-source-env.ts";
@@ -635,6 +635,7 @@ export async function readThread(
         id: message.id,
         at: message.created_at,
         text: body.ok ? textOf(body.value) : "",
+        summary: body.ok ? summaryOfParts(body.value) : "",
       });
       continue;
     }

@@ -43,7 +43,7 @@ export function blocksText(blocks: readonly ContentBlock[]): string {
     .join("\n");
 }
 
-// 글 block과 이미지 자리의 고정 글을 이어 붙인 글이다. 자동 제목이 쓴다.
+// 글 block, 이미지 자리의 고정 글, 링크의 이름을 이어 붙인 글이다. 자동 제목이 쓴다.
 export function blocksSummary(blocks: readonly ContentBlock[]): string {
   return blocks
     .flatMap((block) =>
@@ -51,7 +51,9 @@ export function blocksSummary(blocks: readonly ContentBlock[]): string {
         ? [block.text]
         : block.type === "image"
           ? [IMAGE_NOTE]
-          : [],
+          : block.type === "resource_link"
+            ? [block.name]
+            : [],
     )
     .join("\n");
 }

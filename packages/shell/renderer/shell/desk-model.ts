@@ -578,12 +578,19 @@ export function closeTab(desk: Desk, key: string): Desk {
   return dropTab(desk, key);
 }
 
-export type CloseScope = "others" | "right" | "saved" | "all";
+export type CloseScope =
+  | "others"
+  | "pane-others"
+  | "group"
+  | "right"
+  | "saved"
+  | "all";
 
 /**
- * tab 메뉴의 Close others·Close to the right·Close saved·Close all이 닫으려는 tabs의 key. group의 tab은 한 칸이라
- * key가 어느 쪽이든 짝과 칸에 숨은 tab도 기준 칸에 든다(others는 모두 남기고 right는 칸 오른쪽만 닫는다). floats와 detached는 건드리지 않는다.
- * 닫기 확인(beforeClose)은 거르지 않는다. 호출자가 탭마다 거친다.
+ * tab 메뉴의 Close others·Close others in pane·Close group·Close to the right·Close saved·Close all이 닫으려는 tabs의
+ * key. group의 tab은 한 칸이라 key가 어느 쪽이든 짝과 칸에 숨은 tab도 기준 칸에 든다(others는 모두 남기고 right는 칸
+ * 오른쪽만 닫는다). pane-others는 key가 든 칸의 다른 tab만, group은 key가 든 group 전부다. floats와 detached는 건드리지
+ * 않는다. 닫기 확인(beforeClose)은 거르지 않는다. 호출자가 거친다.
  */
 export function closeTargets(
   desk: Desk,
@@ -597,6 +604,12 @@ export function closeTargets(
   switch (scope) {
     case "others":
       return keys.filter((item) => !own.includes(item));
+    case "pane-others": {
+      const stack = paneStackOf(desk, key);
+      return keys.filter((item) => item !== key && stack.includes(item));
+    }
+    case "group":
+      return keys.filter((item) => own.includes(item));
     case "right": {
       const last = Math.max(...own.map((item) => keys.indexOf(item)));
       return keys.slice(last + 1);

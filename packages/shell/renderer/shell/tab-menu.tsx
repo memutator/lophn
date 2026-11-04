@@ -9,6 +9,8 @@ export type TabAction =
   | "rename"
   | "close"
   | "close-others"
+  | "close-pane-others"
+  | "close-group"
   | "close-right"
   | "close-saved"
   | "close-all"
@@ -35,7 +37,7 @@ export interface TabMenuState {
   readonly canDetach: boolean;
   /** tab이 든 group의 leaf 수. group에 들지 않았으면 0. */
   readonly group: number;
-  /** tab이 보이는 칸이 다른 tab도 돌려 본다(Move out of pane). */
+  /** tab이 보이는 칸이 다른 tab도 돌려 본다(Close others in pane, Move out of pane). */
   readonly stacked?: boolean;
   /** 옆에 붙일 plain tab이 있고 group이 가득 차지 않았다(Split right·down을 할 수 있다). */
   readonly canSplit: boolean;
@@ -125,6 +127,24 @@ function baseItems(state: TabMenuState): MenuItem[] {
       leading: <MenuIcon icon={workspaceIcons.closeOthers} />,
       disabled: !state.hasOthers,
     },
+    ...(state.stacked === true
+      ? [
+          {
+            id: "close-pane-others",
+            label: t("shell.button.tab-close-pane-others"),
+            leading: <MenuIcon icon={workspaceIcons.closePaneOthers} />,
+          },
+        ]
+      : []),
+    ...(state.group >= 2
+      ? [
+          {
+            id: "close-group",
+            label: t("shell.button.tab-close-group"),
+            leading: <MenuIcon icon={workspaceIcons.closeGroup} />,
+          },
+        ]
+      : []),
     {
       id: "close-right",
       label: t("shell.button.tab-close-right"),

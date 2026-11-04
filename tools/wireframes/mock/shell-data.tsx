@@ -193,6 +193,7 @@ export type Variant =
   | "long-title"
   | "split-compact"
   | "pane-stack"
+  | "tabs-close"
   | "marks";
 
 /** variant마다 Main desk의 상태가 다르다. Review와 workflow desk는 같다. */
@@ -246,6 +247,20 @@ export function mockDesks(variant: Variant): MockDesk[] {
       for (const doc of sent) {
         model = openTab(model, itemOf(doc), { after: "c1", beside: true });
       }
+      return [{ ...main, model }, ...others];
+    }
+    case "tabs-close": {
+      // [c1 | brief·gaze·diff] 칸 아래에 zsh를 붙인 group. gaze는 저장하지 못했다. Close group이 묻는 dialog를 띄운다.
+      const sent = [
+        file("brief", "brief.md", "phroner", "plan"),
+        { ...file("gaze", "gaze-notes.md", "phroner", "plan"), unsaved: true },
+        file("diff", "body-refactor.md", "phroner", "plan"),
+      ];
+      let model = desk("_default", "Main", [C1, README, PLAN, TERM]).model;
+      for (const doc of sent) {
+        model = openTab(model, itemOf(doc), { after: "c1", beside: true });
+      }
+      model = splitTab(model, "diff", "term", "bottom");
       return [{ ...main, model }, ...others];
     }
     case "split-down":

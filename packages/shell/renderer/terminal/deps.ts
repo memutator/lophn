@@ -102,23 +102,12 @@ export function windowTerminalDeps(
   };
 }
 
-/**
- * 탭 닫기. 살아 있는 터미널은 사람이 확인해야 닫고(이미 확인했으면 `confirmed`), 취소하면 runtime과 출력을
- * 유지한다. 종료 확인에 실패하면 탭을 남겨 결과 불명을 보인다. true면 탭을 뺀다.
- */
-export async function closeTerminalTab(
-  deps: TerminalDeps,
-  key: string,
-  confirmed = false,
-): Promise<boolean> {
+// 살아 있는 터미널의 ref. 탭 화면이 숨어 있던 사이 끝났을 수 있어 지금 상태를 읽는다. 없거나 끝났으면 null이다.
+async function liveRef(deps: TerminalDeps, key: string) {
   const entry = deps.store.get(key);
   const bridge = deps.bridge;
-  if (!entry || entry.terminalRef === null || !bridge) {
-    deps.store.delete(key);
-    return true;
-  }
+  if (!entry || entry.terminalRef === null || !bridge) return null;
   const ref = { terminal_ref: entry.terminalRef, generation: entry.generation };
-  // 탭 화면이 숨어 있던 사이 끝났을 수 있다. 지금 상태를 먼저 읽는다.
   const current = await bridge.snapshot({
     terminal_ref: ref.terminal_ref,
     after_seq: Number.MAX_SAFE_INTEGER,
@@ -129,12 +118,33 @@ export async function closeTerminalTab(
     "output" in current.value &&
     current.value.runtime.generation === ref.generation &&
     endingOf(current.value.runtime) === null;
-  if (!live) {
+  return live ? { bridge, ref } : null;
+}
+
+/** 터미널 탭을 닫으면 사람에게 물을지(shell이 아직 살아 있다). 여러 탭을 닫을 때 한 번에 묻는 데 쓴다. */
+export async function terminalLive(
+  deps: TerminalDeps,
+  key: string,
+): Promise<boolean> {
+  return (await liveRef(deps, key)) !== null;
+}
+
+/**
+ * 탭 닫기. 살아 있는 터미널은 사람이 확인해야 닫고(이미 확인했으면 `confirmed`), 취소하면 runtime과 출력을
+ * 유지한다. 종료 확인에 실패하면 탭을 남겨 결과 불명을 보인다. true면 탭을 뺀다.
+ */
+export async function closeTerminalTab(
+  deps: TerminalDeps,
+  key: string,
+  confirmed = false,
+): Promise<boolean> {
+  const live = await liveRef(deps, key);
+  if (live === null) {
     deps.store.delete(key);
     return true;
   }
   if (!confirmed && !(await deps.confirmClose())) return false;
-  const reply = await bridge.close(ref);
+  const reply = await live.bridge.close(live.ref);
   if (reply.ok && reply.value.ok) {
     const runtime = reply.value.runtime;
     if (endingOf(runtime) === "stop_unconfirmed") {

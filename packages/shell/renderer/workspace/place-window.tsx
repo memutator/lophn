@@ -115,6 +115,10 @@ import {
   type DeskCloseSummary,
 } from "../shell/desk-close-dialog.tsx";
 import { DeskSwitcher } from "../shell/desk-switcher.tsx";
+import {
+  TabsCloseDialog,
+  type TabsCloseRow,
+} from "../shell/tabs-close-dialog.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
 import { neighborLeaf, type PaneDirection } from "../shell/group-geometry.ts";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
@@ -126,7 +130,7 @@ import {
   type StripTab,
   TabStrip,
 } from "../shell/tab-strip.tsx";
-import type { TerminalDeps } from "../terminal/deps.ts";
+import { type TerminalDeps, terminalLive } from "../terminal/deps.ts";
 import {
   openBridgeUrl,
   useBridgeOpenRequests,
@@ -1229,13 +1233,59 @@ export function PlaceWindow(props: PlaceWindowProps) {
     );
   };
 
-  // 탭 menu의 Close others·Close to the right·Close saved·Close all. 탭마다 닫기 확인(beforeClose)을 차례로
-  // 거치고, 사람이 계속 편집을 고르면 거기서 멈춘다(남은 탭도 닫지 않는다).
+  // 탭 menu의 여러 개 닫기(Close others, Close group 등)가 사람에게 묻는 중인 것. 터미널과 파일을 한 dialog에 줄로 보인다.
+  const [closingTabs, setClosingTabs] = useState<{
+    readonly keys: readonly string[];
+    readonly terminals: readonly TabsCloseRow[];
+    readonly lost: readonly TabsCloseRow[];
+  } | null>(null);
+  // 파일의 마지막 고침을 먼저 보낸 뒤, 멈출 터미널과 저장하지 못한 파일이 있으면 한 번만 묻는다. 없으면 바로 닫는다.
   const closeMany = async (scope: CloseScope, key: string) => {
-    for (const target of closeTargets(latestDesk(), scope, key, isUnsaved)) {
+    const keys = closeTargets(latestDesk(), scope, key, isUnsaved);
+    const tabs = latestDesk().tabs.filter((tab) => keys.includes(tab.key));
+    await Promise.all(
+      tabs
+        .filter((tab) => isUnsaved(tab.key))
+        .map((tab) => editorSessions?.flush(tab.key)),
+    );
+    const live = await Promise.all(
+      tabs.map(
+        (tab) =>
+          terminal !== undefined &&
+          tab.kind === "terminal" &&
+          terminalLive(terminal, tab.key),
+      ),
+    );
+    const rowOf = (tab: TabItem): TabsCloseRow => {
+      const path = pathOfTab(tab);
+      return {
+        key: tab.key,
+        title: tab.title,
+        icon: iconOfTab(tab),
+        ...(path === null ? {} : { path }),
+      };
+    };
+    const terminals = tabs.filter((_, at) => live[at] === true).map(rowOf);
+    const lost = tabs.filter((tab) => isUnsaved(tab.key)).map(rowOf);
+    if (terminals.length === 0 && lost.length === 0) {
+      await finishMany(keys, []);
+      return;
+    }
+    setClosingTabs({ keys, terminals, lost });
+  };
+  // 사람이 확인한 tab들을 닫는다. 터미널은 되묻지 않고 확인한 파일의 남은 고침은 버린다. 그 사이 새로 저장이 남은 파일은
+  // 그 tab에서 묻고, 계속 편집을 고르면 거기서 멈춘다(남은 tab도 닫지 않는다).
+  const finishMany = async (
+    keys: readonly string[],
+    lost: readonly string[],
+  ) => {
+    for (const target of keys) {
       const tab = latestDesk().tabs.find((item) => item.key === target);
       if (tab === undefined) continue;
-      const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host);
+      if (lost.includes(target)) editorSessions?.discard(target);
+      const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host, {
+        confirmed: true,
+      });
       if (confirm && !(await confirm)) return;
       rememberClosed(tab);
       removeTab(target);
@@ -1659,6 +1709,12 @@ export function PlaceWindow(props: PlaceWindowProps) {
         return;
       case "close-others":
         void closeMany("others", key);
+        return;
+      case "close-pane-others":
+        void closeMany("pane-others", key);
+        return;
+      case "close-group":
+        void closeMany("group", key);
         return;
       case "close-right":
         void closeMany("right", key);
@@ -2389,6 +2445,21 @@ export function PlaceWindow(props: PlaceWindowProps) {
               onConfirm={() => {
                 setClosingDesk(null);
                 void finishDesk(closingDesk);
+              }}
+            />
+          )}
+          {closingTabs === null ? null : (
+            <TabsCloseDialog
+              count={closingTabs.keys.length}
+              terminals={closingTabs.terminals}
+              lost={closingTabs.lost}
+              onCancel={() => setClosingTabs(null)}
+              onConfirm={() => {
+                setClosingTabs(null);
+                void finishMany(
+                  closingTabs.keys,
+                  closingTabs.lost.map((row) => row.key),
+                );
               }}
             />
           )}

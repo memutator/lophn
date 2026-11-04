@@ -38,6 +38,8 @@ export interface FloatTab {
   /** minimized여도 접기 전 rect를 지닌다. */
   readonly rect: FloatRect;
   readonly minimized: boolean;
+  /** 고정(always on top). 고정한 패널은 늘 고정 안 한 패널 위에 있고, 다른 곳을 눌러도 접히지 않는다. */
+  readonly pinned: boolean;
 }
 
 export type SplitDir = "row" | "column";
@@ -1047,10 +1049,15 @@ export function floatTab(desk: Desk, key: string, rect: FloatRect): Desk {
   const dropped = dropTab(desk, key);
   return {
     ...dropped,
-    floats: [
+    floats: stacked([
       ...dropped.floats,
-      { tab: { ...found, preview: false }, rect, minimized: false },
-    ],
+      {
+        tab: { ...found, preview: false },
+        rect,
+        minimized: false,
+        pinned: false,
+      },
+    ]),
   };
 }
 
@@ -1061,7 +1068,10 @@ export function openFloatTab(desk: Desk, tab: TabItem, rect: FloatRect): Desk {
   }
   return {
     ...desk,
-    floats: [...desk.floats, { tab, rect, minimized: false }],
+    floats: stacked([
+      ...desk.floats,
+      { tab, rect, minimized: false, pinned: false },
+    ]),
   };
 }
 
@@ -1111,18 +1121,56 @@ export function minimizeFloat(desk: Desk, key: string): Desk {
   );
 }
 
-/** 접힘을 풀고 맨 위로 올린다. */
+// 배열 순서가 위아래 순서라 고정한 패널을 뒤로 모은다. 같은 쪽 안의 순서는 지킨다.
+function stacked(floats: readonly FloatTab[]): FloatTab[] {
+  return [
+    ...floats.filter((item) => !item.pinned),
+    ...floats.filter((item) => item.pinned),
+  ];
+}
+
+/** 접힘을 풀고 맨 위로 올린다. 고정 안 한 패널은 고정한 패널 바로 아래까지다. */
 export function restoreFloat(desk: Desk, key: string): Desk {
   const item = desk.floats.find((float) => float.tab.key === key);
   if (item === undefined) return desk;
-  const top = desk.floats[desk.floats.length - 1] === item;
-  if (!item.minimized && top) return desk;
+  const floats = stacked([
+    ...desk.floats.filter((float) => float !== item),
+    { ...item, minimized: false },
+  ]);
+  const same =
+    !item.minimized && floats.every((float, at) => float === desk.floats[at]);
+  return same ? desk : { ...desk, floats };
+}
+
+/** 고정을 켜고 끈다. 켜면 고정한 패널 맨 위로 간다. */
+export function pinFloat(desk: Desk, key: string, pinned: boolean): Desk {
+  const item = desk.floats.find((float) => float.tab.key === key);
+  if (item === undefined || item.pinned === pinned) return desk;
   return {
     ...desk,
-    floats: [
+    floats: stacked([
       ...desk.floats.filter((float) => float !== item),
-      { ...item, minimized: false },
-    ],
+      { ...item, pinned },
+    ]),
+  };
+}
+
+/** 고정 안 한 펴진 패널을 모두 접는다(`keep`은 남긴다). 패널 밖을 눌렀을 때다. */
+export function minimizeLooseFloats(desk: Desk, keep?: string): Desk {
+  if (
+    !desk.floats.some(
+      (item) => !item.pinned && !item.minimized && item.tab.key !== keep,
+    )
+  ) {
+    return desk;
+  }
+  return {
+    ...desk,
+    floats: desk.floats.map((item) =>
+      item.pinned || item.minimized || item.tab.key === keep
+        ? item
+        : { ...item, minimized: true },
+    ),
   };
 }
 

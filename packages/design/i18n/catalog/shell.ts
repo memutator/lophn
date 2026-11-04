@@ -9,6 +9,8 @@ export const shell = {
   "shell.button.float-close": "Close",
   "shell.button.float-dock": "Dock as tab",
   "shell.button.float-minimize": "Minimize",
+  "shell.button.float-pin": "Keep on top",
+  "shell.button.float-unpin": "Stop keeping on top",
   "shell.button.forward": "Forward",
   "shell.button.minimized-more": "{count} more minimized tabs",
   "shell.button.new-desk": "New desk",

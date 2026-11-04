@@ -1,6 +1,7 @@
 // shell 틀을 fake desk 상태로 그린다. 진짜 연결은 project 화면 task가 하고, 여기는 틀이 callback에 맞게 움직이는지 보이려고
 // 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useObservedSize } from "@lophn/ui/shared";
 import { matchKey } from "../../../../../packages/shell/ipc/keybindings.ts";
 import { shellIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import {
@@ -37,8 +38,10 @@ import {
   leavesOf,
   membersOf,
   minimizeFloat,
+  minimizeLooseFloats,
   openTab,
   paneStackOf,
+  pinFloat,
   restoreFloat,
   selectTab,
   setFloatRect,
@@ -109,6 +112,8 @@ export function ShellScene({
   keys?: readonly string[];
 }) {
   const [desks, setDesks] = useState(() => mockDesks(variant));
+  const floatRef = useRef<HTMLDivElement>(null);
+  const floatArea = useObservedSize(floatRef);
   const [deskKey, setDeskKey] = useState("_default");
   const [leftOpen, setLeft] = useState(left);
   const [rightOpen, setRight] = useState(right);
@@ -364,6 +369,14 @@ export function ShellScene({
         rightSidebar={<MockRightSidebar title={chosen.label} />}
         floats={
           <FloatLayer
+            layerRef={floatRef}
+            area={
+              floatArea !== undefined &&
+              floatArea.width > 0 &&
+              floatArea.height > 0
+                ? floatArea
+                : undefined
+            }
             floats={desk.floats.flatMap((item, order) => {
               if (item.minimized) return [];
               const tab = mockOf(item.tab);
@@ -374,6 +387,7 @@ export function ShellScene({
                   icon: tabIcon(tab),
                   dot: tab.dot,
                   rect: item.rect,
+                  pinned: item.pinned,
                   body: floatBody(tab),
                 },
               ];
@@ -383,6 +397,8 @@ export function ShellScene({
             onMinimize={toggleFloat}
             onDock={(key) => patch((d) => dockFloat(d, key))}
             onClose={close}
+            onPin={(key, pinned) => patch((d) => pinFloat(d, key, pinned))}
+            onOutside={(inside) => patch((d) => minimizeLooseFloats(d, inside))}
           />
         }
       >

@@ -111,8 +111,16 @@
   border-inline-start: var(--border-width) solid var(--color-border-base);
 }
 
+/* 창 닫기는 OS 창 단추처럼 hover 때 danger 빨강이다. */
+.windowControls [data-window-close]:hover:not(:disabled) {
+  color: var(--color-danger-text);
+  background: var(--color-danger-background);
+}
+
 /* 몸통: 왼쪽 sidebar, 가운데 stage, 오른쪽 sidebar. */
+/* float 층이 몸통 전체를 덮는 기준이다. */
 .body {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: var(--space-0);

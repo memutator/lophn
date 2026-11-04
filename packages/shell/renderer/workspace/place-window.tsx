@@ -81,6 +81,8 @@ import {
   newFloatRect,
   openDetachedTab,
   openFloatTab,
+  pinFloat,
+  minimizeLooseFloats,
   openTab as openTabInDesk,
   paneStackOf,
   type PlaceLayout,
@@ -397,9 +399,13 @@ export function PlaceWindow(props: PlaceWindowProps) {
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
   const deskCount = useRef(0);
-  // float 층의 기준인 stage(card를 감싸는 칸)의 크기.
-  const stageRef = useRef<HTMLDivElement>(null);
-  const stageSize = useObservedSize(stageRef);
+  // float 층(창 몸통 전체)의 크기. 패널 rect의 기준이다. 0이면 못 잰 것과 같다(0x0으로 가둔 rect는 저장이 거절된다).
+  const floatRef = useRef<HTMLDivElement>(null);
+  const floatSize = useObservedSize(floatRef);
+  const stageSize =
+    floatSize !== undefined && floatSize.width > 0 && floatSize.height > 0
+      ? floatSize
+      : undefined;
 
   // 앱 place의 이름. 앱 화면 탭 제목과 crumb이 쓴다.
   const [appName, setAppName] = useState<string | undefined>();
@@ -781,7 +787,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     );
   };
 
-  // popup 같은 탭을 floated로 연다. stage를 못 쟀으면 tabs에 붙인다.
+  // popup 같은 탭을 floated로 연다. float 층을 못 쟀으면 tabs에 붙인다.
   const openFloatInStage: TabHost["openFloat"] = (tab, at) => {
     if (stageSize === undefined) {
       openTab(tab);
@@ -1317,8 +1323,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
     update((item) => selectTab(item, key));
     focusTabBody(key);
   };
-  // tabs의 탭을 stage 가운데 60% 크기의 패널로 띄운다. 앱 panel 화면은 마지막 float 자리가 있으면 거기다.
-  // stage를 못 쟀으면 아무것도 하지 않는다.
+  // tabs의 탭을 float 층 가운데 60% 크기의 패널로 띄운다. 앱 panel 화면은 마지막 float 자리가 있으면 거기다.
+  // float 층을 못 쟀으면 아무것도 하지 않는다.
   const floatByKey = (key: string) => {
     if (stageSize === undefined) return;
     const remembered = launchOf(
@@ -1881,7 +1887,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
 
   const withJobs = props.jobs !== undefined;
   const mainSection = (
-    <div className={styles.stage} ref={stageRef}>
+    <div className={styles.stage}>
       <ContentCard
         panes={panes}
         {...(group === null ? {} : { layout: group.layout })}
@@ -2318,6 +2324,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
                 <>
                   <WebviewLayer host={webviews} />
                   <FloatLayer
+                    layerRef={floatRef}
+                    area={stageSize}
                     floats={desk.floats
                       .filter((item) => !item.minimized)
                       .map((item) => ({
@@ -2326,6 +2334,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
                         icon: iconOfTab(item.tab),
                         dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
                         rect: item.rect,
+                        pinned: item.pinned,
                         body: bodyOf(item.tab, true),
                       }))}
                     onRaise={(key) => update((item) => restoreFloat(item, key))}
@@ -2341,6 +2350,12 @@ export function PlaceWindow(props: PlaceWindowProps) {
                       focusTabBody(key);
                     }}
                     onClose={close}
+                    onPin={(key, pinned) =>
+                      update((item) => pinFloat(item, key, pinned))
+                    }
+                    onOutside={(inside) =>
+                      update((item) => minimizeLooseFloats(item, inside))
+                    }
                   />
                 </>
               }

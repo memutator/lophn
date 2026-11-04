@@ -1,10 +1,17 @@
-// card 위에 뜨는 float 패널들. 접힌 것은 호출자가 목록에서 빼고(tab 줄 오른쪽 끝 칸), 여기에는 펴진 것만 온다.
-// 이동·resize는 놓을 때만 onRect로 올리고 끄는 동안은 미리보기다.
-import { type PointerEvent, type ReactNode, useRef, useState } from "react";
+// 창 몸통(title bar 아래, 양쪽 sidebar 포함) 위에 뜨는 float 패널들. 접힌 것은 호출자가 목록에서 빼고(tab 줄 오른쪽
+// 끝 칸), 여기에는 펴진 것만 온다. 이동·resize는 놓을 때만 onRect로 올리고 끄는 동안은 미리보기다.
+// 고정 안 한 패널은 그 패널 밖을 누르면 접힌다(onOutside). 고정한 패널은 늘 위에 남는다.
+import {
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { t } from "@lophn/i18n";
 import { type FloatEdge, FloatPanel, Tooltip } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
-import { useObservedSize } from "@lophn/ui/shared";
 
 import { ViewLayerProvider } from "../app-frame/webview-host.tsx";
 import { shellIcons } from "../icons/mod.ts";
@@ -30,10 +37,16 @@ export interface FloatEntry {
   readonly dot?: TabDot | null;
   /** layer(stage) 왼쪽 위 기준 CSS px. */
   readonly rect: FloatRect;
+  /** 고정(always on top). */
+  readonly pinned: boolean;
   readonly body: ReactNode;
 }
 
 export interface FloatLayerProps {
+  /** 층 root. 호출자가 같은 ref로 크기를 재서 새 패널의 자리도 정한다. */
+  layerRef: RefObject<HTMLDivElement | null>;
+  /** layerRef의 크기. 못 쟀거나 0이면 undefined이고 패널을 그리지 않는다. */
+  area: FloatArea | undefined;
   /** 아래에서 위 순서. 마지막이 맨 위(active)다. */
   floats: readonly FloatEntry[];
   onRaise: (key: string) => void;
@@ -41,20 +54,50 @@ export interface FloatLayerProps {
   onMinimize: (key: string) => void;
   onDock: (key: string) => void;
   onClose: (key: string) => void;
+  onPin: (key: string, pinned: boolean) => void;
+  /** 패널 밖을 눌렀다. 누른 곳이 어느 패널 안이면 그 key다(그 패널은 남는다). */
+  onOutside: (inside: string | undefined) => void;
+}
+
+// 패널에서 연 menu·dialog(portal이라 패널 DOM 밖)와 접힌 패널 아이콘 칸은 "밖"이 아니다. 아이콘 칸은 누르면 그
+// 패널을 접고 펴는 자리라 여기서 먼저 접으면 다시 펴진다.
+const NOT_OUTSIDE =
+  "[data-radix-popper-content-wrapper], [role=dialog], [role=menu], [role=listbox], [data-float-chips]";
+
+function useOutsidePress(onOutside: (inside: string | undefined) => void) {
+  const latest = useRef(onOutside);
+  latest.current = onOutside;
+  useEffect(() => {
+    const press = (event: Event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target === null || target.closest(NOT_OUTSIDE)) return;
+      latest.current(
+        target.closest<HTMLElement>("[data-float-key]")?.dataset.floatKey,
+      );
+    };
+    // <webview> 안의 click은 embedder로 오지 않고, webview 그릇이 그 자리에 focusin을 대신 쏜다(isTrusted가 false).
+    // 사람이 옮긴 진짜 focus는 pointerdown이 이미 봤고, 코드가 옮긴 focus로는 접지 않는다.
+    const webviewFocus = (event: Event) => {
+      if (!event.isTrusted) press(event);
+    };
+    document.addEventListener("pointerdown", press, true);
+    document.addEventListener("focusin", webviewFocus, true);
+    return () => {
+      document.removeEventListener("pointerdown", press, true);
+      document.removeEventListener("focusin", webviewFocus, true);
+    };
+  }, []);
 }
 
 export function FloatLayer(props: FloatLayerProps) {
-  const root = useRef<HTMLDivElement>(null);
-  const size = useObservedSize(root);
-  // 0인 칸은 못 잰 것과 같다. 0x0으로 가둔 rect가 저장되면 layout 저장이 통째로 거절된다.
-  const area: FloatArea | undefined =
-    size !== undefined && size.width > 0 && size.height > 0 ? size : undefined;
+  const { area } = props;
+  useOutsidePress(props.onOutside);
   // raise가 요소를 재배열하면 안의 focus와 scroll(terminal, editor)이 날아가므로 key 순으로 고정하고 z-index로 쌓는다.
   const ordered = props.floats
     .map((float, index) => ({ float, layer: index + 1 }))
     .sort((a, b) => (a.float.key < b.float.key ? -1 : 1));
   return (
-    <div ref={root} className={styles.layer} data-floats="">
+    <div ref={props.layerRef} className={styles.layer} data-floats="">
       {area === undefined
         ? null
         : ordered.map(({ float, layer }) => (
@@ -81,6 +124,7 @@ function FloatEntryView({
   onMinimize,
   onDock,
   onClose,
+  onPin,
 }: FloatLayerProps & {
   float: FloatEntry;
   area: FloatArea;
@@ -131,6 +175,7 @@ function FloatEntryView({
   return (
     <div
       className={styles.slot}
+      data-float-key={float.key}
       // 층 L의 패널은 --z-sticky + 2L이다. 그 사이 +1에 floated 화면의 <webview>가 온다(app-frame/webview-host).
       style={{ zIndex: `calc(var(--z-sticky) + ${layer * 2})` }}
     >
@@ -147,11 +192,22 @@ function FloatEntryView({
         onMoveStart={(event) =>
           drag(event, (dx, dy) => movedRect(base, dx, dy, area))
         }
+        onBarDoubleClick={() => onDock(float.key)}
         onResizeStart={(edge: FloatEdge, event) =>
           drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))
         }
         actions={
           <>
+            {float.pinned
+              ? action(
+                  "unpin",
+                  shellIcons.unpin,
+                  t("shell.button.float-unpin"),
+                  () => onPin(float.key, false),
+                )
+              : action("pin", shellIcons.pin, t("shell.button.float-pin"), () =>
+                  onPin(float.key, true),
+                )}
             {action(
               "minimize",
               shellIcons.minimize,

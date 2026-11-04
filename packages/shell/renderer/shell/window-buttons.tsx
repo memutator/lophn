@@ -54,6 +54,7 @@ export function WindowButtons({ api }: { api: WindowControlsApi | undefined }) {
         icon={windowCloseIcon}
         label={t("common.label.window-close")}
         size="sm"
+        data-window-close=""
         onClick={() => void api.close()}
       />
     </>

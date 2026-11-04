@@ -388,6 +388,7 @@ export function TabStrip({
       {minimized.length === 0 ? null : (
         <div
           className={styles.minimized}
+          data-float-chips=""
           role="group"
           aria-label={t("shell.label.minimized")}
         >

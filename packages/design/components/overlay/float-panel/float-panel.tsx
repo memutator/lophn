@@ -28,6 +28,8 @@ export interface FloatPanelProps {
   onRaise?: () => void;
   // 위 bar에서 pointer가 눌렸다. 행동 단추 위는 제외한다.
   onMoveStart?: (event: PointerEvent<HTMLElement>) => void;
+  // 위 bar를 두 번 눌렀다. 행동 단추 위는 제외한다.
+  onBarDoubleClick?: () => void;
   onResizeStart?: (edge: FloatEdge, event: PointerEvent<HTMLElement>) => void;
   ref?: Ref<HTMLElement>;
 }
@@ -60,6 +62,7 @@ export function FloatPanel({
   hidden = false,
   onRaise,
   onMoveStart,
+  onBarDoubleClick,
   onResizeStart,
   ref,
 }: FloatPanelProps) {
@@ -83,6 +86,10 @@ export function FloatPanel({
           onPointerDown={(event) => {
             if ((event.target as HTMLElement).closest("button")) return;
             onMoveStart?.(event);
+          }}
+          onDoubleClick={(event) => {
+            if ((event.target as HTMLElement).closest("button")) return;
+            onBarDoubleClick?.();
           }}
         >
           {icon !== undefined && <span className={styles.icon}>{icon}</span>}

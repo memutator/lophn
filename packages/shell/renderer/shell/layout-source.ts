@@ -257,7 +257,12 @@ function deskFromStored(key: string, value: unknown): Desk | null {
         const rect = rectOf(float?.rect);
         return tab === null || rect === null
           ? null
-          : { tab, rect, minimized: float?.minimized === true };
+          : {
+              tab,
+              rect,
+              minimized: float?.minimized === true,
+              pinned: float?.pinned === true,
+            };
       }),
     ),
     detached: compact(
@@ -343,7 +348,12 @@ function deskToStored(input: Desk): Stored {
         const tab = tabToStored(item.tab);
         return tab === null
           ? null
-          : { tab, rect: item.rect, minimized: item.minimized };
+          : {
+              tab,
+              rect: item.rect,
+              minimized: item.minimized,
+              ...(item.pinned ? { pinned: true } : {}),
+            };
       }),
     ).slice(0, FLOATS_MAX),
     detached: compact(

@@ -96,6 +96,8 @@ const placeDeskSchema = z
           tab: layoutTabSchema,
           rect: windowBounds,
           minimized: z.boolean(),
+          // 고정(always on top). 판 9 안에서 더한 선택 필드라 없는 옛 파일은 고정 안 함이다.
+          pinned: z.literal(true).optional(),
         }),
       )
       .max(20),

@@ -41,7 +41,7 @@ export interface ShellFrameProps {
   panelTabs?: ReactNode;
   leftSidebar: ReactNode;
   rightSidebar?: ReactNode;
-  /** stage 위에 얹는 층(FloatLayer). */
+  /** 몸통(title bar 아래, 양쪽 sidebar 포함) 전체를 덮는 층(webview 그릇과 FloatLayer). float 패널이 sidebar 위로도 간다. */
   floats?: ReactNode;
   /** 가운데 card(ContentCard). */
   children: ReactNode;
@@ -247,10 +247,7 @@ export function ShellFrame({
             <Resizer side="left" width={leftBox} onWidth={setWidth("left")} />
           </nav>
         ) : null}
-        <main className={styles.stage}>
-          {children}
-          {floats}
-        </main>
+        <main className={styles.stage}>{children}</main>
         {right ? (
           <aside
             ref={rightBox}
@@ -265,6 +262,7 @@ export function ShellFrame({
             />
           </aside>
         ) : null}
+        {floats}
       </div>
     </div>
   );

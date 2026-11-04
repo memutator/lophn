@@ -28,7 +28,7 @@ export interface TabItem {
   readonly transient?: boolean;
 }
 
-/** stage(card가 서는 칸) 왼쪽 위를 (0,0)으로 한 CSS px 정수 사각형. */
+/** float 층(title bar 아래 창 몸통, 양쪽 sidebar 포함) 왼쪽 위를 (0,0)으로 한 CSS px 정수 사각형. */
 export interface FloatRect {
   readonly x: number;
   readonly y: number;
@@ -50,7 +50,7 @@ export interface DetachedItem {
   readonly bounds: DetachedBounds;
 }
 
-/** float 층이 차지하는 칸. stage의 크기다. */
+/** float 층이 차지하는 칸. 창 몸통의 크기다. */
 export interface FloatArea {
   readonly width: number;
   readonly height: number;

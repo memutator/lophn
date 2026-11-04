@@ -42,12 +42,11 @@ works with. At home an agent writes no files.
   next to it and are loaded by relative path. A relative link to another HTML
   file in the folder works.
 - `data/*.json` is the material the template reads. You usually build it by
-  running a command (for example an aggregate from `lophn kind list`) and writing the result
-  into `data/`.
+  running a command and writing the result into `data/`.
 
 ## How the data is held
 
-Three ways, chosen by how the template reads `data/`. They are not kinds.
+Three ways, chosen by how the template reads `data/`.
 
 - **One-off:** put the data inside `index.html`.
 - **Swap:** keep the template and rewrite only `data/latest.json`.
@@ -139,58 +138,6 @@ and it works in a workflow artifact and in a domain artifact.
   cycle (A to B and back to A) is fine.
 - What a status value means is yours to decide (for example `running` for the
   current step and `reported` when a report exists).
-
-## Drawing a domain
-
-A domain artifact can draw the domain as nodes. It is optional: before you make
-one, ask the person with `ask` whether they want a picture. None is a good
-answer. Do not make one without asking.
-
-Two things are worth drawing:
-
-- **Kind map:** each kind is a node and each `ref` field is an edge from the
-  kind that has the field to the kind in `to`, with the field name as the edge
-  `label`. A `ref` to its own kind would be an edge from a node to itself: leave
-  it out and, if it matters, say it in the node's `note`. For the number of
-  items, run `lophn kind list` with a count aggregate for each
-  kind and put it in the `note`.
-- **State flow:** if a kind has an `enum` field that means a state (`status`,
-  `stage`), each value is a node. Run `lophn kind list` with the same aggregate and
-  a group-by on that field, and put the number of items of each value in the
-  `note`. The order between values (the edges) is the domain's meaning: take it
-  from `DOMAIN.md` or from what the person says. If you do not know it, draw the
-  values with no edges.
-
-The artifact cannot read `kinds.yaml` or run a command, so you write the diagram
-data into `data/*.json` yourself (for example `data/map.json` with `nodes` and
-`edges`) and the page reads it. When the kinds change, change the data too.
-
-```html
-<!doctype html>
-<title>Kind map</title>
-<meta name="description"
-  content="The kinds of this domain and how they point at each other.">
-<link rel="stylesheet" href="/_lophn/kit.css">
-<div id="graph" style="display:block;width:100%"></div>
-<script src="/_lophn/kit.js"></script>
-<script>
-fetch("data/map.json")
-  .then((r) => r.json())
-  .then((map) => LophnKit.renderGraph(document.getElementById("graph"), map));
-</script>
-```
-
-with, for example, `data/map.json`:
-
-```json
-{
-  "nodes": [
-    { "id": "receipt", "label": "receipt", "note": "42 items" },
-    { "id": "vendor", "label": "vendor", "note": "7 items" }
-  ],
-  "edges": [{ "from": "receipt", "to": "vendor", "label": "vendor" }]
-}
-```
 
 ## Changes show at once
 

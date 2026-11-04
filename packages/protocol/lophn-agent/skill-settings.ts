@@ -65,12 +65,6 @@ export const BUILTIN_SKILLS: readonly {
     menu: false,
   },
   {
-    name: "check-domains",
-    places: ["project"],
-    can_disable: false,
-    menu: true,
-  },
-  {
     name: "design-app",
     places: ["app"],
     can_disable: false,

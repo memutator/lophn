@@ -16,15 +16,6 @@ them, and it is what keeps an agent's context small.
 Every domain has a folder, and the place information of an agent lists the
 folders of the domains it works with.
 
-- **Kinds file** (`kinds.yaml`): which documents are items of which kind, and
-  which fields each kind has. The program checks it and shows the person a toast
-  when documents newly break it. One file per domain. Its globs are relative to
-  the project's folders or the app's source folder. A saved file is checked and
-  used at once, with no draft and no release. If it is wrong, the last valid one
-  keeps being used, and `lophn kind check` shows why. Other agents read the kinds with
-  `lophn kind list` and `lophn kind check`; with more than one domain they give the domain. It
-  is written with the skill `write-kinds`. An app domain usually has none,
-  because its objects live in the app's data and are reached through the app's commands.
 - **`DOMAIN.md`**: what the domain means, how to use it, and the rules the
   program cannot check. Its text is in the prompt of every agent that works in
   the domain, as "Domain instructions (DOMAIN.md)", so nobody asks for it with a
@@ -42,7 +33,7 @@ folders of the domains it works with.
 An agent working in a project or an app makes that place's domains with
 `lophn domain create` (a name, a title and a purpose). The person can make one too. The
 name is a slug and never changes. Making a domain needs no approval, because it
-adds no access. It writes the kinds file, `DOMAIN.md` and skills of the domains
+adds no access. It writes `DOMAIN.md` and skills of the domains
 it works with, with its file tools. When a domain it does not work with has to
 change, it asks lophn at that project or app. A new app comes with a domain of
 its own name. An app always has at least one domain, so its last one cannot be
@@ -62,7 +53,7 @@ when it prepares the release.
 
 An agent in a project or an app sees the domains named in its definition that
 belong to that place, or all of them if none are named. At home it works with no
-domain. The prompt carries only those domains' `DOMAIN.md`, kinds and skills, and
+domain. The prompt carries only those domains' `DOMAIN.md` and skills, and
 the commands list only those domains' commands plus the public commands the
 person assigned. Other files in the same project or app may be readable, but they are
 not the agent's work.

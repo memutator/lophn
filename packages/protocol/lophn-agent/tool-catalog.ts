@@ -8,7 +8,7 @@ export const TOOL_NAME_MAX = 64;
 export const WIRE_TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 export const MCP_TOOL_PREFIX = "mcp__"; // mcp__<server>__<tool>
 
-// 정본 `kind.list`는 model에 `kind_list`로 보낸다. provider API가 `.`을 받지 않기 때문이다.
+// 정본 `file.read`는 model에 `file_read`로 보낸다. provider API가 `.`을 받지 않기 때문이다.
 // 거꾸로 찾기는 core registry 표가 한다. 이름을 parse하지 않는다.
 export function toWireToolName(canonical: string): string {
   return canonical.replaceAll(".", "_");

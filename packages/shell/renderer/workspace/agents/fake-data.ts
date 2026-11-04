@@ -321,8 +321,8 @@ export const APP_SKILLS: readonly SkillRow[] = [
 /** project 자리에서 보이는 내장 skill. 끌 수 없다. */
 export const BUILT_IN_SKILLS: readonly SkillRow[] = [
   {
-    name: "write-kinds",
-    detail: "Write or update the project's kinds.yaml from its documents.",
+    name: "write-workflow",
+    detail: "Write or update a workflow of the project.",
     layer: "builtin",
     on: true,
     builtIn: true,

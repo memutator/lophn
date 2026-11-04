@@ -58,13 +58,6 @@ export function activeProjectFolderPaths(sql: ReadSql): string[] {
     .map((row) => String(row["path"]));
 }
 
-// active project의 등록 폴더 경로. 없거나 보관된 project는 null이다.
-export function projectRootsOf(sql: ReadSql, project: string): string[] | null {
-  const row = sql.get("select status from projects where id = ?", [project]);
-  if (row === undefined || row["status"] !== "active") return null;
-  return projectFolderPaths(sql, project);
-}
-
 // project의 보관 여부. 없으면 null이다.
 export function projectStatusOf(
   sql: ReadSql,

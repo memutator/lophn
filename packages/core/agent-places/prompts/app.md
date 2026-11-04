@@ -17,7 +17,7 @@ crashing; the person may ask you.
 The app has at least one domain, made at registration with the app's name. Your
 place information lists the domains you work with and their folders: the ones
 your definition names, or all domains of the app when it names none. Your prompt
-carries only their `DOMAIN.md` and kinds, and you see their skills and commands plus
+carries only their `DOMAIN.md`, and you see their skills and commands plus
 the public commands of other domains the person assigned to you. You may be able to
 read other files of the app, but domains that are not listed are not yours.
 Before you make or change a domain, read the skill `make-domain`: what a domain
@@ -27,7 +27,6 @@ folder holds and how a domain is made.
   object the command handles. The app has a domain with its own name. If another
   domain is needed, make it with `lophn domain create`. A command that names a domain
   the app does not have blocks the release. An operation has no domain.
-- When documents break a domain's kinds, follow the skill `write-kinds`.
 
 ## Designing the app
 
@@ -101,7 +100,7 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   reply expected, and ask the person, or bring the command back.
 - A problem in another app's package goes to lophn at that app (`owner_app` from
   `lophn package read`) with `lophn call send`, no reply expected.
-- When the person gives you a job, do it with the kinds of your domains and the
+- When the person gives you a job, do it with the
   tools and commands you were given. Read before you judge, and leave the result where the
   person can see it, with the evidence you read.
 - When you hear that a public command your domains use has changed, read the change

@@ -2,6 +2,8 @@
 
 agent chat 화면(Home·project·앱 place 창의 Agent 탭)이 쓰는 길이다. `AgentView` → `AgentThread`(`packages/shell/renderer/conversation/`)를 쓴다. agent 답은 provider가 쓰는 대로 흘러 markdown으로 그려지고, reasoning과 tool 줄과 "Worked for"가 agent가 한 일과 걸린 시간을 보인다. 여러 module에 걸친다. provider adapter(`packages/core/lophn-agent/providers/`), run-loop child(`run-loop/turn.ts`, `core-ports.ts`, `live-turns.ts`의 `createLiveOutput`), 감독 pipe(`main/agent-runtime/turn-source-link.ts` → `run-loop/turn-pipe.ts`), core 메모리(`run-loop/live-turns.ts`의 `createLiveTurns`, `withLiveTurns`, `main/daemon/wiring/session-snapshots.ts`), tool 제목(`packages/core/lophn-agent/tools/display.ts`, `packages/core/lophn-agent/tools/reads.ts`), renderer(`conversation/live-text.ts`, `agent-tab-data.ts`, `agent-tab-core-source-thread.ts`, `message-list/`, `activity/`), design(`components/reading/`)과 shell의 highlight Worker(`renderer/highlight/`)다.
 
+화면이 읽는 대화 상태와 갱신의 규격은 ACP다(`architecture/acp.md`). core가 `AcpSnapshot`과 `AcpUpdated`를 낸다. 아래 renderer의 thread snapshot과 event 접기는 계획 acp가 ACP로 바꾸는 중이다.
+
 ## 흐름
 
 ```

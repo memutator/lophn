@@ -29,3 +29,12 @@ lophn 채팅 화면이 ACP snapshot과 갱신만 읽고 그린다. renderer의 �
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## lead가 더함 (acp-core 보고에서)
+
+- 추가 소유: `packages/shell/renderer/desktop/dev-mock/agent.ts`(fake source를 ACP 꼴로 바꾼 데 맞추는 데까지).
+- `AcpUpdated`는 subject가 null이라 Bus의 session 조건에 걸리지 않는다. `types: ["AcpUpdated"]`로 구독하고 payload의 `session`으로 고른다. snapshot보다 앞선 갱신을 snapshot 위에 다시 접지 않는 일(읽기 시작 표시)은 읽는 쪽 몫이다(`acp.md`).
+- `acpUpdatesOf`는 `packages/protocol/events/acp-project.ts`로 옮겨졌다. 화면은 쓰지 않는다(core가 부른다). 화면은 `reduceAcp`만 쓴다.
+- 도는 중에는 snapshot과 접은 상태가 조금 다를 수 있다(기다리는 동안 `turn.elapsed`, tool `duration_ms`). 끝난 상태는 같아야 한다. 화면에서 보이는 차이가 있으면 보고한다.
+- renderer에 남은 옛 사본(`live-text.ts`의 `foldDelta`, `turnEndTimes`, `agent-tab-data.ts`의 `blocksText(body)` 길)도 지운다.
+- 옛 길이 쓰던 core read·snapshot 칸(`session-snapshots`의 `writing`·`steering`·`elapsed`, thread 읽기에 쓰던 route) 가운데 화면이 더 안 쓰는 것은 지우지 말고 "안 쓰게 된 export"에 적는다. lead가 정리한다.

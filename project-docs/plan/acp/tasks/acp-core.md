@@ -34,3 +34,12 @@ core가 ACP를 만든다: snapshot route와 갱신 transient event. renderer가 
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## lead가 더함 (acp-protocol 보고에서)
+
+- 추가 소유: `packages/protocol/acp/**`. core가 채워야 할 칸이 schema와 맞지 않으면 고친다(acp-input은 wave 4라 겹치지 않는다). 고치면 `project-docs/architecture/acp.md`의 해당 줄도 같이 고친다(추가 소유).
+- `acp.md` "core가 해야 할 것"의 `AcpContext` 다섯(`seq`, `tool`, `questions`, `agentOf`, `decision`)을 채운다. `seq`는 항목이 대화에 들 때 저장하는 session 순번이고 snapshot이 같은 값을 낸다(새 ledger step). 줄에 선 메시지는 가져갈 때 받는다.
+- `hidden_added`는 AgentEvent가 없으니 rewind 때 core가 직접 낸다.
+- 지금 `message_recorded`는 본문이 없어(`complete: false`) turn이 끝날 때마다 `reread`가 선다. core는 기록을 아니 저장된 본문을 갱신에 실어 다시 읽지 않아도 snapshot과 같은 상태가 나오게 한다(wave 3 위험 test "갱신을 접은 상태와 snapshot이 같다"의 바탕). 실은 본문도 redaction 규칙을 지킨다.
+- `app_card` part(`visual.show`)를 ACP에서 어떻게 낼지 정하고 `acp.md`에 적는다.
+- `MessageReceived.body`가 block이 되면 `acpUpdatesOf`의 text block 싸기를 지운다.

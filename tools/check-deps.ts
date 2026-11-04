@@ -278,8 +278,12 @@ function cyclicEdges(edges: Edge[]): Edge[] {
 const LEAVING_FILES = new Set(["packages/protocol/server/registration.ts"]);
 
 // annotation 입력과 lophn agent 계약이 AgentId를 함께 쓴다. places.ts는 base만 import하므로 실행 순환이 아니다.
+// extensions의 ACP handle은 acp의 type만 import한다. lophn-agent/harness-host.ts가 extensions의 extensionSettingKey를
+// 쓰지만 type import는 실행 순환이 아니다. harness-host가 그 함수를 config 쪽에서 받게 되면 이 둘을 뺀다.
 const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
   "packages/protocol/apps/annotation.ts\0../lophn-agent/places.ts",
+  "packages/protocol/extensions/acp-session.ts\0../acp/input.ts",
+  "packages/protocol/extensions/acp-session.ts\0../acp/state.ts",
 ]);
 
 export async function checkRepo(root: string): Promise<Violation[]> {

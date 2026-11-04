@@ -194,6 +194,8 @@ const extensionEnabled = (id: string) =>
   });
 // harness agent(core의 harness session, 입력함, host route)도 이 설정 하나로 켠다.
 export const harnessExtensionSetting = extensionEnabled("harness");
+// `claude gui` 같은 CLI 화면 대체 창. 본체와 따로 켠다.
+const harnessGuiExtensionSetting = extensionEnabled("harness-gui");
 
 export const shellSettings = [
   themeSetting,
@@ -218,4 +220,5 @@ export const shellSettings = [
   appLaunchSetting,
   codingAgentsSetting,
   harnessExtensionSetting,
+  harnessGuiExtensionSetting,
 ] as const;

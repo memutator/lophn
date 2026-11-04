@@ -92,6 +92,12 @@ function setup(manifests: Record<string, string>) {
     spawn: () => {
       throw new Error("not used");
     },
+    acp: {
+      open: () => {
+        throw new Error("not used");
+      },
+      onOpenIntent: () => () => {},
+    },
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
     log: () => {},

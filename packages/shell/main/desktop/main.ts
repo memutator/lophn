@@ -37,7 +37,9 @@ add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(bookmarks.register(ctx));
-add(extensions.register(ctx));
+add(
+  extensions.register(ctx, { open: () => {}, showExtensionSettings: () => {} }),
+);
 add(editor.register(ctx));
 const detachedWindows = add(detached.register(ctx, views));
 add(layout.register(ctx, detachedWindows));

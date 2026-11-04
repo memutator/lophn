@@ -1,0 +1,8 @@
+{
+  "id": "harness-gui",
+  "name": "Harness GUI",
+  "description": "Opens a lophn window in place of the Claude Code, Codex or OpenCode terminal screen with `lophn gui <harness>`.",
+  "version": "0.18.0",
+  "entry": "dist/index.cjs",
+  "provides": ["harness GUI"]
+}

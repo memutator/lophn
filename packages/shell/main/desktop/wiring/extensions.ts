@@ -15,9 +15,17 @@ import { app } from "electron";
 import {
   createIdSource,
   cryptoRandom,
+  type IdSource,
   systemClock,
 } from "../../../../base/mod.ts";
-import type { ExtensionSpawn } from "../../../../protocol/extensions/mod.ts";
+import type { AcpInput, AcpUpdate } from "../../../../protocol/acp/mod.ts";
+import type {
+  AcpSessionHandle,
+  ExtensionAcp,
+  ExtensionSpawn,
+  GuiHarness,
+  HarnessGuiOpen,
+} from "../../../../protocol/extensions/mod.ts";
 import {
   createExtensionRegistry,
   type ExtensionFiles,
@@ -78,13 +86,101 @@ const nodeSpawn =
     };
   };
 
-export function register(ctx: ShellContext): Registered {
+/** 창 쪽이 handle 하나에 붙는 listener. */
+type AcpWindowListener = { update(update: AcpUpdate): void; closed(): void };
+
+/** shell main이 창 쪽(gui-window)에 넘기는 handle 하나의 모습. extension의 `AcpSessionHandle`과 같은 session의 반대쪽이다. */
+export type AcpWindowHandle = {
+  readonly id: string;
+  readonly harness: GuiHarness;
+  readonly cwd: string;
+  readonly title: string;
+  /** 쌓인 update를 처음부터 보내고 이어서 새것을 보낸다. 돌려받은 함수로 그만 듣는다. 이미 닫혔으면 바로 `closed`다. */
+  attach(listener: AcpWindowListener): () => void;
+  /** 창의 입력을 extension에 준다. */
+  input(input: AcpInput): void;
+  /** 창이 닫혔다. extension의 `onClose`가 불린다. */
+  close(): void;
+};
+
+/** 창을 여는 쪽(gui-window)이 채우는 port. 이 task는 구현을 넣지 않는다. */
+export type AcpWindowPort = {
+  /** 새 handle의 창을 연다. 열기 전에 쌓인 update는 `attach`가 다시 보내 준다. */
+  open(window: AcpWindowHandle): void;
+  /** harness-gui가 꺼져 있을 때 open intent가 띄울 Settings › System › Extensions. */
+  showExtensionSettings(): void;
+};
+
+// handle은 창이 닫히거나 extension이 닫을 때까지 update를 모두 쌓는다(늦게 열린 창이 처음부터 그린다).
+function createAcp(ids: IdSource, port: AcpWindowPort) {
+  let handler: ((intent: HarnessGuiOpen) => void | Promise<void>) | undefined;
+  const acp: ExtensionAcp = {
+    open(options) {
+      const id = ids.newId("win");
+      const updates: AcpUpdate[] = [];
+      const attached = new Set<AcpWindowListener>();
+      const inputs: Array<(input: AcpInput) => void> = [];
+      const closers: Array<() => void> = [];
+      let closed = false;
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        updates.length = 0;
+        for (const listener of [...attached]) listener.closed();
+        attached.clear();
+        for (const listener of closers) listener();
+      };
+      const window: AcpWindowHandle = {
+        id,
+        ...options,
+        attach(listener) {
+          if (closed) {
+            listener.closed();
+            return () => {};
+          }
+          for (const update of updates) listener.update(update);
+          attached.add(listener);
+          return () => void attached.delete(listener);
+        },
+        input: (input) => inputs.forEach((listener) => listener(input)),
+        close,
+      };
+      const handle: AcpSessionHandle = {
+        id,
+        publish(update) {
+          if (closed) return;
+          updates.push(update);
+          for (const listener of attached) listener.update(update);
+        },
+        onInput: (listener) => void inputs.push(listener),
+        onClose: (listener) => void closers.push(listener),
+        close,
+      };
+      port.open(window);
+      return handle;
+    },
+    onOpenIntent(next) {
+      handler = next;
+      return () => {
+        if (handler === next) handler = undefined;
+      };
+    },
+  };
+  return { acp, handler: () => handler };
+}
+
+export function register(
+  ctx: ShellContext,
+  port: AcpWindowPort,
+): Registered & { openHarnessGui(intent: HarnessGuiOpen): void } {
   const repoRoot = join(ctx.here, "..", "..", "..", "..");
   // packaged는 설치 root의 extensions/다. 아직 packaging이 채우지 않아 비어 있을 수 있다.
   const bundled = app.isPackaged
     ? join(packagedInstall(process.resourcesPath).root, "extensions")
     : join(ctx.here, "..", "extensions", "bundled");
   const clock = systemClock;
+  const ids = createIdSource({ clock, random: cryptoRandom });
+  const { acp, handler } = createAcp(ids, port);
   const registry = createExtensionRegistry({
     roots: [bundled],
     dataRoot: ctx.dataRoot,
@@ -122,14 +218,28 @@ export function register(ctx: ShellContext): Registered {
       },
     },
     spawn: nodeSpawn(ctx.dataRoot),
+    acp,
     clock,
-    ids: createIdSource({ clock, random: cryptoRandom }),
+    ids,
     log: ctx.log,
   });
   const sync = () =>
     void registry
       .sync()
       .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
+
+  // open intent. 켜졌는지는 sync가 정한다. core가 준비되기 전에 온 intent는 준비된 뒤에 처리한다.
+  const pending: HarnessGuiOpen[] = [];
+  const dispatch = async (intent: HarnessGuiOpen) => {
+    await registry
+      .sync()
+      .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
+    const open = handler();
+    if (open === undefined) return port.showExtensionSettings();
+    await Promise.resolve(open(intent)).catch((cause) =>
+      ctx.log(`extensions: open intent failed: ${String(cause)}`),
+    );
+  };
 
   // Settings › Extensions. desktop 창 본문만 부른다. list는 먼저 맞춰 두어 방금 바꾼 켜기·끄기가 보인다.
   const refused = (
@@ -179,9 +289,14 @@ export function register(ctx: ShellContext): Registered {
     if (ctx.core.state.state === "starting") return;
     clearInterval(startup);
     if (ctx.core.state.state === "ready") sync();
+    for (const intent of pending.splice(0)) void dispatch(intent);
   }, 1000);
 
   return {
+    openHarnessGui(intent) {
+      if (ctx.core.state.state === "starting") pending.push(intent);
+      else void dispatch(intent);
+    },
     stop() {
       ctx.ipc.removeHandler(EXTENSIONS_CHANNEL);
       clearInterval(startup);

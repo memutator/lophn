@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Clock } from "../../base/clock.ts";
 import type { IdSource } from "../../base/id.ts";
 import type { Result } from "../../base/result.ts";
+import type { ExtensionAcp } from "./acp-session.ts";
 
 // extension 하나는 폴더 하나다. 폴더 이름이 id이고 manifest.json이 그 안에 있다.
 // 켜기는 사람이 설정 `extensions.<id>.enabled`로만 한다. core가 manifest를 읽지 못하므로 id마다 설정 선언이 따로 있어야 한다.
@@ -78,6 +79,8 @@ export type ExtensionContext = {
   /** 선언된 설정 값(기본값 포함). 선언이 없거나 기본값 없이 고르지 않았으면 undefined다. */
   settings: { get(key: string): Promise<Result<unknown>> };
   spawn: ExtensionSpawn;
+  /** CLI session을 ACP로 내는 창(`harness-gui`). */
+  acp: ExtensionAcp;
   clock: Clock;
   ids: IdSource;
   /**

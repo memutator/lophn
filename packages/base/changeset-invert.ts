@@ -26,7 +26,7 @@ class Reader {
     if (this.pos >= this.bytes.length) {
       throw new Malformed("truncated changeset");
     }
-    return this.bytes[this.pos++];
+    return this.bytes[this.pos++]!;
   }
 
   // SQLite varint: 앞 8바이트는 7비트씩, 아홉째는 8비트를 다 쓴다.
@@ -116,10 +116,10 @@ function invert(bytes: Uint8Array): Uint8Array {
         // sqlite3changeset_invert와 같다: 새 옛값은 PK는 옛 값, 나머지는 새 값. 새 새값은 PK는 undefined, 나머지는 옛 값.
         out.push(new Uint8Array([OP_UPDATE, indirect]));
         for (let i = 0; i < columns; i++) {
-          out.push(primary[i] ? before[i] : after[i]);
+          out.push(primary[i] ? before[i]! : after[i]!);
         }
         for (let i = 0; i < columns; i++) {
-          out.push(primary[i] ? UNDEFINED : before[i]);
+          out.push(primary[i] ? UNDEFINED : before[i]!);
         }
       } else {
         throw new Malformed("unknown operation in changeset");
@@ -146,7 +146,7 @@ function invertChangeset(bytes: Uint8Array): Result<Uint8Array> {
 export function invertAll(changesets: Uint8Array[]): Result<Uint8Array[]> {
   const inverted: Uint8Array[] = [];
   for (let i = changesets.length - 1; i >= 0; i--) {
-    const one = invertChangeset(changesets[i]);
+    const one = invertChangeset(changesets[i]!);
     if (!one.ok) return one;
     inverted.push(one.value);
   }

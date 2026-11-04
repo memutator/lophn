@@ -64,7 +64,10 @@ function build(outdir: string, extra: BuildEntry[] = []): Promise<void> {
 
 // 본체 안 extension의 entry는 shell main bundle과 따로 CJS 한 파일로 묶는다. registry가 manifest의 `entry`로 require한다.
 const bundledExtensions = join(here, "extensions/bundled");
-const extensionEntries = [join(bundledExtensions, "harness/index.ts")];
+const extensionEntries = [
+  join(bundledExtensions, "harness/index.ts"),
+  join(bundledExtensions, "harness-gui/index.ts"),
+];
 
 // manifest 판이 제품 판과 다르면 registry가 incompatible로 두어 extension이 말없이 멈춘다. 빌드에서 막는다.
 function checkExtensionVersions(): void {

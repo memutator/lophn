@@ -61,6 +61,7 @@ export type RegistryDeps = {
   settings: ExtensionContext["settings"];
   core: ExtensionContext["core"];
   spawn: ExtensionSpawn;
+  acp: ExtensionContext["acp"];
   clock: Clock;
   ids: IdSource;
   log(message: string): void;
@@ -138,6 +139,7 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       core: deps.core,
       settings: deps.settings,
       spawn: deps.spawn,
+      acp: deps.acp,
       clock: deps.clock,
       ids: deps.ids,
       files: {

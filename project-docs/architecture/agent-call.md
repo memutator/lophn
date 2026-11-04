@@ -16,6 +16,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
                                           unattended 표시: 봉투, 입력, 행에 싣는다
 
  받는 곳이 coding_agent로 풀리면 ─▶ invalid_input (call 행 없음. coding session은 없다)
+ agent가 보낸 call을 받는 agent가 못 받으면 ─▶ invalid_input (call 행도 새 session도 없음)
 ```
 
 보낸 쪽은 사람, program(늦은 실패와 취소의 알림, tools_changed 알림, workflow의 step 메시지. 종류만 있고 근거 칸이 없다), agent session 셋이다. step 메시지는 `kind: step`이고 call 행이 없다(`architecture/workflow.md`). 답 방식은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation이다.
@@ -32,7 +33,10 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 실패는 조용히 버리지 않고 한 번만 알린다. 보낼 때 바로 아는 배달 실패(not_found, closed)는 agent에게 call tool 결과(`state: failed`, 이유)로만 돌려준다. 배달 뒤에 늦게 아는 실패(receiver_ended: 받은 session이 답 없이 끝남, lophn_restarted)는 tool 결과가 이미 돌아간 뒤라 이유를 붙여 보낸 session에 새 입력으로 돌아간다.
   - 같은 실패를 tool 결과와 입력 둘로 받으면 agent가 두 번 반응한다. 사람이 보낸 쪽이면 오류 코드로 바로 돌려준다. 보낸 session이 이미 없으면 알릴 곳이 없어 둔다.
 - 부를 수 있는 session 목록의 상태는 running, waiting, idle, unknown이다. waiting·unknown은 지금 내는 곳이 없다. lophn session은 reader가 허락 기다림을 못 봐서 running으로 보인다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
-- 부르는 것 자체에는 묻지도 막지도 않는다. call tool에 Gate가 없고 Router도 판정하지 않는다. 누구를 부르는지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
+- 부르는 것 자체에는 묻지도 막지도 않는다. call tool에 Gate가 없고 Router는 누구를 부르는지를 판정하지 않는다. 누구를 부르는지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
+- Router는 agent가 보낸 call을 받는 agent의 명함(`architecture/agent-definition.md`)과 대조한다. body의 block(`text` → text, `image` → image, `resource_link`·`resource` → file)이 명함의 입력 modality에 없거나, 답 방식이 명함의 답 방식에 없으면 `invalid_input`이고 글에 받는 agent와 빠진 것을 적는다(`packages/core/router/router.ts` `refusal()`, `SessionDirectory.accepts`). 받는 곳을 푼 뒤, 배달 전에 본다. 거절은 command의 err라 tx가 되돌아가 call 행도 그 사이 연 새 session도 남지 않는다.
+  - 사람 메시지, program 알림, workflow step(`from: program`), 답(`router.reply`)은 보지 않는다. 명함을 읽고 고르는 것은 부르는 agent라, 막는 것도 agent의 고르기 실수만이다.
+  - model이 이미지를 못 받는 것은 거절하지 않고 명함이 알린다.
 - 받은 메시지는 허락이 아니다. 받은 agent는 자기 할당으로만 일한다(`products/AGENT.md` T6). program이 막는 것은 이것 하나다.
   - "거절당한 일을 다른 agent에게 돌려 시키지 않기"는 의미 판단이라 program이 막을 수 없고 agent 지침에 둔다.
 - unattended는 call을 따라 간다. unattended turn이 보낸 call과 답에 표시(`unattended`)가 실리고(core의 `calls.send`·`calls.reply`가 부른 agent credential의 turn mode를 읽어 찍는다, `packages/core/router/commands.ts`), Router가 그 표시를 봉투, 입력함 입력(`RoutedInput`), `agent_calls` 행에 옮긴다. 받는 turn은 그 입력으로 unattended가 된다(`architecture/approval.md`의 turn mode).

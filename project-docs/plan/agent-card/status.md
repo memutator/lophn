@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py agent-card build`가 `tasks/*.md`에서 id, 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `card-read` | card | 1 | 없음 | merged | card/card-read | 9b1bc7e9e |  |
-| `card-check` | card | 2 | card-read | running | card/card-check |  |  |
+| `card-check` | card | 2 | card-read | merged | card/card-check | e8ac72313 |  |
 | `card-show` | card | 3 | card-check | todo |  |  |  |
 | `card-policy` | card | 4 | card-show | todo |  |  |  |
 | `bare-skills` | card | 5 | card-policy | todo |  |  |  |

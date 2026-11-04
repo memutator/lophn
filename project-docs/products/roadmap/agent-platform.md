@@ -43,6 +43,8 @@
 
 > (별도 설치) 구조도 만들어놓자
 
+> 일단 기본적으로 place : place 으로 endpoint 정책을 정하고 세부적으로 agent : agent 정하는 게 어때? 왜냐하면 A, B, C, D, E 각각의 place에 10개의 agent가 있다고 칠 때, agent마다 정책을 고르면 경우의 수가 너무 많아서 place 간의 정책으로 쉽고 크게 제한할 수 있다는 논리지
+
 ## 뜻 (사람이 확인한 것)
 
 - **ACP(App Context Protocol)는 lophn 자체 규격이다.** agent와 그것을 보이는 화면 사이의 규격이다. 표준 Agent Client Protocol이 아니다. agent 쪽이 내놓는 것(turn, 메시지와 content block, tool 진행, 묻기, 흘러나오는 글)과 화면이 보내는 것(입력, 앱 context)을 정한다. 지금은 renderer가 session 기록을 제 나름대로 해석해 그린다. 규격이 서면:
@@ -50,7 +52,7 @@
   - 사용자 앱 화면도 ACP의 화면이다. 앱이 SDK로 앱 context를 prompt로 어떻게 조립할지 정해 보내고, agent 응답을 받아 자기 식으로 그린다(예: 코드 textarea의 줄에 주석).
   - third-party CLI의 출력을 ACP로 옮기면 같은 채팅 화면이 그 위에 GUI를 덮는다(`claude gui`).
   - agent가 앱 화면을 읽거나 조작하는 길(agent가 client)은 두지 않는다.
-- **A2A는 agent와 agent 사이의 lophn 자체 규격이다.** lophn끼리, lophn ↔ third-party harness. home의 전역 agent(Image Generator)를 어디서든 부른다. 핵심은 불린 agent의 시야다. 명함에 modality와 skill diff를 싣고, 내부 구현을 몰라도 무엇을 기대할지 안다. third-party harness는 CLI 명령으로 실행한다.
+- **A2A는 agent와 agent 사이의 lophn 자체 규격이다.** lophn끼리, lophn ↔ third-party harness. home의 전역 agent(Image Generator)를 어디서든 부른다. 핵심은 불린 agent의 시야다. 시야는 place와 place 사이의 정책이 크게 정하고 agent와 agent 사이의 정책이 예외로 덧쓴다. 명함에 modality와 skill diff를 싣고, 내부 구현을 몰라도 무엇을 기대할지 안다. third-party harness는 CLI 명령으로 실행한다.
 - **bare:** 기본으로 다 덜어진 상태이고 사람이 더한다(tool, lophn 명령, 앱 command, MCP, skill). lophn agent는 지금 그대로다.
 - **SDK:** 위 것을 lophn agent SDK로 묶는다.
 - **별도 설치:** 대다수에게 필요 없는 기능(third-party GUI 등)은 lophn 본체와 따로 설치한다. 그 구조를 만든다.
@@ -62,13 +64,13 @@
 |---|---|---|---|
 | 1 | domain과 kind 지우기 | 없음 | 끝남(계획 remove-domain) |
 | 2 | content block: call 본문과 답, 사람 메시지가 block으로 | 없음 | 끝남(계획 content-block) |
-| 3 | bare runtime: 정의 본문과 고른 tool만 | 1, 2 | 끝남(계획 bare-runtime). 남은 것: bare가 skill도 더할 수 있게 |
+| 3 | bare runtime: 정의 본문과 고른 tool만 | 1, 2 | 끝남(계획 bare-runtime). 남은 것(bare가 skill도 더하기)은 계획 agent-card의 `bare-skills` |
 | 4 | ACP 규격과 채팅 화면: protocol에 ACP를 정하고 lophn agent가 내놓는 것과 채팅 화면이 그리는 것을 ACP로 | 2 | 계획을 열지 않음 |
-| 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 계획 agent-screen을 다시 써야 한다(지금 brief는 agent가 client인 꼴이다) |
+| 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 4 뒤에 연다(옛 계획 agent-screen은 agent가 client인 꼴이라 지웠다) |
 | 6 | 별도 설치 구조: 본체와 따로 설치하고 켜는 기능 묶음 | 없음 | 계획을 열지 않음 |
-| 7 | harness agent(A2A): Claude Code, Codex, OpenCode를 정의의 runtime으로 두고 call, run, step 입력을 CLI 명령(headless)으로 실행한다. TUI 열기, workflow 참가자 | 3 | 계획 harness의 `harness-core`, `harness-headless`, `harness-reply`가 이것이다 |
-| 8 | third-party CLI GUI: `claude gui`로 그 harness session을 채팅 화면으로 본다. CLI 출력을 ACP로 옮긴다. 6의 구조로 설치한다 | 4, 6, 7 | 계획 harness의 `harness-acp`(표준 Agent Client Protocol)는 지우고 `harness-gui`는 4·6 뒤로 |
-| 9 | A2A 명함과 시야: 명함(목적, runtime, modality, 답 방식, skill diff)과 불린 agent가 보는 범위 | 2, 3 | 계획 agent-card가 명함을 한다. 시야는 사람이 정할 것 1 |
+| 7 | harness agent(A2A): Claude Code, Codex, OpenCode를 정의의 runtime으로 두고 call, run, step 입력을 CLI 명령(headless)으로 실행한다. TUI 열기, workflow 참가자 | 3 | 계획 harness-agent |
+| 8 | third-party CLI GUI: `claude gui`로 그 harness session을 채팅 화면으로 본다. CLI 출력을 ACP로 옮긴다. 6의 구조로 설치한다 | 4, 6, 7 | 4·6 뒤에 연다 |
+| 9 | A2A 명함과 시야: 명함(목적, runtime, modality, 답 방식, skill diff), place 정책과 agent 예외, home 좁히기 | 2, 3 | 계획 agent-card(bare skill도 이 계획) |
 
 4가 5와 8의 바탕이다. 7은 4 없이 먼저 갈 수 있다(기록은 지금 session 기록으로 남고 4가 그것을 ACP로 낸다).
 
@@ -80,12 +82,14 @@
 4. harness host는 shell 쪽이다. core는 사람의 PATH와 실행 파일을 모른다(agent, `architecture/coding-agent.md`).
 5. "click command는 등록할 수 있다"는 내장을 덜어낸 agent에게도 lophn 명령을 붙일 수 있다는 것이다. bare의 `tools`가 그것이다(agent).
 
-## 사람이 정할 것
+## 정한 것 (시야, 2026-11-04)
 
-1. **시야.** 지금 불린 agent는 부른 쪽이 고른 place(없으면 home: 등록된 모든 project 폴더를 읽는다)와 실어 보낸 것을 본다. 이 범위를 명함이나 부르는 쪽이 좁히는 장치가 필요한가(예: "Image Generator는 실어 보낸 것만 본다").
+6. 시야는 place 정책이 크게 정하고 agent 정책이 예외로 덧쓴다(사람). 기본: 같은 place 허용, project·app → home 허용, home → project·app 허용, 다른 project·다른 앱으로는 거절(agent 추천을 사람이 받음). 판정은 agent 예외 → place 덧쓰기 → 기본 순서이고 거절은 `forbidden`이다.
+7. 다른 place에서 불려 home에 열린 session은 폴더를 읽지 않고 실어 보낸 것만 본다(사람이 추천을 받음).
 
-## 연 계획과 맞추기
+## 계획
 
-- `agent-card`: 명함은 그대로 간다. 시야가 정해지면 더한다.
-- `agent-screen`: 다시 쓴다. `screen.context`·`screen.act`(agent가 client)를 지우고 단계 5 꼴로. 단계 4 뒤.
-- `harness`: `harness-core`, `harness-headless`, `harness-reply`(단계 7)는 간다. `harness-acp`를 지우고 `harness-gui`는 단계 4·6 뒤.
+- 단계 9와 3의 남은 것: `project-docs/plan/agent-card/`(lead가 돌고 있다. card-read land 전, card-check 중).
+- 단계 7: `project-docs/plan/harness-agent/`.
+- 단계 4, 6: 계획을 연다(조사 중).
+- 단계 5, 8: 4·6 뒤.

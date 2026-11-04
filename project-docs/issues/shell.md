@@ -33,3 +33,17 @@ modules: [packages/shell/renderer, packages/core/lophn-agent]
 - event의 `body`를 `blocksSummary(input.body)`로 채운다(작음, core 한 줄). live 메시지 목록도 본문을 읽기 전까지 `[image]`를 보인다.
 - event에 block을 싣는다(중간, event 계약이 바뀐다).
 - 추천: 앞의 것.
+
+## lophn이 떠 있을 때 OS 앱 바로가기를 누르면 앱 창 대신 기본 창이 뜬다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+```
+
+지금: Linux 앱 바로가기(`packages/shell/main/desktop/os-entry/linux.ts`)의 Exec는 `"<lophn>" --open-app <app ID>`다. 이미 떠 있는 앱은 이것을 second-instance argv로 받는데, Chromium이 그 argv를 스위치 먼저, 값 나중으로 다시 늘어놓고 `--allow-file-access-from-files` 같은 자기 스위치를 끼운다(harness-gui의 fix에서 창 없는 Electron으로 확인: `--harness-gui claude --cwd /tmp/x`가 `--harness-gui --cwd --allow-file-access-from-files <main> claude /tmp/x`로 왔다). `readOpenIntent`(`packages/shell/main/desktop/open-intent.ts`)는 `--open-app` 바로 뒤 값을 앱 ID로 읽으므로 그 자리의 끼운 스위치를 보고 기본 창으로 읽는다. 처음 켤 때의 `process.argv`는 다시 늘어놓지 않아 된다.
+
+영향: lophn이 떠 있으면 사람이 OS 메뉴의 앱 바로가기를 눌러도 그 앱의 전용 창이 아니라 기본 창이 뜬다(확인은 harness-gui 쪽 같은 길로 했고, 바로가기 자체로 재현하지는 않았다).
+
+고치려면:
+- Exec를 `--open-app=<app ID>`로 쓰고 parser가 그 꼴을 읽는다. 이미 깔린 바로가기 file은 옛 꼴이라, 앱 기동 때 있는 `lophn-*.desktop`을 새 꼴로 다시 쓴다(설치된 앱 목록에서). 작음. 추천.

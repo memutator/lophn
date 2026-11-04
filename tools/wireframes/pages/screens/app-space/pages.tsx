@@ -1,5 +1,52 @@
 // 앱 place page들. 각 component는 인자 없이 한 상태를 고정해 그린다.
+import type { ReactNode } from "react";
+import {
+  CODE,
+  CodingCoachView,
+  REPLY,
+} from "../../../mock/app-space/coding-coach-view.tsx";
 import { AppSpace } from "./space.tsx";
+
+// 코치 앱 화면은 앱이 그리는 view만 그린다(lophn 창은 없다). 상태는 ACP 모양의 가짜 값이다.
+function CoachFrame({ children }: { children: ReactNode }) {
+  return <div style={{ display: "flex", minHeight: 460 }}>{children}</div>;
+}
+
+/** 코딩 코치 앱 화면: 코드를 쓰고 [Send for review]를 누르기 전. */
+export function CoachIdle() {
+  return (
+    <CoachFrame>
+      <CodingCoachView />
+    </CoachFrame>
+  );
+}
+
+/** session의 turn이 도는 중이다. 보내기는 꺼진다. */
+export function CoachWorking() {
+  return (
+    <CoachFrame>
+      <CodingCoachView phase="working" />
+    </CoachFrame>
+  );
+}
+
+/** turn이 끝나 마지막 agent 메시지의 JSON이 꼴 검사를 통과했다. 줄 주석이 textarea 줄 옆에 보인다. */
+export function CoachReviewed() {
+  return (
+    <CoachFrame>
+      <CodingCoachView code={CODE} reply={REPLY} />
+    </CoachFrame>
+  );
+}
+
+/** 답이 꼴에 맞지 않아 값이 아닌 오류로 나왔다. */
+export function CoachFailed() {
+  return (
+    <CoachFrame>
+      <CodingCoachView phase="failed" />
+    </CoachFrame>
+  );
+}
 
 /** 앱 place를 처음 연 모양: 앱 화면 탭 하나, 오른쪽 Logs panel. */
 export function AppPlaceScreen() {

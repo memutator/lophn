@@ -140,3 +140,22 @@ Panels are where an app is used most often, so design them on purpose:
 - An app may declare `icon` (an image in the source, see the `@lophn/declaration`
   guide). lophn shows it on tabs, the activity bar and app lists. A person can
   also upload one in App details; theirs wins.
+
+## Talking to an agent from a screen
+
+When a screen needs an agent to do something (review what the person wrote,
+explain a result, fill a form), use `@lophn/agent`. Do not build your own
+transport, and do not add an operation or command only to reach an agent.
+
+- `useAgentSession({agent})` opens a session in this app's place and gives its
+  ACP state. The session also shows in lophn's sidebar and chat tab, so the
+  person can follow it there. Approvals are decided there too.
+- Send what the screen shows with `contextBlock({name, mimeType, text})`, one
+  block per piece (the code, the picked item, the filter).
+- When the screen needs a value back, pass `{reply: schema}` to `send` and wait
+  on `reply`. The schema uses `type`, `properties`, `required`, `items` and
+  `enum` only. An answer that does not fit the schema arrives as an error, never
+  as a value, so show a "try again" state for it.
+- Read the `@lophn/agent` guide (`lophn package read @lophn/agent`) for the
+  coding-coach example, then declare the package in `lophn.ts` and
+  `package.json`.

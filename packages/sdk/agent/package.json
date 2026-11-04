@@ -1,0 +1,10 @@
+{
+  "name": "@lophn/agent",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./mod.ts",
+  "dependencies": {
+    "@types/react": "19.3.0",
+    "react": "19.3.0"
+  }
+}

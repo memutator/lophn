@@ -19,6 +19,7 @@ export const FIXED_UI_DEPENDENCIES = [
   // 공용 UI와 지원 소스(apps/sdk 설치 사본). 같은 판으로 고정해 bundle에 담는다.
   "@lophn/ui",
   "@lophn/app-ui",
+  "@lophn/agent",
   "@lophn/i18n",
   "react",
   "react-dom",

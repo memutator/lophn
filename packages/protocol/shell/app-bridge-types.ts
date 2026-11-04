@@ -1,4 +1,5 @@
 // 앱 view preload bridge(`lophnApp`)의 모양. apps SDK가 import하는 portable entry라 Zod·platform runtime을 싣지 않는다.
+import type { Result } from "../../base/result.ts";
 
 export const EXTERNAL_URL_MAX_CHARS = 8192;
 
@@ -37,9 +38,28 @@ export type TabHeadEvent =
   | { type: "tab" | "action" | "menu"; id: string }
   | { type: "back" | "forward" };
 
+/**
+ * 앱 화면이 자기 앱 place의 agent session과 ACP로 이야기하는 길. session이 이 앱 place의 것이 아니면 모두
+ * `forbidden`이다. 값은 protocol/acp의 `AcpState`·`AcpUpdate`·`AcpInput`이다. 이 entry가 그 type을 import하면 shell main의
+ * tsconfig.json(noUncheckedIndexedAccess)이 `base/mod.ts`까지 읽어 깨지므로 type 인자로 두고, 쓰는 쪽(SDK)이 채운다.
+ */
+export type LophnAppAgent<
+  State = unknown,
+  Update = unknown,
+  Input = unknown,
+> = {
+  /** 이 앱 place에 그 agent의 새 session을 연다. */
+  open(input: { agent: string }): Promise<Result<{ session: string }>>;
+  snapshot(session: string): Promise<Result<State>>;
+  /** 이 화면이 열었거나 snapshot·send로 확인한 session의 갱신만 온다. 놓치면 snapshot을 다시 읽는다. */
+  onUpdate(listener: (session: string, update: Update) => void): () => void;
+  send(input: Input): Promise<Result<void>>;
+};
+
 export type LophnApp = {
   callOperation(operation: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
+  agent: LophnAppAgent;
   /** 이 화면 탭의 머리 줄을 바꾼다. null이면 내린다. */
   setTabHead(head: TabHead | null): void;
   /** 머리 줄의 event를 받는다. 받기 시작하면 지금 `shown`을 바로 한 번 준다. */

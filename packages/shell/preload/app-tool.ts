@@ -1,12 +1,19 @@
 // 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`,
-// `lophnApp.openExternal`과 자기 탭 머리 줄(`setTabHead`·`onTabHead`)만 열고, 다른 앱·shell API·token·임의
+// `lophnApp.openExternal`, 앱 place의 agent session 길(`agent`)과 자기 탭 머리 줄(`setTabHead`·`onTabHead`)만 열고, 다른 앱·shell API·token·임의
 // method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
+import type { Result } from "../../base/result.ts";
 import type {
   LophnApp,
   TabHead,
   TabHeadEvent,
 } from "../../protocol/shell/app-bridge-types.ts";
+import {
+  APP_AGENT_OPEN_CHANNEL,
+  APP_AGENT_SEND_CHANNEL,
+  APP_AGENT_SNAPSHOT_CHANNEL,
+  APP_AGENT_UPDATE_CHANNEL,
+} from "../ipc/app-agent.ts";
 import {
   APP_CALL_OPERATION_CHANNEL,
   APP_OPEN_EXTERNAL_CHANNEL,
@@ -57,6 +64,24 @@ async function request(
   return reply.value;
 }
 
+// agent 길은 실패를 던지지 않고 Result로 돌려준다.
+async function result(
+  transport: AppTransport,
+  channel: string,
+  input: unknown,
+): Promise<Result<never>> {
+  try {
+    const reply = replyOf(await transport.invoke(channel, input));
+    if (reply !== undefined) return reply as Result<never>;
+  } catch {
+    // 아래 고정 오류로 돌려준다.
+  }
+  return {
+    ok: false,
+    error: { code: "unavailable", message: "app bridge is unavailable" },
+  } as Result<never>;
+}
+
 export function createAppTool(transport: AppTransport): LophnApp {
   // shell이 머리 줄을 그리는지는 page가 받기 시작하기 전에 올 수 있어 여기 쥐고 있다가 새 listener에 준다.
   let shown = false;
@@ -72,6 +97,20 @@ export function createAppTool(transport: AppTransport): LophnApp {
       }
     }
   });
+  const updateListeners = new Set<(session: string, update: unknown) => void>();
+  transport.on(APP_AGENT_UPDATE_CHANNEL, (payload) => {
+    const { session, update } = payload as {
+      session: string;
+      update: unknown;
+    };
+    for (const listener of updateListeners) {
+      try {
+        listener(session, update);
+      } catch {
+        // 한 listener의 오류가 다른 listener를 막지 않는다.
+      }
+    }
+  });
   try {
     transport.sendToHost(APP_TAB_HEAD_CHANNEL, { hello: true });
   } catch {
@@ -83,6 +122,20 @@ export function createAppTool(transport: AppTransport): LophnApp {
     async openExternal(url: string): Promise<void> {
       await request(transport, APP_OPEN_EXTERNAL_CHANNEL, { url });
     },
+    agent: Object.freeze({
+      open: (input: { agent: string }) =>
+        result(transport, APP_AGENT_OPEN_CHANNEL, { agent: input.agent }),
+      snapshot: (session: string) =>
+        result(transport, APP_AGENT_SNAPSHOT_CHANNEL, { session }),
+      send: (input: unknown) =>
+        result(transport, APP_AGENT_SEND_CHANNEL, input),
+      onUpdate(listener: (session: string, update: unknown) => void) {
+        updateListeners.add(listener);
+        return () => {
+          updateListeners.delete(listener);
+        };
+      },
+    }),
     setTabHead(head: TabHead | null): void {
       try {
         transport.sendToHost(APP_TAB_HEAD_CHANNEL, head ?? null);

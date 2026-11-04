@@ -2,6 +2,11 @@
 // view이고 그 main frame이 자기 앱 주소(같은 screen)인지 본다. 페이지는 자기가 어느 앱인지 모른다.
 // 신원은 sender view에서 main이 정한다. 앱 view가 아닌 sender는 어느 통로도 쓰지 못한다.
 import {
+  APP_AGENT_OPEN_CHANNEL,
+  APP_AGENT_SEND_CHANNEL,
+  APP_AGENT_SNAPSHOT_CHANNEL,
+} from "../../ipc/app-agent.ts";
+import {
   APP_CALL_OPERATION_CHANNEL,
   APP_OPEN_EXTERNAL_CHANNEL,
   APP_VIEW_ERROR_CHANNEL,
@@ -29,6 +34,9 @@ interface AppIpcDeps {
   call(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   openExternal(view: BoundView, input: unknown): Promise<CallOutcome<null>>;
   viewError(view: BoundView, input: unknown): Promise<void>;
+  agentOpen(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
+  agentSnapshot(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
+  agentSend(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
 }
 
 function isMainFrame(event: IpcEvent): CallerFrame | undefined {
@@ -79,6 +87,17 @@ export function registerAppIpc(ipc: AppIpcHost, deps: AppIpcDeps): void {
       ? NOT_APP_VIEW
       : await deps.openExternal(view, input);
   });
+  const agentChannels = [
+    [APP_AGENT_OPEN_CHANNEL, deps.agentOpen],
+    [APP_AGENT_SNAPSHOT_CHANNEL, deps.agentSnapshot],
+    [APP_AGENT_SEND_CHANNEL, deps.agentSend],
+  ] as const;
+  for (const [channel, run] of agentChannels) {
+    ipc.handle(channel, async (event, input) => {
+      const view = senderView(deps.view, event);
+      return view === undefined ? NOT_APP_VIEW : await run(view, input);
+    });
+  }
   ipc.on(APP_VIEW_ERROR_CHANNEL, (event, input) => {
     const view = senderView(deps.view, event);
     if (view !== undefined) void deps.viewError(view, input);
@@ -88,5 +107,8 @@ export function registerAppIpc(ipc: AppIpcHost, deps: AppIpcDeps): void {
 export function removeAppIpc(ipc: AppIpcHost): void {
   ipc.removeHandler(APP_CALL_OPERATION_CHANNEL);
   ipc.removeHandler(APP_OPEN_EXTERNAL_CHANNEL);
+  ipc.removeHandler(APP_AGENT_OPEN_CHANNEL);
+  ipc.removeHandler(APP_AGENT_SNAPSHOT_CHANNEL);
+  ipc.removeHandler(APP_AGENT_SEND_CHANNEL);
   ipc.removeAllListeners(APP_VIEW_ERROR_CHANNEL);
 }

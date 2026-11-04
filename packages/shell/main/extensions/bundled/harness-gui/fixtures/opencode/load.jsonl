@@ -1,0 +1,9 @@
+{"kind": "send", "data": {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": 1, "clientCapabilities": {"fs": {"readTextFile": false, "writeTextFile": false}, "terminal": false}}}}
+{"kind": "recv", "data": {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": 1, "agentCapabilities": {"loadSession": true}}}}
+{"kind": "send", "data": {"jsonrpc": "2.0", "id": 2, "method": "session/load", "params": {"sessionId": "ses_e592c5dceffeeOvDkGApBzT68M", "cwd": "/work/load", "mcpServers": []}}}
+{"kind": "recv", "data": {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "ses_e592c5dceffeeOvDkGApBzT68M", "update": {"sessionUpdate": "user_message_chunk", "messageId": "msg_1a6d3a24b001V848738dlQCic2", "content": {"type": "text", "text": "Reply with exactly this sentence and nothing else: Hello from the GUI fixture."}}}}}
+{"kind": "recv", "data": {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "ses_e592c5dceffeeOvDkGApBzT68M", "update": {"sessionUpdate": "agent_message_chunk", "messageId": "msg_1a6d3a26d001r65ks6EQAmwfcq", "content": {"type": "text", "text": "Hello from the GUI fixture."}}}}}
+{"kind": "recv", "data": {"jsonrpc": "2.0", "id": 2, "result": {}}}
+{"kind": "send", "data": {"jsonrpc": "2.0", "id": 3, "method": "session/prompt", "params": {"sessionId": "ses_e592c5dceffeeOvDkGApBzT68M", "prompt": [{"type": "text", "text": "What exact sentence did you reply with in your previous message? Quote it."}]}}}
+{"kind": "recv", "data": {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "ses_e592c5dceffeeOvDkGApBzT68M", "update": {"sessionUpdate": "agent_message_chunk", "messageId": "msg_1a6d3c2c0001Fug9SuVIvIyM99", "content": {"type": "text", "text": "\"Hello from the GUI fixture.\""}}}}}
+{"kind": "recv", "data": {"jsonrpc": "2.0", "id": 3, "result": {"stopReason": "end_turn", "usage": {"inputTokens": 8803, "outputTokens": 10, "totalTokens": 8813}, "_meta": {}}}}

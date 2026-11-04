@@ -34,6 +34,7 @@ import {
   syncSkillCopies,
   uninstallGlobal,
 } from "../harnesses/mod.ts";
+import { LOPHN_AGENT_SKILL } from "../skills/lophn-agent.ts";
 import type { LocalContext } from "./types.ts";
 
 export function runHarnessDetect(
@@ -172,8 +173,9 @@ export type SkillSyncRow = SkillCopyResult & {
 
 // hook을 놓은 harness의 skill 폴더에 공유 skill 사본을 맞춘다. hook이 없는 harness의 폴더는 lophn이 쓴 사본만 지운다.
 // hook 상태를 못 읽은 폴더(`failed`)는 건드리지 않는다. codex와 pi는 폴더를 같이 쓰므로 하나라도 놓였으면 둔다.
+// extension harness가 켜져 있으면(`harness_enabled`) lophn-agent skill을 hook과 상관없이 두고(켜기가 사람의 허락이다), 꺼지면 그 사본도 같은 길로 지운다.
 export async function runHarnessSyncSkills(
-  input: { skills: SharedSkill[] },
+  input: { skills: SharedSkill[]; harness_enabled: boolean },
   home: string,
   now: string,
 ): Promise<Result<SkillSyncRow[], LophnError>> {
@@ -199,7 +201,10 @@ export async function runHarnessSyncSkills(
     try {
       const done = await syncSkillCopies(nodePorts, {
         dir,
-        skills: installed ? input.skills : [],
+        skills: [
+          ...(input.harness_enabled ? [LOPHN_AGENT_SKILL] : []),
+          ...(installed ? input.skills : []),
+        ],
       });
       rows.push({ ...done, harnesses: harnesses.map((one) => one.id), dir });
     } catch {

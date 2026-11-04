@@ -5,6 +5,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/mod.ts";
+import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import {
   HARNESS_ADAPTERS,
   type HarnessId,
@@ -184,7 +185,11 @@ export function createAgentWiring(options: {
   ctx.relay.conditions.push({ types: ["AppViewChanged", "SettingsChanged"] });
   ctx.relay.events.push((event) => {
     if (event.type === "SettingsChanged") {
-      if (event.payload.keys.includes(SHARED_APPS_SETTING_KEY)) {
+      const { keys } = event.payload;
+      if (
+        keys.includes(SHARED_APPS_SETTING_KEY) ||
+        keys.includes(HARNESS_SETTING_KEY)
+      ) {
         skillSync.request();
       }
     } else if (

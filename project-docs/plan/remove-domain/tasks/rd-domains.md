@@ -45,3 +45,5 @@
 - `protocol/domains/paths.ts`의 `DOMAIN_KINDS_FILE`·`domainKindsFile`도 같이 지운다.
 - data step은 `WIRINGS` 순서로 돈다. `domains.retire`는 `artifactMoveWiring`(`artifacts.container`)과 `rd-layers`의 옮기기 step 뒤, 맨 끝에 둔다. 이름이 둘 다 차서 못 옮긴 artifact는 `domains/<dom>/artifacts/`에 남으므로 retire가 폴더를 지우지 않는다.
 - wireframes의 artifact sidebar page "one domain"과 "list"가 거의 같아졌다(`rd-artifacts`). 하나를 지운다.
+- `rd-layers`가 넘긴 것: app-detail `core-source.ts`의 `readDomainDoc`·`writeDomainDoc`(지금 `unavailable`), `place-window.tsx`의 `openDomainDoc`(no-op), `domains-section.tsx`의 DOMAIN.md 편집기를 같이 지운다. i18n `domain.notice.all-of-*`·`none-here`·`only-chosen`, `domain.heading.list`는 이미 죽었다. wireframes `pages/screens/agent-settings.tsx`·`agents-tab.tsx`의 domain checkbox와 domain별 skill 글을 고친다. `skills-off-step.ts`의 `domainSkillsFolder` import는 할 일 5대로 문자열로 바꾼다.
+- agent tool `domain.read`(`core/domains`)를 지우면 place tool 목록과 eval registry 쪽도 grep한다.

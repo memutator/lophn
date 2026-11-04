@@ -33,7 +33,7 @@ extension을 끔 ─▶ deactivate() ─▶ intent 함수를 풀고 연 handle�
 
 - **harness는 `claude`, `codex`, `opencode` 셋이다.** 목록은 `GUI_HARNESSES` 하나이고 CLI 입력, open intent, adapter 표가 모두 이것을 쓴다.
 - **open intent는 모양만 본다.** `--harness-gui`가 있으면 그 꼴로만 읽는다: harness가 목록에 있고, `--cwd`가 절대 경로이고, `--resume`이 있으면 `-`로 시작하지 않는다(CLI의 flag가 되지 않게). flag는 하나씩만 있어야 한다. 틀리면 기본 창이다. 폴더가 있는지는 여는 쪽이 본다.
-- **`lophn gui`는 core 자격이 없어도 된다.** core가 꺼져 있어도 user token 없이 앱을 띄운다. CLI는 앱과 같은 Electron binary를 Node로 돌리므로, `ELECTRON_RUN_AS_NODE`만 빼고 같은 binary를 띄운다. 저장소 실행(shell main bundle `packages/shell/main/dist/main.cjs`가 있으면)은 그 bundle과 `--no-sandbox`를 인자로 준다(저장소의 `chrome-sandbox`는 setuid가 아니라 flag 없이는 argv를 넘기기 전에 죽고, 터미널 env는 `ELECTRON_*`를 지워 env로 받을 수 없다). agent의 `lophn` 도구 목록에는 없다(표의 명령이 아니다).
+- **`lophn gui`는 core 자격이 없어도 된다.** core가 꺼져 있어도 user token 없이 앱을 띄운다. CLI는 앱과 같은 Electron binary를 Node로 돌리므로, `ELECTRON_RUN_AS_NODE`만 빼고 같은 binary를 띄운다. 저장소 실행(shell main bundle `packages/shell/main/dist/main.cjs`가 있으면)은 `LOPHN_HOME`이 없거나 사람의 `~/.lophn`이면 띄우지 않고 `invalid_input`이다(개발 code가 사람의 실제 data root로 뜨거나 설치본 창이 뜨지 않게. data root가 다르면 single-instance lock도 달라 그 data root의 앱으로 간다). 띄울 때는 그 bundle과 `--no-sandbox`를 인자로 준다(저장소의 `chrome-sandbox`는 setuid가 아니라 flag 없이는 argv를 넘기기 전에 죽고, 터미널 env는 `ELECTRON_*`를 지워 env로 받을 수 없다). agent의 `lophn` 도구 목록에는 없다(표의 명령이 아니다).
 - **handle 하나는 창 하나다.** `id`(`win_…`)는 lophn session id가 아니다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
 - **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 창은 닫지 않고 오류를 끝난 turn으로 보인다. 사람이 닫는다.
 - **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다.
@@ -41,7 +41,7 @@ extension을 끔 ─▶ deactivate() ─▶ intent 함수를 풀고 연 handle�
 - **창은 desktop 창의 한 화면이다.** detached 창과 같이 desktop entry를 `#harness-gui=<id>` hash로 연다. 창 제목은 harness 이름과 cwd 끝 폴더다. main은 창이 보낸 id가 아니라 sender(webContents)로 handle을 찾는다. 창은 snapshot 없이 `EMPTY_ACP_STATE`부터 갱신을 `reduceAcp`로 접는다. `reread`가 서도 다시 읽을 것이 없다. 그래서 adapter가 `seq`를 1부터 빈틈없이 붙인다.
 - **창은 lophn 채팅 화면(`AgentView`)을 그대로 쓰고 lophn 전용 기능을 숨긴다.** source의 `external: true`가 숨기는 칸이다: header의 session 바꾸기·이름·보관·fork·more 메뉴, model 고르기·skip·권한 요약, slash 메뉴(`/…`는 글로 보낸다), 메시지의 Rewind·Fork, 상태 footer와 `/status`, session 목록·검색. source가 답하지 못하는 읽기(model, 권한, call, envelope, tool 본문, 이미지 올리기)는 `unavailable`이나 `not_found`다. 입력창 글은 "Message <harness>…"이고, 승인 카드의 always는 "Allow for this session"이다(adapter가 그 CLI session 안으로 좁힌다).
 - **입력의 `session`은 창이 만든 값이다.** adapter는 보지 않는다. 사람 메시지는 `send` 입력의 `id`로 `message_added`가 된다. turn·tool·승인 id는 adapter가 `ctx.ids`로 만들어 CLI의 id와 짝짓는다.
-- **터미널 함수는 `gui`만 가로챈다.** shell 시작 층의 `claude`·`codex`·`opencode` 함수는 첫 인자가 `gui`면 shell main이 알려 준 CLI 경로(개발은 `LOPHN_CLI`, 설치본은 `lophn`. 터미널 env에서는 `LOPHN_*`가 빠진다)로 `gui <harness> …`를 부르고, 아니면 인자를 그대로 원래 명령에 넘긴다([terminal-agent.md](terminal-agent.md)).
+- **터미널 함수는 `gui`만 가로챈다.** shell 시작 층의 `claude`·`codex`·`opencode` 함수는 첫 인자가 `gui`면 shell main이 알려 준 CLI 경로(개발은 `LOPHN_CLI`, 설치본은 `lophn`. 터미널 env에서는 `LOPHN_*`가 빠진다)로 그 shell main의 data root를 `LOPHN_HOME`에 넣어 `gui <harness> …`를 부르고, 아니면 인자를 그대로 원래 명령에 넘긴다([terminal-agent.md](terminal-agent.md)).
 
 ## Claude Code adapter
 

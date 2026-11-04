@@ -37,7 +37,7 @@ modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
 
 고치려면:
 - A. 작음(추천): secret이 아닌 증거를 outcome에 더한다. 판정 경로(`unparseable_success_body`, `stream_failed_without_code`, `unclassified` 같은 값), content-type, provider request id header, 처음 본 모르는 event type 몇 개. `ModelOutcome` schema, `failures.ts`의 verdict, `invoke.ts`, 세 adapter의 collector를 고친다. 잃는 것 없음.
-- B. 작음(추천, A와 같이): 화면의 실패 줄에 판정 경로와 request id를 보인다. `tailOf`와 `ProviderError`. DB를 열지 않고 원인 갈래를 안다.
+- B. 작음(추천, A와 같이): 화면의 실패 줄에 판정 경로와 request id를 보인다. core `wiring/acp-build.ts`의 `noticeOf`와 화면의 `ProviderError`. DB를 열지 않고 원인 갈래를 안다.
 - C. 중간: `unknown`일 때만 응답 본문 앞부분(2 KiB 안팎)을 redaction을 거쳐 `model_call` blob으로 남긴다. A로 갈래는 알아도 내용(예: 본문이 HTML인지 SSE인지)은 모르는 경우를 덮는다. "오류 본문은 남기지 않는다"는 지금 규칙을 바꾼다.
 
 정할 것:

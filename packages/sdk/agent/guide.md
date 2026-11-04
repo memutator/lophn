@@ -17,15 +17,17 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
 
 - `useAgentSession({agent, app?, newId?})` — `{session, state, send, stop,
   answer, error}`.
-  - `agent`는 놓인 agent의 id다. 화면이 열리면 이 앱 place에 새 session을 열고
-    바로 snapshot을 읽는다. `agent`가 바뀌면 새 session을 연다. 화면이 새로
-    load되면 session도 새로 열린다.
-  - `session`은 열린 뒤의 session id이고 그 전에는 `null`이다. `state`는 ACP
-    상태(`AcpState`)이고 snapshot을 읽기 전에는 `null`이다. `items`가 대화의
+  - `agent`는 놓인 agent의 id다. session은 화면을 연 것만으로는 열리지 않고
+    **첫 `send`에서** 이 앱 place에 새로 열려 바로 snapshot을 읽는다(열 때마다
+    lophn의 sidebar에 session이 하나 생기기 때문이다). `agent`가 바뀌면 새 session을
+    쓰고, 화면이 새로 load되면 다시 첫 `send`에서 연다.
+  - `session`은 첫 `send`로 열린 뒤의 session id이고 그 전에는 `null`이다. `state`는
+    ACP 상태(`AcpState`)이고 snapshot을 읽기 전에는 `null`이다. `stop`과 `answer`는
+    session이 열리기 전에는 `session is not open` 오류다. `items`가 대화의
     줄(`message`, `tool`, `approval`, `notice`, `hidden`)이고 순서가 `seq`다.
     `turn`이 지금 turn(`phase`: working, waiting, ended)이고 `writing`이 흘러나오는
     글이다. 갱신은 `reduceAcp`로 접고 순번이 빠지면 snapshot을 다시 읽는다.
-  - `error`는 열기·읽기 실패 `"<code>: <message>"`다. bridge가 없으면(앱 view 밖)
+  - `error`는 첫 `send`의 열기·읽기 실패 `"<code>: <message>"`다. bridge가 없으면(앱 view 밖)
     `unavailable`이다.
   - `send(blocks, {reply?})` — 사람 메시지를 보낸다. 접수되면
     `{ok: true, reply}`, 아니면 `{ok: false, error}`다. 도는 turn이 있으면 다음
@@ -129,7 +131,7 @@ function Coach({ attempt }: { attempt: { id: string; title: string } }) {
     <>
       <Gutter lines={code.split("\n").length} notes={byLine} />
       <textarea value={code} onChange={(event) => setCode(event.target.value)} />
-      <button disabled={working || coach.session === null} onClick={review}>
+      <button disabled={working} onClick={review}>
         {working ? "Reviewing…" : "Send for review"}
       </button>
       {problem ?? coach.error}
@@ -143,7 +145,7 @@ function Coach({ attempt }: { attempt: { id: string; title: string } }) {
 - 흘러나오는 글은 `state.writing?.text`, 끝난 메시지는 `state.items`의
   `message`(`actor: "agent"`)다. 꼴이 있는 답이면 끝나기 전 글은 JSON 조각이므로
   그리지 않는다.
-- 새로 load된 화면은 새 session을 연다. 이전 session은 lophn의 채팅 탭에 남는다.
+- 새로 load된 화면은 첫 `send`에서 새 session을 연다. 이전 session은 lophn의 채팅 탭에 남는다.
 
 ## version 정책
 

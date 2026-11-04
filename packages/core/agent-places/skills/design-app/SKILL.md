@@ -147,9 +147,11 @@ When a screen needs an agent to do something (review what the person wrote,
 explain a result, fill a form), use `@lophn/agent`. Do not build your own
 transport, and do not add an operation or command only to reach an agent.
 
-- `useAgentSession({agent})` opens a session in this app's place and gives its
-  ACP state. The session also shows in lophn's sidebar and chat tab, so the
-  person can follow it there. Approvals are decided there too.
+- `useAgentSession({agent})` gives the ACP state of a session in this app's
+  place. The session opens on the first `send`, not when the screen opens, so
+  `session` and `state` are `null` until then; do not send just to warm it up.
+  The session also shows in lophn's sidebar and chat tab, so the person can
+  follow it there. Approvals are decided there too.
 - Send what the screen shows with `contextBlock({name, mimeType, text})`, one
   block per piece (the code, the picked item, the filter).
 - When the screen needs a value back, pass `{reply: schema}` to `send` and wait
@@ -157,5 +159,6 @@ transport, and do not add an operation or command only to reach an agent.
   `enum` only. An answer that does not fit the schema arrives as an error, never
   as a value, so show a "try again" state for it.
 - Read the `@lophn/agent` guide (`lophn package read @lophn/agent`) for the
-  coding-coach example, then declare the package in `lophn.ts` and
-  `package.json`.
+  coding-coach example. Apps made from the current template already declare the
+  package. An app made before needs it added to both `lophn.ts` and
+  `package.json`, with the same exact version.

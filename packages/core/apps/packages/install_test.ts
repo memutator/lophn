@@ -143,19 +143,28 @@ test("사본은 package.json을 갖고 SDK 사본 의존을 상대 file: 경로�
   });
 });
 
-test("깐 declaration·cap-store·cap-problem 사본이 repo 없이 import된다", async () => {
+test("깐 declaration·cap-store·cap-problem·agent 사본이 repo 없이 import된다", async () => {
   await withTemp(async (dataRoot) => {
     const installed = await installSdkCopies({
       dataRoot,
       packagesRoot: REPO_PACKAGES,
     });
     assert.ok(installed.ok);
-    for (const name of ["declaration", "cap-store", "cap-problem"]) {
+    // agent의 mod.ts는 react를 import해 repo 밖에서 읽을 수 없다. react 없는 session.ts가 vendor한 reduce.ts까지 닿는다.
+    const entries = {
+      declaration: "mod.ts",
+      "cap-store": "mod.ts",
+      "cap-problem": "mod.ts",
+      agent: "session.ts",
+    };
+    for (const [name, entry] of Object.entries(entries)) {
       const installedCopy = installed.value.find(
         (item) => item.name === `@lophn/${name}`,
       );
       assert.ok(installedCopy, name);
-      const copy = await import(`file://${installedCopy.install_path}/mod.ts`);
+      const copy = await import(
+        `file://${installedCopy.install_path}/${entry}`
+      );
       assert.ok(Object.keys(copy).length > 0, name);
     }
   });

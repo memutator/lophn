@@ -25,7 +25,10 @@ export interface AgentSession extends SessionView {
 const EMPTY: SessionView = { session: null, state: null, error: null };
 const NOT_OPEN = { ok: false, error: "session is not open" } as const;
 
-/** 이 앱의 agent session을 열고 ACP 상태를 React state로 준다. `agent`가 바뀌면 새 session을 연다. */
+/**
+ * 이 앱의 agent session의 ACP 상태를 React state로 준다. session은 첫 `send`에서 연다(그 전에는 `session`과 `state`가
+ * null이다). `agent`가 바뀌면 새 session을 쓴다.
+ */
 export function useAgentSession(options: {
   agent: string;
   app?: AgentBridge | undefined;

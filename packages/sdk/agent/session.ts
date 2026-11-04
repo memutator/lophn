@@ -103,9 +103,9 @@ function replyOf(
 }
 
 /**
- * 이 앱의 agent session을 열고 ACP 상태를 `onChange`로 알린다. 열자마자 snapshot을 읽고, 읽는 동안 온 갱신은 모아
- * 두었다가 snapshot 위에 `reduceAcp`로 접는다(bridge는 snapshot을 읽은 session의 갱신만 준다). `reread`가 서면
- * snapshot을 다시 읽는다.
+ * 이 앱의 agent session을 첫 send에서 열고 ACP 상태를 `onChange`로 알린다. 열자마자 snapshot을 읽고, 읽는 동안 온
+ * 갱신은 모아 두었다가 snapshot 위에 `reduceAcp`로 접는다(bridge는 snapshot을 읽은 session의 갱신만 준다). `reread`가
+ * 서면 snapshot을 다시 읽는다.
  */
 export function openAgentSession(
   app: AgentBridge,
@@ -163,14 +163,24 @@ export function openAgentSession(
     if (next.reread) void read(true);
   });
 
-  void (async () => {
-    const result = await app.open({ agent });
-    if (closed) return;
-    if (!result.ok) return fail(result.error);
-    opened = result.value.session;
-    notify();
-    await read(true);
-  })();
+  // session은 첫 send에서 연다. 열 때마다 사이드바에 보이는 session이 하나 생기므로 화면을 연 것만으로는 열지 않는다.
+  let opening: Promise<Done> | null = null;
+  const ensureOpen = (): Promise<Done> => {
+    opening ??= (async (): Promise<Done> => {
+      const result = await app.open({ agent });
+      if (!result.ok) {
+        opening = null;
+        fail(result.error);
+        return { ok: false, error: describe(result.error) };
+      }
+      error = null;
+      opened = result.value.session;
+      notify();
+      await read(true);
+      return { ok: true };
+    })();
+    return opening;
+  };
 
   const post = async (input: AcpInput): Promise<Done> => {
     const result = await app.send(input);
@@ -183,9 +193,12 @@ export function openAgentSession(
 
   return {
     async send(blocks, options) {
-      if (closed || opened === null) return notOpen;
+      if (closed) return notOpen;
       const schema = options?.reply;
       const id = newId();
+      const ready = await ensureOpen();
+      if (!ready.ok) return ready;
+      if (closed) return notOpen;
       // 답은 보내기 전에 지켜보기 시작한다. 갱신이 보내기 응답보다 먼저 올 수 있다.
       let watcher: Watcher | undefined;
       const reply =
@@ -204,7 +217,7 @@ export function openAgentSession(
             });
       const done = await post({
         type: "send",
-        session: opened,
+        session: opened as string,
         id,
         key: id,
         content: [

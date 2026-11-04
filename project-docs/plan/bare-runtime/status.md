@@ -6,4 +6,4 @@ lead만 고친다. `tools/status.py bare-runtime build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `bare-definition` | bare | 1 | 없음 | merged | bare/bare-definition | 1d37155c1 |  |
 | `bare-assembly` | bare | 2 | bare-definition | merged | bare/bare-assembly | 39acf678c |  |
-| `bare-reply` | bare | 3 | bare-assembly | todo |  |  |  |
+| `bare-reply` | bare | 3 | bare-assembly | running | bare/bare-reply |  |  |

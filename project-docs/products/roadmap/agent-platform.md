@@ -1,6 +1,6 @@
 # agent platform: 사람이 정한 agent를 앱, workflow, 다른 harness와 잇는다
 
-상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 계획 content-block으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md`). 단계 3은 계획 bare-runtime으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md` "bare runtime"). 단계 4는 계획 `project-docs/plan/agent-card/`로 열었다(2026-11-04). 아래 "지금 코드"의 정의 칸, P4, result 답 줄은 그 앞 기준이다.
+상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 계획 content-block으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md`). 단계 3은 계획 bare-runtime으로 열어 land했다(2026-11-04, `project-docs/products/change-log/0.17.0.md` "bare runtime"). 단계 4는 계획 `project-docs/plan/agent-card/`, 단계 5는 `project-docs/plan/agent-screen/`으로 열었다(2026-11-04). 아래 "지금 코드"의 정의 칸, P4, result 답 줄은 그 앞 기준이다.
 배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
 
 ## 왜
@@ -241,7 +241,7 @@
 
 ### 5 앱 안 agent
 
-23. **앱 쪽 SDK는 새 package `@lophn/agent` 하나다(agent).** 화면 context hook(`useAgentContext`)과 화면 action을 담는다. 대화 화면 component는 없다. 대화는 지금의 Agent 탭에서 한다(사람, 2026-11-04). `@lophn/app-ui`에 넣지 않는 이유: UI가 아니고(content block type, context, action), 앱마다 쓰는지가 갈린다. 새 package라 `packages/core/apps/packages/vendor.ts`, template `package.json.tmpl`, `packages/core/package.json`에 같이 올리고, 이미 있는 앱에는 앱 agent가 의존을 더한다.
+23. **앱 쪽 SDK는 새 package `@lophn/agent` 하나다(agent).** 화면 context hook(`useAgentContext`)과 화면 action을 담는다. 대화 화면 component는 없다. 대화는 지금의 Agent 탭에서 한다(사람, 2026-11-04). `@lophn/app-ui`에 넣지 않는 이유: UI가 아니고(content block type, context, action), 앱마다 쓰는지가 갈린다. 새 package라 template `package.json.tmpl`·`lophn.ts.tmpl`, `FIXED_UI_DEPENDENCIES`, lockfile에 같이 올리고(core가 import하지 않으면 `packages/core/package.json`에는 두지 않는다), 이미 있는 앱에는 앱 agent가 의존을 더한다.
 24. **agent가 앱 화면의 client다(사람, 2026-11-04).** 앱이 context를 prompt에 밀어 넣지 않는다. 화면이 열린 동안 agent가 화면이 낸 context를 tool로 읽고(결과는 content block), 화면 action을 부른다. context는 화면 code의 hook으로 정하고 선언에 두지 않는다(agent). place 정보에 넣지 않는다(`architecture/agent-definition.md`). 읽은 값은 그 turn의 tool 결과라 prompt 앞부분을 바꾸지 않는다.
 25. **agent의 결과가 앱에 닿는 길은 둘이다(agent).** 화면 action은 화면이 등록하고 그 화면이 열린 동안만 부를 수 있으며 화면 code가 처리한다(예: textarea의 한 줄에 주석 달기). Gate는 없다(사용자 앱은 공격자가 아니다). 앱 data를 바꾸는 일은 지금처럼 할당한 앱 command다. operation은 agent에게 열지 않는다.
 
@@ -275,7 +275,7 @@
 - **2:** 계획 `content-block`이 정했다(`project-docs/products/change-log/0.17.0.md`의 content block 항목).
 - **3:** 계획 `bare-runtime`의 정한 것이 정했다.
 - **4:** 계획 `agent-card`의 정한 것이 정했다.
-- **5:** 어느 session이 열린 화면의 client가 되나(그 앱 place의 session만인가, 다른 place의 agent도인가). app place의 lophn runtime agent는 앱을 짓는 tool(source 쓰기, release)을 같이 가진다: 코치 같은 agent는 bare로 두나. 같은 앱 화면이 여럿 열렸을 때 고르기. 화면이 닫혔을 때의 오류(`unavailable`). context 크기 상한. agent가 부르는 화면 action을 사람이 화면에서 보는 법. annotation(사람이 화면 상태를 보내는 길)과 합치나.
+- **5:** 계획 `agent-screen`의 정한 것이 정했다.
 - **6:** ACP adapter 번들(추천: 판을 고정해 번들한다. AGENTS.md "의존성은 판을 정확히 고정한다"). `gui` 진입이 shell 함수(`claude` 함수를 더한다)인가 `lophn gui <harness>`인가. gui로 연 session의 place(터미널 cwd가 이은 project 폴더 안이면 그 project). harness 정의를 사람이 등록하나, 켜면 감지한 harness마다 생기나. 앱 context를 ACP resource block으로 넘기나.
 - **7:** harness마다 headless 명령과 구조 출력 꼴, 권한 flag를 어디서 정하나(정의 칸 없이, P2). `conversation` 답 방식과 headless session id 잇기. run의 답(R8 "답은 run 기록에 남고 code가 받는다")을 harness turn 끝에서 만드는 법. harness가 `lophn` CLI를 쓸 자격(user token은 사람의 모든 권한이라 쓰지 않는다. session 범위 agent 자격을 env로 넣는 쪽). workflow `not_handed`·`harness` 참가자를 넘기는 법.
 

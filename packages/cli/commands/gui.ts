@@ -1,14 +1,14 @@
 // `lophn gui <harness>`: Claude Code, Codex 또는 OpenCode의 터미널 화면 대신 lophn 창을 연다.
-// core를 부르지 않는다. lophn 앱 실행 파일을 open intent(`--harness-gui`)와 함께 띄울 뿐이고, 이미 떠 있으면
+// core를 부르지 않는 local 명령이라 명령 표(COMMANDS)에 넣지 않고 binary 입구(main.ts)만 끼운다. packages/cli는
+// coding-agent를 import하지 못해 `LocalCommand`(coding-agent/local/types.ts)와 같은 모양만 맞춘다. lophn 앱 실행 파일을 open intent(`--harness-gui`)와 함께 띄울 뿐이고, 이미 떠 있으면
 // 그 앱의 second-instance가 받는다. 켜져 있는지(extension harness-gui)는 앱이 본다.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { err, ok, type LophnError, type Result } from "../../base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import { GUI_HARNESSES } from "../../protocol/extensions/acp-session.ts";
-import { defineCommand } from "./types.ts";
 
 export type GuiLaunch = (
   args: readonly string[],
@@ -48,38 +48,48 @@ export const launchDesktop: GuiLaunch = async (args) => {
   return ok(undefined);
 };
 
-export function createGuiCommand(launch: GuiLaunch) {
-  return defineCommand({
+export type GuiCommand = {
+  name: string;
+  summary: string;
+  description: string;
+  input: z.ZodType;
+  positional: readonly string[];
+  effect: "write";
+  run(
+    input: Record<string, unknown>,
+    ctx: { cwd: string },
+  ): Promise<Result<unknown, LophnError>>;
+};
+
+const guiInput = z.strictObject({
+  harness: z.enum(GUI_HARNESSES),
+  resume: z.string().min(1).optional(),
+});
+
+export function createGuiCommand(launch: GuiLaunch): GuiCommand {
+  return {
     name: "gui",
     summary: "Open a lophn window for a coding agent CLI",
     description:
-      "Open a lophn window in place of the terminal screen of Claude Code, Codex or OpenCode, running in the current folder. Starts lophn if it is not running. The harness-gui extension must be on (Settings > System > Extensions). resume is that CLI's own session id.",
-    input: z.strictObject({
-      harness: z.enum(GUI_HARNESSES),
-      resume: z.string().min(1).optional(),
-    }),
+      "Open a lophn window in place of the terminal screen of Claude Code, Codex or OpenCode, running in the current folder. Starts lophn if it is not running. Never calls core. The harness-gui extension must be on (Settings > System > Extensions). resume is that CLI's own session id.",
+    input: guiInput,
     positional: ["harness"],
-    effect: "external",
-    routes: [],
-    places: [],
+    effect: "write",
     run: async (input, ctx) => {
-      if (ctx.cwd === undefined) {
-        return err({ code: "invalid_input", message: "no working folder" });
-      }
+      const { harness, resume } = guiInput.parse(input);
       const launched = await launch([
         "--harness-gui",
-        input.harness,
+        harness,
         "--cwd",
         ctx.cwd,
-        ...(input.resume === undefined ? [] : ["--resume", input.resume]),
+        ...(resume === undefined ? [] : ["--resume", resume]),
       ]);
       if (!launched.ok) return launched;
-      return ok({
-        summary: `opened ${input.harness} in ${ctx.cwd}`,
-        content: { harness: input.harness, cwd: ctx.cwd },
-      });
+      return ok({ harness, cwd: ctx.cwd });
     },
-  });
+  };
 }
 
-export const GUI_COMMANDS = [createGuiCommand(launchDesktop)];
+export const GUI_COMMANDS: readonly GuiCommand[] = [
+  createGuiCommand(launchDesktop),
+];

@@ -33,7 +33,23 @@ export function activate(ctx: ExtensionContext): void {
       clock: ctx.clock,
       ids: ctx.ids,
     });
-    if (!started.ok) return session.close();
+    if (!started.ok) {
+      // 창은 열어 두고 오류를 끝난 turn으로 보인다. 닫는 것은 사람이다.
+      session.publish({
+        type: "turn_ended",
+        turn: ctx.ids.newId("trn"),
+        at: ctx.clock.now(),
+        outcome: "failed",
+        active_ms: null,
+        error: {
+          code: started.error.code,
+          message: started.error.message,
+        },
+        messages: [],
+        seq: 1,
+      });
+      return;
+    }
     stop = started.value.stop;
     // 시작하는 동안 창이 닫혔다.
     if (closed) stop();

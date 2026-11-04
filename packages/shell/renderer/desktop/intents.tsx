@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import type { IntentApi } from "../../ipc/shortcuts.ts";
+import type { SettingsPane } from "./settings/model.ts";
 import type { Catalog, CatalogSource } from "./palette/catalog.ts";
 import { useGlobalPalette, usePaletteEnv } from "./palette/host.tsx";
 import { desktopScope, type DesktopTarget } from "./palette/desktop-scope.ts";
@@ -15,18 +16,29 @@ interface DesktopIntentsProps {
   catalog?: CatalogSource;
   /** 전역 팔레트에서 고른 대상으로 간다. */
   go(target: DesktopTarget): void;
+  /** Settings의 그 항목을 연다. */
+  onSettings(pane: SettingsPane): void;
 }
 
-export function DesktopIntents({ intents, catalog, go }: DesktopIntentsProps) {
+export function DesktopIntents({
+  intents,
+  catalog,
+  go,
+  onSettings,
+}: DesktopIntentsProps) {
   const openGlobal = useGlobalPalette();
   const env = usePaletteEnv();
-  const latest = useRef({ catalog, go, openGlobal, env });
-  latest.current = { catalog, go, openGlobal, env };
+  const latest = useRef({ catalog, go, openGlobal, env, onSettings });
+  latest.current = { catalog, go, openGlobal, env, onSettings };
 
   useEffect(
     () =>
-      intents.subscribe(() => {
+      intents.subscribe((intent) => {
         const current = latest.current;
+        if (intent === "extension-settings") {
+          current.onSettings("extension-packages");
+          return;
+        }
         void (async () => {
           const loaded = current.catalog
             ? await current.catalog.catalog()

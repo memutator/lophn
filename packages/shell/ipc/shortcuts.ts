@@ -40,9 +40,10 @@ export const GLOBAL_PALETTE_ACCELERATOR = "CommandOrControl+Shift+K";
 export const DESKTOP_INTENT_CHANNEL = "shell:intent";
 
 /**
- * main이 창 밖에서 일어난 일로 창에 시키는 것. `global-palette`는 전역 팔레트 키다.
+ * main이 창 밖에서 일어난 일로 창에 시키는 것. `global-palette`는 전역 팔레트 키이고, `extension-settings`는
+ * 꺼진 extension의 open intent가 Settings › System › Extensions를 열라는 것이다.
  */
-const DESKTOP_INTENTS = ["global-palette"] as const;
+const DESKTOP_INTENTS = ["global-palette", "extension-settings"] as const;
 
 export type DesktopIntent = (typeof DESKTOP_INTENTS)[number];
 

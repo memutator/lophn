@@ -37,13 +37,17 @@ add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(bookmarks.register(ctx));
-add(
-  extensions.register(ctx, { open: () => {}, showExtensionSettings: () => {} }),
+// 창을 여는 port의 open은 gui-window가 채운다.
+const harnessGui = add(
+  extensions.register(ctx, {
+    open: () => {},
+    showExtensionSettings: () => ctx.desktop.send("extension-settings"),
+  }),
 );
 add(editor.register(ctx));
 const detachedWindows = add(detached.register(ctx, views));
 add(layout.register(ctx, detachedWindows));
-add(desktop.register(ctx, views, terminals));
+add(desktop.register(ctx, views, terminals, harnessGui));
 
 // 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.
 // OS 종료(logout, macOS Cmd+Q)도 같다. 이미 멈췄으면 아무것도 안 한다.

@@ -465,7 +465,12 @@ export function Desktop({
           {intents &&
           route.space !== "detached" &&
           route.space !== "app-window" ? (
-            <DesktopIntents intents={intents} catalog={catalog} go={go} />
+            <DesktopIntents
+              intents={intents}
+              catalog={catalog}
+              go={go}
+              onSettings={settingsSpace}
+            />
           ) : null}
         </PaletteProvider>
       </CommandsProvider>

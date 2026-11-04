@@ -17,6 +17,8 @@ export type LocalCore = {
 export type LocalContext = {
   env: { get(name: string): string | undefined };
   home: string;
+  /** 명령을 친 폴더. */
+  cwd: string;
   now(): string;
   stdin(): Promise<string>;
   core(): Result<LocalCore>;

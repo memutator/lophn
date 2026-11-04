@@ -11,6 +11,10 @@
   - `packages/core/agent-places/skills/design-app/SKILL.md`
   - `tools/wireframes/mock/app-space/coding-coach-view.tsx`(새 file)
   - `tools/wireframes/pages/screens/app-space/pages.tsx`
+  - 추가 소유(lead가 더함):
+    - `packages/core/apps/packages/vendor.ts`: `@lophn/agent` 사본이 `packages/sdk/agent` 밖 소스(`protocol/acp/reduce.ts`와 그 type 등)를 쓰면 그 vendor rule 하나만 더한다. 설치 사본은 앱 bundle 안에서 저장소 없이 읽힌다.
+    - `packages/core/apps/packages/template/app/lophn.ts.tmpl`: `sdk_dependencies`가 `package.json.tmpl`의 SDK 의존과 같아야 하므로 그 한 줄만.
+    - `package-lock.json`: 새 workspace로 npm이 쓰는 줄만.
 - 읽을 것:
   - 계획: `project-docs/plan/app-agent/README.md`의 정한 것 3~5
   - 본보기 SDK: `packages/sdk/app-ui/`(`appBridge()`, `useOperation`, `guide.md`의 꼴)

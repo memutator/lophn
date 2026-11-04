@@ -16,7 +16,7 @@ clipboard는 사람이 누른 키로만 쓴다. Linux·Windows는 xterm의 key h
 
 새 PTY의 ref는 주입한 `IdSource`로 만들고, 같은 PTY의 restart는 generation을 올린다. host가 사라졌다 새로 떠도 옛 ref를 새 PTY에 재사용하지 않아, 보관한 view와 늦은 입력이 새 shell에 섞이지 않는다.
 
-다른 창이나 새 renderer에 붙는 경우는 기존 raw buffer를 한 번 재생한다. raw 보관 상한은 5MiB·LF 10,000개·chunk 10,000개 중 먼저 닿는 쪽이다(chunk 상한은 작은 write의 객체 비용을 제한한다). xterm scrollback은 별도 10,000줄이다. raw의 LF는 chunk 경계와 무관하게 세며, 상한 때문에 오래된 출력이 빠져도 별도 배너를 띄우지 않는다. 출력은 disk에 저장하지 않는다. pipe reader는 조각에서 newline을 찾고 완성된 줄을 한 번 join하며 UTF-8 decoder 상태를 유지한다.
+다른 창이나 새 renderer에 붙는 경우(project를 떠났다 돌아올 때, 창 reload)는 terminal-host가 들고 있는 화면을 한 번 받는다. terminal-host는 raw 출력을 쌓지 않고 PTY마다 headless xterm(`packages/shell/terminal-host/screen.ts`)으로 파싱해 두며, snapshot은 그 화면(scrollback 10,000줄, alternate screen, mode, cursor)을 `@xterm/addon-serialize`로 직렬화한 chunk 하나를 마지막으로 파싱한 seq로 준다. renderer는 그것을 재생하고 그 seq 뒤 push만 이어 쓴다. raw를 상한까지 쌓아 다시 재생하던 때는 history를 한 번 쓰고 아래 viewport만 고쳐 그리는 TUI(omp는 초당 30여 chunk)가 몇 분 만에 상한을 채워 처음 그린 history를 밀어냈고, 다시 붙은 화면이 비었다. resize는 앞서 받은 출력을 옛 크기로 파싱한 뒤에 headless 화면에 건다. scrollback을 넘어 오래된 줄이 빠지면 `dropped_output`이 켜지지만 배너는 띄우지 않는다. 출력은 disk에 저장하지 않는다. pipe reader는 조각에서 newline을 찾고 완성된 줄을 한 번 join하며 UTF-8 decoder 상태를 유지한다.
 
 ```
 사람이 터미널을 연다 ─ shell main: 터미널 key 발급, env LPN_TERMINAL_HOOK={socket,key}(+ browser bridge env)

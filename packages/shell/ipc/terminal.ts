@@ -294,8 +294,9 @@ type TerminalAccept = { ok: true; runtime: TerminalRuntime };
 export type TerminalReply = TerminalAccept | TerminalReject;
 
 /**
- * 살아 있는 host buffer를 다시 읽은 결과. runtime은 지금 상태(종료·exit
- * code·결과 불명)이고 output은 after_seq 뒤의 chunk다.
+ * host가 들고 있는 화면을 다시 읽은 결과. runtime은 지금 상태(종료·exit
+ * code·결과 불명)다. after_seq 뒤 출력이 있으면 output은 지금 화면을 직렬화한 chunk 하나이고
+ * seq는 그 화면이 담은 마지막 출력이다. 없으면 비어 있다.
  */
 export type TerminalSnapshotReply = {
   ok: true;

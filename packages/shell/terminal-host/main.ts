@@ -1,4 +1,4 @@
-// Electron 실행당 terminal host 하나. PTY·child group·ring buffer를 갖고
+// Electron 실행당 terminal host 하나. PTY·child group·재연결용 화면을 갖고
 // main이 물려 준 private pipe로만 말한다. 출력은 disk에 쓰지 않는다.
 
 import type {
@@ -17,7 +17,7 @@ import {
 } from "./pty.ts";
 import { type ProcessGroup } from "./child-group.ts";
 import { integrateShell } from "./shell-integration.ts";
-import { RingBuffer } from "./ring-buffer.ts";
+import { Screen } from "./screen.ts";
 
 type FolderRecord = { folder_ref: string; path: string };
 
@@ -77,7 +77,7 @@ type HostDeps = {
 
 type Session = {
   runtime: TerminalRuntime;
-  buffer: RingBuffer;
+  screen: Screen;
   handle: PtyHandle | null;
   group: ProcessGroup | null;
   /** 사람이 보낸 입력. 재시작 때 재생하지 않는다. */
@@ -149,7 +149,7 @@ function createHost(deps: HostDeps): Host {
     };
     const session: Session = {
       runtime,
-      buffer: new RingBuffer(),
+      screen: new Screen(request.columns, request.rows),
       handle: null,
       group: null,
       typed: [],
@@ -183,7 +183,7 @@ function createHost(deps: HostDeps): Host {
         if (runtime.state === "unknown" || runtime.exit_code !== null) return;
         runtime.state = "exited";
         runtime.exit_code = exit.exitCode;
-        runtime.dropped_output = session.buffer.dropped;
+        runtime.dropped_output = session.screen.dropped;
         session.handle = null;
         deps.onRuntime?.({ ...runtime });
       });
@@ -199,15 +199,15 @@ function createHost(deps: HostDeps): Host {
   async function acceptChunk(session: Session, chunk: string): Promise<void> {
     await yieldChunk(deps.schedule);
     if (session.runtime.generation === 0) return;
-    const stored = session.buffer.push(chunk);
-    session.runtime.output_seq = stored.seq;
-    session.runtime.dropped_output = session.buffer.dropped;
+    const seq = session.screen.push(chunk);
+    session.runtime.output_seq = seq;
+    session.runtime.dropped_output = session.screen.dropped;
     deps.onOutput?.({
       terminal_ref: session.runtime.terminal_ref,
       generation: session.runtime.generation,
-      seq: stored.seq,
-      chunk: stored.text,
-      dropped_output: session.buffer.dropped,
+      seq,
+      chunk,
+      dropped_output: session.runtime.dropped_output,
     });
   }
 
@@ -263,19 +263,25 @@ function createHost(deps: HostDeps): Host {
       if (request.type === "snapshot") {
         const session = sessions.get(request.terminal_ref);
         if (!session) return reject("host_lost", "terminal is gone");
-        const snap = session.buffer.snapshot(request.after_seq ?? 0);
-        // runtime을 같이 실어야 renderer가 종료·exit code·결과 불명을 본다.
-        return {
-          ok: true,
+        const after = request.after_seq ?? 0;
+        // after_seq 뒤 출력이 있으면 지금 화면 하나를 그 마지막 seq로 준다. raw chunk를 나눠 주지 않는다.
+        return session.screen.snapshot().then((screen) => ({
+          ok: true as const,
+          // runtime을 같이 실어야 renderer가 종료·exit code·결과 불명을 본다.
           runtime: { ...session.runtime },
-          output: snap.chunks.map((chunk) => ({
-            terminal_ref: session.runtime.terminal_ref,
-            generation: session.runtime.generation,
-            seq: chunk.seq,
-            chunk: chunk.text,
-            dropped_output: snap.dropped,
-          })),
-        };
+          output:
+            screen.seq > after && screen.text !== ""
+              ? [
+                  {
+                    terminal_ref: session.runtime.terminal_ref,
+                    generation: session.runtime.generation,
+                    seq: screen.seq,
+                    chunk: screen.text,
+                    dropped_output: session.screen.dropped,
+                  },
+                ]
+              : [],
+        }));
       }
       const session = sessionAt(request.terminal_ref, request.generation);
       if (!session) return reject("host_lost", "generation does not match");
@@ -292,6 +298,7 @@ function createHost(deps: HostDeps): Host {
           return reject("host_lost", "terminal is not running");
         }
         session.handle.resize(request.columns, request.rows);
+        session.screen.resize(request.columns, request.rows);
         session.runtime.columns = request.columns;
         session.runtime.rows = request.rows;
         return { ok: true, runtime: { ...session.runtime } };
@@ -395,7 +402,7 @@ function settleRuntime(session: Session, confirmed: boolean): TerminalReply {
     session.runtime.failure_reason = null;
   }
   session.handle = null;
-  session.buffer.clear();
+  session.screen.dispose();
   session.typed.length = 0;
   return { ok: true, runtime: { ...session.runtime } };
 }

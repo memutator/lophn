@@ -7,6 +7,7 @@ import type {
   ExtensionSpawn,
   GuiHarness,
 } from "../../../../../protocol/extensions/mod.ts";
+import { claudeAdapter } from "./claude.ts";
 
 export type HarnessGuiAdapter = {
   /** CLI를 띄워 `session`에 ACP update를 내고 `session`의 입력을 CLI에 준다. 시작하지 못하면 오류다. */
@@ -34,7 +35,7 @@ const unavailable =
 
 // 다음 task들이 harness마다 `unavailable`을 구현으로 바꾼다.
 export const HARNESS_GUI_ADAPTERS: Record<GuiHarness, HarnessGuiAdapter> = {
-  claude: { start: unavailable("claude") },
+  claude: claudeAdapter,
   codex: { start: unavailable("codex") },
   opencode: { start: unavailable("opencode") },
 };

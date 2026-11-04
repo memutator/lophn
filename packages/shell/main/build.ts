@@ -93,6 +93,11 @@ function buildExtensions(): Promise<void> {
         ...shared,
         entryPoints: [entry],
         outdir: join(dirname(entry), "dist"),
+        // Agent SDK는 모듈 맨 위에서 import.meta.url로 createRequire를 부른다. CJS 묶음에는 이 값이 없어 로드가 깨진다.
+        define: { "import.meta.url": "__importMetaUrl" },
+        banner: {
+          js: 'const __importMetaUrl = require("node:url").pathToFileURL(__filename).href;',
+        },
       }),
     ),
   ).then(() => {});

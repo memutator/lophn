@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py remove-domain build`가 `tasks/*.md`에서 i
 | `rd-commands` | commands | 2 | rd-kinds | merged | commands/rd-commands | 492f6f25f |  |
 | `rd-artifacts` | artifacts | 3 | rd-commands | merged | artifacts/rd-artifacts | 5640e363a |  |
 | `rd-layers` | layers | 4 | rd-artifacts | merged | layers/rd-layers | 812ef24e5 |  |
-| `rd-domains` | domains | 5 | rd-layers | todo |  |  |  |
+| `rd-domains` | domains | 5 | rd-layers | merged | domains/rd-domains | 7ce949be0 |  |

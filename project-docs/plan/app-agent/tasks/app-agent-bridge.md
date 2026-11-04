@@ -11,6 +11,7 @@
   - `packages/shell/main/app-frame/app-agent.ts`(새 file)
   - `packages/shell/main/app-frame/app-agent_test.ts`(새 file)
   - `packages/shell/main/app-frame/app-ipc.ts`
+  - 추가 소유(lead가 더함): `packages/shell/main/desktop/wiring/app-calls.ts`. 앱 IPC deps를 잇고, `ctx.relay.conditions`에 `AcpUpdated` 조건을 더하고 `ctx.relay.events`에서 그 event를 받아 view로 보내는 줄만.
 - 읽을 것:
   - 계획: `project-docs/plan/app-agent/README.md`의 정한 것 1~3
   - architecture: `project-docs/architecture/acp.md`, `app-call.md`(앱 bridge, operation 호출이 사람 자격으로 가는 법), `annotation.md`(shell이 앱 place의 session에 보내는 본보기)

@@ -125,7 +125,7 @@ job run
 권한
 - job tool(`job.create`, `job.update`, `job.delete`, `job.list`)은 세 place 종류 목록에 모두 든다(`packages/core/agent-places/tool-lists.ts`의 `JOB_TOOL_NAMES`). `job.list`는 agent에게 자기가 만든 job만 준다.
 - scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`)는 machine 자격만 받는다. command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.pending`, `job.approve`, `job.holds`, `job.decide_hold`, `job_run.list`)는 user만 받는다.
-- tool_run은 사람이 없는 호출이고 허락은 사람의 등록 승인이다. 앱 호출 경로는 program caller를 막지 않는다. 만든 agent의 할당과 domain은 보지 않는다(`architecture/app-call.md`, `architecture/approval.md`).
+- tool_run은 사람이 없는 호출이고 허락은 사람의 등록 승인이다. 앱 호출 경로는 program caller를 막지 않는다. 만든 agent의 할당과 비공개 규칙은 보지 않는다(`architecture/app-call.md`, `architecture/approval.md`).
 - agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 받은 agent는 자기 할당으로 일한다. 사람은 모든 job을 등록 때 보고 승인하며 화면에서 보고 끌 수 있다.
 
 화면

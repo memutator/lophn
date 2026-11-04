@@ -34,8 +34,8 @@
 - program이 약해야 하는 까닭: 아무리 정형화된 작업이라도 예외 처리를 program이 할 수 없다. 그래서 agent를 쓴다. 이 원칙은 workflow의 모든 정책과 예외에 같이 적용한다.
 - 사람도 workflow의 참가자다. 승인 단추가 아니라 실제로 논의한다. 사람 step의 결과는 사람과 맞닿은 가장 가까운 agent가 낸다.
 - 연락처를 늘 싣지 않는다.
-  - domain을 둔 가장 큰 이유가 추상화와 캡슐화다.
-  - agent는 어디까지 알면 되는지, 상대의 in/output이 무엇인지만 알면 되고, 그 domain을 전부 알지 않아도 동작한다.
+  - 경계를 두는 가장 큰 이유가 추상화와 캡슐화다(처음에는 domain이 그 경계였고, 0.17.0에서 그릇(project, app)으로 접었다).
+  - agent는 어디까지 알면 되는지, 상대의 in/output이 무엇인지만 알면 되고, 상대 앱을 전부 알지 않아도 동작한다.
   - workflow가 이 철학을 깨면 안 된다.
 - coding agent 같은 서드 파티 harness를 참가자로 둘 수 있게 한다. 실제 구현은 미룬다.
 - 비용은 다루지 않는다.
@@ -51,7 +51,7 @@
   3. workflow artifact. 정적인 것(workflow 내용을 node처럼 시각화)과 instance의 실제 상태까지 반영해 보이는 것 둘이다.
 - 모든 workflow에 3이 필요한 것은 아니다. workflow를 만들 때 정한다. PM이 물어보면 된다.
 - workflow를 만드는 것은 PM의 책임이다.
-- workflow의 node 시각화 방식을 domain에도 적용한다. 그래서 우리 kit에서 재사용 가능하게 만든다.
+- workflow의 node 시각화 방식을 artifact에도 적용한다. 그래서 우리 kit에서 재사용 가능하게 만든다.
 - sidebar는 VS Code 같은 activity bar(리본)로 바꾼다. 항목이 너무 많아져 segmented toggle로는 감당하지 못한다.
 
 ## 끝남 기준

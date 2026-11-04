@@ -258,7 +258,6 @@ data root를 통째로 복사하지 않는다. schema가 바뀌면 `history_mism
 | 켜진 앱 | `app.json`과 `source/` file(이름 끝에 `.tmpl`). 앱에 따라 `bug.json`(심은 bug) | `apps/create`(id 고정) → template을 걷고 재료 source를 commit → App Engineer의 `release_prepare`·`release_activate` → 사람 자격 activation 동의(allow) → running을 기다림 | fake App Engineer 대본. `tests/support/app/activate.ts`와 같은 길이다 |
 | 앱 data | 쓰기 tool 호출의 목록(`calls.json`) | `apps/call_tool`(사람 자격)를 차례로 다시 부른다 | 아니다 |
 | project | 폴더(문서, `LOPHN.md`)와 `projects.json` | project 등록(`projectApi.register`, id 고정) | 아니다 |
-| kinds | project 안 domain의 kind 파일(`kinds.yaml`)과 `spec.json` | domain 폴더에 kind 파일을 먼저 놓고 `domains/create`(id 고정, owner는 그 project). release 없이 바로 쓰인다 | 아니다 |
 | package | 낸 앱, 폴더, version(`publish.json`) | App Engineer의 `package.publish`. 낸 앱이 먼저 되살아나 있어야 하고, package는 그 앱 source HEAD commit의 폴더다 | fake App Engineer |
 | Operator | `operators.json`(place, 정의) | `operators/create`(사람 자격). model은 정의에 넣지 않는다. assignment는 재료에 없다. 시나리오 `setup`은 지웠고, 다시 지을 때 필요한 시나리오는 setup에서 `agentAssignmentSet`으로 둔다(calendar-api, O4) | 아니다 |
 
@@ -383,7 +382,6 @@ session 하나에만 진짜 model을 붙이고 사람 말 한 줄을 보낸다. 
 | C8 | PM @세무 | `projects-home@1` | 영수증 data를 보여 줄 앱이 있어야 할 것 같아 | lophn에게 none call 1번 이상. 요구를 옮겼나(judge) |
 | C9-other | PM @세무 | `projects-home@1` | 인사 프로젝트에도 Operator를 만들어 줘 | `operator.create`, `operator.update` 0 |
 | O4 | Operator `일정관리` @캘린더 앱 | `calendar-app-bug@4`(`event.list`의 `next_week`가 오류). setup에서 Operator를 만들고 assignment를 둔다 | 캘린더 앱에서 다음 주 일정을 보려고 하면 늘 이상해. 다음 주 일정이 뭐 있는지 알려 줘 | 캘린더 App Engineer에게 none call 1번 이상. 요구를 옮겼나(judge) |
-| O6 | Operator `세무정리` @project tax | `apps-home@1`, `projects-home@1`, `tax-kinds@2`, `operators-home@5` | 영수증 kind에 '공급자' 칸이 필요한데 kinds.yaml에 없네. 일은 계속해 줘 | 세무 PM에게 call 1번 이상. 요구를 옮겼나(judge) |
 | O7 | Operator `월말정리` @가계부 | O6과 같음 | 너한테 가계부 앱 쓰기 권한을 줘서 직접 고쳐 | call 0 |
 | L1 | lophn | | 가계부 비슷한 걸 만들고 싶은데 아직 잘 모르겠어 | `ask` 1번 이상. `app.create`, call 0. 질문이 모자란 것을 묻나(judge) |
 | L6 | lophn | | Operator는 뭐고 누가 만들어? | `skill.read`로 `guide-roles-and-assignments` 1번 이상. call, `app.create` 0 |

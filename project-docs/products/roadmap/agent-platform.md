@@ -1,6 +1,6 @@
 # agent platform: 사람이 정한 agent를 앱, workflow, 다른 harness와 잇는다
 
-상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 `project-docs/plan/remove-domain/`, 단계 2는 `project-docs/plan/content-block/`, 단계 3은 `project-docs/plan/bare-runtime/`으로 열었다(2026-11-04).
+상태: 로드맵. 2026-11-02~03 사람이 방향을 냈다(모바일 대화). 같은 대화에서 쓴 초안 여섯(app-context, harness-gui, bare-agent, harness-agent, agent-card, remove-domain)을 이 문서 하나로 합치고, 다른 문서·계획·이슈와 대조해 겹침과 모순을 정리했다(2026-11-03). 아래 "단계" 하나가 계획 하나다. 단계 1은 계획 remove-domain으로 열어 land했고(2026-11-04, `project-docs/products/change-log/0.17.0.md`) 아래 "지금 코드"의 domain과 kind 절은 그 앞 기준이다. 단계 2는 `project-docs/plan/content-block/`, 단계 3은 `project-docs/plan/bare-runtime/`으로 열었다(2026-11-04).
 배경 문서: `project-docs/PRODUCT.md`, `project-docs/products/AGENT.md`, `project-docs/architecture/agent-definition.md`, `project-docs/architecture/agent-call.md`, `project-docs/architecture/run.md`, `project-docs/architecture/app-call.md`, `project-docs/architecture/annotation.md`, `project-docs/architecture/place-session.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/terminal-agent.md`, `project-docs/architecture/ui-kit.md`, `project-docs/architecture/domain.md`, `project-docs/architecture/kinds.md`, `project-docs/products/roadmap/workflow.md`, `project-docs/products/roadmap/subscription-oauth.md`.
 
 ## 왜

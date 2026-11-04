@@ -21,7 +21,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
  앱 호출 경로 (agent·앱·job·flow가 앱 tool을 부름): 묻지 않고 막기만 한다
    agent ─▶ judge로 할당을 본다      앱 ─▶ active 앱 grant의 app.call
    program(job의 tool run) ─▶ 막지 않는다. 사람이 그 job의 등록을 승인했다
-   flow(instance의 tool run) ─▶ 그 project PM의 할당을 unattended로 judge + domain 거르기
+   flow(instance의 tool run) ─▶ 그 project PM의 할당을 unattended로 judge + 비공개 거르기
  앱 공유 요청 (turn 안 request와 달리 turn이 끝나도 남는다. activation 동의, job 승인과 같은 꼴)
    앱 place의 agent ─ lophn app share ─▶ share_request.open ─▶ share_requests 표 + ShareRequestOpened ─▶ 대기 목록
    사람: approve | reject (share_request.decide, 사람 자격만, compare requested_at)
@@ -30,7 +30,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
      ShareRequestClosed ─▶ 대기 목록에서 빠진다
 ```
 
-- 할당은 사람이 agent에게 앱을 붙이고 그 앱에서 뺄 tool(command)을 적는 것이다. 정본은 그 agent 정의 파일(`<data root>/agents/<agt_id>.md`)의 `apps`(앱 slug)와 `permissions.deny`(`lophn(<domain> <command>)`)다. 할당한 앱의 tool만 그 agent의 tool 목록에 뜨고, 그 앱의 public skill도 같이 받는다(`architecture/agent-definition.md`).
+- 할당은 사람이 agent에게 앱을 붙이고 그 앱에서 뺄 tool(command)을 적는 것이다. 정본은 그 agent 정의 파일(`<data root>/agents/<agt_id>.md`)의 `apps`(앱 slug)와 `permissions.deny`(`lophn(<app> <command>)`)다. 할당한 앱의 tool만 그 agent의 tool 목록에 뜨고, 그 앱의 public skill도 같이 받는다(`architecture/agent-definition.md`).
 - MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이다. 끄기는 `mcp_off`다. 할당 줄이 없다.
 - 효과(read, write, external)는 판정에 쓰지 않는다. 할당한 tool은 바깥 효과도 묻지 않는다(사람, 2026-10-21). 효과는 기록과 재시도에만 쓰인다.
 - 사람이 앱 화면에서 누르는 것, 사람이 보내는 메시지, agent call, 지침 파일(`LOPHN.md`) 쓰기, file·web·pdf·image tool은 묻지 않는다. file tool은 place가 범위이고 쓰기는 rewind로 되돌린다.

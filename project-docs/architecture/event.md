@@ -21,7 +21,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
    shell: 조건 걸기 ─▶ ready 받기 ─▶ snapshot read ─▶ 이후 event로 store를 고침. 끊기면 처음부터
 ```
 
-- 기록 event: command가 `tx.emit`으로 상태 변경과 같은 tx에 `events` 표에 남긴다(앱 상태 `AppStarted` 등, tool call 이력, rewind, domain). 읽는 곳은 `events/list`, 관측 읽기, compare 기준(표의 마지막 seq)이다. Bus에 싣지 않고 반응하는 곳이 없다.
+- 기록 event: command가 `tx.emit`으로 상태 변경과 같은 tx에 `events` 표에 남긴다(앱 상태 `AppStarted` 등, tool call 이력, rewind). 읽는 곳은 `events/list`, 관측 읽기, compare 기준(표의 마지막 seq)이다. Bus에 싣지 않고 반응하는 곳이 없다.
 - agent event: session에서 일어나는 turn, tool call, 물음(turn 안 request `TurnRequestOpened`·`TurnRequestClosed`, 질문), 쓰는 중인 model 글의 조각(`ModelOutputStreamed`), 저장된 agent message(`MessageRecorded`), 사람 기다림 뒤 다시 도는 순간(`TurnResumed`), 다음 turn 줄의 사람 메시지를 steer로 올리거나 뺀 일(`MessageSteered`·`MessageRemoved`; 입력함이 메모리라 화면이 아는 길이 이 event와 snapshot의 `steering`뿐이다). 메모리뿐이고 seq가 없다. 글이 흐르는 길과 시간은 `architecture/agent-chat.md`다.
 - 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, workflow instance를 다시 읽으라는 신호 `WorkflowInstanceChanged`, job이나 job run이 바뀌었다는 신호 `JobChanged`). 메모리뿐이다.
 - Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림, workflow의 step 메시지가 모두 여기로 들어가 run-loop 입력함으로 간다.

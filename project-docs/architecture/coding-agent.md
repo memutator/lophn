@@ -14,13 +14,13 @@ shell main (core ready, 앱 activation, 설정 coding-agent.shared_apps 바뀜, 
    ─ exec ─▶ lophn harness sync-skills ─ user token ─▶ core: settings.list, app.skills
    ─▶ hook이 놓인 harness의 skill_dir에 공유 skill 사본 (표시 file .lophn-shared)
 harness ─ 전역 hook ─▶ lophn hook <harness> <event> ─▶ shell main hook socket ([terminal-agent.md](terminal-agent.md))
-사람 ─▶ lophn agent run | <domain> <command> | run … | workflow … | 그 밖의 명령 ─ user token ─▶ core
+사람 ─▶ lophn agent run | <app> <command> | run … | workflow … | 그 밖의 명령 ─ user token ─▶ core
 ```
 
 ## 지키는 것
 
 - **CLI 명령은 core를 부르는 명령과 `local` 명령 둘이다.** core를 부르는 명령의 표는 `packages/cli/commands/`의 `COMMANDS`이고 lophn agent의 `lophn` tool도 같은 표를 쓴다. `local` 명령은 `packages/coding-agent/local/`에 있고 binary 입구(`packages/cli/main.ts`)만 끼운다.
-  - core를 부르는 명령(`agent run`, `<domain> <command>`, `run wait|show|cancel`는 `architecture/run.md`, `workflow …`는 `architecture/workflow.md`, 그 밖의 명령은 lophn agent와 같은 표)은 `<data root>/run/user-token`(core가 켤 때 쓰는 user token, 0600)을 자격으로 쓴다. file이 없으면 lophn이 꺼진 것이라 `unavailable`로 끝난다(exit 5). CLI가 core를 띄우지 않는다.
+  - core를 부르는 명령(`agent run`, `<app> <command>`, `run wait|show|cancel`는 `architecture/run.md`, `workflow …`는 `architecture/workflow.md`, 그 밖의 명령은 lophn agent와 같은 표)은 `<data root>/run/user-token`(core가 켤 때 쓰는 user token, 0600)을 자격으로 쓴다. file이 없으면 lophn이 꺼진 것이라 `unavailable`로 끝난다(exit 5). CLI가 core를 띄우지 않는다.
   - `local` 명령(`hook`, `harness detect|refresh|install|status|uninstall`)은 core를 부르지 않는다. 예외는 `harness sync-skills` 하나다. 이 명령만 user token으로 core를 읽는다(binary가 `ctx.core()`로 끼우고, 자격 file이 없으면 `unavailable`).
   - `not_found`는 core가 준 글 그대로 돌려준다. user token은 출력에 남기지 않는다.
 - **제품 감지는 shell main이 CLI를 exec해서 한다.** core는 사람의 PATH와 실행 파일을 모르고 감지 결과를 받지 않는다. Settings › Coding agents가 이 결과를 그린다(`packages/shell/main/desktop/coding-connection.ts`). 처음 읽기는 실행 파일 찾기만 하고, 제품을 실제로 실행하는 version probe는 사람이 다시 감지를 눌렀을 때만 돈다. 사람이 시키지 않았는데 제품을 띄우지 않는다.

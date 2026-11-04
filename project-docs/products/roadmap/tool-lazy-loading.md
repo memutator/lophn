@@ -29,9 +29,9 @@
 | 질문·협업·보고 | `ask`, `call`, `reply`, `cancel`, `workflow.report` |
 | skill과 tool 발견 | `skill.read`, 현재 `tool.load`에 해당하는 진입점 |
 | home의 앱 탐색 | `app.list/get`(통합 후 `app.read`), `app.tools` |
-| project·app의 작업 | `file.write`, `file.edit`, `shell.run`, `kind.list` |
+| project·app의 작업 | `file.write`, `file.edit`, `shell.run` |
 
-`ask`는 사람이 결정할 때, `reply`·`workflow.report`는 받은 일을 끝냈을 때 바로 선택할 수 있게 둔다. `image.read`는 사용자가 붙인 이미지와 annotation을 읽는 기본 동작이다. `kind.list`는 project·app의 문서 조회에 쓰므로 기본 노출한다.
+`ask`는 사람이 결정할 때, `reply`·`workflow.report`는 받은 일을 끝냈을 때 바로 선택할 수 있게 둔다. `image.read`는 사용자가 붙인 이미지와 annotation을 읽는 기본 동작이다.
 
 숨기는 것은 위 기본 집합에 없는 **허용된 tool의 정의**다.
 
@@ -41,7 +41,6 @@
 | 앱 관리·진단 | `app.create`, `app.link_source`, `app.status`, `app.logs`, `app.invocations` |
 | 앱·SDK 탐색의 나머지 | home 외의 `app.list/get/tools`, `package.list/get/publish` |
 | 검증·배포·preview | `declaration.check`, `release.*`, `preview.*` |
-| domain 관리·검사 | `domain.*`, `kind.check` |
 | 설정·지침·화면 출력 | `settings.get`, `instructions.read`, `visual.show` |
 | agent와 예약 작업 관리 | `agent.create/update`, `job.*` |
 | workflow 관리 | `workflow.list/get/edit/check` |

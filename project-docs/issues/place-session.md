@@ -14,7 +14,7 @@ modules: [packages/core/lophn-agent, packages/core/agent-places]
 영향: agent가 shell로 file 범위 밖 파일을 읽고 쓰거나 지워도 막는 것이 없다. 그렇게 바꾼 사람의 파일은 session rewind로 되돌아오지 않는다. AGENTS.md "속도"가 막으라는 agent 실수(데이터 잃기, 폴더 밖 쓰기)다. place 종류의 file 범위(project는 project 폴더, 받은 domain 폴더, `workflows/`, app은 앱 source와 받은 domain 폴더)도 shell로는 지켜지지 않는다.
 
 고치려면:
-- project place 종류의 목록에서 `shell.run`을 뺀다. 작음. 계산이나 변환이 필요한 일은 내장 tool(`kind.list` 집계)과 domain tool로 한다. app place는 앱 test와 type 검사(A6)에 shell이 필요해 남는다.
+- project place 종류의 목록에서 `shell.run`을 뺀다. 작음. 계산이나 변환이 필요한 일은 내장 tool과 앱 command로 한다. app place는 앱 test와 type 검사(A6)에 shell이 필요해 남는다.
 - `shell.run`을 OS sandbox(bubblewrap 등)로 범위 폴더만 보이게 띄우고, 쓰기는 rewind 기록을 위해 막는다(읽기 전용). 중간~큼. 플랫폼마다 다르다.
 
 추천: 첫째. project place에서 shell이 필요한 경우를 아직 보지 못했다.

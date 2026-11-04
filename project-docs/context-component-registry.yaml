@@ -228,7 +228,7 @@ components:
   - id: architecture-app-call
     kind: doc
     roles: [planner, lead]
-    description: 사람, agent, 앱, job(program)이 앱의 tool을 부르는 길. tool 선언의 domain 칸과 skills 칸, 부른 쪽 확인, 줄, 기록, rewind, 앱 log, 공유 skill 읽기(`app.skills`).
+    description: 사람, agent, 앱, job(program)이 앱의 tool을 부르는 길. command 선언의 public 칸과 skills 칸, 부른 쪽 확인, 줄, 기록, rewind, 앱 log, 공유 skill 읽기(`app.skills`).
     path: project-docs/architecture/app-call.md
     change_reasons:
       boundaries: [app-runtime, app-data, app-capability]
@@ -337,7 +337,7 @@ components:
   - id: architecture-artifact
     kind: doc
     roles: [planner, lead]
-    description: agent가 domain의 `artifacts/<name>/`에 쓴 정적 HTML을 봉한 view의 탭으로 그리는 길. 봉한 scheme의 path 해석, file 범위, 목록과 prompt, 대화 link, artifact annotation의 받는 쪽.
+    description: agent가 그릇(project, 앱)의 `artifacts/<name>/`에 쓴 정적 HTML을 봉한 view의 탭으로 그리는 길. 봉한 scheme의 path 해석, file 범위, 목록과 prompt, 대화 link, artifact annotation의 받는 쪽.
     path: project-docs/architecture/artifact.md
     change_reasons:
       boundaries: [shell, agent-places, agent-sessions, router]

@@ -92,7 +92,7 @@ flow
   - JSON이 아니거나 id가 없거나 1 MiB를 넘는 줄이 오면 통로가 깨진 것이라 host가 process를 끝낸다. 읽히지만 칸이 틀린 요청은 `invalid_input` 실패 값으로 답한다(오타 하나로 flow 전체가 죽지 않게).
 - `agent`는 run 하나를 열고(받는 agent는 누구든 된다) 끝날 때까지 `WaitRun`을 되풀이해 답을 준다. `tool`은 tool run 하나다. 둘 다 run의 origin이 그 instance와 그 creator다. creator는 `workflow.yaml`의 `agent`(없으면 lophn)를 launch 때 한 번 풀고 place는 instance의 project다(`architecture/run.md`). flow가 place 없이 agent를 부르면 instance의 project다. `report`는 `kind: agent`의 report와 같은 뜻이고 core 안에서 `by: program`으로 들어간다. 한 process의 report는 순서대로 하나씩 처리하고 agent·tool은 동시에 돌 수 있다.
 - program report는 넘기지 않는다. `running`일 때만 지금 step을 그 report의 step으로 옮기고 `next: end`면 `ended`로 닫는다. `stopped`나 `ended` 뒤의 report는 줄만 남고 다시 `running`이 되지 않는다. step 이름이 선언에 있는지 보지 않는다.
-- flow의 앱 tool 호출은 creator agent의 지금 할당과 그 agent가 그 project에서 받는 domain 안에서만 된다(`architecture/app-call.md`의 flow caller). code로 그 할당을 넓히지 못한다. 사람이 그 agent에게 그 앱을 할당해야 flow가 그 tool을 쓴다. 칸을 안 쓰면 lophn이라 지금처럼 돈다. flow가 부르는 agent는 누구든 되고, 입력은 unattended이며, 받은 agent는 자기 할당으로만 일한다.
+- flow의 앱 tool 호출은 creator agent의 지금 할당과 비공개 규칙(앱의 비공개 command는 그 앱 place만) 안에서만 된다(`architecture/app-call.md`의 flow caller). code로 그 할당을 넓히지 못한다. 사람이 그 agent에게 그 앱을 할당해야 flow가 그 tool을 쓴다. 칸을 안 쓰면 lophn이라 지금처럼 돈다. flow가 부르는 agent는 누구든 되고, 입력은 unattended이며, 받은 agent는 자기 할당으로만 일한다.
 - origin과 flow 자격은 route 입력이 아니다. flow process에는 credential을 주지 않고 통로로 온 요청을 core가 그 instance의 이름으로 한다.
 - stderr는 줄마다 redaction을 거쳐 `<data>/flows/<instance>.log`에 쌓인다(1 MiB에서 멈춘다). workflow 폴더 밖에 둔다. process가 끝나면 host는 그 instance가 연 running run을 취소하고(`cancelOfInstance`) `program_exited` 줄에 끝 code(신호로 죽으면 null)와 stderr 끝 10줄(줄마다 500자)을 남긴다. 그때 instance가 `running`이면 `ended`로 닫는다(by lophn). 남은 참가자가 없어 아무도 이어 갈 수 없다. lophn은 성공인지 판정하지 않는다.
 - core가 꺼질 때 host는 process를 모두 끝내지만 줄을 쓰지 않는다. instance는 `running`으로 남아 다음 켤 때 닫힌다(위 "켤 때와 멈춤").
@@ -129,7 +129,7 @@ artifact
 - job은 `StartWorkflow` route가 아니라 core 안 service로 시작한다. 그 route는 사람만 받는 입구(actor user)이고, job은 사람 자격이 없는 machine이 부르는 일이라서다. route를 job에도 열면 "시작은 사람의 일"이라는 입구의 뜻이 흐려진다.
 - 본문과 받는 곳을 command 앞에서 정한다. 본문은 blob이라 tx 안에서 만들 수 없고, 앞에서 정해 넘기면 command는 받은 대로 넣기만 한다. 줄과 입력이 반쪽만 남지 않게 한 tx다.
 - 켤 때 다시 넣지 않는다. 다시 넣으면 바깥 효과가 두 번 날 수 있다. 그래도 말없이 잃지 않게 줄로 남긴다(`architecture/run.md` "켤 때와 session 끝").
-- step 메시지는 그 step만 싣는다. agent는 domain처럼 자기 일의 in/out만 알면 되고, system prompt에 workflow를 싣지 않아 cache도 깨지지 않는다.
+- step 메시지는 그 step만 싣는다. agent는 다른 앱을 쓸 때처럼 자기 일의 in/out만 알면 되고, system prompt에 workflow를 싣지 않아 cache도 깨지지 않는다.
 - module은 lophn-agent와 다른 feature module을 import하지 않는다. 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, 기록 command 부르기, flow process 띄우기와 멈추기는 `ports.ts`의 port이고 wiring이 끼운다(`architecture/layers.md`).
 - flow의 code는 workflow 폴더에 둔다. 선언, 글, code가 한 폴더에 모이고, 쓰는 것은 project place session의 file 쓰기라 rewind로 되돌아간다. 앱으로 두지 않은 것은 앱 tool의 120초 제한과 write 직렬화 밖에서 오래 도는 entry와 앱이 agent를 부르는 SDK를 새로 만들어야 해서다(roadmap `workflow.md` 2026-10-23).
 - flow는 instance마다 process 하나이고 다시 띄우지 않는다. 다시 띄우면 바깥 효과가 두 번 난다. 실패 처리와 다시 하기는 code의 일이다.

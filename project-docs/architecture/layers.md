@@ -5,7 +5,7 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
 ## 말
 
 - **layer**: 기술 역할로 가로로 자른 층. 위가 아래를 쓰고 아래는 위를 모른다.
-- **feature module**: 업무 능력으로 세로로 자른 조각(apps, projects, domains, runs, workflows, jobs). 업무 경계인 `domains` entity(`architecture/domain.md`)와 다른 말이다.
+- **feature module**: 업무 능력으로 세로로 자른 조각(apps, projects, runs, workflows, jobs).
 - **infrastructure**: 업무 규칙이 아닌 기술 수단. 저장, event 배달, HTTP server, process 관리. 운영에서 말하는 서버·클라우드 인프라와 다른 뜻이다.
 - **port / adapter**: 안쪽이 필요한 것을 interface(port)로 정하고 바깥이 구현(adapter)한다. 안쪽은 바깥을 모른다.
 - **composition root**: 모든 조각을 끼워 맞추는 곳. lophn에서는 `core/main/*`(daemon, worker 조립)이다.
@@ -16,7 +16,7 @@ core 코드를 어떻게 나누고 어느 쪽으로만 기대게 하는지, 그 
  core/main (composition root) ── 모두를 알고 조립만 한다. 업무 규칙을 두지 않는다
       │ 조립
       ▼
- apps    projects    domains    runs    workflows    jobs    agent-places   feature module / place 종류 층 (서로 모른다)
+ apps    projects    runs    workflows    jobs    agent-places   feature module / place 종류 층 (서로 모른다)
       │         │          │        │          │         │          │
       ▼         ▼          ▼        ▼          ▼         ▼          ▼
                     lophn-agent                          agent harness
@@ -77,7 +77,7 @@ core는 daemon main thread, writer·reader Worker, I/O child process(`platform/i
 |---|---|---|
 | 장치 | `lophn-agent` (harness) | agent loop, tool registry·schema 검사·Gate 연결(`packages/core/lophn-agent/tools/registry.ts`, `packages/core/lophn-agent/tools/spi.ts`), prompt 조립 틀(층, 예산, cache marker), provider·model 호출 |
 | 범용 능력 | `lophn-agent` (harness) | file, shell, web, call, ask, MCP, skill tool |
-| feature module tool | 각 feature module | `apps/agent-tools/`(app, 앱 진단 읽기 `runtime.ts`, package, release, preview, visual), `domains/agent-tools.ts`(domain.list·get·create), `workflows/agent-tools.ts`(workflow.list·get·report·edit·check), `jobs/agent-tools.ts`(job.create·update·delete·list) |
+| feature module tool | 각 feature module | `apps/agent-tools/`(app, 앱 진단 읽기 `runtime.ts`, package, release, preview, visual), `workflows/agent-tools.ts`(workflow.list·get·report·edit·check), `jobs/agent-tools.ts`(job.create·update·delete·list) |
 | place 종류 층 | `agent-places` | place 종류별 tool 목록과 순서(`tool-lists.ts`), place 규칙이 든 tool(settings, instructions, agent, kind), credential의 place 몫(`credentials.ts`), 제품 고정 규칙과 place 종류 지침(`prompts/`), place 정보(`place/`), file tool hook(`hooks.ts`의 `LOPHN.md` Gate와 rewind 기록), place 폴더 규칙(`place/place-folders.ts`), data root 아래 자리(`place/data-folder.ts`)와 project 설정 층(`place/project-layer.ts`), 지침 읽기 규칙, session 이름 풀기, 내장 skill(`skills/`) |
 
 - harness는 tool을 등록받은 목록으로만 안다. `core/main/agent-tools.ts`가 범용·feature module·place 종류 층의 tool 정의를 모아 `TOOL_ORDER` 순서로 넘기고, place 종류 목록·prompt·place 재료·credential 상한도 조립이 그 층에서 꽂는다.

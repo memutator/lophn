@@ -25,10 +25,10 @@
 | 전역 MCP, skill 폴더, 끈 skill, shell 규칙 | `~/.lophn/settings.json` | 평평한 key 20개. `lophn-agent.extensions.mcp_servers`, `lophn-agent.extensions.skill_folders`, `lophn-agent.extensions.skills_off`, `approvals.shell_rules` |
 | project MCP, 끈 skill, `mcp_off` | `~/.lophn/projects/<prj_id>/extensions.json` | `{mcp_servers[], skills_off[], mcp_off[]}`(`packages/core/lophn-agent/extensions/project-settings.ts`) |
 | project shell 규칙 | `settings.json` `approvals.shell_rules.projects.<prj_id>` | `{pattern, action}` 배열(`packages/protocol/approvals/shell-rules.ts`) |
-| agent 정의 | `~/.lophn/agents/<agt_id>.md` | YAML frontmatter `name, profile, model, skills, domains, mcp_off, mcp_servers, skip`와 본문 |
+| agent 정의 | `~/.lophn/agents/<agt_id>.md` | YAML frontmatter `name, profile, model, skills_off, mcp_off, mcp_servers, apps, permissions, skip`와 본문 |
 | 할당 | ledger `agent_assignments` | `[{app, removed_tools[]}]`(`packages/core/approvals/assignment/schema.ts`) |
-| 지침 | `~/.lophn/LOPHN.md`, 첫 project 폴더의 `LOPHN.md`, `domains/<dom>/DOMAIN.md`, agent 본문 | 이어 붙인다. `AGENTS.md`는 안 읽는다(`architecture/agent-definition.md:45`) |
-| skill | 내장 8개, 등록 폴더, `~/.lophn/skills`, `domains/<dom>/skills` | `SKILL.md`, 줄 단위 parser(`packages/core/lophn-agent/extensions/skills.ts:66-135`) |
+| 지침 | `~/.lophn/LOPHN.md`, 첫 project 폴더의 `LOPHN.md`, agent 본문 | 이어 붙인다. `AGENTS.md`는 안 읽는다(`architecture/agent-definition.md:45`) |
+| skill | 내장 8개, 등록 폴더, `~/.lophn/skills`, place 폴더의 `.lophn/skills`, 그릇 자리의 `skills/`(place-data) | `SKILL.md`, 줄 단위 parser(`packages/core/lophn-agent/extensions/skills.ts:66-135`) |
 | credential | `~/.lophn/secrets.json`(0600) | 이름 → 값. MCP 설정은 `{secret: "mcp.…"}`로 가리킨다 |
 
 그 밖에 고칠 것:
@@ -45,7 +45,6 @@
   skills/<name>/SKILL.md               지금과 같다
   agents/<agt_id>.md                   agent 정의. 할당(apps, permissions)이 이 파일로 온다
   secrets.json                         지금과 같다
-  domains/<dom>/{DOMAIN.md,skills/}    지금과 같다(lophn의 domain)
 <project 폴더>/                         project 층(첫 등록 폴더. 폴더가 없으면 ~/.lophn/projects/<prj_id>/)
   LOPHN.md                             project 지침. 없으면 CLAUDE.md
   .lophn/settings.json                 mcpServers, permissions, skills(지금 extensions.json과 project shell 규칙)
@@ -101,7 +100,7 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
 6. **할당을 agent 정의 파일로(중간).**
    - `agent_assignments`의 `{app, removed_tools}`를 agent 정의의 `apps`(할당한 앱)와 `permissions.deny`(뺀 command, `lophn(<domain> <command>)` 꼴)로 옮긴다. 옛 ledger 표는 data step이 옮기며 지운다(schema step은 이미 적용한 ledger가 id를 기록해 남기고, 새 data root에는 빈 표가 남는다).
    - 할당은 그 앱의 public skill도 준다(단계 8).
-   - agent 정의는 user → project 다음의 셋째 층이다. `mcpServers`, `permissions`, `skills_off`는 settings와 같은 꼴이고, 어느 층이든 deny가 이긴다. `domains`, `apps`, `skip`, `profile`은 lophn에만 있다. harness는 agent가 하나라 "어디서"(층)로만 갈리고, lophn은 오래 사는 agent가 여럿이라 "누가"(정의)가 한 축 더 있다.
+   - agent 정의는 user → project 다음의 셋째 층이다. `mcpServers`, `permissions`, `skills_off`는 settings와 같은 꼴이고, 어느 층이든 deny가 이긴다. `apps`, `skip`, `profile`은 lophn에만 있다. harness는 agent가 하나라 "어디서"(층)로만 갈리고, lophn은 오래 사는 agent가 여럿이라 "누가"(정의)가 한 축 더 있다.
    - 이 두 칸도 `mcpServers`, `skip`처럼 사람만 쓴다. `agent.create`·`agent.update` 입력에 넣지 않는다.
    - Claude의 `tools`·`disallowedTools`, OpenCode의 agent `permissions`와 같은 자리다.
 7. **가져오기(중간).**

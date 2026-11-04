@@ -10,17 +10,16 @@ lophn에서 일하는 agent가 누구이고, session이 어디(place)에서 언�
 
 agent는 lophn과 사람이 만든 agent 둘이다. agent는 place에 놓이지 않는다. session이 place를 갖는다(`architecture/place-session.md`, `architecture/agent-definition.md`).
 
-- P1. lophn은 고정 id(`lophn`)를 가진 내장 agent다. 이름과 profile은 바꾸지 못하고 지우지 못한다. 나머지 칸(model, skill, domain, 지침 본문)은 다른 agent와 같다.
+- P1. lophn은 고정 id(`lophn`)를 가진 내장 agent다. 이름과 profile은 바꾸지 못하고 지우지 못한다. 나머지 칸(model, skill, 지침 본문)은 다른 agent와 같다.
 - P2. 사람이 만든 agent의 정의는 전역에 하나다. 이름은 전역에서 겹치지 않고 `lophn`은 쓰지 못한다. 정의에 권한 칸은 없다.
 - P3. session은 열 때 agent 하나와 place 하나를 정하고 바꾸지 않는다. place는 home(place 없음), project, app 셋 가운데 하나다. 창에서 열면 그 창의 place다.
-- P4. 같은 place 종류의 session은 agent가 누구든 같은 tool 목록, 지침, 내장 skill, credential 상한, file 범위를 받는다. 좁히는 것은 정의의 `domains`, `skills`과 사람의 할당이다.
+- P4. 같은 place 종류의 session은 agent가 누구든 같은 tool 목록, 지침, 내장 skill, credential 상한, file 범위를 받는다. 좁히는 것은 정의의 `skills_off`와 사람의 할당이다.
 - P5. 앱은 project에 묶이지 않는다. 앱마다 app place가 있고 앱은 home에서 등록한다. 등록할 때 agent를 만들지 않는다. project도 마찬가지다.
 - P6. coding agent는 lophn 밖의 harness다. lophn은 coding agent에게 일을 맡기지 않는다. 사람이 터미널 탭에서 자기 coding agent를 쓰는 것은 lophn agent의 일과 별개이고, lophn은 그 탭의 상태(icon, 점, 알림)만 보인다(`architecture/terminal-agent.md`).
 - P7. 사람은 왼쪽 sidebar의 New session(▾로 agent 고르기. Home, project, 앱 place 어디서나), toast로 agent를 부른다. 고르면 그 place의 session이 열린다.
 - P8. project place의 session은 그 project의 `LOPHN.md`를 지침으로 같이 읽는다. app place와 home에는 project 지침이 없다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, project place session의 file 범위 밖이라 사람이 editor로 고친다.
-- P11. 그릇(project, app)마다 domain이 있다. project는 0개여도 되고, 앱은 등록할 때 앱 이름의 domain이 하나 생겨 0개가 되지 않는다. domain은 그 그릇 place의 session이 만들고, 사람도 만든다.
-- P12. session은 받은 domain의 `DOMAIN.md`, kind, skill, tool만 받는다. 정의의 `domains`가 비면 그 place 그릇의 active domain 전부, 있으면 그 가운데 그 그릇의 것만 받는다(0개일 수 있다). home은 0개다. 다른 그릇의 domain은 할당받은 공개 tool로만 쓴다.
+- P12. 경계는 그릇(project, app)이다. session은 그 place 그릇의 지침, skill, 앱 command를 받는다. 앱의 비공개 command는 그 앱 place의 session만 보고, 다른 곳은 할당받은 공개 command로만 쓴다.
 
 ## 2. place마다 언제 무엇을 하나
 
@@ -30,29 +29,29 @@ L1~L11은 home 지침(`packages/core/agent-places/prompts/home.md`)에 쓰는 �
 
 - L1. 사람이 무엇을 원하는지 아직 정하지 못한 채 말을 걸면, home의 session이 질문으로 의도를 정리한다. (제안)
 - L2. 사람이 새 앱이나 앱의 변경을 원하면, home의 session은 기존 앱을 고치기, 기존 SDK와 package로 하기, 새 앱 만들기 순서로 견주어 기획한다. (제안)
-- L3. 사람이 새 project를 원하면, home의 session은 기존 project 안에 domain으로 두기, 기존 domain을 넓히기, 새 project 만들기 순서로 견주어 기획한다. (제안)
+- L3. 사람이 새 project를 원하면, home의 session은 기존 project에 넣기, 새 project 만들기 순서로 견주어 기획한다. (제안)
 - L4. 기획이 앱을 만들거나 고치는 일로 정해지면, home의 session은 그 앱 place의 lophn에게 답을 받지 않는 call로 맡기고 그 session이 설계하고 직접 짓는다. 새 앱이면 home의 session이 먼저 앱을 등록한다(project를 고르지 않는다). 등록하면 앱의 source 폴더가 생긴다. (등록을 뺀 나머지는 제안)
 - L5. 기획에 자료 묶음이나 검색이 필요하면, home의 session은 그 project place의 lophn에게 결과를 받는 call로 맡긴다. (제안)
 - L6. 사람이 설정의 뜻을 물으면, home의 session은 지금 설정값과 그 정의(`settings.get`)로 답한다. (제안)
 - L7. 사람이 앱이 잘 도는지 물으면, home의 session은 앱 상태, 앱 log, 실패한 호출 기록을 읽어 확인한 사실과 해석을 나눠 답한다. 사람이 `/repair-app`으로 부르면 고치기는 그 앱 place의 lophn에게 call로 넘긴다. (제안)
-- L9. 사람이 새 앱이나 앱의 변경을 원하면, home의 session은 기획 전에 place 정보의 domain 지도(domain마다 owner, 목적, 공개 tool, 그 공개 tool을 쓰는 다른 domain, 앱마다 그 앱이 주인인 package)에서 다른 domain의 공개 tool이나 package가 이미 그 일을 하는지 본다. 있으면 그것을 쓰는 안을 먼저 견준다.
-- L10. 기획이 다른 domain의 공개 tool을 쓰거나, tool을 공개로 내거나, 코드를 package로 옮기는 것처럼 domain 경계를 넘으면, home의 session은 이유와 함께 사람에게 제안하고 사람이 정한다. 같은 package나 공개 tool을 여러 domain이 쓰는지는 지도에서 읽고, program이 알려 주지 않는다.
-- L11. 새 domain, domain 나누기와 합치기, 재사용, package로 빼기는 home의 session이 판단해 제안한다. domain을 만드는 것은 그 그릇 place의 session이고, 경계를 자르는 결정은 사람이 한다. (제안)
+- L9. 사람이 새 앱이나 앱의 변경을 원하면, home의 session은 기획 전에 place 정보의 앱 지도(앱마다 공개 command, 그 command를 쓰는 다른 앱·project, 그 앱이 주인인 package)에서 다른 앱의 공개 command나 package가 이미 그 일을 하는지 본다. 있으면 그것을 쓰는 안을 먼저 견준다.
+- L10. 기획이 다른 앱의 공개 command를 쓰거나, command를 공개로 내거나, 코드를 package로 옮기는 것처럼 그릇 경계를 넘으면, home의 session은 이유와 함께 사람에게 제안하고 사람이 정한다. 같은 package나 공개 command를 여러 곳이 쓰는지는 지도에서 읽고, program이 알려 주지 않는다.
+- L11. 재사용과 package로 빼기는 home의 session이 판단해 제안한다. 경계를 자르는 결정은 사람이 한다. (제안)
 
 ### 어느 place든
 
 - G1. 사람이 새 agent를 원하거나 agent를 고쳐 달라고 하면, 어느 place의 session이든 `agent.create`·`agent.update`로 만들거나 고친다. 정의가 전역이라 어느 place에서 만들어도 같다. 할당, 정의 층 MCP server, skip은 주지 못하고 사람이 정한다.
 - G2. 자기 정의나 할당을 바꿔야 하면, session은 사람에게 올린다.
-- G3. 일하다 다른 그릇의 일(앱의 버그, 다른 project의 kind)을 만나면, session은 그 그릇 place의 lophn에게 call로 맡긴다. 결과가 있어야 이어갈 수 있으면 결과를 받는 call로 맡긴다. 같은 그릇의 일이면 받은 domain 안에서 직접 고친다.
+- G3. 일하다 다른 그릇의 일(앱의 버그, 다른 project의 문서)을 만나면, session은 그 그릇 place의 lophn에게 call로 맡긴다. 결과가 있어야 이어갈 수 있으면 결과를 받는 call로 맡긴다. 같은 그릇의 일이면 직접 고친다.
 
 ### app
 
-A1~A15는 앱을 짓는 일이다(A16은 없앴다). A17 이후는 앱의 source와 package, domain, 공개 tool의 일이다. 지침은 `packages/core/agent-places/prompts/app.md`다.
+A1~A15는 앱을 짓는 일이다(A16은 없앴다). A17 이후는 앱의 source와 package, 공개 command의 일이다. 지침은 `packages/core/agent-places/prompts/app.md`다.
 
 - A1. 사람이 앱을 만들거나 고쳐 달라고 하면, 앱 place의 session이 짓기 전에 설계(재사용, 모델, journey, 화면, tool, 실패 분기)를 앱 source의 `DESIGN.md`에 쓰거나 고친 뒤 직접 짓는다.
 - A2. 사람이 앱이 이상하다고 하거나 앱이 잘못 도는 것 같으면, 앱 place의 session이 앱 상태, 앱 log, 호출 기록을 읽어 읽은 것과 추정을 나눠 말한 뒤 원인을 고친다.
 - A3. 사람이 앱 화면에서 annotation을 보내면, title bar agent select가 고른 agent의 그 앱 place session이 받아 그 화면에 대한 사람의 요청으로 읽고 고친다.
-- A4. 코드를 쓰기 전에, 앱 place의 session이 선언(tool, 입력, 효과, domain, 공개 여부, permission, 의존)을 쓰거나 고치고 검사 결과를 읽는다.
+- A4. 코드를 쓰기 전에, 앱 place의 session이 선언(command, 입력, 효과, 공개 여부, permission, 의존)을 쓰거나 고치고 검사 결과를 읽는다.
 - A5. 코드를 쓰기 전에, 앱 place의 session이 앱이 쓸 package와 정확한 version을 골라 선언의 의존에 고정한다.
 - A6. 앱 place의 session이 앱 source에 코드를 쓰고, `shell.run`으로 앱 test와 type 검사를 돌린 뒤 commit한다.
 - A7. 앱 place의 session이 `release.prepare`로 지금 commit의 release를 준비한다. program이 그 자리에서 의존성, migration, 선언과 handler 일치를 검사하고, 떨어지면 단계와 이유를 돌려준다. session이 고치고 다시 준비한다.
@@ -60,31 +59,25 @@ A1~A15는 앱을 짓는 일이다(A16은 없앴다). A17 이후는 앱의 source
 - A9. 확인한 release를 앱 place의 session이 `release.activate`로 올리고, 확인한 것과 확인하지 못한 것을 나눠 사람에게 알린다.
 - A10. activation이 실패하면, 앱 place의 session이 `release.activate`의 결과로 받은 실패 근거와 앱 log를 읽고 고친다. program이 다시 부르지 않는다. (고치는 것은 제안)
 - A11. 첫 activation이거나 선언이 넓어졌거나 data 손실 migration이면 `release.activate`가 동의 대기를 돌려준다. session은 사람에게 무엇을 묻는지 말하고, 동의 뒤의 결과는 사람이 화면에서 본다.
-- A12. 앱 밖의 재사용이나 domain 경계를 넘는 기획을 판단해야 하면, 앱 place의 session은 home의 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
+- A12. 앱 밖의 재사용이나 그릇 경계를 넘는 기획을 판단해야 하면, 앱 place의 session은 home의 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
 - A13. 앱이 읽을 자료 묶음이 필요하면, 앱 place의 session은 그 project place의 lophn에게 결과를 받는 call로 맡긴다. (제안)
 - A15. 앱을 만들거나 기능을 더할 때, 앱 place의 session은 보고할 실패 분기와 이름을 설계에 적고 그 자리에 `reportProblem`을 둔다. 그 호출은 앱 log에 error 한 줄을 쓰고, session이 `app.logs`로 읽는다.
 - A17. 앱의 source 폴더를 잇거나 앱이 만든 package를 publish하는 것은 그 앱 place의 session만 한다. 다른 앱의 것은 자격이 막는다. publish한 앱이 그 package의 주인이 된다.
-- A18. 앱에 domain이 더 필요하면, 앱 place의 session이 `domain.create`로 그 앱에 만든다. tool을 선언할 때 `domain`은 그 tool이 다루는 객체의 domain이다.
-- A19. 앱의 domain에 뜻이나 절차가 필요하면, 그 domain을 받은 앱 place의 session이 그 domain의 `DOMAIN.md`, kind 파일, skill을 쓰거나 고친다.
 - A20. 자기 앱이 쓰는 package에서 난 문제는, 앱 place의 session이 고치지 않고 package 주인 앱(`package.get`의 `owner_app`) place의 lophn에게 답을 받지 않는 call로 맡긴다.
-- A21. 공개 tool은 다른 domain이 기대는 약속이다. 다른 domain이 쓰는 공개 tool을 지우는 release는 program이 막지 않고 `release.prepare`의 결과에 그 tool과 쓰는 domain을 싣는다. 지우려면 앱 place의 session이 activate하기 전에 그 domain 그릇 place의 lophn에게 답을 받지 않는 call로 알리고 사람에게 묻는다. 아니면 tool을 되살린다.
+- A21. 공개 command는 다른 앱·project가 기대는 약속이다. 다른 곳이 쓰는 공개 command를 지우는 release는 program이 막지 않고 `release.prepare`의 결과에 그 command를 싣는다. 지우려면 앱 place의 session이 activate하기 전에 쓰는 그릇 place의 lophn에게 답을 받지 않는 call로 알리고 사람에게 묻는다. 아니면 tool을 되살린다.
 
 ### project
 
-C1~C9는 kind, C24 이후는 domain의 skill과 artifact, domain 경계를 넘는 일, workflow 정의(C29)다. 앱의 일은 앱 place의 session이 맡는다. 지침은 `packages/core/agent-places/prompts/project.md`다.
+C7~C9는 용어와 그릇 밖의 일, C24 이후는 그릇의 skill과 artifact, 경계를 넘는 일, workflow 정의(C29)다. 앱의 일은 앱 place의 session이 맡는다. 지침은 `packages/core/agent-places/prompts/project.md`다.
 
-- C1. 사람이나 agent가 kind를 청하거나 domain에 kind가 아직 없으면, 그 domain을 받은 project place의 session이 그 domain의 kind 파일(`kinds.yaml`)을 쓰거나 고친다.
-- C2. kind를 나누거나 합칠 때, session은 kind 사이 참조가 최소가 되게 경계를 긋는다.
-- C3. kind 파일을 고치면, 판 없이 저장하는 대로 program이 검사해 맞으면 바로 쓰고 틀리면 앞의 맞던 kind를 계속 쓴다.
-- C6. 문서가 kind를 어겼다고 사람이 알리면, project place의 session이 위반 근거를 읽고 kind 파일을 고칠지 사람에게 문서를 고치라고 할지 정한다.
 - C7. 용어의 뜻이 필요하면, session은 정하지 않고 사람에게 묻는다. 답이 없으면 그 변경을 하지 않는다.
-- C8. 새 project나 앱이 필요하다고 판단하거나 domain 경계를 넘는 재사용이나 기획을 판단해야 하면, project place의 session은 home의 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
+- C8. 새 project나 앱이 필요하다고 판단하거나 그릇 경계를 넘는 재사용이나 기획을 판단해야 하면, project place의 session은 home의 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
 - C10. 사람이나 agent가 앱을 만들거나 고쳐 달라고 하면, project place의 session은 직접 하지 않고 그 앱 place의 lophn에게 call로 맡긴다. 새 앱이면 home의 lophn에게 맡긴다.
-- C24. project에 새 업무가 생기면, project place의 session이 `domain.create`로 그 project에 domain을 만들고 그 domain의 `DOMAIN.md`와 skill을 쓰거나 고친다.
-- C25. 다른 domain의 공개 tool을 어떤 agent가 쓰게 하려면, session은 이유와 함께 사람에게 할당을 제안한다. 할당은 사람이 한다. (제안)
-- C26. 자기 domain이 쓰는 package에서 난 문제는, project place의 session이 package 주인 앱 place의 lophn에게 답을 받지 않는 call로 맡긴다.
-- C27. 자기 domain이 쓰는 공개 tool이 바뀌었다고 알림이 오면, project place의 session이 바뀐 tool을 읽고 그 tool을 부르는 skill을 다시 본다.
-- C28. agent가 쓴 결과 문서가 필요하면, 그 domain을 받은 session이 domain의 artifact를 쓴다. node 그림(kind 지도, 상태 흐름)은 둘지 사람에게 묻고 정한다. workflow 그림(C29)과 같다.
+- C24. project의 일에 절차가 필요하면, project place의 session이 그 project의 skill(`<data>/projects/<prj>/skills/`)을 쓰거나 고친다.
+- C25. 다른 앱의 공개 command를 어떤 agent가 쓰게 하려면, session은 이유와 함께 사람에게 할당을 제안한다. 할당은 사람이 한다. (제안)
+- C26. 그 project가 쓰는 package에서 난 문제는, project place의 session이 package 주인 앱 place의 lophn에게 답을 받지 않는 call로 맡긴다.
+- C27. 그 project가 쓰는 공개 command가 바뀌었다고 알림이 오면, project place의 session이 바뀐 command를 읽고 그 command를 부르는 skill을 다시 본다.
+- C28. agent가 쓴 결과 문서가 필요하면, 그 그릇 place의 session이 그릇의 artifact를 쓴다. node 그림(상태 흐름 같은 것)은 둘지 사람에게 묻고 정한다. workflow 그림(C29)과 같다.
 - C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, project place의 session이 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)는 둘지 사람에게 묻고 정한다. workflow 정의를 쓰는 것은 그 project place의 session뿐이다(`architecture/workflow.md`). 결정적인 처리가 필요한 workflow는 `kind: flow`로 두고 같은 폴더에 code(`flow.ts`)를 쓴다. 쓴 뒤 `workflow.check`로 type check한다. flow가 부를 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)의 할당과 그 project에서 받는 domain 안에서만 되므로, 그 앱이 할당에 없으면 사람에게 할당을 청한다.
 
 ### workflow 참가자
@@ -105,7 +98,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - J1. 사람이 정해진 때 도는 일을 청하면, 그 일을 맡은 session이 `job.create`로 job을 만든다. 세 place 종류 모두 job tool을 받는다. 사람은 job을 직접 만들지 못하고 agent에게 청한다.
 - J2. job을 만든 쪽은 그 session의 (agent, place)다. agent는 같은 agent, 같은 place가 만든 job만 `job.update`, `job.delete`, `job.list`로 다룬다. 남이 만든 job은 보이지도 않고 고치지 못한다. 사람은 모든 job을 화면에서 고치고 끄고 지운다.
 - J3. job의 차례가 오면 program이 job에 적힌 agent를 그 place에서 부른다. 부를 때마다 새 session이고 사람이 없는 turn(unattended)이다. 받은 session은 그래도 자기 할당으로만 일한다(T5, T6). 답과 실패는 그 run에 남는다.
-- J4. job이 앱 tool을 부르는 차례는 그 job을 만든 agent의 지금 할당과 그 place에서 받는 domain 안에서만 된다. 밖이면 막히고 그 차례는 실패로 남는다.
+- J4. job이 앱 tool을 부르는 차례는 그 job을 만든 agent의 지금 할당 안에서만 된다. 밖이면 막히고 그 차례는 실패로 남는다.
 - J5. job이 부른 session도 job tool을 받아 job을 만들 수 있다. 막지 않는다. 사람이 모든 job을 화면에서 본다.
 - J6. job의 차례가 실패해도 자동으로 다시 하지 않는다. 다시 하는 것은 사람이 정한다.
 
@@ -116,7 +109,6 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(Workspace, project, 그 agent의 정의)이 할당이고 정의에서 끈다. Workspace와 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. session이 받지 않은 domain의 tool은 공개(`public`) tool만 쓸 수 있다.
 - H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 거절하며 적은 이유는 agent에게 그대로 간다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
 - H5. 앱 place의 session이 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
-- H6. 사람은 project 창과 앱 place에서 그 그릇의 domain을 보고 만들고 보관하며, `DOMAIN.md`를 editor로 고친다. 경계를 자르는 결정(domain 나누기, 합치기)은 사람이 한다.
 - H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
 - H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
 - H9. 사람은 Jobs 탭과 왼쪽 sidebar의 Jobs overlay(모든 job)와 project 창 오른쪽 sidebar의 Jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다. lophn이 꺼진 사이 놓친 차례와, 켜진 채라도 컴퓨터가 잠들어 차례 시각보다 10분 넘게 늦은 차례가 놓친 차례다.
@@ -141,7 +133,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - T5. 부르는 것 자체에는 묻지 않고, 받은 session의 동작은 받은 agent의 할당으로 다시 걸러진다.
 - T6. 보낸 agent의 할당과 skip은 받은 쪽에 넘어가지 않는다.
 - T7. 받는 곳은 보내는 쪽이 고르고, 열린 session으로 보냈는데 닫혀 있으면 새로 열지 않는다. "열린 session, 없으면 새 session"은 놓치면 안 되는 것에만 쓴다.
-- T8. 받는 place는 보낸 쪽이 있는 place가 아니라 넘기는 일이 어느 그릇(project나 app)과 domain에 관한 것인지로 정하고, 보내는 session이 그것을 함께 적는다. 경우는 5.2다.
+- T8. 받는 place는 보낸 쪽이 있는 place가 아니라 넘기는 일이 어느 그릇(project나 app)에 관한 것인지로 정하고, 보내는 session이 그것을 함께 적는다. 경우는 5.2다.
 - T9. 받을 agent나 place가 없거나 받는 session이 닫혀 있으면, 이유와 함께 실패가 보낸 session에 돌아온다. 답을 받지 않는 call도 배달 실패는 돌아온다.
 - T10. 넘기는 내용은 맡긴 글 하나와 근거 링크(annotation, 파일 경로, 보낸 session)이고, 보낸 쪽의 대화 원문은 복사하지 않는다.
 - T11. 결과를 받는 call을 받은 session은 일이 끝나면 답을 보낸다. 맡지 않을 때도 답으로 이유를 보낸다. lophn agent session은 저절로 끝나지 않아 program이 끝을 알 수 없기 때문이다.
@@ -160,21 +152,21 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 
 ```
 사람 ──────────부름──────▶ home의 session     : 원하는 것을 말할 때, 사용법이나 앱 상태를 물을 때
-     ──────────부름──────▶ project place의 session : kind나 domain, workflow를 청할 때, 그 project의 일을 시킬 때
+     ──────────부름──────▶ project place의 session : skill이나 workflow를 청할 때, 그 project의 일을 시킬 때
      ──────────부름──────▶ app place의 session : 앱을 만들거나 고쳐 달라고 할 때, 앱 화면 annotation을 보낼 때
 
 home ─────call(none)────▶ lophn `app          : 기획이 앱을 만들거나 고치는 일로 정해졌을 때
      ───call(result)────▶ lophn `project      : 기획에 자료 묶음이나 검색이 필요할 때
 
-app ──────call(none)────▶ lophn `home         : 앱 밖 재사용이나 domain 경계를 넘는 기획을 판단해야 할 때
+app ──────call(none)────▶ lophn `home         : 앱 밖 재사용이나 그릇 경계를 넘는 기획을 판단해야 할 때
     ──────call(none)────▶ lophn `다른 app      : package 문제를 package 주인 앱에 넘길 때
     ────call(result)────▶ lophn `project      : 앱이 읽을 자료 묶음이 필요할 때
     ───결과─────────────▶ 사람                : release를 올렸을 때(확인한 것과 못 한 것), 동의가 필요할 때
 
 project ──call(none)────▶ lophn `app          : 앱 일일 때(package 문제를 package 주인 앱에 넘길 때 포함)
-        ──call(none)────▶ lophn `home         : 새 project나 앱이 필요하거나 domain 경계를 넘는 판단이 필요할 때
+        ──call(none)────▶ lophn `home         : 새 project나 앱이 필요하거나 그릇 경계를 넘는 판단이 필요할 때
 
-program ──────알림──────▶ 사람                : 앱의 반복 종료와 새 kind 위반(toast), activation 동의(첫 activation, 넓어진 선언, data 손실), shell 물음(toast)
+program ──────알림──────▶ 사람                : 앱의 반복 종료(toast), activation 동의(첫 activation, 넓어진 선언, data 손실), shell 물음(toast)
 workflow ──step 메시지──▶ 참가자 session       : 사람의 시작, report의 next, 고치기의 지금 넘기기가 그 step을 말했을 때
 job ──────────run───────▶ job에 적힌 agent `place : 정해진 때 (사람이 청한 job의 차례, 새 session, unattended). 앱 tool 호출이나 workflow instance 시작도 한다
 flow ─────────run───────▶ code가 고른 agent `place : flow instance의 code가 agent(...)를 부를 때 (새 session, unattended). 앱 tool 호출과 report도 한다
@@ -194,7 +186,7 @@ call의 `to`는 `{session}`이나 `{agent, place?}`(+ 열린 session이 닫혔�
 
 - 받는 place는 일이 관한 그릇이다: 앱 일은 그 앱(`{app: "<앱 이름>"}`), project 일은 그 project(`{project: "<project 이름>"}`), 그릇을 넘는 기획과 새 앱·project 등록은 home(place 없음)이다.
 - 받는 agent는 기본이 lophn이다. lophn은 늘 있는 agent라 받을 agent가 없어 실패하는 일이 없다. 사람이 만든 agent에게 맡기려면 그 이름을 적는다.
-- domain 일(kind, `DOMAIN.md`, skill, package 문제, 공개 tool 바뀜 알림)과 주인 없는 artifact annotation은 그 domain 주인 그릇 place의 lophn session이 받는다.
+- 그릇 일(skill, package 문제, 공개 command 바뀜 알림)과 마지막으로 쓴 session이 없는 artifact annotation은 그 그릇 place의 lophn session이 받는다.
 - 앱 화면 annotation은 앱 title bar agent select가 고른 agent의 그 앱 place session이 받는다. project 파일에 단 annotation은 그 project place의 lophn session이 받는다.
 - workflow 참가자와 flow의 `agent(...)`는 place가 없으면 instance의 project다.
 - 고른 agent나 place가 없으면 넘기기가 막히고 이유가 돌아온다(T9).
@@ -202,16 +194,15 @@ call의 `to`는 `{session}`이나 `{agent, place?}`(+ 열린 session이 닫혔�
 
 ## 6. program이 agent를 부르거나 사람에게 알리는 때
 
-program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서의 kind 위반은 사람에게 toast로 알리고(E2, E5), activation 실패는 `release.activate`를 부른 session에 결과로 돌아간다(E3). agent는 앱 상태와 앱 log, `kind.check`로 지금 상태를 직접 읽는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다. 정해진 때 job이 agent를 부르는 것은 예외가 아니라 사람이 시킨 일의 실행이다(E10).
+program은 스스로 정해 agent를 부르지 않는다. 앱 오류는 사람에게 toast로 알리고(E2), activation 실패는 `release.activate`를 부른 session에 결과로 돌아간다(E3). agent는 앱 상태와 앱 log로 지금 상태를 직접 읽는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다. 정해진 때 job이 agent를 부르는 것은 예외가 아니라 사람이 시킨 일의 실행이다(E10).
 
 - E2. 앱이 거듭 죽어 자동 재시작을 멈추면, program이 사람에게 toast로 알린다. agent는 부르지 않는다. 앱 place의 session은 사람이 청하면 `app.status`와 `app.logs`(`process_exit crash_loop` 줄)로 읽는다.
 - E3. activation이 실패하면, program이 실패 기록을 남기고 `release.activate`의 결과로 돌려준다. 동의 뒤에 시작한 시도의 결과는 사람이 화면에서 본다. session을 부르지 않는다.
-- E5. 문서가 kind를 어기면(위반이 새로 생기면), program이 사람에게 toast로 알린다. agent는 부르지 않는다. 그 domain을 받은 session은 사람이 청하면 `kind.check`로 검사한다.
 - E6. 앱 place의 session이 `release.activate`한 release가 첫 activation이거나 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 activation 동의를 대기 목록에 올린다. 사람이 동의해야 activation이 이어진다.
-- E8. 다른 domain이 쓰는 공개 tool을 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 tool과 쓰는 domain을 싣는다.
+- E8. 다른 곳이 쓰는 공개 command를 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 command를 싣는다.
 - E9. workflow instance에서 사람의 시작, 참가자의 report `next`, 고치기의 `hand_now`가 step을 말하면, program이 그 step의 담당(사람 step이면 `with` agent)에게 step 메시지를 넣는다. 담당을 풀 수 없으면 넣지 않고 그 사실을 instance의 줄로 남긴다. 무엇을 넘길지 program이 정하지 않는다.
 - E10. 정해진 때 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 만든 agent의 할당 안에서 앱 tool을 부르거나, workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이나 컴퓨터가 잠든 사이 놓친 차례(차례 시각보다 10분 넘게 늦은 차례)를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
-- E11. 사람이나 job이 flow instance를 시작하면, program이 그 workflow 폴더의 `flow.ts`를 process 하나로 띄우고 code의 요청(agent run, 앱 tool 호출, report)을 그대로 한다. 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)의 할당과 그 project에서 받는 domain 안에서만 된다. code가 끝나면 끝 code와 stderr 끝 줄을 남기고 instance를 닫는다. 성공인지 판정하지 않고 다시 띄우지 않는다.
+- E11. 사람이나 job이 flow instance를 시작하면, program이 그 workflow 폴더의 `flow.ts`를 process 하나로 띄우고 code의 요청(agent run, 앱 tool 호출, report)을 그대로 한다. 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)의 할당 안에서만 된다. code가 끝나면 끝 code와 stderr 끝 줄을 남기고 instance를 닫는다. 성공인지 판정하지 않고 다시 띄우지 않는다.
 
 ## 7. 하지 않는 것
 
@@ -219,6 +210,6 @@ program은 스스로 정해 agent를 부르지 않는다. 앱 오류와 문서�
 - 누가 누구를 부를 수 있는지를 고정 표로 두지 않는다. 부르기는 막지 않고 지침이 정한다.
 - 보낸 쪽의 대화를 복사하거나 권한을 물려주지 않는다.
 - 보낸 쪽이 결과를 기다리며 막히는 동기 호출, 자동 재시도, 실패를 조용히 버리기.
-- agent 정의의 권한 칸(짓기 가능, domain 고치기 가능). 차이는 session의 place 종류와 정의의 domains, skills, 할당이 만든다.
+- agent 정의의 권한 칸(짓기 가능). 차이는 session의 place 종류와 정의의 skills_off, 할당이 만든다.
 - role. agent는 lophn과 사람이 만든 agent이고, 하는 일은 session의 place 종류가 정한다.
 

@@ -152,7 +152,8 @@ export const projectApi = {
     method: "icon",
     name: "project.icon",
     input: projectRefInputSchema,
-    output: iconReadOutputSchema,
+    // ledger read는 as_of_seq를 붙여 read 공통 모양으로 검사한다(app.icon은 API read라 감싸지 않는다).
+    output: withReadCommon(iconReadOutputSchema),
     actors: ["user"],
     errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
   }),

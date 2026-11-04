@@ -140,7 +140,8 @@ export function ProjectIconField({
     const done = await icons.set(project, file);
     if (!done.ok) return false;
     const read = await icons.current(project);
-    if (read.ok) setView(read.value);
+    if (!read.ok) return false;
+    setView(read.value);
     return true;
   };
 

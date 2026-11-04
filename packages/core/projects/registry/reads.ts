@@ -208,7 +208,12 @@ export function createProjectReads(deps: ProjectReadDeps): {
         if (!access.ok) return access;
         if (access.value === null) return notFound();
         const icon = loadProjectIcon(snapshot.sql, input.project);
-        return ok({ icon, uploaded: icon !== null });
+        return ok({
+          icon,
+          uploaded: icon !== null,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
       },
     },
   };

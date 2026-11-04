@@ -24,9 +24,14 @@ import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-f
 import { TabDragProvider } from "../../../../../packages/shell/renderer/shell/tab-drag.tsx";
 import { TabStrip } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
 import {
+  TabsCloseDialog,
+  type TabsCloseRow,
+} from "../../../../../packages/shell/renderer/shell/tabs-close-dialog.tsx";
+import {
   applyTabDrop,
   closeFloat,
   closeTab,
+  closeTargets,
   cyclePane,
   type Desk,
   deskEntries,
@@ -92,6 +97,7 @@ export function ShellScene({
   context,
   drag,
   closeDesk,
+  closeTabs,
   keys,
   recentOpen = false,
 }: {
@@ -108,6 +114,8 @@ export function ShellScene({
   drag?: { from: Spot; to: Spot; release?: boolean };
   /** mount 뒤 desk 단추를 열고 이 이름의 desk를 지우는 x를 누른다. */
   closeDesk?: string;
+  /** 이 tab key의 group을 Close group으로 닫을 때 뜨는 dialog를 연 채 시작한다. */
+  closeTabs?: string;
   /** mount 뒤 차례로 누를 단축키(예: "Ctrl+Alt+ArrowRight"). */
   keys?: readonly string[];
 }) {
@@ -119,6 +127,7 @@ export function ShellScene({
   const [rightOpen, setRight] = useState(right);
   const [panel, setPanel] = useState("files");
   const [closing, setClosing] = useState<string | null>(null);
+  const [closingTabs, setClosingTabs] = useState(closeTabs ?? null);
   const [menu, setMenu] = useState<{
     key: string;
     x: number;
@@ -203,6 +212,28 @@ export function ShellScene({
     };
   };
   const closingDesk = desks.find((d) => d.key === closing);
+
+  // 실제 앱의 closeMany처럼 group의 tab 중 멈출 터미널(coding agent 포함)과 저장하지 못한 파일을 줄로 보인다.
+  const closingKeys =
+    closingTabs === null
+      ? []
+      : closeTargets(desk, "group", closingTabs, (key) =>
+          desk.tabs.some((tab) => tab.key === key && mockOf(tab).unsaved),
+        );
+  const closingRows = desk.tabs
+    .filter((tab) => closingKeys.includes(tab.key))
+    .map((tab) => ({ tab, mock: mockOf(tab) }));
+  const rowOf = ({
+    tab,
+    mock,
+  }: (typeof closingRows)[number]): TabsCloseRow => ({
+    key: tab.key,
+    title: mock.title,
+    icon: tabIcon(mock),
+    ...(mock.kind === "file"
+      ? { path: `~/projects/${mock.crumbs.join("/")}` }
+      : {}),
+  });
 
   const close = (key: string) =>
     patch((d) => closeFloat(closeTab(d, key), key));
@@ -428,6 +459,23 @@ export function ShellScene({
               setDesks((all) => all.filter((d) => d.key !== closingDesk.key));
               if (deskKey === closingDesk.key) setDeskKey("_default");
               setClosing(null);
+            }}
+          />
+        )}
+        {closingTabs === null ? null : (
+          <TabsCloseDialog
+            count={closingKeys.length}
+            terminals={closingRows
+              .filter(
+                ({ mock }) =>
+                  mock.kind === "terminal" || mock.agent?.kind === "coding",
+              )
+              .map(rowOf)}
+            lost={closingRows.filter(({ mock }) => mock.unsaved).map(rowOf)}
+            onCancel={() => setClosingTabs(null)}
+            onConfirm={() => {
+              patch((d) => closingKeys.reduce(closeTab, d));
+              setClosingTabs(null);
             }}
           />
         )}

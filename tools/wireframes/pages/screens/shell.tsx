@@ -205,6 +205,13 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="desk-close" closeDesk="Review" />,
     },
     {
+      id: "shell-tabs-close",
+      title: "Shell · Close tabs",
+      description:
+        "tab 메뉴로 여러 tab을 닫을 때(Close group, Close others 등) 한 번만 묻는 dialog. 파일의 마지막 고침을 먼저 보내고, 멈출 터미널·coding agent와 그래도 저장하지 못한 파일을 한 dialog에 줄로 보인다. 물을 것이 없으면 dialog 없이 닫는다. 여기는 [agent | 문서 셋] 칸 아래에 zsh를 붙인 group을 Close group으로 닫는 때다.",
+      render: () => <ShellScene variant="tabs-close" closeTabs="c1" />,
+    },
+    {
       id: "shell-pane-focus",
       title: "Shell · Pane focus by arrow",
       description:

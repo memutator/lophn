@@ -14,12 +14,14 @@ import {
   FolderOpen,
   FolderPlus,
   FolderSearch,
+  Grid2x2X,
   ListX,
   type LucideIcon,
   PanelRight,
   Pin,
   RefreshCw,
   SquareTerminal,
+  SquareX,
   Trash2,
   X,
 } from "lucide-react";
@@ -38,6 +40,8 @@ export const workspaceIcons = {
   trash: Trash2,
   // 탭 우클릭 menu.
   closeOthers: ListX,
+  closePaneOthers: SquareX,
+  closeGroup: Grid2x2X,
   closeRight: ArrowRightToLine,
   closeSaved: FileCheck,
   closeAll: FileX,

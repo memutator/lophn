@@ -408,6 +408,35 @@ test("tab 메뉴의 여러 개 닫기는 의도한 tab만 닫고 group을 유효
   assert.equal(run("others", "b").next.groups.length, 1);
 });
 
+test("칸 안의 다른 tab 닫기는 그 칸만, group 닫기는 칸에 숨은 tab까지 닫는다", () => {
+  let desk = deskOf("a", "t", "b");
+  for (const key of ["n1", "n2", "n3"]) {
+    desk = openTab(desk, tab(key), { after: "t", beside: true });
+  }
+  // [t | n1·n2·n3] 칸에서 숨은 n2를 기준으로 고른다.
+  const all = ["a", "t", "b", "n1", "n2", "n3"];
+  const close = (scope: Parameters<typeof closeTargets>[1], key: string) => {
+    const targets = closeTargets(desk, scope, key, () => false);
+    let next = desk;
+    for (const target of targets) next = closeTab(next, target);
+    assertValid(
+      next,
+      all.filter((item) => !targets.includes(item)),
+    );
+    return { targets, next };
+  };
+
+  const pane = close("pane-others", "n2");
+  assert.deepEqual(pane.targets.toSorted(), ["n1", "n3"]);
+  assert.deepEqual(leavesOf(groupOf(pane.next, "t")!.layout), ["t", "n2"]);
+  assert.deepEqual(paneStackOf(pane.next, "n2"), ["n2"]);
+  assert.deepEqual(close("pane-others", "t").targets, []);
+
+  const group = close("group", "n2");
+  assert.deepEqual(group.targets.toSorted(), ["n1", "n2", "n3", "t"]);
+  assert.equal(group.next.groups.length, 0);
+});
+
 test("group의 몫은 범위를 지키고 한 칸으로 다니며 풀면 tab이 그대로 남는다", () => {
   let desk = deskOf("a", "b", "c", "d");
   desk = splitTab(desk, "a", "c", "bottom");

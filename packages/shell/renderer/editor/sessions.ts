@@ -211,6 +211,14 @@ export class EditorSessions {
     }
   }
 
+  /** 명시 폐기. 사람이 잃기를 이미 확인한 파일(여러 탭 닫기)의 남은 고침을 버린다. */
+  discard(path: string): void {
+    const entry = this.#entries.get(path);
+    if (!entry) return;
+    entry.session.discard();
+    this.#changed(path);
+  }
+
   /** 창 닫기. 모든 session을 끝내고 남은 것이 있으면 한 번에 묻는다. */
   async closeWindow(
     progress: (answer: CloseAnswer) => void = () => {},

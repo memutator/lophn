@@ -21,7 +21,9 @@ export const shell = {
   "shell.button.strip-close": "Close {title}",
   "shell.button.tab-close": "Close",
   "shell.button.tab-close-all": "Close all",
+  "shell.button.tab-close-group": "Close group",
   "shell.button.tab-close-others": "Close others",
+  "shell.button.tab-close-pane-others": "Close others in pane",
   "shell.button.tab-close-right": "Close to the right",
   "shell.button.tab-close-saved": "Close saved",
   "shell.button.tab-copy-path": "Copy path",
@@ -38,6 +40,8 @@ export const shell = {
   "shell.button.tab-unstack": "Move out of pane",
   "shell.button.tab-unsplit": "Unsplit",
   "shell.button.tab-unsplit-all": "Unsplit all",
+  "shell.button.tabs-close":
+    "{count, plural, one {Close tab} other {Close tabs}}",
   "shell.button.toggle-left": "Toggle left sidebar",
   "shell.button.toggle-right": "Toggle right sidebar",
   "shell.dialog.desk-close-detached":
@@ -51,6 +55,12 @@ export const shell = {
   "shell.dialog.desk-close-title": "Close desk ‘{name}’?",
   "shell.dialog.desk-close-unsaved":
     "{count, plural, one {# file has} other {# files have}} unsaved changes. They are saved first, and if saving fails you are asked before anything is lost.",
+  "shell.dialog.tabs-close-lost":
+    "{count, plural, one {This file couldn't be saved. Its changes will be lost.} other {These # files couldn't be saved. Their changes will be lost.}}",
+  "shell.dialog.tabs-close-terminals":
+    "{count, plural, one {This terminal or coding agent will be stopped.} other {These # terminals and coding agents will be stopped.}}",
+  "shell.dialog.tabs-close-title":
+    "{count, plural, one {Close # tab?} other {Close # tabs?}}",
   "shell.heading.desks": "Desks",
   "shell.heading.places": "Places",
   "shell.heading.workflows": "Workflows",

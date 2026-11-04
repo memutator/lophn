@@ -26,6 +26,15 @@ const appCardFields = {
 const appCardPartInputSchema = z.strictObject(appCardFields);
 const appCardPartSchema = z.object(appCardFields);
 
+// third-party harness가 쓴 tool 한 줄이다. lophn이 실행한 것이 아니라 gate·rewind의 tool call chain에 없고 이 part로만 남는다.
+const harnessToolFields = {
+  kind: z.literal("harness_tool"),
+  name: z.string().min(1),
+  summary: z.string(),
+  status: z.enum(["running", "done", "failed"]),
+};
+const harnessToolPartInputSchema = z.strictObject(harnessToolFields);
+
 const textPartInputSchema = z.strictObject({
   kind: z.literal("text"),
   text: z.string(),
@@ -61,6 +70,7 @@ const messagePartInputSchema = z.discriminatedUnion("kind", [
   textPartInputSchema,
   appCardPartInputSchema,
   reasoningPartInputSchema,
+  harnessToolPartInputSchema,
   z.strictObject(imagePartFields),
   z.strictObject(resourceLinkPartFields),
   z.strictObject(resourcePartFields),
@@ -71,6 +81,7 @@ const messagePartSchema = z.discriminatedUnion("kind", [
   z.object(resourceLinkPartFields),
   z.object(resourcePartFields),
   appCardPartSchema,
+  z.object(harnessToolFields),
   z.object({
     kind: z.literal("reasoning"),
     text: z.string(),
@@ -84,6 +95,7 @@ const agentPartInputSchema = z.discriminatedUnion("kind", [
 const machinePartInputSchema = z.discriminatedUnion("kind", [
   textPartInputSchema,
   reasoningPartInputSchema,
+  harnessToolPartInputSchema,
 ]);
 
 function canonicalBytes(block: unknown): number | undefined {
@@ -203,7 +215,7 @@ export const agentMessageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),
   parts: z.array(agentPartInputSchema).min(1),
 });
-// machine 답은 글과 reasoning을 받는다. byte 상한은 owner가 준비 전에 본다.
+// machine 답은 글, reasoning, harness_tool을 받는다. byte 상한은 owner가 준비 전에 본다.
 export const machineMessageContentInputSchema = z.strictObject({
   schema_version: z.literal(1),
   parts: z.array(machinePartInputSchema).min(1),

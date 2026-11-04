@@ -75,11 +75,19 @@ const deps: OpenDeps = {
             id,
             name: "reviewer",
             skip: reviewerSkip,
+            runtime: "lophn" as const,
             apps: [],
             deny: [],
           }
         : id === LOPHN_AGENT_ID
-          ? { id, name: "lophn", skip: false, apps: [], deny: [] }
+          ? {
+              id,
+              name: "lophn",
+              skip: false,
+              runtime: "lophn" as const,
+              apps: [],
+              deny: [],
+            }
           : null,
     agents: () => [],
     cardOf: () => null,

@@ -28,8 +28,8 @@ import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 // 받는 session 하나. Router가 배달 길을 고르는 데 쓴다.
 export type TargetSession = {
   session: Id<"ses">;
-  // 지금 받을 수 있는 것은 lophn session 하나다.
-  transport: "lophn";
+  // lophn은 입력함을 run-loop가 가져가고, harness는 runtime이 harness인 session의 입력함을 shell host가 가져간다.
+  transport: "lophn" | "harness";
   agent: AgentAtPlace;
   // archive, 지움, place 보관이면 false(새 입력을 받지 않는다).
   accepting: boolean;
@@ -86,7 +86,7 @@ export interface SessionDirectory {
 }
 
 export interface InputTransport {
-  // lophn session의 입력함에 넣는다.
+  // 그 transport가 맡은 session의 입력함에 넣는다.
   deliver(tx: Tx, target: TargetSession, input: RoutedInput): Result<void>;
   // 취소 입력(notice)을 넣는다.
   cancel(

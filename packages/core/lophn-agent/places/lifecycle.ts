@@ -1,6 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { AgentId, Place } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  type AgentId,
+  isHarnessRuntime,
+  type Place,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import {
   type AgentSessionRow,
@@ -8,6 +12,7 @@ import {
   nextSessionSeq,
   placeOf,
 } from "../session/model.ts";
+import { harnessEnabledIn } from "../session/harness.ts";
 import type { EndDeps, OpenDeps, PlaceDeps } from "./ports.ts";
 
 // session을 열고 끝내는 규칙. command(`OpenSession`, `ArchiveSession`, `DeleteSession`)와 Router의
@@ -49,6 +54,13 @@ export function startSession(
 ): Result<AgentSessionRow> {
   const definition = deps.agents.agent(input.agent);
   if (definition === null) return fail("not_found", "agent not found");
+  // harness runtime의 session은 열 때 그 harness로 정해 바뀌지 않는다. 설정이 꺼져 있으면 열지 않는다.
+  const harness = isHarnessRuntime(definition.runtime)
+    ? definition.runtime
+    : null;
+  if (harness !== null && !harnessEnabledIn(tx.sql)) {
+    return err({ code: "unavailable", message: "harness is turned off" });
+  }
   const place = input.place;
   if (place !== null) {
     const usable = placeUsable(deps, place);
@@ -61,8 +73,8 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, agent, project, app, place_kind,
        place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       model_selection, skip, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
+       model_selection, skip, harness, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
       input.agent,
@@ -75,6 +87,7 @@ export function startSession(
       inherit?.forked_from?.through_seq ?? null,
       inherit?.model_selection ?? null,
       definition.skip ? 1 : 0,
+      harness,
       seq,
       seq,
     ],

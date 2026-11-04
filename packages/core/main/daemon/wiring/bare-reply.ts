@@ -14,6 +14,7 @@ import type {
   Output,
 } from "../../../../protocol/server/mod.ts";
 import { redactBlocks } from "../../../lophn-agent/session/message-body.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { callsAutoReply } from "../../../router/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import { prepareBodies } from "./router.ts";
@@ -143,7 +144,19 @@ export const bareReplyWiring: WiringFactory = () => {
           );
         },
         // turn이 고정한 resolved agent의 runtime이다. 정의를 turn 도중 바꿔도 이 turn의 것을 본다.
+        // harness session의 turn은 resolved를 고정하지 않으므로 session이 정한 harness로 같은 자동 답 길을 탄다.
         async isBare(turn) {
+          const harness = ledgerSnapshot(
+            ctx.ledgerPath,
+            (lookup) =>
+              lookup.sql.get(
+                `select 1 as found from turns t join sessions s on s.id = t.session
+                 where t.id = ? and s.harness is not null`,
+                [turn],
+              ) !== undefined,
+          );
+          if (!harness.ok) return harness;
+          if (harness.value) return ok(true);
           const found = await read<Output<typeof turnBody>>(turnBody, {
             kind: "turn_resolved",
             id: turn,

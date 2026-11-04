@@ -152,7 +152,10 @@ function checkDefinition(
       delete fields.profile;
     }
     fields.name = LOPHN_AGENT_NAME;
-    if (fields.runtime === "bare") addIssue(issues, "runtime", "not_allowed");
+    // lophn은 자기 runtime만 쓴다(bare도 harness도 아니다).
+    if (fields.runtime !== undefined && fields.runtime !== "lophn") {
+      addIssue(issues, "runtime", "not_allowed");
+    }
   } else {
     const name = fields.name;
     if (

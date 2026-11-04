@@ -19,6 +19,7 @@ import {
   type AgentPlace,
   agentRead,
   finishTurn,
+  isHarnessRuntime,
   type McpServer,
   type ModelChoice,
   type PlaceKind,
@@ -873,6 +874,15 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       return await closeUnstarted(start, made.value, limits.value, mode);
     }
     const agent = made.value.agent;
+    // harness runtime의 session은 shell host가 돌린다. 이 입력이 run-loop에 닿았으면 turn을 시작하지 않고 닫는다.
+    if (isHarnessRuntime(agent.runtime)) {
+      return await closeUnstarted(
+        start,
+        { reason: "target_unavailable", why: "harness_runtime" },
+        limits.value,
+        mode,
+      );
+    }
 
     // 사람 지침은 turn을 시작할 때 한 번 읽고 turn 끝까지 쓴다. 한 층이라도 읽지 못했으면 turn을 시작하지 않는다.
     // bare는 전역·project 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.

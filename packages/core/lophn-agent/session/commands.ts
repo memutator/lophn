@@ -14,6 +14,7 @@ import {
   renameSession,
   type requestSessionCompact,
   type sendMessage,
+  type bindHarnessSession,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -24,6 +25,7 @@ import type {
 import { endSession, startSession } from "../places/lifecycle.ts";
 import type { EndDeps, OpenDeps } from "../places/ports.ts";
 import { createCompactCommands } from "./compact.ts";
+import { createHarnessCommands } from "./harness.ts";
 import { createForkCommand } from "./fork.ts";
 import { deleteSessionReverts } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
@@ -86,9 +88,11 @@ export function createConversationCommands(deps: ConversationDeps): {
   failCompact: CommandDefinition<typeof failSessionCompact>;
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
+  bind: CommandDefinition<typeof bindHarnessSession>;
 } {
   return {
     ...createMessageCommands(deps.send),
+    ...createHarnessCommands(),
     fork: createForkCommand(deps.open),
     ...createCompactCommands(),
     open: {

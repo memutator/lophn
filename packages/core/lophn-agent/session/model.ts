@@ -1,5 +1,7 @@
 import {
   type AgentId,
+  HARNESS_RUNTIMES,
+  type HarnessRuntime,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_IMAGE_FIELD,
@@ -162,6 +164,21 @@ begin
   select raise(abort, 'the order of a consumed message is fixed');
 end;`,
   },
+  {
+    // harness runtime의 session은 열 때 정한 harness를 바꾸지 못한다. harness_session은 그 harness가 알려 준
+    // 자기 session id이고 다음 turn과 TUI 열기가 같은 id로 이어 간다.
+    id: "lophn-agent.sessions.harness",
+    sql: `
+alter table sessions add column harness text
+  check (harness is null or harness in (${HARNESS_RUNTIMES.map((h) => `'${h}'`).join(", ")}));
+alter table sessions add column harness_session text
+  check (harness_session is null or (harness is not null and length(harness_session) > 0));
+create trigger sessions_harness_immutable
+before update of harness on sessions
+begin
+  select raise(abort, 'session harness is immutable');
+end;`,
+  },
 ];
 
 type Lookup = {
@@ -187,6 +204,9 @@ export type AgentSessionRow = {
   compaction_through_seq: string | null;
   compaction_summary_call: string | null;
   skip: boolean;
+  // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
+  harness: HarnessRuntime | null;
+  harness_session: string | null;
   created_seq: string;
   state_seq: string;
 };
@@ -196,7 +216,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, place_kind,
   place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, created_seq, state_seq`;
+  compaction_summary_call, skip, harness, harness_session, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -214,6 +234,8 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     compaction_through_seq: text(row["compaction_through_seq"]),
     compaction_summary_call: text(row["compaction_summary_call"]),
     skip: Number(row["skip"]) === 1,
+    harness: text(row["harness"]) as HarnessRuntime | null,
+    harness_session: text(row["harness_session"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };

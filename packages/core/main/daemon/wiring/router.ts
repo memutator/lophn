@@ -429,10 +429,9 @@ export const routerWiring: WiringFactory = () => {
           sql: () => sql,
         });
         for (const pending of unstartedHumanMessages(sql)) {
-          // 보관한 place의 session은 새 입력을 받지 않는다.
-          if (!directory.find(pending.session as Id<"ses">)?.accepting) {
-            continue;
-          }
+          // 보관한 place의 session은 새 입력을 받지 않는다. harness session의 입력은 harness wiring이 되돌린다.
+          const target = directory.find(pending.session as Id<"ses">);
+          if (!target?.accepting || target.transport !== "lophn") continue;
           // ReadMessageBody는 blob을 읽어서 reader pool 밖의 read다.
           const body = await ctx.runtime.reads.get(
             `${messageBody.resource}/${messageBody.method}`,

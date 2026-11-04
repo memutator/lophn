@@ -10,6 +10,8 @@ import {
   interruptRunningTurns,
   publishAfterCommit,
 } from "../../../lophn-agent/run-loop/mod.ts";
+import { createHarnessInputTransport } from "../../../lophn-agent/session/mod.ts";
+import { transportBySession } from "../../../router/router.ts";
 import {
   createCallStore,
   createRouterReaderRegistration,
@@ -29,10 +31,11 @@ const environment: RouterEnvironment = {
       publish: (event) => view.port(afterCommit).push(AGENT_EVENT_TOPIC, event),
       sql: () => view.sql,
     });
-    // lophn session은 입력함이 받는다.
-    const transport = createLophnInputTransport({
-      record: (tx, session, input) =>
-        createReceivedRecorder({ principal: who }).record(tx, session, input),
+    const { record } = createReceivedRecorder({ principal: who });
+    // lophn session은 run-loop의 입력함이, harness session은 host의 입력함이 받는다.
+    const transport = transportBySession({
+      lophn: createLophnInputTransport({ record }),
+      harness: createHarnessInputTransport({ record }),
     });
     return {
       directory,

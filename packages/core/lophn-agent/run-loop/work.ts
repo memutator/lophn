@@ -89,7 +89,7 @@ export function createTurnSource(deps: {
 
 // lophn session 쪽 `InputTransport`다. writer Worker 안에서 돌아 입력함(main thread 메모리)에 바로 닿지 못한다.
 // 그래서 입력은 "commit 뒤 할 일"로 모아 두고 main thread의 `createInboxApplier`가 commit 뒤에 입력함에 넣는다.
-// harness session은 coding-agent 단위의 구현이 맡고 둘을 묶는 것은 wiring이다.
+// harness session의 transport는 session/harness.ts에 따로 있고 둘을 묶는 것은 router의 transportBySession이다.
 export function createLophnInputTransport(deps: {
   // `message`가 null인 입력(call·reply·reaction·notice·step)을 받는 session 기록에 쓴다. 배달하는 tx에서
   // 부르고 wiring이 places-sessions 쪽 쓰기 helper를 끼운다.

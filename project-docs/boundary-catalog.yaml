@@ -106,6 +106,10 @@ elements:
             kind: component
             description: model catalog, 사람이 적은 custom model 정보, provider 연결, provider가 알려 주는 model 목록.
 
+          - id: harness-host-core
+            kind: component
+            description: runtime이 harness(claude-code, codex, opencode)인 agent의 session을 core가 받는 쪽. 입력함, turn·메시지 기록, harness의 session id. 실행은 shell의 host가 한다.
+
       - id: events
         kind: component
         description: commit 뒤 agent event와 남지 않는 event를 화면에 내는 Bus와 Gateway.
@@ -333,6 +337,16 @@ interfaces:
     defined_by: coding-agent
     provided_by:
       - coding-agent
+    used_by:
+      - shell
+
+  - id: harness-host-interface
+    kind: interface
+    description: shell main의 harness host가 사람 token으로 부르는 core의 memory route(`harness/take`, `start_turn`, `record`, `finish_turn`, `set_external_id`). renderer의 호출 통로에는 없다.
+    interface_type: protocol
+    defined_by: lophn-agent
+    provided_by:
+      - harness-host-core
     used_by:
       - shell
 

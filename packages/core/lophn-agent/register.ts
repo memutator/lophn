@@ -25,6 +25,7 @@ import {
   messageImagePath,
   messageImagePrepare,
   messageImageRead,
+  HARNESS_HOST_MEMORY_ROUTES,
   messageImageUpload,
   type Place,
   placeKindOf,
@@ -831,6 +832,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.failCompact,
       conversationCommands.send,
       conversationCommands.record,
+      conversationCommands.bind,
       removeQueuedCommand({ eraseBlobRefs }),
       editQueuedCommand(),
       moveQueuedCommand(),
@@ -915,6 +917,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       messageImagePrepare,
       // 대기 메시지의 지금 끼워 넣기와 지우기. handler는 wiring/lophn-agent-runtime.ts가 붙인다.
       ...QUEUED_INPUT_ROUTES,
+      // shell main의 harness host가 부르는 입구. handler는 wiring/harness.ts가 붙인다.
+      ...HARNESS_HOST_MEMORY_ROUTES,
     ],
     // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
     uploadRoutes: [agentProfileImageUpload, messageImageUpload],

@@ -110,10 +110,26 @@ const mcpServersSchema = z
     { message: "mcp server names must be unique" },
   );
 
-// runtime: 없으면 lophn이다. bare는 정의 본문과 `tools`가 고른 것만 싣는다.
-export const AGENT_RUNTIMES = ["lophn", "bare"] as const;
+// runtime: 없으면 lophn이다. bare는 정의 본문과 `tools`가 고른 것만 싣는다. harness 값은 third-party harness의
+// CLI를 shell host가 돌리는 agent다(run-loop는 돌리지 않는다).
+export const HARNESS_RUNTIMES = ["claude-code", "codex", "opencode"] as const;
+export type HarnessRuntime = (typeof HARNESS_RUNTIMES)[number];
+export const AGENT_RUNTIMES = ["lophn", "bare", ...HARNESS_RUNTIMES] as const;
 export const agentRuntimeSchema = z.enum(AGENT_RUNTIMES);
 export type AgentRuntime = z.infer<typeof agentRuntimeSchema>;
+
+export function isHarnessRuntime(
+  runtime: AgentRuntime | undefined,
+): runtime is HarnessRuntime {
+  return (HARNESS_RUNTIMES as readonly string[]).includes(runtime ?? "");
+}
+
+// 편집기가 runtime 고르기에 내는 값. harness 값은 설정 `harness.enabled`가 켜졌을 때만 낸다.
+export function selectableRuntimes(
+  harnessEnabled: boolean,
+): readonly AgentRuntime[] {
+  return harnessEnabled ? AGENT_RUNTIMES : ["lophn", "bare"];
+}
 
 // 한 줄 목적. 목록 카드와 다른 agent가 읽는 한 줄이라 줄바꿈과 긴 글을 받지 않는다.
 export const AGENT_DESCRIPTION_MAX_CHARS = 200;

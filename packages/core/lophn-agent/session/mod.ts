@@ -7,6 +7,14 @@ export {
   takeSteering,
 } from "./model.ts";
 export { createConversationCommands } from "./commands.ts";
+export {
+  createHarnessCommands,
+  createHarnessInputTransport,
+  HARNESS_INBOX_PUT_TOPIC,
+  harnessEnabledIn,
+  harnessOf,
+  harnessEnabledSetting,
+} from "./harness.ts";
 export { messageRemoveQueued, removeQueuedCommand } from "./queued-remove.ts";
 export { editQueuedCommand } from "./queued-edit.ts";
 export { moveQueuedCommand } from "./queued-move.ts";

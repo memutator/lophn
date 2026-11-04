@@ -214,10 +214,15 @@ function noticeParts(input: TextInput): { kind: string; detail: string } {
   };
 }
 
+const HARNESS_RESULT_NOTE =
+  "When you finish, your last message is the answer to this call, unless you already answered with `lophn call reply`.";
 const RESULT_NOTE: Record<AgentRuntime, string> = {
   lophn:
     "When you finish, answer with `lophn call reply`. If you will not take it, send the reason with `lophn call reply`.",
   bare: "When you finish, your last response is the answer to this call.",
+  "claude-code": HARNESS_RESULT_NOTE,
+  codex: HARNESS_RESULT_NOTE,
+  opencode: HARNESS_RESULT_NOTE,
 };
 
 // 받은 call은 답 방식이 항상 있다. null이면 call이 아닌 기록(session이 자기 답으로 남긴 메시지)이라 속성을 뺀다.

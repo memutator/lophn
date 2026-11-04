@@ -36,7 +36,7 @@ export function createSessionDirectory(
   function targetOf(row: AgentSessionRow): TargetSession {
     return {
       session: row.id as Id<"ses">,
-      transport: "lophn",
+      transport: row.harness === null ? "lophn" : "harness",
       agent: { agent: row.agent, place: placeOf(row) },
       accepting: acceptsInput(row, placeArchived(placeOf(row))),
     };

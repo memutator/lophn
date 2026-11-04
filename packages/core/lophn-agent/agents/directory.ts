@@ -1,5 +1,9 @@
 import type { Result } from "../../../base/mod.ts";
-import type { AgentCard, AgentId } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentCard,
+  AgentId,
+  AgentRuntime,
+} from "../../../protocol/lophn-agent/mod.ts";
 import { cardByName } from "./card.ts";
 import {
   type AgentContext,
@@ -14,6 +18,8 @@ export type AgentInfo = {
   id: AgentId;
   name: string;
   skip: boolean;
+  // 정의의 runtime. 없으면 lophn이다.
+  runtime: AgentRuntime;
   // 할당: 앱 slug와 permissions.deny 규칙. 사람만 쓰는 칸이다.
   apps: readonly string[];
   deny: readonly string[];
@@ -31,6 +37,7 @@ function infoOf(loaded: Loaded): AgentInfo {
     id: loaded.agent,
     name: nameOf(loaded),
     skip: loaded.definition?.skip === true,
+    runtime: loaded.definition?.runtime ?? "lophn",
     apps: loaded.definition?.apps ?? [],
     deny: loaded.definition?.permissions?.deny ?? [],
   };

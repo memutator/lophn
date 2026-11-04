@@ -41,6 +41,19 @@ export type RouterDeps = {
   store: CallStore;
 };
 
+// 받는 session의 transport에 따라 입력함을 고른다. 받을 곳이 없는 취소는 lophn 쪽이 조용히 넘긴다.
+export function transportBySession(
+  transports: Record<TargetSession["transport"], InputTransport>,
+): InputTransport {
+  const of = (target: TargetSession | null) =>
+    transports[target?.transport ?? "lophn"];
+  return {
+    deliver: (tx, target, input) => of(target).deliver(tx, target, input),
+    cancel: (tx, target, call, unattended) =>
+      of(target).cancel(tx, target, call, unattended),
+  };
+}
+
 export interface Router {
   // 모든 보낸 쪽이 쓰는 입구. 사람, program, agent.
   route(tx: Tx, input: RouteInput): Result<RouteResult>;

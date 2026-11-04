@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
+import { contentBlocksSchema } from "../../protocol/lophn-agent/content-block.ts";
 import { defineCommand, parseActor } from "../../protocol/base/mod.ts";
 import { z } from "zod";
 import {
@@ -29,6 +30,24 @@ export const callsRecover = defineCommand({
   compare: z.strictObject({}),
   actors: ["machine"],
   errors: ["forbidden", "unavailable", "internal"],
+});
+
+// bare session이 result call을 받은 turn을 끝내면 core가 마지막 응답 글을 그 call의 답으로 보낸다. agent가 부르는
+// ReplyCall과 같은 규칙을 받는 session 이름으로 한 번 더 건다. core 안 machine만 쓴다.
+export const callsAutoReply = defineCommand({
+  resource: "calls",
+  method: "auto-reply",
+  name: "AutoReplyCall",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    call: idSchema("cal"),
+    body: contentBlocksSchema,
+    unattended: z.boolean(),
+  }),
+  output: z.object({ delivered: z.boolean(), closed: z.boolean() }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["forbidden", "not_found", "conflict", "unavailable", "internal"],
 });
 
 // 호출한 agent의 session이다. agent 자격은 session에 묶인다.
@@ -104,6 +123,30 @@ const replyCallCommand: CommandDefinition<typeof callReply> = {
   },
 };
 
+const autoReplyCallCommand: CommandDefinition<typeof callsAutoReply> = {
+  route: callsAutoReply,
+  handle(tx, ctx, input) {
+    if (parseActor(ctx.actor)?.kind !== "machine") {
+      return err({
+        code: "forbidden",
+        message: "only core replies for a turn",
+      });
+    }
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    return router.value.reply(
+      tx,
+      { session: input.session },
+      {
+        call: input.call,
+        body: input.body,
+        refs: [],
+        unattended: input.unattended,
+      },
+    );
+  },
+};
+
 const cancelCallCommand: CommandDefinition<typeof callCancel> = {
   route: callCancel,
   handle(tx, ctx, input) {
@@ -144,6 +187,7 @@ const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
 export const ROUTER_COMMANDS = [
   sendCallCommand,
   replyCallCommand,
+  autoReplyCallCommand,
   cancelCallCommand,
   recoverCallsCommand,
 ] as const;

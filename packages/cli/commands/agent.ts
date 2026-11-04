@@ -47,7 +47,7 @@ const create = defineCommand({
   name: "agent.create",
   summary: "Create an agent",
   description:
-    "Create an agent. Give its name (unique; `lophn` is reserved), description (one line), runtime (`lophn` by default; `bare` loads only the instructions body and the `tools` you pick, and does not use skills), tools (names to pick; bare only), modality (input/output of text, image, file; all three by default), profile, model, skills_off, mcp_off and instructions (body). Its assignments are given by the person.",
+    "Create an agent. Give its name (unique; `lophn` is reserved), description (one line), runtime (`lophn` by default; `bare` loads only the instructions body and the tools and skills you pick), tools (names to pick; bare only), skills (names to pick; bare only; picking one also gives skill.read), modality (input/output of text, image, file; all three by default), profile, model, skills_off, mcp_off and instructions (body). Its assignments are given by the person.",
   input: agentDefinitionSchema
     .omit({
       mcp_servers: true,

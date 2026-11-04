@@ -465,11 +465,13 @@ export function DefinitionForm(props: DefinitionFormProps) {
             lockOff
             onToggle={bare ? togglePick : toggleSkill}
           />
-          {bare ? null : (
-            <p className={styles.note}>
-              {t("agents.notice.skills-agent-only")}
-            </p>
-          )}
+          <p className={styles.note}>
+            {t(
+              bare
+                ? "agents.notice.skills-bare-pick"
+                : "agents.notice.skills-agent-only",
+            )}
+          </p>
           <Issues issues={issuesOf("skills")} />
         </Group>
       )}

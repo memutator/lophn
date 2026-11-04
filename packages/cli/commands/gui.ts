@@ -1,6 +1,6 @@
 // `lophn gui <harness>`: Claude Code, Codex 또는 OpenCode의 터미널 화면 대신 lophn 창을 연다.
 // core를 부르지 않는 local 명령이라 명령 표(COMMANDS)에 넣지 않고 binary 입구(main.ts)만 끼운다. packages/cli는
-// coding-agent를 import하지 못해 `LocalCommand`(coding-agent/local/types.ts)와 같은 모양만 맞춘다. lophn 앱 실행 파일을 open intent(`--harness-gui`)와 함께 띄울 뿐이고, 이미 떠 있으면
+// coding-agent를 import하지 못해 `LocalCommand`(coding-agent/local/types.ts)와 같은 모양만 맞춘다. lophn 앱 실행 파일을 open intent(`--harness-gui=<harness>`)와 함께 띄울 뿐이고, 이미 떠 있으면
 // 그 앱의 second-instance가 받는다. 켜져 있는지(extension harness-gui)는 앱이 본다.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -98,12 +98,11 @@ export function createGuiCommand(
           });
         }
       }
+      // flag와 값을 한 원소로 넘긴다: 떠 있는 앱의 second-instance argv에서 Chromium이 값을 flag에서 떼어 뒤로 다시 늘어놓는다.
       const launched = await launch([
-        "--harness-gui",
-        harness,
-        "--cwd",
-        ctx.cwd,
-        ...(resume === undefined ? [] : ["--resume", resume]),
+        `--harness-gui=${harness}`,
+        `--cwd=${ctx.cwd}`,
+        ...(resume === undefined ? [] : [`--resume=${resume}`]),
       ]);
       if (!launched.ok) return launched;
       return ok({ harness, cwd: ctx.cwd });

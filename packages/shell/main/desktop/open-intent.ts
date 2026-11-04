@@ -1,8 +1,11 @@
 // 창 열기 intent. OS가 넘기는 실행 인자에서 읽는 것은 `--quit`, `--open-app <app ID>`,
-// `--harness-gui <harness> --cwd <dir> [--resume <id>]` 셋뿐이다. 모양이 조금이라도 다르면 아무 대상도
+// `--harness-gui=<harness> --cwd=<dir> [--resume=<id>]` 셋뿐이다. 모양이 조금이라도 다르면 아무 대상도
 // 열지 않고 기본 창 요청으로 읽는다. 앱 코드·token·port는 받을 자리가 없다. 경로는 harness-gui의 `--cwd`
 // 하나만 받는데, 절대 경로 모양만 보고(파서) 있는 폴더인지는 여는 쪽이 본다. 모양은 node test가 zod를 풀지
 // 못해 여기서 정규식으로 본다.
+// harness-gui는 `=` 꼴로만 읽는다. 이미 떠 있는 앱의 second-instance argv는 Chromium이 스위치를 앞에, 값을
+// 뒤에 다시 늘어놓아 `--flag value`의 값이 flag 옆에 남지 않는데, `--flag=value`는 한 원소라 그대로 남는다.
+// `--open-app <app ID>`도 second-instance argv에서 같은 문제가 있지만, OS 바로가기 IPC를 부르는 화면이 아직 없어 그때까지 그대로 둔다.
 import { isAbsolute } from "node:path";
 
 import {
@@ -47,10 +50,22 @@ function flagValue(
   return value;
 }
 
+// `flag=값`이 정확히 한 번 있을 때 값(첫 `=` 뒤 전부)을 낸다. 없으면 undefined, 두 번 이상이면 null이다.
+function eqValue(
+  argv: readonly string[],
+  flag: string,
+): string | undefined | null {
+  const prefix = `${flag}=`;
+  const found = argv.filter((arg) => arg.startsWith(prefix));
+  if (found.length === 0) return undefined;
+  if (found.length > 1) return null;
+  return found[0]!.slice(prefix.length);
+}
+
 function readHarnessGui(argv: readonly string[]): OpenIntent {
-  const harness = flagValue(argv, HARNESS_GUI_FLAG);
-  const cwd = flagValue(argv, CWD_FLAG);
-  const resume = flagValue(argv, RESUME_FLAG);
+  const harness = eqValue(argv, HARNESS_GUI_FLAG);
+  const cwd = eqValue(argv, CWD_FLAG);
+  const resume = eqValue(argv, RESUME_FLAG);
   if (!isGuiHarness(harness)) return WINDOW;
   if (typeof cwd !== "string" || !isAbsolute(cwd)) return WINDOW;
   if (resume === null || (resume !== undefined && resume.startsWith("-"))) {
@@ -66,12 +81,14 @@ function readHarnessGui(argv: readonly string[]): OpenIntent {
 
 /**
  * 실행 인자(첫 시작의 process.argv, second-instance argv)를 읽는다. Chromium이 덧붙이는
- * switch와 실행 파일 경로는 보지 않는다. 각 flag는 정확히 한 번, 바로 뒤 값이 모양에 맞을
+ * switch와 실행 파일 경로는 보지 않는다. 각 flag는 정확히 한 번, 값이 모양에 맞을
  * 때만 읽는다. 모양이 틀리면 기본 창이다.
  */
 export function readOpenIntent(argv: readonly string[]): OpenIntent {
   if (argv.includes(QUIT_FLAG)) return { kind: "quit" };
-  if (argv.includes(HARNESS_GUI_FLAG)) return readHarnessGui(argv);
+  if (argv.some((arg) => arg.startsWith(`${HARNESS_GUI_FLAG}=`))) {
+    return readHarnessGui(argv);
+  }
   const app = flagValue(argv, OPEN_APP_FLAG);
   if (typeof app !== "string") return WINDOW;
   return APP_ID.test(app) ? { kind: "app", app } : WINDOW;

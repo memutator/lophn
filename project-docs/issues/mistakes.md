@@ -2,6 +2,21 @@
 
 worker가 크게 잘못한 것. 코드가 아니라 context(AGENTS.md, skill, architecture 문서)나 check를 고친다.
 
+## 터미널 탭에서 부르는 `lophn gui`가 개발 앱이 아니라 `~/.lophn`의 앱으로 감
+
+```yaml
+kind: mistake
+modules: [packages/shell/terminal-host, tools]
+```
+
+지금: harness-gui의 gui-window task가 shell 시작 층에 `claude gui` 함수를 넣으며 `lophn`을 이름으로 불렀다. lead review가 "개발 앱 터미널에는 `lophn`이 PATH에 없다"를 찾아 CLI 경로만 넣게 고쳤고, 같은 원인(터미널 env가 `LOPHN_*`를 지운다)으로 data root도 빠진다는 것은 놓쳤다. dev CLI launcher가 `~/.lophn`을 기본값으로 잡아, 사람이 개발 앱 터미널에서 `claude gui`를 치자 설치본의 Home 창이 떴다. 설치본이 꺼져 있었으면 저장소의 개발 code가 실제 `~/.lophn`으로 떴다.
+
+영향: 사람의 시험 한 판. 사람의 data root에 개발 판 schema가 적용될 뻔했다.
+
+원인: 터미널 탭에서 lophn을 부르는 code가 무엇을 shell main에서 받아야 하는지 적힌 곳이 없었다(`terminal-agent.md`에는 env를 지운다는 사실만 있다). brief도 그것을 말하지 않았다.
+
+막기: `terminal-agent.md` "지키는 것"에 "터미널 탭 안에서 lophn을 부르는 code는 CLI 경로와 data root를 shell main에서 받는다(터미널 env에는 `LOPHN_*`가 없다)"를 둔다. 저장소 실행의 `lophn gui`는 data root가 `~/.lophn`이거나 없으면 앱을 띄우지 않는다(fix task, 위험 test).
+
 ## 계획이 본보기와 다른 모양을 정했는데 lead review가 README 대조만 함
 
 ```yaml

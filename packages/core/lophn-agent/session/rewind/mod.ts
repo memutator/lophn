@@ -1,4 +1,4 @@
-export { revertSchemaSteps, rewindContainerRootSteps } from "./schema.ts";
+export { REWIND_FILES_IMMUTABLE, revertSchemaSteps } from "./schema.ts";
 export { createCheckpoint } from "./checkpoints.ts";
 export {
   createRecordRewindFile,

@@ -244,8 +244,9 @@ export default function (amp: any) {
 
 // OpenCode 계열(opencode, kilo, mimocode) plugin이다. 셋은 같은 plugin API라 본문이 같고 harness 이름만 다르다. 듣는 event는
 // 그 harness의 `events`(1.x event 이름)이다.
-//  - turn의 시작·끝(\`session.status\`)은 root session의 것만 넘긴다. 하위 session은 session 조회의 parentID로 가른다.
-//    조회가 실패하면 root가 아닌 것으로 보고 넘기지 않는다(하위 session의 idle이 turn 끝으로 잘못 읽히는 쪽이 더 나쁘다).
+//  - turn의 시작·끝(\`session.status\`)은 root session의 것만 turn으로 넘긴다. 하위 session은 session 조회의 parentID로 가른다.
+//    조회가 실패하면 root가 아닌 것으로 보고 turn으로 넘기지 않는다(하위 session의 idle이 turn 끝으로 잘못 읽히는 쪽이 더 나쁘다).
+//    하위 session의 \`session.status\`는 \`properties.lophn_child\`(하위 session id)를 달고 sessionID를 root로 바꿔 넘긴다.
 //  - 권한·질문(\`permission.*\`, \`question.*\`)은 하위 session의 것도 root session의 것으로 바꿔 넘긴다. 사람이 답해야 하는 것은
 //    root의 turn을 막는다.
 //  - completed idle에는 \`properties.lophn_message\`로 session의 마지막 assistant 답(text part만, 길이 상한)도 싣는다. 못 읽으면
@@ -344,7 +345,13 @@ async function forward(getSession, getMessage, type, properties) {
       run(type, { type, properties: { ...properties, sessionID: root } });
       return;
     }
-    if (root !== id) return;
+    if (root !== id) {
+      // 하위 session의 시작·끝은 child 신호다. sessionID는 root로 바꾸고 하위 session id는 lophn_child에 싣는다.
+      if (type === "session.status") {
+        run(type, { type, properties: { ...properties, sessionID: root, lophn_child: id } });
+      }
+      return;
+    }
     if (type === "session.error") {
       failures.set(id, properties.error?.name === "MessageAbortedError" ? "interrupted" : "failed");
       return;

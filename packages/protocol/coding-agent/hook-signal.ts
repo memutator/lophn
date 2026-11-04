@@ -11,6 +11,8 @@ const HOOK_SIGNAL_TYPES = [
   "PermissionResolved",
   "SessionEnded",
   "SessionNamed",
+  "ChildStarted",
+  "ChildEnded",
 ] as const;
 
 export type HookSignal = {
@@ -29,6 +31,10 @@ export type HookSignal = {
   reason?: string;
   // PermissionRequested.
   request?: { tool: string | null; summary: string | null };
+  // ChildStarted·ChildEnded. harness 안에서 child(subagent)를 가르는 id다(Claude는 agent_id, OpenCode는 하위 session id).
+  child?: string;
+  // TurnEnded. Stop payload가 아직 살아 있다고 알린 agent child의 id들이다. 없으면 생략한다(background shell은 싣지 않는다).
+  children?: readonly string[];
 };
 
 type SignalType = HookSignal["type"];
@@ -84,6 +90,21 @@ const TURN_MESSAGE_FIELDS: Partial<Record<HarnessId, readonly string[]>> = {
   ],
   kiro: ["assistant_response"],
 };
+
+// Claude Stop payload의 `background_tasks` 항목 중 아직 도는 subagent의 id다. 항목 꼴과 종류 label("subagent")은 Claude Code
+// CLI 2.1.316 bundle에서 읽었고 실제 payload로는 확인하지 못했다. teammate는 id가 lifecycle agent_id와 맞지 않고 끝나도
+// running으로 남아 세지 않는다. shell·monitor·workflow도 세지 않는다.
+function liveChildren(payload: Record<string, unknown>): string[] {
+  const tasks = payload.background_tasks;
+  if (!Array.isArray(tasks)) return [];
+  const ids: string[] = [];
+  for (const task of tasks) {
+    if (!isRecord(task) || task.type !== "subagent") continue;
+    if (task.status !== "running" && task.status !== "pending") continue;
+    if (typeof task.id === "string" && task.id !== "") ids.push(task.id);
+  }
+  return ids;
+}
 
 function turnMessage(
   harness: HarnessId,
@@ -260,6 +281,18 @@ function turnOutcome(
   }
 }
 
+// `type: "agent"` hook이 내는 tool hook은 SubagentStop을 내지 않아 child로 세면 끝나지 않는다(Orca claude-events.ts:183-186).
+const HOOK_AGENT_ID_PREFIX = "hook-agent-";
+
+function agentIdOf(payload: Record<string, unknown>): string | undefined {
+  const id = payload.agent_id;
+  return typeof id === "string" &&
+    id !== "" &&
+    !id.startsWith(HOOK_AGENT_ID_PREFIX)
+    ? id
+    : undefined;
+}
+
 // payload는 hook이 stdin으로 준 JSON이다.
 function commandHookSignal(
   harness: HarnessId,
@@ -267,6 +300,21 @@ function commandHookSignal(
   event: string,
   payload: Record<string, unknown>,
 ): HookSignal | null {
+  if (type === "ChildStarted" || type === "ChildEnded") {
+    const child = agentIdOf(payload);
+    return child === undefined ? null : { type, child };
+  }
+  // 하위 agent의 tool hook은 Start를 놓쳤어도 그 child가 살아 있다는 뜻이다. SubagentStop이 없는 harness는 끝을 몰라 child가
+  // 남아 버리므로 이 길은 ChildEnded를 매핑한 harness만 쓴다.
+  if (event === "PostToolUse" || event === "PostToolUseFailure") {
+    const child = agentIdOf(payload);
+    if (
+      child !== undefined &&
+      Object.values(HARNESS_ADAPTERS[harness].events).includes("ChildEnded")
+    ) {
+      return { type: "ChildStarted", child };
+    }
+  }
   if (isSubagent(harness, type, payload)) return null;
   // compact로 시작한 SessionStart와 clear로 끝난 SessionEnd는 session 경계가 아니다.
   if (event === "SessionStart" && payload.source === "compact") return null;
@@ -287,7 +335,13 @@ function commandHookSignal(
       const outcome = turnOutcome(harness, event, payload);
       if (outcome === null) return null;
       const message = turnMessage(harness, payload);
-      return message === null ? { type, outcome } : { type, outcome, message };
+      const children = liveChildren(payload);
+      return {
+        type,
+        outcome,
+        ...(message === null ? {} : { message }),
+        ...(children.length === 0 ? {} : { children }),
+      };
     }
     case "PermissionRequested":
       return permissionRequested(harness, event, payload);
@@ -345,7 +399,7 @@ function permissionRequested(
   }
 }
 
-// OpenCode 계열 plugin의 payload는 `{type, properties}`다. 하위 session은 plugin이 root event만 넘긴다.
+// OpenCode 계열 plugin의 payload는 `{type, properties}`다. 하위 session의 status는 plugin이 `lophn_child`를 달아 넘기고, 나머지 event는 root의 것만 온다.
 // turn 끝의 outcome은 plugin이 session 오류·중단 event를 보고 `properties.lophn_outcome`에, 마지막 답은 `properties.lophn_message`에 싣는다.
 function opencodeSignal(
   base: SignalType,
@@ -359,6 +413,14 @@ function opencodeSignal(
       const status = isRecord(properties.status)
         ? properties.status.type
         : null;
+      // plugin이 하위 session의 상태에 `lophn_child`(그 session id)를 달고 sessionID는 root로 바꿔 넘긴다.
+      const child = properties.lophn_child;
+      if (typeof child === "string" && child !== "") {
+        if (status === "busy" || status === "retry") {
+          return { type: "ChildStarted", child };
+        }
+        return status === "idle" ? { type: "ChildEnded", child } : null;
+      }
       if (status === "busy" || status === "retry") {
         return { type: "TurnStarted" };
       }

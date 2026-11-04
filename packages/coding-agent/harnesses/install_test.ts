@@ -84,6 +84,29 @@ test("전역 설정 install은 사람이 쓴 key와 hook을 보존하고 파싱�
   assert.deepStrictEqual(dry.size, 0);
 });
 
+// 이미 hook을 놓은 사람: 새 event(SubagentStart·SubagentStop)가 없는 설정은 dry_run이 missing이고, 설치가 사람의 hook을 두고 둘을 더한다.
+test("옛 Claude 설정에는 subagent hook만 새로 더해진다", async () => {
+  const mine = { type: "command", command: "my-stop-hook" };
+  const files = new Map<string, string>([
+    [SETTINGS, JSON.stringify({ hooks: { Stop: [{ hooks: [mine] }] } })],
+  ]);
+  await installGlobal(memory(files), input);
+  const doc = JSON.parse(files.get(SETTINGS)!);
+  assert.ok(doc.hooks.SubagentStart && doc.hooks.SubagentStop);
+  delete doc.hooks.SubagentStart;
+  delete doc.hooks.SubagentStop;
+  files.set(SETTINGS, JSON.stringify(doc));
+  const seen = await installGlobal(memory(files), { ...input, dryRun: true });
+  assert.deepStrictEqual(seen.ok && seen.value.hook, "missing");
+  await installGlobal(memory(files), input);
+  const after = JSON.parse(files.get(SETTINGS)!);
+  assert.deepStrictEqual(after.hooks.Stop[0], { hooks: [mine] });
+  assert.deepStrictEqual(
+    after.hooks.SubagentStop[0].hooks[0].command,
+    "lophn hook claude SubagentStop",
+  );
+});
+
 test("개발 command로 놓아도 사람이 쓴 hook은 남고 우리 항목은 event마다 하나다", async () => {
   const mine = { type: "command", command: "my-stop-hook" };
   const files = new Map<string, string>([

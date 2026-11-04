@@ -69,7 +69,7 @@ const OPENCODE_EVENTS = {
   "question.rejected": "PermissionResolved",
 } as const;
 
-// Claude 꼴(SessionStart·UserPromptSubmit·Stop·StopFailure·PermissionRequest·PostToolUse(Failure)·SessionEnd)이다.
+// Claude 꼴(SessionStart·UserPromptSubmit·Stop·StopFailure·PermissionRequest·PostToolUse(Failure)·SessionEnd·SubagentStart·SubagentStop)이다.
 const CLAUDE_SHAPED = {
   SessionStart: "SessionStarted",
   UserPromptSubmit: "TurnStarted",
@@ -80,6 +80,10 @@ const CLAUDE_SHAPED = {
   // 실패하거나 거절된 tool도 대기 중인 권한 물음을 끝낸다.
   PostToolUseFailure: "PermissionResolved",
   SessionEnd: "SessionEnded",
+  // 확인함: Claude는 Code CLI 2.1.316 bundle의 hook schema, qwen은 qwenlm.github.io/qwen-code-docs/en/users/features/hooks,
+  // qoder는 docs.qoder.com/cli/hooks. 셋 다 payload에 agent_id가 있는 SubagentStart·SubagentStop을 둔다.
+  SubagentStart: "ChildStarted",
+  SubagentStop: "ChildEnded",
 } as const;
 
 // Claude 꼴 JSON 설정이다(`path`만 harness마다 다르다).

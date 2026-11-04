@@ -133,6 +133,99 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
     { type: "PermissionRequested", request: { tool: "Bash", summary: null } },
   ],
   ["claude: subagent의 Stop", "claude", "Stop", { agent_id: "sub" }, null],
+  // 근거: 문서와 Claude Code CLI 2.1.316 bundle의 schema. 실제 harness를 돌려 받은 payload가 아니다.
+  [
+    "claude: SubagentStart",
+    "claude",
+    "SubagentStart",
+    { agent_id: "a1", agent_type: "Explore", session_id: "s-1" },
+    { type: "ChildStarted", child: "a1", external_session: "s-1" },
+  ],
+  [
+    "claude: SubagentStop",
+    "claude",
+    "SubagentStop",
+    { agent_id: "a1", agent_type: "Explore" },
+    { type: "ChildEnded", child: "a1" },
+  ],
+  // Start를 놓쳐도 하위 agent의 tool hook으로 child가 살아 있음을 안다.
+  [
+    "claude: agent_id가 붙은 PostToolUse",
+    "claude",
+    "PostToolUse",
+    { agent_id: "a1", tool_name: "Bash" },
+    { type: "ChildStarted", child: "a1" },
+  ],
+  // `type: "agent"` hook은 SubagentStop을 내지 않아 child로 세면 끝나지 않는다.
+  [
+    "claude: hook agent의 PostToolUse",
+    "claude",
+    "PostToolUse",
+    { agent_id: "hook-agent-1", tool_name: "Read" },
+    { type: "PermissionResolved" },
+  ],
+  // 살아 있는 subagent만 children이 된다. shell·monitor·teammate와 끝난 항목은 세지 않는다.
+  [
+    "claude: Stop의 background_tasks",
+    "claude",
+    "Stop",
+    {
+      background_tasks: [
+        { id: "a1", type: "subagent", status: "running", description: "x" },
+        { id: "a2", type: "subagent", status: "pending", description: "x" },
+        { id: "a3", type: "subagent", status: "completed", description: "x" },
+        { id: "b1", type: "shell", status: "running", description: "x" },
+        { id: "m1", type: "monitor", status: "running", description: "x" },
+        { id: "t1", type: "teammate", status: "running", description: "x" },
+      ],
+    },
+    { type: "TurnEnded", outcome: "completed", children: ["a1", "a2"] },
+  ],
+  [
+    "claude: background shell만 남은 Stop",
+    "claude",
+    "Stop",
+    {
+      background_tasks: [
+        { id: "b1", type: "shell", status: "running", description: "x" },
+      ],
+    },
+    { type: "TurnEnded", outcome: "completed" },
+  ],
+  // SubagentStop을 매핑하지 않은 harness는 끝을 몰라 child 신호를 만들지 않는다.
+  [
+    "codex: agent_id가 붙은 PostToolUse",
+    "codex",
+    "PostToolUse",
+    { agent_id: "a1", tool_name: "Bash" },
+    { type: "PermissionResolved" },
+  ],
+  [
+    "opencode: 하위 session의 busy",
+    "opencode",
+    "session.status",
+    {
+      properties: {
+        sessionID: "root",
+        lophn_child: "ses_c",
+        status: { type: "busy" },
+      },
+    },
+    { type: "ChildStarted", child: "ses_c", external_session: "root" },
+  ],
+  [
+    "opencode: 하위 session의 idle",
+    "opencode",
+    "session.status",
+    {
+      properties: {
+        sessionID: "root",
+        lophn_child: "ses_c",
+        status: { type: "idle" },
+      },
+    },
+    { type: "ChildEnded", child: "ses_c", external_session: "root" },
+  ],
   [
     "claude: 수동 compact는 알림 없이 끝",
     "claude",

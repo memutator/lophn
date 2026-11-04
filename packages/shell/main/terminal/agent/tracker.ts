@@ -12,7 +12,9 @@ export type AgentSignal = {
     | "PermissionRequested"
     | "PermissionResolved"
     | "SessionEnded"
-    | "SessionNamed";
+    | "SessionNamed"
+    | "ChildStarted"
+    | "ChildEnded";
   outcome?: "completed" | "failed" | "interrupted";
   /** TurnEnded가 payload로 받은 마지막 답이나 오류 글. */
   message?: string;
@@ -247,7 +249,14 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     },
     hook(ref, harness, event, payload) {
       const signal = deps.signalOf(harness, event, payload);
-      if (signal === null || !alive(ref)) return;
+      // child 신호는 아직 읽지 않는다.
+      if (
+        signal === null ||
+        signal.type === "ChildStarted" ||
+        signal.type === "ChildEnded" ||
+        !alive(ref)
+      )
+        return;
       const entry = entryOf(ref);
       // grok·devin·cursor는 ~/.claude/settings.json의 hook을 기본으로 같이 읽어 그 탭이 `lophn hook claude`를
       // 받는다. process가 정한 harness를 다른 harness의 hook이 뒤집지 못한다.

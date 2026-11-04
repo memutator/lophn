@@ -12,8 +12,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-// 다른 앱·project가 쓰는 앱의 tool. place는 쓰는 쪽 agent가 놓인 곳이고 그 앱 자신은 싣지 않는다.
-// grant는 열려 있는 쪽이고 invocation은 실제로 부른 쪽이다.
+// 다른 앱·project가 쓰는 앱의 tool. place는 부른 agent가 놓인 곳이고 그 앱 자신은 싣지 않는다.
 export const appToolUseSchema = z.object({
   app: appIdSchema,
   tool: toolNameSchema,
@@ -21,7 +20,6 @@ export const appToolUseSchema = z.object({
     z.object({ kind: z.literal("project"), id: projectIdSchema }),
     z.object({ kind: z.literal("app"), id: appIdSchema }),
   ]),
-  source: z.enum(["grant", "invocation"]),
 });
 export type AppToolUse = z.infer<typeof appToolUseSchema>;
 

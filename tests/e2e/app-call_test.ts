@@ -64,11 +64,7 @@ import {
   startFakeServer,
 } from "../support/fake-server/mod.ts";
 import { lophnReply } from "../support/fake-server/lophn.ts";
-import {
-  lastToolResult,
-  lastUserText,
-  systemText,
-} from "../support/fake-server/probe.ts";
+import { lastToolResult, lastUserText } from "../support/fake-server/probe.ts";
 
 const user = { kind: "person", view_session: "e2e" } as const;
 

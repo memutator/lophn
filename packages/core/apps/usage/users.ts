@@ -5,7 +5,7 @@ import type { Sql } from "../../../protocol/server/mod.ts";
 import { wordsOf } from "../../../cli/parser.ts";
 import type { AgentDirectory } from "../../lophn-agent/agents/directory.ts";
 import { placeDepsOf } from "../../lophn-agent/places/mod.ts";
-import { loadApp, loadApps } from "../registration/store.ts";
+import { loadApps } from "../registration/store.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
 
@@ -13,9 +13,8 @@ type Query = Pick<Sql, "get" | "all">;
 
 export type ToolUser = {
   tool: string;
-  // 쓰는 쪽 agent가 놓인 곳.
+  // 부른 agent가 놓인 곳.
   place: Place;
-  source: "grant" | "invocation";
 };
 
 // 할당에서 뺀 command를 agent 정의의 permissions.deny에 적는 글이다: `lophn(<앱 slug> <command 낱말>)`.
@@ -63,32 +62,8 @@ export function agentAssignment(
   return ok({ agent, entries });
 }
 
-// 앱을 할당받은 agent와 그 앱에서 뺀(removed) command. 앱이 할당돼 있으면 뺀 것 말고는 전부 열려 있다.
-// 사용 관계(app.usage)가 읽는다.
-export type AppAssignee = { agent: AgentId; removed: ReadonlySet<string> };
-
-export function appAssignees(
-  sql: Query,
-  app: string,
-  agents: AgentDirectory = placeDepsOf(sql).agents,
-): Result<AppAssignee[]> {
-  const found = loadApp(sql, app);
-  if (!found.ok) return found;
-  if (found.value === null) return ok([]);
-  const assignees: AppAssignee[] = [];
-  for (const info of agents.agents()) {
-    if (!info.apps.includes(found.value.slug)) continue;
-    const removed = removedCommands(sql, found.value, info.deny);
-    if (!removed.ok) return removed;
-    assignees.push({ agent: info.id, removed: new Set(removed.value) });
-  }
-  return ok(assignees);
-}
-
-// 이 앱의 tool을 쓰는 다른 앱·project. 재료는 둘이다.
-// - grant(할당): 앱을 할당받은 agent의 session이 놓였던 곳. 앱의 공개 tool 가운데 그 agent가 뺀 것이 아니면 쓰는 것으로 센다.
-// - invocation: 앱 tool을 부른 agent session이 놓인 곳. home은 세지 않는다.
-// 그 앱 자신의 place에서 쓰는 것은 세지 않는다. 이름순으로 정렬해 같은 재료가 같은 bytes가 되게 한다.
+// 이 앱의 tool을 부른 다른 앱·project: 앱 tool을 부른 agent session이 놓인 곳이다. home과 그 앱 자신의 place는 세지 않는다.
+// 이름순으로 정렬해 같은 재료가 같은 bytes가 되게 한다.
 export function appToolUsers(
   sql: Query,
   ports: UsagePorts,
@@ -96,27 +71,11 @@ export function appToolUsers(
 ): Result<ToolUser[]> {
   const active = loadActiveDeclaration(sql, app);
   if (!active.ok) return active;
-  const tools = active.value?.declaration.commands ?? [];
-  const names = new Set(tools.map((tool) => tool.name));
+  const names = new Set(
+    (active.value?.declaration.commands ?? []).map((tool) => tool.name),
+  );
 
   const found = new Map<string, ToolUser>();
-  const add = (tool: string, place: Place, source: ToolUser["source"]) => {
-    if (place.kind === "app" && place.id === app) return;
-    found.set(JSON.stringify([tool, place, source]), { tool, place, source });
-  };
-
-  const assignees = appAssignees(sql, app);
-  if (!assignees.ok) return assignees;
-  for (const { agent, removed } of assignees.value) {
-    for (const place of ports.agentPlaces(agent)) {
-      for (const tool of tools) {
-        if (tool.public && !removed.has(tool.name)) {
-          add(tool.name, place, "grant");
-        }
-      }
-    }
-  }
-
   const calls = sql.all(
     `select distinct json_extract(operation, '$.name') as tool, session
        from invocations
@@ -128,15 +87,15 @@ export function appToolUsers(
     const tool = String(row["tool"]);
     if (!names.has(tool)) continue;
     const place = ports.sessionPlace(String(row["session"]))?.place;
-    if (place !== undefined && place !== null) add(tool, place, "invocation");
+    if (place === undefined || place === null) continue;
+    if (place.kind === "app" && place.id === app) continue;
+    found.set(JSON.stringify([tool, place]), { tool, place });
   }
 
   return ok(
     [...found.values()].sort(
       (a, b) =>
-        order(a.tool, b.tool) ||
-        order(placeKey(a.place), placeKey(b.place)) ||
-        order(a.source, b.source),
+        order(a.tool, b.tool) || order(placeKey(a.place), placeKey(b.place)),
     ),
   );
 }

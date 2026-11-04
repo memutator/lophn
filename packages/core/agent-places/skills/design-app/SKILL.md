@@ -51,7 +51,7 @@ An app has two layers. Give each action to the right one.
   operation (a table, program work). "Token use of one session, given the
   harness and the session id" and "cache hit rate of a period" are commands.
 - Other agents and coding agents see a public command as
-  `lophn <domain> <command> --flag`, one flag per input field, and its
+  `lophn <app> <command> --flag`, one flag per input field, and its
   `description` is the `--help` text. Write the `description` as when to use
   it, so a reader who knows nothing else about the app picks the right command.
 - Both layers go through lophn, so a write of either is recorded and can be
@@ -65,7 +65,7 @@ agent that files the person's receipts, are examples. If it is:
 
 1. Make the commands it needs public, and keep them few.
 2. Write `.lophn/skills/<name>/SKILL.md`: when to use the skill, which commands
-   it calls with `lophn <domain> <command>`, and how to read their results.
+   it calls with `lophn <app> <command>`, and how to read their results.
    The description says only what the skill does. Commit the folder; release
    prepare fails when it is missing from the commit.
 3. Declare it in `lophn.ts` `skills: [{name, public: true, commands}]`.

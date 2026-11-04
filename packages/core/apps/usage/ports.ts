@@ -6,8 +6,6 @@ import type { Place } from "../../../protocol/lophn-agent/places.ts";
 export interface UsagePorts {
   // session이 놓인 곳. home이면 place가 null이다. session이 없으면 null이다.
   sessionPlace(session: string): { place: Place | null } | null;
-  // 그 agent의 session이 놓였던 project·app. 할당받은 agent가 쓰는 쪽을 가늠하는 재료다.
-  agentPlaces(agent: string): Place[];
 }
 
 export const usagePorts = definePort<UsagePorts>("apps.usage");

@@ -6,7 +6,7 @@ import { toolKeySchema } from "../apps/channel-values.ts";
 import { agentIdSchema } from "../lophn-agent/places.ts";
 
 // 할당. agent가 부를 수 있는 앱과 그 앱에서 뺀 tool이다. 저장은 agent 정의 파일의 `apps`(앱 slug)와
-// `permissions.deny`(`lophn(<domain> <command 낱말>)`)이고, 이 route는 그것을 앱 id와 command 이름으로 풀어 읽고 쓴다.
+// `permissions.deny`(`lophn(<앱 slug> <command 낱말>)`)이고, 이 route는 그것을 앱 id와 command 이름으로 풀어 읽고 쓴다.
 // 줄은 앱뿐이다. MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이고 끄기는 `mcp_off`라 줄이 없다.
 // 할당한 tool의 바깥 효과는 묻지 않는다. 사람이 묻기로 정하면 줄에 `no_ask_tools: ToolKey[]`를 더하고
 // `judge`의 바깥 효과 줄을 켠다.

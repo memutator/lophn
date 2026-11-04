@@ -1,5 +1,5 @@
 // 사용 관계(app.usage)의 team 등록 file. writer·reader Worker가 import한다.
-// apps는 sessions 표를 모르므로 session과 agent가 놓인 곳을 이 조립이 꽂는다.
+// apps는 sessions 표를 모르므로 session이 놓인 곳을 이 조립이 꽂는다.
 // port는 그 등록의 reads에만 붙으므로 그 port를 쓰는 read(app.usage, app.tool_index)를 같은 등록에 둔다. 쓰는 쪽 tx(release 막기)는 core 등록의 port를 쓴다.
 import { createToolIndexRead } from "../../../apps/declaration/reads.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
@@ -8,11 +8,7 @@ import {
   type UsagePorts,
   usagePorts,
 } from "../../../apps/usage/mod.ts";
-import {
-  loadSession,
-  openSessions,
-  placeOf,
-} from "../../../lophn-agent/session/model.ts";
+import { loadSession, placeOf } from "../../../lophn-agent/session/model.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import {
   defineTxPort,
@@ -25,16 +21,6 @@ function usagePortsOf(sql: Pick<Sql, "get" | "all">): UsagePorts {
     sessionPlace(session) {
       const row = loadSession({ sql }, session);
       return row === undefined ? null : { place: placeOf(row) };
-    },
-    agentPlaces(agent) {
-      const places = new Map<string, NonNullable<ReturnType<typeof placeOf>>>();
-      for (const row of openSessions({ sql })) {
-        const place = placeOf(row);
-        if (row.agent === agent && place !== null) {
-          places.set(`${place.kind}:${place.id}`, place);
-        }
-      }
-      return [...places.values()];
     },
   };
 }

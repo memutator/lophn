@@ -82,7 +82,7 @@ const skillsSchema = z.array(nonblankSchema).refine(unique, {
 const appsSchema = z.array(slugSchema).refine(unique, {
   message: "duplicate app",
 });
-// agent 층 권한 규칙. 지금은 할당한 앱에서 뺀 command(`lophn(<domain> <command>)`)만 쓴다.
+// agent 층 권한 규칙. 지금은 할당한 앱에서 뺀 command(`lophn(<앱 slug> <command>)`)만 쓴다.
 const permissionsSchema = z.strictObject({
   deny: z
     .array(nonblankSchema)

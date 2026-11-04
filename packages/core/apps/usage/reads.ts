@@ -45,8 +45,7 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
         (a, b) =>
           order(a.app, b.app) ||
           order(a.tool, b.tool) ||
-          order(placeKey(a.place), placeKey(b.place)) ||
-          order(a.source, b.source),
+          order(placeKey(a.place), placeKey(b.place)),
       );
       return ok({
         uses,

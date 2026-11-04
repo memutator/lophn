@@ -34,7 +34,7 @@ export type PlaceDomain = {
   folder: string | null;
   // 폴더를 정할 수 없으면 null.
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
-  // 주인 앱의 활성 release가 내놓은 이 domain의 command 전부(비공개 포함). `lophn <domain> <command>`로 부른다.
+  // 주인 앱의 활성 release가 내놓은 이 domain의 command 전부(비공개 포함). `lophn <앱 slug> <command>`로 부른다.
   commands: readonly CommandLine[];
 };
 
@@ -215,7 +215,7 @@ function unique(items: readonly string[]): string[] {
   return [...new Set(items)].sort(cmp);
 }
 
-// command는 `lophn <domain> <command>`의 낱말로 적는다(`session_usage` → `session-usage`).
+// command는 `lophn <앱 slug> <command>`의 낱말로 적는다(`session_usage` → `session-usage`).
 function commandsText(
   commands: readonly CommandLine[],
   level: "full" | "short",
@@ -245,7 +245,7 @@ function mapLines(
     }
     const usedBy = unique(d.usedBy.map((u) => `${u.tool} ← ${u.domain}`));
     if (usedBy.length > 0) {
-      lines.push(`  Used by other domains: ${usedBy.join(", ")}`);
+      lines.push(`  Used by other apps and projects: ${usedBy.join(", ")}`);
     }
   }
   return lines;

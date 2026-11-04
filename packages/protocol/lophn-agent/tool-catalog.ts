@@ -1,7 +1,7 @@
 // agent 내장 tool의 이름 목록과 이름 규칙이다. 입력 schema는 tool 정의가 자기 옆에 둔다.
 // 정본 이름은 `<자원>.<동사>`이고 call, reply, cancel, ask만 한 단어다.
 // 효과(read, write, external)는 여기 없다. core registry와 Gate에만 있다.
-// 앱 command는 provider tool이 아니라 `lophn <domain> <command>`로 부르므로(예약 domain 이름은 apps/declaration/types.ts) 여기 없다.
+// 앱 command는 provider tool이 아니라 `lophn <앱 slug> <command>`로 부르므로(예약 앱 slug는 apps/declaration/types.ts) 여기 없다.
 // 외부 MCP tool은 이름이 동적이라 접두사와 길이 상수만 둔다.
 
 export const TOOL_NAME_MAX = 64;

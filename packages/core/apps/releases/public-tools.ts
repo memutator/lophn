@@ -4,7 +4,6 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { AppDeclaration } from "../declaration/mod.ts";
 import { appToolUsers, usagePorts } from "../usage/mod.ts";
-import { appAssignees } from "../usage/users.ts";
 import { loadActiveDeclaration } from "./store.ts";
 
 type Tool = AppDeclaration["commands"][number];
@@ -61,7 +60,7 @@ export function removedPublicSkillsIn(
     .sort();
 }
 
-// 지우는 공개 skill을 싣는다. 그 앱을 할당받은 agent가 없으면 받는 쪽이 없어 싣지 않는다.
+// 지우거나 비공개로 바꾸는 공개 skill 전부를 싣는다.
 export function removedPublicSkillsOf(
   tx: Pick<Tx, "sql">,
   app: string,
@@ -69,13 +68,10 @@ export function removedPublicSkillsOf(
 ): Result<{ skill: string }[]> {
   const previous = loadActiveDeclaration(tx.sql, app);
   if (!previous.ok) return previous;
-  const removed = removedPublicSkillsIn(
-    previous.value?.declaration.skills ?? [],
-    nextSkills,
+  return ok(
+    removedPublicSkillsIn(
+      previous.value?.declaration.skills ?? [],
+      nextSkills,
+    ).map((skill) => ({ skill })),
   );
-  if (removed.length === 0) return ok([]);
-  const assignees = appAssignees(tx.sql, app);
-  if (!assignees.ok) return assignees;
-  if (assignees.value.length === 0) return ok([]);
-  return ok(removed.map((skill) => ({ skill })));
 }

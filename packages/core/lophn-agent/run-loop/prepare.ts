@@ -401,7 +401,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const kind = placeKindOf(session.place);
 
     // place 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
-    // `lophn <domain> <command>`를 부를 때 푼다.
+    // `lophn <앱 slug> <command>`를 부를 때 푼다.
     const plain: readonly ToolDefinition[] = [
       ...selectTools(
         deps.placeTools(kind),

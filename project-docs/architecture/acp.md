@@ -1,6 +1,6 @@
 # acp
 
-ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면이 이 규격만 보고 그리고, 뒤에 앱 화면과 third-party CLI GUI가 같은 규격을 쓴다. 정의는 `packages/protocol/acp/`(항목, 상태, 갱신, `reduceAcp`, route)와 `packages/protocol/events/acp-project.ts`(`acpUpdatesOf`)다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 events에 둔다. core가 만든다: route `AcpSnapshot {session}`(→ `AcpState`)과 transient event `AcpUpdated`(payload `{session, update}`, subject는 null이라 화면은 type으로 건 구독에서 session을 고른다). 화면의 조작은 route `AcpSend {AcpInput}` 하나로 받는다. lophn 채팅 화면은 ACP만 읽고 보낸다. 기록을 해석하던 renderer code(`readThread`, `foldEvent`)는 지웠고, 남은 `ThreadView`는 ACP 상태를 화면 줄로 늘어놓은 renderer 쪽 모양이다(`packages/shell/renderer/conversation/thread-layout.ts`).
+ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면이 이 규격만 보고 그리고, 앱 화면이 같은 규격으로 자기 앱 place의 session과 이야기하며(`lophnApp.agent`), 뒤에 third-party CLI GUI가 같은 규격을 쓴다. 정의는 `packages/protocol/acp/`(항목, 상태, 갱신, `reduceAcp`, route)와 `packages/protocol/events/acp-project.ts`(`acpUpdatesOf`)다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 events에 둔다. core가 만든다: route `AcpSnapshot {session}`(→ `AcpState`)과 transient event `AcpUpdated`(payload `{session, update}`, subject는 null이라 화면은 type으로 건 구독에서 session을 고른다). 화면의 조작은 route `AcpSend {AcpInput}` 하나로 받는다. lophn 채팅 화면은 ACP만 읽고 보낸다. 기록을 해석하던 renderer code(`readThread`, `foldEvent`)는 지웠고, 남은 `ThreadView`는 ACP 상태를 화면 줄로 늘어놓은 renderer 쪽 모양이다(`packages/shell/renderer/conversation/thread-layout.ts`).
 
 ## 모양
 
@@ -87,6 +87,7 @@ redaction
 화면
 - 화면(`agent-tab-core-source-commands.ts`)은 대화 조작을 모두 `AcpSend`로 보낸다. 줄 고치기는 메시지 id만 알아서 `ReadReceivedMessage`로 session을 찾아 싣는다. `edit_queued`의 글이 아닌 block(이미지, 링크)을 지키는 것은 보내는 쪽(화면)의 몫이다.
 - 대기 목록(waiting store)은 승인 결정과 질문 답을 제 memory route(`turn_requests/decide`, `ask/answer`)로 그대로 보낸다. 대화 화면이 아닌 곳의 조작이라 `AcpSend`를 거치지 않는다.
+- 앱 화면도 ACP 화면이다. 앱 bridge(`lophnApp.agent`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 place의 session으로 묶어 사람 자격으로 넘긴다(`architecture/app-call.md`의 "앱 화면의 agent session"). core는 앱이 연 session을 따로 다루지 않는다.
 
 ## 옛 `ThreadView`와의 대응
 

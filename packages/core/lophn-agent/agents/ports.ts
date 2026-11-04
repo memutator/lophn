@@ -34,6 +34,13 @@ export type AgentLookups = {
   // 할당한 앱(slug)이 내놓은 public skill이다. slug 순에 같은 이름은 앞의 것만이다.
   shared(apps: readonly string[]): readonly AvailableSkill[];
   mcp(place: Place | null): McpTool[];
+  // 할당한 앱(slug)의 public command에서 deny로 뺀 것을 제외한 목록이다. 명함의 차이가 쓴다.
+  sharedCommands(
+    apps: readonly string[],
+    deny: readonly string[],
+  ): { slug: string; name: string }[];
+  // model이 받는 입력 종류. catalog가 모르는 model이나 provider는 null이다.
+  inputMedia(model: ModelChoice): readonly string[] | null;
   // 전역 기본 model. 없으면 null.
   modelDefault(): ModelChoice | null;
   // project place의 model. project 층이 없는 place(앱, lophn)나 값이 없으면 null.
@@ -54,6 +61,11 @@ export type PlaceLookups = {
     dataRoot: string,
     slugs: readonly string[],
   ): SharedFolder[];
+  sharedCommands(
+    sql: ReadSql,
+    slugs: readonly string[],
+    deny: readonly string[],
+  ): { slug: string; name: string }[];
 };
 
 export type AgentDeps = {

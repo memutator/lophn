@@ -2,8 +2,11 @@ import { ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentDefinitionIssue,
   type AgentId,
+  type AgentValueLayer,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
+  type ModelChoice,
+  type Place,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type AgentFileDefinition, parseAgentFile } from "./definition-file.ts";
 import type { AgentDeps, AgentLookups, ReadSql } from "./ports.ts";
@@ -101,4 +104,17 @@ export function listAgents(context: AgentContext): Result<Loaded[]> {
     if (agent.value !== null) loaded.push(agent.value);
   }
   return ok(loaded);
+}
+
+export function effectiveModel(
+  context: AgentContext,
+  loaded: Loaded,
+  place: Place | null,
+): { value: ModelChoice; source: AgentValueLayer } | null {
+  const own = loaded.definition?.model;
+  if (own !== undefined) return { value: own, source: "agent" };
+  const project = context.lookups.projectModel(place);
+  if (project !== null) return { value: project, source: "project" };
+  const global = context.lookups.modelDefault();
+  return global === null ? null : { value: global, source: "global" };
 }

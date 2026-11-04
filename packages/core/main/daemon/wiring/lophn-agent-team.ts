@@ -10,6 +10,7 @@ import {
   appExists,
   appIds,
   appSourcePath,
+  sharedCommands,
   sharedSkillFolders,
 } from "../../../apps/lookups.ts";
 import { createAgentDirectory } from "../../../lophn-agent/agents/directory.ts";
@@ -26,6 +27,7 @@ const agent = createLophnAgent({
     appExists,
     appIds,
     sharedSkills: sharedSkillFolders,
+    sharedCommands,
     sourceFolder: (sql, place) =>
       place.kind === "project"
         ? (projectFolderPaths(sql, place.id)[0] ?? null)

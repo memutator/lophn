@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  agentCard,
   agentList,
   agentRead,
   type AgentRow,
@@ -16,6 +17,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import {
   type AgentContext,
+  effectiveModel,
   listAgents,
   loadAgent,
   type Loaded,
@@ -23,24 +25,12 @@ import {
   openAgentContext,
   profileOf,
 } from "./inspect.ts";
+import { cardByName } from "./card.ts";
 import type { AgentDeps } from "./ports.ts";
 import { receivedSkills } from "./resolve.ts";
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
-}
-
-function effectiveModel(
-  context: AgentContext,
-  loaded: Loaded,
-  place: Place | null,
-): { value: ModelChoice; source: AgentValueLayer } | null {
-  const own = loaded.definition?.model;
-  if (own !== undefined) return { value: own, source: "agent" };
-  const project = context.lookups.projectModel(place);
-  if (project !== null) return { value: project, source: "project" };
-  const global = context.lookups.modelDefault();
-  return global === null ? null : { value: global, source: "global" };
 }
 
 function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
@@ -95,6 +85,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
 export function createAgentReads(deps: AgentDeps): {
   list: ReadDefinition<typeof agentList>;
   read: ReadDefinition<typeof agentRead>;
+  card: ReadDefinition<typeof agentCard>;
 } {
   return {
     list: {
@@ -110,6 +101,24 @@ export function createAgentReads(deps: AgentDeps): {
         if (!listed.ok) return listed;
         return ok({
           agents: listed.value.map((loaded) => rowOf(context.value, loaded)),
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
+    card: {
+      route: agentCard,
+      handle(
+        snapshot: ReadSnapshot,
+        _ctx,
+        input: Input<typeof agentCard>,
+      ): Result<Output<typeof agentCard>> {
+        const context = openAgentContext(deps, snapshot.sql);
+        if (!context.ok) return context;
+        const card = cardByName(context.value, input.name);
+        if (!card.ok) return card;
+        return ok({
+          card: card.value,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

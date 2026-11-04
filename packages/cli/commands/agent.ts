@@ -1,8 +1,10 @@
-// `lophn agent create|update`: agent 정의를 만들고 고친다. 할당(권한)은 주지 못한다: 사람이 정한다.
+// `lophn agent card|create|update`: agent 명함을 읽고, 정의를 만들고 고친다. 할당(권한)은 주지 못한다: 사람이 정한다.
 // `mcp_servers`·`skip`·`apps`·`permissions`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
+import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import {
   type AgentDefinition,
+  agentCard,
   agentChange,
   agentCreate,
   agentDefinitionSchema,
@@ -16,11 +18,31 @@ import {
 import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
 import { defineCommand } from "./types.ts";
 
+const card = defineCommand({
+  name: "agent.card",
+  summary: "Read an agent's card",
+  description:
+    "Read an agent's card by name: description, runtime, modality (what it takes and gives), replies it supports, how it differs from the default lophn agent (plus, minus) and notes. Read it before you call an agent.",
+  input: z.strictObject({ name: agentNameSchema }),
+  positional: ["name"],
+  effect: "read",
+  routes: [agentCard],
+  places: PLACE_KINDS,
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(agentCard, { name: input.name });
+    if (!read.ok) return read;
+    return ok({
+      summary: `card of ${read.value.card.name}`,
+      content: read.value.card,
+    });
+  },
+});
+
 const create = defineCommand({
   name: "agent.create",
   summary: "Create an agent",
   description:
-    "Create an agent. Give its name (unique; `lophn` is reserved), description (one line), runtime (`lophn` by default; `bare` loads only the instructions body and the `tools` you pick, and does not use skills), tools (names to pick; bare only), profile, model, skills_off, mcp_off and instructions (body). Its assignments are given by the person.",
+    "Create an agent. Give its name (unique; `lophn` is reserved), description (one line), runtime (`lophn` by default; `bare` loads only the instructions body and the `tools` you pick, and does not use skills), tools (names to pick; bare only), modality (input/output of text, image, file; all three by default), profile, model, skills_off, mcp_off and instructions (body). Its assignments are given by the person.",
   input: agentDefinitionSchema
     .omit({
       mcp_servers: true,
@@ -109,4 +131,4 @@ const update = defineCommand({
   },
 });
 
-export const AGENT_COMMANDS = [create, update];
+export const AGENT_COMMANDS = [card, create, update];

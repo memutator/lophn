@@ -231,6 +231,9 @@ function orderedFrontmatter(value: Plain): Plain {
   if (Array.isArray(value.tools) && value.tools.length > 0) {
     out.tools = value.tools;
   }
+  if (value.modality !== undefined) {
+    out.modality = pick(value.modality as Plain, ["input", "output"]);
+  }
   if (value.model !== undefined) {
     out.model = orderedModel(value.model as Plain);
   }

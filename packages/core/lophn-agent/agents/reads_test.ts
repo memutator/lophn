@@ -23,6 +23,8 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
       skills: () => [],
       shared: () => [],
       mcp: () => [],
+      sharedCommands: () => [],
+      inputMedia: () => null,
       modelDefault: () => choice("global-model"),
       projectModel: (place) => (place?.kind === "project" ? project : null),
     };

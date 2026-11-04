@@ -490,6 +490,22 @@ function agentLookups(
         name: head.name,
         can_disable: true,
       })),
+    sharedCommands: (apps, deny) => places.sharedCommands(sql, apps, deny),
+    inputMedia: (model) => {
+      const row = sql.get("select definition_key from providers where id = ?", [
+        model.provider,
+      ]);
+      const definition = row === undefined ? undefined : row["definition_key"];
+      if (typeof definition !== "string") return null;
+      const { catalog } = catalogBase(
+        { readDerived, snapshot: bundledSnapshot },
+        sql,
+      );
+      return (
+        checkEntryOf(sql, catalog, definition, model.model_name)?.input_media ??
+        null
+      );
+    },
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
     projectModel: (place) =>
@@ -842,6 +858,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       usageReads.usage,
       agentReads.list,
       agentReads.read,
+      agentReads.card,
       skillsReads.read,
       projectExtensionReads.read,
       turnReads.read,

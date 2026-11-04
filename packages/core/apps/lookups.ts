@@ -2,6 +2,7 @@ import { appBundleCopy } from "../../protocol/apps/app-storage.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { publicSkillNames } from "../lophn-agent/extensions/skills.ts";
 import { loadActiveDeclaration } from "./releases/store.ts";
+import { denyRuleOf } from "./usage/users.ts";
 
 // 다른 concern(lophn-agent의 agent 정의 저장소 등)이 apps 표를 읽을 때 쓰는 읽기 함수다. 표는 이 module이 갖는다.
 // 조립(core/main)이 port로 꽂으므로 다른 module은 SQL을 직접 쓰지 않는다.
@@ -85,4 +86,40 @@ export function sharedSkillFolders(
     });
   }
   return folders;
+}
+
+// 선언의 command 가운데 public이고 deny(할당에서 뺀 command)에 없는 것의 이름이다. 명함의 차이가 읽는다.
+export function publicCommandsOf(
+  slug: string,
+  commands: readonly { name: string; public: boolean }[],
+  deny: readonly string[],
+): { slug: string; name: string }[] {
+  return commands
+    .filter(
+      (command) =>
+        command.public && !deny.includes(denyRuleOf(slug, command.name)),
+    )
+    .map((command) => ({ slug, name: command.name }));
+}
+
+// 할당한 앱(slug)의 active 선언의 public command다. 보관한 앱, 없는 slug, active release가 없는 앱은 뺀다.
+export function sharedCommands(
+  sql: ReadSql,
+  slugs: readonly string[],
+  deny: readonly string[],
+): { slug: string; name: string }[] {
+  const found = [];
+  for (const slug of [...new Set(slugs)].sort()) {
+    const row = sql.get(
+      "select id from apps where slug = ? and status = 'active'",
+      [slug],
+    );
+    if (row === undefined) continue;
+    const active = loadActiveDeclaration(sql, String(row["id"]));
+    if (!active.ok || active.value === null) continue;
+    found.push(
+      ...publicCommandsOf(slug, active.value.declaration.commands ?? [], deny),
+    );
+  }
+  return found;
 }

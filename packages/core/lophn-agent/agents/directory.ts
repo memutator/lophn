@@ -1,5 +1,6 @@
 import type { Result } from "../../../base/mod.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentCard, AgentId } from "../../../protocol/lophn-agent/mod.ts";
+import { cardByName } from "./card.ts";
 import {
   type AgentContext,
   listAgents,
@@ -21,6 +22,8 @@ export type AgentInfo = {
 export interface AgentDirectory {
   agent(id: AgentId): AgentInfo | null;
   agents(): readonly AgentInfo[];
+  // 이름으로 찾은 명함. 없는 이름과 틀린 정의 file은 null이다.
+  cardOf(name: string): AgentCard | null;
 }
 
 function infoOf(loaded: Loaded): AgentInfo {
@@ -44,6 +47,11 @@ export function createAgentDirectory(
         if (!opened.ok) return null;
         const loaded = loadAgent(opened.value, id);
         return loaded.ok && loaded.value !== null ? infoOf(loaded.value) : null;
+      },
+      cardOf(name) {
+        if (!opened.ok) return null;
+        const card = cardByName(opened.value, name);
+        return card.ok ? card.value : null;
       },
       agents() {
         if (!opened.ok) return [];

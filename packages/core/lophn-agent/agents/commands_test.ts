@@ -23,6 +23,8 @@ const lookups: AgentLookups = {
   skills: () => [],
   shared: () => [],
   mcp: () => [],
+  sharedCommands: () => [],
+  inputMedia: () => null,
   modelDefault: () => null,
   projectModel: () => null,
 };

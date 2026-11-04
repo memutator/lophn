@@ -123,6 +123,18 @@ const descriptionSchema = nonblankSchema.refine(
   { message: "expected one line within the description limit" },
 );
 
+// 받고(input) 내는(output) 내용 종류. 칸이나 값이 없으면 셋 다다.
+export const MODALITIES = ["text", "image", "file"] as const;
+export const modalitySchema = z.enum(MODALITIES);
+export type Modality = z.infer<typeof modalitySchema>;
+const modalityListSchema = z.array(modalitySchema).refine(unique, {
+  message: "duplicate modality",
+});
+const modalityFieldSchema = z.strictObject({
+  input: modalityListSchema.optional(),
+  output: modalityListSchema.optional(),
+});
+
 // bare가 고른 tool 이름(내장 tool, lophn 명령, `<slug>.<command>`, `mcp__<server>__<tool>`). runtime이 bare일 때만 쓴다.
 const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate tool",
@@ -136,6 +148,7 @@ const frontmatterFields = {
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
   tools: toolPicksSchema.optional(),
+  modality: modalityFieldSchema.optional(),
   model: modelChoiceSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
@@ -150,6 +163,7 @@ const frontmatterOutputFields = {
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
   tools: toolPicksSchema.optional(),
+  modality: modalityFieldSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),

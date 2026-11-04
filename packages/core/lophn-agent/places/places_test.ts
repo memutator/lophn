@@ -82,6 +82,7 @@ const deps: OpenDeps = {
           ? { id, name: "lophn", skip: false, apps: [], deny: [] }
           : null,
     agents: () => [],
+    cardOf: () => null,
   },
   names: UNWIRED_PLACE_DEPS.names,
   publish: () => {},

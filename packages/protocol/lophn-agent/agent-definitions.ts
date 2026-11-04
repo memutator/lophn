@@ -15,6 +15,8 @@ import {
   agentDefinitionSchema,
   agentNameSchema,
   agentProfileImageTypeSchema,
+  agentRuntimeSchema,
+  modalitySchema,
   profileImageOutputSchema,
   profileOutputSchema,
 } from "./agent-values.ts";
@@ -131,6 +133,33 @@ export const agentRead = defineRead({
   errors: [...readErrors],
 });
 
+// 명함: 다른 agent와 사람이 agent를 고를 때 읽는 요약이다. program이 정의와 할당에서 계산하고 prompt 원문은 싣지 않는다.
+// diff는 기본 lophn agent와 다른 점이다(place와 상관없다): plus는 더 가진 것, minus는 덜 가진 것.
+export const AGENT_REPLIES = ["none", "result", "conversation"] as const;
+export const agentCardSchema = z.object({
+  name: agentNameSchema,
+  description: z.string().optional(),
+  runtime: agentRuntimeSchema,
+  modality: z.object({
+    input: z.array(modalitySchema),
+    output: z.array(modalitySchema),
+  }),
+  replies: z.array(z.enum(AGENT_REPLIES)),
+  diff: z.object({ plus: z.array(z.string()), minus: z.array(z.string()) }),
+  notes: z.array(z.string()),
+});
+export type AgentCard = z.infer<typeof agentCardSchema>;
+
+export const agentCard = defineRead({
+  resource: "agents",
+  method: "card",
+  name: "ReadAgentCard",
+  input: z.strictObject({ name: agentNameSchema }),
+  output: withReadCommon(z.object({ card: agentCardSchema })),
+  actors: readActors,
+  errors: [...readErrors],
+});
+
 export const agentCreate = defineCommand({
   resource: "agents",
   method: "create",
@@ -206,6 +235,7 @@ export const agentProfileImageRead = defineFile({
 export const AGENT_ROUTES = [
   agentList,
   agentRead,
+  agentCard,
   agentCreate,
   agentChange,
   agentDelete,

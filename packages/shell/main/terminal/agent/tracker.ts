@@ -27,7 +27,7 @@ export type AgentSignal = {
   name?: string;
   /** ChildStarted·ChildEnded. harness 안에서 child(subagent)를 가르는 id. */
   child?: string;
-  /** TurnEnded. 그 turn이 끝났어도 아직 살아 있다고 알린 child들의 id. */
+  /** TurnEnded. 그 시점에 살아 있는 child의 전체 목록이다. 있으면(비어 있어도) child 집합을 이것으로 바꾼다. 없으면 집합을 그대로 둔다. */
   children?: readonly string[];
 };
 
@@ -374,8 +374,11 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           entry.running = false;
           entry.waiting = 0;
           entry.guessed = false;
-          for (const id of signal.children ?? []) {
-            entry.children.set(id, deps.now());
+          // 목록은 전체 snapshot이다. 먼저 끝난 child의 id를 늦게 온 Stop이 되살려도 다음 Stop이 바로잡는다.
+          if (signal.children !== undefined) {
+            entry.children = new Map(
+              signal.children.map((id) => [id, deps.now()]),
+            );
           }
           entry.pending =
             signal.outcome === "interrupted"

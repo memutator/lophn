@@ -33,7 +33,9 @@ export type HookSignal = {
   request?: { tool: string | null; summary: string | null };
   // ChildStarted·ChildEnded. harness 안에서 child(subagent)를 가르는 id다(Claude는 agent_id, OpenCode는 하위 session id).
   child?: string;
-  // TurnEnded. Stop payload가 아직 살아 있다고 알린 agent child의 id들이다. 없으면 생략한다(background shell은 싣지 않는다).
+  // TurnEnded. Stop payload의 `background_tasks`가 아직 살아 있다고 알린 agent child의 id들이다. 그 목록은 전체 snapshot이라
+  // 있으면 비어 있어도 싣고(tracker가 child 집합을 이것으로 바꾼다), 목록이 없는 payload(옛 Claude, qwen, qoder)는 생략한다.
+  // background shell은 싣지 않는다.
   children?: readonly string[];
 };
 
@@ -94,9 +96,9 @@ const TURN_MESSAGE_FIELDS: Partial<Record<HarnessId, readonly string[]>> = {
 // Claude Stop payload의 `background_tasks` 항목 중 아직 도는 subagent의 id다. 항목 꼴과 종류 label("subagent")은 Claude Code
 // CLI 2.1.316 bundle에서 읽었고 실제 payload로는 확인하지 못했다. teammate는 id가 lifecycle agent_id와 맞지 않고 끝나도
 // running으로 남아 세지 않는다. shell·monitor·workflow도 세지 않는다.
-function liveChildren(payload: Record<string, unknown>): string[] {
+function liveChildren(payload: Record<string, unknown>): string[] | undefined {
   const tasks = payload.background_tasks;
-  if (!Array.isArray(tasks)) return [];
+  if (!Array.isArray(tasks)) return undefined;
   const ids: string[] = [];
   for (const task of tasks) {
     if (!isRecord(task) || task.type !== "subagent") continue;
@@ -340,7 +342,7 @@ function commandHookSignal(
         type,
         outcome,
         ...(message === null ? {} : { message }),
-        ...(children.length === 0 ? {} : { children }),
+        ...(children === undefined ? {} : { children }),
       };
     }
     case "PermissionRequested":

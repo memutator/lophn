@@ -190,7 +190,7 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
         { id: "b1", type: "shell", status: "running", description: "x" },
       ],
     },
-    { type: "TurnEnded", outcome: "completed" },
+    { type: "TurnEnded", outcome: "completed", children: [] },
   ],
   // SubagentStop을 매핑하지 않은 harness는 끝을 몰라 child 신호를 만들지 않는다.
   [

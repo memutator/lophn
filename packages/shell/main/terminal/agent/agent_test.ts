@@ -253,6 +253,18 @@ test("Stop while a subagent runs stays running without a finished notice, and th
   clock.advance(1500);
   clock.advance(60_000);
   assert.deepEqual(notices, ["finished:done"]);
+
+  // Stop의 목록은 snapshot이다. 먼저 끝난 child를 늦게 온 Stop이 다시 싣고 와도 다음 Stop이 지운다.
+  send({ type: "TurnStarted" });
+  send({ type: "ChildStarted", child: "a3" });
+  send({ type: "ChildEnded", child: "a3" });
+  send({ type: "TurnEnded", message: "again", children: ["a3"] });
+  clock.advance(5000);
+  assert.equal(states.at(-1), "running");
+  send({ type: "TurnEnded", message: "last", children: [] });
+  assert.equal(states.at(-1), "idle");
+  clock.advance(1500);
+  assert.deepEqual(notices, ["finished:done", "finished:last"]);
 });
 
 test("a TurnStarted within 1.5s of Stop cancels the finished notice", () => {

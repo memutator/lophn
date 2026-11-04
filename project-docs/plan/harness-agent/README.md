@@ -6,7 +6,7 @@
 
 ## 정한 것
 
-1. `runtime`에 harness 값(`claude-code`, `codex`, `opencode`)을 더한다. 설정 `harness.enabled`가 꺼져 있으면(기본) host code를 load하지 않고 harness runtime session을 열지 않는다. 단계 6이 서면 이 설정 대신 그 설치 단위가 켠다. (agent)
+1. `runtime`에 harness 값(`claude-code`, `codex`, `opencode`)을 더한다. 설정 `harness.enabled`가 꺼져 있으면(기본) host code를 load하지 않고 harness runtime session을 열지 않는다. 계획 extension이 먼저 land했으면 이 설정 대신 extension(`extensions.harness.enabled`)으로 켠다. (agent)
 2. host는 shell main에 있다(core는 PATH를 모른다). core에는 shell 내부 principal의 route로 붙고, 그 route는 runtime이 harness인 session만 고친다. (agent)
 3. harness가 쓴 tool은 lophn이 실행한 것이 아니므로 gate·rewind의 tool-call chain에 넣지 않는다. 메시지의 part kind `harness_tool {name, summary, status}`로 남긴다. (agent)
 4. 이어 가기는 harness의 session id다. lophn session에 외부 session id를 둔다(새 ledger step). TUI 열기와 `conversation` 답이 같은 id로 resume한다. (agent)

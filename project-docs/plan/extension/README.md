@@ -1,0 +1,29 @@
+# extension: lophn 본체와 따로 설치하는 기능 묶음
+
+- 목표: 대다수에게 필요 없는 기능(첫 사용자: third-party CLI GUI와 harness host)을 extension 단위로 묶는다. 사람이 설정에서 설치·켜기·끄기·지우기를 한다. 꺼져 있으면 code를 load하지 않고 아무것도 등록하지 않는다.
+- 재료: `project-docs/products/roadmap/agent-platform.md` 단계 6(사람의 원문 "별도로 설치하게끔, 근데 지금 그런 구조가 없거든", "구조도 만들어놓자"). 코드 사실과 path는 task brief에 있다.
+- 범위 밖: mac·win packaging(지금 없다), 자동 update(지금 없다).
+
+## 정한 것
+
+1. extension 하나는 폴더와 manifest(`id`, 이름, 설명, 판, 들어 있는 것, code 진입점)다. 판은 제품 판(root `package.json` `version`)과 같아야 한다. 다르면 켜지 않는다. (agent)
+2. shell main의 registry가 manifest를 읽고, 켜진 extension의 진입점만 load한다. extension은 `activate(ctx)`·`deactivate()`를 내고 ctx로 core client, 설정, spawn, Clock, IdSource를 받는다. core에는 protocol route로만 붙는다. (agent)
+3. 켜기는 사람이 설정 화면에서만 한다. 설정 키는 `extensions.<id>.enabled`이고 harness의 `harness.enabled`는 `extensions.harness.enabled`로 바꾼다. (agent)
+4. 끄고 지우면 extension이 쓴 file만 지운다(표시 file로 안다). 사람 file과 다른 설정은 그대로다. (agent)
+5. 어떻게 받나(같은 .deb 안에 넣고 꺼 두기, 따로 받는 package)는 사람이 정할 것 1이다. 1·2 task는 어느 쪽이든 같다. (agent)
+
+## 사람이 정할 것
+
+1. **배달.** (가) 본체 .deb 안에 넣어 두고 설치 = 켜기(가볍고 offline에서 된다, 내려받는 크기는 그대로) (나) 따로 받는 package(.deb 하나 더 또는 내려받기: 본체가 작아지지만 받을 곳과 서명 key가 지금 없다). 추천: 구조를 (가)로 먼저 세우고 (나)는 같은 registry에 manifest를 넣는 길로 뒤에 더한다.
+
+## task
+
+| wave | id | 한 줄 |
+|---|---|---|
+| 1 | `extension-core` | manifest, registry, load·activate·deactivate, 설정 키, 판 검사 |
+| 2 | `extension-settings` | 설정 화면의 extension 목록(설치·켜기·끄기·지우기) |
+
+## lead가 할 일
+
+- merge마다: 새 `architecture/extension.md`를 쓰고 `boundary-catalog.yaml`, `module-catalog.yaml`, `context-component-registry.yaml`에 올린다.
+- 다 끝나면: `agent-platform.md` 단계 6을 끝남으로 적고, 계획 harness-agent가 아직 돌고 있으면 그 lead에게 `harness.enabled` 대신 extension API를 쓰라고 알린다. change-log 열린 판에 적고 계획 폴더를 지운다.

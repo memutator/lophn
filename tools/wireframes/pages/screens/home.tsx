@@ -53,7 +53,7 @@ export const homeArea: Area = {
       id: "home-session",
       title: "Home · lophn session",
       description:
-        "Home의 lophn session을 탭으로 연 상태. Home의 lophn session도 다른 place와 같이 tab으로 열린다. Home session의 탭은 project 폴더가 필요한 terminal, Explorer, domain, workflow를 두지 않는다.",
+        "Home의 lophn session을 탭으로 연 상태. Home의 lophn session도 다른 place와 같이 tab으로 열린다. Home session의 탭은 project 폴더가 필요한 terminal, Explorer, workflow를 두지 않는다.",
       render: () => <HomeSession />,
     },
     {

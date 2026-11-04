@@ -6,7 +6,7 @@ import { t } from "@lophn/i18n";
 
 import { actionIcons } from "../../icons/mod.ts";
 import type { AppDetailSource } from "./source.ts";
-import styles from "./domains-section.module.css";
+import styles from "./app-section.module.css";
 
 export function FoldersSection({
   app,

@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "skill-description",
-    "name": "check-domains",
-    "n": 1,
-    "hash": "3dacbb7d74f4cfe81dcd5a5cdb6729a6d19745678ceecc6ce01469d2419f181b",
-    "content": "Check every domain of the project against its kinds."
-  }
-]

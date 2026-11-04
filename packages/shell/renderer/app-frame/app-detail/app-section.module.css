@@ -1,4 +1,4 @@
-/* App details의 Domains 절. 줄: 이름과 slug, tool 수, 오른쪽 끝 menu 열. */
+/* App details의 절(Folders, Icon)이 같이 쓰는 틀. 줄: 이름과 경로, 개수, 오른쪽 끝 menu 열. */
 .section {
   display: flex;
   flex-direction: column;
@@ -42,28 +42,12 @@
   margin-top: var(--space-2);
 }
 
-/* 그 줄 바로 아래에 펼치는 DOMAIN.md 편집기. */
-.doc {
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
 .text {
   display: flex;
   flex: 1 1 auto;
   align-items: baseline;
   gap: var(--space-3);
   min-width: var(--space-0);
-}
-
-.title {
-  overflow: hidden;
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .name {

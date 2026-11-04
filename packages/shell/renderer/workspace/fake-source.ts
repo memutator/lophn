@@ -4,11 +4,9 @@ import {
   createLayoutSource,
   fakePlaceLayoutBridge,
 } from "../shell/layout-source.ts";
-import { fakeDomainStore } from "./domains/fake-domains.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
 import type {
-  DomainView,
   FolderEntry,
   ProjectFolderView,
   ReadResult,
@@ -57,24 +55,6 @@ const NOTES: readonly Node[] = [
   folder("meetings", file("2026-10-12.md"), file("2026-10-05.md")),
   file("ideas.md"),
   file("todo.md"),
-];
-
-// gallery용 domain 둘. id는 shell IPC의 domain id 모양이다.
-export const FAKE_DOMAINS: readonly DomainView[] = [
-  {
-    id: "dom_01j9z3k5q8x2r4m6n7p8t9v0wa",
-    name: "finances",
-    title: "Finances",
-    purpose: "Track spending and tax deadlines.",
-    status: "active",
-  },
-  {
-    id: "dom_01j9z3k5q8x2r4m6n7p8t9v0wb",
-    name: "research",
-    title: "Research",
-    purpose: "Keep reading notes and reports.",
-    status: "active",
-  },
 ];
 
 // 승인한 workflow wireframe의 fixture다. gallery의 workflow page도 이것을 쓴다. 시각은
@@ -970,8 +950,6 @@ interface FakeWorkspaceOptions {
   readonly missing?: readonly string[];
   /** 읽기에 실패하는 폴더 경로. */
   readonly failing?: readonly string[];
-  /** project의 domain. 기본은 FAKE_DOMAINS다. */
-  readonly domains?: readonly DomainView[];
   /** run 기록. 거르지 않고 그대로 돌려준다. 기본은 빈 목록이다. */
   readonly runs?: readonly RunRecordView[];
   /** workflow 정의 목록. project와 상관없이 그대로 돌려준다. 기본은 FAKE_WORKFLOWS다. */
@@ -1008,7 +986,6 @@ export function fakeWorkspaceSource(
 ): WorkspaceSource {
   const missing = options.missing ?? [];
   const failing = options.failing ?? [];
-  const domainStore = fakeDomainStore(options.domains ?? FAKE_DOMAINS);
   const mounts: Mount[] = [
     { path: FAKE_PROJECT_FOLDER, nodes: clone(PHRONER) },
     { path: FAKE_NOTES_FOLDER, nodes: clone(NOTES) },
@@ -1134,8 +1111,6 @@ export function fakeWorkspaceSource(
       return done;
     },
     reveal: () => done,
-    ...domainStore.actions,
-    domains: () => Promise.resolve({ ok: true, value: domainStore.active() }),
     runs: () => Promise.resolve({ ok: true, value: options.runs ?? [] }),
     workflows: () =>
       Promise.resolve({ ok: true, value: options.workflows ?? FAKE_WORKFLOWS }),

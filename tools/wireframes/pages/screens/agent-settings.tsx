@@ -27,7 +27,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-agent",
       title: "Agent settings · agent",
       description:
-        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, Domains(체크 목록, 하나도 고르지 않으면 그 project나 앱의 전부), 고른 domain별로 묶인 skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
       render: () => <AgentEditorPage />,
     },
     {
@@ -55,7 +55,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-app-place",
       title: "Agent settings · agent in an app",
       description:
-        "앱 자리에서 연 agent의 설정이다. 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다. Domains 칸은 앱의 domain을 고르고, 고르지 않았으면 앱의 전부다.",
+        "앱 자리에서 연 agent의 설정이다. 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다.",
       render: () => <AppPlaceEditorPage />,
     },
     {
@@ -69,7 +69,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-grants",
       title: "Agent settings · grants",
       description:
-        "agent에게 맡길 것은 앱 하나다. 앱 tool은 이 agent가 일하는 domain의 것이면 모두, 다른 domain의 것이면 public만 보인다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Workspace, project, 이 agent의 Definition)이 할당이라는 한 줄만 있다.",
+        "agent에게 맡길 것은 앱 하나다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Workspace, project, 이 agent의 Definition)이 할당이라는 한 줄만 있다.",
       render: () => <AgentGrantsPage />,
     },
     {

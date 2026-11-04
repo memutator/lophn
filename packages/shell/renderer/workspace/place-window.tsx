@@ -45,7 +45,6 @@ import type { JobsSource } from "../desktop/jobs/source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import { dotLabel } from "../parts/tab-state-dot/tab-state-dot.tsx";
-import { windowInstructions } from "./agents/core-extensions.ts";
 import {
   ContentCard,
   type CardPane,
@@ -210,8 +209,8 @@ export type WindowPlace = PlaceRef;
 
 export interface PlaceWindowProps {
   /**
-   * Home이면 project 폴더가 필요한 것(Explorer, 터미널, domain, workflow, project settings)이 없고 Places·Jobs panel이 오른쪽에 선다.
-   * 앱이면 폴더 대신 앱 화면 탭이 있고 오른쪽에 App·Domain·Logs panel이 선다.
+   * Home이면 project 폴더가 필요한 것(Explorer, 터미널, workflow, project settings)이 없고 Places·Jobs panel이 오른쪽에 선다.
+   * 앱이면 폴더 대신 앱 화면 탭이 있고 오른쪽에 Logs panel이 선다.
    * 창은 place마다 새로 mount된다(부르는 쪽이 key로 가른다).
    */
   place: WindowPlace;
@@ -253,7 +252,7 @@ export interface PlaceWindowProps {
   agentViewSource?: AgentTabSourceFactory;
   /** 처음 열 때 한 번 열 session(다른 project의 session toast). */
   session?: string;
-  /** 앱 place의 오른쪽 App·Domain panel이 읽고 쓰는 통로. 없으면 그 panel은 준비 전 안내다. */
+  /** 앱 place의 App details 탭을 여는 통로. 없으면 place 설정 줄이 없다. */
   appDetail?: AppDetailSource;
   /** 처음 열 때 한 번 이 place의 lophn을 연다. 앱 place는 앱 화면과 붙인 split으로 연다. */
   startLophn?: true;
@@ -392,7 +391,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
     windowWidth >= RIGHT_OPEN_MIN,
   );
   const [panel, setPanel] = useState<string>(
-    isHome ? "places" : isApp ? "domain" : "explorer",
+    isHome ? "places" : isApp ? "logs" : "explorer",
   );
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
@@ -845,9 +844,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
     if (folder === undefined) return;
     openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
   };
-
-  // DOMAIN.md는 더 읽히지 않는다. domain 화면을 걷을 때 함께 지운다.
-  const openDomainDoc = (_domain: string) => {};
 
   // 이 place의 lophn Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
   const openLophn = (): boolean => {
@@ -2251,8 +2247,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
                 isApp ? (
                   <AppPlacePanel
                     tab={panel as AppPlaceTab}
-                    app={appId}
-                    detail={props.appDetail}
                     runs={runRows}
                     onRunSession={(session) => {
                       const row = sidebarAgents.agents.find(
@@ -2315,7 +2309,6 @@ export function PlaceWindow(props: PlaceWindowProps) {
                           onOpenTerminal: (cwd: string) =>
                             openTerminalTab(host, { cwd }),
                         })}
-                    onOpenDomainDoc={openDomainDoc}
                     onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
                     activeWorkflow={desk.workflow}
                   />

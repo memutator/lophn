@@ -1,4 +1,4 @@
-// project 창 오른쪽 sidebar의 본문. title bar의 panel icon tab이 고른 panel 하나(Files / Domain / Artifacts /
+// project 창 오른쪽 sidebar의 본문. title bar의 panel icon tab이 고른 panel 하나(Files / Artifacts /
 // Workflows / Jobs)를 `RightSidebar` 틀에 담는다. 틀(폭, 접힘)은 ShellFrame이 정한다. 왼쪽은 shell/left-sidebar다.
 
 import { t } from "@lophn/i18n";
@@ -9,18 +9,11 @@ import { RightSidebar } from "../../shell/right-sidebar.tsx";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
-import { DomainPanel } from "./domain-panel.tsx";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
 import { JobPanel } from "./job-panel.tsx";
-import styles from "./project-sidebar.module.css";
 import { WorkflowPanel } from "./workflow-panel.tsx";
 
-export type SidebarTab =
-  | "explorer"
-  | "artifact"
-  | "domain"
-  | "workflow"
-  | "jobs";
+export type SidebarTab = "explorer" | "artifact" | "workflow" | "jobs";
 
 export interface Reveal {
   readonly path: string;
@@ -34,11 +27,6 @@ export function panelTabs(withJobs: boolean): readonly PanelTab[] {
       key: "explorer",
       label: t("project-workspace.label.sidebar-tab-explorer"),
       icon: shellIcons.folder,
-    },
-    {
-      key: "domain",
-      label: t("domain.label.sidebar-tab"),
-      icon: shellIcons.domain,
     },
     {
       key: "artifact",
@@ -69,8 +57,6 @@ interface ProjectPanelProps {
   source: WorkspaceSource;
   /** Artifacts 탭 본문. 목록은 이 panel이 읽는다. */
   artifactPanel?: ReactNode;
-  /** Domains 줄 menu의 Open DOMAIN.md. 주지 않으면 아무것도 하지 않는다. */
-  onOpenDomainDoc?: (domain: string) => void;
   /** Workflows 줄을 누르면 그 workflow의 탭을 연다. 주지 않으면 아무것도 하지 않는다. */
   onOpenWorkflow?: (workflow: string) => void;
   /** 보이는 desk가 workflow의 것이면 그 이름. Workflows 줄이 강조한다. */
@@ -106,7 +92,6 @@ export function ProjectPanel({
   project,
   source,
   artifactPanel = null,
-  onOpenDomainDoc,
   onOpenWorkflow,
   activeWorkflow,
   jobs,
@@ -162,14 +147,6 @@ export function ProjectPanel({
         )
       ) : null}
       {tab === "artifact" ? artifactPanel : null}
-      {tab === "domain" && project !== null ? (
-        <DomainPanel
-          key={project.id}
-          project={project.id}
-          source={source}
-          onOpenDoc={onOpenDomainDoc ?? (() => {})}
-        />
-      ) : null}
       {tab === "workflow" && project !== null ? (
         <WorkflowPanel
           key={project.id}

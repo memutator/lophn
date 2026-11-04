@@ -1,13 +1,11 @@
 import { readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { parse, stringify } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { domainIdOfFolder } from "../../../protocol/domains/paths.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/mod.ts";
 import { createFileSettingsReader } from "../../config/mod.ts";
 import type { DataStep } from "../../storage/migration/mod.ts";
 import { skillFoldersSetting } from "../extensions/settings.ts";
 import { discoverSkills, type SkillFiles } from "../extensions/skills.ts";
-import { domainSkillsFolder } from "../../../protocol/domains/paths.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 
 // 옛 정의의 `skills`(받을 이름)를 `skills_off`(끈 이름)로 옮긴다. 옮기기 전에 받던 skill이 그대로 받아지도록, 그때 발견되는
@@ -72,7 +70,7 @@ export function createSkillsOffStep(bundledSkillsRoot: string): DataStep {
         const registered =
           createFileSettingsReader(root).get(skillFoldersSetting) ?? [];
         const allDomains = (await folderNames(`${root}/domains`)).filter(
-          (name) => domainIdOfFolder(name) !== null,
+          (name) => /^dom_[0-9a-z]+$/.test(name),
         );
         for (const file of await folderNames(`${root}/agents`)) {
           if (!file.endsWith(".md")) continue;
@@ -91,7 +89,7 @@ export function createSkillsOffStep(bundledSkillsRoot: string): DataStep {
             Array.isArray(kept.domains)
               ? (kept.domains as string[])
               : allDomains
-          ).map((domain) => domainSkillsFolder(root, domain));
+          ).map((domain) => `${root}/domains/${domain}/skills`);
           const off =
             chosen.length === 0
               ? own

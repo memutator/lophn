@@ -22,41 +22,6 @@ export interface ProjectView {
   readonly folders: readonly ProjectFolderView[];
 }
 
-/** domain.list 결과에서 화면이 쓰는 부분. */
-export interface DomainView {
-  readonly id: string;
-  readonly name: string;
-  readonly title: string;
-  readonly purpose: string;
-  readonly status: "active" | "archived";
-}
-
-/** domain을 담는 그릇. */
-export interface DomainOwner {
-  readonly kind: "project" | "app";
-  readonly id: string;
-}
-
-/** 새 domain 입력. name은 slug이고 만든 뒤 바꿀 수 없다. */
-export interface DomainDraft {
-  readonly name: string;
-  readonly title: string;
-  readonly purpose: string;
-}
-
-/** domain을 바꾸는 일의 결과. 실패는 core의 오류 code와 그 이유(화면이 그대로 보인다)다. */
-export type DomainOpResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly code: string; readonly message: string };
-
-/** project 창과 앱 공간이 같이 쓰는 domain 쓰기. */
-export interface DomainActions {
-  createDomain(owner: DomainOwner, draft: DomainDraft): Promise<DomainOpResult>;
-  /** 앱의 마지막 active domain이면 core가 `conflict`로 거절한다. */
-  archiveDomain(domain: string): Promise<DomainOpResult>;
-  unarchiveDomain(domain: string): Promise<DomainOpResult>;
-}
-
 /** 폴더 한 단계의 항목. 이름순이다. */
 export interface FolderEntry {
   readonly name: string;
@@ -257,7 +222,7 @@ export type ReadResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
 
-export interface WorkspaceSource extends DomainActions {
+export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   /** active project 목록. 상단 바의 project selector가 읽는다. */
   projects(): Promise<ReadResult<readonly { id: string; title: string }[]>>;
@@ -287,8 +252,6 @@ export interface WorkspaceSource extends DomainActions {
   readonly searchSource?: FileSearchSource;
   /** run 기록, 새것이 앞. project sidebar와 앱 공간이 읽는다. */
   runs(filter: RunFilter): Promise<ReadResult<readonly RunRecordView[]>>;
-  /** project가 가진 active domain들. */
-  domains(project: string): Promise<ReadResult<readonly DomainView[]>>;
   /** workflow 정의 목록. 틀린 선언도 이유와 함께 담긴다. 읽기 실패를 빈 목록으로 돌려주지 않는다. */
   workflows(project: string): Promise<ReadResult<readonly WorkflowEntryView[]>>;
   /** workflow instance 목록, 새것이 앞. */

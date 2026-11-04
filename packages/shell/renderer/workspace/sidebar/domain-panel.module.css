@@ -1,5 +1,0 @@
-/* 보관 알림은 목록 위에 놓는다. */
-.notice {
-  display: flex;
-  padding: var(--space-0) var(--space-2) var(--space-3);
-}

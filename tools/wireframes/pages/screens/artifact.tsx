@@ -1,7 +1,7 @@
 import type { Area } from "../types.ts";
 import { ChatLink } from "./artifact/chat-link.tsx";
 import { ArtifactScene } from "./artifact/scene.tsx";
-import { ArtifactSidebar, ArtifactSidebarSingle } from "./artifact/sidebar.tsx";
+import { ArtifactSidebar } from "./artifact/sidebar.tsx";
 
 export const artifactArea: Area = {
   id: "artifact",
@@ -50,12 +50,6 @@ export const artifactArea: Area = {
       description:
         "project sidebar의 Artifacts 탭 목록이다. 줄마다 종류 아이콘, 제목과 폴더 이름, 설명 한 줄이고 누르면 그 artifact가 탭으로 열린다.",
       render: () => <ArtifactSidebar />,
-    },
-    {
-      id: "artifact-sidebar-single",
-      title: "Artifact · sidebar list only",
-      description: "Artifacts 목록만 고정 크기 칸에 그린다.",
-      render: () => <ArtifactSidebarSingle />,
     },
     {
       id: "artifact-sidebar-empty",

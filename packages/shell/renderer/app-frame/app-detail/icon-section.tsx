@@ -8,7 +8,7 @@ import { IconUpload } from "../../parts/icon-upload/icon-upload.tsx";
 import { PlaceMark } from "../../parts/place-mark/place-mark.tsx";
 import { useAppViews } from "../app-views.tsx";
 import type { AppDetailSource } from "./source.ts";
-import styles from "./domains-section.module.css";
+import styles from "./app-section.module.css";
 
 export function IconSection({
   app,

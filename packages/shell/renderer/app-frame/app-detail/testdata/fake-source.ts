@@ -1,12 +1,9 @@
 // app-detail의 가짜 통로. core를 부르지 않고 부른 것을 기록한다. Orders 앱의 release r5~r7, 바깥 자원,
 // 호출 기록이 들어 있다. 적용 중·적용 실패·거두기 정리 중·rewind 각 단계는 인자로 고른다.
-import { fakeDomainStore } from "../../../workspace/domains/fake-domains.ts";
-import type { DomainView } from "../../../workspace/source.ts";
 import type {
   AccessView,
   ActivityRow,
   AppDetailSource,
-  AppDomainRow,
   AppToolRow,
   Caller,
   OAuthReason,
@@ -23,38 +20,6 @@ import type {
 
 const CUSTOMERS = "app_01h455vb4pex5v6nkc6gd5fd02";
 const INVENTORY = "app_01h455vb4pex5v6nkc6gd5fd03";
-
-// Orders 앱의 domain 셋.
-const DOMAINS: readonly DomainView[] = [
-  {
-    id: "dom_01h455vb4pex5v6nkc6gd5fd01",
-    name: "orders",
-    title: "Orders",
-    purpose: "Orders and their life from placed to shipped.",
-    status: "active",
-  },
-  {
-    id: "dom_01h455vb4pex5v6nkc6gd5fd02",
-    name: "shipping",
-    title: "Shipping",
-    purpose: "Carriers, labels and tracking.",
-    status: "active",
-  },
-  {
-    id: "dom_01h455vb4pex5v6nkc6gd5fd03",
-    name: "customers",
-    title: "Customers",
-    purpose: "Who orders and where it ships.",
-    status: "active",
-  },
-];
-
-// domain별 tool 수(전체, public). 새로 만든 domain은 0이다.
-const TOOLS: Readonly<Record<string, readonly [number, number]>> = {
-  orders: [6, 2],
-  shipping: [3, 1],
-  customers: [2, 0],
-};
 
 const R7 = "rel_01h455vb4pex5v6nkc6gd5fd07";
 const R6 = "rel_01h455vb4pex5v6nkc6gd5fd06";
@@ -363,18 +328,6 @@ export function fakeDetail(options: FakeOptions = {}) {
   const requested = new Set(options.revoking ?? []);
   let finishRewindWith: ((result: RewindResult) => void) | null = null;
   let rewinding = false;
-  // 앱의 domain은 0개가 되지 못한다(마지막 보관은 거절).
-  const domainStore = fakeDomainStore(DOMAINS, true);
-  // domain마다의 DOMAIN.md. 쓸 때마다 hash가 바뀌어 옛 hash로 쓰면 conflict다.
-  const domainDocs = new Map<string, { text: string; hash: string }>(
-    DOMAINS.map((row, index) => [
-      row.id,
-      {
-        text: `# ${row.title}\n${row.purpose}`,
-        hash: String(index + 1).padStart(64, "0"),
-      },
-    ]),
-  );
   // source 밖에 이은 폴더. Add는 늘 같은 경로 하나를 더한다.
   let folders: readonly string[] = ["/home/me/notes/orders"];
   // 올린 icon의 data URL. 없으면 앱이 선언한 icon이 없는 기본 표식이다.
@@ -538,34 +491,6 @@ export function fakeDetail(options: FakeOptions = {}) {
   };
 
   const source: AppDetailSource = {
-    ...domainStore.actions,
-    domains: () => {
-      calls.push(["domains"]);
-      const rows: AppDomainRow[] = domainStore.active().map((row) => ({
-        ...row,
-        tools: TOOLS[row.name]?.[0] ?? 0,
-        shared: TOOLS[row.name]?.[1] ?? 0,
-      }));
-      return Promise.resolve(
-        failing.has("domains")
-          ? { ok: false, code: "unavailable" }
-          : { ok: true, value: rows },
-      );
-    },
-    readDomainDoc: (domain) =>
-      reply("domain-doc", domainDocs.get(domain) ?? { text: "", hash: null }),
-    writeDomainDoc: (domain, text, hash) => {
-      calls.push(["write-domain-doc", domain]);
-      if ((domainDocs.get(domain)?.hash ?? null) !== hash) {
-        return Promise.resolve({ ok: false, code: "conflict" });
-      }
-      const next = {
-        text,
-        hash: String(Number(hash ?? "0") + 10).padStart(64, "0"),
-      };
-      domainDocs.set(domain, next);
-      return Promise.resolve({ ok: true, value: next });
-    },
     icon: () =>
       reply("icon", { src: uploadedIcon, uploaded: uploadedIcon !== null }),
     setIcon: (_app, icon) => {

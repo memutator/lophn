@@ -30,7 +30,6 @@ const ID_PREFIXES = {
   ann: "Annotation",
   anb: "AnnotationBatch",
   att: "Attachment",
-  dom: "Domain",
   run: "Run",
   wfi: "WorkflowInstance",
   job: "Job",

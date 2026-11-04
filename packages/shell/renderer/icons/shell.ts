@@ -3,7 +3,6 @@ import {
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
-  Blocks,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -68,7 +67,6 @@ export const shellIcons = {
   terminal: SquareTerminal,
   app: AppWindow,
   // 오른쪽 panel icon tab.
-  domain: Blocks,
   artifact: FileStack,
   jobs: Clock,
   logs: ScrollText,

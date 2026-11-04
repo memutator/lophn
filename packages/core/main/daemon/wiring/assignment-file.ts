@@ -18,7 +18,6 @@ import {
 import { loadApp } from "../../../apps/registration/store.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import { agentAssignment, denyRuleOf } from "../../../apps/usage/users.ts";
-import { domainByName } from "../../../domains/lookups.ts";
 import type { AgentInfo } from "../../../lophn-agent/agents/directory.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import {
@@ -270,9 +269,13 @@ export const denyRuleSlugStep: DataStep = {
     const connection = opened.value;
     try {
       const slugOf = (domain: string): string | null => {
-        const found = domainByName(connection.sql, domain);
-        if (found === null || found.owner.kind !== "app") return null;
-        const app = loadApp(connection.sql, found.owner.id);
+        // domains 표는 마지막 data step(`domains.retire`)이 거둔다. 그 전이라 아직 있다.
+        const found = connection.sql.get(
+          "select owner_kind, owner_id from domains where name = ?",
+          [domain],
+        );
+        if (found === undefined || found["owner_kind"] !== "app") return null;
+        const app = loadApp(connection.sql, String(found["owner_id"]));
         return app.ok && app.value !== null ? app.value.slug : null;
       };
       let files: string[];

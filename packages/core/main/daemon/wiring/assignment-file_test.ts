@@ -11,7 +11,7 @@ import { appsSchemaSteps } from "../../../apps/registration/schema.ts";
 import { releasesSchemaSteps } from "../../../apps/releases/schema.ts";
 import { insertRelease } from "../../../apps/releases/store.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
-import { domainsSchemaSteps } from "../../../domains/schema.ts";
+import { domainsSchemaSteps } from "./domains-retire.ts";
 import {
   assignmentFileStep,
   denyRuleSlugStep,

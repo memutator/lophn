@@ -7,7 +7,6 @@ import { browser } from "./catalog/browser.ts";
 import { common } from "./catalog/common.ts";
 import { conversation } from "./catalog/conversation.ts";
 import { data } from "./catalog/data.ts";
-import { domain } from "./catalog/domain.ts";
 import { leftSidebar } from "./catalog/left-sidebar.ts";
 import { project } from "./catalog/project.ts";
 import { shell } from "./catalog/shell.ts";
@@ -23,7 +22,6 @@ export const en = {
   ...common,
   ...conversation,
   ...data,
-  ...domain,
   ...leftSidebar,
   ...project,
   ...shell,

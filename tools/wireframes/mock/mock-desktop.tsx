@@ -110,7 +110,7 @@ interface MockDesktopProps {
   readonly homeTabs?: readonly TabSpec[];
   /** place 창의 Jobs overlay·Jobs 탭·Jobs panel 통로. page가 fake(`fakeJobs`)로 job을 정한다. 없으면 dev mock 것이다. */
   readonly jobs?: JobsSource;
-  /** 앱 place의 App·Domain panel 통로. page가 fake(`fakeDetail`)로 정한다. 없으면 dev mock 것이다. */
+  /** 앱 place의 App details 탭을 여는 통로. page가 fake(`fakeDetail`)로 정한다. 없으면 dev mock 것이다. */
   readonly appDetail?: AppDetailSource;
   /** 앱 place의 Logs가 읽는 run 기록. 없으면 dev mock 것이다. */
   readonly runs?: WorkspaceSource["runs"];

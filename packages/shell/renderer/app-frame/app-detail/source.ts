@@ -6,8 +6,6 @@ import type {
   IconView,
 } from "../../parts/icon-upload/icon-reader.ts";
 import type { SourceResult } from "../../source-result.ts";
-import type { DomainActions, DomainView } from "../../workspace/source.ts";
-import type { InstructionsFile } from "../../workspace/agents/views.ts";
 
 export type { SourceResult };
 
@@ -253,27 +251,7 @@ interface StartedPreview {
   readonly nonce: string;
 }
 
-// ---- Domains ----
-
-/** 앱의 active domain 하나와 그 domain의 tool 수. */
-export interface AppDomainRow extends DomainView {
-  readonly tools: number;
-  /** 다른 그릇이 grant 받아 쓸 수 있는 tool 수. */
-  readonly shared: number;
-}
-
-export interface AppDetailSource extends DomainActions {
-  /** 앱의 active domain들. tool 수는 active release의 선언에서 센다(release가 없으면 0). */
-  domains(app: string): Promise<SourceResult<readonly AppDomainRow[]>>;
-  /** domain의 DOMAIN.md. 아직 없으면 빈 글과 null hash다(첫 저장이 만든다). */
-  readDomainDoc(domain: string): Promise<SourceResult<InstructionsFile>>;
-  /** DOMAIN.md를 통째로 쓴다. hash가 디스크와 다르면 code가 conflict이고 파일은 그대로다. */
-  writeDomainDoc(
-    domain: string,
-    text: string,
-    hash: string | null,
-  ): Promise<SourceResult<InstructionsFile>>;
-
+export interface AppDetailSource {
   /** 앱 icon. 사람이 올린 것이 선언한 것보다 앞선다. 읽을 때마다 core에서 새로 읽는다. */
   icon(app: string): Promise<SourceResult<IconView>>;
   /** 올린 icon을 정한다. null이면 올린 것을 지워 선언한 icon(없으면 첫 글자 표식)으로 돌아간다. */

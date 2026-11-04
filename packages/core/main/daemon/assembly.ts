@@ -4,7 +4,6 @@
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
-import { createLedgerRegistration as createDomainsRegistration } from "../../domains/register.ts";
 import { createLedgerRegistration as createJobsRegistration } from "../../jobs/register.ts";
 import { createLedgerRegistration } from "../../projects/register.ts";
 import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
@@ -26,7 +25,7 @@ import {
 import { configWiring } from "./wiring/config.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
-import { createCoreRegistration as createDomainOwnersRegistration } from "./wiring/domains-registration.ts";
+import { domainsRetireWiring } from "./wiring/domains-retire.ts";
 import { eventsWiring } from "./wiring/events.ts";
 import { flowsWiring } from "./wiring/flows.ts";
 import { jobsWiring } from "./wiring/jobs.ts";
@@ -63,7 +62,6 @@ import { workflowsWiring } from "./wiring/workflows.ts";
 export const TEAMS = [
   { createLedgerRegistration },
   { createLedgerRegistration: createAppsRegistration },
-  { createLedgerRegistration: createDomainsRegistration },
   { createLedgerRegistration: createRunsRegistration },
   { createLedgerRegistration: createWorkflowsRegistration },
   { createLedgerRegistration: createJobsRegistration },
@@ -77,7 +75,6 @@ export const TEAMS = [
   { createCoreRegistration: createUsageRegistration },
   { createCoreRegistration: createAssignmentRegistration },
   { createCoreRegistration: createShareRequestsRegistration },
-  { createCoreRegistration: createDomainOwnersRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -87,7 +84,6 @@ export const TEAMS = [
 export const TEAM_MODULES = [
   new URL("../../projects/register.ts", import.meta.url).href,
   new URL("../../apps/register.ts", import.meta.url).href,
-  new URL("../../domains/register.ts", import.meta.url).href,
   new URL("../../runs/register.ts", import.meta.url).href,
   new URL("../../workflows/register.ts", import.meta.url).href,
   new URL("../../jobs/register.ts", import.meta.url).href,
@@ -103,7 +99,6 @@ export const TEAM_MODULES = [
   new URL("./wiring/apps-usage.ts", import.meta.url).href,
   new URL("./wiring/assignment-file.ts", import.meta.url).href,
   new URL("./wiring/share-requests.ts", import.meta.url).href,
-  new URL("./wiring/domains-registration.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.
@@ -131,7 +126,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   createSkillsOffWiring,
   approvalsWiring,
   assignmentFileWiring,
-  // artifact·skill·문서 옮기기는 domains 표를 읽는다. 표를 거두는 data step보다 앞에 둔다.
+  // artifact·skill·문서 옮기기는 domains 표를 읽는다. 표를 거두는 data step(domains-retire, 맨 끝)보다 앞에 둔다.
   // 같은 domain 폴더의 rewind 기록을 나눠 고치므로 artifact가 먼저, 그 뒤에 skill과 문서다.
   artifactMoveWiring,
   placeDataMoveWiring,
@@ -149,4 +144,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentRuntimeWiring,
   sessionSnapshotsWiring,
   serverWiring,
+  // data step이 마지막이어야 한다. 앞선 옮기기 step이 다 끝난 뒤에 domains 표와 폴더를 거둔다.
+  domainsRetireWiring,
 ];

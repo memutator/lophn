@@ -82,7 +82,6 @@ export interface ProjectAppProps {
 
 const PANELS = [
   { key: "explorer", label: "Files", icon: shellIcons.folder },
-  { key: "domain", label: "Domain", icon: shellIcons.domain },
   { key: "artifact", label: "Artifacts", icon: shellIcons.artifact },
   { key: "workflow", label: "Workflows", icon: shellIcons.workflow },
   { key: "jobs", label: "Jobs", icon: shellIcons.jobs },

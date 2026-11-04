@@ -92,7 +92,7 @@ interface DesktopProps {
   settingsPanels?: SettingsPanels;
   /** place 창의 Jobs overlay, Jobs 탭, 오른쪽 sidebar Jobs panel 통로. 없으면 sidebar 항목이 없고 Jobs 줄이 바로 탭을 연다. */
   jobs?: JobsSource;
-  /** 앱 place 오른쪽 sidebar의 App·Domain panel 통로. 없으면 준비 전 안내다. */
+  /** 앱 place의 App details 탭을 여는 통로. 없으면 place 설정 줄이 없다. */
   appDetail?: AppDetailSource;
   /** shell preload의 앱 view 통로. 앱 전용 창이 쓴다(place 창의 앱 화면은 AppViewsProvider로 받는다). */
   views?: LophnShellViewsApi;

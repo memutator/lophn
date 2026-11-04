@@ -1,4 +1,4 @@
-// artifact gallery의 가짜 data. 실제로는 program이 domain의 `artifacts/*/index.html`에서 `<title>`과
+// artifact gallery의 가짜 data. 실제로는 program이 그릇(project나 앱)의 `artifacts/*/index.html`에서 `<title>`과
 // `<meta name="description">`을 읽어 목록을 만든다.
 import type { ArtifactListItem } from "../../../../packages/shell/ipc/artifact.ts";
 import type { AnnotateState } from "../../../../packages/shell/ipc/annotation.ts";
@@ -24,7 +24,7 @@ export const ARTIFACTS: readonly ArtifactListItem[] = [
   },
 ];
 
-/** 둘째 domain(research)의 artifact. */
+/** 다른 그릇(research)의 artifact. */
 export const RESEARCH_ARTIFACTS: readonly ArtifactListItem[] = [
   {
     name: "reading-list",

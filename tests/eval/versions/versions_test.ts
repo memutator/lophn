@@ -157,7 +157,7 @@ test("classifyPath는 component, tool, runtime, core를 가르고 shell·design�
     [`${R}/prompts/prompts.ts`, "instruction"],
     [`${R}/skills/write-kinds/SKILL.md`, "skill:write-kinds"],
     [`${R}/skills/root.ts`, "runtime"],
-    [`${R}/skills/make-domain/SKILL.md`, "skill:make-domain"],
+    [`${R}/skills/write-artifact/SKILL.md`, "skill:write-artifact"],
     [
       "packages/core/apps/packages/template/app/tests/items_test.ts.tmpl",
       "template",

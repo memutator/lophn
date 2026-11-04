@@ -9,7 +9,7 @@ import { ok } from "../../../base/mod.ts";
 import { appRegistrationLookup } from "../../../protocol/apps/mod.ts";
 import type { AnnotationInput } from "../../../protocol/apps/annotation.ts";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
-import { domainsSchemaSteps } from "../../domains/schema.ts";
+import { domainsSchemaSteps } from "../../main/daemon/wiring/domains-retire.ts";
 import { createAnnotationCommands } from "./commands.ts";
 import { createAnnotationReads } from "./reads.ts";
 import { annotationSchemaSteps } from "./schema.ts";

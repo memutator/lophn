@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 
-import { err, ok } from "../../../base/mod.ts";
-import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
+import { ok } from "../../../base/mod.ts";
 import {
   type RequestContext,
   TargetAuthorization,
@@ -25,24 +24,8 @@ function open() {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
   let count = 0;
-  const domains: Record<string, unknown>[] = [];
   const ports = new Map<unknown, unknown>([
     [TargetAuthorization, () => ok(undefined)],
-    [
-      domainProvisioningPort,
-      {
-        create(input: { name: string }) {
-          if (domains.some((d) => d.name === input.name)) {
-            return err({
-              code: "conflict",
-              message: "domain name already exists",
-            });
-          }
-          domains.push(input);
-          return ok({ id: `dom_${domains.length}` });
-        },
-      },
-    ],
   ]);
   const tx = {
     sql: {
@@ -71,7 +54,6 @@ function open() {
         { app, icon },
         {},
       ) as { ok: boolean; error?: { code: string } },
-    domains,
     apps: () => db.prepare("SELECT slug FROM apps").all().length,
     create: (slug: string) =>
       (create.handle as (...a: unknown[]) => unknown)(
@@ -83,29 +65,18 @@ function open() {
   };
 }
 
-test("app.create는 앱 이름의 domain을 함께 만들고, 이미 그 이름이 있으면 앱도 남지 않는다", () => {
-  const { create, domains, apps } = open();
-  const first = create("first");
-  assert.deepStrictEqual(first.ok, true);
-  assert.deepStrictEqual(domains, [
-    {
-      name: "first",
-      title: "App first",
-      purpose: "does things",
-      owner: { kind: "app", id: first.value!.id },
-    },
-  ]);
+test("app.create는 이미 있는 slug면 conflict이고 앱이 늘지 않는다", () => {
+  const { create, apps } = open();
+  assert.deepStrictEqual(create("first").ok, true);
   assert.deepStrictEqual(create("first").error?.code, "conflict");
   assert.deepStrictEqual(apps(), 1);
-  assert.deepStrictEqual(domains.length, 1);
 });
 
 // 내장 명령 이름과 같은 slug는 `lophn <slug> <command>`가 내장 명령인지 앱 command인지 가를 수 없게 만든다.
-test("예약어 slug의 app.create는 invalid_input이고 앱도 domain도 남지 않는다", () => {
-  const { create, domains, apps } = open();
+test("예약어 slug의 app.create는 invalid_input이고 앱이 남지 않는다", () => {
+  const { create, apps } = open();
   assert.deepStrictEqual(create("run").error?.code, "invalid_input");
   assert.deepStrictEqual(apps(), 0);
-  assert.deepStrictEqual(domains.length, 0);
 });
 
 test("app.set_icon은 큰 파일과 이미지 아닌 것을 invalid_input으로 거절하고, 없는 앱은 not_found다", () => {

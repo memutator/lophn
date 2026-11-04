@@ -23,7 +23,6 @@ import { agentArea } from "./screens/agent.tsx";
 import { agentSettingsArea } from "./screens/agent-settings.tsx";
 import { appSpaceArea } from "./screens/app-space.tsx";
 import { artifactArea } from "./screens/artifact.tsx";
-import { domainArea } from "./screens/domain.tsx";
 import { homeArea } from "./screens/home.tsx";
 import { overlaysArea } from "./screens/overlays.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
@@ -68,7 +67,6 @@ const ALL_GROUPS: readonly Group[] = [
       agentSettingsArea,
       appSpaceArea,
       artifactArea,
-      domainArea,
       workflowArea,
       settingsArea,
       questionsArea,

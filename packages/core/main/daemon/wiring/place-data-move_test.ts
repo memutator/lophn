@@ -19,7 +19,7 @@ import type {
   Sql,
   Tx,
 } from "../../../../protocol/server/mod.ts";
-import { domainsSchemaSteps } from "../../../domains/schema.ts";
+import { domainsSchemaSteps } from "./domains-retire.ts";
 import { dropDomainsFieldStep } from "../../../lophn-agent/agents/domains-field-step.ts";
 import { parseAgentFile } from "../../../lophn-agent/agents/definition-file.ts";
 import { conversationSchemaSteps } from "../../../lophn-agent/session/model.ts";

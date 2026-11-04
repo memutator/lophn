@@ -14,10 +14,8 @@ import {
 } from "../desktop/places/projects/core-source.ts";
 import { createLayoutSource } from "../shell/layout-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
-import { coreDomainActions } from "./domains/core-calls.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
-  DomainView,
   FileOpResult,
   FileRow,
   ProjectView,
@@ -49,11 +47,6 @@ interface ProjectGetValue {
       found?: boolean;
     }[];
   };
-}
-
-interface DomainListValue {
-  domains: DomainView[];
-  next_cursor: string | null;
 }
 
 /** core가 주는 started_by. 제목은 화면이 `job.list`로 붙인다. */
@@ -344,8 +337,6 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         : { ok: false, message: read.code };
     },
 
-    ...coreDomainActions(core),
-
     // Agents 탭과 sidebar의 Agents 묶음도 같은 core 통로로 읽고 보낸다.
     agentsSource: coreAgentsSource(core),
 
@@ -369,27 +360,6 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
     rename: (from, to) => fileOp((bridge) => bridge.rename({ from, to })),
     trash: (path) => fileOp((bridge) => bridge.delete({ path })),
     reveal: (path) => fileOp((bridge) => bridge.reveal({ path })),
-
-    domains: (id) =>
-      collect<DomainView>(
-        core,
-        "domains",
-        "list",
-        { owner: { kind: "project", id }, status: "active" },
-        (value) => {
-          const page = value as DomainListValue;
-          return {
-            items: page.domains.map((domain) => ({
-              id: domain.id,
-              name: domain.name,
-              title: domain.title,
-              purpose: domain.purpose,
-              status: domain.status,
-            })),
-            next: page.next_cursor,
-          };
-        },
-      ),
 
     async runs(filter: RunFilter) {
       const read = await collect<RunListValue["runs"][number]>(

@@ -44,22 +44,11 @@ import {
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
-import {
-  readInstructions,
-  windowFiles,
-  windowInstructions,
-  writeInstructions,
-} from "../../workspace/agents/core-extensions.ts";
-import { coreDomainActions } from "../../workspace/domains/core-calls.ts";
-import type { DomainView } from "../../workspace/source.ts";
-import type { FilesApi } from "../../../ipc/files.ts";
-import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type {
   AccessView,
   ActivationStep,
   ActivityRow,
   AppDetailSource,
-  AppDomainRow,
   AppToolRow,
   Caller,
   CallState,
@@ -481,10 +470,6 @@ interface AppDetailDeps {
   /** 보호 입력 창. */
   openSecret: SecretInputOpenApi["open"] | undefined;
   openLink: OpenExternalApi["openExternal"] | undefined;
-  /** DOMAIN.md의 경로를 알려 주는 main 통로. 없으면 읽지도 쓰지도 못한다. */
-  instructions: InstructionsApi | undefined;
-  /** DOMAIN.md를 읽고 쓰는 main file 통로. 없으면 읽지도 쓰지도 못한다. */
-  files: Pick<FilesApi, "read" | "write"> | undefined;
   /** OS 폴더 선택기. 없으면 폴더를 더하지 못한다. */
   picker: FolderPickerApi | undefined;
 }
@@ -503,9 +488,6 @@ export function coreAppDetailSource(
   const openSecret =
     "openSecret" in deps ? deps.openSecret : windowSecretInputOpener();
   const openLink = "openLink" in deps ? deps.openLink : windowLinkOpener();
-  const instructions =
-    "instructions" in deps ? deps.instructions : windowInstructions();
-  const files = "files" in deps ? deps.files : windowFiles();
   const picker = "picker" in deps ? deps.picker : windowFolderPicker();
   // 폴더 목록은 app.edit_folders가 통째로 받고 읽은 revision을 비교한다. change가 null이면 core를 부르지 않는다.
   async function editFolders(
@@ -534,8 +516,6 @@ export function coreAppDetailSource(
       : edited;
   }
   return {
-    ...coreDomainActions(core),
-
     async icon(app) {
       const reply = await read<Parameters<typeof iconViewOf>[0]>(
         core,
@@ -552,44 +532,6 @@ export function coreAppDetailSource(
         icon: iconInputOf(icon) as never,
       });
       return done.ok ? { ok: true, value: true } : done;
-    },
-
-    // DOMAIN.md는 더 읽히지 않는다(옛 자리의 file은 `old-domains/`로 옮겼다). domain 화면을 걷을 때 함께 지운다.
-    readDomainDoc: () => Promise.resolve({ ok: false, code: "unavailable" }),
-    writeDomainDoc: () => Promise.resolve({ ok: false, code: "unavailable" }),
-
-    async domains(app) {
-      const [list, declared] = await Promise.all([
-        collect<DomainView, { domains: DomainView[] } & Paged>(
-          core,
-          "domains",
-          "list",
-          { owner: { kind: "app", id: app }, status: "active" },
-          (page) => page.domains,
-        ),
-        read<{ tools: { domain: string; public: boolean }[] }>(
-          core,
-          "apps",
-          "tools",
-          { app },
-        ),
-      ]);
-      if (!list.ok) return list;
-      // active release가 없는 앱은 tool을 읽지 못한다. 그래도 domain 목록은 보인다.
-      const tools = declared.ok ? declared.value.tools : [];
-      const rows: AppDomainRow[] = list.value.map((domain) => {
-        const own = tools.filter((tool) => tool.domain === domain.name);
-        return {
-          id: domain.id,
-          name: domain.name,
-          title: domain.title,
-          purpose: domain.purpose,
-          status: domain.status,
-          tools: own.length,
-          shared: own.filter((tool) => tool.public).length,
-        };
-      });
-      return { ok: true, value: rows };
     },
 
     async folders(app) {

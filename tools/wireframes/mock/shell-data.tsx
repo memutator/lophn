@@ -362,7 +362,7 @@ export function mockDesks(variant: Variant): MockDesk[] {
           "Main",
           [
             file("doc1", "docs.md", "phroner"),
-            file("doc2", "domain.md", "phroner"),
+            file("doc2", "notes.md", "phroner"),
             long,
             file("doc3", "design.md", "phroner"),
             TERM,

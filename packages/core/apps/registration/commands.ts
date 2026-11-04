@@ -23,7 +23,6 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { checkIconUpload, parseActor } from "../../../protocol/base/mod.ts";
 import { RESERVED_APP_SLUGS } from "../../../protocol/apps/declaration/mod.ts";
-import { domainProvisioningPort } from "../../../protocol/domains/mod.ts";
 import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import {
@@ -165,14 +164,6 @@ export function createAppCommands(): {
             undefined
         )
           return conflict("app id already exists");
-        // 앱 이름의 domain이 같은 tx에서 함께 생긴다. 이미 그 이름이 있으면 conflict이고 앱도 남지 않는다.
-        const domain = tx.port(domainProvisioningPort).create({
-          name: input.slug,
-          title: input.name,
-          purpose: input.description,
-          owner: { kind: "app", id },
-        });
-        if (!domain.ok) return domain;
         const seq = tx.emit(appCreated, id, {
           slug: input.slug,
           name: input.name,

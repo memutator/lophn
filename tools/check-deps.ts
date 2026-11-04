@@ -100,7 +100,7 @@ function numberedName(segment: string): boolean {
   );
 }
 
-// core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < place 층(agent-places)·feature module(projects, apps, domains, runs) < main(조립).
+// core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < place 층(agent-places)·feature module(projects, apps, runs) < main(조립).
 // harness와 바닥은 place 층과 feature module을 모르고, place 층과 feature module은 서로 모른다. 둘 다 harness는 쓸 수 있다.
 // feature module끼리는 서로 import하지 않는다(project-docs/architecture/layers.md).
 const CORE_HARNESS = "lophn-agent";
@@ -108,7 +108,6 @@ const CORE_PLACES = "agent-places";
 const CORE_FEATURES = new Set([
   "projects",
   "apps",
-  "domains",
   "runs",
   "workflows",
   "jobs",

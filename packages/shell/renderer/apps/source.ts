@@ -35,7 +35,7 @@ export interface AppsSource {
   /** 없는 앱·범위 밖 앱은 null이다. */
   get(app: string): Promise<SourceResult<AppRow | null>>;
   runtime(app: string): Promise<SourceResult<RunState>>;
-  /** 앱을 등록한다. 이름이 다른 앱·domain과 겹치면 `conflict`다. */
+  /** 앱을 등록한다. slug가 다른 앱과 겹치면 `conflict`다. */
   create(draft: AppDraft): Promise<SourceResult<AppRow>>;
   /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;

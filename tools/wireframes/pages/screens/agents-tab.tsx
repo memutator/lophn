@@ -63,7 +63,7 @@ export function AgentSettingsEditor({
   source: options,
 }: {
   id: string;
-  /** 화면을 연 자리다. `app`이면 앱 그릇의 skill·MCP·domain을 그린다. */
+  /** 화면을 연 자리다. `app`이면 앱 그릇의 skill·MCP를 그린다. */
   place?: "project" | "app";
   onDone: () => void;
   steps?: readonly Step[];

@@ -15,7 +15,6 @@ import {
   AppPlaceScreen,
   AppPlaceSession,
   AppPlaceSplit,
-  DomainPanel,
   RewindConfirm,
   RewindConflict,
   RewindDone,
@@ -31,13 +30,13 @@ export const appSpaceArea: Area = {
   id: "app-space",
   title: "App place",
   summary:
-    "앱 place. project 창과 같은 shell 안에서 앱 화면 tab, 그 앱의 lophn session tab, App details tab, 오른쪽 Domain·Logs panel. Version, Access, Activity, rewind, annotate.",
+    "앱 place. project 창과 같은 shell 안에서 앱 화면 tab, 그 앱의 lophn session tab, App details tab, 오른쪽 Logs panel. Version, Access, Activity, rewind, annotate.",
   pages: [
     {
       id: "app-space",
       title: "App place",
       description:
-        "앱 place를 처음 연 모양. 같은 shell 안에서 가운데 tab은 앱 화면 하나(앱 화면은 고정 그림), 왼쪽은 place·session이고 지금 앱 줄 오른쪽 끝 톱니가 App details 탭을 연다. 오른쪽은 Domain panel이고, Annotate는 앱 화면 머리 줄 ⋯ 메뉴에 있다. title bar에 desk 단추가 없다.",
+        "앱 place를 처음 연 모양. 같은 shell 안에서 가운데 tab은 앱 화면 하나(앱 화면은 고정 그림), 왼쪽은 place·session이고 지금 앱 줄 오른쪽 끝 톱니가 App details 탭을 연다. 오른쪽은 Logs panel이고, Annotate는 앱 화면 머리 줄 ⋯ 메뉴에 있다. title bar에 desk 단추가 없다.",
       render: () => <AppPlaceScreen />,
     },
     {
@@ -73,13 +72,6 @@ export const appSpaceArea: Area = {
       title: "App place · Logs (empty)",
       description: "이 앱에서 시작된 일이 없을 때 한 줄 안내만 있다.",
       render: () => <RunsEmpty />,
-    },
-    {
-      id: "new-app-domain",
-      title: "App place · Domain panel",
-      description:
-        "오른쪽 Domain panel. 앱의 domain 목록과 tool 수, 줄 끝 menu(Open DOMAIN.md, Archive), New domain 단추.",
-      render: () => <DomainPanel />,
     },
     {
       id: "new-app-version-applied",

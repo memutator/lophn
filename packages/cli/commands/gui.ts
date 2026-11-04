@@ -4,7 +4,7 @@
 // 그 앱의 second-instance가 받는다. 켜져 있는지(extension harness-gui)는 앱이 본다.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
@@ -18,11 +18,13 @@ export type GuiLaunch = (
 // 설치본은 binary가 앱 자원을 알아서 찾고, 저장소 실행은 shell main bundle을 인자로 줘야 한다(없는 쪽이 설치본이다).
 // 저장소 실행의 Electron은 chrome-sandbox가 setuid가 아니라서 flag 없이는 argv를 읽기 전에 죽는다. 터미널 탭 env는 ELECTRON_*를 지워 env로는 못 받으므로 늘 붙인다.
 // 앱은 CLI가 끝난 뒤에도 살아야 하므로 떼어 낸다.
+const DEV_MAIN = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../shell/main/dist/main.cjs",
+);
+
 export const launchDesktop: GuiLaunch = async (args) => {
-  const devMain = join(
-    dirname(fileURLToPath(import.meta.url)),
-    "../../shell/main/dist/main.cjs",
-  );
+  const devMain = DEV_MAIN;
   const dev = existsSync(devMain);
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -54,7 +56,11 @@ export type GuiCommand = {
   effect: "write";
   run(
     input: Record<string, unknown>,
-    ctx: { cwd: string },
+    ctx: {
+      cwd: string;
+      env: { get(name: string): string | undefined };
+      home: string;
+    },
   ): Promise<Result<unknown, LophnError>>;
 };
 
@@ -63,7 +69,12 @@ const guiInput = z.strictObject({
   resume: z.string().min(1).optional(),
 });
 
-export function createGuiCommand(launch: GuiLaunch): GuiCommand {
+// 저장소 실행은 data root마다 single-instance lock이 달라, LOPHN_HOME이 없으면(터미널 env는 LOPHN_*를 지운다)
+// 설치본이 쓰는 ~/.lophn으로 가서 설치본 창이 뜨거나 개발 code가 사람의 실제 data root로 뜬다. 그래서 막는다.
+export function createGuiCommand(
+  launch: GuiLaunch,
+  repoRun: boolean,
+): GuiCommand {
   return {
     name: "gui",
     summary: "Open a lophn window for a coding agent CLI",
@@ -74,6 +85,19 @@ export function createGuiCommand(launch: GuiLaunch): GuiCommand {
     effect: "write",
     run: async (input, ctx) => {
       const { harness, resume } = guiInput.parse(input);
+      if (repoRun) {
+        const root = ctx.env.get("LOPHN_HOME") ?? "";
+        if (
+          root === "" ||
+          (ctx.home !== "" && resolve(root) === resolve(ctx.home, ".lophn"))
+        ) {
+          return err({
+            code: "invalid_input",
+            message:
+              "lophn gui from the repository needs a dev data root: run it in a terminal tab of the dev app (npm run dev) or set LOPHN_HOME to the dev data root",
+          });
+        }
+      }
       const launched = await launch([
         "--harness-gui",
         harness,
@@ -88,5 +112,5 @@ export function createGuiCommand(launch: GuiLaunch): GuiCommand {
 }
 
 export const GUI_COMMANDS: readonly GuiCommand[] = [
-  createGuiCommand(launchDesktop),
+  createGuiCommand(launchDesktop, existsSync(DEV_MAIN)),
 ];

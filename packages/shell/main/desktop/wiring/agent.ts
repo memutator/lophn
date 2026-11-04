@@ -253,6 +253,7 @@ export function createAgentWiring(options: {
           !app.isPackaged && process.env.LOPHN_CLI?.startsWith("/")
             ? process.env.LOPHN_CLI
             : "lophn",
+          ctx.dataRoot,
         );
       } catch (cause) {
         ctx.log(`shell integration is off: ${String(cause)}`);

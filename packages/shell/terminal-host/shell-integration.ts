@@ -119,7 +119,7 @@ if __lophn_external claude; then
   function claude {
     if [ "\${1-}" = gui ]; then
       shift
-      command __LOPHN_CLI__ gui claude "$@"
+      LOPHN_HOME=__LOPHN_HOME__ command __LOPHN_CLI__ gui claude "$@"
       return
     fi
     command claude "$@"
@@ -130,7 +130,7 @@ if __lophn_external codex; then
   function codex {
     if [ "\${1-}" = gui ]; then
       shift
-      command __LOPHN_CLI__ gui codex "$@"
+      LOPHN_HOME=__LOPHN_HOME__ command __LOPHN_CLI__ gui codex "$@"
       return
     fi
     local __arg __flag=1
@@ -152,7 +152,7 @@ if __lophn_external opencode; then
   function opencode {
     if [ "\${1-}" = gui ]; then
       shift
-      command __LOPHN_CLI__ gui opencode "$@"
+      LOPHN_HOME=__LOPHN_HOME__ command __LOPHN_CLI__ gui opencode "$@"
       return
     fi
     local __arg __first=""
@@ -207,7 +207,7 @@ if test "$__lophn_kind" = file
   function claude
     if test "$argv[1]" = gui
       set -e argv[1]
-      command __LOPHN_CLI__ gui claude $argv
+      env LOPHN_HOME=__LOPHN_HOME__ __LOPHN_CLI__ gui claude $argv
       return
     end
     command claude $argv
@@ -219,7 +219,7 @@ if test "$__lophn_kind" = file
   function codex
     if test "$argv[1]" = gui
       set -e argv[1]
-      command __LOPHN_CLI__ gui codex $argv
+      env LOPHN_HOME=__LOPHN_HOME__ __LOPHN_CLI__ gui codex $argv
       return
     end
     if not string match -qr -- '^(agents|queue|--remote|--no-daemon|--remote=.*)$' $argv
@@ -235,7 +235,7 @@ if test "$__lophn_kind" = file
   function opencode
     if test "$argv[1]" = gui
       set -e argv[1]
-      command __LOPHN_CLI__ gui opencode $argv
+      env LOPHN_HOME=__LOPHN_HOME__ __LOPHN_CLI__ gui opencode $argv
       return
     end
     if string match -qr -- '^(--standalone|--server|--server=.*|-h|--help|-v|--version|--completions|--completions=.*)$' $argv
@@ -291,6 +291,7 @@ type ShellInitFs = {
 };
 
 const CLI_TOKEN = "__LOPHN_CLI__";
+const HOME_TOKEN = "__LOPHN_HOME__";
 
 function shQuote(text: string): string {
   return `'${text.replaceAll("'", "'\\''")}'`;
@@ -298,21 +299,32 @@ function shQuote(text: string): string {
 
 /**
  * 시작 층 file을 쓰고 그 폴더를 돌려준다. `cli`는 `gui` 함수가 부를 lophn 명령이다(설치본은 `lophn`, 개발은 launcher의
- * 절대 경로). 터미널 env에서는 LOPHN_* 가 지워져 shell이 스스로 찾지 못하므로 shell main이 아는 값을 넣는다.
+ * 절대 경로). `dataRoot`는 shell main이 쓰는 data root다. 터미널 env에서는 LOPHN_* 가 지워져 shell이 스스로 찾지 못하므로
+ * shell main이 아는 값을 넣고, gui 호출에 LOPHN_HOME으로 붙여 CLI가 설치본의 ~/.lophn이 아닌 이 앱의 data root를 잡게 한다.
  */
 export function writeShellInit(
   fs: ShellInitFs,
   runDir: string,
   cli: string,
+  dataRoot: string,
 ): string {
   const dir = `${runDir}/shell-init`;
   fs.mkdir(`${dir}/zsh`);
   fs.write(`${dir}/bash.sh`, BASH_INIT);
   fs.write(`${dir}/zsh/.zshenv`, ZSH_ENV);
-  fs.write(`${dir}/fish.fish`, FISH.replaceAll(CLI_TOKEN, fishQuote(cli)));
+  fs.write(
+    `${dir}/fish.fish`,
+    FISH.replaceAll(CLI_TOKEN, fishQuote(cli)).replaceAll(
+      HOME_TOKEN,
+      fishQuote(dataRoot),
+    ),
+  );
   fs.write(
     `${dir}/functions.sh`,
-    FUNCTIONS.replaceAll(CLI_TOKEN, shQuote(cli)),
+    FUNCTIONS.replaceAll(CLI_TOKEN, shQuote(cli)).replaceAll(
+      HOME_TOKEN,
+      shQuote(dataRoot),
+    ),
   );
   return dir;
 }

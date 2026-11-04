@@ -38,3 +38,8 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## lead가 더함
+
+- `rd-kinds`가 scenario O6와 그 registry 항목, material `tax-kinds`를 이미 지웠다. L4-app·L5만 남았다.
+- `protocol/domains/paths.ts`의 `DOMAIN_KINDS_FILE`·`domainKindsFile`도 같이 지운다.

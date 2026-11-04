@@ -42,3 +42,8 @@ agent가 domain을 보는 층을 지운다: `DOMAIN.md` 지침 층, domain skill
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## lead가 더함
+
+- `rd-kinds`가 내장 skill `check-domains`를 이미 지웠다(`skill-settings.ts` 목록 포함). 남은 것은 `make-domain`이다. eval registry의 옛 version 기록은 남긴다.
+- `rd-kinds`가 place 지침과 `make-domain`·`write-artifact` SKILL.md에서 kind 글을 이미 뺐다.

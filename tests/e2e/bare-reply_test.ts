@@ -5,16 +5,14 @@
 //   남는 것, bare의 system에 제품 규칙이나 place 지침이 새는 것, 고르지 않은 tool(`lophn`)이 실리는 것.
 // - 왜 지금 test로 못 잡나: bare-reply_test는 가짜 port만 본다. 진짜 core의 scope·route·Router 왕복은 process를 건너야 한다.
 //
-// 줄(lane): home은 `app create`를 부르는 lophn, bare는 `lophn` tool이 없고 `file_read`가 있는 요청, project는 `file_write`가 있는
-// lophn. core는 file 전체에서 하나다.
+// 줄(lane): home은 `app create`를 부르는 lophn, bare는 `lophn` tool이 없고 `file_read`가 있는 요청이다.
+// lophn runtime이 자동 답을 받지 않는 것은 bare-reply_test(가짜 port)가 본다.
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
 import {
   agentCallRead,
   agentCreate,
   LOPHN_AGENT_ID,
-  type Place,
   placeSessionList,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
@@ -22,7 +20,6 @@ import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
   openPlaceSession,
-  openProject,
   say,
   until,
   waitTurnEnd,
@@ -45,12 +42,6 @@ const BARE: Lane = {
   name: "bare",
   match: (r) =>
     toolNames(r).includes("file_read") && !toolNames(r).includes("lophn"),
-};
-const PROJECT: Lane = {
-  name: "project",
-  match: (r) =>
-    toolNames(r).includes("file_write") &&
-    !lophnCommands(r).includes("app create"),
 };
 
 const text = (value: string): Step => ({
@@ -84,9 +75,12 @@ function assertNoMismatch(fake: FakeServer) {
   );
 }
 
-async function opened(core: Core, agent: string, place: Place | null) {
+async function opened(core: Core, agent: string) {
   return await until("새 session이 열림", async () => {
-    const { sessions } = await core.call(placeSessionList, { agent, place });
+    const { sessions } = await core.call(placeSessionList, {
+      agent,
+      place: null,
+    });
     return sessions[0]?.id;
   });
 }
@@ -101,11 +95,7 @@ async function callOf(core: Core, receiver: string): Promise<string> {
   });
 }
 
-async function callState(core: Core, call: string) {
-  return (await core.call(agentCallRead, { call })).call.state;
-}
-
-test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 돌아가고, lophn은 자동 답이 없다", async () => {
+test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 한 번 돌아간다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -113,9 +103,6 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 돌�
     core = await bootCore(run);
     const c = core;
     await connectFakeProvider(c, fake);
-    const folder = `${run.work}/proj`;
-    await mkdir(folder);
-    const { project } = await openProject(c, folder);
     const bare = c.ids.newId("agt");
     await c.call(agentCreate, {
       id: bare,
@@ -127,7 +114,7 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 돌�
       },
     });
 
-    // row: bare가 글만 답하고 끝나면 그 글이 call의 답이 된다.
+    // bare가 글만 답하고 끝나면 그 글이 call의 답이 된다.
     fake.script(
       [send({ agent: "echo-bare" }), text("sent"), text("got it")],
       HOME,
@@ -135,14 +122,17 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 돌�
     fake.script([text("the answer is 42")], BARE);
     const a = await openPlaceSession(c, LOPHN_AGENT_ID);
     await say(c, a, "ask the bare agent");
-    const b = await opened(c, bare, null);
+    const b = await opened(c, bare);
     await waitTurnEnd(c, b);
     await waitTurnEnd(c, a, 1);
     assertNoMismatch(fake);
 
     // ledger: call은 done이고 보낸 session은 그 call의 답을 하나만 받았다.
     const call = await callOf(c, b);
-    assert.deepStrictEqual(await callState(c, call), "done");
+    assert.deepStrictEqual(
+      (await c.call(agentCallRead, { call })).call.state,
+      "done",
+    );
     const { messages } = await c.call(receivedMessageList, { session: a });
     assert.deepStrictEqual(
       messages.filter((m) => m.reply_to === call).length,
@@ -156,22 +146,6 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 돌�
     const [request] = lane(fake, "bare");
     assert.deepStrictEqual(systemText(request), "BARE-BODY only.");
     assert.deepStrictEqual(toolNames(request), ["file_read"]);
-
-    // row: lophn은 답 없이 끝나도 자동 답이 가지 않는다.
-    fake.reset();
-    fake.script(
-      [send({ agent: "lophn", place: { project: "proj" } }), text("sent")],
-      HOME,
-    );
-    fake.script([text("noted, no reply")], PROJECT);
-    const atProject: Place = { kind: "project", id: project };
-    const a2 = await openPlaceSession(c, LOPHN_AGENT_ID);
-    await say(c, a2, "ask the project");
-    const b2 = await opened(c, LOPHN_AGENT_ID, atProject);
-    await waitTurnEnd(c, b2);
-    await waitTurnEnd(c, a2);
-    assertNoMismatch(fake);
-    assert.deepStrictEqual(await callState(c, await callOf(c, b2)), "accepted");
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();

@@ -1,13 +1,10 @@
-// 메시지에 붙이는 이미지. 올려서 id를 받고, 화면에 그릴 때는 file route로 읽어 blob URL로 기억한다.
-// 메시지 content는 글뿐이라 이미지는 글 끝 줄(attachments.ts)의 id로만 이어진다.
+// 메시지에 붙이는 이미지. 올려서 blob hash를 받아 image block에 싣고, 화면에 그릴 때는 file route로 읽어 blob URL로
+// 기억한다. 올림은 session을 모른다: 올린 blob은 그것을 실은 메시지가 그 session에서 참조하면서 읽힌다.
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { SourceResult } from "./agent-tab-source.ts";
 
 export interface ImageSource {
-  uploadImage(
-    session: string,
-    image: Blob,
-  ): Promise<SourceResult<{ id: string }>>;
+  uploadImage(image: Blob): Promise<SourceResult<{ blob: string }>>;
   imageUrl(session: string, id: string): Promise<string | null>;
 }
 
@@ -16,7 +13,7 @@ export function createImageSource(core: CoreSource): ImageSource {
   const urls = new Map<string, Promise<string | null>>();
 
   return {
-    async uploadImage(session, image) {
+    async uploadImage(image) {
       let bytes: Uint8Array;
       try {
         bytes = new Uint8Array(await image.arrayBuffer());
@@ -28,19 +25,13 @@ export function createImageSource(core: CoreSource): ImageSource {
           kind: "upload",
           resource: "message-images",
           method: "upload",
-          body: { session, content_type: image.type, bytes: bytes.byteLength },
+          body: { content_type: image.type, bytes: bytes.byteLength },
           bytes,
         });
         if (!reply.ok) {
           return { ok: false, code: reply.error?.code ?? "internal" };
         }
-        const { id } = reply.value as { id: string };
-        // 올린 직후의 미리 보기는 이미 가진 blob으로 그린다.
-        urls.set(
-          `${session}/${id}`,
-          Promise.resolve(URL.createObjectURL(image)),
-        );
-        return { ok: true, value: { id } };
+        return { ok: true, value: reply.value as { blob: string } };
       } catch {
         return { ok: false, code: "unavailable" };
       }

@@ -87,6 +87,12 @@ export async function readBody(
     switch (part.kind) {
       case "text":
         return [{ kind: "text", text: part.text }];
+      case "image":
+        return [{ kind: "image", blob: part.blob }];
+      case "resource_link":
+        return [{ kind: "resource_link", uri: part.uri, name: part.name }];
+      case "resource":
+        return [{ kind: "resource", uri: part.uri, text: part.text }];
       case "app_card":
         return [{ kind: "app_card", app: part.app, view: part.view }];
       // reasoning은 글과 달리 agent 답 앞의 reasoning 줄이 그린다.
@@ -98,8 +104,6 @@ export async function readBody(
             durationMs: part.duration_ms,
           },
         ];
-      default:
-        return [];
     }
   });
   memo.bodies.set(message, parts);

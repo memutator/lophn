@@ -3,6 +3,7 @@
 // 다시 열면 같은 자리에서 이어 쓴다. 읽은 메시지 본문도 창 메모리에
 // 둔다. 확정 메시지의 본문은 바뀌지 않아 한 번 읽으면 다시 읽지 않는다. 디스크에는 쓰지
 // 않는다.
+import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import type { Outgoing } from "./delivery-state.ts";
 import type { ViewDetail } from "./activity/model.ts";
 import type { BodyPart } from "./agent-tab-source.ts";
@@ -75,7 +76,7 @@ export class DraftStore {
    * 지운다. 그 사이 다시 쓴 글은 없다(보내는 동안 잠긴다).
    */
   accepted(session: string, outgoing: Outgoing): void {
-    this.#texts.set(outgoing.id, outgoing.text);
+    this.#texts.set(outgoing.id, blocksText(outgoing.content));
     this.save(session, {
       text: "",
       selection: [0, 0],

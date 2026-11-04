@@ -66,7 +66,7 @@ interface AgentThreadProps {
     readonly waiting?: "approval" | "answer";
   } | null;
   now: () => number;
-  /** 내 말에 첨부한 이미지의 그림 주소. */
+  /** 메시지 image block의 그림 주소. */
   imageUrl: (id: string) => Promise<string | null>;
   /** archive한 session이다. 내 말의 Rewind 단추와 agent 말의 Fork 단추가 없다. */
   readOnly: boolean;
@@ -482,6 +482,7 @@ function receivedMessage(
       body={props.drafts.body(message.id)}
       fallback={message.text ?? undefined}
       artifacts={props.artifacts}
+      imageUrl={props.imageUrl}
     />
   );
   // 보낸 쪽을 모르는 받은 메시지는 없다. 있어도 본문은 잃지 않게 chip 없이 놓는다.

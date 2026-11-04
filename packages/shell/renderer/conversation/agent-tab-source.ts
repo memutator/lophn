@@ -12,6 +12,7 @@ import type {
   CallReply,
   CallState,
 } from "../../../protocol/lophn-agent/calls.ts";
+import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type { ToolCallView } from "./activity/model.ts";
@@ -81,6 +82,18 @@ export interface SessionSearchMatch {
 /** 본문의 한 part. */
 export type BodyPart =
   | { readonly kind: "text"; readonly text: string }
+  /** `blob`은 이미지 hash이거나 옛 첨부 id다. `imageUrl`이 읽는다. */
+  | { readonly kind: "image"; readonly blob: string }
+  | {
+      readonly kind: "resource_link";
+      readonly uri: string;
+      readonly name: string;
+    }
+  | {
+      readonly kind: "resource";
+      readonly uri: string;
+      readonly text: string;
+    }
   | { readonly kind: "app_card"; readonly app: string; readonly view: string }
   /** agent 답 앞의 reasoning 요약. 글은 redaction을 거쳤고 없으면 ""다. 복사 글과 model 이력에는 들지 않는다. */
   | {
@@ -547,7 +560,7 @@ export interface SendInput {
   /** 메시지 id와 idempotency key. 같은 id·key로 다시 보내면 core가 이전 결과를 돌려준다. */
   readonly id: string;
   readonly key: string;
-  readonly text: string;
+  readonly content: readonly ContentBlock[];
   readonly delivery: Delivery;
 }
 
@@ -619,19 +632,16 @@ export interface AgentTabSource {
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;
   /**
-   * 보낼 이미지 하나를 그 session에 올린다(png·jpeg·gif·webp, 5 MiB까지). 메시지 글에는 돌려받은 id로
-   * `attachmentImageLine`을 적고, 그 session의 agent가 image.read로 연다.
+   * 보낼 이미지 하나를 올린다(png·jpeg·gif·webp, 5 MiB까지). 돌려받은 blob hash를 image block에 싣고, 올린 것을
+   * 참조하지 않으면 10분 뒤 사라진다.
    */
-  uploadImage(
-    session: string,
-    image: Blob,
-  ): Promise<SourceResult<{ id: string }>>;
-  /** 올린 이미지를 화면에 그릴 주소. 읽지 못하면 null이다. */
+  uploadImage(image: Blob): Promise<SourceResult<{ blob: string }>>;
+  /** 메시지 image block의 그림 주소(blob hash나 옛 첨부 id). 읽지 못하면 null이다. */
   imageUrl(session: string, id: string): Promise<string | null>;
   /** 다음 turn 줄을 도는 turn에 steer로 올린다. */
   sendQueuedNow(queued: string): Promise<SourceResult<void>>;
   removeQueued(queued: string): Promise<SourceResult<void>>;
-  /** 다음 turn 줄의 글을 고친다. turn이 이미 가져갔으면 conflict다. */
+  /** 다음 turn 줄의 글을 고친다. 붙인 이미지와 링크는 그대로 남는다. turn이 이미 가져갔으면 conflict다. */
   editQueued(queued: string, text: string): Promise<SourceResult<void>>;
   /** 다음 turn 줄의 순서를 이웃과 바꾼다. 끝이면 그대로 둔다. */
   moveQueued(

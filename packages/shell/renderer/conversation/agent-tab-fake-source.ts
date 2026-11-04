@@ -3,7 +3,10 @@
 
 import { t } from "@lophn/i18n";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
-import { splitAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
+import {
+  blocksText,
+  type ContentBlock,
+} from "../../../protocol/lophn-agent/content-block.ts";
 import type { ToolCallView } from "./activity/model.ts";
 import { toolEntriesOf } from "./activity/tool-groups.ts";
 import { COMMANDS_GROUP, SKILLS_GROUP } from "./agent-tab-fake-commands.ts";
@@ -1129,6 +1132,19 @@ const SEARCH_SNIPPET_AFTER = 80;
 const SEARCH_MATCH_MAX = 20;
 
 /** 처음 맞은 곳 앞뒤를 한 줄로 줄인다. core의 SearchSessionMessages와 같은 모양이다. */
+function partOf(block: ContentBlock): BodyPart {
+  switch (block.type) {
+    case "text":
+      return { kind: "text", text: block.text };
+    case "image":
+      return { kind: "image", blob: block.blob };
+    case "resource_link":
+      return { kind: "resource_link", uri: block.uri, name: block.name };
+    case "resource":
+      return { kind: "resource", uri: block.uri, text: block.text };
+  }
+}
+
 function searchSnippet(text: string, needle: string): string | null {
   const flat = text.replace(/\s+/g, " ").trim();
   const at = flat.toLowerCase().indexOf(needle);
@@ -1371,23 +1387,23 @@ export function createFakeAgentTabSource(
     status: (session) =>
       ok({ ...statusView(session), ...options.status, session }),
 
-    uploadImage(_session, image) {
-      const id = nextId("att");
-      images.set(id, URL.createObjectURL(image));
-      return ok({ id });
+    uploadImage(image) {
+      const blob = nextId("blob");
+      images.set(blob, URL.createObjectURL(image));
+      return ok({ blob });
     },
     imageUrl: (_session, id) => Promise.resolve(images.get(id) ?? null),
 
-    send({ session, id, text, delivery }) {
-      bodies.set(id, [{ kind: "text", text }]);
+    send({ session, id, content, delivery }) {
+      const text = blocksText(content);
+      bodies.set(id, content.map(partOf));
       const view = thread(session);
       const running =
         view.turn?.phase === "working" || view.turn?.phase === "waiting";
       if (session && sessions.some((item) => item.id === session)) {
         const known = sessions.find((item) => item.id === session)!;
-        const title = splitAttachmentText(text).text;
-        if (known.title === null && title !== "") {
-          patchSession(session, { title: title.slice(0, 60) });
+        if (known.title === null && text !== "") {
+          patchSession(session, { title: text.slice(0, 60) });
         }
       }
       if (running && delivery === "next_turn") {
@@ -1448,7 +1464,10 @@ export function createFakeAgentTabSource(
     editQueued(queued, text) {
       const session = sessionOfQueued(queued);
       if (session === undefined) return fail("not_found");
-      bodies.set(queued, [{ kind: "text", text }]);
+      bodies.set(queued, [
+        { kind: "text", text },
+        ...(bodies.get(queued) ?? []).filter((part) => part.kind !== "text"),
+      ]);
       return change(session, (view) => ({
         ...view,
         queued: view.queued.map((one) =>

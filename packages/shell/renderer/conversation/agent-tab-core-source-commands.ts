@@ -2,7 +2,6 @@
 // 명령 목록은 그 session의 agent 기준 registry를 core에서 읽어 protocol의 거르기 규칙에 먹인 것이다(표를 여기에 다시
 // 적지 않는다). 일하는 중 고른 명령도 모두 다음 turn에 들어가므로 끝나기를 기다리지 않는다.
 import { t } from "@lophn/i18n";
-import type { z } from "zod";
 
 import { turnRequestDecide } from "../../../protocol/approvals/turn-request.ts";
 import { placeSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
@@ -20,6 +19,8 @@ import {
   steerQueuedNow,
 } from "../../../protocol/lophn-agent/inputs.ts";
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
+import { blocksOfContent } from "../../../protocol/lophn-agent/message-content.ts";
+import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
 import { receivedMessageRead } from "../../../protocol/lophn-agent/received-messages.ts";
 import {
   turnList,
@@ -37,8 +38,6 @@ import type {
 import { dropValue, type Env } from "./agent-tab-core-source-env.ts";
 
 // ---------------------------------------------------------------- `/` 명령
-
-type UserPart = z.input<typeof sendMessage.input>["content"][number];
 
 /** 그 session의 registry. */
 async function readRegistry(
@@ -111,18 +110,20 @@ export async function runCommand(
   const request = t("conversation.body.skill-command-request", {
     skill: entry.name,
   });
-  return await sendText(env, {
+  return await sendContent(env, {
     session,
     id: newId("msg", env.now()),
     key: `commands-run-${key}`,
-    text: argument === "" ? request : `${request}\n\n${argument}`,
+    content: textBlocks(
+      argument === "" ? request : `${request}\n\n${argument}`,
+    ),
     delivery: "next_turn",
   });
 }
 
 // ---------------------------------------------------------------- 보내기
 
-export function sendText(
+export function sendContent(
   env: Env,
   input: SendInput,
 ): Promise<SourceResult<void>> {
@@ -131,7 +132,7 @@ export function sendText(
       input: {
         id: input.id,
         session: input.session,
-        content: [{ type: "text", text: input.text }],
+        content: [...input.content],
         delivery: input.delivery,
         refs: [],
       },
@@ -172,7 +173,10 @@ export async function removeQueuedMessage(
   );
 }
 
-/** 다음 turn 줄의 글을 고친다. 이미 turn이 가져갔으면 conflict다. */
+/**
+ * 다음 turn 줄의 글을 고친다. 이미 turn이 가져갔으면 conflict다. 글이 아닌 block(이미지, 링크)은 그대로 실어
+ * 보낸다. 빼면 사람이 붙인 이미지가 본문에서 조용히 빠진다.
+ */
 export async function editQueuedMessage(
   env: Env,
   queued: string,
@@ -180,11 +184,16 @@ export async function editQueuedMessage(
 ): Promise<SourceResult<void>> {
   const session = await sessionOfMessage(env, queued);
   if (!session.ok) return session;
+  const body = await env.read(messageBody, { message: queued });
+  if (!body.ok) return body;
+  const kept = blocksOfContent(body.value.content).filter(
+    (block) => block.type !== "text",
+  );
   return dropValue(
     await env.read(editQueued, {
       session: session.value,
       message: queued,
-      content: [{ type: "text", text }],
+      content: [{ type: "text", text }, ...kept],
     }),
   );
 }
@@ -249,10 +258,7 @@ export async function retryTurn(
   const original = read.value.turn.input_message;
   const body = await env.read(messageBody, { message: original });
   if (!body.ok) return body;
-  const parts: UserPart[] = [];
-  for (const part of body.value.content.parts) {
-    if (part.kind === "text") parts.push({ type: "text", text: part.text });
-  }
+  const parts = blocksOfContent(body.value.content);
   if (parts.length === 0) return { ok: false, code: "invalid_input" };
   let id = retryIds.get(turn);
   if (id === undefined) {

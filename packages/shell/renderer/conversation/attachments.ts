@@ -1,5 +1,6 @@
-// 보낼 말에 붙이는 첨부. 사람 메시지 content는 글뿐이라 첨부는 글 끝의 줄로 싣는다(줄 모양은 protocol의
-// `message-attachments.ts`). 파일은 경로를, 이미지는 올린 id를 적고 agent가 file tool이나 image.read로 연다.
+// 보낼 말에 붙이는 첨부. 이미지는 올린 blob을 image block으로, 파일은 경로를 `file://` resource_link block으로 싣는다.
+// agent는 link의 경로를 file tool로 연다.
+import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 
 export type Attachment =
   | { readonly kind: "file"; readonly path: string }
@@ -49,6 +50,22 @@ export function attachmentsOf(
     else attachments.push({ kind: "file", path });
   }
   return { attachments, skipped };
+}
+
+const FILE_URI = "file://";
+
+/** 붙인 파일 하나를 싣는 block. */
+export function fileBlock(path: string): ContentBlock {
+  return {
+    type: "resource_link",
+    uri: `${FILE_URI}${path}`,
+    name: path.slice(path.lastIndexOf("/") + 1),
+  };
+}
+
+/** `fileBlock`이 실은 경로. 파일이 아닌 link는 null이다. */
+export function pathOfUri(uri: string): string | null {
+  return uri.startsWith(FILE_URI) ? uri.slice(FILE_URI.length) : null;
 }
 
 /** 같은 파일을 두 번 붙이지 않는다. */

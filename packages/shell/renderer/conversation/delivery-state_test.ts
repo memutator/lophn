@@ -12,7 +12,7 @@ import {
 const sending = startSend({
   id: "msg_01h455vb4pex5v6nkc6gd5f001",
   key: "key-1",
-  text: "Write the report.",
+  content: [{ type: "text", text: "Write the report." }],
   delivery: "next_turn",
 });
 

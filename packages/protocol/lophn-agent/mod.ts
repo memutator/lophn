@@ -11,7 +11,6 @@ export * from "./inputs.ts";
 export * from "./instructions.ts";
 export * from "./issuer-requests.ts";
 export * from "./mcp-settings.ts";
-export * from "./message-attachments.ts";
 export * from "./message-content.ts";
 export * from "./message-images.ts";
 export * from "./message-search.ts";

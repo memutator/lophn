@@ -22,7 +22,7 @@ import {
   retryTurn,
   runCommand,
   sendQueuedNow,
-  sendText,
+  sendContent,
   stopSessionOf,
   stopTurnOf,
 } from "./agent-tab-core-source-commands.ts";
@@ -110,8 +110,8 @@ function createSource(
     permissions: () => readPermissions(env),
     status: (session) => readStatus(env, session),
 
-    send: (input) => sendText(env, input),
-    uploadImage: (session, image) => images.uploadImage(session, image),
+    send: (input) => sendContent(env, input),
+    uploadImage: (image) => images.uploadImage(image),
     imageUrl: (session, id) => images.imageUrl(session, id),
     sendQueuedNow: (queued) => sendQueuedNow(env, queued),
     removeQueued: (queued) => removeQueuedMessage(env, queued),

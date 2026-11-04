@@ -13,7 +13,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { composeAttachmentText } from "../../../protocol/lophn-agent/message-attachments.ts";
+import {
+  blocksText,
+  type ContentBlock,
+  textBlocks,
+} from "../../../protocol/lophn-agent/content-block.ts";
 import { actionIcons } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
 import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
@@ -39,6 +43,7 @@ import {
   textOfBody,
 } from "./agent-view-model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
+import { fileBlock } from "./attachments.ts";
 import { loadBodies } from "./bodies.ts";
 import { AgentComposer } from "./composer/agent-composer.tsx";
 import {
@@ -334,7 +339,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       session: target,
       id: outgoing.id,
       key: outgoing.key,
-      text: outgoing.text,
+      content: outgoing.content,
       delivery: outgoing.delivery,
     });
     const next = afterReply(
@@ -345,22 +350,22 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     else drafts.save(target, { outgoing: next });
   };
 
-  const dispatch = async (text: string, target: string) => {
+  const dispatch = async (content: ContentBlock[], target: string) => {
     const id = newId("msg", now());
-    drafts.remember(id, text);
+    drafts.remember(id, blocksText(content));
     // 일하는 중에 보낸 말은 다음 turn을 기다린다. 도는 turn에 올리는 일은 "다음 turn" 줄의 [Send now]가 한다.
     const outgoing = startSend({
       id,
       key: `session-messages-send-${id}`,
-      text,
+      content,
       delivery: "next_turn",
     });
     drafts.save(target, { outgoing });
     await deliver(target, outgoing);
   };
 
-  // 첨부한 이미지는 보내기 전에 그 session에 올리고, 파일 경로와 함께 글 끝의 줄로 싣는다. 하나라도 못 올리면
-  // 보내지 않고 글과 첨부는 그대로 남는다.
+  // 첨부한 이미지는 보내기 전에 올려 image block으로, 파일은 resource_link block으로 글 뒤에 싣는다. 하나라도 못
+  // 올리면 보내지 않고 글과 첨부는 그대로 남는다.
   const send = async () => {
     if (readOnly || composerLocked(draft.outgoing)) return;
     const { attachments } = draft;
@@ -368,26 +373,29 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     if (!fitsMessage(draft.text)) return;
     const target = await ensureSession();
     if (target === null) return;
-    const images: string[] = [];
+    const text = drafts.draft(target).text;
+    const content: ContentBlock[] = text.trim() === "" ? [] : textBlocks(text);
     for (const item of attachments) {
-      if (item.kind !== "image") continue;
-      const uploaded = await source.uploadImage(target, item.image);
+      if (item.kind === "file") {
+        content.push(fileBlock(item.path));
+        continue;
+      }
+      const uploaded = await source.uploadImage(item.image);
       if (!uploaded.ok) {
         setProblem("attach-failed");
         return;
       }
-      images.push(uploaded.value.id);
+      content.push({
+        type: "image",
+        // attachmentsOf가 받은 형식만 이미지로 붙인다.
+        mimeType: item.image.type as Extract<
+          ContentBlock,
+          { type: "image" }
+        >["mimeType"],
+        blob: uploaded.value.blob,
+      });
     }
-    const files = attachments.flatMap((item) =>
-      item.kind === "file" ? [item.path] : [],
-    );
-    const text = composeAttachmentText(
-      drafts.draft(target).text,
-      files,
-      images,
-    );
-    if (!fitsMessage(text)) return;
-    await dispatch(text, target);
+    await dispatch(content, target);
   };
 
   // 결과를 모르는 말은 다시 보내기 전에 기록에서 먼저 찾는다.

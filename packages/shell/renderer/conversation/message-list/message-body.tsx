@@ -16,8 +16,6 @@ import { ArtifactText } from "./artifact-text.tsx";
 import { ChatMarkdown } from "./chat-markdown.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
 import { Reasoning } from "./reasoning.tsx";
-import { splitAttachmentText } from "../../../../protocol/lophn-agent/message-attachments.ts";
-import { textOfBody } from "../agent-view-model.ts";
 import styles from "./message-body.module.css";
 
 interface MessageBodyProps {
@@ -28,6 +26,10 @@ interface MessageBodyProps {
   fallback?: string | undefined;
   /** 글 안 artifact path를 link로 그리는 길. 없으면 글 그대로다. */
   artifacts?: ArtifactsSlice | undefined;
+  /** image block의 그림 주소. */
+  imageUrl?: ((id: string) => Promise<string | null>) | undefined;
+  /** 첨부한 파일 chip을 눌렀다. */
+  onOpenFile?: ((path: string) => void) | undefined;
   /** 사람 글. markdown으로 읽지 않고 글 그대로 보인다. */
   plain?: boolean;
   /** reasoning part를 그린다. 없으면 false다. 사람 말과 받은 메시지는 넘기지 않는다. */
@@ -45,14 +47,28 @@ export const MessageBody = memo(function MessageBody({
   body,
   fallback,
   artifacts,
+  imageUrl,
+  onOpenFile,
   plain,
   reasoning,
   fallbackReasoning,
 }: MessageBodyProps): ReactElement {
   if (body?.state === "ready") {
-    // 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
+    // 이미지와 링크는 한 줄로 모아 글 위에 보이고, 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
+    const images = body.parts.flatMap((part) =>
+      part.kind === "image" ? [part.blob] : [],
+    );
+    const links = body.parts.flatMap((part) =>
+      part.kind === "resource_link" ? [{ uri: part.uri, name: part.name }] : [],
+    );
     return (
       <div className={styles.body} data-body="ready">
+        <MessageAttachments
+          links={links}
+          images={images}
+          imageUrl={imageUrl}
+          onOpenFile={onOpenFile}
+        />
         {body.parts.map((part, index) => {
           switch (part.kind) {
             case "text":
@@ -68,6 +84,16 @@ export const MessageBody = memo(function MessageBody({
                   text={part.text}
                   artifacts={artifacts}
                 />
+              );
+            case "image":
+            case "resource_link":
+              return null;
+            case "resource":
+              return (
+                <div key={index} className={styles.resource} data-resource="">
+                  <span className={styles.resourceUri}>{part.uri}</span>
+                  <ArtifactText text={part.text} artifacts={artifacts} />
+                </div>
               );
             case "app_card":
               return (
@@ -142,10 +168,6 @@ function LoadingBody(): ReactElement {
 }
 
 interface UserBodyProps extends MessageBodyProps {
-  /** 첨부한 이미지의 그림 주소. */
-  imageUrl?: (id: string) => Promise<string | null>;
-  /** 첨부한 파일 chip을 눌렀다. */
-  onOpenFile?: ((path: string) => void) | undefined;
   /** 전달 상태가 사람에게 요구하는 다음 행동. 확정 메시지는 "none"이다. */
   action: DeliveryAction;
   onCheck: () => void;
@@ -153,46 +175,18 @@ interface UserBodyProps extends MessageBodyProps {
 }
 
 /**
- * 내 말의 본문. 글 끝의 첨부 줄은 떼어 글 위에 chip과 그림으로 보인다. 잘 받은 말에는 표시가 없고, 보내지
- * 못했거나 결과를 모르면 다음 행동을 곁들인다.
+ * 내 말의 본문. 이미지와 파일 chip은 글 위에 보인다. 잘 받은 말에는 표시가 없고, 보내지 못했거나 결과를 모르면
+ * 다음 행동을 곁들인다.
  */
 export function UserBody({
   action,
   onCheck,
   onResend,
-  imageUrl,
-  onOpenFile,
   ...rest
 }: UserBodyProps): ReactElement {
-  const raw = textOfBody(rest.body) ?? rest.fallback;
-  const split = raw === undefined ? null : splitAttachmentText(raw);
-  const attached =
-    split !== null && (split.files.length > 0 || split.images.length > 0);
   return (
     <div className={styles.mine} data-user-body="">
-      {attached ? (
-        <MessageAttachments
-          files={split.files}
-          images={split.images}
-          imageUrl={imageUrl}
-          onOpenFile={onOpenFile}
-        />
-      ) : null}
-      {attached && split.text === "" ? null : (
-        <MessageBody
-          {...rest}
-          {...(attached
-            ? {
-                body: {
-                  state: "ready",
-                  parts: [{ kind: "text", text: split.text }],
-                },
-                fallback: split.text,
-              }
-            : {})}
-          plain
-        />
-      )}
+      <MessageBody {...rest} plain />
       {action === "edit" ? (
         <Notice>{t("conversation.notice.not-sent")}</Notice>
       ) : null}

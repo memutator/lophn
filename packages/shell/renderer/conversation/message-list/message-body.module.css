@@ -125,6 +125,19 @@ button.reasoningHead:hover {
   outline-offset: var(--border-focus-offset);
 }
 
+/* resource block: 출처 uri 한 줄과 그 글. */
+.resource {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.resourceUri {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .notice {
   display: flex;
   align-items: center;

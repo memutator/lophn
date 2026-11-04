@@ -83,6 +83,7 @@ export const agentRowSchema = z.object({
   agent: agentIdSchema,
   name: agentNameSchema,
   profile: profileOutputSchema,
+  description: z.string().optional(),
   model: z
     .object({
       provider: idSchema("pvd"),

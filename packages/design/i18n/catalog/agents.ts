@@ -55,6 +55,9 @@ export const agents = {
   "agents.button.create-agent": "Create agent",
   "agents.button.remove-app": "Remove app",
   "agents.button.remove-image": "Remove image",
+  "agents.button.remove-tool": "Remove {name}",
+  "agents.button.remove-tool-short": "Remove",
+  "agents.button.add-tool": "Add",
   "agents.button.sign-in": "Sign in",
   "agents.empty.grants-apps":
     "No apps. An assigned app brings all of its tools.",
@@ -62,7 +65,16 @@ export const agents = {
   "agents.heading.grants-apps": "Apps",
   "agents.heading.server-form": "Add a server for this agent only",
   "agents.heading.skip": "Skip permissions",
+  "agents.heading.runtime": "Runtime",
+  "agents.heading.tools": "Tools",
   "agents.label.agent-instructions": "Instructions for this agent",
+  "agents.label.description": "Description",
+  "agents.label.runtime": "Runtime",
+  "agents.label.runtime-lophn": "lophn",
+  "agents.label.runtime-bare": "Bare",
+  "agents.label.tools-add": "Add a tool by name",
+  "agents.label.tools-add-placeholder":
+    "call.reply, my-app.command or mcp__server__tool",
   "agents.label.auth-api-key": "API key in a header",
   "agents.label.auth-bearer": "Bearer token",
   "agents.label.auth-none": "None",
@@ -146,6 +158,11 @@ export const agents = {
     "Typed in a protected prompt after you add the server. It isn't typed here and isn't shown again.",
   "agents.notice.server-name-help":
     "Letters, numbers, dashes and underscores. Other agents don't see this server.",
+  "agents.notice.description-help": "One line about what this agent is for.",
+  "agents.notice.runtime-help":
+    "lophn adds the lophn rules, skills and built-in tools. Bare sends only the instructions above and the tools you pick, and has no skills.",
+  "agents.notice.tools-help":
+    "Only tools this place and this agent's apps and MCP servers allow are used.",
   "agents.notice.skip-help":
     "A session started this way runs shell commands without asking. Deny rules still block them.",
   "agents.notice.skills-agent-only":

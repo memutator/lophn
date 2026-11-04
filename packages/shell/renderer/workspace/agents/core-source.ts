@@ -107,6 +107,7 @@ function toRow(row: AgentRow): AgentListRow {
     assignment: row.agent,
     name: row.name,
     profile: row.profile,
+    ...(row.description === undefined ? {} : { description: row.description }),
     model:
       row.model === null
         ? null

@@ -152,6 +152,7 @@ function checkDefinition(
       delete fields.profile;
     }
     fields.name = LOPHN_AGENT_NAME;
+    if (fields.runtime === "bare") addIssue(issues, "runtime", "not_allowed");
   } else {
     const name = fields.name;
     if (
@@ -160,6 +161,11 @@ function checkDefinition(
     ) {
       addIssue(issues, "name", "required");
     }
+  }
+
+  // tools는 bare가 고르는 칸이다. lophn(runtime 없음 포함)이 적으면 뜻이 없어 거절한다.
+  if (fields.tools !== undefined && fields.runtime !== "bare") {
+    addIssue(issues, "tools", "not_allowed");
   }
 
   const shaped = agentDefinitionSchema.safeParse({ ...fields, body: text });
@@ -219,6 +225,11 @@ function orderedFrontmatter(value: Plain): Plain {
       "color",
       "image",
     ]);
+  }
+  if (value.runtime !== undefined) out.runtime = value.runtime;
+  if (value.description !== undefined) out.description = value.description;
+  if (Array.isArray(value.tools) && value.tools.length > 0) {
+    out.tools = value.tools;
   }
   if (value.model !== undefined) {
     out.model = orderedModel(value.model as Plain);

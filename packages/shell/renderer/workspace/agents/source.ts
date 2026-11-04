@@ -7,6 +7,7 @@ import type {
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type {
   AgentCounts,
+  AgentRuntime,
   McpOff,
   Profile,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
@@ -38,6 +39,7 @@ export interface AgentListRow {
   readonly assignment: string;
   readonly name: string;
   readonly profile: Profile;
+  readonly description?: string;
   readonly model: {
     readonly provider: string;
     readonly model_name: string;
@@ -72,6 +74,12 @@ export interface AgentsOverview {
 export interface AgentDraft {
   readonly name?: string;
   readonly profile?: Profile;
+  /** 없으면 lophn이다. bare는 본문과 `tools`가 고른 것만 싣고 skill을 받지 않는다. */
+  readonly runtime?: AgentRuntime;
+  /** 한 줄 목적. */
+  readonly description?: string;
+  /** bare가 고른 tool 이름. runtime이 bare일 때만 둔다. */
+  readonly tools?: readonly string[];
   readonly model?: ModelChoice;
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];

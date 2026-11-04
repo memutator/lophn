@@ -25,6 +25,7 @@ const NOTES_SYNC_ID = id("app", "ns1");
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 export const BUDGET_REVIEWER_ID = id("agt", "br1");
 const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
+const QUEUE_WATCHER_ID = id("agt", "qw1");
 
 /** 전역 model 하나. */
 export const GLOBAL_MODEL: ModelChoice = {
@@ -222,6 +223,20 @@ change to try and how you will know it worked. Ask before you create files.`,
 Read the expenses of the month and list the ones that look wrong.
 Never change an expense. Ask me first.`,
       skills_off: ["cite-documents"],
+    },
+  },
+  {
+    key: QUEUE_WATCHER_ID,
+    name: "Queue watcher",
+    summary: "Reads the run queue and answers with what is stuck.",
+    definition: {
+      name: "Queue watcher",
+      runtime: "bare",
+      description: "Reads the run queue and answers with what is stuck.",
+      tools: ["file.read", "file.grep", "call.reply"],
+      profile: { kind: "character", shape: "capsule", color: "teal" },
+      body: `Read the queue file the caller names and list the runs that
+have not moved. Answer in one short list.`,
     },
   },
 ];

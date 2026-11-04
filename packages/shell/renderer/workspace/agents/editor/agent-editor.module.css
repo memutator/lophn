@@ -421,3 +421,10 @@
   line-height: var(--type-caption-line);
   font-weight: var(--font-weight-semibold);
 }
+
+.pickRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}

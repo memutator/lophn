@@ -332,9 +332,12 @@ export function createFakeAgentsSource(
     const definition = item.definition;
     const off = definition.skills_off ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
-    const skills = skillsFor(at).filter(
-      (row) => row.on && (row.builtIn || !off.includes(row.name)),
-    ).length;
+    const skills =
+      definition.runtime === "bare"
+        ? 0
+        : skillsFor(at).filter(
+            (row) => row.on && (row.builtIn || !off.includes(row.name)),
+          ).length;
     const own = (definition.mcp_servers ?? []).filter(
       (server) => server.enabled,
     ).length;
@@ -346,6 +349,9 @@ export function createFakeAgentsSource(
       assignment: key,
       name: item.name,
       profile: profileOf(key, item),
+      ...(definition.description === undefined
+        ? {}
+        : { description: definition.description }),
       model: {
         provider: model.provider,
         model_name: model.model_name,

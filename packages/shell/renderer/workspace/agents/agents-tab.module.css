@@ -164,3 +164,10 @@
 .stored {
   padding-top: var(--space-4);
 }
+
+.description {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

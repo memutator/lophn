@@ -110,11 +110,32 @@ const mcpServersSchema = z
     { message: "mcp server names must be unique" },
   );
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile 잠금과 사람만 쓰는 칸(`mcp_servers`, `apps`, `permissions`, `skip`)의
+// runtime: 없으면 lophn이다. bare는 정의 본문과 `tools`가 고른 것만 싣는다.
+export const AGENT_RUNTIMES = ["lophn", "bare"] as const;
+export const agentRuntimeSchema = z.enum(AGENT_RUNTIMES);
+export type AgentRuntime = z.infer<typeof agentRuntimeSchema>;
+
+// 한 줄 목적. 목록 카드와 다른 agent가 읽는 한 줄이라 줄바꿈과 긴 글을 받지 않는다.
+export const AGENT_DESCRIPTION_MAX_CHARS = 200;
+const descriptionSchema = nonblankSchema.refine(
+  (value) =>
+    !/[\r\n]/.test(value) && value.length <= AGENT_DESCRIPTION_MAX_CHARS,
+  { message: "expected one line within the description limit" },
+);
+
+// bare가 고른 tool 이름(내장 tool, lophn 명령, `<slug>.<command>`, `mcp__<server>__<tool>`). runtime이 bare일 때만 쓴다.
+const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
+  message: "duplicate tool",
+});
+
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: bare` 잠금, `tools`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `permissions`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   name: agentNameSchema,
   profile: profileSchema.optional(),
+  runtime: agentRuntimeSchema.optional(),
+  description: descriptionSchema.optional(),
+  tools: toolPicksSchema.optional(),
   model: modelChoiceSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
@@ -126,6 +147,9 @@ const frontmatterFields = {
 const frontmatterOutputFields = {
   name: agentNameSchema,
   profile: profileOutputSchema.optional(),
+  runtime: agentRuntimeSchema.optional(),
+  description: descriptionSchema.optional(),
+  tools: toolPicksSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),

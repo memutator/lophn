@@ -54,6 +54,9 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
     agent: loaded.agent,
     name: nameOf(loaded),
     profile: profileOf(loaded),
+    ...(definition?.description === undefined
+      ? {}
+      : { description: definition.description }),
     model:
       model === null
         ? null
@@ -66,10 +69,16 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
     counts: broken
       ? { skills: null, mcp: null }
       : {
-          skills: receivedSkills(
-            [...skills, ...context.lookups.shared(definition?.apps ?? [])],
-            definition?.skills_off ?? [],
-          ).length,
+          skills:
+            definition?.runtime === "bare"
+              ? 0
+              : receivedSkills(
+                  [
+                    ...skills,
+                    ...context.lookups.shared(definition?.apps ?? []),
+                  ],
+                  definition?.skills_off ?? [],
+                ).length,
           mcp: mcp.filter(
             (tool) =>
               !mcpOff.some(

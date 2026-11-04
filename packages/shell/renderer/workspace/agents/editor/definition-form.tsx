@@ -1,9 +1,9 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Instructions · Model · Skills · MCP servers · Skip permissions.
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Instructions · Model · Tools(bare) · Skills(lophn) · MCP servers · Skip permissions.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { Checkbox, Field, Input } from "@lophn/ui/input";
+import { Checkbox, Field, Input, SegmentedControl } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -22,11 +22,15 @@ import {
   SkillList,
 } from "./parts.tsx";
 import { ServerForm } from "./server-form.tsx";
+import { ToolPicks } from "./tool-picks.tsx";
 import styles from "./agent-editor.module.css";
 
 type FieldName =
   | "profile"
   | "name"
+  | "description"
+  | "runtime"
+  | "tools"
   | "instructions"
   | "model"
   | "skills"
@@ -37,6 +41,9 @@ type FieldName =
 const FIELD_OF: Readonly<Record<string, FieldName>> = {
   name: "name",
   profile: "profile",
+  description: "description",
+  runtime: "runtime",
+  tools: "tools",
   body: "instructions",
   model: "model",
   skills_off: "skills",
@@ -162,6 +169,18 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const set = (key: Exclude<keyof AgentDraft, "body">, value: unknown) =>
     onChange(withField(definition, key, value));
 
+  const bare = definition.runtime === "bare";
+  // lophn에서는 tools를 쓰지 못해(저장 거절) lophn으로 돌아가면 함께 지운다. 기본값이라 runtime 칸도 지운다.
+  const setRuntime = (runtime: string) => {
+    const next: Record<string, unknown> = { ...definition };
+    if (runtime === "bare") next.runtime = "bare";
+    else {
+      delete next.runtime;
+      delete next.tools;
+    }
+    onChange(next as unknown as AgentDraft);
+  };
+
   const skillsOff = definition.skills_off ?? [];
   // 정의의 skills_off는 이 agent가 끈 이름이다. 끄지 않은 skill은 보이는 대로 받는다.
   const toggleSkill = (name: string, on: boolean) =>
@@ -240,6 +259,46 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </div>
       )}
 
+      {lophn ? null : (
+        <>
+          <div data-field="description">
+            <Field
+              label={t("agents.label.description")}
+              help={t("agents.notice.description-help")}
+            >
+              <Input
+                value={definition.description ?? ""}
+                aria-invalid={issuesOf("description").length > 0 || undefined}
+                onChange={(event) =>
+                  set(
+                    "description",
+                    event.currentTarget.value === ""
+                      ? undefined
+                      : event.currentTarget.value,
+                  )
+                }
+              />
+            </Field>
+            <Issues issues={issuesOf("description")} />
+          </div>
+
+          <Group name="runtime" heading={t("agents.heading.runtime")}>
+            <SegmentedControl
+              size="sm"
+              label={t("agents.label.runtime")}
+              value={bare ? "bare" : "lophn"}
+              options={[
+                { value: "lophn", label: t("agents.label.runtime-lophn") },
+                { value: "bare", label: t("agents.label.runtime-bare") },
+              ]}
+              onValueChange={setRuntime}
+            />
+            <p className={styles.note}>{t("agents.notice.runtime-help")}</p>
+            <Issues issues={issuesOf("runtime")} />
+          </Group>
+        </>
+      )}
+
       <InstructionsBlock
         project={detail.instructions}
         head={instructionsHead(detail, props.placeName)}
@@ -278,19 +337,31 @@ export function DefinitionForm(props: DefinitionFormProps) {
         <Issues issues={issuesOf("model")} />
       </div>
 
-      <Group
-        name="skills"
-        heading={t("project-workspace.heading.agent-editor-skills")}
-      >
-        <SkillList
-          items={detail.skills}
-          offNames={skillsOff}
-          lockOff
-          onToggle={toggleSkill}
-        />
-        <p className={styles.note}>{t("agents.notice.skills-agent-only")}</p>
-        <Issues issues={issuesOf("skills")} />
-      </Group>
+      {bare ? (
+        <Group name="tools" heading={t("agents.heading.tools")}>
+          <ToolPicks
+            place={detail.place.kind}
+            value={definition.tools ?? []}
+            onChange={(tools) => set("tools", tools)}
+          />
+          <p className={styles.note}>{t("agents.notice.tools-help")}</p>
+          <Issues issues={issuesOf("tools")} />
+        </Group>
+      ) : (
+        <Group
+          name="skills"
+          heading={t("project-workspace.heading.agent-editor-skills")}
+        >
+          <SkillList
+            items={detail.skills}
+            offNames={skillsOff}
+            lockOff
+            onToggle={toggleSkill}
+          />
+          <p className={styles.note}>{t("agents.notice.skills-agent-only")}</p>
+          <Issues issues={issuesOf("skills")} />
+        </Group>
+      )}
 
       <Group
         name="mcp"

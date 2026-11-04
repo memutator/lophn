@@ -86,6 +86,11 @@ function AgentCardView({
               </span>
             ) : null}
           </div>
+          {row.description === undefined ? null : (
+            <p className={styles.description} data-agent-description="">
+              {row.description}
+            </p>
+          )}
           <ul className={styles.facts}>
             <li data-agent-model="">
               {row.model === null

@@ -10,6 +10,7 @@ import {
   type AgentDefinition,
   type AgentDefinitionIssue,
   type AgentId,
+  type AgentRuntime,
   type AgentValueLayer,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
@@ -60,6 +61,8 @@ const RESOLVED_FIELDS = [
   "profile",
   "agent_instructions",
   "model",
+  "runtime",
+  "picks",
   "tools",
   "skills",
   "mcp",
@@ -73,6 +76,9 @@ export type ResolvedAgent = {
   profile: Profile;
   agent_instructions: string;
   model: ModelChoice;
+  runtime: AgentRuntime;
+  // 정의 `tools`에 적힌 이름 그대로다. bare가 아니면 빈 목록이다. place 종류 목록과 할당·MCP 안으로 줄이는 것은 조립의 일이다.
+  picks: string[];
   tools: string[];
   skills: string[];
   mcp: McpTool[];
@@ -82,8 +88,8 @@ export type ResolvedAgent = {
 
 // 값마다 마지막 층이 이긴다(전역 → project → agent → session).
 // - model은 ModelChoice 하나를 통째로 쓴다. 어느 층에도 없으면 turn을 시작하지 않는다.
-// - tools는 place 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다.
-// - skills는 환경이 준 것 가운데 정의가 끈 이름(skills_off)을 뺀 것이다.
+// - tools는 place 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. bare가 고른 이름은 picks에 따로 있다.
+// - skills는 환경이 준 것 가운데 정의가 끈 이름(skills_off)을 뺀 것이다. bare는 skill을 받지 않아 빈 목록이다.
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 export async function resolveAgent(
   input: ResolveInput,
@@ -111,7 +117,10 @@ export async function resolveAgent(
     : (definition?.profile ?? AGENT_DEFAULT_PROFILE);
   const skillsOff = definition?.skills_off ?? [];
   const mcpOff = definition?.mcp_off ?? [];
-  const skills = receivedSkills(environment.skills, skillsOff);
+  const runtime: AgentRuntime = definition?.runtime ?? "lophn";
+  const picks = runtime === "bare" ? (definition?.tools ?? []) : [];
+  const skills =
+    runtime === "bare" ? [] : receivedSkills(environment.skills, skillsOff);
   const mcp = environment.mcp.filter(
     (tool) =>
       !mcpOff.some(
@@ -129,6 +138,8 @@ export async function resolveAgent(
     profile: copy(profile),
     agent_instructions: await sha256Hex(body),
     model: copy(chosen[0] as ModelChoice),
+    runtime,
+    picks: [...picks],
     tools: [...input.tools],
     skills,
     mcp: copy(mcp),
@@ -137,6 +148,8 @@ export async function resolveAgent(
       profile: lophn || definition?.profile === undefined ? "global" : "agent",
       agent_instructions: body.length > 0 ? "agent" : "global",
       model: chosen[1],
+      runtime: definition?.runtime === undefined ? "global" : "agent",
+      picks: picks.length > 0 ? "agent" : "global",
       tools: "global",
       skills: skillsOff.length > 0 ? "agent" : "global",
       mcp: mcpOff.length > 0 ? "agent" : "global",

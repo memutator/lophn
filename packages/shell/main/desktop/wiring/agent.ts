@@ -1,6 +1,7 @@
 // 터미널 안에서 도는 coding agent를 따라가는 길을 앱에 올린다. harness hook의 unix socket, foreground
 // process argv와 hook으로 상태를 따라가는 tracker, 못 본 turn 끝·권한 물음의 알림(notice.ts가 어디에 띄울지 정한다)이다.
 // socket은 browser bridge의 per-run 폴더에 선다. 어느 단계든 실패하면 hook 없이 뜬다(foreground만 쓴다).
+import { app } from "electron";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
@@ -248,6 +249,10 @@ export function createAgentWiring(options: {
             write: (path, text) => writeFileSync(path, text, { mode: 0o600 }),
           },
           dir,
+          // 터미널 env에는 LOPHN_CLI가 없다. 개발 실행의 launcher 경로를 함수에 넣는다.
+          !app.isPackaged && process.env.LOPHN_CLI?.startsWith("/")
+            ? process.env.LOPHN_CLI
+            : "lophn",
         );
       } catch (cause) {
         ctx.log(`shell integration is off: ${String(cause)}`);

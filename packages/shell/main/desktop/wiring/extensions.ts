@@ -103,7 +103,7 @@ export type AcpWindowHandle = {
   close(): void;
 };
 
-/** 창을 여는 쪽(gui-window)이 채우는 port. 이 task는 구현을 넣지 않는다. */
+/** 창을 여는 쪽이 채우는 port. 구현은 `gui-window.ts`다. */
 export type AcpWindowPort = {
   /** 새 handle의 창을 연다. 열기 전에 쌓인 update는 `attach`가 다시 보내 준다. */
   open(window: AcpWindowHandle): void;

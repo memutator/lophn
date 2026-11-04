@@ -412,6 +412,7 @@ export const conversation = {
     "{agent} is working. A message you send now waits for the next turn.",
   "conversation.placeholder.ask":
     "Ask {agent}… Type / for commands and skills.",
+  "conversation.placeholder.message": "Message {agent}…",
   "conversation.rewind-why.already-reverted": "This was already undone.",
   "conversation.rewind-why.answered-fact":
     "Your answers and decisions stay in the conversation.",

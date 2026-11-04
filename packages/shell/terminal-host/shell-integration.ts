@@ -119,7 +119,7 @@ if __lophn_external claude; then
   function claude {
     if [ "\${1-}" = gui ]; then
       shift
-      command lophn gui claude "$@"
+      command __LOPHN_CLI__ gui claude "$@"
       return
     fi
     command claude "$@"
@@ -130,7 +130,7 @@ if __lophn_external codex; then
   function codex {
     if [ "\${1-}" = gui ]; then
       shift
-      command lophn gui codex "$@"
+      command __LOPHN_CLI__ gui codex "$@"
       return
     fi
     local __arg __flag=1
@@ -152,7 +152,7 @@ if __lophn_external opencode; then
   function opencode {
     if [ "\${1-}" = gui ]; then
       shift
-      command lophn gui opencode "$@"
+      command __LOPHN_CLI__ gui opencode "$@"
       return
     fi
     local __arg __first=""
@@ -207,7 +207,7 @@ if test "$__lophn_kind" = file
   function claude
     if test "$argv[1]" = gui
       set -e argv[1]
-      command lophn gui claude $argv
+      command __LOPHN_CLI__ gui claude $argv
       return
     end
     command claude $argv
@@ -219,7 +219,7 @@ if test "$__lophn_kind" = file
   function codex
     if test "$argv[1]" = gui
       set -e argv[1]
-      command lophn gui codex $argv
+      command __LOPHN_CLI__ gui codex $argv
       return
     end
     if not string match -qr -- '^(agents|queue|--remote|--no-daemon|--remote=.*)$' $argv
@@ -235,7 +235,7 @@ if test "$__lophn_kind" = file
   function opencode
     if test "$argv[1]" = gui
       set -e argv[1]
-      command lophn gui opencode $argv
+      command __LOPHN_CLI__ gui opencode $argv
       return
     end
     if string match -qr -- '^(--standalone|--server|--server=.*|-h|--help|-v|--version|--completions|--completions=.*)$' $argv
@@ -290,13 +290,29 @@ type ShellInitFs = {
   write(path: string, text: string): void; // 0600
 };
 
-/** 시작 층 file을 쓰고 그 폴더를 돌려준다. */
-export function writeShellInit(fs: ShellInitFs, runDir: string): string {
+const CLI_TOKEN = "__LOPHN_CLI__";
+
+function shQuote(text: string): string {
+  return `'${text.replaceAll("'", "'\\''")}'`;
+}
+
+/**
+ * 시작 층 file을 쓰고 그 폴더를 돌려준다. `cli`는 `gui` 함수가 부를 lophn 명령이다(설치본은 `lophn`, 개발은 launcher의
+ * 절대 경로). 터미널 env에서는 LOPHN_* 가 지워져 shell이 스스로 찾지 못하므로 shell main이 아는 값을 넣는다.
+ */
+export function writeShellInit(
+  fs: ShellInitFs,
+  runDir: string,
+  cli: string,
+): string {
   const dir = `${runDir}/shell-init`;
   fs.mkdir(`${dir}/zsh`);
   fs.write(`${dir}/bash.sh`, BASH_INIT);
   fs.write(`${dir}/zsh/.zshenv`, ZSH_ENV);
-  fs.write(`${dir}/fish.fish`, FISH);
-  fs.write(`${dir}/functions.sh`, FUNCTIONS);
+  fs.write(`${dir}/fish.fish`, FISH.replaceAll(CLI_TOKEN, fishQuote(cli)));
+  fs.write(
+    `${dir}/functions.sh`,
+    FUNCTIONS.replaceAll(CLI_TOKEN, shQuote(cli)),
+  );
   return dir;
 }

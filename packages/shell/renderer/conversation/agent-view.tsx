@@ -580,7 +580,12 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const hint =
     empty && props.hint !== undefined
       ? props.hint
-      : t("conversation.placeholder.ask", { agent: agent.name });
+      : t(
+          external
+            ? "conversation.placeholder.message"
+            : "conversation.placeholder.ask",
+          { agent: agent.name },
+        );
   const approval = thread?.pending.approval ?? null;
   const asked = thread?.pending.questions ?? null;
   const accepted = (call: Promise<SourceResult<void>>) =>

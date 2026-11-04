@@ -1,0 +1,5 @@
+{
+  "name": "lophn-empty-package",
+  "private": true,
+  "description": "Stands in for the Claude Agent SDK's per-platform claude binaries (root package.json overrides). harness-gui passes the person's own claude, so the copy is never used."
+}

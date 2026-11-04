@@ -1,6 +1,6 @@
 # agent platform: ACP, A2A, 사람이 정한 agent, third-party harness
 
-상태: 로드맵. 2026-11-02~04 사람이 방향을 냈다. 단계 1~4, 6, 7, 9는 land했다(`project-docs/products/change-log/0.17.0.md`). 2026-11-04 사람의 원문과 다시 맞춰 고쳐 썼다: 처음 정리는 ACP를 표준 Agent Client Protocol로 잘못 읽었고, A2A 재정립, 시야, 별도 설치, 앱의 prompt 조립 정의를 빼거나 뒤집었다. 그 정리는 git 기록에 있다.
+상태: 로드맵. 2026-11-02~04 사람이 방향을 냈다. 단계 1~4, 6, 7, 9는 land했다(`project-docs/products/change-log/0.18.0.md`). 2026-11-04 사람의 원문과 다시 맞춰 고쳐 썼다: 처음 정리는 ACP를 표준 Agent Client Protocol로 잘못 읽었고, A2A 재정립, 시야, 별도 설치, 앱의 prompt 조립 정의를 빼거나 뒤집었다. 그 정리는 git 기록에 있다.
 
 ## 사람의 말 (원문)
 

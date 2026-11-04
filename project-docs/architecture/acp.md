@@ -1,6 +1,6 @@
 # acp
 
-ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면이 이 규격만 보고 그리고, 뒤에 앱 화면과 third-party CLI GUI가 같은 규격을 쓴다. 정의는 `packages/protocol/acp/`(항목, 상태, 갱신, `reduceAcp`, route)와 `packages/protocol/events/acp-project.ts`(`acpUpdatesOf`)다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 events에 둔다. core가 만든다: route `AcpSnapshot {session}`(→ `AcpState`)과 transient event `AcpUpdated`(payload `{session, update}`, subject는 null이라 화면은 type으로 건 구독에서 session을 고른다). 화면의 조작은 route `AcpSend {AcpInput}` 하나로 받는다. lophn 채팅 화면은 ACP만 읽고 보낸다(옛 `ThreadView`, `foldEvent`는 지웠다).
+ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면이 이 규격만 보고 그리고, 뒤에 앱 화면과 third-party CLI GUI가 같은 규격을 쓴다. 정의는 `packages/protocol/acp/`(항목, 상태, 갱신, `reduceAcp`, route)와 `packages/protocol/events/acp-project.ts`(`acpUpdatesOf`)다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 events에 둔다. core가 만든다: route `AcpSnapshot {session}`(→ `AcpState`)과 transient event `AcpUpdated`(payload `{session, update}`, subject는 null이라 화면은 type으로 건 구독에서 session을 고른다). 화면의 조작은 route `AcpSend {AcpInput}` 하나로 받는다. lophn 채팅 화면은 ACP만 읽고 보낸다. 기록을 해석하던 renderer code(`readThread`, `foldEvent`)는 지웠고, 남은 `ThreadView`는 ACP 상태를 화면 줄로 늘어놓은 renderer 쪽 모양이다(`packages/shell/renderer/conversation/thread-layout.ts`).
 
 ## 모양
 

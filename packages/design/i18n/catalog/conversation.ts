@@ -79,7 +79,6 @@ export const conversation = {
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
   "conversation.error.load-models": "Couldn't load models. Try again.",
-  "conversation.error.message-body": "Couldn't load this message.",
   "conversation.error.no-model":
     "Choose a model to send. Open the model menu below.",
   "conversation.error.open-failed":
@@ -349,7 +348,6 @@ export const conversation = {
   "conversation.notice.edit-diff-missing": "This diff is no longer available.",
   "conversation.notice.mermaid-failed":
     "Couldn't draw this diagram. The source is below.",
-  "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.model-limits": "Blank limits use the defaults shown.",
   "conversation.notice.model-media":
     "lophn sends only text and images today. Other media are stored and shown.",

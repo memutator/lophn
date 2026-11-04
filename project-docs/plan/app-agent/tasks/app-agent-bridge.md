@@ -41,3 +41,7 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고"대로.
+
+## 추가 소유 (lead가 더함)
+
+- `packages/shell/main/desktop/wiring/app-calls.ts`: 새 앱 agent IPC를 `registerAppIpc` 옆에 잇고, `AcpUpdated`를 받으려면 `ctx.relay.conditions`·`ctx.relay.events`에 이 wiring의 것을 더한다(본보기: `packages/shell/main/desktop/wiring/agent.ts`의 relay). 이 file에서는 잇는 줄만 고친다.

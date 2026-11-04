@@ -56,6 +56,17 @@ export function createSessionDirectory(
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },
+    accepts(agent) {
+      const info = deps.agents.agent(agent);
+      const card = info === null ? null : deps.agents.cardOf(info.name);
+      return card === null
+        ? null
+        : {
+            name: card.name,
+            input: card.modality.input,
+            replies: card.replies,
+          };
+    },
     listOpen() {
       return deps
         .sql()

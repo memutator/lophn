@@ -52,6 +52,7 @@ test("a stopped instance is not handed: report with next records the line only a
             agent: lophnAtPlace,
             accepting: true,
           } as never),
+        accepts: () => null,
         listOpen: () => [],
       },
       store: {} as never,

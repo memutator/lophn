@@ -10,9 +10,11 @@ import type {
   CallReply,
   CallState,
 } from "../../protocol/lophn-agent/calls.ts";
+import type { Modality } from "../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentAddress,
   AgentAtPlace,
+  AgentId,
 } from "../../protocol/lophn-agent/places.ts";
 import type {
   InputDelivery,
@@ -64,12 +66,21 @@ export type RoutedInput = {
   unattended: boolean;
 };
 
+// agent 명함에서 call을 받는 데 쓰는 것. 입력 modality와 답 방식.
+export type AgentAccepts = {
+  name: string;
+  input: readonly Modality[];
+  replies: readonly CallReply[];
+};
+
 export interface SessionDirectory {
   find(session: Id<"ses">): TargetSession | null;
   // agent 이름과 place 이름으로 받을 session 하나를 고른다. place가 없으면 home이다.
   // 이름을 짐작하지 않는다. 없으면 not_found.
   resolveAddress(address: AgentAddress): Result<AgentAtPlace>;
   open(tx: Tx, agent: AgentAtPlace, opener: CallFrom): Result<TargetSession>;
+  // 받는 agent의 명함. 명함을 못 읽는 agent는 null이고 검사하지 않는다.
+  accepts(agent: AgentId): AgentAccepts | null;
   // session 목록 tool이 쓴다.
   listOpen(): readonly (TargetSession & { name: string })[];
 }

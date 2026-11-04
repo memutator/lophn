@@ -10,9 +10,11 @@ import type {
   CallState,
   CallTarget,
 } from "../../protocol/lophn-agent/calls.ts";
+import type { Modality } from "../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentAddress,
   AgentAtPlace,
+  AgentId,
 } from "../../protocol/lophn-agent/places.ts";
 import {
   addressingOf,
@@ -74,6 +76,13 @@ type Resolved =
 function failed(reason: CallFailReason, to: CallTarget | null): Resolved {
   return { ok: false, reason, to };
 }
+
+const MODALITY_OF = {
+  text: "text",
+  image: "image",
+  resource_link: "file",
+  resource: "file",
+} as const satisfies Record<ContentBlock["type"], Modality>;
 
 export function createRouter(deps: RouterDeps): Router {
   const { directory, transport, store } = deps;
@@ -239,6 +248,31 @@ export function createRouter(deps: RouterDeps): Router {
     return ok({ call, state: "failed", fail_reason: reason, session: null });
   }
 
+  // agent가 보낸 call만 받는 agent의 명함으로 거른다. err로 돌려 tx가 되돌아가므로 call 행도 새 session도 남지 않는다.
+  function refusal(
+    agent: AgentId,
+    input: RouteInput,
+  ): Result<RouteResult> | null {
+    const accepts = directory.accepts(agent);
+    if (accepts === null) return null;
+    const missing = [
+      ...new Set(input.body.map((block) => MODALITY_OF[block.type])),
+    ].filter((modality) => !accepts.input.includes(modality));
+    if (missing.length > 0) {
+      return err({
+        code: "invalid_input",
+        message: `agent ${accepts.name} does not accept ${missing.join(", ")} input`,
+      });
+    }
+    if (!accepts.replies.includes(input.reply)) {
+      return err({
+        code: "invalid_input",
+        message: `agent ${accepts.name} does not support reply "${input.reply}"`,
+      });
+    }
+    return null;
+  }
+
   function route(tx: Tx, input: RouteInput): Result<RouteResult> {
     const from = input.from;
     if (from.kind === "agent" && input.dedup !== null) {
@@ -263,6 +297,10 @@ export function createRouter(deps: RouterDeps): Router {
       );
     }
     const { to, target } = resolved.value;
+    if (from.kind === "agent") {
+      const refused = refusal(target.agent.agent, input);
+      if (refused !== null) return refused;
+    }
     const call = from.kind === "agent" ? tx.newId("cal") : null;
     const delivered = transport.deliver(tx, target, inputOf(input, call));
     if (!delivered.ok) return delivered;

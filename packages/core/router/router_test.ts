@@ -27,7 +27,10 @@ function target(session: string, accepting: boolean): TargetSession {
   };
 }
 
-function setup(sessions: Record<string, TargetSession>) {
+function setup(
+  sessions: Record<string, TargetSession>,
+  accepts: SessionDirectory["accepts"] = () => null,
+) {
   let counter = 0;
   const tx = {
     now: () => "2026-10-16T00:00:00.000Z",
@@ -70,6 +73,7 @@ function setup(sessions: Record<string, TargetSession>) {
       opened += 1;
       return ok(sessions[RECEIVER]!);
     },
+    accepts,
     listOpen: () => [],
   };
   const router = createRouter({
@@ -274,4 +278,45 @@ test("attended turn이 보낸 call은 attended로 열린다. unattended가 atten
       assert.deepStrictEqual(cancelled, [mark]);
     }
   }
+});
+
+test("a call the receiving agent cannot take is rejected and leaves no call row, no new session, no input", () => {
+  const textOnly = () => ({
+    name: "writer",
+    input: ["text"] as const,
+    replies: ["none", "result"] as const,
+  });
+  const { tx, router, rows, delivered, opened } = setup(
+    { [SENDER]: target(SENDER, true), [RECEIVER]: target(RECEIVER, true) },
+    textOnly,
+  );
+  const image = router.route(tx, {
+    ...base,
+    to: { agent: "writer" },
+    body: [{ type: "image", mimeType: "image/png", blob: "0".repeat(64) }],
+    dedup: "tool-1",
+  } as never);
+  assert.ok(!image.ok);
+  assert.deepStrictEqual(image.error.code, "invalid_input");
+  const conversation = router.route(tx, {
+    ...base,
+    to: { agent: "writer" },
+    reply: "conversation",
+    dedup: "tool-2",
+  } as never);
+  assert.ok(!conversation.ok);
+  assert.deepStrictEqual(conversation.error.code, "invalid_input");
+  assert.deepStrictEqual([...rows.keys()], []);
+  assert.deepStrictEqual(delivered, []);
+  // 새 session은 directory.open이 tx 안에서 연다. 거절은 err로 tx를 되돌려 그 session도 사라진다.
+  assert.ok(opened() > 0);
+  // 사람 메시지는 검사하지 않는다.
+  const human = router.route(tx, {
+    ...base,
+    from: { kind: "human" },
+    to: { agent: "writer" },
+    body: [{ type: "image", mimeType: "image/png", blob: "0".repeat(64) }],
+    dedup: null,
+  } as never);
+  assert.ok(human.ok);
 });

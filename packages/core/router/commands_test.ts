@@ -38,6 +38,7 @@ function world() {
         find: (session) => target(session),
         resolveAddress: () => ok({ agent: "lophn", place: null }),
         open: () => ok(target(RECEIVER)),
+        accepts: () => null,
         listOpen: () => [],
       },
       transport: {

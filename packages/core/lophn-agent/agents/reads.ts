@@ -63,7 +63,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
       : {
           skills:
             definition?.runtime === "bare"
-              ? 0
+              ? (definition.skills?.length ?? 0)
               : receivedSkills(
                   [
                     ...skills,

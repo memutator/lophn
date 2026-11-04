@@ -45,7 +45,7 @@ export type TurnPromptInput = {
     files?: Partial<Record<(typeof INSTRUCTION_LAYERS)[number], string>>;
   };
   skills: readonly SkillListItem[];
-  // bare면 system은 이 글 하나이고(정의 본문) place 종류 지침, 지침 층, skill 목록, place 정보 글은 싣지 않는다. 판 비교도
+  // bare면 system은 이 글(정의 본문)과 고른 skill 목록이고 place 종류 지침, 지침 층, place 정보 글은 싣지 않는다. 판 비교도
   // 지침과 agent 목록을 보지 않아 tool이 바뀐 notice만 간다. untrusted는 web tool을 골랐다는 뜻이다.
   bare?: { system: string; untrusted: boolean };
   // place 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 agent다.
@@ -248,6 +248,7 @@ export async function assembleTurnPrompt(
               .filter((text) => text.trim() !== "")
               .join("\n\n"),
           ],
+          ["skills", skillListText(input.skills)],
         ];
   const system: SystemBlock[] = texts
     .filter(([, text]) => text !== "")

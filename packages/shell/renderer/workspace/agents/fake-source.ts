@@ -349,7 +349,13 @@ export function createFakeAgentsSource(
       },
       replies: bare ? ["none", "result"] : ["none", "result", "conversation"],
       diff: bare
-        ? { plus: [...(definition.tools ?? [])], minus: ["lophn built-ins"] }
+        ? {
+            plus: [
+              ...(definition.tools ?? []),
+              ...(definition.skills ?? []).map((n) => `skill: ${n}`),
+            ],
+            minus: ["lophn built-ins"],
+          }
         : {
             plus: (definition.mcp_servers ?? []).map(
               (server) => `mcp: ${server.name}`,
@@ -366,7 +372,7 @@ export function createFakeAgentsSource(
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
     const skills =
       definition.runtime === "bare"
-        ? 0
+        ? (definition.skills?.length ?? 0)
         : skillsFor(at).filter(
             (row) => row.on && (row.builtIn || !off.includes(row.name)),
           ).length;

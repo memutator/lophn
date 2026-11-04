@@ -373,7 +373,7 @@ function noticeText(body: string): string {
   );
 }
 
-// prompt에 싣는 skill 목록이다. agent가 끄지 않은 이름만 켜진다.
+// prompt에 싣는 skill 목록이다. agent가 받는 이름만 켜진다(bare는 고른 이름만).
 export function promptSkills(
   entries: readonly SkillEntry[],
   resolved: Pick<ResolvedAgent, "skills">,
@@ -683,17 +683,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
           })),
           instructions,
-          skills:
-            resolved.runtime === "bare"
-              ? []
-              : promptSkills(
-                  (await deps.skills?.(
-                    resolved.place,
-                    placeKindOf(resolved.place),
-                    assigned,
-                  )) ?? [],
-                  resolved,
-                ),
+          skills: promptSkills(
+            (await deps.skills?.(
+              resolved.place,
+              placeKindOf(resolved.place),
+              assigned,
+            )) ?? [],
+            resolved,
+          ),
           ...(resolved.runtime === "bare"
             ? {
                 bare: {

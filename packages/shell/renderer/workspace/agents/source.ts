@@ -78,7 +78,7 @@ export interface AgentsOverview {
 export interface AgentDraft {
   readonly name?: string;
   readonly profile?: Profile;
-  /** 없으면 lophn이다. bare는 본문과 `tools`가 고른 것만 싣고 skill을 받지 않는다. */
+  /** 없으면 lophn이다. bare는 본문과 `tools`, `skills`가 고른 것만 싣는다. */
   readonly runtime?: AgentRuntime;
   /** 한 줄 목적. */
   readonly description?: string;
@@ -89,6 +89,8 @@ export interface AgentDraft {
   };
   /** bare가 고른 tool 이름. runtime이 bare일 때만 둔다. */
   readonly tools?: readonly string[];
+  /** bare가 고른 skill 이름. runtime이 bare일 때만 둔다. */
+  readonly skills?: readonly string[];
   readonly model?: ModelChoice;
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];

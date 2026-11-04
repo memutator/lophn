@@ -110,7 +110,7 @@ const mcpServersSchema = z
     { message: "mcp server names must be unique" },
   );
 
-// runtime: 없으면 lophn이다. bare는 정의 본문과 `tools`가 고른 것만 싣는다. harness 값은 third-party harness의
+// runtime: 없으면 lophn이다. bare는 정의 본문과 `tools`, `skills`가 고른 것만 싣는다. harness 값은 third-party harness의
 // CLI를 shell host가 돌리는 agent다(run-loop는 돌리지 않는다).
 export const HARNESS_RUNTIMES = ["claude-code", "codex", "opencode"] as const;
 export type HarnessRuntime = (typeof HARNESS_RUNTIMES)[number];
@@ -156,7 +156,7 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate tool",
 });
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: bare` 잠금, `tools`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `permissions`, `skip`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: bare` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `permissions`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   name: agentNameSchema,
@@ -164,6 +164,7 @@ const frontmatterFields = {
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
   tools: toolPicksSchema.optional(),
+  skills: skillsSchema.optional(),
   modality: modalityFieldSchema.optional(),
   model: modelChoiceSchema.optional(),
   skills_off: skillsSchema.optional(),
@@ -179,6 +180,7 @@ const frontmatterOutputFields = {
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
   tools: toolPicksSchema.optional(),
+  skills: skillsSchema.optional(),
   modality: modalityFieldSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   skills_off: skillsSchema.optional(),

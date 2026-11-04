@@ -166,9 +166,11 @@ function checkDefinition(
     }
   }
 
-  // tools는 bare가 고르는 칸이다. lophn(runtime 없음 포함)이 적으면 뜻이 없어 거절한다.
-  if (fields.tools !== undefined && fields.runtime !== "bare") {
-    addIssue(issues, "tools", "not_allowed");
+  // tools와 skills는 bare가 고르는 칸이다. lophn(runtime 없음 포함)이 적으면 뜻이 없어 거절한다.
+  for (const key of ["tools", "skills"]) {
+    if (fields[key] !== undefined && fields.runtime !== "bare") {
+      addIssue(issues, key, "not_allowed");
+    }
   }
 
   const shaped = agentDefinitionSchema.safeParse({ ...fields, body: text });
@@ -231,8 +233,9 @@ function orderedFrontmatter(value: Plain): Plain {
   }
   if (value.runtime !== undefined) out.runtime = value.runtime;
   if (value.description !== undefined) out.description = value.description;
-  if (Array.isArray(value.tools) && value.tools.length > 0) {
-    out.tools = value.tools;
+  for (const key of ["tools", "skills"]) {
+    const list = value[key];
+    if (Array.isArray(list) && list.length > 0) out[key] = list;
   }
   if (value.modality !== undefined) {
     out.modality = pick(value.modality as Plain, ["input", "output"]);

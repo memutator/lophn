@@ -54,13 +54,14 @@ test("modality는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도
 });
 
 // serializer는 whitelist라 새 칸을 빠뜨리면 저장 때 조용히 사라진다. 내장 lophn은 bare가 될 수 없다.
-test("runtime, description, tools는 저장하고 다시 읽어도 남고, lophn runtime의 tools와 내장 lophn의 bare는 거절된다", () => {
+test("runtime, description, tools, skills는 저장하고 다시 읽어도 남고, lophn runtime의 tools·skills와 내장 lophn의 bare는 거절된다", () => {
   const target = { agent: AGENT } as const;
   const definition = {
     name: "ops",
     runtime: "bare" as const,
     description: "Checks the deploy queue",
     tools: ["file.read", "call.reply", "mcp__github__issue"],
+    skills: ["triage"],
     body: "Check.",
   };
   const saved = serializeAgentFile(definition, target);
@@ -74,6 +75,10 @@ test("runtime, description, tools는 저장하고 다시 읽어도 남고, lophn
     target,
   );
   assert.ok(!lophnWithTools.ok);
+  assert.ok(
+    !serializeAgentFile({ name: "ops", skills: ["triage"], body: "" }, target)
+      .ok,
+  );
   assert.ok(
     !serializeAgentFile({ name: "ops", tools: ["file.read"], body: "" }, target)
       .ok,

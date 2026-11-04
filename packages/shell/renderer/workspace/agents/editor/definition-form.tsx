@@ -1,4 +1,4 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Input and output · Card · Instructions · Model · Tools(bare) · Skills(lophn) · MCP servers · Skip permissions.
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Input and output · Card · Instructions · Model · Tools(bare) · Skills · MCP servers · Skip permissions.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
@@ -52,6 +52,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   runtime: "runtime",
   modality: "modality",
   tools: "tools",
+  skills: "skills",
   body: "instructions",
   model: "model",
   skills_off: "skills",
@@ -213,15 +214,19 @@ export function DefinitionForm(props: DefinitionFormProps) {
       value: one,
       label: t(`agents.label.runtime-${one}`),
     }));
-  // lophn에서는 tools를 쓰지 못해(저장 거절) lophn으로 돌아가면 함께 지운다. 기본값이라 runtime 칸도 지운다.
+  // lophn에서는 tools와 skills를 쓰지 못해(저장 거절) lophn으로 돌아가면 함께 지운다. 기본값이라 runtime 칸도 지운다.
   const setRuntime = (picked: string) => {
     const next: Record<string, unknown> = { ...definition };
     if (picked === "bare" || isHarnessRuntime(picked as never)) {
       next.runtime = picked;
-      if (picked !== "bare") delete next.tools;
+      if (picked !== "bare") {
+        delete next.tools;
+        delete next.skills;
+      }
     } else {
       delete next.runtime;
       delete next.tools;
+      delete next.skills;
     }
     onChange(next as unknown as AgentDraft);
   };
@@ -234,6 +239,15 @@ export function DefinitionForm(props: DefinitionFormProps) {
       on
         ? skillsOff.filter((one) => one !== name)
         : [...new Set([...skillsOff, name])],
+    );
+  // bare는 고른 skill만 받는다. 목록은 같고 켠 줄이 고른 것이다.
+  const skillPicks = definition.skills ?? [];
+  const togglePick = (name: string, on: boolean) =>
+    set(
+      "skills",
+      on
+        ? [...new Set([...skillPicks, name])]
+        : skillPicks.filter((one) => one !== name),
     );
   const mcpOff = (definition.mcp_off ?? [])
     .filter((entry) => entry.original_tool === undefined)
@@ -419,7 +433,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </div>
       )}
 
-      {harness ? null : bare ? (
+      {harness || !bare ? null : (
         <Group name="tools" heading={t("agents.heading.tools")}>
           <ToolPicks
             value={definition.tools ?? []}
@@ -428,18 +442,34 @@ export function DefinitionForm(props: DefinitionFormProps) {
           <p className={styles.note}>{t("agents.notice.tools-help")}</p>
           <Issues issues={issuesOf("tools")} />
         </Group>
-      ) : (
+      )}
+
+      {harness ? null : (
         <Group
           name="skills"
           heading={t("project-workspace.heading.agent-editor-skills")}
         >
           <SkillList
-            items={detail.skills}
-            offNames={skillsOff}
+            items={
+              bare
+                ? detail.skills.map((row) => ({ ...row, builtIn: false }))
+                : detail.skills
+            }
+            offNames={
+              bare
+                ? detail.skills
+                    .map((row) => row.name)
+                    .filter((name) => !skillPicks.includes(name))
+                : skillsOff
+            }
             lockOff
-            onToggle={toggleSkill}
+            onToggle={bare ? togglePick : toggleSkill}
           />
-          <p className={styles.note}>{t("agents.notice.skills-agent-only")}</p>
+          {bare ? null : (
+            <p className={styles.note}>
+              {t("agents.notice.skills-agent-only")}
+            </p>
+          )}
           <Issues issues={issuesOf("skills")} />
         </Group>
       )}

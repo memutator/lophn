@@ -48,7 +48,10 @@ function cardOf(
   const diff =
     runtime === "bare"
       ? {
-          plus: definition?.tools ?? [],
+          plus: [
+            ...(definition?.tools ?? []),
+            ...(definition?.skills ?? []).map((name) => `skill: ${name}`),
+          ],
           minus: ["lophn built-ins"],
         }
       : {

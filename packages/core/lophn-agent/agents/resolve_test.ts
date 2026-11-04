@@ -25,7 +25,7 @@ const resolve = (definition: AgentFileDefinition) =>
     tools: TOOLS,
   });
 
-test("bare는 고른 tool 이름을 그대로 picks로 갖고 skill을 받지 않는다. place 종류 tool 목록은 그대로다", async () => {
+test("bare는 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는다. place 종류 tool 목록은 그대로다", async () => {
   const bare = await resolve({
     name: "reviewer",
     body: "review",
@@ -37,6 +37,17 @@ test("bare는 고른 tool 이름을 그대로 picks로 갖고 skill을 받지 �
   assert.deepEqual(bare.value.picks, ["file.read", "call.reply", "mcp__x__y"]);
   assert.deepEqual(bare.value.skills, []);
   assert.deepEqual(bare.value.tools, TOOLS);
+
+  const withSkill = await resolve({
+    name: "reviewer",
+    body: "review",
+    runtime: "bare",
+    tools: ["file.read"],
+    skills: ["s", "missing"],
+  });
+  assert.ok(withSkill.ok);
+  assert.deepEqual(withSkill.value.skills, ["s"]);
+  assert.deepEqual(withSkill.value.picks, ["file.read", "skill.read"]);
 
   const plain = await resolve({ name: "reviewer", body: "review" });
   assert.ok(plain.ok);

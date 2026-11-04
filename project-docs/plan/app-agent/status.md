@@ -5,4 +5,4 @@ lead만 고친다. `tools/status.py app-agent build`가 `tasks/*.md`에서 id, �
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `app-agent-bridge` | app-agent | 1 | 없음 | merged | app-agent/app-agent-bridge | fcb593dee |  |
-| `app-agent-sdk` | app-agent | 2 | app-agent-bridge | todo |  |  |  |
+| `app-agent-sdk` | app-agent | 2 | app-agent-bridge | running | app-agent/app-agent-sdk |  |  |

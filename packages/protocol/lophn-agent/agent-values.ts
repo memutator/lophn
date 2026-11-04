@@ -124,7 +124,7 @@ export function isHarnessRuntime(
   return (HARNESS_RUNTIMES as readonly string[]).includes(runtime ?? "");
 }
 
-// 편집기가 runtime 고르기에 내는 값. harness 값은 설정 `harness.enabled`가 켜졌을 때만 낸다.
+// 편집기가 runtime 고르기에 내는 값. harness 값은 설정 `extensions.harness.enabled`가 켜졌을 때만 낸다.
 export function selectableRuntimes(
   harnessEnabled: boolean,
 ): readonly AgentRuntime[] {

@@ -152,12 +152,13 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
     text: z.string().min(1),
     at: atSchema,
   }),
-  /** model 응답의 agent message가 저장됐다. 그 model 호출의 흘러나온 글이 항목의 첫 글이 된다. */
+  /** model 응답의 agent message가 저장됐다. 그 model 호출의 흘러나온 글이 항목의 첫 글이 된다.
+   * harness session의 메시지는 lophn model 호출이 없어 `model_call`이 null이고 흘러나온 글도 없다. */
   z.strictObject({
     type: z.literal("message_recorded"),
     turn: id,
     message: id,
-    model_call: id,
+    model_call: id.nullable(),
     seq,
     at: atSchema,
   }),

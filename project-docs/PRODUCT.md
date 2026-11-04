@@ -103,7 +103,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 **MVP**
 - 데스크톱 앱(shell)과 로컬 core
 - lophn agent: lophn과 사람이 만든 agent. 정의는 전역이고 session이 place(home, project, app)를 갖는다
-- coding agent: 사람이 터미널 탭에서 쓰는 coding agent의 상태(icon, 점, 알림)와 hook 설치. harness를 runtime으로 둔 agent는 다른 agent처럼 일을 받고 그 harness의 headless CLI 명령으로 돈다(설정 `harness.enabled`)
+- coding agent: 사람이 터미널 탭에서 쓰는 coding agent의 상태(icon, 점, 알림)와 hook 설치. harness를 runtime으로 둔 agent는 다른 agent처럼 일을 받고 그 harness의 headless CLI 명령으로 돈다(설정 `extensions.harness.enabled`(Settings › System › Extensions))
 - 앱: 그 앱 place의 session이 직접 짓기(선언, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log, 사람이 넣는 앱 secret과 OAuth sign-in(값은 앱에 주지 않는다)
 - grant와 approval, event, rewind
 - workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. project place의 agent가 쓴 code(`flow.ts`)가 agent와 앱 tool을 부르는 flow

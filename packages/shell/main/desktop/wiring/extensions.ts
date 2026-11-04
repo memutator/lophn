@@ -63,9 +63,12 @@ const nodeSpawn: ExtensionSpawn = (command, args, options) => {
   return {
     pid: child.pid,
     write: (text) => void child.stdin.write(text),
+    end: () => void child.stdin.end(),
     kill: () => void child.kill(),
-    onData(listener) {
+    onStdout(listener) {
       child.stdout.setEncoding("utf8").on("data", listener);
+    },
+    onStderr(listener) {
       child.stderr.setEncoding("utf8").on("data", listener);
     },
     onExit: (listener) => void exits.push(listener),

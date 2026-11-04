@@ -40,7 +40,6 @@ import {
   turnLimitsOf,
 } from "../../../lophn-agent/run-loop/mod.ts";
 import {
-  harnessEnabledSetting,
   harnessOf,
   HARNESS_INBOX_PUT_TOPIC,
 } from "../../../lophn-agent/session/mod.ts";
@@ -52,6 +51,7 @@ import {
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
+import { harnessExtensionSetting } from "../../../config/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 // shell main의 harness host가 부르는 core 쪽이다. 입력함(메모리)을 쥐고, turn과 메시지는 machine 자격으로 기존
@@ -110,7 +110,7 @@ export const harnessWiring: WiringFactory = () => {
         if (who.actor !== "user") {
           return err({ code: "forbidden", message: "only the shell host" });
         }
-        return ctx.settings.get(harnessEnabledSetting) === true
+        return ctx.settings.get(harnessExtensionSetting) === true
           ? ok(undefined)
           : err({ code: "unavailable", message: "harness is turned off" });
       };

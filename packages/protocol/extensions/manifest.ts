@@ -49,9 +49,12 @@ export function extensionVersionError(
 export type ExtensionProcess = {
   readonly pid: number | undefined;
   write(text: string): void;
+  /** stdin을 닫는다. stdin이 끝나기를 기다리는 CLI(`codex exec`)가 있다. */
+  end(): void;
   kill(): void;
-  /** stdout와 stderr를 섞은 글. */
-  onData(listener: (text: string) => void): void;
+  /** stdout과 stderr는 따로 온다. 섞으면 줄 단위 JSON 출력이 stderr 글과 엉킨다. */
+  onStdout(listener: (text: string) => void): void;
+  onStderr(listener: (text: string) => void): void;
   /** 시작하지 못한 경우도 code null로 온다. */
   onExit(listener: (code: number | null) => void): void;
 };

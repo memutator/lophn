@@ -206,7 +206,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const bare = runtime === "bare";
   // harness(third-party CLI)는 자기 model·skill·MCP를 쓴다.
   const harness = isHarnessRuntime(runtime);
-  // harness 값은 설정 `harness.enabled`가 켜졌을 때만 고르게 한다. 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
+  // harness 값은 설정 `extensions.harness.enabled`가 켜졌을 때만 고르게 한다. 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
   const harnessOptions = (["claude-code", "codex", "opencode"] as const)
     .filter((one) => detail.harnessEnabled || one === runtime)
     .map((one) => ({

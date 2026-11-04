@@ -53,7 +53,7 @@ import { readGrants, saveGrants } from "./core-grants.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
 import { providerChoiceOf } from "./model-picker-data.ts";
 
-// 설정 `harness.enabled`. 읽지 못하면 꺼진 것으로 본다.
+// 설정 `extensions.harness.enabled`. 읽지 못하면 꺼진 것으로 본다.
 async function harnessEnabledOf(link: Link): Promise<boolean> {
   const result = await link.memory<{
     settings: { key: string; default?: unknown; chosen?: unknown }[];

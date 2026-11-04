@@ -270,8 +270,15 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
     }
     case "message_recorded": {
       const writing =
-        state.writing?.model_call === update.model_call ? state.writing : null;
-      return put(dropWriting(state, update.model_call), {
+        update.model_call !== null &&
+        state.writing?.model_call === update.model_call
+          ? state.writing
+          : null;
+      const after =
+        update.model_call === null
+          ? state
+          : dropWriting(state, update.model_call);
+      return put(after, {
         kind: "message",
         id: update.message,
         seq: update.seq,

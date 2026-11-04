@@ -48,7 +48,7 @@ shell main host ─ user token, memory route ─▶ harness/take → start_turn 
 TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(bare 자동 답과 같은 길, wiring/bare-reply.ts)
 ```
 
-- **켜기는 설정 `harness.enabled`(기본 꺼짐)다.** 꺼져 있으면 harness runtime session을 열지 않고(`unavailable`), 그 session으로 가는 메시지·call·step도 `unavailable`이며, host route도 `unavailable`이다. 답·reaction·알림은 받아 열린 call이 닫힌다. 편집기의 runtime 고르기는 켜졌을 때만 harness 값을 내고, 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
+- **켜기는 설정 `extensions.harness.enabled`(Settings › System › Extensions)(기본 꺼짐)다.** 꺼져 있으면 harness runtime session을 열지 않고(`unavailable`), 그 session으로 가는 메시지·call·step도 `unavailable`이며, host route도 `unavailable`이다. 답·reaction·알림은 받아 열린 call이 닫힌다. 편집기의 runtime 고르기는 켜졌을 때만 harness 값을 내고, 이미 harness인 agent는 꺼져 있어도 그 값을 보인다.
 - **session의 harness는 열 때 정해 바뀌지 않는다.** `sessions.harness`(trigger로 고정)와 외부 session id `sessions.harness_session`이 ledger step `lophn-agent.sessions.harness`다. 외부 id는 machine 전용 command `BindHarnessSession`만 쓰고, runtime이 harness가 아닌 session은 고치지 못한다(`packages/core/lophn-agent/session/harness_test.ts`).
 - **host route는 사람 token(actor user)만, runtime이 harness인 session만 고친다**(`packages/protocol/lophn-agent/harness-host.ts`, `packages/core/main/daemon/wiring/harness.ts`). memory route라 renderer 통로에는 없다. 기록은 core 안 machine 자격으로 기존 command(StartTurn, RecordMessage, FinishTurn)에 남는다. turn은 시작 → 기록 → 끝 순서이고 `TurnEnded`는 한 번이다. 재시작하면 끝나지 않은 harness turn은 interrupted(restarted)로 끝나고 늦은 FinishTurn은 `conflict`다(`packages/core/lophn-agent/run-loop/harness-turn_test.ts`).
 - **harness가 쓴 tool은 lophn이 실행한 것이 아니다.** 메시지 part `harness_tool {name, summary, status}`로만 남고 gate·rewind의 tool-call chain에 들지 않는다. 기록마다 `MessageRecorded`(`model_call: null`)를 내 대화가 바로 갱신된다.

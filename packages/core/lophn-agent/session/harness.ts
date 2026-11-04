@@ -1,10 +1,7 @@
-import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import { declareSetting } from "../../../protocol/config/mod.ts";
 import {
   bindHarnessSession,
-  HARNESS_SETTING_KEY,
   textBlocks,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -13,7 +10,10 @@ import type {
   Sql,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { createFileSettingsReader } from "../../config/mod.ts";
+import {
+  createFileSettingsReader,
+  harnessExtensionSetting,
+} from "../../config/mod.ts";
 import type { InputTransport, RoutedInput } from "../../router/ports.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { dataRootOf } from "../agents/store.ts";
@@ -23,19 +23,13 @@ import { type AgentSessionRow, loadSession, nextSessionSeq } from "./model.ts";
 // runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 shell main의 host가 하고
 // core는 입력함, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
 
-// 꺼져 있으면(기본) harness session은 새 입력을 받지 않고 host route는 `unavailable`이다.
-export const harnessEnabledSetting = declareSetting({
-  key: HARNESS_SETTING_KEY,
-  type: z.boolean(),
-  default: false,
-});
-
+// 켜기는 extension `harness`의 설정이다. 꺼져 있으면(기본) harness session은 새 입력을 받지 않는다.
 // writer Worker 안에서 설정 파일을 읽는다. data root는 ledger 파일이 있는 폴더다. 읽지 못하면 꺼진 것이다.
 export function harnessEnabledIn(sql: Pick<Sql, "get" | "all">): boolean {
   const root = dataRootOf(sql, undefined);
   return (
     root.ok &&
-    createFileSettingsReader(root.value).get(harnessEnabledSetting) === true
+    createFileSettingsReader(root.value).get(harnessExtensionSetting) === true
   );
 }
 

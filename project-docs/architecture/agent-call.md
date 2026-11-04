@@ -67,7 +67,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 그래서 받은 순서와 turn 순서가 다르다. turn의 이력은 앞 turn들이 가져간 message를 turn 순서로 놓고 그 turn의 입력을 붙인다. 받은 순서로 자르면 아직 아무 turn도 가져가지 않은 call이 앞 turn의 prompt에 들어간다.
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
 - lophn runtime의 result 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다. conversation은 program이 done으로 만들지 않는다. 취소나 실패로 끝난다.
-- harness runtime session은 run-loop 입력함이 아니라 harness 입력함이 받는다(`TargetSession.transport`가 `harness`, `architecture/coding-agent.md`). 설정 `harness.enabled`가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 bare와 같다.
+- harness runtime session은 run-loop 입력함이 아니라 harness 입력함이 받는다(`TargetSession.transport`가 `harness`, `architecture/coding-agent.md`). 설정 `extensions.harness.enabled`(Settings › System › Extensions)가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 bare와 같다.
 - bare runtime(`architecture/agent-definition.md`)은 result call을 받은 turn이 끝날 때 마지막 응답 글이 답이다. 받은 call 글도 `lophn call reply` 대신 그렇게 알린다.
   - core wiring(`packages/core/main/daemon/wiring/bare-reply.ts`)이 `TurnEnded`를 구독해, outcome이 `completed`이고, turn 입력이 result call이고, 그 call이 아직 이 session이 받은 `accepted`이고, turn이 고정한 resolved agent(`turn_resolved`)가 bare이고, 그 turn의 마지막 agent 메시지 글이 비지 않았을 때만 보낸다.
   - 답은 redaction과 본문 준비를 거쳐 machine 명령 `AutoReplyCall`(`calls/auto-reply`, `packages/core/router/commands.ts`)로 `router.reply`를 부른다. agent의 `ReplyCall`과 같은 규칙이고, 이 session이 받는 쪽이라 call이 done이 된다. unattended 표시는 그 turn의 mode를 따른다.

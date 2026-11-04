@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
+import { extensionSettingKey } from "../extensions/manifest.ts";
 import type { HarnessId } from "../coding-agent/harness-id.ts";
 import { HARNESS_RUNTIMES, type HarnessRuntime } from "./agent-values.ts";
 import { callFromOutputSchema, callReplySchema } from "./calls.ts";
@@ -9,14 +10,14 @@ import { placeOutputSchema } from "./places.ts";
 import { turnOutcomeSchema } from "./turn-values.ts";
 
 // shell main의 harness host가 core를 부르는 길이다. host는 사람 token(actor user)으로 부르고, memory route라서
-// renderer의 호출 통로(allowlist)에는 없다. 모든 route는 설정 `harness.enabled`가 꺼져 있으면 `unavailable`이고,
+// renderer의 호출 통로(allowlist)에는 없다. 모든 route는 설정 `extensions.harness.enabled`가 꺼져 있으면 `unavailable`이고,
 // runtime이 harness인 session이 아니면 `forbidden`이다.
 //
 // 한 turn의 순서: Take(다음 입력을 본다) → StartTurn(입력을 꺼내 turn을 시작) → Record(메시지, 여러 번)
 // → FinishTurn. TurnEnded는 turn마다 한 번이다. 재시작하면 끝나지 않은 turn은 interrupted(restarted)로 끝나
 // FinishTurn은 `conflict`다.
 
-export const HARNESS_SETTING_KEY = "harness.enabled";
+export const HARNESS_SETTING_KEY = extensionSettingKey("harness");
 
 // runtime 값 → `HARNESS_ADAPTERS`의 id(감지, hook, resume 인자 표).
 export const HARNESS_ADAPTER_ID = {

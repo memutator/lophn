@@ -192,7 +192,8 @@ const extensionEnabled = (id: string) =>
     type: z.boolean(),
     default: false,
   });
-const harnessExtensionSetting = extensionEnabled("harness");
+// harness agent(core의 harness session, 입력함, host route)도 이 설정 하나로 켠다.
+export const harnessExtensionSetting = extensionEnabled("harness");
 
 export const shellSettings = [
   themeSetting,

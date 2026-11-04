@@ -13,7 +13,6 @@ export {
   HARNESS_INBOX_PUT_TOPIC,
   harnessEnabledIn,
   harnessOf,
-  harnessEnabledSetting,
 } from "./harness.ts";
 export { messageRemoveQueued, removeQueuedCommand } from "./queued-remove.ts";
 export { editQueuedCommand } from "./queued-edit.ts";

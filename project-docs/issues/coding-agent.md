@@ -37,13 +37,13 @@ modules: [packages/core/main, packages/core/lophn-agent]
 - 영향: 사람이 harness session에서 steer를 누르면 틀린 이유로 거절되고, fork하면 harness가 앞 대화를 모른다.
 - 고치려면: steer는 harness session이면 버튼을 숨기거나 `unavailable`("harness는 turn 중에 받지 못한다")로 거절한다(작음, 추천). fork는 headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주고 나머지는 지금처럼 새로 시작한다(중간).
 
-## `harness.enabled`를 켜는 화면이 없다
+## harness agent를 켜는 화면에 harness가 아직 없다
 
 ```yaml
 kind: bug
-modules: [packages/core/lophn-agent, packages/shell/renderer]
+modules: [packages/shell/main, packages/core/config]
 ```
 
-- 지금: 설정 `harness.enabled`(`packages/core/lophn-agent/session/harness.ts` `harnessEnabledSetting`, 기본 꺼짐)를 켜는 Settings 화면이 없다. 사람은 data root의 `settings.json`을 직접 고쳐야 harness agent를 쓸 수 있다.
-- 영향: harness agent를 쓰려는 사람이 설정 key 이름을 알아야 한다.
-- 고치려면: 계획 extension의 켜기 화면이 land하면 설정을 `extensions.harness.enabled`로 옮기고 그 화면을 쓴다(계획 harness-agent README 정한 것 1). 그 전에 land하면 Settings에 칸 하나를 둔다(작음). 추천: extension을 기다린다.
+- 지금: harness agent의 켜기는 extension `harness`의 설정 `extensions.harness.enabled`(`packages/core/config/shell-settings.ts` `harnessExtensionSetting`, 기본 꺼짐)다. Settings › System › Extensions는 roots(개발은 shell main 안 `extensions/bundled/`)에서 manifest를 찾은 extension만 보이는데, harness의 manifest가 아직 없어 그 줄이 없다.
+- 영향: harness agent를 쓰려는 사람이 data root의 `settings.json`을 직접 고쳐야 한다.
+- 고치려면: harness host를 extension `harness`(manifest와 entry)로 둔다(계획 harness-agent의 headless host, 작음).

@@ -121,10 +121,14 @@ const modelOutputStreamed = defineAgentEvent(
 );
 
 // agent runtime이 model 응답의 agent message를 RecordMessage로 저장한 뒤 낸다. 화면은 그 model_call의
-// 쓰는 중인 글을 버리고 message 본문을 읽는다.
+// 쓰는 중인 글을 버리고 message 본문을 읽는다. harness host가 낸 message는 model 호출이 없어 model_call이 null이다.
 const messageRecorded = defineAgentEvent(
   "MessageRecorded",
-  z.strictObject({ turn, message: idSchema("msg"), model_call: modelCall }),
+  z.strictObject({
+    turn,
+    message: idSchema("msg"),
+    model_call: modelCall.nullable(),
+  }),
 );
 
 // display는 낼 때 만들고 지금의 redaction을 거친다.

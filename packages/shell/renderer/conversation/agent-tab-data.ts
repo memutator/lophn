@@ -240,7 +240,10 @@ function foldEvent(
         {
           ...view,
           live: live?.modelCall === modelCall ? null : live,
-          dropped: { ...view.dropped, modelCall },
+          dropped: {
+            ...view.dropped,
+            modelCall: modelCall ?? view.dropped.modelCall,
+          },
         },
         [
           {

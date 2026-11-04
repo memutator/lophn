@@ -250,7 +250,19 @@ export const harnessWiring: WiringFactory = () => {
           turn: input.turn,
           content: { schema_version: 1, parts: input.parts },
         });
-        return done.ok ? ok({ message }) : done;
+        if (!done.ok) return done;
+        // model 호출이 없는 message라 model_call은 null이다. 화면이 대화를 바로 갱신한다.
+        ctx.bus.publish({
+          session: input.session as Id<"ses">,
+          type: "MessageRecorded",
+          at: ctx.clock.now(),
+          payload: {
+            turn: input.turn,
+            message: message as Id<"msg">,
+            model_call: null,
+          },
+        });
+        return ok({ message });
       };
 
       const finishHandler: MemoryHandler = async (who, body) => {

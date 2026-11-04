@@ -229,6 +229,8 @@ export function createLiveTurns(deps: {
     // `TurnResumed`도 내지 않는다.
     apply(event: BusEvent, trackTime = true): AgentEvent | null {
       if (event.type === "MessageRecorded") {
+        // model 호출이 없는 message(harness)는 버릴 쓰는 중인 글이 없다.
+        if (event.payload.model_call === null) return null;
         const attempt = attempts.get(event.session);
         if (attempt === undefined) {
           stale.set(event.session, event.payload.model_call);

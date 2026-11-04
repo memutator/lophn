@@ -39,7 +39,7 @@
 - 묻는지는 program이 선언 사실로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. secret의 OAuth 칸(끝점, scope, 추가 parameter)이 바뀐 것도 늘어난 바깥 자원이다. 선언 사실 비교가 정규화한 scope 전체를 맞추므로 순서만 바뀐 것은 묻지 않는다. 동의 화면은 authorize host, refresh token이 갈 token host, scope를 보인다. 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
 - data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
 - 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
-- 새 release가 다른 domain이 쓰는 공개 tool을 지워도 activation은 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 tool과 쓰는 domain 이름을 싣고, 그 앱 place의 session이 정한다. 규칙은 `architecture/domain.md`다.
+- 새 release가 다른 place가 쓰는 공개 command를 지워도 activation은 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 command를 싣고, 그 앱 place의 session이 정한다. 규칙은 `architecture/app-call.md`다.
 - 동의는 activation의 상태다. approvals를 거치지 않는다. 묻기는 driver가 machine 자격으로 `activation.ask_consent`를 불러 `activation_consents` 표에 줄을 쓰고, 사람이 `activation.consent`(사람 자격만, compare `{requested_at}`)로 동의하거나 거절한다. 대기 목록은 `activations.consents`를 읽고 남지 않는 event `ActivationConsentRequested`·`ActivationConsentClosed`로 고친다.
   - `activations.consents`와 `ActivationConsentRequested`(그리고 `AppRestartHalted`)는 앱 id와 함께 앱 이름(`app_name`)을 싣는다. 알림과 대기 목록은 id 대신 이름을 보인다. renderer가 이름을 따로 찾지 않게 하려는 것이다.
   - `release.activate`가 `waiting_consent`를 돌려주면 대화에 그 결과로 만든 카드가 선다. 카드는 대기 목록에 그 release 줄이 있는 동안 기다림으로 보이고 [Review]가 대기 panel을 연다.

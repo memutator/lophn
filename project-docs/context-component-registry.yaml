@@ -379,7 +379,7 @@ components:
     path: project-docs/architecture/domain.md
     change_reasons:
       boundaries: [domains, apps, agent-places, agents, agent-tools, kinds]
-      paths: [packages/protocol/domains/, packages/core/lophn-agent/instructions/, packages/core/lophn-agent/extensions/skills.ts, packages/core/apps/usage/, packages/core/main/daemon/agent-domains.ts, packages/core/apps/calls/gate.ts]
+      paths: [packages/protocol/domains/, packages/core/lophn-agent/instructions/, packages/core/lophn-agent/extensions/skills.ts, packages/core/apps/usage/, packages/core/apps/calls/gate.ts]
       note: domain을 만들거나 보관하는 규칙, 앱 tool의 domain 칸, 맡은 domain을 정하는 규칙이 바뀔 때.
 
   - id: skill-planner-persona

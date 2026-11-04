@@ -1,6 +1,6 @@
 # domain: project와 app 안의 책임 경계
 
-상태: 로드맵. 2026-10-19 사람과 planner가 정했다. 앞 계획 넷(`domain-kinds`, `domain-tools`, `domain-place`, `artifact`)과 `rewind-check`가 land했다. 그 뒤 사람이 모양을 다시 정했고(아래 "모양") 계획 `domain-entity`가 그 모양으로 land했다(`architecture/domain.md`).
+상태: 로드맵. 2026-10-19 사람과 planner가 정했다. 앞 계획 넷(`domain-kinds`, `domain-tools`, `domain-place`, `artifact`)과 `rewind-check`가 land했다. 그 뒤 사람이 모양을 다시 정했고(아래 "모양") 계획 `domain-entity`가 그 모양으로 land했다(`architecture/domain.md`). 2026-11-03 사람이 domain과 kind를 지우기로 했다. 그 일은 `project-docs/products/roadmap/agent-platform.md`의 단계 1이다.
 지금 코드에 있는 것은 architecture 문서가 적는다: `kinds.md`(kind 파일, 내장 tool), `app-call.md`(tool 선언, `app.call_tool`, coding agent MCP), `artifact.md`, `place-session.md`, `agent-definition.md`, `activation.md`(rewind 증명). 이 문서는 모양과 남은 일만 적는다. 옛 초안(context를 지우기까지의 지금 코드, 바꾼 이유, 대응표)은 git 기록에 있다.
 
 ## 왜

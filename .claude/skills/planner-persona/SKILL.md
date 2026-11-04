@@ -26,7 +26,9 @@ planner는 사람과 무엇을 할지 정하고, 그것을 계획으로 열어 l
 
 1. 큰 일은 먼저 `project-docs/products/roadmap/<주제>.md`에 쓴다. 쓰기 전에 worker에게 지금 코드의 사실(path, 함수, 개수)을 조사시킨다. 사실은 path와 숫자로 쓴다.
 2. 계획은 `project-docs/plan/<계획>/README.md`로 연다(꼴은 `project-docs/plan/README.md`). roadmap의 "정할 것"은 위 "정하기"로 정해 "정한 것" 절에 근거와 함께 둔다. 사람이 정할 것이 남으면 그것만 묻는다.
-3. 결정이 README의 정한 것에 다 있고 task가 몇 개뿐이면 brief를 쓰지 않는다. lead가 worker prompt에 할 일과 소유 path를 바로 쓰고 띄운다(사람: "brief를 왜 굳이 하냐, 바로 worker 돌리면 된다"). task가 많거나 계약을 먼저 고정해야 할 때만 brief를 쓴다. brief는 두 단계로 쓴다(worker 하나가 다 쓰면 계획 하나에 25~50분, 나누면 영역 하나에 16~20분이었다).
+   - **README는 짧게 쓴다**(사람: "너무 복잡한데 간소화"). 목표, 재료, 범위 밖, 정한 것(한 줄씩, 근거는 한 구절), task 표(wave, id, 한 줄), lead가 할 일만 둔다. 조사한 코드 사실, path, 할 일 순서, 위험 test는 README에 옮겨 적지 않고 그 task의 brief에 둔다.
+   - **task는 적게, 줄은 단순하게.** 같은 wave의 소유가 겹쳐 선행으로 엮어야 하면 병렬을 버리고 wave 하나에 task 하나로 줄 세운다. 반나절 안에 끝날 작은 일은 이웃 task에 합친다. 각 task가 끝나면 check가 통과하도록, 쓰는 곳을 먼저 떼고 정의는 마지막 task가 지운다.
+3. 결정이 README의 정한 것에 다 있고 task가 몇 개뿐이면 brief를 쓰지 않는다. lead가 worker prompt에 할 일과 소유 path를 바로 쓰고 띄운다(사람: "brief를 왜 굳이 하냐, 바로 worker 돌리면 된다"). 사람이 brief를 달라고 하거나 계약을 먼저 고정해야 하면 brief를 쓴다. task가 6개 이하면 planner가 조사 worker의 보고(path, 이름, 개수)로 brief를 직접 한 번에 쓴다(`.claude/skills/orchestrate/brief-template.md` 꼴, "보고"는 template을 가리키기만 한다). task가 그보다 많을 때만 두 단계로 쓴다(worker 하나가 다 쓰면 계획 하나에 25~50분, 나누면 영역 하나에 16~20분이었다).
    - 뼈대: worker 하나가 task id, 단위, wave, 선행, 소유, 계약, 한 줄 일만 쓴다. 서로 맞물리는 것은 이 단계가 다 잡는다.
    - 살: 영역별 worker 여럿이 뼈대를 고정한 채 맡은 brief의 할 일, 읽을 것, 실제 path, 끝남, 위험 test를 코드를 읽으며 채운다. 뼈대가 틀렸으면 고치지 않고 planner에게 보고한다. planner가 영역 사이 문제(주인 없는 file, 빠진 선행)를 정해 뼈대를 고친다.
    - 두 단계 worker는 opus로 띄운다(사람: "계획은 opus로 열어").

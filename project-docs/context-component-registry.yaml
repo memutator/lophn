@@ -283,6 +283,7 @@ components:
     path: project-docs/architecture/coding-agent.md
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-harness-api, coding-agent-cli-interface]
+      paths: [packages/core/lophn-agent/session/harness.ts, packages/core/main/daemon/wiring/harness.ts, packages/protocol/lophn-agent/harness-host.ts, packages/protocol/coding-agent/headless/, packages/shell/main/extensions/bundled/harness/]
 
   - id: architecture-extension
     kind: doc
@@ -290,7 +291,8 @@ components:
     description: 본체와 따로 켜는 기능 묶음. manifest, shell main registry, 설정 extensions.<id>.enabled, ctx, 표시 file로 지우기.
     path: project-docs/architecture/extension.md
     change_reasons:
-      boundaries: [extension-host, shell-extension, extension-api]
+      paths: [packages/protocol/extensions/, packages/shell/main/extensions/, packages/shell/main/desktop/wiring/extensions.ts, packages/shell/main/build.ts, packages/shell/ipc/extensions.ts, packages/shell/renderer/desktop/settings/extension-packages/, packages/core/config/shell-settings.ts]
+      note: shell 전체가 아니라 이 경로가 바뀔 때만 본다(extension-host는 module이 따로 없어 boundary로 걸면 shell 변경마다 걸린다).
 
   - id: architecture-terminal-agent
     kind: doc

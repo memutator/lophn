@@ -25,6 +25,10 @@ export type AgentSignal = {
   prompt?: string;
   /** harness가 hook으로 알려 준 session 이름. */
   name?: string;
+  /** ChildStarted·ChildEnded. harness 안에서 child(subagent)를 가르는 id. */
+  child?: string;
+  /** TurnEnded. 그 turn이 끝났어도 아직 살아 있다고 알린 child들의 id. */
+  children?: readonly string[];
 };
 
 export type AgentNotice = {
@@ -50,6 +54,10 @@ export type AgentTrackerDeps = {
   /** 창이 알린 탭 이름. runtime에 실려 나간다. */
   tabNameOf?(terminalRef: string): string | undefined;
   publish(runtime: TerminalRuntime): void;
+  /** 지금 시각(ms). */
+  now(): number;
+  /** ms 뒤에 fn을 한 번 부르고, 부르는 것을 취소하는 함수를 돌려준다. */
+  after(ms: number, fn: () => void): () => void;
   /** 사람이 그 탭을 보고 있다(그 탭을 고른 창에 OS focus가 있다). */
   looking(terminalRef: string): boolean;
   /** 알린다. 보고 있지 않아 알렸으면 true다(toast든 OS 알림이든 어디에 띄울지는 부르는 쪽이 정한다). */
@@ -88,6 +96,14 @@ type Entry = {
   running: boolean;
   /** 대기 중인 권한 물음 수. */
   waiting: number;
+  /** main turn이 끝나도 도는 child(subagent)의 id → 그 child의 신호를 마지막으로 들은 시각. */
+  children: Map<string, number>;
+  /** main turn이 끝나 보낼 차례를 기다리는 알림. child가 남았거나 다시 running이면 아직 보내지 않는다. */
+  pending: { kind: "finished" | "failed"; body?: string } | null;
+  /** 가장 오래된 child가 timeout 날 때 깨는 timer. child가 없으면 없다. */
+  sweepTimer: (() => void) | null;
+  /** idle이 된 뒤 FINISH_DELAY_MS를 기다리는 알림 timer. */
+  finishTimer: (() => void) | null;
   unseen: boolean;
   /** 사람이 친 끊기 key로 내렸다. 끝 신호가 아니라 짐작이라, 뒤에 tool이 끝났다는 hook이 오면 되돌린다. */
   guessed: boolean;
@@ -132,7 +148,7 @@ function agentOf(entry: Entry): TerminalAgent | undefined {
       ? "waiting"
       : !entry.heard
         ? "unknown"
-        : entry.running
+        : entry.running || entry.children.size > 0
           ? "running"
           : "idle";
   return {
@@ -166,6 +182,11 @@ export type AgentTracker = {
   decorate(runtime: TerminalRuntime): TerminalRuntime;
 };
 
+// 시작 신호를 놓친 child가 SubagentStop도 못 받으면 영원히 running이라, 이 시간 동안 그 child의 신호가 없으면 뺀다.
+const CHILD_TIMEOUT_MS = 10 * 60 * 1000;
+// 잠깐 idle이 됐다 바로 다시 running이 되는 turn(child 사이의 틈)에 finished를 울리지 않으려는 지연이다.
+const FINISH_DELAY_MS = 1500;
+
 // Claude Code처럼 끊어도 Stop hook을 안 보내는 harness가 있어 사람이 친 key로 끊김을 본다.
 const KEY_TEXT = { escape: "\x1b", "ctrl-c": "\x03" } as const;
 
@@ -175,7 +196,15 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
   function entryOf(ref: string): Entry {
     let entry = entries.get(ref);
     if (entry === undefined) {
-      entry = { foreground: null, ...fresh(null, false), pushed: "null" };
+      entry = {
+        foreground: null,
+        ...fresh(null, false),
+        children: new Map(),
+        pending: null,
+        sweepTimer: null,
+        finishTimer: null,
+        pushed: "null",
+      };
       entries.set(ref, entry);
     }
     return entry;
@@ -209,6 +238,59 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     };
   }
 
+  // child 집합, 기다리는 알림과 그 timer를 모두 비운다.
+  function drop(entry: Entry): void {
+    entry.children.clear();
+    entry.pending = null;
+    entry.sweepTimer?.();
+    entry.sweepTimer = null;
+    entry.finishTimer?.();
+    entry.finishTimer = null;
+  }
+
+  // child 집합이 바뀌거나 main이 running이 아니게 된 뒤마다 부른다. 보이는 상태가 idle로 정해지면 알림을
+  // 기다리게 하고, 다시 running·waiting이면 기다리던 알림을 취소한다.
+  function reconcile(ref: string, entry: Entry): void {
+    if (entry.children.size === 0) {
+      entry.sweepTimer?.();
+      entry.sweepTimer = null;
+    } else if (entry.sweepTimer === null) {
+      const oldest = Math.min(...entry.children.values());
+      entry.sweepTimer = deps.after(
+        Math.max(0, oldest + CHILD_TIMEOUT_MS - deps.now()),
+        () => {
+          entry.sweepTimer = null;
+          const cutoff = deps.now() - CHILD_TIMEOUT_MS;
+          for (const [id, seen] of entry.children) {
+            if (seen <= cutoff) entry.children.delete(id);
+          }
+          reconcile(ref, entry);
+          push(ref, entry);
+        },
+      );
+    }
+    const busy = entry.running || entry.waiting > 0 || entry.children.size > 0;
+    if (busy) {
+      if (entry.finishTimer !== null) {
+        entry.finishTimer();
+        entry.finishTimer = null;
+        entry.unseen = false;
+      }
+      return;
+    }
+    if (entry.pending === null || entry.finishTimer !== null) return;
+    // 못 본 표시는 바로 켜고 알림만 늦춘다.
+    if (!deps.looking(ref)) entry.unseen = true;
+    entry.finishTimer = deps.after(FINISH_DELAY_MS, () => {
+      entry.finishTimer = null;
+      const { pending } = entry;
+      entry.pending = null;
+      if (pending === null) return;
+      notify(ref, entry, pending.kind, pending.body);
+      push(ref, entry);
+    });
+  }
+
   function notify(
     ref: string,
     entry: Entry,
@@ -236,6 +318,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       const harness = argv === null ? null : deps.harnessOfProcess(argv);
       if (harness !== null) {
         if (entry.harness !== harness) {
+          drop(entry);
           Object.assign(entry, fresh(harness, true));
           deps.identified?.(harness, ref);
         } else {
@@ -243,25 +326,20 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         }
       } else if (entry.harness !== null) {
         // 알아보지 못하는 process가 foreground가 됐다. agent는 떠났다.
+        drop(entry);
         Object.assign(entry, fresh(null, false));
       }
       push(ref, entry);
     },
     hook(ref, harness, event, payload) {
       const signal = deps.signalOf(harness, event, payload);
-      // child 신호는 아직 읽지 않는다.
-      if (
-        signal === null ||
-        signal.type === "ChildStarted" ||
-        signal.type === "ChildEnded" ||
-        !alive(ref)
-      )
-        return;
+      if (signal === null || !alive(ref)) return;
       const entry = entryOf(ref);
       // grok·devin·cursor는 ~/.claude/settings.json의 hook을 기본으로 같이 읽어 그 탭이 `lophn hook claude`를
       // 받는다. process가 정한 harness를 다른 harness의 hook이 뒤집지 못한다.
       if (entry.fixed && entry.harness !== harness) return;
       if (entry.harness !== harness) {
+        drop(entry);
         Object.assign(entry, fresh(harness, false));
       }
       // 이름만 알리는 신호는 끊어서 내려간 heard나 첫 hook 전의 unknown을 되살리지 않는다.
@@ -280,7 +358,11 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       }
       if (signal.name !== undefined) entry.name = signal.name;
       switch (signal.type) {
+        case "SessionStarted":
+          drop(entry);
+          break;
         case "TurnStarted":
+          entry.pending = null;
           if (entry.title === null && signal.prompt !== undefined) {
             entry.title = signal.prompt;
           }
@@ -292,14 +374,16 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           entry.running = false;
           entry.waiting = 0;
           entry.guessed = false;
-          if (signal.outcome !== "interrupted") {
-            notify(
-              ref,
-              entry,
-              signal.outcome === "failed" ? "failed" : "finished",
-              signal.message,
-            );
+          for (const id of signal.children ?? []) {
+            entry.children.set(id, deps.now());
           }
+          entry.pending =
+            signal.outcome === "interrupted"
+              ? null
+              : {
+                  kind: signal.outcome === "failed" ? "failed" : "finished",
+                  body: signal.message,
+                };
           break;
         case "PermissionRequested":
           entry.waiting += 1;
@@ -311,15 +395,24 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           );
           break;
         case "PermissionResolved":
+        case "ChildStarted":
           // 한 물음을 두 event로 알리는 harness가 있어 하나씩 줄이면 센 수가 남아 waiting이 풀리지 않는다.
+          // subagent의 권한 물음은 허락한 뒤 그 subagent의 tool hook(ChildStarted)이 와서 풀린다.
           entry.waiting = 0;
+          if (signal.type === "ChildStarted" && signal.child !== undefined) {
+            entry.children.set(signal.child, deps.now());
+          }
           // 키로 내린 뒤에 tool이 끝났으면 turn은 안 끊긴 것이다(끊긴 tool은 이 hook을 내지 않는다).
           if (entry.guessed) {
             entry.guessed = false;
             entry.running = true;
           }
           break;
+        case "ChildEnded":
+          if (signal.child !== undefined) entry.children.delete(signal.child);
+          break;
         case "SessionEnded":
+          drop(entry);
           entry.running = false;
           entry.waiting = 0;
           entry.guessed = false;
@@ -329,6 +422,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           // 이름만 알리는 신호라 상태를 바꾸지 않는다.
           break;
       }
+      reconcile(ref, entry);
       push(ref, entry);
       if (entry.session !== null) {
         deps.sessionSeen?.({
@@ -344,11 +438,12 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       const entry = entries.get(ref);
       if (entry === undefined || entry.harness === null) return;
       if (
-        !(entry.running || entry.waiting > 0) ||
+        !(entry.running || entry.waiting > 0 || entry.children.size > 0) ||
         !deps.interruptKeys(entry.harness).some((key) => KEY_TEXT[key] === text)
       ) {
         return;
       }
+      drop(entry);
       entry.running = false;
       entry.waiting = 0;
       entry.heard = false;
@@ -370,6 +465,8 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       }
     },
     gone(ref) {
+      const entry = entries.get(ref);
+      if (entry !== undefined) drop(entry);
       entries.delete(ref);
     },
     decorate(runtime) {

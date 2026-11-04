@@ -132,6 +132,11 @@ export function createAgentWiring(options: {
       terminals.runtimes().find((item) => item.terminal_ref === ref),
     tabNameOf: (ref) => tabNames.get(ref),
     publish,
+    now: () => Date.now(),
+    after(ms, fn) {
+      const timer = setTimeout(fn, ms);
+      return () => clearTimeout(timer);
+    },
     looking: (ref) => notice.looking({ kind: "terminal", terminal_ref: ref }),
     notify,
     identified: options.identified,

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { TerminalRuntime } from "../../../ipc/terminal.ts";
 import { createHookIngress } from "./ingress.ts";
-import { createAgentTracker } from "./tracker.ts";
+import { type AgentSignal, createAgentTracker } from "./tracker.ts";
 
 const KEY = "a".repeat(64);
 
@@ -58,6 +58,35 @@ test("hook ingress drops unknown key, oversized and malformed lines and routes a
   assert.equal(routed.length, 1);
 });
 
+// 시각과 timer를 손으로 돌리는 fake. tracker는 setTimeout을 직접 부르지 않는다.
+function fakeClock() {
+  let time = 0;
+  const timers: { at: number; fn: () => void; live: boolean }[] = [];
+  return {
+    now: () => time,
+    after(ms: number, fn: () => void) {
+      const timer = { at: time + ms, fn, live: true };
+      timers.push(timer);
+      return () => {
+        timer.live = false;
+      };
+    },
+    advance(ms: number) {
+      const end = time + ms;
+      for (;;) {
+        const next = timers
+          .filter((timer) => timer.live && timer.at <= end)
+          .sort((a, b) => a.at - b.at)[0];
+        if (next === undefined) break;
+        next.live = false;
+        time = next.at;
+        next.fn();
+      }
+      time = end;
+    },
+  };
+}
+
 function trackerFor(pushed: string[]) {
   const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
   return createAgentTracker({
@@ -78,6 +107,7 @@ function trackerFor(pushed: string[]) {
       pushed.push(`${rt.agent?.harness ?? "-"}:${rt.agent?.state ?? "none"}`),
     looking: () => true,
     notify: () => false,
+    ...fakeClock(),
   });
 }
 
@@ -148,6 +178,7 @@ test("TurnStarted가 다른 session id를 싣고 오면 session을 바꾸고 제
       }),
     looking: () => true,
     notify: () => false,
+    ...fakeClock(),
   });
   tracker.hook("t", "claude", "UserPromptSubmit", {
     session: "a",
@@ -178,4 +209,79 @@ test("키로 내린 뒤 tool이 끝났다는 hook이 오면 running으로 돌아
     "claude:unknown",
     "claude:idle",
   ]);
+});
+
+// fixture는 문서와 Claude Code CLI 2.1.316 bundle을 읽어 만들었다. 실제 harness로 돌려 확인하지 않았다.
+function childTracker() {
+  const clock = fakeClock();
+  const states: string[] = [];
+  const notices: string[] = [];
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  const tracker = createAgentTracker({
+    harnessOfProcess: () => null,
+    interruptKeys: () => [],
+    signalOf: (_harness, _event, payload) => payload as AgentSignal,
+    runtimeOf: () => runtime,
+    publish: (rt) => states.push(rt.agent?.state ?? "none"),
+    looking: () => false,
+    notify: (notice) => {
+      notices.push(`${notice.kind}:${notice.body ?? ""}`);
+      return true;
+    },
+    ...clock,
+  });
+  const send = (signal: AgentSignal) =>
+    tracker.hook("t", "claude", "e", signal);
+  return { tracker, clock, states, notices, send };
+}
+
+test("Stop while a subagent runs stays running without a finished notice, and the last child ending notifies once", () => {
+  const { clock, states, notices, send } = childTracker();
+  send({ type: "TurnStarted" });
+  send({ type: "ChildStarted", child: "a1" });
+  send({ type: "ChildStarted", child: "a2" });
+  send({ type: "TurnEnded", message: "done", children: ["a1", "a2"] });
+  clock.advance(5000);
+  assert.equal(states.at(-1), "running");
+  assert.deepEqual(notices, []);
+  send({ type: "ChildEnded", child: "a1" });
+  clock.advance(5000);
+  assert.deepEqual(notices, []);
+  send({ type: "ChildEnded", child: "a2" });
+  assert.equal(states.at(-1), "idle"); // 상태는 바로 내려가고 알림만 늦다
+  assert.deepEqual(notices, []);
+  clock.advance(1500);
+  clock.advance(60_000);
+  assert.deepEqual(notices, ["finished:done"]);
+});
+
+test("a TurnStarted within 1.5s of Stop cancels the finished notice", () => {
+  const { clock, notices, send } = childTracker();
+  send({ type: "TurnStarted" });
+  send({ type: "TurnEnded", message: "first" });
+  clock.advance(1000);
+  send({ type: "TurnStarted" });
+  clock.advance(5000);
+  assert.deepEqual(notices, []);
+  send({ type: "TurnEnded", message: "second" });
+  clock.advance(1500);
+  assert.deepEqual(notices, ["finished:second"]);
+});
+
+test("a child tool hook resolves the permission wait, and a child with no signal for 10 minutes is dropped", () => {
+  const { clock, states, notices, send } = childTracker();
+  send({ type: "TurnStarted" });
+  send({ type: "ChildStarted", child: "a1" });
+  send({ type: "PermissionRequested" });
+  assert.equal(states.at(-1), "waiting");
+  send({ type: "ChildStarted", child: "a1" }); // 허락한 뒤 subagent의 tool hook
+  assert.equal(states.at(-1), "running");
+  send({ type: "TurnEnded", message: "done" });
+  clock.advance(9 * 60_000);
+  assert.equal(states.at(-1), "running");
+  assert.deepEqual(notices, ["permission:"]);
+  clock.advance(60_000);
+  assert.equal(states.at(-1), "idle");
+  clock.advance(1500);
+  assert.deepEqual(notices, ["permission:", "finished:done"]);
 });

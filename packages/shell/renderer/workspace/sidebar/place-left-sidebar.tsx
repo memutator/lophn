@@ -26,7 +26,7 @@ import {
   type PlaceRef,
   selectTab,
 } from "../../shell/desk-model.ts";
-import { sessionOf } from "../agent/tab-fields.ts";
+import { agentOf, sessionOf } from "../agent/tab-fields.ts";
 import type { WindowPlace } from "../place-window.tsx";
 import { LeftSidebar, type QuickLaunch } from "../../shell/left-sidebar.tsx";
 import {
@@ -40,8 +40,13 @@ import {
   useSidebarPlaceList,
 } from "../../shell/use-left-sidebar.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
-import type { TerminalStore } from "../../terminal/store.ts";
-import { otherPlaceTerminalTitle } from "../kinds/terminal.tsx";
+import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
+import type { TabItem } from "../model.ts";
+import {
+  otherPlaceTerminalTitle,
+  pinAgentSessionName,
+  terminalNamed,
+} from "../kinds/terminal.tsx";
 import type { WorkspaceSource } from "../source.ts";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
@@ -92,9 +97,14 @@ export interface PlaceLeftSidebarProps {
   agents: readonly SidebarAgent[];
   /** 이 창에 탭이 열린 session id → 그 탭의 제목. */
   openTitles: ReadonlyMap<string, string>;
+  /** 이 창의 아직 session이 없는 Agent 탭. */
+  agentDrafts: readonly TabItem[];
   terminals: readonly PanelTerminal[];
-  /** 창의 터미널 store. place를 옮겨도 살아 있어 다른 place 터미널에서 agent가 지금 도는지 안다. 없으면 다른 place의 터미널 줄이 없다. */
-  terminalStore?: TerminalStore;
+  /**
+   * 창의 터미널. store는 place를 옮겨도 살아 있어 다른 place 터미널에서 agent가 지금 도는지 알고, 그 PTY를 닫기 확인을 거쳐 닫는다.
+   * 없으면 다른 place의 터미널 줄이 없다.
+   */
+  terminal?: TerminalDeps;
   /** 고른 tab의 줄(`sessionKey`). */
   selected?: string;
   /** 터미널 탭을 열 수 있다. 없으면 coding agent 항목이 없다. */
@@ -119,6 +129,8 @@ export interface PlaceLeftSidebarProps {
   onJobs: () => void;
   /** 맨 아래 줄의 빠른 실행. Terminal hover 목록(즐겨찾기 coding agent)은 여기서 붙인다. */
   quick?: QuickLaunch;
+  /** 이 창의 탭(draft 줄)을 고른다. */
+  onTab: (key: string) => void;
   /** 이 창의 탭이 그 session·터미널이면 탭 이름 바꾸기와 같은 길로 바꾸고 true다. 탭이 없으면 false다. */
   onRenameTab?: (item: SidebarSession, title: string) => boolean;
   /** 그 session·터미널의 탭을 보통 닫기 길로 닫는다(터미널은 확인을 묻는다). 탭이 없으면 아무것도 하지 않는다. */
@@ -157,7 +169,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     sessions,
   );
   // 다른 place의 터미널은 agent가 지금 도는 것만 current다. 끝난 agent는 탭이 남아도 빠진다.
-  const store = props.terminalStore;
+  const store = props.terminal?.store;
   const storeVersion = useSyncExternalStore(
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
@@ -196,6 +208,14 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     () => new Map(elsewhere.titles).set(placeKey(current), props.openTitles),
     [elsewhere.titles, current, props.openTitles],
   );
+  const drafts = useMemo(
+    () =>
+      props.agentDrafts.flatMap((tab) => {
+        const agent = agentOf(tab);
+        return agent === null ? [] : [{ key: tab.key, agent }];
+      }),
+    [props.agentDrafts],
+  );
   const workflows = useHumanTurnWorkflows(props.source, projectId);
   // 지운 줄은 session id와 터미널 key로 기억하고 둘 다 겹치지 않아 한 곳에 둔다.
   const recentHidden = useHiddenRecent(null);
@@ -210,6 +230,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         agents: props.agents,
         known,
         openTitles,
+        drafts,
         terminals: props.terminals,
         otherTerminals,
         workflows,
@@ -223,6 +244,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       props.agents,
       known,
       openTitles,
+      drafts,
       props.terminals,
       otherTerminals,
       workflows,
@@ -284,24 +306,59 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     props.onPlace(ref);
   };
 
-  // 다른 place의 Agent 탭 닫기: 그 place의 저장된 layout에서 지운다. 그 place를 열면 탭 없이 시작한다.
-  const closeAgentTabAt = async (ref: PlaceRef, session: string) => {
+  // 다른 place의 탭은 그 place의 저장된 layout을 고친다. 그 place를 열면 고친 탭으로 시작한다.
+  const editTabAt = async (
+    ref: PlaceRef,
+    match: (tab: TabItem) => boolean,
+    edit: "close" | ((tab: TabItem) => TabItem),
+  ) => {
     const read = await props.source.layout.readPlaceLayout(ref);
     if (!read.ok || read.layout === null) return;
     const desks = { ...read.layout.desks };
     for (const desk of Object.values(desks)) {
-      const tab = desk.tabs.find(
-        (row) => row.kind === "agent" && sessionOf(row) === session,
-      );
-      if (tab !== undefined) desks[desk.key] = closeTab(desk, tab.key);
+      const tab = desk.tabs.find(match);
+      if (tab === undefined) continue;
+      desks[desk.key] =
+        edit === "close"
+          ? closeTab(desk, tab.key)
+          : {
+              ...desk,
+              tabs: desk.tabs.map((row) => (row === tab ? edit(row) : row)),
+            };
     }
     await props.source.layout.savePlaceLayout(ref, { ...read.layout, desks });
     elsewhere.reload();
+  };
+  const closeAgentTabAt = (ref: PlaceRef, session: string) =>
+    editTabAt(
+      ref,
+      (row) => row.kind === "agent" && sessionOf(row) === session,
+      "close",
+    );
+  const isTerminal = (key: string) => (row: TabItem) =>
+    row.kind === "terminal" && row.key === key;
+  // PTY는 이 창의 store가 들고 있어 여기서 닫는다. 닫았을 때만 그 place의 탭을 지운다.
+  const closeTerminalAt = async (ref: PlaceRef, key: string) => {
+    const terminal = props.terminal;
+    if (terminal === undefined || !(await closeTerminalTab(terminal, key))) {
+      return;
+    }
+    await editTabAt(ref, isTerminal(key), "close");
+  };
+  const renameTerminalAt = (ref: PlaceRef, key: string, name: string) => {
+    const person = name.trim() || null;
+    void editTabAt(ref, isTerminal(key), (row) =>
+      terminalNamed(row, person, store),
+    );
+    if (props.terminal !== undefined && ref.kind === "project") {
+      pinAgentSessionName(props.terminal, ref.id, key, person);
+    }
   };
 
   const open = (place: SidebarPlace, item: SidebarSession) => {
     const here = placeKey(place.ref) === placeKey(current);
     if (item.kind === "workflow") props.onWorkflow(item.ref);
+    else if (item.kind === "draft") props.onTab(item.ref);
     else if (item.kind === "terminal") {
       const terminal = props.terminals.find((row) => row.key === item.ref);
       if (terminal !== undefined) props.onTerminal(terminal);
@@ -323,9 +380,14 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
       place: entry.place ?? { kind: "global", id: "" },
     });
   };
-  const renameSession = (item: SidebarSession, title: string) => {
+  const renameSession = (
+    place: SidebarPlace,
+    item: SidebarSession,
+    title: string,
+  ) => {
     if (props.onRenameTab?.(item, title) === true) return;
-    if (item.kind === "session") {
+    if (item.kind === "terminal") renameTerminalAt(place.ref, item.ref, title);
+    else if (item.kind === "session") {
       void sourceOf(item.ref)
         ?.renameSession(item.ref, title)
         .then((result) => {
@@ -335,6 +397,11 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
   };
   // Stop은 session을 current에서 내린다: 도는 turn을 멈추고 탭을 닫는다. 멈추지 못하면 탭을 남긴다.
   const stopSession = (place: SidebarPlace, item: SidebarSession) => {
+    const here = placeKey(place.ref) === placeKey(current);
+    if (item.kind === "terminal" && !here) {
+      void closeTerminalAt(place.ref, item.ref);
+      return;
+    }
     if (item.kind !== "session") {
       props.onCloseTab?.(item);
       return;
@@ -343,7 +410,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     if (source === undefined) return;
     void source.stopSession(item.ref).then((result) => {
       if (!result.ok) return;
-      if (placeKey(place.ref) === placeKey(current)) props.onCloseTab?.(item);
+      if (here) props.onCloseTab?.(item);
       else void closeAgentTabAt(place.ref, item.ref);
     });
   };
@@ -378,7 +445,7 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
         onPlace={props.onPlace}
         onSession={open}
         onRemoveRecent={(_place, item) => recentHidden.hide(item.ref, item.at)}
-        onRenameSession={(_place, item, title) => renameSession(item, title)}
+        onRenameSession={renameSession}
         onStopSession={stopSession}
         {...(projects === undefined
           ? {}

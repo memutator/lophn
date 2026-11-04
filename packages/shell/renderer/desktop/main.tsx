@@ -363,7 +363,7 @@ export function Desktop({
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
-        terminalStore={terminal?.store}
+        windowTerminal={terminal}
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}
@@ -399,7 +399,7 @@ export function Desktop({
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
-        terminalStore={terminal?.store}
+        windowTerminal={terminal}
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}

@@ -127,7 +127,6 @@ import {
   TabStrip,
 } from "../shell/tab-strip.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
-import type { TerminalStore } from "../terminal/store.ts";
 import {
   openBridgeUrl,
   useBridgeOpenRequests,
@@ -231,8 +230,11 @@ export interface PlaceWindowProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 항목을 두지 않는다. */
   terminal?: TerminalDeps;
-  /** 창의 터미널 store. 터미널이 없는 Home·앱 창의 sidebar도 다른 place의 coding agent 터미널을 이것으로 안다. 없으면 `terminal`의 store다. */
-  terminalStore?: TerminalStore;
+  /**
+   * 창의 터미널. 터미널 탭이 없는 Home·앱 창의 sidebar도 다른 place의 coding agent 터미널을 이것으로 알고 닫는다.
+   * 없으면 `terminal`이다.
+   */
+  windowTerminal?: TerminalDeps;
   /** detached 창 통로. 없으면 Detach 항목과 단추를 두지 않는다. */
   detached?: LophnDetachedApi;
   /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
@@ -317,7 +319,7 @@ const sameStop = (a: Stop, b: Stop) =>
 // Home과 앱은 project가 없어(projectId null) 폴더가 필요한 부분을 건너뛴다.
 export function PlaceWindow(props: PlaceWindowProps) {
   const { place, source, windowWidth, onHome, onSettings, terminal } = props;
-  const terminalStore = props.terminalStore ?? terminal?.store;
+  const windowTerminal = props.windowTerminal ?? terminal;
   const projectId = place.kind === "project" ? place.id : null;
   const appId = place.kind === "app" ? place.id : null;
   const isHome = place.kind === "home";
@@ -994,28 +996,31 @@ export function PlaceWindow(props: PlaceWindowProps) {
       : openBridgeUrl(hostRef.current, terminal.store, request),
   );
 
+  // 이 창의 탭 하나를 그 자리(desk, float, 뗀 창)에서 앞으로 낸다.
+  const revealTab = (key: string) => {
+    const found = findTab(latestLayout.current, key);
+    if (found === null) return;
+    if (found.where === "detached") {
+      switchDesk(found.desk);
+      void props.detached?.focus({ key }).catch(() => {});
+      return;
+    }
+    commit(
+      updateDesk(
+        setActiveDesk(latestLayout.current, found.desk),
+        found.desk,
+        (item) =>
+          found.where === "float"
+            ? restoreFloat(item, key)
+            : selectTab(item, key),
+      ),
+    );
+  };
+
   // 알림을 누르면 그 터미널 탭을 고른다.
   useEffect(() => {
     if (terminal === undefined) return;
-    return terminal.store.onSelect((key) => {
-      const found = findTab(latestLayout.current, key);
-      if (found === null) return;
-      if (found.where === "detached") {
-        switchDesk(found.desk);
-        void props.detached?.focus({ key }).catch(() => {});
-        return;
-      }
-      commit(
-        updateDesk(
-          setActiveDesk(latestLayout.current, found.desk),
-          found.desk,
-          (item) =>
-            found.where === "float"
-              ? restoreFloat(item, key)
-              : selectTab(item, key),
-        ),
-      );
-    });
+    return terminal.store.onSelect(revealTab);
   }, [terminal, props.detached]);
 
   // 탭을 OS 창으로 뗀다. 순서는 transfer, 창 열기, 성공했을 때만 layout 바꾸기다. 어느 단계에서
@@ -1497,19 +1502,27 @@ export function PlaceWindow(props: PlaceWindowProps) {
       return session === null ? [] : [[session, tab.title] as const];
     }),
   );
-  // 왼쪽 sidebar 줄(lophn session, 터미널)의 탭. 모든 desk에서 찾는다.
+  // 첫 메시지 전이라 session이 없는 Agent 탭. sidebar의 draft 줄이다.
+  const agentDrafts = windowTabs.filter(
+    (tab) => tab.kind === "agent" && sessionOf(tab) === null,
+  );
+  // 왼쪽 sidebar 줄(lophn session, draft, 터미널)의 탭. 모든 desk에서 찾는다.
   const sidebarTabOf = (item: SidebarSession): TabItem | undefined =>
     allTabs(latestLayout.current).find((tab) =>
-      item.kind === "terminal"
-        ? tab.kind === "terminal" && tab.key === item.ref
+      item.kind === "terminal" || item.kind === "draft"
+        ? tab.key === item.ref
         : tab.kind === "agent" && sessionOf(tab) === item.ref,
     );
-  // 왼쪽 sidebar가 강조할 줄: 고른 tab의 session이나 터미널.
+  // 왼쪽 sidebar가 강조할 줄: 고른 tab의 session, draft, 터미널.
+  const currentSession =
+    currentTab?.kind === "agent" ? sessionOf(currentTab) : null;
   const selectedSessionKey =
     currentTab === null || currentTab === undefined
       ? undefined
       : currentTab.kind === "agent"
-        ? sessionKey({ kind: "session", ref: sessionOf(currentTab) ?? "" })
+        ? currentSession === null
+          ? sessionKey({ kind: "draft", ref: currentTab.key })
+          : sessionKey({ kind: "session", ref: currentSession })
         : currentTab.kind === "terminal"
           ? sessionKey({ kind: "terminal", ref: currentTab.key })
           : undefined;
@@ -2152,8 +2165,11 @@ export function PlaceWindow(props: PlaceWindowProps) {
                   agentViewSource={agentViewSource}
                   agents={sidebarAgents.agents}
                   openTitles={agentTabTitles}
+                  agentDrafts={agentDrafts}
                   terminals={panelTerminals}
-                  {...(terminalStore === undefined ? {} : { terminalStore })}
+                  {...(windowTerminal === undefined
+                    ? {}
+                    : { terminal: windowTerminal })}
                   selected={selectedSessionKey}
                   canTerminal={terminal !== undefined}
                   onNewSession={() => void openLophn()}
@@ -2199,6 +2215,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     }
                   }}
                   onWorkflow={selectDesk}
+                  onTab={revealTab}
                   onRenameTab={(item, title) => {
                     const tab = sidebarTabOf(item);
                     if (tab === undefined) return false;

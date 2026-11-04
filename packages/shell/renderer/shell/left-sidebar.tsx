@@ -342,6 +342,7 @@ function SessionRow({
       data-recent={recent || undefined}
       data-session={item.kind === "session" ? item.ref : undefined}
       data-terminal={item.kind === "terminal" ? item.ref : undefined}
+      data-draft={item.kind === "draft" ? item.ref : undefined}
       data-workflow={item.kind === "workflow" ? item.ref : undefined}
       aria-current={selected || undefined}
       onClick={onClick}
@@ -675,7 +676,8 @@ export function LeftSidebar({
                   >
                     {row}
                     <span className={styles.sessionActions}>
-                      {onRenameSession === undefined ? null : (
+                      {onRenameSession === undefined ||
+                      item.kind === "draft" ? null : (
                         <button
                           type="button"
                           className={styles.sessionAction}

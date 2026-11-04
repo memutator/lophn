@@ -7,7 +7,7 @@ import { workspaceIcons } from "../../icons/mod.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
-import { closeTerminalTab } from "../../terminal/deps.ts";
+import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import { tabName } from "../../terminal/model.ts";
 import type { TerminalStore } from "../../terminal/store.ts";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
@@ -113,6 +113,42 @@ export function otherPlaceTerminalTitle(
     : name;
 }
 
+/** 사람이 붙인 이름(`person`, null이면 지움)을 준 터미널 탭. 이 창의 탭과 다른 place의 저장된 탭이 같이 쓴다. */
+export function terminalNamed(
+  tab: TabItem,
+  person: string | null,
+  store: TerminalStore | undefined,
+): TabItem {
+  const { name: _, ...rest } = tab.fields ?? {};
+  return {
+    ...tab,
+    fields: person === null ? rest : { ...rest, name: person },
+    title: tabName({
+      person,
+      sessionName: store?.agentOf(tab.key)?.name ?? null,
+      agentTitle: store?.agentTitleOf(tab.key) ?? null,
+      auto: autoOf(tab),
+    }),
+  };
+}
+
+/** 저장한 coding agent session에도 사람의 이름을 써 고정한다. 지우면(null) 고정을 풀어 harness 이름이 다시 들어온다. */
+export function pinAgentSessionName(
+  terminal: TerminalDeps,
+  project: string,
+  key: string,
+  person: string | null,
+): void {
+  const agent = terminal.store.agentOf(key);
+  if (terminal.bridge === null || agent?.session === undefined) return;
+  void terminal.bridge.renameAgentSession({
+    project,
+    harness: agent.harness,
+    external_session: agent.session,
+    name: person?.slice(0, 200) ?? null,
+  });
+}
+
 // 사람이 plain 터미널에서 직접 띄운 coding agent도 main이 알려 주면 그 제품 아이콘을 쓴다. 모르는 제품은 kind 아이콘이다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
@@ -151,31 +187,11 @@ export const terminalKind: TabKindDef = {
   rename(tab, name, host) {
     const person = name?.trim() || null;
     const terminal = host.props.terminal;
-    host.patchTab(tab.key, (current) => {
-      const { name: _, ...rest } = current.fields ?? {};
-      return {
-        fields: person === null ? rest : { ...rest, name: person },
-        title: tabName({
-          person,
-          sessionName: terminal?.store.agentOf(tab.key)?.name ?? null,
-          agentTitle: terminal?.store.agentTitleOf(tab.key) ?? null,
-          auto: autoOf(current),
-        }),
-      };
-    });
-    // 저장한 session에도 사람의 이름을 써 고정한다. 지우면(null) 고정을 풀어 harness 이름이 다시 들어온다.
-    const agent = terminal?.store.agentOf(tab.key);
-    if (
-      terminal?.bridge &&
-      agent?.session !== undefined &&
-      host.projectId !== null
-    ) {
-      void terminal.bridge.renameAgentSession({
-        project: host.projectId,
-        harness: agent.harness,
-        external_session: agent.session,
-        name: person?.slice(0, 200) ?? null,
-      });
+    host.patchTab(tab.key, (current) =>
+      terminalNamed(current, person, terminal?.store),
+    );
+    if (terminal !== undefined && host.projectId !== null) {
+      pinAgentSessionName(terminal, host.projectId, tab.key, person);
     }
   },
   fromStored(stored, { key }) {

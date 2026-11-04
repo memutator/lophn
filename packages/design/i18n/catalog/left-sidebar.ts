@@ -24,6 +24,7 @@ export const leftSidebar = {
   "left-sidebar.heading.places": "Places",
   "left-sidebar.label.home": "Home",
   "left-sidebar.label.nav": "Sidebar",
+  "left-sidebar.label.new-session": "New session",
   "left-sidebar.label.recent": "Recent",
   "left-sidebar.label.session-name": "Session name",
   "left-sidebar.label.recent-page": "{start}–{end} of {total}",

@@ -3,12 +3,14 @@
 // 규칙
 // - current: 이 창에 탭이 열린 session, 또는 끝나지 않았고 점이 있는 session(도는 중, 기다리는 중, 못 본 turn 끝).
 //   탭이 열렸는지는 place마다 그 place의 layout에서 읽는다(`openTitles`). 닫기 전에는 current에 남는다.
+// - lophn session은 첫 메시지를 보낼 때 생긴다. 그 전의 Agent 탭은 이 창이 보이는 place의 draft 줄("New session")이다.
 // - recent: 나머지(끝났거나 닫았거나 가만히 있는). 이 창이 보이는 place에만 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 place의 것만 온다.
 //   다른 place는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
-// - 줄의 연필·x(actions)는 lophn session은 어느 place든, 터미널은 이 창이 보이는 place의 것만 있다. workflow desk는 없다.
-// - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
+// - 줄의 연필·x(actions)는 lophn session과 터미널은 어느 place든 있다. draft는 x만, workflow desk는 없다.
+// - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
+//   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
 import { t } from "@lophn/i18n";
 
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
@@ -41,6 +43,8 @@ export interface PlacesInput {
   readonly known: KnownSessions;
   /** place key → 그 place의 layout에 탭이 열린 session id → 그 탭의 제목. */
   readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
+  /** 이 창의 아직 session이 없는 Agent 탭. */
+  readonly drafts: readonly { readonly key: string; readonly agent: string }[];
   /** 이 창이 보이는 place의 터미널 coding agent session. */
   readonly terminals: readonly PanelTerminal[];
   /** place key → 그 place의 layout에 탭이 열렸고 agent가 지금 도는 터미널(이 창이 보이지 않는 place). */
@@ -101,6 +105,20 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
     }
   }
 
+  for (const draft of input.drafts) {
+    const agent = agents.get(draft.agent);
+    if (agent === undefined) continue;
+    add(current, here, {
+      kind: "draft",
+      ref: draft.key,
+      title: t("left-sidebar.label.new-session"),
+      agent: { kind: "lophn", profile: agent.profile },
+      dot: null,
+      actions: true,
+      at: 0,
+    });
+  }
+
   for (const terminal of input.terminals) {
     const item: SidebarSession = {
       kind: "terminal",
@@ -125,7 +143,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
         title: terminal.title,
         agent: codingFace(terminal.harness),
         dot: terminal.dot,
-        actions: false,
+        actions: true,
         at: 0,
       });
     }
@@ -133,6 +151,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
 
   const byNewest = (a: SidebarSession, b: SidebarSession) => b.at - a.at;
   // session id는 시각 순이라 만든 순이 된다. 새 줄은 끝에 붙고 다시 시작해도 같다.
+  const order = { session: 0, draft: 1, terminal: 2, workflow: 3 };
   const stable = (a: SidebarSession, b: SidebarSession) =>
     a.kind === b.kind
       ? a.ref < b.ref
@@ -140,9 +159,7 @@ export function sidebarPlaces(input: PlacesInput): SidebarPlace[] {
         : a.ref > b.ref
           ? 1
           : 0
-      : a.kind === "session"
-        ? -1
-        : 1;
+      : order[a.kind] - order[b.kind];
   const place = (ref: PlaceRef, name: string): SidebarPlace => {
     const key = placeKey(ref);
     const waiting: SidebarSession[] =

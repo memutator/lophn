@@ -284,6 +284,14 @@ components:
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-harness-api, coding-agent-cli-interface]
 
+  - id: architecture-extension
+    kind: doc
+    roles: [planner, lead]
+    description: 본체와 따로 켜는 기능 묶음. manifest, shell main registry, 설정 extensions.<id>.enabled, ctx, 표시 file로 지우기.
+    path: project-docs/architecture/extension.md
+    change_reasons:
+      boundaries: [extension-host, shell-extension, extension-api]
+
   - id: architecture-terminal-agent
     kind: doc
     roles: [planner, lead]

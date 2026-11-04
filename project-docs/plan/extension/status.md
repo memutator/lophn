@@ -4,5 +4,5 @@ lead만 고친다. `tools/status.py extension build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `extension-core` | extension | 1 | 없음 | running | extension/extension-core |  |  |
+| `extension-core` | extension | 1 | 없음 | merged | extension/extension-core | 3f5d027e5 |  |
 | `extension-settings` | extension | 2 | extension-core | todo |  |  |  |

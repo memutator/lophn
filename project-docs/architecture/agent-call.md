@@ -16,6 +16,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
                                           unattended 표시: 봉투, 입력, 행에 싣는다
 
  받는 곳이 coding_agent로 풀리면 ─▶ invalid_input (call 행 없음. coding session은 없다)
+ agent가 보낸 call이 call 정책 밖이면     ─▶ forbidden     (call 행도 새 session도 없음)
  agent가 보낸 call을 받는 agent가 못 받으면 ─▶ invalid_input (call 행도 새 session도 없음)
 ```
 
@@ -33,7 +34,8 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 실패는 조용히 버리지 않고 한 번만 알린다. 보낼 때 바로 아는 배달 실패(not_found, closed)는 agent에게 call tool 결과(`state: failed`, 이유)로만 돌려준다. 배달 뒤에 늦게 아는 실패(receiver_ended: 받은 session이 답 없이 끝남, lophn_restarted)는 tool 결과가 이미 돌아간 뒤라 이유를 붙여 보낸 session에 새 입력으로 돌아간다.
   - 같은 실패를 tool 결과와 입력 둘로 받으면 agent가 두 번 반응한다. 사람이 보낸 쪽이면 오류 코드로 바로 돌려준다. 보낸 session이 이미 없으면 알릴 곳이 없어 둔다.
 - 부를 수 있는 session 목록의 상태는 running, waiting, idle, unknown이다. waiting·unknown은 지금 내는 곳이 없다. lophn session은 reader가 허락 기다림을 못 봐서 running으로 보인다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
-- 부르는 것 자체에는 묻지도 막지도 않는다. call tool에 Gate가 없고 Router는 누구를 부르는지를 판정하지 않는다. 누구를 부르는지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
+- 부르는 것 자체에는 묻지 않는다. call tool에 Gate가 없다. place 안에서 누구를 부를지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
+- 어느 place에서 어느 place로 부를 수 있는지(시야)는 call 정책이 정한다(사람, 2026-11-04: place마다 agent가 열이면 agent 쌍을 하나하나 고르기엔 경우가 너무 많다). 기본 표는 program에 있다: 같은 place, project·앱 → home, home → project·앱은 허용, 다른 project나 다른 앱으로는 거절. 설정 `lophn-agent.call_policy`의 `places`(place 쌍)가 기본 표를 덧쓰고 `agents`(agent id 쌍)가 예외로 그 위를 덧쓴다. 판정은 agent 예외 → place 덧쓰기 → 기본 표 순이고 같은 쌍은 먼저 적힌 것이 이긴다(`packages/protocol/lophn-agent/call-policy.ts` `mayCall`). Router는 agent가 보낸 call만 받는 곳을 푼 뒤 본다(`router.ts` `policyRefusal`, 명함 검사보다 앞). 거절은 `forbidden`이고 tx가 되돌아간다. 설정은 writer Worker가 call마다 data root의 설정 file에서 읽어 바꾸면 다음 call부터 닿는다. 사람은 Settings › Agents의 "Calls between places" 절에서 쌍을 더하고 지운다.
 - Router는 agent가 보낸 call을 받는 agent의 명함(`architecture/agent-definition.md`)과 대조한다. body의 block(`text` → text, `image` → image, `resource_link`·`resource` → file)이 명함의 입력 modality에 없거나, 답 방식이 명함의 답 방식에 없으면 `invalid_input`이고 글에 받는 agent와 빠진 것을 적는다(`packages/core/router/router.ts` `refusal()`, `SessionDirectory.accepts`). 받는 곳을 푼 뒤, 배달 전에 본다. 거절은 command의 err라 tx가 되돌아가 call 행도 그 사이 연 새 session도 남지 않는다.
   - 사람 메시지, program 알림, workflow step(`from: program`), 답(`router.reply`)은 보지 않는다. 명함을 읽고 고르는 것은 부르는 agent라, 막는 것도 agent의 고르기 실수만이다.
   - model이 이미지를 못 받는 것은 거절하지 않고 명함이 알린다.

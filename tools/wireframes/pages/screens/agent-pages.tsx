@@ -19,6 +19,7 @@ import { documentTab } from "../../mock/phroner-data.ts";
 import {
   ApprovalDenyScene,
   ApprovalScene,
+  ApprovalScopesScene,
   ApprovalStatesScene,
   CallOpenScene,
   CallRepliesScene,
@@ -29,6 +30,8 @@ import {
   WorkingMessagesScene,
   EditDiffScene,
   FindScene,
+  HarnessModeScene,
+  HarnessScene,
   ModelShortcutScene,
   PermissionsScene,
   QuestionAnsweredScene,
@@ -224,6 +227,12 @@ export const AgentApproval = ApprovalScene;
 export const AgentApprovalDeny = ApprovalDenyScene;
 /** 결정 뒤 상태 넷. */
 export const AgentApprovalStates = ApprovalStatesScene;
+/** 승인 카드의 세 범위와 file 바꾸기 subject. */
+export const AgentApprovalScopes = ApprovalScopesScene;
+/** harness CLI의 session: session 목록 없음, mode·CLI 명령·계획 목록. */
+export const AgentHarness = HarnessScene;
+/** harness의 mode menu. */
+export const AgentHarnessMode = HarnessModeScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
 /** 도는 편집과 call: 일반 tool 줄이 아니라 편집 카드와 call 블록으로 보인다. */

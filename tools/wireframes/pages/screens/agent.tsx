@@ -2,8 +2,11 @@ import type { Area } from "../types.ts";
 import {
   AgentApproval,
   AgentApprovalDeny,
+  AgentApprovalScopes,
   AgentApprovalStates,
   AgentCallOpen,
+  AgentHarness,
+  AgentHarnessMode,
   AgentCallReplies,
   AgentToolFailed,
   AgentToolRunning,
@@ -151,6 +154,27 @@ export const agentArea: Area = {
       description:
         "결정 뒤 대화에 남는 줄 넷이다. 한 번 허락, 항상 허락, 거절(이유 포함), cancelled(이 일이 끝나서 없어진 요청)를 구별한다.",
       render: () => <AgentApprovalStates />,
+    },
+    {
+      id: "new-agent-approval-scopes",
+      title: "Agent · approval scopes",
+      description:
+        "승인 카드의 세 범위다. 한 번 허락, 이 session 동안 허락, 항상 허락(영구로 저장되는 규칙 pattern을 보인다). file 바꾸기 승인은 path와 종류(만들기·고치기·지우기), 줄 수로 쓴다. 단추는 source가 내놓은 범위만 보인다.",
+      render: () => <AgentApprovalScopes />,
+    },
+    {
+      id: "new-agent-harness",
+      title: "Agent · harness CLI session",
+      description:
+        "Claude Code 같은 harness CLI의 session을 같은 채팅 화면이 그린다. 머리에 lophn session 목록이 없고, composer 아래에 그 CLI의 mode가, `/` 목록에 CLI 명령이, 위에 계획(todo) 목록이 있다. 칸은 source의 capability가 켠다.",
+      render: () => <AgentHarness />,
+    },
+    {
+      id: "new-agent-harness-mode",
+      title: "Agent · harness mode menu",
+      description:
+        "harness의 mode 단추를 누른 상태다. 모양은 lophn의 Ask·Skip과 같고 mode의 이름과 수는 그 CLI가 정한다. 첫 mode가 아닌 mode는 경고색이다.",
+      render: () => <AgentHarnessMode />,
     },
     {
       id: "new-agent-skip",

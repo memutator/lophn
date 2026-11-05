@@ -1,0 +1,10 @@
+{"t": 908, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 1038, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 1060, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 1060, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 1085, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 1085, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 1111, "kind": "send", "data": {"id": "rec-4", "type": "bash", "command": "ls"}}
+{"t": 1138, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "bash", "success": true, "data": {"exitCode": 0, "cancelled": false, "workingDir": "/work/bash", "output": "hello.txt\n", "truncated": false, "totalLines": 2, "totalBytes": 10, "outputLines": 2, "outputBytes": 10}}}
+{"t": 3195, "kind": "send", "data": {"id": "rec-6", "type": "get_state"}}
+{"t": 3208, "kind": "recv", "data": {"id": "rec-6", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1ab59-01b0-7608-80f1-28e195b7ce51", "thinkingLevel": "high", "todoPhases": [], "contextUsage": {"tokens": 6846, "contextWindow": 1048576, "percent": 0.6528854370117188}, "goal": null, "fastModeEnabled": false, "slowModeSupported": false, "slowModeEnabled": false, "messageCount": 2, "model": {"id": "base", "provider": "test", "name": "Base", "reasoning": true}}}}

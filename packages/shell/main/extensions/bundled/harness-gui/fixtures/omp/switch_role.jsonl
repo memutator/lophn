@@ -1,0 +1,14 @@
+{"t": 935, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 1063, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 1086, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 1086, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 1111, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 1111, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 1137, "kind": "send", "data": {"id": "rec-4", "type": "get_state"}}
+{"t": 1148, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1ab59-1153-7370-963f-58c15952fb3f", "thinkingLevel": "high", "todoPhases": [], "contextUsage": {"tokens": 6835, "contextWindow": 1048576, "percent": 0.6518363952636719}, "goal": null, "fastModeEnabled": false, "slowModeSupported": false, "slowModeEnabled": false, "messageCount": 0, "model": {"id": "base", "provider": "test", "name": "Base", "reasoning": true}}}}
+{"t": 1162, "kind": "send", "data": {"id": "rec-5", "type": "prompt", "message": "/switch @smol"}}
+{"t": 1166, "kind": "recv", "data": {"type": "model_changed"}}
+{"t": 1172, "kind": "recv", "data": {"type": "command_output", "text": "Session-only model: test/small."}}
+{"t": 1172, "kind": "recv", "data": {"id": "rec-5", "type": "response", "command": "prompt", "success": true, "data": {"agentInvoked": false}}}
+{"t": 1690, "kind": "send", "data": {"id": "rec-6", "type": "get_state"}}
+{"t": 1697, "kind": "recv", "data": {"id": "rec-6", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1ab59-1153-7370-963f-58c15952fb3f", "thinkingLevel": "high", "todoPhases": [], "contextUsage": {"tokens": 11283, "contextWindow": 1000000, "percent": 1.1282999999999999}, "goal": null, "fastModeEnabled": false, "slowModeSupported": false, "slowModeEnabled": false, "messageCount": 0, "model": {"id": "small", "provider": "test", "name": "Small", "reasoning": true}}}}

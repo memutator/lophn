@@ -1,29 +1,52 @@
 // omp adapter. 사람 PATH의 `omp --mode rpc-ui`를 stdio로 띄워 RPC 줄(JSON 한 줄씩, JSON-RPC가 아니다)을 ACP 갱신으로,
-// 창의 ACP 입력을 RPC 명령으로 옮긴다. 승인 mode는 넘기지 않는다(사람 설정. 설정이 없으면 yolo라 승인 카드가 뜨지 않는다).
+// 창의 ACP 입력을 RPC 명령으로 옮긴다. 승인 mode는 사람 설정이라 시작할 때 넘기지 않는다(설정이 없으면 yolo라 승인 카드가
+// 뜨지 않는다). 이 run에서 `set_mode`로 바꾼 뒤에만 `--approval-mode`를 싣고 같은 session을 다시 띄운다.
 // 판은 사람 기계의 18.8.7에 맞춘다: plan mode와 승인 mode를 바꾸는 RPC, 승인의 "이 session 동안" 선택지가 없다.
+// `~/.omp` 설정(role, 승인 mode)은 읽기만 한다.
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { parse } from "yaml";
+import type { Clock } from "../../../../../base/clock.ts";
+import { formatAt } from "../../../../../base/clock.ts";
+import type { IdSource } from "../../../../../base/id.ts";
 import type { AcpInput } from "../../../../../protocol/acp/input.ts";
-import type {
-  AcpEntry,
-  AcpHiddenItem,
-  AcpToolItem,
+import {
+  ACP_TOOL_BODY_LIMIT,
+  type AcpEntry,
+  type AcpHiddenItem,
+  type AcpNoticeItem,
+  type AcpToolDetail,
+  type AcpToolItem,
 } from "../../../../../protocol/acp/items.ts";
 import {
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "../../../../../protocol/acp/reduce.ts";
 import type {
+  AcpCommand,
+  AcpGoal,
+  AcpRole,
   AcpSessionMeta,
   AcpUsage,
 } from "../../../../../protocol/acp/session.ts";
-import type { AcpState, AcpUpdate } from "../../../../../protocol/acp/state.ts";
+import type {
+  AcpChildUpdate,
+  AcpState,
+  AcpTask,
+  AcpUpdate,
+} from "../../../../../protocol/acp/state.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
 
 type Start = HarnessGuiAdapter["start"];
 
-/** adapter가 파일 시스템에 닿는 길(이미지 첨부를 읽는다). test가 바꾼다. */
-export type OmpIo = { readFile(path: string): Promise<Uint8Array> };
+/** adapter가 파일 시스템에 닿는 길. 이미지 첨부와 omp 설정(role, 승인 mode)을 읽는다. 쓰는 길은 없다. test가 바꾼다. */
+export type OmpIo = {
+  /** 사람의 home. `<home>/.omp/agent/config.yml`을 읽는다. */
+  home: string;
+  readFile(path: string): Promise<Uint8Array>;
+};
 
 // 읽는 칸만 적은 wire 모양이다. 줄은 JSON.parse한 값을 그대로 이 type으로 본다.
 type Block = {
@@ -41,8 +64,14 @@ type Msg = {
   errorMessage?: string;
   synthetic?: boolean;
   attribution?: string;
+  steering?: boolean;
   toolCallId?: string;
   isError?: boolean;
+  // bashExecution
+  command?: string;
+  output?: string;
+  exitCode?: number;
+  cancelled?: boolean;
 };
 type Model = {
   id: string;
@@ -51,6 +80,17 @@ type Model = {
   reasoning?: boolean;
 };
 type Todo = { name: string; tasks: { content: string; status: string }[] };
+type Goal = {
+  objective: string;
+  status: string;
+  tokensUsed?: number;
+  tokenBudget?: number;
+};
+type UsageLimit = {
+  stage: string;
+  resetsAtSec?: number;
+  allowanceLeftPercent?: number;
+};
 type State = {
   sessionId: string;
   sessionName?: string;
@@ -58,11 +98,30 @@ type State = {
   thinkingLevel?: string;
   todoPhases?: Todo[];
   contextUsage?: { tokens?: number | null; contextWindow?: number | null };
+  goal?: { goal?: Goal } | null;
+  usageLimit?: UsageLimit | null;
+  fastModeEnabled?: boolean;
+  slowModeSupported?: boolean;
+  slowModeEnabled?: boolean;
+  slowModeScope?: string | null;
 };
+type Stats = {
+  assistantMessages?: number;
+  tokens?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+  };
+  cost?: number;
+};
+type BashResult = { output?: string; exitCode?: number; cancelled?: boolean };
 type Command = {
   name: string;
   description?: string;
   input?: { hint?: string };
+  source?: string;
+  aliases?: string[];
 };
 type AskQuestion = {
   id: string;
@@ -71,6 +130,26 @@ type AskQuestion = {
   options: { label: string; description?: string }[];
   multi?: boolean;
   recommended?: number;
+};
+type Progress = {
+  id?: string;
+  currentToolIntent?: string;
+  recentOutput?: string[];
+  recentTools?: { intent?: string }[];
+  resolvedModel?: string;
+};
+type Payload = {
+  id?: string;
+  agent?: string;
+  description?: string;
+  status?: string;
+  index?: number;
+  parentToolCallId?: string;
+  detached?: boolean;
+  /** `subagent_event`의 자식 event. */
+  event?: Frame;
+  /** `subagent_progress`. */
+  progress?: Progress;
 };
 type Frame = {
   type: string;
@@ -95,6 +174,7 @@ type Frame = {
   status?: string;
   agentInvoked?: boolean;
   level?: string;
+  notifyType?: string;
   text?: string;
   attempt?: number;
   maxAttempts?: number;
@@ -104,12 +184,8 @@ type Frame = {
   to?: string;
   aborted?: boolean;
   skipped?: boolean;
-  payload?: {
-    id: string;
-    agent: string;
-    description?: string;
-    status: string;
-  };
+  goal?: Goal | null;
+  payload?: Payload;
   commands?: Command[];
   method?: string;
   title?: string;
@@ -144,8 +220,86 @@ const CATEGORIES: Record<string, AcpToolItem["category"]> = {
 // 끝낼 때 omp가 session을 닫는 시간. 넘으면 SIGTERM이다.
 const EXIT_WAIT_MS = 5000;
 
+// omp는 handle이 없는 `/이름`을 model에게 글로 보낸다. 18.8.7에서 TUI 전용인 이름(그 별칭 포함)은 보내지 않고 막는다.
+// adapter가 RPC로 하는 `new`, `clear`, `fork`, `branch`, `tree`, `goal`은 여기에 없다.
+const TUI_ONLY = new Set(
+  (
+    "settings setup providers plan plan-review vibe guided-goal loop queue collab join leave copy open " +
+    "hotkeys extensions status agents git hub login logout delete resume btw tan omfg cleanse debug exit restart " +
+    "live record pause quit q skills"
+  ).split(" "),
+);
+
+const COMMAND_SOURCES: Record<string, AcpCommand["source"]> = {
+  builtin: "harness",
+  skill: "skill",
+  extension: "plugin",
+  mcp_prompt: "mcp",
+  custom: "custom_user",
+  file: "custom_user",
+};
+const COMMAND_OPENS: Record<string, AcpCommand["opens"]> = {
+  model: "model",
+  effort: "effort",
+  compact: "compact",
+  rename: "rename",
+};
+// omp RPC 목록에는 없지만 adapter가 RPC로 하는 TUI 이름.
+const ADAPTER_COMMANDS: AcpCommand[] = [
+  {
+    name: "new",
+    aliases: ["clear"],
+    description: "Start a new session in this tab",
+    argument_hint: null,
+    source: "harness",
+    opens: null,
+  },
+  {
+    name: "fork",
+    aliases: [],
+    description: "Fork the session",
+    argument_hint: null,
+    source: "harness",
+    opens: "fork",
+  },
+  {
+    name: "branch",
+    aliases: ["tree"],
+    description: "Rewind to an earlier message",
+    argument_hint: null,
+    source: "harness",
+    opens: "rewind",
+  },
+  {
+    name: "goal",
+    aliases: [],
+    description: "Set a persistent goal for this session",
+    argument_hint: "<objective|pause|resume|drop>",
+    source: "harness",
+    opens: null,
+  },
+];
+
+const MODES = [
+  {
+    id: "always-ask",
+    label: "Always ask",
+    description: "Auto-approve read-only tools; ask for write and exec tools.",
+  },
+  {
+    id: "write",
+    label: "Write",
+    description: "Auto-approve read and workspace-write tools; ask for exec.",
+  },
+  { id: "yolo", label: "Allow all", description: "Auto-approve every tool." },
+];
+// 이 role들은 대화 model이 아니다(이미지, web 등 일감별 model).
+const MODEL_ROLES = new Set(["image", "web", "speech", "dictation", "judge"]);
+const SLASH = /^\/(\S+)(?:\s+([\s\S]*))?$/;
+
 // biome-ignore lint/suspicious/noControlCharactersInRegex: 터미널 색 escape를 지운다.
 const ANSI = /\u001b\[[0-9;]*m/g;
+const plain = (text: string) => text.replace(ANSI, "");
 const oneLine = (text: string, max: number) =>
   text
     .replace(/\s*\n\s*/g, " ")
@@ -160,6 +314,17 @@ const errorText = (frame: Frame) =>
   typeof frame.error === "string"
     ? frame.error
     : (frame.error?.message ?? "omp failed");
+const cut = (text: string | null) =>
+  text !== null && text.length > ACP_TOOL_BODY_LIMIT
+    ? text.slice(0, ACP_TOOL_BODY_LIMIT)
+    : text;
+const bodyOf = (input: string | null, output: string | null) => ({
+  input: cut(input),
+  output: cut(output),
+  truncated:
+    (input?.length ?? 0) > ACP_TOOL_BODY_LIMIT ||
+    (output?.length ?? 0) > ACP_TOOL_BODY_LIMIT,
+});
 
 /** 같은 종류 block의 글을 이어 붙인다. 스트림 snapshot은 앞 글에 덧붙기만 한다. */
 const joined = (content: Msg["content"], kind: "text" | "thinking") =>
@@ -173,6 +338,9 @@ const joined = (content: Msg["content"], kind: "text" | "thinking") =>
           return text ? [text] : [];
         })
         .join("\n");
+
+const resultText = (content: Block[] | undefined) =>
+  (content ?? []).map((block) => block.text ?? "").join("");
 
 /** 창이 보낸 content를 omp에 줄 글로 만든다. 앱 context와 이미지가 아닌 file도 글이다. */
 const textOf = (content: ContentBlock[]) =>
@@ -191,7 +359,11 @@ type Call = {
   id: string;
   name: string;
   args: Record<string, unknown>;
+  /** body.input에 싣는 args JSON. */
+  input: string;
   done: boolean;
+  /** `task` tool이 띄운 subagent가 이 줄에 붙었다. */
+  spawned?: boolean;
   /** `ask`이면 묶음 id와 질문, 받은 답. */
   question?: { group: string; asked: AskQuestion[]; answers: string[][] };
 };
@@ -232,13 +404,474 @@ const toAcpQuestions = (asked: AskQuestion[]) =>
     multiSelect: one.multi === true,
   }));
 
+type Sub = {
+  id: string;
+  agent: string;
+  description: string;
+  state: "running" | "done" | "failed" | "cancelled";
+  model: string | null;
+  last: string | null;
+  detached: boolean;
+  /** 이 subagent를 보이는 tool 줄이 든 대화와 그 줄. */
+  line: { thread: Thread; call: Call };
+  child: Thread;
+  /** 마지막으로 낸 detail. 같으면 다시 내지 않는다. */
+  shown: string;
+};
+
+const taskDetail = (
+  args: Record<string, unknown>,
+  state: "running" | "failed" | "cancelled",
+): AcpToolDetail => {
+  const first = (Array.isArray(args.tasks) ? args.tasks[0] : undefined) as
+    | { agent?: string; task?: string; name?: string }
+    | undefined;
+  return {
+    kind: "subagent",
+    agent: str(first?.agent) || "task",
+    description: oneLine(str(first?.task) || str(first?.name), 120),
+    child: null,
+    state,
+    model: null,
+    last: null,
+  };
+};
+
+type Hooks = {
+  /** 사람 message가 왔다(`message_end`의 user). */
+  user(msg: Msg): void;
+  /** turn이 끝나는 자리(열린 승인 카드를 닫는다). */
+  ending?(): void;
+  /** tool call의 첫 값을 바꾼다(`ask`가 질문을 먼저 받았다). */
+  preset?(name: string): Partial<Call> | undefined;
+  /** tool 줄이 열렸다(`task` tool 줄에 subagent를 붙이려고 기억한다). */
+  started?(self: Thread, ompId: string, call: Call): void;
+};
+
+/**
+ * 대화 하나(부모 또는 subagent 자식)가 쓰는 상태와 omp event → ACP 갱신 옮기기. 순번, turn, 흘러나온 글, tool call을
+ * 대화마다 따로 든다. `emit`이 부모는 그대로 publish하고 자식은 `child_update`로 싼다.
+ */
+function thread(
+  emit: (update: AcpChildUpdate) => void,
+  ids: IdSource,
+  clock: Clock,
+  cwd: string,
+  hooks: Hooks,
+) {
+  let seq = 0;
+  let turn: string | null = null;
+  let lastTurn: string | null = null;
+  const streams = new Map<
+    string,
+    { call: string; text: number; thinking: number }
+  >();
+  const calls = new Map<string, Call>();
+  const now = () => clock.now();
+
+  function startTurn(): string {
+    const id = ids.newId("trn");
+    turn = id;
+    lastTurn = id;
+    emit({ type: "turn_started", turn: id, at: now() });
+    return id;
+  }
+  const ensureTurn = () => turn ?? startTurn();
+
+  /** `outside`는 도는 turn의 일부가 아닌 알림이다(명령 출력). */
+  function notice(body: AcpNoticeItem["notice"], outside = false) {
+    emit({
+      type: "notice_added",
+      item: {
+        kind: "notice",
+        id: ids.newId("msg"),
+        seq: ++seq,
+        at: now(),
+        turn: outside ? null : turn,
+        notice: body,
+      },
+    });
+  }
+
+  function message(
+    id: string,
+    content: ContentBlock[],
+    extra: {
+      origin: string | null;
+      actor?: "user" | "received";
+      delivery?: "next_turn" | "steer";
+    },
+  ): string {
+    const mine = ensureTurn();
+    emit({
+      type: "message_added",
+      item: {
+        kind: "message",
+        id,
+        seq: ++seq,
+        at: now(),
+        actor: extra.actor ?? "user",
+        sender:
+          extra.actor === "received"
+            ? { kind: "agent", agent: null, name: null }
+            : null,
+        call: null,
+        reply_to: null,
+        delivery: extra.delivery ?? "next_turn",
+        turn: mine,
+        origin: extra.origin,
+        content,
+        reasoning: null,
+        cards: [],
+        complete: true,
+      },
+    });
+    return mine;
+  }
+
+  function recordAssistant(msg: Msg, modelCall: string | null) {
+    const text = joined(msg.content, "text");
+    const thinking = joined(msg.content, "thinking");
+    if (text === "" && thinking === "") return;
+    emit({
+      type: "message_recorded",
+      turn: ensureTurn(),
+      message: ids.newId("msg"),
+      model_call: modelCall,
+      seq: ++seq,
+      at: now(),
+      body: {
+        content: text === "" ? [] : [{ type: "text", text }],
+        reasoning:
+          thinking === "" ? null : { text: thinking, duration_ms: null },
+        cards: [],
+      },
+    });
+  }
+
+  function toolStart(
+    id: string,
+    name: string,
+    args: Record<string, unknown>,
+    extra?: { title?: string; detail?: AcpToolDetail; turn?: string },
+  ): Call {
+    const known = calls.get(id);
+    if (known !== undefined) return known;
+    const call: Call = {
+      id: ids.newId("tcl"),
+      name,
+      args,
+      input: JSON.stringify(args, null, 2),
+      done: false,
+      ...hooks.preset?.(name),
+    };
+    calls.set(id, call);
+    const path = str(args.path);
+    let summary = "";
+    for (const key of ["path", "command", "pattern", "url", "query"]) {
+      const value = str(args[key]);
+      if (value !== "") {
+        summary = oneLine(key === "path" ? relative(cwd, value) : value, 120);
+        break;
+      }
+    }
+    emit({
+      type: "tool_started",
+      item: {
+        kind: "tool",
+        id: call.id,
+        seq: ++seq,
+        at: now(),
+        turn: extra?.turn ?? ensureTurn(),
+        tool: name,
+        category: CATEGORIES[name] ?? "other",
+        title: extra?.title ?? (summary === "" ? name : `${name} ${summary}`),
+        state: "running",
+        duration_ms: null,
+        detail:
+          extra?.detail ??
+          (name === "ask"
+            ? {
+                kind: "question",
+                group: call.question?.group ?? null,
+                outcome: null,
+                lines: [],
+              }
+            : name === "task"
+              ? taskDetail(args, "running")
+              : EDIT_TOOLS.includes(name) && path !== ""
+                ? {
+                    kind: "edit",
+                    document: path,
+                    path: relative(cwd, path),
+                    added: lines(args.content),
+                    removed: 0,
+                  }
+                : { kind: "generic" }),
+        body: bodyOf(call.input, null),
+      },
+    });
+    hooks.started?.(self, id, call);
+    return call;
+  }
+
+  function toolEnd(
+    call: Call,
+    state: "ok" | "error" | "denied" | "cancelled",
+    output: string | null,
+    detail?: AcpToolDetail,
+  ) {
+    call.done = true;
+    const asked = call.question;
+    emit({
+      type: "tool_ended",
+      tool_call: call.id,
+      state,
+      at: now(),
+      detail:
+        detail ??
+        (asked !== undefined
+          ? {
+              kind: "question",
+              group: asked.group,
+              outcome: state === "ok" ? "submitted" : "cancelled",
+              lines: asked.asked.map((one, index) => ({
+                header: one.header ?? oneLine(one.question, 24),
+                answer: asked.answers[index]?.join(", ") ?? null,
+              })),
+            }
+          : call.name === "task" && state !== "ok" && call.spawned !== true
+            ? taskDetail(
+                call.args,
+                state === "cancelled" ? "cancelled" : "failed",
+              )
+            : null),
+      body: bodyOf(call.input, output),
+    });
+  }
+
+  function onToolEnd(frame: Frame): Call | undefined {
+    const call = calls.get(frame.toolCallId ?? "");
+    if (call === undefined || call.done) return undefined;
+    const text = resultText(frame.result?.content);
+    toolEnd(
+      call,
+      frame.isError !== true
+        ? "ok"
+        : text.startsWith(DENIED)
+          ? "denied"
+          : "error",
+      text,
+    );
+    return call;
+  }
+
+  function endTurn(
+    outcome: "completed" | "stopped" | "failed",
+    error?: { code: string; message: string },
+  ) {
+    if (turn === null) return;
+    const id = turn;
+    turn = null;
+    hooks.ending?.();
+    for (const call of calls.values()) {
+      if (!call.done) toolEnd(call, "cancelled", null);
+    }
+    calls.clear();
+    streams.clear();
+    emit({
+      type: "turn_ended",
+      turn: id,
+      at: now(),
+      outcome,
+      active_ms: null,
+      error: error ?? null,
+      messages: [],
+      seq: ++seq,
+    });
+  }
+
+  function onUpdate(frame: Frame) {
+    const msg = frame.message;
+    if (typeof msg !== "object" || msg.role !== "assistant") return;
+    const key = frame.messageId ?? "";
+    const stream = streams.get(key) ?? {
+      call: ids.newId("mcl"),
+      text: 0,
+      thinking: 0,
+    };
+    streams.set(key, stream);
+    for (const [kind, name] of [
+      ["text", "text"],
+      ["thinking", "reasoning"],
+    ] as const) {
+      const full = joined(msg.content, kind);
+      if (full.length <= stream[kind]) continue;
+      emit({
+        type: "writing_streamed",
+        turn: ensureTurn(),
+        model_call: stream.call,
+        kind: name,
+        offset: stream[kind],
+        text: full.slice(stream[kind]),
+        at: now(),
+      });
+      stream[kind] = full.length;
+    }
+  }
+
+  /** 부모와 자식이 같이 쓰는 대화 event. 다룬 것이면 true. */
+  function frame(f: Frame): boolean {
+    switch (f.type) {
+      case "agent_start":
+        ensureTurn();
+        return true;
+      case "agent_end": {
+        // 이어질 때(재시도, compaction 뒤)는 turn이 끝난 것이 아니다.
+        if (f.yielded === false || f.isTerminal === false) return true;
+        const last = [...(f.messages ?? [])]
+          .reverse()
+          .find((one) => one.role === "assistant");
+        if (last?.stopReason === "aborted") endTurn("stopped");
+        else if (last?.stopReason === "error") {
+          endTurn("failed", {
+            code: "internal",
+            message: last.errorMessage ?? "omp failed",
+          });
+        } else endTurn("completed");
+        return true;
+      }
+      case "message_start": {
+        const msg = f.message;
+        if (typeof msg === "object" && msg.role === "assistant") {
+          streams.set(f.messageId ?? "", {
+            call: ids.newId("mcl"),
+            text: 0,
+            thinking: 0,
+          });
+        }
+        return true;
+      }
+      case "message_update":
+        onUpdate(f);
+        return true;
+      case "message_end": {
+        const msg = f.message;
+        if (typeof msg !== "object") return true;
+        if (msg.role === "user") hooks.user(msg);
+        else if (msg.role === "assistant") {
+          const stream = streams.get(f.messageId ?? "");
+          streams.delete(f.messageId ?? "");
+          recordAssistant(msg, stream?.call ?? null);
+        }
+        return true;
+      }
+      case "tool_execution_start":
+        toolStart(f.toolCallId ?? "", f.toolName ?? "", f.args ?? {});
+        return true;
+      case "tool_execution_end":
+        onToolEnd(f);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /** 저장된 대화를 그린다. 사람 message는 `addUser`가 거르고 그린다. */
+  function replay(messages: Msg[], addUser: (msg: Msg) => void) {
+    const results = new Map<string, { error: boolean; text: string }>();
+    for (const msg of messages) {
+      if (msg.role === "toolResult" && msg.toolCallId) {
+        results.set(msg.toolCallId, {
+          error: msg.isError === true,
+          text: joined(msg.content, "text"),
+        });
+      }
+    }
+    let bashes = 0;
+    for (const msg of messages) {
+      if (msg.role === "user") addUser(msg);
+      else if (msg.role === "assistant") {
+        recordAssistant(msg, null);
+        for (const block of Array.isArray(msg.content) ? msg.content : []) {
+          if (block.type !== "toolCall" || !block.id) continue;
+          const call = toolStart(
+            block.id,
+            block.name ?? "",
+            block.arguments ?? {},
+          );
+          const result = results.get(block.id);
+          toolEnd(
+            call,
+            result === undefined ? "cancelled" : result.error ? "error" : "ok",
+            result?.text ?? null,
+          );
+        }
+      } else if (msg.role === "bashExecution") {
+        const call = toolStart(`replay-bash-${++bashes}`, "bash", {
+          command: msg.command ?? "",
+        });
+        toolEnd(
+          call,
+          msg.cancelled === true
+            ? "cancelled"
+            : msg.exitCode !== undefined && msg.exitCode !== 0
+              ? "error"
+              : "ok",
+          msg.output ?? null,
+        );
+      }
+    }
+    endTurn("completed");
+  }
+
+  const self = {
+    get turn() {
+      return turn;
+    },
+    get lastTurn() {
+      return lastTurn;
+    },
+    calls,
+    nextSeq: () => ++seq,
+    startTurn,
+    ensureTurn,
+    notice,
+    message,
+    toolStart,
+    toolEnd,
+    onToolEnd,
+    endTurn,
+    frame,
+    replay,
+    emit,
+  };
+  return self;
+}
+type Thread = ReturnType<typeof thread>;
+
+const SUB_STATES: Record<string, Sub["state"]> = {
+  started: "running",
+  completed: "done",
+  failed: "failed",
+  aborted: "cancelled",
+};
+const TASK_STATES: Record<Sub["state"], AcpTask["state"]> = {
+  running: "running",
+  done: "done",
+  failed: "failed",
+  cancelled: "stopped",
+};
+const noticeLevel = (level: string | undefined) =>
+  level === "warning" || level === "error" ? "warning" : "info";
+
 const start: (io: OmpIo) => Start =
   (io) =>
   async ({ cwd, resume, session, spawn, clock, ids }) => {
-    let seq = 0;
     let closed = false;
     let exited = false;
     let stopping = false;
+    let restarting: Promise<void> | null = null;
     let stderrTail = "";
     const now = () => clock.now();
     // hidden(rewind)이 숨길 항목을 알아야 해서 낸 갱신을 접어 둔다.
@@ -249,25 +882,12 @@ const start: (io: OmpIo) => Start =
       session.publish(update);
     };
 
-    const proc = spawn(
-      "omp",
-      [
-        "--mode",
-        "rpc-ui",
-        `--cwd=${cwd}`,
-        ...(resume === undefined ? [] : [`--resume=${resume}`]),
-      ],
-      { cwd },
-    );
-    proc.onStderr((text) => {
-      stderrTail = (stderrTail + text).slice(-500);
-    });
-    const write = (body: Record<string, unknown>) =>
-      proc.write(`${JSON.stringify(body)}\n`);
-
     // --- 요청과 답 ---
     let counter = 0;
     const waiting = new Map<string, (reply: Reply<unknown>) => void>();
+    let proc!: ReturnType<typeof spawn>;
+    const write = (body: Record<string, unknown>) =>
+      proc.write(`${JSON.stringify(body)}\n`);
     function request<T = unknown>(
       type: string,
       params: Record<string, unknown> = {},
@@ -283,21 +903,13 @@ const start: (io: OmpIo) => Start =
     }
 
     // --- 상태 ---
-    let turn: string | null = null;
-    let lastTurn: string | null = null;
-    const turnText = new Map<string, string>();
-    // prompt id → 그 prompt를 보낸 turn. 늦게 온 prompt_result가 다음 turn을 끝내지 않게 한다.
+    // prompt id → 그 prompt를 보낸 turn. 늦게 온 prompt_result가 다음 turn을 끝내지 않게 한다. 명령용 prompt는 묶지 않는다.
     const promptTurn = new Map<string, string>();
-    const streams = new Map<
-      string,
-      { call: string; text: number; thinking: number }
-    >();
-    const calls = new Map<string, Call>();
-    const subagents = new Map<string, { call: string; done: boolean }>();
+    const turnText = new Map<string, string>();
     const queue: Queued[] = [];
     // 창이 낸 사람 메시지가 omp에서 되돌아오는 글. 겹쳐 내지 않으려고 거른다.
     let pendingEcho: string[] = [];
-    // ACP 사람 메시지 id, 대화 순서대로. rewind·fork가 omp entry와 같은 자리로 짝짓는다.
+    // ACP 사람 메시지 id, 대화 순서대로. rewind·fork가 omp entry와 같은 자리로 짝짓는다. 번호가 message의 origin이다.
     let userIds: string[] = [];
     // omp는 `ask`의 질문(`extension_ui_request`)을 그 tool의 `tool_execution_start`보다 먼저 보낸다(녹화로 확인했다).
     // tool 줄이 아직 없으면 질문이 쓴 id를 기억했다가 그 줄을 같은 id로 연다.
@@ -307,102 +919,273 @@ const start: (io: OmpIo) => Start =
     let open: Dialog | null = null;
     let cliSession: string | null = null;
     let st: State | null = null;
+    let stats: Stats | null = null;
+    let goal: Goal | null = null;
     let models: Model[] = [];
     let levels: string[] = [];
     let commands: Command[] = [];
+    let roles: AcpRole[] = [];
+    let configMode: string | null = null;
+    // 이 run에서 `set_mode`로 바꾼 승인 mode. 없으면 사람 설정을 따른다.
+    let approvalMode: string | null = null;
     let todoJson = "";
+    // 마지막으로 보낸 명령 이름. omp의 `command_output` frame에는 이름이 없다.
+    let lastCommand: string | null = null;
+    // agent가 도는 중인가. `!cmd`만 있는 turn과 구별한다.
+    let agentBusy = false;
+    let bashTurn: string | null = null;
+    let bashJobs = 0;
 
-    function startTurn(): string {
-      const id = ids.newId("trn");
-      turn = id;
-      lastTurn = id;
-      publish({ type: "turn_started", turn: id, at: now() });
-      return id;
+    const taskLines = new Map<string, { thread: Thread; call: Call }>();
+    const registerLine = (self: Thread, ompId: string, call: Call) => {
+      if (call.name === "task") taskLines.set(ompId, { thread: self, call });
+    };
+    const main: Thread = thread(publish, ids, clock, cwd, {
+      user: onUserMessage,
+      ending() {
+        dialogs = [];
+        if (open !== null) {
+          closeDialog(
+            open,
+            open.kind === "approval"
+              ? { approval: "cancelled" }
+              : { question: "cancelled" },
+          );
+        }
+        pendingEcho = [];
+      },
+      preset(name) {
+        if (name !== "ask" || askAhead === null) return undefined;
+        const ahead = askAhead;
+        askAhead = null;
+        return {
+          id: ahead.id,
+          question: { group: ahead.group, asked: ahead.asked, answers: [] },
+        };
+      },
+      started: registerLine,
+    });
+
+    // 명령 출력은 터미널 색 escape를 달고 오고 길 수 있다. turn이 없으면 turn 밖 알림이다.
+    function info(raw: string, level: "info" | "warning" = "info") {
+      main.notice({ type: "info", text: plain(raw), level });
     }
-    const ensureTurn = () => turn ?? startTurn();
-
-    // 명령 출력은 터미널 색 escape를 달고 오고 길 수 있다.
-    function info(raw: string) {
-      const text = raw.replace(ANSI, "").slice(0, 4000);
-      publish({
-        type: "notice_added",
-        item: {
-          kind: "notice",
-          id: ids.newId("msg"),
-          seq: ++seq,
-          at: now(),
-          turn: turn ?? lastTurn ?? ids.newId("trn"),
-          notice: { type: "info", text, level: "info" },
+    function commandOutput(raw: string) {
+      const text = plain(raw);
+      main.notice(
+        {
+          type: "command_output",
+          command: lastCommand ?? "omp",
+          text,
+          format: text.trimStart().startsWith("```")
+            ? "markdown"
+            : "preformatted",
         },
-      });
+        true,
+      );
     }
 
     function addUser(id: string, content: ContentBlock[]) {
+      const origin = `user:${userIds.length}`;
       userIds.push(id);
-      const text = textOf(content);
-      const mine = ensureTurn();
-      turnText.set(mine, text);
-      publish({
-        type: "message_added",
-        item: {
-          kind: "message",
-          id,
-          seq: ++seq,
-          at: now(),
-          actor: "user",
-          sender: null,
-          call: null,
-          reply_to: null,
-          delivery: "next_turn",
-          turn: mine,
-          origin: null,
-          content,
-          reasoning: null,
-          cards: [],
-          complete: true,
-        },
-      });
+      const mine = main.message(id, content, { origin });
+      turnText.set(mine, textOf(content));
     }
 
-    function recordAssistant(msg: Msg, modelCall: string | null) {
-      const text = joined(msg.content, "text");
-      const thinking = joined(msg.content, "thinking");
-      if (text === "" && thinking === "") return;
-      publish({
-        type: "message_recorded",
-        turn: ensureTurn(),
-        message: ids.newId("msg"),
-        model_call: modelCall,
-        seq: ++seq,
-        at: now(),
-        body: {
-          content: text === "" ? [] : [{ type: "text", text }],
-          reasoning:
-            thinking === "" ? null : { text: thinking, duration_ms: null },
-          cards: [],
-        },
+    // --- 연결 ---
+    let gone: Promise<void> = Promise.resolve();
+    let started = false;
+    let onFrame: (frame: Frame) => void = () => {};
+
+    /** omp를 띄우고 `ready`(또는 끝남)까지 기다릴 Promise를 돌려준다. spawn과 handler 등록은 바로 한다. */
+    function connect(args: string[]): Promise<"ready" | "exit"> {
+      const mine = spawn("omp", args, { cwd });
+      proc = mine;
+      exited = false;
+      stderrTail = "";
+      let buffer = "";
+      const chunks = new Map<string, Buffer[]>();
+      let settle: (value: "ready" | "exit") => void = () => {};
+      const first = new Promise<"ready" | "exit">((resolve) => {
+        settle = resolve;
       });
+      let done: () => void = () => {};
+      gone = new Promise<void>((resolve) => {
+        done = resolve;
+      });
+      function onLine(line: string) {
+        if (line.trim() === "") return;
+        let frame: Frame;
+        try {
+          frame = JSON.parse(line) as Frame;
+        } catch {
+          return;
+        }
+        if (frame.type === "ready") {
+          settle("ready");
+        } else if (frame.type === "rpc_chunk") {
+          // v2의 큰 frame. 같은 chunkId의 조각을 순서대로 모아 한 줄로 되돌린다.
+          const parts = chunks.get(frame.chunkId ?? "") ?? [];
+          parts[frame.index ?? 0] = Buffer.from(
+            String(frame.data ?? ""),
+            "base64",
+          );
+          chunks.set(frame.chunkId ?? "", parts);
+          if (parts.filter(Boolean).length === frame.count) {
+            chunks.delete(frame.chunkId ?? "");
+            onLine(Buffer.concat(parts).toString("utf8"));
+          }
+        } else {
+          onFrame(frame);
+        }
+      }
+      mine.onStderr((text) => {
+        stderrTail = (stderrTail + text).slice(-500);
+      });
+      mine.onStdout((text) => {
+        buffer += text;
+        for (
+          let at = buffer.indexOf("\n");
+          at >= 0;
+          at = buffer.indexOf("\n")
+        ) {
+          const line = buffer.slice(0, at);
+          buffer = buffer.slice(at + 1);
+          onLine(line);
+        }
+      });
+      mine.onExit((code) => {
+        exited = true;
+        settle("exit");
+        for (const reply of waiting.values()) {
+          reply({ ok: false, error: "omp exited" });
+        }
+        waiting.clear();
+        done();
+        if (!started || closed || stopping || restarting !== null) return;
+        main.ensureTurn();
+        main.endTurn("failed", {
+          code: "unavailable",
+          message: `omp exited${code === null ? "" : ` (code ${code})`}.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+        });
+      });
+      return first;
+    }
+
+    const argsFor = (resumeId: string | null, mode: string | null) => [
+      "--mode",
+      "rpc-ui",
+      `--cwd=${cwd}`,
+      ...(resumeId === null ? [] : [`--resume=${resumeId}`]),
+      ...(mode === null ? [] : [`--approval-mode=${mode}`]),
+    ];
+
+    // v2로 올려 큰 frame을 chunk로 받고, `ask`의 질문 묶음과 message 전체 snapshot을 켠다(18.8.7의 delta는 믿을 수 없다).
+    // subagent는 `events`까지 받는다(lifecycle, progress, 자식 event).
+    async function handshake(): Promise<string | null> {
+      const negotiated = await request("negotiate_protocol", {
+        protocolVersion: 2,
+      });
+      if (!negotiated.ok) return negotiated.error;
+      void request("set_ask_dialog", { enabled: true });
+      void request("set_event_filter", { events: null });
+      void request("set_subagent_subscription", { level: "events" });
+      return null;
     }
 
     // --- 세션 정보 ---
-    const usageOf = (state: State): AcpUsage | null => {
-      const usage = state.contextUsage;
-      const tokens = usage?.tokens;
-      const limit = usage?.contextWindow;
-      return typeof tokens === "number" && typeof limit === "number"
-        ? {
-            context: { tokens, limit, parts: [] },
-            limits: [],
-            input_tokens: null,
-            output_tokens: null,
-            cache_read_tokens: null,
-            cache_write_tokens: null,
-            turns: null,
-            costs: [],
-            provider: null,
-          }
-        : null;
+    const currentMode = () => approvalMode ?? configMode ?? "yolo";
+    const slowAvailable = () =>
+      st?.slowModeSupported === true && st.slowModeScope === "session";
+
+    const usageOf = (): AcpUsage | null => {
+      const used = st?.contextUsage;
+      const tokens = used?.tokens;
+      const limit = used?.contextWindow;
+      const limited = st?.usageLimit;
+      if (
+        stats === null &&
+        !(typeof tokens === "number" && typeof limit === "number")
+      ) {
+        return null;
+      }
+      const left = limited?.allowanceLeftPercent;
+      return {
+        // 분해(`parts`)는 `/context` 명령 출력에 있다.
+        context:
+          typeof tokens === "number" && typeof limit === "number"
+            ? { tokens, limit, parts: [] }
+            : null,
+        limits:
+          limited === null || limited === undefined
+            ? []
+            : [
+                {
+                  id: limited.stage,
+                  label: limited.stage,
+                  used_percent: left === undefined ? null : 100 - left,
+                  left: left === undefined ? null : `${left}% left`,
+                  resets_at:
+                    limited.resetsAtSec === undefined
+                      ? null
+                      : formatAt(limited.resetsAtSec * 1000),
+                },
+              ],
+        input_tokens: stats?.tokens?.input ?? null,
+        output_tokens: stats?.tokens?.output ?? null,
+        cache_read_tokens: stats?.tokens?.cacheRead ?? null,
+        cache_write_tokens: stats?.tokens?.cacheWrite ?? null,
+        turns: stats?.assistantMessages ?? null,
+        costs:
+          stats?.cost === undefined
+            ? []
+            : [
+                {
+                  kind: "reported",
+                  currency: "USD",
+                  amount: String(stats.cost),
+                },
+              ],
+        provider: null,
+      };
     };
+
+    const goalOf = (): AcpGoal | null => {
+      if (goal === null) return null;
+      const used = goal.tokensUsed ?? 0;
+      return {
+        objective: goal.objective,
+        status:
+          goal.status === "paused"
+            ? "paused"
+            : goal.status === "budget-limited"
+              ? "blocked"
+              : goal.status === "complete"
+                ? "done"
+                : "active",
+        detail:
+          goal.tokenBudget === undefined
+            ? `${used} tokens used`
+            : `${used} of ${goal.tokenBudget} tokens used`,
+      };
+    };
+
+    const commandList = (): AcpCommand[] => [
+      ...commands.map((one) => ({
+        name: one.name,
+        aliases: one.aliases ?? [],
+        description: one.description ?? "",
+        argument_hint: one.input?.hint ?? null,
+        source: COMMAND_SOURCES[one.source ?? "builtin"] ?? "harness",
+        opens: COMMAND_OPENS[one.name] ?? null,
+      })),
+      ...ADAPTER_COMMANDS,
+    ];
+    const isCommand = (name: string) =>
+      TUI_ONLY.has(name) ||
+      commandList().some(
+        (one) => one.name === name || one.aliases.includes(name),
+      );
 
     function meta(): AcpSessionMeta {
       const axis = {
@@ -424,7 +1207,7 @@ const start: (io: OmpIo) => Start =
         capabilities: {
           model: true,
           effort: true,
-          mode: false,
+          mode: true,
           commands: true,
           rewind: true,
           rewind_files: false,
@@ -437,12 +1220,12 @@ const start: (io: OmpIo) => Start =
           images: true,
           retry: true,
           sessions: false,
-          stop_child: false,
-          steer_child: false,
-          tasks: false,
-          toggles: false,
-          goal: false,
-          roles: false,
+          stop_child: true,
+          steer_child: true,
+          tasks: true,
+          toggles: true,
+          goal: true,
+          roles: true,
         },
         models: [...groups].map(([provider, list]) => ({
           id: provider,
@@ -467,20 +1250,32 @@ const start: (io: OmpIo) => Start =
                     : { effort: st.thinkingLevel },
                 layer: null,
               },
-        modes: [],
-        mode: null,
-        commands: commands.map((one) => ({
-          name: one.name,
-          aliases: [],
-          description: one.description ?? "",
-          argument_hint: one.input?.hint ?? null,
-          source: "harness" as const,
-          opens: null,
-        })),
-        usage: st === null ? null : usageOf(st),
-        toggles: [],
-        goal: null,
-        roles: null,
+        modes: MODES,
+        mode: currentMode(),
+        commands: commandList(),
+        usage: st === null ? null : usageOf(),
+        // fast는 늘 낸다(못 쓰는 model이면 켤 때 omp가 오류로 답한다). slow는 session 범위일 때만이다: 전역이면 omp가
+        // 사람의 설정 file에 쓴다.
+        toggles: [
+          {
+            id: "fast",
+            label: "Fast",
+            description: "Priority service tier. Costs more.",
+            on: st?.fastModeEnabled === true,
+          },
+          ...(slowAvailable()
+            ? [
+                {
+                  id: "slow",
+                  label: "Slow",
+                  description: "Low-priority lane past the usage limit.",
+                  on: st?.slowModeEnabled === true,
+                },
+              ]
+            : []),
+        ],
+        goal: goalOf(),
+        roles,
         harness: "omp",
       };
     }
@@ -493,6 +1288,7 @@ const start: (io: OmpIo) => Start =
       if (!reply.ok) return;
       st = reply.data;
       cliSession = st.sessionId;
+      goal = st.goal?.goal ?? null;
       const phases = st.todoPhases ?? [];
       const json = JSON.stringify(phases);
       if (json !== todoJson) {
@@ -505,9 +1301,11 @@ const start: (io: OmpIo) => Start =
               status:
                 task.status === "in_progress"
                   ? ("in_progress" as const)
-                  : task.status === "completed" || task.status === "abandoned"
+                  : task.status === "completed"
                     ? ("completed" as const)
-                    : ("pending" as const),
+                    : task.status === "abandoned"
+                      ? ("cancelled" as const)
+                      : ("pending" as const),
             })),
           ),
         });
@@ -520,117 +1318,231 @@ const start: (io: OmpIo) => Start =
       // 추론하지 않는 model은 ["off"]만 준다. 그 model에서 목록을 비우면 다시 고를 단계를 잃는다.
       if (reply.ok && reply.data.levels.length > 1) levels = reply.data.levels;
     }
+    async function readStats() {
+      const reply = await request<Stats>("get_session_stats");
+      if (reply.ok) stats = reply.data;
+    }
     async function refresh() {
-      await Promise.all([readState(), readLevels()]);
+      await Promise.all([readState(), readLevels(), readStats()]);
       publishMeta();
     }
 
-    // --- tool ---
-    function toolStart(
-      id: string,
-      name: string,
-      args: Record<string, unknown>,
-    ) {
-      const known = calls.get(id);
-      if (known !== undefined) return known;
-      const call: Call = { id: ids.newId("tcl"), name, args, done: false };
-      if (name === "ask" && askAhead !== null) {
-        call.id = askAhead.id;
-        call.question = {
-          group: askAhead.group,
-          asked: askAhead.asked,
-          answers: [],
-        };
-        askAhead = null;
+    // omp 설정은 읽기만 한다. 없거나 못 읽으면 비어 있는 것으로 본다.
+    async function readConfig() {
+      const read = async (path: string) => {
+        try {
+          const text = Buffer.from(await io.readFile(path)).toString("utf8");
+          return (parse(text) ?? {}) as {
+            modelRoles?: Record<string, unknown>;
+            tools?: { approvalMode?: unknown };
+          };
+        } catch {
+          return {};
+        }
+      };
+      const [global, project] = await Promise.all([
+        read(join(io.home, ".omp", "agent", "config.yml")),
+        read(join(cwd, ".omp", "config.yml")),
+      ]);
+      const assigned = { ...global.modelRoles, ...project.modelRoles };
+      roles = Object.entries(assigned).flatMap(([id, model]) =>
+        typeof model === "string"
+          ? [
+              {
+                id,
+                label: id,
+                kind: MODEL_ROLES.has(id)
+                  ? ("model" as const)
+                  : ("chat" as const),
+                model,
+              },
+            ]
+          : [],
+      );
+      const mode = project.tools?.approvalMode ?? global.tools?.approvalMode;
+      configMode = MODES.some((one) => one.id === mode)
+        ? (mode as string)
+        : null;
+    }
+
+    // --- subagent ---
+    const subs = new Map<string, Sub>();
+    let tasks: AcpTask[] = [];
+
+    function childUser(child: Thread, msg: Msg) {
+      child.message(
+        ids.newId("msg"),
+        [{ type: "text", text: joined(msg.content, "text") }],
+        msg.attribution === "agent"
+          ? { origin: null, actor: "received" }
+          : { origin: null, delivery: msg.steering ? "steer" : "next_turn" },
+      );
+    }
+    function makeChild(id: string): Thread {
+      const child: Thread = thread(
+        (update) => publish({ type: "child_update", child: id, update }),
+        ids,
+        clock,
+        cwd,
+        { user: (msg) => childUser(child, msg), started: registerLine },
+      );
+      return child;
+    }
+
+    const detailOf = (sub: {
+      id: string;
+      agent: string;
+      description: string;
+      state: Sub["state"];
+      model: string | null;
+      last: string | null;
+    }): AcpToolDetail => ({
+      kind: "subagent",
+      agent: sub.agent,
+      description: sub.description,
+      child: sub.id,
+      state: sub.state,
+      model: sub.model,
+      last: sub.last,
+    });
+    function showSub(sub: Sub) {
+      const detail = detailOf(sub);
+      const key = JSON.stringify(detail);
+      if (key === sub.shown) return;
+      sub.shown = key;
+      sub.line.thread.emit({
+        type: "tool_detail_changed",
+        tool_call: sub.line.call.id,
+        detail,
+      });
+    }
+    function showTask(sub: Sub) {
+      const before = tasks.find((one) => one.id === sub.id);
+      const task: AcpTask = {
+        id: sub.id,
+        kind: "agent",
+        description: sub.description,
+        state: TASK_STATES[sub.state],
+        started_at: before?.started_at ?? now(),
+        output: null,
+      };
+      tasks = before
+        ? tasks.map((one) => (one.id === sub.id ? task : one))
+        : [...tasks, task];
+      publish({ type: "tasks_changed", tasks });
+    }
+
+    // lifecycle은 task tool이 끝난 뒤에 올 수 있다(background로 돈다). 부모 tool 줄은 그때 detail만 바뀐다.
+    function onLifecycle(payload: Payload) {
+      const id = payload.id ?? "";
+      if (id === "") return;
+      const state = SUB_STATES[payload.status ?? ""] ?? "running";
+      const known = subs.get(id);
+      if (known !== undefined) {
+        known.state = state;
+        showSub(known);
+        if (known.detached) showTask(known);
+        return;
       }
-      calls.set(id, call);
-      const path = str(args.path);
-      let summary = "";
-      for (const key of ["path", "command", "pattern", "url", "query"]) {
-        const value = str(args[key]);
-        if (value !== "") {
-          summary = oneLine(key === "path" ? relative(cwd, value) : value, 120);
-          break;
+      const parent =
+        payload.parentToolCallId === undefined
+          ? undefined
+          : taskLines.get(payload.parentToolCallId);
+      // task 하나가 여러 subagent를 띄울 수 있다. 줄에는 첫 것만 붙고 나머지는 따로 줄을 연다.
+      const attach = parent !== undefined && parent.call.spawned !== true;
+      const given = attach ? parent.call.args.tasks : undefined;
+      const entry = (
+        Array.isArray(given) ? given[payload.index ?? 0] : undefined
+      ) as { task?: string } | undefined;
+      const agent = payload.agent ?? "task";
+      const description =
+        oneLine(payload.description ?? str(entry?.task), 120) || id;
+      const fields = {
+        id,
+        agent,
+        description,
+        state,
+        model: null,
+        last: null,
+      };
+      let line: Sub["line"];
+      let shown = "";
+      if (attach) {
+        parent.call.spawned = true;
+        line = parent;
+      } else {
+        const detail = detailOf(fields);
+        shown = JSON.stringify(detail);
+        const call = main.toolStart(
+          `sub:${id}`,
+          "subagent",
+          {},
+          {
+            title: oneLine(`${agent}: ${description}`, 120),
+            detail,
+            turn: main.turn ?? main.lastTurn ?? ids.newId("trn"),
+          },
+        );
+        // 줄은 바로 끝난다. subagent의 상태는 detail이 말한다.
+        main.toolEnd(call, "ok", null);
+        line = { thread: main, call };
+      }
+      const sub: Sub = {
+        ...fields,
+        detached: payload.detached === true,
+        line,
+        child: makeChild(id),
+        shown,
+      };
+      subs.set(id, sub);
+      showSub(sub);
+      if (sub.detached) showTask(sub);
+    }
+
+    function onProgress(payload: Payload) {
+      const progress = payload.progress;
+      const sub = subs.get(progress?.id ?? "");
+      if (sub === undefined || progress === undefined) return;
+      sub.model = progress.resolvedModel ?? sub.model;
+      sub.last =
+        oneLine(
+          progress.currentToolIntent ??
+            progress.recentOutput?.at(-1) ??
+            progress.recentTools?.at(-1)?.intent ??
+            sub.last ??
+            "",
+          120,
+        ) || null;
+      showSub(sub);
+    }
+
+    // 다시 열었거나 늦게 붙었을 때 이미 도는 subagent의 줄과 대화를 읽어 온다.
+    async function attachRunning() {
+      const list = await request<{
+        subagents?: {
+          id: string;
+          agent?: string;
+          status?: string;
+          index?: number;
+          parentToolCallId?: string;
+        }[];
+      }>("get_subagents");
+      if (!list.ok) return;
+      for (const one of list.data.subagents ?? []) {
+        if (one.status !== "running") continue;
+        onLifecycle({ ...one, status: "started", detached: true });
+        const child = subs.get(one.id)?.child;
+        const page = await request<{ messages?: Msg[] }>(
+          "get_subagent_messages",
+          { subagentId: one.id },
+        );
+        if (child !== undefined && page.ok) {
+          child.replay(page.data.messages ?? [], (msg) => {
+            child.endTurn("completed");
+            childUser(child, msg);
+          });
         }
       }
-      publish({
-        type: "tool_started",
-        item: {
-          kind: "tool",
-          id: call.id,
-          seq: ++seq,
-          at: now(),
-          turn: ensureTurn(),
-          tool: name,
-          category: CATEGORIES[name] ?? "other",
-          title: summary === "" ? name : `${name} ${summary}`,
-          state: "running",
-          duration_ms: null,
-          detail:
-            name === "ask"
-              ? {
-                  kind: "question",
-                  group: call.question?.group ?? null,
-                  outcome: null,
-                  lines: [],
-                }
-              : EDIT_TOOLS.includes(name) && path !== ""
-                ? {
-                    kind: "edit",
-                    document: path,
-                    path: relative(cwd, path),
-                    added: lines(args.content),
-                    removed: 0,
-                  }
-                : { kind: "generic" },
-          body: null,
-        },
-      });
-      return call;
-    }
-
-    function toolEnd(
-      call: Call,
-      state: "ok" | "error" | "denied" | "cancelled",
-    ) {
-      call.done = true;
-      const asked = call.question;
-      publish({
-        type: "tool_ended",
-        tool_call: call.id,
-        state,
-        at: now(),
-        detail:
-          asked === undefined
-            ? null
-            : {
-                kind: "question",
-                group: asked.group,
-                outcome: state === "ok" ? "submitted" : "cancelled",
-                lines: asked.asked.map((one, index) => ({
-                  header: one.header ?? oneLine(one.question, 24),
-                  answer: asked.answers[index]?.join(", ") ?? null,
-                })),
-              },
-        body: null,
-      });
-    }
-
-    function onToolEnd(frame: Frame) {
-      const call = calls.get(frame.toolCallId ?? "");
-      if (call === undefined || call.done) return;
-      const text = (frame.result?.content ?? [])
-        .map((block) => block.text ?? "")
-        .join("");
-      toolEnd(
-        call,
-        frame.isError !== true
-          ? "ok"
-          : text.startsWith(DENIED)
-            ? "denied"
-            : "error",
-      );
-      if (call.name === "todo") void readState();
     }
 
     // --- 사람이 답할 것(승인과 질문) ---
@@ -715,7 +1627,7 @@ const start: (io: OmpIo) => Start =
           outcome: how.approval,
           choice: how.choice ?? null,
           reason: how.reason ?? null,
-          seq: ++seq,
+          seq: main.nextSeq(),
           at: now(),
         });
       } else if (dialog.kind === "question" && "question" in how) {
@@ -747,7 +1659,7 @@ const start: (io: OmpIo) => Start =
           return;
         }
         case "notify":
-          info(note);
+          info(note, noticeLevel(frame.notifyType));
           return;
         case "open_url":
           info(`Open ${frame.url ?? ""}`);
@@ -767,7 +1679,7 @@ const start: (io: OmpIo) => Start =
         : null;
       if (frame.method === "select" && tool !== null) {
         // select에는 toolCallId가 없다. 그 이름으로 가장 최근에 도는 tool에 붙인다.
-        const call = [...calls.values()]
+        const call = [...main.calls.values()]
           .reverse()
           .find((one) => one.name === tool && !one.done);
         dialogs.push({
@@ -807,7 +1719,7 @@ const start: (io: OmpIo) => Start =
       const group = ids.newId("qgr");
       const call =
         frame.method === "ask"
-          ? [...calls.values()]
+          ? [...main.calls.values()]
               .reverse()
               .find((one) => one.name === "ask" && !one.done)
           : undefined;
@@ -835,11 +1747,11 @@ const start: (io: OmpIo) => Start =
       const kind = message.choice.kind;
       if (kind === "mode") return;
       // 영구 규칙(`always`)은 어느 판에서도 답하지 않는다. 한 번 허락으로 줄인다.
-      const session = kind === "session" ? dialog.sessionOption : undefined;
+      const picked = kind === "session" ? dialog.sessionOption : undefined;
       write({
         type: "extension_ui_response",
         id: dialog.ui,
-        value: kind === "reject" ? "Deny" : (session ?? "Approve"),
+        value: kind === "reject" ? "Deny" : (picked ?? "Approve"),
       });
       closeDialog(
         dialog,
@@ -852,7 +1764,7 @@ const start: (io: OmpIo) => Start =
             }
           : {
               approval: "allowed",
-              choice: session === undefined ? "once" : "session",
+              choice: picked === undefined ? "once" : "session",
             },
       );
     }
@@ -863,7 +1775,7 @@ const start: (io: OmpIo) => Start =
       const given = message.answers.map((one) =>
         one.status === "answered" ? one.answer : [],
       );
-      const call = [...calls.values()].find(
+      const call = [...main.calls.values()].find(
         (one) => one.question?.group === dialog.group,
       );
       if (call?.question) call.question.answers = given;
@@ -909,40 +1821,6 @@ const start: (io: OmpIo) => Start =
     }
 
     // --- turn ---
-    function endTurn(
-      outcome: "completed" | "stopped" | "failed",
-      error?: { code: string; message: string },
-    ) {
-      if (turn === null) return;
-      const id = turn;
-      turn = null;
-      dialogs = [];
-      if (open !== null) {
-        closeDialog(
-          open,
-          open.kind === "approval"
-            ? { approval: "cancelled" }
-            : { question: "cancelled" },
-        );
-      }
-      for (const call of calls.values()) {
-        if (!call.done) toolEnd(call, "cancelled");
-      }
-      calls.clear();
-      streams.clear();
-      pendingEcho = [];
-      publish({
-        type: "turn_ended",
-        turn: id,
-        at: now(),
-        outcome,
-        active_ms: null,
-        error: error ?? null,
-        messages: [],
-        seq: ++seq,
-      });
-    }
-
     function onUserMessage(msg: Msg) {
       if (msg.synthetic || msg.attribution === "agent") return;
       const text = joined(msg.content, "text");
@@ -958,115 +1836,23 @@ const start: (io: OmpIo) => Start =
         return;
       }
       queue.splice(index, 1);
+      const origin = `user:${userIds.length}`;
       userIds.push(one.id);
       // follow-up은 앞 응답이 끝난 뒤 들어가는 다음 turn이고 steer는 도는 turn에 끼는 것이다.
-      if (one.kind === "followUp") endTurn("completed");
-      const mine = ensureTurn();
+      if (one.kind === "followUp") main.endTurn("completed");
+      const mine = main.ensureTurn();
       turnText.set(mine, text);
       publish({
         type: "message_taken",
         message: one.id,
-        seq: ++seq,
+        seq: main.nextSeq(),
         delivery: one.kind === "steer" ? "steer" : "next_turn",
         turn: one.kind === "steer" ? null : mine,
       });
+      publish({ type: "origin_set", message: one.id, origin });
     }
 
-    function onUpdate(frame: Frame) {
-      const msg = frame.message;
-      if (typeof msg !== "object" || msg.role !== "assistant") return;
-      const key = frame.messageId ?? "";
-      const stream = streams.get(key) ?? {
-        call: ids.newId("mcl"),
-        text: 0,
-        thinking: 0,
-      };
-      streams.set(key, stream);
-      for (const [kind, name] of [
-        ["text", "text"],
-        ["thinking", "reasoning"],
-      ] as const) {
-        const full = joined(msg.content, kind);
-        if (full.length <= stream[kind]) continue;
-        publish({
-          type: "writing_streamed",
-          turn: ensureTurn(),
-          model_call: stream.call,
-          kind: name,
-          offset: stream[kind],
-          text: full.slice(stream[kind]),
-          at: now(),
-        });
-        stream[kind] = full.length;
-      }
-    }
-
-    function onSubagent(payload: NonNullable<Frame["payload"]>) {
-      const known = subagents.get(payload.id);
-      const detail = (state: "accepted" | "done" | "failed" | "cancelled") =>
-        ({
-          kind: "call",
-          call: null,
-          to: payload.agent,
-          task: payload.description ?? "",
-          reply: "result",
-          state,
-          fail_reason: null,
-          session: null,
-        }) as const;
-      if (payload.status === "started" && known === undefined) {
-        const entry = { call: ids.newId("tcl"), done: false };
-        subagents.set(payload.id, entry);
-        publish({
-          type: "tool_started",
-          item: {
-            kind: "tool",
-            id: entry.call,
-            seq: ++seq,
-            at: now(),
-            turn: turn ?? lastTurn ?? ids.newId("trn"),
-            tool: "subagent",
-            category: "other",
-            // lifecycle에는 description이 없을 수 있다(녹화). id가 task의 이름이다.
-            title: oneLine(
-              `${payload.agent}: ${payload.description ?? payload.id}`,
-              120,
-            ),
-            state: "running",
-            duration_ms: null,
-            detail: detail("accepted"),
-            body: null,
-          },
-        });
-      } else if (
-        known !== undefined &&
-        !known.done &&
-        payload.status !== "started"
-      ) {
-        known.done = true;
-        const done = payload.status === "completed";
-        publish({
-          type: "tool_ended",
-          tool_call: known.call,
-          state: done
-            ? "ok"
-            : payload.status === "aborted"
-              ? "cancelled"
-              : "error",
-          at: now(),
-          detail: detail(
-            done
-              ? "done"
-              : payload.status === "aborted"
-                ? "cancelled"
-                : "failed",
-          ),
-          body: null,
-        });
-      }
-    }
-
-    function onFrame(frame: Frame) {
+    onFrame = (frame: Frame) => {
       switch (frame.type) {
         case "response": {
           const done = waiting.get(frame.id ?? "");
@@ -1084,34 +1870,26 @@ const start: (io: OmpIo) => Start =
           return;
         }
         case "agent_start":
-          ensureTurn();
+          agentBusy = true;
+          main.frame(frame);
           return;
-        case "agent_end": {
-          // 이어질 때(재시도, compaction 뒤)는 turn이 끝난 것이 아니다.
-          if (frame.yielded === false || frame.isTerminal === false) return;
-          const last = [...(frame.messages ?? [])]
-            .reverse()
-            .find((one) => one.role === "assistant");
-          if (last?.stopReason === "aborted") endTurn("stopped");
-          else if (last?.stopReason === "error") {
-            endTurn("failed", {
-              code: "internal",
-              message: last.errorMessage ?? "omp failed",
-            });
-          } else endTurn("completed");
-          void refresh();
+        case "agent_end":
+          main.frame(frame);
+          if (frame.yielded !== false && frame.isTerminal !== false) {
+            agentBusy = false;
+            void refresh();
+          }
           return;
-        }
         case "prompt_result": {
-          if (promptTurn.get(frame.id ?? "") !== turn) return;
+          if (promptTurn.get(frame.id ?? "") !== main.turn) return;
           const failure = frame.error as { message?: string } | undefined;
           if (frame.status === "error") {
-            endTurn("failed", {
+            main.endTurn("failed", {
               code: "internal",
               message: failure?.message ?? "omp failed",
             });
-          } else if (frame.status === "aborted") endTurn("stopped");
-          else if (frame.agentInvoked === false) endTurn("completed");
+          } else if (frame.status === "aborted") main.endTurn("stopped");
+          else if (frame.agentInvoked === false) main.endTurn("completed");
           return;
         }
         case "session_settled":
@@ -1119,40 +1897,8 @@ const start: (io: OmpIo) => Start =
             publish({ type: "message_removed", message: one.id });
           }
           return;
-        case "message_start": {
-          const msg = frame.message;
-          if (typeof msg === "object" && msg.role === "assistant") {
-            streams.set(frame.messageId ?? "", {
-              call: ids.newId("mcl"),
-              text: 0,
-              thinking: 0,
-            });
-          }
-          return;
-        }
-        case "message_update":
-          onUpdate(frame);
-          return;
-        case "message_end": {
-          const msg = frame.message;
-          if (typeof msg !== "object") return;
-          if (msg.role === "user") onUserMessage(msg);
-          else if (msg.role === "assistant") {
-            const stream = streams.get(frame.messageId ?? "");
-            streams.delete(frame.messageId ?? "");
-            recordAssistant(msg, stream?.call ?? null);
-          }
-          return;
-        }
-        case "tool_execution_start":
-          toolStart(
-            frame.toolCallId ?? "",
-            frame.toolName ?? "",
-            frame.args ?? {},
-          );
-          return;
         case "tool_execution_end":
-          onToolEnd(frame);
+          if (main.onToolEnd(frame)?.name === "todo") void readState();
           return;
         case "extension_ui_request":
           onUiRequest(frame);
@@ -1165,25 +1911,46 @@ const start: (io: OmpIo) => Start =
         case "thinking_level_changed":
           void refresh();
           return;
-        case "subagent_lifecycle":
-          if (frame.payload) onSubagent(frame.payload);
+        case "goal_updated":
+          goal =
+            frame.goal === null ||
+            frame.goal === undefined ||
+            frame.goal.status === "dropped"
+              ? null
+              : frame.goal;
+          publishMeta();
           return;
+        case "subagent_lifecycle":
+          if (frame.payload) onLifecycle(frame.payload);
+          return;
+        case "subagent_progress":
+          if (frame.payload) onProgress(frame.payload);
+          return;
+        case "subagent_event": {
+          const sub = subs.get(frame.payload?.id ?? "");
+          if (sub !== undefined && frame.payload?.event) {
+            sub.child.frame(frame.payload.event);
+          }
+          return;
+        }
         case "command_output":
-          info(frame.text ?? "");
+          commandOutput(frame.text ?? "");
           return;
         case "notice":
           info(
-            `${frame.level === "info" ? "" : `${frame.level}: `}${typeof frame.message === "string" ? frame.message : ""}`,
+            typeof frame.message === "string" ? frame.message : "",
+            noticeLevel(frame.level),
           );
           return;
         case "auto_retry_start":
           info(
             `Retrying (${frame.attempt}/${frame.maxAttempts}): ${frame.errorMessage ?? ""}`,
+            "warning",
           );
           return;
         case "auto_retry_end":
           if (frame.success === false) {
-            info(`Retry failed: ${frame.finalError ?? ""}`);
+            info(`Retry failed: ${frame.finalError ?? ""}`, "warning");
           }
           return;
         case "manual_compaction_start":
@@ -1191,87 +1958,32 @@ const start: (io: OmpIo) => Start =
           info("Compacting the conversation…");
           return;
         case "manual_compaction_end":
-        case "auto_compaction_end":
+        case "auto_compaction_end": {
+          const failed = frame.aborted || frame.errorMessage;
           info(
-            frame.aborted || frame.errorMessage
+            failed
               ? `Compaction ${frame.skipped ? "skipped" : "failed"}: ${frame.errorMessage ?? "aborted"}`
               : "Compacted the conversation.",
+            failed ? "warning" : "info",
           );
           void refresh();
           return;
+        }
         case "retry_fallback_applied":
-          info(`Switched model: ${frame.from ?? ""} → ${frame.to ?? ""}`);
+          info(
+            `Switched model: ${frame.from ?? ""} → ${frame.to ?? ""}`,
+            "warning",
+          );
           return;
         default:
+          main.frame(frame);
           return;
       }
-    }
+    };
 
-    // --- stdout ---
-    let buffer = "";
-    const chunks = new Map<string, Buffer[]>();
-    let onReady: ((value: "ready" | "exit") => void) | null = null;
-    function onLine(line: string) {
-      if (line.trim() === "") return;
-      let frame: Frame;
-      try {
-        frame = JSON.parse(line) as Frame;
-      } catch {
-        return;
-      }
-      if (frame.type === "ready") {
-        onReady?.("ready");
-      } else if (frame.type === "rpc_chunk") {
-        // v2의 큰 frame. 같은 chunkId의 조각을 순서대로 모아 한 줄로 되돌린다.
-        const parts = chunks.get(frame.chunkId ?? "") ?? [];
-        parts[frame.index ?? 0] = Buffer.from(
-          String(frame.data ?? ""),
-          "base64",
-        );
-        chunks.set(frame.chunkId ?? "", parts);
-        if (parts.filter(Boolean).length === frame.count) {
-          chunks.delete(frame.chunkId ?? "");
-          onLine(Buffer.concat(parts).toString("utf8"));
-        }
-      } else {
-        onFrame(frame);
-      }
-    }
-    proc.onStdout((text) => {
-      buffer += text;
-      for (let at = buffer.indexOf("\n"); at >= 0; at = buffer.indexOf("\n")) {
-        const line = buffer.slice(0, at);
-        buffer = buffer.slice(at + 1);
-        onLine(line);
-      }
-    });
-
-    let started = false;
-    let exitWait: (() => void) | null = null;
-    const exitedP = new Promise<void>((resolve) => {
-      exitWait = resolve;
-    });
-    proc.onExit((code) => {
-      exited = true;
-      onReady?.("exit");
-      for (const done of waiting.values()) {
-        done({ ok: false, error: "omp exited" });
-      }
-      waiting.clear();
-      exitWait?.();
-      if (!started || closed || stopping) return;
-      ensureTurn();
-      endTurn("failed", {
-        code: "unavailable",
-        message: `omp exited${code === null ? "" : ` (code ${code})`}.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
-      });
-    });
-
-    const first = await new Promise<"ready" | "exit">((resolve) => {
-      onReady = resolve;
-      if (exited) resolve("exit");
-    });
-    if (first === "exit") {
+    // 정의를 다 마친 뒤에 띄운다: ready 앞뒤로 온 frame이 아래 정의를 쓴다.
+    const launched = await connect(argsFor(resume ?? null, null));
+    if (launched === "exit") {
       closed = true;
       return {
         ok: false,
@@ -1281,86 +1993,61 @@ const start: (io: OmpIo) => Start =
         },
       };
     }
-    // v2로 올려 큰 frame을 chunk로 받고, `ask`의 질문 묶음과 message 전체 snapshot을 켠다(18.8.7의 delta는 믿을 수 없다).
-    const negotiated = await request("negotiate_protocol", {
-      protocolVersion: 2,
-    });
-    if (!negotiated.ok) {
+    const negotiated = await handshake();
+    if (negotiated !== null) {
       closed = true;
       proc.kill();
       return {
         ok: false,
         error: {
           code: "unavailable",
-          message: `omp rejected the RPC protocol: ${negotiated.error}`,
+          message: `omp rejected the RPC protocol: ${negotiated}`,
         },
       };
     }
-    void request("set_ask_dialog", { enabled: true });
-    void request("set_event_filter", { events: null });
-    void request("set_subagent_subscription", { level: "progress" });
-
     started = true;
 
     // --- 시작 상태와 앞 대화 ---
-    function replay(messages: Msg[]) {
-      const results = new Map<string, boolean>();
-      for (const msg of messages) {
-        if (msg.role === "toolResult" && msg.toolCallId) {
-          results.set(msg.toolCallId, msg.isError === true);
-        }
-      }
-      for (const msg of messages) {
-        if (msg.role === "user") {
-          if (msg.synthetic || msg.attribution === "agent") continue;
-          endTurn("completed");
-          addUser(ids.newId("msg"), [
-            { type: "text", text: joined(msg.content, "text") },
-          ]);
-        } else if (msg.role === "assistant") {
-          recordAssistant(msg, null);
-          for (const block of Array.isArray(msg.content) ? msg.content : []) {
-            if (block.type !== "toolCall" || !block.id) continue;
-            const call = toolStart(
-              block.id,
-              block.name ?? "",
-              block.arguments ?? {},
-            );
-            const failed = results.get(block.id);
-            toolEnd(
-              call,
-              failed === undefined ? "cancelled" : failed ? "error" : "ok",
-            );
-          }
-        }
-      }
-      endTurn("completed");
-    }
-
     const ready = (async () => {
-      const [, , available, commandList] = await Promise.all([
+      const [, , , available, commandsReply] = await Promise.all([
         readState(),
         readLevels(),
+        readStats(),
         request<{ models: Model[] }>("get_available_models"),
         request<{ commands: Command[] }>("get_available_commands"),
+        readConfig(),
       ]);
       models = available.ok ? available.data.models : [];
-      commands = commandList.ok ? commandList.data.commands : [];
+      commands = commandsReply.ok ? commandsReply.data.commands : [];
       publishMeta();
-      if (resume === undefined) return;
-      for (let cursor: string | undefined; ; ) {
-        const page = await request<{
-          messages: Msg[];
-          nextCursor?: string;
-        }>("get_messages_page", { limit: 256, ...(cursor ? { cursor } : {}) });
-        if (!page.ok) {
-          info(`Could not read the earlier conversation: ${page.error}`);
-          return;
+      if (resume !== undefined) {
+        for (let cursor: string | undefined; ; ) {
+          const page = await request<{
+            messages: Msg[];
+            nextCursor?: string;
+          }>("get_messages_page", {
+            limit: 256,
+            ...(cursor ? { cursor } : {}),
+          });
+          if (!page.ok) {
+            info(
+              `Could not read the earlier conversation: ${page.error}`,
+              "warning",
+            );
+            break;
+          }
+          main.replay(page.data.messages, (msg) => {
+            if (msg.synthetic || msg.attribution === "agent") return;
+            main.endTurn("completed");
+            addUser(ids.newId("msg"), [
+              { type: "text", text: joined(msg.content, "text") },
+            ]);
+          });
+          cursor = page.data.nextCursor;
+          if (cursor === undefined) break;
         }
-        replay(page.data.messages);
-        cursor = page.data.nextCursor;
-        if (cursor === undefined) return;
       }
+      await attachRunning();
     })();
 
     // --- 입력 ---
@@ -1381,7 +2068,7 @@ const start: (io: OmpIo) => Start =
             mimeType: block.mimeType,
           });
         } catch {
-          info(`Could not read the image ${block.name}.`);
+          info(`Could not read the image ${block.name}.`, "warning");
         }
       }
       return images.length === 0 ? {} : { images };
@@ -1389,15 +2076,25 @@ const start: (io: OmpIo) => Start =
 
     async function prompt(text: string, extra: Record<string, unknown>) {
       const id = `lpn-${++counter}`;
-      promptTurn.set(id, ensureTurn());
+      promptTurn.set(id, main.ensureTurn());
       const reply = await request<{ agentInvoked?: boolean }>(
         "prompt",
         { message: text, ...extra },
         id,
       );
       if (!reply.ok)
-        endTurn("failed", { code: "internal", message: reply.error });
-      else if (reply.data?.agentInvoked === false) endTurn("completed");
+        main.endTurn("failed", { code: "internal", message: reply.error });
+      else if (reply.data?.agentInvoked === false) main.endTurn("completed");
+    }
+
+    // 명령은 turn을 열지 않는다. omp는 도는 중에도 `prompt "/name"`의 builtin과 skill을 먼저 처리해서, 로컬 명령은 바로
+    // 답하고 prompt로 펼쳐지는 것은 다음 turn에 선다. 그 `prompt_result`가 도는 turn을 끝내지 않게 promptTurn에 묶지 않는다.
+    async function sendCommand(text: string) {
+      const reply = await request("prompt", {
+        message: text,
+        ...(main.turn === null ? {} : { streamingBehavior: "followUp" }),
+      });
+      if (!reply.ok) info(`omp did not run ${text}: ${reply.error}`, "warning");
     }
 
     const queueName = (one: Queued) =>
@@ -1429,11 +2126,59 @@ const start: (io: OmpIo) => Start =
       for (const one of queue.slice(from)) await queueAdd(one);
     }
 
-    // 도는 중에는 omp가 branch·fork를 거절한다(`session_busy`).
+    // `!cmd`만 도는 turn은 agent가 도는 것이 아니다.
+    const bashOnly = () =>
+      main.turn !== null && main.turn === bashTurn && !agentBusy;
+
+    // 도는 중에는 omp가 branch·fork·new_session을 거절한다(`session_busy`).
     function idleOnly(what: string): boolean {
-      if (turn === null) return true;
-      info(`Stop the running turn before ${what}.`);
+      if (main.turn === null || bashOnly()) return true;
+      info(`Stop the running turn before ${what}.`, "warning");
       return false;
+    }
+
+    // RPC `prompt`는 `!`을 해석하지 않아 model에게 글로 간다. `bash`로 보내고 tool 줄 하나로 그린다.
+    async function bashCommand(command: string) {
+      const own = main.turn === null;
+      if (own) bashTurn = main.startTurn();
+      const mine = main.turn;
+      bashJobs += 1;
+      const call = main.toolStart(`bash-${++counter}`, "bash", { command });
+      const reply = await request<BashResult>("bash", { command });
+      bashJobs -= 1;
+      main.toolEnd(
+        call,
+        !reply.ok
+          ? "error"
+          : reply.data.cancelled === true
+            ? "cancelled"
+            : reply.data.exitCode !== undefined && reply.data.exitCode !== 0
+              ? "error"
+              : "ok",
+        reply.ok ? (reply.data.output ?? "") : reply.error,
+      );
+      if (own && main.turn === mine && !agentBusy) {
+        bashTurn = null;
+        main.endTurn("completed");
+      }
+    }
+
+    async function newSession() {
+      if (!idleOnly("starting a new session")) return;
+      const reply = await request<{ cancelled: boolean }>("new_session");
+      if (!reply.ok || reply.data.cancelled) {
+        return void info(
+          reply.ok
+            ? "omp cancelled the new session."
+            : `Could not start a new session: ${reply.error}`,
+          "warning",
+        );
+      }
+      // 앞 대화는 새 session에 없다.
+      const top = acp.items[0];
+      if (top !== undefined) hideFrom(top.id, top.id);
+      userIds = [];
+      await refresh();
     }
 
     // ACP 사람 메시지 id가 omp의 몇 번째 사람 entry인지 센다. 합성·agent가 낸 user entry는 세지 않는다.
@@ -1461,15 +2206,15 @@ const start: (io: OmpIo) => Start =
         list.flatMap((item) =>
           item.kind === "hidden" ? flat(item.items) : [item],
         );
-      const start = acp.items.findIndex((item) => item.id === from);
-      if (start < 0) return;
-      const items = flat(acp.items.slice(start));
-      const first = acp.items[start];
-      if (first === undefined || items.length === 0) return;
+      const startAt = acp.items.findIndex((item) => item.id === from);
+      if (startAt < 0) return;
+      const items = flat(acp.items.slice(startAt));
+      const head = acp.items[startAt];
+      if (head === undefined || items.length === 0) return;
       const hidden: AcpHiddenItem = {
         kind: "hidden",
         id: ids.newId("rwd"),
-        seq: first.seq,
+        seq: head.seq,
         at: now(),
         checkpoint,
         choice: "messages_only",
@@ -1481,12 +2226,155 @@ const start: (io: OmpIo) => Start =
       publish({ type: "hidden_added", item: hidden });
     }
 
+    async function rewindTo(target: string) {
+      if (!idleOnly("rewinding")) return;
+      const entry = await entryOf(target);
+      if (entry === null)
+        return void info("This message cannot be rewound.", "warning");
+      const reply = await request<{ cancelled: boolean }>("branch", {
+        entryId: entry,
+      });
+      if (!reply.ok || reply.data.cancelled) {
+        return void info(
+          reply.ok
+            ? "omp cancelled the rewind."
+            : `Rewind failed: ${reply.error}`,
+          "warning",
+        );
+      }
+      // branch는 새 session file이라 id가 바뀐다. 그 message부터 대화가 지워졌다.
+      hideFrom(target, target);
+      userIds = userIds.slice(0, userIds.indexOf(target));
+      await refresh();
+    }
+
+    async function forkAt(target: string | null) {
+      if (!idleOnly("forking")) return;
+      const entry = target === null ? undefined : await entryOf(target);
+      if (entry === null)
+        return void info("This message cannot be forked.", "warning");
+      const reply = await request<{ cancelled: boolean }>(
+        "fork",
+        entry === undefined ? {} : { entryId: entry },
+      );
+      if (!reply.ok || reply.data.cancelled) {
+        return void info(
+          reply.ok ? "omp cancelled the fork." : `Fork failed: ${reply.error}`,
+          "warning",
+        );
+      }
+      // 이 process가 새 file로 옮겨 갔다. 그 message 뒤는 새 session에 없다.
+      if (target !== null) {
+        const at = acp.items.findIndex((item) => item.id === target);
+        const next = acp.items[at + 1];
+        if (next !== undefined) hideFrom(target, next.id);
+        userIds = userIds.slice(0, userIds.indexOf(target) + 1);
+      }
+      await refresh();
+    }
+
+    // --- goal ---
+    async function setGoal(objective: string | null, paused: boolean) {
+      const call = async (body: Record<string, unknown>) => {
+        const reply = await request("goal", body);
+        if (!reply.ok) info(`Goal: ${reply.error}`, "warning");
+        return reply.ok;
+      };
+      if (objective === null) {
+        if (goal !== null) await call({ op: "drop" });
+      } else if (goal === null || goal.objective !== objective) {
+        if (goal !== null && !(await call({ op: "drop" }))) return;
+        await call({ op: "create", objective });
+      } else await call({ op: paused ? "pause" : "resume" });
+    }
+
+    async function runCommand(name: string, argument: string) {
+      lastCommand = name;
+      if (TUI_ONLY.has(name)) {
+        return void info(`/${name} works only in the omp TUI.`, "warning");
+      }
+      switch (name) {
+        case "new":
+        case "clear":
+          return newSession();
+        case "fork":
+          return forkAt(null);
+        case "branch":
+        case "tree":
+          return void info("Use rewind on a message to go back.");
+        case "goal": {
+          const word = argument.trim();
+          if (word === "") {
+            return void info(
+              goal === null
+                ? "No goal is set."
+                : `Goal (${goal.status}): ${goal.objective}`,
+            );
+          }
+          if (word === "drop") return setGoal(null, false);
+          if (word === "pause" || word === "resume") {
+            return goal === null
+              ? void info("No goal is set.")
+              : setGoal(goal.objective, word === "pause");
+          }
+          return setGoal(word, false);
+        }
+        default:
+          await sendCommand(`/${name}${argument === "" ? "" : ` ${argument}`}`);
+          await refresh();
+      }
+    }
+
+    // 승인 mode는 시작 flag로만 정해진다. 같은 session을 새 mode로 다시 띄우고 ACP 상태는 그대로 둔다.
+    // 안 만들어진 session(첫 메시지 전)은 `--resume`이 못 찾으니 새 session으로 띄운다.
+    function restart(mode: string): Promise<void> {
+      const run = (async () => {
+        try {
+          proc.end();
+          const timer = setTimeout(() => proc.kill(), EXIT_WAIT_MS);
+          await gone;
+          clearTimeout(timer);
+          approvalMode = mode;
+          let launched = await connect(argsFor(cliSession, mode));
+          if (launched === "exit" && cliSession !== null) {
+            launched = await connect(argsFor(null, mode));
+          }
+          const failed =
+            launched === "exit"
+              ? "omp did not restart."
+              : ((await handshake()) ?? "");
+          if (failed !== "") {
+            main.ensureTurn();
+            main.endTurn("failed", {
+              code: "unavailable",
+              message: `${failed}${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+            });
+            return;
+          }
+          await refresh();
+        } finally {
+          restarting = null;
+        }
+      })();
+      restarting = run;
+      return run;
+    }
+
     async function handle(message: AcpInput) {
       switch (message.type) {
         case "send": {
-          const extra = await imagesOf(message.content);
           const text = textOf(message.content);
-          if (turn !== null) {
+          if (text.startsWith("!") && text.slice(1).trim() !== "") {
+            await bashCommand(text.slice(1).trim());
+            return;
+          }
+          const slash = SLASH.exec(text.trim());
+          if (slash?.[1] !== undefined && isCommand(slash[1])) {
+            await runCommand(slash[1], slash[2]?.trim() ?? "");
+            return;
+          }
+          const extra = await imagesOf(message.content);
+          if (main.turn !== null && !bashOnly()) {
             const one: Queued = {
               id: message.id,
               content: message.content,
@@ -1509,7 +2397,7 @@ const start: (io: OmpIo) => Start =
             if (!reply.ok) {
               queue.splice(queue.indexOf(one), 1);
               publish({ type: "message_removed", message: one.id });
-              info(`omp did not take the message: ${reply.error}`);
+              info(`omp did not take the message: ${reply.error}`, "warning");
             }
             return;
           }
@@ -1519,13 +2407,13 @@ const start: (io: OmpIo) => Start =
           return;
         }
         case "stop":
-          if (turn !== null) void request("abort");
+          if (bashJobs > 0) void request("abort_bash");
+          if (main.turn !== null && !bashOnly()) void request("abort");
           return;
         case "retry": {
           const text = turnText.get(message.turn);
-          if (text === undefined || turn !== null) return;
-          const id = ids.newId("msg");
-          addUser(id, [{ type: "text", text }]);
+          if (text === undefined || (main.turn !== null && !bashOnly())) return;
+          addUser(ids.newId("msg"), [{ type: "text", text }]);
           pendingEcho.push(text);
           await prompt(text, {});
           return;
@@ -1598,7 +2486,10 @@ const start: (io: OmpIo) => Start =
               modelId: message.model.slice(slash + 1),
             });
             if (!reply.ok)
-              return void info(`Could not switch the model: ${reply.error}`);
+              return void info(
+                `Could not switch the model: ${reply.error}`,
+                "warning",
+              );
             await readLevels();
           }
           const effort = message.options.effort;
@@ -1608,23 +2499,16 @@ const start: (io: OmpIo) => Start =
           await refresh();
           return;
         }
-        case "run_command": {
-          if (turn !== null) return;
-          ensureTurn();
-          await prompt(
-            `/${message.name}${message.argument === "" ? "" : ` ${message.argument}`}`,
-            {},
-          );
-          await refresh();
+        case "run_command":
+          await runCommand(message.name, message.argument);
           return;
-        }
         case "compact": {
-          if (turn !== null) return;
-          ensureTurn();
+          if (main.turn !== null) return;
+          main.ensureTurn();
           const reply = await request("compact");
           // 작은 session은 "Nothing to compact"로 거절한다(녹화로 확인했다). 실패한 turn이 아니라 알림이다.
-          if (!reply.ok) info(`Compact: ${reply.error}`);
-          endTurn("completed");
+          if (!reply.ok) info(`Compact: ${reply.error}`, "warning");
+          main.endTurn("completed");
           await refresh();
           return;
         }
@@ -1633,93 +2517,106 @@ const start: (io: OmpIo) => Start =
             name: message.title,
           });
           if (reply.ok) await refresh();
-          else info(`Could not rename the session: ${reply.error}`);
+          else info(`Could not rename the session: ${reply.error}`, "warning");
           return;
         }
-        case "rewind": {
-          if (!idleOnly("rewinding")) return;
-          const entry = await entryOf(message.message);
-          if (entry === null)
-            return void info("This message cannot be rewound.");
-          const reply = await request<{ cancelled: boolean }>("branch", {
-            entryId: entry,
+        case "rewind":
+          return rewindTo(message.message);
+        case "fork":
+          return forkAt(message.message);
+        case "set_mode": {
+          if (
+            !MODES.some((one) => one.id === message.mode) ||
+            message.mode === currentMode() ||
+            !idleOnly("changing the approval mode")
+          ) {
+            return;
+          }
+          await restart(message.mode);
+          return;
+        }
+        case "stop_child":
+        case "stop_task": {
+          const reply = await request("cancel_subagent", {
+            subagentId:
+              message.type === "stop_child" ? message.child : message.task,
           });
-          if (!reply.ok || reply.data.cancelled) {
-            return void info(
-              reply.ok
-                ? "omp cancelled the rewind."
-                : `Rewind failed: ${reply.error}`,
-            );
-          }
-          // branch는 새 session file이라 id가 바뀐다. 그 message부터 대화가 지워졌다.
-          hideFrom(message.message, message.message);
-          userIds = userIds.slice(0, userIds.indexOf(message.message));
+          if (!reply.ok) info(`Could not stop it: ${reply.error}`, "warning");
+          return;
+        }
+        case "steer_child": {
+          const reply = await request("steer_subagent", {
+            subagentId: message.child,
+            message: message.text,
+          });
+          if (!reply.ok) info(`Could not steer it: ${reply.error}`, "warning");
+          return;
+        }
+        case "set_toggle": {
+          if (message.id === "fast") {
+            const reply = await request("set_fast_mode", {
+              enabled: message.on,
+            });
+            if (!reply.ok) info(`Fast mode: ${reply.error}`, "warning");
+          } else if (message.id === "slow" && slowAvailable()) {
+            // 전역 범위이면 omp가 사람의 설정 file에 쓴다. 보내지 않는다.
+            const reply = await request("set_slow_mode", {
+              enabled: message.on,
+            });
+            if (!reply.ok) info(`Slow mode: ${reply.error}`, "warning");
+          } else return;
           await refresh();
           return;
         }
-        case "fork": {
-          if (!idleOnly("forking")) return;
-          const entry =
-            message.message === null
-              ? undefined
-              : await entryOf(message.message);
-          if (entry === null)
-            return void info("This message cannot be forked.");
-          const reply = await request<{ cancelled: boolean }>(
-            "fork",
-            entry === undefined ? {} : { entryId: entry },
-          );
-          if (!reply.ok || reply.data.cancelled) {
-            return void info(
-              reply.ok
-                ? "omp cancelled the fork."
-                : `Fork failed: ${reply.error}`,
-            );
-          }
-          // 이 process가 새 file로 옮겨 갔다. 그 message 뒤는 새 session에 없다.
-          if (message.message !== null) {
-            const at = acp.items.findIndex(
-              (item) => item.id === message.message,
-            );
-            const next = acp.items[at + 1];
-            if (next !== undefined) hideFrom(message.message, next.id);
-            userIds = userIds.slice(0, userIds.indexOf(message.message) + 1);
-          }
+        case "set_goal":
+          await setGoal(message.objective, message.paused);
+          return;
+        case "use_role": {
+          const role = roles.find((one) => one.id === message.role);
+          // `kind: "model"` role은 대화 model이 아니다. 설정 file에 쓰는 길은 두지 않는다.
+          if (role === undefined || role.kind === "model") return;
+          if (!idleOnly("switching roles")) return;
+          lastCommand = "switch";
+          await sendCommand(`/switch @${role.id}`);
           await refresh();
           return;
         }
-        // omp 18.8.7에는 plan mode와 승인 mode를 바꾸는 RPC가 없다.
-        case "set_mode":
-          return;
       }
     }
-    session.onInput((message) => void ready.then(() => handle(message)));
+    session.onInput(
+      (message) =>
+        void ready.then(async () => {
+          while (restarting !== null) await restarting;
+          await handle(message);
+        }),
+    );
 
     let stopped: Promise<void> | null = null;
     const run: HarnessGuiRun = {
       stop() {
         stopped ??= (async () => {
+          await ready;
+          while (restarting !== null) await restarting;
           if (exited) return;
           stopping = true;
-          await ready;
-          if (turn !== null) await request("abort");
+          if (main.turn !== null) await request("abort");
           // toggle이 이 id로 TUI를 잇는다. branch·fork·`/new` 뒤에는 시작 때와 다르다.
           await readState();
           closed = true;
           // stdin을 닫으면 omp가 session을 닫고(lease를 놓는다) 끝난다. 안 끝나면 SIGTERM이다.
           proc.end();
           const timer = setTimeout(() => proc.kill(), EXIT_WAIT_MS);
-          await exitedP;
+          await gone;
           clearTimeout(timer);
         })();
         return stopped;
       },
       tuiCommand: () =>
-        cliSession === null ? "omp" : `omp --resume=${cliSession}`,
+        `omp${cliSession === null ? "" : ` --resume=${cliSession}`}${approvalMode === null ? "" : ` --approval-mode=${approvalMode}`}`,
       sessionId: () => cliSession,
       running: () => ({
-        turn: turn !== null,
-        tasks: [...subagents.values()].filter((one) => !one.done).length,
+        turn: main.turn !== null,
+        tasks: tasks.filter((one) => one.state === "running").length,
       }),
     };
     return { ok: true, value: run };
@@ -1745,4 +2642,4 @@ export function createOmpAdapter(io: OmpIo): HarnessGuiAdapter {
   };
 }
 
-export const ompAdapter = createOmpAdapter({ readFile });
+export const ompAdapter = createOmpAdapter({ home: homedir(), readFile });

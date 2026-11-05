@@ -22,7 +22,9 @@ import { createOmpAdapter } from "./omp.ts";
 // 녹화(fixtures/omp, omp 18.8.7)로 adapter를 돌린다. 진짜 omp는 띄우지 않고, spawn이 주는 process를 녹화한 줄을 내는 대역으로
 // 바꾼다. 명령의 답은 녹화에서 같은 명령의 답을 차례로 쓰고(id만 adapter가 정한 값), 이벤트 줄은 test가 `play`로 내보낸다.
 // 위험한 규칙만 본다: 승인은 창이 답하기 전에는 응답하지 않고, "이 session 동안"은 omp가 그 선택지를 줄 때만 내놓고 영구 규칙은
-// 답하지 않으며, `ask`는 질문이 tool 줄보다 먼저 와도 같은 줄에 붙고, toggle은 한 session에 두 process를 같이 쥐지 않는다.
+// 답하지 않으며, `ask`는 질문이 tool 줄보다 먼저 와도 같은 줄에 붙고, toggle과 승인 mode 바꾸기는 한 session에 두 process를
+// 같이 쥐지 않고, `!cmd`는 model에게 가지 않고, 사람의 전역 omp 설정을 쓰는 입력(slow 전역, model role)은 보내지 않고, 도는 중 명령은
+// 버려지지 않으며 도는 turn을 끝내지 않는다.
 
 type Frame = Record<string, unknown>;
 type Entry = { kind: string; data: Frame };
@@ -39,6 +41,8 @@ const FALLBACK: Record<string, unknown> = {
   get_available_thinking_levels: { levels: ["off", "low"] },
   get_available_models: { models: [] },
   get_available_commands: { commands: [] },
+  get_session_stats: {},
+  get_subagents: { subagents: [] },
 };
 const HANDSHAKE = new Set([
   "negotiate_protocol",
@@ -49,11 +53,31 @@ const HANDSHAKE = new Set([
   "get_available_models",
   "get_available_commands",
   "get_available_thinking_levels",
+  "get_session_stats",
+  "get_subagents",
 ]);
 
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-async function setup(name: string, tweak: (frame: Frame) => Frame = (f) => f) {
+type Fake = {
+  args: readonly string[];
+  ended: boolean;
+  emit(frame: Frame): void;
+  exit(code: number | null): void;
+};
+
+async function setup(
+  name: string,
+  options: {
+    /** 내보내는 이벤트 줄을 바꾼다. */
+    tweak?: (frame: Frame) => Frame;
+    /** `get_state` 답에 덧씌운다. */
+    state?: Frame;
+    /** 읽을 수 있는 file(경로 → 글). 나머지는 없는 file이다. */
+    files?: Record<string, string>;
+  } = {},
+) {
+  const tweak = options.tweak ?? ((frame: Frame) => frame);
   const rec = recording(name);
   const answers = new Map<string, Frame[]>();
   for (const entry of rec) {
@@ -68,21 +92,27 @@ async function setup(name: string, tweak: (frame: Frame) => Frame = (f) => f) {
       entry.kind === "send" && !HANDSHAKE.has(entry.data.type as string),
   );
   const sent: Frame[] = [];
-  let out: (text: string) => void = () => {};
-  let exit: (code: number | null) => void = () => {};
-  let ended = false;
-  const emit = (frame: Frame) => out(`${JSON.stringify(frame)}\n`);
-  const proc: ExtensionProcess = {
-    pid: 1,
-    write(text) {
-      const body = JSON.parse(text) as Frame;
-      sent.push(body);
-      const type = body.type as string;
-      if (type === "extension_ui_response") return;
-      const list = answers.get(type) ?? [];
-      const recorded = list.length > 1 ? list.shift() : list[0];
-      setImmediate(() =>
-        emit(
+  const fakes: Fake[] = [];
+  const spawnProc = (args: readonly string[]): ExtensionProcess => {
+    let out: (text: string) => void = () => {};
+    let exit: (code: number | null) => void = () => {};
+    const fake: Fake = {
+      args,
+      ended: false,
+      emit: (frame) => out(`${JSON.stringify(frame)}\n`),
+      exit: (code) => exit(code),
+    };
+    fakes.push(fake);
+    return {
+      pid: 1,
+      write(text) {
+        const body = JSON.parse(text) as Frame;
+        sent.push(body);
+        const type = body.type as string;
+        if (type === "extension_ui_response") return;
+        const list = answers.get(type) ?? [];
+        const recorded = list.length > 1 ? list.shift() : list[0];
+        const reply: Frame =
           recorded === undefined
             ? {
                 type: "response",
@@ -91,16 +121,21 @@ async function setup(name: string, tweak: (frame: Frame) => Frame = (f) => f) {
                 success: true,
                 data: FALLBACK[type],
               }
-            : { ...recorded, id: body.id },
-        ),
-      );
-    },
-    end: () => void (ended = true),
-    kill() {},
-    onStdout: (fn) => void (out = fn),
-    onStderr() {},
-    onExit: (fn) => void (exit = fn),
+            : { ...recorded, id: body.id };
+        if (type === "get_state" && options.state !== undefined) {
+          reply.data = { ...(reply.data as Frame), ...options.state };
+        }
+        setImmediate(() => fake.emit(reply));
+      },
+      end: () => void (fake.ended = true),
+      kill() {},
+      onStdout: (fn) => void (out = fn),
+      onStderr() {},
+      onExit: (fn) => void (exit = fn),
+    };
   };
+  const latest = () => fakes[fakes.length - 1] as Fake;
+  const emit = (frame: Frame) => latest().emit(frame);
 
   let state: AcpState = EMPTY_ACP_STATE;
   let input: (message: AcpInput) => void = () => {};
@@ -113,31 +148,38 @@ async function setup(name: string, tweak: (frame: Frame) => Frame = (f) => f) {
   };
   const clock = manualClock(Date.UTC(2026, 10, 5));
   const started = createOmpAdapter({
-    readFile: () => Promise.reject(new Error("no files")),
+    home: "/home/test",
+    readFile: (path) => {
+      const text = options.files?.[path];
+      return text === undefined
+        ? Promise.reject(new Error("no file"))
+        : Promise.resolve(new TextEncoder().encode(text));
+    },
   }).start({
     terminal: null,
     cwd: `/work/${name}`,
     session,
-    spawn: () => proc,
+    spawn: (_command, args) => spawnProc(args),
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
   });
   emit({ type: "ready" });
   const result = await started;
   assert.equal(result.ok, true);
-  await flush();
-  await flush();
+  for (let i = 0; i < 4; i += 1) await flush();
 
   return {
     sent,
+    fakes,
     get state() {
       return state;
     },
     get ended() {
-      return ended;
+      return latest().ended;
     },
     run: result.ok ? result.value : (undefined as never),
-    exit: () => exit(0),
+    exit: () => latest().exit(0),
+    emit,
     /** 녹화의 이벤트 줄을 `until`을 만족하는 줄까지(그 줄 포함) 내보낸다. */
     async play(until: (frame: Frame) => boolean) {
       for (; at < rec.length; at += 1) {
@@ -152,10 +194,9 @@ async function setup(name: string, tweak: (frame: Frame) => Frame = (f) => f) {
         }
       }
     },
-    async input(message: Record<string, unknown>) {
-      input({ session: "ses_x", ...message } as AcpInput);
-      await flush();
-      await flush();
+    input(message: Record<string, unknown>) {
+      input({ session: "ses_x", key: "key", ...message } as AcpInput);
+      return flush().then(flush).then(flush);
     },
   };
 }
@@ -220,11 +261,12 @@ test("for this session is offered only when omp offers it, and an always choice 
 
   // 18.14.2는 세 번째 선택지를 더한다. 같은 녹화의 선택지만 바꾼다.
   const grant = "Approve bash for this session";
-  const next = await setup("approval", (frame) =>
-    isSelect(frame)
-      ? { ...frame, options: [...(frame.options as string[]), grant] }
-      : frame,
-  );
+  const next = await setup("approval", {
+    tweak: (frame) =>
+      isSelect(frame)
+        ? { ...frame, options: [...(frame.options as string[]), grant] }
+        : frame,
+  });
   await next.input(send("msg_1", "Run `echo one` with the bash tool."));
   await next.play(isSelect);
   assert.deepEqual(next.state.pending.approval?.choices, [
@@ -289,6 +331,7 @@ test("an omp that exits before the ready frame is a failed start with its stderr
   };
   const clock = manualClock(Date.UTC(2026, 10, 5));
   const started = createOmpAdapter({
+    home: "/home/test",
     readFile: () => Promise.reject(new Error("no files")),
   }).start({
     terminal: null,
@@ -344,6 +387,7 @@ test("a toggle never has two processes on one session", async () => {
   } as unknown as AcpTerminal;
   let exited = false;
   const closing = createOmpAdapter({
+    home: "/home/test",
     readFile: () => Promise.reject(new Error("no files")),
   })
     .exitTui(terminal)
@@ -354,4 +398,207 @@ test("a toggle never has two processes on one session", async () => {
   leave();
   await closing;
   assert.equal(exited, true);
+});
+
+const types = (sent: Frame[]) => sent.map((body) => body.type);
+
+test("!ls goes to bash and never to the model", async () => {
+  const omp = await setup("bash");
+  await omp.input(send("msg_1", "!ls"));
+  assert.deepEqual(
+    omp.sent.filter((body) => body.type === "bash"),
+    [
+      {
+        id: omp.sent.find((b) => b.type === "bash")?.id,
+        type: "bash",
+        command: "ls",
+      },
+    ],
+  );
+  assert.equal(types(omp.sent).includes("prompt"), false);
+  const line = tools(omp.state)[0];
+  assert.equal(line?.category, "command");
+  assert.equal(line?.state, "ok");
+  assert.equal(line?.body?.output, "hello.txt\n");
+  // 이 turn은 `!ls`만을 위한 것이라 바로 끝난다.
+  assert.equal(omp.state.turn?.phase, "ended");
+});
+
+test("a command sent while a turn runs is not dropped and its output is outside that turn", async () => {
+  const omp = await setup("command_during_turn");
+  await omp.input(
+    send("msg_1", "Write a numbered list of 60 programming tips."),
+  );
+  await omp.play((frame) => frame.type === "agent_start");
+  const running = omp.state.turn;
+  assert.equal(running?.phase, "working");
+
+  await omp.input({ type: "run_command", name: "context", argument: "" });
+  const command = omp.sent.filter((body) => body.type === "prompt").at(-1);
+  assert.equal(command?.message, "/context");
+  assert.equal(command?.streamingBehavior, "followUp");
+
+  await omp.play((frame) => frame.type === "command_output");
+  const output = omp.state.items.flatMap((item) =>
+    item.kind === "notice" && item.notice.type === "command_output"
+      ? [item]
+      : [],
+  )[0];
+  assert.equal(output?.turn, null);
+  assert.equal(
+    output?.notice.type === "command_output" && output.notice.command,
+    "context",
+  );
+  // ANSI는 지우고 줄은 둔다.
+  assert.match(
+    output?.notice.type === "command_output" ? output.notice.text : "",
+    /^Context window: 1048576 tokens \(1% used\)\n {2}System prompt {4}\[░░░░\] 0%/,
+  );
+  assert.equal(
+    output?.notice.type === "command_output" && output.notice.format,
+    "preformatted",
+  );
+  assert.equal(omp.state.turn?.id, running?.id);
+  assert.equal(omp.state.turn?.phase, "working");
+
+  await omp.play((frame) => frame.type === "agent_end");
+  assert.equal(omp.state.turn?.phase, "ended");
+});
+
+test("roles come from the config files, use_role only sends /switch, and a global slow mode is never touched", async () => {
+  const config = `modelRoles:
+  smol: test/small:high
+  image: test/pixels
+`;
+  const omp = await setup("switch_role", {
+    files: { "/home/test/.omp/agent/config.yml": config },
+    state: {
+      fastModeEnabled: false,
+      slowModeSupported: true,
+      slowModeScope: "global",
+      slowModeEnabled: false,
+    },
+  });
+  assert.deepEqual(omp.state.session?.roles, [
+    { id: "smol", label: "smol", kind: "chat", model: "test/small:high" },
+    { id: "image", label: "image", kind: "model", model: "test/pixels" },
+  ]);
+  assert.deepEqual(
+    omp.state.session?.toggles.map((one) => one.id),
+    ["fast"],
+  );
+
+  const before = omp.sent.length;
+  await omp.input({ type: "use_role", role: "image" });
+  await omp.input({ type: "use_role", role: "smol" });
+  await omp.input({ type: "set_toggle", id: "slow", on: true });
+  const sentSince = omp.sent.slice(before);
+  assert.deepEqual(
+    sentSince.filter((body) => body.type === "prompt").map((b) => b.message),
+    ["/switch @smol"],
+  );
+  assert.equal(types(sentSince).includes("set_slow_mode"), false);
+
+  // session 범위이면 slow를 낸다.
+  const local = await setup("switch_role", {
+    state: {
+      slowModeSupported: true,
+      slowModeScope: "session",
+      slowModeEnabled: false,
+    },
+  });
+  assert.deepEqual(
+    local.state.session?.toggles.map((one) => one.id),
+    ["fast", "slow"],
+  );
+  await local.input({ type: "set_toggle", id: "slow", on: true });
+  assert.equal(types(local.sent).includes("set_slow_mode"), true);
+});
+
+test("a task tool line gets its subagent child, the child conversation and a background task", async () => {
+  const omp = await setup("subagent_events");
+  await omp.input(send("msg_1", "Start one subagent that reads hello.txt."));
+  await omp.play((frame) => frame.type === "tool_execution_end");
+  // task tool은 띄우자마자 끝나고 subagent는 그 뒤에 알려진다.
+  const line = tools(omp.state)[0];
+  assert.equal(line?.tool, "task");
+  assert.equal(line?.state, "ok");
+  assert.equal(line?.detail.kind === "subagent" && line.detail.child, null);
+
+  await omp.play(
+    (frame) =>
+      frame.type === "subagent_lifecycle" &&
+      (frame.payload as Frame).status === "completed",
+  );
+  const detail = tools(omp.state)[0]?.detail;
+  assert.equal(detail?.kind === "subagent" && detail.child, "ReadHello");
+  assert.equal(detail?.kind === "subagent" && detail.state, "done");
+  assert.equal(detail?.kind === "subagent" && detail.model, "test/base:high");
+  const child = omp.state.children.ReadHello;
+  assert.equal(
+    child?.items.some(
+      (item) => item.kind === "message" && item.actor === "received",
+    ),
+    true,
+  );
+  assert.equal(
+    child?.items.some(
+      (item) =>
+        item.kind === "message" &&
+        item.actor === "user" &&
+        item.delivery === "steer",
+    ),
+    true,
+  );
+  assert.deepEqual(
+    child?.items.flatMap((item) => (item.kind === "tool" ? [item.tool] : [])),
+    ["read", "bash", "yield"],
+  );
+  assert.deepEqual(
+    omp.state.tasks.map((task) => [task.id, task.state]),
+    [["ReadHello", "done"]],
+  );
+
+  // 멈춤과 방향 주기는 omp의 subagent RPC로 간다.
+  await omp.input({ type: "stop_child", child: "ReadHello" });
+  await omp.input({ type: "steer_child", child: "ReadHello", text: "hurry" });
+  assert.deepEqual(
+    omp.sent
+      .filter(
+        (b) => b.type === "cancel_subagent" || b.type === "steer_subagent",
+      )
+      .map((b) => [b.type, b.subagentId]),
+    [
+      ["cancel_subagent", "ReadHello"],
+      ["steer_subagent", "ReadHello"],
+    ],
+  );
+});
+
+test("changing the approval mode ends the old process before the new one takes the session", async () => {
+  const omp = await setup("text");
+  const changing = omp.input({ type: "set_mode", mode: "write" });
+  await flush();
+  assert.equal(omp.ended, true);
+  assert.equal(omp.fakes.length, 1);
+
+  omp.exit();
+  await flush();
+  await flush();
+  assert.equal(omp.fakes.length, 2);
+  assert.deepEqual(omp.fakes[1]?.args, [
+    "--mode",
+    "rpc-ui",
+    "--cwd=/work/text",
+    "--resume=01a1aa91-b251-7356-afc3-f1bdf9f99154",
+    "--approval-mode=write",
+  ]);
+  omp.emit({ type: "ready" });
+  for (let i = 0; i < 10; i += 1) await flush();
+  await changing;
+  assert.equal(omp.state.session?.mode, "write");
+  assert.equal(
+    omp.run.tuiCommand(),
+    "omp --resume=01a1aa91-b251-7356-afc3-f1bdf9f99154 --approval-mode=write",
+  );
 });

@@ -1,5 +1,5 @@
-# electron-builder config. Linux는 `--linux dir`로 앱만 풀고,
-# 설치 묶음(.deb)은 tools/package-linux.ts가 /opt/lophn 배치로 잇는다.
+# electron-builder config. 세 OS 모두 먼저 `--dir`로 앱만 풀고, 설치 묶음(platform/, desktop/, extensions/, skills/)은
+# tools/package/가 그 안에 넣은 뒤 묶는다(Linux .deb, macOS dmg, Windows nsis). 서명·notarize는 하지 않는다.
 appId: dev.lophn.shell
 productName: lophn
 executableName: lophn-desktop
@@ -20,13 +20,10 @@ linux:
   category: Development
   synopsis: Client workspace for projects and apps with lophn
   maintainer: lophn developers <lophn@localhost>
-appImage:
-  artifactName: ${productName}-${version}-${arch}.AppImage
 mac:
   target:
     - dmg
   category: public.app-category.developer-tools
-  hardenedRuntime: true
 win:
   target:
     - nsis

@@ -2,6 +2,10 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { LINUX_LAUNCHERS } from "../../../base/install/linux-install.ts";
+import { MAC_CLI_LAUNCHER } from "../../../base/install/mac-install.ts";
+import { WIN_CLI_LAUNCHER } from "../../../base/install/win-install.ts";
+
 const HOME_ENV = "LOPHN_HOME";
 
 interface DataRootInput {
@@ -48,18 +52,30 @@ export function browserDataPath(dataRoot: string): string {
 }
 
 /**
- * packaged 설치 묶음의 자리. Electron의 `resources/`는 설치 root 바로 아래에 있다
- * (platform/install-and-update, `/opt/lophn/`).
+ * packaged 설치 묶음의 자리. Linux·Windows는 Electron의 `resources/`가 설치 root 바로 아래에 있고
+ * (`/opt/lophn/`), macOS는 묶음이 `.app`의 `Contents/Resources/` 안에 있다. `cli`는 설치된 `lophn` 실행 파일이다.
  */
-export function packagedInstall(resourcesPath: string): {
+export function packagedInstall(
+  resourcesPath: string,
+  platform: NodeJS.Platform = process.platform,
+): {
   root: string;
   platform: string;
   desktop: string;
+  cli: string | null;
 } {
-  const root = dirname(resourcesPath);
+  const root = platform === "darwin" ? resourcesPath : dirname(resourcesPath);
   return {
     root,
     platform: join(root, "platform"),
     desktop: join(root, "desktop"),
+    cli:
+      platform === "linux"
+        ? LINUX_LAUNCHERS.cli
+        : platform === "darwin"
+          ? join(root, MAC_CLI_LAUNCHER)
+          : platform === "win32"
+            ? join(root, WIN_CLI_LAUNCHER)
+            : null,
   };
 }

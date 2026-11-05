@@ -1,5 +1,5 @@
 // Linux .deb 설치 묶음의 위치와 설치 때 쓰는 script 본문.
-// 묶음의 위치는 /opt/lophn/ 하나다. 순수 값이라 build 도구(tools/package-linux.ts)와 설치 검사
+// 묶음의 위치는 /opt/lophn/ 하나다. 순수 값이라 build 도구(tools/package/linux.ts)와 설치 검사
 // (tools/verify-linux-install.ts), core 조립이 같은 값을 쓴다.
 
 const LINUX_INSTALL_ROOT = "/opt/lophn";
@@ -65,7 +65,7 @@ function devLauncherHead(paths: DevCliPaths): string {
   ]);
 }
 
-function headOf(name: string, paths: string[]): string {
+export function headOf(name: string, paths: string[]): string {
   return [
     "#!/bin/sh",
     `# ${name}: launcher다. Electron의 Node로 CLI를 실행한다.`,
@@ -97,7 +97,7 @@ export function devCliLauncher(
 }
 
 // hook이 stdout에 써야 하는 글이다(`HARNESS_ADAPTERS[id].stdout`). event `*`는 그 harness의 나머지 전부다.
-type HookStdoutRow = { harness: string; event: string; stdout: string };
+export type HookStdoutRow = { harness: string; event: string; stdout: string };
 
 // env 없이 일찍 끝나는 hook도 `lophn hook`과 같은 stdout을 내도록 같은 표로 `case`를 만든다. 정확한 event가 `*`보다 먼저다.
 function hookStdoutCase(rows: readonly HookStdoutRow[]): string[] {
@@ -110,7 +110,10 @@ function hookStdoutCase(rows: readonly HookStdoutRow[]): string[] {
     );
 }
 
-function cliScript(head: string, hookStdout: readonly HookStdoutRow[]): string {
+export function cliScript(
+  head: string,
+  hookStdout: readonly HookStdoutRow[],
+): string {
   return [
     head,
     "# 전역 hook은 lophn과 상관없는 harness 실행마다 불린다. 터미널 hook env가 없으면 CLI를 띄우지 않고 끝낸다.",

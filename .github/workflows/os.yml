@@ -23,3 +23,5 @@ jobs:
       - run: npm ci
       - run: npm run check:full
       - run: node tools/ci/boot-core.ts
+      # 서명 없는 앱까지만 만든다(--dir). 산출물은 올리지 않는다.
+      - run: node tools/package/main.ts --dir

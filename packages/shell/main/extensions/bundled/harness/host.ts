@@ -1,4 +1,4 @@
-// harness host: 입력함의 입력을 harness의 headless CLI로 실행하고 출력을 session 기록으로 옮긴다.
+// harness host: harness queue의 입력을 harness의 headless CLI로 실행하고 출력을 session 기록으로 옮긴다.
 // core에는 `ctx.core`로만 닿는다. 흐름과 route 순서는 `protocol/lophn-agent/harness-host.ts`.
 import type { Result } from "../../../../../base/result.ts";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";

@@ -4,7 +4,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 
 ## OS마다 다른 규칙의 자리
 
-- **순수 규칙은 `packages/base/os/`다.** `homeOf(env, platform)`(POSIX `HOME`, win32 `USERPROFILE`, 없으면 `HOMEDRIVE`+`HOMEPATH`), `ipcPath(dir, name, platform)`·`ipcPathLimit(platform)`(POSIX는 `<dir>/<name>.sock`과 sun_path 107·103 byte, win32는 `\\.\pipe\lophn-<dir의 FNV-1a 64>-<name>`과 256), `signalTree`·`treeGone`·`nodeTreeDeps(spawn)`(process tree 신호). base는 node 내장을 import하지 않아 spawn은 인자로 받는다.
+- **순수 규칙은 `packages/base/os/`다.** `homeOf(env, platform)`(POSIX `HOME`, win32 `USERPROFILE`, 없으면 `HOMEDRIVE`+`HOMEPATH`), `ipcPath(dir, name, platform)`·`ipcPathLimit(platform)`(POSIX는 `<dir>/<name>.sock`과 sun_path 107·103 byte, win32는 `\\.\pipe\lophn-<dir의 FNV-1a 64>-<name>`과 256), `signalTree`·`treeGone`·`nodeTreeDeps(spawn)`(process tree 신호), `prependPath(env, folder, platform)`(Windows는 `Path` 이름을 대소문자 없이 찾고 `;`로 잇는다). base는 node 내장을 import하지 않아 spawn은 인자로 받는다.
 - **OS로 가르는 함수는 platform을 인자로 받는다.** 기본값이 `process.platform`이고 test는 다른 값을 넘긴다. protocol은 runtime 전역을 읽지 않는다. 앱 socket 경로 schema(`packages/protocol/apps/app-start.ts`)는 가장 큰 한도(256)만 보고, OS별 길이는 core가 경로를 만드는 곳(`packages/core/apps/runtime/processes/socket-dir.ts`, `entrypoint/wire-check.ts`)에서 본다.
 - **path는 `node:path`와 `node:url`로 다룬다.** module 자리는 `fileURLToPath(new URL(…, import.meta.url))`이고 `import.meta.url).pathname` 꼴은 `packages/` 안에서 `tools/check-source.ts`(`meta-url-pathname`)가 막는다(Windows는 `/C:/…`, 공백·한글 path는 `%20`으로 깨진다). 절대 경로 판정은 `isAbsolute`, PATH는 `delimiter`로 잇고 나눈다. 앱 안의 상대 path(bundle 목록, data area)만 `/` 꼴이다.
 
@@ -56,7 +56,7 @@ macOS는 foreground 판정이 `pty.process` 이름뿐이고(`/proc`가 없다) �
 | CLI | `/usr/bin/lophn`(sh) | `<root>/bin/lophn`(sh) | `<root>\bin\lophn.cmd` |
 | node-pty | source compile | N-API prebuild | N-API prebuild |
 
-macOS·Windows는 CLI를 PATH에 깔지 않는다. shell이 앱 안 launcher의 절대 경로를 쓴다. Windows의 `platform/node_modules/@lophn/*`는 npm이 만드는 절대 경로 junction 대신 copy다. node-pty는 Linux만 rebuild한다(`packages/shell/main/build.ts` `rebuildNodePty`).
+macOS·Windows는 CLI를 시스템 PATH에 깔지 않는다. shell이 앱 안 launcher의 절대 경로(`packages/shell/main/desktop/paths.ts` `lophnCliPath`, 설치본이 먼저이고 개발은 `LOPHN_CLI`)를 쓰고, lophn 터미널(`terminal/ipc.ts`)과 harness agent(`extensions/bundled/harness/host.ts`)의 env에 그 폴더를 PATH 앞에 둔다(`packages/base/os/` `prependPath`). Windows의 `platform/node_modules/@lophn/*`는 npm이 만드는 절대 경로 junction 대신 copy다. node-pty는 Linux만 rebuild한다(`packages/shell/main/build.ts` `rebuildNodePty`).
 
 ## 다른 OS 확인
 

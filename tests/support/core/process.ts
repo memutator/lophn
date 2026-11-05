@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -23,6 +23,60 @@ const REPO = fileURLToPath(new URL("../../../", import.meta.url)).replace(
   /[\\/]$/,
   "",
 );
+// Windows는 /proc이 없고 남의 process env를 읽지 못한다. spawnCore가 띄운 core pid를 home마다 적어 두고,
+// 그 pid에서 ParentProcessId를 따라 내려간 process를 그 home의 것으로 본다. Windows는 부모가 끝나도 ParentProcessId를
+// 그대로 두므로 core가 죽은 뒤에도 남은 child를 찾는다. 끝난 pid를 다른 process가 다시 받으면 잘못 셀 수 있다.
+const windowsCores = new Map<string, Set<number>>();
+
+type WindowsProcess = { pid: number; ppid: number; command: string };
+
+function windowsProcesses(): Promise<WindowsProcess[]> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress",
+      ],
+      { maxBuffer: 64 << 20, windowsHide: true },
+      (error, stdout) => {
+        if (error !== null) return reject(error);
+        const rows = JSON.parse(stdout) as {
+          ProcessId: number;
+          ParentProcessId: number;
+          CommandLine: string | null;
+        }[];
+        resolve(
+          rows.map((row) => ({
+            pid: row.ProcessId,
+            ppid: row.ParentProcessId,
+            command: row.CommandLine ?? "",
+          })),
+        );
+      },
+    );
+  });
+}
+
+async function windowsTree(home: string): Promise<WindowsProcess[]> {
+  const roots = windowsCores.get(home) ?? new Set<number>();
+  const all = await windowsProcesses();
+  const found = new Map<number, WindowsProcess>();
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const one of all) {
+      if (found.has(one.pid)) continue;
+      if (roots.has(one.pid) || roots.has(one.ppid) || found.has(one.ppid)) {
+        found.set(one.pid, one);
+        grew = true;
+      }
+    }
+  }
+  return [...found.values()].sort((a, b) => a.pid - b.pid);
+}
+
 // core는 설치본에서 Electron의 Node로 돈다. test도 같은 binary로 띄워야 판이 갈리지 않는다.
 const ELECTRON = createRequire(import.meta.url)("electron") as string;
 
@@ -83,6 +137,12 @@ export async function spawnCore(
       stdio: ["pipe", "pipe", "pipe"],
     },
   );
+  if (process.platform === "win32" && child.pid !== undefined) {
+    windowsCores.set(
+      home,
+      (windowsCores.get(home) ?? new Set()).add(child.pid),
+    );
+  }
   // spawn 실패('error')에는 exit event가 없으니 error도 끝으로 센다.
   const exitCode = new Promise<number | null>((resolve) => {
     child.on("exit", (code) => resolve(code));
@@ -182,8 +242,11 @@ export async function spawnCore(
   };
 }
 
-// LOPHN_HOME이 이 home인 process(daemon과 그 child)를 /proc에서 찾는다.
+// LOPHN_HOME이 이 home인 process(daemon과 그 child)를 /proc에서 찾는다(Windows는 위의 pid tree).
 export async function processesOf(home: string): Promise<number[]> {
+  if (process.platform === "win32") {
+    return (await windowsTree(home)).map((one) => one.pid);
+  }
   const wanted = `LOPHN_HOME=${home}`;
   const found: number[] = [];
   for (const entry of await readdir("/proc", { withFileTypes: true })) {
@@ -225,6 +288,11 @@ export async function waitGone(
 
 // agent runtime child의 pid. child가 crash하면 감독이 새 pid로 다시 띄운다.
 export async function runtimePids(home: string): Promise<number[]> {
+  if (process.platform === "win32") {
+    return (await windowsTree(home))
+      .filter((one) => /agent-runtime[\\/]main\.ts/.test(one.command))
+      .map((one) => one.pid);
+  }
   const found: number[] = [];
   for (const pid of await processesOf(home)) {
     try {

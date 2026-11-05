@@ -98,8 +98,9 @@ export async function createRun(): Promise<Run> {
   // worktree 안(.claude/worktrees/<이름>/.dev-data/...)은 app test의 Unix socket 경로가 108자(SUN_LEN)를 넘는다.
   // 그래서 run은 짧은 경로의 시스템 임시 폴더에 둔다.
   const dir = await mkdtemp(join(tmpdir(), "lophn-e2e-"));
-  const home = `${dir}/home`;
-  const work = `${dir}/work`;
+  // core는 data root를 정규화해 알린다. Windows에서도 같은 꼴이 되게 join으로 잇는다.
+  const home = join(dir, "home");
+  const work = join(dir, "work");
   await mkdir(home, { mode: 0o700 });
   await mkdir(work);
   await mkdir(`${dir}/user-home`);

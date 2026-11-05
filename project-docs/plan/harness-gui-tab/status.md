@@ -23,4 +23,4 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `screen-thread` | screen | 5 | acp-more | merged | screen/screen-thread | 5e2855df5 |  |
 | `screen-dock` | screen | 6 | screen-thread | merged | screen/screen-dock | c2fcec0c2 |  |
 | `thread-index` | screen | 7 | screen-dock | merged | screen/thread-index | 84c6a3c29 |  |
-| `app-check` | check | 8 | thread-index | todo |  |  |  |
+| `app-check` | check | 8 | thread-index | blocked | check/app-check |  | 사람이 직접 확인하기로 함(2026-11-05). worktree에 만들던 script가 commit 없이 남아 있다 |

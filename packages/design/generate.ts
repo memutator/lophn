@@ -8,8 +8,9 @@ import { type FlatToken, flatten, renderCss } from "./flatten.ts";
 import { tokens } from "./tokens.ts";
 
 // check.ts가 쓰는 Biome과 같은 판이다. npm workspace라 루트 node_modules에 하나만 깔린다.
+// `.bin/biome`은 Windows에서 .cmd라 shell 없이 못 띄운다. 패키지의 JS 입구를 이 node로 띄운다.
 const BIOME = fileURLToPath(
-  new URL("../../node_modules/.bin/biome", import.meta.url),
+  new URL("../../node_modules/@biomejs/biome/bin/biome", import.meta.url),
 );
 
 // design은 base에 기대지 않는다. file 오류의 code(`ENOENT` …)를 그 자리에서 읽는다.
@@ -55,9 +56,11 @@ export function renderTokenNames(flat: readonly FlatToken[]): string {
 
 // 생성한 file이 check.ts의 Biome format 단계를 그대로 통과하도록 같은 설정으로 맞춘다.
 async function formatVars(source: string, file: string): Promise<string> {
-  const child = spawn(BIOME, ["format", `--stdin-file-path=${file}`], {
-    stdio: "pipe",
-  });
+  const child = spawn(
+    process.execPath,
+    [BIOME, "format", `--stdin-file-path=${file}`],
+    { stdio: "pipe" },
+  );
   const stdout: Buffer[] = [];
   const stderr: Buffer[] = [];
   child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));

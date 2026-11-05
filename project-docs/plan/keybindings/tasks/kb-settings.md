@@ -54,3 +54,10 @@ Settings › Keyboard를 넓힌다: section 묶음, 키 없는 줄에 키 달기
 - 계약 바꾸기 요청
 - **무겁게 짠 것**: `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함 (kb-table 뒤)
+
+- `findConflicts`는 chord마다 `KeyConflict` 하나다. `ids`는 그 chord를 가진 binding id 모두(표 순서), `reserved`는 RESERVED도 그 chord를 쓰면 true다. binding 하나만 가진 chord는 reserved일 때만 나온다. 그래서 `reserved: true`이면서 `ids`가 둘 이상일 수 있다.
+- 표(`KEYBINDINGS`)는 이미 section 순서로 놓였다. `keyRows`는 그 순서를 그대로 묶으면 된다.
+- 새 command의 이름·설명 key(`settings.label.key-*`, `settings.note.key-*`)는 이미 catalog에 있다. 이 task는 section 제목, Not set, 겹침 줄, 바꾸기, 앱 줄, 없는 앱 글만 더한다. `WORDING`에서 `app.panel`의 help가 화면에 안 쓰이면 지운다.
+- 앱 줄 id는 `appPanelBindingId(app, surface)`로 만든다. surface 글자 상한은 80, app은 30자 id다.

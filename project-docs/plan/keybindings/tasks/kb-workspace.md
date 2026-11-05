@@ -57,3 +57,9 @@ place 창이 README 표의 새 command를 모두 받아 한다. tab·group·stac
 - 계약 바꾸기 요청
 - **무겁게 짠 것**: `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함 (kb-table 뒤)
+
+- `WORKSPACE_COMMANDS`는 표의 command를 모두 올리고 `runCommand`는 모르는 command를 그냥 넘긴다. 그래서 지금은 새 기본 키가 아무것도 안 하면서 키를 삼킨다. 모든 새 command에 `case`를 넣어 이것을 없앤다.
+- `app.panel`은 표에 줄이 없어 `WORKSPACE_COMMANDS`에 들지 않는다. 따로 `useCommands({ [APP_PANEL]: ... })`로 올린다. arg는 `"<app>:<surface>"` 글자이고 첫 `:`에서 나눈다(app id에 `:`가 없다).
+- `pane.focus-up/down`(Ctrl/Cmd+Alt+↑↓)이 편집기의 커서 더하기를 이미 가린다. 그대로 둔다.

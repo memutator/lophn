@@ -46,3 +46,9 @@ context menu와 빠른 실행·팔레트가 그 일의 단축키를 보인다. t
 - 계약 바꾸기 요청
 - **무겁게 짠 것**: `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 없으면 "없음"
+
+## lead가 더함 (kb-table 뒤)
+
+- 추가 소유: `tools/wireframes/pages/kit/overlay/overlays.tsx`의 Menu demo — 한 항목에 `shortcut`을 단다. 그 밖은 고치지 않는다.
+- design `Menu`는 `shortcut`이 있으면 typeahead 글을 label로 둔다. 따로 `textValue`를 줄 필요가 없다.
+- `useKeyLabel()`은 사람이 Settings에서 키를 바꾸면 다시 그린다. tooltip처럼 늘 떠 있는 곳도 이것만 쓰면 된다.

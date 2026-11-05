@@ -1,9 +1,13 @@
 import type { OsPlatform } from "./home.ts";
 
-// base는 node: import를 막는 이식 규칙이 있어 내장 module은 실행 때 process에서 얻는다. 동기 hash가 필요해서 crypto.subtle(hash.ts)을 못 쓴다.
-function sha256Prefix(text: string): string {
-  const { createHash } = process.getBuiltinModule("node:crypto");
-  return createHash("sha256").update(text).digest("hex").slice(0, 16);
+// base는 node: import를 막는 이식 규칙이 있고 crypto.subtle(hash.ts)은 비동기라, 동기 FNV-1a 64bit를 쓴다. dir마다 안정적이기만 하면 되고 보안 용도가 아니다.
+function dirHash(text: string): string {
+  const mask = (1n << 64n) - 1n;
+  let hash = 0xcbf29ce484222325n;
+  for (const byte of new TextEncoder().encode(text)) {
+    hash = ((hash ^ BigInt(byte)) * 0x100000001b3n) & mask;
+  }
+  return hash.toString(16).padStart(16, "0");
 }
 
 // POSIX는 socket file, Windows는 dir마다 달라지는 named pipe다(pipe 이름 공간은 하나라 data root를 hash로 가른다).
@@ -13,7 +17,7 @@ export function ipcPath(
   platform: OsPlatform,
 ): string {
   if (platform === "win32") {
-    return `\\\\.\\pipe\\lophn-${sha256Prefix(dir)}-${name}`;
+    return `\\\\.\\pipe\\lophn-${dirHash(dir)}-${name}`;
   }
   return `${dir}/${name}.sock`;
 }

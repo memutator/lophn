@@ -54,15 +54,30 @@ export function treeGone(
   }
 }
 
-export function nodeTreeDeps(): TreeDeps {
-  const { spawn } = process.getBuiltinModule("node:child_process");
+// node:child_process의 spawn 꼴 중 쓰는 것만. base는 node: import를 못 해서 조립하는 곳이 `nodeTreeDeps(spawn)`으로 넘긴다.
+export type TreeChild = {
+  kill(): unknown;
+  once(event: "error", listener: () => void): unknown;
+  once(event: "close", listener: (code: number | null) => void): unknown;
+};
+
+export function nodeTreeDeps(
+  spawn: (
+    command: string,
+    args: string[],
+    options: { stdio: "ignore"; windowsHide: true },
+  ) => TreeChild,
+): TreeDeps {
   return {
     kill: (pid, signal) => {
       process.kill(pid, signal);
     },
     run: (command, args) =>
       new Promise((resolve) => {
-        const child = spawn(command, args, { stdio: "ignore" });
+        const child = spawn(command, args, {
+          stdio: "ignore",
+          windowsHide: true,
+        });
         const timer = setTimeout(() => {
           child.kill();
           resolve({ code: null });

@@ -29,6 +29,7 @@ export {
   type OsPlatform,
   signalTree,
   treeGone,
+  type TreeChild,
   type TreeDeps,
   type TreeResult,
 } from "./os/mod.ts";

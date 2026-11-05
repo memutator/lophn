@@ -4,6 +4,7 @@ export {
   nodeTreeDeps,
   signalTree,
   treeGone,
+  type TreeChild,
   type TreeDeps,
   type TreeResult,
 } from "./tree.ts";

@@ -13,6 +13,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { AcpInput, AcpSessionMeta } from "../../../protocol/acp/mod.ts";
 import {
   type ContentBlock,
   textBlocks,
@@ -29,13 +30,15 @@ import type {
   AgentTabSource,
   EvidenceRef,
   PermissionsView as PermissionsData,
+  RewindChoice,
   SessionEntry,
   SourceResult,
-  StatusView as StatusData,
 } from "./agent-tab-source.ts";
 import { AgentThread } from "./agent-thread.tsx";
 import styles from "./agent-view.module.css";
 import {
+  capabilitiesOf,
+  decideChoiceOf,
   excerptOf,
   messagesOf,
   newSessionKey,
@@ -57,6 +60,7 @@ import type { DraftStore } from "./drafts.ts";
 import { ConversationFindBar } from "./find/conversation-find.tsx";
 import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
+import { forkAndOpen } from "./header/fork.ts";
 import { RunCodeProvider } from "./message-list/run-code.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
@@ -64,6 +68,7 @@ import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
 import { StatusFooter } from "./status-view/status-footer.tsx";
+import type { StatusData } from "./status-view/status-summary.ts";
 import { StatusView } from "./status-view/status-view.tsx";
 import { layoutOf } from "./thread-layout.ts";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
@@ -198,7 +203,6 @@ function OpenSession(props: AgentViewProps & ViewSeed & { session: string }) {
 
 function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const { source, drafts, session, host, data } = props;
-  const external = source.external === true;
   // 보던 session이 사라진 읽기와 지운 쓰기가 같은 말을 두 번 하지 않게 한다.
   const current = useRef(session);
   current.current = session;
@@ -211,7 +215,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   useSyncExternalStore(drafts.subscribe, drafts.version);
   const [layer, setLayer] = useState<Layer | null>(null);
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
-  const [status, setStatus] = useState<StatusData | null>(null);
+  // 새 session에서 고른 model. session을 만들 때 저장한다.
+  const [pendingModel, setPendingModel] = useState<{
+    readonly model: string;
+    readonly options: Record<string, string>;
+  } | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const stage = useRef<HTMLDivElement>(null);
   const find = useConversationFind(stage, props.findSeed, props.onFindSeedUsed);
@@ -245,21 +253,53 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     [source, session],
   );
 
-  // composer 아래 푸터가 늘 지금 값을 보이게, panel을 열 때만이 아니라 session이 바뀌거나 turn이 끝날 때 다시 읽는다.
-  const turnPhase = turn === null ? null : `${turn.id}:${turn.phase}`;
-  useEffect(() => {
-    if (session === null) {
-      setStatus(null);
-      return;
-    }
-    let live = true;
-    void source.status(session).then((read) => {
-      if (live && read.ok) setStatus(read.value);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, session, turnPhase]);
+  const borrowed = useBorrowedMeta(source, data.sessions, session === null);
+  // 아직 만들지 않은 새 session은 session meta가 없다. 같은 agent의 다른 session에서 목록(model, 명령)과 capability만
+  // 빌리고, 그 session이 고른 model과 mode, 사용량은 이 session의 것이 아니라 가린다.
+  const meta: AcpSessionMeta | null =
+    session !== null
+      ? (thread?.session ?? null)
+      : borrowed === null
+        ? null
+        : {
+            ...borrowed,
+            title: null,
+            mode: null,
+            usage: null,
+            model:
+              pendingModel === null
+                ? borrowed.model?.layer === "session"
+                  ? null
+                  : borrowed.model
+                : {
+                    model: pendingModel.model,
+                    label:
+                      borrowed.models
+                        .flatMap((group) => group.models)
+                        .find((one) => one.id === pendingModel.model)?.label ??
+                      pendingModel.model,
+                    options: pendingModel.options,
+                    layer: "session",
+                  },
+          };
+  const caps = capabilitiesOf(meta);
+  const plan = thread?.plan ?? null;
+  const status: StatusData | null =
+    session !== null && caps.usage && meta?.usage != null
+      ? {
+          session: meta.cli_session ?? session,
+          model: meta.model,
+          usage: meta.usage,
+        }
+      : null;
+
+  const actKey = (prefix: string) => newId(prefix, now());
+  // 접수되었는지만 돌려준다. 결과로 바뀌는 칸은 ACP 갱신이 알린다.
+  const act = async (target: string, input: AcpInput) => {
+    const result = await source.act(target, input);
+    setProblem(result.ok ? null : "action-failed");
+    return result;
+  };
 
   // 보던 session이 없어졌으면 새 session으로 간다.
   useEffect(() => {
@@ -314,6 +354,16 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       return null;
     }
     setProblem(null);
+    if (pendingModel !== null) {
+      // 저장하지 못해도 session은 열렸다. 그 session은 agent 기본 model을 따른다.
+      await source.act(id, {
+        type: "set_model",
+        session: id,
+        key: actKey("model"),
+        ...pendingModel,
+      });
+      setPendingModel(null);
+    }
     drafts.save(id, {
       text: draft.text,
       selection: draft.selection,
@@ -411,10 +461,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   const fork = async (through: string | null) => {
     if (session === null) return;
-    const id = newId("ses", now());
-    if (await perform(() => source.forkSession({ id, session, through }))) {
-      host.openForked(id);
-    }
+    await perform(() =>
+      forkAndOpen(source, session, through, host.openForked, now()),
+    );
   };
 
   const startNew = () => {
@@ -426,11 +475,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     if (await loadPermissions()) setLayer({ kind: "permissions" });
   };
 
-  const showStatus = async () => {
-    if (session === null) return;
-    const read = await source.status(session);
-    if (!read.ok) return fail();
-    setStatus(read.value);
+  const showStatus = () => {
+    if (status === null) return fail();
     setLayer({ kind: "status" });
   };
 
@@ -446,9 +492,12 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           }
           clear();
           if (session !== null) {
-            void perform(() => source.renameSession(session, argument)).then(
-              () => refresh(),
-            );
+            void act(session, {
+              type: "rename",
+              session,
+              key: actKey("rename"),
+              title: argument,
+            }).then(() => refresh());
           }
           return;
         }
@@ -466,9 +515,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         case "compact":
           clear();
           if (session !== null) {
-            void perform(() => source.compactSession(session)).then(() =>
-              data.reload(),
-            );
+            void act(session, {
+              type: "compact",
+              session,
+              key: actKey("compact"),
+            }).then(() => data.reload());
           }
           return;
         case "fork":
@@ -479,7 +530,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           return void showPermissions();
         case "status":
           clear();
-          return void showStatus();
+          return showStatus();
         case "mcp":
         case "skills":
           clear();
@@ -492,9 +543,13 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     void (async () => {
       const target = await ensureSession();
       if (target !== null) {
-        await perform(() =>
-          source.runCommand(target, command, argument, newId("cmd", now())),
-        );
+        await act(target, {
+          type: "run_command",
+          session: target,
+          key: actKey("cmd"),
+          name: command.name,
+          argument,
+        });
       }
     })();
   };
@@ -537,7 +592,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           status: "idle",
           activeAt: new Date(now()).toISOString(),
           archived: false,
-          skip: false,
         });
   const empty = messages.length === 0 && draft.outgoing === null;
   // 보낸 말을 받기 전부터 turn이 끝날 때까지 일하는 중이다. 사람이 답할 것(허락·질문)을 기다리는 동안은
@@ -573,14 +627,14 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     empty && props.hint !== undefined
       ? props.hint
       : t(
-          external
-            ? "conversation.placeholder.message"
-            : "conversation.placeholder.ask",
+          caps.sessions
+            ? "conversation.placeholder.ask"
+            : "conversation.placeholder.message",
           { agent: agent.name },
         );
   const approval = thread?.pending.approval ?? null;
   const asked = thread?.pending.questions ?? null;
-  const accepted = (call: Promise<SourceResult<void>>) =>
+  const accepted = (call: Promise<SourceResult<unknown>>) =>
     call.then((result) => result.ok);
 
   return (
@@ -605,7 +659,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         }}
         onChanged={() => void refresh()}
         trailing={props.trailing}
-        external={external}
+        capabilities={caps}
+        title={meta?.title ?? null}
       />
       {offline || data.failed ? (
         <p className={styles.stale} data-stale="">
@@ -648,7 +703,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             now={now}
             imageUrl={imageUrl}
             readOnly={readOnly}
-            external={external}
+            can={{ rewind: caps.rewind, fork: caps.fork }}
             source={source}
             initialScroll={draft.scroll}
             onScroll={(position) => drafts.save(key, { scroll: position })}
@@ -676,6 +731,17 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             {layer.kind === "rewind" && session !== null ? (
               <RewindPanel
                 source={source}
+                withFiles={caps.rewind_files}
+                rewind={(choice: RewindChoice) =>
+                  act(session, {
+                    type: "rewind",
+                    session,
+                    key: actKey("rewind"),
+                    message: layer.message,
+                    files: choice.files,
+                    apps: [...choice.apps],
+                  })
+                }
                 session={session}
                 message={layer.message}
                 excerpt={excerptOf(
@@ -702,11 +768,15 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             key={approval.id}
             agent={agent.name}
             request={approval}
-            external={external}
             focusOnMount={draft.text === "" && draft.attachments.length === 0}
             onDecide={(choice, reason) =>
               accepted(
-                source.decidePermission(session, approval.id, choice, reason),
+                act(session, {
+                  type: "decide",
+                  session,
+                  request: approval.id,
+                  choice: decideChoiceOf(choice, reason),
+                }),
               )
             }
           />
@@ -771,6 +841,23 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           <AgentComposer
             key={key}
             source={source}
+            meta={meta}
+            capabilities={caps}
+            plan={plan}
+            onChooseModel={async (model, options) => {
+              if (session === null) {
+                setPendingModel({ model, options });
+                return true;
+              }
+              const result = await source.act(session, {
+                type: "set_model",
+                session,
+                key: actKey("model"),
+                model,
+                options,
+              });
+              return result.ok;
+            }}
             session={session}
             agentName={agent.name}
             draft={draft}
@@ -785,15 +872,23 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             place={agent.place}
             permissionSummary={agent.permissionSummary}
             permissions={permissions}
-            skip={
-              session === null || entry === null || readOnly
+            mode={
+              session === null ||
+              readOnly ||
+              !caps.mode ||
+              meta === null ||
+              meta.modes.length < 2
                 ? undefined
                 : {
-                    on: entry.skip,
-                    onChange: (on) =>
-                      void perform(() => source.changeSkip(session, on)).then(
-                        (ok) => (ok ? refresh() : undefined),
-                      ),
+                    current: meta.mode,
+                    choices: meta.modes,
+                    onChange: (mode) =>
+                      void act(session, {
+                        type: "set_mode",
+                        session,
+                        key: actKey("mode"),
+                        mode,
+                      }),
                   }
             }
             onDraft={(patch) => drafts.save(key, patch)}
@@ -803,13 +898,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             onStop={() => void stop()}
             onCommand={runSlash}
             onProblem={fail}
-            external={external}
             usage={
               status === null ? null : (
-                <StatusFooter
-                  status={status}
-                  onOpen={() => void showStatus()}
-                />
+                <StatusFooter status={status} onOpen={showStatus} />
               )
             }
           />
@@ -817,4 +908,36 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       </div>
     </section>
   );
+}
+
+/**
+ * 새 session 화면이 목록·명령·capability를 빌릴 meta. 가장 최근에 쓴 session의 snapshot에서 한 번 읽는다. session이
+ * 하나도 없으면 null이다.
+ */
+function useBorrowedMeta(
+  source: AgentTabSource,
+  sessions: readonly SessionEntry[],
+  enabled: boolean,
+): AcpSessionMeta | null {
+  const [meta, setMeta] = useState<AcpSessionMeta | null>(null);
+  const latest = enabled
+    ? sessions
+        .filter((one) => !one.archived)
+        .reduce<SessionEntry | null>(
+          (best, one) =>
+            best === null || one.activeAt > best.activeAt ? one : best,
+          null,
+        )?.id
+    : undefined;
+  useEffect(() => {
+    if (latest === undefined) return;
+    let live = true;
+    void source.acp(latest).then((read) => {
+      if (live && read.ok) setMeta(read.value.session);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, latest]);
+  return enabled ? meta : null;
 }

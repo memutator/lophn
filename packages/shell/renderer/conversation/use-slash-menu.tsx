@@ -8,7 +8,9 @@ import {
   useState,
 } from "react";
 
+import type { AcpCommand } from "../../../protocol/acp/mod.ts";
 import type { AgentTabSource } from "./agent-tab-source.ts";
+import { slashGroupsOf } from "./agent-view-model.ts";
 import {
   type SlashEntryView,
   type SlashGroupView,
@@ -18,8 +20,10 @@ import {
 } from "./slash-menu/slash-menu.tsx";
 
 interface SlashMenuInput {
-  source: Pick<AgentTabSource, "commands">;
+  source: Pick<AgentTabSource, "acp">;
   session: string | null;
+  /** 첫 읽기의 명령. 메뉴를 열 때 snapshot을 다시 읽어 새로 켠 skill을 반영하므로 그 전까지의 값이다. */
+  commands: readonly AcpCommand[];
   /** 입력칸의 글. */
   text: string;
   agentName: string;
@@ -27,7 +31,6 @@ interface SlashMenuInput {
   working: boolean;
   /** 고른 명령을 실행한다. 입력칸을 비우는 일도 실행하는 쪽이 한다. */
   onRun: (entry: SlashEntryView, argument: string) => void;
-  onProblem: () => void;
 }
 
 interface SlashMenuControl {
@@ -44,32 +47,34 @@ function entriesOf(groups: readonly SlashGroupView[]): SlashEntryView[] {
 }
 
 export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
-  const { source, session, text, working, onProblem } = input;
+  const { source, session, text, working } = input;
   const query = slashQuery(text);
-  const [listed, setListed] = useState<{
-    query: string;
-    groups: readonly SlashGroupView[];
-  } | null>(null);
+  // 명령 목록은 snapshot에만 있고 skill이 바뀌어도 갱신이 없다. 메뉴를 열 때마다 다시 읽는다.
+  const [fresh, setFresh] = useState<readonly AcpCommand[] | null>(null);
+  const commands = fresh ?? input.commands;
+  const opened = query !== null;
+  useEffect(() => {
+    if (!opened || session === null) return;
+    let live = true;
+    void source.acp(session).then((read) => {
+      if (live && read.ok && read.value.session !== null) {
+        setFresh(read.value.session.commands);
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, session, opened]);
+  const listed =
+    query === null
+      ? null
+      : { query, groups: slashGroupsOf(commands, query, session !== null) };
   const [unknown, setUnknown] = useState<SlashMenuState | null>(null);
   const [highlight, setHighlight] = useState(0);
   // Esc로 닫은 글. 글이 바뀌면 다시 열린다.
   const [dismissed, setDismissed] = useState<string | null>(null);
   const latest = useRef(input);
   latest.current = input;
-
-  useEffect(() => {
-    if (query === null) {
-      setListed(null);
-      return;
-    }
-    let live = true;
-    void source.commands(session, query).then((read) => {
-      if (live && read.ok) setListed({ query, groups: read.value });
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, session, query]);
 
   // 글이 바뀌면 고른 줄과 알림은 처음으로 돌아간다.
   useEffect(() => {
@@ -107,13 +112,8 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
   const submit = async () => {
     const match = /^\/(\S*)(\s*)([\s\S]*)$/.exec(text)!;
     const [name, spaced, argument] = [match[1]!, match[2]! !== "", match[3]!];
-    // 인자를 쓰는 중이면 메뉴가 닫혀 있다. 이름으로 목록을 새로 읽어 판정한다.
-    const read = await source.commands(session, name);
-    if (!read.ok) {
-      onProblem();
-      return;
-    }
-    const entries = entriesOf(read.value);
+    // 인자를 쓰는 중이면 메뉴가 닫혀 있다. 이름으로 목록을 거르고 판정한다.
+    const entries = entriesOf(slashGroupsOf(commands, name, session !== null));
     // 인자를 쳤으면 이름이 같은 것이다. 이름만 쳤으면 화살표로 고른 줄이 우선이다. 고르지 않았으면(첫 줄)
     // 이름이 꼭 맞는 명령이 이긴다. `/status`는 설명에 "status"가 든 MCP가 첫 줄이라 MCP가 돌던 일이 있다.
     const exact = entries.find((entry) => entry.name === name);

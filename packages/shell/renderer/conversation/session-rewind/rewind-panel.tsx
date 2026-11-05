@@ -11,13 +11,19 @@ import { actionIcons, workspaceIcons } from "../../icons/mod.ts";
 import type {
   AgentTabSource,
   RewindApp,
+  RewindChoice,
   RewindPreviewView,
+  SourceResult,
 } from "../agent-tab-source.ts";
 import { reasonText } from "./text.ts";
 import styles from "./rewind-panel.module.css";
 
 interface RewindPanelProps {
-  source: Pick<AgentTabSource, "rewindPreview" | "rewind">;
+  source: Pick<AgentTabSource, "rewindPreview">;
+  /** 되돌린다. `act`로 보낸 결과다. */
+  rewind: (choice: RewindChoice) => Promise<SourceResult<unknown>>;
+  /** 파일·앱 복원을 받는 source(`capabilities.rewind_files`)다. 아니면 대화만 되돌려 목록을 읽지 않는다. */
+  withFiles: boolean;
   session: string;
   /** 시점으로 고른 내 메시지. */
   message: string;
@@ -140,8 +146,12 @@ function summaryOf(files: boolean, apps: readonly string[]): string {
 }
 
 export function RewindPanel(props: RewindPanelProps): ReactElement {
-  const { source, session, message } = props;
-  const [preview, setPreview] = useState<Preview>({ state: "loading" });
+  const { source, session, message, withFiles } = props;
+  const [preview, setPreview] = useState<Preview>(
+    withFiles
+      ? { state: "loading" }
+      : { state: "ready", value: { files: [], apps: [] } },
+  );
   // file tool로 바꾼 파일은 기본으로 함께 되돌린다. 앱은 고르기 전까지 그대로다.
   const [files, setFiles] = useState(true);
   const [apps, setApps] = useState<readonly string[]>([]);
@@ -149,6 +159,7 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!withFiles) return;
     let current = true;
     setPreview({ state: "loading" });
     void source.rewindPreview(session, message).then((result) => {
@@ -162,7 +173,7 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
     return () => {
       current = false;
     };
-  }, [source, session, message]);
+  }, [source, session, message, withFiles]);
 
   const ready = preview.state === "ready" ? preview.value : null;
   const chosen =
@@ -182,7 +193,7 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
     if (busy || ready === null) return;
     setBusy(true);
     setError(null);
-    const result = await source.rewind(session, message, { files, apps });
+    const result = await props.rewind({ files: withFiles && files, apps });
     if (result.ok) {
       props.onRewound?.();
       props.onClose();
@@ -229,7 +240,7 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
             <p className={styles.text}>
               {t("conversation.notice.rewind-conversation")}
             </p>
-            {ready === null ? null : ready.files.length === 0 ? (
+            {!withFiles || ready === null ? null : ready.files.length === 0 ? (
               <p className={styles.muted}>
                 {t("conversation.notice.rewind-no-files")}
               </p>
@@ -255,48 +266,52 @@ export function RewindPanel(props: RewindPanelProps): ReactElement {
                 </ul>
               </>
             )}
-            <p className={styles.muted}>
-              {t("conversation.notice.rewind-shell-files")}
-            </p>
+            {withFiles ? (
+              <p className={styles.muted}>
+                {t("conversation.notice.rewind-shell-files")}
+              </p>
+            ) : null}
           </div>
           <p className={styles.muted}>
             {t("conversation.notice.rewind-steer")}
           </p>
         </div>
-        <div className={styles.col}>
-          <div className={styles.group}>
-            <p className={styles.groupHead}>
-              {t("conversation.label.rewind-apps-head")}
-            </p>
-            {preview.state === "loading" ? (
-              <p className={styles.muted} data-rewind-loading>
-                {t("conversation.label.rewind-loading")}
+        {withFiles ? (
+          <div className={styles.col}>
+            <div className={styles.group}>
+              <p className={styles.groupHead}>
+                {t("conversation.label.rewind-apps-head")}
               </p>
-            ) : preview.state === "failed" ? (
-              <p className={styles.error} role="alert">
-                {t("conversation.rewind.preview-failed")}
-              </p>
-            ) : ready!.apps.length === 0 ? (
-              <p className={styles.muted}>
-                {t("conversation.notice.rewind-no-apps")}
-              </p>
-            ) : (
-              <>
-                <p className={styles.text}>
-                  {t("conversation.notice.rewind-apps")}
+              {preview.state === "loading" ? (
+                <p className={styles.muted} data-rewind-loading>
+                  {t("conversation.label.rewind-loading")}
                 </p>
-                {ready!.apps.map((app) => (
-                  <AppChoice
-                    key={app.app}
-                    app={app}
-                    checked={apps.includes(app.app)}
-                    onChange={(on) => setApp(app.app, on)}
-                  />
-                ))}
-              </>
-            )}
+              ) : preview.state === "failed" ? (
+                <p className={styles.error} role="alert">
+                  {t("conversation.rewind.preview-failed")}
+                </p>
+              ) : ready!.apps.length === 0 ? (
+                <p className={styles.muted}>
+                  {t("conversation.notice.rewind-no-apps")}
+                </p>
+              ) : (
+                <>
+                  <p className={styles.text}>
+                    {t("conversation.notice.rewind-apps")}
+                  </p>
+                  {ready!.apps.map((app) => (
+                    <AppChoice
+                      key={app.app}
+                      app={app}
+                      checked={apps.includes(app.app)}
+                      onChange={(on) => setApp(app.app, on)}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
       <footer className={styles.foot}>
         {error === null ? (

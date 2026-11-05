@@ -1,4 +1,4 @@
-// Agent 탭의 composer. 입력칸 안 아래 줄에 [+], model 단추(option 축 effort·speed는 그 menu 안), 권한 하나(묻기/skip),
+// Agent 탭의 composer. 입력칸 안 아래 줄에 [+], model 단추(option 축 effort·speed는 그 menu 안), mode 하나(묻기/skip 같은),
 // 동작 단추 하나(보내기 ↑, 도는 중이고 글이 없으면 멈추기 ■)가 있고, 입력칸 밖 아래 줄에는 project(또는 앱) 표시와 권한 요약 ▾(앱 할당)이 왼쪽에, 사용량(`usage`)이 오른쪽 끝에 있다. 입력칸 안 글 위에 뗄 수
 // 있는 첨부 줄이 있다. 첨부는 [+]로 고르거나 OS 파일·Explorer 파일을 끌어 놓거나 붙여 넣는다. 입력칸은 글을 따라 정한
 // 높이까지 자란다. agent를 고르는 칸은 없다(session 안에서 agent를 바꾸지 않는다). 보내기 방식을 고르는 menu도 없다.
@@ -25,6 +25,12 @@ import {
 } from "../../icons/mod.ts";
 import { PATH_DRAG_TYPE } from "../../workspace/drag.ts";
 import type {
+  AcpCapabilities,
+  AcpChoice,
+  AcpPlan,
+  AcpSessionMeta,
+} from "../../../../protocol/acp/mod.ts";
+import type {
   AgentTabSource,
   PermissionsView as PermissionsData,
 } from "../agent-tab-source.ts";
@@ -41,16 +47,25 @@ import { useModelPicker } from "../use-model-picker.ts";
 import { useSlashMenu } from "../use-slash-menu.tsx";
 import styles from "./agent-composer.module.css";
 import { AttachmentChips } from "./attachment-chips.tsx";
-import { PermissionMenu } from "./session-controls.tsx";
+import { PlanList } from "./plan-list.tsx";
+import { ModeMenu } from "./session-controls.tsx";
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
 
 interface AgentComposerProps {
-  /** model 단추·picker와 `/` 명령 창이 읽는 통로. */
-  source: Pick<
-    AgentTabSource,
-    "commands" | "model" | "chooseModel" | "setModelOption"
-  >;
+  /** `/` 명령 창이 메뉴를 열 때 명령 목록을 다시 읽는 통로. */
+  source: Pick<AgentTabSource, "acp">;
+  /** model 단추·picker와 `/` 명령 창이 그리는 session 기능. 아직 모르면 null이다. */
+  meta: AcpSessionMeta | null;
+  /** 어떤 칸을 그릴지. */
+  capabilities: AcpCapabilities;
+  /** 계획. 없으면 null이다. */
+  plan: AcpPlan | null;
+  /** model과 축 값을 정한다. 접수되었는지 돌려준다. */
+  onChooseModel: (
+    model: string,
+    options: Record<string, string>,
+  ) => Promise<boolean>;
   /** null이면 아직 만들지 않은 새 session이다. */
   session: string | null;
   agentName: string;
@@ -79,8 +94,12 @@ interface AgentComposerProps {
   permissionSummary: string;
   /** 권한 요약을 열 때 보이는 보기. 읽기 전에는 null이다. */
   permissions: PermissionsData | null;
-  /** 이 session의 skip(묻지 않고 실행). 주면 입력칸 아래 줄에 권한 단추로 그린다. 아직 없는 session과 archive한 session에는 주지 않는다. */
-  skip?: { readonly on: boolean; readonly onChange: (on: boolean) => void };
+  /** 이 session의 mode. 주면 입력칸 아래 줄에 mode 단추로 그린다. 아직 없는 session과 archive한 session에는 주지 않는다. */
+  mode?: {
+    readonly current: string | null;
+    readonly choices: readonly AcpChoice[];
+    readonly onChange: (mode: string) => void;
+  };
   onDraft: (
     patch: Partial<Pick<Draft, "text" | "selection" | "attachments">>,
   ) => void;
@@ -93,12 +112,10 @@ interface AgentComposerProps {
   onStop: () => void;
   /** `/` 창에서 명령을 골랐거나 `/이름 인자`를 보냈다. permissions처럼 보기를 여는 명령은 host가 연다. */
   onCommand: (entry: SlashEntryView, argument: string) => void;
-  /** model·명령 목록을 읽지 못했다. */
+  /** model을 바꾸지 못했다. */
   onProblem: () => void;
   /** 아래 줄 오른쪽 끝에 놓는 사용량(창·token·금액). 없으면 비운다. */
   usage?: ReactNode;
-  /** lophn session이 아니다(`AgentTabSource.external`). model·권한 단추와 `/` 명령이 없고 `/…`도 그대로 보낸다. */
-  external?: boolean;
 }
 
 export function AgentComposer(props: AgentComposerProps): ReactNode {
@@ -124,19 +141,22 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const [dropping, setDropping] = useState(false);
   // 붙이지 못한 파일(경로 없음, 너무 큰 이미지)이 있었다. 다음 첨부까지 남는다.
   const [skipped, setSkipped] = useState(false);
+  const { capabilities } = props;
   const picker = useModelPicker({
-    source: props.source,
+    meta: props.meta,
+    effort: capabilities.effort,
     session: props.session,
+    onChoose: props.onChooseModel,
     onProblem: props.onProblem,
   });
   const slash = useSlashMenu({
     source: props.source,
     session: props.session,
+    commands: props.meta?.commands ?? [],
     text: draft.text,
     agentName: props.agentName,
     working,
     onRun: props.onCommand,
-    onProblem: props.onProblem,
   });
   // model이 없으면 보내도 turn이 시작하지 못한다. 보내기 전에 막고 이유를 입력칸 안에 보인다.
   const canSend =
@@ -151,10 +171,14 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     working && draft.text.trim().length === 0 && draft.attachments.length === 0;
 
   const attach = (added: readonly Attachment[], missed: number) => {
-    setSkipped(missed > 0);
-    if (added.length === 0) return;
+    // 이미지를 못 받는 source에는 이미지를 붙이지 않는다.
+    const kept = capabilities.images
+      ? added
+      : added.filter((item) => item.kind !== "image");
+    setSkipped(missed + added.length - kept.length > 0);
+    if (kept.length === 0) return;
     props.onDraft({
-      attachments: withAttachments(draft.attachments, added),
+      attachments: withAttachments(draft.attachments, kept),
     });
   };
   const attachFiles = (files: readonly File[]) => {
@@ -227,7 +251,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
 
   const send = () => {
     if (!canSend) return;
-    if (draft.text.startsWith("/") && props.external !== true) {
+    if (draft.text.startsWith("/") && capabilities.commands) {
       void slash.submit();
     } else props.onSend();
   };
@@ -272,6 +296,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       {offline ? (
         <p className={styles.note}>{t("conversation.notice.offline")}</p>
       ) : null}
+      {props.plan === null ? null : <PlanList plan={props.plan} />}
       <div className={styles.boxWrap}>
         {slash.menu === null ? null : (
           <div className={styles.slash}>{slash.menu}</div>
@@ -365,11 +390,14 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             />
             <span className={styles.spacer} />
             <div className={styles.actions} data-composer-actions="">
-              {props.external ? null : <ModelPicker {...picker.props} />}
-              {props.skip === undefined ? null : (
-                <PermissionMenu
-                  on={props.skip.on}
-                  onChange={props.skip.onChange}
+              {capabilities.model && props.meta !== null ? (
+                <ModelPicker {...picker.props} />
+              ) : null}
+              {props.mode === undefined ? null : (
+                <ModeMenu
+                  current={props.mode.current}
+                  choices={props.mode.choices}
+                  onChange={props.mode.onChange}
                 />
               )}
               <IconButton
@@ -405,7 +433,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             {props.place.name}
           </span>
         )}
-        {props.external ? null : (
+        {props.permissionSummary === "" ? null : (
           <Popover
             open={permissionsOpen}
             onOpenChange={(next) => {

@@ -16,13 +16,10 @@ import { type AgentTarget, createEnv } from "./agent-tab-core-source-env.ts";
 import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
 import {
   answerQuestions,
-  decidePermission,
   editQueuedMessage,
   moveQueuedMessage,
-  readCommands,
   removeQueuedMessage,
   retryTurn,
-  runCommand,
   sendQueuedNow,
   sendContent,
   stopSessionOf,
@@ -30,27 +27,19 @@ import {
 } from "./agent-tab-core-source-commands.ts";
 import { createImageSource } from "./agent-tab-core-source-images.ts";
 import { searchMessages } from "./agent-tab-core-source-search.ts";
-import { createModelPart } from "./agent-tab-core-source-model.ts";
-import { readStatus } from "./agent-tab-core-source-status.ts";
 import {
-  createRewindIds,
   previewRewind,
   readRewindPoints,
-  rewindSession,
 } from "./agent-tab-core-source-rewind.ts";
 import {
   archiveSessionOf,
-  changeSkipOf,
-  compactSessionOf,
   createActiveTimes,
   createFaceCache,
   deleteSessionOf,
-  forkSessionOf,
   openSession,
   readFace,
   readPermissions,
   readSessions,
-  renameSessionTo,
 } from "./agent-tab-core-source-sessions.ts";
 import {
   createBodiesMemo,
@@ -79,9 +68,7 @@ function createSource(
   const memo = createBodiesMemo();
   const faceCache = createFaceCache(env);
   const activeTimes = createActiveTimes();
-  const modelPart = createModelPart(env);
   const images = createImageSource(core);
-  const rewindIds = createRewindIds();
 
   return {
     agent: () => readFace(env, faceCache),
@@ -93,17 +80,7 @@ function createSource(
     toolCallBody: (toolCall, part) =>
       readToolCallBody(env, memo, toolCall, part),
 
-    model: (session, query) => modelPart.model(session, query),
-    chooseModel: (session, model, query) =>
-      modelPart.chooseModel(session, model, query),
-    setModelOption: (session, axis, value, query) =>
-      modelPart.setModelOption(session, axis, value, query),
-
-    commands: (session, query) => readCommands(env, session, query),
-    runCommand: (session, entry, argument, key) =>
-      runCommand(env, session, entry, argument, key),
     permissions: () => readPermissions(env),
-    status: (session) => readStatus(env, session),
 
     act: (_session, input) => env.read(acpSend, input),
     send: (input) => sendContent(env, input),
@@ -117,27 +94,17 @@ function createSource(
     stop: (turn, key) => stopTurnOf(env, turn, key),
     retryTurn: (turn) => retryTurn(env, turn),
     answerQuestions: (input) => answerQuestions(env, input),
-    decidePermission: (session, request, choice, reason) =>
-      decidePermission(env, session, request, choice, reason),
     cancelCall: (call) => cancelCallOf(env, call),
 
     async openSession({ id }): Promise<SourceResult<void>> {
       const opened = await openSession(env, id);
-      if (!opened.ok) return opened;
-      await modelPart.applyPending(id, opened.value.state_seq);
-      return { ok: true, value: undefined };
+      return opened.ok ? { ok: true, value: undefined } : opened;
     },
-    renameSession: (session, title) => renameSessionTo(env, session, title),
     stopSession: (session) => stopSessionOf(env, session),
     archiveSession: (session) => archiveSessionOf(env, session),
-    changeSkip: (session, skip) => changeSkipOf(env, session, skip),
     deleteSession: (session) => deleteSessionOf(env, session),
-    forkSession: (input) => forkSessionOf(env, input),
-    compactSession: (session) => compactSessionOf(env, session),
 
     rewindPoints: (session) => readRewindPoints(env, session),
     rewindPreview: (session, message) => previewRewind(env, session, message),
-    rewind: (session, message, choice) =>
-      rewindSession(env, rewindIds, session, message, choice),
   };
 }

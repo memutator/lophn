@@ -70,8 +70,8 @@ interface AgentThreadProps {
   imageUrl: (id: string) => Promise<string | null>;
   /** archive한 session이다. 내 말의 Rewind 단추와 agent 말의 Fork 단추가 없다. */
   readOnly: boolean;
-  /** lophn session이 아니라 Rewind와 Fork가 없다(`AgentTabSource.external`). */
-  external?: boolean;
+  /** source가 가진 기능(`session.capabilities`). 없는 기능의 단추는 그리지 않는다. */
+  can: { readonly rewind: boolean; readonly fork: boolean };
   source: Pick<
     AgentTabSource,
     "envelope" | "callState" | "cancelCall" | "retryTurn" | "toolCallBody"
@@ -223,9 +223,9 @@ function itemsOf(
         {...(actions
           ? {
               copyText: () => copyTextOf(said),
-              ...(props.external === true
-                ? {}
-                : { onFork: () => props.onFork(said[said.length - 1]!.id) }),
+              ...(props.can.fork
+                ? { onFork: () => props.onFork(said[said.length - 1]!.id) }
+                : {}),
             }
           : {})}
       >
@@ -331,14 +331,7 @@ function itemsOf(
         );
         break;
       case "approval-result":
-        add(
-          entry,
-          <ApprovalResult
-            key={entry.id}
-            result={entry.result}
-            external={props.external === true}
-          />,
-        );
+        add(entry, <ApprovalResult key={entry.id} result={entry.result} />);
         break;
       case "turn-end": {
         const node =
@@ -423,7 +416,7 @@ function userMessage(
   props: AgentThreadProps,
   nested: boolean,
 ): ReactElement {
-  const actions = !nested && !props.readOnly && props.external !== true;
+  const actions = !nested && !props.readOnly && props.can.rewind;
   return (
     <UserMessage
       key={message.id}

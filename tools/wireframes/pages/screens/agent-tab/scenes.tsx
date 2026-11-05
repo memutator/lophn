@@ -124,3 +124,14 @@ export const FindScene = () => <Scene sub="find" />;
 export const SessionSearchScene = () => <Scene sub="session-search" />;
 /** Messages 보기: tool 줄과 reasoning을 숨기는 대신 일하는 중 줄이 지금 하는 일을 말한다. */
 export const WorkingMessagesScene = () => <Scene sub="working-messages" />;
+/** harness CLI의 session: 머리에 session 목록이 없고, mode 셋·CLI 명령·계획 목록이 같은 화면에 있다. */
+export const HarnessScene = () => <Scene sub="harness" />;
+/** harness의 mode 단추를 눌러 연 menu. 모양은 lophn의 Ask·Skip과 같고 mode 이름과 수만 source가 정한다. */
+export function HarnessModeScene() {
+  useDrive(async () => {
+    await click("[data-composer-skip]");
+  });
+  return <Scene sub="harness" />;
+}
+/** 승인 카드의 세 범위: Allow once, Allow for this session, Always allow(영구 규칙 pattern을 보인다). file 바꾸기는 path와 종류, 줄 수로 쓴다. */
+export const ApprovalScopesScene = () => <Scene sub="approval-scopes" />;

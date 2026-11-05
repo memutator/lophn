@@ -13,15 +13,14 @@ import { StatusMark } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 import { actionIcons, editorIcons } from "../../icons/mod.ts";
-import { turnChoicesOf } from "../../desktop/connection/waiting/decide.ts";
 import type {
   ApprovalCardRequest,
   ApprovalResultView,
 } from "../agent-tab-source.ts";
-import { effectOf, targetOf, titleOf } from "./subject-text.ts";
+import { changeText, effectOf, targetOf, titleOf } from "./subject-text.ts";
 import styles from "./approval-card.module.css";
 
-type Choice = "once" | "always" | "reject";
+type Choice = ApprovalCardRequest["choices"][number];
 
 interface ApprovalCardProps {
   /** 요청한 agent의 이름. 거절 이유가 이 agent에게 간다. */
@@ -32,8 +31,6 @@ interface ApprovalCardProps {
   /** 거절 이유 칸을 연 채 시작한다. */
   denying?: boolean;
   reason?: string;
-  /** lophn session이 아니다(`AgentTabSource.external`). always가 그 CLI session 동안만이라 그렇게 읽힌다. */
-  external?: boolean;
   /** 카드가 나올 때 [Allow once]로 초점을 옮긴다. composer에 글이 있으면 사람의 입력을 빼앗지 않는다. */
   focusOnMount: boolean;
 }
@@ -45,7 +42,6 @@ export function ApprovalCard({
   denying = false,
   reason: initialReason = "",
   focusOnMount,
-  external = false,
 }: ApprovalCardProps): ReactElement {
   const { subject } = request;
   const effect = effectOf(subject);
@@ -66,7 +62,7 @@ export function ApprovalCard({
     setFailed(!done);
   }
 
-  const choices = turnChoicesOf(request);
+  const { choices } = request;
   const canAlways = choices.includes("always");
   const keyHint = {
     once: t("conversation.label.approval-key-once"),
@@ -148,6 +144,15 @@ export function ApprovalCard({
                 <pre className={styles.pre}>{subject.command}</pre>
               </dd>
             </>
+          ) : subject.kind === "file_change" ? (
+            <>
+              <dt>{t("conversation.label.approval-changes")}</dt>
+              <dd>
+                {subject.changes.map((change) => (
+                  <div key={change.path}>{changeText(change)}</div>
+                ))}
+              </dd>
+            </>
           ) : (
             <>
               <dt>{t("conversation.label.approval-target")}</dt>
@@ -156,15 +161,9 @@ export function ApprovalCard({
               <dd>{effect}</dd>
             </>
           )}
-          {request.always_patterns.length === 0 ? null : (
+          {!canAlways || request.always_patterns.length === 0 ? null : (
             <>
-              <dt>
-                {t(
-                  external
-                    ? "conversation.label.approval-session"
-                    : "conversation.label.approval-always",
-                )}
-              </dt>
+              <dt>{t("conversation.label.approval-always")}</dt>
               <dd>
                 {request.always_patterns.map((pattern) => (
                   <code key={pattern} className={styles.pattern}>
@@ -191,7 +190,10 @@ export function ApprovalCard({
           />
         </div>
       ) : null}
-      <footer className={styles.foot}>
+      <footer
+        className={styles.foot}
+        data-many={choices.length > 3 || undefined}
+      >
         <p className={failed ? `${styles.note} ${styles.error}` : styles.note}>
           {failed
             ? t("conversation.notice.decide-failed")
@@ -239,23 +241,19 @@ export function ApprovalCard({
                     ? "Enter"
                     : choice === "always"
                       ? "Control+Shift+Enter Meta+Shift+Enter"
-                      : "Escape"
+                      : choice === "reject"
+                        ? "Escape"
+                        : undefined
                 }
                 onClick={() =>
                   choice === "reject" ? setDenyOpen(true) : decide(choice)
                 }
               >
                 <span className={styles.labelWithKey}>
-                  {choice === "once"
-                    ? t("conversation.button.approval-allow-once")
-                    : choice === "always"
-                      ? t(
-                          external
-                            ? "conversation.button.approval-allow-session"
-                            : "conversation.button.approval-allow-always",
-                        )
-                      : t("conversation.button.approval-deny")}
-                  <Kbd keys={[keyHint[choice]]} />
+                  {CHOICE_LABEL[choice]()}
+                  {choice === "session" ? null : (
+                    <Kbd keys={[keyHint[choice]]} />
+                  )}
                 </span>
               </Button>
             ))}
@@ -265,6 +263,13 @@ export function ApprovalCard({
     </section>
   );
 }
+
+const CHOICE_LABEL = {
+  once: () => t("conversation.button.approval-allow-once"),
+  session: () => t("conversation.button.approval-allow-session"),
+  always: () => t("conversation.button.approval-allow-always"),
+  reject: () => t("conversation.button.approval-deny"),
+} as const;
 
 const TONES = {
   allowed: "good",
@@ -283,21 +288,14 @@ function markLabel(result: ApprovalResultView): string {
   }
 }
 
-function scopeLabel(
-  choice: ApprovalResultView["choice"],
-  external: boolean,
-): string | null {
+function scopeLabel(choice: ApprovalResultView["choice"]): string | null {
   switch (choice) {
     case "once":
       return t("conversation.label.approval-scope-once");
     case "session":
       return t("conversation.label.approval-scope-session");
     case "always":
-      return t(
-        external
-          ? "conversation.label.approval-scope-session"
-          : "conversation.label.approval-scope-always",
-      );
+      return t("conversation.label.approval-scope-always");
     default:
       return null;
   }
@@ -309,13 +307,11 @@ function scopeLabel(
  */
 export function ApprovalResult({
   result,
-  external = false,
 }: {
   result: ApprovalResultView;
-  external?: boolean;
 }): ReactElement {
   const detail = [
-    scopeLabel(result.choice, external),
+    scopeLabel(result.choice),
     result.reason === null
       ? null
       : t("conversation.label.approval-reason-given", {

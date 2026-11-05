@@ -5,8 +5,13 @@ import { formatDate, formatNumber, t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 import type { ReactElement } from "react";
 import { workspaceIcons } from "../../icons/mod.ts";
-import type { StatusView as StatusData } from "../agent-tab-source.ts";
-import { contextLevel, contextPercent, costText } from "./status-summary.ts";
+import type { AcpUsage } from "../../../../protocol/acp/mod.ts";
+import {
+  contextLevel,
+  contextPercent,
+  costText,
+  type StatusData,
+} from "./status-summary.ts";
 import styles from "./status-view.module.css";
 
 interface StatusViewProps {
@@ -23,7 +28,7 @@ function Row(props: { name: string; children: ReactElement | string }) {
   );
 }
 
-function providerText(provider: NonNullable<StatusData["provider"]>): string {
+function providerText(provider: NonNullable<AcpUsage["provider"]>): string {
   const name = { provider: provider.name };
   switch (provider.state) {
     case "available":
@@ -112,7 +117,8 @@ function TokenBreakdown({
 }
 
 export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
-  const { context } = status;
+  const { model, usage } = status;
+  const { context } = usage;
   const percent = context === null ? 0 : contextPercent(context);
   const level = contextLevel(percent);
   return (
@@ -134,21 +140,19 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
         <Row name={t("conversation.label.status-session")}>
           <span className={styles.mono}>{status.session}</span>
         </Row>
-        {status.model === null ? null : (
+        {model === null ? null : (
           <Row name={t("conversation.label.status-model")}>
-            {[status.model.name, ...Object.values(status.model.options)].join(
-              " · ",
-            )}
+            {[model.label, ...Object.values(model.options)].join(" · ")}
           </Row>
         )}
-        {status.provider === null ? null : (
+        {usage.provider === null ? null : (
           <Row name={t("conversation.label.status-provider")}>
-            {providerText(status.provider)}
+            {providerText(usage.provider)}
           </Row>
         )}
-        {status.provider?.account == null ? null : (
+        {usage.provider?.account == null ? null : (
           <Row name={t("conversation.label.status-account")}>
-            {status.provider.account}
+            {usage.provider.account}
           </Row>
         )}
         {context === null ? null : (
@@ -171,26 +175,27 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
             </>
           </Row>
         )}
-        <Row name={t("conversation.label.status-turns")}>
-          {t("conversation.label.status-turns-value", {
-            turns: status.turns,
-            calls: status.calls,
-          })}
-        </Row>
-        {status.inputTokens === null || status.outputTokens === null ? null : (
+        {usage.turns === null ? null : (
+          <Row name={t("conversation.label.status-turns")}>
+            {t("conversation.label.status-turns-value", {
+              turns: usage.turns,
+            })}
+          </Row>
+        )}
+        {usage.input_tokens === null || usage.output_tokens === null ? null : (
           <Row name={t("conversation.label.status-tokens")}>
             <TokenBreakdown
               segments={tokenSegments(
-                status.inputTokens + (status.cacheWriteTokens ?? 0),
-                status.cacheReadTokens,
-                status.outputTokens,
+                usage.input_tokens + (usage.cache_write_tokens ?? 0),
+                usage.cache_read_tokens,
+                usage.output_tokens,
               )}
             />
           </Row>
         )}
-        {status.costs.length === 0 ? null : (
+        {usage.costs.length === 0 ? null : (
           <Row name={t("conversation.label.status-cost")}>
-            {status.costs.map(costText).join(" · ")}
+            {usage.costs.map(costText).join(" · ")}
           </Row>
         )}
       </dl>

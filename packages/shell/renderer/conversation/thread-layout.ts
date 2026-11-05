@@ -334,5 +334,7 @@ export function layoutOf(
             },
     },
     live: state.writing,
+    session: state.session,
+    plan: state.plan,
   };
 }

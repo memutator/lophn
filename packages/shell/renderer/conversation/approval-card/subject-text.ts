@@ -12,11 +12,39 @@ const EFFECTS = {
 
 /** 카드 제목. 누가 무엇을 하려는지. */
 export function titleOf(subject: ApprovalSubject, agent: string): string {
-  return subject.kind === "shell"
-    ? t("conversation.title.approval-command", { agent })
-    : t("conversation.title.approval-run", {
+  switch (subject.kind) {
+    case "shell":
+      return t("conversation.title.approval-command", { agent });
+    case "file_change":
+      return t("conversation.title.approval-change", {
         agent,
-        tool: subject.kind === "file_change" ? targetOf(subject) : subject.tool,
+        count: subject.changes.length,
+      });
+    default:
+      return t("conversation.title.approval-run", {
+        agent,
+        tool: subject.tool,
+      });
+  }
+}
+
+const CHANGE_KINDS = {
+  create: "conversation.label.approval-change-create",
+  update: "conversation.label.approval-change-update",
+  delete: "conversation.label.approval-change-delete",
+} as const;
+
+/** file 바꾸기 하나: 종류와 path, 줄 수를 아는 만큼. */
+export function changeText(
+  change: Extract<ApprovalSubject, { kind: "file_change" }>["changes"][number],
+): string {
+  const text = t(CHANGE_KINDS[change.change], { path: change.path });
+  return change.added === null || change.removed === null
+    ? text
+    : t("conversation.label.approval-change-lines", {
+        change: text,
+        added: change.added,
+        removed: change.removed,
       });
 }
 
@@ -38,12 +66,12 @@ export function targetOf(subject: ApprovalSubject): string {
         tool: subject.tool,
       });
     case "file_change":
-      return subject.changes.map((change) => change.path).join(", ");
+      return subject.changes.map(changeText).join(", ");
   }
 }
 
-/** tool의 효과 글. shell은 효과를 말하지 않는다. */
+/** tool의 효과 글. shell과 file 바꾸기는 효과를 따로 말하지 않는다(대상이 바뀌는 것 자체다). */
 export function effectOf(subject: ApprovalSubject): string | null {
-  if (subject.kind === "shell") return null;
-  return t(EFFECTS[subject.kind === "file_change" ? "write" : subject.effect]);
+  if (subject.kind === "shell" || subject.kind === "file_change") return null;
+  return t(EFFECTS[subject.effect]);
 }

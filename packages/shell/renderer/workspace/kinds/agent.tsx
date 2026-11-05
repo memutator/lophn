@@ -7,6 +7,7 @@ import type { Draft } from "../../conversation/drafts.ts";
 import { useReportVisible } from "../../conversation/report-visible.ts";
 import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { conversationIcons } from "../../icons/mod.ts";
+import { newId } from "../../prefixed-id.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import {
@@ -175,9 +176,16 @@ export const agentKind: TabKindDef = {
       place: sourcePlaceOf(place),
     });
     if (source === undefined) return;
-    void source.renameSession(session, trimmed).then((result) => {
-      if (result.ok) host.patchTab(tab.key, () => ({ title: trimmed }));
-    });
+    void source
+      .act(session, {
+        type: "rename",
+        session,
+        key: newId("rename"),
+        title: trimmed,
+      })
+      .then((result) => {
+        if (result.ok) host.patchTab(tab.key, () => ({ title: trimmed }));
+      });
   },
   fromStored(stored, { key }) {
     const { agent, work_place: place, session } = stored;

@@ -1,27 +1,33 @@
-// composer 입력칸 안 줄의 권한 하나. 묻기·skip을 고른다. model option 축(effort·speed)은 model 메뉴 안에서 고른다.
+// composer 입력칸 안 줄의 mode 하나. source가 내는 mode 중 하나를 고른다. model option 축(effort·speed)은 model 메뉴 안에서 고른다.
 
 import { t } from "@lophn/i18n";
 import { Popover, PopoverRow } from "@lophn/ui/overlay";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { useState } from "react";
+import type { AcpChoice } from "../../../../protocol/acp/mod.ts";
 import { conversationIcons } from "../../icons/mod.ts";
 import styles from "./session-controls.module.css";
 
-interface PermissionMenuProps {
-  /** true면 묻지 않고 실행한다(skip). */
-  on: boolean;
-  onChange: (on: boolean) => void;
+interface ModeMenuProps {
+  current: string | null;
+  choices: readonly AcpChoice[];
+  onChange: (mode: string) => void;
 }
 
-export function PermissionMenu({ on, onChange }: PermissionMenuProps) {
+// 첫 mode가 기본(묻기)이다. 다른 mode는 묻지 않고 실행하는 등 값이 달라서 켜져 있으면 경고색으로 알린다.
+export function ModeMenu({ current, choices, onChange }: ModeMenuProps) {
   const [open, setOpen] = useState(false);
-  const choose = (next: boolean) => {
+  const shown = choices.find((choice) => choice.id === current) ?? choices[0];
+  const choose = (id: string) => {
     setOpen(false);
-    if (next !== on) onChange(next);
+    if (id !== current) onChange(id);
   };
   return (
-    <span className={styles.permission} data-on={on || undefined}>
+    <span
+      className={styles.permission}
+      data-on={shown !== choices[0] || undefined}
+    >
       <Popover
         open={open}
         onOpenChange={setOpen}
@@ -32,9 +38,7 @@ export function PermissionMenu({ on, onChange }: PermissionMenuProps) {
             trailingIcon={conversationIcons.expand}
             data-composer-skip=""
           >
-            {on
-              ? t("conversation.label.skip-permissions")
-              : t("conversation.label.permission-ask")}
+            {shown?.label}
           </Button>
         }
       >
@@ -43,28 +47,19 @@ export function PermissionMenu({ on, onChange }: PermissionMenuProps) {
           role="group"
           aria-label={t("conversation.label.permission-mode")}
         >
-          <PopoverRow onSelect={() => choose(false)}>
-            <span className={styles.check}>
-              {on ? null : (
-                <Icon
-                  icon={conversationIcons.current}
-                  pixels={iconPixels("base")}
-                />
-              )}
-            </span>
-            {t("conversation.label.permission-ask")}
-          </PopoverRow>
-          <PopoverRow onSelect={() => choose(true)}>
-            <span className={styles.check}>
-              {on ? (
-                <Icon
-                  icon={conversationIcons.current}
-                  pixels={iconPixels("base")}
-                />
-              ) : null}
-            </span>
-            {t("conversation.label.skip-permissions")}
-          </PopoverRow>
+          {choices.map((choice) => (
+            <PopoverRow key={choice.id} onSelect={() => choose(choice.id)}>
+              <span className={styles.check}>
+                {choice.id === shown?.id ? (
+                  <Icon
+                    icon={conversationIcons.current}
+                    pixels={iconPixels("base")}
+                  />
+                ) : null}
+              </span>
+              {choice.label}
+            </PopoverRow>
+          ))}
         </div>
       </Popover>
     </span>

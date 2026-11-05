@@ -20,6 +20,7 @@ import {
   type AgentChoice,
 } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
+import { newId } from "../../prefixed-id.ts";
 import {
   closeTab,
   placeKey,
@@ -389,7 +390,12 @@ export function PlaceLeftSidebar(props: PlaceLeftSidebarProps) {
     if (item.kind === "terminal") renameTerminalAt(place.ref, item.ref, title);
     else if (item.kind === "session") {
       void sourceOf(item.ref)
-        ?.renameSession(item.ref, title)
+        ?.act(item.ref, {
+          type: "rename",
+          session: item.ref,
+          key: newId("rename"),
+          title,
+        })
         .then((result) => {
           if (result.ok) reloadKnown();
         });

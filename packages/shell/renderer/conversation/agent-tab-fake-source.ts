@@ -4,14 +4,20 @@
 
 import { t } from "@lophn/i18n";
 import {
+  type AcpCapabilities,
   type AcpEntry,
+  type AcpInput,
   type AcpItem,
   type AcpMessageItem,
   type AcpNoticeItem,
+  type AcpModelCurrent,
+  type AcpModelGroup,
   type AcpSender,
+  type AcpSessionMeta,
   type AcpState,
   type AcpToolItem,
   type AcpTurn,
+  type AcpUsage,
   acpNoticeId,
   EMPTY_ACP_STATE,
   reduceAcp,
@@ -19,21 +25,17 @@ import {
 } from "../../../protocol/acp/mod.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
-import { COMMANDS_GROUP, SKILLS_GROUP } from "./agent-tab-fake-commands.ts";
+import { CLI_COMMANDS, LOPHN_COMMANDS } from "./agent-tab-fake-commands.ts";
 import {
-  effortLowToMax,
-  HAIKU,
-  LAYOUT_ALL,
-  OPUS,
-  type PickerScenario,
-  SOL,
+  BUILT_IN_GROUPS,
+  CUSTOM_GROUP,
+  DEFAULT_OPTIONS,
   SONNET,
 } from "./agent-tab-fake-models.ts";
 import type {
   AgentFace,
   AgentTabSource,
   Envelope,
-  ModelView,
   PermissionsView,
   QuestionAnswer,
   RewindPreviewView,
@@ -44,11 +46,6 @@ import type {
   ToolCallBodyView,
 } from "./agent-tab-source.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
-import type {
-  PickerModelRef,
-  PickerProviderGroup,
-} from "./model-picker/types.ts";
-import type { SlashGroupView } from "./slash-menu/types.ts";
 
 /** 고를 수 있는 장면. 이름은 wireframe의 Agent 탭 장면을 따른다. */
 export const AGENT_TAB_SCENES = [
@@ -75,6 +72,10 @@ export const AGENT_TAB_SCENES = [
   "rewind",
   /** session이 아직 없는 새 대화. */
   "empty",
+  /** harness CLI의 session: mode 셋, CLI 명령, 계획 목록. session 목록과 파일 복원은 없다. */
+  "harness",
+  /** 승인 카드의 세 범위(한 번, 이 session, 항상)와 file 바꾸기 subject. */
+  "approval-scopes",
 ] as const;
 export type AgentTabScene = (typeof AGENT_TAB_SCENES)[number];
 
@@ -111,6 +112,14 @@ const LOPHN: AgentFace = {
   permissionSummary: "2 apps assigned",
 };
 
+const CLAUDE: AgentFace = {
+  agent: "lophn",
+  name: "Claude",
+  profile: { kind: "initial", text: "C" },
+  place: { kind: "project", name: "phroner" },
+  permissionSummary: "",
+};
+
 const EVAL_ANALYST: AgentFace = {
   agent: fakeId("agt", 1),
   name: "Eval analyst",
@@ -124,6 +133,8 @@ const QUESTION_LEAD =
   "There are 3 new findings since last week. Before I write the report I need two answers.";
 const CLEANUP_LEAD =
   "The 2026-w40 report is superseded by this week's. I can delete the old folder with a shell command, so I need your OK first.";
+const REPORT_LEAD =
+  "I have the three findings. I need to write the report and clean up last week's file, so I need your OK first.";
 const CLEANUP_COMMAND = "rm -r docs/reports/2026-w40";
 
 const turn1 = turnId(1);
@@ -665,6 +676,8 @@ interface SceneData {
   agent: AgentFace;
   title: string;
   state: AcpState;
+  /** harness CLI의 session이다(lophn이 아니다). */
+  harness?: true;
   envelopes?: Record<string, Envelope>;
   /** call id별 입력·출력. 없는 칸은 not_found다. */
   toolBodies?: Record<
@@ -1051,7 +1064,7 @@ function sceneData(scene: AgentTabScene): SceneData {
       const result = (
         n: number,
         outcome: "allowed" | "denied" | "cancelled",
-        choice: "once" | "always" | null,
+        choice: "once" | "session" | "always" | null,
         reason: string | null,
       ): AcpItem => ({
         kind: "approval",
@@ -1070,15 +1083,87 @@ function sceneData(scene: AgentTabScene): SceneData {
           [
             user(1, 41, "Go on with the cleanup."),
             result(1, "allowed", "once", null),
-            result(2, "allowed", "always", null),
-            result(3, "denied", null, "Keep last week's report for now."),
-            result(4, "cancelled", null, null),
+            result(2, "allowed", "session", null),
+            result(3, "allowed", "always", null),
+            result(4, "denied", null, "Keep last week's report for now."),
+            result(5, "cancelled", null, null),
             turnEnd(43, 3_900_000, 300_000),
           ],
           { turn: turnOf("ended") },
         ),
       };
     }
+    case "harness":
+      return {
+        agent: CLAUDE,
+        title: "Week 41 summary",
+        harness: true,
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            ...REPORT_CALLS,
+            agent(
+              2,
+              42,
+              "I checked the three findings. Writing the report now.",
+            ),
+          ],
+          {
+            turn: turnOf("working"),
+            plan: {
+              entries: [
+                { text: "Read the three findings", status: "completed" },
+                {
+                  text: "Write docs/reports/2026-w41.md",
+                  status: "in_progress",
+                },
+                { text: "Update docs/reports/index.md", status: "pending" },
+              ],
+            },
+          },
+        ),
+        toolBodies: REPORT_TOOL_BODIES,
+      };
+    case "approval-scopes":
+      return {
+        agent: CLAUDE,
+        title: "Week 41 summary",
+        harness: true,
+        state: numbered([user(1, 41, REQUEST), agent(2, 41, REPORT_LEAD)], {
+          turn: turnOf("waiting"),
+          pending: {
+            approval: {
+              id: requestId(1),
+              subject: {
+                kind: "file_change",
+                changes: [
+                  {
+                    path: "docs/reports/2026-w41.md",
+                    change: "create",
+                    added: 42,
+                    removed: 0,
+                  },
+                  {
+                    path: "docs/reports/index.md",
+                    change: "update",
+                    added: 1,
+                    removed: 1,
+                  },
+                  {
+                    path: "docs/reports/2026-w40.md",
+                    change: "delete",
+                    added: null,
+                    removed: null,
+                  },
+                ],
+              },
+              choices: ["once", "session", "always", "reject"],
+              always_patterns: ["Edit(docs/reports/**)"],
+            },
+            question: null,
+          },
+        }),
+      };
     case "empty":
       return {
         agent: LOPHN,
@@ -1096,28 +1181,6 @@ const PERMISSIONS_VIEW: PermissionsView = {
     { name: "Expense tracker", removed: ["delete_expense"] },
   ],
 };
-
-// 구독 OAuth 연결의 session. 금액은 구독이라 알 수 없고 token만 보인다.
-const statusView = (session: string): StatusView => ({
-  session,
-  title: "Weekly report",
-  model: { name: "gpt-6.1-sol", options: { effort: "high" } },
-  provider: {
-    name: "OpenAI",
-    definition: "openai",
-    account: "me@example.com",
-    state: "available",
-    until: null,
-  },
-  context: { tokens: 86_508, limit: 1_050_000 },
-  calls: 14,
-  turns: 3,
-  inputTokens: 412_890,
-  outputTokens: 11_531,
-  cacheReadTokens: 301_440,
-  cacheWriteTokens: 0,
-  costs: [{ kind: "subscription", currency: null, amount: null }],
-});
 
 const REWIND_PREVIEW: RewindPreviewView = {
   files: [
@@ -1155,29 +1218,6 @@ const REWIND_PREVIEW: RewindPreviewView = {
   ],
 };
 
-const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
-// 앞 둘은 provider가 알려 준 이름이고, 마지막은 사람이 정보(effort 포함)를 적은 model이다.
-const CUSTOM_MODELS = ["llama-3.3-70b", "qwen-3-coder", "deepseek-v4.1-flash"];
-const CUSTOM_WITH_INFO = "deepseek-v4.1-flash";
-
-// 알려 준 이름만 있는 custom provider model은 catalog 항목이 없어 option 축이 없다. 사람이 적은 effort는 축이 된다.
-const customScenario = (modelName: string): PickerScenario => ({
-  current: { provider: CUSTOM_PROVIDER, modelName },
-  currentLabel: modelName,
-  axes: modelName === CUSTOM_WITH_INFO ? [effortLowToMax] : [],
-  optionValues: modelName === CUSTOM_WITH_INFO ? { effort: "high" } : {},
-});
-
-const SCENARIOS: Readonly<Record<string, PickerScenario>> = {
-  "Sonnet 5.5": SONNET,
-  "Opus 5.5": OPUS,
-  "Haiku 5.5": HAIKU,
-  "GPT-6.1 Sol": SOL,
-  ...Object.fromEntries(
-    CUSTOM_MODELS.map((name) => [name, customScenario(name)]),
-  ),
-};
-
 /** gallery가 model picker의 상태를 정하는 설정. 기본은 내장 provider 셋과 global 층이다. */
 export interface FakePicker {
   /** none은 연결된 provider가 없다. custom은 내장 셋에 custom provider 하나를 더한다. */
@@ -1190,87 +1230,147 @@ export interface FakePicker {
   readonly shown?: readonly string[];
 }
 
-function modelView(
-  scenario: PickerScenario,
-  query: string,
-  picker: FakePicker,
-): ModelView {
-  const needle = query.trim().toLowerCase();
-  const on = picker.shown;
-  const matches = (name: string) =>
-    (needle === "" || name.toLowerCase().includes(needle)) &&
-    (on === undefined ||
-      on.includes(name) ||
-      name === scenario.current.modelName);
+const EVERYTHING: AcpCapabilities = {
+  model: true,
+  effort: true,
+  mode: true,
+  commands: true,
+  rewind: true,
+  rewind_files: true,
+  fork: true,
+  compact: true,
+  rename: true,
+  usage: true,
+  steer: true,
+  queue_edit: true,
+  images: true,
+  retry: true,
+  sessions: true,
+};
+
+/** harness CLI가 가진 만큼: session 목록과 파일 복원이 없다. */
+const HARNESS_CAPABILITIES: AcpCapabilities = {
+  ...EVERYTHING,
+  rewind_files: false,
+  sessions: false,
+};
+
+function modelsOf(picker: FakePicker): {
+  models: AcpModelGroup[];
+  model: AcpModelCurrent | null;
+} {
   const kind = picker.providers ?? "built_in";
-  const builtIn = kind === "none" ? [] : LAYOUT_ALL.providers;
-  const custom: PickerProviderGroup[] =
-    kind === "custom"
-      ? [
-          {
-            provider: CUSTOM_PROVIDER,
-            label: "Local server",
-            models: CUSTOM_MODELS.map((modelName) => ({
-              provider: CUSTOM_PROVIDER,
-              modelName,
-            })),
-          },
-        ]
-      : [];
-  const groups = [...builtIn, ...custom];
-  // provider가 없으면 고른 model도 없다(core가 current null일 때 내는 값과 같다).
-  const none = kind === "none";
+  const all = [
+    ...(kind === "none" ? [] : BUILT_IN_GROUPS),
+    ...(kind === "custom" ? [CUSTOM_GROUP] : []),
+  ];
+  const wanted = picker.current ?? SONNET.label;
+  const current = all
+    .flatMap((group) => group.models)
+    .find((one) => one.label === wanted);
+  const on = picker.shown;
   return {
-    current: none ? { provider: "", modelName: "" } : scenario.current,
-    currentLabel: none
-      ? t("project-workspace.label.agent-no-model")
-      : scenario.currentLabel,
-    axes: none ? [] : scenario.axes,
-    optionValues: none ? {} : scenario.optionValues,
-    layout: {
-      providers: groups
-        .map((group) => ({
-          ...group,
-          models: group.models.filter((row) => matches(row.modelName)),
-        }))
-        .filter((group) => group.models.length > 0),
-    },
-    layer: picker.layer === undefined ? "global" : picker.layer,
+    models: all.map((group) => ({
+      ...group,
+      models: group.models.filter(
+        (one) =>
+          on === undefined || on.includes(one.label) || one.id === current?.id,
+      ),
+    })),
+    // provider가 없으면 고른 model도 없다(core가 current null일 때 내는 값과 같다).
+    model:
+      current === undefined
+        ? null
+        : {
+            model: current.id,
+            label: current.label,
+            options: { ...DEFAULT_OPTIONS[current.id] },
+            layer: picker.layer === undefined ? "global" : picker.layer,
+          },
   };
 }
 
-const ALL_COMMANDS: readonly SlashGroupView[] = [COMMANDS_GROUP, SKILLS_GROUP];
+// 구독 OAuth 연결의 session. 금액은 구독이라 알 수 없고 token만 보인다.
+function usageOf(over: Partial<StatusView>): AcpUsage {
+  return {
+    context: over.context ?? { tokens: 86_508, limit: 1_050_000 },
+    input_tokens: over.inputTokens ?? 412_890,
+    output_tokens: over.outputTokens ?? 11_531,
+    cache_read_tokens: over.cacheReadTokens ?? 301_440,
+    cache_write_tokens: over.cacheWriteTokens ?? 0,
+    turns: over.turns ?? 3,
+    costs: [
+      ...(over.costs ?? [
+        { kind: "subscription", currency: null, amount: null },
+      ]),
+    ],
+    provider: over.provider ?? {
+      name: "OpenAI",
+      definition: "openai",
+      account: "me@example.com",
+      state: "available",
+      until: null,
+    },
+  };
+}
 
-const NEEDS_SESSION = new Set([
-  "rename",
-  "archive",
-  "compact",
-  "fork",
-  "permissions",
-  "status",
-]);
+interface MetaOptions {
+  readonly picker: FakePicker;
+  readonly status: Partial<StatusView>;
+  readonly title: string | null;
+  readonly mode: "ask" | "skip";
+}
 
-function filterGroups(
-  query: string,
-  hasSession: boolean,
-): readonly SlashGroupView[] {
-  const needle = query.toLowerCase();
-  const startsWord = (text: string, separator: RegExp) =>
-    text
-      .toLowerCase()
-      .split(separator)
-      .some((word) => word.startsWith(needle));
-  return ALL_COMMANDS.map((group) => ({
-    ...group,
-    entries: group.entries.filter(
-      (entry) =>
-        (hasSession || !NEEDS_SESSION.has(entry.name)) &&
-        (needle === "" ||
-          entry.name.startsWith(needle) ||
-          startsWord(entry.name, /-/) ||
-          startsWord(entry.description, /\s+/)),
-    ),
-  })).filter((group) => group.entries.length > 0);
+function lophnMeta(options: MetaOptions): AcpSessionMeta {
+  return {
+    title: options.title,
+    cli_session: null,
+    capabilities: EVERYTHING,
+    ...modelsOf(options.picker),
+    modes: [
+      { id: "ask", label: "Ask when needed", description: null },
+      { id: "skip", label: "Skip permissions", description: null },
+    ],
+    mode: options.mode,
+    commands: [...LOPHN_COMMANDS],
+    usage: usageOf(options.status),
+  };
+}
+
+function harnessMeta(options: MetaOptions): AcpSessionMeta {
+  const sonnet = modelsOf({}).model!;
+  return {
+    title: options.title,
+    cli_session: "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9",
+    capabilities: HARNESS_CAPABILITIES,
+    models: [
+      {
+        id: "claude",
+        label: "Claude",
+        models: [
+          { id: "sonnet", label: "Sonnet 5.5", axes: SONNET.axes },
+          { id: "haiku", label: "Haiku 5.5", axes: [] },
+        ],
+      },
+    ],
+    model: { ...sonnet, model: "sonnet", layer: null },
+    modes: [
+      { id: "default", label: "Default", description: null },
+      { id: "acceptEdits", label: "Accept edits", description: null },
+      { id: "plan", label: "Plan", description: null },
+    ],
+    mode: "default",
+    commands: [
+      ...LOPHN_COMMANDS.filter((one) => one.name === "compact"),
+      ...CLI_COMMANDS,
+    ],
+    usage: {
+      ...usageOf(options.status),
+      provider: null,
+      costs: [],
+      context: { tokens: 43_000, limit: 200_000 },
+    },
+  };
 }
 
 // ---- fake ----
@@ -1318,15 +1418,31 @@ export function createFakeAgentTabSource(
 ): AgentTabSource {
   const sentAt = () =>
     options.now === undefined ? at(50) : new Date(options.now()).toISOString();
-  const picker = options.picker ?? {};
-  const pickerView = (scenario: PickerScenario, query: string) =>
-    modelView(scenario, query, picker);
   const data = sceneData(options.scene ?? "report");
   const envelopes = new Map(Object.entries(data.envelopes ?? {}));
-  const models = new Map<string, PickerScenario>();
+  /** 새 session이 처음 갖는 session 기능. */
+  const freshMeta = (title: string | null, mode: "ask" | "skip" = "ask") =>
+    (data.harness === true ? harnessMeta : lophnMeta)({
+      picker: options.picker ?? {},
+      status: options.status ?? {},
+      title,
+      mode,
+    });
+  const withMeta = (state: AcpState, meta: AcpSessionMeta): AcpState => ({
+    ...state,
+    session: meta,
+  });
   let sessions: SessionEntry[] =
     options.scene === "empty"
-      ? []
+      ? [
+          {
+            id: SESSION_EARLIER,
+            title: "Release notes check",
+            status: "idle",
+            activeAt: at(-2 * 24 * 60),
+            archived: false,
+          },
+        ]
       : [
           {
             id: SESSION_MAIN,
@@ -1339,7 +1455,6 @@ export function createFakeAgentTabSource(
                   : "idle",
             activeAt: at(-5),
             archived: false,
-            skip: options.scene === "skip",
           },
           {
             id: SESSION_EARLIER,
@@ -1347,7 +1462,6 @@ export function createFakeAgentTabSource(
             status: "idle",
             activeAt: at(-2 * 24 * 60),
             archived: false,
-            skip: false,
           },
           {
             id: SESSION_ARCHIVED,
@@ -1355,20 +1469,34 @@ export function createFakeAgentTabSource(
             status: "idle",
             activeAt: at(-12 * 24 * 60),
             archived: true,
-            skip: false,
           },
         ];
   const states = new Map<string, AcpState>();
+  states.set(
+    SESSION_EARLIER,
+    withMeta(EMPTY_ACP_STATE, freshMeta("Release notes check")),
+  );
   if (options.scene !== "empty") {
-    states.set(SESSION_MAIN, data.state);
-    states.set(SESSION_EARLIER, EMPTY_ACP_STATE);
+    states.set(
+      SESSION_MAIN,
+      withMeta(
+        data.state,
+        freshMeta(data.title, options.scene === "skip" ? "skip" : "ask"),
+      ),
+    );
     // archive한 session도 report 장면과 같은 기록을 보인다.
-    states.set(SESSION_ARCHIVED, {
-      ...EMPTY_ACP_STATE,
-      seq: data.state.seq,
-      items: data.state.items,
-      turn: data.state.turn,
-    });
+    states.set(
+      SESSION_ARCHIVED,
+      withMeta(
+        {
+          ...EMPTY_ACP_STATE,
+          seq: data.state.seq,
+          items: data.state.items,
+          turn: data.state.turn,
+        },
+        freshMeta(data.title),
+      ),
+    );
   }
 
   const listeners = new Set<() => void>();
@@ -1444,8 +1572,128 @@ export function createFakeAgentTabSource(
       ),
     );
   };
-  const scenarioOf = (session: string | null) =>
-    models.get(session ?? "new") ?? SCENARIOS[picker.current ?? ""] ?? SONNET;
+
+  /** 허락 카드를 닫는다. 거절은 이유를 싣는다. */
+  const decide = (
+    session: string,
+    request: string,
+    choice: Extract<AcpInput, { type: "decide" }>["choice"],
+  ) => {
+    const state = stateOf(session);
+    if (state.pending.approval?.id !== request) return fail("conflict");
+    return apply(session, {
+      type: "approval_closed",
+      request,
+      outcome: choice.kind === "reject" ? "denied" : "allowed",
+      choice: choice.kind === "reject" ? null : choice.kind,
+      reason: choice.kind === "reject" ? (choice.reason ?? null) : null,
+      seq: state.seq + 1,
+      at: sentAt(),
+    });
+  };
+  const rewind = (
+    session: string,
+    message: string,
+    files: boolean,
+  ): Promise<SourceResult<void>> => {
+    const state = stateOf(session);
+    const from = state.items.findIndex((item) => item.id === message);
+    if (from < 0 || state.turn?.phase === "working") return fail("conflict");
+    const hidden = state.items.slice(from) as AcpEntry[];
+    return apply(session, {
+      type: "hidden_added",
+      item: {
+        kind: "hidden",
+        id: nextId("rwd"),
+        seq: hidden[0]!.seq,
+        at: at(53),
+        checkpoint: message,
+        choice: files ? "restore_all" : "messages_only",
+        count: hidden.filter((item) => item.kind === "message").length,
+        restored: files ? REWIND_PREVIEW.files.length : 0,
+        left: [],
+        items: hidden,
+      },
+    });
+  };
+  const fork = (session: string, through: string | null) => {
+    const origin = sessions.find((item) => item.id === session);
+    if (origin === undefined) return fail<{ session?: string }>("not_found");
+    const items = stateOf(session).items;
+    const last =
+      through === null
+        ? items.length
+        : items.findIndex((item) => item.id === through) + 1;
+    const id = nextId("ses");
+    // fork는 skip을 가져가지 않는다.
+    sessions = [...sessions, { ...origin, id, status: "idle" }];
+    states.set(
+      id,
+      withMeta(
+        numbered(
+          items.slice(0, last).filter((item) => item.kind === "message"),
+        ),
+        freshMeta(origin.title),
+      ),
+    );
+    notify();
+    return ok<{ session?: string }>({ session: id });
+  };
+  /** 새 ACP 입력. core가 route로 옮기는 일을 메모리 상태 변경으로 흉내 낸다. */
+  const act = async (
+    session: string,
+    input: AcpInput,
+  ): Promise<SourceResult<{ session?: string }>> => {
+    const changed = async (
+      meta: Partial<AcpSessionMeta>,
+    ): Promise<SourceResult<{ session?: string }>> => {
+      await apply(session, { type: "session_changed", session: meta });
+      return { ok: true, value: {} };
+    };
+    const lift = async (
+      call: Promise<SourceResult<unknown>>,
+    ): Promise<SourceResult<{ session?: string }>> => {
+      const result = await call;
+      return result.ok ? { ok: true, value: {} } : result;
+    };
+    switch (input.type) {
+      case "set_model": {
+        const groups = stateOf(session).session?.models ?? [];
+        const found = groups
+          .flatMap((group) => group.models)
+          .find((one) => one.id === input.model);
+        if (found === undefined) return { ok: false, code: "invalid_input" };
+        return changed({
+          model: {
+            model: found.id,
+            label: found.label,
+            options: input.options,
+            layer: "session",
+          },
+        });
+      }
+      case "set_mode":
+        return changed({ mode: input.mode });
+      case "rename":
+        patchSession(session, { title: input.title });
+        notify();
+        return changed({ title: input.title });
+      case "decide":
+        return lift(decide(session, input.request, input.choice));
+      case "rewind":
+        return lift(rewind(session, input.message, input.files));
+      case "fork":
+        // session 목록이 없는 source는 같은 탭의 상태가 바뀌고 새 session을 열지 않는다.
+        return stateOf(session).session?.capabilities.sessions === false
+          ? { ok: true, value: {} }
+          : fork(session, input.message);
+      case "run_command":
+      case "compact":
+        return { ok: true, value: {} };
+      default:
+        return { ok: false, code: "invalid_input" };
+    }
+  };
 
   const source: AgentTabSource = {
     agent: () => ok(data.agent),
@@ -1492,29 +1740,9 @@ export function createFakeAgentTabSource(
       return found === undefined ? fail("not_found") : ok(found);
     },
 
-    model: (session, query) => ok(pickerView(scenarioOf(session), query)),
-    chooseModel(session, model: PickerModelRef, query) {
-      const target = SCENARIOS[model.modelName] ?? SONNET;
-      models.set(session ?? "new", target);
-      return ok(pickerView(target, query));
-    },
-    setModelOption(session, axis, value, query) {
-      const current = scenarioOf(session);
-      const next = {
-        ...current,
-        optionValues: { ...current.optionValues, [axis]: value },
-      };
-      models.set(session ?? "new", next);
-      return ok(pickerView(next, query));
-    },
-
-    commands: (session, query) => ok(filterGroups(query, session !== null)),
-    runCommand: () => DONE,
     permissions: () => ok(PERMISSIONS_VIEW),
-    status: (session) =>
-      ok({ ...statusView(session), ...options.status, session }),
 
-    act: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    act,
     uploadImage(image) {
       const blob = nextId("blob");
       images.set(blob, URL.createObjectURL(image));
@@ -1638,19 +1866,6 @@ export function createFakeAgentTabSource(
         },
       );
     },
-    decidePermission(session, request, choice, reason) {
-      const state = stateOf(session);
-      if (state.pending.approval?.id !== request) return fail("conflict");
-      return apply(session, {
-        type: "approval_closed",
-        request,
-        outcome: choice === "reject" ? "denied" : "allowed",
-        choice: choice === "reject" ? null : choice,
-        reason: reason ?? null,
-        seq: state.seq + 1,
-        at: sentAt(),
-      });
-    },
     cancelCall(call) {
       const found = callItemOf(call);
       if (found === undefined) return fail("not_found");
@@ -1672,31 +1887,15 @@ export function createFakeAgentTabSource(
           status: "idle",
           activeAt: at(0),
           archived: false,
-          skip: false,
         },
       ];
-      states.set(id, EMPTY_ACP_STATE);
-      const picked = models.get("new");
-      if (picked !== undefined) {
-        models.set(id, picked);
-        models.delete("new");
-      }
-      notify();
-      return DONE;
-    },
-    renameSession(session, title) {
-      patchSession(session, { title });
+      states.set(id, withMeta(EMPTY_ACP_STATE, freshMeta(null)));
       notify();
       return DONE;
     },
     stopSession(session) {
       const turn = stateOf(session).turn;
       return turn === null || turn.phase === "ended" ? DONE : stopTurn(turn.id);
-    },
-    changeSkip(session, skip) {
-      patchSession(session, { skip });
-      notify();
-      return DONE;
     },
     archiveSession(session) {
       patchSession(session, { archived: true });
@@ -1709,50 +1908,9 @@ export function createFakeAgentTabSource(
       notify();
       return DONE;
     },
-    forkSession({ id, session, through }) {
-      const origin = sessions.find((item) => item.id === session);
-      if (origin === undefined) return fail("not_found");
-      const items = stateOf(session).items;
-      const last =
-        through === null
-          ? items.length
-          : items.findIndex((item) => item.id === through) + 1;
-      // fork는 skip을 가져가지 않는다.
-      sessions = [...sessions, { ...origin, id, status: "idle", skip: false }];
-      states.set(
-        id,
-        numbered(
-          items.slice(0, last).filter((item) => item.kind === "message"),
-        ),
-      );
-      notify();
-      return DONE;
-    },
-    compactSession: () => DONE,
 
     rewindPoints: (session) => ok(rewindPointsOf(stateOf(session))),
     rewindPreview: () => ok(REWIND_PREVIEW),
-    rewind(session, message, choice) {
-      const state = stateOf(session);
-      const from = state.items.findIndex((item) => item.id === message);
-      if (from < 0 || state.turn?.phase === "working") return fail("conflict");
-      const hidden = state.items.slice(from) as AcpEntry[];
-      return apply(session, {
-        type: "hidden_added",
-        item: {
-          kind: "hidden",
-          id: nextId("rwd"),
-          seq: hidden[0]!.seq,
-          at: at(53),
-          checkpoint: message,
-          choice: choice.files ? "restore_all" : "messages_only",
-          count: hidden.filter((item) => item.kind === "message").length,
-          restored: choice.files ? REWIND_PREVIEW.files.length : 0,
-          left: [],
-          items: hidden,
-        },
-      });
-    },
 
     changed(listener) {
       listeners.add(listener);

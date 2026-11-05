@@ -21,6 +21,8 @@ import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
   AcpInput,
+  AcpPlan,
+  AcpSessionMeta,
   AcpState,
   AcpWriting,
 } from "../../../protocol/acp/mod.ts";
@@ -73,8 +75,6 @@ export interface SessionEntry {
   /** 마지막 활동 시각(ISO). */
   readonly activeAt: string;
   readonly archived: boolean;
-  /** 묻지 않고 실행한다. deny 규칙은 skip에서도 막는다. */
-  readonly skip: boolean;
 }
 
 /** session popover의 메시지 글 찾기가 찾은 한 줄. 묶음은 화면이 session으로 만들고 snippet만 보인다. */
@@ -234,13 +234,15 @@ export type ApprovalSubject =
 
 /**
  * composer 위에 놓이는 승인 카드. 제목과 세부의 글은 subject에서 화면이 만든다(요청한 agent가 쓴 설명은
- * 없다). 선택지는 `always_patterns`로 정해지고 이름이 같아야 `turnChoicesOf`가 request 그대로 받는다.
+ * 없다). 단추는 source가 내는 `choices` 순서대로다.
  */
 export interface ApprovalCardRequest {
   /** `apr_…` */
   readonly id: string;
   readonly subject: ApprovalSubject;
-  /** Always allow가 더할 allow 규칙의 pattern. 비어 있으면 Always allow가 없다. */
+  /** 이 카드가 낼 수 있는 범위. `session`은 그 CLI session 안에서만이고 `always`는 영구 규칙이다. */
+  readonly choices: readonly ("once" | "session" | "always" | "reject")[];
+  /** Always allow가 영구로 더할 pattern. */
   readonly always_patterns: string[];
 }
 
@@ -436,6 +438,10 @@ export interface ThreadView {
   readonly pending: PendingView;
   /** 아직 저장되지 않은 model 호출 하나의 글. 저장되면 그 message 줄로 바뀐다. */
   readonly live: AcpWriting | null;
+  /** source의 session 기능(model, mode, 명령, 사용량)과 capability. 아직 모르면 null이다. */
+  readonly session: AcpSessionMeta | null;
+  /** agent의 계획. 없으면 null이다. */
+  readonly plan: AcpPlan | null;
 }
 
 // ---- model, 명령, 권한 ----
@@ -566,9 +572,8 @@ export interface SendInput {
 
 export interface AgentTabSource {
   /**
-   * lophn session이 아니라 ACP session 하나만 그리는 source(harness-gui의 창)다. 참이면 화면이 lophn 전용 칸을 그리지
-   * 않는다: session 목록·이름 바꾸기·archive·fork 머리 menu, model·skip·권한·`/` 명령, 메시지의 Rewind·Fork.
-   * 그 칸들의 읽기와 쓰기는 source가 unavailable로 답한다.
+   * 화면은 이 칸을 읽지 않는다. 어떤 칸을 그릴지는 ACP 상태의 `session.capabilities`가 정한다. gui source가 아직 쓰므로
+   * 남겨 두고 wave 뒤에 지운다.
    */
   readonly external?: true;
 
@@ -595,39 +600,37 @@ export interface AgentTabSource {
     part: "input" | "output",
   ): Promise<SourceResult<ToolCallBodyView>>;
 
-  // model(session 범위). session이 null이면 source가 고른 값을 쥐고 있다가 openSession 때 그 session에 저장한다.
-  model(
+  // 아래 옛 member(model·commands·status·이름·skip·fork·compact·rewind·허락 결정)는 ACP로 올랐다. 화면은 부르지 않고
+  // `acp().session`을 읽어 `act`로 보낸다. gui source가 아직 구현해서 optional로만 남겼고 wave 뒤에 지운다.
+  model?(
     session: string | null,
     query: string,
   ): Promise<SourceResult<ModelView>>;
-  chooseModel(
+  chooseModel?(
     session: string | null,
     model: PickerModelRef,
     query: string,
   ): Promise<SourceResult<ModelView>>;
-  setModelOption(
+  setModelOption?(
     session: string | null,
     axis: string,
     value: string,
     query: string,
   ): Promise<SourceResult<ModelView>>;
-
-  // `/` 명령. session이 없으면 session이 있어야 하는 명령은 목록에 없다.
-  commands(
+  commands?(
     session: string | null,
     query: string,
   ): Promise<SourceResult<readonly SlashGroupView[]>>;
-  /** skill 명령. skill을 쓰라는 한 줄과 `/이름` 뒤의 글을 사람의 메시지로 다음 turn에 접수한다. */
-  runCommand(
+  runCommand?(
     session: string,
     entry: SlashEntryView,
     argument: string,
     key: string,
   ): Promise<SourceResult<void>>;
-  /** `/permissions`와 입력칸 아래 요약. */
+  status?(session: string): Promise<SourceResult<StatusView>>;
+
+  /** `/permissions`와 입력칸 아래 요약. ACP가 다루지 않는 lophn의 할당 보기다. */
   permissions(session: string | null): Promise<SourceResult<PermissionsView>>;
-  /** `/status`. 창 크기와 이 session의 누적 사용량을 한 번에 읽는다. */
-  status(session: string): Promise<SourceResult<StatusView>>;
 
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;
@@ -665,8 +668,7 @@ export interface AgentTabSource {
     toolCall: string;
     answers: readonly QuestionAnswer[];
   }): Promise<SourceResult<void>>;
-  /** waiting 목록의 결정과 같은 route다. 거절은 이유를 한 줄 적을 수 있다. */
-  decidePermission(
+  decidePermission?(
     session: string,
     request: string,
     choice: "once" | "always" | "reject",
@@ -678,22 +680,19 @@ export interface AgentTabSource {
   // session
   /** 첫 말을 보내기 전에 만든다. */
   openSession(input: { id: string }): Promise<SourceResult<void>>;
-  renameSession(session: string, title: string): Promise<SourceResult<void>>;
+  renameSession?(session: string, title: string): Promise<SourceResult<void>>;
   /** 그 session에서 도는 turn을 멈춘다. 도는 turn이 없으면 할 일이 없어 ok다. */
   stopSession(session: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;
-  /** 사람만 바꾼다. 바꾼 값은 다음 turn부터다(turn mode는 turn을 시작할 때 정한다). */
-  changeSkip(session: string, skip: boolean): Promise<SourceResult<void>>;
+  changeSkip?(session: string, skip: boolean): Promise<SourceResult<void>>;
   /** 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. */
   deleteSession(session: string): Promise<SourceResult<void>>;
-  /** 같은 agent의 새 session `id`로 복사한다. through가 null이면 마지막 확정 메시지까지다. */
-  forkSession(input: {
+  forkSession?(input: {
     id: string;
     session: string;
     through: string | null;
   }): Promise<SourceResult<void>>;
-  /** 사람이 부른 요약. 실패해도 session과 원문은 그대로다. */
-  compactSession(session: string): Promise<SourceResult<void>>;
+  compactSession?(session: string): Promise<SourceResult<void>>;
 
   // rewind. 확인은 대화 화면 안의 panel이고 확인 창은 없다.
   /** 시점으로 고를 수 있는 사람 메시지(steer는 아니다), 오래된 순. 숨긴 구간 밖이다. */
@@ -702,7 +701,7 @@ export interface AgentTabSource {
     session: string,
     message: string,
   ): Promise<SourceResult<RewindPreviewView>>;
-  rewind(
+  rewind?(
     session: string,
     message: string,
     choice: RewindChoice,

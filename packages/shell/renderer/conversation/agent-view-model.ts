@@ -8,7 +8,16 @@ import type {
 } from "./agent-tab-source.ts";
 import { summaryOfParts } from "./agent-tab-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
-import type { AcpState } from "../../../protocol/acp/mod.ts";
+import { type MessageKey, t } from "@lophn/i18n";
+import type {
+  AcpCapabilities,
+  AcpCommand,
+  AcpDecideChoice,
+  AcpSessionMeta,
+  AcpState,
+} from "../../../protocol/acp/mod.ts";
+import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
+import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 
 /** 아직 만들지 않은 새 session의 입력 메모리 key. 같은 창의 다른 agent와 섞이지 않는다. */
 export function newSessionKey(agent: AgentFace | null): string {
@@ -134,4 +143,112 @@ export function rewindPointsOf(state: AcpState): string[] {
       ? [item.id]
       : [],
   );
+}
+
+/**
+ * source가 session meta를 아직 모르면(null) lophn 화면이 늘 갖던 칸을 그린다. meta가 있으면 그 `capabilities`만 본다.
+ */
+export const LOPHN_CAPABILITIES: AcpCapabilities = {
+  model: true,
+  effort: true,
+  mode: true,
+  commands: true,
+  rewind: true,
+  rewind_files: true,
+  fork: true,
+  compact: true,
+  rename: true,
+  usage: true,
+  steer: true,
+  queue_edit: true,
+  images: true,
+  retry: true,
+  sessions: true,
+};
+
+export function capabilitiesOf(meta: AcpSessionMeta | null): AcpCapabilities {
+  return meta === null ? LOPHN_CAPABILITIES : meta.capabilities;
+}
+
+/** 카드의 단추 하나를 `decide` 입력의 choice로. 거절 이유는 한 줄로 맞춘다. */
+export function decideChoiceOf(
+  choice: "once" | "session" | "always" | "reject",
+  reason?: string,
+): AcpDecideChoice {
+  return choice === "session"
+    ? { kind: "session" }
+    : turnChoiceOf(choice, reason);
+}
+
+const BUILTIN_TITLES: Readonly<Record<string, MessageKey>> = {
+  new: "conversation.label.slash-title-new",
+  rename: "conversation.label.slash-title-rename",
+  archive: "conversation.label.slash-title-archive",
+  compact: "conversation.label.slash-title-compact",
+  fork: "conversation.label.slash-title-fork",
+  mcp: "conversation.label.slash-title-mcp",
+  skills: "conversation.label.slash-title-skills",
+  permissions: "conversation.label.slash-title-permissions",
+  status: "conversation.label.slash-title-status",
+};
+
+const GROUPS = [
+  ["builtin", "conversation.label.slash-group-commands"],
+  ["skill", "conversation.label.slash-group-skills"],
+  ["cli", "conversation.label.slash-group-cli"],
+] as const;
+
+// session이 있어야 하는 built-in. session을 만들기 전 화면은 이 명령을 목록에서 뺀다.
+const SESSION_ONLY = new Set([
+  "rename",
+  "archive",
+  "compact",
+  "fork",
+  "status",
+]);
+
+function wordStarts(text: string, separator: RegExp, needle: string): boolean {
+  return text.split(separator).some((word) => word.startsWith(needle));
+}
+
+/**
+ * `/` 뒤 글자로 거른 묶음. 이름이 시작하거나 이름·설명의 단어가 시작하면 맞고 대소문자를 가리지 않는다. 묶음 안 순서는
+ * source가 준 순서다.
+ */
+export function slashGroupsOf(
+  commands: readonly AcpCommand[],
+  query: string,
+  hasSession: boolean,
+): SlashGroupView[] {
+  const needle = query.toLowerCase();
+  const match = (command: AcpCommand) => {
+    const name = command.name.toLowerCase();
+    return (
+      needle === "" ||
+      name.startsWith(needle) ||
+      wordStarts(name, /-/, needle) ||
+      wordStarts(command.description.toLowerCase(), /\s+/, needle)
+    );
+  };
+  return GROUPS.flatMap(([source, title]) => {
+    const entries: SlashEntryView[] = commands
+      .filter(
+        (command) =>
+          command.source === source &&
+          match(command) &&
+          (hasSession ||
+            source !== "builtin" ||
+            !SESSION_ONLY.has(command.name)),
+      )
+      .map((command) => ({
+        name: command.name,
+        title:
+          source === "builtin" && BUILTIN_TITLES[command.name] !== undefined
+            ? t(BUILTIN_TITLES[command.name]!)
+            : null,
+        description: command.description,
+        source,
+      }));
+    return entries.length === 0 ? [] : [{ source, title: t(title), entries }];
+  });
 }

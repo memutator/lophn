@@ -11,6 +11,8 @@ export interface PickerModelRef {
   /** provider(계정) id. */
   readonly provider: string;
   readonly modelName: string;
+  /** 목록에 보일 이름. 없으면 `modelName`이다(harness는 id와 이름이 다르다). */
+  readonly label?: string;
 }
 
 export interface PickerProviderGroup {

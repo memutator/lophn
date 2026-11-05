@@ -1,4 +1,4 @@
-// rewind: 시점으로 고를 수 있는 메시지, 시점을 고르면 보이는 것(파일과 앱별 write), 적용.
+// rewind: 시점으로 고를 수 있는 메시지와 시점을 고르면 보이는 것(파일과 앱별 write). 적용은 ACP `rewind` 입력이다.
 // 확인은 대화 화면 안의 panel이라 확인 창이 없다. 앱 data는 session rewind가 저절로 되돌리지 않고 사람이 고른 앱만
 // 같은 시점으로 되돌아간다. 편집 undo와 되돌린 구간 redo는 없다.
 import { t } from "@lophn/i18n";
@@ -7,21 +7,16 @@ import type { AppToolCaller } from "../../../protocol/apps/calls/caller.ts";
 import { appRewindPlan } from "../../../protocol/apps/calls/rewind.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";
 import { acpSnapshot } from "../../../protocol/acp/mod.ts";
-import {
-  sessionRewind,
-  sessionRewindPreview,
-} from "../../../protocol/lophn-agent/session-rewinds.ts";
-import { newId } from "../prefixed-id.ts";
+import { sessionRewindPreview } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
 import type {
   RewindApp,
-  RewindChoice,
   RewindFileView,
   RewindPreviewView,
   RewindWrite,
   SourceResult,
 } from "./agent-tab-source.ts";
-import { done, type Env } from "./agent-tab-core-source-env.ts";
+import type { Env } from "./agent-tab-core-source-env.ts";
 import { agentNameOf, readSession } from "./agent-tab-core-source-sessions.ts";
 
 // ---------------------------------------------------------------- 시점
@@ -141,64 +136,4 @@ export async function previewRewind(
     if (view.value !== null) apps.push(view.value);
   }
   return { ok: true, value: { files, apps } };
-}
-
-// ---------------------------------------------------------------- 적용
-
-export function createRewindIds(): Map<string, string> {
-  return new Map();
-}
-
-/**
- * `files`가 참이면 대화와 파일을 되돌리고(restore_all) 거짓이면 대화만 되돌린다(messages_only). 고른 앱은 같은
- * 시점으로 되돌아간다. 사전 검사 뒤 파일이 바뀌어 지문이 달라지면 아무것도 바꾸지 않고 conflict다. 파일 복원은 core가
- * 준비한다(shell은 프로젝트 파일을 읽지 못한다).
- */
-export async function rewindSession(
-  env: Env,
-  ids: Map<string, string>,
-  session: string,
-  message: string,
-  choice: RewindChoice,
-): Promise<SourceResult<void>> {
-  const scope = choice.files ? "restore_all" : "messages_only";
-  const preview = await env.read(sessionRewindPreview, {
-    session,
-    checkpoint: message,
-    choice: scope,
-  });
-  if (!preview.ok) return preview;
-  // 결과를 몰라 다시 눌러도 같은 id와 key로 보내 core가 한 번만 접수한다.
-  const same = `${session}:${message}:${scope}:${[...choice.apps]
-    .sort()
-    .join()}`;
-  let id = ids.get(same);
-  if (id === undefined) {
-    id = newId("rwd", env.now());
-    ids.set(same, id);
-  }
-  const applied = await env.command(sessionRewind, {
-    input: {
-      id,
-      session,
-      checkpoint: message,
-      choice: scope,
-      accept_remaining: true,
-      preview_hash: preview.value.preview_hash,
-      summary_call: null,
-      files: [],
-      apps: [...choice.apps],
-    },
-    compare: {
-      session_state: "open",
-      active_turn: null,
-      applying_rewind: null,
-    },
-    key: `rewind-${id}`,
-  });
-  if (!applied.ok) return applied;
-  ids.delete(same);
-  return applied.value.outcome === "blocked"
-    ? { ok: false, code: "conflict" }
-    : done;
 }

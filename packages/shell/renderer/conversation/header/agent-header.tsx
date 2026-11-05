@@ -19,6 +19,8 @@ import { type MessageKey, t } from "@lophn/i18n";
 import { ViewBar } from "../../editor/view-bar.tsx";
 import { useCardHead } from "../../shell/card-head.tsx";
 import type { ViewDetail } from "../activity/model.ts";
+import type { AcpCapabilities } from "../../../../protocol/acp/mod.ts";
+import { newId } from "../../prefixed-id.ts";
 import type {
   AgentTabSource,
   SessionEntry,
@@ -55,12 +57,12 @@ interface AgentHeaderProps {
   now: Date;
   source: Pick<
     AgentTabSource,
-    | "renameSession"
-    | "archiveSession"
-    | "deleteSession"
-    | "forkSession"
-    | "searchMessages"
+    "act" | "archiveSession" | "deleteSession" | "searchMessages"
   >;
+  /** 어떤 칸을 그릴지(`session.capabilities`). */
+  capabilities: AcpCapabilities;
+  /** source가 알려 준 session 제목(`session.title`). 없으면 null이다. */
+  title: string | null;
   /** 단계 줄을 어디까지 보이는지. */
   detail: ViewDetail;
   /** 그 값을 바꾼다. session마다 기억한다. */
@@ -70,8 +72,6 @@ interface AgentHeaderProps {
   onChanged: () => void;
   /** menu 오른쪽 끝에 더할 조각 (예: home full mode controller). */
   trailing?: ReactNode;
-  /** lophn session이 아니다(`AgentTabSource.external`). session을 고르고 고치는 칸이 없고 누구의 어디인지만 보인다. */
-  external?: boolean;
 }
 
 type MoreAction = "rename" | "fork" | "archive";
@@ -112,7 +112,14 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
   };
 
   const rename = (id: string, title: string) =>
-    void settle(source.renameSession(id, title));
+    void settle(
+      source.act(id, {
+        type: "rename",
+        session: id,
+        key: newId("rename"),
+        title,
+      }),
+    );
   const saveRename = () => {
     const title = draft.trim();
     if (title === "" || session === null) return;
@@ -128,12 +135,12 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
     if (session === null) return;
     switch (id as MoreAction) {
       case "rename":
-        setDraft(session.title ?? "");
+        setDraft(props.title ?? session.title ?? "");
         setRenaming(true);
         return;
       case "fork":
-        void forkAndOpen(source, session.id, host.openForked).then((result) =>
-          setProblem(!result.ok),
+        void forkAndOpen(source, session.id, null, host.openForked).then(
+          (result) => setProblem(!result.ok),
         );
         return;
       case "archive":
@@ -147,7 +154,17 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
   };
 
   const archived = session?.archived === true;
-  const items = archived ? ARCHIVED_ITEMS : MORE_ITEMS;
+  const { capabilities } = props;
+  const items = (archived ? ARCHIVED_ITEMS : MORE_ITEMS).filter(
+    (item) =>
+      capabilities[
+        item.id === "rename"
+          ? "rename"
+          : item.id === "fork"
+            ? "fork"
+            : "sessions"
+      ],
+  );
 
   // 머리에 올린 요소의 callback은 deps에 없는 최신 값을 읽는다.
   const act = useRef({
@@ -172,12 +189,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
     return () => clearTimeout(timer);
   }, [renaming]);
 
-  const lead = props.external ? (
-    <span className={styles.face}>
-      <AgentFace agent={agent} />
-      <span>{props.agent.place?.name}</span>
-    </span>
-  ) : renaming ? (
+  const lead = renaming ? (
     <span className={styles.face}>
       <AgentFace agent={agent} />
       <input
@@ -193,6 +205,12 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => act.current.renameKeys(event)}
       />
+    </span>
+  ) : !capabilities.sessions ? (
+    <span className={styles.face}>
+      <AgentFace agent={agent} />
+      <span>{props.agent.place?.name}</span>
+      {props.title === null ? null : <span>· {props.title}</span>}
     </span>
   ) : (
     <SessionSwitcher
@@ -269,7 +287,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
           {props.trailing}
         </>
       ),
-      ...(session === null || props.external
+      ...(session === null || items.length === 0
         ? {}
         : {
             menu: {
@@ -286,6 +304,8 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       agent,
       session?.id,
       session?.title,
+      props.title,
+      capabilities,
       archived,
       props.sessions,
       Math.floor(props.now.getTime() / 60_000),
@@ -302,7 +322,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
     <div className={styles.gap} data-agent-header>
       <ViewBar lead={<div className={styles.lead}>{lead}</div>}>
         {status}
-        {session === null || props.external ? null : (
+        {session === null || items.length === 0 ? null : (
           <Menu
             items={items.map((item) => ({
               id: item.id,

@@ -1,13 +1,23 @@
 // 창 사용률과 `/status`·composer 아래 푸터가 같이 쓰는 짧은 글. panel과 푸터가 같은 식과 같은 임계값을 쓰게 한 곳에 둔다.
 import { t } from "@lophn/i18n";
-import type { StatusView } from "../agent-tab-source.ts";
+import type {
+  AcpModelCurrent,
+  AcpUsage,
+} from "../../../../protocol/acp/mod.ts";
+
+/** `/status`와 푸터가 그리는 값: session 하나의 model과 사용량(`session.model`·`session.usage`). */
+export interface StatusData {
+  readonly session: string;
+  readonly model: AcpModelCurrent | null;
+  readonly usage: AcpUsage;
+}
 
 /** 푸터와 panel 막대의 색 단계. 80%부터 경고, 90%부터 위험이다. */
 export type ContextLevel = "normal" | "warning" | "critical";
 
 /** 마지막 요청이 창을 몇 % 썼는가. 한도를 모르면 0이다. */
 export function contextPercent(
-  context: NonNullable<StatusView["context"]>,
+  context: NonNullable<AcpUsage["context"]>,
 ): number {
   if (context.limit <= 0) return 0;
   return Math.round((context.tokens / context.limit) * 100);
@@ -42,7 +52,7 @@ function money(amount: string, currency: string): string {
   }
 }
 
-export function costText(cost: StatusView["costs"][number]): string {
+export function costText(cost: AcpUsage["costs"][number]): string {
   if (cost.kind === "subscription" || cost.kind === "free") {
     return t("conversation.label.status-cost-subscription");
   }

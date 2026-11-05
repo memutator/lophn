@@ -63,7 +63,7 @@ function ModelRow({
           <Icon icon={conversationIcons.current} pixels={iconPixels("base")} />
         ) : null}
       </span>
-      <span className={styles.name}>{row.modelName}</span>
+      <span className={styles.name}>{row.label ?? row.modelName}</span>
     </div>
   );
 }

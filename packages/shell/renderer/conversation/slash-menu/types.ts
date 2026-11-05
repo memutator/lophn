@@ -7,7 +7,8 @@ export interface SlashEntryView {
   /** built-in 명령의 메뉴 제목(Compact). skill은 null이라 이름을 보인다. */
   readonly title: string | null;
   readonly description: string;
-  readonly source: "builtin" | "skill";
+  /** `cli`는 harness CLI가 주는 명령이다. */
+  readonly source: "builtin" | "skill" | "cli";
 }
 
 /** Commands · Skills 중 하나. 맞는 명령이 없는 묶음은 목록에 없다. */

@@ -3,13 +3,13 @@
 
 import { t } from "@lophn/i18n";
 import type { ReactElement } from "react";
-import type { StatusView as StatusData } from "../agent-tab-source.ts";
 import styles from "./status-footer.module.css";
 import {
   compactTokens,
   contextLevel,
   contextPercent,
   costText,
+  type StatusData,
 } from "./status-summary.ts";
 
 interface StatusFooterProps {
@@ -21,22 +21,23 @@ export function StatusFooter({
   status,
   onOpen,
 }: StatusFooterProps): ReactElement | null {
-  const { context } = status;
+  const { usage } = status;
+  const { context } = usage;
   const percent = context === null ? null : contextPercent(context);
   const level = percent === null ? "normal" : contextLevel(percent);
   const tokens =
-    status.inputTokens === null || status.outputTokens === null
+    usage.input_tokens === null || usage.output_tokens === null
       ? null
       : {
           input: compactTokens(
-            status.inputTokens +
-              (status.cacheReadTokens ?? 0) +
-              (status.cacheWriteTokens ?? 0),
+            usage.input_tokens +
+              (usage.cache_read_tokens ?? 0) +
+              (usage.cache_write_tokens ?? 0),
           ),
-          output: compactTokens(status.outputTokens),
+          output: compactTokens(usage.output_tokens),
         };
   // 값을 모르는 묶음은 panel이 보인다. 좁은 줄에는 아는 금액과 구독만 둔다.
-  const known = status.costs.filter(
+  const known = usage.costs.filter(
     (cost) =>
       cost.kind === "subscription" ||
       cost.kind === "free" ||

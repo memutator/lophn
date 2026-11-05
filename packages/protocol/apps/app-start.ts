@@ -12,9 +12,9 @@ import {
 
 export { SOCKET_HOST };
 
-// 앱 자식은 부모와 같은 OS에서 뜨므로 이 process의 platform이 socket 경로의 한도다. 화면(renderer)에는
-// process가 없고 거기서는 검사가 돌지 않는다.
-const SOCKET_PATH_LIMIT = ipcPathLimit(globalThis.process?.platform ?? "linux");
+// protocol은 이식 가능해야 해서 platform을 읽지 않고 OS별 한도 중 가장 큰 값을 상한으로만 둔다. 정확한 한도는
+// 경로를 만드는 core(`slotSockets`)와 받는 자식(`wire-check`)이 platform으로 검사한다.
+const SOCKET_PATH_LIMIT = ipcPathLimit("win32");
 const endpointSchema = z
   .string()
   .min(1)

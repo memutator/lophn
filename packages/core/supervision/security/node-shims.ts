@@ -37,7 +37,7 @@ export function withNodeShims(
 
 // 기동마다 다시 쓴다. shim에 박는 execPath가 설치본과 개발 실행에서 달라 묶음에 실을 수 없다.
 // 폴더를 지우지 않고 덮어써서 그 사이 shell이 집어 든 file이 사라지지 않게 한다.
-// Windows는 shell이 `node`·`npm`을 `.cmd`로 찾는다.
+// Windows는 cmd·CreateProcess(npm lifecycle script)가 `.cmd`를, agent shell의 Git Bash가 확장자 없는 sh shim을 찾는다.
 export async function installNodeShims(
   dataRoot: string,
   platform: string = process.platform,
@@ -50,18 +50,20 @@ export async function installNodeShims(
       const npm = `${cmdQuote(NPM_ENTRY)} ${cmdQuote(dataRoot)}`;
       await writeShim(join(folder, "node.cmd"), cmdScript(`${exec} %*`));
       await writeShim(join(folder, "npm.cmd"), cmdScript(`${exec} ${npm} %*`));
-    } else {
-      const exec = shellQuote(process.execPath);
-      const npm = `${shellQuote(NPM_ENTRY)} ${shellQuote(dataRoot)}`;
-      await writeShim(
-        join(folder, "node"),
-        `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} "$@"\n`,
-      );
-      await writeShim(
-        join(folder, "npm"),
-        `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} ${npm} "$@"\n`,
-      );
     }
+    // Git Bash는 `\`를 escape로 읽으므로 Windows 경로는 `/`로 바꿔 박는다.
+    const slashed = (path: string) =>
+      platform === "win32" ? path.replaceAll("\\", "/") : path;
+    const exec = shellQuote(slashed(process.execPath));
+    const npm = `${shellQuote(slashed(NPM_ENTRY))} ${shellQuote(slashed(dataRoot))}`;
+    await writeShim(
+      join(folder, "node"),
+      `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} "$@"\n`,
+    );
+    await writeShim(
+      join(folder, "npm"),
+      `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} ${npm} "$@"\n`,
+    );
   } catch {
     return err({ code: "unavailable", message: "node shim을 쓸 수 없다" });
   }

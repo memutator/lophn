@@ -23,8 +23,6 @@ export const SOCKET_HOST = "lophn.invalid";
 // 앱끼리 이어 부르는 깊이.
 export const APP_CALL_DEPTH_LIMIT = 8;
 // 내부 trace 이름 상한.
-// socket 경로 UTF-8 상한.
-export const SOCKET_PATH_MAX_BYTES = 104;
 
 export const runtimeModeSchema = z.enum(["live", "preview"]);
 export type ChannelMode = z.infer<typeof runtimeModeSchema>;
@@ -76,15 +74,6 @@ export const grantIdSchema = idSchema("grt");
 export const invocationIdSchema = idSchema("inv");
 export const turnIdSchema = idSchema("trn");
 export const toolCallIdSchema = idSchema("tcl");
-
-export const endpointSchema = z
-  .string()
-  .min(1)
-  .refine(
-    (value) =>
-      new TextEncoder().encode(value).byteLength < SOCKET_PATH_MAX_BYTES,
-    { message: "socket path must be under 104 UTF-8 bytes" },
-  );
 
 export {
   actorSchema,

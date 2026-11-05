@@ -1,9 +1,11 @@
 import { readdir } from "node:fs/promises";
-
+import { fileURLToPath } from "node:url";
 import { errorCode } from "../../../packages/base/mod.ts";
 import type { Scenario } from "../types.ts";
 
-export const SCENARIOS_DIR = new URL("../scenarios/", import.meta.url).pathname;
+export const SCENARIOS_DIR = fileURLToPath(
+  new URL("../scenarios/", import.meta.url),
+);
 
 export type Discovered = { scenario: Scenario; path: string };
 
@@ -28,7 +30,7 @@ export async function discoverScenarios(
   dir = SCENARIOS_DIR,
 ): Promise<Discovered[]> {
   const found: Discovered[] = [];
-  for (const path of (await findFiles(dir.replace(/\/$/, ""))).sort()) {
+  for (const path of (await findFiles(dir.replace(/[\\/]$/, ""))).sort()) {
     const module = await import(`file://${path}`);
     const scenario = module.default as Scenario;
     const same = found.find((item) => item.scenario.id === scenario.id);

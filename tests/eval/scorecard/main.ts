@@ -1,6 +1,7 @@
 // scorecard를 쓰거나(인자 없음) 두 run을 비교한다(`diff <idA> <idB>`).
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { errorCode, systemClock } from "../../../packages/base/mod.ts";
 import { latestEntry } from "../versions/mod.ts";
@@ -11,7 +12,10 @@ import { renderScorecard } from "./markdown.ts";
 import { type Current, pickRows } from "./pick.ts";
 import { readRuns, RUNS_DIR } from "./runs.ts";
 
-const ROOT = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+const ROOT = fileURLToPath(new URL("../../../", import.meta.url)).replace(
+  /[\\/]$/,
+  "",
+);
 const REGISTRY_DIR = `${ROOT}/tests/eval/registry`;
 const SCENARIOS_DIR = `${ROOT}/tests/eval/scenarios`;
 

@@ -5,13 +5,17 @@
 // 종료 코드: 0 정상, 1 없는 run·key나 덮기 거절, 2 인자 오류.
 import { stat } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { loadJudgeDefinition } from "./definition.ts";
 import { foldRun } from "./fold.ts";
 import { canRegrade, gradeItem } from "./grade.ts";
 import { readPending, rewritePending } from "./pending.ts";
 import { renderForAgent } from "./show.ts";
 
-const ROOT = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+const ROOT = fileURLToPath(new URL("../../../", import.meta.url)).replace(
+  /[\\/]$/,
+  "",
+);
 const EVAL_DIR = `${ROOT}/.dev-data/eval`;
 const RUNS_DIR = `${ROOT}/tests/eval/runs`;
 

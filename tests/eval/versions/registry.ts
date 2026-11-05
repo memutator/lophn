@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import type { RegistryEntry, VersionKind, VersionRef } from "../types.ts";
 
@@ -18,11 +19,12 @@ export type Deps = {
 };
 
 // 이 repo의 root. tests/eval/versions/에서 세 단계 위다.
-export const REPO_ROOT = new URL("../../../", import.meta.url).pathname.replace(
-  /\/$/,
-  "",
+export const REPO_ROOT = fileURLToPath(
+  new URL("../../../", import.meta.url),
+).replace(/[\\/]$/, "");
+export const REGISTRY_DIR = fileURLToPath(
+  new URL("../registry", import.meta.url),
 );
-export const REGISTRY_DIR = new URL("../registry", import.meta.url).pathname;
 
 export const TEXT_KINDS: readonly VersionKind[] = [
   "instruction",

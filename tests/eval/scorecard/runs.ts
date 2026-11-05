@@ -1,9 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
-
+import { fileURLToPath } from "node:url";
 import { errorCode } from "../../../packages/base/mod.ts";
 import type { RunRecord } from "../types.ts";
 
-export const RUNS_DIR = new URL("../runs", import.meta.url).pathname;
+export const RUNS_DIR = fileURLToPath(new URL("../runs", import.meta.url));
 
 // dir의 *.json을 RunRecord로 읽는다. 읽지 못하거나 id가 없는 file은 이름과 이유를 담아 throw한다.
 export async function readRuns(dir: string = RUNS_DIR): Promise<RunRecord[]> {

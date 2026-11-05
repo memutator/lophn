@@ -1,11 +1,14 @@
 // 재료는 `tests/eval/materials/<이름>/<n>/`의 `material.json`과 `files/`다. 내용 hash의 정본은 여기다.
 import { readdir, readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import { idSchema } from "../../../packages/protocol/base/mod.ts";
 import type { MaterialKind, MaterialManifest } from "../types.ts";
 import { contentHash } from "./hash.ts";
 
-export const MATERIALS_ROOT = new URL("../materials", import.meta.url).pathname;
+export const MATERIALS_ROOT = fileURLToPath(
+  new URL("../materials", import.meta.url),
+);
 
 export type MaterialFile = { path: string; bytes: Uint8Array };
 export type Material = {

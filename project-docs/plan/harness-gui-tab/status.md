@@ -16,8 +16,8 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `gui-cleanup` | tab | 3 | tab-gui | merged | tab/gui-cleanup | c00339464 |  |
 | `acp-more` | acp | 4 | 없음 | merged | acp/acp-more | 10bd2fa85 |  |
 | `core-commands` | acp | 5 | acp-more | merged | acp/core-commands | ecdb47f0e |  |
-| `claude-fix` | adapter | 5 | acp-more | running | adapter/claude-fix |  |  |
-| `codex-fix` | adapter | 5 | acp-more | running | adapter/codex-fix |  |  |
+| `claude-fix` | adapter | 5 | acp-more | merged | adapter/claude-fix | 7a9d6579b |  |
+| `codex-fix` | adapter | 5 | acp-more | merged | adapter/codex-fix | 1990345a8 |  |
 | `omp-fix` | adapter | 5 | acp-more | running | adapter/omp-fix |  |  |
 | `opencode-fix` | adapter | 5 | acp-more | merged | adapter/opencode-fix | f7800790d |  |
 | `screen-thread` | screen | 5 | acp-more | merged | screen/screen-thread | 5e2855df5 |  |

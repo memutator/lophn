@@ -14,6 +14,7 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { err, type Result } from "../../../../base/mod.ts";
 import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
 import {
@@ -136,11 +137,12 @@ async function runChild(
   }
 }
 
-const EVAL_DECLARATION = new URL(
-  "../ui-build/eval-declaration.ts",
-  import.meta.url,
-).pathname;
-const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url).pathname;
+const EVAL_DECLARATION = fileURLToPath(
+  new URL("../ui-build/eval-declaration.ts", import.meta.url),
+);
+const APP_BUILD = fileURLToPath(
+  new URL("../ui-build/app-build.ts", import.meta.url),
+);
 const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
 
 // 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. 진입 JS는 화면, 나머지는 자원이다.

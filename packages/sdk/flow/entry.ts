@@ -2,6 +2,7 @@
 // 이 file은 mod.ts를 import하지 않는다. flow.ts가 @lophn/flow를 import할 때
 // mod.ts가 처음 실행되고 그때는 port가 이미 있다.
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { connect, settled } from "./wire.ts";
 
 // stdout은 core와의 통로다. flow.ts의 console.log와 process.stdout.write가 통로를 깨지 않게
@@ -37,7 +38,7 @@ if (!path) {
   toStderr("usage: entry.ts <flow.ts absolute path>");
   process.exit(2);
 }
-const flowUrl = "file://" + path.split("/").map(encodeURIComponent).join("/");
+const flowUrl = pathToFileURL(path).href;
 
 await connect();
 try {

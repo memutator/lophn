@@ -4,6 +4,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { rm } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   appFolder,
@@ -18,7 +19,7 @@ import type {
 import { childEnvironment } from "../../apps/releases/prepare/environment.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
 
-const JOB = new URL("../worker/release-job.ts", import.meta.url).pathname;
+const JOB = fileURLToPath(new URL("../worker/release-job.ts", import.meta.url));
 
 export function createChildPreparationRunner(options: {
   dataRoot: string;

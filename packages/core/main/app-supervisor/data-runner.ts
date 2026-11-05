@@ -2,11 +2,12 @@
 // supervisor와 core는 앱 DB를 열지 않는다: 이 자식이 종료 확인 뒤의 DB를 단독으로 연다.
 import { spawn } from "node:child_process";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { decodeActivationDataJobInput } from "../../../protocol/apps/mod.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
 
-const JOB = new URL("../worker/data-job.ts", import.meta.url).pathname;
+const JOB = fileURLToPath(new URL("../worker/data-job.ts", import.meta.url));
 const JOB_LIMIT_MS = 300_000;
 
 export type DataJobRunner = {

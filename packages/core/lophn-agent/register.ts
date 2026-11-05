@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { declareSetting } from "../../protocol/config/mod.ts";
@@ -184,7 +185,9 @@ import {
 export function agentRuntimeLaunchSpec(): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
-    entry: new URL("../main/agent-runtime/main.ts", import.meta.url).pathname,
+    entry: fileURLToPath(
+      new URL("../main/agent-runtime/main.ts", import.meta.url),
+    ),
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
   };

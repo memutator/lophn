@@ -4,6 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import process from "node:process";
 import { pipeline } from "node:stream/promises";
+import { fileURLToPath } from "node:url";
 import {
   fromReadable,
   toWriter,
@@ -18,7 +19,10 @@ export const HELLO_TIMEOUT_MS = 30_000;
 const GONE_TIMEOUT_MS = 15_000;
 const POLL_MS = 50;
 
-const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+const REPO = fileURLToPath(new URL("../../../", import.meta.url)).replace(
+  /[\\/]$/,
+  "",
+);
 // core는 설치본에서 Electron의 Node로 돈다. test도 같은 binary로 띄워야 판이 갈리지 않는다.
 const ELECTRON = createRequire(import.meta.url)("electron") as string;
 

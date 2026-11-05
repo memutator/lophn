@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { appendFile, mkdir } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import type { Clock } from "../../../../base/mod.ts";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
@@ -216,8 +217,9 @@ async function runStoppedMaintenance(input: {
   nowMs: number;
 }): Promise<void> {
   const signal = AbortSignal.timeout(MAINTENANCE_TIMEOUT_MS);
-  const entry = new URL("../../worker/maintenance-entry.ts", import.meta.url)
-    .pathname;
+  const entry = fileURLToPath(
+    new URL("../../worker/maintenance-entry.ts", import.meta.url),
+  );
   let success: boolean;
   try {
     const launch = nodeCommand(entry);

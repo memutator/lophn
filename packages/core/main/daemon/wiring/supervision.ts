@@ -1,4 +1,5 @@
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
@@ -94,7 +95,7 @@ function ioListeners(listeners: readonly IoListener[]): Required<IoListener> {
 function platformIoSpec(): KindLaunchSpec {
   return {
     kind: "platform/io",
-    entry: new URL("../io-entry.ts", import.meta.url).pathname,
+    entry: fileURLToPath(new URL("../io-entry.ts", import.meta.url)),
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };

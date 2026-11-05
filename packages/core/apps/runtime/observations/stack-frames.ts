@@ -3,6 +3,7 @@
 // 봉인된 bundle은 agent의 file 범위 밖이라 log에는 풀린 줄만 남는다.
 import type { Stats } from "node:fs";
 import { lstat, readFile, stat } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appBundleCopy } from "../../../../protocol/apps/mod.ts";
 
@@ -267,7 +268,7 @@ function stackSites(stack: string): StackSite[] {
 function filePathOf(file: string): string | null {
   if (file.startsWith("file://")) {
     try {
-      return decodeURIComponent(new URL(file).pathname);
+      return fileURLToPath(file);
     } catch {
       return null;
     }

@@ -10,13 +10,13 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex } from "../../../base/mod.ts";
 import { installSdkCopies, removeInstallCopy } from "./install.ts";
 
-const REPO_PACKAGES = new URL("../../../", import.meta.url).pathname.replace(
-  /\/$/,
-  "",
-);
+const REPO_PACKAGES = fileURLToPath(
+  new URL("../../../", import.meta.url),
+).replace(/[\\/]$/, "");
 
 async function withTemp(run: (dir: string) => Promise<void>) {
   const dir = await mkdtemp(join(tmpdir(), "install-test-"));
@@ -163,7 +163,7 @@ test("깐 declaration·cap-store·cap-problem·agent 사본이 repo 없이 impor
       );
       assert.ok(installedCopy, name);
       const copy = await import(
-        `file://${installedCopy.install_path}/${entry}`
+        pathToFileURL(join(installedCopy.install_path, entry)).href
       );
       assert.ok(Object.keys(copy).length > 0, name);
     }

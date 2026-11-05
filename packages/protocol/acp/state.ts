@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gateCallSchema } from "../approvals/gate-call.ts";
+import { acpApprovalSubjectSchema } from "../approvals/gate-call.ts";
 import { shellPatternSchema } from "../approvals/shell-rules.ts";
 import { atSchema } from "../base/values.ts";
 import { askInputSchema } from "../lophn-agent/ask-tool.ts";
@@ -11,11 +11,13 @@ import {
   acpHiddenItemSchema,
   acpItemSchema,
   acpMessageItemSchema,
+  acpNoticeItemSchema,
   acpReasoningSchema,
   acpToolDetailSchema,
   acpToolItemSchema,
   acpToolStateSchema,
 } from "./items.ts";
+import { acpSessionMetaSchema } from "./session.ts";
 
 // ACP의 상태(snapshot)와 갱신(stream). core가 만들고 화면은 읽기만 한다. `reduceAcp`가 갱신을 상태에 접는다.
 
@@ -49,7 +51,12 @@ export const acpPendingSchema = z.strictObject({
   approval: z
     .strictObject({
       id,
-      subject: gateCallSchema,
+      subject: acpApprovalSubjectSchema,
+      /**
+       * 이 카드가 낼 수 있는 범위. `session`은 그 CLI session 안에서만이고 `always`는 어디서나 영구 규칙이다
+       * (lophn은 할당 규칙, Codex "비슷한 명령", OpenCode·omp always).
+       */
+      choices: z.array(z.enum(["once", "session", "always", "reject"])),
       always_patterns: z.array(shellPatternSchema),
     })
     .nullable(),
@@ -64,6 +71,15 @@ export const acpPendingSchema = z.strictObject({
 });
 export type AcpPending = z.infer<typeof acpPendingSchema>;
 
+/** lophn core 승인 카드의 범위. `always`는 allow 규칙으로 더할 pattern이 있을 때만이고 `session`은 core에 없다. */
+export function acpCoreApprovalChoices(
+  alwaysPatterns: readonly string[],
+): NonNullable<AcpPending["approval"]>["choices"] {
+  return alwaysPatterns.length === 0
+    ? ["once", "reject"]
+    : ["once", "always", "reject"];
+}
+
 /** 아직 저장되지 않은 model 호출 하나의 글(redaction을 거친 것). 저장되면 그 message 항목으로 바뀐다. */
 export const acpWritingSchema = z.strictObject({
   turn: id,
@@ -74,6 +90,16 @@ export const acpWritingSchema = z.strictObject({
   at: atSchema,
 });
 export type AcpWriting = z.infer<typeof acpWritingSchema>;
+
+export const acpPlanSchema = z.strictObject({
+  entries: z.array(
+    z.strictObject({
+      text: z.string(),
+      status: z.enum(["pending", "in_progress", "completed"]),
+    }),
+  ),
+});
+export type AcpPlan = z.infer<typeof acpPlanSchema>;
 
 export const acpStateSchema = z.strictObject({
   /** 가진 항목 중 가장 큰 순번. 비었으면 0. 다음 항목은 이보다 1 크다. */
@@ -90,6 +116,10 @@ export const acpStateSchema = z.strictObject({
    * 보이지 않게 한다(core의 live-turns와 같은 규칙).
    */
   dropped: z.strictObject({ model_call: id.nullable(), turn: id.nullable() }),
+  /** source의 session 기능과 capability. 아직 모르면 null이고 화면은 대화만 그린다. */
+  session: acpSessionMetaSchema.nullable(),
+  /** agent의 계획(todo). lophn agent는 todo가 없어 null이다. */
+  plan: acpPlanSchema.nullable(),
   /** 순번이 빠졌거나 글의 offset이 맞지 않았다. 읽은 상태가 맞지 않으니 snapshot을 다시 읽는다. */
   reread: z.boolean(),
 });
@@ -209,6 +239,21 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
     type: z.literal("question_resolved"),
     group: id,
     outcome: z.enum(["submitted", "cancelled", "human_message"]),
+  }),
+  /** session 칸의 일부가 바뀌었다. 맨 위 칸만 덮어 합치고 `capabilities`는 통째로 바꾼다. */
+  z.strictObject({
+    type: z.literal("session_changed"),
+    session: acpSessionMetaSchema.partial(),
+  }),
+  /** 계획이 통째로 바뀌었다. */
+  z.strictObject({
+    type: z.literal("plan_changed"),
+    entries: acpPlanSchema.shape.entries,
+  }),
+  /** turn 중간의 한 줄 알림. 순번은 다른 항목과 같은 규칙이다. */
+  z.strictObject({
+    type: z.literal("notice_added"),
+    item: acpNoticeItemSchema,
   }),
   /** rewind가 구간을 숨겼다. 구간의 항목이 top-level에서 빠져 이 항목 안으로 든다. */
   z.strictObject({

@@ -934,6 +934,8 @@ export async function buildAcpState(
       model_call: calls.value.at(-1)?.model_call ?? null,
       turn: current !== null && !running ? current.id : null,
     },
+    session: null,
+    plan: null,
     reread: false,
   });
 }

@@ -1,10 +1,11 @@
 // 메시지에 붙이는 이미지. 올려서 blob hash를 받아 image block에 싣고, 화면에 그릴 때는 file route로 읽어 blob URL로
 // 기억한다. 올림은 session을 모른다: 올린 blob은 그것을 실은 메시지가 그 session에서 참조하면서 읽힌다.
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 import type { SourceResult } from "./agent-tab-source.ts";
 
 export interface ImageSource {
-  uploadImage(image: Blob): Promise<SourceResult<{ blob: string }>>;
+  uploadImage(image: Blob): Promise<SourceResult<{ block: ContentBlock }>>;
   imageUrl(session: string, id: string): Promise<string | null>;
 }
 
@@ -31,7 +32,21 @@ export function createImageSource(core: CoreSource): ImageSource {
         if (!reply.ok) {
           return { ok: false, code: reply.error?.code ?? "internal" };
         }
-        return { ok: true, value: reply.value as { blob: string } };
+        const { blob } = reply.value as { blob: string };
+        return {
+          ok: true,
+          value: {
+            block: {
+              type: "image",
+              // 붙이기가 받은 형식만 올린다.
+              mimeType: image.type as Extract<
+                ContentBlock,
+                { type: "image" }
+              >["mimeType"],
+              blob,
+            },
+          },
+        };
       } catch {
         return { ok: false, code: "unavailable" };
       }

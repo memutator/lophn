@@ -51,13 +51,14 @@ export const acpItemsAllocate = defineCommand({
 });
 
 // 화면이 대화를 조작하는 입구 하나. 입력 꼴마다 지금 있는 route(SendMessage, StopTurn, AnswerAskQuestions,
-// DecideTurnRequest, 줄 고치기 넷)로 보내고, 권한은 부른 사람의 자격으로 그 route가 본다.
+// DecideTurnRequest, 줄 고치기 넷, session 조작)로 보내고, 권한은 부른 사람의 자격으로 그 route가 본다.
 export const acpSend = defineMemory({
   resource: "acp",
   method: "send",
   name: "AcpSend",
   input: acpInputSchema,
-  output: z.strictObject({}),
+  // fork가 새 session을 열면 그 id다.
+  output: z.strictObject({ session: idSchema("ses").optional() }),
   actors: ["user"],
   errors: [
     "invalid_input",

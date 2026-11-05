@@ -115,6 +115,7 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     runCommand: none,
     permissions: none,
     status: none,
+    act: none,
     uploadImage: none,
     openSession: none,
     renameSession: none,

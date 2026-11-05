@@ -1,3 +1,4 @@
+import type { AcpApprovalSubject } from "../../../protocol/approvals/gate-call.ts";
 import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
@@ -18,7 +19,11 @@ import {
 } from "../../../protocol/lophn-agent/content-block.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
-import type { AcpState, AcpWriting } from "../../../protocol/acp/mod.ts";
+import type {
+  AcpInput,
+  AcpState,
+  AcpWriting,
+} from "../../../protocol/acp/mod.ts";
 import type { ToolCallState, ToolCallView } from "./activity/model.ts";
 import type {
   PickerAxisView,
@@ -223,10 +228,9 @@ export interface AnsweredLine {
 // ---- 승인 ----
 
 /** 대화 화면에 오는 물음의 대상. harness 물음은 대기 목록의 coding 카드가 터미널로 보낸다. */
-export type ApprovalSubject = Exclude<
-  TurnRequest["subject"],
-  { readonly kind: "harness" }
->;
+export type ApprovalSubject =
+  | Exclude<TurnRequest["subject"], { readonly kind: "harness" }>
+  | AcpApprovalSubject;
 
 /**
  * composer 위에 놓이는 승인 카드. 제목과 세부의 글은 subject에서 화면이 만든다(요청한 agent가 쓴 설명은
@@ -248,7 +252,7 @@ export interface ApprovalResultView {
   readonly subject: ApprovalSubject;
   readonly outcome: ApprovalOutcome;
   /** 사람이 고른 허락 범위. 다른 창에서 결정한 것은 모른다. */
-  readonly choice: "once" | "always" | null;
+  readonly choice: "once" | "session" | "always" | null;
   /** 거절 이유. */
   readonly reason: string | null;
 }
@@ -344,6 +348,12 @@ interface ThreadProviderError extends EntryBase {
   readonly message: string;
 }
 
+/** turn 중간의 한 줄 알림(compaction, 재시도, 명령 출력). */
+interface ThreadInfo extends EntryBase {
+  readonly kind: "info";
+  readonly text: string;
+}
+
 /** 되돌린 구간에서 복원하지 못한 항목 하나. receipt 같은 안쪽 근거는 없다. */
 export interface RewindResultView {
   readonly kind: "file" | "fact";
@@ -385,6 +395,7 @@ export type ThreadEntry =
   | ThreadApprovalResult
   | ThreadTurnEnd
   | ThreadProviderError
+  | ThreadInfo
   | ThreadHidden;
 
 /** 가장 늦게 시작한 turn. 멈춤과 다시 시도의 대상이다. */
@@ -621,10 +632,19 @@ export interface AgentTabSource {
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;
   /**
-   * 보낼 이미지 하나를 올린다(png·jpeg·gif·webp, 5 MiB까지). 돌려받은 blob hash를 image block에 싣고, 올린 것을
-   * 참조하지 않으면 10분 뒤 사라진다.
+   * 새 ACP 입력(model·mode·명령·rewind·fork·compact·이름)을 보내는 길 하나다. 무엇을 할 수 있는지는 source가 아니라
+   * ACP 상태의 `session.capabilities`가 알린다. fork가 새 lophn session을 열면 그 id를 돌려준다.
    */
-  uploadImage(image: Blob): Promise<SourceResult<{ blob: string }>>;
+  act(
+    session: string,
+    input: AcpInput,
+  ): Promise<SourceResult<{ session?: string }>>;
+  /**
+   * 보낼 이미지 하나를 올려 메시지에 실을 block을 받는다. core source는 blob hash의 `image` block(png·jpeg·gif·webp,
+   * 5 MiB까지, 올린 것을 참조하지 않으면 10분 뒤 사라진다)이고 harness source는 탭의 임시 폴더에 쓴 file의
+   * `resource_link`다. capability `images`가 붙이기를 켠다.
+   */
+  uploadImage(image: Blob): Promise<SourceResult<{ block: ContentBlock }>>;
   /** 메시지 image block의 그림 주소(blob hash나 옛 첨부 id). 읽지 못하면 null이다. */
   imageUrl(session: string, id: string): Promise<string | null>;
   /** 다음 turn 줄을 도는 turn에 steer로 올린다. */

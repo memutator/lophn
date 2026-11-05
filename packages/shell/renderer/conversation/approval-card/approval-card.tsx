@@ -290,6 +290,8 @@ function scopeLabel(
   switch (choice) {
     case "once":
       return t("conversation.label.approval-scope-once");
+    case "session":
+      return t("conversation.label.approval-scope-session");
     case "always":
       return t(
         external

@@ -96,6 +96,7 @@ function setup(manifests: Record<string, string>) {
       open: () => {
         throw new Error("not used");
       },
+      onTab: () => () => {},
       onOpenIntent: () => () => {},
     },
     clock,

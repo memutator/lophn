@@ -30,6 +30,18 @@ type GateCall =
   | { kind: "mcp_tool"; server: string; tool: string; effect: ToolEffect }
   | { kind: "shell"; command: string };
 
+type AcpApprovalSubject =
+  | GateCall
+  | {
+      kind: "file_change";
+      changes: {
+        path: string;
+        change: "create" | "update" | "delete";
+        added: number | null;
+        removed: number | null;
+      }[];
+    };
+
 type InputDelivery = "next_turn" | "steer";
 
 type RewindReason =
@@ -127,9 +139,9 @@ export type AcpApprovalItem = {
   seq: number;
   at: string;
   kind: "approval";
-  subject: GateCall;
+  subject: AcpApprovalSubject;
   outcome: "allowed" | "denied" | "cancelled";
-  choice: "once" | "always" | null;
+  choice: "once" | "session" | "always" | null;
   reason: string | null;
 };
 
@@ -146,7 +158,8 @@ export type AcpNoticeItem = {
         active_ms: number;
         waited_ms: number;
       }
-    | { type: "error"; code: string; message: string };
+    | { type: "error"; code: string; message: string }
+    | { type: "info"; text: string };
 };
 
 export type AcpEntry =
@@ -186,7 +199,8 @@ export type AcpQueued = { id: string; at: string; content: ContentBlock[] };
 
 export type AcpApproval = {
   id: string;
-  subject: GateCall;
+  subject: AcpApprovalSubject;
+  choices: ("once" | "session" | "always" | "reject")[];
   always_patterns: string[];
 };
 
@@ -207,6 +221,94 @@ export type AcpWriting = {
   at: string;
 };
 
+export type AcpChoice = {
+  id: string;
+  label: string;
+  description: string | null;
+};
+
+export type AcpModelAxis = {
+  id: string;
+  label: string;
+  values: { value: string; label: string }[];
+};
+
+export type AcpModelGroup = {
+  id: string;
+  label: string;
+  models: { id: string; label: string; axes: AcpModelAxis[] }[];
+};
+
+export type AcpCommand = {
+  name: string;
+  description: string;
+  argument_hint: string | null;
+  source: "builtin" | "skill" | "cli";
+};
+
+export type AcpUsage = {
+  context: { tokens: number; limit: number } | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+  turns: number | null;
+  costs: {
+    kind: "reported" | "estimated" | "subscription" | "free" | "unknown";
+    currency: string | null;
+    amount: string | null;
+  }[];
+  provider: {
+    name: string;
+    definition: string;
+    account: string | null;
+    state: "available" | "rejected" | "usage_wait" | "revoked";
+    until: string | null;
+  } | null;
+};
+
+export type AcpCapabilities = {
+  model: boolean;
+  effort: boolean;
+  mode: boolean;
+  commands: boolean;
+  rewind: boolean;
+  rewind_files: boolean;
+  fork: boolean;
+  compact: boolean;
+  rename: boolean;
+  usage: boolean;
+  steer: boolean;
+  queue_edit: boolean;
+  images: boolean;
+  retry: boolean;
+  sessions: boolean;
+};
+
+export type AcpSessionMeta = {
+  title: string | null;
+  cli_session: string | null;
+  capabilities: AcpCapabilities;
+  models: AcpModelGroup[];
+  model: {
+    model: string;
+    label: string;
+    options: Record<string, string>;
+    layer: "global" | "project" | "agent" | "session" | null;
+  } | null;
+  modes: AcpChoice[];
+  mode: string | null;
+  commands: AcpCommand[];
+  usage: AcpUsage | null;
+};
+
+export type AcpPlan = {
+  entries: {
+    text: string;
+    status: "pending" | "in_progress" | "completed";
+  }[];
+};
+
 export type AcpState = {
   seq: number;
   items: AcpItem[];
@@ -215,6 +317,8 @@ export type AcpState = {
   pending: AcpPending;
   writing: AcpWriting | null;
   dropped: { model_call: string | null; turn: string | null };
+  session: AcpSessionMeta | null;
+  plan: AcpPlan | null;
   reread: boolean;
 };
 
@@ -276,7 +380,7 @@ export type AcpUpdate =
       type: "approval_closed";
       request: string;
       outcome: "allowed" | "denied" | "cancelled";
-      choice: "once" | "always" | null;
+      choice: "once" | "session" | "always" | null;
       reason: string | null;
       seq: number;
       at: string;
@@ -292,6 +396,9 @@ export type AcpUpdate =
       group: string;
       outcome: "submitted" | "cancelled" | "human_message";
     }
+  | { type: "session_changed"; session: Partial<AcpSessionMeta> }
+  | { type: "plan_changed"; entries: AcpPlan["entries"] }
+  | { type: "notice_added"; item: AcpNoticeItem }
   | { type: "hidden_added"; item: AcpHiddenItem };
 
 export type AcpAnswer = {

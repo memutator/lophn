@@ -114,6 +114,7 @@ export type AcpWindowPort = {
 // handle은 창이 닫히거나 extension이 닫을 때까지 update를 모두 쌓는다(늦게 열린 창이 처음부터 그린다).
 function createAcp(ids: IdSource, port: AcpWindowPort) {
   let handler: ((intent: HarnessGuiOpen) => void | Promise<void>) | undefined;
+  let tab: Parameters<ExtensionAcp["onTab"]>[0] | undefined;
   const acp: ExtensionAcp = {
     open(options) {
       const id = ids.newId("win");
@@ -132,7 +133,9 @@ function createAcp(ids: IdSource, port: AcpWindowPort) {
       };
       const window: AcpWindowHandle = {
         id,
-        ...options,
+        harness: options.harness,
+        cwd: "terminal" in options ? options.terminal.cwd : options.cwd,
+        title: options.title,
         attach(listener) {
           if (closed) {
             listener.closed();
@@ -159,6 +162,13 @@ function createAcp(ids: IdSource, port: AcpWindowPort) {
       port.open(window);
       return handle;
     },
+    // tab 연결(`tab-gui`)이 이 handlers를 부른다. 그 길이 올 때까지 저장만 한다.
+    onTab(next) {
+      tab = next;
+      return () => {
+        if (tab === next) tab = undefined;
+      };
+    },
     onOpenIntent(next) {
       handler = next;
       return () => {
@@ -166,7 +176,7 @@ function createAcp(ids: IdSource, port: AcpWindowPort) {
       };
     },
   };
-  return { acp, handler: () => handler };
+  return { acp, handler: () => handler, tab: () => tab };
 }
 
 export function register(

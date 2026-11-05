@@ -365,7 +365,12 @@ const start: HarnessGuiAdapter["start"] = async ({
     // OpenCode의 `always`는 사람의 project에 규칙을 영구히 저장한다. 이 session 동안만이 아니라서 내놓지 않는다.
     publish({
       type: "approval_opened",
-      approval: { id, subject: subjectOf(call), always_patterns: [] },
+      approval: {
+        id,
+        subject: subjectOf(call),
+        choices: ["once", "reject"],
+        always_patterns: [],
+      },
     });
   }
 
@@ -603,7 +608,7 @@ const start: HarnessGuiAdapter["start"] = async ({
       case "decide":
         closeApproval(
           message.request,
-          message.choice.kind,
+          message.choice.kind === "session" ? "once" : message.choice.kind,
           message.choice.kind === "reject" ? message.choice.reason : undefined,
         );
         return;
@@ -642,12 +647,24 @@ const start: HarnessGuiAdapter["start"] = async ({
   return {
     ok: true,
     value: {
-      stop() {
+      async stop() {
         closed = true;
         proc.kill();
       },
+      // 아래 셋은 계약 stub이다. 실제 값은 handoff 길이 채운다.
+      tuiCommand: () => "opencode",
+      sessionId: () => null,
+      running: () => ({ turn: false, tasks: 0 }),
     },
   };
 };
 
-export const opencodeAdapter: HarnessGuiAdapter = { start };
+export const opencodeAdapter: HarnessGuiAdapter = {
+  handoff: "shared",
+  start,
+  exitTui: () =>
+    Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "exitTui is not implemented yet" },
+    }),
+};

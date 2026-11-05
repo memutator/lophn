@@ -27,6 +27,25 @@ export const gateCallSchema = z.discriminatedUnion("kind", [
 ]);
 export type GateCall = z.infer<typeof gateCallSchema>;
 
+// harness가 파일 바꾸기를 승인에 올린다. core Gate가 판정하는 호출이 아니라 ACP 승인 카드의 subject만 넓힌다.
+// added·removed는 줄 수이고 모르면 null이다.
+export const fileChangeSubjectSchema = z.strictObject({
+  kind: z.literal("file_change"),
+  changes: z.array(
+    z.strictObject({
+      path: z.string().min(1),
+      change: z.enum(["create", "update", "delete"]),
+      added: z.number().int().nonnegative().nullable(),
+      removed: z.number().int().nonnegative().nullable(),
+    }),
+  ),
+});
+export const acpApprovalSubjectSchema = z.discriminatedUnion("kind", [
+  ...gateCallSchema.options,
+  fileChangeSubjectSchema,
+]);
+export type AcpApprovalSubject = z.infer<typeof acpApprovalSubjectSchema>;
+
 // not_assigned는 할당에 없는 앱의 tool, removed는 할당에서 뺀 tool, shell_rule은 shell 규칙(floor)이 막음.
 export const DENY_REASONS = ["not_assigned", "removed", "shell_rule"] as const;
 export const denyReasonSchema = z.enum(DENY_REASONS);

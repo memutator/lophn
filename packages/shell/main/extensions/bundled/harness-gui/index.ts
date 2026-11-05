@@ -78,6 +78,7 @@ export function activate(ctx: ExtensionContext): void {
     });
     const spawn = await spawnWithLoginPath();
     const started = await HARNESS_GUI_ADAPTERS[intent.harness].start({
+      terminal: null,
       cwd: intent.cwd,
       ...(intent.resume === undefined ? {} : { resume: intent.resume }),
       session,

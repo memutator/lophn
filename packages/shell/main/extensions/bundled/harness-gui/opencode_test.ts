@@ -63,6 +63,7 @@ async function setup(name: string, options: { resume?: string } = {}) {
   };
   const clock = manualClock(Date.UTC(2026, 10, 5));
   const started = await opencodeAdapter.start({
+    terminal: null,
     cwd: `/work/${name}`,
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     session,

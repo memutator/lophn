@@ -76,12 +76,15 @@ function replyOf(
   if (turn === null) return null;
   const end = state.items.find(
     (item): item is AcpNoticeItem =>
-      item.kind === "notice" && item.turn === turn,
+      item.kind === "notice" &&
+      item.turn === turn &&
+      item.notice.type !== "info",
   );
   if (end === undefined) return null;
   if (end.notice.type === "error") {
     return { ok: false, error: `turn failed: ${end.notice.message}` };
   }
+  if (end.notice.type !== "turn_end") return null;
   if (end.notice.outcome !== "completed") {
     return { ok: false, error: `turn ${end.notice.outcome}` };
   }

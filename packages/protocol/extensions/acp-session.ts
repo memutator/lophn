@@ -4,7 +4,7 @@ import type { AcpInput } from "../acp/input.ts";
 import type { AcpUpdate } from "../acp/state.ts";
 
 /** `lophn gui <harness>`와 open intent가 받는 harness. 이 목록은 여기 하나다. */
-export const GUI_HARNESSES = ["claude", "codex", "opencode"] as const;
+export const GUI_HARNESSES = ["claude", "codex", "opencode", "omp"] as const;
 export type GuiHarness = (typeof GUI_HARNESSES)[number];
 
 export function isGuiHarness(value: unknown): value is GuiHarness {
@@ -24,6 +24,41 @@ export type AcpSessionHandle = {
   close(): void;
 };
 
+/**
+ * terminal 탭 하나의 PTY. harness-gui가 TUI와 GUI를 오갈 때 쓴다. `id`는 terminal_ref이고 `env`는 그 탭의 hook env다.
+ * `state()`의 `shell`은 PTY foreground에 harness가 없다(shell prompt)는 뜻이고, 나머지는 foreground harness의
+ * terminal-agent tracker 상태다.
+ */
+export type AcpTerminal = {
+  readonly id: string;
+  readonly cwd: string;
+  readonly harness: GuiHarness;
+  readonly env: Readonly<Record<string, string>>;
+  state(): "shell" | "idle" | "running" | "waiting" | "unknown";
+  /** foreground harness 자신의 session id. 모르면 null. */
+  sessionId(): string | null;
+  /** PTY에 글을 친다(사람이 친 것과 같다). 줄을 보내려면 `\r`을 붙인다. */
+  type(text: string): void;
+  signal(signal: "SIGINT" | "SIGTERM"): void;
+  /** foreground process가 끝나면 불린다(shell prompt로 돌아왔다). 돌려받은 함수로 그만 듣는다. */
+  onForegroundExit(listener: () => void): () => void;
+};
+
+/** `onTab`의 `gui`가 받는 것. 탭이 GUI로 가야 한다. `resume`은 그 CLI 자신의 session id. */
+export type AcpTabRequest = {
+  terminal: AcpTerminal;
+  harness: GuiHarness;
+  resume?: string;
+};
+
+/** terminal 탭에 묶인 handle을 여는 값. 창 대신 그 탭에 GUI가 붙는다. */
+export type AcpOpenTab = {
+  terminal: AcpTerminal;
+  harness: GuiHarness;
+  title: string;
+};
+
+/** 첫 판의 창 길. `gui-cleanup` 뒤 lead가 지운다. */
 export type AcpOpenOptions = {
   harness: GuiHarness;
   /** CLI가 도는 폴더. 창 제목 옆에 보인다. */
@@ -41,7 +76,15 @@ export type HarnessGuiOpen = {
 };
 
 export type ExtensionAcp = {
-  open(options: AcpOpenOptions): AcpSessionHandle;
+  open(options: AcpOpenOptions | AcpOpenTab): AcpSessionHandle;
+  /**
+   * terminal 탭의 GUI·TUI 전환을 받을 함수. `gui`는 탭을 GUI로 바꾸라는 요청이고 `tui`는 GUI에서 TUI로 돌아가라는
+   * 요청(terminal id)이다. 켜진 extension 하나가 `activate`에서 걸고 돌려받은 함수로 `deactivate`에서 푼다.
+   */
+  onTab(handlers: {
+    gui(request: AcpTabRequest): void | Promise<void>;
+    tui(terminalId: string): void | Promise<void>;
+  }): () => void;
   /**
    * open intent를 받을 함수. 켜진 extension 하나가 `activate`에서 걸고 `deactivate`에서 돌려받은 함수로 건다.
    * 걸린 게 없으면(꺼져 있으면) shell main이 Settings › System › Extensions를 연다.

@@ -110,6 +110,12 @@ type ApprovalWait = {
 };
 
 export const codexAdapter: HarnessGuiAdapter = {
+  handoff: "shared",
+  exitTui: () =>
+    Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "exitTui is not implemented yet" },
+    }),
   async start({ cwd, resume, session, spawn, clock, ids }) {
     let seq = 0;
     let closed = false;
@@ -340,6 +346,7 @@ export const codexAdapter: HarnessGuiAdapter = {
         approval: {
           id: request,
           subject,
+          choices: session ? ["once", "always", "reject"] : ["once", "reject"],
           always_patterns: session
             ? [oneLine(isCommand ? command : "apply_patch", 500)]
             : [],
@@ -719,7 +726,8 @@ export const codexAdapter: HarnessGuiAdapter = {
         case "decide":
           closeApproval(
             message.request,
-            message.choice.kind,
+            // 아직 session 범위를 따로 내지 않는다. 이 CLI의 always가 그 session 동안이다.
+            message.choice.kind === "session" ? "always" : message.choice.kind,
             message.choice.kind === "reject"
               ? message.choice.reason
               : undefined,
@@ -760,13 +768,17 @@ export const codexAdapter: HarnessGuiAdapter = {
     return {
       ok: true,
       value: {
-        stop() {
+        async stop() {
           if (closed) return;
           for (const id of [...approvals.keys()])
             closeApproval(id, "cancelled");
           closed = true;
           proc.kill();
         },
+        // 아래 셋은 계약 stub이다. 실제 값은 handoff 길이 채운다.
+        tuiCommand: () => "codex",
+        sessionId: () => null,
+        running: () => ({ turn: false, tasks: 0 }),
       },
     };
   },

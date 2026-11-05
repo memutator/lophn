@@ -12,6 +12,7 @@ import {
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "./mod.ts";
+import { ACP_CAPABILITIES, acpSessionMetaSchema } from "./session.ts";
 
 const AT = "2026-10-26T09:00:00.000Z";
 const TURN = "trn_01h455vb4pex5v6nkc6gd5f001";
@@ -341,4 +342,61 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
     },
   });
   assert.equal(skipped.reread, true);
+});
+
+// session 기능·계획·알림은 snapshot과 stream이 겹쳐도 두 번 접어 같아야 하고, 알림의 순번 빈틈은 다른 항목처럼 다시 읽게 한다.
+test("session_changed·plan_changed·notice_added는 두 번 접어도 같고 notice_added의 순번 빈틈은 다시 읽게 한다", () => {
+  const meta = acpSessionMetaSchema.parse({
+    title: null,
+    cli_session: "cli-1",
+    capabilities: Object.fromEntries(
+      ACP_CAPABILITIES.map((name) => [name, false]),
+    ),
+    models: [],
+    model: null,
+    modes: [],
+    mode: null,
+    commands: [],
+    usage: null,
+  });
+  const notice = (seq: number): AcpUpdate => ({
+    type: "notice_added",
+    item: {
+      kind: "notice",
+      id: `info-${seq}`,
+      seq,
+      at: AT,
+      turn: TURN,
+      notice: { type: "info", text: "compacted" },
+    },
+  });
+  const updates: AcpUpdate[] = [
+    { type: "session_changed", session: meta },
+    { type: "session_changed", session: { title: "renamed", mode: "plan" } },
+    {
+      type: "plan_changed",
+      entries: [{ text: "write", status: "in_progress" }],
+    },
+    notice(1),
+  ];
+  let once = EMPTY_ACP_STATE;
+  let twice = EMPTY_ACP_STATE;
+  for (const update of updates) {
+    once = reduceAcp(once, update);
+    twice = reduceAcp(reduceAcp(twice, update), update);
+  }
+  assert.deepStrictEqual(twice, once);
+  assert.equal(once.session?.title, "renamed");
+  assert.equal(once.session?.cli_session, "cli-1");
+  assert.equal(once.items.length, 1);
+  assert.equal(once.reread, false);
+
+  assert.equal(reduceAcp(once, notice(3)).reread, true);
+  // 첫 session_changed를 놓치면 부분 갱신으로 session을 만들지 않는다.
+  const missed = reduceAcp(EMPTY_ACP_STATE, {
+    type: "session_changed",
+    session: { title: "x" },
+  });
+  assert.equal(missed.session, null);
+  assert.equal(missed.reread, true);
 });

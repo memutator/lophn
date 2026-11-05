@@ -14,7 +14,10 @@ const EFFECTS = {
 export function titleOf(subject: ApprovalSubject, agent: string): string {
   return subject.kind === "shell"
     ? t("conversation.title.approval-command", { agent })
-    : t("conversation.title.approval-run", { agent, tool: subject.tool });
+    : t("conversation.title.approval-run", {
+        agent,
+        tool: subject.kind === "file_change" ? targetOf(subject) : subject.tool,
+      });
 }
 
 /** 결정 뒤 남는 줄이 가리키는 것. shell은 명령 그대로다. */
@@ -34,10 +37,13 @@ export function targetOf(subject: ApprovalSubject): string {
         server: subject.server,
         tool: subject.tool,
       });
+    case "file_change":
+      return subject.changes.map((change) => change.path).join(", ");
   }
 }
 
 /** tool의 효과 글. shell은 효과를 말하지 않는다. */
 export function effectOf(subject: ApprovalSubject): string | null {
-  return subject.kind === "shell" ? null : t(EFFECTS[subject.effect]);
+  if (subject.kind === "shell") return null;
+  return t(EFFECTS[subject.kind === "file_change" ? "write" : subject.effect]);
 }

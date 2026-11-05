@@ -499,6 +499,10 @@ const start: (sdk: ClaudeSdk) => Start =
           approval: {
             id: request,
             subject: subjectOf(name, toolInput, options.description),
+            choices:
+              patternsOf(suggestions).length === 0
+                ? ["once", "reject"]
+                : ["once", "always", "reject"],
             always_patterns: patternsOf(suggestions),
           },
         });
@@ -771,7 +775,8 @@ const start: (sdk: ClaudeSdk) => Start =
         case "decide":
           closeApproval(
             message.request,
-            message.choice.kind,
+            // 아직 session 범위를 따로 내지 않는다. 이 CLI의 always가 그 session 동안이다.
+            message.choice.kind === "session" ? "always" : message.choice.kind,
             message.choice.kind === "reject"
               ? message.choice.reason
               : undefined,
@@ -822,7 +827,7 @@ const start: (sdk: ClaudeSdk) => Start =
     return {
       ok: true,
       value: {
-        stop() {
+        async stop() {
           closed = true;
           for (const wait of approvals.values())
             wait.resolve({ behavior: "deny", message: DENIED });
@@ -831,12 +836,27 @@ const start: (sdk: ClaudeSdk) => Start =
           input.end();
           q.close();
         },
+        // 아래 셋은 계약 stub이다. 실제 값은 handoff 길이 채운다.
+        tuiCommand: () => "claude",
+        sessionId: () => null,
+        running: () => ({ turn: false, tasks: 0 }),
       },
     };
   };
 
 export function createClaudeAdapter(sdk: ClaudeSdk): HarnessGuiAdapter {
-  return { start: start(sdk) };
+  return {
+    handoff: "restart",
+    start: start(sdk),
+    exitTui: () =>
+      Promise.resolve({
+        ok: false,
+        error: {
+          code: "unavailable",
+          message: "exitTui is not implemented yet",
+        },
+      }),
+  };
 }
 
 export const claudeAdapter = createClaudeAdapter({ query, getSessionMessages });

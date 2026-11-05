@@ -374,15 +374,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         setProblem("attach-failed");
         return;
       }
-      content.push({
-        type: "image",
-        // attachmentsOf가 받은 형식만 이미지로 붙인다.
-        mimeType: item.image.type as Extract<
-          ContentBlock,
-          { type: "image" }
-        >["mimeType"],
-        blob: uploaded.value.blob,
-      });
+      content.push(uploaded.value.block);
     }
     await dispatch(content, target);
   };

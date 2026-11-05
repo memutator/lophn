@@ -100,6 +100,7 @@ const SCRIPT: readonly AcpUpdate[] = [
     type: "approval_opened",
     approval: {
       id: "apr-1",
+      choices: ["once", "session", "reject"],
       subject: { kind: "shell", command: "npm test -- upload" },
       always_patterns: ["npm test *"],
     },

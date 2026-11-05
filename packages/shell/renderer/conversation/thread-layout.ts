@@ -141,6 +141,9 @@ function entryOf(item: AcpItem): ThreadEntry | null {
       };
     case "notice": {
       const { notice } = item;
+      if (notice.type === "info") {
+        return { kind: "info", id: item.id, at: item.at, text: notice.text };
+      }
       return notice.type === "error"
         ? {
             kind: "provider-error",

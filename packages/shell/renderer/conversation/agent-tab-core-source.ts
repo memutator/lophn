@@ -5,7 +5,7 @@
 // 대화 읽기는 ACP snapshot이다(처음, 다시 붙을 때, `reread`가 설 때 화면이 부른다). 그 사이의 진행은 화면이 `AcpUpdated`
 // 갱신을 `reduceAcp`로 접으므로 source는 event를 듣지도 polling하지도 않는다. 결과를 모르는 호출(통로가 끊김)은
 // unavailable이다.
-import { acpSnapshot } from "../../../protocol/acp/mod.ts";
+import { acpSend, acpSnapshot } from "../../../protocol/acp/mod.ts";
 import type {
   AgentTabSource,
   AgentTabSourceFactory,
@@ -105,6 +105,7 @@ function createSource(
     permissions: () => readPermissions(env),
     status: (session) => readStatus(env, session),
 
+    act: (_session, input) => env.read(acpSend, input),
     send: (input) => sendContent(env, input),
     uploadImage: (image) => images.uploadImage(image),
     imageUrl: (session, id) => images.imageUrl(session, id),

@@ -1,7 +1,11 @@
 import type { AgentId } from "../lophn-agent/places.ts";
 import type { AcpToolDetail, AcpCard, AcpReasoning } from "../acp/items.ts";
 import { acpNoticeId } from "../acp/reduce.ts";
-import type { AcpPending, AcpUpdate } from "../acp/state.ts";
+import {
+  type AcpPending,
+  type AcpUpdate,
+  acpCoreApprovalChoices,
+} from "../acp/state.ts";
 import type { AgentEvent } from "./agent.ts";
 import type { ContentBlock } from "../lophn-agent/content-block.ts";
 
@@ -236,7 +240,12 @@ export function acpUpdatesOf(
         : [
             {
               type: "approval_opened",
-              approval: { id, subject, always_patterns },
+              approval: {
+                id,
+                subject,
+                choices: acpCoreApprovalChoices(always_patterns),
+                always_patterns,
+              },
             },
           ];
     }

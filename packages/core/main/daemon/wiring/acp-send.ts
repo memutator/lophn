@@ -43,6 +43,10 @@ export type AcpSendDeps = {
 const invalid = () =>
   err({ code: "invalid_input" as const, message: "invalid input" });
 
+// session 조작(model, mode, 명령, rewind, fork, compact, 이름)은 lophn agent가 아직 이 입구로 받지 않는다.
+const unavailable = () =>
+  err({ code: "unavailable" as const, message: "not available yet" });
+
 export function createAcpSend(deps: AcpSendDeps) {
   // retry를 다시 눌러도 같은 메시지 id와 key로 보내 core가 한 번만 접수한다.
   const retryIds = new Map<string, string>();
@@ -157,6 +161,8 @@ export function createAcpSend(deps: AcpSendDeps) {
           answers: input.answers,
         });
       case "decide":
+        // core 승인에는 session 범위가 없다.
+        if (input.choice.kind === "session") return invalid();
         return await memory(who, turnRequestDecide, {
           session: input.session,
           request: input.request,
@@ -184,6 +190,14 @@ export function createAcpSend(deps: AcpSendDeps) {
           message: input.message,
           direction: input.direction,
         });
+      case "set_model":
+      case "set_mode":
+      case "run_command":
+      case "rewind":
+      case "fork":
+      case "compact":
+      case "rename":
+        return unavailable();
     }
   };
 }

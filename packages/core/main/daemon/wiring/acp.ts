@@ -6,6 +6,7 @@ import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type AcpInput,
   type AcpUpdate,
+  acpCoreApprovalChoices,
   acpItemsAllocate,
   acpSend,
   acpSnapshot,
@@ -170,6 +171,7 @@ export const acpWiring: WiringFactory = () => {
           return {
             id: request.id,
             subject: redactDeep(env, subject),
+            choices: acpCoreApprovalChoices(request.always_patterns),
             always_patterns: request.always_patterns,
           };
         }

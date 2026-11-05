@@ -13,6 +13,8 @@ export const EMPTY_ACP_STATE: AcpState = {
   pending: { approval: null, question: null },
   writing: null,
   dropped: { model_call: null, turn: null },
+  session: null,
+  plan: null,
   reread: false,
 };
 
@@ -408,6 +410,22 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
           : resolved,
       );
     }
+    case "session_changed": {
+      // 첫 갱신은 칸을 다 싣는다(source의 약속). 그것을 놓쳤으면 snapshot을 다시 읽는다.
+      if (state.session === null) {
+        return "capabilities" in update.session
+          ? {
+              ...state,
+              session: update.session as NonNullable<AcpState["session"]>,
+            }
+          : { ...state, reread: true };
+      }
+      return { ...state, session: { ...state.session, ...update.session } };
+    }
+    case "plan_changed":
+      return { ...state, plan: { entries: update.entries } };
+    case "notice_added":
+      return put(state, update.item);
     case "hidden_added": {
       if (known(state, update.item.id)) return state;
       const hidden = new Set(update.item.items.map((item) => item.id));

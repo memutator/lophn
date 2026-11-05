@@ -86,6 +86,7 @@ async function setup(options: { history?: unknown[]; resume?: string } = {}) {
   };
   const clock = manualClock(Date.UTC(2026, 10, 5));
   const started = await createClaudeAdapter(sdk).start({
+    terminal: null,
     cwd: "/work/test",
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     session,

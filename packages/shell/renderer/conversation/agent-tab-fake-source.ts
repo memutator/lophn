@@ -1040,6 +1040,7 @@ function sceneData(scene: AgentTabScene): SceneData {
             approval: {
               id: requestId(1),
               subject: { kind: "shell", command: CLEANUP_COMMAND },
+              choices: ["once", "always", "reject"],
               always_patterns: ["rm -r *"],
             },
             question: null,
@@ -1513,10 +1514,17 @@ export function createFakeAgentTabSource(
     status: (session) =>
       ok({ ...statusView(session), ...options.status, session }),
 
+    act: () => Promise.resolve({ ok: false, code: "unavailable" }),
     uploadImage(image) {
       const blob = nextId("blob");
       images.set(blob, URL.createObjectURL(image));
-      return ok({ blob });
+      return ok({
+        block: {
+          type: "image",
+          mimeType: image.type as "image/png",
+          blob,
+        },
+      });
     },
     imageUrl: (_session, id) => Promise.resolve(images.get(id) ?? null),
 

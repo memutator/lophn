@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { gateCallSchema } from "../approvals/gate-call.ts";
+import { acpApprovalSubjectSchema } from "../approvals/gate-call.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { agentIdSchema } from "../lophn-agent/places.ts";
@@ -139,15 +139,15 @@ export type AcpToolItem = z.infer<typeof acpToolItemSchema>;
 export const acpApprovalItemSchema = z.strictObject({
   ...itemBase,
   kind: z.literal("approval"),
-  subject: gateCallSchema,
+  subject: acpApprovalSubjectSchema,
   outcome: z.enum(["allowed", "denied", "cancelled"]),
   /** 사람이 고른 허락 범위. 모르면 null. */
-  choice: z.enum(["once", "always"]).nullable(),
+  choice: z.enum(["once", "session", "always"]).nullable(),
   reason: z.string().nullable(),
 });
 export type AcpApprovalItem = z.infer<typeof acpApprovalItemSchema>;
 
-/** turn의 꼬리. 정상 종료와 멈춤은 시간이고 실패는 오류다. */
+/** turn의 꼬리. 정상 종료와 멈춤은 시간이고 실패는 오류다. `info`는 꼬리가 아니라 turn 중간의 알림이다. */
 export const acpNoticeItemSchema = z.strictObject({
   ...itemBase,
   kind: z.literal("notice"),
@@ -166,6 +166,8 @@ export const acpNoticeItemSchema = z.strictObject({
       code: z.string().min(1),
       message: z.string(),
     }),
+    /** turn 중간의 한 줄 알림(compaction, 재시도, 명령 출력). turn의 끝이 아니다. */
+    z.strictObject({ type: z.literal("info"), text: z.string() }),
   ]),
 });
 export type AcpNoticeItem = z.infer<typeof acpNoticeItemSchema>;

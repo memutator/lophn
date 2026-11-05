@@ -27,8 +27,11 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { normalize } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { devCliLauncher } from "../packages/base/install/linux-install.ts";
+import { winDevCliLauncher } from "../packages/base/install/win-install.ts";
 import { errorCode } from "../packages/base/mod.ts";
 import { type ServeHandle, serve } from "../packages/core/server/serve.ts";
 import { hookStdoutRows } from "../packages/protocol/coding-agent/mod.ts";
@@ -219,7 +222,16 @@ async function writeDevCli(root: string): Promise<string> {
     { mode: 0o755 },
   );
   await rename(`${path}.tmp`, path);
-  return path;
+  // Windows의 cmd·PowerShell 터미널과 harness 감지(execFile)는 sh launcher를 못 돌린다. 같은 폴더에 .cmd를 같이 두고
+  // shell main에는 그 경로를 준다. Git Bash 터미널은 확장자 없는 sh launcher를 쓴다.
+  if (process.platform !== "win32") return path;
+  const cmd = `${path}.cmd`;
+  await writeFile(
+    `${cmd}.tmp`,
+    winDevCliLauncher({ electron, platform: normalize(root) }),
+  );
+  await rename(`${cmd}.tmp`, cmd);
+  return cmd;
 }
 
 /** shell main bundle build 계획. */
@@ -498,8 +510,8 @@ if (import.meta.main) {
     process.exit(0);
   }
   // tools/의 부모가 저장소 루트다.
-  const root = new URL("..", new URL("./", import.meta.url)).pathname.replace(
-    /\/$/,
+  const root = fileURLToPath(new URL("..", import.meta.url)).replace(
+    /[\\/]$/,
     "",
   );
   const mode: Mode = args.includes("dev:core")

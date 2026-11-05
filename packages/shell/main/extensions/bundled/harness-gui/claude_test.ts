@@ -60,18 +60,25 @@ type Fake = {
 };
 
 /** 대역 process. `exit()`가 불려야 끝난다. */
-function fakeProcess() {
+function fakeProcess(command = "", args: readonly string[] = []) {
   const exits: Array<(code: number | null) => void> = [];
+  const outs: Array<(text: string) => void> = [];
   const proc: ExtensionProcess = {
     pid: 1,
     write() {},
     end() {},
     kill() {},
-    onStdout() {},
+    onStdout: (listener) => void outs.push(listener),
     onStderr() {},
     onExit: (listener) => void exits.push(listener),
   };
-  return { proc, exit: () => exits.forEach((listener) => listener(0)) };
+  return {
+    proc,
+    command,
+    args,
+    stdout: (text: string) => outs.forEach((listener) => listener(text)),
+    exit: (code = 0) => exits.forEach((listener) => listener(code)),
+  };
 }
 
 async function setup(
@@ -87,8 +94,10 @@ async function setup(
   let wake: (() => void) | undefined;
   const queries: Fake[] = [];
   const processes: ReturnType<typeof fakeProcess>[] = [];
-  const spawn = () => {
-    const made = fakeProcess();
+  // 옛 session의 transcript를 바꾸는 SDK 호출. open_session은 이것을 부르면 안 된다.
+  const calls: string[] = [];
+  const spawn = (command: string, args: readonly string[]) => {
+    const made = fakeProcess(command, args);
     processes.push(made);
     return made.proc;
   };
@@ -128,12 +137,23 @@ async function setup(
             categories: [],
           }),
         cancelAsyncMessage: () => Promise.resolve(true),
-        rewindFiles: () => Promise.resolve({ canRewind: true }),
+        rewindFiles: () => {
+          calls.push("rewindFiles");
+          return Promise.resolve({ canRewind: true });
+        },
       };
     },
     getSessionMessages: () => Promise.resolve(options.history ?? []),
     getSubagentMessages: () => Promise.resolve([]),
     getSessionInfo: () => Promise.resolve(undefined),
+    forkSession: () => {
+      calls.push("forkSession");
+      return Promise.resolve({ sessionId: "forked" });
+    },
+    renameSession: () => {
+      calls.push("renameSession");
+      return Promise.resolve();
+    },
     readFile: () => Promise.reject(new Error("no files in this test")),
   } as unknown as ClaudeSdk;
 
@@ -165,6 +185,7 @@ async function setup(
     started,
     queries,
     processes,
+    calls,
     get state() {
       return state;
     },
@@ -273,7 +294,8 @@ for (const row of approvalRows) {
 }
 
 test("'이 session 동안' 허락은 영구 설정에 쓰지 않고 query를 다시 열 때 allowedTools로 되살린다", async () => {
-  const t = await setup();
+  const history: unknown[] = [];
+  const t = await setup({ history });
   const rec = recording("approve_bash");
   const cursor = { at: 0 };
   await t.input(t.send("1", textOf(rec[cursor.at++] as Entry)));
@@ -306,6 +328,12 @@ test("'이 session 동안' 허락은 영구 설정에 쓰지 않고 query를 다
   // rewind가 query를 다시 연다. 기억한 규칙이 새 query의 allowedTools에 든다.
   const userMessage = t.queries[0]?.sent[0];
   assert.ok(userMessage?.uuid);
+  // rewind는 transcript에서 그 메시지를 찾는다(못 찾으면 아무것도 하지 않는다).
+  history.push({
+    type: "user",
+    uuid: userMessage.uuid,
+    message: { role: "user", content: "touch one.txt" },
+  });
   const first = (t.state.items.find((item) => item.kind === "message")?.id ??
     "") as string;
   await t.input({
@@ -553,4 +581,94 @@ test("resume으로 다시 그린 사람 메시지의 origin은 처음 보낼 때
     user?.kind === "message" ? user.origin : null,
     "78fcee1c-e4ec-4dee-be36-96df9a9f7ac0",
   );
+});
+
+const result = (user: string) => ({
+  type: "result",
+  subtype: "success",
+  is_error: false,
+  num_turns: 1,
+  user_message_uuid: user,
+  usage: {},
+});
+
+// `!` 명령이 model prompt로 새면 사람이 친 shell 명령을 model이 지시로 받는다(녹화 shell_append: shouldQuery false는 turn을 열지 않는다).
+test("`!`와 run_shell은 shouldQuery false 메시지만 input queue에 넣고, 도는 turn이 있으면 그 turn이 끝난 뒤에 넣는다", async () => {
+  const t = await setup();
+  const sent = () => t.queries[0]?.sent ?? [];
+  const shells = () => t.processes.filter((one) => one.command === "/bin/sh");
+
+  // 글이 `!`로 시작하는 send도 model에 가지 않는다.
+  await t.input({ type: "run_shell", key: "a", command: "ls" });
+  await t.input(t.send("1", "!echo hi"));
+  assert.deepEqual(
+    shells().map((one) => one.args),
+    [
+      ["-c", "ls"],
+      ["-c", "echo hi"],
+    ],
+  );
+  assert.equal(sent().length, 0);
+  shells()[0]?.stdout("a.txt\n");
+  shells()[0]?.exit();
+  await flush();
+
+  assert.deepEqual(
+    sent().map((one) => [one.message.content, one.shouldQuery]),
+    [
+      ["<bash-input>ls</bash-input>", false],
+      ["<bash-stdout>a.txt\n</bash-stdout><bash-stderr></bash-stderr>", false],
+    ],
+  );
+  assert.ok(sent().every((one) => one.client_composed === true));
+  const first = tools(t.state)[0];
+  assert.equal(first?.by, "user");
+  assert.equal(first?.state, "ok");
+  assert.equal(first?.body?.output, "a.txt\n");
+  // 그 result(num_turns 0)는 turn이 아니다. 사람 말풍선도 만들지 않는다.
+  await t.feed({ ...result(sent()[0]?.uuid ?? ""), num_turns: 0 });
+  assert.equal(t.state.turn, null);
+  assert.equal(
+    t.state.items.some((item) => item.kind === "message"),
+    false,
+  );
+
+  // 도는 turn 동안은 끝난 결과도 줄에 넣지 않는다.
+  await t.input(t.send("2", "hello"));
+  const turnUuid = sent().at(-1)?.uuid ?? "";
+  shells()[1]?.exit();
+  await flush();
+  assert.equal(sent().length, 3);
+  await t.feed(result(turnUuid));
+  assert.equal(sent().length, 5);
+  assert.ok(
+    sent()
+      .slice(3)
+      .every((one) => one.shouldQuery === false),
+  );
+});
+
+// open_session이 옛 session을 fork·rewind·rename하면 사람이 열어 둔 대화가 바뀐다.
+test("open_session은 지금 session의 transcript를 바꾸는 SDK 호출 없이 고른 id로 resume한 새 query를 열고 bash 기록을 shell 줄로 다시 그린다", async () => {
+  const history = JSON.parse(
+    readFileSync(`${fixtures}shell-history.json`, "utf8"),
+  );
+  const t = await setup({ history });
+  await t.input({ type: "open_session", key: "k", cli_session: "other-id" });
+  await flush();
+
+  assert.equal(t.queries.length, 2);
+  assert.equal(t.queries[0]?.closed, true);
+  assert.equal(t.queryOptions?.resume, "other-id");
+  assert.deepEqual(t.calls, []);
+
+  const user = tools(t.state)[0];
+  assert.equal(user?.by, "user");
+  assert.equal(user?.title, "ls");
+  assert.equal(user?.body?.output, "hello.txt\n");
+  const texts = t.state.items.flatMap((item) =>
+    item.kind === "message" ? [item.actor] : [],
+  );
+  assert.deepEqual(texts, ["user"]);
+  assert.equal(t.state.reread, false);
 });

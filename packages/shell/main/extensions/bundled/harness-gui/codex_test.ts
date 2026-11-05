@@ -136,6 +136,17 @@ async function boot(
       }
       return undefined;
     },
+    /** 손으로 만든 줄 하나를 server가 낸 것처럼 내보낸다. */
+    async push(line: Wire) {
+      emit(`${JSON.stringify(line)}\n`);
+      await flush();
+    },
+    /** adapter가 마지막으로 보낸 `method` 요청에 답한다. 요청이 없으면 실패다. */
+    async reply(method: string, result: Record<string, unknown>) {
+      const asked = requests().findLast((one) => one.method === method);
+      assert.ok(asked, `no ${method} request`);
+      await t.push({ id: asked.id, result });
+    },
     /** 이 녹화를 이어 붙인다. */
     append(name: string) {
       rec.push(...recording(name));
@@ -417,4 +428,117 @@ test("resume 뒤 다시 그린 사람 메시지의 origin은 처음 보낼 때�
   // 다시 열면 app-server가 돌려주는 clientId가 같은 key다. 어긋나면 사람의 bookmark를 잃는다.
   const again = await boot({ resume: "01a1aa8e-4ef3-7541-8699-96c63c40a8bb" });
   assert.deepEqual(userOrigins(again.t.state), ["msg_a1", "msg_a2"]);
+});
+
+const requested = (written: Wire[], method: string) =>
+  written.filter((one) => one.method === method && one.id !== undefined);
+
+test("`!ls`는 thread/shellCommand로만 가고 그 줄은 사람 쪽 tool 하나다(사람 메시지도 turn 꼬리도 없다)", async () => {
+  const { t } = await boot();
+  const thread = t.state.session?.cli_session as string;
+  await t.input({
+    type: "send",
+    id: "msg_s1",
+    key: "msg_s1",
+    content: [{ type: "text", text: "!ls" }],
+    delivery: "next_turn",
+  });
+  assert.equal(requested(t.written, "turn/start").length, 0);
+  assert.deepEqual(
+    requested(t.written, "thread/shellCommand").map((one) => one.params),
+    [{ threadId: thread, command: "ls" }],
+  );
+  assert.equal(t.state.items.length, 0);
+
+  // app-server가 제 turn을 열고 commandExecution(userShell) 하나만 낸다.
+  const item = {
+    type: "commandExecution",
+    id: "item_s1",
+    source: "userShell",
+    command: "/bin/bash -lc ls",
+    commandActions: [{ type: "listFiles", command: "ls" }],
+    status: "completed",
+    aggregatedOutput: "a.txt\n",
+  };
+  const turn = { id: "wire_s1", status: "inProgress", items: [] };
+  await t.push({
+    method: "turn/started",
+    params: { threadId: thread, turn },
+  });
+  await t.push({
+    method: "item/started",
+    params: { threadId: thread, turnId: turn.id, item },
+  });
+  await t.push({
+    method: "item/completed",
+    params: { threadId: thread, turnId: turn.id, item },
+  });
+  await t.push({
+    method: "turn/completed",
+    params: { threadId: thread, turn: { ...turn, status: "completed" } },
+  });
+
+  assert.deepEqual(
+    t.state.items.map((one) => one.kind),
+    ["tool"],
+  );
+  const [tool] = tools(t.state);
+  assert.equal(tool?.by, "user");
+  assert.equal(tool?.turn, null);
+  assert.equal(tool?.state, "ok");
+  assert.equal(tool?.body?.output, "a.txt\n");
+
+  // run_shell 입력도 같은 호출이다. 도는 turn이 있어도 prompt로 가지 않는다.
+  await t.input({ type: "run_shell", key: "k", command: "echo hi" });
+  assert.equal(requested(t.written, "turn/start").length, 0);
+  assert.equal(requested(t.written, "thread/shellCommand").length, 2);
+});
+
+test("open_session은 thread/resume에 고른 id를 싣고 session_reset 뒤에는 그 thread의 turn만 남는다", async () => {
+  // 앞 thread에 사람 메시지 둘이 이미 그려져 있다.
+  const { t } = await boot({ resume: "01a1aa8e-4ef3-7541-8699-96c63c40a8bb" });
+  assert.equal(t.state.items.length > 0, true);
+
+  await t.input({ type: "open_session", key: "k", cli_session: "thr_old" });
+  assert.deepEqual(
+    requested(t.written, "thread/resume")
+      .slice(-1)
+      .map((one) => one.params?.threadId),
+    ["thr_old"],
+  );
+  await t.reply("thread/resume", {
+    thread: { id: "thr_old", name: "Old one" },
+    model: "m",
+  });
+  assert.deepEqual(
+    requested(t.written, "thread/turns/list")
+      .slice(-1)
+      .map((one) => one.params?.threadId),
+    ["thr_old"],
+  );
+  await t.reply("thread/turns/list", {
+    data: [
+      {
+        id: "wire_old",
+        status: "completed",
+        items: [
+          {
+            type: "userMessage",
+            id: "um1",
+            clientId: "msg_old",
+            content: [{ type: "text", text: "from the old one" }],
+          },
+          { type: "agentMessage", id: "am1", text: "old answer" },
+        ],
+      },
+    ],
+    nextCursor: null,
+  });
+
+  const users = t.state.items.flatMap((item) =>
+    item.kind === "message" && item.actor === "user" ? [item.content] : [],
+  );
+  assert.deepEqual(users, [[{ type: "text", text: "from the old one" }]]);
+  assert.equal(t.state.session?.cli_session, "thr_old");
+  assert.equal(t.state.session?.title, "Old one");
 });

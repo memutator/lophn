@@ -139,6 +139,8 @@ type Item = {
   summary?: string[];
   command?: string;
   commandActions?: { type: string; command: string }[];
+  /** commandExecution: `"userShell"`이면 사람이 `!`로 돌린 것이다. */
+  source?: string;
   status?: string;
   changes?: { path: string; kind: { type: string }; diff: string }[];
   server?: string;
@@ -317,6 +319,8 @@ const MODE_CHOICES = {
 type Settings = {
   model: string;
   effort: string | null;
+  /** thread의 service tier(`priority`=Fast). null이면 model의 기본이다. */
+  serviceTier: string | null;
   approvalPolicy: J;
   approvalsReviewer: string;
   sandbox: string;
@@ -345,6 +349,7 @@ function settingsOf(wire: J): Settings {
   return {
     model: wire.model,
     effort: wire.effort ?? wire.reasoningEffort ?? null,
+    serviceTier: wire.serviceTier ?? null,
     approvalPolicy: wire.approvalPolicy,
     approvalsReviewer: wire.approvalsReviewer,
     sandbox: typeof sandbox === "string" ? sandbox : (sandbox?.type ?? ""),
@@ -374,8 +379,8 @@ const CAPABILITIES: AcpCapabilities = {
   toggles: true,
   goal: true,
   roles: false,
-  shell: false,
-  resume: false,
+  shell: true,
+  resume: true,
 };
 
 // TUI 전용 명령과 `/copy`, `/side`, `/mention`, `/auto-review`는 창에 의미가 없어 넣지 않는다.
@@ -421,6 +426,12 @@ const BASE_COMMANDS: readonly {
     description: "Fork this conversation",
     hint: null,
     opens: "fork",
+  },
+  {
+    name: "resume",
+    description: "Open an earlier conversation in this folder",
+    hint: null,
+    opens: "resume",
   },
   {
     name: "agents",
@@ -853,11 +864,29 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                     }),
                   ),
                 },
+                // tier가 하나뿐이어도 choice다: model마다 tier 수가 달라 switch로 줄이면 ultrafast가 있는 model과 모양이 갈린다.
+                ...((one.serviceTiers ?? []).length === 0
+                  ? []
+                  : [
+                      {
+                        id: "speed",
+                        label: "Speed",
+                        kind: "choice" as const,
+                        values: [
+                          { value: "default", label: "Standard" },
+                          ...(one.serviceTiers as J[]).map((tier) => ({
+                            value: tier.id as string,
+                            label: tier.name as string,
+                          })),
+                        ],
+                      },
+                    ]),
               ],
             })),
           },
         ];
         const current = settings;
+        const known = models.find((one) => one.model === current?.model);
         return {
           models: groups,
           model:
@@ -865,10 +894,18 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               ? null
               : {
                   model: current.model,
-                  label:
-                    models.find((one) => one.model === current.model)
-                      ?.displayName || current.model,
-                  options: current.effort ? { effort: current.effort } : {},
+                  label: known?.displayName || current.model,
+                  options: {
+                    ...(current.effort ? { effort: current.effort } : {}),
+                    ...((known?.serviceTiers ?? []).length === 0
+                      ? {}
+                      : {
+                          speed:
+                            current.serviceTier ??
+                            known?.defaultServiceTier ??
+                            "default",
+                        }),
+                  },
                   layer: null,
                 },
         };
@@ -985,6 +1022,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       function startTurn(lane: Lane): string {
         const id = ids.newId("trn");
         lane.turn = id;
+        if (lane === root && lane.codexTurn !== null)
+          wireOf.set(id, lane.codexTurn);
         // 새 turn이 열리면 답하지 않은 "구현할까" 카드는 지난 일이다.
         if (lane === root)
           for (const [request, wait] of [...approvals])
@@ -1053,14 +1092,21 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         let title: string;
         let detail: AcpToolItem["detail"] = { kind: "generic" };
         let body: AcpToolBody | null = null;
+        let by: AcpToolItem["by"] = "agent";
         switch (item.type) {
           case "commandExecution": {
             const actions = (item.commandActions ?? []).map(
               (one) => one.command,
             );
+            const shown =
+              actions.length > 0 ? actions.join(" && ") : (item.command ?? "");
             tool = "shell";
             category = commandCategory(item);
-            title = `shell ${oneLine(actions.length > 0 ? actions.join(" && ") : (item.command ?? ""), 120)}`;
+            if (item.source === "userShell") {
+              by = "user";
+              category = "command";
+              title = oneLine(shown.split("\n")[0] ?? "", 120);
+            } else title = `shell ${oneLine(shown, 120)}`;
             body = bodyOf(item.command ?? null, item.aggregatedOutput ?? null);
             break;
           }
@@ -1135,7 +1181,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               jsonText(item.result ?? item.error),
             );
         }
-        return { tool, category, title: title.trim(), detail, body };
+        return { by, tool, category, title: title.trim(), detail, body };
       }
 
       const TOOL_ITEMS = new Set([
@@ -1169,8 +1215,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             id: call.id,
             seq: ++lane.seq,
             at: now(),
-            by: "agent",
-            turn: ensureTurn(lane),
+            by: shown.by,
+            // 사람이 돌린 명령이 turn 밖(app-server가 연 shell turn, 다시 그린 옛 turn)이면 turn이 없다.
+            turn:
+              shown.by === "user" && lane.turn === null
+                ? null
+                : ensureTurn(lane),
             tool: shown.tool,
             category: shown.category,
             title: shown.title,
@@ -1995,11 +2045,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         const item = params.item as Item | undefined;
         switch (method) {
           case "turn/started": {
+            // ACP turn은 첫 항목이 열린다: 사람의 shell만 도는 turn(app-server가 연다)에는 사람 메시지도 "Worked for"도 없다.
             lane.codexTurn = (params.turn as { id: string }).id;
-            const id = ensureTurn(lane);
+            if (lane.turn !== null && lane === root)
+              wireOf.set(lane.turn, lane.codexTurn);
             if (lane === root) {
               materialized = true;
-              wireOf.set(id, lane.codexTurn);
             } else {
               updateSub(lane.thread, { state: "running" });
               publishTasks();
@@ -2010,20 +2061,34 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             const wire = params.turn as WireTurn;
             const plan = lane === root ? planText : null;
             if (lane === root) planText = null;
-            endTurn(
-              lane,
-              wire.status === "completed"
-                ? "completed"
-                : wire.status === "interrupted"
-                  ? "stopped"
-                  : "failed",
-              wire.status === "failed"
-                ? {
-                    code: "internal",
-                    message: wire.error?.message ?? "codex turn failed",
-                  }
-                : undefined,
-            );
+            if (lane.turn === null && wire.status !== "failed") {
+              // ACP turn이 열리지 않은 turn(shell만 돌았다). 꼬리 없이 닫는다.
+              for (const [itemId, call] of lane.calls)
+                if (!call.done) {
+                  toolEnd(call, "cancelled");
+                  lane.closed.add(itemId);
+                }
+              lane.calls.clear();
+              lane.codexTurn = null;
+              if (lane === root) {
+                stopPending = false;
+                if (dead === null) startNext();
+              }
+            } else
+              endTurn(
+                lane,
+                wire.status === "completed"
+                  ? "completed"
+                  : wire.status === "interrupted"
+                    ? "stopped"
+                    : "failed",
+                wire.status === "failed"
+                  ? {
+                      code: "internal",
+                      message: wire.error?.message ?? "codex turn failed",
+                    }
+                  : undefined,
+              );
             if (lane !== root) {
               childEnded(lane, wire.status);
               return;
@@ -2673,9 +2738,57 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                     one.actor === "user" &&
                     one.seq > (found?.seq ?? 0),
                 );
+          const first = mirror.items.find(
+            (one) => one.kind === "message" && one.actor === "user",
+          );
+          const from =
+            meta.title ??
+            (oneLine(
+              first?.kind === "message"
+                ? first.content
+                    .flatMap((one) => (one.type === "text" ? [one.text] : []))
+                    .join(" ")
+                : "",
+              40,
+            ) ||
+              "Untitled");
           switchThread(opened, false);
           if (later !== undefined) hideFrom(later.seq, later.id);
-          info("Forked into a new conversation.");
+          change({ title: opened.thread.name ?? `${from} (fork)` });
+          info(
+            `Forked from “${from}”. The original conversation is unchanged.`,
+          );
+        });
+      }
+
+      // 도는 turn이 있어도 보낸다: app-server가 그 turn에 붙이거나 제 turn을 연다. 그 줄은 commandExecution(userShell) item이 그린다.
+      function runShell(command: string) {
+        const text = command.trim();
+        if (text === "") return;
+        void attempt("Shell command", () =>
+          request("thread/shellCommand", { threadId, command: text }),
+        );
+      }
+
+      // 지난 대화를 같은 탭에서 연다. TUI는 옛 thread에 남고 다음 toggle 때 새 id로 붙는다.
+      async function openSession(target: string) {
+        if (root.turn !== null || root.codexTurn !== null)
+          return info(
+            "Stop the running turn before opening another conversation.",
+          );
+        await attempt("Open conversation", async () => {
+          const opened = await request("thread/resume", {
+            threadId: target,
+            cwd,
+            excludeTurns: true,
+            ...policy,
+          });
+          switchThread(opened, false);
+          // 항목 순번은 이어 센다(비운 화면에 빈 곳이 gap으로 읽히지 않는다). 제목·cli_session은 session meta라 남는다.
+          publish({ type: "session_reset" });
+          materialized = false;
+          await replayThread(root);
+          await replayChildren();
         });
       }
 
@@ -2683,19 +2796,13 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         switch (message.type) {
           case "send": {
             const first = message.content[0];
-            // `!`로 시작하면 shell 명령이다. app-server가 turn을 열고 그 이벤트로 그린다.
+            // TUI처럼 친 글이 `!`로 시작해 와도 model로 보내지 않는다.
             if (
-              root.turn === null &&
               first?.type === "text" &&
               first.text.startsWith("!") &&
               first.text.trim().length > 1
             ) {
-              void attempt("Shell command", () =>
-                request("thread/shellCommand", {
-                  threadId,
-                  command: first.text.slice(1).trim(),
-                }),
-              );
+              runShell(first.text.slice(1));
               return;
             }
             if (root.turn === null) {
@@ -2820,6 +2927,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 threadId,
                 model: message.model,
                 effort: message.options.effort ?? null,
+                // 고른 model에 Speed 축이 없으면 options.speed도 없어 null이다(thread의 tier를 지운다).
+                serviceTier: message.options.speed ?? null,
               }),
             );
             return;
@@ -2861,6 +2970,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           case "set_goal":
             void setGoal(message.objective, message.paused);
             return;
+          case "run_shell":
+            runShell(message.command);
+            return;
+          case "open_session":
+            void openSession(message.cli_session);
+            return;
         }
       }
 
@@ -2894,6 +3009,22 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         },
         sessionId: () => (threadId === "" ? null : threadId),
         running: () => ({ turn: root.turn !== null, tasks: runningTasks() }),
+        // 기본 sourceKinds를 그대로 둔다: GUI thread의 source는 vscode라 TUI thread와 같이 나온다.
+        async sessions() {
+          const listed = await request("thread/list", {
+            cwd,
+            sortKey: "updated_at",
+            limit: 30,
+          });
+          return ((listed.data ?? []) as J[]).map((one) => ({
+            id: one.id as string,
+            title: (one.name ?? one.preview ?? null) as string | null,
+            updated_at:
+              typeof one.updatedAt === "number"
+                ? new Date(one.updatedAt * 1000).toISOString()
+                : null,
+          }));
+        },
       };
       return { ok: true, value: run };
     },

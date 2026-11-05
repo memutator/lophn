@@ -43,17 +43,24 @@ type ExecFile = (
   options: { env: Record<string, string>; timeout: number; maxBuffer: number },
 ) => Promise<{ code: number | null; stdout: string }>;
 
+// Node는 shell 없이 .cmd·.bat를 실행하지 못한다(win32, 설치본의 `bin\lophn.cmd`). 인자는 고정 낱말뿐이라 shell로 이어도 된다.
 const defaultExec: ExecFile = (file, args, options) =>
   new Promise((resolve) => {
-    execFile(file, args, options, (error, stdout) => {
-      const code =
-        error === null
-          ? 0
-          : typeof (error as { code?: unknown }).code === "number"
-            ? (error as { code: number }).code
-            : null;
-      resolve({ code, stdout: String(stdout) });
-    });
+    const shell = process.platform === "win32" && /\.(cmd|bat)$/i.test(file);
+    execFile(
+      shell ? `"${file}" ${args.join(" ")}` : file,
+      shell ? [] : args,
+      { ...options, shell },
+      (error, stdout) => {
+        const code =
+          error === null
+            ? 0
+            : typeof (error as { code?: unknown }).code === "number"
+              ? (error as { code: number }).code
+              : null;
+        resolve({ code, stdout: String(stdout) });
+      },
+    );
   });
 
 /** `lophn <args> --json`이 찍은 값 그대로(성공은 감싸지 않는다). 실패하면 `{error}`의 이유 한 줄. */

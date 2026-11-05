@@ -58,7 +58,7 @@ import {
   type HarnessCredentials,
 } from "./harness-credential.ts";
 
-// shell main의 harness host가 부르는 core 쪽이다. queue(메모리)을 쥐고, turn과 메시지는 machine 자격으로 기존
+// shell main의 harness host가 부르는 core 쪽이다. queue(메모리)를 쥐고, turn과 메시지는 machine 자격으로 기존
 // command(StartTurn, RecordMessage, FinishTurn)에 기록한다. host는 사람 token의 memory route로만 닿고
 // renderer 통로에는 없다. 흐름은 `protocol/lophn-agent/harness-host.ts`.
 const HARNESS_PRINCIPAL = "machine:harness";

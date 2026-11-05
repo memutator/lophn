@@ -157,7 +157,7 @@ type AgentRuntimeDeps = {
   known(): KnownSecretMatch | undefined;
   // provider API key의 전송 부착(`secret_send_request`). child가 청하면 값을 한 번 건넨다.
   secrets: AgentRuntimeSecrets;
-  // child가 감독 pipe로 읽는 queue(`createTurnSource`)과 agent event를 내는 Bus. 없으면 child는 시작할 turn을
+  // child가 감독 pipe로 읽는 queue(`createTurnSource`)와 agent event를 내는 Bus. 없으면 child는 시작할 turn을
   // 읽지 못하고 event는 버려진다.
   turns?: TurnSource;
   // child가 사라질 때 queue의 도는 표시를 푸는 길이다. 정본은 queue다.

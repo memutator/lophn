@@ -42,7 +42,7 @@ harness ─ 전역 hook ─▶ lophn hook <harness> <event> ─▶ shell main ho
 정의의 `runtime`이 harness 값인 agent는 lophn session을 갖되 run-loop가 돌리지 않는다. 입력(사람 메시지, call, run, step)은 shell main의 harness host가 그 harness의 headless CLI 명령으로 실행한다(`claude -p`, `codex exec`, `opencode run`). host는 extension `harness`(`packages/shell/main/extensions/bundled/harness/`)이고 `ExtensionContext`로만 lophn에 닿는다([extension.md](extension.md)).
 
 ```
-Router ─ session.transport = harness ─▶ harness 입력함(core 메모리, run-loop 입력함과 따로)
+Router ─ session.transport = harness ─▶ harness queue(core 메모리, run-loop queue와 따로)
 extension harness(1초마다) ─ ctx.core, 사람 권한 ─▶ harness/take → start_turn
    ─ agents/read(permissions.deny), projects/get·apps/get(workspace 폴더) ─▶ 권한 flag, cwd
    ─ ctx.spawn(<harness headless 명령>, cwd = workspace 폴더, stdin 닫음) ─ 줄마다 parser ─▶ harness/record(글, harness_tool)
@@ -67,7 +67,7 @@ TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(bare 자동
   - 쓰는 법은 내장 skill `lophn-agent`(`packages/coding-agent/skills/lophn-agent.ts`)다. 받은 call의 tag 읽기, `call reply`·`call send`·`call cancel`, `session list`·`agent card`를 적고 turn 자격이 있을 때만 쓰라고 한다. `lophn harness sync-skills`가 설정 `extensions.harness.enabled`가 켜졌으면 hook 상태와 상관없이(켜기가 사람의 허락이다) Claude Code·Codex·OpenCode의 `skill_dir`에 앱 공유 skill과 같은 표시 file로 두고, 꺼지면 그 사본만 지운다. shell main은 `SettingsChanged`의 keys에 그 설정이 있을 때도 sync를 부른다.
 - **cwd는 session workspace의 폴더다.** project는 첫 폴더, 앱은 source 폴더(없으면 첫 폴더)다. 폴더가 없는 workspace(home, 폴더 없는 project·app)에서는 띄우지 않는다. 띄우는 env는 shell main의 것이고(harness가 자기 API key를 쓴다) lophn user token을 넣지 않는다.
 - **끝은 parser의 끝 event나 exit code다.** 실패는 `model_error`, 시작하지 못하면 `target_unavailable`, 글 없이 끝나면 `no_answer`다. 사람이 멈추거나 core가 turn을 닫으면 host가 process를 끈다. 사람 메시지의 이미지는 `[image: <mime> not passed to the harness]` 글로 바뀐다.
-- **run-loop는 harness 입력을 돌리지 않는다.** 닿으면 turn을 시작하지 않고 `target_unavailable`로 닫는다(`run-loop/prepare.ts`). 켤 때 접수만 된 사람 메시지는 harness wiring이 harness 입력함에 되돌린다.
+- **run-loop는 harness 입력을 돌리지 않는다.** 닿으면 turn을 시작하지 않고 `target_unavailable`로 닫는다(`run-loop/prepare.ts`). 켤 때 접수만 된 사람 메시지는 harness wiring이 harness queue에 되돌린다.
 
 ## 왜 이 모양인가
 

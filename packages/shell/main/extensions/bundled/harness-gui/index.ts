@@ -24,13 +24,31 @@ const EXIT_WAIT_MS = 5000;
 // login shell을 한 번 띄운 값이라 이 process의 것이다. CLI에 물려주면 틀리다.
 const LOGIN_ONLY = new Set(["PWD", "OLDPWD", "SHLVL", "_"]);
 
-/** `env -0`의 출력(표시 사이의 NUL로 나뉜 `NAME=value`)을 읽는다. 표시가 없으면 undefined. */
-export function parseLoginEnv(out: string): Record<string, string> | undefined {
+// macOS 12 이하의 BSD `env`에는 -0이 없어 darwin은 줄바꿈으로 나뉜 출력을 읽는다. `NAME=`로 시작하지 않는 줄은 앞 값의 이어진 줄이다.
+function splitEnv(text: string, nul: boolean): string[] {
+  if (nul) return text.split("\0");
+  const entries: string[] = [];
+  for (const line of text.replace(/\n$/, "").split("\n")) {
+    if (entries.length > 0 && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(line)) {
+      entries[entries.length - 1] += `\n${line}`;
+    } else {
+      entries.push(line);
+    }
+  }
+  return entries;
+}
+
+/** `env -0`의 출력(표시 사이의 NUL로 나뉜 `NAME=value`)을 읽는다. 표시가 없으면 undefined. darwin은 `env`의 줄바꿈 출력이다. */
+export function parseLoginEnv(
+  out: string,
+  platform: string = process.platform,
+): Record<string, string> | undefined {
   const start = out.indexOf(ENV_BEGIN);
   const end = out.indexOf(ENV_END, start);
   if (start < 0 || end < 0) return undefined;
   const env: Record<string, string> = {};
-  for (const entry of out.slice(start + ENV_BEGIN.length, end).split("\0")) {
+  const body = out.slice(start + ENV_BEGIN.length, end);
+  for (const entry of splitEnv(body, platform !== "darwin")) {
     const eq = entry.indexOf("=");
     if (eq <= 0) continue;
     const name = entry.slice(0, eq);
@@ -48,7 +66,10 @@ function loginEnv(
   return new Promise((resolve) => {
     const proc = spawn(
       process.env.SHELL || "/bin/sh",
-      ["-ilc", `printf '%s' '${ENV_BEGIN}'; env -0; printf '%s' '${ENV_END}'`],
+      [
+        "-ilc",
+        `printf '%s' '${ENV_BEGIN}'; env${process.platform === "darwin" ? "" : " -0"}; printf '%s' '${ENV_END}'`,
+      ],
       {
         env: {
           DISABLE_AUTO_UPDATE: "true",

@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { app, type IpcMainInvokeEvent } from "electron";
 import { z } from "zod";
 
+import { nodeTreeDeps, signalTree } from "../../../../base/os/mod.ts";
 import {
   createIdSource,
   cryptoRandom,
@@ -94,8 +95,12 @@ const nodeSpawn =
       write: (text) => void child.stdin.write(text),
       end: () => void child.stdin.end(),
       kill() {
-        if (process.platform === "win32" || child.pid === undefined) {
+        if (child.pid === undefined) {
           child.kill("SIGTERM");
+          return;
+        }
+        if (process.platform === "win32") {
+          void signalTree(child.pid, "SIGTERM", "win32", nodeTreeDeps(spawn));
           return;
         }
         try {

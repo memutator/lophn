@@ -4,7 +4,7 @@
 import { app } from "electron";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, isAbsolute } from "node:path";
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/mod.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import {
@@ -256,7 +256,9 @@ export function createAgentWiring(options: {
           },
           dir,
           // 터미널 env에는 LOPHN_CLI가 없다. 개발 실행의 launcher 경로를 함수에 넣는다.
-          !app.isPackaged && process.env.LOPHN_CLI?.startsWith("/")
+          !app.isPackaged &&
+            process.env.LOPHN_CLI &&
+            isAbsolute(process.env.LOPHN_CLI)
             ? process.env.LOPHN_CLI
             : "lophn",
         );

@@ -10,6 +10,7 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
+import { dirname } from "node:path";
 import {
   err,
   errorCode,
@@ -42,7 +43,20 @@ export function runHarnessDetect(
   local: LocalContext,
 ): Promise<Result<HarnessDetection[], LophnError>> {
   const probeEnv: Record<string, string> = {};
-  for (const name of ["PATH", "HOME"]) {
+  // Windows의 .cmd shim은 cmd.exe와 node를 찾는 데 이 값들이 필요하다.
+  const names =
+    process.platform === "win32"
+      ? [
+          "PATH",
+          "HOME",
+          "USERPROFILE",
+          "APPDATA",
+          "SystemRoot",
+          "ComSpec",
+          "PATHEXT",
+        ]
+      : ["PATH", "HOME"];
+  for (const name of names) {
     const value = local.env.get(name);
     if (value !== undefined) probeEnv[name] = value;
   }
@@ -52,6 +66,8 @@ export function runHarnessDetect(
       run: (argv) => runProbe(argv, probeEnv),
       path: local.env.get("PATH"),
       home: local.home,
+      platform: process.platform,
+      env: local.env,
     },
     { probe: mode === "refresh", now: local.now() },
   );
@@ -72,9 +88,7 @@ const nodePorts: InstallPorts = {
       await writeFile(path, text);
     } catch (thrown) {
       if (errorCode(thrown) !== "ENOENT") throw thrown;
-      await mkdir(path.slice(0, path.lastIndexOf("/")), {
-        recursive: true,
-      });
+      await mkdir(dirname(path), { recursive: true });
       await writeFile(path, text);
     }
     if (executable === true) await chmod(path, 0o755);

@@ -3,9 +3,9 @@
 // 뜨지 않는다). 이 run에서 `set_mode`로 바꾼 뒤에만 `--approval-mode`를 싣고 같은 session을 다시 띄운다.
 // 판은 사람 기계의 18.8.7에 맞춘다: plan mode와 승인 mode를 바꾸는 RPC, 승인의 "이 session 동안" 선택지가 없다.
 // `~/.omp` 설정(role, 승인 mode)은 읽기만 한다.
-import { readFile } from "node:fs/promises";
+import { open, readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { parse } from "yaml";
 import type { Clock } from "../../../../../base/clock.ts";
 import { formatAt } from "../../../../../base/clock.ts";
@@ -36,16 +36,21 @@ import type {
   AcpTask,
   AcpUpdate,
 } from "../../../../../protocol/acp/state.ts";
+import type { AcpCliSession } from "../../../../../protocol/extensions/mod.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
 
 type Start = HarnessGuiAdapter["start"];
 
-/** adapter가 파일 시스템에 닿는 길. 이미지 첨부와 omp 설정(role, 승인 mode)을 읽는다. 쓰는 길은 없다. test가 바꾼다. */
+/** adapter가 파일 시스템에 닿는 길. 이미지 첨부, omp 설정(role, 승인 mode), 지난 session 목록을 읽는다. 쓰는 길은 없다. test가 바꾼다. */
 export type OmpIo = {
   /** 사람의 home. `<home>/.omp/agent/config.yml`을 읽는다. */
   home: string;
   readFile(path: string): Promise<Uint8Array>;
+  /** 폴더의 file 이름들. */
+  readDir(path: string): Promise<string[]>;
+  /** file의 앞 `bytes`만 글로 읽는다(session file은 크다). */
+  readHead(path: string, bytes: number): Promise<string>;
 };
 
 // 읽는 칸만 적은 wire 모양이다. 줄은 JSON.parse한 값을 그대로 이 type으로 본다.
@@ -93,6 +98,8 @@ type UsageLimit = {
 };
 type State = {
   sessionId: string;
+  /** 저장되기 전(model turn 전)에는 없다. */
+  sessionFile?: string;
   sessionName?: string;
   model?: Model;
   thinkingLevel?: string;
@@ -225,7 +232,7 @@ const EXIT_WAIT_MS = 5000;
 const TUI_ONLY = new Set(
   (
     "settings setup providers plan plan-review vibe guided-goal loop queue collab join leave copy open " +
-    "hotkeys extensions status agents git hub login logout delete resume btw tan omfg cleanse debug exit restart " +
+    "hotkeys extensions status agents git hub login logout delete btw tan omfg cleanse debug exit restart " +
     "live record pause quit q skills"
   ).split(" "),
 );
@@ -278,6 +285,14 @@ const ADAPTER_COMMANDS: AcpCommand[] = [
     source: "harness",
     opens: null,
   },
+  {
+    name: "resume",
+    aliases: [],
+    description: "Open an earlier session in this folder",
+    argument_hint: null,
+    source: "harness",
+    opens: "resume",
+  },
 ];
 
 const MODES = [
@@ -300,6 +315,13 @@ const SLASH = /^\/(\S+)(?:\s+([\s\S]*))?$/;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: 터미널 색 escape를 지운다.
 const ANSI = /\u001b\[[0-9;]*m/g;
 const plain = (text: string) => text.replace(ANSI, "");
+// omp의 `command_output`에는 format이 없다. 색 escape가 없고 markdown 줄 머리가 둘 이상(또는 ```로 시작)이면 markdown이다.
+// `/context`의 막대처럼 escape가 든 출력은 preformatted다.
+const MD_LINE = /^(#{1,6} |[-*] |\||\d+\. )/;
+const looksMarkdown = (raw: string) =>
+  plain(raw).trimStart().startsWith("```") ||
+  (plain(raw) === raw &&
+    raw.split("\n").filter((line) => MD_LINE.test(line)).length >= 2);
 const oneLine = (text: string, max: number) =>
   text
     .replace(/\s*\n\s*/g, " ")
@@ -553,7 +575,13 @@ function thread(
     id: string,
     name: string,
     args: Record<string, unknown>,
-    extra?: { title?: string; detail?: AcpToolDetail; turn?: string },
+    extra?: {
+      title?: string;
+      detail?: AcpToolDetail;
+      turn?: string;
+      /** 사람이 `!`로 돌린 명령. turn이 없으면 turn 밖 줄이다. */
+      user?: string;
+    },
   ): Call {
     const known = calls.get(id);
     if (known !== undefined) return known;
@@ -561,7 +589,8 @@ function thread(
       id: ids.newId("tcl"),
       name,
       args,
-      input: JSON.stringify(args, null, 2),
+      input:
+        extra?.user === undefined ? JSON.stringify(args, null, 2) : extra.user,
       done: false,
       ...hooks.preset?.(name),
     };
@@ -582,11 +611,15 @@ function thread(
         id: call.id,
         seq: ++seq,
         at: now(),
-        by: "agent",
-        turn: extra?.turn ?? ensureTurn(),
-        tool: name,
-        category: CATEGORIES[name] ?? "other",
-        title: extra?.title ?? (summary === "" ? name : `${name} ${summary}`),
+        by: extra?.user === undefined ? "agent" : "user",
+        turn: extra?.user === undefined ? (extra?.turn ?? ensureTurn()) : turn,
+        tool: extra?.user === undefined ? name : "shell",
+        category:
+          extra?.user === undefined ? (CATEGORIES[name] ?? "other") : "command",
+        title:
+          extra?.user !== undefined
+            ? oneLine(extra.user.split("\n")[0] ?? "", 120) || "shell"
+            : (extra?.title ?? (summary === "" ? name : `${name} ${summary}`)),
         state: "running",
         duration_ms: null,
         detail:
@@ -809,9 +842,12 @@ function thread(
           );
         }
       } else if (msg.role === "bashExecution") {
-        const call = toolStart(`replay-bash-${++bashes}`, "bash", {
-          command: msg.command ?? "",
-        });
+        const call = toolStart(
+          `replay-bash-${++bashes}`,
+          "bash",
+          { command: msg.command ?? "" },
+          { user: msg.command ?? "" },
+        );
         toolEnd(
           call,
           msg.cancelled === true
@@ -932,10 +968,9 @@ const start: (io: OmpIo) => Start =
     let todoJson = "";
     // 마지막으로 보낸 명령 이름. omp의 `command_output` frame에는 이름이 없다.
     let lastCommand: string | null = null;
-    // agent가 도는 중인가. `!cmd`만 있는 turn과 구별한다.
-    let agentBusy = false;
-    let bashTurn: string | null = null;
     let bashJobs = 0;
+    // model turn이 한 번이라도 끝났나. 없으면 omp가 session file을 쓰지 않아 `--resume`으로 못 연다.
+    let hadModelTurn = false;
 
     const taskLines = new Map<string, { thread: Thread; call: Call }>();
     const registerLine = (self: Thread, ompId: string, call: Call) => {
@@ -978,9 +1013,7 @@ const start: (io: OmpIo) => Start =
           type: "command_output",
           command: lastCommand ?? "omp",
           text,
-          format: text.trimStart().startsWith("```")
-            ? "markdown"
-            : "preformatted",
+          format: looksMarkdown(raw) ? "markdown" : "preformatted",
         },
         true,
       );
@@ -1096,8 +1129,25 @@ const start: (io: OmpIo) => Start =
 
     // --- 세션 정보 ---
     const currentMode = () => approvalMode ?? configMode ?? "yolo";
+    // 전역 범위 slow(Anthropic)는 omp가 사람의 설정 file에 쓰므로 내지도 보내지도 않는다.
     const slowAvailable = () =>
       st?.slowModeSupported === true && st.slowModeScope === "session";
+    const speedAxis = () => ({
+      id: "speed",
+      label: "Speed",
+      kind: "choice" as const,
+      values: [
+        { value: "standard", label: "Standard" },
+        { value: "fast", label: "Fast" },
+        ...(slowAvailable() ? [{ value: "slow", label: "Slow" }] : []),
+      ],
+    });
+    const speedNow = () =>
+      st?.slowModeEnabled === true
+        ? "slow"
+        : st?.fastModeEnabled === true
+          ? "fast"
+          : "standard";
 
     const usageOf = (): AcpUsage | null => {
       const used = st?.contextUsage;
@@ -1203,6 +1253,8 @@ const start: (io: OmpIo) => Start =
         ]);
       }
       const current = st?.model;
+      const currentId =
+        current === undefined ? null : `${current.provider}/${current.id}`;
       return {
         title: st?.sessionName ?? null,
         cli_session: cliSession,
@@ -1225,11 +1277,11 @@ const start: (io: OmpIo) => Start =
           stop_child: true,
           steer_child: true,
           tasks: true,
-          toggles: true,
+          toggles: false,
           goal: true,
           roles: true,
-          shell: false,
-          resume: false,
+          shell: true,
+          resume: true,
         },
         models: [...groups].map(([provider, list]) => ({
           id: provider,
@@ -1238,8 +1290,15 @@ const start: (io: OmpIo) => Start =
             id: `${model.provider}/${model.id}`,
             label: model.name ?? model.id,
             // 단계 목록은 지금 model의 것이다. 다른 model이 같은 단계를 갖는지는 골라 봐야 안다.
-            axes:
-              model.reasoning === false || levels.length === 0 ? [] : [axis],
+            // Speed는 ModelInfo에 tier 정보가 없어 지금 model에만 둔다.
+            axes: [
+              ...(model.reasoning === false || levels.length === 0
+                ? []
+                : [axis]),
+              ...(`${model.provider}/${model.id}` === currentId
+                ? [speedAxis()]
+                : []),
+            ],
           })),
         })),
         model:
@@ -1248,36 +1307,19 @@ const start: (io: OmpIo) => Start =
             : {
                 model: `${current.provider}/${current.id}`,
                 label: current.name ?? current.id,
-                options:
-                  st?.thinkingLevel === undefined
+                options: {
+                  ...(st?.thinkingLevel === undefined
                     ? {}
-                    : { effort: st.thinkingLevel },
+                    : { effort: st.thinkingLevel }),
+                  speed: speedNow(),
+                },
                 layer: null,
               },
         modes: MODES,
         mode: currentMode(),
         commands: commandList(),
         usage: st === null ? null : usageOf(),
-        // fast는 늘 낸다(못 쓰는 model이면 켤 때 omp가 오류로 답한다). slow는 session 범위일 때만이다: 전역이면 omp가
-        // 사람의 설정 file에 쓴다.
-        toggles: [
-          {
-            id: "fast",
-            label: "Fast",
-            description: "Priority service tier. Costs more.",
-            on: st?.fastModeEnabled === true,
-          },
-          ...(slowAvailable()
-            ? [
-                {
-                  id: "slow",
-                  label: "Slow",
-                  description: "Low-priority lane past the usage limit.",
-                  on: st?.slowModeEnabled === true,
-                },
-              ]
-            : []),
-        ],
+        toggles: [],
         goal: goalOf(),
         roles,
         harness: "omp",
@@ -1875,13 +1917,12 @@ const start: (io: OmpIo) => Start =
           return;
         }
         case "agent_start":
-          agentBusy = true;
           main.frame(frame);
           return;
         case "agent_end":
           main.frame(frame);
           if (frame.yielded !== false && frame.isTerminal !== false) {
-            agentBusy = false;
+            hadModelTurn = true;
             void refresh();
           }
           return;
@@ -2013,6 +2054,38 @@ const start: (io: OmpIo) => Start =
     started = true;
 
     // --- 시작 상태와 앞 대화 ---
+    // 저장된 대화를 처음부터 그린다. assistant가 있으면 model turn이 끝난 적이 있는 session이다.
+    async function replayHistory() {
+      for (let cursor: string | undefined; ; ) {
+        const page = await request<{
+          messages: Msg[];
+          nextCursor?: string;
+        }>("get_messages_page", {
+          limit: 256,
+          ...(cursor ? { cursor } : {}),
+        });
+        if (!page.ok) {
+          info(
+            `Could not read the earlier conversation: ${page.error}`,
+            "warning",
+          );
+          return;
+        }
+        if (page.data.messages.some((msg) => msg.role === "assistant")) {
+          hadModelTurn = true;
+        }
+        main.replay(page.data.messages, (msg) => {
+          if (msg.synthetic || msg.attribution === "agent") return;
+          main.endTurn("completed");
+          addUser(ids.newId("msg"), [
+            { type: "text", text: joined(msg.content, "text") },
+          ]);
+        });
+        cursor = page.data.nextCursor;
+        if (cursor === undefined) return;
+      }
+    }
+
     const ready = (async () => {
       const [, , , available, commandsReply] = await Promise.all([
         readState(),
@@ -2025,33 +2098,7 @@ const start: (io: OmpIo) => Start =
       models = available.ok ? available.data.models : [];
       commands = commandsReply.ok ? commandsReply.data.commands : [];
       publishMeta();
-      if (resume !== undefined) {
-        for (let cursor: string | undefined; ; ) {
-          const page = await request<{
-            messages: Msg[];
-            nextCursor?: string;
-          }>("get_messages_page", {
-            limit: 256,
-            ...(cursor ? { cursor } : {}),
-          });
-          if (!page.ok) {
-            info(
-              `Could not read the earlier conversation: ${page.error}`,
-              "warning",
-            );
-            break;
-          }
-          main.replay(page.data.messages, (msg) => {
-            if (msg.synthetic || msg.attribution === "agent") return;
-            main.endTurn("completed");
-            addUser(ids.newId("msg"), [
-              { type: "text", text: joined(msg.content, "text") },
-            ]);
-          });
-          cursor = page.data.nextCursor;
-          if (cursor === undefined) break;
-        }
-      }
+      if (resume !== undefined) await replayHistory();
       await attachRunning();
     })();
 
@@ -2131,24 +2178,23 @@ const start: (io: OmpIo) => Start =
       for (const one of queue.slice(from)) await queueAdd(one);
     }
 
-    // `!cmd`만 도는 turn은 agent가 도는 것이 아니다.
-    const bashOnly = () =>
-      main.turn !== null && main.turn === bashTurn && !agentBusy;
-
     // 도는 중에는 omp가 branch·fork·new_session을 거절한다(`session_busy`).
     function idleOnly(what: string): boolean {
-      if (main.turn === null || bashOnly()) return true;
+      if (main.turn === null) return true;
       info(`Stop the running turn before ${what}.`, "warning");
       return false;
     }
 
-    // RPC `prompt`는 `!`을 해석하지 않아 model에게 글로 간다. `bash`로 보내고 tool 줄 하나로 그린다.
+    // RPC `prompt`는 `!`을 해석하지 않아 model에게 글로 간다. `bash`로 보내고 사람이 돌린 tool 줄 하나로 그린다.
+    // 사람 말풍선은 만들지 않는다. 도는 turn이 없으면 turn도 열지 않아 끝 줄(turn_end)이 생기지 않는다.
     async function bashCommand(command: string) {
-      const own = main.turn === null;
-      if (own) bashTurn = main.startTurn();
-      const mine = main.turn;
       bashJobs += 1;
-      const call = main.toolStart(`bash-${++counter}`, "bash", { command });
+      const call = main.toolStart(
+        `bash-${++counter}`,
+        "bash",
+        { command },
+        { user: command },
+      );
       const reply = await request<BashResult>("bash", { command });
       bashJobs -= 1;
       main.toolEnd(
@@ -2162,10 +2208,128 @@ const start: (io: OmpIo) => Start =
               : "ok",
         reply.ok ? (reply.data.output ?? "") : reply.error,
       );
-      if (own && main.turn === mine && !agentBusy) {
-        bashTurn = null;
-        main.endTurn("completed");
+    }
+
+    // fast와 slow는 서로 배타다: 가는 쪽을 켜기 전에 켜진 반대쪽을 끈다. 오류면 알리고, 뒤의 `refresh()`가 축 값을 되돌린다.
+    async function setSpeed(speed: string) {
+      if (
+        speed === "slow"
+          ? !slowAvailable()
+          : speed !== "fast" && speed !== "standard"
+      ) {
+        return;
       }
+      const steps: [string, boolean][] = [];
+      if (speed !== "fast" && st?.fastModeEnabled === true) {
+        steps.push(["set_fast_mode", false]);
+      }
+      if (speed !== "slow" && st?.slowModeEnabled === true) {
+        steps.push(["set_slow_mode", false]);
+      }
+      if (speed === "fast") steps.push(["set_fast_mode", true]);
+      if (speed === "slow") steps.push(["set_slow_mode", true]);
+      for (const [type, enabled] of steps) {
+        const reply = await request(type, { enabled });
+        if (!reply.ok) {
+          return void info(
+            `Could not change the speed: ${reply.error}`,
+            "warning",
+          );
+        }
+      }
+    }
+
+    // 지금 session file의 폴더가 이 cwd의 session 폴더다(폴더 이름은 omp의 규칙이라 만들지 않는다). file마다 앞 두 줄
+    // (`title`, `session`)만 읽는다. 아직 저장 전이라 `sessionFile`이 없으면 폴더를 몰라 빈 목록이다.
+    async function sessionFiles(): Promise<
+      (AcpCliSession & { path: string })[]
+    > {
+      const file = st?.sessionFile;
+      if (file === undefined) return [];
+      const dir = dirname(file);
+      let names: string[];
+      try {
+        names = await io.readDir(dir);
+      } catch {
+        return [];
+      }
+      const found = await Promise.all(
+        names
+          .filter((name) => name.endsWith(".jsonl"))
+          .map(async (name) => {
+            const path = join(dir, name);
+            let titled: { title?: string; updatedAt?: string } = {};
+            let header: { id?: string; timestamp?: string } = {};
+            try {
+              const head = await io.readHead(path, 4096);
+              for (const line of head.split("\n").slice(0, 2)) {
+                try {
+                  const one = JSON.parse(line) as {
+                    type?: string;
+                    title?: string;
+                    updatedAt?: string;
+                    id?: string;
+                    timestamp?: string;
+                  };
+                  if (one.type === "title") titled = one;
+                  else if (one.type === "session") header = one;
+                } catch {}
+              }
+            } catch {
+              return [];
+            }
+            if (header.id === undefined) return [];
+            return [
+              {
+                id: header.id,
+                title: titled.title || "(untitled)",
+                updated_at: titled.updatedAt ?? header.timestamp ?? null,
+                path,
+              },
+            ];
+          }),
+      );
+      return found
+        .flat()
+        .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
+        .slice(0, 30);
+    }
+
+    // process를 다시 띄우지 않고 omp의 session을 바꾼다. 앞 대화는 새 session에 없어 상태를 비우고 다시 그린다.
+    async function openSession(id: string) {
+      if (!idleOnly("opening another session")) return;
+      const target = (await sessionFiles()).find((one) => one.id === id);
+      if (target === undefined) {
+        return void info(
+          "That session is no longer in this folder.",
+          "warning",
+        );
+      }
+      const reply = await request<{ cancelled: boolean }>("switch_session", {
+        sessionPath: target.path,
+      });
+      if (!reply.ok || reply.data.cancelled) {
+        return void info(
+          reply.ok
+            ? "omp cancelled opening the session."
+            : `Could not open the session: ${reply.error}`,
+          "warning",
+        );
+      }
+      userIds = [];
+      turnText.clear();
+      promptTurn.clear();
+      queue.length = 0;
+      pendingEcho = [];
+      subs.clear();
+      taskLines.clear();
+      tasks = [];
+      todoJson = "";
+      hadModelTurn = false;
+      publish({ type: "session_reset" });
+      await refresh();
+      await replayHistory();
+      await attachRunning();
     }
 
     async function newSession() {
@@ -2275,7 +2439,11 @@ const start: (io: OmpIo) => Start =
         if (next !== undefined) hideFrom(target, next.id);
         userIds = userIds.slice(0, userIds.indexOf(target) + 1);
       }
+      const from = st?.sessionName;
       await refresh();
+      info(
+        `Forked from “${from || "(untitled)"}”. The original session is unchanged.`,
+      );
     }
 
     // --- goal ---
@@ -2379,7 +2547,7 @@ const start: (io: OmpIo) => Start =
             return;
           }
           const extra = await imagesOf(message.content);
-          if (main.turn !== null && !bashOnly()) {
+          if (main.turn !== null) {
             const one: Queued = {
               id: message.id,
               content: message.content,
@@ -2411,13 +2579,20 @@ const start: (io: OmpIo) => Start =
           await prompt(text, extra);
           return;
         }
+        case "run_shell": {
+          const command = message.command.trim();
+          if (command !== "") await bashCommand(command);
+          return;
+        }
+        case "open_session":
+          return openSession(message.cli_session);
         case "stop":
           if (bashJobs > 0) void request("abort_bash");
-          if (main.turn !== null && !bashOnly()) void request("abort");
+          if (main.turn !== null) void request("abort");
           return;
         case "retry": {
           const text = turnText.get(message.turn);
-          if (text === undefined || (main.turn !== null && !bashOnly())) return;
+          if (text === undefined || main.turn !== null) return;
           addUser(ids.newId("msg"), [{ type: "text", text }]);
           pendingEcho.push(text);
           await prompt(text, {});
@@ -2501,6 +2676,10 @@ const start: (io: OmpIo) => Start =
           if (effort !== undefined && levels.includes(effort)) {
             await request("set_thinking_level", { level: effort });
           }
+          const speed = message.options.speed;
+          if (speed !== undefined && speed !== speedNow()) {
+            await setSpeed(speed);
+          }
           await refresh();
           return;
         }
@@ -2557,22 +2736,6 @@ const start: (io: OmpIo) => Start =
           if (!reply.ok) info(`Could not steer it: ${reply.error}`, "warning");
           return;
         }
-        case "set_toggle": {
-          if (message.id === "fast") {
-            const reply = await request("set_fast_mode", {
-              enabled: message.on,
-            });
-            if (!reply.ok) info(`Fast mode: ${reply.error}`, "warning");
-          } else if (message.id === "slow" && slowAvailable()) {
-            // 전역 범위이면 omp가 사람의 설정 file에 쓴다. 보내지 않는다.
-            const reply = await request("set_slow_mode", {
-              enabled: message.on,
-            });
-            if (!reply.ok) info(`Slow mode: ${reply.error}`, "warning");
-          } else return;
-          await refresh();
-          return;
-        }
         case "set_goal":
           await setGoal(message.objective, message.paused);
           return;
@@ -2616,8 +2779,17 @@ const start: (io: OmpIo) => Start =
         })();
         return stopped;
       },
-      tuiCommand: () =>
-        `omp${cliSession === null ? "" : ` --resume=${cliSession}`}${approvalMode === null ? "" : ` --approval-mode=${approvalMode}`}`,
+      tuiCommand() {
+        if (!hadModelTurn) {
+          info(
+            "omp has not saved this session yet (no model turn), so the terminal view starts a new session.",
+          );
+        }
+        return `omp${cliSession === null || !hadModelTurn ? "" : ` --resume=${cliSession}`}${approvalMode === null ? "" : ` --approval-mode=${approvalMode}`}`;
+      },
+      async sessions() {
+        return (await sessionFiles()).map(({ path: _, ...one }) => one);
+      },
       sessionId: () => cliSession,
       running: () => ({
         turn: main.turn !== null,
@@ -2647,4 +2819,18 @@ export function createOmpAdapter(io: OmpIo): HarnessGuiAdapter {
   };
 }
 
-export const ompAdapter = createOmpAdapter({ home: homedir(), readFile });
+export const ompAdapter = createOmpAdapter({
+  home: homedir(),
+  readFile,
+  readDir: readdir,
+  async readHead(path, bytes) {
+    const file = await open(path, "r");
+    try {
+      const buffer = Buffer.alloc(bytes);
+      const { bytesRead } = await file.read(buffer, 0, bytes, 0);
+      return buffer.subarray(0, bytesRead).toString("utf8");
+    } finally {
+      await file.close();
+    }
+  },
+});

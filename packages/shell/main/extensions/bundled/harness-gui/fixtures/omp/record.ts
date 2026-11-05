@@ -2,7 +2,8 @@
 // `<out>/<scenario>.jsonl`에 `{t, kind, data}`로 쓴다. test는 이것을 돌리지 않는다. 사람 허락 아래 lead가 돌린다.
 //
 // 저장소 root에서:
-//   node --experimental-strip-types --no-warnings packages/shell/main/extensions/bundled/harness-gui/fixtures/omp/record.ts --out <dir> --model <패턴> [scenario ...]
+//   node --experimental-strip-types --no-warnings packages/shell/main/extensions/bundled/harness-gui/fixtures/omp/record.ts --out <dir> --model <패턴> [--seed-sessions <dir>] [scenario ...]
+// `switch`만 --seed-sessions(저장된 session file이 든 폴더, 앞 녹화의 `sessions/`)가 필요하다. 그 file을 scratch로 복사해 쓴다.
 // scenario를 안 주면 아래를 다 돈다. --out과 --model은 필수다(model을 빼면 omp의 기본 model로 돌아 비쌀 수 있다).
 // session은 `<out>/sessions/`에 따로 쌓아 사람의 ~/.omp를 건드리지 않는다(auth와 설정은 사람의 것을 그대로 쓴다).
 // scenario cwd는 os.tmpdir() 아래 mkdtemp 폴더이고 끝나면 지운다(lophn checkout 안이면 omp가 위 폴더의 AGENTS.md를 읽는다).
@@ -11,6 +12,7 @@ import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import {
   appendFileSync,
   chmodSync,
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -49,10 +51,11 @@ const flag = (name: string) => {
 };
 const outArg = flag("--out");
 const model = flag("--model");
+const seedArg = flag("--seed-sessions");
 const wanted = argv.filter(
   (one, index) =>
     !one.startsWith("--") &&
-    !["--out", "--model"].includes(argv[index - 1] ?? ""),
+    !["--out", "--model", "--seed-sessions"].includes(argv[index - 1] ?? ""),
 );
 if (outArg === undefined || model === undefined) {
   console.error(
@@ -261,12 +264,13 @@ async function launch(
   ctx: Ctx,
   extra: string[] = [],
   env: Record<string, string> = {},
+  sessionDir = SESSIONS,
 ): Promise<Rec> {
   const args = [
     "--mode",
     "rpc-ui",
     `--cwd=${ctx.cwd}`,
-    `--session-dir=${SESSIONS}`,
+    `--session-dir=${sessionDir}`,
     `--model=${model}`,
     ...extra,
   ];
@@ -953,6 +957,58 @@ process.stdin.on("end", () => appendFileSync(${JSON.stringify(calls)}, JSON.stri
     await rec.prompt("Reply with exactly the word pong. Do not use any tool.");
     await rec.prompt("/export");
     await rec.stop();
+  },
+
+  // (25) `switch_session`. 저장된 session 둘(앞 녹화에서 복사한 scratch, header의 cwd는 이 scenario의 cwd로 바꾼다)을 두고 하나로
+  // 띄운 뒤 다른 file로 바꾼다. 볼 것: 답의 `cancelled`, 뒤따르는 event(`available_commands_update` 등), `sessionId`가 바뀌는지,
+  // 바뀐 뒤 get_messages_page. 없는 path의 오류 답도 본다. model은 부르지 않는다(prompt를 보내지 않는다).
+  async switch(ctx) {
+    if (seedArg === undefined) throw new Error("switch needs --seed-sessions");
+    const seeds = readdirSync(resolve(seedArg))
+      .filter((name) => name.endsWith(".jsonl"))
+      .sort()
+      .filter((name) =>
+        readFileSync(join(resolve(seedArg), name), "utf8").includes(
+          '"role":"assistant"',
+        ),
+      )
+      .slice(0, 2);
+    if (seeds.length < 2)
+      throw new Error("need two seed sessions with a model turn");
+    const dir = mkdtempSync(join(tmpdir(), "omp-rec-switch-sessions-"));
+    try {
+      const paths = seeds.map((name) => {
+        const path = join(dir, name);
+        copyFileSync(join(resolve(seedArg), name), path);
+        const lines = readFileSync(path, "utf8").split("\n");
+        const header = JSON.parse(lines[1] ?? "{}") as Record<string, unknown>;
+        lines[1] = JSON.stringify({ ...header, cwd: ctx.cwd });
+        writeFileSync(path, lines.join("\n"));
+        return { path, id: String(header.id) };
+      });
+      const [first, second] = paths;
+      if (first === undefined || second === undefined) return;
+      ctx.log.write("lead_note", `sessions: ${first.id} then ${second.id}`);
+      const rec = await launch(
+        ctx,
+        ["--approval-mode=yolo", `--resume=${first.id}`],
+        {},
+        dir,
+      );
+      await rec.call("get_state");
+      await rec.call("switch_session", { sessionPath: second.path });
+      await sleep(1500);
+      await rec.call("get_state");
+      await rec.call("get_messages_page", { limit: 256 });
+      await rec.call("switch_session", {
+        sessionPath: join(dir, "missing.jsonl"),
+      });
+      await sleep(500);
+      await rec.call("get_state");
+      await rec.stop();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   },
 };
 

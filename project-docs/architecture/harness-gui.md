@@ -71,4 +71,4 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - **Codex는 sandbox와 승인 정책을 늘 넘기고 OpenCode는 사람 설정을 그대로 쓴다.** brief가 full access를 금했고 Codex는 thread마다 정책을 받는다. OpenCode의 권한은 사람이 쓴 규칙표라 adapter가 덮어쓰면 사람의 규칙을 바꾸게 된다.
 - **창이 채팅 화면을 다시 짜지 않는다.** source만 바꿔 `AgentView`를 쓰고, 없는 기능은 source의 칸 하나(`external`)로 숨긴다.
 - **handle이 갱신을 쌓는다.** adapter는 창이 뜨기를 기다리지 않고 바로 publish한다. 창 쪽이 snapshot 없이 처음부터 접으면 되어 snapshot route가 필요 없다.
-- **open intent를 extension이 건다.** 꺼진 extension은 code를 load하지 않으므로(extension.md) intent를 받을 함수가 없는 것이 곧 "꺼짐"이다. 그때 Settings를 연다.
+- **탭 요청은 extension이 건 함수가 받는다.** 꺼진 extension은 code를 load하지 않으므로(extension.md) `onTab` 함수가 없는 것이 곧 "꺼짐"이다. 그때 Settings › System › Extensions를 연다.

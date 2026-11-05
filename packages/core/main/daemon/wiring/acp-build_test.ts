@@ -39,6 +39,7 @@ import {
   type AcpStoredItem,
   acpUpdatesFor,
   buildAcpState,
+  readDraftMeta,
   readSessionMeta,
   sessionChangeOf,
 } from "./acp-build.ts";
@@ -445,4 +446,55 @@ test("rename 뒤의 session_changed를 접은 session meta가 snapshot의 것과
   acpSessionMetaSchema.parse(after);
   assert.deepStrictEqual(folded.session, after);
   assert.equal(after.title, "new [redacted]");
+});
+
+// 첫 메시지 전 화면이 보는 draft meta는 같은 agent·place로 연 새 session의 meta에서 title·usage·cli_session을 뺀 것과 같다.
+// 다르면 첫 메시지를 보낸 순간 model 단추나 mode가 바뀐다.
+test("draft meta는 같은 agent와 place로 연 session의 meta에서 title·usage·cli_session을 뺀 것과 같다", async () => {
+  const place = { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5f001" };
+  const found: Record<string, unknown> = {
+    [key(placeSessionRead)]: {
+      session: {
+        agent: "lophn",
+        place,
+        title: null,
+        skip: false,
+        model_selection: null,
+      },
+    },
+    [key(providerList)]: { providers: [], next_cursor: null },
+    [key(modelCatalogRead)]: { entries: [], next_cursor: null },
+    [key(shownModelsRead)]: { shown: { items: [] } },
+    [key(agentRead)]: {
+      effective: {
+        model: {
+          value: { provider: "prv_x", model_name: "m", option_values: {} },
+          source: "agent",
+        },
+      },
+    },
+    [key(sessionStatusRead)]: {
+      context: null,
+      tokens: { input: 1, output: 2, cache_read: null, cache_write: null },
+      turns: 1,
+      costs: [],
+      provider: null,
+    },
+    [key(commandsList)]: { commands: [] },
+  };
+  const read = <T>(route: { resource: string; method: string }) =>
+    Promise.resolve(ok(found[key(route)] as T));
+  const e: AcpEnv = { read, redact: (text) => text };
+
+  const session = await readSessionMeta(e, SES, read);
+  const draft = await readDraftMeta(e, { agent: "lophn", place } as never);
+  assert.ok(session !== null);
+  acpSessionMetaSchema.parse(draft);
+  assert.deepStrictEqual(draft, {
+    ...session,
+    title: null,
+    usage: null,
+    cli_session: null,
+  });
+  assert.equal(draft.model?.layer, "agent");
 });

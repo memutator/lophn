@@ -102,9 +102,9 @@ export const StatusCostScene = () => (
       view: "status",
       status: {
         context: { tokens: 142_000, limit: 1_000_000 },
-        inputTokens: 1_280_400,
-        cacheReadTokens: 2_160_000,
-        outputTokens: 34_200,
+        input_tokens: 1_280_400,
+        cache_read_tokens: 2_160_000,
+        output_tokens: 34_200,
         costs: [{ kind: "estimated", currency: "USD", amount: "2.064708" }],
       },
     }}

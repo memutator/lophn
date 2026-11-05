@@ -9,7 +9,7 @@ import {
   SESSION_ARCHIVED,
   SESSION_MAIN,
 } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
-import type { StatusView } from "../../../../packages/shell/renderer/conversation/agent-tab-source.ts";
+import type { AcpUsage } from "../../../../packages/protocol/acp/mod.ts";
 import { AgentView } from "../../../../packages/shell/renderer/conversation/agent-view.tsx";
 import { DraftStore } from "../../../../packages/shell/renderer/conversation/drafts.ts";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -49,7 +49,7 @@ const DEMOS: Readonly<
     {
       scene: AgentTabScene;
       steps: readonly Step[];
-      status?: Partial<StatusView>;
+      status?: Partial<AcpUsage>;
     }
   >
 > = {

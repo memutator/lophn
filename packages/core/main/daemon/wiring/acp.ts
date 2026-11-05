@@ -1,4 +1,4 @@
-// ACP: snapshot route(`AcpSnapshot`)와 갱신 event(`AcpUpdated`). 기록을 읽어 상태를 만드는 일은 `acp-build.ts`이고,
+// ACP: snapshot route(`AcpSnapshot`)와 첫 메시지 전 meta(`AcpDraft`), 갱신 event(`AcpUpdated`). 기록을 읽어 상태를 만드는 일은 `acp-build.ts`이고,
 // 여기서는 Bus의 agent event를 ACP 갱신으로 바꿔 내고(`acpUpdatesOf`), 항목이 대화에 들 때 session 순번을
 // 저장하며(`AllocateAcpItems`), rewind가 끝나면 숨긴 구간을 낸다. event를 하나씩 차례로 처리해 갱신 순서가 event 순서다.
 // 화면의 대화 조작은 `AcpSend` 하나로 받아 지금 route로 보낸다(`acp-send.ts`).
@@ -7,6 +7,7 @@ import {
   type AcpInput,
   type AcpUpdate,
   acpCoreApprovalChoices,
+  acpDraft,
   acpItemsAllocate,
   acpSend,
   acpSnapshot,
@@ -56,6 +57,7 @@ import {
   type AcpStoredItem,
   acpUpdatesFor,
   buildAcpState,
+  readDraftMeta,
   readSessionMeta,
   redactDeep,
   sessionChangeOf,
@@ -386,13 +388,21 @@ export const acpWiring: WiringFactory = () => {
           ],
         ],
         reads: (reads) =>
-          reads.set(key(acpSnapshot), async (who, input) => {
-            const parsed = acpSnapshot.input.safeParse(input);
-            if (!parsed.success) {
-              return err({ code: "invalid_input", message: "invalid input" });
-            }
-            return await snapshot(parsed.data.session, who);
-          }),
+          reads
+            .set(key(acpSnapshot), async (who, input) => {
+              const parsed = acpSnapshot.input.safeParse(input);
+              if (!parsed.success) {
+                return err({ code: "invalid_input", message: "invalid input" });
+              }
+              return await snapshot(parsed.data.session, who);
+            })
+            .set(key(acpDraft), async (_who, input) => {
+              const parsed = acpDraft.input.safeParse(input);
+              if (!parsed.success) {
+                return err({ code: "invalid_input", message: "invalid input" });
+              }
+              return ok(await readDraftMeta(env, parsed.data));
+            }),
         // rewind가 숨긴 구간은 AgentEvent가 없어 적용이 끝난 뒤 여기서 낸다. 제목·model·mode는 어느 client가 바꿔도
         // 이 writer를 지나므로 바뀐 칸을 여기서 낸다. 첫 말은 자동 제목을 붙이므로 SendMessage 뒤에도 제목을 낸다.
         writer: (inner) => ({

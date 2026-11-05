@@ -42,7 +42,6 @@ import type {
   SessionEntry,
   SessionSearchMatch,
   SourceResult,
-  StatusView,
   ToolCallBodyView,
 } from "./agent-tab-source.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
@@ -1291,13 +1290,13 @@ function modelsOf(picker: FakePicker): {
 }
 
 // 구독 OAuth 연결의 session. 금액은 구독이라 알 수 없고 token만 보인다.
-function usageOf(over: Partial<StatusView>): AcpUsage {
+function usageOf(over: Partial<AcpUsage>): AcpUsage {
   return {
     context: over.context ?? { tokens: 86_508, limit: 1_050_000 },
-    input_tokens: over.inputTokens ?? 412_890,
-    output_tokens: over.outputTokens ?? 11_531,
-    cache_read_tokens: over.cacheReadTokens ?? 301_440,
-    cache_write_tokens: over.cacheWriteTokens ?? 0,
+    input_tokens: over.input_tokens ?? 412_890,
+    output_tokens: over.output_tokens ?? 11_531,
+    cache_read_tokens: over.cache_read_tokens ?? 301_440,
+    cache_write_tokens: over.cache_write_tokens ?? 0,
     turns: over.turns ?? 3,
     costs: [
       ...(over.costs ?? [
@@ -1316,7 +1315,7 @@ function usageOf(over: Partial<StatusView>): AcpUsage {
 
 interface MetaOptions {
   readonly picker: FakePicker;
-  readonly status: Partial<StatusView>;
+  readonly status: Partial<AcpUsage>;
   readonly title: string | null;
   readonly mode: "ask" | "skip";
 }
@@ -1411,7 +1410,7 @@ export function createFakeAgentTabSource(
     scene?: AgentTabScene;
     picker?: FakePicker;
     /** status panel과 푸터가 읽는 값. 준 칸만 기본값을 덮는다(예: 창 사용률이 높은 상태). */
-    status?: Partial<StatusView>;
+    status?: Partial<AcpUsage>;
     /** 보낸 말과 시작한 turn의 시각. 없으면 장면의 고정 시각이다(gallery). */
     now?: () => number;
   } = {},
@@ -1720,6 +1719,12 @@ export function createFakeAgentTabSource(
       matches.sort((a, b) => b.at.localeCompare(a.at));
       return ok(matches.slice(0, SEARCH_MATCH_MAX));
     },
+    // 새 session이 처음 갖는 meta: 첫 말을 보내 session을 열면 받을 값에서 제목과 사용량을 뺀 것.
+    draft: () =>
+      ok({
+        ...freshMeta(null),
+        usage: null,
+      }),
     acp(session) {
       return sessions.some((item) => item.id === session)
         ? ok(stateOf(session))

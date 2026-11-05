@@ -54,7 +54,7 @@ const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
 
 interface AgentComposerProps {
   /** `/` 명령 창이 메뉴를 열 때 명령 목록을 다시 읽는 통로. */
-  source: Pick<AgentTabSource, "acp">;
+  source: Pick<AgentTabSource, "acp" | "draft">;
   /** model 단추·picker와 `/` 명령 창이 그리는 session 기능. 아직 모르면 null이다. */
   meta: AcpSessionMeta | null;
   /** 어떤 칸을 그릴지. */

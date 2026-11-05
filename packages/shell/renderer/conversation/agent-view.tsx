@@ -253,34 +253,25 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     [source, session],
   );
 
-  const borrowed = useBorrowedMeta(source, data.sessions, session === null);
-  // 아직 만들지 않은 새 session은 session meta가 없다. 같은 agent의 다른 session에서 목록(model, 명령)과 capability만
-  // 빌리고, 그 session이 고른 model과 mode, 사용량은 이 session의 것이 아니라 가린다.
+  const drafted = useDraftMeta(source, session === null);
+  // 아직 만들지 않은 새 session은 session meta가 없다. source가 agent와 place로 읽은 draft에 새 session에서 고른 model을 얹는다.
   const meta: AcpSessionMeta | null =
     session !== null
       ? (thread?.session ?? null)
-      : borrowed === null
-        ? null
+      : drafted === null || pendingModel === null
+        ? drafted
         : {
-            ...borrowed,
-            title: null,
-            mode: null,
-            usage: null,
-            model:
-              pendingModel === null
-                ? borrowed.model?.layer === "session"
-                  ? null
-                  : borrowed.model
-                : {
-                    model: pendingModel.model,
-                    label:
-                      borrowed.models
-                        .flatMap((group) => group.models)
-                        .find((one) => one.id === pendingModel.model)?.label ??
-                      pendingModel.model,
-                    options: pendingModel.options,
-                    layer: "session",
-                  },
+            ...drafted,
+            model: {
+              model: pendingModel.model,
+              label:
+                drafted.models
+                  .flatMap((group) => group.models)
+                  .find((one) => one.id === pendingModel.model)?.label ??
+                pendingModel.model,
+              options: pendingModel.options,
+              layer: "session",
+            },
           };
   const caps = capabilitiesOf(meta);
   const plan = thread?.plan ?? null;
@@ -912,34 +903,21 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
 }
 
-/**
- * 새 session 화면이 목록·명령·capability를 빌릴 meta. 가장 최근에 쓴 session의 snapshot에서 한 번 읽는다. session이
- * 하나도 없으면 null이다.
- */
-function useBorrowedMeta(
+/** 새 session 화면의 session 기능. 첫 메시지 전이라 snapshot이 없어 source가 agent와 place로 읽는다. */
+function useDraftMeta(
   source: AgentTabSource,
-  sessions: readonly SessionEntry[],
   enabled: boolean,
 ): AcpSessionMeta | null {
   const [meta, setMeta] = useState<AcpSessionMeta | null>(null);
-  const latest = enabled
-    ? sessions
-        .filter((one) => !one.archived)
-        .reduce<SessionEntry | null>(
-          (best, one) =>
-            best === null || one.activeAt > best.activeAt ? one : best,
-          null,
-        )?.id
-    : undefined;
   useEffect(() => {
-    if (latest === undefined) return;
+    if (!enabled || source.draft === undefined) return;
     let live = true;
-    void source.acp(latest).then((read) => {
-      if (live && read.ok) setMeta(read.value.session);
+    void source.draft().then((read) => {
+      if (live && read.ok) setMeta(read.value);
     });
     return () => {
       live = false;
     };
-  }, [source, latest]);
+  }, [source, enabled]);
   return enabled ? meta : null;
 }

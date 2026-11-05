@@ -20,7 +20,7 @@ import {
 } from "./slash-menu/slash-menu.tsx";
 
 interface SlashMenuInput {
-  source: Pick<AgentTabSource, "acp">;
+  source: Pick<AgentTabSource, "acp" | "draft">;
   session: string | null;
   /** 첫 읽기의 명령. 메뉴를 열 때 snapshot을 다시 읽어 새로 켠 skill을 반영하므로 그 전까지의 값이다. */
   commands: readonly AcpCommand[];
@@ -54,12 +54,21 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
   const commands = fresh ?? input.commands;
   const opened = query !== null;
   useEffect(() => {
-    if (!opened || session === null) return;
+    if (!opened) return;
     let live = true;
-    void source.acp(session).then((read) => {
-      if (live && read.ok && read.value.session !== null) {
-        setFresh(read.value.session.commands);
-      }
+    // 새 session 화면은 snapshot이 없어 draft를 다시 읽는다.
+    const meta =
+      session === null
+        ? source.draft?.()
+        : source
+            .acp(session)
+            .then((read) =>
+              read.ok && read.value.session !== null
+                ? { ok: true as const, value: read.value.session }
+                : { ok: false as const },
+            );
+    void meta?.then((read) => {
+      if (live && read.ok) setFresh(read.value.commands);
     });
     return () => {
       live = false;

@@ -1,4 +1,4 @@
-import { acpSend, acpSnapshot } from "./acp/routes.ts";
+import { acpDraft, acpSend, acpSnapshot } from "./acp/routes.ts";
 import { eventsList } from "./events/events.ts";
 import { sessionSnapshotsList } from "./events/snapshot.ts";
 import {
@@ -23,6 +23,7 @@ export const ROUTES = [
   eventsList,
   sessionSnapshotsList,
   acpSnapshot,
+  acpDraft,
   acpSend,
   ...BLOB_ROUTES,
   ...DIAGNOSTIC_ROUTES,

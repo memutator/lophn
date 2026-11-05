@@ -6,7 +6,6 @@ import type { AcpInput, AcpState } from "../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
 import type { HarnessGuiInfo } from "../../ipc/harness-gui.ts";
-import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 
 interface GuiSourceDeps {
@@ -96,13 +95,6 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
           answer: [...one.answer],
         })),
       }),
-    decidePermission: (_session, request, choice, reason) =>
-      send({
-        type: "decide",
-        session,
-        request,
-        choice: turnChoiceOf(choice, reason),
-      }),
 
     act: async (_session, input) =>
       (await deps.input(input)) ? { ok: true, value: {} } : UNAVAILABLE,
@@ -128,23 +120,12 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     envelope: none,
     callState: none,
     cancelCall: none,
-    model: none,
-    chooseModel: none,
-    setModelOption: none,
-    commands: none,
-    runCommand: none,
     permissions: none,
-    status: none,
     openSession: none,
-    renameSession: none,
     stopSession: none,
     archiveSession: none,
-    changeSkip: none,
     deleteSession: none,
-    forkSession: none,
-    compactSession: none,
     rewindPoints: none,
     rewindPreview: none,
-    rewind: none,
   };
 }

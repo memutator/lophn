@@ -52,6 +52,7 @@ import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-stat
 import {
   type AgentId,
   LOPHN_AGENT_ID,
+  type Place,
 } from "../../../../protocol/lophn-agent/places.ts";
 import {
   type ReceivedMessage,
@@ -1003,7 +1004,7 @@ export async function readSessionRecord(
 /** 화면의 model 묶음과 지금 값. 묶음·정렬은 picker 규칙(켠 model과 지금 model)을 그대로 쓴다. */
 export async function readModelPart(
   env: AcpEnv,
-  record: SessionRecord,
+  record: Pick<SessionRecord, "agent" | "place" | "model_selection">,
 ): Promise<Pick<AcpSessionMeta, "models" | "model">> {
   const [providers, entries, shown, agent] = await Promise.all([
     pages(
@@ -1135,6 +1136,28 @@ export async function readUsage(
   };
 }
 
+type MetaParts = {
+  title: string | null;
+  skip: boolean;
+  model: Pick<AcpSessionMeta, "models" | "model">;
+  usage: AcpUsage | null;
+  commands: AcpSessionMeta["commands"];
+};
+
+// session meta의 모양은 여기 하나다. session과 draft(첫 메시지 전)가 읽은 칸만 다르다.
+function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
+  return {
+    title: parts.title === null ? null : env.redact(parts.title),
+    cli_session: null,
+    capabilities: CAPABILITIES,
+    ...parts.model,
+    modes: AGENT_MODES,
+    mode: parts.skip ? "skip" : "ask",
+    commands: parts.commands,
+    usage: parts.usage,
+  };
+}
+
 /** 이름 목록은 사람 자격으로만 읽힌다(`ListCommands`). 그래서 부른 사람의 read를 받는다. */
 export async function readSessionMeta(
   env: AcpEnv,
@@ -1148,13 +1171,11 @@ export async function readSessionMeta(
     readUsage(env, session),
     readAsCaller<Output<typeof commandsList>>(commandsList, { session }),
   ]);
-  return {
-    title: record.value.title === null ? null : env.redact(record.value.title),
-    cli_session: null,
-    capabilities: CAPABILITIES,
-    ...model,
-    modes: AGENT_MODES,
-    mode: record.value.skip ? "skip" : "ask",
+  return metaOf(env, {
+    title: record.value.title,
+    skip: record.value.skip,
+    model,
+    usage,
     commands: commands.ok
       ? commands.value.commands.map((one) => ({
           name: one.name,
@@ -1163,8 +1184,24 @@ export async function readSessionMeta(
           source: one.source,
         }))
       : [],
-    usage,
-  };
+  });
+}
+
+/**
+ * 첫 메시지 전 새 session 화면의 meta. 그 agent와 place로 지금 session을 열면 받을 값이다: session이 고른 model이
+ * 없어 agent 기본값이고, mode는 ask, title·usage는 없다. `ListCommands`가 session을 받아야만 읽혀 명령은 비어 있다.
+ */
+export async function readDraftMeta(
+  env: AcpEnv,
+  draft: { agent: AgentId; place: Place | null },
+): Promise<AcpSessionMeta> {
+  return metaOf(env, {
+    title: null,
+    skip: false,
+    model: await readModelPart(env, { ...draft, model_selection: null }),
+    usage: null,
+    commands: [],
+  });
 }
 
 /** 바뀐 칸만 읽어 `session_changed` 한 건으로 낸다. 읽지 못하면 null이고 화면은 다음 snapshot에서 맞춘다. */

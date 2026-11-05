@@ -10,6 +10,7 @@ import type {
 } from "../../../../../protocol/extensions/mod.ts";
 import { claudeAdapter } from "./claude.ts";
 import { codexAdapter } from "./codex.ts";
+import { ompAdapter } from "./omp.ts";
 import { opencodeAdapter } from "./opencode.ts";
 
 /** 도는 CLI 하나. restart는 `stop()`이 끝난 뒤 `tuiCommand()`를 치고, shared는 `stop()` 없이 친다. */
@@ -50,27 +51,6 @@ export type HarnessGuiAdapter = {
   }): Promise<Result<HarnessGuiRun>>;
   /** 그 탭 PTY의 TUI를 깔끔하게 끝내고 foreground가 끝날 때 resolve한다. */
   exitTui(terminal: AcpTerminal): Promise<Result<void>>;
-};
-
-// omp는 `omp --mode rpc-ui`를 경계로 삼을 예정이다. adapter가 오기 전까지 시작하지 못한다.
-const ompAdapter: HarnessGuiAdapter = {
-  handoff: "restart",
-  start: () =>
-    Promise.resolve({
-      ok: false,
-      error: {
-        code: "unavailable",
-        message: "omp adapter is not implemented yet",
-      },
-    }),
-  exitTui: () =>
-    Promise.resolve({
-      ok: false,
-      error: {
-        code: "unavailable",
-        message: "omp adapter is not implemented yet",
-      },
-    }),
 };
 
 export const HARNESS_GUI_ADAPTERS: Record<GuiHarness, HarnessGuiAdapter> = {

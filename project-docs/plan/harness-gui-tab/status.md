@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `tab-gui` | tab | 2 | acp-session | merged | tab/tab-gui | 5fd845338 |  |
 | `adapter-claude` | adapter | 3 | acp-core, acp-screen, tab-gui | running | adapter/adapter-claude |  |  |
 | `adapter-codex` | adapter | 3 | acp-core, acp-screen, tab-gui | running | adapter/adapter-codex |  |  |
-| `adapter-omp` | adapter | 3 | acp-core, acp-screen, tab-gui | running | adapter/adapter-omp |  |  |
+| `adapter-omp` | adapter | 3 | acp-core, acp-screen, tab-gui | merged | adapter/adapter-omp | dd5eeb259 |  |
 | `adapter-opencode` | adapter | 3 | acp-core, acp-screen, tab-gui | running | adapter/adapter-opencode |  |  |
 | `fix-acp-draft` | fix | 3 | acp-screen | merged | fix/fix-acp-draft | e02aaeda0 |  |
 | `gui-cleanup` | tab | 3 | tab-gui | merged | tab/gui-cleanup | c00339464 |  |

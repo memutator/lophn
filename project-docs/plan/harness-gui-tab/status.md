@@ -30,4 +30,4 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `opencode-fix2` | adapter | 10 | acp-round2 | merged | adapter/opencode-fix2 | e5daea391 |  |
 | `core-shell` | core | 10 | acp-round2 | merged | core/core-shell | 037790109 |  |
 | `screen-a` | screen | 10 | acp-round2 | merged | screen/screen-a | 15ff63677 |  |
-| `screen-b` | screen | 11 | screen-a | todo |  |  |  |
+| `screen-b` | screen | 11 | screen-a | merged | screen/screen-b | c51385488 |  |

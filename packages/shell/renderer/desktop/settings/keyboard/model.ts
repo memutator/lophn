@@ -5,12 +5,16 @@ import { type MessageKey, t } from "@lophn/i18n";
 
 import {
   APP_PANEL,
+  appPanelBindingId,
   type Binding,
   bindingId,
   type Command,
   KEYBINDINGS,
+  type KeyConflict,
+  type KeySection,
   type KeyOverrides,
   type KeyPlatform,
+  parseBindingId,
   parseChord,
   sameChord,
   resolveBindings,
@@ -22,7 +26,7 @@ interface Wording {
   readonly help: MessageKey;
 }
 
-const WORDING: Readonly<Record<Command, Wording>> = {
+const WORDING: Readonly<Record<Exclude<Command, "app.panel">, Wording>> = {
   "tab.next": {
     name: "settings.label.key-tab-next",
     help: "settings.note.key-tab-next",
@@ -259,29 +263,40 @@ const WORDING: Readonly<Record<Command, Wording>> = {
     name: "settings.label.key-jobs-open",
     help: "settings.note.key-jobs-open",
   },
-  "app.panel": {
-    name: "settings.label.key-app-panel",
-    help: "settings.note.key-app-panel",
-  },
 };
 
-export function commandName(command: Command): string {
+export function commandName(command: Exclude<Command, "app.panel">): string {
   return t(WORDING[command].name);
 }
+
+/** Settings 묶음의 순서와 제목. 표가 이미 이 순서로 놓였고 app은 사람이 단 키가 뒤에 붙는다. */
+export const SECTIONS: readonly { section: KeySection; title: MessageKey }[] = [
+  { section: "tab", title: "settings.heading.key-section-tab" },
+  { section: "pane", title: "settings.heading.key-section-pane" },
+  { section: "desk", title: "settings.heading.key-section-desk" },
+  { section: "float", title: "settings.heading.key-section-float" },
+  { section: "open", title: "settings.heading.key-section-open" },
+  { section: "view", title: "settings.heading.key-section-view" },
+  { section: "app", title: "settings.heading.key-section-app" },
+];
 
 /** 한 줄. 번호 줄이면 modifier 하나를 보이고 바꾼다. */
 export type KeyRow =
   | {
       readonly kind: "single";
       readonly id: string;
+      readonly section: KeySection;
       readonly command: Command;
       readonly name: string;
       readonly help: string;
       readonly chords: readonly string[];
       readonly changed: boolean;
+      /** 저장된 `app.panel:*`인데 설치된 앱의 panel 화면 목록에 없다. 지우기만 된다. */
+      readonly missing: boolean;
     }
   | {
       readonly kind: "numbered";
+      readonly section: KeySection;
       readonly command: Command;
       /** 이 줄이 바꾸는 binding id. 번호 순서다. */
       readonly ids: readonly string[];
@@ -307,17 +322,19 @@ export function keyRows(
   const rows: KeyRow[] = [];
   for (const binding of bindings) {
     const command = binding.command;
-    // 사람이 단 앱 panel 키는 kb-settings가 따로 줄을 만든다.
+    // 사람이 단 앱 panel 키는 appRows가 줄을 만든다.
     if (command === APP_PANEL) continue;
     if (binding.arg === undefined) {
       rows.push({
         kind: "single",
         id: bindingId(binding),
+        section: binding.section,
         command,
         name: commandName(command),
         help: t(WORDING[command].help),
         chords: binding[platform],
         changed: overrides[bindingId(binding)] !== undefined,
+        missing: false,
       });
       continue;
     }
@@ -326,6 +343,7 @@ export function keyRows(
     const modifiers = new Set(group.map((one) => modifierOf(one[platform][0])));
     rows.push({
       kind: "numbered",
+      section: binding.section,
       command,
       ids: group.map(bindingId),
       name: commandName(command),
@@ -373,20 +391,21 @@ export function rowsWithChord(
   });
 }
 
+// 표에 없는 id(앱 panel)의 표 키는 없음이다.
 function sameAsTable(
   id: string,
   platform: KeyPlatform,
   chords: readonly string[],
 ) {
-  const base = KEYBINDINGS.find((binding) => bindingId(binding) === id);
+  const base =
+    KEYBINDINGS.find((binding) => bindingId(binding) === id)?.[platform] ?? [];
   return (
-    base !== undefined &&
-    base[platform].length === chords.length &&
-    base[platform].every((chord, at) => chord === chords[at])
+    base.length === chords.length &&
+    base.every((chord, at) => chord === chords[at])
   );
 }
 
-/** binding id들의 키를 한꺼번에 바꾼다. null은 표의 키로 돌린다. 표와 같아지면 저장에서 뺀다. */
+/** binding id들의 키를 한꺼번에 바꾼다. null은 표의 키로 돌린다. 표와 같아지면(앱 panel은 키가 없어지면) 저장에서 뺀다. */
 export function withKeys(
   stored: StoredKeybindings,
   platform: KeyPlatform,
@@ -398,6 +417,124 @@ export function withKeys(
     else next[id] = chords;
   }
   return { ...stored, [platform]: next };
+}
+
+/**
+ * "바꾸기". keys(id → 새 chord)를 달고, 그 chord를 가진 다른 binding에서는 그 chord만 뺀 변경 하나를 만든다.
+ * 번호 줄의 한 번호가 빼는 쪽이면 그 번호의 chord만 빠진다.
+ */
+export function takeKeys(
+  platform: KeyPlatform,
+  overrides: KeyOverrides,
+  keys: Readonly<Record<string, readonly string[]>>,
+): Record<string, readonly string[]> {
+  const taken = Object.values(keys).flat().map(parseChord);
+  const changes: Record<string, readonly string[]> = { ...keys };
+  for (const binding of resolveBindings(platform, overrides)) {
+    const id = bindingId(binding);
+    if (id in keys) continue;
+    const kept = binding[platform].filter(
+      (chord) => !taken.some((one) => sameChord(one, parseChord(chord))),
+    );
+    if (kept.length !== binding[platform].length) changes[id] = kept;
+  }
+  return changes;
+}
+
+/**
+ * 앱 section의 줄. choices는 설치된 앱의 panel 화면(`panelChoices`)이고 null이면 아직 모른다(목록을 못 읽었다).
+ * 저장된 `app.panel:*` 가운데 choices에 없는 것은 "없는 앱" 줄이다. 키가 없는 화면도 줄이 있어 키를 달 수 있다.
+ */
+export function appRows(
+  choices: readonly { app: string; screen: string; label: string }[] | null,
+  platform: KeyPlatform,
+  overrides: KeyOverrides,
+): readonly KeyRow[] {
+  const row = (id: string, name: string, missing: boolean): KeyRow => ({
+    kind: "single",
+    id,
+    section: "app",
+    command: APP_PANEL,
+    name,
+    help: t("settings.note.key-app-panel"),
+    chords: overrides[id] ?? [],
+    changed: overrides[id] !== undefined,
+    missing,
+  });
+  const listed = (choices ?? []).map((choice) => ({
+    id: appPanelBindingId(choice.app, choice.screen),
+    label: choice.label,
+  }));
+  const known = new Set(listed.map((one) => one.id));
+  const saved = Object.keys(overrides).flatMap((id) => {
+    const parsed = parseBindingId(id);
+    if (parsed?.command !== APP_PANEL || known.has(id)) return [];
+    return [
+      row(
+        id,
+        choices === null
+          ? String(parsed.arg).replace(":", " · ")
+          : t("settings.label.key-missing-app", {
+              name: String(parsed.arg).replace(":", " · "),
+            }),
+        choices !== null,
+      ),
+    ];
+  });
+  return [...listed.map((one) => row(one.id, one.label, false)), ...saved];
+}
+
+/** 줄이 바꾸는 binding id들. */
+function rowIds(row: KeyRow): readonly string[] {
+  return row.kind === "single" ? [row.id] : row.ids;
+}
+
+/** binding id → 줄 이름. 겹침과 "바꾸기"가 상대 이름을 보일 때 쓴다. */
+export function nameOfIds(
+  rows: readonly KeyRow[],
+): ReadonlyMap<string, string> {
+  return new Map(
+    rows.flatMap((row) => rowIds(row).map((id) => [id, row.name])),
+  );
+}
+
+export interface RowConflict {
+  /** 같은 키를 쓰는 다른 줄의 이름. */
+  readonly names: readonly string[];
+  /** lophn이나 OS가 먼저 쓰는 키와 겹친다. */
+  readonly reserved: boolean;
+}
+
+/** `findConflicts`의 결과를 줄 key(single은 id, 번호 줄은 command) → 겹침으로. 겹치지 않은 줄은 없다. */
+export function rowConflicts(
+  rows: readonly KeyRow[],
+  conflicts: readonly KeyConflict[],
+): ReadonlyMap<string, RowConflict> {
+  const names = nameOfIds(rows);
+  const out = new Map<string, RowConflict>();
+  for (const row of rows) {
+    const mine = rowIds(row);
+    const found: string[] = [];
+    let reserved = false;
+    for (const conflict of conflicts) {
+      if (!conflict.ids.some((id) => mine.includes(id))) continue;
+      reserved ||= conflict.reserved;
+      for (const id of conflict.ids) {
+        const name = names.get(id);
+        if (!mine.includes(id) && name !== undefined && !found.includes(name)) {
+          found.push(name);
+        }
+      }
+    }
+    if (found.length > 0 || reserved) {
+      out.set(rowKey(row), { names: found, reserved });
+    }
+  }
+  return out;
+}
+
+export function rowKey(row: KeyRow): string {
+  return row.kind === "single" ? row.id : row.command;
 }
 
 /** 번호 줄의 새 키. modifier가 null이면 모든 번호의 키를 뺀다. */

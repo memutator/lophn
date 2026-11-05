@@ -3,6 +3,8 @@
 import { SettingsFrame } from "./settings-frame.tsx";
 import { click, find, press, type } from "../../mock/drive.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
+import { appPanelBindingId } from "../../../../packages/shell/ipc/keybindings.ts";
+import { APP_BUDGET } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 
 /** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */
 export const SettingsBack = () => <SettingsFrame pane="agents" />;
@@ -116,10 +118,10 @@ export const SettingsBrowser = () => (
   <SettingsFrame pane="browser" browser={{ bookmarks: BOOKMARKS }} />
 );
 
-/** Settings › Keyboard. 바꾼 키가 없다. */
+/** Settings › Keyboard. 바꾼 키가 없다. section(Tabs, Splits, ...)마다 제목 아래 줄이 서고 키 없는 줄은 흐린 Not set이다. */
 export const SettingsKeyboard = () => <SettingsFrame pane="keyboard" />;
 
-/** Settings › Keyboard: 탭 닫기를 바꾸고 sidebar 키를 뺀 뒤, Open a file에 이미 쓰는 키를 눌러 막힌 상태. */
+/** Settings › Keyboard: 탭 닫기를 바꾸고 sidebar 키를 뺀 뒤, Open a file에 이미 쓰는 키를 눌러 [Replace]·[Cancel]을 묻는 상태. */
 export const SettingsKeyboardChanged = () => (
   <SettingsFrame
     pane="keyboard"
@@ -141,6 +143,42 @@ export const SettingsKeyboardChanged = () => (
           }),
         );
       },
+    ]}
+  />
+);
+
+/** Settings › Keyboard: 겹친 키가 있는 저장 값. 위에 겹침 수와 [Show conflicts only]가 서고, 겹친 줄에 상대 이름과 [Remove]가 있다. 겹친 것만 보는 상태다. */
+export const SettingsKeyboardConflicts = () => (
+  <SettingsFrame
+    pane="keyboard"
+    keyboard={{
+      // Rename the tab이 Next tab과 같은 키를, Reveal이 lophn이 먼저 쓰는 Ctrl+K를 단 상태다.
+      other: { "tab.rename": ["Ctrl+Tab"], "tab.reveal": ["Ctrl+KeyK"] },
+      mac: { "tab.rename": ["Ctrl+Tab"], "tab.reveal": ["Cmd+KeyK"] },
+    }}
+    steps={[() => click("[data-key-conflicts-only]")]}
+  />
+);
+
+/** Settings › Keyboard: 앱 단축키가 달린 저장 값. 앱 panel 화면마다 한 줄이고, 지워진 앱의 키는 "app not found" 줄로 남아 [Remove]만 된다. */
+export const SettingsKeyboardApps = () => (
+  <SettingsFrame
+    pane="keyboard"
+    keyboard={{
+      other: {
+        [appPanelBindingId(APP_BUDGET, "home")]: ["Ctrl+Alt+KeyG"],
+        [appPanelBindingId("app_gone", "main")]: ["Ctrl+Alt+KeyH"],
+      },
+      mac: {
+        [appPanelBindingId(APP_BUDGET, "home")]: ["Cmd+Alt+KeyG"],
+        [appPanelBindingId("app_gone", "main")]: ["Cmd+Alt+KeyH"],
+      },
+    }}
+    steps={[
+      async () =>
+        (await find('[data-key-section="app"]')).scrollIntoView({
+          block: "start",
+        }),
     ]}
   />
 );

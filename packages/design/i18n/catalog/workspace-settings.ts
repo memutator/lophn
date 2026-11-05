@@ -118,7 +118,11 @@ export const workspaceSettings = {
   "settings.button.extension-turn-on": "Turn on",
   "settings.button.install-hooks": "Install hooks",
   "settings.button.key-change": "Change {name}",
+  "settings.button.key-clear": "Remove the shortcut for {name}",
+  "settings.button.key-clear-visible": "Remove",
+  "settings.button.key-conflicts-only": "Show conflicts only",
   "settings.button.key-reset": "Reset {name}",
+  "settings.button.key-take": "Replace",
   "settings.button.key-search-by-key": "Search by pressing keys",
   "settings.button.keys-reset-all": "Reset all shortcuts",
   "settings.button.remove-entry": "Remove {item}",
@@ -135,6 +139,8 @@ export const workspaceSettings = {
   "settings.empty.extension-packages":
     "No extensions come with this version of lophn.",
   "settings.empty.general": "No settings are declared yet.",
+  "settings.empty.key-apps":
+    "No app has a panel screen yet. Install an app with one to give it a shortcut.",
   "settings.empty.key-search": "No shortcut matches your search.",
   "settings.empty.shell-rules": "No rules here yet.",
   "settings.empty.call-rules": "No rules. Every call is allowed.",
@@ -153,7 +159,6 @@ export const workspaceSettings = {
     "Hold {modifiers}. The numbers are added for you.",
   "settings.error.key-reserved":
     "lophn already uses this key for search, the launcher, or copy and paste in the terminal.",
-  "settings.error.key-taken": "{key} is already used for {name}.",
   "settings.error.key-unsupported": "That key can't be used for a shortcut.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
@@ -166,6 +171,13 @@ export const workspaceSettings = {
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
   "settings.heading.call-policy": "Calls between places",
+  "settings.heading.key-section-app": "App panels",
+  "settings.heading.key-section-desk": "Desks",
+  "settings.heading.key-section-float": "Floating tabs",
+  "settings.heading.key-section-open": "Open",
+  "settings.heading.key-section-pane": "Splits",
+  "settings.heading.key-section-tab": "Tabs",
+  "settings.heading.key-section-view": "View",
   "settings.heading.quick-app-panels": "App panels",
   "settings.heading.quick-buttons": "Buttons",
   "settings.heading.shell-rules-built-in": "Built in",
@@ -260,7 +272,8 @@ export const workspaceSettings = {
   "settings.label.group-agents": "Agents",
   "settings.label.group-general": "General",
   "settings.label.group-system": "System",
-  "settings.label.key-app-panel": "Open an app panel",
+  "settings.label.key-conflicts":
+    "{n, plural, one {# key is used by more than one shortcut.} other {# keys are used by more than one shortcut.}}",
   "settings.label.key-capture": "Press the new keys for {name}",
   "settings.label.key-desk-close": "Close the desk",
   "settings.label.key-desk-new": "New desk",
@@ -280,7 +293,8 @@ export const workspaceSettings = {
   "settings.label.key-new-browser": "New browser tab",
   "settings.label.key-new-document": "Open a document",
   "settings.label.key-new-terminal": "New terminal",
-  "settings.label.key-none": "No shortcut",
+  "settings.label.key-missing-app": "{name} (app not found)",
+  "settings.label.key-none": "Not set",
   "settings.label.key-numbered": "{modifier}+number",
   "settings.label.key-numbered-mixed": "Changed for some numbers",
   "settings.label.key-pane-close-group": "Close the split",
@@ -395,6 +409,9 @@ export const workspaceSettings = {
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
   "settings.note.key-app-panel":
     "Opens that app's panel, whether or not it is pinned to the sidebar.",
+  "settings.note.key-conflict-reserved":
+    "lophn or your OS uses this key first.",
+  "settings.note.key-conflict-with": "Also used by {names}.",
   "settings.note.key-capture":
     "Press Esc to cancel. Press Backspace to remove the shortcut.",
   "settings.note.key-capture-numbered":
@@ -457,6 +474,9 @@ export const workspaceSettings = {
     "Breaks the split of the current tab into separate tabs.",
   "settings.note.key-pane-unstack":
     "Takes the current tab out of the tabs stacked in its pane.",
+  "settings.note.key-missing-app":
+    "This app or screen is gone. Remove the shortcut.",
+  "settings.note.key-taken": "{key} is used by {name}.",
   "settings.note.key-search-by-key":
     "Press keys to find what uses them. Backspace clears.",
   "settings.note.key-search-open":

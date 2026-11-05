@@ -8,26 +8,35 @@ import { SearchFilter } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
 import {
-  type ChordCheck,
+  APP_PANEL,
   checkChord,
   chordLabel,
   chordOfInput,
+  findConflicts,
   type KeyPlatform,
   modifierLabel,
+  bindingId,
 } from "../../../../ipc/keybindings.ts";
 import { KEY_CAPTURE_ATTRIBUTE } from "../../../commands/window.ts";
 import { useWindowCommands } from "../../../commands/react.tsx";
 import { actionIcons, settingsIcons } from "../../../icons/mod.ts";
+import { panelChoices } from "../../../workspace/app-panel-tab.tsx";
+import { useAppPanelApps } from "../../../workspace/project-settings/quick-launch-editor.tsx";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
-  commandName,
+  appRows,
   filterRows,
   type KeyRow,
   keyRows,
   modifierOfInput,
+  nameOfIds,
   numberedKeys,
+  rowConflicts,
+  rowKey,
   rowsWithChord,
+  SECTIONS,
+  takeKeys,
   withKeys,
   withoutPlatform,
 } from "./model.ts";
@@ -44,11 +53,10 @@ const MODIFIERS: Readonly<Record<KeyPlatform, string>> = {
 };
 
 function problemText(
-  check: Exclude<ChordCheck, { ok: true }>,
-  text: string,
+  reason: "unsupported" | "needs_modifier" | "reserved",
   platform: KeyPlatform,
 ): string {
-  switch (check.reason) {
+  switch (reason) {
     case "unsupported":
       return t("settings.error.key-unsupported");
     case "needs_modifier":
@@ -57,11 +65,6 @@ function problemText(
       });
     case "reserved":
       return t("settings.error.key-reserved");
-    case "taken":
-      return t("settings.error.key-taken", {
-        key: chordLabel(text, platform),
-        name: commandName(check.by.command),
-      });
   }
 }
 
@@ -89,6 +92,15 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const [problem, setProblem] = useState<{ id: string; text: string } | null>(
     null,
   );
+  const [conflictsOnly, setConflictsOnly] = useState(false);
+  // 새 키가 다른 줄에서 쓰는 중이라 "바꾸기"를 기다린다. keys는 바꾸기가 한 번에 저장할 id → chord다.
+  const [taking, setTaking] = useState<{
+    id: string;
+    key: string;
+    name: string;
+    keys: Record<string, readonly string[]>;
+  } | null>(null);
+  const { apps, loading: appsLoading, failed: appsFailed } = useAppPanelApps();
   const [notSaved, setNotSaved] = useState(false);
 
   const load = useCallback(() => {
@@ -129,17 +141,35 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   }
   const stored = loaded.state === "ready" ? loaded.stored : null;
   const overrides = stored?.[platform] ?? {};
-  const rows = keyRows(platform, overrides);
-  const shown = byKey
+  const rows = [
+    ...keyRows(platform, overrides),
+    ...(appsLoading
+      ? []
+      : appRows(appsFailed ? null : panelChoices(apps), platform, overrides)),
+  ];
+  const names = nameOfIds(rows);
+  const conflictList = findConflicts(platform, overrides);
+  const conflicts = rowConflicts(rows, conflictList);
+  const matched = byKey
     ? pressed === null
       ? rows
       : rowsWithChord(rows, pressed)
     : filterRows(rows, query, (row) => rowKeyText(row, platform));
+  const shown = conflictsOnly
+    ? matched.filter((row) => conflicts.has(rowKey(row)))
+    : matched;
+  const filtering =
+    conflictsOnly || (byKey ? pressed !== null : query.trim() !== "");
   const anyChanged = rows.some((row) => row.changed);
 
-  function stop() {
+  function leave() {
     setEditing(null);
     setProblem(null);
+  }
+
+  function stop() {
+    leave();
+    setTaking(null);
   }
 
   function record(event: KeyboardEvent<HTMLElement>) {
@@ -174,7 +204,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
     event.preventDefault();
     event.stopPropagation();
     if (event.nativeEvent.isComposing || event.repeat) return;
-    const id = row.kind === "single" ? row.id : row.command;
+    const id = rowKey(row);
     const ids = row.kind === "single" ? [row.id] : row.ids;
     const plain =
       !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
@@ -201,6 +231,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
         ? { [row.id]: [text] }
         : numberedKeys(row.ids, row.numbers, modifierOfInput(text));
     // 번호 줄은 modifier만 눌러도 숫자 키 하나로 본다. 모든 번호의 키를 하나씩 검사한다.
+    let taken: { key: string; name: string } | null = null;
     for (const chords of Object.values(keys)) {
       const chord = chords[0];
       if (chord === undefined) {
@@ -213,13 +244,180 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
         return;
       }
       const check = checkChord(chord, ids, platform, current[platform] ?? {});
-      if (!check.ok) {
-        setProblem({ id, text: problemText(check, chord, platform) });
+      if (check.ok) continue;
+      if (check.reason !== "taken") {
+        setProblem({ id, text: problemText(check.reason, platform) });
         return;
       }
+      taken ??= {
+        key: chordLabel(chord, platform),
+        name: names.get(bindingId(check.by)) ?? "",
+      };
+    }
+    if (taken !== null) {
+      leave();
+      setTaking({ id, ...taken, keys });
+      return;
     }
     stop();
     void save(current, withKeys(current, platform, keys));
+  }
+
+  function keyLine(row: KeyRow, stored: StoredKeybindings) {
+    const id = rowKey(row);
+    const isApp = row.kind === "single" && row.command === APP_PANEL;
+    const conflict = conflicts.get(id);
+    const hasKeys = row.kind === "numbered" || row.chords.length > 0;
+    const clearKeys =
+      row.kind === "single"
+        ? { [row.id]: [] }
+        : numberedKeys(row.ids, row.numbers, null);
+    const resetKeys =
+      row.kind === "single"
+        ? { [row.id]: null }
+        : Object.fromEntries(row.ids.map((one) => [one, null]));
+    const missing = row.kind === "single" && row.missing;
+    return (
+      <li
+        key={id}
+        className={styles.line}
+        data-key-row={id}
+        data-key-changed={row.changed ? "" : undefined}
+        data-key-conflict={conflict === undefined ? undefined : ""}
+      >
+        <div className={styles.lineMain}>
+          <span className={styles.lineName}>{row.name}</span>
+          <span className={styles.lineHelp}>
+            {editing === id
+              ? t(
+                  row.kind === "single"
+                    ? "settings.note.key-capture"
+                    : "settings.note.key-capture-numbered",
+                )
+              : missing
+                ? t("settings.note.key-missing-app")
+                : row.help}
+          </span>
+          {conflict === undefined ? null : (
+            <span className={styles.lineHelp} data-key-conflict-note="">
+              {[
+                ...(conflict.reserved
+                  ? [t("settings.note.key-conflict-reserved")]
+                  : []),
+                ...(conflict.names.length > 0
+                  ? [
+                      t("settings.note.key-conflict-with", {
+                        names: conflict.names.join(", "),
+                      }),
+                    ]
+                  : []),
+              ].join(" ")}
+            </span>
+          )}
+          {problem?.id === id ? (
+            <p className={styles.rejected} role="alert">
+              {problem.text}
+            </p>
+          ) : null}
+          {taking?.id === id ? (
+            <p className={styles.notice} role="status" data-key-taken="">
+              {t("settings.note.key-taken", {
+                key: taking.key,
+                name: taking.name,
+              })}{" "}
+              <Button
+                size="sm"
+                data-key-take={id}
+                onClick={() => {
+                  const keys = taking.keys;
+                  setTaking(null);
+                  void save(
+                    stored,
+                    withKeys(
+                      stored,
+                      platform,
+                      takeKeys(platform, stored[platform] ?? {}, keys),
+                    ),
+                  );
+                }}
+              >
+                {t("settings.button.key-take")}
+              </Button>{" "}
+              <Button
+                size="sm"
+                variant="ghost"
+                data-key-take-cancel={id}
+                onClick={() => setTaking(null)}
+              >
+                {t("settings.button.cancel")}
+              </Button>
+            </p>
+          ) : null}
+        </div>
+        <div className={styles.lineControl}>
+          <div className={styles.keyControl}>
+            {missing ? (
+              <KeyView row={row} platform={platform} />
+            ) : editing === id ? (
+              <div
+                className={styles.keyCapture}
+                tabIndex={0}
+                role="textbox"
+                aria-label={t("settings.label.key-capture", { name: row.name })}
+                {...{ [KEY_CAPTURE_ATTRIBUTE]: "" }}
+                ref={(element) => element?.focus()}
+                onKeyDown={(event) => capture(event, row, stored)}
+                onBlur={leave}
+              >
+                {t("settings.label.key-capture", { name: row.name })}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={styles.keyButton}
+                aria-label={t("settings.button.key-change", {
+                  name: row.name,
+                })}
+                data-key-change={id}
+                onClick={() => {
+                  setProblem(null);
+                  setTaking(null);
+                  setEditing(id);
+                }}
+              >
+                <KeyView row={row} platform={platform} />
+              </button>
+            )}
+            {row.changed && !isApp ? (
+              <Button
+                size="sm"
+                icon={actionIcons.reset}
+                data-key-reset={id}
+                aria-label={t("settings.button.key-reset", { name: row.name })}
+                onClick={() =>
+                  void save(stored, withKeys(stored, platform, resetKeys))
+                }
+              >
+                {t("settings.button.reset-default")}
+              </Button>
+            ) : null}
+            {(isApp || conflict !== undefined) && hasKeys ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                data-key-clear={id}
+                aria-label={t("settings.button.key-clear", { name: row.name })}
+                onClick={() =>
+                  void save(stored, withKeys(stored, platform, clearKeys))
+                }
+              >
+                {t("settings.button.key-clear-visible")}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </li>
+    );
   }
 
   return (
@@ -229,6 +427,28 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
       <Loading loading={stored === null} placeholder={<Skeleton lines={6} />}>
         {stored === null ? null : (
           <>
+            {conflictList.length === 0 && !conflictsOnly ? null : (
+              <div className={styles.toolbar}>
+                <p
+                  className={styles.notice}
+                  role="status"
+                  data-key-conflicts=""
+                >
+                  {t("settings.label.key-conflicts", {
+                    n: conflictList.length,
+                  })}
+                </p>
+                <Button
+                  size="sm"
+                  variant={conflictsOnly ? "primary" : "secondary"}
+                  aria-pressed={conflictsOnly}
+                  data-key-conflicts-only=""
+                  onClick={() => setConflictsOnly((on) => !on)}
+                >
+                  {t("settings.button.key-conflicts-only")}
+                </Button>
+              </div>
+            )}
             <div className={`${styles.searchRow} ${styles.keySearchRow}`}>
               {byKey ? (
                 <div className={styles.keySearch}>
@@ -275,101 +495,39 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                 }}
               />
             </div>
-            {shown.length === 0 ? (
+            {shown.length === 0 && filtering ? (
               <p className={styles.lineHelp} data-key-search="empty">
                 {t("settings.empty.key-search")}
               </p>
             ) : (
-              <ul className={styles.lines}>
-                {shown.map((row) => {
-                  const id = row.kind === "single" ? row.id : row.command;
-                  const resetKeys =
-                    row.kind === "single"
-                      ? { [row.id]: null }
-                      : Object.fromEntries(row.ids.map((one) => [one, null]));
-                  return (
-                    <li
-                      key={id}
-                      className={styles.line}
-                      data-key-row={id}
-                      data-key-changed={row.changed ? "" : undefined}
-                    >
-                      <div className={styles.lineMain}>
-                        <span className={styles.lineName}>{row.name}</span>
-                        <span className={styles.lineHelp}>
-                          {editing === id
-                            ? t(
-                                row.kind === "single"
-                                  ? "settings.note.key-capture"
-                                  : "settings.note.key-capture-numbered",
-                              )
-                            : row.help}
-                        </span>
-                        {problem?.id === id ? (
-                          <p className={styles.rejected} role="alert">
-                            {problem.text}
-                          </p>
-                        ) : null}
-                      </div>
-                      <div className={styles.lineControl}>
-                        <div className={styles.keyControl}>
-                          {editing === id ? (
-                            <div
-                              className={styles.keyCapture}
-                              tabIndex={0}
-                              role="textbox"
-                              aria-label={t("settings.label.key-capture", {
-                                name: row.name,
-                              })}
-                              {...{ [KEY_CAPTURE_ATTRIBUTE]: "" }}
-                              ref={(element) => element?.focus()}
-                              onKeyDown={(event) => capture(event, row, stored)}
-                              onBlur={stop}
-                            >
-                              {t("settings.label.key-capture", {
-                                name: row.name,
-                              })}
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className={styles.keyButton}
-                              aria-label={t("settings.button.key-change", {
-                                name: row.name,
-                              })}
-                              data-key-change={id}
-                              onClick={() => {
-                                setProblem(null);
-                                setEditing(id);
-                              }}
-                            >
-                              <KeyView row={row} platform={platform} />
-                            </button>
-                          )}
-                          {row.changed ? (
-                            <Button
-                              size="sm"
-                              icon={actionIcons.reset}
-                              data-key-reset={id}
-                              aria-label={t("settings.button.key-reset", {
-                                name: row.name,
-                              })}
-                              onClick={() =>
-                                void save(
-                                  stored,
-                                  withKeys(stored, platform, resetKeys),
-                                )
-                              }
-                            >
-                              {t("settings.button.reset-default")}
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              SECTIONS.map(({ section, title }, at) => {
+                const inSection = shown.filter(
+                  (row) => row.section === section,
+                );
+                // app section은 앱을 읽는 동안과 앱이 없을 때도 자리를 둔다. 거르는 중이면 다른 section처럼 줄이 없으면 숨는다.
+                const placeholder = section === "app" && !filtering;
+                if (inSection.length === 0 && !placeholder) return null;
+                return (
+                  <section
+                    key={section}
+                    className={at === 0 ? undefined : styles.groupBlock}
+                    data-key-section={section}
+                  >
+                    <h2 className={styles.groupTitle}>{t(title)}</h2>
+                    {inSection.length > 0 ? (
+                      <ul className={styles.lines}>
+                        {inSection.map((row) => keyLine(row, stored))}
+                      </ul>
+                    ) : appsLoading ? (
+                      <Skeleton lines={2} />
+                    ) : (
+                      <p className={styles.lineHelp}>
+                        {t("settings.empty.key-apps")}
+                      </p>
+                    )}
+                  </section>
+                );
+              })
             )}
             {anyChanged ? (
               <div className={`${styles.endSlot} ${styles.groupBlock}`}>

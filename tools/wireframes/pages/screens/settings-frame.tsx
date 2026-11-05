@@ -6,6 +6,7 @@ import { createEventClient } from "../../../../packages/shell/renderer/desktop/c
 import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { createFakeWaiting } from "../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { devMock } from "../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
+import { AppViewsProvider } from "../../../../packages/shell/renderer/app-frame/app-views.tsx";
 import { SettingsSpace } from "../../../../packages/shell/renderer/desktop/settings/settings-space.tsx";
 import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
 import { fakeAppearance } from "../../../../packages/shell/renderer/desktop/settings/appearance/testdata/fake-source.ts";
@@ -118,18 +119,21 @@ export function SettingsFrame({
   return (
     <EventsProvider client={client}>
       <GalleryConnectHost providers={panels.providers} agents={panels.agents}>
-        <SettingsSpace
-          source={mock.catalog}
-          settingsPane={pane}
-          onHome={noop}
-          onBack={noop}
-          backTo={null}
-          onApp={noop}
-          settings={settings}
-          settingsPanels={panels}
-          onProject={noop}
-          onOpenSession={noop}
-        />
+        {/* Keyboard와 Quick launch가 앱 panel 화면 목록을 읽는다. */}
+        <AppViewsProvider value={mock.appViews}>
+          <SettingsSpace
+            source={mock.catalog}
+            settingsPane={pane}
+            onHome={noop}
+            onBack={noop}
+            backTo={null}
+            onApp={noop}
+            settings={settings}
+            settingsPanels={panels}
+            onProject={noop}
+            onOpenSession={noop}
+          />
+        </AppViewsProvider>
       </GalleryConnectHost>
     </EventsProvider>
   );

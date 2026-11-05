@@ -1,6 +1,7 @@
 // Codex adapter. 탭 전용 `codex app-server`를 unix socket으로 띄우고(GUI는 그 위 WebSocket client, TUI는 `codex resume --remote`로
 // 같은 server에 붙는다) app-server 이벤트를 ACP 갱신으로, 창의 ACP 입력을 JSON-RPC(`jsonrpc` 칸 없음)로 옮긴다.
 // 설정과 login은 사람의 것을 쓴다. 사람 설정이 never·danger-full-access일 때만 on-request·workspace-write로 바꾼다.
+// 대화 하나의 도는 상태는 `Lane`이다: root가 탭의 thread이고 subagent thread는 자식 lane이라 그 갱신은 `child_update`로 싸서 낸다.
 // 흐름과 이유는 architecture/harness-gui.md의 Codex adapter 절이다.
 import { mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
@@ -12,6 +13,7 @@ import type { AcpInput } from "../../../../../protocol/acp/input.ts";
 import type {
   AcpApprovalItem,
   AcpEntry,
+  AcpToolBody,
   AcpToolItem,
 } from "../../../../../protocol/acp/items.ts";
 import {
@@ -20,11 +22,19 @@ import {
 } from "../../../../../protocol/acp/reduce.ts";
 import type {
   AcpCapabilities,
+  AcpCommand,
+  AcpGoal,
   AcpModelGroup,
   AcpSessionMeta,
   AcpUsage,
+  AcpUsageLimit,
 } from "../../../../../protocol/acp/session.ts";
-import type { AcpState, AcpUpdate } from "../../../../../protocol/acp/state.ts";
+import type {
+  AcpChildUpdate,
+  AcpState,
+  AcpTask,
+  AcpUpdate,
+} from "../../../../../protocol/acp/state.ts";
 import type { AcpTerminal } from "../../../../../protocol/extensions/mod.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
@@ -87,7 +97,6 @@ const OPT_OUT = [
   "thread/started",
   "thread/status/changed",
   "thread/readState/changed",
-  "thread/goal/cleared",
   "thread/compacted",
   "thread/archived",
   "thread/unarchived",
@@ -108,16 +117,12 @@ const OPT_OUT = [
   "rawResponseItem/completed",
   "mcpServer/startupStatus/updated",
   "account/updated",
-  "account/rateLimits/updated",
   "remoteControl/status/changed",
   "app/list/updated",
   "skills/changed",
   "fs/changed",
   "deprecationNotice",
-  "configWarning",
-  "warning",
   "guardianWarning",
-  "model/rerouted",
   "model/verification",
 ];
 
@@ -144,6 +149,20 @@ type Item = {
   success?: boolean | null;
   prompt?: string | null;
   kind?: string;
+  review?: string;
+  aggregatedOutput?: string | null;
+  arguments?: J;
+  result?: J;
+  error?: J;
+  contentItems?: J[] | null;
+  senderThreadId?: string;
+  receiverThreadIds?: string[];
+  agentsStates?: Record<string, { status: string; message: string | null }>;
+  agentThreadId?: string;
+  agentPath?: string;
+  model?: string | null;
+  revisedPrompt?: string | null;
+  savedPath?: string;
 };
 type WireTurn = {
   id: string;
@@ -349,38 +368,234 @@ const CAPABILITIES: AcpCapabilities = {
   images: false, // 입력의 image는 blob hash뿐이라 localImage 경로를 만들 수 없다.
   retry: true,
   sessions: false,
-  stop_child: false,
-  steer_child: false,
-  tasks: false,
-  toggles: false,
-  goal: false,
+  stop_child: true,
+  steer_child: true,
+  tasks: true,
+  toggles: true,
+  goal: true,
   roles: false,
 };
 
-const BASE_COMMANDS = [
-  ["compact", "Compact the conversation context", null],
-  ["review", "Review uncommitted changes", "[instructions]"],
-  ["goal", "Set a goal for Codex", "<objective>"],
-  ["rename", "Rename this conversation", "<name>"],
-  ["fork", "Fork this conversation", null],
-  ["new", "Start a new conversation in this tab", null],
-  ["status", "Show model, permissions and context use", null],
-] as const;
+// TUI 전용 명령과 `/copy`, `/side`, `/mention`, `/auto-review`는 창에 의미가 없어 넣지 않는다.
+const BASE_COMMANDS: readonly {
+  name: string;
+  description: string;
+  hint: string | null;
+  opens: AcpCommand["opens"];
+  aliases?: string[];
+}[] = [
+  {
+    name: "model",
+    description: "Choose the model and reasoning effort",
+    hint: null,
+    opens: "model",
+  },
+  {
+    name: "permissions",
+    description: "Choose what Codex can do without asking",
+    hint: null,
+    opens: "mode",
+  },
+  {
+    name: "status",
+    description: "Show model, permissions and context use",
+    hint: null,
+    opens: "status",
+  },
+  {
+    name: "usage",
+    description: "Show usage limits",
+    hint: null,
+    opens: "usage",
+  },
+  {
+    name: "rename",
+    description: "Rename this conversation",
+    hint: "<name>",
+    opens: "rename",
+  },
+  {
+    name: "fork",
+    description: "Fork this conversation",
+    hint: null,
+    opens: "fork",
+  },
+  {
+    name: "agents",
+    description: "Show subagents",
+    hint: null,
+    opens: "subagents",
+  },
+  {
+    name: "compact",
+    description: "Compact the conversation context",
+    hint: null,
+    opens: null,
+  },
+  {
+    name: "review",
+    description: "Review uncommitted changes",
+    hint: "[instructions]",
+    opens: null,
+  },
+  {
+    name: "goal",
+    description: "Show or set the goal",
+    hint: "[objective]",
+    opens: null,
+  },
+  {
+    name: "new",
+    description: "Start a new conversation in this tab",
+    hint: null,
+    opens: null,
+    aliases: ["clear"],
+  },
+  {
+    name: "init",
+    description: "Create an AGENTS.md for this repository",
+    hint: null,
+    opens: null,
+  },
+  {
+    name: "mcp",
+    description: "List MCP servers and their tools",
+    hint: null,
+    opens: null,
+  },
+  {
+    name: "diff",
+    description: "Show the git diff, including untracked files",
+    hint: null,
+    opens: null,
+  },
+  {
+    name: "ps",
+    description: "List background terminals",
+    hint: null,
+    opens: null,
+  },
+  {
+    name: "stop",
+    description: "Stop all background terminals",
+    hint: null,
+    opens: null,
+  },
+];
 
-type Call = { id: string; done: boolean; changes: AcpApprovalFiles };
+// TUI의 `/init`이 보내는 글(codex-rs/tui/assets/prompt_for_init_command.md, codex-cli 0.166.0). TUI처럼 사람 메시지 turn으로 보낸다.
+const INIT_PROMPT = `Generate a file named AGENTS.md that serves as a contributor guide for this repository.
+Before writing, check whether AGENTS.md already exists in the current working directory. If it does, do not overwrite or modify it.
+Your goal is to produce a clear, concise, and well-structured document with descriptive headings and actionable explanations for each section.
+Follow the outline below, but adapt as needed — add sections if relevant, and omit those that do not apply to this project.
+
+Document Requirements
+
+- Title the document "Repository Guidelines".
+- Use Markdown headings (#, ##, etc.) for structure.
+- Keep the document concise. 200-400 words is optimal.
+- Keep explanations short, direct, and specific to this repository.
+- Provide examples where helpful (commands, directory paths, naming patterns).
+- Maintain a professional, instructional tone.
+
+Recommended Sections
+
+Project Structure & Module Organization
+
+- Outline the project structure, including where the source code, tests, and assets are located.
+
+Build, Test, and Development Commands
+
+- List key commands for building, testing, and running locally (e.g., npm test, make build).
+- Briefly explain what each command does.
+
+Coding Style & Naming Conventions
+
+- Specify indentation rules, language-specific style preferences, and naming patterns.
+- Include any formatting or linting tools used.
+
+Testing Guidelines
+
+- Identify testing frameworks and coverage requirements.
+- State test naming conventions and how to run tests.
+
+Commit & Pull Request Guidelines
+
+- Summarize commit message conventions found in the project’s Git history.
+- Outline pull request requirements (descriptions, linked issues, screenshots, etc.).
+
+(Optional) Add other sections if relevant, such as Security & Configuration Tips, Architecture Overview, or Agent-Specific Instructions.
+`;
+
+// TUI가 plan을 승인하면 보내는 글(tui/src/chatwidget/plan_implementation.rs `PLAN_IMPLEMENTATION_CODING_MESSAGE`).
+const IMPLEMENT_PLAN = "Implement the plan.";
+
+type Call = {
+  id: string;
+  done: boolean;
+  changes: AcpApprovalFiles;
+  lane: Lane;
+};
 type AcpApprovalFiles = {
   path: string;
   change: "create" | "update" | "delete";
   added: number;
   removed: number;
 }[];
+
+// 대화 하나가 도는 상태. root가 이 탭의 thread이고 자식은 subagent thread다(app-server가 자식 thread의 이벤트도 같은 연결로 준다).
+// 자식의 갱신은 `child_update`로 싸서 낸다.
+type Lane = {
+  /** ACP `children`의 key(자식 thread id). root는 null. */
+  child: string | null;
+  thread: string;
+  /** 도는 turn의 ACP id와 app-server id(steer와 interrupt가 쓴다). */
+  turn: string | null;
+  codexTurn: string | null;
+  seq: number;
+  modelCall: string | null;
+  streamed: { text: number; reasoning: number };
+  reasoning: string;
+  summarized: Set<string>;
+  calls: Map<string, Call>;
+  /** turn이 끝나며 취소로 닫은 tool의 item id. 뒤늦은 `item/completed`가 새 줄을 만들지 않게 한다. */
+  closed: Set<string>;
+  /** 이 turn에 사람 메시지가 이미 있다(다음 메시지는 steer다). */
+  hasUser: boolean;
+  /** 마지막 agent message. subagent의 마지막 말이다. */
+  last: string | null;
+};
+const newLane = (child: string | null, thread: string): Lane => ({
+  child,
+  thread,
+  turn: null,
+  codexTurn: null,
+  seq: 0,
+  modelCall: null,
+  streamed: { text: 0, reasoning: 0 },
+  reasoning: "",
+  summarized: new Set(),
+  calls: new Map(),
+  closed: new Set(),
+  hasUser: false,
+  last: null,
+});
+
+type SubDetail = Extract<AcpToolItem["detail"], { kind: "subagent" }>;
+/** spawn한 subagent. detail은 spawn tool 줄이 지금 보이는 값이다. */
+type Sub = { call: Call; detail: SubDetail; started: string };
+
 type ApprovalWait = {
-  /** app-server가 요청에 붙인 id. 답에 그대로 쓴다. */
-  rpc: number | string;
+  /** app-server가 요청에 붙인 id. 답에 그대로 쓴다. adapter 자신의 카드(plan)는 null이다. */
+  rpc: number | string | null;
+  lane: Lane;
+  kind: "exec" | "permissions" | "plan";
   /** 서버가 허락한 결정. 없는 것은 보내지 않는다. */
   session: boolean;
   /** 영구 규칙이 되는 결정(서버가 낸 그대로). 없으면 영구 선택지가 없다. */
   always: J | null;
+  /** permissions: 요청한 권한. 한 번·session 허락에 그대로 돌려준다. */
+  requested: J | null;
 };
 type AskWait = {
   rpc: number | string;
@@ -388,6 +603,67 @@ type AskWait = {
   call: Call;
   ids: string[];
 };
+
+// tool 본문 한 쪽의 글자 수 상한. 이를 넘으면 자르고 truncated를 세운다(ACP_TOOL_BODY_LIMIT과 같은 값.
+// 그 file은 zod 사슬을 끌어와 shell main tsc에 들이지 않는다).
+const BODY_LIMIT = 65_536;
+function bodyOf(input: string | null, output: string | null): AcpToolBody {
+  const clip = (text: string | null) =>
+    text === null ? null : text.slice(0, BODY_LIMIT);
+  return {
+    input: clip(input),
+    output: clip(output),
+    truncated:
+      (input?.length ?? 0) > BODY_LIMIT || (output?.length ?? 0) > BODY_LIMIT,
+  };
+}
+const jsonText = (value: J) =>
+  value === undefined || value === null ? null : JSON.stringify(value, null, 2);
+
+// CollabAgentStatus → subagent state.
+function subState(status: string): SubDetail["state"] {
+  switch (status) {
+    case "completed":
+      return "done";
+    case "errored":
+    case "notFound":
+      return "failed";
+    case "interrupted":
+    case "shutdown":
+      return "cancelled";
+    default:
+      return "running";
+  }
+}
+const taskState = (state: SubDetail["state"]): AcpTask["state"] =>
+  state === "cancelled" ? "stopped" : state;
+
+function windowLabel(mins: number | null): string {
+  if (mins === null) return "limit";
+  if (mins === 10080) return "weekly";
+  if (mins % 1440 === 0) return `${mins / 1440}d`;
+  if (mins % 60 === 0) return `${mins / 60}h`;
+  return `${mins}m`;
+}
+
+function goalOf(goal: J | null): AcpGoal | null {
+  if (goal === null || goal === undefined) return null;
+  const limited: Record<string, string> = {
+    usageLimited: "Usage limit reached",
+    budgetLimited: "Token budget reached",
+  };
+  const usage = `${goal.tokensUsed}${goal.tokenBudget == null ? "" : `/${goal.tokenBudget}`} tokens · ${goal.timeUsedSeconds}s`;
+  return {
+    objective: goal.objective,
+    status:
+      goal.status === "complete"
+        ? "done"
+        : limited[goal.status] !== undefined
+          ? "blocked"
+          : goal.status,
+    detail: limited[goal.status] ? `${limited[goal.status]} · ${usage}` : usage,
+  };
+}
 
 export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
   return {
@@ -424,7 +700,6 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
     },
 
     async start({ cwd, resume, session, spawn, clock, ids }) {
-      let seq = 0;
       let closed = false;
       let dead: { code: string; message: string } | null = null;
       let stderrTail = "";
@@ -436,6 +711,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         mirror = reduceAcp(mirror, update);
         session.publish(update);
       };
+      const emit = (lane: Lane, update: AcpChildUpdate) =>
+        publish(
+          lane.child === null
+            ? update
+            : { type: "child_update", child: lane.child, update },
+        );
 
       const dir = io.makeDir();
       const socket = join(dir, "codex.sock");
@@ -503,17 +784,22 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       let models: J[] = [];
       let skills = new Map<string, string>();
       let canPlan = false;
-      // turn: 도는 turn의 id(ACP). codexTurn: 그 turn의 app-server id(steer와 interrupt가 쓴다).
-      let turn: string | null = null;
-      let codexTurn: string | null = null;
-      let lastTurn: string | null = null;
+      const root = newLane(null, "");
+      // thread id → 대화. root와 아는 자식(collab·subAgentActivity item이 알려 준 thread)이다. 모르는 thread(fork로 떠난
+      // 옛 thread)의 이벤트는 버린다.
+      const lanes = new Map<string, Lane>();
       let stopPending = false;
       let reverting = false;
-      let modelCall: string | null = null;
-      const streamed = { text: 0, reasoning: 0 };
-      let reasoning = "";
-      const summarized = new Set<string>();
-      const calls = new Map<string, Call>();
+      let tokenUsage: J = null;
+      // limitId → 마지막 RateLimitSnapshot.
+      const snapshots = new Map<string, J>();
+      let limits: AcpUsageLimit[] = [];
+      // plan mode에서 끝난 plan item의 글. turn이 끝나면 "구현할까" 카드가 된다.
+      let planText: string | null = null;
+      // 자식 thread → spawn한 subagent. background shell은 processId → task.
+      const subs = new Map<string, Sub>();
+      const shells = new Map<string, AcpTask>();
+      let shownTasks = "[]";
       const approvals = new Map<string, ApprovalWait>();
       const asks = new Map<string, AskWait>();
       const queue: { id: string; at: string; content: ContentBlock[] }[] = [];
@@ -599,80 +885,130 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       }
       function applySettings(wire: J) {
         settings = settingsOf(wire);
-        change({ ...modelMeta(), ...modesMeta() });
+        change({ ...modelMeta(), ...modesMeta(), ...togglesMeta() });
+      }
+      function togglesMeta(): Partial<AcpSessionMeta> {
+        return {
+          toggles: canPlan
+            ? [
+                {
+                  id: "plan",
+                  label: "Plan mode",
+                  description:
+                    "Codex plans first and asks before implementing.",
+                  on: settings?.plan ?? false,
+                },
+              ]
+            : [],
+        };
       }
       function commandsMeta(): Partial<AcpSessionMeta> {
+        const harness = (
+          name: string,
+          description: string,
+          hint: string | null,
+          opens: AcpCommand["opens"],
+          aliases: string[] = [],
+        ): AcpCommand => ({
+          name,
+          aliases,
+          description,
+          argument_hint: hint,
+          source: "harness",
+          opens,
+        });
         return {
           commands: [
-            ...BASE_COMMANDS.map(([name, description, hint]) => ({
-              name,
-              aliases: [],
-              description,
-              argument_hint: hint,
-              source: "harness" as const,
-              opens: null,
-            })),
+            ...BASE_COMMANDS.map((one) =>
+              harness(
+                one.name,
+                one.description,
+                one.hint,
+                one.opens,
+                one.aliases,
+              ),
+            ),
             ...(canPlan
-              ? [
-                  {
-                    name: "plan",
-                    aliases: [],
-                    description: "Turn plan mode on or off",
-                    argument_hint: null,
-                    source: "harness" as const,
-                    opens: null,
-                  },
-                ]
+              ? [harness("plan", "Turn plan mode on or off", null, null)]
               : []),
-            ...[...skills.keys()].map((name) => ({
-              name,
-              aliases: [],
-              description: `Run the ${name} skill`,
-              argument_hint: "[request]",
-              source: "skill" as const,
-              opens: null,
-            })),
+            ...[...skills.keys()].map(
+              (name): AcpCommand => ({
+                name,
+                aliases: [],
+                description: `Run the ${name} skill`,
+                argument_hint: "[request]",
+                source: "skill",
+                opens: null,
+              }),
+            ),
           ],
         };
       }
 
       // --- ACP 항목
-      function info(text: string) {
-        const owner = turn ?? lastTurn ?? (lastTurn = ids.newId("trn"));
+      // turn 밖이면 turn이 null인 알림이다.
+      function info(text: string, level: "info" | "warning" = "info") {
         publish({
           type: "notice_added",
           item: {
             kind: "notice",
             id: ids.newId("not"),
-            seq: ++seq,
+            seq: ++root.seq,
             at: now(),
-            turn: owner,
-            notice: { type: "info", text, level: "info" },
+            turn: root.turn,
+            notice: { type: "info", text, level },
           },
         });
       }
 
-      function startTurn(): string {
-        turn = ids.newId("trn");
-        lastTurn = turn;
-        publish({ type: "turn_started", turn, at: now() });
-        return turn;
+      function output(
+        command: string,
+        text: string,
+        format: "markdown" | "preformatted" = "markdown",
+      ) {
+        publish({
+          type: "notice_added",
+          item: {
+            kind: "notice",
+            id: ids.newId("not"),
+            seq: ++root.seq,
+            at: now(),
+            turn: root.turn,
+            notice: { type: "command_output", command, text, format },
+          },
+        });
       }
-      const ensureTurn = () => turn ?? startTurn();
+
+      function startTurn(lane: Lane): string {
+        const id = ids.newId("trn");
+        lane.turn = id;
+        // 새 turn이 열리면 답하지 않은 "구현할까" 카드는 지난 일이다.
+        if (lane === root)
+          for (const [request, wait] of [...approvals])
+            if (wait.kind === "plan") closeApproval(request, "cancelled");
+        emit(lane, { type: "turn_started", turn: id, at: now() });
+        return id;
+      }
+      const ensureTurn = (lane: Lane) => lane.turn ?? startTurn(lane);
 
       function addUser(
+        lane: Lane,
         id: string,
         content: ContentBlock[],
-        delivery: "next_turn" | "steer" = "next_turn",
+        delivery: "next_turn" | "steer",
+        origin: string,
       ) {
-        const owner = delivery === "steer" ? turn : ensureTurn();
-        if (owner !== null && !userOf.has(owner)) userOf.set(owner, content);
-        publish({
+        const owner = delivery === "steer" ? lane.turn : ensureTurn(lane);
+        if (owner !== null && !lane.hasUser) {
+          lane.hasUser = true;
+          if (lane === root) userOf.set(owner, content);
+        }
+        emit(lane, {
           type: "message_added",
           item: {
             kind: "message",
             id,
-            seq: ++seq,
+            seq: ++lane.seq,
             at: now(),
             actor: "user",
             sender: null,
@@ -680,7 +1016,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             reply_to: null,
             delivery,
             turn: owner,
-            origin: null,
+            origin,
             content,
             reasoning: null,
             cards: [],
@@ -689,11 +1025,31 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         });
       }
 
+      function subDetail(item: Item): SubDetail {
+        const child = item.receiverThreadIds?.[0] ?? null;
+        const known = child === null ? undefined : item.agentsStates?.[child];
+        return {
+          kind: "subagent",
+          agent: "agent",
+          description: oneLine(item.prompt ?? "", 200),
+          child,
+          state:
+            item.status === "failed"
+              ? "failed"
+              : known === undefined
+                ? "running"
+                : subState(known.status),
+          model: item.model || null,
+          last: known?.message ?? null,
+        };
+      }
+
       function describe(item: Item, call: Call) {
         let tool: string;
         let category: AcpToolItem["category"] = "other";
         let title: string;
         let detail: AcpToolItem["detail"] = { kind: "generic" };
+        let body: AcpToolBody | null = null;
         switch (item.type) {
           case "commandExecution": {
             const actions = (item.commandActions ?? []).map(
@@ -702,6 +1058,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             tool = "shell";
             category = commandCategory(item);
             title = `shell ${oneLine(actions.length > 0 ? actions.join(" && ") : (item.command ?? ""), 120)}`;
+            body = bodyOf(item.command ?? null, item.aggregatedOutput ?? null);
             break;
           }
           case "fileChange": {
@@ -727,21 +1084,33 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               added: call.changes.reduce((sum, one) => sum + one.added, 0),
               removed: call.changes.reduce((sum, one) => sum + one.removed, 0),
             };
+            body = bodyOf(
+              paths.join("\n"),
+              changes.map((one) => `${one.path}\n${one.diff}`).join("\n\n"),
+            );
             break;
           }
           case "webSearch":
             tool = "web_search";
             category = "web";
             title = `web_search ${oneLine(item.query ?? "", 100)}`;
+            body = bodyOf(item.query ?? null, null);
             break;
           case "imageView":
             tool = "view_image";
             category = "read";
             title = `view_image ${basename(item.path ?? "")}`;
             break;
+          case "imageGeneration":
+            tool = "image_generation";
+            title = `image_generation ${oneLine(item.revisedPrompt ?? "", 100)}`;
+            body = bodyOf(item.revisedPrompt ?? null, item.savedPath ?? null);
+            break;
           case "collabAgentToolCall":
             tool = `agent.${item.tool ?? "call"}`;
             title = `${tool} ${oneLine(item.prompt ?? "", 80)}`;
+            if (item.tool === "spawnAgent") detail = subDetail(item);
+            body = bodyOf(item.prompt ?? null, null);
             break;
           case "subAgentActivity":
             tool = "agent.activity";
@@ -750,12 +1119,20 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           case "dynamicToolCall":
             tool = `${item.namespace ? `${item.namespace}.` : ""}${item.tool ?? "tool"}`;
             title = tool;
+            body = bodyOf(
+              jsonText(item.arguments),
+              jsonText(item.contentItems),
+            );
             break;
           default:
             tool = `${item.server ?? "mcp"}.${item.tool ?? "tool"}`;
             title = tool;
+            body = bodyOf(
+              jsonText(item.arguments),
+              jsonText(item.result ?? item.error),
+            );
         }
-        return { tool, category, title: title.trim(), detail };
+        return { tool, category, title: title.trim(), detail, body };
       }
 
       const TOOL_ITEMS = new Set([
@@ -765,73 +1142,200 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         "dynamicToolCall",
         "webSearch",
         "imageView",
+        "imageGeneration",
         "collabAgentToolCall",
         "subAgentActivity",
       ]);
 
-      function toolStart(item: Item): Call {
-        const known = calls.get(item.id);
+      function toolStart(lane: Lane, item: Item): Call {
+        const known = lane.calls.get(item.id);
         if (known !== undefined) return known;
-        const call: Call = { id: ids.newId("tcl"), done: false, changes: [] };
-        calls.set(item.id, call);
-        modelCall = null;
+        const call: Call = {
+          id: ids.newId("tcl"),
+          done: false,
+          changes: [],
+          lane,
+        };
+        lane.calls.set(item.id, call);
+        lane.modelCall = null;
         const shown = describe(item, call);
-        publish({
+        emit(lane, {
           type: "tool_started",
           item: {
             kind: "tool",
             id: call.id,
-            seq: ++seq,
+            seq: ++lane.seq,
             at: now(),
-            turn: ensureTurn(),
+            turn: ensureTurn(lane),
             tool: shown.tool,
             category: shown.category,
             title: shown.title,
             state: "running",
             duration_ms: null,
             detail: shown.detail,
-            body: null,
+            body: shown.body,
           },
         });
         return call;
       }
 
-      function toolEnd(call: Call, state: ReturnType<typeof toolState>) {
+      function toolEnd(
+        call: Call,
+        state: ReturnType<typeof toolState>,
+        shown?: ReturnType<typeof describe>,
+      ) {
         call.done = true;
-        publish({
+        emit(call.lane, {
           type: "tool_ended",
           tool_call: call.id,
           state,
           at: now(),
-          detail: null,
-          body: null,
+          detail: shown?.detail ?? null,
+          body: shown?.body ?? null,
         });
       }
 
-      function record(text: string) {
-        publish({
+      // --- subagent. spawn tool 줄의 detail을 이후의 wait·closeAgent·자식 turn 끝이 바꾼다.
+      function openLane(thread: string) {
+        if (!lanes.has(thread)) lanes.set(thread, newLane(thread, thread));
+      }
+
+      function updateSub(child: string, patch: Partial<SubDetail>) {
+        const sub = subs.get(child);
+        if (sub === undefined) return;
+        const next = { ...sub.detail, ...patch };
+        if (JSON.stringify(next) === JSON.stringify(sub.detail)) return;
+        sub.detail = next;
+        emit(sub.call.lane, {
+          type: "tool_detail_changed",
+          tool_call: sub.call.id,
+          detail: next,
+        });
+      }
+
+      function childEnded(lane: Lane, status: string) {
+        updateSub(lane.thread, {
+          state:
+            status === "completed"
+              ? "done"
+              : status === "interrupted"
+                ? "cancelled"
+                : "failed",
+          ...(lane.last === null ? {} : { last: lane.last }),
+        });
+        publishTasks();
+      }
+
+      function trackAgents(item: Item, call: Call) {
+        for (const thread of [
+          ...(item.receiverThreadIds ?? []),
+          ...(item.agentThreadId ? [item.agentThreadId] : []),
+        ])
+          openLane(thread);
+        if (item.type === "subAgentActivity") {
+          if (item.agentThreadId)
+            updateSub(item.agentThreadId, {
+              ...(item.agentPath ? { agent: item.agentPath } : {}),
+              ...(item.model ? { model: item.model } : {}),
+            });
+        } else {
+          const detail = subDetail(item);
+          if (item.tool === "spawnAgent" && detail.child !== null)
+            subs.set(detail.child, { call, detail, started: now() });
+          for (const [child, state] of Object.entries(item.agentsStates ?? {}))
+            updateSub(child, {
+              state: subState(state.status),
+              ...(state.message === null ? {} : { last: state.message }),
+            });
+        }
+        publishTasks();
+      }
+
+      // --- background task: shell(thread/backgroundTerminals)과 subagent
+      function publishTasks() {
+        const tasks: AcpTask[] = [
+          ...shells.values(),
+          ...[...subs].map(
+            ([child, sub]): AcpTask => ({
+              id: child,
+              kind: "agent",
+              description: sub.detail.description,
+              state: taskState(sub.detail.state),
+              started_at: sub.started,
+              output: sub.detail.last?.slice(-BODY_LIMIT) ?? null,
+            }),
+          ),
+        ];
+        const text = JSON.stringify(tasks);
+        if (text === shownTasks) return;
+        shownTasks = text;
+        publish({ type: "tasks_changed", tasks });
+      }
+
+      async function readShells() {
+        const listed = await request("thread/backgroundTerminals/list", {
+          threadId,
+        }).catch(() => null);
+        if (listed === null) return;
+        const live = new Set<string>();
+        for (const one of listed.data ?? []) {
+          live.add(one.processId);
+          if (!shells.has(one.processId))
+            shells.set(one.processId, {
+              id: one.processId,
+              kind: "shell",
+              description: one.command,
+              state: "running",
+              started_at: now(),
+              output: null,
+            });
+        }
+        for (const [id, task] of shells)
+          if (!live.has(id) && task.state === "running")
+            shells.set(id, { ...task, state: "done" });
+        publishTasks();
+      }
+
+      function runningTasks(): number {
+        return (
+          [...shells.values()].filter((one) => one.state === "running").length +
+          [...subs.values()].filter((one) => one.detail.state === "running")
+            .length
+        );
+      }
+
+      // origin은 그 CLI 자신의 message id다. message_recorded에는 칸이 없어 따로 낸다.
+      function record(lane: Lane, text: string, origin: string) {
+        const message = ids.newId("msg");
+        emit(lane, {
           type: "message_recorded",
-          turn: ensureTurn(),
-          message: ids.newId("msg"),
-          model_call: modelCall,
-          seq: ++seq,
+          turn: ensureTurn(lane),
+          message,
+          model_call: lane.modelCall,
+          seq: ++lane.seq,
           at: now(),
           body: {
             content: [{ type: "text", text }],
             reasoning:
-              reasoning === "" ? null : { text: reasoning, duration_ms: null },
+              lane.reasoning === ""
+                ? null
+                : { text: lane.reasoning, duration_ms: null },
             cards: [],
           },
         });
-        reasoning = "";
-        modelCall = null;
-        streamed.text = 0;
-        streamed.reasoning = 0;
+        emit(lane, { type: "origin_set", message, origin });
+        lane.reasoning = "";
+        lane.modelCall = null;
+        lane.streamed.text = 0;
+        lane.streamed.reasoning = 0;
+        lane.last = text;
       }
 
-      function itemDone(item: Item) {
+      function itemDone(lane: Lane, item: Item) {
         if (item.type === "agentMessage" || item.type === "plan") {
-          if (item.text) record(item.text);
+          if (item.text) record(lane, item.text, item.id);
+          if (item.type === "plan" && lane === root && settings?.plan === true)
+            planText = item.text ?? null;
         } else if (item.type === "reasoning") {
           const parts =
             (item.summary ?? []).length > 0 ? item.summary : item.content;
@@ -839,32 +1343,40 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             .filter((one) => typeof one === "string")
             .join("\n\n");
           if (text !== "")
-            reasoning = reasoning === "" ? text : `${reasoning}\n\n${text}`;
+            lane.reasoning =
+              lane.reasoning === "" ? text : `${lane.reasoning}\n\n${text}`;
         } else if (TOOL_ITEMS.has(item.type)) {
-          const call = toolStart(item);
-          if (!call.done) toolEnd(call, toolState(item));
-        } else if (item.type === "contextCompaction") {
+          if (lane.closed.has(item.id)) return;
+          const call = toolStart(lane, item);
+          if (!call.done) {
+            toolEnd(call, toolState(item), describe(item, call));
+            if (
+              item.type === "collabAgentToolCall" ||
+              item.type === "subAgentActivity"
+            )
+              trackAgents(item, call);
+          }
+        } else if (lane === root && item.type === "contextCompaction") {
           info("Context compacted.");
-        } else if (item.type === "enteredReviewMode") {
-          info(`Review started: ${oneLine(item.text ?? "", 120)}`);
-        } else if (item.type === "exitedReviewMode") {
-          info("Review finished.");
+        } else if (lane === root && item.type === "enteredReviewMode") {
+          info(`Review started: ${oneLine(item.review ?? "", 120)}`);
         }
+        // exitedReviewMode는 그리지 않는다: 같은 글이 바로 뒤의 agentMessage로 오고 그쪽이 대화에 든다(녹화 review).
       }
 
-      function stream(kind: "text" | "reasoning", text: string) {
+      function stream(lane: Lane, kind: "text" | "reasoning", text: string) {
         if (text === "") return;
-        modelCall ??= ids.newId("mcl");
-        publish({
+        lane.modelCall ??= ids.newId("mcl");
+        emit(lane, {
           type: "writing_streamed",
-          turn: ensureTurn(),
-          model_call: modelCall,
+          turn: ensureTurn(lane),
+          model_call: lane.modelCall,
           kind,
-          offset: streamed[kind],
+          offset: lane.streamed[kind],
           text,
           at: now(),
         });
-        streamed[kind] += text.length;
+        lane.streamed[kind] += text.length;
       }
 
       // --- 숨기기(rewind, fork, new): 낸 항목 중 `fromSeq` 뒤를 hidden 하나로 묶는다.
@@ -896,12 +1408,13 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
 
       // --- approvals
       function openApproval(
+        lane: Lane,
         rpc: number | string,
         method: string,
         params: Json,
       ) {
         const isCommand = method === "item/commandExecution/requestApproval";
-        const call = calls.get(String(params.itemId));
+        const call = lane.calls.get(String(params.itemId));
         const decisions: J[] | null = isCommand
           ? (params.availableDecisions ?? null)
           : null;
@@ -952,7 +1465,14 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           ? `allow ${always.applyNetworkPolicyAmendment.network_policy_amendment.host}`
           : command;
         const request = ids.newId("apr");
-        approvals.set(request, { rpc, session, always });
+        approvals.set(request, {
+          rpc,
+          lane,
+          kind: "exec",
+          session,
+          always,
+          requested: null,
+        });
         publish({
           type: "approval_opened",
           approval: {
@@ -977,15 +1497,96 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         });
       }
 
-      // answer가 false면 이미 server가 푼 요청이라 답하지 않는다.
+      // 추가 권한(request_permissions tool). 답이 한 번(turn)·session이고 영구 범위는 없다.
+      function openPermissions(lane: Lane, rpc: number | string, params: Json) {
+        const asked = params.permissions ?? {};
+        const parts: string[] = [];
+        const files = asked.fileSystem;
+        if (files?.write?.length) parts.push(`write ${files.write.join(", ")}`);
+        if (files?.read?.length) parts.push(`read ${files.read.join(", ")}`);
+        if (asked.network) parts.push("network access");
+        if (params.reason)
+          info(
+            `Codex asks for extra permissions: ${oneLine(params.reason, 200)}`,
+          );
+        const request = ids.newId("apr");
+        approvals.set(request, {
+          rpc,
+          lane,
+          kind: "permissions",
+          session: true,
+          always: null,
+          requested: {
+            ...(asked.network ? { network: asked.network } : {}),
+            ...(asked.fileSystem ? { fileSystem: asked.fileSystem } : {}),
+          },
+        });
+        publish({
+          type: "approval_opened",
+          approval: {
+            id: request,
+            subject: {
+              kind: "mcp_tool",
+              server: "codex",
+              tool: oneLine(`extra permissions: ${parts.join("; ")}`, 300),
+              effect: "external",
+            },
+            choices: ["once", "session", "reject"],
+            always_patterns: [],
+          },
+        });
+      }
+
+      // plan mode의 plan이 끝나면 TUI의 "Implement this plan?"을 대신하는 adapter의 카드다. 답할 rpc가 없다.
+      function openPlanCard(plan: string) {
+        const request = ids.newId("apr");
+        approvals.set(request, {
+          rpc: null,
+          lane: root,
+          kind: "plan",
+          session: false,
+          always: null,
+          requested: null,
+        });
+        publish({
+          type: "approval_opened",
+          approval: {
+            id: request,
+            subject: {
+              kind: "plan",
+              plan,
+              modes: [{ id: "default", label: "Implement" }],
+            },
+            choices: ["reject"],
+            always_patterns: [],
+          },
+        });
+      }
+
+      // answer가 false면 이미 server가 푼 요청이라 답하지 않는다. `mode`는 plan 카드를 승인하는 결정이다.
       function closeApproval(
         id: string,
-        decision: "once" | "session" | "always" | "reject" | "cancelled",
+        decision:
+          | "once"
+          | "session"
+          | "always"
+          | "reject"
+          | "cancelled"
+          | "mode",
         reason?: string,
         answer = true,
       ) {
         const wait = approvals.get(id);
         if (wait === undefined) return;
+        // plan 카드는 mode 결정으로만 승인하고, mode 결정은 plan 카드에만 쓴다.
+        if (
+          wait.kind === "plan"
+            ? decision === "once" ||
+              decision === "session" ||
+              decision === "always"
+            : decision === "mode"
+        )
+          return;
         approvals.delete(id);
         // 서버가 내지 않은 범위는 한 번 허락으로 줄인다. 영구 규칙은 영구 선택지에서만 나간다.
         const granted =
@@ -995,25 +1596,36 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               ? "always"
               : decision === "once" ||
                   decision === "session" ||
-                  decision === "always"
+                  decision === "always" ||
+                  decision === "mode"
                 ? "once"
                 : null;
-        if (answer)
-          write({
-            id: wait.rpc,
-            result: {
-              decision:
-                granted === "always"
-                  ? wait.always
-                  : granted === "session"
-                    ? "acceptForSession"
-                    : granted === "once"
-                      ? "accept"
-                      : decision === "reject"
-                        ? "decline"
-                        : "cancel",
-            },
-          });
+        if (answer && wait.rpc !== null) {
+          if (wait.kind === "permissions")
+            write({
+              id: wait.rpc,
+              result: {
+                permissions: granted === null ? {} : wait.requested,
+                scope: granted === "session" ? "session" : "turn",
+              },
+            });
+          else
+            write({
+              id: wait.rpc,
+              result: {
+                decision:
+                  granted === "always"
+                    ? wait.always
+                    : granted === "session"
+                      ? "acceptForSession"
+                      : granted === "once"
+                        ? "accept"
+                        : decision === "reject"
+                          ? "decline"
+                          : "cancel",
+              },
+            });
+        }
         publish({
           type: "approval_closed",
           request: id,
@@ -1023,26 +1635,32 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               : decision === "reject"
                 ? "denied"
                 : "cancelled",
-          choice: granted,
+          choice: granted === "once" && wait.kind === "plan" ? null : granted,
           reason: reason ?? null,
-          seq: ++seq,
+          seq: ++root.seq,
           at: now(),
         });
+        if (wait.kind === "plan" && decision === "mode") void implementPlan();
       }
 
       // --- 질문
-      function openQuestion(rpc: number | string, params: Json) {
+      function openQuestion(lane: Lane, rpc: number | string, params: Json) {
         const group = ids.newId("grp");
-        const call: Call = { id: ids.newId("tcl"), done: false, changes: [] };
+        const call: Call = {
+          id: ids.newId("tcl"),
+          done: false,
+          changes: [],
+          lane,
+        };
         const asked: J[] = (params.questions ?? []).slice(0, 4);
-        publish({
+        emit(lane, {
           type: "tool_started",
           item: {
             kind: "tool",
             id: call.id,
-            seq: ++seq,
+            seq: ++lane.seq,
             at: now(),
-            turn: ensureTurn(),
+            turn: ensureTurn(lane),
             tool: "request_user_input",
             category: "other",
             title: "Question",
@@ -1108,12 +1726,13 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       function startNext() {
         const next = queue.shift();
         if (next === undefined) return;
-        const id = startTurn();
+        const id = startTurn(root);
         userOf.set(id, next.content);
+        root.hasUser = true;
         publish({
           type: "message_taken",
           message: next.id,
-          seq: ++seq,
+          seq: ++root.seq,
           delivery: "next_turn",
           turn: id,
         });
@@ -1121,23 +1740,30 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       }
 
       function endTurn(
+        lane: Lane,
         outcome: "completed" | "stopped" | "failed",
         error?: { code: string; message: string },
       ) {
-        const id = turn ?? ids.newId("trn");
-        // server가 turn을 끝내며 이미 푼 요청이다. 답은 보내지 않고 카드만 닫는다.
-        for (const request of [...approvals.keys()])
-          closeApproval(request, "cancelled", undefined, false);
-        for (const call of [...asks.keys()]) closeQuestion(call, "cancelled");
-        for (const call of calls.values())
-          if (!call.done) toolEnd(call, "cancelled");
-        calls.clear();
-        reasoning = "";
-        modelCall = null;
-        streamed.text = 0;
-        streamed.reasoning = 0;
-        summarized.clear();
-        publish({
+        const id = lane.turn ?? ids.newId("trn");
+        // server가 turn을 끝내며 이미 푼 요청이다. 답은 보내지 않고 카드만 닫는다(plan 카드는 turn이 끝난 뒤에 뜬다).
+        for (const [request, wait] of [...approvals])
+          if (wait.lane === lane && wait.kind !== "plan")
+            closeApproval(request, "cancelled", undefined, false);
+        for (const [call, wait] of [...asks])
+          if (wait.call.lane === lane) closeQuestion(call, "cancelled");
+        for (const [itemId, call] of lane.calls)
+          if (!call.done) {
+            toolEnd(call, "cancelled");
+            lane.closed.add(itemId);
+          }
+        lane.calls.clear();
+        lane.reasoning = "";
+        lane.modelCall = null;
+        lane.streamed.text = 0;
+        lane.streamed.reasoning = 0;
+        lane.summarized.clear();
+        lane.hasUser = false;
+        emit(lane, {
           type: "turn_ended",
           turn: id,
           at: now(),
@@ -1145,18 +1771,20 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           active_ms: null,
           error: error ?? null,
           messages: [],
-          seq: ++seq,
+          seq: ++lane.seq,
         });
-        turn = null;
-        codexTurn = null;
+        lane.turn = null;
+        lane.codexTurn = null;
+        if (lane !== root) return;
         stopPending = false;
         if (dead === null) startNext();
       }
 
-      const interrupt = () =>
-        void request("turn/interrupt", { threadId, turnId: codexTurn }).catch(
-          () => {},
-        );
+      const interrupt = (lane: Lane) =>
+        void request("turn/interrupt", {
+          threadId: lane.thread,
+          turnId: lane.codexTurn,
+        }).catch(() => {});
 
       // ACP turn은 이미 시작했다. app-server에 새 turn을 연다.
       function begin(messageId: string, input: J[]) {
@@ -1167,20 +1795,23 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           input,
         }).then(
           (result) => {
-            if (turn === null) return;
-            codexTurn = (result.turn as { id: string }).id;
-            wireOf.set(turn, codexTurn);
-            if (stopPending) interrupt();
+            if (root.turn === null) return;
+            root.codexTurn = (result.turn as { id: string }).id;
+            wireOf.set(root.turn, root.codexTurn);
+            if (stopPending) interrupt(root);
           },
           (cause: Error) =>
-            endTurn("failed", { code: "internal", message: cause.message }),
+            endTurn(root, "failed", {
+              code: "internal",
+              message: cause.message,
+            }),
         );
       }
 
       function sendNow(id: string, content: ContentBlock[]) {
-        addUser(id, content);
+        addUser(root, id, content, "next_turn", id);
         if (dead === null) begin(id, inputOf(content));
-        else endTurn("failed", dead);
+        else endTurn(root, "failed", dead);
       }
 
       // 도는 turn에 끼워 넣는다. 못 하면(turn이 막 끝남 등) 줄을 서거나 새 turn이 된다.
@@ -1194,7 +1825,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         try {
           await request("turn/steer", {
             threadId,
-            expectedTurnId: codexTurn,
+            expectedTurnId: root.codexTurn,
             clientUserMessageId: id,
             input: inputOf(content),
           });
@@ -1211,35 +1842,170 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         publish({ type: "message_queued", queued });
       }
 
+      // --- subagent 조작: 자식 thread의 도는 turn을 멈추거나 방향을 준다. 도는 turn이 없으면 새 turn이다.
+      function stopChild(child: string) {
+        const lane = lanes.get(child);
+        if (lane !== undefined && lane.codexTurn !== null) interrupt(lane);
+      }
+
+      async function steerChild(child: string, text: string) {
+        const lane = lanes.get(child);
+        if (lane === undefined || lane === root) return;
+        const content: ContentBlock[] = [{ type: "text", text }];
+        const id = ids.newId("msg");
+        sent.add(id);
+        const running = lane.turn !== null && lane.codexTurn !== null;
+        await attempt("Subagent message", async () => {
+          if (running) {
+            await request("turn/steer", {
+              threadId: child,
+              expectedTurnId: lane.codexTurn,
+              clientUserMessageId: id,
+              input: inputOf(content),
+            });
+            addUser(lane, id, content, "steer", id);
+            return;
+          }
+          addUser(lane, id, content, "next_turn", id);
+          try {
+            const started = await request("turn/start", {
+              threadId: child,
+              clientUserMessageId: id,
+              input: inputOf(content),
+            });
+            lane.codexTurn = (started.turn as { id: string }).id;
+          } catch (cause) {
+            endTurn(lane, "failed", {
+              code: "internal",
+              message: (cause as Error).message,
+            });
+            throw cause;
+          }
+        });
+      }
+
+      async function stopTask(task: string) {
+        if (subs.has(task)) return stopChild(task);
+        const shell = shells.get(task);
+        if (shell === undefined) return;
+        await attempt("Stop terminal", async () => {
+          await request("thread/backgroundTerminals/terminate", {
+            threadId,
+            processId: task,
+          });
+          shells.set(task, { ...shell, state: "stopped" });
+        });
+        await readShells();
+      }
+
+      // --- 설정: plan mode와 goal
+      async function setPlan(on: boolean) {
+        const current = settings;
+        if (current === null) return;
+        await attempt("Plan mode", () =>
+          request("thread/settings/update", {
+            threadId,
+            collaborationMode: {
+              mode: on ? "plan" : "default",
+              settings: {
+                model: current.model,
+                reasoning_effort: current.effort,
+                developer_instructions: null,
+              },
+            },
+          }),
+        );
+      }
+
+      // "Implement this plan?"에 승인했다: default mode로 돌리고 TUI와 같은 글로 구현을 시킨다.
+      async function implementPlan() {
+        await setPlan(false);
+        const id = ids.newId("msg");
+        sendNow(id, [{ type: "text", text: IMPLEMENT_PLAN }]);
+      }
+
+      async function setGoal(objective: string | null, paused: boolean) {
+        await attempt("Goal", async () => {
+          if (objective === null) {
+            await request("thread/goal/clear", { threadId, origin: "user" });
+            return;
+          }
+          const reply = await request("thread/goal/set", {
+            threadId,
+            origin: "user",
+            ...(paused
+              ? { status: "paused" }
+              : { objective, status: "active" }),
+          });
+          change({ goal: goalOf(reply.goal) });
+        });
+      }
+
       // --- notifications
-      function onUserMessage(item: Item) {
+      function onUserMessage(lane: Lane, item: Item) {
         // 우리가 보낸 메시지의 echo다.
         if (item.clientId && sent.has(item.clientId)) return;
         // TUI 같은 다른 client가 보낸 메시지다.
         const content = contentOf(item.content ?? []);
         if (content.length === 0) return;
-        const owner = turn;
         addUser(
+          lane,
           ids.newId("msg"),
           content,
-          owner !== null && userOf.has(owner) ? "steer" : "next_turn",
+          lane.turn !== null && lane.hasUser ? "steer" : "next_turn",
+          item.clientId ?? item.id,
         );
       }
 
+      function applyLimits() {
+        limits = [...snapshots].flatMap(([limitId, snapshot]) =>
+          (["primary", "secondary"] as const).flatMap((slot) => {
+            const window = snapshot?.[slot];
+            return window == null
+              ? []
+              : [
+                  {
+                    id: `${limitId}.${slot}`,
+                    label: windowLabel(window.windowDurationMins),
+                    used_percent: Math.min(100, window.usedPercent),
+                    left: null,
+                    // resetsAt은 초 단위 epoch다(녹화 rate_limits).
+                    resets_at:
+                      window.resetsAt == null
+                        ? null
+                        : new Date(window.resetsAt * 1000).toISOString(),
+                  },
+                ];
+          }),
+        );
+        change({ usage: usageNow() });
+      }
+
       function onNotification(method: string, params: Json) {
-        // 같은 server의 다른 thread(fork로 열린 옛 thread, subagent) 이벤트다.
-        if (params.threadId !== undefined && params.threadId !== threadId)
-          return;
+        // thread 없는 알림(warning 일부, 사용 한도)은 root의 것이다. 같은 server의 모르는 thread(fork로 열린 옛 thread)는 버린다.
+        const lane =
+          params.threadId == null ? root : lanes.get(String(params.threadId));
+        if (lane === undefined) return;
         const item = params.item as Item | undefined;
         switch (method) {
-          case "turn/started":
-            codexTurn = (params.turn as { id: string }).id;
-            materialized = true;
-            wireOf.set(ensureTurn(), codexTurn);
+          case "turn/started": {
+            lane.codexTurn = (params.turn as { id: string }).id;
+            const id = ensureTurn(lane);
+            if (lane === root) {
+              materialized = true;
+              wireOf.set(id, lane.codexTurn);
+            } else {
+              updateSub(lane.thread, { state: "running" });
+              publishTasks();
+            }
             return;
+          }
           case "turn/completed": {
             const wire = params.turn as WireTurn;
+            const plan = lane === root ? planText : null;
+            if (lane === root) planText = null;
             endTurn(
+              lane,
               wire.status === "completed"
                 ? "completed"
                 : wire.status === "interrupted"
@@ -1252,42 +2018,43 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                   }
                 : undefined,
             );
+            if (lane !== root) {
+              childEnded(lane, wire.status);
+              return;
+            }
+            void readShells();
+            if (
+              plan !== null &&
+              root.turn === null &&
+              wire.status === "completed"
+            )
+              openPlanCard(plan);
             return;
           }
           case "item/started":
             if (item === undefined) return;
-            if (item.type === "userMessage") onUserMessage(item);
-            else if (TOOL_ITEMS.has(item.type)) toolStart(item);
+            if (item.type === "userMessage") onUserMessage(lane, item);
+            else if (TOOL_ITEMS.has(item.type)) toolStart(lane, item);
             return;
           case "item/completed":
             if (item !== undefined && item.type !== "userMessage")
-              itemDone(item);
+              itemDone(lane, item);
             return;
           case "item/agentMessage/delta":
-            stream("text", String(params.delta ?? ""));
+            stream(lane, "text", String(params.delta ?? ""));
             return;
           case "item/reasoning/summaryPartAdded":
-            summarized.add(String(params.itemId));
-            if (streamed.reasoning > 0) stream("reasoning", "\n\n");
+            lane.summarized.add(String(params.itemId));
+            if (lane.streamed.reasoning > 0) stream(lane, "reasoning", "\n\n");
             return;
           case "item/reasoning/summaryTextDelta":
-            summarized.add(String(params.itemId));
-            stream("reasoning", String(params.delta ?? ""));
+            lane.summarized.add(String(params.itemId));
+            stream(lane, "reasoning", String(params.delta ?? ""));
             return;
           case "item/reasoning/textDelta":
             // summary와 raw가 같이 오면 summary 하나만 쓴다.
-            if (!summarized.has(String(params.itemId)))
-              stream("reasoning", String(params.delta ?? ""));
-            return;
-          case "turn/plan/updated":
-            publish({
-              type: "plan_changed",
-              entries: (params.plan ?? []).map((one: J) => ({
-                text: one.step,
-                status:
-                  one.status === "inProgress" ? "in_progress" : one.status,
-              })),
-            });
+            if (!lane.summarized.has(String(params.itemId)))
+              stream(lane, "reasoning", String(params.delta ?? ""));
             return;
           case "serverRequest/resolved":
             // 다른 client가 먼저 답했거나 server가 스스로 푼 요청이다. 답은 보내지 않는다.
@@ -1302,6 +2069,19 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             for (const [id, wait] of asks)
               if (wait.rpc === params.requestId) closeQuestion(id, "cancelled");
             return;
+        }
+        if (lane !== root) return;
+        switch (method) {
+          case "turn/plan/updated":
+            publish({
+              type: "plan_changed",
+              entries: (params.plan ?? []).map((one: J) => ({
+                text: one.step,
+                status:
+                  one.status === "inProgress" ? "in_progress" : one.status,
+              })),
+            });
+            return;
           case "thread/name/updated":
             change({ title: params.threadName ?? null });
             return;
@@ -1309,7 +2089,15 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             applySettings(params.threadSettings);
             return;
           case "thread/tokenUsage/updated":
-            change({ usage: usageOf(params.tokenUsage) });
+            tokenUsage = params.tokenUsage;
+            change({ usage: usageNow() });
+            return;
+          case "account/rateLimits/updated":
+            snapshots.set(
+              params.rateLimits.limitId ?? "codex",
+              params.rateLimits,
+            );
+            applyLimits();
             return;
           case "thread/reverted":
             if (!reverting)
@@ -1318,8 +2106,27 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               );
             return;
           case "thread/goal/updated":
+            change({ goal: goalOf(params.goal) });
+            return;
+          case "thread/goal/cleared":
+            change({ goal: null });
+            return;
+          case "warning":
+            info(String(params.message), "warning");
+            return;
+          case "configWarning":
             info(
-              `Goal ${params.goal.status}: ${oneLine(params.goal.objective, 160)}`,
+              oneLine(
+                `${params.summary}${params.details ? `: ${params.details}` : ""}`,
+                300,
+              ),
+              "warning",
+            );
+            return;
+          case "model/rerouted":
+            info(
+              `Model rerouted from ${params.fromModel} to ${params.toModel} (${params.reason}).`,
+              "warning",
             );
             return;
           case "error":
@@ -1327,19 +2134,21 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             if (params.willRetry)
               info(oneLine(params.error?.message ?? "Retrying…", 200));
             return;
-          default:
-            return;
         }
       }
 
       function onRequest(rpc: number | string, method: string, params: Json) {
+        const lane = lanes.get(String(params.threadId)) ?? root;
         switch (method) {
           case "item/commandExecution/requestApproval":
           case "item/fileChange/requestApproval":
-            openApproval(rpc, method, params);
+            openApproval(lane, rpc, method, params);
+            return;
+          case "item/permissions/requestApproval":
+            openPermissions(lane, rpc, params);
             return;
           case "item/tool/requestUserInput":
-            openQuestion(rpc, params);
+            openQuestion(lane, rpc, params);
             return;
           case "mcpServer/elicitation/request":
             write({
@@ -1347,13 +2156,11 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               result: { action: "decline", content: null, _meta: null },
             });
             info(
-              `MCP server ${params.serverName ?? ""} asked for input; the lophn window declined it.`,
-            );
-            return;
-          case "item/permissions/requestApproval":
-            write({ id: rpc, result: { permissions: {}, scope: "turn" } });
-            info(
-              "Codex asked for extra permissions; the lophn window granted none.",
+              oneLine(
+                `MCP server ${params.serverName ?? ""} asked for input${params.message ? `: ${params.message}` : ""}. The lophn window declined it.`,
+                300,
+              ),
+              "warning",
             );
             return;
           default:
@@ -1389,21 +2196,24 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         else wait.resolve(message.result ?? {});
       }
 
+      // token 수는 첫 thread/tokenUsage/updated가 와야 안다. 사용 한도는 그 전에도 읽는다.
+      const usageNow = () =>
+        tokenUsage === null && limits.length === 0 ? null : usageOf(tokenUsage);
       function usageOf(usage: J): AcpUsage {
         return {
           context:
-            usage.modelContextWindow == null
+            usage?.modelContextWindow == null
               ? null
               : {
                   tokens: usage.last.totalTokens,
                   limit: usage.modelContextWindow,
                   parts: [],
                 },
-          limits: [],
-          input_tokens: usage.total.inputTokens,
-          output_tokens: usage.total.outputTokens,
-          cache_read_tokens: usage.total.cachedInputTokens,
-          cache_write_tokens: usage.total.cacheWriteInputTokens,
+          limits,
+          input_tokens: usage?.total.inputTokens ?? null,
+          output_tokens: usage?.total.outputTokens ?? null,
+          cache_read_tokens: usage?.total.cachedInputTokens ?? null,
+          cache_write_tokens: usage?.total.cacheWriteInputTokens ?? null,
           turns: null,
           costs: [],
           provider: null,
@@ -1419,27 +2229,39 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         };
         for (const wait of pending.values()) wait.reject(new Error(reason));
         pending.clear();
-        endTurn("failed", dead);
+        endTurn(root, "failed", dead);
+        for (const lane of lanes.values())
+          if (lane !== root && lane.turn !== null)
+            endTurn(lane, "failed", dead);
       };
       proc.onExit(() => failure("codex exited."));
 
       // 앞 대화를 같은 길로 그린다. 사람 메시지마다 turn 하나다. 돌고 있는 turn은 열어 둔다.
-      function replay(turns: WireTurn[]) {
+      function replay(lane: Lane, turns: WireTurn[]) {
         for (const wire of turns) {
-          materialized = true;
+          if (lane === root) materialized = true;
           for (const item of wire.items ?? []) {
             if (item.type === "userMessage") {
               const content = contentOf(item.content ?? []);
-              if (content.length > 0) addUser(ids.newId("msg"), content);
-              if (turn !== null) wireOf.set(turn, wire.id);
-            } else itemDone(item);
+              if (content.length > 0)
+                addUser(
+                  lane,
+                  ids.newId("msg"),
+                  content,
+                  "next_turn",
+                  item.clientId ?? item.id,
+                );
+              if (lane === root && lane.turn !== null)
+                wireOf.set(lane.turn, wire.id);
+            } else itemDone(lane, item);
           }
           if (wire.status === "inProgress") {
-            codexTurn = wire.id;
+            lane.codexTurn = wire.id;
             continue;
           }
-          if (turn !== null)
+          if (lane.turn !== null) {
             endTurn(
+              lane,
               wire.status === "failed"
                 ? "failed"
                 : wire.status === "completed"
@@ -1452,22 +2274,37 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                   }
                 : undefined,
             );
+            if (lane !== root) childEnded(lane, wire.status);
+          }
         }
       }
 
-      async function replayThread() {
+      async function replayThread(lane: Lane) {
         let cursor: string | null = null;
         do {
           const page: Json = await request("thread/turns/list", {
-            threadId,
+            threadId: lane.thread,
             sortDirection: "asc",
             itemsView: "full",
             limit: 50,
             ...(cursor === null ? {} : { cursor }),
           });
-          replay(page.data ?? []);
+          replay(lane, page.data ?? []);
           cursor = page.nextCursor ?? null;
         } while (cursor !== null);
+      }
+
+      // 앞 대화에서 spawn한 subagent의 대화도 그린다(replay가 자식 thread를 알려 주므로 새로 알린 것까지 돈다).
+      async function replayChildren() {
+        const done = new Set<string>();
+        for (;;) {
+          const next = [...lanes.values()].find(
+            (one) => one !== root && !done.has(one.thread),
+          );
+          if (next === undefined) return;
+          done.add(next.thread);
+          await replayThread(next).catch(() => {});
+        }
       }
 
       // 사람의 실제 설정이 never이거나 danger-full-access일 때만 느슨하지 않은 값으로 바꾼다.
@@ -1481,8 +2318,18 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           : {};
       }
 
+      async function readGoal() {
+        const read = await request("thread/goal/get", { threadId }).catch(
+          () => null,
+        );
+        change({ goal: goalOf(read?.goal) });
+      }
+
       function useThread(opened: Json) {
         threadId = opened.thread.id;
+        root.thread = threadId;
+        lanes.clear();
+        lanes.set(threadId, root);
         applySettings({
           ...opened,
           collaborationMode: opened.collaborationMode ?? undefined,
@@ -1522,7 +2369,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               ...policy,
             }),
           );
-          await replayThread();
+          await replayThread(root);
+          await replayChildren();
         }
         models = (
           (await request("model/list", {}).catch(() => ({ data: [] }))).data ??
@@ -1545,7 +2393,22 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               .map((one: J) => [one.name, one.path] as const),
           ),
         );
-        change({ ...modelMeta(), ...modesMeta(), ...commandsMeta() });
+        await readGoal();
+        const rates = await request("account/rateLimits/read", {}).catch(
+          () => null,
+        );
+        for (const [limitId, snapshot] of Object.entries(
+          rates?.rateLimitsByLimitId ??
+            (rates?.rateLimits ? { codex: rates.rateLimits } : {}),
+        ))
+          snapshots.set(limitId, snapshot);
+        applyLimits();
+        change({
+          ...modelMeta(),
+          ...modesMeta(),
+          ...commandsMeta(),
+          ...togglesMeta(),
+        });
         publish({ type: "session_changed", session: meta });
         metaSent = true;
       })();
@@ -1590,6 +2453,80 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         userOf.clear();
         wireOf.clear();
         sent.clear();
+        // 새 thread에는 이전 thread의 계획·goal·background task·subagent가 없다.
+        subs.clear();
+        shells.clear();
+        planText = null;
+        tokenUsage = null;
+        publishTasks();
+        publish({ type: "plan_changed", entries: [] });
+        change({ usage: usageNow() });
+        void readGoal();
+      }
+
+      // git 명령의 출력. git 폴더가 아니면 code가 0이 아니다.
+      function git(args: string[]) {
+        return new Promise<{ code: number | null; out: string }>((resolve) => {
+          const proc = spawn("git", args, { cwd });
+          let out = "";
+          proc.onStdout((text) => {
+            out += text;
+          });
+          proc.onExit((code) => resolve({ code, out }));
+        });
+      }
+
+      async function showDiff() {
+        const diff = await git(["diff"]);
+        if (diff.code !== 0)
+          return output("diff", "`/diff` — _not inside a git repository_");
+        const untracked = await git([
+          "status",
+          "--porcelain",
+          "--untracked-files=all",
+        ]);
+        const names = untracked.out
+          .split("\n")
+          .filter((line) => line.startsWith("?? "))
+          .map((line) => `new file: ${line.slice(3)}`);
+        const text = [diff.out.trimEnd(), ...names].filter(Boolean).join("\n");
+        output("diff", text === "" ? "No changes." : text, "preformatted");
+      }
+
+      async function showMcp() {
+        const listed = await request("mcpServerStatus/list", {
+          threadId,
+          detail: "toolsAndAuthOnly",
+        }).catch((cause: Error) => cause);
+        if (listed instanceof Error)
+          return info(`MCP status failed: ${listed.message}`, "warning");
+        const servers: J[] = listed.data ?? [];
+        output(
+          "mcp",
+          servers.length === 0
+            ? "No MCP servers."
+            : servers
+                .map(
+                  (one) =>
+                    `- **${one.name}** — ${one.runtimeStatus ?? "unknown"}, ${Object.keys(one.tools ?? {}).length} tools`,
+                )
+                .join("\n"),
+        );
+      }
+
+      async function showTerminals() {
+        await readShells();
+        const running = [...shells.values()].filter(
+          (one) => one.state === "running",
+        );
+        output(
+          "ps",
+          running.length === 0
+            ? "No background terminals."
+            : running
+                .map((one) => `- \`${one.description}\` (pid ${one.id})`)
+                .join("\n"),
+        );
       }
 
       async function runCommand(name: string, argument: string) {
@@ -1610,71 +2547,54 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 delivery: "inline",
               }),
             ));
-          case "plan": {
-            const current = settings;
-            if (current === null) return;
-            const next = !current.plan;
-            await attempt("Plan mode", async () => {
-              await request("thread/settings/update", {
-                threadId,
-                collaborationMode: {
-                  mode: next ? "plan" : "default",
-                  settings: {
-                    model: current.model,
-                    reasoning_effort: current.effort,
-                    developer_instructions: null,
-                  },
-                },
-              });
-              info(next ? "Plan mode is on." : "Plan mode is off.");
-            });
+          case "plan":
+            if (settings !== null) await setPlan(!settings.plan);
             return;
+          case "goal": {
+            if (arg !== "") return await setGoal(arg, false);
+            const goal = meta.goal;
+            return output(
+              "goal",
+              goal === null
+                ? "No goal. Use `/goal <objective>`."
+                : `Goal (${goal.status}): ${goal.objective}${goal.detail ? ` — ${goal.detail}` : ""}`,
+            );
           }
-          case "goal":
-            if (arg === "") return info("Usage: /goal <objective>");
-            return void (await attempt("Goal", () =>
-              request("thread/goal/set", {
-                threadId,
-                objective: arg,
-                status: "active",
-              }),
-            ));
-          case "rename":
-            if (arg === "") return info("Usage: /rename <name>");
-            return await rename(arg);
-          case "fork":
-            return await fork(null);
           case "new":
             return void (await attempt("New conversation", async () => {
               const opened = await request("thread/start", { cwd, ...policy });
               switchThread(opened, true);
               materialized = false;
-              change({ usage: null });
             }));
-          case "status": {
-            const current = settings;
-            const context = meta.usage?.context;
-            return info(
-              [
-                `Model ${current?.model ?? "?"}${current?.effort ? ` (${current.effort})` : ""}`,
-                `Permissions ${modeOf(current ?? ({} as Settings)) ?? "custom"}`,
-                context
-                  ? `Context ${context.tokens}/${context.limit} tokens`
-                  : "Context unknown",
-              ].join(" · "),
-            );
-          }
+          case "init":
+            if (root.turn !== null)
+              return info("Wait for the current turn before running /init.");
+            return sendNow(ids.newId("msg"), [
+              { type: "text", text: INIT_PROMPT },
+            ]);
+          case "mcp":
+            return await showMcp();
+          case "diff":
+            return await showDiff();
+          case "ps":
+            return await showTerminals();
+          case "stop":
+            return void (await attempt("Stop terminals", async () => {
+              await request("thread/backgroundTerminals/clean", { threadId });
+              output("stop", "Stopped all background terminals.");
+              await readShells();
+            }));
         }
         const path = skills.get(name);
         if (path === undefined) return info(`Unknown command: ${name}`);
         // skill는 UserInput skill로 새 turn을 연다.
-        if (turn !== null)
+        if (root.turn !== null)
           return info("Wait for the current turn before running a skill.");
         const content: ContentBlock[] = [
           { type: "text", text: `$${name}${arg === "" ? "" : ` ${arg}`}` },
         ];
         const id = ids.newId("msg");
-        addUser(id, content);
+        addUser(root, id, content, "next_turn", id);
         begin(id, [
           { type: "skill", name, path },
           ...(arg === ""
@@ -1699,7 +2619,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           .at(-1);
         const found = messageItem(messageId);
         if (
-          turn !== null ||
+          root.turn !== null ||
           found === undefined ||
           found.kind !== "message" ||
           last?.id !== messageId
@@ -1722,7 +2642,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
 
       // 새 thread를 같은 탭에서 연다. fork 응답이 이 connection을 새 thread에 구독시킨다.
       async function fork(messageId: string | null) {
-        if (turn !== null)
+        if (root.turn !== null)
           return info("Wait for the current turn before forking.");
         if (!materialized) return info("There is nothing to fork yet.");
         const found = messageId === null ? undefined : messageItem(messageId);
@@ -1749,7 +2669,6 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 );
           switchThread(opened, false);
           if (later !== undefined) hideFrom(later.seq, later.id);
-          change({ usage: null });
           info("Forked into a new conversation.");
         });
       }
@@ -1760,7 +2679,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             const first = message.content[0];
             // `!`로 시작하면 shell 명령이다. app-server가 turn을 열고 그 이벤트로 그린다.
             if (
-              turn === null &&
+              root.turn === null &&
               first?.type === "text" &&
               first.text.startsWith("!") &&
               first.text.trim().length > 1
@@ -1773,17 +2692,24 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               );
               return;
             }
-            if (turn === null) {
+            if (root.turn === null) {
               sendNow(message.id, message.content);
               return;
             }
-            if (message.delivery === "steer" && codexTurn !== null) {
+            if (message.delivery === "steer" && root.codexTurn !== null) {
               void steer(
                 message.id,
                 message.content,
-                () => addUser(message.id, message.content, "steer"),
                 () =>
-                  turn === null
+                  addUser(
+                    root,
+                    message.id,
+                    message.content,
+                    "steer",
+                    message.id,
+                  ),
+                () =>
+                  root.turn === null
                     ? sendNow(message.id, message.content)
                     : enqueue(message.id, message.content),
               );
@@ -1794,7 +2720,11 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           }
           case "send_queued": {
             const queued = queue.find((one) => one.id === message.message);
-            if (queued === undefined || turn === null || codexTurn === null)
+            if (
+              queued === undefined ||
+              root.turn === null ||
+              root.codexTurn === null
+            )
               return;
             void steer(
               queued.id,
@@ -1806,7 +2736,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 publish({
                   type: "message_taken",
                   message: queued.id,
-                  seq: ++seq,
+                  seq: ++root.seq,
                   delivery: "steer",
                   turn: null,
                 });
@@ -1816,21 +2746,20 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             return;
           }
           case "stop":
-            if (turn === null) return;
+            if (root.turn === null) return;
             // 사람이 멈춘다. 아직 열려 있는(server가 풀지 않은) 승인에만 cancel을 보낸다.
             for (const request of [...approvals.keys()])
               closeApproval(request, "cancelled");
-            if (codexTurn === null) stopPending = true;
-            else interrupt();
+            if (root.codexTurn === null) stopPending = true;
+            else interrupt(root);
             return;
           case "retry": {
             const content =
-              turn === null ? userOf.get(message.turn) : undefined;
+              root.turn === null ? userOf.get(message.turn) : undefined;
             if (content !== undefined) sendNow(ids.newId("msg"), content);
             return;
           }
           case "decide":
-            if (message.choice.kind === "mode") return;
             closeApproval(
               message.request,
               message.choice.kind,
@@ -1911,6 +2840,21 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           case "rename":
             void rename(message.title);
             return;
+          case "stop_child":
+            stopChild(message.child);
+            return;
+          case "steer_child":
+            void steerChild(message.child, message.text);
+            return;
+          case "stop_task":
+            void stopTask(message.task);
+            return;
+          case "set_toggle":
+            if (message.id === "plan") void setPlan(message.on);
+            return;
+          case "set_goal":
+            void setGoal(message.objective, message.paused);
+            return;
         }
       }
 
@@ -1943,7 +2887,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           return `codex resume ${threadId} --remote 'unix://${socket}' --cd "$PWD"`;
         },
         sessionId: () => (threadId === "" ? null : threadId),
-        running: () => ({ turn: turn !== null, tasks: 0 }),
+        running: () => ({ turn: root.turn !== null, tasks: runningTasks() }),
       };
       return { ok: true, value: run };
     },

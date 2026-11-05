@@ -89,6 +89,12 @@ async function boot(
     const config = rec.find((one) => one.data.result?.config !== undefined);
     (config?.data.result as { config: unknown }).config = options.config;
   }
+  // resume이면 시작은 thread/start가 아니라 thread/resume과 앞 turn 목록 읽기다.
+  if (options.resume !== undefined) {
+    const start = rec.findIndex((one) => one.data.method === "thread/start");
+    (rec[start] as Entry).data.method = "thread/resume";
+    rec.splice(start + 2, 0, ...recording("origin"));
+  }
   let at = 0;
   let sent = 0;
   let answered = 0;
@@ -349,4 +355,66 @@ test("TUI 같은 다른 client가 보낸 메시지는 사람 메시지로 보이
     [[{ type: "text", text: "Reply with exactly: from b" }]],
   );
   assert.deepEqual(ends(t.state), ["completed"]);
+});
+
+const permissionRows = [
+  { name: "거절", choice: { kind: "reject" }, granted: false },
+  { name: "한 번", choice: { kind: "once" }, granted: true },
+  // 창이 turn을 멈추면 카드는 취소로 닫히고 권한은 나가지 않는다.
+  { name: "취소", choice: null, granted: false },
+] as const;
+
+for (const row of permissionRows) {
+  test(`추가 권한 요청은 창이 답하기 전까지 app-server에 답이 나가지 않는다 (${row.name})`, async () => {
+    const { t, asked } = await ask("permissions");
+    assert.equal(asked.data.method, "item/permissions/requestApproval");
+    const approval = t.state.pending.approval;
+    assert.ok(approval);
+    assert.equal(approval.subject.kind, "mcp_tool");
+    assert.deepEqual(approval.choices, ["once", "session", "reject"]);
+    assert.equal(results(t.written).length, 0);
+
+    if (row.choice === null)
+      await t.input({ type: "stop", turn: t.state.turn?.id, key: "stop" });
+    else
+      await t.input({
+        type: "decide",
+        request: approval.id,
+        choice: row.choice,
+      });
+    // 한 번은 요청한 권한을 이 turn에만, 나머지는 빈 권한이다.
+    const asking = (
+      asked.data.params as { permissions: { fileSystem: unknown } }
+    ).permissions;
+    assert.deepEqual(
+      results(t.written).map((one) => one.result),
+      [
+        {
+          permissions: row.granted ? { fileSystem: asking.fileSystem } : {},
+          scope: "turn",
+        },
+      ],
+    );
+  });
+}
+
+test("resume 뒤 다시 그린 사람 메시지의 origin은 처음 보낼 때의 id와 같다", async () => {
+  const userOrigins = (state: AcpState) =>
+    state.items.flatMap((item) =>
+      item.kind === "message" && item.actor === "user" ? [item.origin] : [],
+    );
+  // 창이 보낸 id를 clientUserMessageId로 보내므로 그 id가 origin이다.
+  const first = await boot();
+  await first.t.input({
+    type: "send",
+    id: "msg_a1",
+    key: "msg_a1",
+    content: [{ type: "text", text: "Reply with exactly: first" }],
+    delivery: "next_turn",
+  });
+  assert.deepEqual(userOrigins(first.t.state), ["msg_a1"]);
+
+  // 다시 열면 app-server가 돌려주는 clientId가 같은 key다. 어긋나면 사람의 bookmark를 잃는다.
+  const again = await boot({ resume: "01a1aa8e-4ef3-7541-8699-96c63c40a8bb" });
+  assert.deepEqual(userOrigins(again.t.state), ["msg_a1", "msg_a2"]);
 });

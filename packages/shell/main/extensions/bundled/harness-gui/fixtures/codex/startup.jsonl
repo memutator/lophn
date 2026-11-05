@@ -11,3 +11,7 @@
 {"kind":"recv","data":{"id":5,"result":{"data":[{"name":"Plan","mode":"plan","model":null,"reasoning_effort":"medium"},{"name":"Default","mode":"default","model":null,"reasoning_effort":null}]}}}
 {"kind":"send","data":{"id":6,"method":"skills/list","params":{}}}
 {"kind":"recv","data":{"id":6,"result":{"data":[{"cwd":"/work/startup","skills":[],"errors":[]}]}}}
+{"kind":"send","data":{"id":7,"method":"thread/goal/get","params":{}}}
+{"kind":"recv","data":{"id":7,"result":{"goal":null}}}
+{"kind":"send","data":{"id":8,"method":"account/rateLimits/read","params":{}}}
+{"kind":"recv","data":{"id":8,"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":6,"windowDurationMins":300,"resetsAt":1800000000},"secondary":{"usedPercent":9,"windowDurationMins":10080,"resetsAt":1800500000}},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":6,"windowDurationMins":300,"resetsAt":1800000000},"secondary":{"usedPercent":9,"windowDurationMins":10080,"resetsAt":1800500000}}}}}}

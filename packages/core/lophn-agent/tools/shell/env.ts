@@ -1,5 +1,9 @@
 import process from "node:process";
 import {
+  envValue,
+  WINDOWS_ENV_NAMES,
+} from "../../../supervision/security/child-env.ts";
+import {
   nodeShimFolder,
   withNodeShims,
 } from "../../../supervision/security/node-shims.ts";
@@ -22,10 +26,16 @@ export const SHELL_ENV_NAMES = [
 export function shellEnvironment(
   parentEnv: Readonly<Record<string, string | undefined>>,
   shimFolder: string | undefined,
+  platform: string = process.platform,
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const name of SHELL_ENV_NAMES) {
-    const value = parentEnv[name];
+  // Windows의 Git Bash와 cmd는 SystemRoot 같은 시스템 값 없이는 기본 명령도 못 돈다.
+  const names =
+    platform === "win32"
+      ? [...SHELL_ENV_NAMES, ...WINDOWS_ENV_NAMES]
+      : SHELL_ENV_NAMES;
+  for (const name of names) {
+    const value = envValue(parentEnv, name, platform);
     if (value !== undefined) env[name] = value;
   }
   if (shimFolder !== undefined) env.PATH = withNodeShims(shimFolder, env.PATH);
@@ -33,14 +43,16 @@ export function shellEnvironment(
 }
 
 // LOPHN_HOME은 agent runtime child에 늘 있다. 없으면(단위 test) PATH를 그대로 둔다.
-export function readShellEnvironment(): Record<string, string> {
-  const parent: Record<string, string | undefined> = {};
-  for (const name of SHELL_ENV_NAMES) parent[name] = process.env[name];
-  const dataRoot = process.env["LOPHN_HOME"];
+export function readShellEnvironment(
+  parent: Readonly<Record<string, string | undefined>> = process.env,
+  platform: string = process.platform,
+): Record<string, string> {
+  const dataRoot = parent["LOPHN_HOME"];
   return shellEnvironment(
     parent,
     dataRoot === undefined || dataRoot === ""
       ? undefined
       : nodeShimFolder(dataRoot),
+    platform,
   );
 }

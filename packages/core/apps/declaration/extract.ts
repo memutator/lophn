@@ -6,7 +6,12 @@ import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { DECLARATION_EXTRACT_LIMIT_MS } from "../../../protocol/apps/mod.ts";
+import { windowsEnvironment } from "../../supervision/security/child-env.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
+import {
+  killTree,
+  treeSpawnOptions,
+} from "../../supervision/security/tree-kill.ts";
 
 type ExtractChildFailure = {
   code: "invalid_input" | "unavailable";
@@ -70,15 +75,15 @@ function nodeExtractSpawner(): ExtractSpawner {
     spawn(source, limitMs) {
       const launch = nodeCommand(fileURLToPath(CHILD), [source]);
       const child = spawn(launch.command, launch.args, {
-        env: launch.env,
+        env: { ...launch.env, ...windowsEnvironment() },
         stdio: ["ignore", "pipe", "pipe"],
+        ...treeSpawnOptions(),
       });
+      // Windows는 taskkill이 끈 child의 종료가 신호로 오지 않아 timeout을 따로 표시한다.
+      let timedOut = false;
       const timer = setTimeout(() => {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          // 이미 끝난 프로세스.
-        }
+        timedOut = true;
+        killTree(child);
       }, limitMs);
       const status = new Promise<ExtractStatus>((resolve) => {
         // spawn 실패(ENOENT 등)의 'error'를 받지 않으면 process 전체가 죽는다.
@@ -88,20 +93,20 @@ function nodeExtractSpawner(): ExtractSpawner {
         });
         child.on("exit", (code, signal) => {
           clearTimeout(timer);
-          resolve({ success: code === 0, code, signal });
+          resolve({
+            success: code === 0,
+            code,
+            signal: timedOut ? "SIGKILL" : signal,
+          });
         });
       });
       return {
         stdout: child.stdout,
         stderr: child.stderr,
         status,
-        kill(signal) {
+        kill() {
           clearTimeout(timer);
-          try {
-            child.kill(signal);
-          } catch {
-            // 이미 끝난 프로세스.
-          }
+          killTree(child);
         },
       };
     },

@@ -1,12 +1,12 @@
+import type { Frame } from "../../../protocol/base/mod.ts";
 import type {
   ChildMessage,
   KindLaunchSpec,
   ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
 import type { FrameWriter } from "./frames.ts";
-import { ADAPTER_MS, GROUP_CONFIRM_MS } from "./group.ts";
+import { GROUP_CONFIRM_MS, SIGNAL_MS } from "./group.ts";
 import { LEADER_EXIT_MS, type Spawned } from "./process.ts";
-import type { Frame } from "../../../protocol/base/mod.ts";
 
 // 고정 값. 설정으로 늘리지 않는다.
 export const READY_MS = 10_000;
@@ -18,9 +18,9 @@ export const RESTART_LIMIT = RESTART_DELAYS_MS.length;
 // ready 뒤 이만큼 버틴 child가 끝나면 재기동 횟수를 0에서 다시 센다.
 export const STABLE_MS = 60_000;
 export const STDERR_LINE_MAX = 8 * 1024;
-// group 종료 확인 전체 한도. adapter 호출(신호·마지막 확인)과 leader exit·group 확인 한도를 더한 것이다.
+// group 종료 확인 전체 한도. 신호와 leader exit·group 확인 한도를 더한 것이다.
 // 넘으면 그 kind를 unavailable로 막고 old handle을 보존해 겹쳐 띄우지 않는다.
-export const TEARDOWN_MS = 2 * ADAPTER_MS + LEADER_EXIT_MS + GROUP_CONFIRM_MS;
+export const TEARDOWN_MS = SIGNAL_MS + LEADER_EXIT_MS + GROUP_CONFIRM_MS;
 // leader exit 뒤 이미 쓰인 stdout·stderr 꼬리를 읽어 들이는 한도. 손자가 pipe를 쥐고 있어도 끝난다.
 export const DRAIN_MS = 1_000;
 

@@ -4,7 +4,7 @@
 // 폴더는 data root의 runtime 제어 폴더 `run` 아래다. `resolveDataRoot`가 0700으로 관리하는 곳이다.
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -30,27 +30,38 @@ export function withNodeShims(
   folder: string,
   path: string | undefined,
 ): string {
-  return path === undefined || path === "" ? folder : `${folder}:${path}`;
+  return path === undefined || path === ""
+    ? folder
+    : `${folder}${delimiter}${path}`;
 }
 
 // 기동마다 다시 쓴다. shim에 박는 execPath가 설치본과 개발 실행에서 달라 묶음에 실을 수 없다.
 // 폴더를 지우지 않고 덮어써서 그 사이 shell이 집어 든 file이 사라지지 않게 한다.
+// Windows는 shell이 `node`·`npm`을 `.cmd`로 찾는다.
 export async function installNodeShims(
   dataRoot: string,
+  platform: string = process.platform,
 ): Promise<Result<void>> {
   const folder = nodeShimFolder(dataRoot);
-  const exec = shellQuote(process.execPath);
   try {
-    const npm = `${shellQuote(NPM_ENTRY)} ${shellQuote(dataRoot)}`;
     await mkdir(folder, { recursive: true, mode: 0o755 });
-    await writeShim(
-      join(folder, "node"),
-      `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} "$@"\n`,
-    );
-    await writeShim(
-      join(folder, "npm"),
-      `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} ${npm} "$@"\n`,
-    );
+    if (platform === "win32") {
+      const exec = cmdQuote(process.execPath);
+      const npm = `${cmdQuote(NPM_ENTRY)} ${cmdQuote(dataRoot)}`;
+      await writeShim(join(folder, "node.cmd"), cmdScript(`${exec} %*`));
+      await writeShim(join(folder, "npm.cmd"), cmdScript(`${exec} ${npm} %*`));
+    } else {
+      const exec = shellQuote(process.execPath);
+      const npm = `${shellQuote(NPM_ENTRY)} ${shellQuote(dataRoot)}`;
+      await writeShim(
+        join(folder, "node"),
+        `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} "$@"\n`,
+      );
+      await writeShim(
+        join(folder, "npm"),
+        `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${exec} ${npm} "$@"\n`,
+      );
+    }
   } catch {
     return err({ code: "unavailable", message: "node shim을 쓸 수 없다" });
   }
@@ -59,6 +70,16 @@ export async function installNodeShims(
 
 function shellQuote(text: string): string {
   return `'${text.replaceAll("'", `'\\''`)}'`;
+}
+
+// setlocal로 ELECTRON_RUN_AS_NODE가 shim을 부른 cmd 세션에 남지 않게 한다.
+function cmdScript(line: string): string {
+  return `@setlocal\r\n@set ELECTRON_RUN_AS_NODE=1\r\n@${line}\r\n`;
+}
+
+// Windows 경로에는 `"`가 없고, batch는 `%`만 겹쳐 쓰면 된다.
+function cmdQuote(text: string): string {
+  return `"${text.replaceAll("%", "%%")}"`;
 }
 
 async function writeShim(path: string, text: string): Promise<void> {

@@ -26,7 +26,6 @@ export const BROKER_PATHS = {
 
 export const SOCKET_HOST = "lophn.invalid";
 export const SHUTDOWN_GRACE_MS = 10_000;
-export const SOCKET_PATH_MAX_BYTES = 104;
 // 호출 본문과 바깥 명령의 결과는 control frame 하나에 담겨 오가므로 그 한도 아래로 정한다. 넘치면 호출이
 // 결과 모름으로 닫힌다. 큰 값은 blob이나 file로 넘긴다. 화면 operation의 응답만 frame을 넘어 bytes stream으로
 // 가므로 아래 OPERATION 한도를 쓴다.

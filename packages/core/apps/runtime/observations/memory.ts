@@ -1,5 +1,5 @@
 // 앱 자식의 메모리 표본. Linux는 현재 자식 신원을 대조한 /proc/<pid>/status의
-// VmRSS를 60000ms마다 비동기로 읽는다. 다른 OS와 읽기 실패는 측정하지 않은 것이고
+// VmRSS를, macOS는 `ps`의 rss를 60000ms마다 비동기로 읽는다. Windows와 읽기 실패는 측정하지 않은 것이고
 // 0으로 채우지 않는다. 설정한 RSS 한도의 85% 초과가 10분 지속될 때만
 // 수치와 기간을 관측으로 남긴다. V8 heap 설정은 RSS 한도가 아니므로
 // 한도로 읽지 않는다. 한도는 호출자가 RSS 한도로 설정한 값만 받는다.
@@ -60,11 +60,30 @@ function rssKbOf(status: string): number | undefined {
   return Number.isFinite(kb) && kb >= 0 ? kb : undefined;
 }
 
-// Linux만 측정한다. 다른 OS는 reader가 없고 호출자는 표본이 없는 것으로 다룬다.
+// 명령을 돌려 stdout을 받는다. 실패하면 undefined다. 조립하는 곳이 child_process로 만든다.
+export type CommandRun = (
+  command: string,
+  args: string[],
+) => Promise<string | undefined>;
+
+// macOS는 `ps` 한 번으로 rss(KB)와 시작 시각을 함께 읽는다. 시작 시각이 pid 재사용을 가르는 신원이다.
+function psRssReader(run: CommandRun): RssReader {
+  return async (pid) => {
+    const out = await run("/bin/ps", ["-o", "rss=,lstart=", "-p", String(pid)]);
+    const match =
+      out === undefined ? null : /^\s*(\d+)\s+(\S.*?)\s*$/.exec(out);
+    if (match === null) return undefined;
+    return { rssBytes: Number(match[1]) * 1024, startTicks: match[2]! };
+  };
+}
+
+// Linux와 macOS만 측정한다. 다른 OS는 reader가 없고 호출자는 표본이 없는 것으로 다룬다.
 export function procRssReader(
   os: string = process.platform,
   root = "/proc",
+  run?: CommandRun,
 ): RssReader | undefined {
+  if (os === "darwin") return run === undefined ? undefined : psRssReader(run);
   if (os !== "linux") return undefined;
   return async (pid) => {
     try {

@@ -20,6 +20,7 @@ import {
 } from "../../../storage/blobs/prepare-relay.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../storage/ledger/mod.ts";
 import { confirmStartup } from "../../../storage/migration/mod.ts";
+import { windowsEnvironment } from "../../../supervision/security/child-env.ts";
 import { nodeCommand } from "../../../supervision/security/node-command.ts";
 import {
   type BlobRead,
@@ -231,6 +232,7 @@ async function runStoppedMaintenance(input: {
         ...launch.env,
         ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+        ...windowsEnvironment(),
         LOPHN_HOME: input.dataRoot,
         LOPHN_MAINTENANCE: JSON.stringify({
           ledger: input.ledgerPath,

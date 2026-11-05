@@ -5,7 +5,12 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { decodeActivationDataJobInput } from "../../../protocol/apps/mod.ts";
+import { windowsEnvironment } from "../../supervision/security/child-env.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
+import {
+  killTree,
+  treeSpawnOptions,
+} from "../../supervision/security/tree-kill.ts";
 
 const JOB = fileURLToPath(new URL("../worker/data-job.ts", import.meta.url));
 const JOB_LIMIT_MS = 300_000;
@@ -36,16 +41,15 @@ export function createChildDataRunner(options: {
         env: {
           ...launch.env,
           ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
+          ...windowsEnvironment(),
         },
         stdio: ["pipe", "pipe", "ignore"],
+        ...treeSpawnOptions(),
       });
-      const timer = setTimeout(() => {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          /* 이미 끝났다 */
-        }
-      }, options.limitMs ?? JOB_LIMIT_MS);
+      const timer = setTimeout(
+        () => killTree(child),
+        options.limitMs ?? JOB_LIMIT_MS,
+      );
       try {
         const output = await new Promise<{
           stdout: Uint8Array;

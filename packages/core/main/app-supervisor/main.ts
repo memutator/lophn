@@ -1,7 +1,9 @@
 // 공유 앱 supervisor 진입점. core가 platform 신뢰 child 감독 pipe로 띄운다.
 // credential은 hello frame 한 번으로만 받고 argv·환경에는 없다. 자식 앱에는 supervisor의
 // machine credential을 주지 않고 자식마다 core가 발급한 app credential을 준다.
+import { execFile } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import process from "node:process";
 import { Writable } from "node:stream";
 import { createIdSource, systemClock } from "../../../base/mod.ts";
@@ -23,6 +25,7 @@ import {
   fromReadable,
   toWriter,
 } from "../../supervision/responsiveness/pipe.ts";
+import { windowsEnvironment } from "../../supervision/security/child-env.ts";
 import { assembleSupervisor } from "./assembly.ts";
 import { unixControlTransport } from "./control-http.ts";
 import { createChildDataRunner } from "./data-runner.ts";
@@ -54,7 +57,7 @@ function writeFrame(bytes: Uint8Array): Promise<void> {
 const port: { value: number } = { value: 0 };
 
 // 앱마다 고정 자리의 socket이다. 같은 앱은 다시 떠도 같은 경로를 쓰므로 이전 자식이 남긴 파일을
-// 새 자식 전에 그 경로에서 지우면 되고, socket 경로가 104byte 한도 안에 든다.
+// 새 자식 전에 그 경로에서 지우면 되고, socket 경로가 OS의 한도 안에 든다.
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
 const slots = new Map<string, number>();
 // socket 폴더는 data root마다 나뉘므로 core와 같은 LOPHN_HOME이 있어야 한다.
@@ -74,12 +77,11 @@ function workspaceOf(app: string): { broker: string; control: string } {
     xdgRuntimeDir: process.env.XDG_RUNTIME_DIR,
     uid: process.getuid?.() ?? 0,
     ensureDir: (path, mode) => mkdirSync(path, { recursive: true, mode }),
-    tempParent: process.env.TMPDIR ?? "/tmp",
-    randomName: () => "slot",
+    tempParent: tmpdir(),
   });
   if (!created.ok) throw new Error(created.error.message);
   socketDirectory = created.value.directory;
-  const made = slotSockets(created.value.directory, slot);
+  const made = slotSockets(created.value.directory, slot, process.platform);
   if (!made.ok) throw new Error(made.error.message);
   return { broker: made.value.brokerSocket, control: made.value.controlSocket };
 }
@@ -87,6 +89,8 @@ function workspaceOf(app: string): { broker: string; control: string } {
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤 새 자식을 띄울 때 지운다.
 function socketPathsOf(app: string): { broker: string; control: string } {
   const made = workspaceOf(app);
+  // Windows의 named pipe는 파일이 아니라 낡은 것이 남지 않는다.
+  if (process.platform === "win32") return made;
   for (const path of [made.broker, made.control]) {
     try {
       rmSync(path);
@@ -148,6 +152,7 @@ const assembled = assembleSupervisor({
       ? { xdgCacheHome: process.env.XDG_CACHE_HOME }
       : {}),
     ...(process.env.PATH ? { path: process.env.PATH } : {}),
+    windows: windowsEnvironment(),
   },
   socketPaths: socketPathsOf,
   nonce: () => crypto.randomUUID(),
@@ -166,7 +171,16 @@ const assembled = assembleSupervisor({
   },
   control: unixControlTransport,
   send,
-  rss: procRssReader(),
+  rss: procRssReader(
+    process.platform,
+    "/proc",
+    (command, args) =>
+      new Promise((resolve) => {
+        execFile(command, args, { timeout: 2_000 }, (error, stdout) =>
+          resolve(error === null ? stdout : undefined),
+        );
+      }),
+  ),
 });
 
 const link = attachControlLink(assembled.supervisor, stdin, {

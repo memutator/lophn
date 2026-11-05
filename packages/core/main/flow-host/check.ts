@@ -92,6 +92,7 @@ function runCheck(
       clearTimeout(timer);
       settle();
     };
+    // tsc는 자손이 없는 단일 process라 child.kill로 충분하다(Windows는 신호 구분 없이 끝낸다).
     const timer = setTimeout(() => {
       try {
         child.kill("SIGTERM");

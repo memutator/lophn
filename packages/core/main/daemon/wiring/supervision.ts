@@ -5,6 +5,7 @@ import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
 import { npmConfigEnvironment } from "../../../apps/releases/prepare/environment.ts";
 import { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
+import { windowsEnvironment } from "../../../supervision/security/child-env.ts";
 import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
 
 export const supervisionWiring: WiringFactory = () => ({
@@ -20,6 +21,7 @@ export const supervisionWiring: WiringFactory = () => ({
           // child가 자기 설정과 도구(git 등)를 찾는 데 필요한 둘과 telemetry 설정만 준다. 그 밖 환경은 복사하지 않는다.
           ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
           ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),
+          ...windowsEnvironment(),
           ...telemetryEnvironment(),
         }),
       }),
@@ -42,6 +44,7 @@ export const supervisionWiring: WiringFactory = () => ({
             ? { XDG_RUNTIME_DIR: process.env["XDG_RUNTIME_DIR"]! }
             : {}),
           ...(process.env["TMPDIR"] ? { TMPDIR: process.env["TMPDIR"]! } : {}),
+          ...windowsEnvironment(),
           // release 준비의 npm이 같은 cache·offline 설정을 쓴다.
           ...npmConfigEnvironment(),
         }),

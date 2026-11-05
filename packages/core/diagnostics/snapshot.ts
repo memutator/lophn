@@ -112,7 +112,10 @@ export function installSnapshotSignal(options: {
   heap: boolean;
   done(paths: string[]): void;
   failed(thrown: unknown): void;
+  // Windows에는 SIGUSR2가 없다. 그쪽은 걸지 않는다.
+  platform?: string;
 }): () => void {
+  if ((options.platform ?? process.platform) === "win32") return () => {};
   let running = false;
   const onSignal = () => {
     if (running) return;

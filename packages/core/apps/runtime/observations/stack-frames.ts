@@ -3,6 +3,7 @@
 // 봉인된 bundle은 agent의 file 범위 밖이라 log에는 풀린 줄만 남는다.
 import type { Stats } from "node:fs";
 import { lstat, readFile, stat } from "node:fs/promises";
+import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appBundleCopy } from "../../../../protocol/apps/mod.ts";
@@ -273,7 +274,7 @@ function filePathOf(file: string): string | null {
       return null;
     }
   }
-  if (file.startsWith("/")) return file;
+  if (isAbsolute(file)) return file;
   return null;
 }
 

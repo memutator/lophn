@@ -1,9 +1,9 @@
 // release 준비 한 번을 별도 lophn 자식(`packages/core/main/worker/release-job.ts`)으로 돌린다.
 // 자식은 build 뒤에 의존성과 migration 검사도 돈다(앱이 쓴 migration SQL은 core에서 돌리지 않는다).
-// 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
+// 취소·종료는 자식 트리를 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
 import { type ChildProcess, spawn } from "node:child_process";
 import { rm } from "node:fs/promises";
-import process from "node:process";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -18,6 +18,10 @@ import type {
 } from "../../apps/releases/preparation.ts";
 import { childEnvironment } from "../../apps/releases/prepare/environment.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
+import {
+  killTree,
+  treeSpawnOptions,
+} from "../../supervision/security/tree-kill.ts";
 
 const JOB = fileURLToPath(new URL("../worker/release-job.ts", import.meta.url));
 
@@ -30,7 +34,7 @@ export function createChildPreparationRunner(options: {
       const appRoot = appFolder(options.dataRoot, job.app);
       // 자식은 lophn의 준비 code만 돌고 앱 source는 준비 안의 자식에서만 실행된다. 환경은 npm이 쓰는
       // HOME·PATH·TMPDIR만 넘긴다. env를 주면 부모 환경을 통째로 대체한다.
-      const env = childEnvironment(process.env.TMPDIR ?? "/tmp");
+      const env = childEnvironment(tmpdir());
       const launch = nodeCommand(JOB, [
         JSON.stringify({
           dataRoot: options.dataRoot,
@@ -43,15 +47,12 @@ export function createChildPreparationRunner(options: {
       const child = spawn(launch.command, launch.args, {
         env: { ...env, ...launch.env },
         stdio: ["ignore", "pipe", "ignore"],
+        ...treeSpawnOptions(),
       });
       let stopped = false;
       const stop = () => {
         stopped = true;
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          /* 이미 끝났다 */
-        }
+        killTree(child);
       };
       if (signal.aborted) stop();
       signal.addEventListener("abort", stop, { once: true });

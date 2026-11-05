@@ -1,88 +1,28 @@
-import { spawn as spawnNode } from "node:child_process";
 import process from "node:process";
+import { signalTree, type TreeResult, treeGone } from "../../../base/mod.ts";
+import { treeDeps } from "../security/tree-kill.ts";
 import { armTimer, pause } from "./deadline.ts";
 
-// 설치 환경의 고정 OS adapter 진입점. core는 Linux에서만 group 강제 종료를 보장한다.
-const KILL_UTILITY = "/usr/bin/kill";
-// procps-ng kill이 env:{}(C locale)에서 ESRCH를 알리는 문구. exit code는 ESRCH·EPERM 모두 1이라
-// 이 문구가 있을 때만 "group이 없다"로 센다. EPERM 등은 확인 불가다.
-const NO_SUCH_PROCESS = "No such process";
-const ADAPTER_STDERR_MAX = 512;
-export const ADAPTER_MS = 1_000;
+// Windows의 taskkill 한 번이 base에서 갖는 기한(RUN_TIMEOUT_MS)이다. POSIX 신호는 바로 끝난다.
+export const SIGNAL_MS = 1_000;
 export const GROUP_CONFIRM_MS = 1_000;
 const GROUP_POLL_MS = 10;
 
-// ok: 대상이 있었고 신호가 갔다. absent: 대상 process(group)가 없다. failed: 그 밖(확인 불가).
-type AdapterResult = "ok" | "absent" | "failed";
-
-function runKillUtility(args: string[]): Promise<AdapterResult> {
-  return new Promise((resolve) => {
-    let settled = false;
-    let text = "";
-    const timer = armTimer(ADAPTER_MS);
-    const finish = (result: AdapterResult) => {
-      if (settled) return;
-      settled = true;
-      timer.cancel();
-      resolve(result);
-    };
-    let utility;
-    try {
-      utility = spawnNode(KILL_UTILITY, args, {
-        shell: false,
-        // C locale의 문구로 ESRCH를 알아보므로 빈 환경으로 띄운다.
-        env: {},
-        stdio: ["ignore", "ignore", "pipe"],
-      });
-    } catch {
-      // 실행 실패는 여기로 온다.
-      finish("failed");
-      return;
-    }
-    const running = utility;
-    timer.promise.then(() => {
-      finish("failed");
-      try {
-        running.kill("SIGKILL");
-      } catch {
-        /* adapter 자체를 못 끝내도 결과는 이미 failed다 */
-      }
-    });
-    running.stderr?.on("data", (chunk: Uint8Array) => {
-      if (text.length >= ADAPTER_STDERR_MAX) return;
-      text += new TextDecoder()
-        .decode(chunk)
-        .slice(0, ADAPTER_STDERR_MAX - text.length);
-    });
-    running.stderr?.on("error", () => {});
-    running.on("error", () => finish("failed"));
-    // close는 adapter의 stderr까지 다 읽은 뒤에 온다.
-    running.on("close", (code: number | null) => {
-      if (code === 0) finish("ok");
-      else if (code === 1 && text.includes(NO_SUCH_PROCESS)) finish("absent");
-      else finish("failed");
-    });
-  });
+// pid 1 이하(-1은 "내가 신호할 수 있는 모든 process"다)는 group 대상이 될 수 없다. base의 signalTree가 failed로 막는다.
+export function signalGroup(
+  pid: number,
+  platform: string = process.platform,
+): Promise<TreeResult> {
+  return signalTree(pid, "SIGKILL", platform, treeDeps);
 }
 
-// pid 1 이하(-1은 "내가 신호할 수 있는 모든 process"다)는 group 대상이 될 수 없다.
-function groupTarget(pid: number): string | undefined {
-  return Number.isSafeInteger(pid) && pid > 1 ? `-${pid}` : undefined;
-}
-
-export function signalGroup(pid: number): Promise<AdapterResult> {
-  const target = groupTarget(pid);
-  if (!target) return Promise.resolve("failed");
-  return runKillUtility(["-9", "--", target]);
-}
-
-// 신호 0으로 group에 남은 process가 없음을 ms 안에 확인해야 true다. EPERM·adapter 실패는 false다.
+// 신호 0으로 group에 남은 process가 없음을 ms 안에 확인해야 true다. EPERM 등 확인 불가는 false다.
 export async function confirmGroupGone(
   pid: number,
   ms: number,
+  platform: string = process.platform,
 ): Promise<boolean> {
-  const target = groupTarget(pid);
-  if (!target) return false;
+  if (!Number.isSafeInteger(pid) || pid <= 1) return false;
   const timer = armTimer(ms);
   let expired = false;
   timer.promise.then(() => {
@@ -90,28 +30,11 @@ export async function confirmGroupGone(
   });
   try {
     while (true) {
-      const result = await runKillUtility(["-0", "--", target]);
-      if (result === "absent") return true;
-      if (result === "failed" || expired) return false;
+      if (treeGone(pid, platform, treeDeps)) return true;
+      if (expired) return false;
       await pause(GROUP_POLL_MS);
     }
   } finally {
     timer.cancel();
   }
-}
-
-// child를 띄우기 전에 한 번 확인한다. core 자신의 실제 pid(process.pid, caller 값이나 PID 파일이
-// 아니다)에 신호 0을 보내 본다. adapter가 없으면 false다.
-export async function checkKillAdapter(): Promise<boolean> {
-  if (!supportsProcessGroupEnforcement(process.platform)) return false;
-  try {
-    return (await runKillUtility(["-0", String(process.pid)])) === "ok";
-  } catch {
-    return false;
-  }
-}
-
-// group 강제 종료는 Linux에서만 실측했다. 다른 OS는 보장할 수 없어 fail-closed로 막는다.
-export function supportsProcessGroupEnforcement(os: string): boolean {
-  return os === "linux";
 }

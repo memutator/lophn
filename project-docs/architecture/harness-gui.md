@@ -74,16 +74,20 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 
 ## OpenCode adapter
 
-`opencode.ts`. 사람 PATH의 `opencode`로 `opencode acp`를 stdio로 띄워 표준 Agent Client Protocol(v1)을 손으로 짠 JSON-RPC로 말한다. 표준 protocol은 이 file 안에서만 쓴다. `initialize` → `session/load`(resume이고 `loadSession`이면) 또는 `session/new`. 불러오지 못하면 실패한 turn으로 알리고 새 session을 연다.
-- `session/update` → ACP: `agent_message_chunk`·`agent_thought_chunk`는 글과 reasoning, `tool_call`·`tool_call_update`는 tool 줄(첫 `tool_call`은 제목과 입력이 비어 첫 `in_progress`나 승인 요청에서 줄을 연다). prompt 응답의 `stopReason`이 turn 끝이다(`end_turn` 완료, `cancelled` 멈춤, 나머지 실패).
-- 승인: `session/request_permission`이 카드를 연다. 한 번은 `once`, 거절은 `reject`다. `always`는 내놓지 않는다(OpenCode의 always는 project 권한 표에 영구 규칙을 쓴다). 거절하면 OpenCode가 prompt 전체를 `cancelled`로 끝낸다. 모르는 요청은 `-32601`로 답한다.
-- 사람 설정을 바꾸지 않는다. OpenCode 기본 설정은 shell과 edit를 묻지 않아, 사람이 ask 규칙을 두지 않았으면 승인 카드가 뜨지 않는다.
-- 표준 protocol에는 steer가 없어 도는 중에 보낸 메시지는 줄에 세웠다가 prompt가 답한 뒤 보낸다. 멈추기는 `session/cancel`(기다리던 승인은 `cancelled`로 먼저 답한다), 다시 하기는 그 turn의 사람 메시지를 새 prompt로 보낸다. `session/load`가 응답 전에 다시 흘리는 `session/update`로 앞 대화를 그린다.
+`opencode.ts`(shared). 탭마다 `opencode serve --stdio --port 0`을 탭 env로 띄우고 OpenCode 자신의 server API(HTTP와 `/api/event` SSE)를 손으로 짠 client로 쓴다(데스크톱 앱과 같은 경계). password는 `mkdtemp` 0700 아래 0600 file에 두고(터미널 env가 PASSWORD 이름을 지운다) TUI는 `OPENCODE_PASSWORD="$(cat '<file>')" opencode --server <url> --session <id>`로 같은 server에 붙는다. stdin을 열어 둔 것이 server의 lease다. 시작할 때 `server.info`의 판이 녹화한 2.1.4와 다르면 notice를 낸다.
+- session은 `session.create`(새로) 또는 `session.get` + `session.messages`(resume, 짧은 page가 오면 멈춘다)로 연다. location의 plugin은 첫 session이 생겨야 load되므로 model·agent·명령 목록은 `model.updated`·`agent.updated`·`command.updated` 때마다 다시 읽는다.
+- 흘러나오는 글은 `session.text.delta`·`session.reasoning.delta`, tool은 `session.tool.input.started`(이름)·`called`·`success`·`failed`(`write`·patch는 `edit`, `shell`, `subagent`는 `call`, `execute`는 그 code 한 줄 요약). 사람 메시지에 `metadata.lophn`을 실어 `inbox.enqueued`에서 제 것과 남의 것(TUI)을 가른다.
+- 입력: `session.prompt`(도는 중이면 `delivery: "steer"` 또는 queue, inbox 고치기·빼기·옮기기는 `session.inbox.update`·`cancel`과 다시 넣기), `session.interrupt`, model·variant(`session.switchModel`), agent mode(`session.switchAgent`, build·plan 등), server 명령(`session.command`)과 client 명령, `!` shell(`session.shell`), compact, rename(`session.update`), undo·redo(`session.revert.stage`·`commit`·`clear`), 위치를 정한 fork(`session.fork`, 새 message id는 순서로 짝짓는다). 사용량은 `session.context`.
+- 승인: V2 `permission.asked`(`action`, `resources`, `save`, `metadata.files`)가 카드를 연다. 한 번은 `once`, 이 session 동안은 `session.update {permissions}` 뒤 `once`, always는 그 project의 OpenCode 규칙에 영구로 저장된다고 적어 내놓는다. 거절은 이유를 실어 보내고(`permission.rejected`로 tool이 실패하고 turn은 이어 간다) 멈춘 turn으로 그리지 않는다. 다른 client가 답하면 `permission.replied`로 카드를 닫는다.
+- 질문은 `form.created`가 카드를 열고 `form.reply`·`form.cancel`로 답한다(닫으면 tool은 `aborted`, 실행은 `interrupted`).
+- 사람 설정을 바꾸지 않는다. OpenCode 기본 설정은 shell과 edit를 묻지 않아 ask 규칙이 없으면 승인 카드가 뜨지 않는다.
+- `exitTui`는 PTY에 `/exit`와 Enter를 친다(Ctrl-C·Ctrl-D는 입력 상태와 dialog에 따라 뜻이 바뀐다).
+- 새 session의 model은 server의 `/api/model/default`다(설정의 model이나 이름 순 첫 model). TUI가 쓰는 "최근 model"은 client 쪽 file이라 server가 내놓지 않는다.
 
 ## 왜 이 모양인가
 
 - **CLI 코어는 두고 화면만 바꾼다(사람, 2026-11-04 "CLI 화면을 대체하는 GUI").** Claude·Codex 데스크톱이 CLI 코어를 두고 화면만 바꾸는 것과 같은 꼴이라, session·resume·설정은 CLI의 것을 쓴다. 그래서 lophn ledger에 기록하지 않고 lophn project가 아닌 폴더에서도 돈다.
-- **각 CLI의 공식 GUI 경계로 붙는다.** Claude Code는 Agent SDK, Codex는 `codex app-server`, OpenCode는 `opencode acp`다. TUI 화면을 긁지 않는다.
+- **각 CLI의 공식 GUI 경계로 붙는다.** Claude Code는 Agent SDK, Codex는 `codex app-server`, OpenCode는 자기 server API(`opencode serve`), omp는 `omp --mode rpc-ui`다. TUI 화면을 긁지 않는다.
 - **Claude는 stream-json을 직접 말하지 않고 SDK를 쓴다(사람, 2026-11-05).** 승인·멈추기·resume을 Anthropic이 맞춰 둔 것을 쓰고 CLI 판이 바뀌면 SDK 판을 올린다. 비용은 개발 `node_modules`의 SDK와 peer dependency(약 40MB)와 bundle의 1.3MB이고, 쓰지 않는 claude 사본(linux-x64 약 323MB)은 `overrides`로 뺐다.
 - **Codex는 sandbox와 승인 정책을 늘 넘기고 OpenCode는 사람 설정을 그대로 쓴다.** brief가 full access를 금했고 Codex는 thread마다 정책을 받는다. OpenCode의 권한은 사람이 쓴 규칙표라 adapter가 덮어쓰면 사람의 규칙을 바꾸게 된다.
 - **창이 채팅 화면을 다시 짜지 않는다.** source만 바꿔 `AgentView`를 쓰고, 없는 기능은 source의 칸 하나(`external`)로 숨긴다.

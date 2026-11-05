@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `acp-session` | acp | 1 | 없음 | todo |  |  |  |
+| `acp-session` | acp | 1 | 없음 | merged | acp/acp-session | c81f6f6b5 |  |
 | `acp-core` | acp | 2 | acp-session | todo |  |  |  |
 | `acp-screen` | acp | 2 | acp-session | todo |  |  |  |
 | `tab-gui` | tab | 2 | acp-session | todo |  |  |  |

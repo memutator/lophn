@@ -27,7 +27,8 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 - `AcpState`의 나머지: `turn`(가장 늦게 시작한 turn: phase, started_at, elapsed), `queued`(도는 중에 다음 turn으로 보낸 사람 메시지. 순번이 없다), `pending`(composer 위에 놓이는 승인 카드와 질문 묶음. 둘 다 있으면 turn은 waiting), `writing`(저장 전 model 호출 하나의 글), `dropped`(늦은 조각을 거를 기억), `reread`.
 - message의 `content`는 content block이다(`contentBlockSchema`). `message_recorded`는 core가 읽은 저장된 본문(`body`)을 싣고, 그러면 항목은 `complete`이고 snapshot과 같다. 본문을 못 읽었으면(`body` null) `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있고 `complete`가 false라 snapshot을 다시 읽는다. harness가 쓴 tool 줄(`harness_tool` part)은 전용 항목이 생기기 전까지 `[상태] 이름: 요약` 글 block 하나다.
 - `cards`는 content block이 아니라 message의 따로 칸이다. agent message의 `app_card` part를 `{app, view}`로 옮긴다.
-- `AcpInput`은 대화 조작뿐이다: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(`TurnRequestChoice` 그대로), 다음 turn 줄 고치기 넷. session 관리(fork, rewind, model 바꾸기, compact)는 ACP 입력이 아니고 제 route로 보낸다. 보내는 길은 아래 "입력"이다.
+- `AcpInput`의 대화 조작: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(core 결정에 `session` 범위를 더한 `acpDecideChoiceSchema`), 다음 turn 줄 고치기 넷. 보내는 길은 아래 "입력"이다.
+- 대화 밖 session 기능(`packages/protocol/acp/session.ts`): `AcpState.session`(`AcpSessionMeta`: 제목, CLI session id, capability 열다섯(`ACP_CAPABILITIES`), model 묶음과 지금 값(effort·speed·thinking 같은 것은 model의 축과 `options`), mode, 명령, 사용량)과 `AcpState.plan`(todo 목록). 갱신은 `session_changed`(부분. capability는 통째로 바뀌고, 첫 갱신은 모든 칸이 있어야 하며 없으면 `reread`), `plan_changed`, `notice_added`(turn 중 `info` notice). 입력은 `set_model`, `set_mode`, `run_command`, `rewind`, `fork`(`AcpSend` 답의 `session`이 새 session), `compact`, `rename`이고 모두 `key`를 싣는다. 화면은 capability를 보고 칸을 켠다. 승인 pending은 `choices`(once·session·always·reject)를 싣고, subject에 편집(`file_change`: path, 만들기·고치기·지우기, 줄 수)이 있다. 지금 core는 새 입력에 `unavailable`이고 `session`·`plan`은 null이며, 화면은 model·rewind·fork·compact를 아직 제 route로 보낸다.
 
 ## 지키는 것
 

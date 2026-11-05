@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import { APP_COMMANDS } from "./app.ts";
@@ -64,6 +65,7 @@ test("app.link_source는 상대 path를 context의 기준 폴더로 풀어 core�
   await link.run({ app: APP, path: "/abs/b" }, ctx);
   assert.deepStrictEqual(
     sent.map((i) => (i as { source_path: string }).source_path),
-    ["/work/src/a", "/abs/b"],
+    // Windows는 드라이브가 붙는다.
+    [resolve("/work/src/a"), resolve("/abs/b")],
   );
 });

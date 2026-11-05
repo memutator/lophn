@@ -8,6 +8,7 @@ import * as appCalls from "./wiring/app-calls.ts";
 import * as appViews from "./wiring/app-views.ts";
 import * as artifact from "./wiring/artifact.ts";
 import * as bookmarks from "./wiring/bookmarks.ts";
+import * as threadBookmarks from "./wiring/thread-bookmarks.ts";
 import * as browser from "./wiring/browser.ts";
 import * as coding from "./wiring/coding.ts";
 import * as secretInput from "./wiring/secret-input.ts";
@@ -37,6 +38,7 @@ add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(bookmarks.register(ctx));
+add(threadBookmarks.register(ctx));
 add(
   extensions.register(
     ctx,

@@ -347,7 +347,7 @@ components:
   - id: architecture-agent-chat
     kind: doc
     roles: [planner, lead]
-    description: agent chat 화면 셋이 함께 쓰는 길. provider delta가 감독 pipe를 지나 core가 redaction한 live 글로 흐르는 것, model 응답마다 agent message, 멈춘 글 저장, reasoning part, tool 제목, active 시간, markdown·link·highlight 규칙.
+    description: agent chat 화면 셋이 함께 쓰는 길. provider delta가 감독 pipe를 지나 core가 redaction한 live 글로 흐르는 것, model 응답마다 agent message, 멈춘 글 저장, reasoning part, tool 제목, active 시간, markdown·link·highlight 규칙, `/` 명령 순위와 `opens`, composer dock, subagent 보기, thread index와 bookmark.
     path: project-docs/architecture/agent-chat.md
     change_reasons:
       boundaries: [run-loop, agent-sessions, agent-tools, events, event-stream, child-supervision-protocol, shell, design]

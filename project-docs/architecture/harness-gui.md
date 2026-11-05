@@ -55,6 +55,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - subagent: 대화마다 lane을 두고 자식 메시지(`parent_tool_use_id`)를 `child_update`로 낸다. Agent 줄이 subagent detail이고 `task_started`·`task_progress`·`task_updated`·`task_notification`이 `tool_detail_changed`로 바꾼다. 끝난 자식은 `getSubagentMessages`로 채운다(최종 글은 stream에 오지 않는다). `stop_child`·`stop_task`는 `stopTask`다. background task(`local_bash`)는 `tasks`이고 subagent(`local_agent`)는 Agent 줄로만 보인다.
 - 사용 한도는 `rate_limit_event`(`unifiedWindows` five_hour·seven_day, utilization 0–1, `resetsAt` 초), `/context` 분해는 `getContextUsage`, 제목은 `getSessionInfo`다. 사람 메시지 `origin`은 SDK uuid이고 resume해도 같다. 빈 session(메시지 없음)은 `claude --resume`이 못 열어 `tuiCommand`가 `--session-id`를 쓴다. fast·thinking toggle은 TUI로 넘기는 flag가 없어 넘어가지 않는다.
 - 상위 session 표지를 지우면 CLI가 transcript의 entrypoint를 `sdk-cli`로 쓴다. 그래서 `listSessions({includeProgrammatic:false})`에는 GUI session이 없다. resume은 id로 한다.
+- 둘째 판: `!`는 adapter가 탭 env의 `spawn`으로 `/bin/sh -c`를 돌려 `by: "user"` tool item(출력은 끝날 때 한 번에)으로 그리고, 끝나면 `<bash-input>`·`<bash-stdout>`·`<bash-stderr>` 사람 메시지를 `shouldQuery: false`, `client_composed: true`로 넣는다(Claude 데스크톱 앱과 같다. 도는 turn이 있으면 끝난 뒤에. 메시지마다 오는 `num_turns: 0` result는 무시한다). 다시 열면 그 entry를 shell 줄로 그린다. fast·thinking은 model의 `switch` 축(fast는 `supportsFastMode`, thinking은 `supportsThinkingOff`인 model만)이고 `tuiCommand`가 `--settings`로 넘긴다. resume은 `listSessions({dir, limit: 30, includeProgrammatic: true, includeWorktrees: false})`와 `open_session`(retire → `session_reset` → resume으로 다시 열기 → 다시 그리기)이다. rewind 미리보기는 `rewindFiles(uuid, {dryRun: true})`이고, 되돌릴 메시지를 transcript에서 못 찾으면 아무것도 하지 않고 warning이다. todo의 `deleted`는 목록에서 뺀다. fork·rewind 뒤 "Forked from …"·"Rewound to …" 줄과 제목.
+
 
 ## Codex adapter
 
@@ -69,6 +71,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - plan: `plan` toggle(`set_toggle`, `/plan`)이 collaboration mode를 바꾼다. plan mode turn이 `plan` item으로 끝나면 "Implement" 카드(plan subject)를 내고, 고르면 default mode로 바꾸고 "Implement the plan."을 보낸다(실제 `plan` item으로는 아직 확인하지 않았다). goal은 `thread/goal/*`(active goal을 정하면 turn이 스스로 시작한다), 사용 한도는 `account/rateLimits/read`·`updated`(`resetsAt` 초)다. 추가 권한 요청(`item/permissions/requestApproval`)은 승인 카드이고 답은 늘 `scope: "turn"`이다. 사람 메시지 `origin`은 `clientId ?? item.id`이고 resume해도 같다.
 - `exitTui`는 PTY에 Ctrl+C(`\x03`)를 700ms 간격으로 네 번까지 친다(Codex TUI의 Ctrl+C는 한 번에 입력 지우기 → 멈추기 → 끝내기).
 - turn이 없는 thread는 `thread/resume`이 "no rollout found"라 첫 메시지 전에는 TUI로 넘어가지 못한다(`tuiCommand`가 notice를 낸다).
+- 둘째 판(사람이 써 본 것): Speed 축(model의 `serviceTiers`, Standard와 tier마다 값인 `choice`, `thread/settings/update {serviceTier}`, resume해도 남는다). `!`는 `run_shell`이나 `!`로 시작하는 send가 `thread/shellCommand`(도는 turn 중에도)를 보내고, `source: "userShell"`인 `commandExecution`을 `by: "user"` tool item(제목과 `body.input`은 보낸 명령이고 `/bin/bash -lc` wrapper가 아니다)으로 그린다. ACP turn은 첫 item에서 연다(shell만 있는 turn은 사람 메시지·꼬리가 없다). resume은 `thread/list {cwd, sortKey: "updated_at"}`와 `open_session`(`thread/resume` → `switchThread` → `session_reset` → 다시 그리기, 도는 turn이 있으면 거절)이다. fork 뒤 "Forked from …" 줄과 제목.
+
 
 ## omp adapter
 
@@ -82,6 +86,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - subagent: `task` tool은 곧바로 "Spawned agent"로 끝나고 `subagent_lifecycle`(parentToolCallId, `detached`)이 뒤에 온다. 그래서 task 줄은 `child: null`인 subagent detail로 열고 lifecycle·progress가 `tool_detail_changed`로 채운다(turn이 끝난 뒤에 와도 `taskLines`로 찾는다). 자식은 대화마다 같은 `thread()` 상태로 `child_update`를 내고 모두 background task(`tasks_changed`)다. `stop_child`·`steer_child`는 `cancel_subagent`·`steer_subagent`다. background 일이 끝나면 omp가 스스로 turn을 연다.
 - toggle: `exitTui`는 SIGTERM을 보내고 foreground가 끝나야 돌아온다(두 process가 한 session을 쓰면 omp가 새 id의 다른 file로 옮겨 대화가 갈라진다). `stop`은 도는 turn을 abort하고 마지막 `get_state`로 id를 읽고 stdin을 닫는다(lease를 놓는 omp의 정리 길). 5초 뒤에는 SIGTERM이다.
 - lophn의 omp hook은 `session_switch`·`session_branch`도 알려 `/new`·`/resume`·`/branch`·`/fork` 뒤의 새 id를 tracker가 안다.
+- 둘째 판: fast·slow toggle 대신 지금 model의 Speed 축(Standard, Fast, session 범위일 때만 Slow. 오류면 warning 뒤 다시 읽는다. 전역 slow는 쓰지 않는다). `!`는 `bash` RPC로 `by: "user"` tool item이고 turn 밖이면 turn을 열지 않는다(다시 열 때 `bashExecution`도 같다). model turn이 끝난 적 없는 session은 `tuiCommand`가 `--resume` 없이 띄운다. resume 목록은 `get_state.sessionFile` 폴더의 session file 머리(앞 두 줄)에서 읽고 `open_session`은 file이 있는지 본 뒤 `switch_session {sessionPath}`하고, 바뀐 session id가 고른 것과 다르면(없는 경로면 omp가 오류 없이 새 빈 session을 연다) 앞 session으로 돌아가고 warning이다. 명령 출력은 ANSI 없이 머리·목록 줄이 둘 이상이면 markdown이다. fork 뒤 "Forked from …" 줄.
+
 
 ## OpenCode adapter
 
@@ -99,6 +105,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - subagent: 자식 session마다 lane(turn, seq, writing)을 두고 자식 갱신을 `child_update`로 낸다. 부모의 subagent 줄과 자식은 `session.tool.progress`의 `metadata.sessionID`로 짝짓고, detail(`child`, `state`, `last`)은 `tool_detail_changed`로 바꾼다. `background: true` 자식은 `tasks`이고 `stop_child`·`stop_task`는 `interrupt(child)`다. 다시 열면 자식 transcript를 읽어 채운다.
 - todo는 `todowrite`의 `input.todos`를 `plan_changed`로 낸다(녹화한 판은 codemode라 실제 `todowrite`를 보지 못했다). 사용 한도는 `usage/limits`(실패하면 빈 목록), tool 줄은 입력·출력 `body`, 사람 메시지 `origin`은 OpenCode message id(`message_taken` 뒤 `origin_set`)다.
 - auto-accept toggle: 켜면 승인 요청에 카드 없이 `once`로 답하고 이미 열린 카드도 답한다. always·session 규칙은 보내지 않는다. 상태는 adapter run에만 있다.
+- 둘째 판: `!`는 `session.shell`이고 `by: "user"` tool item이다(turn을 열지 않고, 다시 열 때도 같다). resume 목록은 `GET /api/session?directory&parentID=null&order=desc&limit=30`(`time.updated`는 epoch ms), `open_session`은 session 상태를 비우고 `session_reset` 뒤 다시 그린다(도는 turn이 있으면 거절). server 명령 template에 `$ARGUMENTS`·`$<n>`이 있으면 `argument_hint`가 `[args]`다(`~/.config/opencode`와 `<cwd>/.opencode`의 `{command,commands}/**/*.md`를 읽는다). fork 뒤 "Forked from …" 줄.
+
 
 ## 왜 이 모양인가
 

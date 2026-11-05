@@ -97,41 +97,15 @@ modules: [packages/shell/main]
 
 고치려면: 모르는 thread의 이벤트를 짧게 쌓아 두고 spawn item이 그 thread id를 알리면 lane에 붓는다. resume 때 도는 자식(`agentsStates`)마다 `thread/resume`으로 구독한다. 작음.
 
-## OpenCode server 명령과 skill에 인자 hint가 없다
+## Claude GUI의 `!`는 한 번마다 새 shell이고 출력이 끝나야 보인다
 
 ```yaml
 kind: defect
 modules: [packages/shell/main]
 ```
 
-지금: `opencode.ts`는 `/api/command`와 `/api/skill`의 명령을 `argument_hint: null`로 낸다. OpenCode 명령 template은 `$ARGUMENTS`·`$1`로 인자를 받는다.
+지금: `claude.ts`는 `!`마다 `/bin/sh -c`를 새로 띄우고 출력을 process가 끝날 때 tool item `body`에 한 번에 싣는다(ACP에 도는 tool의 본문 갱신이 없다).
 
-영향: `/` 메뉴에서 그 명령을 고르면 인자를 기다리지 않고 바로 보낸다. 인자가 필요한 명령(`/review <branch>` 같은 사람 명령)은 메뉴로 부를 수 없고 손으로 쳐야 한다.
+영향: `!cd sub` 뒤의 `!ls`는 원래 폴더에서 돈다(Claude Code TUI는 bash mode의 `cd`가 이어진다). 오래 도는 `!` 명령은 끝날 때까지 출력이 비어 보인다.
 
-고치려면: template에 `$ARGUMENTS`나 `$<숫자>`가 있으면 `argument_hint`를 `[args]`로 둔다. 작음.
-
-## omp에서 model turn 없이 `!cmd`만 한 session은 다시 열 수 없다
-
-```yaml
-kind: bug
-modules: [packages/shell/main]
-```
-
-지금: omp는 model turn이 없는 session을 file로 저장하지 않는다(녹화 `omp-v2/bash.jsonl`: `--resume`이 "Session not found"). `omp.ts`의 `tuiCommand`는 늘 `omp --resume=<id>`다.
-
-영향: GUI에서 `!ls`만 하고 TUI로 넘기면 omp가 session을 못 찾고 끝난다. 그 `!cmd` 줄은 다시 열면 사라진다.
-
-고치려면: adapter가 model turn이 한 번이라도 끝났는지 기억하고, 없으면 `tuiCommand`가 `--resume` 없이 띄운다(Claude adapter의 빈 session `--session-id`와 같은 생각). 작음.
-
-## Claude GUI의 fast·thinking이 TUI로 넘어가지 않는다
-
-```yaml
-kind: defect
-modules: [packages/shell/main]
-```
-
-지금: `claude.ts`의 fast·thinking toggle은 SDK `applyFlagSettings`·`setMaxThinkingTokens`로 바꾼다. `tuiCommand`는 mode·model·effort·폴더·규칙만 flag로 넘기고 이 둘을 넘길 CLI flag가 없다.
-
-영향: GUI에서 fast를 켜고 TUI로 넘어가면 꺼진 채로 돈다. 사람이 TUI에서 다시 켜야 한다.
-
-고치려면: CLI에 flag가 생기면 넘긴다. 그 전에는 toggle modal에 "fast·thinking은 TUI로 넘어가지 않는다" 한 줄을 보인다. 작음.
+고치려면: cwd만 이어 가려면 adapter가 `cd`로 시작하는 명령의 결과 cwd를 기억한다. 출력 흐름은 tool body를 덧붙이는 갱신이 ACP에 생길 때 같이 한다. 작음.

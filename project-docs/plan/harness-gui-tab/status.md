@@ -24,10 +24,10 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `screen-dock` | screen | 6 | screen-thread | merged | screen/screen-dock | c2fcec0c2 |  |
 | `thread-index` | screen | 7 | screen-dock | merged | screen/thread-index | 84c6a3c29 |  |
 | `acp-round2` | acp | 9 | 없음 | merged | acp/acp-round2 | cee5988ec |  |
-| `claude-fix2` | adapter | 10 | acp-round2 | todo |  |  |  |
-| `codex-fix2` | adapter | 10 | acp-round2 | todo |  |  |  |
-| `omp-fix2` | adapter | 10 | acp-round2 | todo |  |  |  |
-| `opencode-fix2` | adapter | 10 | acp-round2 | todo |  |  |  |
-| `core-shell` | core | 10 | acp-round2 | todo |  |  |  |
-| `screen-a` | screen | 10 | acp-round2 | todo |  |  |  |
+| `claude-fix2` | adapter | 10 | acp-round2 | merged | adapter/claude-fix2 | 0eeab0fbd |  |
+| `codex-fix2` | adapter | 10 | acp-round2 | merged | adapter/codex-fix2 | 15f54d26a |  |
+| `omp-fix2` | adapter | 10 | acp-round2 | merged | adapter/omp-fix2 | b91d5349a |  |
+| `opencode-fix2` | adapter | 10 | acp-round2 | merged | adapter/opencode-fix2 | e5daea391 |  |
+| `core-shell` | core | 10 | acp-round2 | merged | core/core-shell | 037790109 |  |
+| `screen-a` | screen | 10 | acp-round2 | running | screen/screen-a |  |  |
 | `screen-b` | screen | 11 | screen-a | todo |  |  |  |

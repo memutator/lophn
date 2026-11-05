@@ -21,6 +21,13 @@
 12. 권한: 사람 설정을 따른다. Codex만 사람 설정이 `never`이거나 `danger-full-access`일 때 `on-request`·`workspace-write`로 바꾼다. "이 session 동안"은 그 CLI session 안에서만이고, 영구 규칙이 되는 선택(Codex "비슷한 명령 늘 허락", OpenCode·omp always)은 영구라고 적어 내놓는다. (agent)
 13. 녹화: 새 기능과 toggle을 CLI 넷 모두 실제로 녹화해 fixture로 쓴다. 녹화는 lead가 돌린다. (사람, 2026-11-05)
 
+14. 사람이 실제로 써 보고 찾은 것을 고친다(2026-11-05): 명령이 아무것도 안 함, subagent 화면·todo가 없음, harness 아이콘 대신 글자, omp role 없음, `/` palette 순위·분류·아이콘. 원인과 고칠 것은 점검 보고 `.cache/harness-gui-research/audit-{claude,codex,opencode,omp}.md`와 `ui-reference.md`에 있다. (사람)
+15. ACP를 더 넓힌다: 명령 출력 블록, 명령의 출처·별칭·화면 동작(`opens`), subagent(자식 대화, 멈추기, 말 넣기), background task와 멈추기, 사용 한도, 켜고 끄는 상태(Codex plan, omp fast/slow), goal, model role, 숨긴 메시지 되살리기, todo 취소됨, harness vendor 아이콘. (사람이 방향, agent가 모양)
+16. 명령은 데스크톱 앱처럼 셋으로 나눈다: 화면 동작으로 처리(`/model`, `/effort`, `/permissions`, `/plan`, `/rename`, `/rewind`, `/fork`, `/status`, `/usage`, `/context`, `/clear`·`/new`, `/compact` 등), CLI에 보내고 출력을 그림, TUI 전용은 숨김. `/` palette 순위는 이름 정확 > 이름 앞부분(짧을수록 위) > 별칭 > 이름 조각 > 설명이고, 글자를 치면 묶음 머리 없이 한 목록에 출처 배지를 단다. harness 내장 명령은 vendor 아이콘. (사람이 문제, agent가 레퍼런스로 정함)
+17. thread index를 둔다(Codex 데스크톱의 navigation rail): 사람 메시지 4개 이상일 때, 눈금은 사람 메시지 하나, 제목은 그 메시지 첫 줄, hover card는 답 미리보기 2줄과 bookmark, 기존 popover를 쓴다. bookmark는 shell data 쪽 file 하나에 둔다(lophn agent와 harness 공통, session id 기준. harness 대화는 ledger에 없다). (사람, 2026-11-05)
+18. omp role은 "이 session만 이 role의 model로"(`/switch @role`)만 넣는다. role 배정(`~/.omp` 설정)은 바꾸지 않는다. (사람, 2026-11-05)
+19. 끝났다고 말하기 전에 실제 앱으로 확인한다: Electron 앱을 몰아 기능 목록을 하나씩 해 보고 화면을 찍는 script를 둔다(E2E 꼴, 사람이 허락). 실제 CLI는 싼 model로(Claude haiku, OpenCode `openrouter/deepseek/deepseek-v4.1-flash-1017`, Codex·omp는 그 CLI의 가장 싼 model). 녹화 원본은 worktree 밖 `.cache/harness-gui-recordings/<harness>-v2/`에 둔다(worktree는 merge 뒤 지워진다). (사람, 2026-11-05)
+
 ## task
 
 | wave | id | 한 줄 |
@@ -34,6 +41,15 @@
 | 3 | `adapter-opencode` | OpenCode adapter를 server API로 다시 짠다: 기능 전부, 탭 전용 server와 `--server` |
 | 3 | `gui-cleanup` | 첫 판의 별도 창·open intent·`lophn gui`를 지운다 |
 | 3 | `adapter-omp` | omp adapter(새로): RPC mode, 기능 전부, toggle(재시작), omp hook의 session id 갱신 |
+| 4 | `acp-more` | ACP 확장(정한 것 15)과 명령 칸(출처, 별칭, `opens`), adapter·source가 따를 계약 |
+| 5 | `core-commands` | lophn core가 lophn 명령에 출처·별칭·`opens`를 채운다 |
+| 5 | `screen-fix` | 화면: info·명령 출력, 명령 세 갈래, `/` palette, vendor 아이콘, composer dock(todo, subagent, task, 대기열), subagent 보기, 켜고 끄기, role, 사용 한도 |
+| 5 | `claude-fix` | Claude adapter: 명령 분류와 출력, subagent, todo, background task 멈추기, `/clear`, 녹화 다시 |
+| 5 | `codex-fix` | Codex adapter: 명령 분류와 출력, `/review`, subagent, plan 상태, 빠진 명령, 녹화 다시 |
+| 5 | `opencode-fix` | OpenCode adapter: 명령 분류와 출력, undo·redo·new, todo, subagent, 되살리기, 녹화 다시 |
+| 5 | `omp-fix` | omp adapter: 명령 출력 블록, 도는 중 명령, `!cmd`, role, fast/slow, subagent, 녹화 다시 |
+| 6 | `thread-index` | thread index rail, hover card, bookmark 저장(shell data file, IPC) |
+| 6 | `app-check` | 실제 앱 확인 script(Electron을 몰아 기능 목록을 해 보고 화면을 찍는다)와 그 기능 목록 |
 
 ## lead가 할 일
 

@@ -167,7 +167,7 @@ export const agentArea: Area = {
       id: "new-agent-harness",
       title: "Agent · harness CLI session",
       description:
-        "Claude Code 같은 harness CLI의 session을 같은 채팅 화면이 그린다. 머리에 lophn session 목록이 없고, composer 아래에 그 CLI의 mode가, `/` 목록에 CLI 명령이, 위에 계획(todo) 목록이 있다. 칸은 source의 capability가 켠다.",
+        "Claude Code 같은 harness CLI의 session을 같은 채팅 화면이 그린다. 머리에 lophn session 목록이 없고, composer 아래에 그 CLI의 mode가, `/` 목록에 CLI 명령이, composer 위 dock에 Goal·Todo·Running·Queue card가 있다. 칸은 source의 capability가 켠다.",
       render: () => <AgentHarness />,
     },
     {

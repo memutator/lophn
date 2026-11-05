@@ -21,6 +21,6 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `omp-fix` | adapter | 5 | acp-more | merged | adapter/omp-fix | c9de801ce |  |
 | `opencode-fix` | adapter | 5 | acp-more | merged | adapter/opencode-fix | f7800790d |  |
 | `screen-thread` | screen | 5 | acp-more | merged | screen/screen-thread | 5e2855df5 |  |
-| `screen-dock` | screen | 6 | screen-thread | todo |  |  |  |
+| `screen-dock` | screen | 6 | screen-thread | merged | screen/screen-dock | c2fcec0c2 |  |
 | `thread-index` | screen | 7 | screen-dock | todo |  |  |  |
 | `app-check` | check | 8 | thread-index | todo |  |  |  |

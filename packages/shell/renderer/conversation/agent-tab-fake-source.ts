@@ -11,6 +11,7 @@ import {
   type AcpItem,
   type AcpMessageItem,
   type AcpNoticeItem,
+  type AcpModelAxis,
   type AcpModelCurrent,
   type AcpModelGroup,
   type AcpSender,
@@ -40,6 +41,7 @@ import {
   BUILT_IN_GROUPS,
   CUSTOM_GROUP,
   DEFAULT_OPTIONS,
+  effortLowToMax,
   SONNET,
 } from "./agent-tab-fake-models.ts";
 import type {
@@ -904,12 +906,6 @@ const DOCK_TOGGLES: AcpToggle[] = [
     description: "Plan first and ask before implementing.",
     on: false,
   },
-  {
-    id: "fast",
-    label: "Fast",
-    description: "Priority service tier. Costs more.",
-    on: true,
-  },
 ];
 
 const DOCK_GOAL = {
@@ -1624,10 +1620,11 @@ const EVERYTHING: AcpCapabilities = {
   resume: false,
 };
 
-/** harness CLI(Claude)가 가진 만큼: session 목록이 없다. 파일 복원은 있고 앱 write는 없다. */
+/** harness CLI(Claude)가 가진 만큼: lophn session 목록은 없고 CLI의 지난 session을 `resume`으로 연다. 파일 복원은 있고 앱 write는 없다. */
 const HARNESS_CAPABILITIES: AcpCapabilities = {
   ...EVERYTHING,
   sessions: false,
+  resume: true,
 };
 
 /** dock이 그리는 것(subagent, task, toggle, goal, role)까지 가진 harness. */
@@ -1709,7 +1706,7 @@ interface MetaOptions {
   /** harness가 dock의 것(toggle, goal, role, 사용 한도, context 분해)을 싣는다. */
   readonly dock?: boolean;
   /** 어느 harness인가. role은 omp만 가진다. 기본은 claude다. */
-  readonly harness?: "claude" | "omp";
+  readonly harness?: "claude" | "omp" | "codex";
 }
 
 function lophnMeta(options: MetaOptions): AcpSessionMeta {
@@ -1742,27 +1739,186 @@ const LONG_PLUGIN_COMMAND: AcpCommand = {
   opens: null,
 };
 
+// harness 탭의 지금 CLI session과 그 CLI가 폴더에 가진 지난 session(머리 session menu의 목록).
+const CLI_CURRENT = "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9";
+const CLI_EARLIER: readonly {
+  readonly id: string;
+  readonly title: string;
+  readonly minutes: number;
+  readonly question: string;
+  readonly answer: string;
+}[] = [
+  {
+    id: "3b7e41aa-6c20-47d8-9d15-71e0a3c58f02",
+    title: "Fix the flaky upload test",
+    minutes: -3 * 60,
+    question: "The upload test fails one run in five. Can you find out why?",
+    answer:
+      "It races the mock server against the retry timer. I made the test wait for the first retry before it asserts.",
+  },
+  {
+    id: "c0a1d2e3-7f4b-4a19-b6c8-2e9d5f1a7b34",
+    title: "Week 40 summary",
+    minutes: -2 * 24 * 60,
+    question: "Summarize last week's eval runs.",
+    answer: "Pass rate held at 91%. Two regressions, both in the date parser.",
+  },
+  {
+    id: "58d9f0b2-1e6a-4c37-8b4d-a3f7c2e91d60",
+    title: "Rename the config loader",
+    minutes: -6 * 24 * 60,
+    question: "Rename loadConfig to readConfig everywhere.",
+    answer: "Done. 14 call sites changed and the exports file is updated.",
+  },
+];
+
+// CLI가 주는 session 명령: `new`는 같은 탭에서 빈 session을 열고(Claude는 `clear`의 별칭), `resume`은 머리 session menu를 연다.
+const HARNESS_SESSION_COMMANDS: readonly AcpCommand[] = [
+  {
+    name: "new",
+    aliases: ["clear"],
+    description: "Start a new session",
+    argument_hint: null,
+    source: "harness",
+    opens: null,
+  },
+  {
+    name: "resume",
+    aliases: [],
+    description: "Resume an earlier session",
+    argument_hint: null,
+    source: "harness",
+    opens: "resume",
+  },
+];
+
+const onOff = (
+  id: string,
+  label: string,
+  off: string,
+  on: string,
+): AcpModelAxis => ({
+  id,
+  label,
+  kind: "switch",
+  values: [
+    { value: "off", label: off },
+    { value: "on", label: on },
+  ],
+});
+
+// Claude의 fast·thinking은 model마다 지원할 때만 있는 켜고 끄는 축이다(Haiku에는 fast가 없다).
+const CLAUDE_FAST = onOff("fast", "Speed", "Standard", "Fast");
+const CLAUDE_THINKING = onOff("thinking", "Thinking", "Off", "On");
+// Codex의 service tier(speed)와 omp의 fast도 그 model의 축이다.
+const CODEX_SPEED = onOff("speed", "Speed", "Standard", "Fast");
+
+const HARNESS_GROUPS: Readonly<
+  Record<"claude" | "omp" | "codex", readonly AcpModelGroup[]>
+> = {
+  claude: [
+    {
+      id: "claude",
+      label: "Claude",
+      models: [
+        {
+          id: "sonnet",
+          label: "Sonnet 5.5",
+          axes: [effortLowToMax, CLAUDE_FAST, CLAUDE_THINKING],
+        },
+        {
+          id: "opus",
+          label: "Opus 5.5",
+          axes: [effortLowToMax, CLAUDE_FAST, CLAUDE_THINKING],
+        },
+        { id: "haiku", label: "Haiku 5.5", axes: [CLAUDE_THINKING] },
+      ],
+    },
+  ],
+  // omp는 provider마다 묶는다. 묶음이 여럿이라 지금 model의 묶음만 펼쳐 있다.
+  omp: [
+    {
+      id: "anthropic",
+      label: "Anthropic",
+      models: [
+        {
+          id: "sonnet",
+          label: "Sonnet 5.5",
+          axes: [effortLowToMax, onOff("fast", "Fast", "Off", "On")],
+        },
+        { id: "haiku", label: "Haiku 5.5", axes: [] },
+      ],
+    },
+    {
+      id: "openai",
+      label: "OpenAI",
+      models: [
+        { id: "sol", label: "GPT-6.1 Sol", axes: [effortLowToMax] },
+        { id: "mini", label: "GPT-6.1 Mini", axes: [] },
+      ],
+    },
+    {
+      id: "google",
+      label: "Google",
+      models: [{ id: "gemini", label: "Gemini 3.8 Flash", axes: [] }],
+    },
+    {
+      id: "xai",
+      label: "xAI",
+      models: [{ id: "grok", label: "Grok 4.7", axes: [] }],
+    },
+  ],
+  codex: [
+    {
+      id: "openai",
+      label: "OpenAI",
+      models: [
+        {
+          id: "sol",
+          label: "GPT-6.1 Sol",
+          axes: [effortLowToMax, CODEX_SPEED],
+        },
+        { id: "mini", label: "GPT-6.1 Mini", axes: [effortLowToMax] },
+      ],
+    },
+  ],
+};
+
+const HARNESS_CURRENT: Readonly<
+  Record<"claude" | "omp" | "codex", AcpModelCurrent>
+> = {
+  claude: {
+    model: "sonnet",
+    label: "Sonnet 5.5",
+    options: { effort: "high", fast: "on", thinking: "on" },
+    layer: null,
+  },
+  omp: {
+    model: "sonnet",
+    label: "Sonnet 5.5",
+    options: { effort: "high" },
+    layer: null,
+  },
+  codex: {
+    model: "sol",
+    label: "GPT-6.1 Sol",
+    options: { effort: "high", speed: "on" },
+    layer: null,
+  },
+};
+
 function harnessMeta(options: MetaOptions): AcpSessionMeta {
-  const sonnet = modelsOf({}).model!;
   const omp = options.harness === "omp";
+  const kind = options.harness ?? "claude";
   return {
     title: options.title,
-    cli_session: "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9",
+    cli_session: CLI_CURRENT,
     capabilities:
       options.dock !== true
         ? HARNESS_CAPABILITIES
         : { ...DOCK_CAPABILITIES, roles: omp },
-    models: [
-      {
-        id: omp ? "anthropic" : "claude",
-        label: omp ? "Anthropic" : "Claude",
-        models: [
-          { id: "sonnet", label: "Sonnet 5.5", axes: SONNET.axes },
-          { id: "haiku", label: "Haiku 5.5", axes: [] },
-        ],
-      },
-    ],
-    model: { ...sonnet, model: "sonnet", layer: null },
+    models: [...HARNESS_GROUPS[kind]],
+    model: { ...HARNESS_CURRENT[kind] },
     modes: [
       { id: "default", label: "Default", description: null },
       { id: "acceptEdits", label: "Accept edits", description: null },
@@ -1772,6 +1928,7 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
     commands: [
       ...HARNESS_APP_COMMANDS,
       ...CLI_COMMANDS,
+      ...HARNESS_SESSION_COMMANDS,
       ...HARNESS_EXTRA_COMMANDS,
       LONG_PLUGIN_COMMAND,
     ],
@@ -1789,18 +1946,18 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
     toggles: options.dock === true ? DOCK_TOGGLES : [],
     goal: options.dock === true ? { ...DOCK_GOAL } : null,
     roles: options.dock === true && omp ? DOCK_ROLES : null,
-    harness: omp ? "omp" : "claude",
+    harness: kind,
   };
 }
 
 /** wireframe의 harness GUI 탭이 첫 갱신으로 싣는 session 기능. role은 omp만 가진다. */
 export const fakeHarnessMeta = (
-  harness: "claude" | "omp" = "claude",
+  harness: "claude" | "omp" | "codex" = "claude",
 ): AcpSessionMeta =>
   harnessMeta({
     picker: {},
     status: {},
-    title: null,
+    title: "Add a retry to the upload helper",
     mode: "ask",
     dock: true,
     harness,
@@ -1934,6 +2091,8 @@ export function createFakeAgentTabSource(
   }
 
   const listeners = new Set<() => void>();
+  // harness 탭의 지금 CLI session. `open_session`이 바꾼다.
+  let cliCurrent = CLI_CURRENT;
   let counter = 100;
   const nextId = (prefix: string) => fakeId(prefix, counter++);
   // 올린 이미지의 blob 주소. 메모리에만 있다.
@@ -2235,7 +2394,47 @@ export function createFakeAgentTabSource(
           }),
         );
       }
+      case "open_session": {
+        // 같은 탭에서 다른 CLI session을 연다: 상태를 비우고(`session_reset`) 그 session의 대화를 다시 채운다.
+        const target = CLI_EARLIER.find((one) => one.id === input.cli_session);
+        if (target === undefined) return { ok: false, code: "not_found" };
+        cliCurrent = target.id;
+        const seq = stateOf(session).seq;
+        await apply(
+          session,
+          { type: "session_reset" },
+          {
+            type: "session_changed",
+            session: { cli_session: target.id, title: target.title },
+          },
+          {
+            type: "message_added",
+            item: user(60, target.minutes, target.question, {
+              seq: seq + 1,
+              turn: null,
+            }),
+          },
+          {
+            type: "message_added",
+            item: agent(61, target.minutes, target.answer, { seq: seq + 2 }),
+          },
+        );
+        return { ok: true, value: {} };
+      }
       case "run_command":
+        // 새 session 명령은 CLI가 같은 탭에서 빈 session을 연다.
+        if (input.name === "new" || input.name === "clear") {
+          cliCurrent = `new-${counter++}`;
+          await apply(
+            session,
+            { type: "session_reset" },
+            {
+              type: "session_changed",
+              session: { cli_session: cliCurrent, title: null },
+            },
+          );
+        }
+        return { ok: true, value: {} };
       case "compact":
         return { ok: true, value: {} };
       default:
@@ -2245,7 +2444,27 @@ export function createFakeAgentTabSource(
 
   const source: AgentTabSource = {
     agent: () => ok(data.agent),
-    sessions: () => ok([...sessions]),
+    sessions: () =>
+      ok(
+        data.harness === true
+          ? [
+              {
+                id: cliCurrent,
+                title: data.title,
+                status: "idle" as const,
+                activeAt: at(-5),
+                archived: false,
+              },
+              ...CLI_EARLIER.map((one) => ({
+                id: one.id,
+                title: one.title,
+                status: "idle" as const,
+                activeAt: at(one.minutes),
+                archived: false,
+              })),
+            ]
+          : [...sessions],
+      ),
     searchMessages(query) {
       const needle = query.trim().toLowerCase();
       if (needle === "") return ok([]);

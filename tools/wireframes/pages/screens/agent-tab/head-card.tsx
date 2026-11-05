@@ -1,10 +1,13 @@
 // 실제 앱에서 card 머리는 본문이 올린 center·actions를 그리고 맨 오른쪽 ⋯ 메뉴에 본문이 올린 menu 항목을 맨 위 묶음으로 둔다.
-// 그 한 줄만 흉내 낸다. 채팅 화면(TerminalGui)과 터미널 탭(TerminalTab)이 같은 머리를 쓴다.
+// 그 한 줄만 흉내 낸다(←/→는 본문이 올린 nav가 있을 때만 쓸 수 있고, 없으면 창 기록이라 꺼져 있다). 채팅 화면(TerminalGui)과 터미널 탭(TerminalTab)이 같은 머리를 쓴다.
 import { Menu } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 import { type ReactNode, useState } from "react";
 
-import { editorIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
+import {
+  editorIcons,
+  shellIcons,
+} from "../../../../../packages/shell/renderer/icons/mod.ts";
 import {
   CardHeadContext,
   type CardHeadSpec,
@@ -31,6 +34,20 @@ export function HeadCard({ children }: { children: ReactNode }) {
           padding: "var(--space-2) var(--space-3)",
         }}
       >
+        <IconButton
+          icon={shellIcons.back}
+          label="Back"
+          size="sm"
+          disabled={!head?.nav?.canBack}
+          onClick={head?.nav?.onBack}
+        />
+        <IconButton
+          icon={shellIcons.forward}
+          label="Forward"
+          size="sm"
+          disabled={!head?.nav?.canForward}
+          onClick={head?.nav?.onForward}
+        />
         {head?.center}
         {head?.actions}
         <Menu

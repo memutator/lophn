@@ -31,6 +31,8 @@ export interface PickerLayoutView {
 export interface PickerAxisView {
   readonly id: string;
   readonly label: string;
+  /** `switch`는 값이 둘이고 `[0]`이 끔, `[1]`이 켬이다. 없으면 `choice`다(lophn catalog의 축). */
+  readonly kind?: "choice" | "switch";
   readonly values: readonly {
     readonly value: string;
     readonly label: string;

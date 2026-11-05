@@ -9,6 +9,7 @@ import {
   Brain,
   Check,
   ChevronDown,
+  ChevronRight,
   Code,
   Coins,
   Copy,
@@ -59,6 +60,8 @@ export const conversationIcons = {
   resend: RotateCw,
   jumpLatest: ArrowDown,
   expand: ChevronDown,
+  // provider 묶음 머리: 접힌 묶음은 오른쪽, 펼친 묶음은 `expand`(아래)를 보인다.
+  collapsed: ChevronRight,
   search: Search,
   current: Check,
   copy: Copy,
@@ -83,7 +86,7 @@ export const conversationIcons = {
   skill: Sparkles,
   customUser: UserRound,
   customProject: Folder,
-  // composer 위 dock: card 머리(todo, 도는 일)와 background task의 종류, 자식 대화에서 돌아가기.
+  // composer 위 dock: card 머리(todo, 도는 일)와 background task의 종류, 자식 대화를 읽는 동안 card 밖 머리의 돌아가기.
   todo: ListTodo,
   running: Activity,
   taskShell: Terminal,

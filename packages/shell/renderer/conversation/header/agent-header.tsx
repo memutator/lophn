@@ -3,6 +3,8 @@
 // 탭 ⋯ 메뉴의 맨 위 묶음이다. card 밖(floated 패널, detached 창)이면 본문 위 view bar 한 줄에 그리고 더보기 menu가
 // 그 줄에 있다. 더보기 menu는 열린 session이면 Rename·Fork·Archive, archive한 session이면 Fork뿐이다(기록만 읽고 입력칸이 없다).
 // session을 바꾸는 일은 source를 부르고, 끝나면 `onChanged`로 목록을 다시 읽게 한다. agent를 고르는 칸은 없다.
+// harness(capability `sessions`가 없고 `resume`이 있다)는 session menu가 그 CLI의 지난 session 목록·바꾸기·새로뿐이다.
+// subagent 대화(`child`)를 읽는 동안은 머리 ←/→가 그 보기의 기록이 되고(`nav`) 제목이 "agent › subagent · subagent"로 바뀐다.
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -12,19 +14,22 @@ import {
   useState,
 } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { Menu, MenuIcon } from "@lophn/ui/overlay";
+import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/i18n";
 
 import { ViewBar } from "../../editor/view-bar.tsx";
 import { useCardHead } from "../../shell/card-head.tsx";
+import { elapsedText, useSecondTick } from "../activity/elapsed.ts";
 import type { ViewDetail } from "../activity/model.ts";
+import { SubagentMark } from "../activity/subagent-row.tsx";
 import type { AcpCapabilities } from "../../../../protocol/acp/mod.ts";
 import { newId } from "../../prefixed-id.ts";
 import type {
   AgentTabSource,
   SessionEntry,
   SourceResult,
+  ThreadSubagent,
 } from "../agent-tab-source.ts";
 import styles from "./agent-header.module.css";
 import { forkAndOpen } from "./fork.ts";
@@ -44,6 +49,36 @@ interface AgentHeaderHost {
   openForked: (session: string) => void;
   /** session 검색 결과의 메시지 줄을 눌렀다. 그 session을 열고 찾기 줄을 그 query로 연다. */
   openMatch: (session: string, query: string) => void;
+}
+
+/** 열려 있는 subagent 대화. 머리 제목과 상태·model·경과를 그린다. */
+export interface HeaderChild {
+  readonly info: ThreadSubagent | null;
+  readonly now: () => number;
+}
+
+/** subagent 대화를 읽는 동안 머리 ←/→를 대신하는 기록. */
+export interface HeaderNav {
+  readonly canBack: boolean;
+  readonly canForward: boolean;
+  readonly onBack: () => void;
+  readonly onForward: () => void;
+}
+
+/** harness 머리 session menu(capability `resume`). 목록은 `sessions`(id가 CLI session id)다. */
+export interface HeaderResume {
+  /** 지금 열린 CLI session. 아직 모르면 null이다. */
+  readonly current: {
+    readonly id: string;
+    readonly title: string | null;
+  } | null;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  /** 바꾸는 중이다. */
+  readonly busy: boolean;
+  readonly onSwitch: (cliSession: string) => void;
+  /** 새 session 명령이 없으면 null이라 새로 항목이 없다. */
+  readonly onNew: (() => void) | null;
 }
 
 interface AgentHeaderProps {
@@ -72,6 +107,32 @@ interface AgentHeaderProps {
   onChanged: () => void;
   /** menu 오른쪽 끝에 더할 조각 (예: home full mode controller). */
   trailing?: ReactNode;
+  /** 열린 subagent 대화. null이면 이 session 자신의 머리다. */
+  child?: HeaderChild | null;
+  /** 있으면 머리 ←/→를 이 기록이 맡는다. 없으면 창 기록이다. */
+  nav?: HeaderNav | null;
+  /** harness의 session menu. 없으면 harness 머리는 menu 없이 제목만 보인다. */
+  resume?: HeaderResume | null;
+  /** ⋯ menu 끝에 더할 항목(터미널 탭의 "Open in terminal"). */
+  extraMenu?: {
+    readonly items: readonly MenuItem[];
+    readonly onSelect: (id: string) => void;
+  };
+}
+
+/** 열린 subagent의 상태 점·model·경과. 도는 동안은 1초마다 다시 센다. */
+function ChildMeta({ child }: { child: HeaderChild }): ReactElement | null {
+  const { info, now } = child;
+  const running = info?.state === "running";
+  useSecondTick(running);
+  if (info === null) return null;
+  return (
+    <span className={styles.childMeta} data-child-meta="">
+      <SubagentMark state={info.state} />
+      {info.model === null ? null : <span>{info.model}</span>}
+      <span>{elapsedText(running, info.startedAt, info.durationMs, now)}</span>
+    </span>
+  );
 }
 
 type MoreAction = "rename" | "fork" | "archive";
@@ -206,20 +267,46 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
         onKeyDown={(event) => act.current.renameKeys(event)}
       />
     </span>
-  ) : !capabilities.sessions ? (
+  ) : props.child != null ? (
     <span className={styles.face}>
-      <AgentFace agent={agent} />
-      <span>{props.agent.workspace?.name}</span>
-      {props.title === null ? null : <span>· {props.title}</span>}
+      <AgentFace agent={agent} sep={false} />
+      <span className={styles.crumb}>
+        › {props.child.info?.agent ?? t("conversation.label.child-view")}
+      </span>
+      <span className={styles.sep}>
+        · {t("conversation.label.subagent-tag")}
+      </span>
+      <ChildMeta child={props.child} />
     </span>
-  ) : (
+  ) : capabilities.sessions || props.resume != null ? (
     <SessionSwitcher
       agent={agent}
-      current={session}
+      current={
+        capabilities.sessions ? session : (props.resume?.current ?? null)
+      }
       sessions={props.sessions}
       now={props.now}
-      onSwitch={(id) => latest.current.host.switchSession(id)}
-      onNew={() => latest.current.host.newSession()}
+      manage={capabilities.sessions}
+      {...(capabilities.sessions
+        ? {}
+        : {
+            open: props.resume?.open ?? false,
+            onOpenChange: (next: boolean) =>
+              latest.current.resume?.onOpenChange(next),
+            busy: props.resume?.busy ?? false,
+          })}
+      onSwitch={(id) =>
+        capabilities.sessions
+          ? latest.current.host.switchSession(id)
+          : latest.current.resume?.onSwitch(id)
+      }
+      onNew={
+        capabilities.sessions
+          ? () => latest.current.host.newSession()
+          : props.resume?.onNew == null
+            ? null
+            : () => latest.current.resume?.onNew?.()
+      }
       onRename={(id, title) => act.current.rename(id, title)}
       onArchive={(id) =>
         void act.current.settle(latest.current.source.archiveSession(id))
@@ -232,6 +319,12 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       }
       onOpenMatch={(id, query) => latest.current.host.openMatch(id, query)}
     />
+  ) : (
+    <span className={styles.face}>
+      <AgentFace agent={agent} />
+      <span>{props.agent.workspace?.name}</span>
+      {props.title === null ? null : <span>· {props.title}</span>}
+    </span>
   );
 
   const status = (
@@ -278,8 +371,32 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
     </>
   );
 
+  const extra = props.extraMenu;
+  const withExtra = (own: readonly MenuItem[]): readonly MenuItem[] =>
+    extra === undefined
+      ? own
+      : [
+          ...own,
+          ...extra.items.map((item, at) =>
+            at === 0 && own.length > 0
+              ? { ...item, separatorBefore: true }
+              : item,
+          ),
+        ];
+  const ownItems = session === null ? [] : items;
+  const nav = props.nav ?? null;
   const inCard = useCardHead(
     {
+      ...(nav === null
+        ? {}
+        : {
+            nav: {
+              canBack: nav.canBack,
+              canForward: nav.canForward,
+              onBack: () => latest.current.nav?.onBack(),
+              onForward: () => latest.current.nav?.onForward(),
+            },
+          }),
       center: <div className={styles.lead}>{lead}</div>,
       actions: (
         <>
@@ -287,16 +404,21 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
           {props.trailing}
         </>
       ),
-      ...(session === null || items.length === 0
+      ...(ownItems.length === 0 && extra === undefined
         ? {}
         : {
             menu: {
               // id는 탭 기본 항목(rename, close 같은)과 겹치지 않게 접두어를 단다.
-              items: items.map((item) => ({
-                id: `agent:${item.id}`,
-                label: t(item.label),
-              })),
-              onSelect: (id) => act.current.onMore(id.slice("agent:".length)),
+              items: withExtra(
+                ownItems.map((item) => ({
+                  id: `agent:${item.id}`,
+                  label: t(item.label),
+                })),
+              ),
+              onSelect: (id) =>
+                id.startsWith("agent:")
+                  ? act.current.onMore(id.slice("agent:".length))
+                  : latest.current.extraMenu?.onSelect(id),
             },
           }),
     },
@@ -314,21 +436,55 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       renaming,
       draft,
       problem,
+      props.child?.info?.state,
+      props.child?.info?.agent,
+      props.child?.info?.model,
+      props.child?.info?.startedAt,
+      props.child?.info?.durationMs,
+      props.child == null,
+      nav?.canBack,
+      nav?.canForward,
+      props.resume?.open,
+      props.resume?.busy,
+      props.resume?.current?.id,
+      props.resume?.current?.title,
+      props.resume?.onNew === null,
+      extra,
     ],
   );
   if (inCard) return <></>;
 
   return (
     <div className={styles.gap} data-agent-header>
-      <ViewBar lead={<div className={styles.lead}>{lead}</div>}>
+      <ViewBar
+        lead={
+          <>
+            {nav === null ? null : (
+              <IconButton
+                icon={conversationIcons.back}
+                label={t("conversation.label.child-back", {
+                  agent: agent.name,
+                })}
+                size="sm"
+                disabled={!nav.canBack}
+                onClick={nav.onBack}
+              />
+            )}
+            <div className={styles.lead}>{lead}</div>
+          </>
+        }
+      >
         {status}
-        {session === null || items.length === 0 ? null : (
+        {ownItems.length === 0 && extra === undefined ? null : (
           <Menu
-            items={items.map((item) => ({
-              id: item.id,
-              label: t(item.label),
-            }))}
-            onSelect={onMore}
+            items={withExtra(
+              ownItems.map((item) => ({ id: item.id, label: t(item.label) })),
+            )}
+            onSelect={(id) =>
+              extra?.items.some((item) => item.id === id)
+                ? extra.onSelect(id)
+                : onMore(id)
+            }
             placement="beside"
             returnFocus={!renaming}
             trigger={

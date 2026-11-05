@@ -7,7 +7,6 @@ import { Button } from "@lophn/ui/primitives";
 import {
   type ReactNode,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -49,11 +48,6 @@ import {
   workspaceIcons,
 } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
-import {
-  CardHeadContext,
-  type CardHeadSetter,
-  type CardHeadSpec,
-} from "../shell/card-head.tsx";
 import type { TabItem } from "../workspace/model.ts";
 import type { TabHost } from "../workspace/kinds/host.ts";
 import type { TerminalDeps } from "./deps.ts";
@@ -326,6 +320,7 @@ export function TerminalGui({
             info,
             feed,
             input: (input) => api.input(gui.handle, input),
+            sessions: () => api.sessions(gui.handle),
             rewindPreview: (message) => api.rewindPreview(gui.handle, message),
             writeImage: async (image) =>
               await api.uploadImage(gui.handle, {
@@ -357,24 +352,34 @@ export function TerminalGui({
     <>
       {source === null ? null : (
         <EventsProvider client={feed.client}>
-          <WithTerminalItem start={toggle.start}>
-            <AgentView
-              source={source}
-              drafts={drafts ?? own}
-              session={feed.session}
-              onSessionChange={NOWHERE}
-              host={{
-                openPermissions: NOWHERE,
-                openAgentSettings: NOWHERE,
-                openForked: NOWHERE,
-                showUsage: NOWHERE,
-                closeTab: NOWHERE,
-                ...host,
-              }}
-              now={now}
-              trailing={toggle.button}
-            />
-          </WithTerminalItem>
+          <AgentView
+            source={source}
+            drafts={drafts ?? own}
+            session={feed.session}
+            onSessionChange={NOWHERE}
+            host={{
+              openPermissions: NOWHERE,
+              openAgentSettings: NOWHERE,
+              openForked: NOWHERE,
+              showUsage: NOWHERE,
+              closeTab: NOWHERE,
+              ...host,
+            }}
+            now={now}
+            trailing={toggle.button}
+            extraMenu={{
+              items: [
+                {
+                  id: OPEN_TERMINAL_ID,
+                  label: t("terminal.menu.open-terminal"),
+                  leading: <MenuIcon icon={workspaceIcons.terminal} />,
+                },
+              ],
+              onSelect: (id) => {
+                if (id === OPEN_TERMINAL_ID) toggle.start();
+              },
+            }}
+          />
         </EventsProvider>
       )}
       {toggle.overlays}
@@ -382,51 +387,8 @@ export function TerminalGui({
   );
 }
 
-// 채팅 머리의 ⋯ 메뉴는 AgentHeader가 올린다. 그 menu 끝에 "Open in terminal"을 더해 터미널 탭의 "Open as chat"과 같은 자리에
-// 둔다. 머리를 올리는 쪽을 고치지 않으려고 사이에서 spec을 한 번 거친다.
+// 채팅 머리의 ⋯ 메뉴 끝에 "Open in terminal"을 더해 터미널 탭의 "Open as chat"과 같은 자리에 둔다.
 export const OPEN_TERMINAL_ID = "open-terminal";
-
-function WithTerminalItem({
-  start,
-  children,
-}: {
-  start: () => void;
-  children: ReactNode;
-}) {
-  const outer = useContext(CardHeadContext);
-  const set = useCallback<CardHeadSetter>(
-    (spec: CardHeadSpec | null) => {
-      if (outer === null) return;
-      if (spec === null) return outer(null);
-      const own = spec.menu;
-      outer({
-        ...spec,
-        menu: {
-          ...own,
-          items: [
-            ...(own?.items ?? []),
-            {
-              id: OPEN_TERMINAL_ID,
-              label: t("terminal.menu.open-terminal"),
-              leading: <MenuIcon icon={workspaceIcons.terminal} />,
-              ...(own === undefined || own.items.length === 0
-                ? {}
-                : { separatorBefore: true }),
-            },
-          ],
-          onSelect: (id) =>
-            id === OPEN_TERMINAL_ID ? start() : own?.onSelect(id),
-        },
-      });
-    },
-    [outer, start],
-  );
-  return (
-    <CardHeadContext.Provider value={outer === null ? null : set}>
-      {children}
-    </CardHeadContext.Provider>
-  );
-}
 
 // ---- 탭에 묶기 ----
 

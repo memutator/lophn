@@ -65,3 +65,19 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
 }
+
+/* subagent 대화 제목: agent 이름 뒤 "› subagent 이름", 그 뒤 상태 점·model·경과는 작은 글이다. */
+.crumb {
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.childMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: nowrap;
+}

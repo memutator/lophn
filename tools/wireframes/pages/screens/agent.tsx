@@ -170,7 +170,7 @@ export const agentArea: Area = {
       id: "new-agent-harness",
       title: "Agent · harness CLI session",
       description:
-        "Claude Code 같은 harness CLI의 session을 같은 채팅 화면이 그린다. 머리에 lophn session 목록이 없고, composer 아래에 그 CLI의 mode가, `/` 목록에 CLI 명령이, composer 위 dock에 Goal·Todo·Running·Queue card가 있다. 칸은 source의 capability가 켠다.",
+        "Claude Code 같은 harness CLI의 session을 같은 채팅 화면이 그린다. 머리의 session menu는 lophn session이 아니라 그 CLI의 지난 session(목록·바꾸기·새로)이고, composer 아래에 그 CLI의 mode가, `/` 목록에 CLI 명령이, composer 위 dock에 Goal·Todo·Running·Queue card가 있다. 칸은 source의 capability가 켠다.",
       render: () => <AgentHarness />,
     },
     {
@@ -275,7 +275,7 @@ export const agentArea: Area = {
       id: "new-agent-model-picker",
       title: "Agent · model picker",
       description:
-        "composer의 model을 누르면 위에서부터 지금 model이 온 층 한 줄(이 대화에서 골랐다), 검색칸, 켜 둔 model이 provider 아이콘과 함께 provider별로 나온다. 꺼 둔 model(Haiku, GPT-6.1 Mini)은 없다. 고른 model의 option 축이 있고 맨 아래 Manage models 한 줄이 창을 연다. picker는 고르기만 한다.",
+        "composer의 model을 누르면 위에서부터 지금 model이 온 층 한 줄(이 대화에서 골랐다), 검색칸, 켜 둔 model이 provider 아이콘과 함께 provider별로 나온다. 묶음 머리는 chevron · 이름 · model 수의 단추이고 기본으로 지금 model의 묶음(Anthropic)만 펼쳐 있으며 나머지(OpenAI, xAI)는 접혀 있다. 머리를 누르거나 Enter·Space, →·←로 접고 편다. 꺼 둔 model(Haiku, GPT-6.1 Mini)은 없다. 고른 model의 option 축이 있고 맨 아래 Manage models 한 줄이 창을 연다. picker는 고르기만 한다.",
       render: () => <AgentModelPicker />,
     },
     {

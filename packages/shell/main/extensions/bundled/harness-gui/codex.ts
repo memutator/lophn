@@ -374,6 +374,8 @@ const CAPABILITIES: AcpCapabilities = {
   toggles: true,
   goal: true,
   roles: false,
+  shell: false,
+  resume: false,
 };
 
 // TUI 전용 명령과 `/copy`, `/side`, `/mention`, `/auto-review`는 창에 의미가 없어 넣지 않는다.
@@ -843,6 +845,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 {
                   id: "effort",
                   label: "Effort",
+                  kind: "choice" as const,
                   values: (one.supportedReasoningEfforts ?? []).map(
                     (effort: J) => ({
                       value: effort.reasoningEffort,
@@ -1166,6 +1169,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             id: call.id,
             seq: ++lane.seq,
             at: now(),
+            by: "agent",
             turn: ensureTurn(lane),
             tool: shown.tool,
             category: shown.category,
@@ -1661,6 +1665,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             id: call.id,
             seq: ++lane.seq,
             at: now(),
+            by: "agent",
             turn: ensureTurn(lane),
             tool: "request_user_input",
             category: "other",

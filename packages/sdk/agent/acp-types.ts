@@ -142,7 +142,8 @@ export type AcpToolItem = {
   seq: number;
   at: string;
   kind: "tool";
-  turn: string;
+  by: "agent" | "user";
+  turn: string | null;
   tool: string;
   category: "read" | "list" | "search" | "command" | "web" | "other";
   title: string;
@@ -255,6 +256,7 @@ export type AcpChoice = {
 export type AcpModelAxis = {
   id: string;
   label: string;
+  kind: "choice" | "switch";
   values: { value: string; label: string }[];
 };
 
@@ -282,7 +284,8 @@ export type AcpCommandOpens =
   | "skills"
   | "subagents"
   | "tasks"
-  | "goal";
+  | "goal"
+  | "resume";
 
 export type AcpCommand = {
   name: string;
@@ -354,6 +357,8 @@ export type AcpCapabilities = {
   toggles: boolean;
   goal: boolean;
   roles: boolean;
+  shell: boolean;
+  resume: boolean;
 };
 
 export type AcpSessionMeta = {
@@ -516,7 +521,8 @@ export type AcpUpdate =
   | AcpChildUpdate
   | { type: "child_update"; child: string; update: AcpChildUpdate }
   | { type: "tasks_changed"; tasks: AcpTask[] }
-  | { type: "draft_set"; key: string; content: ContentBlock[] };
+  | { type: "draft_set"; key: string; content: ContentBlock[] }
+  | { type: "session_reset" };
 
 export type AcpAnswer = {
   question: string;

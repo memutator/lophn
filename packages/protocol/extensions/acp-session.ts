@@ -51,6 +51,18 @@ export type AcpTabRequest = {
   resume?: string;
 };
 
+/** 그 CLI가 이 폴더에서 가진 지난 session 하나(`open_session`의 `cli_session`이 `id`다). */
+export type AcpCliSession = {
+  id: string;
+  title: string | null;
+  updated_at: string | null;
+};
+
+/** 그 사람 메시지로 rewind하면 되돌아갈 file. `change`는 `file_change` subject와 같은 값이다. */
+export type AcpRewindPreview = {
+  files: { path: string; change: "create" | "update" | "delete" }[];
+};
+
 /** terminal 탭에 묶인 handle을 여는 값. 그 탭에 GUI가 붙는다. */
 export type AcpOpenTab = {
   terminal: AcpTerminal;
@@ -71,5 +83,12 @@ export type ExtensionAcp = {
     tui(terminalId: string): void | Promise<void>;
     /** 그 탭의 run이 도는 일(restart 전 modal이 "멈출 것"으로 보인다). run이 없으면 null. */
     running(terminalId: string): { turn: boolean; tasks: number } | null;
+    /** 그 CLI가 이 폴더에서 가진 지난 session, 최근 순. run이 없거나 못 주면 빈 배열. */
+    sessions(terminalId: string): Promise<AcpCliSession[]>;
+    /** 그 사람 메시지로 rewind하면 되돌아갈 file. run이 없거나 못 주면 null. */
+    rewindPreview(
+      terminalId: string,
+      message: string,
+    ): Promise<AcpRewindPreview | null>;
   }): () => void;
 };

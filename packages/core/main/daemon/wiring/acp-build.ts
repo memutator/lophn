@@ -766,6 +766,7 @@ export async function buildAcpState(
         id: call.id,
         seq,
         at,
+        by: "agent",
         turn: call.turn,
         tool: call.tool,
         category: call.display.category,
@@ -989,7 +990,7 @@ export const AGENT_MODES: AcpChoice[] = [
   },
 ];
 
-// lophn agent가 가진 기능은 harness 전용 여섯(subagent 조작, task, toggle, goal, role)을 뺀 전부다.
+// lophn agent가 가진 기능은 harness 전용 여덟(subagent 조작, task, toggle, goal, role, shell, resume)을 뺀 전부다.
 const CAPABILITIES = Object.fromEntries(
   ACP_CAPABILITIES.map((name) => [
     name,
@@ -1000,6 +1001,8 @@ const CAPABILITIES = Object.fromEntries(
       "toggles",
       "goal",
       "roles",
+      "shell",
+      "resume",
     ].includes(name),
   ]),
 ) as AcpCapabilities;
@@ -1102,6 +1105,7 @@ export async function readModelPart(
             : optionAxesOf(entry).map(({ id, label, values }) => ({
                 id,
                 label,
+                kind: "choice" as const,
                 values,
               })),
       };

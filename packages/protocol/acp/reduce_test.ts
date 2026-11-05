@@ -479,3 +479,77 @@ test("hidden_restored는 숨긴 항목을 같은 seq 자리로 돌리고 두 번
   assert.equal(once.seq, 4);
   assert.deepStrictEqual(reduceAcp(once, update), once);
 });
+
+// 같은 탭에서 CLI session을 바꾼 뒤 옛 대화가 남거나, seq를 처음부터 세어 빈 seq를 순번 빠짐으로 보고 snapshot을 계속
+// 다시 읽으면 사람이 새 session을 못 본다.
+test("session_reset은 대화를 비우고 session과 seq만 남기며 이어지는 seq를 다시 읽게 하지 않고 두 번 접어도 같다", () => {
+  const meta = acpSessionMetaSchema.parse({
+    title: "old",
+    cli_session: "cli-1",
+    capabilities: Object.fromEntries(
+      ACP_CAPABILITIES.map((name) => [name, false]),
+    ),
+    models: [],
+    model: null,
+    modes: [],
+    mode: null,
+    commands: [],
+    usage: null,
+    toggles: [],
+    goal: null,
+    roles: null,
+    harness: "codex",
+  });
+  const full: AcpState = {
+    ...EMPTY_ACP_STATE,
+    seq: 2,
+    items: [message("msg_1", 1), message("msg_2", 2)],
+    turn: { id: TURN, phase: "working", started_at: AT, elapsed: null },
+    queued: [{ id: "msg_q", at: AT, content: [] }],
+    pending: {
+      approval: null,
+      question: { group: "grp_1", tool_call: "tcl_1", questions: null },
+    },
+    writing: {
+      turn: TURN,
+      model_call: CALL_1,
+      text: "x",
+      reasoning: "",
+      at: AT,
+    },
+    dropped: { model_call: CALL_1, turn: null },
+    session: meta,
+    plan: { entries: [{ text: "a", status: "pending" }] },
+    children: { [CHILD]: { ...EMPTY_ACP_STATE, seq: 1 } },
+    tasks: [
+      {
+        id: "t1",
+        kind: "shell",
+        description: "d",
+        state: "running",
+        started_at: null,
+        output: null,
+      },
+    ],
+    draft: { key: "d1", content: [] },
+  };
+  const reset: AcpUpdate = { type: "session_reset" };
+  const once = reduceAcp(full, reset);
+  assert.deepStrictEqual(once, {
+    ...EMPTY_ACP_STATE,
+    seq: 2,
+    session: meta,
+  });
+  assert.deepStrictEqual(reduceAcp(once, reset), once);
+
+  const next = reduceAcp(once, {
+    type: "message_added",
+    item: message("msg_3", 3),
+  });
+  assert.deepStrictEqual(
+    next.items.map((i) => i.id),
+    ["msg_3"],
+  );
+  assert.equal(next.reread, false);
+  acpStateSchema.parse(next);
+});

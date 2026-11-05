@@ -332,5 +332,10 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
     key: id,
     content: z.array(contentBlockSchema),
   }),
+  /**
+   * 같은 탭에서 CLI session을 바꿨다(`open_session`, 새 session). 대화 상태를 비우고 `session` meta와 `seq`만 남긴다.
+   * adapter는 순번을 처음부터 다시 세지 않고 이어 센다. 새 session의 제목·`cli_session`·명령은 바로 뒤의 `session_changed`가 싣는다.
+   */
+  z.strictObject({ type: z.literal("session_reset") }),
 ]);
 export type AcpUpdate = z.infer<typeof acpUpdateSchema>;

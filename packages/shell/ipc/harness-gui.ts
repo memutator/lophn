@@ -2,7 +2,11 @@
 // (`HarnessGuiTabApi`). `connect`로 붙어 쌓인 갱신을 처음부터 받고, 대화 조작은 `input`으로 보낸다.
 // 이 파일은 main·preload·renderer가 함께 부르므로 import는 type뿐이다.
 import type { AcpInput, AcpUpdate } from "../../protocol/acp/mod.ts";
-import type { GuiHarness } from "../../protocol/extensions/mod.ts";
+import type {
+  AcpCliSession,
+  AcpRewindPreview,
+  GuiHarness,
+} from "../../protocol/extensions/mod.ts";
 
 /** 탭이 그리는 session의 머리 값. */
 export interface HarnessGuiInfo {
@@ -27,11 +31,19 @@ export const HARNESS_GUI_TAB_INPUT_CHANNEL = "harness-gui:tab-input";
 export const HARNESS_GUI_TAB_TOGGLE_CHANNEL = "harness-gui:tab-toggle";
 /** renderer → main invoke. 그 탭의 GUI가 도는 일(restart modal이 멈출 것으로 보인다). */
 export const HARNESS_GUI_TAB_RUNNING_CHANNEL = "harness-gui:tab-running";
+/** renderer → main invoke. 그 탭의 CLI가 이 폴더에서 가진 지난 session 목록(최근 순). */
+export const HARNESS_GUI_TAB_SESSIONS_CHANNEL = "harness-gui:tab-sessions";
+/** renderer → main invoke. 그 사람 메시지로 rewind하면 되돌아갈 file. */
+export const HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL =
+  "harness-gui:tab-rewind-preview";
 /** renderer → main invoke. 사람이 붙인 이미지를 탭의 임시 폴더에 쓰고 경로를 받는다. */
 export const HARNESS_GUI_TAB_IMAGE_CHANNEL = "harness-gui:tab-image";
 
 /** restart는 한쪽 process를 끄고 같은 session으로 다른 쪽을 띄우고, shared는 TUI와 GUI가 한 server에 같이 붙는다. */
 export type HarnessGuiHandoff = "restart" | "shared";
+
+export type HarnessGuiSessionEntry = AcpCliSession;
+export type HarnessGuiRewindPreview = AcpRewindPreview;
 
 export interface HarnessGuiTabOpened {
   readonly request: string;
@@ -77,6 +89,13 @@ export interface HarnessGuiTabApi {
     terminal_ref: string;
     to: "gui" | "tui";
   }): Promise<HarnessGuiTabToggleReply>;
+  /** 그 CLI의 지난 session. run이 없거나 못 주면 빈 배열. */
+  sessions(handle: string): Promise<HarnessGuiSessionEntry[]>;
+  /** 되돌아갈 file. run이 없거나 못 주면 null. */
+  rewindPreview(
+    handle: string,
+    message: string,
+  ): Promise<HarnessGuiRewindPreview | null>;
   /** 쓴 file의 절대 경로. 못 썼으면 null. */
   uploadImage(
     handle: string,

@@ -44,7 +44,9 @@ import {
   HARNESS_GUI_TAB_DISCONNECT_CHANNEL,
   HARNESS_GUI_TAB_IMAGE_CHANNEL,
   HARNESS_GUI_TAB_INPUT_CHANNEL,
+  HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
   HARNESS_GUI_TAB_RUNNING_CHANNEL,
+  HARNESS_GUI_TAB_SESSIONS_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
 } from "../../../ipc/harness-gui.ts";
 import { cliEnv, type TabGui, type TabHandle } from "../../terminal/gui.ts";
@@ -183,6 +185,10 @@ const tabInputSchema = z.strictObject({
   handle: z.string().min(1).max(100),
   input: acpInputSchema,
 });
+const tabRewindPreviewSchema = z.strictObject({
+  handle: z.string().min(1).max(100),
+  message: z.string().min(1).max(100),
+});
 const tabToggleSchema = z.strictObject({
   terminal_ref: z.string().min(1).max(80),
   to: z.enum(["gui", "tui"]),
@@ -245,6 +251,14 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
     HARNESS_GUI_TAB_RUNNING_CHANNEL,
     z.strictObject({ terminal_ref: z.string().min(1).max(80) }),
     (_event, input) => gui.running(input.terminal_ref),
+  );
+  handle(HARNESS_GUI_TAB_SESSIONS_CHANNEL, handleOnly, (_event, input) =>
+    gui.sessions(input.handle),
+  );
+  handle(
+    HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
+    tabRewindPreviewSchema,
+    (_event, input) => gui.rewindPreview(input.handle, input.message),
   );
   handle(HARNESS_GUI_TAB_TOGGLE_CHANNEL, tabToggleSchema, (_event, input) =>
     gui.toggle(input),

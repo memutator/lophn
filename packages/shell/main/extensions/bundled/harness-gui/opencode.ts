@@ -298,6 +298,8 @@ const CAPABILITIES: AcpSessionMeta["capabilities"] = {
   toggles: true,
   goal: false,
   roles: false,
+  shell: false,
+  resume: false,
 };
 
 // 별칭은 TUI의 그 명령 `slash` 칸에서 옮겼다(`tui/src/app.tsx`, `routes/session/index.tsx`).
@@ -826,6 +828,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           id: call.id,
           seq: ++call.lane.seq,
           at: now(),
+          by: "agent",
           turn: startTurn(call.lane),
           tool: call.name,
           category: CATEGORIES[call.name] ?? "other",
@@ -1678,6 +1681,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
                   {
                     id: "variant",
                     label: "Variant",
+                    kind: "choice" as const,
                     values: variants.map((value) => ({ value, label: value })),
                   },
                 ],

@@ -418,6 +418,8 @@ export function createAcpSend(deps: AcpSendDeps) {
       case "set_toggle":
       case "set_goal":
       case "use_role":
+      case "run_shell":
+      case "open_session":
         return unavailable();
     }
   };

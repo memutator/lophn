@@ -258,7 +258,17 @@ export function activate(ctx: ExtensionContext): void {
 
   const running = (terminalId: string) =>
     tabs.get(terminalId)?.run?.running() ?? null;
-  const offTab = ctx.acp.onTab({ gui, tui, running });
+  const sessions = async (terminalId: string) =>
+    (await tabs.get(terminalId)?.run?.sessions?.()) ?? [];
+  const rewindPreview = async (terminalId: string, message: string) =>
+    (await tabs.get(terminalId)?.run?.rewindPreview?.(message)) ?? null;
+  const offTab = ctx.acp.onTab({
+    gui,
+    tui,
+    running,
+    sessions,
+    rewindPreview,
+  });
   stopAll = () => {
     offTab();
     for (const tab of [...tabs.values()]) tab.session.close();

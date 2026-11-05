@@ -78,6 +78,7 @@ const OPENS_ICONS: Readonly<Record<AcpCommandOpens, IconType>> = {
   subagents: conversationIcons.subagents,
   tasks: conversationIcons.tasks,
   goal: conversationIcons.goal,
+  resume: conversationIcons.openSession,
 };
 
 const SOURCE_ICONS: Readonly<

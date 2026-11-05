@@ -20,6 +20,11 @@ export type AcpChoice = z.infer<typeof acpChoiceSchema>;
 export const acpModelAxisSchema = z.strictObject({
   id,
   label: z.string(),
+  /**
+   * `switch`는 값이 정확히 둘이고 `[0]`이 끔, `[1]`이 켬이다. picker는 켜고 끄기로 그리고, `options`에 그 축이
+   * 없으면 끔으로 그린다. `choice`는 값 목록에서 하나를 고른다.
+   */
+  kind: z.enum(["choice", "switch"]),
   values: z.array(z.strictObject({ value: z.string(), label: z.string() })),
 });
 export type AcpModelAxis = z.infer<typeof acpModelAxisSchema>;
@@ -85,6 +90,7 @@ export const ACP_COMMAND_SOURCES = [
  * | subagents | dock의 subagent 목록 | harness |
  * | tasks | dock의 background task 목록 | harness |
  * | goal | 인자가 비면 goal 편집, 있으면 `set_goal {objective: 인자, paused: false}` | harness |
+ * | resume | 머리 session menu를 연다(그 CLI의 지난 session 목록과 바꾸기) | harness |
  *
  * 규칙: `opens`가 null이면 화면은 `run_command`로 보낸다. `opens`가 있는데 사람이 인자를 쳤고 그 값이 인자를 쓰지
  * 않는 것(`rename`·`goal` 밖)이면, `argument_hint`가 있을 때 `run_command`로 보낸다(`/model sonnet`은 CLI가 바로
@@ -110,6 +116,7 @@ export const ACP_COMMAND_OPENS = [
   "subagents",
   "tasks",
   "goal",
+  "resume",
 ] as const;
 export const acpCommandOpensSchema = z.enum(ACP_COMMAND_OPENS);
 export type AcpCommandOpens = z.infer<typeof acpCommandOpensSchema>;
@@ -218,6 +225,10 @@ export const ACP_CAPABILITIES = [
   "goal",
   /** meta `roles`와 `use_role`. */
   "roles",
+  /** composer shell mode(`!`)와 `run_shell`. */
+  "shell",
+  /** harness 머리 session menu의 지난 session 목록과 `open_session`. */
+  "resume",
 ] as const;
 export const acpCapabilitiesSchema = z.strictObject(
   Object.fromEntries(

@@ -254,6 +254,8 @@ const CAPABILITIES: AcpCapabilities = {
   toggles: true,
   goal: true,
   roles: false,
+  shell: false,
+  resume: false,
 };
 
 const oneLine = (text: string, max: number) =>
@@ -545,6 +547,7 @@ function modelGroups(models: ModelInfo[]): AcpModelGroup[] {
                 {
                   id: "effort",
                   label: "Effort",
+                  kind: "choice" as const,
                   values: one.supportedEffortLevels.map((value) => ({
                     value,
                     label: value,
@@ -1153,6 +1156,7 @@ const start: (sdk: ClaudeSdk) => Start =
           id: call.id,
           seq: ++lane.seq,
           at: now(),
+          by: "agent",
           turn: ensureTurn(lane),
           tool: name,
           category: CATEGORIES[name] ?? "other",

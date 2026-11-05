@@ -210,6 +210,7 @@ export function acpUpdatesOf(
                 id: tool_call,
                 seq,
                 at: event.at,
+                by: "agent",
                 turn,
                 tool,
                 category: display.category,

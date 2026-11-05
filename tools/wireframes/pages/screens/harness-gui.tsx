@@ -83,6 +83,7 @@ const tool = (
     id,
     seq,
     at: at(second),
+    by: "agent",
     turn,
     tool: name,
     category,
@@ -481,6 +482,8 @@ function fakeApi(
     },
     running: async () => ({ turn: true, tasks: 2 }),
     toggle: async () => ({ ok: true }),
+    sessions: async () => [],
+    rewindPreview: async () => null,
     uploadImage: async () => null,
   };
 }

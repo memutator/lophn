@@ -666,6 +666,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             setDock("goal");
           }
         },
+        // 머리 session menu는 다음 wave의 화면 task가 연다.
+        resume: () => {},
       };
       return screen[opens]();
     }

@@ -15,6 +15,7 @@ export const CUSTOM_PROVIDER = "pvd_01arz3ndektsv4rrffq69g5fa4";
 export const effortLowToMax: AcpModelAxis = {
   id: "effort",
   label: "Effort",
+  kind: "choice",
   values: [
     { value: "low", label: "Low" },
     { value: "medium", label: "Medium" },
@@ -26,6 +27,7 @@ export const effortLowToMax: AcpModelAxis = {
 const effortMinimalToXHigh: AcpModelAxis = {
   id: "effort",
   label: "Effort",
+  kind: "choice",
   values: [
     { value: "minimal", label: "Minimal" },
     { value: "low", label: "Low" },
@@ -37,6 +39,7 @@ const effortMinimalToXHigh: AcpModelAxis = {
 const speedStandardFast: AcpModelAxis = {
   id: "speed",
   label: "Speed",
+  kind: "choice",
   values: [
     { value: "standard", label: "Standard" },
     { value: "fast", label: "Fast" },
@@ -45,6 +48,7 @@ const speedStandardFast: AcpModelAxis = {
 const speedStandardPriority: AcpModelAxis = {
   id: "speed",
   label: "Speed",
+  kind: "choice",
   values: [
     { value: "standard", label: "Standard" },
     { value: "priority", label: "Priority" },

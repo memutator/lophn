@@ -260,6 +260,7 @@ function tool(
     id: toolId(n),
     seq: 0,
     at: at(minutes),
+    by: "agent",
     turn: turn1,
     ...fields,
     state: "ok",
@@ -1532,6 +1533,8 @@ const EVERYTHING: AcpCapabilities = {
   toggles: false,
   goal: false,
   roles: false,
+  shell: false,
+  resume: false,
 };
 
 /** harness CLI가 가진 만큼: session 목록과 파일 복원이 없다. */

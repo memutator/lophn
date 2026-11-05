@@ -582,6 +582,7 @@ function thread(
         id: call.id,
         seq: ++seq,
         at: now(),
+        by: "agent",
         turn: extra?.turn ?? ensureTurn(),
         tool: name,
         category: CATEGORIES[name] ?? "other",
@@ -1191,6 +1192,7 @@ const start: (io: OmpIo) => Start =
       const axis = {
         id: "effort",
         label: "Thinking",
+        kind: "choice" as const,
         values: levels.map((value) => ({ value, label: value })),
       };
       const groups = new Map<string, Model[]>();
@@ -1226,6 +1228,8 @@ const start: (io: OmpIo) => Start =
           toggles: true,
           goal: true,
           roles: true,
+          shell: false,
+          resume: false,
         },
         models: [...groups].map(([provider, list]) => ({
           id: provider,

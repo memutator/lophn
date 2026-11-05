@@ -12,7 +12,13 @@ import {
   writeFile,
 } from "node:fs/promises";
 import process from "node:process";
-import { err, ok, type OsPlatform, type Result } from "../../../../base/mod.ts";
+import {
+  err,
+  errorCode,
+  ok,
+  type OsPlatform,
+  type Result,
+} from "../../../../base/mod.ts";
 import {
   appBundleCopy,
   type BundleManifest,
@@ -62,11 +68,36 @@ export async function isSealed(copyPath: string): Promise<boolean> {
   );
 }
 
-// 표지가 없는 사본은 끊긴 준비가 남긴 것이다. 지우고 true를 돌려준다. 표지가 있으면 그대로 두고 false다.
-export async function clearUnsealedCopy(copyPath: string): Promise<boolean> {
-  if (await isSealed(copyPath)) return false;
-  await rm(copyPath, { recursive: true, force: true }).catch(() => {});
-  return true;
+// 읽기 전용 사본(0555·0444)을 지우거나 고칠 수 있게 폴더와 file의 쓰기 권한을 돌려준다. 연결은 따라가지 않는다.
+export async function makeTreeWritable(directory: string): Promise<void> {
+  await chmod(directory, 0o755);
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) await makeTreeWritable(path);
+    else if (entry.isFile()) await chmod(path, 0o644);
+  }
+}
+
+// 표지가 없는 사본은 끊긴 준비가 남긴 것(옛 core가 봉인한 사본이 표지를 받기 전일 수도 있다)이다. 쓰기를 돌려주고 지운 뒤
+// true를 돌려준다. 표지가 있으면 그대로 두고 false다. 없는 사본은 지울 것이 없다. 지우지 못하면 오류다.
+export async function clearUnsealedCopy(
+  copyPath: string,
+): Promise<Result<boolean, SealFailure>> {
+  if (await isSealed(copyPath)) return ok(false);
+  try {
+    await makeTreeWritable(copyPath);
+    await rm(copyPath, { recursive: true });
+  } catch (thrown) {
+    if (errorCode(thrown) !== "ENOENT") {
+      return err({
+        code: "unavailable",
+        message: `봉인되지 않은 bundle 사본을 지우지 못했다: ${
+          thrown instanceof Error ? thrown.message : thrown
+        }`,
+      });
+    }
+  }
+  return ok(true);
 }
 
 // 정규 declaration.json 자리. bundle 사본 안의 고정 이름이다.

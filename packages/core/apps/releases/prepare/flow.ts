@@ -242,7 +242,9 @@ export async function prepareRelease(
   if (!copy.ok) return fail(copy.error.message);
   // 같은 hash의 봉인 사본이 이미 있으면 같은 byte다. 다시 쓰지 않는다. 봉인 표지가 없는 사본은 끊긴
   // 준비가 남긴 것이거나 core가 아직 봉인하지 않은 것이라 지우고 다시 쓴다. 봉인(연결 만들기)은 core가 한다.
-  const existing = !(await clearUnsealedCopy(copy.value));
+  const cleared = await clearUnsealedCopy(copy.value);
+  if (!cleared.ok) return fail(cleared.error.message, cleared.error.code);
+  const existing = !cleared.value;
   const sealed = existing
     ? { ok: true as const }
     : await writeBundle({

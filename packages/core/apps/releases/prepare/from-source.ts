@@ -6,7 +6,6 @@
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import {
-  chmod,
   mkdir,
   readdir,
   readFile,
@@ -34,6 +33,7 @@ import {
   type PackageManifest,
 } from "../bundle/dependencies.ts";
 import { readModules, readSdkCopies } from "../bundle/modules.ts";
+import { makeTreeWritable } from "../bundle/seal.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
 import { childEnvironment } from "./environment.ts";
@@ -184,16 +184,6 @@ async function readBuiltScreens(staging: string): Promise<{
   return { screens: screens.sort(byPath), assets: assets.sort(byPath) };
 }
 
-// 설치 사본은 0444·0555라 staging 사본을 지우거나 npm이 고칠 수 없다. staging 사본만 연다.
-async function makeWritable(directory: string): Promise<void> {
-  await chmod(directory, 0o755);
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = `${directory}/${entry.name}`;
-    if (entry.isDirectory()) await makeWritable(path);
-    else if (entry.isFile()) await chmod(path, 0o644);
-  }
-}
-
 export async function prepareFromSource(
   input: SourcePrepareInput,
   deps: SourcePrepareDeps = {},
@@ -251,7 +241,8 @@ export async function prepareFromSource(
 
     const synced = await syncAppSdk(staging, input.dataRoot);
     if (!synced.ok) return fail("sdk_not_installed");
-    if (synced.value.length > 0) await makeWritable(`${staging}/.lophn/sdk`);
+    if (synced.value.length > 0)
+      await makeTreeWritable(`${staging}/.lophn/sdk`);
     if (aborted()) return fail("cancelled");
 
     // npm이 AI가 쓴 앱의 의존을 받는 유일한 단계다. 앱 code는 실행되지 않는다(install script도 돌리지 않는다:

@@ -61,8 +61,12 @@ export type TurnInputs = {
 export type TurnSource = {
   // 지금 시작할 turn 하나. 없으면 null이다. 입력은 꺼내지 않는다.
   next(): Promise<Result<TurnStart | null>>;
-  // StartTurn이 확정됐다. 입력을 꺼내 돌려주고 session을 도는 중으로 둔다.
-  began(session: Id<"ses">): Promise<Result<RoutedInput | null>>;
+  // StartTurn이 확정됐다. 그 turn이 기록한 입력(message)을 꺼내 돌려주고 session을 도는 중으로 둔다. 그 입력이
+  // 이미 없으면 아무것도 꺼내지 않고 null이다: queue 머리가 바뀌었어도 남의 입력을 집지 않는다.
+  began(
+    session: Id<"ses">,
+    message: Id<"msg">,
+  ): Promise<Result<RoutedInput | null>>;
   // turn이 끝났다. 반영하지 못한 steer는 다음 turn 입력이 된다.
   ended(session: Id<"ses">): Promise<Result<void>>;
   // 도는 turn의 다음 model 요청 앞에 붙일 steer 입력.

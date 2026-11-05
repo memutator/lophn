@@ -339,7 +339,19 @@ export function startTurnPump(options: {
       }
       try {
         const next = await options.driver.startNext();
-        started = next.kind === "started" || next.kind === "not_started";
+        // 입력이 queue에서 빠진 경우만 진전이다. 빠지지 않은 입력은 다시 골라지므로 쉬었다 본다.
+        started =
+          next.kind === "started" ||
+          (next.kind === "not_started" && next.consumed);
+        if (next.kind === "started") {
+          void next.done.catch((error) => {
+            options.report?.(
+              `turn ended with an error: ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          });
+        }
         lastFailure = undefined;
       } catch (error) {
         // 한 번의 실패가 pump를 끝내지 않는다. 다음 주기에 다시 본다. 이유를 안 남기면 받은 메시지가 turn이 되지 않는 까닭을 아무도 모른다.

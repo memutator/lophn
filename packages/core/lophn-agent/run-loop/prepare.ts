@@ -219,8 +219,9 @@ type PreparedTurn = {
   session: string;
   begin: BeginTurnInput;
   startTurn(input: BeginTurnInput): Promise<Result<StartTurnResult>>;
-  // StartTurn은 확정됐지만 credential을 받지 못했을 때 turn을 failed(configuration_unavailable)로 닫는다.
-  closeStarted(): Promise<void>;
+  // StartTurn은 확정됐지만 loop를 이어 가지 못할 때(credential을 못 받음, 입력이 없어짐, loop가 던짐) turn을
+  // failed(configuration_unavailable)로 닫는다. 이미 끝났으면 아무것도 하지 않는다. why는 result blob에 남는다.
+  closeStarted(why: "credential" | "input_gone" | "loop_threw"): Promise<void>;
   // StartTurn이 확정되고 credential을 받은 뒤에 loop 재료를 만든다.
   loop(
     credential: AgentTurnCredential,
@@ -1036,14 +1037,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
               })
             : started;
         },
-        async closeStarted() {
+        async closeStarted(why) {
           const current = await readOf(machine, turnRead, { turn });
           if (!current.ok || current.value.turn.state !== "running") return;
           const result = await storeValue(
             deps.blobs,
             deps.instructions.redact,
             TURN_BLOB_PURPOSES.turn_result,
-            { turn, why: "credential" },
+            { turn, why },
           );
           if (!result.ok) return;
           await commandOf(
@@ -1056,7 +1057,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
               result_size: result.value.size,
             },
             { state_seq: current.value.turn.state_seq },
-            `${turn}:finish:credential`,
+            `${turn}:finish:${why}`,
           );
         },
         loop(credential, inputs) {

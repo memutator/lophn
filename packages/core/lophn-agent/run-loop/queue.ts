@@ -14,8 +14,8 @@ export type Queue = {
   put(session: Session, input: RoutedInput): void;
   // 꺼내지 않고 맨 앞 입력을 본다.
   next(session: Session): RoutedInput | undefined;
-  // 맨 앞 입력을 꺼낸다.
-  take(session: Session): RoutedInput | undefined;
+  // 맨 앞 입력을 꺼낸다. message가 있으면 머리가 아니라 그 message의 입력을 꺼낸다(없으면 undefined).
+  take(session: Session, message?: Id<"msg">): RoutedInput | undefined;
   // 도는 turn의 다음 model 요청 앞에 붙일 steer 입력. 반영한 만큼 `settleSteering`으로 비운다.
   pendingSteering(session: Session): readonly RoutedInput[];
   settleSteering(session: Session, count: number): void;
@@ -84,9 +84,12 @@ export function createQueue(): Queue {
     next(session) {
       return head(queued.get(session) ?? [])?.input;
     },
-    take(session) {
+    take(session, message) {
       const entries = queued.get(session) ?? [];
-      const first = head(entries);
+      const first =
+        message === undefined
+          ? head(entries)
+          : entries.find((entry) => entry.input.message === message);
       if (first === undefined) return undefined;
       const rest = entries.filter((entry) => entry !== first);
       if (rest.length === 0) queued.delete(session);

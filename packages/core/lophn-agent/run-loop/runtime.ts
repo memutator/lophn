@@ -238,8 +238,9 @@ export async function startAgentRuntimeChild(
     blob?.close();
     let handler = newBlob();
     blob = handler;
-    // 이 child generation이 감독 중인 동안만 값을 건넨다.
-    let alive = true;
+    // 이 child generation이 감독 중인 동안만 값을 건넨다. supervisor가 이 callbacks를 재시작마다 다시 쓰므로
+    // 기동이 끝날 때(onEnd) 새 표시로 바꾼다. 한 번 false로 둔 표시를 다시 켜는 곳은 없다.
+    let generation = { alive: true };
     return {
       onMessage(message: ChildMessage) {
         if (message.type === "diagnostic") {
@@ -255,10 +256,11 @@ export async function startAgentRuntimeChild(
           return;
         }
         if (message.type === "secret_send_request") {
+          const mine = generation;
           void deps.secrets
-            .answer(message, () => alive)
+            .answer(message, () => mine.alive)
             .then((response) => {
-              if (response !== undefined && alive) {
+              if (response !== undefined && mine.alive) {
                 return deps.io.send(AGENT_RUNTIME_KIND, response);
               }
             })
@@ -286,7 +288,8 @@ export async function startAgentRuntimeChild(
       // child가 끝났다. 그 child가 쥐고 있던 turn의 agent credential은 더 쓰이지 않고, 돌던 turn은 닫힌다.
       // queue의 도는 표시는 ledger가 닫힌 뒤에 푼다: 먼저 풀면 새 입력이 아직 running인 행과 겹친다.
       onEnd() {
-        alive = false;
+        generation.alive = false;
+        generation = { alive: true };
         handler.close();
         deps.registry.endBy("process", AGENT_RUNTIME_PROCESS);
         void (deps.interruptTurns?.() ?? Promise.resolve())

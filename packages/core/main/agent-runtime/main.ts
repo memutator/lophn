@@ -311,6 +311,7 @@ async function startAgentRuntime(input: {
       source,
       credentials,
       preparer,
+      report: (text) => void diagnostics.write(text),
       // 이전 대화가 커진 session은 다음 turn을 시작하기 전에 Compact한다.
       ...(compactor === undefined
         ? {}

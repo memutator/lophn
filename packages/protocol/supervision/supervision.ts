@@ -195,13 +195,16 @@ export const turnSourceRequestSchema = z
     op: z.enum(TURN_SOURCE_OPS),
     session: idSchema("ses").optional(),
     count: count.optional(),
+    // began이 집을 입력의 message다. StartTurn에 기록한 그 입력을 정확히 집게 한다.
+    message: idSchema("msg").optional(),
   })
   .refine(
     (value) =>
       value.op === "next"
-        ? value.session === undefined
+        ? value.session === undefined && value.message === undefined
         : value.session !== undefined &&
-          (value.op === "settled") === (value.count !== undefined),
+          (value.op === "settled") === (value.count !== undefined) &&
+          (value.op === "began") === (value.message !== undefined),
     { message: "turn source request does not fit its op" },
   );
 const turnSourceResponseSchema = z.discriminatedUnion("ok", [

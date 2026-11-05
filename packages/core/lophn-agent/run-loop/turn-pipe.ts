@@ -1,4 +1,5 @@
 import type { Result } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AgentEvent,
   agentEventSchema,
@@ -44,7 +45,7 @@ export function createTurnPipe(options: {
         result = await source.next();
         break;
       case "began":
-        result = await source.began(session);
+        result = await source.began(session, message.message as Id<"msg">);
         break;
       case "ended":
         result = await source.ended(session);

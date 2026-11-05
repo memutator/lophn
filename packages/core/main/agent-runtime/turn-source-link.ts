@@ -45,7 +45,7 @@ export function createTurnSourceLink(options: {
 
   async function request(
     op: TurnSourceRequest["op"],
-    fields: { session?: string; count?: number } = {},
+    fields: { session?: string; count?: number; message?: string } = {},
   ): Promise<Result<unknown>> {
     const id = `turn-source-${++sequence}`;
     const answered = new Promise<Answer | null>((resolve) => {
@@ -87,8 +87,8 @@ export function createTurnSourceLink(options: {
         const result = await request("next");
         return result.ok ? ok(result.value as TurnStart | null) : result;
       },
-      async began(session) {
-        const result = await request("began", { session });
+      async began(session, message) {
+        const result = await request("began", { session, message });
         return result.ok ? ok(result.value as RoutedInput | null) : result;
       },
       ended: (session) => done(request("ended", { session })),

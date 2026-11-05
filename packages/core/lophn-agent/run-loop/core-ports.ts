@@ -274,6 +274,8 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       { state_seq: "1" },
       `${id}:start`,
     );
+    // 행이 없으면 steer를 비우거나 model을 부르지 않는다. 그러면 steer가 queue에 남아 다음 시도가 다시 싣는다.
+    if (!started.ok) return started;
     lastModelCall = id;
     // 이 요청이 가져간 steer는 queue에서 비운다. 응답을 기다리는 사이 들어온 steer는 뒤에 남는다.
     if (request.applied.length > 0) {
@@ -327,7 +329,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
                 ? null
                 : reasoningLastMs - reasoningFirstMs,
           };
-    const outcome = output?.outcome ?? {
+    let outcome = output?.outcome ?? {
       kind: "failed" as const,
       code: "credential_unavailable" as const,
       retry_at: null,
@@ -352,33 +354,45 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       output !== undefined &&
       (output.text.length > 0 || output.toolCalls.length > 0);
     let outputBlob: { hash: string; size: number } | null = null;
+    let storeFailure: Result<never> | undefined;
     if (kept || outcome.kind === "partial") {
       const stored = await store(TURN_BLOB_PURPOSES.model_call_output, {
         text: output?.text ?? "",
         tools: output?.toolCalls ?? [],
       });
-      if (!stored.ok) return stored;
-      outputBlob = stored.value;
+      if (stored.ok) {
+        outputBlob = stored.value;
+      } else {
+        // 글을 남기지 못해도 started 행은 끝낸다. 열린 채 두면 turn이 닫힐 때까지 started로 남는다.
+        storeFailure = stored;
+        outcome = {
+          kind: "failed",
+          code: "unknown",
+          retry_at: null,
+          finish_reason: null,
+          http_status: null,
+          provider_code: null,
+        };
+      }
     }
-    if (started.ok) {
-      await commandOf(
-        machine,
-        finishModelCall,
-        {
-          call: id,
-          output: outputBlob?.hash ?? null,
-          ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
-          outcome,
-          usage,
-          cost,
-          duration_ms: output?.durationMs ?? null,
-          first_output_ms: output?.firstOutputMs ?? null,
-          state_seq: "2",
-        },
-        { state_seq: "1" },
-        `${id}:finish`,
-      );
-    }
+    await commandOf(
+      machine,
+      finishModelCall,
+      {
+        call: id,
+        output: outputBlob?.hash ?? null,
+        ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
+        outcome,
+        usage,
+        cost,
+        duration_ms: output?.durationMs ?? null,
+        first_output_ms: output?.firstOutputMs ?? null,
+        state_seq: "2",
+      },
+      { state_seq: "1" },
+      `${id}:finish`,
+    );
+    if (storeFailure !== undefined) return storeFailure;
     if (output === undefined) {
       return err(
         invoked.ok ? { code: "internal", message: "no output" } : invoked.error,

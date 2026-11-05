@@ -1,4 +1,5 @@
 import { ok } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AgentTurnCredential,
   beginTurn,
@@ -24,13 +25,16 @@ type DriveDeps = {
   preparer: Pick<TurnPreparer, "prepare" | "forget">;
   // 이전 대화가 커진 session을 다음 turn을 시작하기 전에 Compact한다. 실패해도 turn은 시작한다.
   compact?(session: string): Promise<unknown>;
+  // turn이 던진 예외와 session을 쉬는 상태로 돌리지 못한 일을 남긴다.
+  report?(text: string): void;
 };
 
 type DriveResult =
   | { kind: "idle" }
   | { kind: "unavailable" }
-  // turn을 시작할 수 없어 core가 failed로 닫았다. 입력은 소비됐다.
-  | { kind: "not_started"; turn: string }
+  // turn을 시작할 수 없어 core가 failed로 닫았다. consumed는 입력이 queue에서 빠졌는지다. 빠지지 않았으면 같은
+  // 입력이 다시 골라지므로 부른 쪽이 바로 다시 돌지 않는다.
+  | { kind: "not_started"; turn: string; consumed: boolean }
   | { kind: "started"; turn: string; done: Promise<LoopEnd> };
 
 export type TurnDriver = {
@@ -76,12 +80,37 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
     };
   }
 
+  // session을 쉬는 상태로 돌린다. 실패하면 한 번 더 하고, 그래도 안 되면 남긴다: 안 풀린 session은 running으로
+  // 남아 입력을 더 받지 못한다.
+  async function release(session: Id<"ses">): Promise<void> {
+    let ended = await deps.source.ended(session);
+    if (!ended.ok) ended = await deps.source.ended(session);
+    if (!ended.ok) {
+      deps.report?.(
+        `session ${session} could not be released: ${ended.error.message}`,
+      );
+    }
+  }
+
+  // 시작하지 못한 turn의 입력을 queue에서 뺀다. 같은 입력이 다시 골라지지 않게 한다.
+  async function consume(
+    session: Id<"ses">,
+    message: Id<"msg">,
+  ): Promise<boolean> {
+    const taken = await deps.source.began(session, message);
+    if (!taken.ok) return false;
+    if (taken.value !== null) await release(session);
+    return true;
+  }
+
   return {
     async startNext() {
       const picked = await deps.source.next();
       if (!picked.ok) return { kind: "unavailable" };
       const start = picked.value;
       if (start === null) return { kind: "idle" };
+      // prepare가 session 기록이 없는 입력을 거절하므로 이 뒤에는 있다.
+      const message = start.input.message as Id<"msg">;
       if (compactBefore.delete(start.session)) {
         await deps.compact?.(start.session);
       }
@@ -89,9 +118,11 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       if (!prepared.ok) return { kind: "unavailable" };
       if (prepared.value.kind === "closed") {
         // core가 turn을 failed로 닫았다. 입력을 소비해 같은 입력이 다시 고르지 않게 한다.
-        await deps.source.began(start.session);
-        await deps.source.ended(start.session);
-        return { kind: "not_started", turn: prepared.value.turn };
+        return {
+          kind: "not_started",
+          turn: prepared.value.turn,
+          consumed: await consume(start.session, message),
+        };
       }
       const turn = prepared.value.turn;
       const begun = await beginTurn(
@@ -99,15 +130,25 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
         turn.begin,
       );
       if (!begun.ok) {
-        if (begun.started) {
-          // StartTurn은 확정됐지만 credential을 받지 못했다. failed로 닫고 입력을 소비한다.
-          await turn.closeStarted();
-          await deps.source.began(start.session);
-          await deps.source.ended(start.session);
+        // StartTurn이 확정되기 전에 실패했으면 입력은 그대로 queue에 있다.
+        if (!begun.started) {
+          return { kind: "not_started", turn: turn.turn, consumed: false };
         }
-        return { kind: "not_started", turn: turn.turn };
+        // StartTurn은 확정됐지만 credential을 받지 못했다. failed로 닫고 입력을 소비한다.
+        await turn.closeStarted("credential");
+        return {
+          kind: "not_started",
+          turn: turn.turn,
+          consumed: await consume(start.session, message),
+        };
       }
-      const first = await deps.source.began(start.session);
+      const first = await deps.source.began(start.session, message);
+      if (first.ok && first.value === null) {
+        // StartTurn을 기록한 입력이 그 사이 queue에서 없어졌다(사람이 지움). 남의 입력을 집지 않고 turn을 닫는다.
+        deps.credentials.end(turn.turn);
+        await turn.closeStarted("input_gone");
+        return { kind: "not_started", turn: turn.turn, consumed: true };
+      }
       const credential: AgentTurnCredential = begun.value.credential;
       const {
         provider,
@@ -121,13 +162,25 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
         available: () => loopDeps.ports.model.available(),
         handle,
       });
-      const done = handle.done.finally(async () => {
-        // turn 종료·멈춤에서 credential을 끝내고 session을 쉬는 상태로 돌린다.
-        deps.credentials.end(turn.turn);
-        active.delete(turn.turn);
-        if (handle.compactNext()) compactBefore.add(start.session);
-        await deps.source.ended(start.session);
-      });
+      const done = handle.done
+        .catch(async (error): Promise<LoopEnd> => {
+          // loop가 던졌다. 이 turn을 failed로 닫아 session이 running으로 남지 않게 한다.
+          const text = error instanceof Error ? error.message : String(error);
+          deps.report?.(`turn ${turn.turn} threw: ${text}`);
+          await turn.closeStarted("loop_threw").catch(() => {});
+          return {
+            kind: "finish_failed",
+            outcome: { kind: "failed", reason: "configuration_unavailable" },
+            error: { code: "internal", message: text },
+          };
+        })
+        .finally(async () => {
+          // turn 종료·멈춤에서 credential을 끝내고 session을 쉬는 상태로 돌린다.
+          deps.credentials.end(turn.turn);
+          active.delete(turn.turn);
+          if (handle.compactNext()) compactBefore.add(start.session);
+          await release(start.session);
+        });
       return { kind: "started", turn: turn.turn, done };
     },
     stop(turn, reason) {

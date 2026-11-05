@@ -28,7 +28,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 - message의 `content`는 content block이다(`contentBlockSchema`). `message_recorded`는 core가 읽은 저장된 본문(`body`)을 싣고, 그러면 항목은 `complete`이고 snapshot과 같다. 본문을 못 읽었으면(`body` null) `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있고 `complete`가 false라 snapshot을 다시 읽는다. harness가 쓴 tool 줄(`harness_tool` part)은 전용 항목이 생기기 전까지 `[상태] 이름: 요약` 글 block 하나다.
 - `cards`는 content block이 아니라 message의 따로 칸이다. agent message의 `app_card` part를 `{app, view}`로 옮긴다.
 - `AcpInput`의 대화 조작: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(core 결정에 `session` 범위를 더한 `acpDecideChoiceSchema`), 다음 turn 줄 고치기 넷. 보내는 길은 아래 "입력"이다.
-- 대화 밖 session 기능(`packages/protocol/acp/session.ts`): `AcpState.session`(`AcpSessionMeta`: 제목, CLI session id, capability 열다섯(`ACP_CAPABILITIES`), model 묶음과 지금 값(effort·speed·thinking 같은 것은 model의 축과 `options`), mode, 명령, 사용량)과 `AcpState.plan`(todo 목록). 갱신은 `session_changed`(부분. capability는 통째로 바뀌고, 첫 갱신은 모든 칸이 있어야 하며 없으면 `reread`), `plan_changed`, `notice_added`(turn 중 `info` notice). 입력은 `set_model`, `set_mode`, `run_command`, `rewind`, `fork`(`AcpSend` 답의 `session`이 새 session), `compact`, `rename`이고 모두 `key`를 싣는다. 화면은 capability를 보고 칸을 켠다. 승인 pending은 `choices`(once·session·always·reject)를 싣고, subject에 편집(`file_change`: path, 만들기·고치기·지우기, 줄 수)이 있다. 지금 core는 새 입력에 `unavailable`이고 `session`·`plan`은 null이며, 화면은 model·rewind·fork·compact를 아직 제 route로 보낸다.
+- 대화 밖 session 기능(`packages/protocol/acp/session.ts`): `AcpState.session`(`AcpSessionMeta`: 제목, CLI session id, capability 열다섯(`ACP_CAPABILITIES`), model 묶음과 지금 값(effort·speed·thinking 같은 것은 model의 축과 `options`), mode, 명령, 사용량)과 `AcpState.plan`(todo 목록). 갱신은 `session_changed`(부분. capability는 통째로 바뀌고, 첫 갱신은 모든 칸이 있어야 하며 없으면 `reread`), `plan_changed`, `notice_added`(turn 중 `info` notice). 입력은 `set_model`, `set_mode`, `run_command`, `rewind`, `fork`(`AcpSend` 답의 `session`이 새 session), `compact`, `rename`이고 모두 `key`를 싣는다. 화면은 capability를 보고 칸을 켠다. 승인 pending은 `choices`(once·session·always·reject)를 싣고, subject에 편집(`file_change`: path, 만들기·고치기·지우기, 줄 수)이 있다. core는 lophn agent session의 `session`을 snapshot에서 채우고(capability는 모두 켬, `cli_session`은 null, mode는 `ask`·`skip`, model id는 `<provider id>/<model 이름>`, 묶음 id는 provider id) 이름·model·mode가 바뀐 뒤와 `TurnEnded`·`CompactEnded` 뒤 사용량을 `session_changed`로 낸다. `plan`은 null이다. 명령 목록은 snapshot에만 있다(skill이 바뀌는 event가 없다).
 
 ## 지키는 것
 
@@ -77,13 +77,21 @@ redaction
 | `stop` | `StopTurn` | 부른 사람의 자격으로 `ReadTurn`을 읽어 `state_seq`를 compare에 싣는다. `key`가 `request_key`와 idempotency key다 |
 | `retry` | `SendMessage` | 실패한 turn의 입력 메시지(`ReadTurn`의 `input_message`, `ReadMessageBody`)를 `next_turn`으로 다시 보낸다. 새 메시지 id는 core가 turn마다 한 번 정하고(메모리에 기억) key는 `retry-turn-<turn>`이라 다시 눌러도 한 번만 접수된다 |
 | `answer` | `AnswerAskQuestions` | |
-| `decide` | `DecideTurnRequest` | |
+| `decide` | `DecideTurnRequest` | `session` 범위는 lophn에 없어 `invalid_input` |
 | `send_queued`, `remove_queued`, `edit_queued`, `move_queued` | `SteerQueuedNow`, `RemoveQueued`, `EditQueued`, `MoveQueued` | |
+| `set_model` | `changeSessionModel` | `options`는 그대로 `option_values`다(새 model에 맞추는 일은 보내는 쪽 몫) |
+| `set_mode` | `changeSessionSkip` | mode는 `ask`·`skip`뿐이고 그 밖은 `invalid_input` |
+| `run_command` | `SendMessage` | skill 요청 글(화면 i18n `conversation.body.skill-command-request`와 같은 영어 글)로 보낸다. 내장 명령 이름은 `invalid_input` |
+| `rewind` | `sessionRewindPreview` → `sessionRewind` | preview의 hash로 되돌린다 |
+| `fork` | `forkSession` | 답의 `session`이 새 session이다 |
+| `compact` | `requestSessionCompact` | |
+| `rename` | `renameSession` | 앞뒤 빈칸을 자르고 빈 이름은 `invalid_input` |
 
 권한
 - 분배는 부른 사람의 `AuthenticatedContext`로 한다. core 안 machine 자격(`machine:acp`)으로 대신 부르지 않는다. 그러면 `SendMessage`나 `StopTurn` 권한이 없는 호출자도 `AcpSend`로는 할 수 있게 되어 새 권한 경계가 생긴다. command는 `ctx.writer`(접힌 writer)에, read는 `runtime.reads`에, memory route는 `ctx.runtime.memory.handlers`(core가 모든 wiring의 memory handler를 모은 같은 Map)에 부른 사람의 자격으로 넘기고, 각 route가 자기 scope와 actor를 본다. `AcpSend` 자체는 scope 검사를 더하지 않는다.
 - 입력 검사는 두 번이다. `AcpSend`의 input schema(`acpInputSchema`)와, 가는 route의 input schema. content block이 사람 메시지로 허용되는 꼴인지(`userContentBlocksSchema`)는 가는 route가 본다.
-- test는 이 경계 하나만 본다: 가는 route의 scope가 없는 호출자는 `AcpSend`로도 `forbidden`이다(`acp-send_test.ts`).
+- 새 입력이 만드는 message·session·rewind id는 `key`마다 기억해 같은 `key`로 다시 보내도 같은 id다.
+- test는 이 경계 하나만 본다: 가는 route의 scope가 없는 호출자는 `AcpSend`로도 `forbidden`이다(`acp-send_test.ts`, 새 입력 일곱 포함).
 
 화면
 - 화면(`agent-tab-core-source-commands.ts`)은 대화 조작을 모두 `AcpSend`로 보낸다. 줄 고치기는 메시지 id만 알아서 `ReadReceivedMessage`로 session을 찾아 싣는다. `edit_queued`의 글이 아닌 block(이미지, 링크)을 지키는 것은 보내는 쪽(화면)의 몫이다.

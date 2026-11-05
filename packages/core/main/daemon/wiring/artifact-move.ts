@@ -17,6 +17,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import { normalize } from "node:path";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type ArtifactWorkspace,
@@ -189,7 +190,8 @@ function rewriteLayout(
   layout.schema_version = 9;
 }
 
-const DOMAIN_ROOT = /^(.*)\/domains\/(dom_[0-9a-z]+)(\/artifacts)?$/;
+// 옛 root는 realpath라 Windows에서는 `\`로 나뉜다. 새 root도 normalize해 realpath와 같은 꼴로 쓴다.
+const DOMAIN_ROOT = /^(.*)[\\/]domains[\\/](dom_[0-9a-z]+)([\\/]artifacts)?$/;
 
 // 옛 rewind 기록의 root는 realpath로 두 모양이 있었다. PM·App Engineer는 domain 폴더를 열어 root가
 // `<data>/domains/<dom>`, path가 `artifacts/<name>/…`였고, Operator는 domain의 `artifacts/`만 열어 root가
@@ -229,7 +231,7 @@ async function rewriteRewindRows(
     movedFrom: string | null;
   }[] = [];
   for (const row of connection.sql.all(
-    "select tool_call, root, path, moved_from from rewind_files where root like '%/domains/%'",
+    "select tool_call, root, path, moved_from from rewind_files where root like '%/domains/%' or root like '%\\domains\\%'",
     [],
   )) {
     const match = DOMAIN_ROOT.exec(String(row["root"]));
@@ -251,7 +253,7 @@ async function rewriteRewindRows(
     updates.push({
       tool_call: String(row["tool_call"]),
       path: String(row["path"]),
-      root: artifactsFolder(match[1]!, domain.workspace),
+      root: normalize(artifactsFolder(match[1]!, domain.workspace)),
       newPath,
       movedFrom,
     });

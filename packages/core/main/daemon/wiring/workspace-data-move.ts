@@ -17,6 +17,7 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
+import { normalize } from "node:path";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { workspaceDataSkillsFolder } from "../../../agent-workspaces/workspace/data-folder.ts";
 import { dropDomainsFieldStep } from "../../../lophn-agent/agents/domains-field-step.ts";
@@ -130,7 +131,8 @@ async function renameInManifest(
   await rename(`${path}.tmp`, path);
 }
 
-const DOMAIN_ROOT = /^(.*)\/domains\/(dom_[0-9a-z]+)$/;
+// 옛 root는 realpath라 Windows에서는 `\`로 나뉜다. 새 root도 normalize해 realpath와 같은 꼴로 쓴다.
+const DOMAIN_ROOT = /^(.*)[\\/]domains[\\/](dom_[0-9a-z]+)$/;
 
 // 옛 rewind 기록의 root는 realpath로 `<data>/domains/<dom>`였고 path가 `skills/<name>/…`, `DOMAIN.md`, `kinds.yaml`이었다.
 // skill은 root를 그 그릇의 `skills/`로 path의 첫 마디를 최종 이름으로 바꾼다. 문서의 기록은 지운다.
@@ -165,7 +167,7 @@ async function rewriteRewindRows(
     return name === null
       ? null
       : {
-          root: skillsOf(data, domain.workspace),
+          root: normalize(skillsOf(data, domain.workspace)),
           path: `${name}${inner.slice(old.length)}`,
         };
   };
@@ -178,7 +180,7 @@ async function rewriteRewindRows(
     movedFrom: string | null;
   }[] = [];
   for (const row of connection.sql.all(
-    "select tool_call, root, path, moved_from from rewind_files where root like '%/domains/%'",
+    "select tool_call, root, path, moved_from from rewind_files where root like '%/domains/%' or root like '%\\domains\\%'",
     [],
   )) {
     const match = DOMAIN_ROOT.exec(String(row["root"]));

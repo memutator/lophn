@@ -27,7 +27,7 @@ export function editQueuedCommand(): CommandDefinition<
         return err({ code: "forbidden", message: "only core edits input" });
       }
       const row = tx.sql.get(
-        "select from_kind, delivery, turn from messages where id = ? and session = ?",
+        "select from_kind, delivery, shell, turn from messages where id = ? and session = ?",
         [input.message, input.session],
       );
       if (row === undefined) {
@@ -36,6 +36,7 @@ export function editQueuedCommand(): CommandDefinition<
       if (
         row["from_kind"] !== "human" ||
         row["delivery"] !== "next_turn" ||
+        Number(row["shell"]) !== 0 ||
         row["turn"] !== null
       ) {
         return err({

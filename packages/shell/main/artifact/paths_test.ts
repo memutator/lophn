@@ -16,7 +16,11 @@ import { resolveInsideRoot } from "./paths.ts";
 import { createArtifactRoots } from "./roots.ts";
 import { createArtifactServer } from "./serve.ts";
 
-// 바깥 폴더 `out`과, root와 접두사만 같은 형제 `art-evil`을 root 옆에 둔다.
+// file symlink는 Windows에서 개발자 모드나 관리자 권한이 있어야 만들어진다. 없으면 test를 건너뛴다.
+const NO_FILE_SYMLINK =
+  "Windows에서 file symlink 권한이 없다(개발자 모드 꺼짐)";
+
+// 바깥 폴더 `out`과, root와 접두사만 같은 형제 `art-evil`을 root 옆에 둔다. file symlink를 못 만들면 null이다.
 async function setup() {
   const base = await realpath(await mkdtemp(join(tmpdir(), "lophn-artifact-")));
   const root = join(base, "art");
@@ -28,9 +32,16 @@ async function setup() {
   await writeFile(join(root, "big.bin"), "x".repeat(100));
   await writeFile(join(base, "out", "secret.txt"), "secret");
   await writeFile(join(base, "art-evil", "secret.txt"), "secret");
-  await symlink(join(base, "out", "secret.txt"), join(root, "out-file"));
-  await symlink(join(base, "out"), join(root, "out-dir"));
-  await symlink(join(base, "art-evil"), join(root, "evil-dir"));
+  try {
+    await symlink(join(base, "out", "secret.txt"), join(root, "out-file"));
+  } catch (thrown) {
+    if (process.platform !== "win32") throw thrown;
+    await rm(base, { recursive: true });
+    return null;
+  }
+  // 폴더 연결은 junction으로 만든다. POSIX는 type을 무시한다.
+  await symlink(join(base, "out"), join(root, "out-dir"), "junction");
+  await symlink(join(base, "art-evil"), join(root, "evil-dir"), "junction");
   await symlink(join(root, "index.html"), join(root, "inner-link"));
   await symlink(join(base, "out", "secret.txt"), join(root, "data", "leak"));
   const roots = createArtifactRoots();
@@ -47,8 +58,10 @@ async function setup() {
   return { base, root, get };
 }
 
-test("봉한 scheme은 root 밖을 가리키는 path와 일반 file이 아닌 것, 상한을 넘는 file을 거절한다", async () => {
-  const { base, root, get } = await setup();
+test("봉한 scheme은 root 밖을 가리키는 path와 일반 file이 아닌 것, 상한을 넘는 file을 거절한다", async (t) => {
+  const made = await setup();
+  if (made === null) return t.skip(NO_FILE_SYMLINK);
+  const { base, root, get } = made;
   try {
     const denied = [
       "/../out/secret.txt",
@@ -89,8 +102,10 @@ test("봉한 scheme은 root 밖을 가리키는 path와 일반 file이 아닌 �
   }
 });
 
-test("_entries.json은 밖으로 가는 symlink와 하위 폴더를 싣지 않는다", async () => {
-  const { base, root, get } = await setup();
+test("_entries.json은 밖으로 가는 symlink와 하위 폴더를 싣지 않는다", async (t) => {
+  const made = await setup();
+  if (made === null) return t.skip(NO_FILE_SYMLINK);
+  const { base, root, get } = made;
   try {
     const names = (entries: string) =>
       JSON.parse(entries).map((e: { name: string }) => e.name);
@@ -99,7 +114,7 @@ test("_entries.json은 밖으로 가는 symlink와 하위 폴더를 싣지 않�
     assert.deepEqual(names(await served.text()), ["a.json"]);
     // data/ 자체가 밖으로 가는 symlink면 목록은 비어 있다.
     await rm(join(root, "data"), { recursive: true });
-    await symlink(join(base, "out"), join(root, "data"));
+    await symlink(join(base, "out"), join(root, "data"), "junction");
     assert.deepEqual(names(await listDataEntries(root)), []);
   } finally {
     await rm(base, { recursive: true });

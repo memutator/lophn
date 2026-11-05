@@ -11,7 +11,8 @@ test("시작 폴더는 등록 폴더 안만 받는다", () => {
   const outside = mkdtempSync(join(tmpdir(), "lophn-cwd-"));
   try {
     mkdirSync(join(root, "docs"));
-    symlinkSync(outside, join(root, "escape"));
+    // junction은 Windows에서 권한 없이 만들어진다. POSIX는 type을 무시한다.
+    symlinkSync(outside, join(root, "escape"), "junction");
     const folders = [{ folder_ref: "prj_0", path: root }];
 
     assert.deepStrictEqual(folderOfCwd(folders, root), {

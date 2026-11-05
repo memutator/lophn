@@ -19,12 +19,13 @@ test("artifact 이름이 slug가 아니거나 폴더가 artifacts 밖을 가리�
     const outside = join(root, "outside");
     await mkdir(outside);
     await writeFile(join(outside, "index.html"), "<html></html>");
-    await symlink(outside, join(artifacts, "escape"));
+    // 폴더 연결은 junction으로 만든다. Windows에서 권한이 필요 없고 POSIX는 type을 무시한다.
+    await symlink(outside, join(artifacts, "escape"), "junction");
     // 다른 그릇의 artifact를 가리키는 symlink도 artifacts 밖이다.
     const other = join(root, "apps", "app_b", "artifacts", "theirs");
     await mkdir(other, { recursive: true });
     await writeFile(join(other, "index.html"), "<html></html>");
-    await symlink(other, join(artifacts, "borrowed"));
+    await symlink(other, join(artifacts, "borrowed"), "junction");
     await mkdir(join(artifacts, "good"));
     await writeFile(join(artifacts, "good", "index.html"), "<html></html>");
 
@@ -80,7 +81,7 @@ test("workflow artifact는 그 project의 workflows/ 밖으로 root를 풀지 �
     const outside = join(root, "outside");
     await mkdir(outside);
     await writeFile(join(outside, "index.html"), "<html></html>");
-    await symlink(outside, join(folder, "static"));
+    await symlink(outside, join(folder, "static"), "junction");
     // 다른 project의 workflow artifact를 가리키는 symlink도 workflows/ 밖이다.
     const other = join(
       root,
@@ -94,7 +95,11 @@ test("workflow artifact는 그 project의 workflows/ 밖으로 root를 풀지 �
     await mkdir(other, { recursive: true });
     await writeFile(join(other, "index.html"), "<html></html>");
     await mkdir(join(workflows, "other", "artifacts"), { recursive: true });
-    await symlink(other, join(workflows, "other", "artifacts", "static"));
+    await symlink(
+      other,
+      join(workflows, "other", "artifacts", "static"),
+      "junction",
+    );
 
     const open = (
       workflow: string,

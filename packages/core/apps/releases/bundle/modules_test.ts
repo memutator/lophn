@@ -55,8 +55,11 @@ test("node_modules의 정규 file과 연결이 bundle 사본에서 그대로 읽
     await mkdir(`${nm}/.bin`, { recursive: true });
     await writeFile(`${nm}/pkg/index.js`, "export const pkg = 1;");
     await writeFile(`${nm}/.package-lock.json`, "{}");
-    await symlink("../pkg", `${nm}/@scope/pkg`);
-    await symlink("../pkg/index.js", `${nm}/.bin/pkg`);
+    // Windows npm은 폴더 연결을 junction으로, .bin을 .cmd file로 깐다. junction은 권한이 필요 없다(POSIX는 type을 무시한다).
+    await symlink("../pkg", `${nm}/@scope/pkg`, "junction");
+    if (process.platform === "win32") {
+      await writeFile(`${nm}/.bin/pkg.cmd`, "");
+    } else await symlink("../pkg/index.js", `${nm}/.bin/pkg`);
 
     const read = await readModules(work);
     assert.ok(read.ok);

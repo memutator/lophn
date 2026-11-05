@@ -9,6 +9,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -52,6 +53,9 @@ import {
   subagentsOf,
   textOfParts,
 } from "./agent-view-model.ts";
+import { useThreadBookmarks } from "./thread-index/bookmarks.ts";
+import { ThreadIndexContext } from "./thread-index/context.ts";
+import { threadIndexOf } from "./thread-index/model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
 import { PlanCard } from "./approval-card/plan-card.tsx";
 import { fileBlock } from "./attachments.ts";
@@ -290,6 +294,24 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             },
           };
   const caps = capabilitiesOf(meta);
+  // thread index: harness는 CLI 자신의 session id가 bookmark의 session key이고 lophn은 session id다.
+  const harness = meta?.harness ?? null;
+  const bookmarks = useThreadBookmarks(
+    session === null
+      ? null
+      : harness === null
+        ? session
+        : meta?.cli_session == null
+          ? null
+          : `${harness}:${meta.cli_session}`,
+  );
+  const threadIndex = useMemo(
+    () => ({
+      items: threadIndexOf(thread?.entries ?? [], harness !== null),
+      bookmarks,
+    }),
+    [thread?.entries, harness, bookmarks],
+  );
   const status: StatusData | null =
     session !== null && caps.usage && meta?.usage != null
       ? {
@@ -806,40 +828,42 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           />
         ) : null}
         <RunCodeProvider value={host.runCommand ?? null}>
-          <AgentThread
-            key={key}
-            agent={agent}
-            entries={thread?.entries ?? []}
-            detail={draft.detail}
-            live={thread?.live ?? null}
-            outgoing={draft.outgoing}
-            working={working}
-            now={now}
-            imageUrl={imageUrl}
-            readOnly={readOnly}
-            can={{ rewind: caps.rewind, fork: caps.fork, retry: caps.retry }}
-            source={source}
-            initialScroll={draft.scroll}
-            onScroll={(position) => drafts.save(key, { scroll: position })}
-            rewindOpen={layer?.kind === "rewind" ? layer.message : null}
-            onRewind={(message) =>
-              setLayer(
-                layer?.kind === "rewind" && layer.message === message
-                  ? null
-                  : { kind: "rewind", message },
-              )
-            }
-            onFork={(message) => void fork(message)}
-            onOpenChild={openChild}
-            onCheck={() => void check()}
-            onResend={() => void sendAgain()}
-            onOpenFile={host.openFile}
-            onOpenRef={(ref: EvidenceRef) => {
-              if (ref.kind === "file") host.openFile?.(ref.target);
-            }}
-            onOpenSession={host.openSession}
-            artifacts={host.artifacts}
-          />
+          <ThreadIndexContext.Provider value={threadIndex}>
+            <AgentThread
+              key={key}
+              agent={agent}
+              entries={thread?.entries ?? []}
+              detail={draft.detail}
+              live={thread?.live ?? null}
+              outgoing={draft.outgoing}
+              working={working}
+              now={now}
+              imageUrl={imageUrl}
+              readOnly={readOnly}
+              can={{ rewind: caps.rewind, fork: caps.fork, retry: caps.retry }}
+              source={source}
+              initialScroll={draft.scroll}
+              onScroll={(position) => drafts.save(key, { scroll: position })}
+              rewindOpen={layer?.kind === "rewind" ? layer.message : null}
+              onRewind={(message) =>
+                setLayer(
+                  layer?.kind === "rewind" && layer.message === message
+                    ? null
+                    : { kind: "rewind", message },
+                )
+              }
+              onFork={(message) => void fork(message)}
+              onOpenChild={openChild}
+              onCheck={() => void check()}
+              onResend={() => void sendAgain()}
+              onOpenFile={host.openFile}
+              onOpenRef={(ref: EvidenceRef) => {
+                if (ref.kind === "file") host.openFile?.(ref.target);
+              }}
+              onOpenSession={host.openSession}
+              artifacts={host.artifacts}
+            />
+          </ThreadIndexContext.Provider>
         </RunCodeProvider>
         {layer === null || layer.kind === "status" ? null : (
           <div className={styles.layer} data-panel-layer={layer.kind}>

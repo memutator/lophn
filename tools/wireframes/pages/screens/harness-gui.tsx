@@ -10,6 +10,7 @@ import type {
   AcpUpdate,
 } from "../../../../packages/protocol/acp/mod.ts";
 import type { HarnessGuiTabApi } from "../../../../packages/shell/ipc/harness-gui.ts";
+import type { ThreadBookmarksApi } from "../../../../packages/shell/ipc/thread-bookmarks.ts";
 import {
   CardHeadContext,
   type CardHeadSpec,
@@ -18,11 +19,13 @@ import { TerminalGui } from "../../../../packages/shell/renderer/terminal/termin
 import { fakeHarnessMeta } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 import {
   click,
+  find,
   press,
   runSteps,
   type Step,
   type,
   useDrive,
+  wait,
 } from "../../mock/drive.ts";
 import type { Area } from "../types.ts";
 
@@ -41,6 +44,7 @@ const message = (
   actor: "user" | "agent",
   value: string,
   turn = TURN,
+  origin: string | null = null,
 ): AcpChildUpdate => ({
   type: "message_added",
   item: {
@@ -54,7 +58,7 @@ const message = (
     reply_to: null,
     delivery: "next_turn",
     turn: actor === "agent" ? turn : null,
-    origin: null,
+    origin,
     content: text(value),
     reasoning: null,
     cards: [],
@@ -348,12 +352,88 @@ const STREAMING = [
   }),
 );
 
+// thread index: 사람 메시지 여섯과 답. 사람 메시지는 CLI 자신의 message id(`origin`)를 가진다. 답이 길어 처음에는 아래쪽
+// 메시지만 화면에 보인다.
+const ASKS: readonly (readonly [string, string])[] = [
+  [
+    "Add a retry to the upload helper and run its tests.",
+    "I wrapped the request in `upload()` in a retry with a 200 ms backoff and ran `npm test -- upload`.\n\n- the first try still goes out at once\n- a second try waits 200 ms\n- the tests pass",
+  ],
+  [
+    "Make the backoff double each time, but stop after three tries.",
+    "The delay now goes 200, 400, 800 ms and the helper gives up after the third try, keeping the original error so the caller still sees why the upload failed.\n\nI also added a fake clock to the tests so they stay fast.",
+  ],
+  [
+    "Do not retry a 4xx response.",
+    "A 4xx response now fails at once: the request itself is wrong, so a retry would only repeat it.\n\n- `src/upload.ts` checks the status before it waits\n- `src/upload.test.ts` has a new case for it",
+  ],
+  [
+    "Show me where upload() is called.",
+    "`upload()` is called from `src/queue/worker.ts` and from the CLI entry point.\n\nThe worker passes each file from the queue and logs a failure. The CLI entry point exits with code 1 when the upload fails.",
+  ],
+  [
+    "Rename the helper to uploadWithRetry.",
+    "Renamed it in `src/upload.ts` and in both callers. The type check is clean and the old name is gone from the docs too.\n\nNothing outside `src/` changed.",
+  ],
+  [
+    "Run the whole test suite once more.",
+    "All 48 tests pass in 3.1 s. The retry cases take 4 ms each because of the fake clock.",
+  ],
+];
+
+const INDEX_SCRIPT: readonly AcpUpdate[] = [
+  { type: "session_changed", session: fakeHarnessMeta() },
+  ...ASKS.flatMap(([ask, reply], index): AcpChildUpdate[] => [
+    message(
+      `msg-u${index}`,
+      index * 2 + 1,
+      index * 4,
+      "user",
+      ask,
+      TURN,
+      `origin-${index}`,
+    ),
+    message(`msg-a${index}`, index * 2 + 2, index * 4 + 2, "agent", reply),
+  ]),
+];
+
+// 실제 앱에서는 main 파일이 하는 bookmark 저장. 이 문서 안 메모리에 둔다.
+function installFakeBookmarks(marked: readonly string[]): void {
+  const keys = new Set(marked);
+  const listeners = new Set<(session: string) => void>();
+  const api: ThreadBookmarksApi = {
+    list: async () => [...keys],
+    set: async ({ session, message: key, on }) => {
+      if (on) keys.add(key);
+      else keys.delete(key);
+      for (const listener of listeners) listener(session);
+    },
+    onChanged: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  (
+    globalThis as { lophnThreadBookmarks?: ThreadBookmarksApi }
+  ).lophnThreadBookmarks = api;
+}
+
+/** 요소에 pointer를 올린 것처럼 pointerover를 낸다. */
+async function hover(selector: string, at = 0): Promise<void> {
+  const element = await find(selector, undefined, at);
+  element.dispatchEvent(
+    new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }),
+  );
+  await wait(60);
+}
+
 const CWD = "/home/phroner/projects/upload-service";
 
 function fakeApi(
   approval: AcpUpdate | null,
   extra: readonly AcpUpdate[],
   harness: "claude" | "omp",
+  base: readonly AcpUpdate[],
 ): HarnessGuiTabApi {
   let push: (update: AcpUpdate) => void = () => {};
   let seq = 8;
@@ -364,7 +444,7 @@ function fakeApi(
     async connect(_handle, onUpdate) {
       push = onUpdate;
       for (const update of [
-        ...BASE,
+        ...base,
         ...(approval === null ? [] : [approval]),
         ...STREAMING,
         ...extra,
@@ -458,6 +538,7 @@ function TerminalTabGui({
   approval = SHELL_APPROVAL,
   extra = NO_UPDATES,
   harness = "claude",
+  base = BASE,
 }: {
   steps?: readonly Step[];
   /** null이면 승인 카드 없이 dock과 composer만 보인다. */
@@ -465,11 +546,13 @@ function TerminalTabGui({
   /** 갈무리 뒤에 더 보내는 갱신. */
   extra?: readonly AcpUpdate[];
   harness?: "claude" | "omp";
+  /** 대화의 바탕 갱신. 기본은 일하는 중인 turn이다. */
+  base?: readonly AcpUpdate[];
 }) {
   useDrive(() => runSteps(steps));
   const api = useMemo(
-    () => fakeApi(approval, extra, harness),
-    [approval, extra, harness],
+    () => fakeApi(approval, extra, harness, base),
+    [approval, extra, harness, base],
   );
   return (
     <Card>
@@ -647,6 +730,35 @@ export const harnessGuiArea: Area = {
       description:
         "rewind가 숨긴 구간이 다시 보이는 갱신(`hidden_restored`, OpenCode redo)을 받은 결과다. 숨긴 항목이 같은 자리로 돌아와 숨긴 구간 줄은 남지 않고 대화는 숨기기 전과 같다.",
       render: () => <TerminalTabGui approval={null} extra={REWOUND} />,
+    },
+    {
+      id: "harness-gui-thread-index",
+      title: "Harness GUI · thread index",
+      description:
+        "대화 왼쪽 가장자리의 turn 눈금이다. 사람 메시지가 4개 이상일 때만 나오고 눈금 하나가 사람 메시지 하나다. 평소에는 짧은 선이고, 화면에 보이는 turn은 글자색(진하게), 나머지는 흐리다. 두 번째 turn은 bookmark되어 끝에 점이 붙고 가장 진하다. 대화 기둥 왼쪽 여백이 좁으면 눈금이 글 위에 겹치므로 숨는다.",
+      render: () => {
+        installFakeBookmarks(["origin-1"]);
+        return <TerminalTabGui approval={null} base={INDEX_SCRIPT} />;
+      },
+    },
+    {
+      id: "harness-gui-thread-index-card",
+      title: "Harness GUI · thread index card",
+      description:
+        "눈금에 pointer를 올리면 뜨는 card다. 첫 줄은 그 사람 메시지의 첫 줄과 bookmark 단추(Bookmark turn, 켜져 있으면 Remove bookmark), 아래는 그 turn의 마지막 답 미리보기 2줄이다. hover한 눈금이 가장 길고 이웃이 dock처럼 차례로 짧아진다. 눈금 사이로 pointer를 옮기면 card가 끊기지 않고 따라간다.",
+      render: () => {
+        installFakeBookmarks(["origin-1"]);
+        return (
+          <TerminalTabGui
+            approval={null}
+            base={INDEX_SCRIPT}
+            steps={[
+              () => hover("[data-thread-index] button", 4),
+              () => hover("[data-thread-index] button", 2),
+            ]}
+          />
+        );
+      },
     },
     {
       id: "harness-gui-restart-modal",

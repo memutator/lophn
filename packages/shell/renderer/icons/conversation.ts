@@ -3,6 +3,8 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  Bookmark,
+  BookmarkCheck,
   Bot,
   Brain,
   Check,
@@ -87,6 +89,9 @@ export const conversationIcons = {
   taskShell: Terminal,
   taskAgent: Bot,
   back: ArrowLeft,
+  // thread index card의 bookmark 단추. 켜져 있으면 check가 붙는다.
+  bookmark: Bookmark,
+  bookmarked: BookmarkCheck,
   // goal을 멈춘다. 다시 하기는 `actionIcons.run`이다.
   pause: Pause,
 } as const satisfies Record<string, LucideIcon>;

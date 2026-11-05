@@ -106,12 +106,13 @@ const nodePorts: InstallPorts = {
     }
   },
   // 옵션이 없어 비지 않은 폴더는 던진다. 사람의 다른 file을 지울 길이 없다.
-  // rmdir은 file에 ENOTDIR로 던지므로 그때만 rm으로 지운다.
+  // rmdir은 file에 ENOTDIR(Windows는 ENOENT)로 던지므로 그때만 rm으로 지운다. 정말 없는 path면 rm도 ENOENT로 던진다.
   remove: async (path) => {
     try {
       await rmdir(path);
     } catch (thrown) {
-      if (errorCode(thrown) !== "ENOTDIR") throw thrown;
+      const code = errorCode(thrown);
+      if (code !== "ENOTDIR" && code !== "ENOENT") throw thrown;
       await rm(path);
     }
   },

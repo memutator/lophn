@@ -168,6 +168,8 @@ export function createApi(transport: OpencodeTransport) {
     commands: async () => arr(await data(call("GET", "/api/command"))),
     create: async (body: Json) =>
       rec(await data(call("POST", "/api/session", { body }))),
+    listSessions: async (query?: Record<string, string | number>) =>
+      (await call("GET", "/api/session", { query })) ?? {},
     get: async (id: string) => rec(await data(call("GET", session(id)))),
     update: (id: string, body: Json) => call("PATCH", session(id), { body }),
     remove: (id: string) => call("DELETE", session(id)),

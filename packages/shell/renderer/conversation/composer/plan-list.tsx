@@ -13,6 +13,7 @@ const STATUS = {
     label: "conversation.label.plan-in-progress",
   },
   completed: { tone: "good", label: "conversation.label.plan-completed" },
+  cancelled: { tone: "neutral", label: "conversation.label.plan-cancelled" },
 } as const;
 
 export function PlanList({ plan }: { plan: AcpPlan }): ReactElement | null {

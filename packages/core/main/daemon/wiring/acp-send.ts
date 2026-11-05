@@ -64,6 +64,11 @@ const skillRequest = (skill: string) =>
 
 const invalid = () =>
   err({ code: "invalid_input" as const, message: "invalid input" });
+const unavailable = () =>
+  err({
+    code: "unavailable" as const,
+    message: "not supported by lophn agents",
+  });
 
 export function createAcpSend(deps: AcpSendDeps) {
   // retry를 다시 눌러도 같은 메시지 id와 key로 보내 core가 한 번만 접수한다.
@@ -239,8 +244,9 @@ export function createAcpSend(deps: AcpSendDeps) {
           answers: input.answers,
         });
       case "decide":
-        // core 승인에는 session 범위가 없다.
-        if (input.choice.kind === "session") return invalid();
+        // core 승인에는 session 범위와 plan 승인이 없다.
+        if (input.choice.kind === "session" || input.choice.kind === "mode")
+          return invalid();
         return await memory(who, turnRequestDecide, {
           session: input.session,
           request: input.request,
@@ -401,6 +407,13 @@ export function createAcpSend(deps: AcpSendDeps) {
           { state_seq: seq.value },
         );
       }
+      case "stop_child":
+      case "steer_child":
+      case "stop_task":
+      case "set_toggle":
+      case "set_goal":
+      case "use_role":
+        return unavailable();
     }
   };
 }

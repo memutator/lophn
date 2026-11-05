@@ -332,7 +332,7 @@ const start: (io: OmpIo) => Start =
           seq: ++seq,
           at: now(),
           turn: turn ?? lastTurn ?? ids.newId("trn"),
-          notice: { type: "info", text },
+          notice: { type: "info", text, level: "info" },
         },
       });
     }
@@ -355,6 +355,7 @@ const start: (io: OmpIo) => Start =
           reply_to: null,
           delivery: "next_turn",
           turn: mine,
+          origin: null,
           content,
           reasoning: null,
           cards: [],
@@ -390,7 +391,8 @@ const start: (io: OmpIo) => Start =
       const limit = usage?.contextWindow;
       return typeof tokens === "number" && typeof limit === "number"
         ? {
-            context: { tokens, limit },
+            context: { tokens, limit, parts: [] },
+            limits: [],
             input_tokens: null,
             output_tokens: null,
             cache_read_tokens: null,
@@ -435,6 +437,12 @@ const start: (io: OmpIo) => Start =
           images: true,
           retry: true,
           sessions: false,
+          stop_child: false,
+          steer_child: false,
+          tasks: false,
+          toggles: false,
+          goal: false,
+          roles: false,
         },
         models: [...groups].map(([provider, list]) => ({
           id: provider,
@@ -463,11 +471,17 @@ const start: (io: OmpIo) => Start =
         mode: null,
         commands: commands.map((one) => ({
           name: one.name,
+          aliases: [],
           description: one.description ?? "",
           argument_hint: one.input?.hint ?? null,
-          source: "cli" as const,
+          source: "harness" as const,
+          opens: null,
         })),
         usage: st === null ? null : usageOf(st),
+        toggles: [],
+        goal: null,
+        roles: null,
+        harness: "omp",
       };
     }
 
@@ -569,6 +583,7 @@ const start: (io: OmpIo) => Start =
                     removed: 0,
                   }
                 : { kind: "generic" },
+          body: null,
         },
       });
       return call;
@@ -597,6 +612,7 @@ const start: (io: OmpIo) => Start =
                   answer: asked.answers[index]?.join(", ") ?? null,
                 })),
               },
+        body: null,
       });
     }
 
@@ -817,6 +833,7 @@ const start: (io: OmpIo) => Start =
         return;
       }
       const kind = message.choice.kind;
+      if (kind === "mode") return;
       // 영구 규칙(`always`)은 어느 판에서도 답하지 않는다. 한 번 허락으로 줄인다.
       const session = kind === "session" ? dialog.sessionOption : undefined;
       write({
@@ -1018,6 +1035,7 @@ const start: (io: OmpIo) => Start =
             state: "running",
             duration_ms: null,
             detail: detail("accepted"),
+            body: null,
           },
         });
       } else if (
@@ -1043,6 +1061,7 @@ const start: (io: OmpIo) => Start =
                 ? "cancelled"
                 : "failed",
           ),
+          body: null,
         });
       }
     }

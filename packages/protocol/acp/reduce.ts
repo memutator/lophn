@@ -1,11 +1,23 @@
-import type { AcpItem, AcpMessageItem, AcpToolItem } from "./items.ts";
-import type { AcpState, AcpTurn, AcpUpdate } from "./state.ts";
+import type {
+  AcpEntry,
+  AcpItem,
+  AcpMessageItem,
+  AcpToolItem,
+} from "./items.ts";
+import type {
+  AcpChildState,
+  AcpChildUpdate,
+  AcpState,
+  AcpTurn,
+  AcpUpdate,
+} from "./state.ts";
 
 // 갱신을 상태에 접는 순수 함수다. 같은 갱신을 두 번 접어도 같은 상태이고(항목은 id로 한 번만 든다),
 // 순번이 빠지거나 글의 offset이 맞지 않으면 `reread`를 세워 snapshot을 다시 읽게 한다.
+// subagent 대화(`children`)는 같은 reducer로 한 층만 접는다(손자도 바깥 `children`에 평평하게 든다).
 // snapshot 이전에 일어난 갱신을 snapshot 위에 다시 접는 일을 막는 것(어디까지가 snapshot에 든 갱신인지)은 읽는 쪽의 몫이다.
 
-export const EMPTY_ACP_STATE: AcpState = {
+export const EMPTY_ACP_CHILD_STATE: AcpChildState = {
   seq: 0,
   items: [],
   turn: null,
@@ -16,6 +28,12 @@ export const EMPTY_ACP_STATE: AcpState = {
   session: null,
   plan: null,
   reread: false,
+};
+
+export const EMPTY_ACP_STATE: AcpState = {
+  ...EMPTY_ACP_CHILD_STATE,
+  children: {},
+  tasks: [],
 };
 
 /** turn 꼬리의 항목 id. turn마다 하나다. */
@@ -46,7 +64,7 @@ export function acpTurnTimes(
 const running = (turn: AcpTurn | null): turn is AcpTurn =>
   turn !== null && turn.phase !== "ended";
 
-function known(state: AcpState, id: string): boolean {
+function known(state: AcpChildState, id: string): boolean {
   return (
     state.items.some(
       (item) =>
@@ -57,7 +75,7 @@ function known(state: AcpState, id: string): boolean {
 }
 
 /** 항목 하나를 순번 자리에 든다. 이미 있는 id는 무시하고, 다음 순번을 건너뛰면 다시 읽게 한다. */
-function put(state: AcpState, item: AcpItem): AcpState {
+function put(state: AcpChildState, item: AcpItem): AcpChildState {
   if (known(state, item.id)) return state;
   const items = [...state.items, item].sort((a, b) => a.seq - b.seq);
   return {
@@ -69,7 +87,7 @@ function put(state: AcpState, item: AcpItem): AcpState {
 }
 
 /** 사람이 답할 것이 남았으면 waiting이다. */
-function settle(state: AcpState): AcpState {
+function settle(state: AcpChildState): AcpChildState {
   const turn = state.turn;
   if (!running(turn)) return state;
   const phase =
@@ -80,7 +98,7 @@ function settle(state: AcpState): AcpState {
 }
 
 /** 그 model 호출의 흘러나온 글을 버린다. 늦은 조각이 새 글로 보이지 않게 기억한다. */
-function dropWriting(state: AcpState, modelCall: string): AcpState {
+function dropWriting(state: AcpChildState, modelCall: string): AcpChildState {
   return {
     ...state,
     writing: state.writing?.model_call === modelCall ? null : state.writing,
@@ -89,10 +107,10 @@ function dropWriting(state: AcpState, modelCall: string): AcpState {
 }
 
 function mapTool(
-  state: AcpState,
+  state: AcpChildState,
   match: (item: AcpToolItem) => boolean,
   change: (item: AcpToolItem) => AcpToolItem,
-): AcpState {
+): AcpChildState {
   let found = false;
   const items = state.items.map((item): AcpItem => {
     if (item.kind !== "tool" || !match(item)) return item;
@@ -106,7 +124,11 @@ function textBlocks(text: string): AcpMessageItem["content"] {
   return text === "" ? [] : [{ type: "text", text }];
 }
 
-export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
+/** 자식 대화에도 접히는 갱신을 접는다. 바깥 상태의 `children`·`tasks`는 `reduceAcp`가 맡는다. */
+function reduceChild(
+  state: AcpChildState,
+  update: AcpChildUpdate,
+): AcpChildState {
   switch (update.type) {
     case "message_added":
       // steer로 받은 메시지는 도는 turn이 가져간 것이다.
@@ -164,6 +186,7 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
           reasoning: null,
           cards: [],
           complete: true,
+          origin: null,
         },
       );
     }
@@ -199,7 +222,7 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
       const startedAt =
         state.turn?.id === update.turn ? state.turn.started_at : null;
       const times = acpTurnTimes(startedAt, update.at, update.active_ms);
-      let next: AcpState = {
+      let next: AcpChildState = {
         ...state,
         turn: {
           id: update.turn,
@@ -227,6 +250,7 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
           reasoning: null,
           cards: [],
           complete: false,
+          origin: null,
         });
       }
       next = put(next, {
@@ -311,6 +335,7 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
               : { text: writing.reasoning, duration_ms: null },
         cards: update.body?.cards ?? [],
         complete: update.body !== null,
+        origin: null,
       });
     }
     case "tool_started": {
@@ -330,7 +355,14 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
           state: update.state,
           duration_ms: Math.max(0, Date.parse(update.at) - Date.parse(item.at)),
           detail: update.detail ?? item.detail,
+          body: update.body ?? item.body,
         }),
+      );
+    case "tool_detail_changed":
+      return mapTool(
+        state,
+        (item) => item.id === update.tool_call,
+        (item) => ({ ...item, detail: update.detail }),
       );
     case "approval_opened":
       return settle({
@@ -416,7 +448,7 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
         return "capabilities" in update.session
           ? {
               ...state,
-              session: update.session as NonNullable<AcpState["session"]>,
+              session: update.session as NonNullable<AcpChildState["session"]>,
             }
           : { ...state, reread: true };
       }
@@ -444,6 +476,56 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
         },
         update.item,
       );
+    }
+    case "hidden_restored": {
+      const hidden = state.items.find(
+        (item) => item.kind === "hidden" && item.id === update.hidden,
+      );
+      if (hidden?.kind !== "hidden") return state;
+      return {
+        ...state,
+        items: [
+          ...state.items.filter((item) => item !== hidden),
+          ...hidden.items,
+        ].sort((a, b) => a.seq - b.seq),
+      };
+    }
+    case "origin_set": {
+      const set = (item: AcpEntry): AcpEntry =>
+        item.kind === "message" && item.id === update.message
+          ? { ...item, origin: update.origin }
+          : item;
+      return {
+        ...state,
+        items: state.items.map(
+          (item): AcpItem =>
+            item.kind === "hidden"
+              ? { ...item, items: item.items.map(set) }
+              : set(item),
+        ),
+      };
+    }
+  }
+}
+
+export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
+  switch (update.type) {
+    case "child_update": {
+      const before = state.children[update.child];
+      const after = reduceChild(before ?? EMPTY_ACP_CHILD_STATE, update.update);
+      if (before === after) return state;
+      return {
+        ...state,
+        children: { ...state.children, [update.child]: after },
+        reread: state.reread || after.reread,
+      };
+    }
+    case "tasks_changed":
+      return { ...state, tasks: update.tasks };
+    default: {
+      const { children, tasks, ...child } = state;
+      const next = reduceChild(child, update);
+      return next === child ? state : { ...next, children, tasks };
     }
   }
 }

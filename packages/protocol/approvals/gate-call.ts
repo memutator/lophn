@@ -40,9 +40,20 @@ export const fileChangeSubjectSchema = z.strictObject({
     }),
   ),
 });
+// harness의 plan 승인 카드다. `modes`는 harness가 주는 "승인하고 이렇게 이어 간다" 단추(Claude "Accept edits"·"Ask for
+// edits", omp execute·keep context 등)이고 화면은 해석하지 않는다. 이 카드의 `pending.approval.choices`는 `["reject"]`이고
+// (거절 = 계속 plan, 이유 글이 feedback이다) 승인은 `decide {kind: "mode"}`로 한다.
+export const planSubjectSchema = z.strictObject({
+  kind: z.literal("plan"),
+  plan: z.string(),
+  modes: z
+    .array(z.strictObject({ id: z.string().min(1), label: z.string() }))
+    .min(1),
+});
 export const acpApprovalSubjectSchema = z.discriminatedUnion("kind", [
   ...gateCallSchema.options,
   fileChangeSubjectSchema,
+  planSubjectSchema,
 ]);
 export type AcpApprovalSubject = z.infer<typeof acpApprovalSubjectSchema>;
 

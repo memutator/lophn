@@ -37,6 +37,7 @@ const message = (
     reply_to: null,
     delivery: "next_turn",
     turn: actor === "agent" ? TURN : null,
+    origin: null,
     content: text(value),
     reasoning: null,
     cards: [],
@@ -65,6 +66,7 @@ const tool = (
     state: "running",
     duration_ms: null,
     detail: { kind: "generic" },
+    body: null,
   },
 });
 
@@ -74,6 +76,7 @@ const done = (id: string, second: number): AcpUpdate => ({
   state: "ok",
   at: at(second),
   detail: null,
+  body: null,
 });
 
 const STREAMING = [
@@ -157,6 +160,7 @@ function fakeApi(): HarnessGuiTabApi {
             reply_to: null,
             delivery: input.delivery,
             turn: null,
+            origin: null,
             content: input.content,
             reasoning: null,
             cards: [],

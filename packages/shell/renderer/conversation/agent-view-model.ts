@@ -164,6 +164,12 @@ export const LOPHN_CAPABILITIES: AcpCapabilities = {
   images: true,
   retry: true,
   sessions: true,
+  stop_child: false,
+  steer_child: false,
+  tasks: false,
+  toggles: false,
+  goal: false,
+  roles: false,
 };
 
 export function capabilitiesOf(meta: AcpSessionMeta | null): AcpCapabilities {
@@ -193,9 +199,9 @@ const BUILTIN_TITLES: Readonly<Record<string, MessageKey>> = {
 };
 
 const GROUPS = [
-  ["builtin", "conversation.label.slash-group-commands"],
+  ["app", "conversation.label.slash-group-commands"],
   ["skill", "conversation.label.slash-group-skills"],
-  ["cli", "conversation.label.slash-group-cli"],
+  ["harness", "conversation.label.slash-group-cli"],
 ] as const;
 
 // session이 있어야 하는 built-in. session을 만들기 전 화면은 이 명령을 목록에서 뺀다.
@@ -236,14 +242,12 @@ export function slashGroupsOf(
         (command) =>
           command.source === source &&
           match(command) &&
-          (hasSession ||
-            source !== "builtin" ||
-            !SESSION_ONLY.has(command.name)),
+          (hasSession || source !== "app" || !SESSION_ONLY.has(command.name)),
       )
       .map((command) => ({
         name: command.name,
         title:
-          source === "builtin" && BUILTIN_TITLES[command.name] !== undefined
+          source === "app" && BUILTIN_TITLES[command.name] !== undefined
             ? t(BUILTIN_TITLES[command.name]!)
             : null,
         description: command.description,

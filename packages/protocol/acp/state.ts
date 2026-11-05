@@ -13,6 +13,7 @@ import {
   acpMessageItemSchema,
   acpNoticeItemSchema,
   acpReasoningSchema,
+  acpToolBodySchema,
   acpToolDetailSchema,
   acpToolItemSchema,
   acpToolStateSchema,
@@ -95,13 +96,25 @@ export const acpPlanSchema = z.strictObject({
   entries: z.array(
     z.strictObject({
       text: z.string(),
-      status: z.enum(["pending", "in_progress", "completed"]),
+      status: z.enum(["pending", "in_progress", "completed", "cancelled"]),
     }),
   ),
 });
 export type AcpPlan = z.infer<typeof acpPlanSchema>;
 
-export const acpStateSchema = z.strictObject({
+/** harness의 background task(subagent, shell 등). 목록은 통째로 바뀐다(`tasks_changed`). */
+export const acpTaskSchema = z.strictObject({
+  id,
+  kind: z.enum(["agent", "shell", "other"]),
+  description: z.string(),
+  state: z.enum(["running", "done", "failed", "stopped"]),
+  started_at: atSchema.nullable(),
+  /** 출력의 꼬리. `ACP_TOOL_BODY_LIMIT` 안이다. */
+  output: z.string().nullable(),
+});
+export type AcpTask = z.infer<typeof acpTaskSchema>;
+
+const stateShape = {
   /** 가진 항목 중 가장 큰 순번. 비었으면 0. 다음 항목은 이보다 1 크다. */
   seq: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   /** 순번 순서. */
@@ -122,11 +135,26 @@ export const acpStateSchema = z.strictObject({
   plan: acpPlanSchema.nullable(),
   /** 순번이 빠졌거나 글의 offset이 맞지 않았다. 읽은 상태가 맞지 않으니 snapshot을 다시 읽는다. */
   reread: z.boolean(),
+};
+
+/**
+ * 자식 대화(subagent)의 상태. 바깥 상태에서 `children`·`tasks`만 없다. 자식은 한 층이다: 손자 subagent도 바깥
+ * `children`에 평평하게 들고, 자식 상태 안 subagent tool 줄의 `child`가 바깥 key를 가리킨다.
+ */
+export const acpChildStateSchema = z.strictObject(stateShape);
+export type AcpChildState = z.infer<typeof acpChildStateSchema>;
+
+export const acpStateSchema = z.strictObject({
+  ...stateShape,
+  /** subagent의 대화. key는 subagent tool 줄의 `child`. */
+  children: z.record(id, acpChildStateSchema),
+  /** background task 목록. */
+  tasks: z.array(acpTaskSchema),
 });
 export type AcpState = z.infer<typeof acpStateSchema>;
 
-// 갱신. 같은 갱신을 두 번 접어도 같다(항목은 id로 한 번만 든다).
-export const acpUpdateSchema = z.discriminatedUnion("type", [
+// 갱신. 같은 갱신을 두 번 접어도 같다(항목은 id로 한 번만 든다). `acpChildUpdateSchema`는 자식 대화에도 접히는 갱신이다.
+export const acpChildUpdateSchema = z.discriminatedUnion("type", [
   /** 순번이 있는 message 항목(사람 말, 받은 메시지, steer). 이미 있는 id는 무시한다. */
   z.strictObject({
     type: z.literal("message_added"),
@@ -214,6 +242,14 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
     state: acpToolStateSchema.exclude(["running"]),
     at: atSchema,
     detail: acpToolDetailSchema.nullable(),
+    /** null이면 시작 때 본문을 그대로 둔다. */
+    body: acpToolBodySchema.nullable(),
+  }),
+  /** 끝난 tool 줄의 detail이 나중에 바뀐다(background로 돈 subagent가 끝남, Codex `wait`·`closeAgent`). 없는 tool이면 그대로다. */
+  z.strictObject({
+    type: z.literal("tool_detail_changed"),
+    tool_call: id,
+    detail: acpToolDetailSchema,
   }),
   z.strictObject({
     type: z.literal("approval_opened"),
@@ -259,6 +295,30 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("hidden_added"),
     item: acpHiddenItemSchema,
+  }),
+  /** 숨긴 구간이 다시 보인다(OpenCode redo, 다른 client의 revert 풀기). 그 hidden의 항목이 제자리(같은 `seq`)로 돌아온다. */
+  z.strictObject({ type: z.literal("hidden_restored"), hidden: id }),
+  /** 사람 메시지의 CLI id를 늦게 안다(Codex `userMessage` item, omp entry id는 보낸 뒤에 온다). */
+  z.strictObject({
+    type: z.literal("origin_set"),
+    message: id,
+    origin: z.string().min(1),
+  }),
+]);
+export type AcpChildUpdate = z.infer<typeof acpChildUpdateSchema>;
+
+export const acpUpdateSchema = z.discriminatedUnion("type", [
+  ...acpChildUpdateSchema.options,
+  /** subagent 대화의 갱신. 같은 reducer로 `children[child]`에 접힌다. */
+  z.strictObject({
+    type: z.literal("child_update"),
+    child: id,
+    update: acpChildUpdateSchema,
+  }),
+  /** background task 목록이 통째로 바뀌었다. */
+  z.strictObject({
+    type: z.literal("tasks_changed"),
+    tasks: z.array(acpTaskSchema),
   }),
 ]);
 export type AcpUpdate = z.infer<typeof acpUpdateSchema>;

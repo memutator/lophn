@@ -21,7 +21,7 @@ export type HarnessGuiRun = {
   tuiCommand(): string;
   /** 그 CLI 자신의 session id. 모르면 null. */
   sessionId(): string | null;
-  /** restart 전 modal이 "멈출 것"을 말하게 한다. */
+  /** restart 전 modal이 "멈출 것"을 말하게 한다. `tasks`는 ACP `tasks` 중 `state: running`인 수다. */
   running(): { turn: boolean; tasks: number };
 };
 

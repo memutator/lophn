@@ -38,6 +38,7 @@ function tool(
     state: "ok",
     duration_ms: 1000,
     detail: { kind: "generic" },
+    body: null,
     ...over,
   };
 }
@@ -53,6 +54,7 @@ const user: AcpMessageItem = {
   reply_to: null,
   delivery: "next_turn",
   turn: TURN,
+  origin: null,
   content: [{ type: "text", text: "Write the report." }],
   reasoning: null,
   cards: [],
@@ -126,6 +128,7 @@ test("갱신을 접은 상태의 줄과 같은 기록 snapshot의 줄이 같다"
     state: "ok",
     at: new Date(Date.parse(item.at) + 1000).toISOString(),
     detail: detail.kind === "generic" ? null : detail,
+    body: null,
   });
   const updates: AcpUpdate[] = [
     { type: "turn_started", turn: TURN, at: at(0) },

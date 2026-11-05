@@ -63,6 +63,11 @@ export const acpMessageItemSchema = z.strictObject({
   delivery: inputDeliverySchema,
   /** 이 메시지를 가져간 turn. 아직이면 null. */
   turn: id.nullable(),
+  /**
+   * 그 CLI 자신의 message id. 같은 CLI session을 다시 열어도 같다(ACP id는 run마다 새로 만든다). thread index
+   * bookmark의 key이고 사람 메시지만 쓴다. lophn은 null이다.
+   */
+  origin: z.string().min(1).nullable(),
   content: z.array(contentBlockSchema),
   reasoning: acpReasoningSchema.nullable(),
   cards: z.array(acpCardSchema),
@@ -105,6 +110,19 @@ export const acpToolDetailSchema = z.discriminatedUnion("kind", [
   }),
   /** 사람의 동의를 기다리는 호출(`release.activate`). */
   z.strictObject({ kind: z.literal("consent"), release: id }),
+  /** 일을 맡긴 subagent. `child`는 `AcpState.children`의 key이고 아직 모르면 null이다. */
+  z.strictObject({
+    kind: z.literal("subagent"),
+    /** agent 종류(general-purpose, explore, …). */
+    agent: z.string(),
+    /** 맡긴 일 한 줄. */
+    description: z.string(),
+    child: id.nullable(),
+    state: z.enum(["running", "done", "failed", "cancelled"]),
+    model: z.string().nullable(),
+    /** 마지막 말이나 요약. */
+    last: z.string().nullable(),
+  }),
   z.strictObject({ kind: z.literal("generic") }),
 ]);
 export type AcpToolDetail = z.infer<typeof acpToolDetailSchema>;
@@ -119,6 +137,17 @@ export const ACP_TOOL_STATES = [
 export const acpToolStateSchema = z.enum(ACP_TOOL_STATES);
 export type AcpToolState = z.infer<typeof acpToolStateSchema>;
 
+/** harness가 싣는 tool 본문 한 쪽의 글자 수 상한. core의 tool body 읽기(64 KiB)와 같다. */
+export const ACP_TOOL_BODY_LIMIT = 65_536;
+
+export const acpToolBodySchema = z.strictObject({
+  input: z.string().nullable(),
+  output: z.string().nullable(),
+  /** 한 쪽이 상한을 넘어 잘랐다. */
+  truncated: z.boolean(),
+});
+export type AcpToolBody = z.infer<typeof acpToolBodySchema>;
+
 /** tool call 하나. `at`은 시작한 때이고 이어진 call을 묶는 것은 화면의 일이다. */
 export const acpToolItemSchema = z.strictObject({
   ...itemBase,
@@ -132,6 +161,12 @@ export const acpToolItemSchema = z.strictObject({
   state: acpToolStateSchema,
   duration_ms: count.nullable(),
   detail: acpToolDetailSchema,
+  /**
+   * harness가 싣는 입력·출력 글(JSON이면 그 글). 한 쪽이 상한을 넘으면 잘라 `truncated`. lophn은 null이고 본문은
+   * blob read(`toolCallBody`)로 읽는다. lophn이 null인 것은 redaction 경계다(`acp-build_test.ts`의 'tool 본문이
+   * 없다' case).
+   */
+  body: acpToolBodySchema.nullable(),
 });
 export type AcpToolItem = z.infer<typeof acpToolItemSchema>;
 
@@ -147,11 +182,14 @@ export const acpApprovalItemSchema = z.strictObject({
 });
 export type AcpApprovalItem = z.infer<typeof acpApprovalItemSchema>;
 
-/** turn의 꼬리. 정상 종료와 멈춤은 시간이고 실패는 오류다. `info`는 꼬리가 아니라 turn 중간의 알림이다. */
+/**
+ * turn의 꼬리. 정상 종료와 멈춤은 시간이고 실패는 오류다. `info`·`command_output`은 꼬리가 아니라 알림이다.
+ * `turn`이 null이면 turn 밖의 명령 출력이다(화면은 "Worked for"를 붙이지 않는다). turn_end·error는 늘 turn이 있다.
+ */
 export const acpNoticeItemSchema = z.strictObject({
   ...itemBase,
   kind: z.literal("notice"),
-  turn: id,
+  turn: id.nullable(),
   notice: z.discriminatedUnion("type", [
     z.strictObject({
       type: z.literal("turn_end"),
@@ -167,7 +205,18 @@ export const acpNoticeItemSchema = z.strictObject({
       message: z.string(),
     }),
     /** turn 중간의 한 줄 알림(compaction, 재시도, 명령 출력). turn의 끝이 아니다. */
-    z.strictObject({ type: z.literal("info"), text: z.string() }),
+    z.strictObject({
+      type: z.literal("info"),
+      text: z.string(),
+      level: z.enum(["info", "warning"]),
+    }),
+    /** 슬래시 명령이 낸 글. `command`는 앞 `/` 없는 이름이고 `preformatted`는 ANSI를 지운 고정폭 글이다(adapter가 지운다). */
+    z.strictObject({
+      type: z.literal("command_output"),
+      command: z.string().min(1),
+      text: z.string(),
+      format: z.enum(["markdown", "preformatted"]),
+    }),
   ]),
 });
 export type AcpNoticeItem = z.infer<typeof acpNoticeItemSchema>;

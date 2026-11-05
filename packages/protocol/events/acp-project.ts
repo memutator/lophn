@@ -93,6 +93,7 @@ export function acpUpdatesOf(
             reasoning: null,
             cards: [],
             complete: true,
+            origin: null,
           },
         },
       ];
@@ -216,6 +217,7 @@ export function acpUpdatesOf(
                 state: "running",
                 duration_ms: null,
                 detail: context.tool(tool_call) ?? { kind: "generic" },
+                body: null,
               },
             },
           ];
@@ -229,6 +231,7 @@ export function acpUpdatesOf(
           state: outcome,
           at: event.at,
           detail: context.tool(tool_call),
+          body: null,
         },
       ];
     }

@@ -5,6 +5,7 @@ import { type AcpContext, acpUpdatesOf } from "../events/acp-project.ts";
 import type { AgentEvent } from "../events/agent.ts";
 import {
   type AcpItem,
+  type AcpMessageItem,
   type AcpState,
   type AcpUpdate,
   acpStateSchema,
@@ -335,6 +336,7 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
       reply_to: null,
       delivery: "next_turn",
       turn: null,
+      origin: null,
       content: [{ type: "text", text: "hi" }],
       reasoning: null,
       cards: [],
@@ -358,6 +360,10 @@ test("session_changed·plan_changed·notice_added는 두 번 접어도 같고 no
     mode: null,
     commands: [],
     usage: null,
+    toggles: [],
+    goal: null,
+    roles: null,
+    harness: "codex",
   });
   const notice = (seq: number): AcpUpdate => ({
     type: "notice_added",
@@ -367,7 +373,7 @@ test("session_changed·plan_changed·notice_added는 두 번 접어도 같고 no
       seq,
       at: AT,
       turn: TURN,
-      notice: { type: "info", text: "compacted" },
+      notice: { type: "info", text: "compacted", level: "info" },
     },
   });
   const updates: AcpUpdate[] = [
@@ -399,4 +405,77 @@ test("session_changed·plan_changed·notice_added는 두 번 접어도 같고 no
   });
   assert.equal(missed.session, null);
   assert.equal(missed.reread, true);
+});
+
+const CHILD = "sub-1";
+const message = (id: string, seq: number): AcpMessageItem => ({
+  kind: "message",
+  id,
+  seq,
+  at: AT,
+  actor: "user",
+  sender: null,
+  call: null,
+  reply_to: null,
+  delivery: "next_turn",
+  turn: null,
+  origin: null,
+  content: [{ type: "text", text: id }],
+  reasoning: null,
+  cards: [],
+  complete: true,
+});
+
+// subagent 대화가 바깥 대화와 섞이거나 사라지면 사람이 자식이 한 일을 못 본다. 자식은 같은 reducer로 접히고,
+// 자식 안의 순번 빈틈은 바깥도 다시 읽게 한다.
+test("child_update는 같은 reducer로 children에 접히고 두 번 접어도 같으며 자식의 순번 빈틈은 바깥 reread를 세운다", () => {
+  const add = (id: string, seq: number): AcpUpdate => ({
+    type: "child_update",
+    child: CHILD,
+    update: { type: "message_added", item: message(id, seq) },
+  });
+  const first = add("msg_1", 1);
+  const once = reduceAcp(EMPTY_ACP_STATE, first);
+  assert.deepStrictEqual(reduceAcp(once, first), once);
+  assert.deepStrictEqual(
+    once.children[CHILD]?.items.map((i) => i.id),
+    ["msg_1"],
+  );
+  assert.deepStrictEqual(once.items, []);
+  assert.equal(once.reread, false);
+  acpStateSchema.parse(once);
+
+  const gap = reduceAcp(once, add("msg_3", 3));
+  assert.equal(gap.children[CHILD]?.reread, true);
+  assert.equal(gap.reread, true);
+});
+
+// 되살린 구간이 다른 자리로 가면 대화 순서가 틀어져 사람이 읽는 흐름이 깨진다.
+test("hidden_restored는 숨긴 항목을 같은 seq 자리로 돌리고 두 번 접어도 같다", () => {
+  const inner = [message("msg_2", 2), message("msg_3", 3)];
+  const hidden: AcpItem = {
+    kind: "hidden",
+    id: "hid_1",
+    seq: 2,
+    at: AT,
+    checkpoint: "msg_2",
+    choice: "messages_only",
+    count: 2,
+    restored: 0,
+    left: [],
+    items: inner,
+  };
+  const state: AcpState = {
+    ...EMPTY_ACP_STATE,
+    seq: 4,
+    items: [message("msg_1", 1), hidden, message("msg_4", 4)],
+  };
+  const update: AcpUpdate = { type: "hidden_restored", hidden: "hid_1" };
+  const once = reduceAcp(state, update);
+  assert.deepStrictEqual(
+    once.items.map((i) => `${i.seq}:${i.id}`),
+    ["1:msg_1", "2:msg_2", "3:msg_3", "4:msg_4"],
+  );
+  assert.equal(once.seq, 4);
+  assert.deepStrictEqual(reduceAcp(once, update), once);
 });

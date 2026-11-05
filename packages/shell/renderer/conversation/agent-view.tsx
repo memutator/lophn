@@ -473,7 +473,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   const runSlash = (command: SlashEntryView, argument: string) => {
     const clear = () => drafts.save(key, { text: "", selection: [0, 0] });
-    if (command.source === "builtin") {
+    if (command.source === "app") {
       switch (command.name) {
         case "rename": {
           // 새 이름을 쓸 때까지 기다린다.

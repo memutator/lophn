@@ -2,11 +2,25 @@
 import type { AcpCommand } from "../../../protocol/acp/mod.ts";
 
 function builtin(name: string, description: string): AcpCommand {
-  return { name, description, argument_hint: null, source: "builtin" };
+  return {
+    name,
+    aliases: [],
+    description,
+    argument_hint: null,
+    source: "app",
+    opens: null,
+  };
 }
 
 function skill(name: string, description: string): AcpCommand {
-  return { name, description, argument_hint: null, source: "skill" };
+  return {
+    name,
+    aliases: [],
+    description,
+    argument_hint: null,
+    source: "skill",
+    opens: null,
+  };
 }
 
 /** 모든 agent 첫 묶음. 고정 순서이고 알파벳순이 아니며 Feedback은 없다. */
@@ -40,14 +54,18 @@ export const LOPHN_COMMANDS: readonly AcpCommand[] = [...BUILTIN, ...SKILLS];
 export const CLI_COMMANDS: readonly AcpCommand[] = [
   {
     name: "init",
+    aliases: [],
     description: "Create an AGENTS.md for this project",
     argument_hint: null,
-    source: "cli",
+    source: "harness",
+    opens: null,
   },
   {
     name: "review",
+    aliases: [],
     description: "Review the pending changes",
     argument_hint: "[branch]",
-    source: "cli",
+    source: "harness",
+    opens: null,
   },
 ];

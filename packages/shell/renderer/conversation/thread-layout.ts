@@ -141,9 +141,11 @@ function entryOf(item: AcpItem): ThreadEntry | null {
       };
     case "notice": {
       const { notice } = item;
-      if (notice.type === "info") {
+      if (notice.type === "info" || notice.type === "command_output") {
         return { kind: "info", id: item.id, at: item.at, text: notice.text };
       }
+      // turn_end·error는 늘 turn이 있다.
+      if (item.turn === null) return null;
       return notice.type === "error"
         ? {
             kind: "provider-error",
@@ -230,6 +232,7 @@ function entryOf(item: AcpItem): ThreadEntry | null {
             release: detail.release,
           };
         case "generic":
+        case "subagent":
           return null;
       }
     }
@@ -268,7 +271,10 @@ export function layoutEntries(
     run = [];
   };
   for (const item of items) {
-    if (item.kind === "tool" && item.detail.kind === "generic") {
+    if (
+      item.kind === "tool" &&
+      (item.detail.kind === "generic" || item.detail.kind === "subagent")
+    ) {
       if (item.turn !== runTurn) flush();
       runTurn = item.turn;
       run.push(callViewOf(item, cache));

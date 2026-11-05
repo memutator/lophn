@@ -16,6 +16,8 @@ const message = idSchema("msg");
 export const acpDecideChoiceSchema = z.discriminatedUnion("kind", [
   ...turnRequestChoiceSchema.options,
   z.strictObject({ kind: z.literal("session") }),
+  // plan 승인. 그 subject의 `modes` id 하나. plan subject에만 쓰고 다른 subject면 받는 쪽이 `invalid_input`이다.
+  z.strictObject({ kind: z.literal("mode"), mode: z.string().min(1) }),
 ]);
 export type AcpDecideChoice = z.infer<typeof acpDecideChoiceSchema>;
 
@@ -115,6 +117,48 @@ export const acpInputSchema = z.discriminatedUnion("type", [
     session,
     key: z.string().min(1),
     title: z.string().min(1),
+  }),
+  // subagent, background task, 켜고 끄기, goal, role. source가 가졌는지는 capability가 알린다.
+  z.strictObject({
+    type: z.literal("stop_child"),
+    session,
+    key: z.string().min(1),
+    child: z.string().min(1),
+  }),
+  z.strictObject({
+    type: z.literal("steer_child"),
+    session,
+    key: z.string().min(1),
+    child: z.string().min(1),
+    text: z.string().min(1),
+  }),
+  z.strictObject({
+    type: z.literal("stop_task"),
+    session,
+    key: z.string().min(1),
+    task: z.string().min(1),
+  }),
+  z.strictObject({
+    type: z.literal("set_toggle"),
+    session,
+    key: z.string().min(1),
+    id: z.string().min(1),
+    on: z.boolean(),
+  }),
+  /** `objective`가 null이면 goal을 지운다. `paused`는 멈추기·다시 하기. */
+  z.strictObject({
+    type: z.literal("set_goal"),
+    session,
+    key: z.string().min(1),
+    objective: z.string().min(1).nullable(),
+    paused: z.boolean(),
+  }),
+  /** 이 session만 그 role의 model로 바꾼다(omp `/switch @role`). */
+  z.strictObject({
+    type: z.literal("use_role"),
+    session,
+    key: z.string().min(1),
+    role: z.string().min(1),
   }),
 ]);
 export type AcpInput = z.infer<typeof acpInputSchema>;

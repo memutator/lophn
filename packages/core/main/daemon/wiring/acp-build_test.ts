@@ -517,4 +517,8 @@ test("draft meta는 같은 agent와 place로 연 session의 meta에서 title·us
   });
   assert.equal(draft.model?.layer, "agent");
   assert.equal(draft.commands.length, 2);
+  assert.deepStrictEqual(
+    session.commands.map((one) => one.source),
+    ["app", "skill"],
+  );
 });

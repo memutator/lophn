@@ -40,7 +40,8 @@ type AcpApprovalSubject =
         added: number | null;
         removed: number | null;
       }[];
-    };
+    }
+  | { kind: "plan"; plan: string; modes: { id: string; label: string }[] };
 
 type InputDelivery = "next_turn" | "steer";
 
@@ -80,6 +81,7 @@ export type AcpMessageItem = {
   reply_to: string | null;
   delivery: InputDelivery;
   turn: string | null;
+  origin: string | null;
   content: ContentBlock[];
   reasoning: AcpReasoning | null;
   cards: AcpCard[];
@@ -116,9 +118,24 @@ export type AcpToolDetail =
       lines: { header: string; answer: string | null }[];
     }
   | { kind: "consent"; release: string }
+  | {
+      kind: "subagent";
+      agent: string;
+      description: string;
+      child: string | null;
+      state: "running" | "done" | "failed" | "cancelled";
+      model: string | null;
+      last: string | null;
+    }
   | { kind: "generic" };
 
 export type AcpToolState = "running" | "ok" | "error" | "denied" | "cancelled";
+
+export type AcpToolBody = {
+  input: string | null;
+  output: string | null;
+  truncated: boolean;
+};
 
 export type AcpToolItem = {
   id: string;
@@ -132,6 +149,7 @@ export type AcpToolItem = {
   state: AcpToolState;
   duration_ms: number | null;
   detail: AcpToolDetail;
+  body: AcpToolBody | null;
 };
 
 export type AcpApprovalItem = {
@@ -150,7 +168,7 @@ export type AcpNoticeItem = {
   seq: number;
   at: string;
   kind: "notice";
-  turn: string;
+  turn: string | null;
   notice:
     | {
         type: "turn_end";
@@ -159,7 +177,13 @@ export type AcpNoticeItem = {
         waited_ms: number;
       }
     | { type: "error"; code: string; message: string }
-    | { type: "info"; text: string };
+    | { type: "info"; text: string; level: "info" | "warning" }
+    | {
+        type: "command_output";
+        command: string;
+        text: string;
+        format: "markdown" | "preformatted";
+      };
 };
 
 export type AcpEntry =
@@ -239,15 +263,55 @@ export type AcpModelGroup = {
   models: { id: string; label: string; axes: AcpModelAxis[] }[];
 };
 
+export type AcpCommandOpens =
+  | "new"
+  | "rename"
+  | "archive"
+  | "compact"
+  | "fork"
+  | "rewind"
+  | "model"
+  | "effort"
+  | "mode"
+  | "permissions"
+  | "status"
+  | "usage"
+  | "context"
+  | "mcp"
+  | "skills"
+  | "subagents"
+  | "tasks"
+  | "goal";
+
 export type AcpCommand = {
   name: string;
+  aliases: string[];
   description: string;
   argument_hint: string | null;
-  source: "builtin" | "skill" | "cli";
+  source:
+    | "app"
+    | "harness"
+    | "skill"
+    | "plugin"
+    | "mcp"
+    | "custom_user"
+    | "custom_project";
+  opens: AcpCommandOpens | null;
 };
 
 export type AcpUsage = {
-  context: { tokens: number; limit: number } | null;
+  context: {
+    tokens: number;
+    limit: number;
+    parts: { label: string; tokens: number }[];
+  } | null;
+  limits: {
+    id: string;
+    label: string;
+    used_percent: number | null;
+    left: string | null;
+    resets_at: string | null;
+  }[];
   input_tokens: number | null;
   output_tokens: number | null;
   cache_read_tokens: number | null;
@@ -283,6 +347,12 @@ export type AcpCapabilities = {
   images: boolean;
   retry: boolean;
   sessions: boolean;
+  stop_child: boolean;
+  steer_child: boolean;
+  tasks: boolean;
+  toggles: boolean;
+  goal: boolean;
+  roles: boolean;
 };
 
 export type AcpSessionMeta = {
@@ -300,16 +370,45 @@ export type AcpSessionMeta = {
   mode: string | null;
   commands: AcpCommand[];
   usage: AcpUsage | null;
+  toggles: {
+    id: string;
+    label: string;
+    description: string | null;
+    on: boolean;
+  }[];
+  goal: {
+    objective: string;
+    status: "active" | "paused" | "blocked" | "done";
+    detail: string | null;
+  } | null;
+  roles:
+    | {
+        id: string;
+        label: string;
+        kind: "chat" | "model";
+        model: string | null;
+      }[]
+    | null;
+  harness: string | null;
 };
 
 export type AcpPlan = {
   entries: {
     text: string;
-    status: "pending" | "in_progress" | "completed";
+    status: "pending" | "in_progress" | "completed" | "cancelled";
   }[];
 };
 
-export type AcpState = {
+export type AcpTask = {
+  id: string;
+  kind: "agent" | "shell" | "other";
+  description: string;
+  state: "running" | "done" | "failed" | "stopped";
+  started_at: string | null;
+  output: string | null;
+};
+
+export type AcpChildState = {
   seq: number;
   items: AcpItem[];
   turn: AcpTurn | null;
@@ -322,7 +421,12 @@ export type AcpState = {
   reread: boolean;
 };
 
-export type AcpUpdate =
+export type AcpState = AcpChildState & {
+  children: Record<string, AcpChildState>;
+  tasks: AcpTask[];
+};
+
+export type AcpChildUpdate =
   | { type: "message_added"; item: AcpMessageItem }
   | { type: "message_queued"; queued: AcpQueued }
   | { type: "message_removed"; message: string }
@@ -374,7 +478,9 @@ export type AcpUpdate =
       state: Exclude<AcpToolState, "running">;
       at: string;
       detail: AcpToolDetail | null;
+      body: AcpToolBody | null;
     }
+  | { type: "tool_detail_changed"; tool_call: string; detail: AcpToolDetail }
   | { type: "approval_opened"; approval: AcpApproval }
   | {
       type: "approval_closed";
@@ -399,7 +505,14 @@ export type AcpUpdate =
   | { type: "session_changed"; session: Partial<AcpSessionMeta> }
   | { type: "plan_changed"; entries: AcpPlan["entries"] }
   | { type: "notice_added"; item: AcpNoticeItem }
-  | { type: "hidden_added"; item: AcpHiddenItem };
+  | { type: "hidden_added"; item: AcpHiddenItem }
+  | { type: "hidden_restored"; hidden: string }
+  | { type: "origin_set"; message: string; origin: string };
+
+export type AcpUpdate =
+  | AcpChildUpdate
+  | { type: "child_update"; child: string; update: AcpChildUpdate }
+  | { type: "tasks_changed"; tasks: AcpTask[] };
 
 export type AcpAnswer = {
   question: string;

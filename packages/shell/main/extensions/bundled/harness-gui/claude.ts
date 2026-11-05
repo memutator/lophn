@@ -163,6 +163,12 @@ const CAPABILITIES: AcpCapabilities = {
   images: true,
   retry: true,
   sessions: false,
+  stop_child: false,
+  steer_child: false,
+  tasks: false,
+  toggles: false,
+  goal: false,
+  roles: false,
 };
 
 const oneLine = (text: string, max: number) =>
@@ -559,15 +565,18 @@ const start: (sdk: ClaudeSdk) => Start =
           .filter((one) => !terminalCommands.has(one.name))
           .map((one) => ({
             name: one.name,
+            aliases: [],
             description: one.description,
             argument_hint: one.argumentHint === "" ? null : one.argumentHint,
-            source: one.builtin === true ? "cli" : "skill",
+            source: one.builtin === true ? "harness" : "skill",
+            opens: null,
           })),
       });
     }
     function usageNow(): AcpUsage {
       return {
-        context: contextUsage,
+        context: contextUsage === null ? null : { ...contextUsage, parts: [] },
+        limits: [],
         input_tokens: totals.input,
         output_tokens: totals.output,
         cache_read_tokens: totals.read,
@@ -630,6 +639,7 @@ const start: (sdk: ClaudeSdk) => Start =
           reply_to: null,
           delivery: "next_turn",
           turn: turnId,
+          origin: null,
           content,
           reasoning: null,
           cards: [],
@@ -648,7 +658,11 @@ const start: (sdk: ClaudeSdk) => Start =
           seq: ++seq,
           at: now(),
           turn,
-          notice: { type: "info", text: text.trim().slice(0, 8000) },
+          notice: {
+            type: "info",
+            text: text.trim().slice(0, 8000),
+            level: "info",
+          },
         },
       });
     }
@@ -677,6 +691,7 @@ const start: (sdk: ClaudeSdk) => Start =
           state: "running",
           duration_ms: null,
           detail: detailOf(cwd, name, toolInput),
+          body: null,
         },
       });
       return call;
@@ -705,6 +720,7 @@ const start: (sdk: ClaudeSdk) => Start =
                   answer: asked.answers[one.question] ?? null,
                 })),
               },
+        body: null,
       });
     }
 
@@ -1315,6 +1331,10 @@ const start: (sdk: ClaudeSdk) => Start =
       mode: null,
       commands: [],
       usage: null,
+      toggles: [],
+      goal: null,
+      roles: null,
+      harness: "claude",
     });
     // 목록은 첫 메시지 전에도 읽힌다.
     void (async () => {
@@ -1570,6 +1590,7 @@ const start: (sdk: ClaudeSdk) => Start =
           return;
         }
         case "decide":
+          if (message.choice.kind === "mode") return;
           closeApproval(
             message.request,
             message.choice.kind,

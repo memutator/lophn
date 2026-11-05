@@ -202,6 +202,7 @@ export const conversation = {
   "conversation.label.permissions-except": "All tools except {tools}",
   "conversation.label.permissions-of": "Permissions of {agent}",
   "conversation.label.plan": "Plan",
+  "conversation.label.plan-cancelled": "Cancelled",
   "conversation.label.plan-completed": "Done",
   "conversation.label.plan-in-progress": "In progress",
   "conversation.label.plan-pending": "To do",
@@ -467,6 +468,7 @@ export const conversation = {
   "conversation.title.approval-command": "{agent} wants to run a command",
   "conversation.title.approval-change":
     "{agent} wants to change {count, plural, one {a file} other {# files}}",
+  "conversation.title.approval-plan": "{agent} has a plan ready",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
   "conversation.title.consent-handled": "Release approval request handled",
   "conversation.title.consent-waiting":

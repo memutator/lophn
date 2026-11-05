@@ -20,7 +20,10 @@ export function titleOf(subject: ApprovalSubject, agent: string): string {
         agent,
         count: subject.changes.length,
       });
-    default:
+    case "plan":
+      return t("conversation.title.approval-plan", { agent });
+    case "app_tool":
+    case "mcp_tool":
       return t("conversation.title.approval-run", {
         agent,
         tool: subject.tool,
@@ -67,11 +70,19 @@ export function targetOf(subject: ApprovalSubject): string {
       });
     case "file_change":
       return subject.changes.map(changeText).join(", ");
+    case "plan":
+      return subject.modes.map((mode) => mode.label).join(", ");
   }
 }
 
 /** tool의 효과 글. shell과 file 바꾸기는 효과를 따로 말하지 않는다(대상이 바뀌는 것 자체다). */
 export function effectOf(subject: ApprovalSubject): string | null {
-  if (subject.kind === "shell" || subject.kind === "file_change") return null;
+  if (
+    subject.kind === "shell" ||
+    subject.kind === "file_change" ||
+    subject.kind === "plan"
+  ) {
+    return null;
+  }
   return t(EFFECTS[subject.effect]);
 }

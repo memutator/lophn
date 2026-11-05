@@ -349,6 +349,12 @@ const CAPABILITIES: AcpCapabilities = {
   images: false, // 입력의 image는 blob hash뿐이라 localImage 경로를 만들 수 없다.
   retry: true,
   sessions: false,
+  stop_child: false,
+  steer_child: false,
+  tasks: false,
+  toggles: false,
+  goal: false,
+  roles: false,
 };
 
 const BASE_COMMANDS = [
@@ -529,6 +535,10 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         mode: null,
         commands: [],
         usage: null,
+        toggles: [],
+        goal: null,
+        roles: null,
+        harness: "codex",
       };
       let metaSent = false;
       function change(partial: Partial<AcpSessionMeta>) {
@@ -596,25 +606,31 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           commands: [
             ...BASE_COMMANDS.map(([name, description, hint]) => ({
               name,
+              aliases: [],
               description,
               argument_hint: hint,
-              source: "cli" as const,
+              source: "harness" as const,
+              opens: null,
             })),
             ...(canPlan
               ? [
                   {
                     name: "plan",
+                    aliases: [],
                     description: "Turn plan mode on or off",
                     argument_hint: null,
-                    source: "cli" as const,
+                    source: "harness" as const,
+                    opens: null,
                   },
                 ]
               : []),
             ...[...skills.keys()].map((name) => ({
               name,
+              aliases: [],
               description: `Run the ${name} skill`,
               argument_hint: "[request]",
               source: "skill" as const,
+              opens: null,
             })),
           ],
         };
@@ -631,7 +647,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             seq: ++seq,
             at: now(),
             turn: owner,
-            notice: { type: "info", text },
+            notice: { type: "info", text, level: "info" },
           },
         });
       }
@@ -664,6 +680,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             reply_to: null,
             delivery,
             turn: owner,
+            origin: null,
             content,
             reasoning: null,
             cards: [],
@@ -773,6 +790,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             state: "running",
             duration_ms: null,
             detail: shown.detail,
+            body: null,
           },
         });
         return call;
@@ -786,6 +804,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           state,
           at: now(),
           detail: null,
+          body: null,
         });
       }
 
@@ -1030,6 +1049,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             state: "running",
             duration_ms: null,
             detail: { kind: "question", group: null, outcome: null, lines: [] },
+            body: null,
           },
         });
         asks.set(call.id, {
@@ -1377,7 +1397,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               : {
                   tokens: usage.last.totalTokens,
                   limit: usage.modelContextWindow,
+                  parts: [],
                 },
+          limits: [],
           input_tokens: usage.total.inputTokens,
           output_tokens: usage.total.outputTokens,
           cache_read_tokens: usage.total.cachedInputTokens,
@@ -1808,6 +1830,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             return;
           }
           case "decide":
+            if (message.choice.kind === "mode") return;
             closeApproval(
               message.request,
               message.choice.kind,

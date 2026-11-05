@@ -733,6 +733,7 @@ export async function buildAcpState(
         delivery:
           steering || steered(message, turnById) ? "steer" : message.delivery,
         turn: steering ? (current?.id ?? null) : message.turn,
+        origin: null,
         content: body?.content ?? [],
         reasoning: body?.reasoning ?? null,
         cards: body?.cards ?? [],
@@ -774,6 +775,7 @@ export async function buildAcpState(
           live.question?.tool_call === call.id
             ? { ...detail, group: live.question.group }
             : detail,
+        body: null,
       }),
     });
   });
@@ -960,6 +962,8 @@ export async function buildAcpState(
     // lophn agent에는 todo가 없다.
     plan: null,
     reread: false,
+    children: {},
+    tasks: [],
   });
 }
 
@@ -979,9 +983,19 @@ export const AGENT_MODES: AcpChoice[] = [
   },
 ];
 
-// lophn agent가 가진 기능은 전부다.
+// lophn agent가 가진 기능은 harness 전용 여섯(subagent 조작, task, toggle, goal, role)을 뺀 전부다.
 const CAPABILITIES = Object.fromEntries(
-  ACP_CAPABILITIES.map((name) => [name, true]),
+  ACP_CAPABILITIES.map((name) => [
+    name,
+    ![
+      "stop_child",
+      "steer_child",
+      "tasks",
+      "toggles",
+      "goal",
+      "roles",
+    ].includes(name),
+  ]),
 ) as AcpCapabilities;
 
 type SessionRecord = Output<typeof placeSessionRead>["session"];
@@ -1112,7 +1126,8 @@ export async function readUsage(
   if (!read.ok) return null;
   const { context, tokens, turns, costs, provider } = read.value;
   return {
-    context,
+    context: context === null ? null : { ...context, parts: [] },
+    limits: [],
     input_tokens: tokens.input,
     output_tokens: tokens.output,
     cache_read_tokens: tokens.cache_read,
@@ -1155,6 +1170,10 @@ function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
     mode: parts.skip ? "skip" : "ask",
     commands: parts.commands,
     usage: parts.usage,
+    toggles: [],
+    goal: null,
+    roles: null,
+    harness: null,
   };
 }
 
@@ -1165,9 +1184,11 @@ function commandsOf(
   return read.ok
     ? read.value.commands.map((one) => ({
         name: one.name,
+        aliases: [],
         description: env.redact(one.description),
         argument_hint: null,
-        source: one.source,
+        source: one.source === "builtin" ? "app" : one.source,
+        opens: null,
       }))
     : [];
 }

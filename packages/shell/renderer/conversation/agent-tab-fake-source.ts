@@ -195,6 +195,7 @@ function user(
     reply_to: null,
     delivery: "next_turn",
     turn: turn1,
+    origin: null,
     content: text === "" ? [] : [{ type: "text", text }],
     reasoning: null,
     cards: [],
@@ -229,6 +230,7 @@ function tool(
     state: "ok",
     duration_ms: 1_200,
     detail: { kind: "generic" },
+    body: null,
     ...over,
   };
 }
@@ -1245,6 +1247,12 @@ const EVERYTHING: AcpCapabilities = {
   images: true,
   retry: true,
   sessions: true,
+  stop_child: false,
+  steer_child: false,
+  tasks: false,
+  toggles: false,
+  goal: false,
+  roles: false,
 };
 
 /** harness CLI가 가진 만큼: session 목록과 파일 복원이 없다. */
@@ -1292,7 +1300,8 @@ function modelsOf(picker: FakePicker): {
 // 구독 OAuth 연결의 session. 금액은 구독이라 알 수 없고 token만 보인다.
 function usageOf(over: Partial<AcpUsage>): AcpUsage {
   return {
-    context: over.context ?? { tokens: 86_508, limit: 1_050_000 },
+    context: over.context ?? { tokens: 86_508, limit: 1_050_000, parts: [] },
+    limits: over.limits ?? [],
     input_tokens: over.input_tokens ?? 412_890,
     output_tokens: over.output_tokens ?? 11_531,
     cache_read_tokens: over.cache_read_tokens ?? 301_440,
@@ -1333,6 +1342,10 @@ function lophnMeta(options: MetaOptions): AcpSessionMeta {
     mode: options.mode,
     commands: [...LOPHN_COMMANDS],
     usage: usageOf(options.status),
+    toggles: [],
+    goal: null,
+    roles: null,
+    harness: null,
   };
 }
 
@@ -1367,8 +1380,12 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
       ...usageOf(options.status),
       provider: null,
       costs: [],
-      context: { tokens: 43_000, limit: 200_000 },
+      context: { tokens: 43_000, limit: 200_000, parts: [] },
     },
+    toggles: [],
+    goal: null,
+    roles: null,
+    harness: null,
   };
 }
 
@@ -1580,6 +1597,7 @@ export function createFakeAgentTabSource(
   ) => {
     const state = stateOf(session);
     if (state.pending.approval?.id !== request) return fail("conflict");
+    if (choice.kind === "mode") return fail("unavailable");
     return apply(session, {
       type: "approval_closed",
       request,
@@ -1868,6 +1886,7 @@ export function createFakeAgentTabSource(
               answer: answerText(answers, question.question),
             })),
           },
+          body: null,
         },
       );
     },
@@ -1880,6 +1899,7 @@ export function createFakeAgentTabSource(
         state: "ok",
         at: sentAt(),
         detail: { ...found.detail, state: "cancelled", fail_reason: null },
+        body: null,
       });
     },
 

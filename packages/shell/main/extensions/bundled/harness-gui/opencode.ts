@@ -259,6 +259,12 @@ const CAPABILITIES: AcpSessionMeta["capabilities"] = {
   images: true,
   retry: true,
   sessions: false,
+  stop_child: false,
+  steer_child: false,
+  tasks: false,
+  toggles: false,
+  goal: false,
+  roles: false,
 };
 
 const client = (
@@ -267,9 +273,11 @@ const client = (
   hint: string | null,
 ): AcpCommand => ({
   name,
+  aliases: [],
   description,
   argument_hint: hint,
-  source: "builtin",
+  source: "harness",
+  opens: null,
 });
 const CLIENT_COMMANDS: AcpCommand[] = [
   client("undo", "Undo the last message and its file changes", null),
@@ -485,7 +493,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           seq: ++seq,
           at: now(),
           turn: turn ?? ids.newId("trn"),
-          notice: { type: "info", text },
+          notice: { type: "info", text, level: "info" },
         },
       });
     }
@@ -668,6 +676,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           state: "running",
           duration_ms: null,
           detail: detailOf(call.name, call.input),
+          body: null,
         },
       });
     }
@@ -684,6 +693,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         state,
         at: now(),
         detail,
+        body: null,
       });
     }
 
@@ -825,6 +835,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     ) {
       const open = approvals.get(id);
       if (open === undefined) return;
+      if (choice.kind === "mode") return;
       if (choice.kind === "reject" && open.call !== undefined)
         open.call.hint = "denied";
       if (choice.kind === "session") {
@@ -1367,13 +1378,19 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
             .map(
               (command): AcpCommand => ({
                 name: str(command.name),
+                aliases: [],
                 description: str(command.description),
                 argument_hint: null,
-                source: "cli",
+                source: "harness",
+                opens: null,
               }),
             ),
         ],
         usage: null,
+        toggles: [],
+        goal: null,
+        roles: null,
+        harness: "opencode",
       };
     }
 
@@ -1430,7 +1447,10 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       const limit = contextLimit.get(currentModel) ?? 0;
       return {
         context:
-          last === undefined || limit === 0 ? null : { tokens: used, limit },
+          last === undefined || limit === 0
+            ? null
+            : { tokens: used, limit, parts: [] },
+        limits: [],
         input_tokens: Number(tokens.input ?? 0),
         output_tokens: Number(tokens.output ?? 0),
         cache_read_tokens: Number(cache.read ?? 0),
@@ -1488,6 +1508,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
               reply_to: null,
               delivery: steered ? "steer" : "next_turn",
               turn: id,
+              origin: null,
               content,
               reasoning: null,
               cards: [],

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { atSchema } from "../base/values.ts";
 import { CREDENTIAL_STATES } from "../lophn-agent/provider-values.ts";
 
 // 대화 밖 session 기능(model, mode, 명령, 사용량)과 source가 그 기능을 가졌는지 알리는 capability다.
@@ -52,13 +53,76 @@ export const acpModelCurrentSchema = z.strictObject({
 });
 export type AcpModelCurrent = z.infer<typeof acpModelCurrentSchema>;
 
-export const ACP_COMMAND_SOURCES = ["builtin", "skill", "cli"] as const;
-/** `builtin`·`skill`은 lophn `/` 명령의 출처와 같은 뜻이고 `cli`는 harness가 주는 명령이다. */
+/** `app`은 lophn 앱이 하는 명령(lophn 내장), `harness`는 그 CLI의 내장 명령, `custom_*`는 사람이 쓴 명령 file(Claude `~/.claude/commands`, `.claude/commands` 등)이다. 순서가 palette의 같은 순위 안 출처 순서다. */
+export const ACP_COMMAND_SOURCES = [
+  "app",
+  "harness",
+  "skill",
+  "plugin",
+  "mcp",
+  "custom_user",
+  "custom_project",
+] as const;
+
+/**
+ * 명령이 열 화면 동작. 화면은 명령 이름이 아니라 이 값만 본다.
+ *
+ * | opens | 화면이 하는 일 | 내는 쪽 |
+ * | new | 새 session 화면을 연다 | lophn(`/new`, 별칭 `/clear`). harness는 쓰지 않는다: 같은 탭의 새 session은 adapter가 `run_command`로 연다 |
+ * | rename | 인자가 비면 composer에 `/<이름> `을 채우고 기다리고, 있으면 `rename {title: 인자}` | 둘 다 |
+ * | archive | 이 session을 archive한다 | lophn |
+ * | compact | `compact` 입력 | 둘 다 |
+ * | fork | `fork {message: null}` | 둘 다 |
+ * | rewind | rewind 고르기를 연다 | 둘 다 |
+ * | model | model picker를 연다 | 둘 다 |
+ * | effort | model picker의 option 축을 연다 | 둘 다 |
+ * | mode | mode picker를 연다(harness `/permissions`, OpenCode `/agents`) | 둘 다 |
+ * | permissions | lophn 할당 보기(`PermissionsView`) | lophn |
+ * | status | status card | 둘 다 |
+ * | usage | usage card(`usage`와 `limits`) | 둘 다 |
+ * | context | context card(`usage.context`와 `parts`) | 둘 다 |
+ * | mcp, skills | lophn agent 설정의 그 절 | lophn |
+ * | subagents | dock의 subagent 목록 | harness |
+ * | tasks | dock의 background task 목록 | harness |
+ * | goal | 인자가 비면 goal 편집, 있으면 `set_goal {objective: 인자, paused: false}` | harness |
+ *
+ * 규칙: `opens`가 null이면 화면은 `run_command`로 보낸다. `opens`가 있는데 사람이 인자를 쳤고 그 값이 인자를 쓰지
+ * 않는 것(`rename`·`goal` 밖)이면, `argument_hint`가 있을 때 `run_command`로 보낸다(`/model sonnet`은 CLI가 바로
+ * 바꾼다). TUI에서만 되는 명령은 목록에 넣지 않는다. 켜고 끄는 명령(Codex `/plan`, omp `/fast`)처럼 열 화면이 없는
+ * 것은 `opens: null`이고 adapter가 `run_command`에서 바꾼 뒤 `session_changed`를 낸다.
+ */
+export const ACP_COMMAND_OPENS = [
+  "new",
+  "rename",
+  "archive",
+  "compact",
+  "fork",
+  "rewind",
+  "model",
+  "effort",
+  "mode",
+  "permissions",
+  "status",
+  "usage",
+  "context",
+  "mcp",
+  "skills",
+  "subagents",
+  "tasks",
+  "goal",
+] as const;
+export const acpCommandOpensSchema = z.enum(ACP_COMMAND_OPENS);
+export type AcpCommandOpens = z.infer<typeof acpCommandOpensSchema>;
+
 export const acpCommandSchema = z.strictObject({
   name: id,
+  /** 앞 `/` 없는 다른 이름. */
+  aliases: z.array(id),
   description: z.string(),
+  /** null이면 인자를 받지 않는다. */
   argument_hint: z.string().nullable(),
   source: z.enum(ACP_COMMAND_SOURCES),
+  opens: acpCommandOpensSchema.nullable(),
 });
 export type AcpCommand = z.infer<typeof acpCommandSchema>;
 
@@ -73,10 +137,28 @@ const COST_KINDS = [
 
 const tokens = count.nullable();
 
+export const acpUsageLimitSchema = z.strictObject({
+  id,
+  label: z.string(),
+  used_percent: z.number().min(0).max(100).nullable(),
+  /** "$4.20 left"처럼 source가 만든 글. */
+  left: z.string().nullable(),
+  resets_at: atSchema.nullable(),
+});
+export type AcpUsageLimit = z.infer<typeof acpUsageLimitSchema>;
+
 /** `/status`가 그리는 칸이다(lophn의 `StatusView`와 같다). 모르는 칸은 null이고 0이 아니다. */
 export const acpUsageSchema = z.strictObject({
-  /** 지금 창에 든 token과 창 한도. */
-  context: z.strictObject({ tokens: count, limit: count }).nullable(),
+  /** 지금 창에 든 token과 창 한도. `parts`는 `/context` card의 분해이고 모르면 빈 배열이다. */
+  context: z
+    .strictObject({
+      tokens: count,
+      limit: count,
+      parts: z.array(z.strictObject({ label: z.string(), tokens: count })),
+    })
+    .nullable(),
+  /** 사용 한도(5시간 창, 주간 등). 모르면 빈 배열. */
+  limits: z.array(acpUsageLimitSchema),
   input_tokens: tokens,
   output_tokens: tokens,
   cache_read_tokens: tokens,
@@ -125,6 +207,17 @@ export const ACP_CAPABILITIES = [
   "retry",
   /** lophn session 목록·바꾸기·새로·archive·delete. 머리의 session menu가 본다. lophn만 true다. */
   "sessions",
+  /** subagent를 멈추고(`stop_child`) 방향을 준다(`steer_child`). */
+  "stop_child",
+  "steer_child",
+  /** background task 목록과 `stop_task`. */
+  "tasks",
+  /** meta `toggles`와 `set_toggle`. */
+  "toggles",
+  /** meta `goal`과 `set_goal`. */
+  "goal",
+  /** meta `roles`와 `use_role`. */
+  "roles",
 ] as const;
 export const acpCapabilitiesSchema = z.strictObject(
   Object.fromEntries(
@@ -132,6 +225,32 @@ export const acpCapabilitiesSchema = z.strictObject(
   ) as Record<(typeof ACP_CAPABILITIES)[number], z.ZodBoolean>,
 );
 export type AcpCapabilities = z.infer<typeof acpCapabilitiesSchema>;
+
+/** 켜고 끄는 session 설정(Codex plan mode, omp fast/slow, OpenCode auto-accept). */
+export const acpToggleSchema = z.strictObject({
+  id,
+  label: z.string(),
+  description: z.string().nullable(),
+  on: z.boolean(),
+});
+export type AcpToggle = z.infer<typeof acpToggleSchema>;
+
+/** Codex `usageLimited`·`budgetLimited`는 `blocked`에 `detail`로 싣는다. */
+export const acpGoalSchema = z.strictObject({
+  objective: z.string(),
+  status: z.enum(["active", "paused", "blocked", "done"]),
+  detail: z.string().nullable(),
+});
+export type AcpGoal = z.infer<typeof acpGoalSchema>;
+
+/** model role(omp `/switch @role`). role 배정을 바꾸는 칸은 두지 않는다. */
+export const acpRoleSchema = z.strictObject({
+  id,
+  label: z.string(),
+  kind: z.enum(["chat", "model"]),
+  model: z.string().nullable(),
+});
+export type AcpRole = z.infer<typeof acpRoleSchema>;
 
 export const acpSessionMetaSchema = z.strictObject({
   title: z.string().nullable(),
@@ -144,5 +263,11 @@ export const acpSessionMetaSchema = z.strictObject({
   mode: z.string().nullable(),
   commands: z.array(acpCommandSchema),
   usage: acpUsageSchema.nullable(),
+  toggles: z.array(acpToggleSchema),
+  goal: acpGoalSchema.nullable(),
+  /** null = role이 없는 source. */
+  roles: z.array(acpRoleSchema).nullable(),
+  /** harness id(`protocol/coding-agent/harness-id.ts`의 값). lophn은 null. 화면이 이 값으로 vendor 아이콘을 고른다. */
+  harness: z.string().min(1).nullable(),
 });
 export type AcpSessionMeta = z.infer<typeof acpSessionMetaSchema>;

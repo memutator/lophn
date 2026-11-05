@@ -76,7 +76,7 @@ const DEMOS: Readonly<
   "status-footer": {
     scene: "report",
     status: {
-      context: { tokens: 188_000, limit: 200_000 },
+      context: { tokens: 188_000, limit: 200_000, parts: [] },
       costs: [{ kind: "estimated", currency: "USD", amount: "0.42" }],
     },
     steps: [() => click("[data-status-footer]")],

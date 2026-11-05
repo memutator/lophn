@@ -1,4 +1,5 @@
 // `/` 명령 메뉴가 받는 화면 값. CSS를 부르는 component 없이 type만 가져올 수 있게 따로 둔다.
+import type { AcpCommand } from "../../../../protocol/acp/mod.ts";
 
 /** contract CommandEntry에서 이 화면이 읽는 field. */
 export interface SlashEntryView {
@@ -7,8 +8,7 @@ export interface SlashEntryView {
   /** built-in 명령의 메뉴 제목(Compact). skill은 null이라 이름을 보인다. */
   readonly title: string | null;
   readonly description: string;
-  /** `cli`는 harness CLI가 주는 명령이다. */
-  readonly source: "builtin" | "skill" | "cli";
+  readonly source: AcpCommand["source"];
 }
 
 /** Commands · Skills 중 하나. 맞는 명령이 없는 묶음은 목록에 없다. */

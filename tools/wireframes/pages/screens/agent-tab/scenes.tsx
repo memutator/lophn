@@ -69,7 +69,9 @@ export const SkipScene = () => <Scene sub="skip" />;
 export const ContextWarningScene = () => (
   <Scene
     sub="working"
-    chat={{ status: { context: { tokens: 172_000, limit: 200_000 } } }}
+    chat={{
+      status: { context: { tokens: 172_000, limit: 200_000, parts: [] } },
+    }}
   />
 );
 /** 창을 94% 쓴 session. 푸터와 /status 막대가 error 색이다. */
@@ -78,7 +80,7 @@ export const ContextFullScene = () => (
     sub="working"
     chat={{
       status: {
-        context: { tokens: 188_000, limit: 200_000 },
+        context: { tokens: 188_000, limit: 200_000, parts: [] },
         costs: [{ kind: "estimated", currency: "USD", amount: "0.42" }],
       },
     }}
@@ -101,7 +103,7 @@ export const StatusCostScene = () => (
     chat={{
       view: "status",
       status: {
-        context: { tokens: 142_000, limit: 1_000_000 },
+        context: { tokens: 142_000, limit: 1_000_000, parts: [] },
         input_tokens: 1_280_400,
         cache_read_tokens: 2_160_000,
         output_tokens: 34_200,

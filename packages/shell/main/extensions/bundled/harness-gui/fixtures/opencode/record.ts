@@ -1,16 +1,25 @@
 // OpenCode server 녹화 script. 실제 `opencode serve`를 띄워 model을 부르므로 lead가 사람 허락 아래에서만 돌린다.
 // worker와 test는 돌리지 않는다.
 //
-//   node packages/shell/main/extensions/bundled/harness-gui/fixtures/opencode/record.ts [scenario ...]
+//   node packages/shell/main/extensions/bundled/harness-gui/fixtures/opencode/record.ts --out <dir> [scenario ...]
 //
-// scenario마다 새 server process를 `.dev-data/adapter-opencode/rec/<scenario>/`(0700) cwd에서 띄우고, HTTP+SSE client 둘
-// (A = GUI, B = TUI 대신)로 몰아 `.dev-data/adapter-opencode/rec/<scenario>.jsonl`에 `{t, kind, data}` 줄로 쓴다.
+// scenario마다 새 server process를 `os.tmpdir()` 아래 `git init`한 scratch 폴더(0700)에서 띄우고, HTTP+SSE client 둘
+// (A = GUI, B = TUI 대신)로 몰아 `<dir>/<scenario>.jsonl`에 `{t, kind, data}` 줄로 쓴다. scratch 폴더는 scenario가 끝나면 지운다.
+// OpenCode가 project 뿌리를 git toplevel로 잡아서, git 폴더가 아니거나 repo 안이면 상위 폴더에 file을 쓴다.
 // kind: http(요청과 응답 한 쌍), event(SSE event), note(scenario가 한 일). password와 url은 쓰지 않는다.
-// `always` 승인은 보내지 않는다(사람의 OpenCode DB에 project 규칙이 남는다). session은 scenario가 끝나면 지운다.
-import { type ChildProcess, spawn } from "node:child_process";
+// `always` 승인과 session 규칙(`session.update permissions`)은 보내지 않는다(사람의 OpenCode DB에 규칙이 남는다).
+// session은 scenario가 끝나면 지운다.
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { appendFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import {
   createApi,
   fetchTransport,
@@ -27,7 +36,6 @@ const arr = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
-const ROOT = resolve(".dev-data/adapter-opencode/rec");
 const WAIT_MS = 150_000;
 // 싼 model. 다른 것을 쓰려면 `RECORD_MODEL=<provider>/<model>`(model id에도 "/"가 든다).
 const MODEL =
@@ -210,6 +218,30 @@ const SHELL_ONCE =
 function askedOf(event: Json) {
   return rec(event.data);
 }
+
+// git이 없는 폴더에는 `review`가 볼 것이 없다. 커밋 하나 뒤에 고친 file이 있어야 "uncommitted"가 생긴다.
+function uncommitted(cwd: string) {
+  const git = (...args: string[]) =>
+    execFileSync(
+      "git",
+      ["-c", "user.name=rec", "-c", "user.email=rec@example.invalid", ...args],
+      { cwd, stdio: "ignore" },
+    );
+  writeFileSync(`${cwd}/notes.txt`, "one\n");
+  git("add", "notes.txt");
+  git("commit", "-q", "-m", "first");
+  writeFileSync(`${cwd}/notes.txt`, "one\ntwo\n");
+}
+
+/** 부모 session이 만든 자식 session id들. */
+const childrenOf = (c: Context, sid: string) =>
+  c.a.events
+    .filter(
+      (event) =>
+        event.type === "session.created" &&
+        str(rec(event.data).parentID) === sid,
+    )
+    .map((event) => str(rec(event.data).sessionID));
 
 const scenarios: Scenario[] = [
   {
@@ -597,6 +629,7 @@ const scenarios: Scenario[] = [
   {
     name: "subagent",
     async run(c) {
+      uncommitted(c.cwd);
       const sid = await c.begin();
       const agents = (await c.a.api.agents()).map(rec);
       const sub =
@@ -605,10 +638,159 @@ const scenarios: Scenario[] = [
       const mark = c.a.mark();
       await c.prompt(
         sid,
-        `Use the subagent tool with agent "${str(sub?.id) || "general"}" to work out what 2+2 is, then report the answer in one sentence.`,
+        `Use the subagent tool with agent "${str(sub?.id) || "general"}" to read notes.txt and say how many lines it has, then report the answer in one sentence.`,
+      );
+      await c.idle(mark);
+      // 다시 열 때 자식 transcript를 읽는 길.
+      for (const child of childrenOf(c, sid))
+        await c.a.api.messages(child, { limit: 200, order: "asc" });
+      await c.a.api.messages(sid, { limit: 200, order: "asc" });
+    },
+  },
+  {
+    name: "subagent_background",
+    async run(c) {
+      const sid = await c.begin();
+      const mark = c.a.mark();
+      await c.prompt(
+        sid,
+        'Call the subagent tool exactly once with agent "general" and background set to true. Its task: write the numbers 1 to 200, one per line, slowly. Then end your reply with one short sentence; do not wait for it.',
+      );
+      await c.idle(mark);
+      const child = childrenOf(c, sid)[0] ?? "";
+      const ofChild = (event: Json) => str(rec(event.data).sessionID) === child;
+      const childEnd = (event: Json) =>
+        ofChild(event) && END.includes(str(event.type));
+      // 부모 turn이 끝난 뒤에도 자식이 도는지 본다.
+      await c.a.until(
+        (event) =>
+          ofChild(event) && str(event.type) === "session.execution.started",
+        mark,
+        20_000,
+      );
+      const running = !c.a.events.slice(mark).some(childEnd);
+      c.note(
+        running
+          ? "child still running after the parent turn: interrupt it"
+          : "child already ended before the interrupt",
+      );
+      if (running) await c.a.api.interrupt(child);
+      await c.a.until(childEnd, mark, 60_000);
+      // 자식이 끝나면 부모가 알림을 받아 새 turn을 시작할 수 있다.
+      const parentTurns = c.a.events
+        .slice(mark)
+        .filter((event) => str(rec(event.data).sessionID) === sid)
+        .filter(typeIs(...END)).length;
+      await c.a.until(
+        () =>
+          c.a.events
+            .slice(mark)
+            .filter((event) => str(rec(event.data).sessionID) === sid)
+            .filter(typeIs(...END)).length > parentTurns,
+        mark,
+        15_000,
+      );
+      await c.a.api.messages(child, { limit: 200, order: "asc" });
+      await c.a.api.messages(sid, { limit: 200, order: "asc" });
+    },
+  },
+  {
+    name: "command_server",
+    async run(c) {
+      uncommitted(c.cwd);
+      const sid = await c.begin();
+      const mark = c.a.mark();
+      await c.a.api.command(sid, { name: "review", text: "" });
+      await c.idle(mark);
+      await c.a.api.messages(sid, { limit: 200, order: "asc" });
+    },
+  },
+  {
+    name: "command_queued",
+    async run(c) {
+      uncommitted(c.cwd);
+      const sid = await c.begin();
+      const mark = c.a.mark();
+      await c.prompt(sid, "Count from 1 to 40, one number per line.");
+      await c.expect("session.text.delta", mark);
+      c.note("server command while running, delivery queue");
+      await c.a.api.command(sid, {
+        name: "review",
+        text: "",
+        delivery: "queue",
+      });
+      await c.a.api.inbox(sid);
+      await c.idle(mark, 2);
+      await c.a.api.messages(sid, { limit: 200, order: "asc" });
+    },
+  },
+  {
+    name: "todowrite",
+    async run(c) {
+      const sid = await c.begin();
+      const mark = c.a.mark();
+      await c.prompt(
+        sid,
+        "Use your todowrite tool to make a todo list with exactly three items: Read notes, Write summary, Check summary. Then call todowrite again to mark the first item completed. Then say done.",
       );
       await c.idle(mark);
       await c.a.api.messages(sid, { limit: 200, order: "asc" });
+    },
+  },
+  {
+    name: "undo_redo",
+    async run(c) {
+      const sid = await c.begin();
+      let mark = c.a.mark();
+      await c.prompt(
+        sid,
+        "Create a file named a.txt containing the word alpha.",
+      );
+      await c.idle(mark);
+      mark = c.a.mark();
+      await c.prompt(
+        sid,
+        "Create a file named b.txt containing the word beta.",
+      );
+      await c.idle(mark);
+      const users = arr(
+        rec(await c.a.api.messages(sid, { limit: 200, order: "asc" })).data,
+      )
+        .map(rec)
+        .filter((one) => one.type === "user");
+      c.note("undo: stage a revert of the last message, files included");
+      mark = c.a.mark();
+      await c.a.api.revertStage(sid, {
+        messageID: str(users.at(-1)?.id),
+        files: true,
+      });
+      await c.a.until(typeIs("session.revert.staged"), mark, 10_000);
+      await c.a.api.get(sid);
+      await c.a.api.messages(sid, { limit: 200, order: "asc" });
+      c.note("redo: clear the staged revert");
+      mark = c.a.mark();
+      await c.a.api.revertClear(sid);
+      await c.a.until(typeIs("session.revert.cleared"), mark, 10_000);
+      await c.a.api.get(sid);
+      await c.a.api.messages(sid, { limit: 200, order: "asc" });
+    },
+  },
+  {
+    // model을 부르지 않는다.
+    name: "server_reads",
+    async run(c) {
+      const sid = await c.begin();
+      const none = () => undefined;
+      await c.a.api.usageLimits().catch(none);
+      await c.a.api
+        .sessionStats({
+          from: new Date(new Date().getFullYear(), 0, 1).getTime(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+        })
+        .catch(none);
+      await c.a.api.exportSession(sid).catch(none);
+      await c.a.api.mcps().catch(none);
+      await c.a.api.skills().catch(none);
     },
   },
   {
@@ -659,11 +841,10 @@ const scenarios: Scenario[] = [
 ];
 
 async function runScenario(scenario: Scenario) {
-  const cwd = `${ROOT}/${scenario.name}`;
-  const file = `${ROOT}/${scenario.name}.jsonl`;
-  rmSync(cwd, { recursive: true, force: true });
+  const cwd = mkdtempSync(join(tmpdir(), `lophn-rec-${scenario.name}-`));
+  execFileSync("git", ["init", "-q"], { cwd });
+  const file = `${OUT}/${scenario.name}.jsonl`;
   rmSync(file, { force: true });
-  mkdirSync(cwd, { recursive: true, mode: 0o700 });
   const t0 = Date.now();
   const log = (kind: string, data: unknown) =>
     appendFileSync(
@@ -749,10 +930,20 @@ async function runScenario(scenario: Scenario) {
     for (const sid of made) await last.remove(sid).catch(() => undefined);
     for (const client of clients) client.close();
     await server.stop();
+    rmSync(cwd, { recursive: true, force: true });
   }
 }
 
-const wanted = process.argv.slice(2);
+const args = process.argv.slice(2);
+const outAt = args.indexOf("--out");
+if (outAt < 0 || args[outAt + 1] === undefined) {
+  console.log(
+    `usage: node record.ts --out <dir> [scenario ...]\nscenarios: ${scenarios.map((one) => one.name).join(", ")}`,
+  );
+  process.exit(0);
+}
+const OUT = resolve(args[outAt + 1] ?? "");
+const wanted = args.filter((_, at) => at !== outAt && at !== outAt + 1);
 const names = new Set(scenarios.map((one) => one.name));
 for (const name of wanted) {
   if (!names.has(name))
@@ -760,7 +951,7 @@ for (const name of wanted) {
       `unknown scenario ${name}. Known: ${[...names].join(", ")}`,
     );
 }
-mkdirSync(ROOT, { recursive: true, mode: 0o700 });
+mkdirSync(OUT, { recursive: true, mode: 0o700 });
 for (const scenario of scenarios) {
   if (wanted.length > 0 && !wanted.includes(scenario.name)) continue;
   console.log(`recording ${scenario.name}`);

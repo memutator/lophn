@@ -207,6 +207,23 @@ export function createApi(transport: OpencodeTransport) {
       }),
     formCancel: (id: string, form: string) =>
       call("DELETE", `${session(id)}/form/${encodeURIComponent(form)}`),
+    usageLimits: async () =>
+      (await call("GET", "/api/experimental/usage/limits")) ?? {},
+    sessionStats: async (query: Record<string, string | number>) =>
+      (await call("GET", "/api/experimental/session/stats", { query })) ?? {},
+    exportSession: async (id: string) =>
+      (await call(
+        "GET",
+        `/api/experimental/session/${encodeURIComponent(id)}/export`,
+      )) ?? {},
+    mcps: async () => (await call("GET", "/api/mcp")) ?? {},
+    skills: async () => arr(await data(call("GET", "/api/skill"))),
+    runSkill: (id: string, skill: string) =>
+      call(
+        "POST",
+        `/api/experimental/session/${encodeURIComponent(id)}/skill`,
+        { body: { id: skill } },
+      ),
   };
 }
 export type OpencodeApi = ReturnType<typeof createApi>;

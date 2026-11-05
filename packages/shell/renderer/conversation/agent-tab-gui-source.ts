@@ -26,16 +26,28 @@ interface GuiSourceDeps {
 }
 
 /** 숨긴 구간 안까지 찾는다. */
-function toolItemOf(
+function toolItemIn(
   items: readonly (AcpItem | AcpEntry)[],
   id: string,
 ): AcpToolItem | undefined {
   for (const item of items) {
     if (item.kind === "tool" && item.id === id) return item;
     if (item.kind === "hidden") {
-      const inner = toolItemOf(item.items, id);
+      const inner = toolItemIn(item.items, id);
       if (inner !== undefined) return inner;
     }
+  }
+  return undefined;
+}
+
+/** 자식 대화의 tool까지 찾는다. */
+function toolItemOf(state: AcpState, id: string): AcpToolItem | undefined {
+  for (const items of [
+    state.items,
+    ...Object.values(state.children).map((child) => child.items),
+  ]) {
+    const found = toolItemIn(items, id);
+    if (found !== undefined) return found;
   }
   return undefined;
 }
@@ -78,7 +90,7 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
       ),
     // harness가 item에 실은 본문(`body`)을 그대로 읽는다. 칸이 null이면 없다.
     toolCallBody: (id, part) => {
-      const body = toolItemOf(feed.state().items, id)?.body ?? null;
+      const body = toolItemOf(feed.state(), id)?.body ?? null;
       const value = body?.[part] ?? null;
       return Promise.resolve(
         body === null || value === null

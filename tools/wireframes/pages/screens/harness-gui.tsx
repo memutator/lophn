@@ -4,7 +4,9 @@
 import { type ReactNode, useMemo, useState } from "react";
 
 import type {
+  AcpChildUpdate,
   AcpToolBody,
+  AcpToolDetail,
   AcpUpdate,
 } from "../../../../packages/protocol/acp/mod.ts";
 import type { HarnessGuiTabApi } from "../../../../packages/shell/ipc/harness-gui.ts";
@@ -16,6 +18,7 @@ import { TerminalGui } from "../../../../packages/shell/renderer/terminal/termin
 import { fakeHarnessMeta } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 import {
   click,
+  press,
   runSteps,
   type Step,
   type,
@@ -28,13 +31,17 @@ const at = (second: number) =>
   `2026-11-05T09:00:${String(second).padStart(2, "0")}.000Z`;
 const text = (value: string) => [{ type: "text" as const, text: value }];
 
+// 화면이 "지금"으로 보는 시각. 도는 줄의 경과 시간이 gallery마다 같다.
+const NOW = Date.parse("2026-11-05T09:02:00.000Z");
+
 const message = (
   id: string,
   seq: number,
   second: number,
   actor: "user" | "agent",
   value: string,
-): AcpUpdate => ({
+  turn = TURN,
+): AcpChildUpdate => ({
   type: "message_added",
   item: {
     kind: "message",
@@ -46,7 +53,7 @@ const message = (
     call: null,
     reply_to: null,
     delivery: "next_turn",
-    turn: actor === "agent" ? TURN : null,
+    turn: actor === "agent" ? turn : null,
     origin: null,
     content: text(value),
     reasoning: null,
@@ -60,23 +67,25 @@ const tool = (
   seq: number,
   second: number,
   name: string,
-  category: "read" | "command" | "other",
+  category: "read" | "search" | "command" | "other",
   title: string,
   body: AcpToolBody | null = null,
-): AcpUpdate => ({
+  detail: AcpToolDetail = { kind: "generic" },
+  turn = TURN,
+): AcpChildUpdate => ({
   type: "tool_started",
   item: {
     kind: "tool",
     id,
     seq,
     at: at(second),
-    turn: TURN,
+    turn,
     tool: name,
     category,
     title,
     state: "running",
     duration_ms: null,
-    detail: { kind: "generic" },
+    detail,
     body,
   },
 });
@@ -85,7 +94,7 @@ const done = (
   id: string,
   second: number,
   body: AcpToolBody | null = null,
-): AcpUpdate => ({
+): AcpChildUpdate => ({
   type: "tool_ended",
   tool_call: id,
   state: "ok",
@@ -121,6 +130,101 @@ const CONTEXT_OUTPUT = [
   "| Messages | 21.9k | 10.9% |",
   "| Free space | 157k | 78.5% |",
 ].join("\n");
+
+// composer 위 dock이 그리는 것: 계획(하나 취소), 도는 subagent 하나(자식 대화), 도는 shell task 하나, 줄 선 메시지.
+// goal·toggle·role·사용 한도는 session 기능(`fakeHarnessMeta`)에 실린다.
+const CHILD = "chd-1";
+const CHILD_TURN = "trn-c1";
+const child = (update: AcpChildUpdate): AcpUpdate => ({
+  type: "child_update",
+  child: CHILD,
+  update,
+});
+
+const DOCK: readonly AcpUpdate[] = [
+  {
+    type: "plan_changed",
+    entries: [
+      { text: "Read src/upload.ts", status: "completed" },
+      { text: "Wrap upload() in a retry", status: "completed" },
+      { text: "Run npm test -- upload", status: "in_progress" },
+      { text: "Add src/upload.test.ts", status: "pending" },
+      { text: "Retry on 4xx too", status: "cancelled" },
+    ],
+  },
+  tool("tcl-4", 8, 8, "Task", "other", "Find where upload() is called", null, {
+    kind: "subagent",
+    agent: "Explore",
+    description: "Find where upload() is called",
+    child: CHILD,
+    state: "running",
+    model: "Haiku 5.5",
+    last: "Reading src/queue/worker.ts",
+  }),
+  child({ type: "turn_started", turn: CHILD_TURN, at: at(8) }),
+  child(
+    message(
+      "msg-c1",
+      1,
+      8,
+      "user",
+      "Find where upload() is called.",
+      CHILD_TURN,
+    ),
+  ),
+  child(
+    tool(
+      "tcl-c1",
+      2,
+      8,
+      "Grep",
+      "search",
+      "Search upload( in src",
+      null,
+      { kind: "generic" },
+      CHILD_TURN,
+    ),
+  ),
+  child(done("tcl-c1", 9)),
+  child(
+    message(
+      "msg-c2",
+      3,
+      10,
+      "agent",
+      "`upload()` is called from `src/queue/worker.ts` and from the CLI entry. I am reading the worker to see how it handles a failed upload.",
+      CHILD_TURN,
+    ),
+  ),
+  {
+    type: "tasks_changed",
+    tasks: [
+      {
+        id: "tsk-1",
+        kind: "shell",
+        description: "npm run dev",
+        state: "running",
+        started_at: at(5),
+        output: [
+          "> upload-service@1.4.0 dev",
+          "> node --watch src/server.ts",
+          "",
+          "listening on :3000",
+          "GET /health 200 2ms",
+          "POST /upload 500 41ms",
+        ].join("\n"),
+      },
+    ],
+  },
+  {
+    type: "message_queued",
+    queued: {
+      id: "msg-q1",
+      at: at(9),
+      content: text("Also add a test for the 4xx case."),
+    },
+  },
+];
 
 // 일하는 중인 turn: session 기능(명령 목록)과 끝난 tool 둘(본문이 있는 tool 하나), 명령 출력과 알림, 도는 tool 하나.
 // 순번은 위에서 아래로 1부터 센다.
@@ -177,6 +281,7 @@ const BASE: readonly AcpUpdate[] = [
     },
   },
   tool("tcl-3", 7, 7, "Bash", "command", "Run npm test -- upload"),
+  ...DOCK,
 ];
 
 // 승인 카드: 기본은 shell 명령이고 plan 승인 page는 Claude가 내는 plan 카드다.
@@ -245,7 +350,10 @@ const STREAMING = [
 
 const CWD = "/home/phroner/projects/upload-service";
 
-function fakeApi(approval: AcpUpdate): HarnessGuiTabApi {
+function fakeApi(
+  approval: AcpUpdate | null,
+  extra: readonly AcpUpdate[],
+): HarnessGuiTabApi {
   let push: (update: AcpUpdate) => void = () => {};
   let seq = 8;
   return {
@@ -254,7 +362,13 @@ function fakeApi(approval: AcpUpdate): HarnessGuiTabApi {
     onView: () => () => {},
     async connect(_handle, onUpdate) {
       push = onUpdate;
-      for (const update of [...BASE, approval, ...STREAMING]) onUpdate(update);
+      for (const update of [
+        ...BASE,
+        ...(approval === null ? [] : [approval]),
+        ...STREAMING,
+        ...extra,
+      ])
+        onUpdate(update);
       return { harness: "claude", cwd: CWD };
     },
     disconnect: async () => {},
@@ -315,7 +429,14 @@ function Card({ children }: { children: ReactNode }) {
         {head?.center}
         {head?.actions}
       </div>
-      <div style={{ position: "relative", flex: 1, display: "flex" }}>
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          display: "flex",
+          minHeight: 0,
+        }}
+      >
         <CardHeadContext.Provider value={setHead}>
           {children}
         </CardHeadContext.Provider>
@@ -324,25 +445,72 @@ function Card({ children }: { children: ReactNode }) {
   );
 }
 
+const NO_UPDATES: readonly AcpUpdate[] = [];
+
 function TerminalTabGui({
   steps = [],
   approval = SHELL_APPROVAL,
+  extra = NO_UPDATES,
 }: {
   steps?: readonly Step[];
-  approval?: AcpUpdate;
+  /** null이면 승인 카드 없이 dock과 composer만 보인다. */
+  approval?: AcpUpdate | null;
+  /** 갈무리 뒤에 더 보내는 갱신. */
+  extra?: readonly AcpUpdate[];
 }) {
   useDrive(() => runSteps(steps));
-  const api = useMemo(() => fakeApi(approval), [approval]);
+  const api = useMemo(() => fakeApi(approval, extra), [approval, extra]);
   return (
     <Card>
       <TerminalGui
         api={api}
         gui={{ handle: "win_gallery", harness: "claude", handoff: "restart" }}
         terminalRef="trm_gallery"
+        now={() => NOW}
       />
     </Card>
   );
 }
+
+// 숨겼다가 되살린 구간. 항목이 제자리로 돌아와 숨긴 구간 줄이 남지 않는다.
+const REWOUND: readonly AcpUpdate[] = [
+  {
+    type: "hidden_added",
+    item: {
+      kind: "hidden",
+      id: "rwd-1",
+      seq: 2,
+      at: at(11),
+      checkpoint: "msg-2",
+      choice: "messages_only",
+      count: 1,
+      restored: 0,
+      left: [],
+      items: [
+        {
+          kind: "message",
+          id: "msg-2",
+          seq: 2,
+          at: at(2),
+          actor: "agent",
+          sender: null,
+          call: null,
+          reply_to: null,
+          delivery: "next_turn",
+          turn: TURN,
+          origin: null,
+          content: text(
+            "I'll read the helper first, then wrap the request in a retry.",
+          ),
+          reasoning: null,
+          cards: [],
+          complete: true,
+        },
+      ],
+    },
+  },
+  { type: "hidden_restored", hidden: "rwd-1" },
+];
 
 export const harnessGuiArea: Area = {
   id: "harness-gui",
@@ -401,6 +569,71 @@ export const harnessGuiArea: Area = {
       description:
         "Claude가 plan mode를 나가며 내는 plan 승인 카드다. plan markdown을 12줄에서 접고 [Show full plan]으로 펼친다. 주 단추는 Claude가 주는 다음 mode마다 하나(Approve · Accept edits가 맨 오른쪽, Approve · Ask for edits)이고 [Keep planning]은 이유 칸을 여는 거절이다.",
       render: () => <TerminalTabGui approval={PLAN_APPROVAL} />,
+    },
+    {
+      id: "harness-gui-dock",
+      title: "Harness GUI · dock",
+      description:
+        "composer 위 dock이 접힌 모습이다. 승인·질문 카드 아래, composer 위에 Goal → Todo → Running → Queue 순서로 card가 한 줄씩 선다. Todo는 지금 하는 항목과 2/5, Running은 도는 일의 수, Queue는 줄 선 메시지 수를 요약한다. 내용이 없는 card는 없고 하나도 없으면 dock도 없다. composer 입력칸 안에는 Plan mode·Fast chip이 mode 옆에 있다.",
+      render: () => <TerminalTabGui approval={null} />,
+    },
+    {
+      id: "harness-gui-dock-running",
+      title: "Harness GUI · dock running",
+      description:
+        "Running card를 펼친 모습이다(다른 card는 접힌다). 도는 subagent 줄(상태 · agent · 마지막 한 줄 · 경과)과 background shell task 줄(아이콘 · 명령 · 경과)이 있고, 줄에 마우스를 올리거나 focus하면 경과 시간 자리에 [Stop]이 뜬다. subagent 줄을 누르면 자식 대화가 열리고 task 줄을 누르면 출력이 펼쳐진다. 펼친 card는 최대 높이 안에서 scroll한다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[
+            () => click("[data-dock-card=running] button"),
+            () => click("[data-run-task] button"),
+          ]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-subagent",
+      title: "Harness GUI · subagent",
+      description:
+        "대화 안 subagent 줄(Explore · 설명 · 경과, 아래에 마지막 말이 흐리게)을 눌러 연 자식 대화다. 대화 위 한 겹이고 머리는 [← Back] · 상태 · agent · model · 경과다. 본문은 읽기만 하는 자식 대화이고 아래 줄에서 방향을 주거나(Send) 멈춘다(Stop). 자식 상태가 갱신되면 같이 바뀐다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[() => click("[data-subagent=tcl-4]")]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-roles",
+      title: "Harness GUI · roles",
+      description:
+        "model picker를 연 모습이다. 맨 아래 Roles 절에 chat 묶음과 model 묶음이 있고 줄마다 role 이름과 지금 model(vendor 아이콘, 배정이 없으면 —)이 보인다. 줄을 누르면 이 session만 그 role의 model로 바뀐다. role 배정을 바꾸는 칸은 없다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[() => press("[data-model-button]")]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-status-limits",
+      title: "Harness GUI · status limits",
+      description:
+        "composer 아래 사용량 줄을 눌러 연 status 층이다. 창 막대 아래에 context 분해(항목 · token · 창 대비 %)가 붙고, Limits 절에 사용 한도가 한 줄씩 있다: 이름 · 막대(80%부터 경고색, 90%부터 위험색) · 풀리는 시각. 사용률을 모르는 한도는 막대 없이 남은 글이 보인다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[() => click("[data-status-footer]")]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-hidden-restored",
+      title: "Harness GUI · hidden restored",
+      description:
+        "rewind가 숨긴 구간이 다시 보이는 갱신(`hidden_restored`, OpenCode redo)을 받은 결과다. 숨긴 항목이 같은 자리로 돌아와 숨긴 구간 줄은 남지 않고 대화는 숨기기 전과 같다.",
+      render: () => <TerminalTabGui approval={null} extra={REWOUND} />,
     },
     {
       id: "harness-gui-restart-modal",

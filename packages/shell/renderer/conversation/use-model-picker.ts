@@ -24,6 +24,10 @@ interface ModelPickerInput {
   ) => Promise<boolean>;
   /** 쓰기가 실패했다. */
   onProblem: () => void;
+  /** capability `roles`: 이 session을 role의 model로 바꿀 수 있다. */
+  canUseRole: boolean;
+  /** 이 session만 그 role의 model로 바꾼다. */
+  onUseRole: (role: string) => Promise<boolean>;
 }
 
 /** picker props와, 읽어 보니 model이 없다는 사실. 없으면 보내도 turn이 시작하지 못한다. */
@@ -117,6 +121,32 @@ export function useModelPicker(input: ModelPickerInput): {
         });
       },
       layer: current?.layer ?? null,
+      ...(input.canUseRole && meta?.roles != null
+        ? {
+            roles: {
+              items: meta.roles.map((role) => {
+                const known =
+                  role.model === null ? undefined : found(role.model);
+                return {
+                  id: role.id,
+                  label: role.label,
+                  kind: role.kind,
+                  model: known?.model.label ?? role.model,
+                  // 모르는 model은 `provider/model` 꼴의 앞 조각으로 vendor를 고른다.
+                  provider:
+                    known?.group.label ??
+                    (role.model?.includes("/") === true
+                      ? role.model.split("/")[0]!
+                      : null),
+                };
+              }),
+              onUse: (role) =>
+                void input.onUseRole(role).then((done) => {
+                  if (!done) onProblem();
+                }),
+            },
+          }
+        : {}),
     },
   };
 }

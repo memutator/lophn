@@ -829,6 +829,7 @@ export async function buildAcpState(
         outcome: data.outcome,
         choice: data.choice,
         reason: data.reason === null ? null : env.redact(data.reason),
+        mode: null,
       }),
     });
   }
@@ -968,6 +969,7 @@ export async function buildAcpState(
     reread: false,
     children: {},
     tasks: [],
+    draft: null,
   });
 }
 

@@ -235,3 +235,28 @@
 .fieldEmpty {
   color: var(--color-text-muted);
 }
+
+/* Roles 절: kind 묶음마다 role 이름과 지금 model */
+.roles {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.roleKind {
+  margin: var(--space-2) var(--space-0) var(--space-1);
+  padding: var(--space-0) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.roleModel {
+  display: inline-flex;
+  margin-inline-start: auto;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}

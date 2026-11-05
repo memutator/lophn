@@ -150,6 +150,12 @@ export const acpStateSchema = z.strictObject({
   children: z.record(id, acpChildStateSchema),
   /** background task 목록. */
   tasks: z.array(acpTaskSchema),
+  /**
+   * 화면이 composer에 한 번 채울 글(OpenCode `/undo`가 되돌린 사람 메시지). `key`가 새 값일 때만 채운다. lophn은 늘 null.
+   */
+  draft: z
+    .strictObject({ key: id, content: z.array(contentBlockSchema) })
+    .nullable(),
 });
 export type AcpState = z.infer<typeof acpStateSchema>;
 
@@ -262,6 +268,7 @@ export const acpChildUpdateSchema = z.discriminatedUnion("type", [
     outcome: z.enum(["allowed", "denied", "cancelled"]),
     choice: acpApprovalItemSchema.shape.choice,
     reason: acpApprovalItemSchema.shape.reason,
+    mode: acpApprovalItemSchema.shape.mode,
     seq,
     at: atSchema,
   }),
@@ -319,6 +326,11 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("tasks_changed"),
     tasks: z.array(acpTaskSchema),
+  }),
+  z.strictObject({
+    type: z.literal("draft_set"),
+    key: id,
+    content: z.array(contentBlockSchema),
   }),
 ]);
 export type AcpUpdate = z.infer<typeof acpUpdateSchema>;

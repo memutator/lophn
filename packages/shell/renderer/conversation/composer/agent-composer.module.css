@@ -202,36 +202,3 @@
   line-height: var(--type-small-line);
 }
 
-/* agent의 계획. 입력칸 위에 작게 놓인다. */
-.plan {
-  box-sizing: border-box;
-  padding: var(--space-2) var(--space-4);
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-base);
-}
-
-.planList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-}
-
-.planItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.planItem[data-status="completed"] .planText {
-  color: var(--color-text-secondary);
-}
-
-.planText {
-  min-width: var(--space-0);
-}

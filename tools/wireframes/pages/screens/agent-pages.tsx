@@ -232,7 +232,7 @@ export const AgentApprovalDeny = ApprovalDenyScene;
 export const AgentApprovalStates = ApprovalStatesScene;
 /** 승인 카드의 세 범위와 file 바꾸기 subject. */
 export const AgentApprovalScopes = ApprovalScopesScene;
-/** harness CLI의 session: session 목록 없음, mode·CLI 명령·계획 목록. */
+/** harness CLI의 session: session 목록 없음, mode·CLI 명령, composer 위 dock(goal·todo·도는 일·줄 선 메시지). */
 export const AgentHarness = HarnessScene;
 /** harness의 mode menu. */
 export const AgentHarnessMode = HarnessModeScene;

@@ -4,6 +4,7 @@
 
 import {
   type AcpCapabilities,
+  type AcpChildState,
   type AcpEntry,
   type AcpInput,
   type AcpItem,
@@ -12,12 +13,16 @@ import {
   type AcpModelCurrent,
   type AcpModelGroup,
   type AcpSender,
+  type AcpRole,
   type AcpSessionMeta,
   type AcpState,
+  type AcpTask,
+  type AcpToggle,
   type AcpToolItem,
   type AcpTurn,
   type AcpUsage,
   acpNoticeId,
+  EMPTY_ACP_CHILD_STATE,
   EMPTY_ACP_STATE,
   reduceAcp,
   type AcpUpdate,
@@ -75,7 +80,7 @@ export const AGENT_TAB_SCENES = [
   "rewind",
   /** session이 아직 없는 새 대화. */
   "empty",
-  /** harness CLI의 session: mode 셋, CLI 명령, 계획 목록, 명령 출력과 알림 줄. session 목록과 파일 복원은 없다. */
+  /** harness CLI의 session: mode 셋, CLI 명령, composer 위 dock(goal, todo, 도는 subagent·task, 줄 선 메시지), 명령 출력과 알림 줄. session 목록과 파일 복원은 없다. */
   "harness",
   /** harness가 plan을 내고 승인을 기다린다: plan markdown과 다음 mode 단추. */
   "plan-approval",
@@ -743,6 +748,167 @@ function envelope(
   return { sender, task, refs, session };
 }
 
+// ---- harness 장면의 dock: 도는 subagent 하나(자식 대화), 도는 shell task 하나, 줄 선 메시지 ----
+
+const CHILD = "chd_01h455vb4pex5v6nkc6gd5f001";
+
+/** 도는 subagent 줄. 자식 대화는 `CHILD`다. */
+const SUBAGENT_CALL = tool(
+  31,
+  42,
+  {
+    tool: "Task",
+    category: "other",
+    title: "Find where the upload retry is called",
+  },
+  {
+    state: "running",
+    duration_ms: null,
+    detail: {
+      kind: "subagent",
+      agent: "Explore",
+      description: "Find where the upload retry is called",
+      child: CHILD,
+      state: "running",
+      model: "Haiku 5.5",
+      last: "Reading src/queue/worker.ts",
+    },
+  },
+);
+
+const childTool = (n: number, minutes: number, title: string): AcpToolItem =>
+  tool(
+    40 + n,
+    minutes,
+    { tool: "file.read", category: "read", title },
+    { duration_ms: 600 },
+  );
+
+/** 자식 대화: 맡긴 일, 읽은 file 둘, 지금까지 찾은 것. */
+const CHILD_STATE: AcpChildState = {
+  ...EMPTY_ACP_CHILD_STATE,
+  seq: 4,
+  turn: { ...turnOf("working"), id: turnId(2), started_at: at(42) },
+  items: [
+    {
+      ...user(41, 42, "Find where the upload retry is called."),
+      seq: 1,
+      turn: turnId(2),
+    },
+    {
+      ...childTool(1, 42, "Search retry in src"),
+      seq: 2,
+      turn: turnId(2),
+    },
+    {
+      ...childTool(2, 42, "Read src/upload.ts"),
+      seq: 3,
+      turn: turnId(2),
+    },
+    {
+      ...agent(
+        42,
+        43,
+        "`upload()` is called from `src/queue/worker.ts` and from the CLI entry. I am reading the worker to see how it handles a failed upload.",
+      ),
+      seq: 4,
+      turn: turnId(2),
+    },
+  ],
+};
+
+/** 도는 shell task. 출력은 꼬리 몇 줄이다. */
+const SHELL_TASK: AcpTask = {
+  id: "tsk_01h455vb4pex5v6nkc6gd5f001",
+  kind: "shell",
+  description: "npm run dev",
+  state: "running",
+  started_at: at(40),
+  output: [
+    "> upload-service@1.4.0 dev",
+    "> node --watch src/server.ts",
+    "",
+    "listening on :3000",
+    "GET /health 200 2ms",
+    "POST /upload 500 41ms",
+  ].join("\n"),
+};
+
+const DOCK_PLAN: NonNullable<AcpState["plan"]> = {
+  entries: [
+    { text: "Read the three findings", status: "completed" },
+    { text: "Add a retry to upload()", status: "completed" },
+    { text: "Write docs/reports/2026-w41.md", status: "in_progress" },
+    { text: "Update docs/reports/index.md", status: "pending" },
+    { text: "Remove the 2026-w40 draft", status: "cancelled" },
+  ],
+};
+
+const DOCK_QUEUED: AcpState["queued"] = [
+  {
+    id: messageId(30),
+    at: at(43),
+    content: [{ type: "text", text: "Also add a test for the 4xx case." }],
+  },
+];
+
+const DOCK_TOGGLES: AcpToggle[] = [
+  {
+    id: "plan",
+    label: "Plan mode",
+    description: "Plan first and ask before implementing.",
+    on: false,
+  },
+  {
+    id: "fast",
+    label: "Fast",
+    description: "Priority service tier. Costs more.",
+    on: true,
+  },
+];
+
+const DOCK_GOAL = {
+  objective: "Ship the weekly eval report",
+  status: "active",
+  detail: "Two of three sections are written.",
+} as const;
+
+const DOCK_ROLES: AcpRole[] = [
+  { id: "default", label: "default", kind: "chat", model: "sonnet" },
+  { id: "smol", label: "smol", kind: "chat", model: "haiku" },
+  {
+    id: "slow",
+    label: "slow",
+    kind: "chat",
+    model: "anthropic/claude-opus-5-5",
+  },
+  { id: "image", label: "image", kind: "model", model: null },
+];
+
+const DOCK_LIMITS: AcpUsage["limits"] = [
+  {
+    id: "5h",
+    label: "5-hour limit",
+    used_percent: 82,
+    left: null,
+    resets_at: at(150),
+  },
+  {
+    id: "week",
+    label: "Weekly limit",
+    used_percent: null,
+    left: "$4.20 left",
+    resets_at: at(60 * 52),
+  },
+];
+
+const DOCK_CONTEXT_PARTS: NonNullable<AcpUsage["context"]>["parts"] = [
+  { label: "System prompt", tokens: 3_200 },
+  { label: "System tools", tokens: 11_800 },
+  { label: "Memory files", tokens: 2_000 },
+  { label: "Messages", tokens: 21_900 },
+];
+
 interface SceneData {
   agent: AgentFace;
   title: string;
@@ -1146,6 +1312,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         outcome,
         choice,
         reason,
+        mode: null,
       });
       return {
         agent: LOPHN,
@@ -1195,6 +1362,7 @@ function sceneData(scene: AgentTabScene): SceneData {
             }),
             user(1, 41, REQUEST),
             ...REPORT_CALLS,
+            SUBAGENT_CALL,
             agent(
               2,
               42,
@@ -1203,16 +1371,10 @@ function sceneData(scene: AgentTabScene): SceneData {
           ],
           {
             turn: turnOf("working"),
-            plan: {
-              entries: [
-                { text: "Read the three findings", status: "completed" },
-                {
-                  text: "Write docs/reports/2026-w41.md",
-                  status: "in_progress",
-                },
-                { text: "Update docs/reports/index.md", status: "pending" },
-              ],
-            },
+            plan: DOCK_PLAN,
+            queued: DOCK_QUEUED,
+            tasks: [SHELL_TASK],
+            children: { [CHILD]: CHILD_STATE },
           },
         ),
         toolBodies: REPORT_TOOL_BODIES,
@@ -1379,6 +1541,17 @@ const HARNESS_CAPABILITIES: AcpCapabilities = {
   sessions: false,
 };
 
+/** dock이 그리는 것(subagent, task, toggle, goal, role)까지 가진 harness. */
+const DOCK_CAPABILITIES: AcpCapabilities = {
+  ...HARNESS_CAPABILITIES,
+  stop_child: true,
+  steer_child: true,
+  tasks: true,
+  toggles: true,
+  goal: true,
+  roles: true,
+};
+
 function modelsOf(picker: FakePicker): {
   models: AcpModelGroup[];
   model: AcpModelCurrent | null;
@@ -1444,6 +1617,8 @@ interface MetaOptions {
   readonly status: Partial<AcpUsage>;
   readonly title: string | null;
   readonly mode: "ask" | "skip";
+  /** harness가 dock의 것(toggle, goal, role, 사용 한도, context 분해)을 싣는다. */
+  readonly dock?: boolean;
 }
 
 function lophnMeta(options: MetaOptions): AcpSessionMeta {
@@ -1471,7 +1646,8 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
   return {
     title: options.title,
     cli_session: "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9",
-    capabilities: HARNESS_CAPABILITIES,
+    capabilities:
+      options.dock === true ? DOCK_CAPABILITIES : HARNESS_CAPABILITIES,
     models: [
       {
         id: "claude",
@@ -1498,18 +1674,23 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
       ...usageOf(options.status),
       provider: null,
       costs: [],
-      context: { tokens: 43_000, limit: 200_000, parts: [] },
+      context: {
+        tokens: 43_000,
+        limit: 200_000,
+        parts: options.dock === true ? DOCK_CONTEXT_PARTS : [],
+      },
+      ...(options.dock === true ? { limits: DOCK_LIMITS } : {}),
     },
-    toggles: [],
-    goal: null,
-    roles: null,
+    toggles: options.dock === true ? DOCK_TOGGLES : [],
+    goal: options.dock === true ? { ...DOCK_GOAL } : null,
+    roles: options.dock === true ? DOCK_ROLES : null,
     harness: "claude",
   };
 }
 
 /** wireframe의 harness GUI 탭이 첫 갱신으로 싣는 session 기능(Claude). */
 export const fakeHarnessMeta = (): AcpSessionMeta =>
-  harnessMeta({ picker: {}, status: {}, title: null, mode: "ask" });
+  harnessMeta({ picker: {}, status: {}, title: null, mode: "ask", dock: true });
 
 // ---- fake ----
 
@@ -1565,6 +1746,7 @@ export function createFakeAgentTabSource(
       status: options.status ?? {},
       title,
       mode,
+      dock: options.scene === "harness",
     });
   const withMeta = (state: AcpState, meta: AcpSessionMeta): AcpState => ({
     ...state,
@@ -1726,6 +1908,7 @@ export function createFakeAgentTabSource(
       choice:
         choice.kind === "reject" || choice.kind === "mode" ? null : choice.kind,
       reason: choice.kind === "reject" ? (choice.reason ?? null) : null,
+      mode: choice.kind === "mode" ? choice.mode : null,
       seq: state.seq + 1,
       at: sentAt(),
     });
@@ -1826,6 +2009,91 @@ export function createFakeAgentTabSource(
         return stateOf(session).session?.capabilities.sessions === false
           ? { ok: true, value: {} }
           : fork(session, input.message);
+      case "set_toggle": {
+        const toggles = stateOf(session).session?.toggles ?? [];
+        return changed({
+          toggles: toggles.map((one) =>
+            one.id === input.id ? { ...one, on: input.on } : one,
+          ),
+        });
+      }
+      case "set_goal": {
+        const goal = stateOf(session).session?.goal ?? null;
+        return changed({
+          goal:
+            input.objective === null
+              ? null
+              : {
+                  objective: input.objective,
+                  status: input.paused ? "paused" : "active",
+                  detail: goal?.detail ?? null,
+                },
+        });
+      }
+      case "use_role": {
+        const state = stateOf(session);
+        const role = state.session?.roles?.find((one) => one.id === input.role);
+        const found = state.session?.models
+          .flatMap((group) => group.models)
+          .find((one) => one.id === role?.model);
+        if (found === undefined) return { ok: false, code: "invalid_input" };
+        return changed({
+          model: {
+            model: found.id,
+            label: found.label,
+            options: {},
+            layer: null,
+          },
+        });
+      }
+      case "stop_child": {
+        const item = stateOf(session).items.find(
+          (one) =>
+            one.kind === "tool" &&
+            one.detail.kind === "subagent" &&
+            one.detail.child === input.child,
+        );
+        if (item?.kind !== "tool" || item.detail.kind !== "subagent") {
+          return { ok: false, code: "not_found" };
+        }
+        return lift(
+          apply(session, {
+            type: "tool_detail_changed",
+            tool_call: item.id,
+            detail: { ...item.detail, state: "cancelled" },
+          }),
+        );
+      }
+      case "steer_child": {
+        const child = stateOf(session).children[input.child];
+        if (child === undefined) return { ok: false, code: "not_found" };
+        return lift(
+          apply(session, {
+            type: "child_update",
+            child: input.child,
+            update: {
+              type: "message_added",
+              item: {
+                ...user(0, 44, input.text, {
+                  id: nextId("msg"),
+                  delivery: "steer",
+                  turn: child.turn?.id ?? null,
+                }),
+                seq: child.seq + 1,
+              },
+            },
+          }),
+        );
+      }
+      case "stop_task":
+        return lift(
+          apply(session, {
+            type: "tasks_changed",
+            tasks: stateOf(session).tasks.map((one) =>
+              one.id === input.task ? { ...one, state: "stopped" } : one,
+            ),
+          }),
+        );
       case "run_command":
       case "compact":
         return { ok: true, value: {} };

@@ -37,6 +37,17 @@ export interface PickerAxisView {
   }[];
 }
 
+/** role 한 줄(omp `/switch @role`). 이 session만 그 role의 model로 바꾼다. role 배정을 바꾸는 칸은 없다. */
+export interface PickerRoleView {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: "chat" | "model";
+  /** 지금 배정된 model의 이름. 없으면 null이다. */
+  readonly model: string | null;
+  /** vendor 아이콘을 고르는 provider 이름. 모르면 null이다. */
+  readonly provider: string | null;
+}
+
 export interface ModelPickerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,6 +71,11 @@ export interface ModelPickerProps {
   axesReady?: boolean;
   /** 위 층의 값을 따르는 줄. agent와 project의 Model 칸만 가진다. */
   follow?: FollowView;
+  /** 목록 맨 아래의 Roles 절. role이 없는 source에는 없다. */
+  roles?: {
+    readonly items: readonly PickerRoleView[];
+    readonly onUse: (role: string) => void;
+  };
 }
 
 /** 목록 맨 위의 "Use project default — X" 줄. `on`이면 지금 이 칸은 따르는 중이다. 고르면 `onFollow`를 부른다. */

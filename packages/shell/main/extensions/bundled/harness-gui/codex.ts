@@ -1637,6 +1637,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 : "cancelled",
           choice: granted === "once" && wait.kind === "plan" ? null : granted,
           reason: reason ?? null,
+          mode: decision === "mode" ? "default" : null,
           seq: ++root.seq,
           at: now(),
         });

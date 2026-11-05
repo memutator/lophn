@@ -269,6 +269,7 @@ export function acpUpdatesOf(
                 : "cancelled",
           choice: outcome === "allow" ? (decision?.choice ?? null) : null,
           reason: outcome === "reject" ? (decision?.reason ?? null) : null,
+          mode: null,
           seq,
           at: event.at,
         },

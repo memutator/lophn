@@ -19,10 +19,12 @@ import {
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
+  AcpChildState,
   AcpInput,
   AcpPlan,
   AcpSessionMeta,
   AcpState,
+  AcpTask,
   AcpWriting,
 } from "../../../protocol/acp/mod.ts";
 import type { Vendor } from "../parts/vendor-icon/vendor-icon.tsx";
@@ -252,6 +254,8 @@ export interface ApprovalResultView {
   readonly choice: "once" | "session" | "always" | null;
   /** 거절 이유. */
   readonly reason: string | null;
+  /** plan 승인에서 고른 `modes` id. 그 밖은 null이다. */
+  readonly mode: string | null;
 }
 
 // ---- thread ----
@@ -296,6 +300,21 @@ interface EditView {
 interface ThreadTools extends EntryBase {
   readonly kind: "tools";
   readonly calls: readonly ToolCallView[];
+}
+
+/** 일을 맡긴 subagent 한 줄. `child`가 있으면 줄이 단추이고 누르면 자식 대화를 연다. */
+export interface ThreadSubagent extends EntryBase {
+  readonly kind: "subagent";
+  readonly tool: string;
+  readonly agent: string;
+  readonly description: string;
+  readonly child: string | null;
+  readonly state: "running" | "done" | "failed" | "cancelled";
+  readonly model: string | null;
+  /** 마지막 말이나 요약. */
+  readonly last: string | null;
+  readonly startedAt: string;
+  readonly durationMs: number | null;
 }
 
 /** 되돌아가는 편집을 undo하는 기능은 없다. 되돌리려면 rewind다. */
@@ -399,6 +418,7 @@ export interface ThreadHidden extends EntryBase {
 export type ThreadEntry =
   | ThreadMessage
   | ThreadTools
+  | ThreadSubagent
   | ThreadEdit
   | ThreadCall
   | ThreadReleaseConsent
@@ -452,6 +472,12 @@ export interface ThreadView {
   readonly session: AcpSessionMeta | null;
   /** agent의 계획. 없으면 null이다. */
   readonly plan: AcpPlan | null;
+  /** background task. */
+  readonly tasks: readonly AcpTask[];
+  /** subagent의 대화(key는 subagent 줄의 `child`). 읽을 때 같은 `layoutOf`로 늘어놓는다. */
+  readonly children: Readonly<Record<string, AcpChildState>>;
+  /** composer에 한 번 채울 글(`key`가 새 값일 때). */
+  readonly draft: AcpState["draft"];
 }
 
 // ---- model, 명령, 권한 ----

@@ -34,6 +34,7 @@ export const EMPTY_ACP_STATE: AcpState = {
   ...EMPTY_ACP_CHILD_STATE,
   children: {},
   tasks: [],
+  draft: null,
 };
 
 /** turn 꼬리의 항목 id. turn마다 하나다. */
@@ -389,6 +390,7 @@ function reduceChild(
             outcome: update.outcome,
             choice: update.choice,
             reason: update.reason,
+            mode: update.mode,
           },
         ),
       );
@@ -522,10 +524,12 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
     }
     case "tasks_changed":
       return { ...state, tasks: update.tasks };
+    case "draft_set":
+      return { ...state, draft: { key: update.key, content: update.content } };
     default: {
-      const { children, tasks, ...child } = state;
+      const { children, tasks, draft, ...child } = state;
       const next = reduceChild(child, update);
-      return next === child ? state : { ...next, children, tasks };
+      return next === child ? state : { ...next, children, tasks, draft };
     }
   }
 }

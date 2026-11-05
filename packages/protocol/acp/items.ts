@@ -179,6 +179,8 @@ export const acpApprovalItemSchema = z.strictObject({
   /** 사람이 고른 허락 범위. 모르면 null. */
   choice: z.enum(["once", "session", "always"]).nullable(),
   reason: z.string().nullable(),
+  /** plan 승인에서 고른 `modes` id. 그 밖의 승인은 null. */
+  mode: z.string().min(1).nullable(),
 });
 export type AcpApprovalItem = z.infer<typeof acpApprovalItemSchema>;
 

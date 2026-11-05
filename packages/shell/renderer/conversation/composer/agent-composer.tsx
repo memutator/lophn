@@ -27,8 +27,8 @@ import { PATH_DRAG_TYPE } from "../../workspace/drag.ts";
 import type {
   AcpCapabilities,
   AcpChoice,
-  AcpPlan,
   AcpSessionMeta,
+  AcpToggle,
 } from "../../../../protocol/acp/mod.ts";
 import type {
   AgentTabSource,
@@ -47,8 +47,7 @@ import { useModelPicker } from "../use-model-picker.ts";
 import { useSlashMenu } from "../use-slash-menu.tsx";
 import styles from "./agent-composer.module.css";
 import { AttachmentChips } from "./attachment-chips.tsx";
-import { PlanList } from "./plan-list.tsx";
-import { ModeMenu } from "./session-controls.tsx";
+import { ModeMenu, ToggleChips } from "./session-controls.tsx";
 import { runComposerCommand } from "./slash-actions.ts";
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
@@ -60,8 +59,6 @@ interface AgentComposerProps {
   meta: AcpSessionMeta | null;
   /** 어떤 칸을 그릴지. */
   capabilities: AcpCapabilities;
-  /** 계획. 없으면 null이다. */
-  plan: AcpPlan | null;
   /** model과 축 값을 정한다. 접수되었는지 돌려준다. */
   onChooseModel: (
     model: string,
@@ -101,6 +98,13 @@ interface AgentComposerProps {
     readonly choices: readonly AcpChoice[];
     readonly onChange: (mode: string) => void;
   };
+  /** 켜고 끄는 session 설정(Plan mode, Fast). 주면 입력칸 아래 줄에 chip으로 그린다. */
+  toggles?: {
+    readonly items: readonly AcpToggle[];
+    readonly onToggle: (id: string, on: boolean) => void;
+  };
+  /** model picker의 Roles 절에서 role을 골랐다. 이 session만 그 role의 model로 바꾼다. */
+  onUseRole: (role: string) => Promise<boolean>;
   onDraft: (
     patch: Partial<Pick<Draft, "text" | "selection" | "attachments">>,
   ) => void;
@@ -149,6 +153,8 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     session: props.session,
     onChoose: props.onChooseModel,
     onProblem: props.onProblem,
+    canUseRole: capabilities.roles,
+    onUseRole: props.onUseRole,
   });
   const [modeOpen, setModeOpen] = useState(false);
   const clearText = () => props.onDraft({ text: "", selection: [0, 0] });
@@ -319,7 +325,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       {offline ? (
         <p className={styles.note}>{t("conversation.notice.offline")}</p>
       ) : null}
-      {props.plan === null ? null : <PlanList plan={props.plan} />}
       <div className={styles.boxWrap}>
         {slash.menu === null ? null : (
           <div className={styles.slash}>{slash.menu}</div>
@@ -416,6 +421,12 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               {capabilities.model && props.meta !== null ? (
                 <ModelPicker {...picker.props} />
               ) : null}
+              {props.toggles === undefined ? null : (
+                <ToggleChips
+                  toggles={props.toggles.items}
+                  onToggle={props.toggles.onToggle}
+                />
+              )}
               {props.mode === undefined ? null : (
                 <ModeMenu
                   current={props.mode.current}

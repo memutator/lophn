@@ -1627,6 +1627,7 @@ const start: (io: OmpIo) => Start =
           outcome: how.approval,
           choice: how.choice ?? null,
           reason: how.reason ?? null,
+          mode: null,
           seq: main.nextSeq(),
           at: now(),
         });

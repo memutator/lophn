@@ -161,6 +161,7 @@ export type AcpApprovalItem = {
   outcome: "allowed" | "denied" | "cancelled";
   choice: "once" | "session" | "always" | null;
   reason: string | null;
+  mode: string | null;
 };
 
 export type AcpNoticeItem = {
@@ -424,6 +425,7 @@ export type AcpChildState = {
 export type AcpState = AcpChildState & {
   children: Record<string, AcpChildState>;
   tasks: AcpTask[];
+  draft: { key: string; content: ContentBlock[] } | null;
 };
 
 export type AcpChildUpdate =
@@ -488,6 +490,7 @@ export type AcpChildUpdate =
       outcome: "allowed" | "denied" | "cancelled";
       choice: "once" | "session" | "always" | null;
       reason: string | null;
+      mode: string | null;
       seq: number;
       at: string;
     }
@@ -512,7 +515,8 @@ export type AcpChildUpdate =
 export type AcpUpdate =
   | AcpChildUpdate
   | { type: "child_update"; child: string; update: AcpChildUpdate }
-  | { type: "tasks_changed"; tasks: AcpTask[] };
+  | { type: "tasks_changed"; tasks: AcpTask[] }
+  | { type: "draft_set"; key: string; content: ContentBlock[] };
 
 export type AcpAnswer = {
   question: string;

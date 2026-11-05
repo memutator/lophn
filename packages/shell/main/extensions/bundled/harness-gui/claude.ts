@@ -1266,6 +1266,7 @@ const start: (sdk: ClaudeSdk) => Start =
             : "cancelled",
         choice: allowed && decision !== "mode" ? decision : null,
         reason: reason ?? null,
+        mode: decision === "mode" ? (mode ?? null) : null,
         seq: ++root.seq,
         at: now(),
       });

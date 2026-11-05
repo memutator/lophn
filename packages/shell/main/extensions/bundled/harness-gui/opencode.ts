@@ -1084,6 +1084,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         outcome,
         choice,
         reason,
+        mode: null,
         seq: ++main.seq,
         at: now(),
       });
@@ -2187,7 +2188,16 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
             (item) => item.kind === "message" && item.actor === "user",
           );
           if (last === undefined) info("Nothing to undo.");
-          else await rewind(last.id, true);
+          else {
+            await rewind(last.id, true);
+            // TUI와 데스크톱처럼 되돌린 사람 글을 입력칸에 돌려준다.
+            if (last.kind === "message")
+              emit({
+                type: "draft_set",
+                key: ids.newId("drf"),
+                content: last.content,
+              });
+          }
           return;
         }
         case "redo":

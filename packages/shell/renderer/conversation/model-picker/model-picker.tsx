@@ -27,6 +27,7 @@ export type {
   PickerLayoutView,
   PickerModelRef,
   PickerProviderGroup,
+  PickerRoleView,
 } from "./types.ts";
 
 function same(first: PickerModelRef, second: PickerModelRef): boolean {
@@ -112,6 +113,58 @@ export function ProviderHeading({ label }: { label: string }) {
       {vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />}
       {label}
     </h3>
+  );
+}
+
+/** Roles 절: kind(chat / model) 묶음마다 role · 지금 model. 누르면 이 session만 그 role의 model로 바뀐다. */
+function RolesSection({
+  roles,
+  onPicked,
+}: {
+  roles: NonNullable<ModelPickerProps["roles"]>;
+  onPicked: () => void;
+}) {
+  const groups = (["chat", "model"] as const).flatMap((kind) => {
+    const items = roles.items.filter((role) => role.kind === kind);
+    return items.length === 0 ? [] : [{ kind, items }];
+  });
+  if (groups.length === 0) return null;
+  return (
+    <div className={styles.roles} data-picker-section="roles">
+      <h3 className={styles.heading}>{t("conversation.label.roles")}</h3>
+      {groups.map((group) => (
+        <div key={group.kind} role="group" data-role-kind={group.kind}>
+          <p className={styles.roleKind}>
+            {t(
+              group.kind === "chat"
+                ? "conversation.label.roles-chat"
+                : "conversation.label.roles-model",
+            )}
+          </p>
+          {group.items.map((role) => {
+            const vendor =
+              role.provider === null ? undefined : vendorOf(role.provider);
+            return (
+              <PopoverRow
+                key={role.id}
+                onSelect={() => {
+                  roles.onUse(role.id);
+                  onPicked();
+                }}
+              >
+                <span className={styles.name}>{role.label}</span>
+                <span className={styles.roleModel}>
+                  {vendor === undefined ? null : (
+                    <VendorIcon vendor={vendor} size={14} />
+                  )}
+                  {role.model ?? "—"}
+                </span>
+              </PopoverRow>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -222,6 +275,12 @@ function PickerBody({
           <OptionAxes selection={props} onChange={props.onOptionChange} />
         </div>
       ) : null}
+      {props.roles === undefined ? null : (
+        <RolesSection
+          roles={props.roles}
+          onPicked={() => props.onOpenChange(false)}
+        />
+      )}
       {onManage === null ? null : (
         <div className={styles.foot} data-picker-section="foot">
           <PopoverRow onSelect={onManage}>

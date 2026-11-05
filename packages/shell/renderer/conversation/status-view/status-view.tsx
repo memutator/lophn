@@ -7,6 +7,7 @@ import type { ReactElement } from "react";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type { AcpUsage } from "../../../../protocol/acp/mod.ts";
 import {
+  compactTokens,
   contextLevel,
   contextPercent,
   costText,
@@ -116,6 +117,67 @@ function TokenBreakdown({
   );
 }
 
+/** `/context`의 분해: 항목마다 이름 · token · 창 대비 %. */
+function ContextParts({
+  context,
+}: {
+  context: NonNullable<AcpUsage["context"]>;
+}): ReactElement | null {
+  if (context.parts.length === 0) return null;
+  return (
+    <ul className={styles.parts} data-context-parts="">
+      {context.parts.map((part) => (
+        <li key={part.label} className={styles.part}>
+          <span className={styles.partName}>{part.label}</span>
+          <span>{compactTokens(part.tokens)}</span>
+          <span className={styles.partPercent}>
+            {context.limit <= 0
+              ? ""
+              : `${Math.round((part.tokens / context.limit) * 100)}%`}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** 사용 한도 한 줄: 이름 · 막대(모르면 남은 글) · 풀리는 시각. 막대 색은 창 사용률과 같은 80/90% 단계다. */
+function LimitLine({
+  limit,
+}: {
+  limit: AcpUsage["limits"][number];
+}): ReactElement {
+  const percent = limit.used_percent;
+  return (
+    <div className={styles.limit} data-limit={limit.id}>
+      <span className={styles.limitLabel}>{limit.label}</span>
+      {percent === null ? (
+        <span className={styles.limitLeft}>{limit.left ?? "—"}</span>
+      ) : (
+        <>
+          <div className={styles.bar} aria-hidden="true">
+            <div
+              className={styles.fill}
+              data-level={contextLevel(percent)}
+              style={{ width: `${Math.min(100, percent)}%` }}
+            />
+          </div>
+          <span className={styles.limitLeft}>
+            {limit.left ?? `${Math.round(percent)}%`}
+          </span>
+        </>
+      )}
+      {limit.resets_at === null ? null : (
+        <span className={styles.limitResets}>
+          {t("conversation.label.status-limit-resets", {
+            time: formatDate(new Date(limit.resets_at)),
+          })}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
   const { model, usage } = status;
   const { context } = usage;
@@ -172,6 +234,16 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
                   style={{ width: `${Math.min(100, percent)}%` }}
                 />
               </div>
+              <ContextParts context={context} />
+            </>
+          </Row>
+        )}
+        {usage.limits.length === 0 ? null : (
+          <Row name={t("conversation.label.status-limits")}>
+            <>
+              {usage.limits.map((limit) => (
+                <LimitLine key={limit.id} limit={limit} />
+              ))}
             </>
           </Row>
         )}

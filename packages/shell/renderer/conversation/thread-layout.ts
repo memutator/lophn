@@ -7,6 +7,7 @@ import {
   type ContentBlock,
 } from "../../../protocol/lophn-agent/content-block.ts";
 import type {
+  AcpChildState,
   AcpEntry,
   AcpItem,
   AcpMessageItem,
@@ -138,6 +139,7 @@ function entryOf(item: AcpItem): ThreadEntry | null {
           outcome: item.outcome,
           choice: item.choice,
           reason: item.reason,
+          mode: item.mode,
         },
       };
     case "notice": {
@@ -250,15 +252,29 @@ function entryOf(item: AcpItem): ThreadEntry | null {
             at: item.at,
             release: detail.release,
           };
-        case "generic":
         case "subagent":
+          return {
+            kind: "subagent",
+            id: item.id,
+            at: item.at,
+            tool: item.tool,
+            agent: detail.agent,
+            description: detail.description,
+            child: detail.child,
+            state: detail.state,
+            model: detail.model,
+            last: detail.last,
+            startedAt: item.at,
+            durationMs: item.duration_ms,
+          };
+        case "generic":
           return null;
       }
     }
   }
 }
 
-/** 순번 순서의 항목을 줄로. 사이에 다른 줄이 없는 일반 tool call은 종류별로 묶는다. */
+/** 순번 순서의 항목을 줄로. 사이에 다른 줄이 없는 일반 tool call은 종류별로 묶는다(subagent는 묶지 않는다). */
 export function layoutEntries(
   items: readonly (AcpItem | AcpEntry)[],
   cache: LayoutCache,
@@ -290,10 +306,7 @@ export function layoutEntries(
     run = [];
   };
   for (const item of items) {
-    if (
-      item.kind === "tool" &&
-      (item.detail.kind === "generic" || item.detail.kind === "subagent")
-    ) {
+    if (item.kind === "tool" && item.detail.kind === "generic") {
       if (item.turn !== runTurn) flush();
       runTurn = item.turn;
       run.push(callViewOf(item, cache));
@@ -312,8 +325,10 @@ export function layoutEntries(
   return out;
 }
 
+/** 자식 대화는 `children`·`tasks`·`draft`가 없는 상태다. */
 export function layoutOf(
-  state: AcpState,
+  state: AcpChildState &
+    Partial<Pick<AcpState, "children" | "tasks" | "draft">>,
   cache: LayoutCache = createLayoutCache(),
 ): ThreadView {
   const { turn, pending } = state;
@@ -361,5 +376,8 @@ export function layoutOf(
     live: state.writing,
     session: state.session,
     plan: state.plan,
+    tasks: state.tasks ?? [],
+    children: state.children ?? {},
+    draft: state.draft ?? null,
   };
 }

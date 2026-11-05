@@ -4,7 +4,9 @@ import type {
   BodyPart,
   ThreadEntry,
   ThreadMessage,
+  ThreadSubagent,
   ThreadView,
+  TurnView,
 } from "./agent-tab-source.ts";
 import { summaryOfParts } from "./agent-tab-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
@@ -18,6 +20,7 @@ import {
   type AcpState,
 } from "../../../protocol/acp/mod.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
+import { layoutOf } from "./thread-layout.ts";
 import type {
   SlashEntryView,
   SlashGroupKey,
@@ -69,6 +72,7 @@ export function shownEntries(
     ? entries.filter(
         (entry) =>
           entry.kind !== "tools" &&
+          entry.kind !== "subagent" &&
           !(entry.kind === "turn-end" && entry.outcome === "completed") &&
           !(
             entry.kind === "message" &&
@@ -117,6 +121,44 @@ export function excerptOf(parts: readonly BodyPart[] | undefined): string {
   return text.length > EXCERPT_CHARS
     ? `${text.slice(0, EXCERPT_CHARS)}…`
     : text;
+}
+
+/** 일하는 중 줄이 세는 시계. core가 센 active와 그 기준 시각이고 모르면 null이다. */
+export function clockOf(
+  turn: TurnView | null,
+): { activeMs: number; at: number } | null {
+  if (turn === null) return null;
+  if (turn.elapsed !== null) {
+    return { activeMs: turn.elapsed.activeMs, at: Date.parse(turn.elapsed.at) };
+  }
+  return turn.startedAt === null
+    ? null
+    : { activeMs: 0, at: Date.parse(turn.startedAt) };
+}
+
+/** 대화 안 subagent 줄(숨긴 구간 밖). */
+export function subagentsOf(entries: readonly ThreadEntry[]): ThreadSubagent[] {
+  return entries.filter(
+    (entry): entry is ThreadSubagent => entry.kind === "subagent",
+  );
+}
+
+/** 이 자식 대화를 맡긴 subagent 줄. 자식의 자식(손자)은 그 자식 대화 안에 있다. */
+export function subagentOfChild(
+  thread: ThreadView,
+  child: string,
+): ThreadSubagent | null {
+  const direct = subagentsOf(thread.entries).find(
+    (entry) => entry.child === child,
+  );
+  if (direct !== undefined) return direct;
+  for (const state of Object.values(thread.children)) {
+    const nested = subagentsOf(layoutOf(state).entries).find(
+      (entry) => entry.child === child,
+    );
+    if (nested !== undefined) return nested;
+  }
+  return null;
 }
 
 /** 받은 메시지가 답하는 call의 맡긴 글. 그 call이 이 대화에 없으면 undefined다. */

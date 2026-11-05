@@ -8,6 +8,7 @@ import { t } from "@lophn/i18n";
 
 import { EditCard } from "./activity/file-edit-card.tsx";
 import type { ViewDetail } from "./activity/model.ts";
+import { SubagentRow } from "./activity/subagent-row.tsx";
 import { ToolLine } from "./activity/tool-line.tsx";
 import { WorkedFor } from "./activity/worked-for.tsx";
 import {
@@ -88,6 +89,8 @@ interface AgentThreadProps {
   rewindOpen: string | null;
   onRewind: (message: string) => void;
   onFork: (message: string) => void;
+  /** subagent 줄을 눌러 그 자식 대화를 연다. */
+  onOpenChild: (child: string) => void;
   onCheck: () => void;
   onResend: () => void;
   /** 편집 카드의 [Open]. 없으면 단추가 아무것도 하지 않는다. */
@@ -291,6 +294,17 @@ function itemsOf(
             detail={props.detail === "everything" ? "expanded" : "collapsed"}
             now={props.now}
             readBody={props.source.toolCallBody}
+          />,
+        );
+        break;
+      case "subagent":
+        add(
+          entry,
+          <SubagentRow
+            key={entry.id}
+            entry={entry}
+            now={props.now}
+            onOpen={props.onOpenChild}
           />,
         );
         break;

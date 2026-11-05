@@ -1,22 +1,30 @@
 import { constants } from "node:fs";
 import { lstat, mkdir, open, realpath, rename, rm } from "node:fs/promises";
-import { errorCode } from "../../base/mod.ts";
+import { isAbsolute, resolve } from "node:path";
+import process from "node:process";
+import { errorCode, type OsPlatform } from "../../base/mod.ts";
 
 const LOG_FILE_MAX_BYTES = 10 * 1024 * 1024;
 const LOG_FILE_COUNT = 5;
 
 // H is fixed nonsecret installation input; filenames never come from a report.
-export async function createLogFiles(root: string): Promise<{
+export async function createLogFiles(
+  root: string,
+  platform: OsPlatform = process.platform,
+): Promise<{
   write(bytes: Uint8Array): Promise<void>;
 }> {
   if (
-    !root.startsWith("/") ||
-    root.split("/").some((p) => p === "." || p === "..")
+    !isAbsolute(root) ||
+    root.split(/[\\/]/).some((p) => p === "." || p === "..")
   ) {
     throw new Error("invalid log root");
   }
   const canonical = await realpath(root);
-  if (canonical !== root.replace(/\/$/, "")) throw new Error("unsafe log root");
+  // Windows는 `/`와 `\`를 섞어 쓰므로 resolve로 모양을 맞춰 비교한다.
+  const expected =
+    platform === "win32" ? resolve(root) : root.replace(/\/$/, "");
+  if (canonical !== expected) throw new Error("unsafe log root");
   const directory = `${canonical}/logs`;
   try {
     await mkdir(directory, { mode: 0o700 });

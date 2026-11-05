@@ -89,7 +89,9 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
     const snapshotAll = async () =>
       (await Promise.all(copies.map(snapshot))).flat();
     const before = await snapshotAll();
-    assert.ok(before.every((line) => /\/ 555$| 444 /.test(line)));
+    // Windows stat mode는 쓰기 비트만 비춘다.
+    const posix = process.platform !== "win32";
+    assert.ok(!posix || before.every((line) => /\/ 555$| 444 /.test(line)));
     assert.ok(!before.some((line) => line.includes("_test.ts")));
 
     assert.ok((await installSdkCopies({ dataRoot, packagesRoot })).ok);
@@ -102,7 +104,8 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
       "export const a = 2;\n",
     );
     assert.ok(
-      (await snapshotAll()).every((line) => /\/ 555$| 444 /.test(line)),
+      !posix ||
+        (await snapshotAll()).every((line) => /\/ 555$| 444 /.test(line)),
     );
   });
 });

@@ -1,15 +1,18 @@
 // 읽기 전용 bundle 사본과 seal.
 // 사본은 `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444·디렉터리 0555다.
+// 봉인이 끝났는지는 사본 옆의 빈 표지 file(`<사본>.sealed`) 하나로 판정한다. Windows는 mode의 쓰기 비트가 봉인을 나타내지 못한다.
 // 그 안의 정규 `declaration.json`은 release 준비가 읽어 `release.record`에 싣는다(control.ts).
 import {
+  access,
   chmod,
   mkdir,
   readdir,
   readFile,
-  stat,
+  rm,
   writeFile,
 } from "node:fs/promises";
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import process from "node:process";
+import { err, ok, type OsPlatform, type Result } from "../../../../base/mod.ts";
 import {
   appBundleCopy,
   type BundleManifest,
@@ -45,6 +48,25 @@ export function bundleCopyPath(
     });
   }
   return ok(appBundleCopy(dataRoot, app, bundleHash));
+}
+
+// 봉인 표지는 봉인의 마지막 단계에 쓴다. 표지가 없는 사본은 끊긴 준비가 남긴 것이다.
+export function sealMarkerPath(copyPath: string): string {
+  return `${copyPath}.sealed`;
+}
+
+export async function isSealed(copyPath: string): Promise<boolean> {
+  return await access(sealMarkerPath(copyPath)).then(
+    () => true,
+    () => false,
+  );
+}
+
+// 표지가 없는 사본은 끊긴 준비가 남긴 것이다. 지우고 true를 돌려준다. 표지가 있으면 그대로 두고 false다.
+export async function clearUnsealedCopy(copyPath: string): Promise<boolean> {
+  if (await isSealed(copyPath)) return false;
+  await rm(copyPath, { recursive: true, force: true }).catch(() => {});
+  return true;
 }
 
 // 정규 declaration.json 자리. bundle 사본 안의 고정 이름이다.
@@ -134,20 +156,20 @@ export async function writeBundle(input: {
   return ok(undefined);
 }
 
-// 쓴 사본을 봉인한다: 연결 목록 file대로 symlink를 만들고, 폴더는 0555·file은 0444로 좁힌다. 이미 봉인된
-// 사본(맨 위 폴더에 쓰기 비트가 없다)은 그대로 둔다. 연결은 읽을 때 한 번 더 사본 안으로 걸러진다.
+// 쓴 사본을 봉인한다: 연결 목록 file대로 symlink를 만들고, 폴더는 0555·file은 0444로 좁힌 뒤 표지를 쓴다.
+// 이미 봉인된(표지가 있는) 사본은 그대로 둔다. 연결은 읽을 때 한 번 더 사본 안으로 걸러진다.
 export async function sealCopy(
   copyPath: string,
+  platform: OsPlatform = process.platform,
 ): Promise<Result<void, SealFailure>> {
   try {
-    const top = await stat(copyPath);
-    if (((top.mode ?? 0) & 0o222) === 0) return ok(undefined);
+    if (await isSealed(copyPath)) return ok(undefined);
     const linksFile = await readFile(`${copyPath}/${LINKS_PATH}`).catch(
       () => undefined,
     );
     const links = linksFile ? decodeLinks(linksFile) : ok([]);
     if (!links.ok) return links;
-    await createLinks(copyPath, links.value);
+    await createLinks(copyPath, links.value, platform);
     // 연결을 따라가지 않는다. 폴더는 안쪽부터 좁힌다.
     const narrow = async (directory: string): Promise<void> => {
       for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -158,6 +180,7 @@ export async function sealCopy(
       await chmod(directory, DIRECTORY_MODE);
     };
     await narrow(copyPath);
+    await writeFile(sealMarkerPath(copyPath), "");
   } catch (thrown) {
     return err({
       code: "unavailable",

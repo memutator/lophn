@@ -1,4 +1,6 @@
+import { isAbsolute } from "node:path";
 import process from "node:process";
+import { homeOf } from "../../../base/mod.ts";
 import type {
   AgentWorkspace,
   WorkspaceKind,
@@ -58,8 +60,8 @@ type SkillStoreDeps = {
 
 function dataRootOfEnv(): string | null {
   const home = process.env.LOPHN_HOME;
-  return home !== undefined && home.startsWith("/")
-    ? home.replace(/\/+$/, "")
+  return home !== undefined && isAbsolute(home)
+    ? home.replace(/[\\/]+$/, "")
     : null;
 }
 
@@ -270,15 +272,19 @@ function under(root: string, path: string): boolean {
 }
 
 function privateRoot(path: string): boolean {
-  const home = process.env.HOME;
-  if (home === undefined || home.length === 0) return false;
+  const home = homeOf(process.env, process.platform);
+  if (home === undefined) return false;
   const base = lexical(home);
   const target = lexical(path);
   if (base === null || target === null) return false;
   if (target === base) return true;
-  for (const suffix of ["/.lophn", "/.config/lophn"] as const) {
-    const root = `${base}${suffix}`;
-    if (target === root || target.startsWith(`${root}/`)) return true;
+  // lexical은 Windows 경로를 `\`로 잇는다.
+  const separator = base.includes("\\") ? "\\" : "/";
+  for (const suffix of [".lophn", `.config${separator}lophn`] as const) {
+    const root = `${base}${separator}${suffix}`;
+    if (target === root || target.startsWith(`${root}${separator}`)) {
+      return true;
+    }
   }
   return false;
 }

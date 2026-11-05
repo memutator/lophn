@@ -2,6 +2,7 @@
 // package.json이 거는 설치 사본이다. symlink는 복사하지 않고 목록 file(links.ts)로 남긴다(bundle은 정규
 // file만 담고, 가리키는 실제 폴더도 사본 안에 있다). 실행할 때 필요 없는 도구 file(.bin, npm의 설치 표시)은 뺀다.
 import { readdir, readFile, readlink, stat } from "node:fs/promises";
+import { dirname, isAbsolute, relative } from "node:path";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { type BundleLink, encodeLinks, LINKS_PATH } from "./links.ts";
 
@@ -22,7 +23,14 @@ async function collect(
     const path = `${directory}/${entry.name}`;
     const bundlePath = `${prefix}/${entry.name}`;
     if (entry.isSymbolicLink()) {
-      links.push({ path: bundlePath, target: await readlink(path) });
+      // Windows npm은 폴더 연결을 junction으로 깔아 readlink가 절대 경로를 준다. 목록에는 상대 경로로 적는다.
+      const target = await readlink(path);
+      links.push({
+        path: bundlePath,
+        target: isAbsolute(target)
+          ? relative(dirname(path), target).replaceAll("\\", "/")
+          : target,
+      });
     } else if (entry.isDirectory()) {
       await collect(path, bundlePath, files, links);
     } else if (entry.isFile()) {

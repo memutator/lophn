@@ -1,6 +1,7 @@
 // 앱 데이터 영역의 경로 경계(apps/data 정책 "writer").
 // data worker가 여는 경로는 앱 데이터 영역 안이어야 한다. 영역 밖은 없는 것과 같다.
 
+import { isAbsolute, relative, sep } from "node:path";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 
 // 앱 데이터 영역 안의 상대 경로. 절대 경로·상위 탈출·빈 segment는 거절한다.
@@ -23,7 +24,11 @@ export function insideDataArea(
 }
 
 // 해석된 절대 경로가 데이터 영역 경계 안에 있는지. symlink를 따라간 결과도 같다.
+// realpath는 OS 경로(Windows는 `\`)를 주므로 `/` 문자열 비교가 아니라 relative로 본다.
 export function contained(dataArea: string, resolved: string): boolean {
-  const root = dataArea.endsWith("/") ? dataArea : `${dataArea}/`;
-  return resolved === dataArea || resolved.startsWith(root);
+  const inside = relative(dataArea, resolved);
+  return (
+    inside === "" ||
+    (inside !== ".." && !inside.startsWith(`..${sep}`) && !isAbsolute(inside))
+  );
 }

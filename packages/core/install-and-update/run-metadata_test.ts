@@ -21,7 +21,9 @@ test("user token file은 token 원문만 담고 소유자만 읽고 쓴다(0600)
     const written = await writeUserToken(runDir, "tok-abc");
     assert.deepStrictEqual(written.ok, true);
     const info = await stat(`${runDir}/user-token`);
-    assert.deepStrictEqual((info.mode ?? 0) & 0o777, 0o600);
+    if (process.platform !== "win32") {
+      assert.deepStrictEqual((info.mode ?? 0) & 0o777, 0o600);
+    }
     assert.deepStrictEqual(
       await readFile(`${runDir}/user-token`, "utf8"),
       "tok-abc",

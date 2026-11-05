@@ -79,6 +79,7 @@ test("node_modules의 정규 file과 연결이 bundle 사본에서 그대로 읽
     for (const path of await walk(copy)) {
       const info = await lstat(`${copy}/${path}`);
       if (info.isSymbolicLink()) continue;
+      if (process.platform === "win32") continue;
       assert.deepStrictEqual(
         info.mode & 0o777,
         info.isDirectory() ? 0o555 : 0o444,

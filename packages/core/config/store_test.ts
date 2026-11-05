@@ -54,7 +54,10 @@ test("틀린 설정 값은 이유와 함께 거절되고 파일은 그대로다"
     assert.ok(first.ok);
     assert.deepStrictEqual(first.value, { changed: ["t.flag"], rejected: [] });
     assert.deepStrictEqual(published, [["t.flag"]]);
-    assert.deepStrictEqual((statSync(file).mode ?? 0) & 0o777, 0o600);
+    // Windows stat mode는 ACL을 나타내지 못한다.
+    if (process.platform !== "win32") {
+      assert.deepStrictEqual((statSync(file).mode ?? 0) & 0o777, 0o600);
+    }
     const before = readFileSync(file);
 
     const secret = "do-not-echo-this-value";

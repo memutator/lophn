@@ -1,10 +1,17 @@
 import { chmod, lstat, mkdir, realpath } from "node:fs/promises";
 import type { Stats } from "node:fs";
+import { isAbsolute, join } from "node:path";
 import process from "node:process";
-import { err, errorCode, ok, type Result } from "../../base/mod.ts";
+import {
+  err,
+  errorCode,
+  ok,
+  type OsPlatform,
+  type Result,
+} from "../../base/mod.ts";
 
-// Linux 데이터 root·관리 앱 폴더·runtime 제어 폴더는 0700보다 넓으면 기동을 거절한다.
-// 다른 OS의 동등 ACL 검사는 아직 실측이 없다.
+// POSIX 데이터 root·관리 앱 폴더·runtime 제어 폴더는 소유자가 아니거나 0700보다 넓으면 기동을 거절한다.
+// Windows는 소유자·mode를 보지 않는다: stat mode가 ACL을 나타내지 못하고, 사용자 profile 아래 폴더는 ACL이 이미 사용자만 연다.
 const OWNER_ONLY = 0o700;
 const MANAGED = ["apps", "run"] as const;
 
@@ -24,7 +31,7 @@ function refused(): Result<never> {
 }
 
 // symlink를 따라가지 않는다. 링크 자체나 그 안의 구성 요소면 거절한다.
-async function ownerOnly(path: string, uid: number): Promise<boolean> {
+async function ownerOnly(path: string, uid: number | null): Promise<boolean> {
   let stat: Stats;
   try {
     stat = await lstat(path);
@@ -33,38 +40,44 @@ async function ownerOnly(path: string, uid: number): Promise<boolean> {
     return false;
   }
   if (stat.isSymbolicLink() || !stat.isDirectory()) return false;
+  if (uid === null) return true;
   if (stat.uid !== uid) return false;
   return ((stat.mode ?? 0) & 0o077) === 0;
 }
 
-async function ensure(path: string, uid: number): Promise<boolean> {
+async function ensure(path: string, uid: number | null): Promise<boolean> {
   if (!(await ownerOnly(path, uid))) return false;
   try {
     await mkdir(path, { mode: OWNER_ONLY, recursive: false });
   } catch (thrown) {
     if (errorCode(thrown) !== "EEXIST") return false;
   }
-  // mkdir이 mode를 umask로 좁히므로 만든 뒤에는 0700을 명시한다.
-  try {
-    await chmod(path, OWNER_ONLY);
-  } catch {
-    return false;
+  // mkdir이 mode를 umask로 좁히므로 만든 뒤에는 0700을 명시한다. Windows는 mode가 없다.
+  if (uid !== null) {
+    try {
+      await chmod(path, OWNER_ONLY);
+    } catch {
+      return false;
+    }
   }
   return await ownerOnly(path, uid);
 }
 
 // LOPHN_HOME이 있으면 그 경로, 없으면 ~/.lophn. 설정 override가 아니라 시작 전 선택이다.
-export async function resolveDataRoot(env: {
-  home?: string;
-  lophnHome?: string;
-}): Promise<Result<DataRoot>> {
+export async function resolveDataRoot(
+  env: {
+    home?: string;
+    lophnHome?: string;
+  },
+  platform: OsPlatform = process.platform,
+): Promise<Result<DataRoot>> {
   const requested =
     env.lophnHome && env.lophnHome.length > 0
       ? env.lophnHome
       : env.home
-        ? `${env.home}/.lophn`
+        ? join(env.home, ".lophn")
         : undefined;
-  if (requested === undefined || !requested.startsWith("/")) return refused();
+  if (requested === undefined || !isAbsolute(requested)) return refused();
   // 요청 경로 자체가 symlink면 다른 곳으로 열린다. 그 경로는 거절한다.
   try {
     if ((await lstat(requested)).isSymbolicLink()) return refused();
@@ -84,10 +97,11 @@ export async function resolveDataRoot(env: {
       return refused();
     }
   }
-  const uid = process.getuid?.() ?? null;
-  if (uid === null || !(await ensure(real, uid))) return refused();
+  // POSIX에서 uid를 모르면 거절한다. null은 소유자·mode 검사를 건너뛰는 Windows만이다.
+  const uid = platform === "win32" ? null : (process.getuid?.() ?? undefined);
+  if (uid === undefined || !(await ensure(real, uid))) return refused();
   for (const name of MANAGED) {
-    if (!(await ensure(`${real}/${name}`, uid))) return refused();
+    if (!(await ensure(join(real, name), uid))) return refused();
   }
-  return ok({ path: real, run: `${real}/run`, apps: `${real}/apps` });
+  return ok({ path: real, run: join(real, "run"), apps: join(real, "apps") });
 }

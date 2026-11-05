@@ -14,8 +14,14 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import { err, type Result } from "../../../../base/mod.ts";
+import process from "node:process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  err,
+  nodeTreeDeps,
+  type Result,
+  signalTree,
+} from "../../../../base/mod.ts";
 import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
 import {
   type NodeCommand,
@@ -75,7 +81,7 @@ function childHead(code: string, stderr: string, staging: string): string {
   const esc = String.fromCharCode(27);
   const text = stderr
     .replace(new RegExp(`${esc}\\[[0-9;]*m`, "g"), "")
-    .replaceAll(`file://${staging}/`, "")
+    .replaceAll(`${pathToFileURL(staging).href}/`, "")
     .replaceAll(`${staging}/`, "")
     .split("\n")
     .slice(0, 5)
@@ -102,6 +108,9 @@ async function runChild(
     // 자식은 필요한 환경만 받는다. nodeCommand의 env(Electron을 Node로 띄우는 값)를 더한다.
     env: { ...options.env, ...launch.env },
     stdio: ["ignore", "pipe", "pipe"],
+    // POSIX는 자식이 group leader여야 signalTree가 npm이 띄운 손자까지 끈다. Windows의 detached는 새 console을 연다.
+    detached: process.platform !== "win32",
+    windowsHide: true,
   });
   const outChunks: Buffer[] = [];
   const errChunks: Buffer[] = [];
@@ -110,11 +119,15 @@ async function runChild(
   let stopped: "aborted" | "timeout" | undefined;
   const kill = (why: "aborted" | "timeout") => () => {
     stopped ??= why;
-    try {
-      child.kill("SIGKILL");
-    } catch {
-      /* 이미 끝났다 */
-    }
+    // 트리를 끄지 못하면 자식 하나라도 끈다. 이미 없으면(absent) 할 일이 없다.
+    void signalTree(
+      child.pid ?? 0,
+      "SIGKILL",
+      process.platform,
+      nodeTreeDeps(spawn),
+    ).then((result) => {
+      if (result === "failed") child.kill("SIGKILL");
+    });
   };
   const timer = setTimeout(kill("timeout"), options.limitMs);
   const onAbort = kill("aborted");

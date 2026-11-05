@@ -121,3 +121,10 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고"대로. `agent-chat.md`에 넣을 문장을 "넘길 줄"에 적는다.
+
+## (lead가 더함)
+
+- plan 승인 결과 줄에 고른 mode를 보인다("Plan approved · Accept edits"). 지금 `acpApprovalItemSchema`와 `approval_closed`에는 고른 mode 칸이 없다.
+  - 추가 소유(그 칸만): `packages/protocol/acp/{items.ts,state.ts,reduce.ts,reduce_test.ts}`, `packages/sdk/agent/acp-types.ts`, `packages/protocol/events/acp-project.ts`, `packages/shell/main/extensions/bundled/harness-gui/{claude,codex,opencode,omp}.ts`의 `approval_closed`를 내는 줄, `packages/shell/renderer/conversation/approval-card/`.
+  - approval item과 `approval_closed`에 `mode: string | null`(plan 승인에서 고른 `modes` id. 그 밖은 null)을 더하고 reducer가 옮긴다. lophn projection은 null이다. adapter는 plan 승인을 `decide {kind: "mode"}`로 닫을 때 그 mode를 싣고, 다른 승인은 null이다.
+  - `ApprovalResult`가 subject의 `modes`에서 label을 찾아 "Plan approved · {label}"로 쓴다.

@@ -1,5 +1,6 @@
 // 실행: node tools/check-deps.ts [root]
 import { readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import process from "node:process";
 
 import { checkDeclarationGraph } from "./deps-declaration.ts";
@@ -294,7 +295,7 @@ const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
 ]);
 
 export async function checkRepo(root: string): Promise<Violation[]> {
-  root = normalize(root.startsWith("/") ? root : `${process.cwd()}/${root}`);
+  root = normalize(resolve(root));
   const { files, paths } = await walk(root);
   const members = await readMembers(root, files);
   const violations: Violation[] = [];

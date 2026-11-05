@@ -1,0 +1,25 @@
+name: os
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "ci/**" ]
+
+jobs:
+  os:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.20.0
+          cache: npm
+      # Linux는 node-pty를 source로 compile한다(runner에 build-essential과 python이 있다). macOS·Windows는 prebuild를 쓴다.
+      - run: npm ci
+      - run: npm run check:full
+      - run: node tools/ci/boot-core.ts

@@ -1,0 +1,14 @@
+# biome lineEnding이 lf라 Windows checkout이 CRLF면 fmt가 모든 file에서 깨진다.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.icns binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary

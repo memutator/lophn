@@ -29,7 +29,7 @@ const errors = [
   "unauthorized",
 ] as const;
 
-// host가 실행할 입력 하나. `prompt`는 harness에 넘길 글이다(입력함의 입력을 lophn이 쓰는 tag로 싼 것, 이미지 없음).
+// host가 실행할 입력 하나. `prompt`는 harness에 넘길 글이다(queue의 입력을 lophn이 쓰는 tag로 싼 것, 이미지 없음).
 const takenInputSchema = z.strictObject({
   session: idSchema("ses"),
   agent: z.string().min(1),
@@ -48,7 +48,7 @@ const takenInputSchema = z.strictObject({
   prompt: z.string(),
 });
 
-// 입력함에서 시작할 수 있는 입력 하나를 꺼내지 않고 본다. 도는 turn이 없는 harness session 중 먼저 기다린 것이고
+// queue에서 시작할 수 있는 입력 하나를 꺼내지 않고 본다. 도는 turn이 없는 harness session 중 먼저 기다린 것이고
 // 사람 메시지가 먼저다. 없으면 null이다.
 export const harnessTake = defineMemory({
   resource: "harness",
@@ -60,7 +60,7 @@ export const harnessTake = defineMemory({
   errors,
 });
 
-// Take가 준 입력(맨 앞이어야 한다)을 입력함에서 꺼내 turn을 시작한다. 그 session은 turn이 끝날 때까지 도는 중이다.
+// Take가 준 입력(맨 앞이어야 한다)을 queue에서 꺼내 turn을 시작한다. 그 session은 turn이 끝날 때까지 도는 중이다.
 // `credential`은 harness가 자기 shell에서 `lophn`을 부를 agent 자격이다. 이 session·turn에만 쓰이고 turn이 끝나면 만료된다.
 // host는 harness process의 env로만 넘긴다(`LOPHN_AGENT_CREDENTIAL`).
 export const harnessStartTurn = defineMemory({

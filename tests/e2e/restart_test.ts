@@ -34,10 +34,10 @@ import { shellAsk } from "../support/core/shell-ask.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 
 // 아래 두 행의 세 질문
-// - contract: boundary `storage`·`secrets`(완료한 기록과 provider 연결은 재시작에 남는다), `router`·`agent-sessions`(입력함은
+// - contract: boundary `storage`·`secrets`(완료한 기록과 provider 연결은 재시작에 남는다), `router`·`agent-sessions`(queue는
 //   메모리라 사라지지만 접수한 사람 message는 사라진 것으로 두지 않는다).
 // - 현실적 회귀: 재시작 뒤 기록이 비거나 key를 다시 넣어야 하는 것, 사람이 보낸 message가 접수 기록만 남고 영영 turn이 안 열리는 것.
-// - 왜 지금 test로 못 잡나: 위 행은 interrupted turn과 사라진 허락 요청만 본다. 완료한 기록의 보존과 입력함에 쌓인 사람 message의
+// - 왜 지금 test로 못 잡나: 위 행은 interrupted turn과 사라진 허락 요청만 본다. 완료한 기록의 보존과 queue에 쌓인 사람 message의
 //   운명은 ledger 파일이 남고 새 process가 읽는 재시작을 건너야 보인다.
 
 test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted로 닫히고 session은 새 message를 받는다", async () => {
@@ -170,7 +170,7 @@ test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 message�
     await until("첫 model 요청이 도착함", () =>
       Promise.resolve(fake.journal().length >= 1 ? true : undefined),
     );
-    // turn이 도는 중이라 입력함에만 쌓인다.
+    // turn이 도는 중이라 queue에만 쌓인다.
     const queued = (await say(core, session, "queued request")).message;
     await core.kill();
     core = await bootCore(run);

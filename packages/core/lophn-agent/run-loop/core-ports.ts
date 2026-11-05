@@ -275,7 +275,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       `${id}:start`,
     );
     lastModelCall = id;
-    // 이 요청이 가져간 steer는 입력함에서 비운다. 응답을 기다리는 사이 들어온 steer는 뒤에 남는다.
+    // 이 요청이 가져간 steer는 queue에서 비운다. 응답을 기다리는 사이 들어온 steer는 뒤에 남는다.
     if (request.applied.length > 0) {
       const settled = await deps.turnInputs.settled(request.applied.length);
       if (!settled.ok) return settled;

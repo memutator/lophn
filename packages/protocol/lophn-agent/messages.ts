@@ -237,7 +237,7 @@ export const editQueuedMessage = defineCommand({
   }),
   output: z.strictObject({
     message: idSchema("msg"),
-    // redaction을 거친 block. 부르는 쪽(wiring)이 입력함의 본문도 같은 값으로 바꾼다.
+    // redaction을 거친 block. 부르는 쪽(wiring)이 queue의 본문도 같은 값으로 바꾼다.
     content: contentBlocksSchema,
   }),
   compare: z.strictObject({}),
@@ -246,7 +246,7 @@ export const editQueuedMessage = defineCommand({
 });
 
 // 아직 turn이 가져가지 않은 사람 메시지를 큐에서 위아래로 옮긴다. 표의 순서(created_seq)를
-// 이웃과 맞바꿔 켤 때 입력함에 다시 넣는 순서까지 같은 순서가 된다.
+// 이웃과 맞바꿔 켤 때 queue에 다시 넣는 순서까지 같은 순서가 된다.
 export const moveQueuedMessage = defineCommand({
   resource: "messages",
   method: "move_queued",

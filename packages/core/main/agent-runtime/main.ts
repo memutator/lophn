@@ -90,7 +90,7 @@ export type CoreCalls = {
 
 type Runtime = {
   startup: Startup;
-  // 입력함에서 시작할 turn을 고르는 길. 입력함은 core 메모리에 있어 감독 pipe로 읽는다.
+  // queue에서 시작할 turn을 고르는 길. queue는 core 메모리에 있어 감독 pipe로 읽는다.
   source: TurnSource;
   // turn마다 받는 agent credential. 감독 pipe로 core에 청한다.
   credentials: TurnCredentials;
@@ -120,7 +120,7 @@ async function startAgentRuntime(input: {
   catalogFetch?: typeof fetch;
   // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다.
   dataRoot?: string;
-  // 입력함의 turn을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
+  // queue의 turn을 계속 시작하는 pump를 돌릴지. 제품 기동만 켠다.
   pump?: boolean;
   // turn 시작 재료(basis 준비, StartTurn, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 turn의
   // agent 자격 호출)을 받아 `createTurnPreparer` 같은 것을 돌려준다.

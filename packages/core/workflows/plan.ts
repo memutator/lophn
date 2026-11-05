@@ -22,7 +22,7 @@ const unresolved = (
 });
 
 // 참가자는 늘 주소가 된다. workspace가 없으면 instance의 project다.
-// harness agent는 이름이 있는 agent라 `{ agent }` 참가자로 받는다(Router가 harness 입력함으로 보낸다). 이름 없는 `{ kind: harness }`는
+// harness agent는 이름이 있는 agent라 `{ agent }` 참가자로 받는다(Router가 harness queue로 보낸다). 이름 없는 `{ kind: harness }`는
 // 받는 곳을 알 수 없다. human은 with의 참가자가 받는다.
 function addressOf(participant: Participant, project: string): Resolved {
   if ("kind" in participant) {

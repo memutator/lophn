@@ -184,7 +184,7 @@ export const bareReplyWiring: WiringFactory = () => {
             [safe],
           );
           if (!prepared.ok) return prepared;
-          // 접은 writer를 쓴다. 날 writer는 본문 준비와 입력함 적용을 건너뛰어 보낸 쪽 turn이 열리지 않는다.
+          // 접은 writer를 쓴다. 날 writer는 본문 준비와 queue 적용을 건너뛰어 보낸 쪽 turn이 열리지 않는다.
           const done = await ctx.writer.command(BARE_REPLY_CONTEXT, {
             command: callsAutoReply.name,
             input: {

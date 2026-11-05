@@ -33,16 +33,16 @@ import {
   workspaceDepsOf,
 } from "../../../lophn-agent/workspaces/mod.ts";
 import {
-  createInbox,
-  createInboxApplier,
-  INBOX_CLEAR_TOPIC,
-  INBOX_PUT_TOPIC,
+  createQueue,
+  createQueueApplier,
+  QUEUE_CLEAR_TOPIC,
+  QUEUE_PUT_TOPIC,
   inputParts,
   turnLimitsOf,
 } from "../../../lophn-agent/run-loop/mod.ts";
 import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import {
-  HARNESS_INBOX_PUT_TOPIC,
+  HARNESS_QUEUE_PUT_TOPIC,
   harnessOf,
 } from "../../../lophn-agent/session/mod.ts";
 import { loadSession } from "../../../lophn-agent/session/model.ts";
@@ -58,7 +58,7 @@ import {
   type HarnessCredentials,
 } from "./harness-credential.ts";
 
-// shell main의 harness host가 부르는 core 쪽이다. 입력함(메모리)을 쥐고, turn과 메시지는 machine 자격으로 기존
+// shell main의 harness host가 부르는 core 쪽이다. queue(메모리)을 쥐고, turn과 메시지는 machine 자격으로 기존
 // command(StartTurn, RecordMessage, FinishTurn)에 기록한다. host는 사람 token의 memory route로만 닿고
 // renderer 통로에는 없다. 흐름은 `protocol/lophn-agent/harness-host.ts`.
 const HARNESS_PRINCIPAL = "machine:harness";
@@ -84,8 +84,8 @@ const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
 export const harnessWiring: WiringFactory = () => {
-  // harness session의 입력함이다. run-loop의 입력함과 따로여서 run-loop가 harness 입력을 가져가지 않는다.
-  const inbox = createInbox();
+  // harness session의 queue다. run-loop의 queue와 따로여서 run-loop가 harness 입력을 가져가지 않는다.
+  const queue = createQueue();
   let unsubscribe: (() => void) | undefined;
   // harness가 `lophn`을 부를 turn 자격. build에서 만들고 TurnEnded가 끝낸다.
   let credentials: HarnessCredentials | undefined;
@@ -154,24 +154,24 @@ export const harnessWiring: WiringFactory = () => {
       const take: MemoryHandler = async (who) => {
         const allowed = gate(who, true);
         if (!allowed.ok) return allowed;
-        for (const session of inbox.waiting()) {
-          if (inbox.isRunning(session)) continue;
+        for (const session of queue.waiting()) {
+          if (queue.isRunning(session)) continue;
           const found = harnessSession(session);
           if (!found.ok || !found.value.accepting) {
             // 끝났거나 보관된 session의 입력은 받을 곳이 없다.
             if (!found.ok && found.error.code !== "unavailable") {
-              inbox.clear(session);
+              queue.clear(session);
             }
             continue;
           }
-          const head = inbox.next(session)!;
-          // 본문은 session 기록이 정본이다(빼거나 고친 사람 메시지가 입력함에 남지 않게 한다).
+          const head = queue.next(session)!;
+          // 본문은 session 기록이 정본이다(빼거나 고친 사람 메시지가 queue에 남지 않게 한다).
           const body = await read<Output<typeof messageBody>>(messageBody, {
             message: head.message,
           });
           if (!body.ok) {
             if (body.error.code === "not_found") {
-              inbox.remove(session, head.message as string);
+              queue.remove(session, head.message as string);
             }
             continue;
           }
@@ -215,12 +215,12 @@ export const harnessWiring: WiringFactory = () => {
         const input = harnessStartTurn.input.parse(body);
         const found = harnessSession(input.session);
         if (!found.ok) return found;
-        const head = inbox.next(input.session as Id<"ses">);
+        const head = queue.next(input.session as Id<"ses">);
         if (
           !found.value.accepting ||
           head === undefined ||
           head.message !== input.input_message ||
-          inbox.isRunning(input.session as Id<"ses">)
+          queue.isRunning(input.session as Id<"ses">)
         ) {
           return err({
             code: "conflict",
@@ -259,14 +259,14 @@ export const harnessWiring: WiringFactory = () => {
         });
         if (!started.ok) {
           turnCredentials.end(turn);
-          // 입력의 메시지가 없어졌으면 입력함에 남겨 Take가 같은 입력을 되풀이하게 두지 않는다.
+          // 입력의 메시지가 없어졌으면 queue에 남겨 Take가 같은 입력을 되풀이하게 두지 않는다.
           if (started.error.code === "not_found") {
-            inbox.remove(input.session as Id<"ses">, input.input_message);
+            queue.remove(input.session as Id<"ses">, input.input_message);
           }
           return started;
         }
-        inbox.take(input.session as Id<"ses">);
-        inbox.setRunning(input.session as Id<"ses">, true);
+        queue.take(input.session as Id<"ses">);
+        queue.setRunning(input.session as Id<"ses">, true);
         return ok({ turn, credential: credential.value });
       };
 
@@ -334,10 +334,10 @@ export const harnessWiring: WiringFactory = () => {
         return done.ok ? ok({}) : done;
       };
 
-      // 입력을 입력함에 넣는 일은 commit 뒤 main thread가 한다(`createInboxApplier`를 harness 입력함으로 쓴다).
+      // 입력을 queue에 넣는 일은 commit 뒤 main thread가 한다(`createQueueApplier`를 harness queue로 쓴다).
       // 같은 afterCommit 묶음의 다른 일(Bus event 등)은 run-loop 쪽 applier가 이미 했으므로 여기서는 거른다.
-      const apply = createInboxApplier({
-        inbox,
+      const apply = createQueueApplier({
+        queue,
         publish: (event) => ctx.bus.publish(event),
       });
       return ok({
@@ -354,9 +354,9 @@ export const harnessWiring: WiringFactory = () => {
             (actions) =>
               apply(
                 actions.flatMap((action) =>
-                  action.topic === HARNESS_INBOX_PUT_TOPIC
-                    ? [{ ...action, topic: INBOX_PUT_TOPIC }]
-                    : action.topic === INBOX_CLEAR_TOPIC
+                  action.topic === HARNESS_QUEUE_PUT_TOPIC
+                    ? [{ ...action, topic: QUEUE_PUT_TOPIC }]
+                    : action.topic === QUEUE_CLEAR_TOPIC
                       ? [action]
                       : [],
                 ),
@@ -365,7 +365,7 @@ export const harnessWiring: WiringFactory = () => {
           ),
       });
     },
-    // 꺼졌다 켜지면 입력함이 비므로 접수만 된 사람 메시지를 다시 넣는다(run-loop 쪽은 router wiring이 한다).
+    // 꺼졌다 켜지면 queue가 비므로 접수만 된 사람 메시지를 다시 넣는다(run-loop 쪽은 router wiring이 한다).
     // 도는 turn은 router가 먼저 interrupted(restarted)로 닫았다.
     start(ctx) {
       const opened = openConnection(ctx.ledgerPath);
@@ -380,7 +380,7 @@ export const harnessWiring: WiringFactory = () => {
           for (const pending of unstartedHumanMessages(sql)) {
             const target = directory.find(pending.session as Id<"ses">);
             if (!target?.accepting || target.transport !== "harness") continue;
-            inbox.put(pending.session as Id<"ses">, {
+            queue.put(pending.session as Id<"ses">, {
               kind: "message",
               from: { kind: "human" },
               call: null,
@@ -407,7 +407,7 @@ export const harnessWiring: WiringFactory = () => {
         send(event) {
           if (event.type === "TurnEnded") {
             credentials?.end(event.payload.turn);
-            inbox.setRunning(event.session as Id<"ses">, false);
+            queue.setRunning(event.session as Id<"ses">, false);
           }
         },
         close() {},

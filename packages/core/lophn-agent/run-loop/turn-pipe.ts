@@ -14,7 +14,7 @@ import {
 } from "../../../protocol/supervision/mod.ts";
 import type { TurnSource } from "./ports.ts";
 
-// 입력함과 Bus는 core 메모리에 있다. agent runtime child가 감독 pipe로 보내는 `turn_source_request`와
+// queue와 Bus는 core 메모리에 있다. agent runtime child가 감독 pipe로 보내는 `turn_source_request`와
 // `agent_event`, `model_output`을 core 쪽에서 받는 handler다. 요청은 `TurnSource`를 그대로 부르고 event는
 // Bus에 낸다. 쓰는 중인 model 날 글은 Bus에 싣지 않고 core의 `live-turns.ts`가 redaction한 뒤 낸다.
 

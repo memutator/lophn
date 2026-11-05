@@ -12,8 +12,8 @@ export {
 } from "./turn-events.ts";
 export {
   AGENT_EVENT_TOPIC,
-  INBOX_CLEAR_TOPIC,
-  INBOX_PUT_TOPIC,
+  QUEUE_CLEAR_TOPIC,
+  QUEUE_PUT_TOPIC,
 } from "./topics.ts";
 export {
   callWithinLimits,
@@ -27,13 +27,13 @@ export {
   turnLimitsOf,
 } from "./limits.ts";
 export {
-  createInboxApplier,
+  createQueueApplier,
   createLophnInputTransport,
   createTurnSource,
   createTurnStarter,
   type TurnStart,
 } from "./work.ts";
-export { createInbox, type Inbox } from "./inbox.ts";
+export { createQueue, type Queue } from "./queue.ts";
 export { createTurnPipe } from "./turn-pipe.ts";
 export { inputParts } from "./input-text.ts";
 export { untrustedSource } from "./untrusted.ts";

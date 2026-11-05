@@ -14,7 +14,7 @@ import type {
 } from "./ports.ts";
 import type { TurnPreparer } from "./prepare.ts";
 
-// 입력함이 고른 turn을 시작하고 loop를 돌리는 연결. source가 맨 앞 입력을 고르면 preparer가 재료를 모아
+// queue가 고른 turn을 시작하고 loop를 돌리는 연결. source가 맨 앞 입력을 고르면 preparer가 재료를 모아
 // StartTurn으로 확정하고, `agent:<ses>` credential을 받아 loop에 넘긴다. turn이 끝나거나 멈추거나 감독이
 // 끊기면 credential을 끝낸다. 켜질 때 돌던 turn은 core가 interrupted로 닫으므로 이 쪽에 이어 하기는 없다.
 
@@ -64,7 +64,7 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
   // 다시 정한다.
   const compactBefore = new Set<string>();
 
-  // turn 하나의 입력 길. 시작 입력은 StartTurn 뒤 입력함에서 꺼낸 것이다.
+  // turn 하나의 입력 길. 시작 입력은 StartTurn 뒤 queue에서 꺼낸 것이다.
   function inputsOf(
     session: Parameters<TurnSource["began"]>[0],
     first: Awaited<ReturnType<TurnSource["began"]>>,

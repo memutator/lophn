@@ -14,7 +14,7 @@ import type {
 import type { TurnStart } from "../../lophn-agent/run-loop/work.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 
-// 입력함과 Bus는 core 메모리에 있다. runtime은 감독 pipe로 입력함을 읽고(`turn_source_request`) agent event를
+// queue와 Bus는 core 메모리에 있다. runtime은 감독 pipe로 queue를 읽고(`turn_source_request`) agent event를
 // core Bus로 보내며(`agent_event`), 쓰는 중인 model 글을 core에 보낸다(`model_output`). core 쪽 handler는
 // `run-loop/turn-pipe.ts`다. 응답이 없으면 읽지 못한 것이고 새 turn을 고르지 않는다. event는 놓칠 수 있다(Bus는
 // 메모리다).
@@ -71,7 +71,7 @@ export function createTurnSourceLink(options: {
     }
     const answer = await answered;
     if (answer === null) {
-      return err({ code: "unavailable", message: "the inbox did not answer" });
+      return err({ code: "unavailable", message: "the queue did not answer" });
     }
     return answer.ok ? ok(answer.value) : err(answer.error);
   }

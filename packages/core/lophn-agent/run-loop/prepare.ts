@@ -758,7 +758,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   }
 
   // 시작하지 못하는 turn을 이유와 함께 닫는다. 시작 기록(StartTurn)을 남기고 바로 failed로 끝내 session이
-  // 입력을 계속 받게 한다. 끝내지 못하면 오류이고 입력은 입력함에 남아 다음에 다시 시도한다.
+  // 입력을 계속 받게 한다. 끝내지 못하면 오류이고 입력은 queue에 남아 다음에 다시 시도한다.
   async function closeUnstarted(
     start: TurnStart,
     why: { reason: CannotStart["reason"]; why: string; detail?: string },

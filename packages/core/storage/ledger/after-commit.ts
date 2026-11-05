@@ -3,8 +3,8 @@ import { definePort } from "../../../protocol/base/mod.ts";
 import { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
 import type { Writer } from "./writer.ts";
 
-// command handler는 writer Worker에서 돌고 입력함과 Bus는 main thread에 있다. 그래서 handler는
-// 입력함에 넣기와 agent event 내기를 "commit 뒤 할 일"로 모아 두고, `CommandSuccess`에 실려 main으로
+// command handler는 writer Worker에서 돌고 queue와 Bus는 main thread에 있다. 그래서 handler는
+// queue에 넣기와 agent event 내기를 "commit 뒤 할 일"로 모아 두고, `CommandSuccess`에 실려 main으로
 // 돌아온 것을 commit 뒤에 적용한다. tx가 되돌아가면 모은 것은 버린다.
 
 // Worker를 건너므로 structured clone 되는 값만 싣는다.

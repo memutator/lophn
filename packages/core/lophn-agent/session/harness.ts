@@ -21,7 +21,7 @@ import { reject, requireMachine, sessionNotFound } from "./guards.ts";
 import { type AgentSessionRow, loadSession, nextSessionSeq } from "./model.ts";
 
 // runtime이 harness(third-party CLI)인 agent의 session을 core가 다루는 부분이다. 실행은 shell main의 host가 하고
-// core는 입력함, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
+// core는 queue, turn 기록, harness의 session id를 맡는다(`protocol/lophn-agent/harness-host.ts`).
 
 // 켜기는 extension `harness`의 설정이다. 꺼져 있으면(기본) harness session은 새 입력을 받지 않는다.
 // writer Worker 안에서 설정 파일을 읽는다. data root는 ledger 파일이 있는 폴더다. 읽지 못하면 꺼진 것이다.
@@ -33,8 +33,8 @@ export function harnessEnabledIn(sql: Pick<Sql, "get" | "all">): boolean {
   );
 }
 
-// harness session의 입력함은 run-loop의 것과 따로다(host가 가져간다). commit 뒤 main thread가 넣는다.
-export const HARNESS_INBOX_PUT_TOPIC = "harness_inbox.put";
+// harness session의 queue는 run-loop의 것과 따로다(host가 가져간다). commit 뒤 main thread가 넣는다.
+export const HARNESS_QUEUE_PUT_TOPIC = "harness_queue.put";
 
 // 새 일을 여는 입력은 설정이 꺼져 있으면 받지 않는다. 이미 가진 call이 닫히도록 답과 알림은 받아 둔다.
 const GATED: ReadonlySet<RoutedInput["kind"]> = new Set([
@@ -54,7 +54,7 @@ export function createHarnessInputTransport(deps: {
       if (!written.ok) return written;
       message = written.value;
     }
-    tx.port(afterCommit).push(HARNESS_INBOX_PUT_TOPIC, {
+    tx.port(afterCommit).push(HARNESS_QUEUE_PUT_TOPIC, {
       session,
       input: { ...input, message },
       at: tx.now(),

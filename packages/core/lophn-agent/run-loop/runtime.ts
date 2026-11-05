@@ -47,7 +47,7 @@ import { agentRuntimeLaunchSpec } from "../register.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import { createTurnPipe } from "./turn-pipe.ts";
 import type { TurnSource } from "./ports.ts";
-import type { Inbox } from "./inbox.ts";
+import type { Queue } from "./queue.ts";
 
 // 제품 core가 agent runtime child를 띄우고 감독하는 자리. child는
 // 상시 신뢰 process이고 core 안의 인증 경계(CredentialRegistry)가 두 가지 자격을 발급한다.
@@ -157,11 +157,11 @@ type AgentRuntimeDeps = {
   known(): KnownSecretMatch | undefined;
   // provider API key의 전송 부착(`secret_send_request`). child가 청하면 값을 한 번 건넨다.
   secrets: AgentRuntimeSecrets;
-  // child가 감독 pipe로 읽는 입력함(`createTurnSource`)과 agent event를 내는 Bus. 없으면 child는 시작할 turn을
+  // child가 감독 pipe로 읽는 queue(`createTurnSource`)과 agent event를 내는 Bus. 없으면 child는 시작할 turn을
   // 읽지 못하고 event는 버려진다.
   turns?: TurnSource;
-  // child가 사라질 때 입력함의 도는 표시를 푸는 길이다. 정본은 입력함이다.
-  inbox?: Pick<Inbox, "endAll">;
+  // child가 사라질 때 queue의 도는 표시를 푸는 길이다. 정본은 queue다.
+  queue?: Pick<Queue, "endAll">;
   // child가 사라졌다. 그 child가 돌리던 turn을 ledger에서 interrupted(restarted)로 닫는다.
   interruptTurns?: () => Promise<Result<unknown>>;
   publish?: (event: AgentEvent) => void;
@@ -284,14 +284,14 @@ export async function startAgentRuntimeChild(
       onFrame: (frame: Frame) => handler.onFrame(frame),
       onStderr: (line: string) => deps.stderr?.(line),
       // child가 끝났다. 그 child가 쥐고 있던 turn의 agent credential은 더 쓰이지 않고, 돌던 turn은 닫힌다.
-      // 입력함의 도는 표시는 ledger가 닫힌 뒤에 푼다: 먼저 풀면 새 입력이 아직 running인 행과 겹친다.
+      // queue의 도는 표시는 ledger가 닫힌 뒤에 푼다: 먼저 풀면 새 입력이 아직 running인 행과 겹친다.
       onEnd() {
         alive = false;
         handler.close();
         deps.registry.endBy("process", AGENT_RUNTIME_PROCESS);
         void (deps.interruptTurns?.() ?? Promise.resolve())
           .catch(() => {})
-          .finally(() => deps.inbox?.endAll());
+          .finally(() => deps.queue?.endAll());
         if (blob === handler) {
           handler = newBlob();
           blob = handler;

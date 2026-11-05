@@ -66,8 +66,8 @@
 ### call/reply/cancel
 
 - `calls.send`와 `calls.reply`는 actor `agent`만 받는다. 보낸 쪽은 agent credential의 session이고, dedup key는 (session, tool call id)다.
-- 답은 받는 session의 inbox에 들어가 새 turn이 된다(`packages/core/router/router.ts`). 보낸 쪽이 agent가 아니면 `delivered:false`다.
-- 터미널의 coding agent에게는 session id도, dedup에 쓸 값도, inbox도 없다.
+- 답은 받는 session의 queue에 들어가 새 turn이 된다(`packages/core/router/router.ts`). 보낸 쪽이 agent가 아니면 `delivered:false`다.
+- 터미널의 coding agent에게는 session id도, dedup에 쓸 값도, queue도 없다.
 
 ## 정한 것
 
@@ -132,7 +132,7 @@
     - 늦게 싣기를 지우므로 사람이 켠 server의 tool은 처음부터 `tools[]`에 실린다. tool이 많은 server를 켜면 첫 요청이 커지고, 이것은 사람이 server를 켜고 끄는 것으로 조절한다.
     - 그래서 `tools[]`는 workspace 종류와 MCP 설정으로 정해진다. session 시작 때 목록을 고정하고, 바뀌면 `tools_changed` notice로 알리는 규칙은 MCP tool 때문에 남는다.
 15. **coding agent가 답을 받는 길은 이 roadmap에서 다루지 않는다.**
-    - `call`을 보낸 coding agent가 `reply`를 받으려면 session과 inbox가 있어야 한다.
+    - `call`을 보낸 coding agent가 `reply`를 받으려면 session과 queue가 있어야 한다.
     - 이것은 coding agent를 workflow 참가자로 두는 일(`products/roadmap/workflow.md`)에서 함께 정한다.
     - 이 roadmap에서는 actor `agent`만 받는 `calls.send`·`calls.reply`를 그대로 둔다.
 

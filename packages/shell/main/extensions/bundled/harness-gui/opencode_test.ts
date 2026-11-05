@@ -16,12 +16,12 @@ import type {
   AcpSessionHandle,
   ExtensionProcess,
 } from "../../../../../protocol/extensions/mod.ts";
-import { opencodeAdapter } from "./opencode.ts";
+import { createOpencodeAdapter, type OpencodeTransport } from "./opencode.ts";
 
-// 녹화(fixtures/opencode)로 adapter를 돌린다. 실제 `opencode`는 띄우지 않고, spawn이 주는 process를 녹화한 서버 쪽 줄을
-// 내보내는 대역으로 바꾼다. adapter가 쓴 줄은 녹화한 클라이언트 쪽 줄과 같아야 한다.
+// 녹화(fixtures/opencode)로 adapter를 돌린다. 실제 `opencode`는 띄우지 않고, server와 말하는 길을 녹화를 재생하는 대역으로
+// 바꾼다. 녹화는 GUI 쪽 client(A)가 본 것이다: adapter가 부른 요청마다 녹화된 응답을 주고, 그 사이에 녹화된 event를 흘린다.
 
-type Entry = { kind: "send" | "recv"; data: Record<string, unknown> };
+type Entry = { kind: string; data: Record<string, unknown> };
 const fixtures = fileURLToPath(
   new URL("./fixtures/opencode/", import.meta.url),
 );
@@ -30,24 +30,80 @@ const recording = (name: string): Entry[] =>
     .trim()
     .split("\n")
     .map((line) => JSON.parse(line));
-const promptText = (rec: Entry[], nth = 0) =>
-  (
-    rec.filter((entry) => entry.data.method === "session/prompt")[nth]?.data
-      .params as { prompt: { text: string }[] }
-  ).prompt[0]?.text as string;
 
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-async function setup(name: string, options: { resume?: string } = {}) {
-  const rec = recording(name);
-  const written: unknown[] = [];
-  let out: (text: string) => void = () => {};
+async function setup(name: string) {
+  const rec = [...recording("start"), ...recording(name)];
+  type Waiter = {
+    method: string;
+    path: string;
+    body: unknown;
+    resolve(value: unknown): void;
+    reject(error: Error): void;
+  };
+  const waiting: Waiter[] = [];
+  // adapter가 보낸 요청(method, path, body)을 순서대로.
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  let emit: (event: Record<string, unknown>) => void = () => {};
+  const transport: OpencodeTransport = {
+    request: (method, path, options) =>
+      new Promise((resolve, reject) => {
+        requests.push({ method, path, body: options?.body });
+        waiting.push({
+          method,
+          path,
+          body: options?.body,
+          resolve: resolve as (value: unknown) => void,
+          reject,
+        });
+      }),
+    events(onEvent) {
+      emit = onEvent;
+      return { close() {} };
+    },
+  };
+
+  let at = 0;
+  async function pump() {
+    for (let round = 0; round < 50; round++) {
+      await flush();
+      const entry = rec[at];
+      if (entry === undefined) return;
+      const data = entry.data;
+      if (entry.kind === "event" && data.client === "A") {
+        emit(data.event as Record<string, unknown>);
+      } else if (entry.kind === "http" && data.client === "A") {
+        const index = waiting.findIndex(
+          (one) => one.method === data.method && one.path === data.path,
+        );
+        const found = waiting[index];
+        if (found === undefined) return;
+        waiting.splice(index, 1);
+        if (data.error !== undefined) {
+          found.reject(
+            Object.assign(new Error(String(data.error)), {
+              status: data.status,
+            }),
+          );
+        } else found.resolve(data.response);
+      }
+      at += 1;
+    }
+  }
+
+  const stdout: ((text: string) => void)[] = [];
+  const spawned: { command: string; args: readonly string[]; env?: unknown }[] =
+    [];
   const proc: ExtensionProcess = {
     pid: 1,
-    write: (text) => void written.push(JSON.parse(text)),
+    write() {},
     end() {},
     kill() {},
-    onStdout: (fn) => void (out = fn),
+    onStdout: (listener) => {
+      stdout.push(listener);
+      setImmediate(() => listener('{"url":"http://127.0.0.1:1"}\n'));
+    },
     onStderr() {},
     onExit() {},
   };
@@ -61,45 +117,43 @@ async function setup(name: string, options: { resume?: string } = {}) {
     onClose() {},
     close() {},
   };
-  const clock = manualClock(Date.UTC(2026, 10, 5));
-  const started = await opencodeAdapter.start({
-    terminal: null,
-    cwd: `/work/${name}`,
-    ...(options.resume === undefined ? {} : { resume: options.resume }),
-    session,
-    spawn: () => proc,
-    clock,
-    ids: createIdSource({ clock, random: seededRandom(1) }),
+  const secrets: string[] = [];
+  const adapter = createOpencodeAdapter({
+    connect: () => transport,
+    async writeSecret(text) {
+      secrets.push(text);
+      return { path: "/tmp/lophn-opencode-x/password", remove: async () => {} };
+    },
   });
-  assert.equal(started.ok, true);
+  const clock = manualClock(Date.UTC(2026, 10, 5));
+  let started: Awaited<ReturnType<typeof adapter.start>> | undefined;
+  void adapter
+    .start({
+      terminal: null,
+      cwd: "/work",
+      session,
+      spawn: (command, args, options) => {
+        spawned.push({ command, args, env: options?.env });
+        return proc;
+      },
+      clock,
+      ids: createIdSource({ clock, random: seededRandom(1) }),
+    })
+    .then((result) => void (started = result));
+  for (let round = 0; round < 50 && started === undefined; round++)
+    await pump();
+  assert.equal(started?.ok, true);
+  await pump();
 
-  let at = 0;
-  let checked = 0;
   return {
-    rec,
-    written,
     get state() {
       return state;
     },
-    /**
-     * 녹화를 따라간다. 서버 쪽 줄은 내보내고 클라이언트 쪽 줄은 adapter가 이미 썼는지 본다.
-     * 아직 안 썼으면(창의 입력을 기다린다) 멈춘다.
-     */
-    async pump() {
-      for (;;) {
-        await flush();
-        const entry = rec[at];
-        if (entry === undefined) return;
-        if (entry.kind === "recv") {
-          out(`${JSON.stringify(entry.data)}\n`);
-        } else if (written.length > checked) {
-          assert.deepEqual(written[checked++], entry.data);
-        } else {
-          return;
-        }
-        at += 1;
-      }
-    },
+    requests,
+    spawned,
+    secrets,
+    run: started?.ok === true ? started.value : undefined,
+    pump,
     async input(input: Record<string, unknown>) {
       listener?.({ session: "ses_x", ...input } as AcpInput);
       await flush();
@@ -114,106 +168,161 @@ async function setup(name: string, options: { resume?: string } = {}) {
   };
 }
 
-const contiguous = (state: AcpState) => {
-  const seqs = state.items.map((item) => item.seq);
-  assert.deepEqual(
-    seqs,
-    seqs.map((_, index) => index + 1),
-  );
-};
-const tools = (state: AcpState) =>
-  state.items.flatMap((item) => (item.kind === "tool" ? [item] : []));
+// 녹화에서 model이 먼저 codemode의 `execute`를 잘못 불러 tool 줄이 둘이다. 승인이 걸리는 것은 `shell`이다.
+const shellTool = (state: AcpState) =>
+  state.items.flatMap((item) =>
+    item.kind === "tool" && item.tool === "shell" ? [item] : [],
+  )[0];
 const ends = (state: AcpState) =>
   state.items.flatMap((item) =>
     item.kind === "notice" && item.notice.type === "turn_end"
       ? [item.notice.outcome]
       : [],
   );
+const replies = (requests: { method: string; path: string; body: unknown }[]) =>
+  requests.filter((one) => one.path.endsWith("/reply"));
 
-const approvalRows = [
-  { name: "approve", choice: { kind: "once" }, tool: "ok", turn: "completed" },
-  { name: "deny", choice: { kind: "reject" }, tool: "denied", turn: "stopped" },
-] as const;
-
-for (const row of approvalRows) {
-  test(`permission 요청은 창이 답하기 전까지 tool을 실행하지 않고 답대로 끝난다 (${row.name})`, async () => {
-    const t = await setup(row.name);
-    await t.pump();
-    await t.input(t.send("1", promptText(t.rec)));
-    await t.pump();
-
-    // 창이 답하기 전: 답을 쓰지 않았고(OpenCode는 답을 받아야 tool을 실행한다) 카드가 떠 있다.
-    const approval = t.state.pending.approval;
-    assert.ok(approval);
-    assert.deepEqual(approval.subject.kind, "shell");
-    // OpenCode의 always는 사람의 project에 영구히 저장되므로 이 session 동안 선택지로 내놓지 않는다.
-    assert.deepEqual(approval.always_patterns, []);
-    assert.equal(t.state.turn?.phase, "waiting");
-    assert.equal(tools(t.state)[0]?.state, "running");
-    assert.ok(
-      !t.written.some((line) => (line as { id?: number }).id === 0),
-      "no permission reply yet",
-    );
-
-    await t.input({ type: "decide", request: approval.id, choice: row.choice });
-    await t.pump();
-
-    assert.equal(tools(t.state)[0]?.state, row.tool);
-    assert.equal(t.state.pending.approval, null);
-    assert.deepEqual(ends(t.state), [row.turn]);
-    assert.equal(t.state.reread, false);
-    contiguous(t.state);
-  });
+// 승인 요청이 떠 있는 데까지 간다.
+async function untilAsked(name: string) {
+  const t = await setup(name);
+  await t.input(
+    t.send(
+      "1",
+      "Use your shell tool to run exactly this command: touch once.txt .",
+    ),
+  );
+  await t.pump();
+  const approval = t.state.pending.approval;
+  assert.ok(approval);
+  return { t, approval };
 }
 
-test("도는 중 보낸 메시지는 줄을 서고, stop은 session/cancel이며, 끝난 뒤 다음 prompt로 간다", async () => {
-  const t = await setup("cancel");
-  await t.pump();
-  await t.input(t.send("1", promptText(t.rec)));
-  await t.pump();
-  assert.equal(t.state.turn?.phase, "working");
+test("permission 요청은 창이 답하기 전까지 reply가 나가지 않고, 답하면 once가 나간다", async () => {
+  const { t, approval } = await untilAsked("approve_once");
+  assert.equal(approval.subject.kind, "shell");
+  assert.equal(t.state.turn?.phase, "waiting");
+  assert.equal(shellTool(t.state)?.state, "running");
+  assert.equal(replies(t.requests).length, 0);
 
-  await t.input(t.send("2", "second"));
-  assert.equal(t.state.queued.length, 1);
-  assert.equal(t.written.length, 3);
-
-  await t.input({ type: "stop", turn: "trn_x", key: "stop" });
+  await t.input({
+    type: "decide",
+    request: approval.id,
+    choice: { kind: "once" },
+  });
   await t.pump();
 
-  assert.deepEqual(ends(t.state), ["stopped"]);
-  assert.equal(t.state.queued.length, 0);
   assert.deepEqual(
-    (t.written.at(-1) as { params: { prompt: unknown[] } }).params.prompt,
-    [{ type: "text", text: "second" }],
+    replies(t.requests).map((one) => one.body),
+    [{ decision: "once" }],
   );
+  assert.equal(shellTool(t.state)?.state, "ok");
+  // server가 돌려준 표지로 우리가 보낸 메시지를 알아보므로 사람 메시지는 한 번만 그려진다.
   const users = t.state.items.flatMap((item) =>
     item.kind === "message" && item.actor === "user" ? [item.id] : [],
   );
-  assert.deepEqual(users, ["msg_1", "msg_2"]);
-  contiguous(t.state);
+  assert.deepEqual(users, ["msg_1"]);
+  assert.equal(t.state.pending.approval, null);
+  assert.deepEqual(ends(t.state), ["completed"]);
+  assert.equal(t.state.reread, false);
 });
 
-test("session/load가 다시 흘린 앞 대화를 그리고 이어서 보낸다", async () => {
-  const t = await setup("load", { resume: "ses_e592c5dceffeeOvDkGApBzT68M" });
+test("거절하면 reply가 reject와 이유를 싣고, 그 tool은 거절로 끝나며 turn은 stopped로 그려지지 않는다", async () => {
+  const { t, approval } = await untilAsked("deny_reason");
+  await t.input({
+    type: "decide",
+    request: approval.id,
+    choice: { kind: "reject", reason: "Do not create files here." },
+  });
   await t.pump();
-  const texts = t.state.items.flatMap((item) =>
-    item.kind === "message" ? [[item.actor, item.content[0]]] : [],
-  );
-  assert.deepEqual(texts, [
-    [
-      "user",
-      {
-        type: "text",
-        text: "Reply with exactly this sentence and nothing else: Hello from the GUI fixture.",
-      },
-    ],
-    ["agent", { type: "text", text: "Hello from the GUI fixture." }],
-  ]);
-  assert.equal(t.state.turn?.phase, "ended");
 
-  await t.input(t.send("1", promptText(t.rec)));
+  assert.deepEqual(
+    replies(t.requests).map((one) => one.body),
+    [{ decision: "reject", message: "Do not create files here." }],
+  );
+  assert.equal(shellTool(t.state)?.state, "denied");
+  assert.deepEqual(ends(t.state), ["completed"]);
+  const closed = t.state.items.find((item) => item.kind === "approval");
+  assert.equal(closed?.kind === "approval" && closed.outcome, "denied");
+  assert.equal(
+    closed?.kind === "approval" && closed.reason,
+    "Do not create files here.",
+  );
+});
+
+test("다른 client가 먼저 답하면 이쪽 카드가 답 없이 닫힌다", async () => {
+  // 녹화에서는 B가 답하고, A는 `permission.replied`를 받는다. adapter는 reply를 보내지 않는다.
+  const t = await setup("approve_other");
+  await t.input(
+    t.send(
+      "1",
+      "Use your shell tool to run exactly this command: touch once.txt .",
+    ),
+  );
   await t.pump();
-  assert.deepEqual(ends(t.state), ["completed", "completed"]);
+
+  assert.equal(t.state.pending.approval, null);
+  assert.equal(replies(t.requests).length, 0);
+  const closed = t.state.items.find((item) => item.kind === "approval");
+  assert.equal(closed?.kind === "approval" && closed.outcome, "allowed");
   assert.equal(t.state.reread, false);
-  contiguous(t.state);
+  assert.deepEqual(ends(t.state), ["completed"]);
+});
+
+test("이 session 동안 허락은 session.update permissions와 once만 보내고 always를 보내지 않는다. always는 영구로 표시된 선택에서만 나간다", async () => {
+  const session = await untilAsked("approve_session");
+  // always는 사람의 project에 영구 규칙으로 남는 선택이라 영구라고 적어 내놓는다.
+  assert.deepEqual(session.approval.choices, [
+    "once",
+    "session",
+    "always",
+    "reject",
+  ]);
+  assert.match(session.approval.always_patterns.join(" "), /permanent/i);
+  await session.t.input({
+    type: "decide",
+    request: session.approval.id,
+    choice: { kind: "session" },
+  });
+  await session.t.pump();
+
+  const patch = session.t.requests.find((one) => one.method === "PATCH");
+  assert.deepEqual(patch?.body, {
+    permissions: [{ action: "shell", resource: "touch *", effect: "allow" }],
+  });
+  assert.deepEqual(
+    replies(session.t.requests).map((one) => one.body),
+    [{ decision: "once" }],
+  );
+  const closed = session.t.state.items.find((item) => item.kind === "approval");
+  assert.equal(closed?.kind === "approval" && closed.choice, "session");
+
+  const always = await untilAsked("approve_once");
+  await always.t.input({
+    type: "decide",
+    request: always.approval.id,
+    choice: { kind: "always" },
+  });
+  await always.t.pump();
+  assert.deepEqual(
+    replies(always.t.requests).map((one) => one.body),
+    [{ decision: "always" }],
+  );
+});
+
+test("tab 전용 server의 password는 spawn env의 그 칸과 0600 file에만 있고 TUI 명령 글에는 없다", async () => {
+  const t = await setup("approve_once");
+  const [spawn] = t.spawned;
+  assert.deepEqual(spawn?.args, ["serve", "--stdio", "--port", "0"]);
+  const env = spawn?.env as Record<string, string>;
+  // login shell env를 덮지 않도록 바꾸는 칸만 넘긴다.
+  assert.deepEqual(Object.keys(env), ["OPENCODE_PASSWORD"]);
+  const password = env.OPENCODE_PASSWORD;
+  assert.equal(t.secrets[0], password);
+
+  const command = t.run?.tuiCommand();
+  assert.ok(command !== undefined && !command.includes(password ?? ""));
+  assert.match(
+    command ?? "",
+    /^OPENCODE_PASSWORD="\$\(cat '\/tmp\/lophn-opencode-x\/password'\)" opencode --server http:\/\/127\.0\.0\.1:1 --session ses_test$/,
+  );
 });

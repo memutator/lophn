@@ -179,6 +179,8 @@ type Cancelable = Query & {
 const DENIED = "The user denied this tool use.";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
 const TODO_TOOL = "TodoWrite";
+// CLI의 todo tool(TUI와 같다). 목록은 이 tool들의 결과를 이어 붙여 만든다.
+const TASK_TOOLS = ["TaskCreate", "TaskUpdate"];
 const AGENT_TOOLS = ["Agent", "Task"];
 // 화면 동작이 대신하는 CLI 줄과, 화면에 내지 않는 CLI 줄(TUI 전용·원격·폐기).
 const SCREEN_COMMANDS = new Set([
@@ -570,6 +572,15 @@ type Lane = {
   seen: Set<string>;
   /** query가 바뀌어 버린 줄기. */
   dead: boolean;
+  /** TaskCreate·TaskUpdate로 쌓은 todo 목록(task id 순서는 만든 순서). */
+  todos: Map<
+    string,
+    {
+      subject: string;
+      activeForm: string;
+      status: "pending" | "in_progress" | "completed" | "cancelled";
+    }
+  >;
   /** subagent에게 맡긴 일(prompt). task_started가 알려 첫 줄로 그리고, 뒤에 오는 같은 글은 건너뛴다. */
   prompt: string | null;
   emit(update: AcpChildUpdate): void;
@@ -580,7 +591,8 @@ type Call = {
   denied: boolean;
   /** 본문(`body.input`)에 쓸 입력. */
   input: Record<string, unknown>;
-  /** TodoWrite처럼 tool 줄을 내지 않는 호출. */
+  tool: string;
+  /** TodoWrite·TaskCreate처럼 tool 줄을 내지 않는 호출. */
   hidden?: boolean;
   /** subagent(Agent tool) 호출이면 그 상태. */
   agent?: {
@@ -692,6 +704,7 @@ const start: (sdk: ClaudeSdk) => Start =
       seen: new Set(),
       dead: false,
       prompt: null,
+      todos: new Map(),
       emit: (update) =>
         publish(
           child === null ? update : { type: "child_update", child, update },
@@ -1035,6 +1048,44 @@ const start: (sdk: ClaudeSdk) => Start =
       });
     }
 
+    // TaskCreate는 결과 글의 `Task #<id>`로 id를 얻고, TaskUpdate는 입력 그대로 고친다. deleted는 cancelled다.
+    function taskResult(lane: Lane, call: Call, output: string) {
+      const input = call.input;
+      if (call.tool === "TaskCreate") {
+        const id = /Task #(\S+) created/.exec(output)?.[1];
+        if (id === undefined) return;
+        lane.todos.set(id, {
+          subject: str(input.subject),
+          activeForm: str(input.activeForm),
+          status: "pending",
+        });
+      } else {
+        const entry = lane.todos.get(str(input.taskId));
+        if (entry === undefined) return;
+        if (str(input.subject) !== "") entry.subject = str(input.subject);
+        if (str(input.activeForm) !== "")
+          entry.activeForm = str(input.activeForm);
+        const status = str(input.status);
+        if (status === "deleted") entry.status = "cancelled";
+        else if (
+          status === "pending" ||
+          status === "in_progress" ||
+          status === "completed"
+        )
+          entry.status = status;
+      }
+      lane.emit({
+        type: "plan_changed",
+        entries: [...lane.todos.values()].map((one) => ({
+          text:
+            one.status === "in_progress" && one.activeForm !== ""
+              ? one.activeForm
+              : one.subject,
+          status: one.status,
+        })),
+      });
+    }
+
     // 그 subagent tool 줄의 detail을 고친다(task 알림이 오거나 tool 줄이 끝날 때).
     function setAgent(call: Call, patch: Partial<SubagentDetail>) {
       const agent = call.agent;
@@ -1060,8 +1111,14 @@ const start: (sdk: ClaudeSdk) => Start =
         done: false,
         denied: false,
         input: toolInput,
+        tool: name,
       };
       lane.calls.set(useId, call);
+      if (TASK_TOOLS.includes(name)) {
+        // 결과(task id)가 와야 목록에 든다.
+        call.hidden = true;
+        return call;
+      }
       if (name === TODO_TOOL) {
         // todo는 dock이 그리고 tool 줄은 내지 않는다.
         call.hidden = true;
@@ -1322,7 +1379,8 @@ const start: (sdk: ClaudeSdk) => Start =
     ) {
       const id = lane.turn ?? ids.newId("trn");
       for (const call of lane.calls.values())
-        if (!call.done) toolEnd(lane, call, "cancelled");
+        if (!call.done && call.hidden !== true)
+          toolEnd(lane, call, "cancelled");
       lane.calls.clear();
       lane.reasoning = "";
       lane.emit({
@@ -1418,6 +1476,11 @@ const start: (sdk: ClaudeSdk) => Start =
           typeof block.content === "string"
             ? block.content
             : textOf(block.content ?? []);
+        if (call.hidden === true) {
+          call.done = true;
+          if (block.is_error !== true) taskResult(lane, call, output);
+          continue;
+        }
         toolEnd(
           lane,
           call,
@@ -2386,6 +2449,7 @@ const start: (sdk: ClaudeSdk) => Start =
       titled = null;
       taskList.clear();
       publishTasks();
+      root.todos.clear();
       publish({ type: "plan_changed", entries: [] });
       changed({ title: null, goal: null, usage: usageNow() });
       void refreshContext();

@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { sep } from "node:path";
 import { ok, type Result } from "../../../base/mod.ts";
 import type { AppIcon } from "../../../protocol/apps/declaration/read.ts";
 import type { BundleLocator } from "../ports.ts";
@@ -37,7 +38,8 @@ export async function readAppIcon(
   const root = await deps.realPath(bundle.value);
   if (root === null) return ok(null);
   const file = await deps.realPath(`${root}${declared.value}`);
-  if (file === null || !file.startsWith(`${root}/`)) return ok(null);
+  // realpath는 OS 구분자로 잇는다(Windows는 `\`).
+  if (file === null || !file.startsWith(`${root}${sep}`)) return ok(null);
   const bytes = await deps.readFile(file, MAX_ICON_BYTES);
   if (bytes === null || bytes.byteLength === 0) return ok(null);
   return ok({

@@ -1,3 +1,4 @@
+import { sep } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { AppScreenFileInput } from "../../../protocol/apps/calls/mod.ts";
 import { relativePathSchema } from "../../../protocol/projects/values.ts";
@@ -56,7 +57,10 @@ export async function serveScreenFile(
   const screenRoot = await deps.realPath(`${root}/screens/${screen}`);
   if (screenRoot === null) return notFound();
   const file = await deps.realPath(`${screenRoot}/${path}`);
-  if (file === null || !file.startsWith(`${screenRoot}/`)) return notFound();
+  // realpath는 OS 구분자로 잇는다(Windows는 `\`).
+  if (file === null || !file.startsWith(`${screenRoot}${sep}`)) {
+    return notFound();
+  }
 
   const bytes = await deps.readFile(
     file,

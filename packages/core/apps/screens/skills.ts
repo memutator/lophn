@@ -1,14 +1,15 @@
 import { readdir } from "node:fs/promises";
-import type { BundleLocator } from "../ports.ts";
-import { createScreenFileDeps } from "./adapters.ts";
+import { sep } from "node:path";
 import {
   isSharedCompanion,
   publicSkillNames,
   SHARED_SKILLS_DIR,
-  sharedManifestDescription,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
+  sharedManifestDescription,
 } from "../../lophn-agent/extensions/skills.ts";
+import type { BundleLocator } from "../ports.ts";
+import { createScreenFileDeps } from "./adapters.ts";
 
 export type AppSkill = {
   name: string;
@@ -49,7 +50,8 @@ export async function readAppSkills(
 
   const inside = async (path: string): Promise<string | null> => {
     const real = await deps.realPath(path);
-    return real !== null && real.startsWith(`${root}/`) ? real : null;
+    // realpath는 OS 구분자로 잇는다(Windows는 `\`).
+    return real !== null && real.startsWith(`${root}${sep}`) ? real : null;
   };
   const text = async (path: string): Promise<string | null> => {
     const real = await inside(path);

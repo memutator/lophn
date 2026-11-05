@@ -28,6 +28,18 @@
 18. omp role은 "이 session만 이 role의 model로"(`/switch @role`)만 넣는다. role 배정(`~/.omp` 설정)은 바꾸지 않는다. (사람, 2026-11-05)
 19. 끝났다고 말하기 전에 실제 앱으로 확인한다: Electron 앱을 몰아 기능 목록을 하나씩 해 보고 화면을 찍는 script를 둔다(E2E 꼴, 사람이 허락). 실제 CLI는 싼 model로(Claude haiku, OpenCode `openrouter/deepseek/deepseek-v4.1-flash-1017`, Codex·omp는 그 CLI의 가장 싼 model). 녹화 원본은 worktree 밖 `.cache/harness-gui-recordings/<harness>-v2/`에 둔다(worktree는 merge 뒤 지워진다). (사람, 2026-11-05)
 
+20. 사람이 써 본 둘째 묶음을 고친다(2026-11-05): Claude todo가 지워지지 않음, vendor 얼굴의 회색 원, subagent 보기의 이중 머리, shell mode 표시 없음과 `!` 결과가 agent 것처럼 보임, fast·thinking chip, 출력 블록의 복사 단추, Claude rewind 안 됨, resume 없음, TUI → GUI가 안 보임, `/` 메뉴 스크롤, fork 뒤 표시 없음, lophn agent에도 `!`, model picker의 role 자리와 접기. 조사는 `.cache/harness-gui-research/round2-{claude,others,screen,core-tab}.md`. (사람)
+21. shell mode는 harness 넷과 lophn agent 모두에 둔다. 입력칸이 `!`로 시작하면 shell mode를 보인다(capability `shell`, 입력 `run_shell {command}`). 사람이 돌린 명령은 사람 쪽 tool 줄(`by: "user"`)로 그 자리에 출력을 펼쳐 그린다. model은 다음 turn에 본다. Claude는 adapter가 명령을 돌리고 `<bash-input>`·`<bash-stdout>` 사람 메시지를 `shouldQuery: false`로 넣는다(Claude 데스크톱 앱과 같다). (사람이 방향, agent가 모양)
+22. lophn agent의 `!`는 사람이 친 것이라 승인 없이 그 session workspace의 기본 폴더에서 agent `shell.run`과 같은 runner(env allowlist, 시간·출력 상한, redaction)로 돈다. 사람 메시지로 저장하고 turn을 시작하지 않으며 다음 turn이 가져간다. Home은 폴더가 없어 끈다. 앱 bridge는 `run_shell`을 `forbidden`으로 막는다(앱 code가 승인 없이 shell을 돌리지 못하게). (agent 추천, 사람이 반대하지 않음)
+23. resume: harness 탭도 머리 session menu로 그 CLI가 이 폴더에서 가진 지난 session을 보이고 같은 탭에서 바꾼다(capability `resume`, `/resume`은 `opens: "resume"`). 바꾸면 갱신 `session_reset` 뒤 다시 그린다. (사람이 문제, agent가 모양)
+24. fast·thinking·speed는 model picker의 축이다(`kind: "switch"` 축은 켜고 끄기로 그린다). composer chip은 Codex plan과 OpenCode auto-accept만 남는다. Codex는 model의 service tier가 Speed 축이다. Claude TUI로 넘길 때 `--settings`로 fast·thinking을 넘긴다. (사람)
+25. model picker: Roles를 맨 위에 두고 provider 묶음은 접고 편다(지금 model의 묶음만 열고, 검색하면 맞는 묶음을 다 열고, 탭이 열린 동안만 기억). lophn agent의 picker도 같다. (사람)
+26. subagent 보기는 탭 머리의 ←/→로 들어가고 나오며 머리 제목이 `{agent} › {subagent} · subagent`다. 따로 둔 Back 줄은 없다. (사람)
+27. TUI → GUI: 터미널 탭 머리 단추("Chat") 이름을 알아보게 바꾸고 ⋯ 더보기에 "채팅으로 열기"를 둔다. 그 탭이 GUI를 아는 CLI를 알면 보이고, foreground가 아니거나 session id를 아직 모르면 이유와 함께 끈다. (사람이 방향, agent)
+28. fork·rewind 뒤에는 "Forked from …"·"Rewound to …" info 줄을 남기고 제목을 바꾼다. Claude rewind는 파일 미리보기를 adapter에서 읽는다(지금 GUI source가 늘 unavailable이라 Rewind 단추가 아무것도 하지 않는다). (agent)
+29. 작은 화면 결함: vendor 얼굴은 배경 없이, `/` 메뉴는 고른 줄을 따라 스크롤하고 가로 스크롤이 없게, 언어 머리가 없는 code block은 복사 단추를 오른쪽 위에 겹친다. Claude todo의 `deleted`는 목록에서 뺀다. (사람)
+30. 끝났다고 말하기 전에 lead가 dev 앱으로 정한 것 20의 목록을 하나씩 확인한다. app-check script는 쓰지 않는다(사람이 직접 확인하는 것이 빠르다). (사람, 2026-11-05)
+
 ## task
 
 | wave | id | 한 줄 |
@@ -50,12 +62,19 @@
 | 5 | `omp-fix` | omp adapter: 명령 출력 블록, 도는 중 명령, `!cmd`, role, fast/slow, subagent, 사용 한도·goal(있으면), tool 본문, 녹화 다시 |
 | 6 | `screen-dock` | 화면의 composer dock: todo, subagent 보기, background task, 대기열, 켜고 끄기, goal, role, 사용 한도 |
 | 7 | `thread-index` | thread index rail, hover card, bookmark 저장(shell data file, IPC) |
-| 8 | `app-check` | 실제 앱 확인 script(Electron을 몰아 기능 목록을 해 보고 화면을 찍는다)와 그 기능 목록 |
+| 9 | `acp-round2` | ACP·IPC 계약: `shell`·`run_shell`·`by`, `resume`·`session_reset`·session 목록, rewind 미리보기, `switch` 축 |
+| 10 | `core-shell` | lophn agent의 `!`(core runner, 사람 메시지 저장, 다음 turn, 앱 bridge 막기) |
+| 10 | `claude-fix2` | Claude: todo deleted, rewind 미리보기·결함, `!`, fast·thinking 축과 handoff, resume 목록, fork·rewind 줄 |
+| 10 | `codex-fix2` | Codex: Speed 축, `!` 사람 줄, resume 목록, fork 줄 |
+| 10 | `opencode-fix2` | OpenCode: `!` 사람 줄, resume 목록, fork 줄, server 명령 인자 hint |
+| 10 | `omp-fix2` | omp: Speed 축, `!` 순서·사람 줄, resume 목록, fork 줄, 명령 출력 markdown, `!`만 한 session의 TUI |
+| 10 | `screen-a` | 화면: vendor 얼굴, `/` 메뉴, code block 복사, shell mode composer와 사람 shell 줄, fork·rewind 줄, rewind 미리보기, 터미널 탭 "채팅으로 열기" |
+| 11 | `screen-b` | 화면: model picker(Roles 맨 위, 묶음 접기, switch 축), harness session menu와 `/resume`, subagent 보기를 머리 ←/→로 |
 
 ## lead가 할 일
 
 - 녹화(정한 것 13): wave 3 task가 녹화 script와 scenario를 보고하면 lead가 실제 CLI로 돌려 fixture 재료를 건넨다. 녹화 원본은 저장소 밖(`.cache/`)에 두고 scrub한 것만 commit된다.
-- 사람에게 화면을 봐 달라고 한다: wave 2 뒤(탭 toggle과 ACP 화면, lophn agent 포함), wave 3 뒤(CLI 넷), wave 8 `app-check`를 lead가 돌려 기능 목록이 다 된 것을 본 뒤.
+- 사람에게 화면을 봐 달라고 한다: wave 2 뒤, wave 3 뒤, wave 7 뒤(사람이 직접 확인), wave 11 뒤(lead가 dev 앱으로 정한 것 20 목록을 먼저 확인한 뒤).
 - wave 5는 `core-commands`를 `screen-thread`보다 먼저 merge한다(먼저 오면 lophn 내장 명령이 `opens` 없이 `run_command`로 가 core가 거절한다).
 - merge마다 `architecture/acp.md`, `harness-gui.md`, `terminal-agent.md`, `agent-chat.md`, `extension.md`를 고친다. 열린 이슈(`project-docs/issues/harness-gui.md`)를 이 계획이 고친 대로 닫는다.
 - 다 끝나면: roadmap 단계 8, change-log 열린 판, 계획 폴더 지우기.

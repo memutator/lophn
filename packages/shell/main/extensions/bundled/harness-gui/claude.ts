@@ -2022,6 +2022,8 @@ const start: (sdk: ClaudeSdk) => Start =
             if (value !== undefined && process.env[key] !== value)
               env[key] = value;
           }
+          // CLI는 SDK mode에서 todo tool(TaskCreate 등)을 이 flag가 있어야 내놓는다. TUI와 같은 tool을 쓴다.
+          env.CLAUDE_CODE_ENABLE_TODO_TOOLS = "1";
           const proc = spawn(spawnOptions.command, spawnOptions.args, {
             ...(spawnOptions.cwd === undefined
               ? {}

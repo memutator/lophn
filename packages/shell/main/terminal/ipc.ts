@@ -152,6 +152,8 @@ export function createTerminalIpc(deps: {
   hooks?: TerminalHooks;
   /** 사람 터미널의 shell에 끼울 시작 층 폴더. 없으면(hook이 꺼짐) shell은 그대로 뜬다. */
   shellInit?: () => string | null;
+  /** 새 터미널 PATH에 더할 CLI 폴더. hook 길과 무관하게 줘서 hook socket이 꺼진 Windows도 `lophn`을 친다. */
+  cliPath?: () => Record<string, string>;
   /** 터미널 안 coding agent 상태. runtime 답에 agent를 싣고, 사람의 입력·focus를 알린다. */
   agent?: Pick<AgentTracker, "decorate" | "humanInput" | "tabFocused">;
   /** 탭 줄에 보이는 이름을 적는다. */
@@ -239,6 +241,7 @@ export function createTerminalIpc(deps: {
         const env = {
           ...issued?.env,
           ...hooked?.env,
+          ...deps.cliPath?.(),
           ...(shellInit === null ? {} : { [SHELL_INIT_ENV]: shellInit }),
         };
         const reply = await deps.host.request({

@@ -1,6 +1,6 @@
 // 데이터 root는 platform이 검증한다. shell은 그 root를 받아 자기 자리만 정한다.
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 
 import { LINUX_LAUNCHERS } from "../../../base/install/linux-install.ts";
 import { MAC_CLI_LAUNCHER } from "../../../base/install/mac-install.ts";
@@ -78,4 +78,18 @@ export function packagedInstall(
             ? join(root, WIN_CLI_LAUNCHER)
             : null,
   };
+}
+
+/**
+ * `lophn` 실행 파일 경로 하나를 고르는 규칙. packaged는 설치본, 개발 실행은 `LOPHN_CLI`(launcher 경로, 절대 경로일 때만)다.
+ * 둘 다 없으면 null.
+ */
+export function lophnCliPath(input: {
+  packaged: boolean;
+  resourcesPath: string;
+  env: Readonly<Record<string, string | undefined>>;
+}): string | null {
+  if (input.packaged) return packagedInstall(input.resourcesPath).cli;
+  const given = input.env.LOPHN_CLI;
+  return given !== undefined && isAbsolute(given) ? given : null;
 }

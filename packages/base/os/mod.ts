@@ -1,4 +1,5 @@
 export { homeOf, type OsPlatform } from "./home.ts";
+export { prependPath } from "./path-env.ts";
 export { ipcPath, ipcPathLimit } from "./ipc.ts";
 export {
   nodeTreeDeps,

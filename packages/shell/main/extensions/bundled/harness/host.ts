@@ -1,6 +1,7 @@
 // harness host: 입력함의 입력을 harness의 headless CLI로 실행하고 출력을 session 기록으로 옮긴다.
 // core에는 `ctx.core`로만 닿는다. 흐름과 route 순서는 `protocol/lophn-agent/harness-host.ts`.
-import { delimiter, dirname, isAbsolute } from "node:path";
+import { dirname, isAbsolute } from "node:path";
+import { prependPath } from "../../../../../base/os/mod.ts";
 import type { Result } from "../../../../../base/result.ts";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
 import { AGENT_CREDENTIAL_ENV } from "../../../../../protocol/coding-agent/headless/env.ts";
@@ -40,29 +41,17 @@ type Part =
       status: "done" | "failed";
     };
 
-// CLI 폴더를 PATH 앞에 둔 env 한 칸. `cli`는 `LOPHN_CLI`(launcher 경로)다: 개발 실행은 사람이 주고, packaged는 shell main이 설치본
-// 경로로 채운다. extension은 electron·설치 위치를 몰라 env로만 받는다. 이미 PATH에 있으면(Linux .deb의 `/usr/bin`) 비운다.
-// Windows는 이름이 `Path`일 수 있어 env에 있는 이름 그대로 쓴다(다른 대소문자 이름을 더하면 둘이 공존해 어느 쪽이 쓰일지 모른다).
-export function cliPathEntry(
-  cli: string | undefined,
-  env: Readonly<Record<string, string | undefined>>,
-): Record<string, string> {
-  if (cli === undefined || !isAbsolute(cli)) return {};
-  const name = Object.keys(env).find((key) => key.toLowerCase() === "path");
-  const current = (name === undefined ? "" : env[name]) ?? "";
-  const dir = dirname(cli);
-  if (current.split(delimiter).includes(dir)) return {};
-  return {
-    [name ?? "PATH"]: current === "" ? dir : `${dir}${delimiter}${current}`,
-  };
-}
-
 // harness가 `lophn`을 부를 env다. 자격은 이 turn에만 쓰이고(core가 turn 끝에 만료한다) user token은 넣지 않는다.
 function harnessEnv(credential: string): Record<string, string> {
-  return {
-    [AGENT_CREDENTIAL_ENV]: credential,
-    ...cliPathEntry(process.env.LOPHN_CLI, process.env),
-  };
+  const env: Record<string, string> = { [AGENT_CREDENTIAL_ENV]: credential };
+  // 개발 실행은 PATH에 `lophn`이 없다. `LOPHN_CLI`(launcher 경로)는 개발 실행은 사람이, packaged는 shell main이 채운다. extension은
+  // electron·설치 위치를 몰라 env로만 받는다.
+  const cli = process.env.LOPHN_CLI;
+  if (cli !== undefined && isAbsolute(cli)) {
+    const path = prependPath(process.env, dirname(cli), process.platform);
+    if (path !== undefined) env[path.name] = path.value;
+  }
+  return env;
 }
 
 const TICK_MS = 1000;

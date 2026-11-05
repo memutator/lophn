@@ -27,6 +27,7 @@ export {
   ipcPathLimit,
   nodeTreeDeps,
   type OsPlatform,
+  prependPath,
   signalTree,
   treeGone,
   type TreeChild,

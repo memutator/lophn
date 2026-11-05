@@ -4,7 +4,7 @@
 import { app } from "electron";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { basename, isAbsolute } from "node:path";
+import { basename, dirname } from "node:path";
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/mod.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import {
@@ -26,8 +26,8 @@ import {
   type TerminalAgentSessionRename,
   type TerminalRuntime,
 } from "../../../ipc/terminal.ts";
+import { prependPath } from "../../../../base/os/mod.ts";
 import { writeShellInit } from "../../../terminal-host/shell-integration.ts";
-import { cliPathEntry } from "../../extensions/bundled/harness/host.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import {
   createHookIngress,
@@ -44,7 +44,7 @@ import {
   createAgentTracker,
 } from "../../terminal/agent/tracker.ts";
 import type { Supervisor } from "../../terminal/supervisor.ts";
-import { packagedInstall } from "../paths.ts";
+import { lophnCliPath } from "../paths.ts";
 import type { ShellContext } from "./context.ts";
 import type { NoticeWiring } from "./notice.ts";
 
@@ -61,6 +61,8 @@ export function createAgentWiring(options: {
   gui(hook: RoutedHook): void;
 }): {
   hooks: TerminalHooks;
+  /** 새 터미널의 PATH 앞에 둘 CLI 폴더. hook 길과 무관하다. 더할 것이 없으면 빈 객체. */
+  cliPath(): Record<string, string>;
   tracker: AgentTracker;
   /** 사람 터미널의 shell에 끼울 시작 층 폴더. hook이 꺼져 있으면 null. */
   shellInit(): string | null;
@@ -80,12 +82,14 @@ export function createAgentWiring(options: {
 } {
   const { ctx, notice, terminals } = options;
 
+  const cli = lophnCliPath({
+    packaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    env: process.env,
+  });
   // 설치본의 `lophn`은 macOS·Windows에서 PATH 밖이다. harness extension은 electron·설치 위치를 import하지 못해 env로만 받으므로
-  // 개발 실행의 `LOPHN_CLI`와 같은 자리에 설치본 경로를 채운다. 터미널 PATH(`issue`)와 `gui` 함수도 이 값을 쓴다.
-  if (app.isPackaged) {
-    const cli = packagedInstall(process.resourcesPath).cli;
-    if (cli !== null) process.env.LOPHN_CLI = cli;
-  }
+  // 개발 실행의 `LOPHN_CLI`와 같은 자리에 설치본 경로를 채운다.
+  if (app.isPackaged && cli !== null) process.env.LOPHN_CLI = cli;
 
   function publish(runtime: TerminalRuntime): void {
     for (const window of ctx.windows) {
@@ -264,10 +268,8 @@ export function createAgentWiring(options: {
             write: (path, text) => writeFileSync(path, text, { mode: 0o600 }),
           },
           dir,
-          // 터미널 env에는 LOPHN_CLI가 없다. main의 launcher 경로(위에서 채운 값)를 함수에 넣는다.
-          process.env.LOPHN_CLI && isAbsolute(process.env.LOPHN_CLI)
-            ? process.env.LOPHN_CLI
-            : "lophn",
+          // 터미널 env에는 LOPHN_CLI가 없다. main이 고른 launcher 경로를 함수에 넣는다.
+          cli ?? "lophn",
         );
       } catch (cause) {
         ctx.log(`shell integration is off: ${String(cause)}`);
@@ -280,19 +282,7 @@ export function createAgentWiring(options: {
   });
 
   const hooks: TerminalHooks = {
-    // 터미널 shell이 `lophn`을 치게 CLI 폴더를 PATH에 더한다. bind가 표에 넣는 env에는 넣지 않는다(GUI가 띄운 CLI는 자기 PATH가 있다).
-    issue() {
-      const issued = live && !stopped ? live.issue() : null;
-      return issued === null
-        ? null
-        : {
-            key: issued.key,
-            env: {
-              ...issued.env,
-              ...cliPathEntry(process.env.LOPHN_CLI, process.env),
-            },
-          };
-    },
+    issue: () => (live && !stopped ? live.issue() : null),
     bind: (key, ref) => live?.bind(key, ref),
     revoke: (ref) => live?.revoke(ref),
     envOf: (ref) => live?.envOf(ref) ?? null,
@@ -300,6 +290,11 @@ export function createAgentWiring(options: {
 
   return {
     hooks,
+    cliPath() {
+      if (cli === null) return {};
+      const path = prependPath(process.env, dirname(cli), process.platform);
+      return path === undefined ? {} : { [path.name]: path.value };
+    },
     tracker,
     shellInit: () => (live && !stopped ? shellInit : null),
     syncSkills: () => skillSync.request(),

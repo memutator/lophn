@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { join } from "node:path";
 import { app, clipboard } from "electron";
 import {
   canDeliverMessages,
@@ -32,7 +32,7 @@ import {
   registerCodingIpc,
   removeCodingIpc,
 } from "../coding-ipc.ts";
-import { packagedInstall } from "../paths.ts";
+import { lophnCliPath } from "../paths.ts";
 import { createAgentWiring } from "./agent.ts";
 import { createBridgeWiring } from "./bridge.ts";
 import type { CallResult, Registered, ShellContext } from "./context.ts";
@@ -97,12 +97,11 @@ export function register(ctx: ShellContext): Coding {
   // harness 감지와 전역 skill·hook 등록. `lophn` 실행 파일은 설치 묶음에 있다(Linux .deb의 `/usr/bin/lophn`, macOS `Resources/bin/lophn`, Windows `bin\lophn.cmd`).
   // 개발 실행은 LOPHN_CLI(절대 경로)를 준 때만 child를 부르고, 없으면 감지는 unavailable이다.
   // child에는 이 main의 데이터 root만 환경으로 준다.
-  function lophnCommand(): string | null {
-    if (app.isPackaged) return packagedInstall(process.resourcesPath).cli;
-    const given = process.env.LOPHN_CLI;
-    return given !== undefined && isAbsolute(given) ? given : null;
-  }
-  const lophnCli = lophnCommand();
+  const lophnCli = lophnCliPath({
+    packaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    env: process.env,
+  });
   const cliEnv = { ...process.env, LOPHN_HOME: dataRoot };
   const catalog: HarnessCatalog = {
     parse(item) {
@@ -249,6 +248,7 @@ export function register(ctx: ShellContext): Coding {
     bridge: bridgeWiring.bridge,
     hooks: agent.hooks,
     shellInit: agent.shellInit,
+    cliPath: agent.cliPath,
     agent: agent.tracker,
     tabName: agent.setTabName,
     agentSessions: agent.listSessions,

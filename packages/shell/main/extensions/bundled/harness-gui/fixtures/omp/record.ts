@@ -1,21 +1,25 @@
 // 녹화 script. 사람 PATH의 `omp --mode rpc-ui`를 진짜 model로 띄워 scenario를 차례로 몰고, 보낸 줄(send)과 받은 줄(recv)을
-// `.dev-data/adapter-omp/<scenario>.jsonl`에 `{t, kind, data}`로 쓴다. test는 이것을 돌리지 않는다. 사람 허락 아래 lead가 돌린다.
+// `<out>/<scenario>.jsonl`에 `{t, kind, data}`로 쓴다. test는 이것을 돌리지 않는다. 사람 허락 아래 lead가 돌린다.
 //
 // 저장소 root에서:
-//   node --experimental-strip-types --no-warnings packages/shell/main/extensions/bundled/harness-gui/fixtures/omp/record.ts [--model <패턴>] [scenario ...]
-// scenario를 안 주면 아래 열넷을 다 돈다. session은 `.dev-data/adapter-omp/sessions/`에 따로 쌓아 사람의 ~/.omp를 건드리지
-// 않는다(auth와 설정은 사람의 것을 그대로 쓴다). 상위 lophn 터미널 env(`LPN_*`, `LOPHN_*`)는 빼고 띄운다.
+//   node --experimental-strip-types --no-warnings packages/shell/main/extensions/bundled/harness-gui/fixtures/omp/record.ts --out <dir> --model <패턴> [scenario ...]
+// scenario를 안 주면 아래를 다 돈다. --out과 --model은 필수다(model을 빼면 omp의 기본 model로 돌아 비쌀 수 있다).
+// session은 `<out>/sessions/`에 따로 쌓아 사람의 ~/.omp를 건드리지 않는다(auth와 설정은 사람의 것을 그대로 쓴다).
+// scenario cwd는 os.tmpdir() 아래 mkdtemp 폴더이고 끝나면 지운다(lophn checkout 안이면 omp가 위 폴더의 AGENTS.md를 읽는다).
+// 상위 lophn 터미널 env(`LPN_*`, `LOPHN_*`)는 빼고 띄운다. 사람의 role·approval 설정 file은 쓰지 않는다.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import {
   appendFileSync,
   chmodSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 type Frame = {
@@ -32,19 +36,32 @@ type Frame = {
   chunkId?: string;
   index?: number;
   count?: number;
+  payload?: { id?: string; status?: string; detached?: boolean };
 };
 
 const ROOT = process.cwd();
-const OUT = join(ROOT, ".dev-data", "adapter-omp");
-const SESSIONS = join(OUT, "sessions");
 const SECOND = 1000;
 
 const argv = process.argv.slice(2);
-const modelAt = argv.indexOf("--model");
-const model = modelAt >= 0 ? argv[modelAt + 1] : undefined;
+const flag = (name: string) => {
+  const at = argv.indexOf(name);
+  return at >= 0 ? argv[at + 1] : undefined;
+};
+const outArg = flag("--out");
+const model = flag("--model");
 const wanted = argv.filter(
-  (_one, index) => index !== modelAt && index !== modelAt + 1,
+  (one, index) =>
+    !one.startsWith("--") &&
+    !["--out", "--model"].includes(argv[index - 1] ?? ""),
 );
+if (outArg === undefined || model === undefined) {
+  console.error(
+    "usage: record.ts --out <dir> --model <cheap model pattern> [scenario ...]",
+  );
+  process.exit(1);
+}
+const OUT = resolve(outArg);
+const SESSIONS = join(OUT, "sessions");
 
 const baseEnv = Object.fromEntries(
   Object.entries(process.env).filter(
@@ -231,9 +248,7 @@ class Rec {
 type Ctx = { name: string; cwd: string; log: Log };
 
 function workdir(name: string): string {
-  const cwd = join(OUT, "cwd", name);
-  rmSync(cwd, { recursive: true, force: true });
-  mkdirSync(cwd, { recursive: true });
+  const cwd = mkdtempSync(join(tmpdir(), `omp-rec-${name}-`));
   writeFileSync(join(cwd, "hello.txt"), "hello\nworld\n");
   return cwd;
 }
@@ -252,7 +267,7 @@ async function launch(
     "rpc-ui",
     `--cwd=${ctx.cwd}`,
     `--session-dir=${SESSIONS}`,
-    ...(model === undefined ? [] : [`--model=${model}`]),
+    `--model=${model}`,
     ...extra,
   ];
   ctx.log.write("lead_note", `spawn: omp ${args.join(" ")}`);
@@ -574,7 +589,7 @@ const SCENARIOS: Record<string, (ctx: Ctx) => Promise<void>> = {
           `--cwd=${ctx.cwd}`,
           `--session-dir=${SESSIONS}`,
           "--approval-mode=yolo",
-          ...(model === undefined ? [] : [`--model=${model}`]),
+          `--model=${model}`,
           ...args,
         ],
         { cwd: ctx.cwd, env: baseEnv, encoding: "utf8", timeout: 240 * SECOND },
@@ -702,6 +717,243 @@ process.stdin.on("end", () => appendFileSync(${JSON.stringify(calls)}, JSON.stri
         .map((line) => JSON.parse(line) as unknown),
     });
   },
+
+  // (15) `/todo` 출력과 todo tool. abandoned가 나오게 시킨다.
+  async todo(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    await rec.prompt("/todo");
+    await rec.prompt(
+      "Use the todo tool to make a plan with two tasks, then mark the first one completed and the second one abandoned. Then reply with ok.",
+    );
+    await rec.prompt("/todo");
+    await rec.call("get_state");
+    await rec.stop();
+  },
+
+  // (16) 사용량: `/stats`, `/session`, `get_session_stats`. 한 turn 뒤에 본다.
+  async stats(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    await rec.prompt("Reply with exactly the word pong. Do not use any tool.");
+    await rec.call("get_session_stats");
+    await rec.prompt("/stats");
+    await rec.prompt("/session");
+    await rec.call("get_state");
+    await rec.stop();
+  },
+
+  // (17) 도는 중 `/context`를 followUp으로. 명령은 바로 처리되는지, 도는 turn을 끝내는지 본다. 명령 출력을 본 뒤 abort한다.
+  async command_during_turn(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    const from = rec.mark();
+    const id = "rec-p-long";
+    rec.send({
+      id,
+      type: "prompt",
+      message:
+        "Write a numbered list of 60 programming tips, one per line, no tools.",
+    });
+    await rec.until(
+      (frame) => frame.type === "message_update",
+      "streaming",
+      from,
+    );
+    const at = rec.mark();
+    await rec.call("prompt", {
+      message: "/context",
+      streamingBehavior: "followUp",
+    });
+    await rec
+      .until(
+        (frame) => frame.type === "command_output",
+        "the command_output",
+        at,
+        30 * SECOND,
+      )
+      .catch(() => rec.note("no command_output while the turn was running"));
+    await rec.call("abort");
+    await rec.until(
+      (frame) => frame.type === "prompt_result" && frame.id === id,
+      "prompt_result",
+      from,
+    );
+    await rec
+      .until(
+        (frame) => frame.type === "session_settled",
+        "session_settled",
+        from,
+      )
+      .catch(() => {});
+    await rec.stop();
+  },
+
+  // (18) `events` 구독의 subagent: 도는 중 get_subagents, get_subagent_messages, steer_subagent. 그 뒤 detached 하나와 cancel_subagent.
+  async subagent_events(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    await rec.call("set_subagent_subscription", { level: "events" });
+
+    let from = rec.mark();
+    let id = "rec-p-sub";
+    rec.send({
+      id,
+      type: "prompt",
+      message:
+        "Use the task tool to start exactly one subagent that reads hello.txt and reports its first line. Then reply with that line.",
+    });
+    const started = await rec.until(
+      (frame) =>
+        frame.type === "subagent_lifecycle" && frame.payload?.id !== undefined,
+      "the subagent start",
+      from,
+      180 * SECOND,
+    );
+    const subagentId = started.payload?.id as string;
+    await rec.call("get_subagents");
+    await rec.call("get_subagent_messages", { subagentId });
+    await rec.call("steer_subagent", {
+      subagentId,
+      message: "Also mention the word steered in your report.",
+    });
+    await rec.until(
+      (frame) => frame.type === "prompt_result" && frame.id === id,
+      "prompt_result",
+      from,
+      300 * SECOND,
+    );
+    await rec
+      .until(
+        (frame) => frame.type === "session_settled",
+        "session_settled",
+        from,
+        300 * SECOND,
+      )
+      .catch(() => {});
+    await rec.call("get_subagent_messages", { subagentId });
+
+    from = rec.mark();
+    id = "rec-p-bg";
+    rec.send({
+      id,
+      type: "prompt",
+      message:
+        "Use the task tool to start one background subagent that runs `sleep 120` with the bash tool and then reports done. Do not wait for it; reply started right away.",
+    });
+    const background = await rec
+      .until(
+        (frame) =>
+          frame.type === "subagent_lifecycle" &&
+          frame.payload?.detached === true,
+        "a detached subagent",
+        from,
+        180 * SECOND,
+      )
+      .catch(() => {
+        rec.note("no detached subagent appeared");
+        return undefined;
+      });
+    await rec.until(
+      (frame) => frame.type === "prompt_result" && frame.id === id,
+      "prompt_result",
+      from,
+      300 * SECOND,
+    );
+    await rec.call("get_subagents");
+    if (background?.payload?.id !== undefined) {
+      await rec.call("cancel_subagent", { subagentId: background.payload.id });
+      await sleep(2 * SECOND);
+      await rec.call("get_subagents");
+    }
+    await rec.stop();
+  },
+
+  // (19) goal create, pause, drop. prompt를 보내지 않는다(이어가기 turn이 돌지 않게).
+  async goal(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    await rec.call("get_state");
+    await rec.call("goal", {
+      op: "create",
+      objective: "Reply with the word done and nothing else.",
+    });
+    await rec.call("get_state");
+    await rec.call("goal", { op: "pause" });
+    await rec.call("goal", { op: "resume" });
+    await rec.call("goal", { op: "pause" });
+    await rec.call("goal", { op: "drop" });
+    await rec.call("get_state");
+    await rec.stop();
+  },
+
+  // (20) fast on/off. on 뒤에 prompt를 보내지 않는다(priority tier는 비싸다). slow는 session scope일 때만.
+  async fast(ctx) {
+    const rec = await launch(ctx);
+    const state = data<{ slowModeScope?: string; slowModeSupported?: boolean }>(
+      await rec.call("get_state"),
+    );
+    await rec.call("set_fast_mode", { enabled: true });
+    await rec.call("get_state");
+    await rec.call("set_fast_mode", { enabled: false });
+    if (state.slowModeSupported === true && state.slowModeScope === "session") {
+      await rec.call("set_slow_mode", { enabled: true });
+      await rec.call("get_state");
+      await rec.call("set_slow_mode", { enabled: false });
+    } else {
+      rec.note(`slow mode not touched: scope ${state.slowModeScope}`);
+    }
+    await rec.call("get_state");
+    await rec.stop();
+  },
+
+  // (21) `bash`와 `abort_bash`, 그리고 resume해 get_messages_page의 bash 기록.
+  async bash(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    await rec.call("bash", { command: "ls" });
+    const from = rec.mark();
+    rec.send({ id: "rec-bash-sleep", type: "bash", command: "sleep 30" });
+    await sleep(2 * SECOND);
+    await rec.call("abort_bash");
+    await rec.until(
+      (frame) => frame.type === "response" && frame.id === "rec-bash-sleep",
+      "the sleep bash response",
+      from,
+    );
+    const sessionId = await sessionIdOf(rec);
+    await rec.stop();
+
+    const again = await launch(ctx, [
+      "--approval-mode=yolo",
+      `--resume=${sessionId}`,
+    ]);
+    await again.call("get_messages_page", { limit: 256 });
+    await again.stop();
+  },
+
+  // (22) `/switch @smol`과 model_changed. role model은 사람 설정이라 비쌀 수 있어 prompt를 보내지 않는다.
+  async switch_role(ctx) {
+    const rec = await launch(ctx);
+    await rec.call("get_state");
+    await rec.prompt("/switch @smol");
+    await rec.call("get_state");
+    await rec.stop();
+  },
+
+  // (23) new_session과 그 뒤 get_state, get_entries. 앞 turn이 있어야 앞 대화가 어떻게 되는지 보인다.
+  async new_session(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    await rec.prompt("Reply with exactly the word pong. Do not use any tool.");
+    rec.note(`session before: ${await sessionIdOf(rec)}`);
+    await rec.call("new_session");
+    await sleep(500);
+    await rec.call("get_state");
+    await rec.call("get_entries");
+    await rec.stop();
+  },
+
+  // (24) `/export`의 출력(경로). export_html RPC는 쓰지 않는다. cwd가 tmp라 파일은 같이 지워진다.
+  async export(ctx) {
+    const rec = await launch(ctx, ["--approval-mode=yolo"]);
+    await rec.prompt("Reply with exactly the word pong. Do not use any tool.");
+    await rec.prompt("/export");
+    await rec.stop();
+  },
 };
 
 async function main() {
@@ -717,8 +969,9 @@ async function main() {
     }
     const log = new Log(join(OUT, `${name}.jsonl`));
     console.log(`== ${name}`);
+    const cwd = workdir(name);
     try {
-      await run({ name, cwd: workdir(name), log });
+      await run({ name, cwd, log });
       console.log(`   done -> ${log.path}`);
     } catch (cause) {
       failed += 1;
@@ -731,6 +984,7 @@ async function main() {
       );
     } finally {
       for (const rec of active.splice(0)) await rec.stop();
+      rmSync(cwd, { recursive: true, force: true });
     }
   }
   process.exit(failed === 0 ? 0 : 1);

@@ -97,7 +97,6 @@ function setup(manifests: Record<string, string>) {
         throw new Error("not used");
       },
       onTab: () => () => {},
-      onOpenIntent: () => () => {},
     },
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),

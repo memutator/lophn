@@ -18,7 +18,6 @@ import { LOCAL_COMMANDS, type LocalCommand } from "../coding-agent/mod.ts";
 import { type RpcFetch, USER_TOKEN_FILE_NAME } from "../protocol/client/mod.ts";
 import { HOOK_STDIN_MAX_BYTES } from "../protocol/coding-agent/mod.ts";
 import { loadAppCommands } from "./commands/app-command.ts";
-import { GUI_COMMANDS } from "./commands/gui.ts";
 import { COMMANDS } from "./commands/mod.ts";
 import type { Command } from "./commands/types.ts";
 import {
@@ -101,7 +100,6 @@ export async function cliMain(
   const all: readonly (Command | LocalCommand)[] = [
     ...COMMANDS,
     ...LOCAL_COMMANDS,
-    ...GUI_COMMANDS,
   ];
   // 표의 명령만 token을 쓴다: harness가 띄운 shell이면 env의 turn 자격(agent), 아니면 user token file이다. 앱 command(`lophn <slug> <command>`)는 표에 없어, 표에 없는 첫 낱말이면 core에서 읽어 이어 parse한다.
   const dataRoot = dataRootOf(env, home);

@@ -1,9 +1,7 @@
 // 같은 데이터 root의 Electron main은 하나다. 두 번째 시작은 기존 main에 창을 요청할 뿐이고,
 // argv의 URL·파일·명령은 실행 권한으로 읽지 않는다. second-instance argv에서 읽는 것은
-// open-intent.ts의 intent(`--quit`, `--open-app <app ID>`, `--harness-gui=<harness> --cwd=<dir>`)뿐이고
-// 나머지는 새 기본 창 요청이다. OS 앱 바로가기가 `--open-app`으로, `lophn gui`가 `--harness-gui`로
-// 이미 떠 있는 main에 창을 요청하는 데 쓴다. `--cwd`는 절대 경로 모양만 보고 읽으며 있는 폴더인지는 여는 쪽이 본다.
-import type { HarnessGuiOpen } from "../../../protocol/extensions/acp-session.ts";
+// open-intent.ts의 intent(`--quit`, `--open-app <app ID>`)뿐이고
+// 나머지는 새 기본 창 요청이다. OS 앱 바로가기가 `--open-app`으로 이미 떠 있는 main에 창을 요청하는 데 쓴다.
 import { readOpenIntent } from "./open-intent.ts";
 
 interface SingleInstanceApp {
@@ -22,8 +20,6 @@ interface SingleInstanceOptions {
   onQuitIntent: () => void;
   /** `--open-app <app ID>`의 앱 전용 창 요청. 없으면 기본 창이다. */
   onOpenApp?: (app: string) => void;
-  /** `--harness-gui=<harness> --cwd=<dir>`의 CLI 화면 창 요청. 없으면 기본 창이다. */
-  onOpenHarnessGui?: (intent: HarnessGuiOpen) => void;
 }
 
 interface SingleInstance {
@@ -48,9 +44,6 @@ export function startSingleInstance(
     if (intent.kind === "quit") onQuitIntent();
     else if (intent.kind === "app" && options.onOpenApp) {
       options.onOpenApp(intent.app);
-    } else if (intent.kind === "harness-gui" && options.onOpenHarnessGui) {
-      const { kind: _kind, ...open } = intent;
-      options.onOpenHarnessGui(open);
     } else onOpenWindow();
   });
   return { acquired: true };

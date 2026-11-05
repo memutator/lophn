@@ -28,8 +28,6 @@ import type {
   AcpSessionHandle,
   ExtensionAcp,
   ExtensionSpawn,
-  GuiHarness,
-  HarnessGuiOpen,
 } from "../../../../protocol/extensions/mod.ts";
 import {
   createExtensionRegistry,
@@ -49,7 +47,7 @@ import {
   HARNESS_GUI_TAB_RUNNING_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
 } from "../../../ipc/harness-gui.ts";
-import { cliEnv, type TabGui } from "../../terminal/gui.ts";
+import { cliEnv, type TabGui, type TabHandle } from "../../terminal/gui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { packagedInstall } from "../paths.ts";
 import type { Coding } from "./coding.ts";
@@ -114,46 +112,17 @@ const nodeSpawn =
     };
   };
 
-/** 창 쪽이 handle 하나에 붙는 listener. */
-type AcpWindowListener = { update(update: AcpUpdate): void; closed(): void };
+/** 탭 쪽이 handle 하나에 붙는 listener. */
+type AcpListener = Parameters<TabHandle["attach"]>[0];
 
-/** shell main이 창 쪽(gui-window)에 넘기는 handle 하나의 모습. extension의 `AcpSessionHandle`과 같은 session의 반대쪽이다. */
-export type AcpWindowHandle = {
-  readonly id: string;
-  /** 탭에 묶인 handle이면 그 terminal_ref. 첫 판의 창 길은 null이다. */
-  readonly terminal: string | null;
-  readonly harness: GuiHarness;
-  readonly cwd: string;
-  readonly title: string;
-  /** 쌓인 update를 처음부터 보내고 이어서 새것을 보낸다. 돌려받은 함수로 그만 듣는다. 이미 닫혔으면 바로 `closed`다. */
-  attach(listener: AcpWindowListener): () => void;
-  /** 창의 입력을 extension에 준다. */
-  input(input: AcpInput): void;
-  /** 창이 닫혔다. extension의 `onClose`가 불린다. */
-  close(): void;
-};
-
-/** 창을 여는 쪽이 채우는 port. 구현은 `gui-window.ts`다. */
-export type AcpWindowPort = {
-  /** 새 handle의 창을 연다. 열기 전에 쌓인 update는 `attach`가 다시 보내 준다. */
-  open(window: AcpWindowHandle): void;
-  /** harness-gui가 꺼져 있을 때 open intent가 띄울 Settings › System › Extensions. */
-  showExtensionSettings(): void;
-};
-
-// handle은 창이 닫히거나 extension이 닫을 때까지 update를 모두 쌓는다(늦게 열린 창이 처음부터 그린다).
-function createAcp(
-  ids: IdSource,
-  port: AcpWindowPort,
-  gui: Pick<TabGui, "opened">,
-) {
-  let handler: ((intent: HarnessGuiOpen) => void | Promise<void>) | undefined;
+// handle은 탭이 닫히거나 extension이 닫을 때까지 update를 모두 쌓는다(늦게 붙는 탭이 처음부터 그린다).
+function createAcp(ids: IdSource, gui: Pick<TabGui, "opened">) {
   let tab: Parameters<ExtensionAcp["onTab"]>[0] | undefined;
   const acp: ExtensionAcp = {
     open(options) {
       const id = ids.newId("win");
       const updates: AcpUpdate[] = [];
-      const attached = new Set<AcpWindowListener>();
+      const attached = new Set<AcpListener>();
       const inputs: Array<(input: AcpInput) => void> = [];
       const closers: Array<() => void> = [];
       let closed = false;
@@ -165,14 +134,12 @@ function createAcp(
         attached.clear();
         for (const listener of closers) listener();
       };
-      const bound = "terminal" in options ? options : null;
-      const terminal = bound?.terminal.id ?? null;
-      const window: AcpWindowHandle = {
+      const tabHandle: TabHandle = {
         id,
-        terminal,
+        terminal: options.terminal.id,
         harness: options.harness,
-        cwd: "terminal" in options ? options.terminal.cwd : options.cwd,
-        title: options.title,
+        handoff: options.handoff,
+        cwd: options.terminal.cwd,
         attach(listener) {
           if (closed) {
             listener.closed();
@@ -196,14 +163,8 @@ function createAcp(
         onClose: (listener) => void closers.push(listener),
         close,
       };
-      // 탭에 묶인 handle은 그 탭을 가진 창이 ack하면 GUI view가 된다. 첫 판은 새 창을 연다.
-      if (bound === null) port.open(window);
-      else
-        gui.opened({
-          ...window,
-          terminal: bound.terminal.id,
-          handoff: bound.handoff,
-        });
+      // 그 탭을 가진 창이 ack하면 GUI view가 된다.
+      gui.opened(tabHandle);
       return handle;
     },
     // 탭 GUI(`terminal/gui.ts`)가 이 handlers를 부른다.
@@ -213,14 +174,8 @@ function createAcp(
         if (tab === next) tab = undefined;
       };
     },
-    onOpenIntent(next) {
-      handler = next;
-      return () => {
-        if (handler === next) handler = undefined;
-      };
-    },
   };
-  return { acp, handler: () => handler, tab: () => tab };
+  return { acp, tab: () => tab };
 }
 
 const handleOnly = z.strictObject({ handle: z.string().min(1).max(100) });
@@ -304,9 +259,10 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
 
 export function register(
   ctx: ShellContext,
-  port: AcpWindowPort,
+  /** harness-gui가 꺼져 있을 때 탭이 띄울 Settings › System › Extensions. */
+  port: { showExtensionSettings(): void },
   coding: Pick<Coding, "gui" | "bindTabGui">,
-): Registered & { openHarnessGui(intent: HarnessGuiOpen): void } {
+): Registered {
   const repoRoot = join(ctx.here, "..", "..", "..", "..");
   // packaged는 설치 root의 extensions/다. 아직 packaging이 채우지 않아 비어 있을 수 있다.
   const bundled = app.isPackaged
@@ -314,7 +270,7 @@ export function register(
     : join(ctx.here, "..", "extensions", "bundled");
   const clock = systemClock;
   const ids = createIdSource({ clock, random: cryptoRandom });
-  const { acp, handler, tab } = createAcp(ids, port, coding.gui);
+  const { acp, tab } = createAcp(ids, coding.gui);
   const registry = createExtensionRegistry({
     roots: [bundled],
     dataRoot: ctx.dataRoot,
@@ -361,19 +317,6 @@ export function register(
     void registry
       .sync()
       .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
-
-  // open intent. 켜졌는지는 sync가 정한다. core가 준비되기 전에 온 intent는 준비된 뒤에 처리한다.
-  const pending: HarnessGuiOpen[] = [];
-  const dispatch = async (intent: HarnessGuiOpen) => {
-    await registry
-      .sync()
-      .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
-    const open = handler();
-    if (open === undefined) return port.showExtensionSettings();
-    await Promise.resolve(open(intent)).catch((cause) =>
-      ctx.log(`extensions: open intent failed: ${String(cause)}`),
-    );
-  };
 
   // 켜졌는지는 sync가 정한다. 탭의 `<harness> gui`와 toggle이 부른다.
   coding.bindTabGui({
@@ -435,14 +378,9 @@ export function register(
     if (ctx.core.state.state === "starting") return;
     clearInterval(startup);
     if (ctx.core.state.state === "ready") sync();
-    for (const intent of pending.splice(0)) void dispatch(intent);
   }, 1000);
 
   return {
-    openHarnessGui(intent) {
-      if (ctx.core.state.state === "starting") pending.push(intent);
-      else void dispatch(intent);
-    },
     stop() {
       offTabGui();
       ctx.ipc.removeHandler(EXTENSIONS_CHANNEL);

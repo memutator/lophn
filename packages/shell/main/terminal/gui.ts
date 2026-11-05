@@ -30,7 +30,7 @@ const ACK_TIMEOUT_MS = 1500;
 
 export type TabHandlers = Parameters<ExtensionAcp["onTab"]>[0];
 
-/** extension이 연 handle의 shell main 쪽 모습. `wiring/extensions.ts`의 `AcpWindowHandle`이 이것을 채운다. */
+/** extension이 연 handle의 shell main 쪽 모습. `wiring/extensions.ts`의 `createAcp`가 이것을 채운다. */
 export type TabHandle = {
   readonly id: string;
   /** 이 handle이 붙은 탭의 terminal_ref. */

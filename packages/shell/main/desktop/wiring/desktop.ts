@@ -49,7 +49,6 @@ import {
 } from "../global-shortcut.ts";
 import { guardShortcuts } from "../headless.ts";
 import { resolveLaunchMode } from "../launch-mode.ts";
-import type { HarnessGuiOpen } from "../../../../protocol/extensions/mod.ts";
 import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
 import { browserDataPath } from "../paths.ts";
@@ -118,7 +117,6 @@ export function register(
   ctx: ShellContext,
   views: AppViews,
   coding: Coding,
-  harnessGui: { openHarnessGui(intent: HarnessGuiOpen): void },
 ): Registered {
   const { dataRoot, headless, overlays, windows, ipc, log, desktop } = ctx;
   const { openIntent } = views;
@@ -237,7 +235,6 @@ export function register(
     dataRoot,
     onOpenWindow: () => desktop.open(),
     onOpenApp: (app) => openIntent({ kind: "app", app }),
-    onOpenHarnessGui: (intent) => harnessGui.openHarnessGui(intent),
     onQuitIntent: () =>
       requestQuit({
         windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
@@ -347,10 +344,7 @@ export function register(
       // 대신 앱 전용 창을 연다.
       const start = readOpenIntent(process.argv);
       if (start.kind === "app") openIntent(start);
-      else if (start.kind === "harness-gui") {
-        const { kind: _kind, ...open } = start;
-        harnessGui.openHarnessGui(open);
-      } else if (!mode.tray) desktop.open();
+      else if (!mode.tray) desktop.open();
     });
   }
 

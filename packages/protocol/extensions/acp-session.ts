@@ -1,9 +1,9 @@
-// extension이 CLI session 하나를 ACP로 내고 그 화면의 입력을 받는 계약이다. 창 하나가 handle 하나다.
+// extension이 CLI session 하나를 ACP로 내고 그 화면의 입력을 받는 계약이다. 터미널 탭 하나가 handle 하나다.
 // shell main tsc가 읽는 file이라 schema(zod)는 두지 않고 type만 import한다.
 import type { AcpInput } from "../acp/input.ts";
 import type { AcpUpdate } from "../acp/state.ts";
 
-/** `lophn gui <harness>`와 open intent가 받는 harness. 이 목록은 여기 하나다. */
+/** 탭의 `<harness> gui`가 받는 harness. 이 목록은 여기 하나다. */
 export const GUI_HARNESSES = ["claude", "codex", "opencode", "omp"] as const;
 export type GuiHarness = (typeof GUI_HARNESSES)[number];
 
@@ -51,7 +51,7 @@ export type AcpTabRequest = {
   resume?: string;
 };
 
-/** terminal 탭에 묶인 handle을 여는 값. 창 대신 그 탭에 GUI가 붙는다. */
+/** terminal 탭에 묶인 handle을 여는 값. 그 탭에 GUI가 붙는다. */
 export type AcpOpenTab = {
   terminal: AcpTerminal;
   harness: GuiHarness;
@@ -60,25 +60,8 @@ export type AcpOpenTab = {
   handoff: "restart" | "shared";
 };
 
-/** 첫 판의 창 길. `gui-cleanup` 뒤 lead가 지운다. */
-export type AcpOpenOptions = {
-  harness: GuiHarness;
-  /** CLI가 도는 폴더. 창 제목 옆에 보인다. */
-  cwd: string;
-  title: string;
-};
-
-/** open intent가 extension에 넘기는 것. `lophn gui <harness> [--resume <id>]`의 값과 친 곳이다. */
-export type HarnessGuiOpen = {
-  harness: GuiHarness;
-  /** 절대 경로. 있는 폴더인지는 여는 쪽이 본다. */
-  cwd: string;
-  /** 그 CLI 자신의 session id. */
-  resume?: string;
-};
-
 export type ExtensionAcp = {
-  open(options: AcpOpenOptions | AcpOpenTab): AcpSessionHandle;
+  open(options: AcpOpenTab): AcpSessionHandle;
   /**
    * terminal 탭의 GUI·TUI 전환을 받을 함수. `gui`는 탭을 GUI로 바꾸라는 요청이고 `tui`는 GUI에서 TUI로 돌아가라는
    * 요청(terminal id)이다. 켜진 extension 하나가 `activate`에서 걸고 돌려받은 함수로 `deactivate`에서 푼다.
@@ -89,11 +72,4 @@ export type ExtensionAcp = {
     /** 그 탭의 run이 도는 일(restart 전 modal이 "멈출 것"으로 보인다). run이 없으면 null. */
     running(terminalId: string): { turn: boolean; tasks: number } | null;
   }): () => void;
-  /**
-   * open intent를 받을 함수. 켜진 extension 하나가 `activate`에서 걸고 `deactivate`에서 돌려받은 함수로 건다.
-   * 걸린 게 없으면(꺼져 있으면) shell main이 Settings › System › Extensions를 연다.
-   */
-  onOpenIntent(
-    handler: (intent: HarnessGuiOpen) => void | Promise<void>,
-  ): () => void;
 };

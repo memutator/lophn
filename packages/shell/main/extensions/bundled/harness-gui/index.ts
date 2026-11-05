@@ -1,5 +1,5 @@
 // extension 입구. 터미널 탭의 `<harness> gui`(`onTab.gui`)와 GUI ↔ TUI toggle(`onTab.tui`)을 받아 harness의 adapter로 그 탭의
-// ACP session 하나를 연다. 첫 판의 open intent(`lophn gui`, 별도 창)는 `gui-cleanup`이 지울 때까지 남는다.
+// ACP session 하나를 연다.
 // 어느 process를 끄고 띄우는지는 adapter의 `handoff`가 정한다(`adapter.ts`의 toggle 흐름). 이 file이 그 순서를 지킨다.
 import type {
   AcpSessionHandle,
@@ -7,7 +7,6 @@ import type {
   AcpTerminal,
   ExtensionContext,
   ExtensionSpawn,
-  HarnessGuiOpen,
 } from "../../../../../protocol/extensions/mod.ts";
 import {
   HARNESS_GUI_ADAPTERS,
@@ -105,7 +104,6 @@ type Tab = {
 
 export function activate(ctx: ExtensionContext): void {
   const tabs = new Map<string, Tab>();
-  const windows = new Set<AcpSessionHandle>();
   let login: Promise<Record<string, string> | undefined> | undefined;
 
   // env는 login shell < 탭의 hook env < adapter가 바꾸는 칸 순서다. 탭의 hook env 덕에 GUI가 띄운 CLI의 hook도 같은 탭으로
@@ -258,44 +256,11 @@ export function activate(ctx: ExtensionContext): void {
     }
   }
 
-  // 첫 판의 창 길. `gui-cleanup`이 지운다.
-  async function openWindow(intent: HarnessGuiOpen): Promise<void> {
-    const session = ctx.acp.open({
-      harness: intent.harness,
-      cwd: intent.cwd,
-      title: intent.harness,
-    });
-    windows.add(session);
-    let stop: (() => void) | undefined;
-    let closed = false;
-    session.onClose(() => {
-      closed = true;
-      windows.delete(session);
-      stop?.();
-    });
-    const started = await HARNESS_GUI_ADAPTERS[intent.harness].start({
-      terminal: null,
-      cwd: intent.cwd,
-      ...(intent.resume === undefined ? {} : { resume: intent.resume }),
-      session,
-      spawn: await spawnFor(null),
-      clock: ctx.clock,
-      ids: ctx.ids,
-    });
-    if (!started.ok) return fail(session, started.error);
-    stop = () => void started.value.stop();
-    // 시작하는 동안 창이 닫혔다.
-    if (closed) stop();
-  }
-
   const running = (terminalId: string) =>
     tabs.get(terminalId)?.run?.running() ?? null;
   const offTab = ctx.acp.onTab({ gui, tui, running });
-  const offIntent = ctx.acp.onOpenIntent(openWindow);
   stopAll = () => {
     offTab();
-    offIntent();
-    for (const session of [...windows]) session.close();
     for (const tab of [...tabs.values()]) tab.session.close();
   };
 }

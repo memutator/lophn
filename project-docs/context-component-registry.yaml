@@ -329,7 +329,7 @@ components:
   - id: architecture-keybindings
     kind: doc
     roles: [planner, lead]
-    description: desktop 창의 단축키가 OS 전역·main before-input-event·renderer keydown 중 어디서 받혀 command registry의 id로 가는가. 키 삼키기·충돌·해제 규칙, Settings › Keyboard에서 사람이 바꾼 키가 창과 main에 덮이는 길.
+    description: desktop 창의 단축키가 OS 전역·main before-input-event·renderer keydown 중 어디서 받혀 command registry의 id로 가는가. 키 삼키기·충돌·해제 규칙, context menu와 짝인 command와 기본 키를 고른 규칙, 앱 단축키(`app.panel:*`), 저장된 키의 겹침 판정과 Replace, Settings › Keyboard에서 사람이 바꾼 키가 창과 main에 덮이는 길.
     path: project-docs/architecture/keybindings.md
     change_reasons:
       boundaries: [shell]

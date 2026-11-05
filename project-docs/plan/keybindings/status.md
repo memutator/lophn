@@ -5,6 +5,6 @@ lead만 고친다. `tools/status.py keybindings build`가 `tasks/*.md`에서 id,
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `kb-table` | kb | 1 | 없음 | merged | kb/kb-table | dbe8a03ec |  |
-| `kb-hints` | kb | 2 | kb-table | running | kb/kb-hints |  |  |
+| `kb-hints` | kb | 2 | kb-table | merged | kb/kb-hints | cbe6f869b |  |
 | `kb-settings` | kb | 2 | kb-table | merged | kb/kb-settings | b3d8c7364 |  |
 | `kb-workspace` | kb | 2 | kb-table | merged | kb/kb-workspace | 5e826bbc0 |  |

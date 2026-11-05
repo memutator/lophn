@@ -8,7 +8,6 @@ import type {
 } from "./agent-tab-source.ts";
 import { summaryOfParts } from "./agent-tab-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
-import { type MessageKey, t } from "@lophn/i18n";
 import {
   ACP_COMMAND_SOURCES,
   type AcpCapabilities,
@@ -195,24 +194,6 @@ export function decideChoiceOf(
     : turnChoiceOf(choice, reason);
 }
 
-/** lophn 내장 명령의 메뉴 제목. 화면 동작(`opens`)으로 찾고 이름은 보지 않는다. harness 명령은 `/이름`을 그대로 보인다. */
-const BUILTIN_TITLES: Readonly<Partial<Record<AcpCommandOpens, MessageKey>>> = {
-  new: "conversation.label.slash-title-new",
-  rename: "conversation.label.slash-title-rename",
-  archive: "conversation.label.slash-title-archive",
-  compact: "conversation.label.slash-title-compact",
-  fork: "conversation.label.slash-title-fork",
-  mcp: "conversation.label.slash-title-mcp",
-  skills: "conversation.label.slash-title-skills",
-  permissions: "conversation.label.slash-title-permissions",
-  status: "conversation.label.slash-title-status",
-  model: "conversation.label.slash-title-model",
-  effort: "conversation.label.slash-title-effort",
-  usage: "conversation.label.slash-title-usage",
-  context: "conversation.label.slash-title-context",
-  rewind: "conversation.label.slash-title-rewind",
-};
-
 // session이 있어야 하는 화면 동작. session을 만들기 전 화면은 이 명령을 목록에서 뺀다.
 const SESSION_OPENS: ReadonlySet<AcpCommandOpens | null> = new Set([
   "rename",
@@ -268,13 +249,8 @@ function wordStarts(text: string, separator: RegExp, needle: string): boolean {
 }
 
 function entryOf(command: AcpCommand, alias: string | null): SlashEntryView {
-  const title =
-    command.source === "app" && command.opens !== null
-      ? BUILTIN_TITLES[command.opens]
-      : undefined;
   return {
     name: command.name,
-    title: title === undefined ? null : t(title),
     description: command.description,
     argumentHint: command.argument_hint,
     source: command.source,

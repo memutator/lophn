@@ -8,8 +8,6 @@ import type {
 export interface SlashEntryView {
   /** `/` 뒤에 치는 이름(compact, eval-metrics). */
   readonly name: string;
-  /** lophn 내장 명령의 메뉴 제목(Compact). 없으면 `/이름`을 보인다. */
-  readonly title: string | null;
   readonly description: string;
   /** null이면 인자를 받지 않는다. */
   readonly argumentHint: string | null;

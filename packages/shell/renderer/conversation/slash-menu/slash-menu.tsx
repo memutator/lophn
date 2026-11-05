@@ -1,7 +1,7 @@
 // 입력칸에서 `/`를 치면 composer 위로 뜨는 명령 메뉴. 아이콘·이름·인자 hint·설명이 한 줄인 얇은 행이다. 글자가 없으면
 // 머리 글이 있는 묶음(lophn, harness, Skills, Plugins & MCP, Custom)이고, 글자를 치면 순위대로 선 한 목록이며 줄 끝에
 // 출처 배지가 붙는다. 목록·거르기·순위는 모델이 계산해 props로 주고, 이 component는 받은 줄을 그리며 query와 맞는
-// 글자를 굵게 한다. 일하는 중 고른 명령은 모두 다음 turn에 들어간다.
+// 글자를 굵게 한다. 일하는 중 고른 명령이 다음 turn에 들어간다는 것은 아래 안내 줄이 말한다.
 import { type ComponentProps, Fragment, type ReactNode } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
@@ -169,7 +169,6 @@ function Row({
   entry,
   harness,
   query,
-  working,
   selected,
   badge,
   onPick,
@@ -177,7 +176,6 @@ function Row({
   entry: SlashEntryView;
   harness: string | null;
   query: string;
-  working: boolean;
   selected: boolean;
   /** query가 있어 묶음 머리가 없을 때 줄 끝에 단다. */
   badge: boolean;
@@ -195,7 +193,7 @@ function Row({
     >
       <span className={styles.icon}>{iconOf(entry, harness)}</span>
       <span className={styles.label} data-slash-label="">
-        {mark(entry.title ?? `/${entry.name}`, query)}
+        {mark(`/${entry.name}`, query)}
         {entry.alias === null ? null : (
           <span className={styles.dim}> ({entry.alias})</span>
         )}
@@ -209,11 +207,6 @@ function Row({
       {badge ? (
         <span className={styles.badge} data-slash-badge="">
           {badgeOf(entry, harness)}
-        </span>
-      ) : null}
-      {working ? (
-        <span className={styles.why} data-slash-next="">
-          {t("conversation.label.next-turn")}
         </span>
       ) : null}
     </div>
@@ -276,7 +269,6 @@ export function SlashMenu({
       entry={entry}
       harness={harness}
       query={query}
-      working={working}
       selected={at === highlightedIndex}
       badge={badge}
       onPick={onPick}

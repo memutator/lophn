@@ -54,6 +54,7 @@ export function createSupervisor(options: {
   // 창이 뜨자마자 host를 띄우지 않는다. 첫 요청이 child를 만든다.
   let child: HostProcess | undefined;
   const pending = new Map<string, (reply: TerminalReply) => void>();
+  let requestSeq = 0;
   const runtimes = new Map<string, TerminalRuntime>();
   let lost = false;
 
@@ -199,7 +200,7 @@ export function createSupervisor(options: {
           body = reopenMessage(terminal);
         }
       }
-      const id = `req_${pending.size}_${Date.now()}`;
+      const id = `req_${++requestSeq}`;
       const payload = JSON.stringify({ ...(body as object), id }) + "\n";
       return new Promise((resolve) => {
         pending.set(id, resolve);

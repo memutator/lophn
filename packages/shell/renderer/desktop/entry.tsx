@@ -3,8 +3,6 @@ import { HighlighterProvider } from "@lophn/ui/reading";
 import { createWorkerHighlighter } from "../highlight/client.ts";
 import { Desktop } from "./main.tsx";
 import { windowCoreSource } from "./connection/connection.ts";
-import { devSeed } from "./dev-seed.ts";
-import { devMock } from "./dev-mock/mod.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
 import {
   openApp,
@@ -83,9 +81,21 @@ import { QuickPrefsProvider } from "./settings/quick-launch/store.tsx";
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
 
+declare global {
+  interface ImportMeta {
+    readonly env: { readonly DEV: boolean };
+  }
+}
+
 // 개발 확인 전용. 주소의 `mock`이면 core 대신 메모리 가짜 통로로 모든 화면을 채운다.
-const mock = devMock();
-const seed = mock ? null : devSeed();
+// build.ts가 prod에서 DEV를 false로 접어 이 import가 bundle에서 빠진다.
+const mock = import.meta.env.DEV
+  ? (await import("./dev-mock/mod.ts")).devMock()
+  : null;
+const seed =
+  import.meta.env.DEV && !mock
+    ? (await import("./dev-seed.ts")).devSeed()
+    : null;
 // 시드 작업대와 mock 모드는 둘 다 가짜 작업대와 문서 탭 통로를 쓴다(core·편집 파일 통로 없음).
 const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
 const core = mock?.core ?? windowCoreSource();

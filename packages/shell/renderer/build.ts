@@ -90,6 +90,10 @@ async function build(outdir = join(here, "dist")): Promise<void> {
       // 묶은 npm 패키지(xterm.css 등)의 license 주석은 bundle 옆 .LEGAL.txt로 둔다.
       // 창이 읽는 CSS·JS에 바깥 주소가 남지 않는다.
       legalComments: "external",
+      // dev-mock·dev-seed는 dev build(LOPHN_RENDERER_DEV=1)에서만 싣는다. tools/dev.ts가 이 값을 준다.
+      define: {
+        "import.meta.env.DEV": String(process.env.LOPHN_RENDERER_DEV === "1"),
+      },
       plugins: [assetPlugin()],
     });
   }

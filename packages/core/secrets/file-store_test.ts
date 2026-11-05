@@ -66,6 +66,8 @@ function open(fake: ReturnType<typeof fakeFs>) {
     root: ROOT,
     fs: fake.fs,
     log: (line) => log.push(line),
+    // 0600 규칙을 본다. Windows는 mode 검사를 건너뛴다.
+    platform: "linux",
   });
   return { file, log };
 }

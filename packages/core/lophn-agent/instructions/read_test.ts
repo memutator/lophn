@@ -72,7 +72,7 @@ function setup() {
       all: (query: string, params: never[]) => db.prepare(query).all(...params),
     },
   } as unknown as ReadSnapshot;
-  return { root, snapshot };
+  return { root, snapshot, db };
 }
 
 function read(snapshot: ReadSnapshot, session: number) {
@@ -90,7 +90,7 @@ function read(snapshot: ReadSnapshot, session: number) {
 }
 
 test("project 층은 session의 workspace가 가리키는 project의 LOPHN.md(없으면 CLAUDE.md)만 읽는다", () => {
-  const { root, snapshot } = setup();
+  const { root, snapshot, db } = setup();
   try {
     const table: [number, string | null][] = [
       // [session, 결과]
@@ -103,6 +103,8 @@ test("project 층은 session의 workspace가 가리키는 project의 LOPHN.md(�
       assert.deepStrictEqual(read(snapshot, session), expected, `${session}`);
     }
   } finally {
+    // 열린 DB file은 Windows에서 지워지지 않는다.
+    db.close();
     rmSync(root, { recursive: true });
   }
 });

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { delimiter } from "node:path";
 import { test } from "node:test";
 
 import { SHELL_ENV_NAMES, shellEnvironment } from "./env.ts";
@@ -16,7 +17,8 @@ test("shell 환경에 lophn token과 secret이 나가지 않는다", () => {
     "/data/run/bin",
   );
   assert.deepStrictEqual(env, {
-    PATH: "/data/run/bin:/usr/bin",
+    // shim 폴더는 OS의 PATH 구분자로 붙는다(Windows는 `;`).
+    PATH: `/data/run/bin${delimiter}/usr/bin`,
     HOME: "/home/x",
   });
   for (const name of Object.keys(env)) {

@@ -1,43 +1,46 @@
 # harness-gui
 
-`claude gui`(또는 `codex gui`, `opencode gui`)를 치면 그 CLI의 TUI 대신 lophn 창이 뜬다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 그대로 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 창의 ACP 입력을 CLI 호출로 옮긴다. 창은 lophn 채팅 화면이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다. 계약은 `packages/protocol/extensions/acp-session.ts`, shell main 쪽은 `packages/shell/main/desktop/wiring/extensions.ts`(handle과 창 port)와 `packages/shell/main/desktop/open-intent.ts`, extension은 `packages/shell/main/extensions/bundled/harness-gui/`(adapter는 harness마다 file 하나: `claude.ts`, `codex.ts`, `opencode.ts`), 창은 `packages/shell/main/desktop/gui-window.ts`와 `packages/shell/renderer/harness-gui/`, 채팅 화면의 source는 `packages/shell/renderer/conversation/agent-tab-gui-source.ts`, CLI는 `packages/cli/commands/gui.ts`, 터미널의 `claude gui`는 `packages/shell/terminal-host/shell-integration.ts`다.
+lophn 터미널 탭에서 `claude gui`(`codex gui`, `opencode gui`, `omp gui`)를 치면 그 탭이 채팅 화면으로 바뀌고, 탭 머리의 toggle로 같은 대화를 GUI와 그 CLI 자신의 TUI 사이에서 오간다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 화면의 ACP 입력을 CLI 호출로 옮긴다. 화면은 lophn 채팅 화면(`AgentView`)이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다. 계약은 `packages/protocol/extensions/acp-session.ts`(handle, `AcpTerminal`, `onTab`)와 `packages/shell/main/extensions/bundled/harness-gui/adapter.ts`(`HarnessGuiAdapter`, `HarnessGuiRun`), 탭 쪽 shell main은 `packages/shell/main/terminal/gui.ts`, 탭 화면은 `packages/shell/renderer/terminal/terminal-gui.tsx`, 채팅 화면의 source는 `packages/shell/renderer/conversation/agent-tab-gui-source.ts`, extension은 `packages/shell/main/extensions/bundled/harness-gui/`(adapter는 harness마다 file 하나), 터미널 함수는 `packages/shell/terminal-host/shell-integration.ts`다. 첫 판의 별도 창 길(`lophn gui`, open intent, `packages/shell/main/desktop/gui-window.ts`, `packages/shell/renderer/harness-gui/`)은 아직 남아 있고 `lophn gui`를 직접 칠 때만 쓴다.
 
 ## 흐름
 
 ```
-lophn 터미널 탭: claude gui [--resume <id>]   (shell 시작 층의 함수. 첫 인자가 gui가 아니면 원래 명령)
-  ─▶ <lophn CLI> gui claude [--resume <id>]
-lophn gui <harness> [--resume <id>]   (packages/cli/commands/gui.ts, core를 부르지 않는 local 명령)
-  ─▶ lophn 앱 실행 파일을 --harness-gui=<harness> --cwd=<친 곳> [--resume=<id>]로 떼어 띄운다
-       └ 이미 떠 있으면 second-instance가 argv를 받는다
-shell main readOpenIntent(argv) ─▶ {kind:"harness-gui", harness, cwd, resume?}
-  ─▶ openHarnessGui(intent)   core가 starting이면 준비될 때까지 줄에 둔다
-       ─▶ registry.sync()
-       ─▶ ctx.acp.onOpenIntent로 건 함수가 없으면(꺼짐) ─▶ desktop 창에 intent extension-settings
-                                                          ─▶ Settings › System › Extensions
-       ─▶ 있으면 extension harness-gui의 open(intent)
-            ─▶ ctx.acp.open({harness, cwd, title}) ─▶ AcpSessionHandle  ║ gui-window.ts: desktop 창을 #harness-gui=<id>로 연다
-            ─▶ 처음 한 번 사람의 login shell PATH를 읽는다($SHELL -ilc)
-            ─▶ HARNESS_GUI_ADAPTERS[harness].start({cwd, resume, session: handle, spawn(PATH를 넣은), clock, ids})
-                 ├ 실패: 오류를 끝난 turn(turn_ended failed)으로 publish하고 창은 열어 둔다
-                 └ 성공: adapter가 CLI 이벤트 → handle.publish(AcpUpdate)
-                         창 입력(AcpInput) → handle.onInput → adapter → CLI
-창 renderer ─ IPC harness-gui:connect ─▶ 쌓인 갱신을 처음부터 harness-gui:update로 받고 이어서 받는다 ─▶ reduceAcp
-창의 조작 ─ IPC harness-gui:input(AcpInput, main이 schema로 본다) ─▶ handle onInput ─▶ adapter
-창을 닫음 ─▶ AcpWindowHandle.close() ─▶ handle onClose ─▶ adapter stop()
-extension이 handle을 닫음 ─▶ 창도 닫는다
-extension을 끔 ─▶ deactivate() ─▶ intent 함수를 풀고 연 handle을 모두 닫는다
+터미널 탭: claude gui [--resume <id>]   (shell 시작 층 함수. gui, gui --resume <id>, gui --resume=<id>만 받고 id는 [A-Za-z0-9._-]
+  │                                     200자까지. 첫 인자가 gui가 아니면 원래 명령)
+  ─▶ {"resume":…} | <lophn CLI> hook claude lophn-gui   (hook.ts가 친 곳의 cwd를 더해 그 탭의 hook socket LPN_TERMINAL_HOOK로)
+shell main hook ingress ─ key로 그 터미널 ─▶ main/terminal/gui.ts
+  ─▶ tracker로 AcpTerminal(그 탭의 harness·session id·상태(shell이면 foreground에 harness 없음)·cwd, type·signal·onForegroundExit)
+  ─▶ extension onTab.gui({terminal, harness, resume})   (extension이 꺼져 있으면 Settings › System › Extensions)
+       ─▶ ctx.acp.open({terminal, harness, title, handoff}) ─▶ handle
+       ─▶ 그 탭에서 TUI가 돌면 adapter.exitTui(terminal) ─ foreground가 끝나기를 5초까지 기다린다(SIGKILL 없음)
+       ─▶ adapter.start({cwd, resume, session: handle, terminal, spawn, clock, ids}) ─▶ run
+  ─▶ 모든 창에 "GUI 열림" push ─ 그 탭을 가진 창이 1.5초 안에 ack ─ 탭이 GUI view(AgentView)로 바뀐다. ack가 없으면 handle을 닫는다
+탭 머리의 toggle
+  GUI→TUI  restart(Claude·omp): modal(돌던 turn, run.running()의 background task 수) ─▶ run.stop ─▶ handle을 닫음 ─▶ PTY에 run.tuiCommand()
+           shared(Codex·OpenCode): TUI client가 foreground에 없을 때만 tuiCommand를 친다. 보이는 쪽만 바뀐다
+  TUI→GUI  restart: modal(tracker의 running·waiting) ─▶ exitTui ─▶ 새 handle과 start(resume)
+           shared: 보이는 쪽만 바뀐다. 그냥 codex·opencode로 시작한 TUI는 처음 한 번 restart처럼 넘긴다
+shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SIGTERM하고 새 id로 tuiCommand를 다시 친다
+터미널이 끝나거나 다시 시작하면 handle을 닫는다. extension을 끄면 연 handle을 모두 닫는다
+```
+
+첫 판의 창 길(`lophn gui <harness>`를 직접 칠 때만):
+
+```
+lophn gui <harness> [--resume <id>] ─▶ 앱을 --harness-gui=<harness> --cwd=<친 곳> [--resume=<id>]로 띄운다(떠 있으면 second-instance)
+  ─▶ readOpenIntent ─▶ openHarnessGui ─▶ extension open(intent) ─▶ ctx.acp.open({harness, cwd, title}) ─▶ gui-window.ts가 창을 연다
 ```
 
 ## 지키는 것
 
-- **harness는 `claude`, `codex`, `opencode` 셋이다.** 목록은 `GUI_HARNESSES` 하나이고 CLI 입력, open intent, adapter 표가 모두 이것을 쓴다.
+- **harness는 `claude`, `codex`, `opencode`, `omp` 넷이다.** 목록은 `GUI_HARNESSES` 하나이고 터미널 함수, CLI 입력, open intent, adapter 표가 모두 이것을 쓴다. omp adapter는 아직 `unavailable`이다.
 - **open intent는 모양만 본다.** harness-gui의 flag는 `--harness-gui=<harness>`, `--cwd=<dir>`, `--resume=<id>`처럼 값을 `=`로 붙인 꼴만 읽는다. 이미 떠 있는 앱이 받는 second-instance argv는 Chromium이 스위치 먼저, 값 나중으로 다시 늘어놓고 자기 스위치(`--allow-file-access-from-files` 등)를 끼워서, 값을 따로 넘기면 flag에서 떨어진다(창 없는 Electron으로 확인했다). harness가 목록에 있고, `--cwd`가 절대 경로이고, `--resume`이 `-`로 시작하지 않아야 한다(CLI의 flag가 되지 않게). flag는 하나씩만 있어야 한다. 틀리면 기본 창이다. 폴더가 있는지는 여는 쪽이 본다. `--open-app <app ID>`도 같은 문제가 있지만 바로가기를 만드는 화면이 아직 없어 그대로다.
 - **`lophn gui`는 core 자격이 없어도 된다.** core가 꺼져 있어도 user token 없이 앱을 띄운다. CLI는 앱과 같은 Electron binary를 Node로 돌리므로, `ELECTRON_RUN_AS_NODE`만 빼고 같은 binary를 띄운다. 저장소 실행(shell main bundle `packages/shell/main/dist/main.cjs`가 있으면)은 `LOPHN_HOME`이 없거나 사람의 `~/.lophn`이면 띄우지 않고 `invalid_input`이다(개발 code가 사람의 실제 data root로 뜨거나 설치본 창이 뜨지 않게. data root가 다르면 single-instance lock도 달라 그 data root의 앱으로 간다). 띄울 때는 그 bundle과 `--no-sandbox`를 인자로 준다(저장소의 `chrome-sandbox`는 setuid가 아니라 flag 없이는 argv를 넘기기 전에 죽고, 터미널 env는 `ELECTRON_*`를 지워 env로 받을 수 없다). agent의 `lophn` 도구 목록에는 없다(표의 명령이 아니다).
-- **handle 하나는 창 하나다.** `id`(`win_…`)는 lophn session id가 아니다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
+- **handle 하나는 터미널 탭 하나(첫 판 길은 창 하나)다.** `id`(`win_…`)는 lophn session id가 아니다. 탭의 view(`view`·`gui` 칸)는 저장하지 않는다(앱을 다시 켜면 PTY도 CLI process도 남지 않는다). 창을 다시 load하면 view는 터미널로 돌아간다. 탭을 다른 창으로 옮기면 view와 handle이 따라간다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
+- **TUI 끄기와 쳐 넣기는 main이 한다.** main은 PTY에 글을 쳐 넣는다(`typeInto`, 이미 도는 shell이라 첫 출력을 기다리지 않는다). terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만, foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 1초마다 보는 foreground 변화로 안다. Windows는 foreground를 몰라 toggle이 없다.
 - **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 창은 닫지 않고 오류를 끝난 turn으로 보인다. 사람이 닫는다.
 - **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다.
-- **CLI는 사람의 login shell PATH로 찾는다.** 데스크톱 메뉴나 autostart로 뜬 앱의 PATH에는 사람의 shell 설정(nvm 등)이 없다. `index.ts`가 처음 열 때 한 번 `${SHELL:-/bin/sh} -ilc`로 PATH를 표시 사이에 찍어 읽고(rc file이 다른 글을 찍어도 된다), 5초 안에 못 읽으면 shell main의 PATH다. adapter에 넘기는 `spawn`이 그 PATH를 넣는다. 앱이 도는 동안 다시 읽지 않는다.
+- **CLI는 사람의 login shell env로 띄운다.** 데스크톱 메뉴나 autostart로 뜬 앱의 env에는 사람의 shell 설정(nvm의 PATH, rc file의 API key)이 없다. `index.ts`가 처음 열 때 한 번 `${SHELL:-/bin/sh} -ilc`로 env 전체를 `env -0`으로 읽고(tmux·updater guard, 5초), login env < 탭 hook env < adapter가 넘긴 key 순서로 합친다. 상위 session 표지(`packages/shell/terminal-host/env.ts`의 `SESSION_MARKER_NAME`, `CLAUDE_CODE_ENTRYPOINT` 포함)는 지운다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
 - **창은 desktop 창의 한 화면이다.** detached 창과 같이 desktop entry를 `#harness-gui=<id>` hash로 연다. 창 제목은 harness 이름과 cwd 끝 폴더다. main은 창이 보낸 id가 아니라 sender(webContents)로 handle을 찾는다. 창은 snapshot 없이 `EMPTY_ACP_STATE`부터 갱신을 `reduceAcp`로 접는다. `reread`가 서도 다시 읽을 것이 없다. 그래서 adapter가 `seq`를 1부터 빈틈없이 붙인다.
 - **창은 lophn 채팅 화면(`AgentView`)을 그대로 쓰고 lophn 전용 기능을 숨긴다.** source의 `external: true`가 숨기는 칸이다: header의 session 바꾸기·이름·보관·fork·more 메뉴, model 고르기·skip·권한 요약, slash 메뉴(`/…`는 글로 보낸다), 메시지의 Rewind·Fork, 상태 footer와 `/status`, session 목록·검색. source가 답하지 못하는 읽기(model, 권한, call, envelope, tool 본문, 이미지 올리기)는 `unavailable`이나 `not_found`다. 입력창 글은 "Message <harness>…"이고, 승인 카드의 always는 "Allow for this session"이다(adapter가 그 CLI session 안으로 좁힌다).
 - **입력의 `session`은 창이 만든 값이다.** adapter는 보지 않는다. 사람 메시지는 `send` 입력의 `id`로 `message_added`가 된다. turn·tool·승인 id는 adapter가 `ctx.ids`로 만들어 CLI의 id와 짝짓는다.

@@ -25,6 +25,9 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
   - `hidden`: rewind가 숨긴 구간. 숨긴 항목은 `items`(평평한 목록)에 들고, `seq`는 숨긴 첫 항목의 순번이다. top-level에서는 그 항목들이 빠진다.
 - tool 종류(`detail.kind`): `edit`(document, path, added, removed), `call`(call, to, task, reply, state, fail_reason, session), `question`(group, outcome, lines), `consent`(release), `subagent`(agent, description, `child`(자식 대화 key), state, model, last), `generic`. 끝난 뒤 detail이 바뀌면(background로 돈 subagent가 끝남) `tool_detail_changed`가 detail만 바꾼다. `edit`·`call`·`question`은 tool 이름이 정하므로 시작 때부터 그 종류이고 실패·거절·취소해도 지킨다(실패는 항목의 `state`가 말한다). 입력에서 뽑는 칸(`edit`의 path·줄 수, `call`의 to·task·reply)은 시작 때부터 차고, 결과에서 아는 칸(`call`의 call id·state·fail_reason·session)은 call이 생긴 뒤에야 알아 그 전과 실패한 tool에서는 null이다. 종류마다 화면에 필요한 칸만 싣는다. 입력·출력 본문은 lophn이면 싣지 않고 blob read(`toolCallBody`)로 따로 읽으며, harness는 tool item의 `body`(`{input, output, truncated}`, 한 쪽에 `ACP_TOOL_BODY_LIMIT` 64 KiB)에 싣는다(harness는 다시 읽을 저장소가 없다). 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
 - subagent 대화와 background task: `AcpState.children`(child key → `AcpChildState`)와 `AcpState.tasks`(`AcpTask`: id, kind agent·shell·other, description, state, started_at, output 꼬리). `child_update {child, update}`가 그 자식 상태에 같은 reducer로 접히고(자식의 순번이 빠지면 바깥 `reread`), `tasks_changed`는 목록을 통째로 바꾼다. 자식 대화는 한 층이다: 손자 subagent도 바깥 `children`에 평평하게 들고 그 subagent tool 줄의 `child`가 바깥 key를 가리킨다. 그래서 schema와 SDK type이 재귀하지 않는다(`AcpState` = `AcpChildState` + `children` + `tasks`).
+- 사람이 돌린 명령: tool item의 `by`가 `"user"`면 사람이 `!`로 돌린 명령이다(`tool: "shell"`, `category: "command"`, `title`은 명령 첫 줄, `body.input`은 명령 전체, `body.output`은 출력). 화면은 사람 쪽에 출력을 펼쳐 그린다. turn 밖에서 돈 그 줄만 `turn`이 null이다. 입력은 `run_shell {command}`(`!` 뒤 글)이고 capability `shell`이 composer의 shell mode를 켠다.
+- 다른 session으로 바꾸기: `open_session {cli_session}`은 같은 CLI의 다른 session을 같은 탭에서 연다(harness만, capability `resume`, `opens: "resume"`이 머리 session menu를 연다). adapter는 `session_reset`(items, turn, queued, pending, writing, dropped, plan, children, tasks, draft를 비우고 session·seq·reread는 둔다. adapter는 seq를 이어 세어 빈 것이 gap으로 읽히지 않는다) 뒤 새 session을 다시 그리고 `session_changed`로 제목·`cli_session`·명령을 낸다.
+- model 축의 `kind`: `choice`는 값 목록, `switch`는 값 둘(`[0]` 끔, `[1]` 켬)이고 picker가 켜고 끄기로 그린다. `options`에 없는 switch 축은 끈 것이다.
 - composer 채우기: `AcpState.draft {key, content}`(바깥만, lophn은 늘 null)와 갱신 `draft_set`. 화면은 새 `key`를 볼 때 한 번만 composer를 채운다(OpenCode `/undo`가 숨긴 사람 글을 돌려준다).
 - 숨긴 것 되살리기: `hidden_restored {hidden}`은 그 hidden 항목을 빼고 든 항목을 제 `seq` 자리로 돌린다(OpenCode redo). 없는 id면 그대로다.
 - `AcpState`의 나머지: `turn`(가장 늦게 시작한 turn: phase, started_at, elapsed), `queued`(도는 중에 다음 turn으로 보낸 사람 메시지. 순번이 없다), `pending`(composer 위에 놓이는 승인 카드와 질문 묶음. 둘 다 있으면 turn은 waiting), `writing`(저장 전 model 호출 하나의 글), `dropped`(늦은 조각을 거를 기억), `reread`.
@@ -89,7 +92,8 @@ redaction
 | `fork` | `forkSession` | 답의 `session`이 새 session이다 |
 | `compact` | `requestSessionCompact` | |
 | `rename` | `renameSession` | 앞뒤 빈칸을 자르고 빈 이름은 `invalid_input` |
-| `stop_child`, `steer_child`, `stop_task`, `set_toggle`, `set_goal`, `use_role` | 없음 | lophn agent에 그 기능이 없어 `unavailable`(capability도 false) |
+| `stop_child`, `steer_child`, `stop_task`, `set_toggle`, `set_goal`, `use_role`, `open_session` | 없음 | lophn agent에 그 기능이 없어 `unavailable`(capability도 false) |
+| `run_shell` | 없음 | 아직 `unavailable`(lophn의 `!`는 다음 wave) |
 
 권한
 - 분배는 부른 사람의 `AuthenticatedContext`로 한다. core 안 machine 자격(`machine:acp`)으로 대신 부르지 않는다. 그러면 `SendMessage`나 `StopTurn` 권한이 없는 호출자도 `AcpSend`로는 할 수 있게 되어 새 권한 경계가 생긴다. command는 `ctx.writer`(접힌 writer)에, read는 `runtime.reads`에, memory route는 `ctx.runtime.memory.handlers`(core가 모든 wiring의 memory handler를 모은 같은 Map)에 부른 사람의 자격으로 넘기고, 각 route가 자기 scope와 actor를 본다. `AcpSend` 자체는 scope 검사를 더하지 않는다.

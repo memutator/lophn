@@ -24,6 +24,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 터미널이 끝나거나 다시 시작하면 handle을 닫는다. extension을 끄면 연 handle을 모두 닫는다
 ```
 
+탭의 GUI가 adapter에 묻는 읽기 둘(지난 session 목록, rewind 파일 미리보기)은 IPC `harness-gui:tab-sessions`·`harness-gui:tab-rewind-preview` → main(`gui.ts`가 sender로 탭을 찾는다) → `ExtensionAcp.onTab.sessions`·`rewindPreview` → `index.ts` → `run.sessions?.()`·`run.rewindPreview?.(message)`로 간다. 그 메서드가 없는 adapter는 `[]`·`null`이다.
+
 ## 지키는 것
 
 - **harness는 `claude`, `codex`, `opencode`, `omp` 넷이다.** 목록은 `GUI_HARNESSES` 하나이고 터미널 함수와 adapter 표가 이것을 쓴다. omp adapter는 아직 `unavailable`이다.

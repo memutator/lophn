@@ -807,7 +807,10 @@ const SCENARIOS: Record<string, (ctx: Ctx) => Promise<void>> = {
 
   // todo 목록: TodoWrite인지 Task tool(TaskCreate/TaskUpdate)인지, resume하면 어떻게 다시 오는지.
   async todo({ rec, cwd, open }) {
-    const run = open();
+    // adapter와 같이 todo tool을 켠다(CLI는 SDK mode에서 이 flag가 있어야 TaskCreate 등을 낸다).
+    const run = open({
+      env: { ...process.env, CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
+    });
     await run.ask(
       "Make a todo list with three items (create a.txt, b.txt, c.txt, each containing its own letter). Then do them one at a time and mark each completed right after you finish it.",
     );

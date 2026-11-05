@@ -546,6 +546,8 @@ const IMPLEMENT_PLAN = "Implement the plan.";
 type Call = {
   id: string;
   done: boolean;
+  /** 사람이 `!`로 친 글(`thread/shellCommand`로 보낸 그대로). item의 `command`는 `/bin/bash -lc …` 껍데기다. */
+  typed?: string;
   changes: AcpApprovalFiles;
   lane: Lane;
 };
@@ -820,6 +822,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       const userOf = new Map<string, ContentBlock[]>();
       // ACP turn → app-server turn. rewind·fork가 어느 turn인지 안다.
       const wireOf = new Map<string, string>();
+      // `thread/shellCommand`로 보낸 글. userShell item이 오면 순서대로 짝짓는다.
+      const shellSent: string[] = [];
       // 우리가 clientUserMessageId로 보낸 메시지. 그 echo는 다시 그리지 않는다.
       const sent = new Set<string>();
 
@@ -1105,8 +1109,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             if (item.source === "userShell") {
               by = "user";
               category = "command";
-              title = oneLine(shown.split("\n")[0] ?? "", 120);
-            } else title = `shell ${oneLine(shown, 120)}`;
+              const typed = call.typed ?? shown;
+              title = oneLine(typed.split("\n")[0] ?? "", 120);
+              body = bodyOf(typed, item.aggregatedOutput ?? null);
+              break;
+            }
+            title = `shell ${oneLine(shown, 120)}`;
             body = bodyOf(item.command ?? null, item.aggregatedOutput ?? null);
             break;
           }
@@ -1204,6 +1212,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           done: false,
           changes: [],
           lane,
+          ...(item.source === "userShell" && shellSent.length > 0
+            ? { typed: shellSent.shift() }
+            : {}),
         };
         lane.calls.set(item.id, call);
         lane.modelCall = null;
@@ -2765,8 +2776,14 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       function runShell(command: string) {
         const text = command.trim();
         if (text === "") return;
+        shellSent.push(text);
         void attempt("Shell command", () =>
-          request("thread/shellCommand", { threadId, command: text }),
+          request("thread/shellCommand", { threadId, command: text }).catch(
+            (cause: Error) => {
+              shellSent.splice(shellSent.indexOf(text), 1);
+              throw cause;
+            },
+          ),
         );
       }
 
@@ -3018,7 +3035,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           });
           return ((listed.data ?? []) as J[]).map((one) => ({
             id: one.id as string,
-            title: (one.name ?? one.preview ?? null) as string | null,
+            title: (one.name || one.preview || null) as string | null,
             updated_at:
               typeof one.updatedAt === "number"
                 ? new Date(one.updatedAt * 1000).toISOString()

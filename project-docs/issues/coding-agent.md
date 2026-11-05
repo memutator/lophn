@@ -33,7 +33,7 @@ kind: bug
 modules: [packages/core/main, packages/core/lophn-agent]
 ```
 
-- 지금: harness session의 입력은 `packages/core/main/daemon/wiring/harness.ts`의 따로 둔 입력함에 쌓인다. 대기 메시지를 "지금 steer"로 올리는 `steerNow`(`packages/core/main/daemon/wiring/lophn-agent-runtime.ts`)는 run-loop 입력함만 보므로 harness session에서는 늘 `conflict`("the turn already took this message")다. 도는 turn 중에 보낸 메시지는 다음 turn의 입력이 된다. fork한 harness session(`packages/core/lophn-agent/places/lifecycle.ts` `startSession`)은 외부 session id(`sessions.harness_session`)를 물려받지 않아 harness 쪽 대화가 새로 시작한다.
+- 지금: harness session의 입력은 `packages/core/main/daemon/wiring/harness.ts`의 따로 둔 입력함에 쌓인다. 대기 메시지를 "지금 steer"로 올리는 `steerNow`(`packages/core/main/daemon/wiring/lophn-agent-runtime.ts`)는 run-loop 입력함만 보므로 harness session에서는 늘 `conflict`("the turn already took this message")다. 도는 turn 중에 보낸 메시지는 다음 turn의 입력이 된다. fork한 harness session(`packages/core/lophn-agent/workspaces/lifecycle.ts` `startSession`)은 외부 session id(`sessions.harness_session`)를 물려받지 않아 harness 쪽 대화가 새로 시작한다.
 - 영향: 사람이 harness session에서 steer를 누르면 틀린 이유로 거절되고, fork하면 harness가 앞 대화를 모른다.
 - 고치려면: steer는 harness session이면 버튼을 숨기거나 `unavailable`("harness는 turn 중에 받지 못한다")로 거절한다(작음, 추천). fork는 headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주고 나머지는 지금처럼 새로 시작한다(중간).
 
@@ -44,7 +44,7 @@ kind: bug
 modules: [packages/shell/main]
 ```
 
-- 지금: harness host(`packages/shell/main/extensions/bundled/harness/host.ts`)는 session place의 폴더를 cwd로 띄운다. place가 home이거나 폴더 없는 project·app이면 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄). opencode(`opencode run --standalone`, v2.1.4)는 spawn cwd가 아니라 그 위 git root를 작업 폴더로 써서, git 저장소 안 하위 폴더를 project 폴더로 둔 곳에서는 저장소 맨 위에 쓴다(lead가 실제 실행으로 봤다).
+- 지금: harness host(`packages/shell/main/extensions/bundled/harness/host.ts`)는 session workspace의 폴더를 cwd로 띄운다. workspace가 home이거나 폴더 없는 project·app이면 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄). opencode(`opencode run --standalone`, v2.1.4)는 spawn cwd가 아니라 그 위 git root를 작업 폴더로 써서, git 저장소 안 하위 폴더를 project 폴더로 둔 곳에서는 저장소 맨 위에 쓴다(lead가 실제 실행으로 봤다).
 - 영향: home의 전역 agent(Image Generator 같은 것)를 harness로 두면 부를 때마다 실패한다. 하위 폴더 project의 opencode agent는 폴더 밖 파일을 고친다. 앱 source 폴더는 늘 git root라 앱에서는 생기지 않는다.
 - 고치려면: home은 data root 안 session마다 빈 작업 폴더를 cwd로 준다(작음). opencode는 project 폴더가 git root가 아니면 띄우지 않거나, opencode의 directory 지정 수단을 찾아 넘긴다(작음). 추천: 둘 다.
 

@@ -1,10 +1,13 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import type { Assignment } from "../../../protocol/approvals/mod.ts";
-import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { wordsOf } from "../../../cli/parser.ts";
 import type { AgentDirectory } from "../../lophn-agent/agents/directory.ts";
-import { placeDepsOf } from "../../lophn-agent/places/mod.ts";
+import { workspaceDepsOf } from "../../lophn-agent/workspaces/mod.ts";
 import { loadApps } from "../registration/store.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
@@ -14,7 +17,7 @@ type Query = Pick<Sql, "get" | "all">;
 export type ToolUser = {
   tool: string;
   // 부른 agent가 놓인 곳.
-  place: Place;
+  workspace: Workspace;
 };
 
 // 할당에서 뺀 command를 agent 정의의 permissions.deny에 적는 글이다: `lophn(<앱 slug> <command 낱말>)`.
@@ -43,7 +46,7 @@ function removedCommands(
 export function agentAssignment(
   sql: Query,
   agent: AgentId,
-  agents: AgentDirectory = placeDepsOf(sql).agents,
+  agents: AgentDirectory = workspaceDepsOf(sql).agents,
 ): Result<Assignment> {
   const info = agents.agent(agent);
   if (info === null || info.apps.length === 0) {
@@ -62,7 +65,7 @@ export function agentAssignment(
   return ok({ agent, entries });
 }
 
-// 이 앱의 tool을 부른 다른 앱·project: 앱 tool을 부른 agent session이 놓인 곳이다. home과 그 앱 자신의 place는 세지 않는다.
+// 이 앱의 tool을 부른 다른 앱·project: 앱 tool을 부른 agent session이 놓인 곳이다. home과 그 앱 자신의 workspace는 세지 않는다.
 // 이름순으로 정렬해 같은 재료가 같은 bytes가 되게 한다.
 export function appToolUsers(
   sql: Query,
@@ -86,22 +89,23 @@ export function appToolUsers(
   for (const row of calls) {
     const tool = String(row["tool"]);
     if (!names.has(tool)) continue;
-    const place = ports.sessionPlace(String(row["session"]))?.place;
-    if (place === undefined || place === null) continue;
-    if (place.kind === "app" && place.id === app) continue;
-    found.set(JSON.stringify([tool, place]), { tool, place });
+    const workspace = ports.sessionWorkspace(String(row["session"]))?.workspace;
+    if (workspace === undefined || workspace === null) continue;
+    if (workspace.kind === "app" && workspace.id === app) continue;
+    found.set(JSON.stringify([tool, workspace]), { tool, workspace });
   }
 
   return ok(
     [...found.values()].sort(
       (a, b) =>
-        order(a.tool, b.tool) || order(placeKey(a.place), placeKey(b.place)),
+        order(a.tool, b.tool) ||
+        order(workspaceKey(a.workspace), workspaceKey(b.workspace)),
     ),
   );
 }
 
-export function placeKey(place: Place): string {
-  return `${place.kind}:${place.id}`;
+export function workspaceKey(workspace: Workspace): string {
+  return `${workspace.kind}:${workspace.id}`;
 }
 
 export function order(a: string, b: string): number {

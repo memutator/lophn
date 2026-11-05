@@ -1,12 +1,12 @@
 // Scheduled jobs가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 // 화면이 쓰는 칸만 담는다. project 창의 job panel도 이 통로와 model.ts를 그대로 쓴다.
 import type { JobRunState } from "../../../../protocol/jobs/values.ts";
-import type { AgentId } from "../../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { SourceResult } from "../../source-result.ts";
 
 export type { JobRunState, SourceResult };
 
-export type PlaceView =
+export type WorkspaceView =
   | { readonly kind: "project"; readonly id: string }
   | { readonly kind: "app"; readonly id: string };
 
@@ -14,7 +14,7 @@ export type JobActionView =
   | {
       readonly kind: "agent_run";
       readonly agent: AgentId;
-      readonly agent_place: PlaceView | null;
+      readonly agent_workspace: WorkspaceView | null;
       readonly prompt: string;
     }
   | {
@@ -33,10 +33,10 @@ export type MissedPolicy = "run" | "hold";
 export interface JobView {
   readonly id: string;
   readonly title: string;
-  /** 만든 session의 agent와 place. home은 place가 null이다. */
+  /** 만든 session의 agent와 workspace. home은 workspace가 null이다. */
   readonly creator: {
     readonly agent: AgentId;
-    readonly place: PlaceView | null;
+    readonly workspace: WorkspaceView | null;
   };
   /** `30m`, `6h`, `1d`처럼 숫자와 단위(m, h, d). */
   readonly every: string;

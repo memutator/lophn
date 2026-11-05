@@ -85,7 +85,7 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
       {
         session: SES,
         agent: "lophn",
-        place: null,
+        workspace: null,
         state: "waiting",
         turn_requests: [permission(1)],
         questions: [],
@@ -117,7 +117,7 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
       {
         session: SES,
         agent: "lophn",
-        place: null,
+        workspace: null,
         state: "waiting",
         turn_requests: [permission(3)],
         questions: [{ group: id("qgr", 4), turn: TURN, tool_call: CALL }],

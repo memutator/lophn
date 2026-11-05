@@ -145,7 +145,7 @@ export class CredentialRegistry {
       )
         return invalid();
       const context: AuthenticatedContext = parsed.data;
-      // agent의 앱 조건(앱 place session의 앱)은 target을 앱에 고정하지 않는다. 앱 없는 대상(SDK 계약,
+      // agent의 앱 조건(앱 workspace session의 앱)은 target을 앱에 고정하지 않는다. 앱 없는 대상(SDK 계약,
       // handoff 고정 근거)도 닿아야 하고, 범위는 ledger의 target 판정이 앱 조건으로 가른다.
       if (
         kind !== "agent" &&
@@ -309,7 +309,7 @@ export class CredentialRegistry {
     return this.#finish(credentialRef, "ended");
   }
 
-  // `kind`를 주면 그 actor 종류만 끝낸다. 같은 앱 조건을 가진 앱 place agent의 turn credential은 남는다.
+  // `kind`를 주면 그 actor 종류만 끝낸다. 같은 앱 조건을 가진 앱 workspace agent의 turn credential은 남는다.
   endBy(
     condition: "app" | "task" | "process" | "turn" | "session" | "release",
     value: string,

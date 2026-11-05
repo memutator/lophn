@@ -1,5 +1,5 @@
 // 세 질문
-// - contract: boundary `approvals`(`always`는 `always_patterns`를 turn place의 층에 allow로 더해 Settings `approvals.shell_rules`에 남기고, 다음 판정과 재시작 뒤 판정이 그 규칙을 읽는다. floor deny는 어느 층도, `always`도, skip도 덮지 못한다), `config`(Settings file이 재시작에 남는다).
+// - contract: boundary `approvals`(`always`는 `always_patterns`를 turn workspace의 층에 allow로 더해 Settings `approvals.shell_rules`에 남기고, 다음 판정과 재시작 뒤 판정이 그 규칙을 읽는다. floor deny는 어느 층도, `always`도, skip도 덮지 못한다), `config`(Settings file이 재시작에 남는다).
 // - 현실적 회귀: `always`가 request만 닫고 규칙을 안 쓰거나 다른 층에 써서 같은 명령을 또 묻는 수정, 규칙이 메모리에만 있어 재시작 뒤 다시 묻는 수정, skip turn에서 floor deny가 run이 되어 `rm -rf ~`가 도는 수정.
 // - 왜 지금 test로 못 잡나: `judge_test`는 순수 함수이고 `approvals_test`는 자격만 본다. 사람의 결정 → `settingsUpdate` → `settings.json` → 다음 turn의 child `tool_gate/check`와 core 재기동이 이어져야 보인다.
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ import { SHELL_RULES_SETTING_KEY } from "../../packages/protocol/approvals/mod.t
 import { settingsList } from "../../packages/protocol/config/file.ts";
 import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
-  placeSessionRead,
+  workspaceSessionRead,
   changeSessionSkip,
   toolCallList,
   LOPHN_AGENT_ID,
@@ -18,7 +18,7 @@ import {
   connectFakeProvider,
   decide,
   openProject,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   settle,
   waitPermission,
@@ -64,7 +64,7 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     const folder = `${run.work}/proj`;
     await mkdir(folder);
     const { project } = await openProject(core, folder);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });
@@ -111,7 +111,9 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     );
 
     // skip이어도 floor deny. `~`는 core의 HOME(<run>/user-home)이라 판정이 틀려도 run 폴더 안이다.
-    const { session: read } = await core.call(placeSessionRead, { session });
+    const { session: read } = await core.call(workspaceSessionRead, {
+      session,
+    });
     await core.call(
       changeSessionSkip,
       { session, skip: true },

@@ -134,8 +134,8 @@ const keybindingsSetting = declareSetting({
   default: {},
 });
 
-// 왼쪽 sidebar 빠른 실행의 전역 값. 모양은 place layout의 `quick`과 같고(packages/shell/main/workspace/place-layout.ts),
-// place가 자기 `quick`을 두지 않으면 이 값을 쓴다. 모르는 id와 없어진 앱은 shell이 그릴 때 건너뛴다.
+// 왼쪽 sidebar 빠른 실행의 전역 값. 모양은 workspace layout의 `quick`과 같고(packages/shell/main/workspace/workspace-layout.ts),
+// workspace가 자기 `quick`을 두지 않으면 이 값을 쓴다. 모르는 id와 없어진 앱은 shell이 그릴 때 건너뛴다.
 const quickLaunchSetting = declareSetting({
   key: "shell.quick_launch",
   type: z.object({
@@ -172,7 +172,7 @@ const appLaunchSetting = declareSetting({
   default: {},
 });
 
-// coding agent 즐겨찾기(빠른 실행 Terminal hover와 place +의 hover 목록에 나온다)와 사람이 바꾼 실행 명령어.
+// coding agent 즐겨찾기(빠른 실행 Terminal hover와 workspace +의 hover 목록에 나온다)와 사람이 바꾼 실행 명령어.
 // harness id는 shell이 검사하고 모르는 것은 버린다.
 const codingAgentsSetting = declareSetting({
   key: "shell.coding_agents",

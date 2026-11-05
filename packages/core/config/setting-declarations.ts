@@ -7,7 +7,7 @@ import {
 } from "../../protocol/lophn-agent/call-policy.ts";
 import { createFileSettingsReader } from "./reader.ts";
 
-// agent가 보내는 call의 place 쌍·agent 쌍 정책. 판정은 protocol의 mayCall이 한다.
+// agent가 보내는 call의 workspace 쌍·agent 쌍 정책. 판정은 protocol의 mayCall이 한다.
 export const callPolicySetting = declareSetting({
   key: CALL_POLICY_SETTING_KEY,
   type: callPolicySchema,

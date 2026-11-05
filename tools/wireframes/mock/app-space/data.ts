@@ -37,7 +37,7 @@ const ago = (minutes: number) =>
 export function fixedRuns(app: string): readonly RunRecordView[] {
   const reviewer = {
     agent: BUDGET_REVIEWER_ID,
-    place: { kind: "app", id: app },
+    workspace: { kind: "app", id: app },
   } as const;
   return [
     {
@@ -106,7 +106,7 @@ export function fixedRuns(app: string): readonly RunRecordView[] {
     {
       id: "run_lophn",
       kind: "agent",
-      target: { agent: { agent: "lophn", place: null } },
+      target: { agent: { agent: "lophn", workspace: null } },
       session: null,
       session_opened: false,
       state: "done",

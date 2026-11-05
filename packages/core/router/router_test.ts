@@ -7,7 +7,7 @@ import {
   type CallPolicy,
   DEFAULT_CALL_POLICY,
 } from "../../protocol/lophn-agent/call-policy.ts";
-import type { AgentAtPlace } from "../../protocol/lophn-agent/places.ts";
+import type { AgentAtWorkspace } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createRouter } from "./router.ts";
 import type {
@@ -21,12 +21,12 @@ import type {
 
 const SENDER = "ses_sender";
 const RECEIVER = "ses_receiver";
-const lophn = { agent: "lophn", place: null } as const;
+const lophn = { agent: "lophn", workspace: null } as const;
 
 function target(
   session: string,
   accepting: boolean,
-  agent: AgentAtPlace = lophn,
+  agent: AgentAtWorkspace = lophn,
 ): TargetSession {
   return {
     session: session as TargetSession["session"],
@@ -332,17 +332,17 @@ test("a call the receiving agent cannot take is rejected and leaves no call row,
   assert.ok(human.ok);
 });
 
-// 권한 경계다. 기본은 모두 허용이다. place 쌍 거절 규칙이 project A → project B call을 막으면 call 행도 session도 남지 않고,
+// 권한 경계다. 기본은 모두 허용이다. workspace 쌍 거절 규칙이 project A → project B call을 막으면 call 행도 session도 남지 않고,
 // agent 쌍 허용 규칙은 그 거절을 덮는다. 사람이 보낸 call은 보지 않는다.
-test("a place-pair deny rule forbids a call and leaves no row or session; an agent-pair allow overrides it; no rule allows", () => {
+test("a workspace-pair deny rule forbids a call and leaves no row or session; an agent-pair allow overrides it; no rule allows", () => {
   const projectA = { kind: "project", id: "prj_a" } as const;
   const projectB = { kind: "project", id: "prj_b" } as const;
   const sessions = {
-    [SENDER]: target(SENDER, true, { agent: "lophn", place: projectA }),
-    [RECEIVER]: target(RECEIVER, true, { agent: "lophn", place: projectB }),
+    [SENDER]: target(SENDER, true, { agent: "lophn", workspace: projectA }),
+    [RECEIVER]: target(RECEIVER, true, { agent: "lophn", workspace: projectB }),
   };
   const input = { ...base, to: { agent: "lophn" }, dedup: "tool-1" } as const;
-  const denyPlace = {
+  const denyWorkspace = {
     from: projectA,
     to: projectB,
     allow: false,
@@ -353,7 +353,7 @@ test("a place-pair deny rule forbids a call and leaves no row or session; an age
   assert.deepStrictEqual(open.rows.size, 1);
 
   const refused = setup(sessions, undefined, {
-    places: [denyPlace],
+    workspaces: [denyWorkspace],
     agents: [],
   });
   const forbidden = refused.router.route(refused.tx, input);
@@ -370,7 +370,7 @@ test("a place-pair deny rule forbids a call and leaves no row or session; an age
   assert.ok(human.ok);
 
   const allowed = setup(sessions, undefined, {
-    places: [denyPlace],
+    workspaces: [denyWorkspace],
     agents: [{ from: "lophn", to: "lophn", allow: true }],
   });
   const sent = allowed.router.route(allowed.tx, input);

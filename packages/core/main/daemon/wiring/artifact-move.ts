@@ -19,7 +19,7 @@ import {
 } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
-  type ArtifactPlace,
+  type ArtifactWorkspace,
   artifactsFolder,
 } from "../../../../protocol/projects/mod.ts";
 import { REWIND_FILES_IMMUTABLE } from "../../../lophn-agent/session/rewind/mod.ts";
@@ -30,12 +30,12 @@ import {
 import type { DataStep } from "../../../storage/migration/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-type DomainRow = { id: string; name: string; place: ArtifactPlace };
+type DomainRow = { id: string; name: string; workspace: ArtifactWorkspace };
 
 type Move = {
   domain: string;
   name: string;
-  place: ArtifactPlace;
+  workspace: ArtifactWorkspace;
   newName: string;
   from: string;
   to: string;
@@ -65,7 +65,7 @@ async function planMoves(
     a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
   );
   for (const d of ordered) {
-    const folder = artifactsFolder(root, d.place);
+    const folder = artifactsFolder(root, d.workspace);
     let taken = used.get(folder);
     if (taken === undefined) {
       taken = new Set(await namesIn(folder));
@@ -82,7 +82,7 @@ async function planMoves(
       moves.push({
         domain: d.id,
         name,
-        place: d.place,
+        workspace: d.workspace,
         newName,
         from: `${source}/${name}`,
         to: `${folder}/${newName}`,
@@ -117,7 +117,7 @@ function rewriteLayout(
   where: (
     domain: string,
     name: string,
-  ) => { place: ArtifactPlace; name: string } | null,
+  ) => { workspace: ArtifactWorkspace; name: string } | null,
 ): void {
   const keys = new Map<string, string>();
   const dropped = new Set<string>();
@@ -135,11 +135,11 @@ function rewriteLayout(
       dropped.add(tab.key);
       continue;
     }
-    const key = `artifact:${found.place.kind}:${found.place.id}:${found.name}`;
+    const key = `artifact:${found.workspace.kind}:${found.workspace.id}:${found.name}`;
     keys.set(tab.key, key);
     fixes.push(() => {
       delete tab["domain"];
-      tab[found.place.kind] = found.place.id;
+      tab[found.workspace.kind] = found.workspace.id;
       tab["name"] = found.name;
       tab.key = key;
     });
@@ -251,7 +251,7 @@ async function rewriteRewindRows(
     updates.push({
       tool_call: String(row["tool_call"]),
       path: String(row["path"]),
-      root: artifactsFolder(match[1]!, domain.place),
+      root: artifactsFolder(match[1]!, domain.workspace),
       newPath,
       movedFrom,
     });
@@ -294,7 +294,7 @@ async function rewriteLayoutFiles(
     if (row === undefined) return null;
     // 계획에 없는 것은 앞서 옮겨졌거나 제자리에 둔 것이다. 이름은 그대로 본다.
     return {
-      place: row.place,
+      workspace: row.workspace,
       name: planned.get(`${domain}\n${name}`)?.newName ?? name,
     };
   };
@@ -328,7 +328,7 @@ export const artifactMoveStep: DataStep = {
         .map((row) => ({
           id: String(row["id"]),
           name: String(row["name"]),
-          place: {
+          workspace: {
             kind: row["owner_kind"] === "app" ? "app" : "project",
             id: String(row["owner_id"]),
           },
@@ -339,7 +339,7 @@ export const artifactMoveStep: DataStep = {
       await rewriteRewindRows(connection, root, byId, moves);
       await rewriteLayoutFiles(root, byId, moves);
       for (const move of moves) {
-        await mkdir(artifactsFolder(root, move.place), { recursive: true });
+        await mkdir(artifactsFolder(root, move.workspace), { recursive: true });
         await rename(move.from, move.to);
       }
       for (const row of rows) {

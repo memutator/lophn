@@ -43,7 +43,7 @@ function blockOf(annotation: Annotation): string {
     )
     .join("\n");
   const { target } = annotation;
-  const place =
+  const workspace =
     target.kind === "app"
       ? {
           app: target.app,
@@ -60,7 +60,7 @@ function blockOf(annotation: Annotation): string {
     {
       n: annotation.n,
       kind: annotation.kind,
-      ...place,
+      ...workspace,
     },
     body,
   );

@@ -1,7 +1,10 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import type { CallerDirectory } from "../ports.ts";
 import type { Flight } from "./intake.ts";
 
@@ -18,7 +21,7 @@ export type CallAuth = {
   flow?: {
     instance: Id<"wfi">;
     agent: AgentId;
-    place: Place | null;
+    workspace: Workspace | null;
   };
   previewOnly?: true;
 };
@@ -29,7 +32,7 @@ export type VerifiedCaller =
   | {
       kind: "agent";
       agent: AgentId;
-      place: Place | null;
+      workspace: Workspace | null;
       session: Id<"ses">;
       turn: Id<"trn">;
       toolCall: Id<"tcl">;
@@ -40,7 +43,7 @@ export type VerifiedCaller =
       kind: "flow";
       instance: Id<"wfi">;
       agent: AgentId;
-      place: Place | null;
+      workspace: Workspace | null;
     };
 
 type CallerChecks = {
@@ -74,7 +77,7 @@ export function verifyCaller(
 
   if (caller.kind === "agent") {
     const target = input.target;
-    // preview는 그 앱 place의 session만 부른다(아래 판정).
+    // preview는 그 앱 workspace의 session만 부른다(아래 판정).
     if (
       target.mode !== "preview" &&
       (target.mode !== "live" || target.release !== null)
@@ -95,15 +98,18 @@ export function verifyCaller(
     if (
       target.mode === "preview" &&
       !(
-        found.value.place?.kind === "app" && found.value.place.id === target.app
+        found.value.workspace?.kind === "app" &&
+        found.value.workspace.id === target.app
       )
     ) {
-      return forbidden("only a session in the app's place calls its preview");
+      return forbidden(
+        "only a session in the app's workspace calls its preview",
+      );
     }
     return ok({
       kind: "agent",
       agent: found.value.agent,
-      place: found.value.place,
+      workspace: found.value.workspace,
       session: caller.session as Id<"ses">,
       turn: caller.turn as Id<"trn">,
       toolCall: caller.tool_call as Id<"tcl">,
@@ -148,7 +154,7 @@ export function verifyCaller(
       kind: "flow",
       instance: flow.instance,
       agent: flow.agent,
-      place: flow.place,
+      workspace: flow.workspace,
     });
   }
 

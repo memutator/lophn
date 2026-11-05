@@ -100,7 +100,7 @@ export function loopHarness(init: {
     context: () => {
       const context: TurnContext = {
         prompt: {
-          place_kind_prompt: "You are a test agent.",
+          workspace_kind_prompt: "You are a test agent.",
           tools: harnessTools.map((tool) => ({
             name: tool.name,
             description: tool.name,
@@ -108,7 +108,7 @@ export function loopHarness(init: {
           })),
           instructions: { global: "", project: "", agent: "" },
           skills: [],
-          place: { text: "", agents: [] },
+          workspace: { text: "", agents: [] },
           limits: {
             context_limit: 200_000,
             input_limit: 200_000,

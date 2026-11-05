@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineRead } from "../base/route.ts";
-import type { PlaceKind } from "./places.ts";
+import type { WorkspaceKind } from "./workspaces.ts";
 
 // 끈 skill의 정확한 이름이다(전역 설정, project `extensions.json`, agent 정의의 `skills_off`가 같은 규칙을 쓴다).
 // 지금 발견되지 않는 이름도 그대로 둔다: 그 skill이 다시 나타나도 끈 채다. 와일드카드·패턴은 이름 규칙이 거절한다.
@@ -12,15 +12,15 @@ export const skillNameSchema = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 export const SKILLS_OFF_MAX = 256;
 
-// skill의 층은 내장, 전역, project·app, place-data이고 공유 skill(shared)이 더해진다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
-// 덮는다. project·app은 그 place 폴더의 `.lophn/skills`, place-data는 project나 앱 그릇 자리의 `skills/`(폴더 없는 project도 받는다),
+// skill의 층은 내장, 전역, project·app, workspace-data이고 공유 skill(shared)이 더해진다. 끄기는 전역, project, agent 세 층에서 한다. 같은 이름은 마지막 층이
+// 덮는다. project·app은 그 workspace 폴더의 `.lophn/skills`, workspace-data는 project나 앱 그릇 자리의 `skills/`(폴더 없는 project도 받는다),
 // shared는 할당한 앱의 active release가 내놓은 public skill이다.
 export const SKILL_SOURCES = [
   "builtin",
   "global",
   "project",
   "app",
-  "place-data",
+  "workspace-data",
   "shared",
 ] as const;
 const skillSourceSchema = z.enum(SKILL_SOURCES);
@@ -30,37 +30,37 @@ export type SkillSource = z.infer<typeof skillSourceSchema>;
 // prompt 목록에는 닿지 않는다.
 export const BUILTIN_SKILLS: readonly {
   name: string;
-  places: readonly PlaceKind[];
+  workspaces: readonly WorkspaceKind[];
   can_disable: false;
   menu: boolean;
 }[] = [
   {
     name: "new-app",
-    places: ["home"],
+    workspaces: ["home"],
     can_disable: false,
     menu: true,
   },
   {
     name: "repair-app",
-    places: ["home"],
+    workspaces: ["home"],
     can_disable: false,
     menu: true,
   },
   {
     name: "write-artifact",
-    places: ["project", "app"],
+    workspaces: ["project", "app"],
     can_disable: false,
     menu: false,
   },
   {
     name: "write-workflow",
-    places: ["project"],
+    workspaces: ["project"],
     can_disable: false,
     menu: false,
   },
   {
     name: "design-app",
-    places: ["app"],
+    workspaces: ["app"],
     can_disable: false,
     menu: false,
   },
@@ -75,7 +75,7 @@ const skillEntrySchema = z.object({
 });
 export type SkillEntry = z.infer<typeof skillEntrySchema>;
 
-// agent 설정 화면이 보는 skill 목록이다. `project`나 `app`을 주면 전역과 내장에 그 place의 층을 더한다. 같은 이름은
+// agent 설정 화면이 보는 skill 목록이다. `project`나 `app`을 주면 전역과 내장에 그 workspace의 층을 더한다. 같은 이름은
 // 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도 목록에 남고 enabled만 false다. can_disable이
 // false인 내장 skill은 끌 수 없다.
 const skillsReadInputSchema = z

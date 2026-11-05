@@ -1,4 +1,4 @@
-// `lophn preview start|stop|call`: 앱의 봉인된 release를 fixture data로 띄우고, 부르고, 멈춘다. 앱 place의 agent가 쓴다.
+// `lophn preview start|stop|call`: 앱의 봉인된 release를 fixture data로 띄우고, 부르고, 멈춘다. 앱 workspace의 agent가 쓴다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -42,7 +42,7 @@ const start = defineCommand({
   positional: ["release"],
   effect: "write",
   routes: [releasesGetRecord, previewsStart, previewsGet],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const { release, fixture } = input;
     const read = await ctx.core.read(releasesGetRecord, { release });
@@ -109,7 +109,7 @@ const stop = defineCommand({
   positional: ["app"],
   effect: "write",
   routes: [previewsGet, previewsStop],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const { app } = input;
     const current = await ctx.core.read(previewsGet, { app });
@@ -149,7 +149,7 @@ const call = defineCommand({
   positional: ["app", "kind", "name"],
   effect: "write",
   routes: [previewsGet, appCallTool],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const { app, kind, name } = input;
     const current = await ctx.core.read(previewsGet, { app });

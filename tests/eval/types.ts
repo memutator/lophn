@@ -55,8 +55,8 @@ export type RegistryEntry = {
 
 // ---- 참가자와 단계 ----
 
-// `call.send` 명령의 `to`와 같은 이름 꼴이다: agent는 정의의 name(예 "lophn", "세무정리"), place는 앱이면 app.name
-// (예 "가계부"), project면 project.name(예 "tax"). place가 없으면 home이다.
+// `call.send` 명령의 `to`와 같은 이름 꼴이다: agent는 정의의 name(예 "lophn", "세무정리"), workspace는 앱이면 app.name
+// (예 "가계부"), project면 project.name(예 "tax"). workspace가 없으면 home이다.
 export type Participant = AgentAddress;
 
 export type Step =
@@ -124,7 +124,11 @@ export type Scenario = {
 
 // ---- 수집한 기록 ----
 
-export type PlaceName = { kind: "app" | "project"; id: string; name: string }; // name은 app.name이나 project.name
+export type WorkspaceName = {
+  kind: "app" | "project";
+  id: string;
+  name: string;
+}; // name은 app.name이나 project.name
 
 export type CollectedModelCall = {
   call: ModelCallRecord;
@@ -152,14 +156,14 @@ export type SentCall = {
   receiver: AgentId | null; // record.to에서 풀린 받는 agent. 모르면 null
   receiver_name: string | null; // 받는 agent의 name
   receiver_session: string | null; // record.receiver_session
-  receiver_place: PlaceName | null;
+  receiver_workspace: WorkspaceName | null;
 };
 
 export type SessionRecord = {
   session: string;
   agent: AgentId;
   agent_name: string;
-  place: PlaceName | null; // null이면 home
+  workspace: WorkspaceName | null; // null이면 home
   turns: TurnRecord[];
   model_calls: CollectedModelCall[]; // modelCallList 순서(id 순)
   tool_calls: CollectedToolCall[]; // toolCallList 순서(id 순 = 시간 순)

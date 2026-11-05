@@ -2,7 +2,7 @@
 // 파일 tree를 갖고, `list(path)`가 폴더 한 단계씩 돌려준다. 문서 목록은 비어 있고 layout은 저장만 받는다.
 import {
   createLayoutSource,
-  fakePlaceLayoutBridge,
+  fakeWorkspaceLayoutBridge,
 } from "../shell/layout-source.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
@@ -977,7 +977,7 @@ function summaryOf(
 }
 
 function fakeLayoutSource() {
-  const bridge = fakePlaceLayoutBridge();
+  const bridge = fakeWorkspaceLayoutBridge();
   return createLayoutSource(() => bridge);
 }
 

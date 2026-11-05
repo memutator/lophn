@@ -1,4 +1,4 @@
-import type { PlaceRef } from "../shell/desk-model.ts";
+import type { WorkspaceRef } from "../shell/desk-model.ts";
 import type { SettingsPane } from "./settings/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 Home에서 시작한다.
@@ -25,9 +25,9 @@ export interface Route {
   readonly settingsPane?: SettingsPane;
   /** home·project·app 공간에서 열어 시작할 session. */
   readonly session?: string;
-  /** home·project·app 공간에서 그 place의 lophn 새 session 탭을 열어 시작한다(왼쪽 sidebar 다른 place 줄의 +). */
+  /** home·project·app 공간에서 그 workspace의 lophn 새 session 탭을 열어 시작한다(왼쪽 sidebar 다른 workspace 줄의 +). */
   readonly startSession?: true;
-  /** app 공간에서 그 앱 place의 lophn을 새 session으로 열어 시작한다. */
+  /** app 공간에서 그 앱 workspace의 lophn을 새 session으로 열어 시작한다. */
   readonly newSession?: true;
   /** project 공간에서 열어 시작할 터미널의 terminal_ref(다른 project의 터미널 알림). */
   readonly terminal?: string;
@@ -64,16 +64,16 @@ export function openApp(app: string, session?: string): Route {
     : { space: "app", app, session };
 }
 
-/** 그 place로 가서 lophn 새 session 탭을 연다. */
-export function openPlaceNewSession(place: PlaceRef): Route {
-  return place.kind === "home"
+/** 그 workspace로 가서 lophn 새 session 탭을 연다. */
+export function openWorkspaceNewSession(workspace: WorkspaceRef): Route {
+  return workspace.kind === "home"
     ? { space: "home", startSession: true }
-    : place.kind === "project"
-      ? { space: "project", project: place.id, startSession: true }
-      : { space: "app", app: place.id, startSession: true };
+    : workspace.kind === "project"
+      ? { space: "project", project: workspace.id, startSession: true }
+      : { space: "app", app: workspace.id, startSession: true };
 }
 
-/** 방금 만든 앱의 앱 공간으로 이동한다. 오른쪽 패널이 그 앱 place의 lophn 새 session으로 열린다. */
+/** 방금 만든 앱의 앱 공간으로 이동한다. 오른쪽 패널이 그 앱 workspace의 lophn 새 session으로 열린다. */
 export function openNewApp(app: string): Route {
   return { space: "app", app, newSession: true };
 }

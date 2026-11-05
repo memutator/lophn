@@ -55,7 +55,7 @@ async function appCatalog(link: Link): Promise<GrantApp[]> {
 
 export async function readGrants(
   link: Link,
-  place: string | null,
+  workspace: string | null,
   agent: string,
 ): Promise<ReadResult<GrantsView>> {
   if (!isAgentId(agent)) return { ok: false, message: "not_found" };
@@ -69,7 +69,7 @@ export async function readGrants(
     ok: true,
     value: {
       entries: read.value.assignment.entries,
-      catalog: { apps: appsFor(apps, place) },
+      catalog: { apps: appsFor(apps, workspace) },
       revision: read.value.revision,
     },
   };
@@ -77,7 +77,7 @@ export async function readGrants(
 
 export function saveGrants(
   link: Link,
-  _place: string | null,
+  _workspace: string | null,
   agent: string,
   entries: readonly AssignmentEntry[],
   revision: number,

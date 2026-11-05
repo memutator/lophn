@@ -57,14 +57,14 @@ export function AgentsBody({ open }: { open: Open }) {
 /** agent 하나의 설정 탭. id가 "new"면 새 agent다. steps는 gallery가 상태를 고정하려고 mount 뒤에 누를 것이다. */
 export function AgentSettingsEditor({
   id,
-  place = "project",
+  workspace = "project",
   onDone,
   steps = [],
   source: options,
 }: {
   id: string;
   /** 화면을 연 자리다. `app`이면 앱 그릇의 skill·MCP를 그린다. */
-  place?: "project" | "app";
+  workspace?: "project" | "app";
   onDone: () => void;
   steps?: readonly Step[];
   /** provider와 project 층 model의 상태. */
@@ -72,7 +72,7 @@ export function AgentSettingsEditor({
 }) {
   const source = useMemo(() => createFakeAgentsSource(options), []);
   useDrive(() => runSteps(steps));
-  const inApp = place === "app";
+  const inApp = workspace === "app";
   return (
     <div>
       <AgentEditor

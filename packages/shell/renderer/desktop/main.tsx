@@ -14,7 +14,7 @@ import {
 import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
-import { HomeGate } from "./places/home-gate.tsx";
+import { HomeGate } from "./workspaces/home-gate.tsx";
 import {
   createSidebarMemory,
   SidebarMemoryProvider,
@@ -24,12 +24,12 @@ import {
   openApp,
   openHome,
   openNewApp,
-  openPlaceNewSession,
+  openWorkspaceNewSession,
   openProject,
   openSettings,
   type Route,
 } from "./router.ts";
-import { PlaceWindow } from "../workspace/place-window.tsx";
+import { WorkspaceWindow } from "../workspace/workspace-window.tsx";
 import { DetachedSpace } from "../workspace/detached/detached-space.tsx";
 import type { LophnDetachedApi } from "../../ipc/detached.ts";
 import type { WorkspaceSource } from "../workspace/source.ts";
@@ -38,7 +38,7 @@ import type { TerminalDeps } from "../terminal/deps.ts";
 import { SettingsSpace } from "./settings/settings-space.tsx";
 import type { CatalogSource } from "./palette/catalog.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
-import type { ProjectsSource } from "./places/projects/source.ts";
+import type { ProjectsSource } from "./workspaces/projects/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { DesktopTarget } from "./palette/desktop-scope.ts";
@@ -58,7 +58,7 @@ import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts"
 import { CommandsProvider } from "../commands/react.tsx";
 import { createWindowCommands } from "../commands/window.ts";
 import { currentPlatform } from "./top-bar/platform.ts";
-import type { PlaceRef } from "../shell/desk-model.ts";
+import type { WorkspaceRef } from "../shell/desk-model.ts";
 
 // desktop preload만 연다(entry.tsx의 bridges와 같은 꼴). gallery·dev 창에는 없어 main이 먼저 받는 키는 표의 키로 남는다.
 const keybindingsBridge = globalThis as { lophnKeybindings?: KeybindingsApi };
@@ -68,7 +68,7 @@ interface DesktopProps {
   /** 창이 처음 여는 화면. 기본 창은 Home이다. */
   initial?: Route;
   formatTime?: (confirmedAt: number) => string;
-  /** place 창(Home, project) 통로. */
+  /** workspace 창(Home, project) 통로. */
   workspace?: WorkspaceSource;
   /** 창 폭. 테스트가 고정한다. */
   windowWidth?: number;
@@ -82,19 +82,19 @@ interface DesktopProps {
   palette?: PaletteDeps;
   /** main이 시키는 것(전역 팔레트). 없으면 받지 않는다. */
   intents?: IntentApi;
-  /** Home Places panel의 project 목록·등록·보관·detail 통로. 없으면 Projects 구역이 없다. */
+  /** Home Workspaces panel의 project 목록·등록·보관·detail 통로. 없으면 Projects 구역이 없다. */
   projects?: ProjectsSource;
-  /** Home Places panel의 앱 목록·보관과 앱 공간의 통로. 없으면 앱 공간을 열지 않는다. */
+  /** Home Workspaces panel의 앱 목록·보관과 앱 공간의 통로. 없으면 앱 공간을 열지 않는다. */
   apps?: AppsSource;
   /** settings 공간 통로. 없으면 settings는 준비 전 안내다. */
   settings?: SettingsSource;
   /** settings 항목마다의 통로. 없는 항목은 준비 전 안내다. */
   settingsPanels?: SettingsPanels;
-  /** place 창의 Jobs overlay, Jobs 탭, 오른쪽 sidebar Jobs panel 통로. 없으면 sidebar 항목이 없고 Jobs 줄이 바로 탭을 연다. */
+  /** workspace 창의 Jobs overlay, Jobs 탭, 오른쪽 sidebar Jobs panel 통로. 없으면 sidebar 항목이 없고 Jobs 줄이 바로 탭을 연다. */
   jobs?: JobsSource;
-  /** 앱 place의 App details 탭을 여는 통로. 없으면 place 설정 줄이 없다. */
+  /** 앱 workspace의 App details 탭을 여는 통로. 없으면 workspace 설정 줄이 없다. */
   appDetail?: AppDetailSource;
-  /** shell preload의 앱 view 통로. 앱 전용 창이 쓴다(place 창의 앱 화면은 AppViewsProvider로 받는다). */
+  /** shell preload의 앱 view 통로. 앱 전용 창이 쓴다(workspace 창의 앱 화면은 AppViewsProvider로 받는다). */
   views?: LophnShellViewsApi;
   /** Agent 화면이 agent 하나의 통로를 얻는 함수. 앱 공간의 agent 칸이 쓴다. 없으면 칸은 준비 안 됨이다. */
   agentViewSource?: AgentTabSourceFactory;
@@ -155,7 +155,7 @@ function DefaultToastHandler({
   return null;
 }
 
-const HOME_PLACE = { kind: "home" } as const;
+const HOME_WORKSPACE = { kind: "home" } as const;
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
 export function Desktop({
@@ -201,7 +201,7 @@ export function Desktop({
   const [route, setRoute] = useState<Route>(initial);
   // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);
-  // place를 옮겨도 왼쪽 sidebar가 빈 목록부터 다시 그리지 않게 마지막 읽기 값을 창에 둔다.
+  // workspace를 옮겨도 왼쪽 sidebar가 빈 목록부터 다시 그리지 않게 마지막 읽기 값을 창에 둔다.
   const [sidebarMemory] = useState(createSidebarMemory);
   const home = () => setRoute(HOME);
   // Settings를 열기 전 자리. Settings의 [Back]이 돌아가는 곳이고, 없으면(처음부터 Settings) Home으로 간다.
@@ -222,10 +222,12 @@ export function Desktop({
     setVisits((value) => value + 1);
     setRoute(openSettings(pane));
   };
-  // sidebar에서 고른 place를 연다.
-  const openPlace = (place: Exclude<PlaceRef, { kind: "home" }>) =>
+  // sidebar에서 고른 workspace를 연다.
+  const openWorkspace = (workspace: Exclude<WorkspaceRef, { kind: "home" }>) =>
     setRoute(
-      place.kind === "project" ? openProject(place.id) : openApp(place.id),
+      workspace.kind === "project"
+        ? openProject(workspace.id)
+        : openApp(workspace.id),
     );
   const appSpace = (app: string) => setRoute(openApp(app));
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
@@ -237,18 +239,19 @@ export function Desktop({
     else setRoute(openProject(target.project, { open: target.file }));
   };
 
-  // session을 그 session의 place에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간,
-  // home(place 없음)이거나 모르는 session은 Home이다. place 창은 그 place의 session만 보인다.
+  // session을 그 session의 workspace에서 연다. project의 session은 그 project 창, 앱의 session은 그 앱 공간,
+  // home(workspace 없음)이거나 모르는 session은 Home이다. workspace 창은 그 workspace의 session만 보인다.
   const { sessions } = useSessions();
   const known = useRef(sessions);
   known.current = sessions;
   const openSession = (session: string) => {
-    const place = known.current.find(
+    const workspace = known.current.find(
       (entry) => entry.session === session,
-    )?.place;
-    if (place?.kind === "project") {
-      setRoute(openProject(place.id, { session }));
-    } else if (place?.kind === "app") setRoute(openApp(place.id, session));
+    )?.workspace;
+    if (workspace?.kind === "project") {
+      setRoute(openProject(workspace.id, { session }));
+    } else if (workspace?.kind === "app")
+      setRoute(openApp(workspace.id, session));
     else setRoute(openHome(session));
   };
   // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project면 store가 탭을 고른다.
@@ -313,9 +316,9 @@ export function Desktop({
   let space: ReactNode;
   if (route.space === "project" && route.project && workspace && live) {
     space = (
-      <PlaceWindow
+      <WorkspaceWindow
         key={route.project}
-        place={{ kind: "project", id: route.project }}
+        workspace={{ kind: "project", id: route.project }}
         source={workspace}
         windowWidth={windowWidth}
         onHome={home}
@@ -323,7 +326,7 @@ export function Desktop({
         jobs={jobs}
         onOpenApp={apps ? appSpace : undefined}
         apps={apps}
-        onPlace={openPlace}
+        onWorkspace={openWorkspace}
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
@@ -332,7 +335,9 @@ export function Desktop({
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}
-        onNewSessionAt={(place) => setRoute(openPlaceNewSession(place))}
+        onNewSessionAt={(workspace) =>
+          setRoute(openWorkspaceNewSession(workspace))
+        }
         revealTerminal={route.terminal}
         open={route.open}
       />
@@ -340,9 +345,9 @@ export function Desktop({
   } else if (route.space === "home" && workspace && live) {
     // Home은 project가 없어 터미널과 detached 창이 없다.
     space = (
-      <PlaceWindow
+      <WorkspaceWindow
         key="home"
-        place={HOME_PLACE}
+        workspace={HOME_WORKSPACE}
         source={workspace}
         windowWidth={windowWidth}
         onHome={home}
@@ -359,7 +364,7 @@ export function Desktop({
         jobs={jobs}
         onOpenApp={apps ? appSpace : undefined}
         apps={apps}
-        onPlace={openPlace}
+        onWorkspace={openWorkspace}
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
@@ -367,7 +372,9 @@ export function Desktop({
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}
-        onNewSessionAt={(place) => setRoute(openPlaceNewSession(place))}
+        onNewSessionAt={(workspace) =>
+          setRoute(openWorkspaceNewSession(workspace))
+        }
       />
     );
   } else if (route.space === "detached") {
@@ -384,9 +391,9 @@ export function Desktop({
       ) : null;
   } else if (route.space === "app" && route.app && workspace && apps && live) {
     space = (
-      <PlaceWindow
+      <WorkspaceWindow
         key={route.app}
-        place={{ kind: "app", id: route.app }}
+        workspace={{ kind: "app", id: route.app }}
         source={workspace}
         windowWidth={windowWidth}
         onHome={home}
@@ -395,7 +402,7 @@ export function Desktop({
         onOpenApp={appSpace}
         apps={apps}
         appDetail={appDetail}
-        onPlace={openPlace}
+        onWorkspace={openWorkspace}
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
@@ -403,7 +410,9 @@ export function Desktop({
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}
-        onNewSessionAt={(place) => setRoute(openPlaceNewSession(place))}
+        onNewSessionAt={(workspace) =>
+          setRoute(openWorkspaceNewSession(workspace))
+        }
         startLophn={route.newSession}
       />
     );

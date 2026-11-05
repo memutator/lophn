@@ -1,5 +1,5 @@
 // 세 질문
-// - contract: boundary `app-releases`·`app-runtime`·`app-data`(앱 place session의 `release.prepare`는 handler 검사까지 지난 것만
+// - contract: boundary `app-releases`·`app-runtime`·`app-data`(앱 workspace session의 `release.prepare`는 handler 검사까지 지난 것만
 //   release 행으로 남기고, preview는 일회용 DB로 돌아 live ledger와 data에 닿지 않고, 첫 activation은 사람의 동의 뒤에만 앱
 //   process를 띄운다).
 // - 현실적 회귀: 새 data root에서 template 앱의 준비가 깨진다(sdk 사본이 없다, file 수 상한, 화면 map에 `mappings`가 없다),
@@ -7,7 +7,7 @@
 // - 왜 지금 test로 못 잡나: `release.prepare`를 보는 unit이 없고, 준비 자식 -> 봉인 -> preview launcher -> 앱 process -> 기록은
 //   process를 건너야 보인다.
 //
-// fake 대답: helper(`prepareRelease`, `activateRelease`)가 거는 앱 place session 대답은 행 몫에 세지 않는다. preview 단계만 대답
+// fake 대답: helper(`prepareRelease`, `activateRelease`)가 거는 앱 workspace session 대답은 행 몫에 세지 않는다. preview 단계만 대답
 // 둘(tool 넷을 실은 대답 하나와 text)을 건다.
 //
 // 한 test, core 하나, 앱 둘. 앞 단계의 앱과 release를 다음 단계가 이어 쓰므로 순서대로 돈다.
@@ -62,7 +62,7 @@ const dropAddItemHandler: AppPatch = async (dir) => {
   await writeFile(path, text.replace(from, ""));
 };
 
-test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱은 사람이 동의한 뒤에만 뜨고, preview는 live ledger와 data에 닿지 않으며, 떨어진 준비는 release를 남기지 않는다", async (t) => {
+test("E2E 앱 workspace의 lophn이 준비하고 preview로 확인한 template 앱은 사람이 동의한 뒤에만 뜨고, preview는 live ledger와 data에 닿지 않으며, 떨어진 준비는 release를 남기지 않는다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -120,7 +120,7 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
           },
         );
 
-        // fake: 앱 place의 lophn이 받은 tool 결과
+        // fake: 앱 workspace의 lophn이 받은 tool 결과
         const results = Object.fromEntries(
           ["start", "add", "list", "stop"].map((name) => [
             name,
@@ -199,9 +199,9 @@ test("E2E 앱 place의 lophn이 준비하고 preview로 확인한 template 앱�
     );
 
     await t.test(
-      "activation-allowed: 앱 place의 lophn이 다시 올리고 사람이 허락하면 그 release가 뜬다",
+      "activation-allowed: 앱 workspace의 lophn이 다시 올리고 사람이 허락하면 그 release가 뜬다",
       async () => {
-        // 거절된 prepared release는 앱 place의 lophn이 다시 부르는 것이 제품 길이다.
+        // 거절된 prepared release는 앱 workspace의 lophn이 다시 부르는 것이 제품 길이다.
         assert.deepStrictEqual(
           (await activateRelease(c, fake, notes, release)).status,
           "waiting_consent",

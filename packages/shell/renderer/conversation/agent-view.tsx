@@ -254,7 +254,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
 
   const drafted = useDraftMeta(source, session === null);
-  // 아직 만들지 않은 새 session은 session meta가 없다. source가 agent와 place로 읽은 draft에 새 session에서 고른 model을 얹는다.
+  // 아직 만들지 않은 새 session은 session meta가 없다. source가 agent와 workspace로 읽은 draft에 새 session에서 고른 model을 얹는다.
   const meta: AcpSessionMeta | null =
     session !== null
       ? (thread?.session ?? null)
@@ -862,7 +862,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             offline={offline}
             readOnly={readOnly}
             hint={hint}
-            place={agent.place}
+            workspace={agent.workspace}
             permissionSummary={agent.permissionSummary}
             permissions={permissions}
             mode={
@@ -903,7 +903,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
 }
 
-/** 새 session 화면의 session 기능. 첫 메시지 전이라 snapshot이 없어 source가 agent와 place로 읽는다. */
+/** 새 session 화면의 session 기능. 첫 메시지 전이라 snapshot이 없어 source가 agent와 workspace로 읽는다. */
 function useDraftMeta(
   source: AgentTabSource,
   enabled: boolean,

@@ -1,5 +1,5 @@
-// Home. 화면은 renderer의 Desktop이 그리는 Home place(project 창과 같은 shell)이고 여기서는 dev mock 통로에 이어 준다.
-// 오른쪽 sidebar는 Places(project·앱 목록, 등록, 새 앱, 보관한 것)와 Jobs다.
+// Home. 화면은 renderer의 Desktop이 그리는 Home workspace(project 창과 같은 shell)이고 여기서는 dev mock 통로에 이어 준다.
+// 오른쪽 sidebar는 Workspaces(project·앱 목록, 등록, 새 앱, 보관한 것)와 Jobs다.
 import { useCallback } from "react";
 
 import {
@@ -10,7 +10,7 @@ import {
   type,
   useDrive,
 } from "../../../mock/drive.ts";
-import { registerSteps } from "../../../mock/places/register-panel.tsx";
+import { registerSteps } from "../../../mock/workspaces/register-panel.tsx";
 import { MockDesktop } from "../../../mock/mock-desktop.tsx";
 
 const SESSION_TAB = {
@@ -37,13 +37,13 @@ function Driven({
   );
 }
 
-/** 탭이 없는 Home. 빈 desk 안내와 New session이 보이고 오른쪽에 Places가 열려 있다. */
+/** 탭이 없는 Home. 빈 desk 안내와 New session이 보이고 오른쪽에 Workspaces가 열려 있다. */
 export const HomeEmpty = () => <MockDesktop />;
 
-/** project도 앱도 없는 Home. Places panel의 두 구역이 비었음 안내를 보인다. */
-export const HomeNoPlaces = () => <MockDesktop emptyHome />;
+/** project도 앱도 없는 Home. Workspaces panel의 두 구역이 비었음 안내를 보인다. */
+export const HomeNoWorkspaces = () => <MockDesktop emptyHome />;
 
-/** Home lophn session을 탭으로 연 상태. Home place의 session은 다른 place와 같이 tab이다. */
+/** Home lophn session을 탭으로 연 상태. Home workspace의 session은 다른 workspace와 같이 tab이다. */
 export const HomeSession = () => <MockDesktop homeTabs={[SESSION_TAB]} />;
 
 /** 오른쪽 Jobs panel. project와 상관없이 모든 job이 보인다. */

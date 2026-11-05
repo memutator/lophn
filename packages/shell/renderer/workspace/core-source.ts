@@ -11,7 +11,7 @@ import { commandCall } from "../command-call.ts";
 import {
   readProjects,
   windowFolderPicker,
-} from "../desktop/places/projects/core-source.ts";
+} from "../desktop/workspaces/projects/core-source.ts";
 import { createLayoutSource } from "../shell/layout-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
@@ -183,7 +183,7 @@ function projectDocuments(
     core,
     "documents",
     "list",
-    { place: { kind: "project", id: project }, status: "active" },
+    { workspace: { kind: "project", id: project }, status: "active" },
     (value) => {
       const page = value as DocumentListValue;
       return {

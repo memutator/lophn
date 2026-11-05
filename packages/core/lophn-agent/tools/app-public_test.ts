@@ -39,8 +39,13 @@ const inner = {
     ),
 } as unknown as AppToolkit;
 
-async function names(place: { kind: "app" | "project"; id: string } | null) {
-  const loaded = await withPublicOnly(inner).load({ agent: "lophn", place });
+async function names(
+  workspace: { kind: "app" | "project"; id: string } | null,
+) {
+  const loaded = await withPublicOnly(inner).load({
+    agent: "lophn",
+    workspace,
+  });
   if (!loaded.ok) throw new Error("load failed");
   return loaded.value.views.map((one) => [
     one.app,
@@ -48,7 +53,7 @@ async function names(place: { kind: "app" | "project"; id: string } | null) {
   ]);
 }
 
-test("an agent sees the private tools of its own app place only, public tools of any", async () => {
+test("an agent sees the private tools of its own app workspace only, public tools of any", async () => {
   assert.deepStrictEqual(await names({ kind: "app", id: APP_A }), [
     [APP_A, ["open", "shown"]],
     [APP_B, ["shown"]],
@@ -84,13 +89,13 @@ test("lophn resolves an app command only for an assigned app, a kept command, an
   } as unknown as AppToolkit);
   const loaded = await kit.load({
     agent: "lophn",
-    place: { kind: "app", id: APP_A },
+    workspace: { kind: "app", id: APP_A },
   });
   if (!loaded.ok) throw new Error("load failed");
   const entries = appCommandEntries(loaded.value);
   const resolves = (...args: string[]) =>
     resolveAppCall({ args }, entries)?.entry.doc.name;
-  // 그 앱 place의 비공개 command. 할당하지 않은 앱 것은 항목에 없다.
+  // 그 앱 workspace의 비공개 command. 할당하지 않은 앱 것은 항목에 없다.
   assert.deepStrictEqual(resolves("alpha", "open"), "alpha.open");
   assert.deepStrictEqual(resolves("beta", "open"), undefined);
   assert.deepStrictEqual(

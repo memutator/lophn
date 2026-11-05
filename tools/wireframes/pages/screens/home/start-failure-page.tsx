@@ -2,9 +2,9 @@
 // StartFailureScreen이다. 셋 모두 원본을 그대로 두고 시작하지 않았다는 안내와 update 안내를 준다.
 import type { CSSProperties } from "react";
 
-import { GateFrame } from "../../../../../packages/shell/renderer/desktop/places/home-gate.tsx";
-import { schemaFailure } from "../../../../../packages/shell/renderer/desktop/places/start-failure/model.ts";
-import { StartFailureScreen } from "../../../../../packages/shell/renderer/desktop/places/start-failure/start-failure.tsx";
+import { GateFrame } from "../../../../../packages/shell/renderer/desktop/workspaces/home-gate.tsx";
+import { schemaFailure } from "../../../../../packages/shell/renderer/desktop/workspaces/start-failure/model.ts";
+import { StartFailureScreen } from "../../../../../packages/shell/renderer/desktop/workspaces/start-failure/start-failure.tsx";
 
 const FAILURES: CSSProperties = {
   display: "grid",

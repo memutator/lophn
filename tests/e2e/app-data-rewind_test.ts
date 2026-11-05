@@ -7,7 +7,7 @@
 //   비어 늘 rejected인 것(연결을 보는 test가 없었다).
 // - 왜 지금 test로 못 잡나: 한도 계산은 unit이 있지만 실제 pipe와 앱 process의 한 transaction은 process를 건너야 한다.
 //
-// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 앱 place lophn session 대답(`release prepare`·`release activate`)뿐이라
+// fake 대답: 앞 세 행은 앱 activation(`activateTestApp`)의 앱 workspace lophn session 대답(`release prepare`·`release activate`)뿐이라
 // 행의 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4). `session-rewind-with-app`은 case마다
 // agent의 앱 호출과 끝 text, 둘이다.
 import assert from "node:assert/strict";
@@ -33,7 +33,7 @@ import { appCoreEnv } from "../support/app/deps.ts";
 import { rewindPatch } from "../support/app/patch-rewind.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   until,
   waitTurnEnd,
@@ -215,9 +215,9 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
     ]!;
     assert.deepStrictEqual(await titles(core, live), [kept_title]);
 
-    // session-rewind-with-app: test가 만든 agent의 앱 place session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
-    // 비공개 tool은 그 앱 place의 session만 본다.
-    const place = { kind: "app", id: live.app } as const;
+    // session-rewind-with-app: test가 만든 agent의 앱 workspace session의 rewind에서 앱을 고르면 그 앱도 되돌아가고, 안 고르면 그대로다.
+    // 비공개 tool은 그 앱 workspace의 session만 본다.
+    const workspace = { kind: "app", id: live.app } as const;
     const agent = core.ids.newId("agt");
     await core.call(agentCreate, {
       id: agent,
@@ -241,7 +241,7 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
           reply: { kind: "text", text: "added" },
         },
       ]);
-      const session = await openPlaceSession(core, agent, place);
+      const session = await openWorkspaceSession(core, agent, workspace);
       const { message } = await say(core, session, `add ${title}`);
       await waitTurnEnd(core, session);
       assert.ok((await titles(core, live)).includes(title));

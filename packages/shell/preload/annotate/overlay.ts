@@ -72,7 +72,7 @@ export function createOverlay(
   }
 
   const items = new Map<number, Item>();
-  const place = (el: HTMLElement, box: Box) => {
+  const workspace = (el: HTMLElement, box: Box) => {
     el.style.left = `${box.x}px`;
     el.style.top = `${box.y}px`;
     el.style.width = `${box.width}px`;
@@ -90,11 +90,11 @@ export function createOverlay(
       hover.hidden = box === null;
       if (box === null) return;
       hoverLabel.textContent = label;
-      place(hover, box);
+      workspace(hover, box);
     },
     drag(box: Box | null) {
       drag.hidden = box === null;
-      if (box !== null) place(drag, box);
+      if (box !== null) workspace(drag, box);
     },
 
     add(n: number, kind: "element" | "region") {
@@ -129,10 +129,10 @@ export function createOverlay(
       root.append(box, memo);
       items.set(n, { box, memo, textarea });
     },
-    place(n: number, box: Box, view: { width: number; height: number }) {
+    workspace(n: number, box: Box, view: { width: number; height: number }) {
       const item = items.get(n);
       if (item === undefined) return;
-      place(item.box, box);
+      workspace(item.box, box);
       const left = Math.max(
         0,
         Math.min(box.x, view.width - MEMO_WIDTH - MEMO_GAP),

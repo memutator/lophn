@@ -259,7 +259,7 @@ export function TabStrip({
                   drag?.hit?.kind === "stack" && drag.hit.target === tab.key
                     ? drag.hit.index
                     : null;
-                const halves = items.map((item, place) => {
+                const halves = items.map((item, workspace) => {
                   const editing = item.key === renaming;
                   const one = item.dot
                     ? t("project-workspace.label.tab-tooltip", {
@@ -290,12 +290,12 @@ export function TabStrip({
                         }
                         data-hidden={item.key !== tab.key || undefined}
                         data-pane-key={grouped ? tab.key : undefined}
-                        data-pane-index={grouped ? place : undefined}
+                        data-pane-index={grouped ? workspace : undefined}
                         data-drop-item={
-                          dropAt === place
+                          dropAt === workspace
                             ? "before"
                             : dropAt === items.length &&
-                                place === items.length - 1
+                                workspace === items.length - 1
                               ? "after"
                               : undefined
                         }

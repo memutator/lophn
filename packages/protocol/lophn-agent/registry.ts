@@ -1,6 +1,6 @@
 import { SESSION_COMMANDS } from "./sessions.ts";
 import { SESSION_STATUS_ROUTES } from "./session-status.ts";
-import { PLACE_SESSION_ROUTES } from "./agent-sessions.ts";
+import { WORKSPACE_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_ROUTES, messagesList } from "./messages.ts";
 import { REVERT_ROUTES } from "./reverts.ts";
 import { sessionRewind, sessionRewindPreview } from "./session-rewinds.ts";
@@ -38,7 +38,7 @@ import { issuerRequestDone, issuerRequestTake } from "./issuer-requests.ts";
 export const ROUTES = [
   ...SESSION_COMMANDS,
   ...SESSION_STATUS_ROUTES,
-  ...PLACE_SESSION_ROUTES,
+  ...WORKSPACE_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
   ...REVERT_ROUTES,
   sessionRewind,

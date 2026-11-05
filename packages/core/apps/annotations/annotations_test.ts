@@ -214,7 +214,7 @@ test("메모와 요소 글에 든 닫는 tag는 escape되어 메시지의 tag를
 const OTHER_PROJECT = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
 const snapshotOf = (sql: unknown) => ({ sql, as_of_seq: "1" }) as never;
 
-test("annotations.get: project place session은 자기 project의 file과 artifact만, app place session은 자기 앱 것과 그 앱의 artifact만 읽는다", async () => {
+test("annotations.get: project workspace session은 자기 project의 file과 artifact만, app workspace session은 자기 앱 것과 그 앱의 artifact만 읽는다", async () => {
   const world = open();
   const send = async (target: { kind: string; [key: string]: unknown }) => {
     const sent = await world.send(USER, {

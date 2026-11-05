@@ -8,9 +8,9 @@ import {
   finishRewindSummary,
   modelCallList,
   type ModelChoice,
-  type PlaceKind,
-  placeSessionCompactRequests,
-  placeSessionRead,
+  type WorkspaceKind,
+  workspaceSessionCompactRequests,
+  workspaceSessionRead,
   requestSessionCompact,
   startModelCall,
   takeRewindSummaryRequest,
@@ -97,7 +97,7 @@ type CompactorDeps = {
   ids: IdSource;
   // machine 자격의 loopback.
   machine: CoreCall;
-  placeTools(kind: PlaceKind): readonly string[];
+  workspaceTools(kind: WorkspaceKind): readonly string[];
   blobs: BlobPort;
   redact: RedactText;
   resolveModel(input: {
@@ -164,7 +164,7 @@ export function createCompactor(
     const made = await resolveTurnAgent(machine, {
       session: request.session,
       skills: [],
-      placeTools: deps.placeTools,
+      workspaceTools: deps.workspaceTools,
       mcp: () => Promise.resolve([]),
     });
     return made.ok && made.value.kind === "resolved"
@@ -520,7 +520,7 @@ export function createCompactor(
     const visible = visibleMessages(read.value);
     // 요약할 것이 없는 session에 요청을 열면 실패 event만 남는다.
     if (recentStart(visible) === 0) return { kind: "idle" };
-    const current = await readOf(machine, placeSessionRead, { session });
+    const current = await readOf(machine, workspaceSessionRead, { session });
     if (!current.ok) return { kind: "idle" };
     const seq = current.value.session.state_seq;
     const requested = await commandOf(
@@ -556,7 +556,7 @@ export function createCompactor(
       return summary;
     },
     async next() {
-      const listed = await readOf(machine, placeSessionCompactRequests, {});
+      const listed = await readOf(machine, workspaceSessionCompactRequests, {});
       if (!listed.ok) return { kind: "idle" };
       const first = listed.value.requests[0];
       if (first === undefined) return { kind: "idle" };

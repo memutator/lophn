@@ -12,7 +12,7 @@ import type {
   CallState,
 } from "../../protocol/lophn-agent/calls.ts";
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
-import type { AgentAddress } from "../../protocol/lophn-agent/places.ts";
+import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
 import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 import type { RoutedInput } from "./ports.ts";
 
@@ -94,7 +94,7 @@ export function failureCode(
 export const FAILURE_TEXTS: Record<CallFailReason, string> = {
   not_found: "The call was not delivered: no such agent or session.",
   closed:
-    "The call was not delivered: that session is closed. Call its agent and place to open a new session.",
+    "The call was not delivered: that session is closed. Call its agent and workspace to open a new session.",
   receiver_ended: "The receiving session ended without replying.",
   lophn_restarted: "lophn restarted before the receiving session got the call.",
 };

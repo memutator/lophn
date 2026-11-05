@@ -7,7 +7,7 @@ import {
   type AgentValueLayer,
   LOPHN_AGENT_ID,
   type ModelChoice,
-  type Place,
+  type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   Input,
@@ -26,7 +26,7 @@ import {
   profileOf,
 } from "./inspect.ts";
 import { callPolicyAt } from "../../config/setting-declarations.ts";
-import { loadSession, placeOf } from "../session/model.ts";
+import { loadSession, workspaceOf } from "../session/model.ts";
 import { type CardCaller, cardByName } from "./card.ts";
 import type { AgentDeps } from "./ports.ts";
 import { receivedSkills } from "./resolve.ts";
@@ -117,7 +117,7 @@ export function createAgentReads(deps: AgentDeps): {
       ): Result<Output<typeof agentCard>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
-        // agent session이 읽을 때만 그 session의 place에서 부를 수 있는지 싣는다.
+        // agent session이 읽을 때만 그 session의 workspace에서 부를 수 있는지 싣는다.
         const session =
           ctx.conditions.session === undefined
             ? undefined
@@ -126,7 +126,7 @@ export function createAgentReads(deps: AgentDeps): {
           session === undefined
             ? null
             : {
-                from: { agent: session.agent, place: placeOf(session) },
+                from: { agent: session.agent, workspace: workspaceOf(session) },
                 policy: callPolicyAt(context.value.store.root),
               };
         const card = cardByName(context.value, input.name, caller);
@@ -147,15 +147,18 @@ export function createAgentReads(deps: AgentDeps): {
       ): Result<Output<typeof agentRead>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
-        const place = input.place ?? null;
-        if (place !== null && !context.value.lookups.placeExists(place)) {
-          return notFound("place");
+        const workspace = input.workspace ?? null;
+        if (
+          workspace !== null &&
+          !context.value.lookups.workspaceExists(workspace)
+        ) {
+          return notFound("workspace");
         }
         const found = loadAgent(context.value, input.agent);
         if (!found.ok) return found;
         if (found.value === null) return notFound("agent");
         const loaded = found.value;
-        const model = effectiveModel(context.value, loaded, place);
+        const model = effectiveModel(context.value, loaded, workspace);
         const profile = profileOf(loaded);
         return ok({
           agent: loaded.agent,

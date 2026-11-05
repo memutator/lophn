@@ -40,13 +40,13 @@ export type FileGroup =
     }
   | { group: "skill"; name: string };
 
-const PROMPTS = "packages/core/agent-places/prompts";
+const PROMPTS = "packages/core/agent-workspaces/prompts";
 const NO_PACKAGE = /^packages\/(shell|design)\//;
 const INSTRUCTION = new RegExp(`^${PROMPTS}/(home|project|app)\\.md$`);
-const SKILL = /^packages\/core\/agent-places\/skills\/([^/]+)\//;
+const SKILL = /^packages\/core\/agent-workspaces\/skills\/([^/]+)\//;
 const RUNTIME = [
   "packages/core/lophn-agent/",
-  "packages/core/agent-places/",
+  "packages/core/agent-workspaces/",
   "packages/core/main/agent-runtime/",
   "packages/core/main/agent-tools.ts",
   "packages/core/apps/agent-tools/",

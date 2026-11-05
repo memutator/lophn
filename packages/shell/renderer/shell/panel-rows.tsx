@@ -66,7 +66,7 @@ export function PanelSection({
   );
 }
 
-/** 줄 앞의 아이콘 칸. 표식(PlaceMark)은 칸 없이 `leading`에 바로 준다. */
+/** 줄 앞의 아이콘 칸. 표식(WorkspaceMark)은 칸 없이 `leading`에 바로 준다. */
 export function TileIcon({
   icon,
   tone,

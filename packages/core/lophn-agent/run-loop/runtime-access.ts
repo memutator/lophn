@@ -19,8 +19,8 @@ import {
   messagesList,
   modelCallList,
   modelDefaultRead,
-  placeSessionCompactRequests,
-  placeSessionRead,
+  workspaceSessionCompactRequests,
+  workspaceSessionRead,
   projectModelRead,
   providerList,
   providerRead,
@@ -71,10 +71,10 @@ export const RUNTIME_MACHINE_ROUTES = [
   modelDefaultRead,
   // project 층 model. 전역 기본 → project → agent 정의 → session 순으로 쌓는다.
   projectModelRead,
-  placeSessionRead,
+  workspaceSessionRead,
   // Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
   // 이전 대화가 커진 session은 다음 turn 전에 runtime이 요청을 연다.
-  placeSessionCompactRequests,
+  workspaceSessionCompactRequests,
   requestSessionCompact,
   sessionSummary,
   // 숨기거나 접은 구간은 이후 call의 입력에 들지 않는다: 되돌리기 기록에서 그 구간을 읽는다.
@@ -133,13 +133,13 @@ export const EXTERNAL_TOOL_OPERATIONS: readonly string[] = [
 ];
 
 // Gate가 걸리는 tool과 `ask`가 사람의 결정을 기다리는 입구다. 기다림은 core가 쥐고 호출 하나가 결과가 날 때까지 열려 있다.
-// 사람이 답하는 입구가 아니라 turn의 agent 자격이 묻는 쪽이므로 모든 place 종류의 상한에 더한다.
+// 사람이 답하는 입구가 아니라 turn의 agent 자격이 묻는 쪽이므로 모든 workspace 종류의 상한에 더한다.
 const HUMAN_WAIT_ROUTES: readonly string[] = [toolGateCheck.name, askWait.name];
 // image.read가 사람이 붙인 이미지(`attachment:<id>`)를 파일 경로로 푼다. session은 core가 credential로 가른다.
 const MESSAGE_IMAGE_ROUTES: readonly string[] = [messageImagePath.name];
 
-// 어느 place 종류든 상한에 드는 operation이다. 앱 command 통로(`app.connect`)는 범위를 agent 할당과 tool 목록이
-// 정하고, 외부 MCP tool과 사람 결정 기다림은 turn의 agent 자격이 부른다. place 종류 몫은 place 층이 더한다.
+// 어느 workspace 종류든 상한에 드는 operation이다. 앱 command 통로(`app.connect`)는 범위를 agent 할당과 tool 목록이
+// 정하고, 외부 MCP tool과 사람 결정 기다림은 turn의 agent 자격이 부른다. workspace 종류 몫은 workspace 층이 더한다.
 export const AGENT_BASE_OPERATIONS: readonly string[] = [
   APP_TOOL_CONTRACT,
   ...EXTERNAL_TOOL_OPERATIONS,

@@ -29,7 +29,7 @@ const FORBIDDEN: [RegExp, string][] = [
   [/file-tracking/, "file-tracking"],
   [/doc@ver/, "doc@ver"],
   [/documents#/, "의도 참조(documents#)"],
-  [/place 없는 문서/, "place 없는 문서"],
+  [/workspace 없는 문서/, "workspace 없는 문서"],
   [/series registry/i, "series registry"],
   [/change notification|바뀜 알림/i, "바뀜 알림(change notification)"],
   [/revert_run|run revert|run 되돌리기/, "run revert(session rewind로)"],

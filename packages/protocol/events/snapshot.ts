@@ -4,7 +4,10 @@ import { idSchema } from "../base/ids.ts";
 import { defineRead } from "../base/route.ts";
 import { turnRequestSchema } from "../approvals/mod.ts";
 import { SENDABLE_SESSION_STATES } from "../lophn-agent/calls.ts";
-import { agentIdSchema, placeOutputSchema } from "../lophn-agent/places.ts";
+import {
+  agentIdSchema,
+  workspaceOutputSchema,
+} from "../lophn-agent/workspaces.ts";
 
 // waiting은 대기 turn request나 질문이 있는 때다. unknown은 지금 내는 곳이 없다.
 const sessionStateSchema = z.enum(SENDABLE_SESSION_STATES);
@@ -15,7 +18,7 @@ const sessionSnapshotSchema = z.object({
   session: idSchema("ses"),
   // 창을 연 뒤 만난 session도 누구의 session인지 알게 싣는다.
   agent: agentIdSchema,
-  place: placeOutputSchema.nullable(),
+  workspace: workspaceOutputSchema.nullable(),
   state: sessionStateSchema,
   turn_requests: z.array(turnRequestSchema),
   questions: z.array(

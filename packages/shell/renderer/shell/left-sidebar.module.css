@@ -20,7 +20,7 @@
 }
 
 .navRow,
-.placeRow,
+.workspaceRow,
 .sessionRow {
   display: flex;
   gap: var(--space-4);
@@ -38,37 +38,37 @@
 }
 
 .navRow:hover,
-.placeRow:hover,
+.workspaceRow:hover,
 .sessionRow:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-muted);
 }
 
-.placeHead {
+.workspaceHead {
   display: flex;
   gap: var(--space-1);
   align-items: center;
 }
 
-.placeHead .placeRow {
+.workspaceHead .workspaceRow {
   flex: 1;
   width: auto;
 }
 
-/* 설정 단추와 다른 place의 +는 place 줄에 hover하거나 focus가 있을 때만 보인다. 이 창 place의 +는 늘 보인다.
+/* 설정 단추와 다른 workspace의 +는 workspace 줄에 hover하거나 focus가 있을 때만 보인다. 이 창 workspace의 +는 늘 보인다.
    자리는 남겨 이름 폭이 흔들리지 않는다. +는 session 줄의 Stop 단추(.sessionAction)와 같은 칸이라 점과 세로로 맞는다. */
-.placeSettings,
-.placeNew {
+.workspaceSettings,
+.workspaceNew {
   display: inline-flex;
   flex: none;
   visibility: hidden;
 }
 
-.placeNew[data-here],
-.placeHead:hover .placeSettings,
-.placeHead:hover .placeNew,
-.placeHead:focus-within .placeSettings,
-.placeHead:focus-within .placeNew {
+.workspaceNew[data-here],
+.workspaceHead:hover .workspaceSettings,
+.workspaceHead:hover .workspaceNew,
+.workspaceHead:focus-within .workspaceSettings,
+.workspaceHead:focus-within .workspaceNew {
   visibility: visible;
 }
 
@@ -133,7 +133,7 @@
   line-height: var(--type-caption-line);
 }
 
-.placeList {
+.workspaceList {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -142,20 +142,20 @@
   overflow: auto;
 }
 
-.placeGroup {
+.workspaceGroup {
   display: flex;
   flex-direction: column;
   gap: var(--space-0);
   padding-block-end: var(--space-3);
 }
 
-.placeRow {
+.workspaceRow {
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
 
-/* 이 창이 보이는 place는 이름만 진하게 해 다른 place와 갈린다. */
-.placeRow[aria-current="true"] {
+/* 이 창이 보이는 workspace는 이름만 진하게 해 다른 workspace와 갈린다. */
+.workspaceRow[aria-current="true"] {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
 }

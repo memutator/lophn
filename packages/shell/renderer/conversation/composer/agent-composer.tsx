@@ -89,7 +89,7 @@ interface AgentComposerProps {
   hint?: string;
   /** 입력칸 밖 아래 줄의 자리. 프로젝트 또는 앱 하나다. */
   /** 이 대화의 자리. home은 null이라 자리 칸을 그리지 않는다. */
-  place: { readonly kind: "project" | "app"; readonly name: string } | null;
+  workspace: { readonly kind: "project" | "app"; readonly name: string } | null;
   /** 할당 요약 한 줄. */
   permissionSummary: string;
   /** 권한 요약을 열 때 보이는 보기. 읽기 전에는 null이다. */
@@ -420,17 +420,20 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
         </div>
       </div>
       <div className={styles.scope} data-composer-scope="">
-        {props.place === null ? null : (
-          <span className={styles.place} data-place-kind={props.place.kind}>
+        {props.workspace === null ? null : (
+          <span
+            className={styles.workspace}
+            data-workspace-kind={props.workspace.kind}
+          >
             <Icon
               icon={
-                props.place.kind === "app"
+                props.workspace.kind === "app"
                   ? workspaceIcons.appPanel
                   : workspaceIcons.folder
               }
               pixels={iconPixels("small")}
             />
-            {props.place.name}
+            {props.workspace.name}
           </span>
         )}
         {props.permissionSummary === "" ? null : (

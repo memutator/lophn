@@ -107,7 +107,7 @@ const LOPHN: AgentFace = {
   agent: "lophn",
   name: "lophn",
   profile: { kind: "character", shape: "pear", color: "lavender" },
-  place: { kind: "project", name: "phroner" },
+  workspace: { kind: "project", name: "phroner" },
   permissionSummary: "2 apps assigned",
 };
 
@@ -115,7 +115,7 @@ const CLAUDE: AgentFace = {
   agent: "lophn",
   name: "Claude",
   profile: { kind: "initial", text: "C" },
-  place: { kind: "project", name: "phroner" },
+  workspace: { kind: "project", name: "phroner" },
   permissionSummary: "",
 };
 
@@ -123,7 +123,7 @@ const EVAL_ANALYST: AgentFace = {
   agent: fakeId("agt", 1),
   name: "Eval analyst",
   profile: { kind: "character", shape: "wide", color: "yellow" },
-  place: { kind: "app", name: "Eval board" },
+  workspace: { kind: "app", name: "Eval board" },
   permissionSummary: LOPHN.permissionSummary,
 };
 
@@ -627,7 +627,7 @@ type AskedQuestions = NonNullable<
 
 const ASKED: AskedQuestions = [
   {
-    header: "Report place",
+    header: "Report workspace",
     question: "Where should the weekly report go?",
     multiSelect: false,
     options: [
@@ -991,7 +991,7 @@ function sceneData(scene: AgentTabScene): SceneData {
               group: groupId(1),
               outcome: "submitted",
               lines: [
-                { header: "Report place", answer: "docs/reports/" },
+                { header: "Report workspace", answer: "docs/reports/" },
                 { header: "Sections", answer: "Improvements, Regressions" },
               ],
             }),

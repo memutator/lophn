@@ -3,8 +3,8 @@ import { ok } from "../../../../base/mod.ts";
 import { appEnv } from "../../../apps/runtime/processes/mod.ts";
 import {
   createSessionDirectory,
-  placeDepsOf,
-} from "../../../lophn-agent/places/mod.ts";
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { createFlowHost } from "../../flow-host/host.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
@@ -33,7 +33,7 @@ export const flowsWiring: WiringFactory = () => {
         resolveAgent(address) {
           const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
             createSessionDirectory({
-              ...placeDepsOf(lookup.sql),
+              ...workspaceDepsOf(lookup.sql),
               publish: () => {},
               sql: () => lookup.sql,
             }).resolveAddress(address),

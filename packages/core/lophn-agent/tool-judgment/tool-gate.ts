@@ -3,7 +3,10 @@ import type {
   GateCall,
   ToolGateResult,
 } from "../../../protocol/approvals/mod.ts";
-import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import type { TurnMode } from "../../../protocol/lophn-agent/turn-values.ts";
 import type { Approvals } from "../../approvals/mod.ts";
 
@@ -16,7 +19,7 @@ export type ToolGateCall = {
   turn: string;
   toolCall: string;
   agent: AgentId;
-  place: Place | null;
+  workspace: Workspace | null;
   mode: TurnMode;
   tool: string;
   call: GateCall;
@@ -36,7 +39,7 @@ export function createToolGate(deps: ToolGateDeps): ToolGate {
       const judged = await deps.approvals.judge(call.call, {
         agent: call.agent,
         session: call.session,
-        place: call.place,
+        workspace: call.workspace,
         mode: call.mode,
       });
       if (!judged.ok) return judged;
@@ -51,7 +54,7 @@ export function createToolGate(deps: ToolGateDeps): ToolGate {
           session: call.session,
           turn: call.turn,
           tool_call: call.toolCall,
-          place: call.place,
+          workspace: call.workspace,
         },
         call.call,
       );

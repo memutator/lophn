@@ -1,7 +1,7 @@
 // trial마다 새 data root에 재료를 제품 route로 되살린다.
 import { ok, type Result } from "../../../packages/base/mod.ts";
 import {
-  type AgentAtPlace,
+  type AgentAtWorkspace,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
@@ -57,12 +57,12 @@ export async function restoreWorld(
   return ok(undefined);
 }
 
-// `Participant`를 이름으로 풀어 agent id와 place로 만든다. 못 풀면 던진다.
-export function agentAtPlaceOf(
+// `Participant`를 이름으로 풀어 agent id와 workspace로 만든다. 못 풀면 던진다.
+export function agentAtWorkspaceOf(
   world: WorldIds,
   participant: Participant,
-): AgentAtPlace {
-  const { agent, place } = participant;
+): AgentAtWorkspace {
+  const { agent, workspace } = participant;
   const found = <T>(id: T | undefined, key: string): T => {
     if (id === undefined) throw new Error(`cannot resolve ${key}`);
     return id;
@@ -71,14 +71,14 @@ export function agentAtPlaceOf(
     agent === LOPHN_AGENT_NAME
       ? LOPHN_AGENT_ID
       : found(world.agents[agent], `agent ${agent}`);
-  if (place === undefined) return { agent: id, place: null };
-  if ("app" in place) {
-    const app = found(world.apps[place.app], `app ${place.app}`);
-    return { agent: id, place: { kind: "app", id: app } };
+  if (workspace === undefined) return { agent: id, workspace: null };
+  if ("app" in workspace) {
+    const app = found(world.apps[workspace.app], `app ${workspace.app}`);
+    return { agent: id, workspace: { kind: "app", id: app } };
   }
   const project = found(
-    world.projects[place.project],
-    `project ${place.project}`,
+    world.projects[workspace.project],
+    `project ${workspace.project}`,
   );
-  return { agent: id, place: { kind: "project", id: project } };
+  return { agent: id, workspace: { kind: "project", id: project } };
 }

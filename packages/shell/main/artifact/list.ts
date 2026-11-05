@@ -2,7 +2,7 @@
 import { join } from "node:path";
 
 import {
-  type ArtifactPlace,
+  type ArtifactWorkspace,
   ARTIFACT_ENTRY,
   artifactsFolder,
   parseArtifactMeta,
@@ -22,10 +22,10 @@ const HEAD_BYTES = 64 * 1024;
 
 export async function listArtifacts(
   dataRoot: string,
-  place: ArtifactPlace,
+  workspace: ArtifactWorkspace,
   fs: ArtifactFs,
 ): Promise<ArtifactListItem[]> {
-  const folder = artifactsFolder(dataRoot, place);
+  const folder = artifactsFolder(dataRoot, workspace);
   let names: string[];
   try {
     names = await fs.readdir(folder);

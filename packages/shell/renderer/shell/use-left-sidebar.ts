@@ -1,5 +1,5 @@
-// 왼쪽 sidebar가 읽는 값. place 목록(project와 app)과 session의 제목·시각이다.
-// session store는 제목과 시각을 싣지 않아 agent × place마다 대화 source의 session 목록에서 읽는다.
+// 왼쪽 sidebar가 읽는 값. workspace 목록(project와 app)과 session의 제목·시각이다.
+// session store는 제목과 시각을 싣지 않아 agent × workspace마다 대화 source의 session 목록에서 읽는다.
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { sortApps } from "../apps/model.ts";
@@ -9,21 +9,21 @@ import type { SessionEntry } from "../desktop/connection/events/sessions-store.t
 import type {
   ProjectItem,
   ProjectsSource,
-} from "../desktop/places/projects/source.ts";
+} from "../desktop/workspaces/projects/source.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
 import { harnessOf } from "../workspace/kinds/terminal.tsx";
 import {
   allTabs,
-  placeKey,
-  type PlaceRef,
+  workspaceKey,
+  type WorkspaceRef,
   type TabItem,
 } from "./desk-model.ts";
 import type { LayoutSource } from "./layout-source.ts";
-import type { KnownSessions } from "./left-sidebar-places.ts";
+import type { KnownSessions } from "./left-sidebar-workspaces.ts";
 import { useRemembered } from "./sidebar-memory.tsx";
 
 /** 보관하지 않은 project와 앱. 순서는 런처와 같다. 등록·생성 뒤에는 reload로 다시 읽는다. */
-export function useSidebarPlaceList(
+export function useSidebarWorkspaceList(
   projects: ProjectsSource | undefined,
   apps: AppsSource | undefined,
 ): {
@@ -54,7 +54,7 @@ export function useSidebarPlaceList(
   return { projects: projectItems, apps: appItems, reload };
 }
 
-/** 모든 place의 session 제목과 마지막 활동 시각. session 목록이 바뀔 때 다시 읽는다. */
+/** 모든 workspace의 session 제목과 마지막 활동 시각. session 목록이 바뀔 때 다시 읽는다. */
 export function useKnownSessions(
   factory: AgentTabSourceFactory | undefined,
   entries: readonly SessionEntry[],
@@ -62,7 +62,7 @@ export function useKnownSessions(
   const [known, setKnown] = useRemembered("known");
   // 제목만 바뀐 것(sidebar의 Rename)은 entries가 그대로라 부르는 쪽이 reload로 다시 읽게 한다.
   const [reads, setReads] = useState(0);
-  // agent × place 쌍. 같은 쌍은 한 번만 읽는다.
+  // agent × workspace 쌍. 같은 쌍은 한 번만 읽는다.
   const pairs = useMemo(
     () =>
       [
@@ -71,7 +71,7 @@ export function useKnownSessions(
             entry.agent === null
               ? []
               : [
-                  `${entry.agent}\0${entry.place?.kind ?? "global"}\0${entry.place?.id ?? ""}`,
+                  `${entry.agent}\0${entry.workspace?.kind ?? "global"}\0${entry.workspace?.id ?? ""}`,
                 ],
           ),
         ),
@@ -91,7 +91,7 @@ export function useKnownSessions(
         ];
         const read = await factory({
           assignment,
-          place: { kind, id },
+          workspace: { kind, id },
         }).sessions();
         return read.ok ? read.value : [];
       }),
@@ -116,24 +116,24 @@ export function useKnownSessions(
   return { known, reload: () => setReads((count) => count + 1) };
 }
 
-/** 이 창이 보이지 않는 place들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작해 지금 place도 들 수 있어 부르는 쪽이 지금 place를 거른다. */
+/** 이 창이 보이지 않는 workspace들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작해 지금 workspace도 들 수 있어 부르는 쪽이 지금 workspace를 거른다. */
 export interface TabsElsewhere {
-  /** place key → session id → Agent 탭 제목. 저장된 Agent 탭은 제목을 남기지 않아 빈 글이다. */
+  /** workspace key → session id → Agent 탭 제목. 저장된 Agent 탭은 제목을 남기지 않아 빈 글이다. */
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
-  /** place key → coding agent가 돈 적이 있는 터미널 탭(harness가 저장된 것). 지금 도는지는 창의 terminal store가 안다. */
+  /** workspace key → coding agent가 돈 적이 있는 터미널 탭(harness가 저장된 것). 지금 도는지는 창의 terminal store가 안다. */
   readonly terminals: ReadonlyMap<string, readonly TabItem[]>;
-  /** 이 창이 다른 place의 layout을 고친 뒤 다시 읽는다. */
+  /** 이 창이 다른 workspace의 layout을 고친 뒤 다시 읽는다. */
   readonly reload: () => void;
 }
 
 /**
- * 이 창이 보이지 않는 place들의 layout에서 열린 Agent 탭과 coding agent 터미널 탭을 읽는다.
- * 저장된 layout이라 창이 다시 포커스를 받거나 session 목록·place 목록이 바뀔 때 다시 읽는다.
+ * 이 창이 보이지 않는 workspace들의 layout에서 열린 Agent 탭과 coding agent 터미널 탭을 읽는다.
+ * 저장된 layout이라 창이 다시 포커스를 받거나 session 목록·workspace 목록이 바뀔 때 다시 읽는다.
  */
 export function useTabsElsewhere(
   layout: LayoutSource,
-  places: readonly PlaceRef[],
-  here: PlaceRef,
+  workspaces: readonly WorkspaceRef[],
+  here: WorkspaceRef,
   entries: readonly SessionEntry[],
 ): TabsElsewhere {
   const [titles, setTitles] = useRemembered("elsewhereTitles");
@@ -144,15 +144,15 @@ export function useTabsElsewhere(
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
-  const hereKey = placeKey(here);
+  const hereKey = workspaceKey(here);
   const ids = entries.map((entry) => entry.session).join();
   useEffect(() => {
     let live = true;
     void Promise.all(
-      places
-        .filter((ref) => placeKey(ref) !== hereKey)
+      workspaces
+        .filter((ref) => workspaceKey(ref) !== hereKey)
         .map(async (ref) => {
-          const read = await layout.readPlaceLayout(ref);
+          const read = await layout.readWorkspaceLayout(ref);
           const titles = new Map<string, string>();
           const terminals: TabItem[] = [];
           if (read.ok && read.layout !== null) {
@@ -164,7 +164,7 @@ export function useTabsElsewhere(
               }
             }
           }
-          return { key: placeKey(ref), titles, terminals };
+          return { key: workspaceKey(ref), titles, terminals };
         }),
     ).then((rows) => {
       if (!live) return;
@@ -174,7 +174,7 @@ export function useTabsElsewhere(
     return () => {
       live = false;
     };
-  }, [layout, places, hereKey, ids, focuses, setTitles, setTerminals]);
+  }, [layout, workspaces, hereKey, ids, focuses, setTitles, setTerminals]);
   const reload = useCallback(() => setFocuses((count) => count + 1), []);
   return useMemo(
     () => ({ titles, terminals, reload }),

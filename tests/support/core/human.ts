@@ -3,8 +3,8 @@ import {
   type AgentId,
   connectProvider,
   modelDefaultChange,
-  type Place,
-  placeSessionOpen,
+  type Workspace,
+  workspaceSessionOpen,
   sendMessage,
   stopTurn as stopTurnRoute,
   turnList,
@@ -113,14 +113,14 @@ export async function openProject(
   return { project };
 }
 
-// agent와 place로 session 하나를 연다. place가 없으면 home이다.
-export async function openPlaceSession(
+// agent와 workspace로 session 하나를 연다. workspace가 없으면 home이다.
+export async function openWorkspaceSession(
   core: Core,
   agent: AgentId,
-  place: Place | null = null,
+  workspace: Workspace | null = null,
 ): Promise<string> {
   const id = core.ids.newId("ses");
-  await core.call(placeSessionOpen, { id, agent, place });
+  await core.call(workspaceSessionOpen, { id, agent, workspace });
   return id;
 }
 

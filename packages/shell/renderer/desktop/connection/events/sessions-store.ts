@@ -8,14 +8,14 @@ import type {
 } from "../../../../../protocol/events/mod.ts";
 import type {
   AgentId,
-  placeOutputSchema,
-} from "../../../../../protocol/lophn-agent/places.ts";
+  workspaceOutputSchema,
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { LophnNoticeApi, UnseenSession } from "../../../../ipc/notice.ts";
 import type { EventClient } from "./client.ts";
 import { readSessionSnapshots } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 
-type Place = z.infer<typeof placeOutputSchema>;
+type Workspace = z.infer<typeof workspaceOutputSchema>;
 type EndReason = "archived" | "deleted" | "exited" | "lophn_stopped";
 
 export interface SessionEntry {
@@ -25,7 +25,7 @@ export interface SessionEntry {
   /** 끝났다면 이유. 끝난 session도 기록으로는 남는다(지운 것은 목록에서 빠진다). */
   readonly ended: EndReason | null;
   readonly agent: AgentId | null;
-  readonly place: Place | null;
+  readonly workspace: Workspace | null;
   /** 사람이 보지 않는 사이 turn이 끝났다(Agent 탭의 finished 점). main이 정하고 agent 이름·얼굴·session 이름까지 읽어 보낸다. */
   readonly unseen: UnseenSession | null;
 }
@@ -54,7 +54,7 @@ interface Record_ {
   pending: Set<string>;
   ended: EndReason | null;
   agent: AgentId | null;
-  place: Place | null;
+  workspace: Workspace | null;
 }
 
 interface SessionsStore {
@@ -86,7 +86,7 @@ export function createSessionsStore(
         archived: record.ended === "archived",
         ended: record.ended,
         agent: record.agent,
-        place: record.place,
+        workspace: record.workspace,
         unseen: unseen.get(session) ?? null,
       });
     }
@@ -102,7 +102,7 @@ export function createSessionsStore(
         pending: new Set(),
         ended: null,
         agent: null,
-        place: null,
+        workspace: null,
       };
       records.set(session, record);
     }
@@ -112,14 +112,14 @@ export function createSessionsStore(
   function apply(event: BusEvent) {
     switch (event.type) {
       case "SessionStarted": {
-        const { agent, place } = event.payload;
+        const { agent, workspace } = event.payload;
         records.set(event.session, {
           base: "idle",
           turnActive: false,
           pending: new Set(),
           ended: null,
           agent,
-          place,
+          workspace,
         });
         break;
       }
@@ -174,7 +174,7 @@ export function createSessionsStore(
         ]),
         ended: null,
         agent: snapshot.agent,
-        place: snapshot.place,
+        workspace: snapshot.workspace,
       });
     }
     records = next;

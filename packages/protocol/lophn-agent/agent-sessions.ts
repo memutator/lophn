@@ -4,7 +4,11 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { modelChoiceOutputSchema } from "./models.ts";
-import { agentIdSchema, placeSchema, placeOutputSchema } from "./places.ts";
+import {
+  agentIdSchema,
+  workspaceSchema,
+  workspaceOutputSchema,
+} from "./workspaces.ts";
 import {
   compactionOutputSchema,
   forkOriginOutputSchema,
@@ -33,12 +37,12 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-export const placeSessionSchema = z
+export const workspaceSessionSchema = z
   .object({
     id: idSchema("ses"),
     agent: agentIdSchema,
     // null이면 home이다. session을 열 때 정해지고 바뀌지 않는다.
-    place: placeOutputSchema.nullable(),
+    workspace: workspaceOutputSchema.nullable(),
     title: sessionTitleSchema.nullable(),
     lifecycle: sessionLifecycleSchema,
     forked_from: forkOriginOutputSchema.nullable(),
@@ -47,8 +51,8 @@ export const placeSessionSchema = z
     compaction: compactionOutputSchema.nullable(),
     // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
     skip: z.boolean(),
-    // 다른 place의 session이 불러 열린 session이면 그 place. home에 열린 그런 session은 폴더를 읽지 않는다.
-    called_from: placeOutputSchema.nullable(),
+    // 다른 workspace의 session이 불러 열린 session이면 그 workspace. home에 열린 그런 session은 폴더를 읽지 않는다.
+    called_from: workspaceOutputSchema.nullable(),
     state_seq: seqSchema,
   })
   .refine(
@@ -56,21 +60,21 @@ export const placeSessionSchema = z
       value.forked_from === null || value.forked_from.session !== value.id,
     { message: "fork origin is the session itself" },
   );
-export type PlaceSession = z.infer<typeof placeSessionSchema>;
+export type WorkspaceSession = z.infer<typeof workspaceSessionSchema>;
 
-export const placeSessionOpen = defineCommand({
+export const workspaceSessionOpen = defineCommand({
   resource: "sessions",
   method: "open",
   name: "OpenSession",
   input: z.strictObject({
     id: idSchema("ses"),
     agent: agentIdSchema,
-    place: placeSchema.nullable(),
+    workspace: workspaceSchema.nullable(),
   }),
   output: z.object({
     id: idSchema("ses"),
     lifecycle: z.literal("open"),
-    place: placeOutputSchema.nullable(),
+    workspace: workspaceOutputSchema.nullable(),
     state_seq: seqSchema,
   }),
   compare: z.strictObject({}),
@@ -78,32 +82,34 @@ export const placeSessionOpen = defineCommand({
   errors: [...commandErrors],
 });
 
-export const placeSessionRead = defineRead({
+export const workspaceSessionRead = defineRead({
   resource: "sessions",
   method: "read",
   name: "ReadSession",
   input: z.strictObject({ session: idSchema("ses") }),
-  output: withReadCommon(z.object({ session: placeSessionSchema })),
+  output: withReadCommon(z.object({ session: workspaceSessionSchema })),
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],
 });
 
-export const placeSessionList = defineRead({
+export const workspaceSessionList = defineRead({
   resource: "sessions",
   method: "list",
   name: "ListSessions",
   input: z.strictObject({
     agent: agentIdSchema,
-    place: placeSchema.nullable(),
+    workspace: workspaceSchema.nullable(),
     archived: z.enum(SESSION_ARCHIVED_CHOICES).optional(),
     cursor: readCursorSchema.optional(),
   }),
-  output: withReadCommon(z.object({ sessions: z.array(placeSessionSchema) })),
+  output: withReadCommon(
+    z.object({ sessions: z.array(workspaceSessionSchema) }),
+  ),
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],
 });
 
-export const placeSessionCompactRequests = defineRead({
+export const workspaceSessionCompactRequests = defineRead({
   resource: "sessions",
   method: "compact-requests",
   name: "ListSessionCompactRequests",
@@ -114,7 +120,7 @@ export const placeSessionCompactRequests = defineRead({
         z.object({
           session: idSchema("ses"),
           agent: agentIdSchema,
-          place: placeOutputSchema.nullable(),
+          workspace: workspaceOutputSchema.nullable(),
           request_seq: seqSchema,
         }),
       ),
@@ -124,9 +130,9 @@ export const placeSessionCompactRequests = defineRead({
   errors: [...readErrors],
 });
 
-export const PLACE_SESSION_ROUTES = [
-  placeSessionOpen,
-  placeSessionRead,
-  placeSessionList,
-  placeSessionCompactRequests,
+export const WORKSPACE_SESSION_ROUTES = [
+  workspaceSessionOpen,
+  workspaceSessionRead,
+  workspaceSessionList,
+  workspaceSessionCompactRequests,
 ] as const;

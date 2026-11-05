@@ -3,7 +3,7 @@ import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
   AgentAddress,
-  AgentAtPlace,
+  AgentAtWorkspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { RUN_WAIT_MAX_MS } from "../../../protocol/runs/mod.ts";
 import {
@@ -42,7 +42,7 @@ type FlowHostDeps = {
   clock: Clock;
   runs: Pick<RunService, "start" | "wait" | "cancelOfInstance">;
   // launch에서 한 번 푼다. 도는 중 이름이 바뀌어 다른 agent의 할당으로 바뀌지 않게 한다.
-  resolveAgent(address: AgentAddress): Result<AgentAtPlace>;
+  resolveAgent(address: AgentAddress): Result<AgentAtWorkspace>;
   workflows: Pick<
     ReturnType<typeof createWorkflowService>,
     "report" | "programExited"
@@ -51,7 +51,7 @@ type FlowHostDeps = {
   redact(line: string): string | null;
 };
 
-// log의 자리. project place의 session이 쓰는 workflow 폴더 밖이라 flow가 덮어쓰지 못한다.
+// log의 자리. project workspace의 session이 쓰는 workflow 폴더 밖이라 flow가 덮어쓰지 못한다.
 const FLOWS_FOLDER = "flows";
 const LOG_MAX_BYTES = 1024 * 1024;
 const TAIL_LINES = 10;
@@ -151,7 +151,7 @@ export function createFlowHost(
             kind: "agent",
             agent: {
               ...request.agent,
-              place: request.agent.place ?? { project },
+              workspace: request.agent.workspace ?? { project },
             },
             prompt: request.prompt,
             input: request.input,
@@ -187,7 +187,7 @@ export function createFlowHost(
   function handle(
     instance: Id<"wfi">,
     project: Id<"prj">,
-    creator: AgentAtPlace,
+    creator: AgentAtWorkspace,
     entry: Entry,
   ) {
     const origin: InstanceOrigin = { instance, creator };
@@ -238,7 +238,7 @@ export function createFlowHost(
       err({ code: "unavailable" as const, message });
     const resolved = deps.resolveAgent({
       agent: start.agent,
-      place: { project },
+      workspace: { project },
     });
     if (!resolved.ok) {
       return err({

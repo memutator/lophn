@@ -1,11 +1,11 @@
-import type { AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
+import type { AgentWorkspace } from "../../../protocol/lophn-agent/mod.ts";
 import {
   parseProjectExtensions,
   type ProjectLayer,
 } from "./project-settings.ts";
 import { type McpRuntimeServer, runtimeServerOfLayer } from "./mcp-server.ts";
 
-// 모든 project의 MCP 서버 모음. `mcp.` secret 목적지와 MCP OAuth begin이 place로 서버를 골라야 하므로
+// 모든 project의 MCP 서버 모음. `mcp.` secret 목적지와 MCP OAuth begin이 workspace로 서버를 골라야 하므로
 // core가 모든 project 파일의 서버를 한 번에 모아 전역 서버와 함께 둔다. 파일 IO는 비동기 port로 받는다.
 
 export type ProjectServerSource = {
@@ -17,7 +17,7 @@ export type ProjectServerSource = {
 
 // 서버와 그 서버가 놓인 project다. 같은 이름의 서버가 서로 다른 project에 있어도 따로 남는다.
 type ProjectMcpEntry = {
-  place: AgentPlace;
+  workspace: AgentWorkspace;
   agent: null;
   server: McpRuntimeServer;
 };
@@ -44,12 +44,12 @@ export async function collectProjectMcpEntries(
       if (text === null) continue;
       const parsed = parseProjectExtensions(text);
       if (!parsed.ok) continue;
-      const place = { kind: "project", id } as AgentPlace;
+      const workspace = { kind: "project", id } as AgentWorkspace;
       for (const server of parsed.value.mcp_servers) {
         found.push({
-          place,
+          workspace,
           agent: null,
-          server: runtimeServerOfLayer(server, place),
+          server: runtimeServerOfLayer(server, workspace),
         });
       }
     } catch {

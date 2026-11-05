@@ -71,7 +71,7 @@ const VIEW: AgentsSettingsView = {
 };
 
 const CALL_POLICY: CallPolicyView = {
-  places: {
+  workspaces: {
     options: [
       { value: "home", label: "Home" },
       { value: "project:prj_a", label: "Project A" },
@@ -116,7 +116,7 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
         const failed = fail("call-policy");
         if (failed) return Promise.resolve(failed);
         callPolicy = {
-          places: { ...callPolicy.places, rules: next.places },
+          workspaces: { ...callPolicy.workspaces, rules: next.workspaces },
           agents: { ...callPolicy.agents, rules: next.agents },
         };
         return Promise.resolve(ok());

@@ -1,4 +1,4 @@
-// `workflow.check`. project place의 agent가 쓴 flow.ts를 실행하지 않고 type check만 한다. packageInstallPath를 쓰므로
+// `workflow.check`. project workspace의 agent가 쓴 flow.ts를 실행하지 않고 type check만 한다. packageInstallPath를 쓰므로
 // apps를 import하지 않는 workflows module이 아니라 core/main에 둔다(layers.md).
 import { spawn } from "node:child_process";
 import { mkdtemp, rm, stat, writeFile } from "node:fs/promises";

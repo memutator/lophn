@@ -265,10 +265,10 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     const itemId = typeof record.item_id === "string" ? record.item_id : "";
     const summaryIndex =
       typeof record.summary_index === "number" ? record.summary_index : -1;
-    const samePlace =
+    const sameWorkspace =
       out.lastSummary?.itemId === itemId &&
       out.lastSummary?.summaryIndex === summaryIndex;
-    if (out.reasoning !== "" && !samePlace) out.reasoning += "\n\n";
+    if (out.reasoning !== "" && !sameWorkspace) out.reasoning += "\n\n";
     out.reasoning += delta;
     out.lastSummary = { itemId, summaryIndex };
     return;

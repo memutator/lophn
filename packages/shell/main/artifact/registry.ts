@@ -8,7 +8,7 @@ import type {
   ArtifactViewState,
 } from "../../ipc/artifact.ts";
 import type { AnnotateViewPort } from "../../ipc/annotation.ts";
-import { artifactPlaceOf } from "../../../protocol/projects/artifact.ts";
+import { artifactWorkspaceOf } from "../../../protocol/projects/artifact.ts";
 import {
   nextHealth,
   type ViewHealth,
@@ -110,7 +110,7 @@ export interface AcceptedArtifactGuest {
 const sameSource = (a: ArtifactSource, b: ArtifactSource) => {
   if (a.kind === "artifact") {
     if (b.kind !== "artifact" || a.name !== b.name) return false;
-    const [pa, pb] = [artifactPlaceOf(a), artifactPlaceOf(b)];
+    const [pa, pb] = [artifactWorkspaceOf(a), artifactWorkspaceOf(b)];
     return pa.kind === pb.kind && pa.id === pb.id;
   }
   if (a.kind === "file") {
@@ -194,7 +194,7 @@ export function createArtifactViews(deps: ArtifactViewsDeps): ArtifactViews {
     return {
       view_session,
       // page가 보낸 값이 아니라 open 때 main이 정한 source다.
-      // workflow artifact는 사람의 .html과 같은 file 길로 그 project place의 lophn session이 받는다.
+      // workflow artifact는 사람의 .html과 같은 file 길로 그 project workspace의 lophn session이 받는다.
       target:
         entry.source.kind === "artifact"
           ? "app" in entry.source

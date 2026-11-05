@@ -10,7 +10,7 @@ import {
   type JobRecord,
   jobUpdate,
 } from "../../protocol/jobs/mod.ts";
-import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -69,7 +69,7 @@ function resolveAction(tx: Tx, input: JobActionInput): Result<JobAction> {
       return ok({
         kind: "agent_run",
         agent: resolved.value.agent,
-        agent_place: resolved.value.place,
+        agent_workspace: resolved.value.workspace,
         prompt: input.prompt,
         ...(input.input === undefined ? {} : { input: input.input }),
         ...(input.schema === undefined ? {} : { schema: input.schema }),
@@ -103,11 +103,11 @@ function resolveAction(tx: Tx, input: JobActionInput): Result<JobAction> {
   }
 }
 
-// agent는 같은 agent가 같은 place에서 만든 job만 본다. 남의 job은 있는지도 알리지 않는다(not_found).
+// agent는 같은 agent가 같은 workspace에서 만든 job만 본다. 남의 job은 있는지도 알리지 않는다(not_found).
 // user는 어느 job이든 한다.
 function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
   const actor = parseActor(ctx.actor);
-  let me: AgentAtPlace | undefined;
+  let me: AgentAtWorkspace | undefined;
   if (actor?.kind === "agent") {
     me = tx.port(jobTargetsPort).creatorOf(actor.id as Id<"ses">);
     if (me === undefined) return fail("forbidden", "the session is not known");

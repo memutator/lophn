@@ -27,7 +27,7 @@ export {
   type HistoryMessage,
   type HistoryPart,
   type ModelLimits,
-  type PlaceAgent,
+  type WorkspaceAgent,
   type PromptMessage,
   type PromptPart,
   type PromptRequest,

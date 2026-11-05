@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import {
   type JobRecord,
   jobRecordSchema,
@@ -64,26 +64,26 @@ export function jobFromRow(
 }
 
 function creatorFromRow(row: Record<string, unknown>): unknown {
-  const place = row.creator_place;
+  const workspace = row.creator_workspace;
   return {
     agent: row.creator_agent,
-    place:
-      place === null
+    workspace:
+      workspace === null
         ? null
         : {
-            kind: String(place).startsWith("prj_") ? "project" : "app",
-            id: place,
+            kind: String(workspace).startsWith("prj_") ? "project" : "app",
+            id: workspace,
           },
   };
 }
 
 // creatorFromRow와 짝이다.
-export function creatorColumns(creator: AgentAtPlace): {
+export function creatorColumns(creator: AgentAtWorkspace): {
   creator_agent: string;
-  creator_place: string | null;
+  creator_workspace: string | null;
 } {
   return {
     creator_agent: creator.agent,
-    creator_place: creator.place?.id ?? null,
+    creator_workspace: creator.workspace?.id ?? null,
   };
 }

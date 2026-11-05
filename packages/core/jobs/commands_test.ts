@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
-import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
@@ -18,15 +18,15 @@ const LOPHN_PRJ = "ses_01hzzzzzzzzzzzzzzzzzzzzzzc";
 const OTHER = "ses_01hzzzzzzzzzzzzzzzzzzzzzzd";
 const OTHER_AGENT = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
 
-const agents: Record<string, AgentAtPlace> = {
-  [LOPHN_1]: { agent: "lophn", place: null },
-  [LOPHN_2]: { agent: "lophn", place: null },
-  [LOPHN_PRJ]: { agent: "lophn", place: { kind: "project", id: PRJ } },
-  [OTHER]: { agent: OTHER_AGENT, place: null },
+const agents: Record<string, AgentAtWorkspace> = {
+  [LOPHN_1]: { agent: "lophn", workspace: null },
+  [LOPHN_2]: { agent: "lophn", workspace: null },
+  [LOPHN_PRJ]: { agent: "lophn", workspace: { kind: "project", id: PRJ } },
+  [OTHER]: { agent: OTHER_AGENT, workspace: null },
 };
 
-// 같은 agent라도 다른 place에 있으면 남의 job이다. 그 job을 고치면 남의 할당으로 일을 시키는 길이 된다.
-test("agent는 같은 agent가 같은 place에서 만든 job만 고치고 지운다. 다른 place의 같은 agent와 다른 agent에게는 없는 job이고, 사람은 모두 고치고 지운다", () => {
+// 같은 agent라도 다른 workspace에 있으면 남의 job이다. 그 job을 고치면 남의 할당으로 일을 시키는 길이 된다.
+test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 지운다. 다른 workspace의 같은 agent와 다른 agent에게는 없는 job이고, 사람은 모두 고치고 지운다", () => {
   const db = new DatabaseSync(":memory:");
   try {
     for (const step of jobsSchemaSteps) db.exec(step.sql);
@@ -77,7 +77,7 @@ test("agent는 같은 agent가 같은 place에서 만든 job만 고치고 지운
     const unchanged = kept;
 
     for (const [name, session] of [
-      ["another place", LOPHN_PRJ],
+      ["another workspace", LOPHN_PRJ],
       ["another agent", OTHER],
     ] as const) {
       assert.deepStrictEqual(
@@ -98,7 +98,7 @@ test("agent는 같은 agent가 같은 place에서 만든 job만 고치고 지운
       assert.deepStrictEqual(loadJob(sql, job), unchanged);
     }
 
-    // 같은 agent와 place의 다른 session은 같은 job을 다룬다.
+    // 같은 agent와 workspace의 다른 session은 같은 job을 다룬다.
     for (const [session, title] of [
       [LOPHN_2, "Renamed by another session"],
       [null, "Renamed by user"],

@@ -1,7 +1,7 @@
 import { canonicalize } from "../../../base/mod.ts";
 import type {
   AgentId,
-  AgentPlace,
+  AgentWorkspace,
   McpServer,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
@@ -12,7 +12,7 @@ import { mcpTokenNames } from "./mcp-oauth-vault.ts";
 
 // 연결이 쓰는 MCP 서버 한 대다. 층에서 온 설정(`McpServer`, secret은 `secrets.json`의 이름 `{secret}`)을 연결,
 // OAuth, secret 부착이 읽는 한 모양으로 옮긴다. 값은 없고 이름뿐이다. 서버는 이름만으로 하나가 정해지지 않는다:
-// 같은 이름도 층의 place가 다르면 따로이고, OAuth token의 이름이 그 place에서 정해진다.
+// 같은 이름도 층의 workspace가 다르면 따로이고, OAuth token의 이름이 그 workspace에서 정해진다.
 
 type RuntimeValue =
   | { kind: "value"; value: string }
@@ -62,18 +62,18 @@ export type McpRuntimeServer = Common &
       }
   );
 
-// 전역, project, agent 정의 층의 서버다. 층의 소유자는 place(project·app) 또는 agent(정의)이고 전역은 둘 다
+// 전역, project, agent 정의 층의 서버다. 층의 소유자는 workspace(project·app) 또는 agent(정의)이고 전역은 둘 다
 // null이다. OAuth token의 이름과 설정 지문도 이 소유자에서 정해진다.
 export function runtimeServerOfLayer(
   server: McpServer,
-  place: AgentPlace | null,
+  workspace: AgentWorkspace | null,
   agent: AgentId | null = null,
 ): McpRuntimeServer {
   const common = {
     name: server.name,
     enabled: server.enabled,
     call_timeout_ms: server.call_timeout_ms,
-    fingerprint: canonicalize([place?.id ?? null, agent, server]),
+    fingerprint: canonicalize([workspace?.id ?? null, agent, server]),
   };
   if (server.transport === "stdio") {
     return {
@@ -126,7 +126,7 @@ export function runtimeServerOfLayer(
                       ? null
                       : auth.client_credential.secret,
                   scopes: [...auth.scopes],
-                  token: mcpTokenNames({ place, agent, name: server.name })
+                  token: mcpTokenNames({ workspace, agent, name: server.name })
                     .access,
                 },
     },

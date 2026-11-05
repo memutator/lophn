@@ -12,7 +12,7 @@ export async function searchMessages(
   if (trimmed === "") return { ok: true, value: [] };
   const read = await env.read(messageSearch, {
     agent: env.agent,
-    place: env.place,
+    workspace: env.workspace,
     query: trimmed,
   });
   return read.ok ? { ok: true, value: read.value.matches } : read;

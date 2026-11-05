@@ -1,5 +1,5 @@
-// 왼쪽 sidebar. 위에 Inbox·Jobs, 아래에 place(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 이 place의 접힌 Recent 줄 하나,
-// 맨 아래에 빠른 실행(Terminal · Browser · App · Search와 고정 앱 panel. 앞 셋은 hover 목록이 있다)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app place도 같은 것을 쓴다.
+// 왼쪽 sidebar. 위에 Inbox·Jobs, 아래에 workspace(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 이 workspace의 접힌 Recent 줄 하나,
+// 맨 아래에 빠른 실행(Terminal · Browser · App · Search와 고정 앱 panel. 앞 셋은 hover 목록이 있다)과 Settings다. 값과 callback만 받아서 project 창 말고 Home과 app workspace도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
 import {
   Menu,
@@ -41,9 +41,9 @@ import {
   type AgentChoice,
 } from "../parts/agent-session/agent-session.tsx";
 import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
-import { placeKey, type PlaceRef } from "./desk-model.ts";
+import { workspaceKey, type WorkspaceRef } from "./desk-model.ts";
 import {
-  type SidebarPlace,
+  type SidebarWorkspace,
   type SidebarSession,
   sessionKey,
 } from "./left-sidebar-model.ts";
@@ -79,25 +79,25 @@ export interface QuickLaunch {
   onBrowser?: () => void;
   /** Browser hover: bookmark. 누르면 그 주소로 새 browser 탭이다. */
   browserItems?: readonly QuickHoverItem[];
-  /** Search 탭(project) 또는 팔레트(Home 등 검색 탭이 없는 place). */
+  /** Search 탭(project) 또는 팔레트(Home 등 검색 탭이 없는 workspace). */
   onSearch?: () => void;
   /** App 단추 누르기: 앱을 고르는 앱 panel 탭. */
   onApp?: () => void;
-  /** App hover: 앱 화면(앱 place)과 앱 panel 화면. 둘 다 없으면 단추가 없다. */
+  /** App hover: 앱 화면(앱 workspace)과 앱 panel 화면. 둘 다 없으면 단추가 없다. */
   appItems?: readonly QuickHoverItem[];
 }
 
 export interface LeftSidebarProps {
-  places: readonly SidebarPlace[];
-  /** 이 창이 보이는 place. 그 줄이 강조된다. */
-  current: PlaceRef;
+  workspaces: readonly SidebarWorkspace[];
+  /** 이 창이 보이는 workspace. 그 줄이 강조된다. */
+  current: WorkspaceRef;
   /** 고른 tab의 session 줄(`sessionKey`). 없으면 강조하지 않는다. */
   selected?: string;
-  /** 이 창 place의 +에 hover하면 뜨는 agent. lophn agent와 coding agent 묶음으로 나뉘고 빈 묶음은 없다. */
+  /** 이 창 workspace의 +에 hover하면 뜨는 agent. lophn agent와 coding agent 묶음으로 나뉘고 빈 묶음은 없다. */
   choices: readonly AgentChoice[];
-  /** place 줄의 +. 그 place의 lophn에서 새 session이다. 다른 place면 그 place로 가서 연다. */
-  onNewSession: (place: PlaceRef) => void;
-  /** 이 창 place의 + hover 목록에서 고른 agent로 새 session이다. */
+  /** workspace 줄의 +. 그 workspace의 lophn에서 새 session이다. 다른 workspace면 그 workspace로 가서 연다. */
+  onNewSession: (workspace: WorkspaceRef) => void;
+  /** 이 창 workspace의 + hover 목록에서 고른 agent로 새 session이다. */
   onNewSessionWith: (choice: AgentChoice) => void;
   /** Inbox 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
@@ -106,34 +106,40 @@ export interface LeftSidebarProps {
   /** Inbox·Jobs overlay의 [Open in tab]과 Jobs 줄(통로가 없을 때): 그 탭을 연다. */
   onInbox: () => void;
   onJobs: () => void;
-  onPlace: (ref: PlaceRef) => void;
-  onSession: (place: SidebarPlace, session: SidebarSession) => void;
+  onWorkspace: (ref: WorkspaceRef) => void;
+  onSession: (workspace: SidebarWorkspace, session: SidebarSession) => void;
   /** Recent 줄을 목록에서 지운다. 주지 않으면 menu가 없다. */
-  onRemoveRecent?: (place: SidebarPlace, session: SidebarSession) => void;
-  /** Places의 + menu 항목. 둘 다 없으면 +가 없다. */
+  onRemoveRecent?: (
+    workspace: SidebarWorkspace,
+    session: SidebarSession,
+  ) => void;
+  /** Workspaces의 + menu 항목. 둘 다 없으면 +가 없다. */
   onRegisterProject?: () => void;
   onCreateApp?: () => void;
   quick?: QuickLaunch;
   /** `actions`가 있는 current 줄에 hover하면 연필이 뜬다. 누르면 줄이 이름 칸이 된다. */
   onRenameSession?: (
-    place: SidebarPlace,
+    workspace: SidebarWorkspace,
     session: SidebarSession,
     title: string,
   ) => void;
   /** 같은 줄의 x. 도는 turn을 멈추고 탭을 닫아 Recent로 보낸다. */
-  onStopSession?: (place: SidebarPlace, session: SidebarSession) => void;
+  onStopSession?: (
+    workspace: SidebarWorkspace,
+    session: SidebarSession,
+  ) => void;
   /** 이 창의 project·앱 줄 오른쪽 끝에 설정 단추를 둔다. hover와 focus 때만 보인다. project는 Project settings, 앱은 App details 탭을 연다. Home은 주지 않는다. */
-  onPlaceSettings?: () => void;
+  onWorkspaceSettings?: () => void;
   onSettings: () => void;
 }
 
 const DEFAULT_QUICK = ["terminal", "browser", "app", "search"] as const;
 
-const PLACE_ICON = {
+const WORKSPACE_ICON = {
   home: sidebarIcons.home,
   project: sidebarIcons.project,
   app: shellIcons.app,
-} as const satisfies Record<PlaceRef["kind"], LucideIcon>;
+} as const satisfies Record<WorkspaceRef["kind"], LucideIcon>;
 
 // 펼친 Recent가 한 번에 보이는 줄 수. 넘으면 page로 나눈다.
 const RECENT_PAGE = 10;
@@ -402,7 +408,7 @@ function SessionRow({
 }
 
 export function LeftSidebar({
-  places,
+  workspaces,
   current,
   selected,
   choices,
@@ -412,7 +418,7 @@ export function LeftSidebar({
   jobs,
   onInbox,
   onJobs,
-  onPlace,
+  onWorkspace,
   onSession,
   onRemoveRecent,
   onRegisterProject,
@@ -420,7 +426,7 @@ export function LeftSidebar({
   quick,
   onRenameSession,
   onStopSession,
-  onPlaceSettings,
+  onWorkspaceSettings,
   onSettings,
 }: LeftSidebarProps) {
   const keyLabel = useKeyLabel();
@@ -449,7 +455,7 @@ export function LeftSidebar({
   ];
   // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
   const [renaming, setRenaming] = useState<string | null>(null);
-  // 펼친 Recent와 그 page는 place마다 기억한다. 저장하지 않는다.
+  // 펼친 Recent와 그 page는 workspace마다 기억한다. 저장하지 않는다.
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [pages, setPages] = useState<ReadonlyMap<string, number>>(new Map());
   const turnPage = (key: string, page: number) =>
@@ -461,7 +467,7 @@ export function LeftSidebar({
       return next;
     });
   const [menu, setMenu] = useState<{
-    readonly place: SidebarPlace;
+    readonly workspace: SidebarWorkspace;
     readonly item: SidebarSession;
     readonly x: number;
     readonly y: number;
@@ -487,7 +493,7 @@ export function LeftSidebar({
           },
         ]),
   ];
-  const currentKey = placeKey(current);
+  const currentKey = workspaceKey(current);
 
   const quickButtons: Record<string, ReactNode> = {
     terminal:
@@ -593,7 +599,7 @@ export function LeftSidebar({
       </div>
 
       <div className={styles.sectionHead}>
-        <span>{t("left-sidebar.heading.places")}</span>
+        <span>{t("left-sidebar.heading.workspaces")}</span>
         <span className={styles.grow} />
         {addItems.length === 0 ? null : (
           <Menu
@@ -604,61 +610,68 @@ export function LeftSidebar({
             trigger={
               <IconButton
                 icon={shellIcons.add}
-                label={t("left-sidebar.button.add-place")}
+                label={t("left-sidebar.button.add-workspace")}
                 size="sm"
-                data-add-place=""
+                data-add-workspace=""
               />
             }
           />
         )}
       </div>
 
-      <div className={styles.placeList}>
-        {places.map((place) => {
-          const key = placeKey(place.ref);
+      <div className={styles.workspaceList}>
+        {workspaces.map((workspace) => {
+          const key = workspaceKey(workspace.ref);
           const here = key === currentKey;
           const open = expanded.has(key);
           // 줄이 줄어 page가 사라지면 마지막 page를 보인다.
-          const pageCount = Math.ceil(place.recent.length / RECENT_PAGE);
+          const pageCount = Math.ceil(workspace.recent.length / RECENT_PAGE);
           const page = Math.min(
             pages.get(key) ?? 0,
             Math.max(pageCount - 1, 0),
           );
-          const shown = place.recent.slice(
+          const shown = workspace.recent.slice(
             page * RECENT_PAGE,
             (page + 1) * RECENT_PAGE,
           );
           return (
-            <div key={key} className={styles.placeGroup} data-place={key}>
-              <div className={styles.placeHead}>
+            <div
+              key={key}
+              className={styles.workspaceGroup}
+              data-workspace={key}
+            >
+              <div className={styles.workspaceHead}>
                 <button
                   type="button"
-                  className={styles.placeRow}
+                  className={styles.workspaceRow}
                   data-current={here || undefined}
                   aria-current={here || undefined}
-                  onClick={() => onPlace(place.ref)}
+                  onClick={() => onWorkspace(workspace.ref)}
                 >
-                  <Icon icon={PLACE_ICON[place.ref.kind]} pixels={16} />
-                  <span className={styles.rowLabel}>{place.name}</span>
+                  <Icon icon={WORKSPACE_ICON[workspace.ref.kind]} pixels={16} />
+                  <span className={styles.rowLabel}>{workspace.name}</span>
                 </button>
                 {here &&
-                place.ref.kind !== "home" &&
-                onPlaceSettings !== undefined ? (
-                  <span className={styles.placeSettings}>
+                workspace.ref.kind !== "home" &&
+                onWorkspaceSettings !== undefined ? (
+                  <span className={styles.workspaceSettings}>
                     <IconButton
                       icon={commonIcons.settings}
                       label={t(
-                        place.ref.kind === "app"
+                        workspace.ref.kind === "app"
                           ? "left-sidebar.button.app-detail"
                           : "left-sidebar.button.project-settings",
                       )}
                       size="sm"
-                      data-place-settings=""
-                      onClick={onPlaceSettings}
+                      data-workspace-settings=""
+                      onClick={onWorkspaceSettings}
                     />
                   </span>
                 ) : null}
-                <span className={styles.placeNew} data-here={here || undefined}>
+                <span
+                  className={styles.workspaceNew}
+                  data-here={here || undefined}
+                >
                   <HoverList
                     id="new-session"
                     sections={here ? newSections : []}
@@ -666,7 +679,7 @@ export function LeftSidebar({
                       here && newSessionKeys !== null ? (
                         <Keyed
                           label={t("left-sidebar.button.new-session-in", {
-                            place: place.name,
+                            workspace: workspace.name,
                           })}
                           keys={newSessionKeys}
                         />
@@ -677,10 +690,10 @@ export function LeftSidebar({
                         type="button"
                         className={styles.sessionAction}
                         aria-label={t("left-sidebar.button.new-session-in", {
-                          place: place.name,
+                          workspace: workspace.name,
                         })}
-                        data-place-new={key}
-                        onClick={() => onNewSession(place.ref)}
+                        data-workspace-new={key}
+                        onClick={() => onNewSession(workspace.ref)}
                       >
                         <Icon icon={shellIcons.add} pixels={14} />
                       </button>
@@ -688,7 +701,7 @@ export function LeftSidebar({
                   />
                 </span>
               </div>
-              {place.current.map((item) => {
+              {workspace.current.map((item) => {
                 const itemKey = sessionKey(item);
                 const actions =
                   item.actions &&
@@ -701,7 +714,7 @@ export function LeftSidebar({
                     selected={here && itemKey === selected}
                     recent={false}
                     dot={!actions || onStopSession === undefined}
-                    onClick={() => onSession(place, item)}
+                    onClick={() => onSession(workspace, item)}
                   />
                 );
                 if (!actions) return <Fragment key={itemKey}>{row}</Fragment>;
@@ -712,7 +725,8 @@ export function LeftSidebar({
                       title={item.title}
                       onDone={(name) => {
                         setRenaming(null);
-                        if (name !== null) onRenameSession?.(place, item, name);
+                        if (name !== null)
+                          onRenameSession?.(workspace, item, name);
                       }}
                     />
                   );
@@ -744,7 +758,7 @@ export function LeftSidebar({
                           aria-label={t("left-sidebar.button.stop-session")}
                           data-session-stop=""
                           data-dot={item.dot === null ? undefined : ""}
-                          onClick={() => onStopSession(place, item)}
+                          onClick={() => onStopSession(workspace, item)}
                         >
                           {item.dot === null ? null : (
                             <TabStateDot
@@ -763,7 +777,7 @@ export function LeftSidebar({
                   </div>
                 );
               })}
-              {place.recent.length === 0 ? null : (
+              {workspace.recent.length === 0 ? null : (
                 <button
                   type="button"
                   className={styles.recentToggle}
@@ -776,7 +790,9 @@ export function LeftSidebar({
                     pixels={12}
                   />
                   <span>{t("left-sidebar.label.recent")}</span>
-                  <span className={styles.rowMeta}>{place.recent.length}</span>
+                  <span className={styles.rowMeta}>
+                    {workspace.recent.length}
+                  </span>
                 </button>
               )}
               {open
@@ -786,11 +802,11 @@ export function LeftSidebar({
                       item={item}
                       selected={here && sessionKey(item) === selected}
                       recent
-                      onClick={() => onSession(place, item)}
+                      onClick={() => onSession(workspace, item)}
                       onMenu={
                         onRemoveRecent === undefined || item.kind === "workflow"
                           ? undefined
-                          : (at) => setMenu({ place, item, ...at })
+                          : (at) => setMenu({ workspace, item, ...at })
                       }
                     />
                   ))
@@ -808,7 +824,7 @@ export function LeftSidebar({
                     {t("left-sidebar.label.recent-page", {
                       start: page * RECENT_PAGE + 1,
                       end: page * RECENT_PAGE + shown.length,
-                      total: place.recent.length,
+                      total: workspace.recent.length,
                     })}
                   </span>
                   <IconButton
@@ -859,7 +875,7 @@ export function LeftSidebar({
             },
           ]}
           onSelect={() => {
-            onRemoveRecent?.(menu.place, menu.item);
+            onRemoveRecent?.(menu.workspace, menu.item);
             setMenu(null);
           }}
         />

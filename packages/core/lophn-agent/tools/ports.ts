@@ -27,7 +27,7 @@ export interface ToolGatePort {
   check(input: ToolGateInput): Promise<Result<ToolGateResult>>;
 }
 
-// file.write와 file.edit에 place 층이 끼우는 규칙이다. aroundWrite는 실제 쓰기(run)를 감싼다. 쓰기 기록을 어디에
+// file.write와 file.edit에 workspace 층이 끼우는 규칙이다. aroundWrite는 실제 쓰기(run)를 감싼다. 쓰기 기록을 어디에
 // 남기는지는 harness가 모른다.
 export interface FileHooks {
   aroundWrite(
@@ -37,8 +37,8 @@ export interface FileHooks {
   ): Promise<Result<void>>;
 }
 
-// 그 session의 place가 file tool에 열어 둔 폴더다. 절대 경로이고 쓰기 폴더는 읽기 폴더 안에 있다.
-export type PlaceScope = {
+// 그 session의 workspace가 file tool에 열어 둔 폴더다. 절대 경로이고 쓰기 폴더는 읽기 폴더 안에 있다.
+export type WorkspaceScope = {
   read: readonly string[];
   write: readonly string[];
   // 상대 경로를 푸는 기준 폴더. 허락 폴더는 아니다. 없으면 읽기 폴더의 첫째다.

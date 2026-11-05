@@ -2,7 +2,7 @@
 
 - 목표: lophn 터미널 탭에서 `claude gui`(`codex gui`, `opencode gui`, `omp gui`)를 치면 그 탭이 GUI로 바뀌고, 같은 대화를 GUI와 그 CLI 자신의 TUI 사이에서 오간다. GUI에는 그 CLI에서 되는 채팅 기능을 다 넣는다(기준: Claude·Codex·OpenCode·omp 데스크톱 앱).
 - 재료: `project-docs/products/roadmap/agent-platform.md` 단계 8과 정한 것 8~12, `project-docs/architecture/harness-gui.md`(첫 판), `acp.md`, `terminal-agent.md`, `agent-chat.md`, `project-docs/issues/harness-gui.md`, lab `/home/pyosechang/projects/harness-lab/`(각 CLI·데스크톱 앱 소스와 notes, happy와 multi-harness, `chat-ui-ux-report.md`, `cli-to-gui-report.md`), 조사 보고 `/home/pyosechang/projects/lophn/.cache/harness-gui-research/`(code, claude, codex, opencode, omp, wrappers).
-- 범위 밖: Home place(터미널이 없다. GUI는 project place의 터미널 탭에서만 된다). lophn 밖 터미널의 `claude gui`(첫 판의 `lophn gui`와 open intent는 지운다). 채팅 밖 기능(diff panel, worktree 관리, file browser). 이미 도는 TUI에 GUI를 live로 붙이기(Claude·omp는 local 길이 없다). OS 앱 바로가기의 `--open-app`.
+- 범위 밖: Home workspace(터미널이 없다. GUI는 project workspace의 터미널 탭에서만 된다). lophn 밖 터미널의 `claude gui`(첫 판의 `lophn gui`와 open intent는 지운다). 채팅 밖 기능(diff panel, worktree 관리, file browser). 이미 도는 TUI에 GUI를 live로 붙이기(Claude·omp는 local 길이 없다). OS 앱 바로가기의 `--open-app`.
 
 ## 정한 것
 

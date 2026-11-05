@@ -8,7 +8,10 @@ import {
   type UsagePorts,
   usagePorts,
 } from "../../../apps/usage/mod.ts";
-import { loadSession, placeOf } from "../../../lophn-agent/session/model.ts";
+import {
+  loadSession,
+  workspaceOf,
+} from "../../../lophn-agent/session/model.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import {
   defineTxPort,
@@ -18,9 +21,9 @@ import {
 
 function usagePortsOf(sql: Pick<Sql, "get" | "all">): UsagePorts {
   return {
-    sessionPlace(session) {
+    sessionWorkspace(session) {
       const row = loadSession({ sql }, session);
-      return row === undefined ? null : { place: placeOf(row) };
+      return row === undefined ? null : { workspace: workspaceOf(row) };
     },
   };
 }

@@ -1,4 +1,4 @@
-// 앱 place page들. 각 component는 인자 없이 한 상태를 고정해 그린다.
+// 앱 workspace page들. 각 component는 인자 없이 한 상태를 고정해 그린다.
 import type { ReactNode } from "react";
 import {
   CODE,
@@ -48,23 +48,23 @@ export function CoachFailed() {
   );
 }
 
-/** 앱 place를 처음 연 모양: 앱 화면 탭 하나, 오른쪽 Logs panel. */
-export function AppPlaceScreen() {
+/** 앱 workspace를 처음 연 모양: 앱 화면 탭 하나, 오른쪽 Logs panel. */
+export function AppWorkspaceScreen() {
   return <AppSpace />;
 }
 
 /** 앱 화면 탭 머리 줄의 ⋯ 메뉴를 열었다. 맨 위가 Annotate다. */
-export function AppPlaceMenu() {
+export function AppWorkspaceMenu() {
   return <AppSpace menu />;
 }
 
-/** 앱 화면과 그 앱 place의 lophn session을 붙인 group. 오른쪽 sidebar는 접었다. */
-export function AppPlaceSplit() {
+/** 앱 화면과 그 앱 workspace의 lophn session을 붙인 group. 오른쪽 sidebar는 접었다. */
+export function AppWorkspaceSplit() {
   return <AppSpace layout="split" rightClosed />;
 }
 
 /** 앱 화면 탭과 session 탭이 따로 선 모양. session 탭을 골랐다. */
-export function AppPlaceSession() {
+export function AppWorkspaceSession() {
   return <AppSpace layout="session" />;
 }
 

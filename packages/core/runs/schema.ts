@@ -9,7 +9,7 @@ const list = (values: readonly string[]) =>
   values.map((value) => `'${value}'`).join(", ");
 
 // run 한 행. 다른 module의 표(session, message, turn)는 물리 FK 없이 id만 적는다.
-// - agent_key는 `<agent id>`(home) 또는 `<agent id>@<place id>`다. place_key와 함께 ListRuns
+// - agent_key는 `<agent id>`(home) 또는 `<agent id>@<workspace id>`다. workspace_key와 함께 ListRuns
 //   거르기용이고 만들 때 정해 바뀌지 않는다.
 // - job은 그 run을 연 job의 id다. FK가 없어 job을 지워도 남는다.
 // - instance는 그 run을 연 flow instance의 id다. job과 함께 값이 되지 않는다.
@@ -51,6 +51,24 @@ export const runsSchemaSteps: readonly SchemaStep[] = [
     CREATE INDEX runs_agent ON runs(agent_key, id);
     CREATE INDEX runs_place ON runs(place_key, id);
     CREATE INDEX runs_state ON runs(state, id);
+    CREATE TRIGGER runs_finished_stays BEFORE UPDATE ON runs
+    WHEN old.state <> 'running'
+    BEGIN SELECT RAISE(ABORT, 'a finished run does not change'); END;
+  `,
+  },
+  // place를 workspace로 부르게 됐다. 끝난 run도 target의 key를 옮겨야 해서 trigger를 잠시 내렸다 같은 정의로 세운다.
+  {
+    id: "runs.workspace",
+    sql: `
+    ALTER TABLE runs RENAME COLUMN place_key TO workspace_key;
+    DROP INDEX runs_place;
+    CREATE INDEX runs_workspace ON runs(workspace_key, id);
+    DROP TRIGGER runs_finished_stays;
+    UPDATE runs SET target = json_set(
+      json_remove(target, '$.agent.place'),
+      '$.agent.workspace',
+      json(target -> '$.agent.place')
+    ) WHERE json_type(target, '$.agent.place') IS NOT NULL;
     CREATE TRIGGER runs_finished_stays BEFORE UPDATE ON runs
     WHEN old.state <> 'running'
     BEGIN SELECT RAISE(ABORT, 'a finished run does not change'); END;

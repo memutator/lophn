@@ -12,11 +12,11 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-// 다른 앱·project가 쓰는 앱의 tool. place는 부른 agent가 놓인 곳이고 그 앱 자신은 싣지 않는다.
+// 다른 앱·project가 쓰는 앱의 tool. workspace는 부른 agent가 놓인 곳이고 그 앱 자신은 싣지 않는다.
 export const appToolUseSchema = z.object({
   app: appIdSchema,
   tool: toolNameSchema,
-  place: z.discriminatedUnion("kind", [
+  workspace: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("project"), id: projectIdSchema }),
     z.object({ kind: z.literal("app"), id: appIdSchema }),
   ]),

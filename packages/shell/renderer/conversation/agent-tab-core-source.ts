@@ -75,7 +75,8 @@ function createSource(
     sessions: () => readSessions(env, activeTimes),
     searchMessages: (query) => searchMessages(env, query),
     acp: (session) => env.read(acpSnapshot, { session }),
-    draft: () => env.read(acpDraft, { agent: env.agent, place: env.place }),
+    draft: () =>
+      env.read(acpDraft, { agent: env.agent, workspace: env.workspace }),
     envelope: (message) => readEnvelope(env, memo, message),
     callState: (call) => readCallState(env, call),
     toolCallBody: (toolCall, part) =>

@@ -16,14 +16,17 @@ import { openFile } from "./kinds/document-editor.tsx";
 import type { AgentsSlice, AgentViewSlice, TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
 import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
-import { agentRow, openedPlaceLophnSession } from "./sidebar/panel-sessions.ts";
+import {
+  agentRow,
+  openedWorkspaceLophnSession,
+} from "./sidebar/panel-sessions.ts";
 import type { WorkspaceSource } from "./source.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
-import type { PlaceRef } from "../shell/desk-model.ts";
+import type { WorkspaceRef } from "../shell/desk-model.ts";
 
 interface TabHostSlicesInput {
-  /** 이 창의 place. */
-  place: PlaceRef;
+  /** 이 창의 workspace. */
+  workspace: WorkspaceRef;
   source: WorkspaceSource;
   agentViewSource?: AgentTabSourceFactory;
   /** 이 창이 만든 TabHost. slice는 이벤트 때만 불러 최신 host를 본다. */
@@ -36,10 +39,10 @@ interface TabHostSlicesInput {
   floats?: boolean;
 }
 
-// place 창(PlaceWindow)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
+// workspace 창(WorkspaceWindow)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
 // 창마다 다른 것(openTab·openFloat·patchTab·removeTab·view)은 호출하는 쪽이 host에 직접 넣는다.
 export function useTabHostSlices(input: TabHostSlicesInput) {
-  const { place, source, agentViewSource, onSettings } = input;
+  const { workspace, source, agentViewSource, onSettings } = input;
   const agentsSource = source.agentsSource;
   // 값은 쓰지 않고 agent가 바뀔 때 이 hook을 쓴 창이 다시 그려지게만 한다.
   const terminalStore = input.terminalStore;
@@ -52,14 +55,14 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   );
   const sidebarAgents = useSidebarAgents(
     agentsSource,
-    place.kind === "home" ? null : place.id,
+    workspace.kind === "home" ? null : workspace.id,
   );
   const { sessions: sessionStates } = useSessions();
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
-  const artifactPlace = place.kind === "home" ? null : place;
-  const artifactList = useArtifactList(artifactPlace);
+  const artifactWorkspace = workspace.kind === "home" ? null : workspace;
+  const artifactList = useArtifactList(artifactWorkspace);
   const hostRef = useRef(input.host);
   hostRef.current = input.host;
 
@@ -80,7 +83,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     const entry = sessionStates.find((item) => item.session === session);
     return entry === undefined
       ? undefined
-      : agentRow(entry, sidebarAgents.agents, place);
+      : agentRow(entry, sidebarAgents.agents, workspace);
   };
 
   const agentView: AgentViewSlice | null =
@@ -115,11 +118,11 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
               session,
             });
           },
-          placeLophnSession: () =>
-            openedPlaceLophnSession(sessionStates, place),
+          workspaceLophnSession: () =>
+            openedWorkspaceLophnSession(sessionStates, workspace),
           nameOf: (session) => rowOfSession(session)?.name,
           artifacts: {
-            place: artifactPlace,
+            workspace: artifactWorkspace,
             items: artifactList.items,
             open: (name) => openArtifact(hostRef.current(), name),
             reload: artifactList.reload,

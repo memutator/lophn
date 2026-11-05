@@ -35,7 +35,7 @@ function solo(tab: TabSpec, extra: Partial<ProjectAppProps> = {}) {
   );
 }
 
-/** 왼쪽 sidebar. place마다 열린 session이 있고 Recent는 접힌 줄 하나다. */
+/** 왼쪽 sidebar. workspace마다 열린 session이 있고 Recent는 접힌 줄 하나다. */
 export function LeftSidebarPage() {
   const tab = documentTab(EXP);
   return (

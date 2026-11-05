@@ -20,7 +20,10 @@ import type {
 import type { Assignment } from "../../../protocol/approvals/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
-import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import type { AppProcessLink, InvocationLedger } from "../ports.ts";
 import type { CallAuth } from "./caller.ts";
 import { type AppCallsDeps, createAppCalls } from "./mod.ts";
@@ -60,9 +63,9 @@ function setup() {
     assignment: null as Assignment["entries"] | null,
     // null이면 부른 앱이 만든 앱 모두의 tool을 부를 grant를 가졌다.
     grants: null as AppGrant[] | null,
-    // agentToolCall이 돌려주는 agent와 place. agent가 null이면 tool call을 모른다.
+    // agentToolCall이 돌려주는 agent와 workspace. agent가 null이면 tool call을 모른다.
     agent: "lophn" as AgentId | null,
-    place: null as Place | null,
+    workspace: null as Workspace | null,
     // 이름에 "priv."가 붙은 tool만 비공개다. 기본 tool은 공개다.
   };
 
@@ -100,7 +103,7 @@ function setup() {
       agentToolCall: (_s, _t, tool) =>
         ok(
           tool === TCL && state.agent !== null
-            ? { agent: state.agent, place: state.place }
+            ? { agent: state.agent, workspace: state.workspace }
             : null,
         ),
     },
@@ -212,9 +215,9 @@ function flowCaller(instance: Id<"wfi">): AppToolCaller {
 
 function flowAuth(
   instance = WFI,
-  place: Place | null = { kind: "project", id: PRJ },
+  workspace: Workspace | null = { kind: "project", id: PRJ },
 ): CallAuth {
-  return { actor: "flow", flow: { instance, agent: "lophn", place } };
+  return { actor: "flow", flow: { instance, agent: "lophn", workspace } };
 }
 
 function programAuth(): CallAuth {
@@ -610,26 +613,26 @@ test("previewOnly 호출은 live로 새지 않고 preview 호출은 ledger를 �
   assert.deepStrictEqual(t.records.size, 0);
 });
 
-test("그 앱 place의 session만 그 앱의 preview tool을 부르고, 다른 place의 session은 앱 process에 닿지 못한다", async () => {
+test("그 앱 workspace의 session만 그 앱의 preview tool을 부르고, 다른 workspace의 session은 앱 process에 닿지 못한다", async () => {
   const a = newApp();
   const b = newApp();
   const project = ids.newId("prj");
-  const rows: [string, AgentId | null, Place | null, string][] = [
-    ["app A place session", "lophn", { kind: "app", id: a }, "succeeded"],
-    ["app B place session", "lophn", { kind: "app", id: b }, "forbidden"],
+  const rows: [string, AgentId | null, Workspace | null, string][] = [
+    ["app A workspace session", "lophn", { kind: "app", id: a }, "succeeded"],
+    ["app B workspace session", "lophn", { kind: "app", id: b }, "forbidden"],
     ["home session", "lophn", null, "forbidden"],
     [
-      "project place session",
+      "project workspace session",
       "lophn",
       { kind: "project", id: project },
       "forbidden",
     ],
     ["unknown tool call", null, null, "forbidden"],
   ];
-  for (const [label, agent, place, expected] of rows) {
+  for (const [label, agent, workspace, expected] of rows) {
     const t = setup();
     t.state.agent = agent;
-    t.state.place = place;
+    t.state.workspace = workspace;
     t.state.preview.effects["w.new"] = "write";
     const done = await t.path.call(
       {
@@ -789,14 +792,14 @@ test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부�
   }
 });
 
-test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할당이나 앱 place 밖이면 실행되지 않는다", async () => {
+test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할당이나 앱 workspace 밖이면 실행되지 않는다", async () => {
   const assigned = newApp();
   const other = newApp();
   const rows: {
     name: string;
     app: Id<"app">;
     tool: string;
-    place?: (app: Id<"app">) => Place | null;
+    workspace?: (app: Id<"app">) => Workspace | null;
     want: string;
   }[] = [
     { name: "not assigned", app: other, tool: "r.get", want: "gate_blocked" },
@@ -807,36 +810,36 @@ test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할
       want: "gate_blocked",
     },
     {
-      name: "private tool from a project place",
+      name: "private tool from a project workspace",
       app: assigned,
       tool: "priv.get",
       want: "gate_blocked",
     },
     {
-      name: "private tool from another app place",
+      name: "private tool from another app workspace",
       app: assigned,
       tool: "priv.get",
-      place: () => ({ kind: "app", id: other }),
+      workspace: () => ({ kind: "app", id: other }),
       want: "gate_blocked",
     },
     {
       name: "lophn creator, private tool",
       app: assigned,
       tool: "priv.get",
-      place: () => null,
+      workspace: () => null,
       want: "gate_blocked",
     },
     {
-      name: "public tool from a project place",
+      name: "public tool from a project workspace",
       app: assigned,
       tool: "r.get",
       want: "succeeded",
     },
     {
-      name: "private tool of the app's own place",
+      name: "private tool of the app's own workspace",
       app: assigned,
       tool: "priv.get",
-      place: (app) => ({ kind: "app", id: app }),
+      workspace: (app) => ({ kind: "app", id: app }),
       want: "succeeded",
     },
   ];
@@ -845,10 +848,11 @@ test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할
     const name = `flow: ${row.name}`;
     const t = setup();
     t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
-    const place = row.place === undefined ? undefined : row.place(row.app);
+    const workspace =
+      row.workspace === undefined ? undefined : row.workspace(row.app);
     const result = await t.path.call(
       { ...person(row.app, row.tool), caller },
-      place === undefined ? flowAuth() : flowAuth(WFI, place),
+      workspace === undefined ? flowAuth() : flowAuth(WFI, workspace),
     );
     assert.deepStrictEqual(status(result), row.want, name);
     if (row.want === "gate_blocked") {

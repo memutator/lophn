@@ -7,7 +7,10 @@
 import type { z } from "zod";
 
 import type { CommandRoute } from "../../../protocol/base/route.ts";
-import type { AgentId, Place } from "../../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { type CommandBody, commandBody } from "../command-call.ts";
 import type { SourceResult } from "./agent-tab-source.ts";
@@ -16,16 +19,18 @@ import type { SourceResult } from "./agent-tab-source.ts";
 export interface AgentTarget {
   /** agent id(lophn 또는 `agt_…`). */
   readonly assignment: string;
-  readonly place: {
+  readonly workspace: {
     readonly kind: "global" | "project" | "app";
     readonly id: string;
   };
 }
 
-/** factory 인자의 place를 session의 place로 읽는다. `global`은 home이다. */
-function placeOf(target: AgentTarget): Place | null {
-  const { place } = target;
-  return place.kind === "global" ? null : { kind: place.kind, id: place.id };
+/** factory 인자의 workspace를 session의 workspace로 읽는다. `global`은 home이다. */
+function workspaceOf(target: AgentTarget): Workspace | null {
+  const { workspace } = target;
+  return workspace.kind === "global"
+    ? null
+    : { kind: workspace.kind, id: workspace.id };
 }
 
 // ---- route 호출 ----
@@ -101,8 +106,8 @@ function errorCodeOf(code: string | undefined): string {
 export interface Env {
   readonly target: AgentTarget;
   readonly agent: AgentId;
-  /** 이 source의 session이 열리는 place. home은 null이다. */
-  readonly place: Place | null;
+  /** 이 source의 session이 열리는 workspace. home은 null이다. */
+  readonly workspace: Workspace | null;
   readonly now: () => number;
   /** 읽기 또는 memory route 하나. */
   read<R extends PlainRoute>(
@@ -158,7 +163,7 @@ export function createEnv(
   const env: Env = {
     target,
     agent: target.assignment,
-    place: placeOf(target),
+    workspace: workspaceOf(target),
     now,
     read: (route, input) => call(route.kind as "read" | "memory", route, input),
     command: (route, body) => call("command", route, commandBody(route, body)),

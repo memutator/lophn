@@ -1,4 +1,4 @@
-// app_screen 탭 kind. 앱 place의 앱 화면(현재 release의 entry screen)이다. 앱 place마다 하나이고 key는 앱 id로 정해진다.
+// app_screen 탭 kind. 앱 workspace의 앱 화면(현재 release의 entry screen)이다. 앱 workspace마다 하나이고 key는 앱 id로 정해진다.
 import { workspaceIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
@@ -12,15 +12,15 @@ const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 export const appScreenKey = (app: string) => `app-screen:${app}`;
 
-/** 앱 place의 앱 화면 탭. 앱 이름은 source가 읽은 뒤 채운다. */
+/** 앱 workspace의 앱 화면 탭. 앱 이름은 source가 읽은 뒤 채운다. */
 export function appScreenTab(app: string, title: string): TabItem {
   return { key: appScreenKey(app), kind: "app_screen", title, app };
 }
 
 /** 앱 화면 탭을 연다. 이미 열려 있으면 그 탭을 고른다. */
 export function openAppScreen(host: TabHost): void {
-  if (host.place.kind !== "app") return;
-  host.openTab(appScreenTab(host.place.id, host.appName ?? ""));
+  if (host.workspace.kind !== "app") return;
+  host.openTab(appScreenTab(host.workspace.id, host.appName ?? ""));
 }
 
 export const appScreenKind: TabKindDef = {

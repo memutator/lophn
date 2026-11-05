@@ -75,7 +75,7 @@ export const sourceRelativePathSchema = z
     { message: "path must stay inside source" },
   );
 
-// 앱 place의 session이 그 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
+// 앱 workspace의 session이 그 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
 // core가 읽고 검사한 뒤 안에서 machine route package.register_version을 부른다. 낼 때 사람 승인은 없다.
 export const packagePublishInputSchema = z.strictObject({
   app: appIdSchema,

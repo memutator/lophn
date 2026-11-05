@@ -1,17 +1,17 @@
 import { parse } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type AgentPlace,
+  type AgentWorkspace,
   BUILTIN_SKILLS,
-  type PlaceKind,
+  type WorkspaceKind,
   type SkillEntry as SkillRow,
   type SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
 
-// skill 발견, 검증, 층 합치기. 층은 내장, 공유(할당한 앱의 public skill), 전역(등록 폴더와 개인 보관소), project·app(그 place 폴더의 `.lophn/skills`),
-// place-data(그 place 그릇 자리의 `skills/`) 순이고 같은 이름은 마지막 층이 덮는다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
+// skill 발견, 검증, 층 합치기. 층은 내장, 공유(할당한 앱의 public skill), 전역(등록 폴더와 개인 보관소), project·app(그 workspace 폴더의 `.lophn/skills`),
+// workspace-data(그 workspace 그릇 자리의 `skills/`) 순이고 같은 이름은 마지막 층이 덮는다. 끌 수 없는 내장 skill은 사람 skill이 같은 이름으로 덮지 못한다.
 // 끄기는 이름 단위다. 발견은 동기다(core read handler가 동기라 비동기 발견을 부르지 못하고, 비동기 함수 안에서는 동기
-// 함수를 그대로 부를 수 있다). 파일 IO는 SkillFiles로 끼운다. 내장 skill은 `places`에 선언된 place 종류만 후보다. 이 모듈은
+// 함수를 그대로 부를 수 있다). 파일 IO는 SkillFiles로 끼운다. 내장 skill은 `workspaces`에 선언된 workspace 종류만 후보다. 이 모듈은
 // 사람의 실제 home이나 다른 harness 보관소를 열지 않는다. 부르는 쪽이 폴더를 정해서 준다. 발견 cache는 없다.
 // turn 시작마다 다시 읽어 그 turn의 판을 고정한다.
 
@@ -174,16 +174,20 @@ function undeclaredBuiltinReason(name: string): string | null {
     : null;
 }
 
-// 내장 skill은 선언한 place 종류만 갖는다. kind가 null이면 모두 본다(사람 화면의 목록).
-export function builtinForPlace(name: string, kind: PlaceKind | null): boolean {
+// 내장 skill은 선언한 workspace 종류만 갖는다. kind가 null이면 모두 본다(사람 화면의 목록).
+export function builtinForWorkspace(
+  name: string,
+  kind: WorkspaceKind | null,
+): boolean {
   const builtin = declaredBuiltin(name);
   return (
     builtin !== undefined &&
-    (kind === null || (builtin.places as readonly PlaceKind[]).includes(kind))
+    (kind === null ||
+      (builtin.workspaces as readonly WorkspaceKind[]).includes(kind))
   );
 }
 
-// 층 순서(내장, 공유, 전역, project·app, place-data)로 늘어선 후보를 이름마다 하나로 합친다. 마지막 층이 덮는다. 끌 수 없는 내장
+// 층 순서(내장, 공유, 전역, project·app, workspace-data)로 늘어선 후보를 이름마다 하나로 합친다. 마지막 층이 덮는다. 끌 수 없는 내장
 // skill은 같은 이름의 사람 skill이 덮지 못해 그 skill을 skipped에 이유와 함께 둔다. 끈 이름은 끌 수 있는 skill에만 먹는다.
 // 지금 발견되지 않는 끈 이름은 아무 일도 하지 않는다. 결과는 이름 사전순이다.
 export function mergeSkillLayers<T extends SkillCandidate>(
@@ -231,20 +235,20 @@ export function skillReceived(
   return !skill.can_disable || !off.includes(skill.name);
 }
 
-// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), place 폴더, place 그릇 자리의 `skills/`와 core가 읽어 준 공유 skill(`shared`)이다. null은 그 출처가 없는 것이다.
+// 발견 출처다. 내장, 전역(등록 폴더는 등록 순서 그대로, 개인 보관소), workspace 폴더, workspace 그릇 자리의 `skills/`와 core가 읽어 준 공유 skill(`shared`)이다. null은 그 출처가 없는 것이다.
 export type SkillSources = {
   bundled: string | null;
   registered: readonly string[];
   personal: string | null;
-  // project나 app place의 `.lophn/skills` 폴더다. 전역 다음 층이다. 그 place 밖이나 폴더가 없으면 없다.
-  place?: PlaceSkills | null;
-  // place 그릇 자리(`<data>/projects/<prj>`, `<data>/apps/<app>`)의 `skills/` 폴더다. 마지막 층이고 폴더 없는 project도 받는다. home이면 없다.
-  placeData?: string | null;
+  // project나 app workspace의 `.lophn/skills` 폴더다. 전역 다음 층이다. 그 workspace 밖이나 폴더가 없으면 없다.
+  workspace?: WorkspaceSkills | null;
+  // workspace 그릇 자리(`<data>/projects/<prj>`, `<data>/apps/<app>`)의 `skills/` 폴더다. 마지막 층이고 폴더 없는 project도 받는다. home이면 없다.
+  workspaceData?: string | null;
   // 할당한 앱의 public skill이다. 내장 바로 위, 전역 아래 층이다. 같은 이름은 앞의 것이 이긴다(부르는 쪽이 slug 순으로 준다).
   shared?: readonly SharedSkillHead[];
 };
 
-export type PlaceSkills = { source: "project" | "app"; folder: string };
+export type WorkspaceSkills = { source: "project" | "app"; folder: string };
 
 // 할당한 앱이 active release로 내놓은 public skill이다. 목록(prompt, `/` 메뉴, 개수)에는 head면 되고, `skill.read`는 본문까지 든
 // SharedSkill을 쓴다.
@@ -295,17 +299,17 @@ export function isSharedCompanion(file: string): boolean {
   );
 }
 
-// 받는 쪽이 쓰는 공유 skill이다. slug 순으로 같은 이름은 앞의 것만 남기고, 앱 자기 place에서는 그 앱의 `app` 층으로
+// 받는 쪽이 쓰는 공유 skill이다. slug 순으로 같은 이름은 앞의 것만 남기고, 앱 자기 workspace에서는 그 앱의 `app` 층으로
 // 이미 보이므로 싣지 않는다.
 export function sharedFor<T extends SharedSkillHead>(
   shared: readonly T[],
-  place: AgentPlace | null,
+  workspace: AgentWorkspace | null,
 ): T[] {
   const names = new Set<string>();
   return [...shared]
     .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
     .filter((skill) => {
-      if (place?.kind === "app" && skill.app === place.id) return false;
+      if (workspace?.kind === "app" && skill.app === workspace.id) return false;
       if (names.has(skill.name)) return false;
       names.add(skill.name);
       return true;
@@ -382,7 +386,7 @@ function attempt<T>(read: () => T): { ok: true; value: T } | { ok: false } {
 export function discoverSkills(
   files: SkillFiles,
   sources: SkillSources,
-  options: { kind: PlaceKind | null; off: readonly string[] },
+  options: { kind: WorkspaceKind | null; off: readonly string[] },
 ): SkillListing {
   const candidates: Candidate[] = [];
   const skipped: SkillSkipped[] = [];
@@ -442,7 +446,7 @@ export function discoverSkills(
   };
 
   // container 바로 아래 꾸러미를 폴더 이름의 영문 사전순으로 본다.
-  // 개인·내장·place-data 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
+  // 개인·내장·workspace-data 폴더가 아직 없는 것은 그 출처가 비어 있을 뿐이고, 사람이 등록한 폴더가 없는 것은 알린다.
   const scanFolder = (
     container: string,
     source: SkillSource,
@@ -512,17 +516,17 @@ export function discoverSkills(
     scanFolder(root, "global", true);
   }
   if (sources.personal !== null) scanFolder(sources.personal, "global", false);
-  if (sources.place != null) {
-    scanFolder(sources.place.folder, sources.place.source, false);
+  if (sources.workspace != null) {
+    scanFolder(sources.workspace.folder, sources.workspace.source, false);
   }
-  if (sources.placeData != null) {
-    scanFolder(sources.placeData, "place-data", false);
+  if (sources.workspaceData != null) {
+    scanFolder(sources.workspaceData, "workspace-data", false);
   }
 
   const visible = candidates.filter(
     (candidate) =>
       candidate.source !== "builtin" ||
-      builtinForPlace(candidate.name, options.kind),
+      builtinForWorkspace(candidate.name, options.kind),
   );
   return { entries: mergeSkillLayers(visible, options.off, skipped), skipped };
 }

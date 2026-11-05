@@ -39,8 +39,8 @@ test("mcp secret 이름은 그 이름을 쓰는 server의 origin으로만 간다
       PROJECT,
     ],
   ] as const;
-  const servers = layers.map(([secret, url, place]) =>
-    runtimeServerOfLayer(httpServer(secret, url), place),
+  const servers = layers.map(([secret, url, workspace]) =>
+    runtimeServerOfLayer(httpServer(secret, url), workspace),
   );
   for (const [secret, url] of layers) {
     const origins = mcpSecretDestinations(servers, secret).map((one) =>

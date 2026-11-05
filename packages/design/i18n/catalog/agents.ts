@@ -34,7 +34,7 @@ export const agents = {
   "agents.notice.settings-tools-elsewhere":
     "Skills and MCP servers for all projects are in Tools and skills.",
   "agents.notice.settings-tools-lead":
-    "The Workspace layer, shared by every project. A project can turn an item off for itself, and an agent can turn it off for itself too.",
+    "The global layer, shared by every project. A project can turn an item off for itself, and an agent can turn it off for itself too.",
   "agents.notice.settings-tools-servers":
     "A server with the same name in a project or an agent replaces this one for that layer.",
   "agents.notice.settings-tools-skills":
@@ -43,13 +43,13 @@ export const agents = {
     "Agent definitions are stored in lophn, in one place for every project, not in your project folder.",
   "agents.heading.model-for-project": "Model for this project",
   "agents.label.card-model":
-    "Model: {layer, select, agent {{model}} project {project default ({model})} other {Workspace default ({model})}}",
+    "Model: {layer, select, agent {{model}} project {project default ({model})} other {global default ({model})}}",
   "agents.notice.model-for-project":
     "One model for every agent in this project. An agent can pick its own in its settings.",
   "agents.notice.skills-project":
-    "A switch turns a skill on or off for this project. Workspace skills can be turned off here too.",
+    "A switch turns a skill on or off for this project. Global skills can be turned off here too.",
   "agents.notice.tab-lead":
-    "These agents work in every project and app. A session works in the place where you open it.",
+    "These agents work in every project and app. A session works in the workspace where you open it.",
   "agents.button.assign-app": "Assign app",
   "agents.button.choose-character": "Choose character",
   "agents.button.create-agent": "Create agent",
@@ -135,21 +135,21 @@ export const agents = {
   "agents.label.layer-agent": "This agent",
   "agents.label.layer-app": "App",
   "agents.label.layer-builtin": "Built-in",
-  "agents.label.layer-global": "Workspace",
-  "agents.label.layer-place-data": "Data folder",
+  "agents.label.layer-global": "Global",
+  "agents.label.layer-workspace-data": "Data folder",
   "agents.label.layer-project": "Project",
   "agents.label.layer-shared": "Shared by an app",
   "agents.label.model-inherit":
-    "Use {layer, select, project {project} other {Workspace}} default \u2014 {model}",
+    "Use {layer, select, project {project} other {global}} default \u2014 {model}",
   "agents.label.model-overrides":
-    "Overrides {layer, select, project {project} other {Workspace}}",
+    "Overrides {layer, select, project {project} other {global}}",
   "agents.label.no-model-chosen": "No model chosen yet",
-  "agents.label.place": "Place",
-  "agents.label.place-choice":
+  "agents.label.workspace": "Workspace",
+  "agents.label.workspace-choice":
     "{name} ({kind, select, app {app} other {project}})",
-  "agents.label.place-lophn": "All of lophn",
-  "agents.label.place-named": "{name} \u00b7 project",
-  "agents.label.place-named-app": "{name} \u00b7 app",
+  "agents.label.workspace-lophn": "All of lophn",
+  "agents.label.workspace-named": "{name} \u00b7 project",
+  "agents.label.workspace-named-app": "{name} \u00b7 app",
   "agents.label.protected-key": "Key or token",
   "agents.label.protected-secret": "Client secret",
   "agents.label.skip-start": "Start new sessions with Skip permissions",
@@ -167,13 +167,13 @@ export const agents = {
   "agents.notice.grants-mcp-layers":
     "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this agent's Definition.",
   "agents.notice.instructions-help":
-    "Read after the project instructions. Your Workspace instructions come before both.",
+    "Read after the project instructions. Your global instructions come before both.",
   "agents.notice.instructions-help-lophn":
-    "Read after your Workspace instructions (Settings \u203a Agents).",
+    "Read after your global instructions (Settings \u203a Agents).",
   "agents.notice.name-fixed-lophn":
     "lophn's name and profile can't be changed.",
-  "agents.notice.place-help":
-    "Where this agent works. Its sessions open in that place.",
+  "agents.notice.workspace-help":
+    "Where this agent works. Its sessions open in that workspace.",
   "agents.notice.profile-help":
     "Choose a shape and color, or upload an image. It shows next to the agent's messages.",
   "agents.notice.protected-key":
@@ -184,7 +184,7 @@ export const agents = {
   "agents.notice.runtime-help":
     "lophn adds the lophn rules, skills and built-in tools. Bare sends only the instructions above and the tools and skills you pick.",
   "agents.notice.tools-help":
-    "A session only gets a picked tool its place kind (home, project, app), the agent's apps and its MCP servers allow.",
+    "A session only gets a picked tool its workspace kind (home, project, app), the agent's apps and its MCP servers allow.",
   "agents.notice.skip-help":
     "A session started this way runs shell commands without asking. Deny rules still block them.",
   "agents.notice.skills-bare-pick":
@@ -244,7 +244,7 @@ export const agents = {
   "project-workspace.notice.agent-editor-issue":
     "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
-    "Only the fields you change are saved; the rest follow project and Workspace defaults.",
+    "Only the fields you change are saved; the rest follow project and global defaults.",
   "project-workspace.notice.agent-editor-save-first":
     "Save first to upload an image.",
   "project-workspace.notice.agents-change-failed":

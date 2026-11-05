@@ -31,21 +31,21 @@ function setup() {
     id: string,
     o: {
       agent?: string;
-      place?: { kind: "project" | "app"; id: string };
+      workspace?: { kind: "project" | "app"; id: string };
       lifecycle?: string;
     },
   ) => {
-    const place = o.place ?? PROJECT;
+    const workspace = o.workspace ?? PROJECT;
     sql.run(
-      `insert into sessions (id, agent, project, app, place_kind, place_id, lifecycle, created_seq, state_seq)
+      `insert into sessions (id, agent, project, app, workspace_kind, workspace_id, lifecycle, created_seq, state_seq)
        values (?, ?, ?, ?, ?, ?, ?, 1, 1)`,
       [
         id,
         o.agent ?? "agt_1",
-        place.kind === "project" ? place.id : null,
-        place.kind === "app" ? place.id : null,
-        place.kind,
-        place.id,
+        workspace.kind === "project" ? workspace.id : null,
+        workspace.kind === "app" ? workspace.id : null,
+        workspace.kind,
+        workspace.id,
         o.lifecycle ?? "open",
       ],
     );
@@ -81,14 +81,14 @@ function setup() {
 const PROJECT = { kind: "project", id: "prj_a" } as const;
 const APP = { kind: "app", id: "app_1" } as const;
 
-test("artifact annotation의 받는 쪽은 그 artifacts 폴더에 마지막으로 쓴 그 owner place의 열린 session이다", () => {
+test("artifact annotation의 받는 쪽은 그 artifacts 폴더에 마지막으로 쓴 그 owner workspace의 열린 session이다", () => {
   const { sql, session, write } = setup();
   session("ses_a", {});
-  session("ses_b", { place: { kind: "project", id: "prj_b" } });
+  session("ses_b", { workspace: { kind: "project", id: "prj_b" } });
   session("ses_closed", { lifecycle: "archived" });
   // 같은 그릇의 다른 agent session이다.
   session("ses_op", { agent: "agt_2" });
-  session("ses_app", { place: APP });
+  session("ses_app", { workspace: APP });
   const find = (
     root: string,
     name: string,
@@ -116,12 +116,12 @@ test("artifact annotation의 받는 쪽은 그 artifacts 폴더에 마지막으�
   assert.deepStrictEqual(find(ROOT_A, "rep%"), null);
   assert.deepStrictEqual(find(ROOT_A, "r_port"), null);
 
-  // 닫힌 session과 다른 place의 쓰기는 건너뛰고 앞선 쓰기로 간다.
+  // 닫힌 session과 다른 workspace의 쓰기는 건너뛰고 앞선 쓰기로 간다.
   write("ses_closed", ROOT_A, "report/new.html");
   write("ses_app", ROOT_A, "report/app.html");
   assert.deepStrictEqual(find(ROOT_A, "report"), "ses_a");
 
-  // 앱이 owner면 앱 place의 session이 받고 project place의 session은 받지 않는다.
+  // 앱이 owner면 앱 workspace의 session이 받고 project workspace의 session은 받지 않는다.
   assert.deepStrictEqual(find(ROOT_A, "report", APP), "ses_app");
 
   // 같은 그릇의 다른 agent session의 더 나중 쓰기가 이긴다.

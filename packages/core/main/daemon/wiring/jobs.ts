@@ -136,7 +136,7 @@ export const jobsWiring: WiringFactory = () => {
                   kind: "agent_resolved",
                   agent: {
                     agent: action.agent,
-                    place: action.agent_place,
+                    workspace: action.agent_workspace,
                   },
                   prompt: action.prompt,
                   ...input,

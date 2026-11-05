@@ -46,7 +46,7 @@ export const workflow = {
   "workflow.label.participant-job": "Scheduled job {title}",
   "workflow.label.participant-job-untitled": "Scheduled job",
   "workflow.label.participant-lophn": "lophn",
-  "workflow.label.participant-placed": "{agent} \u00b7 {place}",
+  "workflow.label.participant-placed": "{agent} \u00b7 {workspace}",
   "workflow.label.participant-program": "Program",
   "workflow.label.participant-unknown": "An agent",
   "workflow.label.report-by": "{who} · {when}",

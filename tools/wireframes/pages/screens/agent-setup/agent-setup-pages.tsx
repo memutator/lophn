@@ -36,14 +36,14 @@ function editor(
   id: string,
   steps: readonly Step[] = [],
   source?: FakeAgentsOptions,
-  place: "project" | "app" = "project",
+  workspace: "project" | "app" = "project",
 ) {
   return alone({
     ...agentTab(id),
     body: (
       <AgentSettingsEditor
         id={id}
-        place={place}
+        workspace={workspace}
         onDone={() => {}}
         steps={steps}
         source={source}
@@ -87,7 +87,7 @@ export const AgentCreatePage = () => editor("new");
 export const LophnEditorPage = () => editor("lophn");
 
 /** 앱 자리에서 연 agent의 설정. 앱에는 project 지침이 없어 지침 블록에 안내만 있다. */
-export const AppPlaceEditorPage = () =>
+export const AppWorkspaceEditorPage = () =>
   editor(BUDGET_REVIEWER_ID, [], undefined, "app");
 
 /** agent 층에서 MCP server를 더하는 form을 열고 web 주소와 OAuth 2.1 로그인을 고른 상태. */

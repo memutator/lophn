@@ -4,7 +4,7 @@ import {
   mayCall,
 } from "../../../protocol/lophn-agent/call-policy.ts";
 import {
-  type AgentAtPlace,
+  type AgentAtWorkspace,
   type AgentCard,
   agentNameKey,
   MODALITIES,
@@ -29,10 +29,10 @@ export function repliesOf(
 }
 
 // 부르는 agent session의 자리와 call 정책. 명함의 callable을 정한다.
-export type CardCaller = { from: AgentAtPlace; policy: CallPolicy };
+export type CardCaller = { from: AgentAtWorkspace; policy: CallPolicy };
 
-// 명함의 차이는 place와 상관없다(place = null). prompt 원문은 싣지 않는다.
-// callable은 부르는 session의 place에서 이 agent로 보낼 수 있는지다.
+// 명함의 차이는 workspace와 상관없다(workspace = null). prompt 원문은 싣지 않는다.
+// callable은 부르는 session의 workspace에서 이 agent로 보낼 수 있는지다.
 function cardOf(
   context: AgentContext,
   loaded: Loaded,
@@ -94,7 +94,7 @@ function cardOf(
       : {
           callable: mayCall(caller.policy, caller.from, {
             agent: loaded.agent,
-            place: caller.from.place,
+            workspace: caller.from.workspace,
           }),
         }),
   };

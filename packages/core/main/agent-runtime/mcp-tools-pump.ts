@@ -1,7 +1,7 @@
 import type { Result } from "../../../base/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
 import {
-  type AgentPlace,
+  type AgentWorkspace,
   type McpToolServer,
   mcpToolsRequestDone,
   mcpToolsRequestTake,
@@ -32,7 +32,7 @@ export async function startMcpToolsPump(options: {
   // machine 자격의 core loopback이다.
   call: CoreCall;
   list(
-    place: AgentPlace | null,
+    workspace: AgentWorkspace | null,
     agent: string | null,
   ): Promise<Result<McpToolServer[]>>;
   signal: AbortSignal;
@@ -48,7 +48,7 @@ export async function startMcpToolsPump(options: {
       const request = taken.ok ? taken.value.request : null;
       if (request !== null) {
         worked = true;
-        const listed = await options.list(request.place, request.agent);
+        const listed = await options.list(request.workspace, request.agent);
         if (listed.ok) {
           await options.call(routePath(mcpToolsRequestDone), {
             id: request.id,

@@ -1,6 +1,6 @@
 // `lophn agent run`, `run wait|show|cancel`: 사람이 쓰는 run 명령이다. 앱 command(`lophn <slug> <command>`)도 `start`로
 // run을 시작한다(`app-command.ts`). 입력은 route 입력이 아니라 CLI 칸이라 여기서 route 입력을 만든다. 기다리는 명령은 끝난 run의 값을 내고, 실패·취소는 `failed`로 알린다.
-// place 종류가 비어 있어 binary만 부른다.
+// workspace 종류가 비어 있어 binary만 부른다.
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -93,12 +93,16 @@ const agentRunInput = z.strictObject({
     .string()
     .min(1)
     .optional()
-    .describe("name or id of the project to use as the place; not with --app"),
+    .describe(
+      "name or id of the project to use as the workspace; not with --app",
+    ),
   app: z
     .string()
     .min(1)
     .optional()
-    .describe("name or id of the app to use as the place; not with --project"),
+    .describe(
+      "name or id of the app to use as the workspace; not with --project",
+    ),
   session: idSchema("ses").optional(),
   schema: z.string().min(1).optional().describe("output JSON Schema text"),
   async: z.boolean().optional().describe("return the run id without waiting"),
@@ -111,14 +115,14 @@ const agentRun = defineCommand({
   name: "agent.run",
   summary: "Call a lophn agent without a screen and wait for its answer",
   description:
-    "Starts a run of the agent and prints its answer. --session continues a session (its agent and place cannot change). Without --project/--app the place is home.",
+    "Starts a run of the agent and prints its answer. --session continues a session (its agent and workspace cannot change). Without --project/--app the workspace is home.",
   input: agentRunInput,
   positional: ["prompt"],
   effect: "external",
   routes: [runStart, runWait],
-  places: [],
+  workspaces: [],
   run: (input, ctx) => {
-    // 이어 쓰는 session의 agent와 place는 열 때 정해져 바뀌지 않는다.
+    // 이어 쓰는 session의 agent와 workspace는 열 때 정해져 바뀌지 않는다.
     if (
       input.session !== undefined &&
       (input.agent !== undefined ||
@@ -162,13 +166,13 @@ const agentRun = defineCommand({
     };
     const wait = input.async !== true;
     if (input.session !== undefined) return start(ctx, base, wait);
-    // place가 없으면 home이다. 이름이나 id는 core가 푼다.
+    // workspace가 없으면 home이다. 이름이나 id는 core가 푼다.
     const agent: AgentAddress = {
       agent: input.agent ?? LOPHN_AGENT_NAME,
       ...(input.project !== undefined
-        ? { place: { project: input.project } }
+        ? { workspace: { project: input.project } }
         : input.app !== undefined
-          ? { place: { app: input.app } }
+          ? { workspace: { app: input.app } }
           : {}),
     };
     return start(ctx, { ...base, agent }, wait);
@@ -185,7 +189,7 @@ const runWaitCommand = defineCommand({
   positional: ["run"],
   effect: "read",
   routes: [runWait],
-  places: [],
+  workspaces: [],
   run: async (input, ctx) => {
     const waited = await ctx.core.read(runWait, {
       run: input.run,
@@ -203,7 +207,7 @@ const runShow = defineCommand({
   positional: ["run"],
   effect: "read",
   routes: [runRead],
-  places: [],
+  workspaces: [],
   run: async (input, ctx) => {
     const read = await ctx.core.read(runRead, { run: input.run });
     return read.ok
@@ -220,7 +224,7 @@ const runCancelCommand = defineCommand({
   positional: ["run"],
   effect: "write",
   routes: [runCancel],
-  places: [],
+  workspaces: [],
   run: async (input, ctx) => {
     const done = await ctx.core.read(runCancel, { run: input.run });
     return done.ok

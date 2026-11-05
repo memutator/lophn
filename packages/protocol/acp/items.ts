@@ -2,7 +2,7 @@ import { z } from "zod";
 import { acpApprovalSubjectSchema } from "../approvals/gate-call.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
-import { agentIdSchema } from "../lophn-agent/places.ts";
+import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 import {
   CALL_FAIL_REASONS,
   CALL_REPLIES,

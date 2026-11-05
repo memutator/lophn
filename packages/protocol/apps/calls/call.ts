@@ -26,12 +26,12 @@ export const appToolTargetSchema = z.discriminatedUnion("mode", [
 export type AppToolTarget = z.infer<typeof appToolTargetSchema>;
 
 // 호출 대상은 operation이거나 command이다. 이름은 둘을 합쳐 하나라 `kind`는 어느 쪽 선언을 볼지 정한다.
-// operation은 사람(화면)과 그 앱 place의 session(preview)만 부른다. agent(live)·다른 앱·job·flow가 부르면
+// operation은 사람(화면)과 그 앱 workspace의 session(preview)만 부른다. agent(live)·다른 앱·job·flow가 부르면
 // core가 handler에 보내기 전에 denied로 막는다.
 // 규칙(core가 판정한다).
 // - caller.kind는 route의 actor와 맞아야 한다(user는 person, agent는 agent, app은 app).
 //   맞지 않으면 forbidden이다. program과 flow는 route의 actor가 아니고 core 안 run 연산만 만든다(route로 오면 forbidden).
-// - app은 live이고 release가 null이다. agent는 live(release null)이거나, 그 앱 place의 session이면 그 앱의 preview다.
+// - app은 live이고 release가 null이다. agent는 live(release null)이거나, 그 앱 workspace의 session이면 그 앱의 preview다.
 export const callKindSchema = z.enum(["operation", "command"]);
 export type CallKind = z.infer<typeof callKindSchema>;
 

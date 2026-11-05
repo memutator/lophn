@@ -18,10 +18,10 @@ test("Anthropic 요청은 대화 끝 content block에 cache 표시를 달고 표
     images: false,
   })({
     system: [
-      { layer: "place_kind", text: "r", cache: true },
+      { layer: "workspace_kind", text: "r", cache: true },
       { layer: "instructions", text: "i", cache: true },
       { layer: "skills", text: "s", cache: false },
-      { layer: "place", text: "p", cache: true },
+      { layer: "workspace", text: "p", cache: true },
     ],
     tools: [{ name: "t", description: "d", input_schema: { type: "object" } }],
     messages: [
@@ -50,7 +50,7 @@ test("Anthropic 요청은 대화 끝 content block에 cache 표시를 달고 표
 // 사람이 보낸 이미지는 같은 입력이면 같은 wire JSON이어야 prompt cache가 이어진다. 이미지를 못 받는 model에는 base64가 가지 않는다.
 test("네 packer는 user 이미지를 같은 입력에서 같은 wire JSON으로 싣고 images가 false면 고정 글이다", () => {
   const request: PromptRequest = {
-    system: [{ layer: "place_kind", text: "r" }],
+    system: [{ layer: "workspace_kind", text: "r" }],
     tools: [],
     messages: [
       {

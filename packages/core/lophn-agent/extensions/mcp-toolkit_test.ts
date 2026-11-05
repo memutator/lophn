@@ -5,7 +5,7 @@ import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import type { McpConnections } from "./mod.ts";
 
-const place = {
+const workspace = {
   kind: "project",
   id: "prj_01h455vb4pex5v6nkc6gd5fd01",
 } as const;
@@ -45,7 +45,7 @@ function toolkit(connected: string[], projectOff: string[] = []) {
         ok(
           path === "/project-extension-settings/read"
             ? {
-                project: place.id,
+                project: workspace.id,
                 mcp_servers: [],
                 skills_off: [],
                 mcp_off: projectOff,
@@ -69,9 +69,9 @@ test("agent 정의 층의 server는 그 agent의 turn 준비에만 연결된다"
   };
 
   const withLayer: string[] = [];
-  await toolkit(withLayer).source("a", { place, agent: own });
+  await toolkit(withLayer).source("a", { workspace, agent: own });
   const without: string[] = [];
-  await toolkit(without).source("b", { place });
+  await toolkit(without).source("b", { workspace });
 
   // 정의 층이 있는 호출만 자기 server를 연결하고, 아래 층에서 끈 이름은 합친 목록에서 빠진다.
   assert.deepEqual(withLayer, ["mine"]);
@@ -81,7 +81,7 @@ test("agent 정의 층의 server는 그 agent의 turn 준비에만 연결된다"
 test("session 도중 끈 MCP server의 tool은 그 session에서 부르면 거절된다", async () => {
   const projectOff: string[] = [];
   const kit = toolkit([], projectOff);
-  await kit.source("asg", { place });
+  await kit.source("asg", { workspace });
   const call = kit.call("asg");
   const invoke = { server: "shared", original: "t", input: {} } as never;
 

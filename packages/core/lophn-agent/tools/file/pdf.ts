@@ -4,7 +4,7 @@ import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { continuation } from "../bundles/paging.ts";
 import { fitJson } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
-import { fail, fsFail, resolveInPlace } from "./scope.ts";
+import { fail, fsFail, resolveInWorkspace } from "./scope.ts";
 
 const MAX_PAGES = 20;
 const MAX_PAGE_CHARS = 6000;
@@ -29,7 +29,7 @@ export async function readPdf(
   if (from < 1 || (last !== undefined && last < from)) {
     return fail("invalid_input", "pages must look like 3 or 1-5");
   }
-  const at = await resolveInPlace(ctx.scope, input.path, "read");
+  const at = await resolveInWorkspace(ctx.scope, input.path, "read");
   if (!at.ok) return at;
   let bytes: Uint8Array;
   try {

@@ -98,14 +98,14 @@ export function createSkillsOffStep(bundledSkillsRoot: string): DataStep {
                     ...own,
                     ...[null, ...folders]
                       .flatMap(
-                        (placeData) =>
+                        (workspaceData) =>
                           discoverSkills(
                             files,
                             {
                               bundled: bundledSkillsRoot,
                               registered,
                               personal: `${root}/skills`,
-                              placeData,
+                              workspaceData,
                             },
                             { kind: null, off: [] },
                           ).entries,

@@ -272,7 +272,7 @@ export const recordRewindFile = defineCommand({
 });
 
 // 쓰기 직전에 agent runtime이 core에 청한다. core가 그 파일의 지금 내용을 읽어 session 저장소에 두고
-// (한도 안일 때) before 상태를 돌려준다. 내용은 HTTP로 오가지 않는다. root는 session의 place가 file
+// (한도 안일 때) before 상태를 돌려준다. 내용은 HTTP로 오가지 않는다. root는 session의 workspace가 file
 // tool에 연 폴더여야 하고, session·turn은 agent 자격의 것과 같아야 한다. 이름 변경이면 옛 경로를 준다.
 export const stageRewindFile = defineMemory({
   resource: "rewind",

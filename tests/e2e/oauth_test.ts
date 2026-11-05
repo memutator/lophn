@@ -28,7 +28,7 @@ import {
   secretStatus,
 } from "../../packages/protocol/secrets/mod.ts";
 import {
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   until,
   waitTurnEnd,
@@ -291,7 +291,7 @@ test("취소한 로그인의 callback listener가 닫힌다", async () => {
 test("구독 token이 model 요청의 Bearer header로만 나간다", async () => {
   await withFakes(async ({ fake, issuer, core }) => {
     const { access, refresh } = await connectOAuthProvider(core, issuer, fake);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
     await say(core, session, "hello");
     const turn = await waitTurnEnd(core, session);
@@ -335,7 +335,7 @@ test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 �
         },
       ],
     });
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
     await say(core, session, "hello");
     await waitTurnEnd(core, session);
@@ -371,7 +371,7 @@ test("갱신이 거절되면 credential이 revoked이고 model 요청이 나가�
     issuer.script({
       refresh_token: [{ kind: "error", status: 400, error: "invalid_grant" }],
     });
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
     fake.script([{ reply: { kind: "text", text: "unused" } }]);
     await say(core, session, "hello");
     const turn = await waitTurnEnd(core, session);
@@ -397,7 +397,7 @@ test("구독 token은 route 출력과 secrets.json 밖 어디에도 남지 않�
   await withFakes(async ({ run, fake, issuer, core }) => {
     const { provider, access, refresh, device_code } =
       await connectOAuthProvider(core, issuer, fake);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
     await say(core, session, "hello");
     await waitTurnEnd(core, session);

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
-import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
 import { createTargetAuthorizer } from "../../storage/ledger/target-authorization.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
@@ -40,10 +40,10 @@ const load: Parameters<typeof createDeclarationReads>[0] = (_sql, app) =>
   } as never);
 
 // session이 놓인 곳만 흉내 낸 usage port다. 모르는 session은 null이다.
-const usage = (place: Place | null) =>
+const usage = (workspace: Workspace | null) =>
   ({
-    sessionPlace: (session: string) =>
-      session === "ses_01hzzzzzzzzzzzzzzzzzzzzzza" ? { place } : null,
+    sessionWorkspace: (session: string) =>
+      session === "ses_01hzzzzzzzzzzzzzzzzzzzzzza" ? { workspace } : null,
   }) as unknown as UsagePorts;
 const port = (ports: UsagePorts) => (key: unknown) =>
   key === usagePorts ? ports : undefined;
@@ -108,7 +108,7 @@ test("앱 하나에 묶인 agent 자격은 다른 앱의 tool 목록을 읽지�
 
 // 다른 앱의 비공개 command가 결과에 새면 그 앱 밖 agent가 command 이름과 모양을 얻는다.
 // 같은 route를 user token으로도 부르므로 거르는 쪽은 route다.
-test("app.tool_index는 agent에게 다른 앱 place의 비공개 command를 싣지 않고 사람에게는 모두 싣는다", () => {
+test("app.tool_index는 agent에게 다른 앱 workspace의 비공개 command를 싣지 않고 사람에게는 모두 싣는다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
   db.prepare(
@@ -122,7 +122,7 @@ test("app.tool_index는 agent에게 다른 앱 place의 비공개 command를 싣
       db.prepare(text).all(...params) as never,
   };
   const read = createToolIndexRead(load);
-  const names = (actor: string, place: Place | null) => {
+  const names = (actor: string, workspace: Workspace | null) => {
     const ctx = {
       principal: actor,
       actor,
@@ -130,7 +130,7 @@ test("app.tool_index는 agent에게 다른 앱 place의 비공개 command를 싣
       conditions: {},
       credential_ref: "c",
     } as RequestContext;
-    const snapshot = { sql, as_of_seq: "1", port: port(usage(place)) };
+    const snapshot = { sql, as_of_seq: "1", port: port(usage(workspace)) };
     const got = read.handle(snapshot as never, ctx, {});
     assert.ok(got.ok);
     return got.value.apps[0].tools.map((t) => t.name);

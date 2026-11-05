@@ -9,8 +9,8 @@ import {
   type CallReply,
   type CallState,
   modelCallList,
-  type Place,
-  placeSessionRead,
+  type Workspace,
+  workspaceSessionRead,
   toolCallList,
   turnBodyView,
   turnList,
@@ -19,7 +19,7 @@ import type { Core, Input, Output } from "../../support/core/mod.ts";
 import type {
   CollectedModelCall,
   CollectedToolCall,
-  PlaceName,
+  WorkspaceName,
   SentCall,
   SessionRecord,
 } from "../types.ts";
@@ -81,10 +81,17 @@ async function readNames(port: ReadPort): Promise<Names> {
   };
 }
 
-function placeOf(place: Place | null, names: Names): PlaceName | null {
-  if (place === null) return null;
-  const name = (place.kind === "app" ? names.app : names.project).get(place.id);
-  return name === undefined ? null : { kind: place.kind, id: place.id, name };
+function workspaceOf(
+  workspace: Workspace | null,
+  names: Names,
+): WorkspaceName | null {
+  if (workspace === null) return null;
+  const name = (workspace.kind === "app" ? names.app : names.project).get(
+    workspace.id,
+  );
+  return name === undefined
+    ? null
+    : { kind: workspace.kind, id: workspace.id, name };
 }
 
 const nameOf = (agent: AgentId, names: Names): string =>
@@ -105,12 +112,12 @@ async function readSession(
 ): Promise<SessionRecord | null> {
   const found = await read(
     port,
-    placeSessionRead,
+    workspaceSessionRead,
     { session: session as never },
     true,
   );
   if (found === null) return null;
-  const { agent, place } = found.session;
+  const { agent, workspace } = found.session;
 
   // t0보다 먼저 시작한 turn은 되살리기의 흔적이라 그 turn의 call과 함께 뺀다.
   const turns = (
@@ -190,7 +197,7 @@ async function readSession(
     session,
     agent,
     agent_name: nameOf(agent, names),
-    place: placeOf(place, names),
+    workspace: workspaceOf(workspace, names),
     turns,
     model_calls,
     tool_calls,
@@ -225,7 +232,7 @@ async function sentCall(
     receiver: null,
     receiver_name: null,
     receiver_session: null,
-    receiver_place: null,
+    receiver_workspace: null,
   };
   if (sent.call === null) return sent;
   const out = await read(
@@ -238,11 +245,11 @@ async function sentCall(
   const record = out.call;
   sent.record = record;
   sent.receiver_session = record.receiver_session;
-  let to: { agent: AgentId; place: Place | null } | null = null;
+  let to: { agent: AgentId; workspace: Workspace | null } | null = null;
   if (record.to.kind === "open_session") {
     const opened = await read(
       port,
-      placeSessionRead,
+      workspaceSessionRead,
       { session: record.to.session },
       true,
     );
@@ -253,7 +260,7 @@ async function sentCall(
   if (to !== null) {
     sent.receiver = to.agent;
     sent.receiver_name = nameOf(to.agent, names);
-    sent.receiver_place = placeOf(to.place, names);
+    sent.receiver_workspace = workspaceOf(to.workspace, names);
   }
   return sent;
 }

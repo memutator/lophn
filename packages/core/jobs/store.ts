@@ -1,5 +1,5 @@
 import { ok, type Result } from "../../base/mod.ts";
-import type { AgentAtPlace } from "../../protocol/lophn-agent/mod.ts";
+import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   JobAction,
   JobRecord,
@@ -35,14 +35,14 @@ export function loadJob(sql: Query, id: string): Result<JobRecord | null> {
 // id 오름차순이다. cursor는 page 마지막 job id다.
 export function loadJobs(
   sql: Query,
-  filter: { creator?: AgentAtPlace; after?: string; limit: number },
+  filter: { creator?: AgentAtWorkspace; after?: string; limit: number },
 ): Result<JobRecord[]> {
   const where: string[] = [];
   const params: (string | number | null)[] = [];
   if (filter.creator !== undefined) {
-    const { creator_agent, creator_place } = creatorColumns(filter.creator);
-    where.push("creator_agent = ? AND creator_place IS ?");
-    params.push(creator_agent, creator_place);
+    const { creator_agent, creator_workspace } = creatorColumns(filter.creator);
+    where.push("creator_agent = ? AND creator_workspace IS ?");
+    params.push(creator_agent, creator_workspace);
   }
   if (filter.after !== undefined) {
     where.push("id > ?");
@@ -68,7 +68,7 @@ export function insertJob(
   job: {
     id: string;
     title: string;
-    creator: AgentAtPlace;
+    creator: AgentAtWorkspace;
     every: string;
     at: string | null;
     action: JobAction;
@@ -77,17 +77,17 @@ export function insertJob(
     created_at: string;
   },
 ): void {
-  const { creator_agent, creator_place } = creatorColumns(job.creator);
+  const { creator_agent, creator_workspace } = creatorColumns(job.creator);
   sql.run(
     `INSERT INTO jobs
-      (id, title, creator_agent, creator_place, every, at, action, missed_policy,
+      (id, title, creator_agent, creator_workspace, every, at, action, missed_policy,
        enabled, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       job.id,
       job.title,
       creator_agent,
-      creator_place,
+      creator_workspace,
       job.every,
       job.at,
       JSON.stringify(job.action),

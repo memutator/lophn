@@ -1,4 +1,4 @@
-// 대화 글 한 덩이. 이 창 place(project나 앱)의 artifact path는 누르면 artifact 탭을 여는 link가 되고, 나머지는 글 그대로다.
+// 대화 글 한 덩이. 이 창 workspace(project나 앱)의 artifact path는 누르면 artifact 탭을 여는 link가 되고, 나머지는 글 그대로다.
 // agent 글(markdown)은 ChatMarkdown이 글 조각마다 artifactPieces를 부른다.
 import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 import { Icon } from "@lophn/ui/primitives";
@@ -19,18 +19,18 @@ const NAMED = new RegExp(
   "g",
 );
 
-/** agent가 방금 만든 artifact는 목록에 아직 없다. 이 place의 모르는 name이 글에 나오면 목록을 이름당 한 번 다시 읽는다. */
+/** agent가 방금 만든 artifact는 목록에 아직 없다. 이 workspace의 모르는 name이 글에 나오면 목록을 이름당 한 번 다시 읽는다. */
 export function useArtifactReload(
   text: string,
   artifacts: ArtifactsSlice | undefined,
 ): void {
   const asked = useRef(new Set<string>());
   useEffect(() => {
-    if (artifacts?.place == null) return;
+    if (artifacts?.workspace == null) return;
     for (const match of text.matchAll(NAMED)) {
       const name = match[2]!;
       if (
-        match[1] !== artifacts.place.id ||
+        match[1] !== artifacts.workspace.id ||
         artifacts.items.some((one) => one.name === name) ||
         asked.current.has(name)
       )
@@ -82,10 +82,10 @@ export function artifactPieces(
   text: string,
   artifacts: ArtifactsSlice,
 ): ReactNode[] | undefined {
-  if (artifacts.place === null) return undefined;
+  if (artifacts.workspace === null) return undefined;
   const mentions = artifactMentions(
     text,
-    artifacts.place,
+    artifacts.workspace,
     artifacts.items.map((item) => item.name),
   );
   if (mentions.length === 0) return undefined;

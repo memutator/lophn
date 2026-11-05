@@ -7,10 +7,10 @@ export type Outcome<T = unknown> =
   | { ok: true; result: T }
   | { ok: false; reason: string; message: string };
 
-// place가 없으면 이 workflow의 project다.
+// workspace가 없으면 이 workflow의 project다.
 export type AgentAddress = {
   agent: string;
-  place?: { project: string } | { app: string };
+  workspace?: { project: string } | { app: string };
 };
 
 export type AgentRequest = {

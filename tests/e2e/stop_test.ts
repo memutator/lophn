@@ -15,13 +15,13 @@ import {
   archiveSession,
   deleteSession,
   LOPHN_AGENT_ID,
-  placeSessionRead,
+  workspaceSessionRead,
   toolCallList,
   turnRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   stopTurn,
@@ -91,7 +91,7 @@ test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의 tool
     const proj = `${run.work}/proj`;
     await mkdir(proj);
     const { project } = await openProject(core, proj);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });
@@ -199,7 +199,7 @@ test("shell이 도는 중 멈추면 shell process group이 죽는다", async () 
         },
       },
     ]);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });
@@ -242,7 +242,7 @@ test("허락을 기다리는 중 멈추면 늦게 온 허락이 명령을 일으
   await inProject(async ({ core, fake, proj, project }) => {
     const ask = await shellAsk(proj);
     fake.script([{ reply: ask.reply("w1") }]);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });
@@ -284,12 +284,16 @@ for (const how of ["archive", "delete"] as const) {
   test(`session을 ${how === "archive" ? "archive하면" : "지우면"} 진행 중인 model 요청이 끊긴다`, async () => {
     await inProject(async ({ core, fake, project }) => {
       fake.script([stallReply, textReply]);
-      const place = { kind: "project", id: project } as const;
-      const session = await openPlaceSession(core, LOPHN_AGENT_ID, place);
+      const workspace = { kind: "project", id: project } as const;
+      const session = await openWorkspaceSession(
+        core,
+        LOPHN_AGENT_ID,
+        workspace,
+      );
       await say(core, session, "think forever");
       await fake.arrived(1);
       const pids = await runtimePids(core.run.home);
-      const { session: current } = await core.call(placeSessionRead, {
+      const { session: current } = await core.call(workspaceSessionRead, {
         session,
       });
       const [turn] = await turnsOf(core, session);
@@ -301,7 +305,7 @@ for (const how of ["archive", "delete"] as const) {
         { state_seq: current.state_seq },
       );
       await within("요청이 끊김", fake.aborted(1));
-      const next = await openPlaceSession(core, LOPHN_AGENT_ID, place);
+      const next = await openWorkspaceSession(core, LOPHN_AGENT_ID, workspace);
       await say(core, next, "hello");
       const done = await waitTurnEnd(core, next);
 
@@ -310,7 +314,7 @@ for (const how of ["archive", "delete"] as const) {
       assert.deepStrictEqual(done.outcome?.kind, "completed");
       // ledger
       if (how === "archive") {
-        const archived = await core.call(placeSessionRead, { session });
+        const archived = await core.call(workspaceSessionRead, { session });
         assert.deepStrictEqual(archived.session.lifecycle, "archived");
         const closed = await core.call(turnRead, { turn: turn.id });
         assert.deepStrictEqual(closed.turn.state, "finished");
@@ -319,7 +323,7 @@ for (const how of ["archive", "delete"] as const) {
           reason: "session_ended",
         });
       } else {
-        const gone = await core.tryCall(placeSessionRead, { session });
+        const gone = await core.tryCall(workspaceSessionRead, { session });
         assert.ok(!gone.ok && gone.error.code === "not_found");
       }
       // process: runtime child가 그대로다.

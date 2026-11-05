@@ -58,7 +58,7 @@ function setup() {
     "insert into projects values (?, 'c', 'c', '', '1', 'active')",
   ).run(PRJ_C);
   const insert = db.prepare(
-    `insert into sessions (id, agent, project, app, place_kind, place_id,
+    `insert into sessions (id, agent, project, app, workspace_kind, workspace_id,
        created_seq, state_seq) values (?, ?, ?, ?, ?, ?, 1, 1)`,
   );
   insert.run(sessionId(1), "lophn", null, null, null, null);
@@ -89,12 +89,12 @@ function read(snapshot: ReadSnapshot, session: number) {
   return file === null ? null : `${file.name}:${atob(file.content_base64)}`;
 }
 
-test("project 층은 session의 place가 가리키는 project의 LOPHN.md(없으면 CLAUDE.md)만 읽는다", () => {
+test("project 층은 session의 workspace가 가리키는 project의 LOPHN.md(없으면 CLAUDE.md)만 읽는다", () => {
   const { root, snapshot } = setup();
   try {
     const table: [number, string | null][] = [
       // [session, 결과]
-      [1, null], // home session은 place가 없어 project 지침이 비어 있다
+      [1, null], // home session은 workspace가 없어 project 지침이 비어 있다
       [2, "LOPHN.md:rules of A"],
       [3, null], // 앱 그릇에는 LOPHN.md가 없다
       [4, "CLAUDE.md:rules of C"], // 폴더 없는 project는 data 자리의 파일이고 LOPHN.md가 없으면 CLAUDE.md다

@@ -4,7 +4,7 @@
 // call, session 목록)은 없어서 unavailable로 답한다.
 import type { AcpInput, AcpState } from "../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
+import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { HarnessGuiInfo } from "../../ipc/harness-gui.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 
@@ -29,7 +29,7 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     agent: LOPHN_AGENT_ID,
     name: label,
     profile: { kind: "initial", text: label.slice(0, 1) },
-    place: {
+    workspace: {
       kind: "project",
       name: info.cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? info.cwd,
     },

@@ -8,7 +8,7 @@ export type { ShellRule, SourceResult };
 
 export type ShellRuleAction = ShellRule["action"];
 
-/** 규칙이 놓인 층: 전역(Workspace) 또는 project 하나. */
+/** 규칙이 놓인 층: 전역 또는 project 하나. */
 export type ShellRuleLayer =
   | { readonly kind: "global" }
   | { readonly kind: "project"; readonly project: string };

@@ -1,4 +1,4 @@
-// 창마다 하나인 왼쪽 sidebar의 마지막 읽기 값. place를 옮기면 PlaceWindow가 새로 mount되어 sidebar가 빈 목록부터
+// 창마다 하나인 왼쪽 sidebar의 마지막 읽기 값. workspace를 옮기면 WorkspaceWindow가 새로 mount되어 sidebar가 빈 목록부터
 // 다시 그리고 줄이 비었다 차오르며 깜빡인다. 마지막으로 읽은 값을 여기 들고 있다가 첫 그림에 쓰고, 새로 읽으면 바꾼다.
 // 저장하지 않는다. Desktop이 하나 만들어 context로 내리고, 없으면(gallery) hook마다 빈 값에서 시작한다.
 import {
@@ -12,19 +12,19 @@ import {
 
 import type { TerminalAgentSession } from "../../ipc/terminal.ts";
 import type { AppRow } from "../apps/source.ts";
-import type { ProjectItem } from "../desktop/places/projects/source.ts";
+import type { ProjectItem } from "../desktop/workspaces/projects/source.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { TabItem } from "./desk-model.ts";
-import type { KnownSessions } from "./left-sidebar-places.ts";
+import type { KnownSessions } from "./left-sidebar-workspaces.ts";
 
 export interface SidebarValues {
   readonly projects: readonly ProjectItem[];
   readonly apps: readonly AppRow[];
   readonly agents: readonly SidebarAgent[];
   readonly known: KnownSessions;
-  /** place key → session id → Agent 탭 제목(다른 place의 저장된 layout). */
+  /** workspace key → session id → Agent 탭 제목(다른 workspace의 저장된 layout). */
   readonly elsewhereTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
-  /** place key → coding agent가 돈 적이 있는 터미널 탭(다른 place의 저장된 layout). */
+  /** workspace key → coding agent가 돈 적이 있는 터미널 탭(다른 workspace의 저장된 layout). */
   readonly elsewhereTerminals: ReadonlyMap<string, readonly TabItem[]>;
   /** project id → main이 저장한 coding agent session. */
   readonly savedTerminals: ReadonlyMap<string, readonly TerminalAgentSession[]>;

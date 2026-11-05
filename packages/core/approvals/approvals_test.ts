@@ -24,7 +24,7 @@ test("사람이 아닌 자격은 turn request를 결정하지 못한다", async 
       session: SES,
       turn: "trn_0000000000000000000000000a",
       tool_call: "tcl_0000000000000000000000000a",
-      place: null,
+      workspace: null,
     },
     { kind: "shell", command: "rm -r x" },
   );

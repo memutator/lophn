@@ -9,7 +9,7 @@ import {
   closeTargets,
   closeTab,
   cyclePane,
-  defaultPlaceLayout,
+  defaultWorkspaceLayout,
   type Desk,
   deskEntries,
   detachTab,
@@ -30,7 +30,7 @@ import {
   openTabInLayout,
   paneStackOf,
   type PaneZone,
-  type PlaceLayout,
+  type WorkspaceLayout,
   reattachTab,
   removeDesk,
   restoreFloat,
@@ -243,7 +243,7 @@ test("group 구성원을 닫으면 짝이 선택되고 1개가 되면 group이 �
 });
 
 test("끝낸 desk는 tab을 닫은 뒤 desk만 지우고 Main과 다른 desk는 건드리지 않는다", () => {
-  let layout: PlaceLayout = defaultPlaceLayout();
+  let layout: WorkspaceLayout = defaultWorkspaceLayout();
   layout = updateDesk(layout, MAIN_DESK, (d) => openTab(d, tab("m1")));
   layout = addDesk(layout, "mine", "mine", undefined);
   layout = updateDesk(layout, "mine", (d) => {
@@ -265,7 +265,7 @@ test("끝낸 desk는 tab을 닫은 뒤 desk만 지우고 Main과 다른 desk는 
 });
 
 test("workflow desk가 사라지면 tab과 group이 Main으로 합쳐지고 겹치는 key는 옮기지 않는다", () => {
-  let layout: PlaceLayout = defaultPlaceLayout();
+  let layout: WorkspaceLayout = defaultWorkspaceLayout();
   layout = updateDesk(layout, MAIN_DESK, (d) => {
     let next = openTab(openTab(d, tab("m1")), tab("m2"));
     next = openTab(next, tab("a"));
@@ -299,7 +299,7 @@ test("workflow desk가 사라지면 tab과 group이 Main으로 합쳐지고 겹�
 });
 
 test("열려 있는 tab은 그 desk로 찾아간다", () => {
-  let layout = addDesk(defaultPlaceLayout(), "wf", "wf", "wf");
+  let layout = addDesk(defaultWorkspaceLayout(), "wf", "wf", "wf");
   layout = updateDesk(layout, "wf", (d) => openTab(d, tab("s1")));
   assert.deepEqual(findTab(layout, "s1"), { desk: "wf", where: "tab" });
   const opened = openTabInLayout(layout, tab("s1"));

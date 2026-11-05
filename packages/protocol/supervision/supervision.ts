@@ -156,7 +156,7 @@ export const appCredentialResponseSchema = z.strictObject({
 
 // agent runtime이 turn마다 `agent:<ses>` credential을 core에 청하는 통로(lophn-agent/run-loop). StartTurn이
 // 확정된 turn에만 청하고 core의 인증 경계가 발급한다. credential은 그 session과 turn에 묶이고 operations는
-// 그 session place의 발급 상한 안이어야 한다. 넓히지 못한다.
+// 그 session workspace의 발급 상한 안이어야 한다. 넓히지 못한다.
 export const agentCredentialRequestSchema = z.strictObject({
   type: z.literal("agent_credential_request"),
   request_id: opaque,

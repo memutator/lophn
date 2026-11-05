@@ -177,7 +177,7 @@
   margin-inline-start: auto;
 }
 
-.place {
+.workspace {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);

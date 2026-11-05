@@ -6,29 +6,29 @@
 export const ARTIFACT_ENTRY = "index.html";
 export const ARTIFACTS_FOLDER = "artifacts";
 
-// artifact를 담는 그릇. `Place`의 project·앱 쪽과 같은 모양이다.
-export type ArtifactPlace = { kind: "project" | "app"; id: string };
+// artifact를 담는 그릇. `Workspace`의 project·앱 쪽과 같은 모양이다.
+export type ArtifactWorkspace = { kind: "project" | "app"; id: string };
 
 // data root 아래 상대 자리. path 조각을 찾을 때도 같은 글을 쓴다.
-function relativeFolder(place: ArtifactPlace): string {
-  return `${place.kind === "project" ? "projects" : "apps"}/${place.id}/${ARTIFACTS_FOLDER}`;
+function relativeFolder(workspace: ArtifactWorkspace): string {
+  return `${workspace.kind === "project" ? "projects" : "apps"}/${workspace.id}/${ARTIFACTS_FOLDER}`;
 }
 
 export function artifactsFolder(
   dataRoot: string,
-  place: ArtifactPlace,
+  workspace: ArtifactWorkspace,
 ): string {
-  return `${dataRoot}/${relativeFolder(place)}`;
+  return `${dataRoot}/${relativeFolder(workspace)}`;
 }
 
 // 신원 `{project, name}`이나 `{app, name}`에서 그릇을 꺼낸다.
-export function artifactPlaceOf(
+export function artifactWorkspaceOf(
   ref:
     | {
         project: string;
       }
     | { app: string },
-): ArtifactPlace {
+): ArtifactWorkspace {
   return "app" in ref
     ? { kind: "app", id: ref.app }
     : { kind: "project", id: ref.project };
@@ -86,10 +86,10 @@ const TRAILING_PUNCTUATION = /[.,;:!?]+$/;
 // path 조각의 위치.
 export function artifactMentions(
   text: string,
-  place: ArtifactPlace,
+  workspace: ArtifactWorkspace,
   known: readonly string[],
 ): ArtifactMention[] {
-  const prefix = `${relativeFolder(place)}/`;
+  const prefix = `${relativeFolder(workspace)}/`;
   const mentions: ArtifactMention[] = [];
   for (const match of text.matchAll(FRAGMENT)) {
     const fragment = match[0].replace(TRAILING_PUNCTUATION, "");

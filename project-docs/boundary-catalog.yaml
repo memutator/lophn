@@ -38,7 +38,7 @@ elements:
 
       - id: projects
         kind: subsystem
-        description: project place와 그 폴더의 파일(문서).
+        description: project workspace와 그 폴더의 파일(문서).
 
       - id: apps
         kind: subsystem
@@ -77,18 +77,18 @@ elements:
         kind: subsystem
         description: 앱 SDK가 앱 log에 쓰는 실패 보고(`reportProblem`)와 잡히지 않은 예외 관찰의 protocol 값(`packages/protocol/problems/`). test runner는 지웠다. release의 data 검사는 app-releases의 준비가 한다.
 
-      - id: agent-places
+      - id: agent-workspaces
         kind: component
-        description: lophn place 층(home, project, app). place 종류마다의 tool 목록, prompt, place 정보, lophn 내장 정의, place 폴더 규칙, data root 아래 자리, 내장 skill.
+        description: lophn workspace 층(home, project, app). workspace 종류마다의 tool 목록, prompt, workspace 정보, lophn 내장 정의, workspace 폴더 규칙, data root 아래 자리, 내장 skill.
 
       - id: lophn-agent
         kind: subsystem
-        description: lophn 안의 agent를 정의하고 돌리는 harness. place 종류와 feature module의 route를 모르고 등록받은 tool로 돈다.
+        description: lophn 안의 agent를 정의하고 돌리는 harness. workspace 종류와 feature module의 route를 모르고 등록받은 tool로 돈다.
         children:
 
           - id: agents
             kind: component
-            description: place에 놓인 agent와 그 설정.
+            description: workspace에 놓인 agent와 그 설정.
 
           - id: agent-sessions
             kind: component
@@ -198,7 +198,7 @@ elements:
 
   - id: user-package
     kind: extension
-    description: 앱 place의 session이 올린 사용자 package.
+    description: 앱 workspace의 session이 올린 사용자 package.
     depends_on:
       - sdk
 
@@ -269,7 +269,7 @@ interfaces:
     defined_by: agent-tools
     provided_by:
       - apps
-      - agent-places
+      - agent-workspaces
       - workflows
       - jobs
     used_by:

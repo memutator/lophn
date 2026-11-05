@@ -10,13 +10,13 @@ import { insertRun, loadRun } from "./store.ts";
 test("run이 연 session은 다시 읽어도 session_opened가 참이다(INTEGER는 bigint로 온다)", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    db.exec(runsSchemaSteps[0]!.sql);
+    for (const step of runsSchemaSteps) db.exec(step.sql);
     const sql = createSql(db, () => true);
     const id = "run_01hzzzzzzzzzzzzzzzzzzzzzza";
     insertRun(sql, {
       id,
       kind: "agent",
-      target: { agent: { agent: "lophn", place: null } },
+      target: { agent: { agent: "lophn", workspace: null } },
       session: "ses_01hzzzzzzzzzzzzzzzzzzzzzza",
       session_opened: true,
       input_message: "msg_01hzzzzzzzzzzzzzzzzzzzzzza",

@@ -1,7 +1,7 @@
 // 세 질문
-// - contract: boundary `agent-tools`(file tool의 scope는 place 폴더 안이고 data root는 닿지 않는다),
+// - contract: boundary `agent-tools`(file tool의 scope는 workspace 폴더 안이고 data root는 닿지 않는다),
 //   `run-loop`(runtime child는 권한 제한 없이 돌고 file tool이 닿는 폴더는 scope가 정한다).
-//   architecture `place-session.md`의 "place 폴더가 범위".
+//   architecture `workspace-session.md`의 "workspace 폴더가 범위".
 // - 현실적 회귀: scope 검사에서 절대 경로·symlink·`..`가 새는 것. 권한 제한이 없으므로 scope가 유일한 방어라는
 //   걸 잊고 느슨하게 하는 것.
 // - 왜 지금 test로 못 잡나: scope_test는 함수 입력만 본다. child process를 건너 실제 file tool이 도는 길은
@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { lstat, mkdir, readFile, symlink } from "node:fs/promises";
 import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
-import { agentFilePathOf } from "../../packages/core/agent-places/place/instruction-rules.ts";
+import { agentFilePathOf } from "../../packages/core/agent-workspaces/workspace/instruction-rules.ts";
 import {
   toolCallList,
   LOPHN_AGENT_ID,
@@ -18,7 +18,7 @@ import {
 import {
   connectFakeProvider,
   openProject,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -71,13 +71,13 @@ async function scope(
     await symlink(outside, `${proj}/link`);
     const { project } = await openProject(core, proj);
     await openProject(core, other);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });
     const definition = agentFilePathOf(run.home, {
       agent: "lophn",
-      place: null,
+      workspace: null,
     });
     assert.ok(definition !== null);
     const paths = {
@@ -171,7 +171,7 @@ type Paths = {
   definition: string;
 };
 
-test("E2E project place session은 권한 제한 없이 도는 runtime에서도 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
+test("E2E project workspace session은 권한 제한 없이 도는 runtime에서도 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
   await scope(
     (p): Row[][] => [
       [
@@ -213,7 +213,7 @@ test("E2E project place session은 권한 제한 없이 도는 runtime에서도 
   );
 });
 
-test("E2E project place session은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
+test("E2E project workspace session은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
   await scope(
     (p): Row[][] => [
       [
@@ -237,7 +237,7 @@ test("E2E project place session은 다른 project 폴더와 자기 agent 정의 
   );
 });
 
-test("E2E project place session은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
+test("E2E project workspace session은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
   await scope(
     (): Row[][] => [
       [

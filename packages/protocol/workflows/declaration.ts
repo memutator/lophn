@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { placeNameSchema } from "../lophn-agent/places.ts";
+import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
 import {
   participantKeySchema,
   stepNameSchema,
@@ -13,7 +13,7 @@ const declarationParticipantSchema = z.union([
   z.looseObject({ kind: z.literal("harness") }),
   z.looseObject({
     agent: z.string().min(1),
-    place: placeNameSchema.optional(),
+    workspace: workspaceNameSchema.optional(),
   }),
 ]);
 

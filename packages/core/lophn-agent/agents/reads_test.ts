@@ -19,14 +19,15 @@ const choice = (model_name: string): ModelChoice => ({
 test("정의 읽기의 model 출처는 agent, project, global 순서다", () => {
   const read = (agentFile: string, project: ModelChoice | null) => {
     const lookups: AgentLookups = {
-      placeExists: () => true,
+      workspaceExists: () => true,
       skills: () => [],
       shared: () => [],
       mcp: () => [],
       sharedCommands: () => [],
       inputMedia: () => null,
       modelDefault: () => choice("global-model"),
-      projectModel: (place) => (place?.kind === "project" ? project : null),
+      projectModel: (workspace) =>
+        workspace?.kind === "project" ? project : null,
     };
     const files: AgentFileSystem = {
       read: () => agentFile,
@@ -45,7 +46,7 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
       {} as RequestContext,
       {
         agent: AGENT,
-        place: { kind: "project", id: PROJECT },
+        workspace: { kind: "project", id: PROJECT },
       },
     );
     assert.ok(result.ok);

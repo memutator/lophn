@@ -18,26 +18,26 @@ import { artifactsFolder } from "../../../protocol/projects/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
   type AgentId,
-  type AgentPlace,
+  type AgentWorkspace,
   instructionsGet,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { toolResultFolder } from "../../../protocol/lophn-agent/tool-results.ts";
 import { projectApi } from "../../../protocol/projects/mod.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
-import { FILE_HOOKS } from "../../agent-places/hooks.ts";
-import { listArtifactEntries } from "../../agent-places/place/artifact-list.ts";
+import { FILE_HOOKS } from "../../agent-workspaces/hooks.ts";
+import { listArtifactEntries } from "../../agent-workspaces/workspace/artifact-list.ts";
 import {
-  placeDataFolder,
-  placeDataSkillsFolder,
-} from "../../agent-places/place/data-folder.ts";
+  workspaceDataFolder,
+  workspaceDataSkillsFolder,
+} from "../../agent-workspaces/workspace/data-folder.ts";
 import {
-  type PlaceFiles,
-  placeData,
-} from "../../agent-places/place/place-data.ts";
-import { PROJECT_LAYER } from "../../agent-places/place/project-layer.ts";
-import { placePrompt } from "../../agent-places/prompts/prompts.ts";
-import { BUNDLED_SKILLS_ROOT } from "../../agent-places/skills/root.ts";
-import { placeToolNames } from "../../../protocol/lophn-agent/tool-lists.ts";
+  type WorkspaceFiles,
+  workspaceData,
+} from "../../agent-workspaces/workspace/workspace-data.ts";
+import { PROJECT_LAYER } from "../../agent-workspaces/workspace/project-layer.ts";
+import { workspacePrompt } from "../../agent-workspaces/prompts/prompts.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../agent-workspaces/skills/root.ts";
+import { workspaceToolNames } from "../../../protocol/lophn-agent/tool-lists.ts";
 import {
   createMcpToolkit,
   type McpKit,
@@ -73,19 +73,19 @@ import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
 import { agentTools } from "../agent-tools.ts";
 import type { CoreCalls } from "./main.ts";
 
-// skill 발견이 쓰는 place 층의 자리 규칙이다. agent runtime child는 조립이라 place 층을 안다.
-const SKILL_PLACES = {
+// skill 발견이 쓰는 workspace 층의 자리 규칙이다. agent runtime child는 조립이라 workspace 층을 안다.
+const SKILL_WORKSPACES = {
   projectLayer: PROJECT_LAYER,
   bundledSkillsRoot: BUNDLED_SKILLS_ROOT,
-  // 그 place의 `.lophn/skills`가 skill 층이다: project는 첫 등록 폴더, 앱은 source 폴더.
-  async sourceFolder(machine: CoreCall, place: AgentPlace) {
-    if (place.kind === "project") {
+  // 그 workspace의 `.lophn/skills`가 skill 층이다: project는 첫 등록 폴더, 앱은 source 폴더.
+  async sourceFolder(machine: CoreCall, workspace: AgentWorkspace) {
+    if (workspace.kind === "project") {
       const read = await readOf(machine, projectApi.get, {
-        project: place.id,
+        project: workspace.id,
       });
       return read.ok ? (read.value.project.folders[0]?.path ?? null) : null;
     }
-    const read = await readOf(machine, appGet, { app: place.id });
+    const read = await readOf(machine, appGet, { app: workspace.id });
     return read.ok ? read.value.app.source_path : null;
   },
 };
@@ -117,17 +117,19 @@ function productToolkit(options: {
   };
 }
 
-// place 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
-function placeFiles(): PlaceFiles {
+// workspace 폴더는 data root(LOPHN_HOME) 아래에 있다. 절대 path가 아니면 폴더를 알 수 없어 범위에서 빠진다.
+function workspaceFiles(): WorkspaceFiles {
   const home = process.env.LOPHN_HOME;
   const root = home !== undefined && isAbsolute(home) ? home : null;
   return {
-    skillsFolder: (place) =>
-      root === null ? null : placeDataSkillsFolder(root, place as never),
-    dataFolder: (place) =>
-      root === null ? null : placeDataFolder(root, place as never),
-    artifactsFolder: (place) =>
-      root === null ? null : artifactsFolder(root, place),
+    skillsFolder: (workspace) =>
+      root === null
+        ? null
+        : workspaceDataSkillsFolder(root, workspace as never),
+    dataFolder: (workspace) =>
+      root === null ? null : workspaceDataFolder(root, workspace as never),
+    artifactsFolder: (workspace) =>
+      root === null ? null : artifactsFolder(root, workspace),
     workflowsFolder: (project) =>
       root === null ? null : workflowsFolder(root, project),
     ensureDir: async (path) => {
@@ -151,7 +153,7 @@ function placeFiles(): PlaceFiles {
   };
 }
 
-// 제품 runtime의 driver 재료. core 연결을 받아 turn 시작 재료와 기본 harness 묶음(내장 tool, place 종류 prompt, model
+// 제품 runtime의 driver 재료. core 연결을 받아 turn 시작 재료와 기본 harness 묶음(내장 tool, workspace 종류 prompt, model
 // 선택 검증, 등록 skill 폴더)을 만든다. 아래는 조립이 채울 자리다: ToolContext의 바깥 연결(`toolPorts`). 지금은
 // 닫힌 연결이 들어 있다. agent event는 감독 pipe로 core Bus에 간다(`calls.events`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
@@ -207,20 +209,23 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
             readOf(turn.core, askWait, { ...call, questions }),
         },
         skills: turnSkillReader(
-          productSkillSnapshotDeps(calls.machine, SKILL_PLACES),
+          productSkillSnapshotDeps(calls.machine, SKILL_WORKSPACES),
           {
             id: session.id,
-            place: session.place,
+            workspace: session.workspace,
             apps: turn.apps,
           },
           turn.skills,
         ),
       }),
       events: calls.events,
-      placePrompt,
-      placeData: async (call, agent, session) =>
-        withToolResults(await placeData(call, agent, placeFiles()), session),
-      placeTools: placeToolNames,
+      workspacePrompt,
+      workspaceData: async (call, agent, session) =>
+        withToolResults(
+          await workspaceData(call, agent, workspaceFiles()),
+          session,
+        ),
+      workspaceTools: workspaceToolNames,
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {
@@ -235,18 +240,18 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         redact: calls.redact,
       },
       // LOPHN.md와 agent 정의 본문은 core의 GetInstructions로 그 session의 이름으로 읽는다.
-      // core가 session의 place로 어느 파일인지 정한다.
+      // core가 session의 workspace로 어느 파일인지 정한다.
       instructionFilesFor: (session) =>
         instructionFilesOverCore(session, (input) =>
           readOf(calls.machine, instructionsGet, input),
         ),
       redact: calls.redact,
-      // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 내장 skill은 그 place 종류에 선언된 것만이다. 설정이 없으면
+      // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 내장 skill은 그 workspace 종류에 선언된 것만이다. 설정이 없으면
       // 빈 목록이다.
-      skills: (place, kind, apps) =>
+      skills: (workspace, kind, apps) =>
         registeredSkillEntries(
           calls.machine,
-          productSkillStores(place, SKILL_PLACES),
+          productSkillStores(workspace, SKILL_WORKSPACES),
           kind,
           apps,
         ),
@@ -256,7 +261,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       clock: systemClock,
       ids,
       machine: calls.machine,
-      placeTools: placeToolNames,
+      workspaceTools: workspaceToolNames,
       blobs: calls.blobs,
       redact: calls.redact,
       resolveModel,

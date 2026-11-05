@@ -75,7 +75,7 @@ export const SettingsCoding = () => <SettingsFrame pane="coding" />;
 /** Settings › Shell rules. */
 export const SettingsShellRules = () => <SettingsFrame pane="shell-rules" />;
 
-/** Settings › Shell rules: Workspace 절의 더하기 줄에 pattern을 치고 Ask를 고른 상태. */
+/** Settings › Shell rules: Global 절의 더하기 줄에 pattern을 치고 Ask를 고른 상태. */
 export const SettingsShellRulesAdd = () => (
   <SettingsFrame
     pane="shell-rules"

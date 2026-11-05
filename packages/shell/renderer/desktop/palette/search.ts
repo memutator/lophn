@@ -1,4 +1,4 @@
-// 팔레트의 파일 묶음이 쓰는 project 키워드 검색. place가 없으면 보관하지 않은 모든 project에서 찾는다.
+// 팔레트의 파일 묶음이 쓰는 project 키워드 검색. workspace가 없으면 보관하지 않은 모든 project에서 찾는다.
 // 실패는 빈 목록이라 다른 묶음은 그대로 보인다.
 import type { CatalogSource } from "./catalog.ts";
 import type { FileSearchSource } from "../../workspace/search/source.ts";
@@ -12,14 +12,14 @@ export function fileSearch(
   catalogSource: CatalogSource,
   files: FileSearchSource,
 ): FileSearch {
-  return async (query, place) => {
+  return async (query, workspace) => {
     if (query.trim() === "") return [];
     let projects: readonly string[];
-    if (place === null) {
+    if (workspace === null) {
       const catalog = await catalogSource.catalog();
       if (!catalog.ok) return [];
       projects = catalog.value.projects.map((row) => row.id);
-    } else projects = [place.id];
+    } else projects = [workspace.id];
     const found = await Promise.all(
       projects.map(async (project) => {
         const result = await files.search({ project, query });

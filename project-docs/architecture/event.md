@@ -69,5 +69,5 @@ agent event와 화면
 - agent event 집합은 여러 harness의 lifecycle을 나란히 놓고 공통분모로 골랐다. 그때 함께 쓰던 coding session 층은 지웠고(`architecture/coding-agent.md`) 지금은 lophn session만 낸다.
 - event에 반응하는 장치(Reactor)를 두지 않는다. 마지막 반응(맡긴 coding session의 끝, 이제 지운 층)도 command가 같은 tx에서 call을 닫게 되어, 반응할 event 없이 cursor, 멱등 key, backoff만 지는 장치가 남아 지웠다. 따로 반응하는 길은 같은 사실을 두 길이 알리게 하기도 했다. lophn 사용자에게 hook을 여는 안도 하지 않았다.
 - 앱이 자기 업무 사실을 lophn에 밀어 넣는 길(push)은 없다. agent가 읽기 앱 tool로 읽는다.
-- 앱 오류가 나면 앱 place의 session을 자동으로 여는 흐름을 지웠다. problem 상태 machine과 보고 길이 계약에 비해 무거웠고, 진단은 agent가 앱 log를 직접 읽으면 된다. 사람에게는 toast가 남는다.
+- 앱 오류가 나면 앱 workspace의 session을 자동으로 여는 흐름을 지웠다. problem 상태 machine과 보고 길이 계약에 비해 무거웠고, 진단은 agent가 앱 log를 직접 읽으면 된다. 사람에게는 toast가 남는다.
 - program이 agent를 부르는 reaction(새 일 handler와 그 설정)을 모두 지웠다. 마지막 것(activation 실패)은 `release.activate`의 결과가 대신하고 사람에게는 toast가 남는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다(job이나 workflow). job이 정해진 때 agent를 부르는 것은 반응 장치가 아니라 사람이 시킨 일의 실행이다. 앞서 reaction의 물음(보류 request 길)은 `approval.md`가 지웠다.

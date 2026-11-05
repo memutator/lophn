@@ -16,7 +16,7 @@ import {
   type ContentBlock,
   IMAGE_NOTE,
 } from "../../../protocol/lophn-agent/content-block.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
   AcpInput,
@@ -48,7 +48,7 @@ export interface AgentFace {
   readonly name: string;
   readonly profile: AgentProfile;
   /** 이 source의 session이 열리는 자리. home은 null이다. */
-  readonly place: {
+  readonly workspace: {
     readonly kind: "project" | "app";
     readonly name: string;
   } | null;
@@ -523,7 +523,7 @@ export interface AgentTabSource {
   acp(session: string): Promise<SourceResult<AcpState>>;
   /**
    * 첫 메시지 전 새 session 화면의 session 기능(model 묶음, 기본 model, 명령, capability). 이 source가 묶인 agent와
-   * place로 지금 session을 열면 받을 값이다. harness source는 session이 늘 있어 두지 않는다.
+   * workspace로 지금 session을 열면 받을 값이다. harness source는 session이 늘 있어 두지 않는다.
    */
   draft?(): Promise<SourceResult<AcpSessionMeta>>;
   /** 보낸 쪽 chip을 누르면 읽는다: 맡긴 글, 근거 링크, 보낸 session. */
@@ -601,11 +601,11 @@ export interface AgentTabSource {
 
 /**
  * Agent 탭·앱 공간의 Agent 칸이 agent 하나의 통로를 얻는 함수다. 호스트가 아직 부르는 인자 모양을 그대로
- * 받는다. `assignment`는 agent id(lophn 또는 `agt_…`)이고 place의 `global`은 home이다.
+ * 받는다. `assignment`는 agent id(lophn 또는 `agt_…`)이고 workspace의 `global`은 home이다.
  */
 export type AgentTabSourceFactory = (agent: {
   readonly assignment: string;
-  readonly place: {
+  readonly workspace: {
     readonly kind: "global" | "project" | "app";
     readonly id: string;
   };

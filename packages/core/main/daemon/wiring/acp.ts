@@ -13,7 +13,7 @@ import {
   acpSnapshot,
 } from "../../../../protocol/acp/mod.ts";
 import { agentCallRead } from "../../../../protocol/lophn-agent/calls.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   messageBody,
@@ -79,7 +79,7 @@ const ACP_CONTEXT: AuthenticatedContext = {
       turnBody.name,
       toolCallList.name,
       toolCallRead.name,
-      placeSessionRead.name,
+      workspaceSessionRead.name,
       agentRead.name,
       agentCallRead.name,
       rewindList.name,

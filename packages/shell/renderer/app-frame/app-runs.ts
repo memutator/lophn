@@ -1,5 +1,5 @@
-// 앱 place의 Logs 목록 줄. run 기록(`AppSpace.runs`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
-// 이 앱 place에서 돈 agent run(그 agent가 앱 agent select에 있을 때). 다른 place의 run은 그 place 몫이다.
+// 앱 workspace의 Logs 목록 줄. run 기록(`AppSpace.runs`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
+// 이 앱 workspace에서 돈 agent run(그 agent가 앱 agent select에 있을 때). 다른 workspace의 run은 그 workspace 몫이다.
 // run event가 계약에 없어서, 목록을 열 때와 열려 있는 동안 session 상태(`useSessions()`)가 바뀔 때마다 다시 읽는다.
 import { useEffect, useMemo, useState } from "react";
 import { t } from "@lophn/i18n";
@@ -53,7 +53,7 @@ export function useAppRuns(
           agents.map(async (agent) => {
             const sessionsRead = await agentViewSource({
               assignment: agent.assignment,
-              place: { kind: "app", id: app },
+              workspace: { kind: "app", id: app },
             }).sessions();
             if (!sessionsRead.ok) return;
             for (const entry of sessionsRead.value) {
@@ -94,7 +94,8 @@ export function useAppRuns(
             : [];
         }
         const target = record.target.agent;
-        const atApp = target.place?.kind === "app" && target.place.id === app;
+        const atApp =
+          target.workspace?.kind === "app" && target.workspace.id === app;
         const agent = atApp ? byId.get(target.agent) : undefined;
         if (agent === undefined) return [];
         return [

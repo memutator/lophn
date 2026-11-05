@@ -5,10 +5,10 @@ import {
   type McpServer,
   type McpTool,
   type ModelChoice,
-  type Place,
-  type PlaceKind,
-  placeKindOf,
-  placeSessionRead,
+  type Workspace,
+  type WorkspaceKind,
+  workspaceKindOf,
+  workspaceSessionRead,
   projectModelRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
@@ -19,7 +19,7 @@ import {
   type ResolvedAgent,
 } from "./resolve.ts";
 
-// turn을 준비할 때 resolved agent를 만드는 길이다. session(agent id와 place, 고른 model), agent 정의,
+// turn을 준비할 때 resolved agent를 만드는 길이다. session(agent id와 workspace, 고른 model), agent 정의,
 // project 층 model을 core의 읽기 route로 모은다. 합치는 규칙은 agents의 resolveAgent다.
 
 export type CannotStart = {
@@ -47,16 +47,16 @@ export async function resolveTurnAgent(
   input: {
     session: string;
     skills: readonly AvailableSkill[];
-    placeTools(kind: PlaceKind): readonly string[];
+    workspaceTools(kind: WorkspaceKind): readonly string[];
     // 연결할 수 있는 MCP tool이다. 정의가 서버를 통째로 끈 이름을 먼저 알려 그 서버는 연결하지 않게 한다.
     mcp(
       off: ReadonlySet<string>,
-      place: Place | null,
+      workspace: Workspace | null,
       servers?: readonly McpServer[],
     ): Promise<readonly McpTool[]>;
   },
 ): Promise<Result<TurnAgent>> {
-  const sessionRecord = await readOf(machine, placeSessionRead, {
+  const sessionRecord = await readOf(machine, workspaceSessionRead, {
     session: input.session as never,
   });
   if (!sessionRecord.ok) return sessionRecord;
@@ -65,7 +65,7 @@ export async function resolveTurnAgent(
 
   const read = await readOf(machine, agentRead, {
     agent,
-    ...(session.place === null ? {} : { place: session.place }),
+    ...(session.workspace === null ? {} : { workspace: session.workspace }),
   });
   if (!read.ok) {
     return read.error.code === "not_found"
@@ -76,15 +76,19 @@ export async function resolveTurnAgent(
     return cannot("configuration_unavailable", "agent_invalid");
   }
 
-  const place = session.place;
-  const kind = placeKindOf(place);
+  const workspace = session.workspace;
+  const kind = workspaceKindOf(workspace);
   const definition = read.value.definition as AgentFileDefinition | null;
   const serversOff = new Set(
     (definition?.mcp_off ?? [])
       .filter((entry) => entry.original_tool === undefined)
       .map((entry) => entry.server_name),
   );
-  const mcp = await input.mcp(serversOff, place, definition?.mcp_servers ?? []);
+  const mcp = await input.mcp(
+    serversOff,
+    workspace,
+    definition?.mcp_servers ?? [],
+  );
 
   const effective = read.value.effective.model;
   const globalModel: ModelChoice | null =
@@ -93,9 +97,9 @@ export async function resolveTurnAgent(
       : null;
 
   let projectModel: ModelChoice | null = null;
-  if (place?.kind === "project") {
+  if (workspace?.kind === "project") {
     const project = await readOf(machine, projectModelRead, {
-      project: place.id,
+      project: workspace.id,
     });
     if (!project.ok) return project;
     projectModel = project.value.model;
@@ -103,13 +107,13 @@ export async function resolveTurnAgent(
 
   const resolved = await resolveAgent({
     agent,
-    place,
+    workspace,
     called_from: session.called_from,
     definition,
     global_model: globalModel,
     project_model: projectModel,
     session_model: session.model_selection,
-    tools: input.placeTools(kind),
+    tools: input.workspaceTools(kind),
     environment: {
       skills: input.skills,
       mcp,

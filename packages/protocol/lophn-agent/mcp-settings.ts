@@ -4,7 +4,11 @@ import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
-import { agentIdSchema, placeOutputSchema, placeSchema } from "./places.ts";
+import {
+  agentIdSchema,
+  workspaceOutputSchema,
+  workspaceSchema,
+} from "./workspaces.ts";
 import { skillNameSchema, SKILLS_OFF_MAX } from "./skill-settings.ts";
 
 const nonempty = z.string().regex(/\S/);
@@ -17,7 +21,7 @@ const absolutePath = z.string().regex(/^(\/|[A-Za-z]:\\).+/);
 // 아니면 external이다. credential은 `secrets.json`의 이름 참조다: 값은 보호 입력 창을 거쳐 `secrets/put`으로만 들어오고
 // 설정 파일에는 이름만 남는다. 이름은 `mcp.`로 시작해야 한다(보통 `mcp.<global 또는 project id>.<서버>`). 설정이
 // `provider.`나 OAuth token(`mcp-oauth.`)을 가리켜 그 값이 MCP URL로 가지 않게 한다. OAuth token은 core가 서버
-// 소유자(place 또는 agent)와 이름으로 정한 `mcp-oauth.` 이름에 둔다.
+// 소유자(workspace 또는 agent)와 이름으로 정한 `mcp-oauth.` 이름에 둔다.
 const secretCredentialSchema = z.strictObject({
   secret: secretNameSchema.startsWith("mcp."),
 });
@@ -84,7 +88,7 @@ export const mcpServerSchema = z.discriminatedUnion("transport", [
 ]);
 export type McpServer = z.infer<typeof mcpServerSchema>;
 
-const mcpAuthPlaceSchema = placeSchema.nullable();
+const mcpAuthWorkspaceSchema = workspaceSchema.nullable();
 
 // MCP OAuth 2.1의 시작 입구다.
 // 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
@@ -100,8 +104,8 @@ export const mcpAuthBeginInputSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   // 서버가 등록된 자리다. 전역 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
   // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다).
-  place: mcpAuthPlaceSchema,
-  // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다. place와 둘 다 있으면 거절이다.
+  workspace: mcpAuthWorkspaceSchema,
+  // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다. workspace와 둘 다 있으면 거절이다.
   agent: agentIdSchema.nullable(),
   // 사람이 등록한 client_id다(동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).
   client_id: z.string().min(1).max(200),
@@ -139,7 +143,7 @@ export const mcpAuthBegin = defineMemory({
 export const mcpAuthCompleteInputSchema = z.strictObject({
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   // 시작이 받은 소유자와 같다: 서버가 등록된 자리(전역은 null) 또는 agent 정의.
-  place: mcpAuthPlaceSchema,
+  workspace: mcpAuthWorkspaceSchema,
   agent: agentIdSchema.nullable(),
   // 사람 credential의 loopback callback port다.
   callback_port: z.number().int().positive(),
@@ -194,7 +198,7 @@ export const mcpAuthStateInputSchema = z.strictObject({
     .array(
       z.strictObject({
         name: mcpAuthServerName,
-        place: mcpAuthPlaceSchema,
+        workspace: mcpAuthWorkspaceSchema,
         // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다.
         agent: agentIdSchema.nullable(),
       }),
@@ -205,7 +209,7 @@ const mcpAuthStateOutputSchema = z.strictObject({
   servers: z.array(
     z.strictObject({
       name: mcpAuthServerName,
-      place: placeOutputSchema.nullable(),
+      workspace: workspaceOutputSchema.nullable(),
       agent: agentIdSchema.nullable(),
       state: mcpAuthStateSchema,
       reason: mcpAuthFailureSchema.nullable(),
@@ -228,7 +232,7 @@ export const mcpAuthState = defineMemory({
 // 않고 cancelled가 false다. 이미 보관한 token은 건드리지 않는다.
 export const mcpAuthCancelInputSchema = z.strictObject({
   name: mcpAuthServerName,
-  place: mcpAuthPlaceSchema,
+  workspace: mcpAuthWorkspaceSchema,
   // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다.
   agent: agentIdSchema.nullable(),
 });
@@ -249,7 +253,7 @@ export const mcpAuthCancel = defineMemory({
 // Grants 화면이 서버별 MCP tool 목록(원래 이름, 설명, effect)을 읽는 입구다. 부르는 쪽은 사람이다.
 // MCP 연결은 agent runtime child가 쥐고 core module graph에는 외부 연결이 없어서, core는 요청을 대기열에 놓고
 // runtime이 `request-take`·`request-done`으로 가져가 답한다(발급자 요청 `issuer-requests.ts`와 같은 길). 그 대기열 상태를 쥔 memory
-// route라서 reader Worker의 read로는 못 한다. place는 Grants를 여는 agent의 자리다: project면 전역 서버에 그 project
+// route라서 reader Worker의 read로는 못 한다. workspace는 Grants를 여는 agent의 자리다: project면 전역 서버에 그 project
 // 층을 더한 목록이고 app이거나 null이면 전역 서버만이다. agent는 Grants를 여는 agent의 id(lophn 포함)다: 그 agent 정의 층의
 // 서버를 마지막 층으로 더한다. 정의 층을 더하지 않을 때 null이다.
 //
@@ -277,7 +281,7 @@ export const mcpToolsList = defineMemory({
   method: "list",
   name: "ListMcpTools",
   input: z.strictObject({
-    place: mcpAuthPlaceSchema,
+    workspace: mcpAuthWorkspaceSchema,
     agent: agentIdSchema.nullable(),
   }),
   output: z.strictObject({ servers: z.array(mcpToolServerSchema) }),
@@ -286,7 +290,7 @@ export const mcpToolsList = defineMemory({
 });
 
 // runtime이 core 대신 서버에 연결해 tool 목록을 읽는 machine 입구다. 사람이 `ListMcpTools`를 부르면 core가 요청을
-// 작업 메모리 대기열에 놓고, runtime이 가져가 place가 정하는 서버 집합을 읽은 뒤 `FinishMcpToolsRequest`로 답한다.
+// 작업 메모리 대기열에 놓고, runtime이 가져가 workspace가 정하는 서버 집합을 읽은 뒤 `FinishMcpToolsRequest`로 답한다.
 // 보낼 요청이 없으면 null이다.
 export const mcpToolsRequestTake = defineMemory({
   resource: "agent-mcp-tools",
@@ -297,7 +301,7 @@ export const mcpToolsRequestTake = defineMemory({
     request: z
       .strictObject({
         id: z.string().min(1).max(64),
-        place: mcpAuthPlaceSchema,
+        workspace: mcpAuthWorkspaceSchema,
         agent: agentIdSchema.nullable(),
       })
       .nullable(),

@@ -1,4 +1,4 @@
-// 왼쪽 sidebar의 Inbox·Jobs overlay와 두 탭(Jobs, Inbox). 진짜 Desktop(Home place)을 mock 데이터로 그리고, overlay와 dialog는 mount 뒤에
+// 왼쪽 sidebar의 Inbox·Jobs overlay와 두 탭(Jobs, Inbox). 진짜 Desktop(Home workspace)을 mock 데이터로 그리고, overlay와 dialog는 mount 뒤에
 // 사람이 하듯이 눌러 연다.
 import type { ReactNode } from "react";
 
@@ -61,7 +61,7 @@ export const overlaysArea: Area = {
       id: "jobs-tab",
       title: "Jobs tab · list",
       description:
-        "Jobs 탭. 모든 place의 job을 한곳에 모은 목록이다(job 다섯, 하나는 꺼짐). 줄에는 제목, 주기 글, 다음 차례, 할 일 요약, 만든 agent, 놓친 차례 정책, 마지막 결과가 있고 오른쪽 끝 고정 열에 켜고 끄는 switch, Edit, Delete, 기록 토글이 있다. 어느 place에서든 같은 탭이고 desk에 하나다.",
+        "Jobs 탭. 모든 workspace의 job을 한곳에 모은 목록이다(job 다섯, 하나는 꺼짐). 줄에는 제목, 주기 글, 다음 차례, 할 일 요약, 만든 agent, 놓친 차례 정책, 마지막 결과가 있고 오른쪽 끝 고정 열에 켜고 끄는 switch, Edit, Delete, 기록 토글이 있다. 어느 workspace에서든 같은 탭이고 desk에 하나다.",
       render: () => <MockDesktop homeTabs={[JOBS_TAB]} />,
     },
     {

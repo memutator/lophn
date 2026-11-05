@@ -1,4 +1,4 @@
-// Jobs 탭 본문. 모든 place의 job을 한곳에 모아 보이고, 켜고 끄기, 제목·주기·놓친 차례 정책
+// Jobs 탭 본문. 모든 workspace의 job을 한곳에 모아 보이고, 켜고 끄기, 제목·주기·놓친 차례 정책
 // 고치기, 지우기, 줄마다 기록 펴기를 한다. job을 만드는 단추는 없다(agent가 만든다).
 // 쓰기는 바로 보내고, 성공해도 실패해도 목록을 다시 읽는다. 저장하지 못하면 탭 위쪽 toast로 알린다.
 import { useCallback, useRef, useState } from "react";

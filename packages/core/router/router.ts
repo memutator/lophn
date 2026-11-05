@@ -17,9 +17,9 @@ import {
 } from "../../protocol/lophn-agent/call-policy.ts";
 import type {
   AgentAddress,
-  AgentAtPlace,
+  AgentAtWorkspace,
   AgentId,
-} from "../../protocol/lophn-agent/places.ts";
+} from "../../protocol/lophn-agent/workspaces.ts";
 import {
   addressingOf,
   calId,
@@ -109,7 +109,7 @@ export function createRouter(deps: RouterDeps): Router {
   function open(
     tx: Tx,
     from: CallFrom,
-    agent: AgentAtPlace,
+    agent: AgentAtWorkspace,
     to: CallTarget,
   ): Result<Resolved> {
     const opened = directory.open(tx, agent, from);
@@ -292,10 +292,10 @@ export function createRouter(deps: RouterDeps): Router {
     return null;
   }
 
-  // agent가 보낸 call만 place 정책과 agent 정책으로 거른다. refusal과 같이 err로 돌려 tx가 되돌아간다.
+  // agent가 보낸 call만 workspace 정책과 agent 정책으로 거른다. refusal과 같이 err로 돌려 tx가 되돌아간다.
   function policyRefusal(
     sender: string,
-    to: AgentAtPlace,
+    to: AgentAtWorkspace,
   ): Result<RouteResult> | null {
     const from = directory.find(sesId(sender));
     if (from === null) {

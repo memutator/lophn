@@ -3,10 +3,10 @@ import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   type AgentAddress,
-  type AgentAtPlace,
+  type AgentAtWorkspace,
   messageBody,
-  placeSessionOpen,
-  placeSessionRead,
+  workspaceSessionOpen,
+  workspaceSessionRead,
   receivedMessageList,
   receivedMessageRead,
   sendMessage,
@@ -30,8 +30,8 @@ import type {
 } from "../../../../protocol/server/mod.ts";
 import {
   createSessionDirectory,
-  placeDepsOf,
-} from "../../../lophn-agent/places/mod.ts";
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
 import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import {
@@ -51,10 +51,10 @@ const RUNS_CONTEXT: AuthenticatedContext = {
   actor: "user",
   scope: {
     operations: [
-      placeSessionOpen.name,
+      workspaceSessionOpen.name,
       sendMessage.name,
       stopTurn.name,
-      placeSessionRead.name,
+      workspaceSessionRead.name,
       receivedMessageRead.name,
       receivedMessageList.name,
       turnRead.name,
@@ -128,7 +128,7 @@ export const runsWiring: WiringFactory = () => {
         resolve(address: AgentAddress) {
           const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
             return createSessionDirectory({
-              ...placeDepsOf(lookup.sql),
+              ...workspaceDepsOf(lookup.sql),
               publish: () => {},
               sql: () => lookup.sql,
             }).resolveAddress(address);
@@ -136,8 +136,8 @@ export const runsWiring: WiringFactory = () => {
           return Promise.resolve(found.ok ? found.value : found);
         },
         async agentOf(session: Id<"ses">) {
-          const found = await read<Output<typeof placeSessionRead>>(
-            placeSessionRead,
+          const found = await read<Output<typeof workspaceSessionRead>>(
+            workspaceSessionRead,
             { session },
           );
           if (!found.ok) return found;
@@ -150,14 +150,14 @@ export const runsWiring: WiringFactory = () => {
           }
           return ok({
             agent: s.agent,
-            place: s.place,
+            workspace: s.workspace,
           });
         },
-        async open(agent: AgentAtPlace, session: Id<"ses">) {
-          const opened = await command(RUNS_CONTEXT, placeSessionOpen, {
+        async open(agent: AgentAtWorkspace, session: Id<"ses">) {
+          const opened = await command(RUNS_CONTEXT, workspaceSessionOpen, {
             id: session,
             agent: agent.agent,
-            place: agent.place,
+            workspace: agent.workspace,
           });
           return opened.ok ? ok(undefined) : opened;
         },
@@ -225,7 +225,7 @@ export const runsWiring: WiringFactory = () => {
       const tools = {
         resolveApp(app: string) {
           const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
-            placeDepsOf(lookup.sql).apps.appByName(app),
+            workspaceDepsOf(lookup.sql).apps.appByName(app),
           );
           if (!found.ok) return Promise.resolve(found);
           return Promise.resolve(
@@ -259,13 +259,13 @@ export const runsWiring: WiringFactory = () => {
                 flow: {
                   instance: origin.instance,
                   agent: origin.creator.agent,
-                  place: origin.creator.place,
+                  workspace: origin.creator.workspace,
                 },
               },
             );
           }
           // job이 연 run은 program caller로, instance가 연 run은 flow caller로 부른다.
-          // flow 자격의 agent·place는 instance의 project place session이다.
+          // flow 자격의 agent·workspace는 instance의 project workspace session이다.
           return origin === undefined
             ? ctx.appCallPath.call(
                 { ...call, caller: { kind: "person", view_session: run } },

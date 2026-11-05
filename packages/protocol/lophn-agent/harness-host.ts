@@ -5,7 +5,7 @@ import { seqSchema } from "../base/values.ts";
 import { extensionSettingKey } from "../extensions/manifest.ts";
 import { HARNESS_RUNTIMES } from "./agent-values.ts";
 import { callFromOutputSchema, callReplySchema } from "./calls.ts";
-import { placeOutputSchema } from "./places.ts";
+import { workspaceOutputSchema } from "./workspaces.ts";
 import { turnOutcomeSchema } from "./turn-values.ts";
 
 // shell main의 harness host가 core를 부르는 길이다. host는 사람 token(actor user)으로 부르고, memory route라서
@@ -33,7 +33,7 @@ const errors = [
 const takenInputSchema = z.strictObject({
   session: idSchema("ses"),
   agent: z.string().min(1),
-  place: placeOutputSchema.nullable(),
+  workspace: workspaceOutputSchema.nullable(),
   harness: harnessRuntimeSchema,
   // 이어 갈 harness의 session id. 첫 turn이면 null이다.
   external_session_id: z.string().min(1).nullable(),

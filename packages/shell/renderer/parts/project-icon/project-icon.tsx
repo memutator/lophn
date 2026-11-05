@@ -1,4 +1,4 @@
-// project icon. 사람이 올린 이미지만 있다(project는 선언한 icon이 없다). 표식 자리(런처 카드, place
+// project icon. 사람이 올린 이미지만 있다(project는 선언한 icon이 없다). 표식 자리(런처 카드, workspace
 // switcher)는 useProjectIcon으로 읽고, 올리는 자리는 ProjectIconField 하나다.
 import { createContext, useContext } from "react";
 
@@ -16,7 +16,7 @@ import {
   useIconSrc,
 } from "../icon-upload/icon-reader.ts";
 import { IconUpload } from "../icon-upload/icon-upload.tsx";
-import { PlaceMark } from "../place-mark/place-mark.tsx";
+import { WorkspaceMark } from "../workspace-mark/workspace-mark.tsx";
 import { useEffect, useState } from "react";
 
 export interface ProjectIconsDeps {
@@ -88,7 +88,7 @@ export function useProjectIcon(project: string | undefined) {
 }
 
 /** project 표식. 올린 icon이 있으면 그 이미지, 없으면 첫 글자와 색이다. */
-export function ProjectPlaceMark({
+export function ProjectWorkspaceMark({
   id,
   name,
   icon,
@@ -101,7 +101,7 @@ export function ProjectPlaceMark({
   const uploaded = useProjectIcon(icon === undefined ? id : undefined);
   const src = icon ?? uploaded;
   return (
-    <PlaceMark
+    <WorkspaceMark
       kind="project"
       id={id}
       name={name}
@@ -148,7 +148,7 @@ export function ProjectIconField({
   return (
     <IconUpload
       preview={
-        <PlaceMark
+        <WorkspaceMark
           kind="project"
           id={project}
           name={name}

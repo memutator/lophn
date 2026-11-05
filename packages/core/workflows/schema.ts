@@ -11,7 +11,7 @@ const list = (values: readonly string[]) =>
 // - state_seq는 이 표 안에서 이어 센다(기록 event를 남기지 않는다).
 // - 끝난 instance를 막는 trigger는 없다. ended는 기록일 뿐이라 running으로 돌아올 수 있고,
 //   stopped의 넘기기는 command가 거절한다.
-// - participants는 `{ agent, place? } | { kind: "human" } | { kind: "harness" }` JSON이다.
+// - participants는 `{ agent, workspace? } | { kind: "human" } | { kind: "harness" }` JSON이다.
 // - 줄은 기록이라 고치거나 지우지 않는다. body는 started·report의 글, data는 kind별 나머지 칸이다.
 export const workflowsSchemaSteps: readonly SchemaStep[] = [
   {
@@ -52,6 +52,22 @@ export const workflowsSchemaSteps: readonly SchemaStep[] = [
     BEGIN SELECT RAISE(ABORT, 'a workflow line does not change'); END;
     CREATE TRIGGER workflow_lines_stay BEFORE DELETE ON workflow_lines
     BEGIN SELECT RAISE(ABORT, 'a workflow line is not deleted'); END;
+  `,
+  },
+  // place를 workspace로 부르게 됐다. 참가자 `{ agent, place }`의 key를 옮긴다.
+  {
+    id: "workflows.workspace",
+    sql: `
+    UPDATE workflow_instances SET participants = (
+      SELECT json_group_object(key, CASE
+        WHEN json_type(value, '$.place') IS NULL THEN json(value)
+        ELSE json_set(json_remove(value, '$.place'), '$.workspace', json(value -> '$.place'))
+      END)
+      FROM json_each(workflow_instances.participants)
+    ) WHERE EXISTS (
+      SELECT 1 FROM json_each(workflow_instances.participants)
+      WHERE json_type(value, '$.place') IS NOT NULL
+    );
   `,
   },
 ];

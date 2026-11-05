@@ -72,7 +72,7 @@ Package를 쓴다.
 - `lophn.ts`: 앱의 정본 선언(화면·operation·command·skill·고정 SDK 의존).
   코드를 바꾸기 전에 먼저 바꾼다. operation(화면과 앱 자신이 쓰는 동작)은
   `{name, title, effect}`뿐이고 agent는 못 본다. command(agent·다른 앱이 부르는
-  바깥 명령)는 `public`이 아니면 이 앱 place에서만 보인다. 앱 icon이 필요하면 `icon`
+  바깥 명령)는 `public`이 아니면 이 앱 workspace에서만 보인다. 앱 icon이 필요하면 `icon`
   (bundle 안 경로, svg·png·webp, 64 KiB 이하)을 선언한다. lophn이 탭과 앱 목록에
   그 이미지를 보인다.
 - `main.ts`: 진입. handler 등록만 한다. 잡히지 않은 예외는 lophn 진입점이 앱

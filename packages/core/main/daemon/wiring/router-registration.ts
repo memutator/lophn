@@ -6,8 +6,8 @@ import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import {
   createReceivedRecorder,
   createSessionDirectory,
-  placeDepsOf,
-} from "../../../lophn-agent/places/mod.ts";
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
 import {
   createLophnInputTransport,
   interruptRunningTurns,
@@ -27,9 +27,9 @@ import { AGENT_EVENT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 
 const environment: RouterEnvironment = {
   deps(view, who) {
-    const places = placeDepsOf(view.sql);
+    const workspaces = workspaceDepsOf(view.sql);
     const directory = createSessionDirectory({
-      ...places,
+      ...workspaces,
       // 새 session의 SessionStarted는 commit 뒤에 Bus로 낸다.
       publish: (event) => view.port(afterCommit).push(AGENT_EVENT_TOPIC, event),
       sql: () => view.sql,

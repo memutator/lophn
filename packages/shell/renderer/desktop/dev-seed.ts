@@ -7,10 +7,10 @@ import {
 import type { WorkspaceSource } from "../workspace/source.ts";
 import {
   createLayoutSource,
-  fakePlaceLayoutBridge,
+  fakeWorkspaceLayoutBridge,
 } from "../shell/layout-source.ts";
 import {
-  defaultPlaceLayout,
+  defaultWorkspaceLayout,
   MAIN_DESK,
   openTab,
   selectTab,
@@ -110,8 +110,8 @@ function seededEditor(): EditorDeps {
 const FAKE = fakeWorkspaceSource();
 
 // 어느 project를 열어도 같은 처음 배치다.
-const SEED_LAYOUT_BRIDGE = fakePlaceLayoutBridge(
-  updateDesk(defaultPlaceLayout(), MAIN_DESK, (desk) =>
+const SEED_LAYOUT_BRIDGE = fakeWorkspaceLayoutBridge(
+  updateDesk(defaultWorkspaceLayout(), MAIN_DESK, (desk) =>
     selectTab(
       [
         { key: "doc_notes", kind: "document_editor", title: "notes" },

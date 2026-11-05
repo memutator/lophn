@@ -1,9 +1,9 @@
 // 세 질문
-// - contract: boundary `agent-sessions`(agent·place는 열 때 한 곳에서 검사한다, place를 보관해도 session은 안 끝난다, fork는 이력만 복사한다),
-//   `router`(보관된 place는 closed로 보인다).
-// - 현실적 회귀: project 보관이 project place session을 끝내거나 보관 중에도 message가 접수되는 것, 꺼낸 뒤 session이 이어지지 않는 것,
-//   fork가 rewind로 숨긴 구간을 되살리는 것, call 길로 열 때만 place 검사가 빠지는 것.
-// - 왜 지금 test로 못 잡나: places_test와 session unit은 한 module 안의 SQL만 본다. 보관(projects) → accepting(places) →
+// - contract: boundary `agent-sessions`(agent·workspace는 열 때 한 곳에서 검사한다, workspace를 보관해도 session은 안 끝난다, fork는 이력만 복사한다),
+//   `router`(보관된 workspace는 closed로 보인다).
+// - 현실적 회귀: project 보관이 project workspace session을 끝내거나 보관 중에도 message가 접수되는 것, 꺼낸 뒤 session이 이어지지 않는 것,
+//   fork가 rewind로 숨긴 구간을 되살리는 것, call 길로 열 때만 workspace 검사가 빠지는 것.
+// - 왜 지금 test로 못 잡나: workspaces_test와 session unit은 한 module 안의 SQL만 본다. 보관(projects) → accepting(workspaces) →
 //   입력함·Router(router) → 새 입력의 turn이 이어지는 것은 module과 process를 건너야 이어진다.
 //
 // archive-call·delete-call 행(contract: `agent-sessions`의 archive·지움은 한 tx, `router`의 받은 call은 session의 끝으로 닫힌다, `approvals`의
@@ -13,11 +13,11 @@
 // - 왜 지금 test로 못 잡나: lifecycle unit은 한 tx 안의 SQL만 본다. 도는 turn(child)과 허락 대기(core 메모리)와 보낸 session의 새 입력
 //   (Router → 입력함 → 다음 turn)이 같이 맞아야 보인다.
 // - 이 두 행은 fake 대답이 4개다(README 정한 것 11의 상한 3을 넘는 예외). session 둘이 한 flow에서 각자 turn을 돌려야 call이 열리고
-//   닫힌다(보낸 home lophn 3, 받는 project place lophn 1). 두 session이 같은 시각에 model을 부르므로 place 종류 전용 명령
+//   닫힌다(보낸 home lophn 3, 받는 project workspace lophn 1). 두 session이 같은 시각에 model을 부르므로 workspace 종류 전용 명령
 //   (`lophn` tool 설명의 명령 목록)으로 줄을 가른다.
 //
 // project-tools-run 행
-// - contract: boundary `agent-tools`·`run-loop`(runtime child에서 tool이 돌고 place 종류의 operation 상한이 그 목록의 tool을
+// - contract: boundary `agent-tools`·`run-loop`(runtime child에서 tool이 돌고 workspace 종류의 operation 상한이 그 목록의 tool을
 //   막지 않는다), `agent-tool-spi`(상한은 tool 이름이 아니라 route 이름 기준이다), `agents`(agent를 만드는 tool은 할당을 주지 못한다).
 // - 현실적 회귀: tool이 route 상한에 막혀 turn이 실패하는 것(두 번 난 일), 이름이 route와 다른 command tool
 //   (`agent.create` → `CreateAgent`)이 막히는 것, web_fetch가 loopback으로 나가는 것, 만드는 tool 입력에
@@ -40,10 +40,10 @@ import {
   forkSession,
   LOPHN_AGENT_ID,
   messageBody,
-  type Place,
-  placeSessionList,
-  placeSessionOpen,
-  placeSessionRead,
+  type Workspace,
+  workspaceSessionList,
+  workspaceSessionOpen,
+  workspaceSessionRead,
   receivedMessageList,
   sendMessage,
   sessionRewind,
@@ -57,7 +57,7 @@ import { fieldsOf } from "../../packages/cli/parser.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   until,
@@ -79,16 +79,16 @@ import { toolNames } from "../support/fake-server/probe.ts";
 async function newProject(
   core: Core,
   name: string,
-): Promise<{ project: string; place: Place }> {
+): Promise<{ project: string; workspace: Workspace }> {
   const folder = `${core.run.work}/${name}`;
   await mkdir(folder);
   const { project } = await openProject(core, folder, name);
-  return { project, place: { kind: "project", id: project } };
+  return { project, workspace: { kind: "project", id: project } };
 }
 
-// project place의 lophn session을 연다.
-const openAt = (core: Core, place: Place) =>
-  openPlaceSession(core, LOPHN_AGENT_ID, place);
+// project workspace의 lophn session을 연다.
+const openAt = (core: Core, workspace: Workspace) =>
+  openWorkspaceSession(core, LOPHN_AGENT_ID, workspace);
 
 // 출력이 2 MiB가 넘어 12 KiB씩 상한이 걸린다. 표 안에 `|`를 쓰지 않으려고 pipe가 없다.
 const SHELL = "echo hi > made.txt; seq 1 400000";
@@ -188,28 +188,28 @@ async function bodiesOf(core: Core, session: string): Promise<string[]> {
   return out;
 }
 
-// 받는 project place session은 보낸 쪽 call이 열 때까지 없다. list를 신호로 읽는다.
-async function waitReceiver(core: Core, place: Place): Promise<string> {
-  return await until("받는 project place session이 열림", async () => {
-    const { sessions } = await core.call(placeSessionList, {
+// 받는 project workspace session은 보낸 쪽 call이 열 때까지 없다. list를 신호로 읽는다.
+async function waitReceiver(core: Core, workspace: Workspace): Promise<string> {
+  return await until("받는 project workspace session이 열림", async () => {
+    const { sessions } = await core.call(workspaceSessionList, {
       agent: LOPHN_AGENT_ID,
-      place,
+      workspace,
     });
     return sessions[0]?.id;
   });
 }
 
-// 허락을 기다리는 project place session에 home의 lophn이 보낸 call이 열려 있는 상태를 만든다. 늦은 허락을 보낼 수 있게 request도 돌려준다.
+// 허락을 기다리는 project workspace session에 home의 lophn이 보낸 call이 열려 있는 상태를 만든다. 늦은 허락을 보낼 수 있게 request도 돌려준다.
 async function openCallWaitingPermission(
   core: Core,
   fake: FakeServer,
   name: string,
 ) {
   fake.reset();
-  const { place } = await newProject(core, name);
+  const { workspace } = await newProject(core, name);
   const ask = await shellAsk(`${core.run.work}/${name}`);
   const send = lophnCall("t1", "call send", {
-    to: { agent: "lophn", place: { project: name } },
+    to: { agent: "lophn", workspace: { project: name } },
     reply: "result",
     body: "clean up",
     refs: [],
@@ -237,9 +237,9 @@ async function openCallWaitingPermission(
       !lophnCommands(request).includes("app create") &&
       !lophnCommands(request).includes("release prepare"),
   });
-  const src = await openPlaceSession(core, LOPHN_AGENT_ID);
+  const src = await openWorkspaceSession(core, LOPHN_AGENT_ID);
   await say(core, src, "ask the project");
-  const dst = await waitReceiver(core, place);
+  const dst = await waitReceiver(core, workspace);
   const { request } = await waitPermission(core, dst);
   const [received] = await messagesOf(core, dst);
   return { src, dst, request, call: received!.call!, ask };
@@ -276,7 +276,7 @@ async function rewindMessagesOnly(
   );
 }
 
-test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨다", async (t) => {
+test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 지킨다", async (t) => {
   const run: Run = await createRun();
   let fake: FakeServer | undefined;
   let core: Core | undefined;
@@ -287,14 +287,14 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
     const c = core;
     const f = fake;
 
-    // place-archive-holds-input
+    // workspace-archive-holds-input
     await t.test(
       "person-message: 보관 중에는 입력만 막히고 session은 열려 있어 꺼내면 이어서 받는다",
       async () => {
         f.reset();
         f.script([textReply("ok")]);
-        const { project, place } = await newProject(c, "person-message");
-        const session = await openAt(c, place);
+        const { project, workspace } = await newProject(c, "person-message");
+        const session = await openAt(c, workspace);
 
         await setArchived(c, project, true);
         const refused = await trySay(c, session, "while archived");
@@ -312,19 +312,21 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
             .map((item) => item.id),
           [message],
         );
-        const { session: read } = await c.call(placeSessionRead, { session });
+        const { session: read } = await c.call(workspaceSessionRead, {
+          session,
+        });
         assert.deepStrictEqual(read.lifecycle, "open");
         assert.deepStrictEqual(f.journal().length, 1);
       },
     );
 
     await t.test(
-      "agent-call: 보관된 place의 session에 보낸 call은 closed고 session은 안 끝난다",
+      "agent-call: 보관된 workspace의 session에 보낸 call은 closed고 session은 안 끝난다",
       async () => {
         f.reset();
-        const { project, place } = await newProject(c, "agent-call");
-        const target = await openAt(c, place);
-        const caller = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const { project, workspace } = await newProject(c, "agent-call");
+        const target = await openAt(c, workspace);
+        const caller = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         f.script([
           {
             reply: {
@@ -341,7 +343,7 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
 
         assert.ok(toolResultOf(f, "t1").includes("closed"));
         assert.deepStrictEqual(await messagesOf(c, target), []);
-        const { session: read } = await c.call(placeSessionRead, {
+        const { session: read } = await c.call(workspaceSessionRead, {
           session: target,
         });
         assert.deepStrictEqual(read.lifecycle, "open");
@@ -354,8 +356,8 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
       async () => {
         f.reset();
         f.script([textReply("a1"), textReply("a2"), textReply("a3")]);
-        const { place } = await newProject(c, "fork-at-point");
-        const session = await openAt(c, place);
+        const { workspace } = await newProject(c, "fork-at-point");
+        const session = await openAt(c, workspace);
         for (const [index, text] of ["one", "two", "three"].entries()) {
           await say(c, session, text);
           await waitTurnEnd(c, session, index);
@@ -385,15 +387,15 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
           [null, null, null],
         );
         assert.deepStrictEqual(await ownTurnsOf(c, forked.id), []);
-        const { session: original } = await c.call(placeSessionRead, {
+        const { session: original } = await c.call(workspaceSessionRead, {
           session,
         });
-        const { session: copy } = await c.call(placeSessionRead, {
+        const { session: copy } = await c.call(workspaceSessionRead, {
           session: forked.id,
         });
-        // fork는 같은 agent, 같은 place다.
+        // fork는 같은 agent, 같은 workspace다.
         assert.deepStrictEqual(copy.agent, original.agent);
-        assert.deepStrictEqual(copy.place, original.place);
+        assert.deepStrictEqual(copy.workspace, original.workspace);
         assert.deepStrictEqual(copy.lifecycle, "open");
       },
     );
@@ -403,8 +405,8 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
       async () => {
         f.reset();
         f.script([textReply("a1"), textReply("a2"), textReply("a3")]);
-        const { place } = await newProject(c, "fork-skips-rewound");
-        const session = await openAt(c, place);
+        const { workspace } = await newProject(c, "fork-skips-rewound");
+        const session = await openAt(c, workspace);
         await say(c, session, "one");
         await waitTurnEnd(c, session, 0);
         const second = await say(c, session, "two");
@@ -435,25 +437,27 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
     await t.test(
       "archived-project: 보관된 project에는 session을 열 수 없고 꺼내면 열린다",
       async () => {
-        const { project, place } = await newProject(c, "archived-project");
+        const { project, workspace } = await newProject(c, "archived-project");
         await setArchived(c, project, true);
-        const refused = await c.tryCall(placeSessionOpen, {
+        const refused = await c.tryCall(workspaceSessionOpen, {
           id: c.ids.newId("ses"),
           agent: LOPHN_AGENT_ID,
-          place,
+          workspace,
         });
         assert.ok(!refused.ok);
         assert.deepStrictEqual(refused.error.code, "conflict");
-        const none = await c.call(placeSessionList, {
+        const none = await c.call(workspaceSessionList, {
           agent: LOPHN_AGENT_ID,
-          place,
+          workspace,
           archived: "include",
         });
         assert.deepStrictEqual(none.sessions, []);
 
         await setArchived(c, project, false);
-        const session = await openAt(c, place);
-        const { session: read } = await c.call(placeSessionRead, { session });
+        const session = await openAt(c, workspace);
+        const { session: read } = await c.call(workspaceSessionRead, {
+          session,
+        });
         assert.deepStrictEqual(read.lifecycle, "open");
       },
     );
@@ -462,15 +466,16 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
       "unknown-agent: 없는 agent에는 session을 열 수 없다",
       async () => {
         const agent: AgentId = c.ids.newId("agt");
-        const refused = await c.tryCall(placeSessionOpen, {
+        const refused = await c.tryCall(workspaceSessionOpen, {
           id: c.ids.newId("ses"),
           agent,
-          place: null,
+          workspace: null,
         });
         assert.ok(!refused.ok);
         assert.deepStrictEqual(refused.error.code, "not_found");
         assert.deepStrictEqual(
-          (await c.call(placeSessionList, { agent, place: null })).sessions,
+          (await c.call(workspaceSessionList, { agent, workspace: null }))
+            .sessions,
           [],
         );
       },
@@ -483,7 +488,7 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
         await newProject(c, "lophn-scope");
         const folder = `${c.run.work}/lophn-scope`;
         await writeFile(`${folder}/notes.md`, "alpha");
-        const session = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const session = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         f.script([
           {
             reply: {
@@ -529,14 +534,14 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
     );
 
     await t.test(
-      "project-tools-run: project place의 tool이 runtime child에서 돌고 web_fetch는 loopback으로 나가지 못하며 agent를 만드는 tool은 할당을 주지 않는다",
+      "project-tools-run: project workspace의 tool이 runtime child에서 돌고 web_fetch는 loopback으로 나가지 못하며 agent를 만드는 tool은 할당을 주지 않는다",
       async () => {
         f.reset();
-        const { place } = await newProject(c, "project-tools");
+        const { workspace } = await newProject(c, "project-tools");
         const folder = `${c.run.work}/project-tools`;
         await writeFile(`${folder}/pic.png`, PIXEL);
         await writeFile(`${folder}/notes.md`, "notes for the project\n");
-        const session = await openAt(c, place);
+        const session = await openAt(c, workspace);
         const call = (id: string, name: string, args: unknown) => ({
           id,
           name,
@@ -617,7 +622,7 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
           const { src, dst, request, call, ask } =
             await openCallWaitingPermission(c, f, name);
           const [turn] = await ownTurnsOf(c, dst);
-          const { session: current } = await c.call(placeSessionRead, {
+          const { session: current } = await c.call(workspaceSessionRead, {
             session: dst,
           });
           await c.call(
@@ -638,12 +643,14 @@ test("session 열기·보관·fork는 agent와 place, 이력의 규칙을 지킨
               kind: "interrupted",
               reason: "session_ended",
             });
-            const { session } = await c.call(placeSessionRead, {
+            const { session } = await c.call(workspaceSessionRead, {
               session: dst,
             });
             assert.deepStrictEqual(session.lifecycle, "archived");
           } else {
-            const gone = await c.tryCall(placeSessionRead, { session: dst });
+            const gone = await c.tryCall(workspaceSessionRead, {
+              session: dst,
+            });
             assert.ok(!gone.ok && gone.error.code === "not_found");
           }
           // route

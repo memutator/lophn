@@ -5,7 +5,7 @@ import { annotationsGet } from "../../../../protocol/apps/annotation.ts";
 import { messageImagePath } from "../../../../protocol/lophn-agent/message-images.ts";
 import { readOf } from "../../run-loop/core-call.ts";
 import type { ToolContext } from "../tool-context.ts";
-import { fail, fsFail, resolveInPlace } from "./scope.ts";
+import { fail, fsFail, resolveInWorkspace } from "./scope.ts";
 
 const ANNOTATION_PREFIX = "annotation:";
 const ATTACHMENT_PREFIX = "attachment:";
@@ -63,7 +63,7 @@ export async function readImage(
     if (mediaType === undefined) {
       return fail("invalid_input", "image must be png, jpeg, gif or webp");
     }
-    const at = await resolveInPlace(ctx.scope, input.path, "read");
+    const at = await resolveInWorkspace(ctx.scope, input.path, "read");
     if (!at.ok) return at;
     path = at.value.path;
   }

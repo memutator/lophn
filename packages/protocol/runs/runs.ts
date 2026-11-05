@@ -5,10 +5,10 @@ import { atSchema, readCursorSchema, seqSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   agentAddressSchema,
-  agentAtPlaceOutputSchema,
-  agentAtPlaceSchema,
+  agentAtWorkspaceOutputSchema,
+  agentAtWorkspaceSchema,
   agentIdSchema,
-} from "../lophn-agent/places.ts";
+} from "../lophn-agent/workspaces.ts";
 import {
   invocationIdSchema,
   jsonValueSchema,
@@ -36,12 +36,12 @@ export const RUN_FAIL_REASONS = [
 ] as const;
 export type RunFailReason = (typeof RUN_FAIL_REASONS)[number];
 
-// run을 만들 때 기록하는 place. agent run은 그 agent의 place(lophn은 없다), tool run은 그 앱이다.
-export const runPlaceSchema = z.union([
+// run을 만들 때 기록하는 workspace. agent run은 그 agent의 workspace(lophn은 없다), tool run은 그 앱이다.
+export const runWorkspaceSchema = z.union([
   z.strictObject({ project: idSchema("prj") }),
   z.strictObject({ app: idSchema("app") }),
 ]);
-export type RunPlace = z.infer<typeof runPlaceSchema>;
+export type RunWorkspace = z.infer<typeof runWorkspaceSchema>;
 
 const outputSchemaSchema = z.record(z.string(), z.json());
 
@@ -76,9 +76,9 @@ export const runRecordSchema = z
   .object({
     id: idSchema("run"),
     kind: z.enum(RUN_KINDS),
-    // agent: 이름을 푼 (agent, place). tool: 앱과 tool 이름.
+    // agent: 이름을 푼 (agent, workspace). tool: 앱과 tool 이름.
     target: z.union([
-      z.object({ agent: agentAtPlaceOutputSchema }),
+      z.object({ agent: agentAtWorkspaceOutputSchema }),
       z.object({ app: appIdSchema, tool: toolNameSchema }),
     ]),
     session: idSchema("ses").nullable(), // agent만. run이 연 session 또는 --session
@@ -176,8 +176,8 @@ export const runRead = defineRead({
 });
 
 // 새것이 앞이다. 화면이 project sidebar와 앱 공간마다 session event 때 읽고 job이 run을 많이 만들어서,
-// 거르기를 core에서 해 읽기를 작게 둔다. `agent`는 그 agent의 run(place와 상관없다), `place`는 만들 때
-// 기록한 place다(그 place의 agent run과 그 앱의 tool run). 준 칸은 모두 맞아야 한다(AND).
+// 거르기를 core에서 해 읽기를 작게 둔다. `agent`는 그 agent의 run(workspace와 상관없다), `workspace`는 만들 때
+// 기록한 workspace다(그 workspace의 agent run과 그 앱의 tool run). 준 칸은 모두 맞아야 한다(AND).
 export const runList = defineRead({
   resource: "runs",
   method: "list",
@@ -185,7 +185,7 @@ export const runList = defineRead({
   input: z.strictObject({
     session: idSchema("ses").optional(),
     agent: agentIdSchema.optional(),
-    place: runPlaceSchema.optional(),
+    workspace: runWorkspaceSchema.optional(),
     state: z.enum(RUN_STATES).optional(),
     cursor: readCursorSchema.optional(),
   }),
@@ -221,11 +221,11 @@ export const runCancel = defineMemory({
 });
 
 const createTargetSchema = z.union([
-  z.strictObject({ agent: agentAtPlaceSchema }),
+  z.strictObject({ agent: agentAtWorkspaceSchema }),
   z.strictObject({ app: appIdSchema, tool: toolNameSchema }),
 ]);
 
-// agent_key와 place_key는 target에서 만든다. run 기록에는 place를 싣지 않는다.
+// agent_key와 workspace_key는 target에서 만든다. run 기록에는 workspace를 싣지 않는다.
 export const runCreate = defineCommand({
   resource: "runs",
   method: "create",

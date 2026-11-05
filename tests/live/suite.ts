@@ -12,8 +12,8 @@ import {
   userModelInfoRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { routePath } from "../../packages/protocol/base/mod.ts";
-import { placeToolNames } from "../../packages/protocol/lophn-agent/tool-lists.ts";
-import { FILE_HOOKS } from "../../packages/core/agent-places/hooks.ts";
+import { workspaceToolNames } from "../../packages/protocol/lophn-agent/tool-lists.ts";
+import { FILE_HOOKS } from "../../packages/core/agent-workspaces/hooks.ts";
 import { agentTools } from "../../packages/core/main/agent-tools.ts";
 import { snapshotCatalogEntry } from "../../packages/core/lophn-agent/models/mod.ts";
 import { createModelResolver } from "../../packages/core/lophn-agent/models/resolve.ts";
@@ -48,9 +48,9 @@ const PROVIDER_ID = "pvd_00000000000000000000000000";
 const PIXEL_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 
-// 실제 project place의 tool 묶음이다. model에 보이는 칸만 싣는다.
+// 실제 project workspace의 tool 묶음이다. model에 보이는 칸만 싣는다.
 const TOOLS: PromptTool[] = selectTools(
-  placeToolNames("project"),
+  workspaceToolNames("project"),
   { input_media: ["text", "image"] },
   agentTools({ file: FILE_HOOKS }),
 ).map((tool) => ({
@@ -164,7 +164,7 @@ export async function callLive(
   if (!bound.ok) throw new Error(`resolve failed: ${bound.error.message}`);
   const binding = bound.value;
   const packed = binding.pack({
-    system: [{ layer: "place_kind", text: "You are a test agent." }],
+    system: [{ layer: "workspace_kind", text: "You are a test agent." }],
     tools: TOOLS,
     messages: MESSAGES[row],
   });

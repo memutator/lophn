@@ -97,11 +97,11 @@ export function createAgentWiring(options: {
       notice_.harness in HARNESS_ADAPTERS
         ? HARNESS_ADAPTERS[notice_.harness as HarnessId].label
         : notice_.harness;
-    const place = basename(runtime?.cwd_at_start ?? "");
+    const workspace = basename(runtime?.cwd_at_start ?? "");
     return notice.show({
       kind: notice_.kind,
       agent: tabNames.get(notice_.terminal_ref) ?? label,
-      place: place === "" ? undefined : place,
+      workspace: workspace === "" ? undefined : workspace,
       body: excerpt(notice_.body),
       lead: { kind: "harness", harness: notice_.harness },
       target: { kind: "terminal", terminal_ref: notice_.terminal_ref },

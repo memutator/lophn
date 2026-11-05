@@ -1,5 +1,5 @@
 // `lophn release list|get|prepare|activate`: 앱의 release를 읽고, HEAD에서 준비하고, 올린다.
-// prepare·activate는 앱 place의 agent만 부른다(route가 actor와 앱을 가른다). 검사에 떨어진 준비와 실패한 activation도
+// prepare·activate는 앱 workspace의 agent만 부른다(route가 actor와 앱을 가른다). 검사에 떨어진 준비와 실패한 activation도
 // 명령은 끝난 것이라 오류가 아니라 `failed` 결과다: 오류로 돌리면 이유가 model에 닿지 않는다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
@@ -10,7 +10,7 @@ import {
   releasesGetRecord,
   releasesListRecords,
 } from "../../protocol/apps/mod.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
 
 const app = idSchema("app");
@@ -25,7 +25,7 @@ const list = defineCommand({
   positional: ["app"],
   effect: "read",
   routes: [releasesListRecords],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     let cursor: string | undefined;
     const releases: unknown[] = [];
@@ -66,7 +66,7 @@ const get = defineCommand({
   positional: ["release"],
   effect: "read",
   routes: [releasesGetRecord],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const read = await ctx.core.read(releasesGetRecord, input);
     if (!read.ok) return read;
@@ -90,7 +90,7 @@ const prepare = defineCommand({
   positional: ["app"],
   effect: "write",
   routes: [releasePrepare],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const done = await ctx.core.command(releasePrepare, input, {
       key: ctx.key,
@@ -125,7 +125,7 @@ const activate = defineCommand({
   positional: ["release"],
   effect: "write",
   routes: [releaseActivate],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const done = await ctx.core.command(releaseActivate, input, {
       key: ctx.key,

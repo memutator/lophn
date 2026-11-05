@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
-import type { PlaceFiles } from "../place-store.ts";
+import type { WorkspaceFiles } from "../workspace-store.ts";
 import type { SkillFiles } from "../skills.ts";
 
 // 동기 파일 눈이다. 동기 file API는 core 프로세스의 module graph에 둘 수 없어
@@ -20,7 +20,7 @@ function missing(error: unknown): boolean {
 }
 
 // 같은 폴더의 임시 파일에 쓴 뒤 rename으로 바꿔 끼운다. 읽는 쪽은 이전 파일 전체나 새 파일 전체만 본다.
-export function createNodePlaceFiles(): PlaceFiles {
+export function createNodeWorkspaceFiles(): WorkspaceFiles {
   return {
     read(path) {
       try {

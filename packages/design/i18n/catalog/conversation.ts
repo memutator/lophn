@@ -178,7 +178,7 @@ export const conversation = {
   "conversation.label.model-input-limit-default": "Same as context",
   "conversation.label.model-input-media": "Input media",
   "conversation.label.model-layer":
-    "Using: {layer, select, session {this conversation} agent {this agent} project {project default} other {Workspace default}}",
+    "Using: {layer, select, session {this conversation} agent {this agent} project {project default} other {global default}}",
   "conversation.label.model-list": "Models",
   "conversation.label.model-name": "Model name",
   "conversation.label.model-output-limit": "Output limit",
@@ -395,7 +395,7 @@ export const conversation = {
     "This message wasn't sent. It's still in the box, so you can send it again.",
   "conversation.notice.offline": "You can send once lophn is connected again.",
   "conversation.notice.permissions-mcp":
-    "MCP servers are set in Workspace, in the project, or on this agent.",
+    "MCP servers are set globally, in the project, or on this agent.",
   "conversation.notice.permissions-no-apps": "No apps are assigned.",
   "conversation.notice.permissions-edited-in-agents":
     "Apps are assigned in Agents.",

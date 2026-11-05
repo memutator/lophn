@@ -21,7 +21,8 @@ test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락�
   const clock = manualClock(Date.UTC(2026, 0, 1));
   const approvals = createApprovals({
     assignmentOf: (agent) => Promise.resolve(ok({ agent, entries: [] })),
-    shellRules: (place) => shellRuleLayers({ global: [], projects: {} }, place),
+    shellRules: (workspace) =>
+      shellRuleLayers({ global: [], projects: {} }, workspace),
     bus: { publish: () => {} },
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
@@ -53,7 +54,7 @@ test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락�
     turn: TRN,
     tool_call: TCL,
     mode: "attended",
-    place: null,
+    workspace: null,
     gate: {
       check: (input: { tool_call: string; tool: string; call: never }) =>
         toolGate.check({
@@ -63,7 +64,7 @@ test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락�
           tool: input.tool,
           call: input.call,
           agent,
-          place: null,
+          workspace: null,
           mode: "attended",
         }),
     },

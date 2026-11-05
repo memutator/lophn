@@ -4,7 +4,7 @@ import {
   secretPut,
   secretStatus,
 } from "../../../../protocol/secrets/mod.ts";
-import { PROJECT_LAYER } from "../../../agent-places/place/project-layer.ts";
+import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
 import { secretAllowanceOver } from "../../../apps/permissions/mod.ts";
 import { releaseFacts } from "../../../apps/releases/mod.ts";
 import { mcpServerSnapshot } from "../../../lophn-agent/extensions/mcp-snapshot.ts";

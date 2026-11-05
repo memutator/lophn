@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { AcpInput } from "../../../../protocol/acp/mod.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { receivedMessageList } from "../../../../protocol/lophn-agent/received-messages.ts";
 import { sessionRewindPreview } from "../../../../protocol/lophn-agent/session-rewinds.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
@@ -32,8 +32,8 @@ const READS: Record<string, { name: string; value: unknown }> = {
     name: turnRead.name,
     value: { turn: { state_seq: 1, input_message: MSG } },
   },
-  [key(placeSessionRead)]: {
-    name: placeSessionRead.name,
+  [key(workspaceSessionRead)]: {
+    name: workspaceSessionRead.name,
     value: { session: { state_seq: 1 } },
   },
   [key(receivedMessageList)]: {

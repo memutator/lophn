@@ -18,7 +18,7 @@ import {
 import {
   connectFakeProvider,
   decide,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   settle,
@@ -56,7 +56,7 @@ async function writeFiles(
     },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
     kind: "project",
     id: project,
   });
@@ -276,7 +276,7 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
       { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });

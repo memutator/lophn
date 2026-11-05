@@ -16,7 +16,7 @@ const MODEL = {
 const resolve = (definition: AgentFileDefinition) =>
   resolveAgent({
     agent: AGENT,
-    place: { kind: "project", id: PROJECT },
+    workspace: { kind: "project", id: PROJECT },
     called_from: null,
     definition,
     global_model: MODEL,
@@ -25,7 +25,7 @@ const resolve = (definition: AgentFileDefinition) =>
     tools: TOOLS,
   });
 
-test("bare는 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는다. place 종류 tool 목록은 그대로다", async () => {
+test("bare는 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는다. workspace 종류 tool 목록은 그대로다", async () => {
   const bare = await resolve({
     name: "reviewer",
     body: "review",
@@ -57,7 +57,7 @@ test("bare는 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는�
 
   const lophn = await resolveAgent({
     agent: LOPHN_AGENT_ID,
-    place: null,
+    workspace: null,
     called_from: null,
     definition: null,
     global_model: MODEL,

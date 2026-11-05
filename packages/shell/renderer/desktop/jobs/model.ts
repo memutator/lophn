@@ -7,7 +7,7 @@ import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.
 import {
   type AgentId,
   LOPHN_AGENT_ID,
-} from "../../../../protocol/lophn-agent/places.ts";
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import type {
   JobActionView,
   JobNames,
@@ -31,17 +31,18 @@ export function scheduleText(every: string, at: string | null): string {
     : t(EVERY_KEY[unit], { n });
 }
 
-/** 이 project에 걸린 job: 그 project place의 agent가 만들었거나, 그 project의 agent를 부르거나, 그 project의 workflow를 시작하는 것. */
+/** 이 project에 걸린 job: 그 project workspace의 agent가 만들었거나, 그 project의 agent를 부르거나, 그 project의 workflow를 시작하는 것. */
 export function jobsOfProject(
   jobs: readonly JobView[],
   project: string,
 ): JobView[] {
   return jobs.filter(
     ({ creator, action }) =>
-      (creator.place?.kind === "project" && creator.place.id === project) ||
+      (creator.workspace?.kind === "project" &&
+        creator.workspace.id === project) ||
       (action.kind === "agent_run" &&
-        action.agent_place?.kind === "project" &&
-        action.agent_place.id === project) ||
+        action.agent_workspace?.kind === "project" &&
+        action.agent_workspace.id === project) ||
       (action.kind === "workflow_start" && action.project === project),
   );
 }
@@ -106,13 +107,13 @@ export function creatorText(
   names: JobNames,
 ): string {
   const agent = agentName(creator.agent, names);
-  const { place } = creator;
-  if (place === null) return t("jobs.label.created-by", { agent });
-  return t("jobs.label.created-by-place", {
+  const { workspace } = creator;
+  if (workspace === null) return t("jobs.label.created-by", { agent });
+  return t("jobs.label.created-by-workspace", {
     agent,
-    place: nameOf(
-      place.kind === "project" ? names.projects : names.apps,
-      place.id,
+    workspace: nameOf(
+      workspace.kind === "project" ? names.projects : names.apps,
+      workspace.id,
     ),
   });
 }

@@ -5,12 +5,12 @@ import type { Reply } from "../fake-server/mod.ts";
 
 export type ShellAsk = {
   dir: string; // 미리 만든 폴더의 절대 path
-  command: string; // `rm -r <name>`. place 첫 폴더 기준 상대 path
+  command: string; // `rm -r <name>`. workspace 첫 폴더 기준 상대 path
   reply(id: string): Reply; // fake 대답: `shell_run {command}` tool call 하나
   exists(): Promise<boolean>; // 폴더가 아직 있나
 };
 
-// folder는 place의 첫 폴더(project place면 project 폴더). 같은 이름으로 다시 부르면 지운 폴더를 되살린다.
+// folder는 workspace의 첫 폴더(project workspace면 project 폴더). 같은 이름으로 다시 부르면 지운 폴더를 되살린다.
 export async function shellAsk(
   folder: string,
   name = "victim",

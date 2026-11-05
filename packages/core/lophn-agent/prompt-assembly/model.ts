@@ -1,8 +1,8 @@
 // prompt 조립의 값이다. 순수 값만 두고 I/O와 hash는 `assembleTurnPrompt`가 한다.
 // 자료·tool 결과의 포장(`~~~data`)은 safety가 하고 이 층은 이미 포장된 문자열을 순서대로 놓기만 한다.
 
-// `assembleTurnPrompt`의 system 층. 순서대로 place_kind, instructions, skills, place이고 자주 안 바뀌는 것이 앞이다.
-type TurnLayerKind = "place_kind" | "instructions" | "skills" | "place";
+// `assembleTurnPrompt`의 system 층. 순서대로 workspace_kind, instructions, skills, workspace이고 자주 안 바뀌는 것이 앞이다.
+type TurnLayerKind = "workspace_kind" | "instructions" | "skills" | "workspace";
 
 // system 쪽 층. 경계 표시가 달린 층의 끝이 cache 경계 하나다.
 export type SystemLayerKind = TurnLayerKind;
@@ -76,7 +76,7 @@ export type CacheBoundary = {
 };
 
 export type BlockedReason =
-  | "place_kind_missing"
+  | "workspace_kind_missing"
   | "invalid_budget"
   | "input_over_budget";
 
@@ -84,4 +84,4 @@ export type BlockedReason =
 export type WirePack = { body: unknown; opaque_bytes: number };
 export type WirePacker = (request: PromptRequest) => WirePack;
 
-export type PlaceAgent = { name: string; description?: string };
+export type WorkspaceAgent = { name: string; description?: string };

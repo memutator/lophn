@@ -15,7 +15,7 @@ import {
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
 } from "../../protocol/lophn-agent/mod.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
 
 const card = defineCommand({
@@ -27,7 +27,7 @@ const card = defineCommand({
   positional: ["name"],
   effect: "read",
   routes: [agentCard],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const read = await ctx.core.read(agentCard, { name: input.name });
     if (!read.ok) return read;
@@ -36,7 +36,7 @@ const card = defineCommand({
       summary: `card of ${read.value.card.name}${
         callable === undefined
           ? ""
-          : `\ncallable from this place: ${callable ? "yes" : "no"}`
+          : `\ncallable from this workspace: ${callable ? "yes" : "no"}`
       }`,
       content: read.value.card,
     });
@@ -59,7 +59,7 @@ const create = defineCommand({
   positional: ["name"],
   effect: "write",
   routes: [agentCreate],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const made = await ctx.core.command(
       agentCreate,
@@ -95,7 +95,7 @@ const update = defineCommand({
   positional: ["agent"],
   effect: "write",
   routes: [agentList, agentRead, agentChange],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const { agent, ...rest } = input;
     const listed = await ctx.core.read(agentList, {});

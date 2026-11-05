@@ -3,13 +3,13 @@ import {
   connectProvider,
   type ModelChoice,
   modelDefaultRead,
-  placeSessionRead,
+  workspaceSessionRead,
   providerDefinitions,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 import { settle } from "../../support/core/human.ts";
 
-// `real`인 참가자의 session에만 model을 붙인다. 정의는 전역이라 정의에 붙이면 같은 agent의 다른 place session도
+// `real`인 참가자의 session에만 model을 붙인다. 정의는 전역이라 정의에 붙이면 같은 agent의 다른 workspace session도
 // model을 받는다. session model은 call로 연 session에 이어지지 않고, 전역과 project 층은 비워 두므로 나머지
 // session의 turn은 model이 없어 provider를 부르지 않고 끝난다.
 export async function attachRealModels(
@@ -61,7 +61,7 @@ export async function attachRealModels(
     option_values: input.options ?? {},
   };
   for (const session of input.sessions) {
-    const read = await core.call(placeSessionRead, { session });
+    const read = await core.call(workspaceSessionRead, { session });
     await core.call(
       changeSessionModel,
       { session: session as never, model },

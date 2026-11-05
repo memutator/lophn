@@ -20,7 +20,7 @@ import {
   MESSAGE_IMAGE_CALL_MAX_BYTES,
   messageImagePrepare,
 } from "../../protocol/lophn-agent/message-images.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand, type CommandContext } from "./types.ts";
 
 // 본문은 글 하나다. `--image <path>`는 file을 image block으로 더한다: 받는 쪽에 읽기 허락을 주지 않고 값을 싣는다.
@@ -88,7 +88,7 @@ const send = defineCommand({
   name: "call.send",
   summary: "Hand work to an agent asynchronously",
   description:
-    "Hand work to an agent asynchronously; returns a call ID. to.session uses an open session (session list); to.agent/place opens a new one using exact names (no place means home). " +
+    "Hand work to an agent asynchronously; returns a call ID. to.session uses an open session (session list); to.agent/workspace opens a new one using exact names (no workspace means home). " +
     'Supply both with fallback:"new" to open a replacement when the session is closed. Closed sessions stay closed. ' +
     "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply. " +
     "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from a folder this session can read; the receiver gets the image itself and no read access to the file.",
@@ -98,7 +98,7 @@ const send = defineCommand({
   }),
   effect: "read",
   routes: [agentCallSend, messageImagePrepare],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const body = await bodyOf(input, ctx);
     if (!body.ok) return body;
@@ -122,7 +122,7 @@ const send = defineCommand({
         fail_reason,
         ...(fail_reason === "closed"
           ? {
-              hint: "that session is closed; call its agent and place to open a new session",
+              hint: "that session is closed; call its agent and workspace to open a new session",
             }
           : {}),
       },
@@ -141,7 +141,7 @@ const reply = defineCommand({
   positional: ["call"],
   effect: "read",
   routes: [callReply, messageImagePrepare],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const body = await bodyOf(input, ctx);
     if (!body.ok) return body;
@@ -168,7 +168,7 @@ const cancel = defineCommand({
   positional: ["call"],
   effect: "read",
   routes: [callCancel],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const done = await ctx.core.command(callCancel, input, { key: ctx.key });
     if (!done.ok) return done;

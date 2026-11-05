@@ -7,7 +7,7 @@ import {
   shellRulesSettingSchema,
 } from "../../../../../protocol/approvals/shell-rules.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { readProjects } from "../../places/projects/core-source.ts";
+import { readProjects } from "../../workspaces/projects/core-source.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import { withAction, withAdded, withRemoved } from "./model.ts";
 import type { ShellRulesSource, SourceResult } from "./source.ts";

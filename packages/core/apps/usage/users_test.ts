@@ -9,7 +9,7 @@ import { insertRelease } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
 import { appToolUsers } from "./users.ts";
 
-type UsageSession = NonNullable<ReturnType<UsagePorts["sessionPlace"]>>;
+type UsageSession = NonNullable<ReturnType<UsagePorts["sessionWorkspace"]>>;
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const tool = (name: string, isPublic = true) => ({
@@ -20,7 +20,7 @@ const tool = (name: string, isPublic = true) => ({
   public: isPublic,
 });
 
-test("사용 관계는 그 앱 자신의 place와 home의 사용을 세지 않고, 부른 session의 place를 쓰는 쪽으로 센다", () => {
+test("사용 관계는 그 앱 자신의 workspace와 home의 사용을 세지 않고, 부른 session의 workspace를 쓰는 쪽으로 센다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
     db.exec(step.sql);
@@ -69,20 +69,20 @@ test("사용 관계는 그 앱 자신의 place와 home의 사용을 세지 않�
   ).run(record.created_at, record.id);
 
   const PROJECT = { kind: "project", id: "prj_1" } as const;
-  const places: Record<string, UsageSession> = {
-    ses_project: { place: PROJECT },
-    ses_home: { place: null },
-    ses_self: { place: { kind: "app", id: APP } },
+  const workspaces: Record<string, UsageSession> = {
+    ses_project: { workspace: PROJECT },
+    ses_home: { workspace: null },
+    ses_self: { workspace: { kind: "app", id: APP } },
   };
   const ports: UsagePorts = {
-    sessionPlace: (session) => places[session] ?? null,
+    sessionWorkspace: (session) => workspaces[session] ?? null,
   };
 
   const users = appToolUsers(sql, ports, APP);
   if (!users.ok) throw new Error(JSON.stringify(users.error));
-  // project의 호출만 센다. home과 앱 자신의 place는 세지 않는다.
+  // project의 호출만 센다. home과 앱 자신의 workspace는 세지 않는다.
   assert.deepStrictEqual(
-    users.value.map((u) => `${u.tool}:${u.place.kind}`),
+    users.value.map((u) => `${u.tool}:${u.workspace.kind}`),
     ["a:project"],
   );
 });

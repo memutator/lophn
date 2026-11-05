@@ -83,7 +83,7 @@ export interface WebviewHost {
   /** guest가 붙으면 session을 알린다. 이미 붙었으면 바로 부른다. */
   onSession(key: string, listener: (session: string) => void): () => void;
   /** 자리 사각형(그릇 기준이 아닌 화면 좌표)과 층. null이면 숨긴다. */
-  place(
+  workspace(
     key: string,
     slot: HTMLElement | null,
     rect: SlotRect | null,
@@ -338,7 +338,7 @@ export function createWebviewHost(): WebviewHost {
       entry.listeners.add(listener);
       return () => entry.listeners.delete(listener);
     },
-    place(key, slot, rect, layer) {
+    workspace(key, slot, rect, layer) {
       const entry = entries.get(key);
       if (entry === undefined) return;
       entry.slot = slot;
@@ -457,7 +457,7 @@ export function useWebviewSlot(input: {
     if (host === null || !enabled) return;
     const element = ref.current;
     if (!shown || element === null) {
-      host.place(key, element, null, layer);
+      host.workspace(key, element, null, layer);
       return;
     }
     const clips = clipAncestors(element);
@@ -474,14 +474,14 @@ export function useWebviewSlot(input: {
             )},${Math.round(visible.width)},${Math.round(visible.height)}`;
       if (next !== last) {
         last = next;
-        host.place(key, element, visible, layer);
+        host.workspace(key, element, visible, layer);
       }
       frame = requestAnimationFrame(tick);
     };
     tick();
     return () => {
       cancelAnimationFrame(frame);
-      host.place(key, element, null, layer);
+      host.workspace(key, element, null, layer);
     };
   }, [host, enabled, key, ref, shown, layer]);
 }

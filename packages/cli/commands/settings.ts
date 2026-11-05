@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { settingsList } from "../../protocol/config/mod.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
 
 const get = defineCommand({
@@ -21,7 +21,7 @@ const get = defineCommand({
   positional: ["key"],
   effect: "read",
   routes: [settingsList],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const read = await ctx.core.read(
       settingsList,

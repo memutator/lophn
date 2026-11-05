@@ -12,7 +12,7 @@ import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
   LOPHN_AGENT_ID,
   modelCallList,
-  placeSessionRead,
+  workspaceSessionRead,
   receivedMessageList,
   toolCallList,
   turnList,
@@ -20,7 +20,7 @@ import {
 import { SECRET_FILE_NAME } from "../../packages/protocol/secrets/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   settle,
@@ -55,7 +55,7 @@ test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const { project } = await openProject(core, folder);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });
@@ -86,7 +86,7 @@ test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted
     const first = turns[0].outcome;
     assert.ok(first?.kind === "interrupted");
     assert.deepStrictEqual(first.reason, "restarted");
-    const read = await core.call(placeSessionRead, { session });
+    const read = await core.call(workspaceSessionRead, { session });
     assert.deepStrictEqual(read.session.lifecycle, "open");
 
     assert.deepStrictEqual(await ask.exists(), true);
@@ -106,7 +106,7 @@ test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연결은
     core = await bootCore(run);
     const key = `sk-e2e-${core.ids.newId("key").split("_").pop()}`;
     await connectFakeProvider(core, fake, { key });
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
     fake.script([
       { reply: { kind: "text", text: "one" } },
       { reply: { kind: "text", text: "two" } },
@@ -161,7 +161,7 @@ test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 message�
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const { project } = await openProject(core, folder);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });

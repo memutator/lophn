@@ -203,7 +203,7 @@ export async function cliMain(
   const ran = await command.run(input, {
     core: core.value,
     key: line.key ?? crypto.randomUUID(),
-    place: undefined,
+    workspace: undefined,
     cwd: process.cwd(),
     clock: systemClock,
     signal: new AbortController().signal,

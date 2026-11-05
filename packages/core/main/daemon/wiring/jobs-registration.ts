@@ -8,9 +8,12 @@ import { jobTargetsPort, jobZonePort } from "../../../jobs/ports.ts";
 import type { JobTargets } from "../../../jobs/ports.ts";
 import {
   createSessionDirectory,
-  placeDepsOf,
-} from "../../../lophn-agent/places/mod.ts";
-import { loadSession, placeOf } from "../../../lophn-agent/session/model.ts";
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
+import {
+  loadSession,
+  workspaceOf,
+} from "../../../lophn-agent/session/model.ts";
 import {
   defineTxPort,
   type ReaderRegistration,
@@ -25,24 +28,24 @@ function targetsOf(sql: Query): JobTargets {
       const row = loadSession({ sql }, session);
       return row === undefined
         ? undefined
-        : { agent: row.agent, place: placeOf(row) };
+        : { agent: row.agent, workspace: workspaceOf(row) };
     },
     // wiring/runs.ts의 agents.resolve와 같은 호출이다.
     resolveAgent(address) {
       return createSessionDirectory({
-        ...placeDepsOf(sql),
+        ...workspaceDepsOf(sql),
         publish: () => {},
         sql: () => sql,
       }).resolveAddress(address);
     },
     resolveApp(ref) {
-      const found = placeDepsOf(sql).apps.appByName(ref);
+      const found = workspaceDepsOf(sql).apps.appByName(ref);
       return found === null
         ? err({ code: "not_found", message: "app not found" })
         : ok(found.id);
     },
     resolveProject(ref) {
-      const found = placeDepsOf(sql).projects.projectByName(ref);
+      const found = workspaceDepsOf(sql).projects.projectByName(ref);
       return found === null
         ? err({ code: "not_found", message: "project not found" })
         : ok(found.id);

@@ -21,11 +21,12 @@ export function mockAgentTabSource(
 ): AgentTabSourceFactory {
   const fakes = new Map<string, AgentTabSource>();
   return (agent) => {
-    const key = `${agent.assignment}:${agent.place.kind}:${agent.place.id}`;
+    const key = `${agent.assignment}:${agent.workspace.kind}:${agent.workspace.id}`;
     let fake = fakes.get(key);
     if (fake === undefined) {
       const source = createFakeAgentTabSource({ scene, now: Date.now });
-      const project = agent.place.kind === "global" ? null : agent.place.id;
+      const project =
+        agent.workspace.kind === "global" ? null : agent.workspace.id;
       fake = {
         ...source,
         async agent() {
@@ -33,7 +34,7 @@ export function mockAgentTabSource(
           if (!read.ok) return { ok: false, code: read.message };
           const grants = await agents.grants(project, agent.assignment);
           if (!grants.ok) return { ok: false, code: grants.message };
-          const { place, effective } = read.value;
+          const { workspace, effective } = read.value;
           const profile = effective.profile.value;
           return {
             ok: true,
@@ -52,12 +53,12 @@ export function mockAgentTabSource(
                       ),
                     },
               // home(global)은 자리 칸이 없다.
-              place:
-                agent.place.kind === "global"
+              workspace:
+                agent.workspace.kind === "global"
                   ? null
                   : {
-                      kind: place.kind === "app" ? "app" : "project",
-                      name: place.name,
+                      kind: workspace.kind === "app" ? "app" : "project",
+                      name: workspace.name,
                     },
               permissionSummary: t("conversation.label.permission-summary", {
                 count: grants.value.entries.length,

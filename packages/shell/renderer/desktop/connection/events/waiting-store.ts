@@ -11,8 +11,8 @@ import type {
 } from "../../../../../protocol/events/mod.ts";
 import type {
   AgentId,
-  placeOutputSchema,
-} from "../../../../../protocol/lophn-agent/places.ts";
+  workspaceOutputSchema,
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { z } from "zod";
 import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
@@ -25,7 +25,7 @@ import {
 } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 
-type Place = z.infer<typeof placeOutputSchema>;
+type Workspace = z.infer<typeof workspaceOutputSchema>;
 
 /** 질문 내용은 event와 snapshot 어디에도 없다. 내용은 질문 read로 따로 읽는다. */
 interface QuestionRequest {
@@ -38,7 +38,7 @@ interface Common {
   readonly id: string;
   readonly session: string | null;
   readonly agent: AgentId | null;
-  readonly place: Place | null;
+  readonly workspace: Workspace | null;
   /** event의 시각. snapshot에서 온 항목은 request가 만들어진 시각이다. */
   readonly receivedAt: string;
 }
@@ -58,7 +58,7 @@ export type WaitingEntry =
   | (Common & { readonly kind: "job_hold"; readonly hold: JobHold })
   // agent가 만든 job의 등록 승인. id는 job이다.
   | (Common & { readonly kind: "job_approval"; readonly job: JobRecord })
-  // 앱 place의 agent가 청한 앱 공유. id는 앱이다(앱마다 열린 요청은 하나).
+  // 앱 workspace의 agent가 청한 앱 공유. id는 앱이다(앱마다 열린 요청은 하나).
   | (Common & { readonly kind: "share"; readonly request: ShareRequest });
 
 type JobReads = { holds: JobHold[]; pending: JobRecord[] };
@@ -124,8 +124,11 @@ export function createWaitingStore(
   let entries = new Map<string, WaitingEntry>();
   // main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때 보인다.
   const finished = new Map<string, FinishedTerminal>();
-  // session의 agent와 place는 SessionStarted와 snapshot에 실려 온다.
-  const sessions = new Map<string, { agent: AgentId; place: Place | null }>();
+  // session의 agent와 workspace는 SessionStarted와 snapshot에 실려 온다.
+  const sessions = new Map<
+    string,
+    { agent: AgentId; workspace: Workspace | null }
+  >();
 
   function publish() {
     const list = [...entries.values()];
@@ -159,7 +162,7 @@ export function createWaitingStore(
     if (!entries.has(entry.id)) entries.set(entry.id, entry);
   }
 
-  // turn request에는 요청한 agent가 없다. session을 알 때만 agent와 place가 있다.
+  // turn request에는 요청한 agent가 없다. session을 알 때만 agent와 workspace가 있다.
   function permission(request: TurnRequest, receivedAt: string): WaitingEntry {
     const known = sessions.get(request.session);
     return {
@@ -167,7 +170,7 @@ export function createWaitingStore(
       kind: "permission",
       session: request.session,
       agent: known?.agent ?? null,
-      place: known?.place ?? null,
+      workspace: known?.workspace ?? null,
       receivedAt,
       request,
     };
@@ -179,7 +182,7 @@ export function createWaitingStore(
       kind: "activation",
       session: null,
       agent: null,
-      place: { kind: "app", id: request.app },
+      workspace: { kind: "app", id: request.app },
       receivedAt: request.requested_at,
       request,
     };
@@ -191,7 +194,7 @@ export function createWaitingStore(
       kind: "share",
       session: request.session,
       agent: null,
-      place: { kind: "app", id: request.app },
+      workspace: { kind: "app", id: request.app },
       receivedAt: request.requested_at,
       request,
     };
@@ -203,7 +206,7 @@ export function createWaitingStore(
       kind: "job_hold",
       session: null,
       agent: hold.job.creator.agent,
-      place: hold.job.creator.place,
+      workspace: hold.job.creator.workspace,
       receivedAt: hold.job_run.created_at,
       hold,
     };
@@ -215,7 +218,7 @@ export function createWaitingStore(
       kind: "job_approval",
       session: null,
       agent: job.creator.agent,
-      place: job.creator.place,
+      workspace: job.creator.workspace,
       receivedAt: job.created_at,
       job,
     };
@@ -232,7 +235,7 @@ export function createWaitingStore(
       kind: "question",
       session,
       agent: known?.agent ?? null,
-      place: known?.place ?? null,
+      workspace: known?.workspace ?? null,
       receivedAt,
       request,
     };
@@ -243,7 +246,7 @@ export function createWaitingStore(
       case "SessionStarted":
         sessions.set(event.session, {
           agent: event.payload.agent,
-          place: event.payload.place,
+          workspace: event.payload.workspace,
         });
         return;
       case "TurnRequestOpened":
@@ -288,7 +291,7 @@ export function createWaitingStore(
     for (const snapshot of snapshots) {
       sessions.set(snapshot.session, {
         agent: snapshot.agent,
-        place: snapshot.place,
+        workspace: snapshot.workspace,
       });
       for (const request of snapshot.turn_requests) {
         next.push(permission(request, request.created_at));

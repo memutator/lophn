@@ -11,7 +11,7 @@ import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
 // 돌던 turn을 core가 interrupted로 닫는다. 다시 잇지 않는다(복구는 없다).
 // - `restarted`: lophn을 켤 때 state = running인 turn 전부(꺼지면서 입력함과 메모리 기다림도 사라졌다)와,
 //   agent runtime child가 도는 중에 사라졌을 때(`interruptTurns`).
-// - `session_ended`: session을 archive하거나 지울 때 그 session의 turn. places의 `EndDeps`가 같은 tx 안에서 부른다.
+// - `session_ended`: session을 archive하거나 지울 때 그 session의 turn. workspaces의 `EndDeps`가 같은 tx 안에서 부른다.
 // 대기 중이던 권한 요청과 질문의 cancelled 처리는 approvals와 agent-tools가 한다.
 
 type InterruptReason = "restarted" | "session_ended";

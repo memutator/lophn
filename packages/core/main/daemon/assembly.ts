@@ -12,7 +12,8 @@ import { createCoreRegistration as createAcpRegistration } from "./wiring/acp-re
 import { acpWiring } from "./wiring/acp.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
 import { artifactMoveWiring } from "./wiring/artifact-move.ts";
-import { placeDataMoveWiring } from "./wiring/place-data-move.ts";
+import { workspaceDataMoveWiring } from "./wiring/workspace-data-move.ts";
+import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { bareReplyWiring } from "./wiring/bare-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
@@ -39,7 +40,7 @@ import {
   lophnAgentWiring,
 } from "./wiring/lophn-agent.ts";
 import { lophnAgentExtensionsWiring } from "./wiring/lophn-agent-extensions.ts";
-import { createCoreRegistration as createPlaceRegistration } from "./wiring/lophn-agent-registration.ts";
+import { createCoreRegistration as createWorkspaceRegistration } from "./wiring/lophn-agent-registration.ts";
 import { lophnAgentRuntimeWiring } from "./wiring/lophn-agent-runtime.ts";
 import {
   lophnAgentRewindWiring,
@@ -75,7 +76,7 @@ export const TEAMS = [
   { createCoreRegistration: createApprovalsRegistration },
   { createCoreRegistration: createRouterRegistration },
   { createCoreRegistration: createAnnotationsRegistration },
-  { createCoreRegistration: createPlaceRegistration },
+  { createCoreRegistration: createWorkspaceRegistration },
   { createCoreRegistration: createUsageRegistration },
   { createCoreRegistration: createAssignmentRegistration },
   { createCoreRegistration: createShareRequestsRegistration },
@@ -136,7 +137,9 @@ export const WIRINGS: readonly WiringFactory[] = [
   // artifact·skill·문서 옮기기는 domains 표를 읽는다. 표를 거두는 data step(domains-retire, 맨 끝)보다 앞에 둔다.
   // 같은 domain 폴더의 rewind 기록을 나눠 고치므로 artifact가 먼저, 그 뒤에 skill과 문서다.
   artifactMoveWiring,
-  placeDataMoveWiring,
+  workspaceDataMoveWiring,
+  // artifact-move가 `shell/places`의 판 8을 판 9로 옮긴 뒤에 그 파일을 `shell/workspaces`로 옮긴다.
+  workspaceRenameWiring,
   shareRequestsWiring,
   routerWiring,
   appsWiring,

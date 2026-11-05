@@ -21,7 +21,7 @@ export type InstructionFile = {
 };
 
 // 읽기 통로는 읽기만 있다. 지침 파일 저장은 사람이 editor에서 파일을 저장하는 일이다. 어느 project의
-// 파일인지는 통로가 이미 안다(그 session의 place).
+// 파일인지는 통로가 이미 안다(그 session의 workspace).
 export interface InstructionFiles {
   // 그 층의 지금 파일. 파일이 없으면 null(부재)이고 읽지 못하면 err다.
   read(layer: InstructionLayerKind): Promise<Result<InstructionFile | null>>;

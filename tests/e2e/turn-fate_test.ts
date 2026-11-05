@@ -13,7 +13,7 @@ import { LOPHN_AGENT_ID } from "../../packages/protocol/lophn-agent/mod.ts";
 import { platformHealth } from "../../packages/protocol/server/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   turnsOf,
@@ -64,7 +64,7 @@ async function crashMidTurn(core: Core, fake: FakeServer, folder: string) {
     { reply: { kind: "text", text: "back" } },
   ]);
   const { project } = await openProject(core, folder);
-  const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
     kind: "project",
     id: project,
   });
@@ -103,7 +103,7 @@ async function crashMidTurn(core: Core, fake: FakeServer, folder: string) {
 async function consecutiveCrashes(core: Core, fake: FakeServer) {
   fake.reset();
   fake.script([{ reply: { kind: "text", text: "ok" } }]);
-  const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
   for (let n = 0; n < 3; n++) await crash(core);
   await say(core, session, "hello");
   await waitTurnEnd(core, session);

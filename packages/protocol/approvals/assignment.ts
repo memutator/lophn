@@ -3,7 +3,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { toolKeySchema } from "../apps/channel-values.ts";
-import { agentIdSchema } from "../lophn-agent/places.ts";
+import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 
 // 할당. agent가 부를 수 있는 앱과 그 앱에서 뺀 tool이다. 저장은 agent 정의 파일의 `apps`(앱 slug)와
 // `permissions.deny`(`lophn(<앱 slug> <command 낱말>)`)이고, 이 route는 그것을 앱 id와 command 이름으로 풀어 읽고 쓴다.

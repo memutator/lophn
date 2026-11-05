@@ -16,7 +16,7 @@ import { createFakeAgentsSource } from "../../workspace/agents/fake-source.ts";
 import type { WorkspaceSource } from "../../workspace/source.ts";
 import type { CoreSource } from "../connection/connection.ts";
 import { seedWorkbench } from "../dev-seed.ts";
-import type { ProjectsSource } from "../places/projects/source.ts";
+import type { ProjectsSource } from "../workspaces/projects/source.ts";
 import type { CatalogSource } from "../palette/catalog.ts";
 import { catalogSource } from "../palette/core-catalog.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
@@ -44,7 +44,7 @@ export interface DevMock {
   readonly editor: Omit<EditorDeps, "menu">;
   /** 팔레트의 project·앱 행. */
   readonly catalog: CatalogSource;
-  /** Home Places panel과 앱 공간의 project 고르기. */
+  /** Home Workspaces panel과 앱 공간의 project 고르기. */
   readonly projects: ProjectsSource;
   readonly apps: AppsSource;
   readonly settings: SettingsSource;
@@ -89,7 +89,7 @@ export function devMock(
       ...bench.source,
       // Agents 탭과 sidebar의 Agents 묶음도 메모리 통로를 읽는다.
       agentsSource: agents,
-      // 목록도 Places panel의 것이다(보관된 것은 뺀다).
+      // 목록도 Workspaces panel의 것이다(보관된 것은 뺀다).
       projects: async () => {
         const cards = await projects.list();
         return cards.ok

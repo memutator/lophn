@@ -11,7 +11,7 @@ import { actionIcons } from "../../icons/mod.ts";
 import styles from "./icon-upload.module.css";
 
 export interface IconUploadProps {
-  /** 지금 보이는 표식(PlaceMark). */
+  /** 지금 보이는 표식(WorkspaceMark). */
   preview: ReactNode;
   /** 보낸 결과. false면 실패 안내를 보인다. */
   onUpload(bytes: Uint8Array, type: string): Promise<boolean>;

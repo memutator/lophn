@@ -1,5 +1,5 @@
-// annotation.send. 묶음을 저장하고 받는 쪽(앱이면 고른 agent의 그 앱 place session, artifact이면 그 그릇
-// place의 lophn session, file이면 그 project place의 lophn session)에게 사람 메시지 하나로 보낸다. 보내기는 사람의
+// annotation.send. 묶음을 저장하고 받는 쪽(앱이면 고른 agent의 그 앱 workspace session, artifact이면 그 그릇
+// workspace의 lophn session, file이면 그 project workspace의 lophn session)에게 사람 메시지 하나로 보낸다. 보내기는 사람의
 // 동작이라 Gate를 거치지 않는다. 보관한 앱이면 저장 command가 쓰기 전에 conflict로 거절한다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { CommandRoute } from "../../../protocol/base/mod.ts";
@@ -13,7 +13,7 @@ import type {
   Input,
   Output,
 } from "../../../protocol/server/mod.ts";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
+import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   annotationAddRefs,
   annotationDiscard,
@@ -127,7 +127,7 @@ export function createAnnotations(deps: AnnotationDeps) {
           })
         : target.kind === "artifact"
           ? await delivery.deliverArtifact({
-              place:
+              workspace:
                 "app" in target
                   ? { kind: "app", id: target.app }
                   : { kind: "project", id: target.project },

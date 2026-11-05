@@ -57,7 +57,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   operation이다). 항목은 `{name, description, inputSchema, effect, public}`다.
   `inputSchema`는 입력 schema나 입력이 없으면 `null`이다(`null`이 아니면 root type은
   object). `effect`는 `read`·`write`·`external`이다. `public`은 필수 boolean이고
-  다른 앱의 agent에 보이는지를 뜻한다. 비공개 command는 그 앱 place의 session만 본다.
+  다른 앱의 agent에 보이는지를 뜻한다. 비공개 command는 그 앱 workspace의 session만 본다.
   agent는 `lophn <앱 slug> <command>`로 부른다.
   - operation과 command의 이름(1~64자, 영문·숫자·`_ - .`)은 합쳐 하나이고
     handler는 이름 하나로 등록한다. 이름을 두 목록에 같이 쓰지 못한다.

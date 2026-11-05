@@ -63,7 +63,7 @@ export async function definitionHash(tool: ToolDefinition): Promise<string> {
   return (await sha256Hex(text)).slice(0, 16);
 }
 
-// place 종류가 고정한 이름 목록에 든 정의다. 순서는 `definitions` 순서다(같은 판의 같은 bytes).
+// workspace 종류가 고정한 이름 목록에 든 정의다. 순서는 `definitions` 순서다(같은 판의 같은 bytes).
 // model이 image를 받지 못하면 `image.read`를 뺀다. 정의가 없는 이름은 건너뛴다.
 export function selectTools(
   names: readonly string[],

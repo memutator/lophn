@@ -12,7 +12,7 @@ import {
   isHarnessRuntime,
   type Modality,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
+import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { CardFacts, modalityLabel } from "../agent-card.tsx";
@@ -120,10 +120,10 @@ function withModality(
   };
 }
 
-function instructionsHead(detail: AgentDetail, placeName: string): string {
+function instructionsHead(detail: AgentDetail, workspaceName: string): string {
   const project =
     detail.instructions?.project ??
-    (detail.place.kind === "project" ? placeName : null);
+    (detail.workspace.kind === "project" ? workspaceName : null);
   return project === null
     ? t("agents.label.instructions-head-unknown")
     : t("agents.label.instructions-head-placed", { project });
@@ -175,7 +175,7 @@ interface DefinitionFormProps {
   /** Model 칸이 목록을 다시 읽는 통로. */
   readonly source: ModelFieldSource;
   /** agent가 놓인 곳의 이름(Agents 탭이 열린 project나 앱). */
-  readonly placeName: string;
+  readonly workspaceName: string;
   readonly imageSrc: (image: string) => string;
   readonly onChange: (definition: AgentDraft) => void;
   readonly onUpload: (file: File) => void;
@@ -395,10 +395,10 @@ export function DefinitionForm(props: DefinitionFormProps) {
 
       <InstructionsBlock
         project={detail.instructions}
-        head={instructionsHead(detail, props.placeName)}
+        head={instructionsHead(detail, props.workspaceName)}
         port={props.projectInstructions}
         note={
-          detail.place.kind === "app"
+          detail.workspace.kind === "app"
             ? t("agents.notice.app-no-project")
             : undefined
         }

@@ -8,7 +8,7 @@ import type {
   TurnRequestChoice,
   TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
-import type { Place } from "../../protocol/lophn-agent/places.ts";
+import type { Workspace } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Bus } from "../events/ports.ts";
 import { alwaysPatterns } from "./gate/mod.ts";
 import type { AlwaysEffect, TurnOrigin } from "./ports.ts";
@@ -17,7 +17,7 @@ type Cancelled = Extract<TurnRequestOutcome, { outcome: "cancelled" }>;
 
 type Entry = {
   request: TurnRequest;
-  place: Place | null;
+  workspace: Workspace | null;
   // 결정을 받는 중이거나 끝났으면 true. 같은 request를 두 번 결정하지 못하게 한다.
   closed: boolean;
   outcome: TurnRequestOutcome | null;
@@ -25,7 +25,7 @@ type Entry = {
 };
 
 type TurnRequestsDeps = {
-  shellRules(place: Place | null): ShellRuleLayers;
+  shellRules(workspace: Workspace | null): ShellRuleLayers;
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -64,13 +64,13 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
         subject,
         always_patterns:
           subject.kind === "shell"
-            ? alwaysPatterns(deps.shellRules(origin.place), subject.command)
+            ? alwaysPatterns(deps.shellRules(origin.workspace), subject.command)
             : [],
         created_at: deps.clock.now(),
       };
       entries.set(request.id, {
         request,
-        place: origin.place,
+        workspace: origin.workspace,
         closed: false,
         outcome: null,
         waiters: [],
@@ -127,7 +127,7 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
         }
         // 아래 await 동안 다른 결정이 끼어들지 못하게 먼저 닫는다.
         entry.closed = true;
-        const done = await effect(entry.request, entry.place);
+        const done = await effect(entry.request, entry.workspace);
         if (!done.ok) {
           entry.closed = false;
           return done;

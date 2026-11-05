@@ -26,7 +26,7 @@ function stub(rows: Row[], request: number): CoreCall {
           session: {
             id: SELF,
             agent: "lophn",
-            place: null,
+            workspace: null,
             title: null,
             lifecycle: "open",
             forked_from: null,

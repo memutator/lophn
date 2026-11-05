@@ -5,13 +5,13 @@ export {
   skillsOffSetting,
 } from "./settings.ts";
 export {
-  builtinForPlace,
+  builtinForWorkspace,
   discoverSkills,
   mergeSkillLayers,
   parseSkillFrontmatter,
   SKILL_BODY_MAX_BYTES,
   SKILL_MANIFEST,
-  type PlaceSkills,
+  type WorkspaceSkills,
   isSharedCompanion,
   publicSkillNames,
   readSharedHeads,
@@ -35,7 +35,7 @@ export {
   createProjectExtensionReads,
   EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
-  placeSkillsOf,
+  workspaceSkillsOf,
   type ProjectExtensions,
   type ProjectLayer,
 } from "./project-settings.ts";
@@ -43,7 +43,11 @@ export {
   collectProjectMcpEntries,
   type ProjectServerSource,
 } from "./project-servers.ts";
-export { dataRootOf, fileHash, type PlaceFiles } from "./place-store.ts";
+export {
+  dataRootOf,
+  fileHash,
+  type WorkspaceFiles,
+} from "./workspace-store.ts";
 export {
   commandSkillsOf,
   createExtensionRegistry,

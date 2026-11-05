@@ -28,10 +28,10 @@ import {
 } from "./session.ts";
 import styles from "./palette.module.css";
 
-/** project 키워드 검색. place가 있으면 그 project에서만, 없으면 모든 project에서 찾는다. */
+/** project 키워드 검색. workspace가 있으면 그 project에서만, 없으면 모든 project에서 찾는다. */
 export type FileSearch = (
   query: string,
-  place: { readonly kind: "project"; readonly id: string } | null,
+  workspace: { readonly kind: "project"; readonly id: string } | null,
 ) => Promise<readonly FileFound[]>;
 
 export interface PaletteDeps {

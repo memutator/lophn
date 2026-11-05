@@ -1,7 +1,7 @@
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentId,
-  type AgentPlace,
+  type AgentWorkspace,
   mcpAuthBegin,
   mcpAuthBeginInputSchema,
   mcpAuthCancel,
@@ -35,7 +35,7 @@ import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 // 여기는 core의 입구와 재료를 끼운다.
 // - 발급자(token endpoint)에 닿는 일은 이 core 프로세스가 한다. 시작에서 낸 verifier·state와 받은 token이 모두
 //   core 안에만 있어야 하기 때문이다. 값은 응답·log·ledger·event 어디에도 없다.
-// - token은 `secrets.json`(vault)에만 보관한다. 설정에는 token이 없다. 서버(place+이름)에서 정해지는 이름에 두고,
+// - token은 `secrets.json`(vault)에만 보관한다. 설정에는 token이 없다. 서버(workspace+이름)에서 정해지는 이름에 두고,
 //   로그인했는지는 보관이 말한다.
 // - ledger를 거치지 않는다: 진행 중인 로그인은 작업 메모리가 곧 상태다.
 
@@ -50,8 +50,8 @@ type McpAuthControlDeps = {
   // 사람 credential의 loopback callback listener다. 127.0.0.1에만 듣는다. 테스트가 가짜를
   // 끼우므로 사람의 실제 OS browser는 열지 않는다.
   openListener(): Promise<Result<CallbackListener>>;
-  // 등록한 MCP server의 읽기다(전역 서버는 place와 agent가 모두 null). 같은 이름의 서버가 여러 소유자에 있을 수
-  // 있어 서버는 이름과 소유자(place 또는 agent)로 고른다.
+  // 등록한 MCP server의 읽기다(전역 서버는 workspace와 agent가 모두 null). 같은 이름의 서버가 여러 소유자에 있을 수
+  // 있어 서버는 이름과 소유자(workspace 또는 agent)로 고른다.
   registered(): Promise<Result<RegisteredMcpServer[]>>;
   // token 보관이다(`secrets.json`).
   vault: McpOAuthVault;
@@ -62,13 +62,16 @@ type McpAuthControlDeps = {
   deadline?: AuthDeadline;
 };
 
-// 서버의 소유자는 place나 agent 중 하나다. 둘 다 있으면 어느 서버인지 정할 수 없다.
+// 서버의 소유자는 workspace나 agent 중 하나다. 둘 다 있으면 어느 서버인지 정할 수 없다.
 const TWO_OWNERS = err({
   code: "invalid_input" as const,
   message: "서버 자리와 agent 중 하나만 고른다",
 });
 
-function samePlace(left: AgentPlace | null, right: AgentPlace | null) {
+function sameWorkspace(
+  left: AgentWorkspace | null,
+  right: AgentWorkspace | null,
+) {
   return left === null || right === null
     ? left === right
     : left.kind === right.kind && left.id === right.id;
@@ -86,7 +89,7 @@ function sameOrigin(url: string, destination: SecretFileUse["destination"]) {
 
 // OAuth로 로그인하는 http 서버만 McpOAuthServer가 된다. client secret은 사람이 넣은 값을 이름으로 읽는다.
 function oauthServerOf(
-  place: AgentPlace | null,
+  workspace: AgentWorkspace | null,
   agent: AgentId | null,
   server: McpRuntimeServer,
   secretValue: (name: string) => string | null,
@@ -96,7 +99,7 @@ function oauthServerOf(
   }
   const auth = server.http.auth;
   return {
-    key: { place, agent, name: server.name },
+    key: { workspace, agent, name: server.name },
     issuer: auth.issuer,
     serverUrl: server.http.url,
     clientId: auth.client_id,
@@ -141,7 +144,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
   }
 
   async function registeredServerOf(
-    place: AgentPlace | null,
+    workspace: AgentWorkspace | null,
     agent: AgentId | null,
     name: string,
   ): Promise<Result<McpRuntimeServer>> {
@@ -151,7 +154,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
       (entry) =>
         entry.server.name === name &&
         entry.agent === agent &&
-        samePlace(entry.place, place),
+        sameWorkspace(entry.workspace, workspace),
     );
     if (found === undefined) {
       return err({ code: "not_found", message: "등록한 서버가 아니다" });
@@ -161,11 +164,11 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
 
   // 로그인할 수 있는 서버: 그 소유자에 등록된 http oauth2 서버다.
   async function oauthTarget(
-    place: AgentPlace | null,
+    workspace: AgentWorkspace | null,
     agent: AgentId | null,
     name: string,
   ): Promise<Result<McpOAuthServer>> {
-    const config = await registeredServerOf(place, agent, name);
+    const config = await registeredServerOf(workspace, agent, name);
     if (!config.ok) return config;
     if (config.value.transport !== "http") {
       return err({
@@ -173,7 +176,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
         message: "oauth2 인증은 http 서버만 고른다",
       });
     }
-    const server = oauthServerOf(place, agent, config.value, secretValue);
+    const server = oauthServerOf(workspace, agent, config.value, secretValue);
     if (server === undefined) {
       return err({
         code: "invalid_input",
@@ -191,9 +194,9 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
         message: "서버 이름이 올바르지 않다",
       });
     }
-    const { name, place, agent } = parsed.data;
-    if (place !== null && agent !== null) return TWO_OWNERS;
-    const target = await oauthTarget(place, agent, name);
+    const { name, workspace, agent } = parsed.data;
+    if (workspace !== null && agent !== null) return TWO_OWNERS;
+    const target = await oauthTarget(workspace, agent, name);
     if (!target.ok) return target;
     // 사람이 등록한 client_id만 쓴다. 입력이 등록과 다르면 거절이다.
     if (parsed.data.client_id !== target.value.clientId) {
@@ -224,9 +227,9 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
         message: "서버 이름이 올바르지 않다",
       });
     }
-    const { name, place, agent } = parsed.data;
-    if (place !== null && agent !== null) return TWO_OWNERS;
-    const target = await oauthTarget(place, agent, name);
+    const { name, workspace, agent } = parsed.data;
+    if (workspace !== null && agent !== null) return TWO_OWNERS;
+    const target = await oauthTarget(workspace, agent, name);
     if (!target.ok) return target;
     const done = await oauth.complete(target.value);
     if (!done.ok) return done;
@@ -242,10 +245,10 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
       });
     }
     // 설정에서 지워진 서버의 기다리는 로그인도 그만둘 수 있어야 한다.
-    const { name, place, agent } = parsed.data;
-    if (place !== null && agent !== null) return TWO_OWNERS;
+    const { name, workspace, agent } = parsed.data;
+    if (workspace !== null && agent !== null) return TWO_OWNERS;
     return ok({
-      cancelled: await oauth.cancel({ key: { place, agent, name } }),
+      cancelled: await oauth.cancel({ key: { workspace, agent, name } }),
     });
   };
 
@@ -260,24 +263,24 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
     const loaded = await deps.registered();
     if (!loaded.ok) return loaded;
     const servers = [];
-    for (const { name, place, agent } of parsed.data.servers) {
-      if (place !== null && agent !== null) return TWO_OWNERS;
+    for (const { name, workspace, agent } of parsed.data.servers) {
+      if (workspace !== null && agent !== null) return TWO_OWNERS;
       const found = loaded.value.find(
         (entry) =>
           entry.server.name === name &&
           entry.agent === agent &&
-          samePlace(entry.place, place),
+          sameWorkspace(entry.workspace, workspace),
       );
       const server =
         found === undefined
           ? undefined
-          : oauthServerOf(place, agent, found.server, secretValue);
+          : oauthServerOf(workspace, agent, found.server, secretValue);
       // 등록하지 않았거나 OAuth가 아닌 서버는 로그인할 것이 없다.
       const report =
         server === undefined
           ? { state: "none" as const, reason: null }
           : await oauth.report(server);
-      servers.push({ name, place, agent, ...report });
+      servers.push({ name, workspace, agent, ...report });
     }
     return ok({ servers });
   };
@@ -302,7 +305,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
       // 이 이름을 자기 접근 token으로 가진 켜진 서버만 쓴다. token은 로그인한 서버의 URL origin에만 간다.
       const match = loaded.value.find((entry) => {
         const server = oauthServerOf(
-          entry.place,
+          entry.workspace,
           entry.agent,
           entry.server,
           secretValue,
@@ -321,7 +324,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
         });
       }
       return await oauth.access(
-        oauthServerOf(match.place, match.agent, match.server, secretValue)!,
+        oauthServerOf(match.workspace, match.agent, match.server, secretValue)!,
       );
     },
 

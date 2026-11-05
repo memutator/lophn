@@ -34,7 +34,7 @@ import {
   messageBody,
   messageContentSchema,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { commandsList } from "../../../../protocol/lophn-agent/commands.ts";
 import {
@@ -52,8 +52,8 @@ import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-stat
 import {
   type AgentId,
   LOPHN_AGENT_ID,
-  type Place,
-} from "../../../../protocol/lophn-agent/places.ts";
+  type Workspace,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import {
   type ReceivedMessage,
   receivedMessageList,
@@ -207,8 +207,8 @@ export async function agentOfSession(
   env: AcpEnv,
   session: string,
 ): Promise<AgentId | null> {
-  const read = await env.read<Output<typeof placeSessionRead>>(
-    placeSessionRead,
+  const read = await env.read<Output<typeof workspaceSessionRead>>(
+    workspaceSessionRead,
     { session },
   );
   return read.ok ? (read.value.session.agent as AgentId) : null;
@@ -270,8 +270,8 @@ export function startDetail(tool: string): AcpToolDetail | null {
 
 async function toLabel(env: AcpEnv, to: Json): Promise<string> {
   if (typeof to["session"] === "string") {
-    const session = await env.read<Output<typeof placeSessionRead>>(
-      placeSessionRead,
+    const session = await env.read<Output<typeof workspaceSessionRead>>(
+      workspaceSessionRead,
       { session: to["session"] },
     );
     if (!session.ok) return to["session"];
@@ -282,12 +282,12 @@ async function toLabel(env: AcpEnv, to: Json): Promise<string> {
       .join(" · ");
   }
   const agent = typeof to["agent"] === "string" ? to["agent"] : "";
-  const place = asRecord(to["place"]);
+  const workspace = asRecord(to["workspace"]);
   const where =
-    typeof place?.["project"] === "string"
-      ? place["project"]
-      : typeof place?.["app"] === "string"
-        ? place["app"]
+    typeof workspace?.["project"] === "string"
+      ? workspace["project"]
+      : typeof workspace?.["app"] === "string"
+        ? workspace["app"]
         : "";
   return [agent, where].filter((part) => part !== "").join(" · ");
 }
@@ -998,7 +998,7 @@ const CAPABILITIES = Object.fromEntries(
   ]),
 ) as AcpCapabilities;
 
-type SessionRecord = Output<typeof placeSessionRead>["session"];
+type SessionRecord = Output<typeof workspaceSessionRead>["session"];
 
 /** model id는 `<provider id>/<model name>`이다(acp-send가 풀어 쓴다). provider id에는 `/`가 없다. */
 export const acpModelId = (provider: string, modelName: string) =>
@@ -1008,8 +1008,8 @@ export async function readSessionRecord(
   env: AcpEnv,
   session: string,
 ): Promise<Result<SessionRecord>> {
-  const read = await env.read<Output<typeof placeSessionRead>>(
-    placeSessionRead,
+  const read = await env.read<Output<typeof workspaceSessionRead>>(
+    workspaceSessionRead,
     { session },
   );
   return read.ok ? ok(read.value.session) : read;
@@ -1018,7 +1018,7 @@ export async function readSessionRecord(
 /** 화면의 model 묶음과 지금 값. 묶음·정렬은 picker 규칙(켠 model과 지금 model)을 그대로 쓴다. */
 export async function readModelPart(
   env: AcpEnv,
-  record: Pick<SessionRecord, "agent" | "place" | "model_selection">,
+  record: Pick<SessionRecord, "agent" | "workspace" | "model_selection">,
 ): Promise<Pick<AcpSessionMeta, "models" | "model">> {
   const [providers, entries, shown, agent] = await Promise.all([
     pages(
@@ -1037,7 +1037,7 @@ export async function readModelPart(
     record.model_selection === null
       ? env.read<Output<typeof agentRead>>(agentRead, {
           agent: record.agent,
-          ...(record.place === null ? {} : { place: record.place }),
+          ...(record.workspace === null ? {} : { workspace: record.workspace }),
         })
       : null,
   ]);
@@ -1216,12 +1216,12 @@ export async function readSessionMeta(
 }
 
 /**
- * 첫 메시지 전 새 session 화면의 meta. 그 agent와 place로 지금 session을 열면 받을 값이다: session이 고른 model이
+ * 첫 메시지 전 새 session 화면의 meta. 그 agent와 workspace로 지금 session을 열면 받을 값이다: session이 고른 model이
  * 없어 agent 기본값이고, mode는 ask, title·usage는 없다. 명령은 `readSessionMeta`와 같이 부른 사람의 read로 읽는다.
  */
 export async function readDraftMeta(
   env: AcpEnv,
-  draft: { agent: AgentId; place: Place | null },
+  draft: { agent: AgentId; workspace: Workspace | null },
   readAsCaller: AcpEnv["read"],
 ): Promise<AcpSessionMeta> {
   const [model, commands] = await Promise.all([

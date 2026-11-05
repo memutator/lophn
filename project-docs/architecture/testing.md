@@ -28,7 +28,7 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 
 - **scripted model**(`tests/support/loop/model.ts`): provider wire를 모르고 answer, tools, partial, failed, hang을 낸다. queue는 엄격하다. 남은 step이나 넘친 호출은 실패다. 받은 요청을 깊은 복사로 기록한다. 시간은 `manualClock`과 harness의 `wait`·`fireDeadline`으로 다루고 기다리지 않는다.
 - **녹화 재생**(`tests/support/wire/`): `replayFetch`가 fixture를 호출 순서대로 돌려주고 받은 요청을 기록한다. fixture는 `tests/fixtures/provider/<provider>/<case>.sse|.json`과 선택 `<case>.meta.json`(`status`, `headers`, `disconnect`)이다. 요청은 저장하지 않는다. 손 fixture는 짧은 SSE이고, live가 녹화한 것은 `live-<행>` 이름으로 같은 폴더에 둔다.
-- **fake server**(`tests/support/fake-server/`): `node:http` 위의 `serve` adapter(`packages/core/server/serve.ts`)로 loopback, port 0에 뜬다. 한 protocol(`anthropic-messages`, path `/messages`)만 말한다. 대답은 text, tool(인자 문자열 그대로), error, silent, cut, stall, raw 일곱이다. step의 대답은 값 대신 함수(`ReplyFn`: 받은 요청과 journal → 대답)여도 된다. 앞 요청에서 받은 id(call, release)를 다음 tool 인자에 넣을 때 쓴다. 요청은 `match`로 줄(lane)에 나눌 수 있다. session 둘(home의 lophn과 project place의 lophn 같은)이 같이 model을 부르면 줄마다 queue가 따로다. 요청을 읽는 helper(`systemText`, `toolNames`, `lastUserText`, `lastToolResult`, `idIn`)는 `probe.ts`에 있다. 받은 요청을 모두 journal에 남기고, 기대와 다른 요청이나 빈 queue에는 HTTP 400(`invalid_request_error`)과 차이 설명으로 답한다. 500 계열은 제품이 retry해 test가 헷갈리기 때문이다. `aborted(n)`은 server가 응답을 붙들고 있는 동안 client가 끊은 때만 풀린다. 응답 event의 꼴은 `shape_test.ts`가 fixture와 견준다.
+- **fake server**(`tests/support/fake-server/`): `node:http` 위의 `serve` adapter(`packages/core/server/serve.ts`)로 loopback, port 0에 뜬다. 한 protocol(`anthropic-messages`, path `/messages`)만 말한다. 대답은 text, tool(인자 문자열 그대로), error, silent, cut, stall, raw 일곱이다. step의 대답은 값 대신 함수(`ReplyFn`: 받은 요청과 journal → 대답)여도 된다. 앞 요청에서 받은 id(call, release)를 다음 tool 인자에 넣을 때 쓴다. 요청은 `match`로 줄(lane)에 나눌 수 있다. session 둘(home의 lophn과 project workspace의 lophn 같은)이 같이 model을 부르면 줄마다 queue가 따로다. 요청을 읽는 helper(`systemText`, `toolNames`, `lastUserText`, `lastToolResult`, `idIn`)는 `probe.ts`에 있다. 받은 요청을 모두 journal에 남기고, 기대와 다른 요청이나 빈 queue에는 HTTP 400(`invalid_request_error`)과 차이 설명으로 답한다. 500 계열은 제품이 retry해 test가 헷갈리기 때문이다. `aborted(n)`은 server가 응답을 붙들고 있는 동안 client가 끊은 때만 풀린다. 응답 event의 꼴은 `shape_test.ts`가 fixture와 견준다.
 
 fake로 가는 길은 제품의 길뿐이다: `providers/connect`(key 없는 loopback provider, `auth_kind: "none"`)와 기동 전 `<data root>/settings.json`(`lophn-agent.model.catalog_auto_update: false`). 제품에 test 전용 flag나 env를 두지 않는다.
 
@@ -43,7 +43,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 | `fake-server/` | `startFakeServer`, `createFakeHandler`(socket 없는 몸체), `Reply`·`Step`·`JournalEntry` |
 | `core/` | `createRun`, `bootCore`(`env`, `repo` 옵션. `repo`는 다른 checkout의 core를 띄울 때만 준다), `tryBootCore`(기동 실패를 값으로), `Core`(`call`, `tryCall`, `upload`, `kill`, `stop`)와 session helper(`connectFakeProvider`, `openProject`, `openSession`, `say`, `turnsOf`, `waitTurnEnd`, `waitPermission`, `waitQuestion`, `decide`, `stopTurn`, `settle`, `until`), `shellAsk`(제품 ask 규칙 `rm -r*`에 걸리는 명령과 미리 만든 폴더. turn request를 열게 하는 공통 helper) |
 | `gateway/` | `connectGateway`(shell main의 Gateway 역할) |
-| `app/` | `startTestApp`·`activateTestApp`(template 앱을 제품 길로 띄움), `lophnTurn`·`lophnToolResult`(앱 place lophn turn 하나를 대본으로), `prepareRelease`·`activateRelease`·`deliverRelease`, `approveActivation`·`waitRunning`, `lophnLane`, `createAppSource`·`amendAppSource`·`sampleDomain`, `appCoreEnv`, `e2e:deps`의 `prepare-deps.ts`, flow별 앱 patch(`patch-*.ts`) |
+| `app/` | `startTestApp`·`activateTestApp`(template 앱을 제품 길로 띄움), `lophnTurn`·`lophnToolResult`(앱 workspace lophn turn 하나를 대본으로), `prepareRelease`·`activateRelease`·`deliverRelease`, `approveActivation`·`waitRunning`, `lophnLane`, `createAppSource`·`amendAppSource`·`sampleDomain`, `appCoreEnv`, `e2e:deps`의 `prepare-deps.ts`, flow별 앱 patch(`patch-*.ts`) |
 | `fake-oauth/` | `startFakeIssuer`(device code·PKCE loopback 발급자), `connectOAuthProvider` |
 | `annotation/` | `uploadScreenshot` |
 
@@ -53,9 +53,9 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 
 ## 앱 길
 
-앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: `apps/create`(core가 template으로 `<home>/apps/<app>/source`를 깔고 잇는다) → 견본 patch를 source에 commit → 앱 place lophn의 `release_prepare`, `preview_*`, `release_activate`(fake 대답) → 첫 activation의 동의(`activations.consents`를 읽어 `activation.consent`, compare `requested_at`). data root에 release를 직접 깔지 않는다. `release.prepare`·`release.activate`는 agent만 부르는 route라 test가 직접 부르지 않고 가짜 model이 앱 place의 lophn session으로 부른다. test만을 위한 actor를 제품 route에 더하지 않는다.
+앱 E2E는 사람이 앱을 시작하는 길로만 앱을 띄운다: `apps/create`(core가 template으로 `<home>/apps/<app>/source`를 깔고 잇는다) → 견본 patch를 source에 commit → 앱 workspace lophn의 `release_prepare`, `preview_*`, `release_activate`(fake 대답) → 첫 activation의 동의(`activations.consents`를 읽어 `activation.consent`, compare `requested_at`). data root에 release를 직접 깔지 않는다. `release.prepare`·`release.activate`는 agent만 부르는 route라 test가 직접 부르지 않고 가짜 model이 앱 workspace의 lophn session으로 부른다. test만을 위한 actor를 제품 route에 더하지 않는다.
 
-- 앱 place session의 tool 호출 하나에는 시간 한도가 없다(한도 timer는 model 호출만 끊는다). 상한은 core 쪽이다: 준비는 360초 뒤 `failed {stage: "build"}`, activation은 120초 뒤 `running`. helper는 turn 하나를 480초까지 기다리고, 맞으면 바로 돌아온다. 견본 앱의 `activateTestApp` 한 번은 약 8초다.
+- 앱 workspace session의 tool 호출 하나에는 시간 한도가 없다(한도 timer는 model 호출만 끊는다). 상한은 core 쪽이다: 준비는 360초 뒤 `failed {stage: "build"}`, activation은 120초 뒤 `running`. helper는 turn 하나를 480초까지 기다리고, 맞으면 바로 돌아온다. 견본 앱의 `activateTestApp` 한 번은 약 8초다.
 
 제품 template에는 견본 업무가 없다(빈 `tools`, 자리 표시 `home` 화면 하나). `createAppSource`가 복사한 template 위에 test 몫의 견본(`tests/support/app/sample/`: `add_item`·`list_items`, `items` 화면과 표)을 먼저 얹고 `home` 화면을 지운다. 흐름별 차이(큰 write, crash, migration)는 그 위에 얹는 patch다. patch가 더하는 tool의 `domain`은 `sampleDomain(dir)`(견본 선언의 첫 domain = 앱 slug)으로 채운다. source 폴더의 마지막 조각은 `source`라 slug가 아니다.
 
@@ -87,7 +87,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 - `npm run test:live`: 사람이 key(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)를 줄 때만. key는 shell env나 루트의 `.env`(git이 무시한다)에서 읽고, 같은 이름이면 shell이 이긴다. `npm run e2e`와 check는 `.env`를 읽지 않는다. 돌 것이 없으면(key도 live root도 없음) 이유를 찍고 0으로 끝난다. key가 있는 provider의 file과, live root가 있으면 `chatgpt_test.ts`가 돈다. 한 file의 호출은 10번 이하, 호출당 90초다. `LOPHN_LIVE_RECORD=1`이면 응답만(key와 계정 id를 지우고) fixture로 쓰고, 사람이 diff를 보고 commit한다. `providers/`·`models/`를 고친 계획이 land하기 전, provider나 model을 더할 때, 판을 닫기 전에 돈다.
   - ChatGPT 구독은 key가 아니라 사람의 진짜 로그인이다. `npm run test:live:login`이 core를 live 전용 root `.dev-data/live/home`(log와 user-home은 `.dev-data/live/run`)에 띄워 로그인을 한 번 저장하고(같은 컴퓨터의 browser가 필요하다), 계정 model 목록 응답 모양과 기본 model을 찍는다. `test:live`는 그 root에 core를 띄워 구독 token으로 turn 하나를 돌리고 계정 model 목록과 `billing_route == subscription`을 단정한다. 갱신은 token 만료 5분 전 안에만 일어나 단정은 그때만 돈다(로그인하고 약 55분 뒤 한 번 더 돌린다. 아니면 "확인하지 못했다"를 찍는다). 쓸 수 없는 credential이면 test가 실패한다.
   - 이 root는 복사하지 않는다(refresh token이 갱신 때마다 회전한다). core 하나만 띄우고 두 task를 동시에 돌리지 않는다. 코드는 root를 지우지 않으며 지우려면 사람이 `chmod -R u+w .dev-data/live && rm -rf .dev-data/live`를 한다. 이 root는 schema가 바뀌면 못 뜨고 그때 지우고 다시 로그인한다.
-- `npm run eval`: 사람이 진짜 provider 호출을 허락했을 때만. `.env`의 `ANTHROPIC_API_KEY`를 읽고, 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. place 지침, tool 설명, skill, assembly를 바꾼 계획이 land하기 전에 그 component를 본 case를 다시 돌리고, `npm run eval:scorecard`로 scorecard를 다시 쓴다. harness를 고친 것은 commit한 spec으로 `npm run eval:experiment -- <id>`가 판정한다(`.claude/skills/eval-run/SKILL.md`). judge item은 대기로 남아 eval을 돌리는 agent가 `eval:judge`로 채워야 끝난다. run 요약(`tests/eval/runs/`), scorecard(`tests/eval/scorecards/`), experiment 기록(`tests/eval/experiments/`)은 commit한다. `tests/eval`의 `*_test.ts`는 순수 unit이라 `npm run check`가 돌린다.
+- `npm run eval`: 사람이 진짜 provider 호출을 허락했을 때만. `.env`의 `ANTHROPIC_API_KEY`를 읽고, 없으면 재료 hash와 fixture만 확인하고 0으로 끝난다. workspace 지침, tool 설명, skill, assembly를 바꾼 계획이 land하기 전에 그 component를 본 case를 다시 돌리고, `npm run eval:scorecard`로 scorecard를 다시 쓴다. harness를 고친 것은 commit한 spec으로 `npm run eval:experiment -- <id>`가 판정한다(`.claude/skills/eval-run/SKILL.md`). judge item은 대기로 남아 eval을 돌리는 agent가 `eval:judge`로 채워야 끝난다. run 요약(`tests/eval/runs/`), scorecard(`tests/eval/scorecards/`), experiment 기록(`tests/eval/experiments/`)은 commit한다. `tests/eval`의 `*_test.ts`는 순수 unit이라 `npm run check`가 돌린다.
 - `npm run dev`: `tools/dev.ts`가 앱 전에 core를 한 번 띄워 고정 port(기본 7499)의 fake server를 `providers/connect`로 심는다. `LOPHN_LIVE_PROVIDER=1`이면 심지 않는다.
 
 ## case 고르는 규칙
@@ -95,7 +95,7 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 1. 쓰기 전에 세 질문에 답하고 test 머리 주석에 한 줄씩 남긴다: 어떤 contract를 지키나(boundary ID), 어떤 현실적인 회귀에서 깨지나, 왜 지금 test로는 못 잡나.
 2. AGENTS.md의 위험 목록(데이터 잃기, 권한·secret·sandbox 경계, 두 번 고친 bug)에 닿을 때만 쓴다.
 3. contract 하나에 test 하나를 가장 싼 층에 둔다. core E2E에는 process 경계를 건너야만 깨지는 것만 둔다. 경우의 수는 harness에서 늘린다.
-4. case 하나는 단계 6, fake 대답 3, 단정 3 이하다. fake 대답은 행의 몫만 센다. support helper(`activateTestApp`, `deliverRelease`)가 거는 앱 place lophn 대답은 세지 않는다. 행 몫이 3을 넘어도 되는 것은 session 둘이 서로를 기다리는 행(`agent-call`, session archive의 call)뿐이고, 이유를 test 머리 주석에 적는다. 단정은 서로 다른 곳(disk, ledger·event, fake가 받은 요청)에서 한다. 화면 문구는 단정하지 않는다.
+4. case 하나는 단계 6, fake 대답 3, 단정 3 이하다. fake 대답은 행의 몫만 센다. support helper(`activateTestApp`, `deliverRelease`)가 거는 앱 workspace lophn 대답은 세지 않는다. 행 몫이 3을 넘어도 되는 것은 session 둘이 서로를 기다리는 행(`agent-call`, session archive의 call)뿐이고, 이유를 test 머리 주석에 적는다. 단정은 서로 다른 곳(disk, ledger·event, fake가 받은 요청)에서 한다. 화면 문구는 단정하지 않는다.
 5. 변형은 table 한 줄로 둔다. 공통 불변식은 support의 함수 하나로 같이 쓴다.
 6. 회귀는 그 contract의 table에 한 행으로 더하고, 고치기 전 코드에서 실패하는 것을 확인한다.
 7. 새 E2E는 10번 연속 통과한 뒤 넣는다.

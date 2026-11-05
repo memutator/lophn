@@ -1,15 +1,15 @@
 import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
-  type AgentPlace,
-  type PlaceKind,
-  placeKindOf,
+  type AgentWorkspace,
+  type WorkspaceKind,
+  workspaceKindOf,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { SkillReader } from "../tools/ports.ts";
 import {
   discoverSkills,
   joinPath,
-  type PlaceSkills,
+  type WorkspaceSkills,
   type SharedSkill,
   sharedPathOf,
   SKILL_BODY_MAX_BYTES,
@@ -31,25 +31,25 @@ export type SkillSnapshotDeps = {
   personal_store: string | null;
   // 사람이 등록한 폴더(등록 순서)와 전역에서 끈 이름이다. turn마다 읽는다.
   global(): Promise<{ roots: readonly string[]; off: readonly string[] }>;
-  // place 폴더의 `.lophn/skills`, place 그릇 자리의 `skills/`와 그 project에서 끈 이름이다.
+  // workspace 폴더의 `.lophn/skills`, workspace 그릇 자리의 `skills/`와 그 project에서 끈 이름이다.
   // 파일이 없거나 앱이면 끈 이름은 비어 있다.
-  place(place: AgentPlace): Promise<{
-    place_skills: PlaceSkills | null;
-    place_data: string | null;
+  workspace(workspace: AgentWorkspace): Promise<{
+    workspace_skills: WorkspaceSkills | null;
+    workspace_data: string | null;
     off: readonly string[];
   }>;
   // 이 agent에게 할당한 앱(slug)이 내놓은 public skill이다. 읽지 못하면 없는 것이다.
   shared(
     apps: readonly string[],
-    place: AgentPlace | null,
+    workspace: AgentWorkspace | null,
   ): Promise<readonly SharedSkill[]>;
 };
 
 type SkillSession = {
   id: Id<"ses">;
-  kind: PlaceKind;
-  // agent가 놓인 place다. home은 null이라 전역 층만 본다.
-  place: AgentPlace | null;
+  kind: WorkspaceKind;
+  // agent가 놓인 workspace다. home은 null이라 전역 층만 본다.
+  workspace: AgentWorkspace | null;
   // agent 정의가 끈 이름(`skills_off`)이다.
   off: readonly string[];
   // agent 정의에 할당된 앱 slug다.
@@ -71,14 +71,14 @@ export async function createSkillSnapshot(
 ): Promise<SkillSnapshot> {
   const global = await deps.global();
   const layer =
-    session.place === null
+    session.workspace === null
       ? {
-          place_skills: null as PlaceSkills | null,
-          place_data: null as string | null,
+          workspace_skills: null as WorkspaceSkills | null,
+          workspace_data: null as string | null,
           off: [] as readonly string[],
         }
-      : await deps.place(session.place);
-  const shared = await deps.shared(session.apps, session.place);
+      : await deps.workspace(session.workspace);
+  const shared = await deps.shared(session.apps, session.workspace);
   const found = discoverSkills(
     deps.port,
     {
@@ -86,8 +86,8 @@ export async function createSkillSnapshot(
       bundled: deps.builtin_root,
       registered: global.roots,
       personal: deps.personal_store,
-      place: layer.place_skills,
-      placeData: layer.place_data,
+      workspace: layer.workspace_skills,
+      workspaceData: layer.workspace_data,
     },
     {
       kind: session.kind,
@@ -232,7 +232,7 @@ export function turnSkillReader(
   deps: SkillSnapshotDeps,
   session: {
     id: string;
-    place: AgentPlace | null;
+    workspace: AgentWorkspace | null;
     apps: readonly string[];
   },
   enabled: readonly string[],
@@ -248,8 +248,8 @@ export function turnSkillReader(
       }
       snapshot ??= createSkillSnapshot(deps, {
         id: session.id as Id<"ses">,
-        kind: placeKindOf(session.place),
-        place: session.place,
+        kind: workspaceKindOf(session.workspace),
+        workspace: session.workspace,
         off: [],
         apps: session.apps,
       });

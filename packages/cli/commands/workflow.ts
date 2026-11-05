@@ -1,10 +1,10 @@
 // `lophn workflow list|get|report|edit|check|start|stop`: workflow를 읽고, report하고, 고치고, 시작하고, 멈춘다.
 // lophn agent와 사람(binary)이 같은 명령을 쓰고, 부른 쪽은 core가 credential로 안다. start와 stop은 route가 user 전용이라
-// place 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 멈추는 것은 사람이 정한다.
+// workspace 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 멈추는 것은 사람이 정한다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import {
   type HandResult,
   sessionChoiceSchema,
@@ -55,11 +55,11 @@ const list = defineCommand({
   name: "workflow.list",
   summary: "List the workflows of a project",
   description:
-    "List the workflows of a project: key, state, steps and, for a broken declaration, the `problem`. Give the project by name or id; in a project place you may omit it.",
+    "List the workflows of a project: key, state, steps and, for a broken declaration, the `problem`. Give the project by name or id; in a project workspace you may omit it.",
   input: z.strictObject({ project: z.string().min(1).optional() }),
   effect: "read",
   routes: [workflowList],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const read = await ctx.core.read(workflowList, input);
     if (!read.ok) return read;
@@ -89,7 +89,7 @@ const get = defineCommand({
   positional: ["instance"],
   effect: "read",
   routes: [workflowInstanceRead],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     // `next_cursor`가 null일 때까지 줄을 모은다. instance와 last_reports는 마지막 page의 것이다.
     let lines: unknown[] = [];
@@ -136,7 +136,7 @@ const report = defineCommand({
   positional: ["instance", "step", "text"],
   effect: "write",
   routes: [workflowReport],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const reported = await ctx.core.read(workflowReport, input);
     if (!reported.ok) return reported;
@@ -170,7 +170,7 @@ const edit = defineCommand({
   positional: ["instance"],
   effect: "write",
   routes: [workflowEdit],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const { new_step, ...rest } = input;
     const done = await ctx.core.read(workflowEdit, {
@@ -194,7 +194,7 @@ const check = defineCommand({
   positional: ["workflow"],
   effect: "read",
   routes: [workflowCheck],
-  places: ["project"],
+  workspaces: ["project"],
   run: async (input, ctx) => {
     const checked = await ctx.core.read(workflowCheck, input);
     if (!checked.ok) return checked;
@@ -224,7 +224,7 @@ const start = defineCommand({
   positional: ["workflow", "text"],
   effect: "write",
   routes: [workflowStart],
-  places: [],
+  workspaces: [],
   run: async (input, ctx) => {
     const started = await ctx.core.read(workflowStart, input);
     if (!started.ok) return started;
@@ -249,7 +249,7 @@ const stop = defineCommand({
   positional: ["instance"],
   effect: "write",
   routes: [workflowStop],
-  places: [],
+  workspaces: [],
   run: async (input, ctx) => {
     const stopped = await ctx.core.read(workflowStop, input);
     return stopped.ok

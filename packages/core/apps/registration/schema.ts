@@ -1,7 +1,6 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
 
-// registration 표. slug는 documents/addressing place와
-// 같은 이름 공간이라 place_names 예약이 unique를 지키고, 표에는 한 번 더 unique를 둔다.
+// registration 표. slug는 표에서 unique다.
 // planning_version·active_release는 아직 없는 versions·releases 표를 참조하므로
 // 물리 FK를 두지 않는다. 보관은 삭제가 아니라 status다.
 export const appsSchemaSteps: readonly SchemaStep[] = [

@@ -63,7 +63,7 @@ export function messageSearchRead(
       if (!parsed.success) {
         return err({ code: "invalid_input", message: "invalid read input" });
       }
-      const { agent, place, query } = parsed.data;
+      const { agent, workspace, query } = parsed.data;
       const scope = visibleSessions(ctx);
       if (scope === undefined) {
         return err({
@@ -74,14 +74,14 @@ export function messageSearchRead(
       const found = environment.snapshot<Found>((sql, asOfSeq) => {
         const clauses = [
           "s.agent = ?",
-          "s.place_kind is ?",
-          "s.place_id = ?",
+          "s.workspace_kind is ?",
+          "s.workspace_id = ?",
           "m.from_kind in ('human', 'agent')",
         ];
         const params: (string | null)[] = [
           agent,
-          place?.kind ?? null,
-          place?.id ?? null,
+          workspace?.kind ?? null,
+          workspace?.id ?? null,
         ];
         // agent는 자기 session만 본다(사람과 machine은 제한이 없다).
         if (scope !== null) {

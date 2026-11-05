@@ -9,7 +9,7 @@ import {
   iconViewOf,
   useIconSrc,
 } from "../parts/icon-upload/icon-reader.ts";
-import { PlaceMark } from "../parts/place-mark/place-mark.tsx";
+import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
 import { workspaceIcons } from "../icons/mod.ts";
 import styles from "./app-icon.module.css";
 import { type AppViewsDeps, useAppViews } from "./app-views.tsx";
@@ -58,7 +58,7 @@ export function AppTabIcon({ app }: { app: string | undefined }) {
 }
 
 /** 앱 목록의 표식. icon이 있으면 그 이미지, 없으면 첫 글자와 색이다. */
-export function AppPlaceMark({
+export function AppWorkspaceMark({
   id,
   name,
   icon,
@@ -71,7 +71,7 @@ export function AppPlaceMark({
   const declared = useAppIcon(icon === undefined ? id : undefined);
   const src = icon ?? declared;
   return (
-    <PlaceMark
+    <WorkspaceMark
       kind="app"
       id={id}
       name={name}

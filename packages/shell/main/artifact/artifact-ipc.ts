@@ -20,8 +20,8 @@ import {
   type IpcEvent,
 } from "../desktop/ipc-guard.ts";
 import {
-  type ArtifactPlace,
-  artifactPlaceOf,
+  type ArtifactWorkspace,
+  artifactWorkspaceOf,
 } from "../../../protocol/projects/artifact.ts";
 import type { ArtifactViews } from "./registry.ts";
 
@@ -30,7 +30,7 @@ interface ArtifactIpcDeps {
   /** sender webContents가 본문인 창. desktop 창이 아니면 undefined다. */
   windowOf(sender: CallerContents): string | undefined;
   views: Pick<ArtifactViews, "open" | "reload">;
-  list(place: ArtifactPlace): Promise<ArtifactListItem[]>;
+  list(workspace: ArtifactWorkspace): Promise<ArtifactListItem[]>;
 }
 
 interface ArtifactIpcHandlers {
@@ -88,7 +88,9 @@ export function createArtifactIpc(deps: ArtifactIpcDeps): ArtifactIpcHandlers {
       if (!checked.ok) return checked;
       return {
         ok: true,
-        value: { artifacts: await deps.list(artifactPlaceOf(checked.value)) },
+        value: {
+          artifacts: await deps.list(artifactWorkspaceOf(checked.value)),
+        },
       };
     },
   };

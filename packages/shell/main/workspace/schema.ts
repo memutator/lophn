@@ -1,4 +1,4 @@
-// place layout(`place-layout.ts`)이 같이 쓰는 값 schema: 탭, 정수 rectangle, desk key.
+// workspace layout(`workspace-layout.ts`)이 같이 쓰는 값 schema: 탭, 정수 rectangle, desk key.
 import { z } from "zod";
 
 import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
@@ -7,7 +7,7 @@ import { type LayoutTab, tabKindOf } from "./kinds/registry.ts";
 export const DEFAULT_DESK = "_default";
 
 // 탭 값은 등록된 kind의 schema가 정한다(kinds/registry.ts). tagged union이고 preview(mode)는 복원 파일에서
-// 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, place-layout의 parsePlaceLayoutFile이 먼저 그런 탭을 건너뛴다.
+// 제외된다. 등록되지 않은 kind는 이 schema가 거절하고, workspace-layout의 parseWorkspaceLayoutFile이 먼저 그런 탭을 건너뛴다.
 export const layoutTabSchema: z.ZodType<LayoutTab> = z
   .unknown()
   .transform((value, ctx) => {

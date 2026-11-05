@@ -60,7 +60,7 @@ function setup() {
     emit: () => 1,
   } as unknown as Tx;
   sql.run(
-    `insert into sessions (id, agent, project, place_kind, place_id, created_seq, state_seq)
+    `insert into sessions (id, agent, project, workspace_kind, workspace_id, created_seq, state_seq)
      values (?, 'agt_1', 'prj_1', 'project', 'prj_1', 1, 1)`,
     [SESSION],
   );

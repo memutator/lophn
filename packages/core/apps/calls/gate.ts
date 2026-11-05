@@ -6,7 +6,7 @@ import type {
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { ToolEffect } from "../../../protocol/lophn-agent/tool-values.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import { judge } from "../../approvals/gate/mod.ts";
 import type { VerifiedCaller } from "./caller.ts";
 
@@ -58,8 +58,10 @@ export async function callAllowed(
     );
     if (judged.kind === "deny") return ok(false);
     if (target.public) return ok(true);
-    // agent의 tool 목록과 같은 규칙: 공개 tool이거나 creator가 그 앱 place에 있는 tool.
-    return ok(caller.place?.kind === "app" && caller.place.id === target.app);
+    // agent의 tool 목록과 같은 규칙: 공개 tool이거나 creator가 그 앱 workspace에 있는 tool.
+    return ok(
+      caller.workspace?.kind === "app" && caller.workspace.id === target.app,
+    );
   }
   if (caller.kind === "agent") {
     const assignment = assignmentOf(caller.agent, deps);

@@ -33,7 +33,7 @@ export interface ShellFrameProps {
   platform?: WindowPlatform;
   /** 창 단추 통로. 기본은 preload가 둔 통로이고 없으면 단추를 그리지 않는다. */
   windowApi?: WindowControlsApi;
-  /** 왼쪽 구역의 desk 단추(DeskSwitcher). project place에만 둔다. */
+  /** 왼쪽 구역의 desk 단추(DeskSwitcher). project workspace에만 둔다. */
   deskSwitcher?: ReactNode;
   /** 가운데 tab 줄(TabStrip). */
   tabs: ReactNode;
@@ -54,7 +54,7 @@ const WIDTH_KEY = (side: Side) => `lophn.shell.sidebar-width.${side}`;
 
 const OPEN_KEY = (side: Side) => `lophn.shell.sidebar-open.${side}`;
 
-/** sidebar 열림. 저장한 값이 있으면 그것이 이기고 없으면 fallback이다. 값은 place와 무관하게 쪽마다 하나다. */
+/** sidebar 열림. 저장한 값이 있으면 그것이 이기고 없으면 fallback이다. 값은 workspace와 무관하게 쪽마다 하나다. */
 export function useSidebarOpen(
   side: Side,
   fallback: boolean,

@@ -97,7 +97,7 @@ test("an opened share request changes no assignment until the user approves", ()
       { requested_at },
     );
 
-  // 앱 place 밖의 agent는 열지 못한다.
+  // 앱 workspace 밖의 agent는 열지 못한다.
   const outside = open(ctxOf(`agent:${SESSION}`));
   assert.deepStrictEqual(!outside.ok && outside.error.code, "forbidden");
 

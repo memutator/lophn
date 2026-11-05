@@ -2,9 +2,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
 import type { RegistryEntry, VersionKind, VersionRef } from "../types.ts";
 
-// 다른 checkout(variant)의 place prompt. import는 지금 프로세스의 checkout 것이라 따로 읽어 넘긴다.
+// 다른 checkout(variant)의 workspace prompt. import는 지금 프로세스의 checkout 것이라 따로 읽어 넘긴다.
 export type VariantTexts = {
-  place_prompts: Record<string, string>;
+  workspace_prompts: Record<string, string>;
 };
 
 // 경로를 받는 함수의 마지막 인자. test가 임시 폴더를 준다.

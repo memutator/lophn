@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
-import { agentAddressSchema } from "../lophn-agent/places.ts";
+import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
 import { jsonValueSchema, toolNameSchema } from "../apps/channel-values.ts";
 import {
   stepNameSchema,
@@ -46,7 +46,7 @@ export type FlowResponse = z.infer<typeof flowResponseSchema>;
 
 // process -> core. agent·tool의 result는 run의 result이고 report의 result는 null이다.
 // 칸 모양은 StartRun 입력과 같다. agent는 session을 이어 쓰지 않아 session이 없고,
-// place가 없으면 instance의 project다.
+// workspace가 없으면 instance의 project다.
 export const flowRequestSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("agent"),

@@ -31,7 +31,9 @@ export function createRunReads(): {
         const loaded = listRuns(snapshot.sql, {
           ...(input.session === undefined ? {} : { session: input.session }),
           ...(input.agent === undefined ? {} : { agent: input.agent }),
-          ...(input.place === undefined ? {} : { place: input.place }),
+          ...(input.workspace === undefined
+            ? {}
+            : { workspace: input.workspace }),
           ...(input.state === undefined ? {} : { state: input.state }),
           ...(input.cursor === undefined ? {} : { after: input.cursor }),
           limit: PAGE + 1,

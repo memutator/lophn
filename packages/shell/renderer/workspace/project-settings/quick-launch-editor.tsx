@@ -19,7 +19,7 @@ import {
   shellIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
-import type { PlaceQuick } from "../../shell/desk-model.ts";
+import type { WorkspaceQuick } from "../../shell/desk-model.ts";
 import { panelChoices, useScreensRead } from "../app-panel-tab.tsx";
 import {
   isPinned,
@@ -68,8 +68,8 @@ export function QuickOrderList({
   onQuick,
   apps,
 }: {
-  quick: PlaceQuick;
-  onQuick: (next: PlaceQuick) => void;
+  quick: WorkspaceQuick;
+  onQuick: (next: WorkspaceQuick) => void;
   apps: readonly AppScreens[];
 }) {
   const order = quickOrder(quick);
@@ -159,8 +159,8 @@ export function AppPanelList({
   apps: readonly AppScreens[];
   loading: boolean;
   failed: boolean;
-  quick: PlaceQuick;
-  onQuick: (next: PlaceQuick) => void;
+  quick: WorkspaceQuick;
+  onQuick: (next: WorkspaceQuick) => void;
   launch?: AppLaunchMap;
   onLaunch?: (key: string, next: AppLaunch) => void;
 }) {

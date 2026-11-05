@@ -1,5 +1,5 @@
 // 세 질문
-// - contract: boundary `run-loop`(prompt 조립: 지침 층은 `LOPHN.md`(없으면 `CLAUDE.md`)뿐이고, 바뀐 판은 다음 turn 시작에 notice로 알린다), `agent-places`(project 층 지침의 자리).
+// - contract: boundary `run-loop`(prompt 조립: 지침 층은 `LOPHN.md`(없으면 `CLAUDE.md`)뿐이고, 바뀐 판은 다음 turn 시작에 notice로 알린다), `agent-workspaces`(project 층 지침의 자리).
 // - 현실적 회귀: 사람이 고친 지침이 도는 session에 영영 안 닿는 것, notice 없이 system만 바뀌어 model이 무엇이 바뀌었는지 모르는 것, `AGENTS.md`를 fallback으로 읽는 수정이 들어가 사람이 모르는 글이 prompt에 섞이는 것.
 // - 왜 지금 test로 못 잡나: `assembleTurnPrompt`에 unit이 없고, harness loop의 `context` port는 notice를 비워 둔다. file 읽기(core)와 판 기억(runtime child 메모리)과 model 요청이 이어지는 길은 process를 건너야 보인다.
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import { test } from "node:test";
 import { LOPHN_AGENT_ID } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   turnsOf,
@@ -37,7 +37,7 @@ test("고친 지침은 다음 turn의 system과 notice로 닿고 AGENTS.md는 �
     await writeFile(`${proj}/LOPHN.md`, one);
     await writeFile(`${proj}/AGENTS.md`, decoy);
     const { project } = await openProject(core, proj);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });

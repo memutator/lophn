@@ -31,10 +31,10 @@ If you will not take the work, reply with the reason. Add \`--image <path>\` to 
 
 \`\`\`
 lophn call send --to '{"session":"ses_xxx"}' --reply result --body "what you want done"
-lophn call send --to '{"agent":"reviewer","place":{"project":"my-project"}}' --reply result --body "..."
+lophn call send --to '{"agent":"reviewer","workspace":{"project":"my-project"}}' --reply result --body "..."
 \`\`\`
 
-- \`--to\` is an open session (from \`lophn session list\`), or an agent by exact name with an optional place (\`{"project":"name"}\` or \`{"app":"name"}\`; no place means home), which opens a new session. Add \`"session":"ses_xxx","fallback":"new"\` to open a new one if that session is closed.
+- \`--to\` is an open session (from \`lophn session list\`), or an agent by exact name with an optional workspace (\`{"project":"name"}\` or \`{"app":"name"}\`; no workspace means home), which opens a new session. Add \`"session":"ses_xxx","fallback":"new"\` to open a new one if that session is closed.
 - \`--reply none\` asks for no answer. \`result\` and \`conversation\` ask the receiver to answer.
 - The command returns at once with the call ID. It never waits. The answer arrives later in your session as \`<lophn-reply call="cal_..." from="..." status="...">\` and starts a new turn, so do not poll: if you need the answer to go on, say what you are waiting for and end your turn.
 - \`lophn call cancel cal_xxx --reason "..."\` cancels a call you sent that has not ended.
@@ -46,7 +46,7 @@ lophn session list
 lophn agent card reviewer
 \`\`\`
 
-\`session list\` shows the open sessions you can send to (ID, agent, name, place, state). \`agent card <name>\` shows what an agent does and which replies it supports; read it before you call that agent.
+\`session list\` shows the open sessions you can send to (ID, agent, name, workspace, state). \`agent card <name>\` shows what an agent does and which replies it supports; read it before you call that agent.
 `;
 
 export const LOPHN_AGENT_SKILL: SharedSkill = {

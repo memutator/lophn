@@ -1,9 +1,9 @@
-// renderer가 place layout을 읽고 쓰는 통로. main의 `shell:place-layout-*` IPC(preload의 lophnLayout)를 감싸고
-// 저장된 snake_case 값과 PlaceLayout을 오간다. tab 값은 kinds registry의 fromStored/toStored가 정한다.
+// renderer가 workspace layout을 읽고 쓰는 통로. main의 `shell:workspace-layout-*` IPC(preload의 lophnLayout)를 감싸고
+// 저장된 snake_case 값과 WorkspaceLayout을 오간다. tab 값은 kinds registry의 fromStored/toStored가 정한다.
 // tab 읽기·쓰기 보조는 옛 workspace/layout-map.ts와 같은 규칙이다(그 파일은 옛 layout을 지울 때 같이 없어진다).
 import type {
-  PlaceLayoutReadResult,
-  PlaceLayoutSaveResult,
+  WorkspaceLayoutReadResult,
+  WorkspaceLayoutSaveResult,
 } from "../../ipc/workspace.ts";
 import { tabKindOf } from "../workspace/kinds/registry.ts";
 import {
@@ -16,54 +16,58 @@ import {
   type Group,
   type GroupNode,
   MAIN_DESK,
-  type PlaceLayout,
-  type PlaceQuick,
-  type PlaceRef,
-  placeKey,
+  type WorkspaceLayout,
+  type WorkspaceQuick,
+  type WorkspaceRef,
+  workspaceKey,
   settle,
   type TabItem,
 } from "./desk-model.ts";
 
-// main/workspace/place-layout.ts의 상한과 같다.
+// main/workspace/workspace-layout.ts의 상한과 같다.
 const FLOATS_MAX = 20;
 const DETACHED_MAX = 20;
 const TAB_KEY_MAX = 4096;
 
-export interface PlaceLayoutBridge {
-  readPlace(input: { place: string }): Promise<PlaceLayoutReadResult>;
-  savePlace(input: {
-    place: string;
+export interface WorkspaceLayoutBridge {
+  readWorkspace(input: {
+    workspace: string;
+  }): Promise<WorkspaceLayoutReadResult>;
+  saveWorkspace(input: {
+    workspace: string;
     layout: unknown;
-  }): Promise<PlaceLayoutSaveResult>;
+  }): Promise<WorkspaceLayoutSaveResult>;
 }
 
 /** layout이 null이면 쓸 만한 저장 값이 없다(없음, 손상, 다른 판). 부르는 쪽이 기본 layout을 쓴다. */
-export type PlaceLayoutRead =
-  | { ok: true; layout: PlaceLayout | null }
+export type WorkspaceLayoutRead =
+  | { ok: true; layout: WorkspaceLayout | null }
   | { ok: false; message: string };
 
 export interface LayoutSource {
-  readPlaceLayout(place: PlaceRef): Promise<PlaceLayoutRead>;
-  savePlaceLayout(
-    place: PlaceRef,
-    layout: PlaceLayout,
+  readWorkspaceLayout(workspace: WorkspaceRef): Promise<WorkspaceLayoutRead>;
+  saveWorkspaceLayout(
+    workspace: WorkspaceRef,
+    layout: WorkspaceLayout,
   ): Promise<{ ok: boolean }>;
 }
 
-const globalBridge = (): PlaceLayoutBridge | undefined =>
-  (globalThis as { lophnLayout?: PlaceLayoutBridge }).lophnLayout;
+const globalBridge = (): WorkspaceLayoutBridge | undefined =>
+  (globalThis as { lophnLayout?: WorkspaceLayoutBridge }).lophnLayout;
 
 export function createLayoutSource(
-  bridge: () => PlaceLayoutBridge | undefined = globalBridge,
+  bridge: () => WorkspaceLayoutBridge | undefined = globalBridge,
 ): LayoutSource {
   return {
-    async readPlaceLayout(place) {
+    async readWorkspaceLayout(workspace) {
       const api = bridge();
       if (api === undefined) {
         return { ok: false, message: "layout is unavailable" };
       }
       try {
-        const reply = await api.readPlace({ place: placeKey(place) });
+        const reply = await api.readWorkspace({
+          workspace: workspaceKey(workspace),
+        });
         if (!reply.ok) return { ok: false, message: reply.code };
         return {
           ok: true,
@@ -73,12 +77,12 @@ export function createLayoutSource(
         return { ok: false, message: "layout is unavailable" };
       }
     },
-    async savePlaceLayout(place, layout) {
+    async saveWorkspaceLayout(workspace, layout) {
       const api = bridge();
       if (api === undefined) return { ok: false };
       try {
-        const reply = await api.savePlace({
-          place: placeKey(place),
+        const reply = await api.saveWorkspace({
+          workspace: workspaceKey(workspace),
           layout: layoutToStored(layout),
         });
         return { ok: reply.ok };
@@ -89,24 +93,25 @@ export function createLayoutSource(
   };
 }
 
-/** 메모리에 두는 가짜 통로. dev mock과 gallery가 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 project·앱 place가 읽는 처음 layout이다(Home은 빈 채로 시작한다). */
-export function fakePlaceLayoutBridge(
-  initial?: PlaceLayout,
-): PlaceLayoutBridge {
+/** 메모리에 두는 가짜 통로. dev mock과 gallery가 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 project·앱 workspace가 읽는 처음 layout이다(Home은 빈 채로 시작한다). */
+export function fakeWorkspaceLayoutBridge(
+  initial?: WorkspaceLayout,
+): WorkspaceLayoutBridge {
   const saved = new Map<string, string>();
   const first =
     initial === undefined ? undefined : JSON.stringify(layoutToStored(initial));
   return {
-    readPlace: ({ place }) => {
-      const json = saved.get(place) ?? (place === "home" ? undefined : first);
+    readWorkspace: ({ workspace }) => {
+      const json =
+        saved.get(workspace) ?? (workspace === "home" ? undefined : first);
       return Promise.resolve(
         json === undefined
           ? { ok: true, available: false, reason: "absent" }
           : { ok: true, available: true, layout: JSON.parse(json) },
       );
     },
-    savePlace: ({ place, layout }) => {
-      saved.set(place, JSON.stringify(layout));
+    saveWorkspace: ({ workspace, layout }) => {
+      saved.set(workspace, JSON.stringify(layout));
       return Promise.resolve({ ok: true });
     },
   };
@@ -277,7 +282,7 @@ function deskFromStored(key: string, value: unknown): Desk | null {
 }
 
 // main이 이미 검증했다. 모양이 틀리면 없는 것으로 본다.
-function quickFromStored(value: unknown): PlaceQuick | undefined {
+function quickFromStored(value: unknown): WorkspaceQuick | undefined {
   const quick = value as {
     order?: unknown;
     apps?: unknown;
@@ -304,7 +309,7 @@ function quickFromStored(value: unknown): PlaceQuick | undefined {
 }
 
 /** 저장된 layout을 읽는다. main이 이미 검증했다. 모양이 틀리거나 Main이 없으면 null이다. */
-export function layoutFromStored(value: unknown): PlaceLayout | null {
+export function layoutFromStored(value: unknown): WorkspaceLayout | null {
   const stored = value as {
     active_desk?: unknown;
     desks?: unknown;
@@ -366,10 +371,10 @@ function deskToStored(input: Desk): Stored {
 }
 
 /** main에 보내는 값. schema 판은 main이 붙인다. */
-export function layoutToStored(layout: PlaceLayout): {
+export function layoutToStored(layout: WorkspaceLayout): {
   active_desk: string;
   desks: Record<string, Stored>;
-  quick?: PlaceQuick;
+  quick?: WorkspaceQuick;
 } {
   return {
     ...(layout.quick === undefined ? {} : { quick: layout.quick }),

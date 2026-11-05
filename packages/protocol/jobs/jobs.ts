@@ -3,7 +3,7 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, readCursorSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { agentAtPlaceOutputSchema } from "../lophn-agent/places.ts";
+import { agentAtWorkspaceOutputSchema } from "../lophn-agent/workspaces.ts";
 import {
   jobActionInputSchema,
   jobActionSchema,
@@ -17,12 +17,12 @@ import {
 } from "./values.ts";
 
 // last_run은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다.
-// creator는 job을 만든 session의 (agent, place)다.
+// creator는 job을 만든 session의 (agent, workspace)다.
 // approved_at이 null이면 사람의 등록 승인을 기다린다. 승인 전에는 돌지 않는다(next_due_at도 null).
 export const jobRecordSchema = z.object({
   id: jobIdSchema,
   title: jobTitleSchema,
-  creator: agentAtPlaceOutputSchema,
+  creator: agentAtWorkspaceOutputSchema,
   every: jobEverySchema,
   at: jobAtSchema.nullable(),
   action: jobActionSchema,
@@ -160,7 +160,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-// agent에게는 같은 agent가 같은 place에서 만든 job만, user에게는 모든 job을 준다. id 순 50개씩.
+// agent에게는 같은 agent가 같은 workspace에서 만든 job만, user에게는 모든 job을 준다. id 순 50개씩.
 export const jobList = defineRead({
   resource: "jobs",
   method: "list",

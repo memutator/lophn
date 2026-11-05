@@ -36,15 +36,15 @@ export function agentNameKey(name: string): string {
 export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
 
 // 자리 설정이 놓이는 자리. 전역(global)은 자리가 아니다.
-export const agentPlaceSchema = z.discriminatedUnion("kind", [
+export const agentWorkspaceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
   z.strictObject({ kind: z.literal("app"), id: idSchema("app") }),
 ]);
-export const agentPlaceOutputSchema = z.discriminatedUnion("kind", [
+export const agentWorkspaceOutputSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("project"), id: idSchema("prj") }),
   z.object({ kind: z.literal("app"), id: idSchema("app") }),
 ]);
-export type AgentPlace = z.infer<typeof agentPlaceSchema>;
+export type AgentWorkspace = z.infer<typeof agentWorkspaceSchema>;
 
 // 끈 MCP. original_tool을 생략하면 그 서버 전체다.
 const mcpOffFields = {
@@ -202,7 +202,7 @@ export const agentDefinitionOutputSchema = z.object({
 });
 export type AgentDefinition = z.infer<typeof agentDefinitionSchema>;
 
-// 값이 어느 층에서 왔나. place와 definition은 그 층의 자리를 함께 적는다.
+// 값이 어느 층에서 왔나. workspace와 definition은 그 층의 자리를 함께 적는다.
 // 저장과 읽기의 전체 검사가 항목별로 알리는 이유다. field는 점 경로(`skills.1`, `model.api_key`)이고
 // 파일 자체가 깨졌으면 `frontmatter`다.
 

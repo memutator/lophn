@@ -5,8 +5,8 @@ import {
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_IMAGE_FIELD,
-  type Place,
-  type PlaceSession,
+  type Workspace,
+  type WorkspaceSession,
   type ReceivedMessage,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { CallFrom, CallRef } from "../../../protocol/lophn-agent/calls.ts";
@@ -42,7 +42,7 @@ export const messageBodyFields: readonly BlobFieldDefinition[] = [
 ];
 
 // sessions·messages 표와 row 변환. 순수 함수와 읽기 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는
-// reads.ts가 맡는다. 본문은 열에 없고 hash만 남는다. session의 agent와 place와 출처는 바뀌지
+// reads.ts가 맡는다. 본문은 열에 없고 hash만 남는다. session의 agent와 workspace와 출처는 바뀌지
 // 않고, archive한 session은 다시 열리지 않는다. 두 표의 순번(created_seq, state_seq)은 ledger event
 // 없이 표 안에서 이어 센다. 가져간 메시지의 본문·봉투·순서는 덮어쓰지 않고, 아직 turn이
 // 가져가지 않은 사람 메시지의 본문과 순서만 큐에서 고친다. session과 메시지는
@@ -180,7 +180,7 @@ begin
 end;`,
   },
   {
-    // 다른 place의 session이 불러 열린 session은 부른 place를 남긴다(home 세션의 읽기 범위를 좁히는 근거).
+    // 다른 workspace의 session이 불러 열린 session은 부른 workspace를 남긴다(home 세션의 읽기 범위를 좁히는 근거).
     id: "lophn-agent.sessions.called-from",
     sql: `
 alter table sessions add column called_from_kind text
@@ -192,6 +192,13 @@ before update of called_from_kind, called_from_id on sessions
 begin
   select raise(abort, 'session call origin is immutable');
 end;`,
+  },
+  {
+    // place를 workspace로 부르게 됐다. rename column은 check, index, trigger의 이름도 같이 고친다.
+    id: "lophn-agent.sessions.workspace",
+    sql: `
+alter table sessions rename column place_kind to workspace_kind;
+alter table sessions rename column place_id to workspace_id;`,
   },
 ];
 
@@ -208,8 +215,8 @@ export type AgentSessionRow = {
   agent: AgentId;
   project: string | null;
   app: string | null;
-  place_kind: "project" | "app" | null;
-  place_id: string | null;
+  workspace_kind: "project" | "app" | null;
+  workspace_id: string | null;
   title: string | null;
   lifecycle: "open" | "archived";
   forked_from_session: string | null;
@@ -221,7 +228,7 @@ export type AgentSessionRow = {
   // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
   harness: HarnessRuntime | null;
   harness_session: string | null;
-  // 다른 place의 session이 불러 열렸으면 그 place. 열 때 정해 바뀌지 않는다.
+  // 다른 workspace의 session이 불러 열렸으면 그 workspace. 열 때 정해 바뀌지 않는다.
   called_from_kind: "project" | "app" | null;
   called_from_id: string | null;
   created_seq: string;
@@ -230,8 +237,8 @@ export type AgentSessionRow = {
 // 다른 단위가 이 이름으로 import한다.
 export type SessionRow = AgentSessionRow;
 
-export const SESSION_COLUMNS = `id, agent, project, app, place_kind,
-  place_id, title, lifecycle, forked_from_session, forked_from_through_seq,
+export const SESSION_COLUMNS = `id, agent, project, app, workspace_kind,
+  workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
   compaction_summary_call, skip, harness, harness_session, called_from_kind, called_from_id, created_seq, state_seq`;
 
@@ -241,8 +248,10 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     agent: String(row["agent"]) as AgentId,
     project: text(row["project"]),
     app: text(row["app"]),
-    place_kind: text(row["place_kind"]) as AgentSessionRow["place_kind"],
-    place_id: text(row["place_id"]),
+    workspace_kind: text(
+      row["workspace_kind"],
+    ) as AgentSessionRow["workspace_kind"],
+    workspace_id: text(row["workspace_id"]),
     title: text(row["title"]),
     lifecycle: String(row["lifecycle"]) as AgentSessionRow["lifecycle"],
     forked_from_session: text(row["forked_from_session"]),
@@ -285,45 +294,45 @@ export function openSessions(lookup: {
     .map(sessionRowOf);
 }
 
-export function placeOf(row: AgentSessionRow): Place | null {
-  return row.place_kind === null || row.place_id === null
+export function workspaceOf(row: AgentSessionRow): Workspace | null {
+  return row.workspace_kind === null || row.workspace_id === null
     ? null
-    : ({ kind: row.place_kind, id: row.place_id } as Place);
+    : ({ kind: row.workspace_kind, id: row.workspace_id } as Workspace);
 }
 
-export function calledFromOf(row: AgentSessionRow): Place | null {
+export function calledFromOf(row: AgentSessionRow): Workspace | null {
   return row.called_from_kind === null || row.called_from_id === null
     ? null
-    : ({ kind: row.called_from_kind, id: row.called_from_id } as Place);
+    : ({ kind: row.called_from_kind, id: row.called_from_id } as Workspace);
 }
 
-// 같은 agent와 place의 session인지 가르는 조건.
+// 같은 agent와 workspace의 session인지 가르는 조건.
 export function sessionClause(
   agent: AgentId,
-  place: Place | null,
+  workspace: Workspace | null,
 ): {
   sql: string;
   params: (string | null)[];
 } {
   return {
-    sql: "agent = ? and place_kind is ? and place_id is ?",
-    params: [agent, place?.kind ?? null, place?.id ?? null],
+    sql: "agent = ? and workspace_kind is ? and workspace_id is ?",
+    params: [agent, workspace?.kind ?? null, workspace?.id ?? null],
   };
 }
 
 export function modelSelectionOf(
   row: AgentSessionRow,
-): PlaceSession["model_selection"] {
+): WorkspaceSession["model_selection"] {
   return row.model_selection === null
     ? null
-    : (JSON.parse(row.model_selection) as PlaceSession["model_selection"]);
+    : (JSON.parse(row.model_selection) as WorkspaceSession["model_selection"]);
 }
 
-export function placeSessionOf(row: AgentSessionRow): PlaceSession {
+export function workspaceSessionOf(row: AgentSessionRow): WorkspaceSession {
   return {
     id: row.id,
     agent: row.agent,
-    place: placeOf(row),
+    workspace: workspaceOf(row),
     title: row.title,
     lifecycle: row.lifecycle,
     forked_from:
@@ -345,7 +354,7 @@ export function placeSessionOf(row: AgentSessionRow): PlaceSession {
     skip: row.skip,
     called_from: calledFromOf(row),
     state_seq: row.state_seq,
-  } as PlaceSession;
+  } as WorkspaceSession;
 }
 
 // session 표의 다음 순번이다. 세션을 열 때 created_seq와 state_seq가 같고 바뀔 때마다 이어 센다.

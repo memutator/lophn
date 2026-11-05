@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import type {
   InstructionsApi,
-  InstructionsPlace,
+  InstructionsWorkspace,
 } from "../../ipc/instructions.ts";
 
 const INSTRUCTION_FILE_NAME = "LOPHN.md";
@@ -25,13 +25,13 @@ export interface Instructions {
 }
 
 export function createInstructions(options: InstructionsOptions): Instructions {
-  async function pathOf(place: InstructionsPlace): Promise<string> {
-    if (place.layer === "global") {
+  async function pathOf(workspace: InstructionsWorkspace): Promise<string> {
+    if (workspace.layer === "global") {
       return join(options.dataRoot, INSTRUCTION_FILE_NAME);
     }
-    const folder = await options.firstFolder(place.place);
+    const folder = await options.firstFolder(workspace.workspace);
     if (folder !== null) return join(folder, INSTRUCTION_FILE_NAME);
-    const own = join(options.dataRoot, "projects", place.place);
+    const own = join(options.dataRoot, "projects", workspace.workspace);
     await options.makeDir(own);
     return join(own, INSTRUCTION_FILE_NAME);
   }

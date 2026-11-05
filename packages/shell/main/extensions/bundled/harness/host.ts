@@ -10,7 +10,7 @@ import type { ExtensionContext } from "../../../../../protocol/extensions/manife
 type Taken = {
   session: string;
   agent: string;
-  place: { kind: "project" | "app"; id: string } | null;
+  workspace: { kind: "project" | "app"; id: string } | null;
   harness: "claude-code" | "codex" | "opencode";
   external_session_id: string | null;
   input_message: string;
@@ -92,21 +92,23 @@ export function createHarnessHost(
   const finish = async (turn: string, outcome: Outcome) =>
     void (await harness("finish_turn", { turn, outcome }));
 
-  // session의 place 폴더가 cwd다. 폴더가 없는 place(home, 폴더 없는 project·app)에서는 띄우지 않는다:
+  // session의 workspace 폴더가 cwd다. 폴더가 없는 workspace(home, 폴더 없는 project·app)에서는 띄우지 않는다:
   // cwd가 곧 harness가 쓰는 범위라 임의의 폴더를 고르면 폴더 밖에 쓰게 된다.
-  async function placeFolder(place: Taken["place"]): Promise<string | null> {
-    if (place === null) return null;
-    if (place.kind === "project") {
+  async function workspaceFolder(
+    workspace: Taken["workspace"],
+  ): Promise<string | null> {
+    if (workspace === null) return null;
+    if (workspace.kind === "project") {
       const found = await read<{ project: { folders: { path: string }[] } }>(
         "projects",
         "get",
-        { project: place.id },
+        { project: workspace.id },
       );
       return found.ok ? (found.value.project.folders[0]?.path ?? null) : null;
     }
     const found = await read<{
       app: { source_path: string | null; folders: { path: string }[] };
-    }>("apps", "get", { app: place.id });
+    }>("apps", "get", { app: workspace.id });
     return found.ok
       ? (found.value.app.source_path ??
           found.value.app.folders[0]?.path ??
@@ -159,13 +161,13 @@ export function createHarnessHost(
         `${input.harness} cannot keep this agent's deny rules, so it was not started.`,
       );
     }
-    const cwd = await placeFolder(input.place);
+    const cwd = await workspaceFolder(input.workspace);
     if (cwd === null) {
       return await fail(
         input,
         turn,
         "configuration_unavailable",
-        "A harness agent needs a project or app place that has a folder.",
+        "A harness agent needs a project or app workspace that has a folder.",
       );
     }
 

@@ -1,7 +1,7 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
-  placeSessionRead,
+  workspaceSessionRead,
   receivedMessageList,
   stopTurn,
   turnList,
@@ -24,7 +24,7 @@ import {
   workflowStart,
   workflowStop,
 } from "../../../../protocol/workflows/mod.ts";
-import { placeDepsOf } from "../../../lophn-agent/places/mod.ts";
+import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
@@ -60,7 +60,7 @@ const WORKFLOWS_CONTEXT: AuthenticatedContext = {
       turnRead.name,
       turnList.name,
       stopTurn.name,
-      placeSessionRead.name,
+      workspaceSessionRead.name,
     ],
     targets: {},
   },
@@ -231,7 +231,7 @@ export const workflowsWiring: WiringFactory = () => {
       const projects = {
         resolve(ref: string) {
           const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
-            placeDepsOf(lookup.sql).projects.projectByName(ref),
+            workspaceDepsOf(lookup.sql).projects.projectByName(ref),
           );
           if (!found.ok) return Promise.resolve(found);
           return Promise.resolve(
@@ -245,7 +245,7 @@ export const workflowsWiring: WiringFactory = () => {
         },
         nameOf(project: Id<"prj">) {
           const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
-            placeDepsOf(lookup.sql).projects.project(project),
+            workspaceDepsOf(lookup.sql).projects.project(project),
           );
           if (!found.ok) return Promise.resolve(found);
           return Promise.resolve(
@@ -429,12 +429,15 @@ export const workflowsWiring: WiringFactory = () => {
               let defaultProject: string | null = null;
               const session = who.conditions.session;
               if (input.project === undefined && session !== undefined) {
-                const found = await read<Output<typeof placeSessionRead>>(
-                  placeSessionRead,
+                const found = await read<Output<typeof workspaceSessionRead>>(
+                  workspaceSessionRead,
                   { session },
                 );
-                const place = found.ok ? found.value.session.place : null;
-                if (place?.kind === "project") defaultProject = place.id;
+                const workspace = found.ok
+                  ? found.value.session.workspace
+                  : null;
+                if (workspace?.kind === "project")
+                  defaultProject = workspace.id;
               }
               return built.list(input, defaultProject);
             }),

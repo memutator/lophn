@@ -59,7 +59,7 @@ const sendableRead: ReadDefinition<typeof agentCallSendable> = {
         session: target.session,
         agent: target.agent.agent,
         name: target.name,
-        place: target.agent.place,
+        workspace: target.agent.workspace,
         state,
       });
     }

@@ -74,7 +74,7 @@ export function installAnnotate(transport: AnnotateTransport): void {
   };
   const layout = () => {
     const view = viewOf(win);
-    for (const [n, pick] of picks) overlay.place(n, boxNow(pick), view);
+    for (const [n, pick] of picks) overlay.workspace(n, boxNow(pick), view);
   };
 
   const add = (pick: Picked) => {

@@ -5,21 +5,21 @@ import { z } from "zod";
 
 export const INSTRUCTIONS_OPEN_CHANNEL = "shell:instructions-open";
 
-const instructionsPlaceSchema = z.discriminatedUnion("layer", [
+const instructionsWorkspaceSchema = z.discriminatedUnion("layer", [
   z.strictObject({ layer: z.literal("global") }),
   z.strictObject({
     layer: z.literal("project"),
-    place: z.string().regex(/^prj_[0-9a-z]{26}$/),
+    workspace: z.string().regex(/^prj_[0-9a-z]{26}$/),
   }),
 ]);
 
 export const instructionsOpenSchema = z.strictObject({
-  target: instructionsPlaceSchema,
+  target: instructionsWorkspaceSchema,
 });
 
-export type InstructionsPlace =
+export type InstructionsWorkspace =
   | { readonly layer: "global" }
-  | { readonly layer: "project"; readonly place: string };
+  | { readonly layer: "project"; readonly workspace: string };
 
 /** renderer가 구별하는 실패. 경로·OS 오류 원문은 싣지 않는다. */
 type EditorFailure =
@@ -47,6 +47,6 @@ interface InstructionsOpened {
 
 export interface InstructionsApi {
   open(input: {
-    target: InstructionsPlace;
+    target: InstructionsWorkspace;
   }): Promise<EditorReply<InstructionsOpened>>;
 }

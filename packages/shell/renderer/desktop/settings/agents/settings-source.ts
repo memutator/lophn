@@ -50,7 +50,7 @@ export interface CallRule {
   readonly allow: boolean;
 }
 
-/** 고를 수 있는 값(place나 agent)과 그것으로 적힌 줄. */
+/** 고를 수 있는 값(workspace나 agent)과 그것으로 적힌 줄. */
 export interface CallRuleList {
   readonly options: readonly {
     readonly value: string;
@@ -60,7 +60,7 @@ export interface CallRuleList {
 }
 
 export interface CallPolicyView {
-  readonly places: CallRuleList;
+  readonly workspaces: CallRuleList;
   readonly agents: CallRuleList;
 }
 
@@ -68,13 +68,13 @@ export interface CallPolicySource {
   read(): Promise<SourceResult<CallPolicyView>>;
   /** 정책 전체를 쓴다. 이 화면만 쓰는 값이라 통째로 쓴다. */
   write(next: {
-    readonly places: readonly CallRule[];
+    readonly workspaces: readonly CallRule[];
     readonly agents: readonly CallRule[];
   }): Promise<SourceResult<null>>;
 }
 
 export interface AgentsSettingsSource {
-  /** agent가 보내는 call의 place 쌍·agent 쌍 정책. */
+  /** agent가 보내는 call의 workspace 쌍·agent 쌍 정책. */
   readonly callPolicy: CallPolicySource;
   read(): Promise<SourceResult<AgentsSettingsView>>;
   /** 전역 기본 model을 바꾼다. 새 값은 다음 일부터 적용되고 이미 시작한 일은 바뀌지 않는다. */

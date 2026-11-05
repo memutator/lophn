@@ -49,7 +49,7 @@ test("app.status 요약이 상태 이름과 이유를 보이고 [object Object]�
 test("app.link_source는 상대 path를 context의 기준 폴더로 풀어 core에 보낸다", async () => {
   const sent: unknown[] = [];
   const ctx = {
-    cwd: "/work/place",
+    cwd: "/work/workspace",
     key: "k",
     core: {
       read: () => Promise.resolve(ok({ app: { revision: "3" } })),

@@ -9,7 +9,7 @@ import {
 import { agentList } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { coreAppsSource } from "../../apps/core-source.ts";
 import type { CoreSource } from "../connection/connection.ts";
-import { readProjects } from "../places/projects/core-source.ts";
+import { readProjects } from "../workspaces/projects/core-source.ts";
 import { call, command } from "../settings/core-call.ts";
 import type {
   JobNames,
@@ -64,7 +64,7 @@ export function coreJobsSource(core: CoreSource): JobsSource {
     async list() {
       const jobs = await readAll<JobView>(core, jobList, {}, "jobs");
       if (!jobs.ok) return jobs;
-      // place를 주지 않으면 모든 자리의 agent가 온다. 한 번에 오고 cursor는 받지 않는다.
+      // workspace를 주지 않으면 모든 자리의 agent가 온다. 한 번에 오고 cursor는 받지 않는다.
       const [projects, apps, agents] = await Promise.all([
         readProjects(core),
         coreAppsSource(core).list(),

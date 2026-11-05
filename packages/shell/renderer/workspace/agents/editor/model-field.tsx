@@ -125,7 +125,7 @@ interface DefaultModelFieldProps {
   readonly showAll?: boolean;
 }
 
-/** 위 층이 없는 model 칸(Workspace 전역 기본). model과 그 model의 option 축을 고른다. */
+/** 위 층이 없는 model 칸(전역 기본). model과 그 model의 option 축을 고른다. */
 export function DefaultModelField({
   models,
   source,

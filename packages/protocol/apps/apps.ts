@@ -56,7 +56,7 @@ const appFields = {
   description: appDescriptionSchema,
   planning_version: versionIdSchema.nullable(),
   source_path: absolutePathSchema.nullable(),
-  // source 밖에 사람이 더 이은 폴더. project 연결 폴더와 같은 모양이고 app place의 file 범위에 들어간다.
+  // source 밖에 사람이 더 이은 폴더. project 연결 폴더와 같은 모양이고 app workspace의 file 범위에 들어간다.
   folders: z.array(projectFolderOutputSchema),
   active_release: releaseIdSchema.nullable(),
   // App의 마지막 변경 seq이며 read snapshot 전체의 as_of_seq와 다르다.
@@ -101,7 +101,7 @@ export const appCreate = defineCommand({
   actors: ["user", "agent"],
   errors: ["forbidden", "invalid_input", "not_found", "conflict"],
 });
-// source 연결은 user, 그 앱 place의 agent, core가 새 앱의 source를 이을 때 machine만 받는다.
+// source 연결은 user, 그 앱 workspace의 agent, core가 새 앱의 source를 이을 때 machine만 받는다.
 export const appConnectSource = defineCommand({
   resource: "apps",
   method: "connect_source",

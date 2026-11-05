@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { IconView } from "../../parts/icon-upload/icon-reader.ts";
 import { IconUpload } from "../../parts/icon-upload/icon-upload.tsx";
-import { PlaceMark } from "../../parts/place-mark/place-mark.tsx";
+import { WorkspaceMark } from "../../parts/workspace-mark/workspace-mark.tsx";
 import { useAppViews } from "../app-views.tsx";
 import type { AppDetailSource } from "./source.ts";
 import styles from "./app-section.module.css";
@@ -51,7 +51,7 @@ export function IconSection({
       </div>
       <IconUpload
         preview={
-          <PlaceMark
+          <WorkspaceMark
             kind="app"
             id={app}
             name={name}

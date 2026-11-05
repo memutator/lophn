@@ -22,9 +22,11 @@ import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
 /** 아직 만들지 않은 새 session의 입력 메모리 key. 같은 창의 다른 agent와 섞이지 않는다. */
 export function newSessionKey(agent: AgentFace | null): string {
   if (agent === null) return "new:";
-  const place =
-    agent.place === null ? "home" : `${agent.place.kind}:${agent.place.name}`;
-  return `new:${agent.agent}:${place}`;
+  const workspace =
+    agent.workspace === null
+      ? "home"
+      : `${agent.workspace.kind}:${agent.workspace.name}`;
+  return `new:${agent.agent}:${workspace}`;
 }
 
 /** agent 묶음 위에 보이는 시각. 잘못된 시각은 비운다. */

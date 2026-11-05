@@ -17,8 +17,8 @@ import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { providerList } from "../../../protocol/lophn-agent/mod.ts";
 import type { ChildMessage } from "../../../protocol/supervision/mod.ts";
-import { placeOperations } from "../../agent-places/credentials.ts";
-import { FILE_HOOKS } from "../../agent-places/hooks.ts";
+import { workspaceOperations } from "../../agent-workspaces/credentials.ts";
+import { FILE_HOOKS } from "../../agent-workspaces/hooks.ts";
 import {
   CRASH_LOCATIONS,
   crashDiagnostic,
@@ -157,9 +157,9 @@ async function startAgentRuntime(input: {
   });
   const credentials = createTurnCredentials({
     issuer: link.issuer,
-    // session의 place 종류 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
+    // session의 workspace 종류 상한 안에서만 청한다. core가 같은 상한으로 대조한다.
     operations: (kind) =>
-      placeOperations(kind, agentTools({ file: FILE_HOOKS })),
+      workspaceOperations(kind, agentTools({ file: FILE_HOOKS })),
     process: "agent-runtime",
   });
   let driver: TurnDriver | undefined;

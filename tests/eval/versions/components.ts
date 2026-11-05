@@ -1,9 +1,9 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../packages/base/mod.ts";
-import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
-import { placePrompt } from "../../../packages/core/agent-places/prompts/prompts.ts";
+import { TOOL_ORDER } from "../../../packages/core/agent-workspaces/tool-lists.ts";
+import { workspacePrompt } from "../../../packages/core/agent-workspaces/prompts/prompts.ts";
 import { parseSkillFrontmatter } from "../../../packages/core/lophn-agent/extensions/skills.ts";
-import { PLACE_KINDS } from "../../../packages/protocol/lophn-agent/mod.ts";
+import { WORKSPACE_KINDS } from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   MCP_TOOL_PREFIX,
   toWireToolName,
@@ -32,25 +32,25 @@ import {
   type VariantTexts,
 } from "./registry.ts";
 
-const SKILL_ROOTS = ["packages/core/agent-places/skills"];
+const SKILL_ROOTS = ["packages/core/agent-workspaces/skills"];
 const TEMPLATE_DIR = "packages/core/apps/packages/template/app";
 // harness가 아니라 world의 tool이다. 앱 command는 `lophn` tool로 부르는 명령이라 provider tool이 아니다.
 const isWorldTool = (wireName: string) => wireName.startsWith(MCP_TOOL_PREFIX);
 
 const collapse = (text: string) => text.replace(/\s+/g, " ");
 
-async function readPlaceKind(
+async function readWorkspaceKind(
   kind: string,
   texts?: VariantTexts,
 ): Promise<string> {
   if (texts !== undefined) {
-    const text = texts.place_prompts[kind];
+    const text = texts.workspace_prompts[kind];
     if (text === undefined)
-      throw new Error(`place kind prompt missing: ${kind}`);
+      throw new Error(`workspace kind prompt missing: ${kind}`);
     return text;
   }
-  const text = await placePrompt(kind as (typeof PLACE_KINDS)[number]);
-  if (!text.ok) throw new Error(`place kind prompt missing: ${kind}`);
+  const text = await workspacePrompt(kind as (typeof WORKSPACE_KINDS)[number]);
+  if (!text.ok) throw new Error(`workspace kind prompt missing: ${kind}`);
   return text.value;
 }
 
@@ -115,7 +115,11 @@ async function measureInstruction(
   kind: string,
   texts?: VariantTexts,
 ): Promise<Measured> {
-  return textComponent("instruction", kind, await readPlaceKind(kind, texts));
+  return textComponent(
+    "instruction",
+    kind,
+    await readWorkspaceKind(kind, texts),
+  );
 }
 
 // 같은 model 이름이면 늘 같은 n이다.
@@ -168,7 +172,7 @@ export async function currentVersions(
   const root = deps.root ?? REPO_ROOT;
   const dir = deps.registryDir ?? REGISTRY_DIR;
   const measured: Measured[] = [];
-  for (const kind of PLACE_KINDS) {
+  for (const kind of WORKSPACE_KINDS) {
     measured.push(await measureInstruction(kind, deps.texts));
   }
   for (const name of await skillNames(root)) {
@@ -250,8 +254,8 @@ export async function seenComponents(
   if (calls.length === 0) return ok([]);
   try {
     const kindByText = new Map<string, string>();
-    for (const kind of PLACE_KINDS) {
-      kindByText.set(await readPlaceKind(kind, deps.texts), kind);
+    for (const kind of WORKSPACE_KINDS) {
+      kindByText.set(await readWorkspaceKind(kind, deps.texts), kind);
     }
     const wire = new Map(TOOL_ORDER.map((n) => [toWireToolName(n), n]));
     const tools = await toolFileTable(root);
@@ -269,7 +273,7 @@ export async function seenComponents(
         typeof first === "string" ? kindByText.get(first) : undefined;
       if (kind === undefined) {
         throw new InvalidInput(
-          `system[0] matches no place kind prompt: ${String(first).slice(0, 80)}`,
+          `system[0] matches no workspace kind prompt: ${String(first).slice(0, 80)}`,
         );
       }
       add(await measureInstruction(kind, deps.texts));

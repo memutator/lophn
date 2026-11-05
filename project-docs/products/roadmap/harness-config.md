@@ -2,9 +2,9 @@
 
 상태: 단계 1, 2, 6, 8은 계획 `skill-share`로 구현했다(2026-11-02, 변경 기록 `project-docs/products/change-log/0.15.0.md`). 남은 단계는 3(MCP 칸 꼴), 4(project 층을 repo `.lophn/settings.json`으로), 5(권한 규칙 일반화), 7(가져오기)이고, 아직 계획으로 열지 않았다. 아래 "지금"과 단계 본문은 이 roadmap을 연 때 코드를 적은 것이라 구현한 단계의 현재 모습은 `project-docs/architecture/{agent-definition,approval,app-call,coding-agent}.md`다.
 2026-11-01 사람이 "MCP, skill, permissions 설정이 일반 coding agent harness와 너무 다른 규격 같다. 최대한 비슷한 방향으로 고치는 roadmap을 열라"고 했다.
-2026-11-02 command-surface 뒤에 앱 skill 공유(단계 8)를 여기에 합쳤다. 앱이 내놓은 command를 다른 agent가 알 길이 없었다: lophn agent의 place 정보에는 자기 앱의 command만 실리고, coding agent에게는 아무 길이 없다. 사람: "다른 agent가 쓸 수 있어야 한다고 사람이 판단하면 skill로 만들고, 필요한 agent에게 주고, CLI가 바뀌면 갱신한다. 앱을 짓는 agent는 그것을 제안할 수 있어야 한다".
+2026-11-02 command-surface 뒤에 앱 skill 공유(단계 8)를 여기에 합쳤다. 앱이 내놓은 command를 다른 agent가 알 길이 없었다: lophn agent의 workspace 정보에는 자기 앱의 command만 실리고, coding agent에게는 아무 길이 없다. 사람: "다른 agent가 쓸 수 있어야 한다고 사람이 판단하면 skill로 만들고, 필요한 agent에게 주고, CLI가 바뀌면 갱신한다. 앱을 짓는 agent는 그것을 제안할 수 있어야 한다".
 조사: `research_notes/harness-config-comparison/README.md`. Claude Code, Codex, OpenCode, Hermes, omp를 같은 틀로 비교했고, harness마다 note가 따로 있다.
-배경 문서: `project-docs/architecture/agent-definition.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/place-session.md`, `project-docs/issues/agent-definition.md`, `project-docs/issues/place-session.md`.
+배경 문서: `project-docs/architecture/agent-definition.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/workspace-session.md`, `project-docs/issues/agent-definition.md`, `project-docs/issues/workspace-session.md`.
 
 ## 왜
 
@@ -28,7 +28,7 @@
 | agent 정의 | `~/.lophn/agents/<agt_id>.md` | YAML frontmatter `name, profile, model, skills_off, mcp_off, mcp_servers, apps, permissions, skip`와 본문 |
 | 할당 | ledger `agent_assignments` | `[{app, removed_tools[]}]`(`packages/core/approvals/assignment/schema.ts`) |
 | 지침 | `~/.lophn/LOPHN.md`, 첫 project 폴더의 `LOPHN.md`, agent 본문 | 이어 붙인다. `AGENTS.md`는 안 읽는다(`architecture/agent-definition.md:45`) |
-| skill | 내장 8개, 등록 폴더, `~/.lophn/skills`, place 폴더의 `.lophn/skills`, 그릇 자리의 `skills/`(place-data) | `SKILL.md`, 줄 단위 parser(`packages/core/lophn-agent/extensions/skills.ts:66-135`) |
+| skill | 내장 8개, 등록 폴더, `~/.lophn/skills`, workspace 폴더의 `.lophn/skills`, 그릇 자리의 `skills/`(workspace-data) | `SKILL.md`, 줄 단위 parser(`packages/core/lophn-agent/extensions/skills.ts:66-135`) |
 | credential | `~/.lophn/secrets.json`(0600) | 이름 → 값. MCP 설정은 `{secret: "mcp.…"}`로 가리킨다 |
 
 그 밖에 고칠 것:
@@ -49,7 +49,7 @@
   LOPHN.md                             project 지침. 없으면 CLAUDE.md
   .lophn/settings.json                 mcpServers, permissions, skills(지금 extensions.json과 project shell 규칙)
   .lophn/skills/<name>/SKILL.md        repo skill
-~/.lophn/apps/<app>/source/            앱 place: .lophn/skills를 같은 규칙으로 읽는다. 공유 skill의 원본(단계 8)
+~/.lophn/apps/<app>/source/            앱 workspace: .lophn/skills를 같은 규칙으로 읽는다. 공유 skill의 원본(단계 8)
 ```
 
 MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, omp 넷이 `command`·`args`·`env`와 `url`·`headers`를 같은 뜻으로 쓴다.
@@ -79,8 +79,8 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
    - `LOPHN.md`를 옮기는 migration은 없다.
 2. **skill(작음~중간).**
    - frontmatter를 진짜 YAML로 읽는다. agent 정의가 이미 쓰는 YAML parser를 쓴다.
-   - project 폴더와 앱 source의 `.lophn/skills`를 발견 자리에 더한다. 내장, 등록 폴더, `~/.lophn/skills`, 그릇 자리의 `place-data`는 그대로다. `.agents/skills`, `~/.agents/skills`는 읽지 않는다.
-   - agent 정의의 `skills`(받을 이름 목록)를 `skills_off`(끈 이름)로 바꾼다. 이것으로 `issues/agent-definition.md`의 "한 place에서 skill 하나를 끄면 다른 place에서도 빠진다"가 닫힌다.
+   - project 폴더와 앱 source의 `.lophn/skills`를 발견 자리에 더한다. 내장, 등록 폴더, `~/.lophn/skills`, 그릇 자리의 `workspace-data`는 그대로다. `.agents/skills`, `~/.agents/skills`는 읽지 않는다.
+   - agent 정의의 `skills`(받을 이름 목록)를 `skills_off`(끈 이름)로 바꾼다. 이것으로 `issues/agent-definition.md`의 "한 workspace에서 skill 하나를 끄면 다른 workspace에서도 빠진다"가 닫힌다.
 3. **MCP 칸 꼴(중간~큼).**
    - `mcpServers.<name>` map으로 바꾼다. stdio는 `command`(PATH에서 찾는다)·`args`·`env`·`cwd`이고, remote는 `type: "http"`·`url`·`headers`다. 그 밖에 `enabled`와 timeout을 둔다.
    - 값 안의 `${NAME}`은 `secrets.json`의 `NAME`으로 푼다. stdio `env`에도 쓸 수 있다. process env는 읽지 않는다.
@@ -96,7 +96,7 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
    - 규칙을 받는 것은 지금 gate가 있는 셋(shell, 앱 command, MCP tool)이다.
    - 평가 순서: 제품 floor deny, deny, ask, allow, 제품 ask, 그 밖은 run. 층(user, project, agent) 어디에 있든 deny가 이긴다. Claude, Codex, Hermes와 같다. 지금은 마지막에 맞은 규칙이 이긴다.
    - MCP tool도 `ask`와 `deny`를 받는다. 기본은 지금처럼 run이다(사람, 2026-10-21 "할당한 tool은 묻지 않는다"를 지킨다). `mcp_off`는 deny 규칙으로 흡수한다. deny인 tool은 목록에서도 뺀다.
-   - "always"는 project place면 그 project의 `.lophn/settings.json`, 그 밖이면 `~/.lophn/settings.json`의 `permissions.allow`에 줄을 더한다. 지금 쓰는 층과 같다.
+   - "always"는 project workspace면 그 project의 `.lophn/settings.json`, 그 밖이면 `~/.lophn/settings.json`의 `permissions.allow`에 줄을 더한다. 지금 쓰는 층과 같다.
 6. **할당을 agent 정의 파일로(중간).**
    - `agent_assignments`의 `{app, removed_tools}`를 agent 정의의 `apps`(할당한 앱)와 `permissions.deny`(뺀 command, 지금은 `lophn(<slug> <command>)` 꼴)로 옮긴다. 옛 ledger 표는 data step이 옮기며 지운다(schema step은 이미 적용한 ledger가 id를 기록해 남기고, 새 data root에는 빈 표가 남는다).
    - 할당은 그 앱의 public skill도 준다(단계 8).
@@ -117,7 +117,7 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
    - 선언 `lophn.ts`에 `skills: [{name, public, commands}]`를 둔다. `commands`는 그 skill이 부르는 이 앱의 command다. release 준비는 skill 폴더가 commit에 있는지, `commands`가 선언에 있고 public인지 본다. public skill이나 그 skill이 쓰는 command를 지우는 release는 `removed_public_tools`처럼 준비 결과에 드러난다.
    - release bundle이 public skill 폴더를 담는다. 공유되는 판은 active release의 것이라 HEAD의 작업 중 판은 새지 않고, activation이 곧 갱신이다.
    - 앱을 할당받은 agent는 그 앱의 public command를 부르고(지금과 같다), 그 앱 active release의 public skill을 skill 목록과 `skill.read`로 받는다. `skills_off`로 뺄 수 있다. 공유받은 skill을 적는 칸은 따로 두지 않는다. lophn agent에게는 사본을 만들지 않고 bundle을 바로 읽는다.
-   - 앱 place의 agent가 skill을 쓰고 "이 앱을 A, B에게 할당" 요청을 명령으로 낸다. 사람이 대기 목록에서 한 번 승인하면 agent 정의의 `apps`에 들어간다. agent가 할당을 직접 쓰는 길은 없다(지금과 같다).
+   - 앱 workspace의 agent가 skill을 쓰고 "이 앱을 A, B에게 할당" 요청을 명령으로 낸다. 사람이 대기 목록에서 한 번 승인하면 agent 정의의 `apps`에 들어간다. agent가 할당을 직접 쓰는 길은 없다(지금과 같다).
    - coding agent는 lophn 안에 정의가 없고 사람의 user token으로 부르므로 줄 것은 앎뿐이다. 승인 요청에서 coding agent에게도 줄지 고르고(harness별로 고르지는 않는다), 고른 앱 slug는 `~/.lophn/settings.json`의 `coding-agent.shared_apps`에 남는다. lophn hook을 설치한 harness마다 adapter의 전역 skill 폴더(`skill_dir`: Claude Code `~/.claude/skills`, Codex·pi `~/.agents/skills`, OpenCode `~/.config/opencode/skills`)에 사본을 둔다. core는 data root 밖을 쓰지 않으므로 `lophn harness` 쪽 코드가 core에서 공유 skill을 읽어 쓰고, shell main이 lophn 기동 때와 activation·설정 바뀜 때 부른다. session 시작 hook은 core를 부르지 않아 쓰지 않는다. lophn이 쓴 사본에는 표시 file을 두고 그것만 덮고 지운다.
    - 지침: `design-app`과 앱 template `AGENTS.md`(`packages/core/apps/packages/template/app/AGENTS.md.tmpl`)에 command가 다른 agent에게 `lophn <slug> <command>`로 보이고 `description`이 help가 된다는 것, 새로 만들 때와 바꿀 때 "이 기능이 다른 agent에게 쓸모 있나, 누구에게"를 묻고 쓸모 있으면 skill과 할당 요청을 내라는 것을 쓴다. `AGENTS.md`에 두는 것은 coding agent도 앱을 짓기 때문이다.
 
@@ -138,7 +138,7 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
 
 ## 정할 것과 추천
 
-1~3은 2026-11-02 사람이 정했다(위 "정한 것"). 2는 `architecture/approval.md:65` "사람의 project 폴더에 두지 않는다. PM이 그 폴더를 file tool로 쓰기 때문이다"를 뒤집는다. 그 걱정은 보호 path로 막는다(단계 4). 남는 구멍은 `shell.run`이다. shell은 file 범위 밖이라 `.lophn/settings.json`을 쓸 수 있다. 이것은 이미 열린 `issues/place-session.md` "shell.run은 file 범위 밖"과 같은 구멍이고, 그 이슈의 결정을 따른다. 4~8은 추천대로 간다.
+1~3은 2026-11-02 사람이 정했다(위 "정한 것"). 2는 `architecture/approval.md:65` "사람의 project 폴더에 두지 않는다. PM이 그 폴더를 file tool로 쓰기 때문이다"를 뒤집는다. 그 걱정은 보호 path로 막는다(단계 4). 남는 구멍은 `shell.run`이다. shell은 file 범위 밖이라 `.lophn/settings.json`을 쓸 수 있다. 이것은 이미 열린 `issues/workspace-session.md` "shell.run은 file 범위 밖"과 같은 구멍이고, 그 이슈의 결정을 따른다. 4~8은 추천대로 간다.
 
 4. **repo에서 온 MCP server 승인 단위.**
    - 추천: server 이름과 정의 hash로 한 번 승인하고, `~/.lophn/settings.json`에 둔다. 정의가 바뀌면 다시 묻는다. git pull로 승인한 이름의 command만 바뀌는 경우가 실제로 위험한 길이다.
@@ -173,9 +173,9 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
 - **다른 harness 전용 파일을 직접 읽기**(`.claude/`, `~/.claude.json`, `~/.codex/`). 직접 읽는 것은 omp(user 층은 기본 꺼짐)와 OpenCode(`.claude/skills`만)뿐이다. 직접 읽으면 무엇이 prompt에 들어가는지 모른다. 전용 자리는 가져오기로 옮긴다. 예외는 `LOPHN.md`가 없을 때의 `CLAUDE.md` 하나다(단계 1).
 - **공용 자리 `AGENTS.md`, `.agents/skills`, `~/.agents/skills` 읽기.** lophn은 coding agent가 아니고 자기 자리 `.lophn/`을 쓴다.
 - **`settings.local.json` 층과 관리자 층.** 한 사람이 쓰는 제품이다. `.local`은 다섯 가운데 Claude만 있다.
-- **project 층 agent 정의(`.lophn/agents/`).** lophn agent는 place를 건너는 전역 agent이고 place는 session이 정한다(`architecture/place-session.md`). harness의 subagent와 하는 일이 다르다.
+- **project 층 agent 정의(`.lophn/agents/`).** lophn agent는 workspace를 건너는 전역 agent이고 workspace는 session이 정한다(`architecture/workspace-session.md`). harness의 subagent와 하는 일이 다르다.
 - **사용자 hook, 파일로 쓰는 command, plugin.** 쓰는 곳이 없다. Claude와 Codex는 command를 skill로 합쳤고, lophn `/` 메뉴는 이미 skill이다.
 - **SSE transport, MCP resources·prompts.** SSE는 MCP spec에서 deprecated이고 Codex도 받지 않는다. resources와 prompts는 쓰는 곳이 생길 때 한다.
-- **파일 tool의 path 규칙(`Edit(path)`).** file tool은 place 범위가 막고 쓰기는 rewind로 되돌린다(`architecture/approval.md`).
+- **파일 tool의 path 규칙(`Edit(path)`).** file tool은 workspace 범위가 막고 쓰기는 rewind로 되돌린다(`architecture/approval.md`).
 - **`Bash(...)` 같은 다른 harness tool 이름을 규칙에서 받기.** 가져오기가 옮긴다.
 - **OS sandbox.** `roadmap/approval.md`의 "하지 않는 것"과 같다.

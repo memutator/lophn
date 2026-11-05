@@ -1,4 +1,4 @@
-import type { AgentId } from "../lophn-agent/places.ts";
+import type { AgentId } from "../lophn-agent/workspaces.ts";
 import type { AcpToolDetail, AcpCard, AcpReasoning } from "../acp/items.ts";
 import { acpNoticeId } from "../acp/reduce.ts";
 import {

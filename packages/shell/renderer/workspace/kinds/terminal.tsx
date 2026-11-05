@@ -100,10 +100,10 @@ export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
 }
 
 /**
- * 다른 place의 저장된 layout에서 읽은 탭의 이름. 창의 store가 아는 agent 이름이 먼저이고, 아직 없으면 그 place가
+ * 다른 workspace의 저장된 layout에서 읽은 탭의 이름. 창의 store가 아는 agent 이름이 먼저이고, 아직 없으면 그 workspace가
  * 마지막으로 저장한 agent 이름(`agent_title`)이다.
  */
-export function otherPlaceTerminalTitle(
+export function otherWorkspaceTerminalTitle(
   tab: TabItem,
   store: TerminalStore,
 ): string {
@@ -114,7 +114,7 @@ export function otherPlaceTerminalTitle(
     : name;
 }
 
-/** 사람이 붙인 이름(`person`, null이면 지움)을 준 터미널 탭. 이 창의 탭과 다른 place의 저장된 탭이 같이 쓴다. */
+/** 사람이 붙인 이름(`person`, null이면 지움)을 준 터미널 탭. 이 창의 탭과 다른 workspace의 저장된 탭이 같이 쓴다. */
 export function terminalNamed(
   tab: TabItem,
   person: string | null,
@@ -231,7 +231,7 @@ export const terminalKind: TabKindDef = {
     const auto = autoOf(tab);
     const person = personOf(tab);
     const harness = harnessOf(tab);
-    // 복원은 자동 이름과 사람이 붙인 이름만 쓴다. agent가 정한 이름은 다른 place의 sidebar가 읽도록 따로 남긴다.
+    // 복원은 자동 이름과 사람이 붙인 이름만 쓴다. agent가 정한 이름은 다른 workspace의 sidebar가 읽도록 따로 남긴다.
     const agentTitle =
       harness !== null && person === null && tab.title !== auto
         ? tab.title.slice(0, 200)

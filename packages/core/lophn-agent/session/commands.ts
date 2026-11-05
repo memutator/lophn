@@ -9,7 +9,7 @@ import {
   type failSessionCompact,
   type forkSession,
   MESSAGE_BODY_OWNER_KIND,
-  placeSessionOpen,
+  workspaceSessionOpen,
   type recordMessage,
   renameSession,
   type requestSessionCompact,
@@ -22,8 +22,8 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { endSession, startSession } from "../places/lifecycle.ts";
-import type { EndDeps, OpenDeps } from "../places/ports.ts";
+import { endSession, startSession } from "../workspaces/lifecycle.ts";
+import type { EndDeps, OpenDeps } from "../workspaces/ports.ts";
 import { createCompactCommands } from "./compact.ts";
 import { createHarnessCommands } from "./harness.ts";
 import { createForkCommand } from "./fork.ts";
@@ -37,7 +37,7 @@ import {
   loadSession,
   modelSelectionOf,
   nextSessionSeq,
-  placeOf,
+  workspaceOf,
   type SessionRow,
 } from "./model.ts";
 import { defaultIfUnset, showChosen } from "../models/store.ts";
@@ -60,7 +60,7 @@ type ConversationDeps = {
     ownerKind: string,
     ownerKeys: readonly string[],
   ) => Result<void>;
-  // session을 열 때 agent 정의와 place를 확인하고 SessionStarted를 낸다. 그 tx의 sql로 읽는다.
+  // session을 열 때 agent 정의와 workspace를 확인하고 SessionStarted를 낸다. 그 tx의 sql로 읽는다.
   open: (tx: Tx) => OpenDeps;
   // archive와 지움이 묶는 영향.
   end: EndDeps;
@@ -70,13 +70,13 @@ function openedOf(row: SessionRow) {
   return {
     id: row.id,
     lifecycle: "open" as const,
-    place: placeOf(row),
+    workspace: workspaceOf(row),
     state_seq: row.state_seq,
   };
 }
 
 export function createConversationCommands(deps: ConversationDeps): {
-  open: CommandDefinition<typeof placeSessionOpen>;
+  open: CommandDefinition<typeof workspaceSessionOpen>;
   rename: CommandDefinition<typeof renameSession>;
   archive: CommandDefinition<typeof archiveSession>;
   delete: CommandDefinition<typeof deleteSession>;
@@ -96,15 +96,20 @@ export function createConversationCommands(deps: ConversationDeps): {
     fork: createForkCommand(deps.open),
     ...createCompactCommands(),
     open: {
-      route: placeSessionOpen,
-      handle(tx, ctx: RequestContext, input: Input<typeof placeSessionOpen>) {
+      route: workspaceSessionOpen,
+      handle(
+        tx,
+        ctx: RequestContext,
+        input: Input<typeof workspaceSessionOpen>,
+      ) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
         const existing = loadSession(tx, input.id);
         if (existing !== undefined) {
           const same =
             existing.agent === input.agent &&
-            canonicalize(placeOf(existing)) === canonicalize(input.place);
+            canonicalize(workspaceOf(existing)) ===
+              canonicalize(input.workspace);
           if (!same) return reject("conflict", "session id already used");
           if (existing.lifecycle !== "open") {
             return reject("conflict", "session changed since it was opened");
@@ -114,7 +119,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         const started = startSession(tx, deps.open(tx), {
           id: input.id,
           agent: input.agent,
-          place: input.place,
+          workspace: input.workspace,
         });
         return started.ok ? ok(openedOf(started.value)) : started;
       },

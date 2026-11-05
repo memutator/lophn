@@ -97,7 +97,7 @@ export async function runShell(
 ): Promise<Result<ToolResult>> {
   const cwd = ctx.scope.base ?? ctx.scope.read[0];
   if (cwd === undefined) {
-    return fail("invalid_input", "this place has no folder to run in");
+    return fail("invalid_input", "this workspace has no folder to run in");
   }
   const timeoutMs = Math.min(
     input.timeout_ms ?? DEFAULT_TIMEOUT_MS,

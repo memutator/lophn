@@ -62,7 +62,7 @@ export const shell = {
   "shell.dialog.tabs-close-title":
     "{count, plural, one {Close # tab?} other {Close # tabs?}}",
   "shell.heading.desks": "Desks",
-  "shell.heading.places": "Places",
+  "shell.heading.workspaces": "Workspaces",
   "shell.heading.workflows": "Workflows",
   "shell.label.app-no-release": "No release yet",
   "shell.label.app-release": "Release {number}",

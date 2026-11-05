@@ -4,7 +4,7 @@ import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { parseOutline } from "../../../../protocol/projects/outline-markdown.ts";
 import { fitted } from "../fit-result.ts";
 import type { ToolContext } from "../tool-context.ts";
-import { fail, resolveInPlace } from "./scope.ts";
+import { fail, resolveInWorkspace } from "./scope.ts";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -16,7 +16,7 @@ export async function outlineFile(
   if (!/\.(md|markdown)$/i.test(input.path)) {
     return fail("invalid_input", "outline supports markdown files only");
   }
-  const at = await resolveInPlace(ctx.scope, input.path, "read");
+  const at = await resolveInWorkspace(ctx.scope, input.path, "read");
   if (!at.ok) return at;
   let text: string;
   try {

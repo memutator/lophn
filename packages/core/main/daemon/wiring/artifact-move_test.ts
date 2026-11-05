@@ -275,7 +275,7 @@ test("artifact 옮기기 뒤 옛 checkpoint를 되돌리면 최종 이름의 새
       );
     }
     sql.run(
-      `insert into sessions (id, agent, project, place_kind, place_id, created_seq, state_seq)
+      `insert into sessions (id, agent, project, workspace_kind, workspace_id, created_seq, state_seq)
        values (?, 'agt_1', ?, 'project', ?, 1, 1)`,
       [SESSION, PRJ, PRJ],
     );

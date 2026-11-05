@@ -6,8 +6,8 @@ import { BrowserWindow, Notification } from "electron";
 
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
 import {
@@ -71,17 +71,17 @@ export type Notice = {
   /** 제목에 쓸 누가: harness 제품 이름이나 lophn agent 이름. */
   agent: string;
   /** 어디서: 터미널 탭 이름이나 lophn session(대화) 이름. 제목에 붙는다. 모르면 없다. */
-  place?: string;
+  workspace?: string;
   /** 본문: 마지막 응답의 앞부분, 권한 물음의 요약, 실패 까닭. 없으면 본문이 없다(폴더 이름 같은 것으로 채우지 않는다). */
   body?: string;
   lead?: OverlayLead;
   target: NoticeTarget;
 };
 
-function titleOf(kind: keyof typeof TITLES, agent: string, place?: string) {
-  return place === undefined
+function titleOf(kind: keyof typeof TITLES, agent: string, workspace?: string) {
+  return workspace === undefined
     ? word(TITLES[kind].plain, { agent })
-    : word(TITLES[kind].placed, { agent, place });
+    : word(TITLES[kind].placed, { agent, workspace });
 }
 
 export type NoticeWiring = Registered & {
@@ -176,7 +176,7 @@ export function createNoticeWiring(
       // detached 창에는 toast 표면이 없다.
       toastable: window !== undefined && !ctx.detached.has(window),
     });
-    const title = titleOf(notice.kind, notice.agent, notice.place);
+    const title = titleOf(notice.kind, notice.agent, notice.workspace);
     if (route === "toast") {
       serial += 1;
       window!.webContents.send(NOTICE_TOAST_CHANNEL, {
@@ -224,7 +224,7 @@ export function createNoticeWiring(
     if (agent === undefined) return null;
     const [definition, record] = await Promise.all([
       read("read", agentRead, { agent }),
-      read("read", placeSessionRead, { session }),
+      read("read", workspaceSessionRead, { session }),
     ]);
     // 정의를 읽지 못하면 이름 대신 lophn과 그 밖의 agent만 가른다.
     const name =
@@ -303,7 +303,7 @@ export function createNoticeWiring(
       show({
         kind: notice.kind,
         agent: notice.who.agent,
-        place: notice.who.title,
+        workspace: notice.who.title,
         body: notice.body,
         lead: { kind: "avatar", profile: notice.who.profile },
         target: { kind: "session", session: notice.who.session },

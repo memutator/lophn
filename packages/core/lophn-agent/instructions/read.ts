@@ -52,7 +52,7 @@ export function decodeInstructionFile(
 }
 
 // 한 session의 InstructionFiles. core의 GetInstructions를 그 session으로 부르는 `call`만 받는다. 어느 project의
-// 파일인지는 core가 session의 place로 정하므로 여기서 project를 보내지 않는다.
+// 파일인지는 core가 session의 workspace로 정하므로 여기서 project를 보내지 않는다.
 export function instructionFilesOverCore(
   session: Id<"ses">,
   call: (input: {

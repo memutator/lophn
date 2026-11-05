@@ -15,7 +15,7 @@ import {
   hasUnfinishedTurn,
   loadSession,
   openSessions,
-  placeOf,
+  workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
 import {
   createLiveTurns,
@@ -103,7 +103,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
           snapshots.push({
             session: row.id,
             agent: row.agent,
-            place: placeOf(row),
+            workspace: workspaceOf(row),
             state:
               turn_requests.length > 0 || questions.length > 0
                 ? "waiting"

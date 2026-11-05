@@ -159,23 +159,23 @@ test("sideStat이 prefix가 깨진 call과 layer를 짚고 없어진 layer는 �
   });
   const stat = sideStat([
     [
-      b("place_kind", "r", "R"),
+      b("workspace_kind", "r", "R"),
       b("instructions", "i1", "# Instructions\nbe brief"),
-      b("place", "p1", "place A"),
+      b("workspace", "p1", "workspace A"),
     ],
     [
-      b("place_kind", "r", "R"),
+      b("workspace_kind", "r", "R"),
       b("instructions", "i1", "# Instructions\nbe brief"),
-      b("place", "p2", "place B"),
+      b("workspace", "p2", "workspace B"),
     ],
-    [b("place_kind", "r", "R"), b("place", "p3", "place B")],
+    [b("workspace_kind", "r", "R"), b("workspace", "p3", "workspace B")],
   ]);
   const by = (layer: string) => stat.layers.find((l) => l.layer === layer)!;
   assert.deepStrictEqual(
     stat.layers.map((l) => l.layer),
-    ["place_kind", "instructions", "place"],
+    ["workspace_kind", "instructions", "workspace"],
   );
-  assert.deepStrictEqual(by("place_kind").rate, 1);
+  assert.deepStrictEqual(by("workspace_kind").rate, 1);
   assert.deepStrictEqual(
     [by("instructions").stable, by("instructions").pairs],
     [1, 2],
@@ -185,10 +185,10 @@ test("sideStat이 prefix가 깨진 call과 layer를 짚고 없어진 layer는 �
     before: "# Instructions",
     after: "(absent)",
   });
-  assert.deepStrictEqual(by("place").first_break, {
+  assert.deepStrictEqual(by("workspace").first_break, {
     call: 2,
-    before: "place A",
-    after: "place B",
+    before: "workspace A",
+    after: "workspace B",
   });
-  assert.deepStrictEqual(by("place").rate, 0);
+  assert.deepStrictEqual(by("workspace").rate, 0);
 });

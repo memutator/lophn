@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentId,
-  type AgentPlace,
+  type AgentWorkspace,
   agentRead,
   type McpServer,
   type McpToolServer,
@@ -54,7 +54,7 @@ export type McpKit = {
   // agent가 있으면 그 정의 층의 서버를 마지막 층으로 더한다. 그 agent의 mcp_off는 적용하지 않는다:
   // 끈 server도 목록에 보여야 사람이 tool을 assign해 둘 수 있고, 끄기는 turn 준비가 맡는다.
   listTools(
-    place: AgentPlace | null,
+    workspace: AgentWorkspace | null,
     agent: AgentId | null,
   ): Promise<Result<McpToolServer[]>>;
   // 데몬 종료다. 모든 연결을 닫는다.
@@ -90,7 +90,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
   // source가 읽은 서버 설정이다. call이 call_timeout_ms를 읽고 판정 근거의
   // configuration_revision도 여기서 온다.
   const known = new Map<string, Map<string, McpRuntimeServer>>();
-  // source가 받은 options다. call이 지금 설정을 다시 읽을 때 같은 place·agent 층으로 읽는다.
+  // source가 받은 options다. call이 지금 설정을 다시 읽을 때 같은 workspace·agent 층으로 읽는다.
   const sourced = new Map<string, McpSourceOptions | undefined>();
 
   const stateOf = (assignment: string, server: string): RefreshState =>
@@ -130,23 +130,23 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     );
   }
 
-  // 이 place의 agent가 쓸 수 있는 서버다: 전역에 project 층, agent 정의 층이 차례로 덮인다. 하위 층을 읽지 못하면
+  // 이 workspace의 agent가 쓸 수 있는 서버다: 전역에 project 층, agent 정의 층이 차례로 덮인다. 하위 층을 읽지 못하면
   // 그 층이 없는 것과 같다: 위 층만 남긴다(fails closed).
   async function serversOf(
-    place: AgentPlace | null,
+    workspace: AgentWorkspace | null,
     agent: McpSourceOptions["agent"],
   ): Promise<Result<readonly McpRuntimeServer[]>> {
     const global = await registeredServers();
     if (!global.ok) return global;
     const layers = [{ servers: global.value, off: [] as readonly string[] }];
-    if (place !== null && place.kind === "project") {
+    if (workspace !== null && workspace.kind === "project") {
       const own = await readOf(deps.machine, projectExtensionSettingsRead, {
-        project: place.id,
+        project: workspace.id,
       });
       if (own.ok) {
         layers.push({
           servers: own.value.mcp_servers.map((server) =>
-            runtimeServerOfLayer(server, place),
+            runtimeServerOfLayer(server, workspace),
           ),
           off: own.value.mcp_off,
         });
@@ -272,7 +272,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     return {
       async source(assignment: string, options?: McpSourceOptions) {
         const registered = await serversOf(
-          options?.place ?? null,
+          options?.workspace ?? null,
           options?.agent,
         );
         if (!registered.ok) return registered;
@@ -354,7 +354,10 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
           // 도는 turn 안에서 사람이 끈 server는 연결이 살아 있어도 부르지 않는다. 읽기가 실패해도 거절이다.
           // agent 정의 층의 off는 turn 시작 때 정한 값이라 여기서 바뀌지 않는다.
           const options = sourced.get(assignmentId);
-          const now = await serversOf(options?.place ?? null, options?.agent);
+          const now = await serversOf(
+            options?.workspace ?? null,
+            options?.agent,
+          );
           const live = now.ok
             ? now.value.find((s) => s.name === invoke.server)
             : undefined;
@@ -436,9 +439,9 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     toolkit(assignment) {
       return makeToolkit(assignment);
     },
-    async listTools(place, agent) {
+    async listTools(workspace, agent) {
       const registered = await serversOf(
-        place,
+        workspace,
         agent === null ? undefined : await agentLayer(agent),
       );
       if (!registered.ok) return registered;

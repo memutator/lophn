@@ -9,7 +9,10 @@ import type {
   MemoryRoute,
   ReadRoute,
 } from "../../protocol/base/route.ts";
-import type { Place, PlaceKind } from "../../protocol/lophn-agent/places.ts";
+import type {
+  Workspace,
+  WorkspaceKind,
+} from "../../protocol/lophn-agent/workspaces.ts";
 
 // core를 부르는 interface다. binary는 user token HTTP client를, `lophn` tool은 agent credential의 `CoreCall`을 끼운다.
 export type CommandCore = {
@@ -31,9 +34,9 @@ export type CommandContext = {
   // 쓰기 명령이 command route에 넘기는 idempotency key. `lophn` tool은 tool call의 id, binary는 `--idempotency-key`이거나
   // 새로 만든 값이다.
   key: string;
-  // lophn agent session의 place다(home이면 null). binary에는 session이 없어 undefined다.
-  place: Place | null | undefined;
-  // 상대 path를 푸는 기준 폴더다. binary는 process cwd, `lophn` tool은 place의 첫 폴더다(home이면 없다).
+  // lophn agent session의 workspace다(home이면 null). binary에는 session이 없어 undefined다.
+  workspace: Workspace | null | undefined;
+  // 상대 path를 푸는 기준 폴더다. binary는 process cwd, `lophn` tool은 workspace의 첫 폴더다(home이면 없다).
   cwd?: string;
   // lophn tool이 file을 읽기 전에 거치는 읽기 범위 검사다. 허용하면 실제 경로를, 아니면 오류를 돌려준다. binary에는 없다.
   resolveRead?: (path: string) => Promise<Result<string>>;
@@ -77,8 +80,8 @@ export type CommandDoc = {
 export type Command = CommandDoc & {
   // 이 명령이 core에 부르는 route다. lophn agent credential의 operation 상한이 여기서 정해진다.
   routes: readonly { name: string }[];
-  // 이 명령을 부를 수 있는 lophn agent의 place 종류다. 비면 binary만 부른다.
-  places: readonly PlaceKind[];
+  // 이 명령을 부를 수 있는 lophn agent의 workspace 종류다. 비면 binary만 부른다.
+  workspaces: readonly WorkspaceKind[];
   run(
     input: Record<string, unknown>,
     ctx: CommandContext,

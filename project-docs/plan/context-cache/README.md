@@ -14,7 +14,7 @@
 
 | 무엇 | 지금 | 근거 |
 | --- | --- | --- |
-| Anthropic cache 표시 | system 층 셋(`place_kind`, `instructions`, `place`)과 대화 끝 하나. ttl 없음(5분) | `packages/core/lophn-agent/prompt-assembly/turn-prompt.ts`의 `CACHED`, `packages/core/lophn-agent/providers/adapters/messages.ts`의 `markConversationEnd` |
+| Anthropic cache 표시 | system 층 셋(`workspace_kind`, `instructions`, `workspace`)과 대화 끝 하나. ttl 없음(5분) | `packages/core/lophn-agent/prompt-assembly/turn-prompt.ts`의 `CACHED`, `packages/core/lophn-agent/providers/adapters/messages.ts`의 `markConversationEnd` |
 | 대화 끝 표시 위치 | 마지막 message의 마지막 block. turn마다 붙는 notice가 대화 맨 끝(마지막 user message)에 들어가므로 표시가 notice 글 위에 놓인다. notice는 저장하지 않아 다음 call에서 자리가 바뀐다 | `packages/core/lophn-agent/run-loop/turn.ts`의 `historyOf`(끝의 `context.notices`), `packages/core/lophn-agent/prompt-assembly/turn-prompt.ts`의 `appendNotices` |
 | 오래 붙는 notice | 고정한 tool 목록과 지금 목록이 다르면 `tools_changed` notice가 그 session의 **모든 turn, 모든 call**에 붙는다 | `packages/core/lophn-agent/run-loop/prepare.ts`(`keyOf(m.current) === fixed.key` 비교) |
 | steering | 보낸 call 뒤에 같은 자리로 이력에 들어간다. cache를 깨지 않는다 | `packages/core/lophn-agent/run-loop/turn.ts`("보낸 steering은 이 call에 반영됐다") |
@@ -26,7 +26,7 @@
 | 예산을 넘으면 | 보내지 않고 turn이 `context_limit`으로 끝난다. provider overflow 오류도 `context_limit` | `packages/core/lophn-agent/run-loop/turn.ts`, `packages/core/lophn-agent/providers/failures.ts`의 `OVERFLOW_PATTERNS` |
 | compact | 사람이 부를 때만. 최근 사람 message 3개를 남기고, 요약 상한은 `min(예산/10, 4000)` byte(약 1k token) | `packages/core/lophn-agent/session/compactor.ts`의 `KEEP_RECENT`, `packages/core/lophn-agent/prompt-assembly/compaction.ts`의 `summaryOutputCap` |
 | turn 사이 이력 | user·assistant 글과 `tool.load` 재생뿐이다. turn 안의 tool loop는 다음 turn에 실리지 않는다. 그래서 context가 넘치는 곳은 거의 **turn 안**(앱 짓기 turn은 call 약 100번, tool 결과 하나 약 24 KiB)이다 | `packages/core/lophn-agent/session/history.ts`의 `readSessionConversation` |
-| tool deferral | 모든 provider에서 숨긴다(place별 `exposedToolNames`). 공통 경로는 정의를 `tools[]`에서 빼고 `tool.load` 결과 글에 싣고 `tool_call`로 부른다. native는 built-in `anthropic`의 Claude 4.5 이상만(`defer_loading` + `tool_reference`) | `packages/core/lophn-agent/prompt-assembly/loading.ts`, `packages/core/lophn-agent/models/binding.ts`, `packages/core/lophn-agent/providers/definitions.ts`의 `supportsDeferredTools`, `packages/core/lophn-agent/tools/bundles/tool.ts` |
+| tool deferral | 모든 provider에서 숨긴다(workspace별 `exposedToolNames`). 공통 경로는 정의를 `tools[]`에서 빼고 `tool.load` 결과 글에 싣고 `tool_call`로 부른다. native는 built-in `anthropic`의 Claude 4.5 이상만(`defer_loading` + `tool_reference`) | `packages/core/lophn-agent/prompt-assembly/loading.ts`, `packages/core/lophn-agent/models/binding.ts`, `packages/core/lophn-agent/providers/definitions.ts`의 `supportsDeferredTools`, `packages/core/lophn-agent/tools/bundles/tool.ts` |
 | MCP tool 이름 | `mcp__<server>__<tool>`, 64자 상한 이미 있음 | `packages/core/lophn-agent/extensions/mcp-tools.ts` |
 
 ## credential별 결론

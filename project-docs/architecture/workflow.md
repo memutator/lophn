@@ -1,12 +1,12 @@
 # workflow
 
-workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거나, project place의 agent가 쓴 code가 agent와 앱 tool을 불러 가며 도는 일(`kind: flow`)이다. project place의 session이 정의를 쓰고, 사람이나 job이 instance를 시작하고, 참가자나 flow의 code가 step마다 report를 낸다. lophn은 말한 대로 기록하고 말한 곳에 전할 뿐이다. 이 문서는 정의가 어디에 무엇으로 있고, instance와 그 줄이 어떻게 바뀌고, step 메시지가 누구에게 어떻게 가고, 켤 때와 멈출 때 무엇을 하는지, 누가 정의를 쓰는지, artifact가 instance를 어떻게 그리는지, flow의 code를 어떻게 띄우고 무엇을 허락하는지를 정한다. 이 경계가 흐려지면 lophn이 순서나 결과를 판정하기 시작해 agent가 다룰 예외를 막거나, 멈춘 instance가 계속 넘기거나, 켤 때 같은 step이나 flow가 두 번 돌거나, AI가 짠 flow code가 정해진 agent의 할당 밖에서 바깥 효과를 낸다. 계약은 `packages/protocol/workflows`, 규칙은 `packages/core/workflows`(workflows), 끼우는 곳은 `packages/core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`, flow process를 띄우는 host와 `workflow.check`는 `packages/core/main/flow-host/`(끼우는 곳 `wiring/flows.ts`), flow code가 쓰는 SDK는 `packages/sdk/flow`(`@lophn/flow`), 사람이 쓰는 입구는 `packages/cli/commands/workflow.ts`다.
+workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거나, project workspace의 agent가 쓴 code가 agent와 앱 tool을 불러 가며 도는 일(`kind: flow`)이다. project workspace의 session이 정의를 쓰고, 사람이나 job이 instance를 시작하고, 참가자나 flow의 code가 step마다 report를 낸다. lophn은 말한 대로 기록하고 말한 곳에 전할 뿐이다. 이 문서는 정의가 어디에 무엇으로 있고, instance와 그 줄이 어떻게 바뀌고, step 메시지가 누구에게 어떻게 가고, 켤 때와 멈출 때 무엇을 하는지, 누가 정의를 쓰는지, artifact가 instance를 어떻게 그리는지, flow의 code를 어떻게 띄우고 무엇을 허락하는지를 정한다. 이 경계가 흐려지면 lophn이 순서나 결과를 판정하기 시작해 agent가 다룰 예외를 막거나, 멈춘 instance가 계속 넘기거나, 켤 때 같은 step이나 flow가 두 번 돌거나, AI가 짠 flow code가 정해진 agent의 할당 밖에서 바깥 효과를 낸다. 계약은 `packages/protocol/workflows`, 규칙은 `packages/core/workflows`(workflows), 끼우는 곳은 `packages/core/main/daemon/wiring/workflows.ts`와 `workflows-files.ts`, flow process를 띄우는 host와 `workflow.check`는 `packages/core/main/flow-host/`(끼우는 곳 `wiring/flows.ts`), flow code가 쓰는 SDK는 `packages/sdk/flow`(`@lophn/flow`), 사람이 쓰는 입구는 `packages/cli/commands/workflow.ts`다.
 
 ## 흐름
 
 ```
  사람: 화면 | CLI (lophn workflow start|report|stop|show)      user token
- agent: tool workflow.list | get | report | edit | check       (시작 tool은 없다. check는 project place만)
+ agent: tool workflow.list | get | report | edit | check       (시작 tool은 없다. check는 project workspace만)
  job: scheduler ─ workflowService.start(…, {kind: "job", job})   (core 안. route 아님, architecture/job.md)
    │  POST /workflows/list|start|report|edit|stop  (memory)   GET workflow_instances/read|list
    ▼
@@ -39,8 +39,8 @@ workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거
 정의
 - 정의는 `<data>/projects/<prj>/workflows/<name>/`의 셋이다. 선언 `workflow.yaml`, 사람과 agent가 읽는 글 `workflow.md`, 고르는 artifact(`artifacts/static/index.html`, `artifacts/instance/index.html`). `<name>`은 slug다. `kind: flow`는 code `flow.ts`가 넷째다(이름은 선언에 적지 않는다). `flow.ts`는 같은 폴더의 다른 file을 import할 수 있다.
 - workflow의 신원은 `(project id, name)`이다. `<project 이름>/<name>`(key)은 보이는 이름일 뿐이고 도착할 때 project id로 푼다(이름이 여럿이면 `invalid_input`, 없으면 `not_found`). project는 이름을 바꿀 수 있어 이름을 저장하지 않는다.
-- lophn이 읽는 칸은 `kind`, `participants`의 `agent`·`place`·`kind`, flow의 `agent`, `steps`의 `by`·`with`·`prompt`·`in`·`out`·`next`뿐이다. 다른 칸은 두고 읽지 않는다(strict가 아니다). `kind: flow`에서는 `kind`, `agent`, `steps`의 key(step 이름)만 읽는다. step 이름은 화면과 report의 자리일 뿐이고 `participants`와 step의 다른 칸은 읽지 않는다. `steps`가 비면 틀린 선언이다. `in`, `out`, `prompt`는 자연어이고 그대로 전한다. 첫 step은 `steps`의 첫 key다.
-- 참가자는 `{agent, place?}`(agent 이름), `{kind: human}`, `{kind: harness}`다. step 이름 `end`는 예약이다(`next` 안의 끝).
+- lophn이 읽는 칸은 `kind`, `participants`의 `agent`·`workspace`·`kind`, flow의 `agent`, `steps`의 `by`·`with`·`prompt`·`in`·`out`·`next`뿐이다. 다른 칸은 두고 읽지 않는다(strict가 아니다). `kind: flow`에서는 `kind`, `agent`, `steps`의 key(step 이름)만 읽는다. step 이름은 화면과 report의 자리일 뿐이고 `participants`와 step의 다른 칸은 읽지 않는다. `steps`가 비면 틀린 선언이다. `in`, `out`, `prompt`는 자연어이고 그대로 전한다. 첫 step은 `steps`의 첫 key다.
+- 참가자는 `{agent, workspace?}`(agent 이름), `{kind: human}`, `{kind: harness}`다. step 이름 `end`는 예약이다(`next` 안의 끝).
 - 선언은 형식만 본다. `by`·`with`·`next`가 가리키는 이름이 있는지는 읽을 때 보지 않는다. 그런 틀림은 넘길 때 `not_handed` 줄이 된다.
 - 틀린 선언은 그 workflow만 뺀다. 이유는 `ListWorkflows`의 `problem`(`no_declaration | invalid_yaml | invalid_declaration | no_flow_file`)에 첫 하나만 싣는다. `flow.ts`가 없는 flow는 시작하지 못하고 `no_flow_file`이다. flow의 목록 step은 `by: program`(`FLOW_STEP_BY`)이고 `with`·`next`가 비어 있다.
 - 목록(`ListWorkflows`)의 step에는 `prompt`·`in`·`out`이 없다. 목록을 읽는 참가자가 다른 step의 글을 알면 캡슐화가 깨진다.
@@ -63,7 +63,7 @@ report와 고치기
 
 넘기기
 - 담당 풀기는 command 앞(`plan.ts`)이 한다. step이 instance에 없으면 `unknown_step`, `by`가 참가자에 없으면 `unknown_participant`다.
-  - agent 참가자는 `place`가 없으면 instance의 project다. 이름이 풀리지 않으면 `unresolved`다.
+  - agent 참가자는 `workspace`가 없으면 instance의 project다. 이름이 풀리지 않으면 `unresolved`다.
   - harness agent(정의의 runtime이 harness)는 이름이 있는 agent라 `{agent}` 참가자로 넘긴다(Router가 harness 입력함으로 보낸다, `architecture/coding-agent.md`). 이름 없는 `{kind: harness}`는 받을 곳이 없어 `not_handed`(`unresolved`)다.
   - `human`이면 `with`의 참가자로 같은 풀이를 하고 instance에 사람 차례(`current.human_turn`)를 적는다. `with`가 없으면 `no_with`다.
 - `session: same`이면 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session(가장 나중 `handed` 줄의 `receiver`)에 `fallback: new`로 보낸다. 없으면 새 session이다. 안 적으면 `new`다.
@@ -90,22 +90,22 @@ flow
 - process와 core는 stdin·stdout의 JSON 줄로 말한다(`packages/protocol/workflows/flow-wire.ts`). core가 첫 줄 `start`(instance, 입력 글)를 쓰고, process가 `agent`·`tool`·`report` 요청을 id와 함께 보내면 core가 같은 id의 `response`(`{ok: true, result}` 또는 `{ok: false, reason, message}`)로 답한다. 실패도 값이다. 요청에는 instance가 없다. core가 그 process의 것으로 채운다.
   - 진입 file은 lophn이 쥔 SDK의 `entry.ts`다. `flow.ts`를 import하기 전에 `console`과 `process.stdout`의 `write`를 stderr로 돌려 `flow.ts`가 쓴 글이 통로를 깨지 않게 한다. 통로는 `wire.ts`를 읽을 때 잡아 둔 원래 `write`만 쓰고, `entry.ts`가 `wire.ts`를 먼저 import해 잡기가 돌리기보다 앞선다. stdin이 닫히면 process는 스스로 끝난다(core가 죽어도 고아로 남지 않는다).
   - JSON이 아니거나 id가 없거나 1 MiB를 넘는 줄이 오면 통로가 깨진 것이라 host가 process를 끝낸다. 읽히지만 칸이 틀린 요청은 `invalid_input` 실패 값으로 답한다(오타 하나로 flow 전체가 죽지 않게).
-- `agent`는 run 하나를 열고(받는 agent는 누구든 된다) 끝날 때까지 `WaitRun`을 되풀이해 답을 준다. `tool`은 tool run 하나다. 둘 다 run의 origin이 그 instance와 그 creator다. creator는 `workflow.yaml`의 `agent`(없으면 lophn)를 launch 때 한 번 풀고 place는 instance의 project다(`architecture/run.md`). flow가 place 없이 agent를 부르면 instance의 project다. `report`는 `kind: agent`의 report와 같은 뜻이고 core 안에서 `by: program`으로 들어간다. 한 process의 report는 순서대로 하나씩 처리하고 agent·tool은 동시에 돌 수 있다.
+- `agent`는 run 하나를 열고(받는 agent는 누구든 된다) 끝날 때까지 `WaitRun`을 되풀이해 답을 준다. `tool`은 tool run 하나다. 둘 다 run의 origin이 그 instance와 그 creator다. creator는 `workflow.yaml`의 `agent`(없으면 lophn)를 launch 때 한 번 풀고 workspace는 instance의 project다(`architecture/run.md`). flow가 workspace 없이 agent를 부르면 instance의 project다. `report`는 `kind: agent`의 report와 같은 뜻이고 core 안에서 `by: program`으로 들어간다. 한 process의 report는 순서대로 하나씩 처리하고 agent·tool은 동시에 돌 수 있다.
 - program report는 넘기지 않는다. `running`일 때만 지금 step을 그 report의 step으로 옮기고 `next: end`면 `ended`로 닫는다. `stopped`나 `ended` 뒤의 report는 줄만 남고 다시 `running`이 되지 않는다. step 이름이 선언에 있는지 보지 않는다.
-- flow의 앱 tool 호출은 creator agent의 지금 할당과 비공개 규칙(앱의 비공개 command는 그 앱 place만) 안에서만 된다(`architecture/app-call.md`의 flow caller). code로 그 할당을 넓히지 못한다. 사람이 그 agent에게 그 앱을 할당해야 flow가 그 tool을 쓴다. 칸을 안 쓰면 lophn이라 지금처럼 돈다. flow가 부르는 agent는 누구든 되고, 입력은 unattended이며, 받은 agent는 자기 할당으로만 일한다.
+- flow의 앱 tool 호출은 creator agent의 지금 할당과 비공개 규칙(앱의 비공개 command는 그 앱 workspace만) 안에서만 된다(`architecture/app-call.md`의 flow caller). code로 그 할당을 넓히지 못한다. 사람이 그 agent에게 그 앱을 할당해야 flow가 그 tool을 쓴다. 칸을 안 쓰면 lophn이라 지금처럼 돈다. flow가 부르는 agent는 누구든 되고, 입력은 unattended이며, 받은 agent는 자기 할당으로만 일한다.
 - origin과 flow 자격은 route 입력이 아니다. flow process에는 credential을 주지 않고 통로로 온 요청을 core가 그 instance의 이름으로 한다.
 - stderr는 줄마다 redaction을 거쳐 `<data>/flows/<instance>.log`에 쌓인다(1 MiB에서 멈춘다). workflow 폴더 밖에 둔다. process가 끝나면 host는 그 instance가 연 running run을 취소하고(`cancelOfInstance`) `program_exited` 줄에 끝 code(신호로 죽으면 null)와 stderr 끝 10줄(줄마다 500자)을 남긴다. 그때 instance가 `running`이면 `ended`로 닫는다(by lophn). 남은 참가자가 없어 아무도 이어 갈 수 없다. lophn은 성공인지 판정하지 않는다.
 - core가 꺼질 때 host는 process를 모두 끝내지만 줄을 쓰지 않는다. instance는 `running`으로 남아 다음 켤 때 닫힌다(위 "켤 때와 멈춤").
-- agent는 instance를 시작하지 못한다. 쓴 `flow.ts`는 `workflow.check`(`CheckWorkflow`, project place 목록에만)로 본다. 설치된 `@lophn/flow`에 대고 platform의 `tsc --noEmit`만 돌려(실행하지 않는다) 오류 줄을 돌려준다(`packages/core/main/flow-host/check.ts`). 원격·npm import는 오류다.
-- SDK `@lophn/flow`는 `input`, `instance`, `agent(...)`, `tool(...)`, `report(...)` 다섯을 낸다. protocol과 Zod를 import하지 않고 통로 모양을 손으로 옮겼다. 다른 SDK처럼 `<data>/sdk`에 깔린다. 쓰는 법은 project place의 내장 skill `write-workflow`의 "Flow workflows"다.
+- agent는 instance를 시작하지 못한다. 쓴 `flow.ts`는 `workflow.check`(`CheckWorkflow`, project workspace 목록에만)로 본다. 설치된 `@lophn/flow`에 대고 platform의 `tsc --noEmit`만 돌려(실행하지 않는다) 오류 줄을 돌려준다(`packages/core/main/flow-host/check.ts`). 원격·npm import는 오류다.
+- SDK `@lophn/flow`는 `input`, `instance`, `agent(...)`, `tool(...)`, `report(...)` 다섯을 낸다. protocol과 Zod를 import하지 않고 통로 모양을 손으로 옮겼다. 다른 SDK처럼 `<data>/sdk`에 깔린다. 쓰는 법은 project workspace의 내장 skill `write-workflow`의 "Flow workflows"다.
 
 쓰기 범위
-- project의 `workflows/`는 그 project place의 session이 file tool로 읽고 쓴다(`placeScope`). app place와 home에는 열리지 않는다. 폴더는 project place의 turn 시작에 만들고, place 정보에 `Workflows folder:` 줄로 절대 경로가 보인다. rewind의 쓰기 폴더도 같은 규칙을 따른다(`architecture/place-session.md`).
-- 정의를 만들고 고치는 법은 project place의 내장 skill `write-workflow`다.
+- project의 `workflows/`는 그 project workspace의 session이 file tool로 읽고 쓴다(`workspaceScope`). app workspace와 home에는 열리지 않는다. 폴더는 project workspace의 turn 시작에 만들고, workspace 정보에 `Workflows folder:` 줄로 절대 경로가 보인다. rewind의 쓰기 폴더도 같은 규칙을 따른다(`architecture/workspace-session.md`).
+- 정의를 만들고 고치는 법은 project workspace의 내장 skill `write-workflow`다.
 
 명령
-- workflow 명령은 `packages/cli/commands/workflow.ts` 하나이고 lophn agent의 `lophn` tool과 binary가 같이 쓴다. `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`은 모든 place 종류의 agent가 부른다. `workflow.check`는 project place만 부른다("flow"). 누구든 참가자일 수 있다. `workflow.start`, `workflow.stop`은 route가 사람만 받아 binary 전용이다. agent가 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project place를 쓴다.
-- 모든 place 종류의 제품 규칙이 step tag의 뜻과 report하는 법을 말한다. agent는 instance 상태를 늘 받지 않고 고칠 일이 있을 때 `lophn workflow get`(`--lines N`이면 최근 N줄)으로 읽는다.
+- workflow 명령은 `packages/cli/commands/workflow.ts` 하나이고 lophn agent의 `lophn` tool과 binary가 같이 쓴다. `workflow.list`, `workflow.get`, `workflow.report`, `workflow.edit`은 모든 workspace 종류의 agent가 부른다. `workflow.check`는 project workspace만 부른다("flow"). 누구든 참가자일 수 있다. `workflow.start`, `workflow.stop`은 route가 사람만 받아 binary 전용이다. agent가 정해진 때 시작하는 길은 job의 `workflow_start`이고 그 job은 `job.create`로 만든다(`architecture/job.md`). `workflow.list`는 project를 주지 않으면 그 agent의 project workspace를 쓴다.
+- 모든 workspace 종류의 제품 규칙이 step tag의 뜻과 report하는 법을 말한다. agent는 instance 상태를 늘 받지 않고 고칠 일이 있을 때 `lophn workflow get`(`--lines N`이면 최근 N줄)으로 읽는다.
 - binary는 `lophn workflow start <workflow> <text>`(`--step`), `report <instance> <step> <text>`(`--next`, `--session`), `stop <instance>`, `get <instance>`다. 자격은 user token이다(`architecture/run.md` "CLI와 자격"). lophn 밖의 program도 이 입구로 사람으로서 report한다. flow의 report는 이 입구가 아니라 core 안에서 `by: program`으로 들어간다.
 
 artifact
@@ -131,7 +131,7 @@ artifact
 - 켤 때 다시 넣지 않는다. 다시 넣으면 바깥 효과가 두 번 날 수 있다. 그래도 말없이 잃지 않게 줄로 남긴다(`architecture/run.md` "켤 때와 session 끝").
 - step 메시지는 그 step만 싣는다. agent는 다른 앱을 쓸 때처럼 자기 일의 in/out만 알면 되고, system prompt에 workflow를 싣지 않아 cache도 깨지지 않는다.
 - module은 lophn-agent와 다른 feature module을 import하지 않는다. 정의 file 읽기, project 이름 풀기, turn 멈추기와 읽기, 기록 command 부르기, flow process 띄우기와 멈추기는 `ports.ts`의 port이고 wiring이 끼운다(`architecture/layers.md`).
-- flow의 code는 workflow 폴더에 둔다. 선언, 글, code가 한 폴더에 모이고, 쓰는 것은 project place session의 file 쓰기라 rewind로 되돌아간다. 앱으로 두지 않은 것은 앱 tool의 120초 제한과 write 직렬화 밖에서 오래 도는 entry와 앱이 agent를 부르는 SDK를 새로 만들어야 해서다(roadmap `workflow.md` 2026-10-23).
+- flow의 code는 workflow 폴더에 둔다. 선언, 글, code가 한 폴더에 모이고, 쓰는 것은 project workspace session의 file 쓰기라 rewind로 되돌아간다. 앱으로 두지 않은 것은 앱 tool의 120초 제한과 write 직렬화 밖에서 오래 도는 entry와 앱이 agent를 부르는 SDK를 새로 만들어야 해서다(roadmap `workflow.md` 2026-10-23).
 - flow는 instance마다 process 하나이고 다시 띄우지 않는다. 다시 띄우면 바깥 효과가 두 번 난다. 실패 처리와 다시 하기는 code의 일이다.
 - flow는 AI가 짠 code라 앱 process처럼 권한 제한 없이 띄운다(사람이 정했다). SDK가 내는 길은 앱 tool과 agent뿐이라 바깥 효과는 그 길로 내라고 guide와 skill이 말한다. 그래야 invocation 기록, 할당, rewind가 그대로 선다. 앱 supervisor(`createSupervisor`)는 쓰지 않는다. 끝난 child를 다시 띄우고 stdout을 frame 통로로 쓰기 때문이다.
 - flow의 앱 tool은 creator agent의 할당으로 판정한다. job이 만든 agent의 할당을 넘지 못하는 것과 같은 까닭이다(`architecture/approval.md`). code에 credential을 주지 않으므로 code가 다른 자격을 빌릴 길도 없다.

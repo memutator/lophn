@@ -15,7 +15,7 @@ import {
   packagePublishInputSchema,
   sourceRelativePathSchema,
 } from "../../protocol/apps/package-routes.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { countSummary, readBody } from "./app.ts";
 import {
   type CommandContext,
@@ -260,7 +260,7 @@ const read = defineCommand({
     packagesGuideBody,
     appGet,
   ],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   // name이 없으면 목록, 있으면 그 package다. version만 주면 고를 package가 없어 거절한다(목록으로 바꾸지 않는다).
   run: async (input, ctx) => {
     if (input.name !== undefined) {
@@ -290,7 +290,7 @@ const publish = defineCommand({
   positional: ["app", "name", "version"],
   effect: "write",
   routes: [appGet, packagePublish],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const app = await ctx.core.read(appGet, { app: input.app });
     if (!app.ok) return app;

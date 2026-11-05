@@ -7,7 +7,7 @@ import {
   turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
 import { blocksText } from "../../../../protocol/lophn-agent/content-block.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import {
@@ -21,8 +21,8 @@ import {
 } from "../../../lophn-agent/tool-judgment/mod.ts";
 import type {
   AgentId,
-  Place,
-} from "../../../../protocol/lophn-agent/places.ts";
+  Workspace,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createApprovals } from "../../../approvals/mod.ts";
@@ -44,7 +44,7 @@ const APPROVALS_CONTEXT: AuthenticatedContext = {
   principal: APPROVALS_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [placeSessionRead.name, turnRead.name],
+    operations: [workspaceSessionRead.name, turnRead.name],
     targets: {},
   },
   conditions: {},
@@ -77,7 +77,7 @@ export function toolGateHandler(deps: {
   approvals: ToolGateDeps["approvals"];
   sessionOf(
     session: string,
-  ): Promise<Result<{ agent: AgentId; place: Place | null }>>;
+  ): Promise<Result<{ agent: AgentId; workspace: Workspace | null }>>;
   modeOf(turn: string): Promise<Result<TurnMode>>;
 }): MemoryHandler {
   return async (who, body) => {
@@ -93,7 +93,7 @@ export function toolGateHandler(deps: {
       turn: input.turn,
       toolCall: input.tool_call,
       agent: found.value.agent,
-      place: found.value.place,
+      workspace: found.value.workspace,
       mode: mode.value,
       tool: input.tool,
       call: input.call,
@@ -127,16 +127,16 @@ export const approvalsWiring: WiringFactory = () => {
       const service = createApprovals({
         assignmentOf,
         // 판정마다 읽어 사람이 Settings에서 고친 값이 다음 호출부터 쓰인다.
-        shellRules: (place) => shellRuleLayers(shellRulesNow(), place),
+        shellRules: (workspace) => shellRuleLayers(shellRulesNow(), workspace),
         bus,
         clock: ctx.clock,
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
       });
-      // `always`는 사람의 결정에서만 온다(decide는 사람 자격만 받는다). 규칙은 place로 고른 층에 더한다.
-      service.remember("shell", (request, place) => {
+      // `always`는 사람의 결정에서만 온다(decide는 사람 자격만 받는다). 규칙은 workspace로 고른 층에 더한다.
+      service.remember("shell", (request, workspace) => {
         const next = withAlwaysRules(
           shellRulesNow(),
-          place,
+          workspace,
           request.always_patterns,
         );
         const written = ctx.settingsUpdate([
@@ -201,17 +201,17 @@ export const approvalsWiring: WiringFactory = () => {
         },
         async sessionOf(session) {
           const found = await ctx.runtime.readers.read(
-            placeSessionRead,
+            workspaceSessionRead,
             APPROVALS_CONTEXT,
             { session },
           );
           if (!found.ok) return found;
-          const { agent, place } = (
+          const { agent, workspace } = (
             found.value as {
-              session: { agent: AgentId; place: Place | null };
+              session: { agent: AgentId; workspace: Workspace | null };
             }
           ).session;
-          return ok({ agent, place });
+          return ok({ agent, workspace });
         },
         async modeOf(turn) {
           const found = await ctx.runtime.readers.read(

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cryptoRandom, manualClock, ok } from "../../../../base/mod.ts";
 import { callReply } from "../../../../protocol/lophn-agent/calls.ts";
-import { harnessOperations } from "../../../agent-places/credentials.ts";
+import { harnessOperations } from "../../../agent-workspaces/credentials.ts";
 import { CredentialRegistry } from "../../../server/identity/registry.ts";
 import { createHarnessCredentials } from "./harness-credential.ts";
 
@@ -40,7 +40,7 @@ async function agentContext(
   session = SESSION,
   turn = TURN,
 ) {
-  const token = await credentials.issue({ session, turn, place: null });
+  const token = await credentials.issue({ session, turn, workspace: null });
   assert.ok(token.ok);
   const authenticated = await registry.authenticate(token.value);
   assert.ok(authenticated.ok);

@@ -4,9 +4,9 @@ import type { Participant } from "../../types.ts";
 export const LOPHN: Participant = { agent: "lophn" };
 export const LOPHN_가계부: Participant = {
   agent: "lophn",
-  place: { app: "가계부" },
+  workspace: { app: "가계부" },
 };
 export const LOPHN_할일: Participant = {
   agent: "lophn",
-  place: { app: "할일" },
+  workspace: { app: "할일" },
 };

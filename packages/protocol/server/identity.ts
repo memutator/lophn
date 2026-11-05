@@ -33,7 +33,7 @@ export const credentialConditionsSchema = z.strictObject({
   session: idSchema("ses").optional(),
   turn: idSchema("trn").optional(),
   app: idSchema("app").optional(),
-  // project place의 agent가 그 project 하나에 묶인 자격이다.
+  // project workspace의 agent가 그 project 하나에 묶인 자격이다.
   project: idSchema("prj").optional(),
   release: idSchema("rel").optional(),
   process: z.string().min(1).optional(),
@@ -41,7 +41,7 @@ export const credentialConditionsSchema = z.strictObject({
   task: z.string().min(1).optional(),
   // 준비 전 bundle의 preview는 release 없이 bundle hash로 고정한다.
   bundle_hash: sha256Schema.nullable().optional(),
-  // 앱 place run이 이번 handoff에서 읽을 수 있는 고정 근거(문서, 판) 목록이다. 발급 때 core가 run의
+  // 앱 workspace run이 이번 handoff에서 읽을 수 있는 고정 근거(문서, 판) 목록이다. 발급 때 core가 run의
   // handoff 출처 참조에서 정하며 child 요청 값이 아니다. 이 목록의 판만 담당 앱 밖에서도 판 주소로 열린다.
   evidence: z
     .array(

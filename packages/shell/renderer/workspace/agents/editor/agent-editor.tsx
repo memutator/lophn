@@ -12,7 +12,7 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/places.ts";
+import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
@@ -355,7 +355,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const cancelSignIn = (row: McpRow) => {
     void source
       .cancelMcpSignIn(row.name, {
-        place: row.login?.place ?? null,
+        workspace: row.login?.workspace ?? null,
         agent: row.login?.agent ?? null,
       })
       .then(() => {
@@ -487,7 +487,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             issues={state.issues}
             models={models}
             source={source}
-            placeName={props.projectName}
+            workspaceName={props.projectName}
             imageSrc={(image) =>
               detail.assignment === null
                 ? ""

@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 
 import { err, ok, type Result } from "../../../../packages/base/mod.ts";
-import { PLACE_KINDS } from "../../../../packages/protocol/lophn-agent/mod.ts";
+import { WORKSPACE_KINDS } from "../../../../packages/protocol/lophn-agent/mod.ts";
 import type { VariantTexts } from "../../versions/mod.ts";
 import type { VariantIo } from "./io.ts";
 
@@ -11,14 +11,14 @@ const ELECTRON = createRequire(import.meta.url)("electron") as string;
 // .md를 text로 묶어 가져오는 코드라 이 프로세스에서 variant file을 import하면 module 해석이 이 checkout의
 // node_modules를 타서 어느 checkout 것인지 흐려진다. 그 checkout의 cwd에서 따로 돌려 JSON 한 줄로 받는다.
 const SCRIPT = `
-const { placePrompt } = await import("./packages/core/agent-places/prompts/prompts.ts");
-const place_prompts = {};
-for (const kind of ${JSON.stringify(PLACE_KINDS)}) {
-  const text = await placePrompt(kind);
-  if (!text.ok) throw new Error("place kind prompt missing: " + kind);
-  place_prompts[kind] = text.value;
+const { workspacePrompt } = await import("./packages/core/agent-workspaces/prompts/prompts.ts");
+const workspace_prompts = {};
+for (const kind of ${JSON.stringify(WORKSPACE_KINDS)}) {
+  const text = await workspacePrompt(kind);
+  if (!text.ok) throw new Error("workspace kind prompt missing: " + kind);
+  workspace_prompts[kind] = text.value;
 }
-console.log(JSON.stringify({ place_prompts }));
+console.log(JSON.stringify({ workspace_prompts }));
 `;
 
 export async function variantTexts(
@@ -28,7 +28,7 @@ export async function variantTexts(
   const fail = (why: string) =>
     err({
       code: "unavailable" as const,
-      message: `variant의 place 종류 prompt를 읽지 못했다: ${why}`,
+      message: `variant의 workspace 종류 prompt를 읽지 못했다: ${why}`,
     });
   try {
     const out = await io.run(

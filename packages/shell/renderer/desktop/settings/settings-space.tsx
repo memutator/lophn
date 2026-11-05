@@ -107,7 +107,7 @@ export function SettingsSpace({
       ? t("settings.button.back-to-home")
       : backName === undefined
         ? t("common.button.back")
-        : t("settings.button.back-to", { place: backName });
+        : t("settings.button.back-to", { workspace: backName });
   const waiting = <WaitingLayer align="start" onOpenSession={onOpenSession} />;
   const title = t("settings.title.screen");
 

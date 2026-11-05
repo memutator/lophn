@@ -122,11 +122,11 @@ function numberedName(segment: string): boolean {
   );
 }
 
-// core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < place 층(agent-places)·feature module(projects, apps, runs) < main(조립).
-// harness와 바닥은 place 층과 feature module을 모르고, place 층과 feature module은 서로 모른다. 둘 다 harness는 쓸 수 있다.
+// core 안 층. 바닥(그 밖 전부) < harness(lophn-agent) < workspace 층(agent-workspaces)·feature module(projects, apps, runs) < main(조립).
+// harness와 바닥은 workspace 층과 feature module을 모르고, workspace 층과 feature module은 서로 모른다. 둘 다 harness는 쓸 수 있다.
 // feature module끼리는 서로 import하지 않는다(project-docs/architecture/layers.md).
 const CORE_HARNESS = "lophn-agent";
-const CORE_PLACES = "agent-places";
+const CORE_WORKSPACES = "agent-workspaces";
 const CORE_FEATURES = new Set([
   "projects",
   "apps",
@@ -148,18 +148,23 @@ function coreLayerViolation(file: string, target: string): string | undefined {
     return `module은 core/main을 import하지 않는다: ${from} → main`;
   }
   const upper = (name: string) =>
-    name === CORE_HARNESS || name === CORE_PLACES || CORE_FEATURES.has(name);
+    name === CORE_HARNESS ||
+    name === CORE_WORKSPACES ||
+    CORE_FEATURES.has(name);
   if (from !== "main" && !upper(from) && upper(to)) {
-    return `바닥은 ${CORE_HARNESS}, ${CORE_PLACES}, feature module을 import하지 않는다: ${from} → ${to}`;
-  }
-  if (from === CORE_HARNESS && (to === CORE_PLACES || CORE_FEATURES.has(to))) {
-    return `${CORE_HARNESS}는 ${CORE_PLACES}와 feature module을 import하지 않는다: ${from} → ${to}`;
+    return `바닥은 ${CORE_HARNESS}, ${CORE_WORKSPACES}, feature module을 import하지 않는다: ${from} → ${to}`;
   }
   if (
-    (from === CORE_PLACES && CORE_FEATURES.has(to)) ||
-    (CORE_FEATURES.has(from) && to === CORE_PLACES)
+    from === CORE_HARNESS &&
+    (to === CORE_WORKSPACES || CORE_FEATURES.has(to))
   ) {
-    return `feature module과 ${CORE_PLACES}는 서로 import하지 않는다: ${from} → ${to}`;
+    return `${CORE_HARNESS}는 ${CORE_WORKSPACES}와 feature module을 import하지 않는다: ${from} → ${to}`;
+  }
+  if (
+    (from === CORE_WORKSPACES && CORE_FEATURES.has(to)) ||
+    (CORE_FEATURES.has(from) && to === CORE_WORKSPACES)
+  ) {
+    return `feature module과 ${CORE_WORKSPACES}는 서로 import하지 않는다: ${from} → ${to}`;
   }
   if (CORE_FEATURES.has(from) && CORE_FEATURES.has(to)) {
     return `feature module끼리는 서로 import하지 않는다: ${from} → ${to}`;
@@ -207,24 +212,26 @@ const HARNESS_LEFTOVERS: ReadonlyMap<string, string> = new Map([
 ]);
 
 // tool 정의 file은 agent runtime child에서 실려서 store·DB 코드를 끌어오면 안 된다(rule tool-file).
-const FEATURE_TOOL_PLACES = ["packages/core/apps/agent-tools/"];
-const PLACE_TOOL_DIR = `packages/core/${CORE_PLACES}/tools/`;
+const FEATURE_TOOL_WORKSPACES = ["packages/core/apps/agent-tools/"];
+const WORKSPACE_TOOL_DIR = `packages/core/${CORE_WORKSPACES}/tools/`;
 const SPI = `packages/core/${CORE_HARNESS}/tools/spi.ts`;
 function toolFileViolation(
   file: string,
   specifier: string,
   target: string | undefined,
 ): string | undefined {
-  const place = FEATURE_TOOL_PLACES.find((path) => file.startsWith(path));
-  const placeTool = file.startsWith(PLACE_TOOL_DIR);
-  if (!place && !placeTool) return;
+  const workspace = FEATURE_TOOL_WORKSPACES.find((path) =>
+    file.startsWith(path),
+  );
+  const workspaceTool = file.startsWith(WORKSPACE_TOOL_DIR);
+  if (!workspace && !workspaceTool) return;
   if (specifier === "node:sqlite") return "node:sqlite를 import하지 않는다";
   if (!target) return;
   if (target.startsWith("packages/core/storage/")) {
     return `storage를 import하지 않는다: ${specifier}`;
   }
-  if (placeTool) {
-    return target.startsWith(`packages/core/${CORE_PLACES}/`) &&
+  if (workspaceTool) {
+    return target.startsWith(`packages/core/${CORE_WORKSPACES}/`) &&
       /\/(?:store|ledger|register)(?:[-./]|$)/.test(target)
       ? `store·ledger·register를 import하지 않는다: ${specifier}`
       : undefined;
@@ -233,7 +240,7 @@ function toolFileViolation(
     target === SPI ||
     target.startsWith("packages/base/") ||
     target.startsWith("packages/protocol/") ||
-    target.startsWith(place!);
+    target.startsWith(workspace!);
   return ok
     ? undefined
     : `feature module의 tool 정의 file은 base, protocol, 같은 폴더, ${CORE_HARNESS}/tools/spi.ts만 import: ${specifier}`;
@@ -277,11 +284,11 @@ function cyclicEdges(edges: Edge[]): Edge[] {
 // 쓰는 곳을 걷고 file을 지우면 여기서도 뺀다. cleanup 때 이 목록은 비어야 한다.
 const LEAVING_FILES = new Set(["packages/protocol/server/registration.ts"]);
 
-// annotation 입력과 lophn agent 계약이 AgentId를 함께 쓴다. places.ts는 base만 import하므로 실행 순환이 아니다.
+// annotation 입력과 lophn agent 계약이 AgentId를 함께 쓴다. workspaces.ts는 base만 import하므로 실행 순환이 아니다.
 // extensions의 ACP handle은 acp의 type만 import한다. lophn-agent/harness-host.ts가 extensions의 extensionSettingKey를
 // 쓰지만 type import는 실행 순환이 아니다. harness-host가 그 함수를 config 쪽에서 받게 되면 이 둘을 뺀다.
 const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
-  "packages/protocol/apps/annotation.ts\0../lophn-agent/places.ts",
+  "packages/protocol/apps/annotation.ts\0../lophn-agent/workspaces.ts",
   "packages/protocol/extensions/acp-session.ts\0../acp/input.ts",
   "packages/protocol/extensions/acp-session.ts\0../acp/state.ts",
 ]);
@@ -311,7 +318,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
   for (const path of paths) {
     if (!/^(packages|tools)\//.test(path)) continue;
     // 내장 skill 폴더 이름은 사람이 `/`로 치는 이름(`new-app`)이라 판 이름이 아니다.
-    if (path.startsWith("packages/core/agent-places/skills/")) continue;
+    if (path.startsWith("packages/core/agent-workspaces/skills/")) continue;
     const segment = path.slice(path.lastIndexOf("/") + 1);
     if (numberedName(segment)) {
       add(path, 1, "name", `판·단계·작업 번호 이름 금지: ${segment}`);
@@ -404,7 +411,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         !(
           targetPackage === "coding-agent" &&
           own === "shell" &&
-          TERMINAL_HOST.some((place) => inside(file, place))
+          TERMINAL_HOST.some((workspace) => inside(file, workspace))
         ) &&
         !(
           own === "core" &&

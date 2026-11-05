@@ -1,4 +1,4 @@
-// 창마다 하나인 빠른 실행 전역 값. Settings 화면과 place 창이 같이 읽고 쓴다. 쓰기는 먼저 화면에 반영하고
+// 창마다 하나인 빠른 실행 전역 값. Settings 화면과 workspace 창이 같이 읽고 쓴다. 쓰기는 먼저 화면에 반영하고
 // core에 보낸 뒤 거절되면 다시 읽는다. 다른 창이 바꾼 값은 창에 focus가 돌아올 때 다시 읽는다.
 import {
   createContext,

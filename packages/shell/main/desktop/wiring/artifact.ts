@@ -156,7 +156,8 @@ export function register(
         return window === undefined ? undefined : windowRef(window);
       },
       views,
-      list: (place) => listArtifacts(ctx.dataRoot, place, nodeArtifactFs),
+      list: (workspace) =>
+        listArtifacts(ctx.dataRoot, workspace, nodeArtifactFs),
     }),
   );
   // build가 artifact preload를 같은 dist에 .cjs로 낸다. 붙이기에서 강제한다.

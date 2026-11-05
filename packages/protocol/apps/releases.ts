@@ -91,7 +91,7 @@ export const removedPublicSkillSchema = z.object({
   skill: z.string().min(1),
 });
 
-// 앱 place의 session이 앱 source의 HEAD commit으로 release를 준비한다. 검사에 떨어진 것은 오류가 아니라
+// 앱 workspace의 session이 앱 source의 HEAD commit으로 release를 준비한다. 검사에 떨어진 것은 오류가 아니라
 // failed 출력이다: 오류 code는 model에 고정 글만 닿아 떨어진 이유가 가려진다.
 // source 폴더가 없거나 commit이 없는 것도 build 단계의 failed다.
 const releasePrepareOutputSchema = z.discriminatedUnion("status", [
@@ -150,7 +150,7 @@ export const releasesGetInputSchema = z.strictObject({
   release: releaseIdSchema,
 });
 
-// 앱 place의 session이 prepared release를 올린다. activation이 끝날 때까지 기다리되 상한을 넘으면 running이다.
+// 앱 workspace의 session이 prepared release를 올린다. activation이 끝날 때까지 기다리되 상한을 넘으면 running이다.
 // 동의가 필요하면 묻기만 하고 waiting_consent를 바로 돌려준다. failure는 release의 failure 그대로다
 // (activation.ts가 이 file을 import하므로 그쪽 schema를 가져오지 않고 같은 꼴로 적는다).
 const releaseActivateOutputSchema = z.discriminatedUnion("status", [

@@ -13,7 +13,7 @@ import {
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   waitTurnEnd,
@@ -33,7 +33,7 @@ test("읽지 못한 지침은 조용히 빠지지 않는다: turn이 시작되�
     // 폴더는 openFile이 항상 읽지 못하는 것(unavailable)으로 본다. 권한 000은 root에서 읽혀 버린다.
     await mkdir(`${proj}/LOPHN.md`);
     const { project } = await openProject(core, proj);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });

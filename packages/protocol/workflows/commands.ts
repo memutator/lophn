@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineCommand } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { seqSchema } from "../base/values.ts";
-import { agentAddressSchema } from "../lophn-agent/places.ts";
+import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
 import {
   participantKeySchema,
   participantSchema,

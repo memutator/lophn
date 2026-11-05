@@ -15,7 +15,7 @@ import {
 import {
   connectFakeProvider,
   decide,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   turnsOf,
@@ -59,7 +59,7 @@ async function askAndDecide(
     { reply: ask.reply("t1") },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
     kind: "project",
     id: project,
   });
@@ -146,7 +146,7 @@ async function askRow(
     { reply: { kind: "tool", calls: [ASK_CALL] } },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
   await say(core, session, "decide something");
   const question = await waitQuestion(core, session);
   await answer(session, question.tool_call);

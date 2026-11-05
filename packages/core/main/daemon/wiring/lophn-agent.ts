@@ -15,7 +15,7 @@ import {
   agentProfileHandlers,
   messageImageHandlers,
 } from "../../../lophn-agent/register.ts";
-import { ensureLophn } from "../../../agent-places/agents/ensure.ts";
+import { ensureLophn } from "../../../agent-workspaces/agents/ensure.ts";
 import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";

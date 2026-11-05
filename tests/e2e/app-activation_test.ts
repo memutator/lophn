@@ -2,13 +2,13 @@
 // - contract: boundary `app-releases`·`app-data`(migration 전에 복구본을 확정하고, 실패하면 복원하고 이전 release를 다시
 //   띄운다. 실패 기록은 fail 한 tx이고 `release.activate`가 그것을 돌려준다. 더 새 release의 activation이 시작되면 이전 동의
 //   줄을 닫는다. 허락은 표에 남아 재시작에 다시 적용된다), `event-stream`(동의 줄이 닫히면 `ActivationConsentClosed`).
-// - 현실적 회귀: migration이 실패했는데 data가 반쯤 바뀐 채 남는 것, 이전 release가 안 뜨는 것, 실패 이유가 앱 place session에
+// - 현실적 회귀: migration이 실패했는데 data가 반쯤 바뀐 채 남는 것, 이전 release가 안 뜨는 것, 실패 이유가 앱 workspace session에
 //   안 닿는 것(두 번 이상 고친 흔적: archived/activation.md의 끊긴 시도·복구본 보존), 넓어진 선언을 묻지 않고 올리는 것,
 //   낡은 동의가 새 release에 쓰이는 것, 허락이 재시작에 사라져 적용 안 되는 것.
 // - 왜 지금 test가 못 잡나: 순서와 복원은 unit이 일부 있지만 이전 process 종료 확인, 실제 DB 복원, 새 process 준비 모드,
 //   허락의 재적용은 process를 건너야 한다.
 //
-// fake 대답: 행의 fake 대답은 앱 activation helper(`deliverRelease`, `prepareRelease`, `activateRelease`)가 거는 앱 place session의
+// fake 대답: 행의 fake 대답은 앱 activation helper(`deliverRelease`, `prepareRelease`, `activateRelease`)가 거는 앱 workspace session의
 // `release prepare`·`release activate`뿐이라 행 상한(3)에 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
 //
 // 한 test, core 하나, 앱 하나. `rewind-not-across-release` 이후 행은 앞 행이 만든 release를 이어 쓰므로 표 순서대로 돈다.
@@ -135,7 +135,7 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
       await resetSource(app.source, base);
       for (const patch of patches) await amendAppSource(app.source, patch);
     };
-    // 한 release를 낸다: 앱 place의 lophn이 prepare → activate를 부른다.
+    // 한 release를 낸다: 앱 workspace의 lophn이 prepare → activate를 부른다.
     const deliver = async (patches: AppPatch[]) => {
       await amend(patches);
       return await deliverRelease(core!, fake, app, {
@@ -153,7 +153,7 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
       }
       return prepared.release.id;
     };
-    // runtime이 ready여야 다음 앱 place session turn이 끊기지 않는다.
+    // runtime이 ready여야 다음 앱 workspace session turn이 끊기지 않는다.
     const reboot = async (): Promise<void> => {
       await core!.kill();
       core = await bootCore(run, { env });
@@ -290,7 +290,7 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
     const slowOne = await deliver([slowReadPatch]);
     await waitRunning(core, app, slowOne.release);
     const swap = await prepareOnly([slowReadPatch, codeOnlyPatch]);
-    // 읽기는 invocation을 남기지 않아 실행 중인 것을 볼 수 없다. 5초 읽기를 먼저 시작하면 앱 place session의 model 요청을 한
+    // 읽기는 invocation을 남기지 않아 실행 중인 것을 볼 수 없다. 5초 읽기를 먼저 시작하면 앱 workspace session의 model 요청을 한
     // 번 거친 뒤 activation이 시작되어 drain이 그 읽기를 기다린다.
     const slow = call(core, app.app, "delay", { ms: 5000 });
     slow.catch(() => {});
@@ -347,7 +347,7 @@ test("E2E release activation은 실패하면 data와 이전 release를 그대로
     const resumed = await prepareOnly([slowReadPatch, codeOnlyPatch]);
     const slowAgain = call(core, app.app, "delay", { ms: 5000 });
     slowAgain.catch(() => {});
-    // 그 앱 place session turn은 kill에 끊긴다.
+    // 그 앱 workspace session turn은 kill에 끊긴다.
     const resuming = activateRelease(core, fake, app, resumed).catch(
       () => undefined,
     );

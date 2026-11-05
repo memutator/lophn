@@ -1,6 +1,6 @@
 # agent-definition
 
-agent 정의와 turn 조립(지침, tool, skill, place 정보, cache)에 걸린 열린 이슈. 흐름과 불변 조건은 `project-docs/architecture/agent-definition.md`.
+agent 정의와 turn 조립(지침, tool, skill, workspace 정보, cache)에 걸린 열린 이슈. 흐름과 불변 조건은 `project-docs/architecture/agent-definition.md`.
 
 ## 파일 읽기가 pdf와 이미지 말고 docx 같은 형식을 못 읽는다
 
@@ -11,7 +11,7 @@ modules: [packages/core/lophn-agent]
 
 지금: `packages/core/lophn-agent/tools/file/read.ts`는 UTF-8 텍스트만 읽고, 아니면 pdf/이미지는 각 tool을 안내하고 나머지는 `not a UTF-8 text file`로 거절한다. pdf는 `packages/core/lophn-agent/tools/file/pdf.ts`(`unpdf`), 이미지는 `packages/core/lophn-agent/tools/file/image.ts`뿐이다. docx, xlsx 등의 reader는 없다.
 
-영향: 사람이 place 폴더에 둔 docx 문서를 agent가 읽지 못한다. 사람이 텍스트로 바꿔 줘야 한다.
+영향: 사람이 workspace 폴더에 둔 docx 문서를 agent가 읽지 못한다. 사람이 텍스트로 바꿔 줘야 한다.
 
 고치려면: 필요한 형식마다 reader를 더한다(`unpdf`처럼 의존성 하나를 판 고정으로 들이고 쓸 때만 불러온다). 형식을 하나씩 늘리는 것은 비용이 작지만 의존성이 는다. 추천: 쓰는 형식(docx)부터 하나만.
 
@@ -63,12 +63,12 @@ kind: bug
 modules: [packages/core/lophn-agent, packages/shell/renderer]
 ```
 
-지금: 정의의 `tools`는 아무 nonblank 이름이나 받는다(`packages/protocol/lophn-agent/agent-values.ts`). turn 조립(`packages/core/lophn-agent/run-loop/prepare.ts`의 `visibleTools`)은 place 종류 목록, 명령의 `places`, 할당한 앱 command, 설정한 MCP에 없는 이름을 오류 없이 뺀다. 편집 화면(`packages/shell/renderer/workspace/agents/editor/tool-picks.tsx`)은 내장 tool만 체크로 고르고 lophn 명령, 앱 command, MCP tool은 글로 적는다.
+지금: 정의의 `tools`는 아무 nonblank 이름이나 받는다(`packages/protocol/lophn-agent/agent-values.ts`). turn 조립(`packages/core/lophn-agent/run-loop/prepare.ts`의 `visibleTools`)은 workspace 종류 목록, 명령의 `workspaces`, 할당한 앱 command, 설정한 MCP에 없는 이름을 오류 없이 뺀다. 편집 화면(`packages/shell/renderer/workspace/agents/editor/tool-picks.tsx`)은 내장 tool만 체크로 고르고 lophn 명령, 앱 command, MCP tool은 글로 적는다.
 
 영향: 사람이 `call.reply`를 `call.replay`로 적거나 할당하지 않은 앱 command를 고르면 그 agent는 그 tool 없이 일한다. 저장도 turn도 알리지 않아 사람은 agent가 왜 못 하는지 모른다.
 
 고치려면:
-- 편집 화면이 명령 표(`packages/cli/commands/`의 `COMMANDS`), 할당한 앱 command, 설정한 MCP tool을 후보 목록으로 보이고, 적은 이름 중 어느 후보에도 없는 것은 그 칸 옆에 표시한다. 저장은 막지 않는다(place 종류와 할당은 나중에 바뀐다). 중간.
+- 편집 화면이 명령 표(`packages/cli/commands/`의 `COMMANDS`), 할당한 앱 command, 설정한 MCP tool을 후보 목록으로 보이고, 적은 이름 중 어느 후보에도 없는 것은 그 칸 옆에 표시한다. 저장은 막지 않는다(workspace 종류와 할당은 나중에 바뀐다). 중간.
 - 저장 때 명령 표에도 `<slug>.<command>`·`mcp__` 꼴에도 맞지 않는 이름을 `invalid_input`으로 거절한다. 오타 대부분을 잡는다. 작음.
 
 추천: 둘째를 먼저, 첫째는 bare를 실제로 쓰며 필요해지면.

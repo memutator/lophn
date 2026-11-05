@@ -1,4 +1,4 @@
-// 앱 view의 agent 길 main service. 앱 화면이 자기 앱 place의 session을 열고, ACP 상태를 읽고, 입력을 보내고,
+// 앱 view의 agent 길 main service. 앱 화면이 자기 앱 workspace의 session을 열고, ACP 상태를 읽고, 입력을 보내고,
 // 갱신을 받는다. 앱 화면에서 보낸 것은 그 앱을 쓰는 사람의 메시지라 operation처럼 사람 자격(`coreInternal`)으로 core에
 // 가고 따로 허락 단계가 없다. 앱 id는 sender view에서 main이 정한다(page가 고르지 못한다).
 import { APP_AGENT_UPDATE_CHANNEL } from "../../ipc/app-agent.ts";
@@ -26,7 +26,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
 const NOT_YOURS = fail("forbidden", "session is not available");
 
 export function createAppAgent(deps: AppAgentDeps) {
-  // 이 view가 열었거나 읽어서 앱 place의 것으로 확인한 session. 갱신을 거를 때 쓴다(session의 place는 열 때 정해져 안 바뀐다).
+  // 이 view가 열었거나 읽어서 앱 workspace의 것으로 확인한 session. 갱신을 거를 때 쓴다(session의 workspace는 열 때 정해져 안 바뀐다).
   const owned = new Map<string, Set<string>>();
 
   function remember(view: BoundView, session: string): void {
@@ -35,7 +35,7 @@ export function createAppAgent(deps: AppAgentDeps) {
     owned.set(view.view_session, known);
   }
 
-  /** session이 이 view의 앱 place의 것이면 undefined, 아니면 돌려줄 실패다. 없는 session도 forbidden이다. */
+  /** session이 이 view의 앱 workspace의 것이면 undefined, 아니면 돌려줄 실패다. 없는 session도 forbidden이다. */
   async function check(
     view: BoundView,
     session: unknown,
@@ -57,8 +57,9 @@ export function createAppAgent(deps: AppAgentDeps) {
           return fail("unavailable", "core is not available");
       }
     }
-    const place = record(record(record(read.value)?.session)?.place);
-    if (place?.kind !== "app" || place.id !== view.target.app) return NOT_YOURS;
+    const workspace = record(record(record(read.value)?.session)?.workspace);
+    if (workspace?.kind !== "app" || workspace.id !== view.target.app)
+      return NOT_YOURS;
     remember(view, session);
     return undefined;
   }
@@ -78,7 +79,7 @@ export function createAppAgent(deps: AppAgentDeps) {
         input: {
           id,
           agent: input.agent,
-          place: { kind: "app", id: view.target.app },
+          workspace: { kind: "app", id: view.target.app },
         },
         idempotency_key: `app-agent-open-${id}`,
         compare: {},
@@ -107,7 +108,7 @@ export function createAppAgent(deps: AppAgentDeps) {
       return sent.ok ? { ok: true, value: undefined } : sent;
     },
 
-    /** core의 `AcpUpdated`. 그 session을 이 앱 place의 것으로 확인한 view에만 보낸다. */
+    /** core의 `AcpUpdated`. 그 session을 이 앱 workspace의 것으로 확인한 view에만 보낸다. */
     updated(payload: { session: string; update: unknown }): void {
       for (const [view_session, sessions] of owned) {
         if (!sessions.has(payload.session)) continue;

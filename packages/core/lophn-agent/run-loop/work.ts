@@ -89,7 +89,7 @@ export function createTurnSource(deps: {
 // harness session의 transport는 session/harness.ts에 따로 있고 둘을 묶는 것은 router의 transportBySession이다.
 export function createLophnInputTransport(deps: {
   // `message`가 null인 입력(call·reply·reaction·notice·step)을 받는 session 기록에 쓴다. 배달하는 tx에서
-  // 부르고 wiring이 places-sessions 쪽 쓰기 helper를 끼운다.
+  // 부르고 wiring이 workspaces-sessions 쪽 쓰기 helper를 끼운다.
   record(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<Id<"msg">>;
 }): InputTransport {
   function put(tx: Tx, session: Id<"ses">, input: RoutedInput): Result<void> {

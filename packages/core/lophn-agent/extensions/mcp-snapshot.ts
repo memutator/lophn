@@ -1,6 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { errorCode, ok, type Result } from "../../../base/mod.ts";
-import type { AgentId, AgentPlace } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentId,
+  AgentWorkspace,
+} from "../../../protocol/lophn-agent/mod.ts";
 import { type McpRuntimeServer, runtimeServerOfLayer } from "./mcp-server.ts";
 import { createFileSettingsReader } from "../../config/mod.ts";
 import { globalMcpServersSetting } from "./settings.ts";
@@ -14,7 +17,7 @@ import type { ProjectLayer } from "./project-settings.ts";
 // 서버를 더한다. `mcp.` secret 목적지와 MCP OAuth begin의 서버 조회가 이 snapshot을 읽는다.
 // agent 정의가 가진 서버는 정의 파일에 있어 조립이 `agents`로 넘긴다.
 
-// 전역(Workspace) 서버다. 설정 파일에서 읽는다. 읽지 못하면 빈 목록이다.
+// 전역 서버다. 설정 파일에서 읽는다. 읽지 못하면 빈 목록이다.
 function globalMcpServers(root: string): Result<McpRuntimeServer[]> {
   const servers = createFileSettingsReader(root).get(globalMcpServersSetting);
   return ok(
@@ -47,12 +50,12 @@ const fsProjectSource: ProjectServerSource = {
 };
 
 type McpSnapshotDeps = {
-  // project 폴더 규칙이다. place 층의 값을 조립이 넘긴다.
+  // project 폴더 규칙이다. workspace 층의 값을 조립이 넘긴다.
   projectLayer: ProjectLayer;
   // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 project 폴더다.
   global?: () => Result<McpRuntimeServer[]>;
   projects?: ProjectServerSource;
-  // 모든 agent 정의 층의 서버다. harness는 agent-places를 모르므로 조립이 읽어 넘긴다. 없으면 빈 목록이다.
+  // 모든 agent 정의 층의 서버다. harness는 agent-workspaces를 모르므로 조립이 읽어 넘긴다. 없으면 빈 목록이다.
   agents?: () => Promise<Result<readonly AgentMcpEntry[]>>;
 };
 
@@ -62,16 +65,16 @@ export type AgentMcpEntry = {
   server: McpRuntimeServer;
 };
 
-// 서버와 그 서버가 놓인 곳이다. 전역(Workspace) 서버는 place와 agent가 모두 null이고, project·app 서버는
-// place만, agent 정의 층 서버는 agent만 있다.
+// 서버와 그 서버가 놓인 곳이다. 전역 서버는 workspace와 agent가 모두 null이고, project·app 서버는
+// workspace만, agent 정의 층 서버는 agent만 있다.
 export type RegisteredMcpServer = {
-  place: AgentPlace | null;
+  workspace: AgentWorkspace | null;
   agent: AgentId | null;
   server: McpRuntimeServer;
 };
 
 // 전역 서버가 먼저고 project 서버가 project id 순으로, agent 정의 층 서버가 마지막으로 따른다. 서로 다른
-// 소유자의 같은 이름은 모두 남고 `place`·`agent`로 가른다: OAuth 시작이 입력의 소유자로 서버를 고른다.
+// 소유자의 같은 이름은 모두 남고 `workspace`·`agent`로 가른다: OAuth 시작이 입력의 소유자로 서버를 고른다.
 export async function registeredMcpServers(
   ledgerPath: string,
   deps: McpSnapshotDeps,
@@ -88,13 +91,13 @@ export async function registeredMcpServers(
   if (!agents.ok) return agents;
   return ok([
     ...global.value.map((server) => ({
-      place: null,
+      workspace: null,
       agent: null,
       server,
     })),
     ...projects,
     ...agents.value.map(({ agent, server }) => ({
-      place: null,
+      workspace: null,
       agent,
       server,
     })),

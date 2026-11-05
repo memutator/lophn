@@ -6,7 +6,7 @@
 // - 왜 지금 test로 못 잡나: `closeUnfinishedInvocations`는 unit으로 볼 수 있어도 core 재시작 ↔ supervisor ↔ 앱 process가 실제로
 //   다시 뜨는 것과 두 process가 한 DB를 안 여는 것은 process를 건너야 한다.
 //
-// fake 대답: 앱 activation(`activateTestApp`)의 앱 place session 대답(`release prepare`·`release activate`)뿐이라 행의 상한(3)에
+// fake 대답: 앱 activation(`activateTestApp`)의 앱 workspace session 대답(`release prepare`·`release activate`)뿐이라 행의 상한(3)에
 // 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";

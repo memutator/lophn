@@ -17,7 +17,7 @@ import {
   MCP_TOOL_PREFIX,
   type McpTool,
   type ModelChoice,
-  type Place,
+  type Workspace,
   type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { skillReceived } from "../extensions/skills.ts";
@@ -48,9 +48,9 @@ type ResolveEnvironment = {
 
 type ResolveInput = {
   agent: AgentId;
-  place: Place | null;
-  // 다른 place의 session이 불러 열린 session이면 그 place.
-  called_from: Place | null;
+  workspace: Workspace | null;
+  // 다른 workspace의 session이 불러 열린 session이면 그 workspace.
+  called_from: Workspace | null;
   definition: AgentFileDefinition | null;
   global_model: ModelChoice | null;
   project_model?: ModelChoice | null;
@@ -74,14 +74,14 @@ type ResolvedField = (typeof RESOLVED_FIELDS)[number];
 
 export type ResolvedAgent = {
   agent: AgentId;
-  place: Place | null;
-  called_from: Place | null;
+  workspace: Workspace | null;
+  called_from: Workspace | null;
   name: string;
   profile: Profile;
   agent_instructions: string;
   model: ModelChoice;
   runtime: AgentRuntime;
-  // 정의 `tools`에 적힌 이름이다(고른 skill이 있으면 `skill.read`가 더해진다). bare가 아니면 빈 목록이다. place 종류 목록과 할당·MCP 안으로 줄이는 것은 조립의 일이다.
+  // 정의 `tools`에 적힌 이름이다(고른 skill이 있으면 `skill.read`가 더해진다). bare가 아니면 빈 목록이다. workspace 종류 목록과 할당·MCP 안으로 줄이는 것은 조립의 일이다.
   picks: string[];
   tools: string[];
   skills: string[];
@@ -92,14 +92,14 @@ export type ResolvedAgent = {
 
 // 값마다 마지막 층이 이긴다(전역 → project → agent → session).
 // - model은 ModelChoice 하나를 통째로 쓴다. 어느 층에도 없으면 turn을 시작하지 않는다.
-// - tools는 place 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. bare가 고른 이름은 picks에 따로 있다.
+// - tools는 workspace 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. bare가 고른 이름은 picks에 따로 있다.
 // - skills는 환경이 준 것 가운데 정의가 끈 이름(skills_off)을 뺀 것이다. bare는 정의 `skills`가 고른 이름만이고
 //   harness는 skill을 받지 않아 빈 목록이다(harness는 자기 skill 폴더를 쓴다).
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 export async function resolveAgent(
   input: ResolveInput,
 ): Promise<Result<ResolvedAgent, LophnError>> {
-  const { agent, place, definition, environment } = input;
+  const { agent, workspace, definition, environment } = input;
   if (agent !== LOPHN_AGENT_ID && definition === null) {
     return err({ code: "not_found", message: "agent definition not found" });
   }
@@ -160,7 +160,7 @@ export async function resolveAgent(
 
   const value: Omit<ResolvedAgent, "hash"> = {
     agent: copy(agent),
-    place: copy(place),
+    workspace: copy(workspace),
     called_from: copy(input.called_from),
     name: lophn ? LOPHN_AGENT_NAME : (definition as AgentDefinition).name,
     profile: copy(profile),

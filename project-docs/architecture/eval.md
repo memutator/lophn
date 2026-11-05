@@ -15,7 +15,7 @@ npm run eval -- --scenario <id> | --all [--model m] [--effort e] [--trials N] [-
       runner/trial.ts
         createRun · bootCore(evalCoreSettings())      tests/support/core, provider/
         restoreWorld(world)                          restore/
-        openRoots(real 참가자마다 place session)      runner/steps.ts
+        openRoots(real 참가자마다 workspace session)      runner/steps.ts
         attachRealModels(그 session에 session model)  provider/attach.ts
         t0 ─────────────────────────────────────────────
         runSteps: say · untilIdle                    runner/steps.ts, runner/idle.ts
@@ -46,11 +46,11 @@ npm run eval:scorecard -- diff A B  → 두 run의 버전·결과 차이(stdout)
 
 | 자리 | 하는 일 |
 |---|---|
-| `tests/eval/types.ts` | 계약. 버전, 참가자(agent 이름과 place, call의 `to`와 같은 꼴)와 단계(`say`, `untilIdle`), check, 시나리오(`world`, `real`, `steps`, `checks`, `fixtures`), 수집 기록, 수치, trial·run 기록, 재료, scorecard 행의 type과 constructor |
+| `tests/eval/types.ts` | 계약. 버전, 참가자(agent 이름과 workspace, call의 `to`와 같은 꼴)와 단계(`say`, `untilIdle`), check, 시나리오(`world`, `real`, `steps`, `checks`, `fixtures`), 수집 기록, 수치, trial·run 기록, 재료, scorecard 행의 type과 constructor |
 | `tests/eval/versions/` | hash 규칙(`hash.ts`), registry 읽기·쓰기(`registry.ts`), file을 component로 가르기(`files.ts`의 `classifyPath`, `TOOL_FILES`), 지금 checkout의 버전과 본 component(`components.ts`), 작성자가 n을 정하는 것의 hash(`authored.ts`), git 출처(`source.ts`) |
 | `tests/eval/registry/` | `<kind>/<name>.json`. n → hash, 글 component·criterion·judge는 내용도. commit한다 |
 | `tests/eval/materials/<이름>/<n>/` | `material.json`(kind, 고정 id, needs, content_hash)과 `files/`. commit한다 |
-| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `kinds.ts`, `agents.ts`). 재료는 제품 route로만 되살리고 model을 쓰지 않는다. agent 정의는 전역이라 place 없이 되살린다 |
+| `tests/eval/restore/` | 재료 읽기와 hash 확인(`manifest.ts`), 종류별 되살리기(`apps.ts`, `projects.ts`, `kinds.ts`, `agents.ts`). 재료는 제품 route로만 되살리고 model을 쓰지 않는다. agent 정의는 전역이라 workspace 없이 되살린다 |
 | `tests/eval/provider/` | `.env` key 읽기, core 설정(`EVAL_MODEL_ATTEMPTS`), `real` 참가자에게만 agent 층 model 붙이기 |
 | `tests/eval/collect/` | 제품 읽기 route로 session·turn·model call·tool call·call 읽기, 요청 body blob 읽기(`blob.ts`), 공통 수치(`metrics.ts`), 전체 기록 쓰기 |
 | `tests/eval/checks/` | program check builder(`calls.ts`, `tools.ts`), 기록 helper(`records.ts`), fixture builder(`fixtures.ts`), fixture 확인(`validate.ts`), check 실행(`run.ts`) |
@@ -58,14 +58,14 @@ npm run eval:scorecard -- diff A B  → 두 run의 버전·결과 차이(stdout)
 | `tests/eval/experiment/` | experiment 조각. spec·result 꼴과 읽기·검사·잠금(`spec/`), run 고르기(`select/`), trial 정책(`trials/`), 판정 `default@1`(`verdict/`), 다른 checkout(`variant/`), gate(`gate/`), 동시 수와 예산의 pool(`parallel/`), 시나리오 고유 단어 경고(`overfit/`), prefix 재기(`assembly/`), 되풀이 진단(`repeat/`), CLI 입구(`mod.ts`) |
 | `tests/eval/experiments/<id>/` | `spec.json`(사람이 쓰고 commit), `result.json`(program의 판정), `run.md`(runner), `report.md`(experimenter). commit한다 |
 | `tests/eval/runner/` | CLI(`cli.ts`, `experiment.ts`), 시나리오 찾기, 쉼 판정(`idle.ts`), 단계(`steps.ts`), trial 하나(`trial.ts`)와 그 world(`world.ts`), 시나리오 하나의 trial들(`scenario.ts`), run 비용 상한(`cap.ts`), trial 비용 상한(`spend.ts`), registry 쓰기 줄 세우기(`mutex.ts`), spec 잠금 사실(`lock.ts`), replay port(`replay.ts`) |
-| `tests/eval/scenarios/<place 종류>/` | 판단 case 8개. 폴더는 말 상대(진짜 model을 받는 참가자)의 place 종류다: `home/`(4), `project/`(2), `app/`(2). 사람은 개발자가 아니라서 tool 이름과 입출력을 말하지 않는다. 같은 폴더의 `common.ts`는 시나리오가 아니다. 참가자는 lophn의 세 place와 사람이 만든 agent 하나(`agents-home@1`의 `세무정리`)다 |
+| `tests/eval/scenarios/<workspace 종류>/` | 판단 case 8개. 폴더는 말 상대(진짜 model을 받는 참가자)의 workspace 종류다: `home/`(4), `project/`(2), `app/`(2). 사람은 개발자가 아니라서 tool 이름과 입출력을 말하지 않는다. 같은 폴더의 `common.ts`는 시나리오가 아니다. 참가자는 lophn의 세 workspace와 사람이 만든 agent 하나(`agents-home@1`의 `세무정리`)다 |
 | `tests/eval/scorecard/` | run 요약 읽기, 시나리오마다 run 고르기와 낡음(`pick.ts`), markdown(`markdown.ts`), run diff(`diff.ts`) |
 | `tests/eval/runs/`, `tests/eval/scorecards/` | run 요약과 날짜가 붙은 scorecard. commit한다 |
 | `.dev-data/eval/<run>/` | trial마다 전체 기록(대답 글, 요청 body, diff), core.log, 되풀이 진단(`trial-N.repeat.json`), 채점 대기(`judge/<key>.json`). git 밖 |
 
 ## 지키는 것
 
-- **진짜 model은 `real` 참가자만 받는다.** 되살리기는 제품 route만 부르므로 model이 필요 없고, core의 전역 기본 model은 처음부터 `null`이다. `attachRealModels`는 기본이 비어 있지 않으면 던지고, t0 전에 연 `real` 참가자의 session에만 session model을 붙인다. 정의에 붙이지 않는 이유는 정의가 전역이라 같은 lophn의 다른 place session(call로 열린 받는 쪽)도 model을 받기 때문이다. session model은 call로 연 session에 이어지지 않는다(fork만 잇는다). 나머지의 turn은 `failed / configuration_unavailable`로 곧바로 끝나고 provider를 부르지 않는다. 그래서 call을 받아도 그쪽 비용은 0이다. 이 끝남은 정상이고, 쉼 판정과 수치에서 오류로 다루지 않는다.
+- **진짜 model은 `real` 참가자만 받는다.** 되살리기는 제품 route만 부르므로 model이 필요 없고, core의 전역 기본 model은 처음부터 `null`이다. `attachRealModels`는 기본이 비어 있지 않으면 던지고, t0 전에 연 `real` 참가자의 session에만 session model을 붙인다. 정의에 붙이지 않는 이유는 정의가 전역이라 같은 lophn의 다른 workspace session(call로 열린 받는 쪽)도 model을 받기 때문이다. session model은 call로 연 session에 이어지지 않는다(fork만 잇는다). 나머지의 turn은 `failed / configuration_unavailable`로 곧바로 끝나고 provider를 부르지 않는다. 그래서 call을 받아도 그쪽 비용은 0이다. 이 끝남은 정상이고, 쉼 판정과 수치에서 오류로 다루지 않는다.
 - **key는 변수로만 든다.** `readAnthropicKey`가 env에서 읽고 `secrets/put`으로 core에 넣는다. 로그, 오류 message, run 기록에 넣지 않는다. core process는 env를 비운 채 뜬다(`tests/support/core`).
 - **되살리기의 흔적은 기록에 섞이지 않는다.** runner가 첫 단계 직전 시각을 t0(`TrialRecord.started_at`)으로 남긴다. collect는 runner가 연 session에서 시작해 call의 받는 session을 따라가고, t0 전에 시작한 turn과 그 model·tool call을 버린다.
 - **요청 body는 eval의 data root에서만 읽는다.** body를 내놓는 product route가 없다(`blobs/read`가 `model_call/input`을 막는다). `collect/blob.ts`가 `<run.home>/blobs/sha256/..`을 `objectPathFor`로 찾아 읽고, hash가 다르면 `null`이다. 제품에 route를 더하지 않는다.

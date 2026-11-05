@@ -3,12 +3,12 @@ import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { createProductRedactor } from "../../../../base/redaction/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
-  type ArtifactPlace,
+  type ArtifactWorkspace,
   artifactsFolder,
 } from "../../../../protocol/projects/mod.ts";
 import {
-  placeSessionOpen,
-  placeSessionRead,
+  workspaceSessionOpen,
+  workspaceSessionRead,
 } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import {
   agentCallSend,
@@ -30,17 +30,17 @@ import {
   textBlocks,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
-  type AgentAtPlace,
+  type AgentAtWorkspace,
   LOPHN_AGENT_ID,
-  type Place,
-} from "../../../../protocol/lophn-agent/places.ts";
+  type Workspace,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import { appExists, appStatusOf } from "../../../apps/lookups.ts";
 import {
   createSessionDirectory,
-  placeDepsOf,
-} from "../../../lophn-agent/places/mod.ts";
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
 import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
 import { INBOX_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
@@ -90,9 +90,9 @@ const ANNOTATION_DELIVERY_CONTEXT: AuthenticatedContext = {
   actor: "user",
   scope: {
     operations: [
-      placeSessionOpen.name,
+      workspaceSessionOpen.name,
       sendMessage.name,
-      placeSessionRead.name,
+      workspaceSessionRead.name,
     ],
     targets: {},
   },
@@ -209,19 +209,21 @@ export const routerWiring: WiringFactory = () => {
         inbox: ctx.inbox,
         publish: (event) => ctx.bus.publish(event),
       });
-      // artifact를 받는 일은 그 그릇 place의 lophn이 맡는다. 없거나 보관한 그릇은 not_found다.
-      const activePlace = (place: ArtifactPlace): Result<ArtifactPlace> => {
+      // artifact를 받는 일은 그 그릇 workspace의 lophn이 맡는다. 없거나 보관한 그릇은 not_found다.
+      const activeWorkspace = (
+        workspace: ArtifactWorkspace,
+      ): Result<ArtifactWorkspace> => {
         const found = ledgerSnapshot(
           ctx.ledgerPath,
           (lookup) =>
-            (place.kind === "project"
-              ? projectStatusOf(lookup.sql, place.id)
-              : appStatusOf(lookup.sql, place.id)) === "active",
+            (workspace.kind === "project"
+              ? projectStatusOf(lookup.sql, workspace.id)
+              : appStatusOf(lookup.sql, workspace.id)) === "active",
         );
         if (!found.ok) return found;
         return found.value
-          ? ok(place)
-          : err({ code: "not_found", message: "artifact place not found" });
+          ? ok(workspace)
+          : err({ code: "not_found", message: "artifact workspace not found" });
       };
       // 사람 메시지는 이미지를 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
@@ -236,49 +238,53 @@ export const routerWiring: WiringFactory = () => {
         });
         return done.ok ? ok(done.value.result) : done;
       };
-      // 지정된 session이 받는 쪽(agent와 place)의 열린 session인지 본다. 아니면 conflict다.
+      // 지정된 session이 받는 쪽(agent와 workspace)의 열린 session인지 본다. 아니면 conflict다.
       const checkOpenSession = async (
         session: string,
-        target: AgentAtPlace,
+        target: AgentAtWorkspace,
         message: string,
       ): Promise<Result<void>> => {
         const found = await ctx.runtime.readers.read(
-          placeSessionRead,
+          workspaceSessionRead,
           ANNOTATION_DELIVERY_CONTEXT,
           { session },
         );
         if (!found.ok) return found;
         const {
           agent: actual,
-          place,
+          workspace,
           lifecycle,
         } = (
           found.value as {
-            session: { agent: string; place: Place | null; lifecycle: string };
+            session: {
+              agent: string;
+              workspace: Workspace | null;
+              lifecycle: string;
+            };
           }
         ).session;
-        const samePlace =
-          place === null
-            ? target.place === null
-            : target.place !== null &&
-              place.kind === target.place.kind &&
-              place.id === target.place.id;
-        const same = actual === target.agent && samePlace;
+        const sameWorkspace =
+          workspace === null
+            ? target.workspace === null
+            : target.workspace !== null &&
+              workspace.kind === target.workspace.kind &&
+              workspace.id === target.workspace.id;
+        const same = actual === target.agent && sameWorkspace;
         return same && lifecycle === "open"
           ? ok(undefined)
           : err({ code: "conflict", message });
       };
       // session을 정해 사람 메시지 하나로 넣는다. session이 null이면 받는 쪽의 새 session을 연다.
       const sendHuman = async (
-        target: AgentAtPlace,
+        target: AgentAtWorkspace,
         session: string | null,
         input: { text: string; annotations: readonly string[] },
       ): Promise<Result<{ session: string; message: string }>> => {
         if (session === null) {
-          const opened = await run(placeSessionOpen, {
+          const opened = await run(workspaceSessionOpen, {
             id: ids.newId("ses"),
             agent: target.agent,
-            place: target.place,
+            workspace: target.workspace,
           });
           if (!opened.ok) return opened;
           session = (opened.value as { id: string }).id;
@@ -296,7 +302,7 @@ export const routerWiring: WiringFactory = () => {
       };
       // 지정된 session이 있으면 받는 쪽의 열린 session인지 보고, 없으면 새 session에 넣는다.
       const deliverTo = async (
-        target: AgentAtPlace,
+        target: AgentAtWorkspace,
         session: string | null,
         input: { text: string; annotations: readonly string[] },
         notOpen: string,
@@ -316,9 +322,9 @@ export const routerWiring: WiringFactory = () => {
           if (!found.value) {
             return err({ code: "not_found", message: "app not found" });
           }
-          const target: AgentAtPlace = {
+          const target: AgentAtWorkspace = {
             agent: input.agent,
-            place: { kind: "app", id: input.app as Id<"app"> },
+            workspace: { kind: "app", id: input.app as Id<"app"> },
           };
           return await deliverTo(
             target,
@@ -327,14 +333,14 @@ export const routerWiring: WiringFactory = () => {
             "not an open session of this agent in this app",
           );
         },
-        // 받는 쪽 후보 순서: (a) 그 그릇의 artifacts 폴더에 마지막으로 쓴 그 그릇 place의 열린 session(rewind 기록),
-        // (b) 입력 session(그 그릇 place의 lophn 열린 session), (c) 그 그릇 place의 lophn 새 session.
+        // 받는 쪽 후보 순서: (a) 그 그릇의 artifacts 폴더에 마지막으로 쓴 그 그릇 workspace의 열린 session(rewind 기록),
+        // (b) 입력 session(그 그릇 workspace의 lophn 열린 session), (c) 그 그릇 workspace의 lophn 새 session.
         async deliverArtifact(input) {
-          const owner = activePlace(input.place);
+          const owner = activeWorkspace(input.workspace);
           if (!owner.ok) return owner;
-          const target: AgentAtPlace = {
+          const target: AgentAtWorkspace = {
             agent: LOPHN_AGENT_ID,
-            place: { kind: owner.value.kind, id: owner.value.id as never },
+            workspace: { kind: owner.value.kind, id: owner.value.id as never },
           };
           const root = await realpath(
             artifactsFolder(ctx.root.path, owner.value),
@@ -356,14 +362,14 @@ export const routerWiring: WiringFactory = () => {
             target,
             input.session,
             input,
-            "not an open session of lophn in the artifact's place",
+            "not an open session of lophn in the artifact's workspace",
           );
         },
-        // 사람의 폴더에 있는 `.html`은 그 project place의 lophn이 받는다.
+        // 사람의 폴더에 있는 `.html`은 그 project workspace의 lophn이 받는다.
         async deliverFile(input) {
-          const target: AgentAtPlace = {
+          const target: AgentAtWorkspace = {
             agent: LOPHN_AGENT_ID,
-            place: { kind: "project", id: input.project as Id<"prj"> },
+            workspace: { kind: "project", id: input.project as Id<"prj"> },
           };
           return await deliverTo(
             target,
@@ -424,12 +430,12 @@ export const routerWiring: WiringFactory = () => {
       if (eventsConnection !== undefined) {
         const sql = eventsConnection.sql;
         const directory = createSessionDirectory({
-          ...placeDepsOf(sql),
+          ...workspaceDepsOf(sql),
           publish: () => {},
           sql: () => sql,
         });
         for (const pending of unstartedHumanMessages(sql)) {
-          // 보관한 place의 session은 새 입력을 받지 않는다. harness session의 입력은 harness wiring이 되돌린다.
+          // 보관한 workspace의 session은 새 입력을 받지 않는다. harness session의 입력은 harness wiring이 되돌린다.
           const target = directory.find(pending.session as Id<"ses">);
           if (!target?.accepting || target.transport !== "lophn") continue;
           // ReadMessageBody는 blob을 읽어서 reader pool 밖의 read다.

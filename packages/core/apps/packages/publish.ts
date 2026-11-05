@@ -1,4 +1,4 @@
-// package.publish. 그 앱 place의 session이 자기 앱 code의 일부를 @me package로 낸다.
+// package.publish. 그 앱 workspace의 session이 자기 앱 code의 일부를 @me package로 낸다.
 // 낼 때 사람 승인은 없다. 낸 version은 바뀌지 않는다.
 
 import type { z } from "zod";
@@ -55,11 +55,11 @@ function guideText(guide: PackagePublishInput["guide"]): string {
 export function publishPackage(deps: PublishDeps): MemoryHandler {
   return async (ctx, raw) => {
     const input = raw as PackagePublishInput;
-    // 그 앱 place의 session만 낸다(credential의 app 조건이 그 앱을 고정한다).
+    // 그 앱 workspace의 session만 낸다(credential의 app 조건이 그 앱을 고정한다).
     if (!ctx.actor.startsWith("agent:") || ctx.conditions.app !== input.app) {
       return err({
         code: "forbidden",
-        message: "only a session in the app's place publishes its packages",
+        message: "only a session in the app's workspace publishes its packages",
       });
     }
     if (!input.name.startsWith("@me/")) {

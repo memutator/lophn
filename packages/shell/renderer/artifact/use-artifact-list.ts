@@ -1,19 +1,19 @@
 // project나 앱의 artifact 목록. 처음 mount할 때 읽고, reload()를 부르면 다시 읽는다. 이름 순이다.
 import { useCallback, useEffect, useState } from "react";
 
-import type { ArtifactPlace } from "../../../protocol/projects/artifact.ts";
+import type { ArtifactWorkspace } from "../../../protocol/projects/artifact.ts";
 import type { ArtifactListItem } from "../../ipc/artifact.ts";
 import { useArtifactApi } from "./artifact-api.tsx";
 
-export function useArtifactList(place: ArtifactPlace | null): {
+export function useArtifactList(workspace: ArtifactWorkspace | null): {
   items: readonly ArtifactListItem[];
   reload(): void;
 } {
   const api = useArtifactApi();
   const [items, setItems] = useState<readonly ArtifactListItem[]>([]);
   const [round, setRound] = useState(0);
-  const kind = place?.kind;
-  const id = place?.id;
+  const kind = workspace?.kind;
+  const id = workspace?.id;
   useEffect(() => {
     if (api === null || kind === undefined || id === undefined) return;
     let live = true;

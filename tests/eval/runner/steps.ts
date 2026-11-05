@@ -1,8 +1,8 @@
 import type { Clock } from "../../../packages/base/mod.ts";
-import { placeSessionOpen } from "../../../packages/protocol/lophn-agent/mod.ts";
+import { workspaceSessionOpen } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { say } from "../../support/core/human.ts";
 import type { Core } from "../../support/core/mod.ts";
-import { agentAtPlaceOf } from "../restore/mod.ts";
+import { agentAtWorkspaceOf } from "../restore/mod.ts";
 import type {
   Participant,
   RestoreContext,
@@ -16,7 +16,7 @@ export type StepsContext = {
   core: Core;
   restore: RestoreContext;
   scenario: Scenario;
-  roots: Map<string, string>; // collect가 시작할 session. key는 JSON.stringify(AgentAtPlace)
+  roots: Map<string, string>; // collect가 시작할 session. key는 JSON.stringify(AgentAtWorkspace)
   over?: () => Promise<string | null>;
   clock: Clock;
   sleep: (ms: number) => Promise<void>;
@@ -31,11 +31,15 @@ export async function openRoots(
   roots: Map<string, string>,
 ): Promise<void> {
   for (const p of participants) {
-    const at = agentAtPlaceOf(world, p);
+    const at = agentAtWorkspaceOf(world, p);
     const key = JSON.stringify(at);
     if (roots.has(key)) continue;
     const id = core.ids.newId("ses");
-    await core.call(placeSessionOpen, { id, agent: at.agent, place: at.place });
+    await core.call(workspaceSessionOpen, {
+      id,
+      agent: at.agent,
+      workspace: at.workspace,
+    });
     roots.set(key, id);
   }
 }
@@ -53,7 +57,9 @@ export async function runSteps(ctx: StepsContext): Promise<Settle> {
   for (const step of scenario.steps) {
     if (step.kind === "say") {
       await openRoots(core, ctx.restore.world, [step.to], roots);
-      const key = JSON.stringify(agentAtPlaceOf(ctx.restore.world, step.to));
+      const key = JSON.stringify(
+        agentAtWorkspaceOf(ctx.restore.world, step.to),
+      );
       await say(core, roots.get(key)!, step.text);
     } else {
       const idle = await wait();

@@ -2,7 +2,7 @@
 
 ## 목적
 
-앱 화면이 자기 앱 place의 agent와 이야기하는 길이다. session을 열고, 화면의
+앱 화면이 자기 앱 workspace의 agent와 이야기하는 길이다. session을 열고, 화면의
 context를 block으로 싸서 보내고, ACP 상태를 React state로 받고, 꼴이 있는 답을
 값으로 꺼낸다. 화면의 호출은 앱 view의 `lophnApp.agent` 하나로만 간다. 화면에서
 보낸 것은 그 앱을 쓰는 사람의 메시지이고, 열린 session은 lophn의 sidebar와 채팅
@@ -18,7 +18,7 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
 - `useAgentSession({agent, app?, newId?})` — `{session, state, send, stop,
   answer, error}`.
   - `agent`는 놓인 agent의 id다. session은 화면을 연 것만으로는 열리지 않고
-    **첫 `send`에서** 이 앱 place에 새로 열려 바로 snapshot을 읽는다(열 때마다
+    **첫 `send`에서** 이 앱 workspace에 새로 열려 바로 snapshot을 읽는다(열 때마다
     lophn의 sidebar에 session이 하나 생기기 때문이다). `agent`가 바뀌면 새 session을
     쓰고, 화면이 새로 load되면 다시 첫 `send`에서 연다.
   - `session`은 첫 `send`로 열린 뒤의 session id이고 그 전에는 `null`이다. `state`는
@@ -97,7 +97,7 @@ const NOTES = {
 type Note = { line: number; severity: "info" | "bug"; note: string };
 
 function Coach({ attempt }: { attempt: { id: string; title: string } }) {
-  // COACH_AGENT_ID는 이 앱 place에 놓인 코치 agent의 id다.
+  // COACH_AGENT_ID는 이 앱 workspace에 놓인 코치 agent의 id다.
   const coach = useAgentSession({ agent: COACH_AGENT_ID });
   const [code, setCode] = useState("");
   const [notes, setNotes] = useState<Note[]>([]);

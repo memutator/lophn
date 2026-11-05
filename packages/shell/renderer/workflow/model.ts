@@ -57,7 +57,7 @@ const NOT_HANDED_KEY: Record<string, MessageKey> = {
 export const notHandedKey = (reason: string): MessageKey =>
   NOT_HANDED_KEY[reason] ?? "workflow.note.not-handed-unresolved";
 
-/** 참가자 글. agent는 workflow.yaml에 쓴 이름 그대로이고 place는 적힌 것만 붙인다. */
+/** 참가자 글. agent는 workflow.yaml에 쓴 이름 그대로이고 workspace는 적힌 것만 붙인다. */
 export function participantText(
   participant: WorkflowInstanceView["participants"][string],
 ): string {
@@ -68,11 +68,11 @@ export function participantText(
         : "workflow.label.participant-harness",
     );
   }
-  const { agent, place } = participant;
-  if (place === undefined) return agent;
+  const { agent, workspace } = participant;
+  if (workspace === undefined) return agent;
   return t("workflow.label.participant-placed", {
     agent,
-    place: "project" in place ? place.project : place.app,
+    workspace: "project" in workspace ? workspace.project : workspace.app,
   });
 }
 

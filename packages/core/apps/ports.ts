@@ -2,7 +2,10 @@ import type { z } from "zod";
 import type { LophnError, Result } from "../../base/mod.ts";
 import type { Actor } from "../../protocol/base/actor.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { AgentId, Place } from "../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../protocol/lophn-agent/workspaces.ts";
 import type { At } from "../../protocol/base/values.ts";
 import type { CallAuth } from "./calls/caller.ts";
 import type {
@@ -33,7 +36,7 @@ export type InvocationFilter = z.infer<typeof appInvocationsInputSchema>;
  * - actor가 agent면 할당으로 `judge`를 부른다. `deny`면 `denied(gate_blocked)`이고 `ask`는 run-loop tool gate가
  *   이미 물은 것이라 지나간다.
  * - actor가 program(job이 연 tool run)이나 flow(workflow instance가 연 tool run)이면 만든 agent(job의 creator, flow instance의 creator)의 할당을 mode `unattended`로 `judge`한 뒤, 공개 tool이 아니면
- *   creator가 그 앱 place에 있는 tool인지 본다. 아니면 `denied(gate_blocked)`.
+ *   creator가 그 앱 workspace에 있는 tool인지 본다. 아니면 `denied(gate_blocked)`.
  * - actor가 app이면 부른 앱의 active grant `app.call`이 그 앱의 그 tool을 덮는지 본다. 아니면 `denied(gate_blocked)`.
  */
 export interface AppToolCallPath {
@@ -41,7 +44,7 @@ export interface AppToolCallPath {
 }
 
 /**
- * 구현: lead 조립(places-sessions의 session 읽기). 쓰는 곳: app-calls-path.
+ * 구현: lead 조립(workspaces-sessions의 session 읽기). 쓰는 곳: app-calls-path.
  * 그 tool call이 지금 도는 turn의 것인지 확인하고 그 agent가 놓인 곳을 준다. 아니면 null.
  */
 export interface CallerDirectory {
@@ -49,7 +52,7 @@ export interface CallerDirectory {
     session: Id<"ses">,
     turn: Id<"trn">,
     tool_call: Id<"tcl">,
-  ): Result<{ agent: AgentId; place: Place | null } | null>;
+  ): Result<{ agent: AgentId; workspace: Workspace | null } | null>;
 }
 
 /**
@@ -80,7 +83,7 @@ export interface AppToolLookup {
 
 /**
  * 구현: app-calls-invocations.
- * 쓰는 곳: app-calls-path, app-calls-rewind, releases-problems의 activation, places-sessions의 session rewind.
+ * 쓰는 곳: app-calls-path, app-calls-rewind, releases-problems의 activation, workspaces-sessions의 session rewind.
  */
 export interface InvocationLedger {
   /** write·external·앱 시작은 시작을 미리 남긴다. */
@@ -163,7 +166,7 @@ export interface AppIntake {
 
 /**
  * 구현: app-calls-rewind.
- * 쓰는 곳: `app.rewind_plan`·`app.rewind` handler(app-calls-assembly), places-sessions의 session rewind.
+ * 쓰는 곳: `app.rewind_plan`·`app.rewind` handler(app-calls-assembly), workspaces-sessions의 session rewind.
  */
 export interface AppRewind {
   plan(app: Id<"app">, from: Id<"inv">): Result<RewindPlan>;

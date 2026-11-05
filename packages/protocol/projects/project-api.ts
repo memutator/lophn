@@ -19,7 +19,7 @@ import {
   slugSchema,
 } from "./values.ts";
 
-// slug name은 call의 `place: {project: 이름}`이 맞춰 쓰는 key이고 title은 사람에게 보이는 이름이다.
+// slug name은 call의 `workspace: {project: 이름}`이 맞춰 쓰는 key이고 title은 사람에게 보이는 이름이다.
 export const projectRecordSchema = z.object({
   id: projectIdSchema,
   name: slugSchema,

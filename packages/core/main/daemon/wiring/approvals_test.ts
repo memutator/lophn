@@ -36,7 +36,7 @@ test("다른 session·turn의 자격으로는 Gate route를 부르지 못한다"
         return Promise.resolve({ outcome: "allow", scope: "once" } as never);
       },
     },
-    sessionOf: () => Promise.resolve(ok({ agent: "lophn", place: null })),
+    sessionOf: () => Promise.resolve(ok({ agent: "lophn", workspace: null })),
     modeOf: () => Promise.resolve(ok("attended" as const)),
   });
   const body = {

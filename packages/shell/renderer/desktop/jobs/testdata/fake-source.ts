@@ -53,13 +53,13 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_DIGEST,
     title: "Morning digest",
-    creator: { agent: "lophn", place: null },
+    creator: { agent: "lophn", workspace: null },
     every: "1d",
     at: "09:00",
     action: {
       kind: "agent_run",
       agent: "lophn",
-      agent_place: { kind: "project", id: GROCERY },
+      agent_workspace: { kind: "project", id: GROCERY },
       prompt:
         "Summarize yesterday's finished tasks and list the open questions for today.",
     },
@@ -72,7 +72,7 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_REVIEW,
     title: "Weekly review",
-    creator: { agent: "lophn", place: { kind: "project", id: PHRONER } },
+    creator: { agent: "lophn", workspace: { kind: "project", id: PHRONER } },
     every: "7d",
     at: "10:00",
     action: {
@@ -89,7 +89,7 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_ORDERS,
     title: "Refresh stale orders",
-    creator: { agent: "lophn", place: { kind: "app", id: ORDERS } },
+    creator: { agent: "lophn", workspace: { kind: "app", id: ORDERS } },
     every: "30m",
     at: null,
     action: { kind: "tool_run", app: ORDERS, tool: "refresh_stale" },
@@ -102,13 +102,13 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_BUDGET,
     title: "Bookkeeping notes",
-    creator: { agent: "lophn", place: null },
+    creator: { agent: "lophn", workspace: null },
     every: "1d",
     at: "23:30",
     action: {
       kind: "agent_run",
       agent: id("agt", 1),
-      agent_place: { kind: "app", id: BUDGET },
+      agent_workspace: { kind: "app", id: BUDGET },
       prompt: "Write today's bookkeeping notes for the Budget app.",
     },
     missed_policy: "hold",
@@ -120,7 +120,7 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_BACKUP,
     title: "Check backups",
-    creator: { agent: id("agt", 1), place: { kind: "app", id: BUDGET } },
+    creator: { agent: id("agt", 1), workspace: { kind: "app", id: BUDGET } },
     every: "6h",
     at: null,
     action: { kind: "tool_run", app: BUDGET, tool: "check_backups" },

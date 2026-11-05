@@ -1,5 +1,5 @@
 import { sha256Hex } from "../../../base/mod.ts";
-import type { PlaceAgent } from "./model.ts";
+import type { WorkspaceAgent } from "./model.ts";
 
 // 지난 turn이 본 prompt의 판이다. turn이 시작할 때 지금 판과 비교해 바뀐 것마다 notice를 만든다.
 // 이름 목록은 "무엇이 더해지고 빠졌는지"를 쓰려고 hash가 아니라 목록으로 둔다. 긴 글(지침, 용어집)은 hash다.
@@ -23,8 +23,8 @@ function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-// place 정보의 목록 줄과 판 비교가 같은 글을 쓴다. 목적이 바뀌면 system 글이 바뀌므로 notice도 가야 한다.
-export function agentLine(agent: PlaceAgent): string {
+// workspace 정보의 목록 줄과 판 비교가 같은 글을 쓴다. 목적이 바뀌면 system 글이 바뀌므로 notice도 가야 한다.
+export function agentLine(agent: WorkspaceAgent): string {
   return agent.description === undefined
     ? agent.name
     : `${agent.name}: ${agent.description}`;
@@ -33,7 +33,7 @@ export function agentLine(agent: PlaceAgent): string {
 export async function basisOf(input: {
   instructions: InstructionTexts;
   tool_names: readonly string[];
-  agents: readonly PlaceAgent[];
+  agents: readonly WorkspaceAgent[];
 }): Promise<SeenBasis> {
   const instructions = {} as SeenBasis["instructions"];
   for (const layer of INSTRUCTION_LAYERS) {

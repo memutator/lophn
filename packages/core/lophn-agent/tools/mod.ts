@@ -37,7 +37,7 @@ export {
 export { defineTool } from "./define.ts";
 export type { ToolContext } from "./tool-context.ts";
 export type {
-  PlaceScope,
+  WorkspaceScope,
   QuestionWait,
   SkillReader,
   ToolGatePort,

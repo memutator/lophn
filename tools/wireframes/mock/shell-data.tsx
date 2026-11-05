@@ -57,13 +57,13 @@ const LOPHN: Agent = { kind: "lophn", shape: "square", color: "coral" };
 const chat = (
   key: string,
   title: string,
-  place: string,
+  workspace: string,
   agent: Agent = LOPHN,
 ): MockTab => ({
   key,
   kind: "chat",
   title,
-  crumbs: [place, title],
+  crumbs: [workspace, title],
   agent,
   status: "Ready",
 });

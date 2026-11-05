@@ -18,8 +18,11 @@ test("agent가 일하는 앱의 비공개 tool만 붙일 수 있고 public tool�
     app("app_other", [tool("open2", true), tool("secret2", false)]),
     app("app_closed", [tool("secret3", false)]),
   ];
-  const seen = (place: string | null) =>
-    appsFor(apps, place).map((one) => [one.app, one.tools.map((a) => a.tool)]);
+  const seen = (workspace: string | null) =>
+    appsFor(apps, workspace).map((one) => [
+      one.app,
+      one.tools.map((a) => a.tool),
+    ]);
 
   assert.deepStrictEqual(seen("app_mine"), [
     ["app_mine", ["open1", "secret1"]],

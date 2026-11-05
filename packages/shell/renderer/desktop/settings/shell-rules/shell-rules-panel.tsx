@@ -1,4 +1,4 @@
-// Settings › Shell rules. 명령을 돌리기 전에 보는 규칙을 제품 기본(읽기만), 전역(Workspace), project별로 보고
+// Settings › Shell rules. 명령을 돌리기 전에 보는 규칙을 제품 기본(읽기만), 전역, project별로 보고
 // 고친다. 줄마다 바로 저장하고, 저장하지 못하면 그 줄에 오류를 보인다. pattern은 고치지 않고 지우고 다시 더한다.
 import { useCallback, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
@@ -133,8 +133,8 @@ export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
           <>
             {section(
               { kind: "global" },
-              t("settings.heading.shell-rules-workspace"),
-              t("settings.note.shell-rules-workspace"),
+              t("settings.heading.shell-rules-global"),
+              t("settings.note.shell-rules-global"),
               view.global,
             )}
             {view.projects.map((project) =>

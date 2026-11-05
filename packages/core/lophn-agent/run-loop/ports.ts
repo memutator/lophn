@@ -85,7 +85,7 @@ export type CallSignals = {
   consumed(tx: Tx, call: Id<"cal">): Result<void>;
 };
 
-// model call 직전마다 읽는 이번 turn의 prompt 재료다. 지침·place 정보·tool 목록은 turn을 시작할 때 읽은 값을
+// model call 직전마다 읽는 이번 turn의 prompt 재료다. 지침·workspace 정보·tool 목록은 turn을 시작할 때 읽은 값을
 // 끝까지 쓰므로 call마다 같다. 대화(history)는 call마다 loop가 붙인다.
 export type TurnContext = {
   prompt: Omit<TurnPromptInput, "history">;

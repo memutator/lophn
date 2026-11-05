@@ -48,7 +48,7 @@ interface AgentHeaderHost {
 
 interface AgentHeaderProps {
   agent: SessionSwitcherProps["agent"] & {
-    readonly place?: { readonly name: string } | null;
+    readonly workspace?: { readonly name: string } | null;
   };
   /** 지금 보는 session. null은 아직 만들지 않은 새 session이다. */
   session: SessionEntry | null;
@@ -209,7 +209,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
   ) : !capabilities.sessions ? (
     <span className={styles.face}>
       <AgentFace agent={agent} />
-      <span>{props.agent.place?.name}</span>
+      <span>{props.agent.workspace?.name}</span>
       {props.title === null ? null : <span>· {props.title}</span>}
     </span>
   ) : (

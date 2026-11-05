@@ -1,4 +1,4 @@
-// app_screen 탭 kind. 앱 place의 현재 release 화면(entry screen)을 연다. 앱 place마다 하나다.
+// app_screen 탭 kind. 앱 workspace의 현재 release 화면(entry screen)을 연다. 앱 workspace마다 하나다.
 import { z } from "zod";
 
 import { defineTabKind } from "./kind.ts";

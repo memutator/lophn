@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { RESERVED_APP_SLUGS } from "../../protocol/apps/declaration/mod.ts";
 import { toWireToolName } from "../../protocol/lophn-agent/tool-catalog.ts";
-import { TOOL_ORDER } from "../agent-places/tool-lists.ts";
+import { TOOL_ORDER } from "../agent-workspaces/tool-lists.ts";
 
 // 새 내장 자원을 더하고 예약을 잊으면 같은 이름의 앱이 앱 command의 wire 이름(`<slug>_<command>`)을 내장 tool과 겹치게 해서 session의
 // tool 표 전체가 `conflict`로 막힌다. 내장 명령 묶음의 첫 낱말은 `cli/commands/domain-names_test.ts`가 본다.

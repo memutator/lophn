@@ -87,7 +87,7 @@ export async function authStates(
   }>(core, "memory", "agent-mcp-auth", "state", {
     servers: asked.map((server) => ({
       name: server.name,
-      place: null,
+      workspace: null,
       agent: null,
     })),
   });

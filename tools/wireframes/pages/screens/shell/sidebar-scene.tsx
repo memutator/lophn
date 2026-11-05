@@ -1,4 +1,4 @@
-// 왼쪽 sidebar만 보이는 shell 틀. 맨 아래 줄의 빠른 실행(Terminal · Browser · App ▾)을 place마다 보인다.
+// 왼쪽 sidebar만 보이는 shell 틀. 맨 아래 줄의 빠른 실행(Terminal · Browser · App ▾)을 workspace마다 보인다.
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
 import { shellIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
@@ -12,10 +12,10 @@ export const sidebarSteps = {
 };
 
 export function SidebarScene({
-  place,
+  workspace,
   steps = [],
 }: {
-  place: "project" | "home" | "app";
+  workspace: "project" | "home" | "app";
   steps?: readonly Step[];
 }) {
   useDrive(() => runSteps(steps));
@@ -28,13 +28,19 @@ export function SidebarScene({
       tabs={null}
       panelTabs={
         <PanelTabs
-          tabs={[{ key: "places", label: "Places", icon: shellIcons.app }]}
-          selected="places"
+          tabs={[
+            { key: "workspaces", label: "Workspaces", icon: shellIcons.app },
+          ]}
+          selected="workspaces"
           onSelect={noop}
         />
       }
       leftSidebar={
-        <PageLeftSidebar place={place} onOpenFile={noop} onAgent={noop} />
+        <PageLeftSidebar
+          workspace={workspace}
+          onOpenFile={noop}
+          onAgent={noop}
+        />
       }
       rightSidebar={null}
     >

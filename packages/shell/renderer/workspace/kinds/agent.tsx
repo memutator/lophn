@@ -1,4 +1,4 @@
-// agent 탭 kind. 한 탭은 agent 하나와 이 project place의 session 하나를 담고
+// agent 탭 kind. 한 탭은 agent 하나와 이 project workspace의 session 하나를 담고
 // 탭 안에서 agent를 바꾸지 않는다. layout에는 agent·자리·session 참조만 저장하고 다시 열 때 그대로 복원한다.
 // 여는 길(sidebar 줄·activity bar 아래쪽 바로 가기·새 탭 menu·Ask)은 모두 openAgent 하나를 부른다.
 
@@ -12,22 +12,22 @@ import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import {
   agentOf,
-  placeOf,
+  workspaceOf,
   SESSION_ID,
   sessionOf,
-  sourcePlaceOf,
+  sourceWorkspaceOf,
   TAB_KEY,
-  workPlaceOf,
+  layoutWorkspaceOf,
 } from "../agent/tab-fields.ts";
 import type { Desk } from "../../shell/desk-model.ts";
-import { placeKey, whereInDesk } from "../../shell/desk-model.ts";
+import { workspaceKey, whereInDesk } from "../../shell/desk-model.ts";
 import type { TabItem } from "../model.ts";
 import { openAgents } from "./agents.tsx";
 import type { AgentViewSlice, TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
-// 탭 fields.place와 layout의 Home 표식. project id와 겹치지 않는다.
-const HOME = placeKey({ kind: "home" });
+// 탭 fields.workspace와 layout의 Home 표식. project id와 겹치지 않는다.
+const HOME = workspaceKey({ kind: "home" });
 
 interface OpenAgentInput {
   /** sidebar의 agent 줄이 주는 agent id. */
@@ -108,7 +108,7 @@ export function openAgent(host: TabHost, input: OpenAgentInput): void {
     title: input.name,
     fields: {
       agent: input.agent,
-      place: placeKey(host.place),
+      workspace: workspaceKey(host.workspace),
       ...(session === null ? {} : { session }),
     },
   });
@@ -167,13 +167,13 @@ export const agentKind: TabKindDef = {
     const trimmed = name?.trim();
     const session = sessionOf(tab);
     const agent = agentOf(tab);
-    const place = placeOf(tab);
-    if (!trimmed || session === null || agent === null || place === null) {
+    const workspace = workspaceOf(tab);
+    if (!trimmed || session === null || agent === null || workspace === null) {
       return;
     }
     const source = host.agentView?.factory({
       assignment: agent,
-      place: sourcePlaceOf(place),
+      workspace: sourceWorkspaceOf(workspace),
     });
     if (source === undefined) return;
     void source
@@ -188,11 +188,11 @@ export const agentKind: TabKindDef = {
       });
   },
   fromStored(stored, { key }) {
-    const { agent, work_place: place, session } = stored;
+    const { agent, workspace, session } = stored;
     if (typeof agent !== "string" || agent.length === 0 || agent.length > 128) {
       return null;
     }
-    const where = place as { kind?: unknown; id?: unknown } | null;
+    const where = workspace as { kind?: unknown; id?: unknown } | null;
     if (typeof where !== "object" || where === null) return null;
     const home = where.kind === "home";
     if (
@@ -216,15 +216,15 @@ export const agentKind: TabKindDef = {
       title: "",
       fields: {
         agent,
-        place: home ? HOME : (where.id as string),
+        workspace: home ? HOME : (where.id as string),
         ...(typeof session === "string" ? { session } : {}),
       },
     };
   },
   toStored(tab) {
     const agent = agentOf(tab);
-    const place = placeOf(tab);
-    if (agent === null || place === null || !TAB_KEY.test(tab.key)) {
+    const workspace = workspaceOf(tab);
+    if (agent === null || workspace === null || !TAB_KEY.test(tab.key)) {
       return null;
     }
     const session = sessionOf(tab);
@@ -232,7 +232,7 @@ export const agentKind: TabKindDef = {
       kind: "agent",
       key: tab.key,
       agent,
-      work_place: workPlaceOf(place),
+      workspace: layoutWorkspaceOf(workspace),
       ...(session === null ? {} : { session }),
     };
   },
@@ -268,19 +268,19 @@ export const agentKind: TabKindDef = {
   // agent·session은 현재 보기에 싣지 않는다. 대화 내용은 agent가 알 일이 아니다.
   render(tab, _active, host) {
     const agent = agentOf(tab);
-    const place = placeOf(tab);
-    if (agent === null || place === null) return null;
+    const workspace = workspaceOf(tab);
+    if (agent === null || workspace === null) return null;
     const slice = host.agentView;
     if (slice === null) return <AgentNotReady />;
-    // 다른 place로 저장된 탭은 이 place의 agent로 바꾸어 읽지 않는다.
-    if (place !== placeKey(host.place)) return null;
+    // 다른 workspace로 저장된 탭은 이 workspace의 agent로 바꾸어 읽지 않는다.
+    if (workspace !== workspaceKey(host.workspace)) return null;
     return (
       <>
         <ReportVisible session={sessionOf(tab)} />
         <AgentTab
           key={tab.key}
           agent={agent}
-          place={place === HOME ? null : place}
+          workspace={workspace === HOME ? null : workspace}
           slice={slice}
           session={sessionOf(tab)}
           onSession={(session) =>

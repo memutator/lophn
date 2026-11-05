@@ -2,14 +2,14 @@ import { err, ok } from "../../../base/mod.ts";
 import {
   type AgentId,
   commandsList,
-  type Place,
+  type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { loadSession, placeOf } from "../session/model.ts";
+import { loadSession, workspaceOf } from "../session/model.ts";
 import { buildRegistry, type RegistrySkill } from "./registry.ts";
 
 // `/` 명령 목록 read. 목록은 저장하는 표가 아니라 session의 agent에서
@@ -17,11 +17,11 @@ import { buildRegistry, type RegistrySkill } from "./registry.ts";
 
 type CommandSession = {
   agent: AgentId;
-  place: Place | null;
+  workspace: Workspace | null;
 };
 
 type CommandReadDeps = {
-  // 그 agent가 그 place에서 쓸 수 있는 skill이다. skill 발견은 폴더를 훑는 일이라 조립이 맡는다
+  // 그 agent가 그 workspace에서 쓸 수 있는 skill이다. skill 발견은 폴더를 훑는 일이라 조립이 맡는다
   // (lophn-agent/extensions). 끈 skill은 selected=false로 와서 registry가 거른다.
   skills(
     sql: ReadSnapshot["sql"],
@@ -48,9 +48,9 @@ export function createCommandReads(deps: CommandReadDeps): {
           if (row === undefined) {
             return err({ code: "not_found", message: "session not found" });
           }
-          session = { agent: row.agent, place: placeOf(row) };
+          session = { agent: row.agent, workspace: workspaceOf(row) };
         } else {
-          session = { agent: input.agent, place: input.place };
+          session = { agent: input.agent, workspace: input.workspace };
         }
         return ok({
           commands: buildRegistry(deps.skills(snapshot.sql, session)),

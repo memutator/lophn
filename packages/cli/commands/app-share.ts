@@ -24,7 +24,7 @@ const share = defineCommand({
   }),
   effect: "write",
   routes: [agentList, shareRequestOpen],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const listed = await ctx.core.read(agentList, {});
     if (!listed.ok) return listed;

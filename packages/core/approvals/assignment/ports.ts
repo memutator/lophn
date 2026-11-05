@@ -4,7 +4,7 @@ import type {
   Assignment,
   AssignmentEntry,
 } from "../../../protocol/approvals/mod.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 
 // 할당은 agent 정의 파일(`apps`, `permissions.deny`)에 있다. approvals는 정의 파일도 앱 표도 모르므로
 // 읽고 쓰는 길은 조립(core/main)이 tx와 snapshot마다 꽂는다.

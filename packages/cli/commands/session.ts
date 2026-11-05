@@ -3,18 +3,18 @@
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { agentCallSendable } from "../../protocol/lophn-agent/calls.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
 
 const list = defineCommand({
   name: "session.list",
   summary: "List the open sessions you can send a call to",
   description:
-    "List the open sessions you can send a call to (ID, agent, name, place, state).",
+    "List the open sessions you can send a call to (ID, agent, name, workspace, state).",
   input: z.strictObject({}),
   effect: "read",
   routes: [agentCallSendable],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (_input, ctx) => {
     const read = await ctx.core.read(agentCallSendable, {});
     if (!read.ok) return read;

@@ -13,9 +13,9 @@ import type {
 import type { Modality } from "../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentAddress,
-  AgentAtPlace,
+  AgentAtWorkspace,
   AgentId,
-} from "../../protocol/lophn-agent/places.ts";
+} from "../../protocol/lophn-agent/workspaces.ts";
 import type {
   InputDelivery,
   RoutedInputKind,
@@ -30,8 +30,8 @@ export type TargetSession = {
   session: Id<"ses">;
   // lophn은 입력함을 run-loop가 가져가고, harness는 runtime이 harness인 session의 입력함을 shell host가 가져간다.
   transport: "lophn" | "harness";
-  agent: AgentAtPlace;
-  // archive, 지움, place 보관이면 false(새 입력을 받지 않는다).
+  agent: AgentAtWorkspace;
+  // archive, 지움, workspace 보관이면 false(새 입력을 받지 않는다).
   accepting: boolean;
 };
 
@@ -75,10 +75,14 @@ export type AgentAccepts = {
 
 export interface SessionDirectory {
   find(session: Id<"ses">): TargetSession | null;
-  // agent 이름과 place 이름으로 받을 session 하나를 고른다. place가 없으면 home이다.
+  // agent 이름과 workspace 이름으로 받을 session 하나를 고른다. workspace가 없으면 home이다.
   // 이름을 짐작하지 않는다. 없으면 not_found.
-  resolveAddress(address: AgentAddress): Result<AgentAtPlace>;
-  open(tx: Tx, agent: AgentAtPlace, opener: CallFrom): Result<TargetSession>;
+  resolveAddress(address: AgentAddress): Result<AgentAtWorkspace>;
+  open(
+    tx: Tx,
+    agent: AgentAtWorkspace,
+    opener: CallFrom,
+  ): Result<TargetSession>;
   // 받는 agent의 명함. 명함을 못 읽는 agent는 null이고 검사하지 않는다.
   accepts(agent: AgentId): AgentAccepts | null;
   // session 목록 tool이 쓴다.

@@ -214,14 +214,14 @@ export const settingsArea: Area = {
       id: "new-settings-shell-rules",
       title: "Settings · Shell rules",
       description:
-        "Agents 묶음 끝의 항목이다. Built in(늘 막는 것과 먼저 묻는 것, 접힌 목록으로 읽기만), Workspace(모든 project에 적용), project마다 한 절이 있다. 줄마다 pattern과 오른쪽 끝 열의 action(Allow, Ask, Deny)과 [Remove]가 있고, 절 끝의 더하기 줄에서 새 규칙을 더한다.",
+        "Agents 묶음 끝의 항목이다. Built in(늘 막는 것과 먼저 묻는 것, 접힌 목록으로 읽기만), Global(모든 project에 적용), project마다 한 절이 있다. 줄마다 pattern과 오른쪽 끝 열의 action(Allow, Ask, Deny)과 [Remove]가 있고, 절 끝의 더하기 줄에서 새 규칙을 더한다.",
       render: () => <SettingsShellRules />,
     },
     {
       id: "new-settings-shell-rules-add",
       title: "Settings · Shell rules · add",
       description:
-        "Workspace 절의 더하기 줄에 pattern `npm publish *`를 치고 action을 Ask로 고른 상태다. pattern이 비면 [Add rule]이 꺼진다. 새 규칙은 절의 끝에 붙어 그 절에서 가장 나중에 맞는다.",
+        "Global 절의 더하기 줄에 pattern `npm publish *`를 치고 action을 Ask로 고른 상태다. pattern이 비면 [Add rule]이 꺼진다. 새 규칙은 절의 끝에 붙어 그 절에서 가장 나중에 맞는다.",
       render: () => <SettingsShellRulesAdd />,
     },
     {

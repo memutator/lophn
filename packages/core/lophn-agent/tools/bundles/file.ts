@@ -23,7 +23,7 @@ function lineRange(input: { offset?: number; limit?: number }): string {
     : ` (${start}-${start + input.limit - 1})`;
 }
 
-// place 폴더 안의 file tool 여덟 개. agent runtime 안에서 돌고 쓰기 기록은 hook이 맡는다.
+// workspace 폴더 안의 file tool 여덟 개. agent runtime 안에서 돌고 쓰기 기록은 hook이 맡는다.
 
 export const createFileTools = (
   hooks: FileHooks,
@@ -37,7 +37,7 @@ export const createFileTools = (
     }),
     routes: [],
     description:
-      "Read a UTF-8 text file in the place folder by line. Relative paths start at the place's first folder. offset is a 1-based line, limit a line count.",
+      "Read a UTF-8 text file in the workspace folder by line. Relative paths start at the workspace's first folder. offset is a 1-based line, limit a line count.",
     effect: "read",
     display: (input) => ({
       category: "read",
@@ -50,7 +50,7 @@ export const createFileTools = (
     input: z.strictObject({ path, content: z.string() }),
     routes: [],
     description:
-      "Write a text file in the place folder, replacing it if it exists. Missing folders are created.",
+      "Write a text file in the workspace folder, replacing it if it exists. Missing folders are created.",
     effect: "write",
     handler: (input, ctx) => writeFile(input, ctx, hooks),
   }),
@@ -73,7 +73,7 @@ export const createFileTools = (
     input: z.strictObject({ pattern: nonblank, path: path.optional() }),
     routes: [],
     description:
-      "List files whose path matches a glob (**, *, ?, {a,b}) under path, or the place's first folder.",
+      "List files whose path matches a glob (**, *, ?, {a,b}) under path, or the workspace's first folder.",
     effect: "read",
     display: (input) => ({ category: "list", title: `List ${input.pattern}` }),
     handler: (input, ctx) => globFiles(input, ctx),

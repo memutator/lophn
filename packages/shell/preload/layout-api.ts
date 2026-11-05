@@ -1,8 +1,8 @@
 import {
-  PLACE_LAYOUT_READ_CHANNEL,
-  PLACE_LAYOUT_SAVE_CHANNEL,
-  type PlaceLayoutReadResult,
-  type PlaceLayoutSaveResult,
+  WORKSPACE_LAYOUT_READ_CHANNEL,
+  WORKSPACE_LAYOUT_SAVE_CHANNEL,
+  type WorkspaceLayoutReadResult,
+  type WorkspaceLayoutSaveResult,
 } from "../ipc/workspace.ts";
 
 interface LayoutTransport {
@@ -11,31 +11,33 @@ interface LayoutTransport {
 
 /** 작업대 layout 통로. 탭과 정보 패널만 보내고 main이 다시 검사한다. */
 interface LophnLayoutApi {
-  readPlace(input: { place: string }): Promise<PlaceLayoutReadResult>;
-  savePlace(input: {
-    place: string;
+  readWorkspace(input: {
+    workspace: string;
+  }): Promise<WorkspaceLayoutReadResult>;
+  saveWorkspace(input: {
+    workspace: string;
     layout: unknown;
-  }): Promise<PlaceLayoutSaveResult>;
+  }): Promise<WorkspaceLayoutSaveResult>;
 }
 
 export function createLayoutApi(transport: LayoutTransport): LophnLayoutApi {
   return Object.freeze({
-    readPlace: async (input) => {
+    readWorkspace: async (input) => {
       try {
         return (await transport.invoke(
-          PLACE_LAYOUT_READ_CHANNEL,
+          WORKSPACE_LAYOUT_READ_CHANNEL,
           input,
-        )) as PlaceLayoutReadResult;
+        )) as WorkspaceLayoutReadResult;
       } catch {
         return { ok: false, code: "unavailable", message: "" };
       }
     },
-    savePlace: async (input) => {
+    saveWorkspace: async (input) => {
       try {
         return (await transport.invoke(
-          PLACE_LAYOUT_SAVE_CHANNEL,
+          WORKSPACE_LAYOUT_SAVE_CHANNEL,
           input,
-        )) as PlaceLayoutSaveResult;
+        )) as WorkspaceLayoutSaveResult;
       } catch {
         return { ok: false, code: "unavailable", message: "" };
       }

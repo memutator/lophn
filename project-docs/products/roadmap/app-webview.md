@@ -1,12 +1,12 @@
 # app webview: 앱 화면을 native view에서 `<webview>`로 옮긴다
 
-상태: 구현했다(2026-10-31, `project-docs/products/change-log/0.11.0.md`의 "앱 화면과 artifact 화면을 `<webview>` guest로 옮기고, desk를 오가도 page를 지킨다"). 앱 화면(app panel 탭, 앱 place 본문, 앱 card, 앱 전용 창)과 artifact 탭이 browser 탭과 같은 창의 `<webview>` 그릇에 산다. 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`(그릇·z-index·desk 규칙·Detach), `browser-tab.md`(붙이기 규칙), `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`다. 아래 "무엇을 만드나"·"열기 전에 확인할 것"·"단계"는 착수 전 계획 기록이다. 남은 것은 "하지 않는 것"뿐이다.
+상태: 구현했다(2026-10-31, `project-docs/products/change-log/0.11.0.md`의 "앱 화면과 artifact 화면을 `<webview>` guest로 옮기고, desk를 오가도 page를 지킨다"). 앱 화면(app panel 탭, 앱 workspace 본문, 앱 card, 앱 전용 창)과 artifact 탭이 browser 탭과 같은 창의 `<webview>` 그릇에 산다. 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`(그릇·z-index·desk 규칙·Detach), `browser-tab.md`(붙이기 규칙), `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`다. 아래 "무엇을 만드나"·"열기 전에 확인할 것"·"단계"는 착수 전 계획 기록이다. 남은 것은 "하지 않는 것"뿐이다.
 배경 문서: `project-docs/architecture/browser-tab.md`(`<webview>` 그릇과 붙이기 규칙), `project-docs/architecture/workspace-layout.md`(그릇·z-index·Detach), `project-docs/architecture/annotation.md`(앱 view 신원), `project-docs/architecture/appearance.md`, `project-docs/architecture/keybindings.md`, AGENTS.md "속도"·"호환성".
 
 ## 왜
 
-- 앱 화면(project 창의 app panel 탭, 앱 place 본문, 앱 card, 앱 전용 창)과 artifact 탭은 native `WebContentsView`다. native view는 shell HTML 위에 그려져 shell의 menu, popover, floated 패널, toast가 그 밑에 깔린다.
-- 그래서 우회 장치가 쌓였다: 층 순서(`appViewOrder`), cover(`useViewCover`, `createViewCovers`)로 view 줄이기, 위치를 IPC로 보내 main이 맞추기(`VIEW_BOUNDS_CHANNEL`, DIP 변환), 앱 place menu가 열린 동안 view 숨기기(`workspace-layout.md`), DOM 대신 overlay view에 그리는 toast(`use-view-toast.ts`).
+- 앱 화면(project 창의 app panel 탭, 앱 workspace 본문, 앱 card, 앱 전용 창)과 artifact 탭은 native `WebContentsView`다. native view는 shell HTML 위에 그려져 shell의 menu, popover, floated 패널, toast가 그 밑에 깔린다.
+- 그래서 우회 장치가 쌓였다: 층 순서(`appViewOrder`), cover(`useViewCover`, `createViewCovers`)로 view 줄이기, 위치를 IPC로 보내 main이 맞추기(`VIEW_BOUNDS_CHANNEL`, DIP 변환), 앱 workspace menu가 열린 동안 view 숨기기(`workspace-layout.md`), DOM 대신 overlay view에 그리는 toast(`use-view-toast.ts`).
 - browser 탭은 같은 문제로 이미 native view에서 `<webview>`로 옮겼고(`browser-tab.md` "보통 탭을 `<webview>`로 바꿨다(사람)"), 그 뒤로 겹침 문제가 없다. 앱 화면도 같은 그릇으로 모은다(사람, 2026-10-31).
 
 ## 착수 전 코드(기록)
@@ -32,7 +32,7 @@
 
 - app view와 artifact view를 shell renderer의 `<webview>`로 그린다. browser 탭의 `createWebviewHost`를 kind와 상관없는 그릇 하나로 넓혀 셋(browser, app, artifact)이 같이 쓴다. 창마다 하나, 탭 key당 `<webview>` 하나, 옮기지 않고 위치·z-index·보임만 바꾼다.
 - 그릇은 탭이 layout 어디(모든 desk의 pane, floats)에 있는 동안 `<webview>`를 숨긴 채 둔다. 탭이 `allDeskTabs`에서 사라질 때만 놓는다. 그래서 같은 창 안 Float·Dock·접기·desk 바꾸기에서 page가 다시 load되지 않는다. browser 탭도 같은 규칙이 되어 위 desk 이슈가 같이 닫힌다.
-- 앱 place 본문과 앱 card도 같은 그릇이다. card(`app-card-block.tsx`)는 대화 글 안에 있어 탭 key가 없다. card key(message id + card 번호)로 같은 그릇에 둔다.
+- 앱 workspace 본문과 앱 card도 같은 그릇이다. card(`app-card-block.tsx`)는 대화 글 안에 있어 탭 key가 없다. card key(message id + card 번호)로 같은 그릇에 둔다.
 
 ### 붙이기와 신원
 
@@ -86,7 +86,7 @@ Electron 44.5.1 개발 앱에서 throwaway로 본다.
 ## 단계
 
 1. ~~위 확인을 spike로 본다.~~ Electron 44.5.1 개발 앱에서 봤고, 그 결과를 위 "무엇을 만드나"에 반영했다.
-2. ~~계획 `app-webview`: 그릇 일반화와 desk 규칙, 붙이기·ticket, app panel·앱 place·card, 앱 전용 창 문서, artifact, 지우기, architecture 문서 고치기(`workspace-layout.md`, `browser-tab.md`, `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`).~~ land했다.
+2. ~~계획 `app-webview`: 그릇 일반화와 desk 규칙, 붙이기·ticket, app panel·앱 workspace·card, 앱 전용 창 문서, artifact, 지우기, architecture 문서 고치기(`workspace-layout.md`, `browser-tab.md`, `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`).~~ land했다.
 
 ## 하지 않는 것
 

@@ -23,7 +23,7 @@ import {
 } from "../../../../protocol/lophn-agent/models.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
-import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/places.ts";
+import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
@@ -34,11 +34,11 @@ import {
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
-import { isAgentId, isAppPlace } from "./agent-key.ts";
+import { isAgentId, isAppWorkspace } from "./agent-key.ts";
 import {
   cancelMcpSignIn,
   changeProjectSettings,
-  placeOf,
+  workspaceOf,
   readGlobalModel,
   readAgentServerLogins,
   readInstructions,
@@ -73,7 +73,7 @@ import type {
   AgentsSource,
   ShownModel,
   ModelsView,
-  PlaceView,
+  WorkspaceView,
   ReadResult,
   SaveInput,
   SaveResult,
@@ -177,17 +177,17 @@ export function coreAgentsSource(
   };
 
   // 놓인 곳의 이름(project의 title, 앱의 name). 읽지 못하면 빈 글이다.
-  const nameOf = async (place: string): Promise<string> => {
-    if (isAppPlace(place)) {
+  const nameOf = async (workspace: string): Promise<string> => {
+    if (isAppWorkspace(workspace)) {
       const app = await link.read<{ app: { name: string } }>("apps", "get", {
-        app: place,
+        app: workspace,
       });
       return app.ok ? app.value.app.name : "";
     }
     const project = await link.read<{ project: { title: string } }>(
       "projects",
       "get",
-      { project: place },
+      { project: workspace },
     );
     return project.ok ? project.value.project.title : "";
   };
@@ -251,7 +251,9 @@ export function coreAgentsSource(
   };
 
   // 전역 목록이다. 첫 인자는 화면을 연 자리지만 목록은 자리에 속하지 않아 쓰지 않는다.
-  const list = async (_place: string): Promise<ReadResult<AgentListRow[]>> => {
+  const list = async (
+    _workspace: string,
+  ): Promise<ReadResult<AgentListRow[]>> => {
     const result = await link.read<{ agents: AgentRow[] }>(
       "agents",
       "list",
@@ -309,7 +311,7 @@ export function coreAgentsSource(
   };
 
   const detailOf = async (
-    place: string | null,
+    workspace: string | null,
     agent: string,
   ): Promise<ReadResult<AgentDetail>> => {
     if (!isAgentId(agent)) return { ok: false, message: "not_found" };
@@ -333,19 +335,23 @@ export function coreAgentsSource(
       issues: AgentDetail["issues"];
     }>("agents", "read", {
       agent,
-      ...(place === null ? {} : { place: placeOf(place) }),
+      ...(workspace === null ? {} : { workspace: workspaceOf(workspace) }),
     });
     if (!read.ok) return read;
     const value = read.value;
-    const placeView: PlaceView =
-      place === null
+    const workspaceView: WorkspaceView =
+      workspace === null
         ? { kind: "none", id: null, name: "" }
-        : { kind: placeOf(place).kind, id: place, name: await nameOf(place) };
-    const skills = await readSkills(link, place);
+        : {
+            kind: workspaceOf(workspace).kind,
+            id: workspace,
+            name: await nameOf(workspace),
+          };
+    const skills = await readSkills(link, workspace);
     if (!skills.ok) return skills;
-    const servers = await readServers(link, place);
+    const servers = await readServers(link, workspace);
     if (!servers.ok) return servers;
-    const text = place === null ? null : await instructionsOf(place);
+    const text = workspace === null ? null : await instructionsOf(workspace);
     const saved = value.definition ?? { body: "" };
     const card = await cardOf(value.effective.name.value);
     if (value.effective.profile.value.kind === "image") {
@@ -356,7 +362,7 @@ export function coreAgentsSource(
       value: {
         assignment: agent,
         draftId: null,
-        place: placeView,
+        workspace: workspaceView,
         definition: saved,
         hash: value.hash,
         effective: {
@@ -380,15 +386,15 @@ export function coreAgentsSource(
   };
 
   // project 지침. 그 project 폴더의 LOPHN.md다. 앱 자리에는 project 지침이 없다. 읽지 못하면 빈 글이다.
-  const instructionsOf = async (place: string) => {
-    if (isAppPlace(place)) return null;
+  const instructionsOf = async (workspace: string) => {
+    if (isAppWorkspace(workspace)) return null;
     const read = await readInstructions(instructions, files, {
       layer: "project",
-      place,
+      workspace,
     });
     return {
       ...(read.ok ? read.value : { text: "", hash: null }),
-      project: await nameOf(place),
+      project: await nameOf(workspace),
     };
   };
 
@@ -403,7 +409,7 @@ export function coreAgentsSource(
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
       const global = await readGlobalModel(link);
-      const chosen = isAppPlace(project)
+      const chosen = isAppWorkspace(project)
         ? null
         : await link.read<{ model: ModelChoice | null }>(
             "project-model",
@@ -508,8 +514,8 @@ export function coreAgentsSource(
     readAgent: (project, agent) => detailOf(project, agent),
 
     async newAgent(project) {
-      const current: PlaceView = {
-        ...placeOf(project),
+      const current: WorkspaceView = {
+        ...workspaceOf(project),
         name: await nameOf(project),
       };
       const draftId = newAgentId(bytes());
@@ -522,7 +528,7 @@ export function coreAgentsSource(
       const detail: AgentDetail = {
         assignment: null,
         draftId,
-        place: current,
+        workspace: current,
         definition: { body: "" },
         hash: null,
         effective: {
@@ -641,7 +647,7 @@ export function coreAgentsSource(
     imageSrc: (_project, agent, image) => images.get(`${agent}/${image}`) ?? "",
 
     async setProjectModel(project, choice) {
-      if (isAppPlace(project)) return unavailable;
+      if (isAppWorkspace(project)) return unavailable;
       const changed = await link.command(projectModelChange, {
         input: { project, model: choice },
         compare: {},
@@ -653,7 +659,7 @@ export function coreAgentsSource(
 
     // project 층에서 skill을 켜고 끈다. 끈 이름은 project 설정 파일의 skills_off에 둔다(agent 정의의 skills_off와 다른 층이다).
     setSkill(project, name, on) {
-      if (isAppPlace(project)) return Promise.resolve(unavailable);
+      if (isAppWorkspace(project)) return Promise.resolve(unavailable);
       return changeProjectSettings(link, project, (current) => ({
         ...current,
         skillsOff: on
@@ -664,7 +670,7 @@ export function coreAgentsSource(
 
     // project 층 server는 enabled를 바꾸고, 전역 server는 이 project에서 끈 이름(mcp_off)에 넣고 뺀다.
     setMcp(project, name, on) {
-      if (isAppPlace(project)) return Promise.resolve(unavailable);
+      if (isAppWorkspace(project)) return Promise.resolve(unavailable);
       return changeProjectSettings(link, project, (current) => {
         if (current.servers.some((server) => server.name === name)) {
           return {
@@ -694,20 +700,20 @@ export function coreAgentsSource(
       saveGrants(link, project, agent, entries, revision),
 
     readInstructions: (project) =>
-      isAppPlace(project)
+      isAppWorkspace(project)
         ? Promise.resolve(unavailable)
         : readInstructions(instructions, files, {
             layer: "project",
-            place: project,
+            workspace: project,
           }),
 
     writeInstructions: (project, text, hash) =>
-      isAppPlace(project)
+      isAppWorkspace(project)
         ? Promise.resolve(unavailable)
         : writeInstructions(
             instructions,
             files,
-            { layer: "project", place: project },
+            { layer: "project", workspace: project },
             text,
             hash,
           ),

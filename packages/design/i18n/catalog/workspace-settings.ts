@@ -24,7 +24,7 @@ export const workspaceSettings = {
   "jobs.label.agent-unnamed": "an agent",
   "jobs.label.at": "At",
   "jobs.label.created-by": "Created by {agent}",
-  "jobs.label.created-by-place": "Created by {agent} · {place}",
+  "jobs.label.created-by-workspace": "Created by {agent} · {workspace}",
   "jobs.label.every": "Every",
   "jobs.label.every-days": "{n, plural, one {Every day} other {Every # days}}",
   "jobs.label.every-days-at":
@@ -103,7 +103,7 @@ export const workspaceSettings = {
   "settings.appearance.theme-help":
     "Light, dark, or follow the system setting.",
   "settings.button.add-entry": "Add",
-  "settings.button.back-to": "Back to {place}",
+  "settings.button.back-to": "Back to {workspace}",
   "settings.button.back-to-home": "Back to Home",
   "settings.button.add-rule": "Add rule",
   "settings.button.add-call-rule": "Add",
@@ -170,7 +170,7 @@ export const workspaceSettings = {
     "lophn doesn't know this setting. Nothing was saved.",
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
-  "settings.heading.call-policy": "Calls between places",
+  "settings.heading.call-policy": "Calls between workspaces",
   "settings.heading.key-section-app": "App panels",
   "settings.heading.key-section-desk": "Desks",
   "settings.heading.key-section-float": "Floating tabs",
@@ -182,7 +182,7 @@ export const workspaceSettings = {
   "settings.heading.quick-buttons": "Buttons",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
-  "settings.heading.shell-rules-workspace": "Workspace",
+  "settings.heading.shell-rules-global": "Global",
   "settings.intro.appearance":
     "How lophn looks. Changes apply as soon as you choose.",
   "settings.intro.coding":
@@ -198,7 +198,7 @@ export const workspaceSettings = {
   "settings.intro.quick-launch":
     "The buttons at the bottom of the left sidebar. Hover Terminal, Browser or App to open a favorite coding agent, a bookmark or an app panel directly. A project can keep its own buttons in Project settings.",
   "settings.intro.shell-rules":
-    "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after Workspace rules. A command that matches no rule runs. In a pattern, * matches any text.",
+    "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after global rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
   "settings.label.accent-blue": "Blue",
   "settings.label.accent-green": "Green",
@@ -220,7 +220,7 @@ export const workspaceSettings = {
   "settings.label.call-from": "From",
   "settings.label.call-home": "Home",
   "settings.label.call-pair": "{from} to {to}",
-  "settings.label.call-places": "Place pairs",
+  "settings.label.call-workspaces": "Workspace pairs",
   "settings.label.call-refuse": "Refuse",
   "settings.label.call-to": "To",
   "settings.label.checked-at": "Checked",
@@ -400,7 +400,7 @@ export const workspaceSettings = {
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
   "settings.note.call-policy":
-    "Agents may call each other across places unless you add a refuse rule here. A place pair refuses or allows calls between two places; an agent pair is an exception that beats a place pair.",
+    "Agents may call each other across workspaces unless you add a refuse rule here. A workspace pair refuses or allows calls between two workspaces; an agent pair is an exception that beats a workspace pair.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
   "settings.note.coding-favorites":
@@ -524,8 +524,8 @@ export const workspaceSettings = {
   "settings.note.shell-rules-built-in":
     "Rules you add can't unblock anything that is always blocked.",
   "settings.note.shell-rules-project":
-    "Applies only to this project, after the Workspace rules.",
-  "settings.note.shell-rules-workspace":
+    "Applies only to this project, after the global rules.",
+  "settings.note.shell-rules-global":
     "Applies to every project. A new rule goes at the end of the list.",
   "settings.shell-density.help":
     "How much room lists and tables leave between rows.",

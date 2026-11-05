@@ -6,7 +6,7 @@ const list = (values: readonly string[]) =>
 
 // job 한 행과 차례마다 남는 job run 한 행. FK는 두지 않는다(다른 module의 id는 id만 적고,
 // job 지우기는 command가 두 표를 같이 지운다).
-// - creator_place는 home이면 NULL, 아니면 `prj_…`·`app_…` id다.
+// - creator_workspace는 home이면 NULL, 아니면 `prj_…`·`app_…` id다.
 // - job_runs.claimed_at은 scheduler에 넘긴 때다. record에 없는 안쪽 칸이다.
 // - unique index 둘은 겹침 규칙을 코드가 틀려도 표가 한 겹 더 막는다: 도는 줄(queued, running)과 기다리는 줄(held)은 job마다 하나다.
 export const jobsSchemaSteps: readonly SchemaStep[] = [
@@ -56,6 +56,18 @@ export const jobsSchemaSteps: readonly SchemaStep[] = [
     sql: `
     ALTER TABLE jobs ADD COLUMN approved_at TEXT;
     UPDATE jobs SET next_due_at = NULL;
+  `,
+  },
+  // place를 workspace로 부르게 됐다. agent_run action의 `agent_place`도 `agent_workspace`로 옮긴다.
+  {
+    id: "jobs.workspace",
+    sql: `
+    ALTER TABLE jobs RENAME COLUMN creator_place TO creator_workspace;
+    UPDATE jobs SET action = json_set(
+      json_remove(action, '$.agent_place'),
+      '$.agent_workspace',
+      json(action -> '$.agent_place')
+    ) WHERE json_type(action, '$.agent_place') IS NOT NULL;
   `,
   },
 ];

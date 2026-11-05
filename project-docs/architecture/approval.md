@@ -11,7 +11,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
         │ memory route tool_gate/check (그 turn의 agent 자격만)
         ▼
  core approvals
-   turn 행의 mode, session의 agent와 place, 할당, shell 규칙 층을 읽는다
+   turn 행의 mode, session의 agent와 workspace, 할당, shell 규칙 층을 읽는다
    judge(call, assignment, shell, mode) ─┬ deny ─▶ 실행하지 않고 이유를 tool 결과로
    순수 함수                              ├ run  ─▶ 실행
                                           └ ask  ─▶ turn 안 request (메모리)
@@ -23,7 +23,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
    program(job의 tool run) ─▶ 막지 않는다. 사람이 그 job의 등록을 승인했다
    flow(instance의 tool run) ─▶ 그 project PM의 할당을 unattended로 judge + 비공개 거르기
  앱 공유 요청 (turn 안 request와 달리 turn이 끝나도 남는다. activation 동의, job 승인과 같은 꼴)
-   앱 place의 agent ─ lophn app share ─▶ share_request.open ─▶ share_requests 표 + ShareRequestOpened ─▶ 대기 목록
+   앱 workspace의 agent ─ lophn app share ─▶ share_request.open ─▶ share_requests 표 + ShareRequestOpened ─▶ 대기 목록
    사람: approve | reject (share_request.decide, 사람 자격만, compare requested_at)
      approve ─▶ 같은 tx에서 받을 agent마다 할당 쓰기 길로 정의 파일 apps에 앱 slug를 더한다
               ─▶ commit 뒤 coding agent를 골랐으면 설정 coding-agent.shared_apps에 slug를 더한다
@@ -33,7 +33,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - 할당은 사람이 agent에게 앱을 붙이고 그 앱에서 뺄 tool(command)을 적는 것이다. 정본은 그 agent 정의 파일(`<data root>/agents/<agt_id>.md`)의 `apps`(앱 slug)와 `permissions.deny`(`lophn(<app> <command>)`)다. 할당한 앱의 tool만 그 agent의 tool 목록에 뜨고, 그 앱의 public skill도 같이 받는다(`architecture/agent-definition.md`).
 - MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이다. 끄기는 `mcp_off`다. 할당 줄이 없다.
 - 효과(read, write, external)는 판정에 쓰지 않는다. 할당한 tool은 바깥 효과도 묻지 않는다(사람, 2026-10-21). 효과는 기록과 재시도에만 쓰인다.
-- 사람이 앱 화면에서 누르는 것, 사람이 보내는 메시지, agent call, 지침 파일(`LOPHN.md`) 쓰기, file·web·pdf·image tool은 묻지 않는다. file tool은 place가 범위이고 쓰기는 rewind로 되돌린다.
+- 사람이 앱 화면에서 누르는 것, 사람이 보내는 메시지, agent call, 지침 파일(`LOPHN.md`) 쓰기, file·web·pdf·image tool은 묻지 않는다. file tool은 workspace가 범위이고 쓰기는 rewind로 되돌린다.
 - coding agent의 tool call은 harness의 일이다. lophn은 harness의 물음을 대기 목록에 비추기만 하고(`subject.kind: "harness"`) 답은 터미널에서 한다. runtime이 harness인 lophn agent도 같아서 tool call은 Gate를 거치지 않고, 정의의 deny는 harness의 권한 flag로 옮기거나 못 옮기면 띄우지 않는다(`architecture/coding-agent.md`의 "harness agent").
 
 ## 지키는 것
@@ -64,7 +64,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - data step은 ledger schema step 뒤에, 조립 목록(`packages/core/main/daemon/assembly.ts`의 `WIRINGS`) 순서로 돈다. `agents.skills-off`(agent 파일의 `skills` → `skills_off`)가 `approvals.assignment-file`보다 먼저 돈다: 앞의 step이 옛 `skills`를 옮겨야 뒤의 step이 엄격한 schema로 agent 파일을 읽고 쓴다. 순서를 바꾸면 옛 `skills`가 남은 파일은 schema가 거절해 할당이 버려진다.
 
 앱 공유 요청
-- 앱 place의 agent가 "이 앱을 agent A, B(와 coding agent)에게 할당"을 청한다(`lophn app share --agent <이름>... [--coding-agents] --reason <글>`, 앱 place 명령). 받을 agent도 coding agent도 없는 요청은 받지 않는다(`invalid_input`). 앱은 입력이 아니라 agent credential의 `conditions.app`이 고정하고, 앱 place가 아니면 `forbidden`이다. 이름은 명령이 `agent.list`로 id로 푼다.
+- 앱 workspace의 agent가 "이 앱을 agent A, B(와 coding agent)에게 할당"을 청한다(`lophn app share --agent <이름>... [--coding-agents] --reason <글>`, 앱 workspace 명령). 받을 agent도 coding agent도 없는 요청은 받지 않는다(`invalid_input`). 앱은 입력이 아니라 agent credential의 `conditions.app`이 고정하고, 앱 workspace가 아니면 `forbidden`이다. 이름은 명령이 `agent.list`로 id로 푼다.
 - 요청은 `share_requests` 표(`approvals.share_requests`)에 앱마다 한 줄이다. 같은 앱의 열린 요청이 있으면 새 요청이 대신한다. 승인이나 거절이면 줄을 지운다. 그래서 turn이 끝나도, 재시작해도 남는다(메모리 request는 재시작하면 비는 것과 다르다).
 - 결정은 사람 자격만 한다(`share_request.decide`, handler도 한 번 더 본다). compare `requested_at`이 열린 요청과 다르거나 요청이 없으면 `conflict`다: 그 사이 새 요청이 대신했거나 이미 정해졌다. 거절은 이유를 싣지 않는다. 카드는 앱 이름, 받을 agent, agent가 쓴 이유(200자까지), 받게 되는 것(지금 active 선언의 public skill 수와 public command 수)을 보인다. 이유는 agent가 쓴 글이라 참고일 뿐이고 수는 program이 선언에서 센다.
 - 승인은 같은 tx에서 받을 agent마다 할당 쓰기 길(`assignmentPorts.set`)로 앱을 더한다. 이미 있는 줄과 그 줄에서 뺀 command는 건드리지 않는다. 정의 파일은 tx 밖이라 중간에 실패하면 먼저 쓴 agent의 파일은 되돌아가지 않고, 다시 승인하면 이미 있는 줄은 건너뛰어 같은 결과가 된다.
@@ -86,9 +86,9 @@ shell 규칙
 - 층은 셋이다: 제품 기본(`PRODUCT_SHELL_RULES`의 floor deny와 ask), 전역, project. 전역과 project 규칙은 Settings 값 `approvals.shell_rules`에 있다. 사람의 project 폴더에 두지 않는다. PM이 그 폴더를 file tool로 쓰기 때문이다.
 - 명령 전체와 `&&`·`||`·`;`·`|`·줄바꿈으로 나눈 조각마다 floor, 그다음 층을 이어 본 가운데 마지막에 맞은 규칙, 없으면 allow다. 그 가운데 가장 엄한 것(deny > ask > allow)이 명령의 결과다. 조각을 이어야 보이는 위험(`curl * | sh *`, fork bomb)도 전체에서 잡힌다.
 - floor deny는 어느 층도, `always`도, skip도 덮지 못한다. 글자 그대로 맞추므로 floor는 `rm`의 flag 순서와 `sudo` 앞붙임을 따로 적는다.
-- `always`는 ask였던 조각마다 `<앞 두 낱말> *`(한 낱말이면 그 조각, 조각을 이어야 ask인 명령은 명령 전체)를 allow로 더한다. 층은 turn의 place로 정한다: project place면 그 project 층, 앱 place와 lophn이면 전역 층이다. 사람은 Settings › Shell rules에서 옮기고 고친다.
+- `always`는 ask였던 조각마다 `<앞 두 낱말> *`(한 낱말이면 그 조각, 조각을 이어야 ask인 명령은 명령 전체)를 allow로 더한다. 층은 turn의 workspace로 정한다: project workspace면 그 project 층, 앱 workspace와 lophn이면 전역 층이다. 사람은 Settings › Shell rules에서 옮기고 고친다.
 - `shell.run`의 효과는 `external`이다. 판정은 규칙이 하고, `read`면 일시 실패에 다시 돌아 같은 명령이 두 번 돈다.
-- 규칙은 실수를 줄일 뿐 경계가 아니다. 따옴표와 escape를 풀지 않고, `shell.run`은 file 범위와 rewind 밖이다(`project-docs/issues/place-session.md`).
+- 규칙은 실수를 줄일 뿐 경계가 아니다. 따옴표와 escape를 풀지 않고, `shell.run`은 file 범위와 rewind 밖이다(`project-docs/issues/workspace-session.md`).
 
 ## 왜 이 모양인가
 

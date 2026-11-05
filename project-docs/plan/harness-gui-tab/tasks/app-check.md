@@ -3,7 +3,7 @@
 끝났다고 말하기 전에 실제 앱으로 확인하는 script를 둔다(README 정한 것 19). E2E 꼴이고 사람이 허락했다. script가 하는 일:
 
 - 개발 앱(Electron, data root는 `.dev-data`)을 띄운다.
-- project place의 터미널 탭에서 `claude gui`·`codex gui`·`opencode gui`·`omp gui`를 친다.
+- project workspace의 터미널 탭에서 `claude gui`·`codex gui`·`opencode gui`·`omp gui`를 친다.
 - CLI마다 기능 목록을 하나씩 해 보고 화면을 찍는다.
 
 기능 목록도 이 task가 만든다. 정한 것 14-17에서 사람이 찾은 것과 고친 것이 다 들어간다:
@@ -117,7 +117,7 @@ worker는 실제 CLI와 model provider를 부르지 않는다. 돌리는 것은 
 
    셋으로 못 잡는 element에는 `data-check="<이름>"` 속성 한 줄을 그 component에 더한다. 이것은 header의 맞출 곳에 lead가 더해야 하는 줄이다. 더한 곳은 보고의 "넘길 줄"에 적는다. CSS module class 이름(hash가 붙는다)으로는 잡지 않는다.
 6. 터미널 탭에서 GUI 열기(`app.ts`의 `openGui(harness)`):
-   - `Ctrl+Backquote`(`terminal.focus`, `packages/shell/ipc/keybindings.ts`)로 터미널 탭을 연다. 이미 있으면 그 탭이 앞으로 온다. harness마다 새 탭이 필요하면 place의 탭 `+`(`workspace/place-window.tsx`의 `openTerminalTab`)를 누른다.
+   - `Ctrl+Backquote`(`terminal.focus`, `packages/shell/ipc/keybindings.ts`)로 터미널 탭을 연다. 이미 있으면 그 탭이 앞으로 온다. harness마다 새 탭이 필요하면 workspace의 탭 `+`(`workspace/workspace-window.tsx`의 `openTerminalTab`)를 누른다.
    - `.xterm-helper-textarea`에 focus를 주고 2초 기다린다(shell 시작).
    - `type("<harness> gui")`, `key("Enter")`로 친다. `gui` 함수는 `terminal-host/shell-integration.ts`가 깔고 hook socket으로 탭에 닿는다.
    - GUI view의 `[data-gui-toggle="tui"]`(`terminal/terminal-gui.tsx`)가 보일 때까지 30초 기다린다. 안 보이면 사진을 찍고 그 harness의 줄을 다 `fail`로 적은 뒤 다음 harness로 간다.

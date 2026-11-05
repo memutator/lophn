@@ -48,7 +48,7 @@ import { coreAppsSource } from "../apps/core-source.ts";
 import {
   coreProjectsSource,
   windowFolderPicker,
-} from "./places/projects/core-source.ts";
+} from "./workspaces/projects/core-source.ts";
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
 import type { QueryLocalFonts } from "./settings/appearance/local-fonts.ts";
@@ -92,17 +92,17 @@ const core = mock?.core ?? windowCoreSource();
 const editor = windowEditorDeps(core);
 // 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
 const events = createEventClient(mock?.events ?? core);
-// Home Places panel의 project 목록·등록·보관과 앱 공간의 project 고르기.
+// Home Workspaces panel의 project 목록·등록·보관과 앱 공간의 project 고르기.
 const projects =
   mock?.projects ?? coreProjectsSource(core, windowFolderPicker());
-// Home Places panel의 앱 목록·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
+// Home Workspaces panel의 앱 목록·보관과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = mock?.apps ?? coreAppsSource(core);
 // 팔레트의 project·앱 행.
 const catalog = mock?.catalog ?? catalogSource(projects, apps);
 const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
 // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
 const settings = mock?.settings ?? coreSettingsSource(core);
-// place 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
+// workspace 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
 const jobs = mock?.jobs ?? coreJobsSource(core);
 // settings 항목마다의 통로. key·로그인 응답은 보호 창이 받고, coding agent 감지는 main이 따로 검증하는 통로(`lophnCoding`)다.
 const settingsPanels = mock?.settingsPanels ?? {
@@ -121,7 +121,7 @@ const settingsPanels = mock?.settingsPanels ?? {
   coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
   browser: windowBrowserSettings(),
 };
-// 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 place 창이 같이 쓴다.
+// 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 workspace 창이 같이 쓴다.
 const quickPrefs = mock?.quickPrefs ?? coreQuickPrefsSource(core);
 // 작업대는 제품 core 통로로 읽고 쓴다.
 const workspace = bench?.source ?? coreWorkspaceSource(core);

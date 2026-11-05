@@ -6,7 +6,7 @@ import { readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { parse, stringify } from "yaml";
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/mod.ts";
-import type { AgentId } from "../../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { SchemaStep, Sql } from "../../../../protocol/server/mod.ts";
 import {
   type AssignmentPorts,

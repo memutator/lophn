@@ -3,10 +3,10 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
-import { agentIdSchema } from "../lophn-agent/places.ts";
+import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 import { appIdSchema, slugSchema } from "../projects/values.ts";
 
-// 앱 공유 요청. 앱 place의 agent가 "이 앱을 agent A, B(와 coding agent)에게 할당"을 청하면 사람이 대기 목록에서 한 번 승인한다.
+// 앱 공유 요청. 앱 workspace의 agent가 "이 앱을 agent A, B(와 coding agent)에게 할당"을 청하면 사람이 대기 목록에서 한 번 승인한다.
 // 승인하면 core가 그 agent 정의 파일의 `apps`에 앱 slug를 더하고(할당 쓰기 길 그대로), coding agent를 골랐으면
 // 설정 `coding-agent.shared_apps`에 slug를 더한다. 이미 뺀 command(`permissions.deny`)는 건드리지 않는다.
 // 요청은 ledger 표에 남아 turn과 재시작을 넘는다. 앱마다 열린 요청은 하나이고 새 요청이 옛 것을 대신한다.
@@ -51,7 +51,7 @@ const errors = [
   "unavailable",
 ] as const;
 
-// 앱은 입력에 없다. 앱 place의 credential이 고정한 앱이다(agent 자격만, 앱 place 밖이면 forbidden).
+// 앱은 입력에 없다. 앱 workspace의 credential이 고정한 앱이다(agent 자격만, 앱 workspace 밖이면 forbidden).
 // 받을 agent도 coding agent도 없는 요청은 받지 않는다.
 export const shareRequestOpen = defineCommand({
   resource: "share_requests",

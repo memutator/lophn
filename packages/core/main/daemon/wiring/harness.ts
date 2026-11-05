@@ -30,8 +30,8 @@ import type {
 import { harnessExtensionSetting } from "../../../config/mod.ts";
 import {
   createSessionDirectory,
-  placeDepsOf,
-} from "../../../lophn-agent/places/mod.ts";
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
 import {
   createInbox,
   createInboxApplier,
@@ -133,7 +133,7 @@ export const harnessWiring: WiringFactory = () => {
       const harnessSession = (session: string) => {
         const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
           const directory = createSessionDirectory({
-            ...placeDepsOf(lookup.sql),
+            ...workspaceDepsOf(lookup.sql),
             publish: () => {},
             sql: () => lookup.sql,
           });
@@ -190,10 +190,10 @@ export const harnessWiring: WiringFactory = () => {
             input: {
               session,
               agent: row.agent,
-              place:
-                row.place_kind === null
+              workspace:
+                row.workspace_kind === null
                   ? null
-                  : { kind: row.place_kind, id: row.place_id },
+                  : { kind: row.workspace_kind, id: row.workspace_id },
               harness: row.harness,
               external_session_id: row.harness_session,
               input_message: head.message,
@@ -233,13 +233,13 @@ export const harnessWiring: WiringFactory = () => {
         const credential = await turnCredentials.issue({
           session: input.session,
           turn,
-          place:
-            found.value.row.place_kind === null ||
-            found.value.row.place_id === null
+          workspace:
+            found.value.row.workspace_kind === null ||
+            found.value.row.workspace_id === null
               ? null
               : {
-                  kind: found.value.row.place_kind,
-                  id: found.value.row.place_id,
+                  kind: found.value.row.workspace_kind,
+                  id: found.value.row.workspace_id,
                 },
         });
         if (!credential.ok) return credential;
@@ -373,7 +373,7 @@ export const harnessWiring: WiringFactory = () => {
         try {
           const sql = opened.value.sql;
           const directory = createSessionDirectory({
-            ...placeDepsOf(sql),
+            ...workspaceDepsOf(sql),
             publish: () => {},
             sql: () => sql,
           });

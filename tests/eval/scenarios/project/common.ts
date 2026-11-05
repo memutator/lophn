@@ -4,14 +4,14 @@ import type { Participant } from "../../types.ts";
 export const LOPHN: Participant = { agent: "lophn" };
 export const LOPHN_tax: Participant = {
   agent: "lophn",
-  place: { project: "tax" },
+  workspace: { project: "tax" },
 };
 export const LOPHN_hr: Participant = {
   agent: "lophn",
-  place: { project: "hr" },
+  workspace: { project: "hr" },
 };
-// 사람이 만든 agent. 정의는 전역이고 tax project place에서 말한다.
+// 사람이 만든 agent. 정의는 전역이고 tax project workspace에서 말한다.
 export const 세무정리_tax: Participant = {
   agent: "세무정리",
-  place: { project: "tax" },
+  workspace: { project: "tax" },
 };

@@ -1,4 +1,4 @@
-// screenshot blob 선언. 일반 읽기는 열지 않는다. 앱 place session과 project place session은 image.read가 annotations.get의 screenshot_path로 읽는다.
+// screenshot blob 선언. 일반 읽기는 열지 않는다. 앱 workspace session과 project workspace session은 image.read가 annotations.get의 screenshot_path로 읽는다.
 import {
   ANNOTATION_SCREENSHOT_MAX_BYTES,
   ANNOTATION_SCREENSHOT_PURPOSE,

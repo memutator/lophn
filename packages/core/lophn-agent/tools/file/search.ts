@@ -6,7 +6,7 @@ import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { continuation } from "../bundles/paging.ts";
 import { fitJson } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
-import { fail, fsFail, resolveInPlace } from "./scope.ts";
+import { fail, fsFail, resolveInWorkspace } from "./scope.ts";
 
 const MAX_FILES = 200;
 const MAX_MATCHES = 100;
@@ -54,7 +54,7 @@ async function* walk(ctx: ToolContext, dir: string): AsyncGenerator<string> {
     } else if (entry.isFile()) {
       yield path;
     } else if (entry.isSymbolicLink()) {
-      const at = await resolveInPlace(ctx.scope, path, "read");
+      const at = await resolveInWorkspace(ctx.scope, path, "read");
       if (at.ok && (await stat(at.value.path)).isFile()) yield path;
     }
   }
@@ -66,7 +66,7 @@ async function baseOf(
   ctx: ToolContext,
   path: string | undefined,
 ): Promise<Result<Base>> {
-  const at = await resolveInPlace(ctx.scope, path ?? ".", "read");
+  const at = await resolveInWorkspace(ctx.scope, path ?? ".", "read");
   if (!at.ok) return at;
   try {
     const baseStat = await stat(at.value.path);

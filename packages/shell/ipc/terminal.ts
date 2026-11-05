@@ -271,7 +271,7 @@ export type TerminalRuntime = {
   dropped_output: boolean;
   /** 지금 이 터미널에서 도는 coding agent. 없으면 없다. */
   agent?: TerminalAgent;
-  /** 탭 줄에 보이는 이름. 탭을 그린 창이 main에 알린 것이라, 어느 창·place의 탭이든 모든 창이 같은 이름을 안다. */
+  /** 탭 줄에 보이는 이름. 탭을 그린 창이 main에 알린 것이라, 어느 창·workspace의 탭이든 모든 창이 같은 이름을 안다. */
   tab_name?: string;
 };
 

@@ -4,7 +4,10 @@ import { atSchema, durationMsSchema } from "../base/values.ts";
 import { turnRequestSchema } from "../approvals/mod.ts";
 import { callFromOutputSchema } from "../lophn-agent/calls.ts";
 import { contentBlockSchema } from "../lophn-agent/content-block.ts";
-import { agentIdSchema, placeOutputSchema } from "../lophn-agent/places.ts";
+import {
+  agentIdSchema,
+  workspaceOutputSchema,
+} from "../lophn-agent/workspaces.ts";
 import { toolCallDisplaySchema } from "../lophn-agent/tool-values.ts";
 import { turnOutcomeOutputSchema } from "../lophn-agent/turn-values.ts";
 import { eventTypeSchema } from "../base/event.ts";
@@ -51,7 +54,7 @@ const sessionStarted = defineAgentEvent(
   "SessionStarted",
   z.strictObject({
     agent: agentIdSchema,
-    place: placeOutputSchema.nullable(),
+    workspace: workspaceOutputSchema.nullable(),
     revived: z.boolean(),
   }),
 );

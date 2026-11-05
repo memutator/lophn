@@ -1,4 +1,4 @@
-// App details의 Folders 절. 앱 source 밖에 이은 폴더 목록이다. 이 앱 place의 agent가 이 폴더들을 file tool로
+// App details의 Folders 절. 앱 source 밖에 이은 폴더 목록이다. 이 앱 workspace의 agent가 이 폴더들을 file tool로
 // 읽고 쓴다. 줄 끝 단추가 폴더를 앱에서 빼고(디스크는 그대로), Add folder가 OS 선택기로 폴더를 더한다.
 import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";

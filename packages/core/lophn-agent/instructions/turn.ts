@@ -1,7 +1,7 @@
 import { sha256Hex } from "../../../base/mod.ts";
 import {
   PROMPT_INSTRUCTION_LAYERS,
-  type PlaceKind,
+  type WorkspaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   inspectInstruction,
@@ -36,11 +36,11 @@ function absent(layer: InstructionLayerKind): TurnInstructionLayer {
   return { layer, status: "absent", text: null, hash: null, file: null };
 }
 
-// 전역 → project → agent 순서(PROMPT_INSTRUCTION_LAYERS)로 읽는다. home은 place가 없어 project 층이
+// 전역 → project → agent 순서(PROMPT_INSTRUCTION_LAYERS)로 읽는다. home은 workspace가 없어 project 층이
 // 비어 있다. deps.files는 그 session에 묶인 읽기다(instructionFilesOverCore).
 export async function readTurnInstructions(
   deps: InstructionDeps,
-  session: { kind: PlaceKind },
+  session: { kind: WorkspaceKind },
 ): Promise<TurnInstructions> {
   const layers: TurnInstructionLayer[] = [];
   const blocked = (

@@ -1,4 +1,4 @@
-// Settings › Agents의 한 절. agent가 보내는 call을 place 쌍과 agent 쌍으로 허용하거나 거절하는 목록이다.
+// Settings › Agents의 한 절. agent가 보내는 call을 workspace 쌍과 agent 쌍으로 허용하거나 거절하는 목록이다.
 // 줄마다 바로 저장하고, 저장하지 못하면 읽은 값으로 돌아가 오류를 보인다.
 import { Field, Select } from "@lophn/ui/input";
 import { Button, IconButton } from "@lophn/ui/primitives";
@@ -50,7 +50,7 @@ export function CallPolicySection({
   if (view === null) return null;
 
   async function save(next: {
-    places: readonly CallRule[];
+    workspaces: readonly CallRule[];
     agents: readonly CallRule[];
   }) {
     setFailed(false);
@@ -70,16 +70,20 @@ export function CallPolicySection({
         </p>
       ) : null}
       <RuleList
-        kind="places"
-        title={t("settings.label.call-places")}
-        list={view.places}
-        onChange={(rules) => save({ places: rules, agents: view.agents.rules })}
+        kind="workspaces"
+        title={t("settings.label.call-workspaces")}
+        list={view.workspaces}
+        onChange={(rules) =>
+          save({ workspaces: rules, agents: view.agents.rules })
+        }
       />
       <RuleList
         kind="agents"
         title={t("settings.label.call-agents")}
         list={view.agents}
-        onChange={(rules) => save({ places: view.places.rules, agents: rules })}
+        onChange={(rules) =>
+          save({ workspaces: view.workspaces.rules, agents: rules })
+        }
       />
     </section>
   );

@@ -42,7 +42,7 @@ type ToolDefinition = {
 
 // cache 표시. 타입은 ephemeral뿐이다. ttl 필드를 보내지 않으면 5분 기본이다(구독은 claude-code.ts가 1시간으로 바꾼다).
 // 표시는 system 층 둘(turn-prompt.ts의 CACHED)과 대화 쪽 둘이라 Anthropic 상한 4개 안이다.
-// tools는 system 앞이라 place 종류 층 표시가 함께 덮는다.
+// tools는 system 앞이라 workspace 종류 층 표시가 함께 덮는다.
 const CACHE_CONTROL = { type: "ephemeral" } as const;
 
 function withMark(message: unknown): unknown {

@@ -12,8 +12,8 @@
 //
 // fake 대답: 앱 하나를 activation helper로 한 번 띄우고 행들이 그 앱을 쓴다. 행의 fake 대답은 `agent-calls-app`의 둘뿐이다(호출과
 // text). 앱 command는 `lophn <slug> <command 낱말>`로 부르고 기록 이름은 `<slug>.<command>`다. 앱 command는 model의
-// tools[]에 없고 부를 때 읽으므로, 무엇이 보이는지는 `lophn help`의 묶음 목록으로 본다. agent는 test가 만든 agent의 앱 place
-// session이다(비공개 command는 그 앱 place의 session만 본다). 앱 activation helper의 앱 place lophn session 대답은 행 몫에 세지 않는다.
+// tools[]에 없고 부를 때 읽으므로, 무엇이 보이는지는 `lophn help`의 묶음 목록으로 본다. agent는 test가 만든 agent의 앱 workspace
+// session이다(비공개 command는 그 앱 workspace의 session만 본다). 앱 activation helper의 앱 workspace lophn session 대답은 행 몫에 세지 않는다.
 // 할당 경계 행(removed-tool, no-assignment, assignment-added)
 // - contract: boundary `approvals`·`agent-tools`(앱 ∩ release 선언 ∩ 할당만 command가 되고, 뺀 command는 보이지 않고 불러도 core에
 //   닿지 않는다), `run-loop`(tools[]는 session을 시작할 때 고정하고 앱 command는 부를 때 읽는다).
@@ -40,7 +40,7 @@ import {
 } from "../../packages/protocol/apps/mod.ts";
 import {
   agentCreate,
-  type Place,
+  type Workspace,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
@@ -54,7 +54,7 @@ import { callPatch } from "../support/app/patch-call.ts";
 import { netFetchPatch } from "../support/app/patch-net.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -71,7 +71,7 @@ const user = { kind: "person", view_session: "e2e" } as const;
 // 행 하나의 준비. entries가 null이면 할당을 한 번도 set하지 않은 agent다.
 async function agentWith(
   core: Core,
-  place: Place,
+  workspace: Workspace,
   name: string,
   entries: AssignmentEntry[] | null,
 ): Promise<{ session: string; agent: string }> {
@@ -87,7 +87,7 @@ async function agentWith(
     // 새 agent의 할당 revision은 0이다.
     await core.call(assignmentSet, { agent, entries }, { revision: 0 });
   }
-  return { session: await openPlaceSession(core, agent, place), agent };
+  return { session: await openWorkspaceSession(core, agent, workspace), agent };
 }
 
 // 앱의 `lophn <slug> --help`다. 이 agent가 지금 부를 수 있는 그 앱의 command가 나온다.
@@ -165,8 +165,8 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     await waitRunning(core, app, release);
     const c = core;
     const target = { mode: "live", app: id, release: null } as const;
-    // 앱의 비공개 tool은 그 앱 place의 session만 본다.
-    const place = { kind: "app", id } as const;
+    // 앱의 비공개 tool은 그 앱 workspace의 session만 본다.
+    const workspace = { kind: "app", id } as const;
     const agent = c.ids.newId("agt");
     await c.call(agentCreate, {
       id: agent,
@@ -192,7 +192,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
         },
         doneText,
       ]);
-      const removed = await agentWith(c, place, "Removed", [
+      const removed = await agentWith(c, workspace, "Removed", [
         { app: id, removed_tools: ["add_item"] },
       ]);
       await say(c, removed.session, "add op-removed");
@@ -215,7 +215,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       // 할당 없이 만든 agent에는 활성 앱이 있어도 앱 command가 하나도 보이지 않는다.
       fake.reset();
       fake.script([{ reply: helpReply(app.slug) }, doneText]);
-      const bare = await agentWith(c, place, "NoAssignment", null);
+      const bare = await agentWith(c, workspace, "NoAssignment", null);
       await say(c, bare.session, "hello");
       await waitTurnEnd(c, bare.session);
       // fake
@@ -230,7 +230,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       // session 도중 할당을 더해도 tools[]는 그대로이고 notice도 없지만, 새 command는 바로 불린다.
       fake.reset();
       fake.script([doneText, { reply: helpReply(app.slug) }, doneText]);
-      const added = await agentWith(c, place, "AssignmentAdded", null);
+      const added = await agentWith(c, workspace, "AssignmentAdded", null);
       await say(c, added.session, "first");
       await waitTurnEnd(c, added.session, 0);
       await c.call(
@@ -266,7 +266,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
         { reply: callApp("t1", `${app.slug} add-item`, { title: "first" }) },
         text("done"),
       ]);
-      const session = await openPlaceSession(c, agent, place);
+      const session = await openWorkspaceSession(c, agent, workspace);
       await say(c, session, "add an item");
       const turn = await waitTurnEnd(c, session);
       const { tool_calls } = await c.call(toolCallList, { session });

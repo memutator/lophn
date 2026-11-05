@@ -10,11 +10,11 @@ import { findOverfit } from "./mod.ts";
 const scenario = {
   id: "L4-app",
   n: 1,
-  real: [{ agent: "Mina", place: { app: "가계부" } }],
+  real: [{ agent: "Mina", workspace: { app: "가계부" } }],
   steps: [
     {
       kind: "say",
-      to: { agent: "lophn", place: { project: "tax" } },
+      to: { agent: "lophn", workspace: { project: "tax" } },
       text: "영수증을 보여 줘",
     },
   ],

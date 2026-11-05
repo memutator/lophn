@@ -20,7 +20,7 @@ import {
   iconInputOf,
   iconViewOf,
 } from "../../parts/icon-upload/icon-reader.ts";
-import { windowFolderPicker } from "../../desktop/places/projects/core-source.ts";
+import { windowFolderPicker } from "../../desktop/workspaces/projects/core-source.ts";
 import type { FolderPickerApi } from "../../../ipc/folder-picker.ts";
 import type { SecretFileStatus } from "../../../../protocol/secrets/secret-file.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
@@ -32,7 +32,7 @@ import { activationActivatePrevious } from "../../../../protocol/apps/activation
 import { appGrantRevoke } from "../../../../protocol/apps/grants.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import {
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
@@ -371,7 +371,7 @@ function lookups(core: CoreSource) {
       if (found === undefined) {
         found = read<{
           session: { title: string | null; agent: string };
-        }>(core, placeSessionRead.resource, placeSessionRead.method, {
+        }>(core, workspaceSessionRead.resource, workspaceSessionRead.method, {
           session,
         }).then((result) =>
           result.ok

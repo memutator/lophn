@@ -46,7 +46,7 @@ export const browserKind: TabKindDef = {
   icon: browserIcons.globe,
   // page favicon(main이 준 data URL). 접힌 float과 다른 desk의 탭은 mount하지 않아 이 값이 유일한
   // 출처라 layout에 저장하고, BrowserTab이 다시 mount될 때 이어 받으며, 접힌 동안 온 favicon은
-  // PlaceWindow가 받아 적는다.
+  // WorkspaceWindow가 받아 적는다.
   iconOf(tab) {
     const favicon = tab.fields?.favicon;
     return <Favicon src={typeof favicon === "string" ? favicon : undefined} />;

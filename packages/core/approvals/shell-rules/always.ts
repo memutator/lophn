@@ -1,14 +1,16 @@
 import type { ShellRulesSetting } from "../../../protocol/approvals/mod.ts";
-import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
 
-// project place면 그 project 층에, 앱 place와 place 없는 lophn이면 전역에 allow 줄을 끝에 더한다.
+// project workspace면 그 project 층에, 앱 workspace와 workspace 없는 lophn이면 전역에 allow 줄을 끝에 더한다.
 export function withAlwaysRules(
   value: ShellRulesSetting,
-  place: Place | null,
+  workspace: Workspace | null,
   patterns: readonly string[],
 ): ShellRulesSetting {
   const layer =
-    place?.kind === "project" ? (value.projects[place.id] ?? []) : value.global;
+    workspace?.kind === "project"
+      ? (value.projects[workspace.id] ?? [])
+      : value.global;
   const next = [...layer];
   for (const pattern of patterns) {
     if (
@@ -17,7 +19,7 @@ export function withAlwaysRules(
       next.push({ pattern, action: "allow" });
     }
   }
-  return place?.kind === "project"
-    ? { ...value, projects: { ...value.projects, [place.id]: next } }
+  return workspace?.kind === "project"
+    ? { ...value, projects: { ...value.projects, [workspace.id]: next } }
     : { ...value, global: next };
 }

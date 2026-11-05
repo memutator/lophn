@@ -21,7 +21,7 @@ import {
   profileOutputSchema,
 } from "./agent-values.ts";
 import { modelChoiceOutputSchema } from "./models.ts";
-import { agentIdSchema, placeSchema } from "./places.ts";
+import { agentIdSchema, workspaceSchema } from "./workspaces.ts";
 
 // 사람(editor)과 agent가 전역 agent 정의를 읽고 저장하는 route다. agent를 가리키는 것은 `AgentId`다.
 // - 정의는 파일 전체의 새 내용이다: 없는 칸은 지워진다. invalid_input의 details는 항목별 이유다.
@@ -114,7 +114,7 @@ export const agentRead = defineRead({
   name: "ReadAgent",
   input: z.strictObject({
     agent: agentIdSchema,
-    place: placeSchema.optional(),
+    workspace: workspaceSchema.optional(),
   }),
   output: withReadCommon(
     z.object({
@@ -134,7 +134,7 @@ export const agentRead = defineRead({
 });
 
 // 명함: 다른 agent와 사람이 agent를 고를 때 읽는 요약이다. program이 정의와 할당에서 계산하고 prompt 원문은 싣지 않는다.
-// diff는 기본 lophn agent와 다른 점이다(place와 상관없다): plus는 더 가진 것, minus는 덜 가진 것.
+// diff는 기본 lophn agent와 다른 점이다(workspace와 상관없다): plus는 더 가진 것, minus는 덜 가진 것.
 export const AGENT_REPLIES = ["none", "result", "conversation"] as const;
 export const agentCardSchema = z.object({
   name: agentNameSchema,
@@ -147,7 +147,7 @@ export const agentCardSchema = z.object({
   replies: z.array(z.enum(AGENT_REPLIES)),
   diff: z.object({ plus: z.array(z.string()), minus: z.array(z.string()) }),
   notes: z.array(z.string()),
-  // 읽는 agent session의 place에서 부를 수 있는가(call 정책). agent session이 읽을 때만 있다.
+  // 읽는 agent session의 workspace에서 부를 수 있는가(call 정책). agent session이 읽을 때만 있다.
   callable: z.boolean().optional(),
 });
 export type AgentCard = z.infer<typeof agentCardSchema>;

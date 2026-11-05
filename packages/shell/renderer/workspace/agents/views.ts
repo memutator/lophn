@@ -7,7 +7,7 @@ import type {
   McpAuthStateName,
 } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
-import type { Place } from "../../../../protocol/lophn-agent/places.ts";
+import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 
 /**
  * model 선택을 사람이 읽는 글로 바꾼다("Sonnet 5.5 · Medium"). model 이름과 option 표시 이름은 catalog가
@@ -41,13 +41,13 @@ export interface Sourced<T> {
   readonly source: AgentValueLayer;
 }
 
-/** skill의 층. 내장은 place 종류가 가진 것이고 나머지는 전역, project·app, 그릇 자리의 skills/(place-data)다. */
+/** skill의 층. 내장은 workspace 종류가 가진 것이고 나머지는 전역, project·app, 그릇 자리의 skills/(workspace-data)다. */
 export type SkillLayer =
   | "builtin"
   | "global"
   | "project"
   | "app"
-  | "place-data"
+  | "workspace-data"
   | "shared";
 
 /** skill 한 줄. 끈 skill도 줄로 남는다. 내장 skill은 끌 수 없어 builtIn이 참이다. */
@@ -66,11 +66,11 @@ export type McpLayer = "global" | "project" | "agent";
 export type McpStatus = "connected" | "needs-sign-in" | null;
 
 /**
- * OAuth server의 로그인 상태다. `place`·`agent`는 서버의 소유자이고(전역은 둘 다 null) 로그인은 이 소유자로
+ * OAuth server의 로그인 상태다. `workspace`·`agent`는 서버의 소유자이고(전역은 둘 다 null) 로그인은 이 소유자로
  * 부른다. `client_id`·`scopes`는 등록한 설정값이라 화면이 begin에 그대로 넣는다.
  */
 export interface McpLogin {
-  readonly place: Place | null;
+  readonly workspace: Workspace | null;
   /** agent 정의 층 서버면 그 agent의 id다. 그 밖에는 null이다. */
   readonly agent: string | null;
   readonly client_id: string;

@@ -1,0 +1,194 @@
+// 왼쪽 sidebar의 workspace별 session 줄을 세운다. 순수 함수라 project 창과 뒤에 Home·app workspace가 같이 쓴다.
+//
+// 규칙
+// - current: 이 창에 탭이 열린 session, 또는 끝나지 않았고 점이 있는 session(도는 중, 기다리는 중, 못 본 turn 끝).
+//   탭이 열렸는지는 workspace마다 그 workspace의 layout에서 읽는다(`openTitles`). 닫기 전에는 current에 남는다.
+// - lophn session은 첫 메시지를 보낼 때 생긴다. 그 전의 Agent 탭은 이 창이 보이는 workspace의 draft 줄("New session")이다.
+// - recent: 나머지(끝났거나 닫았거나 가만히 있는). 이 창이 보이는 workspace에만 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
+//   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
+// - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 workspace의 것만 온다.
+//   다른 workspace는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
+// - 줄의 연필·x(actions)는 lophn session과 터미널은 어느 workspace든 있다. draft는 x만, workflow desk는 없다.
+// - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
+//   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
+import { t } from "@lophn/i18n";
+
+import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
+import { codingFace } from "../parts/agent-session/coding.ts";
+import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
+import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
+import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
+import { workspaceKey, type WorkspaceRef } from "./desk-model.ts";
+import type { SidebarWorkspace, SidebarSession } from "./left-sidebar-model.ts";
+
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** session id → 제목과 마지막 활동 시각(epoch ms). agent의 session 목록에서 읽은 것이다. */
+export type KnownSessions = ReadonlyMap<
+  string,
+  { readonly title: string | null; readonly at: number }
+>;
+
+/** 사람이 Recent에서 지운 줄의 key → 지운 때(epoch ms). */
+export type HiddenRecent = ReadonlyMap<string, number>;
+
+export interface WorkspacesInput {
+  readonly now: number;
+  /** 이 창이 보이는 workspace. */
+  readonly current: WorkspaceRef;
+  readonly projects: readonly { readonly id: string; readonly title: string }[];
+  readonly apps: readonly { readonly id: string; readonly name: string }[];
+  readonly entries: readonly SessionEntry[];
+  readonly agents: readonly SidebarAgent[];
+  readonly known: KnownSessions;
+  /** workspace key → 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. */
+  readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
+  /** 이 창의 아직 session이 없는 Agent 탭. */
+  readonly drafts: readonly { readonly key: string; readonly agent: string }[];
+  /** 이 창이 보이는 workspace의 터미널 coding agent session. */
+  readonly terminals: readonly PanelTerminal[];
+  /** workspace key → 그 workspace의 layout에 탭이 열렸고 agent가 지금 도는 터미널(이 창이 보이지 않는 workspace). */
+  readonly otherTerminals: ReadonlyMap<string, readonly PanelTerminal[]>;
+  /** 이 창이 보이는 workspace에서 사람 차례를 기다리는 workflow 이름. */
+  readonly workflows: readonly string[];
+  readonly hidden: HiddenRecent;
+}
+
+const workspaceKeyOfEntry = (entry: SessionEntry) =>
+  entry.workspace === null ? "home" : entry.workspace.id;
+
+function recentVisible(
+  key: string,
+  at: number,
+  hidden: HiddenRecent,
+  now: number,
+): boolean {
+  const hiddenAt = hidden.get(key);
+  if (hiddenAt !== undefined && at <= hiddenAt) return false;
+  return at === 0 || now - at <= RECENT_WINDOW_MS;
+}
+
+export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
+  const here = workspaceKey(input.current);
+  const agents = new Map(
+    input.agents.map((agent) => [agent.assignment, agent]),
+  );
+  const current = new Map<string, SidebarSession[]>();
+  const recent = new Map<string, SidebarSession[]>();
+  const add = (
+    map: Map<string, SidebarSession[]>,
+    workspace: string,
+    item: SidebarSession,
+  ) => map.set(workspace, [...(map.get(workspace) ?? []), item]);
+
+  for (const entry of input.entries) {
+    const agent = entry.agent === null ? undefined : agents.get(entry.agent);
+    if (agent === undefined || entry.archived) continue;
+    const workspace = workspaceKeyOfEntry(entry);
+    const read = input.known.get(entry.session);
+    const tabTitle = input.openTitles.get(workspace)?.get(entry.session);
+    const dot = lophnSessionDot(input.entries, entry.session);
+    const item: SidebarSession = {
+      kind: "session",
+      ref: entry.session,
+      // 다른 workspace의 탭 제목은 저장된 layout에서 읽어 빈 글이다. 그때는 session 제목을 쓴다.
+      title: tabTitle || read?.title || t("left-sidebar.label.untitled"),
+      agent: { kind: "lophn", profile: agent.profile },
+      dot,
+      actions: true,
+      at: read?.at ?? 0,
+    };
+    if (tabTitle !== undefined || (dot !== null && dot !== "ended")) {
+      add(current, workspace, item);
+    } else if (recentVisible(entry.session, item.at, input.hidden, input.now)) {
+      add(recent, workspace, item);
+    }
+  }
+
+  for (const draft of input.drafts) {
+    const agent = agents.get(draft.agent);
+    if (agent === undefined) continue;
+    add(current, here, {
+      kind: "draft",
+      ref: draft.key,
+      title: t("left-sidebar.label.new-session"),
+      agent: { kind: "lophn", profile: agent.profile },
+      dot: null,
+      actions: true,
+      at: 0,
+    });
+  }
+
+  for (const terminal of input.terminals) {
+    const item: SidebarSession = {
+      kind: "terminal",
+      ref: terminal.key,
+      title: terminal.title,
+      agent: codingFace(terminal.harness),
+      dot: terminal.dot,
+      actions: true,
+      at: terminal.at,
+    };
+    if (terminal.live !== null) add(current, here, item);
+    else if (recentVisible(terminal.key, item.at, input.hidden, input.now)) {
+      add(recent, here, item);
+    }
+  }
+
+  for (const [workspace, terminals] of input.otherTerminals) {
+    for (const terminal of terminals) {
+      add(current, workspace, {
+        kind: "terminal",
+        ref: terminal.key,
+        title: terminal.title,
+        agent: codingFace(terminal.harness),
+        dot: terminal.dot,
+        actions: true,
+        at: 0,
+      });
+    }
+  }
+
+  const byNewest = (a: SidebarSession, b: SidebarSession) => b.at - a.at;
+  // session id는 시각 순이라 만든 순이 된다. 새 줄은 끝에 붙고 다시 시작해도 같다.
+  const order = { session: 0, draft: 1, terminal: 2, workflow: 3 };
+  const stable = (a: SidebarSession, b: SidebarSession) =>
+    a.kind === b.kind
+      ? a.ref < b.ref
+        ? -1
+        : a.ref > b.ref
+          ? 1
+          : 0
+      : order[a.kind] - order[b.kind];
+  const workspace = (ref: WorkspaceRef, name: string): SidebarWorkspace => {
+    const key = workspaceKey(ref);
+    const waiting: SidebarSession[] =
+      key === here
+        ? input.workflows.map((workflow) => ({
+            kind: "workflow",
+            ref: workflow,
+            title: workflow,
+            agent: { kind: "workflow" },
+            dot: "waiting",
+            actions: false,
+            at: 0,
+          }))
+        : [];
+    return {
+      ref,
+      name,
+      current: [...waiting, ...(current.get(key) ?? []).sort(stable)],
+      recent: key === here ? (recent.get(key) ?? []).sort(byNewest) : [],
+    };
+  };
+
+  return [
+    workspace({ kind: "home" }, t("left-sidebar.label.home")),
+    ...input.projects.map((item) =>
+      workspace({ kind: "project", id: item.id }, item.title),
+    ),
+    ...input.apps.map((item) =>
+      workspace({ kind: "app", id: item.id }, item.name),
+    ),
+  ];
+}

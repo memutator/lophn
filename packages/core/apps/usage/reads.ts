@@ -4,7 +4,7 @@ import { type AppToolUse, appUsage } from "../../../protocol/apps/usage.ts";
 import type { ReadDefinition } from "../../../protocol/server/mod.ts";
 import { loadApp, loadApps } from "../registration/mod.ts";
 import { usagePorts } from "./ports.ts";
-import { appToolUsers, order, placeKey } from "./users.ts";
+import { appToolUsers, order, workspaceKey } from "./users.ts";
 
 export function createUsageReads(): ReadDefinition<typeof appUsage> {
   return {
@@ -15,7 +15,7 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
       // 다른 앱·project의 사용 관계는 경계를 넘어 보는 home의 lophn만 읽는다.
       if (
         actor?.kind === "agent" &&
-        ports.sessionPlace(actor.id)?.place !== null
+        ports.sessionWorkspace(actor.id)?.workspace !== null
       ) {
         return err({
           code: "forbidden",
@@ -45,7 +45,7 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
         (a, b) =>
           order(a.app, b.app) ||
           order(a.tool, b.tool) ||
-          order(placeKey(a.place), placeKey(b.place)),
+          order(workspaceKey(a.workspace), workspaceKey(b.workspace)),
       );
       return ok({
         uses,

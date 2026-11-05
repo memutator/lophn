@@ -21,7 +21,7 @@ import {
 import { platformStatus } from "../../packages/protocol/server/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -124,7 +124,7 @@ async function bootWithOpenRequest(
   ]);
   const core = await env.boot();
   await connectFakeProvider(core, env.fake);
-  const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
   await say(core, session, "hello");
   await within("model 요청이 도착함", env.fake.arrived(1));
   return core;
@@ -135,7 +135,7 @@ test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data�
     fake.script([{ reply: { kind: "text", text: "hi" } }]);
     const first = await boot();
     await connectFakeProvider(first, fake);
-    const session = await openPlaceSession(first, LOPHN_AGENT_ID);
+    const session = await openWorkspaceSession(first, LOPHN_AGENT_ID);
     await say(first, session, "hello");
     await waitTurnEnd(first, session);
     const location = `${run.home}/run/location.json`;

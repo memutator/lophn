@@ -15,7 +15,7 @@ test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같�
   let body: unknown = null;
   const result = await assembleTurnPrompt(
     {
-      place_kind_prompt: "You are in an app place.",
+      workspace_kind_prompt: "You are in an app workspace.",
       tools: [
         {
           name: "skill.read",
@@ -37,8 +37,8 @@ test("prefixBoundaries가 제품 assembleTurnPrompt의 cache_boundaries와 같�
         agent: "no emoji",
       },
       skills: [{ name: "calendar", description: "plan days", enabled: true }],
-      place: {
-        text: "# Place\nproject p1",
+      workspace: {
+        text: "# Workspace\nproject p1",
         agents: [],
       },
       history: [{ role: "user", parts: [{ kind: "text", text: "hi" }] }],

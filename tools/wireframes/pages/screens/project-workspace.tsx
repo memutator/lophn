@@ -366,7 +366,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-agent-sidebar",
       title: "Sidebar · Left",
       description:
-        "왼쪽 sidebar. 위에 New session(▾로 lophn agent와 coding agent 고르기), Inbox, Jobs가 있다. Places 아래에 Home, project, 앱이 차례로 있고 place마다 열린 session이 agent 아이콘, 제목, 오른쪽 끝 상태 점으로 있다. 이 창이 보이는 phroner에는 사람 차례인 workflow와 터미널 coding agent도 섞여 있다. Recent는 place마다 접힌 줄 하나다. 맨 아래에 Settings가 있다.",
+        "왼쪽 sidebar. 위에 New session(▾로 lophn agent와 coding agent 고르기), Inbox, Jobs가 있다. Workspaces 아래에 Home, project, 앱이 차례로 있고 workspace마다 열린 session이 agent 아이콘, 제목, 오른쪽 끝 상태 점으로 있다. 이 창이 보이는 phroner에는 사람 차례인 workflow와 터미널 coding agent도 섞여 있다. Recent는 workspace마다 접힌 줄 하나다. 맨 아래에 Settings가 있다.",
       render: () => <LeftSidebarPage />,
     },
     {

@@ -21,7 +21,7 @@ import {
 } from "../../../../protocol/lophn-agent/models.ts";
 import { providerList } from "../../../../protocol/lophn-agent/providers.ts";
 import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { receivedMessageList } from "../../../../protocol/lophn-agent/received-messages.ts";
 import { rewindList } from "../../../../protocol/lophn-agent/reverts.ts";
 import {
@@ -60,7 +60,7 @@ const key = (route: { resource: string; method: string }) =>
 // 기록에는 secret이 그대로 들어 있다고 본다. ACP로 나가는 글은 모두 redact를 거쳐야 한다.
 const records = new Map<string, unknown>([
   [
-    key(placeSessionRead),
+    key(workspaceSessionRead),
     { session: { agent: "lophn", title: `title ${SECRET}` } },
   ],
   [
@@ -405,10 +405,10 @@ test("rename 뒤의 session_changed를 접은 session meta가 snapshot의 것과
   let title = "old";
   const read = <T>(route: { resource: string; method: string }) => {
     const found: Record<string, unknown> = {
-      [key(placeSessionRead)]: {
+      [key(workspaceSessionRead)]: {
         session: {
           agent: "lophn",
-          place: null,
+          workspace: null,
           title,
           skip: false,
           model_selection: null,
@@ -448,15 +448,15 @@ test("rename 뒤의 session_changed를 접은 session meta가 snapshot의 것과
   assert.equal(after.title, "new [redacted]");
 });
 
-// 첫 메시지 전 화면이 보는 draft meta는 같은 agent·place로 연 새 session의 meta에서 title·usage·cli_session을 뺀 것과 같다.
+// 첫 메시지 전 화면이 보는 draft meta는 같은 agent·workspace로 연 새 session의 meta에서 title·usage·cli_session을 뺀 것과 같다.
 // 다르면 첫 메시지를 보낸 순간 model 단추나 mode가 바뀐다.
-test("draft meta는 같은 agent와 place로 연 session의 meta에서 title·usage·cli_session을 뺀 것과 같다", async () => {
-  const place = { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5f001" };
+test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title·usage·cli_session을 뺀 것과 같다", async () => {
+  const workspace = { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5f001" };
   const found: Record<string, unknown> = {
-    [key(placeSessionRead)]: {
+    [key(workspaceSessionRead)]: {
       session: {
         agent: "lophn",
-        place,
+        workspace,
         title: null,
         skip: false,
         model_selection: null,
@@ -504,7 +504,7 @@ test("draft meta는 같은 agent와 place로 연 session의 meta에서 title·us
   const session = await readSessionMeta(e, SES, read);
   const draft = await readDraftMeta(
     e,
-    { agent: "lophn", place } as never,
+    { agent: "lophn", workspace } as never,
     read,
   );
   assert.ok(session !== null);

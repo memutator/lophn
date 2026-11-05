@@ -1,7 +1,7 @@
 // 받은 메시지의 보낸 쪽 chip이 읽는 것(맡긴 글, 근거 링크, 보낸 session)과 tool 호출의 입력·결과 본문. 대화 줄은
 // ACP snapshot이 주므로 여기서 만들지 않는다. 한 번 읽으면 바뀌지 않는 값은 기억한다.
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   type ReceivedMessage,
   receivedMessageRead,

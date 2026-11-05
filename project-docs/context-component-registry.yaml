@@ -92,10 +92,10 @@ components:
   - id: agent-policy
     kind: doc
     roles: [planner]
-    description: lophn 제품 안의 agent와 place, place마다의 책임, session 사이 call과 사람에게 올림의 정책.
+    description: lophn 제품 안의 agent와 workspace, workspace마다의 책임, session 사이 call과 사람에게 올림의 정책.
     path: project-docs/products/AGENT.md
     change_reasons:
-      boundaries: [agents, agent-places, router, workflows, jobs]
+      boundaries: [agents, agent-workspaces, router, workflows, jobs]
 
   - id: roadmap
     kind: doc
@@ -170,7 +170,7 @@ components:
     description: core 층과 import 방향, 그 이유. harness와 feature module의 구분.
     path: project-docs/architecture/layers.md
     change_reasons:
-      boundaries: [core, lophn-agent, agent-places, agent-tool-spi]
+      boundaries: [core, lophn-agent, agent-workspaces, agent-tool-spi]
       paths: [tools/check-deps.ts]
       note: core module이 생기거나 층을 옮길 때.
 
@@ -188,7 +188,7 @@ components:
     description: Gate 판정, 사람에게 묻는 request(turn 안, 앱 공유 요청), 할당 저장(agent 정의 파일)과 옮김, 결정의 적용.
     path: project-docs/architecture/approval.md
     change_reasons:
-      boundaries: [approvals, agent-tools, agent-places, jobs]
+      boundaries: [approvals, agent-tools, agent-workspaces, jobs]
       paths: [packages/core/approvals/share-requests/, packages/core/main/daemon/wiring/assignment-file.ts, packages/core/main/daemon/wiring/share-requests.ts]
 
   - id: architecture-testing
@@ -207,7 +207,7 @@ components:
     path: project-docs/architecture/eval.md
     change_reasons:
       paths: [tests/eval/, tests/support/core/]
-      boundaries: [agent-tools, agent-places, models]
+      boundaries: [agent-tools, agent-workspaces, models]
 
   - id: architecture-activation
     kind: doc
@@ -234,13 +234,13 @@ components:
       boundaries: [app-runtime, app-data, app-capability]
       paths: [packages/protocol/apps/calls/, packages/core/apps/calls/, packages/core/apps/screens/skills.ts, packages/core/apps/releases/public-tools.ts]
 
-  - id: architecture-place-session
+  - id: architecture-workspace-session
     kind: doc
     roles: [planner, lead]
-    description: agent가 놓이는 place와 session의 수명, fork, rewind.
-    path: project-docs/architecture/place-session.md
+    description: agent가 놓이는 workspace와 session의 수명, fork, rewind.
+    path: project-docs/architecture/workspace-session.md
     change_reasons:
-      boundaries: [agents, agent-places, agent-sessions]
+      boundaries: [agents, agent-workspaces, agent-sessions]
 
   - id: architecture-run
     kind: doc
@@ -256,7 +256,7 @@ components:
     description: project에 정의한 workflow의 instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, PM의 쓰기 범위, workflow artifact와 kit, flow code의 process와 SDK, `workflow.check`.
     path: project-docs/architecture/workflow.md
     change_reasons:
-      boundaries: [workflows, router, agent-places, coding-agent-cli]
+      boundaries: [workflows, router, agent-workspaces, coding-agent-cli]
       paths: [packages/shell/renderer/workflow/, packages/shell/renderer/workspace/kinds/workflow.tsx, packages/shell/renderer/workspace/sidebar/workflow-panel.tsx, packages/shell/renderer/artifact-kit/, packages/core/main/daemon/wiring/workflows.ts, packages/core/main/daemon/wiring/workflows-files.ts, packages/core/main/daemon/wiring/flows.ts, packages/core/main/flow-host/, packages/sdk/flow/]
 
   - id: architecture-job
@@ -274,7 +274,7 @@ components:
     description: agent 정의(할당 칸 포함), prompt 조립, 지침 파일, skill 층과 공유 skill, tool, model.
     path: project-docs/architecture/agent-definition.md
     change_reasons:
-      boundaries: [agent-places, agent-tools, run-loop, models, agent-tool-spi]
+      boundaries: [agent-workspaces, agent-tools, run-loop, models, agent-tool-spi]
 
   - id: architecture-coding-agent
     kind: doc
@@ -313,7 +313,7 @@ components:
   - id: architecture-annotation
     kind: doc
     roles: [planner, lead]
-    description: 앱 화면과 artifact에 남긴 annotation이 그 place의 session에게 가는 길.
+    description: 앱 화면과 artifact에 남긴 annotation이 그 workspace의 session에게 가는 길.
     path: project-docs/architecture/annotation.md
     change_reasons:
       boundaries: [sdk]
@@ -367,16 +367,16 @@ components:
     description: agent가 그릇(project, 앱)의 `artifacts/<name>/`에 쓴 정적 HTML을 봉한 view의 탭으로 그리는 길. 봉한 scheme의 path 해석, file 범위, 목록과 prompt, 대화 link, artifact annotation의 받는 쪽.
     path: project-docs/architecture/artifact.md
     change_reasons:
-      boundaries: [shell, agent-places, agent-sessions, router]
+      boundaries: [shell, agent-workspaces, agent-sessions, router]
 
   - id: architecture-workspace-layout
     kind: doc
     roles: [planner, lead]
-    description: place 창(Home, project, 앱) 하나의 shell, desk와 split group 모델, 탭 자리(tabs, group, floated, detached), floats 층, `<webview>` 그릇과 native view 층, view 보관, 탭을 OS 창으로 떼고 붙이는 main 중계, place layout 파일(판 8)과 옛 layout 올리기, Settings 틀.
+    description: workspace 창(Home, project, 앱) 하나의 shell, desk와 split group 모델, 탭 자리(tabs, group, floated, detached), floats 층, `<webview>` 그릇과 native view 층, view 보관, 탭을 OS 창으로 떼고 붙이는 main 중계, workspace layout 파일(판 8)과 옛 layout 올리기, Settings 틀.
     path: project-docs/architecture/workspace-layout.md
     change_reasons:
       boundaries: [shell]
-      paths: [packages/shell/renderer/workspace/model.ts, packages/shell/renderer/shell/desk-model.ts, packages/shell/renderer/shell/layout-source.ts, packages/shell/main/workspace/place-layout.ts, packages/shell/main/workspace/schema.ts, packages/shell/main/browser/view-order.ts, packages/shell/renderer/app-frame/webview-host.tsx, packages/shell/renderer/app-frame/view-keeps.ts, packages/shell/ipc/detached.ts, packages/shell/main/desktop/detached/, packages/shell/renderer/workspace/detached/]
+      paths: [packages/shell/renderer/workspace/model.ts, packages/shell/renderer/shell/desk-model.ts, packages/shell/renderer/shell/layout-source.ts, packages/shell/main/workspace/workspace-layout.ts, packages/shell/main/workspace/schema.ts, packages/shell/main/browser/view-order.ts, packages/shell/renderer/app-frame/webview-host.tsx, packages/shell/renderer/app-frame/view-keeps.ts, packages/shell/ipc/detached.ts, packages/shell/main/desktop/detached/, packages/shell/renderer/workspace/detached/]
 
   - id: architecture-ui-kit
     kind: doc
@@ -549,7 +549,7 @@ components:
     path: tools/check-deps.ts
     run: npm run check
     change_reasons:
-      boundaries: [core, lophn-agent, agent-places, agent-tool-spi]
+      boundaries: [core, lophn-agent, agent-workspaces, agent-tool-spi]
       note: architecture/layers.md의 규칙이나 예외가 바뀔 때.
 
   - id: tool-check-source

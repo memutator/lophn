@@ -8,7 +8,7 @@ import type {
 } from "../../protocol/jobs/mod.ts";
 import type {
   AgentAddress,
-  AgentAtPlace,
+  AgentAtWorkspace,
 } from "../../protocol/lophn-agent/mod.ts";
 
 // 시각은 Clock으로 읽고 timer는 이 port로 받는다. 테스트는 가짜를 꽂는다.
@@ -22,9 +22,9 @@ export const jobZonePort = definePort<{ zone(): string }>("jobs.zone");
 
 // job을 만들 때 이름을 푸는 port. 구현은 조립(core/main)이 꽂는다.
 export type JobTargets = {
-  creatorOf(session: Id<"ses">): AgentAtPlace | undefined;
+  creatorOf(session: Id<"ses">): AgentAtWorkspace | undefined;
   // 못 풀면 not_found.
-  resolveAgent(address: AgentAddress): Result<AgentAtPlace>;
+  resolveAgent(address: AgentAddress): Result<AgentAtWorkspace>;
   // 없으면 not_found.
   resolveApp(ref: string): Result<Id<"app">>;
   resolveProject(ref: string): Result<Id<"prj">>;

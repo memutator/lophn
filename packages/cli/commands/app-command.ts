@@ -59,7 +59,7 @@ function appCommand(app: string, slug: string, command: AppCommand): Command {
   return defineCommand({
     ...appCommandDoc(slug, command),
     routes: [runStart, runWait],
-    places: [],
+    workspaces: [],
     run: (input, ctx) =>
       start(
         ctx,

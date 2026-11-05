@@ -1,4 +1,4 @@
-// 앱 place gallery 화면. 진짜 Desktop(MockDesktop)의 앱 place를 그린다: 앱 화면 탭, 그 앱 place의 lophn session 탭, App details 탭, 오른쪽 Logs panel.
+// 앱 workspace gallery 화면. 진짜 Desktop(MockDesktop)의 앱 workspace를 그린다: 앱 화면 탭, 그 앱 workspace의 lophn session 탭, App details 탭, 오른쪽 Logs panel.
 // 상태는 layout(tab 배치)과 fake source의 설정, mount 뒤 단추 누르기(drive.ts)로 정하고 화면에는 gallery 전용 prop을 더하지 않는다.
 // 앱 화면은 <webview>라 gallery에서 돌 수 없으므로 앱 화면 탭의 webview 자리(빈 div) 안에 Orders 앱이 그린 고정 그림(orders-view.tsx)을 넣는다.
 // 고른 곳의 윤곽과 번호 표지는 실제로는 앱 view 안 preload가 그린다.
@@ -41,7 +41,7 @@ interface Annotation {
   readonly memo: string;
 }
 
-interface AppPlaceProps {
+interface AppWorkspaceProps {
   /** tab 배치. screen은 앱 화면 탭 하나, split은 앱 화면과 lophn session을 붙인 것, session은 둘이 따로 서고 session을 골랐다. */
   readonly layout?: "screen" | "split" | "session";
   /** 주면 App details 탭을 고른 채 그 안의 이 탭을 연다. */
@@ -98,7 +98,7 @@ const SESSION = {
   kind: "agent",
   title: "Fix the monthly total",
   agent: "lophn",
-  workPlace: { kind: "app", id: APP },
+  workspace: { kind: "app", id: APP },
 } as const;
 
 // run이 연 session은 열린 채 남는다. 일하는 중인 run의 session만 running이고 나머지는 쉬는 중이라, session store가 이 snapshot으로
@@ -110,7 +110,7 @@ const RUN_SNAPSHOTS: readonly SessionSnapshot[] = fixedRuns(APP).flatMap(
           {
             session: run.session,
             agent: run.target.agent.agent,
-            place: { kind: "app" as const, id: APP },
+            workspace: { kind: "app" as const, id: APP },
             state:
               run.state === "running"
                 ? ("running" as const)
@@ -145,7 +145,7 @@ function withRunSessions(source: CoreSource): CoreSource {
 
 // 모은 목록에서 지운 번호의 표지는 앱 화면에서도 사라진다.
 function shownMarks(
-  props: AppPlaceProps,
+  props: AppWorkspaceProps,
   state: AnnotateState | null,
 ): ViewMarks {
   const marks = props.annotate?.marks ?? {};
@@ -187,7 +187,7 @@ function useScreenRegion(): HTMLElement | null {
   return region;
 }
 
-export function AppSpace(props: AppPlaceProps = {}) {
+export function AppSpace(props: AppWorkspaceProps = {}) {
   const region = useScreenRegion();
   const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
   const fakes = useMemo(

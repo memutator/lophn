@@ -9,10 +9,12 @@ import type { GrantApp } from "../source.ts";
  */
 export function appsFor(
   apps: readonly GrantApp[],
-  place: string | null,
+  workspace: string | null,
 ): GrantApp[] {
   return apps.flatMap((app) => {
-    const tools = app.tools.filter((tool) => tool.public || app.app === place);
+    const tools = app.tools.filter(
+      (tool) => tool.public || app.app === workspace,
+    );
     return tools.length === 0 ? [] : [{ ...app, tools }];
   });
 }

@@ -75,8 +75,8 @@ interface TabSpec {
   readonly path?: string;
   /** agent 탭이 보는 agent(기본 lophn). */
   readonly agent?: string;
-  /** agent 탭의 place. 없으면 Home이다. */
-  readonly workPlace?: { readonly kind: "app"; readonly id: string };
+  /** agent 탭의 workspace. 없으면 Home이다. */
+  readonly workspace?: { readonly kind: "app"; readonly id: string };
 }
 
 export interface PaneSpec {
@@ -106,13 +106,13 @@ interface MockDesktopProps {
   readonly openTerminal?: string;
   /** project와 앱이 하나도 없는 Home으로 그린다. */
   readonly emptyHome?: boolean;
-  /** 주면 이 탭들을 Home place의 layout으로 쓴다(route는 Home). */
+  /** 주면 이 탭들을 Home workspace의 layout으로 쓴다(route는 Home). */
   readonly homeTabs?: readonly TabSpec[];
-  /** place 창의 Jobs overlay·Jobs 탭·Jobs panel 통로. page가 fake(`fakeJobs`)로 job을 정한다. 없으면 dev mock 것이다. */
+  /** workspace 창의 Jobs overlay·Jobs 탭·Jobs panel 통로. page가 fake(`fakeJobs`)로 job을 정한다. 없으면 dev mock 것이다. */
   readonly jobs?: JobsSource;
-  /** 앱 place의 App details 탭을 여는 통로. page가 fake(`fakeDetail`)로 정한다. 없으면 dev mock 것이다. */
+  /** 앱 workspace의 App details 탭을 여는 통로. page가 fake(`fakeDetail`)로 정한다. 없으면 dev mock 것이다. */
   readonly appDetail?: AppDetailSource;
-  /** 앱 place의 Logs가 읽는 run 기록. 없으면 dev mock 것이다. */
+  /** 앱 workspace의 Logs가 읽는 run 기록. 없으면 dev mock 것이다. */
   readonly runs?: WorkspaceSource["runs"];
   /** 이 연결로 event를 읽는다(Logs의 run session 상태). */
   readonly events?: (events: CoreSource) => CoreSource;
@@ -157,7 +157,7 @@ function storedTab(tab: TabSpec) {
       kind: tab.kind,
       key: tab.key,
       agent: tab.agent ?? "lophn",
-      work_place: tab.workPlace ?? { kind: "home" },
+      workspace: tab.workspace ?? { kind: "home" },
     };
   }
   if (tab.kind === "app_screen") {
@@ -287,13 +287,13 @@ export function MockDesktop(props: MockDesktopProps) {
         ? {}
         : {
             layout: createLayoutSource(() => ({
-              readPlace: () =>
+              readWorkspace: () =>
                 Promise.resolve({
                   ok: true as const,
                   available: true as const,
                   layout: homeLayout ?? layoutOf(panes!, floats ?? []),
                 }),
-              savePlace: () => Promise.resolve({ ok: true as const }),
+              saveWorkspace: () => Promise.resolve({ ok: true as const }),
             })),
           }),
     };

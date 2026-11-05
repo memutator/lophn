@@ -14,17 +14,17 @@ import {
   jobUpdate,
   missedPolicySchema,
 } from "../../protocol/jobs/mod.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
 
 const SCHEDULE_NOTE =
   "every uses m/h/d (minutes/hours/days); at is this computer's local HH:MM, only for d. After downtime, missed_policy run runs once; hold asks the person.";
 const ACTION_NOTE =
-  "Runs unattended. agent_run opens a new session (agent/place use exact names; no place means home). tool_run calls one app tool. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows.";
+  "Runs unattended. agent_run opens a new session (agent/workspace use exact names; no workspace means home). tool_run calls one app tool. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows.";
 const APPROVAL_NOTE =
   "A new job waits until the person approves it in the waiting list (approved_at stays null until then); tell them. The action cannot be changed later: delete the job and create a new one.";
 const OWN_NOTE =
-  "You can change or delete only jobs you created in this place.";
+  "You can change or delete only jobs you created in this workspace.";
 const RESTART_NOTE =
   "Changing `every` or `at`, or turning a job back on, restarts the count from now.";
 
@@ -43,7 +43,7 @@ const create = defineCommand({
   positional: ["title"],
   effect: "write",
   routes: [jobCreate],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const made = await ctx.core.command(jobCreate, input, { key: ctx.key });
     if (!made.ok) return made;
@@ -66,7 +66,7 @@ const update = defineCommand({
   positional: ["job"],
   effect: "write",
   routes: [jobUpdate],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const done = await ctx.core.command(jobUpdate, input, { key: ctx.key });
     if (!done.ok) return done;
@@ -85,7 +85,7 @@ const remove = defineCommand({
   positional: ["job"],
   effect: "write",
   routes: [jobDelete],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const done = await ctx.core.command(jobDelete, input, { key: ctx.key });
     if (!done.ok) return done;
@@ -98,13 +98,13 @@ const remove = defineCommand({
 
 const list = defineCommand({
   name: "job.list",
-  summary: "List the jobs you created in this place",
+  summary: "List the jobs you created in this workspace",
   description:
-    "List the scheduled jobs you created in this place: title, schedule, action, whether it is on, the next due time and the last run.",
+    "List the scheduled jobs you created in this workspace: title, schedule, action, whether it is on, the next due time and the last run.",
   input: z.strictObject({}),
   effect: "read",
   routes: [jobList],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (_input, ctx) => {
     let cursor: string | undefined;
     let jobs: z.output<typeof jobList.output>["jobs"] = [];

@@ -19,7 +19,7 @@ import {
 import { appToolIndex } from "../../protocol/apps/declaration/read.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import { appIdSchema } from "../../protocol/projects/values.ts";
-import { PLACE_KINDS } from "../../protocol/lophn-agent/places.ts";
+import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
@@ -58,7 +58,7 @@ const read = defineCommand({
   positional: ["app"],
   effect: "read",
   routes: [appList, appGet],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   // 목록과 상세는 같은 읽기 범위다. 지정한 앱이 없거나 범위 밖이면 그 route의 오류이고 목록으로 바꾸지 않는다.
   run: async (input, ctx) => {
     if (input.app !== undefined) {
@@ -89,7 +89,7 @@ const tools = defineCommand({
   positional: ["app"],
   effect: "read",
   routes: [appToolIndex],
-  places: ["home", "app"],
+  workspaces: ["home", "app"],
   run: async (input, ctx) => {
     const index = await ctx.core.read(appToolIndex, input);
     if (!index.ok) return index;
@@ -106,12 +106,12 @@ const create = defineCommand({
   name: "app.create",
   summary: "Register a new app",
   description:
-    "Register a new app with a name and a one line purpose. Work on the app is done in a conversation at the app's place. A git repository started from the app template becomes the source folder of the app. If source_path in the result is null, the folder could not be made: connect a git folder with `lophn app link-source`.",
+    "Register a new app with a name and a one line purpose. Work on the app is done in a conversation at the app's workspace. A git repository started from the app template becomes the source folder of the app. If source_path in the result is null, the folder could not be made: connect a git folder with `lophn app link-source`.",
   input: z.strictObject({ name: nonblank, purpose: nonblank }),
   positional: ["name", "purpose"],
   effect: "write",
   routes: [appCreate],
-  places: ["home"],
+  workspaces: ["home"],
   run: async (input, ctx) => {
     const made = await ctx.core.command(
       appCreate,
@@ -140,12 +140,12 @@ const linkSource = defineCommand({
   name: "app.link_source",
   summary: "Connect a git folder as an app's source",
   description:
-    "Connect a git folder as the source of an app. The folder must be the top of a git repository and have at least one commit. A relative path starts at the place's first folder (the current folder for the binary).",
+    "Connect a git folder as the source of an app. The folder must be the top of a git repository and have at least one commit. A relative path starts at the workspace's first folder (the current folder for the binary).",
   input: z.strictObject({ app: idSchema("app"), path: z.string().min(1) }),
   positional: ["app", "path"],
   effect: "write",
   routes: [appGet, appConnectSource],
-  places: ["app"],
+  workspaces: ["app"],
   run: async (input, ctx) => {
     const found = await ctx.core.read(appGet, { app: input.app });
     if (!found.ok) return found;
@@ -175,7 +175,7 @@ const check = defineCommand({
   positional: ["app"],
   effect: "read",
   routes: [declarationCheck],
-  places: PLACE_KINDS,
+  workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const checked = await ctx.core.read(declarationCheck, input);
     if (!checked.ok) return checked;
@@ -199,7 +199,7 @@ const status = defineCommand({
   positional: ["app"],
   effect: "read",
   routes: [appRuntime],
-  places: ["home", "app"],
+  workspaces: ["home", "app"],
   run: async (input, ctx) => {
     const runtime = await ctx.core.read(appRuntime, input);
     if (!runtime.ok) return runtime;
@@ -224,7 +224,7 @@ const logs = defineCommand({
   positional: ["app"],
   effect: "read",
   routes: [appLogs],
-  places: ["home", "app"],
+  workspaces: ["home", "app"],
   run: async (input, ctx) => {
     const read = await ctx.core.read(appLogs, input);
     if (!read.ok) return read;
@@ -251,7 +251,7 @@ const invocations = defineCommand({
   positional: ["app"],
   effect: "read",
   routes: [appInvocations],
-  places: ["home", "app"],
+  workspaces: ["home", "app"],
   run: async (input, ctx) => {
     const read = await ctx.core.read(appInvocations, input);
     if (!read.ok) return read;

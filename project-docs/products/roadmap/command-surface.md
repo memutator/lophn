@@ -31,13 +31,13 @@
 
 ### lophn agent는 내장 tool 53개를 tool calling으로 쓴다
 
-- `TOOL_ORDER`가 53개다(`packages/core/agent-places/tool-lists.ts`).
+- `TOOL_ORDER`가 53개다(`packages/core/agent-workspaces/tool-lists.ts`).
 - 첫 요청에 실리는 tool 정의(2026-10-29, o200k 기준, `reports/agent-tool-cost-comparison.md`):
 
   | 구성 | tool 수 | 정의 token |
   |---|---|---|
-  | lophn app place, deferral 없음 | 52 | 약 12.7k |
-  | lophn app place, Anthropic deferral | 39 | 약 9.3k |
+  | lophn app workspace, deferral 없음 | 52 | 약 12.7k |
+  | lophn app workspace, Anthropic deferral | 39 | 약 9.3k |
   | Codex, Claude Code | 11 | 약 6.6k |
 
 - 늦게 싣는 길이 셋이다: 공통 `tool.load`/`tool.call`, Anthropic `defer_loading` + `tool_reference`, Claude 구독 profile의 이름 매핑.
@@ -46,7 +46,7 @@
   - 진행 중인 계획 `plan/context-cache`의 `defer` 단위 task `defer-responses`(OpenAI Responses `tool_search`)가 이 위에 쌓인다.
 - 사람에게 묻는 tool은 사실상 `shell.run` 하나다. 앱 tool과 MCP tool은 실행하거나 막기만 한다(`packages/core/approvals/gate/judge.ts`의 `ASK_EXTERNAL_WHEN_ATTENDED = false`). 명령으로 옮길 37개에는 gate가 없다.
 - tool 정의 하나가 지금 들고 있는 것:
-  - route 목록: agent credential의 operation 상한을 여기서 계산한다(`agent-places/credentials.ts`).
+  - route 목록: agent credential의 operation 상한을 여기서 계산한다(`agent-workspaces/credentials.ts`).
   - effect: 같은 batch의 병렬 실행, 실패한 write 뒤 건너뛰기, retry에 쓴다(`run-loop/tool-batch.ts`).
   - `display`: 사람 화면의 줄 제목이다. 11개만 정의했다.
   - 기록 key: `tool_calls`의 tool 이름이다. eval의 `collect/read.ts`와 `versions/components.ts`가 이것으로 센다.
@@ -79,7 +79,7 @@
    - 기준은 "coding agent도 써야 하는가"다. `call`/`reply`/`cancel`/`session.list`도 명령으로 간다(사람).
    - `skill.read`는 native에 둔다(agent). turn 시작 때 agent 정의와 domain으로 거른 snapshot을 읽고(`lophn-agent/extensions/skill-read.ts`), 부를 core route가 없기 때문이다.
 4. **늦게 싣기를 지운다(agent).**
-   - 내장 tool이 place 종류마다 고정된 작은 집합이 되어 숨길 것이 없어진다. 외부 MCP tool은 14번대로 처음부터 싣는다.
+   - 내장 tool이 workspace 종류마다 고정된 작은 집합이 되어 숨길 것이 없어진다. 외부 MCP tool은 14번대로 처음부터 싣는다.
    - 지울 것: `tool.load`, `tool.call`, `defer_loading`·`tool_reference`, `supportsDeferredTools`, `exposedToolNames`.
    - `plan/context-cache`의 `defer-responses`는 하지 않는다.
 5. **명령 하나가 지금 tool 정의 하나가 들던 것을 든다(agent).**
@@ -96,7 +96,7 @@
    - core는 `commands/`와 parser·help만 import하고 `main.ts`·`connection/`은 import하지 않는다. agent runtime에 node 전용 code, harness code, HTTP client가 실리지 않게 하려는 것이다.
    - `packages/coding-agent`에는 harness 감지, hook 설치, `hook` 명령만 남는다.
    - 표를 protocol에 두지 않는다(2026-11-01에 처음 정한 것을 바꾼다). 지금 표가 둘인 것은 protocol 표에 실행 code와 route를 둘 수 없어서다. 표를 protocol에 두면 실행 code가 다른 곳에 생겨 또 둘이 된다. 명령의 모양을 실행 code 없이 읽는 곳도 없다.
-   - 명령 code는 얇게 둔다: route를 부르고 결과를 다듬는 것까지다. 부른 쪽에 따라 달라지는 규칙은 core route로 옮긴다. 같은 명령을 binary가 user token으로도 부르기 때문이다. 예: `app.tools`가 `ctx.domains`로 다른 domain의 비공개 tool을 숨기는 것, `domain.create`가 place에서 owner를 정하는 것.
+   - 명령 code는 얇게 둔다: route를 부르고 결과를 다듬는 것까지다. 부른 쪽에 따라 달라지는 규칙은 core route로 옮긴다. 같은 명령을 binary가 user token으로도 부르기 때문이다. 예: `app.tools`가 `ctx.domains`로 다른 domain의 비공개 tool을 숨기는 것, `domain.create`가 workspace에서 owner를 정하는 것.
    - 같이 고칠 곳: binary 경로를 쓰는 `packages/base/install/linux-install.ts`, `tools/dev.ts`(dev launcher), `tools/doctor/checks.ts`, build packaging, `module-catalog.yaml`·`boundary-catalog.yaml`의 `coding-agent-cli`·`coding-agent-cli-interface`, `architecture/coding-agent.md`·`run.md`·`workflow.md`.
    - 명령마다 이름, 설명, zod 입력, effect, route, positional, 실행 code를 같이 둔다.
    - flag와 help는 입력 schema에서 만든다. 꼴은 `--field value`이고, 복잡한 값은 `--input` JSON으로 받는다.
@@ -110,7 +110,7 @@
    - 그러면 CLI가 user token을 써도, coding agent가 명령으로 자기 물음에 답하거나 job을 승인하지 못한다.
    - coding agent는 처음엔 지금의 `lophn tool call`처럼 user token을 쓰고, 그 호출은 person으로 기록된다. 범위를 좁힌 token은 쓰는 곳이 생기면 만든다.
    - 2026-11-01에 "사람만 하는 route를 뺀 token이 처음부터 있어야 한다"고 한 것을 이렇게 바꾼다. 막을 것은 agent의 실수이고(AGENTS.md), 그 실수가 지나는 길은 명령 표다.
-9. **place가 필요한 명령은 `--app`/`--project`로 받는다(agent).** lophn agent의 `lophn` tool은 session의 place를 채워 넣고, CLI는 flag로 받는다. cwd로 짐작하지 않는다.
+9. **workspace가 필요한 명령은 `--app`/`--project`로 받는다(agent).** lophn agent의 `lophn` tool은 session의 workspace를 채워 넣고, CLI는 flag로 받는다. cwd로 짐작하지 않는다.
 10. **앱은 두 층이다(층을 나누는 것은 사람, 2026-11-01. 세부는 agent).**
     - **앱 내부 operation**: 화면과 앱 자신이 쓰는 저수준 domain 동작이다. agent에게 보이지 않고 할당 후보에도 오르지 않는다. lophn이 아는 것은 이름과 effect뿐이다. effect가 필요한 이유는 write를 core로 보내 changeset을 떠야 하기 때문이다. schema와 설명은 앱 code의 일이다.
     - **바깥 명령**: 앱이 골라 내놓는 API다. `lophn <domain> <command>`로 agent, 다른 앱, job, flow가 부른다. 의미 단위이고 결과가 작다. handler는 앱 code의 domain 함수를 감싼다.
@@ -120,7 +120,7 @@
     - read도 같은 길로 둔다. rewind의 drain이 지켜지고 길이 하나로 남는다.
     - operation은 호출 기록에 tool이 아니라 operation으로 남는다.
     - core는 operation을 사람(화면)과 그 앱 자신만 부르게 하고, agent·다른 앱·job·flow가 부르면 막는다. 두 층을 core가 지키는 자리다.
-    - 예외: 그 앱 place의 session은 preview에서 operation도 부른다. 앱을 짓는 쪽은 화면 operation도 확인해야 하기 때문이다. live에서는 부르지 못한다.
+    - 예외: 그 앱 workspace의 session은 preview에서 operation도 부른다. 앱을 짓는 쪽은 화면 operation도 확인해야 하기 때문이다. live에서는 부르지 못한다.
 12. **화면 operation의 결과 크기는 control frame 한도에 묶지 않는다(agent).**
     - 256 KiB는 전송 한도이지 제품 규칙이 아니다.
     - rewind apply가 이미 bytes frame과 `end`로 큰 본문을 보낸다(`apps.apply`). 화면 결과도 그 꼴로 shell 한도(8 MiB)까지 받는다.
@@ -130,7 +130,7 @@
     - `title`(화면 `ToolButton`이 씀)은 operation 쪽으로 옮긴다. 아무도 검사하지 않는 `outputSchema`, 그리고 `toMcpTool`과 annotation은 지운다.
 14. **외부 MCP tool은 명령으로 옮기지 않고 provider tool로 둔다(사람, 2026-11-01).**
     - 늦게 싣기를 지우므로 사람이 켠 server의 tool은 처음부터 `tools[]`에 실린다. tool이 많은 server를 켜면 첫 요청이 커지고, 이것은 사람이 server를 켜고 끄는 것으로 조절한다.
-    - 그래서 `tools[]`는 place 종류와 MCP 설정으로 정해진다. session 시작 때 목록을 고정하고, 바뀌면 `tools_changed` notice로 알리는 규칙은 MCP tool 때문에 남는다.
+    - 그래서 `tools[]`는 workspace 종류와 MCP 설정으로 정해진다. session 시작 때 목록을 고정하고, 바뀌면 `tools_changed` notice로 알리는 규칙은 MCP tool 때문에 남는다.
 15. **coding agent가 답을 받는 길은 이 roadmap에서 다루지 않는다.**
     - `call`을 보낸 coding agent가 `reply`를 받으려면 session과 inbox가 있어야 한다.
     - 이것은 coding agent를 workflow 참가자로 두는 일(`products/roadmap/workflow.md`)에서 함께 정한다.
@@ -150,7 +150,7 @@
 
 1. **명령 표와 `lophn` tool**
    - 내장 tool 37개를 명령으로 옮기고 늦게 싣기를 지운다.
-   - 내장 skill 8개와 place prompt에 적힌 tool 이름을 고친다. 점 이름이 약 76줄, `ask`/`call` 같은 맨 이름이 약 22곳이다.
+   - 내장 skill 8개와 workspace prompt에 적힌 tool 이름을 고친다. 점 이름이 약 76줄, `ask`/`call` 같은 맨 이름이 약 22곳이다.
    - eval scenario와 check 약 10개, eval registry 기록을 고친다.
 2. **앱 두 층**
    - 선언(operation + 바깥 명령), SDK(`@lophn/cap-tool`, `@lophn/app-ui`), 화면 호출 경로와 큰 결과, 할당과 Grants 화면, `design-app`, app template, `architecture/app-call.md`를 바꾼다.
@@ -159,6 +159,6 @@
 
 ## 끝나면
 
-- lophn agent의 `tools[]`는 place 종류와 MCP 설정으로 정해지고, provider마다 갈리는 길이 없다.
+- lophn agent의 `tools[]`는 workspace 종류와 MCP 설정으로 정해지고, provider마다 갈리는 길이 없다.
 - Claude Code에서 `lophn <domain> <command> --help`와 `lophn release prepare …`를 부르면 lophn agent가 받는 것과 같은 글과 결과가 나온다.
 - Mahas 세션 탭이 500행 넘게 한 번에 그린다. agent에게는 Mahas가 내놓은 명령만 보인다.

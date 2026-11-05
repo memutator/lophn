@@ -18,7 +18,7 @@ import {
   LOPHN_AGENT_ID,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   settle,
   turnsOf,
@@ -63,7 +63,7 @@ test("구독 token으로 model을 한 번 부르고 갱신이 있으면 회전�
     const due = !(expiresBefore - Date.now() > OAUTH_REFRESH_LEAD_MS);
 
     await settle(core);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID);
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
     await say(core, session, "Reply with the single word: ok");
     const turn = await until(
       "turn이 끝남",

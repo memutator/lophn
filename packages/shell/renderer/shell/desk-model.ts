@@ -1,11 +1,11 @@
-// shell의 desk model. place(Home, project, app)마다 desk 여럿이 있고, desk 하나가 tab 줄·group·float·detached를
+// shell의 desk model. workspace(Home, project, app)마다 desk 여럿이 있고, desk 하나가 tab 줄·group·float·detached를
 // 통째로 가진다. 모든 함수는 순수하고 새 값을 돌려준다. 바꿀 수 없으면 같은 참조를 돌려준다.
 //
 // 불변 조건: desk 안에서 tab key는 tabs·floats·detached를 통틀어 한 번만 나온다. `selected`는 tabs의 key다.
 // group은 tabs의 tab 2~4개를 한 칸으로 묶은 값이다. leaf key는 모두 tabs에 있고 tab은 group 하나에만 들며,
 // group의 tab은 tabs에서 leaf 순서(왼쪽·위에서부터)로 붙어 있다. 1개로 줄면 group은 풀린다. `selected`가 group
 // 구성원이면 그 group의 `focus`가 selected다. 모든 변경은 끝에 `settle`을 거쳐 이를 맞춘다.
-import type { Place } from "../../../protocol/lophn-agent/places.ts";
+import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   clampFloatRect,
   type DetachedBounds,
@@ -17,10 +17,10 @@ import {
 
 export type { DetachedBounds, DetachedItem, FloatArea, FloatRect, TabItem };
 
-export type PlaceRef = { kind: "home" } | Place;
+export type WorkspaceRef = { kind: "home" } | Workspace;
 
-/** layout 파일 이름이자 place 구분 key. `home` | project id | app id. */
-export function placeKey(ref: PlaceRef): string {
+/** layout 파일 이름이자 workspace 구분 key. `home` | project id | app id. */
+export function workspaceKey(ref: WorkspaceRef): string {
   return ref.kind === "home" ? "home" : ref.id;
 }
 
@@ -28,7 +28,7 @@ export function placeKey(ref: PlaceRef): string {
 export const MAIN_DESK = "_default";
 export const MAIN_LABEL = "Main";
 
-// main/workspace/place-layout.ts의 상한과 같다. 넘기면 저장이 통째로 거절된다.
+// main/workspace/workspace-layout.ts의 상한과 같다. 넘기면 저장이 통째로 거절된다.
 const FLOATS_MAX = 20;
 const DETACHED_MAX = 20;
 const DESKS_MAX = 200;
@@ -99,16 +99,16 @@ export interface Desk {
 }
 
 /** 빠른 실행. order는 단추 id의 순서, apps는 고정한 앱 panel 화면, hidden은 끈 단추 id다. project layout에 없으면 전역 값이다. */
-export interface PlaceQuick {
+export interface WorkspaceQuick {
   readonly order: readonly string[];
   readonly apps: readonly { readonly app: string; readonly surface: string }[];
   readonly hidden?: readonly string[];
 }
 
-export interface PlaceLayout {
+export interface WorkspaceLayout {
   readonly active: string;
   readonly desks: Readonly<Record<string, Desk>>;
-  readonly quick?: PlaceQuick;
+  readonly quick?: WorkspaceQuick;
 }
 
 export function emptyDesk(key: string, label: string, workflow?: string): Desk {
@@ -124,7 +124,7 @@ export function emptyDesk(key: string, label: string, workflow?: string): Desk {
   };
 }
 
-export function defaultPlaceLayout(): PlaceLayout {
+export function defaultWorkspaceLayout(): WorkspaceLayout {
   return {
     active: MAIN_DESK,
     desks: { [MAIN_DESK]: emptyDesk(MAIN_DESK, MAIN_LABEL) },
@@ -1262,10 +1262,10 @@ export function closeDetached(desk: Desk, key: string): Desk {
 
 /** desk 하나만 바꾼다. 없는 desk거나 같은 값이면 같은 참조다. */
 export function updateDesk(
-  layout: PlaceLayout,
+  layout: WorkspaceLayout,
   key: string,
   change: (desk: Desk) => Desk,
-): PlaceLayout {
+): WorkspaceLayout {
   const desk = layout.desks[key];
   if (desk === undefined) return layout;
   const next = change(desk);
@@ -1279,17 +1279,17 @@ export function entryKey(desk: Desk): string | null {
   return group === null ? desk.selected : groupKey(group);
 }
 
-export function activeDesk(layout: PlaceLayout): Desk {
+export function activeDesk(layout: WorkspaceLayout): Desk {
   return layout.desks[layout.active]!;
 }
 
 /** 새 desk를 더한다. key는 부르는 쪽이 정한다(id 주입). 있는 key거나 상한이면 그대로다. */
 export function addDesk(
-  layout: PlaceLayout,
+  layout: WorkspaceLayout,
   key: string,
   label: string,
   workflow?: string,
-): PlaceLayout {
+): WorkspaceLayout {
   if (
     Object.hasOwn(layout.desks, key) ||
     Object.keys(layout.desks).length >= DESKS_MAX
@@ -1303,10 +1303,10 @@ export function addDesk(
 }
 
 export function renameDesk(
-  layout: PlaceLayout,
+  layout: WorkspaceLayout,
   key: string,
   label: string,
-): PlaceLayout {
+): WorkspaceLayout {
   const name = label.trim();
   if (name.length === 0) return layout;
   return updateDesk(layout, key, (desk) =>
@@ -1314,7 +1314,10 @@ export function renameDesk(
   );
 }
 
-export function setActiveDesk(layout: PlaceLayout, key: string): PlaceLayout {
+export function setActiveDesk(
+  layout: WorkspaceLayout,
+  key: string,
+): WorkspaceLayout {
   if (!Object.hasOwn(layout.desks, key) || layout.active === key) return layout;
   return { ...layout, active: key };
 }
@@ -1323,7 +1326,10 @@ export function setActiveDesk(layout: PlaceLayout, key: string): PlaceLayout {
  * desk 자체만 지운다. 사람이 desk를 끝낼 때 호출자가 tab·float·detached를 먼저 닫은 뒤 부른다(남은 것은 사라진다).
  * Main은 지우지 못한다. 보던 desk면 Main으로 간다.
  */
-export function removeDesk(layout: PlaceLayout, key: string): PlaceLayout {
+export function removeDesk(
+  layout: WorkspaceLayout,
+  key: string,
+): WorkspaceLayout {
   if (key === MAIN_DESK || layout.desks[key] === undefined) return layout;
   const rest = Object.fromEntries(
     Object.entries(layout.desks).filter(([name]) => name !== key),
@@ -1341,9 +1347,9 @@ export function removeDesk(layout: PlaceLayout, key: string): PlaceLayout {
  * group의 leaf는 빠지며 1개가 되면 group은 풀린다. 사람이 끝낸 desk에는 쓰지 않는다(removeDesk).
  */
 export function mergeDeskIntoMain(
-  layout: PlaceLayout,
+  layout: WorkspaceLayout,
   key: string,
-): PlaceLayout {
+): WorkspaceLayout {
   const gone = layout.desks[key];
   if (key === MAIN_DESK || gone === undefined) return layout;
   let main = layout.desks[MAIN_DESK]!;
@@ -1395,7 +1401,7 @@ export function mergeDeskIntoMain(
 
 /** layout 전체에서 key의 tab이 있는 desk와 자리. session 열기가 그 desk로 가는 데 쓴다. active desk를 먼저 본다. */
 export function findTab(
-  layout: PlaceLayout,
+  layout: WorkspaceLayout,
   key: string,
 ): { desk: string; where: TabWhere } | null {
   const order = [
@@ -1411,10 +1417,10 @@ export function findTab(
 
 /** 이미 열린 desk로 가서 열고, 어디에도 없으면 지금 desk에 연다. */
 export function openTabInLayout(
-  layout: PlaceLayout,
+  layout: WorkspaceLayout,
   tab: TabItem,
   options?: OpenOptions,
-): PlaceLayout {
+): WorkspaceLayout {
   const at = findTab(layout, tab.key)?.desk ?? layout.active;
   return updateDesk(setActiveDesk(layout, at), at, (desk) =>
     openTab(desk, tab, options),
@@ -1431,15 +1437,15 @@ export function deskTabs(desk: Desk): TabItem[] {
 }
 
 /** layout 전체의 모든 tab. */
-export function allTabs(layout: PlaceLayout): TabItem[] {
+export function allTabs(layout: WorkspaceLayout): TabItem[] {
   return Object.values(layout.desks).flatMap(deskTabs);
 }
 
 /** 모든 desk의 모든 tab에 change를 적용한다. 바뀐 것이 없으면 layout 그대로다. */
 export function mapLayoutTabs(
-  layout: PlaceLayout,
+  layout: WorkspaceLayout,
   change: (tab: TabItem) => TabItem,
-): PlaceLayout {
+): WorkspaceLayout {
   let changed = false;
   const apply = (tab: TabItem) => {
     const next = change(tab);

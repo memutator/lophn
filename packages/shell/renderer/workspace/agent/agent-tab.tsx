@@ -9,14 +9,14 @@ import {
   type AgentViewHost,
 } from "../../conversation/agent-view.tsx";
 import type { AgentViewSlice } from "../kinds/host.ts";
-import { sourcePlaceOf } from "./tab-fields.ts";
+import { sourceWorkspaceOf } from "./tab-fields.ts";
 import styles from "./agent-tab.module.css";
 
 interface AgentTabProps {
   /** agent id. lophn이거나 `agt_…`다. */
   agent: string;
-  /** 탭을 연 project나 앱. 그 탭 session의 place다. Home이면 null. */
-  place: string | null;
+  /** 탭을 연 project나 앱. 그 탭 session의 workspace다. Home이면 null. */
+  workspace: string | null;
   slice: AgentViewSlice;
   session: string | null;
   onSession: (session: string | null) => void;
@@ -27,15 +27,15 @@ interface AgentTabProps {
 }
 
 export function AgentTab(props: AgentTabProps) {
-  const { agent, place, slice, title, onTitle } = props;
+  const { agent, workspace, slice, title, onTitle } = props;
   // 같은 agent와 자리의 탭은 하나의 source를 쥔다. 다시 그려도 새로 만들지 않는다.
   const source = useMemo(
     () =>
       slice.factory({
         assignment: agent,
-        place: sourcePlaceOf(place),
+        workspace: sourceWorkspaceOf(workspace),
       }),
-    [slice.factory, agent, place],
+    [slice.factory, agent, workspace],
   );
   const latest = useRef({ title, onTitle });
   latest.current = { title, onTitle };

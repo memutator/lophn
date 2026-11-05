@@ -6,7 +6,7 @@ import { t } from "@lophn/i18n";
 import {
   type AgentId,
   LOPHN_AGENT_ID,
-} from "../../../../../../protocol/lophn-agent/places.ts";
+} from "../../../../../../protocol/lophn-agent/workspaces.ts";
 import { commonIcons } from "../../../../icons/mod.ts";
 import {
   Avatar,

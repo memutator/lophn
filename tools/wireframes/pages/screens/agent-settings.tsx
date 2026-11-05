@@ -6,7 +6,7 @@ import {
   AgentGrantsPage,
   AgentModelPickerPage,
   AgentServerFormPage,
-  AppPlaceEditorPage,
+  AppWorkspaceEditorPage,
   LophnEditorPage,
   ProjectAgentsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
@@ -52,11 +52,11 @@ export const agentSettingsArea: Area = {
       render: () => <LophnEditorPage />,
     },
     {
-      id: "agent-settings-app-place",
+      id: "agent-settings-app-workspace",
       title: "Agent settings · agent in an app",
       description:
         "앱 자리에서 연 agent의 설정이다. 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다.",
-      render: () => <AppPlaceEditorPage />,
+      render: () => <AppWorkspaceEditorPage />,
     },
     {
       id: "new-agent-mcp-server-form",
@@ -69,7 +69,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-grants",
       title: "Agent settings · grants",
       description:
-        "agent에게 맡길 것은 앱 하나다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Workspace, project, 이 agent의 Definition)이 할당이라는 한 줄만 있다.",
+        "agent에게 맡길 것은 앱 하나다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Global, project, 이 agent의 Definition)이 할당이라는 한 줄만 있다.",
       render: () => <AgentGrantsPage />,
     },
     {

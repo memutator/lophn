@@ -69,7 +69,7 @@ export function participantsOf(
           : { kind: "human" }
         : {
             agent: p.agent,
-            ...(p.place !== undefined && { place: p.place }),
+            ...(p.workspace !== undefined && { workspace: p.workspace }),
           };
   }
   return out;

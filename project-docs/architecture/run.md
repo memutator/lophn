@@ -49,8 +49,8 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
 시작
 - `StartRun`은 이름을 다 푼 뒤에 session을 열고 run을 만든다. 이름이 안 풀린(`not_found`) 첫 시도는 session도 run도 남기지 않는다.
   - 순서는 run 행(running) → session 열기 → 메시지 넣기다. 열기나 넣기가 실패하면 그 run을 `start_failed`로 닫는다.
-- core 안 시작은 `RunService.start(input, origin?)`다. `origin`은 job 갈래(job, job run, 그 job을 만든 agent와 place)와 instance 갈래(flow instance, `workflow.yaml`의 `agent`와 project place) 가운데 하나이고, tag 없이 `job` 키와 `instance` 키로 가른다(`packages/core/runs/ports.ts`의 `RunOrigin`). 메모리에만 있고 route 입력(`StartRun`)에는 없다. 있으면 run의 `job`이나 `instance` 칸을 채운다. agent run은 `agent_resolved` 갈래도 받는다: 이름을 이미 푼 (agent id, place)를 주므로 이름 풀기를 건너뛴다. job이 만들 때 이름을 풀어 저장해 두기 때문이다. 나머지(session 열기, 입력, 끝을 아는 법)는 같다.
-- agent run은 `agent`(`AgentAddress`: agent 이름과 place, place가 없으면 home)와 `session`(이어 쓸 열린 session) 가운데 정확히 하나를 받는다. 읽을 수 없는 schema, 너무 긴 prompt는 `invalid_input`이다. 호출마다 새 session이고, `session`을 주면 그 session에 이어 넣는다(열린 session이 아니면 `conflict`).
+- core 안 시작은 `RunService.start(input, origin?)`다. `origin`은 job 갈래(job, job run, 그 job을 만든 agent와 workspace)와 instance 갈래(flow instance, `workflow.yaml`의 `agent`와 project workspace) 가운데 하나이고, tag 없이 `job` 키와 `instance` 키로 가른다(`packages/core/runs/ports.ts`의 `RunOrigin`). 메모리에만 있고 route 입력(`StartRun`)에는 없다. 있으면 run의 `job`이나 `instance` 칸을 채운다. agent run은 `agent_resolved` 갈래도 받는다: 이름을 이미 푼 (agent id, workspace)를 주므로 이름 풀기를 건너뛴다. job이 만들 때 이름을 풀어 저장해 두기 때문이다. 나머지(session 열기, 입력, 끝을 아는 법)는 같다.
+- agent run은 `agent`(`AgentAddress`: agent 이름과 workspace, workspace가 없으면 home)와 `session`(이어 쓸 열린 session) 가운데 정확히 하나를 받는다. 읽을 수 없는 schema, 너무 긴 prompt는 `invalid_input`이다. 호출마다 새 session이고, `session`을 주면 그 session에 이어 넣는다(열린 session이 아니면 `conflict`).
 - 보내는 글은 prompt에, 입력 JSON과 "이 JSON Schema에 맞는 JSON 하나만 답하라"는 고정 영어 문장을 붙인 것이다(`runMessageText`).
 - run이 연 session은 열린 채 남는다(`session_opened`). `session`으로 이어 쓴 run은 session을 열지 않는다.
 - 자동 재시도는 없다. 다시 하기는 부르는 쪽의 일이다.
@@ -76,7 +76,7 @@ unattended
 - `RunService.cancelOfInstance(instance)`는 그 instance가 연 running run을 모두 같은 길로 취소한다(best-effort, core 안). flow host가 process를 끝낸 뒤 부른다. 주인 없는 agent run이 계속 돌지 않게 한다.
 
 켤 때와 session 끝
-- 켤 때 입력함은 비고, run 입력은 다시 줄 세우지 않는다(`architecture/place-session.md`). 먼저 `TurnEnded`와 `SessionEnded`를 구독하고 `reconcile`한다. router가 돌던 turn을 닫은 뒤여야 해서 wiring 순서에서 runs는 router 뒤다.
+- 켤 때 입력함은 비고, run 입력은 다시 줄 세우지 않는다(`architecture/workspace-session.md`). 먼저 `TurnEnded`와 `SessionEnded`를 구독하고 `reconcile`한다. router가 돌던 turn을 닫은 뒤여야 해서 wiring 순서에서 runs는 router 뒤다.
   - running인 tool run은 `lophn_restarted`다. 호출의 결과를 알 길이 없다.
   - agent run은 turn을 다시 본다. 끝난 turn이면 그 결과로 닫고, 아직 turn이 가져가지 않았으면 `lophn_restarted`다. 도는 turn은 그 turn의 `TurnEnded`가 끝낸다.
 - job이 연 run도 같다. 끊긴 run은 `lophn_restarted`로 닫히고, 그 job의 job run은 `interrupted`이며 놓친 차례로 친다(`architecture/job.md` "켤 때").
@@ -85,28 +85,28 @@ unattended
 tool run
 - 앱을 id, slug, 이름으로 푼다(없으면 `not_found`). `StartRun`은 run 행을 만들고 기다리지 않고 돌려준다. 호출은 뒤에서 돌고 끝나면 `SettleRun`한다.
 - 부른 쪽은 사람이다. 앱 화면에서 사람이 누르는 것과 같은 길이고 Gate를 거치지 않는다(`architecture/app-call.md`). run은 session이 없고 `view_session`에 run id를 싣는다.
-  - `origin`이 있는 tool run은 사람이 아니다. job이 연 것은 같은 길을 program caller로, flow instance가 연 것은 flow caller로 부른다. 자격은 그 job을 만든 agent와 place, 또는 그 instance의 creator와 project place를 싣는다(`packages/core/main/daemon/wiring/runs.ts`의 `tools.call`). 그 agent의 지금 할당과 domain 거르기를 받고 막히면 run이 `tool_denied`다(`architecture/app-call.md`).
+  - `origin`이 있는 tool run은 사람이 아니다. job이 연 것은 같은 길을 program caller로, flow instance가 연 것은 flow caller로 부른다. 자격은 그 job을 만든 agent와 workspace, 또는 그 instance의 creator와 project workspace를 싣는다(`packages/core/main/daemon/wiring/runs.ts`의 `tools.call`). 그 agent의 지금 할당과 domain 거르기를 받고 막히면 run이 `tool_denied`다(`architecture/app-call.md`).
 - tool 이름이 없는 것은 `StartRun`에서 막지 않는다. run이 `tool_denied`로 실패한다. 선언을 미리 볼 port를 두지 않는 쪽이 단순하다.
 - 성공이면 `done`이고 result가 tool 결과다. 기록이 남지 않은 읽기면 `invocation`이 null이다.
 
 읽기
-- `ListRuns`는 `session`, `agent`, `place`, `state`로 거르고(모두 맞아야 한다) 새것이 앞이며 50개씩 `cursor`로 읽는다. 화면이 session event마다 읽고 뒤에 job이 run을 쌓으므로 거르기는 core가 한다.
-- place는 만들 때 기록한다. agent run은 그 session의 place(home은 없음), tool run은 그 앱이다. `place: {app}` 하나로 그 앱 place의 agent run과 tool run을 같이 읽는다. run 기록의 agent 대상은 `{agent, place}`이고, 거르기용 `runs.agent_key`는 `<agent id>`(home) 또는 `<agent id>@<place id>`다. `ListRuns`의 `agent`는 agent id다.
-  - `session`으로 이어 쓸 때는 그 session을 읽어 agent와 place를 정해 `CreateRun`에 싣는다.
+- `ListRuns`는 `session`, `agent`, `workspace`, `state`로 거르고(모두 맞아야 한다) 새것이 앞이며 50개씩 `cursor`로 읽는다. 화면이 session event마다 읽고 뒤에 job이 run을 쌓으므로 거르기는 core가 한다.
+- workspace는 만들 때 기록한다. agent run은 그 session의 workspace(home은 없음), tool run은 그 앱이다. `workspace: {app}` 하나로 그 앱 workspace의 agent run과 tool run을 같이 읽는다. run 기록의 agent 대상은 `{agent, workspace}`이고, 거르기용 `runs.agent_key`는 `<agent id>`(home) 또는 `<agent id>@<workspace id>`다. `ListRuns`의 `agent`는 agent id다.
+  - `session`으로 이어 쓸 때는 그 session을 읽어 agent와 workspace를 정해 `CreateRun`에 싣는다.
 - run event는 계약에 없다. 화면은 session event 때 다시 읽는다.
 
 CLI와 자격(`architecture/coding-agent.md`)
-- 명령은 `lophn agent run <prompt>`(`--agent`, `--project`, `--app`, `--session`, `--schema`, `--data`, `--async`), `lophn <app> <command>`(앱 command, command의 입력 칸이 flag다), `lophn run wait|show|cancel <run>`이다. `lophn <domain> <command>`는 첫 낱말이 명령 표에 없으면 binary가 사람 자격으로 `domain.list`와 `app.tools`를 읽어 찾고 tool run(`runs.start kind:tool`)으로 부른 뒤 기다린다(`packages/cli/commands/app-command.ts`). 사람은 그 domain의 command를 모두 본다. `--agent`는 agent 이름(없으면 lophn)이고 `--project`나 `--app`이 place(이름이나 id, 둘을 같이 쓰지 않는다, 없으면 home)다. `--session`은 셋과 같이 쓰지 않는다. 이어 쓰는 session의 agent와 place는 열 때 정해졌다. `--schema`는 JSON 글이다.
+- 명령은 `lophn agent run <prompt>`(`--agent`, `--project`, `--app`, `--session`, `--schema`, `--data`, `--async`), `lophn <app> <command>`(앱 command, command의 입력 칸이 flag다), `lophn run wait|show|cancel <run>`이다. `lophn <domain> <command>`는 첫 낱말이 명령 표에 없으면 binary가 사람 자격으로 `domain.list`와 `app.tools`를 읽어 찾고 tool run(`runs.start kind:tool`)으로 부른 뒤 기다린다(`packages/cli/commands/app-command.ts`). 사람은 그 domain의 command를 모두 본다. `--agent`는 agent 이름(없으면 lophn)이고 `--project`나 `--app`이 workspace(이름이나 id, 둘을 같이 쓰지 않는다, 없으면 home)다. `--session`은 셋과 같이 쓰지 않는다. 이어 쓰는 session의 agent와 workspace는 열 때 정해졌다. `--schema`는 JSON 글이다.
 - 결과는 stdout에 낸다. 답이 글이면 그대로, 아니면 JSON이고 `--json`이면 run 전체다. `agent run --async`는 run id(`--json`이면 run)를 내고 바로 끝난다.
 - 종료 코드는 0 성공, 1 internal, 2 invalid_input, 3 unauthorized·forbidden, 4 실패, 5 unavailable, 6 쓰기 응답을 잃음(effect_unknown)이다. 실패하거나 취소된 run은 `--json`이 없으면 stdout을 비우고 stderr에 한 줄(`failed: <reason>: <message>` 또는 `cancelled`)을 쓰고 4로 끝난다. `--json`이면 run을 stdout에 내고 4로 끝난다. `--async`, `run show`, `run cancel`은 명령 자체가 되면 0이다.
 - 자격은 `<data root>/run/user-token`이다. core가 부모가 있을 때 hello frame을 쓰며 같은 token을 0600 file로 쓴다. 켤 때(lock을 잡은 뒤)와 종료, 기동 실패 때 지운다. file을 쓰지 못하면 core는 시작을 멈춘다. file이 없으면 lophn이 꺼진 것이고 CLI는 core를 띄우지 않고 `unavailable`(exit 5)로 끝난다.
-- 명령은 명령 표(`packages/cli/commands/`)의 `packages/cli/commands/run.ts`에 있고 `protocol/runs`의 route를 부른다. 이 명령들은 place 종류가 비어 binary만 부른다.
+- 명령은 명령 표(`packages/cli/commands/`)의 `packages/cli/commands/run.ts`에 있고 `protocol/runs`의 route를 부른다. 이 명령들은 workspace 종류가 비어 binary만 부른다.
 
 화면
 - run이 연 session은 sidebar에 그대로 두지 않고 그 run 아래로 묶어 보인다. 쌓일 session을 그대로 두면 job이 하루에 session을 수십 개 만든다. 묶는 것은 `session_opened`가 true인 run의 session뿐이다. `--session`으로 이어 쓴 session은 원래 자리에 둔다.
-  - project place의 session은 project sidebar의 Background 칸에서, 앱 place의 session은 그 앱 place의 Logs panel에서 묶는다. home의 session은 Home 창의 agent 탭의 것이다. tool run은 session이 없어 run 목록에만 보인다.
+  - project workspace의 session은 project sidebar의 Background 칸에서, 앱 workspace의 session은 그 앱 workspace의 Logs panel에서 묶는다. home의 session은 Home 창의 agent 탭의 것이다. tool run은 session이 없어 run 목록에만 보인다.
   - Agent 탭의 session 목록(session popover)은 모든 session을 찾는 곳이라 run이 연 session도 그대로 보인다.
-- project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `place: { project }`로 읽는다. home의 run은 Home 창의 agent 탭의 것이다. 앱 place는 Logs panel이 열려 있는 동안 `place: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다(`packages/shell/renderer/workspace/core-source.ts`).
+- project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `workspace: { project }`로 읽는다. home의 run은 Home 창의 agent 탭의 것이다. 앱 workspace는 Logs panel이 열려 있는 동안 `workspace: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다(`packages/shell/renderer/workspace/core-source.ts`).
 - job이 연 run 줄(그 job이 아직 있을 때)은 이름 자리에 job 제목을 보이고 agent 이름이나 tool 이름은 둘째 줄이다. 제목은 읽는 곳이 `job.list`로 붙인다(`packages/shell/renderer/workspace/core-source.ts`). 지운 job의 run 줄은 일반 run과 같다.
 - run 줄은 이름 아래에 시작한 시각을 둔다. run 아래에 session 줄이 있으면 running 점은 그 session 줄에만 보인다.
 

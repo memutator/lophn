@@ -15,7 +15,7 @@ import type { SpillableResult } from "../spill.ts";
 import type { ToolContext } from "../tool-context.ts";
 
 // 앱 command를 `lophn <slug> <command>`로 부르는 길이다. 어느 command가 지금 불리는지는 부를 때 정한다: 지금 할당(앱, 뺀 command),
-// 활성 release의 선언, 비공개 규칙(그 앱 place의 session이면 전부, 아니면 public만). 묻기는 run-loop tool gate가, 막기는 core 호출 경로가 하고
+// 활성 release의 선언, 비공개 규칙(그 앱 workspace의 session이면 전부, 아니면 public만). 묻기는 run-loop tool gate가, 막기는 core 호출 경로가 하고
 // invocation 기록, 결과 모름도 core가 다룬다. 정의는 loop가 기록·Gate·retry에 쓰는 것이고 model에는 보이지 않는다.
 
 export const APP_TOOL_CONTRACT = appCallTool.name;

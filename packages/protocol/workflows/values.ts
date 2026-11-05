@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { placeNameSchema } from "../lophn-agent/places.ts";
+import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
 
 export const workflowNameSchema = z
   .string()
@@ -32,12 +32,12 @@ export const stepNextSchema = z.union([stepNameSchema, z.literal(STEP_END)]);
 
 export const participantKeySchema = z.string().min(1).max(63);
 
-// step을 받는 참가자다. agent 이름과 place 이름(없으면 instance의 project)이거나,
+// step을 받는 참가자다. agent 이름과 workspace 이름(없으면 instance의 project)이거나,
 // with의 참가자 session에 사람 차례를 적는 human, 선언만 받고 넘기지 못하는 harness다.
 export const participantSchema = z.union([
   z.strictObject({
     agent: z.string().min(1),
-    place: placeNameSchema.optional(),
+    workspace: workspaceNameSchema.optional(),
   }),
   z.strictObject({ kind: z.literal("human") }),
   z.strictObject({ kind: z.literal("harness") }),

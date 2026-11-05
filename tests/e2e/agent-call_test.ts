@@ -25,9 +25,9 @@ import {
   type AgentId,
   archiveSession,
   LOPHN_AGENT_ID,
-  type Place,
-  placeSessionList,
-  placeSessionRead,
+  type Workspace,
+  workspaceSessionList,
+  workspaceSessionRead,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
@@ -35,7 +35,7 @@ import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   connectFakeProvider,
   decide,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   settle,
@@ -59,7 +59,7 @@ import {
   toolNames,
 } from "../support/fake-server/probe.ts";
 
-// place 종류 셋은 부를 수 있는 명령과 native tool로 가른다.
+// workspace 종류 셋은 부를 수 있는 명령과 native tool로 가른다.
 const HOME: Lane = {
   name: "home",
   match: (r) => lophnCommands(r).includes("app create"),
@@ -129,9 +129,12 @@ function assertNoMismatch(fake: FakeServer) {
 async function sessionIds(
   core: Core,
   agent: AgentId,
-  place: Place | null,
+  workspace: Workspace | null,
 ): Promise<string[]> {
-  const { sessions } = await core.call(placeSessionList, { agent, place });
+  const { sessions } = await core.call(workspaceSessionList, {
+    agent,
+    workspace,
+  });
   return sessions.map((session) => session.id);
 }
 
@@ -139,11 +142,13 @@ async function sessionIds(
 async function opened(
   core: Core,
   agent: AgentId,
-  place: Place | null,
+  workspace: Workspace | null,
   known: string[],
 ): Promise<string> {
   return await until("새 session이 열림", async () =>
-    (await sessionIds(core, agent, place)).find((id) => !known.includes(id)),
+    (await sessionIds(core, agent, workspace)).find(
+      (id) => !known.includes(id),
+    ),
   );
 }
 
@@ -167,7 +172,9 @@ async function callRecord(core: Core, call: string) {
 }
 
 async function archive(core: Core, session: string): Promise<void> {
-  const { session: current } = await core.call(placeSessionRead, { session });
+  const { session: current } = await core.call(workspaceSessionRead, {
+    session,
+  });
   await core.call(
     archiveSession,
     { session },
@@ -187,9 +194,9 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
     const folder = `${run.work}/proj`;
     await mkdir(folder);
     const { project } = await openProject(core, folder);
-    // 받는 쪽은 그 project place의 lophn이다.
-    const atProject: Place = { kind: "project", id: project };
-    const toProject = { agent: "lophn", place: { project: "proj" } };
+    // 받는 쪽은 그 project workspace의 lophn이다.
+    const atProject: Workspace = { kind: "project", id: project };
+    const toProject = { agent: "lophn", workspace: { project: "proj" } };
     const c = core;
     // 실패하면 어느 요청이 어느 줄로 갔고 무엇이 어긋났는지 같이 보인다.
     const step = (name: string, body: () => Promise<void>) =>
@@ -234,7 +241,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           PROJECT,
         );
         const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask the project. LOPHN-ONLY-MARK");
         const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         await waitTurnEnd(c, b);
@@ -277,7 +284,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         );
         fake.script([text("done without a reply")], PROJECT);
         const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask the project");
         const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         await waitTurnEnd(c, b);
@@ -310,7 +317,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script(
           [
             callStep(
-              { agent: "lophn", place: { project: "no-such-project" } },
+              { agent: "lophn", workspace: { project: "no-such-project" } },
               "none",
               "hi",
             ),
@@ -319,7 +326,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           HOME,
         );
         const before = await sessionIds(c, LOPHN_AGENT_ID, atProject);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask a project that does not exist");
         await waitTurnEnd(c, a);
         assertNoMismatch(fake);
@@ -348,14 +355,14 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       "call-closed-session: 닫힌 session으로의 call은 다시 열지 않고 실패한다",
       async () => {
         fake.reset();
-        const b = await openPlaceSession(c, LOPHN_AGENT_ID, atProject);
+        const b = await openWorkspaceSession(c, LOPHN_AGENT_ID, atProject);
         await archive(c, b);
         fake.script(
           [callStep({ session: b }, "none", "hi"), text("it failed")],
           HOME,
         );
         const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask the closed session");
         await waitTurnEnd(c, a);
         assertNoMismatch(fake);
@@ -366,7 +373,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           [result.state, result.fail_reason],
           ["failed", "closed"],
         );
-        assert.ok(String(result.hint).includes("call its agent and place"));
+        assert.ok(String(result.hint).includes("call its agent and workspace"));
         // route: session이 새로 열리지 않았다.
         assert.deepStrictEqual(
           await sessionIds(c, LOPHN_AGENT_ID, atProject),
@@ -384,7 +391,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script([callStep(toProject, "none", "fyi"), text("sent")], HOME);
         fake.script([text("noted")], PROJECT);
         const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "tell lophn at the project");
         const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         await waitTurnEnd(c, b);
@@ -410,7 +417,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
     );
 
     await step(
-      "agent-to-app: test가 만든 agent가 앱 이름으로 앱 place의 lophn을 불러 같은 왕복이 돈다",
+      "agent-to-app: test가 만든 agent가 앱 이름으로 앱 workspace의 lophn을 불러 같은 왕복이 돈다",
       async () => {
         fake.reset();
         const app = await c.call(
@@ -422,7 +429,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           },
           {},
         );
-        const atApp: Place = { kind: "app", id: app.id };
+        const atApp: Workspace = { kind: "app", id: app.id };
         const agent = c.ids.newId("agt");
         await c.call(agentCreate, {
           id: agent,
@@ -431,7 +438,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script(
           [
             callStep(
-              { agent: "lophn", place: { app: "Ledger App" } },
+              { agent: "lophn", workspace: { app: "Ledger App" } },
               "result",
               "need fix",
             ),
@@ -451,7 +458,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           ],
           APP,
         );
-        const o = await openPlaceSession(c, agent, atProject);
+        const o = await openWorkspaceSession(c, agent, atProject);
         await say(c, o, "ask the app");
         const b = await opened(c, LOPHN_AGENT_ID, atApp, []);
         await waitTurnEnd(c, b);
@@ -463,11 +470,11 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           (await callRecord(c, await callOf(c, b))).state,
           "done",
         );
-        // fake: 보낸 쪽의 셋째 요청에 앱 place 쪽의 답이 있다.
+        // fake: 보낸 쪽의 셋째 요청에 앱 workspace 쪽의 답이 있다.
         assert.ok(
           JSON.stringify(lane(fake, "project")[2].body).includes("fixed"),
         );
-        // route: 앱 place의 lophn session이 하나 열렸다.
+        // route: 앱 workspace의 lophn session이 하나 열렸다.
         assert.deepStrictEqual(
           (await sessionIds(c, LOPHN_AGENT_ID, atApp)).length,
           1,
@@ -508,7 +515,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           PROJECT,
         );
         const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask the project");
         const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         const { request } = await waitPermission(c, b);
@@ -559,7 +566,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           PROJECT,
         );
         const known = await sessionIds(c, LOPHN_AGENT_ID, atProject);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask the project");
         const b = await opened(c, LOPHN_AGENT_ID, atProject, known);
         const { request } = await waitPermission(c, b);
@@ -592,7 +599,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       async () => {
         fake.reset();
         const ask = await shellAsk(folder, "inbox-order");
-        const b = await openPlaceSession(c, LOPHN_AGENT_ID, atProject);
+        const b = await openWorkspaceSession(c, LOPHN_AGENT_ID, atProject);
         fake.script(
           [callStep({ session: b }, "none", "call-body-marker"), text("sent")],
           HOME,
@@ -608,7 +615,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         );
         await say(c, b, "write the file");
         const { request } = await waitPermission(c, b);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "tell lophn at the project");
         await waitTurnEnd(c, a);
         const human = (await say(c, b, "human-follow-up")).message;
@@ -649,7 +656,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
       async () => {
         fake.reset();
         const ask = await shellAsk(folder, "restart-lost");
-        const b = await openPlaceSession(c, LOPHN_AGENT_ID, atProject);
+        const b = await openWorkspaceSession(c, LOPHN_AGENT_ID, atProject);
         fake.script(
           [
             callStep({ session: b }, "result", "ping"),
@@ -661,7 +668,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         fake.script([{ reply: ask.reply("w1") }], PROJECT);
         await say(c, b, "write the file");
         await waitPermission(c, b);
-        const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+        const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
         await say(c, a, "ask the project");
         await waitTurnEnd(c, a, 0);
         const call = await callOf(c, b);

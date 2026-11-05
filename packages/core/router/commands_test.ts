@@ -28,16 +28,16 @@ function world() {
   const target = (session: string): TargetSession => ({
     session: session as TargetSession["session"],
     transport: "lophn",
-    agent: { agent: "lophn", place: null },
+    agent: { agent: "lophn", workspace: null },
     accepting: true,
   });
   installRouterEnvironment({
     unattendedTurn: (_view, turn) => MODES[turn] === "unattended",
     deps: () => ({
-      callPolicy: () => ({ places: [], agents: [] }),
+      callPolicy: () => ({ workspaces: [], agents: [] }),
       directory: {
         find: (session) => target(session),
-        resolveAddress: () => ok({ agent: "lophn", place: null }),
+        resolveAddress: () => ok({ agent: "lophn", workspace: null }),
         open: () => ok(target(RECEIVER)),
         accepts: () => null,
         listOpen: () => [],

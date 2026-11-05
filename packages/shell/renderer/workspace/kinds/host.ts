@@ -2,17 +2,21 @@
 // 통로를 건드린다.
 
 import type { FloatRect, TabItem } from "../model.ts";
-import type { Desk, PlaceQuick, PlaceRef } from "../../shell/desk-model.ts";
-import type { ProjectsSource } from "../../desktop/places/projects/source.ts";
+import type {
+  Desk,
+  WorkspaceQuick,
+  WorkspaceRef,
+} from "../../shell/desk-model.ts";
+import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
-import type { PlaceWindowProps } from "../place-window.tsx";
+import type { WorkspaceWindowProps } from "../workspace-window.tsx";
 import type { AgentsSource } from "../agents/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { ArtifactListItem } from "../../../ipc/artifact.ts";
-import type { ArtifactPlace } from "../../../../protocol/projects/artifact.ts";
+import type { ArtifactWorkspace } from "../../../../protocol/projects/artifact.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
@@ -50,17 +54,17 @@ export interface AgentViewSlice {
   openConnections(): void;
   /** 그 session의 agent 탭을 연다. 이 project의 agent가 아니면 열지 않는다. */
   openSession(session: string): void;
-  /** 이 project place에서 열려 있는 lophn session. 없으면 null. */
-  placeLophnSession(): string | null;
+  /** 이 project workspace에서 열려 있는 lophn session. 없으면 null. */
+  workspaceLophnSession(): string | null;
   /** session의 agent 이름. 이 project의 agent가 아니면 undefined. */
   nameOf(session: string): string | undefined;
-  /** 이 창 place(project나 앱)의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
+  /** 이 창 workspace(project나 앱)의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
   readonly artifacts: ArtifactsSlice;
 }
 
 export interface ArtifactsSlice {
   /** 목록의 그릇. Home이면 null이고 link가 없다. */
-  readonly place: ArtifactPlace | null;
+  readonly workspace: ArtifactWorkspace | null;
   readonly items: readonly ArtifactListItem[];
   open(name: string): void;
   /** 목록을 다시 읽는다. agent가 방금 만든 artifact를 알아보려고 쓴다. */
@@ -74,22 +78,22 @@ export interface ProjectSettingsSlice {
   /** 등록을 저장했다. 작업대가 project 이름과 폴더를 다시 읽는다. */
   projectChanged(): void;
   /** 빠른 실행의 순서와 고정. layout 파일의 `quick`이고 없으면 전역 값을 쓴다. */
-  readonly quick: PlaceQuick | undefined;
+  readonly quick: WorkspaceQuick | undefined;
   /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
-  setQuick(next: PlaceQuick | undefined): void;
+  setQuick(next: WorkspaceQuick | undefined): void;
 }
 
 export interface TabHost {
-  /** 이 창이 보이는 place. Home이면 project 폴더가 필요한 kind는 열리지 않는다. */
-  readonly place: PlaceRef;
-  /** place가 project일 때 그 id. Home이면 null이다. */
+  /** 이 창이 보이는 workspace. Home이면 project 폴더가 필요한 kind는 열리지 않는다. */
+  readonly workspace: WorkspaceRef;
+  /** workspace가 project일 때 그 id. Home이면 null이다. */
   readonly projectId: string | null;
   readonly projectTitle: string | undefined;
   /** Explorer가 보이는 연결 폴더. 터미널을 열 때 시작 폴더다. 고른 적이 없으면 undefined(첫 폴더). */
   readonly explorerRoot: string | undefined;
   /** 통로(editor·terminal 등)와 열기 콜백. */
-  readonly props: PlaceWindowProps;
-  /** 앱 place의 이름. 읽기 전에는 undefined. 앱 화면 탭의 제목이다. */
+  readonly props: WorkspaceWindowProps;
+  /** 앱 workspace의 이름. 읽기 전에는 undefined. 앱 화면 탭의 제목이다. */
   readonly appName: string | undefined;
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;

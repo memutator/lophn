@@ -225,13 +225,13 @@ type Late = {
   callerDirectory: CallerDirectory;
   bundleLocator: BundleLocator;
   appViewSignal: AppViewSignal;
-  // apps가 낸다. releases-problems(activation)와 places-sessions(rewind)가 쓴다.
+  // apps가 낸다. releases-problems(activation)와 workspaces-sessions(rewind)가 쓴다.
   appIntake: AppIntake;
   // 앱 tool 호출 길. runs가 앱 tool을 부른다.
   appCallPath: AppToolCallPath;
   invocationLedger: InvocationLedger;
   appRewind: AppRewind;
-  // annotations가 받는 것. Router(places-sessions)가 annotationDelivery를 채운다. 없으면 보내기는 unavailable이다.
+  // annotations가 받는 것. Router(workspaces-sessions)가 annotationDelivery를 채운다. 없으면 보내기는 unavailable이다.
   annotationDelivery: AnnotationDelivery;
   // lophn-agent runtime이 낸다. 메모리 입력함 하나를 Router와 turn source가 나눠 쓴다.
   inbox: Inbox;

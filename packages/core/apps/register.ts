@@ -156,7 +156,6 @@ export function createLedgerRegistration(
       // SDK 안내 원문 읽기다. route만 선언하고 handler는 blob 바이트 통로를 가진 core 조립(runtime)이 붙인다.
       unattachedGuideBodyRead,
     ],
-    // place_names 표는 documents 등록의 몫이다.
     schemaSteps: [
       ...appsSchemaSteps,
       ...releasesSchemaSteps,

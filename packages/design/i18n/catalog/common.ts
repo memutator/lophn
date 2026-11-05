@@ -93,12 +93,12 @@ export const common = {
     "Running terminals will stop and changes that are still being saved may be lost. Apps and scheduled work stop until you open lophn again.",
   "common.stale.label": "Last updated {age}",
   "common.title.agent-failed": "{agent}'s turn failed",
-  "common.title.agent-failed-in": "{agent}'s turn failed · {place}",
+  "common.title.agent-failed-in": "{agent}'s turn failed · {workspace}",
   "common.title.agent-finished": "{agent} finished",
-  "common.title.agent-finished-in": "{agent} finished · {place}",
+  "common.title.agent-finished-in": "{agent} finished · {workspace}",
   "common.title.agent-needs-permission": "{agent} needs permission",
   "common.title.agent-needs-permission-in":
-    "{agent} needs permission · {place}",
+    "{agent} needs permission · {workspace}",
   "common.title.coding-agent-register-failed":
     "Couldn't set up lophn for {harness}",
   "common.title.coding-agent-registered": "lophn is set up for {harness}",

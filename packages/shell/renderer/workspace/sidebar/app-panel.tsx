@@ -1,5 +1,5 @@
-// 앱 place 오른쪽 sidebar의 본문. title bar의 panel icon tab이 고른 panel 하나(Logs)를 `RightSidebar` 틀에 담는다.
-// Logs는 이 앱의 run 기록(tool run과 이 앱 place에서 돈 agent run)이다. 앱 상세는 App details 탭이다.
+// 앱 workspace 오른쪽 sidebar의 본문. title bar의 panel icon tab이 고른 panel 하나(Logs)를 `RightSidebar` 틀에 담는다.
+// Logs는 이 앱의 run 기록(tool run과 이 앱 workspace에서 돈 agent run)이다. 앱 상세는 App details 탭이다.
 import { t } from "@lophn/i18n";
 
 import { shellIcons } from "../../icons/mod.ts";
@@ -9,7 +9,7 @@ import { RightSidebar } from "../../shell/right-sidebar.tsx";
 import type { PanelSession } from "./panel-types.ts";
 import { RunList, type RunRow } from "./run-list.tsx";
 
-export type AppPlaceTab = "logs";
+export type AppWorkspaceTab = "logs";
 
 /** title bar의 panel icon tab. */
 export function appPanelTabs(): readonly PanelTab[] {
@@ -22,13 +22,13 @@ export function appPanelTabs(): readonly PanelTab[] {
   ];
 }
 
-interface AppPlacePanelProps {
-  tab: AppPlaceTab;
+interface AppWorkspacePanelProps {
+  tab: AppWorkspaceTab;
   runs: readonly RunRow[];
   onRunSession: (session: PanelSession) => void;
 }
 
-export function AppPlacePanel(props: AppPlacePanelProps) {
+export function AppWorkspacePanel(props: AppWorkspacePanelProps) {
   const { tab } = props;
   const title = appPanelTabs().find((item) => item.key === tab)?.label ?? "";
   return (

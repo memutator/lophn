@@ -8,7 +8,7 @@ import type { JobAction } from "../../../../../protocol/jobs/values.ts";
 import {
   type AgentId,
   LOPHN_AGENT_ID,
-} from "../../../../../protocol/lophn-agent/places.ts";
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { turnChoicesOf, type WaitingChoice } from "./decide.ts";
 import { type InboxNames, NO_NAMES } from "./names.ts";
@@ -74,22 +74,24 @@ function metaOf(entry: WaitingEntry, names: InboxNames): string {
     entry.agent !== null
       ? agentLabel(entry.agent)
       : t("waiting.label.agent-lophn");
-  const place =
-    entry.place === null
+  const workspace =
+    entry.workspace === null
       ? ""
-      : entry.place.kind === "project"
-        ? (names.projects.get(entry.place.id) ??
-          t("waiting.label.place-project", { id: shortId(entry.place.id) }))
-        : appText(entry.place.id, names);
+      : entry.workspace.kind === "project"
+        ? (names.projects.get(entry.workspace.id) ??
+          t("waiting.label.workspace-project", {
+            id: shortId(entry.workspace.id),
+          }))
+        : appText(entry.workspace.id, names);
   const session =
     entry.session === null
       ? ""
       : t("waiting.label.session", { id: shortId(entry.session) });
   // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다. 앱은 id 대신 이름이다.
   if (entry.kind === "activation") return entry.request.app_name;
-  // 공유 요청은 그 앱 place의 agent가 청했다. session의 agent 이름은 요청에 없어 앱 이름을 보인다.
+  // 공유 요청은 그 앱 workspace의 agent가 청했다. session의 agent 이름은 요청에 없어 앱 이름을 보인다.
   if (entry.kind === "share") return entry.request.app_name;
-  return [who, session, place].filter((part) => part !== "").join(" · ");
+  return [who, session, workspace].filter((part) => part !== "").join(" · ");
 }
 
 const EFFECT_LABELS = {
@@ -114,7 +116,8 @@ const LOSS_LABELS = {
 
 function appText(app: string, names: InboxNames): string {
   return (
-    names.apps.get(app) ?? t("waiting.label.place-app", { id: shortId(app) })
+    names.apps.get(app) ??
+    t("waiting.label.workspace-app", { id: shortId(app) })
   );
 }
 

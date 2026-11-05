@@ -48,9 +48,9 @@ export function matchWhere(c: SentCall, where: CallWhere): boolean {
   );
 }
 
-type NameForm = { agent: string; place?: unknown };
+type NameForm = { agent: string; workspace?: unknown };
 
-// `call.send` 입력의 to 가운데 이름 꼴(`{ agent, place? }`). `{ session }`은 아니다.
+// `call.send` 입력의 to 가운데 이름 꼴(`{ agent, workspace? }`). `{ session }`은 아니다.
 function nameForm(to: unknown): NameForm | null {
   return typeof to === "object" &&
     to !== null &&
@@ -59,14 +59,14 @@ function nameForm(to: unknown): NameForm | null {
     : null;
 }
 
-function placeKindName(place: unknown): [string, string] | null {
-  const p = place as { app?: string; project?: string } | undefined | null;
+function workspaceKindName(workspace: unknown): [string, string] | null {
+  const p = workspace as { app?: string; project?: string } | undefined | null;
   if (p?.app !== undefined) return ["app", p.app];
   if (p?.project !== undefined) return ["project", p.project];
   return null;
 }
 
-const samePlace = (
+const sameWorkspace = (
   want: [string, string] | null,
   got: [string, string] | null,
 ): boolean =>
@@ -74,18 +74,18 @@ const samePlace = (
     ? got === null
     : got !== null && got[0] === want[0] && got[1] === want[1];
 
-// 받는 agent 이름과 place가 같아야 한다. t.place가 없으면 받는 쪽이 home이어야 해서 home의 lophn과
-// 앱·project place의 lophn이 갈린다. 기록이 없으면 `call.send` 입력의 to에 같은 규칙을 쓴다.
+// 받는 agent 이름과 workspace가 같아야 한다. t.workspace가 없으면 받는 쪽이 home이어야 해서 home의 lophn과
+// 앱·project workspace의 lophn이 갈린다. 기록이 없으면 `call.send` 입력의 to에 같은 규칙을 쓴다.
 export function matchTarget(c: SentCall, t: Participant): boolean {
-  const want = placeKindName(t.place);
+  const want = workspaceKindName(t.workspace);
   if (c.receiver_name !== null) {
     const got: [string, string] | null =
-      c.receiver_place === null
+      c.receiver_workspace === null
         ? null
-        : [c.receiver_place.kind, c.receiver_place.name];
-    return c.receiver_name === t.agent && samePlace(want, got);
+        : [c.receiver_workspace.kind, c.receiver_workspace.name];
+    return c.receiver_name === t.agent && sameWorkspace(want, got);
   }
   const to = nameForm(c.to);
   if (to === null || to.agent !== t.agent) return false;
-  return samePlace(want, placeKindName(to.place));
+  return sameWorkspace(want, workspaceKindName(to.workspace));
 }

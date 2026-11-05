@@ -93,7 +93,7 @@ test("MCP 로그인이 발급자 metadata의 끝점으로 client secret과 함�
       Promise.resolve(
         ok([
           {
-            place: null,
+            workspace: null,
             agent: null,
             server: runtimeServerOfLayer(server, null),
           },
@@ -107,7 +107,7 @@ test("MCP 로그인이 발급자 metadata의 끝점으로 client secret과 함�
   const begin = control.handlers.get("agent-mcp-auth/begin")!;
   const begun = (await begin(undefined, {
     name: "notion",
-    place: null,
+    workspace: null,
     agent: null,
     client_id: "client-1",
     scopes: ["read"],
@@ -120,7 +120,7 @@ test("MCP 로그인이 발급자 metadata의 끝점으로 client secret과 함�
   const complete = control.handlers.get("agent-mcp-auth/complete")!;
   await complete(undefined, {
     name: "notion",
-    place: null,
+    workspace: null,
     agent: null,
     callback_port: 4321,
   });
@@ -225,8 +225,8 @@ test("agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 �
     registered: () =>
       Promise.resolve(
         ok([
-          { place: null, agent: AGENT, server: agentServer },
-          { place: null, agent: null, server: globalServer },
+          { workspace: null, agent: AGENT, server: agentServer },
+          { workspace: null, agent: null, server: globalServer },
         ]),
       ),
     vault: createMcpOAuthVault({ secrets }),
@@ -237,7 +237,7 @@ test("agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 �
   const begin = control.handlers.get("agent-mcp-auth/begin")!;
   const begun = (await begin(undefined, {
     name: "notion",
-    place: null,
+    workspace: null,
     agent: AGENT,
     client_id: "client-1",
     scopes: ["read"],
@@ -248,7 +248,7 @@ test("agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 �
   const complete = control.handlers.get("agent-mcp-auth/complete")!;
   const completed = await complete(undefined, {
     name: "notion",
-    place: null,
+    workspace: null,
     agent: AGENT,
     callback_port: 4321,
   });
@@ -262,8 +262,8 @@ test("agent 정의 층 서버의 로그인은 agent id 이름에 보관하고 �
   const state = control.handlers.get("agent-mcp-auth/state")!;
   const read = (await state(undefined, {
     servers: [
-      { name: "notion", place: null, agent: AGENT },
-      { name: "notion", place: null, agent: null },
+      { name: "notion", workspace: null, agent: AGENT },
+      { name: "notion", workspace: null, agent: null },
     ],
   })) as {
     ok: boolean;

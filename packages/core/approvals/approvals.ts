@@ -8,7 +8,10 @@ import {
   turnRequestDecide,
   type TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
-import type { AgentId, Place } from "../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../protocol/lophn-agent/workspaces.ts";
 import type { Bus } from "../events/ports.ts";
 import { judge } from "./gate/mod.ts";
 import type { AlwaysEffect, Approvals } from "./ports.ts";
@@ -16,7 +19,7 @@ import { createTurnRequests } from "./turn-requests.ts";
 
 type ApprovalsDeps = {
   assignmentOf(agent: AgentId): Promise<Result<Pick<Assignment, "entries">>>;
-  shellRules(place: Place | null): ShellRuleLayers;
+  shellRules(workspace: Workspace | null): ShellRuleLayers;
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -43,7 +46,9 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
         if (!loaded.ok) return loaded;
         assignment = loaded.value;
       }
-      return ok(judge(call, assignment, deps.shellRules(who.place), who.mode));
+      return ok(
+        judge(call, assignment, deps.shellRules(who.workspace), who.mode),
+      );
     },
     openTurnRequest: turns.open,
     waitTurnDecision: turns.wait,

@@ -60,7 +60,7 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
       }),
     }),
   ];
-  // place 종류마다 고정되는 이름 목록이다.
+  // workspace 종류마다 고정되는 이름 목록이다.
   const NAMES = {
     home: ["file.read"],
     app: ["file.read", "agent.update"],
@@ -89,7 +89,7 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
   return { ran, asked, context };
 }
 
-test("place 종류의 고정 목록에 없는 tool은 목록에도 실행에도 나오지 않는다", async () => {
+test("workspace 종류의 고정 목록에 없는 tool은 목록에도 실행에도 나오지 않는다", async () => {
   const { ran, context } = fixture();
   const ctx = context("home");
   assert.deepStrictEqual(

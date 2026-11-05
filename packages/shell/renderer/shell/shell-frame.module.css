@@ -80,7 +80,7 @@
 }
 
 /* 최소 폭: panel icon tab 다섯(각 20px)과 오른쪽 sidebar 단추, 창 단추 셋이 들어간다. token 최소폭(200px)보다 크므로
-   tab이 많은 place는 이 값 아래로 좁아지지 않는다(.right도 같은 값). */
+   tab이 많은 workspace는 이 값 아래로 좁아지지 않는다(.right도 같은 값). */
 .shell[data-right="open"] .titleRight {
   width: calc(var(--space-12) * 4 + var(--space-9));
   min-width: calc(var(--space-12) * 4 + var(--space-6));

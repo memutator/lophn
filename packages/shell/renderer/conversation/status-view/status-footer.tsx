@@ -1,4 +1,4 @@
-// composer 아래 줄(place·권한 옆 오른쪽 끝) 24px. 마지막 요청이 창을 얼마나 썼는지, 이 session의 token과 금액을 늘 보이고 누르면 `/status` panel을
+// composer 아래 줄(workspace·권한 옆 오른쪽 끝) 24px. 마지막 요청이 창을 얼마나 썼는지, 이 session의 token과 금액을 늘 보이고 누르면 `/status` panel을
 // 연다. omp의 하단 푸터와 같은 자리이고, 창을 80% 넘게 쓰면 경고색, 90%부터 위험색이다.
 
 import { t } from "@lophn/i18n";

@@ -25,7 +25,7 @@ import {
   rewindSummaryTarget,
 } from "../../../lophn-agent/session/rewind/summary.ts";
 import { appWritesOf } from "../rewind-glue.ts";
-import { placeFoldersOf } from "../place-folders-glue.ts";
+import { workspaceFoldersOf } from "../workspace-folders-glue.ts";
 import {
   createProductRedactor,
   type RewindFilesDeps,
@@ -139,7 +139,7 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
         store,
         foldersOf: (session) => {
           const read = snapshot((lookup) =>
-            placeFoldersOf(lookup, ctx.root.path, session),
+            workspaceFoldersOf(lookup, ctx.root.path, session),
           );
           return read.ok ? read.value : [];
         },

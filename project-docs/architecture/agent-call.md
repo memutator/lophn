@@ -8,10 +8,10 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
  보낸 쪽                                  Router (core/router)                    받는 쪽
  ───────                                  ────────────────────                    ───────
  person (메시지)             ─┐           받는 곳 풀기                        ┌─ lophn session
- lophn call send|reply|cancel  ─┤       ├ 새 session   : agent 이름+place로 하나 │   run-loop 입력함(메모리)
+ lophn call send|reply|cancel  ─┤       ├ 새 session   : agent 이름+workspace로 하나 │   run-loop 입력함(메모리)
  program (알림)              ─┘─ route ─▶ ├ 열린 session : session ID           │
                                           └ 둘 다        : 열려 있으면 거기,    │
-                                            닫혔으면 fallback의 agent+place 새 session ┘
+                                            닫혔으면 fallback의 agent+workspace 새 session ┘
                                           agent_calls 행(storage): agent가 보낸 것만
                                           unattended 표시: 봉투, 입력, 행에 싣는다
 
@@ -34,8 +34,8 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 실패는 조용히 버리지 않고 한 번만 알린다. 보낼 때 바로 아는 배달 실패(not_found, closed)는 agent에게 call tool 결과(`state: failed`, 이유)로만 돌려준다. 배달 뒤에 늦게 아는 실패(receiver_ended: 받은 session이 답 없이 끝남, lophn_restarted)는 tool 결과가 이미 돌아간 뒤라 이유를 붙여 보낸 session에 새 입력으로 돌아간다.
   - 같은 실패를 tool 결과와 입력 둘로 받으면 agent가 두 번 반응한다. 사람이 보낸 쪽이면 오류 코드로 바로 돌려준다. 보낸 session이 이미 없으면 알릴 곳이 없어 둔다.
 - 부를 수 있는 session 목록의 상태는 running, waiting, idle, unknown이다. waiting·unknown은 지금 내는 곳이 없다. lophn session은 reader가 허락 기다림을 못 봐서 running으로 보인다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
-- 부르는 것 자체에는 묻지 않는다. call tool에 Gate가 없다. place 안에서 누구를 부를지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
-- 어느 place에서 어느 place로 부를 수 있는지(시야)는 call 정책이 정한다(사람, 2026-11-04: place마다 agent가 열이면 agent 쌍을 하나하나 고르기엔 경우가 너무 많다). 기본은 모두 허용이다(사람, 2026-11-04: project → 앱의 lophn 같은 lophn 자신의 위임을 program이 고정 표로 막지 않는다. 먼저 있던 기본 거절 표는 agent의 추천이었고 되돌렸다). 사람이 설정 `lophn-agent.call_policy`의 `places`(place 쌍)로 크게 거절하고 `agents`(agent id 쌍)로 그 위에 예외를 둔다. 판정은 agent 쌍 규칙 → place 쌍 규칙 → 기본(허용) 순이고 같은 쌍은 먼저 적힌 것이 이긴다(`packages/protocol/lophn-agent/call-policy.ts` `mayCall`). Router는 agent가 보낸 call만 받는 곳을 푼 뒤 본다(`router.ts` `policyRefusal`, 명함 검사보다 앞). 거절은 `forbidden`이고 tx가 되돌아간다. 설정은 writer Worker가 call마다 data root의 설정 file에서 읽어 바꾸면 다음 call부터 닿는다. 사람은 Settings › Agents의 "Calls between places" 절에서 규칙을 더하고 지운다. 규칙이 없으면 모두 허용이다.
+- 부르는 것 자체에는 묻지 않는다. call tool에 Gate가 없다. workspace 안에서 누구를 부를지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
+- 어느 workspace에서 어느 workspace로 부를 수 있는지(시야)는 call 정책이 정한다(사람, 2026-11-04: workspace마다 agent가 열이면 agent 쌍을 하나하나 고르기엔 경우가 너무 많다). 기본은 모두 허용이다(사람, 2026-11-04: project → 앱의 lophn 같은 lophn 자신의 위임을 program이 고정 표로 막지 않는다. 먼저 있던 기본 거절 표는 agent의 추천이었고 되돌렸다). 사람이 설정 `lophn-agent.call_policy`의 `workspaces`(workspace 쌍)로 크게 거절하고 `agents`(agent id 쌍)로 그 위에 예외를 둔다. 판정은 agent 쌍 규칙 → workspace 쌍 규칙 → 기본(허용) 순이고 같은 쌍은 먼저 적힌 것이 이긴다(`packages/protocol/lophn-agent/call-policy.ts` `mayCall`). Router는 agent가 보낸 call만 받는 곳을 푼 뒤 본다(`router.ts` `policyRefusal`, 명함 검사보다 앞). 거절은 `forbidden`이고 tx가 되돌아간다. 설정은 writer Worker가 call마다 data root의 설정 file에서 읽어 바꾸면 다음 call부터 닿는다. 사람은 Settings › Agents의 "Calls between workspaces" 절에서 규칙을 더하고 지운다. 규칙이 없으면 모두 허용이다.
 - Router는 agent가 보낸 call을 받는 agent의 명함(`architecture/agent-definition.md`)과 대조한다. body의 block(`text` → text, `image` → image, `resource_link`·`resource` → file)이 명함의 입력 modality에 없거나, 답 방식이 명함의 답 방식에 없으면 `invalid_input`이고 글에 받는 agent와 빠진 것을 적는다(`packages/core/router/router.ts` `refusal()`, `SessionDirectory.accepts`). 받는 곳을 푼 뒤, 배달 전에 본다. 거절은 command의 err라 tx가 되돌아가 call 행도 그 사이 연 새 session도 남지 않는다.
   - 사람 메시지, program 알림, workflow step(`from: program`), 답(`router.reply`)은 보지 않는다. 명함을 읽고 고르는 것은 부르는 agent라, 막는 것도 agent의 고르기 실수만이다.
   - model이 이미지를 못 받는 것은 거절하지 않고 명함이 알린다.
@@ -49,7 +49,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 보낸 쪽의 대화 원문은 넘기지 않는다. body와 refs만 간다. body는 redaction을 거친 뒤에만 받는 session 기록에 들어간다.
   - body는 content block 배열이다(`packages/protocol/lophn-agent/content-block.ts`). MCP ContentBlock 꼴인 `text`, `image {mimeType, blob}`, `resource_link`, `resource`이고 사람 메시지(`SendMessage.content`)도 같은 꼴이다. 저장할 때는 block마다 메시지 content의 part 하나가 된다.
   - redaction은 글(text, link, resource text)에만 한다. 이미지는 bytes 대신 blob hash를 싣는다. 본문 상한(240 KiB)에 이미지가 들어가지 않기 때문이다. bytes는 보낸 자격이 먼저 올린 blob이다. 사람은 `message-images/upload`, agent는 `message-images/prepare`로 올린다. command는 같은 transaction에서 그 blob의 참조를 그 이미지를 담은 메시지에 건다.
-  - 넘길 것은 값으로 싣는다. agent는 `lophn call send|reply --image <path>`로 자기 session이 읽을 수 있는 file(file tool과 같은 `resolveInPlace` 검사, 180 KB 이하)을 image block으로 싣는다. 받는 쪽에는 그 file의 읽기 허락이 가지 않는다.
+  - 넘길 것은 값으로 싣는다. agent는 `lophn call send|reply --image <path>`로 자기 session이 읽을 수 있는 file(file tool과 같은 `resolveInWorkspace` 검사, 180 KB 이하)을 image block으로 싣는다. 받는 쪽에는 그 file의 읽기 허락이 가지 않는다.
   - 이미지는 그 blob을 참조하는 메시지가 있는 session에서만 읽힌다(`imageReferenced`). 다른 session은 hash를 알아도 읽지 못한다. 참조를 걸 때 blob store가 현재 자격이 그 hash를 준비했는지 확인하므로, 남의 hash를 자기 메시지에 실어 읽기를 얻을 수도 없다.
   - 고정 문구(늦은 실패 알림, 취소 알림)와 body는 tx 안에서 blob을 만들 수 없어서 command 앞단이 미리 준비해 둔다.
 - `agent_calls` 행은 agent가 보낸 call에만 둔다. 사람 메시지와 reaction(program 알림)은 행이 없다.
@@ -77,7 +77,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고, 본문 blob은 tx 안에서 만들 수 없다.
   - 마지막 응답 읽기는 run의 결과와 같은 함수다(`wiring/turn-answer.ts`의 `turnAnswer`, `architecture/run.md`). 글만 싣는다.
 - 화면의 call 블록은 펼치지 않는다. 머리 줄이 답 방식에 맞는 말(none은 "Handoff to", result는 "Asked", conversation은 "Working with")과 받는 곳이고, 오른쪽 끝 [Open conversation]이 받은 session을 연다. 실패만 그 자리에 이유 한 줄로 보이고, 답과 늦게 안 실패는 이어지는 새 메시지다(`packages/shell/renderer/conversation/thread/call-block.tsx`).
-- call의 `to`는 `{session}`이나 `{agent, place?}`(+ `fallback`)다(`packages/protocol/lophn-agent/calls.ts`). `agent`는 agent 이름이고 place가 없으면 home이다. 이름은 전역에 하나라 하나로 풀린다. `fallback`은 session이 닫혔을 때 열 `{agent, place?}`다. 보낸 이(`from`)는 사람, program, agent session 셋이다.
+- call의 `to`는 `{session}`이나 `{agent, workspace?}`(+ `fallback`)다(`packages/protocol/lophn-agent/calls.ts`). `agent`는 agent 이름이고 workspace가 없으면 home이다. 이름은 전역에 하나라 하나로 풀린다. `fallback`은 session이 닫혔을 때 열 `{agent, workspace?}`다. 보낸 이(`from`)는 사람, program, agent session 셋이다.
 
 ## 왜 이 모양인가
 
@@ -86,7 +86,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **Orleans식 "없으면 만든다"를 버렸다.** session을 여는 것이 token이라 보내는 쪽이 명시해야 한다.
 - **dead letter를 버렸다.** 조용히 버리면 보낸 agent는 일이 진행 중인 줄 안다. Erlang monitor의 DOWN처럼 이유를 돌려준다.
 - **상태는 accepted, done, failed, cancelled 넷이다. `sent`와 `declined`가 없다.** Router가 행 만들기와 입력 넣기를 한 번에 해서 sent로 머무는 때가 없다. declined와 done을 나눠도 program이 다르게 하는 일이 없고, "맡지 않겠다"는 글은 보낸 agent가 읽을 의미다. 그래서 맡지 않을 때도 reply로 이유를 보낸다. 봉투의 여는 방식 칸(tab, tui, headless)도 transport마다 값이 하나뿐이라 뺐다. 되살리고 싶어지면 이 이유를 먼저 본다.
-- **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록(ID와 상태)은 prompt가 아니라 tool result(`session.list`)로만 주어 prompt cache를 깨지 않는다. place prompt의 "Agents you can call"은 ID 없이 agent 이름만 싣고, session이 아직 없는 agent도 넣는다. call이 새 session을 열 수 있기 때문이다. 어느 place에서 열지는 보내는 쪽이 고른다.
+- **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 이름을 주소로 쓰면 겹침 처리가 따로 필요하다. 열린 session 목록(ID와 상태)은 prompt가 아니라 tool result(`session.list`)로만 주어 prompt cache를 깨지 않는다. workspace prompt의 "Agents you can call"은 ID 없이 agent 이름만 싣고, session이 아직 없는 agent도 넣는다. call이 새 session을 열 수 있기 때문이다. 어느 workspace에서 열지는 보내는 쪽이 고른다.
 - **call을 판정하지 않는다.** 예전에는 call tool이 turn 안에서 묻고 Router가 tx 안에서 한 번 더 판정해 둘을 `gate_allowed`로 이었다. 부르는 것을 막아도 받은 agent의 할당이 이미 일을 거르고, 사람이 workflow에서 "call 금지 같은 딱딱한 규칙을 두지 않는다"고 정했다(`project-docs/products/roadmap/approval.md`).
 - **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
 - **넘길 것은 값(content block)으로 싣고 읽기 grant를 만들지 않는다.** call 동안 file을 읽게 해 주는 장치를 두면 grant의 범위와 끝을 따로 관리해야 한다. 값으로 실으면 부른 쪽이 봉투에 실은 것이 곧 불린 agent에게 여는 시야다. block 꼴을 MCP ContentBlock에서 빌린 것은 ACP와 MCP tool 결과가 같은 꼴이라 harness 쪽과 그대로 이어지기 때문이다.

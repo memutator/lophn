@@ -3,13 +3,13 @@ import {
   type Command,
   type CommandCore,
   type CommandResult,
-  commandsForPlace,
+  commandsForWorkspace,
 } from "../../../../cli/commands/mod.ts";
 import { commandLine } from "../../../../cli/parser.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
-import type { PlaceKind } from "../../../../protocol/lophn-agent/places.ts";
+import type { WorkspaceKind } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { type CoreCall, commandOf, readOf } from "../../run-loop/core-call.ts";
-import { resolveInPlace } from "../file/scope.ts";
+import { resolveInWorkspace } from "../file/scope.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { SpillableResult } from "../spill.ts";
 
@@ -70,10 +70,10 @@ function commandTool(command: Command): ToolDefinition {
         core: coreOf(ctx.core),
         // 같은 tool call을 다시 보내도 같은 key라 효과가 한 번이다.
         key: ctx.tool_call,
-        place: ctx.place,
+        workspace: ctx.workspace,
         ...(cwd === undefined ? {} : { cwd }),
         resolveRead: async (path) => {
-          const at = await resolveInPlace(ctx.scope, path, "read");
+          const at = await resolveInWorkspace(ctx.scope, path, "read");
           return at.ok ? ok(at.value.path) : at;
         },
         caller: {
@@ -89,12 +89,12 @@ function commandTool(command: Command): ToolDefinition {
   };
 }
 
-// 그 place 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다. bare는 고른 이름(`only`)만 낸다.
+// 그 workspace 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다. bare는 고른 이름(`only`)만 낸다.
 export function commandTools(
-  kind: PlaceKind,
+  kind: WorkspaceKind,
   only?: ReadonlySet<string>,
 ): readonly ToolDefinition[] {
-  return commandsForPlace(kind)
+  return commandsForWorkspace(kind)
     .filter((command) => only === undefined || only.has(command.name))
     .map(commandTool);
 }

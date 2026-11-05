@@ -7,10 +7,10 @@ import { withReadCommon } from "../base/envelope.ts";
 import { contentBlocksSchema } from "./content-block.ts";
 import {
   agentAddressSchema,
-  agentAtPlaceOutputSchema,
+  agentAtWorkspaceOutputSchema,
   agentIdSchema,
-  placeOutputSchema,
-} from "./places.ts";
+  workspaceOutputSchema,
+} from "./workspaces.ts";
 
 // call은 agent·사람·program이 다른 session에 일을 맡기거나 답하는 봉투다.
 // 보낸 쪽 입력(strict)과 저장·output(느슨한 쪽)을 같은 factory로 만든다.
@@ -129,13 +129,13 @@ export type CallAddressInput = z.infer<typeof callAddressInputSchema>;
 export const callTargetSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("new_session"),
-    agent: agentAtPlaceOutputSchema,
+    agent: agentAtWorkspaceOutputSchema,
   }),
   z.object({ kind: z.literal("open_session"), session: idSchema("ses") }),
   z.object({
     kind: z.literal("open_session_or_new"),
     session: idSchema("ses"),
-    agent: agentAtPlaceOutputSchema,
+    agent: agentAtWorkspaceOutputSchema,
   }),
 ]);
 export type CallTarget = z.infer<typeof callTargetSchema>;
@@ -214,7 +214,7 @@ export const agentCallSendable = defineRead({
           session: idSchema("ses"),
           agent: agentIdSchema,
           name: z.string(),
-          place: placeOutputSchema.nullable(),
+          workspace: workspaceOutputSchema.nullable(),
           state: z.enum(SENDABLE_SESSION_STATES),
         }),
       ),

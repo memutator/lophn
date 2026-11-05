@@ -1,6 +1,6 @@
 # Tool lazy loading 공통화
 
-상태: 구현했다(2026-10-29, `change-log/0.9.0.md`의 "tool 정의를 모든 provider에서 늦게 싣는다"). 공통 경로는 `tool.load` + `tool.call`, native는 Anthropic `defer_loading`이다. 정책은 `agent-places/tool-lists.ts`의 `exposedToolNames`, 동작은 `architecture/agent-definition.md`다. 남은 native 연결(OpenAI Responses `tool_search`)은 `plan/context-cache`의 `defer-responses`다. 아래는 착수 전 계획 기록이다.
+상태: 구현했다(2026-10-29, `change-log/0.9.0.md`의 "tool 정의를 모든 provider에서 늦게 싣는다"). 공통 경로는 `tool.load` + `tool.call`, native는 Anthropic `defer_loading`이다. 정책은 `agent-workspaces/tool-lists.ts`의 `exposedToolNames`, 동작은 `architecture/agent-definition.md`다. 남은 native 연결(OpenAI Responses `tool_search`)은 `plan/context-cache`의 `defer-responses`다. 아래는 착수 전 계획 기록이다.
 
 선행 계약 정리(조회 세 쌍을 `app.read`·`domain.read`·`package.read`로 합치기)는 0.9.0에서 끝났다(`change-log/0.9.0.md`). loader는 그 결과 registry를 입력으로 받는다.
 
@@ -18,7 +18,7 @@
 
 ## 기본 노출 정책 초안
 
-2026-10-29 검토용 제안이다. 현재 이름으로 분류했으며 실제 반영은 계약 정리 뒤에 한다. 이름·개수는 loader의 고정 계약이 아니다. place별 기본 노출 정책을 한 곳에서 정해 최종 catalog의 metadata로 전달하고, loader에 같은 목록을 복사하지 않는다. 현재의 공통 defer 표시와 새 정책을 이중으로 유지하지 않는다.
+2026-10-29 검토용 제안이다. 현재 이름으로 분류했으며 실제 반영은 계약 정리 뒤에 한다. 이름·개수는 loader의 고정 계약이 아니다. workspace별 기본 노출 정책을 한 곳에서 정해 최종 catalog의 metadata로 전달하고, loader에 같은 목록을 복사하지 않는다. 현재의 공통 defer 표시와 새 정책을 이중으로 유지하지 않는다.
 
 기준은 첫 요청부터 자연스럽게 써야 하는 기본 작업·질문·협업·완료 보고를 먼저 보이는 것이다. 관리·설정·특수 조회는 정의를 필요할 때 읽는다. task를 추측하는 자동 분류기나 숨긴 tool을 자동 실행하는 장치는 만들지 않는다.
 

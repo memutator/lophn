@@ -2,7 +2,7 @@ import { z } from "zod";
 import { err, type IdSource, ok, type Result } from "../../base/mod.ts";
 import type { Id, JsonValue } from "../../protocol/base/mod.ts";
 import {
-  type AgentAtPlace,
+  type AgentAtWorkspace,
   MESSAGE_CONTENT_MAX_BYTES,
   serializeMessageContent,
 } from "../../protocol/lophn-agent/mod.ts";
@@ -24,7 +24,7 @@ type StartInput = z.output<typeof runStart.input>;
 // 이름을 이미 푼 agent로 부르는 갈래다. core 안 job만 쓰고 route 입력(runStart)에는 없다.
 type AgentResolvedStart = {
   kind: "agent_resolved";
-  agent: AgentAtPlace;
+  agent: AgentAtWorkspace;
   prompt: string;
   input?: JsonValue;
   schema?: Record<string, JsonValue>;

@@ -3,7 +3,7 @@ import type { Id, JsonValue } from "../../protocol/base/mod.ts";
 import type { ToolCallOutput } from "../../protocol/apps/calls/call.ts";
 import type {
   AgentAddress,
-  AgentAtPlace,
+  AgentAtWorkspace,
   TurnOutcome,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { RunRecord } from "../../protocol/runs/mod.ts";
@@ -20,7 +20,7 @@ export type JobOrigin = {
 // (agent, project)다.
 export type InstanceOrigin = {
   instance: Id<"wfi">;
-  creator: AgentAtPlace;
+  creator: AgentAtWorkspace;
 };
 
 // tag 없이 `job` 키와 `instance` 키로 가른다. jobs wiring이 낸 값을 그대로 두려는 것이다.
@@ -35,10 +35,10 @@ export type TurnOfMessage = {
 // lophn agent를 부르는 port. 구현은 wiring/runs.ts가 끼운다.
 export type RunAgents = {
   // 못 풀면 not_found.
-  resolve(address: AgentAddress): Promise<Result<AgentAtPlace>>;
+  resolve(address: AgentAddress): Promise<Result<AgentAtWorkspace>>;
   // 없으면 not_found, 열린 session이 아니면 conflict.
-  agentOf(session: Id<"ses">): Promise<Result<AgentAtPlace>>;
-  open(agent: AgentAtPlace, session: Id<"ses">): Promise<Result<void>>;
+  agentOf(session: Id<"ses">): Promise<Result<AgentAtWorkspace>>;
+  open(agent: AgentAtWorkspace, session: Id<"ses">): Promise<Result<void>>;
   // unattended로 넣는다.
   send(
     session: Id<"ses">,

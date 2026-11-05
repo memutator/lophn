@@ -38,7 +38,7 @@ export function usePanelTerminals(
     (listener) => store?.subscribe(listener) ?? (() => {}),
     () => store?.version() ?? 0,
   );
-  // place를 옮기면 창의 마지막 값에서 시작한다. 비면 Recent 수가 0에서 다시 차오른다.
+  // workspace를 옮기면 창의 마지막 값에서 시작한다. 비면 Recent 수가 0에서 다시 차오른다.
   const [savedAll, setSavedAll] = useRemembered("savedTerminals");
   const saved =
     (project === null ? undefined : savedAll.get(project)) ?? NO_SAVED;

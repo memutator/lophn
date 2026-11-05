@@ -7,23 +7,23 @@ import type { Participant, TrialRecord } from "../../types.ts";
 export const LOPHN: Participant = { agent: "lophn" };
 export const LOPHN_가계부: Participant = {
   agent: "lophn",
-  place: { app: "가계부" },
+  workspace: { app: "가계부" },
 };
 export const LOPHN_할일: Participant = {
   agent: "lophn",
-  place: { app: "할일" },
+  workspace: { app: "할일" },
 };
 export const LOPHN_캘린더: Participant = {
   agent: "lophn",
-  place: { app: "캘린더" },
+  workspace: { app: "캘린더" },
 };
 export const LOPHN_tax: Participant = {
   agent: "lophn",
-  place: { project: "tax" },
+  workspace: { project: "tax" },
 };
 export const LOPHN_hr: Participant = {
   agent: "lophn",
-  place: { project: "hr" },
+  workspace: { project: "hr" },
 };
 
 // where를 만족하는 첫 call의 본문. 없으면 빈 글(premise가 먼저 떨어져 judge가 안 불린다).

@@ -2,7 +2,7 @@
 // - contract: boundary `router`(result call의 답), `agent-sessions`(bare runtime session). bare가 `call.reply`를 부르지
 //   않아도 turn이 끝나면 마지막 응답 글이 보낸 session의 답으로 한 번 간다(`architecture/agent-call.md`).
 // - 현실적 회귀: bare-reply wiring의 machine scope나 route가 어긋나 `reply_failed` 로그만 남기고 call이 영영 accepted로
-//   남는 것, bare의 system에 제품 규칙이나 place 지침이 새는 것, 고르지 않은 tool(`lophn`)이 실리는 것.
+//   남는 것, bare의 system에 제품 규칙이나 workspace 지침이 새는 것, 고르지 않은 tool(`lophn`)이 실리는 것.
 // - 왜 지금 test로 못 잡나: bare-reply_test는 가짜 port만 본다. 진짜 core의 scope·route·Router 왕복은 process를 건너야 한다.
 //
 // 줄(lane): home은 `app create`를 부르는 lophn, bare는 `lophn` tool이 없고 `file_read`가 있는 요청이다.
@@ -13,13 +13,13 @@ import {
   agentCallRead,
   agentCreate,
   LOPHN_AGENT_ID,
-  placeSessionList,
+  workspaceSessionList,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   until,
   waitTurnEnd,
@@ -77,9 +77,9 @@ function assertNoMismatch(fake: FakeServer) {
 
 async function opened(core: Core, agent: string) {
   return await until("새 session이 열림", async () => {
-    const { sessions } = await core.call(placeSessionList, {
+    const { sessions } = await core.call(workspaceSessionList, {
       agent,
-      place: null,
+      workspace: null,
     });
     return sessions[0]?.id;
   });
@@ -120,7 +120,7 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 한 �
       HOME,
     );
     fake.script([text("the answer is 42")], BARE);
-    const a = await openPlaceSession(c, LOPHN_AGENT_ID);
+    const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
     await say(c, a, "ask the bare agent");
     const b = await opened(c, bare);
     await waitTurnEnd(c, b);

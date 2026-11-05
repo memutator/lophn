@@ -32,7 +32,7 @@ import {
 const LAYER_LABEL: Record<SkillLayer | McpLayer, MessageKey> = {
   builtin: "agents.label.layer-builtin",
   global: "agents.label.layer-global",
-  "place-data": "agents.label.layer-place-data",
+  "workspace-data": "agents.label.layer-workspace-data",
   project: "agents.label.layer-project",
   app: "agents.label.layer-app",
   shared: "agents.label.layer-shared",

@@ -15,7 +15,7 @@ function fakeIo(files: string[]) {
       runs.push(cmd);
       return Promise.resolve({
         code: 0,
-        stdout: '{"place_prompts":{}}',
+        stdout: '{"workspace_prompts":{}}',
         stderr: "",
       });
     },

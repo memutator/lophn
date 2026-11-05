@@ -11,7 +11,7 @@ import {
   connectFakeProvider,
   decide,
   openProject,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   turnsOf,
 } from "../support/core/human.ts";
@@ -32,7 +32,7 @@ test("E2E Gateway에 늦게 붙은 화면은 snapshot으로 대기 중인 허락
     await mkdir(folder);
     const ask = await shellAsk(folder);
     const { project } = await openProject(core, folder);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });

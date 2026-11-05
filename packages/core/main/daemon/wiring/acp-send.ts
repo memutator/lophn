@@ -15,7 +15,7 @@ import {
   sendMessage,
   steerQueuedNow,
 } from "../../../../protocol/lophn-agent/inputs.ts";
-import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { BUILTIN_COMMAND_IDS } from "../../../../protocol/lophn-agent/commands.ts";
 import { blocksOfContent } from "../../../../protocol/lophn-agent/message-content.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
@@ -142,7 +142,7 @@ export function createAcpSend(deps: AcpSendDeps) {
     who: AuthenticatedContext,
     session: string,
   ): Promise<Result<unknown>> => {
-    const read = await deps.read(who, placeSessionRead, { session });
+    const read = await deps.read(who, workspaceSessionRead, { session });
     if (!read.ok) return read;
     return ok(
       (read.value as { session: { state_seq: unknown } }).session.state_seq,

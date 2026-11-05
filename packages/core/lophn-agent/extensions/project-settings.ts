@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
-  type AgentPlace,
+  type AgentWorkspace,
   type McpServer,
   mcpServerSchema,
   projectExtensionSettingsChange,
@@ -20,43 +20,46 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { checkMcpConfig } from "./mcp-config.ts";
-import type { PlaceSkills } from "./skills.ts";
+import type { WorkspaceSkills } from "./skills.ts";
 import {
   dataRootOf,
   fileHash,
-  type PlaceFiles,
+  type WorkspaceFiles,
   type ReadSql,
-} from "./place-store.ts";
+} from "./workspace-store.ts";
 
-// project 층 설정이다. MCP 서버와 끈 skill 이름은 설정 파일 한 파일에 둔다(skill 꾸러미는 place 그릇 자리의 `skills/`에 있다). 앱
-// place에는 이 층이 없다. 파일 IO는 port로 받는다. 설정 변경은 사람만 한다(route actors).
+// project 층 설정이다. MCP 서버와 끈 skill 이름은 설정 파일 한 파일에 둔다(skill 꾸러미는 workspace 그릇 자리의 `skills/`에 있다). 앱
+// workspace에는 이 층이 없다. 파일 IO는 port로 받는다. 설정 변경은 사람만 한다(route actors).
 
-// project 층의 자리 규칙이다. harness는 이 규칙을 모르고 조립이 place 층의 값을 넘긴다.
+// project 층의 자리 규칙이다. harness는 이 규칙을 모르고 조립이 workspace 층의 값을 넘긴다.
 export type ProjectLayer = {
-  // place 그릇 자리(`<data>/projects/<prj>`, `<data>/apps/<app>`)의 skill 꾸러미 폴더다.
-  placeDataSkillsFolder(root: string, place: AgentPlace): string;
-  // root 아래 어느 place의 그릇 자리 `skills/`(그 아래 포함)인지다. path는 `.`·`..`를 접은 절대 경로다.
-  isPlaceDataSkills(root: string, path: string): boolean;
-  // place의 project id다. project 층이 없는 place(앱)는 null이다.
-  projectOf(place: AgentPlace): string | null;
+  // workspace 그릇 자리(`<data>/projects/<prj>`, `<data>/apps/<app>`)의 skill 꾸러미 폴더다.
+  workspaceDataSkillsFolder(root: string, workspace: AgentWorkspace): string;
+  // root 아래 어느 workspace의 그릇 자리 `skills/`(그 아래 포함)인지다. path는 `.`·`..`를 접은 절대 경로다.
+  isWorkspaceDataSkills(root: string, path: string): boolean;
+  // workspace의 project id다. project 층이 없는 workspace(앱)는 null이다.
+  projectOf(workspace: AgentWorkspace): string | null;
   extensionsFile(root: string, project: string): string;
   // project 폴더들이 든 폴더다.
   settingsFolderArea(root: string): string;
   // 그 폴더 안의 이름이 project 폴더면 project id, 아니면 null이다.
   projectIdOfFolder(name: string): string | null;
   // 그 폴더 안의 skill 꾸러미 폴더다.
-  placeSkillsFolder(sourceFolder: string): string;
+  workspaceSkillsFolder(sourceFolder: string): string;
 };
 
-// place 폴더의 `.lophn/skills`를 발견 출처로 바꾼다. 폴더가 없으면 null이다.
-export function placeSkillsOf(
+// workspace 폴더의 `.lophn/skills`를 발견 출처로 바꾼다. 폴더가 없으면 null이다.
+export function workspaceSkillsOf(
   layer: ProjectLayer,
-  place: AgentPlace,
+  workspace: AgentWorkspace,
   sourceFolder: string | null,
-): PlaceSkills | null {
+): WorkspaceSkills | null {
   return sourceFolder === null
     ? null
-    : { source: place.kind, folder: layer.placeSkillsFolder(sourceFolder) };
+    : {
+        source: workspace.kind,
+        folder: layer.workspaceSkillsFolder(sourceFolder),
+      };
 }
 
 // 서버 한 칸, 끈 skill 이름, 이 project에서 끈 전역 서버 이름이다.
@@ -102,7 +105,7 @@ export function parseProjectExtensions(
 }
 
 type ProjectExtensionDeps = {
-  files: PlaceFiles;
+  files: WorkspaceFiles;
   projectLayer: ProjectLayer;
   lookups(sql: ReadSql): { projectExists(project: string): boolean };
   // 없으면 ledger 파일이 있는 폴더가 data root다.

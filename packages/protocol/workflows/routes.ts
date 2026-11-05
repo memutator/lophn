@@ -36,7 +36,7 @@ export const workflowList = defineMemory({
   resource: "workflows",
   method: "list",
   name: "ListWorkflows",
-  // prj id 또는 project 이름. agent가 project place에 있으면 생략한다.
+  // prj id 또는 project 이름. agent가 project workspace에 있으면 생략한다.
   input: z.strictObject({ project: z.string().min(1).optional() }),
   output: z.object({ workflows: z.array(workflowEntrySchema) }),
   actors: ["user", "agent"],

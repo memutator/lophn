@@ -18,7 +18,7 @@ const noop = () => {};
 const FOLDER = `projects/${PROJECT_GROCERY}/artifacts`;
 
 const SLICE: ArtifactsSlice = {
-  place: { kind: "project", id: PROJECT_GROCERY },
+  workspace: { kind: "project", id: PROJECT_GROCERY },
   items: ARTIFACTS,
   open: noop,
   reload: noop,

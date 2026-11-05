@@ -11,7 +11,7 @@
 import { t } from "@lophn/i18n";
 import {
   CALL_POLICY_SETTING_KEY,
-  type CallPlace,
+  type CallWorkspace,
   callPolicySchema,
 } from "../../../../../protocol/lophn-agent/call-policy.ts";
 import { modelDefaultChange } from "../../../../../protocol/lophn-agent/models.ts";
@@ -33,7 +33,7 @@ import type { CoreSource } from "../../connection/connection.ts";
 import {
   readProjects,
   windowFolderPicker,
-} from "../../places/projects/core-source.ts";
+} from "../../workspaces/projects/core-source.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
@@ -104,16 +104,16 @@ function statusOf(
     : "connected";
 }
 
-// 정책의 place는 목록의 option 값(`home`, `project:<id>`, `app:<id>`)으로 바꿔 화면에 건넨다.
-const placeKey = (place: CallPlace): string =>
-  place.kind === "home" ? "home" : `${place.kind}:${place.id}`;
-const placeOfKey = (key: string): CallPlace =>
+// 정책의 workspace는 목록의 option 값(`home`, `project:<id>`, `app:<id>`)으로 바꿔 화면에 건넨다.
+const workspaceKey = (workspace: CallWorkspace): string =>
+  workspace.kind === "home" ? "home" : `${workspace.kind}:${workspace.id}`;
+const workspaceOfKey = (key: string): CallWorkspace =>
   key === "home"
     ? { kind: "home" }
     : ({
         kind: key.slice(0, key.indexOf(":")),
         id: key.slice(key.indexOf(":") + 1),
-      } as CallPlace);
+      } as CallWorkspace);
 
 function callPolicySource(core: CoreSource): CallPolicySource {
   return {
@@ -145,7 +145,7 @@ function callPolicySource(core: CoreSource): CallPolicySource {
       return {
         ok: true,
         value: {
-          places: {
+          workspaces: {
             options: [
               { value: "home", label: t("settings.label.call-home") },
               ...projects.value.map((one) => ({
@@ -157,9 +157,9 @@ function callPolicySource(core: CoreSource): CallPolicySource {
                 label: one.name,
               })),
             ],
-            rules: policy.data.places.map((rule) => ({
-              from: placeKey(rule.from),
-              to: placeKey(rule.to),
+            rules: policy.data.workspaces.map((rule) => ({
+              from: workspaceKey(rule.from),
+              to: workspaceKey(rule.to),
               allow: rule.allow,
             })),
           },
@@ -176,9 +176,9 @@ function callPolicySource(core: CoreSource): CallPolicySource {
 
     write: (next) =>
       chooseSetting(core, CALL_POLICY_SETTING_KEY, {
-        places: next.places.map((rule: CallRule) => ({
-          from: placeOfKey(rule.from),
-          to: placeOfKey(rule.to),
+        workspaces: next.workspaces.map((rule: CallRule) => ({
+          from: workspaceOfKey(rule.from),
+          to: workspaceOfKey(rule.to),
           allow: rule.allow,
         })),
         agents: next.agents,
@@ -317,7 +317,7 @@ export function coreAgentsSettingsSource(
                 ? {}
                 : {
                     login: {
-                      place: null,
+                      workspace: null,
                       agent: null,
                       client_id: auth.client_id ?? "",
                       scopes: auth.scopes ?? [],
@@ -418,7 +418,7 @@ export function coreAgentsSettingsSource(
       const done = await cancelMcpSignIn(link, {
         name: row.name,
         login: {
-          place: row.login?.place ?? null,
+          workspace: row.login?.workspace ?? null,
           agent: row.login?.agent ?? null,
         },
       });

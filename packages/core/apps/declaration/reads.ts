@@ -40,11 +40,11 @@ function notFound(): Result<never> {
   return err({ code: "not_found", message: "app declaration not found" });
 }
 
-// `app.tool_index`. 모든 앱의 command 목록이다. 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: 앱 place의
+// `app.tool_index`. 모든 앱의 command 목록이다. 앱 범위 판정(authorizeApp)을 하지 않는다. 사람이 정했다: 앱 workspace의
 // session도 모든 앱의 목록과 command 목록을 읽는다. 돌려주는 칸이 이것뿐이다.
-// 다른 앱의 비공개 command는 부른 쪽 credential로 거른다: agent는 session이 그 앱 place에 있을 때만 비공개를 보고,
+// 다른 앱의 비공개 command는 부른 쪽 credential로 거른다: agent는 session이 그 앱 workspace에 있을 때만 비공개를 보고,
 // 사람(user)은 모두 본다. 같은 명령을 binary가 user token으로도 부르기 때문에 이 판단은 명령이 아니라 여기서 한다.
-// session의 place가 usage port에 있어서 이 read는 그 port를 가진 등록(apps-usage)에 붙는다.
+// session의 workspace가 usage port에 있어서 이 read는 그 port를 가진 등록(apps-usage)에 붙는다.
 export function createToolIndexRead(
   load: ActiveDeclarationLoader,
 ): ReadDefinition<typeof appToolIndex> {
@@ -53,10 +53,10 @@ export function createToolIndexRead(
     handle(snapshot, ctx, input) {
       const actor = parseActor(ctx.actor);
       const ports = snapshot.port(usagePorts);
-      // session을 읽지 못한 agent는 place가 없는 것으로 본다(public만 보인다).
-      const sessionPlace =
+      // session을 읽지 못한 agent는 workspace가 없는 것으로 본다(public만 보인다).
+      const sessionWorkspace =
         actor?.kind === "agent"
-          ? (ports.sessionPlace(actor.id)?.place ?? null)
+          ? (ports.sessionWorkspace(actor.id)?.workspace ?? null)
           : null;
       const listed =
         input.app === undefined
@@ -76,7 +76,9 @@ export function createToolIndexRead(
         const { declaration } = active.value;
         const visible = declaration.commands.filter((command) => {
           if (command.public || actor?.kind === "user") return true;
-          return sessionPlace?.kind === "app" && sessionPlace.id === app.id;
+          return (
+            sessionWorkspace?.kind === "app" && sessionWorkspace.id === app.id
+          );
         });
         entries.push({
           app: app.id,
@@ -146,7 +148,7 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
               public: command.public,
             }),
           ),
-          // operation은 화면과 그 앱 자신이 쓰는 층이라 agent에게는 보이지 않는다. 예외는 그 앱 place의 session이다
+          // operation은 화면과 그 앱 자신이 쓰는 층이라 agent에게는 보이지 않는다. 예외는 그 앱 workspace의 session이다
           // (preview에서 부를 수 있으니까). 화면을 허용하는 supervisor(machine)와 사람은 모두 본다.
           operations:
             parseActor(ctx.actor)?.kind === "agent" &&

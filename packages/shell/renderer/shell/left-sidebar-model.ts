@@ -1,7 +1,7 @@
-// 왼쪽 sidebar가 그리는 값. 화면은 이 값과 callback만 안다(project 창, 뒤에 Home과 app place가 같이 쓴다).
+// 왼쪽 sidebar가 그리는 값. 화면은 이 값과 callback만 안다(project 창, 뒤에 Home과 app workspace가 같이 쓴다).
 import type { AgentFace } from "../parts/agent-session/agent-session.tsx";
 import type { TabDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
-import type { PlaceRef } from "./desk-model.ts";
+import type { WorkspaceRef } from "./desk-model.ts";
 
 /**
  * session 줄의 종류. lophn agent session, 첫 메시지 전이라 아직 session이 없는 lophn Agent 탭(draft),
@@ -26,8 +26,8 @@ export interface SidebarSession {
 export const sessionKey = (item: Pick<SidebarSession, "kind" | "ref">) =>
   `${item.kind}:${item.ref}`;
 
-export interface SidebarPlace {
-  readonly ref: PlaceRef;
+export interface SidebarWorkspace {
+  readonly ref: WorkspaceRef;
   readonly name: string;
   /** 지금 열려 있거나 도는 session. */
   readonly current: readonly SidebarSession[];

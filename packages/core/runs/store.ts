@@ -1,20 +1,29 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AgentAtPlace, AgentId } from "../../protocol/lophn-agent/mod.ts";
-import type { RunPlace, RunRecord, RunState } from "../../protocol/runs/mod.ts";
+import type {
+  AgentAtWorkspace,
+  AgentId,
+} from "../../protocol/lophn-agent/mod.ts";
+import type {
+  RunWorkspace,
+  RunRecord,
+  RunState,
+} from "../../protocol/runs/mod.ts";
 import { runRecordSchema } from "../../protocol/runs/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
 // ListRuns의 거르기와 CreateRun이 같은 글로 비교하려고 한 함수를 같이 쓴다.
-export function agentKeyOf(agent: AgentAtPlace): string {
-  return agent.place === null
+export function agentKeyOf(agent: AgentAtWorkspace): string {
+  return agent.workspace === null
     ? agent.agent
-    : `${agent.agent}@${agent.place.id}`;
+    : `${agent.agent}@${agent.workspace.id}`;
 }
 
-export function placeKeyOf(place: RunPlace): string {
-  return "project" in place ? `project:${place.project}` : `app:${place.app}`;
+export function workspaceKeyOf(workspace: RunWorkspace): string {
+  return "project" in workspace
+    ? `project:${workspace.project}`
+    : `app:${workspace.app}`;
 }
 
 function nullable<T>(value: T | null | undefined): T | null {
@@ -80,22 +89,24 @@ export function insertRun(
 ): void {
   const target = run.target as RunRecord["target"];
   let agentKey: string | null = null;
-  let placeKey: string | null = null;
+  let workspaceKey: string | null = null;
   if ("agent" in target) {
     agentKey = agentKeyOf(target.agent);
-    const place = target.agent.place;
-    if (place !== null) {
-      placeKey = placeKeyOf(
-        place.kind === "project" ? { project: place.id } : { app: place.id },
+    const workspace = target.agent.workspace;
+    if (workspace !== null) {
+      workspaceKey = workspaceKeyOf(
+        workspace.kind === "project"
+          ? { project: workspace.id }
+          : { app: workspace.id },
       );
     }
   } else {
-    placeKey = placeKeyOf({ app: target.app });
+    workspaceKey = workspaceKeyOf({ app: target.app });
   }
   sql.run(
     `INSERT INTO runs
       (id, kind, target, session, session_opened, input_message, schema, job, instance, state,
-       created_at, state_seq, agent_key, place_key)
+       created_at, state_seq, agent_key, workspace_key)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?, ?, ?, ?)`,
     [
       run.id,
@@ -110,7 +121,7 @@ export function insertRun(
       run.created_at,
       nextStateSeq(sql),
       agentKey,
-      placeKey,
+      workspaceKey,
     ],
   );
 }
@@ -121,7 +132,7 @@ export function listRuns(
   filter: {
     session?: string;
     agent?: AgentId;
-    place?: RunPlace;
+    workspace?: RunWorkspace;
     state?: RunState;
     after?: string;
     limit: number;
@@ -137,9 +148,9 @@ export function listRuns(
     where.push("(agent_key = ? OR agent_key GLOB ?)");
     params.push(filter.agent, `${filter.agent}@*`);
   }
-  if (filter.place !== undefined) {
-    where.push("place_key = ?");
-    params.push(placeKeyOf(filter.place));
+  if (filter.workspace !== undefined) {
+    where.push("workspace_key = ?");
+    params.push(workspaceKeyOf(filter.workspace));
   }
   if (filter.state !== undefined) {
     where.push("state = ?");

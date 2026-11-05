@@ -12,17 +12,17 @@ import {
   type SkillEntry,
 } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import {
-  placeKindOf,
-  type Place,
-} from "../../../../protocol/lophn-agent/places.ts";
+  workspaceKindOf,
+  type Workspace,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type {
   InstructionsApi,
-  InstructionsPlace,
+  InstructionsWorkspace,
 } from "../../../ipc/instructions.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { ReadResult } from "../source.ts";
-import { isAppPlace } from "./agent-key.ts";
+import { isAppWorkspace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
 import type {
   InstructionsFile,
@@ -40,26 +40,28 @@ function detailOf(server: McpServer): string {
     : server.http.url;
 }
 
-/** 자리 id에서 계약의 place를 만든다. 앱 id가 아니면 project다. */
-export const placeOf = (place: string): Place => ({
-  kind: isAppPlace(place) ? "app" : "project",
-  id: place,
+/** 자리 id에서 계약의 workspace를 만든다. 앱 id가 아니면 project다. */
+export const workspaceOf = (workspace: string): Workspace => ({
+  kind: isAppWorkspace(workspace) ? "app" : "project",
+  id: workspace,
 });
 
-/** 이 자리에서 보이는 skill. 내장 skill은 그 place 종류가 가진 것만 보인다. */
+/** 이 자리에서 보이는 skill. 내장 skill은 그 workspace 종류가 가진 것만 보인다. */
 export async function readSkills(
   link: Link,
-  place: string | null,
+  workspace: string | null,
 ): Promise<ReadResult<SkillRow[]>> {
   const result = await link.read<{ skills: SkillEntry[] }>("skills", "read", {
-    ...(place === null
+    ...(workspace === null
       ? {}
-      : isAppPlace(place)
-        ? { app: place }
-        : { project: place }),
+      : isAppWorkspace(workspace)
+        ? { app: workspace }
+        : { project: workspace }),
   });
   if (!result.ok) return result;
-  const kind = placeKindOf(place === null ? null : placeOf(place));
+  const kind = workspaceKindOf(
+    workspace === null ? null : workspaceOf(workspace),
+  );
   return {
     ok: true,
     value: result.value.skills
@@ -68,7 +70,7 @@ export async function readSkills(
           skill.source !== "builtin" ||
           BUILTIN_SKILLS.find(
             (one) => one.name === skill.name,
-          )?.places.includes(kind),
+          )?.workspaces.includes(kind),
       )
       .map((skill) => ({
         name: skill.name,
@@ -94,12 +96,12 @@ async function readGlobalServers(link: Link): Promise<ReadResult<McpServer[]>> {
   };
 }
 
-// 이 자리에서 보이는 server 한 대와 그 층·소유자다. 로그인은 소유자(place 또는 agent 정의)로 부르므로 소유자를
+// 이 자리에서 보이는 server 한 대와 그 층·소유자다. 로그인은 소유자(workspace 또는 agent 정의)로 부르므로 소유자를
 // 함께 든다.
 interface ServerEntry {
   readonly server: McpServer;
   readonly layer: McpLayer;
-  readonly place: Place | null;
+  readonly workspace: Workspace | null;
   readonly agent: string | null;
 }
 
@@ -128,7 +130,7 @@ async function readLogins(
     }>("agent-mcp-auth", "state", {
       servers: asked.map((entry) => ({
         name: entry.server.name,
-        place: entry.place,
+        workspace: entry.workspace,
         agent: entry.agent,
       })),
     });
@@ -139,7 +141,7 @@ async function readLogins(
     if (auth === null) return undefined;
     const state = states[asked.indexOf(entry)];
     return {
-      place: entry.place,
+      workspace: entry.workspace,
       agent: entry.agent,
       client_id: auth.client_id,
       scopes: auth.scopes,
@@ -187,7 +189,7 @@ export async function readAgentServerLogins(
   const entries = servers.map((server) => ({
     server,
     layer: "agent" as const,
-    place: null,
+    workspace: null,
     agent,
   }));
   const logins = await readLogins(link, entries);
@@ -259,11 +261,11 @@ export async function changeProjectSettings(
 /** 이 자리에서 보이는 MCP server: 전역과 project 층. 전역 server를 project에서 끈 것은 꺼진 것으로 보인다. */
 export async function readServers(
   link: Link,
-  place: string | null,
+  workspace: string | null,
 ): Promise<ReadResult<McpRow[]>> {
   const global = await readGlobalServers(link);
   if (!global.ok) return global;
-  if (place === null || isAppPlace(place)) {
+  if (workspace === null || isAppWorkspace(workspace)) {
     return {
       ok: true,
       value: await rowsWithLogins(
@@ -271,17 +273,17 @@ export async function readServers(
         global.value.map((server) => ({
           server,
           layer: "global" as const,
-          place: null,
+          workspace: null,
           agent: null,
         })),
         (entry) => entry.server.enabled,
       ),
     };
   }
-  const project = await readProjectSettings(link, place);
+  const project = await readProjectSettings(link, workspace);
   if (!project.ok) return project;
   const overridden = new Set(project.value.servers.map((one) => one.name));
-  const placeOfProject: Place = { kind: "project", id: place };
+  const workspaceOfProject: Workspace = { kind: "project", id: workspace };
   return {
     ok: true,
     value: await rowsWithLogins(
@@ -292,13 +294,13 @@ export async function readServers(
           .map((server) => ({
             server,
             layer: "global" as const,
-            place: null,
+            workspace: null,
             agent: null,
           })),
         ...project.value.servers.map((server) => ({
           server,
           layer: "project" as const,
-          place: placeOfProject,
+          workspace: workspaceOfProject,
           agent: null,
         })),
       ],
@@ -324,7 +326,7 @@ export async function signInMcpServer(
     "begin",
     {
       name: server.name,
-      place: server.login.place,
+      workspace: server.login.workspace,
       agent: server.login.agent,
       client_id: server.login.client_id,
       scopes: [...server.login.scopes],
@@ -342,14 +344,14 @@ export async function signInMcpServer(
   if (!opened) {
     await link.memory("agent-mcp-auth", "cancel", {
       name: server.name,
-      place: server.login.place,
+      workspace: server.login.workspace,
       agent: server.login.agent,
     });
     return { ok: false, message: "unavailable" };
   }
   const done = await link.memory("agent-mcp-auth", "complete", {
     name: server.name,
-    place: server.login.place,
+    workspace: server.login.workspace,
     agent: server.login.agent,
     callback_port: begun.value.callback_port,
   });
@@ -361,17 +363,17 @@ export function cancelMcpSignIn(
   link: Link,
   server: {
     readonly name: string;
-    readonly login: Pick<McpLogin, "place" | "agent">;
+    readonly login: Pick<McpLogin, "workspace" | "agent">;
   },
 ): Promise<ReadResult<null>> {
   return link.memory("agent-mcp-auth", "cancel", {
     name: server.name,
-    place: server.login.place,
+    workspace: server.login.workspace,
     agent: server.login.agent,
   });
 }
 
-/** Workspace 전역 기본 model. 아직 고르지 않았으면 null이다. */
+/** 전역 기본 model. 아직 고르지 않았으면 null이다. */
 export async function readGlobalModel(
   link: Link,
 ): Promise<ReadResult<ModelChoice | null>> {
@@ -402,7 +404,7 @@ export function windowFiles(): Pick<FilesApi, "read" | "write"> | undefined {
 
 async function instructionsPath(
   instructions: InstructionsApi | undefined,
-  target: InstructionsPlace,
+  target: InstructionsWorkspace,
 ): Promise<string | null> {
   if (instructions === undefined) return null;
   const opened = await instructions.open({ target });
@@ -416,7 +418,7 @@ async function instructionsPath(
 export async function readInstructions(
   instructions: InstructionsApi | undefined,
   files: Pick<FilesApi, "read"> | undefined,
-  target: InstructionsPlace,
+  target: InstructionsWorkspace,
 ): Promise<ReadResult<InstructionsFile>> {
   if (files === undefined) return { ok: false, message: "unavailable" };
   try {
@@ -444,7 +446,7 @@ export async function readInstructions(
 export async function writeInstructions(
   instructions: InstructionsApi | undefined,
   files: Pick<FilesApi, "write"> | undefined,
-  target: InstructionsPlace,
+  target: InstructionsWorkspace,
   text: string,
   hash: string | null,
 ): Promise<ReadResult<InstructionsFile>> {

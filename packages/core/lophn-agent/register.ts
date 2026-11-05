@@ -27,8 +27,8 @@ import {
   messageImageRead,
   HARNESS_HOST_MEMORY_ROUTES,
   messageImageUpload,
-  type Place,
-  placeKindOf,
+  type Workspace,
+  workspaceKindOf,
   QUEUED_INPUT_ROUTES,
   readRewindSummary,
   recordRewindWrite,
@@ -60,7 +60,7 @@ import {
   listAgents,
   loadAgent,
   openAgentContext,
-  type PlaceLookups,
+  type WorkspaceLookups,
   type ProfileAssetDeps,
   type ProfileFileHandler,
   type ProfileImageFiles,
@@ -82,7 +82,7 @@ import {
   type ExtensionRegistry,
   extensionSettings,
   globalMcpServersSetting,
-  type PlaceFiles,
+  type WorkspaceFiles,
   type ProjectLayer,
   readSharedHeads,
   runtimeServerOfLayer,
@@ -112,7 +112,11 @@ import {
 } from "./models/mod.ts";
 import { GLOBAL_SCOPE, loadChoice } from "./models/store.ts";
 import { createTraceReads } from "./observability/mod.ts";
-import { COMMIT_END_DEPS, openDepsOf, UNWIRED_END_DEPS } from "./places/mod.ts";
+import {
+  COMMIT_END_DEPS,
+  openDepsOf,
+  UNWIRED_END_DEPS,
+} from "./workspaces/mod.ts";
 import {
   createProviderCommands,
   createProviderDefinitionsRead,
@@ -175,8 +179,8 @@ import {
 } from "./usage/mod.ts";
 
 // agent runtime 등록 뼈대. child는 lophn 자신의 process라 권한 flag 없이 돈다. 권한은 경계가 아니다
-// (shell.run이 사용자 uid로 /bin/sh를 띄워 우회된다). file tool이 닿는 폴더는 `placeScope`와
-// `resolveInPlace`가 지킨다.
+// (shell.run이 사용자 uid로 /bin/sh를 띄워 우회된다). file tool이 닿는 폴더는 `workspaceScope`와
+// `resolveInWorkspace`가 지킨다.
 export function agentRuntimeLaunchSpec(): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
@@ -246,10 +250,13 @@ function checkCatalog(tx: Tx) {
 }
 
 // model 기본값 저장 검사 deps. 항목은 사람이 적은 정보(user 층)와 derived catalog에서 읽는다.
-function modelCommandDeps(places: PlaceLookups, tx: Tx): ModelCommandDeps {
+function modelCommandDeps(
+  workspaces: WorkspaceLookups,
+  tx: Tx,
+): ModelCommandDeps {
   const base = checkCatalog(tx);
   return {
-    projectExists: (id) => places.projectExists(tx.sql, id),
+    projectExists: (id) => workspaces.projectExists(tx.sql, id),
     definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
     catalogEntry: (providerDefinition, modelName) =>
       checkEntryOf(tx.sql, base, providerDefinition, modelName),
@@ -291,7 +298,7 @@ const conversationCommands = createConversationCommands({
   deleteSessionRecords,
   catalog: checkCatalog,
   eraseBlobRefs,
-  // project와 앱, agent 정의는 wiring이 놓는다(places/environment.ts). 놓기 전에는 새 session을 열지 못한다.
+  // project와 앱, agent 정의는 wiring이 놓는다(workspaces/environment.ts). 놓기 전에는 새 session을 열지 못한다.
   // SessionStarted는 commit 뒤에 Bus로 간다.
   open: openDepsOf,
   // 도는 turn은 session이 끝나는 같은 Tx에서 닫는다. 입력함 비우기와 Bus event는 commit 뒤에 main thread가 한다.
@@ -377,7 +384,7 @@ function settingsOf(sql: Pick<Tx["sql"], "get" | "all">) {
   return root.ok ? createFileSettingsReader(root.value) : undefined;
 }
 
-// 전역(Workspace)에 등록된 외부 MCP server 전부다. 읽지 못하면 빈 목록이다.
+// 전역에 등록된 외부 MCP server 전부다. 읽지 못하면 빈 목록이다.
 function registeredMcpServers(
   sql: Pick<Tx["sql"], "get" | "all">,
 ): McpServer[] {
@@ -393,18 +400,18 @@ function registeredSkillsOff(sql: Pick<Tx["sql"], "get" | "all">): string[] {
   return settingsOf(sql)?.get(skillsOffSetting) ?? [];
 }
 
-// place 층이 정하는 skill 자리와 place 그릇을 읽는 길이다. 조립이 넘긴다.
+// workspace 층이 정하는 skill 자리와 workspace 그릇을 읽는 길이다. 조립이 넘긴다.
 type SkillLayers = {
   projectLayer: ProjectLayer;
   bundledSkillsRoot: string;
-  lookups: PlaceLookups;
+  lookups: WorkspaceLookups;
 };
 
 // 전역 층의 skill 출처다: 사람이 등록한 폴더, data root의 개인 보관소, 설치 묶음의 동봉 폴더.
 function globalSkillSources(
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
-): Omit<SkillSources, "placeData" | "place"> {
+): Omit<SkillSources, "workspaceData" | "workspace"> {
   const root = dataRootOf(sql, undefined);
   return {
     registered: registeredSkillFolders(sql),
@@ -419,13 +426,13 @@ const NODE_EXTENSION_FILES = new URL(
   "./extensions/adapters/node-fs.ts",
   import.meta.url,
 ).href;
-const { createNodePlaceFiles, createNodeSkillFiles } = (await import(
+const { createNodeWorkspaceFiles, createNodeSkillFiles } = (await import(
   NODE_EXTENSION_FILES
 )) as {
-  createNodePlaceFiles(): PlaceFiles;
+  createNodeWorkspaceFiles(): WorkspaceFiles;
   createNodeSkillFiles(): SkillFiles;
 };
-const placeFiles = createNodePlaceFiles();
+const workspaceFiles = createNodeWorkspaceFiles();
 const skillFiles = createNodeSkillFiles();
 
 // 한 읽기에서 쓰는 동기 등록부다: 전역 층에 그 자리 층을 더한 skill·MCP 목록을 준다. data root를
@@ -439,9 +446,9 @@ function extensionRegistry(
   return createExtensionRegistry({
     root: root.value,
     projectLayer: layers.projectLayer,
-    files: placeFiles,
+    files: workspaceFiles,
     skillFiles,
-    sourceFolder: (place) => layers.lookups.sourceFolder(sql, place),
+    sourceFolder: (workspace) => layers.lookups.sourceFolder(sql, workspace),
     global: {
       servers: registeredMcpServers(sql),
       skills: globalSkillSources(sql, layers),
@@ -450,20 +457,20 @@ function extensionRegistry(
   });
 }
 
-function placeExists(
-  places: PlaceLookups,
+function workspaceExists(
+  workspaces: WorkspaceLookups,
   sql: Pick<Tx["sql"], "get" | "all">,
-  place: Place,
+  workspace: Workspace,
 ): boolean {
-  return place.kind === "project"
-    ? places.projectExists(sql, place.id)
-    : places.appExists(sql, place.id);
+  return workspace.kind === "project"
+    ? workspaces.projectExists(sql, workspace.id)
+    : workspaces.appExists(sql, workspace.id);
 }
 
 // agent 정의 저장소가 다른 concern에서 읽는 값이다. 읽기는 snapshot과 Tx가
 // 같은 sql 모양이라 한 factory를 함께 쓴다. data root는 ledger 파일이 있는 폴더다.
 function agentLookups(
-  places: PlaceLookups,
+  workspaces: WorkspaceLookups,
   sql: Pick<Tx["sql"], "get" | "all">,
   layers: SkillLayers,
 ): AgentLookups {
@@ -473,25 +480,25 @@ function agentLookups(
     return registry;
   };
   return {
-    placeExists: (place) => placeExists(places, sql, place),
-    // 이 place의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇 자리의 place-data 층을 더한다. 한 읽기 안에서 같은
-    // place는 같은 목록이다. home(place 없음)은 전역 층만이다.
-    skills: (place) => {
-      return place === null
+    workspaceExists: (workspace) => workspaceExists(workspaces, sql, workspace),
+    // 이 workspace의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇 자리의 workspace-data 층을 더한다. 한 읽기 안에서 같은
+    // workspace는 같은 목록이다. home(workspace 없음)은 전역 층만이다.
+    skills: (workspace) => {
+      return workspace === null
         ? globalSkillNames(sql, layers)
         : (registryOf()
-            ?.skills(place, placeKindOf(place))
+            ?.skills(workspace, workspaceKindOf(workspace))
             .entries.filter((entry) => entry.enabled) ?? []);
     },
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
     // 할당한 앱의 public skill. 이름만 필요한 개수 계산이 쓴다.
     shared: (apps) =>
-      sharedHeadsOf(places, sql, apps).map((head) => ({
+      sharedHeadsOf(workspaces, sql, apps).map((head) => ({
         name: head.name,
         can_disable: true,
       })),
-    sharedCommands: (apps, deny) => places.sharedCommands(sql, apps, deny),
+    sharedCommands: (apps, deny) => workspaces.sharedCommands(sql, apps, deny),
     inputMedia: (model) => {
       const row = sql.get("select definition_key from providers where id = ?", [
         model.provider,
@@ -509,23 +516,23 @@ function agentLookups(
     },
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
-    projectModel: (place) =>
-      place?.kind === "project" ? loadChoice(sql, place.id) : null,
+    projectModel: (workspace) =>
+      workspace?.kind === "project" ? loadChoice(sql, workspace.id) : null,
   };
 }
 
 // 할당한 앱의 public skill 목록이다(slug 순, 같은 이름은 앞의 것). data root를 모르면 없다.
 function sharedHeadsOf(
-  places: PlaceLookups,
+  workspaces: WorkspaceLookups,
   sql: Pick<Tx["sql"], "get" | "all">,
   apps: readonly string[],
-  place: Place | null = null,
+  workspace: Workspace | null = null,
 ) {
   const root = dataRootOf(sql, undefined);
   if (!root.ok || apps.length === 0) return [];
   return sharedFor(
-    readSharedHeads(skillFiles, places.sharedSkills(sql, root.value, apps)),
-    place,
+    readSharedHeads(skillFiles, workspaces.sharedSkills(sql, root.value, apps)),
+    workspace,
   );
 }
 
@@ -614,7 +621,7 @@ const UNATTACHED_REDACT = (): string | null => null;
 
 // GetInstructions는 LOPHN.md와 agent 정의 본문을 파일에서 읽는 reader Worker의 read다. 동기 file API는 core module
 // graph에 들일 수 없어 서빙은 instructions/files.ts의 reader 등록이 한다(core 조립의 팀 file
-// `main/daemon/wiring/instructions-registration.ts`가 project·앱 조회와 place 종류 규칙을 꽂아 reader module로 붙인다). 여기
+// `main/daemon/wiring/instructions-registration.ts`가 project·앱 조회와 workspace 종류 규칙을 꽂아 reader module로 붙인다). 여기
 // handler는 route를 registry에 올릴 뿐 실행되지 않는다.
 function instructionsGetRoute(): ReadDefinition<typeof instructionsGet> {
   return {
@@ -662,11 +669,11 @@ export function createLedgerRegistration(
   };
 }
 
-// 다른 module의 표와 place 층의 값은 이 port로 받는다. core/main의 팀 file(wiring/lophn-agent-team.ts)이 꽂는다.
+// 다른 module의 표와 workspace 층의 값은 이 port로 받는다. core/main의 팀 file(wiring/lophn-agent-team.ts)이 꽂는다.
 // 값은 모두 Worker 안에서 팀 file을 import할 때 만들어진다.
 export type LophnAgentPorts = {
-  lookups: PlaceLookups;
-  // 설정 층 규칙(project 층의 자리)과 내장 skill 폴더다. place 층의 값이다.
+  lookups: WorkspaceLookups;
+  // 설정 층 규칙(project 층의 자리)과 내장 skill 폴더다. workspace 층의 값이다.
   projectLayer: ProjectLayer;
   bundledSkillsRoot: string;
 };
@@ -687,7 +694,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   const agentCommands = createAgentCommands(agentDeps);
   const agentReads = createAgentReads(agentDeps);
 
-  // sql로 agent 정의를 읽는 길이다. wiring이 이것으로 agent 조회를 만들어 places 환경에 끼운다.
+  // sql로 agent 정의를 읽는 길이다. wiring이 이것으로 agent 조회를 만들어 workspaces 환경에 끼운다.
   function openAgents(sql: Pick<Tx["sql"], "get" | "all">) {
     return openAgentContext(agentDeps, sql);
   }
@@ -720,21 +727,22 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   // skills·project extension 설정. project 층은 project의 lophn data 폴더 파일이다.
   const skillsReads = createSkillsRead({
     projectLayer: ports.projectLayer,
-    files: placeFiles,
+    files: workspaceFiles,
     skillFiles,
     lookups: (sql) => ({
       skillSources: () => globalSkillSources(sql, ports),
       skillsOff: () => registeredSkillsOff(sql),
-      placeExists: (place) => placeExists(ports.lookups, sql, place),
-      sourceFolder: (place) => ports.lookups.sourceFolder(sql, place),
+      workspaceExists: (workspace) =>
+        workspaceExists(ports.lookups, sql, workspace),
+      sourceFolder: (workspace) => ports.lookups.sourceFolder(sql, workspace),
     }),
   });
   const projectExtensionDeps = {
     projectLayer: ports.projectLayer,
-    files: placeFiles,
+    files: workspaceFiles,
     lookups: (sql: Pick<Tx["sql"], "get" | "all">) => ({
       projectExists: (id: string) =>
-        placeExists(ports.lookups, sql, { kind: "project", id }),
+        workspaceExists(ports.lookups, sql, { kind: "project", id }),
     }),
   };
   const projectExtensionCommands =
@@ -762,22 +770,30 @@ export function createLophnAgent(ports: LophnAgentPorts) {
   }
 
   // `/` 명령 목록. 목록은 저장하지 않고 session의 agent에서 열 때마다 계산한다. skill은 그 session
-  // place에서 그 agent가 쓸 수 있는 것이다: 전역 층에 그릇 자리의 place-data 층을 더하고, agent 정의가 끈 것은 selected=false다.
-  // 내장 skill은 발견이 place 종류로 거른다.
+  // workspace에서 그 agent가 쓸 수 있는 것이다: 전역 층에 그릇 자리의 workspace-data 층을 더하고, agent 정의가 끈 것은 selected=false다.
+  // 내장 skill은 발견이 workspace 종류로 거른다.
   const commandReads = createCommandReads({
     skills: (sql, session) => {
       const own = ownOf(sql, session.agent);
-      const kind = placeKindOf(session.place);
-      const shared = sharedHeadsOf(ports.lookups, sql, own.apps, session.place);
+      const kind = workspaceKindOf(session.workspace);
+      const shared = sharedHeadsOf(
+        ports.lookups,
+        sql,
+        own.apps,
+        session.workspace,
+      );
       return commandSkillsOf(
-        session.place === null
+        session.workspace === null
           ? discoverSkills(
               skillFiles,
               { ...globalSkillSources(sql, ports), shared },
               { kind, off: registeredSkillsOff(sql) },
             ).entries
-          : (extensionRegistry(sql, ports)?.skills(session.place, kind, shared)
-              .entries ?? []),
+          : (extensionRegistry(sql, ports)?.skills(
+              session.workspace,
+              kind,
+              shared,
+            ).entries ?? []),
         own.skills_off,
       );
     },

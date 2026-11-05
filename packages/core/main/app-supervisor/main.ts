@@ -61,7 +61,7 @@ const slots = new Map<string, number>();
 const dataRoot = process.env.LOPHN_HOME;
 let socketDirectory: string | undefined;
 // 앱의 broker·control socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
-function placeOf(app: string): { broker: string; control: string } {
+function workspaceOf(app: string): { broker: string; control: string } {
   let slot = slots.get(app);
   if (slot === undefined) {
     slot = slots.size;
@@ -86,7 +86,7 @@ function placeOf(app: string): { broker: string; control: string } {
 
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤 새 자식을 띄울 때 지운다.
 function socketPathsOf(app: string): { broker: string; control: string } {
-  const made = placeOf(app);
+  const made = workspaceOf(app);
   for (const path of [made.broker, made.control]) {
     try {
       rmSync(path);

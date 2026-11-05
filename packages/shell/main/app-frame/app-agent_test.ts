@@ -19,8 +19,8 @@ function view(view_session: string, app: string): BoundView {
 }
 
 function setup() {
-  // session id → place
-  const places = new Map<string, unknown>([
+  // session id → workspace
+  const workspaces = new Map<string, unknown>([
     ["ses_other_app", { kind: "app", id: OTHER_APP }],
     ["ses_project", { kind: "project", id: PROJECT }],
     ["ses_home", null],
@@ -31,19 +31,19 @@ function setup() {
     const route = `${resource}/${method}`;
     routes.push(route);
     const input = body as {
-      input?: { id: string; place: unknown };
+      input?: { id: string; workspace: unknown };
       session?: string;
     };
     if (route === "sessions/open") {
-      places.set(input.input!.id, input.input!.place);
+      workspaces.set(input.input!.id, input.input!.workspace);
       return Promise.resolve({ ok: true, value: {} });
     }
     if (route === "sessions/read") {
       return Promise.resolve(
-        places.has(input.session!)
+        workspaces.has(input.session!)
           ? {
               ok: true,
-              value: { session: { place: places.get(input.session!) } },
+              value: { session: { workspace: workspaces.get(input.session!) } },
             }
           : { ok: false, error: { code: "not_found", message: "no" } },
       );
@@ -59,7 +59,7 @@ function setup() {
       return true;
     },
   });
-  return { agent, routes, pushed, places };
+  return { agent, routes, pushed, workspaces };
 }
 
 test("앱 view는 다른 앱이나 project의 session을 읽지도 보내지도 못한다", async () => {
@@ -86,17 +86,17 @@ test("앱 view는 다른 앱이나 project의 session을 읽지도 보내지도 
   assert.equal((await agent.snapshot(mine, { session: "ses_mine" })).ok, true);
 });
 
-test("session은 늘 그 view의 앱 place에 열리고, 갱신은 그 앱 place의 것만 받는다", async () => {
-  const { agent, places, pushed } = setup();
+test("session은 늘 그 view의 앱 workspace에 열리고, 갱신은 그 앱 workspace의 것만 받는다", async () => {
+  const { agent, workspaces, pushed } = setup();
   const mine = view("v1", APP);
   const other = view("v2", OTHER_APP);
-  // 페이지가 place를 주장해도 쓰이지 않는다.
+  // 페이지가 workspace를 주장해도 쓰이지 않는다.
   const opened = await agent.open(mine, { agent: "lophn" });
   assert.equal(
     opened.ok && (opened.value as { session: string }).session,
     "ses_new",
   );
-  assert.deepEqual(places.get("ses_new"), { kind: "app", id: APP });
+  assert.deepEqual(workspaces.get("ses_new"), { kind: "app", id: APP });
 
   await agent.snapshot(other, { session: "ses_other_app" });
   agent.updated({ session: "ses_new", update: 1 });

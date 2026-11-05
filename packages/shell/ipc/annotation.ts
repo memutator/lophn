@@ -23,7 +23,7 @@ export const annotateRemoveRequestSchema = z.strictObject({
   view_session: viewSession,
   n: z.union([z.number().int().min(1), z.literal("all")]),
 });
-// agent는 앱 공간 agent pane이 보이는 agent(없으면 lophn)이고 session은 그 agent의 이 앱 place session이다.
+// agent는 앱 공간 agent pane이 보이는 agent(없으면 lophn)이고 session은 그 agent의 이 앱 workspace session이다.
 // 없으면 null이라 core가 새로 연다. agent는 protocol의 AgentId 사본이다.
 const agentId = z.union([
   z.literal("lophn"),

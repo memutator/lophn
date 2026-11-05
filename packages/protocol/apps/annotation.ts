@@ -4,7 +4,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead, defineUpload } from "../base/route.ts";
 import { sha256Schema } from "../base/values.ts";
-import { agentIdSchema } from "../lophn-agent/places.ts";
+import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 import { preparedBlobSchema } from "../storage/blob.ts";
 import {
   appIdSchema,
@@ -146,9 +146,9 @@ export const annotationUploadScreenshot = defineUpload({
 
 // 묶음 하나를 target의 받는 쪽에게 사람 메시지로 보낸다. Router 전달이
 // 비동기라 ledger command가 아니라 memory route다. 저장은 core의 annotation module이 한다.
-// app이면 agent(없으면 lophn)의 그 앱 place session이고, session이 null이면 새로 연다.
-// artifact이면 그 artifact를 마지막으로 쓴 열린 session이고, 없으면 그 그릇 place의 lophn session이다.
-// file이면 그 project place의 lophn session이다.
+// app이면 agent(없으면 lophn)의 그 앱 workspace session이고, session이 null이면 새로 연다.
+// artifact이면 그 artifact를 마지막으로 쓴 열린 session이고, 없으면 그 그릇 workspace의 lophn session이다.
+// file이면 그 project workspace의 lophn session이다.
 export const annotationSendInputSchema = z
   .strictObject({
     target: annotationTargetSchema,

@@ -9,7 +9,7 @@ kind: bug
 modules: [packages/shell/renderer]
 ```
 
-지금(uo-home 전): home(place 없음) session은 런처의 lophn 패널에서만 열었고 패널은 lophn source 하나만 만들었다. 패널은 없어졌고 Home session은 agent 탭으로 열린다(`packages/shell/renderer/desktop/main.tsx`의 `openSession` → Home의 `PlaceWindow`가 `agentRow`로 그 session의 agent를 찾아 연다). 다른 agent의 Home session이 맞게 열리는지 확인하고 닫는다. 사람이 만든 agent의 home session(place 없는 `call`, job의 `agent_run`, CLI `lophn agent run --agent <이름>`이 연다)을 열면 그 session을 lophn의 source로 읽는다.
+지금(uo-home 전): home(workspace 없음) session은 런처의 lophn 패널에서만 열었고 패널은 lophn source 하나만 만들었다. 패널은 없어졌고 Home session은 agent 탭으로 열린다(`packages/shell/renderer/desktop/main.tsx`의 `openSession` → Home의 `WorkspaceWindow`가 `agentRow`로 그 session의 agent를 찾아 연다). 다른 agent의 Home session이 맞게 열리는지 확인하고 닫는다. 사람이 만든 agent의 home session(workspace 없는 `call`, job의 `agent_run`, CLI `lophn agent run --agent <이름>`이 연다)을 열면 그 session을 lophn의 source로 읽는다.
 
 영향: 사람이 그 session을 열면 머리와 composer가 lophn 이름과 얼굴을 보이고, session 목록에도 lophn의 session만 보여 그 agent의 대화를 찾기 어렵다.
 

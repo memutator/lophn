@@ -1,5 +1,5 @@
 // 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`,
-// `lophnApp.openExternal`, 앱 place의 agent session 길(`agent`)과 자기 탭 머리 줄(`setTabHead`·`onTabHead`)만 열고, 다른 앱·shell API·token·임의
+// `lophnApp.openExternal`, 앱 workspace의 agent session 길(`agent`)과 자기 탭 머리 줄(`setTabHead`·`onTabHead`)만 열고, 다른 앱·shell API·token·임의
 // method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
 import type { Result } from "../../base/result.ts";

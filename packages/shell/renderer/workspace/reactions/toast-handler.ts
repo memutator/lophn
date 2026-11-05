@@ -1,4 +1,4 @@
-// place 창이 보이는 동안 toast 행동 처리기를 등록한다. 이 창이 처리하지 못하는 것(다른 project, 앱 공간)은
+// workspace 창이 보이는 동안 toast 행동 처리기를 등록한다. 이 창이 처리하지 못하는 것(다른 project, 앱 공간)은
 // false를 돌려 기본 처리기가 다른 화면으로 가서 열게 한다.
 import { useEffect, useRef } from "react";
 
@@ -9,7 +9,7 @@ import {
 } from "../../desktop/connection/toasts/toast-actions.ts";
 
 interface ReactionHost {
-  /** 이 place의 session이면 그 Agent 탭을 열고 true. 아니면 false. */
+  /** 이 workspace의 session이면 그 Agent 탭을 열고 true. 아니면 false. */
   openSession(session: string): boolean;
 }
 

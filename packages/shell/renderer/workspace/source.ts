@@ -1,7 +1,7 @@
 // 작업대가 읽는 통로. projects get·문서 목록 read 결과와
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
-import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { FileFailure } from "../../ipc/files.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
@@ -44,7 +44,7 @@ export type FileOpResult =
 
 /** `runs/list`의 거르기 칸. 같은 이름의 `ListRuns` 입력으로 간다. */
 export interface RunFilter {
-  readonly place?: { readonly project: string } | { readonly app: string };
+  readonly workspace?: { readonly project: string } | { readonly app: string };
   readonly agent?: AgentId;
 }
 
@@ -167,13 +167,13 @@ export interface WorkflowInstanceView {
   readonly workflow: string;
   readonly input: string;
   readonly state: WorkflowState;
-  /** workflow.yaml의 참가자. agent는 agent 이름이고 place가 없으면 instance의 project다. */
+  /** workflow.yaml의 참가자. agent는 agent 이름이고 workspace가 없으면 instance의 project다. */
   readonly participants: Readonly<
     Record<
       string,
       | {
           readonly agent: string;
-          readonly place?:
+          readonly workspace?:
             | { readonly project: string }
             | { readonly app: string };
         }
@@ -273,6 +273,6 @@ export interface WorkspaceSource {
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
-  /** place(project)의 desk layout 읽기와 저장. */
+  /** workspace(project)의 desk layout 읽기와 저장. */
   readonly layout: LayoutSource;
 }

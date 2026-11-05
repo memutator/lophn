@@ -30,7 +30,7 @@ import { tabKindOf } from "../kinds/registry.ts";
 import type { TabHost } from "../kinds/host.ts";
 import type { TabItem } from "../model.ts";
 import { deskTabs, emptyDesk, type Desk } from "../../shell/desk-model.ts";
-import type { PlaceWindowProps } from "../place-window.tsx";
+import type { WorkspaceWindowProps } from "../workspace-window.tsx";
 import styles from "./detached-space.module.css";
 
 interface DetachedSpaceProps {
@@ -140,7 +140,7 @@ function DetachedTab({
   // 앱 화면을 여는 길(Settings 등)은 이 창에 없다.
   const noop = () => {};
   const { agentView, agents, keeps, webviews } = useTabHostSlices({
-    place: { kind: "project", id: project },
+    workspace: { kind: "project", id: project },
     source: workspace,
     agentViewSource,
     terminalStore: terminal?.store,
@@ -160,8 +160,8 @@ function DetachedTab({
     [tab],
   );
 
-  const hostProps: PlaceWindowProps = {
-    place: { kind: "project", id: project },
+  const hostProps: WorkspaceWindowProps = {
+    workspace: { kind: "project", id: project },
     source: workspace,
     windowWidth: globalThis.innerWidth,
     onHome: noop,
@@ -172,7 +172,7 @@ function DetachedTab({
   };
 
   const host: TabHost = {
-    place: { kind: "project", id: project },
+    workspace: { kind: "project", id: project },
     projectId: project,
     projectTitle: projectView?.title,
     explorerRoot: undefined,

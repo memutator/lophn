@@ -44,10 +44,10 @@ test("옛 skills를 옮긴 뒤에도 agent가 받는 skill 집합이 같다", as
       `${root}/domains/${DOM_A}/skills`,
       `${root}/domains/${DOM_B}/skills`,
     ]
-      .flatMap((placeData, at) =>
+      .flatMap((workspaceData, at) =>
         discoverSkills(
           createNodeSkillFiles(),
-          { ...sources, placeData },
+          { ...sources, workspaceData },
           { kind: null, off: [] },
         ).entries.map((one) => ({ ...one, mine: at !== 2 })),
       )

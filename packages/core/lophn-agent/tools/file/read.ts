@@ -5,7 +5,7 @@ import { openableKind } from "../../../../protocol/projects/openable-format.ts";
 import { continuation } from "../bundles/paging.ts";
 import { limitText, TEXT_MAX_BYTES, TEXT_MAX_LINES } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
-import { fail, fsFail, resolveInPlace } from "./scope.ts";
+import { fail, fsFail, resolveInWorkspace } from "./scope.ts";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -13,7 +13,7 @@ export async function readFile(
   input: { path: string; offset?: number; limit?: number },
   ctx: ToolContext,
 ): Promise<Result<ToolResult>> {
-  const at = await resolveInPlace(ctx.scope, input.path, "read");
+  const at = await resolveInWorkspace(ctx.scope, input.path, "read");
   if (!at.ok) return at;
   let bytes: Uint8Array;
   try {

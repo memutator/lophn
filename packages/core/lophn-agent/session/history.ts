@@ -3,7 +3,7 @@ import {
   type AgentRuntime,
   blocksOfContent,
   messageBody,
-  placeSessionRead,
+  workspaceSessionRead,
   type ReceivedMessage,
   receivedMessageList,
   rewindList,
@@ -90,7 +90,7 @@ export async function readSessionConversation(
   },
 ): Promise<Result<SessionConversation>> {
   if (input.session === null) return ok({ compaction: null, messages: [] });
-  const session = await readOf(machine, placeSessionRead, {
+  const session = await readOf(machine, workspaceSessionRead, {
     session: input.session,
   });
   if (!session.ok) return session;

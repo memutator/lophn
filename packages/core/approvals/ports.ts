@@ -5,13 +5,16 @@ import type {
   TurnRequest,
   TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
-import type { AgentId, Place } from "../../protocol/lophn-agent/places.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../protocol/lophn-agent/workspaces.ts";
 import type { TurnMode } from "../../protocol/lophn-agent/turn-values.ts";
 
 // `always`를 고르면 그 kind의 request에 하는 일. request의 `always_patterns`를 규칙으로 더하는 등이다.
 export type AlwaysEffect = (
   request: TurnRequest,
-  place: Place | null,
+  workspace: Workspace | null,
 ) => Promise<Result<void>>;
 
 // request가 열린 자리. 어느 turn의 어느 tool call이 기다리는가.
@@ -19,7 +22,7 @@ export type TurnOrigin = {
   session: string;
   turn: string;
   tool_call: string;
-  place: Place | null;
+  workspace: Workspace | null;
 };
 
 // Gate를 부르는 쪽이 쓰는 한 입구. Bus는 생성자에서 받는다.
@@ -30,7 +33,7 @@ export interface Approvals {
     who: {
       agent: AgentId;
       session: string;
-      place: Place | null;
+      workspace: Workspace | null;
       mode: TurnMode;
     },
   ): Promise<Result<Judgment>>;

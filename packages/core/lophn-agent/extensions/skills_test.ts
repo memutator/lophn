@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
-  AgentPlace,
-  PlaceKind,
+  AgentWorkspace,
+  WorkspaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 import { sharedSkillsOf } from "./skill-folders.ts";
@@ -19,7 +19,7 @@ import {
 import { commandSkillsOf, createExtensionRegistry } from "./registry.ts";
 import type { ProjectLayer } from "./project-settings.ts";
 
-// 끌 수 없는 내장 skill은 어느 층에서 꺼도, 같은 이름의 사람 skill이 있어도 그대로 남는다. 이 규칙이 깨지면 place가
+// 끌 수 없는 내장 skill은 어느 층에서 꺼도, 같은 이름의 사람 skill이 있어도 그대로 남는다. 이 규칙이 깨지면 workspace가
 // 일하는 데 필요한 skill이 사람 설정 하나로 사라진다.
 
 const skillFile = (
@@ -51,16 +51,16 @@ function treeOf(files: Record<string, string>): SkillFiles {
 }
 
 const SESSION = "ses_01" as Id<"ses">;
-const PLACE: AgentPlace = { kind: "project", id: "prj_01" };
+const WORKSPACE: AgentWorkspace = { kind: "project", id: "prj_01" };
 
 type Case = {
   name: string;
-  kind: PlaceKind;
+  kind: WorkspaceKind;
   // 같은 이름의 사람 skill을 둔 층
-  human: ("global" | "place-data")[];
+  human: ("global" | "workspace-data")[];
   off: { global?: boolean; project?: boolean; agent?: boolean };
   // 최종 write-workflow의 본문. null이면 목록에 없다.
-  expect: "BUILTIN" | "GLOBAL" | "PLACE_DATA" | null;
+  expect: "BUILTIN" | "GLOBAL" | "WORKSPACE_DATA" | null;
 };
 
 const CASES: Case[] = [
@@ -107,20 +107,20 @@ const CASES: Case[] = [
     expect: "BUILTIN",
   },
   {
-    name: "place-data human skill with the same name",
+    name: "workspace-data human skill with the same name",
     kind: "project",
-    human: ["place-data"],
+    human: ["workspace-data"],
     off: {},
     expect: "BUILTIN",
   },
   {
     name: "human skills and off at every layer",
     kind: "project",
-    human: ["global", "place-data"],
+    human: ["global", "workspace-data"],
     off: { global: true, project: true, agent: true },
     expect: "BUILTIN",
   },
-  // 내장 skill은 선언한 place 종류의 것만이다. 다른 place 종류에는 이름이 비어 있어 사람 skill이 그대로 쓰인다.
+  // 내장 skill은 선언한 workspace 종류의 것만이다. 다른 workspace 종류에는 이름이 비어 있어 사람 skill이 그대로 쓰인다.
   {
     name: "home has no project built-in",
     kind: "home",
@@ -131,9 +131,9 @@ const CASES: Case[] = [
   {
     name: "home keeps its own skill of that name",
     kind: "home",
-    human: ["place-data"],
+    human: ["workspace-data"],
     off: {},
-    expect: "PLACE_DATA",
+    expect: "WORKSPACE_DATA",
   },
 ];
 
@@ -149,10 +149,10 @@ for (const one of CASES) {
         "GLOBAL",
       );
     }
-    if (one.human.includes("place-data")) {
+    if (one.human.includes("workspace-data")) {
       files["/p/write-workflow/SKILL.md"] = skillFile(
         "write-workflow",
-        "PLACE_DATA",
+        "WORKSPACE_DATA",
       );
     }
     const port = treeOf(files);
@@ -165,17 +165,17 @@ for (const one of CASES) {
       personal_store: null,
       shared: () => Promise.resolve([]),
       global: () => Promise.resolve({ roots: ["/g"], off: globalOff }),
-      place: () =>
+      workspace: () =>
         Promise.resolve({
-          place_skills: null,
-          place_data: "/p",
+          workspace_skills: null,
+          workspace_data: "/p",
           off: projectOff,
         }),
     };
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
       kind: one.kind,
-      place: PLACE,
+      workspace: WORKSPACE,
       off: agentOff,
       apps: [],
     });
@@ -244,14 +244,18 @@ test("the agent gets every skill except the ones it turned off, and a built-in t
     personal_store: null,
     shared: () => Promise.resolve([]),
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
-    place: () =>
-      Promise.resolve({ place_skills: null, place_data: null, off: [] }),
+    workspace: () =>
+      Promise.resolve({
+        workspace_skills: null,
+        workspace_data: null,
+        off: [],
+      }),
   };
   const receivedOf = async (off: string[]) => {
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
       kind: "project",
-      place: PLACE,
+      workspace: WORKSPACE,
       off,
       apps: [],
     });
@@ -287,8 +291,8 @@ test("the agent gets every skill except the ones it turned off, and a built-in t
 });
 
 // frontmatter가 진짜 YAML이라 접은 글(`>`)과 따옴표 값이 읽힌다. 못 읽으면 그 skill이 조용히 사라진다.
-// 층 순서는 전역, project·app, place-data이고 뒤 층이 같은 이름을 덮는다.
-test("skills in the place folder read YAML descriptions and sit between the global and place-data layers", () => {
+// 층 순서는 전역, project·app, workspace-data이고 뒤 층이 같은 이름을 덮는다.
+test("skills in the workspace folder read YAML descriptions and sit between the global and workspace-data layers", () => {
   const files = treeOf({
     "/g/x/SKILL.md": skillFile("x", "", "global"),
     "/g/folded/SKILL.md":
@@ -296,9 +300,9 @@ test("skills in the place folder read YAML descriptions and sit between the glob
     "/g/quoted/SKILL.md": '---\nname: quoted\ndescription: "a: b"\n---\n',
     // 따옴표 없는 ": "는 YAML이 못 읽지만 전에는 읽혔다.
     "/g/colon/SKILL.md": "---\nname: colon\ndescription: Write it: how\n---\n",
-    "/s/.lophn/skills/x/SKILL.md": skillFile("x", "", "place"),
-    "/s/.lophn/skills/y/SKILL.md": skillFile("y", "", "place"),
-    "/d/y/SKILL.md": skillFile("y", "", "place-data"),
+    "/s/.lophn/skills/x/SKILL.md": skillFile("x", "", "workspace"),
+    "/s/.lophn/skills/y/SKILL.md": skillFile("y", "", "workspace"),
+    "/d/y/SKILL.md": skillFile("y", "", "workspace-data"),
   });
   const entries = discoverSkills(
     files,
@@ -306,8 +310,8 @@ test("skills in the place folder read YAML descriptions and sit between the glob
       bundled: null,
       registered: ["/g"],
       personal: null,
-      place: { source: "app", folder: "/s/.lophn/skills" },
-      placeData: "/d",
+      workspace: { source: "app", folder: "/s/.lophn/skills" },
+      workspaceData: "/d",
     },
     { kind: "app", off: [] },
   ).entries.map((one) => [one.name, one.source, one.description]);
@@ -315,14 +319,14 @@ test("skills in the place folder read YAML descriptions and sit between the glob
     ["colon", "global", "Write it: how"],
     ["folded", "global", "one two"],
     ["quoted", "global", "a: b"],
-    ["x", "app", "place"],
-    ["y", "place-data", "place-data"],
+    ["x", "app", "workspace"],
+    ["y", "workspace-data", "workspace-data"],
   ]);
 });
 
-// 내장 skill은 선언한 place 종류의 prompt와 / 메뉴에만 뜬다. 종류를 건너뛰면 읽을 수 없는 skill이 prompt에 실리고
+// 내장 skill은 선언한 workspace 종류의 prompt와 / 메뉴에만 뜬다. 종류를 건너뛰면 읽을 수 없는 skill이 prompt에 실리고
 // (skill.read는 not_found), 한 읽기의 등록부를 같이 쓰는 다른 종류의 목록이 섞인다.
-test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬다", () => {
+test("내장 skill은 선언한 workspace 종류의 prompt와 `/` 메뉴에만 뜬다", () => {
   const files = treeOf({
     "/b/write-workflow/SKILL.md": skillFile("write-workflow", "", "built-in"),
     "/g/write-workflow/SKILL.md": skillFile("write-workflow", "", "human"),
@@ -334,13 +338,13 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
   };
   const nowhere = "/nowhere";
   const layer: ProjectLayer = {
-    placeDataSkillsFolder: () => nowhere,
-    isPlaceDataSkills: () => false,
+    workspaceDataSkillsFolder: () => nowhere,
+    isWorkspaceDataSkills: () => false,
     projectOf: () => null,
     extensionsFile: () => nowhere,
     settingsFolderArea: () => nowhere,
     projectIdOfFolder: () => null,
-    placeSkillsFolder: () => nowhere,
+    workspaceSkillsFolder: () => nowhere,
   };
   const registry = createExtensionRegistry({
     root: "/r",
@@ -354,9 +358,12 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
       skillsOff: [],
     },
   });
-  const project: AgentPlace = { kind: "project", id: "prj_01" };
-  const app: AgentPlace = { kind: "app", id: "app_01h455vb4pex5v6nkc6gd5fd01" };
-  const table: [PlaceKind, AgentPlace | null, string][] = [
+  const project: AgentWorkspace = { kind: "project", id: "prj_01" };
+  const app: AgentWorkspace = {
+    kind: "app",
+    id: "app_01h455vb4pex5v6nkc6gd5fd01",
+  };
+  const table: [WorkspaceKind, AgentWorkspace | null, string][] = [
     ["home", null, "human"],
     ["project", project, "built-in"],
     ["app", app, "human"],
@@ -367,7 +374,7 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
     rows
       .filter((row) => row.name === "write-workflow")
       .map((row) => row.description);
-  for (const [kind, place, expected] of table) {
+  for (const [kind, workspace, expected] of table) {
     const prompt = discoverSkills(files, sources, { kind, off: [] }).entries;
     assert.deepStrictEqual(
       builtinOnly(prompt),
@@ -376,7 +383,7 @@ test("내장 skill은 선언한 place 종류의 prompt와 `/` 메뉴에만 뜬�
     );
     // register.ts의 / 메뉴와 같은 갈래다.
     const menu = commandSkillsOf(
-      place === null ? prompt : registry.skills(place, kind).entries,
+      workspace === null ? prompt : registry.skills(workspace, kind).entries,
       [],
     );
     assert.deepStrictEqual(builtinOnly(menu), [expected], `menu of ${kind}`);
@@ -399,10 +406,14 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
       personal_store: null,
       shared: () => Promise.resolve([]),
       global: () => Promise.resolve({ roots: ["/g"], off: [] }),
-      place: () =>
-        Promise.resolve({ place_skills: null, place_data: null, off: [] }),
+      workspace: () =>
+        Promise.resolve({
+          workspace_skills: null,
+          workspace_data: null,
+          off: [],
+        }),
     },
-    { id: SESSION, kind: "project", place: PLACE, off: [], apps: [] },
+    { id: SESSION, kind: "project", workspace: WORKSPACE, off: [], apps: [] },
   );
   const read = (name: string, path?: string) =>
     snapshot.reader.read(SESSION, name, path);
@@ -428,7 +439,7 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
 });
 
 // 앱을 할당받지 않은 agent는 그 앱의 public skill을 목록에서도 skill.read로도 받지 않는다. 할당받아도 같은 이름의
-// 전역 skill이 이기고(공유 층은 내장 바로 위), 앱 자기 place에서는 `app` 층이 있어 공유로 또 싣지 않는다.
+// 전역 skill이 이기고(공유 층은 내장 바로 위), 앱 자기 workspace에서는 `app` 층이 있어 공유로 또 싣지 않는다.
 test("shared skills reach only the agents the app is assigned to", async () => {
   const slug = "notes";
   const shared = {
@@ -453,16 +464,23 @@ test("shared skills reach only the agents the app is assigned to", async () => {
     port: treeOf({ "/g/x/SKILL.md": skillFile("x", "GLOBAL") }),
     builtin_root: null,
     personal_store: null,
-    shared: (apps, place) => sharedSkillsOf(machine, apps, place),
+    shared: (apps, workspace) => sharedSkillsOf(machine, apps, workspace),
     global: () => Promise.resolve({ roots: ["/g"], off: [] }),
-    place: () =>
-      Promise.resolve({ place_skills: null, place_data: null, off: [] }),
+    workspace: () =>
+      Promise.resolve({
+        workspace_skills: null,
+        workspace_data: null,
+        off: [],
+      }),
   };
-  const outcome = async (apps: string[], place: AgentPlace = PLACE) => {
+  const outcome = async (
+    apps: string[],
+    workspace: AgentWorkspace = WORKSPACE,
+  ) => {
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
-      kind: place.kind,
-      place,
+      kind: workspace.kind,
+      workspace,
       off: [],
       apps,
     });
@@ -490,7 +508,10 @@ test("shared skills reach only the agents the app is assigned to", async () => {
     file: "not_found",
     clash: "GLOBAL",
   });
-  const own: AgentPlace = { kind: "app", id: "app_01h455vb4pex5v6nkc6gd5fd01" };
+  const own: AgentWorkspace = {
+    kind: "app",
+    id: "app_01h455vb4pex5v6nkc6gd5fd01",
+  };
   assert.deepStrictEqual((await outcome([slug], own)).listed, ["x"]);
 });
 

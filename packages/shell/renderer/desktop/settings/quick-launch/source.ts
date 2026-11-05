@@ -3,7 +3,7 @@
 // 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
 import { HARNESS_IDS } from "../../../../../protocol/coding-agent/harness-id.ts";
-import type { FloatRect, PlaceQuick } from "../../../shell/desk-model.ts";
+import type { FloatRect, WorkspaceQuick } from "../../../shell/desk-model.ts";
 import type { SourceResult } from "../source.ts";
 
 /** 앱 panel 화면 하나를 새로 열 때의 자리. rect는 마지막으로 옮기거나 크기를 바꾼 float 자리다. */
@@ -15,14 +15,14 @@ export interface AppLaunch {
 export type AppLaunchMap = Readonly<Record<string, AppLaunch>>;
 
 export interface CodingPrefs {
-  /** 빠른 실행 Terminal hover와 place +의 hover 목록의 coding agent. 고른 순서다. */
+  /** 빠른 실행 Terminal hover와 workspace +의 hover 목록의 coding agent. 고른 순서다. */
   readonly favorites: readonly HarnessId[];
   /** 사람이 바꾼 실행 명령어. 없으면 adapter의 첫 명령어다. */
   readonly commands: Readonly<Partial<Record<HarnessId, string>>>;
 }
 
 export interface QuickPrefs {
-  readonly quick: PlaceQuick;
+  readonly quick: WorkspaceQuick;
   readonly launch: AppLaunchMap;
   readonly coding: CodingPrefs;
 }
@@ -54,7 +54,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 // core가 이미 모양을 검사했다. 여기서는 shell이 모르는 harness id와 틀린 항목만 버린다.
-export function quickFromValue(value: unknown): PlaceQuick {
+export function quickFromValue(value: unknown): WorkspaceQuick {
   if (!isRecord(value)) return DEFAULT_QUICK_PREFS.quick;
   const order = Array.isArray(value.order)
     ? value.order.filter((id): id is string => typeof id === "string")

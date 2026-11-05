@@ -49,7 +49,7 @@ const SAVE_DEBOUNCE_MS = 500;
  * 새 desktop 창의 자리. 마지막으로 저장한 자리를 지금 화면 안으로 당긴다. 다른 desktop 창이 떠 있으면 그만큼
  * 비켜 연다. 저장한 적 없으면 undefined이고 OS가 기본 크기 창을 놓는다.
  */
-function restoredPlace(ctx: ShellContext) {
+function restoredWorkspace(ctx: ShellContext) {
   const saved = ctx.windowState.current;
   if (saved === null) return undefined;
   const shift = recentWindow(ctx) === undefined ? 0 : CASCADE_STEP;
@@ -123,8 +123,8 @@ export function openDesktopWindow(
 ): BrowserWindow | undefined {
   const { here, headless, windows, overlays } = ctx;
   // detached 창은 layout이 탭마다 자리를 갖는다. 앱 전체의 마지막 자리는 desktop 창만 쓰고 고친다.
-  const place = start === undefined ? restoredPlace(ctx) : undefined;
-  const bounds = start?.bounds ?? place?.bounds;
+  const workspace = start === undefined ? restoredWorkspace(ctx) : undefined;
+  const bounds = start?.bounds ?? workspace?.bounds;
   let created: BrowserWindow | undefined;
   // 개발 확인 전용(`npm run dev:mock`). renderer가 주소의 `mock`을 보고 core 대신 메모리 가짜
   // 통로로 모든 화면을 채운다. `LOPHN_SHELL_START`의 시작 자리와 함께 쓴다.
@@ -139,8 +139,8 @@ export function openDesktopWindow(
     // `LOPHN_SHELL_START=project:<id>`는 그 프로젝트 작업대부터, `settings`는 Settings부터,
     // `app:<id>`는 그 앱 공간부터 연다.
     ...(bounds ? { bounds } : {}),
-    // 저장한 자리로 여는 창은 숨긴 채 만들고 크기를 맞춘 뒤 보인다(`rememberPlace`).
-    ...(place ? { show: false } : {}),
+    // 저장한 자리로 여는 창은 숨긴 채 만들고 크기를 맞춘 뒤 보인다(`rememberWorkspace`).
+    ...(workspace ? { show: false } : {}),
     ...(start?.title === undefined ? {} : { title: start.title }),
     detached: start === undefined ? false : start.detached !== false,
     url:
@@ -216,7 +216,7 @@ export function openDesktopWindow(
         windows.add(window);
         created = window;
         for (const reaction of ctx.windowHooks.created) reaction(window);
-        if (start === undefined) rememberPlace(ctx, window, place);
+        if (start === undefined) rememberWorkspace(ctx, window, workspace);
         const contentsId = window.webContents.id;
         const ref = ctx.windowRef(window);
         window.on("closed", () => {
@@ -251,19 +251,19 @@ export function openDesktopWindow(
  * 창은 되돌렸을 때의 자리(`getNormalBounds`)를 함께 둔다. 최소화와 전체 화면은 저장하지 않는다(다시 열 때 그
  * 모양이면 창이 안 보이거나 상단 바가 없다).
  */
-function rememberPlace(
+function rememberWorkspace(
   ctx: ShellContext,
   window: BrowserWindow,
-  place: { bounds: WindowBounds; maximized: boolean } | undefined,
+  workspace: { bounds: WindowBounds; maximized: boolean } | undefined,
 ): void {
-  if (place !== undefined) {
+  if (workspace !== undefined) {
     // Wayland(KWin)에서는 Electron이 창이 뜰 모니터를 몰라 만들 때 크기를 primary 모니터 안으로 자르고, 보인 뒤
     // 바꾼 크기도 받지 않는다. 숨긴 채 만든 창에 저장한 크기를 다시 건 뒤 보이면 그 크기로 뜬다(KWin에서 확인).
     // 자리(x·y)는 Wayland에서 compositor가 정한다. X11·macOS·Windows는 만들 때의 크기·자리가 이미 맞다.
     window.once("ready-to-show", () => {
       if (window.isDestroyed()) return;
-      window.setSize(place.bounds.width, place.bounds.height);
-      if (place.maximized) window.maximize();
+      window.setSize(workspace.bounds.width, workspace.bounds.height);
+      if (workspace.maximized) window.maximize();
       reveal(window, ctx.headless);
     });
   }

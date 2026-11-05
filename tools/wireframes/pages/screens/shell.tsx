@@ -1,5 +1,5 @@
 import type { Area } from "../types.ts";
-import { PlacesScene, placesSteps } from "./shell/places-scene.tsx";
+import { WorkspacesScene, workspacesSteps } from "./shell/workspaces-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
 
@@ -7,13 +7,13 @@ export const shellArea: Area = {
   id: "shell",
   title: "Shell",
   summary:
-    "모든 place가 쓰는 창 틀. title bar의 tab 줄과 desk 단추, 둥근 card, group(자유 split), float.",
+    "모든 workspace가 쓰는 창 틀. title bar의 tab 줄과 desk 단추, 둥근 card, group(자유 split), float.",
   pages: [
     {
       id: "shell-project",
       title: "Shell · Project",
       description:
-        "project place의 Main desk. title bar에 sidebar 접기, desk 단추, 곡선으로 card와 이어지는 tab 줄, 오른쪽 끝의 접힌 float 칸과 panel icon tab, 창 단추가 있다. 가운데는 둥근 card 하나다.",
+        "project workspace의 Main desk. title bar에 sidebar 접기, desk 단추, 곡선으로 card와 이어지는 tab 줄, 오른쪽 끝의 접힌 float 칸과 panel icon tab, 창 단추가 있다. 가운데는 둥근 card 하나다.",
       render: () => <ShellScene variant="project" />,
     },
     {
@@ -171,24 +171,24 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="floats" />,
     },
     {
-      id: "shell-places-panel",
-      title: "Shell · Places panel",
+      id: "shell-workspaces-panel",
+      title: "Shell · Workspaces panel",
       description:
-        "Home의 오른쪽 sidebar Places panel. Projects와 Apps 줄(이름, 경로나 release), 줄 오른쪽 끝 ⋯ 메뉴(Details, 새 위치 고르기, Archive), 각 구역 머리의 Register project와 New app 단추, 접힌 Archived 구역.",
-      render: () => <PlacesScene />,
+        "Home의 오른쪽 sidebar Workspaces panel. Projects와 Apps 줄(이름, 경로나 release), 줄 오른쪽 끝 ⋯ 메뉴(Details, 새 위치 고르기, Archive), 각 구역 머리의 Register project와 New app 단추, 접힌 Archived 구역.",
+      render: () => <WorkspacesScene />,
     },
     {
-      id: "shell-places-menu",
-      title: "Shell · Places row menu",
-      description: "Places panel의 project 줄 ⋯ 메뉴를 연 상태.",
-      render: () => <PlacesScene steps={placesSteps.menu} />,
+      id: "shell-workspaces-menu",
+      title: "Shell · Workspaces row menu",
+      description: "Workspaces panel의 project 줄 ⋯ 메뉴를 연 상태.",
+      render: () => <WorkspacesScene steps={workspacesSteps.menu} />,
     },
     {
-      id: "shell-places-archived",
-      title: "Shell · Places archived",
+      id: "shell-workspaces-archived",
+      title: "Shell · Workspaces archived",
       description:
-        "Places panel의 Archived 구역을 펼친 상태. 보관한 project와 앱이 한 줄씩이고 줄 오른쪽 끝 단추로 되살린다.",
-      render: () => <PlacesScene steps={placesSteps.archived} />,
+        "Workspaces panel의 Archived 구역을 펼친 상태. 보관한 project와 앱이 한 줄씩이고 줄 오른쪽 끝 단추로 되살린다.",
+      render: () => <WorkspacesScene steps={workspacesSteps.archived} />,
     },
     {
       id: "shell-desk-menu",
@@ -299,7 +299,7 @@ export const shellArea: Area = {
       id: "shell-left-sidebar",
       title: "Shell · Left sidebar",
       description:
-        "왼쪽 sidebar. New session(▾로 lophn agent와 coding agent), Inbox, Jobs, Places 아래 Home·project·앱과 place마다 열린 session. phroner의 Recent를 펼쳐 끝난 session과 저장한 터미널 session을 상대 시각으로 보인다. Recent는 지금 place에만 있고 10줄이 넘으면 아래 page 줄(‹ 1–10 of 13 ›)로 넘긴다. 지금 place는 이름만 진하다.",
+        "왼쪽 sidebar. New session(▾로 lophn agent와 coding agent), Inbox, Jobs, Workspaces 아래 Home·project·앱과 workspace마다 열린 session. phroner의 Recent를 펼쳐 끝난 session과 저장한 터미널 session을 상대 시각으로 보인다. Recent는 지금 workspace에만 있고 10줄이 넘으면 아래 page 줄(‹ 1–10 of 13 ›)로 넘긴다. 지금 workspace는 이름만 진하다.",
       render: () => <ShellScene variant="project" recentOpen />,
     },
     {
@@ -308,7 +308,7 @@ export const shellArea: Area = {
       description:
         "맨 아래 줄은 왼쪽부터 Terminal, Browser, App ▾, Search 빠른 실행이고 맨 오른쪽 끝에 Settings가 있다. Search는 project에서는 Search 탭, Home에서는 팔레트를 연다. + menu와 같은 데이터라 project에서는 App ▾에 App panel이 있고, 눌러 연 모양이다.",
       render: () => (
-        <SidebarScene place="project" steps={sidebarSteps.appMenu} />
+        <SidebarScene workspace="project" steps={sidebarSteps.appMenu} />
       ),
     },
     {
@@ -316,14 +316,16 @@ export const shellArea: Area = {
       title: "Shell · Left sidebar · Home quick launch",
       description:
         "Home에는 터미널이 없어서 Terminal 단추가 없고 Browser, App ▾, Search만 있다.",
-      render: () => <SidebarScene place="home" />,
+      render: () => <SidebarScene workspace="home" />,
     },
     {
       id: "shell-left-sidebar-app",
       title: "Shell · Left sidebar · App quick launch",
       description:
-        "앱 place의 App ▾는 닫은 앱 화면 탭을 다시 여는 App screen과 App panel을 함께 가진다. 눌러 연 모양이다.",
-      render: () => <SidebarScene place="app" steps={sidebarSteps.appMenu} />,
+        "앱 workspace의 App ▾는 닫은 앱 화면 탭을 다시 여는 App screen과 App panel을 함께 가진다. 눌러 연 모양이다.",
+      render: () => (
+        <SidebarScene workspace="app" steps={sidebarSteps.appMenu} />
+      ),
     },
     {
       id: "shell-collapsed",

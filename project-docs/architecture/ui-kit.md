@@ -72,7 +72,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 설치 사본과 앱 template은 core 기동(`main/daemon/wiring/sdk-install.ts`)이 repo의 `packages/`에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(declaration, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾼다. vendor로 담은 package(`@lophn/protocol`)는 사본 `package.json`의 의존에서 뺀다. release bundle은 npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않고 목록(`node_modules/.lophn-links.json`)으로 굳히며, bundle 사본을 봉인할 때 연결을 다시 만든다.
 
-내장 sdk는 package catalog에 등록하지 않는다. 모든 place 종류의 `package.read` 목록은 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `@lophn/` 이름을 주면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모으고, 그 줄마다 props를 붙여 guide로 준다(`apps/packages/builtin.ts`). props는 같은 export 문이 내보내는 type(`SelectProps` 등)의 정의를 component source에서 주석째 옮긴 것이고, `extends`가 가리키는 같은 file의 type(`NativeInput` 등)도 붙인다. 내보낸 type이 없는 component는 `export function`의 인자 type이다. 쓰는 예는 싣지 않는다. 앱을 고치는 agent는 설치 사본을 file tool로 읽지 못해 이 guide가 props를 아는 길이다.
+내장 sdk는 package catalog에 등록하지 않는다. 모든 workspace 종류의 `package.read` 목록은 `builtin` 칸에 설치 사본의 `@lophn/*` 이름과 판을 싣고, `@lophn/` 이름을 주면 설치 사본의 판과 guide를 읽는다(route `packages.builtin`). `@lophn/ui`는 `guide.md`가 없어 분류 `mod.ts`의 export 이름과 "언제 쓰나" 줄을 분류별로 모으고, 그 줄마다 props를 붙여 guide로 준다(`apps/packages/builtin.ts`). props는 같은 export 문이 내보내는 type(`SelectProps` 등)의 정의를 component source에서 주석째 옮긴 것이고, `extends`가 가리키는 같은 file의 type(`NativeInput` 등)도 붙인다. 내보낸 type이 없는 component는 `export function`의 인자 type이다. 쓰는 예는 싣지 않는다. 앱을 고치는 agent는 설치 사본을 file tool로 읽지 못해 이 guide가 props를 아는 길이다.
 
 props는 guide 예산(`GUIDE_BUDGET_BYTES`, 20 KiB) 안에서만 붙고, 분류마다 한 번에 하나씩 돌아가며 배분한다. 그래서 컴포넌트가 늘어도 앞 알파벳 분류가 props를 다 가져가 뒤 분류가 사라지지 않는다. 예산 밖으로 밀린 props가 있는 분류에는 `- props 정의는 예산 밖이라 뺐다; ...` 한 줄이 남고, 이름·"언제 쓰나" 줄과 `import from` 줄은 분류마다 늘 있다. 뺀 props는 앱 폴더의 사본(`.lophn/sdk/ui/<판>/components/<분류>/**`)에서 읽는다. 예산은 `package.read` 한 창(`TEXT_MAX_BYTES`, 24 KiB)보다 작아 guide 색인과 예산 안의 props가 한 번에 온다. 그보다 긴 guide(`guide.md`를 쓰는 SDK)는 `package.read`가 창을 나눠 주고 `continuation.read_next`의 `offset_bytes`로 이어 받는다.
 
@@ -82,7 +82,7 @@ props는 guide 예산(`GUIDE_BUDGET_BYTES`, 20 KiB) 안에서만 붙고, 분류�
 
 1. 제품 build(`packages/shell/renderer/build.ts`)가 화면 셋(esm)과 함께 `artifact-kit/entry.tsx`를 IIFE로 묶어 `dist/artifact-kit/entry.js`와 `entry.css`를 낸다. 판은 repo의 lock이 잠근 그대로다. minify하지 않는다: CSS Modules의 class 이름이 `.chart_diagram` 꼴로 남아야 AI가 쓴 page의 CSS와 부딪히지 않는다. `entry.css`에는 component CSS만 있다. token은 artifact 문서에 appearance가 이미 넣는다.
 2. 전역은 `LophnKit.renderGraph(element, {nodes, edges, locale?, timeZone?})` 하나다. 같은 element에 다시 부르면 갱신한다. 그 네 칸만 받고 상태 prop(`onRetry`, `empty`)은 entry가 채운다. 다른 component는 내놓지 않는다.
-3. shell main의 봉한 scheme이 이 둘을 모든 artifact view에 `_lophn/kit.js`, `_lophn/kit.css`로 준다. artifact HTML은 plain `<script>`와 stylesheet로 부른다. 쓰는 법은 skill `write-artifact`에 있고, workflow artifact에만 걸린 것은 project place skill `write-workflow`에 있다.
+3. shell main의 봉한 scheme이 이 둘을 모든 artifact view에 `_lophn/kit.js`, `_lophn/kit.css`로 준다. artifact HTML은 plain `<script>`와 stylesheet로 부른다. 쓰는 법은 skill `write-artifact`에 있고, workflow artifact에만 걸린 것은 project workspace skill `write-workflow`에 있다.
 
 check:full은 renderer build를 돌리지 않는다. kit을 바꾸면 `node packages/shell/renderer/build.ts`로 이 entry가 서는지 본다.
 

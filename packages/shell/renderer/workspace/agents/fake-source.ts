@@ -7,7 +7,7 @@ import type {
   AgentCard,
   AgentDefinitionIssue,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import type { Place } from "../../../../protocol/lophn-agent/places.ts";
+import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import {
   type CatalogEntry,
   effortAxisOf,
@@ -16,7 +16,7 @@ import {
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ReadResult } from "../source.ts";
-import { isAppPlace } from "./agent-key.ts";
+import { isAppWorkspace } from "./agent-key.ts";
 import { appsFor } from "./editor/grants-model.ts";
 import {
   ANTHROPIC,
@@ -46,7 +46,7 @@ import type {
   GrantsView,
   ShownModel,
   ModelsView,
-  PlaceView,
+  WorkspaceView,
   SaveInput,
   SaveResult,
   UserModelKey,
@@ -85,13 +85,13 @@ type FakeCall =
   | {
       method: "signInMcp";
       name: string;
-      place: Place | null;
+      workspace: Workspace | null;
       agent: string | null;
     }
   | {
       method: "cancelMcpSignIn";
       name: string;
-      place: Place | null;
+      workspace: Workspace | null;
       agent: string | null;
     }
   | {
@@ -293,17 +293,17 @@ export function createFakeAgentsSource(
     return { ok: false, message };
   };
 
-  type PlaceKind = "none" | "project" | "app";
-  const placeKind = (place: string | null): PlaceKind =>
-    place === null ? "none" : isAppPlace(place) ? "app" : "project";
-  const placeView = (place: string | null): PlaceView =>
-    place === null
+  type WorkspaceKind = "none" | "project" | "app";
+  const workspaceKind = (workspace: string | null): WorkspaceKind =>
+    workspace === null ? "none" : isAppWorkspace(workspace) ? "app" : "project";
+  const workspaceView = (workspace: string | null): WorkspaceView =>
+    workspace === null
       ? { kind: "none", id: null, name: "" }
-      : isAppPlace(place)
-        ? { kind: "app", id: place, name: APP_NAME }
-        : { kind: "project", id: place, name: PROJECT_NAME };
+      : isAppWorkspace(workspace)
+        ? { kind: "app", id: workspace, name: APP_NAME }
+        : { kind: "project", id: workspace, name: PROJECT_NAME };
 
-  const skillsFor = (at: PlaceKind): SkillRow[] => [
+  const skillsFor = (at: WorkspaceKind): SkillRow[] => [
     ...(at === "project" ? BUILT_IN_SKILLS : []),
     ...GLOBAL_SKILLS,
     ...(at === "project"
@@ -315,14 +315,14 @@ export function createFakeAgentsSource(
         ? APP_SKILLS
         : []),
   ];
-  const mcpFor = (at: PlaceKind): McpRow[] => [
+  const mcpFor = (at: WorkspaceKind): McpRow[] => [
     ...GLOBAL_MCP,
     ...(at === "project"
       ? PROJECT_MCP.map((row) => ({ ...row, on: !projectMcpOff.has(row.name) }))
       : []),
   ];
 
-  const inheritedModel = (at: PlaceKind) =>
+  const inheritedModel = (at: WorkspaceKind) =>
     at === "project" && projectModel !== null
       ? { value: projectModel, source: "project" as const }
       : { value: GLOBAL_MODEL, source: "global" as const };
@@ -366,7 +366,11 @@ export function createFakeAgentsSource(
     };
   };
 
-  const rowOf = (key: string, item: Stored, at: PlaceKind): AgentListRow => {
+  const rowOf = (
+    key: string,
+    item: Stored,
+    at: WorkspaceKind,
+  ): AgentListRow => {
     const definition = item.definition;
     const off = definition.skills_off ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
@@ -405,14 +409,14 @@ export function createFakeAgentsSource(
     };
   };
 
-  const detailOf = (key: string, place: string | null): AgentDetail => {
+  const detailOf = (key: string, workspace: string | null): AgentDetail => {
     const item = stored.get(key)!;
-    const at = placeKind(place);
+    const at = workspaceKind(workspace);
     const row = rowOf(key, item, at);
     return {
       assignment: key,
       draftId: null,
-      place: placeView(place),
+      workspace: workspaceView(workspace),
       definition: item.definition,
       hash: item.hash,
       effective: {
@@ -432,7 +436,7 @@ export function createFakeAgentsSource(
                 [
                   server.name,
                   {
-                    place: null,
+                    workspace: null,
                     agent: key,
                     client_id: server.http.auth.client_id,
                     scopes: server.http.auth.scopes,
@@ -471,7 +475,7 @@ export function createFakeAgentsSource(
       return Promise.resolve(
         ok(
           [...stored].map(([key, item]) =>
-            rowOf(key, item, placeKind(project)),
+            rowOf(key, item, workspaceKind(project)),
           ),
         ),
       );
@@ -483,7 +487,7 @@ export function createFakeAgentsSource(
         overviewFailure = null;
         return Promise.resolve({ ok: false, message });
       }
-      const at = placeKind(project);
+      const at = workspaceKind(project);
       return Promise.resolve(
         ok({
           agents: [...stored].map(([key, item]) => rowOf(key, item, at)),
@@ -599,13 +603,13 @@ export function createFakeAgentsSource(
     },
 
     newAgent(project) {
-      const at = placeKind(project);
+      const at = workspaceKind(project);
       const draftId = `agt_${`nw${created + 1}`.padStart(26, "0")}`;
       return Promise.resolve(
         ok({
           assignment: null,
           draftId,
-          place: placeView(project),
+          workspace: workspaceView(project),
           definition: { body: "" },
           hash: null,
           effective: {
@@ -712,7 +716,7 @@ export function createFakeAgentsSource(
       calls.push({
         method: "signInMcp",
         name,
-        place: login.place,
+        workspace: login.workspace,
         agent: login.agent,
       });
       return Promise.resolve(ok(null));
@@ -722,7 +726,7 @@ export function createFakeAgentsSource(
       calls.push({
         method: "cancelMcpSignIn",
         name,
-        place: login.place,
+        workspace: login.workspace,
         agent: login.agent,
       });
       return Promise.resolve(ok(null));
@@ -759,7 +763,7 @@ export function createFakeAgentsSource(
 
     readInstructions(project) {
       return Promise.resolve(
-        placeKind(project) === "project"
+        workspaceKind(project) === "project"
           ? ok(lophnFile)
           : { ok: false, message: "unavailable" },
       );
@@ -767,7 +771,7 @@ export function createFakeAgentsSource(
 
     writeInstructions(project, text, hash) {
       calls.push({ method: "writeInstructions", text, hash });
-      if (placeKind(project) !== "project") {
+      if (workspaceKind(project) !== "project") {
         return Promise.resolve({ ok: false, message: "unavailable" });
       }
       const failed = takeChangeFailure();

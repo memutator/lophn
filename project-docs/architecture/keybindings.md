@@ -9,7 +9,7 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
         │ desktop.send("global-palette")
         ▼
  main before-input-event (main/desktop/shortcuts.ts) ── 창의 모든 webContents(창 본문, `<webview>` guest(앱·artifact·browser page), browser native popup·DevTools, overlay)
-   팔레트·home chord (ipc/shortcuts.ts WINDOW_SHORTCUTS. home = Home place로 가기)
+   팔레트·home chord (ipc/shortcuts.ts WINDOW_SHORTCUTS. home = Home workspace로 가기)
    표에서 `main`이 적힌 binding과 사람이 단 `app.panel:*` (ipc/keybindings.ts)
         │ shell:shortcut  "palette" | "home" | binding id ("tab.close", "desk.nth:3", "app.panel:<app>:<surface>")
         ▼
@@ -20,7 +20,7 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
                                                          ▼
                                     CommandRegistry (commands/registry.ts) ── id → handler
                                                          ▲
-                                    기능이 useCommands(...)로 올린다 (workspace/place-window.tsx: tab.*, pane.*, desk.*, float.*, new.*, nav.*, app.panel …)
+                                    기능이 useCommands(...)로 올린다 (workspace/workspace-window.tsx: tab.*, pane.*, desk.*, float.*, new.*, nav.*, app.panel …)
 
  사람이 바꾼 키 (Settings › Keyboard, renderer/desktop/settings/keyboard/)
    선언 설정 shell.keybindings { mac?: {id → chord[]}, other?: {id → chord[]} }  ── core가 저장
@@ -43,7 +43,7 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
 
 - **키는 받은 때만 삼킨다.** service는 맞는 chord가 있고 그 command를 지금 부를 수 있을 때(`registry.canRun`)만 `preventDefault`·`stopPropagation` 한다. 주인이 없는 공간(Settings)에서는 Ctrl+B·Ctrl+P가 page로 간다.
 - **같은 키는 나중에 묶은 바인딩부터 본다.** 그 command를 부를 수 없으면 다음 바인딩을 본다. 우선순위 수는 두지 않는다.
-- **같은 command id는 나중 주인이 받는다.** 그 주인이 풀리면 앞 주인이 다시 받는다. place 창이 다시 mount될 때 앞 것의 정리와 새 것의 등록이 겹쳐도 command를 잃지 않는다.
+- **같은 command id는 나중 주인이 받는다.** 그 주인이 풀리면 앞 주인이 다시 받는다. workspace 창이 다시 mount될 때 앞 것의 정리와 새 것의 등록이 겹쳐도 command를 잃지 않는다.
 - **command `when`이 false면 없는 것과 같다.** 키를 넘기고 `execute`는 `unavailable`이다.
 - **handler가 던져도 입력은 산다.** registry가 잡아 log에 남기고 `internal`을 돌린다. listener까지 올라가지 않는다.
 - **한글 조합 중(`isComposing`)은 보지 않는다.** 판정은 `code`와 글자 키의 `key`를 같이 본다(ipc/keybindings.ts `chordMatches`).
@@ -54,7 +54,7 @@ desktop 창의 단축키가 어디서 받혀 어느 기능의 command로 가는�
 - **빈 chord 목록은 키를 뺀 것이다.** 표와 같은 값은 저장에서 빠진다. OS마다 따로 저장하고 Keyboard 화면은 지금 OS의 것만 바꾼다.
 - **새 키는 받기 전에 본다**(`checkChord`). modifier 없는 키(F1~F12 빼고)는 입력칸 글자를 삼켜서, RESERVED(팔레트·home·전역 팔레트 키, Linux·Windows 터미널의 Ctrl+Shift+C/V, 글자 편집 Ctrl/Cmd+A·C·V·X·Z, OS 키 Cmd+Q·H·M·Tab·Space, Alt+F4 등)는 lophn이나 OS가 먼저 가져가서 거절한다. 다른 바인딩이 쓰는 키(`taken`)는 거절하지 않고 "바꾸기"를 준다: 이 줄에 달고 그 chord를 가진 다른 줄에서는 그 chord만 뺀 변경 하나로 저장한다(`takeKeys`). 겹침은 modifier 순서와 상관없이 본다.
 - **겹침은 저장된 값에서도 본다**(`findConflicts`). 같은 platform에서 두 binding이 같은 chord를 가지거나, 사람이 단 키가 RESERVED와 같으면 겹침이다(표가 바뀌어 옛 사람 키와 새 기본 키가 부딪힌 경우). chord마다 하나이고 `ids`는 표 순서다. 겹치면 표 순서가 앞인 binding이 받는다. Settings › Keyboard는 맨 위에 겹친 수와 "겹친 것만 보기"를, 겹친 줄에 상대 이름과 빼기를 보인다. 기본 표에는 겹침이 없다(test).
-- **그 place에 그 일이 없으면 키를 삼키지 않는다.** 통로가 없는 command(Home의 터미널·Explorer·desk, 앱 통로가 없는 `app.panel`)는 올리지 않고, 지금 사정에 기대는 command(group이 아닐 때 `pane.*`, 쌓이지 않은 칸의 `pane.stack-*`, float이 없을 때 `float.*`, 이동 기록이 없을 때 `nav.*`)는 `when`으로 막는다. `when` 판정은 context menu가 그 항목을 보이는 사정(`menuStateOf`)과 같다. 번호(arg)마다의 판정은 하지 않는다.
+- **그 workspace에 그 일이 없으면 키를 삼키지 않는다.** 통로가 없는 command(Home의 터미널·Explorer·desk, 앱 통로가 없는 `app.panel`)는 올리지 않고, 지금 사정에 기대는 command(group이 아닐 때 `pane.*`, 쌓이지 않은 칸의 `pane.stack-*`, float이 없을 때 `float.*`, 이동 기록이 없을 때 `nav.*`)는 `when`으로 막는다. `when` 판정은 context menu가 그 항목을 보이는 사정(`menuStateOf`)과 같다. 번호(arg)마다의 판정은 하지 않는다.
 - **새 키를 받는 칸(`[data-key-capture]`) 안의 키는 command로 보내지 않는다.** service가 그 target을 보지 않는다. 그래서 지금 듣는 키를 눌러도 command가 돌지 않고 칸이 받는다.
 - **기능이 `register`로 묶은 바인딩은 늘 기본 바인딩보다 먼저 본다.** 사람이 키를 바꿔 기본 바인딩을 갈아 끼워도 그 순서는 같다.
 

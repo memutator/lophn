@@ -4,7 +4,7 @@ import {
   HomeEmpty,
   HomeJobs,
   HomeNewApp,
-  HomeNoPlaces,
+  HomeNoWorkspaces,
   HomeRegister,
   HomeRowMenu,
   HomeSession,
@@ -40,54 +40,54 @@ export const homeArea: Area = {
   id: "home",
   title: "Home",
   summary:
-    "처음 여는 Home place. project 창과 같은 shell을 쓴다: 왼쪽 place·session, 가운데 tab(Home lophn session 등), 오른쪽 Places·Jobs. desk 단추는 없다(Main 하나). core가 준비되지 않았거나 시작에 실패하면 같은 shell 틀(빈 sidebar와 tab 줄)의 card에 연결·시작 실패 화면.",
+    "처음 여는 Home workspace. project 창과 같은 shell을 쓴다: 왼쪽 workspace·session, 가운데 tab(Home lophn session 등), 오른쪽 Workspaces·Jobs. desk 단추는 없다(Main 하나). core가 준비되지 않았거나 시작에 실패하면 같은 shell 틀(빈 sidebar와 tab 줄)의 card에 연결·시작 실패 화면.",
   pages: [
     {
       id: "home-empty",
       title: "Home · empty",
       description:
-        "탭이 없는 Home. 가운데 card가 빈 desk 안내(New session, Open document)를 보이고, 오른쪽 sidebar는 Places panel이다(Projects와 Apps 줄을 누르면 그 place로 가고, 각 구역 머리의 단추가 등록과 New app dialog를 연다. 보관한 것은 접힌 Archived 구역). title bar에 desk 단추가 없다.",
+        "탭이 없는 Home. 가운데 card가 빈 desk 안내(New session, Open document)를 보이고, 오른쪽 sidebar는 Workspaces panel이다(Projects와 Apps 줄을 누르면 그 workspace로 가고, 각 구역 머리의 단추가 등록과 New app dialog를 연다. 보관한 것은 접힌 Archived 구역). title bar에 desk 단추가 없다.",
       render: () => <HomeEmpty />,
     },
     {
       id: "home-session",
       title: "Home · lophn session",
       description:
-        "Home의 lophn session을 탭으로 연 상태. Home의 lophn session도 다른 place와 같이 tab으로 열린다. Home session의 탭은 project 폴더가 필요한 terminal, Explorer, workflow를 두지 않는다.",
+        "Home의 lophn session을 탭으로 연 상태. Home의 lophn session도 다른 workspace와 같이 tab으로 열린다. Home session의 탭은 project 폴더가 필요한 terminal, Explorer, workflow를 두지 않는다.",
       render: () => <HomeSession />,
     },
     {
-      id: "home-places-menu",
-      title: "Home · Places row menu",
+      id: "home-workspaces-menu",
+      title: "Home · Workspaces row menu",
       description: "project 줄 ⋯ 메뉴: Details, 새 위치 고르기, Archive.",
       render: () => <HomeRowMenu />,
     },
     {
-      id: "home-no-places",
-      title: "Home · no places",
+      id: "home-no-workspaces",
+      title: "Home · no workspaces",
       description:
-        "project도 앱도 없는 Home. Places panel의 두 구역이 비었음 안내를 보인다.",
-      render: () => <HomeNoPlaces />,
+        "project도 앱도 없는 Home. Workspaces panel의 두 구역이 비었음 안내를 보인다.",
+      render: () => <HomeNoWorkspaces />,
     },
     {
       id: "home-jobs",
       title: "Home · Jobs panel",
       description:
-        "오른쪽 Jobs panel. project 창의 Jobs와 같은 모양이고 Home에서는 모든 place의 job이 보인다.",
+        "오른쪽 Jobs panel. project 창의 Jobs와 같은 모양이고 Home에서는 모든 workspace의 job이 보인다.",
       render: () => <HomeJobs />,
     },
     {
       id: "home-register",
       title: "Home · register project",
       description:
-        "Places panel의 Register project 단추가 여는 dialog. 이름, 목적, 폴더와 폴더 설명을 받는다.",
+        "Workspaces panel의 Register project 단추가 여는 dialog. 이름, 목적, 폴더와 폴더 설명을 받는다.",
       render: () => <HomeRegister />,
     },
     {
       id: "home-new-app",
       title: "Home · new app",
       description:
-        "Places panel의 New app 단추가 여는 dialog. 이름과 한 줄 목적을 받고, 만들면 그 앱 place가 앱 화면과 lophn 새 session을 붙인 group(좌우)으로 열린다.",
+        "Workspaces panel의 New app 단추가 여는 dialog. 이름과 한 줄 목적을 받고, 만들면 그 앱 workspace가 앱 화면과 lophn 새 session을 붙인 group(좌우)으로 열린다.",
       render: () => <HomeNewApp />,
     },
     {

@@ -14,7 +14,7 @@ import {
 import {
   connectFakeProvider,
   decide,
-  openPlaceSession,
+  openWorkspaceSession,
   openProject,
   say,
   turnsOf,
@@ -45,7 +45,7 @@ test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 
       { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
-    const session = await openPlaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
       kind: "project",
       id: project,
     });

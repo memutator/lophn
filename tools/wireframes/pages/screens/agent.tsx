@@ -201,7 +201,7 @@ export const agentArea: Area = {
       id: "new-agent-permissions",
       title: "Agent · permissions",
       description:
-        "/permissions 보기다. 할당한 앱마다 뺀 tool이 보이고, MCP server는 설정한 곳(Workspace, project, 이 agent)에서 정한다는 한 줄이 있다. 입력칸 아래 권한 요약을 눌러도 같은 보기가 열린다.",
+        "/permissions 보기다. 할당한 앱마다 뺀 tool이 보이고, MCP server는 설정한 곳(Global, project, 이 agent)에서 정한다는 한 줄이 있다. 입력칸 아래 권한 요약을 눌러도 같은 보기가 열린다.",
       render: () => <AgentPermissions />,
     },
     {

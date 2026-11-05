@@ -172,7 +172,7 @@ export function compactSummaryRequest(input: {
   return {
     system: [
       {
-        layer: "place_kind",
+        layer: "workspace_kind",
         text: compactSummaryInstructions(input.cap),
       },
     ],

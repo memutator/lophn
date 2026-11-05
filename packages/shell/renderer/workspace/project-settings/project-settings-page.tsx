@@ -1,4 +1,4 @@
-// project settings 탭 본문. General(이름·목적·폴더, Places panel 상세 dialog와 같은 form), Quick launch(왼쪽 sidebar 아래 단추의 순서),
+// project settings 탭 본문. General(이름·목적·폴더, Workspaces panel 상세 dialog와 같은 form), Quick launch(왼쪽 sidebar 아래 단추의 순서),
 // App panels(단추로 고정할 앱 panel) 세 구역이다. 빠른 실행은 전역 값(Settings › Quick launch)을 따르거나 이 project만의 값을 둔다.
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { t } from "@lophn/i18n";
@@ -6,26 +6,26 @@ import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
-import type { PlaceQuick } from "../../shell/desk-model.ts";
+import type { WorkspaceQuick } from "../../shell/desk-model.ts";
 import {
   AppPanelList,
   QuickOrderList,
   useAppPanelApps,
 } from "./quick-launch-editor.tsx";
 
-import { ProjectForm } from "../../desktop/places/projects/project-form.tsx";
+import { ProjectForm } from "../../desktop/workspaces/projects/project-form.tsx";
 import type {
   ProjectItem,
   ProjectsSource,
-} from "../../desktop/places/projects/source.ts";
+} from "../../desktop/workspaces/projects/source.ts";
 import styles from "./project-settings-page.module.css";
 
 export interface ProjectSettingsPageProps {
   readonly projectId: string;
   /** 이 project만의 빠른 실행. 없으면 전역 값을 따른다. */
-  readonly quick: PlaceQuick | undefined;
+  readonly quick: WorkspaceQuick | undefined;
   /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
-  readonly onQuick: (next: PlaceQuick | undefined) => void;
+  readonly onQuick: (next: WorkspaceQuick | undefined) => void;
   /** 없으면 General은 안내 글만 둔다. */
   readonly projects: ProjectsSource | undefined;
   /** 이름·폴더를 저장했다. */

@@ -26,7 +26,7 @@ import {
   type AskQuestion,
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
-import type { AgentId } from "../../../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { createFakeSource, type FakeSource } from "../events/fake-source.ts";
 import type { SettledRow } from "./settled.ts";
@@ -44,18 +44,18 @@ const ago = (minutes: number) =>
 interface FakeSession {
   readonly id: string;
   readonly agent: AgentId;
-  readonly place: SessionSnapshot["place"];
+  readonly workspace: SessionSnapshot["workspace"];
 }
 
 const AGENT_SESSION: FakeSession = {
   id: id("ses", 1),
   agent: id("agt", 1),
-  place: { kind: "project", id: PROJECT },
+  workspace: { kind: "project", id: PROJECT },
 };
 const LOPHN_SESSION: FakeSession = {
   id: id("ses", 4),
   agent: "lophn",
-  place: null,
+  workspace: null,
 };
 
 function turnRequest(
@@ -196,33 +196,33 @@ function jobHold(
 export const JOB_HOLD_AGENT = () =>
   jobHold(11, 9, 1, {
     title: "Morning digest",
-    creator: { agent: "lophn", place: null },
+    creator: { agent: "lophn", workspace: null },
     every: "1d",
     at: "09:00",
     action: {
       kind: "agent_run",
       agent: "lophn",
-      agent_place: { kind: "project", id: PROJECT },
+      agent_workspace: { kind: "project", id: PROJECT },
       prompt:
         "Summarize yesterday's finished tasks and list the open questions for today.",
     },
   });
 
-/** 앱 place에서 만든 앱 tool 호출. 한 번 놓쳤다. */
+/** 앱 workspace에서 만든 앱 tool 호출. 한 번 놓쳤다. */
 export const JOB_HOLD_TOOL = () =>
   jobHold(13, 6, 1, {
     title: "Archive old orders",
-    creator: { agent: "lophn", place: { kind: "app", id: ORDERS } },
+    creator: { agent: "lophn", workspace: { kind: "app", id: ORDERS } },
     every: "12h",
     at: null,
     action: { kind: "tool_run", app: ORDERS, tool: "archive_old" },
   });
 
-/** project place에서 만든 workflow 시작. 세 번 놓쳤다. */
+/** project workspace에서 만든 workflow 시작. 세 번 놓쳤다. */
 export const JOB_HOLD_WORKFLOW = () =>
   jobHold(12, 48, 3, {
     title: "Weekly review",
-    creator: { agent: "lophn", place: { kind: "project", id: PROJECT } },
+    creator: { agent: "lophn", workspace: { kind: "project", id: PROJECT } },
     every: "7d",
     at: "10:00",
     action: {
@@ -233,12 +233,12 @@ export const JOB_HOLD_WORKFLOW = () =>
     },
   });
 
-/** 앱 place에서 lophn이 만든, 승인을 기다리는 앱 tool 호출. */
+/** 앱 workspace에서 lophn이 만든, 승인을 기다리는 앱 tool 호출. */
 export const JOB_APPROVAL_TOOL = (): { approval: JobRecord } => ({
   approval: {
     id: jid("job", 21),
     title: "Sync usage",
-    creator: { agent: "lophn", place: { kind: "app", id: ORDERS } },
+    creator: { agent: "lophn", workspace: { kind: "app", id: ORDERS } },
     every: "15m",
     at: null,
     action: { kind: "tool_run", app: ORDERS, tool: "usage.sync" },
@@ -350,7 +350,7 @@ export function createFakeWaiting(
       snapshot = {
         session: session.id,
         agent: session.agent,
-        place: session.place,
+        workspace: session.workspace,
         state: "waiting",
         turn_requests: [],
         questions: [],
@@ -406,7 +406,7 @@ export function createFakeWaiting(
           at: at(),
           payload: {
             agent: session.agent,
-            place: session.place,
+            workspace: session.workspace,
             revived: false,
           },
         });

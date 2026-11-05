@@ -17,7 +17,7 @@ import { agent, input, instance, report, tool } from "@lophn/flow";
 - `input: string` — 이 instance를 시작할 때 받은 입력이다.
 - `instance: string` — instance id다.
 - `agent({ agent, prompt, input?, schema? })` — agent 한 명에게 일을 시키고 답을
-  기다린다. `agent`는 `{ agent, place? }`다(`agent`는 agent 이름, `place`는
+  기다린다. `agent`는 `{ agent, workspace? }`다(`agent`는 agent 이름, `workspace`는
   `{ project }`나 `{ app }`의 이름이나 id. 없으면 이 workflow의 project).
   `schema`를 주면 답이 그 JSON schema 모양이다.
 - `tool({ app, tool, input? })` — 앱 command를 부르고 결과를 기다린다. `tool`은
@@ -72,7 +72,7 @@ Node가 type만 지우고 code를 바로 실행한다. import할 수 있는 것�
 import { agent, input, report, tool } from "@lophn/flow";
 
 const draft = await agent<{ title: string }>({
-  agent: { agent: "lophn", place: { app: "notes" } },
+  agent: { agent: "lophn", workspace: { app: "notes" } },
   prompt: "Write a title for this note.",
   input,
   schema: { type: "object", required: ["title"] },

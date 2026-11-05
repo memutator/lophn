@@ -43,7 +43,7 @@ import {
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
 import { LeftSidebar } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
 import type {
-  SidebarPlace,
+  SidebarWorkspace,
   SidebarSession,
 } from "../../../../packages/shell/renderer/shell/left-sidebar-model.ts";
 import {
@@ -178,8 +178,8 @@ interface SidebarProps extends SidebarSpec {
   readonly onSession?: (row: SessionRow) => void;
   /** 왼쪽 sidebar에서 강조할 줄(`sessionKey`). */
   readonly selected?: string;
-  /** 이 창이 보이는 place. 없으면 project(phroner)다. Home은 터미널이 없고 앱 place는 앱 화면 항목이 있다. */
-  readonly place?: "project" | "home" | "app";
+  /** 이 창이 보이는 workspace. 없으면 project(phroner)다. Home은 터미널이 없고 앱 workspace는 앱 화면 항목이 있다. */
+  readonly workspace?: "project" | "home" | "app";
   /** 맨 아래 줄의 빠른 실행을 누르면 + menu와 같은 pick을 알린다. */
   readonly onQuick?: (pick: NewTabPick) => void;
 }
@@ -284,8 +284,8 @@ const OLDER_RECENT: readonly (readonly [string, string, string])[] = [
   ["ses_old8", "Split the export test", "5 days ago"],
 ];
 
-/** 왼쪽 sidebar의 place들. phroner가 이 창이 보이는 project이고 Recent도 phroner만 있다. Home·다른 project·앱은 열린 session만 있다. */
-const SIDEBAR_PLACES: readonly SidebarPlace[] = [
+/** 왼쪽 sidebar의 workspace들. phroner가 이 창이 보이는 project이고 Recent도 phroner만 있다. Home·다른 project·앱은 열린 session만 있다. */
+const SIDEBAR_WORKSPACES: readonly SidebarWorkspace[] = [
   {
     ref: { kind: "home" },
     name: "Home",
@@ -539,11 +539,11 @@ const job = (
   ...fields,
 });
 
-/** phroner에 걸린 job 넷(project place의 lophn이 만든 것, 그 lophn을 부르는 것, 사람이 만든 agent를 부르는 것, workflow를 시작하는 것)과 Grocery의 job 하나. 마지막은 보이지 않아야 한다. */
+/** phroner에 걸린 job 넷(project workspace의 lophn이 만든 것, 그 lophn을 부르는 것, 사람이 만든 agent를 부르는 것, workflow를 시작하는 것)과 Grocery의 job 하나. 마지막은 보이지 않아야 한다. */
 const JOBS: readonly JobView[] = [
   job(1, {
     title: "Weekly review",
-    creator: { agent: "lophn", place: { kind: "project", id: PROJECT_ID } },
+    creator: { agent: "lophn", workspace: { kind: "project", id: PROJECT_ID } },
     every: "7d",
     at: "10:00",
     action: {
@@ -556,13 +556,13 @@ const JOBS: readonly JobView[] = [
   }),
   job(2, {
     title: "Morning digest",
-    creator: { agent: "lophn", place: null },
+    creator: { agent: "lophn", workspace: null },
     every: "1d",
     at: "09:00",
     action: {
       kind: "agent_run",
       agent: "lophn",
-      agent_place: { kind: "project", id: PROJECT_ID },
+      agent_workspace: { kind: "project", id: PROJECT_ID },
       prompt: "Summarize yesterday's finished tasks.",
     },
     missed_policy: "hold",
@@ -571,13 +571,13 @@ const JOBS: readonly JobView[] = [
   }),
   job(3, {
     title: "Bookkeeping notes",
-    creator: { agent: "lophn", place: null },
+    creator: { agent: "lophn", workspace: null },
     every: "1d",
     at: "23:30",
     action: {
       kind: "agent_run",
       agent: "agt_bookkeeper",
-      agent_place: { kind: "project", id: PROJECT_ID },
+      agent_workspace: { kind: "project", id: PROJECT_ID },
       prompt: "Write today's bookkeeping notes.",
     },
     missed_policy: "hold",
@@ -590,7 +590,7 @@ const JOBS: readonly JobView[] = [
   }),
   job(4, {
     title: "Nightly eval run",
-    creator: { agent: "lophn", place: null },
+    creator: { agent: "lophn", workspace: null },
     every: "1d",
     at: "02:00",
     action: {
@@ -607,13 +607,13 @@ const JOBS: readonly JobView[] = [
   }),
   job(5, {
     title: "Grocery price check",
-    creator: { agent: "lophn", place: { kind: "project", id: GROCERY_ID } },
+    creator: { agent: "lophn", workspace: { kind: "project", id: GROCERY_ID } },
     every: "6h",
     at: null,
     action: {
       kind: "agent_run",
       agent: "lophn",
-      agent_place: { kind: "project", id: GROCERY_ID },
+      agent_workspace: { kind: "project", id: GROCERY_ID },
       prompt: "Compare this week's prices.",
     },
     next_due_at: at(2 * HOUR),
@@ -625,7 +625,7 @@ const JOBS: readonly JobView[] = [
   }),
 ];
 
-/** 왼쪽 sidebar. 실제 `LeftSidebar`에 place 넷(Home, phroner, Grocery, Orders)과 그 session의 고정 data를 넘긴다. */
+/** 왼쪽 sidebar. 실제 `LeftSidebar`에 workspace 넷(Home, phroner, Grocery, Orders)과 그 session의 고정 data를 넘긴다. */
 export function PageLeftSidebar(props: SidebarProps) {
   const ref = useRef<HTMLDivElement>(null);
   useSidebarScript(ref, { ...props, mode: "workflow" });
@@ -633,9 +633,9 @@ export function PageLeftSidebar(props: SidebarProps) {
   const [client] = useState(() => createEventClient(createFakeSource()));
   const jobs = useMemo(() => fakeJobs({ jobs: JOBS }).source, []);
   const pick = props.onQuick ?? (() => {});
-  // hover 목록: 즐겨찾기 coding agent와 앱 화면(앱 place).
+  // hover 목록: 즐겨찾기 coding agent와 앱 화면(앱 workspace).
   const quick = {
-    ...(props.place === "home"
+    ...(props.workspace === "home"
       ? {}
       : {
           onTerminal: () => pick("terminal"),
@@ -652,7 +652,7 @@ export function PageLeftSidebar(props: SidebarProps) {
     onSearch: () => pick("search"),
     onApp: () => pick("app-panel"),
     appItems:
-      props.place === "app"
+      props.workspace === "app"
         ? [
             {
               id: "app-screen",
@@ -672,11 +672,11 @@ export function PageLeftSidebar(props: SidebarProps) {
     <EventsProvider client={client}>
       <div ref={ref} style={{ display: "contents" }}>
         <LeftSidebar
-          places={SIDEBAR_PLACES}
+          workspaces={SIDEBAR_WORKSPACES}
           current={
-            props.place === "home"
+            props.workspace === "home"
               ? { kind: "home" }
-              : props.place === "app"
+              : props.workspace === "app"
                 ? { kind: "app", id: "app_orders" }
                 : { kind: "project", id: PROJECT_ID }
           }
@@ -707,8 +707,8 @@ export function PageLeftSidebar(props: SidebarProps) {
           jobs={jobs}
           onInbox={() => {}}
           onJobs={() => {}}
-          onPlace={() => {}}
-          onSession={(_place, item) => {
+          onWorkspace={() => {}}
+          onSession={(_workspace, item) => {
             const found = SESSIONS.find((entry) => entry.id === item.ref);
             if (found) props.onSession?.(found);
           }}

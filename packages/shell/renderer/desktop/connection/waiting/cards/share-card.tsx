@@ -1,4 +1,4 @@
-// 앱 공유 요청. 앱 place의 agent가 이 앱을 다른 agent(와 coding agent)에게 할당해 달라고 청했다.
+// 앱 공유 요청. 앱 workspace의 agent가 이 앱을 다른 agent(와 coding agent)에게 할당해 달라고 청했다.
 // 승인하면 그 agent들의 할당에 앱이 더해지고 coding agent를 골랐으면 그쪽에도 공유 skill이 간다. 거절하면 아무것도 바뀌지 않는다.
 // 정한 항목은 ShareRequestClosed가 목록에서 뺀다.
 import { useState } from "react";

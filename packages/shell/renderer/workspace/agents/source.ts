@@ -59,7 +59,7 @@ export interface AgentsOverview {
   readonly agents: readonly AgentListRow[];
   /** 같이 쓰는 `LOPHN.md`. 앱 자리에는 project 지침이 없어 null이다. 파일이 없거나 읽을 수 없으면 빈 글이다. */
   readonly instructions: ProjectInstructionsView | null;
-  /** 이 project가 고른 model 하나(null이면 Workspace 기본을 따른다)와 따를 Workspace 기본. */
+  /** 이 project가 고른 model 하나(null이면 전역 기본을 따른다)와 따를 전역 기본. */
   readonly projectModel: {
     readonly chosen: ModelChoice | null;
     readonly inherited: ModelChoice | null;
@@ -101,7 +101,7 @@ export interface AgentDraft {
 }
 
 /** 화면을 연 자리. `kind: "none"`은 Settings다. */
-export interface PlaceView {
+export interface WorkspaceView {
   readonly kind: "project" | "app" | "none";
   readonly id: string | null;
   readonly name: string;
@@ -117,7 +117,7 @@ export interface AgentDetail {
    */
   readonly draftId: string | null;
   /** 화면을 연 자리. Settings는 `none`이다. */
-  readonly place: PlaceView;
+  readonly workspace: WorkspaceView;
   /** 정의 파일의 내용. 파일이 없거나 틀렸으면 본문만 빈 정의다. */
   readonly definition: AgentDraft;
   /** 읽은 파일의 hash. 저장·삭제가 비교한다. 파일이 없으면 null이다. */
@@ -279,7 +279,7 @@ export interface AgentsSource {
   ): Promise<ReadResult<{ readonly image: string }>>;
   /** 올린 이미지 avatar를 화면이 읽을 수 있는 주소로 푼다. 풀 수 없으면 빈 글이다. */
   imageSrc(project: string | null, assignment: string, image: string): string;
-  /** project 층 model을 고르거나(choice) 비워 Workspace 기본을 따르게(null) 한다. */
+  /** project 층 model을 고르거나(choice) 비워 전역 기본을 따르게(null) 한다. */
   setProjectModel(
     project: string,
     choice: ModelChoice | null,
@@ -297,7 +297,7 @@ export interface AgentsSource {
   /** 기다리는 MCP 로그인을 그만둔다. */
   cancelMcpSignIn(
     name: string,
-    login: Pick<McpLogin, "place" | "agent">,
+    login: Pick<McpLogin, "workspace" | "agent">,
   ): Promise<ReadResult<null>>;
   /** 이 agent에 붙은 할당과 붙일 수 있는 앱. project가 null이면 lophn이다. */
   grants(

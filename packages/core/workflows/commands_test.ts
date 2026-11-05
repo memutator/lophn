@@ -15,8 +15,8 @@ import { loadInstance, loadLines } from "./store.ts";
 const WFI = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const SES = "ses_01hzzzzzzzzzzzzzzzzzzzzzza";
-const lophnAddress = { agent: "lophn", place: { project: PRJ } } as const;
-const lophnAtPlace = { agent: "lophn", place: null } as const;
+const lophnAddress = { agent: "lophn", workspace: { project: PRJ } } as const;
+const lophnAtWorkspace = { agent: "lophn", workspace: null } as const;
 
 const plan = (step: string): HandoffPlan => ({
   step,
@@ -44,19 +44,19 @@ test("a stopped instance is not handed: report with next records the line only a
     const router = createRouter({
       directory: {
         find: () => null,
-        resolveAddress: () => ok(lophnAtPlace),
+        resolveAddress: () => ok(lophnAtWorkspace),
         open: () =>
           ok({
             session: SES,
             transport: "lophn",
-            agent: lophnAtPlace,
+            agent: lophnAtWorkspace,
             accepting: true,
           } as never),
         accepts: () => null,
         listOpen: () => [],
       },
       store: {} as never,
-      callPolicy: () => ({ places: [], agents: [] }),
+      callPolicy: () => ({ workspaces: [], agents: [] }),
       transport: {
         deliver: (_tx, _to, input) => {
           delivered.push(input);

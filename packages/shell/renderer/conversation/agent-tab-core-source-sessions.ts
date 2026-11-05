@@ -8,16 +8,16 @@ import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
 import { agentRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
-  type PlaceSession,
-  placeSessionList,
-  placeSessionOpen,
-  placeSessionRead,
+  type WorkspaceSession,
+  workspaceSessionList,
+  workspaceSessionOpen,
+  workspaceSessionRead,
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import {
   type AgentId,
   LOPHN_AGENT_ID,
-  type Place,
-} from "../../../protocol/lophn-agent/places.ts";
+  type Workspace,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   archiveSession,
   deleteSession,
@@ -48,16 +48,16 @@ const ACTIVE_TTL_MS = 30_000;
 
 type FaceDetails = AgentFace;
 
-async function placeNameOf(
+async function workspaceNameOf(
   env: Env,
-  place: Place | null,
+  workspace: Workspace | null,
 ): Promise<SourceResult<string>> {
-  if (place === null) return { ok: true, value: "" };
-  if (place.kind === "project") {
-    const read = await env.read(projectGet, { project: place.id });
+  if (workspace === null) return { ok: true, value: "" };
+  if (workspace.kind === "project") {
+    const read = await env.read(projectGet, { project: workspace.id });
     return read.ok ? { ok: true, value: read.value.project.title } : read;
   }
-  const read = await env.read(appGet, { app: place.id });
+  const read = await env.read(appGet, { app: workspace.id });
   return read.ok ? { ok: true, value: read.value.app.name } : read;
 }
 
@@ -128,13 +128,13 @@ export async function readFace(
   if (known !== undefined) return { ok: true, value: known };
   const read = await env.read(agentRead, {
     agent: env.agent,
-    ...(env.place === null ? {} : { place: env.place }),
+    ...(env.workspace === null ? {} : { workspace: env.workspace }),
   });
   if (!read.ok) return read;
   const { effective } = read.value;
-  // 정의에는 place가 없다. 자리는 이 source의 place다.
-  const place = env.place;
-  const named = await placeNameOf(env, place);
+  // 정의에는 workspace가 없다. 자리는 이 source의 workspace다.
+  const workspace = env.workspace;
+  const named = await workspaceNameOf(env, workspace);
   if (!named.ok) return named;
   const apps = await readApps(env);
   if (!apps.ok) return apps;
@@ -148,7 +148,8 @@ export async function readFace(
       profile.kind === "character"
         ? profile
         : { kind: "initial", text: name.slice(0, 1) },
-    place: place === null ? null : { kind: place.kind, name: named.value },
+    workspace:
+      workspace === null ? null : { kind: workspace.kind, name: named.value },
     permissionSummary: t("conversation.label.permission-summary", {
       count: apps.value.length,
     }),
@@ -162,8 +163,8 @@ export async function readFace(
 export async function readSession(
   env: Env,
   session: string,
-): Promise<SourceResult<PlaceSession>> {
-  const read = await env.read(placeSessionRead, { session });
+): Promise<SourceResult<WorkspaceSession>> {
+  const read = await env.read(workspaceSessionRead, { session });
   return read.ok ? { ok: true, value: read.value.session } : read;
 }
 
@@ -209,8 +210,8 @@ export async function readSessions(
   times: ReturnType<typeof createActiveTimes>,
 ): Promise<SourceResult<SessionEntry[]>> {
   const listed = await env.pages(
-    placeSessionList,
-    { agent: env.agent, place: env.place, archived: "include" },
+    workspaceSessionList,
+    { agent: env.agent, workspace: env.workspace, archived: "include" },
     (out) => out.sessions,
   );
   if (!listed.ok) return listed;
@@ -248,8 +249,8 @@ export async function openSession(
   env: Env,
   id: string,
 ): Promise<SourceResult<{ state_seq: string }>> {
-  const opened = await env.command(placeSessionOpen, {
-    input: { id, agent: env.agent, place: env.place },
+  const opened = await env.command(workspaceSessionOpen, {
+    input: { id, agent: env.agent, workspace: env.workspace },
     compare: {},
     key: `sessions-open-${id}`,
   });

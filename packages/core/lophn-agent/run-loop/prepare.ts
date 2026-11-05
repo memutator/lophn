@@ -10,22 +10,22 @@ import {
 } from "../../../base/mod.ts";
 import {
   type CommandDoc,
-  commandsForPlace,
+  commandsForWorkspace,
 } from "../../../cli/commands/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import {
   type AgentId,
-  type AgentPlace,
+  type AgentWorkspace,
   agentRead,
   finishTurn,
   isHarnessRuntime,
   type McpServer,
   type ModelChoice,
-  type PlaceKind,
-  type PlaceSession,
-  placeKindOf,
-  placeSessionRead,
+  type WorkspaceKind,
+  type WorkspaceSession,
+  workspaceKindOf,
+  workspaceSessionRead,
   startTurn,
   textBlocks,
   TURN_BLOB_PURPOSES,
@@ -101,18 +101,18 @@ import { turnModeOf } from "./turn-mode.ts";
 import { untrustedSource } from "./untrusted.ts";
 import type { TurnStart } from "./work.ts";
 
-// 시작할 turn의 재료를 core 기록에서 모은다. session의 agent id와 place, 이번 turn의 resolved agent
+// 시작할 turn의 재료를 core 기록에서 모은다. session의 agent id와 workspace, 이번 turn의 resolved agent
 // (층을 합친 값), tool 목록, 적용 한도, 고정할 turn 근거(basis)를 만든다. tool 목록은 turn마다 새로 만들지
 // 않고 session의 첫 turn에서 만든 것을 쓴다(model에 보이는 `tools[]`가 session 동안 같다). 도중에 달라지면
 // 목록은 그대로 두고 대화 끝에 notice를 붙인다. model 선택의 검증(catalog·credential)은 주입한다.
 
 // 이 turn의 외부 MCP tool 등록이다. 등록 화면은 현재 서버 설정과 연결 화면을 읽어 buildMcpTools로 정의를
 // 만들고, 재조회가 끝날 때까지 그 server tool 호출을 막는다.
-// 어느 서버를 연결하나. place는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다).
+// 어느 서버를 연결하나. workspace는 그 agent가 여는 자리다(전역 서버에 그 자리 층의 서버를 더한다).
 // skip은 agent 정의가 통째로 끈 서버이고 연결하지 않는다. agent는 그 agent 정의 층이다: 정의가 가진 서버와, 아래
 // 층(전역, project)에서 끈 서버 이름이다.
 export type McpSourceOptions = {
-  place?: AgentPlace | null;
+  workspace?: AgentWorkspace | null;
   skip?: ReadonlySet<string>;
   only?: ReadonlySet<string>;
   agent?: {
@@ -168,7 +168,7 @@ type PreparerDeps = {
   // ToolContext의 바깥 연결. 끼우지 않으면 tool 호출은 닫힌 채 실패한다.
   // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름, `apps`는 그 agent에게 할당한 앱 slug다.
   toolPorts(
-    session: PlaceSession,
+    session: WorkspaceSession,
     turn: {
       core: CoreCall;
       skills: readonly string[];
@@ -177,16 +177,16 @@ type PreparerDeps = {
   ): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
   events: AgentEventSink;
-  // 제품 고정 규칙을 포함한 place 종류 지침 글.
-  placePrompt(kind: PlaceKind): Promise<Result<string>>;
-  // prompt의 place 정보와 file tool이 닿는 폴더를 turn의 agent 자격 읽기로 모은다. place 종류 규칙은 place 층이 쥔다.
-  placeData(
+  // 제품 고정 규칙을 포함한 workspace 종류 지침 글.
+  workspacePrompt(kind: WorkspaceKind): Promise<Result<string>>;
+  // prompt의 workspace 정보와 file tool이 닿는 폴더를 turn의 agent 자격 읽기로 모은다. workspace 종류 규칙은 workspace 층이 쥔다.
+  workspaceData(
     call: CoreCall,
     resolved: ResolvedAgent,
     session: string,
   ): Promise<
     Result<{
-      place: TurnPromptInput["place"];
+      workspace: TurnPromptInput["workspace"];
       scope: {
         read: string[];
         write: string[];
@@ -195,19 +195,19 @@ type PreparerDeps = {
       };
     }>
   >;
-  // place 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 place 층이 정한다.
-  placeTools(kind: PlaceKind): readonly string[];
+  // workspace 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 workspace 층이 정한다.
+  workspaceTools(kind: WorkspaceKind): readonly string[];
   instructions: InstructionDeps;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
-  // place로 어느 project인지 정한다).
+  // workspace로 어느 project인지 정한다).
   instructionFilesFor?(session: Id<"ses">): InstructionDeps["files"];
   // turn 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
-  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다. 내장 skill은 그 place 종류에 선언된 것만이다.
+  // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다. 내장 skill은 그 workspace 종류에 선언된 것만이다.
   // `apps`는 그 agent 정의에 할당된 앱 slug이고, 그 앱들의 public skill이 공유 층으로 더해진다.
   skills?(
-    place: AgentPlace | null,
-    kind: PlaceKind,
+    workspace: AgentWorkspace | null,
+    kind: WorkspaceKind,
     apps: readonly string[],
   ): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
@@ -271,11 +271,11 @@ function names(definitions: readonly ToolDefinition[]): Set<string> {
   return new Set(definitions.map((tool) => tool.name));
 }
 
-// model에 보이는 tool 목록(session의 고정 목록이 될 재료)이다. lophn은 place 종류 목록 전부이고, bare는 그 목록 ∩ 고른 이름이다.
+// model에 보이는 tool 목록(session의 고정 목록이 될 재료)이다. lophn은 workspace 종류 목록 전부이고, bare는 그 목록 ∩ 고른 이름이다.
 // 상한은 그대로다: 목록 밖 이름을 골라도 보이지 않는다. 앱 command는 목록에 없고 `lophn` tool로 부르므로 고른 명령이 있을 때만
 // (앱 command는 할당 안의 것만: `appDocs`) `lophn` tool이 서고, 그 설명에는 고른 명령만 싣는다. MCP는 resolve가 이미 고른 것만 `external`에 넘긴다.
 export function visibleTools(input: {
-  kind: PlaceKind;
+  kind: WorkspaceKind;
   agent: Pick<ResolvedAgent, "runtime" | "picks">;
   names: readonly string[];
   definitions: readonly ToolDefinition[];
@@ -287,7 +287,7 @@ export function visibleTools(input: {
   const commands =
     input.agent.runtime === "bare"
       ? [
-          ...commandsForPlace(input.kind).filter((command) =>
+          ...commandsForWorkspace(input.kind).filter((command) =>
             picked.has(command.name),
           ),
           ...input.appDocs.filter((doc) => picked.has(doc.name)),
@@ -312,11 +312,11 @@ export function visibleTools(input: {
   );
 }
 
-// session이 실행하는 tool의 정의(handler 붙이기 전)다. 고정 목록에 그 place 종류의 명령 정의를 더한다. bare는 고정 목록 중 지금도
+// session이 실행하는 tool의 정의(handler 붙이기 전)다. 고정 목록에 그 workspace 종류의 명령 정의를 더한다. bare는 고정 목록 중 지금도
 // 고른 것(`current`)과 고른 명령(`usable`)만이라 고르지 않은 tool은 실행기가 "not available"로 거절한다.
 export function runnableTools(input: {
   fixed: readonly ToolDefinition[];
-  kind: PlaceKind;
+  kind: WorkspaceKind;
   bare: {
     current: ReadonlySet<string>;
     usable: ReadonlySet<string>;
@@ -415,7 +415,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   // session과 이번 turn의 resolved agent로 tool·model을 모은다.
   async function material(
     start: TurnStart,
-    session: PlaceSession,
+    session: WorkspaceSession,
     agent: ResolvedAgent,
     mcp: LoadedMcp,
     turn: string,
@@ -443,21 +443,21 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const model = await deps.resolveModel({ model: agent.model });
     if (!model.ok) return model;
 
-    const kind = placeKindOf(session.place);
+    const kind = workspaceKindOf(session.workspace);
 
-    // place 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
+    // workspace 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
     // `lophn <앱 slug> <command>`를 부를 때 푼다. bare는 그 중 고른 것만이다.
     const loaded =
       agent.runtime === "bare"
         ? await deps.toolkit.appTool?.load({
             agent: session.agent,
-            place: session.place,
+            workspace: session.workspace,
           })
         : undefined;
     const current = visibleTools({
       kind,
       agent,
-      names: deps.placeTools(kind),
+      names: deps.workspaceTools(kind),
       definitions: deps.toolkit.definitions,
       inputMedia: model.value.inputMedia,
       external: external.map((tool) => tool.definition),
@@ -528,7 +528,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           }
         : null;
     // 지금 부를 수 있는 앱 command. 부를 때마다 읽는다: session을 시작할 때 고정하지 않고 바뀌어도 notice를 내지 않는다.
-    const who = { agent: session.agent, place: session.place };
+    const who = { agent: session.agent, workspace: session.workspace };
     const apps: AppCommandLookup = async () => {
       const loaded = await toolkit.appTool?.load(who);
       const entries = loaded?.ok ? appCommandEntries(loaded.value) : [];
@@ -536,17 +536,17 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         ? entries
         : entries.filter((entry) => bare.usable.has(entry.doc.name));
     };
-    // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 place 종류가
+    // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 workspace 종류가
     // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
     const help =
       bare === null
         ? undefined
-        : commandsForPlace(placeKindOf(session.place)).filter((command) =>
-            bare.usable.has(command.name),
+        : commandsForWorkspace(workspaceKindOf(session.workspace)).filter(
+            (command) => bare.usable.has(command.name),
           );
     const base: ToolDefinition[] = runnableTools({
       fixed: fixed.definitions,
-      kind: placeKindOf(session.place),
+      kind: workspaceKindOf(session.workspace),
       bare,
     }).map((tool) => {
       const handler = legacy.get(tool.name);
@@ -586,9 +586,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       }
       return { name: hit.name, input: hit.input };
     };
-    const place = session.place;
+    const workspace = session.workspace;
     const images = createImageReader(agentCall, seat.session);
-    // file tool이 닿는 폴더. place 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
+    // file tool이 닿는 폴더. workspace 정보를 읽을 때 채운다(model call 전이라 tool보다 먼저다).
     const scope = {
       read: [] as string[],
       write: [] as string[],
@@ -617,9 +617,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         turn: seat.turn as Id<"trn">,
         tool_call: toolCall,
         agent: session.agent,
-        kind: placeKindOf(session.place),
+        kind: workspaceKindOf(session.workspace),
         mode,
-        place,
+        workspace,
         listed,
         core: agentCall,
         clock,
@@ -646,11 +646,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     type Built = Omit<TurnContext, "keep"> & { compaction: string | null };
     let built: Promise<Result<Built>> | undefined;
     const build = async (): Promise<Result<Built>> => {
-      // bare는 place 종류 지침(제품 고정 규칙)을 싣지 않는다.
+      // bare는 workspace 종류 지침(제품 고정 규칙)을 싣지 않는다.
       const prompt =
         resolved.runtime === "bare"
           ? ok("")
-          : await deps.placePrompt(placeKindOf(resolved.place));
+          : await deps.workspacePrompt(workspaceKindOf(resolved.workspace));
       if (!prompt.ok) return prompt;
       const read = await readSessionConversation(machine, {
         session: seat.session,
@@ -659,7 +659,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         runtime: resolved.runtime,
       });
       if (!read.ok) return read;
-      const placed = await deps.placeData(agentCall, resolved, seat.session);
+      const placed = await deps.workspaceData(
+        agentCall,
+        resolved,
+        seat.session,
+      );
       if (!placed.ok) return placed;
       scope.read.push(...placed.value.scope.read);
       scope.write.push(...placed.value.scope.write);
@@ -675,7 +679,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           : [noticeText(toolsNotice(fixed.definitions, m.current))];
       return ok({
         prompt: {
-          place_kind_prompt: prompt.value,
+          workspace_kind_prompt: prompt.value,
           // 정본 이름이다. model에는 wire 이름으로 간다.
           tools: fixed.definitions.map((tool) => ({
             name: tool.name,
@@ -685,8 +689,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           instructions,
           skills: promptSkills(
             (await deps.skills?.(
-              resolved.place,
-              placeKindOf(resolved.place),
+              resolved.workspace,
+              workspaceKindOf(resolved.workspace),
               assigned,
             )) ?? [],
             resolved,
@@ -701,7 +705,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
                 },
               }
             : {}),
-          place: placed.value.place,
+          workspace: placed.value.workspace,
           ...(seenAtStart !== undefined && seenAtStart.compaction === compaction
             ? { seen: seenAtStart.basis }
             : {}),
@@ -819,12 +823,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         message: "the input has no session message",
       });
     }
-    const read = await readOf(machine, placeSessionRead, {
+    const read = await readOf(machine, workspaceSessionRead, {
       session: start.session,
     });
     if (!read.ok) return read;
     const session = read.value.session;
-    const kind = placeKindOf(session.place);
+    const kind = workspaceKindOf(session.workspace);
     const mode = turnModeOf(session, start.input);
     if (session.lifecycle !== "open") {
       return err({ code: "conflict", message: "the session is not open" });
@@ -844,15 +848,15 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     // 정의를 못 읽으면 할당이 없는 것이다. 정의 오류는 아래 resolveTurnAgent가 turn을 시작하지 않는 쪽으로 알린다.
     const defined = await readOf(machine, agentRead, { agent: session.agent });
     const apps = defined.ok ? (defined.value.definition?.apps ?? []) : [];
-    const skills = (await deps.skills?.(session.place, kind, apps)) ?? [];
+    const skills = (await deps.skills?.(session.workspace, kind, apps)) ?? [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,
-      placeTools: deps.placeTools,
+      workspaceTools: deps.workspaceTools,
       skills: skills.filter((entry) => entry.enabled),
-      mcp: async (off, place, ownServers) => {
+      mcp: async (off, workspace, ownServers) => {
         mcp = await loadMcp(start.session, {
-          place,
+          workspace,
           skip: off,
           agent: {
             id: session.agent,
@@ -919,7 +923,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       start,
       session,
       agent,
-      mcp ?? (await loadMcp(start.session, { place: agent.place })),
+      mcp ?? (await loadMcp(start.session, { workspace: agent.workspace })),
       turn,
       apps,
     );
@@ -975,7 +979,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           ),
         },
         models: { judgment: m.model.call, organizing: m.model.call },
-        place: session.place,
+        workspace: session.workspace,
         limits: limits.value,
       },
     );

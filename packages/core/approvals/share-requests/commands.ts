@@ -35,7 +35,7 @@ export function createShareRequestCommands(): {
   decide: CommandDefinition<typeof shareRequestDecide>;
 } {
   return {
-    // 앱 place의 agent만 연다. 앱은 credential이 고정한 앱이다. 같은 앱의 열린 요청이 있으면 새 요청이 대신한다.
+    // 앱 workspace의 agent만 연다. 앱은 credential이 고정한 앱이다. 같은 앱의 열린 요청이 있으면 새 요청이 대신한다.
     // 여기서는 어느 agent 정의도 바꾸지 않는다: 바꾸는 것은 사람의 승인(decide)뿐이다.
     open: {
       route: shareRequestOpen,
@@ -51,7 +51,7 @@ export function createShareRequestCommands(): {
         if (app === undefined) {
           return err({
             code: "forbidden",
-            message: "only a session in an app's place shares that app",
+            message: "only a session in an app's workspace shares that app",
           });
         }
         const lookup = tx.port(shareLookupPort);

@@ -11,13 +11,13 @@ function layerNames(texts: string[]): string[] {
   return texts.map((text, i) => {
     const base =
       i === 0
-        ? "place_kind"
+        ? "workspace_kind"
         : text.startsWith("# Instructions")
           ? "instructions"
           : text.startsWith("# Skills")
             ? "skills"
             : i === texts.length - 1
-              ? "place"
+              ? "workspace"
               : `block${i}`;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);

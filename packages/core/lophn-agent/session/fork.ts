@@ -10,8 +10,8 @@ import type {
   Input,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { startSession } from "../places/lifecycle.ts";
-import type { OpenDeps } from "../places/ports.ts";
+import { startSession } from "../workspaces/lifecycle.ts";
+import type { OpenDeps } from "../workspaces/ports.ts";
 import { hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser } from "./guards.ts";
 import { imageRefsOf } from "./message-images.ts";
@@ -21,11 +21,11 @@ import {
   messageRowOf,
   nextMessageSeq,
   calledFromOf,
-  placeOf,
+  workspaceOf,
   type SessionRow,
 } from "./model.ts";
 
-// Fork. 같은 agent와 같은 place의 새 session을 만들고 고른 지점까지의 확정
+// Fork. 같은 agent와 같은 workspace의 새 session을 만들고 고른 지점까지의 확정
 // 메시지를 복사한다. rewind가 숨긴 구간의 메시지는 복사하지 않는다. 이력만 가져간다: 허락, 대기 요청과 질문,
 // 열린 call, rewind 기록은 원래 session에 묶여 있어 새 session은 가져오지 않는다. 복사본은 봉투를 그대로
 // 두지만 새 session의 turn이 가져간 적이 없어 turn은 비어 있다.
@@ -101,12 +101,12 @@ export function createForkCommand(
       }
       const originals = originalsOf(tx, source.id, through);
 
-      // 제목과 model 선택은 출처에서 이어받고 archive와 요약(compaction)은 이어받지 않는다. 보관한 place와
+      // 제목과 model 선택은 출처에서 이어받고 archive와 요약(compaction)은 이어받지 않는다. 보관한 workspace와
       // 없어진 agent 정의에는 새 session을 열지 못한다.
       const started = startSession(tx, open(tx), {
         id: input.id,
         agent: source.agent,
-        place: placeOf(source),
+        workspace: workspaceOf(source),
         calledFrom: calledFromOf(source),
         inherit: {
           title: source.title,

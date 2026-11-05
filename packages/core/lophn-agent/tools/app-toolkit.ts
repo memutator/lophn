@@ -5,9 +5,9 @@ import type {
   AssignmentEntry,
 } from "../../../protocol/approvals/mod.ts";
 import type {
-  AgentAtPlace,
+  AgentAtWorkspace,
   AgentId,
-} from "../../../protocol/lophn-agent/places.ts";
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { AppToolView } from "./app-tool/command.ts";
 
@@ -21,7 +21,7 @@ type AppToolLoad = {
 
 export type AppToolkit = {
   // 지금의 선언과 할당.
-  load(who: AgentAtPlace): Promise<Result<AppToolLoad>>;
+  load(who: AgentAtWorkspace): Promise<Result<AppToolLoad>>;
 };
 
 export function createAppToolkit(options: {
@@ -29,7 +29,7 @@ export function createAppToolkit(options: {
   machine: CoreCall;
   assignment(agent: AgentId): Promise<Result<Pick<Assignment, "entries">>>;
 }): AppToolkit {
-  async function load(who: AgentAtPlace): Promise<Result<AppToolLoad>> {
+  async function load(who: AgentAtWorkspace): Promise<Result<AppToolLoad>> {
     const assignment = await options.assignment(who.agent);
     if (!assignment.ok) return assignment;
     const entries: AssignmentEntry[] = assignment.value.entries;

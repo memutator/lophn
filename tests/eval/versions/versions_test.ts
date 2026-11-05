@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { placePrompt } from "../../../packages/core/agent-places/prompts/prompts.ts";
-import { TOOL_ORDER } from "../../../packages/core/agent-places/tool-lists.ts";
+import { workspacePrompt } from "../../../packages/core/agent-workspaces/prompts/prompts.ts";
+import { TOOL_ORDER } from "../../../packages/core/agent-workspaces/tool-lists.ts";
 import { REPO_ROOT } from "../runner/paths.ts";
 import type {
   CollectedModelCall,
@@ -59,7 +59,7 @@ test("같은 내용은 같은 n, 바뀐 내용은 새 n, 옛 내용은 옛 n이�
 
 const TOOL_SKILL = "packages/core/lophn-agent/tools/bundles/skill.ts";
 const TOOL_ASK = "packages/core/lophn-agent/tools/bundles/ask.ts";
-const SKILL_MD = "packages/core/agent-places/skills/foo/SKILL.md";
+const SKILL_MD = "packages/core/agent-workspaces/skills/foo/SKILL.md";
 
 async function write(root: string, rel: string, text: string) {
   await mkdir(`${root}/${rel.slice(0, rel.lastIndexOf("/"))}`, {
@@ -71,7 +71,7 @@ async function write(root: string, rel: string, text: string) {
 const skillMd = (description: string, body: string) =>
   `---\nname: foo\ndescription: ${description}\n---\n${body}`;
 
-const lophn = await placePrompt("home");
+const lophn = await workspacePrompt("home");
 if (!lophn.ok) throw new Error("lophn prompt");
 
 function modelCall(first: string): CollectedModelCall {
@@ -143,7 +143,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
     );
 
     const bad = await seenComponents(
-      [{ model_calls: [modelCall("not a place prompt")], tool_calls: [] }],
+      [{ model_calls: [modelCall("not a workspace prompt")], tool_calls: [] }],
       { root, registryDir },
     );
     assert.deepStrictEqual(bad.ok ? null : bad.error.code, "invalid_input");
@@ -151,7 +151,7 @@ test("연 skill만 본문 버전을 갖고 수정은 그 component의 n만 올�
 });
 
 test("classifyPath는 component, tool, runtime, core를 가르고 shell·design·test는 어디에도 넣지 않는다", () => {
-  const R = "packages/core/agent-places";
+  const R = "packages/core/agent-workspaces";
   const rows: [string, string][] = [
     [`${R}/prompts/home.md`, "instruction"],
     [`${R}/prompts/prompts.ts`, "instruction"],
@@ -195,7 +195,7 @@ test("classifyPath는 component, tool, runtime, core를 가르고 shell·design�
 });
 
 // TOOL_FILES에 없는 tool이 model 요청에 실리면 seenComponents가 돈을 쓴 trial을 기록 단계에서 멈춘다(domain tool이 그랬다).
-test("place 종류가 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
+test("workspace 종류가 받는 agent tool은 모두 TOOL_FILES의 source file에 정의돼 있다", async () => {
   const table = await toolFileTable(REPO_ROOT);
   assert.deepStrictEqual(
     TOOL_ORDER.filter((name) => !table.has(name)),
@@ -203,7 +203,7 @@ test("place 종류가 받는 agent tool은 모두 TOOL_FILES의 source file에 �
   );
 });
 
-test("texts를 주면 seenComponents가 variant의 place 종류 prompt body를 거절하지 않는다", async () => {
+test("texts를 주면 seenComponents가 variant의 workspace 종류 prompt body를 거절하지 않는다", async () => {
   await withTemp(async (dir) => {
     const root = `${dir}/root`;
     const registryDir = `${dir}/registry`;
@@ -211,7 +211,7 @@ test("texts를 주면 seenComponents가 variant의 place 종류 prompt body를 �
     await write(root, TOOL_ASK, 'defineTool({ name: "ask" });');
     const variantLophn = `${lophn.value}\nvariant edit`;
     const texts = {
-      place_prompts: {
+      workspace_prompts: {
         home: variantLophn,
         project: "project text",
         app: "app text",

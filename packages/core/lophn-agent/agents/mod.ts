@@ -34,7 +34,7 @@ export type {
   AgentDeps,
   AgentFileSystem,
   AgentLookups,
-  PlaceLookups,
+  WorkspaceLookups,
   ReadSql,
 } from "./ports.ts";
 export {

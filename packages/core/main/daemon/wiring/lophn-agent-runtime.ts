@@ -12,7 +12,7 @@ import {
   interruptTurns,
   moveQueuedMessage,
   OAUTH_REFRESH_LEAD_MS,
-  PLACE_KINDS,
+  WORKSPACE_KINDS,
   type ProviderRecord,
   providerRead,
   recordProviderModels,
@@ -22,9 +22,9 @@ import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { ParentMessage } from "../../../../protocol/supervision/mod.ts";
 import {
   agentConditions,
-  placeOperations,
-} from "../../../agent-places/credentials.ts";
-import { FILE_HOOKS } from "../../../agent-places/hooks.ts";
+  workspaceOperations,
+} from "../../../agent-workspaces/credentials.ts";
+import { FILE_HOOKS } from "../../../agent-workspaces/hooks.ts";
 import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
 import {
   createInbox,
@@ -215,8 +215,8 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
     operations: (ctx) =>
       agentRuntimePolicies(
         ctx.allRoutes,
-        PLACE_KINDS.flatMap((kind) =>
-          placeOperations(kind, agentTools({ file: FILE_HOOKS })),
+        WORKSPACE_KINDS.flatMap((kind) =>
+          workspaceOperations(kind, agentTools({ file: FILE_HOOKS })),
         ),
       ),
     // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
@@ -267,7 +267,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       const started = await startAgentRuntimeChild({
         io: ctx.io,
         operationsFor: (kind) =>
-          placeOperations(kind, agentTools({ file: FILE_HOOKS })),
+          workspaceOperations(kind, agentTools({ file: FILE_HOOKS })),
         conditionsFor: agentConditions,
         diagnostic: (message) =>
           void ctx

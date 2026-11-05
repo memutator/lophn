@@ -89,7 +89,7 @@ export const questionsArea: Area = {
       id: "waiting-job-hold-kinds",
       title: "Waiting · job kinds",
       description:
-        "job hold card의 세 가지 할 일: agent 호출(받는 agent), 앱 tool 호출(tool과 앱의 짧은 id), workflow 시작(workflow 이름). 카드에는 job 제목, 만든 agent와 place, 놓친 수와 마지막 차례 시각이 보인다.",
+        "job hold card의 세 가지 할 일: agent 호출(받는 agent), 앱 tool 호출(tool과 앱의 짧은 id), workflow 시작(workflow 이름). 카드에는 job 제목, 만든 agent와 workspace, 놓친 수와 마지막 차례 시각이 보인다.",
       render: () => <WaitingJobHoldKinds />,
     },
     {

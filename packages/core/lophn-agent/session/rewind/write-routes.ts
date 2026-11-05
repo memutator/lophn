@@ -18,11 +18,11 @@ import type { RewindStore } from "./store.ts";
 // file tool의 쓰기 기록을 core가 받는 입구다(StageRewindFile, RecordRewindWrite). agent runtime은 파일 내용을
 // 보내지 않는다: core가 허용 폴더 안에서 쓰기 직전 내용을 직접 읽어 session 저장소에 두고, 쓴 뒤에는 같은
 // 확인을 거쳐 machine 자격으로 RecordRewindFile을 낸다. 확인은 둘: 부른 agent 자격의 session·turn이 입력과
-// 같고, root가 그 session의 place가 file tool에 연 폴더다.
+// 같고, root가 그 session의 workspace가 file tool에 연 폴더다.
 
 type RewindWriteDeps = {
   store: Pick<RewindStore, "put" | "has">;
-  // 그 session의 place가 file tool에 연 쓰기 폴더(절대 경로)다. 열리지 않았으면 빈 목록이다.
+  // 그 session의 workspace가 file tool에 연 쓰기 폴더(절대 경로)다. 열리지 않았으면 빈 목록이다.
   foldersOf(session: string): readonly string[];
   writer(): Writer;
 };

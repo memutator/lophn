@@ -604,8 +604,8 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
         skip.add(`${target}\0${site.specifier}`);
         return;
       }
-      const place = locate(found);
-      if (place.kind === "removed") {
+      const workspace = locate(found);
+      if (workspace.kind === "removed") {
         note(
           target,
           site.line,
@@ -616,9 +616,9 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
         return;
       }
       const before = relative(parent(file), found);
-      let after = relative(parent(target), place.path);
+      let after = relative(parent(target), workspace.path);
       // 추적하지 않는 대상(만들어지는 파일 등)은 옮긴 뒤 확인에서 뺀다.
-      const unknown = place.kind === "unknown";
+      const unknown = workspace.kind === "unknown";
       if (before === after) {
         if (unknown) skip.add(`${target}\0${site.specifier}`);
         return;
@@ -651,21 +651,22 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
       skip.add(`${target}\0${site.specifier}`);
       return;
     }
-    const place = locate(old);
-    if (place.kind === "removed") {
+    const workspace = locate(old);
+    if (workspace.kind === "removed") {
       note(target, site.line, "error", `지우는 파일을 가리킴: ${path}`);
       skip.add(`${target}\0${site.specifier}`);
       return;
     }
     const mine = ownerOf(target, newMembers);
-    const theirs = ownerOf(place.path, newMembers);
+    const theirs = ownerOf(workspace.path, newMembers);
     const before = ownerOf(file, oldMembers);
     const merged =
       mine &&
       theirs &&
       mine.directory === theirs.directory &&
       before?.directory !== member.directory;
-    if (!merged && resolveWorkspace(path, newMembers) === place.path) return;
+    if (!merged && resolveWorkspace(path, newMembers) === workspace.path)
+      return;
     if (merged || !theirs) {
       if (!theirs) {
         note(
@@ -675,7 +676,7 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
           `workspace member 밖이 되어 상대 경로로 씀: ${path}`,
         );
       }
-      return relative(parent(target), place.path) + suffix;
+      return relative(parent(target), workspace.path) + suffix;
     }
     if (!theirs.name) {
       note(target, site.line, "error", `이름 없는 member로 옮김: ${path}`);
@@ -684,13 +685,13 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
     const key =
       path === member.name ? "." : `.${path.slice(member.name!.length)}`;
     const renamed = keyRenames.get(theirs.directory)?.get(key) ?? key;
-    const keys = exportKeys(theirs, place.path);
+    const keys = exportKeys(theirs, workspace.path);
     if (!keys.length) {
       note(
         target,
         site.line,
         "error",
-        `${theirs.name}에 ${place.path}를 내보내는 export가 없음`,
+        `${theirs.name}에 ${workspace.path}를 내보내는 export가 없음`,
       );
       return;
     }
@@ -749,9 +750,9 @@ async function planMoves(root: string, mapping: Mapping): Promise<Plan> {
         if (!/^\.\.?\//.test(value)) continue;
         const found = resolve(parent(file), splitSuffix(value)[0]);
         if (found === undefined) continue;
-        const place = locate(found);
-        if (place.kind === "unknown") continue;
-        const after = relative(parent(target), place.path);
+        const workspace = locate(found);
+        if (workspace.kind === "unknown") continue;
+        const after = relative(parent(target), workspace.path);
         if (relative(parent(file), found) === after) continue;
         note(target, site.line, "path", `경로 문자열 ${value} → ${after}`);
         reported.add(site.line);

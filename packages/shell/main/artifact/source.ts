@@ -9,7 +9,7 @@ import { err, ok, type Result } from "../../../base/result.ts";
 import { artifactNameSchema, workflowNameSchema } from "../../ipc/artifact.ts";
 import {
   ARTIFACT_ENTRY,
-  artifactPlaceOf,
+  artifactWorkspaceOf,
   artifactsFolder,
 } from "../../../protocol/projects/artifact.ts";
 import {
@@ -77,7 +77,7 @@ export async function resolveSource(
   if (!artifactNameSchema.safeParse(source.name).success) {
     return err({ code: "invalid_input", message: "invalid artifact name" });
   }
-  const folder = artifactsFolder(dataRoot, artifactPlaceOf(source));
+  const folder = artifactsFolder(dataRoot, artifactWorkspaceOf(source));
   try {
     const root = await fs.realpath(join(folder, source.name));
     // artifact 폴더가 artifacts 밖을 가리키는 symlink면 닫는다.

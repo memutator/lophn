@@ -47,4 +47,20 @@ begin
   select raise(abort, 'a finished call does not change');
 end;`,
   },
+  {
+    // place를 workspace로 부르게 됐다. 끝난 call도 `to`의 key를 옮겨야 해서 trigger를 잠시 내렸다 같은 정의로 세운다.
+    id: "router.agent-calls.workspace",
+    sql: `
+drop trigger agent_calls_finished_stays;
+update agent_calls set "to" = json_set(
+  json_remove("to", '$.agent.place'),
+  '$.agent.workspace',
+  json("to" -> '$.agent.place')
+) where json_type("to", '$.agent.place') is not null;
+create trigger agent_calls_finished_stays before update on agent_calls
+  when old.state <> 'accepted'
+begin
+  select raise(abort, 'a finished call does not change');
+end;`,
+  },
 ];

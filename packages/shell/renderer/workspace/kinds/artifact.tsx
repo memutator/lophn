@@ -12,15 +12,15 @@ import type { TabKindDef } from "./kind.ts";
 import type { TabItem } from "../model.ts";
 import { showAfter } from "../open-policy.ts";
 
-/** 이 창 place(project나 앱)의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
+/** 이 창 workspace(project나 앱)의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
 export function openArtifact(host: TabHost, name: string): void {
-  const { place } = host;
-  if (place.kind === "home") return;
+  const { workspace } = host;
+  if (workspace.kind === "home") return;
   host.openTab({
-    key: `artifact:${place.kind}:${place.id}:${name}`,
+    key: `artifact:${workspace.kind}:${workspace.id}:${name}`,
     kind: "artifact",
     title: name,
-    fields: { [place.kind]: place.id, name },
+    fields: { [workspace.kind]: workspace.id, name },
   });
 }
 
@@ -137,7 +137,7 @@ export const artifactKind: TabKindDef = {
         onTitle={(title) => host.patchTab(tab.key, { title }, { later: true })}
         onOpenLink={(url) => openBrowserTab(host, url)}
         onEditSource={(file) => openFile(host, file, { source: true })}
-        placeLophnSession={() => agents?.placeLophnSession() ?? null}
+        workspaceLophnSession={() => agents?.workspaceLophnSession() ?? null}
         agentName={(session) => agents?.nameOf(session)}
         onOpenSession={(session) => agents?.openSession(session)}
       />

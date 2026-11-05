@@ -2,7 +2,7 @@
 // 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project의
 // LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`). 전역과 project 자리는
 // LOPHN.md가 없으면(ENOENT) 같은 자리의 CLAUDE.md를 읽는다. 그리고 agent 정의 본문이다.
-// 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 place로 정한다.
+// 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 workspace로 정한다.
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
@@ -19,7 +19,7 @@ import {
   INSTRUCTION_FILE_NAMES,
   instructionsGet,
   type AgentId,
-  type Place,
+  type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ReadDefinition,
@@ -27,7 +27,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import type { ReaderRegistration } from "../../storage/ledger/mod.ts";
 import { dataRootOf } from "../agents/store.ts";
-import { loadSession, placeOf } from "../session/model.ts";
+import { loadSession, workspaceOf } from "../session/model.ts";
 import {
   encodeInstructionFile,
   INSTRUCTION_FILE_MAX_BYTES,
@@ -89,7 +89,7 @@ function openInstructionFile(folder: string): Result<InstructionFile | null> {
 
 export type SessionRow = {
   agent: AgentId;
-  place: Place | null;
+  workspace: Workspace | null;
 };
 
 function loadInstructionSession(
@@ -98,7 +98,7 @@ function loadInstructionSession(
 ): SessionRow | undefined {
   const found = loadSession(snapshot, id);
   if (found === undefined) return undefined;
-  return { agent: found.agent, place: placeOf(found) };
+  return { agent: found.agent, workspace: workspaceOf(found) };
 }
 
 // 조립이 넘기는 조회와 규칙이다. project 표와 agent 정의 file 자리는 harness가 모른다.
@@ -109,9 +109,9 @@ export type InstructionReadDeps = {
   agentFilePathOf(root: string, session: SessionRow): string | null;
 };
 
-// 그 session의 agent가 prompt로 읽는 project. home은 place가 없어 없고, 앱 그릇에는 LOPHN.md가 없다.
+// 그 session의 agent가 prompt로 읽는 project. home은 workspace가 없어 없고, 앱 그릇에는 LOPHN.md가 없다.
 function ownProject(session: SessionRow) {
-  return session.place?.kind === "project" ? session.place.id : null;
+  return session.workspace?.kind === "project" ? session.workspace.id : null;
 }
 
 // 정의 파일의 frontmatter를 뺀 본문. 닫는 줄이 없으면 깨진 파일이라 null이다.
@@ -151,7 +151,7 @@ function readAgentBody(
 }
 
 // GetInstructions의 읽기. 층 하나의 파일을 돌려준다(부재는 null).
-// - project 층은 session의 place가 가리키는 project다. home과 앱 place는 project 지침이 없다.
+// - project 층은 session의 workspace가 가리키는 project다. home과 앱 workspace는 project 지침이 없다.
 function readInstruction(
   deps: InstructionReadDeps,
   snapshot: ReadSnapshot,

@@ -1,6 +1,6 @@
 // 세 질문
-// - contract: boundary `agent-tools`(lophn이 `lophn app create`와 `lophn call send`를 쓴다), `router`(이름으로 앱 place의 lophn session을 새로 연다).
-// - 현실적 회귀: lophn이 앱을 등록했는데 그 앱 place의 lophn을 call로 부르지 못하는 것, 맡긴 글이 받는 session의 입력에
+// - contract: boundary `agent-tools`(lophn이 `lophn app create`와 `lophn call send`를 쓴다), `router`(이름으로 앱 workspace의 lophn session을 새로 연다).
+// - 현실적 회귀: lophn이 앱을 등록했는데 그 앱 workspace의 lophn을 call로 부르지 못하는 것, 맡긴 글이 받는 session의 입력에
 //   닿지 않는 것.
 // - 왜 지금 test로 못 잡나: agent runtime child의 tool -> core `app.create` -> Router -> 새 session -> child의 새 turn은
 //   process를 건너야 한다.
@@ -11,13 +11,13 @@ import { appList } from "../../packages/protocol/apps/mod.ts";
 import {
   LOPHN_AGENT_ID,
   messageBody,
-  placeSessionList,
+  workspaceSessionList,
   receivedMessageList,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openPlaceSession,
+  openWorkspaceSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -25,7 +25,7 @@ import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { lophnCall } from "../support/fake-server/lophn.ts";
 
-test("E2E lophn이 앱을 등록하고 그 앱 place의 lophn session에 맡긴다", async (t) => {
+test("E2E lophn이 앱을 등록하고 그 앱 workspace의 lophn session에 맡긴다", async (t) => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -36,7 +36,7 @@ test("E2E lophn이 앱을 등록하고 그 앱 place의 lophn session에 맡긴�
 
     await t.test("lophn-registers-then-calls", async () => {
       const body = "Build the todo list app.";
-      const lophn = await openPlaceSession(c, LOPHN_AGENT_ID);
+      const lophn = await openWorkspaceSession(c, LOPHN_AGENT_ID);
       fake.script([
         {
           reply: {
@@ -47,7 +47,7 @@ test("E2E lophn이 앱을 등록하고 그 앱 place의 lophn session에 맡긴�
                 purpose: "Keep a short list of todos.",
               }),
               lophnCall("t2", "call send", {
-                to: { agent: "lophn", place: { app: "Todo List" } },
+                to: { agent: "lophn", workspace: { app: "Todo List" } },
                 reply: "none",
                 body,
                 refs: [],
@@ -78,20 +78,20 @@ test("E2E lophn이 앱을 등록하고 그 앱 place의 lophn session에 맡긴�
         ["app.create", "call.send"],
       );
 
-      // route: 앱 place의 lophn session이 열리고 맡긴 글이 입력에 있다.
+      // route: 앱 workspace의 lophn session이 열리고 맡긴 글이 입력에 있다.
       const where = {
         agent: LOPHN_AGENT_ID,
-        place: { kind: "app", id: todo[0].id },
+        workspace: { kind: "app", id: todo[0].id },
       } as const;
       const deadline = Date.now() + 30_000;
-      let sessions = (await c.call(placeSessionList, where)).sessions;
+      let sessions = (await c.call(workspaceSessionList, where)).sessions;
       while (sessions.length === 0) {
         assert.ok(
           Date.now() < deadline,
-          "앱 place의 lophn session이 열리지 않았다",
+          "앱 workspace의 lophn session이 열리지 않았다",
         );
         await new Promise((resolve) => setTimeout(resolve, 50));
-        sessions = (await c.call(placeSessionList, where)).sessions;
+        sessions = (await c.call(workspaceSessionList, where)).sessions;
       }
       assert.deepStrictEqual(sessions.length, 1);
       const engineer = sessions[0].id;

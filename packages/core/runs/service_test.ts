@@ -21,8 +21,8 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
   const answers = new Map<string, string>();
   let runMessage = "";
   const agents: RunAgents = {
-    resolve: () => Promise.resolve(ok({ agent: "lophn", place: null })),
-    agentOf: () => Promise.resolve(ok({ agent: "lophn", place: null })),
+    resolve: () => Promise.resolve(ok({ agent: "lophn", workspace: null })),
+    agentOf: () => Promise.resolve(ok({ agent: "lophn", workspace: null })),
     open: () => Promise.resolve(ok(undefined)),
     send: (_session, message) => {
       runMessage = message;

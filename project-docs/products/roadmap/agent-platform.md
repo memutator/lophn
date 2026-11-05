@@ -18,7 +18,7 @@
 > 그리고 또 third party agent harness도 우리 agent로 등록해서 프로그램틱 호출, tui 열기가 가능하게 할거야 워크플루우에서 쓰기 위해서. 그걸 위한 우리 자체 a2a 프로토콜도 제대로 갖추고 그 실행은 cli command가 맡는거고
 > 굳이 빌트인더 다 덜어내게 하기 위한 목적은 앞선 예시에서 코딩 테스트 코치 에이전트는 굳이 lophn 툴들이나 프롬프트 스킬 따위가 필요 없다는거야. 그건 오히려 방해가 되고 비용의 문제도 있으니까. 프로그램틱 호출은 다른 애(codex, claude)들도 가능하지만 걔네들은 자기 자체의 규칙만으로 움직이잖아. 우리는 그냥 아예 사용자 정의 규칙에 맞춤할 수 있는거지
 
-> A2A 프로토콜도 재정립이 필요할 것 같아. Lophn끼리도 그렇고 Lophn<->third party agent끼리도 그렇고. 게다가 이번에 place: home을 신설하면서 home에서도 agent를 둘 수가 있거든. 전역적으로 동작하는 agent야. Image Generator agent를 두면 어디서든 걔를 호출 할 수 있잖아. A2a애서 중요한 건 이 에이전트의 시야를 어디까지 허용할까가 중요하거든
+> A2A 프로토콜도 재정립이 필요할 것 같아. Lophn끼리도 그렇고 Lophn<->third party agent끼리도 그렇고. 게다가 이번에 workspace: home을 신설하면서 home에서도 agent를 둘 수가 있거든. 전역적으로 동작하는 agent야. Image Generator agent를 두면 어디서든 걔를 호출 할 수 있잖아. A2a애서 중요한 건 이 에이전트의 시야를 어디까지 허용할까가 중요하거든
 > 그래서 명함의 규격도 중요하거든. 그리고 모달리티도 중요하고. 명함에서는 skille.diff 를 보여주는 게 좋을 거 같아. Agent간 추상화가 필요하다는거야. 서로 내부 구현은 몰라도 모달리티 스킬 차이 디프를 가지고 agent가 다른 agent에게 무엇을 기대할 수 있는 지를 알게 하는 것
 
 > 그리고 저걸 lophn agent Sdk로 묶을 거 아니야 그치?
@@ -43,7 +43,7 @@
 
 > (별도 설치) 구조도 만들어놓자
 
-> 일단 기본적으로 place : place 으로 endpoint 정책을 정하고 세부적으로 agent : agent 정하는 게 어때? 왜냐하면 A, B, C, D, E 각각의 place에 10개의 agent가 있다고 칠 때, agent마다 정책을 고르면 경우의 수가 너무 많아서 place 간의 정책으로 쉽고 크게 제한할 수 있다는 논리지
+> 일단 기본적으로 workspace : workspace 으로 endpoint 정책을 정하고 세부적으로 agent : agent 정하는 게 어때? 왜냐하면 A, B, C, D, E 각각의 workspace에 10개의 agent가 있다고 칠 때, agent마다 정책을 고르면 경우의 수가 너무 많아서 workspace 간의 정책으로 쉽고 크게 제한할 수 있다는 논리지
 
 ## 뜻 (사람이 확인한 것)
 
@@ -52,7 +52,7 @@
   - 사용자 앱 화면도 ACP의 화면이다. 앱이 SDK로 앱 context를 prompt로 어떻게 조립할지 정해 보내고, agent 응답을 받아 자기 식으로 그린다(예: 코드 textarea의 줄에 주석).
   - third-party CLI의 출력을 ACP로 옮기면 같은 채팅 화면이 그 위에 GUI를 덮는다(`claude gui`).
   - agent가 앱 화면을 읽거나 조작하는 길(agent가 client)은 두지 않는다.
-- **A2A는 agent와 agent 사이의 lophn 자체 규격이다.** lophn끼리, lophn ↔ third-party harness. home의 전역 agent(Image Generator)를 어디서든 부른다. 핵심은 불린 agent의 시야다. 시야는 place와 place 사이의 정책이 크게 정하고 agent와 agent 사이의 정책이 예외로 덧쓴다. 명함에 modality와 skill diff를 싣고, 내부 구현을 몰라도 무엇을 기대할지 안다. third-party harness는 CLI 명령으로 실행한다.
+- **A2A는 agent와 agent 사이의 lophn 자체 규격이다.** lophn끼리, lophn ↔ third-party harness. home의 전역 agent(Image Generator)를 어디서든 부른다. 핵심은 불린 agent의 시야다. 시야는 workspace와 workspace 사이의 정책이 크게 정하고 agent와 agent 사이의 정책이 예외로 덧쓴다. 명함에 modality와 skill diff를 싣고, 내부 구현을 몰라도 무엇을 기대할지 안다. third-party harness는 CLI 명령으로 실행한다.
 - **bare:** 기본으로 다 덜어진 상태이고 사람이 더한다(tool, lophn 명령, 앱 command, MCP, skill). lophn agent는 지금 그대로다.
 - **SDK:** 위 것을 lophn agent SDK로 묶는다.
 - **별도 설치:** 대다수에게 필요 없는 기능(third-party GUI 등)은 lophn 본체와 따로 설치한다. 그 구조를 만든다.
@@ -66,11 +66,11 @@
 | 2 | content block: call 본문과 답, 사람 메시지가 block으로 | 없음 | 끝남(계획 content-block) |
 | 3 | bare runtime: 정의 본문과 고른 tool만 | 1, 2 | 끝남(계획 bare-runtime, bare가 skill도 더하기는 계획 agent-card) |
 | 4 | ACP 규격과 채팅 화면: protocol에 ACP를 정하고 lophn agent가 내놓는 것과 채팅 화면이 그리는 것을 ACP로 | 2 | 끝남(계획 acp) |
-| 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 끝남(계획 app-agent, `project-docs/architecture/app-call.md`의 "앱 화면은 자기 앱 place의 agent session과 ACP로 이야기한다"). 옛 계획 agent-screen은 agent가 client인 꼴이라 지웠다 |
+| 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 끝남(계획 app-agent, `project-docs/architecture/app-call.md`의 "앱 화면은 자기 앱 workspace의 agent session과 ACP로 이야기한다"). 옛 계획 agent-screen은 agent가 client인 꼴이라 지웠다 |
 | 6 | 별도 설치 구조: 본체와 따로 설치하고 켜는 기능 묶음 | 없음 | 끝남(계획 extension, `project-docs/architecture/extension.md`). 설치본에 넣는 일은 첫 extension(harness)과 같이 했다(`packages/shell/main/build.ts`, `tools/package-linux.ts`) |
 | 7 | harness agent(A2A): Claude Code, Codex, OpenCode를 정의의 runtime으로 두고 call, run, step 입력을 CLI 명령(headless)으로 실행한다. TUI 열기, workflow 참가자 | 3 | 끝남(계획 harness-agent). TUI 열기 화면은 단계 8과 같이(지금은 같은 session id로 각 CLI의 resume) |
 | 8 | third-party CLI GUI: `claude gui`로 그 harness session을 채팅 화면으로 본다. CLI 출력을 ACP로 옮긴다. 6의 구조로 설치한다 | 4, 6, 7 | 첫 판 끝남(계획 harness-gui, `project-docs/architecture/harness-gui.md`: extension, adapter 셋, 별도 창). 다음 판은 아래 정한 것 8~12(탭 안 GUI, TUI toggle, CLI 기능 전부, ACP로 올리기, omp) |
-| 9 | A2A 명함과 시야: 명함(목적, runtime, modality, 답 방식, skill diff), place 정책과 agent 예외, home 좁히기 | 2, 3 | 끝남(계획 agent-card, `project-docs/architecture/agent-call.md`의 call 정책, `agent-definition.md`의 명함) |
+| 9 | A2A 명함과 시야: 명함(목적, runtime, modality, 답 방식, skill diff), workspace 정책과 agent 예외, home 좁히기 | 2, 3 | 끝남(계획 agent-card, `project-docs/architecture/agent-call.md`의 call 정책, `agent-definition.md`의 명함) |
 
 4가 5와 8의 바탕이다. 7은 4 없이 먼저 갈 수 있다(기록은 지금 session 기록으로 남고 4가 그것을 ACP로 낸다).
 
@@ -84,8 +84,8 @@
 
 ## 정한 것 (시야, 2026-11-04)
 
-6. 시야는 place 정책이 크게 정하고 agent 정책이 예외로 덧쓴다(사람). 기본은 모두 허용이고 사람이 place 규칙으로 크게 거절하고 agent 예외로 푼다(사람, 2026-11-04). 판정은 agent 예외 → place 규칙 → 기본(허용) 순서이고 거절은 `forbidden`이다. 먼저 있던 기본 거절 표(다른 project·다른 앱으로 거절)는 agent의 추천이었고, lophn의 container 넘는 위임(project → 앱의 lophn)을 막아 2026-11-04에 되돌렸다.
-7. 다른 place에서 불려 home에 열린 session은 폴더를 읽지 않고 실어 보낸 것만 본다(사람이 추천을 받음).
+6. 시야는 workspace 정책이 크게 정하고 agent 정책이 예외로 덧쓴다(사람). 기본은 모두 허용이고 사람이 workspace 규칙으로 크게 거절하고 agent 예외로 푼다(사람, 2026-11-04). 판정은 agent 예외 → workspace 규칙 → 기본(허용) 순서이고 거절은 `forbidden`이다. 먼저 있던 기본 거절 표(다른 project·다른 앱으로 거절)는 agent의 추천이었고, lophn의 container 넘는 위임(project → 앱의 lophn)을 막아 2026-11-04에 되돌렸다.
+7. 다른 workspace에서 불려 home에 열린 session은 폴더를 읽지 않고 실어 보낸 것만 본다(사람이 추천을 받음).
 
 ## 정한 것 (단계 8 다음 판, 2026-11-05)
 

@@ -8,7 +8,7 @@ import {
   agentCallRead,
   agentList,
   modelCallList,
-  placeSessionRead,
+  workspaceSessionRead,
   toolCallList,
   turnBodyView,
   turnList,
@@ -28,11 +28,11 @@ const ok = (value: unknown) => ({
 });
 
 const sessions: Record<string, unknown> = {
-  ses_root: { id: "ses_root", agent: "lophn", place: null },
+  ses_root: { id: "ses_root", agent: "lophn", workspace: null },
   ses_tax: {
     id: "ses_tax",
     agent: "lophn",
-    place: { kind: "project", id: "prj_tax" },
+    workspace: { kind: "project", id: "prj_tax" },
   },
 };
 const turns: Record<string, unknown[]> = {
@@ -63,12 +63,12 @@ const toolCalls = [
 const inputs: Record<string, unknown> = {
   tcl_old: { to: { agent: "lophn" }, reply: "none", body: "old" },
   tcl_blocked: {
-    to: { agent: "lophn", place: { project: "hr" } },
+    to: { agent: "lophn", workspace: { project: "hr" } },
     reply: "none",
     body: "blocked",
   },
   tcl_sent: {
-    to: { agent: "lophn", place: { project: "tax" } },
+    to: { agent: "lophn", workspace: { project: "tax" } },
     reply: "result",
     body: "hi",
   },
@@ -84,7 +84,7 @@ const port: ReadPort = {
         return ok({ projects: [{ id: "prj_tax", name: "tax" }] });
       case agentList:
         return ok({ agents: [{ agent: "lophn", name: "lophn" }] });
-      case placeSessionRead:
+      case workspaceSessionRead:
         return ok({ session: sessions[i.session] });
       case turnList:
         return ok({ turns: turns[i.session] });
@@ -114,7 +114,7 @@ const port: ReadPort = {
               kind: "new_session",
               agent: {
                 agent: "lophn",
-                place: { kind: "project", id: "prj_tax" },
+                workspace: { kind: "project", id: "prj_tax" },
               },
             },
             receiver_session: "ses_tax",
@@ -150,9 +150,9 @@ test("t0 앞 turn의 call은 빼고 막힌 call과 새 session에 간 call은 �
     [1, "result", "cal_1", "ses_tax"],
   );
   assert.deepStrictEqual(
-    [sent.receiver_name, sent.receiver_place?.name],
+    [sent.receiver_name, sent.receiver_workspace?.name],
     ["lophn", "tax"],
   );
-  assert.deepStrictEqual(root.place, null);
-  assert.deepStrictEqual(records[1].place?.name, "tax");
+  assert.deepStrictEqual(root.workspace, null);
+  assert.deepStrictEqual(records[1].workspace?.name, "tax");
 });

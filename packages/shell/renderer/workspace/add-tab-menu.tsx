@@ -31,7 +31,7 @@ interface NewTabMenuProps {
   onAgent?: (agent: string) => void;
   onSearch?: () => void;
   onAppPanel?: () => void;
-  /** 앱 place에서만 있다. 닫은 앱 화면 탭을 다시 연다. */
+  /** 앱 workspace에서만 있다. 닫은 앱 화면 탭을 다시 연다. */
   onAppScreen?: () => void;
 }
 

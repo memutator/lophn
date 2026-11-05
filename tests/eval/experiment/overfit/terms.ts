@@ -22,11 +22,13 @@ export function scenarioTerms(
   const raw: (string | undefined)[] = [...extraNames];
   const texts: string[] = [];
   const addParticipant = (p: Participant) => {
-    const place = p.place as { app?: string; project?: string } | undefined;
+    const workspace = p.workspace as
+      | { app?: string; project?: string }
+      | undefined;
     // lophn은 모든 지침에 나와 이름으로 세면 늘 경고가 된다.
     raw.push(
-      place?.app,
-      place?.project,
+      workspace?.app,
+      workspace?.project,
       p.agent === LOPHN_AGENT_NAME ? undefined : p.agent,
     );
   };

@@ -17,8 +17,8 @@ type Query = Pick<Sql, "get" | "all">;
 const notFound = () =>
   err({ code: "not_found" as const, message: "annotation does not exist" });
 
-// 호출자 범위. 사람과 machine은 전체(null)이고, agent는 자격 조건의 앱(앱 place session)이나
-// project(project place session)다. 조건에 앱도 project도 없는 agent(home session(lophn 등))와 그 밖의 actor는 읽을 수 없다.
+// 호출자 범위. 사람과 machine은 전체(null)이고, agent는 자격 조건의 앱(앱 workspace session)이나
+// project(project workspace session)다. 조건에 앱도 project도 없는 agent(home session(lophn 등))와 그 밖의 actor는 읽을 수 없다.
 type Scope = { app?: string; project?: string } | null;
 
 function callerScope(
@@ -46,7 +46,7 @@ function callerScope(
 }
 
 // app target은 그 앱 범위만, file target은 그 project 범위만, artifact target은 그 그릇(project나 앱) 범위만 읽는다
-// (받는 쪽이 그 그릇 place의 session이라서다).
+// (받는 쪽이 그 그릇 workspace의 session이라서다).
 function inScope(scope: Scope, target: AnnotationTarget): boolean {
   if (scope === null) return true;
   switch (target.kind) {

@@ -1,4 +1,4 @@
-// fake model이 `lophn` tool을 부르는 각본과, 요청에서 그 place가 부를 수 있는 명령을 읽는 도구다.
+// fake model이 `lophn` tool을 부르는 각본과, 요청에서 그 workspace가 부를 수 있는 명령을 읽는 도구다.
 // 입력이 있는 명령은 `--input <JSON>`으로 준다. 위치 인자와 flag 풀이는 parser의 일이라 여기서 다시 풀지 않는다.
 
 import type { JournalEntry } from "./types.ts";
@@ -23,7 +23,7 @@ export function lophnReply(id: string, line: string, input?: unknown) {
   return { kind: "tool" as const, calls: [lophnCall(id, line, input)] };
 }
 
-// `lophn` tool 설명 끝의 "Commands:" 목록에서 그 place가 부를 수 있는 명령(낱말을 띄어 쓴 이름)을 읽는다.
+// `lophn` tool 설명 끝의 "Commands:" 목록에서 그 workspace가 부를 수 있는 명령(낱말을 띄어 쓴 이름)을 읽는다.
 export function lophnCommands(request: JournalEntry): string[] {
   const tools = ((request.body ?? {}) as { tools?: Block[] }).tools ?? [];
   const description = tools.find((t) => t.name === "lophn")?.description ?? "";

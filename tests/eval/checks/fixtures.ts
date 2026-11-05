@@ -13,7 +13,7 @@ import {
 import type {
   CollectedToolCall,
   Participant,
-  PlaceName,
+  WorkspaceName,
   SentCall,
   SessionRecord,
   TrialRecord,
@@ -39,16 +39,16 @@ export type FxStep =
     }
   | { call: FixtureCall };
 
-function placeName(p: Participant): PlaceName | null {
-  const place = p.place;
-  if (place === undefined) return null;
-  if ("app" in place) {
-    return { kind: "app", id: `app_fx_${place.app}`, name: place.app };
+function workspaceName(p: Participant): WorkspaceName | null {
+  const workspace = p.workspace;
+  if (workspace === undefined) return null;
+  if ("app" in workspace) {
+    return { kind: "app", id: `app_fx_${workspace.app}`, name: workspace.app };
   }
   return {
     kind: "project",
-    id: `prj_fx_${place.project}`,
-    name: place.project,
+    id: `prj_fx_${workspace.project}`,
+    name: workspace.project,
   };
 }
 
@@ -58,9 +58,9 @@ function refOf(p: Participant): AgentId {
     : (`agt_fx_${p.agent}` as AgentId);
 }
 
-// 같은 agent라도 place가 다르면 다른 session이다.
+// 같은 agent라도 workspace가 다르면 다른 session이다.
 function sessionOf(p: Participant): string {
-  return `ses_fx_${p.agent}_${placeName(p)?.name ?? "home"}`;
+  return `ses_fx_${p.agent}_${workspaceName(p)?.name ?? "home"}`;
 }
 
 export function fixtureTrial(sessions: SessionRecord[]): TrialRecord {
@@ -180,7 +180,7 @@ export function fixtureSession(
     const input = { to, reply, body, refs: [] };
     const base = { tool: "call.send", effect: "read" as const };
     const receiver = refOf(to);
-    const receiverPlace = placeName(to);
+    const receiverWorkspace = workspaceName(to);
     const sent = {
       tool_call: `tcl_fx_${String(i).padStart(4, "0")}`,
       order: sent_calls.length,
@@ -199,10 +199,10 @@ export function fixtureSession(
           kind: "new_session",
           agent: {
             agent: receiver,
-            place:
-              receiverPlace === null
+            workspace:
+              receiverWorkspace === null
                 ? null
-                : { kind: receiverPlace.kind, id: receiverPlace.id },
+                : { kind: receiverWorkspace.kind, id: receiverWorkspace.id },
           },
         },
         receiver_session: state === "failed" ? null : `ses_fx_to_${i}`,
@@ -238,7 +238,7 @@ export function fixtureSession(
         receiver: null,
         receiver_name: null,
         receiver_session: null,
-        receiver_place: null,
+        receiver_workspace: null,
       });
     } else {
       const failed = fail !== undefined;
@@ -259,7 +259,7 @@ export function fixtureSession(
         receiver: failed ? null : receiver,
         receiver_name: failed ? null : to.agent,
         receiver_session: rec.receiver_session,
-        receiver_place: failed ? null : receiverPlace,
+        receiver_workspace: failed ? null : receiverWorkspace,
       });
     }
   });
@@ -268,7 +268,7 @@ export function fixtureSession(
     session,
     agent: refOf(agent),
     agent_name: agent.agent,
-    place: placeName(agent),
+    workspace: workspaceName(agent),
     turns: [],
     model_calls: [],
     tool_calls,

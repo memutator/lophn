@@ -11,7 +11,7 @@ export function useSidebarAgents(
   source: AgentsSource | undefined,
   project: string | null,
 ): { readonly agents: readonly SidebarAgent[]; readonly reload: () => void } {
-  // 목록은 전역이라 place를 옮겨도 창의 마지막 값에서 시작한다. 비면 sidebar의 lophn session 줄이 모두 빠졌다 돌아온다.
+  // 목록은 전역이라 workspace를 옮겨도 창의 마지막 값에서 시작한다. 비면 sidebar의 lophn session 줄이 모두 빠졌다 돌아온다.
   const [agents, setAgents] = useRemembered("agents");
   const [reloads, setReloads] = useState(0);
   useEffect(() => {

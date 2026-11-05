@@ -5,8 +5,8 @@ import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
 
-// Session은 agent 하나와 place 하나(없으면 home)에 고정된다.
-// agent나 place를 바꾸는 command가 없다. 사람이 session을 치우는 길은 archive와 delete다.
+// Session은 agent 하나와 workspace 하나(없으면 home)에 고정된다.
+// agent나 workspace를 바꾸는 command가 없다. 사람이 session을 치우는 길은 archive와 delete다.
 
 // 제목의 글자는 사람이 보는 글자(grapheme cluster)다. 이모지나 결합 문자를 중간에서
 // 자르지 않는다. 자동 제목은 앞 60자, 사람이 rename한 제목은 120자 이하다.

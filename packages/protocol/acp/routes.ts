@@ -2,7 +2,7 @@ import { z } from "zod";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
-import { agentIdSchema, placeSchema } from "../lophn-agent/places.ts";
+import { agentIdSchema, workspaceSchema } from "../lophn-agent/workspaces.ts";
 import { acpInputSchema } from "./input.ts";
 import { acpSessionMetaSchema } from "./session.ts";
 import { acpStateSchema, acpUpdateSchema } from "./state.ts";
@@ -19,7 +19,7 @@ export const acpSnapshot = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
-// 첫 메시지 전 새 session 화면용이다. 그 agent와 place로 지금 session을 열면 받을 session meta(model 묶음과 기본 model,
+// 첫 메시지 전 새 session 화면용이다. 그 agent와 workspace로 지금 session을 열면 받을 session meta(model 묶음과 기본 model,
 // mode, 명령, capability)를 session 없이 읽는다. title·usage·cli_session은 null이다. harness는 session이 늘 있어 쓰지 않는다.
 export const acpDraft = defineRead({
   resource: "acp",
@@ -27,7 +27,7 @@ export const acpDraft = defineRead({
   name: "AcpDraft",
   input: z.strictObject({
     agent: agentIdSchema,
-    place: placeSchema.nullable(),
+    workspace: workspaceSchema.nullable(),
   }),
   output: acpSessionMetaSchema,
   actors: ["user"],

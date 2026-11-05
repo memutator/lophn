@@ -1,5 +1,5 @@
 import { definePort } from "../../../protocol/base/mod.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/places.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 
 // approvals는 앱 표도 agent 정의도 모르므로 이름과 공개 수를 읽는 길은 조립(core/main)이 꽂는다.
 export interface ShareLookup {

@@ -22,7 +22,7 @@ import type {
   CacheBoundary,
   HistoryMessage,
   ModelLimits,
-  PlaceAgent,
+  WorkspaceAgent,
   PromptMessage,
   PromptRequest,
   PromptTool,
@@ -32,12 +32,12 @@ import type {
 } from "./model.ts";
 import { type SkillListItem, skillListText } from "./skill-list.ts";
 
-// turn 하나의 prompt를 5장 순서로 조립한다: place 종류 지침과 고정 규칙, 지침 층, skill 목록, place 정보,
+// turn 하나의 prompt를 5장 순서로 조립한다: workspace 종류 지침과 고정 규칙, 지침 층, skill 목록, workspace 정보,
 // 대화. 지침은 file이 아니라 값으로 받는다(turn 시작에 읽는 쪽이 따로 있다). I/O는 호출하는 쪽이 한다.
 
 export type TurnPromptInput = {
-  // 제품 고정 규칙을 포함한 place 종류 지침 글.
-  place_kind_prompt: string;
+  // 제품 고정 규칙을 포함한 workspace 종류 지침 글.
+  workspace_kind_prompt: string;
   // 정본 이름이다. model에는 `toWireToolName`을 거쳐 보낸다. 목록은 session을 시작할 때 고정한다.
   tools: readonly PromptTool[];
   // files는 전역·project 층이 실제로 읽은 파일 이름이다(LOPHN.md 또는 CLAUDE.md). 제목에 쓴다.
@@ -45,13 +45,13 @@ export type TurnPromptInput = {
     files?: Partial<Record<(typeof INSTRUCTION_LAYERS)[number], string>>;
   };
   skills: readonly SkillListItem[];
-  // bare면 system은 이 글(정의 본문)과 고른 skill 목록이고 place 종류 지침, 지침 층, place 정보 글은 싣지 않는다. 판 비교도
+  // bare면 system은 이 글(정의 본문)과 고른 skill 목록이고 workspace 종류 지침, 지침 층, workspace 정보 글은 싣지 않는다. 판 비교도
   // 지침과 agent 목록을 보지 않아 tool이 바뀐 notice만 간다. untrusted는 web tool을 골랐다는 뜻이다.
   bare?: { system: string; untrusted: boolean };
-  // place 층이 만든 place 정보. 글과 notice·판 비교가 쓰는 agent다.
-  place: {
+  // workspace 층이 만든 workspace 정보. 글과 notice·판 비교가 쓰는 agent다.
+  workspace: {
     text: string;
-    agents: readonly PlaceAgent[];
+    agents: readonly WorkspaceAgent[];
   };
   history: readonly HistoryMessage[];
   // 지난 turn이 본 판. 없으면(첫 turn, compact) notice를 붙이지 않는다.
@@ -206,21 +206,21 @@ const NO_INSTRUCTIONS: InstructionTexts = {
   agent: "",
 };
 
-// 경계 표시가 달리는 층. place_kind 끝의 marker가 앞선 tools 목록도 덮는다. Anthropic은 한 요청에 표시 넷만 받는다.
+// 경계 표시가 달리는 층. workspace_kind 끝의 marker가 앞선 tools 목록도 덮는다. Anthropic은 한 요청에 표시 넷만 받는다.
 // system에 둘을 두고 대화에 둘(끝과 그 앞 user turn)을 둔다. 대화 쪽이 하나면 한 번에 20 block 넘게 늘어난 요청이
-// 앞 cache를 찾지 못한다. instructions는 사람이 지침을 고칠 때만 바뀌어 place 경계에 함께 둔다.
-const CACHED: readonly SystemLayerKind[] = ["place_kind", "place"];
+// 앞 cache를 찾지 못한다. instructions는 사람이 지침을 고칠 때만 바뀌어 workspace 경계에 함께 둔다.
+const CACHED: readonly SystemLayerKind[] = ["workspace_kind", "workspace"];
 
 export async function assembleTurnPrompt(
   input: TurnPromptInput,
   deps: TurnPromptDeps,
 ): Promise<TurnPromptResult> {
   const { bare } = input;
-  if (bare === undefined && input.place_kind_prompt.trim() === "") {
+  if (bare === undefined && input.workspace_kind_prompt.trim() === "") {
     return {
       status: "blocked",
-      reason: "place_kind_missing",
-      message: "place 종류 지침이 없다",
+      reason: "workspace_kind_missing",
+      message: "workspace 종류 지침이 없다",
     };
   }
   const budget = inputBudget(input.limits, input.reserved_output);
@@ -232,18 +232,18 @@ export async function assembleTurnPrompt(
     };
   }
 
-  // bare의 한 block도 place_kind 층에 둔다: 그 층 끝의 cache 표시가 앞선 tools까지 덮는다.
+  // bare의 한 block도 workspace_kind 층에 둔다: 그 층 끝의 cache 표시가 앞선 tools까지 덮는다.
   const texts: [SystemLayerKind, string][] =
     bare === undefined
       ? [
-          ["place_kind", input.place_kind_prompt],
+          ["workspace_kind", input.workspace_kind_prompt],
           ["instructions", instructionsBlock(input.instructions)],
           ["skills", skillListText(input.skills)],
-          ["place", input.place.text],
+          ["workspace", input.workspace.text],
         ]
       : [
           [
-            "place_kind",
+            "workspace_kind",
             [bare.system, ...(bare.untrusted ? [UNTRUSTED_LINE] : [])]
               .filter((text) => text.trim() !== "")
               .join("\n\n"),
@@ -265,7 +265,7 @@ export async function assembleTurnPrompt(
   const basis = await basisOf({
     instructions: bare === undefined ? input.instructions : NO_INSTRUCTIONS,
     tool_names: input.tools.map((t) => t.name),
-    agents: bare === undefined ? input.place.agents : [],
+    agents: bare === undefined ? input.workspace.agents : [],
   });
   const diff = input.seen === undefined ? null : diffBasis(input.seen, basis);
   const notices = diff !== null && changed(diff) ? noticesOf(diff, input) : [];

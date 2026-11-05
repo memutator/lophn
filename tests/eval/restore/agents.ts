@@ -3,7 +3,7 @@ import type { Id } from "../../../packages/protocol/base/mod.ts";
 import type { RestoreContext } from "../types.ts";
 import { type Material, textOf } from "./manifest.ts";
 
-// 정의는 전역이라 place가 없다. model은 정의에 넣지 않는다.
+// 정의는 전역이라 workspace가 없다. model은 정의에 넣지 않는다.
 export async function restoreAgents(
   ctx: RestoreContext,
   material: Material,

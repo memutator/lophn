@@ -3,7 +3,7 @@ import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { agentIdSchema, placeSchema } from "./places.ts";
+import { agentIdSchema, workspaceSchema } from "./workspaces.ts";
 
 // 한 agent·한 자리의 session들에서 사람이 쓴 말과 그 agent의 답 글을 찾는다. 본문은 blob이라 표에서
 // 바로 검색할 수 없다. handler가 최근 메시지부터 blob을 읽어 글을 찾고, 결과는 최근 것부터 낸다.
@@ -41,7 +41,7 @@ export const messageSearch = defineRead({
   name: "SearchSessionMessages",
   input: z.strictObject({
     agent: agentIdSchema,
-    place: placeSchema.nullable(),
+    workspace: workspaceSchema.nullable(),
     query: searchQuerySchema,
   }),
   output: withReadCommon(

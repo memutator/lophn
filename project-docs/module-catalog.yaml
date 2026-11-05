@@ -52,9 +52,9 @@ modules:
     boundary: core
     notes: 맞는 하위 boundary가 없어 core로 둔다(data root 해석, 실행 metadata, instance lock).
 
-  - path: packages/core/agent-places
-    boundary: agent-places
-    notes: lophn place 층. place 종류별 tool 목록, agent 정의 tool, credential의 place 몫, 제품 고정 규칙과 place 종류 prompt, place 정보, file tool hook, lophn 내장 정의, 이름 규칙(session 목록 이름과 주소 풀기), place 폴더 규칙, data root 아래 자리와 project 설정 층, 지침 읽기 규칙, 내장 skill(사용 안내 `guide-*`와 사람이 `/`로 부르는 skill). harness(lophn-agent) 위에 있고 feature module과 서로 import하지 않는다. 조립(core/main)이 harness에 꽂는다.
+  - path: packages/core/agent-workspaces
+    boundary: agent-workspaces
+    notes: lophn workspace 층. workspace 종류별 tool 목록, agent 정의 tool, credential의 workspace 몫, 제품 고정 규칙과 workspace 종류 prompt, workspace 정보, file tool hook, lophn 내장 정의, 이름 규칙(session 목록 이름과 주소 풀기), workspace 폴더 규칙, data root 아래 자리와 project 설정 층, 지침 읽기 규칙, 내장 skill(사용 안내 `guide-*`와 사람이 `/`로 부르는 skill). harness(lophn-agent) 위에 있고 feature module과 서로 import하지 않는다. 조립(core/main)이 harness에 꽂는다.
 
   - path: packages/core/lophn-agent
     boundary: lophn-agent

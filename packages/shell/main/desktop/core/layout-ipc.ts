@@ -1,13 +1,13 @@
-// place(Home, project, app)의 layout 저장·복원. desktop 창 본문만 부른다. renderer는 탭을 보내고,
+// workspace(Home, project, app)의 layout 저장·복원. desktop 창 본문만 부른다. renderer는 탭을 보내고,
 // detached 창 bounds와 schema 판은 여기서 채운 뒤 파일 schema로 검사한다. desktop 창 자리는 layout에 두지 않는다
 // (`workspace/window-state.ts`).
 import { z } from "zod";
 
 import {
-  PLACE_LAYOUT_READ_CHANNEL,
-  PLACE_LAYOUT_SAVE_CHANNEL,
-  type PlaceLayoutReadResult,
-  type PlaceLayoutSaveResult,
+  WORKSPACE_LAYOUT_READ_CHANNEL,
+  WORKSPACE_LAYOUT_SAVE_CHANNEL,
+  type WorkspaceLayoutReadResult,
+  type WorkspaceLayoutSaveResult,
 } from "../../../ipc/workspace.ts";
 import {
   checkCaller,
@@ -15,13 +15,13 @@ import {
   type ContentsRegistry,
   type IpcEvent,
 } from "../ipc-guard.ts";
-import type { PlaceLayoutStore } from "../../workspace/place-layout-store.ts";
+import type { WorkspaceLayoutStore } from "../../workspace/workspace-layout-store.ts";
 import type { WindowBounds } from "../../workspace/schema.ts";
 
-const placeReadInput = z.strictObject({ place: z.string() });
+const workspaceReadInput = z.strictObject({ workspace: z.string() });
 
-const placeSaveInput = z.strictObject({
-  place: z.string(),
+const workspaceSaveInput = z.strictObject({
+  workspace: z.string(),
   layout: z.strictObject({
     active_desk: z.string(),
     desks: z.record(
@@ -41,7 +41,7 @@ interface LayoutIpcMain {
 
 interface LayoutIpcDeps {
   registry: ContentsRegistry;
-  placeStore: PlaceLayoutStore;
+  workspaceStore: WorkspaceLayoutStore;
   /** 이 창에 딸린 살아 있는 detached 창의 bounds(탭 key별). 저장할 때 renderer가 보낸 값을 덮어쓴다. */
   detachedBounds(event: IpcEvent): ReadonlyMap<string, WindowBounds>;
 }
@@ -56,16 +56,16 @@ export function registerLayoutIpc(
   };
 
   ipc.handle(
-    PLACE_LAYOUT_READ_CHANNEL,
-    async (event, input): Promise<PlaceLayoutReadResult> => {
+    WORKSPACE_LAYOUT_READ_CHANNEL,
+    async (event, input): Promise<WorkspaceLayoutReadResult> => {
       if (!allowed(event)) {
         return { ok: false, code: "forbidden", message: "" };
       }
-      const parsed = checkInput(placeReadInput, input);
+      const parsed = checkInput(workspaceReadInput, input);
       if (!parsed.ok) {
         return { ok: false, code: "invalid_input", message: "" };
       }
-      const stored = await deps.placeStore.read(parsed.value.place);
+      const stored = await deps.workspaceStore.read(parsed.value.workspace);
       if (!stored.ok) {
         return {
           ok: false,
@@ -88,12 +88,12 @@ export function registerLayoutIpc(
   );
 
   ipc.handle(
-    PLACE_LAYOUT_SAVE_CHANNEL,
-    async (event, input): Promise<PlaceLayoutSaveResult> => {
+    WORKSPACE_LAYOUT_SAVE_CHANNEL,
+    async (event, input): Promise<WorkspaceLayoutSaveResult> => {
       if (!allowed(event)) {
         return { ok: false, code: "forbidden", message: "" };
       }
-      const parsed = checkInput(placeSaveInput, input);
+      const parsed = checkInput(workspaceSaveInput, input);
       if (!parsed.ok) {
         return { ok: false, code: "invalid_input", message: "" };
       }
@@ -117,7 +117,7 @@ export function registerLayoutIpc(
           },
         ]),
       );
-      const written = await deps.placeStore.write(parsed.value.place, {
+      const written = await deps.workspaceStore.write(parsed.value.workspace, {
         active_desk: layout.active_desk,
         desks,
       });
@@ -135,6 +135,6 @@ export function registerLayoutIpc(
 }
 
 export function removeLayoutIpc(ipc: LayoutIpcMain): void {
-  ipc.removeHandler(PLACE_LAYOUT_READ_CHANNEL);
-  ipc.removeHandler(PLACE_LAYOUT_SAVE_CHANNEL);
+  ipc.removeHandler(WORKSPACE_LAYOUT_READ_CHANNEL);
+  ipc.removeHandler(WORKSPACE_LAYOUT_SAVE_CHANNEL);
 }

@@ -128,3 +128,6 @@
   - 추가 소유(그 칸만): `packages/protocol/acp/{items.ts,state.ts,reduce.ts,reduce_test.ts}`, `packages/sdk/agent/acp-types.ts`, `packages/protocol/events/acp-project.ts`, `packages/shell/main/extensions/bundled/harness-gui/{claude,codex,opencode,omp}.ts`의 `approval_closed`를 내는 줄, `packages/shell/renderer/conversation/approval-card/`.
   - approval item과 `approval_closed`에 `mode: string | null`(plan 승인에서 고른 `modes` id. 그 밖은 null)을 더하고 reducer가 옮긴다. lophn projection은 null이다. adapter는 plan 승인을 `decide {kind: "mode"}`로 닫을 때 그 mode를 싣고, 다른 승인은 null이다.
   - `ApprovalResult`가 subject의 `modes`에서 label을 찾아 "Plan approved · {label}"로 쓴다.
+- undo한 사람 글을 composer에 되돌린다(OpenCode TUI·데스크톱이 그렇게 한다). 지금 adapter가 composer를 채울 길이 없다.
+  - 추가 소유(그 칸만): 위 protocol·SDK file, `packages/shell/main/extensions/bundled/harness-gui/opencode.ts`의 undo 줄, `packages/shell/renderer/conversation/composer/`.
+  - `AcpState`에 `draft: {key: string, content: ContentBlock[]} | null`과 갱신 `draft_set {key, content}`를 더한다(lophn은 늘 null). 화면은 새 `key`를 볼 때 한 번만 composer를 그 글로 채운다(사람이 이미 친 글이 있으면 덮지 않는다). OpenCode adapter는 `/undo`가 숨긴 첫 사람 메시지의 content로 `draft_set`을 낸다.

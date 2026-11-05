@@ -83,6 +83,11 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - 사람 설정을 바꾸지 않는다. OpenCode 기본 설정은 shell과 edit를 묻지 않아 ask 규칙이 없으면 승인 카드가 뜨지 않는다.
 - `exitTui`는 PTY에 `/exit`와 Enter를 친다(Ctrl-C·Ctrl-D는 입력 상태와 dialog에 따라 뜻이 바뀐다).
 - 새 session의 model은 server의 `/api/model/default`다(설정의 model이나 이름 순 첫 model). TUI가 쓰는 "최근 model"은 client 쪽 file이라 server가 내놓지 않는다.
+- 명령: client 명령(new·clear, undo, redo, models, variants, agents, usage, status, stats, mcps, skills, export)은 `source: "harness"`이고 표의 `opens`·별칭을 싣는다. server 명령은 `/api/command`, skill 명령은 `GET /api/skill`에서 읽고 이미 있는 이름은 건너뛴다. status·stats·mcps·skills·export는 adapter가 답을 만들어 `command_output`으로 낸다(export는 `OpencodeDeps.writeExport`로 tmpdir에 쓴다). 도는 중 server 명령은 `delivery: "queue"`로 가서 같은 실행의 다음 step에 들어간다. server 명령의 사람 메시지는 펼친 template 글로 오지만 제가 보낸 것은 친 `/review` 그대로 그린다.
+- undo·redo: undo가 숨긴 구간 id를 `revert.staged`에 기억하고 `session.revert.cleared`가 오면 `hidden_restored`로 되살린다(`committed`는 되살리지 않는다).
+- subagent: 자식 session마다 lane(turn, seq, writing)을 두고 자식 갱신을 `child_update`로 낸다. 부모의 subagent 줄과 자식은 `session.tool.progress`의 `metadata.sessionID`로 짝짓고, detail(`child`, `state`, `last`)은 `tool_detail_changed`로 바꾼다. `background: true` 자식은 `tasks`이고 `stop_child`·`stop_task`는 `interrupt(child)`다. 다시 열면 자식 transcript를 읽어 채운다.
+- todo는 `todowrite`의 `input.todos`를 `plan_changed`로 낸다(녹화한 판은 codemode라 실제 `todowrite`를 보지 못했다). 사용 한도는 `usage/limits`(실패하면 빈 목록), tool 줄은 입력·출력 `body`, 사람 메시지 `origin`은 OpenCode message id(`message_taken` 뒤 `origin_set`)다.
+- auto-accept toggle: 켜면 승인 요청에 카드 없이 `once`로 답하고 이미 열린 카드도 답한다. always·session 규칙은 보내지 않는다. 상태는 adapter run에만 있다.
 
 ## 왜 이 모양인가
 

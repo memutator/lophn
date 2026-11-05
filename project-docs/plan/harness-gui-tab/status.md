@@ -19,7 +19,7 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `claude-fix` | adapter | 5 | acp-more | running | adapter/claude-fix |  |  |
 | `codex-fix` | adapter | 5 | acp-more | running | adapter/codex-fix |  |  |
 | `omp-fix` | adapter | 5 | acp-more | running | adapter/omp-fix |  |  |
-| `opencode-fix` | adapter | 5 | acp-more | running | adapter/opencode-fix |  |  |
+| `opencode-fix` | adapter | 5 | acp-more | merged | adapter/opencode-fix | f7800790d |  |
 | `screen-thread` | screen | 5 | acp-more | merged | screen/screen-thread | 5e2855df5 |  |
 | `screen-dock` | screen | 6 | screen-thread | todo |  |  |  |
 | `thread-index` | screen | 7 | screen-dock | todo |  |  |  |

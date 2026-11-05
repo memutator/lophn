@@ -6,6 +6,7 @@ import { t } from "@lophn/i18n";
 import { Icon } from "@lophn/ui/primitives";
 import { Popover } from "@lophn/ui/overlay";
 
+import { useKeyLabel } from "../commands/react.tsx";
 import { actionIcons, shellIcons } from "../icons/mod.ts";
 import styles from "./desk-switcher.module.css";
 
@@ -30,6 +31,8 @@ export interface DeskSwitcherProps {
   /** 이름을 확정했다. 빈 이름은 부르지 않는다. */
   onRename: (key: string, label: string) => void;
   onDelete: (key: string) => void;
+  /** 올라가면 목록을 열고 지금 desk를 이름 바꾸기 상태로 둔다(desk.rename). 부르는 쪽은 바꿀 수 있는 desk일 때만 올린다. */
+  renameAsk?: number;
 }
 
 export function DeskSwitcher({
@@ -39,9 +42,17 @@ export function DeskSwitcher({
   onNewDesk,
   onRename,
   onDelete,
+  renameAsk,
 }: DeskSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const keyLabel = useKeyLabel();
+  const newDeskKey = keyLabel("desk.new");
+  useEffect(() => {
+    if (renameAsk === undefined || renameAsk === 0) return;
+    setOpen(true);
+    setRenaming(current);
+  }, [renameAsk]);
   const now = desks.find((desk) => desk.key === current) ?? desks[0];
   if (now === undefined) return null;
   const own = desks.filter((desk) => !desk.workflow);
@@ -174,6 +185,9 @@ export function DeskSwitcher({
               <Icon icon={shellIcons.add} pixels={16} />
             </span>
             <span className={styles.name}>{t("shell.button.new-desk")}</span>
+            {newDeskKey === null ? null : (
+              <span className={styles.status}>{newDeskKey}</span>
+            )}
           </button>
         </div>
       </Popover>

@@ -19,7 +19,7 @@ import {
   type LophnDetachedApi,
   slimDetachedTab,
 } from "../../ipc/detached.ts";
-import { type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
+import { APP_PANEL, type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { useBrowserApi } from "../browser/browser-api.tsx";
@@ -101,6 +101,7 @@ import {
   splitPartner,
   splitTab,
   stepTab,
+  swapTabs,
   tabDropState,
   type PlaceRef,
   type FloatRect,
@@ -282,10 +283,30 @@ interface Loaded {
 
 const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
 const CLOSED_TABS_MAX = 10;
-// 작업대가 주인인 command id. 단축키 표에 있는 것 모두다.
+// 작업대가 주인인 command id. 단축키 표에 있는 것 모두다. app.panel은 표에 줄이 없어 따로 올린다.
 const WORKSPACE_COMMANDS: readonly Command[] = [
   ...new Set(KEYBINDINGS.map((binding) => binding.command)),
 ];
+
+// context menu와 같은 일인 command. 새 길을 만들지 않고 runTabAction을 부른다.
+const TAB_ACTIONS = {
+  "tab.rename": "rename",
+  "tab.close-others": "close-others",
+  "tab.close-right": "close-right",
+  "tab.close-saved": "close-saved",
+  "tab.close-all": "close-all",
+  "tab.keep-open": "keep-open",
+  "tab.copy-path": "copy-path",
+  "tab.copy-relative-path": "copy-relative-path",
+  "tab.reveal": "reveal",
+  "tab.float": "float",
+  "tab.detach": "detach",
+  "pane.unstack": "unstack",
+  "pane.remove": "split-remove",
+  "pane.unsplit": "unsplit",
+  "pane.close-others": "close-pane-others",
+  "pane.close-group": "close-group",
+} as const satisfies Partial<Record<Command, TabAction>>;
 
 // OS 파일 선택기. 창에 통로가 없으면 Document 항목을 두지 않는다.
 function filePicker(): (() => Promise<string | null>) | undefined {
@@ -1305,6 +1326,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
 
   // Ctrl/Cmd+Shift+E. 숫자가 바뀔 때마다 오른쪽 sidebar가 Files를 고르고 고른 줄에 focus를 준다.
   const [explorerFocus, setExplorerFocus] = useState(0);
+  // desk.rename이 desk 목록을 이름 바꾸기 상태로 여는 신호.
+  const [deskRenameAsk, setDeskRenameAsk] = useState(0);
 
   // path 자신이거나 그 폴더 안에 있는 열린 파일 탭.
   const tabsAt = (path: string) =>
@@ -1433,8 +1456,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
   // 작업대 단축키의 command는 작업대가 갖는다. 키는 창의 keybinding service가 표(ipc/keybindings.ts)로
   // 정하고, main이 먼저 받는 것(macOS의 Cmd+W)도 같은 command id로 온다. 지금 배치는 latestLayout에서 읽는다.
   const openQuickFiles = useOpenPalette();
-  const runCommand = (command: Command, arg?: number) => {
+  const runCommand = (command: Command, arg?: number | string) => {
     const current = latestDesk();
+    const n = typeof arg === "number" ? arg : undefined;
     switch (command) {
       case "tab.next":
       case "tab.prev": {
@@ -1444,7 +1468,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
       }
       case "tab.nth": {
         const entries = deskEntries(current);
-        const entry = arg === 0 ? entries.at(-1) : entries[(arg ?? 1) - 1];
+        const entry = n === 0 ? entries.at(-1) : entries[(n ?? 1) - 1];
         const key = entry?.group?.focus ?? entry?.key;
         if (key !== undefined && key !== current.selected) selectKey(key);
         return;
@@ -1478,9 +1502,9 @@ export function PlaceWindow(props: PlaceWindowProps) {
       case "pane.focus": {
         const group = groupOf(current, current.selected);
         const key =
-          group === null ? undefined : leavesOf(group.layout)[(arg ?? 1) - 1];
+          group === null ? undefined : leavesOf(group.layout)[(n ?? 1) - 1];
         if (key === undefined) return;
-        update((item) => focusLeaf(item, (arg ?? 1) - 1));
+        update((item) => focusLeaf(item, (n ?? 1) - 1));
         focusTabBody(key);
         return;
       }
@@ -1501,8 +1525,169 @@ export function PlaceWindow(props: PlaceWindowProps) {
         return;
       }
       case "pane.split":
-        if (current.selected !== null) splitNext(current.selected, "right");
+      case "pane.split-down":
+        if (current.selected !== null) {
+          splitNext(
+            current.selected,
+            command === "pane.split" ? "right" : "bottom",
+          );
+        }
         return;
+      case "pane.swap-left":
+      case "pane.swap-right":
+      case "pane.swap-up":
+      case "pane.swap-down": {
+        const group = groupOf(current, current.selected);
+        const from = current.selected;
+        if (group === null || from === null) return;
+        const to = neighborLeaf(
+          group.layout,
+          from,
+          command.slice("pane.swap-".length) as PaneDirection,
+        );
+        if (to === null) return;
+        // 고른 tab이 selected로 남아 swapTabs의 settle이 focus를 그 tab의 새 칸으로 옮긴다.
+        update((item) => swapTabs(item, from, to));
+        focusTabBody(from);
+        return;
+      }
+      case "pane.stack-next":
+      case "pane.stack-prev": {
+        const from = current.selected;
+        if (from === null) return;
+        const next = cyclePane(
+          current,
+          from,
+          command === "pane.stack-next" ? 1 : -1,
+        ).selected;
+        if (next !== null && next !== from) selectKey(next);
+        return;
+      }
+      case "tab.rename":
+      case "tab.close-others":
+      case "tab.close-right":
+      case "tab.close-saved":
+      case "tab.close-all":
+      case "tab.keep-open":
+      case "tab.copy-path":
+      case "tab.copy-relative-path":
+      case "tab.reveal":
+      case "tab.float":
+      case "tab.detach":
+      case "pane.unstack":
+      case "pane.remove":
+      case "pane.unsplit":
+      case "pane.close-others":
+      case "pane.close-group":
+        if (current.selected !== null) {
+          runTabAction(TAB_ACTIONS[command], current.selected);
+        }
+        return;
+      case "desk.new":
+        newDesk();
+        return;
+      case "desk.next":
+      case "desk.prev": {
+        const at = deskOrder.findIndex(
+          (item) => item.key === latestLayout.current.active,
+        );
+        const step = command === "desk.next" ? 1 : -1;
+        const target =
+          deskOrder[(at + step + deskOrder.length) % deskOrder.length];
+        if (target !== undefined) selectDesk(target.key);
+        return;
+      }
+      case "desk.nth": {
+        const target = deskOrder[(n ?? 1) - 1];
+        if (target !== undefined) selectDesk(target.key);
+        return;
+      }
+      case "desk.rename": {
+        const own = latestLayout.current.desks[latestLayout.current.active];
+        if (
+          own !== undefined &&
+          own.key !== MAIN_DESK &&
+          own.workflow === undefined
+        ) {
+          setDeskRenameAsk((count) => count + 1);
+        }
+        return;
+      }
+      case "desk.close":
+        requestCloseDesk(latestLayout.current.active);
+        return;
+      case "float.dock": {
+        const top = topFloat(current);
+        if (top === undefined) return;
+        update((item) => dockFloat(item, top.tab.key));
+        focusTabBody(top.tab.key);
+        return;
+      }
+      case "float.minimize":
+        update((item) => minimizeLooseFloats(item));
+        return;
+      case "new.terminal":
+        openTerminalTab(hostRef.current);
+        return;
+      case "new.browser":
+        openBrowserTab(hostRef.current);
+        return;
+      case "new.agent":
+        void openLophn();
+        return;
+      case "new.document":
+        void pickFile?.().then((path) => {
+          if (path !== null) openFile(hostRef.current, path);
+        });
+        return;
+      case "sidebar.toggle-right":
+        setRightOpen((open) => !open);
+        return;
+      case "nav.back":
+        if (backAt >= 0) walk(backAt);
+        return;
+      case "nav.forward":
+        if (forwardAt >= 0) walk(forwardAt);
+        return;
+      case "settings.open":
+        onSettings();
+        return;
+      // Inbox·Jobs overlay는 왼쪽 sidebar 안의 상태라 여기서 열 길이 없다. 단추가 overlay에서 부르는 탭 열기와 같은 것을 연다.
+      case "inbox.open":
+        openInbox(hostRef.current);
+        return;
+      case "jobs.open":
+        openJobs(hostRef.current);
+        return;
+      case APP_PANEL: {
+        // arg는 "<app>:<surface>"이고 app id에 ':'가 없다.
+        const split = typeof arg === "string" ? arg.indexOf(":") : -1;
+        if (
+          typeof arg !== "string" ||
+          split < 0 ||
+          !hostRef.current.appScreens
+        ) {
+          return;
+        }
+        const pin = { app: arg.slice(0, split), surface: arg.slice(split + 1) };
+        const app = panelApps?.ok
+          ? panelApps.value.find((item) => item.app === pin.app)
+          : undefined;
+        // 앱이나 화면이 없어졌으면(목록을 읽은 뒤) 빠른 실행 pin처럼 열지 않는다.
+        if (
+          panelApps?.ok &&
+          !app?.screens.some(
+            (item) => item.key === pin.surface && item.sizes.includes("panel"),
+          )
+        ) {
+          return;
+        }
+        launchAppPanel(
+          pin,
+          app?.name ?? t("project-workspace.label.kind-app-panel"),
+        );
+        return;
+      }
       case "sidebar.toggle":
         setLeftOpen((open) => !open);
         return;
@@ -1532,14 +1717,98 @@ export function PlaceWindow(props: PlaceWindowProps) {
         return;
     }
   };
-  useCommands(
+  const handlersOf = (commands: readonly Command[]) =>
     Object.fromEntries(
-      WORKSPACE_COMMANDS.map((command) => [
+      commands.map((command) => [
         command,
-        (arg: unknown) => runCommand(command, arg as number | undefined),
+        (arg: unknown) => runCommand(command, arg as number | string),
       ]),
+    );
+  // 이 창에 그 통로가 아예 없는 command는 올리지 않아 키가 넘어간다.
+  const absent = new Set<Command>([
+    ...(terminal === undefined
+      ? (["new.terminal", "terminal.focus"] as const)
+      : []),
+    ...(browserApi === null ? (["new.browser"] as const) : []),
+    ...(pickFile === undefined ? (["new.document"] as const) : []),
+    ...(agentViewSource === undefined ? (["new.agent"] as const) : []),
+    ...(source.searchSource === undefined || projectId === null
+      ? (["search.open"] as const)
+      : []),
+    ...(props.jobs === undefined ? (["jobs.open"] as const) : []),
+    ...(projectId === null
+      ? ([
+          "explorer.focus",
+          "desk.new",
+          "desk.next",
+          "desk.prev",
+          "desk.nth",
+          "desk.rename",
+          "desk.close",
+        ] as const)
+      : []),
+  ]);
+  // 지금 일이 있을 때만 받는 command. menu가 그 항목을 보이는 때와 같은 사정(menuStateOf)이다.
+  const stateNow = () => {
+    const tab = focusTab(desk);
+    return tab === undefined ? undefined : menuStateOf(tab);
+  };
+  const gated: readonly (readonly [readonly Command[], () => boolean])[] = [
+    [
+      [
+        "pane.focus",
+        "pane.focus-left",
+        "pane.focus-right",
+        "pane.focus-up",
+        "pane.focus-down",
+        "pane.swap-left",
+        "pane.swap-right",
+        "pane.swap-up",
+        "pane.swap-down",
+        "pane.unsplit",
+        "pane.close-group",
+      ],
+      () => (stateNow()?.group ?? 0) >= 2,
+    ],
+    [["pane.remove"], () => (stateNow()?.group ?? 0) >= 3],
+    [
+      [
+        "pane.stack-next",
+        "pane.stack-prev",
+        "pane.unstack",
+        "pane.close-others",
+      ],
+      () => stateNow()?.stacked === true,
+    ],
+    [["tab.rename"], () => stateNow()?.renamable === true],
+    [["tab.keep-open"], () => stateNow()?.preview === true],
+    [["tab.detach"], () => stateNow()?.canDetach === true],
+    [
+      ["tab.copy-path", "tab.copy-relative-path", "tab.reveal"],
+      () => stateNow()?.file === true,
+    ],
+    [["nav.back"], () => backAt >= 0],
+    [["nav.forward"], () => forwardAt >= 0],
+    [["float.dock"], () => topFloat(latestDesk()) !== undefined],
+    [
+      ["float.minimize"],
+      () => desk.floats.some((item) => !item.pinned && !item.minimized),
+    ],
+  ];
+  const gatedIds = new Set(gated.flatMap(([ids]) => ids));
+  useCommands(
+    handlersOf(
+      WORKSPACE_COMMANDS.filter(
+        (command) => !absent.has(command) && !gatedIds.has(command),
+      ),
     ),
   );
+  for (const [ids, when] of gated) {
+    useCommands(handlersOf(ids.filter((command) => !absent.has(command))), {
+      when,
+    });
+  }
+  useCommands(hostRef.current.appScreens ? handlersOf([APP_PANEL]) : {});
 
   const currentTab = focusTab(desk);
 
@@ -1922,6 +2191,21 @@ export function PlaceWindow(props: PlaceWindowProps) {
           }))
       : []),
   ];
+  // DeskSwitcher의 순서와 같다: 사람이 만든 desk, 그다음 workflow desk.
+  const deskOrder = [
+    ...deskOptions.filter((item) => !item.workflow),
+    ...deskOptions.filter((item) => item.workflow),
+  ];
+  const requestCloseDesk = (key: string) => {
+    const gone = latestLayout.current.desks[key];
+    if (
+      gone !== undefined &&
+      key !== MAIN_DESK &&
+      gone.workflow === undefined
+    ) {
+      setClosingDesk(key);
+    }
+  };
   const selectDesk = (key: string) => {
     if (Object.hasOwn(latestLayout.current.desks, key)) switchDesk(key);
     else openWorkflow(host, key);
@@ -2116,12 +2400,8 @@ export function PlaceWindow(props: PlaceWindowProps) {
                     onRename={(key, label) =>
                       commit(renameDesk(latestLayout.current, key, label))
                     }
-                    onDelete={(key) => {
-                      const gone = latestLayout.current.desks[key];
-                      if (gone !== undefined && gone.workflow === undefined) {
-                        setClosingDesk(key);
-                      }
-                    }}
+                    onDelete={requestCloseDesk}
+                    renameAsk={deskRenameAsk}
                   />
                 )
               }

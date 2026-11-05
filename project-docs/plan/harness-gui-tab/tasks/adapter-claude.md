@@ -68,3 +68,5 @@ toggle(README 정한 것 2, 7)
 ## lead가 더한 것
 
 - (lead가 더함) adapter가 받는 `spawn`은 login shell env < 탭 hook env < 넘긴 key 순서로 합친다(`tab-gui`). adapter는 자기가 바꾸는 key만 넘기고 env 전체를 복사해 넘기지 않는다(그러면 login shell env를 덮는다).
+- (lead가 더함) Agent SDK는 `spawnClaudeCodeProcess`에 shell main의 env 전체(`process.env` 복사)를 넘긴다. 그대로 넘기면 `tab-gui`의 합치기(login shell env < 탭 env < 넘긴 key)에서 shell main의 PATH 등이 login shell env를 덮는다. `spawnClaudeCodeProcess` 안에서 `process.env`와 값이 다른 key만 골라 `spawn`에 넘긴다.
+- (lead가 더함) `tab-gui`가 상위 session 표지를 지울 때 `CLAUDE_CODE_ENTRYPOINT`도 지운다(`terminal-host/env.ts`의 목록). 그래서 GUI가 만든 session은 CLI session처럼 보이고 TUI의 `claude --resume` 목록에도 나온다(toggle에 맞다). "entrypoint는 SDK 기본값 그대로"인 할 일은 이것으로 바뀐다. `listSessions`에 `includeProgrammatic`이 없어도 GUI session이 보이는지 녹화로 확인한다.

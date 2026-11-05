@@ -42,10 +42,6 @@ type MigrateOutcome =
       failed: { step: string; message: string };
     };
 
-function unavailable(message: string): Result<never> {
-  return err({ code: "unavailable", message });
-}
-
 // script_hash는 단계 파일 byte의 sha256이다. 파일 이름은 앱 템플릿의 `migrations/<from>-<to>.sql`이고
 // release.record의 data_changes가 같은 규칙으로 hash를 낸다(`dataChangesOf`). "sha256:" 접두는 있어도 같다.
 function plain(hash: string): string {
@@ -149,13 +145,21 @@ export async function migrateAppDatabase(
   } finally {
     db.close();
   }
+  // 단계가 다 적용돼도 사후 검사가 실패하면 단계 실패와 같이 backup으로 되돌린다.
+  failed ??= postCheckFailure(input);
   if (failed !== null) {
     const restored = await restoreAppBackup(
       input.dataArea,
       input.databasePath,
       input.backupPath,
     );
-    if (!restored.ok) return restored;
+    if (!restored.ok) {
+      return err({
+        code: "unavailable",
+        message: `migration failed and restoring the backup also failed: ${restored.error.message}`,
+        details: { reason: "restore_failed" },
+      });
+    }
     return ok({
       result: {
         ...input.result,
@@ -166,24 +170,29 @@ export async function migrateAppDatabase(
       failed,
     });
   }
+  return ok({
+    result: {
+      ...input.result,
+      data_schema: input.targetSchema,
+      integrity_ok: true,
+    },
+    restored: false,
+  });
+}
+
+// 적용 뒤 DB를 다시 열어 무결성과 target schema를 본다. 실패하면 되돌릴 근거를 낸다.
+function postCheckFailure(
+  input: MigrateInput,
+): { step: string; message: string } | null {
+  const fail = (message: string) => ({ step: "post-check", message });
   const after = openAppDatabase(input.databasePath);
-  if (!after.ok) return after;
+  if (!after.ok) return fail(after.error.message);
   try {
-    if (!after.value.integrityOk()) {
-      return unavailable("integrity check failed");
+    if (!after.value.integrityOk()) return fail("integrity check failed");
+    if (after.value.schemaState().dataSchema !== input.targetSchema) {
+      return fail("data schema does not match the target");
     }
-    const state = after.value.schemaState();
-    if (state.dataSchema !== input.targetSchema) {
-      return unavailable("data schema does not match the target");
-    }
-    return ok({
-      result: {
-        ...input.result,
-        data_schema: state.dataSchema,
-        integrity_ok: true,
-      },
-      restored: false,
-    });
+    return null;
   } finally {
     after.value.close();
   }

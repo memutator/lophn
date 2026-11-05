@@ -16,7 +16,7 @@ import { databaseHash, openAppDatabase } from "./db.ts";
 import { acquireDataLock } from "./lock.ts";
 import { migrateAppDatabase, type MigrationScript } from "./migrate.ts";
 import { contained, insideDataArea } from "./paths.ts";
-import { restoreAppBackup } from "./restore.ts";
+import { recoverRestoreLeftovers, restoreAppBackup } from "./restore.ts";
 
 type DataJobContext = {
   // 앱 데이터 영역 루트. job이 여는 모든 경로는 이 안이어야 한다.
@@ -234,6 +234,8 @@ export async function runDataJob(
     return err({ code, message: locked.error.message });
   }
   try {
+    // 어떤 job이든 DB를 열기 전에 끊긴 restore를 먼저 정리한다.
+    await recoverRestoreLeftovers(ctx.dataArea, database.value);
     const resolved: DataJobContext = { ...ctx, databasePath: database.value };
     const outcome =
       input.kind === "inspect"

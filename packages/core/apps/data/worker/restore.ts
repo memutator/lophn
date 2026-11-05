@@ -2,7 +2,7 @@
 // 복원은 임시 파일에 검증한 뒤 원본과 원자적으로 교체하고, 교체가 실패하면
 // 원본을 되돌린다.
 
-import { copyFile, rename, rm } from "node:fs/promises";
+import { access, copyFile, rename, rm } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import { type VerifiedDatabase, verifyDatabase } from "./integrity.ts";
 import { contained } from "./paths.ts";
@@ -22,6 +22,11 @@ async function moveAside(
   databasePath: string,
   previous: string,
 ): Promise<void> {
+  // live DB가 없으면 previous가 유일한 사본일 수 있다. 덮지 않고 멈춘다.
+  await access(databasePath);
+  // live DB가 있으니 옛 previous는 쓸모없다. 옛 sidecar가 새 previous와 짝지어지지 않게 같이 지운다.
+  await rm(previous, { force: true });
+  await removeSidecars(previous);
   await rename(databasePath, previous);
   for (const suffix of SIDECARS) {
     await rename(`${databasePath}${suffix}`, `${previous}${suffix}`).catch(
@@ -47,6 +52,25 @@ async function removeSidecars(databasePath: string): Promise<void> {
   for (const suffix of SIDECARS) {
     await rm(`${databasePath}${suffix}`).catch(() => {});
   }
+}
+
+// data worker가 시작할 때 앱 DB를 열기 전에 부른다. 두 rename 사이에서 crash했으면 DB path가 비고
+// previous가 유일한 사본이다. 그때 먼저 열면 빈 DB가 생기므로 되돌려 놓고, 남은 tmp는 지운다.
+export async function recoverRestoreLeftovers(
+  dataArea: string,
+  databasePath: string,
+): Promise<void> {
+  await rm(`${dataArea}/${RESTORE_TMP}`, { force: true });
+  const previous = `${dataArea}/${RESTORE_PREVIOUS}`;
+  const hasDatabase = await access(databasePath).then(
+    () => true,
+    () => false,
+  );
+  const hasPrevious = await access(previous).then(
+    () => true,
+    () => false,
+  );
+  if (!hasDatabase && hasPrevious) await moveBack(databasePath, previous);
 }
 
 // backup을 운영 DB 자리로 복원한다. backup 무결성·schema 확인 전에 원본을
@@ -86,12 +110,13 @@ export async function restoreAppBackup(
   } catch (thrown) {
     if (moved) await moveBack(databasePath, previous);
     await rm(tmp).catch(() => {});
+    const code = errorCode(thrown);
     return err({
       code: "unavailable",
       message:
-        thrown instanceof Error
+        code === undefined
           ? "restore replace failed"
-          : "restore replace failed",
+          : `restore replace failed (${code})`,
     });
   }
   const restored = await verifyDatabase(databasePath);

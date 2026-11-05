@@ -10,10 +10,9 @@ import {
 
 import type { AcpCommand } from "../../../protocol/acp/mod.ts";
 import type { AgentTabSource } from "./agent-tab-source.ts";
-import { slashGroupsOf } from "./agent-view-model.ts";
+import { slashListOf, slashRows } from "./agent-view-model.ts";
 import {
   type SlashEntryView,
-  type SlashGroupView,
   SlashMenu,
   type SlashMenuState,
   slashQuery,
@@ -27,10 +26,14 @@ interface SlashMenuInput {
   /** 입력칸의 글. */
   text: string;
   agentName: string;
+  /** harness id. lophn은 null이다. */
+  harness: string | null;
   /** 일하는 중이다. 고른 명령은 다음 turn에 들어간다. */
   working: boolean;
   /** 고른 명령을 실행한다. 입력칸을 비우는 일도 실행하는 쪽이 한다. */
   onRun: (entry: SlashEntryView, argument: string) => void;
+  /** 입력칸을 이 글로 바꾸고 커서를 끝에 둔다. */
+  onText: (text: string) => void;
 }
 
 interface SlashMenuControl {
@@ -40,10 +43,6 @@ interface SlashMenuControl {
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   /** 입력칸이 `/…`일 때 Enter·보내기. */
   submit: () => Promise<void>;
-}
-
-function entriesOf(groups: readonly SlashGroupView[]): SlashEntryView[] {
-  return groups.flatMap((group) => group.entries);
 }
 
 export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
@@ -75,9 +74,7 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
     };
   }, [source, session, opened]);
   const listed =
-    query === null
-      ? null
-      : { query, groups: slashGroupsOf(commands, query, session !== null) };
+    query === null ? null : slashListOf(commands, query, session !== null);
   const [unknown, setUnknown] = useState<SlashMenuState | null>(null);
   const [highlight, setHighlight] = useState(0);
   // Esc로 닫은 글. 글이 바뀌면 다시 열린다.
@@ -97,9 +94,9 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
     unknown !== null ||
     (query !== null && listed !== null && dismissed !== text);
   const state: SlashMenuState | null =
-    unknown ??
-    (open && listed !== null ? { kind: "list", groups: listed.groups } : null);
-  const rows = state?.kind === "list" ? entriesOf(state.groups) : [];
+    unknown ?? (open && listed !== null ? listed : null);
+  const rows =
+    state === null || state.kind === "unknown" ? [] : slashRows(state);
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!(event.target as HTMLElement).matches("[data-composer-input]")) return;
@@ -122,28 +119,39 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
     const match = /^\/(\S*)(\s*)([\s\S]*)$/.exec(text)!;
     const [name, spaced, argument] = [match[1]!, match[2]! !== "", match[3]!];
     // 인자를 쓰는 중이면 메뉴가 닫혀 있다. 이름으로 목록을 거르고 판정한다.
-    const entries = entriesOf(slashGroupsOf(commands, name, session !== null));
+    const entries = slashRows(slashListOf(commands, name, session !== null));
     // 인자를 쳤으면 이름이 같은 것이다. 이름만 쳤으면 화살표로 고른 줄이 우선이다. 고르지 않았으면(첫 줄)
     // 이름이 꼭 맞는 명령이 이긴다. `/status`는 설명에 "status"가 든 MCP가 첫 줄이라 MCP가 돌던 일이 있다.
-    const exact = entries.find((entry) => entry.name === name);
+    const exact =
+      entries.find((entry) => entry.name === name) ??
+      entries.find((entry) => entry.alias === name);
     const chosen = spaced
       ? exact
       : highlight === 0
         ? (exact ?? entries[0])
         : entries[highlight];
     if (chosen === undefined) setUnknown({ kind: "unknown", name });
-    else latest.current.onRun(chosen, argument.trim());
+    else if (spaced) latest.current.onRun(chosen, argument.trim());
+    else pick(chosen);
+  };
+
+  // 메뉴에서 고른 명령(클릭, 이름만 친 Enter). 인자를 받는 명령은 입력칸을 `/<이름> `로 바꾸고 인자를 기다린다.
+  // 다시 Enter를 치면 `submit`이 빈 인자째 실행한다.
+  const pick = (entry: SlashEntryView) => {
+    if (entry.argumentHint !== null) latest.current.onText(`/${entry.name} `);
+    else latest.current.onRun(entry, "");
   };
 
   const menu =
     state === null ? null : (
       <SlashMenu
         agentName={input.agentName}
+        harness={input.harness}
         query={query ?? ""}
         working={working}
         state={state}
         highlightedIndex={highlight}
-        onPick={(entry) => latest.current.onRun(entry, "")}
+        onPick={pick}
       />
     );
 

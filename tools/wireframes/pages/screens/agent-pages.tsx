@@ -23,6 +23,7 @@ import {
   ApprovalStatesScene,
   CallOpenScene,
   CallRepliesScene,
+  CommandsRankedScene,
   ContextFullScene,
   ContextWarningScene,
   ConversationScene,
@@ -203,6 +204,8 @@ export const AgentSessionArchived = () =>
   withTab(sessionTab(SESSIONS.find((row) => row.id === "old-1")!));
 /** 입력칸에 "/"를 친 명령 메뉴. */
 export const AgentCommands = () => weekly({ stage: "report", slash: "/" });
+/** "/con"을 친, 순위대로 선 한 목록. */
+export const AgentCommandsRanked = CommandsRankedScene;
 /** 일하는 중 "/re"로 걸러진 메뉴. 고른 명령은 다음 turn에 들어간다. */
 export const AgentCommandsFiltered = () =>
   withTab(workingTab({ slash: "/re" }));

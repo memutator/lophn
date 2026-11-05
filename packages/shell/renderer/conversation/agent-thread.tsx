@@ -44,6 +44,8 @@ import { ThreadScroll } from "./message-list/thread-scroll.tsx";
 import { QuestionSummary } from "./question-card/question-card.tsx";
 import { HiddenRange } from "./session-rewind/hidden-range.tsx";
 import { CallBlock } from "./thread/call-block.tsx";
+import { CommandOutput } from "./thread/command-output.tsx";
+import { InfoRow } from "./thread/info-row.tsx";
 import { ReleaseConsent } from "./thread/release-consent.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
 import { ReceivedMessage } from "./thread/received-message.tsx";
@@ -372,6 +374,29 @@ function itemsOf(
           />,
         );
         break;
+      case "info":
+      case "command-output": {
+        const node =
+          entry.kind === "info" ? (
+            <InfoRow key={entry.id} text={entry.text} level={entry.level} />
+          ) : (
+            <CommandOutput
+              key={entry.id}
+              command={entry.command}
+              text={entry.text}
+              format={entry.format}
+              at={entry.at}
+              artifacts={props.artifacts}
+            />
+          );
+        // turn 밖의 줄은 agent 덩어리에 넣지 않는다(이름과 "Worked for"가 붙지 않는다).
+        if (entry.turn === null) {
+          flush();
+          out.push(node);
+          after = entry.id;
+        } else add(entry, node);
+        break;
+      }
       case "hidden":
         flush();
         out.push(

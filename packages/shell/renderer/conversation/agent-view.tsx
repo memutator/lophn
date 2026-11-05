@@ -13,7 +13,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import type { AcpInput, AcpSessionMeta } from "../../../protocol/acp/mod.ts";
+import type {
+  AcpCommandOpens,
+  AcpInput,
+  AcpSessionMeta,
+} from "../../../protocol/acp/mod.ts";
 import {
   type ContentBlock,
   textBlocks,
@@ -45,6 +49,7 @@ import {
   textOfParts,
 } from "./agent-view-model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
+import { PlanCard } from "./approval-card/plan-card.tsx";
 import { fileBlock } from "./attachments.ts";
 import { AgentComposer } from "./composer/agent-composer.tsx";
 import {
@@ -471,14 +476,23 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     setLayer({ kind: "status" });
   };
 
+  // 명령이 여는 화면 동작(`opens`)만 보고 이름은 해석하지 않는다. `opens`가 null이거나 인자를 CLI가 받는 명령이면
+  // CLI에 보내고 출력은 대화의 명령 출력 줄로 온다. model·effort·mode는 composer가 먼저 열어 보았다.
   const runSlash = (command: SlashEntryView, argument: string) => {
     const clear = () => drafts.save(key, { text: "", selection: [0, 0] });
-    if (command.source === "app") {
-      switch (command.name) {
-        case "rename": {
-          // 새 이름을 쓸 때까지 기다린다.
+    const opens = command.opens;
+    const sendsArgument =
+      argument !== "" &&
+      command.argumentHint !== null &&
+      opens !== "rename" &&
+      opens !== "goal";
+    if (opens !== null && !sendsArgument) {
+      const screen: Record<AcpCommandOpens, () => void> = {
+        // 새 이름을 쓸 때까지 기다린다.
+        rename: () => {
           if (argument === "") {
-            drafts.save(key, { text: "/rename ", selection: [8, 8] });
+            const text = `/${command.name} `;
+            drafts.save(key, { text, selection: [text.length, text.length] });
             return;
           }
           clear();
@@ -490,20 +504,20 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
               title: argument,
             }).then(() => refresh());
           }
-          return;
-        }
-        case "new":
+        },
+        new: () => {
           clear();
-          return startNew();
-        case "archive":
+          startNew();
+        },
+        archive: () => {
           clear();
           if (session !== null) {
             void perform(() => source.archiveSession(session)).then(() =>
               refresh(),
             );
           }
-          return;
-        case "compact":
+        },
+        compact: () => {
           clear();
           if (session !== null) {
             void act(session, {
@@ -512,24 +526,55 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
               key: actKey("compact"),
             }).then(() => data.reload());
           }
-          return;
-        case "fork":
+        },
+        fork: () => {
           clear();
-          return void fork(null);
-        case "permissions":
+          void fork(null);
+        },
+        permissions: () => {
           clear();
-          return void showPermissions();
-        case "status":
+          void showPermissions();
+        },
+        status: () => {
           clear();
-          return showStatus();
-        case "mcp":
-        case "skills":
+          showStatus();
+        },
+        usage: () => {
           clear();
-          return host.openAgentSettings(command.name);
-      }
-      return;
+          showStatus();
+        },
+        context: () => {
+          clear();
+          showStatus();
+        },
+        mcp: () => {
+          clear();
+          host.openAgentSettings("mcp");
+        },
+        skills: () => {
+          clear();
+          host.openAgentSettings("skills");
+        },
+        rewind: () => {
+          clear();
+          const last = messages.findLast(
+            (item) => item.actor === "user" && item.delivery === "next_turn",
+          );
+          if (last === undefined) fail();
+          else setLayer({ kind: "rewind", message: last.id });
+        },
+        // composer가 열었거나 열 menu가 없는 경우다.
+        model: clear,
+        effort: clear,
+        mode: clear,
+        // composer dock이 여는 화면 동작이라 아직 열 곳이 없다.
+        subagents: clear,
+        tasks: clear,
+        goal: clear,
+      };
+      return screen[opens]();
     }
-    // skill 명령은 사람이 보낸 말로 접수되므로 session이 있어야 한다.
+    // CLI와 skill 명령은 사람이 보낸 말로 접수되므로 session이 있어야 한다.
     clear();
     void (async () => {
       const target = await ensureSession();
@@ -754,7 +799,26 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         )}
       </div>
       <div className={styles.bottom}>
-        {approval === null || session === null ? null : (
+        {approval === null || session === null ? null : approval.subject
+            .kind === "plan" ? (
+          <PlanCard
+            key={approval.id}
+            agent={agent.name}
+            id={approval.id}
+            subject={approval.subject}
+            artifacts={host.artifacts}
+            onDecide={(choice, reason) =>
+              accepted(
+                act(session, {
+                  type: "decide",
+                  session,
+                  request: approval.id,
+                  choice: decideChoiceOf(choice, reason),
+                }),
+              )
+            }
+          />
+        ) : (
           <ApprovalCard
             key={approval.id}
             agent={agent.name}

@@ -2,9 +2,16 @@
 // 없음), 대화 조작은 IPC로 extension의 handle에 보낸다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
 // 화면이 읽는다. 새 ACP 입력(model·mode·명령·rewind·fork·compact·이름)은 `act`로 handle에 간다. lophn session의 것(권한 요약,
 // call, session 목록)은 없어서 unavailable로 답한다.
-import type { AcpInput, AcpState } from "../../../protocol/acp/mod.ts";
+import type {
+  AcpEntry,
+  AcpInput,
+  AcpItem,
+  AcpState,
+  AcpToolItem,
+} from "../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
+import { harnessVendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
 import type { HarnessGuiInfo } from "../../ipc/harness-gui.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 
@@ -18,6 +25,21 @@ interface GuiSourceDeps {
   readonly writeImage?: (image: Blob) => Promise<string | null>;
 }
 
+/** 숨긴 구간 안까지 찾는다. */
+function toolItemOf(
+  items: readonly (AcpItem | AcpEntry)[],
+  id: string,
+): AcpToolItem | undefined {
+  for (const item of items) {
+    if (item.kind === "tool" && item.id === id) return item;
+    if (item.kind === "hidden") {
+      const inner = toolItemOf(item.items, id);
+      if (inner !== undefined) return inner;
+    }
+  }
+  return undefined;
+}
+
 const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
 const none = () => Promise.resolve(UNAVAILABLE);
 
@@ -25,10 +47,14 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
   const { info, feed } = deps;
   const session = feed.session;
   const label = HARNESS_ADAPTERS[info.harness].label;
+  const vendor = harnessVendorOf(info.harness);
   const face: AgentFace = {
     agent: LOPHN_AGENT_ID,
     name: label,
-    profile: { kind: "initial", text: label.slice(0, 1) },
+    profile:
+      vendor === undefined
+        ? { kind: "initial", text: label.slice(0, 1) }
+        : { kind: "vendor", vendor },
     workspace: {
       kind: "project",
       name: info.cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? info.cwd,
@@ -50,8 +76,16 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
           ? { ok: true, value: feed.state() }
           : { ok: false, code: "not_found" },
       ),
-    // tool의 입력·출력 본문은 ACP에 없다. 줄은 제목과 상태만 보인다.
-    toolCallBody: () => Promise.resolve({ ok: false, code: "not_found" }),
+    // harness가 item에 실은 본문(`body`)을 그대로 읽는다. 칸이 null이면 없다.
+    toolCallBody: (id, part) => {
+      const body = toolItemOf(feed.state().items, id)?.body ?? null;
+      const value = body?.[part] ?? null;
+      return Promise.resolve(
+        body === null || value === null
+          ? { ok: false, code: "not_found" }
+          : { ok: true, value: { value, truncated: body.truncated } },
+      );
+    },
     imageUrl: () => Promise.resolve(null),
 
     send: (input) =>

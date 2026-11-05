@@ -2,7 +2,6 @@
 // 대화는 session마다 ACP 상태(`AcpState`)이고, 쓰기는 ACP 갱신을 `reduceAcp`로 접어 상태를 바꾼 뒤 `changed`로
 // 알린다. 그래서 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
 
-import { t } from "@lophn/i18n";
 import {
   type AcpCapabilities,
   type AcpEntry,
@@ -25,7 +24,12 @@ import {
 } from "../../../protocol/acp/mod.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
-import { CLI_COMMANDS, LOPHN_COMMANDS } from "./agent-tab-fake-commands.ts";
+import {
+  CLI_COMMANDS,
+  HARNESS_APP_COMMANDS,
+  HARNESS_EXTRA_COMMANDS,
+  LOPHN_COMMANDS,
+} from "./agent-tab-fake-commands.ts";
 import {
   BUILT_IN_GROUPS,
   CUSTOM_GROUP,
@@ -71,8 +75,10 @@ export const AGENT_TAB_SCENES = [
   "rewind",
   /** session이 아직 없는 새 대화. */
   "empty",
-  /** harness CLI의 session: mode 셋, CLI 명령, 계획 목록. session 목록과 파일 복원은 없다. */
+  /** harness CLI의 session: mode 셋, CLI 명령, 계획 목록, 명령 출력과 알림 줄. session 목록과 파일 복원은 없다. */
   "harness",
+  /** harness가 plan을 내고 승인을 기다린다: plan markdown과 다음 mode 단추. */
+  "plan-approval",
   /** 승인 카드의 세 범위(한 번, 이 session, 항상)와 file 바꾸기 subject. */
   "approval-scopes",
 ] as const;
@@ -114,7 +120,7 @@ const LOPHN: AgentFace = {
 const CLAUDE: AgentFace = {
   agent: "lophn",
   name: "Claude",
-  profile: { kind: "initial", text: "C" },
+  profile: { kind: "vendor", vendor: "claude" },
   workspace: { kind: "project", name: "phroner" },
   permissionSummary: "",
 };
@@ -135,6 +141,30 @@ const CLEANUP_LEAD =
 const REPORT_LEAD =
   "I have the three findings. I need to write the report and clean up last week's file, so I need your OK first.";
 const CLEANUP_COMMAND = "rm -r docs/reports/2026-w40";
+const PLAN_LEAD =
+  "I read the three findings. Here is how I would write the report.";
+const PLAN_TEXT = [
+  "## Plan: weekly eval report",
+  "",
+  "1. Read the three new findings in `eval/findings.md`.",
+  "2. Count regressions per scenario with the run logs.",
+  "3. Write `docs/reports/2026-w41.md` with a summary and a regressions table.",
+  "4. Add the new report to `docs/reports/index.md`.",
+  "5. Remove the superseded `2026-w40` report.",
+  "",
+  "### Files",
+  "",
+  "- `docs/reports/2026-w41.md` (new)",
+  "- `docs/reports/index.md` (one line)",
+  "- `docs/reports/2026-w40.md` (delete)",
+  "",
+  "### Checks",
+  "",
+  "- Every regression in the table links to its finding.",
+  "- The numbers match the run logs.",
+  "",
+  "Nothing outside `docs/reports/` changes.",
+].join("\n");
 
 const turn1 = turnId(1);
 
@@ -467,6 +497,46 @@ const turnEnd = (
     waited_ms: waitedMs,
   },
 });
+
+/** turn 밖의 알림 줄. 명령 출력과 compaction·rate limit 안내다. */
+function notice(
+  n: number,
+  minutes: number,
+  body: AcpNoticeItem["notice"],
+): AcpNoticeItem {
+  return {
+    kind: "notice",
+    id: fakeId("ntc", n),
+    seq: 0,
+    at: at(minutes),
+    turn: null,
+    notice: body,
+  };
+}
+
+const CONTEXT_OUTPUT = [
+  "## Context usage",
+  "",
+  "`claude-sonnet-5-5` · 43k / 200k tokens (21%)",
+  "",
+  "| Category | Tokens | Share |",
+  "| --- | ---: | ---: |",
+  "| System prompt | 3.2k | 1.6% |",
+  "| System tools | 11.8k | 5.9% |",
+  "| MCP tools | 4.1k | 2.1% |",
+  "| Memory files | 2.0k | 1.0% |",
+  "| Messages | 21.9k | 10.9% |",
+  "| Free space | 157k | 78.5% |",
+].join("\n");
+
+const COST_OUTPUT = [
+  "Total cost:            $0.42",
+  "Total duration (API):  3m 12s",
+  "Total duration (wall): 11m 40s",
+  "Total code changes:    42 lines added, 3 lines removed",
+  "Usage by model:",
+  "    claude-sonnet-5-5:  312.4k input, 11.5k output, 301.4k cache read",
+].join("\n");
 
 const turnOf = (phase: AcpTurn["phase"]): AcpTurn => ({
   id: turn1,
@@ -1101,6 +1171,28 @@ function sceneData(scene: AgentTabScene): SceneData {
         harness: true,
         state: numbered(
           [
+            notice(1, 38, {
+              type: "command_output",
+              command: "context",
+              text: CONTEXT_OUTPUT,
+              format: "markdown",
+            }),
+            notice(2, 39, {
+              type: "command_output",
+              command: "cost",
+              text: COST_OUTPUT,
+              format: "preformatted",
+            }),
+            notice(3, 40, {
+              type: "info",
+              text: "Conversation compacted · 182k → 24k tokens",
+              level: "info",
+            }),
+            notice(4, 40, {
+              type: "info",
+              text: "You've used 82% of your 5-hour limit. It resets at 11:30.",
+              level: "warning",
+            }),
             user(1, 41, REQUEST),
             ...REPORT_CALLS,
             agent(
@@ -1124,6 +1216,31 @@ function sceneData(scene: AgentTabScene): SceneData {
           },
         ),
         toolBodies: REPORT_TOOL_BODIES,
+      };
+    case "plan-approval":
+      return {
+        agent: CLAUDE,
+        title: "Week 41 summary",
+        harness: true,
+        state: numbered([user(1, 41, REQUEST), agent(2, 41, PLAN_LEAD)], {
+          turn: turnOf("waiting"),
+          pending: {
+            approval: {
+              id: requestId(1),
+              subject: {
+                kind: "plan",
+                plan: PLAN_TEXT,
+                modes: [
+                  { id: "acceptEdits", label: "Accept edits" },
+                  { id: "default", label: "Ask for edits" },
+                ],
+              },
+              choices: ["reject"],
+              always_patterns: [],
+            },
+            question: null,
+          },
+        }),
       };
     case "approval-scopes":
       return {
@@ -1373,8 +1490,9 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
     ],
     mode: "default",
     commands: [
-      ...LOPHN_COMMANDS.filter((one) => one.name === "compact"),
+      ...HARNESS_APP_COMMANDS,
       ...CLI_COMMANDS,
+      ...HARNESS_EXTRA_COMMANDS,
     ],
     usage: {
       ...usageOf(options.status),
@@ -1385,9 +1503,13 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
     toggles: [],
     goal: null,
     roles: null,
-    harness: null,
+    harness: "claude",
   };
 }
+
+/** wireframe의 harness GUI 탭이 첫 갱신으로 싣는 session 기능(Claude). */
+export const fakeHarnessMeta = (): AcpSessionMeta =>
+  harnessMeta({ picker: {}, status: {}, title: null, mode: "ask" });
 
 // ---- fake ----
 
@@ -1597,12 +1719,12 @@ export function createFakeAgentTabSource(
   ) => {
     const state = stateOf(session);
     if (state.pending.approval?.id !== request) return fail("conflict");
-    if (choice.kind === "mode") return fail("unavailable");
     return apply(session, {
       type: "approval_closed",
       request,
       outcome: choice.kind === "reject" ? "denied" : "allowed",
-      choice: choice.kind === "reject" ? null : choice.kind,
+      choice:
+        choice.kind === "reject" || choice.kind === "mode" ? null : choice.kind,
       reason: choice.kind === "reject" ? (choice.reason ?? null) : null,
       seq: state.seq + 1,
       at: sentAt(),

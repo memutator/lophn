@@ -25,6 +25,7 @@ import type {
   AcpState,
   AcpWriting,
 } from "../../../protocol/acp/mod.ts";
+import type { Vendor } from "../parts/vendor-icon/vendor-icon.tsx";
 import type { ToolCallState, ToolCallView } from "./activity/model.ts";
 
 export type SourceResult<T> =
@@ -40,7 +41,8 @@ export type { CallFailReason, CallReply, CallState, RewindReason };
 export type AgentProfile =
   | CharacterProfile
   | { readonly kind: "image"; readonly src: string }
-  | { readonly kind: "initial"; readonly text: string };
+  | { readonly kind: "initial"; readonly text: string }
+  | { readonly kind: "vendor"; readonly vendor: Vendor };
 
 /** 화면이 고정해 보이는 agent와 그 자리. 머리·composer의 자리 이름·권한 요약이 여기서 온다. */
 export interface AgentFace {
@@ -273,6 +275,8 @@ export interface ThreadMessage extends EntryBase {
   readonly delivery: Delivery;
   /** 이 메시지를 가져간 turn. 아직이면 null이다. */
   readonly turn: string | null;
+  /** 그 CLI 자신의 message id(thread index bookmark의 key). 사람 메시지만 쓰고 lophn은 null이다. 화면은 읽지 않는다. */
+  readonly origin: string | null;
   /** 본문: reasoning, 글·이미지·링크 block, 앱 카드 차례다. */
   readonly parts: readonly BodyPart[];
 }
@@ -343,10 +347,22 @@ interface ThreadProviderError extends EntryBase {
   readonly message: string;
 }
 
-/** turn 중간의 한 줄 알림(compaction, 재시도, 명령 출력). */
+/** 한 줄 알림(compaction, 재시도, rate limit). `turn`이 null이면 turn 밖이다. */
 interface ThreadInfo extends EntryBase {
   readonly kind: "info";
   readonly text: string;
+  readonly level: "info" | "warning";
+  readonly turn: string | null;
+}
+
+/** 슬래시 명령이 낸 글. `turn`이 null이면 turn 밖이라 "Worked for"가 붙지 않는다. */
+interface ThreadCommandOutput extends EntryBase {
+  readonly kind: "command-output";
+  /** 앞 `/` 없는 이름. */
+  readonly command: string;
+  readonly text: string;
+  readonly format: "markdown" | "preformatted";
+  readonly turn: string | null;
 }
 
 /** 되돌린 구간에서 복원하지 못한 항목 하나. receipt 같은 안쪽 근거는 없다. */
@@ -391,6 +407,7 @@ export type ThreadEntry =
   | ThreadTurnEnd
   | ThreadProviderError
   | ThreadInfo
+  | ThreadCommandOutput
   | ThreadHidden;
 
 /** 가장 늦게 시작한 turn. 멈춤과 다시 시도의 대상이다. */

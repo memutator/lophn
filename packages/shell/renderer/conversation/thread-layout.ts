@@ -117,6 +117,7 @@ function messageEntry(item: AcpMessageItem): ThreadMessage | null {
     replyTo: item.reply_to,
     delivery: item.delivery,
     turn: item.turn,
+    origin: item.origin,
     parts,
   };
 }
@@ -141,8 +142,26 @@ function entryOf(item: AcpItem): ThreadEntry | null {
       };
     case "notice": {
       const { notice } = item;
-      if (notice.type === "info" || notice.type === "command_output") {
-        return { kind: "info", id: item.id, at: item.at, text: notice.text };
+      if (notice.type === "info") {
+        return {
+          kind: "info",
+          id: item.id,
+          at: item.at,
+          text: notice.text,
+          level: notice.level,
+          turn: item.turn,
+        };
+      }
+      if (notice.type === "command_output") {
+        return {
+          kind: "command-output",
+          id: item.id,
+          at: item.at,
+          command: notice.command,
+          text: notice.text,
+          format: notice.format,
+          turn: item.turn,
+        };
       }
       // turn_end·error는 늘 turn이 있다.
       if (item.turn === null) return null;

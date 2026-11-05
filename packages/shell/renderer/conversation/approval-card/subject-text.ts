@@ -51,7 +51,7 @@ export function changeText(
       });
 }
 
-/** 결정 뒤 남는 줄이 가리키는 것. shell은 명령 그대로다. */
+/** 결정 뒤 남는 줄이 가리키는 것. shell은 명령 그대로다. plan은 가리킬 것이 없어 비어 있다. */
 export function targetOf(subject: ApprovalSubject): string {
   switch (subject.kind) {
     case "shell":
@@ -71,7 +71,7 @@ export function targetOf(subject: ApprovalSubject): string {
     case "file_change":
       return subject.changes.map(changeText).join(", ");
     case "plan":
-      return subject.modes.map((mode) => mode.label).join(", ");
+      return "";
   }
 }
 

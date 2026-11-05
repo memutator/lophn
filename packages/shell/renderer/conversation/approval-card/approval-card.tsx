@@ -17,6 +17,7 @@ import type {
   ApprovalCardRequest,
   ApprovalResultView,
 } from "../agent-tab-source.ts";
+import { ReasonRow } from "./reason-row.tsx";
 import { changeText, effectOf, targetOf, titleOf } from "./subject-text.ts";
 import styles from "./approval-card.module.css";
 
@@ -176,19 +177,12 @@ export function ApprovalCard({
         </dl>
       </div>
       {denyOpen ? (
-        <div className={styles.reasonRow}>
-          <input
-            ref={reasonInput}
-            className={styles.reasonInput}
-            aria-label={t("conversation.label.approval-reason")}
-            placeholder={t("conversation.label.approval-reason-placeholder", {
-              agent,
-            })}
-            maxLength={500}
-            value={reason}
-            onChange={(event) => setReason(event.currentTarget.value)}
-          />
-        </div>
+        <ReasonRow
+          agent={agent}
+          value={reason}
+          onChange={setReason}
+          inputRef={reasonInput}
+        />
       ) : null}
       <footer
         className={styles.foot}
@@ -278,6 +272,13 @@ const TONES = {
 } as const;
 
 function markLabel(result: ApprovalResultView): string {
+  if (result.subject.kind === "plan" && result.outcome !== "cancelled") {
+    return t(
+      result.outcome === "allowed"
+        ? "conversation.label.plan-approved"
+        : "conversation.label.plan-not-approved",
+    );
+  }
   switch (result.outcome) {
     case "allowed":
       return t("conversation.label.approval-allowed");
@@ -323,10 +324,13 @@ export function ApprovalResult({
   ]
     .filter((part): part is string => part !== null)
     .join(" · ");
+  const target = targetOf(result.subject);
   return (
     <div className={styles.result}>
       <StatusMark tone={TONES[result.outcome]} label={markLabel(result)} />
-      <span className={styles.resultTitle}>{targetOf(result.subject)}</span>
+      {target === "" ? null : (
+        <span className={styles.resultTitle}>{target}</span>
+      )}
       {detail === "" ? null : (
         <span className={styles.resultDetail}>{detail}</span>
       )}

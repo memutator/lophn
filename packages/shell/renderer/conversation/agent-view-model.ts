@@ -9,15 +9,21 @@ import type {
 import { summaryOfParts } from "./agent-tab-source.ts";
 import type { ViewDetail } from "./activity/model.ts";
 import { type MessageKey, t } from "@lophn/i18n";
-import type {
-  AcpCapabilities,
-  AcpCommand,
-  AcpDecideChoice,
-  AcpSessionMeta,
-  AcpState,
+import {
+  ACP_COMMAND_SOURCES,
+  type AcpCapabilities,
+  type AcpCommand,
+  type AcpCommandOpens,
+  type AcpDecideChoice,
+  type AcpSessionMeta,
+  type AcpState,
 } from "../../../protocol/acp/mod.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
-import type { SlashEntryView, SlashGroupView } from "./slash-menu/types.ts";
+import type {
+  SlashEntryView,
+  SlashGroupKey,
+  SlashListState,
+} from "./slash-menu/types.ts";
 
 /** 아직 만들지 않은 새 session의 입력 메모리 key. 같은 창의 다른 agent와 섞이지 않는다. */
 export function newSessionKey(agent: AgentFace | null): string {
@@ -178,17 +184,19 @@ export function capabilitiesOf(meta: AcpSessionMeta | null): AcpCapabilities {
   return meta === null ? LOPHN_CAPABILITIES : meta.capabilities;
 }
 
-/** 카드의 단추 하나를 `decide` 입력의 choice로. 거절 이유는 한 줄로 맞춘다. */
+/** 카드의 단추 하나를 `decide` 입력의 choice로. 거절 이유는 한 줄로 맞춘다. `{mode}`는 plan 승인이다. */
 export function decideChoiceOf(
-  choice: "once" | "session" | "always" | "reject",
+  choice: "once" | "session" | "always" | "reject" | { readonly mode: string },
   reason?: string,
 ): AcpDecideChoice {
+  if (typeof choice === "object") return { kind: "mode", mode: choice.mode };
   return choice === "session"
     ? { kind: "session" }
     : turnChoiceOf(choice, reason);
 }
 
-const BUILTIN_TITLES: Readonly<Record<string, MessageKey>> = {
+/** lophn 내장 명령의 메뉴 제목. 화면 동작(`opens`)으로 찾고 이름은 보지 않는다. harness 명령은 `/이름`을 그대로 보인다. */
+const BUILTIN_TITLES: Readonly<Partial<Record<AcpCommandOpens, MessageKey>>> = {
   new: "conversation.label.slash-title-new",
   rename: "conversation.label.slash-title-rename",
   archive: "conversation.label.slash-title-archive",
@@ -198,63 +206,141 @@ const BUILTIN_TITLES: Readonly<Record<string, MessageKey>> = {
   skills: "conversation.label.slash-title-skills",
   permissions: "conversation.label.slash-title-permissions",
   status: "conversation.label.slash-title-status",
+  model: "conversation.label.slash-title-model",
+  effort: "conversation.label.slash-title-effort",
+  usage: "conversation.label.slash-title-usage",
+  context: "conversation.label.slash-title-context",
+  rewind: "conversation.label.slash-title-rewind",
 };
 
-const GROUPS = [
-  ["app", "conversation.label.slash-group-commands"],
-  ["skill", "conversation.label.slash-group-skills"],
-  ["harness", "conversation.label.slash-group-cli"],
-] as const;
-
-// session이 있어야 하는 built-in. session을 만들기 전 화면은 이 명령을 목록에서 뺀다.
-const SESSION_ONLY = new Set([
+// session이 있어야 하는 화면 동작. session을 만들기 전 화면은 이 명령을 목록에서 뺀다.
+const SESSION_OPENS: ReadonlySet<AcpCommandOpens | null> = new Set([
   "rename",
   "archive",
   "compact",
   "fork",
+  "rewind",
+  "mode",
   "status",
+  "usage",
+  "context",
+  "subagents",
+  "tasks",
+  "goal",
 ]);
+
+const SOURCE_ORDER = (source: AcpCommand["source"]) =>
+  ACP_COMMAND_SOURCES.indexOf(source);
+
+const GROUP_OF: Readonly<Record<AcpCommand["source"], SlashGroupKey>> = {
+  app: "app",
+  harness: "harness",
+  skill: "skill",
+  plugin: "extension",
+  mcp: "extension",
+  custom_user: "custom",
+  custom_project: "custom",
+};
+
+/** 이름·별칭·설명이 query와 맞은 정도. 낮을수록 위이고 맞지 않으면 null이다(fuzzy는 없다). */
+function tierOf(
+  command: AcpCommand,
+  needle: string,
+): { tier: number; alias: string | null } | null {
+  const name = command.name.toLowerCase();
+  if (name === needle) return { tier: 0, alias: null };
+  if (name.startsWith(needle)) return { tier: 1, alias: null };
+  const alias = command.aliases.find((one) => {
+    const lower = one.toLowerCase();
+    return lower === needle || lower.startsWith(needle);
+  });
+  if (alias !== undefined) return { tier: 2, alias };
+  if (wordStarts(name, /[-_:]/, needle)) return { tier: 3, alias: null };
+  if (name.includes(needle)) return { tier: 4, alias: null };
+  if (wordStarts(command.description.toLowerCase(), /\s+/, needle)) {
+    return { tier: 5, alias: null };
+  }
+  return null;
+}
 
 function wordStarts(text: string, separator: RegExp, needle: string): boolean {
   return text.split(separator).some((word) => word.startsWith(needle));
 }
 
+function entryOf(command: AcpCommand, alias: string | null): SlashEntryView {
+  const title =
+    command.source === "app" && command.opens !== null
+      ? BUILTIN_TITLES[command.opens]
+      : undefined;
+  return {
+    name: command.name,
+    title: title === undefined ? null : t(title),
+    description: command.description,
+    argumentHint: command.argument_hint,
+    source: command.source,
+    opens: command.opens,
+    alias,
+  };
+}
+
 /**
- * `/` 뒤 글자로 거른 묶음. 이름이 시작하거나 이름·설명의 단어가 시작하면 맞고 대소문자를 가리지 않는다. 묶음 안 순서는
- * source가 준 순서다.
+ * `/` 뒤 글자로 거른 명령. 이름이 정확히 맞은 것이 위이고 이름 앞부분, 별칭, 이름 조각, 이름 포함, 설명 단어 순이다
+ * (`tierOf`). 이름 앞부분이 맞은 것끼리는 짧은 이름이 위이고, 같은 순위에서는 출처 순서(`ACP_COMMAND_SOURCES`)와 이름 순이다.
+ * query가 비면 출처 순서만 지키고 묶음 안 순서는 source가 준 순서다.
  */
-export function slashGroupsOf(
+export function slashEntriesOf(
   commands: readonly AcpCommand[],
   query: string,
   hasSession: boolean,
-): SlashGroupView[] {
+): SlashEntryView[] {
   const needle = query.toLowerCase();
-  const match = (command: AcpCommand) => {
-    const name = command.name.toLowerCase();
-    return (
-      needle === "" ||
-      name.startsWith(needle) ||
-      wordStarts(name, /-/, needle) ||
-      wordStarts(command.description.toLowerCase(), /\s+/, needle)
-    );
-  };
-  return GROUPS.flatMap(([source, title]) => {
-    const entries: SlashEntryView[] = commands
-      .filter(
-        (command) =>
-          command.source === source &&
-          match(command) &&
-          (hasSession || source !== "app" || !SESSION_ONLY.has(command.name)),
-      )
-      .map((command) => ({
-        name: command.name,
-        title:
-          source === "app" && BUILTIN_TITLES[command.name] !== undefined
-            ? t(BUILTIN_TITLES[command.name]!)
-            : null,
-        description: command.description,
-        source,
-      }));
-    return entries.length === 0 ? [] : [{ source, title: t(title), entries }];
-  });
+  const usable = commands.filter(
+    (command) =>
+      hasSession ||
+      command.source !== "app" ||
+      !SESSION_OPENS.has(command.opens),
+  );
+  if (needle === "") {
+    return [...usable]
+      .sort((a, b) => SOURCE_ORDER(a.source) - SOURCE_ORDER(b.source))
+      .map((command) => entryOf(command, null));
+  }
+  return usable
+    .flatMap((command) => {
+      const found = tierOf(command, needle);
+      return found === null ? [] : [{ command, ...found }];
+    })
+    .sort(
+      (a, b) =>
+        a.tier - b.tier ||
+        (a.tier === 1 ? a.command.name.length - b.command.name.length : 0) ||
+        SOURCE_ORDER(a.command.source) - SOURCE_ORDER(b.command.source) ||
+        a.command.name.localeCompare(b.command.name),
+    )
+    .map(({ command, alias }) => entryOf(command, alias));
+}
+
+/** query가 비면 머리 글이 있는 묶음(lophn, harness, skill, plugin·MCP, custom)이고 있으면 순위대로 한 목록이다. */
+export function slashListOf(
+  commands: readonly AcpCommand[],
+  query: string,
+  hasSession: boolean,
+): SlashListState {
+  const entries = slashEntriesOf(commands, query, hasSession);
+  if (query !== "") return { kind: "ranked", entries };
+  const groups: { key: SlashGroupKey; entries: SlashEntryView[] }[] = [];
+  for (const entry of entries) {
+    const key = GROUP_OF[entry.source];
+    const last = groups.at(-1);
+    if (last?.key === key) last.entries.push(entry);
+    else groups.push({ key, entries: [entry] });
+  }
+  return { kind: "groups", groups };
+}
+
+/** 메뉴에 보이는 순서대로 편 줄. 화살표와 Enter가 이 순서를 센다. */
+export function slashRows(list: SlashListState): SlashEntryView[] {
+  return list.kind === "ranked"
+    ? [...list.entries]
+    : list.groups.flatMap((group) => [...group.entries]);
 }

@@ -49,6 +49,7 @@ import styles from "./agent-composer.module.css";
 import { AttachmentChips } from "./attachment-chips.tsx";
 import { PlanList } from "./plan-list.tsx";
 import { ModeMenu } from "./session-controls.tsx";
+import { runComposerCommand } from "./slash-actions.ts";
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
 
@@ -149,14 +150,36 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     onChoose: props.onChooseModel,
     onProblem: props.onProblem,
   });
+  const [modeOpen, setModeOpen] = useState(false);
+  const clearText = () => props.onDraft({ text: "", selection: [0, 0] });
   const slash = useSlashMenu({
     source: props.source,
     session: props.session,
     commands: props.meta?.commands ?? [],
     text: draft.text,
     agentName: props.agentName,
+    harness: props.meta?.harness ?? null,
     working,
-    onRun: props.onCommand,
+    onRun: (entry, argument) => {
+      // picker와 mode menu는 composer 안 상태라 화면에 올리기 전에 여기서 연다.
+      const handled = runComposerCommand(entry, argument, {
+        meta: props.meta,
+        mode: props.mode ?? null,
+        openPicker: () => picker.props.onOpenChange(true),
+        openMode: () => setModeOpen(true),
+        chooseModel: (model) =>
+          picker.props.onPick({ provider: "", modelName: model }),
+        chooseOptions: (model, options) =>
+          void props.onChooseModel(model, options).then((done) => {
+            if (!done) props.onProblem();
+          }),
+        onProblem: props.onProblem,
+      });
+      if (handled) clearText();
+      else props.onCommand(entry, argument);
+    },
+    onText: (text) =>
+      props.onDraft({ text, selection: [text.length, text.length] }),
   });
   // model이 없으면 보내도 turn이 시작하지 못한다. 보내기 전에 막고 이유를 입력칸 안에 보인다.
   const canSend =
@@ -398,6 +421,8 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                   current={props.mode.current}
                   choices={props.mode.choices}
                   onChange={props.mode.onChange}
+                  open={modeOpen}
+                  onOpenChange={setModeOpen}
                 />
               )}
               <IconButton

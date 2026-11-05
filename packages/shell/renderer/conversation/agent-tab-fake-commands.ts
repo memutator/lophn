@@ -1,39 +1,61 @@
-// fake source(agent-tab-fake-source.ts)가 쓰는 `/` 명령 값. lophn-agent/commands가 낸 값을 ACP 꼴로 옮겨 고정했다.
-import type { AcpCommand } from "../../../protocol/acp/mod.ts";
+// fake source(agent-tab-fake-source.ts)가 쓰는 `/` 명령 값. core가 낼 값(lophn 내장의 `opens`·별칭·인자 hint)과 harness CLI가
+// 낼 값을 손으로 적었다.
+import type { AcpCommand, AcpCommandOpens } from "../../../protocol/acp/mod.ts";
 
-function builtin(name: string, description: string): AcpCommand {
+function commandOf(
+  source: AcpCommand["source"],
+  name: string,
+  description: string,
+  rest: Partial<Pick<AcpCommand, "aliases" | "argument_hint" | "opens">> = {},
+): AcpCommand {
   return {
     name,
     aliases: [],
     description,
     argument_hint: null,
-    source: "app",
+    source,
     opens: null,
+    ...rest,
   };
+}
+
+function builtin(
+  name: string,
+  description: string,
+  opens: AcpCommandOpens,
+  rest: Partial<Pick<AcpCommand, "aliases" | "argument_hint">> = {},
+): AcpCommand {
+  return commandOf("app", name, description, { opens, ...rest });
 }
 
 function skill(name: string, description: string): AcpCommand {
-  return {
-    name,
-    aliases: [],
-    description,
-    argument_hint: null,
-    source: "skill",
-    opens: null,
-  };
+  return commandOf("skill", name, description);
 }
 
-/** 모든 agent 첫 묶음. 고정 순서이고 알파벳순이 아니며 Feedback은 없다. */
+/** lophn 내장. 순서가 메뉴 순서이고 `/clear`는 `/new`의 별칭이다. */
 const BUILTIN: readonly AcpCommand[] = [
-  builtin("new", "Start a new session with this agent"),
-  builtin("rename", "Rename this session"),
-  builtin("archive", "Archive this session"),
-  builtin("compact", "Summarize this session to free up context"),
-  builtin("fork", "Copy this session into a new one"),
-  builtin("mcp", "Show MCP server status"),
-  builtin("skills", "Turn skills on or off for this agent"),
-  builtin("permissions", "Show the apps and MCP servers this agent can use"),
-  builtin("status", "Show this session's model, context and usage"),
+  builtin("new", "Start a new session with this agent", "new", {
+    aliases: ["clear"],
+  }),
+  builtin("model", "Choose the model and its options", "model"),
+  builtin("effort", "Change how much the model thinks", "effort"),
+  builtin(
+    "permissions",
+    "Show the apps and MCP servers this agent can use",
+    "permissions",
+  ),
+  builtin("status", "Show this session's model, context and usage", "status"),
+  builtin("usage", "Show tokens and cost for this session", "usage"),
+  builtin("context", "Show how full the context window is", "context"),
+  builtin("rewind", "Go back to an earlier message", "rewind"),
+  builtin("fork", "Copy this session into a new one", "fork"),
+  builtin("rename", "Rename this session", "rename", {
+    argument_hint: "[title]",
+  }),
+  builtin("compact", "Summarize this session to free up context", "compact"),
+  builtin("archive", "Archive this session", "archive"),
+  builtin("mcp", "Show MCP server status", "mcp"),
+  builtin("skills", "Turn skills on or off for this agent", "skills"),
 ];
 
 /**
@@ -50,22 +72,37 @@ const SKILLS: readonly AcpCommand[] = [
 
 export const LOPHN_COMMANDS: readonly AcpCommand[] = [...BUILTIN, ...SKILLS];
 
-/** harness CLI가 주는 명령 몇 개. */
+/** harness adapter가 GUI 동작으로 내는 명령(`source: "app"`). harness는 같은 탭의 새 session을 `opens: null`로 연다. */
+export const HARNESS_APP_COMMANDS: readonly AcpCommand[] = [
+  builtin("model", "Choose the model and its options", "model"),
+  builtin("effort", "Change how much the model thinks", "effort"),
+  builtin("permissions", "Change what the agent may do without asking", "mode"),
+  builtin("status", "Show this session's model, context and usage", "status"),
+  builtin("usage", "Show plan usage limits", "usage"),
+  builtin("context", "Show how full the context window is", "context"),
+  builtin("rewind", "Go back to an earlier message", "rewind"),
+  builtin("compact", "Summarize this session to free up context", "compact"),
+];
+
+/** harness CLI가 주는 명령 몇 개. 하나는 인자 hint를, 하나는 별칭을 가진다. */
 export const CLI_COMMANDS: readonly AcpCommand[] = [
-  {
-    name: "init",
-    aliases: [],
-    description: "Create an AGENTS.md for this project",
-    argument_hint: null,
-    source: "harness",
-    opens: null,
-  },
-  {
-    name: "review",
-    aliases: [],
-    description: "Review the pending changes",
+  commandOf("harness", "init", "Create an AGENTS.md for this project"),
+  commandOf("harness", "review", "Review the pending changes", {
     argument_hint: "[branch]",
-    source: "harness",
-    opens: null,
-  },
+  }),
+  commandOf("harness", "config", "Open the settings", {
+    aliases: ["settings"],
+  }),
+  commandOf("harness", "cost", "Show the cost of this session"),
+];
+
+/** harness CLI session에 붙은 skill·plugin·MCP·사람 명령 file. 묶음마다 하나씩이다. */
+export const HARNESS_EXTRA_COMMANDS: readonly AcpCommand[] = [
+  skill("consolidate-docs", "Merge overlapping notes into one page"),
+  commandOf("plugin", "frontend-design", "Design a polished interface"),
+  commandOf("mcp", "linear:create-issue", "Create an issue in Linear"),
+  commandOf("custom_user", "standup", "Draft today's standup from commits"),
+  commandOf("custom_project", "deploy", "Ship the current branch to staging", {
+    argument_hint: "[environment]",
+  }),
 ];

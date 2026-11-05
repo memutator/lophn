@@ -137,3 +137,7 @@ export function HarnessModeScene() {
 }
 /** 승인 카드의 세 범위: Allow once, Allow for this session, Always allow(영구 규칙 pattern을 보인다). file 바꾸기는 path와 종류, 줄 수로 쓴다. */
 export const ApprovalScopesScene = () => <Scene sub="approval-scopes" />;
+/** 입력칸에 "/con"을 친 명령 메뉴: 묶음 머리 글 없이 순위대로 한 목록이다. 이름이 맞은 `/context`가 위이고 설명에만 맞은 `/compact`는 아래이며 줄 끝에 출처 배지가 붙는다. */
+export const CommandsRankedScene = () => (
+  <Scene sub="report" chat={{ slash: "/con" }} />
+);

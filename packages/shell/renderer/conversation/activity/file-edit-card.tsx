@@ -27,9 +27,19 @@ interface EditCardProps {
   onOpen: () => void;
 }
 
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 // tool 입력에서 비교할 앞뒤 글을 꺼낸다. file.edit은 old_string/new_string, file.write는 content 전체다.
 // 파일 어디쯤인지 모르므로 줄 번호는 붙이지 않는다.
-function diffOf(value: unknown): readonly DiffLine[] | null {
+function diffOf(raw: unknown): readonly DiffLine[] | null {
+  // harness가 싣는 본문은 입력 JSON 글이다.
+  const value = typeof raw === "string" ? parseJson(raw) : raw;
   if (value === null || typeof value !== "object") return null;
   const input = value as Record<string, unknown>;
   const after =

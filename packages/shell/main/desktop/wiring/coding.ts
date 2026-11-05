@@ -1,7 +1,8 @@
 // harness 감지, 터미널 supervisor, 터미널 IPC.
 
 import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app, clipboard } from "electron";
 import {
@@ -17,6 +18,7 @@ import {
   removeTerminalIpc,
   TerminalFocusTable,
 } from "../../terminal/controller.ts";
+import { createTabGui, type TabGui } from "../../terminal/gui.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
 import { TerminalOutputs } from "../../terminal/output.ts";
@@ -70,9 +72,17 @@ function harnessLabel(harness: string): string {
     : harness;
 }
 
-/** 뒤 영역(종료 흐름)이 쓰는 터미널 supervisor. */
+/** 탭 GUI가 extension 영역에서 받는 것. extension 영역이 터미널 영역보다 늦게 서므로 나중에 건다. */
+export type TabGuiPort = Pick<
+  Parameters<typeof createTabGui>[0],
+  "handlers" | "showExtensionSettings"
+>;
+
+/** 뒤 영역(종료 흐름)이 쓰는 터미널 supervisor와, extension이 탭을 GUI로 바꾸는 길. */
 export type Coding = Registered & {
   terminals: ReturnType<typeof createSupervisor>;
+  gui: TabGui;
+  bindTabGui(port: TabGuiPort): void;
 };
 
 export function register(ctx: ShellContext): Coding {
@@ -191,6 +201,8 @@ export function register(ctx: ShellContext): Coding {
     // 탭을 본 것과 같다: 못 본 표시만 끄고 상태는 그대로다.
     (ref) => agent.tracker.tabFocused(ref),
   );
+  // 탭 GUI는 tracker와 터미널 IPC가 선 뒤에 만든다. hook socket이 먼저 서므로 그 사이에 온 줄은 버린다.
+  let tabGui: TabGui | undefined;
   const agent = createAgentWiring({
     ctx,
     notice,
@@ -202,6 +214,7 @@ export function register(ctx: ShellContext): Coding {
       lophnCli === null
         ? null
         : childCliRunner({ command: lophnCli, env: cliEnv }),
+    gui: (hook) => void tabGui?.request(hook),
   });
   const outputs = new TerminalOutputs((contentsId, channel, value) => {
     const window = [...ctx.windows].find(
@@ -278,6 +291,70 @@ export function register(ctx: ShellContext): Coding {
     },
   });
   registerTerminalIpc(ipc, terminalIpc);
+  let tabPort: TabGuiPort | undefined;
+  const gui = createTabGui({
+    handlers: () => tabPort?.handlers() ?? Promise.resolve(undefined),
+    showExtensionSettings: () => tabPort?.showExtensionSettings(),
+    windows: () =>
+      [...ctx.windows]
+        .filter((window) => !window.isDestroyed())
+        .map((window) => ({
+          send: (channel, payload) => window.webContents.send(channel, payload),
+        })),
+    ids: { request: () => randomUUID() },
+    after(ms, run) {
+      const timer = setTimeout(run, ms);
+      return () => clearTimeout(timer);
+    },
+    terminals: {
+      runtime(ref) {
+        const found = terminals
+          .runtimes()
+          .find((item) => item.terminal_ref === ref);
+        return found === undefined ||
+          found.state === "exited" ||
+          found.state === "unknown"
+          ? undefined
+          : { cwd: found.cwd_at_start, generation: found.generation };
+      },
+      hookEnv: (ref) => agent.hooks.envOf(ref) ?? {},
+      tui: (ref) => agent.tracker.tuiOf(ref),
+      async type(ref, text) {
+        const runtime = terminals
+          .runtimes()
+          .find((item) => item.terminal_ref === ref);
+        if (runtime === undefined) return;
+        await terminalIpc.typeInto(ref, runtime.generation, text);
+      },
+      async signal(ref, signal) {
+        const runtime = terminals
+          .runtimes()
+          .find((item) => item.terminal_ref === ref);
+        if (runtime === undefined) return;
+        await terminalIpc.signalForeground(ref, runtime.generation, signal);
+      },
+      onForegroundExit: (ref, listener) =>
+        agent.tracker.onForegroundExit(ref, listener),
+    },
+    // 탭의 임시 폴더. 이미지는 CLI가 file 경로로 읽는다. 터미널을 닫아도 OS가 임시 폴더를 비운다.
+    async writeImage(ref, image) {
+      const dir = join(tmpdir(), "lophn-gui", ref);
+      await mkdir(dir, { recursive: true, mode: 0o700 });
+      // 이름은 renderer가 준 글이라 경로로 쓸 수 있는 글자만 남긴다.
+      const name = image.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-100);
+      const path = join(dir, `${randomUUID()}-${name}`);
+      await writeFile(path, image.data, { mode: 0o600 });
+      return path;
+    },
+    log: ctx.log,
+  });
+  tabGui = gui;
+  const offGui = terminals.on({
+    runtime: (runtime) => gui.terminalChanged(runtime),
+    hostLost() {
+      gui.stop();
+    },
+  });
   // Settings › Coding agents의 감지. desktop 창 본문만 부른다.
   registerCodingIpc(
     ipc,
@@ -304,7 +381,13 @@ export function register(ctx: ShellContext): Coding {
 
   return {
     terminals,
+    gui,
+    bindTabGui(port) {
+      tabPort = port;
+    },
     stop() {
+      offGui();
+      gui.stop();
       offOutputs();
       removeTerminalIpc({ handle: () => {}, removeHandler: ipc.removeHandler });
       removeCodingIpc(ipc);

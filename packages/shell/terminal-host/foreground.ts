@@ -17,13 +17,15 @@ export type ForegroundDeps = {
 const MAX_ARGS = 6;
 const MAX_ARG_CHARS = 32768;
 
-export function foregroundOf(deps: ForegroundDeps): string[] | null {
+/**
+ * Linux에서 PTY foreground process group의 id(tpgid). foreground가 shell 자신이거나 읽지 못하면 null이다.
+ * 비 Linux는 읽는 길이 없어 null이다(signal을 보낼 수 없다).
+ */
+export function foregroundGroupOf(
+  deps: Pick<ForegroundDeps, "pid" | "platform" | "readFile">,
+): number | null {
   try {
-    if (deps.platform === "win32") return null;
-    if (deps.platform !== "linux") {
-      const name = deps.processName();
-      return name === "" ? null : [name];
-    }
+    if (deps.platform !== "linux") return null;
     // comm에 공백과 `)`가 들어갈 수 있어 마지막 `)` 뒤부터 센다. state가 3번째 칸이라 tpgid는 8번째다.
     const stat = deps.readFile(`/proc/${deps.pid}/stat`);
     const rest = stat
@@ -31,9 +33,23 @@ export function foregroundOf(deps: ForegroundDeps): string[] | null {
       .trim()
       .split(" ");
     const tpgid = Number(rest[5]);
-    if (!Number.isInteger(tpgid) || tpgid <= 0 || tpgid === deps.pid) {
-      return null;
+    return !Number.isInteger(tpgid) || tpgid <= 0 || tpgid === deps.pid
+      ? null
+      : tpgid;
+  } catch {
+    return null;
+  }
+}
+
+export function foregroundOf(deps: ForegroundDeps): string[] | null {
+  try {
+    if (deps.platform === "win32") return null;
+    if (deps.platform !== "linux") {
+      const name = deps.processName();
+      return name === "" ? null : [name];
     }
+    const tpgid = foregroundGroupOf(deps);
+    if (tpgid === null) return null;
     // cmdline은 인자마다 NUL로 끝나서 마지막 조각이 빈 문자열이다.
     const argv = deps.readFile(`/proc/${tpgid}/cmdline`).split("\0");
     argv.pop();

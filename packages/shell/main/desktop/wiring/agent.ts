@@ -14,6 +14,7 @@ import {
   hookSignalOf,
 } from "../../../../protocol/coding-agent/mod.ts";
 import {
+  TERMINAL_GUI_EVENT,
   TERMINAL_HOOK_ENV,
   TERMINAL_HOOK_LINE_MAX_BYTES,
   terminalHookLineSchema,
@@ -29,6 +30,7 @@ import { writeShellInit } from "../../../terminal-host/shell-integration.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import {
   createHookIngress,
+  type RoutedHook,
   type TerminalHooks,
 } from "../../terminal/agent/ingress.ts";
 import type { CliRun } from "../../terminal/agent/hook-install.ts";
@@ -53,6 +55,8 @@ export function createAgentWiring(options: {
   identified(harness: string, terminalRef: string): void;
   /** `lophn` CLI. 설치 경로를 모르면 null이다. */
   cli: CliRun | null;
+  /** 탭에서 친 `<harness> gui`. 탭을 GUI로 바꾸는 쪽(terminal/gui.ts)이 받는다. */
+  gui(hook: RoutedHook): void;
 }): {
   hooks: TerminalHooks;
   tracker: AgentTracker;
@@ -224,6 +228,7 @@ export function createAgentWiring(options: {
       envName: TERMINAL_HOOK_ENV,
       maxBytes: TERMINAL_HOOK_LINE_MAX_BYTES,
       newKey: () => randomBytes(32).toString("hex"),
+      guiEvent: TERMINAL_GUI_EVENT,
       parse(value) {
         const parsed = terminalHookLineSchema.safeParse(value);
         return parsed.success ? parsed.data : null;
@@ -231,6 +236,7 @@ export function createAgentWiring(options: {
       onHook(hook) {
         tracker.hook(hook.terminal_ref, hook.harness, hook.event, hook.payload);
       },
+      onGui: options.gui,
     });
     try {
       const started = await listenHooks({
@@ -240,8 +246,8 @@ export function createAgentWiring(options: {
         log: ctx.log,
       });
       live = ingress;
-      // 사람 터미널의 codex·opencode가 shared server가 아니라 이 탭의 env로 hook을 보내게 하는 함수다.
-      // 쓰지 못해도 hook은 그대로 쓴다.
+      // 사람 터미널의 codex·opencode가 shared server가 아니라 이 탭의 env로 hook을 보내게 하고, `<harness> gui`가 그 탭의
+      // hook socket으로 닿게 하는 함수다. 쓰지 못해도 hook은 그대로 쓴다.
       try {
         shellInit = writeShellInit(
           {
@@ -253,7 +259,6 @@ export function createAgentWiring(options: {
           !app.isPackaged && process.env.LOPHN_CLI?.startsWith("/")
             ? process.env.LOPHN_CLI
             : "lophn",
-          ctx.dataRoot,
         );
       } catch (cause) {
         ctx.log(`shell integration is off: ${String(cause)}`);
@@ -269,6 +274,7 @@ export function createAgentWiring(options: {
     issue: () => (live && !stopped ? live.issue() : null),
     bind: (key, ref) => live?.bind(key, ref),
     revoke: (ref) => live?.revoke(ref),
+    envOf: (ref) => live?.envOf(ref) ?? null,
   };
 
   return {

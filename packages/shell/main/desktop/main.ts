@@ -40,10 +40,14 @@ const terminals = add(coding.register(ctx));
 add(bookmarks.register(ctx));
 const guiWindows = add(guiWindow.register(ctx));
 const harnessGui = add(
-  extensions.register(ctx, {
-    open: guiWindows.open,
-    showExtensionSettings: () => ctx.desktop.send("extension-settings"),
-  }),
+  extensions.register(
+    ctx,
+    {
+      open: guiWindows.open,
+      showExtensionSettings: () => ctx.desktop.send("extension-settings"),
+    },
+    terminals,
+  ),
 );
 add(editor.register(ctx));
 const detachedWindows = add(detached.register(ctx, views));

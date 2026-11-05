@@ -10,7 +10,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { app } from "electron";
+import { app, type IpcMainInvokeEvent } from "electron";
+import { z } from "zod";
 
 import {
   createIdSource,
@@ -18,7 +19,11 @@ import {
   type IdSource,
   systemClock,
 } from "../../../../base/mod.ts";
-import type { AcpInput, AcpUpdate } from "../../../../protocol/acp/mod.ts";
+import {
+  type AcpInput,
+  acpInputSchema,
+  type AcpUpdate,
+} from "../../../../protocol/acp/mod.ts";
 import type {
   AcpSessionHandle,
   ExtensionAcp,
@@ -35,8 +40,18 @@ import {
   extensionsCallSchema,
   type ExtensionsReply,
 } from "../../../ipc/extensions.ts";
+import {
+  HARNESS_GUI_TAB_ACK_CHANNEL,
+  HARNESS_GUI_TAB_CONNECT_CHANNEL,
+  HARNESS_GUI_TAB_DISCONNECT_CHANNEL,
+  HARNESS_GUI_TAB_IMAGE_CHANNEL,
+  HARNESS_GUI_TAB_INPUT_CHANNEL,
+  HARNESS_GUI_TAB_TOGGLE_CHANNEL,
+} from "../../../ipc/harness-gui.ts";
+import { cliEnv, type TabGui } from "../../terminal/gui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { packagedInstall } from "../paths.ts";
+import type { Coding } from "./coding.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 const nodeFiles: ExtensionFiles = {
@@ -59,13 +74,15 @@ const nodeFiles: ExtensionFiles = {
   },
 };
 
-// 띄운 process의 `lophn`이 이 shell의 core에 닿게 data root를 늘 넣는다(`--home`만으로 띄우면 env에 없다).
+// env는 `cliEnv`(data root를 넣고 상위 session 표지를 지운다). CLI는 자기 process group으로 띄우고 group째 끈다:
+// CLI가 띄운 명령(tool, background task)이 CLI가 죽은 뒤에도 남지 않게 한다.
 const nodeSpawn =
   (dataRoot: string): ExtensionSpawn =>
   (command, args, options) => {
     const child = spawn(command, [...args], {
       cwd: options?.cwd,
-      env: { ...process.env, LOPHN_HOME: dataRoot, ...options?.env },
+      env: cliEnv({ base: process.env, dataRoot, given: options?.env }),
+      detached: process.platform !== "win32",
     });
     // 시작하지 못하면 'error'가 오고, 처리하지 않으면 main이 죽는다.
     const exits: Array<(code: number | null) => void> = [];
@@ -75,7 +92,17 @@ const nodeSpawn =
       pid: child.pid,
       write: (text) => void child.stdin.write(text),
       end: () => void child.stdin.end(),
-      kill: () => void child.kill(),
+      kill() {
+        if (process.platform === "win32" || child.pid === undefined) {
+          child.kill("SIGTERM");
+          return;
+        }
+        try {
+          process.kill(-child.pid, "SIGTERM");
+        } catch {
+          // 이미 끝난 group이다.
+        }
+      },
       onStdout(listener) {
         child.stdout.setEncoding("utf8").on("data", listener);
       },
@@ -92,6 +119,8 @@ type AcpWindowListener = { update(update: AcpUpdate): void; closed(): void };
 /** shell main이 창 쪽(gui-window)에 넘기는 handle 하나의 모습. extension의 `AcpSessionHandle`과 같은 session의 반대쪽이다. */
 export type AcpWindowHandle = {
   readonly id: string;
+  /** 탭에 묶인 handle이면 그 terminal_ref. 첫 판의 창 길은 null이다. */
+  readonly terminal: string | null;
   readonly harness: GuiHarness;
   readonly cwd: string;
   readonly title: string;
@@ -112,7 +141,11 @@ export type AcpWindowPort = {
 };
 
 // handle은 창이 닫히거나 extension이 닫을 때까지 update를 모두 쌓는다(늦게 열린 창이 처음부터 그린다).
-function createAcp(ids: IdSource, port: AcpWindowPort) {
+function createAcp(
+  ids: IdSource,
+  port: AcpWindowPort,
+  gui: Pick<TabGui, "opened">,
+) {
   let handler: ((intent: HarnessGuiOpen) => void | Promise<void>) | undefined;
   let tab: Parameters<ExtensionAcp["onTab"]>[0] | undefined;
   const acp: ExtensionAcp = {
@@ -131,8 +164,10 @@ function createAcp(ids: IdSource, port: AcpWindowPort) {
         attached.clear();
         for (const listener of closers) listener();
       };
+      const terminal = "terminal" in options ? options.terminal.id : null;
       const window: AcpWindowHandle = {
         id,
+        terminal,
         harness: options.harness,
         cwd: "terminal" in options ? options.terminal.cwd : options.cwd,
         title: options.title,
@@ -159,10 +194,12 @@ function createAcp(ids: IdSource, port: AcpWindowPort) {
         onClose: (listener) => void closers.push(listener),
         close,
       };
-      port.open(window);
+      // 탭에 묶인 handle은 그 탭을 가진 창이 ack하면 GUI view가 된다. 첫 판은 새 창을 연다.
+      if (terminal === null) port.open(window);
+      else gui.opened({ ...window, terminal });
       return handle;
     },
-    // tab 연결(`tab-gui`)이 이 handlers를 부른다. 그 길이 올 때까지 저장만 한다.
+    // 탭 GUI(`terminal/gui.ts`)가 이 handlers를 부른다.
     onTab(next) {
       tab = next;
       return () => {
@@ -179,9 +216,84 @@ function createAcp(ids: IdSource, port: AcpWindowPort) {
   return { acp, handler: () => handler, tab: () => tab };
 }
 
+const handleOnly = z.strictObject({ handle: z.string().min(1).max(100) });
+const tabInputSchema = z.strictObject({
+  handle: z.string().min(1).max(100),
+  input: acpInputSchema,
+});
+const tabToggleSchema = z.strictObject({
+  terminal_ref: z.string().min(1).max(80),
+  to: z.enum(["gui", "tui"]),
+});
+const tabAckSchema = z.strictObject({ request: z.string().min(1).max(100) });
+const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const tabImageSchema = z.strictObject({
+  handle: z.string().min(1).max(100),
+  name: z.string().min(1).max(200),
+  mime: z.string().regex(/^image\//),
+  data: z
+    .instanceof(Uint8Array)
+    .refine((data) => data.byteLength <= IMAGE_MAX_BYTES),
+});
+
+// 터미널 탭 안 GUI의 renderer 통로. desktop 창 본문만 부른다. 일은 `terminal/gui.ts`가 한다.
+function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
+  const channels: string[] = [];
+  const handle = <T>(
+    channel: string,
+    schema: z.ZodType<T>,
+    run: (event: IpcMainInvokeEvent, input: T) => unknown,
+  ) => {
+    channels.push(channel);
+    ctx.ipc.handle(channel, (event: IpcMainInvokeEvent, input: unknown) => {
+      const caller = checkCaller(ctx.overlays.overlayRegistry(), event);
+      // 이미지는 byte라 checkInput의 64 KiB 상한(JSON 길이)에 맞지 않는다. 크기는 schema가 본다.
+      const parsed = schema.safeParse(input);
+      if (
+        !caller.ok ||
+        !parsed.success ||
+        caller.value.origin.host !== "desktop"
+      ) {
+        return null;
+      }
+      return run(event, parsed.data);
+    });
+  };
+  const sender = (event: IpcMainInvokeEvent) => ({
+    id: event.sender.id,
+    send: (channel: string, payload: unknown) =>
+      event.sender.send(channel, payload),
+    alive: () => !event.sender.isDestroyed(),
+  });
+  handle(HARNESS_GUI_TAB_ACK_CHANNEL, tabAckSchema, (_event, input) => {
+    gui.ack(input.request);
+    return true;
+  });
+  handle(HARNESS_GUI_TAB_CONNECT_CHANNEL, handleOnly, (event, input) =>
+    gui.connect(sender(event), input.handle),
+  );
+  handle(HARNESS_GUI_TAB_DISCONNECT_CHANNEL, handleOnly, (event, input) => {
+    gui.disconnect(sender(event), input.handle);
+    return true;
+  });
+  handle(HARNESS_GUI_TAB_INPUT_CHANNEL, tabInputSchema, (_event, input) =>
+    gui.input(input.handle, input.input),
+  );
+  handle(HARNESS_GUI_TAB_TOGGLE_CHANNEL, tabToggleSchema, (_event, input) =>
+    gui.toggle(input),
+  );
+  handle(HARNESS_GUI_TAB_IMAGE_CHANNEL, tabImageSchema, (_event, input) =>
+    gui.uploadImage(input.handle, { name: input.name, data: input.data }),
+  );
+  return () => {
+    for (const channel of channels) ctx.ipc.removeHandler(channel);
+  };
+}
+
 export function register(
   ctx: ShellContext,
   port: AcpWindowPort,
+  coding: Pick<Coding, "gui" | "bindTabGui">,
 ): Registered & { openHarnessGui(intent: HarnessGuiOpen): void } {
   const repoRoot = join(ctx.here, "..", "..", "..", "..");
   // packaged는 설치 root의 extensions/다. 아직 packaging이 채우지 않아 비어 있을 수 있다.
@@ -190,7 +302,7 @@ export function register(
     : join(ctx.here, "..", "extensions", "bundled");
   const clock = systemClock;
   const ids = createIdSource({ clock, random: cryptoRandom });
-  const { acp, handler } = createAcp(ids, port);
+  const { acp, handler, tab } = createAcp(ids, port, coding.gui);
   const registry = createExtensionRegistry({
     roots: [bundled],
     dataRoot: ctx.dataRoot,
@@ -251,6 +363,18 @@ export function register(
     );
   };
 
+  // 켜졌는지는 sync가 정한다. 탭의 `<harness> gui`와 toggle이 부른다.
+  coding.bindTabGui({
+    async handlers() {
+      await registry
+        .sync()
+        .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
+      return tab();
+    },
+    showExtensionSettings: port.showExtensionSettings,
+  });
+  const offTabGui = registerTabGuiIpc(ctx, coding.gui);
+
   // Settings › Extensions. desktop 창 본문만 부른다. list는 먼저 맞춰 두어 방금 바꾼 켜기·끄기가 보인다.
   const refused = (
     code: "forbidden" | "invalid_input",
@@ -308,6 +432,7 @@ export function register(
       else void dispatch(intent);
     },
     stop() {
+      offTabGui();
       ctx.ipc.removeHandler(EXTENSIONS_CHANNEL);
       clearInterval(startup);
       void registry.stop();

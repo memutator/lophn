@@ -1,6 +1,8 @@
 // Electron 실행당 terminal host 하나. PTY·child group·재연결용 화면을 갖고
 // main이 물려 준 private pipe로만 말한다. 출력은 disk에 쓰지 않는다.
 
+import { readFileSync } from "node:fs";
+
 import type {
   TerminalReply,
   TerminalRuntime,
@@ -16,6 +18,7 @@ import {
   yieldChunk,
 } from "./pty.ts";
 import { type ProcessGroup } from "./child-group.ts";
+import { foregroundGroupOf } from "./foreground.ts";
 import { integrateShell } from "./shell-integration.ts";
 import { Screen } from "./screen.ts";
 
@@ -53,6 +56,14 @@ export type HostRequest =
       generation: number;
       columns: number;
       rows: number;
+    }
+  | {
+      id: string;
+      type: "signal";
+      terminal_ref: string;
+      generation: number;
+      /** foreground process group에 보낸다. SIGKILL은 없다(대화 기록을 덜 쓴 채 끊지 않는다). */
+      signal: "SIGINT" | "SIGTERM";
     }
   | { id: string; type: "close"; terminal_ref: string; generation: number }
   | { id: string; type: "restart"; terminal_ref: string; generation: number }
@@ -291,6 +302,28 @@ function createHost(deps: HostDeps): Host {
         }
         session.typed.push(request.text);
         session.handle.write(request.text);
+        return { ok: true, runtime: { ...session.runtime } };
+      }
+      if (request.type === "signal") {
+        if (session.runtime.state !== "running" || !session.handle) {
+          return reject("host_lost", "terminal is not running");
+        }
+        if (deps.platform !== "linux") {
+          return reject("host_lost", "signal is only available on Linux");
+        }
+        // foreground가 shell 자신이면 보낼 곳이 없다.
+        const group = foregroundGroupOf({
+          pid: session.handle.pid,
+          platform: deps.platform,
+          readFile: (path) => readFileSync(path, "utf8"),
+        });
+        if (group !== null) {
+          try {
+            process.kill(-group, request.signal);
+          } catch {
+            // 그 사이 끝난 group이다.
+          }
+        }
         return { ok: true, runtime: { ...session.runtime } };
       }
       if (request.type === "resize") {

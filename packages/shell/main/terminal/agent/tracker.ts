@@ -93,6 +93,8 @@ type Entry = {
   title: string | null;
   /** harness가 hook으로 알려 준 session 이름. */
   name: string | null;
+  /** hook payload가 알려 준 harness의 작업 폴더. 탭의 TUI를 GUI로 넘길 때 쓴다. */
+  cwd: string | null;
   running: boolean;
   /** 대기 중인 권한 물음 수. */
   waiting: number;
@@ -123,6 +125,7 @@ const fresh = (
   | "session"
   | "title"
   | "name"
+  | "cwd"
   | "running"
   | "waiting"
   | "unseen"
@@ -135,6 +138,7 @@ const fresh = (
   session: null,
   title: null,
   name: null,
+  cwd: null,
   running: false,
   waiting: 0,
   unseen: false,
@@ -156,6 +160,7 @@ function agentOf(entry: Entry): TerminalAgent | undefined {
     state,
     unseen: entry.unseen,
     hooked: entry.hooked,
+    ...(entry.fixed ? { foreground: true as const } : {}),
     ...(entry.session === null ? {} : { session: entry.session }),
     ...(entry.title === null ? {} : { title: entry.title }),
     ...(entry.name === null ? {} : { name: entry.name }),
@@ -178,6 +183,18 @@ export type AgentTracker = {
   windowFocused(): void;
   /** 터미널이 끝났다. */
   gone(terminalRef: string): void;
+  /**
+   * PTY foreground에서 도는 harness TUI. hook만 들은 harness(GUI가 띄운 CLI)와 shell prompt는 null이다.
+   * `session`은 TUI 자신의 session id, `cwd`는 hook이 알린 작업 폴더다.
+   */
+  tuiOf(terminalRef: string): {
+    harness: string;
+    state: TerminalAgent["state"];
+    session: string | null;
+    cwd: string | null;
+  } | null;
+  /** foreground의 harness TUI가 떠났다(shell prompt나 다른 process). 돌려받은 함수로 그만 듣는다. */
+  onForegroundExit(terminalRef: string, listener: () => void): () => void;
   /** runtime에 지금의 agent와 탭 이름을 싣는다. harness가 없으면 agent 칸이 없다. */
   decorate(runtime: TerminalRuntime): TerminalRuntime;
 };
@@ -192,6 +209,11 @@ const KEY_TEXT = { escape: "\x1b", "ctrl-c": "\x03" } as const;
 
 export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
   const entries = new Map<string, Entry>();
+  const exitListeners = new Map<string, Set<() => void>>();
+
+  function tuiLeft(ref: string): void {
+    for (const listener of [...(exitListeners.get(ref) ?? [])]) listener();
+  }
 
   function entryOf(ref: string): Entry {
     let entry = entries.get(ref);
@@ -326,8 +348,12 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         }
       } else if (entry.harness !== null) {
         // 알아보지 못하는 process가 foreground가 됐다. agent는 떠났다.
+        const wasTui = entry.fixed;
         drop(entry);
         Object.assign(entry, fresh(null, false));
+        push(ref, entry);
+        if (wasTui) tuiLeft(ref);
+        return;
       }
       push(ref, entry);
     },
@@ -357,6 +383,8 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         entry.name = null;
       }
       if (signal.name !== undefined) entry.name = signal.name;
+      const cwd = (payload as { cwd?: unknown } | null)?.cwd;
+      if (typeof cwd === "string" && cwd.startsWith("/")) entry.cwd = cwd;
       switch (signal.type) {
         case "SessionStarted":
           drop(entry);
@@ -470,8 +498,11 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     gone(ref) {
       const entry = entries.get(ref);
       if (entry === undefined) return;
+      const wasTui = entry.fixed && entry.harness !== null;
       drop(entry);
       entries.delete(ref);
+      if (wasTui) tuiLeft(ref);
+      exitListeners.delete(ref);
       // 끝난 runtime은 그 터미널을 구독한 창에만 간다. agent를 알린 적이 있으면 모든 창에 agent가 빠진 runtime을
       // 보낸다. 안 그러면 구독하지 않은 창(다른 place, 다른 창)의 Finished 줄이 남고, main에 entry가 없어 그 줄의
       // [x]도 지우지 못한다.
@@ -481,6 +512,28 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     },
     decorate(runtime) {
       return decorate(runtime);
+    },
+    tuiOf(ref) {
+      const entry = entries.get(ref);
+      const agent = entry === undefined ? undefined : agentOf(entry);
+      if (entry === undefined || !entry.fixed || agent === undefined) {
+        return null;
+      }
+      return {
+        harness: agent.harness,
+        state: agent.state,
+        session: entry.session,
+        cwd: entry.cwd,
+      };
+    },
+    onForegroundExit(ref, listener) {
+      let set = exitListeners.get(ref);
+      if (set === undefined) {
+        set = new Set();
+        exitListeners.set(ref, set);
+      }
+      set.add(listener);
+      return () => void exitListeners.get(ref)?.delete(listener);
     },
   };
 }

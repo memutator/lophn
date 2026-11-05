@@ -1,19 +1,22 @@
-// AgentTabSource를 harness-gui 창의 ACP session 하나로 만든다. 대화는 창이 받은 갱신을 접은 `AcpFeed`에서 읽고(snapshot
-// 없음), 대화 조작은 IPC로 extension의 handle에 보낸다. lophn session이 아니라서 model·권한·`/` 명령·session 목록·rewind·
-// fork·call은 없다: `external`이 화면에 그 칸을 그리지 말라고 알리고, 그래도 불리는 읽기와 쓰기는 unavailable로 답한다.
-import type { AcpInput } from "../../../protocol/acp/mod.ts";
+// AgentTabSource를 harness-gui의 ACP session 하나(터미널 탭의 handle)로 만든다. 대화는 받은 갱신을 접은 feed에서 읽고(snapshot
+// 없음), 대화 조작은 IPC로 extension의 handle에 보낸다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
+// 화면이 읽는다. 새 ACP 입력(model·mode·명령·rewind·fork·compact·이름)은 `act`로 handle에 간다. lophn session의 것(권한 요약,
+// call, session 목록)은 없어서 unavailable로 답한다.
+import type { AcpInput, AcpState } from "../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/places.ts";
 import type { HarnessGuiInfo } from "../../ipc/harness-gui.ts";
 import { turnChoiceOf } from "../desktop/connection/waiting/decide.ts";
-import type { AcpFeed } from "../harness-gui/acp-feed.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 
 interface GuiSourceDeps {
   readonly info: HarnessGuiInfo;
-  readonly feed: AcpFeed;
+  /** 받은 갱신을 접은 값. `session`은 이 화면이 쓰는 session id(`ses_…`)다. */
+  readonly feed: { readonly session: string; state(): AcpState };
   /** 조작을 handle에 준다. 받았으면 true다. */
   readonly input: (input: AcpInput) => Promise<boolean>;
+  /** 이미지를 탭의 임시 폴더에 쓰고 절대 경로를 받는다. 없으면 이미지를 붙일 수 없다. */
+  readonly writeImage?: (image: Blob) => Promise<string | null>;
 }
 
 const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
@@ -39,8 +42,6 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
       : UNAVAILABLE;
 
   return {
-    external: true,
-
     agent: () => Promise.resolve({ ok: true, value: face }),
     // 화면이 목록을 읽어 보므로 비어 있을 뿐 오류가 아니다.
     sessions: () => Promise.resolve({ ok: true, value: [] }),
@@ -103,7 +104,26 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
         choice: turnChoiceOf(choice, reason),
       }),
 
-    // 이 아래는 lophn session의 것이라 이 창에 없다.
+    act: async (_session, input) =>
+      (await deps.input(input)) ? { ok: true, value: {} } : UNAVAILABLE,
+    // CLI는 file 경로로 이미지를 읽는다. 메시지에는 그 file의 링크를 싣는다.
+    uploadImage: async (image) => {
+      const path = await deps.writeImage?.(image);
+      if (path === undefined || path === null) return UNAVAILABLE;
+      return {
+        ok: true,
+        value: {
+          block: {
+            type: "resource_link",
+            uri: `file://${path}`,
+            name: path.slice(path.lastIndexOf("/") + 1),
+            mimeType: image.type,
+          },
+        },
+      };
+    },
+
+    // 이 아래는 lophn session의 것이라 이 화면에 없다.
     searchMessages: none,
     envelope: none,
     callState: none,
@@ -115,8 +135,6 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     runCommand: none,
     permissions: none,
     status: none,
-    act: none,
-    uploadImage: none,
     openSession: none,
     renameSession: none,
     stopSession: none,

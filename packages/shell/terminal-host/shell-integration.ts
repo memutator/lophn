@@ -1,7 +1,7 @@
 // 사람 터미널의 shell에 끼우는 시작 층. 사용자의 startup file을 login shell처럼 모두 읽은 뒤에
 // `codex`·`opencode`·`kilo`·`cline` 함수를 정의해, 사람이 친 명령이 공유 background server가 아니라
-// 그 탭의 private server로 돈다. `claude`·`codex`·`opencode` 함수는 첫 인자가 `gui`일 때만 `lophn gui <harness>`로
-// 가고(CLI 화면 대신 lophn 창), 그 밖의 인자는 원래 명령에 그대로 넘긴다.
+// 그 탭의 private server로 돈다. `claude`·`codex`·`opencode`·`omp` 함수는 첫 인자가 `gui`일 때만 그 탭의 hook socket으로
+// 탭을 GUI로 바꿔 달라는 요청(`lophn hook <harness> lophn-gui`)을 보내고, 그 밖의 인자는 원래 명령에 그대로 넘긴다.
 //
 // 왜: Codex(0.156+)와 OpenCode(2.x)는 TUI를 사용자당 하나인 background server에 붙이고 turn과 hook(plugin)을
 // 그 server에서 돌린다. server는 처음 뜰 때의 env를 그대로 쓰므로(Codex `app-server-daemon/README.md`:
@@ -115,14 +115,47 @@ __lophn_external() {
   fi
 }
 
+__lophn_gui() {
+  local __harness="$1" __id=""
+  shift
+  case "$#" in
+    0) ;;
+    1) case "$1" in --resume=*) __id="\${1#--resume=}" ;; *) __id="-" ;; esac ;;
+    2) if [ "$1" = --resume ]; then __id="$2"; else __id="-"; fi ;;
+    *) __id="-" ;;
+  esac
+  case "$__id" in
+    -|*[!A-Za-z0-9._-]*) printf 'usage: %s gui [--resume <id>]\\n' "$__harness" >&2; return 2 ;;
+  esac
+  if [ "$#" -gt 0 ] && { [ -z "$__id" ] || [ "\${#__id}" -gt 200 ]; }; then
+    printf 'usage: %s gui [--resume <id>]\\n' "$__harness" >&2; return 2
+  fi
+  if [ -n "$__id" ]; then
+    printf '{"resume":"%s"}' "$__id"
+  else
+    printf '{}'
+  fi | command __LOPHN_CLI__ hook "$__harness" lophn-gui
+}
+
 if __lophn_external claude; then
   function claude {
     if [ "\${1-}" = gui ]; then
       shift
-      LOPHN_HOME=__LOPHN_HOME__ command __LOPHN_CLI__ gui claude "$@"
+      __lophn_gui claude "$@"
       return
     fi
     command claude "$@"
+  }
+fi
+
+if __lophn_external omp; then
+  function omp {
+    if [ "\${1-}" = gui ]; then
+      shift
+      __lophn_gui omp "$@"
+      return
+    fi
+    command omp "$@"
   }
 fi
 
@@ -130,7 +163,7 @@ if __lophn_external codex; then
   function codex {
     if [ "\${1-}" = gui ]; then
       shift
-      LOPHN_HOME=__LOPHN_HOME__ command __LOPHN_CLI__ gui codex "$@"
+      __lophn_gui codex "$@"
       return
     fi
     local __arg __flag=1
@@ -152,7 +185,7 @@ if __lophn_external opencode; then
   function opencode {
     if [ "\${1-}" = gui ]; then
       shift
-      LOPHN_HOME=__LOPHN_HOME__ command __LOPHN_CLI__ gui opencode "$@"
+      __lophn_gui opencode "$@"
       return
     fi
     local __arg __first=""
@@ -202,15 +235,53 @@ unset -f __lophn_external
 `;
 
 const FISH = `# lophn shell integration
+function __lophn_gui
+  set -l harness $argv[1]
+  set -l rest $argv
+  set -e rest[1]
+  set -l id
+  if test (count $rest) -eq 0
+  else if test (count $rest) -eq 1; and string match -qr -- '^--resume=' $rest[1]
+    set id (string replace -- '--resume=' '' $rest[1])
+    or set id ''
+  else if test (count $rest) -eq 2; and test "$rest[1]" = --resume
+    set id $rest[2]
+  else
+    echo "usage: $harness gui [--resume <id>]" >&2
+    return 2
+  end
+  if test (count $rest) -gt 0; and not string match -qr -- '^[A-Za-z0-9._-]{1,200}$' "$id"
+    echo "usage: $harness gui [--resume <id>]" >&2
+    return 2
+  end
+  if test (count $rest) -gt 0
+    printf '{"resume":"%s"}' $id | command __LOPHN_CLI__ hook $harness lophn-gui
+  else
+    printf '{}' | command __LOPHN_CLI__ hook $harness lophn-gui
+  end
+end
+
 set -l __lophn_kind (type -t claude 2>/dev/null)
 if test "$__lophn_kind" = file
   function claude
     if test "$argv[1]" = gui
       set -e argv[1]
-      env LOPHN_HOME=__LOPHN_HOME__ __LOPHN_CLI__ gui claude $argv
+      __lophn_gui claude $argv
       return
     end
     command claude $argv
+  end
+end
+
+set __lophn_kind (type -t omp 2>/dev/null)
+if test "$__lophn_kind" = file
+  function omp
+    if test "$argv[1]" = gui
+      set -e argv[1]
+      __lophn_gui omp $argv
+      return
+    end
+    command omp $argv
   end
 end
 
@@ -219,7 +290,7 @@ if test "$__lophn_kind" = file
   function codex
     if test "$argv[1]" = gui
       set -e argv[1]
-      env LOPHN_HOME=__LOPHN_HOME__ __LOPHN_CLI__ gui codex $argv
+      __lophn_gui codex $argv
       return
     end
     if not string match -qr -- '^(agents|queue|--remote|--no-daemon|--remote=.*)$' $argv
@@ -235,7 +306,7 @@ if test "$__lophn_kind" = file
   function opencode
     if test "$argv[1]" = gui
       set -e argv[1]
-      env LOPHN_HOME=__LOPHN_HOME__ __LOPHN_CLI__ gui opencode $argv
+      __lophn_gui opencode $argv
       return
     end
     if string match -qr -- '^(--standalone|--server|--server=.*|-h|--help|-v|--version|--completions|--completions=.*)$' $argv
@@ -291,7 +362,6 @@ type ShellInitFs = {
 };
 
 const CLI_TOKEN = "__LOPHN_CLI__";
-const HOME_TOKEN = "__LOPHN_HOME__";
 
 function shQuote(text: string): string {
   return `'${text.replaceAll("'", "'\\''")}'`;
@@ -299,32 +369,21 @@ function shQuote(text: string): string {
 
 /**
  * 시작 층 file을 쓰고 그 폴더를 돌려준다. `cli`는 `gui` 함수가 부를 lophn 명령이다(설치본은 `lophn`, 개발은 launcher의
- * 절대 경로). `dataRoot`는 shell main이 쓰는 data root다. 터미널 env에서는 LOPHN_* 가 지워져 shell이 스스로 찾지 못하므로
- * shell main이 아는 값을 넣고, gui 호출에 LOPHN_HOME으로 붙여 CLI가 설치본의 ~/.lophn이 아닌 이 앱의 data root를 잡게 한다.
+ * 절대 경로). `lophn hook`은 core를 부르지 않고 그 탭의 hook socket(`LPN_TERMINAL_HOOK`)에만 쓰므로 data root를 넘기지 않는다.
  */
 export function writeShellInit(
   fs: ShellInitFs,
   runDir: string,
   cli: string,
-  dataRoot: string,
 ): string {
   const dir = `${runDir}/shell-init`;
   fs.mkdir(`${dir}/zsh`);
   fs.write(`${dir}/bash.sh`, BASH_INIT);
   fs.write(`${dir}/zsh/.zshenv`, ZSH_ENV);
-  fs.write(
-    `${dir}/fish.fish`,
-    FISH.replaceAll(CLI_TOKEN, fishQuote(cli)).replaceAll(
-      HOME_TOKEN,
-      fishQuote(dataRoot),
-    ),
-  );
+  fs.write(`${dir}/fish.fish`, FISH.replaceAll(CLI_TOKEN, fishQuote(cli)));
   fs.write(
     `${dir}/functions.sh`,
-    FUNCTIONS.replaceAll(CLI_TOKEN, shQuote(cli)).replaceAll(
-      HOME_TOKEN,
-      shQuote(dataRoot),
-    ),
+    FUNCTIONS.replaceAll(CLI_TOKEN, shQuote(cli)),
   );
   return dir;
 }

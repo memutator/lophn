@@ -1,8 +1,16 @@
-// harness-gui 창: `claude gui`가 여는 창 하나. 실제 창 컴포넌트(HarnessGuiWindow)를 main 대신 fake 통로로 그린다.
-// fake 통로는 adapter가 낼 ACP 갱신을 붙을 때 한꺼번에 보내고, 보낸 말은 사람 메시지로 되돌려 준다.
+// harness-gui: 터미널 탭에서 `claude gui`를 치면 그 탭이 바뀌는 채팅 화면. 실제 탭 화면(TerminalGui)을 main 대신 fake 통로로
+// 그린다. fake 통로는 adapter가 낼 ACP 갱신을 붙을 때 한꺼번에 보내고, 보낸 말은 사람 메시지로 되돌려 준다. card 머리는
+// 이 page가 한 줄로 흉내 낸다(실제 앱은 ContentCard가 머리에 올린다).
+import { type ReactNode, useState } from "react";
+
 import type { AcpUpdate } from "../../../../packages/protocol/acp/mod.ts";
-import type { HarnessGuiApi } from "../../../../packages/shell/ipc/harness-gui.ts";
-import { HarnessGuiWindow } from "../../../../packages/shell/renderer/harness-gui/harness-gui-window.tsx";
+import type { HarnessGuiTabApi } from "../../../../packages/shell/ipc/harness-gui.ts";
+import {
+  CardHeadContext,
+  type CardHeadSpec,
+} from "../../../../packages/shell/renderer/shell/card-head.tsx";
+import { TerminalGui } from "../../../../packages/shell/renderer/terminal/terminal-gui.tsx";
+import { click, runSteps, type Step, useDrive } from "../../mock/drive.ts";
 import type { Area } from "../types.ts";
 
 const TURN = "trn-1";
@@ -118,19 +126,22 @@ const SCRIPT: readonly AcpUpdate[] = [
   ),
 ];
 
-function fakeApi(): HarnessGuiApi {
+const CWD = "/home/phroner/projects/upload-service";
+
+function fakeApi(): HarnessGuiTabApi {
   let push: (update: AcpUpdate) => void = () => {};
   let seq = 5;
   return {
-    async connect(onUpdate) {
+    onOpened: () => () => {},
+    ackOpened: async () => {},
+    onView: () => () => {},
+    async connect(_handle, onUpdate) {
       push = onUpdate;
       for (const update of SCRIPT) onUpdate(update);
-      return {
-        harness: "claude",
-        cwd: "/home/phroner/projects/upload-service",
-      };
+      return { harness: "claude", cwd: CWD };
     },
-    async input(input) {
+    disconnect: async () => {},
+    async input(_handle, input) {
       if (input.type === "send") {
         seq += 1;
         push({
@@ -155,21 +166,79 @@ function fakeApi(): HarnessGuiApi {
       }
       return true;
     },
+    toggle: async () => ({ ok: true }),
+    uploadImage: async () => null,
   };
+}
+
+// 실제 앱에서 card 머리는 본문이 올린 actions를 오른쪽에 그린다. 그 한 줄만 흉내 낸다.
+function Card({ children }: { children: ReactNode }) {
+  const [head, setHead] = useState<CardHeadSpec | null>(null);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        background: "var(--color-surface-base)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: "var(--space-2)",
+          padding: "var(--space-2) var(--space-3)",
+        }}
+      >
+        {head?.center}
+        {head?.actions}
+      </div>
+      <div style={{ position: "relative", flex: 1, display: "flex" }}>
+        <CardHeadContext.Provider value={setHead}>
+          {children}
+        </CardHeadContext.Provider>
+      </div>
+    </div>
+  );
+}
+
+function TerminalTabGui({ steps = [] }: { steps?: readonly Step[] }) {
+  useDrive(() => runSteps(steps));
+  return (
+    <Card>
+      <TerminalGui
+        api={fakeApi()}
+        gui={{ handle: "win_gallery", harness: "claude", handoff: "restart" }}
+        terminalRef="trm_gallery"
+      />
+    </Card>
+  );
 }
 
 export const harnessGuiArea: Area = {
   id: "harness-gui",
   title: "Harness GUI",
   summary:
-    "`claude gui`가 CLI 화면 대신 여는 lophn 창. CLI session 하나만 그린다.",
+    "터미널 탭에서 `claude gui`를 치면 그 탭이 바뀌는 채팅 화면. CLI session 하나를 그리고, card 머리의 단추로 터미널과 오간다.",
   pages: [
     {
-      id: "new-harness-gui-window",
-      title: "Harness GUI · window",
+      id: "harness-gui-terminal-tab",
+      title: "Harness GUI · terminal tab",
       description:
-        "`claude gui`가 여는 창이다. lophn 채팅 화면을 그대로 쓰되 session이 CLI 자신의 것이라 session 목록, 이름 바꾸기·보관·fork, model·권한 단추, `/` 명령, 메시지의 Rewind·Fork가 없다. 머리에는 harness와 친 폴더만 보인다. 끝난 tool 줄 둘, 도는 tool 하나, 그 명령의 승인 카드(Deny, Always allow, Allow once), 흘러나오는 글이 한 번에 보이고, 보낸 말은 사람 메시지로 돌아온다.",
-      render: () => <HarnessGuiWindow api={fakeApi()} />,
+        "`claude gui`를 친 터미널 탭이 바뀐 모습이다. lophn 채팅 화면을 그대로 쓰고 session은 CLI 자신의 것이다. 끝난 tool 줄 둘, 도는 tool 하나, 그 명령의 승인 카드(Deny, Always allow, Allow once), 흘러나오는 글이 한 번에 보이고, 보낸 말은 사람 메시지로 돌아온다. card 머리 오른쪽의 Terminal 단추가 같은 대화를 CLI의 화면으로 돌려 보낸다.",
+      render: () => <TerminalTabGui />,
+    },
+    {
+      id: "harness-gui-restart-modal",
+      title: "Harness GUI · restart modal",
+      description:
+        "Claude와 omp는 process를 한 번 끄고 같은 session으로 다른 쪽을 띄우므로 Terminal 단추를 누르면 먼저 묻는다. 도는 turn이 있으면 멈춘다고 한 줄 더 알린다. Codex와 OpenCode는 같은 server에 붙어 있어 묻지 않고 화면만 바꾼다.",
+      render: () => (
+        <TerminalTabGui steps={[() => click("[data-gui-toggle]")]} />
+      ),
     },
   ],
 };

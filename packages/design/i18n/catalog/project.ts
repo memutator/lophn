@@ -193,20 +193,33 @@ export const project = {
   "run-list.label.failed": "Failed",
   "terminal.button.close-terminal": "Close terminal",
   "terminal.button.keep-open": "Keep open",
+  "terminal.button.show-chat": "Chat",
+  "terminal.button.show-terminal": "Terminal",
   "terminal.button.start-again": "Start again",
+  "terminal.button.switch": "Switch",
   "terminal.button.try-again": "Try again",
   "terminal.dialog.close-text":
     "Anything still going on in this terminal will stop.",
+  "terminal.dialog.stop-turn": "The running turn will stop.",
+  "terminal.dialog.switch-text":
+    "Switching stops {harness} and resumes the same conversation in the {target}.",
   "terminal.error.no-folder":
     "This project has no folder to start in. Add a folder to the project to use a terminal.",
   "terminal.error.not-directory":
     "The project folder isn't a folder anymore, so the terminal didn't start.",
   "terminal.error.spawn-failed": "The shell couldn't start in this folder.",
+  "terminal.error.switch-failed": "Couldn't switch: {message}",
+  "terminal.error.switch-no-session":
+    "This conversation has no session id yet. Send a message first, then switch.",
+  "terminal.error.switch-not-running":
+    "No supported coding agent is running in this terminal.",
   "terminal.error.unavailable": "Terminals aren't available right now.",
   "terminal.error.unreadable":
     "lophn can't open the project folder, so the terminal didn't start.",
   "terminal.label.output": "Terminal",
   "terminal.label.session-ended": "Session ended",
+  "terminal.label.target-chat": "chat",
+  "terminal.label.target-terminal": "terminal",
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",
   "terminal.status.ended": "The shell ended.",
   "terminal.status.exited": "The shell ended with exit code {code}.",
@@ -216,4 +229,5 @@ export const project = {
   "terminal.status.unknown":
     "lophn lost track of this shell, so how it ended is unknown.",
   "terminal.title.close": "Close this terminal?",
+  "terminal.title.switch": "Restart {harness} to switch?",
 } as const;

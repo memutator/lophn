@@ -96,6 +96,21 @@ export type TerminalIpc = {
     event: IpcEvent,
     input: unknown,
   ): Promise<IpcResult<TerminalAgentSession[]>>;
+  /**
+   * main이 PTY에 치는 글(열 때 넣는 명령, 탭 GUI의 TUI 명령). 사람 입력의 focus 검사와 humanInput 알림을 거치지 않는다.
+   * 새 shell의 시작 층이 끝나기를 기다리는 것은 부르는 쪽 몫이다(이미 도는 shell은 출력이 없어 `settled`가 5초를 쓴다).
+   */
+  typeInto(
+    terminalRef: string,
+    generation: number,
+    text: string,
+  ): Promise<void>;
+  /** foreground process group에 signal을 보낸다(host가 Linux에서만 한다). foreground가 shell이면 아무 일도 없다. */
+  signalForeground(
+    terminalRef: string,
+    generation: number,
+    signal: "SIGINT" | "SIGTERM",
+  ): Promise<void>;
 };
 
 const runningStub = (ref: string, generation: number): TerminalRuntime => ({
@@ -182,7 +197,30 @@ export function createTerminalIpc(deps: {
     return { ok: true, value: withAgent(await run(parsed.value)) };
   }
 
+  async function typeInto(
+    terminalRef: string,
+    generation: number,
+    text: string,
+  ): Promise<void> {
+    await deps.host.request({
+      type: "input",
+      terminal_ref: terminalRef,
+      generation,
+      text,
+    });
+  }
+
   return {
+    typeInto,
+    async signalForeground(terminalRef, generation, signal) {
+      const reply = await deps.host.request({
+        type: "signal",
+        terminal_ref: terminalRef,
+        generation,
+        signal,
+      });
+      if (!reply.ok) throw new Error(reply.message);
+    },
     open: (event, input) =>
       guarded<TerminalOpen>(event, terminalOpenSchema, input, async (value) => {
         const folders = await deps.folders.folders(value.project);
@@ -228,13 +266,11 @@ export function createTerminalIpc(deps: {
             line !== null ? `${line}\r` : commandInput(value.command);
           if (typed !== null) {
             await deps.settled?.(reply.runtime.terminal_ref);
-            // main이 치는 글이라 사람 입력용 focus 검사와 humanInput 알림을 거치지 않는다.
-            await deps.host.request({
-              type: "input",
-              terminal_ref: reply.runtime.terminal_ref,
-              generation: reply.runtime.generation,
-              text: typed,
-            });
+            await typeInto(
+              reply.runtime.terminal_ref,
+              reply.runtime.generation,
+              typed,
+            );
           }
         }
         return reply;

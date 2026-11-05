@@ -10,6 +10,7 @@ import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import { tabName } from "../../terminal/model.ts";
 import type { TerminalStore } from "../../terminal/store.ts";
+import { GuiSwitch, guiOf, viewOf } from "../../terminal/terminal-gui.tsx";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
 import { openFile } from "./document-editor.tsx";
@@ -164,15 +165,18 @@ function agentTabDot(tab: TabItem, host: TabHost): TabDot | null {
   return agent === undefined ? null : codingDot(agent);
 }
 
-// 탭의 PTY 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다.
+// 탭의 PTY 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다. GUI가 붙어 있으면
+// 그 handle과 view도 같이 간다: handle은 탭을 따라가고 받는 창이 id로 다시 붙는다(main이 쌓은 갱신을 처음부터 다시 보낸다).
 function runtimeOf(tab: TabItem, host: TabHost) {
   const entry = host.props.terminal?.store.get(tab.key);
+  const gui = guiOf(tab);
   return entry?.terminalRef == null
     ? null
     : {
         terminal_ref: entry.terminalRef,
         generation: entry.generation,
         folder_ref: entry.folderRef,
+        ...(gui === null ? {} : { gui, view: viewOf(tab) }),
       };
 }
 
@@ -260,12 +264,23 @@ export const terminalKind: TabKindDef = {
       generation: moved.generation,
       folderRef: typeof moved.folder_ref === "string" ? moved.folder_ref : null,
     });
+    // 탭이 fields째 오지 않는 길(detached 창이 닫힌 뒤 다시 열기)은 GUI 참조가 value에만 있다.
+    const gui = guiOf({ ...tab, fields: { gui: moved.gui } });
+    if (guiOf(tab) === null && gui !== null) {
+      host.patchTab(tab.key, (current) => ({
+        fields: {
+          ...current.fields,
+          gui,
+          view: moved.view === "gui" ? "gui" : "tui",
+        },
+      }));
+    }
   },
   render(tab, active, host) {
     const terminal = host.props.terminal;
     const project = host.projectId;
     if (!terminal || project === null) return null;
-    return (
+    const body = (
       <TerminalTab
         key={tab.key}
         tabKey={tab.key}
@@ -273,6 +288,7 @@ export const terminalKind: TabKindDef = {
         folderRef={tab.folder ?? null}
         active={active}
         deps={terminal}
+        gui={guiOf(tab)}
         naming={{
           name: { shown: tab.title, person: personOf(tab), auto: autoOf(tab) },
           onName: (title) => host.patchTab(tab.key, { title }, { later: true }),
@@ -309,6 +325,12 @@ export const terminalKind: TabKindDef = {
             }),
         }}
       />
+    );
+    // 탭의 view가 gui이면 xterm 대신 채팅 화면을 그린다. PTY와 xterm은 그대로 산다.
+    return (
+      <GuiSwitch tab={tab} host={host} deps={terminal}>
+        {body}
+      </GuiSwitch>
     );
   },
   // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다.

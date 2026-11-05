@@ -216,6 +216,8 @@ export type TerminalAgent = {
   unseen: boolean;
   /** 이 harness의 hook을 한 번이라도 들었다. 끊어서 state가 unknown이 돼도 남는다. */
   hooked: boolean;
+  /** 이 harness의 TUI가 PTY foreground에서 돈다(hook만 들은 것이 아니다). GUI가 띄운 CLI의 hook은 이것이 없다. */
+  foreground?: true;
   /** hook이 알려 준 harness의 session id. 저장한 session과 이 터미널을 잇는다. */
   session?: string;
   /** 그 session의 첫 prompt 한 줄. 모르면 없다. */

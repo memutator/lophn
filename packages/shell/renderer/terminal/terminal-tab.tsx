@@ -2,7 +2,9 @@ import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
+import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
 import type { TerminalRuntime } from "../../ipc/terminal.ts";
+import { useCardHead } from "../shell/card-head.tsx";
 import type { TerminalDeps } from "./deps.ts";
 import { ExitBanner } from "./exit-banner.tsx";
 import {
@@ -14,6 +16,7 @@ import {
 } from "./model.ts";
 import type { TerminalEntry } from "./store.ts";
 import styles from "./terminal.module.css";
+import { type GuiField, guiApi, useGuiToggle } from "./terminal-gui.tsx";
 import type { TerminalView } from "./xterm-view.ts";
 import { resolvePath } from "./path-links.ts";
 
@@ -43,6 +46,8 @@ interface TerminalTabProps {
     name: { shown: string; person: string | null; auto: string };
     onName: (name: string) => void;
   };
+  /** 이 탭에 GUI handle이 붙어 있다(shared 대화가 TUI view로 와 있다). TUI를 끄지 않고 view만 GUI로 바꾼다. */
+  gui?: GuiField | null;
 }
 
 const IDLE: Phase = { kind: "idle" };
@@ -59,6 +64,7 @@ export function TerminalTab({
   onStarted,
   naming,
   paths,
+  gui = null,
 }: TerminalTabProps) {
   const { store, bridge } = deps;
   const subscribe = useCallback(
@@ -71,7 +77,8 @@ export function TerminalTab({
   // agent와 제목은 store version이 알린다.
   useSyncExternalStore(subscribe, () => store.version());
   const agentTitle = store.agentTitleOf(tabKey);
-  const sessionName = store.agentOf(tabKey)?.name ?? null;
+  const agent = store.agentOf(tabKey);
+  const sessionName = agent?.name ?? null;
   const nextName =
     naming === undefined
       ? null
@@ -91,6 +98,30 @@ export function TerminalTab({
     }
   }, [nextName, naming?.name.shown]);
   const phase = entry?.phase ?? IDLE;
+
+  // GUI로 바꾸는 단추. GUI가 붙은 탭이거나, 어댑터가 있는 harness의 TUI가 PTY foreground에서 도는 동안 card 머리에 선다.
+  // shared 대화의 view 전환 말고는 process를 한 번 껐다 켜므로 modal로 묻고, 도는 turn이 있으면 멈춘다고 알린다.
+  const guiHarness =
+    gui?.harness ??
+    (agent?.foreground === true && isGuiHarness(agent.harness)
+      ? agent.harness
+      : null);
+  const toggle = useGuiToggle({
+    api: guiApi(),
+    terminalRef: entry?.terminalRef ?? null,
+    to: "gui",
+    harness: guiHarness ?? "claude",
+    confirm: () =>
+      gui?.handoff === "shared"
+        ? null
+        : {
+            turn: agent?.state === "running" || agent?.state === "waiting",
+          },
+  });
+  const inCard = useCardHead(
+    guiHarness === null ? {} : { actions: toggle.button },
+    [guiHarness, toggle.button],
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<TerminalView | null>(null);
@@ -320,6 +351,13 @@ export function TerminalTab({
       data-terminal-tab={tabKey}
       data-phase={phase.kind}
     >
+      {guiHarness === null ? null : toggle.overlays}
+      {guiHarness === null || inCard ? null : (
+        // card 밖(floated 패널, 떼어 낸 창)에는 머리 줄이 없어 본문 위 모서리에 둔다.
+        <div style={{ position: "absolute", top: 4, right: 4, zIndex: 1 }}>
+          {toggle.button}
+        </div>
+      )}
       <div
         ref={screenRef}
         className={styles.screen}

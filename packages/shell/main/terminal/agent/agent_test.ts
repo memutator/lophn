@@ -14,6 +14,8 @@ test("hook ingress drops unknown key, oversized and malformed lines and routes a
     envName: "LPN_TERMINAL_HOOK",
     maxBytes: 200,
     newKey: () => KEY,
+    guiEvent: "lophn-gui",
+    onGui: () => {},
     parse: (value) => {
       const line = value as { v?: number; key?: string; event?: string };
       return line.v === 1 && typeof line.key === "string"

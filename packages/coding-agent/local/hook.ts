@@ -13,6 +13,7 @@ import {
   HOOK_STDIN_MAX_BYTES,
   HOOK_TEXT_FIELD_MAX_CHARS,
   hookStdout,
+  TERMINAL_GUI_EVENT,
   TERMINAL_HOOK_ENV,
   terminalHookEnvSchema,
   terminalHookLineSchema,
@@ -111,7 +112,12 @@ async function runHook(
     if (new TextEncoder().encode(text).length > HOOK_STDIN_MAX_BYTES) {
       return ok(stdout);
     }
-    const payload = shortened(text.trim() === "" ? {} : JSON.parse(text));
+    const parsed = shortened(text.trim() === "" ? {} : JSON.parse(text));
+    // main은 shell이 `cd`한 뒤의 폴더를 모르므로 gui 요청에는 이 함수를 친 폴더를 더한다.
+    const payload =
+      input.event === TERMINAL_GUI_EVENT
+        ? { ...(parsed as object), cwd: ctx.cwd }
+        : parsed;
     if (
       new TextEncoder().encode(JSON.stringify(payload)).length >
       HOOK_PAYLOAD_MAX_BYTES

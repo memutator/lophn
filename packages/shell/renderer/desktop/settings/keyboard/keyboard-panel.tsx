@@ -92,7 +92,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const [problem, setProblem] = useState<{ id: string; text: string } | null>(
     null,
   );
-  const [conflictsOnly, setConflictsOnly] = useState(false);
+  const [conflictsToggle, setConflictsToggle] = useState(false);
   // 새 키가 다른 줄에서 쓰는 중이라 "바꾸기"를 기다린다. keys는 바꾸기가 한 번에 저장할 id → chord다.
   const [taking, setTaking] = useState<{
     id: string;
@@ -150,6 +150,8 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const names = nameOfIds(rows);
   const conflictList = findConflicts(platform, overrides);
   const conflicts = rowConflicts(rows, conflictList);
+  // 겹침이 다 풀리면 토글은 꺼진 것으로 본다.
+  const conflictsOnly = conflictsToggle && conflictList.length > 0;
   const matched = byKey
     ? pressed === null
       ? rows
@@ -427,7 +429,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
       <Loading loading={stored === null} placeholder={<Skeleton lines={6} />}>
         {stored === null ? null : (
           <>
-            {conflictList.length === 0 && !conflictsOnly ? null : (
+            {conflictList.length === 0 ? null : (
               <div className={styles.toolbar}>
                 <p
                   className={styles.notice}
@@ -443,7 +445,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                   variant={conflictsOnly ? "primary" : "secondary"}
                   aria-pressed={conflictsOnly}
                   data-key-conflicts-only=""
-                  onClick={() => setConflictsOnly((on) => !on)}
+                  onClick={() => setConflictsToggle((on) => !on)}
                 >
                   {t("settings.button.key-conflicts-only")}
                 </Button>

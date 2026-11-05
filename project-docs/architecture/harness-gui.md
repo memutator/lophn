@@ -39,21 +39,38 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 
 ## Claude Code adapter
 
-`claude.ts`. Agent SDK(`@anthropic-ai/claude-agent-sdk`, 판 고정)의 `query()`를 streaming input으로 연다.
-- `pathToClaudeCodeExecutable: "claude"`(사람 PATH의 것)를 늘 넘기고, process는 `spawnClaudeCodeProcess`로 `ctx.spawn`을 거친다. SDK가 끌고 오는 OS별 claude 사본은 root `package.json`의 `overrides`가 빈 package(`tools/empty-package`)로 바꿔 받지 않는다. extension bundle에는 SDK의 `sdk.mjs`(약 1.3MB)만 든다. SDK가 모듈 맨 위에서 `import.meta.url`을 써서 extension build(`buildExtensions`)만 그 값을 bundle file의 URL로 채운다.
-- `settingSources` user·project·local, `systemPrompt` preset `claude_code`, partial message를 켠다. permission mode는 넘기지 않는다(사람 설정). `bypassPermissions`는 쓰지 않는다.
-- SDK 메시지 → ACP: 흘러나오는 글과 reasoning, tool 줄(Edit·Write는 `edit`, AskUserQuestion은 `question`, 나머지 `generic`), `result`마다 turn 하나, 오류는 실패한 turn이다. subagent 메시지(`parent_tool_use_id`)는 빼고 부모 Agent tool 줄 하나로 둔다.
-- 승인: `canUseTool`마다 pending approval. 한 번은 `allow`, 이 session 동안은 `updatedPermissions`에 SDK 제안을 `destination: "session"`으로 바꿔 넣는다(제안 그대로면 Bash 허락이 그 폴더의 Claude Code local 설정 file에 영구히 적힌다. 실제 claude로 확인했다), 거절은 `deny`. turn이 끝나거나 멈추면 기다리던 것은 취소된다. AskUserQuestion의 답은 `updatedInput.answers`다.
-- 도는 중에 보낸 메시지는 adapter가 줄에 세웠다가(`message_queued`) `result` 뒤에 SDK에 넣는다(`message_taken`, 새 turn). 멈추기는 `interrupt()`이고 그 turn은 멈춘 turn으로 끝난다. 같은 query로 이어 보낸다.
-- `--resume <id>`는 SDK `resume`이다. SDK는 앞 대화를 다시 흘리지 않아 `getSessionMessages(id, {dir: cwd})`로 앞 대화를 그린 뒤 입력을 받는다.
+`claude.ts`(restart). Agent SDK(`@anthropic-ai/claude-agent-sdk`, 판 고정)의 `query()`를 streaming input으로 연다.
+- `pathToClaudeCodeExecutable: "claude"`를 늘 넘기고 process는 `spawnClaudeCodeProcess`로 `ctx.spawn`을 거친다. SDK가 넘기는 env 중 shell main의 `process.env`와 값이 다른 key만 넘긴다(그러지 않으면 login shell env를 덮는다). SDK의 OS별 claude 사본은 root `package.json`의 `overrides`가 빈 package(`tools/empty-package`)로 바꿔 받지 않는다. extension build(`buildExtensions`)는 SDK가 모듈 맨 위에서 쓰는 `import.meta.url`을 bundle file의 URL로 채운다.
+- 새 session은 `ids`로 만든 UUID를 `sessionId`로 넘겨 첫 turn 전에 CLI session id를 안다. `settingSources` user·project·local, `systemPrompt` preset `claude_code`, partial message, `perTaskStopAffordance`(멈춰도 background task는 산다), `enableFileCheckpointing`(파일 rewind)를 켠다. permission mode는 넘기지 않는다(사람 설정). `bypassPermissions`는 쓰지 않는다.
+- meta: `supportedModels`(effort 축), `supportedCommands`(터미널 전용 명령은 뺀다), `getContextUsage`를 첫 메시지 전에 읽어 `session_changed`로 낸다. mode와 model은 첫 turn의 `system/init`에서야 안다(그 전과 resume 직후는 null).
+- 사람 메시지마다 `uuid`를 붙인다. 도는 중에 보낸 것은 delivery가 steer면 `priority: "next"`, 다음 turn이면 `"later"`이고, CLI의 `command_lifecycle`(queued, started)이 줄과 `message_taken`을 정한다. 지금 보내기·빼기·고치기·옮기기는 `cancelAsyncMessage`(sdk.d.ts에는 없고 sdk.mjs에 있다)로 한다. 지금 보내기(`now`)는 도는 명령을 멈추고 그 turn은 멈춘 turn이다.
+- 입력: `set_model`(CLI가 거절한 model은 다음 띄우기에 넘기지 않는다), `set_mode`(`setPermissionMode`), effort는 숨긴 `/effort`, `run_command`, `compact`, `retry`, `rename`, 이미지(`file://` link를 읽어 base64). local 명령(`/effort`, `/context`, `/compact`, `setModel`)의 답은 합성 메시지와 `local_command` result로 온다.
+- 승인: `canUseTool`마다 카드. 이 session 동안은 SDK 제안을 `destination: "session"`으로 바꿔 돌려주고, always는 제안이 session 밖을 가리킬 때만 내놓고 그대로 돌려준다(영구). session 규칙과 폴더는 들고 있다가 다시 열 때 `allowedTools`·`additionalDirectories`로 넣는다. ExitPlanMode는 plan 카드이고 한 번은 `default`, 이 session 동안은 `acceptEdits`로 간다.
+- rewind는 `rewindFiles`(dry run 뒤 실제)와 `resume` + `resumeSessionAt` + `forkSession` + 새 `sessionId`로 다시 연다. fork는 SDK `forkSession`으로 같은 탭에서 다시 연다. 둘 다 잘린 구간을 `hidden_added`로 숨기고(adapter가 `reduceAcp`로 상태를 접어 둔다) 새 `cli_session`을 낸다.
+- toggle: 탭에 TUI가 보이면 `start`는 `conflict`다. `exitTui`는 SIGINT를 0·300·900ms에 보내고 foreground가 끝나면 돌아온다. `stop`은 도는 turn을 멈추고 query를 닫고 process가 끝나기를 기다린다. `tuiCommand`는 `stop`이 끝난 뒤에만 `claude --resume <id> [--permission-mode] [--model] [--effort] [--add-dir …] [--allowedTools …]`(GUI에서 고른 값만)를 낸다. `running`은 turn과 background task 수다.
+- 상위 session 표지를 지우면 CLI가 transcript의 entrypoint를 `sdk-cli`로 쓴다. 그래서 `listSessions({includeProgrammatic:false})`에는 GUI session이 없다. resume은 id로 한다.
 
 ## Codex adapter
 
-`codex.ts`. 사람 PATH의 `codex`로 `codex app-server`를 stdio로 띄운다(JSON-RPC 줄, `jsonrpc` 칸이 없다). `initialize` → `initialized` → `thread/start`(resume이면 `thread/resume`).
-- `thread/start`·`thread/resume`에 `approvalPolicy: "on-request"`, `sandbox: "workspace-write"`를 늘 넘긴다. 사람 설정이 `never`·`danger-full-access`여도 창은 승인 카드로 묻고 전부 허락 sandbox를 쓰지 않는다.
-- item → ACP: `agentMessage`는 흘러나오는 글과 저장된 메시지, `reasoning`은 다음 메시지의 reasoning, `commandExecution`은 명령 tool, `fileChange`는 `edit`(path와 줄 수), `mcpToolCall`도 tool이다. `declined`는 거절로 끝난 tool이다.
-- 승인: `item/commandExecution/requestApproval`·`item/fileChange/requestApproval`이 카드를 연다. 한 번은 `accept`, 이 session 동안은 `acceptForSession`(요청의 `availableDecisions`에 있을 때만 내놓는다), 거절은 `decline`, 멈춘 turn은 `cancel`이다. 다른 서버 요청(질문, 권한 확장, MCP elicitation)은 `-32601` 오류로 답한다(답하지 않으면 turn이 멈춘다).
-- 도는 중에 보낸 메시지는 `turn/steer`로 같은 turn에 넣고, 다음 turn으로 보낸 것은 줄에 세웠다가 turn 뒤에 보낸다. 멈추기는 `turn/interrupt`, 다시 하기는 그 turn의 사람 메시지를 새 turn으로 보낸다. resume 응답의 `thread.turns`로 앞 대화를 그린다.
+`codex.ts`(shared). 탭마다 `codex app-server --listen unix://<mkdtemp 0700>/codex.sock`를 띄우고(env key를 넘기지 않는다), GUI는 그 socket 위 WebSocket(`ws`) client이고 TUI는 `codex resume <thread> --remote 'unix://<sock>' --cd "$PWD"`로 같은 server에 붙는다. app-server는 thread 하나에 connection 여럿을 붙이고 이벤트와 승인 요청을 모두에게 보낸다.
+- `initialize`에 `capabilities {experimentalApi: true}`. `config/read`로 사람 설정을 읽어 `never`이거나 `danger-full-access`일 때만 `approvalPolicy: "on-request"`, sandbox `workspace-write`로 덮는다. resume은 `thread/resume {excludeTurns: true}` 뒤 `thread/turns/list`를 나눠 읽어 앞 대화를 그린다.
+- 다른 client(TUI)가 보낸 사람 메시지도 그린다: `turn/start`·`turn/steer`에 `clientUserMessageId`를 실어 제 것과 가른다. 설정 바꾸기는 `thread/settings/update`이고 `thread/settings/updated`가 양쪽에 온다. 다른 thread의 이벤트는 `threadId`로 거른다.
+- 승인: 요청의 `availableDecisions`에 있는 것만 낸다(이 session 동안은 `acceptForSession`이 있을 때만). 거절은 `decline`이고 turn은 이어 간다. 영구 결정(execpolicy·network amendment)은 영구라고 표시한다. 다른 client가 먼저 답하면 `serverRequest/resolved`로 카드를 답 없이 닫는다. turn이 끝날 때 `cancel`을 보내지 않는다(남의 turn까지 멈춘다). 사람이 멈출 때만 아직 열린 승인에 `cancel`이다. patch 승인은 `file_change` subject다.
+- 질문(`item/tool/requestUserInput`)은 질문 카드이고 답은 질문 id로 돌려준다. MCP elicitation은 거절하고 notice를 낸다.
+- 기능: 사용량, model·effort, 권한 mode, `/plan`, client 명령 표(compact, review, goal, rename, fork, new, status, skill), rewind(마지막 메시지만, `thread/revert`, file은 그대로), fork(`thread/fork`가 부른 client를 바로 구독시킨다), `!` shell(`thread/shellCommand`, 제 turn을 연다), file mention. webSearch, mcp, dynamic tool, imageView, subagent, compaction, review, 오류는 notice로, plan item은 agent message로 그린다. 이미지는 아직 끈다.
+- `exitTui`는 PTY에 Ctrl+C(`\x03`)를 700ms 간격으로 네 번까지 친다(Codex TUI의 Ctrl+C는 한 번에 입력 지우기 → 멈추기 → 끝내기).
+- turn이 없는 thread는 `thread/resume`이 "no rollout found"라 첫 메시지 전에는 TUI로 넘어가지 못한다(`tuiCommand`가 notice를 낸다).
+
+## omp adapter
+
+`omp.ts`(restart). `omp --mode rpc-ui --cwd=… [--resume=…]`(env key를 넘기지 않고 `--approval-mode`도 넘기지 않는다. 사람 설정이 없으면 yolo라 승인 카드가 뜨지 않는다). omp 18.8.7 기준이다.
+- 시작: `negotiate_protocol` v2(`rpc_chunk`를 다시 붙인다), `set_ask_dialog`, `set_event_filter {events: null}`, `set_subagent_subscription progress`. ready 전에 끝나면(잘못된 key 등) stderr 꼬리로 시작 실패다.
+- meta: model과 thinking 축, 명령(`available_commands_update`, branch·fork 뒤 다시 온다), 사용량(context만), capability. todo는 `get_state.todoPhases`를 `plan_changed`로. plan mode와 승인 mode 바꾸기는 18.8.7에 RPC가 없어 `modes`가 비어 있다. 파일 rewind는 없다.
+- 흘러나오는 글은 `message_update`의 전체 snapshot을 앞 것과 diff한다. steer는 `steering: true`인 사람 `message_end`로 온다. 줄 고치기는 steer·follow-up·빼기·올리기(`promote_queued_message`)이고 고치기·옮기기는 빼고 다시 넣는다.
+- 질문(`ask`)은 `extension_ui_request`가 그 tool의 `tool_execution_start`보다 먼저 와서 질문의 tool id로 tool 줄을 연다. 그 밖의 dialog(select, confirm, input, editor)는 질문 하나로 낸다. 승인은 "Allow tool:" select를 같은 이름의 가장 최근 tool에 맞춘다. 거절하면 tool이 `isError`로 끝나고 turn은 이어 간다.
+- rewind·fork는 그때 `get_entries`로 사람 메시지 순서에 맞는 entry를 찾아 `branch`·`fork`하고 `hidden_added`로 숨긴다. subagent는 `call` 종류 tool 줄이다(task tool은 곧바로 끝나고 subagent는 따로 돈다).
+- toggle: `exitTui`는 SIGTERM을 보내고 foreground가 끝나야 돌아온다(두 process가 한 session을 쓰면 omp가 새 id의 다른 file로 옮겨 대화가 갈라진다). `stop`은 도는 turn을 abort하고 마지막 `get_state`로 id를 읽고 stdin을 닫는다(lease를 놓는 omp의 정리 길). 5초 뒤에는 SIGTERM이다.
+- lophn의 omp hook은 `session_switch`·`session_branch`도 알려 `/new`·`/resume`·`/branch`·`/fork` 뒤의 새 id를 tracker가 안다.
 
 ## OpenCode adapter
 

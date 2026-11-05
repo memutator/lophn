@@ -8,8 +8,8 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `acp-core` | acp | 2 | acp-session | merged | acp/acp-core | 20a6b0015 |  |
 | `acp-screen` | acp | 2 | acp-session | merged | acp/acp-screen | 10b093586 |  |
 | `tab-gui` | tab | 2 | acp-session | merged | tab/tab-gui | 5fd845338 |  |
-| `adapter-claude` | adapter | 3 | acp-core, acp-screen, tab-gui | running | adapter/adapter-claude |  |  |
-| `adapter-codex` | adapter | 3 | acp-core, acp-screen, tab-gui | running | adapter/adapter-codex |  |  |
+| `adapter-claude` | adapter | 3 | acp-core, acp-screen, tab-gui | merged | adapter/adapter-claude | 8bb09c0c3 |  |
+| `adapter-codex` | adapter | 3 | acp-core, acp-screen, tab-gui | merged | adapter/adapter-codex | 130da4f88 |  |
 | `adapter-omp` | adapter | 3 | acp-core, acp-screen, tab-gui | merged | adapter/adapter-omp | dd5eeb259 |  |
 | `adapter-opencode` | adapter | 3 | acp-core, acp-screen, tab-gui | running | adapter/adapter-opencode |  |  |
 | `fix-acp-draft` | fix | 3 | acp-screen | merged | fix/fix-acp-draft | e02aaeda0 |  |

@@ -3,12 +3,17 @@ import { test } from "node:test";
 
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { AcpInput } from "../../../../protocol/acp/mod.ts";
+import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { receivedMessageList } from "../../../../protocol/lophn-agent/received-messages.ts";
+import { sessionRewindPreview } from "../../../../protocol/lophn-agent/session-rewinds.ts";
+import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createAcpSend } from "./acp-send.ts";
 
 const SES = "ses_01h455vb4pex5v6nkc6gd5f001";
 const MSG = "msg_01h455vb4pex5v6nkc6gd5f001";
 const TURN = "trn_01h455vb4pex5v6nkc6gd5f001";
+const PVD = "pvd_01h455vb4pex5v6nkc6gd5f001";
 
 const person = (operations: string[]): AuthenticatedContext => ({
   principal: "user:me",
@@ -17,6 +22,29 @@ const person = (operations: string[]): AuthenticatedContext => ({
   conditions: {},
   credential_ref: "user:me",
 });
+
+const key = (route: { resource: string; method: string }) =>
+  `${route.resource}/${route.method}`;
+
+// route가 읽는 값. 각 read는 자기 operation 이름의 scope가 있어야 통과한다.
+const READS: Record<string, { name: string; value: unknown }> = {
+  [key(turnRead)]: {
+    name: turnRead.name,
+    value: { turn: { state_seq: 1, input_message: MSG } },
+  },
+  [key(placeSessionRead)]: {
+    name: placeSessionRead.name,
+    value: { session: { state_seq: 1 } },
+  },
+  [key(receivedMessageList)]: {
+    name: receivedMessageList.name,
+    value: { messages: [{ id: MSG, created_seq: "1" }], next_cursor: null },
+  },
+  [key(sessionRewindPreview)]: {
+    name: sessionRewindPreview.name,
+    value: { preview_hash: "a".repeat(64) },
+  },
+};
 
 // 지금 route들처럼 부른 사람의 scope에 operation이 있어야 통과한다. 누가 불렀는지도 적는다.
 function setup() {
@@ -29,19 +57,16 @@ function setup() {
     command: (who, envelope) => {
       callers.push(who.principal);
       const allowed = allow(who, envelope.command);
-      return Promise.resolve(allowed.ok ? ok({}) : allowed);
+      return Promise.resolve(allowed.ok ? ok({ result: {} }) : allowed);
     },
     read: (who, route) => {
       callers.push(who.principal);
-      const allowed = allow(who, route.method === "read" ? "ReadTurn" : "");
-      return Promise.resolve(
-        allowed.ok
-          ? ok({ turn: { state_seq: 1, input_message: MSG } })
-          : allowed,
-      );
+      const read = READS[key(route)]!;
+      const allowed = allow(who, read.name);
+      return Promise.resolve(allowed.ok ? ok(read.value) : allowed);
     },
     memory: () => Promise.resolve(ok({})),
-    newMessageId: () => MSG,
+    newId: (prefix) => `${prefix}_01h455vb4pex5v6nkc6gd5f009`,
   });
   return { send, callers };
 }
@@ -73,4 +98,65 @@ test("AcpSend dispatches with the caller's own scope, so a caller without the ro
   const allowed = await send(person(["SendMessage"]), message);
   assert.equal(allowed.ok, true);
   assert.deepEqual([...new Set(callers)], ["user:me"]);
+});
+
+// session 조작도 같다. 쓰는 command의 scope와 먼저 읽는 route의 scope가 모두 있어야 한다.
+test("session controls through AcpSend are forbidden without the scope of the routes they use", async () => {
+  const { send } = setup();
+  const base = { session: SES, key: "k" };
+  const cases: { input: AcpInput; scope: string[] }[] = [
+    {
+      input: {
+        ...base,
+        type: "set_model",
+        model: `${PVD}/gpt`,
+        options: {},
+      },
+      scope: ["ReadSession", "ChangeSessionModel"],
+    },
+    {
+      input: { ...base, type: "set_mode", mode: "skip" },
+      scope: ["ReadSession", "ChangeSessionSkip"],
+    },
+    {
+      input: { ...base, type: "rename", title: "name" },
+      scope: ["ReadSession", "RenameSession"],
+    },
+    {
+      input: { ...base, type: "compact" },
+      scope: ["ReadSession", "RequestSessionCompact"],
+    },
+    {
+      input: { ...base, type: "fork", message: null },
+      scope: [receivedMessageList.name, "ForkSession"],
+    },
+    {
+      input: {
+        ...base,
+        type: "rewind",
+        message: MSG,
+        files: false,
+        apps: [],
+      },
+      scope: [sessionRewindPreview.name, "Rewind"],
+    },
+    {
+      input: { ...base, type: "run_command", name: "review", argument: "" },
+      scope: ["SendMessage"],
+    },
+  ] as { input: AcpInput; scope: string[] }[];
+
+  for (const { input, scope } of cases) {
+    const none = await send(person([]), input);
+    assert.equal(!none.ok && none.error.code, "forbidden", input.type);
+    for (const missing of scope) {
+      const partial = await send(
+        person(scope.filter((one) => one !== missing)),
+        input,
+      );
+      assert.equal(!partial.ok && partial.error.code, "forbidden", input.type);
+    }
+    const allowed = await send(person(scope), input);
+    assert.equal(allowed.ok, true, input.type);
+  }
 });

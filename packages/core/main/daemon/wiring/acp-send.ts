@@ -15,12 +15,30 @@ import {
   sendMessage,
   steerQueuedNow,
 } from "../../../../protocol/lophn-agent/inputs.ts";
+import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { BUILTIN_COMMAND_IDS } from "../../../../protocol/lophn-agent/commands.ts";
 import { blocksOfContent } from "../../../../protocol/lophn-agent/message-content.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
+import { receivedMessageList } from "../../../../protocol/lophn-agent/received-messages.ts";
+import {
+  sessionRewind,
+  sessionRewindPreview,
+} from "../../../../protocol/lophn-agent/session-rewinds.ts";
+import {
+  changeSessionModel,
+  changeSessionSkip,
+  forkSession,
+  renameSession,
+  requestSessionCompact,
+} from "../../../../protocol/lophn-agent/sessions.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../../protocol/lophn-agent/turns.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { CommandEnvelope } from "../../../storage/ledger/mod.ts";
+import { AGENT_MODES } from "./acp-build.ts";
+
+/** `AcpSend`의 답. fork가 연 새 session이다. */
+export type AcpSent = { session?: string };
 
 export type AcpSendDeps = {
   command(
@@ -37,27 +55,38 @@ export type AcpSendDeps = {
     route: { resource: string; method: string },
     input: unknown,
   ): Promise<Result<unknown>>;
-  newMessageId(): string;
+  newId(prefix: "msg" | "ses" | "rwd"): string;
 };
+
+// 화면 catalog의 `conversation.body.skill-command-request`와 같은 글이다. core는 design을 import하지 못해 복사했다.
+const skillRequest = (skill: string) =>
+  `Use the "${skill}" skill for this request.`;
 
 const invalid = () =>
   err({ code: "invalid_input" as const, message: "invalid input" });
 
-// session 조작(model, mode, 명령, rewind, fork, compact, 이름)은 lophn agent가 아직 이 입구로 받지 않는다.
-const unavailable = () =>
-  err({ code: "unavailable" as const, message: "not available yet" });
-
 export function createAcpSend(deps: AcpSendDeps) {
   // retry를 다시 눌러도 같은 메시지 id와 key로 보내 core가 한 번만 접수한다.
   const retryIds = new Map<string, string>();
+  // 같은 key로 다시 보내도 같은 id로 가야 core가 한 번만 접수한다(fork의 새 session, rewind, 명령 메시지).
+  const keyedIds = new Map<string, string>();
+  const idFor = (prefix: "msg" | "ses" | "rwd", key: string) => {
+    const same = `${prefix}:${key}`;
+    let id = keyedIds.get(same);
+    if (id === undefined) {
+      id = deps.newId(prefix);
+      keyedIds.set(same, id);
+    }
+    return id;
+  };
 
-  const command = async (
+  const commandResult = async (
     who: AuthenticatedContext,
     route: CommandRoute,
     input: unknown,
     key: string,
     compare: unknown,
-  ): Promise<Result<void>> => {
+  ): Promise<Result<unknown>> => {
     const parsed = route.input.safeParse(input);
     if (!parsed.success) return invalid();
     const done = await deps.command(who, {
@@ -67,18 +96,29 @@ export function createAcpSend(deps: AcpSendDeps) {
       compare,
       prepared: [],
     });
-    return done.ok ? ok(undefined) : done;
+    return done.ok ? ok((done.value as { result?: unknown }).result) : done;
+  };
+
+  const command = async (
+    who: AuthenticatedContext,
+    route: CommandRoute,
+    input: unknown,
+    key: string,
+    compare: unknown,
+  ): Promise<Result<AcpSent>> => {
+    const done = await commandResult(who, route, input, key, compare);
+    return done.ok ? ok({}) : done;
   };
 
   const memory = async (
     who: AuthenticatedContext,
     route: MemoryRoute,
     input: unknown,
-  ): Promise<Result<void>> => {
+  ): Promise<Result<AcpSent>> => {
     const parsed = route.input.safeParse(input);
     if (!parsed.success) return invalid();
     const done = await deps.memory(who, route, parsed.data);
-    return done.ok ? ok(undefined) : done;
+    return done.ok ? ok({}) : done;
   };
 
   const stateSeqOf = async (
@@ -93,10 +133,48 @@ export function createAcpSend(deps: AcpSendDeps) {
     );
   };
 
+  const sessionStateSeq = async (
+    who: AuthenticatedContext,
+    session: string,
+  ): Promise<Result<unknown>> => {
+    const read = await deps.read(who, placeSessionRead, { session });
+    if (!read.ok) return read;
+    return ok(
+      (read.value as { session: { state_seq: unknown } }).session.state_seq,
+    );
+  };
+
+  // fork와 rewind가 고른 메시지의 순번을 찾는다. message가 null이면 마지막 메시지다.
+  const messageSeq = async (
+    who: AuthenticatedContext,
+    session: string,
+    message: string | null,
+  ): Promise<Result<unknown>> => {
+    const all: { id: string; created_seq: unknown }[] = [];
+    let cursor: string | undefined;
+    for (;;) {
+      const page = await deps.read(who, receivedMessageList, {
+        session,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      if (!page.ok) return page;
+      const value = page.value as {
+        messages: { id: string; created_seq: unknown }[];
+        next_cursor?: string | null;
+      };
+      all.push(...value.messages);
+      if (value.next_cursor === null || value.next_cursor === undefined) break;
+      cursor = value.next_cursor;
+    }
+    const point =
+      message === null ? all.at(-1) : all.find((one) => one.id === message);
+    return point === undefined ? invalid() : ok(point.created_seq);
+  };
+
   return async (
     who: AuthenticatedContext,
     input: AcpInput,
-  ): Promise<Result<void>> => {
+  ): Promise<Result<AcpSent>> => {
     switch (input.type) {
       case "send":
         return await command(
@@ -137,7 +215,7 @@ export function createAcpSend(deps: AcpSendDeps) {
         if (parts.length === 0) return invalid();
         let id = retryIds.get(input.turn);
         if (id === undefined) {
-          id = deps.newMessageId();
+          id = deps.newId("msg");
           retryIds.set(input.turn, id);
         }
         return await command(
@@ -190,14 +268,139 @@ export function createAcpSend(deps: AcpSendDeps) {
           message: input.message,
           direction: input.direction,
         });
-      case "set_model":
-      case "set_mode":
-      case "run_command":
-      case "rewind":
-      case "fork":
-      case "compact":
-      case "rename":
-        return unavailable();
+      case "set_model": {
+        // model id는 `<provider id>/<model name>`이다(acp-build의 acpModelId). provider id에는 `/`가 없다.
+        const cut = input.model.indexOf("/");
+        if (cut <= 0) return invalid();
+        const seq = await sessionStateSeq(who, input.session);
+        if (!seq.ok) return seq;
+        return await command(
+          who,
+          changeSessionModel,
+          {
+            session: input.session,
+            model: {
+              provider: input.model.slice(0, cut),
+              model_name: input.model.slice(cut + 1),
+              option_values: input.options,
+            },
+          },
+          `acp-set-model-${input.key}`,
+          { state: "open", state_seq: seq.value },
+        );
+      }
+      case "set_mode": {
+        if (!AGENT_MODES.some((mode) => mode.id === input.mode)) {
+          return invalid();
+        }
+        const seq = await sessionStateSeq(who, input.session);
+        if (!seq.ok) return seq;
+        return await command(
+          who,
+          changeSessionSkip,
+          { session: input.session, skip: input.mode === "skip" },
+          `acp-set-mode-${input.key}`,
+          { state_seq: seq.value },
+        );
+      }
+      case "run_command": {
+        // 내장 명령은 화면이 처리한다. 나머지는 skill 이름이고 목록은 다시 읽지 않는다.
+        if ((BUILTIN_COMMAND_IDS as readonly string[]).includes(input.name)) {
+          return invalid();
+        }
+        const request = skillRequest(input.name);
+        return await command(
+          who,
+          sendMessage,
+          {
+            id: idFor("msg", input.key),
+            session: input.session,
+            content: [
+              {
+                type: "text",
+                text:
+                  input.argument === ""
+                    ? request
+                    : `${request}\n\n${input.argument}`,
+              },
+            ],
+            delivery: "next_turn",
+            refs: [],
+          },
+          `acp-run-command-${input.key}`,
+          {},
+        );
+      }
+      case "rewind": {
+        const choice = input.files ? "restore_all" : "messages_only";
+        const preview = await deps.read(who, sessionRewindPreview, {
+          session: input.session,
+          checkpoint: input.message,
+          choice,
+        });
+        if (!preview.ok) return preview;
+        const id = idFor("rwd", input.key);
+        const applied = await commandResult(
+          who,
+          sessionRewind,
+          {
+            id,
+            session: input.session,
+            checkpoint: input.message,
+            choice,
+            accept_remaining: true,
+            preview_hash: (preview.value as { preview_hash: string })
+              .preview_hash,
+            summary_call: null,
+            files: [],
+            apps: input.apps,
+          },
+          `rewind-${id}`,
+          { session_state: "open", active_turn: null, applying_rewind: null },
+        );
+        if (!applied.ok) return applied;
+        return (applied.value as { outcome?: string } | undefined)?.outcome ===
+          "blocked"
+          ? err({ code: "conflict" as const, message: "rewind blocked" })
+          : ok({});
+      }
+      case "fork": {
+        const seq = await messageSeq(who, input.session, input.message);
+        if (!seq.ok) return seq;
+        const id = idFor("ses", input.key);
+        const forked = await command(
+          who,
+          forkSession,
+          { id, source: input.session, through_seq: seq.value },
+          `acp-fork-${input.key}`,
+          {},
+        );
+        return forked.ok ? ok({ session: id }) : forked;
+      }
+      case "compact": {
+        const seq = await sessionStateSeq(who, input.session);
+        if (!seq.ok) return seq;
+        return await command(
+          who,
+          requestSessionCompact,
+          { session: input.session },
+          `acp-compact-${input.key}`,
+          { state: "open", state_seq: seq.value },
+        );
+      }
+      case "rename": {
+        const title = input.title.trim();
+        if (title === "") return invalid();
+        const seq = await sessionStateSeq(who, input.session);
+        if (!seq.ok) return seq;
+        return await command(
+          who,
+          renameSession,
+          { session: input.session, title },
+          `acp-rename-${input.key}`,
+          { state_seq: seq.value },
+        );
+      }
     }
   };
 }

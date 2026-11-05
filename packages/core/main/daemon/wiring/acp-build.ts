@@ -19,6 +19,12 @@ import {
   type AcpReasoning,
   type AcpWriting,
   type AcpUpdate,
+  ACP_CAPABILITIES,
+  type AcpCapabilities,
+  type AcpChoice,
+  type AcpModelGroup,
+  type AcpSessionMeta,
+  type AcpUsage,
 } from "../../../../protocol/acp/mod.ts";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { agentCallRead } from "../../../../protocol/lophn-agent/calls.ts";
@@ -30,6 +36,19 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { commandsList } from "../../../../protocol/lophn-agent/commands.ts";
+import {
+  type ModelChoice,
+  modelCatalogRead,
+  shownModelsRead,
+} from "../../../../protocol/lophn-agent/models.ts";
+import {
+  optionAxesOf,
+  orderPicker,
+  selectableModels,
+} from "../../../../protocol/lophn-agent/model-picker.ts";
+import { providerList } from "../../../../protocol/lophn-agent/providers.ts";
+import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
 import {
   type AgentId,
   LOPHN_AGENT_ID,
@@ -436,6 +455,8 @@ export type AcpLive = {
   elapsed: { turn: string; active_ms: number; at: string } | null;
   approval: NonNullable<AcpPending["approval"]> | null;
   question: NonNullable<AcpPending["question"]> | null;
+  /** 대화 밖 session 기능. snapshot을 부른 사람이 있을 때만 읽는다(`readSessionMeta`). */
+  session: AcpSessionMeta | null;
   stored: readonly AcpStoredItem[];
   /** 순번이 없는 항목에 순번을 붙인다. 이미 있는 id는 그 순번을 돌려준다. */
   allocate(items: AcpAlloc[]): Promise<Result<Map<string, number>>>;
@@ -934,10 +955,256 @@ export async function buildAcpState(
       model_call: calls.value.at(-1)?.model_call ?? null,
       turn: current !== null && !running ? current.id : null,
     },
-    session: null,
+    session: live.session,
+    // lophn agent에는 todo가 없다.
     plan: null,
     reread: false,
   });
+}
+
+// ---------------------------------------------------------------- session 기능
+
+// lophn mode는 둘이다. acp-send도 이 id로 받는다.
+export const AGENT_MODES: AcpChoice[] = [
+  {
+    id: "ask",
+    label: "Ask",
+    description: "Ask before actions that need permission",
+  },
+  {
+    id: "skip",
+    label: "Skip permissions",
+    description: "Do not ask for permission (deny rules still block)",
+  },
+];
+
+// lophn agent가 가진 기능은 전부다.
+const CAPABILITIES = Object.fromEntries(
+  ACP_CAPABILITIES.map((name) => [name, true]),
+) as AcpCapabilities;
+
+type SessionRecord = Output<typeof placeSessionRead>["session"];
+
+/** model id는 `<provider id>/<model name>`이다(acp-send가 풀어 쓴다). provider id에는 `/`가 없다. */
+export const acpModelId = (provider: string, modelName: string) =>
+  `${provider}/${modelName}`;
+
+export async function readSessionRecord(
+  env: AcpEnv,
+  session: string,
+): Promise<Result<SessionRecord>> {
+  const read = await env.read<Output<typeof placeSessionRead>>(
+    placeSessionRead,
+    { session },
+  );
+  return read.ok ? ok(read.value.session) : read;
+}
+
+/** 화면의 model 묶음과 지금 값. 묶음·정렬은 picker 규칙(켠 model과 지금 model)을 그대로 쓴다. */
+export async function readModelPart(
+  env: AcpEnv,
+  record: SessionRecord,
+): Promise<Pick<AcpSessionMeta, "models" | "model">> {
+  const [providers, entries, shown, agent] = await Promise.all([
+    pages(
+      env,
+      providerList,
+      {},
+      (out: Output<typeof providerList>) => out.providers,
+    ),
+    pages(
+      env,
+      modelCatalogRead,
+      {},
+      (out: Output<typeof modelCatalogRead>) => out.entries,
+    ),
+    env.read<Output<typeof shownModelsRead>>(shownModelsRead, {}),
+    record.model_selection === null
+      ? env.read<Output<typeof agentRead>>(agentRead, {
+          agent: record.agent,
+          ...(record.place === null ? {} : { place: record.place }),
+        })
+      : null,
+  ]);
+  if (!providers.ok || !shown.ok) return { models: [], model: null };
+  // catalog를 읽지 못해도 지금 model은 보이도록 model 목록만 비운다.
+  const catalog = entries.ok ? entries.value : [];
+
+  const selectable = new Map<
+    string,
+    ReturnType<typeof selectableModels>[number]
+  >();
+  const available = providers.value.flatMap((provider) =>
+    selectableModels({
+      definition: provider.definition.key,
+      catalog,
+      reported: provider.credential.reported_models,
+    }).map((one) => {
+      selectable.set(acpModelId(provider.id, one.model_name), one);
+      return { provider: provider.id, model_name: one.model_name };
+    }),
+  );
+
+  let current: ModelChoice | null = record.model_selection;
+  let layer: NonNullable<AcpSessionMeta["model"]>["layer"] =
+    current === null ? null : "session";
+  if (current === null && agent?.ok) {
+    const effective = agent.value.effective.model;
+    current = effective?.value ?? null;
+    layer = effective?.source ?? null;
+  }
+
+  const layout = orderPicker({
+    shown: shown.value.shown.items,
+    models: available,
+    current:
+      current === null
+        ? null
+        : { provider: current.provider, model_name: current.model_name },
+    query: "",
+  });
+  const models: AcpModelGroup[] = layout.providers.map((group) => ({
+    id: group.provider,
+    label:
+      providers.value.find((provider) => provider.id === group.provider)
+        ?.name ?? group.provider,
+    models: group.models.map((one) => {
+      const entry = selectable.get(
+        acpModelId(one.provider, one.model_name),
+      )?.entry;
+      return {
+        id: acpModelId(one.provider, one.model_name),
+        label: one.model_name,
+        axes:
+          entry === null || entry === undefined
+            ? []
+            : optionAxesOf(entry).map(({ id, label, values }) => ({
+                id,
+                label,
+                values,
+              })),
+      };
+    }),
+  }));
+  return {
+    models,
+    model:
+      current === null
+        ? null
+        : {
+            model: acpModelId(current.provider, current.model_name),
+            label: current.model_name,
+            options: current.option_values,
+            layer,
+          },
+  };
+}
+
+export async function readUsage(
+  env: AcpEnv,
+  session: string,
+): Promise<AcpUsage | null> {
+  const read = await env.read<Output<typeof sessionStatusRead>>(
+    sessionStatusRead,
+    { session },
+  );
+  if (!read.ok) return null;
+  const { context, tokens, turns, costs, provider } = read.value;
+  return {
+    context,
+    input_tokens: tokens.input,
+    output_tokens: tokens.output,
+    cache_read_tokens: tokens.cache_read,
+    cache_write_tokens: tokens.cache_write,
+    turns,
+    costs: costs.map(({ kind, currency, amount }) => ({
+      kind,
+      currency,
+      amount,
+    })),
+    provider:
+      provider === null
+        ? null
+        : {
+            name: provider.name,
+            definition: provider.definition,
+            account: provider.account,
+            state: provider.state,
+            until: provider.until,
+          },
+  };
+}
+
+/** 이름 목록은 사람 자격으로만 읽힌다(`ListCommands`). 그래서 부른 사람의 read를 받는다. */
+export async function readSessionMeta(
+  env: AcpEnv,
+  session: string,
+  readAsCaller: AcpEnv["read"],
+): Promise<AcpSessionMeta | null> {
+  const record = await readSessionRecord(env, session);
+  if (!record.ok) return null;
+  const [model, usage, commands] = await Promise.all([
+    readModelPart(env, record.value),
+    readUsage(env, session),
+    readAsCaller<Output<typeof commandsList>>(commandsList, { session }),
+  ]);
+  return {
+    title: record.value.title === null ? null : env.redact(record.value.title),
+    cli_session: null,
+    capabilities: CAPABILITIES,
+    ...model,
+    modes: AGENT_MODES,
+    mode: record.value.skip ? "skip" : "ask",
+    commands: commands.ok
+      ? commands.value.commands.map((one) => ({
+          name: one.name,
+          description: env.redact(one.description),
+          argument_hint: null,
+          source: one.source,
+        }))
+      : [],
+    usage,
+  };
+}
+
+/** 바뀐 칸만 읽어 `session_changed` 한 건으로 낸다. 읽지 못하면 null이고 화면은 다음 snapshot에서 맞춘다. */
+export async function sessionChangeOf(
+  env: AcpEnv,
+  session: string,
+  changed: "title" | "mode" | "model" | "usage",
+): Promise<AcpUpdate | null> {
+  if (changed === "usage") {
+    const usage = await readUsage(env, session);
+    return usage === null
+      ? null
+      : { type: "session_changed", session: { usage } };
+  }
+  const record = await readSessionRecord(env, session);
+  if (!record.ok) return null;
+  switch (changed) {
+    case "title":
+      return {
+        type: "session_changed",
+        session: {
+          title:
+            record.value.title === null ? null : env.redact(record.value.title),
+        },
+      };
+    case "mode":
+      return {
+        type: "session_changed",
+        session: { mode: record.value.skip ? "skip" : "ask" },
+      };
+    case "model":
+      // 고른 model이 바뀌면 창 한도도 바뀐다.
+      return {
+        type: "session_changed",
+        session: {
+          ...(await readModelPart(env, record.value)),
+          usage: await readUsage(env, session),
+        },
+      };
+  }
 }
 
 // ---------------------------------------------------------------- 갱신

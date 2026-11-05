@@ -5,13 +5,22 @@ import { ok, type Result } from "../../../../base/mod.ts";
 import {
   type AcpState,
   type AcpUpdate,
+  acpSessionMetaSchema,
   acpStateSchema,
   acpUpdateSchema,
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "../../../../protocol/acp/mod.ts";
 import type { AgentEvent } from "../../../../protocol/events/mod.ts";
+import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { commandsList } from "../../../../protocol/lophn-agent/commands.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/mod.ts";
+import {
+  modelCatalogRead,
+  shownModelsRead,
+} from "../../../../protocol/lophn-agent/models.ts";
+import { providerList } from "../../../../protocol/lophn-agent/providers.ts";
+import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
 import { placeSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { receivedMessageList } from "../../../../protocol/lophn-agent/received-messages.ts";
 import { rewindList } from "../../../../protocol/lophn-agent/reverts.ts";
@@ -30,6 +39,8 @@ import {
   type AcpStoredItem,
   acpUpdatesFor,
   buildAcpState,
+  readSessionMeta,
+  sessionChangeOf,
 } from "./acp-build.ts";
 
 const SECRET = "sk-live-SECRET";
@@ -284,6 +295,7 @@ test("snapshot과 갱신을 접은 상태가 같고 ACP에 redaction 안 된 글
     elapsed: null,
     approval: null,
     question: null,
+    session: null,
     stored: [...stored.values()],
     allocate: (items) => allocate(SES, items),
   });
@@ -385,4 +397,52 @@ test("tool의 종류는 시작 때부터 있고 실패해도 지킨다", async (
   const asked = ask.started[0];
   assert.ok(asked?.type === "tool_started");
   assert.equal(asked.item.detail.kind, "question");
+});
+
+// rename 뒤의 session_changed를 접은 상태가 그때의 snapshot 칸과 같고, 제목은 redaction을 거친다.
+test("rename 뒤의 session_changed를 접은 session meta가 snapshot의 것과 같다", async () => {
+  let title = "old";
+  const read = <T>(route: { resource: string; method: string }) => {
+    const found: Record<string, unknown> = {
+      [key(placeSessionRead)]: {
+        session: {
+          agent: "lophn",
+          place: null,
+          title,
+          skip: false,
+          model_selection: null,
+        },
+      },
+      [key(providerList)]: { providers: [], next_cursor: null },
+      [key(modelCatalogRead)]: { entries: [], next_cursor: null },
+      [key(shownModelsRead)]: { shown: { items: [] } },
+      [key(agentRead)]: { effective: { model: null } },
+      [key(sessionStatusRead)]: {
+        context: null,
+        tokens: { input: 1, output: 2, cache_read: null, cache_write: null },
+        turns: 1,
+        costs: [],
+        provider: null,
+      },
+      [key(commandsList)]: { commands: [] },
+    };
+    return Promise.resolve(ok(found[key(route)] as T));
+  };
+  const e: AcpEnv = {
+    read,
+    redact: (text) => text.replaceAll(SECRET, "[redacted]"),
+  };
+
+  const before = await readSessionMeta(e, SES, read);
+  assert.ok(before !== null);
+  title = `new ${SECRET}`;
+  const update = await sessionChangeOf(e, SES, "title");
+  assert.ok(update !== null);
+  const folded = reduceAcp({ ...EMPTY_ACP_STATE, session: before }, update);
+
+  const after = await readSessionMeta(e, SES, read);
+  assert.ok(after !== null);
+  acpSessionMetaSchema.parse(after);
+  assert.deepStrictEqual(folded.session, after);
+  assert.equal(after.title, "new [redacted]");
 });

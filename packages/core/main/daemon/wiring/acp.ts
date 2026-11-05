@@ -18,8 +18,20 @@ import {
   messageBody,
   receivedMessageList,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
+import {
+  modelCatalogRead,
+  shownModelsRead,
+} from "../../../../protocol/lophn-agent/models.ts";
+import { providerList } from "../../../../protocol/lophn-agent/providers.ts";
 import { rewindList } from "../../../../protocol/lophn-agent/reverts.ts";
 import { sessionRewind } from "../../../../protocol/lophn-agent/session-rewinds.ts";
+import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
+import {
+  changeSessionModel,
+  changeSessionSkip,
+  renameSession,
+} from "../../../../protocol/lophn-agent/sessions.ts";
 import {
   toolCallList,
   toolCallRead,
@@ -44,7 +56,9 @@ import {
   type AcpStoredItem,
   acpUpdatesFor,
   buildAcpState,
+  readSessionMeta,
   redactDeep,
+  sessionChangeOf,
 } from "./acp-build.ts";
 import { createAcpSend } from "./acp-send.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
@@ -67,6 +81,10 @@ const ACP_CONTEXT: AuthenticatedContext = {
       agentRead.name,
       agentCallRead.name,
       rewindList.name,
+      providerList.name,
+      modelCatalogRead.name,
+      shownModelsRead.name,
+      sessionStatusRead.name,
     ],
     targets: {},
   },
@@ -85,6 +103,7 @@ const EVENT_TYPES = [
   "TurnStarted",
   "TurnResumed",
   "TurnEnded",
+  "CompactEnded",
   "ModelOutputStreamed",
   "MessageRecorded",
   "ToolCallStarted",
@@ -189,7 +208,11 @@ export const acpWiring: WiringFactory = () => {
         };
       };
 
-      const snapshot = (session: string) => {
+      // `who`가 있으면 대화 밖 session 기능(`session`)까지 읽는다. 명령 목록이 사람 자격으로만 읽혀서다.
+      const snapshot = async (
+        session: string,
+        who: AuthenticatedContext | null,
+      ) => {
         const live: AcpLive = {
           steering: new Set(
             ctx.inbox
@@ -203,6 +226,15 @@ export const acpWiring: WiringFactory = () => {
           elapsed: ctx.liveTurns.elapsed(session),
           approval: approvalOf(session),
           question: questionOf(session),
+          session:
+            who === null
+              ? null
+              : await readSessionMeta(env, session, async (route, input) => {
+                  const handler = ctx.runtime.reads.get(key(route));
+                  return handler === undefined
+                    ? err({ code: "unavailable", message: "read not served" })
+                    : ((await handler(who, input)) as Result<never>);
+                }),
           stored: storedOf(session),
           allocate: (items) => allocate(session, items),
         };
@@ -266,6 +298,16 @@ export const acpWiring: WiringFactory = () => {
             : null,
       });
 
+      const publishSessionChange = async (
+        session: string,
+        changed: Parameters<typeof sessionChangeOf>[2],
+      ) => {
+        const update = await sessionChangeOf(env, session, changed);
+        if (update !== null) {
+          publishUpdates(session, ctx.clock.now(), [update]);
+        }
+      };
+
       // event는 하나씩 차례로 처리한다. 읽기를 기다리는 사이에 뒤 event가 앞서 나가지 않게 한다.
       let queue: Promise<void> = Promise.resolve();
       const enqueue = (work: () => Promise<void>) => {
@@ -284,18 +326,28 @@ export const acpWiring: WiringFactory = () => {
           const agent = event as AgentEvent;
           const cap = capture(agent);
           enqueue(async () => {
-            publishUpdates(
-              agent.session,
-              agent.at,
-              await acpUpdatesFor({ env, allocate, openRequests }, agent, cap),
-            );
+            // 압축은 대화 항목이 없다. 사용량만 바뀐다.
+            if (agent.type !== "CompactEnded") {
+              publishUpdates(
+                agent.session,
+                agent.at,
+                await acpUpdatesFor(
+                  { env, allocate, openRequests },
+                  agent,
+                  cap,
+                ),
+              );
+            }
+            if (agent.type === "TurnEnded" || agent.type === "CompactEnded") {
+              await publishSessionChange(agent.session, "usage");
+            }
           });
         },
         close() {},
       });
 
       const hiddenAfterRewind = async (session: string) => {
-        const built = await snapshot(session);
+        const built = await snapshot(session, null);
         if (!built.ok) return;
         publishUpdates(
           session,
@@ -321,7 +373,7 @@ export const acpWiring: WiringFactory = () => {
             ? err({ code: "unavailable", message: "route unavailable" })
             : await handler(who, input);
         },
-        newMessageId: () => ids.newId("msg"),
+        newId: (prefix) => ids.newId(prefix),
       });
 
       return ok({
@@ -329,29 +381,41 @@ export const acpWiring: WiringFactory = () => {
           [
             key(acpSend),
             async (who, body) => {
-              const done = await send(who, body as AcpInput);
-              return done.ok ? ok({}) : done;
+              return await send(who, body as AcpInput);
             },
           ],
         ],
         reads: (reads) =>
-          reads.set(key(acpSnapshot), async (_who, input) => {
+          reads.set(key(acpSnapshot), async (who, input) => {
             const parsed = acpSnapshot.input.safeParse(input);
             if (!parsed.success) {
               return err({ code: "invalid_input", message: "invalid input" });
             }
-            return await snapshot(parsed.data.session);
+            return await snapshot(parsed.data.session, who);
           }),
-        // rewind가 숨긴 구간은 AgentEvent가 없어 적용이 끝난 뒤 여기서 낸다.
+        // rewind가 숨긴 구간은 AgentEvent가 없어 적용이 끝난 뒤 여기서 낸다. 제목·model·mode는 어느 client가 바꿔도
+        // 이 writer를 지나므로 바뀐 칸을 여기서 낸다. 첫 말은 자동 제목을 붙이므로 SendMessage 뒤에도 제목을 낸다.
         writer: (inner) => ({
           ...inner,
           async command(who, envelope) {
             const done = await inner.command(who, envelope);
-            if (done.ok && envelope.command === sessionRewind.name) {
-              const session = (envelope.input as { session?: unknown }).session;
-              if (typeof session === "string") {
+            if (!done.ok) return done;
+            const session = (envelope.input as { session?: unknown }).session;
+            if (typeof session !== "string") return done;
+            switch (envelope.command) {
+              case sessionRewind.name:
                 enqueue(() => hiddenAfterRewind(session));
-              }
+                break;
+              case renameSession.name:
+              case sendMessage.name:
+                enqueue(() => publishSessionChange(session, "title"));
+                break;
+              case changeSessionModel.name:
+                enqueue(() => publishSessionChange(session, "model"));
+                break;
+              case changeSessionSkip.name:
+                enqueue(() => publishSessionChange(session, "mode"));
+                break;
             }
             return done;
           },

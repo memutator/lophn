@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { dirname, isAbsolute } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { idSchema } from "../../../protocol/base/ids.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/mod.ts";
@@ -98,10 +99,11 @@ export function dataRootOf(
     [],
   );
   const file = row?.["file"];
-  if (typeof file !== "string" || !file.includes("/")) {
+  // 메모리 DB는 빈 이름이다. Windows 경로는 `\`로 나뉘어 `/`로 자르지 않는다.
+  if (typeof file !== "string" || !isAbsolute(file)) {
     return err({ code: "unavailable", message: "ledger location is unknown" });
   }
-  return ok(file.slice(0, file.lastIndexOf("/")));
+  return ok(dirname(file));
 }
 
 // 할당(`apps`, `permissions.deny`)만 바꿔 정의 파일에 다시 쓴다. 다른 칸과 본문은 그대로다.

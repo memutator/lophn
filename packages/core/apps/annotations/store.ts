@@ -1,4 +1,5 @@
 // annotation 표 읽기. command와 read와 lookup이 같이 쓴다.
+import { dirname, isAbsolute } from "node:path";
 import type {
   AnnotationBatch,
   AnnotationRead,
@@ -17,9 +18,8 @@ function dataRootOf(sql: Query): string | null {
     "SELECT file FROM pragma_database_list WHERE name = 'main'",
     [],
   )?.["file"];
-  return typeof file === "string" && file.includes("/")
-    ? file.slice(0, file.lastIndexOf("/"))
-    : null;
+  // 메모리 DB는 빈 이름이다. Windows 경로는 `\`로 나뉘어 `/`로 자르지 않는다.
+  return typeof file === "string" && isAbsolute(file) ? dirname(file) : null;
 }
 
 // 묶음 행에서 target을 읽는다. 표의 CHECK가 칸 조합을 지킨다.

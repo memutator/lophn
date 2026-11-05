@@ -8,17 +8,22 @@ import { agentIdSchema, workspaceSchema } from "./workspaces.ts";
 // 표가 아니라 열 때마다 계산하는 derived 값이라 command도 event도 없고 read 하나뿐이다.
 
 const COMMAND_SOURCES = ["builtin", "skill"] as const;
-// 전역 built-in 아홉 개의 id이자 이름이다. 이 배열의 순서가 메뉴의 고정 순서다.
+// 전역 built-in의 id이자 이름이다. 이 배열의 순서가 메뉴의 고정 순서다.
 export const BUILTIN_COMMAND_IDS = [
   "new",
-  "rename",
-  "archive",
-  "compact",
-  "fork",
-  "mcp",
-  "skills",
+  "model",
+  "effort",
   "permissions",
   "status",
+  "usage",
+  "context",
+  "rewind",
+  "fork",
+  "rename",
+  "compact",
+  "archive",
+  "mcp",
+  "skills",
 ] as const;
 
 const nonempty = z.string().regex(/\S/);

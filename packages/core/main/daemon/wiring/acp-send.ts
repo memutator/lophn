@@ -35,7 +35,7 @@ import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../../protocol/lophn-agent/turns.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { CommandEnvelope } from "../../../storage/ledger/mod.ts";
-import { AGENT_MODES } from "./acp-build.ts";
+import { AGENT_MODES, LOPHN_COMMAND_FACES } from "./acp-build.ts";
 
 /** `AcpSend`의 답. fork가 연 새 session이다. */
 export type AcpSent = { session?: string };
@@ -310,8 +310,13 @@ export function createAcpSend(deps: AcpSendDeps) {
         );
       }
       case "run_command": {
-        // 내장 명령은 화면이 처리한다. 나머지는 skill 이름이고 목록은 다시 읽지 않는다.
-        if ((BUILTIN_COMMAND_IDS as readonly string[]).includes(input.name)) {
+        // 내장 명령과 그 별칭은 화면이 `opens`로 처리한다. 나머지는 skill 이름이고 목록은 다시 읽지 않는다.
+        if (
+          (BUILTIN_COMMAND_IDS as readonly string[]).includes(input.name) ||
+          Object.values(LOPHN_COMMAND_FACES).some((face) =>
+            face.aliases.includes(input.name),
+          )
+        ) {
           return invalid();
         }
         const request = skillRequest(input.name);

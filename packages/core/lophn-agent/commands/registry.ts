@@ -29,6 +29,17 @@ const BUILTIN_TABLE: Record<
     title: "New session",
     description: "Start a new session with this agent",
   },
+  model: { title: "Model", description: "Choose the model and its options" },
+  effort: { title: "Effort", description: "Change how much the model thinks" },
+  usage: {
+    title: "Usage",
+    description: "Show tokens and cost for this session",
+  },
+  context: {
+    title: "Context",
+    description: "Show how full the context window is",
+  },
+  rewind: { title: "Rewind", description: "Go back to an earlier message" },
   rename: { title: "Rename", description: "Rename this session" },
   archive: { title: "Archive", description: "Archive this session" },
   compact: {

@@ -22,6 +22,7 @@ import {
   ACP_CAPABILITIES,
   type AcpCapabilities,
   type AcpChoice,
+  type AcpCommandOpens,
   type AcpModelGroup,
   type AcpSessionMeta,
   type AcpUsage,
@@ -36,7 +37,10 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import { commandsList } from "../../../../protocol/lophn-agent/commands.ts";
+import {
+  BUILTIN_COMMAND_IDS,
+  commandsList,
+} from "../../../../protocol/lophn-agent/commands.ts";
 import {
   type ModelChoice,
   modelCatalogRead,
@@ -1177,20 +1181,99 @@ function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
   };
 }
 
+// lophn 내장 명령이 화면에서 하는 일. ACP 쪽 얼굴이라 ListCommands가 아니라 여기 둔다.
+export const LOPHN_COMMAND_FACES: Record<
+  (typeof BUILTIN_COMMAND_IDS)[number],
+  {
+    opens: AcpCommandOpens;
+    aliases: readonly string[];
+    argument_hint: string | null;
+    session: boolean;
+  }
+> = {
+  new: {
+    opens: "new",
+    aliases: ["clear"],
+    argument_hint: null,
+    session: false,
+  },
+  model: { opens: "model", aliases: [], argument_hint: null, session: false },
+  effort: { opens: "effort", aliases: [], argument_hint: null, session: false },
+  permissions: {
+    opens: "permissions",
+    aliases: [],
+    argument_hint: null,
+    session: false,
+  },
+  status: { opens: "status", aliases: [], argument_hint: null, session: true },
+  usage: { opens: "usage", aliases: [], argument_hint: null, session: true },
+  context: {
+    opens: "context",
+    aliases: [],
+    argument_hint: null,
+    session: true,
+  },
+  rewind: { opens: "rewind", aliases: [], argument_hint: null, session: true },
+  fork: { opens: "fork", aliases: [], argument_hint: null, session: true },
+  rename: {
+    opens: "rename",
+    aliases: [],
+    argument_hint: "[title]",
+    session: true,
+  },
+  compact: {
+    opens: "compact",
+    aliases: [],
+    argument_hint: null,
+    session: true,
+  },
+  archive: {
+    opens: "archive",
+    aliases: [],
+    argument_hint: null,
+    session: true,
+  },
+  mcp: { opens: "mcp", aliases: [], argument_hint: null, session: false },
+  skills: { opens: "skills", aliases: [], argument_hint: null, session: false },
+};
+
+const LOPHN_COMMAND_ALIASES: ReadonlySet<string> = new Set(
+  Object.values(LOPHN_COMMAND_FACES).flatMap((face) => face.aliases),
+);
+
 function commandsOf(
   env: AcpEnv,
   read: Result<Output<typeof commandsList>>,
+  hasSession: boolean,
 ): AcpSessionMeta["commands"] {
-  return read.ok
-    ? read.value.commands.map((one) => ({
+  if (!read.ok) return [];
+  const out: AcpSessionMeta["commands"] = [];
+  for (const one of read.value.commands) {
+    const description = env.redact(one.description);
+    if (one.source === "builtin") {
+      const face =
+        LOPHN_COMMAND_FACES[one.name as keyof typeof LOPHN_COMMAND_FACES];
+      if (!hasSession && face.session) continue;
+      out.push({
+        name: one.name,
+        aliases: [...face.aliases],
+        description,
+        argument_hint: face.argument_hint,
+        source: "app",
+        opens: face.opens,
+      });
+    } else if (!LOPHN_COMMAND_ALIASES.has(one.name)) {
+      out.push({
         name: one.name,
         aliases: [],
-        description: env.redact(one.description),
+        description,
         argument_hint: null,
-        source: one.source === "builtin" ? "app" : one.source,
+        source: "skill",
         opens: null,
-      }))
-    : [];
+      });
+    }
+  }
+  return out;
 }
 
 /** 이름 목록은 사람 자격으로만 읽힌다(`ListCommands`). 그래서 부른 사람의 read를 받는다. */
@@ -1211,7 +1294,7 @@ export async function readSessionMeta(
     skip: record.value.skip,
     model,
     usage,
-    commands: commandsOf(env, commands),
+    commands: commandsOf(env, commands, true),
   });
 }
 
@@ -1233,7 +1316,7 @@ export async function readDraftMeta(
     skip: false,
     model,
     usage: null,
-    commands: commandsOf(env, commands),
+    commands: commandsOf(env, commands, false),
   });
 }
 

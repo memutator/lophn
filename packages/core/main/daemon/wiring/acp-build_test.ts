@@ -489,6 +489,12 @@ test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title
           source: "builtin",
         },
         {
+          name: "rename",
+          title: "Rename",
+          description: "d",
+          source: "builtin",
+        },
+        {
           name: "release-notes",
           title: null,
           description: "s",
@@ -509,16 +515,21 @@ test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title
   );
   assert.ok(session !== null);
   acpSessionMetaSchema.parse(draft);
+  // session이 있어야 하는 내장(rename)은 draft에 없다.
   assert.deepStrictEqual(draft, {
     ...session,
     title: null,
     usage: null,
     cli_session: null,
+    commands: session.commands.filter((one) => one.name !== "rename"),
   });
   assert.equal(draft.model?.layer, "agent");
-  assert.equal(draft.commands.length, 2);
+  assert.deepStrictEqual(
+    draft.commands.map((one) => one.name),
+    ["new", "release-notes"],
+  );
   assert.deepStrictEqual(
     session.commands.map((one) => one.source),
-    ["app", "skill"],
+    ["app", "app", "skill"],
   );
 });

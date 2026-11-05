@@ -1,8 +1,9 @@
 // Claude adapter가 쓰는 SDK 동작을 진짜 `claude`로 녹화한다. 실제 model을 부르니 사람의 허락 아래 lead가 돌린다.
 //
-//   node packages/shell/main/extensions/bundled/harness-gui/fixtures/claude/record.ts [scenario ...]
+//   RECORD_OUT=<dir> node packages/shell/main/extensions/bundled/harness-gui/fixtures/claude/record.ts [scenario ...]
 //
-// scenario를 안 주면 전부 차례로 돈다. scenario마다 `.dev-data/adapter-claude/<scenario>.jsonl`에 한 줄씩
+// RECORD_OUT은 꼭 준다(worktree 안 폴더는 merge 때 지워진다). scenario를 안 주면 전부 차례로 돈다.
+// scenario마다 `<RECORD_OUT>/<scenario>.jsonl`에 한 줄씩
 // `{t, kind, data}`를 쓴다(t: scenario 시작부터 ms). kind는
 //   send               push한 user 메시지(uuid·priority 포함)
 //   message            SDK가 낸 메시지 하나
@@ -24,7 +25,9 @@ import {
   forkSession,
   getSessionInfo,
   getSessionMessages,
+  getSubagentMessages,
   listSessions,
+  listSubagents,
   query,
   renameSession,
   type CanUseTool,
@@ -51,7 +54,11 @@ const MARKERS = new Set([
   "CLAUDE_EFFORT",
 ]);
 
-const OUT = resolve(process.env.RECORD_OUT ?? ".dev-data/adapter-claude");
+if (process.env.RECORD_OUT === undefined || process.env.RECORD_OUT === "") {
+  console.error("RECORD_OUT is required (the output folder of the recording)");
+  process.exit(1);
+}
+const OUT = resolve(process.env.RECORD_OUT);
 const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 const hasText = (m: Msg, text: string) => JSON.stringify(m).includes(text);
 
@@ -64,7 +71,11 @@ type Msg = {
   state?: string;
   tasks?: { task_id: string }[];
   task_id?: string;
+  task_type?: string;
+  tool_use_id?: string;
   status?: string;
+  parent_tool_use_id?: string | null;
+  isReplay?: boolean;
   terminal_reason?: string;
   event?: { type?: string; delta?: { type?: string } };
   message?: { role?: string; content?: unknown };
@@ -266,6 +277,28 @@ class Run {
     const limit = Date.now() + ms;
     while (Date.now() - this.lastAt < quiet && Date.now() < limit)
       await sleep(200);
+  }
+
+  /** 명령 하나를 보내고 조용해질 때까지 기다린 뒤, 출력이 AC §5.2의 어느 꼴로 왔는지 남긴다. */
+  async command(text: string, quiet = 8000, ms = 120_000) {
+    const from = this.messages.length;
+    this.send(this.user(text));
+    await sleep(500);
+    await this.settle(quiet, ms);
+    const forms = this.messages.slice(from).flatMap((m) => {
+      const raw = JSON.stringify(m);
+      if (m.type === "stream_event") return [];
+      const found: string[] = [`${m.type}${m.subtype ? `/${m.subtype}` : ""}`];
+      if (raw.includes('"local_command_run"')) found.push("local_command_run");
+      if (raw.includes("<local-command-stdout>"))
+        found.push("local-command-stdout");
+      if (raw.includes("<local-command-stderr>"))
+        found.push("local-command-stderr");
+      if (raw.includes('"context_usage"')) found.push("context_usage");
+      if (raw.includes('"usage_report"')) found.push("usage_report");
+      return [found.join("+")];
+    });
+    this.rec.write("lead_note", { command: text, forms });
   }
 
   async call<T>(name: string, args: unknown, fn: () => Promise<T>) {
@@ -662,14 +695,39 @@ const SCENARIOS: Record<string, (ctx: Ctx) => Promise<void>> = {
     await run.close();
   },
 
-  // (k) 명령 출력(local_command_output).
-  async context_command({ open }) {
+  // (k) 명령 출력. 출력마다 어느 꼴(local_command_run / local-command-stdout / local_command_output)로 오는지 남긴다.
+  async commands({ rec, open }) {
     const run = open();
+    await run.call("supportedCommands", {}, () => run.q.supportedCommands());
     await run.ask("Reply with the single word: ok");
-    run.send(run.user("/context"));
-    await run.settle(8000);
-    run.send(run.user("/usage"));
-    await run.settle(8000);
+    await run.command("/context");
+    await run.call("getContextUsage full", {}, () =>
+      run.q.getContextUsage({ detail: "full" }),
+    );
+    await run.command("/usage", 30_000, 180_000);
+    await run.command("/cost", 8000);
+    await run.command("/effort");
+    await run.command("/model");
+    await run.command("/config");
+    await run.command("/mcp");
+    await run.command("/recap");
+    await run.command(
+      "/goal the file goal.txt exists and contains the word done",
+    );
+    await run.until(
+      "active_goal",
+      () => run.messages.some((m) => m.type === "active_goal"),
+      30_000,
+    );
+    await run.settle(15_000);
+    // goal을 지우는 말은 CLI가 정한다. 후보를 차례로 보낸다.
+    await run.command("/goal clear");
+    await run.command("/goal");
+    rec.write("lead_note", {
+      activeGoals: run.messages
+        .filter((m) => m.type === "active_goal")
+        .map((m) => JSON.stringify(m)),
+    });
     await run.close();
   },
 
@@ -745,6 +803,213 @@ const SCENARIOS: Record<string, (ctx: Ctx) => Promise<void>> = {
       getSessionMessages(printed, { dir: cwd }),
     );
     await second.close();
+  },
+
+  // todo 목록: TodoWrite인지 Task tool(TaskCreate/TaskUpdate)인지, resume하면 어떻게 다시 오는지.
+  async todo({ rec, cwd, open }) {
+    const run = open();
+    await run.ask(
+      "Make a todo list with three items (create a.txt, b.txt, c.txt, each containing its own letter). Then do them one at a time and mark each completed right after you finish it.",
+    );
+    const tools = new Set<string>();
+    for (const m of run.messages) {
+      if (m.type !== "assistant") continue;
+      for (const c of (m.message?.content ?? []) as {
+        type?: string;
+        name?: string;
+      }[])
+        if (c.type === "tool_use" && c.name !== undefined) tools.add(c.name);
+    }
+    rec.write("lead_note", { toolsUsed: [...tools] });
+    const id = run.sessionId();
+    await run.close();
+    if (id !== undefined)
+      await run.call("getSessionMessages", id, () =>
+        getSessionMessages(id, { dir: cwd }),
+      );
+  },
+
+  // foreground Agent: parent_tool_use_id 자식 메시지, task_* 순서, 끝난 뒤 getSubagentMessages·listSubagents.
+  async subagent({ rec, cwd, open }) {
+    const run = open();
+    await run.ask(
+      "Use the Agent tool with a general-purpose subagent to run `ls` in the current directory and report the result in one sentence. Wait for it, then tell me what it said.",
+    );
+    const id = run.sessionId();
+    const taskIds = [
+      ...new Set(
+        run.messages
+          .filter((m) => m.subtype === "task_started")
+          .map((m) => m.task_id),
+      ),
+    ];
+    rec.write("lead_note", {
+      id,
+      taskIds,
+      children: run.messages.filter((m) => m.parent_tool_use_id).length,
+    });
+    if (id !== undefined) {
+      const listed = await run.call("listSubagents", id, () =>
+        listSubagents(id, { dir: cwd }),
+      );
+      for (const one of new Set([...taskIds, ...(listed ?? [])]))
+        if (one !== undefined)
+          await run.call("getSubagentMessages", one, () =>
+            getSubagentMessages(id, one, { dir: cwd }),
+          );
+    }
+    await run.close();
+  },
+
+  // run_in_background Agent를 stopTask로 끈다.
+  async subagent_background({ rec, cwd, open }) {
+    const run = open();
+    run.send(
+      run.user(
+        "Use the Agent tool with run_in_background true and a general-purpose subagent that runs the shell command `sleep 90` and then reports done. After it is launched, just say: launched.",
+      ),
+    );
+    const started = () =>
+      run.messages.find((m) => m.subtype === "task_started");
+    await run.until("task_started", () => started() !== undefined, 120_000);
+    await run.until("result", () => run.results() > 0, 120_000);
+    await sleep(3000);
+    const taskId = started()?.task_id;
+    rec.write("lead_note", {
+      taskId,
+      taskType: started()?.task_type,
+      toolUseId: started()?.tool_use_id,
+    });
+    if (taskId !== undefined) {
+      await run.call("stopTask", taskId, () => run.q.stopTask(taskId));
+      await run.until(
+        "task_notification",
+        () => run.messages.some((m) => m.subtype === "task_notification"),
+        30_000,
+      );
+    }
+    await run.settle(4000);
+    const id = run.sessionId();
+    if (id !== undefined && taskId !== undefined) {
+      await run.call("listSubagents", id, () =>
+        listSubagents(id, { dir: cwd }),
+      );
+      await run.call("getSubagentMessages", taskId, () =>
+        getSubagentMessages(id, taskId, { dir: cwd }),
+      );
+    }
+    await run.close();
+  },
+
+  // fast mode와 thinking toggle. 설정 file은 건드리지 않는다(applyFlagSettings는 이 query 한정이다).
+  async fast({ rec, open }) {
+    const run = open();
+    await run.ask("Reply with the single word: ok");
+    const models = await run.call("supportedModels", {}, () =>
+      run.q.supportedModels(),
+    );
+    rec.write("lead_note", {
+      fastModels: models
+        ?.filter((m) => m.supportsFastMode === true)
+        .map((m) => m.value),
+      adaptiveModels: models
+        ?.filter((m) => m.supportsAdaptiveThinking === true)
+        .map((m) => m.value),
+    });
+    await run.call("applyFlagSettings fastMode true", {}, () =>
+      run.q.applyFlagSettings({ fastMode: true }),
+    );
+    await run.ask("Reply with the single word: ok");
+    await run.call("applyFlagSettings fastMode false", {}, () =>
+      run.q.applyFlagSettings({ fastMode: false }),
+    );
+    await run.call("setMaxThinkingTokens 2000", {}, () =>
+      run.q.setMaxThinkingTokens(2000),
+    );
+    await run.ask("Reply with the single word: ok");
+    await run.call("setMaxThinkingTokens null", {}, () =>
+      run.q.setMaxThinkingTokens(null),
+    );
+    await run.close();
+  },
+
+  // /clear: 열린 query 안에서 오는 것, 그리고 메시지 없는 새 sessionId를 `claude -p --resume`이 받는지.
+  async clear_resume({ rec, cwd, open }) {
+    const run = open();
+    await run.ask("My secret word is ALPHA. Reply with the single word: ok");
+    const before = run.sessionId();
+    await run.command("/clear", 8000);
+    await run.ask(
+      "What is my secret word? Answer with one word, or say unknown.",
+    );
+    rec.write("lead_note", {
+      before,
+      sessionIds: [
+        ...new Set(run.messages.map((m) => m.session_id).filter(Boolean)),
+      ],
+      inits: run.messages.filter((m) => m.subtype === "init").length,
+    });
+    await run.close();
+    const empty = randomUUID();
+    await claudeP(rec, cwd, [
+      "-p",
+      "Reply with the single word: ok",
+      "--resume",
+      empty,
+      "--output-format",
+      "json",
+      "--model",
+      "haiku",
+    ]);
+    await claudeP(rec, cwd, [
+      "-p",
+      "Reply with the single word: ok",
+      "--session-id",
+      empty,
+      "--output-format",
+      "json",
+      "--model",
+      "haiku",
+    ]);
+  },
+
+  // origin: push한 uuid가 getSessionMessages의 uuid와 같고 resume해도 그대로인가.
+  async origin({ rec, cwd, open }) {
+    const first = open();
+    const u1 = await first.ask("Reply with the single word: one");
+    const id = first.sessionId();
+    rec.write("lead_note", {
+      pushed: u1,
+      streamUserUuids: first.messages
+        .filter((m) => m.type === "user")
+        .map((m) => m.uuid),
+      streamAssistantUuids: first.messages
+        .filter((m) => m.type === "assistant")
+        .map((m) => m.uuid),
+    });
+    await first.close();
+    if (id === undefined) return rec.write("lead_note", "no session id");
+    await first.call("getSessionMessages", id, () =>
+      getSessionMessages(id, { dir: cwd }),
+    );
+    const second = open({ resume: id });
+    const u2 = await second.ask("Reply with the single word: two");
+    rec.write("lead_note", { pushedAfterResume: u2 });
+    await second.close();
+    await second.call("getSessionMessages after resume", id, () =>
+      getSessionMessages(id, { dir: cwd }),
+    );
+  },
+
+  // Edit·Write의 canUseTool 입력(old_string/new_string, 덮어쓰기와 새 file).
+  async edit_approval({ cwd, open }) {
+    writeFileSync(resolve(cwd, "f.txt"), "one\ntwo\nthree\n");
+    writeFileSync(resolve(cwd, "g.txt"), "old\n");
+    const run = open();
+    await run.ask(
+      "Do these in order: (1) use the Edit tool to change the line `two` to `TWO` in f.txt; (2) use the MultiEdit tool if you have it, otherwise Edit twice, to change `one` to `1` and `three` to `3` in f.txt; (3) use the Write tool to overwrite g.txt with the single line `new`; (4) use the Write tool to create h.txt containing `hello`.",
+    );
+    await run.close();
   },
 
   // 허락 규칙: "이 session 동안" 규칙이 같은 query 안에서는 먹고, 다시 열 때 allowedTools로 넣으면 먹고, 안 넣으면 잃는다.

@@ -46,6 +46,7 @@ import {
   HARNESS_GUI_TAB_DISCONNECT_CHANNEL,
   HARNESS_GUI_TAB_IMAGE_CHANNEL,
   HARNESS_GUI_TAB_INPUT_CHANNEL,
+  HARNESS_GUI_TAB_RUNNING_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
 } from "../../../ipc/harness-gui.ts";
 import { cliEnv, type TabGui } from "../../terminal/gui.ts";
@@ -164,7 +165,8 @@ function createAcp(
         attached.clear();
         for (const listener of closers) listener();
       };
-      const terminal = "terminal" in options ? options.terminal.id : null;
+      const bound = "terminal" in options ? options : null;
+      const terminal = bound?.terminal.id ?? null;
       const window: AcpWindowHandle = {
         id,
         terminal,
@@ -195,8 +197,13 @@ function createAcp(
         close,
       };
       // 탭에 묶인 handle은 그 탭을 가진 창이 ack하면 GUI view가 된다. 첫 판은 새 창을 연다.
-      if (terminal === null) port.open(window);
-      else gui.opened({ ...window, terminal });
+      if (bound === null) port.open(window);
+      else
+        gui.opened({
+          ...window,
+          terminal: bound.terminal.id,
+          handoff: bound.handoff,
+        });
       return handle;
     },
     // 탭 GUI(`terminal/gui.ts`)가 이 handlers를 부른다.
@@ -278,6 +285,11 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
   });
   handle(HARNESS_GUI_TAB_INPUT_CHANNEL, tabInputSchema, (_event, input) =>
     gui.input(input.handle, input.input),
+  );
+  handle(
+    HARNESS_GUI_TAB_RUNNING_CHANNEL,
+    z.strictObject({ terminal_ref: z.string().min(1).max(80) }),
+    (_event, input) => gui.running(input.terminal_ref),
   );
   handle(HARNESS_GUI_TAB_TOGGLE_CHANNEL, tabToggleSchema, (_event, input) =>
     gui.toggle(input),

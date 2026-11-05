@@ -25,15 +25,6 @@ import {
 import { SESSION_MARKER_NAME } from "../../terminal-host/env.ts";
 import type { RoutedHook } from "./agent/ingress.ts";
 
-// shell main은 adapter 표(extension 안)를 읽지 못한다. 어느 harness가 어느 길인지는 README 정한 것 7이고, adapter의
-// `handoff`와 같아야 한다.
-const HANDOFF: Record<GuiHarness, HarnessGuiHandoff> = {
-  claude: "restart",
-  omp: "restart",
-  codex: "shared",
-  opencode: "shared",
-};
-
 // browser bridge와 같다. 탭을 가진 창이 이 안에 ack하지 않으면 handle을 닫는다.
 const ACK_TIMEOUT_MS = 1500;
 
@@ -45,6 +36,8 @@ export type TabHandle = {
   /** 이 handle이 붙은 탭의 terminal_ref. */
   readonly terminal: string;
   readonly harness: GuiHarness;
+  /** adapter의 `handoff`(extension이 `open`에 실었다). */
+  readonly handoff: HarnessGuiHandoff;
   readonly cwd: string;
   /** 쌓인 update를 처음부터 보내고 이어서 새것을 보낸다. 돌려받은 함수로 그만 듣는다. 이미 닫혔으면 바로 `closed`다. */
   attach(listener: {
@@ -112,6 +105,10 @@ export type TabGui = {
   /** extension이 탭에 묶인 handle을 열었다. 그 탭을 가진 창이 ack하면 GUI view가 된다. */
   opened(handle: TabHandle): void;
   ack(request: string): void;
+  /** 그 탭의 GUI가 도는 일. 없으면 null. */
+  running(
+    terminalRef: string,
+  ): Promise<{ turn: boolean; tasks: number } | null>;
   toggle(input: {
     terminal_ref: string;
     to: "gui" | "tui";
@@ -275,7 +272,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         terminal_ref: handle.terminal,
         handle: handle.id,
         harness: handle.harness,
-        handoff: HANDOFF[handle.harness],
+        handoff: handle.handoff,
       };
       broadcast(HARNESS_GUI_TAB_OPENED_CHANNEL, open);
     },
@@ -287,6 +284,11 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           tab.waiting = null;
         }
       }
+    },
+
+    async running(terminalRef) {
+      if (!byTerminal.has(terminalRef)) return null;
+      return (await deps.handlers())?.running(terminalRef) ?? null;
     },
 
     async toggle({ terminal_ref: terminalRef, to }) {

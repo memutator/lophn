@@ -8,6 +8,7 @@ import {
   HARNESS_GUI_TAB_IMAGE_CHANNEL,
   HARNESS_GUI_TAB_INPUT_CHANNEL,
   HARNESS_GUI_TAB_OPENED_CHANNEL,
+  HARNESS_GUI_TAB_RUNNING_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
   HARNESS_GUI_TAB_UPDATE_CHANNEL,
   HARNESS_GUI_TAB_VIEW_CHANNEL,
@@ -116,6 +117,15 @@ export function createHarnessGuiTabApi(
         );
       } catch {
         return false;
+      }
+    },
+    async running(terminalRef) {
+      try {
+        return (await transport.invoke(HARNESS_GUI_TAB_RUNNING_CHANNEL, {
+          terminal_ref: terminalRef,
+        })) as { turn: boolean; tasks: number } | null;
+      } catch {
+        return null;
       }
     },
     async toggle(input) {

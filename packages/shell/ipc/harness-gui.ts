@@ -41,6 +41,8 @@ export const HARNESS_GUI_TAB_UPDATE_CHANNEL = "harness-gui:tab-update";
 export const HARNESS_GUI_TAB_INPUT_CHANNEL = "harness-gui:tab-input";
 /** renderer → main invoke. 탭의 GUI ↔ TUI toggle. */
 export const HARNESS_GUI_TAB_TOGGLE_CHANNEL = "harness-gui:tab-toggle";
+/** renderer → main invoke. 그 탭의 GUI가 도는 일(restart modal이 멈출 것으로 보인다). */
+export const HARNESS_GUI_TAB_RUNNING_CHANNEL = "harness-gui:tab-running";
 /** renderer → main invoke. 사람이 붙인 이미지를 탭의 임시 폴더에 쓰고 경로를 받는다. */
 export const HARNESS_GUI_TAB_IMAGE_CHANNEL = "harness-gui:tab-image";
 
@@ -83,6 +85,10 @@ export interface HarnessGuiTabApi {
   disconnect(handle: string): Promise<void>;
   /** 조작을 보냈으면 true다. 통로가 끊기거나 main이 거절하면 false다. */
   input(handle: string, input: AcpInput): Promise<boolean>;
+  /** 그 탭의 GUI가 도는 일. 없으면 null. */
+  running(
+    terminalRef: string,
+  ): Promise<{ turn: boolean; tasks: number } | null>;
   toggle(input: {
     terminal_ref: string;
     to: "gui" | "tui";

@@ -56,6 +56,8 @@ export type AcpOpenTab = {
   terminal: AcpTerminal;
   harness: GuiHarness;
   title: string;
+  /** adapter의 `handoff`. 탭의 modal과 toggle이 어느 길인지 안다. */
+  handoff: "restart" | "shared";
 };
 
 /** 첫 판의 창 길. `gui-cleanup` 뒤 lead가 지운다. */
@@ -84,6 +86,8 @@ export type ExtensionAcp = {
   onTab(handlers: {
     gui(request: AcpTabRequest): void | Promise<void>;
     tui(terminalId: string): void | Promise<void>;
+    /** 그 탭의 run이 도는 일(restart 전 modal이 "멈출 것"으로 보인다). run이 없으면 null. */
+    running(terminalId: string): { turn: boolean; tasks: number } | null;
   }): () => void;
   /**
    * open intent를 받을 함수. 켜진 extension 하나가 `activate`에서 걸고 `deactivate`에서 돌려받은 함수로 건다.

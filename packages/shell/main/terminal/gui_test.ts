@@ -21,6 +21,7 @@ function setup() {
           gui.opened(fakeHandle(request.terminal.id));
         },
         tui: () => {},
+        running: () => null,
       }),
     showExtensionSettings: () => {},
     windows: () => [
@@ -83,6 +84,7 @@ function fakeHandle(terminal: string): TabHandle {
     id: `win_${terminal}`,
     terminal,
     harness: "claude",
+    handoff: "restart",
     cwd: "/work",
     attach: () => () => {},
     input: () => {},

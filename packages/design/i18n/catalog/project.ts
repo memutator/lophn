@@ -200,6 +200,8 @@ export const project = {
   "terminal.button.try-again": "Try again",
   "terminal.dialog.close-text":
     "Anything still going on in this terminal will stop.",
+  "terminal.dialog.stop-tasks":
+    "{count, plural, one {# background task will stop.} other {# background tasks will stop.}}",
   "terminal.dialog.stop-turn": "The running turn will stop.",
   "terminal.dialog.switch-text":
     "Switching stops {harness} and resumes the same conversation in the {target}.",

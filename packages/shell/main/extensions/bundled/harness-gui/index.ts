@@ -177,7 +177,12 @@ export function activate(ctx: ExtensionContext): void {
   async function gui(request: AcpTabRequest): Promise<void> {
     const { terminal, harness } = request;
     const adapter = HARNESS_GUI_ADAPTERS[harness];
-    const session = ctx.acp.open({ terminal, harness, title: harness });
+    const session = ctx.acp.open({
+      terminal,
+      harness,
+      title: harness,
+      handoff: adapter.handoff,
+    });
     const tab: Tab = {
       terminal,
       adapter,
@@ -283,7 +288,9 @@ export function activate(ctx: ExtensionContext): void {
     if (closed) stop();
   }
 
-  const offTab = ctx.acp.onTab({ gui, tui });
+  const running = (terminalId: string) =>
+    tabs.get(terminalId)?.run?.running() ?? null;
+  const offTab = ctx.acp.onTab({ gui, tui, running });
   const offIntent = ctx.acp.onOpenIntent(openWindow);
   stopAll = () => {
     offTab();

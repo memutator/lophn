@@ -116,6 +116,7 @@ export function TerminalTab({
         ? null
         : {
             turn: agent?.state === "running" || agent?.state === "waiting",
+            tasks: 0,
           },
   });
   const inCard = useCardHead(

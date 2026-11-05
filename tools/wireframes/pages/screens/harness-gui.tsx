@@ -166,6 +166,7 @@ function fakeApi(): HarnessGuiTabApi {
       }
       return true;
     },
+    running: async () => ({ turn: true, tasks: 2 }),
     toggle: async () => ({ ok: true }),
     uploadImage: async () => null,
   };

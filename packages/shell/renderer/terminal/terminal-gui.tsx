@@ -141,6 +141,7 @@ function createGuiFeed(now: () => number): GuiFeed {
 /** modal이 "멈출 일"로 보일 것. */
 export interface GuiStops {
   readonly turn: boolean;
+  readonly tasks: number;
 }
 
 interface ToggleOptions {
@@ -153,7 +154,7 @@ interface ToggleOptions {
    * 누를 때 부른다. null이면 modal 없이 바로 바꾼다(shared의 view 전환). 아니면 process를 한 번 껐다 켜므로 modal로 묻고
    * 멈출 일을 보인다.
    */
-  confirm: () => GuiStops | null;
+  confirm: () => GuiStops | null | Promise<GuiStops | null>;
 }
 
 // 단추는 card 머리에 올라가고 머리는 deps가 바뀔 때마다 다시 서서 그 안의 상태가 사라진다. modal과 오류는 이 hook을 쓰는
@@ -189,11 +190,12 @@ export function useGuiToggle(options: ToggleOptions): {
         variant="ghost"
         icon={to === "tui" ? workspaceIcons.terminal : conversationIcons.dock}
         disabled={busy || !ready}
-        onClick={() => {
-          const asked = latest.current.confirm();
-          if (asked === null) void run();
-          else setStops(asked);
-        }}
+        onClick={() =>
+          void Promise.resolve(latest.current.confirm()).then((asked) => {
+            if (asked === null) void run();
+            else setStops(asked);
+          })
+        }
         data-gui-toggle={to}
       >
         {to === "tui"
@@ -236,6 +238,9 @@ export function useGuiToggle(options: ToggleOptions): {
           })}
         </p>
         {stops?.turn ? <p>{t("terminal.dialog.stop-turn")}</p> : null}
+        {stops !== null && stops.tasks > 0 ? (
+          <p>{t("terminal.dialog.stop-tasks", { count: stops.tasks })}</p>
+        ) : null}
       </Dialog>
       {problem === null ? null : (
         <NoticeToast title={problem} onClose={() => setProblem(null)} />
@@ -314,8 +319,16 @@ export function TerminalGui({
     terminalRef,
     to: "tui",
     harness: gui.harness,
-    confirm: () =>
-      gui.handoff === "restart" ? { turn: feed.state().turn !== null } : null,
+    confirm: async () => {
+      if (gui.handoff !== "restart") return null;
+      // 도는 turn은 화면이 알고, background task는 run(extension)만 안다.
+      const running =
+        terminalRef === null ? null : await api.running(terminalRef);
+      return {
+        turn: feed.state().turn !== null || running?.turn === true,
+        tasks: running?.tasks ?? 0,
+      };
+    },
   });
   return (
     <>

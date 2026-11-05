@@ -14,6 +14,7 @@ import { systemTimer, type Timer } from "@lophn/ui/shared";
 import { paletteIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
+import { parseBindingId } from "../../../ipc/keybindings.ts";
 import type { OverlayApi } from "../../../ipc/overlay.ts";
 import { useWindowCommands } from "../../commands/react.tsx";
 import type { ShortcutApi } from "../../../ipc/shortcuts.ts";
@@ -118,8 +119,12 @@ export function PaletteProvider({
     const release = deps.shortcuts.subscribe((shortcut) => {
       if (shortcut === "palette") hub.toggle(activeElement());
       else if (shortcut === "home") home.current();
-      // main이 먼저 받아 보낸 작업대 command. 주인(작업대)이 없는 공간이면 키만 삼킨 것이다.
-      else commands?.registry.execute(shortcut);
+      // main이 먼저 받아 보낸 작업대 binding id. 주인(작업대)이 없는 공간이면 키만 삼킨 것이다.
+      else {
+        const parsed = parseBindingId(shortcut);
+        if (parsed !== null)
+          commands?.registry.execute(parsed.command, parsed.arg);
+      }
     });
     return () => {
       release();

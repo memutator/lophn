@@ -4,6 +4,7 @@
 import { type MessageKey, t } from "@lophn/i18n";
 
 import {
+  APP_PANEL,
   type Binding,
   bindingId,
   type Command,
@@ -94,6 +95,174 @@ const WORDING: Readonly<Record<Command, Wording>> = {
     name: "settings.label.key-files-quick-open",
     help: "settings.note.key-files-quick-open",
   },
+  "tab.rename": {
+    name: "settings.label.key-tab-rename",
+    help: "settings.note.key-tab-rename",
+  },
+  "tab.close-others": {
+    name: "settings.label.key-tab-close-others",
+    help: "settings.note.key-tab-close-others",
+  },
+  "tab.close-right": {
+    name: "settings.label.key-tab-close-right",
+    help: "settings.note.key-tab-close-right",
+  },
+  "tab.close-saved": {
+    name: "settings.label.key-tab-close-saved",
+    help: "settings.note.key-tab-close-saved",
+  },
+  "tab.close-all": {
+    name: "settings.label.key-tab-close-all",
+    help: "settings.note.key-tab-close-all",
+  },
+  "tab.keep-open": {
+    name: "settings.label.key-tab-keep-open",
+    help: "settings.note.key-tab-keep-open",
+  },
+  "tab.copy-path": {
+    name: "settings.label.key-tab-copy-path",
+    help: "settings.note.key-tab-copy-path",
+  },
+  "tab.copy-relative-path": {
+    name: "settings.label.key-tab-copy-relative-path",
+    help: "settings.note.key-tab-copy-relative-path",
+  },
+  "tab.reveal": {
+    name: "settings.label.key-tab-reveal",
+    help: "settings.note.key-tab-reveal",
+  },
+  "pane.split-down": {
+    name: "settings.label.key-pane-split-down",
+    help: "settings.note.key-pane-split-down",
+  },
+  "pane.swap-left": {
+    name: "settings.label.key-pane-swap-left",
+    help: "settings.note.key-pane-swap-left",
+  },
+  "pane.swap-right": {
+    name: "settings.label.key-pane-swap-right",
+    help: "settings.note.key-pane-swap-right",
+  },
+  "pane.swap-up": {
+    name: "settings.label.key-pane-swap-up",
+    help: "settings.note.key-pane-swap-up",
+  },
+  "pane.swap-down": {
+    name: "settings.label.key-pane-swap-down",
+    help: "settings.note.key-pane-swap-down",
+  },
+  "pane.stack-next": {
+    name: "settings.label.key-pane-stack-next",
+    help: "settings.note.key-pane-stack-next",
+  },
+  "pane.stack-prev": {
+    name: "settings.label.key-pane-stack-prev",
+    help: "settings.note.key-pane-stack-prev",
+  },
+  "pane.unstack": {
+    name: "settings.label.key-pane-unstack",
+    help: "settings.note.key-pane-unstack",
+  },
+  "pane.remove": {
+    name: "settings.label.key-pane-remove",
+    help: "settings.note.key-pane-remove",
+  },
+  "pane.unsplit": {
+    name: "settings.label.key-pane-unsplit",
+    help: "settings.note.key-pane-unsplit",
+  },
+  "pane.close-others": {
+    name: "settings.label.key-pane-close-others",
+    help: "settings.note.key-pane-close-others",
+  },
+  "pane.close-group": {
+    name: "settings.label.key-pane-close-group",
+    help: "settings.note.key-pane-close-group",
+  },
+  "desk.new": {
+    name: "settings.label.key-desk-new",
+    help: "settings.note.key-desk-new",
+  },
+  "desk.next": {
+    name: "settings.label.key-desk-next",
+    help: "settings.note.key-desk-next",
+  },
+  "desk.prev": {
+    name: "settings.label.key-desk-prev",
+    help: "settings.note.key-desk-prev",
+  },
+  "desk.nth": {
+    name: "settings.label.key-desk-nth",
+    help: "settings.note.key-desk-nth",
+  },
+  "desk.rename": {
+    name: "settings.label.key-desk-rename",
+    help: "settings.note.key-desk-rename",
+  },
+  "desk.close": {
+    name: "settings.label.key-desk-close",
+    help: "settings.note.key-desk-close",
+  },
+  "tab.float": {
+    name: "settings.label.key-tab-float",
+    help: "settings.note.key-tab-float",
+  },
+  "tab.detach": {
+    name: "settings.label.key-tab-detach",
+    help: "settings.note.key-tab-detach",
+  },
+  "float.dock": {
+    name: "settings.label.key-float-dock",
+    help: "settings.note.key-float-dock",
+  },
+  "float.minimize": {
+    name: "settings.label.key-float-minimize",
+    help: "settings.note.key-float-minimize",
+  },
+  "new.terminal": {
+    name: "settings.label.key-new-terminal",
+    help: "settings.note.key-new-terminal",
+  },
+  "new.browser": {
+    name: "settings.label.key-new-browser",
+    help: "settings.note.key-new-browser",
+  },
+  "new.agent": {
+    name: "settings.label.key-new-agent",
+    help: "settings.note.key-new-agent",
+  },
+  "new.document": {
+    name: "settings.label.key-new-document",
+    help: "settings.note.key-new-document",
+  },
+  "sidebar.toggle-right": {
+    name: "settings.label.key-sidebar-toggle-right",
+    help: "settings.note.key-sidebar-toggle-right",
+  },
+  "nav.back": {
+    name: "settings.label.key-nav-back",
+    help: "settings.note.key-nav-back",
+  },
+  "nav.forward": {
+    name: "settings.label.key-nav-forward",
+    help: "settings.note.key-nav-forward",
+  },
+  "settings.open": {
+    name: "settings.label.key-settings-open",
+    help: "settings.note.key-settings-open",
+  },
+  "inbox.open": {
+    name: "settings.label.key-inbox-open",
+    help: "settings.note.key-inbox-open",
+  },
+  "jobs.open": {
+    name: "settings.label.key-jobs-open",
+    help: "settings.note.key-jobs-open",
+  },
+  "app.panel": {
+    name: "settings.label.key-app-panel",
+    help: "settings.note.key-app-panel",
+  },
 };
 
 export function commandName(command: Command): string {
@@ -138,6 +307,8 @@ export function keyRows(
   const rows: KeyRow[] = [];
   for (const binding of bindings) {
     const command = binding.command;
+    // 사람이 단 앱 panel 키는 kb-settings가 따로 줄을 만든다.
+    if (command === APP_PANEL) continue;
     if (binding.arg === undefined) {
       rows.push({
         kind: "single",
@@ -160,7 +331,7 @@ export function keyRows(
       name: commandName(command),
       help: t(WORDING[command].help),
       modifier: modifiers.size === 1 ? [...modifiers][0]! : null,
-      numbers: group.map((one) => one.arg!),
+      numbers: group.map((one) => one.arg as number),
       changed: group.some((one) => overrides[bindingId(one)] !== undefined),
     });
   }

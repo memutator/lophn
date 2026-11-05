@@ -123,10 +123,11 @@ const localLinksSetting = declareSetting({
 });
 
 // 사람이 바꾼 작업대 단축키. OS마다 따로다(macOS는 Cmd, 다른 OS는 Ctrl). binding id와 chord 글자는
-// shell(packages/shell/ipc/keybindings.ts parseKeyOverrides)이 검사하고 모르는 것은 버린다.
+// shell(packages/shell/ipc/keybindings.ts parseKeyOverrides)이 검사하고 모르는 것은 버린다. key 상한 160은
+// 사람이 단 앱 단축키 id(`app.panel:<app>:<surface>`)가 들어가는 길이, 항목 수 256은 표(약 90줄)에 앱 단축키가 더해지는 수다.
 const overrides = z
-  .record(z.string().max(64), z.array(z.string().max(64)).max(4))
-  .refine((value) => Object.keys(value).length <= 64);
+  .record(z.string().max(160), z.array(z.string().max(64)).max(4))
+  .refine((value) => Object.keys(value).length <= 256);
 const keybindingsSetting = declareSetting({
   key: "shell.keybindings",
   type: z.object({ mac: overrides, other: overrides }).partial(),

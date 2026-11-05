@@ -2,15 +2,19 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  appPanelBindingId,
   checkChord,
   compileBindings,
+  findConflicts,
   KEYBINDINGS,
   type KeyInput,
   type KeyPlatform,
   matchKey,
+  parseBindingId,
   parseKeyOverrides,
   resolveBindings,
 } from "./keybindings.ts";
+import { isWindowShortcut } from "./shortcuts.ts";
 
 function inputOf(chord: string, key = ""): KeyInput {
   const parts = chord.split("+");
@@ -24,19 +28,12 @@ function inputOf(chord: string, key = ""): KeyInput {
   };
 }
 
-test("표의 키는 겹치지 않고 팔레트·런처 키를 빼앗지 않으며 shell이 쓰는 Ctrl+글자는 W·B·P뿐이다", () => {
+test("기본 표는 platform마다 겹침이 없고 RESERVED와 겹치지 않으며 shell이 쓰는 Ctrl+글자는 W·B·P·T·N·O뿐이다", () => {
   for (const platform of ["mac", "other"] as KeyPlatform[]) {
-    const seen = new Map<string, string>();
     const shell: string[] = [];
+    assert.deepStrictEqual(findConflicts(platform, {}), [], platform);
     for (const binding of KEYBINDINGS) {
       for (const chord of binding[platform]) {
-        const owner = `${binding.command}:${binding.arg ?? ""}`;
-        assert.deepStrictEqual(
-          seen.get(chord),
-          undefined,
-          `${platform} ${chord}`,
-        );
-        seen.set(chord, owner);
         const hit = matchKey(inputOf(chord), platform);
         assert.deepStrictEqual(
           hit?.command,
@@ -59,7 +56,16 @@ test("표의 키는 겹치지 않고 팔레트·런처 키를 빼앗지 않으�
     );
     assert.deepStrictEqual(
       shell.sort(),
-      platform === "mac" ? [] : ["Ctrl+KeyB", "Ctrl+KeyP", "Ctrl+KeyW"],
+      platform === "mac"
+        ? []
+        : [
+            "Ctrl+KeyB",
+            "Ctrl+KeyN",
+            "Ctrl+KeyO",
+            "Ctrl+KeyP",
+            "Ctrl+KeyT",
+            "Ctrl+KeyW",
+          ],
     );
   }
 });
@@ -179,4 +185,82 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
     pane.ok ? null : "by" in pane ? pane.by.command : pane.reason,
     "pane.focus",
   );
+});
+
+test("parseKeyOverrides는 모양이 맞는 app.panel id만 남기고 resolveBindings가 그 binding을 표 뒤에 붙인다", () => {
+  const id = appPanelBindingId("app_x", "main");
+  const overrides = parseKeyOverrides({
+    [id]: ["Ctrl+Alt+KeyJ"],
+    "app.panel:no-surface": ["Ctrl+Alt+KeyK"],
+    "app.panel:a b:main": ["Ctrl+Alt+KeyK"],
+    "app.panel:a:b:c": ["Ctrl+Alt+KeyK"],
+  });
+  assert.deepStrictEqual(overrides, { [id]: ["Ctrl+Alt+KeyJ"] });
+  assert.deepStrictEqual(parseBindingId(id), {
+    command: "app.panel",
+    arg: "app_x:main",
+  });
+  const resolved = resolveBindings("other", overrides);
+  const last = resolved.at(-1)!;
+  assert.deepStrictEqual(
+    [
+      resolved.length,
+      last.command,
+      last.arg,
+      last.section,
+      last.other,
+      last.mac,
+    ],
+    [
+      KEYBINDINGS.length + 1,
+      "app.panel",
+      "app_x:main",
+      "app",
+      ["Ctrl+Alt+KeyJ"],
+      [],
+    ],
+  );
+  // 앱 단축키는 main이 먼저 받아 binding id를 보낸다.
+  const compiled = compileBindings(resolved);
+  assert.deepStrictEqual(
+    matchKey(inputOf("Ctrl+Alt+KeyJ"), "other", "main", compiled)?.id,
+    id,
+  );
+});
+
+test("사람이 단 키가 다른 binding의 기본 키나 RESERVED와 같으면 findConflicts가 그 둘을 낸다", () => {
+  const conflicts = findConflicts("other", {
+    "tab.rename": ["Shift+Ctrl+KeyT"],
+    "tab.reveal": ["Ctrl+KeyC", "Ctrl+KeyC"],
+    "tab.keep-open": ["Ctrl+Alt+KeyJ", "Ctrl+Alt+KeyJ"],
+  });
+  assert.deepStrictEqual(
+    conflicts.map(({ ids, reserved }) => ({ ids, reserved })),
+    [
+      { ids: ["tab.reopen", "tab.rename"], reserved: false },
+      { ids: ["tab.reveal"], reserved: true },
+    ],
+  );
+});
+
+test("isWindowShortcut은 palette·home·표의 binding id·app.panel id를 받고 모르는 글자는 거절한다", () => {
+  for (const ok of [
+    "palette",
+    "home",
+    "tab.close",
+    "desk.nth:3",
+    appPanelBindingId("app_x", "main"),
+  ]) {
+    assert.deepStrictEqual(isWindowShortcut(ok), true, ok);
+  }
+  for (const bad of [
+    "desk.nth:10",
+    "tab.bogus",
+    "app.panel",
+    "app.panel:a",
+    3,
+    null,
+  ]) {
+    assert.deepStrictEqual(isWindowShortcut(bad), false, String(bad));
+  }
 });

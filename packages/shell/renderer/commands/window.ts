@@ -17,8 +17,10 @@ export interface WindowCommands {
   readonly platform: KeyPlatform;
   /** 사람이 바꾼 키(이 기기 platform). 팔레트 hint와 Settings › Keyboard가 읽는다. */
   overrides(): KeyOverrides;
-  /** 사람이 바꾼 키를 창의 기본 바인딩에 덮고 main에도 알린다. */
+  /** 사람이 바꾼 키를 창의 기본 바인딩에 덮고 main에도 알린다. 듣는 쪽(subscribe)도 부른다. */
   setOverrides(overrides: KeyOverrides): void;
+  /** 사람이 바꾼 키가 바뀌면 listener를 부른다. 키 이름을 그리는 화면이 다시 그리게. */
+  subscribe(listener: () => void): () => void;
 }
 
 /** Settings에서 새 키를 받는 칸. 그 안의 키는 command로 보내지 않는다. */
@@ -46,6 +48,7 @@ export function createWindowCommands(deps: {
     ignores: (target) => closest(target, `[${KEY_CAPTURE_ATTRIBUTE}]`),
   });
   let current: KeyOverrides = {};
+  const listeners = new Set<() => void>();
   // 표의 키는 창이 사는 동안 묶여 있다. command 주인이 없으면 키를 넘긴다.
   keybindings.setDefaults(resolveBindings(deps.platform, current));
   return {
@@ -57,6 +60,11 @@ export function createWindowCommands(deps: {
       current = overrides;
       keybindings.setDefaults(resolveBindings(deps.platform, overrides));
       deps.tellMain?.(overrides);
+      for (const listener of listeners) listener();
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
     },
   };
 }

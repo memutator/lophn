@@ -1,5 +1,5 @@
 // shell renderer가 받는 창 안 shortcut 이름. Electron event는 closure 밖으로 내지 않고
-// 표에 있는 이름만 넘긴다.
+// 팔레트·home이거나 표에 있는 binding id 글자만 넘긴다.
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,

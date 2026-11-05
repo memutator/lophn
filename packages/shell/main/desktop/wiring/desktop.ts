@@ -23,7 +23,6 @@ import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
 import {
   type CompiledBindings,
   compileBindings,
-  isMainCommand,
   KEYBINDINGS_CHANNEL,
   parseKeyOverrides,
   resolveBindings,
@@ -283,7 +282,8 @@ export function register(
         if (
           window.webContents === contents &&
           process.platform !== "darwin" &&
-          isMainCommand(shortcut)
+          shortcut !== "palette" &&
+          shortcut !== "home"
         )
           return false;
         if (send) window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);

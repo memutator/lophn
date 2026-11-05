@@ -44,6 +44,15 @@
   color: var(--color-text-muted);
 }
 
+/* 항목 오른쪽 끝의 단축키 이름. */
+.shortcut {
+  margin-left: auto;
+  padding-left: var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .separator {
   height: var(--border-width);
   margin: var(--space-2) var(--space-0);

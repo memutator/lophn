@@ -1,5 +1,14 @@
 // command 표의 React 쪽. 등록과 해제의 때만 맡고 판정은 registry·keybinding service가 한다.
-import { createContext, useContext, useEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
+
+import { bindingLabel, type KeyOverrides } from "../../ipc/keybindings.ts";
 
 import type { CommandHandler, CommandOptions } from "./registry.ts";
 import type { WindowCommands } from "./window.ts";
@@ -40,4 +49,26 @@ export function useCommands(
       for (const one of all) one.dispose();
     };
   }, [commands, ids]);
+}
+
+const NO_OVERRIDES: KeyOverrides = {};
+const noSubscribe = () => () => {};
+
+/**
+ * binding id의 키 이름을 돌려주는 함수. 사람이 키를 바꾸면 다시 그려진다. 키가 없는 줄과 command 표가 없는
+ * 곳(gallery)은 늘 null이다.
+ */
+export function useKeyLabel(): (bindingId: string) => string | null {
+  const commands = useContext(CommandsContext);
+  const overrides = useSyncExternalStore(
+    commands?.subscribe ?? noSubscribe,
+    () => commands?.overrides() ?? NO_OVERRIDES,
+  );
+  return useMemo(
+    () =>
+      commands === null
+        ? () => null
+        : (id: string) => bindingLabel(id, commands.platform, overrides),
+    [commands, overrides],
+  );
 }

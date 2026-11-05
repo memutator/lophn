@@ -260,29 +260,71 @@ export const workspaceSettings = {
   "settings.label.group-agents": "Agents",
   "settings.label.group-general": "General",
   "settings.label.group-system": "System",
+  "settings.label.key-app-panel": "Open an app panel",
   "settings.label.key-capture": "Press the new keys for {name}",
+  "settings.label.key-desk-close": "Close the desk",
+  "settings.label.key-desk-new": "New desk",
+  "settings.label.key-desk-next": "Next desk",
+  "settings.label.key-desk-nth": "Go to a desk by number",
+  "settings.label.key-desk-prev": "Previous desk",
+  "settings.label.key-desk-rename": "Rename the desk",
   "settings.label.key-explorer-focus": "Focus the file explorer",
   "settings.label.key-files-quick-open": "Open a file",
+  "settings.label.key-float-dock": "Dock the floating panel",
+  "settings.label.key-float-minimize": "Fold the floating panels",
+  "settings.label.key-inbox-open": "Open Inbox",
+  "settings.label.key-jobs-open": "Open Jobs",
+  "settings.label.key-nav-back": "Go back",
+  "settings.label.key-nav-forward": "Go forward",
+  "settings.label.key-new-agent": "New session",
+  "settings.label.key-new-browser": "New browser tab",
+  "settings.label.key-new-document": "Open a document",
+  "settings.label.key-new-terminal": "New terminal",
   "settings.label.key-none": "No shortcut",
   "settings.label.key-numbered": "{modifier}+number",
   "settings.label.key-numbered-mixed": "Changed for some numbers",
+  "settings.label.key-pane-close-group": "Close the split",
+  "settings.label.key-pane-close-others": "Close other tabs in the pane",
   "settings.label.key-pane-focus": "Focus a pane of the split",
   "settings.label.key-pane-focus-down": "Focus the pane below",
   "settings.label.key-pane-focus-left": "Focus the pane on the left",
   "settings.label.key-pane-focus-right": "Focus the pane on the right",
   "settings.label.key-pane-focus-up": "Focus the pane above",
+  "settings.label.key-pane-remove": "Remove the tab from the split",
   "settings.label.key-pane-split": "Split right with the next tab",
+  "settings.label.key-pane-split-down": "Split down with the next tab",
+  "settings.label.key-pane-stack-next": "Show the next stacked tab",
+  "settings.label.key-pane-stack-prev": "Show the previous stacked tab",
+  "settings.label.key-pane-swap-down": "Swap with the pane below",
+  "settings.label.key-pane-swap-left": "Swap with the pane on the left",
+  "settings.label.key-pane-swap-right": "Swap with the pane on the right",
+  "settings.label.key-pane-swap-up": "Swap with the pane above",
+  "settings.label.key-pane-unsplit": "Unsplit",
+  "settings.label.key-pane-unstack": "Move the tab out of the pane",
   "settings.label.key-search": "Search shortcuts",
   "settings.label.key-search-by-key": "Press a shortcut",
   "settings.label.key-search-open": "Search in files",
+  "settings.label.key-settings-open": "Open Settings",
   "settings.label.key-sidebar-toggle": "Show or hide the sidebar",
+  "settings.label.key-sidebar-toggle-right": "Show or hide the right sidebar",
   "settings.label.key-tab-close": "Close the tab",
+  "settings.label.key-tab-close-all": "Close all tabs",
+  "settings.label.key-tab-close-others": "Close other tabs",
+  "settings.label.key-tab-close-right": "Close tabs to the right",
+  "settings.label.key-tab-close-saved": "Close saved tabs",
+  "settings.label.key-tab-copy-path": "Copy the file path",
+  "settings.label.key-tab-copy-relative-path": "Copy the relative path",
+  "settings.label.key-tab-detach": "Detach the tab",
+  "settings.label.key-tab-float": "Float the tab",
+  "settings.label.key-tab-keep-open": "Keep the tab open",
   "settings.label.key-tab-move-left": "Move the tab left",
   "settings.label.key-tab-move-right": "Move the tab right",
   "settings.label.key-tab-next": "Next tab",
   "settings.label.key-tab-nth": "Go to a tab by number",
   "settings.label.key-tab-prev": "Previous tab",
+  "settings.label.key-tab-rename": "Rename the tab",
   "settings.label.key-tab-reopen": "Reopen the closed tab",
+  "settings.label.key-tab-reveal": "Reveal in the explorer",
   "settings.label.key-terminal-focus": "Open or focus the terminal",
   "settings.label.quick-open-as": "Open as",
   "settings.label.quick-open-float": "Float",
@@ -351,27 +393,95 @@ export const workspaceSettings = {
     "Favorites appear under New session and when you hover Terminal in the left sidebar. Command is what the terminal runs; leave it empty for the default.",
   "settings.note.coding-hooks":
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
+  "settings.note.key-app-panel":
+    "Opens that app's panel, whether or not it is pinned to the sidebar.",
   "settings.note.key-capture":
     "Press Esc to cancel. Press Backspace to remove the shortcut.",
   "settings.note.key-capture-numbered":
     "Press the modifier keys with any number. Press Esc to cancel. Press Backspace to remove the shortcut.",
+  "settings.note.key-desk-close":
+    "Closes the desk you are on after asking. The main desk can't be closed.",
+  "settings.note.key-desk-new": "Opens a new desk.",
+  "settings.note.key-desk-next":
+    "Goes to the next desk in the list. After the last desk it goes back to the first.",
+  "settings.note.key-desk-nth":
+    "Goes to desk 1 to 9 in the desk list by its place.",
+  "settings.note.key-desk-prev":
+    "Goes to the previous desk in the list. Before the first desk it goes to the last.",
+  "settings.note.key-desk-rename": "Renames the desk you are on.",
   "settings.note.key-explorer-focus":
     "Opens the sidebar and moves to the list of files and folders.",
   "settings.note.key-files-quick-open":
     "Opens search and commands, where you can type a file name.",
+  "settings.note.key-float-dock":
+    "Puts the topmost floating panel back into the desk as a card.",
+  "settings.note.key-float-minimize":
+    "Folds every floating panel that isn't pinned.",
+  "settings.note.key-inbox-open": "Opens the Inbox.",
+  "settings.note.key-jobs-open": "Opens Jobs.",
+  "settings.note.key-nav-back":
+    "Goes back to where you were before in this window.",
+  "settings.note.key-nav-forward": "Goes forward again after going back.",
+  "settings.note.key-new-agent": "Opens a new lophn session.",
+  "settings.note.key-new-browser": "Opens a new browser tab.",
+  "settings.note.key-new-document":
+    "Opens a file picker and opens the file you choose.",
+  "settings.note.key-new-terminal": "Opens a new terminal tab.",
+  "settings.note.key-pane-close-group":
+    "Closes every tab in the current split.",
+  "settings.note.key-pane-close-others":
+    "Closes the other tabs stacked in the current pane.",
   "settings.note.key-pane-focus":
     "Moves to the first to fourth pane of the split, in left-to-right, top-to-bottom order.",
   "settings.note.key-pane-focus-direction":
     "Moves to the neighbouring pane of the split in that direction. It stops at the edge. It works inside the editor and terminal too.",
+  "settings.note.key-pane-remove":
+    "Takes the current tab out of its split and leaves the rest as is.",
   "settings.note.key-pane-split":
     "Joins the current tab with the next tab into a split on its right.",
+  "settings.note.key-pane-split-down":
+    "Joins the current tab with the next tab into a split below it.",
+  "settings.note.key-pane-stack-next":
+    "Cycles forward through the tabs stacked in the current pane.",
+  "settings.note.key-pane-stack-prev":
+    "Cycles back through the tabs stacked in the current pane.",
+  "settings.note.key-pane-swap-down":
+    "Swaps the current tab with the tab in the pane below it.",
+  "settings.note.key-pane-swap-left":
+    "Swaps the current tab with the tab in the pane on its left.",
+  "settings.note.key-pane-swap-right":
+    "Swaps the current tab with the tab in the pane on its right.",
+  "settings.note.key-pane-swap-up":
+    "Swaps the current tab with the tab in the pane above it.",
+  "settings.note.key-pane-unsplit":
+    "Breaks the split of the current tab into separate tabs.",
+  "settings.note.key-pane-unstack":
+    "Takes the current tab out of the tabs stacked in its pane.",
   "settings.note.key-search-by-key":
     "Press keys to find what uses them. Backspace clears.",
   "settings.note.key-search-open":
     "Opens the sidebar's search to find text across this project's files.",
+  "settings.note.key-settings-open": "Opens Settings.",
   "settings.note.key-sidebar-toggle":
     "Folds the sidebar to its icons, or opens it again.",
+  "settings.note.key-sidebar-toggle-right":
+    "Folds the right sidebar to its icons, or opens it again.",
   "settings.note.key-tab-close": "Closes the tab you're looking at.",
+  "settings.note.key-tab-close-all": "Closes every tab in the tab strip.",
+  "settings.note.key-tab-close-others":
+    "Closes every tab except the one you are looking at.",
+  "settings.note.key-tab-close-right":
+    "Closes the tabs after the current one in the tab strip.",
+  "settings.note.key-tab-close-saved":
+    "Closes tabs that have no unsaved changes.",
+  "settings.note.key-tab-copy-path":
+    "Copies the full path of the current tab's file.",
+  "settings.note.key-tab-copy-relative-path":
+    "Copies the path of the current tab's file relative to the project folder.",
+  "settings.note.key-tab-detach": "Moves the current tab into its own window.",
+  "settings.note.key-tab-float": "Moves the current tab into a floating panel.",
+  "settings.note.key-tab-keep-open":
+    "Turns a preview tab into a regular tab that stays open.",
   "settings.note.key-tab-move-left":
     "Moves the current tab one place to the left in the tab strip.",
   "settings.note.key-tab-move-right":
@@ -380,8 +490,11 @@ export const workspaceSettings = {
   "settings.note.key-tab-nth":
     "Goes to tab 1 to 9 in the tab strip by its place. 0 goes to the last tab.",
   "settings.note.key-tab-prev": "Goes to the previous tab in the tab strip.",
+  "settings.note.key-tab-rename": "Renames the tab you are looking at.",
   "settings.note.key-tab-reopen":
     "Opens the tab you closed most recently, where it was.",
+  "settings.note.key-tab-reveal":
+    "Shows the current tab's file in the file explorer.",
   "settings.note.key-terminal-focus":
     "Goes to a terminal tab in this project, or opens one if there is none.",
   "settings.note.not-set":

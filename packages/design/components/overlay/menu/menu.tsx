@@ -20,6 +20,8 @@ export interface MenuItem {
   data?: Readonly<Record<`data-${string}`, string>>;
   // 키보드 typeahead가 쓰는 글. label이 글이면 생략한다.
   textValue?: string;
+  // 항목 오른쪽에 흐린 글로 보이는 단축키 이름. 장식이라 typeahead에는 들어가지 않는다.
+  shortcut?: string;
   disabled?: boolean;
   // 이 항목 위에 구분선을 긋는다. 항목 묶음의 경계에 쓴다.
   separatorBefore?: boolean;
@@ -93,12 +95,18 @@ export function Menu({
               <Radix.Item
                 className={styles.item}
                 disabled={item.disabled}
-                textValue={item.textValue}
+                textValue={
+                  item.textValue ??
+                  (typeof item.label === "string" ? item.label : undefined)
+                }
                 onSelect={() => onSelect(item.id)}
                 {...item.data}
               >
                 {item.leading}
                 {item.label}
+                {item.shortcut === undefined ? null : (
+                  <span className={styles.shortcut}>{item.shortcut}</span>
+                )}
               </Radix.Item>
             </Fragment>
           ))}

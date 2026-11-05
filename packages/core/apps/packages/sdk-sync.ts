@@ -5,7 +5,7 @@
 // 실제 경로에서 위로 올라가 앱의 `node_modules`에서 풀려야 한다.
 // SDK 사본끼리의 의존도 `file:../../<이름>/<판>`이라 같은 방법으로 따라가 복사한다.
 import { chmod, cp, readdir, readFile, rm, stat } from "node:fs/promises";
-import { join, normalize, relative } from "node:path";
+import { join, normalize, relative, sep } from "node:path";
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 
 export const APP_SDK_FOLDER = ".lophn/sdk";
@@ -37,7 +37,8 @@ function sdkPath(
 ): string | undefined {
   if (!value.startsWith(FILE_PREFIX)) return undefined;
   const target = normalize(join(from, value.slice(FILE_PREFIX.length)));
-  const inside = relative(join(appDir, ".lophn"), target);
+  // package.json 안과 `sdk/...` 목록은 `/` 꼴이다. Windows의 relative는 `\`로 잇는다.
+  const inside = relative(join(appDir, ".lophn"), target).split(sep).join("/");
   return inside.startsWith("sdk/") && !inside.split("/").includes("..")
     ? inside
     : undefined;
@@ -113,5 +114,5 @@ export function appSdkDependency(installPath: string): string {
 
 // 사본이 SDK 사본끼리 거는 의존 값. 두 설치 경로 사이의 상대 경로다.
 export function sdkCopyDependency(from: string, to: string): string {
-  return `${FILE_PREFIX}${relative(from, to) || "."}`;
+  return `${FILE_PREFIX}${relative(from, to).split(sep).join("/") || "."}`;
 }

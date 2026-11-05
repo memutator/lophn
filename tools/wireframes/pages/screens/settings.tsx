@@ -31,7 +31,9 @@ import {
   SettingsDiagnostics,
   SettingsGeneral,
   SettingsKeyboard,
+  SettingsKeyboardApps,
   SettingsKeyboardChanged,
+  SettingsKeyboardConflicts,
   SettingsRequiredEmpty,
   SettingsShellRules,
   SettingsShellRulesAdd,
@@ -233,15 +235,29 @@ export const settingsArea: Area = {
       id: "settings-keyboard",
       title: "Settings · Keyboard",
       description:
-        "작업대 단축키를 줄마다 보이는 Settings 항목이다. 줄 오른쪽 끝의 키 칸을 누르면 새 키를 받고, 받은 키는 바로 저장되어 그 OS에서만 바뀐다.",
+        "작업대 단축키를 Tabs·Split·Desks·Floating·Open·View·Apps 묶음으로 보이는 Settings 항목이다. 줄 오른쪽 끝의 키 칸을 누르면 새 키를 받고, 받은 키는 바로 저장되어 그 OS에서만 바뀐다. 기본 키가 없는 줄은 흐린 Not set이다.",
       render: () => <SettingsKeyboard />,
     },
     {
       id: "settings-keyboard-changed",
       title: "Settings · Keyboard · changed",
       description:
-        "탭 닫기를 다른 키로 바꾸고 sidebar 키를 뺀 상태다. 바꾼 줄에는 [Reset to default]가, 아래에는 [Reset all shortcuts]가 있다. Open a file 줄이 새 키를 받는 중이고 이미 쓰는 키(Ctrl+Tab)를 눌러 막혔다.",
+        '탭 닫기를 다른 키로 바꾸고 sidebar 키를 뺀 상태다. 바꾼 줄에는 [Reset to default]가, 아래에는 [Reset all shortcuts]가 있다. Open a file 줄이 새 키를 받는 중이고 이미 쓰는 키(Ctrl+Tab)를 눌러 "Ctrl+Tab is used by Next tab. [Replace] [Cancel]"이 떴다.',
       render: () => <SettingsKeyboardChanged />,
+    },
+    {
+      id: "settings-keyboard-conflicts",
+      title: "Settings · Keyboard · conflicts",
+      description:
+        "저장된 키끼리 겹친 상태다. 맨 위에 겹친 키 수와 [Show conflicts only] 토글이 있고, 겹친 줄은 상대 이름과 [Remove]를 보인다. lophn이나 OS가 먼저 쓰는 키와 겹친 줄은 그렇다고 적는다.",
+      render: () => <SettingsKeyboardConflicts />,
+    },
+    {
+      id: "settings-keyboard-apps",
+      title: "Settings · Keyboard · apps",
+      description:
+        'Apps 묶음이다. 설치된 앱의 panel 화면마다 줄이 있어 키를 달면 어디서든 그 화면을 연다. 지운 앱에 달린 키는 "없는 앱" 줄로 남아 [Remove]만 된다.',
+      render: () => <SettingsKeyboardApps />,
     },
     {
       id: "settings-browser-links",

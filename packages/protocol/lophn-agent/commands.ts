@@ -2,6 +2,7 @@ import { z } from "zod";
 import { defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { agentIdSchema, placeSchema } from "./places.ts";
 
 // Agent composer의 `/` 명령 registry. registry는 저장하는
 // 표가 아니라 열 때마다 계산하는 derived 값이라 command도 event도 없고 read 하나뿐이다.
@@ -48,9 +49,11 @@ const commandEntrySchema = z
 
 export type CommandEntry = z.infer<typeof commandEntrySchema>;
 
-const commandsListInputSchema = z.strictObject({
-  session: idSchema("ses"),
-});
+// session이 없는 새 session 화면은 agent와 place로 읽는다(그 자리에 session을 열면 받을 목록).
+const commandsListInputSchema = z.union([
+  z.strictObject({ session: idSchema("ses") }),
+  z.strictObject({ agent: agentIdSchema, place: placeSchema.nullable() }),
+]);
 
 // 그 session의 agent 기준 목록이다: 전역 built-in, 그 agent가 쓸 수 있는 skill의 순서. 끈 skill은 없다.
 const commandsListOutputSchema = withReadCommon(

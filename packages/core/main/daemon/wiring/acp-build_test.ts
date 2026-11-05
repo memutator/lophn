@@ -480,14 +480,33 @@ test("draft meta는 같은 agent와 place로 연 session의 meta에서 title·us
       costs: [],
       provider: null,
     },
-    [key(commandsList)]: { commands: [] },
+    [key(commandsList)]: {
+      commands: [
+        {
+          name: "new",
+          title: "New session",
+          description: "d",
+          source: "builtin",
+        },
+        {
+          name: "release-notes",
+          title: null,
+          description: "s",
+          source: "skill",
+        },
+      ],
+    },
   };
   const read = <T>(route: { resource: string; method: string }) =>
     Promise.resolve(ok(found[key(route)] as T));
   const e: AcpEnv = { read, redact: (text) => text };
 
   const session = await readSessionMeta(e, SES, read);
-  const draft = await readDraftMeta(e, { agent: "lophn", place } as never);
+  const draft = await readDraftMeta(
+    e,
+    { agent: "lophn", place } as never,
+    read,
+  );
   assert.ok(session !== null);
   acpSessionMetaSchema.parse(draft);
   assert.deepStrictEqual(draft, {
@@ -497,4 +516,5 @@ test("draft meta는 같은 agent와 place로 연 session의 meta에서 title·us
     cli_session: null,
   });
   assert.equal(draft.model?.layer, "agent");
+  assert.equal(draft.commands.length, 2);
 });

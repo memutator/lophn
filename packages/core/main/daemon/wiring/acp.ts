@@ -396,12 +396,19 @@ export const acpWiring: WiringFactory = () => {
               }
               return await snapshot(parsed.data.session, who);
             })
-            .set(key(acpDraft), async (_who, input) => {
+            .set(key(acpDraft), async (who, input) => {
               const parsed = acpDraft.input.safeParse(input);
               if (!parsed.success) {
                 return err({ code: "invalid_input", message: "invalid input" });
               }
-              return ok(await readDraftMeta(env, parsed.data));
+              return ok(
+                await readDraftMeta(env, parsed.data, async (route, body) => {
+                  const handler = ctx.runtime.reads.get(key(route));
+                  return handler === undefined
+                    ? err({ code: "unavailable", message: "read not served" })
+                    : ((await handler(who, body)) as Result<never>);
+                }),
+              );
             }),
         // rewind가 숨긴 구간은 AgentEvent가 없어 적용이 끝난 뒤 여기서 낸다. 제목·model·mode는 어느 client가 바꿔도
         // 이 writer를 지나므로 바뀐 칸을 여기서 낸다. 첫 말은 자동 제목을 붙이므로 SendMessage 뒤에도 제목을 낸다.

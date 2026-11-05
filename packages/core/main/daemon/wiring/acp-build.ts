@@ -1158,6 +1158,20 @@ function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
   };
 }
 
+function commandsOf(
+  env: AcpEnv,
+  read: Result<Output<typeof commandsList>>,
+): AcpSessionMeta["commands"] {
+  return read.ok
+    ? read.value.commands.map((one) => ({
+        name: one.name,
+        description: env.redact(one.description),
+        argument_hint: null,
+        source: one.source,
+      }))
+    : [];
+}
+
 /** 이름 목록은 사람 자격으로만 읽힌다(`ListCommands`). 그래서 부른 사람의 read를 받는다. */
 export async function readSessionMeta(
   env: AcpEnv,
@@ -1176,31 +1190,29 @@ export async function readSessionMeta(
     skip: record.value.skip,
     model,
     usage,
-    commands: commands.ok
-      ? commands.value.commands.map((one) => ({
-          name: one.name,
-          description: env.redact(one.description),
-          argument_hint: null,
-          source: one.source,
-        }))
-      : [],
+    commands: commandsOf(env, commands),
   });
 }
 
 /**
  * 첫 메시지 전 새 session 화면의 meta. 그 agent와 place로 지금 session을 열면 받을 값이다: session이 고른 model이
- * 없어 agent 기본값이고, mode는 ask, title·usage는 없다. `ListCommands`가 session을 받아야만 읽혀 명령은 비어 있다.
+ * 없어 agent 기본값이고, mode는 ask, title·usage는 없다. 명령은 `readSessionMeta`와 같이 부른 사람의 read로 읽는다.
  */
 export async function readDraftMeta(
   env: AcpEnv,
   draft: { agent: AgentId; place: Place | null },
+  readAsCaller: AcpEnv["read"],
 ): Promise<AcpSessionMeta> {
+  const [model, commands] = await Promise.all([
+    readModelPart(env, { ...draft, model_selection: null }),
+    readAsCaller<Output<typeof commandsList>>(commandsList, draft),
+  ]);
   return metaOf(env, {
     title: null,
     skip: false,
-    model: await readModelPart(env, { ...draft, model_selection: null }),
+    model,
     usage: null,
-    commands: [],
+    commands: commandsOf(env, commands),
   });
 }
 

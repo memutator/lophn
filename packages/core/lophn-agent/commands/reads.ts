@@ -42,14 +42,16 @@ export function createCommandReads(deps: CommandReadDeps): {
             message: "only a person reads the command list",
           });
         }
-        const row = loadSession({ sql: snapshot.sql }, input.session);
-        if (row === undefined) {
-          return err({ code: "not_found", message: "session not found" });
+        let session: CommandSession;
+        if ("session" in input) {
+          const row = loadSession({ sql: snapshot.sql }, input.session);
+          if (row === undefined) {
+            return err({ code: "not_found", message: "session not found" });
+          }
+          session = { agent: row.agent, place: placeOf(row) };
+        } else {
+          session = { agent: input.agent, place: input.place };
         }
-        const session: CommandSession = {
-          agent: row.agent,
-          place: placeOf(row),
-        };
         return ok({
           commands: buildRegistry(deps.skills(snapshot.sql, session)),
           as_of_seq: snapshot.as_of_seq,

@@ -1,7 +1,7 @@
 // harness-gui: 터미널 탭에서 `claude gui`를 치면 그 탭이 바뀌는 채팅 화면. 실제 탭 화면(TerminalGui)을 main 대신 fake 통로로
 // 그린다. fake 통로는 adapter가 낼 ACP 갱신을 붙을 때 한꺼번에 보내고, 보낸 말은 사람 메시지로 되돌려 준다. card 머리는
 // 이 page가 한 줄로 흉내 낸다(실제 앱은 ContentCard가 머리에 올린다).
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import type {
   AcpChildUpdate,
@@ -10,12 +10,10 @@ import type {
   AcpUpdate,
 } from "../../../../packages/protocol/acp/mod.ts";
 import type { HarnessGuiTabApi } from "../../../../packages/shell/ipc/harness-gui.ts";
+import type { TerminalAgent } from "../../../../packages/shell/ipc/terminal.ts";
 import type { ThreadBookmarksApi } from "../../../../packages/shell/ipc/thread-bookmarks.ts";
-import {
-  CardHeadContext,
-  type CardHeadSpec,
-} from "../../../../packages/shell/renderer/shell/card-head.tsx";
 import { TerminalGui } from "../../../../packages/shell/renderer/terminal/terminal-gui.tsx";
+import { TerminalAgentBody } from "./bodies.tsx";
 import { fakeHarnessMeta } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 import {
   click,
@@ -28,6 +26,7 @@ import {
   wait,
 } from "../../mock/drive.ts";
 import type { Area } from "../types.ts";
+import { HeadCard } from "./agent-tab/head-card.tsx";
 
 const TURN = "trn-1";
 const at = (second: number) =>
@@ -428,6 +427,64 @@ async function hover(selector: string, at = 0): Promise<void> {
   await wait(60);
 }
 
+// 사람이 `!`로 돌린 명령의 출력. adapter가 item의 body에 싣는다.
+const LS_OUTPUT = [
+  "total 48",
+  "drwxr-xr-x  7 phroner phroner 4096 Nov  5 09:00 .",
+  "drwxr-xr-x 14 phroner phroner 4096 Nov  4 18:40 ..",
+  "-rw-r--r--  1 phroner phroner  231 Nov  5 09:02 README.md",
+  "-rw-r--r--  1 phroner phroner  612 Nov  4 18:40 package.json",
+  "drwxr-xr-x  2 phroner phroner 4096 Nov  5 09:02 src",
+  "drwxr-xr-x  3 phroner phroner 4096 Nov  4 18:41 test",
+  "-rw-r--r--  1 phroner phroner  190 Nov  4 18:40 tsconfig.json",
+].join("\n");
+
+/** composer에서 ↓를 `times`번 누른다. */
+async function arrowDown(times: number): Promise<void> {
+  const input = await find("[data-composer-input]");
+  for (let index = 0; index < times; index += 1) {
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await wait(10);
+  }
+}
+
+// fork한 session: turn 밖의 한 줄 알림이 맨 위에 서고 제목은 session_changed의 title로 바뀐다.
+const FORKED: readonly AcpUpdate[] = [
+  {
+    type: "session_changed",
+    session: { ...fakeHarnessMeta(), title: "Retry the upload helper" },
+  },
+  {
+    type: "notice_added",
+    item: {
+      kind: "notice",
+      id: "ntc-f",
+      seq: 1,
+      at: at(0),
+      turn: null,
+      notice: {
+        type: "info",
+        text: "Forked from Add a retry to the upload helper (9f2c7d1e)",
+        level: "info",
+      },
+    },
+  },
+  message("msg-f1", 2, 1, "user", "Now make the backoff double each time."),
+  message(
+    "msg-f2",
+    3,
+    3,
+    "agent",
+    "The delay doubles on each try: 200, 400, then 800 ms.",
+  ),
+];
+
 const CWD = "/home/phroner/projects/upload-service";
 
 function fakeApi(
@@ -455,6 +512,27 @@ function fakeApi(
     },
     disconnect: async () => {},
     async input(_handle, input) {
+      if (input.type === "run_shell") {
+        seq += 1;
+        push({
+          type: "tool_started",
+          item: {
+            kind: "tool",
+            id: `shl-${seq}`,
+            seq,
+            at: at(30),
+            by: "user",
+            turn: null,
+            tool: "shell",
+            category: "command",
+            title: input.command,
+            state: "ok",
+            duration_ms: 240,
+            detail: { kind: "generic" },
+            body: { input: input.command, output: LS_OUTPUT, truncated: false },
+          },
+        });
+      }
       if (input.type === "send") {
         seq += 1;
         push({
@@ -483,50 +561,14 @@ function fakeApi(
     running: async () => ({ turn: true, tasks: 2 }),
     toggle: async () => ({ ok: true }),
     sessions: async () => [],
-    rewindPreview: async () => null,
+    rewindPreview: async () => ({
+      files: [
+        { path: "src/upload.ts", change: "update" },
+        { path: "src/upload.test.ts", change: "create" },
+      ],
+    }),
     uploadImage: async () => null,
   };
-}
-
-// 실제 앱에서 card 머리는 본문이 올린 actions를 오른쪽에 그린다. 그 한 줄만 흉내 낸다.
-function Card({ children }: { children: ReactNode }) {
-  const [head, setHead] = useState<CardHeadSpec | null>(null);
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--color-surface-base)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          gap: "var(--space-2)",
-          padding: "var(--space-2) var(--space-3)",
-        }}
-      >
-        {head?.center}
-        {head?.actions}
-      </div>
-      <div
-        style={{
-          position: "relative",
-          flex: 1,
-          display: "flex",
-          minHeight: 0,
-        }}
-      >
-        <CardHeadContext.Provider value={setHead}>
-          {children}
-        </CardHeadContext.Provider>
-      </div>
-    </div>
-  );
 }
 
 const NO_UPDATES: readonly AcpUpdate[] = [];
@@ -558,14 +600,14 @@ function TerminalTabGui({
     [approval, extra, harness, base],
   );
   return (
-    <Card>
+    <HeadCard>
       <TerminalGui
         api={api}
         gui={{ handle: "win_gallery", harness, handoff: "restart" }}
         terminalRef="trm_gallery"
         now={() => NOW}
       />
-    </Card>
+    </HeadCard>
   );
 }
 
@@ -608,6 +650,17 @@ const REWOUND: readonly AcpUpdate[] = [
   },
   { type: "hidden_restored", hidden: "rwd-1" },
 ];
+
+// 터미널 탭에서 Claude Code TUI가 foreground로 돌고 hook이 session을 알린 상태.
+const CLAUDE_TUI: TerminalAgent = {
+  harness: "claude",
+  state: "idle",
+  unseen: false,
+  hooked: true,
+  foreground: true,
+  session: "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9",
+  title: "Add a retry to the upload helper",
+};
 
 export const harnessGuiArea: Area = {
   id: "harness-gui",
@@ -762,6 +815,115 @@ export const harnessGuiArea: Area = {
           />
         );
       },
+    },
+    {
+      id: "harness-gui-slash-scroll",
+      title: "Harness GUI · commands scrolled",
+      description:
+        "composer에 /를 치고 ↓를 12번 누른 메뉴다. 10줄 밖으로 내려가도 고른 줄이 보이도록 목록이 따라 scroll하고 가로 scroll은 없다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[
+            () => type("[data-composer-input]", "/"),
+            () => arrowDown(12),
+          ]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-slash-long",
+      title: "Harness GUI · long command name",
+      description:
+        "composer에 /plugin-name을 친 메뉴다. 긴 plugin 명령(/plugin-name:a-very-long-command-name)이 가로 scroll 없이 한 줄에 들어간다. 이름은 줄 폭의 절반까지만 쓰고 넘으면 말줄임하며(전체 이름은 hover의 tooltip), 설명과 출처 배지는 그 옆에 남는다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[() => type("[data-composer-input]", "/plugin-name")]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-shell-mode",
+      title: "Harness GUI · shell mode",
+      description:
+        "composer에 !ls -la를 친 모습이다. 글이 !로 시작하고 session이 shell 기능을 가지면 shell mode다: 입력 글이 mono 글꼴, 입력칸 테두리가 경고색, 입력칸 안 왼쪽에 Shell chip, 아래에 hint 줄(Runs in your shell · Esc to leave)이 선다. /로 여는 명령 메뉴와 첨부는 이 mode에서 꺼진다. 빈 shell mode(!만)에서 Esc나 Backspace는 mode를 끈다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[() => type("[data-composer-input]", "!ls -la")]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-shell-run",
+      title: "Harness GUI · shell run",
+      description:
+        "shell mode에서 보낸 명령(!ls -la)이 대화에 남은 모습이다. agent 덩어리가 아니라 사람 줄 자리(오른쪽)에 서고, 작은 You ran 아래에 mono $ 명령 머리와 출력 블록이 펼쳐져 있다(20줄이 넘으면 접힌다). agent 이름도 Worked for 줄도 붙지 않는다. 출력의 복사 단추는 블록 오른쪽 위에 흐리게 겹쳐 있고 마우스를 올리면 또렷하다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[
+            () => type("[data-composer-input]", "!ls -la"),
+            () => click("[data-composer-action=send]"),
+          ]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-rewind",
+      title: "Harness GUI · rewind",
+      description:
+        "내 메시지의 Rewind to here를 눌러 연 rewind panel이다. harness(Claude)는 adapter가 알려 준 되돌아갈 파일(src/upload.ts, src/upload.test.ts)을 미리 보이고, 기본으로 함께 되돌린다. harness에는 앱 write가 없어 앱 절은 비어 있다. 바뀐 파일이 없는 시점은 No files were changed 한 줄이다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[() => click("button", /^Rewind to here$/)]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-fork-info",
+      title: "Harness GUI · forked session",
+      description:
+        "fork로 갈라진 session이다. adapter가 turn 밖의 한 줄 알림(Forked from …)을 맨 위에 내고, 머리의 제목은 session_changed의 title로 바뀐다. 알림은 다른 한 줄 알림과 같은 회색 한 줄이다.",
+      render: () => <TerminalTabGui approval={null} base={FORKED} />,
+    },
+    {
+      id: "harness-gui-open-terminal",
+      title: "Harness GUI · open in terminal",
+      description:
+        "채팅이 열린 터미널 탭의 ⋯ 메뉴다. 채팅 머리의 항목(있을 때) 아래에 Open in terminal이 있고 머리 단추 Terminal과 같은 일을 한다(restart하는 harness는 먼저 묻는다).",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[() => press("[data-card-more]")]}
+        />
+      ),
+    },
+    {
+      id: "terminal-open-chat",
+      title: "Terminal tab · open as chat",
+      description:
+        "Claude Code가 foreground에서 도는 터미널 탭이다. 머리의 Open as chat 단추와 ⋯ 메뉴의 Open as chat 항목이 같은 일을 한다(modal로 확인한 뒤 같은 session을 채팅으로 연다). hook이 session을 알린 탭이라 둘 다 쓸 수 있다.",
+      render: () => (
+        <TerminalAgentBody
+          agent={CLAUDE_TUI}
+          steps={[() => press("[data-card-more]")]}
+        />
+      ),
+    },
+    {
+      id: "terminal-open-chat-disabled",
+      title: "Terminal tab · open as chat disabled",
+      description:
+        "CLI가 아직 session을 알리지 않은 탭이다(첫 메시지 전이고 hook도 없음). 머리 단추와 ⋯ 메뉴 항목이 disabled이고 이유가 붙는다: 메뉴 항목 옆에 짧은 이유(No session yet), 마우스를 올리면 전체 문장. 누른 뒤에 실패하지 않게 미리 막는다. foreground가 그 CLI가 아닌 탭도 같은 모양에 이유만 다르다.",
+      render: () => (
+        <TerminalAgentBody
+          agent={{ ...CLAUDE_TUI, session: undefined, title: undefined }}
+          steps={[() => press("[data-card-more]")]}
+        />
+      ),
     },
     {
       id: "harness-gui-restart-modal",

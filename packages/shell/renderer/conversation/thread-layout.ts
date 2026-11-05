@@ -199,6 +199,17 @@ function entryOf(item: AcpItem): ThreadEntry | null {
         entries: layoutEntries(item.items, createLayoutCache()),
       };
     case "tool": {
+      // 사람이 돌린 명령은 detail 종류와 상관없이 사람 쪽 줄이다.
+      if (item.by === "user") {
+        return {
+          kind: "shell",
+          id: item.id,
+          at: item.at,
+          command: item.body?.input ?? item.title,
+          state: item.state,
+          output: item.body?.output ?? null,
+        };
+      }
       const { detail } = item;
       switch (detail.kind) {
         case "edit":
@@ -306,7 +317,11 @@ export function layoutEntries(
     run = [];
   };
   for (const item of items) {
-    if (item.kind === "tool" && item.detail.kind === "generic") {
+    if (
+      item.kind === "tool" &&
+      item.by === "agent" &&
+      item.detail.kind === "generic"
+    ) {
       if (item.turn !== runTurn) flush();
       runTurn = item.turn;
       run.push(callViewOf(item, cache));

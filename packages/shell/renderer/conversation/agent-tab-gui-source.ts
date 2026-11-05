@@ -12,7 +12,11 @@ import type {
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
 import { harnessVendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
-import type { HarnessGuiInfo } from "../../ipc/harness-gui.ts";
+import type {
+  HarnessGuiInfo,
+  HarnessGuiRewindPreview,
+} from "../../ipc/harness-gui.ts";
+import { rewindPointsOf } from "./agent-view-model.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 
 interface GuiSourceDeps {
@@ -21,6 +25,10 @@ interface GuiSourceDeps {
   readonly feed: { readonly session: string; state(): AcpState };
   /** 조작을 handle에 준다. 받았으면 true다. */
   readonly input: (input: AcpInput) => Promise<boolean>;
+  /** 그 사람 메시지로 rewind하면 되돌아갈 file. adapter가 못 주면 null이다. */
+  readonly rewindPreview: (
+    message: string,
+  ) => Promise<HarnessGuiRewindPreview | null>;
   /** 이미지를 탭의 임시 폴더에 쓰고 절대 경로를 받는다. 없으면 이미지를 붙일 수 없다. */
   readonly writeImage?: (image: Blob) => Promise<string | null>;
 }
@@ -161,6 +169,25 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
       };
     },
 
+    // 시점은 feed에서 읽고, 되돌아갈 file은 adapter에게 묻는다. harness에는 앱 write가 없다.
+    rewindPoints: () =>
+      Promise.resolve({ ok: true, value: rewindPointsOf(feed.state()) }),
+    rewindPreview: async (_session, message) => {
+      const preview = await deps.rewindPreview(message);
+      return preview === null
+        ? UNAVAILABLE
+        : {
+            ok: true,
+            value: {
+              files: preview.files.map((file) => ({
+                path: file.path,
+                skipped: null,
+              })),
+              apps: [],
+            },
+          };
+    },
+
     // 이 아래는 lophn session의 것이라 이 화면에 없다.
     searchMessages: none,
     envelope: none,
@@ -171,7 +198,5 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     stopSession: none,
     archiveSession: none,
     deleteSession: none,
-    rewindPoints: none,
-    rewindPreview: none,
   };
 }

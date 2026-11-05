@@ -47,6 +47,49 @@
   border-color: var(--color-focus);
 }
 
+/* shell mode(`!`): 입력칸 테두리가 경고색이 되고 글이 mono로 바뀐다. */
+.box[data-shell],
+.box[data-shell]:focus-within {
+  border-color: var(--status-warning-marker);
+}
+
+.box[data-shell] .input {
+  font-family: var(--font-mono);
+}
+
+.inputRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}
+
+.inputRow > .input {
+  flex: 1;
+  width: auto;
+  min-width: var(--space-0);
+}
+
+.shellChip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-0) var(--space-3);
+  border: var(--border-width) solid var(--status-warning-marker);
+  border-radius: var(--radius-full);
+  color: var(--status-warning-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-body-line);
+}
+
+.shellHint {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .box[data-locked] .input {
   color: var(--color-text-secondary);
 }

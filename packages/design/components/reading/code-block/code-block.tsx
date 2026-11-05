@@ -100,19 +100,34 @@ export function CodeBlock({
       },
     );
   }, [highlighter, code, language]);
+  // 언어도 action도 없으면 머리 줄에 복사 단추만 혼자 서므로 줄을 없애고 단추를 오른쪽 위에 겹친다.
+  const headless = language === undefined && action === undefined;
+  const actions = (
+    <span
+      className={styles.codeActions}
+      data-floating={headless ? "" : undefined}
+    >
+      {action}
+      <CopyButton
+        text={code}
+        label={t("common.button.copy-code")}
+        clipboard={clipboard}
+      />
+    </span>
+  );
   return (
-    <figure className={styles.codeBlock}>
-      <div className={styles.codeHead}>
-        <span className={styles.language}>{language}</span>
-        <span className={styles.codeActions}>
-          {action}
-          <CopyButton
-            text={code}
-            label={t("common.button.copy-code")}
-            clipboard={clipboard}
-          />
-        </span>
-      </div>
+    <figure
+      className={styles.codeBlock}
+      data-headless={headless ? "" : undefined}
+    >
+      {headless ? (
+        actions
+      ) : (
+        <div className={styles.codeHead}>
+          <span className={styles.language}>{language}</span>
+          {actions}
+        </div>
+      )}
       <pre className={styles.pre}>
         <code>
           <CodeText

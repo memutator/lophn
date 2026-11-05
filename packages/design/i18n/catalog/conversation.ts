@@ -303,6 +303,10 @@ export const conversation = {
   "conversation.label.session-archived-title": "{title} · Archived",
   "conversation.label.session-list": "{agent} sessions",
   "conversation.label.session-untitled": "New session",
+  "conversation.label.shell-chip": "Shell",
+  "conversation.label.shell-exit": "exit {code}",
+  "conversation.label.shell-running": "Running",
+  "conversation.label.shell-you-ran": "You ran",
   "conversation.label.since-now": "now",
   "conversation.label.slash-badge-app": "lophn",
   "conversation.label.slash-badge-mcp": "MCP",
@@ -459,6 +463,7 @@ export const conversation = {
   "conversation.notice.session-archived":
     "This session is archived. You can read it, but it takes no new messages.",
   "conversation.notice.session-no-match": "No sessions match.",
+  "conversation.notice.shell-mode": "Runs in your shell · Esc to leave",
   "conversation.notice.slash-no-match": "No commands match.",
   "conversation.notice.slash-working":
     "{agent} is working. A command you pick goes in the next turn.",

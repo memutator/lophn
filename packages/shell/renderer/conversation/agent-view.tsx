@@ -241,6 +241,10 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     readonly options: Record<string, string>;
   } | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
+  // 보냈지만 아직 끝나지 않은 사람 shell 명령. lophn은 끝나야 답하고 item도 그때 오므로 그동안 도는 줄을 보인다.
+  const [shells, setShells] = useState<
+    readonly { id: string; session: string; command: string }[]
+  >([]);
   const stage = useRef<HTMLDivElement>(null);
   const find = useConversationFind(stage, props.findSeed, props.onFindSeedUsed);
 
@@ -501,6 +505,33 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       content.push(uploaded.value.block);
     }
     await dispatch(content, target);
+  };
+
+  // composer의 shell mode(`!`). 명령은 모델 메시지가 아니라 `run_shell`로 간다.
+  const runShell = async (command: string) => {
+    if (readOnly || composerLocked(draft.outgoing)) return;
+    const text = draft.text;
+    const target = await ensureSession();
+    if (target === null) return;
+    const id = actKey("shl");
+    drafts.save(target, { text: "", selection: [0, 0] });
+    setShells((list) => [...list, { id, session: target, command }]);
+    const result = await source.act(target, {
+      type: "run_shell",
+      session: target,
+      key: id,
+      command,
+    });
+    setShells((list) => list.filter((item) => item.id !== id));
+    if (result.ok) {
+      setProblem(null);
+      return;
+    }
+    // 못 돌렸으면 친 글을 돌려준다.
+    setProblem("action-failed");
+    if (drafts.draft(target).text === "") {
+      drafts.save(target, { text, selection: [text.length, text.length] });
+    }
   };
 
   // 결과를 모르는 말은 다시 보내기 전에 기록에서 먼저 찾는다.
@@ -838,6 +869,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
               detail={draft.detail}
               live={thread?.live ?? null}
               outgoing={draft.outgoing}
+              pendingShell={shells.filter((item) => item.session === session)}
               working={working}
               now={now}
               imageUrl={imageUrl}
@@ -1151,6 +1183,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             onLoadPermissions={() => void loadPermissions()}
             onEditPermissions={host.openPermissions}
             onSend={() => void send()}
+            onShell={(command) => void runShell(command)}
             onStop={() => void stop()}
             onCommand={runSlash}
             onProblem={fail}

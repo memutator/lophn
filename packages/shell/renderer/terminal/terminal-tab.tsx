@@ -1,9 +1,11 @@
+import { MenuIcon } from "@lophn/ui/overlay";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
 import type { TerminalRuntime } from "../../ipc/terminal.ts";
+import { conversationIcons } from "../icons/mod.ts";
 import { useCardHead } from "../shell/card-head.tsx";
 import type { TerminalDeps } from "./deps.ts";
 import { ExitBanner } from "./exit-banner.tsx";
@@ -99,18 +101,32 @@ export function TerminalTab({
   }, [nextName, naming?.name.shown]);
   const phase = entry?.phase ?? IDLE;
 
-  // GUI로 바꾸는 단추. GUI가 붙은 탭이거나, 어댑터가 있는 harness의 TUI가 PTY foreground에서 도는 동안 card 머리에 선다.
-  // shared 대화의 view 전환 말고는 process를 한 번 껐다 켜므로 modal로 묻고, 도는 turn이 있으면 멈춘다고 알린다.
+  // GUI로 바꾸는 단추와 ⋯ 메뉴의 "Open as chat". GUI가 붙은 탭이거나, 어댑터가 있는 harness의 CLI라고 알려진 탭(hook만 들은
+  // 것도)에 선다. 쓸 수 없으면 disabled에 이유를 달아 누른 뒤에 실패하지 않게 한다. shared 대화의 view 전환 말고는
+  // process를 한 번 껐다 켜므로 modal로 묻고, 도는 turn이 있으면 멈춘다고 알린다.
   const guiHarness =
     gui?.harness ??
-    (agent?.foreground === true && isGuiHarness(agent.harness)
-      ? agent.harness
-      : null);
+    (agent !== undefined && isGuiHarness(agent.harness) ? agent.harness : null);
+  const unavailable: { reason: string; short: string } | null =
+    gui !== null || agent === undefined
+      ? null
+      : agent.foreground !== true
+        ? {
+            reason: t("terminal.reason.foreground"),
+            short: t("terminal.reason.foreground-short"),
+          }
+        : agent.session === undefined
+          ? {
+              reason: t("terminal.reason.session"),
+              short: t("terminal.reason.session-short"),
+            }
+          : null;
   const toggle = useGuiToggle({
     api: guiApi(),
     terminalRef: entry?.terminalRef ?? null,
     to: "gui",
     harness: guiHarness ?? "claude",
+    unavailable: unavailable?.reason ?? null,
     confirm: () =>
       gui?.handoff === "shared"
         ? null
@@ -120,8 +136,30 @@ export function TerminalTab({
           },
   });
   const inCard = useCardHead(
-    guiHarness === null ? {} : { actions: toggle.button },
-    [guiHarness, toggle.button],
+    guiHarness === null
+      ? {}
+      : {
+          actions: toggle.button,
+          menu: {
+            items: [
+              {
+                id: "open-chat",
+                label: t("terminal.menu.open-chat"),
+                leading: <MenuIcon icon={conversationIcons.dock} />,
+                ...(unavailable === null
+                  ? {}
+                  : {
+                      disabled: true,
+                      shortcut: unavailable.short,
+                    }),
+              },
+            ],
+            onSelect: (id) => {
+              if (id === "open-chat") toggle.start();
+            },
+          },
+        },
+    [guiHarness, unavailable?.reason, toggle.button, toggle.start],
   );
   const hostRef = useRef<HTMLDivElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);

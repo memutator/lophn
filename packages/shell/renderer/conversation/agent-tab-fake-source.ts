@@ -3,6 +3,7 @@
 // 알린다. 그래서 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
 
 import {
+  type AcpCommand,
   type AcpCapabilities,
   type AcpChildState,
   type AcpEntry,
@@ -78,6 +79,8 @@ export const AGENT_TAB_SCENES = [
   "approval",
   "approval-states",
   "rewind",
+  /** 사람이 `!`로 돌린 shell 줄 둘(출력을 펼친 것, exit code가 0이 아닌 것). */
+  "shell",
   /** session이 아직 없는 새 대화. */
   "empty",
   /** harness CLI의 session: mode 셋, CLI 명령, composer 위 dock(goal, todo, 도는 subagent·task, 줄 선 메시지), 명령 출력과 알림 줄. session 목록과 파일 복원은 없다. */
@@ -270,6 +273,47 @@ function tool(
     ...over,
   };
 }
+
+/**
+ * 사람이 `!`로 돌린 명령 하나. harness는 출력을 `body`에 싣고(`output`을 주면), lophn은 body가 null이라
+ * `toolBodies`의 blob read로 읽는다.
+ */
+function userShell(
+  n: number,
+  minutes: number,
+  command: string,
+  over: Partial<AcpToolItem> = {},
+  output: string | null = null,
+): AcpToolItem {
+  return tool(
+    n,
+    minutes,
+    {
+      tool: "shell",
+      category: "command",
+      title: command.split("\n")[0]!,
+    },
+    {
+      by: "user",
+      turn: null,
+      duration_ms: 300,
+      body:
+        output === null ? null : { input: command, output, truncated: false },
+      ...over,
+    },
+  );
+}
+
+const LS_OUTPUT = [
+  "total 48",
+  "drwxr-xr-x  7 phroner phroner 4096 Oct  6 09:12 .",
+  "drwxr-xr-x 14 phroner phroner 4096 Oct  5 18:40 ..",
+  "-rw-r--r--  1 phroner phroner  231 Oct  6 09:02 README.md",
+  "drwxr-xr-x  3 phroner phroner 4096 Oct  5 18:41 docs",
+  "drwxr-xr-x  4 phroner phroner 4096 Oct  6 08:55 eval",
+  "-rw-r--r--  1 phroner phroner  612 Oct  5 18:40 package.json",
+  "drwxr-xr-x  2 phroner phroner 4096 Oct  6 09:02 src",
+].join("\n");
 
 // report 장면: 탐색 묶음 하나와 description을 제목으로 쓰는 command 하나.
 const REPORT_CALLS: readonly AcpToolItem[] = [
@@ -927,6 +971,21 @@ interface SceneData {
   >;
 }
 
+// shell 장면: lophn이 낸 사람 shell 줄. 출력은 blob read가 읽고 exit code가 거기 실린다.
+const SHELL_BODIES: SceneData["toolBodies"] = {
+  [toolId(20)]: { output: shellBody(LS_OUTPUT) },
+  [toolId(21)]: {
+    output: resultBody("exit code 2", {
+      exit_code: 2,
+      timed_out: false,
+      stdout: "",
+      stderr: "ls: cannot access 'build': No such file or directory",
+      stdout_truncated: false,
+      stderr_truncated: false,
+    }),
+  },
+};
+
 function sceneData(scene: AgentTabScene): SceneData {
   switch (scene) {
     case "report":
@@ -947,6 +1006,22 @@ function sceneData(scene: AgentTabScene): SceneData {
           { turn: turnOf("ended") },
         ),
         toolBodies: REPORT_TOOL_BODIES,
+      };
+    case "shell":
+      return {
+        agent: LOPHN,
+        title: "Week 41 summary",
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            agent(2, 42, "The report is in docs/reports/2026-w41.md."),
+            turnEnd(43, 18_000, 0),
+            userShell(20, 44, "ls -la"),
+            userShell(21, 45, "ls build", { state: "error" }),
+          ],
+          { turn: turnOf("ended") },
+        ),
+        toolBodies: SHELL_BODIES,
       };
     case "working":
     case "rewind":
@@ -1361,6 +1436,18 @@ function sceneData(scene: AgentTabScene): SceneData {
               text: "You've used 82% of your 5-hour limit. It resets at 11:30.",
               level: "warning",
             }),
+            notice(5, 40, {
+              type: "info",
+              text: "Forked from Week 40 summary",
+              level: "info",
+            }),
+            userShell(
+              30,
+              40,
+              "git status --short",
+              {},
+              " M docs/reports/index.md\n?? docs/reports/2026-w41.md",
+            ),
             user(1, 41, REQUEST),
             ...REPORT_CALLS,
             SUBAGENT_CALL,
@@ -1533,14 +1620,13 @@ const EVERYTHING: AcpCapabilities = {
   toggles: false,
   goal: false,
   roles: false,
-  shell: false,
+  shell: true,
   resume: false,
 };
 
-/** harness CLI가 가진 만큼: session 목록과 파일 복원이 없다. */
+/** harness CLI(Claude)가 가진 만큼: session 목록이 없다. 파일 복원은 있고 앱 write는 없다. */
 const HARNESS_CAPABILITIES: AcpCapabilities = {
   ...EVERYTHING,
-  rewind_files: false,
   sessions: false,
 };
 
@@ -1646,6 +1732,16 @@ function lophnMeta(options: MetaOptions): AcpSessionMeta {
   };
 }
 
+/** 이름이 메뉴 폭을 넘는 plugin 명령. 이름은 말줄임하고 설명은 그 옆에 남는다. */
+const LONG_PLUGIN_COMMAND: AcpCommand = {
+  name: "plugin-name:a-very-long-command-name",
+  aliases: [],
+  description: "A plugin command whose name is longer than the menu is wide",
+  argument_hint: null,
+  source: "plugin",
+  opens: null,
+};
+
 function harnessMeta(options: MetaOptions): AcpSessionMeta {
   const sonnet = modelsOf({}).model!;
   const omp = options.harness === "omp";
@@ -1677,6 +1773,7 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
       ...HARNESS_APP_COMMANDS,
       ...CLI_COMMANDS,
       ...HARNESS_EXTRA_COMMANDS,
+      LONG_PLUGIN_COMMAND,
     ],
     usage: {
       ...usageOf(options.status),
@@ -1842,6 +1939,8 @@ export function createFakeAgentTabSource(
   // 올린 이미지의 blob 주소. 메모리에만 있다.
   const images = new Map<string, string>();
   const notify = () => listeners.forEach((listener) => listener());
+  /** 이 fake가 받은 `run_shell`의 출력(lophn 쪽은 blob read로 읽는다). */
+  const shellRuns = new Map<string, ToolCallBodyView>();
   const stateOf = (session: string) => states.get(session) ?? EMPTY_ACP_STATE;
   /** 상태를 바꾸고 알린다. 갱신이 없는 변경(대기 줄 고치기 등)도 이 길로 낸다. */
   const change = (session: string, next: (state: AcpState) => AcpState) => {
@@ -2111,6 +2210,31 @@ export function createFakeAgentTabSource(
             ),
           }),
         );
+      case "run_shell": {
+        // lophn은 끝나야 답하고 item도 그때 온다. `sleep`은 도는 줄을 gallery에서 보이려고 오래 기다린다.
+        if (input.command.includes("sleep")) {
+          await new Promise((resolve) => setTimeout(resolve, 600_000));
+        }
+        const state = stateOf(session);
+        const id = nextId("tcl");
+        const output = `${input.command}: ok\n${LS_OUTPUT}`;
+        const harness = state.session?.harness != null;
+        if (!harness) shellRuns.set(id, shellBody(output));
+        return lift(
+          apply(session, {
+            type: "tool_started",
+            item: {
+              ...userShell(
+                0,
+                50,
+                input.command,
+                { id, seq: state.seq + 1, at: sentAt() },
+                harness ? output : null,
+              ),
+            },
+          }),
+        );
+      }
       case "run_command":
       case "compact":
         return { ok: true, value: {} };
@@ -2166,7 +2290,10 @@ export function createFakeAgentTabSource(
         : ok({ state: found.detail.state, reason: found.detail.fail_reason });
     },
     toolCallBody(toolCall, part) {
-      const found = data.toolBodies?.[toolCall]?.[part];
+      const found =
+        part === "output" && shellRuns.has(toolCall)
+          ? shellRuns.get(toolCall)
+          : data.toolBodies?.[toolCall]?.[part];
       return found === undefined ? fail("not_found") : ok(found);
     },
 
@@ -2342,7 +2469,13 @@ export function createFakeAgentTabSource(
     },
 
     rewindPoints: (session) => ok(rewindPointsOf(stateOf(session))),
-    rewindPreview: () => ok(REWIND_PREVIEW),
+    // harness는 file tool로 바꾼 파일만 알고 앱 write는 없다.
+    rewindPreview: () =>
+      ok(
+        data.harness === true
+          ? { files: REWIND_PREVIEW.files, apps: [] }
+          : REWIND_PREVIEW,
+      ),
 
     changed(listener) {
       listeners.add(listener);

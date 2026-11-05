@@ -46,6 +46,9 @@ import {
   RewindScene,
   SenderChipsScene,
   SessionSearchScene,
+  ShellModeScene,
+  ShellPendingScene,
+  ShellRunScene,
   SkipScene,
   StatusCostScene,
   StatusFromFooterScene,
@@ -236,6 +239,12 @@ export const AgentApprovalScopes = ApprovalScopesScene;
 export const AgentHarness = HarnessScene;
 /** harness의 mode menu. */
 export const AgentHarnessMode = HarnessModeScene;
+/** 사람이 `!`로 돌린 shell 줄. */
+export const AgentShellRun = ShellRunScene;
+/** shell mode의 composer. */
+export const AgentShellMode = ShellModeScene;
+/** 끝나기를 기다리는 shell 줄. */
+export const AgentShellPending = ShellPendingScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
 /** 도는 편집과 call: 일반 tool 줄이 아니라 편집 카드와 call 블록으로 보인다. */

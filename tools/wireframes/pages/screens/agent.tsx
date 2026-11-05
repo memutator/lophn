@@ -7,6 +7,9 @@ import {
   AgentCallOpen,
   AgentHarness,
   AgentHarnessMode,
+  AgentShellMode,
+  AgentShellPending,
+  AgentShellRun,
   AgentCallReplies,
   AgentToolFailed,
   AgentToolRunning,
@@ -176,6 +179,27 @@ export const agentArea: Area = {
       description:
         "harness의 mode 단추를 누른 상태다. 모양은 lophn의 Ask·Skip과 같고 mode의 이름과 수는 그 CLI가 정한다. 첫 mode가 아닌 mode는 경고색이다.",
       render: () => <AgentHarnessMode />,
+    },
+    {
+      id: "new-agent-shell-mode",
+      title: "Agent · shell mode",
+      description:
+        "composer에 !ls -la를 친 모습이다. 글이 !로 시작하고 session이 shell 기능을 가지면 shell mode다: 입력 글이 mono, 입력칸 테두리가 경고색, 입력칸 안 왼쪽에 Shell chip, 아래에 Runs in your shell · Esc to leave. 위 대화에 사람이 돌린 shell 줄이 보인다. Home의 lophn agent처럼 shell 기능이 없는 곳에서는 !가 보통 글이다.",
+      render: () => <AgentShellMode />,
+    },
+    {
+      id: "new-agent-shell-run",
+      title: "Agent · shell run",
+      description:
+        "사람이 !로 돌린 명령이 대화에 남은 모습이다. agent 덩어리가 아니라 오른쪽 사람 줄 자리에 You ran, mono $ 명령 머리, 펼친 출력 블록이 서고 끝나면 exit code가 붙는다(0이 아니면 경고색). 두 번째 줄은 exit 2로 끝난 명령이다. Worked for 줄은 붙지 않는다.",
+      render: () => <AgentShellRun />,
+    },
+    {
+      id: "new-agent-shell-pending",
+      title: "Agent · shell running",
+      description:
+        "lophn agent의 !sleep 30을 보낸 직후다. lophn은 명령이 끝나야 답하고 그 결과 줄도 그때 오므로, 그동안 thread 끝에 도는 줄(Running)이 선다. 줄이 오거나 실패하면 지운다.",
+      render: () => <AgentShellPending />,
     },
     {
       id: "new-agent-skip",

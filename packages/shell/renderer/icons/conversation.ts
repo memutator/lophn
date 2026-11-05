@@ -87,6 +87,7 @@ export const conversationIcons = {
   todo: ListTodo,
   running: Activity,
   taskShell: Terminal,
+  shell: Terminal,
   taskAgent: Bot,
   back: ArrowLeft,
   // thread index card의 bookmark 단추. 켜져 있으면 check가 붙는다.

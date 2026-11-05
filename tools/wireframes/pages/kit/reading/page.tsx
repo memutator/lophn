@@ -156,7 +156,7 @@ export function KitReading() {
       </Section>
       <Section
         title="CodeBlock"
-        note="code 조각 하나와 복사 단추. language는 글로만 보인다. highlighter가 있으면 token 색으로 그린다."
+        note="code 조각 하나와 복사 단추. language는 글로만 보인다. language도 action도 없으면 머리 줄 없이 복사 단추가 오른쪽 위에 흐리게 겹치고 hover에 또렷하다. highlighter가 있으면 token 색으로 그린다."
       >
         <Row label="with language">
           <CodeBlock code={TWO_LINES} language="sh" clipboard={CLIPBOARD} />
@@ -170,7 +170,7 @@ export function KitReading() {
             />
           </HighlighterProvider>
         </Row>
-        <Row label="no language">
+        <Row label="no language · floating copy">
           <CodeBlock
             code="plain text without a language"
             clipboard={CLIPBOARD}

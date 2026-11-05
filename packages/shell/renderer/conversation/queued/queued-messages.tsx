@@ -31,6 +31,10 @@ interface QueuedMessagesProps {
   onMove: (id: string, direction: "up" | "down") => void;
   /** 줄의 단추를 막는다. core 통로가 끊겼을 때 host가 켠다. */
   disabled?: boolean;
+  /** `capabilities.steer`. 꺼져 있으면 [Send now]가 없다. 기본은 true다. */
+  canSteer?: boolean;
+  /** `capabilities.queue_edit`. 꺼져 있으면 글 고치기·옮기기·빼기가 없다. 기본은 true다. */
+  canEdit?: boolean;
 }
 
 export function QueuedMessages({
@@ -40,6 +44,8 @@ export function QueuedMessages({
   onEdit,
   onMove,
   disabled,
+  canSteer = true,
+  canEdit = true,
 }: QueuedMessagesProps): ReactElement | null {
   const [editing, setEditing] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -132,7 +138,7 @@ export function QueuedMessages({
                 aria-label={t("conversation.label.queued-edit-message", {
                   text: item.summary,
                 })}
-                disabled={disabled}
+                disabled={disabled || !canEdit}
                 onClick={() => {
                   setEditing(item.id);
                   setText(item.text);
@@ -158,36 +164,44 @@ export function QueuedMessages({
               </>
             ) : (
               <>
-                <IconButton
-                  icon={conversationIcons.moveUp}
-                  label={t("conversation.button.queued-move-up")}
-                  size="sm"
-                  disabled={disabled || index === 0}
-                  onClick={() => onMove(item.id, "up")}
-                />
-                <IconButton
-                  icon={conversationIcons.moveDown}
-                  label={t("conversation.button.queued-move-down")}
-                  size="sm"
-                  disabled={disabled || index === items.length - 1}
-                  onClick={() => onMove(item.id, "down")}
-                />
-                <Button
-                  size="sm"
-                  icon={actionIcons.send}
-                  disabled={disabled}
-                  data-send-now=""
-                  onClick={() => onSendNow(item.id)}
-                >
-                  {t("conversation.button.send-now")}
-                </Button>
-                <IconButton
-                  icon={workspaceIcons.close}
-                  label={t("conversation.button.queued-remove")}
-                  size="sm"
-                  disabled={disabled}
-                  onClick={() => onRemove(item.id)}
-                />
+                {canEdit ? (
+                  <>
+                    <IconButton
+                      icon={conversationIcons.moveUp}
+                      label={t("conversation.button.queued-move-up")}
+                      size="sm"
+                      disabled={disabled || index === 0}
+                      onClick={() => onMove(item.id, "up")}
+                    />
+                    <IconButton
+                      icon={conversationIcons.moveDown}
+                      label={t("conversation.button.queued-move-down")}
+                      size="sm"
+                      disabled={disabled || index === items.length - 1}
+                      onClick={() => onMove(item.id, "down")}
+                    />
+                  </>
+                ) : null}
+                {canSteer ? (
+                  <Button
+                    size="sm"
+                    icon={actionIcons.send}
+                    disabled={disabled}
+                    data-send-now=""
+                    onClick={() => onSendNow(item.id)}
+                  >
+                    {t("conversation.button.send-now")}
+                  </Button>
+                ) : null}
+                {canEdit ? (
+                  <IconButton
+                    icon={workspaceIcons.close}
+                    label={t("conversation.button.queued-remove")}
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => onRemove(item.id)}
+                  />
+                ) : null}
               </>
             )}
           </li>

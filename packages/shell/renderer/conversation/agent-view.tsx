@@ -703,7 +703,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             now={now}
             imageUrl={imageUrl}
             readOnly={readOnly}
-            can={{ rewind: caps.rewind, fork: caps.fork }}
+            can={{ rewind: caps.rewind, fork: caps.fork, retry: caps.retry }}
             source={source}
             initialScroll={draft.scroll}
             onScroll={(position) => drafts.save(key, { scroll: position })}
@@ -802,6 +802,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         <QueuedMessages
           items={thread?.queued ?? []}
           disabled={offline}
+          canSteer={caps.steer}
+          canEdit={caps.queue_edit}
           onSendNow={(id) =>
             void perform(async () => {
               const result = await source.sendQueuedNow(id);

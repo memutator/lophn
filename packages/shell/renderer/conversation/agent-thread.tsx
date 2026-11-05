@@ -71,7 +71,11 @@ interface AgentThreadProps {
   /** archive한 session이다. 내 말의 Rewind 단추와 agent 말의 Fork 단추가 없다. */
   readOnly: boolean;
   /** source가 가진 기능(`session.capabilities`). 없는 기능의 단추는 그리지 않는다. */
-  can: { readonly rewind: boolean; readonly fork: boolean };
+  can: {
+    readonly rewind: boolean;
+    readonly fork: boolean;
+    readonly retry: boolean;
+  };
   source: Pick<
     AgentTabSource,
     "envelope" | "callState" | "cancelCall" | "retryTurn" | "toolCallBody"
@@ -364,6 +368,7 @@ function itemsOf(
             code={entry.code}
             message={entry.message}
             source={props.source}
+            canRetry={props.can.retry}
           />,
         );
         break;

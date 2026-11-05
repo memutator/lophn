@@ -18,6 +18,8 @@ interface ProviderErrorProps {
   /** 어떤 오류인지. core가 준 글이고, code가 turn이 끝난 이유면 쓰지 않는다. */
   message: string;
   source: Pick<AgentTabSource, "retryTurn">;
+  /** `capabilities.retry`. 꺼져 있으면 [Retry]가 없다. 기본은 true다. */
+  canRetry?: boolean;
 }
 
 type FailedReason = (typeof TURN_FAILED_REASONS)[number];
@@ -45,6 +47,7 @@ export function ProviderError({
   code,
   message,
   source,
+  canRetry = true,
 }: ProviderErrorProps): ReactElement {
   const detail =
     code in FAILED_TEXT ? t(FAILED_TEXT[code as FailedReason]) : message;
@@ -68,14 +71,16 @@ export function ProviderError({
           </p>
         ) : null}
       </div>
-      <Button
-        size="sm"
-        icon={actionIcons.retry}
-        disabled={state === "sending"}
-        onClick={() => void retry()}
-      >
-        {t("conversation.button.retry")}
-      </Button>
+      {canRetry ? (
+        <Button
+          size="sm"
+          icon={actionIcons.retry}
+          disabled={state === "sending"}
+          onClick={() => void retry()}
+        >
+          {t("conversation.button.retry")}
+        </Button>
+      ) : null}
     </div>
   );
 }

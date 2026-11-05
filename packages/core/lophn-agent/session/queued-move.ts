@@ -16,7 +16,7 @@ export function moveQueuedCommand(): CommandDefinition<
         return err({ code: "forbidden", message: "only core moves input" });
       }
       const row = tx.sql.get(
-        "select from_kind, delivery, turn, created_seq from messages where id = ? and session = ?",
+        "select from_kind, delivery, shell, turn, created_seq from messages where id = ? and session = ?",
         [input.message, input.session],
       );
       if (row === undefined) {
@@ -25,6 +25,7 @@ export function moveQueuedCommand(): CommandDefinition<
       if (
         row["from_kind"] !== "human" ||
         row["delivery"] !== "next_turn" ||
+        Number(row["shell"]) !== 0 ||
         row["turn"] !== null
       ) {
         return err({
@@ -36,7 +37,7 @@ export function moveQueuedCommand(): CommandDefinition<
       const neighbor = tx.sql.get(
         `select id, created_seq from messages
          where session = ? and from_kind = 'human' and delivery = 'next_turn'
-           and turn is null and created_seq ${input.direction === "up" ? "<" : ">"} ?
+           and shell = 0 and turn is null and created_seq ${input.direction === "up" ? "<" : ">"} ?
          order by created_seq ${input.direction === "up" ? "desc" : "asc"}
          limit 1`,
         [input.session, created],

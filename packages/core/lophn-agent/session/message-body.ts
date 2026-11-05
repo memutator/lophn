@@ -14,12 +14,14 @@ import {
   type ContentBlock,
   contentBlocksSchema,
   contentOfBlocks,
+  contentOfShell,
   editQueuedMessage,
   machineMessageContentInputSchema,
   MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_CONTENT_PURPOSE,
   receiveMessage,
   recordMessage,
+  recordShellMessage,
   sendMessage,
   serializeMessageContent,
   userContentBlocksSchema,
@@ -174,6 +176,45 @@ export async function prepareBytes(
   return ok(hash);
 }
 
+// 사람이 `!`로 돌린 명령의 기록이다. 명령과 출력의 글을 redaction하고(끝내지 못하면 저장하지 않는다) 그 값에서
+// 저장되는 본문(`contentOfShell`)을 blob으로 준비한다. command는 redaction을 거친 입력으로 같은 본문을 다시 만든다.
+async function prepareShell(
+  deps: {
+    relay(): BodyPrepare | undefined;
+    known?(): KnownSecretMatch | undefined;
+  },
+  ctx: AuthenticatedContext,
+  envelope: CommandEnvelope,
+): Promise<Result<CommandEnvelope>> {
+  const shaped = recordShellMessage.input.safeParse(envelope.input);
+  if (!shaped.success) {
+    return rejected("invalid_input", "shell record is not valid");
+  }
+  const { id, session, duration_ms, ...ran } = shaped.data;
+  const redacted = redactValue(createProductRedactor(deps.known?.()), ran);
+  if (redacted === null) {
+    return rejected("unavailable", "shell output redaction did not finish");
+  }
+  const safe = redacted.value as typeof ran;
+  const bytes = serializeMessageContent(contentOfShell(safe));
+  if (bytes.length > MESSAGE_CONTENT_MAX_BYTES) {
+    return rejected("invalid_input", "shell output is too large");
+  }
+  const relay = deps.relay();
+  if (relay === undefined) {
+    return rejected("unavailable", "blob preparation is not available");
+  }
+  const prepared = await prepareBytes(
+    relay,
+    ctx,
+    MESSAGE_CONTENT_PURPOSE,
+    bytes,
+    "message body",
+  );
+  if (!prepared.ok) return prepared;
+  return ok({ ...envelope, input: { id, session, duration_ms, ...safe } });
+}
+
 // 본문을 싣는 command의 앞 단계. 값은 redaction을 거친 값으로 바뀌어 writer에 가고,
 // 그 바이트는 보낸 자격의 이름으로 준비되어 있다. 다른 command는 그대로 지나간다.
 // 사람 메시지는 content block이고 저장되는 본문(`contentOfBlocks`)이 blob이 된다. 이미지는 hash만 싣는다:
@@ -190,6 +231,9 @@ export function createMessageBodyPreparer(deps: {
   envelope: CommandEnvelope,
 ) => Promise<Result<CommandEnvelope>> {
   return async (ctx, envelope) => {
+    if (envelope.command === recordShellMessage.name) {
+      return prepareShell(deps, ctx, envelope);
+    }
     const blocksCommand =
       envelope.command === sendMessage.name ||
       envelope.command === receiveMessage.name ||

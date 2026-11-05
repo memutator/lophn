@@ -91,24 +91,30 @@ function killGroup(pid: number): void {
   }
 }
 
-export async function runShell(
-  input: { command: string; timeout_ms?: number },
-  ctx: ToolContext,
-): Promise<Result<ToolResult>> {
-  const cwd = ctx.scope.base ?? ctx.scope.read[0];
-  if (cwd === undefined) {
-    return fail("invalid_input", "this workspace has no folder to run in");
-  }
-  const timeoutMs = Math.min(
-    input.timeout_ms ?? DEFAULT_TIMEOUT_MS,
-    MAX_TIMEOUT_MS,
-  );
+export type CommandRun = {
+  // 시간이 지났거나 멈춘 명령은 성공도 실패도 아니라 null이다.
+  exit_code: number | null;
+  timed_out: boolean;
+  stopped: boolean;
+  stdout: string;
+  stderr: string;
+  stdout_truncated: boolean;
+  stderr_truncated: boolean;
+};
 
+// agent의 `shell.run`과 사람의 `!`가 함께 쓰는 실행부다. 승인과 cwd 고르기는 부르는 쪽 몫이다.
+export async function runCommand(input: {
+  command: string;
+  cwd: string;
+  env: Record<string, string>;
+  timeoutMs: number;
+  signal?: AbortSignal | undefined;
+}): Promise<Result<CommandRun>> {
   let child: ChildProcess;
   try {
     child = spawn("/bin/sh", ["-c", LAUNCH, "sh", input.command], {
-      cwd,
-      env: readShellEnvironment(),
+      cwd: input.cwd,
+      env: input.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
   } catch {
@@ -140,21 +146,21 @@ export async function runShell(
   const timer = setTimeout(() => {
     timedOut = true;
     kill();
-  }, timeoutMs);
+  }, input.timeoutMs);
   // 사람이 turn을 멈추면 group을 죽인다. 안 그러면 명령이 멈춘 뒤에도 돈다. 죽인 명령은 성공이 아니다.
   let stopped = false;
   const stop = () => {
     stopped = true;
     kill();
   };
-  if (ctx.signal?.aborted) stop();
-  else ctx.signal?.addEventListener("abort", stop, { once: true });
+  if (input.signal?.aborted) stop();
+  else input.signal?.addEventListener("abort", stop, { once: true });
 
   const out = collect(child.stdout!);
   const errOut = collect(child.stderr!);
   const code = await exited;
   clearTimeout(timer);
-  ctx.signal?.removeEventListener("abort", stop);
+  input.signal?.removeEventListener("abort", stop);
   const empty: Collected = { text: "", truncated: false };
   const grace = <T>(promise: Promise<T>, fallback: T) =>
     Promise.race([
@@ -167,16 +173,47 @@ export async function runShell(
     grace(out, empty),
     grace(errOut, empty),
   ]);
-
-  const content = {
+  return ok({
     exit_code: timedOut || stopped ? null : code,
     timed_out: timedOut,
+    stopped,
     stdout: stdout.text,
     stderr: stderr.text,
     stdout_truncated: stdout.truncated,
     stderr_truncated: stderr.truncated,
+  });
+}
+
+export async function runShell(
+  input: { command: string; timeout_ms?: number },
+  ctx: ToolContext,
+): Promise<Result<ToolResult>> {
+  const cwd = ctx.scope.base ?? ctx.scope.read[0];
+  if (cwd === undefined) {
+    return fail("invalid_input", "this workspace has no folder to run in");
+  }
+  const timeoutMs = Math.min(
+    input.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    MAX_TIMEOUT_MS,
+  );
+  const ran = await runCommand({
+    command: input.command,
+    cwd,
+    env: readShellEnvironment(),
+    timeoutMs,
+    signal: ctx.signal,
+  });
+  if (!ran.ok) return ran;
+  const { timed_out: timedOut, stopped, exit_code: code } = ran.value;
+  const content = {
+    exit_code: code,
+    timed_out: timedOut,
+    stdout: ran.value.stdout,
+    stderr: ran.value.stderr,
+    stdout_truncated: ran.value.stdout_truncated,
+    stderr_truncated: ran.value.stderr_truncated,
   };
-  const truncated = stdout.truncated || stderr.truncated;
+  const truncated = ran.value.stdout_truncated || ran.value.stderr_truncated;
   return ok({
     status: timedOut || stopped ? "failure" : "success",
     summary: timedOut

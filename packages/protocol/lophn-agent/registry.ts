@@ -15,7 +15,11 @@ import { skillsRead } from "./skill-settings.ts";
 import { TURN_COMMANDS } from "./turns.ts";
 import { TURN_READS } from "./turn-reads.ts";
 import { AGENT_CALL_ROUTES } from "./calls.ts";
-import { QUEUED_INPUT_ROUTES, sendMessage } from "./inputs.ts";
+import {
+  QUEUED_INPUT_ROUTES,
+  recordShellMessage,
+  sendMessage,
+} from "./inputs.ts";
 import { HARNESS_HOST_ROUTES } from "./harness-host.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
 import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
@@ -56,6 +60,7 @@ export const ROUTES = [
   ...TURN_READS,
   ...AGENT_CALL_ROUTES,
   sendMessage,
+  recordShellMessage,
   ...QUEUED_INPUT_ROUTES,
   ...ASK_ROUTES,
   // shell main의 harness host가 부르는 memory route와 그것이 쓰는 machine command다.

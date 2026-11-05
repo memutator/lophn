@@ -198,6 +198,8 @@ const NONE: AcpCaptured = {
 };
 
 // 같은 기록에서 snapshot과 갱신을 접은 상태가 같고, 어느 쪽에도 redaction 안 된 글이 없다.
+// "tool 본문이 없다"는 agent tool만 본다. 사람이 `!`로 돌린 줄(`by: "user"`)의 body는 저장 전에 redaction을 거친
+// 값(message-body.ts)이라 snapshot과 갱신이 그대로 싣는다.
 test("snapshot과 갱신을 접은 상태가 같고 ACP에 redaction 안 된 글과 tool 본문이 없다", async () => {
   const stored = new Map<string, AcpStoredItem>();
   const allocate = (_session: string, items: AcpAlloc[]) => {

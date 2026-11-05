@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
-import { seqSchema } from "../base/values.ts";
+import { durationMsSchema, seqSchema } from "../base/values.ts";
 import { userContentBlocksSchema } from "./message-content.ts";
 import {
   callFailReasonSchema,
@@ -43,6 +43,36 @@ export const sendMessage = defineCommand({
     "conflict",
     "unavailable",
     "unauthorized",
+  ],
+});
+
+// 사람이 `!`로 돌린 명령과 결과를 사람 메시지로 남긴다. 입력함에 넣지 않고 turn을 열지 않는다: 다음 turn이
+// 가져가 model이 본다. 명령은 core가 승인 없이 돌린다(사람의 명령). 출력은 redaction을 거친 값으로 바뀌어 저장된다.
+export const recordShellMessage = defineCommand({
+  resource: "messages",
+  method: "shell",
+  name: "RecordShellMessage",
+  input: z.strictObject({
+    id: idSchema("msg"),
+    session: idSchema("ses"),
+    command: z.string().min(1),
+    exit_code: z.number().int().nullable(),
+    timed_out: z.boolean(),
+    stdout: z.string(),
+    stderr: z.string(),
+    truncated: z.boolean(),
+    duration_ms: durationMsSchema,
+  }),
+  output: z.object({ message: idSchema("msg"), state_seq: seqSchema }),
+  compare: z.strictObject({}),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "not_found",
+    "conflict",
+    "unavailable",
+    "unauthorized",
+    "forbidden",
   ],
 });
 

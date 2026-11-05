@@ -11,6 +11,7 @@ import {
   MESSAGE_BODY_OWNER_KIND,
   workspaceSessionOpen,
   type recordMessage,
+  type recordShellMessage,
   renameSession,
   type requestSessionCompact,
   type sendMessage,
@@ -88,6 +89,7 @@ export function createConversationCommands(deps: ConversationDeps): {
   failCompact: CommandDefinition<typeof failSessionCompact>;
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
+  shell: CommandDefinition<typeof recordShellMessage>;
   bind: CommandDefinition<typeof bindHarnessSession>;
 } {
   return {

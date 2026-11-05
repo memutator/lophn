@@ -200,6 +200,41 @@ end;`,
 alter table sessions rename column place_kind to workspace_kind;
 alter table sessions rename column place_id to workspace_id;`,
   },
+  {
+    // 사람이 `!`로 돌린 명령의 기록이다. 사람 메시지로 쓰되 입력함에 넣지 않고 turn을 열지 않는다. 다음 turn이
+    // 가져가 model이 본다. 가져간 뒤의 본문·순서는 다른 메시지처럼 고정이고, 가져가기 전에도 글을 고치거나
+    // 순서를 바꾸지 못한다(대기열 메시지가 아니다).
+    id: "lophn-agent.messages.shell",
+    sql: `
+alter table messages add column shell integer not null default 0 check (shell in (0, 1));
+create trigger messages_shell_human_only
+before insert on messages
+when new.shell = 1 and (new.from_kind != 'human' or new.delivery != 'next_turn')
+begin
+  select raise(abort, 'only a human next-turn message can be a shell record');
+end;
+drop trigger messages_content_immutable;
+create trigger messages_content_immutable
+before update of id, session, from_kind, from_ref, call, reply_to, refs,
+  reply, event, fail_reason, delivery, unattended, step_instance, step_name, shell, created_at on messages
+begin
+  select raise(abort, 'a confirmed message is never overwritten');
+end;
+drop trigger messages_body_fixed;
+create trigger messages_body_fixed
+before update of body on messages
+when old.turn is not null or old.from_kind != 'human' or old.delivery != 'next_turn' or old.shell = 1
+begin
+  select raise(abort, 'a consumed message body is fixed');
+end;
+drop trigger messages_created_seq_fixed;
+create trigger messages_created_seq_fixed
+before update of created_seq on messages
+when old.turn is not null or old.from_kind != 'human' or old.delivery != 'next_turn' or old.shell = 1
+begin
+  select raise(abort, 'the order of a consumed message is fixed');
+end;`,
+  },
 ];
 
 type Lookup = {
@@ -389,6 +424,7 @@ type MessageRow = {
   delivery: "next_turn" | "steer";
   step_instance: string | null;
   step_name: string | null;
+  shell: boolean;
   turn: string | null;
   body: string;
   created_seq: string;
@@ -397,7 +433,7 @@ type MessageRow = {
 };
 
 export const MESSAGE_COLUMNS = `id, session, from_kind, from_ref, call,
-  reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, turn, body,
+  reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, shell, turn, body,
   created_seq, created_at, state_seq`;
 
 export function messageRowOf(row: SqlRow): MessageRow {
@@ -415,6 +451,7 @@ export function messageRowOf(row: SqlRow): MessageRow {
     delivery: String(row["delivery"]) as MessageRow["delivery"],
     step_instance: text(row["step_instance"]),
     step_name: text(row["step_name"]),
+    shell: Number(row["shell"]) === 1,
     turn: text(row["turn"]),
     body: String(row["body"]),
     created_seq: String(row["created_seq"]),
@@ -458,6 +495,7 @@ export function receivedMessageOf(row: MessageRow): ReceivedMessage {
         : { instance: row.step_instance, step: row.step_name! },
     turn: row.turn,
     delivery: row.delivery,
+    shell: row.shell,
     body: row.body,
     created_seq: row.created_seq,
     created_at: row.created_at,

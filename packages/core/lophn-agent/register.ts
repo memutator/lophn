@@ -294,7 +294,11 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
 // message 출처의 turn이다. 바깥 command의 actor·event 기록은 그대로다.
 const conversationCommands = createConversationCommands({
   // Router와 session 목록은 wiring이 놓는다. 놓기 전에는 사람 메시지를 받지 못한다.
-  send: { router: messageRouter, directory: messageDirectory },
+  send: {
+    router: messageRouter,
+    directory: messageDirectory,
+    publish: publishAfterCommit,
+  },
   deleteSessionRecords,
   catalog: checkCatalog,
   eraseBlobRefs,
@@ -848,6 +852,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.failCompact,
       conversationCommands.send,
       conversationCommands.record,
+      conversationCommands.shell,
       conversationCommands.bind,
       removeQueuedCommand({ eraseBlobRefs }),
       editQueuedCommand(),

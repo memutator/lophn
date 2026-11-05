@@ -11,6 +11,7 @@ import { askAnswer } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import {
   editQueued,
   moveQueued,
+  recordShellMessage,
   removeQueued,
   sendMessage,
   steerQueuedNow,
@@ -35,6 +36,7 @@ import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import { stopTurn } from "../../../../protocol/lophn-agent/turns.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { CommandEnvelope } from "../../../storage/ledger/mod.ts";
+import type { CommandRun } from "../../../lophn-agent/tools/shell/run.ts";
 import { AGENT_MODES, LOPHN_COMMAND_FACES } from "./acp-build.ts";
 
 /** `AcpSend`의 답. fork가 연 새 session이다. */
@@ -56,7 +58,23 @@ export type AcpSendDeps = {
     input: unknown,
   ): Promise<Result<unknown>>;
   newId(prefix: "msg" | "ses" | "rwd"): string;
+  // 사람의 `!`. 명령은 승인 없이 agent의 shell.run과 같은 실행기로 돌린다.
+  shell: {
+    // 그 session의 기본 폴더. home이거나 session이 없으면 undefined.
+    folderOf(session: string): string | undefined;
+    env(): Record<string, string>;
+    run(input: {
+      command: string;
+      cwd: string;
+      env: Record<string, string>;
+      timeoutMs: number;
+    }): Promise<Result<CommandRun>>;
+    nowMs(): number;
+  };
 };
+
+// 사람의 `!` 명령 시간 제한. 사람이 고르는 칸은 없다.
+const SHELL_TIMEOUT_MS = 120_000;
 
 // 화면 catalog의 `conversation.body.skill-command-request`와 같은 글이다. core는 design을 import하지 못해 복사했다.
 const skillRequest = (skill: string) =>
@@ -75,6 +93,8 @@ export function createAcpSend(deps: AcpSendDeps) {
   const retryIds = new Map<string, string>();
   // 같은 key로 다시 보내도 같은 id로 가야 core가 한 번만 접수한다(fork의 새 session, rewind, 명령 메시지).
   const keyedIds = new Map<string, string>();
+  // 같은 key로 다시 보내면 명령을 다시 돌리지 않고 처음 결과를 돌려준다. 실패한 시도는 남기지 않는다.
+  const shellRuns = new Map<string, Promise<Result<AcpSent>>>();
   const idFor = (prefix: "msg" | "ses" | "rwd", key: string) => {
     const same = `${prefix}:${key}`;
     let id = keyedIds.get(same);
@@ -124,6 +144,57 @@ export function createAcpSend(deps: AcpSendDeps) {
     if (!parsed.success) return invalid();
     const done = await deps.memory(who, route, parsed.data);
     return done.ok ? ok({}) : done;
+  };
+
+  const runShell = async (
+    who: AuthenticatedContext,
+    input: Extract<AcpInput, { type: "run_shell" }>,
+  ): Promise<Result<AcpSent>> => {
+    // 명령을 돌리기 전에 저장 권한을 본다. 돌린 뒤에 거절되면 효과만 남는다.
+    if (!who.scope.operations.includes(recordShellMessage.name)) {
+      return err({
+        code: "forbidden" as const,
+        message: "operation forbidden",
+      });
+    }
+    if (input.command.trim() === "") return invalid();
+    const read = await deps.read(who, workspaceSessionRead, {
+      session: input.session,
+    });
+    if (!read.ok) return read;
+    const cwd = deps.shell.folderOf(input.session);
+    if (cwd === undefined) {
+      return err({
+        code: "invalid_input" as const,
+        message: "this session has no folder",
+      });
+    }
+    const started = deps.shell.nowMs();
+    const ran = await deps.shell.run({
+      command: input.command,
+      cwd,
+      env: deps.shell.env(),
+      timeoutMs: SHELL_TIMEOUT_MS,
+    });
+    if (!ran.ok) return ran;
+    // 출력의 redaction은 저장 앞 단계가 한다(message-body.ts). 끝내지 못하면 저장하지 않는다.
+    return await command(
+      who,
+      recordShellMessage,
+      {
+        id: idFor("msg", input.key),
+        session: input.session,
+        command: input.command,
+        exit_code: ran.value.exit_code,
+        timed_out: ran.value.timed_out,
+        stdout: ran.value.stdout,
+        stderr: ran.value.stderr,
+        truncated: ran.value.stdout_truncated || ran.value.stderr_truncated,
+        duration_ms: Math.max(0, Math.round(deps.shell.nowMs() - started)),
+      },
+      `acp-run-shell-${input.key}`,
+      {},
+    );
   };
 
   const stateSeqOf = async (
@@ -412,13 +483,23 @@ export function createAcpSend(deps: AcpSendDeps) {
           { state_seq: seq.value },
         );
       }
+      case "run_shell": {
+        const same = `${input.session}:${input.key}`;
+        let done = shellRuns.get(same);
+        if (done === undefined) {
+          done = runShell(who, input);
+          shellRuns.set(same, done);
+        }
+        const result = await done;
+        if (!result.ok) shellRuns.delete(same);
+        return result;
+      }
       case "stop_child":
       case "steer_child":
       case "stop_task":
       case "set_toggle":
       case "set_goal":
       case "use_role":
-      case "run_shell":
       case "open_session":
         return unavailable();
     }

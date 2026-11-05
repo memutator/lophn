@@ -43,6 +43,8 @@ async function setup(name: string) {
     reject(error: Error): void;
   };
   const waiting: Waiter[] = [];
+  // 녹화에 없는 요청에 바로 답한다. 키는 "METHOD path"다.
+  const auto = new Map<string, unknown>();
   // adapter가 보낸 요청(method, path, body)을 순서대로.
   const requests: { method: string; path: string; body: unknown }[] = [];
   let emit: (event: Record<string, unknown>) => void = () => {};
@@ -50,6 +52,10 @@ async function setup(name: string) {
     request: (method, path, options) =>
       new Promise((resolve, reject) => {
         requests.push({ method, path, body: options?.body });
+        if (auto.has(`${method} ${path}`)) {
+          resolve(auto.get(`${method} ${path}`) as undefined);
+          return;
+        }
         waiting.push({
           method,
           path,
@@ -118,11 +124,16 @@ async function setup(name: string) {
     close() {},
   };
   const secrets: string[] = [];
+  const exported: { name: string; text: string }[] = [];
   const adapter = createOpencodeAdapter({
     connect: () => transport,
     async writeSecret(text) {
       secrets.push(text);
       return { path: "/tmp/lophn-opencode-x/password", remove: async () => {} };
+    },
+    async writeExport(name, text) {
+      exported.push({ name, text });
+      return `/tmp/${name}`;
     },
   });
   const clock = manualClock(Date.UTC(2026, 10, 5));
@@ -152,6 +163,9 @@ async function setup(name: string) {
     requests,
     spawned,
     secrets,
+    exported,
+    auto,
+    emit: (event: Record<string, unknown>) => emit(event),
     run: started?.ok === true ? started.value : undefined,
     pump,
     async input(input: Record<string, unknown>) {
@@ -325,4 +339,229 @@ test("tab 전용 server의 password는 spawn env의 그 칸과 0600 file에만 �
     command ?? "",
     /^OPENCODE_PASSWORD="\$\(cat '\/tmp\/lophn-opencode-x\/password'\)" opencode --server http:\/\/127\.0\.0\.1:1 --session ses_test$/,
   );
+});
+
+const userIds = (state: AcpState) =>
+  state.items.flatMap((item) =>
+    item.kind === "message" && item.actor === "user" ? [item.id] : [],
+  );
+
+test("auto-accept는 permission 요청마다 once reply만 보내고 always reply와 session 규칙(PATCH)은 보내지 않는다", async () => {
+  // approve_session 녹화는 요청이 session 규칙으로 저장할 resource(`save`)를 싣는다. 카드가 떴다면 session·always도 고를 수 있던 요청이다.
+  const t = await setup("approve_session");
+  await t.input({
+    type: "set_toggle",
+    key: "toggle_1",
+    id: "auto_accept",
+    on: true,
+  });
+  assert.equal(t.state.session?.toggles[0]?.on, true);
+  await t.input(
+    t.send(
+      "1",
+      "Use your shell tool to run exactly this command: touch once.txt .",
+    ),
+  );
+  await t.pump();
+
+  assert.deepEqual(
+    replies(t.requests).map((one) => one.body),
+    [{ decision: "once" }],
+  );
+  assert.equal(t.requests.filter((one) => one.method === "PATCH").length, 0);
+  assert.equal(t.state.pending.approval, null);
+
+  // 카드가 이미 떠 있을 때 켜면 그 카드도 once로 답한다.
+  const open = await untilAsked("approve_once");
+  await open.t.input({
+    type: "set_toggle",
+    key: "toggle_1",
+    id: "auto_accept",
+    on: true,
+  });
+  await open.t.pump();
+  assert.deepEqual(
+    replies(open.t.requests).map((one) => one.body),
+    [{ decision: "once" }],
+  );
+  assert.equal(open.t.state.pending.approval, null);
+});
+
+test("undo, redo, new가 각각 revert/stage, DELETE revert, POST /api/session에 닿고 redo 뒤 숨긴 메시지가 같은 자리로 돌아온다", async () => {
+  const t = await setup("undo_redo");
+  await t.input(
+    t.send("1", "Create a file named a.txt containing the word alpha."),
+  );
+  await t.pump();
+  await t.input(
+    t.send("2", "Create a file named b.txt containing the word beta."),
+  );
+  await t.pump();
+  const shown = () =>
+    t.state.items
+      .filter((item) => item.kind !== "notice")
+      .map((item) => item.id);
+  const before = shown();
+  assert.deepEqual(userIds(t.state), ["msg_1", "msg_2"]);
+
+  await t.input({
+    type: "run_command",
+    key: "cmd_undo",
+    name: "undo",
+    argument: "",
+  });
+  await t.pump();
+  const stage = t.requests.find((one) => one.path.endsWith("/revert/stage"));
+  // 둘째 사람 메시지의 server id(inbox id)와 file 되돌리기를 싣는다.
+  assert.deepEqual(stage?.body, {
+    messageID: "msg_1ab5c3a9e001J5LrOxXzBFSIEI",
+    files: true,
+  });
+  assert.deepEqual(userIds(t.state), ["msg_1"]);
+  assert.ok(t.state.items.some((item) => item.kind === "hidden"));
+
+  await t.input({
+    type: "run_command",
+    key: "cmd_redo",
+    name: "redo",
+    argument: "",
+  });
+  await t.pump();
+  assert.ok(
+    t.requests.some(
+      (one) => one.method === "DELETE" && one.path.endsWith("/revert"),
+    ),
+  );
+  assert.deepEqual(shown(), before);
+  assert.deepEqual(userIds(t.state), ["msg_1", "msg_2"]);
+
+  t.auto.set("POST /api/session", { data: { id: "ses_new" } });
+  t.auto.set("GET /api/session/ses_new", {
+    data: { id: "ses_new", title: "New" },
+  });
+  t.auto.set("GET /api/session/ses_new/message", { data: [] });
+  await t.input({
+    type: "run_command",
+    key: "cmd_new",
+    name: "new",
+    argument: "",
+  });
+  await flush();
+  assert.equal(
+    t.requests.filter(
+      (one) => one.method === "POST" && one.path === "/api/session",
+    ).length,
+    2,
+  );
+  assert.equal(t.run?.sessionId(), "ses_new");
+});
+
+test("subagent 줄은 tool 결과의 session id로 자식과 짝지어지고 자식의 대화는 children에 든다", async () => {
+  const t = await setup("subagent");
+  await t.input(
+    t.send("1", "Use the subagent tool with agent general to read notes.txt."),
+  );
+  await t.pump();
+  await t.pump();
+
+  const line = t.state.items.find(
+    (item) => item.kind === "tool" && item.tool === "subagent",
+  );
+  assert.ok(line?.kind === "tool" && line.detail.kind === "subagent");
+  const child = line.detail.child;
+  assert.equal(child, "ses_e54a76458ffemKav4BvS3st6YP");
+  assert.equal(line.detail.state, "done");
+  assert.match(line.detail.last ?? "", /2 lines/);
+  const inner = t.state.children[child ?? ""];
+  assert.ok(inner !== undefined);
+  assert.ok(
+    inner.items.some((item) => item.kind === "tool" && item.tool === "read"),
+  );
+  assert.equal(inner.turn?.phase, "ended");
+  // 앞에서 끝난 foreground 자식은 background task가 아니다.
+  assert.deepEqual(t.state.tasks, []);
+});
+
+test("background 자식은 task로 오르고 stop_task가 자식 session에 interrupt를 보낸다", async () => {
+  const t = await setup("subagent_background");
+  await t.input(
+    t.send(
+      "1",
+      "Call the subagent tool with agent general and background true.",
+    ),
+  );
+  await t.pump();
+  const child = "ses_e54a723afffef07u08lgP6GzfZ";
+  // 부모 turn이 끝난 뒤에도 자식이 돈다.
+  assert.equal(t.state.tasks[0]?.id, child);
+  assert.equal(t.state.tasks[0]?.state, "running");
+  assert.equal(t.run?.running().tasks, 1);
+
+  await t.input({ type: "stop_task", key: "stop_1", task: child });
+  await t.pump();
+  assert.ok(
+    t.requests.some(
+      (one) =>
+        one.method === "POST" && one.path === `/api/session/${child}/interrupt`,
+    ),
+  );
+  assert.equal(t.state.tasks[0]?.state, "stopped");
+  assert.equal(t.run?.running().tasks, 0);
+});
+
+test("todowrite의 todo가 plan이 되고 빈 항목은 빠진다", async () => {
+  const t = await setup("approve_once");
+  t.emit({
+    type: "session.tool.input.started",
+    data: { sessionID: "ses_test", id: "call_todo", name: "todowrite" },
+  });
+  t.emit({
+    type: "session.tool.called",
+    data: {
+      sessionID: "ses_test",
+      id: "call_todo",
+      input: {
+        todos: [
+          { content: "Read notes", status: "completed" },
+          { content: "Write summary", status: "in_progress" },
+          { content: "", status: "pending" },
+        ],
+      },
+    },
+  });
+  t.emit({
+    type: "session.tool.success",
+    data: { sessionID: "ses_test", id: "call_todo", content: [], metadata: {} },
+  });
+  assert.deepEqual(t.state.plan?.entries, [
+    { text: "Read notes", status: "completed" },
+    { text: "Write summary", status: "in_progress" },
+  ]);
+});
+
+test("/export, /stats, /mcps, /skills가 command_output으로 나오고 export는 tmpdir 파일 경로를 알린다", async () => {
+  const t = await setup("server_reads");
+  const outputs = () =>
+    t.state.items.flatMap((item) =>
+      item.kind === "notice" && item.notice.type === "command_output"
+        ? [item.notice]
+        : [],
+    );
+  for (const name of ["stats", "export", "mcps", "skills"]) {
+    await t.input({
+      type: "run_command",
+      key: `cmd_${name}`,
+      name,
+      argument: "",
+    });
+    await t.pump();
+  }
+  const [stats, exported, mcps, skills] = outputs();
+  assert.equal(stats?.command, "stats");
+  assert.match(stats?.text ?? "", /Sessions \| 7/);
+  assert.equal(exported?.command, "export");
+  assert.match(exported?.text ?? "", /\/tmp\/session-ses_test\.json/);
+  assert.equal(t.exported[0]?.name, "session-ses_test.json");
+  assert.match(mcps?.text ?? "", /No MCP servers/);
+  assert.match(skills?.text ?? "", /OpenCode/);
 });

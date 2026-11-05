@@ -15,12 +15,12 @@ lead만 고친다. `tools/status.py harness-gui-tab build`가 `tasks/*.md`에서
 | `fix-acp-draft` | fix | 3 | acp-screen | merged | fix/fix-acp-draft | e02aaeda0 |  |
 | `gui-cleanup` | tab | 3 | tab-gui | merged | tab/gui-cleanup | c00339464 |  |
 | `acp-more` | acp | 4 | 없음 | merged | acp/acp-more | 10bd2fa85 |  |
-| `core-commands` | acp | 5 | acp-more | todo |  |  |  |
-| `claude-fix` | adapter | 5 | acp-more | todo |  |  |  |
-| `codex-fix` | adapter | 5 | acp-more | todo |  |  |  |
-| `omp-fix` | adapter | 5 | acp-more | todo |  |  |  |
-| `opencode-fix` | adapter | 5 | acp-more | todo |  |  |  |
-| `screen-thread` | screen | 5 | acp-more | todo |  |  |  |
+| `core-commands` | acp | 5 | acp-more | merged | acp/core-commands | ecdb47f0e |  |
+| `claude-fix` | adapter | 5 | acp-more | running | adapter/claude-fix |  |  |
+| `codex-fix` | adapter | 5 | acp-more | running | adapter/codex-fix |  |  |
+| `omp-fix` | adapter | 5 | acp-more | running | adapter/omp-fix |  |  |
+| `opencode-fix` | adapter | 5 | acp-more | running | adapter/opencode-fix |  |  |
+| `screen-thread` | screen | 5 | acp-more | merged | screen/screen-thread | 5e2855df5 |  |
 | `screen-dock` | screen | 6 | screen-thread | todo |  |  |  |
 | `thread-index` | screen | 7 | screen-dock | todo |  |  |  |
 | `app-check` | check | 8 | thread-index | todo |  |  |  |

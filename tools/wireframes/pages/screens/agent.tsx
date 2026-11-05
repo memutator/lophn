@@ -12,6 +12,7 @@ import {
   AgentToolRunning,
   AgentCommands,
   AgentCommandsFiltered,
+  AgentCommandsRanked,
   AgentContextFull,
   AgentContextWarning,
   AgentConversation,
@@ -187,15 +188,22 @@ export const agentArea: Area = {
       id: "new-agent-commands",
       title: "Agent · commands",
       description:
-        "입력칸에 /를 친 메뉴다. 한 줄에 아이콘, 이름, 설명이 붙은 얇은 행이고 묶음은 Commands와 Skills 둘이며 선으로 나눈다. lophn의 Skills에는 사람이 부르는 내장 skill(new-app, repair-app)과 전역 skill이 이름 순으로 있고, 사용법 안내 skill은 메뉴에 없다. /이름 뒤에 글을 쓰면 skill 요청과 그 글이 한 메시지로 들어간다.",
+        "입력칸에 /를 친 메뉴다. 머리 글이 있는 묶음이 lophn(화면이 하는 동작), Skills 순이고 줄마다 아이콘, /이름, 인자 hint, 설명이 붙는다. lophn의 Skills에는 사람이 부르는 내장 skill(new-app, repair-app)과 전역 skill이 이름 순으로 있고, 사용법 안내 skill은 메뉴에 없다. /이름 뒤에 글을 쓰면 skill 요청과 그 글이 한 메시지로 들어간다.",
       render: () => <AgentCommands />,
     },
     {
       id: "new-agent-commands-filtered",
       title: "Agent · commands filtered",
       description:
-        "일하는 중 /re로 거른 메뉴다. 이름이나 설명에 맞는 것만 남고, 고른 명령은 다음 turn에 들어간다고 줄 오른쪽에 보인다.",
+        "일하는 중 /re로 거른 메뉴다. 이름이나 설명에 맞는 것만 남고, 고른 명령은 다음 turn에 들어간다고 메뉴 아래 한 줄이 알린다.",
       render: () => <AgentCommandsFiltered />,
+    },
+    {
+      id: "new-agent-commands-ranked",
+      title: "Agent · commands ranked",
+      description:
+        "/con을 친 메뉴다. 묶음 머리 없이 순위대로 한 목록이다: 이름 정확, 이름 앞부분(짧은 것이 위), 별칭, 이름 조각, 설명 순이고 줄 끝에 출처 배지가 붙는다.",
+      render: () => <AgentCommandsRanked />,
     },
     {
       id: "new-agent-permissions",

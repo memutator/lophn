@@ -27,6 +27,7 @@ import {
   type TerminalRuntime,
 } from "../../../ipc/terminal.ts";
 import { writeShellInit } from "../../../terminal-host/shell-integration.ts";
+import { cliPathEntry } from "../../extensions/bundled/harness/host.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import {
   createHookIngress,
@@ -43,6 +44,7 @@ import {
   createAgentTracker,
 } from "../../terminal/agent/tracker.ts";
 import type { Supervisor } from "../../terminal/supervisor.ts";
+import { packagedInstall } from "../paths.ts";
 import type { ShellContext } from "./context.ts";
 import type { NoticeWiring } from "./notice.ts";
 
@@ -77,6 +79,13 @@ export function createAgentWiring(options: {
   stop(): void;
 } {
   const { ctx, notice, terminals } = options;
+
+  // 설치본의 `lophn`은 macOS·Windows에서 PATH 밖이다. harness extension은 electron·설치 위치를 import하지 못해 env로만 받으므로
+  // 개발 실행의 `LOPHN_CLI`와 같은 자리에 설치본 경로를 채운다. 터미널 PATH(`issue`)와 `gui` 함수도 이 값을 쓴다.
+  if (app.isPackaged) {
+    const cli = packagedInstall(process.resourcesPath).cli;
+    if (cli !== null) process.env.LOPHN_CLI = cli;
+  }
 
   function publish(runtime: TerminalRuntime): void {
     for (const window of ctx.windows) {
@@ -255,10 +264,8 @@ export function createAgentWiring(options: {
             write: (path, text) => writeFileSync(path, text, { mode: 0o600 }),
           },
           dir,
-          // 터미널 env에는 LOPHN_CLI가 없다. 개발 실행의 launcher 경로를 함수에 넣는다.
-          !app.isPackaged &&
-            process.env.LOPHN_CLI &&
-            isAbsolute(process.env.LOPHN_CLI)
+          // 터미널 env에는 LOPHN_CLI가 없다. main의 launcher 경로(위에서 채운 값)를 함수에 넣는다.
+          process.env.LOPHN_CLI && isAbsolute(process.env.LOPHN_CLI)
             ? process.env.LOPHN_CLI
             : "lophn",
         );
@@ -273,7 +280,19 @@ export function createAgentWiring(options: {
   });
 
   const hooks: TerminalHooks = {
-    issue: () => (live && !stopped ? live.issue() : null),
+    // 터미널 shell이 `lophn`을 치게 CLI 폴더를 PATH에 더한다. bind가 표에 넣는 env에는 넣지 않는다(GUI가 띄운 CLI는 자기 PATH가 있다).
+    issue() {
+      const issued = live && !stopped ? live.issue() : null;
+      return issued === null
+        ? null
+        : {
+            key: issued.key,
+            env: {
+              ...issued.env,
+              ...cliPathEntry(process.env.LOPHN_CLI, process.env),
+            },
+          };
+    },
     bind: (key, ref) => live?.bind(key, ref),
     revoke: (ref) => live?.revoke(ref),
     envOf: (ref) => live?.envOf(ref) ?? null,

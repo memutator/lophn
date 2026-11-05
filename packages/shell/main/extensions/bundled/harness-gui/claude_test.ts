@@ -121,12 +121,19 @@ async function setup(
         supportedModels: () => Promise.resolve([]),
         supportedCommands: () => Promise.resolve([]),
         getContextUsage: () =>
-          Promise.resolve({ totalTokens: 1, maxTokens: 2, model: "m" }),
+          Promise.resolve({
+            totalTokens: 1,
+            maxTokens: 2,
+            model: "m",
+            categories: [],
+          }),
         cancelAsyncMessage: () => Promise.resolve(true),
         rewindFiles: () => Promise.resolve({ canRewind: true }),
       };
     },
     getSessionMessages: () => Promise.resolve(options.history ?? []),
+    getSubagentMessages: () => Promise.resolve([]),
+    getSessionInfo: () => Promise.resolve(undefined),
     readFile: () => Promise.reject(new Error("no files in this test")),
   } as unknown as ClaudeSdk;
 
@@ -497,4 +504,53 @@ test("resume은 SDK resume으로 넘기고 앞 대화를 transcript로 다시 �
   assert.equal(t.state.turn?.phase, "ended");
   assert.equal(t.state.reread, false);
   contiguous(t.state);
+});
+
+for (const mode of ["default", "acceptEdits", "auto"]) {
+  test(`plan 카드에서 어느 mode를 골라도 SDK에 가는 허락은 session에만 거는 setMode 하나뿐이다 (${mode})`, async () => {
+    const t = await setup();
+    const rec = recording("plan_exit");
+    const cursor = { at: 0 };
+    await t.input(t.send("1", textOf(rec[cursor.at++] as Entry)));
+    const asked = (await t.play(rec, cursor)) as Entry;
+    assert.equal(asked.kind, "can_use_tool");
+    const { result } = t.askPermission(asked);
+    await flush();
+
+    const approval = t.state.pending.approval;
+    assert.equal(approval?.subject.kind, "plan");
+    await t.input({
+      type: "decide",
+      request: approval?.id,
+      choice: { kind: "mode", mode },
+    });
+    const answer = (await result) as {
+      behavior: string;
+      updatedPermissions?: unknown[];
+    };
+    assert.equal(answer.behavior, "allow");
+    // 사람의 설정 file(localSettings 등)에는 쓰지 않는다.
+    assert.deepEqual(answer.updatedPermissions, [
+      { type: "setMode", mode, destination: "session" },
+    ]);
+  });
+}
+
+test("resume으로 다시 그린 사람 메시지의 origin은 처음 보낼 때 단 uuid와 같다", async () => {
+  const history = JSON.parse(
+    readFileSync(`${fixtures}resume-history.json`, "utf8"),
+  );
+  const t = await setup({
+    history,
+    resume: "92f4aba9-f419-4338-aaa4-a04f5146a533",
+  });
+  await flush();
+  const user = t.state.items.find(
+    (item) => item.kind === "message" && item.actor === "user",
+  );
+  // transcript의 uuid는 query()에 push한 uuid 그대로다(녹화 origin). 키가 바뀌면 사람의 bookmark를 잃는다.
+  assert.equal(
+    user?.kind === "message" ? user.origin : null,
+    "78fcee1c-e4ec-4dee-be36-96df9a9f7ac0",
+  );
 });

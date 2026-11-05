@@ -23,7 +23,7 @@
 
 14. 사람이 실제로 써 보고 찾은 것을 고친다(2026-11-05): 명령이 아무것도 안 함, subagent 화면·todo가 없음, harness 아이콘 대신 글자, omp role 없음, `/` palette 순위·분류·아이콘. 원인과 고칠 것은 점검 보고 `.cache/harness-gui-research/audit-{claude,codex,opencode,omp}.md`와 `ui-reference.md`에 있다. (사람)
 15. ACP를 더 넓힌다: 명령 출력 블록, 명령의 출처·별칭·화면 동작(`opens`), subagent(자식 대화, 멈추기, 말 넣기), background task와 멈추기, 사용 한도, 켜고 끄는 상태(Codex plan, omp fast/slow), goal, model role, 숨긴 메시지 되살리기, todo 취소됨, harness vendor 아이콘, tool 줄의 입력·출력 본문(펼치기), plan 승인 카드(plan 내용과 다음 mode). (사람이 방향, agent가 모양)
-16. 명령은 데스크톱 앱처럼 셋으로 나눈다: 화면 동작으로 처리(`/model`, `/effort`, `/permissions`, `/plan`, `/rename`, `/rewind`, `/fork`, `/status`, `/usage`, `/context`, `/compact` 등. `/clear`·`/new`는 lophn이면 화면이 새 session을 열고 harness면 adapter가 같은 탭에 새 session을 연다), CLI에 보내고 출력을 그림, TUI 전용은 숨김. `/` palette 순위는 이름 정확 > 이름 앞부분(짧을수록 위) > 별칭 > 이름 조각 > 설명이고, 글자를 치면 묶음 머리 없이 한 목록에 출처 배지를 단다. harness 내장 명령은 vendor 아이콘. (사람이 문제, agent가 레퍼런스로 정함)
+16. 명령은 데스크톱 앱처럼 셋으로 나눈다: 화면 동작으로 처리(`/model`, `/effort`, `/permissions`, `/plan`, `/rename`, `/rewind`, `/fork`, `/status`, `/usage`, `/context`, `/compact` 등. `/clear`·`/new`는 lophn이면 화면이 새 session을 열고 harness면 adapter가 같은 탭에 새 session을 연다. Codex `/plan`, omp `/fast`처럼 켜고 끄기만 하는 명령은 adapter가 바꾸고 화면은 바뀐 toggle을 보인다), CLI에 보내고 출력을 그림, TUI 전용은 숨김. `/` palette 순위는 이름 정확 > 이름 앞부분(짧을수록 위) > 별칭 > 이름 조각 > 설명이고, 글자를 치면 묶음 머리 없이 한 목록에 출처 배지를 단다. harness 내장 명령은 vendor 아이콘. (사람이 문제, agent가 레퍼런스로 정함)
 17. thread index를 둔다(Codex 데스크톱의 navigation rail): 사람 메시지 4개 이상일 때, 눈금은 사람 메시지 하나, 제목은 그 메시지 첫 줄, hover card는 답 미리보기 2줄과 bookmark, 기존 popover를 쓴다. bookmark는 shell data 쪽 file 하나에 둔다(lophn agent와 harness 공통, session id 기준. harness 대화는 ledger에 없다). (사람, 2026-11-05)
 18. omp role은 "이 session만 이 role의 model로"(`/switch @role`)만 넣는다. role 배정(`~/.omp` 설정)은 바꾸지 않는다. (사람, 2026-11-05)
 19. 끝났다고 말하기 전에 실제 앱으로 확인한다: Electron 앱을 몰아 기능 목록을 하나씩 해 보고 화면을 찍는 script를 둔다(E2E 꼴, 사람이 허락). 실제 CLI는 싼 model로(Claude haiku, OpenCode `openrouter/deepseek/deepseek-v4.1-flash-1017`, Codex·omp는 그 CLI의 가장 싼 model). 녹화 원본은 worktree 밖 `.cache/harness-gui-recordings/<harness>-v2/`에 둔다(worktree는 merge 뒤 지워진다). (사람, 2026-11-05)
@@ -56,5 +56,6 @@
 
 - 녹화(정한 것 13): wave 3 task가 녹화 script와 scenario를 보고하면 lead가 실제 CLI로 돌려 fixture 재료를 건넨다. 녹화 원본은 저장소 밖(`.cache/`)에 두고 scrub한 것만 commit된다.
 - 사람에게 화면을 봐 달라고 한다: wave 2 뒤(탭 toggle과 ACP 화면, lophn agent 포함), wave 3 뒤(CLI 넷), wave 8 `app-check`를 lead가 돌려 기능 목록이 다 된 것을 본 뒤.
+- wave 5는 `core-commands`를 `screen-thread`보다 먼저 merge한다(먼저 오면 lophn 내장 명령이 `opens` 없이 `run_command`로 가 core가 거절한다).
 - merge마다 `architecture/acp.md`, `harness-gui.md`, `terminal-agent.md`, `agent-chat.md`, `extension.md`를 고친다. 열린 이슈(`project-docs/issues/harness-gui.md`)를 이 계획이 고친 대로 닫는다.
 - 다 끝나면: roadmap 단계 8, change-log 열린 판, 계획 폴더 지우기.

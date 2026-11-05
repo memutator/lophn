@@ -332,9 +332,9 @@ test("a call the receiving agent cannot take is rejected and leaves no call row,
   assert.ok(human.ok);
 });
 
-// 권한 경계다. 기본은 모두 허용이다. workspace 쌍 거절 규칙이 project A → project B call을 막으면 call 행도 session도 남지 않고,
-// agent 쌍 허용 규칙은 그 거절을 덮는다. 사람이 보낸 call은 보지 않는다.
-test("a workspace-pair deny rule forbids a call and leaves no row or session; an agent-pair allow overrides it; no rule allows", () => {
+// 권한 경계다. 정책이 거절한 agent call은 call 행도 session도 남기지 않는다. 사람이 보낸 call은 보지 않는다.
+// 어느 call을 거절하는지(판정 순서)는 protocol의 mayCall test가 본다.
+test("a call the policy refuses is forbidden and leaves no row or session; a human call is not checked", () => {
   const projectA = { kind: "project", id: "prj_a" } as const;
   const projectB = { kind: "project", id: "prj_b" } as const;
   const sessions = {
@@ -342,19 +342,10 @@ test("a workspace-pair deny rule forbids a call and leaves no row or session; an
     [RECEIVER]: target(RECEIVER, true, { agent: "lophn", workspace: projectB }),
   };
   const input = { ...base, to: { agent: "lophn" }, dedup: "tool-1" } as const;
-  const denyWorkspace = {
-    from: projectA,
-    to: projectB,
-    allow: false,
-  } as const;
-
-  const open = setup(sessions);
-  assert.ok(open.router.route(open.tx, input).ok);
-  assert.deepStrictEqual(open.rows.size, 1);
 
   const refused = setup(sessions, undefined, {
-    workspaces: [denyWorkspace],
-    agents: [],
+    ...DEFAULT_CALL_POLICY,
+    private: [projectB],
   });
   const forbidden = refused.router.route(refused.tx, input);
   assert.ok(!forbidden.ok);
@@ -368,12 +359,4 @@ test("a workspace-pair deny rule forbids a call and leaves no row or session; an
     dedup: null,
   });
   assert.ok(human.ok);
-
-  const allowed = setup(sessions, undefined, {
-    workspaces: [denyWorkspace],
-    agents: [{ from: "lophn", to: "lophn", allow: true }],
-  });
-  const sent = allowed.router.route(allowed.tx, input);
-  assert.ok(sent.ok);
-  assert.deepStrictEqual(allowed.rows.size, 1);
 });

@@ -147,8 +147,9 @@ export const agentCardSchema = z.object({
   replies: z.array(z.enum(AGENT_REPLIES)),
   diff: z.object({ plus: z.array(z.string()), minus: z.array(z.string()) }),
   notes: z.array(z.string()),
-  // 읽는 agent session의 workspace에서 부를 수 있는가(call 정책). agent session이 읽을 때만 있다.
-  callable: z.boolean().optional(),
+  // 읽는 agent session이 이 agent를 부를 수 있는가(call 정책). agent session이 읽을 때만 있다.
+  // workspace를 빼고 부르면 home에 열리므로 home과 자기 workspace(here) 둘을 싣는다. 다른 workspace는 보낼 때 Router가 정한다.
+  callable: z.object({ home: z.boolean(), here: z.boolean() }).optional(),
 });
 export type AgentCard = z.infer<typeof agentCardSchema>;
 

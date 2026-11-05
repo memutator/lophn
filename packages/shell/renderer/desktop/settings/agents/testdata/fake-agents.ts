@@ -71,6 +71,13 @@ const VIEW: AgentsSettingsView = {
 };
 
 const CALL_POLICY: CallPolicyView = {
+  private: {
+    options: [
+      { value: "project:prj_a", label: "Project A" },
+      { value: "project:prj_b", label: "Project B" },
+    ],
+    chosen: [],
+  },
   workspaces: {
     options: [
       { value: "home", label: "Home" },
@@ -116,6 +123,7 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
         const failed = fail("call-policy");
         if (failed) return Promise.resolve(failed);
         callPolicy = {
+          private: { ...callPolicy.private, chosen: next.private },
           workspaces: { ...callPolicy.workspaces, rules: next.workspaces },
           agents: { ...callPolicy.agents, rules: next.agents },
         };

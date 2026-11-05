@@ -59,18 +59,32 @@ export interface CallRuleList {
   readonly rules: readonly CallRule[];
 }
 
+/** private으로 고를 수 있는 workspace(project, 앱)와 고른 것. 값은 workspace 쌍 option과 같은 꼴이다. */
+export interface PrivateWorkspaces {
+  readonly options: readonly {
+    readonly value: string;
+    readonly label: string;
+  }[];
+  readonly chosen: readonly string[];
+}
+
 export interface CallPolicyView {
+  readonly private: PrivateWorkspaces;
   readonly workspaces: CallRuleList;
   readonly agents: CallRuleList;
+}
+
+/** 쓸 정책 전체. */
+export interface CallPolicyChange {
+  readonly private: readonly string[];
+  readonly workspaces: readonly CallRule[];
+  readonly agents: readonly CallRule[];
 }
 
 export interface CallPolicySource {
   read(): Promise<SourceResult<CallPolicyView>>;
   /** 정책 전체를 쓴다. 이 화면만 쓰는 값이라 통째로 쓴다. */
-  write(next: {
-    readonly workspaces: readonly CallRule[];
-    readonly agents: readonly CallRule[];
-  }): Promise<SourceResult<null>>;
+  write(next: CallPolicyChange): Promise<SourceResult<null>>;
 }
 
 export interface AgentsSettingsSource {

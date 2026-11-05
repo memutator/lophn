@@ -142,20 +142,27 @@ function callPolicySource(core: CoreSource): CallPolicySource {
         {},
       );
       if (!agents.ok) return agents;
+      const containers = [
+        ...projects.value.map((one) => ({
+          value: `project:${one.id}`,
+          label: one.title,
+        })),
+        ...apps.value.apps.map((one) => ({
+          value: `app:${one.id}`,
+          label: one.name,
+        })),
+      ];
       return {
         ok: true,
         value: {
+          private: {
+            options: containers,
+            chosen: policy.data.private.map(workspaceKey),
+          },
           workspaces: {
             options: [
               { value: "home", label: t("settings.label.call-home") },
-              ...projects.value.map((one) => ({
-                value: `project:${one.id}`,
-                label: one.title,
-              })),
-              ...apps.value.apps.map((one) => ({
-                value: `app:${one.id}`,
-                label: one.name,
-              })),
+              ...containers,
             ],
             rules: policy.data.workspaces.map((rule) => ({
               from: workspaceKey(rule.from),
@@ -176,6 +183,7 @@ function callPolicySource(core: CoreSource): CallPolicySource {
 
     write: (next) =>
       chooseSetting(core, CALL_POLICY_SETTING_KEY, {
+        private: next.private.map(workspaceOfKey),
         workspaces: next.workspaces.map((rule: CallRule) => ({
           from: workspaceOfKey(rule.from),
           to: workspaceOfKey(rule.to),

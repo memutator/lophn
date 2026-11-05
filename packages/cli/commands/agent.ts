@@ -36,7 +36,7 @@ const card = defineCommand({
       summary: `card of ${read.value.card.name}${
         callable === undefined
           ? ""
-          : `\ncallable from this workspace: ${callable ? "yes" : "no"}`
+          : `\ncallable at home (no workspace): ${callable.home ? "yes" : "no"}\ncallable in this workspace: ${callable.here ? "yes" : "no"}`
       }`,
       content: read.value.card,
     });

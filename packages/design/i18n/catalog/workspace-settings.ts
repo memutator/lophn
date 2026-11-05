@@ -143,6 +143,7 @@ export const workspaceSettings = {
     "No app has a panel screen yet. Install an app with one to give it a shortcut.",
   "settings.empty.key-search": "No shortcut matches your search.",
   "settings.empty.shell-rules": "No rules here yet.",
+  "settings.empty.call-private": "No private workspaces.",
   "settings.empty.call-rules": "No rules. Every call is allowed.",
   "settings.error.coding-detect":
     "Couldn't check again. The earlier results are still shown.",
@@ -220,6 +221,8 @@ export const workspaceSettings = {
   "settings.label.call-from": "From",
   "settings.label.call-home": "Home",
   "settings.label.call-pair": "{from} to {to}",
+  "settings.label.call-private": "Private workspaces",
+  "settings.label.call-private-workspace": "Workspace",
   "settings.label.call-workspaces": "Workspace pairs",
   "settings.label.call-refuse": "Refuse",
   "settings.label.call-to": "To",
@@ -400,7 +403,9 @@ export const workspaceSettings = {
   "settings.note.allowed-min": "Allowed: at least {min, number}.",
   "settings.note.allowed-range": "Allowed: {min, number} to {max, number}.",
   "settings.note.call-policy":
-    "Agents may call each other across workspaces unless you add a refuse rule here. A workspace pair refuses or allows calls between two workspaces; an agent pair is an exception that beats a workspace pair.",
+    "Agents may call each other across workspaces unless you make a workspace private or add a refuse rule here. A workspace pair refuses or allows calls between two workspaces and beats private; an agent pair beats both.",
+  "settings.note.call-private":
+    "A private project or app takes no calls from other workspaces and sends none to them, home included. Calls inside it still work.",
   "settings.note.coding-detect-note":
     "These are the results from the last check. lophn only checks again when you ask.",
   "settings.note.coding-favorites":

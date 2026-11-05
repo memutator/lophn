@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import type { AgentCallRow } from "../../protocol/lophn-agent/calls.ts";
+import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import type { CommandDefinition, Tx } from "../../protocol/server/mod.ts";
 import { ROUTER_COMMANDS } from "./commands.ts";
 import { installRouterEnvironment } from "./environment.ts";
@@ -34,7 +35,7 @@ function world() {
   installRouterEnvironment({
     unattendedTurn: (_view, turn) => MODES[turn] === "unattended",
     deps: () => ({
-      callPolicy: () => ({ workspaces: [], agents: [] }),
+      callPolicy: () => DEFAULT_CALL_POLICY,
       directory: {
         find: (session) => target(session),
         resolveAddress: () => ok({ agent: "lophn", workspace: null }),

@@ -1,4 +1,5 @@
-// Settings › Agents의 한 절. agent가 보내는 call을 workspace 쌍과 agent 쌍으로 허용하거나 거절하는 목록이다.
+// Settings › Agents의 한 절. 다른 workspace와 call을 주고받지 않는 private workspace 목록과,
+// agent가 보내는 call을 workspace 쌍과 agent 쌍으로 허용하거나 거절하는 목록이다.
 // 줄마다 바로 저장하고, 저장하지 못하면 읽은 값으로 돌아가 오류를 보인다.
 import { Field, Select } from "@lophn/ui/input";
 import { Button, IconButton } from "@lophn/ui/primitives";
@@ -14,10 +15,12 @@ import {
 import { actionIcons } from "../../../icons/mod.ts";
 import styles from "../settings.module.css";
 import type {
+  CallPolicyChange,
   CallPolicySource,
   CallPolicyView,
   CallRule,
   CallRuleList,
+  PrivateWorkspaces,
 } from "./settings-source.ts";
 
 const effectOptions = () => [
@@ -49,10 +52,13 @@ export function CallPolicySection({
 
   if (view === null) return null;
 
-  async function save(next: {
-    workspaces: readonly CallRule[];
-    agents: readonly CallRule[];
-  }) {
+  const current: CallPolicyChange = {
+    private: view.private.chosen,
+    workspaces: view.workspaces.rules,
+    agents: view.agents.rules,
+  };
+
+  async function save(next: CallPolicyChange) {
     setFailed(false);
     const saved = await source.write(next);
     if (!alive.current) return;
@@ -69,23 +75,99 @@ export function CallPolicySection({
           {t("settings.error.value-not-saved")}
         </p>
       ) : null}
+      <PrivateList
+        list={view.private}
+        onChange={(chosen) => save({ ...current, private: chosen })}
+      />
       <RuleList
         kind="workspaces"
         title={t("settings.label.call-workspaces")}
         list={view.workspaces}
-        onChange={(rules) =>
-          save({ workspaces: rules, agents: view.agents.rules })
-        }
+        onChange={(rules) => save({ ...current, workspaces: rules })}
       />
       <RuleList
         kind="agents"
         title={t("settings.label.call-agents")}
         list={view.agents}
-        onChange={(rules) =>
-          save({ workspaces: view.workspaces.rules, agents: rules })
-        }
+        onChange={(rules) => save({ ...current, agents: rules })}
       />
     </section>
+  );
+}
+
+function PrivateList({
+  list,
+  onChange,
+}: {
+  list: PrivateWorkspaces;
+  onChange: (chosen: readonly string[]) => void;
+}) {
+  const { options, chosen } = list;
+  const nameOf = (value: string) =>
+    options.find((option) => option.value === value)?.label ?? value;
+  const open = options.filter((option) => !chosen.includes(option.value));
+  const [picked, setPicked] = useState("");
+  const adding = open.some((option) => option.value === picked)
+    ? picked
+    : (open[0]?.value ?? "");
+  return (
+    <div data-private-workspaces="">
+      <h3 className={styles.lineName}>{t("settings.label.call-private")}</h3>
+      <p className={styles.lineHelp}>{t("settings.note.call-private")}</p>
+      <ul className={styles.lines}>
+        {chosen.length === 0 ? (
+          <li className={`${styles.line} ${styles.lineHelp}`}>
+            {t("settings.empty.call-private")}
+          </li>
+        ) : (
+          chosen.map((value) => (
+            <li
+              key={value}
+              className={styles.line}
+              data-private-workspace={value}
+            >
+              <div className={styles.lineMain}>{nameOf(value)}</div>
+              <div className={styles.lineControl}>
+                <IconButton
+                  icon={actionIcons.remove}
+                  label={t("settings.button.remove-entry", {
+                    item: nameOf(value),
+                  })}
+                  variant="ghost"
+                  onClick={() =>
+                    onChange(chosen.filter((one) => one !== value))
+                  }
+                />
+              </div>
+            </li>
+          ))
+        )}
+        {open.length === 0 ? null : (
+          <li className={styles.line} data-add-private-workspace="">
+            <div className={styles.lineMain}>
+              <Field label={t("settings.label.call-private-workspace")}>
+                <Select
+                  options={open}
+                  value={adding}
+                  onValueChange={setPicked}
+                />
+              </Field>
+            </div>
+            <div className={styles.lineControl}>
+              <div className={styles.endSlot}>
+                <Button
+                  size="sm"
+                  icon={actionIcons.add}
+                  onClick={() => onChange([...chosen, adding])}
+                >
+                  {t("settings.button.add-call-rule")}
+                </Button>
+              </div>
+            </div>
+          </li>
+        )}
+      </ul>
+    </div>
   );
 }
 

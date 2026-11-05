@@ -32,7 +32,6 @@ export function repliesOf(
 export type CardCaller = { from: AgentAtWorkspace; policy: CallPolicy };
 
 // 명함의 차이는 workspace와 상관없다(workspace = null). prompt 원문은 싣지 않는다.
-// callable은 부르는 session의 workspace에서 이 agent로 보낼 수 있는지다.
 function cardOf(
   context: AgentContext,
   loaded: Loaded,
@@ -92,10 +91,16 @@ function cardOf(
     ...(caller === null
       ? {}
       : {
-          callable: mayCall(caller.policy, caller.from, {
-            agent: loaded.agent,
-            workspace: caller.from.workspace,
-          }),
+          callable: {
+            home: mayCall(caller.policy, caller.from, {
+              agent: loaded.agent,
+              workspace: null,
+            }),
+            here: mayCall(caller.policy, caller.from, {
+              agent: loaded.agent,
+              workspace: caller.from.workspace,
+            }),
+          },
         }),
   };
 }

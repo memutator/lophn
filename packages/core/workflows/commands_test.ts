@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../base/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import type { HandoffPlan } from "../../protocol/workflows/mod.ts";
 import { createRouter } from "../router/mod.ts";
 import type { RoutedInput } from "../router/ports.ts";
@@ -56,7 +57,7 @@ test("a stopped instance is not handed: report with next records the line only a
         listOpen: () => [],
       },
       store: {} as never,
-      callPolicy: () => ({ workspaces: [], agents: [] }),
+      callPolicy: () => DEFAULT_CALL_POLICY,
       transport: {
         deliver: (_tx, _to, input) => {
           delivered.push(input);

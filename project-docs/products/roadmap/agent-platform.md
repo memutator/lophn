@@ -96,6 +96,10 @@
 11. 대화 밖 session 기능(model 목록·고르기, mode, 명령 목록·실행, rewind, fork, compact, 사용량, session 제목, CLI session id)을 ACP의 입력과 갱신으로 올린다. 지금은 `acp.md`가 ACP 입력을 대화 조작뿐으로 두고 session 관리를 core route로 보내서, core가 없는 harness GUI가 그 기능을 쓸 길이 없다. lophn core는 새 입력을 지금 route로 옮기고, harness adapter는 각 CLI 경계 호출로 옮긴다. 채팅 화면은 ACP 하나로 그린다(사람, 2026-11-05).
 12. 대상에 omp를 더한다(`omp gui`)(사람, 2026-11-05).
 
+## 정한 것 (시야 다음 판, 2026-11-05)
+
+13. workspace마다 private을 고른다. private workspace(project, 앱)는 다른 workspace(home 포함)와 call을 주고받지 않고 통째로 떨어진다. 방향(들어오는 call, 나가는 call)은 나누지 않는다(사람, 2026-11-05: 방향을 따지면 경우가 너무 많아진다). 기본은 public이고 home은 private이 될 수 없다. 판정은 agent 쌍 → workspace 쌍 → private → 기본(허용)이라 쌍 규칙이 private의 예외다(agent 추천을 사람이 받음).
+
 ## 계획
 
 - 단계 8 다음 판: 계획 harness-gui-tab을 여는 중(조사 뒤 task를 쓴다). 첫 판의 adapter 셋, 승인·질문 옮기기, 녹화 fixture, 채팅 화면 source(`external`)를 다시 쓴다. 열린 이슈는 `project-docs/issues/harness-gui.md`.

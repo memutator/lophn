@@ -2,6 +2,7 @@
 import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 
+import { useKeyLabel } from "../commands/react.tsx";
 import { editorIcons, shellIcons, workspaceIcons } from "../icons/mod.ts";
 import styles from "./tab-menu.module.css";
 
@@ -25,6 +26,29 @@ export type TabAction =
   | "copy-path"
   | "copy-relative-path"
   | "reveal";
+
+// menu 항목 옆에 보일 키의 binding id. 키는 누른 tab이 아니라 고른 tab에 하지만 같은 일이다.
+const TAB_BINDING: Record<TabAction, string> = {
+  rename: "tab.rename",
+  close: "tab.close",
+  "close-others": "tab.close-others",
+  "close-pane-others": "pane.close-others",
+  "close-group": "pane.close-group",
+  "close-right": "tab.close-right",
+  "close-saved": "tab.close-saved",
+  "close-all": "tab.close-all",
+  "keep-open": "tab.keep-open",
+  float: "tab.float",
+  "split-right": "pane.split",
+  "split-down": "pane.split-down",
+  "split-remove": "pane.remove",
+  unstack: "pane.unstack",
+  unsplit: "pane.unsplit",
+  detach: "tab.detach",
+  "copy-path": "tab.copy-path",
+  "copy-relative-path": "tab.copy-relative-path",
+  reveal: "tab.reveal",
+};
 
 /** menu를 여는 tab의 사정. 없는 항목은 그리지 않고, 있어도 못 하는 항목은 흐리게 둔다. */
 export interface TabMenuState {
@@ -94,12 +118,19 @@ function splitItems(state: TabMenuState): MenuItem[] {
   return items;
 }
 
-/** `extra`는 탭 본문이 올린 맨 위 묶음(card-head.tsx)이고 기본 항목과 구분선으로 나뉜다. */
+/**
+ * `extra`는 탭 본문이 올린 맨 위 묶음(card-head.tsx)이고 기본 항목과 구분선으로 나뉜다. `label`은 binding id의
+ * 키 이름(`useKeyLabel`)이고 주면 키가 있는 기본 항목이 `shortcut`을 단다.
+ */
 export function tabMenuItems(
   state: TabMenuState,
   extra: readonly MenuItem[] = [],
+  label?: (bindingId: string) => string | null,
 ): MenuItem[] {
-  const items = baseItems(state);
+  const items = baseItems(state).map((item) => {
+    const key = label?.(TAB_BINDING[item.id as TabAction]);
+    return key == null ? item : { ...item, shortcut: key };
+  });
   return extra.length === 0
     ? items
     : [...extra, { ...items[0]!, separatorBefore: true }, ...items.slice(1)];
@@ -221,6 +252,7 @@ export function TabContextMenu({
   onSelect: (action: TabAction) => void;
   onClose: () => void;
 }) {
+  const label = useKeyLabel();
   return (
     <Menu
       open
@@ -230,7 +262,7 @@ export function TabContextMenu({
       trigger={
         <span className={styles.anchor} style={{ left: at.x, top: at.y }} />
       }
-      items={tabMenuItems(state)}
+      items={tabMenuItems(state, [], label)}
       onSelect={(id) => {
         onSelect(id as TabAction);
         onClose();

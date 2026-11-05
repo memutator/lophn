@@ -9,7 +9,7 @@ import {
   PopoverRow,
   Tooltip,
 } from "@lophn/ui/overlay";
-import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Icon, IconButton, Kbd } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import {
   Fragment,
@@ -21,6 +21,8 @@ import {
 } from "react";
 
 import { useAppIcon } from "../app-frame/app-icon.tsx";
+import { useKeyLabel } from "../commands/react.tsx";
+import { appPanelBindingId } from "../../ipc/keybindings.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";
@@ -51,6 +53,8 @@ import styles from "./left-sidebar.module.css";
 export interface QuickPinButton {
   id: string;
   app: string;
+  /** 단추가 여는 앱 panel 화면. 사람이 단 단축키(`appPanelBindingId`)를 찾는 데 쓴다. */
+  surface: string;
   label: string;
   onOpen: () => void;
 }
@@ -162,11 +166,26 @@ function AgentMark({ agent }: { agent: SidebarSession["agent"] }) {
   );
 }
 
+/** 이름 뒤에 키를 붙인 tooltip·목록 머리 글. */
+function Keyed({ label, keys }: { label: string; keys: string }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      {label}
+      <Kbd keys={[keys]} />
+    </span>
+  );
+}
+
 function QuickPin({ pin }: { pin: QuickPinButton }) {
   // 앱이 선언한 icon이 없으면 기본 앱 panel 아이콘이다.
   const icon = useAppIcon(pin.app);
+  const keys = useKeyLabel()(appPanelBindingId(pin.app, pin.surface));
   return (
-    <Tooltip content={pin.label}>
+    <Tooltip
+      content={
+        keys === null ? pin.label : <Keyed label={pin.label} keys={keys} />
+      }
+    >
       <button
         type="button"
         className={styles.quickPin}
@@ -188,6 +207,8 @@ function QuickPin({ pin }: { pin: QuickPinButton }) {
 interface HoverSection {
   id: string;
   heading: string;
+  /** 머리 글 뒤에 붙일 키. */
+  keys?: string | null;
   items: readonly QuickHoverItem[];
 }
 
@@ -196,20 +217,29 @@ function HoverList({
   id,
   trigger,
   sections,
+  tip,
 }: {
   id: string;
   trigger: ReactElement;
   sections: readonly HoverSection[];
+  /** 목록이 없을 때 trigger의 tooltip. */
+  tip?: ReactNode;
 }) {
   const shown = sections.filter((section) => section.items.length > 0);
-  if (shown.length === 0) return trigger;
+  if (shown.length === 0) {
+    return tip == null ? trigger : <Tooltip content={tip}>{trigger}</Tooltip>;
+  }
   return (
     <Popover hover trigger={trigger}>
       {shown.map((section, index) => (
         <Fragment key={section.id}>
           {index === 0 ? null : <div className={styles.quickHoverDivider} />}
           <div className={styles.quickHoverHead} data-quick-hover={id}>
-            {section.heading}
+            {section.keys == null ? (
+              section.heading
+            ) : (
+              <Keyed label={section.heading} keys={section.keys} />
+            )}
           </div>
           {section.items.map((item) => (
             <PopoverRow key={item.id} onSelect={item.onSelect}>
@@ -228,12 +258,14 @@ function QuickButton({
   id,
   icon,
   label,
+  keys,
   items,
   onClick,
 }: {
   id: string;
   icon: LucideIcon;
   label: string;
+  keys?: string | null;
   items?: readonly QuickHoverItem[];
   onClick?: () => void;
 }) {
@@ -249,7 +281,8 @@ function QuickButton({
           onClick={onClick}
         />
       }
-      sections={[{ id, heading: label, items: items ?? [] }]}
+      sections={[{ id, heading: label, keys, items: items ?? [] }]}
+      tip={keys == null ? null : <Keyed label={label} keys={keys} />}
     />
   );
 }
@@ -390,6 +423,8 @@ export function LeftSidebar({
   onPlaceSettings,
   onSettings,
 }: LeftSidebarProps) {
+  const keyLabel = useKeyLabel();
+  const newSessionKeys = keyLabel("new.agent");
   const choiceItems = (kind: AgentChoice["kind"]): QuickHoverItem[] =>
     choices
       .filter((choice) => choice.kind === kind)
@@ -403,6 +438,7 @@ export function LeftSidebar({
     {
       id: "lophn",
       heading: t("left-sidebar.heading.lophn-agents"),
+      keys: newSessionKeys,
       items: choiceItems("lophn"),
     },
     {
@@ -458,6 +494,7 @@ export function LeftSidebar({
       quick?.onTerminal === undefined ? null : (
         <QuickButton
           id="terminal"
+          keys={keyLabel("new.terminal")}
           icon={workspaceIcons.terminal}
           label={t("left-sidebar.button.quick-terminal")}
           items={quick.terminalItems}
@@ -468,6 +505,7 @@ export function LeftSidebar({
       quick?.onBrowser === undefined ? null : (
         <QuickButton
           id="browser"
+          keys={keyLabel("new.browser")}
           icon={browserIcons.globe}
           label={t("left-sidebar.button.quick-browser")}
           items={quick.browserItems}
@@ -489,6 +527,7 @@ export function LeftSidebar({
       quick?.onSearch === undefined ? null : (
         <QuickButton
           id="search"
+          keys={keyLabel("search.open")}
           icon={shellIcons.search}
           label={t("left-sidebar.button.quick-search")}
           onClick={quick.onSearch}
@@ -623,6 +662,16 @@ export function LeftSidebar({
                   <HoverList
                     id="new-session"
                     sections={here ? newSections : []}
+                    tip={
+                      here && newSessionKeys !== null ? (
+                        <Keyed
+                          label={t("left-sidebar.button.new-session-in", {
+                            place: place.name,
+                          })}
+                          keys={newSessionKeys}
+                        />
+                      ) : null
+                    }
                     trigger={
                       <button
                         type="button"

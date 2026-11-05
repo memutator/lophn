@@ -2357,6 +2357,7 @@ export function PlaceWindow(props: PlaceWindowProps) {
           {
             id: pinId(pin),
             app: pin.app,
+            surface: pin.surface,
             label:
               app !== undefined && screen !== undefined
                 ? t("app-panel.label.screen", {

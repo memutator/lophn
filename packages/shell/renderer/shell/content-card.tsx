@@ -15,6 +15,7 @@ import { t } from "@lophn/i18n";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { Menu, Popover } from "@lophn/ui/overlay";
 
+import { useKeyLabel } from "../commands/react.tsx";
 import { shellIcons } from "../icons/mod.ts";
 import { PATH_DRAG_TYPE } from "../workspace/drag.ts";
 import {
@@ -342,6 +343,7 @@ function CardHead({
   /** group의 칸이면 머리 줄을 눌러 끌어 옮길 수 있다. */
   onDragStart: ((event: PointerEvent<HTMLElement>) => void) | undefined;
 }) {
+  const keyLabel = useKeyLabel();
   const nav = spec?.nav ?? { canBack, canForward, onBack, onForward };
   const extra = spec?.menu;
   return (
@@ -437,7 +439,7 @@ function CardHead({
           if (extra?.items.some((item) => item.id === id)) extra.onSelect(id);
           else onAction(id as TabAction);
         }}
-        items={tabMenuItems(pane.menu ?? DEFAULT_MENU, extra?.items)}
+        items={tabMenuItems(pane.menu ?? DEFAULT_MENU, extra?.items, keyLabel)}
         trigger={
           <IconButton
             icon={shellIcons.more}

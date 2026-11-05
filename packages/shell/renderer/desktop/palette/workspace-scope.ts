@@ -2,7 +2,11 @@
 // 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, bookmark를 새 browser 탭에서 열기, 행동)으로만 간다.
 import { t } from "@lophn/i18n";
 
-import { commandLabel, type KeyOverrides } from "../../../ipc/keybindings.ts";
+import {
+  type Command,
+  commandLabel,
+  type KeyOverrides,
+} from "../../../ipc/keybindings.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import {
   type Desk,
@@ -83,6 +87,13 @@ export function topFloat(desk: Desk): FloatTab | undefined {
 }
 
 function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
+  const keyOf = (command: Command) =>
+    commandLabel(
+      command,
+      input.platform === "mac" ? "mac" : "other",
+      undefined,
+      input.keys,
+    ) ?? undefined;
   const action = (
     name: WorkspaceAction,
     label: string,
@@ -109,16 +120,16 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
             "terminal",
             t("common.button.palette-terminal"),
             "terminal",
-            commandLabel(
-              "terminal.focus",
-              input.platform === "mac" ? "mac" : "other",
-              undefined,
-              input.keys,
-            ) ?? undefined,
+            keyOf("new.terminal"),
           ),
         ]
       : []),
-    action("settings", t("common.button.palette-settings"), "screen"),
+    action(
+      "settings",
+      t("common.button.palette-settings"),
+      "screen",
+      keyOf("settings.open"),
+    ),
     ...(input.home === true
       ? []
       : [
@@ -129,15 +140,28 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
           ),
         ]),
     ...(focusTab(input.desk)
-      ? [action("float", t("common.button.palette-float-tab"), "tab")]
+      ? [
+          action(
+            "float",
+            t("common.button.palette-float-tab"),
+            "tab",
+            keyOf("tab.float"),
+          ),
+        ]
       : []),
     ...(topFloat(input.desk)
       ? [
-          action("dock", t("common.button.palette-dock-panel"), "panel"),
+          action(
+            "dock",
+            t("common.button.palette-dock-panel"),
+            "panel",
+            keyOf("float.dock"),
+          ),
           action(
             "minimize",
             t("common.button.palette-minimize-panel"),
             "panel",
+            keyOf("float.minimize"),
           ),
         ]
       : []),

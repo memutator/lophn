@@ -12,6 +12,7 @@ import {
   workspaceIcons,
 } from "../icons/mod.ts";
 import { t } from "@lophn/i18n";
+import { useKeyLabel } from "../commands/react.tsx";
 
 import styles from "./add-tab-menu.module.css";
 
@@ -74,6 +75,12 @@ export function NewTabMenu(props: NewTabMenuProps) {
   // 다음 단계로 가는 항목을 고르면 Radix가 닫으려 하지만 같은 menu를 이어 연다.
   const stay = useRef(false);
   const label = t("project-workspace.button.new-tab");
+  const keyLabel = useKeyLabel();
+  // 키가 없는 항목은 shortcut을 달지 않는다.
+  const keyed = (id: string): { shortcut?: string } => {
+    const key = keyLabel(id);
+    return key === null ? {} : { shortcut: key };
+  };
 
   const root: MenuItem[] = [];
   if (props.onDocument) {
@@ -85,6 +92,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
           <FileIcon name="notes.md" size={16} />
         </MenuIcon>
       ),
+      ...keyed("new.document"),
     });
   }
   if (props.onTerminal) {
@@ -92,6 +100,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
       id: "terminal",
       label: t("project-workspace.label.menu-terminal"),
       leading: lead(workspaceIcons.terminal),
+      ...keyed("new.terminal"),
     });
   }
   if (props.onBrowser) {
@@ -99,6 +108,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
       id: "browser",
       label: t("browser.label.menu-browser"),
       leading: lead(browserIcons.globe),
+      ...keyed("new.browser"),
     });
   }
   if (props.agents !== undefined && props.onAgent) {
@@ -118,6 +128,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
       id: "search",
       label: t("project-workspace.label.menu-search"),
       leading: lead(paletteIcons.search),
+      ...keyed("search.open"),
     });
   }
   const app = appTabEntries(props);

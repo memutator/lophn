@@ -71,7 +71,7 @@ function Overlays({ timer }: { timer?: Timer }) {
       <Menu
         trigger={<Button>{TEXT.more}</Button>}
         items={[
-          { id: "export", label: TEXT.export },
+          { id: "export", label: TEXT.export, shortcut: "Ctrl+E" },
           { id: "archive", label: TEXT.archive },
         ]}
         onSelect={() => {}}

@@ -11,6 +11,7 @@ import {
 } from "../../../shell/overlay-layer.tsx";
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import { useWaiting } from "../events/hooks.tsx";
+import { runToastAction } from "../toasts/toast-actions.ts";
 import { createValueStore } from "../events/store.ts";
 import { type FinishedRow, useFinished } from "./finished.ts";
 import type { SettledRow } from "./settled.ts";
@@ -57,10 +58,10 @@ export function WaitingLayer({
   renderTrigger,
   initial,
 }: WaitingLayerProps) {
-  const { entries } = useWaiting();
+  const { entries, notices } = useWaiting();
   const finished = useFinished(initial?.finished);
-  // 배지는 "볼 것이 있다"는 뜻이라 끝난 줄도 센다.
-  const count = entries.length + finished.length;
+  // 배지는 "볼 것이 있다"는 뜻이라 끝난 줄과 앱 알림도 센다.
+  const count = entries.length + finished.length + notices.length;
   const { open, setOpen } = useWaitingPanel();
   const settled = useSettled(entries, initial?.settled);
   const initialOpen = initial?.open;
@@ -108,6 +109,7 @@ export function WaitingLayer({
         entries={entries}
         settled={settled}
         finished={finished}
+        notices={notices}
         initial={initial}
         onOpenTab={
           onOpenTab === undefined
@@ -127,6 +129,10 @@ export function WaitingLayer({
           (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice?.open(
             target,
           );
+        }}
+        onOpenApp={(app) => {
+          setOpen(false);
+          runToastAction({ kind: "session", session: null, app });
         }}
         onDismissFinished={(target) => {
           // main이 못 본 표시를 끄면 Finished 줄과 배지 수가 저절로 빠진다.

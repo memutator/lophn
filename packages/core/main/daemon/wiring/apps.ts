@@ -102,6 +102,7 @@ import {
   screenFileStream,
   withStartInvocation,
 } from "../../../apps/routes.ts";
+import { APP_NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
@@ -339,7 +340,8 @@ export const appsWiring: WiringFactory = () => {
                 for (const action of actions) {
                   if (
                     action.topic === APP_RESTART_HALTED_TOPIC ||
-                    action.topic === ACTIVATION_CONSENT_TOPIC
+                    action.topic === ACTIVATION_CONSENT_TOPIC ||
+                    action.topic === APP_NOTICE_TOPIC
                   ) {
                     ctx.peek.bus?.publish(action.data as BusEvent);
                   }

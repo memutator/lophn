@@ -165,6 +165,7 @@ export function validateDeclaration(
     "net.fetch",
     "net.listen",
     "secret.use",
+    "notify.send",
   ]);
   for (const item of permissionItems) {
     if (!isObject(item)) return invalid("permission must be an object");

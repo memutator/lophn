@@ -9,6 +9,7 @@ import { serve } from "../../../server/serve.ts";
 import type { AppsCallService } from "./apps-call.ts";
 import type { BrokerChild } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
+import type { NotifyService } from "./notify.ts";
 import type { ExceptionLogService } from "./problems.ts";
 import type { ReadyService } from "./ready.ts";
 import type { SecretUseService } from "./secrets.ts";
@@ -17,6 +18,7 @@ const BROKER_ROUTES = {
   ready: "/_lophn/broker/ready",
   netFetch: "/_lophn/broker/net/fetch",
   secretsUse: "/_lophn/broker/secrets/use",
+  notifySend: "/_lophn/broker/notify/send",
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
 } as const;
@@ -34,6 +36,7 @@ export type BrokerServices = {
   ready?: ReadyService;
   net?: NetFetchService;
   secrets?: SecretUseService;
+  notify?: NotifyService;
   exceptions?: ExceptionLogService;
   appsCall?: AppsCallService;
 };
@@ -55,7 +58,7 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { ready, net, secrets, exceptions, appsCall } = services;
+  const { ready, net, secrets, notify, exceptions, appsCall } = services;
   if (ready) {
     table.set(BROKER_ROUTES.ready, (child, body) =>
       Promise.resolve(ready.ready(child, body)),
@@ -63,6 +66,7 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (net) table.set(BROKER_ROUTES.netFetch, (c, b) => net.request(c, b));
   if (secrets) table.set(BROKER_ROUTES.secretsUse, (c, b) => secrets.use(c, b));
+  if (notify) table.set(BROKER_ROUTES.notifySend, (c, b) => notify.send(c, b));
   if (exceptions) {
     table.set(BROKER_ROUTES.problemsObserve, (c, b) =>
       exceptions.observe(c, b),

@@ -98,6 +98,8 @@ export function resourceKindText(kind: ResourceKind): string {
       return t("app-detail.label.resource-network");
     case "secret":
       return t("app-detail.label.resource-secret");
+    case "notify":
+      return t("app-detail.label.resource-notify");
   }
 }
 
@@ -114,6 +116,8 @@ export function resourceDetail(kind: ResourceKind, grantedAt: string): string {
       return t("app-detail.note.resource-listen", { when });
     case "secret":
       return t("app-detail.note.resource-secret");
+    case "notify":
+      return t("app-detail.note.resource-notify", { when });
   }
 }
 

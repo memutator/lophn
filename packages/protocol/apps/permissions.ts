@@ -70,6 +70,8 @@ const secretScopeSchema = z.strictObject({
 const documentScopeSchema = z.strictObject({
   key: z.string().min(1),
 });
+// notify.send는 scope가 없다. 앱이 사람에게 알리는 것 하나뿐이라 좁힐 자원이 없다.
+const notifyScopeSchema = z.strictObject({});
 const appCallScopeSchema = z.strictObject({
   app: idSchema("app"),
   app_tools: uniqueList(toolKeySchema),
@@ -83,6 +85,7 @@ export const permissionRequirementSchema = z
       "net.fetch",
       "net.listen",
       "secret.use",
+      "notify.send",
       "document.save",
     ]),
     scope: z.union([
@@ -90,6 +93,7 @@ export const permissionRequirementSchema = z
       fetchScopeSchema,
       listenScopeSchema,
       secretScopeSchema,
+      notifyScopeSchema,
       documentScopeSchema,
     ]),
     reason: z.string().min(1),
@@ -102,7 +106,9 @@ export const permissionRequirementSchema = z
           ? value.kind.startsWith("net.")
           : "name" in value.scope
             ? value.kind === "secret.use"
-            : value.kind === "document.save";
+            : "key" in value.scope
+              ? value.kind === "document.save"
+              : value.kind === "notify.send";
     if (!scopeKind) {
       context.addIssue({
         code: "custom",
@@ -134,6 +140,7 @@ export const appGrantScopeSchema = z.discriminatedUnion("kind", [
   fetchScopeSchema.extend({ kind: z.literal("net.fetch") }),
   listenScopeSchema.extend({ kind: z.literal("net.listen") }),
   secretScopeSchema.extend({ kind: z.literal("secret.use") }),
+  notifyScopeSchema.extend({ kind: z.literal("notify.send") }),
   appCallScopeSchema.extend({ kind: z.literal("app.call") }),
 ]);
 export type AppGrantScope = z.infer<typeof appGrantScopeSchema>;

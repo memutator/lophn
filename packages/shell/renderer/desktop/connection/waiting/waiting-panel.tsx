@@ -3,6 +3,7 @@ import { StatusMark } from "@lophn/ui/feedback";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
+import type { AppNotice } from "../../../../../protocol/apps/notice.ts";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
@@ -23,7 +24,11 @@ import {
 import { ShareCard } from "./cards/share-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
 import type { FinishedRow } from "./finished.ts";
-import { decideWaiting, type SettledState } from "./decide.ts";
+import {
+  decideWaiting,
+  dismissAppNotice,
+  type SettledState,
+} from "./decide.ts";
 import { cardOf } from "./model.ts";
 import { useInboxNames } from "./names.ts";
 import type { Settled, SettledRow } from "./settled.ts";
@@ -154,6 +159,58 @@ function FinishedList({
   );
 }
 
+/** 앱이 사람에게 한 알림 한 줄. 줄을 누르면 그 앱이 열리고 [x]는 열지 않고 지운다. 답할 것이 아니다. */
+function AppNoticeList({
+  rows,
+  onOpen,
+  onDismiss,
+}: {
+  rows: readonly AppNotice[];
+  onOpen: (app: string) => void;
+  onDismiss: (id: string) => void;
+}) {
+  return (
+    <section
+      className={styles.group}
+      aria-label={t("waiting.label.group-app-notice")}
+    >
+      <div className={styles.groupHead}>
+        <span>{t("waiting.label.group-app-notice")}</span>
+        <span>{rows.length}</span>
+      </div>
+      {rows.map((row) => (
+        <div
+          key={row.id}
+          className={`${styles.request} ${styles.finished}`}
+          data-kind="app-notice"
+          onClick={() => onOpen(row.app)}
+        >
+          <div className={styles.who}>
+            <div className={styles.whoText}>
+              <p className={styles.title}>{row.title}</p>
+              {row.body === "" ? null : (
+                <span className={styles.meta}>{row.body}</span>
+              )}
+              <span className={styles.meta}>{row.app_name}</span>
+            </div>
+            <IconButton
+              size="sm"
+              icon={actionIcons.remove}
+              label={t("waiting.button.dismiss-app-notice")}
+              data-dismiss-app-notice=""
+              onClick={(event) => {
+                // 줄을 누른 것(앱 열기)으로 올라가지 않게 한다.
+                event.stopPropagation();
+                onDismiss(row.id);
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export interface PanelInitial {
   /** 세부를 펼친 채 시작할 요청. 나머지는 접혀 있다. */
   readonly expanded?: readonly string[];
@@ -165,16 +222,19 @@ export function WaitingPanel({
   entries,
   settled,
   finished,
+  notices,
   initial,
   page = false,
   onOpenTab,
   onOpenSession,
   onShowFinished,
   onDismissFinished,
+  onOpenApp,
 }: {
   entries: readonly WaitingEntry[];
   settled: Settled;
   finished: readonly FinishedRow[];
+  notices: readonly AppNotice[];
   initial?: PanelInitial;
   /** true면 탭 본문으로 그린다(떠 있는 panel의 폭·그림자·높이 제한이 없다). */
   page?: boolean;
@@ -183,6 +243,8 @@ export function WaitingPanel({
   onOpenSession: (session: string) => void;
   onShowFinished: (target: NoticeTarget) => void;
   onDismissFinished: (target: NoticeTarget) => void;
+  /** 앱 알림 줄을 누르면 그 앱 공간을 연다. */
+  onOpenApp: (app: string) => void;
 }) {
   const core = useEventClient().core;
   const names = useInboxNames();
@@ -269,7 +331,8 @@ export function WaitingPanel({
       <div className={styles.panelBody}>
         {entries.length === 0 &&
         settled.rows.length === 0 &&
-        finished.length === 0 ? (
+        finished.length === 0 &&
+        notices.length === 0 ? (
           <p className={styles.empty}>{t("waiting.notice.empty")}</p>
         ) : null}
         {GROUPS.map((group) => {
@@ -298,6 +361,13 @@ export function WaitingPanel({
             rows={finished}
             onShow={onShowFinished}
             onDismiss={onDismissFinished}
+          />
+        ) : null}
+        {notices.length > 0 ? (
+          <AppNoticeList
+            rows={notices}
+            onOpen={onOpenApp}
+            onDismiss={(id) => void dismissAppNotice(core, id)}
           />
         ) : null}
         {settled.rows.length > 0 ? <SettledList rows={settled.rows} /> : null}

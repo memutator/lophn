@@ -6,6 +6,7 @@ import type { AvatarFace, OverlayLead } from "./overlay.ts";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const session = z.string().regex(new RegExp(`^ses_${ULID}$`));
+const app = z.string().regex(new RegExp(`^app_${ULID}$`));
 const terminalRef = z
   .string()
   .min(1)
@@ -16,6 +17,8 @@ const terminalRef = z
 export const noticeTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("terminal"), terminal_ref: terminalRef }).strict(),
   z.object({ kind: z.literal("session"), session }).strict(),
+  // 앱이 사람에게 한 알림. 누르면 그 앱 공간을 연다.
+  z.object({ kind: z.literal("app"), app }).strict(),
 ]);
 
 /** 그 Agent session 탭이 이 창에 보이는지. 창은 보낸 webContents로 안다. */
@@ -50,6 +53,9 @@ export type NoticeToast = {
   target: NoticeTarget;
 };
 
+/** main이 창에 고르라고 보내는 것: Agent session 탭이나 앱 공간. */
+export type NoticeReveal = { session: string } | { app: string };
+
 /** preload가 shell renderer에 여는 알림 통로. */
 export interface LophnNoticeApi {
   /** Agent session 탭이 보이게 됐거나 안 보이게 됐다. */
@@ -63,8 +69,8 @@ export interface LophnNoticeApi {
   /** 못 본 session 목록이 바뀔 때마다 통째로 온다. 구독 해지를 돌려준다. */
   onUnseen(listener: (sessions: UnseenSession[]) => void): () => void;
   onToast(listener: (toast: NoticeToast) => void): () => void;
-  /** main이 그 Agent session 탭을 고르라고 보낸다(알림 누름). */
-  onReveal(listener: (reveal: { session: string }) => void): () => void;
+  /** main이 그 Agent session 탭이나 앱 공간을 열라고 보낸다(알림 누름). */
+  onReveal(listener: (reveal: NoticeReveal) => void): () => void;
 }
 
 export const NOTICE_VISIBLE_CHANNEL = "shell:notice-visible";

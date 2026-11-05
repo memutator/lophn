@@ -1,7 +1,7 @@
 // 앱 프로세스의 host가 설치하는 port 모양이다. host는 entrypoint고 SDK는 apps 구현을
 // import하지 않으므로 두 쪽이 같은 symbol과 모양으로 맞춘다(cap-tool의 APP_TOOL_PORT와 같은
 // 방식). 자식 credential·process nonce는 host 안에만 있고 앱 코드와 SDK는 보지 못한다.
-// 필드가 바뀌면 cap-net·cap-secret·cap-store의 host.ts를 같이 바꾼다.
+// 필드가 바뀌면 cap-net·cap-notify·cap-secret·cap-store의 host.ts를 같이 바꾼다.
 
 export const CAP_HOST = Symbol.for("lophn.cap-host");
 

@@ -282,6 +282,7 @@ function resourceOf(grant: AppGrant, secret?: SecretInfo): ResourceRow | null {
     "net.fetch": "network",
     "net.listen": "listen",
     "secret.use": "secret",
+    "notify.send": "notify",
   };
   const kind = kinds[scope.kind];
   if (kind === undefined) return null;

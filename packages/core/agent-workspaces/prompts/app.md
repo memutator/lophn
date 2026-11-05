@@ -74,6 +74,9 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   `@lophn/cap-secret` guide. The person sets the value, or the OAuth client and
   the sign-in, on the app's Access tab; tell them what to set there. Never ask
   for the value in the conversation.
+- When the app must tell the person something (a reminder before an event, a
+  limit running low), declare `notify.send` and read the `@lophn/cap-notify`
+  guide. The notice lands in the person's Inbox. It does not reach agents.
 - When the app seems to misbehave, read before you decide: `lophn app status`,
   `lophn app logs` (narrow by invocation or time), `lophn app invocations` (for
   example `--status failed`). Log lines: `error <name>: <message>` is a `reportProblem`

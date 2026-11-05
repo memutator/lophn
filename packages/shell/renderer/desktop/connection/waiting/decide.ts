@@ -6,6 +6,7 @@ import {
   turnRequestDecide,
 } from "../../../../../protocol/approvals/turn-request.ts";
 import { activationConsent } from "../../../../../protocol/apps/activation/consent.ts";
+import { appNoticeDismiss } from "../../../../../protocol/apps/notice.ts";
 import { shareRequestDecide } from "../../../../../protocol/approvals/share-request.ts";
 import {
   jobApprove,
@@ -199,6 +200,29 @@ export async function decideShare(
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
   return shareRequestDecide.output.safeParse(reply.value).success
+    ? { ok: true }
+    : UNAVAILABLE;
+}
+
+/** 앱 알림 줄을 지운다. 줄은 AppNoticeClosed가 목록에서 뺀다. */
+export async function dismissAppNotice(
+  core: CoreSource,
+  id: string,
+): Promise<
+  { readonly ok: true } | { readonly ok: false; readonly code: string }
+> {
+  const reply = await core
+    .call(
+      commandCall(appNoticeDismiss, {
+        input: { id },
+        compare: {},
+        key: `notice-dismiss-${id}`,
+      }),
+    )
+    .catch(() => null);
+  if (!reply) return UNAVAILABLE;
+  if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
+  return appNoticeDismiss.output.safeParse(reply.value).success
     ? { ok: true }
     : UNAVAILABLE;
 }

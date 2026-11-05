@@ -217,6 +217,13 @@ function toolFacts(target: string, effect: Effect): Fact[] {
 
 function declaredLines(resources: readonly string[]): Line[] {
   return resources.map((resource) => {
+    // scope가 없는 자원이라 이름이 kind 하나다.
+    if (resource === "notify.send") {
+      return {
+        label: t("waiting.label.declared-notify"),
+        value: t("waiting.label.declared-notify-value"),
+      };
+    }
     const at = resource.indexOf(":");
     const kind = at === -1 ? "" : resource.slice(0, at);
     if (kind in DECLARED_LABELS) {

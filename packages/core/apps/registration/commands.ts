@@ -23,6 +23,7 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { checkIconUpload, parseActor } from "../../../protocol/base/mod.ts";
 import { RESERVED_APP_SLUGS } from "../../../protocol/apps/declaration/mod.ts";
+import { clearAppNotices } from "../notices/commands.ts";
 import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import {
@@ -374,5 +375,6 @@ function transition(
   const next: App = { ...changed, revision: seq };
   const stored = replaceApp(tx, next);
   if (!stored.ok) return stored;
+  if (move.to === "archived") clearAppNotices(tx, changed.id);
   return appView(next);
 }

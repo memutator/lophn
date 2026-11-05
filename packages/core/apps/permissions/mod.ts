@@ -18,6 +18,11 @@ export {
   type NetFetchService,
 } from "./broker/net-fetch.ts";
 export {
+  createNotifyService,
+  type NoticePostPort,
+  type NotifyService,
+} from "./broker/notify.ts";
+export {
   createExceptionLogService,
   type ExceptionLog,
   type ExceptionLogService,

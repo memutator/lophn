@@ -1,6 +1,7 @@
 // shell renderer가 쓰는 알림 통로. 채널 이름과 Electron event는 closure 안에만 있다.
 import {
   type LophnNoticeApi,
+  type NoticeReveal,
   NOTICE_DISMISS_CHANNEL,
   NOTICE_OPEN_CHANNEL,
   NOTICE_REVEAL_CHANNEL,
@@ -72,8 +73,10 @@ export function createNoticeApi(transport: NoticeTransport): LophnNoticeApi {
     onReveal: (listener) =>
       listen(
         NOTICE_REVEAL_CHANNEL,
-        (payload): payload is { session: string } =>
-          isRecord(payload) && typeof payload.session === "string",
+        (payload): payload is NoticeReveal =>
+          isRecord(payload) &&
+          (typeof payload.session === "string" ||
+            typeof payload.app === "string"),
         listener,
       ),
   } satisfies LophnNoticeApi);

@@ -51,7 +51,7 @@ elements:
 
           - id: app-runtime
             kind: component
-            description: 앱의 실행과 capability. 앱마다 file로 남는 앱 log(쓰기는 app supervisor 하나, 읽기 route `apps.logs`)와 예외 stack 풀이를 포함한다.
+            description: 앱의 실행과 capability(사람에게 알리는 cap-notify 포함). 앱마다 file로 남는 앱 log(쓰기는 app supervisor 하나, 읽기 route `apps.logs`)와 예외 stack 풀이를 포함한다.
 
           - id: app-data
             kind: component

@@ -109,6 +109,7 @@ export const appSpace = {
   "app-detail.label.resource-file": "file",
   "app-detail.label.resource-network": "network host",
   "app-detail.label.resource-secret": "secret",
+  "app-detail.label.resource-notify": "notifications",
   "app-detail.label.result-none": "None",
   "app-detail.label.revoked": "Revoked",
   "app-detail.label.rewind-blocked": "This can't be rewound",
@@ -202,6 +203,8 @@ export const appSpace = {
   "app-detail.note.resource-file-write":
     "Can read and change files here. Allowed {when}.",
   "app-detail.note.resource-listen": "Can listen on this port. Allowed {when}.",
+  "app-detail.note.resource-notify":
+    "Can send you notifications. Allowed {when}.",
   "app-detail.note.resource-network": "Can contact this host. Allowed {when}.",
   "app-detail.note.resource-secret":
     "Name only. The value is never shown here.",

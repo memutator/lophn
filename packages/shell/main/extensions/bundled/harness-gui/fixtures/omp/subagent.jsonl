@@ -1,0 +1,22 @@
+{"t": 757, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 958, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 984, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 986, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 1009, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 1010, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 1034, "kind": "send", "data": {"id": "rec-4", "type": "set_subagent_subscription", "level": "progress"}}
+{"t": 1034, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "set_subagent_subscription", "success": true, "data": {"level": "progress"}}}
+{"t": 1060, "kind": "send", "data": {"id": "rec-5", "type": "prompt", "message": "Use the task tool to start exactly one subagent that reads hello.txt and reports its first line. Then reply with that line."}}
+{"t": 1068, "kind": "recv", "data": {"id": "rec-5", "type": "response", "command": "prompt", "success": true}}
+{"t": 1088, "kind": "recv", "data": {"type": "agent_start"}}
+{"t": 5627, "kind": "recv", "data": {"type": "tool_execution_start", "toolCallId": "toolu_01B8ocBVEV6vHKShUJ6sKPfQ", "toolName": "task", "args": {"context": "# Goal\nRead a file and report its first line.", "tasks": [{"name": "ReadHello", "agent": "scout", "task": "# Target\nFile `hello.txt` in the current working directory (/work/subagent).\n# Change\nNone; read-only. Read the file.\n# Acceptance\nReport the exact first line of the file verbatim, nothing else.", "solutionSpace": "one fix: read file, return first line verbatim"}]}}}
+{"t": 5634, "kind": "recv", "data": {"type": "tool_execution_end", "toolCallId": "toolu_01B8ocBVEV6vHKShUJ6sKPfQ", "toolName": "task", "result": {"content": [{"type": "text", "text": "Spawned agent `ReadHello` (job `ReadHello`).\n\nResults auto-deliver; NEVER poll. Completely blocked? Call `wait` to receive the first settled job you started.\nCoordinate while peers run via `write agent://<id>` (or `agent://all` to broadcast).\n\n`read proc://` lists jobs/services; `read proc://<id>` i"}]}, "isError": false}}
+{"t": 5690, "kind": "recv", "data": {"type": "subagent_lifecycle", "payload": {"id": "ReadHello", "agent": "scout", "status": "started", "parentToolCallId": "toolu_01B8ocBVEV6vHKShUJ6sKPfQ"}}}
+{"t": 7329, "kind": "recv", "data": {"type": "subagent_lifecycle", "payload": {"id": "ReadHello", "agent": "scout", "status": "failed", "parentToolCallId": "toolu_01B8ocBVEV6vHKShUJ6sKPfQ"}}}
+{"t": 7350, "kind": "recv", "data": {"type": "tool_execution_start", "toolCallId": "toolu_01FGoVw5oRLo9im8GZr2s25f", "toolName": "wait", "args": {}}}
+{"t": 7353, "kind": "recv", "data": {"type": "tool_execution_end", "toolCallId": "toolu_01FGoVw5oRLo9im8GZr2s25f", "toolName": "wait", "result": {"content": [{"type": "text", "text": "Skipped due to a queued background completion (job or supervised process). Do not count this skipped result as completed work or verification. After the completion notice is handled on the next step, retry the skipped tool if it is still needed."}]}, "isError": true}}
+{"t": 14095, "kind": "recv", "data": {"type": "prompt_result", "id": "rec-5", "agentInvoked": true, "status": "completed", "sessionSettled": true}}
+{"t": 14095, "kind": "recv", "data": {"type": "session_settled"}}
+{"t": 14114, "kind": "send", "data": {"id": "rec-6", "type": "get_subagents"}}
+{"t": 14114, "kind": "recv", "data": {"id": "rec-6", "type": "response", "command": "get_subagents", "success": true, "data": {"subagents": []}}}
+{"t": 14184, "kind": "lead_note", "data": "omp exited with code 0"}

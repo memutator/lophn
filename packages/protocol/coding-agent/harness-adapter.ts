@@ -296,6 +296,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
     },
     events: {
       session_start: "SessionStarted",
+      session_switch: "SessionStarted",
+      session_branch: "SessionStarted",
       agent_start: "TurnStarted",
       agent_end: "TurnEnded",
       tool_approval_requested: "PermissionRequested",

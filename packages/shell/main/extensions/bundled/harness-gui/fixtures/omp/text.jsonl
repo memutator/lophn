@@ -1,0 +1,25 @@
+{"t": 831, "kind": "recv", "data": {"type": "ready", "protocolVersion": 1, "supportedProtocolVersions": [1, 2], "maxFrameBytes": 1048576, "maxReassembledFrameBytes": 67108864}}
+{"t": 840, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 848, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 865, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 865, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 890, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 890, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 916, "kind": "send", "data": {"id": "rec-4", "type": "get_state"}}
+{"t": 925, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1aa91-b251-7356-afc3-f1bdf9f99154", "thinkingLevel": "low", "model": {"id": "claude-opus-5-5", "name": "Claude Opus 5.5", "provider": "anthropic", "reasoning": true}, "todoPhases": [], "contextUsage": {"tokens": 16363, "contextWindow": 1000000, "percent": 1.6362999999999999}, "isSettled": true, "queuedMessages": {"steering": [], "followUp": []}}}}
+{"t": 941, "kind": "send", "data": {"id": "rec-5", "type": "prompt", "message": "Reply with exactly the word pong. Do not use any tool."}}
+{"t": 960, "kind": "recv", "data": {"id": "rec-5", "type": "response", "command": "prompt", "success": true}}
+{"t": 980, "kind": "recv", "data": {"type": "agent_start"}}
+{"t": 1005, "kind": "recv", "data": {"type": "message_start", "messageId": "msg-1", "message": {"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word pong. Do not use any tool."}], "attribution": "user"}}}
+{"t": 1005, "kind": "recv", "data": {"type": "message_end", "messageId": "msg-1", "message": {"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word pong. Do not use any tool."}], "attribution": "user"}}}
+{"t": 2463, "kind": "recv", "data": {"type": "message_start", "messageId": "msg-2", "message": {"role": "assistant", "content": [{"type": "text", "text": "pong"}], "stopReason": "stop"}}}
+{"t": 2463, "kind": "recv", "data": {"type": "message_update", "messageId": "msg-2", "assistantMessageEvent": {"type": "text_start"}, "message": {"role": "assistant", "content": [{"type": "text", "text": "pong"}], "stopReason": "stop"}}}
+{"t": 2464, "kind": "recv", "data": {"type": "message_update", "messageId": "msg-2", "assistantMessageEvent": {"type": "text_delta"}, "message": {"role": "assistant", "content": [{"type": "text", "text": "pong"}], "stopReason": "stop"}}}
+{"t": 2464, "kind": "recv", "data": {"type": "message_update", "messageId": "msg-2", "assistantMessageEvent": {"type": "text_end"}, "message": {"role": "assistant", "content": [{"type": "text", "text": "pong"}], "stopReason": "stop"}}}
+{"t": 2465, "kind": "recv", "data": {"type": "message_end", "messageId": "msg-2", "message": {"role": "assistant", "content": [{"type": "text", "text": "pong"}], "stopReason": "stop"}}}
+{"t": 2476, "kind": "recv", "data": {"type": "agent_end", "messages": [{"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word pong. Do not use any tool."}], "attribution": "user"}, {"role": "assistant", "content": [{"type": "text", "text": "pong"}], "stopReason": "stop"}], "isTerminal": true, "yielded": true}}
+{"t": 2476, "kind": "recv", "data": {"type": "prompt_result", "id": "rec-5", "agentInvoked": true, "status": "completed", "sessionSettled": true}}
+{"t": 2476, "kind": "recv", "data": {"type": "session_settled"}}
+{"t": 2489, "kind": "send", "data": {"id": "rec-6", "type": "get_state"}}
+{"t": 2490, "kind": "recv", "data": {"id": "rec-6", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1aa91-b251-7356-afc3-f1bdf9f99154", "thinkingLevel": "low", "model": {"id": "claude-opus-5-5", "name": "Claude Opus 5.5", "provider": "anthropic", "reasoning": true}, "todoPhases": [], "contextUsage": {"tokens": 17786, "contextWindow": 1000000, "percent": 1.7786}, "isSettled": true, "queuedMessages": {"steering": [], "followUp": []}}}}
+{"t": 2555, "kind": "lead_note", "data": "omp exited with code 0"}

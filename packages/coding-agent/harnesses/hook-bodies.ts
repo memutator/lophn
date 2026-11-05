@@ -178,6 +178,12 @@ export default function (omp: any) {
   omp.on("session_start", (_event: any, ctx: any) => {
     if (main(ctx)) run("session_start", { session_id: sessionOf(ctx), session_name: nameOf() });
   });
+  // omp는 \`session_start\`를 시작할 때만 낸다. \`/new\`·\`/resume\`·\`/branch\`·\`/fork\` 뒤의 새 id는 이 둘로 알린다.
+  for (const name of ["session_switch", "session_branch"]) {
+    omp.on(name, (_event: any, ctx: any) => {
+      if (main(ctx)) run(name, { session_id: sessionOf(ctx), session_name: nameOf() });
+    });
+  }
   omp.on("agent_start", (_event: any, ctx: any) => {
     if (!main(ctx)) return;
     running = true;

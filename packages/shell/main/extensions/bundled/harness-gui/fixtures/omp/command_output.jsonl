@@ -1,0 +1,16 @@
+{"t": 734, "kind": "recv", "data": {"type": "ready", "protocolVersion": 1, "supportedProtocolVersions": [1, 2], "maxFrameBytes": 1048576, "maxReassembledFrameBytes": 67108864}}
+{"t": 757, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 923, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 933, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 935, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 958, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 958, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 983, "kind": "send", "data": {"id": "rec-4", "type": "get_available_commands"}}
+{"t": 987, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "get_available_commands", "success": true, "data": {"commands": [{"name": "security", "description": "Plan, run, inspect, import, and compare OMP-native security scans", "input": {"hint": "<plan|scan|status|cancel|scans|show|import|export|validate|compare|disposition>"}}, {"name": "model", "description": "Show current model selection"}]}}}
+{"t": 1010, "kind": "send", "data": {"id": "rec-5", "type": "prompt", "message": "/context"}}
+{"t": 1018, "kind": "recv", "data": {"type": "command_output", "text": "Context window: 1000000 tokens (2% used)\n  System prompt    [\u001b[1m\u001b[38;2;0;180;255m░░\u001b[22m\u001b[39m\u001b[38;2;156;163;176m░\u001b[39m\u001b[38;2;107;114;128m░░░░░░░░░░░░░░░░░░░░░\u001b[39m] 0%  4168 tokens\n  System tools     [\u001b[1m\u001b[38;2;0;180;255m░░\u001b[22m\u001b[39m\u001b[38;2;156;163;176m░\u001b[39m\u001b[38;2;107;114;128m░░░░░░░░░░░░░░░░░░░░░"}}
+{"t": 1018, "kind": "recv", "data": {"id": "rec-5", "type": "response", "command": "prompt", "success": true, "data": {"agentInvoked": false}}}
+{"t": 1538, "kind": "send", "data": {"id": "rec-6", "type": "prompt", "message": "/usage"}}
+{"t": 2998, "kind": "recv", "data": {"type": "command_output", "text": "```\nUsage (1s ago)\n\nAnthropic\n  Models with usage data\n    anthropic/claude-3-5-sonnet-20240620\n    anthropic/claude-3-5-sonnet-20241022\n    anthropic/claude-3-haiku-20240307\n    anthropic/claude-fable-5\n    anthropic/claude-fable-5-1\n    anthropic/claude-haiku-4-5\n    anthropic/claude-haiku-4-5-202"}}
+{"t": 2999, "kind": "recv", "data": {"id": "rec-6", "type": "response", "command": "prompt", "success": true, "data": {"agentInvoked": false}}}
+{"t": 3557, "kind": "lead_note", "data": "omp exited with code 0"}

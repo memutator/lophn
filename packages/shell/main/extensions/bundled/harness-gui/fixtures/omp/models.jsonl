@@ -1,0 +1,29 @@
+{"t": 748, "kind": "recv", "data": {"type": "ready", "protocolVersion": 1, "supportedProtocolVersions": [1, 2], "maxFrameBytes": 1048576, "maxReassembledFrameBytes": 67108864}}
+{"t": 757, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 943, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 958, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 958, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 983, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 986, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 1008, "kind": "send", "data": {"id": "rec-4", "type": "get_state"}}
+{"t": 1017, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1aa92-545d-7276-ac37-71b5c445bd3f", "thinkingLevel": "high", "model": {"id": "claude-opus-5-5", "name": "Claude Opus 5.5", "provider": "anthropic", "reasoning": true}, "todoPhases": [], "contextUsage": {"tokens": 16363, "contextWindow": 1000000, "percent": 1.6362999999999999}, "isSettled": true, "queuedMessages": {"steering": [], "followUp": []}}}}
+{"t": 1033, "kind": "send", "data": {"id": "rec-5", "type": "get_available_commands"}}
+{"t": 1035, "kind": "recv", "data": {"id": "rec-5", "type": "response", "command": "get_available_commands", "success": true, "data": {"commands": [{"name": "security", "description": "Plan, run, inspect, import, and compare OMP-native security scans", "input": {"hint": "<plan|scan|status|cancel|scans|show|import|export|validate|compare|disposition>"}}, {"name": "model", "description": "Show current model selection"}]}}}
+{"t": 1058, "kind": "send", "data": {"id": "rec-6", "type": "get_available_models"}}
+{"t": 1067, "kind": "recv", "data": {"id": "rec-6", "type": "response", "command": "get_available_models", "success": true, "data": {"models": [{"id": "claude-3-5-sonnet-20240620", "name": "Claude Sonnet 3.5", "provider": "anthropic", "reasoning": false}, {"id": "claude-3-5-sonnet-20241022", "name": "Claude Sonnet 3.5 v2", "provider": "anthropic", "reasoning": false}]}}}
+{"t": 1083, "kind": "send", "data": {"id": "rec-7", "type": "get_available_thinking_levels"}}
+{"t": 1083, "kind": "recv", "data": {"id": "rec-7", "type": "response", "command": "get_available_thinking_levels", "success": true, "data": {"levels": ["off", "low", "medium", "high", "xhigh", "max"]}}}
+{"t": 1108, "kind": "send", "data": {"id": "rec-8", "type": "get_state"}}
+{"t": 1109, "kind": "recv", "data": {"id": "rec-8", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1aa92-545d-7276-ac37-71b5c445bd3f", "thinkingLevel": "high", "model": {"id": "claude-opus-5-5", "name": "Claude Opus 5.5", "provider": "anthropic", "reasoning": true}, "todoPhases": [], "contextUsage": {"tokens": 16363, "contextWindow": 1000000, "percent": 1.6362999999999999}, "isSettled": true, "queuedMessages": {"steering": [], "followUp": []}}}}
+{"t": 1135, "kind": "send", "data": {"id": "rec-9", "type": "set_thinking_level", "level": "low"}}
+{"t": 1135, "kind": "recv", "data": {"type": "thinking_level_changed", "thinkingLevel": "low"}}
+{"t": 1135, "kind": "recv", "data": {"id": "rec-9", "type": "response", "command": "set_thinking_level", "success": true}}
+{"t": 1160, "kind": "send", "data": {"id": "rec-10", "type": "set_model", "provider": "anthropic", "modelId": "claude-3-5-sonnet-20240620"}}
+{"t": 1164, "kind": "recv", "data": {"type": "model_changed"}}
+{"t": 1169, "kind": "recv", "data": {"type": "thinking_level_changed"}}
+{"t": 1173, "kind": "recv", "data": {"id": "rec-10", "type": "response", "command": "set_model", "success": true, "data": {"id": "claude-3-5-sonnet-20240620", "name": "Claude Sonnet 3.5", "provider": "anthropic", "reasoning": false}}}
+{"t": 1687, "kind": "send", "data": {"id": "rec-11", "type": "get_state"}}
+{"t": 1699, "kind": "recv", "data": {"id": "rec-11", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1aa92-545d-7276-ac37-71b5c445bd3f", "model": {"id": "claude-3-5-sonnet-20240620", "name": "Claude Sonnet 3.5", "provider": "anthropic", "reasoning": false}, "todoPhases": [], "contextUsage": {"tokens": 12694, "contextWindow": 200000, "percent": 6.3469999999999995}, "isSettled": true, "queuedMessages": {"steering": [], "followUp": []}}}}
+{"t": 1713, "kind": "send", "data": {"id": "rec-12", "type": "get_available_thinking_levels"}}
+{"t": 1713, "kind": "recv", "data": {"id": "rec-12", "type": "response", "command": "get_available_thinking_levels", "success": true, "data": {"levels": ["off"]}}}
+{"t": 1775, "kind": "lead_note", "data": "omp exited with code 0"}

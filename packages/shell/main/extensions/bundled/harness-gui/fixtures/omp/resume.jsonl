@@ -1,0 +1,33 @@
+{"t": 2829, "kind": "lead_note", "data": {"cli": ["omp", "-p", "Reply with exactly the word alpha. Do not use any tool."], "status": 0, "stdout": "alpha\n", "stderr": "Working...\n"}}
+{"t": 2829, "kind": "lead_note", "data": "print mode made session 01a1aa92-82ad-70f5-a912-7956dfbe76a8"}
+{"t": 3561, "kind": "recv", "data": {"type": "ready", "protocolVersion": 1, "supportedProtocolVersions": [1, 2], "maxFrameBytes": 1048576, "maxReassembledFrameBytes": 67108864}}
+{"t": 3586, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 3774, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 3788, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 3788, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 3813, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 3814, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 3838, "kind": "send", "data": {"id": "rec-4", "type": "get_state"}}
+{"t": 3847, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1aa92-82ad-70f5-a912-7956dfbe76a8", "thinkingLevel": "high", "model": {"id": "claude-opus-5-5", "name": "Claude Opus 5.5", "provider": "anthropic", "reasoning": true}, "todoPhases": [], "contextUsage": {"tokens": 17661, "contextWindow": 1000000, "percent": 1.7661}, "isSettled": true, "queuedMessages": {"steering": [], "followUp": []}}}}
+{"t": 3863, "kind": "lead_note", "data": "rpc-ui resumed; sessionId 01a1aa92-82ad-70f5-a912-7956dfbe76a8 (expected 01a1aa92-82ad-70f5-a912-7956dfbe76a8)"}
+{"t": 3863, "kind": "send", "data": {"id": "rec-5", "type": "get_messages_page", "limit": 256}}
+{"t": 3863, "kind": "recv", "data": {"id": "rec-5", "type": "response", "command": "get_messages_page", "success": true, "data": {"messages": [{"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word alpha. Do not use any tool."}], "attribution": "user"}, {"role": "assistant", "content": [{"type": "text", "text": "alpha"}], "stopReason": "stop"}], "totalMessages": 2}}}
+{"t": 3889, "kind": "send", "data": {"id": "rec-6", "type": "prompt", "message": "Reply with exactly the word beta. Do not use any tool."}}
+{"t": 3897, "kind": "recv", "data": {"id": "rec-6", "type": "response", "command": "prompt", "success": true}}
+{"t": 3906, "kind": "recv", "data": {"type": "agent_start"}}
+{"t": 3931, "kind": "recv", "data": {"type": "message_start", "messageId": "msg-1", "message": {"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word beta. Do not use any tool."}], "attribution": "user"}}}
+{"t": 3931, "kind": "recv", "data": {"type": "message_end", "messageId": "msg-1", "message": {"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word beta. Do not use any tool."}], "attribution": "user"}}}
+{"t": 5822, "kind": "recv", "data": {"type": "message_start", "messageId": "msg-2", "message": {"role": "assistant", "content": [{"type": "text", "text": "beta"}], "stopReason": "stop"}}}
+{"t": 5823, "kind": "recv", "data": {"type": "message_update", "messageId": "msg-2", "assistantMessageEvent": {"type": "text_start"}, "message": {"role": "assistant", "content": [{"type": "text", "text": "beta"}], "stopReason": "stop"}}}
+{"t": 5823, "kind": "recv", "data": {"type": "message_update", "messageId": "msg-2", "assistantMessageEvent": {"type": "text_delta"}, "message": {"role": "assistant", "content": [{"type": "text", "text": "beta"}], "stopReason": "stop"}}}
+{"t": 5823, "kind": "recv", "data": {"type": "message_update", "messageId": "msg-2", "assistantMessageEvent": {"type": "text_end"}, "message": {"role": "assistant", "content": [{"type": "text", "text": "beta"}], "stopReason": "stop"}}}
+{"t": 5824, "kind": "recv", "data": {"type": "message_end", "messageId": "msg-2", "message": {"role": "assistant", "content": [{"type": "text", "text": "beta"}], "stopReason": "stop"}}}
+{"t": 5832, "kind": "recv", "data": {"type": "agent_end", "messages": [{"role": "user", "content": [{"type": "text", "text": "Reply with exactly the word beta. Do not use any tool."}], "attribution": "user"}, {"role": "assistant", "content": [{"type": "text", "text": "beta"}], "stopReason": "stop"}], "isTerminal": true, "yielded": true}}
+{"t": 5833, "kind": "recv", "data": {"type": "prompt_result", "id": "rec-6", "agentInvoked": true, "status": "completed", "sessionSettled": true}}
+{"t": 5833, "kind": "recv", "data": {"type": "session_settled"}}
+{"t": 5846, "kind": "send", "data": {"id": "rec-7", "type": "get_state"}}
+{"t": 5847, "kind": "recv", "data": {"id": "rec-7", "type": "response", "command": "get_state", "success": true, "data": {"sessionId": "01a1aa92-82ad-70f5-a912-7956dfbe76a8", "thinkingLevel": "high", "model": {"id": "claude-opus-5-5", "name": "Claude Opus 5.5", "provider": "anthropic", "reasoning": true}, "todoPhases": [], "contextUsage": {"tokens": 17950, "contextWindow": 1000000, "percent": 1.7950000000000002}, "isSettled": true, "queuedMessages": {"steering": [], "followUp": []}}}}
+{"t": 5871, "kind": "lead_note", "data": "after a turn sessionId 01a1aa92-82ad-70f5-a912-7956dfbe76a8; files now 12"}
+{"t": 5911, "kind": "lead_note", "data": "omp exited with code 0"}
+{"t": 8649, "kind": "lead_note", "data": {"cli": ["omp", "-p", "--resume=01a1aa92-82ad-70f5-a912-7956dfbe76a8", "Reply with exactly the word gamma. Do not use any tool."], "status": 0, "stdout": "gamma\n", "stderr": "Working...\n"}}
+{"t": 8649, "kind": "lead_note", "data": {"filesBeforeReverse": 12, "filesAfterReverse": 12}}

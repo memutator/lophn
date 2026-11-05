@@ -181,6 +181,11 @@
   text-decoration: underline;
 }
 
+.subagentRunning {
+  display: inline-flex;
+  color: var(--color-text-muted);
+}
+
 .subagentLine {
   display: inline-flex;
   align-items: center;

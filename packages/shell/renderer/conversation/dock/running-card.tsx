@@ -2,7 +2,6 @@
 // subagent 줄을 누르면 자식 대화를 열고, task 줄을 누르면 출력을 펼친다.
 import { t } from "@lophn/i18n";
 import { IconButton, Icon, Button } from "@lophn/ui/primitives";
-import { CodeBlock } from "@lophn/ui/reading";
 import { iconPixels } from "@lophn/ui/shared";
 import { type ReactElement, useState } from "react";
 
@@ -154,7 +153,7 @@ function TaskRun({
       />
       {shown && output !== null ? (
         <div className={styles.runOutput}>
-          <CodeBlock code={output} />
+          <pre className={styles.outputText}>{output}</pre>
         </div>
       ) : null}
     </li>

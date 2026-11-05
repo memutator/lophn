@@ -353,6 +353,7 @@ const CWD = "/home/phroner/projects/upload-service";
 function fakeApi(
   approval: AcpUpdate | null,
   extra: readonly AcpUpdate[],
+  harness: "claude" | "omp",
 ): HarnessGuiTabApi {
   let push: (update: AcpUpdate) => void = () => {};
   let seq = 8;
@@ -369,7 +370,7 @@ function fakeApi(
         ...extra,
       ])
         onUpdate(update);
-      return { harness: "claude", cwd: CWD };
+      return { harness, cwd: CWD };
     },
     disconnect: async () => {},
     async input(_handle, input) {
@@ -447,24 +448,34 @@ function Card({ children }: { children: ReactNode }) {
 
 const NO_UPDATES: readonly AcpUpdate[] = [];
 
+// role은 omp만 가진다. omp session 기능으로 바꿔 보낸다.
+const OMP_META: readonly AcpUpdate[] = [
+  { type: "session_changed", session: fakeHarnessMeta("omp") },
+];
+
 function TerminalTabGui({
   steps = [],
   approval = SHELL_APPROVAL,
   extra = NO_UPDATES,
+  harness = "claude",
 }: {
   steps?: readonly Step[];
   /** null이면 승인 카드 없이 dock과 composer만 보인다. */
   approval?: AcpUpdate | null;
   /** 갈무리 뒤에 더 보내는 갱신. */
   extra?: readonly AcpUpdate[];
+  harness?: "claude" | "omp";
 }) {
   useDrive(() => runSteps(steps));
-  const api = useMemo(() => fakeApi(approval, extra), [approval, extra]);
+  const api = useMemo(
+    () => fakeApi(approval, extra, harness),
+    [approval, extra, harness],
+  );
   return (
     <Card>
       <TerminalGui
         api={api}
-        gui={{ handle: "win_gallery", harness: "claude", handoff: "restart" }}
+        gui={{ handle: "win_gallery", harness, handoff: "restart" }}
         terminalRef="trm_gallery"
         now={() => NOW}
       />
@@ -608,10 +619,12 @@ export const harnessGuiArea: Area = {
       id: "harness-gui-roles",
       title: "Harness GUI · roles",
       description:
-        "model picker를 연 모습이다. 맨 아래 Roles 절에 chat 묶음과 model 묶음이 있고 줄마다 role 이름과 지금 model(vendor 아이콘, 배정이 없으면 —)이 보인다. 줄을 누르면 이 session만 그 role의 model로 바뀐다. role 배정을 바꾸는 칸은 없다.",
+        "omp session에서 model picker를 연 모습이다(role은 omp만 가진다). 맨 아래 Roles 절에 chat 묶음과 model 묶음이 있고 줄마다 role 이름과 지금 model(vendor 아이콘, 배정이 없으면 —)이 보인다. 줄을 누르면 이 session만 그 role의 model로 바뀐다. role 배정을 바꾸는 칸은 없다.",
       render: () => (
         <TerminalTabGui
           approval={null}
+          harness="omp"
+          extra={OMP_META}
           steps={[() => press("[data-model-button]")]}
         />
       ),

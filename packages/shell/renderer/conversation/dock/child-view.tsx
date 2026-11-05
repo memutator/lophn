@@ -86,39 +86,41 @@ export function ChildView({
       <div className={styles.thread}>{children}</div>
       {running && (canSteer || canStop) ? (
         <footer className={styles.foot}>
-          {canSteer ? (
-            <>
-              <input
-                className={styles.input}
-                aria-label={t("conversation.label.child-steer")}
-                placeholder={t("conversation.label.child-steer")}
-                value={text}
-                onChange={(event) => setText(event.currentTarget.value)}
-                onKeyDown={keyDown}
-              />
+          <div className={styles.footColumn}>
+            {canSteer ? (
+              <>
+                <input
+                  className={styles.input}
+                  aria-label={t("conversation.label.child-steer")}
+                  placeholder={t("conversation.label.child-steer")}
+                  value={text}
+                  onChange={(event) => setText(event.currentTarget.value)}
+                  onKeyDown={keyDown}
+                />
+                <Button
+                  size="sm"
+                  icon={actionIcons.send}
+                  disabled={text.trim() === ""}
+                  onClick={send}
+                >
+                  {t("conversation.button.child-send")}
+                </Button>
+              </>
+            ) : (
+              <span className={styles.spacer} />
+            )}
+            {canStop ? (
               <Button
                 size="sm"
-                icon={actionIcons.send}
-                disabled={text.trim() === ""}
-                onClick={send}
+                variant="secondary"
+                icon={actionIcons.stop}
+                data-child-stop=""
+                onClick={onStop}
               >
-                {t("conversation.button.child-send")}
+                {t("conversation.button.dock-stop")}
               </Button>
-            </>
-          ) : (
-            <span className={styles.spacer} />
-          )}
-          {canStop ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={actionIcons.stop}
-              data-child-stop=""
-              onClick={onStop}
-            >
-              {t("conversation.button.dock-stop")}
-            </Button>
-          ) : null}
+            ) : null}
+          </div>
         </footer>
       ) : null}
     </section>

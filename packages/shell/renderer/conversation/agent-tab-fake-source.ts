@@ -1619,6 +1619,8 @@ interface MetaOptions {
   readonly mode: "ask" | "skip";
   /** harness가 dock의 것(toggle, goal, role, 사용 한도, context 분해)을 싣는다. */
   readonly dock?: boolean;
+  /** 어느 harness인가. role은 omp만 가진다. 기본은 claude다. */
+  readonly harness?: "claude" | "omp";
 }
 
 function lophnMeta(options: MetaOptions): AcpSessionMeta {
@@ -1643,15 +1645,18 @@ function lophnMeta(options: MetaOptions): AcpSessionMeta {
 
 function harnessMeta(options: MetaOptions): AcpSessionMeta {
   const sonnet = modelsOf({}).model!;
+  const omp = options.harness === "omp";
   return {
     title: options.title,
     cli_session: "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9",
     capabilities:
-      options.dock === true ? DOCK_CAPABILITIES : HARNESS_CAPABILITIES,
+      options.dock !== true
+        ? HARNESS_CAPABILITIES
+        : { ...DOCK_CAPABILITIES, roles: omp },
     models: [
       {
-        id: "claude",
-        label: "Claude",
+        id: omp ? "anthropic" : "claude",
+        label: omp ? "Anthropic" : "Claude",
         models: [
           { id: "sonnet", label: "Sonnet 5.5", axes: SONNET.axes },
           { id: "haiku", label: "Haiku 5.5", axes: [] },
@@ -1683,14 +1688,23 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
     },
     toggles: options.dock === true ? DOCK_TOGGLES : [],
     goal: options.dock === true ? { ...DOCK_GOAL } : null,
-    roles: options.dock === true ? DOCK_ROLES : null,
-    harness: "claude",
+    roles: options.dock === true && omp ? DOCK_ROLES : null,
+    harness: omp ? "omp" : "claude",
   };
 }
 
-/** wireframe의 harness GUI 탭이 첫 갱신으로 싣는 session 기능(Claude). */
-export const fakeHarnessMeta = (): AcpSessionMeta =>
-  harnessMeta({ picker: {}, status: {}, title: null, mode: "ask", dock: true });
+/** wireframe의 harness GUI 탭이 첫 갱신으로 싣는 session 기능. role은 omp만 가진다. */
+export const fakeHarnessMeta = (
+  harness: "claude" | "omp" = "claude",
+): AcpSessionMeta =>
+  harnessMeta({
+    picker: {},
+    status: {},
+    title: null,
+    mode: "ask",
+    dock: true,
+    harness,
+  });
 
 // ---- fake ----
 

@@ -37,12 +37,23 @@
 }
 
 .foot {
-  display: flex;
   flex: none;
+  padding: var(--space-3) var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+/* composer와 같은 읽기 폭 기둥이다. */
+.footColumn {
+  box-sizing: border-box;
+  display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-5);
-  border-top: var(--border-width) solid var(--color-border-subtle);
+  width: 100%;
+  max-width: calc(
+    var(--page-reading-wide) + var(--layout-pane-padding-wide) * 2
+  );
+  margin-inline: auto;
+  padding-inline: var(--layout-pane-padding-wide);
 }
 
 .spacer {

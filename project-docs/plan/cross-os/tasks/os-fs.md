@@ -65,3 +65,9 @@ core의 file 규칙을 세 OS에서 맞게 한다(README 정한 것 5, 6). Windo
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 등록할 것에 data step을 넣을 wiring 목록 file과 줄을 적는다.
+
+## 더할 것 (lead가 더함)
+
+- `install-and-update/data-root.ts` `resolveDataRoot`가 아직 `${home}/.lophn`과 `requested.startsWith("/")`를 쓴다. wave 1이 `core.ts`·`cli/main.ts`의 home을 `homeOf`로 바꿨지만 이것 때문에 Windows는 여전히 기동을 거절한다(할 일 1).
+- `apps/releases/prepare/from-source.ts:77` 근처가 stderr에서 `file://${staging}/`를 문자열로 지운다. Windows path(`file:///C:/…`)에서 맞지 않으니 `pathToFileURL(staging).href`로 만든다.
+- `lophn-agent/extensions/skill-folders.ts:273`이 `process.env.HOME`을 바로 읽는다. 할 일 7과 같이 `homeOf`로.

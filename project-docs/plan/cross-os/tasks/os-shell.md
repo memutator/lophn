@@ -50,3 +50,7 @@ shell(Electron main, terminal-host)과 coding-agent의 OS 가정을 고친다(RE
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. Windows·macOS에서 아직 안 되는 터미널·harness 기능을 "알려진 미완 동작"에 OS별로 적는다(lead가 `architecture/platform.md`에 옮긴다).
+
+## 더할 것 (lead가 더함)
+
+- `packages/base/os/`의 `nodeTreeDeps`는 spawn을 인자로 받는다: `nodeTreeDeps(spawn)`(`spawn`은 `node:child_process`의 것). base는 node 내장을 import하지 않는다.

@@ -59,3 +59,10 @@ core의 process 제어와 IPC를 세 OS에서 돌게 한다(README 정한 것 4,
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 할 일 2의 자리마다 tree 신호로 바꿨는지, `child.kill`을 남겼는지와 그 이유를 적는다.
+
+## 더할 것 (lead가 더함)
+
+- `packages/base/os/`의 `nodeTreeDeps`는 spawn을 인자로 받는다: `nodeTreeDeps(spawn)`(`spawn`은 `node:child_process`의 것). base는 node 내장을 import하지 않는다.
+- `packages/core/supervision/security/node-shims.ts`의 `platformNpmCliPath()`는 `tools/check.ts`가 import한다. 이름과 뜻을 그대로 둔다.
+- `node-shims.ts` `withNodeShims`가 PATH를 `:`로 잇는다(할 일 5). `apps/runtime/observations/stack-frames.ts`의 `filePathOf`가 `file://`가 아닌 입력은 `/`로 시작하는 것만 받는다. win32 절대 경로도 받게 한다.
+- 추가 소유: `packages/core/main/daemon/wiring/{flows.ts,storage.ts}`(child env에 HOME을 넘기는 줄만, `flows.ts:26`, `storage.ts:230` 근처), `packages/core/apps/runtime/processes/spawn.ts:30`(이미 소유 안). child env 목록 모두 할 일 6의 규칙을 따른다.

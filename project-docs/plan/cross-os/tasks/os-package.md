@@ -44,3 +44,9 @@ Linux `.deb`만 만들던 package 도구를 세 OS로 넓힌다(README 정한 �
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 등록할 것에 root `package.json`에 둘 script(`"package": "node tools/package/main.ts"`)를 적는다.
+
+## 더할 것 (lead가 더함)
+
+- `os-ci`가 `packages/shell/main/package.json`의 `postinstall`·`rebuild`를 `node build.ts rebuild`(Linux만 node-pty rebuild)로 바꿨다. 그 두 줄은 그대로 둔다.
+- `.github/workflows/os.yml`의 job `os` 단계는 `npm ci` → `npm run check:full` → `node tools/ci/boot-core.ts`다. 그 뒤에 package 단계를 더한다.
+- `packages/base/os/`(`homeOf` 등)를 쓸 수 있다. base는 node 내장을 import하지 않는다(spawn 같은 것은 인자로 받는다).

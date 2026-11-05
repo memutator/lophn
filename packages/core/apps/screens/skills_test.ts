@@ -24,7 +24,8 @@ test("app skills read gives only declared public skills inside the bundle", asyn
     await rm(`${skills}/linked`, { recursive: true });
     await mkdir(`${tmp}/outside`);
     await writeFile(`${tmp}/outside/SKILL.md`, manifest("linked"));
-    await symlink(`${tmp}/outside`, `${skills}/linked`);
+    // 폴더 연결은 junction으로 만든다. Windows에서 권한이 필요 없고 POSIX는 type을 무시한다.
+    await symlink(`${tmp}/outside`, `${skills}/linked`, "junction");
 
     const read = await readAppSkills(
       createAppSkillsDeps({ dir: () => ok(bundle) }),

@@ -8,7 +8,7 @@ import { createScreenFileDeps, serveScreenFile } from "./mod.ts";
 
 // 화면 byte 요청은 그 screen 폴더 안의 파일만 내주고, `..`·절대 경로·밖을 가리키는 symlink·
 // 다른 screen·폴더는 모두 거절한다.
-test("screen file requests only serve files inside that screen folder", async () => {
+test("screen file requests only serve files inside that screen folder", async (t) => {
   const tmp = await mkdtemp(join(tmpdir(), "lophn-screens-"));
   try {
     const bundle = `${tmp}/bundle`;
@@ -20,7 +20,13 @@ test("screen file requests only serve files inside that screen folder", async ()
     await writeFile(`${bundle}/screens/other/secret.html`, "other");
     await writeFile(`${bundle}/manifest.json`, "{}");
     await writeFile(`${tmp}/outside.txt`, "outside");
-    await symlink(`${tmp}/outside.txt`, `${bundle}/screens/main/out.txt`);
+    // symlink는 Windows에서 개발자 모드나 관리자 권한이 있어야 만들어진다. 없으면 건너뛴다.
+    try {
+      await symlink(`${tmp}/outside.txt`, `${bundle}/screens/main/out.txt`);
+    } catch (thrown) {
+      if (process.platform !== "win32") throw thrown;
+      return t.skip("Windows에서 symlink 권한이 없다(개발자 모드 꺼짐)");
+    }
     await symlink(`${tmp}/`, `${bundle}/screens/main/outdir`);
     await symlink(
       `${bundle}/screens/other/secret.html`,

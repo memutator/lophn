@@ -38,7 +38,7 @@ async function run(root: string, query: string, extra = {}) {
   return found.value;
 }
 
-test("gitignore가 뺀 파일, .git 안, 연결 폴더 밖으로 나가는 symlink는 결과에 없다", async () => {
+test("gitignore가 뺀 파일, .git 안, 연결 폴더 밖으로 나가는 symlink는 결과에 없다", async (t) => {
   const { root, outside } = await temp({
     ".gitignore": "ignored.txt\nbuild/\n",
     "kept.txt": "needle\n",
@@ -49,7 +49,13 @@ test("gitignore가 뺀 파일, .git 안, 연결 폴더 밖으로 나가는 symli
     "sub/b.txt": "needle\n",
     ".git/config": "needle\n",
   });
-  await symlink(join(outside, "secret.txt"), join(root, "link.txt"));
+  // symlink는 Windows에서 개발자 모드나 관리자 권한이 있어야 만들어진다. 없으면 건너뛴다.
+  try {
+    await symlink(join(outside, "secret.txt"), join(root, "link.txt"));
+  } catch (thrown) {
+    if (process.platform !== "win32") throw thrown;
+    return t.skip("Windows에서 symlink 권한이 없다(개발자 모드 꺼짐)");
+  }
   await symlink(outside, join(root, "linkdir"));
   const { matches } = await run(root, "needle");
   assert.deepStrictEqual(

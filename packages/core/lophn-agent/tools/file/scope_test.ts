@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { type Mode, resolveInWorkspace } from "./scope.ts";
 
-test("file tool은 workspace 폴더 밖과 밖으로 나가는 symlink를 거절한다", async () => {
+test("file tool은 workspace 폴더 밖과 밖으로 나가는 symlink를 거절한다", async (t) => {
   const temp = await mkdtemp(join(tmpdir(), "lophn-scope-"));
   try {
     const workspace = join(temp, "workspace");
@@ -21,7 +21,13 @@ test("file tool은 workspace 폴더 밖과 밖으로 나가는 symlink를 거절
     await mkdir(outside);
     await writeFile(join(workspace, "inside.txt"), "in");
     await writeFile(join(outside, "secret.txt"), "out");
-    await symlink(outside, join(workspace, "link"));
+    // symlink는 Windows에서 개발자 모드나 관리자 권한이 있어야 만들어진다. 없으면 건너뛴다.
+    try {
+      await symlink(outside, join(workspace, "link"));
+    } catch (thrown) {
+      if (process.platform !== "win32") throw thrown;
+      return t.skip("Windows에서 symlink 권한이 없다(개발자 모드 꺼짐)");
+    }
     await symlink(join(outside, "secret.txt"), join(workspace, "linkfile"));
     await symlink(join(outside, "missing"), join(workspace, "dangling"));
     await symlink(join(workspace, "inside.txt"), join(workspace, "same"));
@@ -140,7 +146,7 @@ test("파일 entry는 그 파일(아직 없는 파일 포함)만 열고 같은 �
   }
 });
 
-test("session은 자기 tool-results 폴더만 읽고 쓰지 못하며 data root의 나머지는 거절한다", async () => {
+test("session은 자기 tool-results 폴더만 읽고 쓰지 못하며 data root의 나머지는 거절한다", async (t) => {
   const temp = await mkdtemp(join(tmpdir(), "lophn-scope-"));
   try {
     const root = join(temp, "data");
@@ -154,10 +160,16 @@ test("session은 자기 tool-results 폴더만 읽고 쓰지 못하며 data root
       "{}",
     );
     await writeFile(join(root, "secrets.json"), "{}");
-    await symlink(
-      join(root, "secrets.json"),
-      join(root, "tool-results", "ses_me", "link.json"),
-    );
+    // symlink는 Windows에서 개발자 모드나 관리자 권한이 있어야 만들어진다. 없으면 건너뛴다.
+    try {
+      await symlink(
+        join(root, "secrets.json"),
+        join(root, "tool-results", "ses_me", "link.json"),
+      );
+    } catch (thrown) {
+      if (process.platform !== "win32") throw thrown;
+      return t.skip("Windows에서 symlink 권한이 없다(개발자 모드 꺼짐)");
+    }
     const mine = join(root, "tool-results", "ses_me");
     const roots = {
       read: [workspace],

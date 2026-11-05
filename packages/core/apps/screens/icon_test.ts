@@ -4,12 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
-import { createScreenFileDeps } from "./mod.ts";
 import { appIconRead } from "../routes.ts";
 import { readAppIcon } from "./icon.ts";
+import { createScreenFileDeps } from "./mod.ts";
 
 // icon은 bundle 안의 이미지 파일만 준다. bundle 밖을 가리키는 symlink, `..`, 큰 파일은 null이다.
-test("app icon read only serves image files inside the bundle", async () => {
+test("app icon read only serves image files inside the bundle", async (t) => {
   const tmp = await mkdtemp(join(tmpdir(), "lophn-icon-"));
   try {
     const bundle = `${tmp}/bundle`;
@@ -17,7 +17,13 @@ test("app icon read only serves image files inside the bundle", async () => {
     await writeFile(`${bundle}/assets/icon.svg`, "<svg/>");
     await writeFile(`${bundle}/assets/big.png`, "x".repeat(64 * 1024 + 1));
     await writeFile(`${tmp}/secret.png`, "outside");
-    await symlink(`${tmp}/secret.png`, `${bundle}/assets/out.png`);
+    // symlink는 Windows에서 개발자 모드나 관리자 권한이 있어야 만들어진다. 없으면 건너뛴다.
+    try {
+      await symlink(`${tmp}/secret.png`, `${bundle}/assets/out.png`);
+    } catch (thrown) {
+      if (process.platform !== "win32") throw thrown;
+      return t.skip("Windows에서 symlink 권한이 없다(개발자 모드 꺼짐)");
+    }
 
     const read = async (path: string | null) => {
       const result = await readAppIcon(

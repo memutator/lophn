@@ -10,3 +10,4 @@ lead만 고친다. `tools/status.py cross-os build`가 `tasks/*.md`에서 id, �
 | `os-package` | os | 2 | os-base, os-ci | merged | os/os-package | 9b765c472 |  |
 | `os-process` | os | 2 | os-base | merged | os/os-process | d8a9e96be |  |
 | `os-shell` | os | 2 | os-base | merged | os/os-shell | 41763bd9a |  |
+| `os-fix-cli-path` | os | 3 | os-package | todo |  |  |  |

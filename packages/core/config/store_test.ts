@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,8 +25,10 @@ async function withStore(
     file: string,
     published: string[][],
   ) => void | Promise<void>,
+  initial?: string,
 ) {
   const root = await mkdtemp(join(tmpdir(), "lophn-settings-"));
+  if (initial !== undefined) writeFileSync(`${root}/settings.json`, initial);
   const published: string[][] = [];
   const store = createSettingsStore({
     root,
@@ -91,4 +93,35 @@ test("틀린 설정 값은 이유와 함께 거절되고 파일은 그대로다"
     assert.deepStrictEqual(same.value.changed, []);
     assert.deepStrictEqual(readFileSync(file), before);
   });
+});
+
+test("모르는 key와 틀린 값이 있어도 아는 setting은 적용되고 update가 그 key를 지우지 않는다", async () => {
+  await withStore(
+    (store, file) => {
+      assert.deepStrictEqual(store.chosen(), { "t.theme": "dark" });
+      const result = store.update([
+        { key: "t.flag", action: "set", value: false },
+      ]);
+      assert.ok(result.ok);
+      assert.deepStrictEqual(result.value.changed, ["t.flag"]);
+      assert.deepStrictEqual(JSON.parse(readFileSync(file, "utf8")), {
+        "t.count": 99,
+        "t.flag": false,
+        "t.removed": "kept",
+        "t.theme": "dark",
+      });
+    },
+    JSON.stringify({ "t.theme": "dark", "t.count": 99, "t.removed": "kept" }),
+  );
+});
+
+test("깨진 settings.json은 update가 덮지 않는다", async () => {
+  await withStore((store, file) => {
+    const result = store.update([
+      { key: "t.flag", action: "set", value: false },
+    ]);
+    assert.ok(!result.ok);
+    assert.strictEqual(result.error.code, "unavailable");
+    assert.strictEqual(readFileSync(file, "utf8"), '{"t.theme": ');
+  }, '{"t.theme": ');
 });

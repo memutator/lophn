@@ -1,8 +1,10 @@
 // `<data root>/settings.json`. 사람이 고른 값만 담고, 읽고 쓰고 바뀜을 지켜본다.
 //
-// - 하나라도 틀리면 파일 전체를 거절한다. 시작할 때 거절되면 모두 기본값으로 시작하고,
-//   이미 읽은 뒤의 변경이 거절되면 이전 값을 그대로 쓴다. log에는 key와 reason만 남긴다.
-//   시작 때 거절된 파일은 다음 update가 덮어 손으로 고친 틀린 값이 사라진다. 막지 않기로 정했다.
+// - 읽을 때 key 하나씩 판정한다. 모르는 key와 틀린 값은 그 key만 무시(기본값)하고 나머지는
+//   적용한다. log에는 key와 reason만 남긴다.
+// - 쓸 때는 파일의 raw object에서 시작해 바꾼 key만 덮는다. 무시한 key는 사람이 직접 바꾸지
+//   않는 한 파일에 남는다(선언을 지운 뒤에도 값이 사라지지 않게).
+// - JSON이 깨진 파일은 쓰기가 덮지 않는다(unavailable). 사람이 고칠 때까지 그대로 둔다.
 // - 쓰기는 같은 폴더의 임시 파일(0600)에 쓰고 rename한다. 실패하면 파일은 그대로다.
 // - watch는 폴더를 보고 settings.json 이벤트만 timer로 묶어 한 번 다시 읽는다. 내용이
 //   마지막으로 읽거나 쓴 것과 같으면 무시한다(자기 쓰기에 반응하지 않는다).
@@ -18,7 +20,6 @@ import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
   SETTINGS_FILE_NAME,
   type SettingRejection,
-  settingsFileSchema,
 } from "../../protocol/config/mod.ts";
 import type { SettingChange, SettingsRegistry } from "./registry.ts";
 
@@ -63,6 +64,8 @@ export function createSettingsStore(options: {
   const timer = options.timer ?? systemTimer;
   const path = `${root}/${SETTINGS_FILE_NAME}`;
   let chosen: Record<string, unknown> = {};
+  // 파일의 모든 key. 파일이 깨졌으면 undefined이고 쓰기는 거절한다.
+  let raw: Record<string, unknown> | undefined = {};
   let lastText: string | undefined;
   let watcher: FSWatcher | undefined;
   let pending: unknown;
@@ -77,7 +80,7 @@ export function createSettingsStore(options: {
     }
   };
 
-  // 파일 내용을 선택으로 바꾼다. 틀리면 undefined다.
+  // 파일 내용을 raw object로 바꾼다. JSON이 깨졌거나 object가 아니면 undefined다.
   const parse = (text: string): Record<string, unknown> | undefined => {
     if (text.trim() === "") return {};
     let json: unknown;
@@ -87,22 +90,31 @@ export function createSettingsStore(options: {
       log("settings: settings.json is not valid JSON");
       return undefined;
     }
-    const shaped = settingsFileSchema.safeParse(json);
-    if (!shaped.success) {
-      log("settings: settings.json is not a flat object");
+    if (typeof json !== "object" || json === null || Array.isArray(json)) {
+      log("settings: settings.json is not an object");
       return undefined;
     }
+    return json as Record<string, unknown>;
+  };
+
+  // raw에서 선언대로 통과한 key만 고른다.
+  const choose = (
+    raw: Record<string, unknown>,
+  ): { chosen: Record<string, unknown>; rejected: SettingRejection[] } => {
     const rejected = registry.validate(
-      Object.entries(shaped.data).map(([key, value]) => ({
+      Object.entries(raw).map(([key, value]) => ({
         key,
         action: "set" as const,
         value,
       })),
     );
-    for (const { key, reason } of rejected) {
-      log(`settings: rejected ${key} (${reason})`);
-    }
-    return rejected.length === 0 ? shaped.data : undefined;
+    const skip = new Set(rejected.map(({ key }) => key));
+    return {
+      chosen: Object.fromEntries(
+        Object.entries(raw).filter(([key]) => !skip.has(key)),
+      ),
+      rejected,
+    };
   };
 
   const differing = (
@@ -115,7 +127,7 @@ export function createSettingsStore(options: {
       )
       .sort();
 
-  // 시작할 때와 watch가 부른다. 거절이면 이전 값을 그대로 둔다.
+  // 시작할 때와 watch가 부른다. 파일이 깨졌으면 이전 값을 그대로 둔다.
   const reload = (): void => {
     let text: string;
     try {
@@ -127,10 +139,14 @@ export function createSettingsStore(options: {
     if (text === lastText) return;
     const first = lastText === undefined;
     lastText = text;
-    const next = parse(text);
-    if (next === undefined) return;
-    const changed = differing(chosen, next);
-    chosen = next;
+    raw = parse(text);
+    if (raw === undefined) return;
+    const next = choose(raw);
+    for (const { key, reason } of next.rejected) {
+      log(`settings: ignored ${key} (${reason})`);
+    }
+    const changed = differing(chosen, next.chosen);
+    chosen = next.chosen;
     if (!first && changed.length > 0) publish(changed);
   };
   reload();
@@ -164,21 +180,31 @@ export function createSettingsStore(options: {
     update(changes) {
       const rejected = registry.validate(changes);
       if (rejected.length > 0) return ok({ changed: [], rejected });
-      const next = { ...chosen };
-      for (const change of changes) {
-        if (change.action === "set") next[change.key] = change.value;
-        else delete next[change.key];
+      if (raw === undefined) {
+        return err({
+          code: "unavailable",
+          message: "settings.json is not valid JSON; fix it first",
+        });
       }
-      const changed = differing(chosen, next);
-      if (changed.length === 0) return ok({ changed: [], rejected: [] });
-      if (!write(next)) {
+      const nextRaw = { ...raw };
+      for (const change of changes) {
+        if (change.action === "set") nextRaw[change.key] = change.value;
+        else delete nextRaw[change.key];
+      }
+      if (differing(raw, nextRaw).length === 0) {
+        return ok({ changed: [], rejected: [] });
+      }
+      if (!write(nextRaw)) {
         return err({
           code: "unavailable",
           message: "settings could not be written",
         });
       }
+      raw = nextRaw;
+      const next = choose(nextRaw).chosen;
+      const changed = differing(chosen, next);
       chosen = next;
-      publish(changed);
+      if (changed.length > 0) publish(changed);
       return ok({ changed, rejected: [] });
     },
     watch() {

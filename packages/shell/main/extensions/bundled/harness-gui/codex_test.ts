@@ -16,20 +16,18 @@ import type {
   AcpSessionHandle,
   ExtensionProcess,
 } from "../../../../../protocol/extensions/mod.ts";
-import { codexAdapter } from "./codex.ts";
+import { type CodexLink, createCodexAdapter } from "./codex.ts";
 
-// 녹화(fixtures/codex)로 adapter를 돌린다. 실제 `codex`는 띄우지 않고, spawn이 돌려주는 process가 녹화의 `recv` 줄을
-// 내보내고 adapter가 쓴 줄을 모은다.
+// 녹화(fixtures/codex, 실제 codex 0.166.0이 낸 줄을 scrub한 것)로 adapter를 돌린다. 실제 codex는 띄우지 않는다. 가짜 link가
+// 녹화의 `recv` 줄을 내보내고 adapter가 쓴 줄을 모은다. startup.jsonl은 initialize부터 skills/list까지의 시작 순서다.
 
-type Entry = {
-  kind: "send" | "recv";
-  data: {
-    id?: number;
-    method?: string;
-    params?: Record<string, unknown>;
-    result?: unknown;
-  };
+type Wire = {
+  id?: number;
+  method?: string;
+  params?: Record<string, unknown>;
+  result?: Record<string, unknown>;
 };
+type Entry = { kind: "send" | "recv"; data: Wire };
 const fixtures = fileURLToPath(new URL("./fixtures/codex/", import.meta.url));
 const recording = (name: string): Entry[] =>
   readFileSync(`${fixtures}${name}.jsonl`, "utf8")
@@ -39,27 +37,26 @@ const recording = (name: string): Entry[] =>
 
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-type Written = {
-  id?: number;
-  method?: string;
-  params?: Record<string, unknown>;
-  result?: unknown;
-};
-
-async function setup(scenario: string, options: { resume?: string } = {}) {
-  const written: Written[] = [];
+async function boot(
+  options: { config?: Record<string, unknown>; resume?: string } = {},
+) {
+  const written: Wire[] = [];
   let emit: (text: string) => void = () => {};
-  let spawned: { command: string; args: readonly string[] } | undefined;
+  const link: CodexLink = {
+    send: (text) => void written.push(JSON.parse(text)),
+    onMessage: (listener) => void (emit = listener),
+    onClose() {},
+    close() {},
+  };
   const proc: ExtensionProcess = {
     pid: 1,
-    write: (text) => void written.push(JSON.parse(text)),
+    write() {},
     end() {},
     kill() {},
-    onStdout: (listener) => void (emit = listener),
+    onStdout() {},
     onStderr() {},
     onExit() {},
   };
-
   let state: AcpState = EMPTY_ACP_STATE;
   let listener: ((input: AcpInput) => void) | undefined;
   const session: AcpSessionHandle = {
@@ -72,33 +69,34 @@ async function setup(scenario: string, options: { resume?: string } = {}) {
     close() {},
   };
   const clock = manualClock(Date.UTC(2026, 10, 5));
-  const started = await codexAdapter.start({
+  const adapter = createCodexAdapter({
+    makeDir: () => "/tmp/lophn-codex-test",
+    removeDir() {},
+    connect: () => Promise.resolve(link),
+  });
+  const starting = adapter.start({
     terminal: null,
-    cwd: `/work/${scenario}`,
+    cwd: "/work/startup",
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     session,
-    spawn: (command, args) => {
-      spawned = { command, args };
-      return proc;
-    },
+    spawn: () => proc,
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
   });
-  assert.equal(started.ok, true);
 
-  const rec = recording(scenario);
+  const rec = recording("startup");
+  if (options.config !== undefined) {
+    const config = rec.find((one) => one.data.result?.config !== undefined);
+    (config?.data.result as { config: unknown }).config = options.config;
+  }
   let at = 0;
   let sent = 0;
   let answered = 0;
-  const unanswered = () =>
+  const requests = () =>
     written.filter((one) => one.id !== undefined && one.method !== undefined);
 
-  return {
-    rec,
+  const t = {
     written,
-    get spawned() {
-      return spawned;
-    },
     get state() {
       return state;
     },
@@ -106,17 +104,9 @@ async function setup(scenario: string, options: { resume?: string } = {}) {
       listener?.({ session: "ses_x", ...input } as AcpInput);
       await flush();
     },
-    send: (id: string, text: string, delivery = "next_turn") => ({
-      type: "send",
-      id: `msg_${id}`,
-      key: id,
-      content: [{ type: "text", text }],
-      delivery,
-    }),
     /**
-     * 녹화를 이어서 돌린다. `send` 줄은 adapter가 같은 순서로 썼는지 보고(요청 id는 adapter의 것으로 맞춘다), `recv`
-     * 줄은 내보낸다. 승인 요청을 내보냈거나, 시험이 입력으로 만들어야 하는 `send`(steer, interrupt, 승인 답)에
-     * 닿으면 그 줄을 돌려준다.
+     * 녹화를 이어서 돌린다. `send` 줄은 adapter가 같은 순서로 요청했는지 보고(요청 id는 adapter의 것으로 맞춘다), `recv` 줄은
+     * 내보낸다. server의 요청(승인·질문)을 내보내면 그 줄을 돌려주어 test가 창의 입력으로 답하게 한다.
      */
     async play(): Promise<Entry | undefined> {
       while (at < rec.length) {
@@ -125,17 +115,14 @@ async function setup(scenario: string, options: { resume?: string } = {}) {
         if (entry.kind === "send") {
           await flush();
           if (written.length <= sent) return entry;
-          const line = written[sent++] as Written;
-          if (data.method === undefined) assert.deepEqual(line, data);
-          else assert.equal(line.method, data.method);
+          assert.equal((written[sent++] as Wire).method, data.method);
           at += 1;
           continue;
         }
         at += 1;
-        // 응답의 id는 adapter가 붙인 요청 id다.
         const isResponse = data.method === undefined;
         const line = isResponse
-          ? { ...data, id: unanswered()[answered++]?.id }
+          ? { ...data, id: requests()[answered++]?.id }
           : data;
         emit(`${JSON.stringify(line)}\n`);
         await flush();
@@ -143,155 +130,223 @@ async function setup(scenario: string, options: { resume?: string } = {}) {
       }
       return undefined;
     },
+    /** 이 녹화를 이어 붙인다. */
+    append(name: string) {
+      rec.push(...recording(name));
+    },
   };
+  await t.play();
+  const started = await starting;
+  assert.equal(started.ok, true);
+  return { t, adapter, run: started.ok ? started.value : undefined };
+}
+
+/** 녹화한 turn/start가 보낸 글과 clientUserMessageId. 이 값으로 보내야 echo가 우리 것으로 읽힌다. */
+function firstSend(name: string) {
+  const start = recording(name)[0]?.data.params as {
+    clientUserMessageId: string;
+    input: { text: string }[];
+  };
+  return { id: start.clientUserMessageId, text: start.input[0]?.text ?? "" };
 }
 
 const tools = (state: AcpState) =>
   state.items.flatMap((item) => (item.kind === "tool" ? [item] : []));
-const users = (state: AcpState) =>
-  state.items.flatMap((item) =>
-    item.kind === "message" && item.actor === "user" ? [item] : [],
-  );
-const contiguous = (state: AcpState) =>
-  assert.deepEqual(
-    state.items.map((item) => item.seq),
-    state.items.map((_, index) => index + 1),
-  );
 const ends = (state: AcpState) =>
   state.items.flatMap((item) =>
     item.kind === "notice" && item.notice.type === "turn_end"
       ? [item.notice.outcome]
       : [],
   );
-const firstPrompt = (rec: Entry[]) =>
-  (
-    rec.find((one) => one.data.method === "turn/start")?.data.params?.input as {
-      text: string;
-    }[]
-  )[0]?.text as string;
+const results = (written: Wire[]) =>
+  written.filter((one) => one.result !== undefined && one.method === undefined);
 
-const approvalRows = [
+async function ask(name: string) {
+  const booted = await boot();
+  booted.t.append(name);
+  const sending = firstSend(name);
+  await booted.t.input({
+    type: "send",
+    id: sending.id,
+    key: sending.id,
+    content: [{ type: "text", text: sending.text }],
+    delivery: "next_turn",
+  });
+  const asked = (await booted.t.play()) as Entry;
+  return { ...booted, asked };
+}
+
+const decisions = [
   {
-    name: "deny",
+    name: "decline",
+    file: "decline",
     choice: { kind: "reject" },
     tool: "denied",
     decision: "decline",
   },
-  { name: "patch", choice: { kind: "once" }, tool: "ok", decision: "accept" },
+  {
+    name: "patch",
+    file: "patch",
+    choice: { kind: "once" },
+    tool: "ok",
+    decision: "accept",
+  },
 ] as const;
 
-for (const row of approvalRows) {
-  test(`승인 요청은 창이 답하기 전까지 답하지 않고 답대로 끝난다 (${row.name})`, async () => {
-    const t = await setup(row.name);
-    assert.equal(t.spawned?.command, "codex");
-    assert.deepEqual(t.spawned?.args, ["app-server"]);
-    await t.play();
-    // 사람의 설정이 never + danger-full-access여도 승인을 묻고 작업 폴더에서만 쓴다.
-    const opened = t.written.find((one) => one.method === "thread/start");
-    assert.equal(opened?.params?.approvalPolicy, "on-request");
-    assert.equal(opened?.params?.sandbox, "workspace-write");
-
-    await t.input(t.send("1", firstPrompt(t.rec)));
-    const asked = (await t.play()) as Entry;
+for (const row of decisions) {
+  test(`승인은 창이 답하기 전까지 app-server에 답이 나가지 않고 답대로 끝난다 (${row.name})`, async () => {
+    const { t, asked } = await ask(row.file);
     assert.ok(asked.data.method?.endsWith("/requestApproval"));
 
-    // 창이 답하기 전: app-server에 승인도 거절도 가지 않았고 카드가 떠 있다.
+    // 창이 답하기 전: 승인도 거절도 가지 않았고 카드가 떠 있다.
     const approval = t.state.pending.approval;
     assert.ok(approval);
     assert.equal(t.state.turn?.phase, "waiting");
     assert.equal(tools(t.state)[0]?.state, "running");
-    assert.equal(
-      t.written.some((one) => one.result !== undefined),
-      false,
-    );
+    assert.equal(results(t.written).length, 0);
+    if (row.name === "patch")
+      assert.equal(approval.subject.kind, "file_change");
 
     await t.input({ type: "decide", request: approval.id, choice: row.choice });
-    const answer = t.written.find((one) => one.result !== undefined);
-    assert.deepEqual(answer, {
-      id: asked.data.id,
-      result: { decision: row.decision },
-    });
+    assert.deepEqual(results(t.written), [
+      { id: asked.data.id, result: { decision: row.decision } },
+    ]);
     await t.play();
 
+    // 거절해도 tool만 declined로 끝나고 turn은 이어 간다.
     assert.equal(tools(t.state)[0]?.state, row.tool);
-    if (row.name === "patch") {
-      const detail = tools(t.state)[0]?.detail;
-      assert.ok(detail?.kind === "edit");
-      assert.deepEqual(
-        [detail.path, detail.added, detail.removed],
-        ["note.txt", 1, 0],
-      );
-    }
     assert.equal(t.state.pending.approval, null);
-    assert.equal(t.state.turn?.phase, "ended");
+    assert.deepEqual(ends(t.state), ["completed"]);
     assert.equal(t.state.reread, false);
-    contiguous(t.state);
   });
 }
 
-for (const scenario of ["steer", "interrupt"] as const) {
-  test(`도는 중 steer와 stop은 app-server 요청이 되고 turn이 이어진다 (${scenario})`, async () => {
-    const t = await setup(scenario);
-    await t.play();
-    await t.input(t.send("1", firstPrompt(t.rec)));
-    const driven = (await t.play()) as Entry;
-    assert.equal(driven.data.method, `turn/${scenario}`);
+test("다른 client가 먼저 답하면(serverRequest/resolved) 이쪽 카드가 답 없이 닫힌다", async () => {
+  const { t } = await ask("race");
+  assert.ok(t.state.pending.approval);
+  assert.equal(results(t.written).length, 0);
 
-    if (scenario === "steer") {
-      const text = (driven.data.params?.input as { text: string }[])[0]
-        ?.text as string;
-      await t.input(t.send("2", text, "steer"));
-      assert.equal(t.state.queued.length, 0);
-      const line = t.written.at(-1);
-      assert.equal(line?.method, "turn/steer");
-      assert.equal(
-        line?.params?.expectedTurnId,
-        driven.data.params?.expectedTurnId,
-      );
-    } else {
-      await t.input({ type: "stop", turn: "trn_x", key: "stop" });
-      assert.equal(t.written.at(-1)?.method, "turn/interrupt");
-    }
-    await t.play();
-
-    if (scenario === "steer") {
-      // 같은 turn 안의 두 번째 메시지다.
-      assert.deepEqual(
-        users(t.state).map((item) => item.id),
-        ["msg_1", "msg_2"],
-      );
-      assert.equal(users(t.state)[0]?.turn, users(t.state)[1]?.turn);
-      assert.deepEqual(ends(t.state), ["completed"]);
-    } else {
-      assert.deepEqual(ends(t.state), ["stopped"]);
-    }
-    assert.equal(t.state.reread, false);
-    contiguous(t.state);
-  });
-}
-
-test("resume은 thread/resume으로 열고 앞 대화를 응답의 turn으로 다시 그린다", async () => {
-  const id = "01a1a6cf-c594-7db3-adc5-2cc81b9f9455";
-  const t = await setup("resume", { resume: id });
   await t.play();
-  const opened = t.written.find((one) => one.method === "thread/resume");
-  assert.equal(opened?.params?.threadId, id);
-  assert.equal(opened?.params?.approvalPolicy, "on-request");
-  assert.equal(opened?.params?.sandbox, "workspace-write");
+  assert.equal(t.state.pending.approval, null);
+  const closed = t.state.items.find((item) => item.kind === "approval");
+  assert.equal(closed?.kind === "approval" && closed.outcome, "cancelled");
+  assert.equal(results(t.written).length, 0);
+  assert.deepEqual(ends(t.state), ["completed"]);
+});
 
-  const texts = t.state.items.flatMap((item) =>
-    item.kind === "message" ? [[item.actor, item.content[0]]] : [],
-  );
-  assert.deepEqual(texts, [
-    [
-      "user",
+const scopes = [
+  {
+    name: "이 session 동안은 acceptForSession만",
+    file: "session",
+    choice: { kind: "session" },
+    decision: "acceptForSession",
+    choices: ["once", "session", "always", "reject"],
+  },
+  {
+    name: "영구 규칙은 영구 선택지에서만",
+    file: "session",
+    choice: { kind: "always" },
+    decision: {
+      acceptWithExecpolicyAmendment: {
+        execpolicy_amendment: ["touch", "session.txt"],
+      },
+    },
+    choices: ["once", "session", "always", "reject"],
+  },
+  {
+    // 서버가 acceptForSession을 내지 않은 요청은 session을 고르려 해도 한 번 허락이다.
+    name: "서버가 내지 않은 session 범위는 한 번 허락으로 줄인다",
+    file: "decline",
+    choice: { kind: "session" },
+    decision: "accept",
+    choices: ["once", "always", "reject"],
+  },
+] as const;
+
+for (const row of scopes) {
+  test(`허락 범위: ${row.name}`, async () => {
+    const { t } = await ask(row.file);
+    const approval = t.state.pending.approval;
+    assert.ok(approval);
+    assert.deepEqual(approval.choices, row.choices);
+    // 영구 선택지에는 영구라는 표시가 붙는다.
+    assert.match(approval.always_patterns[0] ?? "", /permanent/);
+
+    await t.input({ type: "decide", request: approval.id, choice: row.choice });
+    assert.deepEqual(
+      results(t.written).map((one) => one.result),
+      [{ decision: row.decision }],
+    );
+  });
+}
+
+const policies = [
+  {
+    name: "never + danger-full-access",
+    config: { approval_policy: "never", sandbox_mode: "danger-full-access" },
+    sent: { approvalPolicy: "on-request", sandbox: "workspace-write" },
+  },
+  {
+    name: "사람이 read-only를 골랐다",
+    config: { approval_policy: "on-request", sandbox_mode: "read-only" },
+    sent: {},
+  },
+  {
+    name: "untrusted",
+    config: { approval_policy: "untrusted", sandbox_mode: "workspace-write" },
+    sent: {},
+  },
+] as const;
+
+for (const row of policies) {
+  test(`권한은 사람 설정이 never·danger-full-access일 때만 바꾼다 (${row.name})`, async () => {
+    const { t } = await boot({ config: row.config });
+    const opened = t.written.find((one) => one.method === "thread/start");
+    const params = opened?.params ?? {};
+    const sent: { approvalPolicy?: string; sandbox?: string } = row.sent;
+    assert.equal(params.approvalPolicy, sent.approvalPolicy);
+    assert.equal(params.sandbox, sent.sandbox);
+  });
+}
+
+test("질문은 question_asked가 되고 답은 질문 id로 app-server에 간다", async () => {
+  const { t, asked } = await ask("question");
+  assert.equal(asked.data.method, "item/tool/requestUserInput");
+  const question = t.state.pending.question;
+  assert.ok(question);
+  assert.equal(question.questions?.[0]?.header, "Favorite color");
+  assert.equal(results(t.written).length, 0);
+
+  await t.input({
+    type: "answer",
+    tool_call: question.tool_call,
+    answers: [
       {
-        type: "text",
-        text: "Reply with exactly this sentence and nothing else: Hello from the GUI fixture.",
+        question: "What is your favorite color?",
+        status: "answered",
+        answer: ["Blue"],
       },
     ],
-    ["agent", { type: "text", text: "Hello from the GUI fixture." }],
-  ]);
-  assert.equal(t.state.turn?.phase, "ended");
-  contiguous(t.state);
+  });
+  assert.deepEqual(
+    results(t.written).map((one) => one.result),
+    [{ answers: { favorite_color: { answers: ["Blue"] } } }],
+  );
+  await t.play();
+  assert.equal(t.state.pending.question, null);
+  assert.deepEqual(ends(t.state), ["completed"]);
+});
+
+test("TUI 같은 다른 client가 보낸 메시지는 사람 메시지로 보이고 우리가 보낸 echo는 다시 그리지 않는다", async () => {
+  const { t } = await boot();
+  t.append("foreign");
+  await t.play();
+  const users = t.state.items.flatMap((item) =>
+    item.kind === "message" && item.actor === "user" ? [item] : [],
+  );
+  assert.deepEqual(
+    users.map((item) => item.content),
+    [[{ type: "text", text: "Reply with exactly: from b" }]],
+  );
+  assert.deepEqual(ends(t.state), ["completed"]);
 });

@@ -1,0 +1,13 @@
+{"kind":"send","data":{"id":1,"method":"initialize","params":{}}}
+{"kind":"recv","data":{"id":1,"result":{"userAgent":"lophn/0.166.0","codexHome":"/home/user/.codex","platformFamily":"unix","platformOs":"linux"}}}
+{"kind":"send","data":{"method":"initialized"}}
+{"kind":"send","data":{"id":2,"method":"config/read","params":{}}}
+{"kind":"recv","data":{"id":2,"result":{"config":{"approval_policy":"never","sandbox_mode":"danger-full-access"},"origins":{},"layers":null}}}
+{"kind":"send","data":{"id":3,"method":"thread/start","params":{}}}
+{"kind":"recv","data":{"id":3,"result":{"thread":{"id":"01a1aa8e-4ef3-7541-8699-96c63c40a8bb","name":null,"turns":[]},"model":"gpt-6.1-terra","reasoningEffort":"medium","approvalPolicy":"on-request","approvalsReviewer":"user","sandbox":{"type":"workspaceWrite","writableRoots":[],"networkAccess":false,"excludeTmpdirEnvVar":false,"excludeSlashTmp":false},"cwd":"/work/startup"}}}
+{"kind":"send","data":{"id":4,"method":"model/list","params":{}}}
+{"kind":"recv","data":{"id":4,"result":{"data":[{"id":"gpt-6-astra","model":"gpt-6-astra","displayName":"GPT-6-Astra","hidden":false,"supportedReasoningEfforts":[{"reasoningEffort":"low","description":"Fast responses with lighter reasoning"},{"reasoningEffort":"medium","description":"Balances speed and reasoning depth for everyday tasks"},{"reasoningEffort":"high","description":"Greater reasoning depth for complex problems"}],"defaultReasoningEffort":"low","isDefault":true},{"id":"gpt-6.1-sol","model":"gpt-6.1-sol","displayName":"GPT-6.1-Sol","hidden":false,"supportedReasoningEfforts":[{"reasoningEffort":"low","description":"Fast responses with lighter reasoning"},{"reasoningEffort":"medium","description":"Balances speed and reasoning depth for everyday tasks"},{"reasoningEffort":"high","description":"Greater reasoning depth for complex problems"}],"defaultReasoningEffort":"low","isDefault":false}],"nextCursor":null}}}
+{"kind":"send","data":{"id":5,"method":"collaborationMode/list","params":{}}}
+{"kind":"recv","data":{"id":5,"result":{"data":[{"name":"Plan","mode":"plan","model":null,"reasoning_effort":"medium"},{"name":"Default","mode":"default","model":null,"reasoning_effort":null}]}}}
+{"kind":"send","data":{"id":6,"method":"skills/list","params":{}}}
+{"kind":"recv","data":{"id":6,"result":{"data":[{"cwd":"/work/startup","skills":[],"errors":[]}]}}}

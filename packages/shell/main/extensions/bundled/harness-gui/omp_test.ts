@@ -81,6 +81,8 @@ async function setup(
     state?: Frame;
     /** 읽을 수 있는 file(경로 → 글). 나머지는 없는 file이다. */
     files?: Record<string, string>;
+    /** session 폴더(file 이름 → 앞 글). */
+    folder?: Record<string, string>;
   } = {},
 ) {
   const tweak = options.tweak ?? ((frame: Frame) => frame);
@@ -156,6 +158,13 @@ async function setup(
   const started = createOmpAdapter({
     ...noDisk,
     home: "/home/test",
+    readDir: () => Promise.resolve(Object.keys(options.folder ?? {})),
+    readHead: (path) => {
+      const text = options.folder?.[path.slice(path.lastIndexOf("/") + 1)];
+      return text === undefined
+        ? Promise.reject(new Error("no file"))
+        : Promise.resolve(text);
+    },
     readFile: (path) => {
       const text = options.files?.[path];
       return text === undefined
@@ -430,6 +439,37 @@ test("!ls goes to bash and never to the model, and it is only the user's tool li
   assert.deepEqual(
     omp.state.items.map((item) => item.kind),
     ["tool"],
+  );
+});
+
+test("opening a session that omp answers with a different session goes back to the earlier one", async () => {
+  // 녹화 switch: omp는 없는 file로의 switch_session도 성공으로 답하고 빈 새 session을 연다.
+  const head = (id: string) =>
+    `${JSON.stringify({ type: "title", title: id, updatedAt: "2026-11-05T10:54:31.129Z" })}\n${JSON.stringify({ type: "session", id, timestamp: "2026-11-05T10:54:31.129Z" })}\n`;
+  const first = "01a1ab58-6b07-7741-9074-2dfdaf782f7c";
+  const second = "01a1ab58-92d9-7064-bcdf-e61fe3af5292";
+  const omp = await setup("switch", {
+    folder: { [`a_${first}.jsonl`]: head(first), "b.jsonl": head(second) },
+  });
+  assert.deepEqual((await omp.run.sessions?.())?.map((one) => one.id).sort(), [
+    first,
+    second,
+  ]);
+  await omp.input({ type: "open_session", cli_session: second });
+  for (let i = 0; i < 10; i += 1) await flush();
+  const switches = omp.sent.filter((body) => body.type === "switch_session");
+  // 두 번째 switch가 앞 session의 file로 돌아오는 것이다.
+  assert.equal(switches.length, 2);
+  assert.equal(switches[0]?.sessionPath, "/sessions/b.jsonl");
+  assert.match(String(switches[1]?.sessionPath), /01a1ab58-6b07/);
+  assert.equal(
+    omp.state.items.some(
+      (item) =>
+        item.kind === "notice" &&
+        item.notice.type === "info" &&
+        item.notice.level === "warning",
+    ),
+    true,
   );
 });
 

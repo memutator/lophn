@@ -2305,6 +2305,14 @@ const start: (io: OmpIo) => Start =
           "warning",
         );
       }
+      // omp는 없는 file로 바꾸라 해도 성공으로 답하고 빈 새 session을 연다(녹화 switch로 확인했다). 먼저 file이 있는지 보고,
+      // 바꾼 뒤에는 session id가 고른 것인지 본다.
+      const previous = st?.sessionFile;
+      try {
+        await io.readHead(target.path, 1);
+      } catch {
+        return void info("That session file is gone.", "warning");
+      }
       const reply = await request<{ cancelled: boolean }>("switch_session", {
         sessionPath: target.path,
       });
@@ -2313,6 +2321,18 @@ const start: (io: OmpIo) => Start =
           reply.ok
             ? "omp cancelled opening the session."
             : `Could not open the session: ${reply.error}`,
+          "warning",
+        );
+      }
+      await readState();
+      if (cliSession !== id) {
+        // 빈 session에 남기지 않고 앞 session으로 돌아온다. 대화 상태는 아직 지우지 않았다.
+        if (previous !== undefined) {
+          await request("switch_session", { sessionPath: previous });
+        }
+        await refresh();
+        return void info(
+          "omp did not open that session, so the earlier one is still open.",
           "warning",
         );
       }

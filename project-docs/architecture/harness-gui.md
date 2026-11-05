@@ -1,6 +1,6 @@
 # harness-gui
 
-lophn 터미널 탭에서 `claude gui`(`codex gui`, `opencode gui`, `omp gui`)를 치면 그 탭이 채팅 화면으로 바뀌고, 탭 머리의 toggle로 같은 대화를 GUI와 그 CLI 자신의 TUI 사이에서 오간다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 화면의 ACP 입력을 CLI 호출로 옮긴다. 화면은 lophn 채팅 화면(`AgentView`)이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다. 계약은 `packages/protocol/extensions/acp-session.ts`(handle, `AcpTerminal`, `onTab`)와 `packages/shell/main/extensions/bundled/harness-gui/adapter.ts`(`HarnessGuiAdapter`, `HarnessGuiRun`), 탭 쪽 shell main은 `packages/shell/main/terminal/gui.ts`, 탭 화면은 `packages/shell/renderer/terminal/terminal-gui.tsx`, 채팅 화면의 source는 `packages/shell/renderer/conversation/agent-tab-gui-source.ts`, extension은 `packages/shell/main/extensions/bundled/harness-gui/`(adapter는 harness마다 file 하나), 터미널 함수는 `packages/shell/terminal-host/shell-integration.ts`다. 첫 판의 별도 창 길(`lophn gui`, open intent, `packages/shell/main/desktop/gui-window.ts`, `packages/shell/renderer/harness-gui/`)은 아직 남아 있고 `lophn gui`를 직접 칠 때만 쓴다.
+lophn 터미널 탭에서 `claude gui`(`codex gui`, `opencode gui`, `omp gui`)를 치면 그 탭이 채팅 화면으로 바뀌고, 탭 머리의 toggle로 같은 대화를 GUI와 그 CLI 자신의 TUI 사이에서 오간다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 화면의 ACP 입력을 CLI 호출로 옮긴다. 화면은 lophn 채팅 화면(`AgentView`)이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다. 계약은 `packages/protocol/extensions/acp-session.ts`(handle, `AcpTerminal`, `onTab`)와 `packages/shell/main/extensions/bundled/harness-gui/adapter.ts`(`HarnessGuiAdapter`, `HarnessGuiRun`), 탭 쪽 shell main은 `packages/shell/main/terminal/gui.ts`, 탭 화면은 `packages/shell/renderer/terminal/terminal-gui.tsx`, 채팅 화면의 source는 `packages/shell/renderer/conversation/agent-tab-gui-source.ts`, extension은 `packages/shell/main/extensions/bundled/harness-gui/`(adapter는 harness마다 file 하나), 터미널 함수는 `packages/shell/terminal-host/shell-integration.ts`다.
 
 ## 흐름
 
@@ -24,19 +24,10 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 터미널이 끝나거나 다시 시작하면 handle을 닫는다. extension을 끄면 연 handle을 모두 닫는다
 ```
 
-첫 판의 창 길(`lophn gui <harness>`를 직접 칠 때만):
-
-```
-lophn gui <harness> [--resume <id>] ─▶ 앱을 --harness-gui=<harness> --cwd=<친 곳> [--resume=<id>]로 띄운다(떠 있으면 second-instance)
-  ─▶ readOpenIntent ─▶ openHarnessGui ─▶ extension open(intent) ─▶ ctx.acp.open({harness, cwd, title}) ─▶ gui-window.ts가 창을 연다
-```
-
 ## 지키는 것
 
-- **harness는 `claude`, `codex`, `opencode`, `omp` 넷이다.** 목록은 `GUI_HARNESSES` 하나이고 터미널 함수, CLI 입력, open intent, adapter 표가 모두 이것을 쓴다. omp adapter는 아직 `unavailable`이다.
-- **open intent는 모양만 본다.** harness-gui의 flag는 `--harness-gui=<harness>`, `--cwd=<dir>`, `--resume=<id>`처럼 값을 `=`로 붙인 꼴만 읽는다. 이미 떠 있는 앱이 받는 second-instance argv는 Chromium이 스위치 먼저, 값 나중으로 다시 늘어놓고 자기 스위치(`--allow-file-access-from-files` 등)를 끼워서, 값을 따로 넘기면 flag에서 떨어진다(창 없는 Electron으로 확인했다). harness가 목록에 있고, `--cwd`가 절대 경로이고, `--resume`이 `-`로 시작하지 않아야 한다(CLI의 flag가 되지 않게). flag는 하나씩만 있어야 한다. 틀리면 기본 창이다. 폴더가 있는지는 여는 쪽이 본다. `--open-app <app ID>`도 같은 문제가 있지만 바로가기를 만드는 화면이 아직 없어 그대로다.
-- **`lophn gui`는 core 자격이 없어도 된다.** core가 꺼져 있어도 user token 없이 앱을 띄운다. CLI는 앱과 같은 Electron binary를 Node로 돌리므로, `ELECTRON_RUN_AS_NODE`만 빼고 같은 binary를 띄운다. 저장소 실행(shell main bundle `packages/shell/main/dist/main.cjs`가 있으면)은 `LOPHN_HOME`이 없거나 사람의 `~/.lophn`이면 띄우지 않고 `invalid_input`이다(개발 code가 사람의 실제 data root로 뜨거나 설치본 창이 뜨지 않게. data root가 다르면 single-instance lock도 달라 그 data root의 앱으로 간다). 띄울 때는 그 bundle과 `--no-sandbox`를 인자로 준다(저장소의 `chrome-sandbox`는 setuid가 아니라 flag 없이는 argv를 넘기기 전에 죽고, 터미널 env는 `ELECTRON_*`를 지워 env로 받을 수 없다). agent의 `lophn` 도구 목록에는 없다(표의 명령이 아니다).
-- **handle 하나는 터미널 탭 하나(첫 판 길은 창 하나)다.** `id`(`win_…`)는 lophn session id가 아니다. 탭의 view(`view`·`gui` 칸)는 저장하지 않는다(앱을 다시 켜면 PTY도 CLI process도 남지 않는다). 창을 다시 load하면 view는 터미널로 돌아간다. 탭을 다른 창으로 옮기면 view와 handle이 따라간다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
+- **harness는 `claude`, `codex`, `opencode`, `omp` 넷이다.** 목록은 `GUI_HARNESSES` 하나이고 터미널 함수와 adapter 표가 이것을 쓴다. omp adapter는 아직 `unavailable`이다.
+- **handle 하나는 터미널 탭 하나다.** `id`(`win_…`)는 lophn session id가 아니다. 탭의 view(`view`·`gui` 칸)는 저장하지 않는다(앱을 다시 켜면 PTY도 CLI process도 남지 않는다). 창을 다시 load하면 view는 터미널로 돌아간다. 탭을 다른 창으로 옮기면 view와 handle이 따라간다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
 - **TUI 끄기와 쳐 넣기는 main이 한다.** main은 PTY에 글을 쳐 넣는다(`typeInto`, 이미 도는 shell이라 첫 출력을 기다리지 않는다). terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만, foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 1초마다 보는 foreground 변화로 안다. Windows는 foreground를 몰라 toggle이 없다.
 - **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 창은 닫지 않고 오류를 끝난 turn으로 보인다. 사람이 닫는다.
 - **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다.

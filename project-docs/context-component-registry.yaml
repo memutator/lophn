@@ -297,10 +297,10 @@ components:
   - id: architecture-harness-gui
     kind: doc
     roles: [planner, lead]
-    description: claude gui·codex gui·opencode gui가 CLI 화면 대신 lophn 창을 여는 길. lophn gui, open intent, extension harness-gui의 adapter, ACP handle과 창.
+    description: lophn 터미널 탭의 claude gui·codex gui·opencode gui·omp gui가 그 탭을 채팅 화면으로 바꾸고 TUI와 toggle하는 길. hook 요청, 탭 handle, extension harness-gui의 adapter.
     path: project-docs/architecture/harness-gui.md
     change_reasons:
-      paths: [packages/protocol/extensions/acp-session.ts, packages/shell/main/extensions/bundled/harness-gui/, packages/shell/main/desktop/open-intent.ts, packages/shell/main/desktop/wiring/extensions.ts, packages/shell/main/desktop/gui-window.ts, packages/shell/ipc/harness-gui.ts, packages/shell/renderer/harness-gui/, packages/shell/renderer/conversation/agent-tab-gui-source.ts, packages/cli/commands/gui.ts]
+      paths: [packages/protocol/extensions/acp-session.ts, packages/shell/main/extensions/bundled/harness-gui/, packages/shell/main/desktop/wiring/extensions.ts, packages/shell/main/terminal/gui.ts, packages/shell/ipc/harness-gui.ts, packages/shell/renderer/terminal/terminal-gui.tsx, packages/shell/renderer/conversation/agent-tab-gui-source.ts]
 
   - id: architecture-terminal-agent
     kind: doc

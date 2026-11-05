@@ -1,12 +1,4 @@
 import type { SchemaStep } from "../../protocol/server/mod.ts";
-import {
-  CALL_FAIL_REASONS,
-  CALL_REPLIES,
-  CALL_STATES,
-} from "../../protocol/lophn-agent/calls.ts";
-
-const list = (values: readonly string[]) =>
-  values.map((value) => `'${value}'`).join(", ");
 
 // agent가 보낸 call 한 행. 사람 메시지와 program 입력은 행이 없다.
 // - `to`는 풀린 받는 곳(`CallTarget` JSON). 이름을 못 푼 call은 행이 없다.
@@ -23,11 +15,9 @@ create table agent_calls (
   from_session text not null,
   "to" text not null,
   receiver_session text,
-  reply text not null check (reply in (${list(CALL_REPLIES)})),
-  state text not null check (state in (${list(CALL_STATES)})),
-  fail_reason text check (fail_reason is null or fail_reason in (${list(
-    CALL_FAIL_REASONS,
-  )})),
+  reply text not null check (reply in ('none', 'result', 'conversation')),
+  state text not null check (state in ('accepted', 'done', 'failed', 'cancelled')),
+  fail_reason text check (fail_reason is null or fail_reason in ('not_found', 'closed', 'receiver_ended', 'lophn_restarted')),
   dedup text,
   consumed integer not null default 0 check (consumed in (0, 1)),
   unattended integer not null default 0 check (unattended in (0, 1)),

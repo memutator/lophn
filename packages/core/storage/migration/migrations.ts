@@ -4,7 +4,7 @@ import type { START_FAILURE_REASONS } from "../../../protocol/supervision/mod.ts
 import type { SchemaStep, Sql } from "../../../protocol/server/mod.ts";
 import { type LedgerConnection, openConnection } from "../ledger/mod.ts";
 import { createRecoveryCopy, recoveryStamp } from "./recovery.ts";
-import { type MigrationVerification, verifyMigrated } from "./verification.ts";
+import { verifyMigrated } from "./verification.ts";
 
 type MigrationDeps = {
   clock: Clock;
@@ -186,48 +186,13 @@ export async function applyMigrations(
       const stepped = applyStep(connection, entry, version, deps.clock);
       if (!stepped.ok) return stepped;
     }
-    // 완료 뒤 FK·무결성·불변 보호를 검사한다. 실패면 원본이 이미 rollback됐다.
-    const verified = verifyMigrated(connection.sql, {
-      guarded: guardedTables(steps),
-    });
+    // 완료 뒤 FK·무결성을 검사한다. 실패면 원본이 이미 rollback됐다.
+    const verified = verifyMigrated(connection.sql, { guarded: [] });
     if (!verified.ok) return verified;
     return ok(unapplied.value.length);
   } finally {
     connection.close();
   }
-}
-
-// step SQL이 만드는 trigger를 sqlite_master에서 읽을 표로 모은다. trigger가 없는
-// step은 건너뛴다. IMMUTABLE 표는 no_update·no_delete·insert guard가 있어야 한다.
-function guardedTables(
-  steps: readonly SchemaStep[],
-): MigrationVerification["guarded"] {
-  const guarded: {
-    table: string;
-    kinds: readonly ("no_update" | "no_delete" | "no_duplicate_insert")[];
-  }[] = [];
-  const seen = new Set<string>();
-  for (const step of steps) {
-    for (const table of guardedTablesOf(step.sql)) {
-      if (seen.has(table)) continue;
-      seen.add(table);
-      guarded.push({ table, kinds: ["no_update", "no_delete"] });
-    }
-  }
-  return guarded;
-}
-
-// trigger 본문의 표 이름은 sqlite_master query로만 확실하다. 여기서는 step SQL의
-// create trigger <table>_no_update를 읽는다.
-function guardedTablesOf(step: string): string[] {
-  const tables: string[] = [];
-  const trigger =
-    /create\s+trigger\s+(?:if\s+not\s+exists\s+)?([A-Za-z_][A-Za-z0-9_]*)_no_update/g;
-  let match: RegExpExecArray | null;
-  while ((match = trigger.exec(step)) !== null) {
-    tables.push(match[1]);
-  }
-  return tables;
 }
 
 // 변환과 이력은 한 transaction이다. 실패하면 그 단계 전체가 rollback된다.

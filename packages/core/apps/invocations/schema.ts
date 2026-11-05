@@ -1,48 +1,8 @@
-import { appToolCallerSchema } from "../../../protocol/apps/calls/caller.ts";
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
-
-// CHECK 목록은 protocol 원본에서 만든다. kind가 늘어도 기록이 말없이 실패하지 않는다.
-const CALLER_KINDS = appToolCallerSchema.options
-  .map((o) => `'${o.shape.kind.value}'`)
-  .join(", ");
 
 // invocation 기록 표. app·release는 물리 FK를 두지 않는다(참조하는 releases 표는 다른 조립이다).
 // JSON 값(operation·caller·summary)은 TEXT에 둔다. session·turn은 caller에서 뽑은 찾기용 칸이다.
 // 종료한 행은 되돌림 표시(reverted_by)와 changeset 지우기(activation)만 바꿀 수 있다. 지우지는 못한다.
-const HEX64 = (column: string) =>
-  `CHECK (${column} IS NULL OR (length(${column}) = 64 AND ${column} NOT GLOB '*[^0-9a-f]*'))`;
-
-const FROZEN_COLUMNS = [
-  "id",
-  "app",
-  "release",
-  "mode",
-  "operation",
-  "caller",
-  "caller_kind",
-  "session",
-  "turn",
-  "effect",
-  "status",
-  "started_at",
-  "finished_at",
-  "input_hash",
-  "summary",
-  "detail_hash",
-];
-
-// 종료한 행을 잠그는 trigger. 행 값을 옮기는 step이 잠시 내렸다가 같은 글로 다시 만든다.
-const TERMINAL_TRIGGER = `CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations
-    WHEN OLD.status <> 'running' AND (
-      ${FROZEN_COLUMNS.map(
-        (column) => `NEW.${column} IS NOT OLD.${column}`,
-      ).join("\n      OR ")}
-      OR (NEW.changeset_hash IS NOT NULL AND NEW.changeset_hash IS NOT OLD.changeset_hash)
-      OR (NEW.changeset_size IS NOT NULL AND NEW.changeset_size IS NOT OLD.changeset_size)
-      OR (OLD.reverted_by IS NOT NULL AND NEW.reverted_by IS NOT OLD.reverted_by)
-    )
-    BEGIN SELECT RAISE(ABORT, 'terminal invocation is immutable'); END;`;
-
 export const invocationsSchemaSteps: readonly SchemaStep[] = [
   {
     id: "apps.invocations.tables",
@@ -54,7 +14,7 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [
       mode TEXT NOT NULL CHECK (mode IN ('live', 'preview')),
       operation TEXT NOT NULL CHECK (json_valid(operation)),
       caller TEXT CHECK (caller IS NULL OR json_valid(caller)),
-      caller_kind TEXT CHECK (caller_kind IN (${CALLER_KINDS})),
+      caller_kind TEXT CHECK (caller_kind IN ('person', 'agent', 'app', 'program', 'flow')),
       session TEXT,
       turn TEXT,
       effect TEXT NOT NULL CHECK (effect IN ('read', 'write', 'external')),
@@ -77,15 +37,37 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [
       CHECK ((changeset_hash IS NULL) = (changeset_size IS NULL)),
       CHECK (changeset_hash IS NULL OR effect <> 'read'),
       CHECK (reverted_by IS NULL OR status IN ('succeeded', 'failed', 'unknown')),
-      ${HEX64("input_hash")},
-      ${HEX64("detail_hash")},
-      ${HEX64("changeset_hash")}
+      CHECK (input_hash IS NULL OR (length(input_hash) = 64 AND input_hash NOT GLOB '*[^0-9a-f]*')),
+      CHECK (detail_hash IS NULL OR (length(detail_hash) = 64 AND detail_hash NOT GLOB '*[^0-9a-f]*')),
+      CHECK (changeset_hash IS NULL OR (length(changeset_hash) = 64 AND changeset_hash NOT GLOB '*[^0-9a-f]*'))
     ) STRICT;
     CREATE INDEX invocations_app_release_mode_id ON invocations (app, release, mode, id);
     CREATE INDEX invocations_app_id ON invocations (app, id);
     CREATE INDEX invocations_session_turn_id ON invocations (session, turn, id);
     CREATE INDEX invocations_status_id ON invocations (status, id);
-    ${TERMINAL_TRIGGER}
+    CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations
+    WHEN OLD.status <> 'running' AND (
+      NEW.id IS NOT OLD.id
+      OR NEW.app IS NOT OLD.app
+      OR NEW.release IS NOT OLD.release
+      OR NEW.mode IS NOT OLD.mode
+      OR NEW.operation IS NOT OLD.operation
+      OR NEW.caller IS NOT OLD.caller
+      OR NEW.caller_kind IS NOT OLD.caller_kind
+      OR NEW.session IS NOT OLD.session
+      OR NEW.turn IS NOT OLD.turn
+      OR NEW.effect IS NOT OLD.effect
+      OR NEW.status IS NOT OLD.status
+      OR NEW.started_at IS NOT OLD.started_at
+      OR NEW.finished_at IS NOT OLD.finished_at
+      OR NEW.input_hash IS NOT OLD.input_hash
+      OR NEW.summary IS NOT OLD.summary
+      OR NEW.detail_hash IS NOT OLD.detail_hash
+      OR (NEW.changeset_hash IS NOT NULL AND NEW.changeset_hash IS NOT OLD.changeset_hash)
+      OR (NEW.changeset_size IS NOT NULL AND NEW.changeset_size IS NOT OLD.changeset_size)
+      OR (OLD.reverted_by IS NOT NULL AND NEW.reverted_by IS NOT OLD.reverted_by)
+    )
+    BEGIN SELECT RAISE(ABORT, 'terminal invocation is immutable'); END;
     CREATE TRIGGER invocations_no_delete BEFORE DELETE ON invocations
     BEGIN SELECT RAISE(ABORT, 'invocations are recorded, not deleted'); END;
   `,
@@ -101,7 +83,29 @@ export const invocationsSchemaSteps: readonly SchemaStep[] = [
          'name', json_extract(operation, '$.tool')
        )
      WHERE json_extract(operation, '$.kind') = 'tool';
-    ${TERMINAL_TRIGGER}
+    CREATE TRIGGER invocations_terminal_no_update BEFORE UPDATE ON invocations
+    WHEN OLD.status <> 'running' AND (
+      NEW.id IS NOT OLD.id
+      OR NEW.app IS NOT OLD.app
+      OR NEW.release IS NOT OLD.release
+      OR NEW.mode IS NOT OLD.mode
+      OR NEW.operation IS NOT OLD.operation
+      OR NEW.caller IS NOT OLD.caller
+      OR NEW.caller_kind IS NOT OLD.caller_kind
+      OR NEW.session IS NOT OLD.session
+      OR NEW.turn IS NOT OLD.turn
+      OR NEW.effect IS NOT OLD.effect
+      OR NEW.status IS NOT OLD.status
+      OR NEW.started_at IS NOT OLD.started_at
+      OR NEW.finished_at IS NOT OLD.finished_at
+      OR NEW.input_hash IS NOT OLD.input_hash
+      OR NEW.summary IS NOT OLD.summary
+      OR NEW.detail_hash IS NOT OLD.detail_hash
+      OR (NEW.changeset_hash IS NOT NULL AND NEW.changeset_hash IS NOT OLD.changeset_hash)
+      OR (NEW.changeset_size IS NOT NULL AND NEW.changeset_size IS NOT OLD.changeset_size)
+      OR (OLD.reverted_by IS NOT NULL AND NEW.reverted_by IS NOT OLD.reverted_by)
+    )
+    BEGIN SELECT RAISE(ABORT, 'terminal invocation is immutable'); END;
   `,
   },
 ];

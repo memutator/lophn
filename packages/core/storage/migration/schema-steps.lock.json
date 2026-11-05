@@ -1,0 +1,206 @@
+[
+  {
+    "id": "common-tables",
+    "sha256": "129398e162873621e039cbbcaaa610e2e5d28c8b436379604cd35e4ed6e98c49"
+  },
+  {
+    "id": "immutable-insert-guards",
+    "sha256": "affcb03346af46c87d5d4d5368b56b4efe9a88a6cf060fce5b5c40ced4daaae8"
+  },
+  {
+    "id": "erase-windows",
+    "sha256": "eda048d8f6511f650459cb9eee895ed7cf92b73017f373f52a2152dd0f30f512"
+  },
+  {
+    "id": "blob-refs",
+    "sha256": "05ca3fa633461990bf313c035665e7db1d891099ad29479300654ca195ea7f5b"
+  },
+  {
+    "id": "platform.credentials",
+    "sha256": "2339f410d6e6f024e137847e24a11ee7e7ceffb3a5d4feebde2a7dfc5650255a"
+  },
+  {
+    "id": "domains.tables",
+    "sha256": "6be988fe6c791870c25df4ea0e19da7ba10f85cb39d15361af93a6668a4ac1e5"
+  },
+  {
+    "id": "projects.registry.tables",
+    "sha256": "2b8b00e77315cc48dc1fcf5ef707255797be8c3e512f5196d0e3200344f2bfaf"
+  },
+  {
+    "id": "projects.registry.drop-subfolders",
+    "sha256": "33db6d032e91970d847f838851242cf5b0ece1ba3b0a9b03adb1b2f54cf88ced"
+  },
+  {
+    "id": "projects.registry.icons",
+    "sha256": "e005b8c8d117b98594c8ec512697dcda38d3bcd7760f1eda8246cb81e0453268"
+  },
+  {
+    "id": "apps.registration.tables",
+    "sha256": "022b3c5f85dfc16a089a8ae643c633acaba4b3fb5effa8dd8c8aadef46a2bf32"
+  },
+  {
+    "id": "apps.registration.folders",
+    "sha256": "461649eb13a046bf3386718556df850107147e9016a527b2230476079f1d9a73"
+  },
+  {
+    "id": "apps.registration.icons",
+    "sha256": "baeb3d8de31f5c2f82a9b296365b9c026d9a086f1ce5b4a2eb67424d94a4c537"
+  },
+  {
+    "id": "apps.releases.tables",
+    "sha256": "35e88160af008346c2e6b71ccdc9692b1776a4a717e6b67fd87b2a7ce2d15279"
+  },
+  {
+    "id": "apps.releases.declaration-layers",
+    "sha256": "2ab506381bce796a6ad931ae9e0008278e26997df67e52a19afb14a73b8dbdd4"
+  },
+  {
+    "id": "apps.releases.declaration-no-domain",
+    "sha256": "b830cb5d1d2de26edceb4a3cc0eb2f772a11d88e5f15af5547ce6918f3306a2b"
+  },
+  {
+    "id": "apps.permissions.tables",
+    "sha256": "654a54ac60987faf5250c09119862c314a96f4983c28d4d6d159b35bbf6c13a0"
+  },
+  {
+    "id": "apps.permissions.notify_kind",
+    "sha256": "65995e26e729019df47604a5a30330623fcbd6c4c6163a79aa0e05bd4bf199a0"
+  },
+  {
+    "id": "apps.invocations.tables",
+    "sha256": "4358f397759a8eeba99773da211789b01873270d3cb85c638d8d91edb66a2065"
+  },
+  {
+    "id": "apps.invocations.operation-kinds",
+    "sha256": "fcc9eeb410a3cfc8d6437a2a66d96693ef7d5021ab73c1b906ef32deabb07dba"
+  },
+  {
+    "id": "apps.rewind.tables",
+    "sha256": "778fe2437eb6f05e2c22d7326ed60be93042ad4b3d1ecc54812844e269fa3549"
+  },
+  {
+    "id": "apps.sdk.tables",
+    "sha256": "4f54d06dd60b1b76db040840c90c0ff7e697fdca2ce66070c96d36fbc506d619"
+  },
+  {
+    "id": "apps.data.records",
+    "sha256": "4e1b2487bae9c8cce8760b4b38b075811e9d0bc33c05713100bedd4f9536c688"
+  },
+  {
+    "id": "apps.notices.tables",
+    "sha256": "0f0ba53fdf5a9468610426edf1fb271e975d579fba8c4822209b07633649747b"
+  },
+  {
+    "id": "runs.tables",
+    "sha256": "2d7484db127c7d074352feaa4852bc4f211aa2614fdc803bbaef3263d8e6ceb2"
+  },
+  {
+    "id": "runs.workspace",
+    "sha256": "61aa4ec21742c6fae2de8146e27a8c632ccc0e00054a1956c0a3ceb188550a80"
+  },
+  {
+    "id": "workflows.tables",
+    "sha256": "9fadf675be2fb0548d9ab9f55927070cea4952500afaed36def32f9437e55c42"
+  },
+  {
+    "id": "workflows.workspace",
+    "sha256": "9ec747cd3a0a0e250dc84c1efd570c43f523a044c8c416d507d2e7a2409f8095"
+  },
+  {
+    "id": "jobs.tables",
+    "sha256": "8b98fe90c6db4715bf13f8f0b8e061328c3783b735d9dcfaf1dc655446aacb67"
+  },
+  {
+    "id": "jobs.approval",
+    "sha256": "510f5a4e12f2715cd67e01de426b3b4582a18e8d557adf8b5cadc72dfaef12fe"
+  },
+  {
+    "id": "jobs.workspace",
+    "sha256": "b28c571ff8b03465e8783c1d97c32a232315edc71a88c39454041fb4ff86bcae"
+  },
+  {
+    "id": "lophn-agent.harness-provider.tables",
+    "sha256": "46bdfd541d00116ad4dd6f74af828f1b3ad2a603bfffc27833da9184b69f4eb4"
+  },
+  {
+    "id": "lophn-agent.harness-provider.chatgpt-codex-login",
+    "sha256": "d86e0d37b4886152059addec7bb59b6e6f11621216cd5ba2d0bf1820d438801e"
+  },
+  {
+    "id": "lophn-agent.harness-model.tables",
+    "sha256": "3f330db9b107da28d1eabcac80e360ea29373d58f35557ab35afc7d17aa6db12"
+  },
+  {
+    "id": "lophn-agent.harness-usage.tables",
+    "sha256": "116a667cc8a4864eaf8c1512185059ad7d7f9bfc65b80a4269ea6316453143fd"
+  },
+  {
+    "id": "lophn-agent.turns.tables",
+    "sha256": "3b2753cf46eadf8bd54210ea9c0cfaa1acae63bd3f123078cac1baa61bb9c2a0"
+  },
+  {
+    "id": "lophn-agent.turns.drop-active-limit",
+    "sha256": "595b2dbbe5e2b717fa9437bc565ad5723e12096bc418dbcc173320e681dc1bba"
+  },
+  {
+    "id": "lophn-agent.sessions.tables",
+    "sha256": "53f1af034d8554d6429af19be88430f40b87e80d648664db66733b332a2c4d7a"
+  },
+  {
+    "id": "lophn-agent.messages.queued-edit",
+    "sha256": "5c54f01aac99c359a0a6d2285c8c2d6712d08bb676e2351cdbeb31f2114c830f"
+  },
+  {
+    "id": "lophn-agent.sessions.harness",
+    "sha256": "58766fc3724290d3fb995d54df1e0cb07206b1d7a38abb3a7a18371c4d689a26"
+  },
+  {
+    "id": "lophn-agent.sessions.called-from",
+    "sha256": "8b0121e051132af21661190df01ba6db84a1e7e9fdc83b33fddeba3995b135da"
+  },
+  {
+    "id": "lophn-agent.sessions.workspace",
+    "sha256": "88a9babc9a6d6a4c9674e19067981579c479b27cf0f72f3b1eb8dd2b4f1d11fb"
+  },
+  {
+    "id": "lophn-agent.messages.shell",
+    "sha256": "e5f1b128169d32017007f2ed47dd5fa25cd7fbdf1a9fcf4b6dae9224083af464"
+  },
+  {
+    "id": "lophn-agent.harness-tools.tables",
+    "sha256": "598d36403cc937a768070894b71c93d49f720bcf7fec75c3c0c0273ca44f48aa"
+  },
+  {
+    "id": "lophn-agent.revert.tables",
+    "sha256": "468e326739b1e432266bfc93dc6526e77eb7edec90a8a3d304f27b4b59a5e25c"
+  },
+  {
+    "id": "router.agent-calls.tables",
+    "sha256": "b704246542d2ff3107722eb6c79943d0273be2be3ccf396151ad991d5a9cec17"
+  },
+  {
+    "id": "router.agent-calls.workspace",
+    "sha256": "474df33ea737310c8421f1f49fc0a932c719fbeff21cab77b00492adcff21da5"
+  },
+  {
+    "id": "apps.annotations.tables",
+    "sha256": "5bd31b946b4fe9abe71625d36e23412888b8c5d1b00d22dd86bd22402f8368e0"
+  },
+  {
+    "id": "apps.annotations.artifact-container",
+    "sha256": "bcf886681585f61bbb6bf296cbb6f6bdf3e105ee4620f64684f5e5ff61e6329a"
+  },
+  {
+    "id": "agent_assignments",
+    "sha256": "8c31b31c79179336374faf9ec584a71d3e800b6bc6f5c9cd445da2fcfafe457c"
+  },
+  {
+    "id": "approvals.share_requests",
+    "sha256": "3c368b67fbf7370cc57472206825eb6dd24518a07fe6d861658ef7ffafab74f7"
+  },
+  {
+    "id": "acp.items.tables",
+    "sha256": "96e431cb96f2b7bfda13d694fb2af4dd979f98b8218cfd507e269092449136c6"
+  }
+]

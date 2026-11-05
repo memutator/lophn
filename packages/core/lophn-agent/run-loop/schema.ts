@@ -1,8 +1,4 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
-import { TURN_MODES } from "../../../protocol/lophn-agent/mod.ts";
-
-const list = (values: readonly string[]) =>
-  values.map((value) => `'${value}'`).join(", ");
 
 // `turns` 표. queue의 입력이 turn이 되는 순간 행이 생기므로 접수 상태가 없다. 같은 session에
 // running인 turn은 하나뿐이다. 권한·질문 대기는 turn이 running인 채 session snapshot이 가진다.
@@ -22,7 +18,7 @@ create table turns (
   basis text not null,
   started_at text not null,
   limits text not null,
-  mode text not null check (mode in (${list(TURN_MODES)})),
+  mode text not null check (mode in ('attended', 'unattended', 'skip')),
   elapsed_active_ms integer not null default 0 check (elapsed_active_ms >= 0),
   elapsed_stall_ms integer not null default 0 check (elapsed_stall_ms >= 0),
   elapsed_checkpoint_at text,

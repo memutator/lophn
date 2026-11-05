@@ -1,8 +1,4 @@
-import { JOB_RUN_STATES, MISSED_POLICIES } from "../../protocol/jobs/mod.ts";
 import type { SchemaStep } from "../../protocol/server/mod.ts";
-
-const list = (values: readonly string[]) =>
-  values.map((value) => `'${value}'`).join(", ");
 
 // job 한 행과 차례마다 남는 job run 한 행. FK는 두지 않는다(다른 module의 id는 id만 적고,
 // job 지우기는 command가 두 표를 같이 지운다).
@@ -21,9 +17,7 @@ export const jobsSchemaSteps: readonly SchemaStep[] = [
       every TEXT NOT NULL,
       at TEXT,
       action TEXT NOT NULL CHECK (json_valid(action)),
-      missed_policy TEXT NOT NULL CHECK (missed_policy IN (${list(
-        MISSED_POLICIES,
-      )})),
+      missed_policy TEXT NOT NULL CHECK (missed_policy IN ('run', 'hold')),
       enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
       next_due_at TEXT,
       created_at TEXT NOT NULL,
@@ -34,7 +28,7 @@ export const jobsSchemaSteps: readonly SchemaStep[] = [
       job TEXT NOT NULL,
       due_at TEXT NOT NULL,
       missed_count INTEGER NOT NULL,
-      state TEXT NOT NULL CHECK (state IN (${list(JOB_RUN_STATES)})),
+      state TEXT NOT NULL CHECK (state IN ('queued', 'running', 'done', 'failed', 'cancelled', 'held', 'skipped', 'interrupted')),
       reason TEXT,
       run TEXT,
       instance TEXT,

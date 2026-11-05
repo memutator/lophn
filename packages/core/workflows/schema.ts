@@ -1,11 +1,4 @@
-import {
-  WORKFLOW_LINE_KINDS,
-  WORKFLOW_STATES,
-} from "../../protocol/workflows/mod.ts";
 import type { SchemaStep } from "../../protocol/server/mod.ts";
-
-const list = (values: readonly string[]) =>
-  values.map((value) => `'${value}'`).join(", ");
 
 // instance 한 행과 그 줄. 다른 module의 표(session, message, project)는 물리 FK 없이 id만 적는다.
 // - state_seq는 이 표 안에서 이어 센다(기록 event를 남기지 않는다).
@@ -22,7 +15,7 @@ export const workflowsSchemaSteps: readonly SchemaStep[] = [
       project TEXT NOT NULL,
       workflow TEXT NOT NULL,
       input TEXT NOT NULL,
-      state TEXT NOT NULL CHECK (state IN (${list(WORKFLOW_STATES)})),
+      state TEXT NOT NULL CHECK (state IN ('running', 'ended', 'stopped')),
       participants TEXT NOT NULL CHECK (json_valid(participants)),
       steps TEXT NOT NULL CHECK (json_valid(steps)),
       current_step TEXT,
@@ -40,7 +33,7 @@ export const workflowsSchemaSteps: readonly SchemaStep[] = [
       instance TEXT NOT NULL,
       seq INTEGER NOT NULL,
       at TEXT NOT NULL,
-      kind TEXT NOT NULL CHECK (kind IN (${list(WORKFLOW_LINE_KINDS)})),
+      kind TEXT NOT NULL CHECK (kind IN ('started', 'report', 'edit', 'handed', 'not_handed', 'ended', 'stopped', 'lophn_restarted', 'program_exited')),
       by TEXT NOT NULL CHECK (json_valid(by)),
       step TEXT,
       body TEXT,

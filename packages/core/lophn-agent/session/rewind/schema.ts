@@ -97,7 +97,11 @@ create table rewind_files (
 create index rewind_files_checkpoint_path on rewind_files (checkpoint, path, seq);
 create index rewind_files_path_seq on rewind_files (path, seq);
 create index rewind_files_reverted_by on rewind_files (reverted_by);
-${REWIND_FILES_IMMUTABLE}
+create trigger rewind_files_immutable
+before update of tool_call, root, path, checkpoint, seq, before_exists, before_sha256, before_blob, before_size, after_exists, after_sha256, moved_from on rewind_files
+begin
+  select raise(abort, 'a rewind record is never rewritten');
+end;
 create table revert_items (
   revert text not null references reverts (id) on delete restrict,
   ordinal integer not null check (ordinal >= 0),

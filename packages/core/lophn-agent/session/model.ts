@@ -1,6 +1,5 @@
 import {
   type AgentId,
-  HARNESS_RUNTIMES,
   type HarnessRuntime,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
@@ -170,7 +169,7 @@ end;`,
     id: "lophn-agent.sessions.harness",
     sql: `
 alter table sessions add column harness text
-  check (harness is null or harness in (${HARNESS_RUNTIMES.map((h) => `'${h}'`).join(", ")}));
+  check (harness is null or harness in ('claude-code', 'codex', 'opencode'));
 alter table sessions add column harness_session text
   check (harness_session is null or (harness is not null and length(harness_session) > 0));
 create trigger sessions_harness_immutable

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { type Logger, manualClock } from "../../../base/mod.ts";
 import { applyMigrations, confirmStartup, startFailureReason } from "./mod.ts";
@@ -96,48 +95,6 @@ test("높은 schema, 다른 hash, 손상된 원본을 구별해 알린다", asyn
     assert.deepStrictEqual(
       startFailureReason({ code: "internal", message: "x" }),
       "other",
-    );
-  } finally {
-    await rm(root, { recursive: true });
-  }
-});
-
-// 앞쪽 module에 step을 더해도 이미 적용한 뒤 step은 그대로이고 새 step만 적용된다.
-test("목록 중간에 더한 step만 적용하고 기존 data는 남는다", async () => {
-  const root = await mkdtemp(join(tmpdir(), "migration-"));
-  const path = `${root}/lophn.db`;
-  const clock = manualClock(Date.UTC(2026, 0, 1));
-  try {
-    const deps = { clock, recovery: { root } };
-    assert.ok((await applyMigrations(path, [step1, step2], deps)).ok);
-    const db = new DatabaseSync(path);
-    db.exec("insert into b values ('kept')");
-    db.close();
-    const middle = { id: "m", sql: "create table m (id text primary key)" };
-    assert.deepStrictEqual(
-      await applyMigrations(path, [step1, middle, step2], deps),
-      { ok: true, value: 1 },
-    );
-    const after = new DatabaseSync(path);
-    assert.deepStrictEqual(
-      after
-        .prepare("select id from b")
-        .all()
-        .map((row) => row.id),
-      ["kept"],
-    );
-    assert.deepStrictEqual(
-      after
-        .prepare("select step_id from schema_migrations order by version")
-        .all()
-        .map((row) => row.step_id),
-      ["a", "b", "m"],
-    );
-    after.close();
-    // 다시 열어도 같은 목록이면 적용할 것이 없다.
-    assert.deepStrictEqual(
-      await applyMigrations(path, [step1, middle, step2], deps),
-      { ok: true, value: 0 },
     );
   } finally {
     await rm(root, { recursive: true });

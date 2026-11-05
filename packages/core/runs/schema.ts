@@ -1,12 +1,4 @@
-import {
-  RUN_FAIL_REASONS,
-  RUN_KINDS,
-  RUN_STATES,
-} from "../../protocol/runs/mod.ts";
 import type { SchemaStep } from "../../protocol/server/mod.ts";
-
-const list = (values: readonly string[]) =>
-  values.map((value) => `'${value}'`).join(", ");
 
 // run 한 행. 다른 module의 표(session, message, turn)는 물리 FK 없이 id만 적는다.
 // - agent_key는 `<agent id>`(home) 또는 `<agent id>@<workspace id>`다. workspace_key와 함께 ListRuns
@@ -22,7 +14,7 @@ export const runsSchemaSteps: readonly SchemaStep[] = [
     sql: `
     CREATE TABLE runs (
       id TEXT PRIMARY KEY NOT NULL,
-      kind TEXT NOT NULL CHECK (kind IN (${list(RUN_KINDS)})),
+      kind TEXT NOT NULL CHECK (kind IN ('agent', 'tool')),
       target TEXT NOT NULL CHECK (json_valid(target)),
       session TEXT,
       session_opened INTEGER NOT NULL CHECK (session_opened IN (0, 1)),
@@ -32,10 +24,10 @@ export const runsSchemaSteps: readonly SchemaStep[] = [
       schema TEXT CHECK (schema IS NULL OR json_valid(schema)),
       job TEXT,
       instance TEXT,
-      state TEXT NOT NULL CHECK (state IN (${list(RUN_STATES)})),
+      state TEXT NOT NULL CHECK (state IN ('running', 'done', 'failed', 'cancelled')),
       result TEXT CHECK (result IS NULL OR json_valid(result)),
       error_reason TEXT CHECK (
-        error_reason IS NULL OR error_reason IN (${list(RUN_FAIL_REASONS)})
+        error_reason IS NULL OR error_reason IN ('invalid_output', 'no_answer', 'turn_failed', 'turn_interrupted', 'start_failed', 'tool_failed', 'tool_denied', 'tool_unknown', 'lophn_restarted')
       ),
       error_message TEXT,
       created_at TEXT NOT NULL,

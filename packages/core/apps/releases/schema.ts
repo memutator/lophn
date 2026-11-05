@@ -7,18 +7,6 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // core는 파일을 읽지 않고 command·read는 동기라서 현재 release의 선언·설명·비교를 읽을 자리가
 // ledger뿐이다. 선언 blob이 정본이고 이 열은 `declaration_hash`와 같은 byte의 사본이다.
 // app·backup 참조는 다른 표의 생성 순서에 기대지 않으려고 물리 FK를 두지 않는다.
-// 준비 뒤 내용 열을 잠그는 trigger. 내용을 옮기는 step이 잠시 내렸다가 같은 글로 다시 만든다.
-const RELEASES_IMMUTABLE = `CREATE TRIGGER releases_immutable BEFORE UPDATE ON releases
-    WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.number <> OLD.number
-      OR NEW.code_commit <> OLD.code_commit
-      OR NEW.bundle_hash <> OLD.bundle_hash
-      OR NEW.declaration_hash <> OLD.declaration_hash
-      OR NEW.data_schema <> OLD.data_schema
-      OR NEW.data_changes <> OLD.data_changes
-      OR NEW.created_by <> OLD.created_by OR NEW.created_at <> OLD.created_at
-      OR NEW.declaration <> OLD.declaration OR NEW.facts <> OLD.facts
-    BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;`;
-
 export const releasesSchemaSteps: readonly SchemaStep[] = [
   {
     id: "apps.releases.tables",
@@ -54,7 +42,16 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [
       WHERE status = 'activating';
     CREATE INDEX releases_app_created ON releases(app, created_at, id);
     CREATE INDEX releases_app_status ON releases(app, status);
-    ${RELEASES_IMMUTABLE}
+    CREATE TRIGGER releases_immutable BEFORE UPDATE ON releases
+    WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.number <> OLD.number
+      OR NEW.code_commit <> OLD.code_commit
+      OR NEW.bundle_hash <> OLD.bundle_hash
+      OR NEW.declaration_hash <> OLD.declaration_hash
+      OR NEW.data_schema <> OLD.data_schema
+      OR NEW.data_changes <> OLD.data_changes
+      OR NEW.created_by <> OLD.created_by OR NEW.created_at <> OLD.created_at
+      OR NEW.declaration <> OLD.declaration OR NEW.facts <> OLD.facts
+    BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
     CREATE TRIGGER releases_no_delete BEFORE DELETE ON releases
     BEGIN SELECT RAISE(ABORT, 'releases are kept'); END;
     -- 이전 release로 돌아가기 요청. activate_previous가 쓰고 activation driver가 읽어 시작하고 activation.start가 지운다.
@@ -107,7 +104,16 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [
          )
        )
      WHERE json_type(declaration, '$.app_connections[0].tools') IS NOT NULL;
-    ${RELEASES_IMMUTABLE}
+    CREATE TRIGGER releases_immutable BEFORE UPDATE ON releases
+    WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.number <> OLD.number
+      OR NEW.code_commit <> OLD.code_commit
+      OR NEW.bundle_hash <> OLD.bundle_hash
+      OR NEW.declaration_hash <> OLD.declaration_hash
+      OR NEW.data_schema <> OLD.data_schema
+      OR NEW.data_changes <> OLD.data_changes
+      OR NEW.created_by <> OLD.created_by OR NEW.created_at <> OLD.created_at
+      OR NEW.declaration <> OLD.declaration OR NEW.facts <> OLD.facts
+    BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
   `,
   },
   // command의 `domain` 칸이 없어졌다. 칸이 남은 선언은 새 검사가 알 수 없는 칸으로 거절한다.
@@ -125,7 +131,16 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [
          )
        )
      WHERE json_type(declaration, '$.commands[0].domain') IS NOT NULL;
-    ${RELEASES_IMMUTABLE}
+    CREATE TRIGGER releases_immutable BEFORE UPDATE ON releases
+    WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.number <> OLD.number
+      OR NEW.code_commit <> OLD.code_commit
+      OR NEW.bundle_hash <> OLD.bundle_hash
+      OR NEW.declaration_hash <> OLD.declaration_hash
+      OR NEW.data_schema <> OLD.data_schema
+      OR NEW.data_changes <> OLD.data_changes
+      OR NEW.created_by <> OLD.created_by OR NEW.created_at <> OLD.created_at
+      OR NEW.declaration <> OLD.declaration OR NEW.facts <> OLD.facts
+    BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
   `,
   },
 ];

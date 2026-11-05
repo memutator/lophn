@@ -5,18 +5,6 @@ import type { SchemaStep } from "../../../protocol/server/mod.ts";
 // blob-refs step은 registered_seq의 events FK를 뺀 내용으로 고쳤다(step hash가 바뀐다). 개발 DB는
 // 지우고 새로 만든다. events.turn 칸은 쓰는 곳이 남아 있어 아직 둔다.
 
-const IMMUTABLE = (table: string) => `
-create trigger ${table}_no_update
-before update on ${table}
-begin
-  select raise(abort, 'immutable');
-end;
-create trigger ${table}_no_delete
-before delete on ${table}
-begin
-  select raise(abort, 'immutable');
-end;`;
-
 export const LEDGER_SCHEMA_STEPS: SchemaStep[] = [
   {
     id: "common-tables",
@@ -33,7 +21,17 @@ create table events (
 create index events_subject_seq on events (subject, seq);
 create index events_turn_seq on events (turn, seq);
 create index events_type_seq on events (type, seq);
-${IMMUTABLE("events")}
+
+create trigger events_no_update
+before update on events
+begin
+  select raise(abort, 'immutable');
+end;
+create trigger events_no_delete
+before delete on events
+begin
+  select raise(abort, 'immutable');
+end;
 create table command_results (
   principal text not null,
   idempotency_key text not null,
@@ -51,7 +49,17 @@ create table command_results (
   )
 );
 create index command_results_at on command_results (at);
-${IMMUTABLE("command_results")}`,
+
+create trigger command_results_no_update
+before update on command_results
+begin
+  select raise(abort, 'immutable');
+end;
+create trigger command_results_no_delete
+before delete on command_results
+begin
+  select raise(abort, 'immutable');
+end;`,
   },
   {
     id: "immutable-insert-guards",

@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py cross-os build`가 `tasks/*.md`에서 id, �
 |---|---|---|---|---|---|---|---|
 | `os-base` | os | 1 | 없음 | merged | os/os-base | 4ed05fcd1 |  |
 | `os-ci` | os | 1 | 없음 | merged | os/os-ci | 0edaa2f08 |  |
-| `os-fs` | os | 2 | os-base | running | os/os-fs |  |  |
+| `os-fs` | os | 2 | os-base | merged | os/os-fs | ec55bf34d |  |
 | `os-package` | os | 2 | os-base, os-ci | running | os/os-package |  |  |
 | `os-process` | os | 2 | os-base | running | os/os-process |  |  |
 | `os-shell` | os | 2 | os-base | merged | os/os-shell | 41763bd9a |  |

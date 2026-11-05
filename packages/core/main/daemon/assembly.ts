@@ -18,6 +18,7 @@ import { approvalsWiring } from "./wiring/approvals.ts";
 import { bareReplyWiring } from "./wiring/bare-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
 import { appsWiring } from "./wiring/apps.ts";
+import { sealedMarkerWiring } from "./wiring/sealed-marker.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
 import {
   assignmentFileWiring,
@@ -143,6 +144,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   shareRequestsWiring,
   routerWiring,
   appsWiring,
+  sealedMarkerWiring,
   lophnAgentRewindWiring,
   lophnAgentProviderLoginWiring,
   annotationsWiring,

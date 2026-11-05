@@ -283,7 +283,7 @@ export function register(
   coding: Pick<Coding, "gui" | "bindTabGui">,
 ): Registered {
   const repoRoot = join(ctx.here, "..", "..", "..", "..");
-  // packaged는 설치 root의 extensions/다. 아직 packaging이 채우지 않아 비어 있을 수 있다.
+  // packaged는 설치 root의 extensions/다(tools/package/main.ts가 채운다).
   const bundled = app.isPackaged
     ? join(packagedInstall(process.resourcesPath).root, "extensions")
     : join(ctx.here, "..", "extensions", "bundled");

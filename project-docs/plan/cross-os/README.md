@@ -1,7 +1,7 @@
 # cross-os: macOS·Windows에서 build·기동·package
 
 - 목표: Linux에서만 짜고 돌리던 lophn을 macOS arm64와 Windows x64에서도 check, core 기동, 서명 없는 package까지 되게 한다. 사람은 Linux 한 대뿐이라 다른 OS는 GitHub Actions matrix로만 확인한다.
-- 재료: 조사 보고 두 편(core 쪽, shell·도구·packaging 쪽. 사실과 path는 각 brief에 옮겼다), `project-docs/issues/platform.md`, `project-docs/architecture/terminal-agent.md`·`browser-tab.md`·`harness-gui.md`(Windows에서 꺼 둔 기능), `packages/shell/main/electron-builder.yml`, `tools/package-linux.ts`.
+- 재료: 조사 보고 두 편(core 쪽, shell·도구·packaging 쪽. 사실과 path는 각 brief에 옮겼다), `project-docs/issues/platform.md`, `project-docs/architecture/terminal-agent.md`·`browser-tab.md`·`harness-gui.md`(Windows에서 꺼 둔 기능), `packages/shell/main/electron-builder.yml`, `tools/package/main.ts`(옛 `package-linux.ts`).
 - 범위 밖: 코드 서명·notarization, `npm run dev`·`npm run e2e`·`npm run doctor`·lead script(`project-docs/plan/tools/lead/*.sh`)의 다른 OS 지원, Windows에서 이미 꺼 둔 기능(browser bridge, terminal hook socket, foreground 판정, terminal signal), keychain·DPAPI, CLI를 PATH에 까는 설치, Intel mac·Windows arm64.
 
 ## 정한 것

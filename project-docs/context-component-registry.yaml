@@ -589,12 +589,12 @@ components:
     change_reasons:
       note: import나 설정 경로의 꼴이 바뀔 때.
 
-  - id: tool-package-linux
+  - id: tool-package
     kind: tool
     roles: [worker]
-    description: Linux .deb 설치 묶음을 만들고(package-linux.ts), 설치된 묶음을 실제로 확인한다(verify-linux-install.ts).
-    path: tools/package-linux.ts
-    run: node tools/package-linux.ts / node tools/verify-linux-install.ts
+    description: OS마다 설치 묶음(Linux .deb, macOS dmg, Windows NSIS, --dir은 풀린 앱까지)을 만들고(tools/package/), Linux 설치본을 실제로 확인한다(verify-linux-install.ts).
+    path: tools/package/main.ts
+    run: node tools/package/main.ts [--target linux|mac|win] [--dir] / node tools/verify-linux-install.ts
     change_reasons:
       boundaries: [shell, core, coding-agent-cli]
 

@@ -6,7 +6,7 @@ import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
-// 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package-linux.ts).
+// 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package/main.ts).
 import productPackage from "../../package.json" with { type: "json" };
 import {
   err,

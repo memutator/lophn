@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -160,7 +161,7 @@ async function setup(
     home: "/home/test",
     readDir: () => Promise.resolve(Object.keys(options.folder ?? {})),
     readHead: (path) => {
-      const text = options.folder?.[path.slice(path.lastIndexOf("/") + 1)];
+      const text = options.folder?.[basename(path)];
       return text === undefined
         ? Promise.reject(new Error("no file"))
         : Promise.resolve(text);
@@ -460,7 +461,8 @@ test("opening a session that omp answers with a different session goes back to t
   const switches = omp.sent.filter((body) => body.type === "switch_session");
   // 두 번째 switch가 앞 session의 file로 돌아오는 것이다.
   assert.equal(switches.length, 2);
-  assert.equal(switches[0]?.sessionPath, "/sessions/b.jsonl");
+  // adapter는 node:path로 잇는다(Windows는 `\`).
+  assert.equal(switches[0]?.sessionPath, join("/sessions", "b.jsonl"));
   assert.match(String(switches[1]?.sessionPath), /01a1ab58-6b07/);
   assert.equal(
     omp.state.items.some(
@@ -530,7 +532,7 @@ test("roles come from the config files, use_role only sends /switch, and a globa
   image: test/pixels
 `;
   const omp = await setup("switch_role", {
-    files: { "/home/test/.omp/agent/config.yml": config },
+    files: { [join("/home/test", ".omp", "agent", "config.yml")]: config },
     state: {
       fastModeEnabled: false,
       slowModeSupported: true,

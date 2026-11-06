@@ -72,3 +72,17 @@ modules: [packages/core/lophn-agent, packages/shell/renderer]
 - 저장 때 명령 표에도 `<slug>.<command>`·`mcp__` 꼴에도 맞지 않는 이름을 `invalid_input`으로 거절한다. 오타 대부분을 잡는다. 작음.
 
 추천: 둘째를 먼저, 첫째는 bare를 실제로 쓰며 필요해지면.
+
+## turn 안에서 던진 예외가 "설정 없음" 실패로 기록된다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
+```
+
+지금: `packages/core/lophn-agent/run-loop/driver.ts`는 turn loop가 던진 예외를 잡아 `closeStarted("loop_threw")`로 turn을 닫는다. 이때 outcome은 `{ kind: "failed", reason: "configuration_unavailable" }`이다. `packages/protocol/lophn-agent/turn-values.ts`의 `TURN_OUTCOME_REASONS.failed`에 내부 오류를 뜻하는 이유가 없기 때문이다. 화면은 이 이유를 `conversation.error.turn-configuration-unavailable` 문구로 보인다(`packages/shell/renderer/conversation/thread/provider-error.tsx`).
+
+영향: core 버그로 turn이 죽어도, 사람은 model이나 provider 설정이 빠졌다는 안내를 본다. 그 안내대로 설정을 고쳐도 풀리지 않는다. 진단하는 사람도 ledger의 `outcome_reason`만 보고 원인을 잘못 짚는다.
+
+고치려면:
+- `TURN_OUTCOME_REASONS.failed`에 `internal`을 더하고, driver가 그 이유로 닫게 하고, 화면 문구 key 하나를 더한다. `turns.outcome_reason`은 CHECK 없는 text라 schema step이 필요 없다. 작음. 추천.

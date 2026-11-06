@@ -9,6 +9,6 @@ lead만 고친다. `tools/status.py review-fixes build`가 `tasks/*.md`에서 id
 | `event-fanout` | events | 1 | session-list | running | events/event-fanout |  |  |
 | `ledger-freeze` | ledger | 1 | 없음 | merged | ledger/ledger-freeze | fe9d43270 |  |
 | `turn-loop` | run-loop | 1 | 없음 | merged | run-loop/turn-loop | 445eccfda |  |
-| `turn-loop-perf` | run-loop | 1 | turn-loop | running | run-loop/turn-loop-perf |  |  |
+| `turn-loop-perf` | run-loop | 1 | turn-loop | merged | run-loop/turn-loop-perf | 6c24d6990 |  |
 | `session-list` | sessions | 1 | 없음 | merged | sessions/session-list | 3d9d5ba79 |  |
 | `shell-fixes` | shell | 1 | 없음 | merged | shell/shell-fixes | 49b3e47d4 |  |

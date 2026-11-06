@@ -64,7 +64,7 @@ report와 고치기
 넘기기
 - 담당 풀기는 command 앞(`plan.ts`)이 한다. step이 instance에 없으면 `unknown_step`, `by`가 참가자에 없으면 `unknown_participant`다.
   - agent 참가자는 `workspace`가 없으면 instance의 project다. 이름이 풀리지 않으면 `unresolved`다.
-  - harness agent(정의의 runtime이 harness)는 이름이 있는 agent라 `{agent}` 참가자로 넘긴다(Router가 harness 입력함으로 보낸다, `architecture/coding-agent.md`). 이름 없는 `{kind: harness}`는 받을 곳이 없어 `not_handed`(`unresolved`)다.
+  - harness agent(정의의 runtime이 harness)는 이름이 있는 agent라 `{agent}` 참가자로 넘긴다(Router가 harness queue로 보낸다, `architecture/coding-agent.md`). 이름 없는 `{kind: harness}`는 받을 곳이 없어 `not_handed`(`unresolved`)다.
   - `human`이면 `with`의 참가자로 같은 풀이를 하고 instance에 사람 차례(`current.human_turn`)를 적는다. `with`가 없으면 `no_with`다.
 - `session: same`이면 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session(가장 나중 `handed` 줄의 `receiver`)에 `fallback: new`로 보낸다. 없으면 새 session이다. 안 적으면 `new`다.
 - command는 받은 plan대로 Router에 넣는다(`from: program`, `reply: none`, `kind: step`, `unattended: true`). Router가 `ok`의 `accepted`를 주면 받은 session으로 `handed` 줄을 남기고 `current`를 그 step으로 한다. `failed`(없는 담당, 닫힌 session)면 `not_handed`(`unresolved`) 줄이다. Router가 `err`를 주면 tx 전체가 되돌아가 줄도 상태도 남지 않는다.
@@ -78,7 +78,7 @@ step 입력
 - 시작 입력, report와 `hand_now`의 글, 본문은 writer 앞단에서 redaction을 거친다. 본문은 받는 session 기록에 들어가므로 `machine:workflows` 이름으로 blob을 준비한다(`architecture/agent-call.md`).
 
 켤 때와 멈춤
-- 켤 때 입력함은 비고 step 메시지는 다시 넣지 않는다. router가 돌던 turn을 닫은 뒤 `reconcile`이 running instance마다 가장 나중 `handed` 줄을 본다. 그 session이 받은 메시지를 아직 turn이 가져가지 않았거나 가져간 turn이 restart로 끊겼으면 `lophn_restarted` 줄을 남긴다. 그 뒤에 이미 `lophn_restarted` 줄이나 그 step의 report가 있으면 남기지 않는다. 상태와 지금 step은 바꾸지 않는다. 다시 넘기는 일은 agent나 사람의 `hand_now`다.
+- 켤 때 queue는 비고 step 메시지는 다시 넣지 않는다. router가 돌던 turn을 닫은 뒤 `reconcile`이 running instance마다 가장 나중 `handed` 줄을 본다. 그 session이 받은 메시지를 아직 turn이 가져가지 않았거나 가져간 turn이 restart로 끊겼으면 `lophn_restarted` 줄을 남긴다. 그 뒤에 이미 `lophn_restarted` 줄이나 그 step의 report가 있으면 남기지 않는다. 상태와 지금 step은 바꾸지 않는다. 다시 넘기는 일은 agent나 사람의 `hand_now`다.
 - `StopWorkflow`는 instance를 먼저 `stopped`로 닫고, 그 instance의 `handed` 줄에 있는 session마다 도는 turn을 멈춘다(best-effort, 실패는 기록하지 않는다). 그 session이 다른 일을 하던 turn도 멈춘다. 그 뒤 flow process가 있으면 죽이고 그 instance가 연 run을 취소한다(`WorkflowFlows.stop`). 뒤따르는 `program_exited` 줄은 `stopped`인 instance에 줄로만 남는다.
 - 켤 때 `running`인 flow instance는 process가 없다. 첫 `started` 줄의 step이 null인 instance가 flow다. `lophn_restarted` 줄(step·receiver null)을 남기고 `ended`로 닫는다. 다시 띄우지 않는다. job이 시작한 instance였으면 그 job run은 다음 바퀴에 `done`으로 닫힌다(`architecture/job.md`).
 

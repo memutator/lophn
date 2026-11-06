@@ -2,7 +2,7 @@
 // - contract: boundary `router`(call 왕복, 실패는 보낸 쪽에 한 번만 돌아간다, 재시작에 사라지지 않는다), `agent-sessions`(받는
 //   session의 끝이 call을 닫는다), `agent-tools`(`lophn call send|reply|cancel`).
 // - 현실적 회귀: reply가 보낸 session의 새 입력이 되지 못하는 것, 받은 session이 archive됐는데 call이 `accepted`로 영영 남는 것,
-//   같은 실패가 tool 결과와 입력 둘로 가서 agent가 두 번 반응하는 것(전례: archived/agent-call.md), 재시작에 입력함의 call이
+//   같은 실패가 tool 결과와 입력 둘로 가서 agent가 두 번 반응하는 것(전례: archived/agent-call.md), 재시작에 queue의 call이
 //   말없이 사라지는 것, 취소한 call에 늦은 reply가 오류로 돌아가거나 닫힌 session이 다시 열리는 것.
 // - 왜 지금 test로 못 잡나: router_test는 Router와 가짜 저장소만 본다. 두 session의 model turn이 서로 얽히는 왕복과 재시작
 //   복구는 process를 건너야 하고, fake는 줄(lane) 없이는 session 둘이 동시에 부를 때 순서가 갈린다.
@@ -595,10 +595,10 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
     );
 
     await step(
-      "inbox-order: call이 먼저 와도 사람 message가 먼저 turn이 된다",
+      "queue-order: call이 먼저 와도 사람 message가 먼저 turn이 된다",
       async () => {
         fake.reset();
-        const ask = await shellAsk(folder, "inbox-order");
+        const ask = await shellAsk(folder, "queue-order");
         const b = await openWorkspaceSession(c, LOPHN_AGENT_ID, atProject);
         fake.script(
           [callStep({ session: b }, "none", "call-body-marker"), text("sent")],

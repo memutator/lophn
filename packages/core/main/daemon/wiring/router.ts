@@ -41,8 +41,8 @@ import {
   createSessionDirectory,
   workspaceDepsOf,
 } from "../../../lophn-agent/workspaces/mod.ts";
-import { createInboxApplier } from "../../../lophn-agent/run-loop/mod.ts";
-import { INBOX_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
+import { createQueueApplier } from "../../../lophn-agent/run-loop/mod.ts";
+import { QUEUE_PUT_TOPIC } from "../../../lophn-agent/run-loop/topics.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import {
   prepareBytes,
@@ -68,7 +68,7 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-// 켤 때 잃어버린 call을 닫는 core 안 machine 자격이다. 입력함에 되돌릴 사람 메시지의 본문을 읽는 데도 쓴다. 기동 때 ledger에 기록한다.
+// 켤 때 잃어버린 call을 닫는 core 안 machine 자격이다. queue에 되돌릴 사람 메시지의 본문을 읽는 데도 쓴다. 기동 때 ledger에 기록한다.
 const ROUTER_PRINCIPAL = "machine:router";
 
 const ROUTER_CONTEXT: AuthenticatedContext = {
@@ -196,7 +196,7 @@ function withCallBody(
 }
 
 // Router의 main thread 쪽이다. command와 read는 writer·reader Worker가 `router-registration.ts`로 돌린다.
-// 여기서는 call 본문을 미리 준비하고, commit된 tx가 모은 일(입력함에 넣기, agent event)을 적용하고, 켤 때 잃어버린
+// 여기서는 call 본문을 미리 준비하고, commit된 tx가 모은 일(queue에 넣기, agent event)을 적용하고, 켤 때 잃어버린
 // call을 닫는다.
 export const routerWiring: WiringFactory = () => {
   // 켤 때 접수만 된 사람 메시지를 다시 읽는 main thread 연결이다.
@@ -205,8 +205,8 @@ export const routerWiring: WiringFactory = () => {
     name: "router",
     records: () => [ROUTER_CONTEXT, ANNOTATION_DELIVERY_CONTEXT],
     build(ctx) {
-      const apply = createInboxApplier({
-        inbox: ctx.inbox,
+      const apply = createQueueApplier({
+        queue: ctx.queue,
         publish: (event) => ctx.bus.publish(event),
       });
       // artifact를 받는 일은 그 그릇 workspace의 lophn이 맡는다. 없거나 보관한 그릇은 not_found다.
@@ -227,7 +227,7 @@ export const routerWiring: WiringFactory = () => {
       };
       // 사람 메시지는 이미지를 싣지 않고 refs의 annotation으로 가리킨다. 보관한 앱이면 session 열기나 보내기가 conflict다.
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
-      // 사람 메시지는 본문 준비와 입력함 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
+      // 사람 메시지는 본문 준비와 queue 적용을 거쳐야 turn이 열린다. API server와 같은 접은 writer가 그 층을 가진다.
       const run = async (route: { name: string }, input: unknown) => {
         const done = await ctx.writer.command(ANNOTATION_DELIVERY_CONTEXT, {
           command: route.name,
@@ -400,12 +400,12 @@ export const routerWiring: WiringFactory = () => {
       eventsConnection?.close();
       eventsConnection = undefined;
     },
-    // 입력함과 앱 줄이 메모리라 꺼졌다 켜진 뒤에는 잃어버린 call과 돌던 turn이 있다. 같은 tx에서 닫고,
+    // queue와 앱 줄이 메모리라 꺼졌다 켜진 뒤에는 잃어버린 call과 돌던 turn이 있다. 같은 tx에서 닫고,
     // agent runtime이 turn을 읽기 전에(afterReady 앞) 끝낸다. 접수만 하고 turn이 가져가지 않은 사람 메시지는
-    // 입력함에 되돌려 새 turn을 연다.
+    // queue에 되돌려 새 turn을 연다.
     async start(ctx) {
-      const apply = createInboxApplier({
-        inbox: ctx.inbox,
+      const apply = createQueueApplier({
+        queue: ctx.queue,
         publish: (event) => ctx.bus.publish(event),
       });
       // 보낸 session에 이유를 돌려줄 글을 준비하지 못하면 알림 없이 닫는다.
@@ -455,7 +455,7 @@ export const routerWiring: WiringFactory = () => {
           };
           apply([
             {
-              topic: INBOX_PUT_TOPIC,
+              topic: QUEUE_PUT_TOPIC,
               data: {
                 session: pending.session,
                 input: {

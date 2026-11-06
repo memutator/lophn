@@ -46,7 +46,7 @@ export const sendMessage = defineCommand({
   ],
 });
 
-// 사람이 `!`로 돌린 명령과 결과를 사람 메시지로 남긴다. 입력함에 넣지 않고 turn을 열지 않는다: 다음 turn이
+// 사람이 `!`로 돌린 명령과 결과를 사람 메시지로 남긴다. queue에 넣지 않고 turn을 열지 않는다: 다음 turn이
 // 가져가 model이 본다. 명령은 core가 승인 없이 돌린다(사람의 명령). 출력은 redaction을 거친 값으로 바뀌어 저장된다.
 export const recordShellMessage = defineCommand({
   resource: "messages",
@@ -105,7 +105,7 @@ const routedInputKindSchema = z.enum([
 ]);
 export type RoutedInputKind = z.infer<typeof routedInputKindSchema>;
 
-// 입력함에서 아직 turn이 가져가지 않은 사람 메시지(next_turn)를 다루는 memory route다.
+// queue에서 아직 turn이 가져가지 않은 사람 메시지(next_turn)를 다루는 memory route다.
 const queuedInputSchema = z.strictObject({
   session: idSchema("ses"),
   message: idSchema("msg"),
@@ -130,7 +130,7 @@ export const steerQueuedNow = defineMemory({
   errors: queuedErrors,
 });
 
-// 입력함에서 뺀다. 이미 turn이 가져갔으면 conflict다.
+// queue에서 뺀다. 이미 turn이 가져갔으면 conflict다.
 export const removeQueued = defineMemory({
   resource: "session_inputs",
   method: "remove",
@@ -141,7 +141,7 @@ export const removeQueued = defineMemory({
   errors: queuedErrors,
 });
 
-// 아직 turn이 가져가지 않은 사람 메시지의 글을 바꾼다. 저장된 본문과 입력함의 글을 같이 바꾼다.
+// 아직 turn이 가져가지 않은 사람 메시지의 글을 바꾼다. 저장된 본문과 queue의 글을 같이 바꾼다.
 export const editQueued = defineMemory({
   resource: "session_inputs",
   method: "edit",
@@ -156,7 +156,7 @@ export const editQueued = defineMemory({
   errors: queuedErrors,
 });
 
-// 아직 turn이 가져가지 않은 사람 메시지를 입력함 안에서 이웃과 맞바꾼다.
+// 아직 turn이 가져가지 않은 사람 메시지를 queue 안에서 이웃과 맞바꾼다.
 export const moveQueued = defineMemory({
   resource: "session_inputs",
   method: "move",

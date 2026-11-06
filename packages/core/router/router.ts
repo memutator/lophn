@@ -47,7 +47,7 @@ export type RouterDeps = {
   callPolicy(): CallPolicy;
 };
 
-// 받는 session의 transport에 따라 입력함을 고른다. 받을 곳이 없는 취소는 lophn 쪽이 조용히 넘긴다.
+// 받는 session의 transport에 따라 queue를 고른다. 받을 곳이 없는 취소는 lophn 쪽이 조용히 넘긴다.
 export function transportBySession(
   transports: Record<TargetSession["transport"], InputTransport>,
 ): InputTransport {
@@ -80,7 +80,7 @@ export interface Router {
   ): Result<AgentCallRow>;
   // session을 archive하거나 지울 때 그 session이 받은 열린 call을 failed(receiver_ended)로 닫는다.
   failReceivedBy(tx: Tx, session: string): Result<void>;
-  // lophn을 켤 때 부른다. 입력함과 앱 줄이 메모리라 잃어버린 call을 failed(lophn_restarted)로 닫는다.
+  // lophn을 켤 때 부른다. queue와 앱 줄이 메모리라 잃어버린 call을 failed(lophn_restarted)로 닫는다.
   // `notify`이면 보낸 session에 이유를 돌려준다. 닫은 수를 돌려준다.
   failLostOnStart(tx: Tx, notify: boolean): Result<number>;
   // 받는 session의 turn이 이 call의 입력을 가져갔다(turn을 시작할 때 부른다).

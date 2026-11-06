@@ -223,7 +223,7 @@ export const acpWiring: WiringFactory = () => {
       ) => {
         const live: AcpLive = {
           steering: new Set(
-            ctx.inbox
+            ctx.queue
               .pendingSteering(session as Id<"ses">)
               .flatMap((input) =>
                 input.message === null ? [] : [input.message as string],
@@ -275,7 +275,7 @@ export const acpWiring: WiringFactory = () => {
           event.type === "MessageReceived" &&
           event.payload.from.kind === "human" &&
           !event.payload.steer &&
-          ctx.inbox.isRunning(event.session as Id<"ses">),
+          ctx.queue.isRunning(event.session as Id<"ses">),
         decision:
           event.type === "TurnRequestClosed"
             ? ctx.approvals

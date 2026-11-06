@@ -12,7 +12,7 @@ run은 화면 없이 부르는 lophn agent 호출 하나, 또는 앱 tool 호출
    │
    ├ agent run: 이름을 다 푼다 ─▶ run 행 만들기(running) ─▶ session 열기(새 run일 때) ─▶ 사람 메시지 넣기
    │            (resolve / agentOf)   CreateRun              OpenSession                  SendMessage unattended:true
-   │                                                              │ 입력함 → turn이 가져감 (unattended turn)
+   │                                                              │ queue → turn이 가져감 (unattended turn)
    │            끝 ◀── 그 메시지가 들어간 turn의 TurnEnded ───────┘
    │            SettleRun: done(답) | failed(이유) | cancelled
    │
@@ -69,14 +69,14 @@ unattended
 
 취소
 - `CancelRun`은 run을 먼저 `cancelled`로 닫고 뒷일을 한다. 뒷일의 오류는 기록에 남기지 않는다.
-  - 입력을 turn이 아직 안 가져갔으면 입력함과 접수 기록에서 그 메시지를 뺀다. 그 사이 가져갔으면(`conflict`) 도는 turn을 본다.
+  - 입력을 turn이 아직 안 가져갔으면 queue와 접수 기록에서 그 메시지를 뺀다. 그 사이 가져갔으면(`conflict`) 도는 turn을 본다.
   - 도는 turn이면 `StopTurn`을 보낸다. `state_seq` compare가 checkpoint 때문에 어긋나 `conflict`면 다시 읽어 최대 3번 건다.
 - 이미 끝난 run은 `conflict`다.
 - tool run을 취소해도 이미 보낸 앱 호출은 멈추지 않는다. run만 `cancelled`가 되고 호출은 저절로 끝난다. 그 결과는 이미 닫힌 행에 쓰이지 않는다.
 - `RunService.cancelOfInstance(instance)`는 그 instance가 연 running run을 모두 같은 길로 취소한다(best-effort, core 안). flow host가 process를 끝낸 뒤 부른다. 주인 없는 agent run이 계속 돌지 않게 한다.
 
 켤 때와 session 끝
-- 켤 때 입력함은 비고, run 입력은 다시 줄 세우지 않는다(`architecture/workspace-session.md`). 먼저 `TurnEnded`와 `SessionEnded`를 구독하고 `reconcile`한다. router가 돌던 turn을 닫은 뒤여야 해서 wiring 순서에서 runs는 router 뒤다.
+- 켤 때 queue는 비고, run 입력은 다시 줄 세우지 않는다(`architecture/workspace-session.md`). 먼저 `TurnEnded`와 `SessionEnded`를 구독하고 `reconcile`한다. router가 돌던 turn을 닫은 뒤여야 해서 wiring 순서에서 runs는 router 뒤다.
   - running인 tool run은 `lophn_restarted`다. 호출의 결과를 알 길이 없다.
   - agent run은 turn을 다시 본다. 끝난 turn이면 그 결과로 닫고, 아직 turn이 가져가지 않았으면 `lophn_restarted`다. 도는 turn은 그 turn의 `TurnEnded`가 끝낸다.
 - job이 연 run도 같다. 끊긴 run은 `lophn_restarted`로 닫히고, 그 job의 job run은 `interrupted`이며 놓친 차례로 친다(`architecture/job.md` "켤 때").
@@ -115,7 +115,7 @@ CLI와 자격(`architecture/coding-agent.md`)
 - 끝을 짐작하지 않고 turn에서 안다. eval은 1초 조용하면 끝으로 보지만, 그러면 session에 먼저 있던 입력의 답을 돌려줄 수 있다. 입력 메시지 → 그 메시지의 turn → `TurnEnded`는 core가 정확히 아는 길이다.
 - 정본은 표다. Bus는 구독이 죽으면 놓친다. 그래서 event는 표를 다시 보게 하는 신호이고, 같은 run을 둘이 `SettleRun`해도 compare가 하나만 받는다(진 쪽은 지금 기록을 읽는다).
 - run 입력을 켤 때 다시 줄 세우지 않는다. 다시 돌면 이미 `lophn_restarted`로 닫힌 run 뒤에 attended turn이 생기고 바깥 효과가 두 번 난다.
-- 규칙은 `core/runs`가 갖고 module은 lophn-agent와 다른 feature module을 import하지 않는다. 이름 풀기, 메시지 넣기, turn 읽기, 앱 호출은 `ports.ts`의 port이고 wiring이 끼운다(`architecture/layers.md`). wiring은 core 안 두 자격을 쓴다: 사람 입력으로 session을 열고 메시지를 읽는 `machine:runs`(actor user)와 run 행과 입력함 정리를 쓰는 `machine:runs-settle`(actor machine).
+- 규칙은 `core/runs`가 갖고 module은 lophn-agent와 다른 feature module을 import하지 않는다. 이름 풀기, 메시지 넣기, turn 읽기, 앱 호출은 `ports.ts`의 port이고 wiring이 끼운다(`architecture/layers.md`). wiring은 core 안 두 자격을 쓴다: 사람 입력으로 session을 열고 메시지를 읽는 `machine:runs`(actor user)와 run 행과 queue 정리를 쓰는 `machine:runs-settle`(actor machine).
 - 새 session을 열 때 이름을 먼저 푼다. 안 풀린 채 session부터 열면 CLI의 project 먼저, app 나중 재시도가 session을 남긴다.
 - 취소할 때 run을 먼저 닫는다. 뒷일(입력 빼기, turn 멈추기)이 실패해도 run의 상태는 사람이 요청한 대로 남는다.
 - tool run은 사람이 부르는 길이다. 사람이 시킨 일이 승낙이고(`architecture/approval.md`), CLI는 사람의 입구다.

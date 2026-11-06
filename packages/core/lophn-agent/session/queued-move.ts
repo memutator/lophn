@@ -3,9 +3,9 @@ import { moveQueuedMessage } from "../../../protocol/lophn-agent/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 
-// 아직 turn이 가져가지 않은 사람 메시지를 큐에서 위아래로 옮긴다. 입력함은 메모리라 부르는 쪽이
-// 이 command를 먼저 부르고 성공하면 입력함의 순서도 바꾼다. 표의 created_seq를 이웃과 맞바꾸므로
-// 켤 때 입력함에 다시 넣는 순서와 대화 기록의 순서가 같은 순서가 된다. core 안 machine만 쓴다.
+// 아직 turn이 가져가지 않은 사람 메시지를 큐에서 위아래로 옮긴다. queue는 메모리라 부르는 쪽이
+// 이 command를 먼저 부르고 성공하면 queue의 순서도 바꾼다. 표의 created_seq를 이웃과 맞바꾸므로
+// 켤 때 queue에 다시 넣는 순서와 대화 기록의 순서가 같은 순서가 된다. core 안 machine만 쓴다.
 export function moveQueuedCommand(): CommandDefinition<
   typeof moveQueuedMessage
 > {

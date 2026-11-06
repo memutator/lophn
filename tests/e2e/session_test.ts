@@ -4,14 +4,14 @@
 // - 현실적 회귀: project 보관이 project workspace session을 끝내거나 보관 중에도 message가 접수되는 것, 꺼낸 뒤 session이 이어지지 않는 것,
 //   fork가 rewind로 숨긴 구간을 되살리는 것, call 길로 열 때만 workspace 검사가 빠지는 것.
 // - 왜 지금 test로 못 잡나: workspaces_test와 session unit은 한 module 안의 SQL만 본다. 보관(projects) → accepting(workspaces) →
-//   입력함·Router(router) → 새 입력의 turn이 이어지는 것은 module과 process를 건너야 이어진다.
+//   queue·Router(router) → 새 입력의 turn이 이어지는 것은 module과 process를 건너야 이어진다.
 //
 // archive-call·delete-call 행(contract: `agent-sessions`의 archive·지움은 한 tx, `router`의 받은 call은 session의 끝으로 닫힌다, `approvals`의
 // 끝난 session의 대기 request는 cancelled)
 // - 현실적 회귀: turn만 닫히고 받은 call이 accepted로 남아 보낸 lophn이 영영 기다리는 것, 대기 request가 남아 늦은 once가 명령을 돌리는 것,
 //   지움은 call을 닫지 않는 것.
 // - 왜 지금 test로 못 잡나: lifecycle unit은 한 tx 안의 SQL만 본다. 도는 turn(child)과 허락 대기(core 메모리)와 보낸 session의 새 입력
-//   (Router → 입력함 → 다음 turn)이 같이 맞아야 보인다.
+//   (Router → queue → 다음 turn)이 같이 맞아야 보인다.
 // - 이 두 행은 fake 대답이 4개다(README 정한 것 11의 상한 3을 넘는 예외). session 둘이 한 flow에서 각자 turn을 돌려야 call이 열리고
 //   닫힌다(보낸 home lophn 3, 받는 project workspace lophn 1). 두 session이 같은 시각에 model을 부르므로 workspace 종류 전용 명령
 //   (`lophn` tool 설명의 명령 목록)으로 줄을 가른다.

@@ -28,7 +28,7 @@ import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 // 받는 session 하나. Router가 배달 길을 고르는 데 쓴다.
 export type TargetSession = {
   session: Id<"ses">;
-  // lophn은 입력함을 run-loop가 가져가고, harness는 runtime이 harness인 session의 입력함을 shell host가 가져간다.
+  // lophn은 queue를 run-loop가 가져가고, harness는 runtime이 harness인 session의 queue를 shell host가 가져간다.
   transport: "lophn" | "harness";
   agent: AgentAtWorkspace;
   // archive, 지움, workspace 보관이면 false(새 입력을 받지 않는다).
@@ -90,7 +90,7 @@ export interface SessionDirectory {
 }
 
 export interface InputTransport {
-  // 그 transport가 맡은 session의 입력함에 넣는다.
+  // 그 transport가 맡은 session의 queue에 넣는다.
   deliver(tx: Tx, target: TargetSession, input: RoutedInput): Result<void>;
   // 취소 입력(notice)을 넣는다.
   cancel(
@@ -114,7 +114,7 @@ export interface CallStore {
   // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 답 없는 call은 여기서 done이 된다. 재시작 때 잃어버린 call을
   // 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;
-  // 끝나지 않았고 아직 가져가지 않은 call. 입력함과 앱 줄이 메모리라 lophn을 켤 때 잃어버린 것이다.
+  // 끝나지 않았고 아직 가져가지 않은 call. queue와 앱 줄이 메모리라 lophn을 켤 때 잃어버린 것이다.
   lost(tx: Tx): readonly AgentCallRow[];
   // 이 session이 받은 끝나지 않은 call. archive나 지움에서 receiver_ended로 닫는다.
   openReceivedBy(tx: Tx, session: Id<"ses">): readonly AgentCallRow[];

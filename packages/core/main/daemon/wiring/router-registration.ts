@@ -35,7 +35,7 @@ const environment: RouterEnvironment = {
       sql: () => view.sql,
     });
     const { record } = createReceivedRecorder({ principal: who });
-    // lophn session은 run-loop의 입력함이, harness session은 host의 입력함이 받는다.
+    // lophn session은 run-loop의 queue가, harness session은 host의 queue가 받는다.
     const transport = transportBySession({
       lophn: createLophnInputTransport({ record }),
       harness: createHarnessInputTransport({ record }),

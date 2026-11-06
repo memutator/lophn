@@ -13,8 +13,8 @@ import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 import { withEraseWindow } from "../../storage/ledger/mod.ts";
 import { imageBlobsOf, imageRefsOf } from "./message-images.ts";
 
-// 아직 turn이 가져가지 않은 사람 메시지의 본문을 고친다. 입력함은 메모리라 부르는 쪽(wiring)이
-// 이 command를 먼저 부르고 성공하면 입력함의 본문도 바꾼다. core 안 machine만 쓴다.
+// 아직 turn이 가져가지 않은 사람 메시지의 본문을 고친다. queue는 메모리라 부르는 쪽(wiring)이
+// 이 command를 먼저 부르고 성공하면 queue의 본문도 바꾼다. core 안 machine만 쓴다.
 // 본문 blob은 새 값으로 준비되어 있어야 하고, 참조는 같은 transaction에서 바꾼다. 이미지 참조는 그대로 둔다:
 // 이미 건 이미지는 다시 걸지 않고(준비는 10분 뒤 사라진다), 새 이미지는 이 자격으로 올리지 않았으므로 거절한다.
 export function editQueuedCommand(): CommandDefinition<
@@ -51,7 +51,7 @@ export function editQueuedCommand(): CommandDefinition<
           message: "an edit cannot add an image",
         });
       }
-      // preparer가 redaction한 값이다. 입력함도 이 값으로 바꿔야 다음 turn이 저장된 본문과 같은 본문을 본다.
+      // preparer가 redaction한 값이다. queue도 이 값으로 바꿔야 다음 turn이 저장된 본문과 같은 본문을 본다.
       const bytes = serializeMessageContent(contentOfBlocks(input.content));
       const hash = createHash("sha256").update(bytes).digest("hex");
       const current = tx.sql.get(

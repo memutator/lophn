@@ -19,7 +19,7 @@ import {
 const turnRef = { turn: idSchema("trn") };
 const stateSeq = { state_seq: seqSchema };
 
-// 입력함의 입력이 turn이 되는 순간이다. 행이 이때 생기므로 compare가 없다.
+// queue의 입력이 turn이 되는 순간이다. 행이 이때 생기므로 compare가 없다.
 const startTurnInputSchema = z
   .strictObject({
     id: idSchema("trn"),

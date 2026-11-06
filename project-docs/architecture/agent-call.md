@@ -8,7 +8,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
  보낸 쪽                                  Router (core/router)                    받는 쪽
  ───────                                  ────────────────────                    ───────
  person (메시지)             ─┐           받는 곳 풀기                        ┌─ lophn session
- lophn call send|reply|cancel  ─┤       ├ 새 session   : agent 이름+workspace로 하나 │   run-loop 입력함(메모리)
+ lophn call send|reply|cancel  ─┤       ├ 새 session   : agent 이름+workspace로 하나 │   run-loop queue(메모리)
  program (알림)              ─┘─ route ─▶ ├ 열린 session : session ID           │
                                           └ 둘 다        : 열려 있으면 거기,    │
                                             닫혔으면 fallback의 agent+workspace 새 session ┘
@@ -41,11 +41,11 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - model이 이미지를 못 받는 것은 거절하지 않고 명함이 알린다.
 - 받은 메시지는 허락이 아니다. 받은 agent는 자기 할당으로만 일한다(`products/AGENT.md` T6). program이 막는 것은 이것 하나다.
   - "거절당한 일을 다른 agent에게 돌려 시키지 않기"는 의미 판단이라 program이 막을 수 없고 agent 지침에 둔다.
-- unattended는 call을 따라 간다. unattended turn이 보낸 call과 답에 표시(`unattended`)가 실리고(core의 `calls.send`·`calls.reply`가 부른 agent credential의 turn mode를 읽어 찍는다, `packages/core/router/commands.ts`), Router가 그 표시를 봉투, 입력함 입력(`RoutedInput`), `agent_calls` 행에 옮긴다. 받는 turn은 그 입력으로 unattended가 된다(`architecture/approval.md`의 turn mode).
+- unattended는 call을 따라 간다. unattended turn이 보낸 call과 답에 표시(`unattended`)가 실리고(core의 `calls.send`·`calls.reply`가 부른 agent credential의 turn mode를 읽어 찍는다, `packages/core/router/commands.ts`), Router가 그 표시를 봉투, queue 입력(`RoutedInput`), `agent_calls` 행에 옮긴다. 받는 turn은 그 입력으로 unattended가 된다(`architecture/approval.md`의 turn mode).
   - 답의 표시는 call 행이 아니라 답한 turn에서 온다. unattended call을 받은 session에 사람이 끼어들어 attended turn이 답하면 그 답은 attended다.
   - 늦은 실패(receiver_ended, lophn_restarted)와 취소 알림은 그 call 행의 표시를 따른다. 그러지 않으면 unattended 사슬의 알림 turn이 attended가 되어 사람 없이 shell `ask`에 멈춘다.
   - reaction과 화면의 사람 메시지는 표시가 없어 attended다. skip은 실리지 않는다(사람이 정한 것은 그 대화다). 예외는 둘이다. `SendMessage`에 `unattended: true`를 실어 넣은 사람 메시지(run 입력, `architecture/run.md`)와 workflow가 넣은 step 입력(`architecture/workflow.md`)은 unattended turn을 연다.
-  - agent call의 표시는 받은 메시지 기록(`messages`)과 태그 글에 넣지 않는다. 받은 turn과 뒤 이력이 같은 bytes를 만들고, mode는 `turns.mode`에 남는다. run 입력은 `messages.unattended`에 남기되(켤 때 입력함에 되돌리지 않으려고) 태그 글과 받은 봉투에는 싣지 않는다. step 입력의 표시는 입력함 입력(`RoutedInput`)에만 있고, 받은 봉투와 `messages`에는 instance와 step(`step_instance`, `step_name`)만 남는다.
+  - agent call의 표시는 받은 메시지 기록(`messages`)과 태그 글에 넣지 않는다. 받은 turn과 뒤 이력이 같은 bytes를 만들고, mode는 `turns.mode`에 남는다. run 입력은 `messages.unattended`에 남기되(켤 때 queue에 되돌리지 않으려고) 태그 글과 받은 봉투에는 싣지 않는다. step 입력의 표시는 queue 입력(`RoutedInput`)에만 있고, 받은 봉투와 `messages`에는 instance와 step(`step_instance`, `step_name`)만 남는다.
 - 보낸 쪽의 대화 원문은 넘기지 않는다. body와 refs만 간다. body는 redaction을 거친 뒤에만 받는 session 기록에 들어간다.
   - body는 content block 배열이다(`packages/protocol/lophn-agent/content-block.ts`). MCP ContentBlock 꼴인 `text`, `image {mimeType, blob}`, `resource_link`, `resource`이고 사람 메시지(`SendMessage.content`)도 같은 꼴이다. 저장할 때는 block마다 메시지 content의 part 하나가 된다.
   - redaction은 글(text, link, resource text)에만 한다. 이미지는 bytes 대신 blob hash를 싣는다. 본문 상한(240 KiB)에 이미지가 들어가지 않기 때문이다. bytes는 보낸 자격이 먼저 올린 blob이다. 사람은 `message-images/upload`, agent는 `message-images/prepare`로 올린다. command는 같은 transaction에서 그 blob의 참조를 그 이미지를 담은 메시지에 건다.
@@ -56,20 +56,20 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - 이름을 풀지 못한 call도 행이 없다(받는 곳을 적을 수 없다). 끝난 행은 trigger가 막아 바뀌지 않는다. 이어지는 일은 새 call이다.
 - dedup(보낸 session + tool call ID)은 unique다.
   - run-loop는 일시 실패한 read tool을 같은 tool call로 한 번 더 부른다. `call.send` 명령(`packages/cli/commands/call.ts`)의 효과는 read라 그 대상이고 dedup은 명령의 idempotency key(그 tool call ID)다. 첫 시도가 call을 만들고 실패로 돌아오면 재시도가 call과 session을 하나 더 만든다.
-- 입력함은 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 failed(lophn_restarted)로 닫는다.
+- queue는 메모리라 꺼지면 사라진다. 그래서 turn이 입력을 가져갔는지(consumed)를 행에 적고, lophn을 켤 때 accepted인데 가져가지 않은 call을 failed(lophn_restarted)로 닫는다.
   - 같은 tx에서 돌던 turn도 interrupted로 닫고, agent runtime이 turn을 읽기 전에 끝낸다. durable queue를 만들지 않는 대신 조용히 사라지는 call이 없게 하는 장치다.
 - 답 없는 call(none)은 받는 turn이 입력을 가져갈 때(consumed) done이 된다. 그 전까지는 accepted다.
-  - 배달할 때 done으로 두면 켤 때 입력함과 함께 잃은 handoff를 위 장치가 가리지 못한다. 가져간 뒤에도 accepted로 두면 받은 session을 archive할 때 이미 넘어간 일에 receiver_ended가 가고 화면의 [Cancel]이 남는다.
+  - 배달할 때 done으로 두면 켤 때 queue와 함께 잃은 handoff를 위 장치가 가리지 못한다. 가져간 뒤에도 accepted로 두면 받은 session을 archive할 때 이미 넘어간 일에 receiver_ended가 가고 화면의 [Cancel]이 남는다.
 - 같은 사실을 두 길로 알리지 않는다. 이미 끝난 call(취소, Router가 먼저 닫음)에는 Router의 실패 알림이 다시 가지 않는다.
-- 입력함 순서는 사람 메시지가 먼저, 그다음 들어온 순서다. steer(도는 turn의 다음 model 요청 앞에 넣기)는 사람 메시지만 고른다. call, 답, reaction, 알림은 항상 다음 turn이다.
-  - 아직 turn이 가져가지 않은 사람 메시지는 사람이 글을 고치거나 사람 메시지끼리 순서를 바꿀 수 있다. 고치면 redaction을 거친 새 본문 blob으로 `messages.body`와 blob 참조를 같은 transaction에서 바꾸고 입력함의 본문도 command가 돌려준 값으로 바꾼다. 고친 본문에는 이미 있던 image block만 남길 수 있다(새 이미지는 `invalid_input`). 이미지 참조는 본문 참조와 따로라 고쳐도 남는다. 순서는 `created_seq`를 이웃과 맞바꿔 켤 때 입력함에 다시 넣는 순서까지 같게 한다. 가져간 뒤에는 본문과 순서가 trigger로 고정된다.
+- queue 순서는 사람 메시지가 먼저, 그다음 들어온 순서다. steer(도는 turn의 다음 model 요청 앞에 넣기)는 사람 메시지만 고른다. call, 답, reaction, 알림은 항상 다음 turn이다.
+  - 아직 turn이 가져가지 않은 사람 메시지는 사람이 글을 고치거나 사람 메시지끼리 순서를 바꿀 수 있다. 고치면 redaction을 거친 새 본문 blob으로 `messages.body`와 blob 참조를 같은 transaction에서 바꾸고 queue의 본문도 command가 돌려준 값으로 바꾼다. 고친 본문에는 이미 있던 image block만 남길 수 있다(새 이미지는 `invalid_input`). 이미지 참조는 본문 참조와 따로라 고쳐도 남는다. 순서는 `created_seq`를 이웃과 맞바꿔 켤 때 queue에 다시 넣는 순서까지 같게 한다. 가져간 뒤에는 본문과 순서가 trigger로 고정된다.
 - 다른 agent·program이 보낸 입력(call, 답, reaction, 알림)은 받은 turn의 입력과 뒤 turn의 이력에서 같은 함수로 태그에 싼다. 그 turn이 끝나도 사람 글과 구별되어야 한다. 사람 메시지는 싸지 않는다.
   - 그 함수는 `packages/core/lophn-agent/run-loop/input-text.ts`의 `inputParts` 하나다. 이력 재생(`receivedParts`, `session/history.ts`)도 같은 함수를 부른다. 결과는 part 목록이다. 순서는 tag를 여는 글과 본문 글 줄, 그 뒤 image part를 block 차례대로, 마지막에 닫는 글이다. `resource_link`·`resource`는 본문과 같은 escape를 거쳐 글 줄이 된다.
   - image part는 blob hash만 갖고, `loadParts`가 같은 reader로 bytes를 붙인다. reader는 agent 자격의 `message-images/path`로 파일 경로를 푼다. 그래서 받은 turn과 뒤 이력은 이미지까지 같은 bytes다. 읽지 못한 이미지는 두 길 모두 `[image unavailable]` 글이 되어, 깨진 이미지 하나가 session을 막지 않는다. 두 길이 같은 bytes를 만들도록 받은 메시지의 봉투가 call의 답 방식(`reply`), reaction이 알리는 사실 이름(`event`), 실패한 답의 이유(`fail_reason`)를 같이 저장한다. 앞 두 속성 중 하나라도 이력에서 빠지면 call·reaction을 받은 turn 다음 요청부터 그 자리의 prefix가 달라져 cache가 한 번 깨지고, 답 방식 줄이 빠지면 결과를 받는 call을 받은 agent가 답해야 한다는 것을 잊는다.
 - 그래서 받은 순서와 turn 순서가 다르다. turn의 이력은 앞 turn들이 가져간 message를 turn 순서로 놓고 그 turn의 입력을 붙인다. 받은 순서로 자르면 아직 아무 turn도 가져가지 않은 call이 앞 turn의 prompt에 들어간다.
 - 닫힌 call에 늦게 온 답은 오류가 아니라 closed로 돌려준다. 받은 agent가 답이 전해지지 않았음을 알아야 하기 때문이다.
 - lophn runtime의 result 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다. conversation은 program이 done으로 만들지 않는다. 취소나 실패로 끝난다.
-- harness runtime session은 run-loop 입력함이 아니라 harness 입력함이 받는다(`TargetSession.transport`가 `harness`, `architecture/coding-agent.md`). 설정 `extensions.harness.enabled`(Settings › System › Extensions)가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 bare와 같다.
+- harness runtime session은 run-loop queue가 아니라 harness queue가 받는다(`TargetSession.transport`가 `harness`, `architecture/coding-agent.md`). 설정 `extensions.harness.enabled`(Settings › System › Extensions)가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 bare와 같다.
 - bare runtime(`architecture/agent-definition.md`)은 result call을 받은 turn이 끝날 때 마지막 응답 글이 답이다. 받은 call 글도 `lophn call reply` 대신 그렇게 알린다.
   - core wiring(`packages/core/main/daemon/wiring/bare-reply.ts`)이 `TurnEnded`를 구독해, outcome이 `completed`이고, turn 입력이 result call이고, 그 call이 아직 이 session이 받은 `accepted`이고, turn이 고정한 resolved agent(`turn_resolved`)가 bare이고, 그 turn의 마지막 agent 메시지 글이 비지 않았을 때만 보낸다.
   - 답은 redaction과 본문 준비를 거쳐 machine 명령 `AutoReplyCall`(`calls/auto-reply`, `packages/core/router/commands.ts`)로 `router.reply`를 부른다. agent의 `ReplyCall`과 같은 규칙이고, 이 session이 받는 쪽이라 call이 done이 된다. unattended 표시는 그 turn의 mode를 따른다.

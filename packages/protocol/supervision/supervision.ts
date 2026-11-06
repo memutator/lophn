@@ -179,7 +179,7 @@ export type AgentCredentialResponse = z.infer<
   typeof agentCredentialResponseSchema
 >;
 
-// 입력함은 core 메모리에 있다. agent runtime은 이 통로로 시작할 turn을 고르고(`next`), 시작·끝남·steer를
+// queue는 core 메모리에 있다. agent runtime은 이 통로로 시작할 turn을 고르고(`next`), 시작·끝남·steer를
 // 알리거나 읽는다. op와 응답의 모양은 run-loop의 `TurnSource` 그대로다.
 const TURN_SOURCE_OPS = [
   "next",

@@ -120,7 +120,7 @@ export async function readSessionConversation(
     turn: string | null;
     received: ReceivedMessage;
   }[] = [];
-  // 이 turn의 입력. 입력함은 사람 메시지를 먼저 꺼내므로 접수 순서와 turn 순서가 다르다.
+  // 이 turn의 입력. queue는 사람 메시지를 먼저 꺼내므로 접수 순서와 turn 순서가 다르다.
   let requestTurn: string | null = null;
   let cursor: string | undefined;
   for (let page = 0; ; page++) {

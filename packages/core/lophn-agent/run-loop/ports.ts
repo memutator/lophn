@@ -46,17 +46,17 @@ export type PendingInputs = {
   steering: readonly (SteeringInput & { parts: readonly HistoryPart[] })[];
 };
 
-// turn이 시작한 입력과 steer를 읽는 길이다. 입력함은 core process의 메모리에 있고 agent runtime은
+// turn이 시작한 입력과 steer를 읽는 길이다. queue는 core process의 메모리에 있고 agent runtime은
 // 감독 pipe로 읽는다. 연결은 wiring이 한다.
 export type TurnInputs = {
-  // 이 turn을 시작한 입력. 입력함에서 꺼낸 것이다.
+  // 이 turn을 시작한 입력. queue에서 꺼낸 것이다.
   first(): Promise<Result<RoutedInput | null>>;
   steering(): Promise<Result<readonly SteeringInput[]>>;
-  // model 요청에 반영한 steer를 앞에서부터 count개 입력함에서 비운다.
+  // model 요청에 반영한 steer를 앞에서부터 count개 queue에서 비운다.
   settled(count: number): Promise<Result<void>>;
 };
 
-// 입력함에서 turn을 시작하고 끝내는 길이다. 입력함은 core의 메모리에 있고 agent runtime은 감독 pipe로 이
+// queue에서 turn을 시작하고 끝내는 길이다. queue는 core의 메모리에 있고 agent runtime은 감독 pipe로 이
 // 길을 부른다. core 쪽 구현은 `work.ts`의 `createTurnSource`이고 pipe 메시지(`turn_source_request`)를 받는 쪽은 `turn-pipe.ts`다.
 export type TurnSource = {
   // 지금 시작할 turn 하나. 없으면 null이다. 입력은 꺼내지 않는다.

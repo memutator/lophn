@@ -58,7 +58,7 @@ modules:
 
   - path: packages/core/lophn-agent
     boundary: lophn-agent
-    notes: runtime이 harness인 agent의 session은 run-loop가 돌리지 않는다. session/harness.ts(입력 transport, 외부 session id)와 wiring/harness.ts(입력함, host route)가 core 쪽이고 실행은 shell host가 한다(boundary harness-host-core).
+    notes: runtime이 harness인 agent의 session은 run-loop가 돌리지 않는다. session/harness.ts(입력 transport, 외부 session id)와 wiring/harness.ts(queue, host route)가 core 쪽이고 실행은 shell host가 한다(boundary harness-host-core).
 
   - path: packages/core/main
     boundary: core
@@ -69,7 +69,7 @@ modules:
 
   - path: packages/core/router
     boundary: router
-    notes: 사람 메시지, call tool, program의 반응(reaction)을 session 입력함으로 보낸다. feature module을 import하지 않고 ports.ts의 port만 안다. 구현은 wiring이 끼운다.
+    notes: 사람 메시지, call tool, program의 반응(reaction)을 session queue로 보낸다. feature module을 import하지 않고 ports.ts의 port만 안다. 구현은 wiring이 끼운다.
 
   - path: packages/core/runs
     boundary: runs

@@ -201,7 +201,7 @@ alter table sessions rename column place_kind to workspace_kind;
 alter table sessions rename column place_id to workspace_id;`,
   },
   {
-    // 사람이 `!`로 돌린 명령의 기록이다. 사람 메시지로 쓰되 입력함에 넣지 않고 turn을 열지 않는다. 다음 turn이
+    // 사람이 `!`로 돌린 명령의 기록이다. 사람 메시지로 쓰되 queue에 넣지 않고 turn을 열지 않는다. 다음 turn이
     // 가져가 model이 본다. 가져간 뒤의 본문·순서는 다른 메시지처럼 고정이고, 가져가기 전에도 글을 고치거나
     // 순서를 바꾸지 못한다(대기열 메시지가 아니다).
     id: "lophn-agent.messages.shell",
@@ -528,8 +528,8 @@ export function hasUnfinishedTurn(lookup: Lookup, session: string): boolean {
   );
 }
 
-// 도는 turn의 model 요청에 반영한 steer(입력함에서 지금 올린 것 포함)를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.
-// 정상 종료 전에 미반영 steer가 없는지는 loop가 입력함으로 본다. 이미 turn이 정해진 message는 그대로 둔다.
+// 도는 turn의 model 요청에 반영한 steer(queue에서 지금 올린 것 포함)를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.
+// 정상 종료 전에 미반영 steer가 없는지는 loop가 queue로 본다. 이미 turn이 정해진 message는 그대로 둔다.
 export function takeSteering(
   tx: Tx,
   input: { messages: readonly string[]; call: string },

@@ -27,7 +27,7 @@ import {
 import { FILE_HOOKS } from "../../../agent-workspaces/hooks.ts";
 import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
 import {
-  createInbox,
+  createQueue,
   createTurnSource,
   createTurnStarter,
 } from "../../../lophn-agent/run-loop/mod.ts";
@@ -44,7 +44,7 @@ import type { MemoryHandler } from "../../../server/mod.ts";
 import { agentTools } from "../../agent-tools.ts";
 import type { WiringFactory } from "./context.ts";
 
-// 입력함에서 뺀 메시지를 session 기록에서도 지우는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+// queue에서 뺀 메시지를 session 기록에서도 지우는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
 const SESSION_INPUTS_PRINCIPAL = "machine:session-inputs";
 
 const SESSION_INPUTS_CONTEXT: AuthenticatedContext = {
@@ -94,13 +94,13 @@ const RUNTIME_END_CONTEXT: AuthenticatedContext = {
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
   let agentRuntime: AgentRuntimeChild | undefined;
   let stopWatching: (() => void) | undefined;
-  // 입력함은 core 메모리 하나다. Router의 lophn 입력 transport가 같은 것에 넣는다.
-  const inbox = createInbox();
+  // queue는 core 메모리 하나다. Router의 lophn 입력 transport가 같은 것에 넣는다.
+  const queue = createQueue();
   return {
     name: "lophn-agent-runtime",
-    // Router가 같은 입력함에 넣는다.
+    // Router가 같은 queue에 넣는다.
     prepare(ctx) {
-      ctx.provide("inbox", inbox);
+      ctx.provide("queue", queue);
       // io는 supervision wiring이 채우므로 호출 때 읽는다. 없거나 종료 뒤여도 던지지 않고 불가를 돌려준다.
       ctx.componentChecks.push({
         component: "agent-runtime",
@@ -117,7 +117,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
       PROVIDER_REFRESH_CONTEXT,
       RUNTIME_END_CONTEXT,
     ],
-    // 입력함의 사람 메시지를 지금 steer로 올리거나 뺀다. 입력함은 이 프로세스의 메모리다.
+    // queue의 사람 메시지를 지금 steer로 올리거나 뺀다. queue는 이 프로세스의 메모리다.
     build(ctx) {
       const humanOnly = (who: AuthenticatedContext): Result<void> =>
         who.actor === "user"
@@ -132,10 +132,10 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         const user = humanOnly(who);
         if (!user.ok) return user;
         const input = steerQueuedNow.input.parse(body);
-        if (!inbox.steerNow(input.session as Id<"ses">, input.message)) {
+        if (!queue.steerNow(input.session as Id<"ses">, input.message)) {
           return taken();
         }
-        // 입력함은 메모리라 화면이 알 길이 event뿐이다. 다음 turn 줄에서 대화로 옮긴다.
+        // queue는 메모리라 화면이 알 길이 event뿐이다. 다음 turn 줄에서 대화로 옮긴다.
         ctx.bus.publish({
           session: input.session as Id<"ses">,
           type: "MessageSteered",
@@ -157,7 +157,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           prepared: [],
         });
         if (!done.ok) return done;
-        inbox.remove(input.session as Id<"ses">, input.message);
+        queue.remove(input.session as Id<"ses">, input.message);
         ctx.bus.publish({
           session: input.session as Id<"ses">,
           type: "MessageRemoved",
@@ -179,12 +179,12 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           prepared: [],
         });
         if (!done.ok) return done;
-        // command가 redaction을 거친 block을 돌려준다. 입력함도 그 본문으로 바꾼다.
+        // command가 redaction을 거친 block을 돌려준다. queue도 그 본문으로 바꾼다.
         const { content } = done.value.result as { content: ContentBlock[] };
-        inbox.edit(input.session as Id<"ses">, input.message, content);
+        queue.edit(input.session as Id<"ses">, input.message, content);
         return ok({ message: input.message });
       };
-      // 표의 순서를 먼저 바꾼다. 켤 때 입력함에 다시 넣는 순서도 같은 표를 따른다.
+      // 표의 순서를 먼저 바꾼다. 켤 때 queue에 다시 넣는 순서도 같은 표를 따른다.
       const move: MemoryHandler = async (who, body) => {
         const user = humanOnly(who);
         if (!user.ok) return user;
@@ -197,7 +197,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           prepared: [],
         });
         if (!done.ok) return done;
-        inbox.move(input.session as Id<"ses">, input.message, input.direction);
+        queue.move(input.session as Id<"ses">, input.message, input.direction);
         return ok({ message: input.message });
       };
       const key = (route: { resource: string; method: string }) =>
@@ -285,13 +285,13 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         registry: ctx.registry,
         record: (context) => runtime.record(context),
         turns: createTurnSource({
-          inbox,
-          starter: createTurnStarter({ inbox }),
+          queue,
+          starter: createTurnStarter({ queue }),
         }),
         publish: ctx.bus.publish,
         // child가 보낸 쓰는 중인 model 날 글. core가 redaction해 `ModelOutputStreamed`로 낸다. 칸은 부를 때 읽는다.
         output: (batch) => ctx.liveTurns.output(batch),
-        inbox,
+        queue,
         // TurnEnded는 commit 뒤에 Bus로 나가 권한 요청과 질문의 기다림을 푼다.
         interruptTurns: () =>
           ctx.writer.command(RUNTIME_END_CONTEXT, {

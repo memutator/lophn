@@ -1,6 +1,6 @@
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
-import { INBOX_CLEAR_TOPIC } from "../run-loop/topics.ts";
+import { QUEUE_CLEAR_TOPIC } from "../run-loop/topics.ts";
 import { publishAfterCommit } from "../run-loop/turn-events.ts";
 import type { EndDeps, OpenDeps, WorkspaceDeps } from "./ports.ts";
 import { UNWIRED_WORKSPACE_DEPS } from "./unwired.ts";
@@ -32,8 +32,8 @@ export function openDepsOf(tx: Tx): OpenDeps {
   };
 }
 
-export const COMMIT_END_DEPS: Pick<EndDeps, "clearInbox" | "publish"> = {
-  clearInbox: (tx, session) =>
-    tx.port(afterCommit).push(INBOX_CLEAR_TOPIC, { session }),
+export const COMMIT_END_DEPS: Pick<EndDeps, "clearQueue" | "publish"> = {
+  clearQueue: (tx, session) =>
+    tx.port(afterCommit).push(QUEUE_CLEAR_TOPIC, { session }),
   publish: publishAfterCommit,
 };

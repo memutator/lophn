@@ -135,7 +135,7 @@ export type BeginTurnInput = {
   turn: string;
   session: string;
   kind: WorkspaceKind;
-  // 입력함이 turn을 시작한 입력의 session 기록 message.
+  // queue가 turn을 시작한 입력의 session 기록 message.
   inputMessage: string;
   basis: string;
   // 준비한 basis blob의 크기. 있으면 StartTurn이 영구 참조를 등록한다.

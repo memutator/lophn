@@ -4,7 +4,7 @@ import { TURN_MODES } from "../../../protocol/lophn-agent/mod.ts";
 const list = (values: readonly string[]) =>
   values.map((value) => `'${value}'`).join(", ");
 
-// `turns` 표. 입력함의 입력이 turn이 되는 순간 행이 생기므로 접수 상태가 없다. 같은 session에
+// `turns` 표. queue의 입력이 turn이 되는 순간 행이 생기므로 접수 상태가 없다. 같은 session에
 // running인 turn은 하나뿐이다. 권한·질문 대기는 turn이 running인 채 session snapshot이 가진다.
 // finished 행은 trigger가 다시 바꾸지 못하게 막아 결과를 한 번만 확정한다. session·message는 그 표를
 // 소유한 concern에서 오므로 참조 검사 없이 ID만 둔다. turn은 끝난 session을 지울 때만 함께 지운다.

@@ -45,7 +45,7 @@ import { titleOnReceive } from "./session-title.ts";
 // 준비 증거는 같은 값에서 정해진다: 정규 직렬화의 hash·크기, 보낸 자격의
 // principal, 본문 purpose. 살아 있는 준비가 없으면 등록이 거절되어 전체가 되돌아간다.
 
-// 사람 메시지를 session의 입력함에 넣는 Router 입구다(`core/router`의 `route`가 이 모양을 만족한다).
+// 사람 메시지를 session의 queue에 넣는 Router 입구다(`core/router`의 `route`가 이 모양을 만족한다).
 // 같은 Tx 안에서 부르고, 실패하면 접수한 메시지도 함께 되돌아간다.
 type MessageRouter = {
   route(
@@ -152,11 +152,11 @@ type HumanMessage = {
   delivery: InputDelivery;
   refs: CallRef[];
   unattended: boolean;
-  // `!` 명령 기록이면 그 본문. content는 비어 있고, 입력함·checkpoint·제목은 이 기록에 해당하지 않는다.
+  // `!` 명령 기록이면 그 본문. content는 비어 있고, queue·checkpoint·제목은 이 기록에 해당하지 않는다.
   shell?: ReturnType<typeof contentOfShell>;
 };
 
-// 사람 메시지를 session 기록에 쓴다. 입력함에 넣는 것(Router)은 부른 쪽이 한다. `existingBody`가 있으면 본문
+// 사람 메시지를 session 기록에 쓴다. queue에 넣는 것(Router)은 부른 쪽이 한다. `existingBody`가 있으면 본문
 // blob은 이미 저장되고 참조가 등록된 값이다(다른 concern이 사람 한 번의 요청에서 만든 요청; request.ts).
 // 없으면 core가 준비한 blob의 준비 증거로 영구 참조를 등록한다. 같은 메시지를 다시 부르면 `replayed`다.
 function writeHuman(
@@ -264,8 +264,8 @@ function writeHuman(
   return ok({ replayed: false, state_seq: String(seq) });
 }
 
-// SendMessage의 본체. 사람 메시지는 접수할 때 session 기록에 쓰고 Router(`from: human`)를 거쳐 입력함에
-// 들어간다. 입력함에 넣는 것이 실패하면 쓴 메시지도 같은 transaction이라 함께 되돌아간다.
+// SendMessage의 본체. 사람 메시지는 접수할 때 session 기록에 쓰고 Router(`from: human`)를 거쳐 queue에
+// 들어간다. queue에 넣는 것이 실패하면 쓴 메시지도 같은 transaction이라 함께 되돌아간다.
 function sendWith(
   deps: SendMessageDeps,
   tx: Tx,
@@ -356,7 +356,7 @@ function recordShell(
   return ok({ message: id, state_seq: written.value.state_seq });
 }
 
-// core를 켤 때 입력함에 되돌려 놓을 사람 메시지다. 입력함은 메모리라 꺼지면 사라지는데, 아직 turn이 가져가지 않은
+// core를 켤 때 queue에 되돌려 놓을 사람 메시지다. queue는 메모리라 꺼지면 사라지는데, 아직 turn이 가져가지 않은
 // 접수 기록은 남는다. 접수 순서로 돌려준다. Fork 복사본도 turn이 비어 있어서, Fork한 session은 자기 turn이 가져간
 // 마지막 메시지보다 뒤에 접수한 것만 센다. rewind가 숨긴 구간의 메시지는 뺀다. unattended 메시지는 run의 입력이고,
 // 켤 때 다시 돌면 이미 실패로 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다.
@@ -396,7 +396,7 @@ export function unstartedHumanMessages(
 
 // agent의 답을 그 session의 기록에 남긴다. 받은 메시지와 같은 봉투로 쓴다: 보낸 쪽은 그 session 자신이고
 // `turn`은 답한 turn이다. 쓰는 쪽은 runtime(machine)이거나 그 session 자신의 agent이고, turn은 이 session에서
-// 도는 중이어야 한다. 같은 메시지를 다시 부르면 이전 결과다. 입력함에는 넣지 않는다: 답은 자기 session의 입력이
+// 도는 중이어야 한다. 같은 메시지를 다시 부르면 이전 결과다. queue에는 넣지 않는다: 답은 자기 session의 입력이
 // 아니다.
 function recordAgent(
   tx: Tx,

@@ -2,15 +2,15 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 
-// session마다 하나인 메모리 입력함이다. 꺼졌다 켜지면 사라지고, 기다리던 call은 Router가
+// session마다 하나인 메모리 queue다. 꺼졌다 켜지면 사라지고, 기다리던 call은 Router가
 // failed(lophn_restarted)로 닫는다. 입력 하나가 turn 하나이므로 turn이 돌면 다음 turn까지 쌓아 둔다.
 // 순서: 사람 메시지가 먼저이고 그 안에서는 들어온 순서, 그다음 나머지가 들어온 순서.
 
 type Session = Id<"ses">;
 type Entry = { order: number; input: RoutedInput };
 
-export type Inbox = {
-  // steer이고 도는 turn이 있으면 입력함이 아니라 steering 목록에 들어간다.
+export type Queue = {
+  // steer이고 도는 turn이 있으면 queue가 아니라 steering 목록에 들어간다.
   put(session: Session, input: RoutedInput): void;
   // 꺼내지 않고 맨 앞 입력을 본다.
   next(session: Session): RoutedInput | undefined;
@@ -24,9 +24,9 @@ export type Inbox = {
   isRunning(session: Session): boolean;
   // child가 사라졌다. 도는 표시를 모두 푼다.
   endAll(): void;
-  // 입력함의 사람 메시지 하나를 지금 도는 turn의 steer로 올린다. 가져간 것이거나 도는 turn이 없으면 false다.
+  // queue의 사람 메시지 하나를 지금 도는 turn의 steer로 올린다. 가져간 것이거나 도는 turn이 없으면 false다.
   steerNow(session: Session, message: string): boolean;
-  // 입력함에서 메시지 하나를 뺀다. 이미 가져갔으면 false다.
+  // queue에서 메시지 하나를 뺀다. 이미 가져갔으면 false다.
   remove(session: Session, message: string): boolean;
   // 아직 가져가지 않은 사람 메시지의 본문이나 순서를 바꾼다. 없으면 false다. 사람 메시지끼리만
   // 순서를 맞바꾸므로 사람 메시지가 먼저라는 규칙은 그대로다.
@@ -60,7 +60,7 @@ function head(entries: readonly Entry[]): Entry | undefined {
   return found;
 }
 
-export function createInbox(): Inbox {
+export function createQueue(): Queue {
   const queued = new Map<Session, Entry[]>();
   const steering = new Map<Session, RoutedInput[]>();
   const running = new Set<Session>();

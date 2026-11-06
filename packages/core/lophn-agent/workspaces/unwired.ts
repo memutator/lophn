@@ -20,6 +20,6 @@ export const UNWIRED_END_DEPS: EndDeps = {
     failReceivedCalls: () => ok(undefined),
   },
   interruptRunningTurns: () => ok(undefined),
-  clearInbox: () => {},
+  clearQueue: () => {},
   publish: () => {},
 };

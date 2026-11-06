@@ -60,7 +60,7 @@ import type {
 import type { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import type { createAppsControl } from "../../../apps/control.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
-import type { Inbox } from "../../../lophn-agent/run-loop/inbox.ts";
+import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { LiveTurns } from "../../../lophn-agent/run-loop/live-turns.ts";
@@ -233,15 +233,15 @@ type Late = {
   appRewind: AppRewind;
   // annotations가 받는 것. Router(workspaces-sessions)가 annotationDelivery를 채운다. 없으면 보내기는 unavailable이다.
   annotationDelivery: AnnotationDelivery;
-  // lophn-agent runtime이 낸다. 메모리 입력함 하나를 Router와 turn source가 나눠 쓴다.
-  inbox: Inbox;
+  // lophn-agent runtime이 낸다. 메모리 queue 하나를 Router와 turn source가 나눠 쓴다.
+  queue: Queue;
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
   questionWaits: ReturnType<typeof createQuestionWaits>;
   // session-snapshots가 낸다. agent runtime이 보낸 쓰는 중인 model 글과 도는 turn의 active를 받아 snapshot의
   // `writing`·`elapsed`를 든다.
   liveTurns: LiveTurns;
   // API server가 쓰는 쓰기 앞 처리기를 모두 접은 writer다. core 안에서 command를 내는 곳은 날 writer(runtime.writer)가 아니라
-  // 이것을 써야 사람이 낸 것과 같은 층(commit 뒤 Bus, 본문 준비, 입력함 적용)을 지난다. 층이 다 생긴 뒤에 채워지므로 부를 때 읽는다.
+  // 이것을 써야 사람이 낸 것과 같은 층(commit 뒤 Bus, 본문 준비, queue 적용)을 지난다. 층이 다 생긴 뒤에 채워지므로 부를 때 읽는다.
   writer: Writer;
   // runs와 workflows가 낸다. jobs가 차례마다 run을 열고 instance를 시작할 때 쓴다.
   runService: RunService;
@@ -293,7 +293,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   invocationLedger: true,
   appRewind: true,
   annotationDelivery: true,
-  inbox: true,
+  queue: true,
   questionWaits: true,
   liveTurns: true,
   writer: true,

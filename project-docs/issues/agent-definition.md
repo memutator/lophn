@@ -86,3 +86,18 @@ modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
 
 고치려면:
 - `TURN_OUTCOME_REASONS.failed`에 `internal`을 더하고, driver가 그 이유로 닫게 하고, 화면 문구 key 하나를 더한다. `turns.outcome_reason`은 CHECK 없는 text라 schema step이 필요 없다. 작음. 추천.
+
+## 긴 tool loop가 compact하지 못하고 `context_limit`으로 끝난다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent]
+```
+
+지금: 자동 Compact는 turn 사이에만 돈다(`packages/core/lophn-agent/run-loop/driver.ts`, `architecture/agent-definition.md`의 compact 항목). turn 안 tool loop는 예산의 남은 절반만 쓰고, 그것을 넘으면 turn이 `context_limit` 실패로 끝난다. 다음 turn 전에야 Compact가 돈다. Codex(`codex-rs/core/src/session/turn.rs`의 mid-turn `run_auto_compact`), opencode(`runner/llm.ts`의 매 step 앞 `compact({reason: "auto"})`), Claude Code, omp(`maintainContextMidRun`)는 모두 turn 안 model 요청 사이에 compact하고 같은 turn을 이어 간다.
+
+영향: 파일을 많이 읽는 긴 작업에서 사람이 turn 하나를 잃는다. 사람은 실패를 보고 같은 요청을 다시 보내야 하고, 그 사이 turn이 한 일(tool 결과)은 요약으로만 남는다.
+
+고치려면:
+- turn loop가 model 요청 전에 예산을 보고, 넘으면 그 자리에서 Compact(지금까지의 turn 안 tool 결과까지 포함)를 한 뒤 같은 turn을 이어 간다. 요약에 turn 안 진행을 담는 규칙, rewind·event와의 관계를 정해야 한다. 중간~큼. 추천.
+- tool 결과를 오래된 것부터 줄이는(자르기, `[omitted]`) 단계만 먼저 더한다. 작음~중간. Compact 없이 버티는 시간만 늘린다.

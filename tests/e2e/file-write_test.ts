@@ -12,8 +12,8 @@ import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
 import { agentFilePathOf } from "../../packages/core/agent-workspaces/workspace/instruction-rules.ts";
 import {
-  toolCallList,
   LOPHN_AGENT_ID,
+  toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
@@ -68,7 +68,8 @@ async function scope(
     const other = `${run.work}/other`;
     const outside = `${run.work}/outside`;
     for (const dir of [proj, other, outside]) await mkdir(dir);
-    await symlink(outside, `${proj}/link`);
+    // 폴더 연결은 junction으로 만든다. Windows에서 권한이 필요 없고 POSIX는 type을 무시한다.
+    await symlink(outside, `${proj}/link`, "junction");
     const { project } = await openProject(core, proj);
     await openProject(core, other);
     const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {

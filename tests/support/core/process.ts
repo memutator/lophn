@@ -100,7 +100,17 @@ export type SpawnFailed = {
 // 호출한 쪽이 덮지 못하게 막는 env. 격리(사람의 홈, OS keychain)를 지키는 것들이다.
 const FIXED_ENV = ["LOPHN_HOME", "HOME", "PATH", "USERPROFILE"];
 // Windows의 cmd·npm·Git Bash가 기본 명령을 돌리는 데 드는 값이다. 사람의 홈(USERPROFILE)은 넘기지 않는다.
-const WINDOWS_ENV = ["SystemRoot", "ComSpec", "TEMP", "TMP", "PATHEXT"];
+const WINDOWS_ENV = [
+  "SystemRoot",
+  "ComSpec",
+  "TEMP",
+  "TMP",
+  "PATHEXT",
+  // shell tool이 Git Bash를 찾는 자리다.
+  "ProgramFiles",
+  "ProgramFiles(x86)",
+  "LOPHN_GIT_BASH",
+];
 
 function windowsEnv(userHome: string): Record<string, string> {
   if (process.platform !== "win32") return {};

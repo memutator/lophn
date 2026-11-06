@@ -8,9 +8,10 @@
 //   건너고 disk 전체를 봐야 알 수 있다.
 import assert from "node:assert/strict";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { normalize } from "node:path";
 import { test } from "node:test";
 import {
-  workspaceSessionRead,
+  LOPHN_AGENT_ID,
   messageBody,
   modelCallList,
   providerList,
@@ -19,7 +20,7 @@ import {
   toolCallList,
   turnBodyView,
   turnRead,
-  LOPHN_AGENT_ID,
+  workspaceSessionRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   SECRET_FILE_NAME,
@@ -97,11 +98,15 @@ async function withKeyedCore(
     await core.stop();
     const secrets = `${run.home}/${SECRET_FILE_NAME}`;
     await afterStop(await readFile(secrets, "utf8"), ctx);
-    assert.deepStrictEqual((await stat(secrets)).mode! & 0o777, 0o600);
+    // Windows는 mode가 없어 0600을 보지 않는다(platform.md).
+    if (process.platform !== "win32") {
+      assert.deepStrictEqual((await stat(secrets)).mode! & 0o777, 0o600);
+    }
     for (const each of ctx.keys) {
       assert.deepStrictEqual(
+        // 심은 file과 찾은 file의 구분자 모양이 Windows에서 다를 수 있다.
         (await filesWith(run.dir, each)).filter(
-          (path) => !ctx.planted.includes(path),
+          (path) => !ctx.planted.map(normalize).includes(normalize(path)),
         ),
         [],
       );

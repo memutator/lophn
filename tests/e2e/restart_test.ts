@@ -12,16 +12,16 @@ import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
   LOPHN_AGENT_ID,
   modelCallList,
-  workspaceSessionRead,
   receivedMessageList,
   toolCallList,
   turnList,
+  workspaceSessionRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { SECRET_FILE_NAME } from "../../packages/protocol/secrets/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
   openProject,
+  openWorkspaceSession,
   say,
   settle,
   turnsOf,
@@ -139,7 +139,10 @@ test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연결은
     assert.ok(JSON.stringify(request.body).includes("first words"));
     // disk: key는 0600 secrets.json에 남아 있다.
     const secrets = await stat(`${run.home}/${SECRET_FILE_NAME}`);
-    assert.deepStrictEqual(secrets.mode & 0o777, 0o600);
+    // Windows는 mode가 없어 0600을 보지 않는다(platform.md).
+    if (process.platform !== "win32") {
+      assert.deepStrictEqual(secrets.mode & 0o777, 0o600);
+    }
   } finally {
     await core?.kill().catch(() => {});
     await fake.close();

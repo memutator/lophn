@@ -43,6 +43,7 @@
 * 주석은 "왜"만 쓴다. 죽은 코드는 지운다.
 * 의존성은 판을 정확히 고정한다.
 * 끝내기 전에 `npm run check`를 돌린다.
+* 저장소 root checkout은 여러 session이 같이 쓴다. 거기서 branch를 바꾸지 않는다. branch 일은 자기 worktree에서 하고, root에서 commit·merge할 때는 바로 앞에 `git branch --show-current`로 branch를 확인한다.
 
 ## 사람에게 묻는 것
 

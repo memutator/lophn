@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py review-fixes build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `app-data-restore` | app-data | 1 | 없음 | merged | app-data/app-data-restore | f0786eab6 |  |
 | `settings-keep` | config | 1 | 없음 | merged | config/settings-keep | 88e8cfcfe |  |
-| `event-fanout` | events | 1 | session-list | running | events/event-fanout |  |  |
+| `event-fanout` | events | 1 | session-list | merged | events/event-fanout | 3c4bf1151 |  |
 | `ledger-freeze` | ledger | 1 | 없음 | merged | ledger/ledger-freeze | fe9d43270 |  |
 | `turn-loop` | run-loop | 1 | 없음 | merged | run-loop/turn-loop | 445eccfda |  |
 | `turn-loop-perf` | run-loop | 1 | turn-loop | merged | run-loop/turn-loop-perf | 6c24d6990 |  |

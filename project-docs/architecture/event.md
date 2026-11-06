@@ -56,6 +56,7 @@ Bus
 agent event와 화면
 - agent event는 저장하지 않고 replay하지 않는다. 대화의 정본은 session 기록이고, 놓친 화면은 snapshot을 다시 읽는다. 쓰는 중인 글과 도는 turn의 active는 core 메모리(`packages/core/lophn-agent/run-loop/live-turns.ts`)에만 있고 ACP snapshot이 싣는다. `writing_streamed`의 offset이 snapshot의 글 길이와 맞지 않으면 `reread`가 서고 화면이 snapshot을 다시 읽는다.
 - 화면은 조건을 걸고 ready를 받은 뒤에 snapshot을 읽는다. 읽고 나서 걸면 그 사이 event를 놓친다. 끊긴 연결은 replay 없이 처음부터 다시 맞춘다.
+- 서버는 `watch` frame마다 받은 차례로 `ready` 하나를 답한다. shell main은 그 차례로 짝지어, 한 창이 조건을 바꿔 건 `watch`의 `ready`는 그 창에만 보내고 새로 붙은 연결의 `ready`만 모든 창에 보낸다. 창 안에서도 그 `watch`를 걸 때 아직 ready를 못 받은 구독자만 다시 읽는다. 기존 구독자는 서버가 동기로 다시 구독해 event를 잃지 않는다. tab 하나를 열고 닫을 때마다 모든 창이 snapshot을 다시 읽던 것을 막는다(`packages/shell/main/desktop/core/events.ts`, `packages/shell/renderer/desktop/connection/events/client.ts`).
 - session을 건 조건은 session이 없는 event(남지 않는 event)와 맞지 않는다. 그런 event는 종류 조건으로만 받는다. 섞어 쓰면 전역 대기 목록이 조용히 빈다.
 - Gateway는 느린 구독자를 버퍼 한도에서 끊고 Bus는 던진 sink를 해제한다. 구독자 하나 때문에 publish가 막히면 command 경로가 막힌다.
 - core는 toast를 모르고 toast는 shell의 정책이다. 끊긴 사이 놓친 toast는 다시 띄우지 않는다. 앱 멈춤과 kind 위반의 toast는 renderer가 남지 않는 event를 듣고 띄운다. agent의 turn 끝·권한 물음·질문 알림은 renderer가 아니라 shell main이 같은 event를 듣고 터미널 agent와 같은 규칙으로 toast나 OS 알림을 정한다(`architecture/terminal-agent.md`).

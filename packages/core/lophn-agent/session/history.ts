@@ -35,7 +35,7 @@ import {
 // 그대로 있고 화면도 그대로다). rewind가 숨긴 구간과 "Summarize from here"가 접은 구간의 원문도 읽지 않는다:
 // 숨긴 구간은 입력에 들지 않고 접힌 구간은 그 요약이 맡는다. 숨김·접힘을 읽지 못하면 숨긴 내용이 새지 않게
 // 대화 전체를 읽지 못한 것으로 한다. 이 turn의 요청 메시지와 아직 어느 turn도 가져가지 않은 메시지는 이전 대화가 아니다.
-// 한 turn 안에서는 Compact가 일어날 수 없어(끝나지 않은 turn이 있으면 요청하지 않는다) 이 값은 turn마다 한 번 읽는다.
+// turn 안 Compact가 아니면 turn이 도는 동안 Compact가 일어나지 않아 이 값은 turn마다 한 번 읽는다. turn 안 Compact 뒤에는 turn이 session 대화를 다시 읽는다.
 
 const MAX_PAGES = 400;
 const BODY_BATCH = 8;

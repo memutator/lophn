@@ -8,6 +8,7 @@ import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import type {
   CommandDefinition,
   Input,
+  RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
 import {
@@ -17,7 +18,6 @@ import {
   sessionNotFound,
 } from "./guards.ts";
 import {
-  hasUnfinishedTurn,
   loadSession,
   nextSessionSeq,
   openCompactRequest,
@@ -26,7 +26,8 @@ import {
 import { publishAfterCommit } from "../run-loop/turn-events.ts";
 
 // Compact. 같은 session의 앞 구간 요약을 이후 call의 조립에 쓰게 정한다. 사람이 부르거나, 이전 대화가 커진
-// session이면 다음 turn을 시작하기 전에 runtime이 부른다.
+// session이면 다음 turn을 시작하기 전에 runtime이 부른다. 도는 turn이 예산을 넘으면 그 turn 자신이 자기 session을
+// Compact하고 같은 turn을 이어 간다(turn 안 Compact). 그 밖에는 turn이 도는 동안 요청도 확정도 받지 않는다.
 // 요약 call은 짧은 transaction 안에서 부를 수 없어서 세 걸음으로 나눈다. 사람이나 runtime이 요청하고(Request),
 // runtime이 session agent의 model에 요약 지시를 보내 요약을 받고, 끝까지 성공한 그 call을 구간과 함께
 // session에 이어 요청을 끝낸다(Compact). 요약이 실패하면 요청만 이유와 함께 닫는다(Fail). 요청의 진행은
@@ -37,7 +38,7 @@ function publishCompact(
   tx: Tx,
   session: string,
   type: "CompactStarted" | "CompactEnded",
-  payload: { turn: null } | { ok: boolean },
+  payload: { turn: string | null } | { ok: boolean },
 ): void {
   publishAfterCommit(tx, {
     session,
@@ -97,6 +98,28 @@ export function isFinishedSummaryCall(
   return summaryCall(lookup, session, call) !== undefined;
 }
 
+// session에서 도는 turn. 없으면 undefined다.
+function runningTurn(tx: Tx, session: string): string | undefined {
+  const row = tx.sql.get(
+    "select id from turns where session = ? and state = 'running' limit 1",
+    [session],
+  );
+  return row === undefined ? undefined : String(row["id"]);
+}
+
+// 도는 turn이 있으면 그 turn 자신(machine, 입력의 turn이 도는 turn)의 요청과 확정만 받는다. 그 turn이면 turn 안
+// Compact라 turn id를, turn이 없거나 turn 안이 아니면 null을 돌려준다. 받지 않으면 undefined다.
+function turnOfCompact(
+  tx: Tx,
+  ctx: RequestContext,
+  session: string,
+  turn: string | undefined,
+): string | null | undefined {
+  const running = runningTurn(tx, session);
+  if (running === undefined) return null;
+  return requireMachine(ctx).ok && turn === running ? running : undefined;
+}
+
 function closeRequest(
   tx: Tx,
   request: string,
@@ -135,13 +158,15 @@ export function createCompactCommands(): {
         if (open !== undefined) {
           return ok({ id: session.id, request_seq: open.request_seq });
         }
-        if (hasUnfinishedTurn(tx, session.id)) {
+        const turn = turnOfCompact(tx, ctx, session.id, input.turn);
+        if (turn === undefined) {
           return reject("conflict", "a turn of the session is not finished");
         }
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
         }
-        if (!hasMessageAfterSpan(tx, session)) {
+        // turn 안에서는 요약할 진행이 turn의 메모리에 있어 덮을 새 메시지가 없어도 된다.
+        if (turn === null && !hasMessageAfterSpan(tx, session)) {
           return reject("conflict", "no message is left to summarize");
         }
         // 요청의 이름은 표 안에서 이어 세는 순번이다.
@@ -154,7 +179,7 @@ export function createCompactCommands(): {
           "insert into session_compact_requests (request_seq, session, state) values (?, ?, 'requested')",
           [BigInt(seq), session.id],
         );
-        publishCompact(tx, session.id, "CompactStarted", { turn: null });
+        publishCompact(tx, session.id, "CompactStarted", { turn });
         return ok({ id: session.id, request_seq: seq });
       },
     },
@@ -184,7 +209,8 @@ export function createCompactCommands(): {
         ) {
           return reject("conflict", "no such open Compact request");
         }
-        if (hasUnfinishedTurn(tx, session.id)) {
+        const turn = turnOfCompact(tx, ctx, session.id, input.turn);
+        if (turn === undefined) {
           return reject("conflict", "a turn of the session is not finished");
         }
         const call = summaryCall(tx, session.id, input.summary_call);
@@ -199,10 +225,14 @@ export function createCompactCommands(): {
         if (covered === undefined) {
           return reject("invalid_input", "the span does not end at a message");
         }
+        // turn 안 Compact의 새 요약은 같은 끝을 다시 덮을 수 있다: 덮을 새 메시지 없이 turn의 진행만 담는다.
         const before = compactionOf(session);
+        const through = BigInt(input.through_seq);
         if (
           before !== null &&
-          BigInt(input.through_seq) <= BigInt(before.through_seq)
+          (turn === null
+            ? through <= BigInt(before.through_seq)
+            : through < BigInt(before.through_seq))
         ) {
           return reject("conflict", "the summary covers nothing new");
         }

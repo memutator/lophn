@@ -19,6 +19,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   compactSummaryRequest,
+  type HistoryMessage,
   inputBudget,
   measureWire,
   type SessionMessage,
@@ -49,6 +50,12 @@ import { readSessionConversation } from "./history.ts";
 // 요약하지 않고 원문으로 남기는 최근 사람 메시지 수.
 const KEEP_RECENT = 3;
 
+// turn 안 Compact의 요약 지시에 더하는 말이다. 요약 뒤 같은 작업이 이어지므로 진행을 남기게 한다.
+const IN_TURN_NOTE =
+  "The agent is in the middle of a task and continues the same task right after your summary. Under 3 and 4, keep what it has done so far, the key points of the files and tool results it read (names, paths and values that later steps rely on), and what is left to do, so it does not repeat finished work.";
+
+export type InTurnCompact = "compacted" | "skipped" | "failed";
+
 // 요약 call 하나의 크기다. input은 입력 예산이고 body는 요약 본문 상한(summaryOutputCap(input))이다.
 type SummaryLimit = { input: number; body: number };
 
@@ -78,6 +85,14 @@ export type Compactor = {
   // 다음 turn을 시작하기 전에 runtime이 이 session을 Compact한다. 요청을 machine으로 열고 바로 끝낸다.
   // 요약할 것이 없거나 요청을 열 수 없으면(도는 turn, 바뀐 session) idle이다.
   compactNow(session: string): Promise<CompactResult>;
+  // 도는 turn이 자기 session을 Compact한다. history는 이 turn이 쌓은 진행(tool 결과는 session 메시지가 아니라 turn의
+  // 메모리에만 있다)이고 요약 재료에 들어간다. 요약할 것이 없으면 skipped, 어떤 실패든 failed이고 session은 그대로다.
+  compactInTurn(input: {
+    session: string;
+    turn: string;
+    history: readonly HistoryMessage[];
+    signal: AbortSignal;
+  }): Promise<InTurnCompact>;
   // 사람이 요청한 "Summarize from here" 하나를 core에서 가져와 요약하고 끝난 call(또는 실패 이유)을 돌려준다.
   // 가져올 요청이 없거나 core에 닿지 못하면 idle이다.
   nextRange(): Promise<RangeSummary>;
@@ -109,7 +124,46 @@ type CompactorDeps = {
 type Request = {
   session: string;
   request_seq: string;
+  // turn 안 Compact의 turn. 요약 지시에 진행 중이라는 말을 더하고 확정에 싣는다.
+  turn?: string;
+  // 멈춤이 요약 call을 끊는 신호. 없으면 끝까지 기다린다.
+  signal?: AbortSignal;
 };
+
+// turn의 진행(이력)을 요약 재료의 메시지로 푼다. tool 결과는 사람의 말이 아니므로 agent 쪽에 두고 출처를 적는다.
+// 이미지와 reasoning은 뺀다.
+function progressMessages(
+  history: readonly HistoryMessage[],
+  seq: bigint,
+): SessionMessage[] {
+  const names = new Map<string, string>();
+  for (const message of history) {
+    for (const part of message.parts) {
+      if (part.kind === "tool_use") names.set(part.id, part.name);
+    }
+  }
+  const out: SessionMessage[] = [];
+  for (const message of history) {
+    for (const part of message.parts) {
+      if (part.kind === "text" && part.text.trim() !== "") {
+        out.push({ seq, role: message.role, text: part.text });
+      } else if (part.kind === "tool_use") {
+        out.push({
+          seq,
+          role: "assistant",
+          text: `Called ${part.name} with ${JSON.stringify(part.input)}`,
+        });
+      } else if (part.kind === "tool_result") {
+        out.push({
+          seq,
+          role: "assistant",
+          text: `Result of ${names.get(part.id) ?? part.id} (a tool result, not from the person): ${part.text}`,
+        });
+      }
+    }
+  }
+  return out;
+}
 
 const EMPTY_USAGE = (revision: string): TokenUsage => ({
   input: null,
@@ -195,7 +249,22 @@ export function createCompactor(
       messages: readonly SessionMessage[];
     },
   ): Promise<{ id: string; text: string }> {
-    const prompt = compactSummaryRequest({ ...input, cap: limit.body });
+    const base = compactSummaryRequest({ ...input, cap: limit.body });
+    const prompt =
+      request.turn === undefined
+        ? base
+        : {
+            ...base,
+            system: base.system.map((block, at) =>
+              at === 0
+                ? {
+                    ...block,
+                    text: `${block.text}
+${IN_TURN_NOTE}`,
+                  }
+                : block,
+            ),
+          };
     const packed = binding.pack(prompt);
     if (measureWire(packed, prompt) > limit.input) {
       throw new Failure("too_large");
@@ -283,7 +352,7 @@ export function createCompactor(
         body: safeBody.value as Record<string, unknown>,
         usageRevision: binding.usageRevision,
       },
-      new AbortController().signal,
+      request.signal ?? new AbortController().signal,
     );
     const output = invoked.ok ? invoked.value : undefined;
     const outcome = output?.outcome ?? {
@@ -436,7 +505,11 @@ export function createCompactor(
     }
   }
 
-  async function work(request: Request): Promise<CompactResult> {
+  // progress는 turn 안 Compact에서 이 turn이 쌓은 진행이다. 요약 재료의 끝에 붙는다.
+  async function work(
+    request: Request,
+    progress: readonly HistoryMessage[] = [],
+  ): Promise<CompactResult> {
     const read = await readSessionConversation(machine, {
       session: request.session,
       request: null,
@@ -447,28 +520,33 @@ export function createCompactor(
     // 숨긴 구간은 요약에 들지 않고 접힌 구간은 그 요약이 자리를 맡는다. 최근 사람 메시지 몇 개는 남긴다.
     const visible = visibleMessages(conversation);
     const material = visible.slice(0, recentStart(visible));
-    if (material.length === 0) {
+    const covered = conversation.compaction;
+    if (material.length === 0 && (request.turn === undefined || !covered)) {
       return await fail(request, "nothing_to_summarize");
     }
+    // 요약이 덮는 끝은 확정 메시지여야 한다. 마지막이 접힌 구간 요약이면 그 구간의 마지막 메시지다. 덮을 새 메시지가
+    // 없는 turn 안 Compact는 앞서 덮은 끝을 그대로 둔다.
+    const through =
+      material.length === 0
+        ? covered!.through_seq
+        : conversation.messages
+            .filter((message) => message.seq <= material.at(-1)!.seq)
+            .at(-1)!.seq;
     const summary = await summarizeMaterial(
       request,
-      material,
-      conversation.compaction?.text ?? null,
+      [...material, ...progressMessages(progress, through)],
+      covered?.text ?? null,
     );
     if (summary.kind === "idle") return summary;
     if (summary.kind === "failed") return await fail(request, summary.reason);
-    // 요약이 덮는 끝은 확정 메시지여야 한다. 마지막이 접힌 구간 요약이면 그 구간의 마지막 메시지다.
-    const lastSeq = material[material.length - 1]!.seq;
-    const through = conversation.messages
-      .filter((message) => message.seq <= lastSeq)
-      .at(-1)!;
     const ended = await commandOf(
       machine,
       compactSession,
       {
         session: request.session,
         summary_call: summary.id,
-        through_seq: String(through.seq),
+        through_seq: String(through),
+        ...(request.turn === undefined ? {} : { turn: request.turn }),
       },
       { state: "open", request_seq: request.request_seq },
       `${request.session}:compact:${request.request_seq}`,
@@ -534,8 +612,52 @@ export function createCompactor(
     return await work({ session, request_seq: requested.value.request_seq });
   }
 
+  async function compactInTurn(input: {
+    session: string;
+    turn: string;
+    history: readonly HistoryMessage[];
+    signal: AbortSignal;
+  }): Promise<InTurnCompact> {
+    const read = await readSessionConversation(machine, {
+      session: input.session,
+      request: null,
+    });
+    if (!read.ok) return "failed";
+    const hasMessage = visibleMessages(read.value).length > 0;
+    const hasProgress = progressMessages(input.history, 0n).length > 0;
+    // 덮을 끝이 없거나(메시지도 앞 요약도 없다) 요약할 새 재료가 없으면 요청을 열지 않는다.
+    if (!hasMessage && !(read.value.compaction !== null && hasProgress)) {
+      return "skipped";
+    }
+    const current = await readOf(machine, workspaceSessionRead, {
+      session: input.session,
+    });
+    if (!current.ok) return "failed";
+    const seq = current.value.session.state_seq;
+    const requested = await commandOf(
+      machine,
+      requestSessionCompact,
+      { session: input.session, turn: input.turn },
+      { state: "open", state_seq: seq },
+      // 실패한 요청은 session을 바꾸지 않아 seq가 같으므로 한 turn의 다음 시도가 앞 시도의 답을 받지 않게 한다.
+      `${input.turn}:turn-compact:${ids.newId("cmp")}`,
+    );
+    if (!requested.ok) return "failed";
+    const result = await work(
+      {
+        session: input.session,
+        request_seq: requested.value.request_seq,
+        turn: input.turn,
+        signal: input.signal,
+      },
+      input.history,
+    );
+    return result.kind === "compacted" ? "compacted" : "failed";
+  }
+
   return {
     compactNow,
+    compactInTurn,
     async nextRange() {
       const taken = await readOf(machine, takeRewindSummaryRequest, {});
       if (!taken.ok || taken.value.request === null) return { kind: "idle" };

@@ -435,6 +435,80 @@ test("loop의 안전 규칙이 지켜진다", async (t) => {
       ],
 
       [
+        "12b turn 안 Compact 뒤 같은 turn이 요약과 덮은 끝 뒤의 대화로 이어 가고, Compact가 실패하면 tool 결과를 줄여 이어 간다",
+        async () => {
+          const bigRead: HarnessTool = {
+            name: "read_file",
+            effect: "read",
+            run: () => ({
+              status: "success",
+              code: "ok",
+              summary: "x".repeat(3000),
+            }),
+          };
+          const steps = [
+            tools([call("t1", "read_file")]),
+            tools([call("t2", "read_file")]),
+            tools([call("t3", "read_file")]),
+            failed({ code: "context_exceeded" }),
+            answer("ok"),
+          ];
+          const resultIds = (h: Harness, i: number) =>
+            h.model.requests[i].prompt.request.messages.flatMap((message) =>
+              message.parts.flatMap((part) =>
+                part.kind === "tool_result"
+                  ? [part.text === OMITTED_RESULT ? "omitted" : part.id]
+                  : [],
+              ),
+            );
+
+          const compacted = loopHarness({
+            steps,
+            tools: [bigRead],
+            compact: {
+              outcome: "compacted",
+              after: {
+                compaction: { through_seq: 5n, text: "SUMMARY-OF-PROGRESS" },
+                messages: [],
+              },
+            },
+          });
+          const end = await compacted.run().done;
+          compacted.model.finish();
+          // 덮인 turn 안 tool 결과는 다시 실리지 않고 요약과 이 turn의 요청이 대신한다.
+          assert.deepStrictEqual(
+            [
+              end,
+              compacted.compactions,
+              resultIds(compacted, 3),
+              resultIds(compacted, 4),
+              compacted.model
+                .userTexts(4)
+                .some((text) => text.includes("SUMMARY-OF-PROGRESS")),
+              compacted.model.userTexts(4).includes("go"),
+            ],
+            [completed, [6], ["t1", "t2", "t3"], [], true, true],
+          );
+
+          const failedCompact = loopHarness({
+            steps,
+            tools: [bigRead],
+            compact: {
+              outcome: "failed",
+              after: { compaction: null, messages: [] },
+            },
+          });
+          const failedEnd = await failedCompact.run().done;
+          settle(failedCompact);
+          // 요약이 실패해도 turn은 끝나지 않고 오래된 tool 결과를 줄여 이어 간다.
+          assert.deepStrictEqual(
+            [failedEnd, failedCompact.compactions, resultIds(failedCompact, 4)],
+            [completed, [6], ["omitted", "t2", "t3"]],
+          );
+        },
+      ],
+
+      [
         "12 일시 실패가 아니면 다시 보내지 않고 종류대로 끝난다",
         async () => {
           const codes = [

@@ -53,6 +53,7 @@ export function startTurnLoop(
     sessionTokens: null,
     opening: null,
     overflowRecoveries: 0,
+    midTurnCompactions: 0,
     compactNext: false,
     facts: { changes: [], unexecuted: [], unknown_effects: [] },
   };

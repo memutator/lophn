@@ -92,6 +92,8 @@ export type CompactFailureReason = (typeof COMPACT_FAILURE_REASONS)[number];
 
 const requestSessionCompactInputSchema = z.strictObject({
   session: idSchema("ses"),
+  // 도는 turn이 자기 session을 Compact할 때 그 turn이다. 도는 turn과 같을 때만 받는다.
+  turn: idSchema("trn").optional(),
 });
 const requestSessionCompactCompareSchema = z.strictObject({
   state: z.literal("open"),
@@ -103,6 +105,8 @@ const compactSessionInputSchema = z.strictObject({
   summary_call: idSchema("mcl"),
   // 요약이 덮는 마지막 메시지의 순번. runtime이 요약 재료를 모은 때의 마지막 메시지다.
   through_seq: seqSchema,
+  // turn 안 Compact를 끝내는 turn. 요청을 연 turn이고 아직 돌고 있어야 한다.
+  turn: idSchema("trn").optional(),
 });
 const compactSessionCompareSchema = z.strictObject({
   state: z.literal("open"),
@@ -218,7 +222,8 @@ export const requestSessionCompact = defineCommand({
     request_seq: seqSchema,
   }),
   compare: requestSessionCompactCompareSchema,
-  // 사람의 Compact와, 이전 대화가 커진 session을 다음 turn 전에 runtime(machine)이 여는 Compact다.
+  // 사람의 Compact와, 이전 대화가 커진 session을 다음 turn 전에 runtime(machine)이 여는 Compact, 도는 turn이 예산을 넘어 자기
+  // session을 Compact하는 turn 안 Compact다.
   actors: ["user", "machine"],
   errors: [...errors],
 });

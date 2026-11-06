@@ -11,6 +11,7 @@ import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import type { TurnStart } from "./work.ts";
 import type {
+  HistoryMessage,
   HistoryPart,
   SeenBasis,
   SessionConversation,
@@ -240,6 +241,13 @@ export type TurnPorts = {
   // 남기고, 중간 응답은 남길 글이 있을 때만 부른다. 그 응답의 tool call보다 먼저 부른다.
   answer(text: string): Promise<Result<void>>;
   finish(request: FinishRequest): Promise<Result<FinishResult>>;
+  // 도는 turn이 자기 session을 Compact한다(turn 안 Compact). history는 이 turn이 쌓은 진행이고 요약에 들어간다.
+  // compacted면 이 turn의 진행은 요약이 맡고 다음 `context()`가 요약을 읽는다. skipped는 요약할 것이 없는 것이고
+  // failed는 요약하지 못한 것이다. 둘 다 session은 그대로다. 없으면 Compact하지 않는다.
+  compact?(
+    history: readonly HistoryMessage[],
+    signal: AbortSignal,
+  ): Promise<"compacted" | "skipped" | "failed">;
 };
 
 export type LoopDeps = {

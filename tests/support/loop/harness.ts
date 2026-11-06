@@ -64,6 +64,11 @@ export function loopHarness(init: {
   steps: readonly Step[];
   tools?: readonly HarnessTool[];
   limits?: Partial<TurnInput["limits"]>;
+  // turn 안 Compact다. 끝난 결과를 내고, compacted면 그 뒤의 context()가 after를 이전 대화로 읽는다.
+  compact?: {
+    outcome: "compacted" | "skipped" | "failed";
+    after: TurnContext["session"];
+  };
 }) {
   const harnessTools = init.tools ?? [];
   const model = scriptedModel(init.steps);
@@ -73,6 +78,9 @@ export function loopHarness(init: {
   const finishes: FinishRequest[] = [];
   const checkpoints: TurnElapsed[] = [];
   const runs: { name: string; args: unknown }[] = [];
+  // turn 안 Compact가 불린 때 turn이 넘긴 진행(이력)의 message 수.
+  const compactions: number[] = [];
+  let compacted = false;
   const firing = new Set<() => void>();
   let toolCalls = 0;
 
@@ -116,7 +124,10 @@ export function loopHarness(init: {
           },
           reserved_output: 1024,
         },
-        session: { compaction: null, messages: [] },
+        session:
+          compacted && init.compact !== undefined
+            ? init.compact.after
+            : { compaction: null, messages: [] },
         notices: [],
         keep() {},
       };
@@ -151,6 +162,15 @@ export function loopHarness(init: {
       finishes.push(request);
       return Promise.resolve(ok({ finished: true as const }));
     },
+    ...(init.compact === undefined
+      ? {}
+      : {
+          compact(history: readonly unknown[]) {
+            compactions.push(history.length);
+            compacted = init.compact!.outcome === "compacted";
+            return Promise.resolve(init.compact!.outcome);
+          },
+        }),
   };
 
   const deps: LoopDeps = {
@@ -199,6 +219,7 @@ export function loopHarness(init: {
     finishes,
     checkpoints,
     runs,
+    compactions,
     fireDeadline() {
       for (const fire of [...firing]) fire();
       firing.clear();

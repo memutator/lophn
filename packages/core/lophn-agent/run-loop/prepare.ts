@@ -51,7 +51,11 @@ import {
   type TurnInstructionLayer,
 } from "../instructions/mod.ts";
 import { cappedOutput, type ModelBinding } from "../models/binding.ts";
-import type { SeenBasis, TurnPromptInput } from "../prompt-assembly/mod.ts";
+import type {
+  HistoryMessage,
+  SeenBasis,
+  TurnPromptInput,
+} from "../prompt-assembly/mod.ts";
 import { readSessionConversation } from "../session/history.ts";
 import {
   appCommandEntries,
@@ -95,6 +99,7 @@ import type {
   TurnContext,
   TurnInput,
   TurnInputs,
+  TurnPorts,
 } from "./ports.ts";
 import { abortableWait } from "./retry.ts";
 import { turnModeOf } from "./turn-mode.ts";
@@ -212,6 +217,13 @@ type PreparerDeps = {
   ): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: RedactText;
+  // 도는 turn이 자기 session을 Compact한다(turn 안 Compact). 없으면 turn은 Compact하지 않고 오래된 tool 결과만 줄인다.
+  compact?(input: {
+    session: string;
+    turn: string;
+    history: readonly HistoryMessage[];
+    signal: AbortSignal;
+  }): ReturnType<NonNullable<TurnPorts["compact"]>>;
 };
 
 type PreparedTurn = {
@@ -641,10 +653,19 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             };
       },
     };
-    // prompt 재료는 turn을 시작할 때 한 번만 읽고 call마다 같은 값을 쓴다. 이전 대화는 일하는 turn이 있는
-    // session은 Compact하지 않으므로 turn 안에서 바뀌지 않는다. seen은 이 turn이 시작할 때 본 지난 turn의 판이다.
+    // prompt 재료는 turn을 시작할 때 한 번만 읽고 call마다 같은 값을 쓴다. 이전 대화는 이 turn이 turn 안 Compact를 한
+    // 때만 바뀌고 그때 다시 읽는다. seen은 이 turn이 시작할 때 본 지난 turn의 판이다.
     const seenAtStart = seenBySession.get(seat.session);
     type Built = Omit<TurnContext, "keep"> & { compaction: string | null };
+    const compactionOf = (read: TurnContext["session"]) =>
+      read.compaction === null ? null : String(read.compaction.through_seq);
+    const readConversation = () =>
+      readSessionConversation(machine, {
+        session: seat.session,
+        request: request.input.message,
+        images,
+        runtime: resolved.runtime,
+      });
     let built: Promise<Result<Built>> | undefined;
     const build = async (): Promise<Result<Built>> => {
       // bare는 workspace 종류 지침(제품 고정 규칙)을 싣지 않는다.
@@ -653,12 +674,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           ? ok("")
           : await deps.workspacePrompt(workspaceKindOf(resolved.workspace));
       if (!prompt.ok) return prompt;
-      const read = await readSessionConversation(machine, {
-        session: seat.session,
-        request: request.input.message,
-        images,
-        runtime: resolved.runtime,
-      });
+      const read = await readConversation();
       if (!read.ok) return read;
       const placed = await deps.workspaceData(
         agentCall,
@@ -670,10 +686,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       scope.write.push(...placed.value.scope.write);
       scope.base = placed.value.scope.base;
       scope.results = placed.value.scope.results;
-      const compaction =
-        read.value.compaction === null
-          ? null
-          : String(read.value.compaction.through_seq);
+      const compaction = compactionOf(read.value);
       const notices =
         m.current.length === 0 || (await keyOf(m.current)) === fixed.key
           ? []
@@ -749,11 +762,45 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       tools: toolSetup,
       context,
     });
+    // turn 안 Compact 뒤에는 요약이 덮은 끝 뒤의 대화를 다시 읽는다. 이전 turn이 본 판(seen)은 요약이 대신한 대화의
+    // 것이라 쓰지 않는다. 다시 읽지 못하면 이 turn은 Compact하지 않은 것으로 이어 간다.
+    const compactInTurn = deps.compact;
+    const turnPorts: TurnPorts =
+      compactInTurn === undefined
+        ? ports_
+        : {
+            ...ports_,
+            async compact(history, signal) {
+              const outcome = await compactInTurn({
+                session: seat.session,
+                turn: seat.turn,
+                history,
+                signal,
+              });
+              if (outcome !== "compacted") return outcome;
+              const loaded = await built;
+              const reread = await readConversation();
+              if (loaded === undefined || !loaded.ok || !reread.ok) {
+                return "failed";
+              }
+              const prompt = { ...loaded.value.prompt };
+              delete prompt.seen;
+              built = Promise.resolve(
+                ok({
+                  ...loaded.value,
+                  prompt,
+                  session: reread.value,
+                  compaction: compactionOf(reread.value),
+                }),
+              );
+              return outcome;
+            },
+          };
     const loopDeps: LoopDeps = {
       clock,
       wait: abortableWait,
       random: Math.random,
-      ports: ports_,
+      ports: turnPorts,
     };
     return { loopDeps };
   }

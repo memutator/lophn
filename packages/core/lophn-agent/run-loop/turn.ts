@@ -83,6 +83,8 @@ export type LoopState = {
   opening: { tokens: number; session: number } | null;
   // provider가 입력이 너무 크다고 거절해 이력을 줄이고 다시 보낸 수.
   overflowRecoveries: number;
+  // 이 turn이 한 turn 안 Compact 수(실패 포함).
+  midTurnCompactions: number;
   // 다음 turn을 시작하기 전에 이 session을 Compact한다.
   compactNext: boolean;
   facts: {
@@ -210,8 +212,8 @@ type Prepared = {
   inputs: PendingInputs;
 };
 
-// 조립 뒤 추정이 예산의 SHRINK_AT을 넘으면 turn 안 이력을 SHRINK_TO 아래로 줄인다. 한 번에 넉넉히 줄여
-// 줄일 때마다 나는 cache miss를 드물게 한다.
+// 조립 뒤 추정이 예산의 SHRINK_AT을 넘으면 turn 안 Compact로 이 turn의 진행을 요약하고, 안 되면 turn 안 이력을
+// SHRINK_TO 아래로 줄인다. 한 번에 넉넉히 줄여 줄일 때마다 나는 cache miss를 드물게 한다.
 const SHRINK_AT = 0.85;
 const SHRINK_TO = 0.6;
 // 첫 call이 예산의 COMPACT_AT보다 크고 그 가운데 이전 대화가 COMPACT_SESSION_SHARE 이상이면 다음 turn 전에
@@ -220,6 +222,8 @@ const COMPACT_AT = 0.5;
 const COMPACT_SESSION_SHARE = 0.2;
 // provider가 입력이 크다고 거절했을 때 이력을 줄여 다시 보내는 최대 수.
 const OVERFLOW_RECOVERY_MAX = 2;
+// 한 turn이 이력을 요약하는 turn 안 Compact를 하는 최대 수. 요약도 model call이라 실패한 것도 센다.
+const MID_TURN_COMPACT_MAX = 2;
 
 // turn 안 이력의 오래된 tool 결과를 줄여 이 요청을 target token 아래로 내린다. 줄인 것이 없으면 false다.
 function shrinkHistory(
@@ -236,6 +240,33 @@ function shrinkHistory(
   // 줄인 뒤 크기는 다음 call의 실제 token이 올 때까지 크기로만 센다.
   state.anchor = null;
   return true;
+}
+
+// 요청이 너무 크다. 이 turn의 진행까지 요약하는 turn 안 Compact를 먼저 하고, 안 되면 오래된 tool 결과를 지운다.
+// "again"이면 이력이나 대화가 바뀌어 다시 조립해야 하고, 줄이지 못했으면 "none"이다. 요약 중에 멈춤이 오면 끝 결과다.
+async function relieve(
+  state: LoopState,
+  size: WireSize,
+  measured: number,
+  target: number,
+): Promise<"again" | "none" | TurnResult> {
+  const { compact } = state.deps.ports;
+  if (
+    compact !== undefined &&
+    state.midTurnCompactions < MID_TURN_COMPACT_MAX
+  ) {
+    state.midTurnCompactions += 1;
+    const outcome = await compact(state.history, state.control.signal);
+    const reason = await stopped(state);
+    if (reason !== null) return stoppedEnd(reason);
+    if (outcome === "compacted") {
+      // 이 turn의 진행은 요약이 맡았다. 줄인 크기는 다음 call의 실제 token이 올 때까지 크기로만 센다.
+      state.history = [];
+      state.anchor = null;
+      return "again";
+    }
+  }
+  return shrinkHistory(state, size, measured, target) ? "again" : "none";
 }
 
 // 이전 대화(Compact 요약 포함)가 차지하는 token 추정이다.
@@ -339,29 +370,27 @@ async function prepare(
     );
     if (assembled.status === "blocked") {
       const over = assembled.over;
-      if (
-        over !== undefined &&
-        shrinkHistory(
+      if (over !== undefined) {
+        const relieved = await relieve(
           state,
           over.size,
           over.measured_tokens,
           Math.floor(over.input_budget * SHRINK_TO),
-        )
-      ) {
-        continue;
+        );
+        if (relieved === "again") continue;
+        if (relieved !== "none") return relieved;
       }
       return await blockedEnd(state, assembled.reason);
     }
-    if (
-      assembled.measured_tokens > assembled.input_budget * SHRINK_AT &&
-      shrinkHistory(
+    if (assembled.measured_tokens > assembled.input_budget * SHRINK_AT) {
+      const relieved = await relieve(
         state,
         assembled.size,
         assembled.measured_tokens,
         Math.floor(assembled.input_budget * SHRINK_TO),
-      )
-    ) {
-      continue;
+      );
+      if (relieved === "again") continue;
+      if (relieved !== "none") return relieved;
     }
     state.sessionTokens ??= sessionTokens(context);
     context.keep(assembled.basis);
@@ -628,8 +657,8 @@ function noteUsage(
   }
 }
 
-// provider가 입력이 크다고 거절했다. 추정이 실제보다 작았다는 뜻이라 보낸 크기의 SHRINK_TO 아래로 줄여 다시
-// 보낸다. 줄일 것이 없으면 다음 turn 전에 Compact하게 두고 끝낸다.
+// provider가 입력이 크다고 거절했다. 추정이 실제보다 작았다는 뜻이라 turn 안 Compact나 보낸 크기의 SHRINK_TO 아래로
+// 줄이기로 다시 보낸다. 줄일 것이 없으면 다음 turn 전에 Compact하게 두고 끝낸다.
 async function afterOverflow(
   state: LoopState,
   prepared: Prepared,
@@ -639,10 +668,17 @@ async function afterOverflow(
     const target = Math.floor(
       Math.min(prompt.input_budget, prompt.measured_tokens) * SHRINK_TO,
     );
-    if (shrinkHistory(state, prompt.size, prompt.measured_tokens, target)) {
+    const relieved = await relieve(
+      state,
+      prompt.size,
+      prompt.measured_tokens,
+      target,
+    );
+    if (relieved === "again") {
       state.overflowRecoveries += 1;
       return continueTurn;
     }
+    if (relieved !== "none") return relieved;
   }
   state.compactNext = true;
   return await failWith(state, "context_limit");

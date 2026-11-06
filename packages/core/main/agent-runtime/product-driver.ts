@@ -186,6 +186,17 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       machine: calls.machine,
       connections: mcpConnectionsDeps(calls.secrets),
     });
+    // Compact의 요약 call이다. 사람이 요청한 Compact, 다음 turn 전 Compact, turn 안 Compact가 같은 model 선택 검증(Model
+    // for summaries)과 core 연결을 쓴다.
+    const compactor = createCompactor({
+      clock: systemClock,
+      ids,
+      machine: calls.machine,
+      workspaceTools: workspaceToolNames,
+      blobs: calls.blobs,
+      redact: calls.redact,
+      resolveModel,
+    });
     const preparer = createTurnPreparer({
       clock: systemClock,
       ids,
@@ -219,6 +230,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         ),
       }),
       events: calls.events,
+      compact: (input) => compactor.compactInTurn(input),
       workspacePrompt,
       workspaceData: async (call, agent, session) =>
         withToolResults(
@@ -255,16 +267,6 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
           kind,
           apps,
         ),
-    });
-    // 사람이 요청한 Compact의 요약 call이다. 같은 model 선택 검증과 core 연결을 쓴다.
-    const compactor = createCompactor({
-      clock: systemClock,
-      ids,
-      machine: calls.machine,
-      workspaceTools: workspaceToolNames,
-      blobs: calls.blobs,
-      redact: calls.redact,
-      resolveModel,
     });
     return { preparer, compactor, listMcpTools: mcpKit.listTools };
   };

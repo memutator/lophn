@@ -340,9 +340,11 @@ export function startTurnPump(options: {
       }
       try {
         const next = await options.driver.startNext();
-        // 입력이 queue에서 빠진 경우만 진전이다. 빠지지 않은 입력은 다시 골라지므로 쉬었다 본다.
+        // 입력이 queue에서 빠진 경우와 session을 Compact로 잡은 경우가 진전이다. 빠지지 않은 입력은 다시 골라지므로
+        // 쉬었다 본다.
         started =
           next.kind === "started" ||
+          next.kind === "compacting" ||
           (next.kind === "not_started" && next.consumed);
         if (next.kind === "started") {
           void next.done.catch((error) => {

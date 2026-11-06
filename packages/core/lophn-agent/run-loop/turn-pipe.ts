@@ -47,6 +47,9 @@ export function createTurnPipe(options: {
       case "began":
         result = await source.began(session, message.message as Id<"msg">);
         break;
+      case "hold":
+        result = await source.hold(session);
+        break;
       case "ended":
         result = await source.ended(session);
         break;

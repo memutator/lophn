@@ -67,7 +67,10 @@ export type TurnSource = {
     session: Id<"ses">,
     message: Id<"msg">,
   ): Promise<Result<RoutedInput | null>>;
-  // turn이 끝났다. 반영하지 못한 steer는 다음 turn 입력이 된다.
+  // 입력을 꺼내지 않고 session을 도는 중으로 잡는다(turn 없이 하는 일, 곧 Compact 동안 새 turn이 시작되지 않게
+  // 한다). 푸는 것은 `ended`다. 이미 도는 중이면 아무것도 하지 않고 false다.
+  hold(session: Id<"ses">): Promise<Result<boolean>>;
+  // turn이 끝났다(hold를 푸는 것도 같다). 반영하지 못한 steer는 다음 turn 입력이 된다.
   ended(session: Id<"ses">): Promise<Result<void>>;
   // 도는 turn의 다음 model 요청 앞에 붙일 steer 입력.
   steering(session: Id<"ses">): Promise<Result<readonly SteeringInput[]>>;

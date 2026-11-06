@@ -184,6 +184,7 @@ export type AgentCredentialResponse = z.infer<
 const TURN_SOURCE_OPS = [
   "next",
   "began",
+  "hold",
   "ended",
   "steering",
   "settled",
@@ -212,7 +213,7 @@ const turnSourceResponseSchema = z.discriminatedUnion("ok", [
     type: z.literal("turn_source_response"),
     request_id: opaque,
     ok: z.literal(true),
-    // op마다 TurnStart | null, RoutedInput | null, void, SteeringInput[]. 읽는 쪽이 op로 해석한다.
+    // op마다 TurnStart | null, RoutedInput | null, boolean(hold), void, SteeringInput[]. 읽는 쪽이 op로 해석한다.
     value: z.unknown(),
   }),
   z.strictObject({

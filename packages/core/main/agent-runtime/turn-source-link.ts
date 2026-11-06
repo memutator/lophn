@@ -91,6 +91,10 @@ export function createTurnSourceLink(options: {
         const result = await request("began", { session, message });
         return result.ok ? ok(result.value as RoutedInput | null) : result;
       },
+      async hold(session) {
+        const result = await request("hold", { session });
+        return result.ok ? ok(result.value as boolean) : result;
+      },
       ended: (session) => done(request("ended", { session })),
       async steering(session) {
         const result = await request("steering", { session });

@@ -27,6 +27,8 @@ type TurnStarter = {
   // turn이 시작됐다(StartTurn 확정 뒤). StartTurn이 기록한 입력을 꺼내고 session을 도는 중으로 둔다. 그 입력이
   // 없으면 아무것도 하지 않는다.
   began(session: Id<"ses">, message: Id<"msg">): RoutedInput | undefined;
+  // 입력은 그대로 두고 session을 도는 중으로 잡는다. 이미 도는 중이면 false다.
+  hold(session: Id<"ses">): boolean;
   // turn이 끝났다. 반영하지 못한 steer는 다음 turn 입력이 된다.
   ended(session: Id<"ses">): void;
 };
@@ -48,6 +50,11 @@ export function createTurnStarter(deps: { queue: Queue }): TurnStarter {
       if (input !== undefined) queue.setRunning(session, true);
       return input;
     },
+    hold(session) {
+      if (queue.isRunning(session)) return false;
+      queue.setRunning(session, true);
+      return true;
+    },
     ended(session) {
       queue.setRunning(session, false);
     },
@@ -64,6 +71,7 @@ export function createTurnSource(deps: {
     next: () => Promise.resolve(ok(starter.next())),
     began: (session, message) =>
       Promise.resolve(ok(starter.began(session, message) ?? null)),
+    hold: (session) => Promise.resolve(ok(starter.hold(session))),
     ended(session) {
       starter.ended(session);
       return Promise.resolve(ok(undefined));

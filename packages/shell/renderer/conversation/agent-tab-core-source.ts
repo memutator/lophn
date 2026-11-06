@@ -12,7 +12,12 @@ import type {
   SourceResult,
 } from "./agent-tab-source.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
-import { type AgentTarget, createEnv } from "./agent-tab-core-source-env.ts";
+import {
+  type AgentTarget,
+  createEnv,
+  createGate,
+  type Gate,
+} from "./agent-tab-core-source-env.ts";
 import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
 import {
   answerQuestions,
@@ -33,7 +38,6 @@ import {
 } from "./agent-tab-core-source-rewind.ts";
 import {
   archiveSessionOf,
-  createActiveTimes,
   createFaceCache,
   deleteSessionOf,
   openSession,
@@ -56,23 +60,24 @@ export function coreAgentTabSourceFactory(
   core: CoreSource,
   deps: AgentCoreDeps = {},
 ): AgentTabSourceFactory {
-  return (target) => createSource(core, deps, target);
+  const gate = createGate();
+  return (target) => createSource(core, deps, target, gate);
 }
 
 function createSource(
   core: CoreSource,
   deps: AgentCoreDeps,
   target: AgentTarget,
+  gate: Gate,
 ): AgentTabSource {
-  const env = createEnv(core, target, deps.now ?? Date.now);
+  const env = createEnv(core, target, deps.now ?? Date.now, gate);
   const memo = createBodiesMemo();
   const faceCache = createFaceCache(env);
-  const activeTimes = createActiveTimes();
   const images = createImageSource(core);
 
   return {
     agent: () => readFace(env, faceCache),
-    sessions: () => readSessions(env, activeTimes),
+    sessions: () => readSessions(env),
     searchMessages: (query) => searchMessages(env, query),
     acp: (session) => env.read(acpSnapshot, { session }),
     draft: () =>

@@ -69,10 +69,30 @@ export function useAgentTabList(source: AgentTabSource): AgentTabList {
     }
   }, [source]);
 
-  // 새 session이 생기거나 끝나면 목록도 바뀐다.
-  const membership = known.map((one) => `${one.session}:${one.ended}`).join();
+  // 이 tab의 agent·자리에서 session이 생기거나 끝나면 목록도 바뀐다. 다른 agent나 자리의 변화에는 다시 읽지 않는다.
+  // agent를 알기 전(null)에는 첫 읽기가 맡고, 그 읽기가 끝나 처음 정해진 값은 기준으로만 삼는다.
+  const face = read.agent ?? null;
+  const membership =
+    face === null
+      ? null
+      : known
+          .filter(
+            (one) =>
+              one.agent === face.agent &&
+              (one.workspace?.kind ?? null) === (face.workspace?.kind ?? null),
+          )
+          .map((one) => `${one.session}:${one.ended}`)
+          .join();
+  const seen = useRef<string | null>(null);
   useEffect(() => {
+    seen.current = null;
     void refresh();
+  }, [refresh]);
+  useEffect(() => {
+    if (membership === null) return;
+    const before = seen.current;
+    seen.current = membership;
+    if (before !== null && before !== membership) void refresh();
   }, [refresh, membership]);
   useEffect(() => source.changed?.(() => void refresh()), [source, refresh]);
 

@@ -6,7 +6,7 @@ import {
   receivedMessageList,
   receivedMessageRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { ReadDefinition } from "../../../protocol/server/mod.ts";
+import type { ReadDefinition, SqlRow } from "../../../protocol/server/mod.ts";
 import { sessionVisible, visibleSessions } from "./guards.ts";
 import {
   loadMessage,
@@ -28,6 +28,11 @@ const PAGE = 50;
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "session not found" });
+}
+
+function lastActiveAtOf(row: SqlRow | undefined): string | null {
+  const value = row?.["last_active_at"];
+  return value === null || value === undefined ? null : String(value);
 }
 
 function cursorAfter(cursor: string | undefined): Result<bigint | null> {
@@ -102,17 +107,23 @@ export function createConversationReads(): {
           clauses.push("lifecycle = ?");
           params.push(archived === "only" ? "archived" : "open");
         }
-        const rows = snapshot.sql
-          .all(
-            `select ${SESSION_COLUMNS} from sessions
+        // 마지막 활동은 turn 표에서 한 번에 구한다. 화면이 session마다 turn을 읽지 않게 한다.
+        const raw = snapshot.sql.all(
+          `select ${SESSION_COLUMNS},
+             (select max(coalesce(t.finished_at, t.started_at)) from turns t
+              where t.session = sessions.id) as last_active_at
+           from sessions
            where ${clauses.join(" and ")} order by created_seq limit ?`,
-            [...params, PAGE + 1],
-          )
-          .map(sessionRowOf);
+          [...params, PAGE + 1],
+        );
+        const rows = raw.map(sessionRowOf);
         const page = rows.slice(0, PAGE);
         const last = page[page.length - 1];
         return ok({
-          sessions: page.map(workspaceSessionOf),
+          sessions: page.map((row, index) => ({
+            ...workspaceSessionOf(row),
+            last_active_at: lastActiveAtOf(raw[index]),
+          })),
           as_of_seq: snapshot.as_of_seq,
           next_cursor:
             rows.length > PAGE && last !== undefined

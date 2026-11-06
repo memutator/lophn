@@ -52,13 +52,10 @@ type ListRoute = PlainRoute & {
   readonly output: z.ZodType<{ next_cursor: string | null }>;
 };
 
-/** 목록을 끝까지(또는 상한까지) 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
-const PAGE_LIMIT = 50;
-
 /** 같은 core 통로에서 동시에 진행하는 호출 수. */
 const MAX_IN_FLIGHT = 4;
 
-class Gate {
+export class Gate {
   #open = MAX_IN_FLIGHT;
   readonly #waiting: (() => void)[] = [];
 
@@ -77,15 +74,9 @@ class Gate {
   }
 }
 
-const gates = new WeakMap<CoreSource, Gate>();
-
-function gateOf(core: CoreSource): Gate {
-  let gate = gates.get(core);
-  if (gate === undefined) {
-    gate = new Gate();
-    gates.set(core, gate);
-  }
-  return gate;
+/** core 통로 하나마다 하나를 만들어 그 통로로 가는 모든 Env에 넘긴다. */
+export function createGate(): Gate {
+  return new Gate();
 }
 
 /** 화면이 구별하는 오류 code는 공통 일곱뿐이다. 그 밖은 internal이다. */
@@ -119,7 +110,7 @@ export interface Env {
     route: R,
     body: CommandBody<R>,
   ): Promise<SourceResult<Out<R>>>;
-  /** cursor로 이어지는 목록을 끝까지(또는 상한까지) 모은다. */
+  /** cursor로 이어지는 목록을 끝까지 모은다. */
   pages<R extends ListRoute, T>(
     route: R,
     input: Omit<In<R>, "cursor">,
@@ -132,9 +123,8 @@ export function createEnv(
   core: CoreSource,
   target: AgentTarget,
   now: () => number,
+  gate: Gate,
 ): Env {
-  const gate = gateOf(core);
-
   async function call<T>(
     kind: "read" | "memory" | "command",
     route: CallableRoute,
@@ -174,7 +164,7 @@ export function createEnv(
     ): Promise<SourceResult<T[]>> {
       const found: T[] = [];
       let cursor: string | null = null;
-      for (let page = 0; page < PAGE_LIMIT; page += 1) {
+      for (;;) {
         const result: SourceResult<Out<R>> = await call(
           "read",
           route,
@@ -183,9 +173,8 @@ export function createEnv(
         if (!result.ok) return result;
         found.push(...pick(result.value));
         cursor = result.value.next_cursor;
-        if (cursor === null) break;
+        if (cursor === null) return { ok: true, value: found };
       }
-      return { ok: true, value: found };
     },
     nowIso: () => new Date(now()).toISOString(),
   };

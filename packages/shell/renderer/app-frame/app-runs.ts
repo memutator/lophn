@@ -39,6 +39,10 @@ export function useAppRuns(
   active: boolean,
 ): readonly RunRow[] {
   const { sessions } = useSessions();
+  // unseen 같은 다른 칸이 바뀐 것에는 다시 읽지 않는다. 상태와 끝남만 run이 바뀌었을 수 있다는 신호다.
+  const sessionStates = sessions
+    .map((one) => `${one.session}:${one.state}:${one.ended}`)
+    .join();
   const [loaded, setLoaded] = useState<Loaded>(NOTHING);
   useEffect(() => {
     if (read === undefined || !active) return;
@@ -70,7 +74,7 @@ export function useAppRuns(
     return () => {
       live = false;
     };
-  }, [read, active, app, agents, agentViewSource, sessions]);
+  }, [read, active, app, agents, agentViewSource, sessionStates]);
 
   return useMemo(() => {
     const byId = new Map(agents.map((agent) => [agent.assignment, agent]));

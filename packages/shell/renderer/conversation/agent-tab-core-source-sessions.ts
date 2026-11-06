@@ -22,7 +22,6 @@ import {
   archiveSession,
   deleteSession,
 } from "../../../protocol/lophn-agent/sessions.ts";
-import { turnList } from "../../../protocol/lophn-agent/turn-reads.ts";
 import { projectGet } from "../../../protocol/projects/project-routes.ts";
 import {
   dropValue,
@@ -41,8 +40,6 @@ import type {
 
 /** 얼굴(이름·자리 이름·권한 요약)을 기억하는 시간. */
 const FACE_TTL_MS = 10_000;
-/** session의 마지막 활동 시각을 기억하는 시간. 목록을 다시 읽을 때마다 turn 목록 전체를 읽지 않게 한다. */
-const ACTIVE_TTL_MS = 30_000;
 
 // ---------------------------------------------------------------- 얼굴
 
@@ -176,38 +173,9 @@ function statusOf(state: string | undefined): SessionStatus {
       : "idle";
 }
 
-export function createActiveTimes(): Map<
-  string,
-  { at: number; value: string | null }
-> {
-  return new Map();
-}
-
-/** 마지막 turn이 끝난(없으면 시작한) 시각. turn이 없으면 null이다. */
-async function lastActiveOf(
-  env: Env,
-  times: ReturnType<typeof createActiveTimes>,
-  session: string,
-): Promise<string | null> {
-  const known = times.get(session);
-  if (known !== undefined && env.now() - known.at < ACTIVE_TTL_MS) {
-    return known.value;
-  }
-  const turns = await env.pages(turnList, { session }, (out) => out.turns);
-  if (!turns.ok) return known?.value ?? null;
-  let latest: string | null = null;
-  for (const turn of turns.value) {
-    const at = turn.finished_at ?? turn.started_at;
-    if (latest === null || at > latest) latest = at;
-  }
-  times.set(session, { at: env.now(), value: latest });
-  return latest;
-}
-
 /** 그 agent의 session 전부(archive 포함). 상태는 session snapshot에서 온다. */
 export async function readSessions(
   env: Env,
-  times: ReturnType<typeof createActiveTimes>,
 ): Promise<SourceResult<SessionEntry[]>> {
   const listed = await env.pages(
     workspaceSessionList,
@@ -216,14 +184,9 @@ export async function readSessions(
   );
   if (!listed.ok) return listed;
   if (listed.value.length === 0) return { ok: true, value: [] };
-  const [snapshots, active] = await Promise.all([
-    env.read(sessionSnapshotsList, {
-      sessions: listed.value.map((session) => session.id),
-    }),
-    Promise.all(
-      listed.value.map((session) => lastActiveOf(env, times, session.id)),
-    ),
-  ]);
+  const snapshots = await env.read(sessionSnapshotsList, {
+    sessions: listed.value.map((session) => session.id),
+  });
   if (!snapshots.ok) return snapshots;
   const states = new Map(
     snapshots.value.snapshots.map((one) => [one.session, one.state]),
@@ -231,11 +194,11 @@ export async function readSessions(
   return {
     ok: true,
     value: listed.value.map(
-      (session, index): SessionEntry => ({
+      (session): SessionEntry => ({
         id: session.id,
         title: session.title,
         status: statusOf(states.get(session.id)),
-        activeAt: active[index] ?? env.nowIso(),
+        activeAt: session.last_active_at ?? env.nowIso(),
         archived: session.lifecycle === "archived",
       }),
     ),

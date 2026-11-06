@@ -37,30 +37,47 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-export const workspaceSessionSchema = z
-  .object({
-    id: idSchema("ses"),
-    agent: agentIdSchema,
-    // null이면 home이다. session을 열 때 정해지고 바뀌지 않는다.
-    workspace: workspaceOutputSchema.nullable(),
-    title: sessionTitleSchema.nullable(),
-    lifecycle: sessionLifecycleSchema,
-    forked_from: forkOriginOutputSchema.nullable(),
-    // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
-    model_selection: modelChoiceOutputSchema.nullable(),
-    compaction: compactionOutputSchema.nullable(),
-    // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
-    skip: z.boolean(),
-    // 다른 workspace의 session이 불러 열린 session이면 그 workspace. home에 열린 그런 session은 폴더를 읽지 않는다.
-    called_from: workspaceOutputSchema.nullable(),
-    state_seq: seqSchema,
-  })
-  .refine(
-    (value) =>
-      value.forked_from === null || value.forked_from.session !== value.id,
-    { message: "fork origin is the session itself" },
-  );
+const workspaceSessionObject = z.object({
+  id: idSchema("ses"),
+  agent: agentIdSchema,
+  // null이면 home이다. session을 열 때 정해지고 바뀌지 않는다.
+  workspace: workspaceOutputSchema.nullable(),
+  title: sessionTitleSchema.nullable(),
+  lifecycle: sessionLifecycleSchema,
+  forked_from: forkOriginOutputSchema.nullable(),
+  // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
+  model_selection: modelChoiceOutputSchema.nullable(),
+  compaction: compactionOutputSchema.nullable(),
+  // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
+  skip: z.boolean(),
+  // 다른 workspace의 session이 불러 열린 session이면 그 workspace. home에 열린 그런 session은 폴더를 읽지 않는다.
+  called_from: workspaceOutputSchema.nullable(),
+  state_seq: seqSchema,
+});
+
+// extend는 refine을 단 schema에 못 쓰므로 refine을 따로 둔다.
+const forkOriginIsOther = {
+  check: (value: z.infer<typeof workspaceSessionObject>) =>
+    value.forked_from === null || value.forked_from.session !== value.id,
+  message: { message: "fork origin is the session itself" },
+};
+
+export const workspaceSessionSchema = workspaceSessionObject.refine(
+  forkOriginIsOther.check,
+  forkOriginIsOther.message,
+);
 export type WorkspaceSession = z.infer<typeof workspaceSessionSchema>;
+
+// 목록은 session마다 마지막 활동 시각을 더 준다. 화면이 session마다 turn을 읽지 않게 한다.
+export const workspaceSessionListItemSchema = workspaceSessionObject
+  .extend({
+    // 마지막 turn이 끝난(없으면 시작한) 시각. turn이 없으면 null이다.
+    last_active_at: z.string().nullable(),
+  })
+  .refine(forkOriginIsOther.check, forkOriginIsOther.message);
+export type WorkspaceSessionListItem = z.infer<
+  typeof workspaceSessionListItemSchema
+>;
 
 export const workspaceSessionOpen = defineCommand({
   resource: "sessions",
@@ -103,7 +120,7 @@ export const workspaceSessionList = defineRead({
     cursor: readCursorSchema.optional(),
   }),
   output: withReadCommon(
-    z.object({ sessions: z.array(workspaceSessionSchema) }),
+    z.object({ sessions: z.array(workspaceSessionListItemSchema) }),
   ),
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],

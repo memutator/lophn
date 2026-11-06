@@ -60,25 +60,41 @@ type AppGrantScope = AppGrant["scope"];
 type ResourceScope = Exclude<AppGrantScope, { kind: "app.call" }>;
 
 // grant가 되는 바깥 자원 요구만 고른다. grant가 아닌 요구 kind는 버린다.
+// scope union에 notify.send의 빈 객체가 있어 `in`만으로는 좁혀지지 않으므로 kind로 고른 뒤 모양을 단언한다.
 function resourceOf(
   requirement: GrantPermissionRequirement,
 ): ResourceScope | undefined {
   const { kind, scope } = requirement;
   if (kind === "fs.read" || kind === "fs.write") {
-    return "path" in scope ? { kind, ...scope } : undefined;
+    return "path" in scope
+      ? { kind, ...(scope as { path: string; recursive: boolean }) }
+      : undefined;
   }
   if (kind === "net.fetch") {
-    return "host" in scope ? { kind, ...scope } : undefined;
+    return "host" in scope
+      ? { kind, ...(scope as { host: string; port: number }) }
+      : undefined;
   }
   if (kind === "net.listen") {
     // 앱 grant의 듣기 host는 loopback뿐이다. 다른 host는 grant가 되지 않는다.
-    return "host" in scope && LISTEN_HOSTS.includes(scope.host)
-      ? { kind, ...scope, host: scope.host as "localhost" }
+    if (!("host" in scope)) return undefined;
+    const listen = scope as { host: string; port: number };
+    return LISTEN_HOSTS.includes(listen.host)
+      ? { kind, ...listen, host: listen.host as "localhost" }
       : undefined;
   }
   if (kind === "secret.use") {
-    return "name" in scope ? { kind, ...scope } : undefined;
+    return "name" in scope
+      ? {
+          kind,
+          ...(scope as Omit<
+            Extract<AppGrantScope, { kind: "secret.use" }>,
+            "kind"
+          >),
+        }
+      : undefined;
   }
+  if (kind === "notify.send") return { kind };
   return undefined;
 }
 
@@ -97,6 +113,7 @@ export function resourceLabel(scope: ResourceScope): string {
       new URL(authorization_endpoint).host
     } → ${new URL(token_endpoint).host} scopes:${scopes.join(" ")}`;
   }
+  if (scope.kind === "notify.send") return scope.kind;
   return `${scope.kind}:${scope.name}`;
 }
 

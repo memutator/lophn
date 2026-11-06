@@ -127,8 +127,13 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
       next();
     });
     // main이 이 창에 그 Agent session 탭을 고르라고 한다(OS 알림이나 toast를 누름). 열기는 sidebar의 줄과 같은 길이다.
-    const stopReveal = notice?.onReveal(({ session }) =>
-      runToastAction({ kind: "session", session }),
+    // 앱 알림은 그 앱 공간을 연다(앱 재시작 중단 toast와 같은 길).
+    const stopReveal = notice?.onReveal((reveal) =>
+      runToastAction(
+        "app" in reveal
+          ? { kind: "session", session: null, app: reveal.app }
+          : { kind: "session", session: reveal.session },
+      ),
     );
 
     return () => {

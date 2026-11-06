@@ -15,9 +15,11 @@ import {
   createBrokerHub,
   createExceptionLogService,
   createNetFetchService,
+  createNotifyService,
   createReadyService,
   createSecretUseService,
   type ExceptionLog,
+  type NoticePostPort,
   type ReadyReceiver,
   type RedactionGate,
   type SecretDelivery,
@@ -30,6 +32,8 @@ export type BrokerAdapters = {
   ready: ReadyReceiver;
   // 다른 앱 호출은 그 자식의 app credential로 core의 호출 경로를 부른다.
   appCall: AppCallPort;
+  // 앱이 사람에게 알린다. 그 자식의 app credential로 core의 app_notices.post를 부른다.
+  notice: NoticePostPort;
   // 앱이 loopback으로 닿지 못해야 하는 플랫폼 port. hello 뒤에 알려지므로 호출 때 읽는다.
   platformPorts: () => readonly number[];
   // 외부 전송. 시험이 local fake를 넣는다. 기본은 전역 fetch다.
@@ -62,6 +66,10 @@ function servicesFor(adapters: BrokerAdapters): BrokerServices {
       delivery: adapters.secrets.delivery,
       redaction: adapters.secrets.redaction,
       platformPorts: ports,
+    }),
+    notify: createNotifyService({
+      access: adapters.access,
+      core: adapters.notice,
     }),
     exceptions: createExceptionLogService({ log: adapters.exceptions }),
     appsCall: createAppsCallService({ core: adapters.appCall }),

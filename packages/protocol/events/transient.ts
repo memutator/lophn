@@ -4,6 +4,7 @@ import { atSchema } from "../base/values.ts";
 import { eventTypeSchema } from "../base/event.ts";
 import { workflowNameSchema } from "../workflows/values.ts";
 import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
+import { appNoticeSchema } from "../apps/notice.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
 // 놓쳐도 그 대상은 표에 남아 있어 snapshot으로 맞춘다.
@@ -110,6 +111,19 @@ const shareRequestClosed = defineTransientEvent("ShareRequestClosed", {
   }),
 });
 
+// 앱이 사람에게 알린 notice가 표에 쓰이고 commit된 뒤 낸다. subject는 앱이다. 같은 key의 notice가 다시 와도 낸다(id는 같다).
+// payload가 notice 한 건이라 화면은 다시 읽지 않고 toast와 Inbox 줄을 만든다.
+const appNoticePosted = defineTransientEvent("AppNoticePosted", {
+  subject: idSchema("app"),
+  payload: appNoticeSchema,
+});
+
+// 사람이 지웠거나 앱당 상한·앱 보관으로 notice가 표에서 빠진 뒤 낸다. 같은 key의 교체는 id가 같아 Posted만 낸다.
+const appNoticeClosed = defineTransientEvent("AppNoticeClosed", {
+  subject: idSchema("app"),
+  payload: z.strictObject({ id: idSchema("ntc") }),
+});
+
 // instance 행이나 줄이 바뀐 command가 commit된 뒤 한 번 낸다. 화면과 artifact view가 다시 읽으라는 신호다.
 // CLI로 낸 report는 session event가 없어 화면이 알 길이 이것뿐이다. 정의 file이 바뀐 것은 알리지 않는다.
 const workflowInstanceChanged = defineTransientEvent(
@@ -145,6 +159,8 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(activationConsentClosed),
   transientEventEnvelopeSchema(shareRequestOpened),
   transientEventEnvelopeSchema(shareRequestClosed),
+  transientEventEnvelopeSchema(appNoticePosted),
+  transientEventEnvelopeSchema(appNoticeClosed),
   transientEventEnvelopeSchema(workflowInstanceChanged),
   transientEventEnvelopeSchema(jobChanged),
 ]);

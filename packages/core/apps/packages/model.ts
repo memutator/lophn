@@ -1,7 +1,7 @@
 // 값과 판정. IO는 없다.
 
 // 첫 공개 묶음에서 제공하지 않는 이름. cap-read-model은 앱 사이
-// command 호출이 cap-tool과 apps/connections를 따르므로 만들지 않았고, cap-notify는 보류라 만들지 않는다.
+// command 호출이 cap-tool과 apps/connections를 따르므로 만들지 않았다.
 
 // 제공하지 않는 이름을 목록·안내가 제공한다고 쓰면 실패다.
 

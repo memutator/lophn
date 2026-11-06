@@ -18,7 +18,7 @@ export interface BrokerAccess {
   current(app: string): Promise<Result<AccessState | null>>;
 }
 
-type Permission = "net.fetch" | "secret.use";
+type Permission = "net.fetch" | "secret.use" | "notify.send";
 
 // 거절은 필요한 permission 이름과 scope를 알린다. 선언 밖이든 grant 밖이든
 // 같은 모양이라 어느 쪽이 빠졌는지를 앱 코드가 추측할 수 없다.
@@ -92,4 +92,8 @@ export function secretGranted(state: AccessState, name: string): boolean {
   return state.scope.access.some(
     (entry) => entry.kind === "secret.use" && entry.scope.name === name,
   );
+}
+
+export function notifyGranted(state: AccessState): boolean {
+  return state.scope.access.some((entry) => entry.kind === "notify.send");
 }

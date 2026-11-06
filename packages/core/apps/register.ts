@@ -31,6 +31,11 @@ import {
   INVOCATION_BLOB_PURPOSES,
   invocationsSchemaSteps,
 } from "./invocations/mod.ts";
+import {
+  appNoticesListRead,
+  createNoticeCommands,
+  noticeSchemaSteps,
+} from "./notices/mod.ts";
 import { rewindSchemaSteps } from "./rewind/mod.ts";
 import {
   createGrantCommands,
@@ -123,6 +128,7 @@ export function createLedgerRegistration(
   // 과거 event만으로 running이라 하지 않는다.
   const runtime = createRuntimeCommands();
   const runtimeReads = createRuntimeReads();
+  const notices = createNoticeCommands();
   // 앱 grant는 activation이 만들고, 사람은 거두기만 한다.
   const grants = createGrantCommands();
   const grantReads = createGrantsReads();
@@ -164,6 +170,7 @@ export function createLedgerRegistration(
       ...rewindSchemaSteps,
       ...sdkSchemaSteps,
       ...dataSchemaSteps,
+      ...noticeSchemaSteps,
     ],
     commands: [
       commands.create,
@@ -174,6 +181,8 @@ export function createLedgerRegistration(
       commands.editFolders,
       commands.setIcon,
       grants.revoke,
+      notices.post,
+      notices.dismiss,
       runtime.enableExecution,
       runtime.disableExecution,
       runtime.recordStarted,
@@ -201,6 +210,7 @@ export function createLedgerRegistration(
       releaseReads.activationCompare,
       releaseReads.activationConsents,
       grantReads.list,
+      appNoticesListRead,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocationReads.list,
@@ -268,6 +278,7 @@ export function createReaderRegistration(): ReaderRegistration {
       releaseReads.activationCompare,
       releaseReads.activationConsents,
       grantReads.list,
+      appNoticesListRead,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocations.list,

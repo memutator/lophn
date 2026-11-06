@@ -234,6 +234,15 @@ components:
       boundaries: [app-runtime, app-data, app-capability]
       paths: [packages/protocol/apps/calls/, packages/core/apps/calls/, packages/core/apps/screens/skills.ts, packages/core/apps/releases/public-tools.ts]
 
+  - id: architecture-app-notice
+    kind: doc
+    roles: [planner, lead]
+    description: 앱이 사람에게 알리는 길(cap-notify). grant, broker 판정, 같은 key 대신하기, 앱당 상한, Inbox 줄과 toast.
+    path: project-docs/architecture/app-notice.md
+    change_reasons:
+      boundaries: [app-runtime]
+      paths: [packages/protocol/apps/notice.ts, packages/core/apps/notices/, packages/sdk/cap-notify/, packages/core/apps/permissions/broker/notify.ts]
+
   - id: architecture-workspace-session
     kind: doc
     roles: [planner, lead]

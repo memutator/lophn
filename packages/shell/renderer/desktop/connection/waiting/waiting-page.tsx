@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import { useWaiting } from "../events/hooks.tsx";
+import { runToastAction } from "../toasts/toast-actions.ts";
 import { useFinished } from "./finished.ts";
 import { useSettled } from "./settled.ts";
 import { WaitingPanel } from "./waiting-panel.tsx";
@@ -19,7 +20,7 @@ export function WaitingPage({
   /** 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
 }) {
-  const { entries } = useWaiting();
+  const { entries, notices } = useWaiting();
   const finished = useFinished();
   const settled = useSettled(entries);
   const { clear } = settled;
@@ -32,9 +33,13 @@ export function WaitingPage({
       entries={entries}
       settled={settled}
       finished={finished}
+      notices={notices}
       onOpenSession={onOpenSession}
       onShowFinished={(target) => notice()?.open(target)}
       onDismissFinished={(target) => void notice()?.dismiss(target)}
+      onOpenApp={(app) =>
+        runToastAction({ kind: "session", session: null, app })
+      }
     />
   );
 }

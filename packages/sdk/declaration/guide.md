@@ -63,8 +63,8 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
     handler는 이름 하나로 등록한다. 이름을 두 목록에 같이 쓰지 못한다.
 - `permissions` — 앱이 바깥에 닿는 자원이다. 항목은 `{kind, scope, reason}`이고
   kind는 `fs.read`·`fs.write`(`{path, recursive}`), `net.fetch`·`net.listen`
-  (`{host, port}`), `secret.use`(`{name, oauth?}`)다. 같은 `name`의
-  `secret.use`는 하나뿐이다.
+  (`{host, port}`), `secret.use`(`{name, oauth?}`), `notify.send`(`{}`, scope 없음.
+  사람에게 알린다. `@lophn/cap-notify` guide)다. 같은 `name`의 `secret.use`는 하나뿐이다.
   - `oauth`를 두면 그 secret은 사람이 sign-in해 받은 OAuth access token이다.
     `{authorization_endpoint, token_endpoint, scopes, params?}`이고 끝점은
     https이거나 loopback http다. `scopes`는 정렬하고 중복을 지운다. `params`는

@@ -1,9 +1,10 @@
-// 알림을 어디에 띄울지 정하는 한 곳. 터미널 안 coding agent(tracker)와 lophn Agent session(Bus event)이
-// 같은 규칙(notice/rule.ts)으로 이리 온다: 보고 있으면 없음, lophn 창에 focus가 있으면 그 창의 toast,
-// 없으면 OS 알림. 누르면 그 탭이 있는 창을 앞으로 가져오고 탭을 고른다. toast를 받는 창은 하나뿐이라
-// 창이 여럿이어도 한 번만 뜬다.
+// 알림을 어디에 띄울지 정하는 한 곳. 터미널 안 coding agent(tracker), lophn Agent session(Bus event),
+// 앱이 사람에게 한 알림(AppNoticePosted)이 같은 규칙(notice/rule.ts)으로 이리 온다: 보고 있으면 없음,
+// lophn 창에 focus가 있으면 그 창의 toast, 없으면 OS 알림. 누르면 그 탭(앱 알림은 그 앱 공간)이 있는 창을
+// 앞으로 가져오고 고른다. toast를 받는 창은 하나뿐이라 창이 여럿이어도 한 번만 뜬다.
 import { BrowserWindow, Notification } from "electron";
 
+import type { AppNotice } from "../../../../protocol/apps/notice.ts";
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
@@ -112,6 +113,7 @@ export function createNoticeWiring(
     const window = focusedWindow();
     if (window === undefined) return false;
     const contents = window.webContents.id;
+    if (target.kind === "app") return false;
     return target.kind === "terminal"
       ? focus.focused(contents, target.terminal_ref)
       : visibility.isVisible(contents, target.session);
@@ -124,7 +126,9 @@ export function createNoticeWiring(
     const owner =
       target.kind === "terminal"
         ? focus.contentsOf(target.terminal_ref)
-        : visibility.owner(target.session);
+        : target.kind === "session"
+          ? visibility.owner(target.session)
+          : undefined;
     const window =
       live.find((item) => item.webContents.id === owner) ??
       live.filter((item) => !ctx.detached.has(item)).at(-1) ??
@@ -145,10 +149,12 @@ export function createNoticeWiring(
           project,
         });
       }
-    } else {
+    } else if (target.kind === "session") {
       window.webContents.send(NOTICE_REVEAL_CHANNEL, {
         session: target.session,
       });
+    } else {
+      window.webContents.send(NOTICE_REVEAL_CHANNEL, { app: target.app });
     }
   }
 
@@ -169,25 +175,39 @@ export function createNoticeWiring(
     notification.show();
   }
 
-  function show(notice: Notice): boolean {
+  // 알림을 띄울 곳을 정하는 한 곳이다. 보고 있으면 없음, toast를 받을 창이 있으면 toast, 아니면 OS 알림.
+  function present(
+    title: string,
+    body: string | undefined,
+    lead: OverlayLead | undefined,
+    target: NoticeTarget,
+  ): boolean {
     const window = focusedWindow();
     const route = routeNotice({
-      looking: looking(notice.target),
+      looking: looking(target),
       // detached 창에는 toast 표면이 없다.
       toastable: window !== undefined && !ctx.detached.has(window),
     });
-    const title = titleOf(notice.kind, notice.agent, notice.workspace);
     if (route === "toast") {
       serial += 1;
       window!.webContents.send(NOTICE_TOAST_CHANNEL, {
         id: `notice-${serial}`,
         title,
-        body: notice.body,
-        lead: notice.lead,
-        target: notice.target,
+        body,
+        lead,
+        target,
       });
-    } else if (route === "os") osNotify(title, notice.body, notice.target);
+    } else if (route === "os") osNotify(title, body, target);
     return route !== "none";
+  }
+
+  function show(notice: Notice): boolean {
+    return present(
+      titleOf(notice.kind, notice.agent, notice.workspace),
+      notice.body,
+      notice.lead,
+      notice.target,
+    );
   }
 
   // core 읽기 하나. 읽지 못하거나 모양이 다르면 null이다(알림이 안 뜨는 것보다 본문이 비는 쪽이 낫다).
@@ -321,6 +341,19 @@ export function createNoticeWiring(
     ],
   });
   ctx.relay.events.push((event) => void sessions.event(event));
+  // 앱이 사람에게 한 알림. 보고 있는 탭이 없으므로 lophn 창에 focus가 있으면 toast, 아니면 OS 알림이다.
+  // 놓친 알림은 다시 띄우지 않는다(Inbox 줄이 남는다).
+  ctx.relay.conditions.push({ types: ["AppNoticePosted"] });
+  ctx.relay.events.push((event) => {
+    if (event.type !== "AppNoticePosted") return;
+    const posted = event.payload as AppNotice;
+    present(
+      `${posted.app_name} · ${posted.title}`,
+      excerpt(posted.body),
+      undefined,
+      { kind: "app", app: posted.app },
+    );
+  });
   ctx.windowHooks.created.push((window) =>
     window.on("focus", () => sessions.recheck()),
   );
@@ -350,7 +383,7 @@ export function createNoticeWiring(
     if (!parsed.ok) return;
     if (parsed.value.kind === "terminal") {
       dismissTerminal(parsed.value.terminal_ref);
-    } else {
+    } else if (parsed.value.kind === "session") {
       sessions.dismiss(parsed.value.session);
     }
   });

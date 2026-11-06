@@ -10,6 +10,11 @@ import {
   sha256Schema,
   toolKeySchema,
 } from "./channel-values.ts";
+import {
+  noticeBodySchema,
+  noticeKeySchema,
+  noticeTitleSchema,
+} from "./notice.ts";
 import { readyAttestationInputSchema } from "./runtime.ts";
 
 // 자식 credential·현재 mode·nonce에 묶인다. 신원은 요청 본문이 정하지 않는다.
@@ -131,3 +136,14 @@ export const brokerProblemObserveInputSchema = z.strictObject({
 // source 자식 신원으로 제한된 다른 앱 connection 준비. 업무 payload는 중계하지 않는다.
 
 // capability 거절은 필요한 permission 이름과 scope를 알린다.
+
+// 앱이 사람에게 알린다. 호출 문맥(command·invocation)은 없다: 시작 코드와 flow에서도 부른다.
+export const brokerNotifyInputSchema = z.strictObject({
+  ...childFields,
+  title: noticeTitleSchema,
+  body: noticeBodySchema.optional(),
+  key: noticeKeySchema.optional(),
+});
+export const brokerNotifyOutputSchema = z.strictObject({
+  notified: z.literal(true),
+});

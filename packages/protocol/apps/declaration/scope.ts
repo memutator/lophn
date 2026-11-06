@@ -203,6 +203,12 @@ export function permissionScope(
   value: unknown,
 ): ValidationResult<PermissionScope> {
   if (!isObject(value)) return invalid("permission scope must be an object");
+  if (kind === "notify.send") {
+    const unexpected = exactKeys(value, [], []);
+    return unexpected
+      ? invalid(`permission scope ${unexpected}`)
+      : { ok: true, value: {} };
+  }
   const keys = kind.startsWith("fs.")
     ? ["path", "recursive"]
     : kind.startsWith("net.")

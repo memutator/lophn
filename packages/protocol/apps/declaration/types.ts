@@ -81,7 +81,8 @@ export type PermissionKind =
   | "fs.write"
   | "net.fetch"
   | "net.listen"
-  | "secret.use";
+  | "secret.use"
+  | "notify.send";
 
 // secret.use의 OAuth 블록. 끝점은 https이거나 loopback http다(검사는 scope.ts의 oauthScope).
 export type OAuthDeclaration = {
@@ -110,7 +111,9 @@ export const OAUTH_RESERVED_PARAMS = [
 export type PermissionScope =
   | { path: string; recursive: boolean }
   | { host: string; port: number }
-  | { name: string; oauth?: OAuthDeclaration };
+  | { name: string; oauth?: OAuthDeclaration }
+  // notify.send는 scope가 없다. 빈 객체다.
+  | Record<string, never>;
 
 export type PermissionRequirement = {
   kind: PermissionKind;

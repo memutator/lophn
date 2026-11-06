@@ -14,11 +14,16 @@ import {
   processApplyRequestSchema,
   toolCallOutputSchema,
 } from "../../../protocol/apps/calls/mod.ts";
-import { appsSecretValue, CONTROL_PATHS } from "../../../protocol/apps/mod.ts";
+import {
+  appNoticePost,
+  appsSecretValue,
+  CONTROL_PATHS,
+} from "../../../protocol/apps/mod.ts";
 import { CALL_RESPONSE_MAX_BYTES } from "../../../protocol/base/mod.ts";
 import {
   type AppCallPort,
   type BrokerChild,
+  type NoticePostPort,
   type ReadyReceiver,
 } from "../../apps/permissions/mod.ts";
 import {
@@ -355,6 +360,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
   };
 
+  const notice: NoticePostPort = {
+    post: (child, input) =>
+      asChild(
+        child,
+        `${appNoticePost.resource}/${appNoticePost.method}`,
+        input,
+      ),
+  };
+
   const toCore = { post: io.post, bearer: () => hello.credential };
   // 앱 secret 값은 supervisor의 machine credential로 core에서 받는다. 앱 process는 이 route를 부르지 못한다.
   const secrets = {
@@ -396,6 +410,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     access: createCoreBrokerAccess(toCore),
     ready,
     appCall,
+    notice,
     platformPorts: () => (hello.apiPort === 0 ? [] : [hello.apiPort]),
     exceptions: {
       frames: (child, stack) =>

@@ -89,7 +89,8 @@ export type ResourceKind =
   | "file-write"
   | "network"
   | "listen"
-  | "secret";
+  | "secret"
+  | "notify";
 
 export type OAuthState = "none" | "in_progress" | "signed_in" | "failed";
 

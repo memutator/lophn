@@ -13,6 +13,10 @@ import {
   shareRequestList,
 } from "../../../../../protocol/approvals/share-request.ts";
 import {
+  type AppNotice,
+  appNoticesList,
+} from "../../../../../protocol/apps/notice.ts";
+import {
   type JobHold,
   type JobRecord,
   jobHolds,
@@ -98,4 +102,20 @@ export async function readShareRequests(
   if (!reply?.ok) return null;
   const parsed = shareRequestList.output.safeParse(reply.value);
   return parsed.success ? parsed.data.requests : null;
+}
+
+export async function readAppNotices(
+  core: CoreSource,
+): Promise<AppNotice[] | null> {
+  const reply = await core
+    .call({
+      kind: "read",
+      resource: appNoticesList.resource,
+      method: appNoticesList.method,
+      body: {},
+    })
+    .catch(() => null);
+  if (!reply?.ok) return null;
+  const parsed = appNoticesList.output.safeParse(reply.value);
+  return parsed.success ? parsed.data.notices : null;
 }

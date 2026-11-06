@@ -34,6 +34,7 @@ const ID_PREFIXES = {
   wfi: "WorkflowInstance",
   job: "Job",
   jbr: "JobRun",
+  ntc: "AppNotice",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

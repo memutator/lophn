@@ -93,6 +93,8 @@ interface GuiFeed {
   readonly client: EventClient;
   state(): AcpState;
   push(update: AcpUpdate): void;
+  /** 갱신을 접은 뒤마다 부른다. */
+  watch(listener: () => void): () => void;
 }
 
 // 대기 목록·session 상태 같은 core 쪽 구독은 이 화면에 없다.
@@ -109,11 +111,17 @@ function createGuiFeed(now: () => number): GuiFeed {
   const session = newId("ses", now());
   let state = EMPTY_ACP_STATE;
   const listeners = new Set<(message: EventMessage) => void>();
+  const watchers = new Set<() => void>();
   return {
     session,
     state: () => state,
+    watch(listener) {
+      watchers.add(listener);
+      return () => void watchers.delete(listener);
+    },
     push(update) {
       state = reduceAcp(state, update);
+      for (const watcher of [...watchers]) watcher();
       const event = {
         type: "AcpUpdated",
         subject: null,
@@ -290,6 +298,7 @@ export function TerminalGui({
   terminalRef,
   drafts,
   host,
+  onTitle,
   now = Date.now,
 }: {
   api: HarnessGuiTabApi;
@@ -297,9 +306,23 @@ export function TerminalGui({
   terminalRef: string | null;
   drafts?: DraftStore;
   host?: Partial<AgentViewHost>;
+  /** CLI session 제목이 생기거나 바뀌었다(`/rename`, resume). 탭 이름이 따라간다. */
+  onTitle?: (title: string) => void;
   now?: () => number;
 }) {
   const feed = useMemo(() => createGuiFeed(now), [gui.handle, now]);
+  useEffect(() => {
+    if (onTitle === undefined) return;
+    let last: string | null = null;
+    return feed.watch(() => {
+      // 제목이 아직 없는 새 session은 TUI처럼 harness 이름이다.
+      const title =
+        feed.state().session?.title || HARNESS_ADAPTERS[gui.harness].label;
+      if (title === last) return;
+      last = title;
+      onTitle(title);
+    });
+  }, [feed, onTitle, gui.harness]);
   const own = useMemo(() => new DraftStore(), []);
   const [info, setInfo] = useState<HarnessGuiInfo | null>(null);
   useEffect(() => {
@@ -437,6 +460,15 @@ export function GuiSwitch({
         };
       }),
   });
+  // GUI 동안에는 TUI가 제목을 알리지 않으므로 CLI session 제목을 탭 이름으로 쓴다. 사람이 붙인 이름이 먼저다.
+  const onTitle = useCallback(
+    (title: string) =>
+      host.patchTab(tab.key, (current) => {
+        const person = current.fields?.name;
+        return typeof person === "string" && person.length > 0 ? {} : { title };
+      }),
+    [host, tab.key],
+  );
   const gui = guiOf(tab);
   if (api === null || gui === null || viewOf(tab) !== "gui") return children;
   const agentView = host.agentView;
@@ -446,6 +478,7 @@ export function GuiSwitch({
       api={api}
       gui={gui}
       terminalRef={terminalRef}
+      onTitle={onTitle}
       {...(agentView === null ? {} : { drafts: agentView.drafts })}
       host={{
         ...(agentView === null

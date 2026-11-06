@@ -1,3 +1,18 @@
 # code-health
 
 여러 module에 걸친 코드 건강 이슈다(죽은 이름, 긴 파일, test 준비 코드). 짝이 되는 architecture 문서는 없다.
+
+## `npm run dev`가 같은 data root로 이미 떠 있는 dev 앱의 process를 남은 child로 보고 죽인다
+
+```yaml
+kind: bug
+modules: [tools, tests]
+```
+
+지금: `tools/dev.ts`의 `plantFakeProvider`는 앱을 띄우기 전에 `bootCore`(`tests/support/core/mod.ts`)로 core를 한 번 띄웠다 끈다. 끈 뒤 `waitGone`(`tests/support/core/process.ts`)이 env에 `LOPHN_HOME=<data root>`가 있는 process를 `/proc`에서 모두 찾아, 제한 시간 뒤에도 있으면 SIGKILL하고 "core가 child를 남긴다"로 실패한다. 같은 worktree의 `.dev-data`로 이미 떠 있는 dev 앱(shell main, core, terminal host, 그 아래 터미널)도 그 env를 가져 같이 걸린다. 재현: 한 worktree에서 `npm run dev`로 앱을 띄워 둔 채 같은 곳에서 `npm run dev`를 다시 친다(harness-gui-tab 확인 중 사람에게 생겼다. pid 둘이 죽었다).
+
+영향: 사람이 열어 둔 dev 앱(과 그 터미널의 CLI)이 경고 없이 죽고, 새 `npm run dev`도 실패로 끝난다.
+
+고치려면:
+- `plantFakeProvider`가 bootCore 전에 `processesOf(dataRoot)`를 읽어 `waitGone`의 `keep`으로 넘긴다(그 함수가 이미 받는 인자다). 작음. 추천.
+- 같은 data root에 process가 있으면 `npm run dev`가 "이미 떠 있다"로 바로 멈추고 앞 앱을 끄라고 한다. 작음.

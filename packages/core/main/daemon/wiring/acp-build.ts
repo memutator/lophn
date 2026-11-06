@@ -34,6 +34,7 @@ import {
   blocksOfContent,
   messageBody,
   messageContentSchema,
+  type ShellPart,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -78,6 +79,7 @@ import {
 import type { TurnRecord } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
 import {
+  acpShellItem,
   acpUpdatesOf,
   type AgentEvent,
 } from "../../../../protocol/events/mod.ts";
@@ -162,6 +164,8 @@ export type MessageBody = {
   content: ContentBlock[];
   reasoning: AcpReasoning | null;
   cards: AcpCard[];
+  /** 사람이 `!`로 돌린 명령의 기록이면 그 본문. 저장 전에 redaction을 거친 값이다. */
+  shell: ShellPart | null;
 };
 
 /** 저장된 메시지 본문. harness가 쓴 tool 줄은 전용 항목이 생기기 전까지 글 한 줄이다. 못 읽으면 null이다. */
@@ -178,8 +182,12 @@ export async function readMessageBody(
   const content: ContentBlock[] = [];
   const cards: AcpCard[] = [];
   let reasoning: AcpReasoning | null = null;
+  let shell: ShellPart | null = null;
   for (const part of parsed.data.parts) {
     switch (part.kind) {
+      case "shell":
+        shell = part;
+        break;
       case "app_card":
         cards.push({ app: part.app, view: part.view });
         break;
@@ -204,7 +212,7 @@ export async function readMessageBody(
         );
     }
   }
-  return { content, reasoning, cards };
+  return { content, reasoning, cards, shell };
 }
 
 export async function agentOfSession(
@@ -681,6 +689,7 @@ export async function buildAcpState(
       .filter(
         (message) =>
           message.from.kind === "human" &&
+          !message.shell &&
           message.turn === null &&
           message.delivery === "next_turn" &&
           running &&
@@ -706,6 +715,34 @@ export async function buildAcpState(
   for (const message of messages.value) {
     if (waiting.has(message.id)) continue;
     const body = bodyOf.get(message.id) ?? null;
+    // 사람이 돌린 명령은 message가 아니라 사람 tool 줄이다. 숨기는 구간은 message처럼 기록 순번으로 가른다.
+    if (message.shell) {
+      if (body?.shell == null) continue;
+      const shell = body.shell;
+      candidates.push({
+        id: message.id,
+        kind: "message",
+        turn: null,
+        at: message.created_at,
+        rank: 0,
+        createdSeq: BigInt(message.created_seq),
+        make: (seq) =>
+          acpShellItem(
+            {
+              message: message.id,
+              command: shell.command,
+              exit_code: shell.exit_code,
+              stdout: shell.stdout,
+              stderr: shell.stderr,
+              truncated: shell.truncated,
+              duration_ms: null,
+            },
+            seq,
+            message.created_at,
+          ),
+      });
+      continue;
+    }
     const own =
       message.from.kind === "agent" && message.from.session === session;
     const steering = live.steering.has(message.id);
@@ -766,6 +803,7 @@ export async function buildAcpState(
         id: call.id,
         seq,
         at,
+        by: "agent",
         turn: call.turn,
         tool: call.tool,
         category: call.display.category,
@@ -829,6 +867,7 @@ export async function buildAcpState(
         outcome: data.outcome,
         choice: data.choice,
         reason: data.reason === null ? null : env.redact(data.reason),
+        mode: null,
       }),
     });
   }
@@ -968,6 +1007,7 @@ export async function buildAcpState(
     reread: false,
     children: {},
     tasks: [],
+    draft: null,
   });
 }
 
@@ -987,20 +1027,25 @@ export const AGENT_MODES: AcpChoice[] = [
   },
 ];
 
-// lophn agent가 가진 기능은 harness 전용 여섯(subagent 조작, task, toggle, goal, role)을 뺀 전부다.
-const CAPABILITIES = Object.fromEntries(
-  ACP_CAPABILITIES.map((name) => [
-    name,
-    ![
-      "stop_child",
-      "steer_child",
-      "tasks",
-      "toggles",
-      "goal",
-      "roles",
-    ].includes(name),
-  ]),
-) as AcpCapabilities;
+// lophn agent가 가진 기능은 harness 전용 일곱(subagent 조작, task, toggle, goal, role, resume)을 뺀 전부다.
+// `!`(shell)는 명령을 돌릴 폴더가 있는 workspace(project·앱)의 session만 가진다. home은 없다.
+const capabilitiesOf = (folder: boolean) =>
+  Object.fromEntries(
+    ACP_CAPABILITIES.map((name) => [
+      name,
+      name === "shell"
+        ? folder
+        : ![
+            "stop_child",
+            "steer_child",
+            "tasks",
+            "toggles",
+            "goal",
+            "roles",
+            "resume",
+          ].includes(name),
+    ]),
+  ) as AcpCapabilities;
 
 type SessionRecord = Output<typeof workspaceSessionRead>["session"];
 
@@ -1100,6 +1145,7 @@ export async function readModelPart(
             : optionAxesOf(entry).map(({ id, label, values }) => ({
                 id,
                 label,
+                kind: "choice" as const,
                 values,
               })),
       };
@@ -1156,6 +1202,8 @@ export async function readUsage(
 }
 
 type MetaParts = {
+  // 명령을 돌릴 폴더가 있는 workspace의 session인가.
+  folder: boolean;
   title: string | null;
   skip: boolean;
   model: Pick<AcpSessionMeta, "models" | "model">;
@@ -1168,7 +1216,7 @@ function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
   return {
     title: parts.title === null ? null : env.redact(parts.title),
     cli_session: null,
-    capabilities: CAPABILITIES,
+    capabilities: capabilitiesOf(parts.folder),
     ...parts.model,
     modes: AGENT_MODES,
     mode: parts.skip ? "skip" : "ask",
@@ -1290,6 +1338,7 @@ export async function readSessionMeta(
     readAsCaller<Output<typeof commandsList>>(commandsList, { session }),
   ]);
   return metaOf(env, {
+    folder: record.value.workspace !== null,
     title: record.value.title,
     skip: record.value.skip,
     model,
@@ -1312,6 +1361,7 @@ export async function readDraftMeta(
     readAsCaller<Output<typeof commandsList>>(commandsList, draft),
   ]);
   return metaOf(env, {
+    folder: draft.workspace !== null,
     title: null,
     skip: false,
     model,
@@ -1395,7 +1445,7 @@ export async function acpUpdatesFor(
   const message = (id: string, turn: string | null, at: string) =>
     alloc.push({ id, kind: "message", turn, at, data: null });
   let projected: AgentEvent = event;
-  let body: MessageBody | null = null;
+  let body: Omit<MessageBody, "shell"> | null = null;
   let detail = null as Awaited<ReturnType<typeof readToolDetail>>;
   let decision: Awaited<NonNullable<AcpCaptured["decision"]>> = null;
   const agents = new Map<string, AgentId | null>();
@@ -1421,6 +1471,10 @@ export async function acpUpdatesFor(
     case "MessageSteered":
       message(event.payload.message, null, event.at);
       break;
+    // 사람이 돌린 명령은 turn 밖이다. 숨기는 구간이 message처럼 가르게 message로 저장한다(snapshot과 같다).
+    case "ShellRan":
+      message(event.payload.message, null, event.at);
+      break;
     case "TurnStarted":
       message(event.payload.input_message, event.payload.turn, event.at);
       break;
@@ -1438,7 +1492,18 @@ export async function acpUpdatesFor(
       break;
     case "MessageRecorded":
       message(event.payload.message, event.payload.turn, event.at);
-      body = await readMessageBody(env, event.payload.message);
+      {
+        // agent의 답에는 shell part가 없다. 갱신의 body는 strict라 그 칸을 싣지 않는다.
+        const read = await readMessageBody(env, event.payload.message);
+        body =
+          read === null
+            ? null
+            : {
+                content: read.content,
+                reasoning: read.reasoning,
+                cards: read.cards,
+              };
+      }
       break;
     case "ToolCallStarted":
       alloc.push({

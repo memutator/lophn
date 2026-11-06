@@ -3,21 +3,28 @@
 // 알린다. 그래서 장면 안에서 눌러 볼 수 있다. 시각과 id는 고정이다.
 
 import {
+  type AcpCommand,
   type AcpCapabilities,
+  type AcpChildState,
   type AcpEntry,
   type AcpInput,
   type AcpItem,
   type AcpMessageItem,
   type AcpNoticeItem,
+  type AcpModelAxis,
   type AcpModelCurrent,
   type AcpModelGroup,
   type AcpSender,
+  type AcpRole,
   type AcpSessionMeta,
   type AcpState,
+  type AcpTask,
+  type AcpToggle,
   type AcpToolItem,
   type AcpTurn,
   type AcpUsage,
   acpNoticeId,
+  EMPTY_ACP_CHILD_STATE,
   EMPTY_ACP_STATE,
   reduceAcp,
   type AcpUpdate,
@@ -34,6 +41,7 @@ import {
   BUILT_IN_GROUPS,
   CUSTOM_GROUP,
   DEFAULT_OPTIONS,
+  effortLowToMax,
   SONNET,
 } from "./agent-tab-fake-models.ts";
 import type {
@@ -73,9 +81,11 @@ export const AGENT_TAB_SCENES = [
   "approval",
   "approval-states",
   "rewind",
+  /** 사람이 `!`로 돌린 shell 줄 둘(출력을 펼친 것, exit code가 0이 아닌 것). */
+  "shell",
   /** session이 아직 없는 새 대화. */
   "empty",
-  /** harness CLI의 session: mode 셋, CLI 명령, 계획 목록, 명령 출력과 알림 줄. session 목록과 파일 복원은 없다. */
+  /** harness CLI의 session: mode 셋, CLI 명령, composer 위 dock(goal, todo, 도는 subagent·task, 줄 선 메시지), 명령 출력과 알림 줄. session 목록과 파일 복원은 없다. */
   "harness",
   /** harness가 plan을 내고 승인을 기다린다: plan markdown과 다음 mode 단추. */
   "plan-approval",
@@ -255,6 +265,7 @@ function tool(
     id: toolId(n),
     seq: 0,
     at: at(minutes),
+    by: "agent",
     turn: turn1,
     ...fields,
     state: "ok",
@@ -264,6 +275,47 @@ function tool(
     ...over,
   };
 }
+
+/**
+ * 사람이 `!`로 돌린 명령 하나. harness는 출력을 `body`에 싣고(`output`을 주면), lophn은 body가 null이라
+ * `toolBodies`의 blob read로 읽는다.
+ */
+function userShell(
+  n: number,
+  minutes: number,
+  command: string,
+  over: Partial<AcpToolItem> = {},
+  output: string | null = null,
+): AcpToolItem {
+  return tool(
+    n,
+    minutes,
+    {
+      tool: "shell",
+      category: "command",
+      title: command.split("\n")[0]!,
+    },
+    {
+      by: "user",
+      turn: null,
+      duration_ms: 300,
+      body:
+        output === null ? null : { input: command, output, truncated: false },
+      ...over,
+    },
+  );
+}
+
+const LS_OUTPUT = [
+  "total 48",
+  "drwxr-xr-x  7 phroner phroner 4096 Oct  6 09:12 .",
+  "drwxr-xr-x 14 phroner phroner 4096 Oct  5 18:40 ..",
+  "-rw-r--r--  1 phroner phroner  231 Oct  6 09:02 README.md",
+  "drwxr-xr-x  3 phroner phroner 4096 Oct  5 18:41 docs",
+  "drwxr-xr-x  4 phroner phroner 4096 Oct  6 08:55 eval",
+  "-rw-r--r--  1 phroner phroner  612 Oct  5 18:40 package.json",
+  "drwxr-xr-x  2 phroner phroner 4096 Oct  6 09:02 src",
+].join("\n");
 
 // report 장면: 탐색 묶음 하나와 description을 제목으로 쓰는 command 하나.
 const REPORT_CALLS: readonly AcpToolItem[] = [
@@ -743,6 +795,161 @@ function envelope(
   return { sender, task, refs, session };
 }
 
+// ---- harness 장면의 dock: 도는 subagent 하나(자식 대화), 도는 shell task 하나, 줄 선 메시지 ----
+
+const CHILD = "chd_01h455vb4pex5v6nkc6gd5f001";
+
+/** 도는 subagent 줄. 자식 대화는 `CHILD`다. */
+const SUBAGENT_CALL = tool(
+  31,
+  42,
+  {
+    tool: "Task",
+    category: "other",
+    title: "Find where the upload retry is called",
+  },
+  {
+    state: "running",
+    duration_ms: null,
+    detail: {
+      kind: "subagent",
+      agent: "Explore",
+      description: "Find where the upload retry is called",
+      child: CHILD,
+      state: "running",
+      model: "Haiku 5.5",
+      last: "Reading src/queue/worker.ts",
+    },
+  },
+);
+
+const childTool = (n: number, minutes: number, title: string): AcpToolItem =>
+  tool(
+    40 + n,
+    minutes,
+    { tool: "file.read", category: "read", title },
+    { duration_ms: 600 },
+  );
+
+/** 자식 대화: 맡긴 일, 읽은 file 둘, 지금까지 찾은 것. */
+const CHILD_STATE: AcpChildState = {
+  ...EMPTY_ACP_CHILD_STATE,
+  seq: 4,
+  turn: { ...turnOf("working"), id: turnId(2), started_at: at(42) },
+  items: [
+    {
+      ...user(41, 42, "Find where the upload retry is called."),
+      seq: 1,
+      turn: turnId(2),
+    },
+    {
+      ...childTool(1, 42, "Search retry in src"),
+      seq: 2,
+      turn: turnId(2),
+    },
+    {
+      ...childTool(2, 42, "Read src/upload.ts"),
+      seq: 3,
+      turn: turnId(2),
+    },
+    {
+      ...agent(
+        42,
+        43,
+        "`upload()` is called from `src/queue/worker.ts` and from the CLI entry. I am reading the worker to see how it handles a failed upload.",
+      ),
+      seq: 4,
+      turn: turnId(2),
+    },
+  ],
+};
+
+/** 도는 shell task. 출력은 꼬리 몇 줄이다. */
+const SHELL_TASK: AcpTask = {
+  id: "tsk_01h455vb4pex5v6nkc6gd5f001",
+  kind: "shell",
+  description: "npm run dev",
+  state: "running",
+  started_at: at(40),
+  output: [
+    "> upload-service@1.4.0 dev",
+    "> node --watch src/server.ts",
+    "",
+    "listening on :3000",
+    "GET /health 200 2ms",
+    "POST /upload 500 41ms",
+  ].join("\n"),
+};
+
+const DOCK_PLAN: NonNullable<AcpState["plan"]> = {
+  entries: [
+    { text: "Read the three findings", status: "completed" },
+    { text: "Add a retry to upload()", status: "completed" },
+    { text: "Write docs/reports/2026-w41.md", status: "in_progress" },
+    { text: "Update docs/reports/index.md", status: "pending" },
+    { text: "Remove the 2026-w40 draft", status: "cancelled" },
+  ],
+};
+
+const DOCK_QUEUED: AcpState["queued"] = [
+  {
+    id: messageId(30),
+    at: at(43),
+    content: [{ type: "text", text: "Also add a test for the 4xx case." }],
+  },
+];
+
+const DOCK_TOGGLES: AcpToggle[] = [
+  {
+    id: "plan",
+    label: "Plan mode",
+    description: "Plan first and ask before implementing.",
+    on: false,
+  },
+];
+
+const DOCK_GOAL = {
+  objective: "Ship the weekly eval report",
+  status: "active",
+  detail: "Two of three sections are written.",
+} as const;
+
+const DOCK_ROLES: AcpRole[] = [
+  { id: "default", label: "default", kind: "chat", model: "sonnet" },
+  { id: "smol", label: "smol", kind: "chat", model: "haiku" },
+  {
+    id: "slow",
+    label: "slow",
+    kind: "chat",
+    model: "anthropic/claude-opus-5-5",
+  },
+  { id: "image", label: "image", kind: "model", model: null },
+];
+
+const DOCK_LIMITS: AcpUsage["limits"] = [
+  {
+    id: "5h",
+    label: "5-hour limit",
+    used_percent: 82,
+    left: null,
+    resets_at: at(150),
+  },
+  {
+    id: "week",
+    label: "Weekly limit",
+    used_percent: null,
+    left: "$4.20 left",
+    resets_at: at(60 * 52),
+  },
+];
+
+const DOCK_CONTEXT_PARTS: NonNullable<AcpUsage["context"]>["parts"] = [
+  { label: "System prompt", tokens: 3_200 },
+  { label: "System tools", tokens: 11_800 },
+  { label: "Memory files", tokens: 2_000 },
+  { label: "Messages", tokens: 21_900 },
+];
+
 interface SceneData {
   agent: AgentFace;
   title: string;
@@ -759,6 +966,21 @@ interface SceneData {
     }
   >;
 }
+
+// shell 장면: lophn이 낸 사람 shell 줄. 출력은 blob read가 읽고 exit code가 거기 실린다.
+const SHELL_BODIES: SceneData["toolBodies"] = {
+  [toolId(20)]: { output: shellBody(LS_OUTPUT) },
+  [toolId(21)]: {
+    output: resultBody("exit code 2", {
+      exit_code: 2,
+      timed_out: false,
+      stdout: "",
+      stderr: "ls: cannot access 'build': No such file or directory",
+      stdout_truncated: false,
+      stderr_truncated: false,
+    }),
+  },
+};
 
 function sceneData(scene: AgentTabScene): SceneData {
   switch (scene) {
@@ -780,6 +1002,22 @@ function sceneData(scene: AgentTabScene): SceneData {
           { turn: turnOf("ended") },
         ),
         toolBodies: REPORT_TOOL_BODIES,
+      };
+    case "shell":
+      return {
+        agent: LOPHN,
+        title: "Week 41 summary",
+        state: numbered(
+          [
+            user(1, 41, REQUEST),
+            agent(2, 42, "The report is in docs/reports/2026-w41.md."),
+            turnEnd(43, 18_000, 0),
+            userShell(20, 44, "ls -la"),
+            userShell(21, 45, "ls build", { state: "error" }),
+          ],
+          { turn: turnOf("ended") },
+        ),
+        toolBodies: SHELL_BODIES,
       };
     case "working":
     case "rewind":
@@ -1146,6 +1384,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         outcome,
         choice,
         reason,
+        mode: null,
       });
       return {
         agent: LOPHN,
@@ -1193,8 +1432,21 @@ function sceneData(scene: AgentTabScene): SceneData {
               text: "You've used 82% of your 5-hour limit. It resets at 11:30.",
               level: "warning",
             }),
+            notice(5, 40, {
+              type: "info",
+              text: "Forked from Week 40 summary",
+              level: "info",
+            }),
+            userShell(
+              30,
+              40,
+              "git status --short",
+              {},
+              " M docs/reports/index.md\n?? docs/reports/2026-w41.md",
+            ),
             user(1, 41, REQUEST),
             ...REPORT_CALLS,
+            SUBAGENT_CALL,
             agent(
               2,
               42,
@@ -1203,16 +1455,10 @@ function sceneData(scene: AgentTabScene): SceneData {
           ],
           {
             turn: turnOf("working"),
-            plan: {
-              entries: [
-                { text: "Read the three findings", status: "completed" },
-                {
-                  text: "Write docs/reports/2026-w41.md",
-                  status: "in_progress",
-                },
-                { text: "Update docs/reports/index.md", status: "pending" },
-              ],
-            },
+            plan: DOCK_PLAN,
+            queued: DOCK_QUEUED,
+            tasks: [SHELL_TASK],
+            children: { [CHILD]: CHILD_STATE },
           },
         ),
         toolBodies: REPORT_TOOL_BODIES,
@@ -1370,13 +1616,26 @@ const EVERYTHING: AcpCapabilities = {
   toggles: false,
   goal: false,
   roles: false,
+  shell: true,
+  resume: false,
 };
 
-/** harness CLI가 가진 만큼: session 목록과 파일 복원이 없다. */
+/** harness CLI(Claude)가 가진 만큼: lophn session 목록은 없고 CLI의 지난 session을 `resume`으로 연다. 파일 복원은 있고 앱 write는 없다. */
 const HARNESS_CAPABILITIES: AcpCapabilities = {
   ...EVERYTHING,
-  rewind_files: false,
   sessions: false,
+  resume: true,
+};
+
+/** dock이 그리는 것(subagent, task, toggle, goal, role)까지 가진 harness. */
+const DOCK_CAPABILITIES: AcpCapabilities = {
+  ...HARNESS_CAPABILITIES,
+  stop_child: true,
+  steer_child: true,
+  tasks: true,
+  toggles: true,
+  goal: true,
+  roles: true,
 };
 
 function modelsOf(picker: FakePicker): {
@@ -1444,6 +1703,10 @@ interface MetaOptions {
   readonly status: Partial<AcpUsage>;
   readonly title: string | null;
   readonly mode: "ask" | "skip";
+  /** harness가 dock의 것(toggle, goal, role, 사용 한도, context 분해)을 싣는다. */
+  readonly dock?: boolean;
+  /** 어느 harness인가. role은 omp만 가진다. 기본은 claude다. */
+  readonly harness?: "claude" | "omp" | "codex";
 }
 
 function lophnMeta(options: MetaOptions): AcpSessionMeta {
@@ -1466,23 +1729,196 @@ function lophnMeta(options: MetaOptions): AcpSessionMeta {
   };
 }
 
+/** 이름이 메뉴 폭을 넘는 plugin 명령. 이름은 말줄임하고 설명은 그 옆에 남는다. */
+const LONG_PLUGIN_COMMAND: AcpCommand = {
+  name: "plugin-name:a-very-long-command-name",
+  aliases: [],
+  description: "A plugin command whose name is longer than the menu is wide",
+  argument_hint: null,
+  source: "plugin",
+  opens: null,
+};
+
+// harness 탭의 지금 CLI session과 그 CLI가 폴더에 가진 지난 session(머리 session menu의 목록).
+const CLI_CURRENT = "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9";
+const CLI_EARLIER: readonly {
+  readonly id: string;
+  readonly title: string;
+  readonly minutes: number;
+  readonly question: string;
+  readonly answer: string;
+}[] = [
+  {
+    id: "3b7e41aa-6c20-47d8-9d15-71e0a3c58f02",
+    title: "Fix the flaky upload test",
+    minutes: -3 * 60,
+    question: "The upload test fails one run in five. Can you find out why?",
+    answer:
+      "It races the mock server against the retry timer. I made the test wait for the first retry before it asserts.",
+  },
+  {
+    id: "c0a1d2e3-7f4b-4a19-b6c8-2e9d5f1a7b34",
+    title: "Week 40 summary",
+    minutes: -2 * 24 * 60,
+    question: "Summarize last week's eval runs.",
+    answer: "Pass rate held at 91%. Two regressions, both in the date parser.",
+  },
+  {
+    id: "58d9f0b2-1e6a-4c37-8b4d-a3f7c2e91d60",
+    title: "Rename the config loader",
+    minutes: -6 * 24 * 60,
+    question: "Rename loadConfig to readConfig everywhere.",
+    answer: "Done. 14 call sites changed and the exports file is updated.",
+  },
+];
+
+// CLI가 주는 session 명령: `new`는 같은 탭에서 빈 session을 열고(Claude는 `clear`의 별칭), `resume`은 머리 session menu를 연다.
+const HARNESS_SESSION_COMMANDS: readonly AcpCommand[] = [
+  {
+    name: "new",
+    aliases: ["clear"],
+    description: "Start a new session",
+    argument_hint: null,
+    source: "harness",
+    opens: null,
+  },
+  {
+    name: "resume",
+    aliases: [],
+    description: "Resume an earlier session",
+    argument_hint: null,
+    source: "harness",
+    opens: "resume",
+  },
+];
+
+const onOff = (
+  id: string,
+  label: string,
+  off: string,
+  on: string,
+): AcpModelAxis => ({
+  id,
+  label,
+  kind: "switch",
+  values: [
+    { value: "off", label: off },
+    { value: "on", label: on },
+  ],
+});
+
+// Claude의 fast·thinking은 model마다 지원할 때만 있는 켜고 끄는 축이다(Haiku에는 fast가 없다).
+const CLAUDE_FAST = onOff("fast", "Speed", "Standard", "Fast");
+const CLAUDE_THINKING = onOff("thinking", "Thinking", "Off", "On");
+// Codex의 service tier(speed)와 omp의 fast도 그 model의 축이다.
+const CODEX_SPEED = onOff("speed", "Speed", "Standard", "Fast");
+
+const HARNESS_GROUPS: Readonly<
+  Record<"claude" | "omp" | "codex", readonly AcpModelGroup[]>
+> = {
+  claude: [
+    {
+      id: "claude",
+      label: "Claude",
+      models: [
+        {
+          id: "sonnet",
+          label: "Sonnet 5.5",
+          axes: [effortLowToMax, CLAUDE_FAST, CLAUDE_THINKING],
+        },
+        {
+          id: "opus",
+          label: "Opus 5.5",
+          axes: [effortLowToMax, CLAUDE_FAST, CLAUDE_THINKING],
+        },
+        { id: "haiku", label: "Haiku 5.5", axes: [CLAUDE_THINKING] },
+      ],
+    },
+  ],
+  // omp는 provider마다 묶는다. 묶음이 여럿이라 지금 model의 묶음만 펼쳐 있다.
+  omp: [
+    {
+      id: "anthropic",
+      label: "Anthropic",
+      models: [
+        {
+          id: "sonnet",
+          label: "Sonnet 5.5",
+          axes: [effortLowToMax, onOff("fast", "Fast", "Off", "On")],
+        },
+        { id: "haiku", label: "Haiku 5.5", axes: [] },
+      ],
+    },
+    {
+      id: "openai",
+      label: "OpenAI",
+      models: [
+        { id: "sol", label: "GPT-6.1 Sol", axes: [effortLowToMax] },
+        { id: "mini", label: "GPT-6.1 Mini", axes: [] },
+      ],
+    },
+    {
+      id: "google",
+      label: "Google",
+      models: [{ id: "gemini", label: "Gemini 3.8 Flash", axes: [] }],
+    },
+    {
+      id: "xai",
+      label: "xAI",
+      models: [{ id: "grok", label: "Grok 4.7", axes: [] }],
+    },
+  ],
+  codex: [
+    {
+      id: "openai",
+      label: "OpenAI",
+      models: [
+        {
+          id: "sol",
+          label: "GPT-6.1 Sol",
+          axes: [effortLowToMax, CODEX_SPEED],
+        },
+        { id: "mini", label: "GPT-6.1 Mini", axes: [effortLowToMax] },
+      ],
+    },
+  ],
+};
+
+const HARNESS_CURRENT: Readonly<
+  Record<"claude" | "omp" | "codex", AcpModelCurrent>
+> = {
+  claude: {
+    model: "sonnet",
+    label: "Sonnet 5.5",
+    options: { effort: "high", fast: "on", thinking: "on" },
+    layer: null,
+  },
+  omp: {
+    model: "sonnet",
+    label: "Sonnet 5.5",
+    options: { effort: "high" },
+    layer: null,
+  },
+  codex: {
+    model: "sol",
+    label: "GPT-6.1 Sol",
+    options: { effort: "high", speed: "on" },
+    layer: null,
+  },
+};
+
 function harnessMeta(options: MetaOptions): AcpSessionMeta {
-  const sonnet = modelsOf({}).model!;
+  const omp = options.harness === "omp";
+  const kind = options.harness ?? "claude";
   return {
     title: options.title,
-    cli_session: "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9",
-    capabilities: HARNESS_CAPABILITIES,
-    models: [
-      {
-        id: "claude",
-        label: "Claude",
-        models: [
-          { id: "sonnet", label: "Sonnet 5.5", axes: SONNET.axes },
-          { id: "haiku", label: "Haiku 5.5", axes: [] },
-        ],
-      },
-    ],
-    model: { ...sonnet, model: "sonnet", layer: null },
+    cli_session: CLI_CURRENT,
+    capabilities:
+      options.dock !== true
+        ? HARNESS_CAPABILITIES
+        : { ...DOCK_CAPABILITIES, roles: omp },
+    models: [...HARNESS_GROUPS[kind]],
+    model: { ...HARNESS_CURRENT[kind] },
     modes: [
       { id: "default", label: "Default", description: null },
       { id: "acceptEdits", label: "Accept edits", description: null },
@@ -1492,24 +1928,40 @@ function harnessMeta(options: MetaOptions): AcpSessionMeta {
     commands: [
       ...HARNESS_APP_COMMANDS,
       ...CLI_COMMANDS,
+      ...HARNESS_SESSION_COMMANDS,
       ...HARNESS_EXTRA_COMMANDS,
+      LONG_PLUGIN_COMMAND,
     ],
     usage: {
       ...usageOf(options.status),
       provider: null,
       costs: [],
-      context: { tokens: 43_000, limit: 200_000, parts: [] },
+      context: {
+        tokens: 43_000,
+        limit: 200_000,
+        parts: options.dock === true ? DOCK_CONTEXT_PARTS : [],
+      },
+      ...(options.dock === true ? { limits: DOCK_LIMITS } : {}),
     },
-    toggles: [],
-    goal: null,
-    roles: null,
-    harness: "claude",
+    toggles: options.dock === true ? DOCK_TOGGLES : [],
+    goal: options.dock === true ? { ...DOCK_GOAL } : null,
+    roles: options.dock === true && omp ? DOCK_ROLES : null,
+    harness: kind,
   };
 }
 
-/** wireframe의 harness GUI 탭이 첫 갱신으로 싣는 session 기능(Claude). */
-export const fakeHarnessMeta = (): AcpSessionMeta =>
-  harnessMeta({ picker: {}, status: {}, title: null, mode: "ask" });
+/** wireframe의 harness GUI 탭이 첫 갱신으로 싣는 session 기능. role은 omp만 가진다. */
+export const fakeHarnessMeta = (
+  harness: "claude" | "omp" | "codex" = "claude",
+): AcpSessionMeta =>
+  harnessMeta({
+    picker: {},
+    status: {},
+    title: "Add a retry to the upload helper",
+    mode: "ask",
+    dock: true,
+    harness,
+  });
 
 // ---- fake ----
 
@@ -1565,6 +2017,7 @@ export function createFakeAgentTabSource(
       status: options.status ?? {},
       title,
       mode,
+      dock: options.scene === "harness",
     });
   const withMeta = (state: AcpState, meta: AcpSessionMeta): AcpState => ({
     ...state,
@@ -1638,11 +2091,15 @@ export function createFakeAgentTabSource(
   }
 
   const listeners = new Set<() => void>();
+  // harness 탭의 지금 CLI session. `open_session`이 바꾼다.
+  let cliCurrent = CLI_CURRENT;
   let counter = 100;
   const nextId = (prefix: string) => fakeId(prefix, counter++);
   // 올린 이미지의 blob 주소. 메모리에만 있다.
   const images = new Map<string, string>();
   const notify = () => listeners.forEach((listener) => listener());
+  /** 이 fake가 받은 `run_shell`의 출력(lophn 쪽은 blob read로 읽는다). */
+  const shellRuns = new Map<string, ToolCallBodyView>();
   const stateOf = (session: string) => states.get(session) ?? EMPTY_ACP_STATE;
   /** 상태를 바꾸고 알린다. 갱신이 없는 변경(대기 줄 고치기 등)도 이 길로 낸다. */
   const change = (session: string, next: (state: AcpState) => AcpState) => {
@@ -1726,6 +2183,7 @@ export function createFakeAgentTabSource(
       choice:
         choice.kind === "reject" || choice.kind === "mode" ? null : choice.kind,
       reason: choice.kind === "reject" ? (choice.reason ?? null) : null,
+      mode: choice.kind === "mode" ? choice.mode : null,
       seq: state.seq + 1,
       at: sentAt(),
     });
@@ -1826,7 +2284,157 @@ export function createFakeAgentTabSource(
         return stateOf(session).session?.capabilities.sessions === false
           ? { ok: true, value: {} }
           : fork(session, input.message);
+      case "set_toggle": {
+        const toggles = stateOf(session).session?.toggles ?? [];
+        return changed({
+          toggles: toggles.map((one) =>
+            one.id === input.id ? { ...one, on: input.on } : one,
+          ),
+        });
+      }
+      case "set_goal": {
+        const goal = stateOf(session).session?.goal ?? null;
+        return changed({
+          goal:
+            input.objective === null
+              ? null
+              : {
+                  objective: input.objective,
+                  status: input.paused ? "paused" : "active",
+                  detail: goal?.detail ?? null,
+                },
+        });
+      }
+      case "use_role": {
+        const state = stateOf(session);
+        const role = state.session?.roles?.find((one) => one.id === input.role);
+        const found = state.session?.models
+          .flatMap((group) => group.models)
+          .find((one) => one.id === role?.model);
+        if (found === undefined) return { ok: false, code: "invalid_input" };
+        return changed({
+          model: {
+            model: found.id,
+            label: found.label,
+            options: {},
+            layer: null,
+          },
+        });
+      }
+      case "stop_child": {
+        const item = stateOf(session).items.find(
+          (one) =>
+            one.kind === "tool" &&
+            one.detail.kind === "subagent" &&
+            one.detail.child === input.child,
+        );
+        if (item?.kind !== "tool" || item.detail.kind !== "subagent") {
+          return { ok: false, code: "not_found" };
+        }
+        return lift(
+          apply(session, {
+            type: "tool_detail_changed",
+            tool_call: item.id,
+            detail: { ...item.detail, state: "cancelled" },
+          }),
+        );
+      }
+      case "steer_child": {
+        const child = stateOf(session).children[input.child];
+        if (child === undefined) return { ok: false, code: "not_found" };
+        return lift(
+          apply(session, {
+            type: "child_update",
+            child: input.child,
+            update: {
+              type: "message_added",
+              item: {
+                ...user(0, 44, input.text, {
+                  id: nextId("msg"),
+                  delivery: "steer",
+                  turn: child.turn?.id ?? null,
+                }),
+                seq: child.seq + 1,
+              },
+            },
+          }),
+        );
+      }
+      case "stop_task":
+        return lift(
+          apply(session, {
+            type: "tasks_changed",
+            tasks: stateOf(session).tasks.map((one) =>
+              one.id === input.task ? { ...one, state: "stopped" } : one,
+            ),
+          }),
+        );
+      case "run_shell": {
+        // lophn은 끝나야 답하고 item도 그때 온다. `sleep`은 도는 줄을 gallery에서 보이려고 오래 기다린다.
+        if (input.command.includes("sleep")) {
+          await new Promise((resolve) => setTimeout(resolve, 600_000));
+        }
+        const state = stateOf(session);
+        const id = nextId("tcl");
+        const output = `${input.command}: ok\n${LS_OUTPUT}`;
+        const harness = state.session?.harness != null;
+        if (!harness) shellRuns.set(id, shellBody(output));
+        return lift(
+          apply(session, {
+            type: "tool_started",
+            item: {
+              ...userShell(
+                0,
+                50,
+                input.command,
+                { id, seq: state.seq + 1, at: sentAt() },
+                harness ? output : null,
+              ),
+            },
+          }),
+        );
+      }
+      case "open_session": {
+        // 같은 탭에서 다른 CLI session을 연다: 상태를 비우고(`session_reset`) 그 session의 대화를 다시 채운다.
+        const target = CLI_EARLIER.find((one) => one.id === input.cli_session);
+        if (target === undefined) return { ok: false, code: "not_found" };
+        cliCurrent = target.id;
+        const seq = stateOf(session).seq;
+        await apply(
+          session,
+          { type: "session_reset" },
+          {
+            type: "session_changed",
+            session: { cli_session: target.id, title: target.title },
+          },
+          {
+            type: "message_added",
+            item: user(60, target.minutes, target.question, {
+              seq: seq + 1,
+              turn: null,
+            }),
+          },
+          {
+            type: "message_added",
+            item: agent(61, target.minutes, target.answer, { seq: seq + 2 }),
+          },
+        );
+        return { ok: true, value: {} };
+      }
       case "run_command":
+        // 새 session 명령은 CLI가 같은 탭에서 빈 session을 연다.
+        if (input.name === "new" || input.name === "clear") {
+          cliCurrent = `new-${counter++}`;
+          await apply(
+            session,
+            { type: "session_reset" },
+            {
+              type: "session_changed",
+              session: { cli_session: cliCurrent, title: null },
+            },
+          );
+        }
+        return { ok: true, value: {} };
       case "compact":
         return { ok: true, value: {} };
       default:
@@ -1836,7 +2444,27 @@ export function createFakeAgentTabSource(
 
   const source: AgentTabSource = {
     agent: () => ok(data.agent),
-    sessions: () => ok([...sessions]),
+    sessions: () =>
+      ok(
+        data.harness === true
+          ? [
+              {
+                id: cliCurrent,
+                title: data.title,
+                status: "idle" as const,
+                activeAt: at(-5),
+                archived: false,
+              },
+              ...CLI_EARLIER.map((one) => ({
+                id: one.id,
+                title: one.title,
+                status: "idle" as const,
+                activeAt: at(one.minutes),
+                archived: false,
+              })),
+            ]
+          : [...sessions],
+      ),
     searchMessages(query) {
       const needle = query.trim().toLowerCase();
       if (needle === "") return ok([]);
@@ -1881,7 +2509,10 @@ export function createFakeAgentTabSource(
         : ok({ state: found.detail.state, reason: found.detail.fail_reason });
     },
     toolCallBody(toolCall, part) {
-      const found = data.toolBodies?.[toolCall]?.[part];
+      const found =
+        part === "output" && shellRuns.has(toolCall)
+          ? shellRuns.get(toolCall)
+          : data.toolBodies?.[toolCall]?.[part];
       return found === undefined ? fail("not_found") : ok(found);
     },
 
@@ -2057,7 +2688,13 @@ export function createFakeAgentTabSource(
     },
 
     rewindPoints: (session) => ok(rewindPointsOf(stateOf(session))),
-    rewindPreview: () => ok(REWIND_PREVIEW),
+    // harness는 file tool로 바꾼 파일만 알고 앱 write는 없다.
+    rewindPreview: () =>
+      ok(
+        data.harness === true
+          ? { files: REWIND_PREVIEW.files, apps: [] }
+          : REWIND_PREVIEW,
+      ),
 
     changed(listener) {
       listeners.add(listener);

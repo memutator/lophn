@@ -1,7 +1,15 @@
-import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { constants } from "node:os";
+import { win32 } from "node:path";
+import process from "node:process";
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
+import { envValue } from "../../../supervision/security/child-env.ts";
+import {
+  killTree,
+  treeSpawnOptions,
+} from "../../../supervision/security/tree-kill.ts";
 import { fail } from "../file/scope.ts";
 import { limitText } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
@@ -14,9 +22,36 @@ const TAIL_BYTES = 12 * 1024;
 // 시간이 지나 group을 죽인 뒤 출력 pipe가 닫히기를 기다리는 최대 시간이다.
 const DRAIN_GRACE_MS = 1_000;
 
-// 가능하면 setsid로 새 process group을 만들어 시간 초과 때 자식들까지 함께 죽인다.
-const LAUNCH =
-  'if command -v setsid >/dev/null 2>&1; then exec setsid /bin/sh -c "$1"; else exec /bin/sh -c "$1"; fi';
+const GIT_BASH_MISSING =
+  "the shell tool on Windows needs Git for Windows (bash). Install it or set LOPHN_GIT_BASH to the path of bash.exe";
+
+export type ShellDeps = {
+  platform: string;
+  env: Readonly<Record<string, string | undefined>>;
+  exists(path: string): boolean;
+  spawn: typeof spawn;
+};
+
+// Windows의 shell tool은 Git for Windows의 bash로 돈다. 환경 변수 → 흔한 설치 자리 순이다.
+export function findGitBash(
+  env: ShellDeps["env"],
+  exists: ShellDeps["exists"],
+): string | undefined {
+  const named = envValue(env, "LOPHN_GIT_BASH", "win32");
+  if (named) return named;
+  const roots = [
+    envValue(env, "ProgramFiles", "win32"),
+    envValue(env, "ProgramFiles(x86)", "win32"),
+    envValue(env, "LOCALAPPDATA", "win32"),
+  ];
+  const suffix = ["Git", "bin", "bash.exe"];
+  const candidates = [
+    roots[0] && win32.join(roots[0], ...suffix),
+    roots[1] && win32.join(roots[1], ...suffix),
+    roots[2] && win32.join(roots[2], "Programs", ...suffix),
+  ];
+  return candidates.find((path) => path && exists(path)) || undefined;
+}
 
 type Collected = { text: string; truncated: boolean };
 
@@ -79,37 +114,50 @@ export async function collect(
   };
 }
 
-function killGroup(pid: number): void {
-  try {
-    // dash의 kill builtin은 `--`를 받지 않아 group을 못 죽인다(손자 process가 남는다). procps kill을 쓴다.
-    spawnSync("/usr/bin/kill", ["-KILL", "--", `-${pid}`], {
-      stdio: "ignore",
-      env: {},
-    });
-  } catch {
-    // group이 없으면 아래 child.kill이 sh 하나를 죽인다.
-  }
+export type CommandRun = {
+  // 시간이 지났거나 멈춘 명령은 성공도 실패도 아니라 null이다.
+  exit_code: number | null;
+  timed_out: boolean;
+  stopped: boolean;
+  stdout: string;
+  stderr: string;
+  stdout_truncated: boolean;
+  stderr_truncated: boolean;
+};
+
+function processShellDeps(): ShellDeps {
+  return {
+    platform: process.platform,
+    env: process.env,
+    exists: existsSync,
+    spawn,
+  };
 }
 
-export async function runShell(
-  input: { command: string; timeout_ms?: number },
-  ctx: ToolContext,
-): Promise<Result<ToolResult>> {
-  const cwd = ctx.scope.base ?? ctx.scope.read[0];
-  if (cwd === undefined) {
-    return fail("invalid_input", "this workspace has no folder to run in");
+// agent의 `shell.run`과 사람의 `!`가 함께 쓰는 실행부다. 승인과 cwd 고르기는 부르는 쪽 몫이다.
+export async function runCommand(
+  input: {
+    command: string;
+    cwd: string;
+    env: Record<string, string>;
+    timeoutMs: number;
+    signal?: AbortSignal | undefined;
+  },
+  deps: ShellDeps = processShellDeps(),
+): Promise<Result<CommandRun>> {
+  const bash =
+    deps.platform === "win32" ? findGitBash(deps.env, deps.exists) : undefined;
+  if (deps.platform === "win32" && bash === undefined) {
+    return fail("unavailable", GIT_BASH_MISSING);
   }
-  const timeoutMs = Math.min(
-    input.timeout_ms ?? DEFAULT_TIMEOUT_MS,
-    MAX_TIMEOUT_MS,
-  );
-
   let child: ChildProcess;
   try {
-    child = spawn("/bin/sh", ["-c", LAUNCH, "sh", input.command], {
-      cwd,
-      env: readShellEnvironment(),
+    // POSIX는 detached가 새 session이라 시간 초과 때 자식들까지 group째 죽는다. Windows는 taskkill이 트리를 끈다.
+    child = deps.spawn(bash ?? "/bin/sh", ["-c", input.command], {
+      cwd: input.cwd,
+      env: input.env,
       stdio: ["ignore", "pipe", "pipe"],
+      ...treeSpawnOptions(deps.platform),
     });
   } catch {
     return fail("unavailable", "cannot start the shell");
@@ -120,7 +168,6 @@ export async function runShell(
   if (child.pid === undefined) {
     return fail("unavailable", "cannot start the shell");
   }
-  const pid = child.pid;
   const exited = new Promise<number>((resolve) => {
     child.on("exit", (code, signal) => {
       // 신호로 끝나면 shell 관례대로 128 + 신호 번호를 쓴다. Node는 그때 code가 null이다.
@@ -128,33 +175,26 @@ export async function runShell(
     });
   });
 
-  const kill = () => {
-    killGroup(pid);
-    try {
-      child.kill("SIGKILL");
-    } catch {
-      // 이미 끝났다.
-    }
-  };
+  const kill = () => killTree(child, deps.platform);
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     kill();
-  }, timeoutMs);
+  }, input.timeoutMs);
   // 사람이 turn을 멈추면 group을 죽인다. 안 그러면 명령이 멈춘 뒤에도 돈다. 죽인 명령은 성공이 아니다.
   let stopped = false;
   const stop = () => {
     stopped = true;
     kill();
   };
-  if (ctx.signal?.aborted) stop();
-  else ctx.signal?.addEventListener("abort", stop, { once: true });
+  if (input.signal?.aborted) stop();
+  else input.signal?.addEventListener("abort", stop, { once: true });
 
   const out = collect(child.stdout!);
   const errOut = collect(child.stderr!);
   const code = await exited;
   clearTimeout(timer);
-  ctx.signal?.removeEventListener("abort", stop);
+  input.signal?.removeEventListener("abort", stop);
   const empty: Collected = { text: "", truncated: false };
   const grace = <T>(promise: Promise<T>, fallback: T) =>
     Promise.race([
@@ -167,16 +207,51 @@ export async function runShell(
     grace(out, empty),
     grace(errOut, empty),
   ]);
-
-  const content = {
+  return ok({
     exit_code: timedOut || stopped ? null : code,
     timed_out: timedOut,
+    stopped,
     stdout: stdout.text,
     stderr: stderr.text,
     stdout_truncated: stdout.truncated,
     stderr_truncated: stderr.truncated,
+  });
+}
+
+export async function runShell(
+  input: { command: string; timeout_ms?: number },
+  ctx: ToolContext,
+  deps: ShellDeps = processShellDeps(),
+): Promise<Result<ToolResult>> {
+  const cwd = ctx.scope.base ?? ctx.scope.read[0];
+  if (cwd === undefined) {
+    return fail("invalid_input", "this workspace has no folder to run in");
+  }
+  const timeoutMs = Math.min(
+    input.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    MAX_TIMEOUT_MS,
+  );
+  const ran = await runCommand(
+    {
+      command: input.command,
+      cwd,
+      env: readShellEnvironment(deps.env, deps.platform),
+      timeoutMs,
+      signal: ctx.signal,
+    },
+    deps,
+  );
+  if (!ran.ok) return ran;
+  const { timed_out: timedOut, stopped, exit_code: code } = ran.value;
+  const content = {
+    exit_code: code,
+    timed_out: timedOut,
+    stdout: ran.value.stdout,
+    stderr: ran.value.stderr,
+    stdout_truncated: ran.value.stdout_truncated,
+    stderr_truncated: ran.value.stderr_truncated,
   };
-  const truncated = stdout.truncated || stderr.truncated;
+  const truncated = ran.value.stdout_truncated || ran.value.stderr_truncated;
   return ok({
     status: timedOut || stopped ? "failure" : "success",
     summary: timedOut

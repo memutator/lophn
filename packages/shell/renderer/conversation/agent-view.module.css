@@ -87,6 +87,12 @@
   overflow: auto;
 }
 
+/* 자식 대화는 층을 가득 채우고 안에서 머리, 대화, 아래 줄을 쌓는다. */
+.layer[data-panel-layer="child"] {
+  padding: var(--space-0);
+  overflow: hidden;
+}
+
 /* composer 위에 뜨는 `/status` panel. composer 윗변에 붙여 위로 올리고 대화를 가리지 않는 한 덩이만 덮는다. */
 .composerAnchor {
   position: relative;
@@ -102,7 +108,7 @@
   padding-bottom: var(--space-3);
 }
 
-/* 대화 아래에 붙어 있는 것: 질문·승인 카드, 다음 turn 줄, composer. 대화가 scroll해도 늘 보인다.
+/* 대화 아래에 붙어 있는 것: 질문·승인 카드, dock(todo·도는 일·다음 turn 줄), composer. 대화가 scroll해도 늘 보인다.
    안쪽 폭은 대화 줄(.turns)과 같은 읽기 폭 기둥이다. */
 .bottom {
   box-sizing: border-box;

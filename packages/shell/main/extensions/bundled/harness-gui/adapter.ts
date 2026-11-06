@@ -3,6 +3,8 @@ import type { Clock } from "../../../../../base/clock.ts";
 import type { IdSource } from "../../../../../base/id.ts";
 import type { Result } from "../../../../../base/result.ts";
 import type {
+  AcpCliSession,
+  AcpRewindPreview,
   AcpSessionHandle,
   AcpTerminal,
   ExtensionSpawn,
@@ -23,6 +25,10 @@ export type HarnessGuiRun = {
   sessionId(): string | null;
   /** restart 전 modal이 "멈출 것"을 말하게 한다. `tasks`는 ACP `tasks` 중 `state: running`인 수다. */
   running(): { turn: boolean; tasks: number };
+  /** 그 CLI가 이 폴더에서 가진 지난 session, 최근 순. 없으면 `capabilities.resume`도 false다. */
+  sessions?(): Promise<AcpCliSession[]>;
+  /** 그 사람 메시지(ACP message id)로 rewind하면 되돌아갈 file. 없으면 `rewind_files`도 false다. */
+  rewindPreview?(message: string): Promise<AcpRewindPreview>;
 };
 
 // 탭 하나의 GUI·TUI 전환 흐름(탭의 `AcpTerminal` 위에서). `handoff`가 어느 길인지 정한다.

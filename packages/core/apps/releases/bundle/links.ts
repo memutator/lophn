@@ -1,9 +1,11 @@
 // bundle 안 symlink 목록. npm은 `file:` 의존을 `node_modules/<이름>`에서 사본 안 실제 폴더로 잇는
 // symlink로 깔고, bundle은 정규 file만 담으므로 modules.ts가 이 목록 file 하나로 굳히고 seal.ts가 사본에서
 // 다시 만든다. 연결이 사본 밖을 가리키면 bundle이 자기 완결이 아니게 되므로 읽을 때 거절한다.
-import { mkdir, symlink } from "node:fs/promises";
+import { mkdir, stat, symlink } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import process from "node:process";
 
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { err, ok, type OsPlatform, type Result } from "../../../../base/mod.ts";
 import { relativePathSchema } from "../../../../protocol/projects/mod.ts";
 
 export const LINKS_PATH = "node_modules/.lophn-links.json";
@@ -80,13 +82,23 @@ export function decodeLinks(
 }
 
 // 연결을 만든다. 부모 폴더는 이미 열려 있는 사본 안에서 만든다.
+// Windows는 폴더 symlink가 권한을 요구하므로 junction(절대 경로 대상)으로 만든다. file 연결은 그대로 symlink다.
 export async function createLinks(
   copyPath: string,
   links: readonly BundleLink[],
+  platform: OsPlatform = process.platform,
 ): Promise<void> {
   for (const link of links) {
     const path = `${copyPath}/${link.path}`;
     await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
-    await symlink(link.target, path);
+    const absolute = resolve(dirname(path), link.target);
+    if (
+      platform === "win32" &&
+      (await stat(absolute).then((info) => info.isDirectory()))
+    ) {
+      await symlink(absolute, path, "junction");
+    } else {
+      await symlink(link.target, path);
+    }
   }
 }

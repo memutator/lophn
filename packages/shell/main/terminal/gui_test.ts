@@ -22,6 +22,8 @@ function setup() {
         },
         tui: () => {},
         running: () => null,
+        sessions: () => Promise.resolve([]),
+        rewindPreview: () => Promise.resolve(null),
       }),
     showExtensionSettings: () => {},
     windows: () => [

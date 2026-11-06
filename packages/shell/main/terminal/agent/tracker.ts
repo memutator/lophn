@@ -1,6 +1,8 @@
 // 터미널마다 안에서 도는 coding agent를 따라가는 상태. 무엇이 도는지는 foreground process argv나
 // hook이, 상태는 hook만 알린다. 화면 글자는 읽지 않는다. Electron도 protocol도 모르고 deps로만 일한다
 // (shell tsc는 protocol의 base를 따라가지 못한다. 제품 표와 hook 신호 해석은 wiring이 넣는다).
+import { isAbsolute } from "node:path";
+
 import type { TerminalAgent, TerminalRuntime } from "../../../ipc/terminal.ts";
 
 /** protocol `HookSignal` 가운데 이 module이 읽는 칸. */
@@ -384,7 +386,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       }
       if (signal.name !== undefined) entry.name = signal.name;
       const cwd = (payload as { cwd?: unknown } | null)?.cwd;
-      if (typeof cwd === "string" && cwd.startsWith("/")) entry.cwd = cwd;
+      if (typeof cwd === "string" && isAbsolute(cwd)) entry.cwd = cwd;
       switch (signal.type) {
         case "SessionStarted":
           drop(entry);

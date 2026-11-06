@@ -66,6 +66,9 @@ async function readBody(
             text: `[${part.status}] ${part.name}: ${part.summary}`,
           },
         ];
+      // 사람이 `!`로 돌린 명령은 본문이 아니라 사람 tool 줄(ACP item)로 그린다.
+      case "shell":
+        return [];
       // reasoning은 글과 달리 agent 답 앞의 reasoning 줄이 그린다.
       case "reasoning":
         return [

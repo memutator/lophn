@@ -2,9 +2,9 @@
 // HTTP+SSE API를 손으로 짠 client로 말한다(`@opencode/client`는 쓰지 않는다: effect에 기대고 OpenCode 판 하나에 묶인다).
 // 탭마다 server 하나를 띄우고(`--stdio`: stdin을 쥐고 있는 동안이 server의 lease) GUI와 TUI(`opencode --server <url>`)가 같이 붙는다.
 // server event를 ACP 갱신으로, 창의 ACP 입력을 API 호출로 옮긴다. 권한은 사람의 OpenCode 설정을 따른다(ask 규칙이 없으면 승인 카드는 뜨지 않는다).
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { join, sep } from "node:path";
 import type { Result } from "../../../../../base/result.ts";
 import type { AcpInput } from "../../../../../protocol/acp/input.ts";
 import {
@@ -168,6 +168,8 @@ export function createApi(transport: OpencodeTransport) {
     commands: async () => arr(await data(call("GET", "/api/command"))),
     create: async (body: Json) =>
       rec(await data(call("POST", "/api/session", { body }))),
+    listSessions: async (query?: Record<string, string | number>) =>
+      (await call("GET", "/api/session", { query })) ?? {},
     get: async (id: string) => rec(await data(call("GET", session(id)))),
     update: (id: string, body: Json) => call("PATCH", session(id), { body }),
     remove: (id: string) => call("DELETE", session(id)),
@@ -244,10 +246,42 @@ export type OpencodeDeps = {
   writeSecret(text: string): Promise<SecretFile>;
   /** `/export`의 JSON을 tmpdir의 `name`에 쓰고 경로를 돌려준다. */
   writeExport(name: string, text: string): Promise<string>;
+  /** 사람의 home. 명령 file을 읽는 전역 폴더(`~/.config/opencode`)의 뿌리다. */
+  home: string;
+  /**
+   * `{dir}/{command,commands}/**\/*.md`의 명령 이름 → template 본문(frontmatter 뺀 것). 뒤 폴더가 앞 폴더를 덮는다.
+   * server의 `GET /api/command`는 template을 주지 않아서 인자를 받는 명령인지는 file에서 읽는다.
+   */
+  readCommandTemplates(dirs: string[]): Promise<Map<string, string>>;
 };
 
 const realDeps: OpencodeDeps = {
   connect: fetchTransport,
+  home: homedir(),
+  async readCommandTemplates(dirs) {
+    const out = new Map<string, string>();
+    for (const dir of dirs) {
+      for (const sub of ["command", "commands"]) {
+        const root = join(dir, sub);
+        const files = await readdir(root, { recursive: true }).catch(
+          () => [] as string[],
+        );
+        for (const file of files.filter((one) => one.endsWith(".md")).sort()) {
+          const text = await readFile(join(root, file), "utf8").catch(
+            () => undefined,
+          );
+          if (text === undefined) continue;
+          // OpenCode가 쓰는 이름: command 폴더 안의 상대 경로에서 `.md`를 뺀 것, 구분자는 `/`.
+          const name = file.slice(0, -3).split(sep).join("/");
+          out.set(
+            name,
+            text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim(),
+          );
+        }
+      }
+    }
+    return out;
+  },
   async writeSecret(text) {
     // mkdtemp는 0700 폴더를 만든다.
     const dir = await mkdtemp(join(tmpdir(), "lophn-opencode-"));
@@ -298,6 +332,8 @@ const CAPABILITIES: AcpSessionMeta["capabilities"] = {
   toggles: true,
   goal: false,
   roles: false,
+  shell: true,
+  resume: true,
 };
 
 // 별칭은 TUI의 그 명령 `slash` 칸에서 옮겼다(`tui/src/app.tsx`, `routes/session/index.tsx`).
@@ -338,7 +374,14 @@ const CLIENT_COMMANDS: AcpCommand[] = [
   slash("mcps", "List the MCP servers", { aliases: ["mcp"] }),
   slash("skills", "List the skills"),
   slash("export", "Export this session as JSON"),
+  slash("resume", "Open an earlier session in this folder", {
+    opens: "resume",
+  }),
 ];
+
+// 명령 file이 없는 내장 명령의 인자. 사람이 부를 때 쓰는 말은 server의 설명에 있다.
+const BUILTIN_HINTS: Record<string, string> = { review: "[commit|branch|pr]" };
+const TAKES_ARGUMENTS = /\$(?:ARGUMENTS|[1-9]\d*)/;
 
 const AUTO_ACCEPT = "auto_accept";
 
@@ -826,6 +869,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           id: call.id,
           seq: ++call.lane.seq,
           at: now(),
+          by: "agent",
           turn: startTurn(call.lane),
           tool: call.name,
           category: CATEGORIES[call.name] ?? "other",
@@ -1084,6 +1128,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         outcome,
         choice,
         reason,
+        mode: null,
         seq: ++main.seq,
         at: now(),
       });
@@ -1592,38 +1637,63 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           return;
       }
     }
-    // `!` 명령은 tool 줄 하나다. 도는 execution이 없으면 이 줄이 끝날 때 turn도 끝난다.
-    const shells = new Map<string, Call>();
+    // `!` 명령은 사람 쪽 tool 줄 하나다. 도는 execution이 없어서 turn을 열지도 닫지도 않는다: 도는 turn 중이면 그 turn에 들고,
+    // 아니면 turn 밖(`turn: null`)이다. 사람 말풍선은 따로 없다(이 줄이 사람 쪽 줄이다).
+    const shells = new Map<string, { id: string; command: string }>();
+    const shellBody = (command: string, output: string | null) => {
+      const cut = (text: string | null) =>
+        text !== null && text.length > ACP_TOOL_BODY_LIMIT
+          ? text.slice(0, ACP_TOOL_BODY_LIMIT)
+          : text;
+      return {
+        input: cut(command),
+        output: cut(output),
+        truncated:
+          command.length > ACP_TOOL_BODY_LIMIT ||
+          (output?.length ?? 0) > ACP_TOOL_BODY_LIMIT,
+      };
+    };
     function shellLine(shell: Json, output = "") {
-      const id = str(shell.id);
-      let call = shells.get(id);
-      if (call === undefined) {
-        call = {
-          id: ids.newId("tcl"),
-          lane: main,
-          name: "shell",
-          input: { command: str(shell.command) },
-          started: false,
-          done: false,
-        };
-        shells.set(id, call);
-        calls.set(`${sessionId}:${id}`, call);
-        toolStart(call);
-        return;
+      const key = str(shell.id);
+      let line = shells.get(key);
+      if (line === undefined) {
+        line = { id: ids.newId("tcl"), command: str(shell.command) };
+        shells.set(key, line);
+        emit({
+          type: "tool_started",
+          item: {
+            kind: "tool",
+            id: line.id,
+            seq: ++main.seq,
+            at: now(),
+            by: "user",
+            turn: main.turn,
+            tool: "shell",
+            category: "command",
+            title: oneLine(line.command.split("\n")[0] ?? "", 120),
+            state: "running",
+            duration_ms: null,
+            detail: { kind: "generic" },
+            body: shellBody(line.command, null),
+          },
+        });
       }
       const status = str(shell.status);
-      if (status === "running" || call.done) return;
-      toolEnd(
-        call,
-        status === "exited" && shell.exit === 0
-          ? "ok"
-          : status === "killed"
-            ? "cancelled"
-            : "error",
-        null,
-        output,
-      );
-      if (!executing) endTurn(main, "completed");
+      if (status === "running") return;
+      shells.delete(key);
+      emit({
+        type: "tool_ended",
+        tool_call: line.id,
+        state:
+          status === "exited" && shell.exit === 0
+            ? "ok"
+            : status === "killed"
+              ? "cancelled"
+              : "error",
+        at: now(),
+        detail: null,
+        body: shellBody(line.command, output),
+      });
     }
 
     // --- meta ---
@@ -1643,7 +1713,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     }
 
     async function loadMeta(): Promise<AcpSessionMeta> {
-      const [models, agents, commands, current, fallback, skills] =
+      const [models, agents, commands, current, fallback, skills, templates] =
         await Promise.all([
           api.models(),
           api.agents(),
@@ -1651,6 +1721,12 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           api.get(sessionId),
           api.defaultModel().catch((): Json => ({})),
           api.skills().catch((): unknown[] => []),
+          deps
+            .readCommandTemplates([
+              join(deps.home, ".config", "opencode"),
+              join(cwd, ".opencode"),
+            ])
+            .catch(() => new Map<string, string>()),
         ]);
       const groups = new Map<string, AcpModelGroup>();
       contextLimit = new Map();
@@ -1677,6 +1753,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
                   {
                     id: "variant",
                     label: "Variant",
+                    kind: "choice" as const,
                     values: variants.map((value) => ({ value, label: value })),
                   },
                 ],
@@ -1710,7 +1787,21 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       const serverCommands = commands
         .map(rec)
         .filter((one) => !known.has(str(one.name)))
-        .map((one) => slash(str(one.name), str(one.description)));
+        .map((one) => {
+          const name = str(one.name);
+          const template = templates.get(name);
+          const hint =
+            template === undefined
+              ? BUILTIN_HINTS[name]
+              : TAKES_ARGUMENTS.test(template)
+                ? "[args]"
+                : undefined;
+          return slash(
+            name,
+            str(one.description),
+            hint === undefined ? {} : { argument_hint: hint },
+          );
+        });
       for (const one of serverCommands) known.add(one.name);
       const skillCommands = skills
         .map(rec)
@@ -2071,16 +2162,19 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
 
     // --- 입력 ---
 
+    // `!` 뒤의 글을 사람이 돌린 명령으로 보낸다. 결과는 `session.shell.*` event로 shellLine이 그린다.
+    async function runShell(command: string) {
+      if (command.trim() === "") return;
+      await api.shell(sessionId, { command: command.trim() });
+    }
+
     async function sendPrompt(
       id: string,
       content: ContentBlock[],
       delivery: "steer" | "queue",
     ) {
       const { text, files } = promptOf(content);
-      if (text.startsWith("!")) {
-        await api.shell(sessionId, { command: text.slice(1).trim() });
-        return;
-      }
+      if (text.startsWith("!")) return runShell(text.slice(1));
       // 되돌린 구간은 다음 보내기 전에 확정한다(TUI·데스크톱과 같다).
       if (reverted) {
         await api.revertCommit(sessionId);
@@ -2165,6 +2259,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     }
 
     async function fork(target: string | null) {
+      const from = mirror.session?.title || "(untitled)";
       const before =
         target === null ? undefined : (serverOf.get(target) ?? target);
       const forked = await api.fork(
@@ -2172,6 +2267,41 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         before === undefined ? {} : { before },
       );
       await moveTo(str(forked.id), target ?? undefined);
+      info(`Forked from “${from}”. The original session is unchanged.`);
+    }
+
+    // 같은 폴더의 다른 session을 이 탭에서 연다. fork·new와 달리 다른 대화라서 앞 항목을 짝짓지 않고 통째로 비우고 다시 그린다.
+    async function openSession(target: string) {
+      if (target === sessionId) return;
+      if (executing || main.turn !== null) {
+        info("Stop the running turn before opening another session.");
+        return;
+      }
+      await api.get(target);
+      sessionId = target;
+      calls.clear();
+      children.clear();
+      tasks = [];
+      forms.clear();
+      shells.clear();
+      acpOf.clear();
+      serverOf.clear();
+      own.clear();
+      deliveryOf.clear();
+      userOf.clear();
+      replayChildren = [];
+      lastTodos = null;
+      pendingCommand = null;
+      rewindFiles = false;
+      hiddenId = null;
+      main.writing = null;
+      main.turnHasUser = false;
+      replaying = true;
+      emit({ type: "session_reset" });
+      publishMeta(await loadMeta());
+      await replay();
+      endReplay();
+      refreshUsage();
     }
 
     async function newSession() {
@@ -2187,7 +2317,16 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
             (item) => item.kind === "message" && item.actor === "user",
           );
           if (last === undefined) info("Nothing to undo.");
-          else await rewind(last.id, true);
+          else {
+            await rewind(last.id, true);
+            // TUI와 데스크톱처럼 되돌린 사람 글을 입력칸에 돌려준다.
+            if (last.kind === "message")
+              emit({
+                type: "draft_set",
+                key: ids.newId("drf"),
+                content: last.content,
+              });
+          }
           return;
         }
         case "redo":
@@ -2458,6 +2597,19 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         case "fork":
           await attempt("Fork", () => fork(input.message));
           return;
+        case "run_shell":
+          await attempt("Shell", () => runShell(input.command));
+          return;
+        case "open_session":
+          await attempt("Open session", async () => {
+            try {
+              await openSession(input.cli_session);
+            } finally {
+              // 읽다 실패해도 쌓아 둔 event를 놓지 않는다.
+              if (replaying) endReplay();
+            }
+          });
+          return;
         case "compact":
           await attempt("Compact", () => api.compact(sessionId));
           return;
@@ -2559,6 +2711,22 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         tuiCommand: () =>
           `OPENCODE_PASSWORD="$(cat '${secret.path.replaceAll("'", "'\\''")}')" opencode --server ${url} --session ${sessionId}`,
         sessionId: () => sessionId,
+        // 이 폴더의 최근 session. subagent 자식(parentID)은 빠진다. 2.1.4가 lab과 같은 query 이름을 받는 것은 녹화 list로 확인했다.
+        async sessions() {
+          const page = await api.listSessions({
+            directory: cwd,
+            parentID: "null",
+            order: "desc",
+            limit: 30,
+          });
+          return arr(page.data)
+            .map(rec)
+            .map((one) => ({
+              id: str(one.id),
+              title: str(one.title) || "(untitled)",
+              updated_at: isoOf(rec(one.time).updated),
+            }));
+        },
         running: () => ({
           turn: main.turn !== null,
           tasks: tasks.filter((one) => one.state === "running").length,

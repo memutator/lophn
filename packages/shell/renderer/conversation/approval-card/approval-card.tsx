@@ -273,6 +273,12 @@ const TONES = {
 
 function markLabel(result: ApprovalResultView): string {
   if (result.subject.kind === "plan" && result.outcome !== "cancelled") {
+    const picked = result.subject.modes.find((mode) => mode.id === result.mode);
+    if (result.outcome === "allowed" && picked !== undefined) {
+      return t("conversation.label.plan-approved-mode", {
+        mode: picked.label,
+      });
+    }
     return t(
       result.outcome === "allowed"
         ? "conversation.label.plan-approved"

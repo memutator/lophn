@@ -63,3 +63,28 @@ export function steerInput(text: string): string {
 export function wrapUntrusted(source: UntrustedSource, text: string): string {
   return renderTag("untrusted", { source }, text);
 }
+
+// 사람이 `!`로 돌린 명령과 출력이다. 출력은 data이고 tag가 출처를 밝히므로 고정 문장은 붙이지 않는다.
+// 명령 전체는 본문 첫 줄에 둔다(속성은 길이를 자른다).
+export function shellInput(shell: {
+  command: string;
+  exit_code: number | null;
+  timed_out: boolean;
+  stdout: string;
+  stderr: string;
+  truncated: boolean;
+}): string {
+  const lines = [`$ ${shell.command}`];
+  if (shell.stdout !== "") lines.push(shell.stdout);
+  if (shell.stderr !== "") lines.push("[stderr]", shell.stderr);
+  if (shell.timed_out) lines.push("[timed out]");
+  if (shell.truncated) lines.push("[output truncated]");
+  return renderTag(
+    "shell",
+    {
+      command: shell.command,
+      ...(shell.exit_code === null ? {} : { exit_code: shell.exit_code }),
+    },
+    lines.join("\n"),
+  );
+}

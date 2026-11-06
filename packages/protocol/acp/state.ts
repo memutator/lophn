@@ -150,6 +150,12 @@ export const acpStateSchema = z.strictObject({
   children: z.record(id, acpChildStateSchema),
   /** background task 목록. */
   tasks: z.array(acpTaskSchema),
+  /**
+   * 화면이 composer에 한 번 채울 글(OpenCode `/undo`가 되돌린 사람 메시지). `key`가 새 값일 때만 채운다. lophn은 늘 null.
+   */
+  draft: z
+    .strictObject({ key: id, content: z.array(contentBlockSchema) })
+    .nullable(),
 });
 export type AcpState = z.infer<typeof acpStateSchema>;
 
@@ -262,6 +268,7 @@ export const acpChildUpdateSchema = z.discriminatedUnion("type", [
     outcome: z.enum(["allowed", "denied", "cancelled"]),
     choice: acpApprovalItemSchema.shape.choice,
     reason: acpApprovalItemSchema.shape.reason,
+    mode: acpApprovalItemSchema.shape.mode,
     seq,
     at: atSchema,
   }),
@@ -320,5 +327,15 @@ export const acpUpdateSchema = z.discriminatedUnion("type", [
     type: z.literal("tasks_changed"),
     tasks: z.array(acpTaskSchema),
   }),
+  z.strictObject({
+    type: z.literal("draft_set"),
+    key: id,
+    content: z.array(contentBlockSchema),
+  }),
+  /**
+   * 같은 탭에서 CLI session을 바꿨다(`open_session`, 새 session). 대화 상태를 비우고 `session` meta와 `seq`만 남긴다.
+   * adapter는 순번을 처음부터 다시 세지 않고 이어 센다. 새 session의 제목·`cli_session`·명령은 바로 뒤의 `session_changed`가 싣는다.
+   */
+  z.strictObject({ type: z.literal("session_reset") }),
 ]);
 export type AcpUpdate = z.infer<typeof acpUpdateSchema>;

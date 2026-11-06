@@ -8,6 +8,7 @@ import * as appCalls from "./wiring/app-calls.ts";
 import * as appViews from "./wiring/app-views.ts";
 import * as artifact from "./wiring/artifact.ts";
 import * as bookmarks from "./wiring/bookmarks.ts";
+import * as threadBookmarks from "./wiring/thread-bookmarks.ts";
 import * as browser from "./wiring/browser.ts";
 import * as coding from "./wiring/coding.ts";
 import * as secretInput from "./wiring/secret-input.ts";
@@ -19,6 +20,11 @@ import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
 import * as extensions from "./wiring/extensions.ts";
 import * as layout from "./wiring/layout.ts";
+import { loginPathOf } from "./core/login-path.ts";
+
+// core·terminal-host·extension이 이 env를 물려받으므로 어느 것보다 먼저 둔다.
+const loginPath = loginPathOf(process.platform, process.env);
+if (loginPath) process.env.PATH = loginPath;
 
 const ctx = createShellContext();
 const add = <T extends { stop(): void }>(area: T): T => {
@@ -37,6 +43,7 @@ add(secretInput.register(ctx));
 add(appearance.register(ctx));
 const terminals = add(coding.register(ctx));
 add(bookmarks.register(ctx));
+add(threadBookmarks.register(ctx));
 add(
   extensions.register(
     ctx,

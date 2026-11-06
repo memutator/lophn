@@ -295,6 +295,10 @@ export function register(
 
   // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다.
   app.on("window-all-closed", () => {});
+  // macOS는 창 없이 Dock을 누르면 창을 다시 연다.
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) desktop.show();
+  });
 
   const mode = resolveLaunchMode({
     argv: process.argv,

@@ -11,6 +11,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import { validateDeclaration } from "../../../protocol/apps/declaration/mod.ts";
 import type { DeclarationCheckOutput } from "../../../protocol/apps/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
+import { windowsEnvironment } from "../../supervision/security/child-env.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
 import { descriptionGaps } from "./describe.ts";
 
@@ -85,6 +86,7 @@ function evaluate(
         ...launch.env,
         ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+        ...windowsEnvironment(),
       },
       signal: AbortSignal.timeout(LIMIT_MS),
     });

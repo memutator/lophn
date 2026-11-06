@@ -49,6 +49,7 @@ const READS: Record<string, { name: string; value: unknown }> = {
 // 지금 route들처럼 부른 사람의 scope에 operation이 있어야 통과한다. 누가 불렀는지도 적는다.
 function setup() {
   const callers: string[] = [];
+  const ran: string[] = [];
   const allow = (who: AuthenticatedContext, name: string): Result<void> =>
     who.scope.operations.includes(name)
       ? ok(undefined)
@@ -67,8 +68,27 @@ function setup() {
     },
     memory: () => Promise.resolve(ok({})),
     newId: (prefix) => `${prefix}_01h455vb4pex5v6nkc6gd5f009`,
+    shell: {
+      folderOf: () => "/work",
+      env: () => ({}),
+      run: (input) => {
+        ran.push(input.command);
+        return Promise.resolve(
+          ok({
+            exit_code: 0,
+            timed_out: false,
+            stopped: false,
+            stdout: "",
+            stderr: "",
+            stdout_truncated: false,
+            stderr_truncated: false,
+          }),
+        );
+      },
+      nowMs: () => 0,
+    },
   });
-  return { send, callers };
+  return { send, callers, ran };
 }
 
 test("AcpSend dispatches with the caller's own scope, so a caller without the route's scope is forbidden", async () => {
@@ -159,4 +179,23 @@ test("session controls through AcpSend are forbidden without the scope of the ro
     const allowed = await send(person(scope), input);
     assert.equal(allowed.ok, true, input.type);
   }
+});
+
+// 명령은 돌린 뒤에는 되돌릴 수 없다. 저장 권한이 없는 호출자의 명령은 돌리기 전에 거절한다.
+test("run_shell does not run the command for a caller who cannot record it, and runs once per key", async () => {
+  const { send, ran } = setup();
+  const input: AcpInput = {
+    type: "run_shell",
+    session: SES,
+    key: "k",
+    command: "echo hi",
+  } as AcpInput;
+  const refused = await send(person(["ReadSession"]), input);
+  assert.equal(!refused.ok && refused.error.code, "forbidden");
+  assert.deepEqual(ran, []);
+
+  const scope = person(["ReadSession", "RecordShellMessage"]);
+  assert.equal((await send(scope, input)).ok, true);
+  assert.equal((await send(scope, input)).ok, true);
+  assert.deepEqual(ran, ["echo hi"]);
 });

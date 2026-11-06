@@ -1,0 +1,59 @@
+/* 자식 대화 한 겹. 대화 층(.layer)을 가득 채우고 읽기 전용 대화, 아래 줄을 쌓는다. */
+.child {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-self: stretch;
+  width: 100%;
+  min-height: var(--space-0);
+}
+
+.thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: var(--space-0);
+}
+
+.foot {
+  flex: none;
+  padding: var(--space-3) var(--space-0);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+/* composer와 같은 읽기 폭 기둥이다. */
+.footColumn {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: calc(
+    var(--page-reading-wide) + var(--layout-pane-padding-wide) * 2
+  );
+  margin-inline: auto;
+  padding-inline: var(--layout-pane-padding-wide);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.input {
+  flex: 1;
+  min-width: var(--space-0);
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+}
+
+.input:focus {
+  border-color: var(--color-focus);
+  outline: none;
+}

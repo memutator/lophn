@@ -56,7 +56,7 @@ modules: [packages/sdk, tools]
 
 지금: skill-share 계획의 app-skill-decl task가 `@lophn/declaration`과 `@lophn/app-ui`를 2.1.0으로 올리며 `tools/wireframes/package.json`의 `"@lophn/app-ui": "2.0.0"`을 남겼다. workspace에 2.0.0이 없어 npm이 registry에서 찾다 404로 `npm ci`가 실패했다. merge.sh의 check:full과 core 기동은 이미 깔린 `node_modules`로 돌아 통과했고, 다음 worktree를 만드는 launch.sh(`worktree-prep.ts`의 `npm ci`)에서 드러났다. lead가 pin을 고쳤다.
 
-영향: plan branch가 새 clone, 새 worktree, 패키징(`tools/package-linux.ts`도 `npm ci`)에서 깨진 채 merge됐다. main에는 가지 않았다.
+영향: plan branch가 새 clone, 새 worktree, 패키징(`tools/package/main.ts`도 `npm ci`)에서 깨진 채 merge됐다. main에는 가지 않았다.
 
 원인: brief가 판이 박힌 곳을 조사 목록으로 줬는데 그 목록이 `tools/` 아래를 빠뜨렸다. 판 올림을 확인하는 check가 없다.
 

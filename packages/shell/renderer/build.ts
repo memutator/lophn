@@ -66,7 +66,7 @@ const entries: readonly {
 ];
 
 async function build(outdir = join(here, "dist")): Promise<void> {
-  // hash 이름이라 다시 묶으면 옛 grammar chunk가 쌓인다. scripts/stage.ts가 dist를 통째로 복사한다.
+  // hash 이름이라 다시 묶으면 옛 grammar chunk가 쌓인다. tools/package/main.ts가 dist를 통째로 복사한다.
   await rm(join(outdir, "desktop", "highlight"), {
     recursive: true,
     force: true,

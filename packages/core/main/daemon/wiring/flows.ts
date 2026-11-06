@@ -1,11 +1,12 @@
 import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
 import { appEnv } from "../../../apps/runtime/processes/mod.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import {
   createSessionDirectory,
   workspaceDepsOf,
 } from "../../../lophn-agent/workspaces/mod.ts";
-import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import { windowsEnvironment } from "../../../supervision/security/child-env.ts";
 import { createFlowHost } from "../../flow-host/host.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -26,6 +27,7 @@ export const flowsWiring: WiringFactory = () => {
           home: process.env.HOME,
           xdgCacheHome: process.env.XDG_CACHE_HOME,
           path: process.env.PATH,
+          windows: windowsEnvironment(),
         }),
         clock: ctx.clock,
         runs: ctx.runService,

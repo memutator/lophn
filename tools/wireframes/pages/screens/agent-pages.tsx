@@ -46,6 +46,9 @@ import {
   RewindScene,
   SenderChipsScene,
   SessionSearchScene,
+  ShellModeScene,
+  ShellPendingScene,
+  ShellRunScene,
   SkipScene,
   StatusCostScene,
   StatusFromFooterScene,
@@ -232,10 +235,16 @@ export const AgentApprovalDeny = ApprovalDenyScene;
 export const AgentApprovalStates = ApprovalStatesScene;
 /** 승인 카드의 세 범위와 file 바꾸기 subject. */
 export const AgentApprovalScopes = ApprovalScopesScene;
-/** harness CLI의 session: session 목록 없음, mode·CLI 명령·계획 목록. */
+/** harness CLI의 session: session 목록 없음, mode·CLI 명령, composer 위 dock(goal·todo·도는 일·줄 선 메시지). */
 export const AgentHarness = HarnessScene;
 /** harness의 mode menu. */
 export const AgentHarnessMode = HarnessModeScene;
+/** 사람이 `!`로 돌린 shell 줄. */
+export const AgentShellRun = ShellRunScene;
+/** shell mode의 composer. */
+export const AgentShellMode = ShellModeScene;
+/** 끝나기를 기다리는 shell 줄. */
+export const AgentShellPending = ShellPendingScene;
 /** rewind panel. */
 export const AgentRewind = RewindScene;
 /** 도는 편집과 call: 일반 tool 줄이 아니라 편집 카드와 call 블록으로 보인다. */

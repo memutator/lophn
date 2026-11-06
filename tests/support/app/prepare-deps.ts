@@ -7,6 +7,7 @@ import { chmod, mkdir, mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
+import { fileURLToPath } from "node:url";
 import {
   createIdSource,
   cryptoRandom,
@@ -21,7 +22,10 @@ import { prepareFromSource } from "../../../packages/core/apps/releases/prepare/
 import { npmCommand } from "../../../packages/core/supervision/security/node-command.ts";
 import { e2eNpmCache } from "./deps.ts";
 
-const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+const REPO = fileURLToPath(new URL("../../../", import.meta.url)).replace(
+  /[\\/]$/,
+  "",
+);
 const PACKAGES = `${REPO}/packages/`;
 
 async function git(cwd: string, ...args: string[]): Promise<string> {

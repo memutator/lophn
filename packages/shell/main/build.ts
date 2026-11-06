@@ -3,6 +3,7 @@
 // 저장소의 .ts 원본이 import한 zod는 root npm workspace의 node_modules에서 찾는다.
 // package.json의 "type": "module"이 .js를 ESM으로 읽으므로 출력은 .cjs로 낸다.
 
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -103,19 +104,29 @@ function buildExtensions(): Promise<void> {
   ).then(() => {});
 }
 
-if (fileURLToPath(import.meta.url) === process.argv[1]) {
-  const { spawnSync } = await import("node:child_process");
-  const rebuilt = spawnSync(
-    process.execPath,
-    [
-      join(root, "node_modules/@electron/rebuild/lib/cli.js"),
-      "-f",
-      "-m",
-      join(root, "node_modules/node-pty"),
-    ],
-    { cwd: here, stdio: "inherit" },
+// node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없다. Linux에서만 source로 compile한다.
+function rebuildNodePty(): number {
+  if (process.platform !== "linux") return 0;
+  return (
+    spawnSync(
+      process.execPath,
+      [
+        join(root, "node_modules/@electron/rebuild/lib/cli.js"),
+        "-f",
+        "-m",
+        join(root, "node_modules/node-pty"),
+      ],
+      { cwd: here, stdio: "inherit" },
+    ).status ?? 1
   );
-  if (rebuilt.status !== 0) process.exit(rebuilt.status ?? 1);
-  await build(join(here, "dist"));
-  await buildExtensions();
+}
+
+if (fileURLToPath(import.meta.url) === process.argv[1]) {
+  const rebuilt = rebuildNodePty();
+  if (rebuilt !== 0) process.exit(rebuilt);
+  // postinstall과 `npm run rebuild`는 rebuild만 한다.
+  if (process.argv[2] !== "rebuild") {
+    await build(join(here, "dist"));
+    await buildExtensions();
+  }
 }

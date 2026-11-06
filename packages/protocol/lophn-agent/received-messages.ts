@@ -20,6 +20,8 @@ const receivedMessageSchema = receivedEnvelopeSchema.extend({
   // 이 메시지를 가져가 시작하거나 이어 간 turn. 아직 가져가지 않았으면 null이다.
   turn: idSchema("trn").nullable(),
   delivery: inputDeliverySchema,
+  // 사람이 `!`로 돌린 명령의 기록이다. queue에 들지 않고 다음 turn이 가져간다.
+  shell: z.boolean(),
   body: sha256Schema,
   created_seq: seqSchema,
   // 접수한 시각. 대화 줄의 시각이다.

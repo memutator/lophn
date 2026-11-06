@@ -39,6 +39,9 @@ const FORBIDDEN: [RegExp, string][] = [
   [/용어 후보/, "용어 후보(용어집으로)"],
 ];
 
+// import.meta.url에서 URL.pathname으로 path를 얻으면 Windows에서 `/C:/…`가 되고 공백·한글이 %-인코딩된 채 남는다. 줄이 나뉘어도 잡도록 file 전체에서 본다.
+const META_URL_PATHNAME = /import\.meta\.url\s*,?\s*\)\s*\.pathname/g;
+
 const SOURCE = /\.(?:tsx?|js|css)$/;
 
 // core daemon 진입점에서 import로 닿는 file(core main graph). child worker는 new URL로 띄워서 따라가지 않으니 graph 밖이다.
@@ -298,6 +301,16 @@ export async function checkSource(root: string): Promise<Issue[]> {
     if (file === "tools/check-source.ts") continue;
     const text = await readFile(`${root}/${file}`, "utf8");
     sources.set(file, text);
+    if (file.startsWith("packages/")) {
+      for (const match of text.matchAll(META_URL_PATHNAME)) {
+        issues.push({
+          file,
+          line: text.slice(0, match.index).split("\n").length,
+          rule: "meta-url-pathname",
+          message: "import.meta.url의 .pathname 대신 fileURLToPath를 쓴다",
+        });
+      }
+    }
     const lines = text.split("\n");
     lines.forEach((line, index) => {
       const at = (rule: string, message: string) =>

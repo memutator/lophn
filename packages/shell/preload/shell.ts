@@ -29,6 +29,7 @@ import { createArtifactApi } from "./artifact-api.ts";
 import { createBrowserApi } from "./browser-api.ts";
 import { createNoticeApi } from "./notice-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
+import { createThreadBookmarksApi } from "./thread-bookmarks-api.ts";
 import { createViewsApi } from "./views-api.ts";
 import { createWindowControlsApi } from "./window-controls-api.ts";
 
@@ -82,6 +83,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnTerminal",
     createTerminalApi(ipcRenderer),
+  );
+  // thread index의 bookmark. 읽기와 켜고 끄기만 보내고 저장은 main이 한다.
+  contextBridge.exposeInMainWorld(
+    "lophnThreadBookmarks",
+    createThreadBookmarksApi(ipcRenderer),
   );
   // 알림 toast와 Agent 탭의 보임·못 본 상태. 어디에 알릴지는 main이 정한다.
   contextBridge.exposeInMainWorld("lophnNotice", createNoticeApi(ipcRenderer));

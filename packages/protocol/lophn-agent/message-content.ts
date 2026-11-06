@@ -35,6 +35,19 @@ const harnessToolFields = {
 };
 const harnessToolPartInputSchema = z.strictObject(harnessToolFields);
 
+// 사람이 `!`로 돌린 명령과 그 결과다. exit_code가 null이면 시간이 지나 죽였다. 출력은 redaction을 거친 값이다.
+const shellPartFields = {
+  kind: z.literal("shell"),
+  command: z.string().min(1),
+  exit_code: z.number().int().nullable(),
+  timed_out: z.boolean(),
+  stdout: z.string(),
+  stderr: z.string(),
+  truncated: z.boolean(),
+};
+const shellPartInputSchema = z.strictObject(shellPartFields);
+export type ShellPart = z.infer<typeof shellPartInputSchema>;
+
 const textPartInputSchema = z.strictObject({
   kind: z.literal("text"),
   text: z.string(),
@@ -71,6 +84,7 @@ const messagePartInputSchema = z.discriminatedUnion("kind", [
   appCardPartInputSchema,
   reasoningPartInputSchema,
   harnessToolPartInputSchema,
+  shellPartInputSchema,
   z.strictObject(imagePartFields),
   z.strictObject(resourceLinkPartFields),
   z.strictObject(resourcePartFields),
@@ -82,6 +96,7 @@ const messagePartSchema = z.discriminatedUnion("kind", [
   z.object(resourcePartFields),
   appCardPartSchema,
   z.object(harnessToolFields),
+  z.object(shellPartFields),
   z.object({
     kind: z.literal("reasoning"),
     text: z.string(),
@@ -160,6 +175,14 @@ export function contentOfBlocks(blocks: readonly ContentBlock[]) {
           };
       }
     }),
+  };
+}
+
+// 사람이 돌린 명령의 본문이다. 저장하는 쪽(RecordShellMessage)과 blob을 준비하는 쪽이 같은 함수로 만들어 hash가 같다.
+export function contentOfShell(part: Omit<ShellPart, "kind">) {
+  return {
+    schema_version: 1 as const,
+    parts: [{ kind: "shell" as const, ...part }],
   };
 }
 

@@ -1,0 +1,158 @@
+/* 대화 왼쪽 가장자리의 turn 눈금. 눈금 하나가 사람 메시지 하나이고, 선은 가장 긴 길이로 그려 scaleX로 줄인다. */
+.rail {
+  position: absolute;
+  top: 50%;
+  left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  transform: translateY(-50%);
+  touch-action: none;
+}
+
+.anchor {
+  position: absolute;
+  left: var(--space-0);
+  width: 100%;
+  height: var(--space-5);
+  pointer-events: none;
+}
+
+.tick {
+  position: relative;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: calc(var(--space-8) + var(--space-1) + var(--space-5));
+  height: var(--space-5);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+.tick:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+  border-radius: var(--radius-xs);
+}
+
+/* 화면에 보이는 turn. */
+.tick[data-visible] {
+  color: var(--color-text-primary);
+  opacity: 0.6;
+}
+
+.tick[data-bookmarked] {
+  opacity: 1;
+}
+
+/* pointer가 있는 눈금은 가장 길고, 이웃은 macOS dock처럼 차례로 짧아진다. */
+.tick[data-distance="0"] {
+  color: var(--color-text-primary);
+  opacity: 1;
+}
+
+/* 선은 가장 긴 길이(26px)로 그려 scaleX로 줄인다. 평소 0.25배(약 6px). */
+.bar {
+  display: block;
+  width: calc(var(--space-8) + var(--space-1));
+  height: var(--space-1);
+  border-radius: var(--radius-full);
+  background: currentColor;
+  transform: scaleX(0.25);
+  transform-origin: left center;
+  transition: transform var(--motion-duration-short) var(--motion-ease);
+}
+
+/* bookmark된 눈금의 끝 점. 선이 줄고 늘 때 같이 움직인다. */
+.dot {
+  position: absolute;
+  top: 50%;
+  left: calc((var(--space-8) + var(--space-1)) * 0.25 + var(--space-1));
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: currentColor;
+  transform: translateY(-50%);
+  transition: left var(--motion-duration-short) var(--motion-ease);
+}
+
+.tick[data-distance="0"] .bar {
+  transform: scaleX(1);
+}
+
+.tick[data-distance="0"] .dot {
+  left: calc((var(--space-8) + var(--space-1)) + var(--space-1));
+}
+
+.tick[data-distance="1"] .bar {
+  transform: scaleX(0.8);
+}
+
+.tick[data-distance="1"] .dot {
+  left: calc((var(--space-8) + var(--space-1)) * 0.8 + var(--space-1));
+}
+
+.tick[data-distance="2"] .bar {
+  transform: scaleX(0.6);
+}
+
+.tick[data-distance="2"] .dot {
+  left: calc((var(--space-8) + var(--space-1)) * 0.6 + var(--space-1));
+}
+
+.tick[data-distance="3"] .bar {
+  transform: scaleX(0.4);
+}
+
+.tick[data-distance="3"] .dot {
+  left: calc((var(--space-8) + var(--space-1)) * 0.4 + var(--space-1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .dot {
+    transition: none;
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: var(--layout-container-panel);
+  padding: var(--space-2);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardReply {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cardReply > * {
+  margin: var(--space-0);
+}

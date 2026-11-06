@@ -40,7 +40,7 @@ async function git(dir: string, ...args: string[]): Promise<Result<string>> {
     // Node는 env를 통째로 바꾸므로 부모 환경을 직접 합친다(Deno는 원래 합친다).
     env: {
       ...process.env,
-      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null",
       GIT_CONFIG_NOSYSTEM: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],

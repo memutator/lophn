@@ -5,15 +5,9 @@ import {
   type ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
 import { checkLaunchSpec } from "../security/mod.ts";
-import { settledWithin, valueWithin } from "./deadline.ts";
+import { settledWithin } from "./deadline.ts";
 import type { FrameWriter } from "./frames.ts";
-import { ADAPTER_MS } from "./group.ts";
-import {
-  checkKillAdapter,
-  type Spawned,
-  type SpawnRequest,
-  spawnProcess,
-} from "./process.ts";
+import { type Spawned, type SpawnRequest, spawnProcess } from "./process.ts";
 import { type RunDeps, runOnce } from "./run.ts";
 import {
   type ChildCallbacks,
@@ -49,8 +43,6 @@ type SupervisorOptions = {
   teardownMs?: number;
   // child stdin에 frame 하나를 쓰는 기한. 넘으면 그 child를 끝내고 재기동한다.
   writeMs?: number;
-  // 테스트가 실제 /usr/bin/kill 없이 adapter 가용성을 바꿔 끼울 때만 쓴다.
-  checkGroupKillAdapter?: () => Promise<boolean>;
 };
 
 export type Supervisor = {
@@ -89,7 +81,6 @@ type Deps = RunDeps & {
 
 type Decision = { result: StartResult } | { first: Promise<boolean> };
 
-const ADAPTER_CHECK_MS = 2 * ADAPTER_MS;
 const UNAVAILABLE: StartResult = { ok: false, code: "unavailable" };
 const INVALID: StartResult = { ok: false, code: "invalid_input" };
 
@@ -108,20 +99,6 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     spawn: options.spawn ?? spawnProcess,
     env: options.env,
   };
-  // 첫 child를 띄우기 전에 한 번 확인한다. 던지거나 거절하거나 답하지 않아도 unavailable이다.
-  // 실제 adapter 확인은 자체 기한(ADAPTER_MS)을 갖고, 이 바깥 기한은 바꿔 끼운 확인까지 묶는다.
-  let adapterUnavailable = false;
-  const adapterReady = valueWithin(
-    () => (options.checkGroupKillAdapter ?? checkKillAdapter)(),
-    ADAPTER_CHECK_MS,
-    false,
-  )
-    .then((ok) => ok === true)
-    .then((ok) => {
-      if (!ok) adapterUnavailable = true;
-      return ok;
-    });
-
   // 같은 kind의 start·updateSpec·stop은 한 줄로 선다. 다른 kind는 서로 기다리지 않는다.
   // 안의 일은 모두 bounded라 줄이 영원히 막히지 않는다.
   function serial<T>(kind: string, work: () => Promise<T>): Promise<T> {
@@ -184,10 +161,9 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
       return Promise.resolve(INVALID);
     }
     const kind = checked.value.kind;
-    // 부른 순서대로 줄에 선다. adapter 확인은 줄 안에서 기다린다.
+    // 부른 순서대로 줄에 선다.
     // 첫 결과 promise를 그대로 돌려주면 async 함수가 그것을 기다려 줄을 붙든다. 감싸서 넘긴다.
     const decided = serial(kind, async (): Promise<Decision> => {
-      if (!(await adapterReady)) return { result: UNAVAILABLE };
       const current = slots.get(kind);
       if (replace) {
         if (!current) return { result: UNAVAILABLE };
@@ -264,12 +240,7 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
         available,
         reason: available
           ? undefined
-          : (slot?.reason ??
-            slot?.phase ??
-            (adapterUnavailable
-              ? "group kill adapter unavailable"
-              : undefined) ??
-            "not started"),
+          : (slot?.reason ?? slot?.phase ?? "not started"),
         observed_at: options.clock.now(),
       };
     },

@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { declareSetting } from "../../protocol/config/mod.ts";
@@ -184,7 +185,9 @@ import {
 export function agentRuntimeLaunchSpec(): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
-    entry: new URL("../main/agent-runtime/main.ts", import.meta.url).pathname,
+    entry: fileURLToPath(
+      new URL("../main/agent-runtime/main.ts", import.meta.url),
+    ),
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
   };
@@ -294,7 +297,11 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
 // message 출처의 turn이다. 바깥 command의 actor·event 기록은 그대로다.
 const conversationCommands = createConversationCommands({
   // Router와 session 목록은 wiring이 놓는다. 놓기 전에는 사람 메시지를 받지 못한다.
-  send: { router: messageRouter, directory: messageDirectory },
+  send: {
+    router: messageRouter,
+    directory: messageDirectory,
+    publish: publishAfterCommit,
+  },
   deleteSessionRecords,
   catalog: checkCatalog,
   eraseBlobRefs,
@@ -848,6 +855,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.failCompact,
       conversationCommands.send,
       conversationCommands.record,
+      conversationCommands.shell,
       conversationCommands.bind,
       removeQueuedCommand({ eraseBlobRefs }),
       editQueuedCommand(),

@@ -84,6 +84,21 @@ const messageRemoved = defineAgentEvent(
   z.strictObject({ message: idSchema("msg") }),
 );
 
+// 사람이 `!`로 돌린 명령이 끝나 기록됐다. turn과 상관없고, 출력은 저장된 redaction을 거친 값이다.
+const shellRan = defineAgentEvent(
+  "ShellRan",
+  z.strictObject({
+    message: idSchema("msg"),
+    command: z.string().min(1),
+    exit_code: z.number().int().nullable(),
+    timed_out: z.boolean(),
+    stdout: z.string(),
+    stderr: z.string(),
+    truncated: z.boolean(),
+    duration_ms: durationMsSchema,
+  }),
+);
+
 const turnStarted = defineAgentEvent(
   "TurnStarted",
   z.strictObject({ turn, input_message: idSchema("msg") }),
@@ -204,6 +219,7 @@ export const agentEventSchema = z.discriminatedUnion("type", [
   agentEventEnvelopeSchema(messageReceived),
   agentEventEnvelopeSchema(messageSteered),
   agentEventEnvelopeSchema(messageRemoved),
+  agentEventEnvelopeSchema(shellRan),
   agentEventEnvelopeSchema(turnStarted),
   agentEventEnvelopeSchema(turnEnded),
   agentEventEnvelopeSchema(turnResumed),

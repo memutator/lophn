@@ -1,6 +1,7 @@
 // `packages.builtin`. 설치 사본(`<data root>/sdk`)의 내장 SDK(@lophn/*)를 읽어 목록과 안내를 돌려준다.
 // 내장 SDK는 catalog가 아니라 설치 사본이 정본이다(catalog에 등록하지 않는다).
 import { readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import type { BuiltinPackage } from "../../../protocol/apps/package-routes.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
@@ -193,10 +194,7 @@ async function indexOfCategory(
       const source =
         from === undefined
           ? null
-          : await readTextOrNull(
-              new URL(from, `file://${folder}/components/${category}/`)
-                .pathname,
-            );
+          : await readTextOrNull(resolve(folder, "components", category, from));
       const found =
         source === null
           ? []

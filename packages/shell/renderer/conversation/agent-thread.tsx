@@ -8,6 +8,7 @@ import { t } from "@lophn/i18n";
 
 import { EditCard } from "./activity/file-edit-card.tsx";
 import type { ViewDetail } from "./activity/model.ts";
+import { SubagentRow } from "./activity/subagent-row.tsx";
 import { ToolLine } from "./activity/tool-line.tsx";
 import { WorkedFor } from "./activity/worked-for.tsx";
 import {
@@ -47,6 +48,7 @@ import { CallBlock } from "./thread/call-block.tsx";
 import { CommandOutput } from "./thread/command-output.tsx";
 import { InfoRow } from "./thread/info-row.tsx";
 import { ReleaseConsent } from "./thread/release-consent.tsx";
+import { ShellRun } from "./thread/shell-run.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
 import { ReceivedMessage } from "./thread/received-message.tsx";
 import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
@@ -61,6 +63,11 @@ interface AgentThreadProps {
   live: AcpWriting | null;
   /** 아직 확정되지 않은 보낸 말. 같은 id의 확정 메시지가 오면 그것으로 바뀐다. */
   outgoing: Outgoing | null;
+  /**
+   * 보냈지만 아직 item이 오지 않은 사람 shell 명령. lophn의 `run_shell`은 끝나야 답하고 item도 그때 와서 그동안
+   * 도는 줄을 대신 보인다.
+   */
+  pendingShell?: readonly { readonly id: string; readonly command: string }[];
   /** agent가 일하는 중이다. `clock`은 core가 센 active와 그 기준 시각(ms)이고 모르면 null이다. */
   working: {
     readonly clock: { activeMs: number; at: number } | null;
@@ -88,6 +95,8 @@ interface AgentThreadProps {
   rewindOpen: string | null;
   onRewind: (message: string) => void;
   onFork: (message: string) => void;
+  /** subagent 줄을 눌러 그 자식 대화를 연다. */
+  onOpenChild: (child: string) => void;
   onCheck: () => void;
   onResend: () => void;
   /** 편집 카드의 [Open]. 없으면 단추가 아무것도 하지 않는다. */
@@ -129,6 +138,18 @@ export function AgentThread(props: AgentThreadProps): ReactElement {
           onResend={props.onResend}
         />
       </UserMessage>,
+    );
+  }
+  for (const pending of props.pendingShell ?? []) {
+    nodes.push(
+      <ShellRun
+        key={pending.id}
+        id={pending.id}
+        command={pending.command}
+        state="running"
+        output={null}
+        readBody={props.source.toolCallBody}
+      />,
     );
   }
   if (props.working !== null) {
@@ -294,6 +315,17 @@ function itemsOf(
           />,
         );
         break;
+      case "subagent":
+        add(
+          entry,
+          <SubagentRow
+            key={entry.id}
+            entry={entry}
+            now={props.now}
+            onOpen={props.onOpenChild}
+          />,
+        );
+        break;
       case "edit":
         // 숨긴 구간의 편집은 되돌아간 것이라 다시 그리지 않는다.
         if (!nested) {
@@ -397,6 +429,21 @@ function itemsOf(
         } else add(entry, node);
         break;
       }
+      case "shell":
+        // 사람이 돌린 명령은 agent 덩어리가 아니라 사람 쪽 줄이다.
+        flush();
+        out.push(
+          <ShellRun
+            key={entry.id}
+            id={entry.id}
+            command={entry.command}
+            state={entry.state}
+            output={entry.output}
+            readBody={props.source.toolCallBody}
+          />,
+        );
+        after = entry.id;
+        break;
       case "hidden":
         flush();
         out.push(

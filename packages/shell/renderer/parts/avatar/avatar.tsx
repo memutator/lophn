@@ -1,4 +1,5 @@
-import { componentMark, iconPixels } from "@lophn/ui/shared";
+import { tokens } from "@lophn/ui";
+import { componentMark } from "@lophn/ui/shared";
 import type { ReactElement } from "react";
 import type { CharacterProfile } from "../../../../protocol/lophn-agent/agent-values.ts";
 import styles from "./avatar.module.css";
@@ -14,11 +15,11 @@ export type AvatarProfile =
   | { readonly kind: "initial"; readonly text: string }
   | { readonly kind: "vendor"; readonly vendor: Vendor };
 
-// 원 안에 여백을 남기는 vendor 아이콘 크기.
+// vendor 아이콘은 배경 없이 상자를 채운다(상자 크기는 avatar.module.css의 size와 같은 space token).
 const VENDOR_PIXELS: Readonly<Record<AvatarSize, number>> = {
-  sm: iconPixels("small"),
-  md: iconPixels("base"),
-  lg: iconPixels("large") * 2,
+  sm: Number.parseFloat(tokens.space[7]),
+  md: Number.parseFloat(tokens.space[8]),
+  lg: Number.parseFloat(tokens.space[11]),
 };
 
 export interface AvatarProps {

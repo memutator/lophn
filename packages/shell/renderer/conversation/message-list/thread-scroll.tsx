@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -14,6 +15,8 @@ import { VisuallyHidden } from "@lophn/ui/shared";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
+import { ThreadIndexContext } from "../thread-index/context.ts";
+import { ThreadIndex } from "../thread-index/thread-index.tsx";
 import { followAfterInput, followAfterScroll } from "./follow.ts";
 import styles from "./thread-scroll.module.css";
 
@@ -42,6 +45,7 @@ export function ThreadScroll({
   // 마지막으로 알린 읽던 위치. 같으면 다시 알리지 않는다(알릴 때마다 대화 화면 전체가 다시 그려진다).
   const saved = useRef(initialScroll);
   const [unseen, setUnseen] = useState(0);
+  const index = useContext(ThreadIndexContext);
 
   // 코드가 옮긴 위치를 바로 기록한다. 기록하지 않으면 같은 frame의 사람 scroll이 옛 위치와 비교돼, 글이 자라
   // 올라간 만큼 위로 올린 wheel이 "아래로 내려옴"으로 읽혀 다시 따라간다.
@@ -135,6 +139,28 @@ export function ThreadScroll({
     onScroll(null);
   };
 
+  // thread index가 사람 메시지로 간다. 따라가기를 먼저 꺼야 다음 render가 맨 아래로 되돌리지 않는다.
+  const goTo = (node: HTMLElement, smooth: boolean) => {
+    const list = listRef.current;
+    if (!list) return;
+    following.current = false;
+    const top =
+      list.scrollTop +
+      node.getBoundingClientRect().top -
+      list.getBoundingClientRect().top -
+      Number.parseFloat(getComputedStyle(list).paddingTop);
+    const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    list.scrollTo({ top, behavior: smooth && !calm ? "smooth" : "instant" });
+  };
+
+  // list 밖에 있는 rail 위 wheel도 list 위 wheel처럼 따라가기를 끈다.
+  const wheelFromIndex = (deltaY: number) => {
+    const list = listRef.current;
+    if (!list) return;
+    input({ kind: "wheel", deltaY });
+    list.scrollTop += deltaY;
+  };
+
   return (
     <div className={styles.frame}>
       {/* 같은 글이 두 번 와도 다시 읽도록 id가 바뀔 때 자식 node를 바꾼다. */}
@@ -159,6 +185,15 @@ export function ThreadScroll({
       >
         {children}
       </div>
+      {index === null ? null : (
+        <ThreadIndex
+          list={listRef}
+          items={index.items}
+          bookmarks={index.bookmarks}
+          goTo={goTo}
+          wheel={wheelFromIndex}
+        />
+      )}
       {unseen > 0 ? (
         <div className={styles.jump}>
           <Tooltip content={t("conversation.button.jump-latest")}>

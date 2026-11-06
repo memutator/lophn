@@ -27,8 +27,8 @@ import { PATH_DRAG_TYPE } from "../../workspace/drag.ts";
 import type {
   AcpCapabilities,
   AcpChoice,
-  AcpPlan,
   AcpSessionMeta,
+  AcpToggle,
 } from "../../../../protocol/acp/mod.ts";
 import type {
   AgentTabSource,
@@ -47,8 +47,7 @@ import { useModelPicker } from "../use-model-picker.ts";
 import { useSlashMenu } from "../use-slash-menu.tsx";
 import styles from "./agent-composer.module.css";
 import { AttachmentChips } from "./attachment-chips.tsx";
-import { PlanList } from "./plan-list.tsx";
-import { ModeMenu } from "./session-controls.tsx";
+import { ModeMenu, ToggleChips } from "./session-controls.tsx";
 import { runComposerCommand } from "./slash-actions.ts";
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
@@ -60,8 +59,6 @@ interface AgentComposerProps {
   meta: AcpSessionMeta | null;
   /** 어떤 칸을 그릴지. */
   capabilities: AcpCapabilities;
-  /** 계획. 없으면 null이다. */
-  plan: AcpPlan | null;
   /** model과 축 값을 정한다. 접수되었는지 돌려준다. */
   onChooseModel: (
     model: string,
@@ -101,6 +98,13 @@ interface AgentComposerProps {
     readonly choices: readonly AcpChoice[];
     readonly onChange: (mode: string) => void;
   };
+  /** 켜고 끄는 session 설정(Plan mode, Fast). 주면 입력칸 아래 줄에 chip으로 그린다. */
+  toggles?: {
+    readonly items: readonly AcpToggle[];
+    readonly onToggle: (id: string, on: boolean) => void;
+  };
+  /** model picker의 Roles 절에서 role을 골랐다. 이 session만 그 role의 model로 바꾼다. */
+  onUseRole: (role: string) => Promise<boolean>;
   onDraft: (
     patch: Partial<Pick<Draft, "text" | "selection" | "attachments">>,
   ) => void;
@@ -110,6 +114,8 @@ interface AgentComposerProps {
   onEditPermissions: () => void;
   /** 글이나 chip을 보낸다. 일하는 중이면 다음 turn을 기다리는 줄이 된다. */
   onSend: () => void;
+  /** shell mode(`!`)에서 보냈다. 앞 `!`와 앞뒤 빈칸을 뗀 명령이다. */
+  onShell: (command: string) => void;
   onStop: () => void;
   /** `/` 창에서 명령을 골랐거나 `/이름 인자`를 보냈다. permissions처럼 보기를 여는 명령은 host가 연다. */
   onCommand: (entry: SlashEntryView, argument: string) => void;
@@ -149,8 +155,13 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     session: props.session,
     onChoose: props.onChooseModel,
     onProblem: props.onProblem,
+    canUseRole: capabilities.roles,
+    onUseRole: props.onUseRole,
   });
   const [modeOpen, setModeOpen] = useState(false);
+  // `!`로 시작하는 글은 shell을 돌리는 명령이다. capability가 없는 곳(Home의 lophn agent 등)에서는 보통 글이다.
+  const shellMode = capabilities.shell && draft.text.startsWith("!");
+  const shellCommand = shellMode ? draft.text.slice(1).trim() : "";
   const clearText = () => props.onDraft({ text: "", selection: [0, 0] });
   const slash = useSlashMenu({
     source: props.source,
@@ -182,18 +193,20 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       props.onDraft({ text, selection: [text.length, text.length] }),
   });
   // model이 없으면 보내도 turn이 시작하지 못한다. 보내기 전에 막고 이유를 입력칸 안에 보인다.
-  const canSend =
-    !locked &&
-    !offline &&
-    !tooLong &&
-    !picker.noModel &&
-    (draft.text.trim().length > 0 || draft.attachments.length > 0);
+  const canSend = shellMode
+    ? !locked && !offline && shellCommand !== ""
+    : !locked &&
+      !offline &&
+      !tooLong &&
+      !picker.noModel &&
+      (draft.text.trim().length > 0 || draft.attachments.length > 0);
 
   // 도는 중이고 보낼 글이 없으면 같은 단추가 [Stop]이다. 글을 쓰면 다시 보내기(다음 turn 줄)가 된다.
   const stopping =
     working && draft.text.trim().length === 0 && draft.attachments.length === 0;
 
   const attach = (added: readonly Attachment[], missed: number) => {
+    if (shellMode) return;
     // 이미지를 못 받는 source에는 이미지를 붙이지 않는다.
     const kept = capabilities.images
       ? added
@@ -274,12 +287,24 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
 
   const send = () => {
     if (!canSend) return;
-    if (draft.text.startsWith("/") && capabilities.commands) {
+    if (shellMode) props.onShell(shellCommand);
+    else if (draft.text.startsWith("/") && capabilities.commands) {
       void slash.submit();
     } else props.onSend();
   };
 
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
+    // 빈 shell mode(`!`만)에서 Esc나 Backspace는 mode를 끈다. 도는 turn을 멈추는 Esc보다 먼저 본다.
+    if (
+      shellMode &&
+      draft.text === "!" &&
+      (event.key === "Escape" || event.key === "Backspace") &&
+      (event.target as HTMLElement).matches("[data-composer-input]")
+    ) {
+      event.preventDefault();
+      clearText();
+      return;
+    }
     slash.onKeyDown(event);
     if (event.defaultPrevented) return;
     // Esc는 도는 turn을 멈춘다. slash menu가 열려 있으면 그 Esc가 메뉴를 닫으므로 위에서 먼저 걸러진다.
@@ -319,7 +344,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       {offline ? (
         <p className={styles.note}>{t("conversation.notice.offline")}</p>
       ) : null}
-      {props.plan === null ? null : <PlanList plan={props.plan} />}
       <div className={styles.boxWrap}>
         {slash.menu === null ? null : (
           <div className={styles.slash}>{slash.menu}</div>
@@ -328,6 +352,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
           className={styles.box}
           data-composer-box=""
           data-locked={locked || undefined}
+          data-shell={shellMode || undefined}
           data-drop={dropping || undefined}
           onDragOver={dragOver}
           onDragLeave={(event) => {
@@ -341,32 +366,48 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
             attachments={draft.attachments}
             {...(locked ? {} : { onRemove: remove })}
           />
-          <textarea
-            ref={input}
-            className={styles.input}
-            rows={2}
-            aria-label={t("conversation.label.composer-message")}
-            value={draft.text}
-            placeholder={props.hint}
-            readOnly={locked}
-            data-composer-input=""
-            onChange={(event) =>
-              props.onDraft({
-                text: event.currentTarget.value,
-                selection: [
-                  event.currentTarget.selectionStart,
-                  event.currentTarget.selectionEnd,
-                ],
-              })
-            }
-            onSelect={keepSelection}
-            onPaste={(event) => {
-              const files = [...event.clipboardData.files];
-              if (files.length === 0 || locked) return;
-              event.preventDefault();
-              attachFiles(files);
-            }}
-          />
+          <div className={styles.inputRow}>
+            {shellMode ? (
+              <span className={styles.shellChip} data-shell-chip="">
+                <Icon
+                  icon={conversationIcons.shell}
+                  pixels={iconPixels("small")}
+                />
+                {t("conversation.label.shell-chip")}
+              </span>
+            ) : null}
+            <textarea
+              ref={input}
+              className={styles.input}
+              rows={2}
+              aria-label={t("conversation.label.composer-message")}
+              value={draft.text}
+              placeholder={props.hint}
+              readOnly={locked}
+              data-composer-input=""
+              onChange={(event) =>
+                props.onDraft({
+                  text: event.currentTarget.value,
+                  selection: [
+                    event.currentTarget.selectionStart,
+                    event.currentTarget.selectionEnd,
+                  ],
+                })
+              }
+              onSelect={keepSelection}
+              onPaste={(event) => {
+                const files = [...event.clipboardData.files];
+                if (files.length === 0 || locked) return;
+                event.preventDefault();
+                attachFiles(files);
+              }}
+            />
+          </div>
+          {shellMode ? (
+            <p className={styles.shellHint} data-shell-hint="">
+              {t("conversation.notice.shell-mode")}
+            </p>
+          ) : null}
           {skipped ? (
             <p className={styles.problem} data-attach-skipped="" role="status">
               {t("conversation.error.attach-skipped")}
@@ -377,12 +418,12 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               {t("conversation.error.too-long")}
             </p>
           ) : null}
-          {picker.noModel ? (
+          {picker.noModel && !shellMode ? (
             <p className={styles.problem} data-no-model="" role="status">
               {t("conversation.error.no-model")}
             </p>
           ) : null}
-          {working && slash.menu === null ? (
+          {working && slash.menu === null && !shellMode ? (
             <p className={styles.working} data-working-note="">
               {t("conversation.notice.working-next-turn", {
                 agent: props.agentName,
@@ -397,7 +438,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                 variant="ghost"
                 size="sm"
                 data-attach=""
-                disabled={locked}
+                disabled={locked || shellMode}
                 onClick={() => picker_.current?.click()}
               />
             </Tooltip>
@@ -416,6 +457,12 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               {capabilities.model && props.meta !== null ? (
                 <ModelPicker {...picker.props} />
               ) : null}
+              {props.toggles === undefined ? null : (
+                <ToggleChips
+                  toggles={props.toggles.items}
+                  onToggle={props.toggles.onToggle}
+                />
+              )}
               {props.mode === undefined ? null : (
                 <ModeMenu
                   current={props.mode.current}

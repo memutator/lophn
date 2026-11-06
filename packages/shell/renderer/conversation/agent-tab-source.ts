@@ -19,10 +19,12 @@ import {
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
+  AcpChildState,
   AcpInput,
   AcpPlan,
   AcpSessionMeta,
   AcpState,
+  AcpTask,
   AcpWriting,
 } from "../../../protocol/acp/mod.ts";
 import type { Vendor } from "../parts/vendor-icon/vendor-icon.tsx";
@@ -252,6 +254,8 @@ export interface ApprovalResultView {
   readonly choice: "once" | "session" | "always" | null;
   /** 거절 이유. */
   readonly reason: string | null;
+  /** plan 승인에서 고른 `modes` id. 그 밖은 null이다. */
+  readonly mode: string | null;
 }
 
 // ---- thread ----
@@ -296,6 +300,21 @@ interface EditView {
 interface ThreadTools extends EntryBase {
   readonly kind: "tools";
   readonly calls: readonly ToolCallView[];
+}
+
+/** 일을 맡긴 subagent 한 줄. `child`가 있으면 줄이 단추이고 누르면 자식 대화를 연다. */
+export interface ThreadSubagent extends EntryBase {
+  readonly kind: "subagent";
+  readonly tool: string;
+  readonly agent: string;
+  readonly description: string;
+  readonly child: string | null;
+  readonly state: "running" | "done" | "failed" | "cancelled";
+  readonly model: string | null;
+  /** 마지막 말이나 요약. */
+  readonly last: string | null;
+  readonly startedAt: string;
+  readonly durationMs: number | null;
 }
 
 /** 되돌아가는 편집을 undo하는 기능은 없다. 되돌리려면 rewind다. */
@@ -355,6 +374,18 @@ interface ThreadInfo extends EntryBase {
   readonly turn: string | null;
 }
 
+/**
+ * 사람이 `!`로 돌린 명령(tool item `by: "user"`). agent 덩어리에 넣지 않고 사람 쪽에 출력을 펼쳐 그린다. `turn`이
+ * 있어도 없어도 "Worked for"가 붙지 않는다. `id`가 본문을 읽을 tool id다.
+ */
+export interface ThreadShell extends EntryBase {
+  readonly kind: "shell";
+  readonly command: string;
+  readonly state: ToolCallState;
+  /** harness가 item에 실은 출력. lophn은 null이라 `toolCallBody(id, "output")`으로 읽는다. */
+  readonly output: string | null;
+}
+
 /** 슬래시 명령이 낸 글. `turn`이 null이면 turn 밖이라 "Worked for"가 붙지 않는다. */
 interface ThreadCommandOutput extends EntryBase {
   readonly kind: "command-output";
@@ -399,6 +430,7 @@ export interface ThreadHidden extends EntryBase {
 export type ThreadEntry =
   | ThreadMessage
   | ThreadTools
+  | ThreadSubagent
   | ThreadEdit
   | ThreadCall
   | ThreadReleaseConsent
@@ -407,6 +439,7 @@ export type ThreadEntry =
   | ThreadTurnEnd
   | ThreadProviderError
   | ThreadInfo
+  | ThreadShell
   | ThreadCommandOutput
   | ThreadHidden;
 
@@ -452,6 +485,12 @@ export interface ThreadView {
   readonly session: AcpSessionMeta | null;
   /** agent의 계획. 없으면 null이다. */
   readonly plan: AcpPlan | null;
+  /** background task. */
+  readonly tasks: readonly AcpTask[];
+  /** subagent의 대화(key는 subagent 줄의 `child`). 읽을 때 같은 `layoutOf`로 늘어놓는다. */
+  readonly children: Readonly<Record<string, AcpChildState>>;
+  /** composer에 한 번 채울 글(`key`가 새 값일 때). */
+  readonly draft: AcpState["draft"];
 }
 
 // ---- model, 명령, 권한 ----

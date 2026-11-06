@@ -224,7 +224,13 @@ class Run {
 
   user(
     content: string | unknown[],
-    extra: { priority?: "now" | "next" | "later"; uuid?: string } = {},
+    extra: {
+      priority?: "now" | "next" | "later";
+      uuid?: string;
+      /** false면 transcript에만 붙고 turn을 열지 않는다(`!` shell 출력). */
+      shouldQuery?: boolean;
+      clientComposed?: boolean;
+    } = {},
   ): SDKUserMessage {
     return {
       type: "user",
@@ -232,6 +238,10 @@ class Run {
       parent_tool_use_id: null,
       uuid: (extra.uuid ?? randomUUID()) as SDKUserMessage["uuid"],
       ...(extra.priority === undefined ? {} : { priority: extra.priority }),
+      ...(extra.shouldQuery === undefined
+        ? {}
+        : { shouldQuery: extra.shouldQuery }),
+      ...(extra.clientComposed === true ? { client_composed: true } : {}),
     } as SDKUserMessage;
   }
 
@@ -676,6 +686,143 @@ const SCENARIOS: Record<string, (ctx: Ctx) => Promise<void>> = {
       renameSession(id, "Renamed by recorder", { dir: cwd }),
     );
     await run.call("getSessionInfo", id, () =>
+      getSessionInfo(id, { dir: cwd }),
+    );
+  },
+
+  // shell_append: `!` 출력을 `<bash-input>`·`<bash-stdout>` 사람 메시지 둘(shouldQuery false, client_composed)로 넣는다.
+  // 첫 메시지로 넣을 때(init이 오는가)와 turn 뒤에 넣을 때 stream에 무엇이 오는지(result, turn), 다음 질문에서 model이
+  // 출력을 보는지, transcript의 entry 모양을 남긴다.
+  async shell_append({ rec, cwd, open }) {
+    writeFileSync(resolve(cwd, "hello.txt"), "hi\n");
+    const run = open();
+    const formsFrom = (from: number) =>
+      run.messages
+        .slice(from)
+        .filter((m) => m.type !== "stream_event")
+        .map((m) => `${m.type}${m.subtype ? `/${m.subtype}` : ""}`);
+    const pair = (command: string, out: string, err = "") => {
+      run.send(
+        run.user(`<bash-input>${command}</bash-input>`, {
+          shouldQuery: false,
+          clientComposed: true,
+        }),
+      );
+      run.send(
+        run.user(
+          `<bash-stdout>${out}</bash-stdout><bash-stderr>${err}</bash-stderr>`,
+          {
+            shouldQuery: false,
+            clientComposed: true,
+          },
+        ),
+      );
+    };
+    // 1) 이 session의 첫 메시지들로.
+    let from = run.messages.length;
+    pair("ls", "hello.txt\n");
+    await sleep(500);
+    await run.settle(8000, 30_000);
+    rec.write("lead_note", {
+      phase: "first messages",
+      forms: formsFrom(from),
+      results: run.results(),
+      sessionId: run.sessionId() ?? null,
+    });
+    from = run.messages.length;
+    await run.ask("What did the ls output show? One line.");
+    rec.write("lead_note", {
+      phase: "ask after first shell",
+      forms: formsFrom(from),
+    });
+    // 2) turn 뒤에.
+    from = run.messages.length;
+    pair("echo shell-two", "shell-two\n");
+    await sleep(500);
+    await run.settle(8000, 30_000);
+    rec.write("lead_note", {
+      phase: "after a turn",
+      forms: formsFrom(from),
+      results: run.results(),
+    });
+    await run.ask("What did the echo output show? One line.");
+    const id = run.sessionId();
+    if (id === undefined) return rec.write("lead_note", "no session id");
+    await run.close();
+    await run.call("getSessionMessages", id, () =>
+      getSessionMessages(id, { dir: cwd }),
+    );
+  },
+
+  // sessions: adapter가 부르는 `listSessions({dir, limit: 30, includeProgrammatic: true})`와 false를 읽어 GUI session이
+  // 어느 쪽에 드는지, 칸이 무엇인지 남긴다(scratch dir 안 session만).
+  async sessions({ rec, cwd, open }) {
+    const first = open();
+    await first.ask("Reply with the single word: one");
+    const id = first.sessionId();
+    await first.close();
+    const second = open();
+    await second.ask("Reply with the single word: two");
+    const other = second.sessionId();
+    await second.close();
+    rec.write("lead_note", { sessions: [id, other] });
+    await first.call("listSessions adapter", {}, () =>
+      listSessions({ dir: cwd, limit: 30, includeProgrammatic: true }),
+    );
+    await first.call("listSessions not programmatic", {}, () =>
+      listSessions({ dir: cwd, limit: 30, includeProgrammatic: false }),
+    );
+  },
+
+  // rewind_preview: 파일을 고친 뒤 그 사람 메시지 uuid로 `rewindFiles(uuid, {dryRun: true})`만 읽는다(실제 rewind는 하지 않는다).
+  async rewind_preview({ rec, cwd, open }) {
+    const run = open();
+    const u1 = await run.ask(
+      "Create a file named a.txt containing exactly: one",
+    );
+    const u2 = await run.ask("Overwrite a.txt so it contains exactly: two");
+    const u3 = await run.ask("Reply with the single word: ok");
+    rec.write("lead_note", {
+      u1,
+      u2,
+      u3,
+      now: await textOfFile(resolve(cwd, "a.txt")),
+    });
+    for (const [label, uuid] of [
+      ["u1", u1],
+      ["u2", u2],
+      ["u3", u3],
+    ] as const)
+      await run.call(`rewindFiles dry ${label}`, uuid, () =>
+        run.q.rewindFiles(uuid, { dryRun: true }),
+      );
+    await run.call("rewindFiles dry unknown", "no-such-uuid", () =>
+      run.q.rewindFiles(randomUUID(), { dryRun: true }),
+    );
+    rec.write("lead_note", {
+      still: await textOfFile(resolve(cwd, "a.txt")),
+    });
+    await run.close();
+  },
+
+  // fork_title: 한 turn 뒤 `forkSession(id, {dir})`과 새 id의 제목(`getSessionInfo`). SDK가 "… (fork)"로 짓는가.
+  async fork_title({ rec, cwd, open }) {
+    const run = open();
+    await run.ask("Reply with the single word: one");
+    const id = run.sessionId();
+    if (id === undefined) return rec.write("lead_note", "no session id");
+    await run.close();
+    await run.call("getSessionInfo original", id, () =>
+      getSessionInfo(id, { dir: cwd }),
+    );
+    const made = await run.call("forkSession", { dir: cwd }, () =>
+      forkSession(id, { dir: cwd }),
+    );
+    if (made === undefined) return;
+    await run.call("getSessionInfo fork", made.sessionId, () =>
+      getSessionInfo(made.sessionId, { dir: cwd }),
+    );
+    await run.call("getSessionInfo original after", id, () =>
       getSessionInfo(id, { dir: cwd }),
     );
   },

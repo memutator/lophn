@@ -93,7 +93,7 @@ async function checkLayout(): Promise<void> {
     if (!(await isFile(file))) missing.push(file);
   }
   for (const dir of [
-    // @lophn member는 package-linux가 선언에서 정한다. 실제로 풀리는지는 checkAppEntrypoint와 core 시작이 본다.
+    // @lophn member는 tools/package/main.ts가 선언에서 정한다. 실제로 풀리는지는 checkAppEntrypoint와 core 시작이 본다.
     layout.skills,
     layout.sdk,
   ]) {

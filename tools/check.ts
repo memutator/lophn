@@ -4,6 +4,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import process from "node:process";
+import { platformNpmCliPath } from "../packages/core/supervision/security/node-shims.ts";
 import { PACKAGE_DEPENDENCIES } from "./check-deps.ts";
 
 type Status = "통과" | "실패" | "건너뜀";
@@ -19,8 +20,11 @@ type Step = {
 type Result = { name: string; status: Status; ms?: number; note?: string };
 
 const SHELL_MAIN = "packages/shell/main";
-// Biome는 native binary다. node_modules의 것을 직접 띄운다.
-const BIOME_CMD = ["node_modules/.bin/biome"];
+// `.bin/`은 Windows에서 .cmd라 shell 없이 못 띄운다. 패키지의 JS 입구를 이 node로 띄운다.
+const BIOME_CMD = [process.execPath, "node_modules/@biomejs/biome/bin/biome"];
+const TSC = [process.execPath, "node_modules/typescript/bin/tsc"];
+// npm도 Windows에서는 npm.cmd다. npm의 JS 입구를 띄운다.
+const NPM = [process.execPath, platformNpmCliPath()];
 // test는 core를 import하므로 Temporal이 있는 Electron의 Node로 띄운다. plain node에는 Temporal이 없다.
 const ELECTRON = createRequire(import.meta.url)("electron") as string;
 const ALL_PACKAGES = [
@@ -166,7 +170,6 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-const TSC = "node_modules/.bin/tsc";
 // package마다 type check하는 tsc project(tsconfig.json이 있는 폴더). shell main·preload·ipc·terminal-host는
 // "shell main" 단계의 `npm run check`가 본다.
 const TSC_PROJECTS: Record<string, string[]> = {
@@ -182,7 +185,7 @@ const TSC_PROJECTS: Record<string, string[]> = {
   tests: ["tests"],
 };
 function typeChecks(p: string): string[][] {
-  return TSC_PROJECTS[p].map((dir) => [TSC, "--noEmit", "-p", dir]);
+  return TSC_PROJECTS[p].map((dir) => [...TSC, "--noEmit", "-p", dir]);
 }
 
 async function buildSteps(
@@ -290,8 +293,8 @@ async function buildSteps(
   if (has("shell", "protocol", "base", "design", "coding-agent")) {
     // shell main은 root npm workspace의 member다. 의존은 root node_modules에 있다.
     const installed = await exists("node_modules");
-    const commands = [["npm", "--prefix", SHELL_MAIN, "run", "check"]];
-    if (!installed) commands.unshift(["npm", "ci"]);
+    const commands = [[...NPM, "--prefix", SHELL_MAIN, "run", "check"]];
+    if (!installed) commands.unshift([...NPM, "ci"]);
     checks.push({
       name: "shell main",
       commands,

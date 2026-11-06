@@ -241,6 +241,11 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
           input.id,
           input.input_message,
         ]);
+        // turn 밖에서 돈 `!` 명령의 기록은 입력이 아니라 이 turn이 함께 가져가 model이 본다.
+        tx.sql.run(
+          "update messages set turn = ? where session = ? and shell = 1 and turn is null",
+          [input.id, input.session],
+        );
         // call 입력을 가져갔음을 Router에 알린다. 재시작 때 잃어버린 call을 가리는 근거다.
         if (message["call"] !== null && deps.calls !== undefined) {
           const consumed = deps.calls.consumed(

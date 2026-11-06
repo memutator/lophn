@@ -1,6 +1,7 @@
 // preload의 터미널 통로(lophnTerminal)가 없는 일반 browser용 가짜. PTY 없이 터미널 탭이 열린 모양을
 // 보이려고, 열면 running으로 답하고 정해 둔 출력을 준다. 입력은 그대로 되돌려 보여 준다.
 import type {
+  TerminalAgent,
   TerminalApi,
   TerminalCall,
   TerminalOutput,
@@ -20,7 +21,11 @@ function ok<T>(value: T): Promise<TerminalCall<T>> {
   return Promise.resolve({ ok: true, value });
 }
 
-export function fakeTerminal(project: string): TerminalApi {
+/** `agent`를 주면 그 터미널에서 coding agent가 도는 것으로 runtime이 알린다. */
+export function fakeTerminal(
+  project: string,
+  agent?: TerminalAgent,
+): TerminalApi {
   const listeners = new Set<(output: readonly TerminalOutput[]) => void>();
   const ref = "term_gallery";
   const chunks: TerminalOutput[] = [
@@ -46,6 +51,7 @@ export function fakeTerminal(project: string): TerminalApi {
     failure_reason: null,
     output_seq: chunks.length,
     dropped_output: false,
+    ...(agent === undefined ? {} : { agent }),
   });
   return {
     open: () => ok({ ok: true, runtime: runtime() }),

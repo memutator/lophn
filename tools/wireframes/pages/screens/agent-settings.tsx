@@ -34,7 +34,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-model-picker",
       title: "Agent settings · agent model picker",
       description:
-        'agent의 Model 칸 picker를 연 상태다. 맨 위에 "Use project default — …" 줄이 있고 그 아래에 검색칸, provider별 model이 있다. 맨 아래에 Manage models 줄이 있다. 칸 아래 한 줄이 층이다.',
+        'agent의 Model 칸 picker를 연 상태다. 맨 위에 "Use project default — …" 줄이 있고 그 아래에 검색칸, provider별 model이 있다. provider 묶음은 대화의 picker와 같이 접고 펼 수 있다(묶음이 하나뿐이라 늘 펼쳐 있다). 맨 아래에 Manage models 줄이 있다. 칸 아래 한 줄이 층이다.',
       render: () => <AgentModelPickerPage />,
     },
     {

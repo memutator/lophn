@@ -1,0 +1,214 @@
+/* composer 위 dock. card마다 접힌 요약 한 줄이고 펼치면 최대 높이 안에서 scroll한다. */
+.dock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+}
+
+.card {
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: start;
+  cursor: pointer;
+}
+
+.head:hover {
+  color: var(--color-text-primary);
+}
+
+.icon {
+  flex: none;
+}
+
+.summary {
+  display: flex;
+  flex: 1;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}
+
+.summary > :first-child {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: calc(var(--space-12) * 3);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-y: auto;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* Todo */
+.plan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.plan[data-status="completed"] .planText {
+  color: var(--color-text-secondary);
+}
+
+.plan[data-status="cancelled"] .planText {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.planText {
+  min-width: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+/* Goal */
+.goalObjective {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* Running: 줄 하나는 누르는 부분(runMain)과 경과 시간·Stop 자리(trail)다. */
+.run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.runMain {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: start;
+}
+
+button.runMain:not(:disabled) {
+  cursor: pointer;
+}
+
+button.runMain:not(:disabled):hover {
+  color: var(--color-text-primary);
+}
+
+.runAgent {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runLast {
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 경과 시간과 Stop은 같은 자리다. Stop은 hover·focus 때 시간을 덮는다. 투명해도 키보드로 닿는다. */
+.trail {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: var(--space-11);
+}
+
+.elapsed {
+  color: var(--color-text-muted);
+}
+
+.stop {
+  position: absolute;
+  inset-block: calc(var(--space-2) * -1);
+  inset-inline-end: var(--space-0);
+  display: inline-flex;
+  align-items: center;
+  opacity: 0;
+}
+
+.run:hover .stop,
+.run:focus-within .stop {
+  opacity: 1;
+}
+
+.run:hover .trail[data-stoppable] .elapsed,
+.run:focus-within .trail[data-stoppable] .elapsed {
+  visibility: hidden;
+}
+
+.runOutput {
+  flex-basis: 100%;
+}
+
+.outputText {
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-3);
+  border-left: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  white-space: pre;
+  overflow-x: auto;
+}

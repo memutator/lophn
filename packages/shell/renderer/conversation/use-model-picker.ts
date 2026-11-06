@@ -3,10 +3,19 @@
 import { useEffect, useState } from "react";
 import { t } from "@lophn/i18n";
 
-import type { AcpModel, AcpSessionMeta } from "../../../protocol/acp/mod.ts";
+import type {
+  AcpModel,
+  AcpModelAxis,
+  AcpModelCurrent,
+  AcpSessionMeta,
+} from "../../../protocol/acp/mod.ts";
 import { fitOptionValues } from "../../../protocol/lophn-agent/model-picker.ts";
 import type { CatalogEntry } from "../../../protocol/lophn-agent/models.ts";
-import type { ModelPickerProps, PickerModelRef } from "./model-picker/types.ts";
+import type {
+  ModelPickerProps,
+  PickerAxisView,
+  PickerModelRef,
+} from "./model-picker/types.ts";
 
 const NO_MODEL: PickerModelRef = { provider: "", modelName: "" };
 
@@ -24,6 +33,41 @@ interface ModelPickerInput {
   ) => Promise<boolean>;
   /** 쓰기가 실패했다. */
   onProblem: () => void;
+  /** capability `roles`: 이 session을 role의 model로 바꿀 수 있다. */
+  canUseRole: boolean;
+  /** 이 session만 그 role의 model로 바꾼다. */
+  onUseRole: (role: string) => Promise<boolean>;
+}
+
+/**
+ * 켜고 끄는 축의 이름. 켠 값의 이름이 "On"이 아니면 그것이 더 뜻이 분명하다(Claude fast 축: 이름 Speed, 켬 Fast).
+ */
+function switchName(axis: AcpModelAxis): string {
+  const on = axis.values[1]?.label;
+  return on === undefined || on.trim().toLowerCase() === "on" ? axis.label : on;
+}
+
+/** picker가 그리는 축. 켜고 끄는 축은 이름을 `switchName`으로 바꾼다. */
+function viewOf(axis: AcpModelAxis): PickerAxisView {
+  return axis.kind === "switch" ? { ...axis, label: switchName(axis) } : axis;
+}
+
+/** "Sonnet 5.5 · High · Fast": model 이름 뒤에 값이 있는 축의 값 이름을 잇고, 켜고 끄는 축은 켠 것만 축 이름으로 잇는다. */
+function labelOf(
+  current: AcpModelCurrent,
+  axes: readonly AcpModelAxis[],
+): string {
+  const parts = axes.flatMap((axis) => {
+    const value = current.options[axis.id];
+    if (axis.kind === "switch") {
+      return value !== undefined && value === axis.values[1]?.value
+        ? [switchName(axis)]
+        : [];
+    }
+    const chosen = axis.values.find((item) => item.value === value);
+    return chosen === undefined ? [] : [chosen.label];
+  });
+  return [current.label, ...parts].join(" · ");
 }
 
 /** picker props와, 읽어 보니 model이 없다는 사실. 없으면 보내도 turn이 시작하지 못한다. */
@@ -91,8 +135,11 @@ export function useModelPicker(input: ModelPickerInput): {
           : currentFound === undefined
             ? { provider: "", modelName: current.model }
             : { provider: currentFound.group.id, modelName: current.model },
-      currentLabel: current?.label ?? t("conversation.label.model-unknown"),
-      axes: effort ? (currentFound?.model.axes ?? []) : [],
+      currentLabel:
+        current === null
+          ? t("conversation.label.model-unknown")
+          : labelOf(current, effort ? (currentFound?.model.axes ?? []) : []),
+      axes: effort ? (currentFound?.model.axes ?? []).map(viewOf) : [],
       optionValues: current?.options ?? {},
       query,
       layout,
@@ -117,6 +164,32 @@ export function useModelPicker(input: ModelPickerInput): {
         });
       },
       layer: current?.layer ?? null,
+      ...(input.canUseRole && meta?.roles != null
+        ? {
+            roles: {
+              items: meta.roles.map((role) => {
+                const known =
+                  role.model === null ? undefined : found(role.model);
+                return {
+                  id: role.id,
+                  label: role.label,
+                  kind: role.kind,
+                  model: known?.model.label ?? role.model,
+                  // 모르는 model은 `provider/model` 꼴의 앞 조각으로 vendor를 고른다.
+                  provider:
+                    known?.group.label ??
+                    (role.model?.includes("/") === true
+                      ? role.model.split("/")[0]!
+                      : null),
+                };
+              }),
+              onUse: (role) =>
+                void input.onUseRole(role).then((done) => {
+                  if (!done) onProblem();
+                }),
+            },
+          }
+        : {}),
     },
   };
 }

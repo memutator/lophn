@@ -1,4 +1,4 @@
-// agent가 일하는 중 보낸 메시지가 composer 바로 위에 쌓이는 줄. 기본은 다음 turn에 들어가고, 줄 오른쪽 끝의
+// agent가 일하는 중 보낸 메시지가 dock의 Queue card 안에 쌓이는 줄. 기본은 다음 turn에 들어가고, 줄 오른쪽 끝의
 // [Send now]를 누르면 도는 turn에 steer로 들어가 대화에 steer 표시가 붙는다. 보낸 뒤 마음이 바뀌면 글을
 // 고치거나 순서를 바꾸거나 줄을 뺀다. 글은 줄을 눌러 그 자리에서 고친다(Enter 저장, Esc 취소).
 import {

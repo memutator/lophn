@@ -34,7 +34,9 @@ export function CommandOutput({
       {format === "markdown" ? (
         <ChatMarkdown text={fold.shown} artifacts={artifacts} />
       ) : (
-        <CodeBlock code={fold.shown} />
+        <div className={styles.wrapCode}>
+          <CodeBlock code={fold.shown} />
+        </div>
       )}
       {fold.toggle}
     </div>

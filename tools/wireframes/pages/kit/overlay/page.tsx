@@ -132,6 +132,34 @@ export function KitOverlay() {
         </Stage>
       </Section>
       <Section
+        title="Popover card"
+        note="card: 열려 있는 동안 빈 anchor가 옮겨 다니는 hover card. anchor 오른쪽 가운데에 열고 focus를 가져오지 않는다. 대화 왼쪽 thread index가 쓴다."
+      >
+        <Stage height={140} center>
+          {(container) => (
+            <Popover
+              open
+              card
+              returnFocus={false}
+              container={container}
+              trigger={
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "var(--space-8)",
+                    height: "var(--space-5)",
+                  }}
+                />
+              }
+            >
+              <PopoverRow onSelect={NOOP}>
+                Write a retry for upload()
+              </PopoverRow>
+            </Popover>
+          )}
+        </Stage>
+      </Section>
+      <Section
         title="Menu and MenuIcon"
         note="행동 목록. 단추로 연다. 왼쪽은 글만, 오른쪽은 항목 앞에 MenuIcon(design 아이콘, FileIcon)을 놓고 한 항목은 disabled다."
       >

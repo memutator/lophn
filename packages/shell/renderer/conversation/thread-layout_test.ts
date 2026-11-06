@@ -31,6 +31,7 @@ function tool(
     id: `tcl_01h455vb4pex5v6nkc6gd5f00${n}`,
     seq,
     at: at(second),
+    by: "agent",
     turn: TURN,
     tool: category === "command" ? "shell.run" : "file.read",
     category,

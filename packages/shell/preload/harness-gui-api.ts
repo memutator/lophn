@@ -6,11 +6,15 @@ import {
   HARNESS_GUI_TAB_IMAGE_CHANNEL,
   HARNESS_GUI_TAB_INPUT_CHANNEL,
   HARNESS_GUI_TAB_OPENED_CHANNEL,
+  HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
   HARNESS_GUI_TAB_RUNNING_CHANNEL,
+  HARNESS_GUI_TAB_SESSIONS_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
   HARNESS_GUI_TAB_UPDATE_CHANNEL,
   HARNESS_GUI_TAB_VIEW_CHANNEL,
   type HarnessGuiInfo,
+  type HarnessGuiRewindPreview,
+  type HarnessGuiSessionEntry,
   type HarnessGuiTabApi,
   type HarnessGuiTabOpened,
   type HarnessGuiTabToggleReply,
@@ -93,6 +97,25 @@ export function createHarnessGuiTabApi(
         return reply ?? { ok: false, reason: "failed", message: "refused" };
       } catch (cause) {
         return { ok: false, reason: "failed", message: String(cause) };
+      }
+    },
+    async sessions(handle) {
+      try {
+        return (await transport.invoke(HARNESS_GUI_TAB_SESSIONS_CHANNEL, {
+          handle,
+        })) as HarnessGuiSessionEntry[];
+      } catch {
+        return [];
+      }
+    },
+    async rewindPreview(handle, message) {
+      try {
+        return (await transport.invoke(HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL, {
+          handle,
+          message,
+        })) as HarnessGuiRewindPreview | null;
+      } catch {
+        return null;
       }
     },
     async uploadImage(handle, image) {

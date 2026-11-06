@@ -1,4 +1,4 @@
-/* model picker. 위에서부터 층 한 줄, 검색칸, 따르기 줄, provider 묶음, option 축, 맨 아래 Manage models 줄. */
+/* model picker. 위에서부터 Roles, 층 한 줄, 검색칸, 따르기 줄, provider 묶음, option 축, 맨 아래 Manage models 줄. */
 /* 폭은 panel 폭이 바닥이고 option 축 한 줄이 더 길면 그만큼 넓어진다. 값 단추가 다음 줄로 떨어지지 않게 한다. */
 .picker {
   box-sizing: border-box;
@@ -131,6 +131,37 @@
   border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
+/* 접고 펴는 묶음 머리: 머리 줄 전체가 단추다. h3의 글자 모양을 그대로 이어받는다. */
+.groupHead {
+  box-sizing: border-box;
+  width: 100%;
+  margin: var(--space-0);
+  padding: var(--space-1) var(--space-0);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.groupHead:hover,
+.groupHead:focus-visible {
+  background: var(--floating-hover);
+}
+
+.groupCount {
+  margin-inline-start: auto;
+  padding-inline-end: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 켜고 끄는 축은 이름과 switch가 한 줄이다. */
+.axisSwitch {
+  padding: var(--space-0) var(--space-4);
+}
+
 /* provider 묶음 이름 옆 vendor 아이콘 */
 .vendor {
   display: flex;
@@ -234,4 +265,29 @@
 
 .fieldEmpty {
   color: var(--color-text-muted);
+}
+
+/* Roles 절: kind 묶음마다 role 이름과 지금 model */
+.roles {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--space-2);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.roleKind {
+  margin: var(--space-2) var(--space-0) var(--space-1);
+  padding: var(--space-0) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.roleModel {
+  display: inline-flex;
+  margin-inline-start: auto;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
 }

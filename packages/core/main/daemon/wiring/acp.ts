@@ -2,6 +2,7 @@
 // 여기서는 Bus의 agent event를 ACP 갱신으로 바꿔 내고(`acpUpdatesOf`), 항목이 대화에 들 때 session 순번을
 // 저장하며(`AllocateAcpItems`), rewind가 끝나면 숨긴 구간을 낸다. event를 하나씩 차례로 처리해 갱신 순서가 event 순서다.
 // 화면의 대화 조작은 `AcpSend` 하나로 받아 지금 route로 보낸다(`acp-send.ts`).
+import process from "node:process";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type AcpInput,
@@ -62,6 +63,10 @@ import {
   redactDeep,
   sessionChangeOf,
 } from "./acp-build.ts";
+import { runCommand } from "../../../lophn-agent/tools/shell/run.ts";
+import { shellEnvironment } from "../../../lophn-agent/tools/shell/env.ts";
+import { nodeShimFolder } from "../../../supervision/security/node-shims.ts";
+import { workspaceBaseOf } from "../workspace-folders-glue.ts";
 import { createAcpSend } from "./acp-send.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -102,6 +107,7 @@ const EVENT_TYPES = [
   "MessageReceived",
   "MessageSteered",
   "MessageRemoved",
+  "ShellRan",
   "TurnStarted",
   "TurnResumed",
   "TurnEnded",
@@ -376,6 +382,14 @@ export const acpWiring: WiringFactory = () => {
             : await handler(who, input);
         },
         newId: (prefix) => ids.newId(prefix),
+        shell: {
+          folderOf: (session) =>
+            workspaceBaseOf({ sql }, ctx.root.path, session),
+          env: () =>
+            shellEnvironment(process.env, nodeShimFolder(ctx.root.path)),
+          run: runCommand,
+          nowMs: () => ctx.clock.nowMs(),
+        },
       });
 
       return ok({

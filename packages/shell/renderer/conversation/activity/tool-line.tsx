@@ -5,7 +5,7 @@ import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
 import type { SourceResult, ToolCallBodyView } from "../agent-tab-source.ts";
-import { duration } from "./worked-for.tsx";
+import { elapsedText, useSecondTick } from "./elapsed.ts";
 import type { ToolCallState, ToolCallView, ToolLineDetail } from "./model.ts";
 import styles from "./activity.module.css";
 
@@ -133,14 +133,13 @@ function ToolCallLine({
   readBody: ToolLineProps["readBody"];
 }): ReactElement {
   const [open, setOpen] = useState(false);
-  const [, setTick] = useState(0);
-  // 도는 call의 시간은 줄이 보이는 동안 1초마다 다시 센다.
-  useEffect(() => {
-    if (call.state !== "running" || call.startedAt === null) return;
-    const timer = setInterval(() => setTick((tick) => tick + 1), 1000);
-    return () => clearInterval(timer);
-  }, [call.state, call.startedAt]);
-  const time = timeText(call, now);
+  useSecondTick(call.state === "running" && call.startedAt !== null);
+  const time = elapsedText(
+    call.state === "running",
+    call.startedAt,
+    call.durationMs,
+    now,
+  );
   const state = stateWord(call.state);
   return (
     <div className={styles.toolCall} data-tool-call={call.id}>
@@ -163,14 +162,6 @@ function ToolCallLine({
       {open ? <ToolCallBody call={call} readBody={readBody} /> : null}
     </div>
   );
-}
-
-function timeText(call: ToolCallView, now: () => number): string {
-  if (call.state === "running") {
-    if (call.startedAt === null) return "";
-    return duration(Math.max(0, now() - Date.parse(call.startedAt)));
-  }
-  return call.durationMs === null ? "" : duration(call.durationMs);
 }
 
 function stateWord(state: ToolCallState): string | null {

@@ -1,10 +1,10 @@
-/* composer 바로 위에 쌓이는 "Next turn" 줄 */
+/* dock의 Queue card 안에 쌓이는 "Next turn" 줄 */
 .queued {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   margin: var(--space-0);
-  padding: var(--space-0) var(--space-0) var(--space-3);
+  padding: var(--space-0);
   list-style: none;
 }
 
@@ -12,10 +12,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-subtle);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
 }

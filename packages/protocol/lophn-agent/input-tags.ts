@@ -10,6 +10,7 @@ export const INPUT_TAGS = {
   steer: "lophn-steer",
   annotation: "lophn-annotation",
   untrusted: "lophn-untrusted",
+  shell: "lophn-shell",
 } as const;
 export type InputTagKind = keyof typeof INPUT_TAGS;
 
@@ -21,6 +22,7 @@ export const INPUT_TAG_ATTRIBUTES = {
   step: ["instance", "step"],
   annotation: ["n", "kind", "app", "release", "view", "project", "artifact"],
   untrusted: ["source"],
+  shell: ["command", "exit_code"],
   steer: [],
 } as const;
 

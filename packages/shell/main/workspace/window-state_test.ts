@@ -19,7 +19,10 @@ test("창 자리는 다시 읽히고, 없거나 망가진 파일은 기본 창�
     };
     await store.write(saved);
     assert.deepEqual(await store.read(), saved);
-    assert.equal((await stat(file)).mode & 0o777, 0o600);
+    // Windows의 stat.mode에는 POSIX 권한이 없다.
+    if (process.platform !== "win32") {
+      assert.equal((await stat(file)).mode & 0o777, 0o600);
+    }
 
     for (const broken of [
       "{",

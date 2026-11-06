@@ -3,7 +3,7 @@ import process from "node:process";
 import { systemClock } from "../../../base/clock.ts";
 import { cryptoRandom } from "../../../base/random.ts";
 import type { Clock, RandomSource, Result } from "../../../base/mod.ts";
-import { err, ok } from "../../../base/mod.ts";
+import { err, homeOf, ok } from "../../../base/mod.ts";
 import { ROUTES } from "../../../protocol/registry.ts";
 import type { Route } from "../../../protocol/base/mod.ts";
 import {
@@ -95,7 +95,7 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   const telemetry = options.telemetry ?? telemetryFromEnv(clock, random);
   const root = await resolveDataRoot({
     lophnHome: options.lophnHome ?? process.env.LOPHN_HOME ?? undefined,
-    home: options.home ?? process.env.HOME ?? undefined,
+    home: options.home ?? homeOf(process.env, process.platform),
   });
   if (!root.ok) return root;
   const locked = await acquireInstanceLock(root.value.run);

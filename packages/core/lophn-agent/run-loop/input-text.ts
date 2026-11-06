@@ -10,7 +10,7 @@ import {
   type ReceivedMessage,
   textBlocks,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { HistoryPart } from "../prompt-assembly/mod.ts";
+import { type HistoryPart, shellInput } from "../prompt-assembly/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
@@ -243,6 +243,13 @@ function callRendered(input: TextInput, runtime: AgentRuntime): Rendered {
     input.body,
     after,
   );
+}
+
+// 사람이 `!`로 돌린 명령의 기록이다. 가져간 turn의 prompt와 뒤 이력이 이 함수 하나로 싸서 같은 bytes가 된다.
+export function shellParts(
+  shell: Parameters<typeof shellInput>[0],
+): InputPart[] {
+  return [{ kind: "text", text: shellInput(shell) }];
 }
 
 // 뒤 turn의 history에 들어가는 받은 메시지다. 받은 turn의 입력과 같은 함수(`inputParts`)로 싸서 출처 표지가

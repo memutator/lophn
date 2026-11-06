@@ -1,17 +1,27 @@
 import { z } from "zod";
+import { ipcPathLimit } from "../../base/mod.ts";
 import {
   appIdSchema,
   type ChannelMode,
-  endpointSchema,
   processNonceSchema,
   releaseIdSchema,
   runtimeModeSchema,
-  sha256Schema,
   SOCKET_HOST,
-  SOCKET_PATH_MAX_BYTES,
+  sha256Schema,
 } from "./channel-values.ts";
 
-export { SOCKET_HOST, SOCKET_PATH_MAX_BYTES };
+export { SOCKET_HOST };
+
+// protocol은 이식 가능해야 해서 platform을 읽지 않고 OS별 한도 중 가장 큰 값을 상한으로만 둔다. 정확한 한도는
+// 경로를 만드는 core(`slotSockets`)와 받는 자식(`wire-check`)이 platform으로 검사한다.
+const SOCKET_PATH_LIMIT = ipcPathLimit("win32");
+const endpointSchema = z
+  .string()
+  .min(1)
+  .refine(
+    (value) => new TextEncoder().encode(value).byteLength <= SOCKET_PATH_LIMIT,
+    { message: `socket path must be at most ${SOCKET_PATH_LIMIT} UTF-8 bytes` },
+  );
 
 // stdin JSON 한 줄. token과 secret은 여기에도 argv·환경에도 없다.
 const startFields = {

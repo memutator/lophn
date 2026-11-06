@@ -10,6 +10,7 @@
   align-items: center;
   align-self: flex-start;
   gap: var(--space-2);
+  max-width: 100%;
   padding: var(--space-0);
   border: var(--space-0);
   background: transparent;
@@ -17,7 +18,14 @@
   font: inherit;
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
+  text-align: left;
+  white-space: nowrap;
   cursor: pointer;
+}
+
+/* 머리는 늘 한 줄이다. 줄어드는 것은 제목뿐이고 시간·상태·화살표는 그대로 둔다. 전체 글은 펼친 본문에 있다. */
+.toolHead > * {
+  flex-shrink: 0;
 }
 
 .toolHead:hover {
@@ -43,8 +51,11 @@
 }
 
 .toolTitle {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-text-primary);
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
 }
 
 .toolMeta {
@@ -153,4 +164,59 @@
 /* 펼친 상태의 단추 아이콘은 위를 향한다. */
 .editCard [data-edit-diff-toggle][aria-expanded="true"] svg {
   transform: rotate(180deg);
+}
+
+/* 일을 맡긴 subagent 한 줄. 자식 대화가 있으면 줄 전체가 단추다. */
+.subagent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-start;
+  min-width: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: start;
+}
+
+.subagentButton {
+  cursor: pointer;
+}
+
+.subagentButton:hover .subagentText {
+  color: var(--color-text-primary);
+  text-decoration: underline;
+}
+
+.subagentRunning {
+  display: inline-flex;
+  color: var(--color-text-muted);
+}
+
+.subagentLine {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.subagentText {
+  min-width: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.subagentAgent {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.subagentLast {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

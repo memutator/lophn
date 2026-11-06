@@ -107,3 +107,15 @@ test("session은 늘 그 view의 앱 workspace에 열리고, 갱신은 그 앱 w
     { view: "v2", payload: { session: "ses_other_app", update: 2 } },
   ]);
 });
+
+test("앱 bridge는 run_shell을 forbidden으로 막고 core route를 부르지 않는다", async () => {
+  const { agent, routes } = setup();
+  const sent = await agent.send(view("v1", APP), {
+    type: "run_shell",
+    session: "ses_mine",
+    key: "k",
+    command: "echo hi",
+  });
+  assert.deepEqual(sent.ok === false && sent.error.code, "forbidden");
+  assert.equal(routes.includes("acp/send"), false);
+});

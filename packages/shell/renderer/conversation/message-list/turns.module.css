@@ -77,12 +77,15 @@
 }
 
 .elapsed {
+  flex-shrink: 0;
   color: var(--color-text-muted);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-/* 지금 하는 일 한 줄. 긴 제목은 줄여 일하는 중 줄이 한 줄로 남는다. */
+/* 지금 하는 일 한 줄. 긴 제목은 줄여 일하는 중 줄이 한 줄로 남는다. 자리가 모자라면 경고보다 먼저 줄어든다. */
 .activity {
+  flex-shrink: 100;
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-muted);
@@ -92,7 +95,11 @@
 
 /* 오래 걸리는 turn의 이유 한 줄. 30초는 조용히, 90초는 경고 색으로 말한다. */
 .hint {
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
 }

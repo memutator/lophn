@@ -4,11 +4,13 @@
 
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
+import type { MenuItem } from "@lophn/ui/overlay";
 import {
   type KeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -18,6 +20,7 @@ import type {
   AcpInput,
   AcpSessionMeta,
 } from "../../../protocol/acp/mod.ts";
+import { EMPTY_ACP_CHILD_STATE } from "../../../protocol/acp/mod.ts";
 import {
   type ContentBlock,
   textBlocks,
@@ -42,16 +45,23 @@ import { AgentThread } from "./agent-thread.tsx";
 import styles from "./agent-view.module.css";
 import {
   capabilitiesOf,
+  clockOf,
   decideChoiceOf,
   excerptOf,
   messagesOf,
   newSessionKey,
+  subagentOfChild,
+  subagentsOf,
   textOfParts,
 } from "./agent-view-model.ts";
+import { useThreadBookmarks } from "./thread-index/bookmarks.ts";
+import { ThreadIndexContext } from "./thread-index/context.ts";
+import { threadIndexOf } from "./thread-index/model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
 import { PlanCard } from "./approval-card/plan-card.tsx";
 import { fileBlock } from "./attachments.ts";
 import { AgentComposer } from "./composer/agent-composer.tsx";
+import { useDraftFill } from "./composer/use-draft-fill.ts";
 import {
   afterCheck,
   afterReply,
@@ -62,6 +72,8 @@ import {
   startSend,
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
+import { ChildView } from "./dock/child-view.tsx";
+import { ComposerDock, type DockCardId } from "./dock/composer-dock.tsx";
 import { ConversationFindBar } from "./find/conversation-find.tsx";
 import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
@@ -69,13 +81,12 @@ import { forkAndOpen } from "./header/fork.ts";
 import { RunCodeProvider } from "./message-list/run-code.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
-import { QueuedMessages } from "./queued/queued-messages.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
 import { StatusFooter } from "./status-view/status-footer.tsx";
 import type { StatusData } from "./status-view/status-summary.ts";
 import { StatusView } from "./status-view/status-view.tsx";
-import { layoutOf } from "./thread-layout.ts";
+import { createLayoutCache, layoutOf } from "./thread-layout.ts";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
 
 /** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
@@ -116,13 +127,20 @@ interface AgentViewProps {
   onSessionTitle?: (title: string | null) => void;
   /** header 오른쪽 끝(Compact 우측)에 놓을 조각. */
   trailing?: ReactNode;
+  /** header ⋯ menu 끝에 더할 항목(터미널 탭의 "Open in terminal"). */
+  extraMenu?: {
+    readonly items: readonly MenuItem[];
+    readonly onSelect: (id: string) => void;
+  };
 }
 
 /** 열려 있는 panel. 하나만 열린다. */
 type Layer =
   | { readonly kind: "rewind"; readonly message: string }
   | { readonly kind: "permissions" }
-  | { readonly kind: "status" };
+  | { readonly kind: "status" }
+  /** 자식 대화. `path`는 연 순서의 자식 id이고 마지막이 보이는 것이다(자식의 자식도 연다). */
+  | { readonly kind: "child"; readonly path: readonly string[] };
 
 type Problem =
   | "open-failed"
@@ -219,6 +237,18 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const now = props.now ?? Date.now;
   useSyncExternalStore(drafts.subscribe, drafts.version);
   const [layer, setLayer] = useState<Layer | null>(null);
+  // 머리 ←로 물러난 자식들(앞으로 갈 곳). 물러난 뒤의 path(`base`)에서만 쓰이고 새 자식을 열거나 다른 층을 열면 비운다.
+  // 탭 안 상태라 저장하지 않는다.
+  const [forward, setForward] = useState<{
+    readonly base: readonly string[];
+    readonly stack: readonly string[];
+  }>({ base: [], stack: [] });
+  // harness 머리 session menu(`/resume`이 연다)와, 다른 CLI session으로 바꾸는 동안.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  // dock에서 펼친 card. `/goal`·`/subagents`·`/tasks`가 열 수 있게 여기서 쥔다.
+  const [dock, setDock] = useState<DockCardId | null>(null);
+  const childCache = useRef(createLayoutCache());
   const [permissions, setPermissions] = useState<PermissionsData | null>(null);
   // 새 session에서 고른 model. session을 만들 때 저장한다.
   const [pendingModel, setPendingModel] = useState<{
@@ -226,6 +256,10 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     readonly options: Record<string, string>;
   } | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
+  // 보냈지만 아직 끝나지 않은 사람 shell 명령. lophn은 끝나야 답하고 item도 그때 오므로 그동안 도는 줄을 보인다.
+  const [shells, setShells] = useState<
+    readonly { id: string; session: string; command: string }[]
+  >([]);
   const stage = useRef<HTMLDivElement>(null);
   const find = useConversationFind(stage, props.findSeed, props.onFindSeedUsed);
 
@@ -279,7 +313,24 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             },
           };
   const caps = capabilitiesOf(meta);
-  const plan = thread?.plan ?? null;
+  // thread index: harness는 CLI 자신의 session id가 bookmark의 session key이고 lophn은 session id다.
+  const harness = meta?.harness ?? null;
+  const bookmarks = useThreadBookmarks(
+    session === null
+      ? null
+      : harness === null
+        ? session
+        : meta?.cli_session == null
+          ? null
+          : `${harness}:${meta.cli_session}`,
+  );
+  const threadIndex = useMemo(
+    () => ({
+      items: threadIndexOf(thread?.entries ?? [], harness !== null),
+      bookmarks,
+    }),
+    [thread?.entries, harness, bookmarks],
+  );
   const status: StatusData | null =
     session !== null && caps.usage && meta?.usage != null
       ? {
@@ -296,6 +347,118 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     setProblem(result.ok ? null : "action-failed");
     return result;
   };
+
+  // OpenCode `/undo`가 되돌린 글을 composer에 돌려준다.
+  useDraftFill(thread, (text) => {
+    if (session === null || drafts.draft(session).text !== "") return;
+    drafts.save(session, { text, selection: [text.length, text.length] });
+  });
+
+  // dock과 자식 대화가 harness에 보내는 조작. source가 가졌는지는 capability가 알려 단추를 그린다.
+  const openChild = (child: string) => {
+    setForward({ base: [], stack: [] });
+    setLayer({
+      kind: "child",
+      path: layer?.kind === "child" ? [...layer.path, child] : [child],
+    });
+  };
+  // 머리 ←/→: path 한 칸을 빼 forward에 쌓고, forward에서 꺼내 path에 다시 넣는다.
+  const childPath = layer?.kind === "child" ? layer.path : [];
+  const forwardStack =
+    forward.base.length === childPath.length &&
+    forward.base.every((id, at) => id === childPath[at])
+      ? forward.stack
+      : [];
+  const childBack = () => {
+    const last = childPath.at(-1);
+    if (last === undefined) return;
+    const path = childPath.slice(0, -1);
+    setForward({ base: path, stack: [...forwardStack, last] });
+    setLayer(path.length === 0 ? null : { kind: "child", path });
+  };
+  const childForward = () => {
+    const next = forwardStack.at(-1);
+    if (next === undefined) return;
+    const stack = forwardStack.slice(0, -1);
+    const path = [...childPath, next];
+    setForward({ base: path, stack });
+    setLayer({ kind: "child", path });
+  };
+  // harness 머리 session menu: 그 CLI의 지난 session으로 같은 탭에서 바꾸고(`open_session`), 새 session은 CLI의 `new` 명령이다.
+  const openCliSession = async (cliSession: string) => {
+    if (session === null) return;
+    setMenuOpen(false);
+    setLayer(null);
+    setSwitching(true);
+    await act(session, {
+      type: "open_session",
+      session,
+      key: actKey("open"),
+      cli_session: cliSession,
+    });
+    setSwitching(false);
+    void refresh();
+  };
+  const newCommand = meta?.commands.find(
+    (one) => one.name === "new" || one.aliases.includes("new"),
+  );
+  const newCliSession =
+    newCommand === undefined || session === null
+      ? null
+      : async () => {
+          setMenuOpen(false);
+          setLayer(null);
+          setSwitching(true);
+          await act(session, {
+            type: "run_command",
+            session,
+            key: actKey("cmd"),
+            name: newCommand.name,
+            argument: "",
+          });
+          setSwitching(false);
+          void refresh();
+        };
+  const actHere = (input: (target: string) => AcpInput) => {
+    if (session !== null) void act(session, input(session));
+  };
+  const stopChild = (child: string) =>
+    actHere((target) => ({
+      type: "stop_child",
+      session: target,
+      key: actKey("child"),
+      child,
+    }));
+  const steerChild = (child: string, text: string) =>
+    actHere((target) => ({
+      type: "steer_child",
+      session: target,
+      key: actKey("child"),
+      child,
+      text,
+    }));
+  const stopTask = (task: string) =>
+    actHere((target) => ({
+      type: "stop_task",
+      session: target,
+      key: actKey("task"),
+      task,
+    }));
+  const setGoal = (objective: string | null, paused: boolean) =>
+    actHere((target) => ({
+      type: "set_goal",
+      session: target,
+      key: actKey("goal"),
+      objective,
+      paused,
+    }));
+
+  // 자식 대화가 아닌 다른 층(rewind·권한·상태)을 열면 앞으로 갈 곳은 없다.
+  useEffect(() => {
+    if (layer !== null && layer.kind !== "child") {
+      setForward({ base: [], stack: [] });
+    }
+  }, [layer?.kind]);
 
   // 보던 session이 없어졌으면 새 session으로 간다.
   useEffect(() => {
@@ -423,6 +586,33 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       content.push(uploaded.value.block);
     }
     await dispatch(content, target);
+  };
+
+  // composer의 shell mode(`!`). 명령은 모델 메시지가 아니라 `run_shell`로 간다.
+  const runShell = async (command: string) => {
+    if (readOnly || composerLocked(draft.outgoing)) return;
+    const text = draft.text;
+    const target = await ensureSession();
+    if (target === null) return;
+    const id = actKey("shl");
+    drafts.save(target, { text: "", selection: [0, 0] });
+    setShells((list) => [...list, { id, session: target, command }]);
+    const result = await source.act(target, {
+      type: "run_shell",
+      session: target,
+      key: id,
+      command,
+    });
+    setShells((list) => list.filter((item) => item.id !== id));
+    if (result.ok) {
+      setProblem(null);
+      return;
+    }
+    // 못 돌렸으면 친 글을 돌려준다.
+    setProblem("action-failed");
+    if (drafts.draft(target).text === "") {
+      drafts.save(target, { text, selection: [text.length, text.length] });
+    }
   };
 
   // 결과를 모르는 말은 다시 보내기 전에 기록에서 먼저 찾는다.
@@ -567,10 +757,33 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         model: clear,
         effort: clear,
         mode: clear,
-        // composer dock이 여는 화면 동작이라 아직 열 곳이 없다.
-        subagents: clear,
-        tasks: clear,
-        goal: clear,
+        subagents: () => {
+          clear();
+          setDock("running");
+        },
+        tasks: () => {
+          clear();
+          setDock("running");
+        },
+        // 인자가 있으면 목표를 정한다. 없고 목표가 있으면 Goal card를 펼친다. 목표가 없으면 새 목표를 기다린다.
+        goal: () => {
+          if (argument !== "") {
+            clear();
+            setGoal(argument, false);
+          } else if (meta?.goal == null) {
+            const text = `/${command.name} `;
+            drafts.save(key, { text, selection: [text.length, text.length] });
+          } else {
+            clear();
+            setDock("goal");
+          }
+        },
+        // harness 머리의 session menu. 목록은 열 때 다시 읽는다.
+        resume: () => {
+          clear();
+          void refresh();
+          setMenuOpen(true);
+        },
       };
       return screen[opens]();
     }
@@ -645,17 +858,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     (active === null && sending) ||
     waiting !== undefined
       ? {
-          clock:
-            active === null
-              ? null
-              : active.elapsed !== null
-                ? {
-                    activeMs: active.elapsed.activeMs,
-                    at: Date.parse(active.elapsed.at),
-                  }
-                : active.startedAt === null
-                  ? null
-                  : { activeMs: 0, at: Date.parse(active.startedAt) },
+          clock: clockOf(active),
           ...(waiting === undefined ? {} : { waiting }),
         }
       : null;
@@ -670,6 +873,27 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         );
   const approval = thread?.pending.approval ?? null;
   const asked = thread?.pending.questions ?? null;
+  const runningSubagents = subagentsOf(thread?.entries ?? []).filter(
+    (entry) => entry.state === "running",
+  );
+  const runningTasks = (thread?.tasks ?? []).filter(
+    (task) => task.state === "running",
+  );
+  // 자식 대화 층. 자식 상태를 아직 모르면 빈 대화로 연다.
+  const childId = layer?.kind === "child" ? (layer.path.at(-1) ?? null) : null;
+  const childThread =
+    childId === null
+      ? null
+      : layoutOf(
+          thread?.children[childId] ?? EMPTY_ACP_CHILD_STATE,
+          childCache.current,
+        );
+  const childInfo =
+    thread === null || childId === null
+      ? null
+      : subagentOfChild(thread, childId);
+  // 자식 대화를 읽는 동안 머리 ←/→는 그 보기의 기록이다. 방금 ←로 나왔다면 →로 다시 들어갈 수 있다.
+  const harnessMenu = caps.resume && !caps.sessions;
   const accepted = (call: Promise<SourceResult<unknown>>) =>
     call.then((result) => result.ok);
 
@@ -697,6 +921,37 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         trailing={props.trailing}
         capabilities={caps}
         title={meta?.title ?? null}
+        child={childId === null ? null : { info: childInfo, now }}
+        nav={
+          childId === null && forwardStack.length === 0
+            ? null
+            : {
+                canBack: childId !== null,
+                canForward: forwardStack.length > 0,
+                onBack: childBack,
+                onForward: childForward,
+              }
+        }
+        resume={
+          harnessMenu
+            ? {
+                current:
+                  meta?.cli_session == null
+                    ? null
+                    : { id: meta.cli_session, title: meta.title },
+                open: menuOpen,
+                onOpenChange: (next) => {
+                  setMenuOpen(next);
+                  if (next) void refresh();
+                },
+                busy: switching,
+                onSwitch: (cli) => void openCliSession(cli),
+                onNew:
+                  newCliSession === null ? null : () => void newCliSession(),
+              }
+            : null
+        }
+        extraMenu={props.extraMenu}
       />
       {offline || data.failed ? (
         <p className={styles.stale} data-stale="">
@@ -728,42 +983,92 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           />
         ) : null}
         <RunCodeProvider value={host.runCommand ?? null}>
-          <AgentThread
-            key={key}
-            agent={agent}
-            entries={thread?.entries ?? []}
-            detail={draft.detail}
-            live={thread?.live ?? null}
-            outgoing={draft.outgoing}
-            working={working}
-            now={now}
-            imageUrl={imageUrl}
-            readOnly={readOnly}
-            can={{ rewind: caps.rewind, fork: caps.fork, retry: caps.retry }}
-            source={source}
-            initialScroll={draft.scroll}
-            onScroll={(position) => drafts.save(key, { scroll: position })}
-            rewindOpen={layer?.kind === "rewind" ? layer.message : null}
-            onRewind={(message) =>
-              setLayer(
-                layer?.kind === "rewind" && layer.message === message
-                  ? null
-                  : { kind: "rewind", message },
-              )
-            }
-            onFork={(message) => void fork(message)}
-            onCheck={() => void check()}
-            onResend={() => void sendAgain()}
-            onOpenFile={host.openFile}
-            onOpenRef={(ref: EvidenceRef) => {
-              if (ref.kind === "file") host.openFile?.(ref.target);
-            }}
-            onOpenSession={host.openSession}
-            artifacts={host.artifacts}
-          />
+          <ThreadIndexContext.Provider value={threadIndex}>
+            <AgentThread
+              key={key}
+              agent={agent}
+              entries={thread?.entries ?? []}
+              detail={draft.detail}
+              live={thread?.live ?? null}
+              outgoing={draft.outgoing}
+              pendingShell={shells.filter((item) => item.session === session)}
+              working={working}
+              now={now}
+              imageUrl={imageUrl}
+              readOnly={readOnly}
+              can={{ rewind: caps.rewind, fork: caps.fork, retry: caps.retry }}
+              source={source}
+              initialScroll={draft.scroll}
+              onScroll={(position) => drafts.save(key, { scroll: position })}
+              rewindOpen={layer?.kind === "rewind" ? layer.message : null}
+              onRewind={(message) =>
+                setLayer(
+                  layer?.kind === "rewind" && layer.message === message
+                    ? null
+                    : { kind: "rewind", message },
+                )
+              }
+              onFork={(message) => void fork(message)}
+              onOpenChild={openChild}
+              onCheck={() => void check()}
+              onResend={() => void sendAgain()}
+              onOpenFile={host.openFile}
+              onOpenRef={(ref: EvidenceRef) => {
+                if (ref.kind === "file") host.openFile?.(ref.target);
+              }}
+              onOpenSession={host.openSession}
+              artifacts={host.artifacts}
+            />
+          </ThreadIndexContext.Provider>
         </RunCodeProvider>
         {layer === null || layer.kind === "status" ? null : (
           <div className={styles.layer} data-panel-layer={layer.kind}>
+            {layer.kind === "child" &&
+            thread !== null &&
+            childId !== null &&
+            childThread !== null ? (
+              <ChildView
+                info={childInfo}
+                canSteer={caps.steer_child}
+                canStop={caps.stop_child}
+                onSteer={(text) => steerChild(childId, text)}
+                onStop={() => stopChild(childId)}
+              >
+                <AgentThread
+                  key={childId}
+                  agent={agent}
+                  entries={childThread.entries}
+                  detail={draft.detail}
+                  live={childThread.live}
+                  outgoing={null}
+                  working={
+                    childThread.turn !== null &&
+                    childThread.turn.phase !== "ended"
+                      ? { clock: clockOf(childThread.turn) }
+                      : null
+                  }
+                  now={now}
+                  imageUrl={imageUrl}
+                  readOnly
+                  can={{ rewind: false, fork: false, retry: false }}
+                  source={source}
+                  initialScroll={null}
+                  onScroll={() => undefined}
+                  rewindOpen={null}
+                  onRewind={() => undefined}
+                  onFork={() => undefined}
+                  onOpenChild={openChild}
+                  onCheck={() => undefined}
+                  onResend={() => undefined}
+                  onOpenFile={host.openFile}
+                  onOpenRef={(ref: EvidenceRef) => {
+                    if (ref.kind === "file") host.openFile?.(ref.target);
+                  }}
+                  onOpenSession={host.openSession}
+                  artifacts={host.artifacts}
+                />
+              </ChildView>
+            ) : null}
             {layer.kind === "rewind" && session !== null ? (
               <RewindPanel
                 source={source}
@@ -854,40 +1159,52 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             }
           />
         )}
-        <QueuedMessages
-          items={thread?.queued ?? []}
-          disabled={offline}
-          canSteer={caps.steer}
-          canEdit={caps.queue_edit}
-          onSendNow={(id) =>
-            void perform(async () => {
-              const result = await source.sendQueuedNow(id);
-              // 옮기는 event를 놓쳐도 줄이 남지 않게 기록을 다시 읽는다.
-              if (result.ok) await data.reload();
-              return result;
-            })
-          }
-          onRemove={(id) =>
-            void perform(async () => {
-              const result = await source.removeQueued(id);
-              if (result.ok) await data.reload();
-              return result;
-            })
-          }
-          onEdit={(id, text) =>
-            void perform(async () => {
-              const result = await source.editQueued(id, text);
-              if (result.ok) await data.reload();
-              return result;
-            })
-          }
-          onMove={(id, direction) =>
-            void perform(async () => {
-              const result = await source.moveQueued(id, direction);
-              if (result.ok) await data.reload();
-              return result;
-            })
-          }
+        <ComposerDock
+          open={dock}
+          onOpenChange={setDock}
+          goal={meta?.goal ?? null}
+          canSetGoal={caps.goal}
+          onSetGoal={({ objective, paused }) => setGoal(objective, paused)}
+          plan={thread?.plan ?? null}
+          subagents={runningSubagents}
+          tasks={runningTasks}
+          canStopChild={caps.stop_child}
+          canStopTask={caps.tasks}
+          onOpenChild={openChild}
+          onStopChild={stopChild}
+          onStopTask={stopTask}
+          now={now}
+          queue={{
+            items: thread?.queued ?? [],
+            disabled: offline,
+            canSteer: caps.steer,
+            canEdit: caps.queue_edit,
+            onSendNow: (id) =>
+              void perform(async () => {
+                const result = await source.sendQueuedNow(id);
+                // 옮기는 event를 놓쳐도 줄이 남지 않게 기록을 다시 읽는다.
+                if (result.ok) await data.reload();
+                return result;
+              }),
+            onRemove: (id) =>
+              void perform(async () => {
+                const result = await source.removeQueued(id);
+                if (result.ok) await data.reload();
+                return result;
+              }),
+            onEdit: (id, text) =>
+              void perform(async () => {
+                const result = await source.editQueued(id, text);
+                if (result.ok) await data.reload();
+                return result;
+              }),
+            onMove: (id, direction) =>
+              void perform(async () => {
+                const result = await source.moveQueued(id, direction);
+                if (result.ok) await data.reload();
+                return result;
+              }),
+          }}
         />
         <div className={styles.composerAnchor}>
           {layer?.kind === "status" && status !== null ? (
@@ -900,7 +1217,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             source={source}
             meta={meta}
             capabilities={caps}
-            plan={plan}
             onChooseModel={async (model, options) => {
               if (session === null) {
                 setPendingModel({ model, options });
@@ -948,10 +1264,40 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                       }),
                   }
             }
+            toggles={
+              session === null ||
+              readOnly ||
+              !caps.toggles ||
+              meta === null ||
+              meta.toggles.length === 0
+                ? undefined
+                : {
+                    items: meta.toggles,
+                    onToggle: (id, on) =>
+                      actHere((target) => ({
+                        type: "set_toggle",
+                        session: target,
+                        key: actKey("toggle"),
+                        id,
+                        on,
+                      })),
+                  }
+            }
+            onUseRole={async (role) => {
+              if (session === null) return false;
+              const result = await source.act(session, {
+                type: "use_role",
+                session,
+                key: actKey("role"),
+                role,
+              });
+              return result.ok;
+            }}
             onDraft={(patch) => drafts.save(key, patch)}
             onLoadPermissions={() => void loadPermissions()}
             onEditPermissions={host.openPermissions}
             onSend={() => void send()}
+            onShell={(command) => void runShell(command)}
             onStop={() => void stop()}
             onCommand={runSlash}
             onProblem={fail}

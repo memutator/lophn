@@ -4,6 +4,7 @@ import type { Sql } from "../../../protocol/server/mod.ts";
 import { artifactsFolder } from "../../../protocol/projects/mod.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import {
+  type FolderScope,
   type WorkspaceFacts,
   workspaceScope,
 } from "../../agent-workspaces/workspace/workspace-folders.ts";
@@ -16,17 +17,16 @@ import { projectFolderPaths } from "../../projects/lookups.ts";
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
-// 그 session의 쓰기 폴더(절대 경로)다.
-export function workspaceFoldersOf(
+function scopeOf(
   lookup: Lookup,
   dataRoot: string,
   session: string,
-): string[] {
+): FolderScope | undefined {
   const found = lookup.sql.get(
     "select workspace_kind, workspace_id from sessions where id = ?",
     [session],
   );
-  if (found === undefined) return [];
+  if (found === undefined) return undefined;
   const { sql } = lookup;
   const kind = found["workspace_kind"];
   const id = String(found["workspace_id"]);
@@ -60,5 +60,23 @@ export function workspaceFoldersOf(
     artifactsFolder:
       workspace === null ? null : artifactsFolder(dataRoot, workspace),
   };
-  return workspaceScope(facts).write;
+  return workspaceScope(facts);
+}
+
+// 그 session의 쓰기 폴더(절대 경로)다.
+export function workspaceFoldersOf(
+  lookup: Lookup,
+  dataRoot: string,
+  session: string,
+): string[] {
+  return scopeOf(lookup, dataRoot, session)?.write ?? [];
+}
+
+// 그 session이 명령을 돌릴 기본 폴더(절대 경로)다. home이거나 session이 없으면 undefined다.
+export function workspaceBaseOf(
+  lookup: Lookup,
+  dataRoot: string,
+  session: string,
+): string | undefined {
+  return scopeOf(lookup, dataRoot, session)?.base;
 }

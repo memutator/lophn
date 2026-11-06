@@ -29,6 +29,8 @@ export interface PopoverProps {
   returnFocus?: boolean;
   // trigger에 pointer를 올리면 열고, trigger와 면 밖으로 나가면 닫는다. 누르기는 trigger 자기 일이라 열지 않는다.
   hover?: boolean;
+  // 열려 있는 동안 trigger(빈 anchor)가 옮겨 다니는 hover card. trigger의 오른쪽 가운데에 열고 focus를 가져오지 않는다.
+  card?: boolean;
 }
 
 // 지나가는 pointer에 열리지 않고, trigger에서 면으로 건너가는 동안 닫히지 않는 틈.
@@ -44,6 +46,7 @@ export function Popover({
   returnFocus = true,
   onEscapeKeyDown,
   hover = false,
+  card = false,
   ...state
 }: PopoverProps) {
   if (hover) {
@@ -65,6 +68,8 @@ export function Popover({
           className={styles.popover}
           side="bottom"
           {...placementProps(placement)}
+          {...(card ? ({ side: "right", align: "center" } as const) : {})}
+          onOpenAutoFocus={card ? (event) => event.preventDefault() : undefined}
           onCloseAutoFocus={returnFocus ? undefined : keepFocus}
           onEscapeKeyDown={onEscapeKeyDown}
           {...componentMark("Popover")}

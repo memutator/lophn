@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { appendFile, mkdir } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import type { Clock } from "../../../../base/mod.ts";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { BlobFieldDefinition } from "../../../../protocol/storage/mod.ts";
@@ -19,6 +20,7 @@ import {
 } from "../../../storage/blobs/prepare-relay.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../storage/ledger/mod.ts";
 import { confirmStartup } from "../../../storage/migration/mod.ts";
+import { windowsEnvironment } from "../../../supervision/security/child-env.ts";
 import { nodeCommand } from "../../../supervision/security/node-command.ts";
 import {
   type BlobRead,
@@ -216,8 +218,9 @@ async function runStoppedMaintenance(input: {
   nowMs: number;
 }): Promise<void> {
   const signal = AbortSignal.timeout(MAINTENANCE_TIMEOUT_MS);
-  const entry = new URL("../../worker/maintenance-entry.ts", import.meta.url)
-    .pathname;
+  const entry = fileURLToPath(
+    new URL("../../worker/maintenance-entry.ts", import.meta.url),
+  );
   let success: boolean;
   try {
     const launch = nodeCommand(entry);
@@ -229,6 +232,7 @@ async function runStoppedMaintenance(input: {
         ...launch.env,
         ...(process.env.HOME ? { HOME: process.env.HOME } : {}),
         ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+        ...windowsEnvironment(),
         LOPHN_HOME: input.dataRoot,
         LOPHN_MAINTENANCE: JSON.stringify({
           ledger: input.ledgerPath,

@@ -1,5 +1,11 @@
 import type { AgentId } from "../lophn-agent/workspaces.ts";
-import type { AcpToolDetail, AcpCard, AcpReasoning } from "../acp/items.ts";
+import {
+  ACP_TOOL_BODY_LIMIT,
+  type AcpToolDetail,
+  type AcpToolItem,
+  type AcpCard,
+  type AcpReasoning,
+} from "../acp/items.ts";
 import { acpNoticeId } from "../acp/reduce.ts";
 import {
   type AcpPending,
@@ -43,6 +49,52 @@ export interface AcpContext {
     readonly choice: "once" | "always" | null;
     readonly reason: string | null;
   } | null;
+}
+
+/**
+ * 사람이 `!`로 돌린 명령 한 줄. 출력은 저장 전에 redaction을 거친 값이라 여기서 다시 거치지 않는다(lophn의 agent
+ * tool 본문이 null인 것과 다른 점이다). 입력과 출력은 `ACP_TOOL_BODY_LIMIT`까지만 싣는다.
+ */
+export function acpShellItem(
+  shell: {
+    message: string;
+    command: string;
+    exit_code: number | null;
+    stdout: string;
+    stderr: string;
+    truncated: boolean;
+    duration_ms: number | null;
+  },
+  seq: number,
+  at: string,
+): AcpToolItem {
+  const joined =
+    shell.stderr === "" ? shell.stdout : `${shell.stdout}\n${shell.stderr}`;
+  const cut = (text: string) => text.slice(0, ACP_TOOL_BODY_LIMIT);
+  const input = cut(shell.command);
+  const output = cut(joined);
+  return {
+    kind: "tool",
+    id: shell.message,
+    seq,
+    at,
+    by: "user",
+    turn: null,
+    tool: "shell",
+    category: "command",
+    title: shell.command.split("\n", 1)[0]!.trim() || "shell",
+    state: shell.exit_code === 0 ? "ok" : "error",
+    duration_ms: shell.duration_ms,
+    detail: { kind: "generic" },
+    body: {
+      input,
+      output,
+      truncated:
+        shell.truncated ||
+        input.length < shell.command.length ||
+        output.length < joined.length,
+    },
+  };
 }
 
 export function acpUpdatesOf(
@@ -114,6 +166,17 @@ export function acpUpdatesOf(
     }
     case "MessageRemoved":
       return [{ type: "message_removed", message: event.payload.message }];
+    case "ShellRan": {
+      const seq = context.seq(event.payload.message);
+      return seq === null
+        ? []
+        : [
+            {
+              type: "tool_started",
+              item: acpShellItem(event.payload, seq, event.at),
+            },
+          ];
+    }
     case "TurnStarted": {
       const { turn, input_message } = event.payload;
       const seq = context.seq(input_message);
@@ -210,6 +273,7 @@ export function acpUpdatesOf(
                 id: tool_call,
                 seq,
                 at: event.at,
+                by: "agent",
                 turn,
                 tool,
                 category: display.category,
@@ -269,6 +333,7 @@ export function acpUpdatesOf(
                 : "cancelled",
           choice: outcome === "allow" ? (decision?.choice ?? null) : null,
           reason: outcome === "reject" ? (decision?.reason ?? null) : null,
+          mode: null,
           seq,
           at: event.at,
         },

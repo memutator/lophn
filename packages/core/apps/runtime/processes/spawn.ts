@@ -8,6 +8,8 @@ export type AppEnvironment = {
   home?: string;
   xdgCacheHome?: string;
   path?: string;
+  // Windows에서만 채운다(SystemRoot 같은 시스템 값). 없으면 Node가 crypto·network를 못 쓴다.
+  windows?: Record<string, string>;
 };
 
 export type AppLaunch = {
@@ -30,6 +32,7 @@ export function appEnv(environment: AppEnvironment): Record<string, string> {
   if (environment.home) env.HOME = environment.home;
   if (environment.xdgCacheHome) env.XDG_CACHE_HOME = environment.xdgCacheHome;
   if (environment.path) env.PATH = environment.path;
+  Object.assign(env, environment.windows);
   return env;
 }
 

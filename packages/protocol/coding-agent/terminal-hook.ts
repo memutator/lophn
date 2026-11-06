@@ -3,6 +3,7 @@
 // coding 터미널의 hook은 shell main이 core에 넘긴다(`codingTerminalHook`).
 import { z } from "zod";
 import { jsonValueSchema } from "../base/json-values.ts";
+import { absolutePathSchema } from "../projects/values.ts";
 import { harnessIdSchema } from "./harnesses.ts";
 
 // shell main이 터미널마다 넣는 env. 이름이 `LOPHN_`이 아닌 것은 터미널 env가 바깥 `LOPHN_*`를 지우기 때문이다.
@@ -39,7 +40,7 @@ export type TerminalHookLine = z.infer<typeof terminalHookLineSchema>;
 // `cwd`는 `lophn hook`이 그 함수를 친 shell의 폴더로 더한다(main은 shell이 `cd`한 뒤의 폴더를 모른다).
 export const TERMINAL_GUI_EVENT = "lophn-gui";
 export const terminalGuiPayloadSchema = z.strictObject({
-  cwd: z.string().min(1).max(4096).startsWith("/"),
+  cwd: absolutePathSchema.max(4096),
   resume: z
     .string()
     .regex(/^[A-Za-z0-9._-]{1,200}$/)

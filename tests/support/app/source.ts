@@ -3,6 +3,7 @@
 import { spawn } from "node:child_process";
 import { readdir, readFile, rm } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import type { TemplateFile } from "../../../packages/core/apps/packages/template/files.ts";
 import { writeTemplateFiles } from "../../../packages/core/apps/packages/template/scaffold.ts";
 import { appDefaultSource } from "../../../packages/protocol/apps/mod.ts";
@@ -50,7 +51,7 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
 
 // 제품 template에는 sample 업무가 없다. e2e patch가 기대하는 sample(items command·screen·표)은 test가 소유한 이
 // overlay(`sample/`)로, core가 깐 template 위에 어떤 patch보다 먼저 얹는다. 파일 끝의 `.tmpl`은 저장소 도구가 읽지 않게 하는 표시다.
-const SAMPLE = new URL("./sample/", import.meta.url).pathname;
+const SAMPLE = fileURLToPath(new URL("./sample/", import.meta.url));
 
 async function sampleFiles(): Promise<TemplateFile[]> {
   const found: TemplateFile[] = [];

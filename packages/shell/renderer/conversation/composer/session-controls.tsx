@@ -1,10 +1,10 @@
-// composer 입력칸 안 줄의 mode 하나. source가 내는 mode 중 하나를 고른다. model option 축(effort·speed)은 model 메뉴 안에서 고른다.
+// composer 입력칸 안 줄의 mode 하나와 켜고 끄는 chip들. source가 내는 mode 중 하나를 고른다. model option 축(effort·speed)은 model 메뉴 안에서 고른다.
 
 import { t } from "@lophn/i18n";
-import { Popover, PopoverRow } from "@lophn/ui/overlay";
+import { Popover, PopoverRow, Tooltip } from "@lophn/ui/overlay";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import type { AcpChoice } from "../../../../protocol/acp/mod.ts";
+import type { AcpChoice, AcpToggle } from "../../../../protocol/acp/mod.ts";
 import { conversationIcons } from "../../icons/mod.ts";
 import styles from "./session-controls.module.css";
 
@@ -71,4 +71,34 @@ export function ModeMenu({
       </Popover>
     </span>
   );
+}
+
+/** 켜고 끄는 session 설정(Codex plan mode, omp fast/slow, OpenCode auto-accept) chip 하나씩. 누르면 반대로 바꾼다. */
+export function ToggleChips({
+  toggles,
+  onToggle,
+}: {
+  toggles: readonly AcpToggle[];
+  onToggle: (id: string, on: boolean) => void;
+}) {
+  return toggles.map((toggle) => {
+    const chip = (
+      <Button
+        size="sm"
+        variant={toggle.on ? "secondary" : "ghost"}
+        aria-pressed={toggle.on}
+        data-toggle={toggle.id}
+        onClick={() => onToggle(toggle.id, !toggle.on)}
+      >
+        {toggle.label}
+      </Button>
+    );
+    return toggle.description === null ? (
+      <span key={toggle.id}>{chip}</span>
+    ) : (
+      <Tooltip key={toggle.id} content={toggle.description}>
+        {chip}
+      </Tooltip>
+    );
+  });
 }

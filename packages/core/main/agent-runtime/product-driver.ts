@@ -318,7 +318,7 @@ function mcpConnectionsDeps(
 
 export function startTurnPump(options: {
   driver: TurnDriver;
-  // 사람이 요청한 Compact와 "Summarize from here"의 요약을 한 번에 하나씩 끝낸다. turn을 시작하는 길과 따로 돈다.
+  // 사람이 요청한 Compact와 "Summarize from here"의 요약을 한 번에 하나씩 끝낸다. turn을 시작하는 길과 기다림 없이 따로 돈다.
   compactor?: Compactor;
   // Disconnect한 provider로 진행 중인 turn을 멈추게 하는 알림을 매 주기 훑는다.
   providerWatch?: Pick<ProviderWatch, "poll">;
@@ -329,6 +329,7 @@ export function startTurnPump(options: {
 }): Promise<void> {
   const idleMs = options.idleMs ?? PUMP_IDLE_MS;
   let lastFailure: string | undefined;
+  let summarizing: Promise<void> | undefined;
   return (async () => {
     while (!options.signal.aborted) {
       let started = false;
@@ -363,21 +364,16 @@ export function startTurnPump(options: {
         if (text !== lastFailure) options.report?.(text);
         lastFailure = text;
       }
-      try {
-        const compacted = await options.compactor?.next();
-        if (compacted !== undefined && compacted.kind !== "idle") {
-          started = true;
-        }
-      } catch {
-        // 요약 한 번의 실패도 pump를 끝내지 않는다. 요청은 core에 열려 있어 다음 주기에 다시 본다.
-      }
-      try {
-        const summarized = await options.compactor?.nextRange();
-        if (summarized !== undefined && summarized.kind !== "idle") {
-          started = true;
-        }
-      } catch {
-        // 요약 한 번의 실패도 pump를 끝내지 않는다. 사람이 다시 요청하면 새 요청으로 온다.
+      // 요약은 model call이라 오래 걸린다. 기다리면 다른 session의 turn 시작이 늦어지므로 pump 밖에서 한 번에 하나만 돌린다.
+      if (options.compactor !== undefined && summarizing === undefined) {
+        const compactor = options.compactor;
+        summarizing = (async () => {
+          // 요청은 core에 열려 있어 실패한 요청은 다음 주기에 다시 본다. 요약 한 번의 실패도 pump를 끝내지 않는다.
+          await compactor.next().catch(() => {});
+          await compactor.nextRange().catch(() => {});
+        })().finally(() => {
+          summarizing = undefined;
+        });
       }
       if (!started) await abortableWait(idleMs, options.signal);
     }

@@ -184,17 +184,25 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     return { stopped: true, reason };
   }
 
+  // 첫 입력의 part는 turn 안에서 바뀌지 않는데 inputs()가 여러 번 불리므로 blob을 한 번만 읽는다. 이 closure가 turn
+  // 하나이므로 turn이 끝나면 버려진다.
+  let firstParts: Promise<Awaited<ReturnType<typeof loadParts>>> | undefined;
+
   async function inputs(): Promise<Result<PendingInputs>> {
     const first = await deps.turnInputs.first();
     if (!first.ok) return first;
     const steering = await deps.turnInputs.steering();
     if (!steering.ok) return steering;
+    const firstInput = first.value;
     // 받은 turn의 입력과 뒤 이력이 같은 part 함수(inputParts)와 같은 reader를 쓴다.
     return ok({
       request:
-        first.value === null
+        firstInput === null
           ? null
-          : await loadParts(inputParts(first.value, deps.runtime), deps.images),
+          : await (firstParts ??= loadParts(
+              inputParts(firstInput, deps.runtime),
+              deps.images,
+            )),
       steering: await Promise.all(
         steering.value.map(async (item) => ({
           ...item,

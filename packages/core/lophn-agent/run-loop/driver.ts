@@ -23,10 +23,13 @@ type DriveDeps = {
   source: TurnSource;
   credentials: TurnCredentials;
   preparer: Pick<TurnPreparer, "prepare" | "forget">;
-  // 이전 대화가 커진 session을 다음 turn을 시작하기 전에 Compact한다. 실패해도 turn은 시작한다.
+  // 이전 대화가 커졌다고 끝난 turn이 정한 session을 Compact한다. turn이 끝난 뒤 session을 풀기 전에 돌아서 그 session은
+  // 끝날 때까지 새 turn을 시작하지 않고, 다른 session의 turn 시작은 막지 않는다. 실패해도 session은 풀린다.
   compact?(session: string): Promise<unknown>;
   // turn이 던진 예외와 session을 쉬는 상태로 돌리지 못한 일을 남긴다.
   report?(text: string): void;
+  // 시험이 loop 대신 끼운다.
+  startLoop?: typeof startTurnLoop;
 };
 
 type DriveResult =
@@ -64,10 +67,6 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       handle: TurnLoopHandle;
     }
   >();
-  // 끝난 turn이 다음 turn 전에 Compact하라고 정한 session. runtime이 다시 뜨면 잊는다: 그 뒤 넘치는 turn이
-  // 다시 정한다.
-  const compactBefore = new Set<string>();
-
   // turn 하나의 입력 길. 시작 입력은 StartTurn 뒤 queue에서 꺼낸 것이다.
   function inputsOf(
     session: Parameters<TurnSource["began"]>[0],
@@ -111,9 +110,6 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       if (start === null) return { kind: "idle" };
       // prepare가 session 기록이 없는 입력을 거절하므로 이 뒤에는 있다.
       const message = start.input.message as Id<"msg">;
-      if (compactBefore.delete(start.session)) {
-        await deps.compact?.(start.session);
-      }
       const prepared = await deps.preparer.prepare(start);
       if (!prepared.ok) return { kind: "unavailable" };
       if (prepared.value.kind === "closed") {
@@ -155,7 +151,7 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
         deps: loopDeps,
         input,
       } = turn.loop(credential, inputsOf(start.session, first));
-      const handle = startTurnLoop(loopDeps, input);
+      const handle = (deps.startLoop ?? startTurnLoop)(loopDeps, input);
       active.set(turn.turn, {
         session: start.session,
         provider,
@@ -178,7 +174,16 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
           // turn 종료·멈춤에서 credential을 끝내고 session을 쉬는 상태로 돌린다.
           deps.credentials.end(turn.turn);
           active.delete(turn.turn);
-          if (handle.compactNext()) compactBefore.add(start.session);
+          // queue가 이 session을 도는 중으로 두는 동안 Compact해서 pump를 막지 않고 새 turn도 시작되지 않게 한다.
+          if (handle.compactNext() && deps.compact !== undefined) {
+            await deps.compact(start.session).catch((error) => {
+              deps.report?.(
+                `session ${start.session} compact failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            });
+          }
           await release(start.session);
         });
       return { kind: "started", turn: turn.turn, done };
@@ -192,7 +197,6 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       }
       deps.credentials.endSession(session);
       deps.preparer.forget(session);
-      compactBefore.delete(session);
     },
     async revokeProvider(provider) {
       for (const entry of [...active.values()]) {

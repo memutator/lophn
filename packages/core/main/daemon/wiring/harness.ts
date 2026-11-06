@@ -265,7 +265,8 @@ export const harnessWiring: WiringFactory = () => {
           }
           return started;
         }
-        queue.take(input.session as Id<"ses">);
+        // StartTurn이 기록한 그 입력만 꺼낸다. 기다리는 사이 머리가 바뀌었어도 남의 입력을 집지 않는다.
+        queue.take(input.session as Id<"ses">, input.input_message);
         queue.setRunning(input.session as Id<"ses">, true);
         return ok({ turn, credential: credential.value });
       };

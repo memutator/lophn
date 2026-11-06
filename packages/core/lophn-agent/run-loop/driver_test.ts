@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import { createTurnDriver } from "./driver.ts";
+import { createQueue } from "./queue.ts";
+import { createTurnSource, createTurnStarter } from "./work.ts";
 
 const SESSION = "ses_s1";
 
@@ -103,4 +105,79 @@ test("a turn that throws is closed as failed by the driver and the next turn can
   assert.equal(second.kind, "started");
   await (second as { done: Promise<unknown> }).done;
   assert.deepEqual(closed, ["trn_1:loop_threw"]);
+});
+
+test("a session that is compacting does not start a turn but another session still does", async () => {
+  const queue = createQueue();
+  const source = createTurnSource({
+    queue,
+    starter: createTurnStarter({ queue }),
+  });
+  const put = (session: string, message: string) =>
+    queue.put(
+      session as never,
+      {
+        kind: "message",
+        message,
+        delivery: "next_turn",
+      } as never,
+    );
+  // A의 turn은 Compact하라고 정하고 끝난다. B의 turn은 그냥 끝난다.
+  const compacting: string[] = [];
+  let finishCompact: () => void = () => {};
+  const compactDone = new Promise<void>((resolve) => {
+    finishCompact = resolve;
+  });
+  const driver = createTurnDriver({
+    source,
+    credentials: {
+      open: () => Promise.resolve(ok({ token: "t" })),
+      end: () => 1,
+      endSession: () => 0,
+      endAll: () => 0,
+    } as never,
+    preparer: {
+      forget() {},
+      prepare: (start: { input: { message: string } }) =>
+        Promise.resolve(
+          ok({
+            kind: "ready",
+            turn: {
+              turn: `trn_${start.input.message}`,
+              begin: {},
+              startTurn: () => Promise.resolve(ok({})),
+              closeStarted: () => Promise.resolve(),
+              loop: () => ({ provider: "p", deps: {}, input: {} }),
+            },
+          } as never),
+        ),
+    },
+    startLoop: (() => ({
+      done: Promise.resolve({ kind: "finish_ok" }),
+      compactNext: () => true,
+    })) as never,
+    compact: (session: string) => {
+      compacting.push(session);
+      return compactDone;
+    },
+  } as never);
+
+  put("ses_a", "msg_a1");
+  const first = await driver.startNext();
+  assert.equal(first.kind, "started");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(compacting, ["ses_a"]);
+
+  // A에 새 입력이 들어와도 Compact가 끝나기 전에는 시작하지 않는다. B는 시작한다.
+  put("ses_a", "msg_a2");
+  put("ses_b", "msg_b1");
+  const second = await driver.startNext();
+  assert.equal(second.kind, "started");
+  assert.equal((second as { turn: string }).turn, "trn_msg_b1");
+  assert.equal((await driver.startNext()).kind, "idle");
+
+  finishCompact();
+  await (first as { done: Promise<unknown> }).done;
+  const third = await driver.startNext();
+  assert.equal((third as { turn: string }).turn, "trn_msg_a2");
 });

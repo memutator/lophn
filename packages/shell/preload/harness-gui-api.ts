@@ -8,6 +8,7 @@ import {
   HARNESS_GUI_TAB_OPENED_CHANNEL,
   HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
   HARNESS_GUI_TAB_RUNNING_CHANNEL,
+  HARNESS_GUI_TAB_CURRENT_CHANNEL,
   HARNESS_GUI_TAB_SESSIONS_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
   HARNESS_GUI_TAB_UPDATE_CHANNEL,
@@ -17,6 +18,7 @@ import {
   type HarnessGuiSessionEntry,
   type HarnessGuiTabApi,
   type HarnessGuiTabOpened,
+  type HarnessGuiTabCurrent,
   type HarnessGuiTabToggleReply,
   type HarnessGuiTabView,
 } from "../ipc/harness-gui.ts";
@@ -97,6 +99,15 @@ export function createHarnessGuiTabApi(
         return reply ?? { ok: false, reason: "failed", message: "refused" };
       } catch (cause) {
         return { ok: false, reason: "failed", message: String(cause) };
+      }
+    },
+    async current(terminalRef) {
+      try {
+        return (await transport.invoke(HARNESS_GUI_TAB_CURRENT_CHANNEL, {
+          terminal_ref: terminalRef,
+        })) as HarnessGuiTabCurrent | null;
+      } catch {
+        return null;
       }
     },
     async sessions(handle) {

@@ -612,6 +612,7 @@ function fakeApi(
     },
     running: async () => ({ turn: true, tasks: 2 }),
     toggle: async () => ({ ok: true }),
+    current: async () => null,
     sessions: async () =>
       CLI_SESSIONS.map(({ id, title, updated_at }) => ({
         id,

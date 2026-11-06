@@ -83,8 +83,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 지금 하는 일 한 줄. 긴 제목은 줄여 일하는 중 줄이 한 줄로 남는다. */
+/* 지금 하는 일 한 줄. 긴 제목은 줄여 일하는 중 줄이 한 줄로 남는다. 자리가 모자라면 경고보다 먼저 줄어든다. */
 .activity {
+  flex-shrink: 100;
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-muted);

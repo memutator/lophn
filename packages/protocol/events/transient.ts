@@ -144,14 +144,17 @@ const jobChanged = defineTransientEvent("JobChanged", {
   payload: z.strictObject({ job_run: idSchema("jbr").nullable() }),
 });
 
-// ACP 갱신 하나. session은 payload에 있다. 화면은 type으로 건 구독에서 session을 골라 `reduceAcp`로 접는다.
+// ACP 갱신 하나. envelope의 session이 구독 조건(`{session}`)에 걸린다. 화면은 그 session의 갱신을 `reduceAcp`로 접는다.
+// payload의 session은 앱 화면으로 가는 IPC 값(`{session, update}`)이 그대로 쓴다.
 const acpUpdated = defineTransientEvent("AcpUpdated", {
   subject: z.null(),
   payload: acpUpdatedPayloadSchema,
 });
 
 export const transientEventSchema = z.discriminatedUnion("type", [
-  transientEventEnvelopeSchema(acpUpdated),
+  transientEventEnvelopeSchema(acpUpdated).extend({
+    session: idSchema("ses"),
+  }),
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(settingsChanged),
   transientEventEnvelopeSchema(appRestartHalted),

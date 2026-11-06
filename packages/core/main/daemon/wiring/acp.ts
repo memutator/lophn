@@ -259,6 +259,7 @@ export const acpWiring: WiringFactory = () => {
         for (const update of updates) {
           ctx.bus.publish({
             type: "AcpUpdated",
+            session,
             subject: null,
             at,
             payload: { session, update },

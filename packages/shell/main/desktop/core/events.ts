@@ -1,6 +1,7 @@
 // shell main은 사람 token 하나로 Gateway에 붙고 받은 frame을 renderer에 중계한다. 조건은 renderer들이 건
 // 것과 main 자신의 것을 합쳐 `watch` frame 하나로 건다. replay가 없으므로 연결이 새로 붙을 때마다 조건을
-// 다시 걸고, 서버가 보내는 `ready`를 renderer가 받아 snapshot부터 다시 읽는다. 끊기면 마지막 확인 시각을
+// 다시 걸고, 서버가 보내는 `ready`를 renderer가 받아 snapshot부터 다시 읽는다. 한 renderer가 조건을 바꿔 건
+// `watch`의 `ready`는 그 renderer에만 가고(서버가 watch마다 차례로 답한다), 새로 붙은 연결의 `ready`는 모두에게 간다. 끊기면 마지막 확인 시각을
 // 남기고 backoff로 스스로 다시 붙는다. epoch가 바뀌면 옛 core의 연결은 버린다.
 import {
   type EventCondition,
@@ -28,8 +29,8 @@ interface GatewaySink {
   stale(notice: ConnectionNotice): void;
   /** 서버가 조건을 적용했다(`ready`). renderer는 이때 snapshot을 읽는다. */
   ready(): void;
-  /** 서버가 보낸 모든 frame. renderer로 보낼 것은 sink가 가려 쓴다. */
-  frame(frame: GatewayServerFrame): void;
+  /** 서버가 보낸 모든 frame. renderer로 보낼 것은 sink가 가려 쓴다. `to`는 `ready`가 답한 watch를 건 renderer이고 없으면 모두다. */
+  frame(frame: GatewayServerFrame, to?: number): void;
 }
 
 export interface EventSocket {
@@ -134,9 +135,12 @@ export function openGateway(options: GatewayOptions): Gateway {
 
   let attempts = 0;
   let cancelRetry: (() => void) | undefined;
+  // 보낸 watch를 건 renderer를 보낸 차례로 둔다. 서버가 같은 차례로 `ready`를 답한다. undefined는 연결을 새로 건 watch다.
+  let asked: (number | undefined)[] = [];
 
-  const sendWatch = () => {
+  const sendWatch = (owner?: number) => {
     if (!opened || socket === undefined) return;
+    asked.push(owner);
     socket.send(
       JSON.stringify({
         type: "watch",
@@ -193,6 +197,7 @@ export function openGateway(options: GatewayOptions): Gateway {
       // 붙었으니 다음에 끊기면 처음 대기부터 센다.
       attempts = 0;
       opened = true;
+      asked = [];
       // open되기 전에는 send하지 않는다. 붙을 때마다 조건을 다시 건다.
       sendWatch();
     });
@@ -208,7 +213,10 @@ export function openGateway(options: GatewayOptions): Gateway {
       if (!parsed.success) return;
       confirmedAt = options.clock.now();
       if (parsed.data.type === "ready") options.sink.ready();
-      options.sink.frame(parsed.data);
+      options.sink.frame(
+        parsed.data,
+        parsed.data.type === "ready" ? asked.shift() : undefined,
+      );
     });
     current.onClose(() => {
       if (mine !== active) return;
@@ -228,10 +236,10 @@ export function openGateway(options: GatewayOptions): Gateway {
       });
       if (usable.length === 0) watchers.delete(owner);
       else watchers.set(owner, usable);
-      sendWatch();
+      sendWatch(owner);
     },
     forget(owner) {
-      if (watchers.delete(owner)) sendWatch();
+      if (watchers.delete(owner)) sendWatch(owner);
     },
     reconnect(epoch) {
       if (stopped) return;

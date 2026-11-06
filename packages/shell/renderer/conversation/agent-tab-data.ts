@@ -175,7 +175,7 @@ export function useAgentTabData(
     previous.current = stream.status;
   }, [stream.status, readAcp]);
 
-  // 조건이 다시 걸려(다른 구독자가 생기거나 사라져도 걸린다) ready가 또 오면 그 사이 놓친 갱신이 있을 수 있다.
+  // 이 session의 조건이 다시 걸려 ready가 또 오면 그 사이 놓친 갱신이 있을 수 있다.
   // 끊김으로 나타나지 않으니 맞춘 횟수가 늘 때마다 현재 기록으로 다시 맞춘다. 처음 맞춤은 위의 첫 읽기가 맡는다.
   const syncedBefore = useRef(stream.synced);
   useEffect(() => {

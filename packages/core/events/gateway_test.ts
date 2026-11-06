@@ -24,6 +24,15 @@ function turnStarted(session: string): BusEvent {
     },
   } as BusEvent;
 }
+function acpUpdated(session: string): BusEvent {
+  return {
+    type: "AcpUpdated",
+    session,
+    subject: null,
+    at: "2026-10-16T00:00:00.000Z",
+    payload: { session, update: { type: "session_reset" } },
+  } as BusEvent;
+}
 const settingsChanged = {
   type: "SettingsChanged",
   subject: null,
@@ -63,9 +72,12 @@ test("느린 구독자는 끊기고 다시 붙으면 snapshot부터 다시 읽�
   bus.publish(turnStarted(SES_A));
   bus.publish(turnStarted(SES_B));
   bus.publish(settingsChanged);
+  // 남지 않는 AcpUpdated도 envelope의 session으로 걸러진다.
+  bus.publish(acpUpdated(SES_A));
+  bus.publish(acpUpdated(SES_B));
   assert.deepStrictEqual(
     first.sent.map((frame) => (frame as { type: string }).type),
-    ["ready", "event", "event"],
+    ["ready", "event", "event", "event"],
   );
 
   // 한도를 넘으면 closed(slow_consumer)와 1013, 그 뒤 publish는 가지 않는다.

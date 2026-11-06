@@ -34,6 +34,8 @@ import {
 } from "./supervise.ts";
 
 interface StateTarget {
+  /** webContents id. `watch`를 건 renderer(sender id)와 같다. */
+  id: number;
   send(channel: string, payload: unknown): void;
   isDestroyed(): boolean;
 }
@@ -121,8 +123,9 @@ export function startCoreConnection(
   const watching = new Map<number, unknown[]>();
   let gateway: Gateway | undefined;
 
-  const relay = (message: CoreEventMessage) => {
+  const relay = (message: CoreEventMessage, to?: number) => {
     for (const target of options.targets?.() ?? []) {
+      if (to !== undefined && target.id !== to) continue;
       if (!target.isDestroyed()) target.send(CORE_EVENT_CHANNEL, message);
     }
   };
@@ -166,8 +169,8 @@ export function startCoreConnection(
           push();
         },
         // renderer에 가는 것은 ready·event·closed뿐이다. 터미널 요청 같은 frame은 main 전용이다.
-        frame: (frame) => {
-          if (frame.type === "ready") relay({ kind: "ready" });
+        frame: (frame, to) => {
+          if (frame.type === "ready") relay({ kind: "ready" }, to);
           else if (frame.type === "event") {
             options.own?.event(frame.event);
             relay({ kind: "event", event: frame.event });

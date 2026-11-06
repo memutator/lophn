@@ -1,5 +1,7 @@
 // 창마다 하나. 구독자가 건 조건을 합쳐 CoreApi.watch로 통째로 걸고, main이 중계한 메시지를 조건이 맞는
 // 구독자에게 한 번씩 나눠 준다. 읽기(snapshot)는 하지 않는다: 구독자가 ready를 받고 직접 읽는다.
+// 연결이 새로 붙은 뒤의 첫 ready는 모든 구독자에게 가고, 그 뒤 이 창이 건 watch의 ready(main이 이 창에만 보낸다)는
+// 그 watch를 걸 때 아직 ready를 못 받은 구독자에게만 간다. 기존 구독자는 서버가 동기로 다시 구독해 event를 잃지 않는다.
 import type { CoreEventMessage } from "../../../../ipc/core.ts";
 import {
   type BusEvent,
@@ -46,6 +48,8 @@ const DISCONNECTED: ReadonlySet<ConnectionState["state"]> = new Set([
 interface Subscriber {
   readonly condition: EventCondition;
   readonly onMessage: (message: EventMessage) => void;
+  /** 연결이 붙은 뒤 이 구독자의 조건이 걸렸다는 ready를 받았다. */
+  synced: boolean;
 }
 
 function conditionKey(condition: EventCondition): string {
@@ -60,6 +64,8 @@ export function createEventClient(core: CoreSource): EventClient {
   let connected = false;
   let appliedKey: string | null = null;
   let watchQueued = false;
+  // 보낸 watch마다 그 ready를 기다리는 구독자. 서버가 watch 순서대로 ready를 답한다.
+  let inflight: Subscriber[][] = [];
   let stopCore: (() => void) | null = null;
 
   function mergedConditions(): EventCondition[] {
@@ -79,16 +85,27 @@ export function createEventClient(core: CoreSource): EventClient {
   function disconnect() {
     if (!connected) return;
     connected = false;
+    inflight = [];
     for (const subscriber of [...subscribers]) {
+      subscriber.synced = false;
       send(subscriber, { kind: "disconnected" });
     }
   }
 
+  function ready(subscriber: Subscriber) {
+    subscriber.synced = true;
+    send(subscriber, { kind: "ready" });
+  }
+
   function receive(message: CoreEventMessage) {
     if (message.kind === "ready") {
+      // 연결이 막 붙었거나 답할 watch를 모르면 모두 다시 읽는 쪽이 안전하다.
+      const answered = connected ? inflight.shift() : undefined;
       connected = true;
-      for (const subscriber of [...subscribers]) {
-        send(subscriber, { kind: "ready" });
+      for (const subscriber of [...(answered ?? subscribers)]) {
+        if (subscribers.has(subscriber) && (!answered || !subscriber.synced)) {
+          ready(subscriber);
+        }
       }
     } else if (message.kind === "closed") {
       disconnect();
@@ -115,6 +132,9 @@ export function createEventClient(core: CoreSource): EventClient {
       watchQueued = false;
       const conditions = mergedConditions();
       appliedKey = JSON.stringify(conditions.map(conditionKey));
+      if (connected) {
+        inflight.push([...subscribers].filter((one) => !one.synced));
+      }
       core.watch?.(conditions)?.catch(() => {
         // 끊겼다면 main이 연결이 붙을 때 조건을 다시 걸고 ready를 민다.
       });
@@ -135,18 +155,23 @@ export function createEventClient(core: CoreSource): EventClient {
   return {
     core,
     subscribe(condition, onMessage) {
-      const subscriber: Subscriber = { condition, onMessage };
+      const subscriber: Subscriber = { condition, onMessage, synced: false };
       if (subscribers.size === 0) start();
       const before = appliedKey;
       subscribers.add(subscriber);
       const key = JSON.stringify(mergedConditions().map(conditionKey));
       if (key !== before) {
         queueWatch();
-      } else if (connected) {
-        // 합친 조건이 그대로면 main이 ready를 다시 밀지 않으니 이 구독자만 읽게 한다.
-        queueMicrotask(() => {
-          if (subscribers.has(subscriber)) send(subscriber, { kind: "ready" });
-        });
+      } else if (connected && !watchQueued) {
+        // 합친 조건이 그대로면 main이 ready를 다시 밀지 않으니 이 구독자만 읽게 한다. 같은 조건을 건 watch의 ready가
+        // 아직 오는 중이면 그 ready를 기다린다(서버가 아직 조건을 걸지 않았을 수 있다).
+        const waiting = inflight.at(-1);
+        if (waiting) waiting.push(subscriber);
+        else {
+          queueMicrotask(() => {
+            if (subscribers.has(subscriber)) ready(subscriber);
+          });
+        }
       }
       return () => {
         if (!subscribers.delete(subscriber)) return;
@@ -154,6 +179,7 @@ export function createEventClient(core: CoreSource): EventClient {
           stopCore?.();
           stopCore = null;
           connected = false;
+          inflight = [];
         }
         queueWatch();
       };

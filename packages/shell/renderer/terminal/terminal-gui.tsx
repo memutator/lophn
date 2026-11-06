@@ -124,6 +124,7 @@ function createGuiFeed(now: () => number): GuiFeed {
       for (const watcher of [...watchers]) watcher();
       const event = {
         type: "AcpUpdated",
+        session,
         subject: null,
         at: new Date(now()).toISOString(),
         payload: { session, update },

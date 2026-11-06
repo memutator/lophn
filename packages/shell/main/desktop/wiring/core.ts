@@ -35,6 +35,7 @@ export function connectCore(input: ConnectInput) {
     clock: { now: () => Date.now() },
     targets: () =>
       [...windows].map((window) => ({
+        id: window.webContents.id,
         send: (channel, payload) => window.webContents.send(channel, payload),
         isDestroyed: () => window.isDestroyed(),
       })),

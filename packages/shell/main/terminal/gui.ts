@@ -13,6 +13,7 @@ import {
   type HarnessGuiSessionEntry,
   type HarnessGuiTabOpened,
   type HarnessGuiTabToggleReply,
+  type HarnessGuiTabCurrent,
   type HarnessGuiTabView,
 } from "../../ipc/harness-gui.ts";
 import { terminalGuiPayloadSchema } from "../../../protocol/coding-agent/terminal-hook.ts";
@@ -99,6 +100,8 @@ type Tab = {
   waiting: { request: string; cancel: () => void } | null;
   /** 창 하나(sender id)마다 붙은 listener. */
   attached: Map<number, () => void>;
+  /** 마지막으로 창에 알린 view. 저장본에서 다시 만들어진 탭이 `current`로 되찾는다. */
+  view: "gui" | "tui";
 };
 
 export type TabGui = {
@@ -122,6 +125,8 @@ export type TabGui = {
     handle: string,
     message: string,
   ): Promise<HarnessGuiRewindPreview | null>;
+  /** 그 터미널에 살아 있는 GUI와 지금 view. 없으면 null. */
+  current(terminalRef: string): HarnessGuiTabCurrent | null;
   connect(sender: TabSender, handle: string): HarnessGuiInfo | null;
   disconnect(sender: TabSender, handle: string): void;
   input(handle: string, input: AcpInput): boolean;
@@ -147,8 +152,11 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
   const broadcast = (channel: string, payload: unknown) => {
     for (const window of deps.windows()) window.send(channel, payload);
   };
-  const view = (change: HarnessGuiTabView) =>
+  const view = (change: HarnessGuiTabView) => {
+    const tab = byTerminal.get(change.terminal_ref);
+    if (tab !== undefined) tab.view = change.view;
     broadcast(HARNESS_GUI_TAB_VIEW_CHANNEL, change);
+  };
 
   function terminalOf(
     terminalRef: string,
@@ -262,6 +270,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           }),
         },
         attached: new Map(),
+        view: "gui",
       };
       byTerminal.set(handle.terminal, tab);
       byHandle.set(handle.id, tab);
@@ -368,6 +377,18 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         view({ terminal_ref: terminalRef, view: "tui" });
       }
       return { ok: true };
+    },
+
+    current(terminalRef) {
+      const tab = byTerminal.get(terminalRef);
+      return tab === undefined
+        ? null
+        : {
+            handle: tab.handle.id,
+            harness: tab.handle.harness,
+            handoff: tab.handle.handoff,
+            view: tab.view,
+          };
     },
 
     connect(sender, handleId) {

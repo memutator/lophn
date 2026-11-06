@@ -469,6 +469,33 @@ export function GuiSwitch({
       }),
     [host, tab.key],
   );
+  // 탭은 view를 저장하지 않는다. 저장본에서 다시 만들어진 탭(다른 workspace에 갔다 옴)은 main에 살아 있는 GUI를 물어 되찾는다.
+  const known = guiOf(tab) !== null;
+  useEffect(() => {
+    if (api === null || terminalRef === null || known) return;
+    let live = true;
+    void api.current(terminalRef).then((found) => {
+      if (!live || found === null) return;
+      host.patchTab(tab.key, (current) =>
+        guiOf(current) !== null
+          ? {}
+          : {
+              fields: {
+                ...current.fields,
+                view: found.view,
+                gui: {
+                  handle: found.handle,
+                  harness: found.harness,
+                  handoff: found.handoff,
+                },
+              },
+            },
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, [api, terminalRef, known]);
   const gui = guiOf(tab);
   if (api === null || gui === null || viewOf(tab) !== "gui") return children;
   const agentView = host.agentView;

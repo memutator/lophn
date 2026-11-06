@@ -31,6 +31,11 @@ export const HARNESS_GUI_TAB_INPUT_CHANNEL = "harness-gui:tab-input";
 export const HARNESS_GUI_TAB_TOGGLE_CHANNEL = "harness-gui:tab-toggle";
 /** renderer → main invoke. 그 탭의 GUI가 도는 일(restart modal이 멈출 것으로 보인다). */
 export const HARNESS_GUI_TAB_RUNNING_CHANNEL = "harness-gui:tab-running";
+/**
+ * renderer → main invoke. 그 터미널에 살아 있는 GUI handle과 지금 view. 탭은 view를 저장하지 않아, 저장본에서 다시 만들어진
+ * 탭(다른 workspace에 갔다 옴, 창 다시 load)이 이것으로 GUI를 되찾는다.
+ */
+export const HARNESS_GUI_TAB_CURRENT_CHANNEL = "harness-gui:tab-current";
 /** renderer → main invoke. 그 탭의 CLI가 이 폴더에서 가진 지난 session 목록(최근 순). */
 export const HARNESS_GUI_TAB_SESSIONS_CHANNEL = "harness-gui:tab-sessions";
 /** renderer → main invoke. 그 사람 메시지로 rewind하면 되돌아갈 file. */
@@ -51,6 +56,13 @@ export interface HarnessGuiTabOpened {
   readonly handle: string;
   readonly harness: GuiHarness;
   readonly handoff: HarnessGuiHandoff;
+}
+
+export interface HarnessGuiTabCurrent {
+  readonly handle: string;
+  readonly harness: GuiHarness;
+  readonly handoff: HarnessGuiHandoff;
+  readonly view: "gui" | "tui";
 }
 
 export interface HarnessGuiTabView {
@@ -89,6 +101,8 @@ export interface HarnessGuiTabApi {
     terminal_ref: string;
     to: "gui" | "tui";
   }): Promise<HarnessGuiTabToggleReply>;
+  /** 그 터미널에 살아 있는 GUI. 없으면 null. */
+  current(terminalRef: string): Promise<HarnessGuiTabCurrent | null>;
   /** 그 CLI의 지난 session. run이 없거나 못 주면 빈 배열. */
   sessions(handle: string): Promise<HarnessGuiSessionEntry[]>;
   /** 되돌아갈 file. run이 없거나 못 주면 null. */

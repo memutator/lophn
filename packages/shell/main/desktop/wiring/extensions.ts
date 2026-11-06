@@ -47,6 +47,7 @@ import {
   HARNESS_GUI_TAB_INPUT_CHANNEL,
   HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
   HARNESS_GUI_TAB_RUNNING_CHANNEL,
+  HARNESS_GUI_TAB_CURRENT_CHANNEL,
   HARNESS_GUI_TAB_SESSIONS_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
 } from "../../../ipc/harness-gui.ts";
@@ -256,6 +257,11 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
     HARNESS_GUI_TAB_RUNNING_CHANNEL,
     z.strictObject({ terminal_ref: z.string().min(1).max(80) }),
     (_event, input) => gui.running(input.terminal_ref),
+  );
+  handle(
+    HARNESS_GUI_TAB_CURRENT_CHANNEL,
+    z.strictObject({ terminal_ref: z.string().min(1).max(80) }),
+    (_event, input) => gui.current(input.terminal_ref),
   );
   handle(HARNESS_GUI_TAB_SESSIONS_CHANNEL, handleOnly, (_event, input) =>
     gui.sessions(input.handle),

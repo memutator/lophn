@@ -6,6 +6,8 @@
 // 화면이 열릴 때 자동 재감지는 없다. 연결을 만들거나 설치하는 길은 없다.
 import { execFile } from "node:child_process";
 
+import { cmdShimCommand } from "../../../base/os/mod.ts";
+
 import {
   type CodingReply,
   HARNESS_IDS,
@@ -43,14 +45,18 @@ type ExecFile = (
   options: { env: Record<string, string>; timeout: number; maxBuffer: number },
 ) => Promise<{ code: number | null; stdout: string }>;
 
-// Node는 shell 없이 .cmd·.bat를 실행하지 못한다(win32, 설치본의 `bin\lophn.cmd`). 인자는 고정 낱말뿐이라 shell로 이어도 된다.
+// Node는 shell 없이 .cmd·.bat를 실행하지 못한다(win32, 설치본의 `bin\lophn.cmd`와 개발 실행의 `lophn.cmd`).
+// hook 설치는 JSON 인자를 넘기므로 cmd.exe용으로 escape해서 띄운다.
 const defaultExec: ExecFile = (file, args, options) =>
   new Promise((resolve) => {
-    const shell = process.platform === "win32" && /\.(cmd|bat)$/i.test(file);
+    const shim = process.platform === "win32" && /\.(cmd|bat)$/i.test(file);
+    const run = shim
+      ? cmdShimCommand(process.env.ComSpec ?? "cmd.exe", file, args)
+      : { command: file, args };
     execFile(
-      shell ? `"${file}" ${args.join(" ")}` : file,
-      shell ? [] : args,
-      { ...options, shell },
+      run.command,
+      run.args,
+      { ...options, windowsVerbatimArguments: shim },
       (error, stdout) => {
         const code =
           error === null

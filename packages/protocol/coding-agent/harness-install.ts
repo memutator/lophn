@@ -12,9 +12,10 @@ export const HARNESS_INSTALL_OUTCOMES = [
   "failed",
 ] as const;
 // 개발 실행의 hook command다. hook command는 shell 문자열이 되므로 공백·따옴표·`..` 없는 절대 경로만 받는다.
+// Windows는 드라이브로 시작하고 `/`로 나눈 꼴(`C:/…`)이다. harness가 hook을 Git Bash로 돌려도 cmd로 돌려도 읽힌다.
 const hookCommandSchema = z
   .string()
-  .regex(/^\/[\w./-]+$/)
+  .regex(/^(?:\/|[A-Za-z]:\/)[\w./-]+$/)
   .refine((path) => !path.includes(".."));
 export const harnessInstallInputSchema = z.strictObject({
   harness: harnessIdSchema,

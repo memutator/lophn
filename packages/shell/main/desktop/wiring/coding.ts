@@ -182,7 +182,13 @@ export function register(ctx: ShellContext): Coding {
             env: cliEnv,
             timeout_ms: 15_000,
           }),
-    hookCommand: app.isPackaged ? undefined : (lophnCli ?? undefined),
+    // hook command는 harness 설정 file의 shell 문자열이 된다. Windows는 `\` 대신 `/`로 쓴다(Git Bash와 cmd가 둘 다 읽는다).
+    hookCommand:
+      app.isPackaged || lophnCli === null
+        ? undefined
+        : process.platform === "win32"
+          ? lophnCli.replaceAll("\\", "/")
+          : lophnCli,
     hasHook: (harness) =>
       harness in HARNESS_ADAPTERS &&
       HARNESS_ADAPTERS[harness as keyof typeof HARNESS_ADAPTERS].hook !== null,

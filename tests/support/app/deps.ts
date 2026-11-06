@@ -29,6 +29,16 @@ export async function appCoreEnv(): Promise<Record<string, string>> {
   if (!filled) {
     throw new Error(`${cache}가 비었다. npm run e2e:deps를 먼저 돌려라`);
   }
+  const npm = {
+    npm_config_cache: cache,
+    // 설치가 registry에 닿지 않게 한다.
+    npm_config_offline: "true",
+    npm_config_audit: "false",
+    npm_config_fund: "false",
+    npm_config_update_notifier: "false",
+  };
+  // Windows의 앱 IPC는 named pipe라 socket 폴더가 없다.
+  if (process.platform === "win32") return npm;
   // 앱 socket 폴더가 XDG_RUNTIME_DIR 아래 data root마다 있다.
   const runtime = process.env.XDG_RUNTIME_DIR;
   if (!runtime) {
@@ -36,13 +46,5 @@ export async function appCoreEnv(): Promise<Record<string, string>> {
       "XDG_RUNTIME_DIR이 없다. 앱 socket 폴더가 그 아래 data root마다 생긴다",
     );
   }
-  return {
-    npm_config_cache: cache,
-    // 설치가 registry에 닿지 않게 한다.
-    npm_config_offline: "true",
-    npm_config_audit: "false",
-    npm_config_fund: "false",
-    npm_config_update_notifier: "false",
-    XDG_RUNTIME_DIR: runtime,
-  };
+  return { ...npm, XDG_RUNTIME_DIR: runtime };
 }

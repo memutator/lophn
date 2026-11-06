@@ -9,7 +9,6 @@
 // fake 대답: 앱 activation(`activateTestApp`)의 앱 workspace session 대답(`release prepare`·`release activate`)뿐이라 행의 상한(3)에
 // 세지 않는다(`architecture/testing.md` "case 고르는 규칙" 4).
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
 import process from "node:process";
 import { test } from "node:test";
 import { CRASH_LIMIT } from "../../packages/core/apps/runtime/supervisor/restart-policy.ts";
@@ -38,6 +37,7 @@ import {
   type Output,
   type Run,
 } from "../support/core/mod.ts";
+import { processCommands } from "../support/core/process.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { connectGateway } from "../support/gateway/mod.ts";
 
@@ -55,18 +55,12 @@ const unknownReasons: readonly string[] =
 
 // 앱 bundle 경로가 든 cmdline의 process. 앱 process는 env를 비워 띄워지므로 LOPHN_HOME으로는 찾지 못한다. bundle 경로는 run마다
 // 다르다.
+// processCommands는 Windows의 `\`를 `/`로 바꾸므로 bundle 경로도 같은 꼴로 견준다.
 async function appPids(bundle: string): Promise<number[]> {
-  const found: number[] = [];
-  for (const entry of await readdir("/proc", { withFileTypes: true })) {
-    if (!/^\d+$/.test(entry.name)) continue;
-    try {
-      const argv = await readFile(`/proc/${entry.name}/cmdline`, "utf8");
-      if (argv.includes(bundle)) found.push(Number(entry.name));
-    } catch {
-      /* 그 사이 끝났다 */
-    }
-  }
-  return found;
+  const needle = bundle.replaceAll("\\", "/");
+  return (await processCommands())
+    .filter((one) => one.command.includes(needle))
+    .map((one) => one.pid);
 }
 
 async function nonceOf(core: Core, app: TestApp): Promise<string | undefined> {

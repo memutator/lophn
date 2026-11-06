@@ -98,7 +98,19 @@ export type SpawnFailed = {
 };
 
 // 호출한 쪽이 덮지 못하게 막는 env. 격리(사람의 홈, OS keychain)를 지키는 것들이다.
-const FIXED_ENV = ["LOPHN_HOME", "HOME", "PATH"];
+const FIXED_ENV = ["LOPHN_HOME", "HOME", "PATH", "USERPROFILE"];
+// Windows의 cmd·npm·Git Bash가 기본 명령을 돌리는 데 드는 값이다. 사람의 홈(USERPROFILE)은 넘기지 않는다.
+const WINDOWS_ENV = ["SystemRoot", "ComSpec", "TEMP", "TMP", "PATHEXT"];
+
+function windowsEnv(userHome: string): Record<string, string> {
+  if (process.platform !== "win32") return {};
+  const env: Record<string, string> = { USERPROFILE: userHome };
+  for (const name of WINDOWS_ENV) {
+    const value = process.env[name];
+    if (value !== undefined) env[name] = value;
+  }
+  return env;
+}
 
 export async function tail(path: string): Promise<string> {
   try {
@@ -132,6 +144,7 @@ export async function spawnCore(
         LOPHN_HOME: home,
         HOME: userHome,
         PATH: process.env["PATH"] ?? "",
+        ...windowsEnv(userHome),
         ...env,
       },
       stdio: ["pipe", "pipe", "pipe"],
@@ -240,6 +253,32 @@ export async function spawnCore(
     },
     exited,
   };
+}
+
+// process마다 command line 하나(인자는 공백으로 잇는다). Windows는 `\`를 `/`로 바꿔 test가 `/`로 이은 경로와 견준다.
+export async function processCommands(): Promise<
+  { pid: number; command: string }[]
+> {
+  if (process.platform === "win32") {
+    return (await windowsProcesses()).map((one) => ({
+      pid: one.pid,
+      command: one.command.replaceAll("\\", "/"),
+    }));
+  }
+  const found: { pid: number; command: string }[] = [];
+  for (const entry of await readdir("/proc", { withFileTypes: true })) {
+    if (!/^\d+$/.test(entry.name)) continue;
+    try {
+      const argv = await readFile(`/proc/${entry.name}/cmdline`, "utf8");
+      found.push({
+        pid: Number(entry.name),
+        command: argv.split("\0").join(" "),
+      });
+    } catch {
+      // 방금 끝난 process이거나 읽을 수 없는 남의 process다.
+    }
+  }
+  return found;
 }
 
 // LOPHN_HOME이 이 home인 process(daemon과 그 child)를 /proc에서 찾는다(Windows는 위의 pid tree).

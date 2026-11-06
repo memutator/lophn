@@ -54,6 +54,7 @@ import {
 import { type AppPatch, amendAppSource } from "../support/app/source.ts";
 import { connectFakeProvider, settle, until } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { processCommands } from "../support/core/process.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { connectGateway, type Gateway } from "../support/gateway/mod.ts";
 
@@ -88,23 +89,14 @@ async function activeOf(core: Core, app: string): Promise<string | null> {
   return (await core.call(appGet, { app })).app.active_release;
 }
 
-// 앱 process의 수. 앱 번들 폴더의 진입 파일을 여는 process를 /proc에서 센다.
+// 앱 process의 수. 앱 번들 폴더의 진입 파일(`.ts`)을 여는 process를 센다.
 async function appProcesses(core: Core, app: string): Promise<number> {
-  const needle = `${core.run.home}/apps/${app}/bundles/`;
-  let count = 0;
-  for (const entry of await readdir("/proc", { withFileTypes: true })) {
-    if (!/^\d+$/.test(entry.name)) continue;
-    try {
-      const cmd = await readFile(`/proc/${entry.name}/cmdline`, "utf8");
-      const args = cmd.split("\0");
-      if (args.some((arg) => arg.startsWith(needle) && arg.endsWith(".ts"))) {
-        count += 1;
-      }
-    } catch {
-      /* 그사이 끝난 process */
-    }
-  }
-  return count;
+  const needle = `${core.run.home}/apps/${app}/bundles/`.replaceAll("\\", "/");
+  return (await processCommands()).filter((one) =>
+    one.command
+      .split(" ")
+      .some((arg) => arg.startsWith(needle) && arg.endsWith(".ts")),
+  ).length;
 }
 
 test("E2E release activation은 실패하면 data와 이전 release를 그대로 두고, 넓어진 선언은 허락으로만 올리며, 재시작을 넘는다", async () => {

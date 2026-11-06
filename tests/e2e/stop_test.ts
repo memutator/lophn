@@ -15,14 +15,14 @@ import {
   archiveSession,
   deleteSession,
   LOPHN_AGENT_ID,
-  workspaceSessionRead,
   toolCallList,
   turnRead,
+  workspaceSessionRead,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
   openProject,
+  openWorkspaceSession,
   say,
   stopTurn,
   turnsOf,
@@ -31,7 +31,7 @@ import {
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
-import { runtimePids } from "../support/core/process.ts";
+import { processCommands, runtimePids } from "../support/core/process.ts";
 import { shellAsk } from "../support/core/shell-ask.ts";
 import {
   type FakeServer,
@@ -167,22 +167,14 @@ const textReply = { reply: { kind: "text", text: "ok" } } as const;
 
 test("shell이 도는 중 멈추면 shell process group이 죽는다", async () => {
   await inProject(async ({ core, fake, proj, project }) => {
-    // /proc에서 찾을 표지다. core.ids의 무작위 값에서 숫자 다섯 자리를 만든다.
+    // process 목록에서 찾을 표지다. core.ids의 무작위 값에서 숫자 다섯 자리를 만든다.
     const marker = `2999.${[...core.ids.newId("key").slice(-5)]
       .map((c) => c.charCodeAt(0) % 10)
       .join("")}`;
-    const alive = async () => {
-      const found: number[] = [];
-      for (const entry of await readdir("/proc", { withFileTypes: true })) {
-        if (!/^\d+$/.test(entry.name)) continue;
-        const argv = await readFile(
-          `/proc/${entry.name}/cmdline`,
-          "utf8",
-        ).catch(() => "");
-        if (argv.includes(`sleep ${marker}`)) found.push(Number(entry.name));
-      }
-      return found;
-    };
+    const alive = async () =>
+      (await processCommands())
+        .filter((one) => one.command.includes(`sleep ${marker}`))
+        .map((one) => one.pid);
     fake.script([
       {
         reply: {

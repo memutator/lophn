@@ -12,7 +12,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 
 - **child tree 끄기.** POSIX(linux, darwin)는 child를 `detached`로 띄워 group leader로 두고 `process.kill(-pid, sig)`로 group째 끈다. `ESRCH`가 "없다"다. Windows는 `detached`가 새 console을 열어 쓰지 않고(`windowsHide`), `taskkill /PID <pid> /T /F`로 tree를 끈다. 없어졌는지는 POSIX는 `kill(-pid, 0)`, Windows는 root pid만 `kill(pid, 0)`으로 본다. supervisor(`packages/core/supervision/responsiveness/`)는 group이 없어졌음을 확인한 뒤에 자원을 푼다. core 쪽 helper는 `packages/core/supervision/security/tree-kill.ts`(`killTree`, `treeSpawnOptions`)다.
 - **앱 IPC.** POSIX는 unix socket(`$XDG_RUNTIME_DIR/lophn/<hash>`나 `$TMPDIR/lophn-<uid>/<hash>`, 0700), Windows는 named pipe다. Node `net`·`http`가 같은 API로 받아 transport 코드는 경로 문자열만 다르다. Windows는 socket directory가 없고 낡은 pipe를 지울 일도 없다.
-- **child env.** OS가 넘겨야 하는 이름은 `packages/core/supervision/security/child-env.ts`(`WINDOWS_ENV_NAMES`: `SystemRoot`, `ComSpec`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `TEMP`, `TMP`)가 갖고, Windows env 이름은 대소문자를 가리지 않고 읽는다. 임시 폴더는 `os.tmpdir()`다.
+- **child env.** OS가 넘겨야 하는 이름은 `packages/core/supervision/security/child-env.ts`(`WINDOWS_ENV_NAMES`: `SystemRoot`, `ComSpec`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `TEMP`, `TMP`, 그리고 agent shell tool이 Git Bash를 찾는 `ProgramFiles`, `ProgramFiles(x86)`, `LOPHN_GIT_BASH`)가 갖고, Windows env 이름은 대소문자를 가리지 않고 읽는다. 임시 폴더는 `os.tmpdir()`다.
 - **node shim.** 앱과 agent shell이 부르는 `node`·`npm`은 `run/bin/`의 shim이 Electron의 Node(`ELECTRON_RUN_AS_NODE=1`)로 돌린다. POSIX는 sh script, Windows는 `node.cmd`·`npm.cmd`(cmd·CreateProcess용)와 확장자 없는 sh script(Git Bash용)를 같이 쓴다.
 - **agent shell tool.** POSIX는 `/bin/sh -c`, Windows는 Git for Windows의 `bash.exe`다(`LOPHN_GIT_BASH`, `%ProgramFiles%\Git\bin\bash.exe`, `%ProgramFiles(x86)%\…`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe` 차례). 못 찾으면 tool이 `unavailable`과 설치 안내를 내고 아무것도 띄우지 않는다. shell 규칙(`packages/protocol/approvals/shell-rules.ts`)은 bash라 OS와 상관없이 그대로다.
 - **SIGUSR2 snapshot**은 Windows에서 걸지 않는다. core·apps supervisor·agent runtime은 stdin EOF와 stop 메시지로 끝나서 Windows에 SIGTERM이 안 와도 끝난다.
@@ -62,7 +62,12 @@ macOS·Windows는 CLI를 시스템 PATH에 깔지 않는다. shell이 앱 안 la
 
 `.github/workflows/os.yml`이 ubuntu·macos·windows에서 `npm ci` → `npm run check:full` → `node tools/ci/boot-core.ts`(새 data root로 core를 두 번 띄운다) → `node tools/package/main.ts --dir`을 돈다. `workflow_dispatch`와 `ci/**` branch push로만 돈다(private repo에서 macOS minute은 10배). 돌리기: `git push origin <branch>:ci/<이름>`. push와 실행은 사람에게 묻는다.
 
-macOS·Windows는 아직 이 workflow로 돌려 보지 않았다. 위의 macOS·Windows 동작은 코드와 platform 인자를 넘긴 test로만 확인했다.
+workflow는 아직 어느 OS에서도 CI로 돌려 보지 않았다. Windows는 실제 PC(Windows 11 x64, 개발자 모드 꺼짐)에서 같은 네 단계를 손으로 돌려 통과했다(`HANDOFF-windows.md`의 결과). macOS는 코드와 platform 인자를 넘긴 test로만 확인했다.
+
+- **symlink 권한.** Windows는 개발자 모드나 관리자 권한이 없으면 symlink를 만들지 못한다(junction은 된다). test의 폴더 연결은 `"junction"` type으로 만들고(POSIX는 type을 무시한다), file symlink가 꼭 필요한 test는 그때 이유를 달고 건너뛴다. electron-builder가 받는 `winCodeSign` 묶음에 macOS symlink가 있어 그런 PC에서는 `package`가 풀기에서 실패한다. cache(`%LOCALAPPDATA%/electron-builder/Cache/winCodeSign/winCodeSign-2.6.0`)에 `darwin`만 빼고 미리 풀면 지나간다. GitHub runner는 관리자라 상관없다.
+- **npm script.** `e2e`·`e2e:deps`는 `tools/electron-node.ts`가 Electron의 Node로 띄운다. env 앞붙임 꼴(`ELECTRON_RUN_AS_NODE=1 …`)은 npm이 Windows에서 쓰는 cmd.exe에서 돌지 않는다.
+- **e2e 지원 코드.** Windows에는 `/proc`이 없어 `tests/support/core/process.ts`가 띄운 core pid에서 `ParentProcessId`를 따라가 같은 home의 process를 찾는다. e2e core의 `USERPROFILE`은 `HOME`과 같은 빈 폴더다.
+- **개발 실행의 `lophn`.** Windows의 `npm run dev`는 `.cache/dev-cli/`에 sh launcher와 `lophn.cmd`를 같이 쓰고 shell main에 `.cmd` 경로를 준다. `.cmd`·`.bat`은 Node가 shell 없이 못 띄우므로 harness 감지 child(`packages/shell/main/desktop/coding-connection.ts`)는 shell로 띄운다.
 
 ## 불변 조건
 

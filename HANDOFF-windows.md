@@ -107,4 +107,29 @@ node tools/package/main.ts --target win   # NSIS. 산출물은 build\win\
 
 ## 결과
 
-(Windows session이 채운다: 단계마다 통과·실패, 고친 commit, 못 고친 것과 이유, Windows·Node·Git 판)
+판: Windows 11 Home x64 10.0.26200(개발자 모드 꺼짐), Node 24.20.0, npm 11.19.0, Git 2.55.0.windows.3. branch `win/verify`.
+
+| 단계 | 결과 |
+|---|---|
+| `npm ci` | 통과. C++ compile 없음(node-pty는 prebuild, esbuild는 binary) |
+| `check:full` | 통과(test 523, 그중 Windows symlink 권한으로 건너뜀 7) |
+| `boot-core.ts` | 통과(boot 1·2 exit 0, 임시 data root 남지 않음) |
+| `package --dir` | 통과. 구성이 표와 같고 `@lophn/*`는 copy다. 이 PC에서는 winCodeSign cache를 손으로 풀어야 했다(platform.md) |
+| e2e | 89 중 87 통과. 남은 하나(registration, 하위 test 포함 2)는 30초 제한을 넘은 것이고 따로 돌리면 13–17초에 통과한다 |
+| 4. `npm run dev` | 사람과 같이 볼 차례. 아직 안 함 |
+| 5. 설치본 | NSIS build 통과(`build/win/builder/lophn Setup 0.18.0.exe`). 설치·실행·지우기는 아직 안 함 |
+
+고친 제품 결함(Windows에서 실제로 틀렸다):
+- 앱 화면 file·아이콘·public skill: realpath를 `/`로 견줘 늘 not_found였다(`apps/screens`).
+- agent shell tool: child env에 `ProgramFiles`·`LOPHN_GIT_BASH`가 없어 Git Bash를 못 찾았다(`child-env.ts`).
+- 설치본 harness 감지: `lophn.cmd`를 shell 없이 execFile해 `spawn EINVAL`이었다(`coding-connection.ts`).
+- ledger 경로에서 data root 구하기(agent 정의·workspace·annotation): `/`로만 잘랐다.
+- SDK 사본: `file:..\..` 의존과 `sdk/` 판정이 `\` 때문에 틀려 사본이 복사되지 않았다(`sdk-sync.ts`).
+- harness extension 끄기: Windows의 rmdir은 file에 ENOENT를 낸다(`harness-run.ts`).
+- migration `artifacts.container`·workspace data: `\` 꼴의 옛 rewind root를 옮기지 못했다.
+
+고친 개발 도구: 전부 도는 빠른 `npm run check`가 file 목록을 biome 명령줄에 늘어놓아 `ENAMETOOLONG`이던 것(`tools/check.ts`), `npm run dev`의 repo root(`URL.pathname`)와 dev `lophn.cmd`, e2e npm script 입구(`tools/electron-node.ts`), design token 생성기의 biome 호출, `tests/eval` 경로, e2e 지원 코드(`/proc`, `XDG_RUNTIME_DIR`, Windows env, `USERPROFILE` 격리), test의 POSIX 가정.
+
+못 고친 것: 없음. symlink 권한이 없는 PC에서 file symlink test는 이유를 달고 건너뛴다. 권한이 있는 PC(GitHub runner)에서는 돈다.
+
+같이 알 것: 같은 시각 다른 session(`test/shell-e2e`)이 ledger 경로 문제를 따로 고쳤다(`packages/core/storage/ledger/location.ts`). 합칠 때 `agents/store.ts`·`workspace-store.ts`·`annotations/store.ts`에서 충돌한다. 둘 중 하나만 남긴다.

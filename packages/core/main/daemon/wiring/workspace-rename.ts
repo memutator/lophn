@@ -1,6 +1,6 @@
 // place를 workspace로 부르게 되면서 data root 파일에 남은 옛 이름을 옮기는 wiring이다. ledger의 열과 JSON은
 // 각 module의 schema step이 옮기고, 여기는 ledger 밖 파일만 맡는다:
-// - `settings.json`의 call 정책 `places`를 `workspaces`로 옮긴다. 틀린 key 하나가 settings 전체를 거절시킨다.
+// - `settings.json`의 call 정책 `places`를 `workspaces`로 옮긴다. 옮기지 않으면 옛 key는 무시되고 사람이 고른 값이 적용되지 않는다.
 // - `shell/places/<workspace>.json`을 `shell/workspaces/`로 옮기고 판 9의 agent 탭 `work_place`를 `workspace`로
 //   바꿔 판 10으로 쓴다. 옮길 자리에 이미 파일이 있으면 덮지 않고 옛 파일을 남긴다.
 // - workflow 폴더의 `workflow.yaml` 참가자와 `flow.ts`의 agent 주소에서 `place`를 `workspace`로 바꾼다. 선언은 모르는

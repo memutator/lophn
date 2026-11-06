@@ -20,6 +20,8 @@ compaction이 모든 session의 turn 시작을 막지 않게 하고, turn 안에
 1. **compaction이 pump를 막음** — 사람이 요청한 Compact, "Summarize from here", auto-compact(`startNext` 안의 `deps.compact`)는 모두 model 호출인데 turn을 시작하는 같은 serial pump 안에서 inline으로 돈다. 긴 요약 하나가 다른 모든 session의 turn 시작을 늦춘다. compaction을 pump 밖에서 돌린다. 가장 단순한 길: compaction을 시작만 하고 기다리지 않으며, 그 session은 compaction이 끝날 때까지 다음 turn을 시작하지 않는다(session별 in-flight 표). 다른 session의 turn은 계속 시작된다. compaction promise의 rejection도 관찰한다.
 2. **image 재읽기** — `inputs()`가 부를 때마다 첫 입력의 `loadParts`(blob 읽기)와 pipe 왕복 두 번을 한다. turn 시작, assembly 뒤, tool gate마다, conclude, facts, retry에서 불린다. turn 하나 동안 첫 입력의 parts를 한 번만 읽어 둔다(turn이 끝나면 버린다).
 
+3. (lead가 더함) `turn-loop`가 `Queue.take(session, message?)`와 `began(session, message)`를 들였다. harness wiring(`packages/core/main/daemon/wiring/harness.ts` 약 218-268행)도 같은 race가 있다: `queue.next`를 읽고 나중에 `queue.take(session)`을 부른다. 기록한 그 message를 `take(session, <기록한 message id>)`로 집게 고친다. 추가 소유: `harness.ts`의 그 take 호출 부분만.
+
 ## 끝남
 
 - `npm run check:full`이 통과한다(lead가 준 Windows 기준선 실패는 빼고).

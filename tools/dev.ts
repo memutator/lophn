@@ -106,7 +106,8 @@ function planRendererBuild(root: string): SpawnPlan {
   return {
     command: "node",
     args: [`${root}/packages/shell/renderer/build.ts`],
-    env: {},
+    // dev build만 dev mock(`?mock`, dev seed)을 싣는다. 기본 build는 prod라 싣지 않는다.
+    env: { LOPHN_RENDERER_DEV: "1" },
   };
 }
 

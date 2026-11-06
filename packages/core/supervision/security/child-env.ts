@@ -9,6 +9,10 @@ export const WINDOWS_ENV_NAMES = [
   "LOCALAPPDATA",
   "TEMP",
   "TMP",
+  // agent shell tool이 Git Bash를 찾는 자리다(`tools/shell/run.ts` `findGitBash`). 없으면 runtime child에서 shell tool이 unavailable이다.
+  "ProgramFiles",
+  "ProgramFiles(x86)",
+  "LOPHN_GIT_BASH",
 ] as const;
 
 // Windows의 env 이름은 대소문자를 가리지 않는다(`Path`·`PATH`). 주입된 평범한 객체에서도 그렇게 읽는다.

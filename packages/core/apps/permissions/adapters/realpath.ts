@@ -1,4 +1,5 @@
 import { lstat, readdir, realpath, stat } from "node:fs/promises";
+import { isAbsolute, join } from "node:path";
 
 import { isSameOrInside, type PathResolver } from "../model.ts";
 
@@ -23,7 +24,7 @@ async function walk(
     return;
   }
   for (const entry of entries) {
-    const path = `${directory}/${entry.name}`;
+    const path = join(directory, entry.name);
     const info = await lstat(path);
     if (info.isSymbolicLink()) {
       found.push({ link: path, target: await real(path) });
@@ -40,11 +41,9 @@ export function realPathResolver(home: string, base: string): PathResolver {
         path === "~"
           ? home
           : path.startsWith("~/")
-            ? `${home}/${path.slice(2)}`
+            ? join(home, path.slice(2))
             : path;
-      const absolute = expanded.startsWith("/")
-        ? expanded
-        : `${base}/${expanded}`;
+      const absolute = isAbsolute(expanded) ? expanded : join(base, expanded);
       return await real(absolute);
     },
     async isDirectory(path) {

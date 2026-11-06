@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
-import { posixGroup, type ProcessGroup } from "./child-group.ts";
+import { posixGroup, win32Group, type ProcessGroup } from "./child-group.ts";
 import { foregroundOf } from "./foreground.ts";
 
 type PtyExit = { exitCode: number; signal?: number };
@@ -78,7 +78,7 @@ export function nodePtyAdapter(load: () => NodePty = defaultLoad): PtyAdapter {
           }),
       });
     },
-    group: posixGroup,
+    group: process.platform === "win32" ? win32Group : posixGroup,
   };
 }
 

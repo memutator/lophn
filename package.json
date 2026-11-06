@@ -27,7 +27,8 @@
     "dev:core": "node tools/dev.ts dev:core",
     "dev:mock": "node tools/dev.ts dev:mock",
     "doctor": "node tools/doctor/main.ts",
-    "wireframes": "node tools/wireframes/build.ts"
+    "wireframes": "node tools/wireframes/build.ts",
+    "package": "node tools/package/main.ts"
   },
   "dependencies": {
     "@biomejs/biome": "2.6.3",

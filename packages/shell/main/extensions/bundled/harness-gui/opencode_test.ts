@@ -135,6 +135,8 @@ async function setup(name: string) {
       exported.push({ name, text });
       return `/tmp/${name}`;
     },
+    home: "/home/user",
+    readCommandTemplates: async () => new Map(),
   });
   const clock = manualClock(Date.UTC(2026, 10, 5));
   let started: Awaited<ReturnType<typeof adapter.start>> | undefined;
@@ -564,4 +566,24 @@ test("/export, /stats, /mcps, /skills가 command_output으로 나오고 export�
   assert.equal(t.exported[0]?.name, "session-ses_test.json");
   assert.match(mcps?.text ?? "", /No MCP servers/);
   assert.match(skills?.text ?? "", /OpenCode/);
+});
+
+test("`!ls`는 POST …/shell로만 가고 prompt로 가지 않는다. 그 shell은 by user tool 줄 하나이고 사람 말풍선이 없다", async () => {
+  const t = await setup("shell_live");
+  await t.input(t.send("sh", "!ls"));
+  await t.pump();
+  const paths = t.requests.map((one) => `${one.method} ${one.path}`);
+  assert.ok(paths.includes("POST /api/session/ses_test/shell"));
+  assert.ok(!paths.some((one) => one.endsWith("/prompt")));
+  const lines = t.state.items.filter((item) => item.kind === "tool");
+  assert.equal(lines.length, 1);
+  assert.equal(lines[0]?.kind === "tool" && lines[0].by, "user");
+  assert.equal(lines[0]?.kind === "tool" && lines[0].state, "ok");
+  assert.ok(
+    !t.state.items.some(
+      (item) => item.kind === "message" && item.actor === "user",
+    ),
+  );
+  // 도는 execution이 없어 turn을 열지도 닫지도 않는다.
+  assert.deepEqual(ends(t.state), []);
 });

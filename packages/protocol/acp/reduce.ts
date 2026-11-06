@@ -526,6 +526,13 @@ export function reduceAcp(state: AcpState, update: AcpUpdate): AcpState {
       return { ...state, tasks: update.tasks };
     case "draft_set":
       return { ...state, draft: { key: update.key, content: update.content } };
+    case "session_reset":
+      return {
+        ...EMPTY_ACP_STATE,
+        seq: state.seq,
+        session: state.session,
+        reread: state.reread,
+      };
     default: {
       const { children, tasks, draft, ...child } = state;
       const next = reduceChild(child, update);

@@ -3,8 +3,12 @@
 // 기대지 않고, cache에 없는 것은 offline 설치가 실패로 드러낸다.
 import { readdir } from "node:fs/promises";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+const REPO = fileURLToPath(new URL("../../../", import.meta.url)).replace(
+  /[\\/]$/,
+  "",
+);
 
 export function e2eNpmCache(root = REPO): string {
   return `${root}/.dev-data/e2e/npm-cache`;

@@ -35,14 +35,14 @@ export type OpenDeps = WorkspaceDeps & {
   publish(event: AgentEvent): void;
 };
 
-// session이 끝날 때(archive, 지움) 같은 tx 안에서 하는 일. 입력함과 Bus는 main thread에 있어서 비우기와 event는
+// session이 끝날 때(archive, 지움) 같은 tx 안에서 하는 일. queue와 Bus는 main thread에 있어서 비우기와 event는
 // commit 뒤에 할 일로 모은다.
 export type EndDeps = {
   effects: SessionEndEffects;
   // 도는 turn을 interrupted(session_ended)로 닫는다.
   interruptRunningTurns(tx: Tx, session: Id<"ses">): Result<void>;
-  // 입력함을 commit 뒤에 비운다.
-  clearInbox(tx: Tx, session: Id<"ses">): void;
+  // queue를 commit 뒤에 비운다.
+  clearQueue(tx: Tx, session: Id<"ses">): void;
   // Bus event를 commit 뒤에 낸다.
   publish(tx: Tx, event: AgentEvent): void;
 };

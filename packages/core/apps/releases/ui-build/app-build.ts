@@ -7,7 +7,7 @@
 // repo의 node_modules 등)이 화면에 묶이지 않게 realpath가 staging 밖인 file은 build가 실패한다.
 
 import { copyFile, mkdir, readdir, realpath, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, sep } from "node:path";
 import process from "node:process";
 import * as esbuild from "esbuild";
 
@@ -19,14 +19,14 @@ function guard(root: string): esbuild.Plugin {
     name: "staging-only",
     setup(build) {
       build.onLoad({ filter: /.*/, namespace: "file" }, async (args) => {
-        if (!args.path.startsWith("/")) return undefined;
+        if (!isAbsolute(args.path)) return undefined;
         let real: string;
         try {
           real = await realpath(args.path);
         } catch {
           return { errors: [{ text: "import is outside the app build area" }] };
         }
-        return real === root || real.startsWith(`${root}/`)
+        return real === root || real.startsWith(`${root}${sep}`)
           ? undefined
           : { errors: [{ text: "import is outside the app build area" }] };
       });

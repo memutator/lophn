@@ -180,7 +180,7 @@ export const workflowsWiring: WiringFactory = () => {
     records: () => [WORKFLOWS_CONTEXT],
     build(ctx) {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
-      // 접은 writer를 쓴다. 날 writer는 본문 준비와 입력함 적용을 건너뛰어 step 메시지로 turn이 열리지 않는다.
+      // 접은 writer를 쓴다. 날 writer는 본문 준비와 queue 적용을 건너뛰어 step 메시지로 turn이 열리지 않는다.
       // ctx.writer는 build가 다 끝난 뒤 채워지므로 부를 때 읽는다.
       const command = async <T>(
         r: { name: string },

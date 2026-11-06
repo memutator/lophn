@@ -10,7 +10,7 @@ export { createConversationCommands } from "./commands.ts";
 export {
   createHarnessCommands,
   createHarnessInputTransport,
-  HARNESS_INBOX_PUT_TOPIC,
+  HARNESS_QUEUE_PUT_TOPIC,
   harnessEnabledIn,
   harnessOf,
 } from "./harness.ts";

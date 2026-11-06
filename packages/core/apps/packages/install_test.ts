@@ -10,13 +10,13 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex } from "../../../base/mod.ts";
 import { installSdkCopies, removeInstallCopy } from "./install.ts";
 
-const REPO_PACKAGES = new URL("../../../", import.meta.url).pathname.replace(
-  /\/$/,
-  "",
-);
+const REPO_PACKAGES = fileURLToPath(
+  new URL("../../../", import.meta.url),
+).replace(/[\\/]$/, "");
 
 async function withTemp(run: (dir: string) => Promise<void>) {
   const dir = await mkdtemp(join(tmpdir(), "install-test-"));
@@ -89,7 +89,9 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
     const snapshotAll = async () =>
       (await Promise.all(copies.map(snapshot))).flat();
     const before = await snapshotAll();
-    assert.ok(before.every((line) => /\/ 555$| 444 /.test(line)));
+    // Windows stat mode는 쓰기 비트만 비춘다.
+    const posix = process.platform !== "win32";
+    assert.ok(!posix || before.every((line) => /\/ 555$| 444 /.test(line)));
     assert.ok(!before.some((line) => line.includes("_test.ts")));
 
     assert.ok((await installSdkCopies({ dataRoot, packagesRoot })).ok);
@@ -102,7 +104,8 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
       "export const a = 2;\n",
     );
     assert.ok(
-      (await snapshotAll()).every((line) => /\/ 555$| 444 /.test(line)),
+      !posix ||
+        (await snapshotAll()).every((line) => /\/ 555$| 444 /.test(line)),
     );
   });
 });
@@ -163,7 +166,7 @@ test("깐 declaration·cap-store·cap-problem·agent 사본이 repo 없이 impor
       );
       assert.ok(installedCopy, name);
       const copy = await import(
-        `file://${installedCopy.install_path}/${entry}`
+        pathToFileURL(join(installedCopy.install_path, entry)).href
       );
       assert.ok(Object.keys(copy).length > 0, name);
     }

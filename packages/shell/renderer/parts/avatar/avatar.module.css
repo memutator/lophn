@@ -16,6 +16,11 @@
   background: transparent;
 }
 
+.avatar[data-kind="vendor"] {
+  border-radius: var(--space-0);
+  background: transparent;
+}
+
 .avatar[data-kind="character"] {
   overflow: visible;
   border-radius: var(--space-0);

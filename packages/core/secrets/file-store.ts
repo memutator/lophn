@@ -8,7 +8,15 @@
 //   fallback은 없다.
 // - 반환 오류·log에는 고정 문장만 있다. 값도 경로도 싣지 않는다(예외의 message도 옮기지 않는다).
 import { chmod, open, readFile, rename, rm, stat } from "node:fs/promises";
-import { err, errorCode, ok, type Result } from "../../base/mod.ts";
+import process from "node:process";
+import { setTimeout as sleep } from "node:timers/promises";
+import {
+  err,
+  errorCode,
+  ok,
+  type OsPlatform,
+  type Result,
+} from "../../base/mod.ts";
 import {
   SECRET_FILE_NAME,
   SECRET_INPUT_MAX_BYTES,
@@ -19,6 +27,25 @@ import {
 export { SECRET_FILE_NAME };
 
 const SECRET_FILE_MODE = 0o600;
+const RENAME_RETRIES = 5;
+const RENAME_RETRY_MS = 100;
+
+// Windows는 백신·indexer가 file을 잠깐 쥐고 있으면 rename이 EPERM·EBUSY로 실패한다. 잠깐 뒤 다시 한다.
+async function renameWithRetry(from: string, to: string): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await rename(from, to);
+      return;
+    } catch (thrown) {
+      const code = errorCode(thrown);
+      const busy = code === "EPERM" || code === "EBUSY";
+      if (process.platform !== "win32" || !busy || attempt >= RENAME_RETRIES) {
+        throw thrown;
+      }
+      await sleep(RENAME_RETRY_MS);
+    }
+  }
+}
 
 // fs 접근. test가 쓰기 실패를 끼운다. 없는 파일은 ENOENT를 던진다.
 export type SecretFs = {
@@ -47,7 +74,7 @@ const nodeSecretFs: SecretFs = {
       await file.close();
     }
   },
-  rename: (from, to) => rename(from, to),
+  rename: renameWithRetry,
   remove: (path) => rm(path),
 };
 
@@ -80,11 +107,14 @@ export function createSecretFileStore(options: {
   // data root 폴더. 파일은 `<root>/secrets.json`이다.
   root: string;
   fs?: SecretFs;
+  // Windows는 stat mode가 늘 0666이라 0600 검사를 건너뛴다.
+  platform?: OsPlatform;
   // 값 없는 안전한 log. 고정 문장만 받는다.
   log?: (message: string) => void;
 }): SecretFileStore {
   const fs = options.fs ?? nodeSecretFs;
   const log = options.log ?? (() => {});
+  const platform = options.platform ?? process.platform;
   const path = `${options.root}/${SECRET_FILE_NAME}`;
   const temp = `${path}.tmp`;
   let copy: Map<string, string> | undefined;
@@ -104,7 +134,7 @@ export function createSecretFileStore(options: {
     let text: string;
     try {
       const mode = await fs.mode(path);
-      if ((mode & 0o177) !== 0) {
+      if (platform !== "win32" && (mode & 0o177) !== 0) {
         try {
           await fs.chmod(path, SECRET_FILE_MODE);
           log("secret 파일 권한을 0600으로 고쳤다");

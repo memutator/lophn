@@ -1,7 +1,7 @@
 // 세 질문
 // - contract: boundary `router`·`agent-sessions`(steer는 도는 turn의 다음 model 요청에 붙고 새 turn도 checkpoint도 만들지 않는다), `run-loop`.
 // - 현실적 회귀: steer가 다음 turn 입력으로 밀려 사람이 도는 turn에 끼어들 수 없는 것, steer로 들어간 message가 checkpoint가 되어 rewind 지점으로 잘못 보이는 것.
-// - 왜 지금 test로 못 잡나: steering 목록은 core 메모리(입력함)이고 child가 가져가는 길과 checkpoint 표는 process 둘을 건너야 이어진다. harness loop에 steering 행이 없다.
+// - 왜 지금 test로 못 잡나: steering 목록은 core 메모리(queue)이고 child가 가져가는 길과 checkpoint 표는 process 둘을 건너야 이어진다. harness loop에 steering 행이 없다.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { test } from "node:test";

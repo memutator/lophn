@@ -7,6 +7,10 @@ import process from "node:process";
 
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import { npmCommand } from "../../../supervision/security/node-command.ts";
+import {
+  killTree,
+  treeSpawnOptions,
+} from "../../../supervision/security/tree-kill.ts";
 import { syncAppSdk } from "../sdk-sync.ts";
 import type { TemplateFailure, TemplateFile } from "./files.ts";
 
@@ -125,12 +129,12 @@ async function installDependencies(
     const child = spawn(command.command, command.args, {
       cwd: dir,
       stdio: ["ignore", "pipe", "pipe"],
-      // network가 없으면 npm은 몇 분씩 다시 시도한다. app.create가 그만큼 멈추지 않게 끊는다.
-      timeout: INSTALL_LIMIT_MS,
-      killSignal: "SIGKILL",
+      ...treeSpawnOptions(),
       // Node는 env를 통째로 바꾸므로 부모 환경(경로·HOME의 cache)을 직접 합친다.
       env: { ...process.env, ...command.env },
     });
+    // network가 없으면 npm은 몇 분씩 다시 시도한다. app.create가 그만큼 멈추지 않게 lifecycle script까지 트리째 끊는다.
+    const timer = setTimeout(() => killTree(child), INSTALL_LIMIT_MS);
     let stderr = "";
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk: string) => {
@@ -140,7 +144,7 @@ async function installDependencies(
     const code = await new Promise<number | null>((resolve, reject) => {
       child.on("error", reject);
       child.on("close", resolve);
-    });
+    }).finally(() => clearTimeout(timer));
     if (code === 0) return ok(undefined);
     return err({
       code: "unavailable",

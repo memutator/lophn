@@ -9,7 +9,7 @@ import {
   userContentBlocksSchema,
 } from "./message-content.ts";
 
-// 접수만 하고 turn이 가져가지 않은 사람 메시지는 재시작 때 저장된 본문에서 입력함으로 돌아온다. 돌아온 block이 처음과
+// 접수만 하고 turn이 가져가지 않은 사람 메시지는 재시작 때 저장된 본문에서 queue로 돌아온다. 돌아온 block이 처음과
 // 다르면 image가 다른 blob을 가리키거나 사라지고, 본문 hash가 달라져 받은 turn과 이력이 갈린다.
 test("저장된 본문을 읽어 되돌린 block은 보낸 block과 같고 같은 bytes로 다시 저장된다", () => {
   const blocks: ContentBlock[] = [

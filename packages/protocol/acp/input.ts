@@ -153,6 +153,20 @@ export const acpInputSchema = z.discriminatedUnion("type", [
     objective: z.string().min(1).nullable(),
     paused: z.boolean(),
   }),
+  /** 사람이 친 `!` 뒤의 글(앞 `!`는 뺀다)을 명령으로 돌린다. */
+  z.strictObject({
+    type: z.literal("run_shell"),
+    session,
+    key: z.string().min(1),
+    command: z.string().min(1),
+  }),
+  /** 그 CLI의 다른 session으로 같은 탭에서 바꾼다. */
+  z.strictObject({
+    type: z.literal("open_session"),
+    session,
+    key: z.string().min(1),
+    cli_session: z.string().min(1),
+  }),
   /** 이 session만 그 role의 model로 바꾼다(omp `/switch @role`). */
   z.strictObject({
     type: z.literal("use_role"),

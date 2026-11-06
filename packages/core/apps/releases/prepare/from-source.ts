@@ -6,7 +6,6 @@
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import {
-  chmod,
   mkdir,
   readdir,
   readFile,
@@ -14,7 +13,14 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
-import { err, type Result } from "../../../../base/mod.ts";
+import process from "node:process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  err,
+  nodeTreeDeps,
+  type Result,
+  signalTree,
+} from "../../../../base/mod.ts";
 import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
 import {
   type NodeCommand,
@@ -27,6 +33,7 @@ import {
   type PackageManifest,
 } from "../bundle/dependencies.ts";
 import { readModules, readSdkCopies } from "../bundle/modules.ts";
+import { makeTreeWritable } from "../bundle/seal.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
 import { childEnvironment } from "./environment.ts";
@@ -74,7 +81,7 @@ function childHead(code: string, stderr: string, staging: string): string {
   const esc = String.fromCharCode(27);
   const text = stderr
     .replace(new RegExp(`${esc}\\[[0-9;]*m`, "g"), "")
-    .replaceAll(`file://${staging}/`, "")
+    .replaceAll(`${pathToFileURL(staging).href}/`, "")
     .replaceAll(`${staging}/`, "")
     .split("\n")
     .slice(0, 5)
@@ -101,6 +108,9 @@ async function runChild(
     // 자식은 필요한 환경만 받는다. nodeCommand의 env(Electron을 Node로 띄우는 값)를 더한다.
     env: { ...options.env, ...launch.env },
     stdio: ["ignore", "pipe", "pipe"],
+    // POSIX는 자식이 group leader여야 signalTree가 npm이 띄운 손자까지 끈다. Windows의 detached는 새 console을 연다.
+    detached: process.platform !== "win32",
+    windowsHide: true,
   });
   const outChunks: Buffer[] = [];
   const errChunks: Buffer[] = [];
@@ -109,11 +119,15 @@ async function runChild(
   let stopped: "aborted" | "timeout" | undefined;
   const kill = (why: "aborted" | "timeout") => () => {
     stopped ??= why;
-    try {
-      child.kill("SIGKILL");
-    } catch {
-      /* 이미 끝났다 */
-    }
+    // 트리를 끄지 못하면 자식 하나라도 끈다. 이미 없으면(absent) 할 일이 없다.
+    void signalTree(
+      child.pid ?? 0,
+      "SIGKILL",
+      process.platform,
+      nodeTreeDeps(spawn),
+    ).then((result) => {
+      if (result === "failed") child.kill("SIGKILL");
+    });
   };
   const timer = setTimeout(kill("timeout"), options.limitMs);
   const onAbort = kill("aborted");
@@ -136,11 +150,12 @@ async function runChild(
   }
 }
 
-const EVAL_DECLARATION = new URL(
-  "../ui-build/eval-declaration.ts",
-  import.meta.url,
-).pathname;
-const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url).pathname;
+const EVAL_DECLARATION = fileURLToPath(
+  new URL("../ui-build/eval-declaration.ts", import.meta.url),
+);
+const APP_BUILD = fileURLToPath(
+  new URL("../ui-build/app-build.ts", import.meta.url),
+);
 const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
 
 // 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. 진입 JS는 화면, 나머지는 자원이다.
@@ -167,16 +182,6 @@ async function readBuiltScreens(staging: string): Promise<{
   const byPath = (a: { path: string }, b: { path: string }) =>
     a.path < b.path ? -1 : 1;
   return { screens: screens.sort(byPath), assets: assets.sort(byPath) };
-}
-
-// 설치 사본은 0444·0555라 staging 사본을 지우거나 npm이 고칠 수 없다. staging 사본만 연다.
-async function makeWritable(directory: string): Promise<void> {
-  await chmod(directory, 0o755);
-  for (const entry of await readdir(directory, { withFileTypes: true })) {
-    const path = `${directory}/${entry.name}`;
-    if (entry.isDirectory()) await makeWritable(path);
-    else if (entry.isFile()) await chmod(path, 0o644);
-  }
 }
 
 export async function prepareFromSource(
@@ -236,7 +241,8 @@ export async function prepareFromSource(
 
     const synced = await syncAppSdk(staging, input.dataRoot);
     if (!synced.ok) return fail("sdk_not_installed");
-    if (synced.value.length > 0) await makeWritable(`${staging}/.lophn/sdk`);
+    if (synced.value.length > 0)
+      await makeTreeWritable(`${staging}/.lophn/sdk`);
     if (aborted()) return fail("cancelled");
 
     // npm이 AI가 쓴 앱의 의존을 받는 유일한 단계다. 앱 code는 실행되지 않는다(install script도 돌리지 않는다:

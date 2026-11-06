@@ -1,5 +1,7 @@
 // 순수 wire 판정 도우미. Zod 없이 contracts schema와 같은 거절을 만든다.
-import { SOCKET_PATH_MAX_BYTES } from "./limits.ts";
+
+import process from "node:process";
+import { ipcPathLimit } from "../../../../base/mod.ts";
 
 const ULID = /^[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 export const SHA = /^[0-9a-f]{64}$/;
@@ -88,9 +90,12 @@ export function appToolKey(value: unknown): string | undefined {
   return value;
 }
 
-export function endpoint(value: unknown): string | undefined {
+export function endpoint(
+  value: unknown,
+  platform: string = process.platform,
+): string | undefined {
   if (typeof value !== "string" || value.length === 0) return;
-  if (new TextEncoder().encode(value).byteLength >= SOCKET_PATH_MAX_BYTES) {
+  if (new TextEncoder().encode(value).byteLength > ipcPathLimit(platform)) {
     return;
   }
   return value;

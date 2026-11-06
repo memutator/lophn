@@ -7,14 +7,17 @@ export type Member = {
   exports?: string | Record<string, string>;
 };
 
+// check가 다루는 path는 OS와 상관없이 `/` 꼴이다. Windows의 `C:\x`는 `C:/x`가 된다.
 export function normalize(path: string): string {
+  const slashed = path.replaceAll("\\", "/");
+  const prefix = /^(?:[A-Za-z]:)?\//.exec(slashed)?.[0] ?? "";
   const parts: string[] = [];
-  for (const part of path.split("/")) {
+  for (const part of slashed.slice(prefix.length).split("/")) {
     if (!part || part === ".") continue;
     if (part === "..") parts.pop();
     else parts.push(part);
   }
-  return (path.startsWith("/") ? "/" : "") + parts.join("/");
+  return prefix + parts.join("/");
 }
 
 export function directory(path: string): string {

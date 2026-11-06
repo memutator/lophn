@@ -101,6 +101,10 @@ export function createAppAgent(deps: AppAgentDeps) {
     },
 
     async send(view: BoundView, value: unknown): Promise<CallOutcome<unknown>> {
+      // 앱 code(AI가 만든 code일 수 있다)가 사람의 승인 없이 shell을 돌리지 못하게 한다. `!`는 사람의 composer만 쓴다.
+      if (record(value)?.type === "run_shell") {
+        return fail("forbidden", "an app cannot run shell commands");
+      }
       const refused = await check(view, record(value)?.session);
       if (refused !== undefined) return refused;
       // 크기 상한과 입력 검사는 AcpSend의 것을 따른다.

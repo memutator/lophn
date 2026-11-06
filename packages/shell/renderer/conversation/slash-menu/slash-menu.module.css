@@ -10,7 +10,8 @@
   font-family: var(--font-sans);
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .notice {
@@ -25,6 +26,7 @@
   align-items: center;
   gap: var(--space-4);
   height: var(--menu-row);
+  min-width: 0;
   padding: var(--space-0) var(--space-4);
   border-radius: var(--radius-xs);
   cursor: pointer;
@@ -58,9 +60,13 @@
 }
 
 .label {
-  flex: none;
-  min-width: calc(var(--menu-row) * 4);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
   font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dim,

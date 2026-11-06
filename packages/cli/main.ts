@@ -4,11 +4,13 @@
 // `hook`과 그 밖의 `harness *`는 core를 부르지 않는다.
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import process from "node:process";
-// 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package-linux.ts).
+// 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package/main.ts).
 import productPackage from "../../package.json" with { type: "json" };
 import {
   err,
+  homeOf,
   type LophnError,
   ok,
   type Result,
@@ -77,7 +79,7 @@ function dataRootOf(
 ): string | undefined {
   const set = env.get("LOPHN_HOME");
   if (set !== undefined && set !== "") return set;
-  return home === "" ? undefined : `${home}/.lophn`;
+  return home === "" ? undefined : join(home, ".lophn");
 }
 
 export async function cliMain(
@@ -86,7 +88,18 @@ export async function cliMain(
 ): Promise<number> {
   const env = options.env ?? ambientEnv();
   const readText = options.readText ?? readTextOrUndefined;
-  const home = options.home ?? env.get("HOME") ?? "";
+  const home =
+    options.home ??
+    homeOf(
+      {
+        HOME: env.get("HOME"),
+        USERPROFILE: env.get("USERPROFILE"),
+        HOMEDRIVE: env.get("HOMEDRIVE"),
+        HOMEPATH: env.get("HOMEPATH"),
+      },
+      process.platform,
+    ) ??
+    "";
   const json = argv.includes("--json");
   const output = createOutput({
     json,

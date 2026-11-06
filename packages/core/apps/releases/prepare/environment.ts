@@ -2,10 +2,12 @@
 // (credential·사람의 설정)은 넘기지 않는다. npm이 cache·실행 file·임시 file을 찾는 HOME·PATH·TMPDIR과
 // npm 설정(`npm_config_*`, 예: e2e가 정하는 cache 위치와 offline)만 준다.
 import process from "node:process";
+import { windowsEnvironment } from "../../../supervision/security/child-env.ts";
 
 export function childEnvironment(tmp: string): Record<string, string> {
   const env: Record<string, string> = {
     ...npmConfigEnvironment(),
+    ...windowsEnvironment(),
     TMPDIR: tmp,
   };
   for (const name of ["HOME", "PATH"]) {

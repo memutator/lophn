@@ -4,6 +4,7 @@ import {
   writeFile as writeFileNode,
 } from "node:fs/promises";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CapabilityError } from "./errors.ts";
 
 export type FsEvent = { kind: string; paths: string[] };
@@ -53,7 +54,7 @@ async function guarded<T>(work: () => Promise<T>): Promise<T> {
 }
 
 function absolute(path: string | URL): string {
-  return resolve(path instanceof URL ? path.pathname : path);
+  return resolve(path instanceof URL ? fileURLToPath(path) : path);
 }
 
 export function readFile(path: string | URL): Promise<Uint8Array> {

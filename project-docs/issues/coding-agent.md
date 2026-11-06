@@ -33,7 +33,7 @@ kind: bug
 modules: [packages/core/main, packages/core/lophn-agent]
 ```
 
-- 지금: harness session의 입력은 `packages/core/main/daemon/wiring/harness.ts`의 따로 둔 입력함에 쌓인다. 대기 메시지를 "지금 steer"로 올리는 `steerNow`(`packages/core/main/daemon/wiring/lophn-agent-runtime.ts`)는 run-loop 입력함만 보므로 harness session에서는 늘 `conflict`("the turn already took this message")다. 도는 turn 중에 보낸 메시지는 다음 turn의 입력이 된다. fork한 harness session(`packages/core/lophn-agent/workspaces/lifecycle.ts` `startSession`)은 외부 session id(`sessions.harness_session`)를 물려받지 않아 harness 쪽 대화가 새로 시작한다.
+- 지금: harness session의 입력은 `packages/core/main/daemon/wiring/harness.ts`의 따로 둔 queue에 쌓인다. 대기 메시지를 "지금 steer"로 올리는 `steerNow`(`packages/core/main/daemon/wiring/lophn-agent-runtime.ts`)는 run-loop queue만 보므로 harness session에서는 늘 `conflict`("the turn already took this message")다. 도는 turn 중에 보낸 메시지는 다음 turn의 입력이 된다. fork한 harness session(`packages/core/lophn-agent/workspaces/lifecycle.ts` `startSession`)은 외부 session id(`sessions.harness_session`)를 물려받지 않아 harness 쪽 대화가 새로 시작한다.
 - 영향: 사람이 harness session에서 steer를 누르면 틀린 이유로 거절되고, fork하면 harness가 앞 대화를 모른다.
 - 고치려면: steer는 harness session이면 버튼을 숨기거나 `unavailable`("harness는 turn 중에 받지 못한다")로 거절한다(작음, 추천). fork는 headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주고 나머지는 지금처럼 새로 시작한다(중간).
 

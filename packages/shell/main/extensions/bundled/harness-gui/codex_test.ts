@@ -136,6 +136,17 @@ async function boot(
       }
       return undefined;
     },
+    /** 손으로 만든 줄 하나를 server가 낸 것처럼 내보낸다. */
+    async push(line: Wire) {
+      emit(`${JSON.stringify(line)}\n`);
+      await flush();
+    },
+    /** adapter가 마지막으로 보낸 `method` 요청에 답한다. 요청이 없으면 실패다. */
+    async reply(method: string, result: Record<string, unknown>) {
+      const asked = requests().findLast((one) => one.method === method);
+      assert.ok(asked, `no ${method} request`);
+      await t.push({ id: asked.id, result });
+    },
     /** 이 녹화를 이어 붙인다. */
     append(name: string) {
       rec.push(...recording(name));
@@ -417,4 +428,98 @@ test("resume 뒤 다시 그린 사람 메시지의 origin은 처음 보낼 때�
   // 다시 열면 app-server가 돌려주는 clientId가 같은 key다. 어긋나면 사람의 bookmark를 잃는다.
   const again = await boot({ resume: "01a1aa8e-4ef3-7541-8699-96c63c40a8bb" });
   assert.deepEqual(userOrigins(again.t.state), ["msg_a1", "msg_a2"]);
+});
+
+const requested = (written: Wire[], method: string) =>
+  written.filter((one) => one.method === method && one.id !== undefined);
+const userMessages = (state: AcpState) =>
+  state.items.flatMap((item) =>
+    item.kind === "message" && item.actor === "user" ? [item] : [],
+  );
+
+// 녹화 shell(gpt-6-luna): 도는 turn이 없을 때의 `ls`(app-server가 제 turn을 연다)와 도는 turn 중의 `echo hi`(그 turn에 붙는다).
+test("`!`는 thread/shellCommand로만 가고 그 줄은 사람 쪽 tool 하나다(사람 메시지도 turn 꼬리도 없다)", async () => {
+  const { t } = await boot();
+  const thread = t.state.session?.cli_session;
+  await t.input({
+    type: "send",
+    id: "msg_s1",
+    key: "msg_s1",
+    content: [{ type: "text", text: "!ls" }],
+    delivery: "next_turn",
+  });
+  assert.equal(requested(t.written, "turn/start").length, 0);
+  assert.deepEqual(
+    requested(t.written, "thread/shellCommand").map((one) => one.params),
+    [{ threadId: thread, command: "ls" }],
+  );
+  assert.equal(t.state.items.length, 0);
+
+  t.append("shell");
+  await t.play(); // turn이 없을 때의 ls. 다음 turn/start에서 선다.
+  // 제목과 입력은 친 글이다(item의 command는 `/bin/bash -lc ls` 껍데기).
+  assert.deepEqual(
+    t.state.items.map((one) => one.kind),
+    ["tool"],
+  );
+  const [ls] = tools(t.state);
+  assert.equal(ls?.by, "user");
+  assert.equal(ls?.turn, null);
+  assert.equal(ls?.state, "ok");
+  assert.equal(ls?.title, "ls");
+  assert.equal(ls?.body?.input, "ls");
+
+  // 도는 turn 중의 `echo hi`는 run_shell 입력이고 prompt로 가지 않는다. 그 turn에 붙은 사람 쪽 줄 하나다.
+  const start = recording("shell").find(
+    (one) => one.data.method === "turn/start",
+  )?.data.params as { input: { text: string }[] };
+  await t.input({
+    type: "send",
+    id: "msg_a1",
+    key: "msg_a1",
+    content: [{ type: "text", text: start.input[0]?.text ?? "" }],
+    delivery: "next_turn",
+  });
+  await t.play(); // 도는 turn에서 shellCommand를 요청할 차례에서 선다.
+  await t.input({ type: "run_shell", key: "k", command: "echo hi" });
+  await t.play();
+  assert.equal(requested(t.written, "turn/start").length, 1);
+  const [, echo] = tools(t.state);
+  assert.equal(echo?.by, "user");
+  assert.equal(echo?.title, "echo hi");
+  assert.equal(echo?.body?.input, "echo hi");
+  assert.equal(echo?.body?.output, "hi\n");
+  const [user] = userMessages(t.state);
+  assert.equal(echo?.turn, user?.turn);
+  assert.deepEqual(ends(t.state), ["completed"]);
+});
+
+// 녹화 speed의 새 process에서 한 thread/resume 응답과 origin의 turn 목록.
+test("open_session은 thread/resume에 고른 id를 싣고 session_reset 뒤에는 그 thread의 turn만 남는다", async () => {
+  // 앞 thread에 사람 메시지 둘이 이미 그려져 있다(origin). 같은 둘이 새 thread에서 오므로 비우지 않으면 넷이 된다.
+  const { t } = await boot({ resume: "01a1aa8e-4ef3-7541-8699-96c63c40a8bb" });
+  assert.equal(userMessages(t.state).length, 2);
+
+  const chosen = (recording("resume_list")[0] as Entry).data.params
+    ?.threadId as string;
+  await t.input({ type: "open_session", key: "k", cli_session: chosen });
+  t.append("resume_list");
+  t.append("origin");
+  await t.play();
+
+  assert.deepEqual(
+    requested(t.written, "thread/resume")
+      .slice(-1)
+      .map((one) => one.params?.threadId),
+    [chosen],
+  );
+  // 옛 대화는 session_reset으로 비워졌다. 새 thread의 두 사람 메시지만 남는다.
+  assert.deepEqual(
+    userMessages(t.state).map((one) => one.content),
+    [
+      [{ type: "text", text: "Reply with exactly: first" }],
+      [{ type: "text", text: "Reply with exactly: second" }],
+    ],
+  );
+  assert.equal(t.state.session?.cli_session, chosen);
 });

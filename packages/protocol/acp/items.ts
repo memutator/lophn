@@ -148,11 +148,17 @@ export const acpToolBodySchema = z.strictObject({
 });
 export type AcpToolBody = z.infer<typeof acpToolBodySchema>;
 
-/** tool call 하나. `at`은 시작한 때이고 이어진 call을 묶는 것은 화면의 일이다. */
+/**
+ * tool call 하나. `at`은 시작한 때이고 이어진 call을 묶는 것은 화면의 일이다.
+ * `by: "user"`는 사람이 돌린 명령(composer의 `!`, omp `bash`)이다: `tool: "shell"`, `category: "command"`, `title`은
+ * 명령 첫 줄, `detail: {kind: "generic"}`, `body.input`은 명령 전체, `body.output`은 출력이다. 화면은 사람 쪽에 펼쳐 그린다.
+ */
 export const acpToolItemSchema = z.strictObject({
   ...itemBase,
   kind: z.literal("tool"),
-  turn: id,
+  by: z.enum(["agent", "user"]),
+  /** null은 `by: "user"`이고 turn 밖에서 돈 명령일 때만이다. */
+  turn: id.nullable(),
   /** 정본 이름(`file.read`, `shell.run`). */
   tool: z.string().min(1),
   category: z.enum(TOOL_CALL_CATEGORIES),

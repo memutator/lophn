@@ -83,8 +83,18 @@ export interface SessionSwitcherProps {
   now: Date;
   /** 줄을 눌렀다. popover는 닫힌다. archive한 줄이면 기록만 읽는 탭이 열린다. */
   onSwitch: (session: string) => void;
-  /** [+ New session]. popover는 닫힌다. */
-  onNew: () => void;
+  /** [+ New session]. popover는 닫힌다. null이면 새로 항목이 없다(새 session을 열 길이 없는 harness). */
+  onNew: (() => void) | null;
+  /**
+   * 이름 바꾸기·archive·delete·메시지 찾기까지 보이는가. lophn session은 true이고, 목록·바꾸기·새로뿐인 harness는
+   * false다(그 칸의 handler와 `searchMessages`는 부르지 않는다). 안 주면 true다.
+   */
+  manage?: boolean;
+  /** 열림을 바깥이 쥔다(`/resume`이 연다). 안 주면 스스로 든다. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** session을 바꾸는 중이다. trigger에 표시가 서고 목록은 닫힌다. */
+  busy?: boolean;
   /** 비지 않은 제목만 부른다. */
   onRename: (session: string, title: string) => void;
   onArchive: (session: string) => void;
@@ -131,7 +141,12 @@ function moveBetweenRows(event: KeyboardEvent<HTMLElement>): void {
 
 export function SessionSwitcher(props: SessionSwitcherProps): ReactElement {
   const { agent, current } = props;
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = props.open ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next);
+    props.onOpenChange?.(next);
+  };
   // 열린 popover가 Escape·바깥 누름을 먼저 받아 안쪽 편집만 접게 한다.
   const dismiss = useRef<(() => boolean) | null>(null);
   return (
@@ -152,9 +167,11 @@ export function SessionSwitcher(props: SessionSwitcherProps): ReactElement {
         >
           <AgentFace agent={agent} />
           <span className={styles.title}>
-            {current === null
-              ? t("conversation.label.session-untitled")
-              : titleOf(current)}
+            {props.busy === true
+              ? t("conversation.label.session-opening")
+              : current === null
+                ? t("conversation.label.session-untitled")
+                : titleOf(current)}
           </span>
           <Icon icon={commonIcons.collapse} pixels={iconPixels("small")} />
         </button>
@@ -167,10 +184,14 @@ export function SessionSwitcher(props: SessionSwitcherProps): ReactElement {
           props.onSwitch(id);
           setOpen(false);
         }}
-        onNew={() => {
-          props.onNew();
-          setOpen(false);
-        }}
+        onNew={
+          props.onNew === null
+            ? null
+            : () => {
+                props.onNew?.();
+                setOpen(false);
+              }
+        }
       />
     </Popover>
   );
@@ -179,14 +200,17 @@ export function SessionSwitcher(props: SessionSwitcherProps): ReactElement {
 /** header 왼쪽의 "[avatar] 이름 ·". */
 export function AgentFace({
   agent,
+  sep = true,
 }: {
   agent: SessionSwitcherProps["agent"];
+  /** 이름 뒤 "·". 뒤에 "›"가 이어지면 끈다. */
+  sep?: boolean;
 }): ReactElement {
   return (
     <>
       <Avatar profile={agent.profile} size="md" />
       <span className={styles.name}>{agent.name}</span>
-      <span className={styles.sep}>·</span>
+      {sep ? <span className={styles.sep}>·</span> : null}
     </>
   );
 }
@@ -198,6 +222,7 @@ function Switcher(
   },
 ): ReactElement {
   const { agent, current, now, dismiss } = props;
+  const manage = props.manage !== false;
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -209,7 +234,7 @@ function Switcher(
   // 제목은 바로 거르고, 메시지 글은 core가 최근 것부터 blob을 읽으므로 조금 기다렸다 한 번 찾는다.
   useEffect(() => {
     const needle = query.trim();
-    if (needle.length < 2) {
+    if (!manage || needle.length < 2) {
       setMatches([]);
       return;
     }
@@ -377,36 +402,38 @@ function Switcher(
         <span className={styles.when} data-session-when>
           {sinceLabel(entry.activeAt, now)}
         </span>
-        <span className={styles.actions}>
-          <IconButton
-            icon={editorIcons.edit}
-            label={t("conversation.button.rename")}
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              startRename(entry);
-            }}
-          />
-          <IconButton
-            icon={commonIcons.archive}
-            label={t("conversation.button.archive")}
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              props.onArchive(entry.id);
-            }}
-          />
-          <IconButton
-            icon={homeIcons.remove}
-            label={t("conversation.button.delete")}
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              setEditing(null);
-              setDeleting(entry.id);
-            }}
-          />
-        </span>
+        {manage ? (
+          <span className={styles.actions}>
+            <IconButton
+              icon={editorIcons.edit}
+              label={t("conversation.button.rename")}
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                startRename(entry);
+              }}
+            />
+            <IconButton
+              icon={commonIcons.archive}
+              label={t("conversation.button.archive")}
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                props.onArchive(entry.id);
+              }}
+            />
+            <IconButton
+              icon={homeIcons.remove}
+              label={t("conversation.button.delete")}
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                setEditing(null);
+                setDeleting(entry.id);
+              }}
+            />
+          </span>
+        ) : null}
       </div>
     );
   };
@@ -523,9 +550,11 @@ function Switcher(
             ))}
           </ul>
         )}
-        <Button size="sm" icon={actionIcons.create} onClick={props.onNew}>
-          {t("conversation.button.session-new")}
-        </Button>
+        {props.onNew === null ? null : (
+          <Button size="sm" icon={actionIcons.create} onClick={props.onNew}>
+            {t("conversation.button.session-new")}
+          </Button>
+        )}
       </div>
     </div>
   );

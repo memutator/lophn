@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import { app, type IpcMainInvokeEvent } from "electron";
 import { z } from "zod";
 
+import { nodeTreeDeps, signalTree } from "../../../../base/os/mod.ts";
 import {
   createIdSource,
   cryptoRandom,
@@ -44,7 +45,9 @@ import {
   HARNESS_GUI_TAB_DISCONNECT_CHANNEL,
   HARNESS_GUI_TAB_IMAGE_CHANNEL,
   HARNESS_GUI_TAB_INPUT_CHANNEL,
+  HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
   HARNESS_GUI_TAB_RUNNING_CHANNEL,
+  HARNESS_GUI_TAB_SESSIONS_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
 } from "../../../ipc/harness-gui.ts";
 import { cliEnv, type TabGui, type TabHandle } from "../../terminal/gui.ts";
@@ -92,8 +95,12 @@ const nodeSpawn =
       write: (text) => void child.stdin.write(text),
       end: () => void child.stdin.end(),
       kill() {
-        if (process.platform === "win32" || child.pid === undefined) {
+        if (child.pid === undefined) {
           child.kill("SIGTERM");
+          return;
+        }
+        if (process.platform === "win32") {
+          void signalTree(child.pid, "SIGTERM", "win32", nodeTreeDeps(spawn));
           return;
         }
         try {
@@ -183,6 +190,10 @@ const tabInputSchema = z.strictObject({
   handle: z.string().min(1).max(100),
   input: acpInputSchema,
 });
+const tabRewindPreviewSchema = z.strictObject({
+  handle: z.string().min(1).max(100),
+  message: z.string().min(1).max(100),
+});
 const tabToggleSchema = z.strictObject({
   terminal_ref: z.string().min(1).max(80),
   to: z.enum(["gui", "tui"]),
@@ -246,6 +257,14 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
     z.strictObject({ terminal_ref: z.string().min(1).max(80) }),
     (_event, input) => gui.running(input.terminal_ref),
   );
+  handle(HARNESS_GUI_TAB_SESSIONS_CHANNEL, handleOnly, (_event, input) =>
+    gui.sessions(input.handle),
+  );
+  handle(
+    HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
+    tabRewindPreviewSchema,
+    (_event, input) => gui.rewindPreview(input.handle, input.message),
+  );
   handle(HARNESS_GUI_TAB_TOGGLE_CHANNEL, tabToggleSchema, (_event, input) =>
     gui.toggle(input),
   );
@@ -264,7 +283,7 @@ export function register(
   coding: Pick<Coding, "gui" | "bindTabGui">,
 ): Registered {
   const repoRoot = join(ctx.here, "..", "..", "..", "..");
-  // packaged는 설치 root의 extensions/다. 아직 packaging이 채우지 않아 비어 있을 수 있다.
+  // packaged는 설치 root의 extensions/다(tools/package/main.ts가 채운다).
   const bundled = app.isPackaged
     ? join(packagedInstall(process.resourcesPath).root, "extensions")
     : join(ctx.here, "..", "extensions", "bundled");

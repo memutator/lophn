@@ -108,7 +108,7 @@ elements:
 
           - id: harness-host-core
             kind: component
-            description: runtime이 harness(claude-code, codex, opencode)인 agent의 session을 core가 받는 쪽. 입력함, turn·메시지 기록, harness의 session id. 실행은 shell의 host가 한다.
+            description: runtime이 harness(claude-code, codex, opencode)인 agent의 session을 core가 받는 쪽. queue, turn·메시지 기록, harness의 session id. 실행은 shell의 host가 한다.
 
       - id: events
         kind: component

@@ -286,3 +286,79 @@
   font-family: var(--font-mono);
   font-weight: var(--font-weight-medium);
 }
+
+/* 사람이 읽는 출력이라 가로 scroll 대신 줄을 바꾼다. CodeBlock에 wrap prop을 새로 만들지 않는다. */
+.wrapCode {
+  min-width: var(--space-0);
+}
+
+.wrapCode figure {
+  margin: var(--space-0);
+}
+
+.wrapCode pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 사람이 돌린 shell. 사람 bubble과 같은 폭 규칙으로 오른쪽에 서고 출력은 펼쳐 둔다. */
+.shellRun {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: flex-end;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  max-width: 82%;
+}
+
+.shellLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.shellBox {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  max-width: 100%;
+  padding: var(--space-3) var(--space-5);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.shellBox > * {
+  max-width: 100%;
+}
+
+.shellHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+}
+
+.shellCommand {
+  min-width: var(--space-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.shellExit {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}

@@ -1,7 +1,7 @@
 // AgentTabSource를 harness-gui의 ACP session 하나(터미널 탭의 handle)로 만든다. 대화는 받은 갱신을 접은 feed에서 읽고(snapshot
 // 없음), 대화 조작은 IPC로 extension의 handle에 보낸다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
 // 화면이 읽는다. 새 ACP 입력(model·mode·명령·rewind·fork·compact·이름)은 `act`로 handle에 간다. lophn session의 것(권한 요약,
-// call, session 목록)은 없어서 unavailable로 답한다.
+// call)은 없어서 unavailable로 답한다. session 목록은 그 CLI의 지난 session이고 id가 CLI session id다.
 import type {
   AcpEntry,
   AcpInput,
@@ -12,7 +12,12 @@ import type {
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
 import { harnessVendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
-import type { HarnessGuiInfo } from "../../ipc/harness-gui.ts";
+import type {
+  HarnessGuiInfo,
+  HarnessGuiRewindPreview,
+  HarnessGuiSessionEntry,
+} from "../../ipc/harness-gui.ts";
+import { rewindPointsOf } from "./agent-view-model.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 
 interface GuiSourceDeps {
@@ -21,6 +26,12 @@ interface GuiSourceDeps {
   readonly feed: { readonly session: string; state(): AcpState };
   /** 조작을 handle에 준다. 받았으면 true다. */
   readonly input: (input: AcpInput) => Promise<boolean>;
+  /** 그 CLI가 이 폴더에서 가진 지난 session. 못 읽으면 빈 배열이다. */
+  readonly sessions: () => Promise<readonly HarnessGuiSessionEntry[]>;
+  /** 그 사람 메시지로 rewind하면 되돌아갈 file. adapter가 못 주면 null이다. */
+  readonly rewindPreview: (
+    message: string,
+  ) => Promise<HarnessGuiRewindPreview | null>;
   /** 이미지를 탭의 임시 폴더에 쓰고 절대 경로를 받는다. 없으면 이미지를 붙일 수 없다. */
   readonly writeImage?: (image: Blob) => Promise<string | null>;
 }
@@ -80,8 +91,17 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
 
   return {
     agent: () => Promise.resolve({ ok: true, value: face }),
-    // 화면이 목록을 읽어 보므로 비어 있을 뿐 오류가 아니다.
-    sessions: () => Promise.resolve({ ok: true, value: [] }),
+    // 머리 session menu의 목록. 바꾸기는 `open_session`이고 id는 CLI session id라 lophn session id(`ses_…`)와 다르다.
+    sessions: async () => ({
+      ok: true,
+      value: (await deps.sessions()).map((one) => ({
+        id: one.id,
+        title: one.title,
+        status: "idle" as const,
+        activeAt: one.updated_at ?? new Date(0).toISOString(),
+        archived: false,
+      })),
+    }),
     acp: (id) =>
       Promise.resolve(
         id === session
@@ -161,6 +181,25 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
       };
     },
 
+    // 시점은 feed에서 읽고, 되돌아갈 file은 adapter에게 묻는다. harness에는 앱 write가 없다.
+    rewindPoints: () =>
+      Promise.resolve({ ok: true, value: rewindPointsOf(feed.state()) }),
+    rewindPreview: async (_session, message) => {
+      const preview = await deps.rewindPreview(message);
+      return preview === null
+        ? UNAVAILABLE
+        : {
+            ok: true,
+            value: {
+              files: preview.files.map((file) => ({
+                path: file.path,
+                skipped: null,
+              })),
+              apps: [],
+            },
+          };
+    },
+
     // 이 아래는 lophn session의 것이라 이 화면에 없다.
     searchMessages: none,
     envelope: none,
@@ -171,7 +210,5 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     stopSession: none,
     archiveSession: none,
     deleteSession: none,
-    rewindPoints: none,
-    rewindPreview: none,
   };
 }

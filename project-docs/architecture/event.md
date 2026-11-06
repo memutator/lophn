@@ -22,9 +22,9 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 ```
 
 - 기록 event: command가 `tx.emit`으로 상태 변경과 같은 tx에 `events` 표에 남긴다(앱 상태 `AppStarted` 등, tool call 이력, rewind). 읽는 곳은 `events/list`, 관측 읽기, compare 기준(표의 마지막 seq)이다. Bus에 싣지 않고 반응하는 곳이 없다.
-- agent event: session에서 일어나는 turn, tool call, 물음(turn 안 request `TurnRequestOpened`·`TurnRequestClosed`, 질문), 쓰는 중인 model 글의 조각(`ModelOutputStreamed`), 저장된 agent message(`MessageRecorded`), 사람 기다림 뒤 다시 도는 순간(`TurnResumed`), 다음 turn 줄의 사람 메시지를 steer로 올리거나 뺀 일(`MessageSteered`·`MessageRemoved`; 입력함이 메모리라 화면이 아는 길이 이 event와 ACP snapshot의 `queued`뿐이다). 메모리뿐이고 seq가 없다. 화면은 agent event를 직접 접지 않고 core가 ACP 갱신으로 바꾼 것(`AcpUpdated`)을 접는다. 글이 흐르는 길과 시간은 `architecture/agent-chat.md`다.
+- agent event: session에서 일어나는 turn, tool call, 물음(turn 안 request `TurnRequestOpened`·`TurnRequestClosed`, 질문), 쓰는 중인 model 글의 조각(`ModelOutputStreamed`), 저장된 agent message(`MessageRecorded`), 사람 기다림 뒤 다시 도는 순간(`TurnResumed`), 다음 turn 줄의 사람 메시지를 steer로 올리거나 뺀 일(`MessageSteered`·`MessageRemoved`; queue가 메모리라 화면이 아는 길이 이 event와 ACP snapshot의 `queued`뿐이다). 메모리뿐이고 seq가 없다. 화면은 agent event를 직접 접지 않고 core가 ACP 갱신으로 바꾼 것(`AcpUpdated`)을 접는다. 글이 흐르는 길과 시간은 `architecture/agent-chat.md`다.
 - 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, 앱이 사람에게 한 알림 `AppNoticePosted`·`AppNoticeClosed`, workflow instance를 다시 읽으라는 신호 `WorkflowInstanceChanged`, job이나 job run이 바뀌었다는 신호 `JobChanged`, ACP 갱신 `AcpUpdated`). 메모리뿐이다. `AcpUpdated`는 core acp wiring이 agent event를 차례로 받아 `acpUpdatesOf`로 바꿔 낸다(`architecture/acp.md`). subject가 null이라 session 조건에 걸리지 않으니 type으로 구독하고 payload의 session으로 고른다.
-- Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림, workflow의 step 메시지가 모두 여기로 들어가 run-loop 입력함으로 간다.
+- Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림, workflow의 step 메시지가 모두 여기로 들어가 run-loop queue로 간다.
 - 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다.
 - session snapshot은 session의 지금 상태와 대기 중인 turn 안 request(`turn_requests`), 질문을 담는다. 대기 목록과 session 목록이 읽는다. 대화 화면이 읽는 상태(쓰는 중인 model 글, 도는 turn의 active, 올린 steer)는 ACP snapshot `AcpSnapshot`이 싣는다(`architecture/acp.md`). 둘 다 화면이 붙거나 다시 붙을 때 읽는다.
 
@@ -47,7 +47,7 @@ events 표
 
 Bus
 - Bus에 내는 것은 반드시 commit 뒤다. command는 writer Worker에서 돌고 Bus는 main thread에 있어서, 낼 것을 모아 두었다가 commit된 결과와 함께 돌려받아 낸다(`after_commit`). 되돌아간 tx의 것은 버린다. 먼저 내면 없던 일을 화면이 본다.
-- core 안에서 command를 내는 곳(annotation 전달, activation 동의 묻기, 새 앱의 source 잇기)도 API server와 같은 접힌 writer(`ctx.writer`)를 쓴다. 날 writer(`runtime.writer`)는 commit 뒤 Bus 내기, call 본문 준비, 입력함 적용을 건너뛰어 event가 Bus에 닿지 않고 turn이 열리지 않는다. 날 writer는 접기의 바닥에만 쓴다.
+- core 안에서 command를 내는 곳(annotation 전달, activation 동의 묻기, 새 앱의 source 잇기)도 API server와 같은 접힌 writer(`ctx.writer`)를 쓴다. 날 writer(`runtime.writer`)는 commit 뒤 Bus 내기, call 본문 준비, queue 적용을 건너뛰어 event가 Bus에 닿지 않고 turn이 열리지 않는다. 날 writer는 접기의 바닥에만 쓴다.
 - reader Worker는 모든 등록의 port를 모든 read에 붙인다. read가 다른 등록의 port를 쓰는 일이 있어서다. 같은 port를 두 등록이 내면 기동 때 멈춘다(조용히 덮이지 않게).
 - Bus는 놓칠 수 있다. 정본은 각 module의 표와 session 기록이고 놓친 화면은 snapshot을 다시 읽는다. 그래서 commit 뒤 Bus로 내는 데 실패해도 command는 실패하지 않는다.
 - Bus는 core 안에 하나뿐이다. agent runtime은 child process라 agent event를 감독 pipe로 보내고 core가 publish한다. 조건 검사와 연결 관리가 한 곳에 있게 하려는 것이다.

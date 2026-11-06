@@ -16,7 +16,7 @@ import type {
 } from "../../protocol/server/mod.ts";
 import { routerEnvironment, routerFor } from "./environment.ts";
 
-// lophn을 켤 때 core가 한 번 부른다. 입력함과 앱 줄이 메모리라 잃어버린 call을 닫고 도는 turn을 닫는다.
+// lophn을 켤 때 core가 한 번 부른다. queue와 앱 줄이 메모리라 잃어버린 call을 닫고 도는 turn을 닫는다.
 // core 안 machine만 쓴다.
 export const callsRecover = defineCommand({
   resource: "calls",

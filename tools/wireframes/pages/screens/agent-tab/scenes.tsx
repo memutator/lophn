@@ -2,7 +2,7 @@
 // source)으로 그린다. 한 화면은 한 상태다: 보내기, 보낸 쪽 chip, call 블록, 질문 카드, 허락 카드, rewind, 권한.
 
 import type { ChatInit } from "../../../mock/agents-data.ts";
-import { click, find, useDrive } from "../../../mock/drive.ts";
+import { click, find, type, useDrive } from "../../../mock/drive.ts";
 import { documentTab } from "../../../mock/phroner-data.ts";
 import { ProjectApp } from "../project-app.tsx";
 import type { TabSpec } from "../project-window.tsx";
@@ -141,3 +141,20 @@ export const ApprovalScopesScene = () => <Scene sub="approval-scopes" />;
 export const CommandsRankedScene = () => (
   <Scene sub="report" chat={{ slash: "/con" }} />
 );
+/** 사람이 `!`로 돌린 shell 줄 둘: 출력을 펼쳐 둔 줄(exit 0)과 exit code가 0이 아닌 줄. 오른쪽 사람 줄 자리에 서고 agent 이름도 Worked for도 없다. */
+export const ShellRunScene = () => <Scene sub="shell" />;
+/** composer에 `!ls -la`를 친 shell mode: 경고색 테두리, mono 글, Shell chip, hint 줄. */
+export function ShellModeScene() {
+  useDrive(async () => {
+    await type("[data-composer-input]", "!ls -la");
+  });
+  return <Scene sub="shell" />;
+}
+/** lophn의 `run_shell`은 명령이 끝나야 답하므로, 보낸 뒤 item이 올 때까지 도는 줄(Running)이 thread 끝에 선다. */
+export function ShellPendingScene() {
+  useDrive(async () => {
+    await type("[data-composer-input]", "!sleep 30");
+    await click("[data-composer-action=send]");
+  });
+  return <Scene sub="shell" />;
+}

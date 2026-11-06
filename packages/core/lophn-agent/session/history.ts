@@ -27,6 +27,7 @@ import {
   loadParts,
   partsText,
   receivedParts,
+  shellParts,
 } from "../run-loop/input-text.ts";
 
 // 새 turn의 prompt가 쓰는 session의 이전 대화다. Compact한
@@ -119,7 +120,7 @@ export async function readSessionConversation(
     turn: string | null;
     received: ReceivedMessage;
   }[] = [];
-  // 이 turn의 입력. 입력함은 사람 메시지를 먼저 꺼내므로 접수 순서와 turn 순서가 다르다.
+  // 이 turn의 입력. queue는 사람 메시지를 먼저 꺼내므로 접수 순서와 turn 순서가 다르다.
   let requestTurn: string | null = null;
   let cursor: string | undefined;
   for (let page = 0; ; page++) {
@@ -173,7 +174,12 @@ export async function readSessionConversation(
     input.request === null
       ? heard
       : heard
-          .filter((entry) => entry.turn !== null && entry.turn !== requestTurn)
+          // `!` 명령의 기록은 이 turn이 가져간 것도 요청 앞에 들어간다.
+          .filter(
+            (entry) =>
+              entry.turn !== null &&
+              (entry.turn !== requestTurn || entry.received.shell),
+          )
           .sort((a, b) =>
             a.turn! === b.turn!
               ? a.seq < b.seq
@@ -201,6 +207,20 @@ export async function readSessionConversation(
         built.push({
           turn: entry.turn,
           message: { seq: entry.seq, role: entry.role, text: "" },
+        });
+        continue;
+      }
+      const shell = entry.received.shell
+        ? body.value.content.parts.find((part) => part.kind === "shell")
+        : undefined;
+      if (shell !== undefined) {
+        built.push({
+          turn: entry.turn,
+          message: {
+            seq: entry.seq,
+            role: "user",
+            text: partsText(shellParts(shell)),
+          },
         });
         continue;
       }

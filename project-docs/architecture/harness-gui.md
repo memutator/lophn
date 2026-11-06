@@ -24,18 +24,20 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 터미널이 끝나거나 다시 시작하면 handle을 닫는다. extension을 끄면 연 handle을 모두 닫는다
 ```
 
+탭의 GUI가 adapter에 묻는 읽기 둘(지난 session 목록, rewind 파일 미리보기)은 IPC `harness-gui:tab-sessions`·`harness-gui:tab-rewind-preview` → main(`gui.ts`가 sender로 탭을 찾는다) → `ExtensionAcp.onTab.sessions`·`rewindPreview` → `index.ts` → `run.sessions?.()`·`run.rewindPreview?.(message)`로 간다. 그 메서드가 없는 adapter는 `[]`·`null`이다.
+
 ## 지키는 것
 
-- **harness는 `claude`, `codex`, `opencode`, `omp` 넷이다.** 목록은 `GUI_HARNESSES` 하나이고 터미널 함수와 adapter 표가 이것을 쓴다. omp adapter는 아직 `unavailable`이다.
-- **handle 하나는 터미널 탭 하나다.** `id`(`win_…`)는 lophn session id가 아니다. 탭의 view(`view`·`gui` 칸)는 저장하지 않는다(앱을 다시 켜면 PTY도 CLI process도 남지 않는다). 창을 다시 load하면 view는 터미널로 돌아간다. 탭을 다른 창으로 옮기면 view와 handle이 따라간다. handle은 창이 닫히거나 `close()`될 때까지 publish된 갱신을 모두 쌓고, 창 쪽이 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(창이 늦게 열려도 같은 상태). `close()`는 창과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
+- **harness는 `claude`, `codex`, `opencode`, `omp` 넷이다.** 목록은 `GUI_HARNESSES` 하나이고 터미널 함수와 adapter 표가 이것을 쓴다.
+- **handle 하나는 터미널 탭 하나다.** `id`(`win_…`)는 lophn session id가 아니다. 탭의 view(`view`·`gui` 칸)는 저장하지 않는다(앱을 다시 켜면 PTY도 CLI process도 남지 않는다). 창을 다시 load하면 view는 터미널로 돌아간다. 탭을 다른 창으로 옮기면 view와 handle이 따라간다. handle은 `close()`될 때까지(toggle, 터미널이 끝나거나 다시 시작함, extension 끄기) publish된 갱신을 모두 쌓고, 탭의 GUI view가 `attach`하면 처음부터 다시 보낸 뒤 이어서 보낸다(view가 늦게 붙어도 같은 상태). `close()`는 탭과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
 - **TUI 끄기와 쳐 넣기는 main이 한다.** main은 PTY에 글을 쳐 넣는다(`typeInto`, 이미 도는 shell이라 첫 출력을 기다리지 않는다). terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만, foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 1초마다 보는 foreground 변화로 안다. Windows는 foreground를 몰라 toggle이 없다.
-- **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 창은 닫지 않고 오류를 끝난 turn으로 보인다. 사람이 닫는다.
+- **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 GUI view는 그대로 두고 오류를 실패한 turn으로 보인다. 사람이 TUI로 넘기거나 탭을 닫는다.
 - **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다.
-- **CLI는 사람의 login shell env로 띄운다.** 데스크톱 메뉴나 autostart로 뜬 앱의 env에는 사람의 shell 설정(nvm의 PATH, rc file의 API key)이 없다. `index.ts`가 처음 열 때 한 번 `${SHELL:-/bin/sh} -ilc`로 env 전체를 `env -0`으로 읽고(tmux·updater guard, 5초), login env < 탭 hook env < adapter가 넘긴 key 순서로 합친다. 상위 session 표지(`packages/shell/terminal-host/env.ts`의 `SESSION_MARKER_NAME`, `CLAUDE_CODE_ENTRYPOINT` 포함)는 지운다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
-- **창은 desktop 창의 한 화면이다.** detached 창과 같이 desktop entry를 `#harness-gui=<id>` hash로 연다. 창 제목은 harness 이름과 cwd 끝 폴더다. main은 창이 보낸 id가 아니라 sender(webContents)로 handle을 찾는다. 창은 snapshot 없이 `EMPTY_ACP_STATE`부터 갱신을 `reduceAcp`로 접는다. `reread`가 서도 다시 읽을 것이 없다. 그래서 adapter가 `seq`를 1부터 빈틈없이 붙인다.
-- **창은 lophn 채팅 화면(`AgentView`)을 그대로 쓰고 lophn 전용 기능을 숨긴다.** source의 `external: true`가 숨기는 칸이다: header의 session 바꾸기·이름·보관·fork·more 메뉴, model 고르기·skip·권한 요약, slash 메뉴(`/…`는 글로 보낸다), 메시지의 Rewind·Fork, 상태 footer와 `/status`, session 목록·검색. source가 답하지 못하는 읽기(model, 권한, call, envelope, tool 본문, 이미지 올리기)는 `unavailable`이나 `not_found`다. 입력창 글은 "Message <harness>…"이고, 승인 카드의 always는 "Allow for this session"이다(adapter가 그 CLI session 안으로 좁힌다).
-- **입력의 `session`은 창이 만든 값이다.** adapter는 보지 않는다. 사람 메시지는 `send` 입력의 `id`로 `message_added`가 된다. turn·tool·승인 id는 adapter가 `ctx.ids`로 만들어 CLI의 id와 짝짓는다.
-- **터미널 함수는 `gui`만 가로챈다.** shell 시작 층의 `claude`·`codex`·`opencode` 함수는 첫 인자가 `gui`면 shell main이 알려 준 CLI 경로(개발은 `LOPHN_CLI`, 설치본은 `lophn`. 터미널 env에서는 `LOPHN_*`가 빠진다)로 그 shell main의 data root를 `LOPHN_HOME`에 넣어 `gui <harness> …`를 부르고, 아니면 인자를 그대로 원래 명령에 넘긴다([terminal-agent.md](terminal-agent.md)).
+- **CLI는 사람의 login shell env로 띄운다.** 데스크톱 메뉴나 autostart로 뜬 앱의 env에는 사람의 shell 설정(nvm의 PATH, rc file의 API key)이 없다. `index.ts`가 처음 열 때 한 번 `${SHELL:-/bin/sh} -ilc`로 env 전체를 읽고(Linux `env -0`, macOS는 BSD `env`라 줄 단위로 읽는다. tmux·updater guard, 5초), login env < 탭 hook env < adapter가 넘긴 key 순서로 합친다. 상위 session 표지(`packages/shell/terminal-host/env.ts`의 `SESSION_MARKER_NAME`, `CLAUDE_CODE_ENTRYPOINT` 포함)는 지운다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
+- **GUI view는 터미널 탭의 한 화면이다.** `terminal-gui.tsx`가 IPC로 handle에 붙어 snapshot 없이 `EMPTY_ACP_STATE`부터 갱신을 `reduceAcp`로 접는다. `reread`가 서도 다시 읽을 것이 없다. 그래서 adapter가 `seq`를 1부터 빈틈없이 붙이고, 같은 탭에서 다른 CLI session으로 바꿀 때(resume)는 `session_reset`으로 접은 상태를 비운 뒤 다시 그린다. main은 sender(webContents)와 handle id로 붙은 view를 안다.
+- **GUI view는 lophn 채팅 화면(`AgentView`)을 그대로 쓰고, 칸은 source의 capability로 가린다.** GUI source(`agent-tab-gui-source.ts`)는 adapter가 낸 `capabilities`·명령 표·model 축·mode를 그대로 내고, 화면은 lophn agent와 같은 검사로 없는 기능의 칸을 숨긴다([agent-chat.md](agent-chat.md)). 머리 session menu의 목록은 그 CLI의 지난 session이다(id는 CLI session id). tool 본문은 item의 `body`, 이미지는 main이 tmp file로 써 `file://` link로 싣는다. source가 답하지 못하는 읽기(call, envelope)는 `unavailable`이나 `not_found`다. 승인 카드의 always는 "Allow for this session"이다(adapter가 그 CLI session 안으로 좁힌다).
+- **입력의 `session`은 GUI view가 만든 값이다.** adapter는 보지 않는다. 사람 메시지는 `send` 입력의 `id`로 `message_added`가 된다. turn·tool·승인 id는 adapter가 `ctx.ids`로 만들어 CLI의 id와 짝짓는다.
+- **터미널 함수는 `gui`만 가로챈다.** shell 시작 층의 `claude`·`codex`·`opencode`·`omp` 함수는 첫 인자가 `gui`면 `lophn hook <harness> lophn-gui`로 그 탭의 hook socket에 요청을 보내고(lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. 터미널 env에서는 `LOPHN_*`가 빠진다), 아니면 인자를 그대로 원래 명령에 넘긴다([terminal-agent.md](terminal-agent.md)).
 
 ## Claude Code adapter
 
@@ -51,8 +53,10 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - spawn env에 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`을 넣는다. SDK(비대화) mode의 CLI는 이 flag가 있어야 TUI처럼 TaskCreate·TaskUpdate·TaskList를 낸다. TaskCreate(id는 결과 글 "Task #N created")·TaskUpdate(성공한 결과만, deleted는 `cancelled`)와 TodoWrite가 `plan_changed`가 되고 그 tool 줄은 숨긴다. resume은 다시 읽은 tool 결과로 목록을 다시 만든다.
 - 명령: SDK 줄은 출처(init의 skills·plugins와 이름 꼴)로 가르고 화면이 대신하는 CLI 줄과 TUI 전용 줄은 뺀다. adapter 줄은 model, effort, permissions(`opens: "mode"`), plan(toggle), rename, rewind, fork, status, usage(별칭 cost, stats), context, goal, clear(별칭 reset, new)다. `/clear`는 열린 query에 보내지 않고(session id가 바뀐다) 같은 탭에 새 query를 연다. 명령 출력(합성 `assistant` + `local_command_run`, user replay `local-command-stdout`, `system/local_command_output`)은 `command_output`, stderr는 warning이다.
 - subagent: 대화마다 lane을 두고 자식 메시지(`parent_tool_use_id`)를 `child_update`로 낸다. Agent 줄이 subagent detail이고 `task_started`·`task_progress`·`task_updated`·`task_notification`이 `tool_detail_changed`로 바꾼다. 끝난 자식은 `getSubagentMessages`로 채운다(최종 글은 stream에 오지 않는다). `stop_child`·`stop_task`는 `stopTask`다. background task(`local_bash`)는 `tasks`이고 subagent(`local_agent`)는 Agent 줄로만 보인다.
-- 사용 한도는 `rate_limit_event`(`unifiedWindows` five_hour·seven_day, utilization 0–1, `resetsAt` 초), `/context` 분해는 `getContextUsage`, 제목은 `getSessionInfo`다. 사람 메시지 `origin`은 SDK uuid이고 resume해도 같다. 빈 session(메시지 없음)은 `claude --resume`이 못 열어 `tuiCommand`가 `--session-id`를 쓴다. fast·thinking toggle은 TUI로 넘기는 flag가 없어 넘어가지 않는다.
+- 사용 한도는 `rate_limit_event`(`unifiedWindows` five_hour·seven_day, utilization 0–1, `resetsAt` 초), `/context` 분해는 `getContextUsage`, 제목은 `getSessionInfo`다. 사람 메시지 `origin`은 SDK uuid이고 resume해도 같다. 빈 session(메시지 없음)은 `claude --resume`이 못 열어 `tuiCommand`가 `--session-id`를 쓴다.
 - 상위 session 표지를 지우면 CLI가 transcript의 entrypoint를 `sdk-cli`로 쓴다. 그래서 `listSessions({includeProgrammatic:false})`에는 GUI session이 없다. resume은 id로 한다.
+- 둘째 판: `!`는 adapter가 탭 env의 `spawn`으로 `/bin/sh -c`를 돌려 `by: "user"` tool item(출력은 끝날 때 한 번에)으로 그리고, 끝나면 `<bash-input>`·`<bash-stdout>`·`<bash-stderr>` 사람 메시지를 `shouldQuery: false`, `client_composed: true`로 넣는다(Claude 데스크톱 앱과 같다. 도는 turn이 있으면 끝난 뒤에. 메시지마다 오는 `num_turns: 0` result는 무시한다). 다시 열면 그 entry를 shell 줄로 그린다. fast·thinking은 model의 `switch` 축(fast는 `supportsFastMode`, thinking은 `supportsThinkingOff`인 model만)이고 `tuiCommand`가 `--settings`로 넘긴다. resume은 `listSessions({dir, limit: 30, includeProgrammatic: true, includeWorktrees: false})`와 `open_session`(retire → `session_reset` → resume으로 다시 열기 → 다시 그리기)이다. rewind 미리보기는 `rewindFiles(uuid, {dryRun: true})`이고, 되돌릴 메시지를 transcript에서 못 찾으면 아무것도 하지 않고 warning이다. todo의 `deleted`는 목록에서 뺀다. fork·rewind 뒤 "Forked from …"·"Rewound to …" 줄과 제목.
+
 
 ## Codex adapter
 
@@ -67,6 +71,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - plan: `plan` toggle(`set_toggle`, `/plan`)이 collaboration mode를 바꾼다. plan mode turn이 `plan` item으로 끝나면 "Implement" 카드(plan subject)를 내고, 고르면 default mode로 바꾸고 "Implement the plan."을 보낸다(실제 `plan` item으로는 아직 확인하지 않았다). goal은 `thread/goal/*`(active goal을 정하면 turn이 스스로 시작한다), 사용 한도는 `account/rateLimits/read`·`updated`(`resetsAt` 초)다. 추가 권한 요청(`item/permissions/requestApproval`)은 승인 카드이고 답은 늘 `scope: "turn"`이다. 사람 메시지 `origin`은 `clientId ?? item.id`이고 resume해도 같다.
 - `exitTui`는 PTY에 Ctrl+C(`\x03`)를 700ms 간격으로 네 번까지 친다(Codex TUI의 Ctrl+C는 한 번에 입력 지우기 → 멈추기 → 끝내기).
 - turn이 없는 thread는 `thread/resume`이 "no rollout found"라 첫 메시지 전에는 TUI로 넘어가지 못한다(`tuiCommand`가 notice를 낸다).
+- 둘째 판(사람이 써 본 것): Speed 축(model의 `serviceTiers`, Standard와 tier마다 값인 `choice`, `thread/settings/update {serviceTier}`, resume해도 남는다). `!`는 `run_shell`이나 `!`로 시작하는 send가 `thread/shellCommand`(도는 turn 중에도)를 보내고, `source: "userShell"`인 `commandExecution`을 `by: "user"` tool item(제목과 `body.input`은 보낸 명령이고 `/bin/bash -lc` wrapper가 아니다)으로 그린다. ACP turn은 첫 item에서 연다(shell만 있는 turn은 사람 메시지·꼬리가 없다). resume은 `thread/list {cwd, sortKey: "updated_at"}`와 `open_session`(`thread/resume` → `switchThread` → `session_reset` → 다시 그리기, 도는 turn이 있으면 거절)이다. fork 뒤 "Forked from …" 줄과 제목.
+
 
 ## omp adapter
 
@@ -80,6 +86,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - subagent: `task` tool은 곧바로 "Spawned agent"로 끝나고 `subagent_lifecycle`(parentToolCallId, `detached`)이 뒤에 온다. 그래서 task 줄은 `child: null`인 subagent detail로 열고 lifecycle·progress가 `tool_detail_changed`로 채운다(turn이 끝난 뒤에 와도 `taskLines`로 찾는다). 자식은 대화마다 같은 `thread()` 상태로 `child_update`를 내고 모두 background task(`tasks_changed`)다. `stop_child`·`steer_child`는 `cancel_subagent`·`steer_subagent`다. background 일이 끝나면 omp가 스스로 turn을 연다.
 - toggle: `exitTui`는 SIGTERM을 보내고 foreground가 끝나야 돌아온다(두 process가 한 session을 쓰면 omp가 새 id의 다른 file로 옮겨 대화가 갈라진다). `stop`은 도는 turn을 abort하고 마지막 `get_state`로 id를 읽고 stdin을 닫는다(lease를 놓는 omp의 정리 길). 5초 뒤에는 SIGTERM이다.
 - lophn의 omp hook은 `session_switch`·`session_branch`도 알려 `/new`·`/resume`·`/branch`·`/fork` 뒤의 새 id를 tracker가 안다.
+- 둘째 판: fast·slow toggle 대신 지금 model의 Speed 축(Standard, Fast, session 범위일 때만 Slow. 오류면 warning 뒤 다시 읽는다. 전역 slow는 쓰지 않는다). `!`는 `bash` RPC로 `by: "user"` tool item이고 turn 밖이면 turn을 열지 않는다(다시 열 때 `bashExecution`도 같다). model turn이 끝난 적 없는 session은 `tuiCommand`가 `--resume` 없이 띄운다. resume 목록은 `get_state.sessionFile` 폴더의 session file 머리(앞 두 줄)에서 읽고 `open_session`은 file이 있는지 본 뒤 `switch_session {sessionPath}`하고, 바뀐 session id가 고른 것과 다르면(없는 경로면 omp가 오류 없이 새 빈 session을 연다) 앞 session으로 돌아가고 warning이다. 명령 출력은 ANSI 없이 머리·목록 줄이 둘 이상이면 markdown이다. fork 뒤 "Forked from …" 줄.
+
 
 ## OpenCode adapter
 
@@ -97,6 +105,8 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - subagent: 자식 session마다 lane(turn, seq, writing)을 두고 자식 갱신을 `child_update`로 낸다. 부모의 subagent 줄과 자식은 `session.tool.progress`의 `metadata.sessionID`로 짝짓고, detail(`child`, `state`, `last`)은 `tool_detail_changed`로 바꾼다. `background: true` 자식은 `tasks`이고 `stop_child`·`stop_task`는 `interrupt(child)`다. 다시 열면 자식 transcript를 읽어 채운다.
 - todo는 `todowrite`의 `input.todos`를 `plan_changed`로 낸다(녹화한 판은 codemode라 실제 `todowrite`를 보지 못했다). 사용 한도는 `usage/limits`(실패하면 빈 목록), tool 줄은 입력·출력 `body`, 사람 메시지 `origin`은 OpenCode message id(`message_taken` 뒤 `origin_set`)다.
 - auto-accept toggle: 켜면 승인 요청에 카드 없이 `once`로 답하고 이미 열린 카드도 답한다. always·session 규칙은 보내지 않는다. 상태는 adapter run에만 있다.
+- 둘째 판: `!`는 `session.shell`이고 `by: "user"` tool item이다(turn을 열지 않고, 다시 열 때도 같다). resume 목록은 `GET /api/session?directory&parentID=null&order=desc&limit=30`(`time.updated`는 epoch ms), `open_session`은 session 상태를 비우고 `session_reset` 뒤 다시 그린다(도는 turn이 있으면 거절). server 명령 template에 `$ARGUMENTS`·`$<n>`이 있으면 `argument_hint`가 `[args]`다(`~/.config/opencode`와 `<cwd>/.opencode`의 `{command,commands}/**/*.md`를 읽는다). fork 뒤 "Forked from …" 줄.
+
 
 ## 왜 이 모양인가
 
@@ -104,6 +114,6 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - **각 CLI의 공식 GUI 경계로 붙는다.** Claude Code는 Agent SDK, Codex는 `codex app-server`, OpenCode는 자기 server API(`opencode serve`), omp는 `omp --mode rpc-ui`다. TUI 화면을 긁지 않는다.
 - **Claude는 stream-json을 직접 말하지 않고 SDK를 쓴다(사람, 2026-11-05).** 승인·멈추기·resume을 Anthropic이 맞춰 둔 것을 쓰고 CLI 판이 바뀌면 SDK 판을 올린다. 비용은 개발 `node_modules`의 SDK와 peer dependency(약 40MB)와 bundle의 1.3MB이고, 쓰지 않는 claude 사본(linux-x64 약 323MB)은 `overrides`로 뺐다.
 - **Codex는 sandbox와 승인 정책을 늘 넘기고 OpenCode는 사람 설정을 그대로 쓴다.** brief가 full access를 금했고 Codex는 thread마다 정책을 받는다. OpenCode의 권한은 사람이 쓴 규칙표라 adapter가 덮어쓰면 사람의 규칙을 바꾸게 된다.
-- **창이 채팅 화면을 다시 짜지 않는다.** source만 바꿔 `AgentView`를 쓰고, 없는 기능은 source의 칸 하나(`external`)로 숨긴다.
-- **handle이 갱신을 쌓는다.** adapter는 창이 뜨기를 기다리지 않고 바로 publish한다. 창 쪽이 snapshot 없이 처음부터 접으면 되어 snapshot route가 필요 없다.
+- **채팅 화면을 다시 짜지 않는다.** source만 바꿔 `AgentView`를 쓴다. 대화 밖 session 기능(model, mode, 명령, rewind, fork, resume, `!`)도 ACP의 입력과 갱신이라, 화면은 lophn agent든 harness든 capability만 보고 칸을 가린다.
+- **handle이 갱신을 쌓는다.** adapter는 GUI view가 붙기를 기다리지 않고 바로 publish한다. view가 snapshot 없이 처음부터 접으면 되어 snapshot route가 필요 없다.
 - **탭 요청은 extension이 건 함수가 받는다.** 꺼진 extension은 code를 load하지 않으므로(extension.md) `onTab` 함수가 없는 것이 곧 "꺼짐"이다. 그때 Settings › System › Extensions를 연다.

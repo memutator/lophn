@@ -67,7 +67,7 @@ export const turnOutcomeOutputSchema = z.discriminatedUnion("kind", [
 
 export type TurnOutcome = z.infer<typeof turnOutcomeSchema>;
 
-// 입력은 메모리 입력함에 있다가 turn이 시작되면서 행이 생긴다. 권한·질문 대기는 turn이 running인 채
+// 입력은 메모리 queue에 있다가 turn이 시작되면서 행이 생긴다. 권한·질문 대기는 turn이 running인 채
 // session snapshot이 가진다.
 // turn의 한도다. 시작할 때 정해 기준에 고정한다. model_attempts가 null이면 model 호출 수 상한이 없다.
 const turnLimitsFields = {
@@ -114,7 +114,7 @@ export const turnStateSchema = z.enum(TURN_STATES);
 //   fork한 session은 skip을 가져가지 않고 정의의 기본값으로 시작한다.
 // - 봉투: `unattended: boolean`이 `AgentCallEnvelope`, `RoutedInput`(메모리), `agent_calls` 행에 있다.
 //   받은 봉투(`receivedEnvelopeSchema`)와 태그 글에는 싣지 않는다. `messages`에는 사람 메시지의 표시만
-//   `unattended` 열로 남는다(켤 때 입력함에 되돌리지 않으려고). 받은 turn의 mode는 메모리의
+//   `unattended` 열로 남는다(켤 때 queue에 되돌리지 않으려고). 받은 turn의 mode는 메모리의
 //   `RoutedInput`에서 정하고 `turns.mode`에 남는다. `SendCall`·`ReplyCall` 입력에는
 //   표시가 없다. core가 그 호출을 한 agent credential의 turn mode로 찍는다.
 //   `SendMessage` 입력에도 `unattended?: true`가 실린다(run만 싣는다).

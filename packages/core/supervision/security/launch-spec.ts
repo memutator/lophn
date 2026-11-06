@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type KindLaunchSpec,
@@ -25,7 +26,7 @@ export function checkLaunchSpec(
   const parsed = kindLaunchSpecSchema.safeParse(input);
   if (!parsed.success) return reject("launch spec is not valid");
   const spec = parsed.data;
-  if (!spec.entry.startsWith("/")) {
+  if (!isAbsolute(spec.entry)) {
     return reject("entry must be an absolute path");
   }
   if (CONTROL.test(spec.entry)) return reject("control character in entry");

@@ -344,6 +344,15 @@ components:
       boundaries: [shell]
       paths: [packages/shell/ipc/keybindings.ts, packages/shell/ipc/shortcuts.ts, packages/shell/renderer/commands/, packages/shell/main/desktop/shortcuts.ts, packages/shell/renderer/desktop/settings/keyboard/]
 
+  - id: architecture-platform
+    kind: doc
+    roles: [planner, lead, worker]
+    description: Linux·macOS·Windows에서 다른 것. OS 규칙의 자리(`packages/base/os/`, platform 인자), process tree 끄기와 IPC(unix socket·named pipe), child env와 node shim, agent shell tool(Windows Git Bash), data root 검사, 봉인 표지, junction, macOS login PATH, Windows에서 꺼진 기능, OS별 설치 묶음, CI workflow로 다른 OS를 확인하는 법.
+    path: project-docs/architecture/platform.md
+    change_reasons:
+      boundaries: [base]
+      paths: [packages/base/os/, packages/core/supervision/, packages/core/install-and-update/data-root.ts, packages/core/apps/releases/bundle/seal.ts, packages/core/apps/runtime/processes/, packages/core/lophn-agent/tools/shell/, packages/shell/main/desktop/paths.ts, packages/shell/main/desktop/core/login-path.ts, packages/shell/terminal-host/child-group.ts, packages/coding-agent/harnesses/detect.ts, tools/package/, tools/ci/]
+
   - id: architecture-observability
     kind: doc
     roles: [planner, lead]
@@ -598,12 +607,12 @@ components:
     change_reasons:
       note: import나 설정 경로의 꼴이 바뀔 때.
 
-  - id: tool-package-linux
+  - id: tool-package
     kind: tool
     roles: [worker]
-    description: Linux .deb 설치 묶음을 만들고(package-linux.ts), 설치된 묶음을 실제로 확인한다(verify-linux-install.ts).
-    path: tools/package-linux.ts
-    run: node tools/package-linux.ts / node tools/verify-linux-install.ts
+    description: OS마다 설치 묶음(Linux .deb, macOS dmg, Windows NSIS, --dir은 풀린 앱까지)을 만들고(tools/package/), Linux 설치본을 실제로 확인한다(verify-linux-install.ts).
+    path: tools/package/main.ts
+    run: node tools/package/main.ts [--target linux|mac|win] [--dir] / node tools/verify-linux-install.ts
     change_reasons:
       boundaries: [shell, core, coding-agent-cli]
 

@@ -1,6 +1,6 @@
 // model을 고르는 picker 하나. composer의 작은 단추(ModelPicker)와 Settings·agent·project의 칸(ModelPickerField)이 같은
-// Popover 목록을 쓴다. 위에서부터 층 한 줄(대화만), 검색칸, 따르기 줄(있을 때), provider 묶음(vendor 아이콘),
-// 고른 model의 option 축, 맨 아래 Manage models 한 줄이다. 화면 코드에는 model 이름도
+// Popover 목록을 쓴다. 위에서부터 Roles(omp만), 층 한 줄(대화만), 검색칸, 따르기 줄(있을 때), provider 묶음(접고 펼친다.
+// vendor 아이콘), 고른 model의 option 축, 맨 아래 Manage models 한 줄이다. 화면 코드에는 model 이름도
 // option 값도 없다. 정렬·거르기·option 축·기본 값 맞춤은 model catalog가 계산해 props로 주고, 이 component는 받은
 // 순서대로 그린다. 보일 model을 켜고 끄는 일과 provider 연결은 Manage models 창이 한다. model을 바꾸면 값은 조용히 맞고 알림은 없다.
 
@@ -8,7 +8,13 @@ import { t } from "@lophn/i18n";
 import { Popover, PopoverRow } from "@lophn/ui/overlay";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import type { ReactElement, ReactNode } from "react";
+import { Switch } from "@lophn/ui/input";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  type ReactNode,
+  useState,
+} from "react";
 import {
   actionIcons,
   commonIcons,
@@ -51,6 +57,7 @@ function ModelRow({
       tabIndex={0}
       aria-selected={current}
       data-model={row.modelName}
+      data-nav=""
       className={styles.row}
       onClick={() => onPick(row)}
       onKeyDown={(event) => {
@@ -82,36 +89,98 @@ export function OptionAxes({
       <p className={styles.note}>{t("conversation.notice.no-model-options")}</p>
     );
   }
-  return selection.axes.map((axis) => (
-    <div key={axis.id} className={styles.axis}>
-      <span className={styles.axisLabel}>{axis.label}</span>
-      <div className={styles.values} role="group" aria-label={axis.label}>
-        {axis.values.map((item) => {
-          const on = selection.optionValues[axis.id] === item.value;
-          return (
-            <Button
-              key={item.value}
-              size="sm"
-              variant={on ? "secondary" : "ghost"}
-              aria-pressed={on}
-              onClick={() => onChange(axis.id, item.value)}
-            >
-              {item.label}
-            </Button>
-          );
-        })}
+  return selection.axes.map((axis) => {
+    if (axis.kind === "switch") {
+      const [off, on] = axis.values;
+      if (off === undefined || on === undefined) return null;
+      return (
+        <div key={axis.id} className={styles.axisSwitch} data-axis={axis.id}>
+          <Switch
+            label={axis.label}
+            size="sm"
+            checked={selection.optionValues[axis.id] === on.value}
+            onCheckedChange={(next) =>
+              onChange(axis.id, next ? on.value : off.value)
+            }
+          />
+        </div>
+      );
+    }
+    return (
+      <div key={axis.id} className={styles.axis}>
+        <span className={styles.axisLabel}>{axis.label}</span>
+        <div className={styles.values} role="group" aria-label={axis.label}>
+          {axis.values.map((item) => {
+            const on = selection.optionValues[axis.id] === item.value;
+            return (
+              <Button
+                key={item.value}
+                size="sm"
+                variant={on ? "secondary" : "ghost"}
+                aria-pressed={on}
+                onClick={() => onChange(axis.id, item.value)}
+              >
+                {item.label}
+              </Button>
+            );
+          })}
+        </div>
       </div>
-    </div>
-  ));
+    );
+  });
 }
 
-/** provider 묶음 머리: vendor 아이콘과 이름. 모르는 이름이면 아이콘이 없다. */
-export function ProviderHeading({ label }: { label: string }) {
+/**
+ * provider 묶음 머리: vendor 아이콘과 이름. 모르는 이름이면 아이콘이 없다. `fold`를 주면 chevron · 이름 · model 수의
+ * 단추라 눌러 접고 편다(Manage models 창의 머리는 `fold`가 없어 글이다).
+ */
+export function ProviderHeading({
+  label,
+  fold,
+}: {
+  label: string;
+  fold?: {
+    readonly open: boolean;
+    readonly count: number;
+    onToggle: () => void;
+  };
+}) {
   const vendor = vendorOf(label);
-  return (
-    <h3 className={`${styles.heading} ${styles.vendor}`}>
+  const name = (
+    <>
       {vendor === undefined ? null : <VendorIcon vendor={vendor} size={14} />}
       {label}
+    </>
+  );
+  if (fold === undefined) {
+    return <h3 className={`${styles.heading} ${styles.vendor}`}>{name}</h3>;
+  }
+  return (
+    <h3 className={styles.heading}>
+      <button
+        type="button"
+        className={`${styles.groupHead} ${styles.vendor}`}
+        aria-expanded={fold.open}
+        data-nav=""
+        data-group-head=""
+        onClick={fold.onToggle}
+        onKeyDown={(event) => {
+          // 머리에서 →는 펴고 ←는 접는다.
+          if (event.key === "ArrowRight" && !fold.open) fold.onToggle();
+          else if (event.key === "ArrowLeft" && fold.open) fold.onToggle();
+          else return;
+          event.preventDefault();
+        }}
+      >
+        <Icon
+          icon={
+            fold.open ? conversationIcons.expand : conversationIcons.collapsed
+          }
+          pixels={iconPixels("small")}
+        />
+        {name}
+        <span className={styles.groupCount}>{fold.count}</span>
+      </button>
     </h3>
   );
 }
@@ -168,6 +237,12 @@ function RolesSection({
   );
 }
 
+/** 사람이 접거나 편 묶음(provider id → 펼침). 없는 묶음은 기본 규칙을 따른다. 저장하지 않는다. */
+interface GroupFolds {
+  readonly state: Readonly<Record<string, boolean>>;
+  toggle: (provider: string, open: boolean) => void;
+}
+
 /** 지금 model이 어느 층에서 왔는지 한 줄로 말한다. 층을 모르면 줄이 없다. */
 function LayerLine({ layer }: { layer: ModelPickerProps["layer"] }) {
   if (layer === null) return null;
@@ -184,30 +259,66 @@ function providerNameOf(props: ModelPickerProps): string | undefined {
     ?.label;
 }
 
+/** 위·아래 화살표로 검색칸, 따르기 줄, 묶음 머리, model 줄(`data-nav`) 사이를 옮긴다. 접힌 묶음의 줄은 그려지지 않는다. */
+function moveBetween(event: KeyboardEvent<HTMLElement>): void {
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+  const target = event.target as HTMLElement;
+  if (!target.hasAttribute("data-nav")) return;
+  const stops = [
+    ...event.currentTarget.querySelectorAll<HTMLElement>("[data-nav]"),
+  ];
+  const next =
+    stops[stops.indexOf(target) + (event.key === "ArrowDown" ? 1 : -1)];
+  if (next === undefined) return;
+  event.preventDefault();
+  next.focus();
+}
+
 /** Popover 안 목록. `inChat`이면 층 줄이 있다(칸 모양 trigger는 층 줄을 칸 아래에 둔다). */
 function PickerBody({
   props,
   inChat,
   onManage,
+  folds,
 }: {
   props: ModelPickerProps;
   inChat: boolean;
   /** Manage models 줄. null이면 줄이 없다(기본 model 대화창 안의 picker). */
   onManage: (() => void) | null;
+  /** 묶음을 접고 편 자국. 목록을 닫아도 trigger가 선 동안 남는다. */
+  folds: GroupFolds;
 }) {
   const { layout, current, follow } = props;
+  const searching = props.query.trim() !== "";
+  // 지금 model의 묶음이 목록에 없으면 첫 묶음을 편다. 묶음이 하나면 늘 펴 있다.
+  const home = layout.providers.some(
+    (group) => group.provider === current.provider,
+  )
+    ? current.provider
+    : layout.providers[0]?.provider;
+  const isOpen = (provider: string) =>
+    searching ||
+    layout.providers.length === 1 ||
+    (folds.state[provider] ?? provider === home);
   const ready = props.axesReady !== false;
   const empty = layout.providers.length === 0 && follow === undefined;
   // 따르는 중이면 따르기 줄에만 표시가 있다.
   const marked = (row: PickerModelRef) =>
     follow?.on !== true && same(row, current);
   return (
-    <div className={styles.picker} data-model-picker="">
+    <div className={styles.picker} data-model-picker="" onKeyDown={moveBetween}>
+      {props.roles === undefined ? null : (
+        <RolesSection
+          roles={props.roles}
+          onPicked={() => props.onOpenChange(false)}
+        />
+      )}
       {inChat ? <LayerLine layer={props.layer} /> : null}
       <label className={styles.search} data-picker-section="search">
         <Icon icon={conversationIcons.search} pixels={iconPixels("base")} />
         <input
           className={styles.searchInput}
+          data-nav=""
           aria-label={t("conversation.label.search-models")}
           placeholder={t("conversation.label.search-models")}
           value={props.query}
@@ -225,6 +336,7 @@ function PickerBody({
             tabIndex={0}
             aria-selected={follow.on}
             data-follow=""
+            data-nav=""
             className={styles.row}
             onClick={follow.onFollow}
             onKeyDown={(event) => {
@@ -258,15 +370,25 @@ function PickerBody({
             data-provider={group.provider}
             role="presentation"
           >
-            <ProviderHeading label={group.label} />
-            {group.models.map((row) => (
-              <ModelRow
-                key={row.modelName}
-                row={row}
-                current={marked(row)}
-                onPick={props.onPick}
-              />
-            ))}
+            <ProviderHeading
+              label={group.label}
+              fold={{
+                open: isOpen(group.provider),
+                count: group.models.length,
+                onToggle: () =>
+                  folds.toggle(group.provider, !isOpen(group.provider)),
+              }}
+            />
+            {isOpen(group.provider)
+              ? group.models.map((row) => (
+                  <ModelRow
+                    key={row.modelName}
+                    row={row}
+                    current={marked(row)}
+                    onPick={props.onPick}
+                  />
+                ))
+              : null}
           </div>
         ))}
       </div>
@@ -275,12 +397,6 @@ function PickerBody({
           <OptionAxes selection={props} onChange={props.onOptionChange} />
         </div>
       ) : null}
-      {props.roles === undefined ? null : (
-        <RolesSection
-          roles={props.roles}
-          onPicked={() => props.onOpenChange(false)}
-        />
-      )}
       {onManage === null ? null : (
         <div className={styles.foot} data-picker-section="foot">
           <PopoverRow onSelect={onManage}>
@@ -307,6 +423,11 @@ function PickerPopover({
   inChat: boolean;
 }) {
   const manage = useManageModels();
+  const [state, setState] = useState<Readonly<Record<string, boolean>>>({});
+  const folds: GroupFolds = {
+    state,
+    toggle: (provider, open) => setState({ ...state, [provider]: open }),
+  };
   return (
     <Popover
       open={props.open}
@@ -316,6 +437,7 @@ function PickerPopover({
       <PickerBody
         props={props}
         inChat={inChat}
+        folds={folds}
         onManage={
           manage === null
             ? null
@@ -329,7 +451,7 @@ function PickerPopover({
   );
 }
 
-/** composer의 작은 단추 trigger. model 이름 하나만 보이고, option 값은 옆의 축 단추가 보인다. */
+/** composer의 작은 단추 trigger. model 이름 뒤에 값이 있는 축의 요약이 붙는다(use-model-picker). */
 export function ModelPicker(props: ModelPickerProps): ReactNode {
   return (
     <PickerPopover

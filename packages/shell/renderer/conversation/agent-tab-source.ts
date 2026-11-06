@@ -374,6 +374,18 @@ interface ThreadInfo extends EntryBase {
   readonly turn: string | null;
 }
 
+/**
+ * 사람이 `!`로 돌린 명령(tool item `by: "user"`). agent 덩어리에 넣지 않고 사람 쪽에 출력을 펼쳐 그린다. `turn`이
+ * 있어도 없어도 "Worked for"가 붙지 않는다. `id`가 본문을 읽을 tool id다.
+ */
+export interface ThreadShell extends EntryBase {
+  readonly kind: "shell";
+  readonly command: string;
+  readonly state: ToolCallState;
+  /** harness가 item에 실은 출력. lophn은 null이라 `toolCallBody(id, "output")`으로 읽는다. */
+  readonly output: string | null;
+}
+
 /** 슬래시 명령이 낸 글. `turn`이 null이면 turn 밖이라 "Worked for"가 붙지 않는다. */
 interface ThreadCommandOutput extends EntryBase {
   readonly kind: "command-output";
@@ -427,6 +439,7 @@ export type ThreadEntry =
   | ThreadTurnEnd
   | ThreadProviderError
   | ThreadInfo
+  | ThreadShell
   | ThreadCommandOutput
   | ThreadHidden;
 

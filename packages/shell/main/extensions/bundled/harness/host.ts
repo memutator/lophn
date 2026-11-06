@@ -1,5 +1,7 @@
-// harness host: 입력함의 입력을 harness의 headless CLI로 실행하고 출력을 session 기록으로 옮긴다.
+// harness host: harness queue의 입력을 harness의 headless CLI로 실행하고 출력을 session 기록으로 옮긴다.
 // core에는 `ctx.core`로만 닿는다. 흐름과 route 순서는 `protocol/lophn-agent/harness-host.ts`.
+import { dirname, isAbsolute } from "node:path";
+import { prependPath } from "../../../../../base/os/mod.ts";
 import type { Result } from "../../../../../base/result.ts";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
 import { AGENT_CREDENTIAL_ENV } from "../../../../../protocol/coding-agent/headless/env.ts";
@@ -40,12 +42,14 @@ type Part =
     };
 
 // harness가 `lophn`을 부를 env다. 자격은 이 turn에만 쓰이고(core가 turn 끝에 만료한다) user token은 넣지 않는다.
-// 개발 실행에는 PATH에 `lophn`이 없고 `LOPHN_CLI`가 launcher 경로(파일 이름이 `lophn`)라서, 그 폴더를 PATH 앞에 둔다.
 function harnessEnv(credential: string): Record<string, string> {
-  const cli = process.env.LOPHN_CLI;
   const env: Record<string, string> = { [AGENT_CREDENTIAL_ENV]: credential };
-  if (cli !== undefined && cli.startsWith("/")) {
-    env.PATH = `${cli.slice(0, cli.lastIndexOf("/"))}:${process.env.PATH ?? ""}`;
+  // 개발 실행은 PATH에 `lophn`이 없다. `LOPHN_CLI`(launcher 경로)는 개발 실행은 사람이, packaged는 shell main이 채운다. extension은
+  // electron·설치 위치를 몰라 env로만 받는다.
+  const cli = process.env.LOPHN_CLI;
+  if (cli !== undefined && isAbsolute(cli)) {
+    const path = prependPath(process.env, dirname(cli), process.platform);
+    if (path !== undefined) env[path.name] = path.value;
   }
   return env;
 }

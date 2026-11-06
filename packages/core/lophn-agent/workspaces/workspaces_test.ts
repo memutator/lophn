@@ -204,6 +204,18 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
       ],
     );
   }
+  // `!` 기록: 원본 turn이 가져간 것(3)과 아직 가져가지 않은 것(4).
+  for (const [seq, turn] of [
+    [3, "trn_x"],
+    [4, null],
+  ] as const) {
+    sql.run(
+      `insert into messages (id, session, from_kind, refs, delivery, shell, turn, body,
+         created_seq, created_at, state_seq)
+       values (?, ?, 'human', '[]', 'next_turn', 1, ?, ?, ?, ?, ?)`,
+      [`msg_${seq}`, source, turn, body, seq, "2026-10-16T00:00:00.000Z", seq],
+    );
+  }
   sql.run(
     `update sessions set compaction_through_seq = 1, compaction_summary_call = 'mcl_x'
      where id = ?`,
@@ -214,11 +226,11 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
   const forked = fork.handle(
     tx,
     user,
-    { id: "ses_fork", source, through_seq: "2" },
+    { id: "ses_fork", source, through_seq: "4" },
     undefined as never,
   );
   assert.ok(forked.ok);
-  assert.deepStrictEqual(forked.value.copied_messages, 2);
+  assert.deepStrictEqual(forked.value.copied_messages, 4);
 
   const copies = sql.all(
     "select from_kind, call, turn from messages where session = ? order by created_seq",
@@ -226,12 +238,13 @@ test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 
   );
   assert.deepStrictEqual(
     copies.map((row) => row["from_kind"]),
-    ["human", "agent"],
+    ["human", "agent", "human", "human"],
   );
-  // 열린 call과 turn은 원래 session에 묶여 있어 새 session의 turn이 가져간 적이 없다.
+  // 열린 call과 turn은 원래 session에 묶여 있어 새 session의 turn이 가져간 적이 없다. 다만 원본 turn이 이미 가져간
+  // `!` 기록은 가져간 채로 복사해, 복사본의 첫 turn이 다시 가져가지 않는다.
   assert.deepStrictEqual(
     copies.map((row) => row["turn"]),
-    [null, null],
+    [null, null, "trn_x", null],
   );
   const forkedRow = sql.get("select * from sessions where id = ?", [
     "ses_fork",

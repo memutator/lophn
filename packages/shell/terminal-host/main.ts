@@ -416,12 +416,17 @@ async function stop(
     return false;
   };
   try {
-    session.handle?.kill("SIGHUP");
+    hangup(session.handle);
   } catch {
     // group 확인이 종료의 근거다.
   }
   const confirmed = (await settle("SIGHUP")) || (await settle("SIGKILL"));
   return settleRuntime(session, confirmed);
+}
+
+// node-pty는 Windows에서 신호 이름을 거절한다.
+function hangup(handle: PtyHandle | null): void {
+  handle?.kill(process.platform === "win32" ? undefined : "SIGHUP");
 }
 
 function settleRuntime(session: Session, confirmed: boolean): TerminalReply {
@@ -449,7 +454,7 @@ function finish(session: Session): TerminalReply {
     return { ok: true, runtime: { ...session.runtime } };
   }
   try {
-    session.handle?.kill("SIGHUP");
+    hangup(session.handle);
   } catch {
     // group 확인이 종료의 근거다.
   }

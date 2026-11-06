@@ -155,6 +155,7 @@
 }
 
 .codeBlock {
+  position: relative;
   margin: var(--space-0) var(--space-0) var(--space-6);
   border-radius: var(--radius-lg);
   background: var(--color-surface-subtle);
@@ -171,6 +172,20 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* 머리 줄이 없는 code block의 복사 단추. 평소 흐리다가 block에 마우스나 focus가 오면 또렷하다. */
+.codeActions[data-floating] {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  opacity: 0.45;
+  transition: opacity var(--motion-duration-short);
+}
+
+.codeBlock:hover .codeActions[data-floating],
+.codeBlock:focus-within .codeActions[data-floating] {
+  opacity: 1;
 }
 
 .language {
@@ -190,6 +205,12 @@
   line-height: var(--type-small-line);
   white-space: pre;
   user-select: text;
+}
+
+/* 복사 단추가 오른쪽 위에 겹치므로 첫 줄이 그 밑으로 들어가지 않게 오른쪽을 비운다. */
+.codeBlock[data-headless] .pre {
+  padding-top: var(--space-5);
+  padding-right: var(--space-10);
 }
 
 /* diff 글자는 중립 primary이고 색 없이도 +/− 기호로 읽는다. */

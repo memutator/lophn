@@ -2,6 +2,11 @@ import { type ChildProcess, spawn } from "node:child_process";
 import process from "node:process";
 import { Readable, Writable } from "node:stream";
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { WINDOWS_ENV_NAMES } from "../../../supervision/security/child-env.ts";
+import {
+  killTree,
+  treeSpawnOptions,
+} from "../../../supervision/security/tree-kill.ts";
 
 // stdio MCP 전송.
 // 절대 executable과 인자를 node:child_process의 spawn으로
@@ -27,9 +32,14 @@ const STDIO_AMBIENT_ENV = ["PATH", "HOME", "TEMP", "LC_ALL"] as const;
 function stdioChildEnv(
   explicit: Record<string, string>,
   ambient: (name: string) => string | undefined,
+  platform: string = process.platform,
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  for (const name of STDIO_AMBIENT_ENV) {
+  const names =
+    platform === "win32"
+      ? [...STDIO_AMBIENT_ENV, ...WINDOWS_ENV_NAMES]
+      : STDIO_AMBIENT_ENV;
+  for (const name of names) {
     const value = ambient(name);
     if (value !== undefined) env[name] = value;
   }
@@ -98,6 +108,7 @@ export function spawnStdioMcp(input: StdioSpawnInput): Result<StdioSpawn> {
         ),
       ),
       stdio: ["pipe", "pipe", "pipe"],
+      ...treeSpawnOptions(),
     });
   } catch {
     return err({
@@ -154,23 +165,13 @@ export function spawnStdioMcp(input: StdioSpawnInput): Result<StdioSpawn> {
           setTimeout(() => resolve(false), STDIO_KILL_GRACE_MS);
         }),
       ]);
-      if (!exitedWithinGrace) {
-        try {
-          child.kill("SIGKILL");
-        } catch {
-          /* 이미 끝났다 */
-        }
-      }
+      if (!exitedWithinGrace) killTree(child);
       await exited.catch(() => undefined);
       await stderr.done;
     },
     async kill() {
       closed = true;
-      try {
-        child.kill("SIGKILL");
-      } catch {
-        /* 이미 끝났다 */
-      }
+      killTree(child);
       await exited.catch(() => undefined);
       await stderr.done;
     },

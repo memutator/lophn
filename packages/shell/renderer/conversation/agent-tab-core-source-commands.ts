@@ -1,4 +1,4 @@
-// 대화의 쓰기: 보내기, 입력함의 메시지, 멈춤, 다시 하기, 질문 답. 모두 core의 `AcpSend` 하나로 보낸다.
+// 대화의 쓰기: 보내기, queue의 메시지, 멈춤, 다시 하기, 질문 답. 모두 core의 `AcpSend` 하나로 보낸다.
 import { acpSend } from "../../../protocol/acp/routes.ts";
 import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
 import { blocksOfContent } from "../../../protocol/lophn-agent/message-content.ts";

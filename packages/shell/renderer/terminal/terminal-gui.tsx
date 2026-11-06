@@ -2,10 +2,11 @@
 // `TerminalDisplays`가 쥐고 있어 어느 쪽을 그리든 둘 다 산다. GUI의 대화는 main이 쥔 handle(extension harness-gui)이고,
 // 이 화면은 handle의 갱신을 접어 `AgentView`로 그린다.
 import { t } from "@lophn/i18n";
-import { Dialog } from "@lophn/ui/overlay";
+import { Dialog, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import {
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -155,6 +156,8 @@ interface ToggleOptions {
    * 멈출 일을 보인다.
    */
   confirm: () => GuiStops | null | Promise<GuiStops | null>;
+  /** 지금은 바꿀 수 없다는 이유. 있으면 단추가 disabled이고 이유가 tooltip으로 보인다. */
+  unavailable?: string | null;
 }
 
 // 단추는 card 머리에 올라가고 머리는 deps가 바뀔 때마다 다시 서서 그 안의 상태가 사라진다. modal과 오류는 이 hook을 쓰는
@@ -163,6 +166,8 @@ export function useGuiToggle(options: ToggleOptions): {
   button: ReactNode;
   overlays: ReactNode;
   busy: boolean;
+  /** 단추를 누른 것과 같다: modal로 확인하고 바꾼다. 머리 ⋯ 메뉴의 항목이 부른다. */
+  start: () => void;
 } {
   const { to, harness } = options;
   // modal이 열려 있으면 멈출 일이다.
@@ -183,28 +188,39 @@ export function useGuiToggle(options: ToggleOptions): {
     setBusy(false);
     if (!reply.ok) setProblem(problemText(reply));
   };
-  const button = useMemo(
-    () => (
+  // run은 ref와 setter만 읽어 어느 render의 것이어도 같다.
+  const startRef = useRef<() => void>(() => {});
+  startRef.current = () =>
+    void Promise.resolve(latest.current.confirm()).then((asked) => {
+      if (asked === null) void run();
+      else setStops(asked);
+    });
+  const start = useCallback(() => startRef.current(), []);
+  const unavailable = options.unavailable ?? null;
+  const button = useMemo(() => {
+    const node = (
       <Button
         size="sm"
         variant="ghost"
         icon={to === "tui" ? workspaceIcons.terminal : conversationIcons.dock}
-        disabled={busy || !ready}
-        onClick={() =>
-          void Promise.resolve(latest.current.confirm()).then((asked) => {
-            if (asked === null) void run();
-            else setStops(asked);
-          })
-        }
+        disabled={busy || !ready || unavailable !== null}
+        onClick={start}
         data-gui-toggle={to}
       >
         {to === "tui"
           ? t("terminal.button.show-terminal")
           : t("terminal.button.show-chat")}
       </Button>
-    ),
-    [to, busy, ready],
-  );
+    );
+    // disabled 단추는 hover를 받지 못해 감싼 요소가 tooltip을 받는다.
+    return unavailable === null ? (
+      node
+    ) : (
+      <Tooltip content={unavailable}>
+        <span style={{ display: "inline-flex" }}>{node}</span>
+      </Tooltip>
+    );
+  }, [to, busy, ready, unavailable, start]);
   const overlays = (
     <>
       <Dialog
@@ -247,7 +263,7 @@ export function useGuiToggle(options: ToggleOptions): {
       )}
     </>
   );
-  return { button, overlays, busy };
+  return { button, overlays, busy, start };
 }
 
 function problemText(
@@ -304,6 +320,8 @@ export function TerminalGui({
             info,
             feed,
             input: (input) => api.input(gui.handle, input),
+            sessions: () => api.sessions(gui.handle),
+            rewindPreview: (message) => api.rewindPreview(gui.handle, message),
             writeImage: async (image) =>
               await api.uploadImage(gui.handle, {
                 name: image instanceof File ? image.name : "image",
@@ -349,6 +367,18 @@ export function TerminalGui({
             }}
             now={now}
             trailing={toggle.button}
+            extraMenu={{
+              items: [
+                {
+                  id: OPEN_TERMINAL_ID,
+                  label: t("terminal.menu.open-terminal"),
+                  leading: <MenuIcon icon={workspaceIcons.terminal} />,
+                },
+              ],
+              onSelect: (id) => {
+                if (id === OPEN_TERMINAL_ID) toggle.start();
+              },
+            }}
           />
         </EventsProvider>
       )}
@@ -356,6 +386,9 @@ export function TerminalGui({
     </>
   );
 }
+
+// 채팅 머리의 ⋯ 메뉴 끝에 "Open in terminal"을 더해 터미널 탭의 "Open as chat"과 같은 자리에 둔다.
+export const OPEN_TERMINAL_ID = "open-terminal";
 
 // ---- 탭에 묶기 ----
 

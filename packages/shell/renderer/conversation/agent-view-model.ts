@@ -219,6 +219,8 @@ export const LOPHN_CAPABILITIES: AcpCapabilities = {
   toggles: false,
   goal: false,
   roles: false,
+  shell: false,
+  resume: false,
 };
 
 export function capabilitiesOf(meta: AcpSessionMeta | null): AcpCapabilities {

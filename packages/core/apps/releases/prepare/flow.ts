@@ -2,7 +2,7 @@
 // extract → 상한 → UI build → 선언 extract → seal → blob prepare.
 // 준비는 지정한 commit의 object에서 읽으므로 도중에 원본이 바뀌어도 결과가 달라지지 않는다.
 // 취소·worker 종료·상한 초과는 부분 bundle을 지우고 확정하지 않는다.
-import { rm, stat } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
 import {
   type BundleManifest,
@@ -13,7 +13,11 @@ import {
   extractDeclaration,
 } from "../../declaration/extract.ts";
 import { buildManifest } from "../bundle/manifest.ts";
-import { bundleCopyPath, writeBundle } from "../bundle/seal.ts";
+import {
+  bundleCopyPath,
+  clearUnsealedCopy,
+  writeBundle,
+} from "../bundle/seal.ts";
 import { buildScreens } from "../ui-build/build.ts";
 import {
   extractCommit,
@@ -236,14 +240,11 @@ export async function prepareRelease(
   );
   const copy = bundleCopyPath(input.dataRoot, input.app, bundleHash);
   if (!copy.ok) return fail(copy.error.message);
-  // 같은 hash의 봉인 사본이 이미 있으면 같은 byte다. 다시 쓰지 않는다. 봉인(0555)이 끝나지 않은 사본은 끊긴
+  // 같은 hash의 봉인 사본이 이미 있으면 같은 byte다. 다시 쓰지 않는다. 봉인 표지가 없는 사본은 끊긴
   // 준비가 남긴 것이거나 core가 아직 봉인하지 않은 것이라 지우고 다시 쓴다. 봉인(연결 만들기)은 core가 한다.
-  const found = await stat(copy.value).then(
-    (info) => info,
-    () => null,
-  );
-  const existing = found !== null && ((found.mode ?? 0) & 0o222) === 0;
-  if (found !== null && !existing) await removePartial(copy.value);
+  const cleared = await clearUnsealedCopy(copy.value);
+  if (!cleared.ok) return fail(cleared.error.message, cleared.error.code);
+  const existing = !cleared.value;
   const sealed = existing
     ? { ok: true as const }
     : await writeBundle({

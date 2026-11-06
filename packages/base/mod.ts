@@ -21,3 +21,16 @@ export { invertAll } from "./changeset-invert.ts";
 export { canonicalize } from "./canonical-json.ts";
 export { fingerprint, sha256Hex } from "./hash.ts";
 export { type Logger, type LogLevel } from "./log.ts";
+export {
+  homeOf,
+  ipcPath,
+  ipcPathLimit,
+  nodeTreeDeps,
+  type OsPlatform,
+  prependPath,
+  signalTree,
+  treeGone,
+  type TreeChild,
+  type TreeDeps,
+  type TreeResult,
+} from "./os/mod.ts";

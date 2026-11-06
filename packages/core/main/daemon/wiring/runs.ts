@@ -68,7 +68,7 @@ const RUNS_CONTEXT: AuthenticatedContext = {
   credential_ref: RUNS_PRINCIPAL,
 };
 
-// run 기록을 만들고 끝내고 입력함에서 메시지를 빼는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+// run 기록을 만들고 끝내고 queue에서 메시지를 빼는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
 const RUNS_SETTLE_PRINCIPAL = "machine:runs-settle";
 const RUNS_SETTLE_CONTEXT: AuthenticatedContext = {
   principal: RUNS_SETTLE_PRINCIPAL,
@@ -93,7 +93,7 @@ export const runsWiring: WiringFactory = () => {
     records: () => [RUNS_CONTEXT, RUNS_SETTLE_CONTEXT],
     build(ctx) {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
-      // 접은 writer를 쓴다. 날 writer는 본문 준비와 입력함 적용을 건너뛰어 turn이 열리지 않는다.
+      // 접은 writer를 쓴다. 날 writer는 본문 준비와 queue 적용을 건너뛰어 turn이 열리지 않는다.
       // ctx.writer는 build가 다 끝난 뒤 채워지므로 부를 때 읽는다.
       const command = async <T>(
         who: AuthenticatedContext,
@@ -217,7 +217,7 @@ export const runsWiring: WiringFactory = () => {
             { session, message },
           );
           if (!removed.ok) return removed;
-          ctx.inbox.remove(session, message);
+          ctx.queue.remove(session, message);
           return ok(undefined);
         },
       };

@@ -15,7 +15,7 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
     │
     └─ person: archive / 지움 ─▶ 한 tx에서 묶어 끝낸다
          · 도는 turn → interrupted        · 받은 열린 call → failed(receiver_ended)
-         · 대기 request·질문 → cancelled   · 입력함 비움
+         · 대기 request·질문 → cancelled   · queue 비움
          · SessionEnded 발행
 
  fork   : 이력만 복사한 새 session (같은 agent, 같은 workspace)
@@ -39,9 +39,9 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
   - 도는 turn은 interrupted(`session_ended`)로 닫고 진행한다. agent runtime child에도 `turn_stop`을 보내 진행 중인 model 요청을 끊는다. 끝나는 session이 받은 call은 receiver_ended로 닫혀 보낸 쪽이 안다.
 - workspace를 보관하면 그 workspace의 session은 open인 채 남지만 새 입력(사람 메시지, call, step, reaction)을 받지 않고, Router에는 closed로 보인다. 다시 꺼내면 이어서 받는다.
   - 보관은 되돌릴 수 있는 일이라 session을 끝내면 안 된다.
-- lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, 입력함(inbox)에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled다. 입력함에 있던 step 메시지는 다시 넣지 않고 workflow가 `lophn_restarted` 줄로 남긴다. session의 skip 표시는 표(`sessions.skip`)에 남는다.
-  - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 입력함에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 workspace의 것은 뺀다. run 입력(`messages.unattended`가 1인 사람 메시지)도 뺀다. 그 run은 켤 때 `lophn_restarted`로 닫히는데, 다시 돌면 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다(`architecture/run.md`).
-- agent runtime child가 죽으면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 입력함 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다.
+- lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 대신 메모리에 있던 것은 사라진다: 돌던 turn은 interrupted, queue에 있던 call은 lophn_restarted로 닫힘, 대기 request와 질문은 cancelled다. queue에 있던 step 메시지는 다시 넣지 않고 workflow가 `lophn_restarted` 줄로 남긴다. session의 skip 표시는 표(`sessions.skip`)에 남는다.
+  - 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 queue에 다시 넣어 turn을 연다. fork 사본, rewind가 숨긴 구간, 보관한 session과 workspace의 것은 뺀다. run 입력(`messages.unattended`가 1인 사람 메시지)도 뺀다. 그 run은 켤 때 `lophn_restarted`로 닫히는데, 다시 돌면 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다(`architecture/run.md`).
+- agent runtime child가 죽으면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 queue 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다.
 - fork는 이력만 복사한다. 같은 agent, 같은 workspace의 새 session이고 고른 지점까지의 확정 메시지를 가져간다. rewind가 숨긴 구간은 복사하지 않는다.
   - 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
   - skip도 가져가지 않는다. 새 session은 agent 정의의 `skip` 기본값으로 시작한다.

@@ -20,6 +20,11 @@ import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
 import * as extensions from "./wiring/extensions.ts";
 import * as layout from "./wiring/layout.ts";
+import { loginPathOf } from "./core/login-path.ts";
+
+// core·terminal-host·extension이 이 env를 물려받으므로 어느 것보다 먼저 둔다.
+const loginPath = loginPathOf(process.platform, process.env);
+if (loginPath) process.env.PATH = loginPath;
 
 const ctx = createShellContext();
 const add = <T extends { stop(): void }>(area: T): T => {

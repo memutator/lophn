@@ -195,6 +195,8 @@ type Context = {
   /** 두 번째 client. 처음 부를 때 연결한다. */
   b(): Client;
   note(text: string): void;
+  /** scenario가 `api.create`로 직접 만든 session도 끝에 지운다. */
+  track(sid: string): void;
   /** adapter의 시작과 같은 호출. session을 만들고 id를 돌려준다. */
   begin(): Promise<string>;
   /** `type` event를 기다린다. 그 전에 turn이 끝나면(model 오류 등) 기다리지 않고 오류로 끝낸다. */
@@ -794,6 +796,59 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    // model을 부르지 않는다. 설치된 판의 session 목록 query 이름·시간 단위·기본 제목을 본다.
+    name: "list",
+    async run(c) {
+      await c.begin();
+      const second = rec(
+        await c.a.api.create({ location: { directory: c.cwd } }),
+      );
+      c.track(str(second.id));
+      const none = () => undefined;
+      c.note("lab shape: directory, parentID=null, order, limit");
+      await c.a.api
+        .listSessions({
+          directory: c.cwd,
+          parentID: "null",
+          order: "desc",
+          limit: 5,
+        })
+        .catch(none);
+      c.note("without limit");
+      await c.a.api
+        .listSessions({ directory: c.cwd, parentID: "null", order: "desc" })
+        .catch(none);
+      c.note("directory only");
+      await c.a.api.listSessions({ directory: c.cwd }).catch(none);
+      c.note("no query");
+      await c.a.api.listSessions().catch(none);
+    },
+  },
+  {
+    // model을 부르지 않는다. `!` shell을 `POST …/shell`로만 보내고 이벤트와 message 모양을 본다.
+    name: "shell_live",
+    async run(c) {
+      const sid = await c.begin();
+      const mark = c.a.mark();
+      await c.a.api.shell(sid, { command: "ls" });
+      const first = await c.a.until(
+        typeIs("session.shell.ended", "permission.asked"),
+        mark,
+        30_000,
+      );
+      if (str(first?.type) === "permission.asked") {
+        c.note("asked: answering once");
+        await c.a.api.permissionReply(sid, str(askedOf(first ?? {}).id), {
+          decision: "once",
+        });
+        await c.a.until(typeIs("session.shell.ended"), mark, 30_000);
+      }
+      await sleep(300);
+      await c.a.api.messages(sid, { limit: 200, order: "asc" });
+      await c.a.api.get(sid);
+    },
+  },
+  {
     name: "resume",
     async run(c) {
       const sid = await c.begin();
@@ -868,6 +923,7 @@ async function runScenario(scenario: Scenario) {
     a,
     b: () => (second ??= open("B")),
     note: (text) => log("note", { text }),
+    track: (sid) => void made.push(sid),
     async begin() {
       await a.api.info();
       const settled = a.mark();

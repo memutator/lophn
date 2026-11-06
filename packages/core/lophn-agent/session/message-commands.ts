@@ -4,10 +4,13 @@ import {
   blocksSummary,
   type ContentBlock,
   contentOfBlocks,
+  contentOfShell,
   MESSAGE_BODY_FIELD,
+  MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_CONTENT_PURPOSE,
   recordMessage,
+  recordShellMessage,
   sendMessage,
   serializeMessageContent,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -28,6 +31,7 @@ import type { Id } from "../../../protocol/base/ids.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { SessionDirectory } from "../../router/ports.ts";
 import type { PermanentBlobReference } from "../../../protocol/storage/mod.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import { createCheckpoint, hiddenRanges, inHiddenRange } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
 import { registerImageRefs } from "./message-images.ts";
@@ -41,7 +45,7 @@ import { titleOnReceive } from "./session-title.ts";
 // 준비 증거는 같은 값에서 정해진다: 정규 직렬화의 hash·크기, 보낸 자격의
 // principal, 본문 purpose. 살아 있는 준비가 없으면 등록이 거절되어 전체가 되돌아간다.
 
-// 사람 메시지를 session의 입력함에 넣는 Router 입구다(`core/router`의 `route`가 이 모양을 만족한다).
+// 사람 메시지를 session의 queue에 넣는 Router 입구다(`core/router`의 `route`가 이 모양을 만족한다).
 // 같은 Tx 안에서 부르고, 실패하면 접수한 메시지도 함께 되돌아간다.
 type MessageRouter = {
   route(
@@ -68,6 +72,8 @@ export type SendMessageDeps = {
   directory: {
     find(tx: Tx, session: Id<"ses">): ReturnType<SessionDirectory["find"]>;
   };
+  // commit 뒤에 Bus로 낸다. `!` 명령 기록(ShellRan)이 쓴다.
+  publish?: (tx: Tx, event: AgentEvent) => void;
 };
 
 type BodyBlob = {
@@ -146,9 +152,11 @@ type HumanMessage = {
   delivery: InputDelivery;
   refs: CallRef[];
   unattended: boolean;
+  // `!` 명령 기록이면 그 본문. content는 비어 있고, queue·checkpoint·제목은 이 기록에 해당하지 않는다.
+  shell?: ReturnType<typeof contentOfShell>;
 };
 
-// 사람 메시지를 session 기록에 쓴다. 입력함에 넣는 것(Router)은 부른 쪽이 한다. `existingBody`가 있으면 본문
+// 사람 메시지를 session 기록에 쓴다. queue에 넣는 것(Router)은 부른 쪽이 한다. `existingBody`가 있으면 본문
 // blob은 이미 저장되고 참조가 등록된 값이다(다른 concern이 사람 한 번의 요청에서 만든 요청; request.ts).
 // 없으면 core가 준비한 blob의 준비 증거로 영구 참조를 등록한다. 같은 메시지를 다시 부르면 `replayed`다.
 function writeHuman(
@@ -159,8 +167,12 @@ function writeHuman(
 ): Result<{ replayed: boolean; state_seq: string }> {
   const user = requireUser(ctx);
   if (!user.ok) return user;
+  const shell = input.shell !== undefined;
   const text = blocksSummary(input.content);
-  const body = bodyBlob(ctx.principal, contentOfBlocks(input.content));
+  const body = bodyBlob(
+    ctx.principal,
+    input.shell ?? contentOfBlocks(input.content),
+  );
   if (existingBody !== undefined && existingBody.hash !== body.hash) {
     return reject("invalid_input", "the stored body is not this content");
   }
@@ -186,20 +198,22 @@ function writeHuman(
     tx.sql.get(
       `select 1 as found from messages
      where session = ? and from_kind = 'human' and delivery = 'next_turn'
+       and shell = 0
      limit 1`,
       [session.id],
     ) === undefined;
   const seq = nextCreatedSeq(tx);
   tx.sql.run(
     `insert into messages (id, session, from_kind, from_ref, call, reply_to,
-       refs, delivery, unattended, turn, body, created_seq, created_at, state_seq)
-     values (?, ?, 'human', null, null, null, ?, ?, ?, null, ?, ?, ?, ?)`,
+       refs, delivery, unattended, shell, turn, body, created_seq, created_at, state_seq)
+     values (?, ?, 'human', null, null, null, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
     [
       input.id,
       session.id,
       JSON.stringify(input.refs),
       input.delivery,
       input.unattended ? 1 : 0,
+      shell ? 1 : 0,
       body.hash,
       seq,
       tx.now(),
@@ -214,6 +228,8 @@ function writeHuman(
     existingBody,
   );
   if (!registered.ok) return registered;
+  // 명령 기록은 turn을 여는 입력이 아니라 checkpoint도 제목도 만들지 않는다.
+  if (shell) return ok({ replayed: false, state_seq: String(seq) });
   const images = registerImageRefs(
     tx,
     input.id,
@@ -248,8 +264,8 @@ function writeHuman(
   return ok({ replayed: false, state_seq: String(seq) });
 }
 
-// SendMessage의 본체. 사람 메시지는 접수할 때 session 기록에 쓰고 Router(`from: human`)를 거쳐 입력함에
-// 들어간다. 입력함에 넣는 것이 실패하면 쓴 메시지도 같은 transaction이라 함께 되돌아간다.
+// SendMessage의 본체. 사람 메시지는 접수할 때 session 기록에 쓰고 Router(`from: human`)를 거쳐 queue에
+// 들어간다. queue에 넣는 것이 실패하면 쓴 메시지도 같은 transaction이라 함께 되돌아간다.
 function sendWith(
   deps: SendMessageDeps,
   tx: Tx,
@@ -296,7 +312,51 @@ function sendWith(
   return ok({ message: input.id, state_seq: written.value.state_seq });
 }
 
-// core를 켤 때 입력함에 되돌려 놓을 사람 메시지다. 입력함은 메모리라 꺼지면 사라지는데, 아직 turn이 가져가지 않은
+// 사람이 `!`로 돌린 명령을 session 기록에 쓴다. writeHuman과 같은 쓰기이고 Router에 넣지 않는다: turn을 열지 않고
+// 다음 turn이 가져간다. 출력은 prepare 단계(message-body.ts)가 redaction을 거친 값으로 바꾸어 두었다.
+function recordShell(
+  deps: SendMessageDeps,
+  tx: Tx,
+  ctx: RequestContext,
+  input: Input<typeof recordShellMessage>,
+): Result<SentMessage> {
+  const target = deps.directory.find(tx, input.session as Id<"ses">);
+  if (target === null) return sessionNotFound();
+  if (!target.accepting) {
+    return reject("conflict", "this session takes no new input");
+  }
+  const { id, session, duration_ms, ...ran } = input;
+  const shell = contentOfShell(ran);
+  if (serializeMessageContent(shell).length > MESSAGE_CONTENT_MAX_BYTES) {
+    return reject("invalid_input", "shell output is too large");
+  }
+  const written = writeHuman(
+    tx,
+    ctx,
+    {
+      id,
+      session,
+      content: [],
+      delivery: "next_turn",
+      refs: [],
+      unattended: false,
+      shell,
+    },
+    undefined,
+  );
+  if (!written.ok) return written;
+  if (!written.value.replayed) {
+    deps.publish?.(tx, {
+      session,
+      type: "ShellRan",
+      at: tx.now(),
+      payload: { message: id, ...ran, duration_ms },
+    } as AgentEvent);
+  }
+  return ok({ message: id, state_seq: written.value.state_seq });
+}
+
+// core를 켤 때 queue에 되돌려 놓을 사람 메시지다. queue는 메모리라 꺼지면 사라지는데, 아직 turn이 가져가지 않은
 // 접수 기록은 남는다. 접수 순서로 돌려준다. Fork 복사본도 turn이 비어 있어서, Fork한 session은 자기 turn이 가져간
 // 마지막 메시지보다 뒤에 접수한 것만 센다. rewind가 숨긴 구간의 메시지는 뺀다. unattended 메시지는 run의 입력이고,
 // 켤 때 다시 돌면 이미 실패로 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다.
@@ -307,7 +367,7 @@ export function unstartedHumanMessages(
     `select m.id, m.session, m.refs, m.created_at, m.created_seq
      from messages m join sessions s on s.id = m.session
      where m.from_kind = 'human' and m.turn is null and s.lifecycle = 'open'
-       and m.unattended = 0
+       and m.unattended = 0 and m.shell = 0
        and (s.forked_from_session is null or m.created_seq > (
          select max(c.created_seq) from messages c
          where c.session = s.id and c.turn is not null))
@@ -336,7 +396,7 @@ export function unstartedHumanMessages(
 
 // agent의 답을 그 session의 기록에 남긴다. 받은 메시지와 같은 봉투로 쓴다: 보낸 쪽은 그 session 자신이고
 // `turn`은 답한 turn이다. 쓰는 쪽은 runtime(machine)이거나 그 session 자신의 agent이고, turn은 이 session에서
-// 도는 중이어야 한다. 같은 메시지를 다시 부르면 이전 결과다. 입력함에는 넣지 않는다: 답은 자기 session의 입력이
+// 도는 중이어야 한다. 같은 메시지를 다시 부르면 이전 결과다. queue에는 넣지 않는다: 답은 자기 session의 입력이
 // 아니다.
 function recordAgent(
   tx: Tx,
@@ -404,6 +464,7 @@ function recordAgent(
 export function createMessageCommands(deps: SendMessageDeps): {
   send: CommandDefinition<typeof sendMessage>;
   record: CommandDefinition<typeof recordMessage>;
+  shell: CommandDefinition<typeof recordShellMessage>;
 } {
   return {
     send: {
@@ -411,6 +472,11 @@ export function createMessageCommands(deps: SendMessageDeps): {
       handle(tx, ctx, input: Input<typeof sendMessage>) {
         return sendWith(deps, tx, ctx, input, undefined);
       },
+    },
+    shell: {
+      route: recordShellMessage,
+      handle: (tx, ctx, input: Input<typeof recordShellMessage>) =>
+        recordShell(deps, tx, ctx, input),
     },
     record: {
       route: recordMessage,

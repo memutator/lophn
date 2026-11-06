@@ -5,6 +5,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import type { Readable } from "node:stream";
 import { err, errorCode, ok, type Result } from "../../base/mod.ts";
+import { nodeTreeDeps, signalTree } from "../../base/os/mod.ts";
 import type { ProbeOutput } from "./detect.ts";
 
 const PROBE_TIMEOUT_MS = 5_000;
@@ -14,6 +15,8 @@ export function executableOf(path: string): Result<boolean | null> {
   try {
     const info = statSync(path);
     if (!info.isFile()) return ok(null);
+    // win32에는 실행 비트가 없다. 후보 path가 이미 PATHEXT 확장자를 달고 있어 있는 file이면 실행 파일이다.
+    if (process.platform === "win32") return ok(true);
     return ok((info.mode & 0o111) !== 0);
   } catch (thrown) {
     const code = errorCode(thrown);
@@ -44,7 +47,10 @@ export async function runProbe(
 ): Promise<Result<ProbeOutput>> {
   let child: ChildProcess;
   try {
-    child = spawn(argv[0], argv.slice(1), {
+    // Node는 shell 없이 .cmd·.bat를 실행하지 못한다(win32).
+    const shell = process.platform === "win32" && /\.(cmd|bat)$/i.test(argv[0]);
+    child = spawn(shell ? `"${argv[0]}"` : argv[0], argv.slice(1), {
+      shell,
       // env만 넘긴다. Node는 부모 환경을 물려주지 않고 이 값으로 바꾼다(Deno의 clearEnv와 같다).
       env: { ...env },
       stdio: ["ignore", "pipe", "pipe"],
@@ -78,10 +84,15 @@ export async function runProbe(
   const raced = await Promise.race([finished, timedOut]);
   clearTimeout(timer);
   if (raced === "timeout") {
-    try {
-      child.kill("SIGKILL");
-    } catch {
-      // 이미 끝났다.
+    // win32는 taskkill /T로 tree를 끈다(cmd shim 뒤의 node까지).
+    if (process.platform === "win32" && child.pid !== undefined) {
+      await signalTree(child.pid, "SIGKILL", "win32", nodeTreeDeps(spawn));
+    } else {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // 이미 끝났다.
+      }
     }
     return ok({ exit: null, text: "" });
   }

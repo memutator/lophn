@@ -282,7 +282,7 @@ function withToolResults<T extends { scope: { results?: string } }>(
   return placed;
 }
 
-// 입력함의 turn을 계속 시작한다(source → preparer → StartTurn → loop → end). 시작할 turn이 없으면 쉰다.
+// queue의 turn을 계속 시작한다(source → preparer → StartTurn → loop → end). 시작할 turn이 없으면 쉰다.
 const PUMP_IDLE_MS = 500;
 
 // 제품 MCP 연결 눈이다. 실제 stdio process를 열고(spawnStdioMcp) 단조

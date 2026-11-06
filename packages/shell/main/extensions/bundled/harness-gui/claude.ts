@@ -3,7 +3,8 @@
 // 사람 메시지마다 uuid를 붙여 CLI의 `command_lifecycle`(queued·started·completed·cancelled)과 짝짓는다: 줄(queue)은
 // CLI가 쥐고 adapter는 어느 메시지가 줄에 있는지만 안다. rewind·fork로 query를 다시 열 때는 `carry`(model, effort, mode,
 // 이 session 동안의 허락, fast·thinking)를 옵션으로 다시 넣는다. subagent의 대화는 `parent_tool_use_id`로 줄기(Lane)를 나눠
-// `child_update`로 내고, `/clear`는 CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다.
+// `child_update`로 내고, `/clear`는 CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다. `!` 명령은 model에 보내지 않고 adapter가 돌린 뒤
+// 결과를 `shouldQuery: false` 사람 메시지로 transcript에만 붙인다(model은 다음 turn에 본다).
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
 import { PassThrough, Writable } from "node:stream";
@@ -12,6 +13,7 @@ import {
   getSessionInfo,
   getSessionMessages,
   getSubagentMessages,
+  listSessions,
   query,
   renameSession,
   type CanUseTool,
@@ -56,6 +58,8 @@ import type {
 } from "../../../../../protocol/acp/state.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type {
+  AcpCliSession,
+  AcpRewindPreview,
   AcpTerminal,
   ExtensionProcess,
 } from "../../../../../protocol/extensions/mod.ts";
@@ -68,6 +72,7 @@ export type ClaudeSdk = {
   getSubagentMessages: typeof getSubagentMessages;
   getSessionInfo: typeof getSessionInfo;
   forkSession: typeof forkSession;
+  listSessions: typeof listSessions;
   renameSession: typeof renameSession;
   readFile: (path: string) => Promise<Uint8Array>;
 };
@@ -193,6 +198,7 @@ const SCREEN_COMMANDS = new Set([
   "cost",
   "stats",
   "clear",
+  "resume",
 ]);
 const HIDDEN_COMMANDS = new Set([
   "__remote-workflow",
@@ -232,6 +238,7 @@ const PLAN_MODES = MODES.filter(([id]) => id !== "plan");
 // bypassPermissions는 어떤 길로도 쓰지 않는다. 그 밖의 mode(dontAsk 등)는 다시 열 때 넘기지 않는다.
 const PASSABLE_MODES: ReadonlySet<string> = new Set(MODES.map(([id]) => id));
 // 사람이 TUI에서 쓰는 것과 같은 capability다. `sessions`는 lophn session 목록이라 harness는 꺼 둔다.
+// fast·thinking은 toggle이 아니라 model 축이라 `toggles`도 끈다.
 const CAPABILITIES: AcpCapabilities = {
   model: true,
   effort: true,
@@ -251,16 +258,17 @@ const CAPABILITIES: AcpCapabilities = {
   stop_child: true,
   steer_child: false,
   tasks: true,
-  toggles: true,
+  toggles: false,
   goal: true,
   roles: false,
+  shell: true,
+  resume: true,
 };
 
-const oneLine = (text: string, max: number) =>
-  text
-    .replace(/\s*\n\s*/g, " ")
-    .trim()
-    .slice(0, max);
+const oneLine = (text: string, max: number) => {
+  const line = text.replace(/\s*\n\s*/g, " ").trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+};
 const lines = (text: unknown) =>
   typeof text === "string" && text !== "" ? text.split("\n").length : 0;
 const str = (value: unknown) => (typeof value === "string" ? value : "");
@@ -464,7 +472,10 @@ function detailOf(
 // "이 session 동안" 허락은 사람의 설정 file에 남기지 않는다(Bash 제안은 `localSettings`로 온다).
 const sessionOnly = (suggestions: PermissionUpdate[]) =>
   suggestions.map(
-    (one): PermissionUpdate => ({ ...one, destination: "session" }),
+    (one): PermissionUpdate => ({
+      ...one,
+      destination: "session",
+    }),
   );
 
 const ruleText = (rule: { toolName: string; ruleContent?: string }) =>
@@ -531,7 +542,21 @@ function subjectOf(
   };
 }
 
+// SDK type에는 없지만 CLI가 model마다 싣는다(녹화 fast). Opus·Sonnet·Haiku 5.5는 thinking을 끌 수 없다.
+const canThinkOff = (one: ModelInfo) =>
+  (one as ModelInfo & { supportsThinkingOff?: boolean }).supportsThinkingOff ===
+  true;
+
 function modelGroups(models: ModelInfo[]): AcpModelGroup[] {
+  const onOff = (id: string, label: string, off: string, on: string) => ({
+    id,
+    label,
+    kind: "switch" as const,
+    values: [
+      { value: "off", label: off },
+      { value: "on", label: on },
+    ],
+  });
   return [
     {
       id: "claude",
@@ -539,19 +564,27 @@ function modelGroups(models: ModelInfo[]): AcpModelGroup[] {
       models: models.map((one) => ({
         id: one.value,
         label: one.displayName,
-        axes:
-          one.supportsEffort && one.supportedEffortLevels !== undefined
+        axes: [
+          ...(one.supportsEffort && one.supportedEffortLevels !== undefined
             ? [
                 {
                   id: "effort",
                   label: "Effort",
+                  kind: "choice" as const,
                   values: one.supportedEffortLevels.map((value) => ({
                     value,
                     label: value,
                   })),
                 },
               ]
-            : [],
+            : []),
+          ...(one.supportsFastMode === true
+            ? [onOff("fast", "Speed", "Standard", "Fast")]
+            : []),
+          ...(canThinkOff(one)
+            ? [onOff("thinking", "Thinking", "Off", "On")]
+            : []),
+        ],
       })),
     },
   ];
@@ -578,7 +611,7 @@ type Lane = {
     {
       subject: string;
       activeForm: string;
-      status: "pending" | "in_progress" | "completed" | "cancelled";
+      status: "pending" | "in_progress" | "completed";
     }
   >;
   /** subagent에게 맡긴 일(prompt). task_started가 알려 첫 줄로 그리고, 뒤에 오는 같은 글은 건너뛴다. */
@@ -727,6 +760,14 @@ const start: (sdk: ClaudeSdk) => Start =
     const uuidOfMessage = new Map<string, string>();
     const contentOfMessage = new Map<string, ContentBlock[]>();
     const userOfTurn = new Map<string, string>();
+    // `!` 명령. 도는 process와, turn이 끝나기를 기다리는 결과(끝난 뒤 transcript에 붙인다).
+    const shells = new Map<
+      string,
+      { proc: ExtensionProcess; killed: boolean }
+    >();
+    const shellOutbox: { command: string; out: string; err: string }[] = [];
+    // transcript에만 붙인 shell 메시지의 uuid. 그 result(num_turns 0)는 turn이 아니다(녹화 shell_append).
+    const shellUuids = new Set<string>();
 
     // query를 다시 열 때 넘기는 것과 TUI로 넘길 때의 flag.
     const carry: {
@@ -782,48 +823,20 @@ const start: (sdk: ClaudeSdk) => Start =
         (modelId === null ? undefined : rows[0])
       );
     }
-    // fast·thinking은 지금 model이 받을 때만 켠다.
-    function toggleList(): AcpSessionMeta["toggles"] {
-      const row = currentRow();
-      return [
-        ...(row?.supportsFastMode === true
-          ? [
-              {
-                id: "fast",
-                label: "Fast mode",
-                description: "Faster output at a higher price",
-                on: carry.fast ?? fastState === "on",
-              },
-            ]
-          : []),
-        ...(row?.supportsAdaptiveThinking === true
-          ? [
-              {
-                id: "thinking",
-                label: "Thinking",
-                description: "Think before answering",
-                on: carry.thinking ?? true,
-              },
-            ]
-          : []),
-      ];
-    }
     function currentModel(): AcpSessionMeta["model"] {
       const row = currentRow();
       if (row === undefined) return null;
-      return {
-        model: row.value,
-        label: row.displayName,
-        options: carry.effort === null ? {} : { effort: carry.effort },
-        layer: null,
-      };
+      // 축이 있는 model에만 값을 싣는다. 값을 안 고른 switch는 CLI가 말해 주는 현재 값이다.
+      const options: Record<string, string> = {};
+      if (carry.effort !== null) options.effort = carry.effort;
+      if (row.supportsFastMode === true)
+        options.fast = (carry.fast ?? fastState === "on") ? "on" : "off";
+      if (canThinkOff(row))
+        options.thinking = carry.thinking === false ? "off" : "on";
+      return { model: row.value, label: row.displayName, options, layer: null };
     }
     const publishModels = () =>
-      changed({
-        models: modelGroups(models),
-        model: currentModel(),
-        toggles: toggleList(),
-      });
+      changed({ models: modelGroups(models), model: currentModel() });
     // SDK는 명령의 출처를 주지 않아 init의 skills·plugins와 이름 꼴로 가른다. user·project 명령은 가를 단서가 없다.
     function sourceOf(one: SlashCommand): AcpCommand["source"] {
       if (one.builtin === true) return "harness";
@@ -868,6 +881,7 @@ const start: (sdk: ClaudeSdk) => Start =
         aliases: ["cost", "stats"],
       }),
       own("context", "Show current context usage", "context"),
+      own("resume", "Resume an earlier session", "resume"),
       own("clear", "Start a new session with empty context", null, {
         aliases: ["reset", "new"],
       }),
@@ -936,11 +950,7 @@ const start: (sdk: ClaudeSdk) => Start =
       } catch {
         // 사용량을 못 읽어도 대화는 이어진다.
       }
-      changed({
-        usage: usageNow(),
-        model: currentModel(),
-        toggles: toggleList(),
-      });
+      changed({ usage: usageNow(), model: currentModel() });
     }
     function setMode(mode: string) {
       if (carry.mode === mode) return;
@@ -1048,7 +1058,7 @@ const start: (sdk: ClaudeSdk) => Start =
       });
     }
 
-    // TaskCreate는 결과 글의 `Task #<id>`로 id를 얻고, TaskUpdate는 입력 그대로 고친다. deleted는 cancelled다.
+    // TaskCreate는 결과 글의 `Task #<id>`로 id를 얻고, TaskUpdate는 입력 그대로 고친다. deleted는 CLI도 목록에서 지운다.
     function taskResult(lane: Lane, call: Call, output: string) {
       const input = call.input;
       if (call.tool === "TaskCreate") {
@@ -1062,17 +1072,20 @@ const start: (sdk: ClaudeSdk) => Start =
       } else {
         const entry = lane.todos.get(str(input.taskId));
         if (entry === undefined) return;
-        if (str(input.subject) !== "") entry.subject = str(input.subject);
-        if (str(input.activeForm) !== "")
-          entry.activeForm = str(input.activeForm);
         const status = str(input.status);
-        if (status === "deleted") entry.status = "cancelled";
-        else if (
-          status === "pending" ||
-          status === "in_progress" ||
-          status === "completed"
-        )
-          entry.status = status;
+        if (status === "deleted") {
+          lane.todos.delete(str(input.taskId));
+        } else {
+          if (str(input.subject) !== "") entry.subject = str(input.subject);
+          if (str(input.activeForm) !== "")
+            entry.activeForm = str(input.activeForm);
+          if (
+            status === "pending" ||
+            status === "in_progress" ||
+            status === "completed"
+          )
+            entry.status = status;
+        }
       }
       lane.emit({
         type: "plan_changed",
@@ -1153,6 +1166,7 @@ const start: (sdk: ClaudeSdk) => Start =
           id: call.id,
           seq: ++lane.seq,
           at: now(),
+          by: "agent",
           turn: ensureTurn(lane),
           tool: name,
           category: CATEGORIES[name] ?? "other",
@@ -1416,6 +1430,7 @@ const start: (sdk: ClaudeSdk) => Start =
       }
       closeLane(root, outcome, error);
       stopping = false;
+      flushShell();
     }
 
     const textOf = (blocks: Block[]) =>
@@ -1576,6 +1591,7 @@ const start: (sdk: ClaudeSdk) => Start =
 
     function onResult(message: SdkMessage) {
       const user = message.user_message_uuid;
+      if (user !== undefined && shellUuids.delete(user)) return;
       // 보이지 않는 명령(`/effort`)의 result는 turn을 닫지 않는다. 그 명령이 일을 시작해 turn이 열렸으면(`/goal`) 닫는다.
       if (user !== undefined && silent.delete(user) && root.turn === null)
         return;
@@ -1843,7 +1859,7 @@ const start: (sdk: ClaudeSdk) => Start =
           if (message.permissionMode) setMode(message.permissionMode);
           if (message.model && message.model !== modelId) {
             modelId = message.model;
-            changed({ model: currentModel(), toggles: toggleList() });
+            changed({ model: currentModel() });
           }
           return;
         }
@@ -1990,13 +2006,16 @@ const start: (sdk: ClaudeSdk) => Start =
     async function replay(id: string) {
       replaying = true;
       try {
-        for (const message of await sdk.getSessionMessages(id, { dir: cwd })) {
-          const lane = message.parent_tool_use_id ? undefined : root;
-          if (lane === undefined) continue;
+        const list = await sdk.getSessionMessages(id, { dir: cwd });
+        const blocksOf = (message: (typeof list)[number]): Block[] => {
           const raw =
             (message.message as { content?: string | Block[] }).content ?? [];
-          const blocks: Block[] =
-            typeof raw === "string" ? [{ type: "text", text: raw }] : raw;
+          return typeof raw === "string" ? [{ type: "text", text: raw }] : raw;
+        };
+        for (let at = 0; at < list.length; at++) {
+          const message = list[at];
+          if (message === undefined || message.parent_tool_use_id) continue;
+          const blocks = blocksOf(message);
           if (message.type === "assistant") {
             onAssistant(
               root,
@@ -2011,6 +2030,25 @@ const start: (sdk: ClaudeSdk) => Start =
             continue;
           }
           if (root.turn !== null) endTurn("completed");
+          const bash = /^<bash-input>([\s\S]*?)<\/bash-input>/.exec(text);
+          if (bash !== null) {
+            // TUI의 `!`도 같은 꼴로 남는다: 바로 뒤 user entry가 출력이다.
+            const next = list[at + 1];
+            const after = next?.type === "user" ? textOf(blocksOf(next)) : "";
+            const isOutput = /^<bash-std(out|err)>/.test(after);
+            if (isOutput) at++;
+            const part = (tag: string) =>
+              new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`).exec(after)?.[1] ??
+              "";
+            const command = bash[1] ?? "";
+            shellEnd(
+              shellStart(command),
+              command,
+              part("bash-stdout") + part("bash-stderr"),
+              "ok",
+            );
+            continue;
+          }
           addUser(
             root,
             ids.newId("msg"),
@@ -2132,6 +2170,8 @@ const start: (sdk: ClaudeSdk) => Start =
     function retire(): Live {
       const old = live;
       old.retired = true;
+      shellOutbox.length = 0;
+      killShells();
       if (root.turn !== null) endTurn("stopped");
       // process가 끝나면 background subagent와 task도 끝난다.
       for (const call of agentCalls.values()) {
@@ -2214,6 +2254,7 @@ const start: (sdk: ClaudeSdk) => Start =
       uuid: string,
       content: string | unknown[],
       priority?: "now" | "next" | "later",
+      appendOnly = false,
     ): SDKUserMessage {
       return {
         type: "user",
@@ -2221,7 +2262,106 @@ const start: (sdk: ClaudeSdk) => Start =
         parent_tool_use_id: null,
         uuid: uuid as SDKUserMessage["uuid"],
         ...(priority === undefined ? {} : { priority }),
+        // transcript에만 붙이고 turn을 열지 않는다. 글은 `@path`·slash 명령으로 읽지 않는다.
+        ...(appendOnly ? { shouldQuery: false, client_composed: true } : {}),
       } as SDKUserMessage;
+    }
+
+    // --- `!` shell ------------------------------------------------------------------------------
+    // 사람 쪽 tool 줄(`by: "user"`)이다. 도는 동안 출력은 adapter가 쌓았다가 끝날 때 body에 싣는다.
+    function shellStart(command: string): string {
+      const id = ids.newId("tcl");
+      root.emit({
+        type: "tool_started",
+        item: {
+          kind: "tool",
+          id,
+          seq: ++root.seq,
+          at: now(),
+          by: "user",
+          turn: root.turn,
+          tool: "shell",
+          category: "command",
+          title: oneLine(command.split("\n")[0] ?? "", 120),
+          state: "running",
+          duration_ms: null,
+          detail: { kind: "generic" },
+          body: toolBody(command, null),
+        },
+      });
+      return id;
+    }
+    function shellEnd(
+      id: string,
+      command: string,
+      output: string,
+      state: "ok" | "error" | "cancelled",
+    ) {
+      root.emit({
+        type: "tool_ended",
+        tool_call: id,
+        state,
+        at: now(),
+        detail: null,
+        body: toolBody(command, output),
+      });
+    }
+    // 끝난 결과를 model이 다음 turn에 보게 transcript에 붙인다. 도는 turn이 있으면 그 turn이 끝난 뒤에 넣는다.
+    function flushShell() {
+      if (root.turn !== null || dead !== null || closed) return;
+      for (const one of shellOutbox.splice(0)) {
+        const input = uuidOf(ids);
+        const output = uuidOf(ids);
+        shellUuids.add(input).add(output);
+        empty = false;
+        live.input.push(
+          userMessage(
+            input,
+            `<bash-input>${one.command}</bash-input>`,
+            undefined,
+            true,
+          ),
+        );
+        live.input.push(
+          userMessage(
+            output,
+            `<bash-stdout>${one.out}</bash-stdout><bash-stderr>${one.err}</bash-stderr>`,
+            undefined,
+            true,
+          ),
+        );
+      }
+    }
+    function runShell(command: string) {
+      const id = shellStart(command);
+      const key = ids.newId("shl");
+      const proc = spawn("/bin/sh", ["-c", command], { cwd });
+      const entry = { proc, killed: false };
+      shells.set(key, entry);
+      const cap = ACP_TOOL_BODY_LIMIT * 2;
+      let out = "";
+      let err = "";
+      proc.onStdout((text) => void (out = (out + text).slice(0, cap)));
+      proc.onStderr((text) => void (err = (err + text).slice(0, cap)));
+      proc.onExit((code) => {
+        shells.delete(key);
+        shellEnd(
+          id,
+          command,
+          err === "" ? out : out === "" ? err : `${out}\n${err}`,
+          entry.killed ? "cancelled" : code === 0 ? "ok" : "error",
+        );
+        if (!entry.killed) {
+          shellOutbox.push({ command, out, err });
+          flushShell();
+        }
+      });
+    }
+    function killShells() {
+      for (const one of shells.values()) {
+        one.killed = true;
+        one.proc.kill();
+      }
     }
 
     async function sendText(
@@ -2298,7 +2438,7 @@ const start: (sdk: ClaudeSdk) => Start =
       sendSilent(`/effort ${level}`);
     }
 
-    async function setModel(model: string, effort: string | undefined) {
+    async function setModel(model: string, options: Record<string, string>) {
       carry.model = model;
       try {
         await live.q.setModel(model);
@@ -2306,19 +2446,35 @@ const start: (sdk: ClaudeSdk) => Start =
       } catch {
         // 지금 process가 거절했다. 다음에 띄울 때 쓰도록 기억만 해 두고 지금 값을 다시 보인다.
       }
-      if (effort !== undefined && effort !== carry.effort)
-        await setEffort(effort);
+      if (options.effort !== undefined && options.effort !== carry.effort)
+        await setEffort(options.effort);
+      // fast는 이 query의 flag 설정이고 thinking은 토큰 한도를 걷거나 0으로 막는다.
+      if (options.fast !== undefined) {
+        const on = options.fast === "on";
+        if (on !== (carry.fast ?? fastState === "on")) {
+          await live.q.applyFlagSettings({ fastMode: on });
+          carry.fast = on;
+        }
+      }
+      if (options.thinking !== undefined) {
+        const on = options.thinking !== "off";
+        if (on !== (carry.thinking ?? true)) {
+          await live.q.setMaxThinkingTokens(on ? null : 0);
+          carry.thinking = on;
+        }
+      }
       changed({ model: currentModel() });
     }
 
-    // transcript에서 사람 메시지 `uuid`의 앞(또는 그 turn의 끝) assistant 메시지 uuid.
+    // transcript에서 사람 메시지 `uuid`의 앞(또는 그 turn의 끝) assistant 메시지 uuid. 앞 assistant가 없으면(첫 메시지)
+    // undefined이고, transcript에서 그 uuid를 못 찾으면 null이다.
     async function assistantAround(
       uuid: string,
       where: "before" | "turn_end",
-    ): Promise<string | undefined> {
+    ): Promise<string | undefined | null> {
       const list = await sdk.getSessionMessages(cliSession, { dir: cwd });
       const at = list.findIndex((one) => one.uuid === uuid);
-      if (at < 0) return undefined;
+      if (at < 0) return null;
       const isUser = (index: number) => {
         const one = list[index];
         const content = (one?.message as { content?: unknown } | undefined)
@@ -2378,9 +2534,45 @@ const start: (sdk: ClaudeSdk) => Start =
       });
     }
 
+    const firstLine = (message: string) =>
+      oneLine(
+        (contentOfMessage.get(message) ?? [])
+          .flatMap((block) => (block.type === "text" ? [block.text] : []))
+          .join("\n")
+          .trim()
+          .split("\n")[0] ?? "",
+        80,
+      );
+    const NOT_FOUND = "Could not find this message in the transcript.";
+
+    async function rewindPreview(message: string): Promise<AcpRewindPreview> {
+      const uuid = uuidOfMessage.get(message);
+      if (uuid === undefined) return { files: [] };
+      const preview = await live.q
+        .rewindFiles(uuid, { dryRun: true })
+        .catch(() => undefined);
+      if (preview === undefined || !preview.canRewind) {
+        info(preview?.error ?? "Could not preview the files.");
+        return { files: [] };
+      }
+      // dry run은 file마다 종류를 주지 않는다.
+      return {
+        files: (preview.filesChanged ?? []).map((path) => ({
+          path: relative(cwd, path),
+          change: "update" as const,
+        })),
+      };
+    }
+
     async function rewind(message: string, files: boolean) {
       const uuid = uuidOfMessage.get(message);
       if (uuid === undefined) return;
+      // 못 찾으면 아무것도 건드리지 않는다(빈 새 session을 열면 대화를 잃은 것처럼 보인다).
+      const before = await assistantAround(uuid, "before");
+      if (before === null) {
+        info(NOT_FOUND, "warning");
+        return;
+      }
       if (root.turn !== null) {
         stopping = true;
         await live.q.interrupt().catch(() => undefined);
@@ -2396,7 +2588,7 @@ const start: (sdk: ClaudeSdk) => Start =
         restored = preview.filesChanged?.length ?? 0;
         await live.q.rewindFiles(uuid);
       }
-      const before = await assistantAround(uuid, "before");
+      const title = firstLine(message);
       const old = retire();
       hideFrom(message, files ? "restore_all" : "messages_only", restored);
       const fresh = uuidOf(ids);
@@ -2411,6 +2603,10 @@ const start: (sdk: ClaudeSdk) => Start =
               sessionId: fresh,
             },
       );
+      info(
+        `Rewound to “${title}”${files ? ` · ${restored} ${restored === 1 ? "file" : "files"} restored` : ""}`,
+      );
+      await refreshTitle();
     }
 
     async function fork(message: string | null) {
@@ -2420,6 +2616,11 @@ const start: (sdk: ClaudeSdk) => Start =
         target === undefined
           ? undefined
           : await assistantAround(target, "turn_end");
+      if (upTo === null) {
+        info(NOT_FOUND, "warning");
+        return;
+      }
+      const from = titled;
       const made = await sdk.forkSession(cliSession, {
         dir: cwd,
         ...(upTo === undefined ? {} : { upToMessageId: upTo }),
@@ -2435,14 +2636,17 @@ const start: (sdk: ClaudeSdk) => Start =
         if (next !== undefined) hideFrom(next.id, "messages_only", 0);
       }
       await reopen(old, { resume: made.sessionId });
+      info(
+        from === null
+          ? "Forked into a new session. The original session is unchanged."
+          : `Forked from “${from}”. The original session is unchanged.`,
+      );
+      // SDK가 제목을 "… (fork)"로 짓는다.
+      await refreshTitle();
     }
 
-    // `/clear`: CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다. 합계·계획·goal·task도 비운다.
-    async function clear() {
-      const old = retire();
-      const first = mirror.items[0];
-      if (first !== undefined) hideFrom(first.id, "messages_only", 0);
-      await reopen(old, { sessionId: uuidOf(ids) });
+    // 합계·계획·goal·task를 비운다(`/clear`와 session 바꾸기).
+    function resetStats() {
       totals.input = totals.output = totals.read = totals.write = 0;
       totals.turns = 0;
       cost = { base: 0, last: 0 };
@@ -2456,26 +2660,74 @@ const start: (sdk: ClaudeSdk) => Start =
       void refreshContext();
     }
 
-    // 켜고 끄는 설정. fast는 이 query의 flag 설정이고 thinking은 토큰 한도를 걷거나 0으로 막는다.
-    async function setToggle(id: string, on: boolean) {
-      if (id === "fast") {
-        await live.q.applyFlagSettings({ fastMode: on });
-        carry.fast = on;
-      } else if (id === "thinking") {
-        await live.q.setMaxThinkingTokens(on ? null : 0);
-        carry.thinking = on;
-      } else {
-        return;
-      }
-      changed({ toggles: toggleList() });
+    // `/clear`: CLI에 보내지 않고 같은 탭에서 resume 없는 새 query를 연다. 합계·계획·goal·task도 비운다.
+    async function clear() {
+      const old = retire();
+      const first = mirror.items[0];
+      if (first !== undefined) hideFrom(first.id, "messages_only", 0);
+      await reopen(old, { sessionId: uuidOf(ids) });
+      resetStats();
+    }
+
+    // 같은 탭에서 이 폴더의 다른 CLI session으로 바꾼다. 옛 session의 transcript는 건드리지 않는다.
+    async function openSession(target: string) {
+      if (target === cliSession) return;
+      const old = retire();
+      publish({ type: "session_reset" });
+      uuidOfMessage.clear();
+      contentOfMessage.clear();
+      userOfTurn.clear();
+      root.seen.clear();
+      lastCommand = "";
+      await reopen(old, { resume: target });
+      resetStats();
+      await replay(target);
+      changed({ cli_session: cliSession, model: currentModel() });
+    }
+
+    async function sessions(): Promise<AcpCliSession[]> {
+      // 다른 worktree의 session은 cwd가 달라 resume이 못 연다.
+      const list = await sdk.listSessions({
+        dir: cwd,
+        limit: 30,
+        includeWorktrees: false,
+        // GUI session(entrypoint `sdk-cli`)도 보이게 한다(녹화 sessions).
+        includeProgrammatic: true,
+      });
+      return list
+        .sort((a, b) => b.lastModified - a.lastModified)
+        .map((one) => ({
+          id: one.sessionId,
+          title: one.customTitle ?? one.summary,
+          updated_at: new Date(one.lastModified).toISOString(),
+        }));
+    }
+
+    // `!`로 시작하는 글은 model에 보내지 않는다. 앞 `!`를 떼고 명령으로 돌린다.
+    function shellOf(content: ContentBlock[]): string | null {
+      const first = content[0];
+      if (first?.type !== "text") return null;
+      const text = first.text.trimStart();
+      return text.startsWith("!") ? text.slice(1).trim() : null;
     }
 
     async function handle(message: AcpInput) {
       switch (message.type) {
-        case "send":
-          await sendText(message.id, message.content, message.delivery);
+        case "send": {
+          const command = shellOf(message.content);
+          if (command === null)
+            await sendText(message.id, message.content, message.delivery);
+          else if (command !== "") runShell(command);
+          return;
+        }
+        case "run_shell":
+          runShell(message.command);
+          return;
+        case "open_session":
+          await openSession(message.cli_session);
           return;
         case "stop":
+          killShells();
           if (root.turn !== null) {
             stopping = true;
             void live.q.interrupt().catch(() => {});
@@ -2559,7 +2811,7 @@ const start: (sdk: ClaudeSdk) => Start =
           return;
         }
         case "set_model":
-          await setModel(message.model, message.options.effort);
+          await setModel(message.model, message.options);
           return;
         case "set_mode":
           await live.q.setPermissionMode(
@@ -2586,9 +2838,6 @@ const start: (sdk: ClaudeSdk) => Start =
         case "stop_task":
           await live.q.stopTask(message.task);
           return;
-        case "set_toggle":
-          await setToggle(message.id, message.on);
-          return;
         case "set_goal":
           if (message.objective !== null && !message.paused) {
             sendSilent(`/goal ${message.objective}`);
@@ -2598,6 +2847,7 @@ const start: (sdk: ClaudeSdk) => Start =
             info("This CLI cannot pause a goal.", "warning");
           }
           return;
+        case "set_toggle":
         case "steer_child":
         case "use_role":
           return;
@@ -2628,6 +2878,7 @@ const start: (sdk: ClaudeSdk) => Start =
         async stop() {
           if (!stopped) {
             stopped = true;
+            killShells();
             if (root.turn !== null) {
               stopping = true;
               await live.q.interrupt().catch(() => undefined);
@@ -2666,11 +2917,27 @@ const start: (sdk: ClaudeSdk) => Start =
             ...(carry.rules.size === 0
               ? []
               : ["--allowedTools", ...[...carry.rules].map(shellQuote)]),
+            // 고른 fast·thinking만 넘긴다. flag 층이라 사람의 설정 file에는 쓰이지 않는다.
+            ...(carry.fast === null && carry.thinking === null
+              ? []
+              : [
+                  "--settings",
+                  shellQuote(
+                    JSON.stringify({
+                      ...(carry.fast === null ? {} : { fastMode: carry.fast }),
+                      ...(carry.thinking === null
+                        ? {}
+                        : { alwaysThinkingEnabled: carry.thinking }),
+                    }),
+                  ),
+                ]),
           ];
           return `claude ${flags.join(" ")}`;
         },
         sessionId: () => cliSession,
         running: () => ({ turn: root.turn !== null, tasks: runningTasks() }),
+        sessions,
+        rewindPreview,
       },
     };
   };
@@ -2702,6 +2969,7 @@ export const claudeAdapter = createClaudeAdapter({
   getSubagentMessages,
   getSessionInfo,
   forkSession,
+  listSessions,
   renameSession,
   readFile,
 });

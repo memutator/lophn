@@ -9,6 +9,8 @@ import {
   HARNESS_GUI_TAB_VIEW_CHANNEL,
   type HarnessGuiHandoff,
   type HarnessGuiInfo,
+  type HarnessGuiRewindPreview,
+  type HarnessGuiSessionEntry,
   type HarnessGuiTabOpened,
   type HarnessGuiTabToggleReply,
   type HarnessGuiTabView,
@@ -113,6 +115,13 @@ export type TabGui = {
     terminal_ref: string;
     to: "gui" | "tui";
   }): Promise<HarnessGuiTabToggleReply>;
+  /** handle의 탭에서 도는 CLI의 지난 session. handle이 없거나 못 주면 빈 배열. */
+  sessions(handle: string): Promise<HarnessGuiSessionEntry[]>;
+  /** handle의 탭에서 그 메시지로 rewind하면 되돌아갈 file. 없으면 null. */
+  rewindPreview(
+    handle: string,
+    message: string,
+  ): Promise<HarnessGuiRewindPreview | null>;
   connect(sender: TabSender, handle: string): HarnessGuiInfo | null;
   disconnect(sender: TabSender, handle: string): void;
   input(handle: string, input: AcpInput): boolean;
@@ -289,6 +298,22 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     async running(terminalRef) {
       if (!byTerminal.has(terminalRef)) return null;
       return (await deps.handlers())?.running(terminalRef) ?? null;
+    },
+
+    async sessions(handleId) {
+      const tab = byHandle.get(handleId);
+      if (tab === undefined) return [];
+      return (await deps.handlers())?.sessions(tab.handle.terminal) ?? [];
+    },
+
+    async rewindPreview(handleId, message) {
+      const tab = byHandle.get(handleId);
+      if (tab === undefined) return null;
+      return (
+        (await (
+          await deps.handlers()
+        )?.rewindPreview(tab.handle.terminal, message)) ?? null
+      );
     },
 
     async toggle({ terminal_ref: terminalRef, to }) {

@@ -797,21 +797,6 @@ const scenarios: Record<string, (s: Scenario) => Promise<void>> = {
     await s.a.attempt("thread/loaded/list", {});
   },
 
-  // `!` shell: thread/shellCommand. turn이 생기는지, 어떤 item이 오는지.
-  async shell(s) {
-    await s.open();
-    await s.start("on-request");
-    const from = s.a.log.length;
-    await s.a.attempt("thread/shellCommand", {
-      threadId: s.thread,
-      command: "echo shell-ok",
-    });
-    await s.a
-      .until((m) => m.method === "turn/completed", from, 30_000)
-      .catch(() => s.rec.note("no turn/completed after thread/shellCommand"));
-    await sleep(1000);
-  },
-
   // file chip: UserInput mention.
   async mention(s) {
     await s.open();
@@ -1086,6 +1071,75 @@ const scenarios: Record<string, (s: Scenario) => Promise<void>> = {
     await s.run(
       "Search the web for the latest stable Node.js release and answer in one short line.",
     );
+  },
+
+  // thread/shellCommand: turn이 없을 때(app-server가 제 turn을 연다)와 도는 turn 중(그 turn에 붙는다). 끝난 뒤 history에
+  // userShell item이 어떻게 남는지(thread/turns/list). model을 부르는 것은 도는 turn 하나뿐이다.
+  async shell(s) {
+    await s.open();
+    await s.start("on-request");
+    const from = s.a.log.length;
+    await s.a.attempt("thread/shellCommand", {
+      threadId: s.thread,
+      command: "ls",
+    });
+    await s.a.until((m) => m.method === "turn/completed", from);
+    const turn = await s.running(LONG);
+    await s.a.attempt("thread/shellCommand", {
+      threadId: s.thread,
+      command: "echo hi",
+    });
+    await s.done(turn);
+    await s.a.attempt("thread/turns/list", {
+      threadId: s.thread,
+      sortDirection: "asc",
+      itemsView: "full",
+      limit: 50,
+    });
+  },
+
+  // service tier: model/list의 serviceTiers(scrub 전 원본), thread/settings/update {serviceTier: "priority"} 뒤
+  // thread/settings/updated, 짧은 turn 하나, 새 process에서 thread/resume의 serviceTier(resume 뒤 남는지).
+  async speed(s) {
+    await s.open();
+    await s.start("on-request");
+    await s.a.call("model/list", {});
+    const from = s.a.log.length;
+    await s.a.attempt("thread/settings/update", {
+      threadId: s.thread,
+      serviceTier: "priority",
+    });
+    await s.a
+      .until((m) => m.method === "thread/settings/updated", from, 10_000)
+      .catch(() => {});
+    await s.run("Reply with exactly: ok");
+    s.a.close();
+    await s.server.stop();
+    await s.open();
+    const resumed = await s.a.attempt("thread/resume", {
+      threadId: s.thread,
+      cwd: s.dir,
+      excludeTurns: true,
+    });
+    s.rec.note(
+      `serviceTier after resume: ${JSON.stringify(resumed.result?.serviceTier)}`,
+    );
+  },
+
+  // thread/list: resume 목록. model을 부르지 않는다.
+  async list(s) {
+    await s.open();
+    await s.a.call("thread/list", {
+      cwd: s.dir,
+      sortKey: "updated_at",
+      limit: 5,
+    });
+    await s.start("on-request");
+    await s.a.call("thread/list", {
+      cwd: s.dir,
+      sortKey: "updated_at",
+      limit: 5,
+    });
   },
 };
 

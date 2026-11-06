@@ -1,4 +1,4 @@
-/* 자식 대화 한 겹. 대화 층(.layer)을 가득 채우고 머리, 읽기 전용 대화, 아래 줄을 쌓는다. */
+/* 자식 대화 한 겹. 대화 층(.layer)을 가득 채우고 읽기 전용 대화, 아래 줄을 쌓는다. */
 .child {
   box-sizing: border-box;
   display: flex;
@@ -7,26 +7,6 @@
   align-self: stretch;
   width: 100%;
   min-height: var(--space-0);
-}
-
-.head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-5);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.agent {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-semibold);
-}
-
-.meta {
-  color: var(--color-text-muted);
 }
 
 .thread {

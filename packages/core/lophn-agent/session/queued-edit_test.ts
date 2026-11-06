@@ -18,6 +18,7 @@ import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { conversationSchemaSteps } from "./model.ts";
 import { editQueuedCommand } from "./queued-edit.ts";
 import { moveQueuedCommand } from "./queued-move.ts";
+import { removeQueuedCommand } from "./queued-remove.ts";
 
 const machine = {
   actor: "machine",
@@ -231,6 +232,60 @@ test("큐의 순서를 바꾸면 저장된 created_seq가 이웃과 맞바뀌고
     );
     assert.ok(!taken.ok);
     assert.equal(taken.error.code, "conflict");
+  } finally {
+    db.close();
+  }
+});
+
+// `!` 기록은 대기열 메시지가 아니다. 지우거나 고치면 사람이 돌린 명령의 기록이 사라진다.
+test("대기열의 지우기, 고치기, 옮기기는 `!` 기록을 거절한다", () => {
+  const { db, sql, tx, message } = store();
+  try {
+    message("msg_a", null, "0".repeat(64));
+    sql.run(
+      `insert into messages (id, session, from_kind, shell, turn, body,
+         created_seq, created_at, state_seq)
+       values ('msg_shell', 'ses_x', 'human', 1, null, ?, 3, '2026-10-31T00:00:00.000Z', 3)`,
+      ["1".repeat(64)],
+    );
+    const target = { session: "ses_x", message: "msg_shell" };
+    const results = [
+      editQueuedCommand().handle(tx, machine, { ...target, content }, {}),
+      moveQueuedCommand().handle(
+        tx,
+        machine,
+        { ...target, direction: "up" },
+        {},
+      ),
+      removeQueuedCommand({ eraseBlobRefs: () => ok(undefined) }).handle(
+        tx,
+        machine,
+        target,
+        {},
+      ),
+    ];
+    for (const result of results) {
+      assert.ok(!result.ok);
+      assert.equal(result.error.code, "conflict");
+    }
+    assert.equal(
+      sql.all("select id from messages where id = 'msg_shell'", []).length,
+      1,
+    );
+    // 다른 대기열 메시지의 이웃으로도 잡히지 않는다.
+    const moved = moveQueuedCommand().handle(
+      tx,
+      machine,
+      { session: "ses_x", message: "msg_a", direction: "down" },
+      {},
+    );
+    assert.ok(moved.ok);
+    assert.equal(
+      sql.get("select created_seq from messages where id = 'msg_shell'", [])?.[
+        "created_seq"
+      ],
+      3,
+    );
   } finally {
     db.close();
   }

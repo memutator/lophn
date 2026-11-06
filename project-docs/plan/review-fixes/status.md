@@ -6,9 +6,9 @@ lead만 고친다. `tools/status.py review-fixes build`가 `tasks/*.md`에서 id
 |---|---|---|---|---|---|---|---|
 | `app-data-restore` | app-data | 1 | 없음 | merged | app-data/app-data-restore | f0786eab6 |  |
 | `settings-keep` | config | 1 | 없음 | merged | config/settings-keep | 88e8cfcfe |  |
-| `event-fanout` | events | 1 | session-list | todo |  |  |  |
-| `ledger-freeze` | ledger | 1 | 없음 | running | ledger/ledger-freeze |  |  |
-| `turn-loop` | run-loop | 1 | 없음 | running | run-loop/turn-loop |  |  |
-| `turn-loop-perf` | run-loop | 1 | turn-loop | todo |  |  |  |
-| `session-list` | sessions | 1 | 없음 | running | sessions/session-list |  |  |
+| `event-fanout` | events | 1 | session-list | running | events/event-fanout |  |  |
+| `ledger-freeze` | ledger | 1 | 없음 | merged | ledger/ledger-freeze | fe9d43270 |  |
+| `turn-loop` | run-loop | 1 | 없음 | merged | run-loop/turn-loop | 445eccfda |  |
+| `turn-loop-perf` | run-loop | 1 | turn-loop | running | run-loop/turn-loop-perf |  |  |
+| `session-list` | sessions | 1 | 없음 | merged | sessions/session-list | 3d9d5ba79 |  |
 | `shell-fixes` | shell | 1 | 없음 | merged | shell/shell-fixes | 49b3e47d4 |  |

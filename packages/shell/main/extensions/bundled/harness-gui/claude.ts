@@ -265,11 +265,10 @@ const CAPABILITIES: AcpCapabilities = {
   resume: true,
 };
 
-const oneLine = (text: string, max: number) =>
-  text
-    .replace(/\s*\n\s*/g, " ")
-    .trim()
-    .slice(0, max);
+const oneLine = (text: string, max: number) => {
+  const line = text.replace(/\s*\n\s*/g, " ").trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+};
 const lines = (text: unknown) =>
   typeof text === "string" && text !== "" ? text.split("\n").length : 0;
 const str = (value: unknown) => (typeof value === "string" ? value : "");

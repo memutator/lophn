@@ -259,7 +259,11 @@ function planShell(
       ? ["--no-sandbox"]
       : [];
   return {
-    command: `${root}/node_modules/.bin/electron`,
+    // Windows의 `.bin/electron`은 .cmd shim이라 shell 없이 못 띄운다. Electron binary를 바로 띄운다.
+    command:
+      process.platform === "win32"
+        ? ELECTRON
+        : `${root}/node_modules/.bin/electron`,
     args: [...extra, `${main}/dist/main.cjs`, "--home", options.dataRoot],
     // LOPHN_HOME은 --home이 정하므로 여기서는 넣지 않는다.
     env: { ...options.env },

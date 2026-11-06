@@ -187,7 +187,7 @@ export async function applyMigrations(
       if (!stepped.ok) return stepped;
     }
     // 완료 뒤 FK·무결성을 검사한다. 실패면 원본이 이미 rollback됐다.
-    const verified = verifyMigrated(connection.sql, { guarded: [] });
+    const verified = verifyMigrated(connection.sql);
     if (!verified.ok) return verified;
     return ok(unapplied.value.length);
   } finally {

@@ -210,7 +210,8 @@ async function buildSteps(
   const skip = (name: string, note: string) =>
     skipped.push({ name, status: "건너뜀", note });
 
-  if (full) {
+  // 전부 도는데 file 이름을 늘어놓으면 Windows 명령줄 한도(32K)를 넘는다. biome.json 범위가 같으니 목록 없이 돈다.
+  if (full || run.size === ALL_PACKAGES.length) {
     checks.push({ name: "fmt", commands: [[...BIOME_CMD, "format"]] });
     checks.push({ name: "lint", commands: [[...BIOME_CMD, "lint"]] });
   } else if (pkgFolders.length > 0) {

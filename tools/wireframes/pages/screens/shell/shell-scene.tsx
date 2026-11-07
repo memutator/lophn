@@ -37,6 +37,7 @@ import {
   deskEntries,
   deskTabs,
   dirsOf,
+  emptyDesk,
   dockFloat,
   floatTab,
   groupOf,
@@ -44,6 +45,7 @@ import {
   membersOf,
   minimizeFloat,
   minimizeLooseFloats,
+  openFloatTab,
   openTab,
   paneStackOf,
   pinFloat,
@@ -65,6 +67,7 @@ import {
   type MockDesk,
   type MockTab,
   mockDesks,
+  mockGlobalFloats,
   mockOf,
   stripTab,
   tabIcon,
@@ -100,8 +103,11 @@ export function ShellScene({
   closeTabs,
   keys,
   recentOpen = false,
+  globalFloats = false,
 }: {
   variant: Variant;
+  /** 모든 workspace에 사는 전역 float을 desk float 위에 띄운다. tab 줄 오른쪽 끝에는 전역 표시가 붙은 chip이 먼저 놓인다. */
+  globalFloats?: boolean;
   /** 왼쪽 sidebar에서 project의 Recent를 펼친 채 시작한다. */
   recentOpen?: boolean;
   left?: boolean;
@@ -122,6 +128,12 @@ export function ShellScene({
   const [desks, setDesks] = useState(() => mockDesks(variant));
   const floatRef = useRef<HTMLDivElement>(null);
   const floatArea = useObservedSize(floatRef);
+  // 전역 float도 desk model의 floats 규칙을 그대로 쓴다(앱의 shell/global-floats/store.ts와 같다).
+  const [globals, setGlobals] = useState<Desk>(() =>
+    globalFloats ? mockGlobalFloats() : emptyDesk("global", "Global"),
+  );
+  const globalRef = useRef<HTMLDivElement>(null);
+  const globalArea = useObservedSize(globalRef);
   const [deskKey, setDeskKey] = useState("_default");
   const [leftOpen, setLeft] = useState(left);
   const [rightOpen, setRight] = useState(right);
@@ -259,6 +271,20 @@ export function ShellScene({
     if (what === "unsplit") patch((d) => ungroup(d, key));
   };
 
+  const toggleGlobal = (key: string) =>
+    setGlobals((d) =>
+      d.floats.some((f) => f.tab.key === key && !f.minimized)
+        ? minimizeFloat(d, key)
+        : restoreFloat(d, key),
+    );
+  // "이 desk로": 전역 float을 이 desk의 float으로 옮긴다.
+  const globalToDesk = (key: string) => {
+    const item = globals.floats.find((f) => f.tab.key === key);
+    if (item === undefined) return;
+    setGlobals((d) => closeFloat(d, key));
+    patch((d) => openFloatTab(d, item.tab, item.rect));
+  };
+
   const toggleFloat = (key: string) =>
     patch((d) =>
       d.floats.some((f) => f.tab.key === key && !f.minimized)
@@ -363,9 +389,11 @@ export function ShellScene({
               group === null ? desk.selected : leavesOf(group.layout)[0]!
             }
             minimized={desk.floats.map((f) => stripTab(mockOf(f.tab)))}
-            floating={desk.floats
+            globalFloats={globals.floats.map((f) => stripTab(mockOf(f.tab)))}
+            floating={[...globals.floats, ...desk.floats]
               .filter((f) => !f.minimized)
               .map((f) => f.tab.key)}
+            onToggleGlobalFloat={toggleGlobal}
             onSelect={(key) => patch((d) => selectTab(d, key))}
             onClose={close}
             onMenu={(key, at) => setMenu({ key, ...at })}
@@ -399,38 +427,93 @@ export function ShellScene({
         }
         rightSidebar={<MockRightSidebar title={chosen.label} />}
         floats={
-          <FloatLayer
-            layerRef={floatRef}
-            area={
-              floatArea !== undefined &&
-              floatArea.width > 0 &&
-              floatArea.height > 0
-                ? floatArea
-                : undefined
-            }
-            floats={desk.floats.flatMap((item, order) => {
-              if (item.minimized) return [];
-              const tab = mockOf(item.tab);
-              return [
-                {
-                  key: tab.key,
-                  title: tab.title,
-                  icon: tabIcon(tab),
-                  dot: tab.dot,
-                  rect: item.rect,
-                  pinned: item.pinned,
-                  body: floatBody(tab),
-                },
-              ];
-            })}
-            onRaise={(key) => patch((d) => restoreFloat(d, key))}
-            onRect={(key, rect) => patch((d) => setFloatRect(d, key, rect))}
-            onMinimize={toggleFloat}
-            onDock={(key) => patch((d) => dockFloat(d, key))}
-            onClose={close}
-            onPin={(key, pinned) => patch((d) => pinFloat(d, key, pinned))}
-            onOutside={(inside) => patch((d) => minimizeLooseFloats(d, inside))}
-          />
+          <>
+            <FloatLayer
+              layerRef={floatRef}
+              area={
+                floatArea !== undefined &&
+                floatArea.width > 0 &&
+                floatArea.height > 0
+                  ? floatArea
+                  : undefined
+              }
+              floats={desk.floats.flatMap((item, order) => {
+                if (item.minimized) return [];
+                const tab = mockOf(item.tab);
+                return [
+                  {
+                    key: tab.key,
+                    title: tab.title,
+                    icon: tabIcon(tab),
+                    dot: tab.dot,
+                    rect: item.rect,
+                    pinned: item.pinned,
+                    body: floatBody(tab),
+                  },
+                ];
+              })}
+              onRaise={(key) => patch((d) => restoreFloat(d, key))}
+              onRect={(key, rect) => patch((d) => setFloatRect(d, key, rect))}
+              onMinimize={toggleFloat}
+              onDock={(key) => patch((d) => dockFloat(d, key))}
+              onClose={close}
+              onPin={(key, pinned) => patch((d) => pinFloat(d, key, pinned))}
+              onOutside={(inside) =>
+                patch((d) => minimizeLooseFloats(d, inside))
+              }
+            />
+            {globals.floats.length === 0 ? null : (
+              // 앱에서는 Desktop이 창 몸통 위에 한 번 놓는 층이다(shell/global-floats/global-float-layer.module.css).
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: "calc(var(--z-sticky) + 100)",
+                  pointerEvents: "none",
+                }}
+              >
+                <FloatLayer
+                  layerRef={globalRef}
+                  area={
+                    globalArea !== undefined &&
+                    globalArea.width > 0 &&
+                    globalArea.height > 0
+                      ? globalArea
+                      : undefined
+                  }
+                  floats={globals.floats.flatMap((item) => {
+                    if (item.minimized) return [];
+                    const tab = mockOf(item.tab);
+                    return [
+                      {
+                        key: tab.key,
+                        title: tab.title,
+                        icon: tabIcon(tab),
+                        dot: tab.dot,
+                        rect: item.rect,
+                        pinned: item.pinned,
+                        global: true,
+                        body: floatBody(tab),
+                      },
+                    ];
+                  })}
+                  onRaise={(key) => setGlobals((d) => restoreFloat(d, key))}
+                  onRect={(key, rect) =>
+                    setGlobals((d) => setFloatRect(d, key, rect))
+                  }
+                  onMinimize={toggleGlobal}
+                  onGlobal={globalToDesk}
+                  onClose={(key) => setGlobals((d) => closeFloat(d, key))}
+                  onPin={(key, pinned) =>
+                    setGlobals((d) => pinFloat(d, key, pinned))
+                  }
+                  onOutside={(inside) =>
+                    setGlobals((d) => minimizeLooseFloats(d, inside))
+                  }
+                />
+              </div>
+            )}
+          </>
         }
       >
         <ContentCard

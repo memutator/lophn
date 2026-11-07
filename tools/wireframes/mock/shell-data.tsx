@@ -14,6 +14,8 @@ import {
   type Desk,
   emptyDesk,
   floatTab,
+  minimizeFloat,
+  openFloatTab,
   openTab,
   selectTab,
   setRatio,
@@ -119,6 +121,25 @@ const itemOf = (tab: MockTab): TabItem => ({
 });
 
 export const mockOf = (item: TabItem): MockTab => item.fields!.mock as MockTab;
+
+/** 전역 float(모든 workspace에 사는 앱 panel) 둘: 펴진 것 하나와 접힌 것 하나. desk float 위에 겹쳐 보이게 desk float 자리(FLOAT_RECTS)와 겹친다. */
+export function mockGlobalFloats(): Desk {
+  const inbox = chat("g-inbox", "Mahas", "all workspaces", {
+    kind: "lophn",
+    shape: "round",
+    color: "blue",
+  });
+  const notes = file("g-notes", "Masup", "all workspaces");
+  let model = emptyDesk("global", "Global");
+  model = openFloatTab(model, itemOf(inbox), {
+    x: 460,
+    y: 110,
+    width: 420,
+    height: 340,
+  });
+  model = openFloatTab(model, itemOf(notes), FLOAT_RECTS[2]!);
+  return minimizeFloat(model, notes.key);
+}
 
 /** tabs를 차례로 연 desk. floats는 [tab, 펴 있나] 차례이고 그 차례가 위아래·접힌 칸의 차례다. */
 const desk = (

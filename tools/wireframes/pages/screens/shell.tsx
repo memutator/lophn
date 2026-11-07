@@ -171,6 +171,13 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="floats" />,
     },
     {
+      id: "shell-global-float",
+      title: "Shell · Global float",
+      description:
+        "workspace를 바꿔도 남는 전역 float. 앱 panel 화면을 desk float에서 float bar의 지구본 단추(Show in all workspaces)로 옮기면 title bar 아래 창 몸통 전체를 덮는 층에 떠서 어느 desk float보다 위에 놓인다(Mahas). 접힌 것은 tab 줄 오른쪽 끝 chip 칸에서 desk float의 chip보다 앞에 놓이고 아이콘에 작은 지구본이 붙는다(Masup). chip을 누르면 펴고 접는다. 전역 float의 bar 단추는 Move to this desk(이 desk의 float으로 옮긴다), 고정, 접기, 닫기이고 dock은 없다. 고정 안 한 전역 float은 바깥을 누르면 접힌다.",
+      render: () => <ShellScene variant="floats" globalFloats />,
+    },
+    {
       id: "shell-workspaces-panel",
       title: "Shell · Workspaces panel",
       description:

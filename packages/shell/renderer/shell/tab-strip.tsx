@@ -13,7 +13,7 @@ import { t } from "@lophn/i18n";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 
-import { shellIcons } from "../icons/mod.ts";
+import { browserIcons, shellIcons } from "../icons/mod.ts";
 import {
   dotLabel,
   type TabDot,
@@ -57,7 +57,9 @@ export interface TabStripProps {
   selected: string | null;
   /** 접힌 float. 줄 오른쪽 끝에 아이콘 칸으로 보인다. */
   minimized: readonly StripTab[];
-  /** minimized 중 지금 펴져 있는 것의 key. 눌린 모양이다. */
+  /** 전역 float(모든 workspace에 사는 앱 panel). 칸 묶음 앞에 전역 표시와 함께 놓인다. */
+  globalFloats?: readonly StripTab[];
+  /** minimized와 globalFloats 중 지금 펴져 있는 것의 key. 눌린 모양이다. */
   floating: readonly string[];
   /** 누른 tab의 key. 칸의 빈 곳을 누르면 group이면 focus tab이다. */
   onSelect: (tabKey: string) => void;
@@ -78,6 +80,8 @@ export interface TabStripProps {
   onNewTab?: () => void;
   /** 접힌 float을 펴거나 접는다. */
   onToggleFloat: (key: string) => void;
+  /** 전역 float을 펴거나 접는다. */
+  onToggleGlobalFloat?: (key: string) => void;
 }
 
 // 접힌 칸이 이만큼을 넘으면 나머지는 +N 메뉴로 들어간다. tab이 쓸 폭을 지킨다.
@@ -91,6 +95,7 @@ export function TabStrip({
   entries,
   selected,
   minimized,
+  globalFloats = [],
   floating,
   onSelect,
   onClose,
@@ -102,6 +107,7 @@ export function TabStrip({
   newTab,
   onNewTab,
   onToggleFloat,
+  onToggleGlobalFloat,
 }: TabStripProps) {
   const strip = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -176,8 +182,13 @@ export function TabStrip({
     return entries[index]!.key === before ? "before" : undefined;
   };
 
-  const shown = minimized.slice(0, MINIMIZED_SHOWN);
-  const hidden = minimized.slice(MINIMIZED_SHOWN);
+  // 전역 float이 먼저다. key가 겹치지 않아 누른 key로 어느 쪽인지 가린다.
+  const chips = [...globalFloats, ...minimized];
+  const globalKeys = new Set(globalFloats.map((tab) => tab.key));
+  const toggleChip = (key: string) =>
+    globalKeys.has(key) ? onToggleGlobalFloat?.(key) : onToggleFloat(key);
+  const shown = chips.slice(0, MINIMIZED_SHOWN);
+  const hidden = chips.slice(MINIMIZED_SHOWN);
 
   return (
     <div ref={strip} className={styles.strip} data-tab-strip="">
@@ -385,7 +396,7 @@ export function TabStrip({
       </span>
       <span className={styles.drag} />
 
-      {minimized.length === 0 ? null : (
+      {chips.length === 0 ? null : (
         <div
           className={styles.minimized}
           data-float-chips=""
@@ -399,16 +410,23 @@ export function TabStrip({
                 className={styles.chip}
                 aria-label={tab.title}
                 aria-pressed={floating.includes(tab.key)}
-                onClick={() => onToggleFloat(tab.key)}
+                onClick={() => toggleChip(tab.key)}
               >
                 {tab.icon}
+                {globalKeys.has(tab.key) ? (
+                  <Icon
+                    icon={browserIcons.globe}
+                    pixels={8}
+                    className={styles.globalMark}
+                  />
+                ) : null}
               </button>
             </Tooltip>
           ))}
           {hidden.length === 0 ? null : (
             <Menu
               placement="corner"
-              onSelect={onToggleFloat}
+              onSelect={toggleChip}
               items={hidden.map((tab) => ({
                 id: tab.key,
                 label: tab.title,

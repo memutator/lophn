@@ -372,6 +372,16 @@
   border-radius: var(--radius-md);
 }
 
+/* 전역 float(모든 workspace에 사는 앱 panel) 표시. 아이콘 오른쪽 아래의 작은 지구본이다. */
+.globalMark {
+  position: absolute;
+  right: var(--space-0);
+  bottom: var(--space-0);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-shell);
+  border-radius: var(--radius-full);
+}
+
 .chip:hover {
   background: var(--color-surface-muted);
 }

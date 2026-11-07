@@ -14,7 +14,7 @@ import { type FloatEdge, FloatPanel, Tooltip } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 
 import { ViewLayerProvider } from "../app-frame/webview-host.tsx";
-import { shellIcons } from "../icons/mod.ts";
+import { actionIcons, browserIcons, shellIcons } from "../icons/mod.ts";
 import {
   TabStateDot,
   type TabDot,
@@ -39,6 +39,8 @@ export interface FloatEntry {
   readonly rect: FloatRect;
   /** 고정(always on top). */
   readonly pinned: boolean;
+  /** 앱 panel 화면만 준다. false면 desk float(모든 workspace로 옮길 수 있다), true면 전역 float(이 desk로 옮긴다). 없으면 옮기는 단추가 없다. */
+  readonly global?: boolean;
   readonly body: ReactNode;
 }
 
@@ -52,7 +54,10 @@ export interface FloatLayerProps {
   onRaise: (key: string) => void;
   onRect: (key: string, rect: FloatRect) => void;
   onMinimize: (key: string) => void;
-  onDock: (key: string) => void;
+  /** 없으면 dock 단추와 bar 더블클릭이 없다(전역 float은 한 desk의 tab이 될 수 없다). */
+  onDock?: (key: string) => void;
+  /** desk float ↔ 전역 float을 옮긴다. 없으면 옮기는 단추가 없다. */
+  onGlobal?: (key: string) => void;
   onClose: (key: string) => void;
   onPin: (key: string, pinned: boolean) => void;
   /** 패널 밖을 눌렀다. 누른 곳이 어느 패널 안이면 그 key다(그 패널은 남는다). */
@@ -123,6 +128,7 @@ function FloatEntryView({
   onRect,
   onMinimize,
   onDock,
+  onGlobal,
   onClose,
   onPin,
 }: FloatLayerProps & {
@@ -192,12 +198,27 @@ function FloatEntryView({
         onMoveStart={(event) =>
           drag(event, (dx, dy) => movedRect(base, dx, dy, area))
         }
-        onBarDoubleClick={() => onDock(float.key)}
+        onBarDoubleClick={onDock && (() => onDock(float.key))}
         onResizeStart={(edge: FloatEdge, event) =>
           drag(event, (dx, dy) => resizedRect(base, edge, dx, dy, area))
         }
         actions={
           <>
+            {onGlobal === undefined || float.global === undefined
+              ? null
+              : float.global
+                ? action(
+                    "to-desk",
+                    actionIcons.openInTab,
+                    t("shell.button.float-to-desk"),
+                    () => onGlobal(float.key),
+                  )
+                : action(
+                    "to-global",
+                    browserIcons.globe,
+                    t("shell.button.float-to-global"),
+                    () => onGlobal(float.key),
+                  )}
             {float.pinned
               ? action(
                   "unpin",
@@ -214,9 +235,14 @@ function FloatEntryView({
               t("shell.button.float-minimize"),
               () => onMinimize(float.key),
             )}
-            {action("dock", shellIcons.dock, t("shell.button.float-dock"), () =>
-              onDock(float.key),
-            )}
+            {onDock === undefined
+              ? null
+              : action(
+                  "dock",
+                  shellIcons.dock,
+                  t("shell.button.float-dock"),
+                  () => onDock(float.key),
+                )}
             {action(
               "close",
               shellIcons.close,

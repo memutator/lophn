@@ -121,6 +121,10 @@ import {
   type TabsCloseRow,
 } from "../shell/tabs-close-dialog.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
+import {
+  type GlobalFloatView,
+  useGlobalFloats,
+} from "../shell/global-floats/global-floats.tsx";
 import { neighborLeaf, type PaneDirection } from "../shell/group-geometry.ts";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
@@ -387,6 +391,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   // 빠른 실행의 App hover 목록과 고정 앱 panel은 설치된 앱 목록과 맞춰 그린다.
   const panelApps = useScreensRead(appViews?.screens !== undefined).read;
   const { prefs: quickPrefs, set: setQuickPrefs } = useQuickPrefs();
+  // 모든 workspace에 사는 전역 float. 앱 panel 화면을 desk float과 서로 옮기고, QuickLaunch가 있는 것을 펼친다.
+  const globalFloats = useGlobalFloats();
   // 앱 panel 화면 탭의 여는 자리와 마지막 float 자리. 앱을 아직 고르지 않은 탭과 다른 kind는 없다.
   const launchOf = (tab: TabItem | undefined) =>
     tab?.kind === "app_panel" &&
@@ -1415,6 +1421,60 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         : clampFloatRect(remembered, stageSize);
     update((item) => floatTab(item, key, rect));
   };
+  // desk의 앱 panel float을 전역 float로 옮긴다. rect, 접힘, pin을 그대로 가져가고 desk에서는 닫는다. 전역 float이 상한이면
+  // 옮기지 않아 desk float이 사라지지 않는다.
+  const floatToGlobal = (key: string) => {
+    const item = latestDesk().floats.find((float) => float.tab.key === key);
+    const { app, screen } = item?.tab ?? {};
+    if (
+      item === undefined ||
+      item.tab.kind !== "app_panel" ||
+      app === undefined ||
+      screen === undefined
+    ) {
+      return;
+    }
+    const moved = globalFloats.add({
+      app,
+      screen,
+      rect: item.rect,
+      minimized: item.minimized,
+      pinned: item.pinned,
+      title: item.tab.title,
+    });
+    if (moved) update((d) => closeFloat(d, key));
+  };
+  // 전역 float을 이 desk의 float으로 옮긴다. 이 창의 desk에 더 둘 수 없으면 false다.
+  const deskFloatCount = useRef(0);
+  const globalToFloat = (float: GlobalFloatView): boolean => {
+    if (stageSize === undefined) return false;
+    const tab: TabItem = {
+      key: `app-panel-${Date.now().toString(36)}-g${++deskFloatCount.current}`,
+      kind: "app_panel",
+      title: float.title,
+      app: float.app,
+      screen: float.screen,
+    };
+    const place = (d: Desk) => {
+      const opened = openFloatTab(
+        d,
+        tab,
+        clampFloatRect(float.rect, stageSize),
+      );
+      const pinned = float.pinned ? pinFloat(opened, tab.key, true) : opened;
+      return float.minimized ? minimizeFloat(pinned, tab.key) : pinned;
+    };
+    if (place(latestDesk()) === latestDesk()) return false;
+    update(place);
+    return true;
+  };
+  const globalToFloatRef = useRef(globalToFloat);
+  globalToFloatRef.current = globalToFloat;
+  const { registerDesk } = globalFloats;
+  useEffect(
+    () => registerDesk((float) => globalToFloatRef.current(float)),
+    [registerDesk],
+  );
   usePaletteScope(() =>
     workspaceScope({
       desk,
@@ -2297,13 +2357,20 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const launchAppPanel = (
     pin: { app: string; surface: string },
     title: string,
-  ) =>
+  ) => {
+    // 같은 화면이 전역 float면 desk에 새로 열지 않고 그것을 펼쳐 맨 위로 올린다.
+    const global = globalFloats.find(pin.app, pin.surface);
+    if (global !== undefined) {
+      globalFloats.expand(global.key);
+      return;
+    }
     openPinnedAppPanel(
       host,
       pin,
       title,
       quickPrefs.launch[launchKey(pin.app, pin.surface)],
     );
+  };
 
   // 이 workspace의 빠른 실행. project가 자기 값을 두었으면 그것이고 아니면 전역 값이다.
   const quickNow = layout.quick ?? quickPrefs.quick;
@@ -2414,9 +2481,24 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   entries={entries}
                   selected={entryKey(desk)}
                   minimized={desk.floats.map((item) => stripTab(item.tab))}
-                  floating={desk.floats
+                  globalFloats={globalFloats.floats.map((item) => ({
+                    key: item.key,
+                    title: t("shell.label.global-float", { title: item.title }),
+                    icon: <AppTabIcon app={item.app} />,
+                  }))}
+                  floating={[
+                    ...globalFloats.floats.map((item) => ({
+                      key: item.key,
+                      minimized: item.minimized,
+                    })),
+                    ...desk.floats.map((item) => ({
+                      key: item.tab.key,
+                      minimized: item.minimized,
+                    })),
+                  ]
                     .filter((item) => !item.minimized)
-                    .map((item) => item.tab.key)}
+                    .map((item) => item.key)}
+                  onToggleGlobalFloat={globalFloats.toggle}
                   onSelect={(key) => update((item) => selectTab(item, key))}
                   onClose={close}
                   onMenu={(key, at) => setTabMenu({ key, ...at })}
@@ -2692,6 +2774,11 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                         dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
                         rect: item.rect,
                         pinned: item.pinned,
+                        ...(item.tab.kind === "app_panel" &&
+                        item.tab.screen !== undefined &&
+                        globalFloats.enabled
+                          ? { global: false }
+                          : {}),
                         body: bodyOf(item.tab, true),
                       }))}
                     onRaise={(key) => update((item) => restoreFloat(item, key))}
@@ -2706,6 +2793,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                       update((item) => dockFloat(item, key));
                       focusTabBody(key);
                     }}
+                    onGlobal={floatToGlobal}
                     onClose={close}
                     onPin={(key, pinned) =>
                       update((item) => pinFloat(item, key, pinned))

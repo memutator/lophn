@@ -1,0 +1,12 @@
+/* title bar 아래 창 몸통 전체를 덮는 상자. desk float 층(shell-frame.module.css의 .body 안)과 같은 자리·크기라 rect 기준이
+   같다. 자기 stacking context를 만들어 안의 패널·<webview>가 어느 desk float(--z-sticky + 2L+1, 20개여도 51)보다도 위에 오고 menu·dialog(--z-backdrop 이상)
+   아래에 온다. 빈 곳은 아래 화면이 받도록 pointer를 통과시킨다. title bar 높이(--space-10)는 shell-frame.module.css와 짝이다. */
+.layer {
+  position: absolute;
+  top: var(--space-10);
+  right: var(--space-0);
+  bottom: var(--space-0);
+  left: var(--space-0);
+  z-index: calc(var(--z-sheet) + var(--z-sticky));
+  pointer-events: none;
+}

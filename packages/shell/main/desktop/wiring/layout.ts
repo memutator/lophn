@@ -1,7 +1,12 @@
-// 작업대 layout 저장·복원.
+// 작업대 layout과 전역 float 저장·복원.
 import { BrowserWindow, type WebContents } from "electron";
 
+import { createGlobalFloatsStore } from "../../workspace/global-floats.ts";
 import { createWorkspaceLayoutStore } from "../../workspace/workspace-layout-store.ts";
+import {
+  registerGlobalFloatsIpc,
+  removeGlobalFloatsIpc,
+} from "../core/global-floats-ipc.ts";
 import { registerLayoutIpc, removeLayoutIpc } from "../core/layout-ipc.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import type { Detached } from "./detached.ts";
@@ -22,5 +27,16 @@ export function register(ctx: ShellContext, detached: Detached): Registered {
     },
   });
 
-  return { stop: () => removeLayoutIpc(ipc) };
+  // 전역 float는 workspace를 넘으므로 layout 파일과 따로 쓴다.
+  registerGlobalFloatsIpc(ipc, {
+    registry: overlays.overlayRegistry(),
+    store: createGlobalFloatsStore(dataRoot),
+  });
+
+  return {
+    stop: () => {
+      removeLayoutIpc(ipc);
+      removeGlobalFloatsIpc(ipc);
+    },
+  };
 }

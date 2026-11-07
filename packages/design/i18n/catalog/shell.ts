@@ -10,6 +10,8 @@ export const shell = {
   "shell.button.float-dock": "Dock as tab",
   "shell.button.float-minimize": "Minimize",
   "shell.button.float-pin": "Keep on top",
+  "shell.button.float-to-desk": "Move to this desk",
+  "shell.button.float-to-global": "Show in all workspaces",
   "shell.button.float-unpin": "Stop keeping on top",
   "shell.button.forward": "Forward",
   "shell.button.minimized-more": "{count} more minimized tabs",
@@ -71,6 +73,7 @@ export const shell = {
   "shell.label.drop-full": "Group is full (4 tabs)",
   "shell.label.empty-desk":
     "No tabs in this desk yet. Open a session from the sidebar or start a new one.",
+  "shell.label.global-float": "{title} (all workspaces)",
   "shell.label.minimized": "Minimized tabs",
   "shell.label.new-desk-name": "Desk {number}",
   "shell.label.pane-position": "{at}/{count}",

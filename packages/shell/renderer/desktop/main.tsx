@@ -56,6 +56,8 @@ import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { KeybindingsApi } from "../../ipc/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { CommandsProvider } from "../commands/react.tsx";
+import { GlobalFloatLayer } from "../shell/global-floats/global-float-layer.tsx";
+import { GlobalFloatsProvider } from "../shell/global-floats/global-floats.tsx";
 import { createWindowCommands } from "../commands/window.ts";
 import { currentPlatform } from "./top-bar/platform.ts";
 import type { WorkspaceRef } from "../shell/desk-model.ts";
@@ -314,7 +316,10 @@ export function Desktop({
   const connection = useConnection(source);
   const live = connection.state === "ready" || connection.state === "stale";
   let space: ReactNode;
+  // 전역 float 층은 workspace와 Settings 위에만 있다. detached 창, 앱 전용 창, 연결 화면(HomeGate)에는 없다.
+  let globalFloats = false;
   if (route.space === "project" && route.project && workspace && live) {
+    globalFloats = true;
     space = (
       <WorkspaceWindow
         key={route.project}
@@ -343,6 +348,7 @@ export function Desktop({
       />
     );
   } else if (route.space === "home" && workspace && live) {
+    globalFloats = true;
     // Home은 project가 없어 터미널과 detached 창이 없다.
     space = (
       <WorkspaceWindow
@@ -390,6 +396,7 @@ export function Desktop({
         />
       ) : null;
   } else if (route.space === "app" && route.app && workspace && apps && live) {
+    globalFloats = true;
     space = (
       <WorkspaceWindow
         key={route.app}
@@ -432,6 +439,7 @@ export function Desktop({
       />
     ) : null;
   } else if (route.space === "settings" && catalog) {
+    globalFloats = true;
     space = (
       <SettingsSpace
         key={visits}
@@ -462,7 +470,14 @@ export function Desktop({
             openSession={openSession}
             goApp={(app) => setRoute(openApp(app))}
           />
-          {space}
+          <GlobalFloatsProvider
+            enabled={route.space !== "detached" && route.space !== "app-window"}
+          >
+            {space}
+            {globalFloats ? (
+              <GlobalFloatLayer onOpenApp={apps ? appSpace : undefined} />
+            ) : null}
+          </GlobalFloatsProvider>
           {overlay &&
           route.space !== "detached" &&
           route.space !== "app-window" ? (

@@ -30,6 +30,7 @@ import {
 } from "./admin.ts";
 import type { JobsSource } from "../jobs/source.ts";
 import { mockAgentTabSource } from "./agent.ts";
+import { installMockGlobalFloats } from "./global-floats.ts";
 import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
 import { mockProjects } from "./projects.ts";
 import { mockProjectIcons } from "./project-icons.ts";
@@ -82,6 +83,7 @@ export function devMock(
   const projects = mockProjects();
   const apps = mockApps();
   const agents = createFakeAgentsSource();
+  installMockGlobalFloats();
   return {
     core: mockCore(),
     // 어느 카드를 열어도 같은 시드 작업대다. 제목만 카드의 것을 쓴다.

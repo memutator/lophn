@@ -20,6 +20,7 @@ import { createHarnessGuiTabApi } from "./harness-gui-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
 import { createAnnotateApi } from "./annotate-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
+import { createGlobalFloatsApi } from "./global-floats-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
@@ -142,6 +143,11 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld("lophnFiles", createFilesApi(ipcRenderer));
   // 작업대 layout. 탭과 정보 패널만 보내고 main이 다시 검사한다.
   contextBridge.exposeInMainWorld("lophnLayout", createLayoutApi(ipcRenderer));
+  // 전역 float(workspace를 넘는 앱 panel 화면). 목록만 보내고 main이 다시 검사한다.
+  contextBridge.exposeInMainWorld(
+    "lophnGlobalFloats",
+    createGlobalFloatsApi(ipcRenderer),
+  );
   // browser 탭. 주소·명령·bookmark 요청만 보내고 view와 저장은 main이 한다.
   contextBridge.exposeInMainWorld(
     "lophnBrowser",

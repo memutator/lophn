@@ -52,6 +52,7 @@ export function AppWindow({ app, release, screen, views }: AppWindowProps) {
             release={release}
             screen={screen}
             place="tab"
+            workspace={{ kind: "app", id: app, folders: [] }}
             label={name}
           />
           <WebviewLayer host={webviews} />

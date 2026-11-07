@@ -2,8 +2,9 @@
 //
 // - 읽을 때 key 하나씩 판정한다. 모르는 key와 틀린 값은 그 key만 무시(기본값)하고 나머지는
 //   적용한다. log에는 key와 reason만 남긴다.
-// - 쓸 때는 파일의 raw object에서 시작해 바꾼 key만 덮는다. 무시한 key는 사람이 직접 바꾸지
-//   않는 한 파일에 남는다(선언을 지운 뒤에도 값이 사라지지 않게).
+// - 쓸 때는 쓰기 직전에 파일을 다시 읽고(못 읽으면 unavailable) 그 raw object에서 시작해
+//   바꾼 key만 덮는다. 무시한 key는 사람이 직접 바꾸지 않는 한 파일에 남는다(선언을 지운
+//   뒤에도 값이 사라지지 않게).
 // - JSON이 깨진 파일은 쓰기가 덮지 않는다(unavailable). 사람이 고칠 때까지 그대로 둔다.
 // - 쓰기는 같은 폴더의 임시 파일(0600)에 쓰고 rename한다. 실패하면 파일은 그대로다.
 // - watch는 폴더를 보고 settings.json 이벤트만 timer로 묶어 한 번 다시 읽는다. 내용이
@@ -127,15 +128,8 @@ export function createSettingsStore(options: {
       )
       .sort();
 
-  // 시작할 때와 watch가 부른다. 파일이 깨졌으면 이전 값을 그대로 둔다.
-  const reload = (): void => {
-    let text: string;
-    try {
-      text = readText();
-    } catch {
-      log("settings: settings.json could not be read");
-      return;
-    }
+  // 읽은 내용을 raw와 chosen에 반영한다. 파일이 깨졌으면 chosen은 이전 값 그대로다.
+  const apply = (text: string): void => {
     if (text === lastText) return;
     const first = lastText === undefined;
     lastText = text;
@@ -148,6 +142,15 @@ export function createSettingsStore(options: {
     const changed = differing(chosen, next.chosen);
     chosen = next.chosen;
     if (!first && changed.length > 0) publish(changed);
+  };
+
+  // 시작할 때와 watch가 부른다. 못 읽으면 이전 값을 그대로 둔다.
+  const reload = (): void => {
+    try {
+      apply(readText());
+    } catch {
+      log("settings: settings.json could not be read");
+    }
   };
   reload();
 
@@ -180,6 +183,15 @@ export function createSettingsStore(options: {
     update(changes) {
       const rejected = registry.validate(changes);
       if (rejected.length > 0) return ok({ changed: [], rejected });
+      // watch debounce 안의 손 편집이나 읽기 실패로 raw가 낡았을 수 있다. 쓰기 직전에 다시 읽는다.
+      try {
+        apply(readText());
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "settings.json could not be read",
+        });
+      }
       if (raw === undefined) {
         return err({
           code: "unavailable",

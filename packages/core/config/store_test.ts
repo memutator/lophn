@@ -125,3 +125,30 @@ test("깨진 settings.json은 update가 덮지 않는다", async () => {
     assert.strictEqual(readFileSync(file, "utf8"), '{"t.theme": ');
   }, '{"t.theme": ');
 });
+
+test("reload 없이 파일이 바뀐 뒤의 update는 손으로 고친 key를 지우지 않는다", async () => {
+  await withStore(
+    (store, file, published) => {
+      writeFileSync(
+        file,
+        JSON.stringify({ "t.theme": "dark", "t.mcp": "hand" }),
+      );
+      const result = store.update([
+        { key: "t.flag", action: "set", value: false },
+      ]);
+      assert.ok(result.ok);
+      assert.deepStrictEqual(result.value.changed, ["t.flag"]);
+      assert.deepStrictEqual(JSON.parse(readFileSync(file, "utf8")), {
+        "t.flag": false,
+        "t.mcp": "hand",
+        "t.theme": "dark",
+      });
+      assert.deepStrictEqual(store.chosen(), {
+        "t.flag": false,
+        "t.theme": "dark",
+      });
+      assert.deepStrictEqual(published, [["t.theme"], ["t.flag"]]);
+    },
+    JSON.stringify({ "t.theme": "light" }),
+  );
+});

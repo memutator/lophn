@@ -5,6 +5,8 @@ import type { HeadlessEvent, HeadlessSpec } from "./types.ts";
 // 마지막 step에 끝 줄이 없어서 끝은 process 종료다.
 export const opencodeHeadless: HeadlessSpec = {
   command: "opencode",
+  // `run`에 directory 지정 flag가 없고(v2.1.4) git 저장소 안이면 spawn cwd가 아니라 저장소 맨 위에 쓴다.
+  needsOwnGitRoot: true,
   args: ({ prompt, sessionId }) => [
     "run",
     "--standalone",

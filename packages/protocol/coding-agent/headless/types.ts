@@ -14,6 +14,8 @@ export type HeadlessParser = (line: string) => HeadlessEvent[];
 
 export type HeadlessSpec = {
   command: string;
+  // true면 cwd가 자기 git root가 아닐 때 띄우지 않는다. 이 harness가 cwd가 아니라 그 위 git root에 쓰기 때문이다.
+  needsOwnGitRoot?: true;
   // cwd는 spawn 옵션으로 넘긴다. `deny`는 `permissions`가 옮긴 flag다.
   args(input: {
     prompt: string;

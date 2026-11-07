@@ -4,6 +4,7 @@ import { dirname, isAbsolute } from "node:path";
 import { prependPath } from "../../../../../base/os/mod.ts";
 import type { Result } from "../../../../../base/result.ts";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
+import { harnessHomeName } from "../../../../../protocol/coding-agent/harness-home.ts";
 import { AGENT_CREDENTIAL_ENV } from "../../../../../protocol/coding-agent/headless/env.ts";
 import type { ExtensionContext } from "../../../../../protocol/extensions/manifest.ts";
 
@@ -96,12 +97,16 @@ export function createHarnessHost(
   const finish = async (turn: string, outcome: Outcome) =>
     void (await harness("finish_turn", { turn, outcome }));
 
-  // session의 workspace 폴더가 cwd다. 폴더가 없는 workspace(home, 폴더 없는 project·app)에서는 띄우지 않는다:
-  // cwd가 곧 harness가 쓰는 범위라 임의의 폴더를 고르면 폴더 밖에 쓰게 된다.
+  // session의 workspace 폴더가 cwd다. home은 data root 안 session마다 빈 폴더를 만들어 준다. 폴더가 없는 project·app은
+  // 띄우지 않는다: cwd가 곧 harness가 쓰는 범위라 임의의 폴더를 고르면 폴더 밖에 쓰게 된다.
   async function workspaceFolder(
     workspace: Taken["workspace"],
+    session: string,
   ): Promise<string | null> {
-    if (workspace === null) return null;
+    if (workspace === null) {
+      const made = await ctx.dataFolder(harnessHomeName(session));
+      return made.ok ? made.value : null;
+    }
     if (workspace.kind === "project") {
       const found = await read<{ project: { folders: { path: string }[] } }>(
         "projects",
@@ -118,6 +123,20 @@ export function createHarnessHost(
           found.value.app.folders[0]?.path ??
           null)
       : null;
+  }
+
+  // `git rev-parse --show-prefix`는 cwd가 git root면 빈 줄이고, 그 아래면 root에서의 상대 경로다. 저장소 밖(오류)은 빈 줄로 친다.
+  async function belowGitRoot(cwd: string): Promise<boolean> {
+    const proc = ctx.spawn("git", ["rev-parse", "--show-prefix"], { cwd });
+    let out = "";
+    proc.onStdout((text) => {
+      out += text;
+    });
+    proc.end();
+    const code = await new Promise<number | null>((resolve) =>
+      proc.onExit(resolve),
+    );
+    return code === 0 && out.trim() !== "";
   }
 
   async function execute(
@@ -165,13 +184,21 @@ export function createHarnessHost(
         `${input.harness} cannot keep this agent's deny rules, so it was not started.`,
       );
     }
-    const cwd = await workspaceFolder(input.workspace);
+    const cwd = await workspaceFolder(input.workspace, input.session);
     if (cwd === null) {
       return await fail(
         input,
         turn,
         "configuration_unavailable",
-        "A harness agent needs a project or app workspace that has a folder.",
+        "A harness agent needs a workspace that has a folder (home works too).",
+      );
+    }
+    if (spec.needsOwnGitRoot && (await belowGitRoot(cwd))) {
+      return await fail(
+        input,
+        turn,
+        "configuration_unavailable",
+        `${input.harness} writes to the top of the git repository, and ${cwd} is inside one but is not its top, so it was not started.`,
       );
     }
 

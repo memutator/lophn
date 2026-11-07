@@ -88,6 +88,8 @@ export type ExtensionContext = {
    * 이름은 폴더 안 상대 경로다.
    */
   files: { write(name: string, text: string): Promise<Result<void>> };
+  /** `<data root>/<name>/`을 (없으면) 만들고 절대 경로를 준다. 이름은 data root 안 상대 경로다. 지우지 않는다. */
+  dataFolder(name: string): Promise<Result<string>>;
 };
 
 /** entry file이 내는 것. */

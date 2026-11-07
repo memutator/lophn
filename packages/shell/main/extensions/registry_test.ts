@@ -30,6 +30,7 @@ function memory(files: Map<string, string>): ExtensionFiles {
       const names = below(dir);
       return Promise.resolve(names.length === 0 ? null : names);
     },
+    mkdir: () => Promise.resolve(),
     remove: (path) => {
       if (files.delete(path)) return Promise.resolve();
       if (below(path).length > 0) {

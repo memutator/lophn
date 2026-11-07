@@ -24,6 +24,8 @@ export type ExtensionFiles = {
   write(path: string, text: string): Promise<void>;
   /** 폴더가 없으면 null. */
   list(dir: string): Promise<string[] | null>;
+  /** 상위 폴더도 만든다. 이미 있으면 그대로 둔다. */
+  mkdir(path: string): Promise<void>;
   /** file이나 빈 폴더. 없으면 아무 일 없고, 비지 않은 폴더는 reject다. */
   remove(path: string): Promise<void>;
 };
@@ -134,6 +136,11 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       `${JSON.stringify({ files: names })}\n`,
     );
 
+  const safeName = (name: string) =>
+    name.split("/").every((p) => p !== "" && p !== "." && p !== "..") &&
+    !name.includes("\\") &&
+    !name.startsWith("/");
+
   function contextFor(id: string): ExtensionContext {
     return {
       core: deps.core,
@@ -147,9 +154,7 @@ export function createExtensionRegistry(deps: RegistryDeps) {
           const safe =
             name !== EXTENSION_MARKER &&
             name !== EXTENSION_MANIFEST_FILE &&
-            name.split("/").every((p) => p !== "" && p !== "." && p !== "..") &&
-            !name.includes("\\") &&
-            !name.startsWith("/");
+            safeName(name);
           if (!safe) {
             return {
               ok: false,
@@ -164,6 +169,20 @@ export function createExtensionRegistry(deps: RegistryDeps) {
           await files.write(`${base}/${id}/${name}`, text);
           return { ok: true, value: undefined };
         },
+      },
+      async dataFolder(name) {
+        if (!safeName(name)) {
+          return {
+            ok: false,
+            error: {
+              code: "invalid_input",
+              message: "folder name is not safe",
+            },
+          };
+        }
+        const path = `${deps.dataRoot}/${name}`;
+        await files.mkdir(path);
+        return { ok: true, value: path };
       },
     };
   }

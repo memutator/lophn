@@ -64,6 +64,7 @@ const nodeFiles: ExtensionFiles = {
     await writeFile(path, text);
   },
   list: (dir) => readdir(dir).catch(() => null),
+  mkdir: async (path) => void (await mkdir(path, { recursive: true })),
   // rmdir는 빈 폴더만 지운다. file은 rm이 지운다.
   remove: async (path) => {
     try {

@@ -47,6 +47,19 @@ function callerSession(snapshot: ReadSnapshot, ctx: RequestContext) {
     : loadSession(snapshot, ctx.conditions.session);
 }
 
+// archived 앱의 workspace에 묶인 agent는 agent에게 없는 agent다. 사람의 화면은 그대로 본다.
+function hiddenFrom(
+  context: AgentContext,
+  ctx: RequestContext,
+  workspace: Workspace | null,
+): boolean {
+  return (
+    ctx.actor.startsWith("agent:") &&
+    workspace !== null &&
+    context.lookups.workspaceArchived(workspace)
+  );
+}
+
 function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
   const model = effectiveModel(context, loaded, null);
   const definition = loaded.definition;
@@ -123,6 +136,10 @@ export function createAgentReads(deps: AgentDeps): {
         return ok({
           agents: listed.value
             .filter((loaded) => !narrowed || visibleIn(loaded, scope ?? null))
+            .filter(
+              (loaded) =>
+                !hiddenFrom(context.value, ctx, workspaceOfAgent(loaded)),
+            )
             .map((loaded) => rowOf(context.value, loaded)),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
@@ -149,6 +166,9 @@ export function createAgentReads(deps: AgentDeps): {
               };
         const card = cardByHandle(context.value, input.handle, caller);
         if (!card.ok) return card;
+        if (hiddenFrom(context.value, ctx, card.value.workspace)) {
+          return notFound("agent");
+        }
         return ok({
           card: card.value,
           as_of_seq: snapshot.as_of_seq,
@@ -160,7 +180,7 @@ export function createAgentReads(deps: AgentDeps): {
       route: agentRead,
       handle(
         snapshot: ReadSnapshot,
-        _ctx,
+        ctx,
         input: Input<typeof agentRead>,
       ): Result<Output<typeof agentRead>> {
         const context = openAgentContext(deps, snapshot.sql);
@@ -168,13 +188,19 @@ export function createAgentReads(deps: AgentDeps): {
         const workspace = input.workspace ?? null;
         if (
           workspace !== null &&
-          !context.value.lookups.workspaceExists(workspace)
+          (!context.value.lookups.workspaceExists(workspace) ||
+            hiddenFrom(context.value, ctx, workspace))
         ) {
           return notFound("workspace");
         }
         const found = loadAgent(context.value, input.agent);
         if (!found.ok) return found;
-        if (found.value === null) return notFound("agent");
+        if (
+          found.value === null ||
+          hiddenFrom(context.value, ctx, workspaceOfAgent(found.value))
+        ) {
+          return notFound("agent");
+        }
         const loaded = found.value;
         const model = effectiveModel(context.value, loaded, workspace);
         const profile = profileOf(loaded);

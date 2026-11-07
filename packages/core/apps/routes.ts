@@ -76,11 +76,14 @@ export function callToolHandler(path: AppToolCallPath): MemoryHandler {
 }
 
 // `app.rewind`. 사람만 한다.
-export function rewindHandler(rewind: AppRewind): MemoryHandler {
+export function rewindHandler(
+  rewind: AppRewind,
+  sql: Pick<Sql, "get" | "all">,
+): MemoryHandler {
   return (ctx, input) =>
     createAppRewindCommand({
       rewind,
-      port: portOf(ctx),
+      snapshot: { port: portOf(ctx), sql },
     }).handle(ctx, input as never);
 }
 

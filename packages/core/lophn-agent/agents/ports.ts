@@ -27,6 +27,8 @@ export type ReadSql = Pick<Tx["sql"], "get" | "all">;
 // 다른 concern의 값을 읽는 길. 정본은 각 concern이고 여기서는 읽기만 한다.
 export type AgentLookups = {
   workspaceExists(workspace: Workspace): boolean;
+  // archived 앱의 workspace다. agent에게는 없는 workspace로 다룬다.
+  workspaceArchived(workspace: Workspace): boolean;
   // 이 workspace의 session이 쓸 수 있는 skill 이름이다. 전역 층에 그릇 자리의 workspace-data 층을 더한 것이고
   // 발견·등록 순서다. home(workspace 없음)은 전역 층만이다. 그 workspace 종류에
   // 선언된 내장 skill과 켜진 skill만이다.
@@ -53,6 +55,7 @@ export type WorkspaceLookups = {
   projectIds(sql: ReadSql): string[];
   appExists(sql: ReadSql, id: string): boolean;
   appIds(sql: ReadSql): string[];
+  appArchived(sql: ReadSql, id: string): boolean;
   // project의 첫 등록 폴더나 앱의 source 폴더다. 폴더가 없으면 null이다. 그 폴더의 `.lophn/skills`가 skill 층이다.
   sourceFolder(sql: ReadSql, workspace: Workspace): string | null;
   // 할당한 앱(slug)의 active release bundle 사본과 선언의 public skill 이름이다. 공유 skill의 동기 목록 재료다.

@@ -189,6 +189,26 @@ test("archive한 session은 입력을 받지 않고 보관한 workspace의 sessi
   archivedWorkspaces.clear();
 });
 
+// agent가 archived 앱 workspace로 보낸 call은 없는 앱과 같이 not_found다. 사람이 그 workspace를 여는 길은 conflict 그대로다.
+test("agent가 archived 앱 workspace에 session을 열면 not_found이고 사람은 conflict다", () => {
+  const { sql, tx } = store();
+  archivedWorkspaces.clear();
+  const directory = createSessionDirectory({ ...deps, sql: () => sql });
+  const target = {
+    agent: REVIEWER,
+    workspace: { kind: "app" as const, id: APP },
+  } as never;
+  archivedWorkspaces.add(APP);
+  const byAgent = directory.open(tx, target, {
+    kind: "agent",
+    session: "ses_from" as never,
+  });
+  assert.ok(!byAgent.ok && byAgent.error.code === "not_found");
+  const byHuman = directory.open(tx, target, { kind: "human" });
+  assert.ok(!byHuman.ok && byHuman.error.code === "conflict");
+  archivedWorkspaces.clear();
+});
+
 test("fork는 이력만 복사하고 허락, 대기 요청, 열린 call, rewind 기록은 가져오지 않는다", () => {
   const { sql, tx } = store();
   archivedWorkspaces.clear();

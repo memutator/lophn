@@ -149,7 +149,7 @@ export function createAppCommands(): {
           status: "active",
         };
         const access = authorizeApp(
-          tx.port,
+          tx,
           ctx,
           appCreate.name,
           accessTarget(null, candidate),
@@ -191,7 +191,7 @@ export function createAppCommands(): {
         const resolved = input.source_path;
         const changed: App = { ...current.value, source_path: resolved };
         const access = authorizeApp(
-          tx.port,
+          tx,
           ctx,
           appConnectSource.name,
           accessTarget(current.value, changed),
@@ -250,7 +250,7 @@ export function createAppCommands(): {
         if (current.value === null) return notFound();
         const changed: App = { ...current.value, name: input.name };
         const access = authorizeApp(
-          tx.port,
+          tx,
           ctx,
           appRename.name,
           accessTarget(current.value, changed),
@@ -286,7 +286,7 @@ export function createAppCommands(): {
         }
         const changed: App = { ...current.value, folders: input.folders };
         const access = authorizeApp(
-          tx.port,
+          tx,
           ctx,
           appEditFolders.name,
           accessTarget(current.value, changed),
@@ -319,7 +319,7 @@ export function createAppCommands(): {
         if (!current.ok) return current;
         if (current.value === null) return notFound();
         const access = authorizeApp(
-          tx.port,
+          tx,
           ctx,
           appSetIcon.name,
           accessTarget(current.value, current.value),
@@ -357,7 +357,7 @@ function transition(
     run_enabled: false,
   };
   const access = authorizeApp(
-    tx.port,
+    tx,
     ctx,
     operation,
     accessTarget(current.value, changed),

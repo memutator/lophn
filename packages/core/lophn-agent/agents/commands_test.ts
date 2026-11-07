@@ -20,6 +20,7 @@ const tx = { sql: {} } as unknown as Tx;
 
 const lookups: AgentLookups = {
   workspaceExists: () => false,
+  workspaceArchived: () => false,
   skills: () => [],
   shared: () => [],
   mcp: () => [],

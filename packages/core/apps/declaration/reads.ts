@@ -119,7 +119,7 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
         if (!app.ok) return app;
         // 없는 앱·범위 밖 앱·active release 없는 앱은 같은 답이다.
         if (app.value === null) return notFound();
-        const access = authorizeApp(snapshot.port, ctx, appTools.name, {
+        const access = authorizeApp(snapshot, ctx, appTools.name, {
           kind: "app",
           app: app.value,
         });

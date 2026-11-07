@@ -20,13 +20,18 @@ type AppRewindCommand = {
 
 export function createAppRewindCommand(deps: {
   rewind: AppRewind;
-  port: ReadSnapshot["port"];
+  snapshot: Pick<ReadSnapshot, "port" | "sql">;
 }): AppRewindCommand {
   return {
     route: appRewind,
     async handle(ctx, input) {
       // 범위 밖 앱은 없는 앱과 같다.
-      const access = authorizeAppId(deps.port, ctx, appRewind.name, input.app);
+      const access = authorizeAppId(
+        deps.snapshot,
+        ctx,
+        appRewind.name,
+        input.app,
+      );
       if (!access.ok) {
         return appAccessDenied(access)
           ? err({ code: "not_found", message: "app not found" })

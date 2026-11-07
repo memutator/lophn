@@ -1,8 +1,10 @@
 import { err, ERROR_CODES, type Result } from "../../../base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type { App } from "../../../protocol/apps/mod.ts";
 import {
   type AuthorizationTarget,
   type RequestContext,
+  type Sql,
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../../protocol/server/mod.ts";
@@ -19,13 +21,39 @@ function dependencyUnavailable(): Result<never> {
   });
 }
 
+// ReadSnapshot과 Tx가 이 모양이다.
+type AppAccessSource = {
+  port: (<T>(key: { readonly name: string }) => T) | undefined;
+  sql: Pick<Sql, "get">;
+};
+
+// archived 앱은 agent에게 없는 앱과 같다. 앱을 다루는 agent 쪽 길(read, command)이 모두 authorizeApp을 거치므로
+// 필터는 여기 하나다. 사람(user)의 화면은 거르지 않는다: 되살리기가 그 화면에서 일어난다.
+export function archivedToAgent(
+  sql: Pick<Sql, "get">,
+  ctx: RequestContext,
+  app: string,
+): boolean {
+  if (parseActor(ctx.actor)?.kind !== "agent") return false;
+  return (
+    sql.get(
+      "select 1 as found from apps where id = ? and status = 'archived'",
+      [app],
+    ) !== undefined
+  );
+}
+
 // TargetAuthorization이 없으면, Promise거나 반환이 Result가 아니면 fail-closed다.
 export function authorizeApp(
-  port: (<T>(key: { readonly name: string }) => T) | undefined,
+  { port, sql }: AppAccessSource,
   ctx: RequestContext,
   operation: string,
   target: AppAccessTarget,
 ): Result<void> {
+  const app = target.kind === "command" ? target.after.id : target.app.id;
+  if (archivedToAgent(sql, ctx, app)) {
+    return err({ code: "not_found", message: "app not found" });
+  }
   let authorize: unknown;
   try {
     authorize = port?.(TargetAuthorization);
@@ -51,12 +79,12 @@ export function authorizeApp(
 
 // App row 없이 ID만으로 범위를 판정한다. 다른 앱의 기록(invocation 등)을 읽는 곳이 쓴다.
 export function authorizeAppId(
-  port: (<T>(key: { readonly name: string }) => T) | undefined,
+  source: AppAccessSource,
   ctx: RequestContext,
   operation: string,
   app: string,
 ): Result<void> {
-  return authorizeApp(port, ctx, operation, {
+  return authorizeApp(source, ctx, operation, {
     kind: "app",
     app: { id: app } as unknown as App,
   });

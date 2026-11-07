@@ -45,7 +45,7 @@ export function createRuntimeReads(deps: RuntimeReadDeps = {}): {
         const app = loadApp(snapshot.sql, input.app);
         if (!app.ok) return app;
         if (app.value === null) return notFound();
-        const access = authorizeApp(snapshot.port, ctx, appRuntime.name, {
+        const access = authorizeApp(snapshot, ctx, appRuntime.name, {
           kind: "app",
           app: app.value,
         });
@@ -72,7 +72,7 @@ export function createRuntimeReads(deps: RuntimeReadDeps = {}): {
         const app = loadApp(snapshot.sql, input.app);
         if (!app.ok) return app;
         if (app.value === null) return notFound();
-        const access = authorizeApp(snapshot.port, ctx, appLogs.name, {
+        const access = authorizeApp(snapshot, ctx, appLogs.name, {
           kind: "app",
           app: app.value,
         });

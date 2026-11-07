@@ -1,6 +1,7 @@
 export {
   type AppAccessTarget,
   authorizeApp,
+  archivedToAgent,
   authorizeAppId,
   denied as appAccessDenied,
 } from "./model.ts";

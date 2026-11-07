@@ -10,6 +10,7 @@ import {
   appExists,
   appIds,
   appSourcePath,
+  appStatusOf,
   sharedCommands,
   sharedSkillFolders,
 } from "../../../apps/lookups.ts";
@@ -26,6 +27,7 @@ const agent = createLophnAgent({
     projectIds,
     appExists,
     appIds,
+    appArchived: (sql, id) => appStatusOf(sql, id) === "archived",
     sharedSkills: sharedSkillFolders,
     sharedCommands,
     sourceFolder: (sql, workspace) =>

@@ -99,7 +99,7 @@ function visible(
   const found = loadApp(snapshot.sql, app);
   if (!found.ok) return found;
   if (found.value === null) return ok(false);
-  const access = authorizeApp(snapshot.port, ctx, operation, {
+  const access = authorizeApp(snapshot, ctx, operation, {
     kind: "app",
     app: found.value,
   });

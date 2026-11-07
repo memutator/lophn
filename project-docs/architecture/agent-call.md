@@ -28,6 +28,8 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - 세 종류의 보낸 쪽이 모두 쓰는 입구라, 한 module에 기대면 순환이 생긴다.
 - 보낸 쪽을 막지 않는다. 동기 호출, timeout, 자동 재시도가 없다.
   - 입력 하나가 turn 하나이고 turn이 token이라 재시도가 곧 비용이다.
+- agent가 archived 앱 workspace로 보내는 call은 없는 앱과 같은 `not_found`다(사람, 2026-11-07). 새 session을 여는 `SessionDirectory.open`(`packages/core/lophn-agent/workspaces/directory.ts`)이 보낸 쪽이 agent일 때 막는다. 사람과 program이 같은 workspace를 여는 길은 `conflict`(closed) 그대로다.
+  - archived 앱이 agent에게 보이지 않는 규칙의 한 부분이다(`architecture/app-call.md`). 이미 열려 있던 session 주소로 보내는 call은 그 session이 입력을 받지 않아 `closed`다.
 - 새 session을 열지 열린 session에 보낼지는 보내는 쪽이 고른다. "있으면 보내고 없으면 연다"를 기본으로 두지 않는다.
   - session을 열 때마다 token이 든다. "열린 session, 없으면 새 session"은 놓치면 안 되는 사실을 돌려줄 때만 쓴다.
 - 받는 쪽의 앱(id, slug, 이름)과 project(id, 이름)는 정확히 맞아야 풀린다. 짐작하지 않는다. 풀리지 않으면 not_found, 같은 이름이 여럿이면 invalid_input이다.

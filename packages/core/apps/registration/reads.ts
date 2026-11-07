@@ -73,7 +73,7 @@ export function createAppsReads(): {
         if (!apps.ok) return apps;
         const visible: App[] = [];
         for (const app of apps.value) {
-          const access = authorizeApp(snapshot.port, ctx, appList.name, {
+          const access = authorizeApp(snapshot, ctx, appList.name, {
             kind: "app",
             app,
           });
@@ -102,7 +102,7 @@ export function createAppsReads(): {
         const app = loadApp(snapshot.sql, input.app);
         if (!app.ok) return app;
         if (app.value === null) return notFound();
-        const access = authorizeApp(snapshot.port, ctx, appGet.name, {
+        const access = authorizeApp(snapshot, ctx, appGet.name, {
           kind: "app",
           app: app.value,
         });

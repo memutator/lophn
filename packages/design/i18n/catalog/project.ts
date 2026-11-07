@@ -88,18 +88,25 @@ export const project = {
   "file-search.notice.type-text":
     "Type text to search the files in this project.",
   "file-search.notice.unavailable": "Search isn't available right now.",
+  "project-settings.button.add-command": "Add",
   "project-settings.button.move-down": "Move down",
   "project-settings.button.move-up": "Move up",
   "project-settings.button.pin": "Pin",
+  "project-settings.button.remove-command": "Remove command",
   "project-settings.button.unpin": "Unpin",
   "project-settings.heading.app-panels": "App panels",
+  "project-settings.heading.commands": "Terminal commands",
   "project-settings.heading.general": "General",
   "project-settings.heading.quick-launch": "Quick launch",
+  "project-settings.label.command-line": "Command",
+  "project-settings.label.command-name": "Name",
   "project-settings.label.project-target": "project details",
   "project-settings.label.use-global-quick": "Use the global quick launch",
   "project-settings.notice.app-panels-lead":
     "A pinned app panel gets its own quick launch button that opens the panel in a tab.",
   "project-settings.notice.apps-failed": "Couldn't read the installed apps.",
+  "project-settings.notice.commands-lead":
+    "Commands for this project only. They appear in the hover list of the New terminal button and run in a new terminal.",
   "project-settings.notice.general-unavailable":
     "Project details can't be edited in this window.",
   "project-settings.notice.no-app-panels":

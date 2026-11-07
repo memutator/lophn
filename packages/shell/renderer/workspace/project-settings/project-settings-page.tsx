@@ -6,9 +6,10 @@ import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
-import type { WorkspaceQuick } from "../../shell/desk-model.ts";
+import type { QuickCommand, WorkspaceQuick } from "../../shell/desk-model.ts";
 import {
   AppPanelList,
+  QuickCommandList,
   QuickOrderList,
   useAppPanelApps,
 } from "./quick-launch-editor.tsx";
@@ -26,6 +27,9 @@ export interface ProjectSettingsPageProps {
   readonly quick: WorkspaceQuick | undefined;
   /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
   readonly onQuick: (next: WorkspaceQuick | undefined) => void;
+  /** 이 project만의 터미널 명령. Terminal hover 목록에 나온다. */
+  readonly commands: readonly QuickCommand[];
+  readonly onCommands: (next: readonly QuickCommand[]) => void;
   /** 없으면 General은 안내 글만 둔다. */
   readonly projects: ProjectsSource | undefined;
   /** 이름·폴더를 저장했다. */
@@ -161,6 +165,18 @@ export function ProjectSettingsPage(props: ProjectSettingsPageProps) {
         {change === undefined ? null : (
           <QuickOrderList quick={shown} onQuick={change} apps={apps} />
         )}
+      </section>
+      <section className={styles.section} data-section="commands">
+        <h2 className={styles.sectionTitle}>
+          {t("project-settings.heading.commands")}
+        </h2>
+        <p className={styles.note}>
+          {t("project-settings.notice.commands-lead")}
+        </p>
+        <QuickCommandList
+          commands={props.commands}
+          onCommands={props.onCommands}
+        />
       </section>
       {change === undefined ? null : (
         <section className={styles.section} data-section="app-panels">

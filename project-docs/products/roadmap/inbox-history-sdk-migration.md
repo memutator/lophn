@@ -1,6 +1,6 @@
 # inbox 기록과 SDK migration: 남는 알림, 판이 바뀐 앱을 lophn이 옮긴다
 
-상태: 계획 `inbox-sdk-migration`으로 열었다(2026-11-07). 2026-11-07 사람이 방향을 냈다. 아래 "지금 코드"는 0.20.0 기준이다.
+상태: 끝남(계획 `inbox-sdk-migration`, changelog `0.20.0`). 2026-11-07 사람이 방향을 냈다. 아래 "지금 코드"는 계획을 열기 전의 코드다.
 배경 문서: `project-docs/architecture/app-notice.md`, `approval.md`, `activation.md`, `event.md`, `agent-call.md`, `app-call.md`.
 
 ## 사람의 말 (원문)
@@ -70,4 +70,4 @@ SDK와 migration
 
 ## 계획
 
-- `project-docs/plan/inbox-sdk-migration/`: 단계 1~6 전부.
+- 없음. 단계 1~6이 모두 끝났다.

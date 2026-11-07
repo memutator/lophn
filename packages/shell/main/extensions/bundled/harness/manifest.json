@@ -2,7 +2,7 @@
   "id": "harness",
   "name": "Harness agents",
   "description": "Runs Claude Code, Codex and OpenCode as lophn agents with their headless commands.",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "entry": "dist/index.cjs",
   "provides": ["harness agent host"]
 }

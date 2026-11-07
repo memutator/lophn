@@ -102,3 +102,20 @@ guard: `packages/shell/main/extensions/bundled/harness-gui/codex_test.ts` "spawn
 고치려면: 모르는 thread의 이벤트를 짧게 쌓아 두고 spawn item이 그 thread id를 알리면 lane에 붓는다. resume 때 도는 자식(`agentsStates`)마다 `thread/resume`으로 구독한다. 작음.
 
 닫음: lane이 없는 thread의 이벤트는 thread마다 50개, 모두 200개까지 쌓았다가 spawn item이 그 thread를 알리면 순서대로 붓고, root turn이 끝나면 버린다. 다시 열면 `replayChildren` 뒤에 도는 자식마다 `thread/resume`(`excludeTurns: true`)을 보낸다. `thread/turns/list`와 자식 `thread/resume` 사이에 온 이벤트는 여전히 빠질 수 있다.
+
+## thread index card의 bookmark 단추를 누르면 bookmark되지 않고 다른 메시지로 scroll된다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+closed: fixed
+guard: 없음
+```
+
+지금: `packages/shell/renderer/conversation/thread-index/thread-index.tsx`에서 hover card(`IndexCard`)는 rail `div` 안의 `Popover`로 그려진다. `Popover`는 portal로 그리지만(`packages/design/components/overlay/popover/popover.tsx`) React event는 React tree를 따라 올라간다. 그래서 bookmark 단추의 pointerdown이 rail의 `onPointerDown`(`down`)에 닿는다. `down`은 card 위치의 Y로 `positionAt`을 계산해 그 눈금의 메시지로 `go`하고, rail에 `setPointerCapture`를 건다. pointerup과 click이 rail로 가서 단추의 `onClick`(`bookmarks.toggle`)이 돌지 않는다.
+
+영향: GUI와 lophn agent 채팅 화면 모두에서 bookmark를 걸 수 없고, 누를 때마다 엉뚱한 메시지로 scroll된다.
+
+고치려면: `down`과 `move`가 rail DOM 밖(portal 안)에서 온 event를 무시한다(`event.currentTarget.contains(event.target as Node)`가 false면 return). 또는 `IndexCard`의 root에서 pointerdown 전파를 멈춘다. 작음. 앞의 것을 추천한다.
+
+닫음: `thread-index.tsx`의 rail handler(pointer, key, wheel)가 rail DOM 밖(portal의 hover card)에서 올라온 event를 `inRail`로 거른다. bookmark 단추의 click이 단추에 닿는다.

@@ -103,16 +103,3 @@ modules: [packages/shell/main]
 영향: `claude`·`codex`를 켜고 바로 "Open as chat"을 누르면 GUI를 쓸 수 없다.
 
 고치려면: `start`가 resume 대상이 저장돼 있는지 먼저 보고, 없으면 조용히 새 session을 연다. Claude는 `getSessionInfo`가 없으면 `sessionId: resume`(같은 id, 새 session)으로 연다. Codex는 rollout이 없으면 `thread/start`다. OpenCode는 빈 session이면 실패 줄을 내지 않는다. omp도 `--resume`의 같은 경우를 확인한다. 작음. 추천.
-
-## thread index card의 bookmark 단추를 누르면 bookmark되지 않고 다른 메시지로 scroll된다
-
-```yaml
-kind: bug
-modules: [packages/shell/renderer]
-```
-
-지금: `packages/shell/renderer/conversation/thread-index/thread-index.tsx`에서 hover card(`IndexCard`)는 rail `div` 안의 `Popover`로 그려진다. `Popover`는 portal로 그리지만(`packages/design/components/overlay/popover/popover.tsx`) React event는 React tree를 따라 올라간다. 그래서 bookmark 단추의 pointerdown이 rail의 `onPointerDown`(`down`)에 닿는다. `down`은 card 위치의 Y로 `positionAt`을 계산해 그 눈금의 메시지로 `go`하고, rail에 `setPointerCapture`를 건다. pointerup과 click이 rail로 가서 단추의 `onClick`(`bookmarks.toggle`)이 돌지 않는다.
-
-영향: GUI와 lophn agent 채팅 화면 모두에서 bookmark를 걸 수 없고, 누를 때마다 엉뚱한 메시지로 scroll된다.
-
-고치려면: `down`과 `move`가 rail DOM 밖(portal 안)에서 온 event를 무시한다(`event.currentTarget.contains(event.target as Node)`가 false면 return). 또는 `IndexCard`의 root에서 pointerdown 전파를 멈춘다. 작음. 앞의 것을 추천한다.

@@ -64,18 +64,29 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
 const fieldOf = (issue: AgentDefinitionIssue): FieldName | null =>
   FIELD_OF[issue.field.split(".")[0]] ?? null;
 
-function Issues({ issues }: { issues: readonly AgentDefinitionIssue[] }) {
-  return issues.map((issue) => (
-    <p
-      key={`${issue.field}/${issue.code}`}
-      className={styles.issue}
-      data-issue={issue.code}
-    >
-      {t("project-workspace.notice.agent-editor-issue", {
-        code: issue.code.replace(/_(\w)/g, (_, c: string) => c.toUpperCase()),
-      })}
-    </p>
-  ));
+// `entries`가 있으면 `tools.2`처럼 목록 자리를 가리키는 issue에 그 이름을 붙인다.
+function Issues({
+  issues,
+  entries,
+}: {
+  issues: readonly AgentDefinitionIssue[];
+  entries?: readonly string[];
+}) {
+  return issues.map((issue) => {
+    const entry = entries?.[Number(issue.field.split(".")[1])];
+    return (
+      <p
+        key={`${issue.field}/${issue.code}`}
+        className={styles.issue}
+        data-issue={issue.code}
+      >
+        {entry === undefined ? "" : `${entry}: `}
+        {t("project-workspace.notice.agent-editor-issue", {
+          code: issue.code.replace(/_(\w)/g, (_, c: string) => c.toUpperCase()),
+        })}
+      </p>
+    );
+  });
 }
 
 function Group({
@@ -440,7 +451,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
             onChange={(tools) => set("tools", tools)}
           />
           <p className={styles.note}>{t("agents.notice.tools-help")}</p>
-          <Issues issues={issuesOf("tools")} />
+          <Issues issues={issuesOf("tools")} entries={definition.tools} />
         </Group>
       )}
 

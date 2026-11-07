@@ -4,7 +4,12 @@ import {
   type AgentDefinitionIssue,
   type AgentId,
   agentNameKey,
+  MCP_TOOL_PREFIX,
+  WORKSPACE_KINDS,
+  workspaceToolNames,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { COMMANDS } from "../../../cli/commands/mod.ts";
+import { isBuiltinWord } from "../tools/lophn/resolve.ts";
 import { serializeAgentFile } from "./definition-file.ts";
 import {
   type AgentContext,
@@ -53,6 +58,21 @@ function duplicateName(
   );
 }
 
+const BUILTIN_TOOLS = new Set(WORKSPACE_KINDS.flatMap(workspaceToolNames));
+const COMMAND_NAMES = new Set(COMMANDS.map((command) => command.name));
+const APP_COMMAND = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.\S+$/;
+
+// bare가 고른 이름이 내장 tool, lophn 명령, 앱 command(`<slug>.<command>`), MCP tool 중 하나인가. workspace 종류, 할당, 설정한 server는
+// 나중에 바뀌므로 보지 않는다. 앱 slug는 내장 명령 묶음의 첫 낱말과 겹칠 수 없어(RESERVED_APP_SLUGS), 첫 낱말이 명령 묶음이면
+// 앱 command일 수 없고 명령 표에 있는 이름이어야 한다(`call.replay`를 잡는다).
+function knownToolName(name: string): boolean {
+  if (BUILTIN_TOOLS.has(name) || COMMAND_NAMES.has(name)) return true;
+  if (name.startsWith(MCP_TOOL_PREFIX)) {
+    return name.slice(MCP_TOOL_PREFIX.length).includes("__");
+  }
+  return APP_COMMAND.test(name) && !isBuiltinWord(name.split(".")[0]);
+}
+
 // 맞으면 파일에 쓸 글을 돌려준다.
 export function checkAgent(input: {
   context: AgentContext;
@@ -63,6 +83,11 @@ export function checkAgent(input: {
   const issues: AgentDefinitionIssue[] = [];
   const text = serializeAgentFile(definition, { agent });
   if (!text.ok) addAll(issues, issuesOfError(text.error));
+
+  definition.tools?.forEach((name, index) => {
+    if (!knownToolName(name))
+      addAll(issues, [{ field: `tools.${index}`, code: "unknown" }]);
+  });
 
   if (!issues.some((issue) => issue.field === "name")) {
     const taken = duplicateName(context, agent, definition.name);

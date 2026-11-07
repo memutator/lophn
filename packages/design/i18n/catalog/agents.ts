@@ -242,7 +242,7 @@ export const agents = {
   "project-workspace.notice.agent-editor-delete-body":
     "Its open sessions close. The conversations stay.",
   "project-workspace.notice.agent-editor-issue":
-    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} tooLarge {This is too large} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
+    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} unknown {This isn't a tool, command, or MCP tool name} tooLarge {This is too large} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
     "Only the fields you change are saved; the rest follow project and global defaults.",
   "project-workspace.notice.agent-editor-save-first":

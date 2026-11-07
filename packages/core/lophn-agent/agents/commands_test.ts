@@ -172,3 +172,47 @@ test("옛 hash로 agent를 고치면 충돌이고 파일은 그대로다", async
     await rm(root, { recursive: true });
   }
 });
+
+test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하고, 내장 tool·명령·앱 command·MCP tool은 받는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
+  try {
+    const commands = createAgentCommands({
+      files: createNodeAgentFiles(),
+      lookups: () => lookups,
+      dataRoot: root,
+    });
+    const create = (id: string, tools: string[]) =>
+      commands.create.handle(
+        tx,
+        user,
+        {
+          id,
+          definition: { name: id, runtime: "bare", tools, body: "x" },
+        } as never,
+        {} as never,
+      );
+    const refused = create(AGENT, [
+      "file.read",
+      "call.replay",
+      "notes",
+      "mcp__github",
+    ]);
+    assert.ok(!refused.ok);
+    assert.equal(refused.error.code, "invalid_input");
+    assert.deepEqual((refused.error.details as { issues: unknown[] }).issues, [
+      { field: "tools.1", code: "unknown" },
+      { field: "tools.2", code: "unknown" },
+      { field: "tools.3", code: "unknown" },
+    ]);
+    assert.ok(
+      create(OTHER, [
+        "file.read",
+        "call.reply",
+        "notes.add-item",
+        "mcp__github__create_issue",
+      ]).ok,
+    );
+  } finally {
+    await rm(root, { recursive: true });
+  }
+});

@@ -66,7 +66,7 @@ workspace 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하
 
  작업 표시줄 (shell-frame.tsx의 `taskbar` slot ─▶ `<footer data-taskbar>`, `.shell`의 마지막 줄. workspace 창이 설정 `shell.taskbar`가 true일 때만 채운다)
    왼쪽 shell/taskbar/float-chips.tsx ── 전역 float chip 먼저, 그 뒤 지금 desk의 float chip. 4개를 넘으면 +N menu. 눌린 chip = 펴진 float
-   오른쪽 ── tray 자리(`Taskbar`의 `tray` prop. 지금 채우는 값은 없다)
+   오른쪽 ── tray(`renderer/shell/tray/`의 `TrayHost`. 설정 `shell.tray`에 켠 앱 `tray` 화면마다 항목 하나: 앱 아이콘, 앱이 낸 짧은 글과 tone. 누르면 360×480 popup에 그 화면 `EmbeddedView place="tray"`. 작업 표시줄을 끄면 `ShellFrame`의 `titleTray` slot에 아이콘만. 값은 `architecture/app-notice.md`의 tray)
    꺼지면 같은 chip이 tab 줄 끝에 아이콘만 선다(`tab-strip.tsx`)
 ```
 

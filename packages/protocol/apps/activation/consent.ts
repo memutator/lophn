@@ -35,11 +35,18 @@ const consentErrors = [
 
 // compare의 requested_at은 사람이 본 동의 대기의 값이다. 지금 대기의 값과 다르거나 대기가 없으면
 // conflict다(그 사이 다시 물었거나 더 새 release가 이전 대기를 닫았다). 거절은 이유를 싣지 않는다.
+// share_requested_at은 사람이 동의 화면에서 같이 본 앱 공유 요청(`share_request`)의 requested_at이다. 있고 choice가 allow면
+// 그 요청도 같은 tx에서 승인한다. 지금 열린 요청과 다르거나 요청이 없으면 conflict다(사람이 보지 못한 요청을 승인하지 않는다).
+// reject이거나 없으면 공유 요청은 건드리지 않는다.
 export const activationConsent = defineCommand({
   resource: "activations",
   method: "consent",
   name: "activation.consent",
-  input: z.strictObject({ release: releaseIdSchema, choice: choiceSchema }),
+  input: z.strictObject({
+    release: releaseIdSchema,
+    choice: choiceSchema,
+    share_requested_at: atSchema.optional(),
+  }),
   compare: z.strictObject({ requested_at: atSchema }),
   output: z.object({ release: releaseIdSchema, outcome: choiceSchema }),
   actors: ["user"],

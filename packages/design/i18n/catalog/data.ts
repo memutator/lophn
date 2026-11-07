@@ -91,6 +91,8 @@ export const data = {
     "Only added declarations and data-loss steps are shown.",
   "waiting.notice.activation-first":
     "First activation, so every declaration is new: {declared, plural, one {# declaration} other {# declarations}}, {lost, plural, one {# data-loss step} other {# data-loss steps}}.",
+  "waiting.notice.activation-share":
+    "Allowing also shares the app with {who}: {skills, plural, one {# public skill} other {# public skills}} and {commands, plural, one {# public command} other {# public commands}}.",
   "waiting.notice.activation-since":
     "Since the last version: {declared, plural, one {# new declaration} other {# new declarations}}, {lost, plural, one {# data-loss step} other {# data-loss steps}}.",
   "waiting.notice.tool-external":

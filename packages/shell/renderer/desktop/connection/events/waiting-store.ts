@@ -51,10 +51,12 @@ export type WaitingEntry =
       readonly request: TurnRequest;
     })
   | (Common & { readonly kind: "question"; readonly request: QuestionRequest })
-  // id는 release다. 같은 release는 한 줄이다.
+  // id는 release다. 같은 release는 한 줄이다. share는 그 앱의 열린 공유 요청이다: 있으면 이 동의가 같이 승인하고
+  // 공유 요청은 따로 줄을 서지 않는다(publish에서 붙인다).
   | (Common & {
       readonly kind: "activation";
       readonly request: ActivationConsent;
+      readonly share?: ShareRequest;
     })
   // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
   | (Common & { readonly kind: "job_hold"; readonly hold: JobHold })
@@ -140,8 +142,33 @@ export function createWaitingStore(
     { agent: AgentId; workspace: Workspace | null }
   >();
 
+  // 동의 대기가 있는 앱의 공유 요청은 그 동의 항목에 붙이고 따로 세우지 않는다. 동의를 거절하면 동의 항목이 빠져
+  // 공유 요청이 다시 제 줄로 보인다.
+  function bundled(): WaitingEntry[] {
+    const shares = new Map<string, ShareRequest>();
+    for (const entry of entries.values()) {
+      if (entry.kind === "share") shares.set(entry.request.app, entry.request);
+    }
+    const bundledApps = new Set<string>();
+    const list: WaitingEntry[] = [];
+    for (const entry of entries.values()) {
+      if (entry.kind === "activation") {
+        const share = shares.get(entry.request.app);
+        if (share !== undefined) {
+          bundledApps.add(share.app);
+          list.push({ ...entry, share });
+          continue;
+        }
+      }
+      list.push(entry);
+    }
+    return list.filter(
+      (entry) => entry.kind !== "share" || !bundledApps.has(entry.request.app),
+    );
+  }
+
   function publish() {
-    const list = [...entries.values()];
+    const list = bundled();
     state.set({
       entries: list,
       count: list.length,

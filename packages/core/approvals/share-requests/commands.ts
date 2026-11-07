@@ -1,4 +1,4 @@
-import { err, ok } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { assignmentPorts } from "../assignment/mod.ts";
 import {
@@ -7,7 +7,7 @@ import {
 } from "../../../protocol/approvals/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
-import { loadShare } from "./rows.ts";
+import { loadShare, type ShareRow } from "./rows.ts";
 import {
   SHARE_CODING_TOPIC,
   SHARE_REQUEST_TOPIC,
@@ -28,6 +28,58 @@ function push(tx: Pick<Tx, "port" | "now">, event: Event): void {
     at: tx.now(),
     payload,
   });
+}
+
+// 승인의 효과: 받을 agent마다 할당 쓰기 길로 앱을 더하고, coding agent 몫은 commit 뒤로 넘긴다.
+// 이미 있는 줄과 그 줄의 뺀 command는 그대로다. decide와 activation 동의가 같이 쓴다.
+function applyApproval(
+  tx: Pick<Tx, "port" | "now">,
+  appId: string,
+  waiting: ShareRow,
+): Result<void> {
+  const app = tx.port(shareLookupPort).app(appId);
+  if (app === null) {
+    return err({ code: "not_found", message: "app not found" });
+  }
+  const assignments = tx.port(assignmentPorts);
+  for (const agent of waiting.agents) {
+    const state = assignments.get(agent);
+    if (!state.ok) return state;
+    const { entries } = state.value.assignment;
+    if (entries.some((entry) => entry.app === appId)) continue;
+    const written = assignments.set(
+      agent,
+      [...entries, { app: appId, removed_tools: [] }],
+      state.value.revision,
+    );
+    if (!written.ok) return written;
+  }
+  if (waiting.coding_agents) {
+    const data: ShareCodingData = { slug: app.slug };
+    tx.port(afterCommit).push(SHARE_CODING_TOPIC, data);
+  }
+  return ok(undefined);
+}
+
+// activation 동의가 같이 승인하는 길. 사람이 동의 화면에서 본 요청(requested_at)과 지금 열린 요청이 같을 때만 승인한다:
+// 그 사이 새 요청이 대신했으면 사람이 보지 못한 내용이라 conflict다.
+export function approveShareWithConsent(
+  tx: Pick<Tx, "sql" | "port" | "now">,
+  app: string,
+  requestedAt: string,
+): Result<void> {
+  const waiting = loadShare(tx.sql, app);
+  if (waiting === null || waiting.requested_at !== requestedAt) {
+    return err({
+      code: "conflict",
+      message: "the share request is already decided or replaced",
+    });
+  }
+  const applied = applyApproval(tx, app, waiting);
+  if (!applied.ok) return applied;
+  tx.sql.run("delete from share_requests where app = ?", [app]);
+  push(tx, { type: "ShareRequestClosed", app, outcome: "approve" });
+  return ok(undefined);
 }
 
 export function createShareRequestCommands(): {
@@ -108,27 +160,8 @@ export function createShareRequestCommands(): {
           });
         }
         if (input.choice === "approve") {
-          const app = tx.port(shareLookupPort).app(input.app);
-          if (app === null) {
-            return err({ code: "not_found", message: "app not found" });
-          }
-          const assignments = tx.port(assignmentPorts);
-          for (const agent of waiting.agents) {
-            const state = assignments.get(agent);
-            if (!state.ok) return state;
-            const { entries } = state.value.assignment;
-            if (entries.some((entry) => entry.app === input.app)) continue;
-            const written = assignments.set(
-              agent,
-              [...entries, { app: input.app, removed_tools: [] }],
-              state.value.revision,
-            );
-            if (!written.ok) return written;
-          }
-          if (waiting.coding_agents) {
-            const data: ShareCodingData = { slug: app.slug };
-            tx.port(afterCommit).push(SHARE_CODING_TOPIC, data);
-          }
+          const applied = applyApproval(tx, input.app, waiting);
+          if (!applied.ok) return applied;
         }
         tx.sql.run("delete from share_requests where app = ?", [input.app]);
         push(tx, {

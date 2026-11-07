@@ -47,6 +47,7 @@
   - 허락도 표에 남긴다(`allowed_at`). 허락만 메모리로 넘기면 commit 뒤 시작 전에 꺼질 때 허락을 잃는다. 허락한 줄은 driver의 sweep이 시작한다.
   - 같은 release는 한 줄이다. 같은 release를 다시 `release.activate`해도 같은 비교면 줄과 카드가 늘지 않는다. 비교가 달라졌으면 줄을 덮어 다시 기다린다(`requested_at`이 바뀌어 옛 카드의 동의는 `conflict`다).
   - 거절은 줄을 지우고 release는 `prepared`로 남는다. 이유를 받지 않는다(읽는 곳이 없다).
+  - 같은 앱에 열린 앱 공유 요청(`architecture/approval.md`의 앱 공유 요청)이 있으면 동의 카드가 그 요청(받을 agent, coding agent, 이유, 받게 되는 공개 skill·command 수)을 같이 보이고, 허락하면 같은 tx에서 그 요청도 승인한다. `activation.consent`의 선택 입력 `share_requested_at`이 카드가 본 요청의 `requested_at`이고, 지금 열린 요청과 다르거나 없으면 동의째 `conflict`다(사람이 보지 못한 요청을 승인하지 않는다). 공유가 먼저 적용되고 실패하면 tx가 되돌아가 동의는 대기로 남는다. approvals를 import하지 않으려고 core/apps는 port(`bundledShare`)만 부르고 구현은 조립(`wiring/share-requests.ts`)이 꽂는다. 거절은 공유 요청을 건드리지 않아 공유 요청이 제 줄로 다시 보인다.
   - unattended에서도 동의는 사람이 한다. 저절로 동의하는 장치를 두지 않는다.
 - 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 앱 workspace의 session이 다시 부르거나 새 release를 준비한다. 실패는 다시 시도하지 않고 실패로 끝낸다.
 - 끝내지 못한 시도(종료 확인이나 복원이 unavailable)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치라 남긴다. 돌고 있는 메모리 상태는 꺼지면 사라지고 ledger의 진행 중 시도로 잇는다.

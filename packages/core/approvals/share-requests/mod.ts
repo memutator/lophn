@@ -1,4 +1,7 @@
-export { createShareRequestCommands } from "./commands.ts";
+export {
+  approveShareWithConsent,
+  createShareRequestCommands,
+} from "./commands.ts";
 export { shareRequestListRead } from "./reads.ts";
 export { shareRequestSteps } from "./schema.ts";
 export { sharedAppsSetting } from "./settings.ts";

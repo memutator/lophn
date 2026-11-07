@@ -105,12 +105,18 @@ export async function decideWaiting(
   if (entry.kind === "activation") {
     if (choice !== "allow" && choice !== "reject") return UNAVAILABLE;
     // command는 입력을 봉투에 담아 보낸다. 같은 동의의 같은 결정은 같은 key라 core가 한 번만 접수한다.
+    // 카드가 같이 보인 공유 요청은 허락할 때만 실어 보내 같은 tx에서 승인한다(거절이면 공유 요청은 제 줄로 남는다).
+    const share = choice === "allow" ? entry.share?.requested_at : undefined;
     const reply = await core
       .call(
         commandCall(activationConsent, {
-          input: { release: entry.request.release, choice },
+          input: {
+            release: entry.request.release,
+            choice,
+            ...(share === undefined ? {} : { share_requested_at: share }),
+          },
           compare: { requested_at: entry.request.requested_at },
-          key: `activation-consent-${entry.request.release}-${choice}`,
+          key: `activation-consent-${entry.request.release}-${choice}-${share ?? ""}`,
         }),
       )
       .catch(() => null);

@@ -55,7 +55,11 @@ import {
   nextReleaseNumber,
 } from "./store.ts";
 import { inProgress, storeActivation } from "./activation/state.ts";
-import { pushConsentEvent, waitingConsents } from "./activation/consents.ts";
+import {
+  bundledShare,
+  pushConsentEvent,
+  waitingConsents,
+} from "./activation/consents.ts";
 
 function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
@@ -482,7 +486,7 @@ export function createReleaseCommands(): {
         return ok({ created: true });
       },
     },
-    // 동의. 사람만 한다. 허락은 표에 남기고 시작은 driver가 한다. 거절은 줄을 지우고 release는 prepared로 남는다.
+    // 동의. 사람만 한다. 허락은 표에 남기고 시작은 driver가 한다. 같이 본 공유 요청이 있으면 같은 tx에서 승인한다. 거절은 줄을 지우고 release는 prepared로 남는다.
     // compare의 requested_at이 지금 대기와 다르면 사람이 본 것이 아니다(그 사이 다시 물었다).
     consent: {
       route: activationConsent,
@@ -514,6 +518,13 @@ export function createReleaseCommands(): {
           return conflict("the consent is already decided or closed");
         }
         if (input.choice === "allow") {
+          // 공유가 먼저다: 공유가 실패하면 tx째 되돌아가 동의는 대기로 남고 사람이 다시 누를 수 있다.
+          if (input.share_requested_at !== undefined) {
+            const shared = tx
+              .port(bundledShare)
+              .approve(release.app, input.share_requested_at);
+            if (!shared.ok) return shared;
+          }
           tx.sql.run(
             "UPDATE activation_consents SET allowed_at = ? WHERE release = ?",
             [tx.now(), release.id],

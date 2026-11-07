@@ -3,6 +3,7 @@
 import { ok } from "../../../../base/mod.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
 import {
+  approveShareWithConsent,
   createShareRequestCommands,
   SHARE_CODING_TOPIC,
   SHARE_REQUEST_TOPIC,
@@ -16,6 +17,7 @@ import {
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import { loadApp } from "../../../apps/registration/store.ts";
+import { bundledShare } from "../../../apps/releases/activation/consents.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import {
   defineTxPort,
@@ -55,7 +57,14 @@ export function createCoreRegistration() {
     schemaSteps: shareRequestSteps,
     commands: [commands.open, commands.decide],
     reads: [shareRequestListRead],
-    ports: [defineTxPort(shareLookupPort, (tx) => lookupOf(tx.sql))],
+    ports: [
+      defineTxPort(shareLookupPort, (tx) => lookupOf(tx.sql)),
+      // activation 동의가 같은 tx에서 공유 요청도 승인하는 길. apps는 approvals를 import하지 않는다.
+      defineTxPort(bundledShare, (tx) => ({
+        approve: (app, requestedAt) =>
+          approveShareWithConsent(tx, app, requestedAt),
+      })),
+    ],
   };
 }
 

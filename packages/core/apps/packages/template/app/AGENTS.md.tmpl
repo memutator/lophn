@@ -23,7 +23,7 @@ Package를 쓴다.
 ## SDK 확인
 
 - 내장 SDK의 사용법은 설치 사본의 `guide.md`(예:
-  `.lophn/sdk/declaration/4.1.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
+  `.lophn/sdk/declaration/4.2.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
   필요하면 `lophn.ts`의 의존 선언과 `package.json`의 의존을 같은 정확한
   version으로 함께 고친 뒤 `npm install`을 돌린다(release 준비가 둘을 대조한다).
 - 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
@@ -58,7 +58,8 @@ Package를 쓴다.
   `panel`은 project의 dock·float와 전역 float(사람이 activity bar에 고정해 쓴다),
   `card`는 agent 대화 안, `sidebar`는 오른쪽 sidebar, `tray`는 작업 표시줄 tray popup이다.
   `sidebar`와 `tray`는 선언하면 바로 나오고 사람이 Settings에서 끈다.
-  tray popup은 기본 360×480px이다. 내용에 맞는 크기가 따로 있으면 그 화면에 `tray: { width, height }`(px)를 적는다.
+  tray popup은 기본 360×480px이다. 크기는 그 화면에 `tray: { width, height }`(px)로 적고, 각 쪽은 숫자(고정)나
+  `{ min?, max? }`(내용에 맞춰 그 안에서 늘고 준다)다. 목록처럼 길이가 바뀌는 화면은 `height: { max: 480 }` 같은 범위를 쓴다.
   `params`는 화면이 받는 인자다. 옆에 두고 쓸 한 가지 일은 `panel` 화면으로 따로 만들고,
   한 화면 안의 부분을 따로 쓰고 싶으면 화면으로 나눈다. 배치는 창이 아니라
   `useContainerSpace()`로 정한다. 자세한 기준은 `design-app` skill이다.

@@ -17,6 +17,7 @@ export type {
   ScreenDeclaration,
   SDKDependency,
   ToolEffect,
+  TraySide,
   TraySize,
   ValidationError,
   ValidationResult,

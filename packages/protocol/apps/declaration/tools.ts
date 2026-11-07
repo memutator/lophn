@@ -65,14 +65,38 @@ function traySize(
   const size: TraySize = {};
   for (const side of ["width", "height"] as const) {
     if (!Object.hasOwn(value, side)) continue;
-    const n = value[side];
+    const given = value[side];
     const { min, max } = TRAY_SIZE[side];
-    if (!Number.isInteger(n) || (n as number) < min || (n as number) > max) {
-      return invalid(
-        `screen ${key} tray ${side} must be an integer from ${min} to ${max}`,
-      );
+    const inRange = (n: unknown): n is number =>
+      Number.isInteger(n) && (n as number) >= min && (n as number) <= max;
+    const bad = invalid(
+      `screen ${key} tray ${side} must be an integer from ${min} to ${max}, or {min?, max?} of such integers`,
+    );
+    if (typeof given === "number") {
+      if (!inRange(given)) return bad;
+      size[side] = given;
+      continue;
     }
-    size[side] = n as number;
+    if (!isObject(given)) return bad;
+    const extra = exactKeys(given, ["min", "max"], []);
+    if (extra) return invalid(`screen ${key} tray ${side} ${extra}`);
+    if (!Object.hasOwn(given, "min") && !Object.hasOwn(given, "max")) {
+      return invalid(`screen ${key} tray ${side} needs min or max`);
+    }
+    const range: { min?: number; max?: number } = {};
+    for (const bound of ["min", "max"] as const) {
+      if (!Object.hasOwn(given, bound)) continue;
+      if (!inRange(given[bound])) return bad;
+      range[bound] = given[bound];
+    }
+    if (
+      range.min !== undefined &&
+      range.max !== undefined &&
+      range.min > range.max
+    ) {
+      return invalid(`screen ${key} tray ${side} min is greater than max`);
+    }
+    size[side] = range;
   }
   return { ok: true, value: size };
 }

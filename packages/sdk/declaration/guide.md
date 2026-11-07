@@ -18,7 +18,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `AppDeclaration`, `ScreenDeclaration`, `OperationDeclaration`,
   `CommandDeclaration`, `Place`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
-  `SkillDeclaration`, `SDKDependency`, `TraySize`, `ValidationResult`, `ValidationError`
+  `SkillDeclaration`, `SDKDependency`, `TraySide`, `TraySize`, `ValidationResult`, `ValidationError`
 
 ## 선언의 칸
 
@@ -34,15 +34,22 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   - `card` — agent 대화 안의 카드다.
   - `sidebar` — 오른쪽 sidebar다.
   - `tray` — 작업 표시줄 tray popup이다.
-  - `tray` 칸 — tray popup의 크기다. `{width?, height?}`이고 단위는 px다. 너비는
-    240~720, 높이는 160~720의 정수이고 둘 중 하나는 있어야 한다. 없는 쪽은 기본값
-    (너비 360, 높이 480)이다. `places`에 `tray`가 없는 화면에 두면 선언 오류다. 창이
-    더 작으면 lophn이 창 안으로 줄인다. 크기는 release에 고정되므로 바꾸려면 다시
-    release한다.
+  - `tray` 칸 — tray popup의 크기다. `{width?, height?}`이고 단위는 px다. 둘 중 하나는
+    있어야 하고 없는 쪽은 기본값(너비 360, 높이 480)이다. 각 쪽은 둘 중 하나다.
+    - 숫자: 그 크기로 고정한다.
+    - `{min?, max?}`: 화면 내용에 맞춰 그 범위 안에서 늘고 준다. 높이는 내용 높이를 따른다
+      (목록이 짧으면 짧고, max를 넘으면 popup 안에서 스크롤한다). 너비는 min(없으면 기본값을
+      범위 안으로 맞춘 값)에서 시작해 내용이 가로로 넘칠 때만 max까지 넓어진다. 높이를 맞추려면
+      html·body·root 요소에 `height: 100%`를 두지 않는다(그러면 내용 높이를 잴 수 없어
+      처음 높이에 머문다).
+
+    너비는 240~720, 높이는 160~720의 정수이고 min은 max보다 클 수 없다. `places`에 `tray`가
+    없는 화면에 두면 선언 오류다. 창이 더 작으면 lophn이 창 안으로 줄인다. 크기는 release에
+    고정되므로 바꾸려면 다시 release한다.
 
     ```ts
     { key: "status", label: "Status", path: "/status", places: ["tray"],
-      tray: { width: 420, height: 300 } }
+      tray: { width: { max: 520 }, height: { min: 160, max: 480 } } }
     ```
   - `params` — 화면이 받는 인자의 schema다. 없으면 인자가 없는 화면이다. root type은
     object이고 command `inputSchema`와 같은 schema 규칙이다. 한 화면 안의 부분을
@@ -114,7 +121,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.1.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.2.0" }],
 });
 
 const result = validateDeclaration(declaration);

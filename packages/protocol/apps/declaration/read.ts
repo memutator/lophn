@@ -30,6 +30,15 @@ const appOperationSchema = z.object({
 });
 export type AppOperation = z.infer<typeof appOperationSchema>;
 
+// 숫자면 고정, 범위면 화면 내용에 맞춘다.
+const traySideSchema = z.union([
+  z.number().int(),
+  z.object({
+    min: z.number().int().optional(),
+    max: z.number().int().optional(),
+  }),
+]);
+
 const appDeclarationScreenSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
@@ -40,8 +49,8 @@ const appDeclarationScreenSchema = z.object({
   // tray popup의 크기(px). 없는 쪽은 lophn 기본값이다.
   tray: z
     .object({
-      width: z.number().int().optional(),
-      height: z.number().int().optional(),
+      width: traySideSchema.optional(),
+      height: traySideSchema.optional(),
     })
     .optional(),
 });

@@ -7,6 +7,7 @@ import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { AppViewOpen, LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { WorkspaceRef } from "../shell/desk-model.ts";
+import type { TraySize } from "../../../protocol/apps/declaration/mod.ts";
 
 /** 앱 등록에서 view 크롬과 판 고정이 쓰는 것만. */
 interface AppFacts {
@@ -26,8 +27,8 @@ interface AppScreen {
   readonly key: string;
   readonly label: string;
   readonly places: readonly AppViewOpen["place"][];
-  /** 선언한 tray popup 크기(px). */
-  readonly tray?: { readonly width?: number; readonly height?: number };
+  /** 선언한 tray popup 크기(px. 숫자면 고정, 범위면 내용에 맞춘다). */
+  readonly tray?: TraySize;
 }
 
 export interface AppScreens {
@@ -145,7 +146,7 @@ interface DeclarationValue {
     key: string;
     label: string;
     places: AppViewOpen["place"][];
-    tray?: { width?: number; height?: number };
+    tray?: TraySize;
   }[];
 }
 

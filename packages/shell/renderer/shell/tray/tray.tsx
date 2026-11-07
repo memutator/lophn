@@ -2,7 +2,14 @@
 // 짧은 글(tone 색). 누르면 그 앱의 `tray` 화면이 항목 위(title bar면 아래)에 popup으로 뜬다. 바깥을 누르거나 창이 focus를 잃거나 Esc를 누르면 닫힌다.
 // popup 머리의 pin을 켜면 바깥 누르기·창 blur·다른 항목 누르기로 닫히지 않는다(Esc와 자기 항목 다시 누르기는 닫는다). pin은 메모리에만 있다.
 // popup은 자기 <webview> 그릇을 가진다: 닫으면 화면도 닫히고 다시 열면 새로 load된다.
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { t } from "@lophn/i18n";
 import { Tooltip } from "@lophn/ui/overlay";
@@ -29,7 +36,12 @@ import {
 } from "../../app-frame/webview-host.tsx";
 import { shellIcons } from "../../icons/mod.ts";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
-import { type PopupPlace, type PopupSize, placePopup } from "./popup-place.ts";
+import {
+  type PopupContent,
+  type PopupPlace,
+  type PopupSize,
+  placePopup,
+} from "./popup-place.ts";
 import styles from "./tray.module.css";
 import { useTrayValues } from "./use-tray-values.ts";
 
@@ -110,10 +122,13 @@ function Popup({
   pinned,
   onPin,
   onClose,
+  onContent,
   anchor,
 }: {
   item: TrayItem;
   place: PopupPlace;
+  /** 앱 page가 알린 내용 크기에 머리 줄을 더한 popup 전체의 내용 크기. 범위로 선언한 쪽이 이것을 따른다. */
+  onContent: (content: PopupContent) => void;
   side: "above" | "below";
   pinned: boolean;
   onPin: (pinned: boolean) => void;
@@ -126,6 +141,18 @@ function Popup({
   const host = useMemo(() => createWebviewHost(), []);
   // 앱 화면이 useTabHead로 올린 머리 줄은 제목과 pin 사이에 그린다(card 칸이 없는 자리라 여기가 받는다).
   const [head, setHead] = useHeadSlot();
+  const headRow = useRef<HTMLDivElement>(null);
+  useEffect(
+    () =>
+      host.onContentSize((size) =>
+        onContent({
+          // 지금 너비에 모자란 만큼을 더한다. 넘치지 않으면 지금 너비 그대로라 줄지 않는다.
+          width: (box.current?.offsetWidth ?? 0) + size.overflow,
+          height: size.height + (headRow.current?.offsetHeight ?? 0),
+        }),
+      ),
+    [host, onContent],
+  );
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       if (pinned) return;
@@ -161,7 +188,7 @@ function Popup({
       data-side={side}
       style={place}
     >
-      <div className={styles.head}>
+      <div ref={headRow} className={styles.head}>
         <span className={styles.title}>{item.title}</span>
         {head?.center === undefined ? <span className={styles.grow} /> : null}
         <HeadControls spec={head} />
@@ -205,6 +232,11 @@ export function Tray({
 }) {
   const [open, setOpen] = useState<string | null>(initialOpen);
   const [place, setPlace] = useState<PopupPlace | null>(null);
+  // 열린 항목의 앱 page가 알린 내용 크기. 다른 항목을 열면 버린다.
+  const [content, setContent] = useState<{
+    key: string;
+    size: PopupContent;
+  } | null>(null);
   const [pinned, setPinned] = useState(false);
   const row = useRef<HTMLDivElement>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
@@ -213,6 +245,21 @@ export function Tray({
     setPinned(false);
   };
   const current = items.find((item) => item.key === open) ?? null;
+  const fitted =
+    content !== null && content.key === current?.key ? content.size : undefined;
+  const onContent = useCallback(
+    (size: PopupContent) => {
+      if (open === null) return;
+      setContent((was) =>
+        was?.key === open &&
+        was.size.width === size.width &&
+        was.size.height === size.height
+          ? was
+          : { key: open, size },
+      );
+    },
+    [open],
+  );
   // 열 때와 창 크기가 바뀔 때 항목의 가로 자리를 다시 잰다.
   useEffect(() => {
     const button =
@@ -227,12 +274,13 @@ export function Tray({
           button.getBoundingClientRect(),
           { width: window.innerWidth },
           current?.size,
+          fitted,
         ),
       );
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [current]);
+  }, [current, fitted]);
   if (items.length === 0) return null;
   return (
     <div
@@ -286,6 +334,7 @@ export function Tray({
           pinned={pinned}
           onPin={setPinned}
           onClose={close}
+          onContent={onContent}
         />
       )}
     </div>

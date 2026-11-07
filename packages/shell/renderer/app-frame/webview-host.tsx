@@ -8,6 +8,11 @@ import { createContext, useContext, useEffect, useRef } from "react";
 
 import { APP_KEEP_ALIVE_CHANNEL } from "../../ipc/app-keep-alive.ts";
 import {
+  APP_CONTENT_SIZE_CHANNEL,
+  type ContentSize,
+  readContentSize,
+} from "../../ipc/app-content-size.ts";
+import {
   APP_TAB_HEAD_CHANNEL,
   APP_TAB_HEAD_EVENT_CHANNEL,
   readTabHead,
@@ -106,6 +111,8 @@ export interface WebviewHost {
   onTabHead(key: string, listener: (head: TabHead | null) => void): () => void;
   /** 앱 page에 머리 줄 event를 보낸다. */
   sendTabHead(key: string, event: TabHeadEvent): void;
+  /** 앱 page가 알린 내용 크기(ipc/app-content-size.ts). tray popup처럼 그릇에 화면이 하나인 곳이 쓴다. */
+  onContentSize(listener: (size: ContentSize) => void): () => void;
   release(key: string): void;
   /** 사람이 browser 탭에 켠 Keep alive를 알린다. */
   setUserKeep(key: string, on: boolean): void;
@@ -221,6 +228,7 @@ function wantsKeep(entry: Entry): boolean {
  */
 export function createWebviewHost(tick?: () => number): WebviewHost {
   const entries = new Map<string, Entry>();
+  const sizeListeners = new Set<(size: ContentSize) => void>();
   let container: HTMLElement | null = null;
   let own = 0;
   const now = tick ?? (() => ++own);
@@ -310,6 +318,11 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       if (entry.element !== element) return;
       if (channel === APP_KEEP_ALIVE_CHANNEL) {
         entry.keepAlive = args[0] === true;
+        return;
+      }
+      if (channel === APP_CONTENT_SIZE_CHANNEL) {
+        const size = readContentSize(args[0]);
+        if (size !== null) for (const listener of sizeListeners) listener(size);
         return;
       }
       if (channel !== APP_TAB_HEAD_CHANNEL) return;
@@ -434,6 +447,10 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       listener(entry.head);
       entry.headListeners.add(listener);
       return () => entry.headListeners.delete(listener);
+    },
+    onContentSize(listener) {
+      sizeListeners.add(listener);
+      return () => sizeListeners.delete(listener);
     },
     sendTabHead(key, event) {
       const entry = entries.get(key);

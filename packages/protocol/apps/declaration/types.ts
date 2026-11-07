@@ -82,7 +82,9 @@ export type ScreenDeclaration = {
   tray?: TraySize;
 };
 
-export type TraySize = { width?: number; height?: number };
+// 숫자면 고정, 범위면 화면 내용에 맞춰 그 안에서 늘고 준다.
+export type TraySide = number | { min?: number; max?: number };
+export type TraySize = { width?: TraySide; height?: TraySide };
 
 export type PermissionKind =
   | "fs.read"

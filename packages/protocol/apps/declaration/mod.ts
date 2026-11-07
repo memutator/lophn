@@ -19,6 +19,7 @@ export type {
   SDKDependency,
   SkillDeclaration,
   ToolEffect,
+  TraySide,
   TraySize,
   ValidationError,
   ValidationResult,

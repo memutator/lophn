@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+import { APP_CONTENT_SIZE_CHANNEL } from "../ipc/app-content-size.ts";
 import { installAnnotate } from "./annotate/mod.ts";
 
 import {
@@ -35,3 +36,26 @@ installAnnotate({
   on: (channel, listener) =>
     ipcRenderer.on(channel, (_event, payload) => listener(payload)),
 });
+
+// tray popup은 화면 내용에 맞춰 크기를 정한다(앱이 선언한 범위 안에서). 그 자리에서만 내용 크기를 재서 올린다.
+if (new URLSearchParams(location.search).get("place") === "tray") {
+  const report = () => {
+    const body = document.body;
+    if (body === null) return;
+    ipcRenderer.sendToHost(APP_CONTENT_SIZE_CHANNEL, {
+      overflow:
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+      height: body.getBoundingClientRect().height,
+    });
+  };
+  const watch = () => {
+    const observer = new ResizeObserver(report);
+    observer.observe(document.documentElement);
+    if (document.body !== null) observer.observe(document.body);
+    report();
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", watch, { once: true });
+  } else watch();
+}

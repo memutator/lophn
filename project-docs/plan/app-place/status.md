@@ -8,5 +8,5 @@ lead만 고친다. `tools/status.py app-place build`가 `tasks/*.md`에서 id, �
 | `shell-global-float` | shell | 1 | 없음 | merged | shell/shell-global-float | bcd3adc68 |  |
 | `place-params` | place | 2 | place-declaration | merged | place/place-params | c5e017000 |  |
 | `shell-taskbar` | shell | 2 | shell-global-float | merged | shell/shell-taskbar | 3ad8597d2 |  |
-| `shell-sidebar-slots` | shell | 3 | place-params, shell-taskbar | todo |  |  |  |
+| `shell-sidebar-slots` | shell | 3 | place-params, shell-taskbar | merged | shell/shell-sidebar-slots | 12f4eeb53 |  |
 | `tray` | tray | 4 | shell-sidebar-slots | todo |  |  |  |

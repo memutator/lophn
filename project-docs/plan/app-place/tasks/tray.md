@@ -22,6 +22,7 @@
   - `packages/core/config/shell-settings.ts` (`shell.tray` 선언만)
   - `packages/design/i18n/catalog/{shell.ts,workspace-settings.ts}`
   - `tools/wireframes/pages/screens/shell.tsx`, `tools/wireframes/pages/screens/shell/**`, `tools/wireframes/mock/**`
+  - 추가 소유: `packages/shell/renderer/desktop/dev-mock/app-space.ts` (앱 화면 목록만)
 - 읽을 것:
   - 계획: `project-docs/plan/app-place/README.md`의 정한 것 10, 11
   - roadmap: `project-docs/products/roadmap/app-place.md`의 "tray"
@@ -67,6 +68,7 @@
    - 바깥을 누르거나 Esc를 누르면 닫힌다.
    - popup 크기는 정한 값(예: 360×480 CSS px)이고 화면 밖으로 나가지 않게 당긴다.
 7. **gallery**: `shell` 영역에 tray 항목 둘(값 있음·없음)과 열린 popup page(id `shell-tray`)를 더한다.
+8. **(lead가 더함) dev-mock 앱 화면**: `packages/shell/renderer/desktop/dev-mock/app-space.ts`의 앱 목록에는 `sidebar`·`tray` 자리 화면이 없어 `npm run dev:mock`에서 Sidebar panels와 Tray 묶음이 비어 보인다. mock 앱 하나에 `places: ["sidebar"]` 화면 하나와 `places: ["tray"]` 화면 하나를 더한다(wave 3 `shell-sidebar-slots`가 짚었다).
 
 ## 끝남
 

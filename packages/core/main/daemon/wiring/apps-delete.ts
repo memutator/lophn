@@ -20,6 +20,7 @@ import {
   quickLaunchSetting,
   sidebarPanelsOffSetting,
   trayOffSetting,
+  trayOrderSetting,
 } from "../../../config/shell-settings.ts";
 import { eraseJobsOfApp } from "../../../jobs/commands.ts";
 import {
@@ -209,7 +210,11 @@ export const appsDeleteWiring: WiringFactory = () => ({
           ),
         });
       }
-      for (const setting of [sidebarPanelsOffSetting, trayOffSetting]) {
+      for (const setting of [
+        sidebarPanelsOffSetting,
+        trayOffSetting,
+        trayOrderSetting,
+      ]) {
         const off = ctx.settings.get(setting) ?? [];
         if (off.some((item) => item.app === app.id)) {
           changes.push({

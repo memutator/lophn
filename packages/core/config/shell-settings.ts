@@ -220,6 +220,20 @@ export const trayOffSetting = declareSetting({
   default: [],
 });
 
+// tray 항목의 순서. 여기 든 화면이 이 순서로 먼저 서고, 없는 화면은 그 뒤에 선언 순서로 선다.
+export const trayOrderSetting = declareSetting({
+  key: "shell.tray_order",
+  type: z
+    .array(
+      z.object({
+        app: z.string().min(1).max(64),
+        screen: z.string().min(1).max(128),
+      }),
+    )
+    .max(64),
+  default: [],
+});
+
 // extension은 id마다 켜는 설정이 하나씩 정적으로 선언된다(core는 manifest를 읽지 못한다). 새 extension은 여기에 한 줄을 더하고
 // shellSettings에 올린다. 선언이 없는 id는 shell의 registry가 켜지 않는다. 사람만 켠다(settings/update는 user만).
 const extensionEnabled = (id: string) =>
@@ -258,6 +272,7 @@ export const shellSettings = [
   taskbarSetting,
   sidebarPanelsOffSetting,
   trayOffSetting,
+  trayOrderSetting,
   harnessExtensionSetting,
   harnessGuiExtensionSetting,
 ] as const;

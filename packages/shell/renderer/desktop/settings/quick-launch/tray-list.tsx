@@ -1,13 +1,16 @@
-// Settings › Quick launch › Tray. `tray` 자리를 가진 앱 화면마다 줄 하나와 Switch. 켜 둔 것이 tray 항목이 된다. 기본은 켜짐이고 끈 것만 전역 값에 쌓인다.
-// 줄의 모양은 SidebarPanelList(workspace/project-settings/quick-launch-editor.tsx)와 같다.
+// Settings › Quick launch › Tray. `tray` 자리를 가진 앱 화면마다 줄 하나와 위·아래 단추, Switch. 켜 둔 것이 이 순서로 tray 항목이 된다.
+// 기본은 켜짐이고 끈 것만 전역 값에 쌓인다. 순서를 옮기면 지금 보이는 줄 전부의 순서를 쓴다.
+// 줄의 모양은 QuickOrderList(workspace/project-settings/quick-launch-editor.tsx)와 같다.
 import { t } from "@lophn/i18n";
 import { Skeleton } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
+import { IconButton } from "@lophn/ui/primitives";
 
 import { AppTabIcon } from "../../../app-frame/app-icon.tsx";
 import type { AppScreens } from "../../../app-frame/app-views.tsx";
+import { actionIcons } from "../../../icons/mod.ts";
 import styles from "../../../workspace/project-settings/quick-launch-editor.module.css";
-import type { SidebarPanelPick } from "./source.ts";
+import { byTrayOrder, type SidebarPanelPick } from "./source.ts";
 
 export function TrayList({
   apps,
@@ -15,14 +18,18 @@ export function TrayList({
   failed,
   off,
   onOff,
+  order,
+  onOrder,
 }: {
   apps: readonly AppScreens[];
   loading: boolean;
   failed: boolean;
   off: readonly SidebarPanelPick[];
   onOff: (next: readonly SidebarPanelPick[]) => void;
+  order: readonly SidebarPanelPick[];
+  onOrder: (next: readonly SidebarPanelPick[]) => void;
 }) {
-  const choices = apps.flatMap((app) =>
+  const declared = apps.flatMap((app) =>
     app.screens
       .filter((screen) => screen.places.includes("tray"))
       .map((screen) => ({
@@ -34,6 +41,13 @@ export function TrayList({
         }),
       })),
   );
+  const choices = byTrayOrder(declared, order);
+  const move = (at: number, delta: -1 | 1) => {
+    const next = choices.map(({ app, screen }) => ({ app, screen }));
+    const to = at + delta;
+    [next[at], next[to]] = [next[to]!, next[at]!];
+    onOrder(next);
+  };
   if (loading) return <Skeleton lines={3} />;
   if (failed) {
     return (
@@ -47,7 +61,7 @@ export function TrayList({
     a.app === b.app && a.screen === b.screen;
   return (
     <ul className={styles.rows} data-tray-rows="">
-      {choices.map((choice) => {
+      {choices.map((choice, index) => {
         const pick = { app: choice.app, screen: choice.screen };
         return (
           <li
@@ -59,6 +73,20 @@ export function TrayList({
               <AppTabIcon app={choice.app} />
               <span className={styles.rowLabel}>{choice.label}</span>
             </span>
+            <IconButton
+              icon={actionIcons.moveUp}
+              label={t("project-settings.button.move-up")}
+              size="sm"
+              disabled={index === 0}
+              onClick={() => move(index, -1)}
+            />
+            <IconButton
+              icon={actionIcons.moveDown}
+              label={t("project-settings.button.move-down")}
+              size="sm"
+              disabled={index === choices.length - 1}
+              onClick={() => move(index, 1)}
+            />
             <span className={styles.toggle}>
               <Switch
                 size="sm"

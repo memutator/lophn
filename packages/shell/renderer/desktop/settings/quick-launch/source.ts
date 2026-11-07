@@ -1,6 +1,6 @@
-// 빠른 실행의 전역 값 여섯: 단추 순서·고정 앱 panel(`shell.quick_launch`), 앱 panel 화면마다 여는 자리와
+// 빠른 실행의 전역 값 일곱: 단추 순서·고정 앱 panel(`shell.quick_launch`), 앱 panel 화면마다 여는 자리와
 // 마지막 float 자리(`shell.app_launch`), coding agent 즐겨찾기와 실행 명령어(`shell.coding_agents`), 작업 표시줄(`shell.taskbar`),
-// 오른쪽 sidebar panel에서 끈 앱 화면(`shell.sidebar_panels_off`), tray에서 끈 앱 화면(`shell.tray_off`).
+// 오른쪽 sidebar panel에서 끈 앱 화면(`shell.sidebar_panels_off`), tray에서 끈 앱 화면(`shell.tray_off`), tray 항목 순서(`shell.tray_order`).
 // 앱 화면은 선언하면 나오고 끈 것만 여기에 쌓인다.
 // 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
@@ -33,6 +33,8 @@ export interface QuickPrefs {
   readonly sidebarPanelsOff: readonly SidebarPanelPick[];
   /** 사람이 끈 작업 표시줄(꺼져 있으면 title bar) tray 항목(`shell.tray_off`). */
   readonly trayOff: readonly SidebarPanelPick[];
+  /** 사람이 정한 tray 항목 순서(`shell.tray_order`). 없는 화면은 뒤에 선언 순서로 선다. */
+  readonly trayOrder: readonly SidebarPanelPick[];
 }
 
 export interface SidebarPanelPick {
@@ -57,6 +59,7 @@ export const DEFAULT_QUICK_PREFS: QuickPrefs = {
   taskbar: true,
   sidebarPanelsOff: [],
   trayOff: [],
+  trayOrder: [],
 };
 
 export const launchKey = (app: string, surface: string): string =>
@@ -114,7 +117,7 @@ export function launchFromValue(value: unknown): AppLaunchMap {
   return out;
 }
 
-// `shell.sidebar_panels_off`와 `shell.tray_off`가 같은 모양이다.
+// `shell.sidebar_panels_off`, `shell.tray_off`, `shell.tray_order`가 같은 모양이다.
 export function picksFromValue(value: unknown): SidebarPanelPick[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item: unknown) =>
@@ -124,6 +127,23 @@ export function picksFromValue(value: unknown): SidebarPanelPick[] {
       ? [{ app: item.app, screen: item.screen }]
       : [],
   );
+}
+
+/** `order`에 든 것을 그 순서로 앞에 두고, 나머지는 받은 순서대로 뒤에 둔다. */
+export function byTrayOrder<T extends SidebarPanelPick>(
+  items: readonly T[],
+  order: readonly SidebarPanelPick[],
+): T[] {
+  const rank = (item: T) => {
+    const at = order.findIndex(
+      (pick) => pick.app === item.app && pick.screen === item.screen,
+    );
+    return at < 0 ? order.length : at;
+  };
+  return items
+    .map((item, at) => ({ item, at, rank: rank(item) }))
+    .sort((a, b) => a.rank - b.rank || a.at - b.at)
+    .map(({ item }) => item);
 }
 
 export function codingFromValue(value: unknown): CodingPrefs {

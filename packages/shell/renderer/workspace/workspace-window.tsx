@@ -2891,6 +2891,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                 taskbar ? undefined : (
                   <TrayHost
                     off={quickPrefs.trayOff}
+                    order={quickPrefs.trayOrder}
                     screens={panelApps}
                     side="below"
                   />
@@ -2912,6 +2913,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     tray={
                       <TrayHost
                         off={quickPrefs.trayOff}
+                        order={quickPrefs.trayOrder}
                         screens={panelApps}
                         side="above"
                       />

@@ -18,6 +18,7 @@ const KEYS = {
   taskbar: "shell.taskbar",
   sidebarPanelsOff: "shell.sidebar_panels_off",
   trayOff: "shell.tray_off",
+  trayOrder: "shell.tray_order",
 } as const satisfies Record<keyof QuickPrefs, string>;
 
 export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
@@ -37,6 +38,7 @@ export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
             read.value.get(KEYS.sidebarPanelsOff),
           ),
           trayOff: picksFromValue(read.value.get(KEYS.trayOff)),
+          trayOrder: picksFromValue(read.value.get(KEYS.trayOrder)),
         },
       };
     },

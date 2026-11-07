@@ -35,7 +35,10 @@ import {
   WebviewLayer,
 } from "../../app-frame/webview-host.tsx";
 import { shellIcons } from "../../icons/mod.ts";
-import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
+import {
+  byTrayOrder,
+  type SidebarPanelPick,
+} from "../../desktop/settings/quick-launch/source.ts";
 import {
   type PopupContent,
   type PopupPlace,
@@ -60,14 +63,15 @@ export interface TrayItem {
   readonly size?: PopupSize;
 }
 
-/** 설치된 앱의 `tray` 자리 화면 가운데 사람이 끄지 않은 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
+/** 설치된 앱의 `tray` 자리 화면 가운데 사람이 끄지 않은 것을 사람이 정한 순서로. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
 export function trayItems(
   off: readonly SidebarPanelPick[],
+  order: readonly SidebarPanelPick[],
   screens: ScreensRead | null,
   values: readonly TrayValue[],
 ): readonly TrayItem[] {
   if (screens === null || !screens.ok) return [];
-  return screens.value.flatMap((app: AppScreens) =>
+  const items = screens.value.flatMap((app: AppScreens) =>
     app.screens.flatMap((screen) => {
       if (!screen.places.includes("tray")) return [];
       if (
@@ -94,6 +98,7 @@ export function trayItems(
       ];
     }),
   );
+  return byTrayOrder(items, order);
 }
 
 function PopupBody({ item }: { item: TrayItem }) {
@@ -346,7 +351,7 @@ function ConnectedTray(props: TrayHostProps) {
   const values = useTrayValues();
   return (
     <Tray
-      items={trayItems(props.off, props.screens, values)}
+      items={trayItems(props.off, props.order, props.screens, values)}
       side={props.side}
       iconOnly={props.side === "below"}
     />
@@ -356,13 +361,14 @@ function ConnectedTray(props: TrayHostProps) {
 interface TrayHostProps {
   /** 사람이 끈 tray 화면. */
   off: readonly SidebarPanelPick[];
+  /** 사람이 정한 tray 항목 순서. */
+  order: readonly SidebarPanelPick[];
   screens: ScreensRead | null;
   /** 작업 표시줄이면 above, title bar면 below. */
   side: "above" | "below";
 }
 
 export function TrayHost(props: TrayHostProps): ReactNode {
-  return trayItems(props.off, props.screens, []).length === 0 ? null : (
-    <ConnectedTray {...props} />
-  );
+  const items = trayItems(props.off, props.order, props.screens, []);
+  return items.length === 0 ? null : <ConnectedTray {...props} />;
 }

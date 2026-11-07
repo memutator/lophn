@@ -102,9 +102,9 @@ SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener�
    ▼
  core app_tray.set (memory route, actor app) → 앱마다 마지막 값 하나를 memory map에 둔다 → AppTrayChanged { app }
    ▼ Gateway
- renderer TrayHost: AppTrayChanged와 ready 때 app_tray.list(actor user)로 다시 읽어, 설치된 앱의 `tray` 화면 항목(설정 `shell.tray_off`에 든 것은 뺀다)에 글과 tone을 붙인다
+ renderer TrayHost: AppTrayChanged와 ready 때 app_tray.list(actor user)로 다시 읽어, 설치된 앱의 `tray` 화면 항목(설정 `shell.tray_off`에 든 것은 빼고 `shell.tray_order` 순서로)에 글과 tone을 붙인다
 ```
 
 - **값은 저장하지 않는다.** core를 다시 켜면 비고, 앱 process가 시작할 때 다시 낸다. 앱 process는 오래 살아 timer로 값을 바꿀 수 있다. 보관한 앱이나 없는 앱의 `set`은 거절하고 `list`는 보관한 앱의 값을 뺀다.
 - **권한은 알림과 같은 `notify.send`다.** tray 값도 앱이 사람에게 보이는 것이라 새 permission kind를 두지 않았다. test는 "`notify.send` grant가 없는 앱의 `setTray`는 거절되고 값이 바뀌지 않는다"(`packages/core/apps/permissions/broker/notify_test.ts`).
-- **tray 항목은 선언하면 나오고 사람이 끈다.** 설치된 앱이 `tray` 자리 화면을 선언하면 값을 내기 전에도 항목이 생긴다(값이 없으면 아이콘만 보인다). 사람이 Settings › Quick launch의 Tray에서 끄면 그 화면이 설정 `shell.tray_off`(`{app, screen}[]`)에 쌓이고 항목이 빠진다.
+- **tray 항목은 선언하면 나오고 사람이 끈다.** 설치된 앱이 `tray` 자리 화면을 선언하면 값을 내기 전에도 항목이 생긴다(값이 없으면 아이콘만 보인다). 사람이 Settings › Quick launch의 Tray에서 끄면 그 화면이 설정 `shell.tray_off`(`{app, screen}[]`)에 쌓이고 항목이 빠진다. 같은 곳의 위·아래 단추로 순서를 옮기면 그때 보이는 줄 전부의 순서가 `shell.tray_order`(`{app, screen}[]`)에 쓰인다. 거기 없는 화면(새로 설치한 앱)은 뒤에 선언 순서로 선다.

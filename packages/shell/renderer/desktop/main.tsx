@@ -56,6 +56,7 @@ import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { KeybindingsApi } from "../../ipc/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { CommandsProvider } from "../commands/react.tsx";
+import { WorkspaceViewsProvider } from "../app-frame/workspace-views.tsx";
 import { GlobalFloatLayer } from "../shell/global-floats/global-float-layer.tsx";
 import { GlobalFloatsProvider } from "../shell/global-floats/global-floats.tsx";
 import { createWindowCommands } from "../commands/window.ts";
@@ -473,10 +474,12 @@ export function Desktop({
           <GlobalFloatsProvider
             enabled={route.space !== "detached" && route.space !== "app-window"}
           >
-            {space}
-            {globalFloats ? (
-              <GlobalFloatLayer onOpenApp={apps ? appSpace : undefined} />
-            ) : null}
+            <WorkspaceViewsProvider>
+              {space}
+              {globalFloats ? (
+                <GlobalFloatLayer onOpenApp={apps ? appSpace : undefined} />
+              ) : null}
+            </WorkspaceViewsProvider>
           </GlobalFloatsProvider>
           {overlay &&
           route.space !== "detached" &&

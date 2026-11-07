@@ -7,6 +7,13 @@
   overflow: hidden;
 }
 
+/* 창의 workspace view 보관(app-frame/workspace-views.tsx)이 있으면 본문은 그 context(position: fixed, 자기 stacking
+   context) 안에 portal로 선다. 여기서 또 context를 만들면 <webview> 그릇과 패널의 z-index가 갈라진다. */
+.workspace[data-pooled] {
+  position: absolute;
+  pointer-events: auto;
+}
+
 /* card를 감싸는 칸. float 층의 기준 크기를 재고 떠 있는 안내가 이 칸 왼쪽 아래에 선다. */
 .stage {
   position: relative;

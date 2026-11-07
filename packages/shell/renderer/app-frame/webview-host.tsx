@@ -6,6 +6,7 @@
 // 층을 2배로 둔다).
 import { createContext, useContext, useEffect, useRef } from "react";
 
+import { APP_KEEP_ALIVE_CHANNEL } from "../../ipc/app-keep-alive.ts";
 import {
   APP_TAB_HEAD_CHANNEL,
   APP_TAB_HEAD_EVENT_CHANNEL,
@@ -34,6 +35,7 @@ interface WebviewElement extends HTMLElement {
   isLoading(): boolean;
   canGoBack(): boolean;
   canGoForward(): boolean;
+  isCurrentlyAudible(): boolean;
   send(channel: string, ...args: unknown[]): Promise<void>;
 }
 
@@ -72,6 +74,14 @@ interface Entry {
   /** 이 화면의 머리 줄을 지금 shell이 그리는지. 다시 load된 page에도 알린다. */
   headShown: boolean;
   headListeners: Set<(head: TabHead | null) => void>;
+  /** 앱 page가 켠 살려 두기 신호(ipc/app-keep-alive.ts). page가 새로 load되면 꺼진다. */
+  keepAlive: boolean;
+  /** 사람이 browser 탭에 켠 Keep alive. */
+  userKeep: boolean;
+  /** 이 탭의 page가 download를 받는 중. */
+  downloading: boolean;
+  /** 마지막으로 보인 때(host의 tick 값). 살려 둔 것이 넘칠 때 오래 안 본 것부터 놓는 기준이다. */
+  shownAt: number;
 }
 
 export interface WebviewHost {
@@ -97,6 +107,17 @@ export interface WebviewHost {
   /** 앱 page에 머리 줄 event를 보낸다. */
   sendTabHead(key: string, event: TabHeadEvent): void;
   release(key: string): void;
+  /** 사람이 browser 탭에 켠 Keep alive를 알린다. */
+  setUserKeep(key: string, on: boolean): void;
+  /** browser 탭의 page가 download를 받기 시작했거나 끝났다. */
+  setDownloading(key: string, on: boolean): void;
+  /**
+   * workspace를 떠난다. 살려 둘 이유가 있고(앱 page 신호, 사람의 Keep alive, download, 소리 남) `tabKeys`(layout에
+   * 아직 있는 탭)에 든 화면만 두고 나머지는 놓는다. 둔 key를 돌려준다.
+   */
+  park(tabKeys: ReadonlySet<string>): string[];
+  /** 마지막으로 보인 때. 없으면 0이다. */
+  shownAt(key: string): number;
   keys(): readonly string[];
   /** 그릇 요소. WebviewLayer가 붙인다. */
   attach(container: HTMLElement | null): void;
@@ -178,9 +199,31 @@ function visibleRect(
   return output;
 }
 
-export function createWebviewHost(): WebviewHost {
+function audible(entry: Entry): boolean {
+  if (entry.kind !== "browser") return false;
+  try {
+    return (entry.element as WebviewElement).isCurrentlyAudible();
+  } catch {
+    // 붙기 전이거나 webview가 아닌 자리(dev mock)다.
+    return false;
+  }
+}
+
+function wantsKeep(entry: Entry): boolean {
+  return (
+    entry.keepAlive || entry.userKeep || entry.downloading || audible(entry)
+  );
+}
+
+/**
+ * `tick`은 단조 증가하는 값이다. 창의 host들이 함께 쓰면 host를 가로질러 "최근에 본 순서"를 비교할 수 있다. 주지 않으면 이
+ * host만의 순서다.
+ */
+export function createWebviewHost(tick?: () => number): WebviewHost {
   const entries = new Map<string, Entry>();
   let container: HTMLElement | null = null;
+  let own = 0;
+  const now = tick ?? (() => ++own);
 
   function apply(entry: Entry): void {
     const style = entry.element.style;
@@ -189,9 +232,12 @@ export function createWebviewHost(): WebviewHost {
       container === null ||
       (entry.kind !== "browser" && !entry.loaded)
     ) {
+      // 보이던 것이 가려지는 때가 마지막으로 본 때다.
+      if (style.visibility === "visible") entry.shownAt = now();
       style.visibility = "hidden";
       return;
     }
+    entry.shownAt = now();
     const box = container.getBoundingClientRect();
     style.left = `${Math.round(entry.rect.left - box.left)}px`;
     style.top = `${Math.round(entry.rect.top - box.top)}px`;
@@ -261,12 +307,21 @@ export function createWebviewHost(): WebviewHost {
         channel: string;
         args: unknown[];
       };
-      if (channel !== APP_TAB_HEAD_CHANNEL || entry.element !== element) return;
+      if (entry.element !== element) return;
+      if (channel === APP_KEEP_ALIVE_CHANNEL) {
+        entry.keepAlive = args[0] === true;
+        return;
+      }
+      if (channel !== APP_TAB_HEAD_CHANNEL) return;
       const value = args[0] as { hello?: unknown } | null;
       if (value?.hello === true) shown();
       else setTabHead(entry, readTabHead(value));
     });
     element.addEventListener("dom-ready", shown);
+    // 새로 load된 page는 자기 신호를 다시 보낸다. 앞 page의 신호가 남으면 안 쓰는 page를 살려 두게 된다.
+    element.addEventListener("did-navigate", () => {
+      if (entry.element === element) entry.keepAlive = false;
+    });
   }
 
   function make(key: string, src: string, kind: WebviewKind): Entry {
@@ -284,6 +339,10 @@ export function createWebviewHost(): WebviewHost {
       head: null,
       headShown: false,
       headListeners: new Set(),
+      keepAlive: false,
+      userKeep: false,
+      downloading: false,
+      shownAt: 0,
     };
     bind(entry, entry.element);
     if (kind === "browser") {
@@ -309,6 +368,7 @@ export function createWebviewHost(): WebviewHost {
     entry.src = src;
     entry.session = null;
     entry.loaded = !webviewSupported();
+    entry.keepAlive = false;
     if (container !== null) container.append(next);
     apply(entry);
     setTabHead(entry, null);
@@ -390,6 +450,26 @@ export function createWebviewHost(): WebviewHost {
       entries.delete(key);
       entry.element.remove();
     },
+    setUserKeep(key, on) {
+      const entry = entries.get(key);
+      if (entry !== undefined) entry.userKeep = on;
+    },
+    setDownloading(key, on) {
+      const entry = entries.get(key);
+      if (entry !== undefined) entry.downloading = on;
+    },
+    park(tabKeys) {
+      const parked: string[] = [];
+      for (const [key, entry] of [...entries]) {
+        if (tabKeys.has(key) && wantsKeep(entry)) parked.push(key);
+        else {
+          entries.delete(key);
+          entry.element.remove();
+        }
+      }
+      return parked;
+    },
+    shownAt: (key) => entries.get(key)?.shownAt ?? 0,
     keys: () => [...entries.keys()],
     attach(next) {
       container = next;

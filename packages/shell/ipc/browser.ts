@@ -122,6 +122,8 @@ const popupPlacementSchema = z.discriminatedUnion("kind", [
 // 그 url로 새 탭을 연다. opener는 끊긴다(크기 준 popup만 native view로 받아 opener를 지킨다).
 // close: page가 window.close()를 불렀다.
 // bookmark-key: page에 focus가 있을 때 Ctrl/Cmd+D가 눌렸다.
+// download: <webview> 탭의 page가 download를 받기 시작했거나(active) 모두 끝났다. 받는 동안은 workspace를 떠나도 page를
+// 살려 둔다(받는 중에 guest가 사라지면 download가 끊긴다).
 export const browserEventSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -144,6 +146,13 @@ export const browserEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("close"), view_session: viewSession }).strict(),
   z
     .object({ kind: z.literal("bookmark-key"), view_session: viewSession })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("download"),
+      view_session: viewSession,
+      active: z.boolean(),
+    })
     .strict(),
   // DevTools view나 그 page가 사라졌거나 사람이 따로 뜬 DevTools 창을 닫았다.
   z

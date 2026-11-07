@@ -11,6 +11,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { createPortal } from "react-dom";
 import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
 import { useAppRuns } from "../app-frame/app-runs.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
@@ -22,6 +23,7 @@ import {
 import { APP_PANEL, type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
 import { AppWorkspaceProvider } from "../app-frame/app-views.tsx";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
+import { useWorkspaceViews } from "../app-frame/workspace-views.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { useBrowserApi } from "../browser/browser-api.tsx";
 import {
@@ -357,6 +359,12 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const isApp = appId !== null;
   const workspaceId = workspaceKey(workspace);
   const browserApi = useBrowserApi();
+  // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
+  const workspaceViews = useWorkspaceViews();
+  const pool = useMemo(
+    () => workspaceViews?.views.acquire(workspaceId) ?? null,
+    [workspaceViews, workspaceId],
+  );
   const bookmarkList = useBookmarks();
   // Agent 탭의 통로. 없으면 Agent 탭을 열지 않는다.
   const agentViewSource = props.agentViewSource;
@@ -378,6 +386,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     terminalStore: terminal?.store,
     host: () => host,
     onSettings,
+    pool,
   });
   const sessionIds = sessionStates.map((entry) => entry.session).join();
   // 배치를 다 읽은 workspace. 시작 route는 이 workspace의 배치가 선 뒤에 연다.
@@ -580,9 +589,13 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   // <webview>는 모든 desk의 탭이 사는 동안(보이지 않는 desk 포함) 그대로 두어 desk를 오가도 page가
   // 다시 load되지 않는다. 놓는 것은 탭 key가 layout에서 사라졌을 때뿐이다.
   const webviewTabKeys = useRef<Set<string>>(new Set());
+  // 앞서 떠나며 살려 둔 화면(workspace-views.tsx)은 layout을 읽은 뒤 지금 탭과 맞춘다.
+  const carriedKeys = useRef<readonly string[]>(pool?.carried() ?? []);
   // 다른 창으로 넘긴 view(main이 소유를 옮긴 browser popup native view)는 여기서 닫지 않는다.
   const transferredViews = useRef<Set<string>>(new Set());
   useEffect(() => {
+    // 배치를 읽기 전의 기본 layout으로 가져온 화면과 view를 놓지 않는다.
+    if (readyWorkspace !== workspaceId) return;
     const desks = Object.values(layout.desks);
     const detached = new Set(
       desks.flatMap((item) => item.detached.map((entry) => entry.tab.key)),
@@ -602,7 +615,12 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       }
     }
     const live = new Set([...allKeys].filter((key) => !detached.has(key)));
-    const previous = webviewTabKeys.current;
+    // 가져온 화면도 이전 key로 본다. 떠난 사이 탭이 지워졌으면 여기서 놓인다.
+    const previous = new Set([
+      ...webviewTabKeys.current,
+      ...carriedKeys.current,
+    ]);
+    carriedKeys.current = [];
     for (const key of webviews.keys()) {
       // 앱 view_session처럼 탭 key가 아닌 자리(card·앱 공간)는 그 화면이 닫을 때 놓는다.
       if (previous.has(key) && !live.has(key)) webviews.release(key);
@@ -618,7 +636,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         .map((tab) => tab.key),
     );
     props.terminal?.displays.retain(workspaceId, terminals);
-  }, [layout, keeps, webviews, props.terminal, workspaceId]);
+  }, [layout, keeps, webviews, props.terminal, workspaceId, readyWorkspace]);
   useEffect(
     () => () => props.terminal?.displays.retain(workspaceId, new Set()),
     [props.terminal, workspaceId],
@@ -626,11 +644,16 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
   useEffect(
     () => () => {
+      if (pool !== null) {
+        // 살려 둘 화면만 두고 나머지를 닫는다. 그릇이 창 것이라 놓지 않은 화면은 숨은 채 남는다.
+        pool.leave(() => webviewTabKeys.current);
+        return;
+      }
       queueMicrotask(() => {
         for (const key of keeps.keys()) keeps.release(key);
       });
     },
-    [keeps],
+    [keeps, pool],
   );
 
   // detached 창을 보이는 desk에 맞춘다. 창이 없는 key(다른 desk에 있다가 지금 보이게 된 것)는 연다.
@@ -2546,6 +2569,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       <WebviewHostProvider value={webviews}>
         <div
           className={styles.workspace}
+          data-pooled={pool !== null ? "" : undefined}
           data-space={isHome ? "home" : isApp ? "app" : "project"}
         >
           <TabDragProvider
@@ -2791,7 +2815,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
               }
               floats={
                 <>
-                  <WebviewLayer host={webviews} />
+                  {pool === null ? <WebviewLayer host={webviews} /> : null}
                   <FloatLayer
                     layerRef={floatRef}
                     area={stageSize}
@@ -2883,7 +2907,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         workspace={workspace}
         folders={(loaded.project?.folders ?? []).map((folder) => folder.path)}
       >
-        {content}
+        {workspaceViews === null
+          ? content
+          : createPortal(content, workspaceViews.context)}
       </AppWorkspaceProvider>
     </InboxNamesProvider>
   );

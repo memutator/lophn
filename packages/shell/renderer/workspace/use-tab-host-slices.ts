@@ -5,6 +5,7 @@ import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { useAppViews } from "../app-frame/app-views.tsx";
 import { createViewKeeps } from "../app-frame/embedded-view.tsx";
 import { createWebviewHost } from "../app-frame/webview-host.tsx";
+import type { WorkspaceViewPool } from "../app-frame/workspace-views.tsx";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import { useConversation } from "../conversation/window-deps.tsx";
@@ -37,6 +38,8 @@ interface TabHostSlicesInput {
   onSettings: (pane?: SettingsPane) => void;
   /** false면 이 창은 floated 탭을 둘 수 없다(detached 창). 코드 블록의 실행 단추를 두지 않는다. */
   floats?: boolean;
+  /** 창의 workspace view 보관(app-frame/workspace-views.tsx). 있으면 그 그릇과 보관소를 쓴다. */
+  pool?: WorkspaceViewPool | null;
 }
 
 // workspace 창(WorkspaceWindow)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.
@@ -72,11 +75,13 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   closeViewRef.current = (session) =>
     void appViews?.views.closeView({ view_session: session }).catch(() => {});
   // 화면(browser 탭·앱·artifact)의 <webview> 그릇. 창마다 하나이고 탭 key당 <webview> 하나다(옮기면 다시 load된다).
-  const webviews = useMemo(createWebviewHost, []);
-  const keeps = useMemo(
+  const localWebviews = useMemo(() => createWebviewHost(), []);
+  const localKeeps = useMemo(
     () => createViewKeeps((session) => closeViewRef.current(session)),
     [],
   );
+  const webviews = input.pool?.webviews ?? localWebviews;
+  const keeps = input.pool?.keeps ?? localKeeps;
 
   // session을 가진 agent의 sidebar 줄.
   const rowOfSession = (session: string) => {

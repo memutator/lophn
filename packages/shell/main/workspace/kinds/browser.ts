@@ -15,6 +15,8 @@ const layout = z.strictObject({
     .max(65536)
     .regex(/^data:image\//)
     .optional(),
+  // 사람이 켠 Keep alive. 선택 필드라 없는 옛 파일은 꺼진 것이다.
+  keep_alive: z.literal(true).optional(),
 });
 
 type BrowserLayout = z.infer<typeof layout>;

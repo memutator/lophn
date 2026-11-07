@@ -428,3 +428,38 @@ test("quick 필드가 없는 파일도 읽히고, quick이 있는 파일은 쓴 
     assert.ok(!bad.ok && bad.error.code === "invalid_input");
   });
 });
+
+test("browser 탭의 keep_alive는 쓴 대로 읽히고 없는 옛 탭도 읽힌다", async () => {
+  await withRoot(async (root) => {
+    const store = createWorkspaceLayoutStore(root);
+    const layout = {
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [
+            { kind: "browser", key: "b-old", url: "https://a.test/" },
+            {
+              kind: "browser",
+              key: "b-keep",
+              url: "https://b.test/",
+              keep_alive: true,
+            },
+          ],
+          selected_tab: "b-old",
+          groups: [],
+          floats: [],
+          detached: [],
+        },
+      },
+    };
+    assert.deepEqual(await store.write("home", layout), {
+      ok: true,
+      value: null,
+    });
+    assert.deepEqual(await store.read("home"), {
+      ok: true,
+      value: { ok: true, layout: { schema_version: 10, ...layout } },
+    });
+  });
+});

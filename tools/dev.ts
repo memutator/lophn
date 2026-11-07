@@ -38,6 +38,7 @@ import { hookStdoutRows } from "../packages/protocol/coding-agent/mod.ts";
 import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
 import { connectFakeProvider } from "../tests/support/core/human.ts";
 import { bootCore } from "../tests/support/core/mod.ts";
+import { processesOf } from "../tests/support/core/process.ts";
 import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
 
 type SpawnPlan = {
@@ -165,12 +166,12 @@ async function plantFakeProvider(
 
   const dir = `${dataRoot}/dev-setup`;
   await mkdir(`${dir}/user-home`, { recursive: true });
-  const core = await bootCore({
-    dir,
-    home: dataRoot,
-    work: dir,
-    remove: () => Promise.resolve(),
-  });
+  // stop()이 같은 LOPHN_HOME의 남은 process를 child로 보고 죽이므로, 이미 돌던 앱의 process는 keep으로 둔다.
+  const keep = await processesOf(dataRoot);
+  const core = await bootCore(
+    { dir, home: dataRoot, work: dir, remove: () => Promise.resolve() },
+    { keep },
+  );
   try {
     const known = (await core.call(providerList, {})).providers;
     if (!known.some((item) => item.endpoint === fakeUrl)) {

@@ -163,6 +163,8 @@ export type BootOptions = {
   env?: Record<string, string>;
   /** 다른 checkout(worktree)의 core를 시험할 때만 준다. 기본은 이 file이 있는 checkout. */
   repo?: string;
+  /** 종료 뒤 남아 있어도 되는 pid. 같은 data root에서 이미 돌던 process(dev 앱)를 죽이지 않게 한다. */
+  keep?: number[];
 };
 
 export type StartResult =
@@ -214,7 +216,7 @@ export async function startCore(
     ended = true;
     how();
     await spawned.exited;
-    const left = await waitGone(run.home);
+    const left = await waitGone(run.home, options.keep);
     if (left.length > 0) {
       throw new Error(
         `core가 child를 남긴다: pid ${left.join(", ")} (SIGKILL로 정리함)`,

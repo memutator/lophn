@@ -537,6 +537,17 @@ export function rowKey(row: KeyRow): string {
   return row.kind === "single" ? row.id : row.command;
 }
 
+/** 번호 줄에서 겹친 번호의 id만 빈 목록으로. 다른 번호의 키는 둔다. */
+export function conflictClearKeys(
+  ids: readonly string[],
+  conflicts: readonly KeyConflict[],
+): Record<string, readonly string[]> {
+  const hit = new Set(conflicts.flatMap((one) => one.ids));
+  return Object.fromEntries(
+    ids.filter((id) => hit.has(id)).map((id) => [id, []]),
+  );
+}
+
 /** 번호 줄의 새 키. modifier가 null이면 모든 번호의 키를 뺀다. */
 export function numberedKeys(
   ids: readonly string[],

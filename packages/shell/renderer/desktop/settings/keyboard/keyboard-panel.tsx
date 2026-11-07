@@ -26,6 +26,7 @@ import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
   appRows,
+  conflictClearKeys,
   filterRows,
   type KeyRow,
   keyRows,
@@ -273,7 +274,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
     const clearKeys =
       row.kind === "single"
         ? { [row.id]: [] }
-        : numberedKeys(row.ids, row.numbers, null);
+        : conflictClearKeys(row.ids, conflictList);
     const resetKeys =
       row.kind === "single"
         ? { [row.id]: null }

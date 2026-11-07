@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { takeKeys, withKeys } from "./model.ts";
+import { conflictClearKeys, takeKeys, withKeys } from "./model.ts";
 
 test("바꾸기는 새 키를 달고 다른 줄에서 그 키만 빼며, 표와 같아진 줄은 저장에서 빠진다", () => {
   const stored = {
@@ -24,4 +24,18 @@ test("바꾸기는 새 키를 달고 다른 줄에서 그 키만 빼며, 표와 
   });
   // 다른 OS의 값은 건드리지 않는다.
   assert.deepEqual(next.mac, stored.mac);
+});
+
+test("번호 줄의 Remove는 겹친 번호의 id만 비운다", () => {
+  const keys = conflictClearKeys(
+    ["tab.nth:1", "tab.nth:2", "tab.nth:3"],
+    [
+      {
+        chord: "Alt+Digit3",
+        ids: ["tab.nth:3", "tab.reveal"],
+        reserved: false,
+      },
+    ],
+  );
+  assert.deepEqual(keys, { "tab.nth:3": [] });
 });

@@ -6,7 +6,7 @@
   gap: var(--space-1);
   width: fit-content;
   max-width: 100%;
-  padding: var(--space-1);
+  padding: var(--space-2);
   border-radius: var(--radius-full);
   background: var(--color-surface-muted);
 }
@@ -51,21 +51,22 @@
 }
 
 .sm .segment {
-  height: calc(var(--control-sm-height) - var(--space-2));
+  height: calc(var(--control-sm-height) - var(--space-4));
   padding: var(--space-0) var(--control-sm-pad-x);
 }
 
 .md .segment {
-  height: calc(var(--control-md-height) - var(--space-2));
+  height: calc(var(--control-md-height) - var(--space-4));
   padding: var(--space-0) var(--control-md-pad-x);
 }
 
 .lg .segment {
-  height: calc(var(--control-lg-height) - var(--space-2));
+  height: calc(var(--control-lg-height) - var(--space-4));
   padding: var(--space-0) var(--control-lg-pad-x);
 }
 
-.input:hover:not(:disabled) + .segment {
+/* 고른 칸은 hover로 글자색을 바꾸지 않는다. ink 배경이 theme·primary에 따라 바뀌어 hover 색과 겹치면 글이 사라진다. */
+.input:hover:not(:disabled):not(:checked) + .segment {
   color: var(--color-text-primary);
 }
 

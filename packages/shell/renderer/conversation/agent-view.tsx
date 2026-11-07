@@ -40,6 +40,7 @@ import type {
   RewindChoice,
   SessionEntry,
   SourceResult,
+  ThreadEntry,
 } from "./agent-tab-source.ts";
 import { AgentThread } from "./agent-thread.tsx";
 import styles from "./agent-view.module.css";
@@ -148,6 +149,8 @@ type Problem =
   | "action-failed"
   | "attach-failed";
 
+const NO_ENTRIES: readonly ThreadEntry[] = [];
+
 const PROBLEM_TEXT = {
   "open-failed": "conversation.error.open-failed",
   "attach-failed": "conversation.error.attach-failed",
@@ -235,7 +238,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     props.onSessionChange(next);
   };
   const now = props.now ?? Date.now;
-  useSyncExternalStore(drafts.subscribe, drafts.version);
   const [layer, setLayer] = useState<Layer | null>(null);
   // 머리 ←로 물러난 자식들(앞으로 갈 곳). 물러난 뒤의 path(`base`)에서만 쓰이고 새 자식을 열거나 다른 층을 열면 비운다.
   // 탭 안 상태라 저장하지 않는다.
@@ -280,6 +282,12 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     props.onSessionTitle?.(sessionTitle);
   }, [session, sessionTitle]);
   const key = session ?? newSessionKey(agent ?? null);
+  // 이 session의 draft가 바뀔 때만 다시 그린다. 다른 탭에서 치는 글에는 반응하지 않는다.
+  const subscribeDraft = useCallback(
+    (listener: () => void) => drafts.subscribe(key, listener),
+    [drafts, key],
+  );
+  useSyncExternalStore(subscribeDraft, () => drafts.version(key));
   const draft = drafts.draft(key);
   const turn = thread?.turn ?? null;
   const active = turn !== null && turn.phase !== "ended" ? turn : null;
@@ -803,6 +811,27 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     })();
   };
 
+  // 대화 줄은 memo다. 글을 칠 때마다 새로 만들어지는 함수를 넘기면 그 memo가 깨지므로 늘 같은 함수가 최신 것을 부른다.
+  const threadHandlers = {
+    onScroll: useLatest((position: number | null) =>
+      drafts.save(key, { scroll: position }),
+    ),
+    onRewind: useLatest((message: string) =>
+      setLayer(
+        layer?.kind === "rewind" && layer.message === message
+          ? null
+          : { kind: "rewind", message },
+      ),
+    ),
+    onFork: useLatest((message: string) => void fork(message)),
+    onOpenChild: useLatest(openChild),
+    onCheck: useLatest(() => void check()),
+    onResend: useLatest(() => void sendAgain()),
+    onOpenRef: useLatest((ref: EvidenceRef) => {
+      if (ref.kind === "file") host.openFile?.(ref.target);
+    }),
+  };
+
   if (agent === undefined) {
     return (
       <section className={styles.view} data-agent-view="">
@@ -987,7 +1016,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             <AgentThread
               key={key}
               agent={agent}
-              entries={thread?.entries ?? []}
+              entries={thread?.entries ?? NO_ENTRIES}
               detail={draft.detail}
               live={thread?.live ?? null}
               outgoing={draft.outgoing}
@@ -999,23 +1028,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
               can={{ rewind: caps.rewind, fork: caps.fork, retry: caps.retry }}
               source={source}
               initialScroll={draft.scroll}
-              onScroll={(position) => drafts.save(key, { scroll: position })}
               rewindOpen={layer?.kind === "rewind" ? layer.message : null}
-              onRewind={(message) =>
-                setLayer(
-                  layer?.kind === "rewind" && layer.message === message
-                    ? null
-                    : { kind: "rewind", message },
-                )
-              }
-              onFork={(message) => void fork(message)}
-              onOpenChild={openChild}
-              onCheck={() => void check()}
-              onResend={() => void sendAgain()}
+              {...threadHandlers}
               onOpenFile={host.openFile}
-              onOpenRef={(ref: EvidenceRef) => {
-                if (ref.kind === "file") host.openFile?.(ref.target);
-              }}
               onOpenSession={host.openSession}
               artifacts={host.artifacts}
             />
@@ -1311,6 +1326,15 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       </div>
     </section>
   );
+}
+
+/** 부르는 순간의 최신 함수를 부르는, 늘 같은 함수. */
+function useLatest<Args extends unknown[], Result>(
+  fn: (...args: Args) => Result,
+): (...args: Args) => Result {
+  const latest = useRef(fn);
+  latest.current = fn;
+  return useCallback((...args: Args) => latest.current(...args), []);
 }
 
 /** 새 session 화면의 session 기능. 첫 메시지 전이라 snapshot이 없어 source가 agent와 workspace로 읽는다. */

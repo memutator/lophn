@@ -205,10 +205,22 @@ export function useAgentTabData(
     if (reread) void readAcp();
   }, [reread, readAcp]);
 
-  const thread = useMemo<ThreadView | null>(
-    () => (folded === null ? null : layoutOf(folded, layoutCache.current)),
-    [folded],
-  );
+  // 글만 자라는 동안 items는 그대로다. 줄도 같은 배열로 두어 화면이 줄 전체를 다시 계산하지 않게 한다.
+  const lastEntries = useRef<{
+    items: AcpState["items"];
+    entries: ThreadView["entries"];
+  } | null>(null);
+  const thread = useMemo<ThreadView | null>(() => {
+    if (folded === null) return null;
+    const view = layoutOf(folded, layoutCache.current);
+    const last = lastEntries.current;
+    const entries =
+      last !== null && last.items === folded.items
+        ? last.entries
+        : view.entries;
+    lastEntries.current = { items: folded.items, entries };
+    return entries === view.entries ? view : { ...view, entries };
+  }, [folded]);
 
   return {
     ...list,

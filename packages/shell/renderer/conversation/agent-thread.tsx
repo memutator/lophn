@@ -2,7 +2,7 @@
 // 왼쪽 메시지, 그 밖(agent의 말, tool 줄, call 블록, 편집 카드, 질문 요약, 허락 결과, 끝 줄, 오류)은 사이에 내 말이 없는
 // 동안 agent 한 덩어리로 묶는다. agent가 일하는 동안에는 끝에 일하는 중 줄이 서고, 쓰는 중인 글은 끝 agent 묶음의
 // 마지막에 선다.
-import type { ReactElement, ReactNode } from "react";
+import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
@@ -109,17 +109,114 @@ interface AgentThreadProps {
   artifacts: ArtifactsSlice | undefined;
 }
 
-export function AgentThread(props: AgentThreadProps): ReactElement {
+// 글을 칠 때마다 대화 줄 전체를 다시 그리지 않도록 memo다. 부르는 쪽이 새로 만드는 작은 객체는 값으로 비교한다.
+export const AgentThread = memo(AgentThreadView, sameProps);
+
+function sameProps(a: AgentThreadProps, b: AgentThreadProps): boolean {
+  for (const name of Object.keys(b) as (keyof AgentThreadProps)[]) {
+    if (Object.is(a[name], b[name])) continue;
+    const same =
+      name === "working"
+        ? sameWorking(a.working, b.working)
+        : name === "can"
+          ? a.can.rewind === b.can.rewind &&
+            a.can.fork === b.can.fork &&
+            a.can.retry === b.can.retry
+          : name === "pendingShell"
+            ? samePending(a.pendingShell, b.pendingShell)
+            : false;
+    if (!same) return false;
+  }
+  return true;
+}
+
+function sameWorking(
+  a: AgentThreadProps["working"],
+  b: AgentThreadProps["working"],
+): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.waiting === b.waiting &&
+    a.clock?.activeMs === b.clock?.activeMs &&
+    a.clock?.at === b.clock?.at
+  );
+}
+
+function samePending(
+  a: AgentThreadProps["pendingShell"],
+  b: AgentThreadProps["pendingShell"],
+): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.length === b.length &&
+    a.every((one, at) => one.id === b[at]!.id && one.command === b[at]!.command)
+  );
+}
+
+function AgentThreadView(props: AgentThreadProps): ReactElement {
   const { entries, outgoing } = props;
   const live = useThrottledLive(props.live, props.now);
+  const replies = useMemo(() => agentReplyIds(entries), [entries]);
   const announcement = useThreadAnnouncement({
     agent: props.agent.name,
     live: live !== null,
-    replies: agentReplyIds(entries),
+    replies,
   });
-  const shown = shownEntries(entries, props.detail);
-  const nodes = itemsOf(shown, props, entries, false, live);
-  // 확정 메시지가 오면 같은 key의 줄로 바뀌어 다시 그려지지 않는다.
+  // 확정된 줄은 live 글이 자라는 동안 다시 만들지 않는다(같은 element는 React가 건너뛴다).
+  const settled = useMemo(
+    () => itemsOf(shownEntries(entries, props.detail), props, entries, false),
+    // props의 함수와 객체는 부르는 쪽이 바꾸지 않는 한 같다. can은 값으로 센다.
+    [
+      entries,
+      props.detail,
+      props.agent,
+      props.readOnly,
+      props.can.rewind,
+      props.can.fork,
+      props.can.retry,
+      props.now,
+      props.artifacts,
+      props.rewindOpen,
+      props.imageUrl,
+      props.source,
+      props.onFork,
+      props.onRewind,
+      props.onOpenFile,
+      props.onCheck,
+      props.onResend,
+      props.onOpenRef,
+      props.onOpenSession,
+      props.onOpenChild,
+    ],
+  );
+  const nodes = [...settled.nodes];
+  let tail = settled.tail;
+  if (
+    live !== null &&
+    (live.text !== "" || (props.detail !== "messages" && live.reasoning !== ""))
+  ) {
+    const id = `live-${live.model_call}`;
+    const group: Group = tail ?? {
+      id,
+      key: settled.after,
+      at: live.at,
+      items: [],
+      said: [],
+    };
+    tail = {
+      ...group,
+      items: [
+        ...group.items,
+        <LiveMessage
+          key={id}
+          live={live}
+          reasoning={props.detail !== "messages"}
+          artifacts={props.artifacts}
+        />,
+      ],
+    };
+  }
+  if (tail !== null) nodes.push(turnOf(tail, props, false));
   if (outgoing !== null && !hasEntry(entries, outgoing.id)) {
     nodes.push(
       <UserMessage
@@ -219,6 +316,43 @@ interface Group {
   readonly said: ThreadMessage[];
 }
 
+/** 한 덩어리를 agent 말 묶음으로. */
+function turnOf(
+  group: Group,
+  props: AgentThreadProps,
+  nested: boolean,
+): ReactElement {
+  const said = group.said;
+  const actions = !nested && !props.readOnly && said.length > 0;
+  return (
+    <AgentTurn
+      key={`turn-${group.key}`}
+      agent={props.agent}
+      actionTime={
+        nested ? undefined : messageTime(group.at, new Date(props.now()))
+      }
+      {...(actions
+        ? {
+            copyText: () => copyTextOf(said),
+            ...(props.can.fork
+              ? { onFork: () => props.onFork(said[said.length - 1]!.id) }
+              : {}),
+          }
+        : {})}
+    >
+      {group.items}
+    </AgentTurn>
+  );
+}
+
+interface Items {
+  readonly nodes: ReactElement[];
+  /** 마지막에 열려 있는 agent 묶음. 쓰는 중인 글이 여기 붙으므로 닫지 않고 돌려준다. */
+  readonly tail: Group | null;
+  /** 마지막 구분 줄의 id(새 묶음의 key). */
+  readonly after: string;
+}
+
 /**
  * 줄을 화면 항목으로 바꾼다. agent 쪽 항목은 사이에 내 말이나 받은 메시지가 없는 동안 한 덩어리에 쌓이고,
  * `nested`는 숨긴 구간 안이라 읽기만 한다.
@@ -228,8 +362,7 @@ function itemsOf(
   props: AgentThreadProps,
   all: readonly ThreadEntry[],
   nested: boolean,
-  live: AcpWriting | null,
-): ReactElement[] {
+): Items {
   const out: ReactElement[] = [];
   // 묶음은 닫혀 있을 때 group이 null이다. closure가 열고 닫으므로 상자에 담아 읽는다(TS는 closure의 대입을
   // 흐름 분석에 넣지 않는다).
@@ -238,27 +371,7 @@ function itemsOf(
   const flush = () => {
     const group = open.group;
     if (group === null) return;
-    const said = group.said;
-    const actions = !nested && !props.readOnly && said.length > 0;
-    out.push(
-      <AgentTurn
-        key={`turn-${group.key}`}
-        agent={props.agent}
-        actionTime={
-          nested ? undefined : messageTime(group.at, new Date(props.now()))
-        }
-        {...(actions
-          ? {
-              copyText: () => copyTextOf(said),
-              ...(props.can.fork
-                ? { onFork: () => props.onFork(said[said.length - 1]!.id) }
-                : {}),
-            }
-          : {})}
-      >
-        {group.items}
-      </AgentTurn>,
-    );
+    out.push(turnOf(group, props, nested));
     open.group = null;
   };
   const add = (
@@ -455,38 +568,28 @@ function itemsOf(
             restored={entry.restored}
             left={entry.left}
           >
-            <div className={turns.turns}>
-              {itemsOf(
-                shownEntries(entry.entries, props.detail),
-                props,
-                all,
-                true,
-                null,
-              )}
-            </div>
+            <div className={turns.turns}>{nestedItems(entry, props, all)}</div>
           </HiddenRange>,
         );
         after = entry.id;
         break;
     }
   }
-  if (
-    live !== null &&
-    (live.text !== "" || (props.detail !== "messages" && live.reasoning !== ""))
-  ) {
-    const id = `live-${live.model_call}`;
-    add(
-      { id, at: live.at },
-      <LiveMessage
-        key={id}
-        live={live}
-        reasoning={props.detail !== "messages"}
-        artifacts={props.artifacts}
-      />,
-    );
-  }
-  flush();
-  return out;
+  return { nodes: out, tail: open.group, after };
+}
+
+function nestedItems(
+  entry: Extract<ThreadEntry, { kind: "hidden" }>,
+  props: AgentThreadProps,
+  all: readonly ThreadEntry[],
+): ReactElement[] {
+  const { nodes, tail } = itemsOf(
+    shownEntries(entry.entries, props.detail),
+    props,
+    all,
+    true,
+  );
+  return tail === null ? nodes : [...nodes, turnOf(tail, props, true)];
 }
 
 function userMessage(

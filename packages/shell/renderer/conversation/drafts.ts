@@ -30,19 +30,9 @@ const EMPTY_DRAFT: Draft = {
 
 export class DraftStore {
   #drafts = new Map<string, Draft>();
-  #listeners = new Set<() => void>();
-  #version = 0;
-  #selected: string | null = null;
-
-  /** 사람이 고른 session. 탭을 닫았다 열어도 같은 session이다. */
-  selected(): string | null {
-    return this.#selected;
-  }
-
-  select(session: string): void {
-    this.#selected = session;
-    this.#notify();
-  }
+  // session마다 따로 알린다. 한 탭에서 치는 글이 같은 창의 다른 탭 화면을 다시 그리게 하지 않는다.
+  #listeners = new Map<string, Set<() => void>>();
+  #versions = new Map<string, number>();
 
   draft(session: string): Draft {
     return this.#drafts.get(session) ?? EMPTY_DRAFT;
@@ -55,7 +45,7 @@ export class DraftStore {
 
   save(session: string, patch: Partial<Draft>): void {
     this.#drafts.set(session, { ...this.draft(session), ...patch });
-    this.#notify();
+    this.#notify(session);
   }
 
   /**
@@ -71,16 +61,23 @@ export class DraftStore {
     });
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.#listeners.add(listener);
-    return () => this.#listeners.delete(listener);
+  subscribe = (session: string, listener: () => void): (() => void) => {
+    const set = this.#listeners.get(session) ?? new Set();
+    this.#listeners.set(session, set);
+    set.add(listener);
+    return () => {
+      set.delete(listener);
+      if (set.size === 0) this.#listeners.delete(session);
+    };
   };
 
-  /** useSyncExternalStore의 snapshot. 바뀔 때마다 오른다. */
-  version = (): number => this.#version;
+  /** useSyncExternalStore의 snapshot. 그 session의 draft가 바뀔 때마다 오른다. */
+  version = (session: string): number => this.#versions.get(session) ?? 0;
 
-  #notify() {
-    this.#version += 1;
-    for (const listener of this.#listeners) listener();
+  #notify(session: string) {
+    this.#versions.set(session, (this.#versions.get(session) ?? 0) + 1);
+    for (const listener of [...(this.#listeners.get(session) ?? [])]) {
+      listener();
+    }
   }
 }

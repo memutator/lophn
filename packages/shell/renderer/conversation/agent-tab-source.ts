@@ -661,7 +661,8 @@ export interface AgentTabSource {
     message: string,
   ): Promise<SourceResult<RewindPreviewView>>;
   /**
-   * 갱신 event 밖에서 바뀐 것을 알린다. 실제 source는 두지 않는다(`AcpUpdated`가 알린다). 메모리 fake가 쓴다.
+   * 갱신 event 밖에서 바뀐 것을 알린다. core source는 두지 않는다(`AcpUpdated`가 알린다). harness GUI source는
+   * snapshot이 상태를 갈아 끼울 때 알리고, 메모리 fake도 쓴다.
    */
   changed?(listener: () => void): () => void;
 }

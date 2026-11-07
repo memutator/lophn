@@ -362,11 +362,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
 
   const notice: NoticePostPort = {
     post: (child, input) =>
-      asChild(
-        child,
-        `${noticePost.resource}/${noticePost.method}`,
-        input,
-      ),
+      asChild(child, `${noticePost.resource}/${noticePost.method}`, input),
     setTray: (child, input) =>
       asChild(child, `${appTraySet.resource}/${appTraySet.method}`, input),
   };

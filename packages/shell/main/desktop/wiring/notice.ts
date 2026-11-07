@@ -4,7 +4,10 @@
 // 앞으로 가져오고 고른다. toast를 받는 창은 하나뿐이라 창이 여럿이어도 한 번만 뜬다.
 import { BrowserWindow, Notification } from "electron";
 
-import type { Notice, NoticeKind } from "../../../../protocol/apps/notice.ts";
+import type {
+  Notice as NoticeRow,
+  NoticeKind,
+} from "../../../../protocol/apps/notice.ts";
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
@@ -369,7 +372,7 @@ export function createNoticeWiring(
   ctx.relay.conditions.push({ types: ["NoticePosted"] });
   ctx.relay.events.push((event) => {
     if (event.type !== "NoticePosted") return;
-    const posted = event.payload as Notice;
+    const posted = event.payload as NoticeRow;
     if (posted.read_at !== null) return;
     if (posted.source === "program" && !ALERT_PROGRAM_KINDS.has(posted.kind)) {
       return;

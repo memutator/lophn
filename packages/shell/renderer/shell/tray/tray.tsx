@@ -16,6 +16,11 @@ import {
   useAppViews,
   useAppWorkspace,
 } from "../../app-frame/app-views.tsx";
+import {
+  HeadControls,
+  HeadSlotScope,
+  useHeadSlot,
+} from "../../app-frame/app-tab-head.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
 import {
   createWebviewHost,
@@ -90,6 +95,7 @@ function PopupBody({ item }: { item: TrayItem }) {
       place="tray"
       workspace={workspace}
       label={item.label}
+      tabHead
     />
   );
 }
@@ -115,6 +121,8 @@ function Popup({
   const box = useRef<HTMLDivElement>(null);
   // popup마다 자기 그릇을 가진다. 닫으면 그릇과 안의 화면이 함께 사라진다.
   const host = useMemo(() => createWebviewHost(), []);
+  // 앱 화면이 useTabHead로 올린 머리 줄은 제목과 pin 사이에 그린다(card 칸이 없는 자리라 여기가 받는다).
+  const [head, setHead] = useHeadSlot();
   useEffect(() => {
     const outside = (event: PointerEvent) => {
       if (pinned) return;
@@ -152,6 +160,8 @@ function Popup({
     >
       <div className={styles.head}>
         <span className={styles.title}>{item.title}</span>
+        {head?.center === undefined ? <span className={styles.grow} /> : null}
+        <HeadControls spec={head} />
         <IconButton
           icon={pinned ? shellIcons.unpin : shellIcons.pin}
           label={t(
@@ -165,7 +175,9 @@ function Popup({
       </div>
       <WebviewHostProvider value={host}>
         <div className={styles.body}>
-          <PopupBody item={item} />
+          <HeadSlotScope set={setHead}>
+            <PopupBody item={item} />
+          </HeadSlotScope>
         </div>
         <WebviewLayer host={host} />
       </WebviewHostProvider>

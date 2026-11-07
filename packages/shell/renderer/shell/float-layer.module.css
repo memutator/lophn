@@ -22,3 +22,13 @@
   height: 100%;
   overflow: auto;
 }
+
+/* bar에서 제목 뒤 남는 자리를 채우고 단추 쪽으로 붙인다. */
+.head {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: var(--space-0);
+  overflow: hidden;
+}

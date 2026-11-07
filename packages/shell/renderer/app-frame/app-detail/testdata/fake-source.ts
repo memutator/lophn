@@ -384,7 +384,7 @@ export function fakeDetail(options: FakeOptions = {}) {
         {
           sdk: "@lophn/app-ui",
           pinned: "2.2.0",
-          current: "2.5.0",
+          current: "2.6.0",
           level: "available",
         },
         {

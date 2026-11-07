@@ -41,6 +41,7 @@
 .actions {
   display: flex;
   flex: none;
+  max-width: 70%;
   align-items: center;
 }
 

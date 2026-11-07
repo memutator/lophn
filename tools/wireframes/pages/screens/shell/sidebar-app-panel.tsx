@@ -8,9 +8,15 @@ import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-m
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";
 import { OrdersView } from "../../../mock/app-space/orders-view.tsx";
 import { press, useDrive } from "../../../mock/drive.ts";
+import { useMockTabHead } from "../../../mock/tab-head.ts";
 import { MockDesktop, PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
 
 const LABEL = "Orders";
+// Orders 앱이 useTabHead로 올린 머리 줄. panel 머리의 단추 자리에 상태 글과 단추 하나로 선다.
+const HEAD = {
+  status: "3 open",
+  actions: [{ id: "new-order", label: "New order" }],
+};
 const NOTES = {
   key: "/home/mina/Documents/grocery/notes.md",
   kind: "document_editor",
@@ -36,6 +42,7 @@ function useSidebarRegion(): HTMLElement | null {
 
 export function SidebarAppPanel() {
   const region = useSidebarRegion();
+  useMockTabHead(region, HEAD);
   useDrive(() => press('[role="tab"]', new RegExp(`^${LABEL}$`)));
   return (
     <>

@@ -13,6 +13,11 @@ import { t } from "@lophn/i18n";
 import { type FloatEdge, FloatPanel, Tooltip } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
 
+import {
+  HeadControls,
+  HeadSlotScope,
+  useHeadSlot,
+} from "../app-frame/app-tab-head.tsx";
 import { ViewLayerProvider } from "../app-frame/webview-host.tsx";
 import { actionIcons, browserIcons, shellIcons } from "../icons/mod.ts";
 import {
@@ -41,6 +46,8 @@ export interface FloatEntry {
   readonly pinned: boolean;
   /** 앱 panel 화면만 준다. false면 desk float(모든 workspace로 옮길 수 있다), true면 전역 float(이 desk로 옮긴다). 없으면 옮기는 단추가 없다. */
   readonly global?: boolean;
+  /** 본문이 앱 화면이면 true. 앱이 useTabHead로 올린 머리 줄을 이 패널의 bar에 그린다. */
+  readonly appHead?: boolean;
   readonly body: ReactNode;
 }
 
@@ -139,6 +146,7 @@ function FloatEntryView({
 }) {
   // 이동·resize 중 미리보기. 저장된 rect는 건드리지 않고 그릴 때만 가둔다.
   const [preview, setPreview] = useState<FloatRect | null>(null);
+  const [head, setHead] = useHeadSlot();
   const base = clampFloatRect(float.rect, area);
   const rect = preview ?? base;
 
@@ -188,7 +196,17 @@ function FloatEntryView({
       <FloatPanel
         title={float.title}
         icon={float.icon}
-        badge={float.dot ? <TabStateDot dot={float.dot} /> : undefined}
+        badge={
+          <>
+            {float.dot ? <TabStateDot dot={float.dot} /> : null}
+            {/* 제목과 단추 사이의 남는 자리. 앱의 머리 줄이 좁으면 먼저 줄어든다. */}
+            {float.appHead ? (
+              <span className={styles.head}>
+                <HeadControls spec={head} />
+              </span>
+            ) : null}
+          </>
+        }
         x={rect.x}
         y={rect.y}
         width={rect.width}
@@ -253,7 +271,13 @@ function FloatEntryView({
         }
       >
         <ViewLayerProvider value={layer}>
-          <div className={styles.body}>{float.body}</div>
+          <div className={styles.body}>
+            {float.appHead ? (
+              <HeadSlotScope set={setHead}>{float.body}</HeadSlotScope>
+            ) : (
+              float.body
+            )}
+          </div>
         </ViewLayerProvider>
       </FloatPanel>
     </div>

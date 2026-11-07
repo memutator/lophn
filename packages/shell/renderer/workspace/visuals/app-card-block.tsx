@@ -12,6 +12,11 @@ import {
   useAppViews,
   useAppWorkspace,
 } from "../../app-frame/app-views.tsx";
+import {
+  HeadControls,
+  HeadSlotScope,
+  useHeadSlot,
+} from "../../app-frame/app-tab-head.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
 import { ViewChrome } from "../../app-frame/view-chrome.tsx";
 import { useWebviewHost } from "../../app-frame/webview-host.tsx";
@@ -65,6 +70,8 @@ export function AppCardBlock({
   const [settled, setSettled] = useState<Settled | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<AppFrameViewState | null>(null);
+  // 앱 화면이 useTabHead로 올린 머리 줄은 카드의 크롬 줄 끝에 그린다.
+  const [head, setHead] = useHeadSlot();
 
   useEffect(() => {
     if (deps === null) return;
@@ -118,6 +125,9 @@ export function AppCardBlock({
       />
     );
   }
+  // 판을 싣지 않은 카드는 지금 판에 고정해 연다(main은 live를 판 없이 열지 않는다). 채택된 판이 아직 없으면 열 수 없다.
+  const release = card.release ?? facts.value.release;
+  if (release === null) return notice("unavailable");
   return (
     <div
       className={styles.appCard}
@@ -130,30 +140,34 @@ export function AppCardBlock({
         connection={state?.connectionState ?? null}
         viewSession={state?.view_session ?? null}
         health={state?.viewHealth}
+        head={<HeadControls spec={head} />}
         onReopen={(view_session) =>
           void deps.views.reopenView({ view_session }).catch(() => {})
         }
       />
       <div className={styles.appCardView}>
-        <EmbeddedView
-          views={deps.views}
-          app={card.app}
-          mode="live"
-          {...(card.release === null ? {} : { release: card.release })}
-          screen={card.view}
-          place="card"
-          {...(card.params === undefined ? {} : { params: card.params })}
-          workspace={workspace}
-          card={{ message, block }}
-          label={label}
-          onState={observe}
-          onFailed={(code) => {
-            if (code === "conflict") setSettled("contract_changed");
-            else if (code === "invalid_input" || code === "forbidden") {
-              setSettled("not_card");
-            }
-          }}
-        />
+        <HeadSlotScope set={setHead}>
+          <EmbeddedView
+            views={deps.views}
+            app={card.app}
+            mode="live"
+            release={release}
+            screen={card.view}
+            place="card"
+            {...(card.params === undefined ? {} : { params: card.params })}
+            workspace={workspace}
+            card={{ message, block }}
+            label={label}
+            tabHead
+            onState={observe}
+            onFailed={(code) => {
+              if (code === "conflict") setSettled("contract_changed");
+              else if (code === "invalid_input" || code === "forbidden") {
+                setSettled("not_card");
+              }
+            }}
+          />
+        </HeadSlotScope>
       </div>
     </div>
   );

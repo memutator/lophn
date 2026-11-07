@@ -3,8 +3,8 @@ import { AppShell } from "@lophn/ui/layout";
 
 // release 준비는 화면이 하나 이상 있어야 통과한다. 이 자리 표시 화면을 앱의 첫 화면으로 바꾸거나, 새 화면을
 // 더한 뒤 지우고 선언의 `screens`도 맞춘다.
-// lophn 탭으로 열리면 탭 머리 줄이 이미 앱 이름을 보이므로 AppShell 머리를 두지 않는다. 보기 탭·상태·주 행동이
-// 생기면 useTabHead의 첫 인자로 그 줄에 올린다(`@lophn/app-ui` guide).
+// lophn이 화면을 감싸는 곳(탭, panel, sidebar, tray, 카드)에는 머리 줄이 이미 앱 이름을 보이므로 AppShell 머리를
+// 두지 않는다. 보기 탭·상태·주 행동이 생기면 useTabHead의 첫 인자로 그 줄에 올린다(`@lophn/app-ui` guide).
 export function App() {
   const inHead = useTabHead(null);
   return (

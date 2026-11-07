@@ -47,6 +47,7 @@ export function GlobalFloatLayer({
                 rect: item.rect,
                 pinned: item.pinned,
                 global: true,
+                appHead: true,
                 body: (
                   <TabBoundary key={item.key}>
                     <AppPanelTab

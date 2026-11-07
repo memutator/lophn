@@ -2939,6 +2939,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                         globalFloats.enabled
                           ? { global: false }
                           : {}),
+                        ...(item.tab.kind === "app_panel"
+                          ? { appHead: true }
+                          : {}),
                         body: bodyOf(item.tab, true),
                       }))}
                     onRaise={(key) => update((item) => restoreFloat(item, key))}

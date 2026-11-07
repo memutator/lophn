@@ -61,3 +61,19 @@ modules: [packages/sdk, tools]
 원인: brief가 판이 박힌 곳을 조사 목록으로 줬는데 그 목록이 `tools/` 아래를 빠뜨렸다. 판 올림을 확인하는 check가 없다.
 
 막기: check의 deps 단계에 "workspace package의 `@lophn/*` 의존은 그 workspace의 지금 판과 같다"를 더한다(`package.json` 파일만 읽는다). 판을 올리는 brief의 끝남에는 `grep -rn '"@lophn/<이름>": "<옛 판>"' --include=package.json .`가 0줄을 넣는다.
+
+## tray popup과 앱 sidebar panel이 판 없이 앱 view를 열어 모든 열기가 거절되고 "Couldn't load"
+
+```yaml
+kind: mistake
+modules: [packages/shell/renderer, tools]
+```
+
+지금: tray popup과 앱 sidebar panel의 `EmbeddedView`가 `release`를 주지 않고 live view를 열었다. main의 `checkOpen`(`view-model.ts`)은 live를 판 없이 열면 `invalid_input`으로 거절하므로 사람은 모든 tray popup과 sidebar panel에서 "Couldn't load"를 봤다. worker들은 "진짜 Electron에서 돌리지 않았다"고 보고했고 lead는 gallery screenshot만 보고 merge와 packaging을 했다. gallery의 가짜 view(`mockViews`)는 main의 열기 검사를 건너뛰어 화면이 멀쩡히 그려졌다. 사람이 쓰면서 찾았다.
+
+영향: 새로 넣은 두 자리가 출하된 판에서 한 번도 동작하지 않았다.
+
+원인: `AppViewOpen`의 `release`가 mode와 상관없이 optional이라 판 없는 live 열기가 compile을 통과했다. "새 앱 view 자리는 진짜 앱에서 한 번 연다"는 지침이 review 표에 없었고, 보고의 "확인 못 함"을 lead가 확인하는 규칙이 gallery 화면 확인으로 대체됐다.
+
+막기: `appViewOpenSchema`를 mode로 가르는 union으로 바꿔 live는 `release` string이 필수다(판 없는 live 열기는 compile error라 check가 잡는다). 그리고 새 앱 view 자리는 merge 전에 진짜 Electron 앱에서 한 번 열어 본다는 문장을 orchestrate skill의 review 표(lead가 merge 전에 읽는 곳)에 더했다. 방법은 headless 창 + `--remote-debugging-port` + CDP로 열어 screenshot을 보는 것이다.
+

@@ -1,13 +1,29 @@
 // 앱 page가 올린 탭 머리 줄(ipc/app-tab-head.ts)을 이 화면이 선 card 칸의 머리 줄(shell/card-head.tsx)에 그린다.
 // 앱은 글과 id만 보내고 그리는 것은 shell component다. 누르면 그 id를 page로 돌려보낸다. card 밖(floated 패널,
 // detached 창, 세션 카드)이면 그리지 않고 page에 shown=false를 알려 앱이 스스로 그리게 한다.
-import { type ReactNode, useContext, useEffect, useRef, useState } from "react";
-import type { MenuItem } from "@lophn/ui/overlay";
-import { Button } from "@lophn/ui/primitives";
+// tray popup과 sidebar panel은 card가 아니지만 자기 머리 줄을 가져, CardHeadContext를 직접 달고(useHeadSlot, HeadSlotScope)
+// 같은 spec을 HeadControls로 그린다. 그 둘은 같은 spec을 만드는 길(cardHeadOf)을 쓴다.
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { t } from "@lophn/i18n";
+import { type MenuItem, Menu } from "@lophn/ui/overlay";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import { Tab, TabList, Tabs } from "@lophn/ui/navigation";
 
 import type { TabHead, TabHeadEvent } from "../../ipc/app-tab-head.ts";
-import { CardHeadContext, type CardHeadSpec } from "../shell/card-head.tsx";
+import {
+  CardHeadContext,
+  type CardHeadSetter,
+  type CardHeadSpec,
+} from "../shell/card-head.tsx";
+import { shellIcons } from "../icons/mod.ts";
 import type { WebviewHost } from "./webview-host.tsx";
 import styles from "./app-tab-head.module.css";
 
@@ -29,6 +45,62 @@ export interface ShellHead {
   readonly center?: ReactNode;
 }
 
+/**
+ * card 칸이 없는 자리(tray popup, sidebar panel)가 앱 화면이 올린 머리 줄을 받는 칸. setter를 화면 둘레의
+ * HeadSlotScope에 달고, spec을 자기 머리 줄에 HeadControls로 그린다.
+ */
+export function useHeadSlot(): readonly [CardHeadSpec | null, CardHeadSetter] {
+  const [spec, setSpec] = useState<CardHeadSpec | null>(null);
+  const set = useCallback((next: CardHeadSpec | null) => setSpec(next), []);
+  return [spec, set];
+}
+
+// 프레임이 이미 앱 이름을 제목으로 보이는 자리(tray, sidebar, float, 카드)에서 경로 첫 칸(앱 이름)을 뺀다.
+const HeadRootContext = createContext<string | null>(null);
+
+/** useHeadSlot의 setter를 화면 둘레에 단다. 이 안의 앱 화면은 머리 줄을 이 칸에 올리고 경로 첫 칸(앱 이름)은 뺀다. */
+export function HeadSlotScope({
+  set,
+  children,
+}: {
+  set: CardHeadSetter;
+  children: ReactNode;
+}) {
+  return (
+    <CardHeadContext.Provider value={set}>
+      <HeadRootContext.Provider value="">{children}</HeadRootContext.Provider>
+    </CardHeadContext.Provider>
+  );
+}
+
+/** useHeadSlot의 spec을 한 줄에 그린다: 가운데(경로·탭·상태), ⋯ 앞 단추, ⋯ 메뉴. nav는 그리지 않는다. */
+export function HeadControls({ spec }: { spec: CardHeadSpec | null }) {
+  if (spec === null) return null;
+  return (
+    <>
+      {spec.center === undefined ? null : (
+        <span className={styles.slotCenter}>{spec.center}</span>
+      )}
+      {spec.actions}
+      {spec.menu === undefined ? null : (
+        <Menu
+          placement="corner-end"
+          items={spec.menu.items}
+          onSelect={spec.menu.onSelect}
+          trigger={
+            <IconButton
+              icon={shellIcons.more}
+              label={t("shell.button.head-menu")}
+              size="sm"
+              data-app-head-menu=""
+            />
+          }
+        />
+      )}
+    </>
+  );
+}
+
 export function useAppTabHead(input: {
   host: WebviewHost | null;
   /** 그릇의 element key. */
@@ -42,6 +114,7 @@ export function useAppTabHead(input: {
 }): void {
   const { host, viewKey, enabled, label } = input;
   const setCardHead = useContext(CardHeadContext);
+  const root = useContext(HeadRootContext);
   const [head, setHead] = useState<TabHead | null>(null);
   const live = enabled && host !== null && viewKey !== "";
   // 단추의 callback은 최신 값을 읽으므로 key가 바뀔 때만 다시 올린다.
@@ -74,9 +147,9 @@ export function useAppTabHead(input: {
     }
     if (head === null && shell === undefined) return;
     const send = (event: TabHeadEvent) => host!.sendTabHead(viewKey, event);
-    setCardHead(cardHeadOf(head ?? {}, label, send, shell));
+    setCardHead(cardHeadOf(head ?? {}, root ?? label, send, shell));
     return () => setCardHead(null);
-  }, [live, host, viewKey, setCardHead, head, label, shellKey]);
+  }, [live, host, viewKey, setCardHead, head, label, root, shellKey]);
 }
 
 function cardHeadOf(

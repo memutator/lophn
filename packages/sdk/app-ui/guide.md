@@ -47,20 +47,24 @@ import {
 - 두 component의 문구(실패 문장과 [Try again])는 lophn 화면과 같은 언어로
   보인다. lophn이 앱 view 문서의 `<html data-lophn-locale>`에 그 언어를 적고,
   값이 없으면(앱 view 밖) en이다. 앱 자기 화면의 문구는 앱이 그대로 쓴다.
-- `useTabHead(head, handlers?, app?)` — 화면이 lophn 탭(앱 화면 탭, 앱 panel
-  탭)으로 열렸을 때 그 탭의 머리 줄(← →, 경로, ⋯ 메뉴가 있는 줄)에 `head`를
-  올린다. 앱 머리 줄과 lophn 머리 줄이 두 줄로 쌓이지 않게 한다.
+- `useTabHead(head, handlers?, app?)` — 화면이 열린 lophn 프레임의 머리 줄에
+  `head`를 올린다. lophn이 앱 화면을 감싸는 모든 곳(앱 화면 탭, 앱 panel 탭과
+  dock·desk float·전역 float, 앱 sidebar panel, tray popup, 세션 앱 카드)이
+  머리 줄을 그린다. 자기 머리 줄(제목 줄, 새로 고침 단추 줄)을 따로 그리지 않는다.
+  화면의 상태 글과 주 행동은 여기에 올린다.
   - `head`는 글과 id뿐이다. `crumbs`(앱 이름 뒤 경로), `tabs`(`{items,
-    selected}`, 경로 뒤 탭), `status`(오른쪽 상태 글), `actions`(⋯ 앞 단추.
+    selected}`, 경로 뒤 탭), `status`(상태 글), `actions`(⋯ 앞 단추.
     `primary`·`busy`·`disabled`), `menu`(⋯ 메뉴 맨 위 묶음), `nav`(`{canBack,
-    canForward}`. 주면 ← →가 앱 안의 뒤로·앞으로가 된다). 항목은 `{id, label}`
-    이고 글은 80자, 항목은 24개까지 보인다. 아이콘과 React 요소는 싣지 못한다.
+    canForward}`. 주면 ← →가 앱 안의 뒤로·앞으로가 된다. ← →는 앱 화면 탭에만
+    있고 다른 자리는 그리지 않는다). 항목은 `{id, label}`이고 글은 80자,
+    항목은 24개까지 보인다. 아이콘과 React 요소는 싣지 못한다. 좁은 자리(tray,
+    sidebar, float)는 `crumbs`·`tabs`보다 `status`와 `actions` 몇 개를 올린다.
   - `handlers`는 `onTab(id)`·`onAction(id)`·`onMenu(id)`·`onBack()`·
     `onForward()`다.
-  - 돌려주는 값은 lophn이 지금 그 머리 줄을 그리는지다. 앱 창, 떠 있는 패널,
-    세션 카드처럼 머리 줄이 없는 곳이면 false이고, 화면이 같은 조작을 스스로
-    그린다. `null`이나 화면이 사라지면 내린다. `head`는 값이 바뀔 때만 다시
-    올린다.
+  - 돌려주는 값은 lophn이 지금 그 머리 줄을 그리는지다. 앱 전용 창처럼 lophn
+    프레임의 머리 줄이 없는 곳이면 false이고, 그때만 화면이 꼭 필요한 조작을
+    스스로 그린다(최소한으로). `null`이나 화면이 사라지면 내린다. `head`는 값이
+    바뀔 때만 다시 올린다.
 - `usePlace()` — 이 화면이 열릴 때 정해진 `{place, params, workspace}`다. 읽기만
   하고 화면이 열려 있는 동안 바뀌지 않는다(dock·desk float·전역 float는 모두
   `panel`이라 자리가 바뀌는 경우가 없다).

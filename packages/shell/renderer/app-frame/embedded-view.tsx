@@ -41,7 +41,7 @@ export { createViewKeeps };
 
 type Phase = "opening" | "ready" | "failed";
 
-interface EmbeddedViewProps extends AppViewOpen {
+type EmbeddedViewProps = AppViewOpen & {
   /** shell preload의 view 통로. */
   views: LophnShellViewsApi;
   /** 오류 문구에 쓰는 사람 말 이름. */
@@ -65,10 +65,15 @@ interface EmbeddedViewProps extends AppViewOpen {
   tabHead?: boolean;
   /** tabHead일 때 shell이 머리 줄에 더하는 것(app-tab-head.tsx의 ShellHead). */
   shellHead?: ShellHead;
-}
+};
 
 export function EmbeddedView(props: EmbeddedViewProps) {
-  const { views, app, mode, release, screen, place, label, onState } = props;
+  const { views, app, screen, place, label, onState } = props;
+  // live는 판이 string, preview는 null일 수 있다. 두 칸을 짝으로 들고 가야 AppViewOpen이 좁혀진다.
+  const target =
+    props.mode === "live"
+      ? ({ mode: "live", release: props.release } as const)
+      : ({ mode: "preview", release: props.release } as const);
   // 값이 같으면 같은 view다. 객체가 render마다 새로 만들어져도 다시 열지 않는다.
   const paramsJson =
     props.params === undefined ? "" : JSON.stringify(props.params);
@@ -112,20 +117,19 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     lastState.current = null;
     const input: AppViewOpen = {
       app,
-      mode,
+      ...target,
       screen,
       place,
       ...(paramsJson === "" ? {} : { params: JSON.parse(paramsJson) }),
       ...(workspaceJson === "" ? {} : { workspace: JSON.parse(workspaceJson) }),
-      ...(release === undefined ? {} : { release }),
       ...(cardMessage === undefined || cardBlock === undefined
         ? {}
         : { card: { message: cardMessage, block: cardBlock } }),
     };
     const signature = [
       app,
-      mode,
-      release,
+      target.mode,
+      target.release,
       screen,
       place,
       paramsJson,
@@ -190,8 +194,8 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     keepKey,
     host,
     app,
-    mode,
-    release,
+    target.mode,
+    target.release,
     screen,
     place,
     paramsJson,

@@ -49,19 +49,35 @@ const placeWorkspaceSchema = z
   })
   .strict();
 
+// 화면이 열리는 자리와 인자. 판(release)은 mode에 따라 다르다.
+const openBase = {
+  app: appId,
+  screen: screenKey,
+  place,
+  // 그 화면 선언의 params schema로 main이 다시 검사한다.
+  params: z.record(z.string(), z.json()).optional(),
+  workspace: placeWorkspaceSchema.optional(),
+  card: appViewCardSchema.optional(),
+};
+
+// live는 판을 반드시 싣는다(main의 checkOpen이 없으면 invalid_input으로 거절한다). preview만 판이 null일 수 있다.
 export const appViewOpenSchema = z
-  .object({
-    app: appId,
-    mode,
-    release: releaseId.optional(),
-    screen: screenKey,
-    place,
-    // 그 화면 선언의 params schema로 main이 다시 검사한다.
-    params: z.record(z.string(), z.json()).optional(),
-    workspace: placeWorkspaceSchema.optional(),
-    card: appViewCardSchema.optional(),
-  })
-  .strict()
+  .discriminatedUnion("mode", [
+    z
+      .object({
+        ...openBase,
+        mode: z.literal("live"),
+        release: releaseId,
+      })
+      .strict(),
+    z
+      .object({
+        ...openBase,
+        mode: z.literal("preview"),
+        release: releaseId.nullable(),
+      })
+      .strict(),
+  ])
   .refine((value) => (value.place === "card") === (value.card !== undefined));
 
 export const viewBoundsRequestSchema = z

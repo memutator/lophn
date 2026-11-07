@@ -14,6 +14,7 @@ export const shell = {
   "shell.button.float-to-global": "Show in all workspaces",
   "shell.button.float-unpin": "Stop keeping on top",
   "shell.button.forward": "Forward",
+  "shell.button.head-menu": "More",
   "shell.button.minimized-more": "{count} more minimized tabs",
   "shell.button.new-desk": "New desk",
   "shell.button.new-tab": "New tab",

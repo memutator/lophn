@@ -6,13 +6,18 @@ import { t } from "@lophn/i18n";
 
 import { useAppViews, useAppWorkspace } from "../../app-frame/app-views.tsx";
 import type { AppScreens, ScreensRead } from "../../app-frame/app-views.tsx";
+import {
+  HeadControls,
+  HeadSlotScope,
+  useHeadSlot,
+} from "../../app-frame/app-tab-head.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
 import { ArtifactPanel } from "./artifact-panel.tsx";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
-import { RightSidebar } from "../../shell/right-sidebar.tsx";
+import { PanelActions, RightSidebar } from "../../shell/right-sidebar.tsx";
 import {
   WorkspacesPanel,
   type WorkspacesPanelProps,
@@ -185,23 +190,31 @@ function AppSidebarBody(props: {
 }) {
   const deps = useAppViews();
   const workspace = useAppWorkspace();
+  // 앱 화면이 useTabHead로 올린 머리 줄은 panel 머리 줄의 단추 자리에 그린다(card 칸이 없는 자리라 여기가 받는다).
+  const [head, setHead] = useHeadSlot();
   if (deps === null) return null;
   return (
     <RightSidebar
       title={props.label}
       panel={appPanelKey(props.app, props.screen)}
     >
-      <EmbeddedView
-        views={deps.views}
-        app={props.app}
-        mode="live"
-        release={props.release}
-        screen={props.screen}
-        place="sidebar"
-        workspace={workspace}
-        label={props.label}
-        keepKey={`${SIDEBAR_KEEP_PREFIX}${props.app}:${props.screen}`}
-      />
+      <PanelActions>
+        <HeadControls spec={head} />
+      </PanelActions>
+      <HeadSlotScope set={setHead}>
+        <EmbeddedView
+          views={deps.views}
+          app={props.app}
+          mode="live"
+          release={props.release}
+          screen={props.screen}
+          place="sidebar"
+          workspace={workspace}
+          label={props.label}
+          keepKey={`${SIDEBAR_KEEP_PREFIX}${props.app}:${props.screen}`}
+          tabHead
+        />
+      </HeadSlotScope>
     </RightSidebar>
   );
 }

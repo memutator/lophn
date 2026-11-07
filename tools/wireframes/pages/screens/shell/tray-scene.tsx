@@ -11,7 +11,14 @@ import {
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";
 import { UsageView } from "../../../mock/app-space/usage-view.tsx";
 import { press, useDrive } from "../../../mock/drive.ts";
+import { useMockTabHead } from "../../../mock/tab-head.ts";
 import { MockDesktop, PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
+
+// Usage 앱이 useTabHead로 올린 머리 줄. popup 머리에 상태 글과 단추 하나로 선다.
+const HEAD = {
+  status: "Updated 2 min ago",
+  actions: [{ id: "refresh", label: "Refresh" }],
+};
 
 const TRAY = [
   {
@@ -43,6 +50,7 @@ function usePopupRegion(): HTMLElement | null {
 
 export function TrayScene() {
   const region = usePopupRegion();
+  useMockTabHead(region, HEAD);
   useDrive(() => press("[data-tray-item]", /Usage/));
   return (
     <>

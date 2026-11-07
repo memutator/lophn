@@ -49,6 +49,10 @@ follow its `Previous:` line back until you reach the pinned version. Do not read
 other versions. Each note says whether the version is breaking and the exact
 code change from the previous version. Read all of them before you edit, and
 write the final shape once (do not add something a later note removes).
+A note may end with an `## Instruction diff` section: the diff of the guidance lophn
+gives app agents (an SDK guide, the `design-app` skill, the app template's
+`AGENTS.md`). Apply it to the app's own `AGENTS.md` (the part that came from the
+template) and change your habits to match, not only the code.
 
 Some packages move together (for example `@lophn/app-ui` depends on specific
 `@lophn/declaration` and `@lophn/ui` versions); the notes say so. When you move a

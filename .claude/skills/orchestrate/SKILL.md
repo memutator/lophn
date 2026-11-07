@@ -81,6 +81,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 | 할 일을 다 했다 | brief의 "할 일"과 "남지 않음" grep을 하나씩 댄다. `TODO`·`FIXME` grep |
 | core가 뜬다 | check는 통과해도 reader 등록 중복처럼 기동 때만 드러나는 오류가 있다. `lead/boot.sh`(merge.sh가 돌린다) |
 | 화면 | `npm run wireframes`가 되고 gallery page가 옮긴 component를 쓴다 |
+| 새 앱 view 자리(tray, sidebar, float, card 같은 `EmbeddedView`가 서는 곳) | gallery는 main의 열기 검사(`checkOpen`)를 건너뛰므로 screenshot만으로 통과시키지 않는다. 진짜 Electron 앱에서 그 자리를 한 번 열어 앱 화면이 뜨는 것까지 본다(headless + `--remote-debugging-port` + CDP로 열고 screenshot). worker가 "진짜 Electron에서 안 돌림"이라고 보고했으면 lead가 이 확인을 한다 |
 | 보고의 등록할 것 | lead가 고칠 목록에 옮긴다 |
 
 ### 6. merge

@@ -101,11 +101,11 @@ kit does the job, and style it with the token variables.
 - Start from how well-known apps of the same kind lay out the same screen.
 - lophn already shows the app's name: in the app bar of the app window, and as
   the tab title when a screen is opened as a panel. Do not repeat it.
-- One header row per screen. What changes the whole view, such as the period,
-  the view mode or the main action, goes in that row. Do not stack bars.
-- A screen opened as a lophn tab already has lophn's head row above it. Put the
-  screen's view tabs, status and main action in that row with `useTabHead` from
-  `@lophn/app-ui`, and draw them yourself only where it returns false.
+- Do not draw a header row of your own (title bar, refresh button row).
+  lophn draws a head row wherever it frames a screen: tab, panel (dock, float),
+  sidebar, tray and chat card. Put the screen's view tabs, status and main
+  action in it with `useTabHead` from `@lophn/app-ui`, and draw the minimum
+  yourself only where it returns false (the dedicated app window).
 - Show what the journeys need. No heading that restates another, no text that
   explains the screen, no decoration.
 - The same thing sits in the same place on every screen.

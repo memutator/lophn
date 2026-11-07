@@ -2,6 +2,7 @@
 // 앱 화면이 멈추거나 깨져도 이 줄은 shell이 그리므로 그대로 동작한다.
 // 화면이 멈추거나 crash하면 그 상태와 [Open again]을 둔다. 새 view는 사람이 누를 때만 지금
 // 연결로 연다.
+import type { ReactNode } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
@@ -43,6 +44,8 @@ interface ViewChromeProps {
   health?: Health;
   /** 깨진 view를 지금 연결로 새로 연다. */
   onReopen?: (view_session: string) => void;
+  /** 줄 끝에 더하는 것. 세션 앱 카드가 앱의 머리 줄(HeadControls)을 둔다. */
+  head?: ReactNode;
 }
 
 export function ViewChrome({
@@ -52,6 +55,7 @@ export function ViewChrome({
   viewSession,
   health,
   onReopen,
+  head,
 }: ViewChromeProps) {
   const state = connection === null ? null : CONNECTION[connection];
   const broken =
@@ -83,6 +87,7 @@ export function ViewChrome({
         </span>
       )}
       <span className={styles.end}>
+        {head}
         {broken === null ? null : (
           <Button
             size="sm"

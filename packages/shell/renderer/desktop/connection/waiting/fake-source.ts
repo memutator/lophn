@@ -316,12 +316,14 @@ export const EPHEMERAL_NOTICE = () =>
 export const HISTORY_NOTICES = (): readonly Notice[] => [
   notice(2, 12, {
     kind: "sdk_update_needed",
-    title: "Orders needs an SDK update",
-    body: "It pins @lophn/declaration 3.0.0, which this lophn no longer runs.",
+    app: null,
+    app_name: null,
+    title: "SDK updates for your apps",
+    body: "3 apps must update, 2 can use new SDK features.",
     action: {
       kind: "open_home_skill",
       skill: "update-apps",
-      args: ORDERS,
+      args: "",
     },
   }),
   notice(3, 45, {
@@ -585,6 +587,8 @@ export function createFakeWaiting(
           kind?: string;
           persistent?: boolean;
           query?: string;
+          since?: string;
+          until?: string;
           cursor?: string;
           limit?: number;
         };
@@ -600,7 +604,9 @@ export function createFakeWaiting(
               (want.query === undefined ||
                 `${n.title} ${n.body}`
                   .toLowerCase()
-                  .includes(want.query.toLowerCase())),
+                  .includes(want.query.toLowerCase())) &&
+              (want.since === undefined || n.created_at >= want.since) &&
+              (want.until === undefined || n.created_at < want.until),
           )
           .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
         const from = Number(want.cursor ?? 0);

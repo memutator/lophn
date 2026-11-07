@@ -108,14 +108,14 @@ export const overlaysArea: Area = {
       id: "inbox-tab",
       title: "Inbox tab",
       description:
-        "Inbox 탭의 Now. overlay와 같은 카드(권한 요청, 질문, 앱 업데이트 동의, 놓친 차례)가 위에 종류별로 있고(답할 것) 그 아래 Notifications에 끝난 탭과 휘발 알림이 있다. 알림은 [x]로 지우면 끝이다. 탭 머리의 History 옆 숫자는 안 읽은 기록 수이고 sidebar 배지에는 더하지 않는다. 탭을 떠나면 방금 결정한 줄은 치운다.",
+        "Inbox 탭의 Now. overlay와 같은 카드(권한 요청, 질문, 앱 업데이트 동의, 놓친 차례)가 위에 종류별로 있고(답할 것) 그 아래 Notifications에 끝난 탭과 휘발 알림이 있다. 알림은 [x]로 지우면 끝이다. 탭 머리의 History 옆 숫자는 안 읽은 기록 수이고 sidebar 배지에도 더한다(기록을 놓치지 않게). 탭을 떠나면 방금 결정한 줄은 치운다.",
       render: () => <MockDesktop homeTabs={[INBOX_TAB]} />,
     },
     {
       id: "inbox-history",
       title: "Inbox tab · History",
       description:
-        "Inbox 탭의 History. 영구 기록(release 켜짐·실패·되돌림, 앱 멈춤, lophn 업데이트, SDK 업데이트 필요, 앱이 영구로 남긴 알림)이 최근 것부터 있고 안 읽은 줄은 앞에 점이 있다. 위에 앱·project·종류 거르기와 글 검색, 오른쪽 끝에 [Mark all read]가 있다. 줄 오른쪽 끝에 action 단추([Ask lophn])와 읽음 표시 단추가 같은 열에 서고, 앱이 있는 줄을 누르면 그 앱이 열린다. 많으면 [Show more]로 잇는다.",
+        "Inbox 탭의 History. 영구 기록(release 켜짐·실패·되돌림, 앱 멈춤, lophn 업데이트, SDK 업데이트 필요, 앱이 영구로 남긴 알림)이 최근 것부터 있고 안 읽은 줄은 앞에 점이 있다. 위에 기간·앱·project·종류 거르기와 글 검색, 오른쪽 끝에 [Mark all read]가 있다. 줄 오른쪽 끝에 action 단추([Ask lophn])와 읽음 표시 단추가 같은 열에 서고, 앱이 있는 줄을 누르면 그 앱이 열린다. 많으면 [Show more]로 잇는다.",
       render: () =>
         driven(
           [() => press('[role="tab"]', /^History/)],
@@ -132,6 +132,21 @@ export const overlaysArea: Area = {
           [
             () => press('[role="tab"]', /^History/),
             () => type('[data-filter="search"] input', "release"),
+          ],
+          <MockDesktop homeTabs={[INBOX_TAB]} />,
+        ),
+    },
+    {
+      id: "inbox-history-period",
+      title: "Inbox tab · History period",
+      description:
+        'History에서 기간을 "Last 7 days"로 거른 모양이다. 기간도 거르기가 기본과 다른 것이라 [Reset filters]가 나온다. 기간 안의 줄만 보이고 [Show more]와 [Mark all read]는 그 줄들에만 쓴다.',
+      render: () =>
+        driven(
+          [
+            () => press('[role="tab"]', /^History/),
+            () => press('[data-filter="date-range"]'),
+            () => click('[data-preset="last-7-days"]'),
           ],
           <MockDesktop homeTabs={[INBOX_TAB]} />,
         ),

@@ -40,21 +40,26 @@ export function programNoticeText(input: NoticeRecordInput): {
     case "lophn_updated":
       return {
         title: `lophn was updated to ${input.params.to}`,
-        body: [
+        body:
           input.params.from === "unknown"
             ? "The earlier version was not recorded."
             : `It was ${input.params.from} before.`,
-          input.params.optional_sdk_apps === undefined
-            ? ""
-            : `${input.params.optional_sdk_apps} ${input.params.optional_sdk_apps === 1 ? "app has" : "apps have"} optional SDK updates.`,
-        ]
-          .filter((line) => line !== "")
-          .join(" "),
       };
-    case "sdk_update_needed":
+    case "sdk_update_needed": {
+      const { required, available } = input.params;
+      const apps = (count: number) =>
+        `${count} ${count === 1 ? "app" : "apps"}`;
+      // 앞 문장이 "N apps"를 썼으면 뒤는 수만 쓴다("3 apps must update, 2 can use ...").
+      const parts = [
+        required > 0 ? `${apps(required)} must update` : "",
+        available > 0
+          ? `${required > 0 ? available : apps(available)} can use new SDK features`
+          : "",
+      ].filter((part) => part !== "");
       return {
-        title: "The app needs an SDK update",
-        body: `It uses SDK versions lophn no longer runs: ${input.params.sdks}.`,
+        title: "SDK updates for your apps",
+        body: `${parts.join(", ")}.`,
       };
+    }
   }
 }

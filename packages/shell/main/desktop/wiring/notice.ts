@@ -134,7 +134,7 @@ export function createNoticeWiring(
     const window = focusedWindow();
     if (window === undefined) return false;
     const contents = window.webContents.id;
-    if (target.kind === "app") return false;
+    if (target.kind === "app" || target.kind === "inbox") return false;
     return target.kind === "terminal"
       ? focus.focused(contents, target.terminal_ref)
       : visibility.isVisible(contents, target.session) ||
@@ -177,8 +177,10 @@ export function createNoticeWiring(
       window.webContents.send(NOTICE_REVEAL_CHANNEL, {
         session: target.session,
       });
-    } else {
+    } else if (target.kind === "app") {
       window.webContents.send(NOTICE_REVEAL_CHANNEL, { app: target.app });
+    } else {
+      window.webContents.send(NOTICE_REVEAL_CHANNEL, { inbox: true });
     }
   }
 
@@ -377,13 +379,16 @@ export function createNoticeWiring(
     if (posted.source === "program" && !ALERT_PROGRAM_KINDS.has(posted.kind)) {
       return;
     }
-    // 앱에 관한 기록이 아니면(lophn 전체) 누를 곳이 없어 띄우지 않는다.
-    if (posted.app === null) return;
+    // 앱 없는 기록(SDK 업데이트 필요)은 누르면 Inbox를 연다. 앱 없는 기록은 ALERT 목록에 든 것만 여기까지 온다.
     present(
-      `${posted.app_name ?? "App"} · ${posted.title}`,
+      posted.app === null
+        ? posted.title
+        : `${posted.app_name ?? "App"} · ${posted.title}`,
       excerpt(posted.body),
       undefined,
-      { kind: "app", app: posted.app },
+      posted.app === null
+        ? { kind: "inbox" }
+        : { kind: "app", app: posted.app },
     );
   });
   ctx.windowHooks.created.push((window) =>

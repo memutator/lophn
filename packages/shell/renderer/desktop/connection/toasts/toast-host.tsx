@@ -130,9 +130,11 @@ export function ToastHost({ overlay }: { overlay: OverlayApi }) {
     // 앱 알림은 그 앱 공간을 연다(앱 재시작 중단 toast와 같은 길).
     const stopReveal = notice?.onReveal((reveal) =>
       runToastAction(
-        "app" in reveal
-          ? { kind: "session", session: null, app: reveal.app }
-          : { kind: "session", session: reveal.session },
+        "inbox" in reveal
+          ? { kind: "waiting" }
+          : "app" in reveal
+            ? { kind: "session", session: null, app: reveal.app }
+            : { kind: "session", session: reveal.session },
       ),
     );
 

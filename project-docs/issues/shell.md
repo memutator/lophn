@@ -49,18 +49,17 @@ modules: [packages/shell/renderer]
 - project 설정 General 맨 아래에 Archive(secondary), 앱 상세 맨 위에 General 칸(이름 바꾸기 `app.rename`, Archive)을 둔다. 지금 들어와 있는 workspace를 보관하면 Home으로 옮긴다. Workspaces panel의 ⋯ menu는 빠른 길로 둔다(작음, renderer와 gallery만).
 - 추천: 이것.
 
-## 기동 때 남은 SDK 업데이트 기록이 사람에게 보이지 않는다
+## 기동 때 쓴 program 기록의 toast가 뜨지 않는다
 
 ```yaml
 kind: bug
-modules: [packages/shell/main, packages/shell/renderer, packages/core/apps]
+modules: [packages/shell/main, packages/core/main]
 ```
 
-지금: 0.20.0을 설치하고 켠 data root에서 `noticesWiring.afterReady`가 `lophn_updated` 한 줄과 `sdk_update_needed` 세 줄(mahas, masup, calendar: `@lophn/declaration` 3.0.0, `@lophn/app-ui` 2.2.0이 지원 하한 아래)을 `notices`에 남겼다. 그런데 사람은 아무것도 보지 못했다. 영구 기록은 Inbox의 History 탭에만 있고 sidebar 배지에 세지 않는다(`waiting-store.ts`의 `historyUnread`). toast는 shell main이 `NoticePosted`를 받아 띄우는데(`packages/shell/main/desktop/wiring/notice.ts`), 이 줄들은 core 기동 중에 써져 [INFERENCE] 창이 그 event를 받기 전이었을 수 있다. 원인은 확인하지 못했다.
+지금: `noticesWiring.afterReady`가 쓰는 program 기록(`sdk_update_needed`)의 `NoticePosted`는 shell main이 받지 못한다. `afterReady`는 core가 부모(shell main)에게 hello를 보내기 전에 돌고(`packages/core/main/daemon/core.ts`), shell의 Gateway 구독은 hello 뒤에 열려서 그 event는 구독이 없을 때 나간다. 놓친 알림은 다시 띄우지 않는다. 확인했다(코드 순서). sdk-forest 변경으로 배지가 안 읽은 기록을 세어 사람이 몰라서 못 보는 일은 줄었다.
 
-영향: SDK 업데이트가 필수인 앱(뜨지 않는 앱)이 있어도 사람은 History 탭을 열기 전까지 모른다. 이 흐름의 목적(사람에게 알리고 맡기게 하기)이 서지 않는다.
+영향: 기동 중에 쓴 필수 알림(SDK 업데이트 필요)은 toast·OS 알림이 없다. 배지와 History로만 보인다.
 
 고치려면:
-- 기동 뒤 창이 준비되면 안 읽은 `sdk_update_needed`·`app_unavailable` 같은 급한 program 줄을 toast로 한 번 보인다(작음).
-- 그런 급한 종류의 안 읽은 영구 줄은 배지에 센다(작음, 배지 규칙이 바뀐다).
-- 추천: 둘 다. 먼저 toast가 왜 안 떴는지 shell main log로 확인한다.
+- 기동 뒤 Gateway가 붙으면 안 읽은 급한 program 줄(`sdk_update_needed`, `app_unavailable`)을 `notices.open`으로 읽어 toast로 한 번 보인다(작음).
+- 추천: 이것. 배지가 있으니 급하지는 않다.

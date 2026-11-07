@@ -355,8 +355,7 @@ export const appsWiring: WiringFactory = () => {
         notesRoot: `${BUNDLED_SKILLS_ROOT}/migrate-sdk`,
         sql: link.sql,
       };
-      ctx.provide("sdkStatus", () => readSdkStatus(sdkDeps));
-      // lophn이 새 판으로 켜질 때마다 필수 SDK 갱신이 있는 앱에 줄을 남긴다(`architecture/app-notice.md`).
+      // lophn이 새 판으로 켜질 때마다 SDK 갱신이 있는 앱이 하나라도 있으면 앱 없는 줄 하나를 남긴다(`architecture/app-notice.md`).
       ctx.productStartListeners.push(async (start) => {
         if (!start.changed) return;
         const statuses = await readSdkStatus(sdkDeps);

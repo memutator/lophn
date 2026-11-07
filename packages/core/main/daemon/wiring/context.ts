@@ -70,7 +70,6 @@ import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.
 import type { RunService } from "../../../runs/mod.ts";
 import type { createWorkflowService } from "../../../workflows/mod.ts";
 import type { WorkflowFlows } from "../../../workflows/ports.ts";
-import type { AppSdkStatus } from "../../../../protocol/apps/sdk-status.ts";
 import type { NoticeRecorder } from "./notices.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
@@ -263,8 +262,6 @@ type Late = {
   flowHost: WorkflowFlows;
   // notices wiring이 낸다. program이 사람에게 남기는 기록을 쓴다. 다른 wiring이 부를 때 읽는다.
   noticeRecorder: NoticeRecorder;
-  // apps가 낸다. 앱이 고정한 SDK 판과 지금 판의 차이(보관하지 않은 앱 전부, 범위 판정 없음). 제품 판을 견주는 쪽이 읽는다.
-  sdkStatus: () => Promise<Result<AppSdkStatus[]>>;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -318,7 +315,6 @@ const LATE_KEYS: Record<keyof Late, true> = {
   workflowService: true,
   flowHost: true,
   noticeRecorder: true,
-  sdkStatus: true,
 };
 
 export type WiringContext = {

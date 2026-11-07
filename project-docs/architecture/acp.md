@@ -81,6 +81,7 @@ redaction
 |---|---|---|
 | `send` | `SendMessage` (`refs: []`) | `key`가 idempotency key다 |
 | `stop` | `StopTurn` | 부른 사람의 자격으로 `ReadTurn`을 읽어 `state_seq`를 compare에 싣는다. `key`가 `request_key`와 idempotency key다 |
+| `stop_shell` | 없음 | 사람이 돌린 `!` 명령 하나(`item`)를 멈춘다. harness adapter만 받는다(lophn core는 `unavailable`). 화면은 `by: "user"` shell 줄이 도는 동안 그 줄의 Stop 단추로 보낸다 |
 | `retry` | `SendMessage` | 실패한 turn의 입력 메시지(`ReadTurn`의 `input_message`, `ReadMessageBody`)를 `next_turn`으로 다시 보낸다. 새 메시지 id는 core가 turn마다 한 번 정하고(메모리에 기억) key는 `retry-turn-<turn>`이라 다시 눌러도 한 번만 접수된다 |
 | `answer` | `AnswerAskQuestions` | |
 | `decide` | `DecideTurnRequest` | `session` 범위와 `mode`(plan 승인)는 lophn에 없어 `invalid_input` |

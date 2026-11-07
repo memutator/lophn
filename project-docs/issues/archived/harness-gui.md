@@ -119,3 +119,24 @@ guard: 없음
 고치려면: `down`과 `move`가 rail DOM 밖(portal 안)에서 온 event를 무시한다(`event.currentTarget.contains(event.target as Node)`가 false면 return). 또는 `IndexCard`의 root에서 pointerdown 전파를 멈춘다. 작음. 앞의 것을 추천한다.
 
 닫음: `thread-index.tsx`의 rail handler(pointer, key, wheel)가 rail DOM 밖(portal의 hover card)에서 올라온 event를 `inRail`로 거른다. bookmark 단추의 click이 단추에 닿는다.
+
+## GUI view가 붙을 때 갱신을 처음부터 하나씩 받아 느리고, 지난 대화가 재생하듯 그려진다
+
+```yaml
+kind: bug
+modules: [packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer]
+closed: fixed
+guard: 없음
+```
+
+지금: handle은 publish된 갱신을 모두 배열에 쌓는다(`packages/shell/main/desktop/wiring/extensions.ts`의 `createAcp`). 흘러나온 글 조각(`writing_streamed`)도 버리지 않는다. view가 붙으면 `packages/shell/main/terminal/gui.ts`의 `connect`가 쌓인 갱신을 하나에 `webContents.send` 한 번씩 다시 보낸다. renderer는 그것을 `terminal-gui.tsx`의 feed와 `agent-tab-data.ts`에서 두 번 접고, 채팅 화면은 가상화 없이 대화 전체를 그린다.
+- 다른 workspace에 갔다 오면 탭이 저장본에서 다시 만들어져 이 replay를 처음부터 받는다.
+- restart toggle(TUI→GUI)과 `--resume`은 view가 먼저 붙고, 그 뒤 adapter의 replay(`claude.ts`의 `replay`)가 메시지 하나씩 publish한다. IPC 메시지 하나가 renderer의 task 하나라서 React가 갱신마다 대화 전체를 다시 그린다.
+
+영향: 긴 session에서는 workspace를 오갈 때마다 GUI 탭이 한참 멈춘다. TUI에서 GUI로 넘기면 대화가 한 줄씩 다시 그려진다. handle의 메모리는 session 길이만큼 늘어난다.
+
+고치려면:
+- handle이 갱신 배열 대신 `reduceAcp`로 접은 `AcpState`를 들고, attach할 때 snapshot 하나와 그 뒤 갱신을 보낸다. 갱신은 tick마다 배열로 묶어 보내고, renderer는 묶음을 다 접은 뒤 한 번만 알린다. adapter가 지난 대화를 다시 그리는 동안은 묶음 하나로 보낸다. 중간. 추천. emdash(main이 접은 상태와 page), t3code(snapshot 뒤 live, 50ms 묶기), happy(최근 page와 `after_seq`)가 모두 이 꼴이다.
+- 채팅 화면 가상화는 lophn agent와 같이 쓰는 화면이라 위를 한 뒤 다시 잰다.
+
+닫음: handle(`packages/shell/main/desktop/wiring/extensions.ts`)이 갱신 대신 `reduceAcp`로 접은 `AcpState`를 쥔다. view가 붙으면 `terminal/gui.ts`가 snapshot 하나를 보내고, 이어지는 갱신은 20ms마다 배열로 묶어 보낸다. renderer feed(`terminal-gui.tsx`)는 묶음을 다 접은 뒤 한 번 알리고, snapshot이 오면 `source.changed`로 화면이 다시 읽는다. 채팅 화면 가상화는 하지 않았다.

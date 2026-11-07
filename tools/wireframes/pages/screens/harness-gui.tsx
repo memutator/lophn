@@ -1,7 +1,7 @@
 // harness-gui: 터미널 탭에서 `claude gui`를 치면 그 탭이 바뀌는 채팅 화면. 실제 탭 화면(TerminalGui)을 main 대신 fake 통로로
 // 그린다. fake 통로는 adapter가 낼 ACP 갱신을 붙을 때 한꺼번에 보내고, 보낸 말은 사람 메시지로 되돌려 준다. card 머리는
 // 이 page가 한 줄로 흉내 낸다(실제 앱은 ContentCard가 머리에 올린다).
-import { useMemo } from "react";
+import { Profiler, useMemo } from "react";
 
 import type {
   AcpChildUpdate,
@@ -698,6 +698,168 @@ function TerminalTabGui({
   );
 }
 
+// 성능 측정용 긴 대화: 끝난 turn 40개(markdown, code block, 표, tool 줄)와 도는 turn 하나(subagent 둘, shell task).
+// 스트림은 page가 `globalThis.__perf.push`로 받아 `feed.apply`와 같은 통로로 보낸다.
+const PERF_TURNS = 40;
+const perfReply = (index: number) =>
+  [
+    `## Step ${index}`,
+    "",
+    "I read `src/upload.ts` and wrapped the request in a retry. The **backoff** doubles each time and gives up after three tries.",
+    "",
+    "- the first try goes out at once",
+    "- a second try waits 200 ms",
+    "- a 4xx response fails immediately",
+    "",
+    "```ts",
+    "export async function upload(file: Blob) {",
+    "  for (const delay of [0, 200, 400]) {",
+    "    await sleep(delay);",
+    "    const response = await fetch(UPLOAD_URL, { method: 'POST', body: file });",
+    "    if (response.ok) return response.json();",
+    "  }",
+    "  throw new Error('upload failed');",
+    "}",
+    "```",
+    "",
+    "| Case | Result |",
+    "| --- | --- |",
+    "| first try | ok |",
+    "| flaky network | retried |",
+  ].join("\n");
+
+const PERF_THREAD: readonly AcpUpdate[] = [
+  { type: "session_changed", session: fakeHarnessMeta() },
+  ...Array.from({ length: PERF_TURNS }, (_, index): AcpUpdate[] => {
+    const turn = `trn-p${index}`;
+    const seq = index * 6;
+    return [
+      message(
+        `pu${index}`,
+        seq + 1,
+        0,
+        "user",
+        `Step ${index}: change the helper.`,
+        turn,
+      ),
+      { type: "turn_started", turn, at: at(0) },
+      message(`pa${index}`, seq + 2, 1, "agent", perfReply(index), turn),
+      tool(
+        `pt${index}`,
+        seq + 3,
+        2,
+        "Read",
+        "read",
+        "Read src/upload.ts",
+        READ_BODY,
+        { kind: "generic" },
+        turn,
+      ),
+      done(`pt${index}`, 3, READ_BODY),
+      message(`pb${index}`, seq + 4, 4, "agent", perfReply(index + 100), turn),
+      {
+        type: "turn_ended",
+        turn,
+        at: at(5),
+        outcome: "completed",
+        active_ms: 5000,
+        error: null,
+        messages: [
+          { message: `pa${index}`, seq: seq + 2 },
+          { message: `pb${index}`, seq: seq + 4 },
+        ],
+        seq: seq + 5,
+      },
+    ];
+  }).flat(),
+  message(
+    "pu-live",
+    9000,
+    0,
+    "user",
+    "Now explain the whole design in detail.",
+    "trn-live",
+  ),
+  { type: "turn_started", turn: "trn-live", at: at(0) },
+  tool(
+    "pt-live",
+    9001,
+    1,
+    "Bash",
+    "command",
+    "Run npm test",
+    null,
+    { kind: "generic" },
+    "trn-live",
+  ),
+  ...DOCK.slice(1, 8),
+  tool(
+    "tcl-5",
+    9002,
+    8,
+    "Task",
+    "other",
+    "Check callers",
+    null,
+    {
+      kind: "subagent",
+      agent: "Explore",
+      description: "Check callers",
+      child: "chd-2",
+      state: "running",
+      model: "Haiku 5.5",
+      last: "Reading src/cli.ts",
+    },
+    "trn-live",
+  ),
+];
+
+function perfApi(): HarnessGuiTabApi {
+  return {
+    ...fakeApi(null, [], "claude", NO_UPDATES),
+    async connect(_handle, onBatch) {
+      onBatch({ updates: [...PERF_THREAD] });
+      (globalThis as { __perf?: unknown }).__perf = {
+        push: (updates: AcpUpdate[]) => onBatch({ updates }),
+      };
+      return { harness: "claude", cwd: CWD };
+    },
+  };
+}
+
+function PerfGui() {
+  const api = useMemo(perfApi, []);
+  // 실제 시계: live 글의 throttle과 도는 줄의 경과 시간이 시계를 읽는다.
+  const origin = useMemo(() => Date.now(), []);
+  const now = useMemo(() => () => NOW + (Date.now() - origin), [origin]);
+  return (
+    <HeadCard>
+      <Profiler
+        id="gui"
+        onRender={(_id, phase, actual) => {
+          const bag = ((
+            globalThis as { __perfCommits?: unknown }
+          ).__perfCommits ??= { count: 0, actual: 0, updates: 0 }) as {
+            count: number;
+            actual: number;
+            updates: number;
+          };
+          bag.count += 1;
+          bag.actual += actual;
+          if (phase === "update") bag.updates += 1;
+        }}
+      >
+        <TerminalGui
+          api={api}
+          gui={{ handle: "win_perf", harness: "claude", handoff: "restart" }}
+          terminalRef="trm_perf"
+          now={now}
+        />
+      </Profiler>
+    </HeadCard>
+  );
+}
+
 // 숨겼다가 되살린 구간. 항목이 제자리로 돌아와 숨긴 구간 줄이 남지 않는다.
 const REWOUND: readonly AcpUpdate[] = [
   {
@@ -761,6 +923,13 @@ export const harnessGuiArea: Area = {
       description:
         "`claude gui`를 친 터미널 탭이 바뀐 모습이다. lophn 채팅 화면을 그대로 쓰고 session은 CLI 자신의 것이다(agent 얼굴은 Claude 아이콘). 끝난 tool 줄 둘, 명령 출력과 알림 줄, 도는 tool 하나, 그 명령의 승인 카드(Deny, Always allow, Allow once), 흘러나오는 글이 한 번에 보이고, 보낸 말은 사람 메시지로 돌아온다. card 머리 오른쪽의 Terminal 단추가 같은 대화를 CLI의 화면으로 돌려 보낸다.",
       render: () => <TerminalTabGui />,
+    },
+    {
+      id: "harness-gui-perf",
+      title: "Harness GUI · perf probe",
+      description:
+        "긴 대화(40 turn)와 도는 turn 하나. 스트림 길이를 재는 측정용 page다(`globalThis.__perf.push`).",
+      render: () => <PerfGui />,
     },
     {
       id: "harness-gui-slash-empty",

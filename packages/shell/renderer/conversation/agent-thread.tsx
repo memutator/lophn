@@ -39,7 +39,7 @@ import {
   UserMessage,
   WorkingRow,
 } from "./message-list/agent-turn.tsx";
-import { LiveMessage, useThrottledLive } from "./message-list/live-message.tsx";
+import { LiveMessage } from "./message-list/live-message.tsx";
 import { MessageBody, UserBody } from "./message-list/message-body.tsx";
 import { ThreadScroll } from "./message-list/thread-scroll.tsx";
 import { QuestionSummary } from "./question-card/question-card.tsx";
@@ -156,8 +156,7 @@ function samePending(
 }
 
 function AgentThreadView(props: AgentThreadProps): ReactElement {
-  const { entries, outgoing } = props;
-  const live = useThrottledLive(props.live, props.now);
+  const { entries, outgoing, live } = props;
   const replies = useMemo(() => agentReplyIds(entries), [entries]);
   const announcement = useThreadAnnouncement({
     agent: props.agent.name,

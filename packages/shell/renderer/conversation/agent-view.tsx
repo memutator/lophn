@@ -364,13 +364,17 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   // 대화의 `!` 코드 블록 단추. 보내지 않고 composer를 shell mode 글로 채워 focus만 옮긴다.
   const [focusSignal, setFocusSignal] = useState(0);
-  const fillShell =
-    caps.shell && !readOnly
-      ? (text: string) => {
-          drafts.save(key, { text, selection: [text.length, text.length] });
-          setFocusSignal((n) => n + 1);
-        }
-      : null;
+  // Context 값이라 commit마다 새로 만들면 대화의 모든 markdown(`useFillShell`)이 다시 그려진다.
+  const fillShell = useMemo(
+    () =>
+      caps.shell && !readOnly
+        ? (text: string) => {
+            drafts.save(key, { text, selection: [text.length, text.length] });
+            setFocusSignal((n) => n + 1);
+          }
+        : null,
+    [caps.shell, readOnly, drafts, key],
+  );
 
   // dock과 자식 대화가 harness에 보내는 조작. source가 가졌는지는 capability가 알려 단추를 그린다.
   const openChild = (child: string) => {

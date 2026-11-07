@@ -372,19 +372,19 @@ export function AppPanelList({
   );
 }
 
-/** `sidebar` 자리를 가진 앱 화면마다 줄 하나와 Switch. 켠 것이 오른쪽 sidebar의 panel이 된다(전역 값). */
+/** `sidebar` 자리를 가진 앱 화면마다 줄 하나와 Switch. 켜 둔 것이 오른쪽 sidebar의 panel이 된다. 기본은 켜짐이고 끈 것만 전역 값에 쌓인다. */
 export function SidebarPanelList({
   apps,
   loading,
   failed,
-  picks,
-  onPicks,
+  off,
+  onOff,
 }: {
   apps: readonly AppScreens[];
   loading: boolean;
   failed: boolean;
-  picks: readonly SidebarPanelPick[];
-  onPicks: (next: readonly SidebarPanelPick[]) => void;
+  off: readonly SidebarPanelPick[];
+  onOff: (next: readonly SidebarPanelPick[]) => void;
 }) {
   const choices = apps.flatMap((app) =>
     app.screens
@@ -433,12 +433,12 @@ export function SidebarPanelList({
                 label={t("settings.label.quick-sidebar-show", {
                   name: choice.label,
                 })}
-                checked={picks.some((item) => same(item, pick))}
+                checked={!off.some((item) => same(item, pick))}
                 onCheckedChange={(on) =>
-                  onPicks(
+                  onOff(
                     on
-                      ? [...picks, pick]
-                      : picks.filter((item) => !same(item, pick)),
+                      ? off.filter((item) => !same(item, pick))
+                      : [...off, pick],
                   )
                 }
               />

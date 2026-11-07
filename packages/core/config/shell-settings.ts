@@ -192,9 +192,9 @@ const taskbarSetting = declareSetting({
   default: true,
 });
 
-// 사람이 켠 앱 화면(`sidebar` 자리를 가진 것)이 오른쪽 sidebar에 panel로 나온다. 설치돼 있고 그 자리를 가진 것만 그린다.
-const sidebarPanelsSetting = declareSetting({
-  key: "shell.sidebar_panels",
+// 설치된 앱의 `sidebar` 자리 화면은 선언하면 오른쪽 sidebar에 panel로 나온다. 사람이 끈 것만 여기에 쌓인다.
+const sidebarPanelsOffSetting = declareSetting({
+  key: "shell.sidebar_panels_off",
   type: z
     .array(
       z.object({
@@ -206,9 +206,9 @@ const sidebarPanelsSetting = declareSetting({
   default: [],
 });
 
-// 사람이 켠 앱 화면(`tray` 자리를 가진 것)이 작업 표시줄 오른쪽 tray에 항목으로 나온다. 설치돼 있고 그 자리를 가진 것만 그린다.
-const trayScreensSetting = declareSetting({
-  key: "shell.tray",
+// 설치된 앱의 `tray` 자리 화면은 선언하면 작업 표시줄 오른쪽 tray에 항목으로 나온다. 사람이 끈 것만 여기에 쌓인다.
+const trayOffSetting = declareSetting({
+  key: "shell.tray_off",
   type: z
     .array(
       z.object({
@@ -256,8 +256,8 @@ export const shellSettings = [
   appLaunchSetting,
   codingAgentsSetting,
   taskbarSetting,
-  sidebarPanelsSetting,
-  trayScreensSetting,
+  sidebarPanelsOffSetting,
+  trayOffSetting,
   harnessExtensionSetting,
   harnessGuiExtensionSetting,
 ] as const;

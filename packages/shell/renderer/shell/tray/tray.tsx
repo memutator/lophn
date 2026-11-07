@@ -1,4 +1,4 @@
-// tray. 작업 표시줄 오른쪽(꺼져 있으면 title bar의 panel 탭 옆)에 사람이 켠 앱 화면마다 항목 하나가 선다: 앱 아이콘과 앱이 낸
+// tray. 작업 표시줄 오른쪽(꺼져 있으면 title bar의 panel 탭 옆)에 설치된 앱의 `tray` 화면마다(사람이 끈 것은 빼고) 항목 하나가 선다: 앱 아이콘과 앱이 낸
 // 짧은 글(tone 색). 누르면 그 앱의 `tray` 화면이 항목 위(title bar면 아래)에 popup으로 뜬다. 바깥을 누르거나 창이 focus를 잃거나 Esc를 누르면 닫힌다.
 // popup 머리의 pin을 켜면 바깥 누르기·창 blur·다른 항목 누르기로 닫히지 않는다(Esc와 자기 항목 다시 누르기는 닫는다). pin은 메모리에만 있다.
 // popup은 자기 <webview> 그릇을 가진다: 닫으면 화면도 닫히고 다시 열면 새로 load된다.
@@ -39,33 +39,38 @@ export interface TrayItem {
   readonly tone?: TrayTone;
 }
 
-/** 켠 화면 가운데 설치돼 있고 `tray` 자리를 가진 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
+/** 설치된 앱의 `tray` 자리 화면 가운데 사람이 끄지 않은 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
 export function trayItems(
-  picks: readonly SidebarPanelPick[],
+  off: readonly SidebarPanelPick[],
   screens: ScreensRead | null,
   values: readonly TrayValue[],
 ): readonly TrayItem[] {
   if (screens === null || !screens.ok) return [];
-  return picks.flatMap((pick) => {
-    const app = screens.value.find((item: AppScreens) => item.app === pick.app);
-    const screen = app?.screens.find((item) => item.key === pick.screen);
-    if (app === undefined || screen === undefined) return [];
-    if (!screen.places.includes("tray")) return [];
-    const value = values.find((item) => item.app === pick.app);
-    return [
-      {
-        key: `${pick.app}:${pick.screen}`,
-        app: pick.app,
-        screen: pick.screen,
-        title: t("app-panel.label.screen", {
-          app: app.name,
-          screen: screen.label,
-        }),
-        label: screen.label,
-        ...(value === undefined ? {} : { text: value.text, tone: value.tone }),
-      },
-    ];
-  });
+  return screens.value.flatMap((app: AppScreens) =>
+    app.screens.flatMap((screen) => {
+      if (!screen.places.includes("tray")) return [];
+      if (
+        off.some((item) => item.app === app.app && item.screen === screen.key)
+      )
+        return [];
+      const value = values.find((item) => item.app === app.app);
+      return [
+        {
+          key: `${app.app}:${screen.key}`,
+          app: app.app,
+          screen: screen.key,
+          title: t("app-panel.label.screen", {
+            app: app.name,
+            screen: screen.label,
+          }),
+          label: screen.label,
+          ...(value === undefined
+            ? {}
+            : { text: value.text, tone: value.tone }),
+        },
+      ];
+    }),
+  );
 }
 
 function PopupBody({ item }: { item: TrayItem }) {
@@ -266,12 +271,12 @@ export function Tray({
   );
 }
 
-/** event로 값을 읽어 그리는 tray. 켠 화면이 없으면 아무것도 읽지 않는다. */
+/** event로 값을 읽어 그리는 tray. 보일 화면이 없으면 아무것도 읽지 않는다. */
 function ConnectedTray(props: TrayHostProps) {
   const values = useTrayValues();
   return (
     <Tray
-      items={trayItems(props.picks, props.screens, values)}
+      items={trayItems(props.off, props.screens, values)}
       side={props.side}
       iconOnly={props.side === "below"}
     />
@@ -279,12 +284,15 @@ function ConnectedTray(props: TrayHostProps) {
 }
 
 interface TrayHostProps {
-  picks: readonly SidebarPanelPick[];
+  /** 사람이 끈 tray 화면. */
+  off: readonly SidebarPanelPick[];
   screens: ScreensRead | null;
   /** 작업 표시줄이면 above, title bar면 below. */
   side: "above" | "below";
 }
 
 export function TrayHost(props: TrayHostProps): ReactNode {
-  return props.picks.length === 0 ? null : <ConnectedTray {...props} />;
+  return trayItems(props.off, props.screens, []).length === 0 ? null : (
+    <ConnectedTray {...props} />
+  );
 }

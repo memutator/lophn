@@ -29,9 +29,7 @@ import type { SettingsPane } from "../../../packages/shell/renderer/desktop/sett
 import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
-import { DEFAULT_QUICK_PREFS } from "../../../packages/shell/renderer/desktop/settings/quick-launch/source.ts";
 import { QuickPrefsProvider } from "../../../packages/shell/renderer/desktop/settings/quick-launch/store.tsx";
-import { memoryQuickPrefsSource } from "../../../packages/shell/renderer/desktop/settings/quick-launch/testdata/fake-source.ts";
 import { BrowserApiProvider } from "../../../packages/shell/renderer/browser/browser-api.tsx";
 import {
   AnnotateApiProvider,
@@ -135,13 +133,13 @@ interface MockDesktopProps {
   readonly annotate?: LophnShellAnnotateApi;
   /** 주면 이 탭 하나를 그리는 detached 창으로 시작한다(route는 무시한다). */
   readonly detachedTab?: TabSpec;
-  /** 앱 하나의 `sidebar` 화면(key, 이름)을 설치된 것으로 두고 Settings에서 켠 상태로 시작한다. */
+  /** 앱 하나의 `sidebar` 화면(key, 이름)을 설치된 것으로 둔다(끄지 않았으니 나온다). */
   readonly sidebarPanel?: {
     readonly app: string;
     readonly screen: string;
     readonly label: string;
   };
-  /** 앱 화면(`tray` 자리)을 설치된 것으로 두고 Settings에서 켠 상태로 시작한다. text가 있으면 앱이 그 값을 낸 것이다. */
+  /** 앱 화면(`tray` 자리)을 설치된 것으로 둔다(끄지 않았으니 나온다). text가 있으면 앱이 그 값을 낸 것이다. */
   readonly tray?: readonly {
     readonly app: string;
     readonly screen: string;
@@ -436,7 +434,12 @@ export function MockDesktop(props: MockDesktopProps) {
                   screens: [
                     ...app.screens,
                     ...extraScreens
-                      .filter((item) => item.app === app.app)
+                      .filter(
+                        (item) =>
+                          item.app === app.app &&
+                          // dev mock이 이미 선언한 화면은 한 번만 둔다(선언하면 바로 나오므로 겹치면 key가 같다).
+                          !app.screens.some((s) => s.key === item.screen),
+                      )
                       .map((item) => ({
                         key: item.screen,
                         label: item.label,
@@ -449,28 +452,13 @@ export function MockDesktop(props: MockDesktopProps) {
           },
     [mock, extraScreens],
   );
-  const quickPrefs = useMemo(
-    () =>
-      extraScreens.length === 0
-        ? undefined
-        : memoryQuickPrefsSource({
-            ...DEFAULT_QUICK_PREFS,
-            sidebarPanels: extraScreens
-              .filter((item) => item.place === "sidebar")
-              .map((item) => ({ app: item.app, screen: item.screen })),
-            tray: extraScreens
-              .filter((item) => item.place === "tray")
-              .map((item) => ({ app: item.app, screen: item.screen })),
-          }),
-    [extraScreens],
-  );
   const annotate = props.annotate ?? mock.annotate;
   return (
     <BrowserApiProvider value={props.browser ?? mock.browser}>
       <ArtifactApiProvider value={props.artifact ?? null}>
         <AnnotateApiProvider value={annotate}>
           <AppViewsProvider value={appViews}>
-            <QuickPrefsProvider source={quickPrefs}>
+            <QuickPrefsProvider source={undefined}>
               <ConversationProvider deps={wiring.conversation}>
                 <EventsProvider client={wiring.events}>
                   <Desktop

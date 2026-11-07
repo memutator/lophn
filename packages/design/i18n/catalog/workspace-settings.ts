@@ -541,9 +541,9 @@ export const workspaceSettings = {
     "Pin an app panel to give it its own button. Tab opens it as a tab; Float opens it as a floating panel where you last left it.",
   "settings.note.quick-no-tray": "No installed app has a tray screen.",
   "settings.note.quick-sidebar-panels":
-    "A screen you turn on gets a tab in the right sidebar of every workspace.",
+    "Installed app screens show as a tab in the right sidebar of every workspace by default. Turn one off to hide it.",
   "settings.note.quick-tray":
-    "A screen you turn on gets an item in the taskbar tray, or next to the right sidebar tabs when the taskbar is off. Click it to open the screen as a popup.",
+    "Installed app screens show as an item in the taskbar tray by default (next to the right sidebar tabs when the taskbar is off). Click one to open the screen as a popup. Turn one off to hide it.",
   "settings.note.shell-rules-built-in":
     "Rules you add can't unblock anything that is always blocked.",
   "settings.note.shell-rules-project":

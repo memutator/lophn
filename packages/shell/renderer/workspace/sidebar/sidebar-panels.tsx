@@ -1,4 +1,4 @@
-// 오른쪽 sidebar의 panel 목록. 내장 panel과 사람이 켠 앱 sidebar 화면이 같은 모양(SidebarPanel)으로 한 목록에 선다.
+// 오른쪽 sidebar의 panel 목록. 내장 panel과 (사람이 끄지 않은) 앱 sidebar 화면이 같은 모양(SidebarPanel)으로 한 목록에 선다.
 // title bar의 panel icon tab과 sidebar 본문은 "지금 workspace 종류로 거른 목록"만 본다.
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -200,44 +200,48 @@ function AppSidebarBody(props: { app: string; screen: string; label: string }) {
   );
 }
 
-/** 켠 화면 가운데 설치돼 있고 `sidebar` 자리를 가진 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
+/** 설치된 앱의 `sidebar` 자리 화면 가운데 사람이 끄지 않은 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
 function appPanels(
-  picks: readonly SidebarPanelPick[],
+  off: readonly SidebarPanelPick[],
   read: ScreensRead | null,
 ): readonly SidebarPanel[] {
   if (read === null || !read.ok) return [];
-  return picks.flatMap((pick) => {
-    const screen = read.value
-      .find((app: AppScreens) => app.app === pick.app)
-      ?.screens.find((item) => item.key === pick.screen);
-    if (screen === undefined || !screen.places.includes("sidebar")) return [];
-    return [
-      {
-        key: appPanelKey(pick.app, pick.screen),
-        label: screen.label,
-        icon: shellIcons.app,
-        app: pick.app,
-        kinds: ["project", "home", "app"],
-        render: () => (
-          <AppSidebarBody
-            key={appPanelKey(pick.app, pick.screen)}
-            app={pick.app}
-            screen={pick.screen}
-            label={screen.label}
-          />
-        ),
-      } satisfies SidebarPanel,
-    ];
-  });
+  return read.value.flatMap((app: AppScreens) =>
+    app.screens.flatMap((screen) => {
+      const pick = { app: app.app, screen: screen.key };
+      if (!screen.places.includes("sidebar")) return [];
+      if (
+        off.some((item) => item.app === pick.app && item.screen === pick.screen)
+      )
+        return [];
+      return [
+        {
+          key: appPanelKey(pick.app, pick.screen),
+          label: screen.label,
+          icon: shellIcons.app,
+          app: pick.app,
+          kinds: ["project", "home", "app"],
+          render: () => (
+            <AppSidebarBody
+              key={appPanelKey(pick.app, pick.screen)}
+              app={pick.app}
+              screen={pick.screen}
+              label={screen.label}
+            />
+          ),
+        } satisfies SidebarPanel,
+      ];
+    }),
+  );
 }
 
 /** 지금 workspace 종류의 panel 목록. 내장 panel 다음에 앱 sidebar panel이 선다. */
 export function sidebarPanelsFor(
   ctx: SidebarCtx,
-  picks: readonly SidebarPanelPick[],
+  off: readonly SidebarPanelPick[],
   screens: ScreensRead | null,
 ): readonly SidebarPanel[] {
-  return [...builtinPanels(), ...appPanels(picks, screens)].filter(
+  return [...builtinPanels(), ...appPanels(off, screens)].filter(
     (panel) =>
       panel.kinds.includes(ctx.kind) && (panel.available?.(ctx) ?? true),
   );

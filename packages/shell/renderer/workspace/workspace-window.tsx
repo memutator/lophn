@@ -2400,7 +2400,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     isApp && rightOpen,
   );
 
-  // 오른쪽 sidebar의 panel 목록. 지금 workspace 종류로 거른 내장 panel과 사람이 켠 앱 sidebar 화면이다.
+  // 오른쪽 sidebar의 panel 목록. 지금 workspace 종류로 거른 내장 panel과 (사람이 끄지 않은) 앱 sidebar 화면이다.
   const sidebarKind: SidebarKind = isHome ? "home" : isApp ? "app" : "project";
   const sidebarCtx: SidebarCtx = {
     kind: sidebarKind,
@@ -2468,7 +2468,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   };
   const sidebarPanels = sidebarPanelsFor(
     sidebarCtx,
-    quickPrefs.sidebarPanels,
+    quickPrefs.sidebarPanelsOff,
     panelApps,
   );
   const activePanel =
@@ -2890,7 +2890,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
               titleTray={
                 taskbar ? undefined : (
                   <TrayHost
-                    picks={quickPrefs.tray}
+                    off={quickPrefs.trayOff}
                     screens={panelApps}
                     side="below"
                   />
@@ -2911,7 +2911,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     onSettings={() => onSettings()}
                     tray={
                       <TrayHost
-                        picks={quickPrefs.tray}
+                        off={quickPrefs.trayOff}
                         screens={panelApps}
                         side="above"
                       />

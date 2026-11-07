@@ -1,5 +1,5 @@
-// project 창 오른쪽 sidebar에 앱 sidebar 화면이 panel로 켜진 상태. 진짜 Desktop(MockDesktop)을 그리고 Settings › Quick launch에서
-// 켠 값(`shell.sidebar_panels`)을 가짜로 준다. 앱 화면은 <webview>라 gallery에서 돌 수 없으므로 webview 그릇이 그린 빈 자리에
+// project 창 오른쪽 sidebar에 앱 sidebar 화면이 panel로 나온 상태. 진짜 Desktop(MockDesktop)을 그리고 설치된 앱의
+// `sidebar` 화면을 가짜로 준다(사람이 `shell.sidebar_panels_off`로 끄지 않으면 나온다). 앱 화면은 <webview>라 gallery에서 돌 수 없으므로 webview 그릇이 그린 빈 자리에
 // Orders 앱의 고정 그림(orders-view.tsx)을 넣는다.
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";

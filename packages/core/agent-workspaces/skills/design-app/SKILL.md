@@ -124,8 +124,10 @@ Each screen declares `places`. They decide where people can open it:
   list (the screen's `label` is the second half), and can pin it to the
   project's activity bar to open it with one click.
 - `card`: inside an agent conversation, when an agent shows the screen.
-- `sidebar`: the right sidebar.
-- `tray`: the taskbar tray popup.
+- `sidebar`: the right sidebar. Shown there as soon as the app declares it; the
+  person can turn it off in Settings.
+- `tray`: the taskbar tray popup. Shown as soon as the app declares it; the
+  person can turn it off in Settings.
 
 `params` is the schema of the input a screen receives (root type object; none
 means the screen takes no input). To use a part of one screen on its own, make

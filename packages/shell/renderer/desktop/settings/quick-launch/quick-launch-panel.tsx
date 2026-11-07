@@ -1,5 +1,5 @@
 // Settings › Quick launch. 왼쪽 sidebar 아래 빠른 실행의 전역 값이다: 단추 순서, 고정할 앱 panel, 앱 panel 화면마다
-// 여는 자리(Tab·Float), 오른쪽 sidebar에 나올 앱 화면, tray에 나올 앱 화면. 자기 값을 둔 project는 Project settings의 값을 쓴다. 마지막 float 자리는 사람이 옮길 때 기억한다.
+// 여는 자리(Tab·Float), 오른쪽 sidebar와 tray에서 끌 앱 화면. 자기 값을 둔 project는 Project settings의 값을 쓴다. 마지막 float 자리는 사람이 옮길 때 기억한다.
 import { t } from "@lophn/i18n";
 
 import {
@@ -59,8 +59,8 @@ export function QuickLaunchPanel() {
           apps={apps}
           loading={loading}
           failed={failed}
-          picks={prefs.sidebarPanels}
-          onPicks={(next) => set("sidebarPanels", next)}
+          off={prefs.sidebarPanelsOff}
+          onOff={(next) => set("sidebarPanelsOff", next)}
         />
       </section>
       <section className={styles.groupBlock}>
@@ -72,8 +72,8 @@ export function QuickLaunchPanel() {
           apps={apps}
           loading={loading}
           failed={failed}
-          picks={prefs.tray}
-          onPicks={(next) => set("tray", next)}
+          off={prefs.trayOff}
+          onOff={(next) => set("trayOff", next)}
         />
       </section>
     </div>

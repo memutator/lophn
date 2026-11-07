@@ -79,6 +79,9 @@ interface BrowserTabProps {
   devtools: DevtoolsState | null;
   /** DevTools 값을 바꾼다. 경계를 끄는 동안의 잦은 바뀜은 `later`로 모은다. */
   onDevtools(next: DevtoolsState | null, later?: boolean): void;
+  /** 사람이 켠 Keep alive. 켜면 다른 workspace에 가도 이 page를 다시 load하지 않고 살려 둔다(workspace-views.tsx). */
+  keepAlive: boolean;
+  onKeepAlive(on: boolean): void;
 }
 
 // 탭 안 DevTools 자리의 처음 크기와 DevTools·page 각자의 가장 작은 크기(CSS px).
@@ -236,6 +239,12 @@ function OpenTab(
       }
     },
   });
+
+  // 꺼 둔 채 다른 탭으로 가 mount가 풀려도 host가 값을 쥐고 있다가 workspace를 떠날 때 쓴다.
+  const { keepKey, keepAlive } = props;
+  useEffect(() => {
+    webviews.setUserKeep(keepKey, keepAlive);
+  }, [webviews, keepKey, keepAlive]);
 
   // native popup 탭: 보관 중인 view가 있으면 그대로 쓰고, 없으면 main이 만든 popup view를 가져온다.
   // 여는 동안 이 자리가 사라지면 늦게 온 view를 보관소에 넘긴다(탭이 남았으면 다시 mount가 꺼낸다).
@@ -487,6 +496,8 @@ function OpenTab(
         native={native}
         devtools={devtools?.place ?? null}
         onDevtools={devtoolsAction}
+        keepAlive={props.keepAlive}
+        onKeepAlive={props.onKeepAlive}
       />
       {notice === null ? null : (
         <div className={styles.notice}>

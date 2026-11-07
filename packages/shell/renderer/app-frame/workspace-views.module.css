@@ -1,0 +1,14 @@
+/* WorkspaceWindow 본문(portal)과 <webview> 그릇이 같이 사는 stacking context. 예전 `.workspace`(position: fixed)와 같은
+   자리·성격이라 pane 화면·패널·menu의 z-index 관계가 그대로다. 빈 곳은 아래 화면이 받는다. */
+.context {
+  position: fixed;
+  inset: var(--space-0);
+  pointer-events: none;
+}
+
+/* 그릇. webview-host.module.css의 .layer와 같다(창 전체가 기준이다). */
+.layer {
+  position: absolute;
+  inset: var(--space-0);
+  pointer-events: none;
+}

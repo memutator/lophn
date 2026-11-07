@@ -26,6 +26,8 @@ export interface BrowserSessionHandle {
     listener: (
       event: { preventDefault(): void },
       contentsId: number | undefined,
+      /** 이 download가 끝나거나 멈추면 부른다. */
+      onEnd: (done: () => void) => void,
     ) => void,
   ): void;
   getUserAgent(): string;
@@ -58,6 +60,8 @@ export function installBrowserSession(
   handle: BrowserSessionHandle,
   deps: {
     activation: { fresh(contentsId: number): boolean };
+    /** 한 contents의 download가 처음 시작될 때(true)와 마지막이 끝났을 때(false). */
+    downloading?(contentsId: number, active: boolean): void;
   },
 ): { clearData(): Promise<void> } {
   handle.onPermissionRequest(decidePermission);
@@ -66,10 +70,24 @@ export function installBrowserSession(
 
   // 시작한 contents를 모르면 사용자 입력을 확인할 수 없으니 거절한다.
   // 거절하지 않은 download는 저장 경로를 정하지 않아 Electron이 저장 dialog를 띄운다.
-  handle.onDownload((event, contentsId) => {
+  const active = new Map<number, number>();
+  handle.onDownload((event, contentsId, onEnd) => {
     if (contentsId === undefined || !deps.activation.fresh(contentsId)) {
       event.preventDefault();
+      return;
     }
+    const count = (active.get(contentsId) ?? 0) + 1;
+    active.set(contentsId, count);
+    if (count === 1) deps.downloading?.(contentsId, true);
+    onEnd(() => {
+      const left = (active.get(contentsId) ?? 1) - 1;
+      if (left > 0) {
+        active.set(contentsId, left);
+        return;
+      }
+      active.delete(contentsId);
+      deps.downloading?.(contentsId, false);
+    });
   });
 
   handle.setUserAgent(browserUserAgent(handle.getUserAgent()));

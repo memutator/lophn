@@ -52,13 +52,17 @@ export const browserKind: TabKindDef = {
     return <Favicon src={typeof favicon === "string" ? favicon : undefined} />;
   },
   fromStored(stored, { key }) {
-    const { url, favicon } = stored;
+    const { url, favicon, keep_alive } = stored;
     if (typeof url !== "string" || url.length > MAX_URL) return null;
     return {
       key,
       kind: "browser",
       title: nameOf("", url),
-      fields: { url, ...(typeof favicon === "string" ? { favicon } : {}) },
+      fields: {
+        url,
+        ...(typeof favicon === "string" ? { favicon } : {}),
+        ...(keep_alive === true ? { keepAlive: true } : {}),
+      },
     };
   },
   toStored(tab) {
@@ -75,6 +79,7 @@ export const browserKind: TabKindDef = {
       key: tab.key,
       url,
       ...(keep ? { favicon } : {}),
+      ...(tab.fields?.keepAlive === true ? { keep_alive: true } : {}),
     };
   },
   // 보통 탭은 옮길 상태가 없다(받는 창이 저장된 url을 다시 load한다). 크기 준 popup의 native view는
@@ -172,6 +177,12 @@ export const browserKind: TabKindDef = {
         onDocked={() =>
           host.patchTab(tab.key, (current) => ({
             fields: { ...current.fields, adopt: undefined, native: undefined },
+          }))
+        }
+        keepAlive={tab.fields?.keepAlive === true}
+        onKeepAlive={(on) =>
+          host.patchTab(tab.key, (current) => ({
+            fields: { ...current.fields, keepAlive: on ? true : undefined },
           }))
         }
         onCloseRequested={() => host.removeTab(tab.key)}

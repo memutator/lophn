@@ -61,7 +61,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 - **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(`rewind_files`의 root가 그 그릇의 artifacts 폴더의 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 그 그릇 workspace의 열린 session 가운데 마지막 것을 고른다. root가 그릇마다 달라 같은 이름의 artifact가 다른 그릇에 있어도 섞이지 않는다. 없으면 pane에 열린 그 그릇 workspace의 lophn session이고, 그 session이 그 그릇 workspace의 열린 lophn session이 아니면 conflict로 거절한다. pane에 그런 session이 없으면 그 그릇 workspace의 lophn 새 session이다. 사람의 `.html`은 늘 그 project workspace의 lophn이 받는다.
 - **artifact annotation을 읽는 것은 그 그릇의 agent다.** 자격 조건 `project`(project workspace의 session)는 그 project의 artifact target과 사람의 `.html`(file) target을, 조건 `app`(앱 workspace의 session)은 그 앱의 artifact target을 읽는다. 다른 그릇 것은 not_found이고, 그릇 조건이 없는 home의 session은 forbidden이다(`architecture/annotation.md`).
 - **파일이 바뀌면 열린 탭이 다시 load한다.** artifact는 폴더 전체, 사람의 `.html`은 그 폴더 바로 아래만 지켜본다(사람의 폴더는 클 수 있다). 150ms 동안 모아 한 번 다시 load한다.
-- **같은 창에서 같은 source는 view 하나다.** 탭이 Float·Dock으로 다시 mount되어도 창의 `<webview>` 그릇이 element를 들고 있고 view_session도 그대로다. main이 새 화면을 열 때(열기, crash 뒤 다시 열기)는 `?mount`가 바뀐 새 `src`를 내고 renderer가 element를 새로 만든다. 폴더가 없으면 view를 만들지 않고 탭이 안내와 [Try again]을 그린다.
+- **같은 창에서 같은 source는 view 하나다.** 탭이 Float·Dock으로 다시 mount되어도 창의 `<webview>` 그릇이 element를 들고 있고 view_session도 그대로다. main이 새 화면을 열 때(열기, crash 뒤 다시 열기)는 `?mount`가 바뀐 새 `src`를 내고 renderer가 element를 새로 만든다. 폴더가 없으면 view를 만들지 않고 탭이 안내와 [Try again]을 그린다. workspace를 바꾸면 artifact 탭의 page는 놓고 돌아오면 다시 load한다: artifact page의 preload에는 bridge가 없어 "살려 둬" 신호를 보낼 길이 없다(`workspace-layout.md`의 "workspace를 떠나도 살려 두는 page").
 
 ## 왜 이 모양인가
 

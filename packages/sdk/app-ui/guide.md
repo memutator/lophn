@@ -5,7 +5,7 @@
 앱 view의 bridge(`lophnApp`)를 쓰는 UI 셋이다. 선언한 operation 하나를 부르는
 `OperationButton`·`useOperation`, 앱 화면 root의 `AppErrorBoundary`, 화면의 머리
 조작을 lophn 탭 머리 줄에 올리는 `useTabHead`, 화면이 열린 자리·인자·workspace를 읽는
-`usePlace`다. 화면은
+`usePlace`, 일이 도는 동안 page를 살려 두는 `useKeepAlive`다. 화면은
 operation만 부르고, 호출은 앱 view의 `lophnApp.callOperation` 하나로만 한다.
 호출이 허락되는지, 사람이 정해야 하는지는 lophn이 정하고 앱 안에 따로 확인
 dialog를 두지 않는다. 조작은 lophn 화면과 같은 component(`@lophn/ui`)다. bridge가
@@ -72,7 +72,17 @@ import {
     panel처럼 모든 workspace에 나오는 화면이 이걸 보고 맞춘다. `folders`는
     project의 등록 폴더 path 목록이고 Home과 앱 workspace는 `[]`이다. workspace를
     모르는 자리(앱 전용 창, 전역 float)에서는 `null`이다.
-- type: `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
+- `useKeepAlive(active, app?)` — `active`인 동안 사람이 이 화면이 있는 workspace를
+  떠나도(다른 project로 가도) lophn이 page를 숨겨 살려 두고, 돌아오면 다시 load하지
+  않는다. 기본은 떠나면 page를 놓고 돌아오면 다시 load한다. 다시 load하면 화면
+  state와 진행 중인 일(agent 답을 기다리는 중, 업로드)이 사라지므로 그런 일이 도는
+  동안만 켜고 끝나면 `false`로 둔다.
+  - 살려 두는 page는 창마다 6개까지이고 넘치면 가장 오래 안 본 것부터 놓인다. 그
+    탭을 사람이 닫으면 바로 놓인다. 놓인 화면은 다시 열 때 새로 load된다. 그래서
+    살려 두기에 기대지 말고 되살릴 것(session 이름 등)은 앱이 저장한다.
+  - page가 새로 load되면 신호가 꺼지고, 화면이 사라지거나 `active`가 `false`가 되면
+    내려간다. 앱 view 밖이면 아무 일도 하지 않는다.
+- type: `KeepAliveBridge`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
   `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`,
   `TabHeadEvent`, `TabHeadHandlers`, `TabHeadBridge`

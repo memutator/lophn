@@ -11,6 +11,8 @@ export const browser = {
   "browser.button.devtools-window": "Open DevTools in separate window",
   "browser.button.forward": "Forward",
   "browser.button.inspect": "Inspector",
+  "browser.button.keep-alive": "Keep alive",
+  "browser.button.keep-alive-on": "Keep alive (on)",
   "browser.button.more": "More",
   "browser.button.open-external": "Open in browser",
   "browser.button.reload": "Reload",

@@ -85,4 +85,9 @@ export type LophnApp = {
   setTabHead(head: TabHead | null): void;
   /** 머리 줄의 event를 받는다. 받기 시작하면 지금 `shown`을 바로 한 번 준다. */
   onTabHead(listener: (event: TabHeadEvent) => void): () => void;
+  /**
+   * true인 동안 사람이 이 화면이 있는 workspace를 떠나도 lophn이 page를 숨겨 살려 둔다(다시 load하지 않는다).
+   * page가 새로 load되면 꺼지므로 다시 보내야 한다.
+   */
+  setKeepAlive(active: boolean): void;
 };

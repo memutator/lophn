@@ -51,9 +51,14 @@ interface BrowserChromeProps {
   /** 지금 DevTools 자리. null이면 닫혀 있다. */
   devtools: DevtoolsPlace | null;
   onDevtools(action: DevtoolsPlace | "open" | "close"): void;
+  /** 다른 workspace에 가도 이 탭의 page를 다시 load하지 않고 살려 두는지(사람이 켠다). */
+  keepAlive: boolean;
+  onKeepAlive(on: boolean): void;
 }
 
 type DevtoolsAction = DevtoolsPlace | "open" | "close";
+
+const KEEP_ALIVE_ITEM = "keep-alive";
 
 const DEVTOOLS_ITEMS = [
   {
@@ -230,7 +235,26 @@ export function BrowserChrome(props: BrowserChromeProps) {
             disabled: item.id === props.devtools,
           }),
         );
+  // DevTools 항목 아래에 두는 탭 설정. 끌 수 있어야 하므로 켜져 있어도 늘 누를 수 있다.
+  const menuItems = [
+    ...devtoolsItems,
+    {
+      id: KEEP_ALIVE_ITEM as string,
+      label: t(
+        props.keepAlive
+          ? "browser.button.keep-alive-on"
+          : "browser.button.keep-alive",
+      ),
+      icon: browserIcons.keepAlive,
+      disabled: false,
+      separatorBefore: true,
+    },
+  ];
   const pick = (id: string) => {
+    if (id === KEEP_ALIVE_ITEM) {
+      latest.current.onKeepAlive(!latest.current.keepAlive);
+      return;
+    }
     const found = devtoolsItems.find((item) => item.id === id);
     if (found !== undefined && !found.disabled) {
       latest.current.onDevtools(found.id);
@@ -277,11 +301,12 @@ export function BrowserChrome(props: BrowserChromeProps) {
       actions,
       menu: {
         // id는 탭 기본 항목(close, float)과 겹치지 않게 접두어를 단다.
-        items: devtoolsItems.map((item) => ({
+        items: menuItems.map((item) => ({
           id: `devtools:${item.id}`,
           label: item.label,
           leading: <MenuIcon icon={item.icon} />,
           disabled: item.disabled,
+          ...("separatorBefore" in item ? { separatorBefore: true } : {}),
         })),
         onSelect: (id) => pick(id.slice("devtools:".length)),
         onOpenChange: props.onMenuOpenChange,
@@ -299,6 +324,7 @@ export function BrowserChrome(props: BrowserChromeProps) {
       props.bookmarkKey,
       keyPresses,
       props.devtools,
+      props.keepAlive,
       props.focusAddress,
       props.native,
       detached,
@@ -341,11 +367,12 @@ export function BrowserChrome(props: BrowserChromeProps) {
       {actions}
       {openMenu === null ? (
         <Menu
-          items={devtoolsItems.map((item) => ({
+          items={menuItems.map((item) => ({
             id: item.id,
             label: item.label,
             leading: <MenuIcon icon={item.icon} />,
             disabled: item.disabled,
+            ...("separatorBefore" in item ? { separatorBefore: true } : {}),
           }))}
           onSelect={pick}
           onOpenChange={props.onMenuOpenChange}
@@ -357,7 +384,7 @@ export function BrowserChrome(props: BrowserChromeProps) {
           void openMenu(
             event.currentTarget,
             t("browser.button.more"),
-            devtoolsItems.map((item) => ({
+            menuItems.map((item) => ({
               id: item.id,
               label: item.label,
               disabled: item.disabled,

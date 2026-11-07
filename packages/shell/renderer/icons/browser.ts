@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Bookmark,
   Code,
+  Pin,
   EllipsisVertical,
   ExternalLink,
   Globe,
@@ -32,4 +33,5 @@ export const browserIcons = {
   devtoolsFloat: PictureInPicture2,
   devtoolsWindow: SquareArrowOutUpRight,
   devtoolsClose: X,
+  keepAlive: Pin,
 } as const satisfies Record<string, LucideIcon>;

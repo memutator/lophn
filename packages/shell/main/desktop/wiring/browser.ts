@@ -8,6 +8,7 @@ import {
   shell,
   type WebContents,
   type WebContentsView,
+  webContents,
 } from "electron";
 import { randomUUID } from "node:crypto";
 
@@ -61,6 +62,16 @@ export function register(ctx: ShellContext): BrowserWiring {
   const ensureSession = () =>
     (session ??= installBrowserSession(electronBrowserSession(), {
       activation,
+      // 받는 중에는 renderer가 그 탭의 page를 workspace를 떠나도 살려 두게 알린다.
+      downloading(contentsId, active) {
+        webContents
+          .fromId(contentsId)
+          ?.hostWebContents?.send(BROWSER_EVENT_CHANNEL, {
+            kind: "download",
+            view_session: guestViewSession(contentsId),
+            active,
+          });
+      },
     }));
 
   const orderOf = windowBrowserViewOrders<BrowserWindow, WebContentsView>(

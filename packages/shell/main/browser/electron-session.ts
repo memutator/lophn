@@ -33,8 +33,8 @@ export function electronBrowserSession(): BrowserSessionHandle {
       session.setDevicePermissionHandler(() => false);
     },
     onDownload(listener) {
-      session.on("will-download", (event, _item, contents) =>
-        listener(event, contents?.id),
+      session.on("will-download", (event, item, contents) =>
+        listener(event, contents?.id, (done) => item.once("done", done)),
       );
     },
     getUserAgent: () => session.getUserAgent(),

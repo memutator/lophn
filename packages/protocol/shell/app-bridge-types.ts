@@ -13,6 +13,20 @@ export type Json =
 
 export type TabHeadItem = { id: string; label: string; disabled?: boolean };
 
+/** 단추 `icon`으로 쓸 수 있는 이름. lophn이 자기 icon으로 그린다. 모르는 이름은 무시하고 글 단추로 그린다. */
+export const TAB_HEAD_ICONS = [
+  "refresh",
+  "add",
+  "open",
+  "edit",
+  "delete",
+  "copy",
+  "run",
+  "stop",
+  "download",
+] as const;
+export type TabHeadIcon = (typeof TAB_HEAD_ICONS)[number];
+
 /**
  * 앱 화면이 자기 탭의 머리 줄(← →, 경로, ⋯ 메뉴가 있는 줄)에 올리는 것. 글과 id만 싣고 그리는 것은 lophn이다.
  * 누르면 `onTabHead`가 id를 받는다.
@@ -24,8 +38,12 @@ export type TabHead = {
   status?: string;
   /** 경로 뒤 탭. */
   tabs?: { items: TabHeadItem[]; selected: string | null };
-  /** ⋯ 앞 단추. */
-  actions?: (TabHeadItem & { primary?: boolean; busy?: boolean })[];
+  /** ⋯ 앞 단추. tray popup은 이것만 icon 단추로 그린다(`icon`이 없으면 작은 글 단추). */
+  actions?: (TabHeadItem & {
+    primary?: boolean;
+    busy?: boolean;
+    icon?: TabHeadIcon;
+  })[];
   /** ⋯ 메뉴의 맨 위 묶음. */
   menu?: TabHeadItem[];
   /** 주면 ← →가 앱 안의 뒤로·앞으로가 된다. 없으면 lophn 이동 기록이다. */

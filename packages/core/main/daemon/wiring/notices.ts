@@ -12,6 +12,7 @@ import {
   noticesObserveVersion,
 } from "../../../../protocol/apps/notice.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { readInstalledVersions } from "../../../apps/sdk-status/mod.ts";
 import {
   noticeUnifiedSchemaSteps,
   productVersionSchemaSteps,
@@ -99,10 +100,18 @@ export function createNoticesWiring(
       const version = await productVersion();
       if (!version.ok)
         return logFailure("product_version_failed", version.error.message);
+      // 설치 사본을 못 읽으면 SDK 판은 견주지 않고 제품 판만 본다.
+      const sdks = await readInstalledVersions(ctx.root.path).catch(
+        (thrown) => {
+          logFailure("sdk_versions_failed", thrown);
+          return undefined;
+        },
+      );
       const done = await ctx.writer.command(NOTICE_RECORDER_CONTEXT, {
         command: noticesObserveVersion.name,
         input: {
           version: version.value,
+          sdks,
           // 이번 기동이 step을 전부 새로 적용했으면 새 data root다.
           fresh: ctx.migrationsApplied === ctx.schemaSteps.length,
         },
@@ -115,10 +124,16 @@ export function createNoticesWiring(
       const observed = done.value.result as {
         changed: boolean;
         from: string | null;
+        sdks_changed: boolean;
       };
       for (const listener of ctx.productStartListeners) {
         try {
-          await listener({ version: version.value, ...observed });
+          await listener({
+            version: version.value,
+            changed: observed.changed,
+            from: observed.from,
+            sdksChanged: observed.sdks_changed,
+          });
         } catch (thrown) {
           logFailure("product_start_listener_failed", thrown);
         }

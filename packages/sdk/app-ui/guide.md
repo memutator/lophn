@@ -57,8 +57,17 @@ import {
     `primary`·`busy`·`disabled`), `menu`(⋯ 메뉴 맨 위 묶음), `nav`(`{canBack,
     canForward}`. 주면 ← →가 앱 안의 뒤로·앞으로가 된다. ← →는 앱 화면 탭에만
     있고 다른 자리는 그리지 않는다). 항목은 `{id, label}`이고 글은 80자,
-    항목은 24개까지 보인다. 아이콘과 React 요소는 싣지 못한다. 좁은 자리(tray,
-    sidebar, float)는 `crumbs`·`tabs`보다 `status`와 `actions` 몇 개를 올린다.
+    항목은 24개까지 보인다. React 요소는 싣지 못하고 아이콘은 이름으로만
+    준다(아래 `icon`). 좁은 자리(sidebar, float)는 `crumbs`·`tabs`보다
+    `status`와 `actions` 몇 개를 올린다.
+  - `actions` 항목의 `icon`은 lophn이 자기 아이콘으로 그리는 이름이다:
+    `refresh`, `add`, `open`, `edit`, `delete`, `copy`, `run`, `stop`,
+    `download`. 모르는 이름은 무시하고 글 단추로 그린다. **tray popup의 머리
+    줄은 `actions`만 아이콘 단추로 그린다**(label은 tooltip). `status`·`crumbs`·
+    `tabs`·`menu`는 tray에서 그리지 않는다. 그러니 한눈에 필요한 한두 개
+    (예: 새로 고침)를 `actions` 맨 앞에 `icon`과 함께 준다. `icon`이 없는
+    단추는 작은 글 단추로 남는다. 다른 자리(탭, panel, sidebar, 카드)는 label
+    글 앞에 아이콘을 붙인다.
   - `handlers`는 `onTab(id)`·`onAction(id)`·`onMenu(id)`·`onBack()`·
     `onForward()`다.
   - 돌려주는 값은 lophn이 지금 그 머리 줄을 그리는지다. 앱 전용 창처럼 lophn
@@ -92,7 +101,7 @@ import {
     `lophnApp.setKeepAlive(active, key?)`를 직접 부를 때도 같은 key로 켜고 끈다.
 - type: `KeepAliveBridge`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
-  `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`,
+  `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`, `TabHeadIcon`,
   `TabHeadEvent`, `TabHeadHandlers`, `TabHeadBridge`
 
 ## 요구 permission

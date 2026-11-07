@@ -33,6 +33,7 @@ Package를 쓴다.
 - lophn은 탭, panel(dock·float), sidebar, tray, 세션 카드 어디에서나 화면 위에 자기 머리 줄을 그린다.
   화면의 보기 탭·상태 글·주 행동은 `useTabHead`로 그 줄에 올리고, `AppShell`의 `title`·`actions`는
   `useTabHead`가 false를 돌려줄 때(앱 전용 창)만 최소로 준다. 자기 머리 줄(제목 줄, 새로 고침 줄)을 그리지 않는다.
+  `tray` 화면의 머리 줄은 `actions`만 아이콘 단추로 그리니, 한눈에 필요한 한두 개(예: 새로 고침)에 `icon`을 주고 맨 앞에 둔다.
 - 앱 화면에서 agent와 이야기할 때는 `@lophn/agent`다(`useAgentSession`, `contextBlock`,
   `send(blocks, {reply})`). 직접 통로를 만들거나 agent에게 닿으려고 operation·command를
   더하지 않는다. `agent`는 handle이다. 앱 안의 상대·코치·검토자는 먼저 이 앱 workspace에서

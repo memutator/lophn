@@ -127,7 +127,11 @@ Each screen declares `places`. They decide where people can open it:
 - `sidebar`: the right sidebar. Shown there as soon as the app declares it; the
   person can turn it off in Settings.
 - `tray`: the taskbar tray popup. Shown as soon as the app declares it; the
-  person can turn it off in Settings.
+  person can turn it off in Settings. A `tray` screen is a glanceable status,
+  so keep the screen itself compact. lophn's popup head shows only the
+  `useTabHead` actions, as icon buttons (no status, crumbs, tabs or menu): give
+  the one or two actions that matter at a glance, such as refresh, an `icon`
+  and put them first.
 
 `params` is the schema of the input a screen receives (root type object; none
 means the screen takes no input). To use a part of one screen on its own, make

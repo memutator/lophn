@@ -156,6 +156,7 @@ export const noticeRecord = defineCommand({
 });
 
 // core가 켜질 때 지금 제품 판을 알리고 data root에 적힌 마지막 판과 견준다. 다르면 lophn_updated 행을 남기고 판을 새로 적는다.
+// 설치된 SDK 판(sdks: 이름 → 판)도 같은 자리에 적고 견준다(sdks_changed). 행은 남기지 않고 SDK 감지를 돌릴지 알리는 신호다.
 // fresh(새 data root)는 판만 적고 행을 남기지 않는다. 적힌 판이 없는 옛 data root는 from을 모르는 채로 행을 남긴다(from null).
 export const noticesObserveVersion = defineCommand({
   resource: "notices",
@@ -164,12 +165,16 @@ export const noticesObserveVersion = defineCommand({
   input: z.strictObject({
     version: short,
     fresh: z.boolean(),
+    // 설치 사본을 못 읽었으면 빼고, 그 기동은 SDK 판을 견주지 않는다.
+    sdks: z.record(short, short).optional(),
   }),
   output: z.object({
     // 판이 바뀐 기동이면 true. fresh이거나 같은 판이면 false다.
     changed: z.boolean(),
     // 바뀌기 전에 적힌 판. 모르면(fresh, 옛 data root) null이다.
     from: z.string().nullable(),
+    // 설치된 SDK 판이 적힌 것과 달랐으면 true. fresh이거나 같으면 false다. 적힌 것이 없던 옛 data root는 true다.
+    sdks_changed: z.boolean(),
   }),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "unavailable"],

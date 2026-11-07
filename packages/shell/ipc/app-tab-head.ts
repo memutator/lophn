@@ -1,10 +1,12 @@
 // 앱 화면 탭의 머리 줄 통로. main을 거치지 않고 앱 view(`<webview>` guest)와 그것을 품은 shell renderer가
 // 바로 주고받는다: 앱 preload가 `sendToHost`로 올리고 renderer는 그 element의 `ipc-message`로 받고, 누름은
 // element의 `send`로 내려간다. 머리 줄은 그 탭 안의 표시일 뿐이라 신원이 필요 없고, 보낸 element가 곧 그 탭이다.
-import type {
-  TabHead,
-  TabHeadEvent,
-  TabHeadItem,
+import {
+  TAB_HEAD_ICONS,
+  type TabHead,
+  type TabHeadEvent,
+  type TabHeadIcon,
+  type TabHeadItem,
 } from "../../protocol/shell/app-bridge-types.ts";
 
 export type { TabHead, TabHeadEvent };
@@ -72,8 +74,10 @@ export function readTabHead(value: unknown): TabHead | null {
         const base = item(entry);
         if (base === undefined) return undefined;
         const flags = entry as Record<string, unknown>;
+        const icon = TAB_HEAD_ICONS.find((name) => name === flags.icon);
         return {
           ...base,
+          ...(icon === undefined ? {} : { icon: icon satisfies TabHeadIcon }),
           ...(flags.primary === true ? { primary: true } : {}),
           ...(flags.busy === true ? { busy: true } : {}),
         };

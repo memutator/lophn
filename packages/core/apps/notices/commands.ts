@@ -255,25 +255,42 @@ export function createNoticeCommands(): {
             message: "only the program observes the product version",
           });
         }
-        const stored = tx.sql.get(
-          "select value from core_meta where key = 'product_version'",
-          [],
-        );
-        const last = stored === undefined ? null : String(stored["value"]);
-        if (last === input.version) return ok({ changed: false, from: last });
-        tx.sql.run(
-          `insert into core_meta (key, value) values ('product_version', ?)
-           on conflict (key) do update set value = excluded.value`,
-          [input.version],
-        );
+        const readMeta = (key: string): string | null => {
+          const row = tx.sql.get("select value from core_meta where key = ?", [
+            key,
+          ]);
+          return row === undefined ? null : String(row["value"]);
+        };
+        const writeMeta = (key: string, value: string) =>
+          tx.sql.run(
+            `insert into core_meta (key, value) values (?, ?)
+             on conflict (key) do update set value = excluded.value`,
+            [key, value],
+          );
+        const last = readMeta("product_version");
+        // SDK 판 묶음은 제품 판 옆 같은 표에 정렬한 JSON으로 적는다. 판이 같아도 SDK 사본만 바뀐 기동을 알아채려는 것이다.
+        let sdksChanged = false;
+        if (input.sdks !== undefined) {
+          const now = JSON.stringify(
+            Object.entries(input.sdks).sort(([a], [b]) => a.localeCompare(b)),
+          );
+          const lastSdks = readMeta("sdk_versions");
+          if (lastSdks !== now) {
+            writeMeta("sdk_versions", now);
+            sdksChanged = !(lastSdks === null && input.fresh);
+          }
+        }
+        if (last === input.version)
+          return ok({ changed: false, from: last, sdks_changed: sdksChanged });
+        writeMeta("product_version", input.version);
         if (last === null && input.fresh)
-          return ok({ changed: false, from: null });
+          return ok({ changed: false, from: null, sdks_changed: sdksChanged });
         const recorded = recordProgramNotice(tx, {
           kind: "lophn_updated",
           params: { from: last ?? "unknown", to: input.version },
         });
         if (!recorded.ok) return recorded;
-        return ok({ changed: true, from: last });
+        return ok({ changed: true, from: last, sdks_changed: sdksChanged });
       },
     },
     // 사람만 지운다. route의 actors가 같은 경계를 먼저 막고, 여기서 한 번 더 본다.

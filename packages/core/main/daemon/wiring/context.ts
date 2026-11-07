@@ -78,10 +78,12 @@ import type { DataRoot } from "../../../install-and-update/mod.ts";
 
 // core가 켜질 때 한 번, 제품 판을 data root의 마지막 판과 견준 결과다(notices wiring이 afterReady에서 낸다).
 // changed: 판이 바뀐 기동(`lophn_updated` 기록을 남겼다). from: 바뀌기 전 판, 모르면(새 data root, 판을 적지 않던 옛 data root) null.
+// sdksChanged: 설치된 SDK 판이 마지막 기동과 달랐다(제품 판이 같아도 true일 수 있다).
 export type ProductStart = {
   version: string;
   from: string | null;
   changed: boolean;
+  sdksChanged: boolean;
 };
 export type ProductStartListener = (
   start: ProductStart,

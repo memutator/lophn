@@ -8,9 +8,23 @@ export interface TabHeadItem {
   disabled?: boolean;
 }
 
+// lophn이 자기 icon으로 그리는 이름. 모르는 이름은 무시하고 글 단추로 그린다.
+export type TabHeadIcon =
+  | "refresh"
+  | "add"
+  | "open"
+  | "edit"
+  | "delete"
+  | "copy"
+  | "run"
+  | "stop"
+  | "download";
+
 export interface TabHeadAction extends TabHeadItem {
   primary?: boolean;
   busy?: boolean;
+  // tray popup 머리 줄은 단추를 icon으로만 그린다(label은 tooltip). icon이 없으면 작은 글 단추다.
+  icon?: TabHeadIcon;
 }
 
 // 탭 머리 줄에 올리는 것. 글과 id만 싣고 그리는 것은 lophn이다.

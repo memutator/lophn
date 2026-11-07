@@ -79,12 +79,32 @@ function setup() {
       input: { title: string; key?: string; persistent?: boolean },
       app = APP,
     ) => run<{ id: string }>(commands.post.handle, `app:${app}`, input),
-    observe: (version: string, fresh: boolean) =>
-      run<{ changed: boolean; from: string | null }>(
+    observe: (version: string, fresh: boolean) => {
+      const done = run<{ changed: boolean; from: string | null }>(
         commands.observeVersion.handle,
         "machine",
         { version, fresh },
-      ),
+      );
+      return done.ok
+        ? ok({ changed: done.value.changed, from: done.value.from })
+        : done;
+    },
+    observeSdks: (
+      version: string,
+      fresh: boolean,
+      sdks: Record<string, string>,
+    ) => {
+      const done = run<{ changed: boolean; sdks_changed: boolean }>(
+        commands.observeVersion.handle,
+        "machine",
+        { version, fresh, sdks },
+      );
+      return done.ok
+        ? done.value.sdks_changed
+        : (() => {
+            throw new Error(done.error.message);
+          })();
+    },
     record: (actor: string, input: unknown) =>
       run<{ id: string }>(commands.record.handle, actor, input),
     dismiss: (actor: string, id: string) =>
@@ -323,4 +343,23 @@ test("the version marker records lophn_updated once per change and not on a fres
       .get()?.["n"],
     1,
   );
+});
+
+// SDK 감지를 돌릴 신호: 제품 판이 같아도 설치된 SDK 판이 바뀌면 true, 바뀐 것이 없으면 false다.
+test("a changed SDK version is reported even when the product version is the same", () => {
+  const s = setup();
+  const v1 = { "app-ui": "2.6.0", ui: "1.0.0" };
+  assert.strictEqual(s.observeSdks("0.21.0", true, v1), false);
+  assert.strictEqual(s.observeSdks("0.21.0", false, v1), false);
+  assert.strictEqual(
+    s.observeSdks("0.21.0", false, { ...v1, "app-ui": "2.7.0" }),
+    true,
+  );
+  assert.strictEqual(
+    s.observeSdks("0.21.0", false, { ...v1, "app-ui": "2.7.0" }),
+    false,
+  );
+  // SDK 판을 적지 않던 옛 data root가 처음 켜지면 한 번 돌린다.
+  const old = setup();
+  assert.strictEqual(old.observeSdks("0.21.0", false, v1), true);
 });

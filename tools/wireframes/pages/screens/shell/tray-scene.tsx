@@ -14,10 +14,10 @@ import { press, useDrive } from "../../../mock/drive.ts";
 import { useMockTabHead } from "../../../mock/tab-head.ts";
 import { MockDesktop, PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
 
-// Usage 앱이 useTabHead로 올린 머리 줄. popup 머리에 상태 글과 단추 하나로 선다.
+// Usage 앱이 useTabHead로 올린 머리 줄. tray popup 머리는 단추만 icon으로 그리고 상태 글은 그리지 않는다(그래서 status를 올려도 안 보인다).
 const HEAD = {
   status: "Updated 2 min ago",
-  actions: [{ id: "refresh", label: "Refresh" }],
+  actions: [{ id: "refresh", label: "Refresh", icon: "refresh" as const }],
 };
 
 const TRAY = [

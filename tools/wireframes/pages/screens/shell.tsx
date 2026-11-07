@@ -197,7 +197,7 @@ export const shellArea: Area = {
       id: "shell-tray",
       title: "Shell · Tray",
       description:
-        "작업 표시줄 오른쪽 tray(설치된 앱의 `tray` 화면마다 항목 하나, Settings › Quick launch › Tray에서 끄지 않은 한, Settings 톱니 바로 앞). 항목은 앱 아이콘이고 앱이 낸 짧은 글이 tone 색으로 붙는다(Usage, 62% left, good). 값이 없는 앱은 아이콘만 있다(Orders). 항목을 누르면 그 앱의 tray 화면이 항목 바로 위에 popup(360×480, 창 밖으로 나가지 않게 당김)으로 뜬다. 앱 화면이 `useTabHead`로 올린 머리 줄(상태 글, 단추, ⋯ 메뉴)은 popup 머리의 제목과 pin 사이에 그려진다(Updated 2 min ago, Refresh). popup 머리의 pin(Keep open)을 켜면 바깥을 누르거나 창이 focus를 잃거나 다른 항목을 눌러도 닫히지 않고, 자기 항목을 다시 누르거나 Esc를 누르면 닫힌다(pin은 lophn을 다시 켜면 풀린다). 작업 표시줄이 꺼져 있으면 항목은 title bar 오른쪽 sidebar 단추 옆에 아이콘만 서고 popup은 그 바로 아래로 뜬다. 값은 lophn을 다시 켜면 사라지고 앱이 시작할 때 다시 낸다.",
+        "작업 표시줄 오른쪽 tray(설치된 앱의 `tray` 화면마다 항목 하나, Settings › Quick launch › Tray에서 끄지 않은 한, Settings 톱니 바로 앞). 항목은 앱 아이콘이고 앱이 낸 짧은 글이 tone 색으로 붙는다(Usage, 62% left, good). 값이 없는 앱은 아이콘만 있다(Orders). 항목을 누르면 그 앱의 tray 화면이 항목 바로 위에 popup(360×480, 창 밖으로 나가지 않게 당김)으로 뜬다. 앱 화면이 `useTabHead`로 올린 머리 줄 가운데 단추(`actions`)만 popup 머리의 제목과 pin 사이에 icon 단추로 그려진다(새로 고침 icon 하나, label은 tooltip). 상태 글·경로·탭·⋯ 메뉴는 그리지 않고, `icon`이 없는 단추는 작은 글 단추다. popup 머리의 pin(Keep open)을 켜면 바깥을 누르거나 창이 focus를 잃거나 다른 항목을 눌러도 닫히지 않고, 자기 항목을 다시 누르거나 Esc를 누르면 닫힌다(pin은 lophn을 다시 켜면 풀린다). 작업 표시줄이 꺼져 있으면 항목은 title bar 오른쪽 sidebar 단추 옆에 아이콘만 서고 popup은 그 바로 아래로 뜬다. 값은 lophn을 다시 켜면 사라지고 앱이 시작할 때 다시 낸다.",
       render: () => <TrayScene />,
     },
     {

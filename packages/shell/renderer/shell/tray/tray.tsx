@@ -175,7 +175,7 @@ function Popup({
       </div>
       <WebviewHostProvider value={host}>
         <div className={styles.body}>
-          <HeadSlotScope set={setHead}>
+          <HeadSlotScope set={setHead} actionsOnly>
             <PopupBody item={item} />
           </HeadSlotScope>
         </div>

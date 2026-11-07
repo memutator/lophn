@@ -13,7 +13,7 @@ import {
   useState,
 } from "react";
 import { t } from "@lophn/i18n";
-import { type MenuItem, Menu } from "@lophn/ui/overlay";
+import { type MenuItem, Menu, Tooltip } from "@lophn/ui/overlay";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Tab, TabList, Tabs } from "@lophn/ui/navigation";
 
@@ -23,7 +23,7 @@ import {
   type CardHeadSetter,
   type CardHeadSpec,
 } from "../shell/card-head.tsx";
-import { shellIcons } from "../icons/mod.ts";
+import { actionIcons, shellIcons } from "../icons/mod.ts";
 import type { WebviewHost } from "./webview-host.tsx";
 import styles from "./app-tab-head.module.css";
 
@@ -55,20 +55,28 @@ export function useHeadSlot(): readonly [CardHeadSpec | null, CardHeadSetter] {
   return [spec, set];
 }
 
+// tray popup처럼 좁은 머리 줄은 앱 단추만 icon 단추로 그린다(경로·탭·상태·⋯ 메뉴는 그리지 않는다).
+const HeadActionsOnlyContext = createContext(false);
+
 // 프레임이 이미 앱 이름을 제목으로 보이는 자리(tray, sidebar, float, 카드)에서 경로 첫 칸(앱 이름)을 뺀다.
 const HeadRootContext = createContext<string | null>(null);
 
 /** useHeadSlot의 setter를 화면 둘레에 단다. 이 안의 앱 화면은 머리 줄을 이 칸에 올리고 경로 첫 칸(앱 이름)은 뺀다. */
 export function HeadSlotScope({
   set,
+  actionsOnly = false,
   children,
 }: {
   set: CardHeadSetter;
+  /** true면 앱 단추만 icon 단추로 그린다(tray popup). */
+  actionsOnly?: boolean;
   children: ReactNode;
 }) {
   return (
     <CardHeadContext.Provider value={set}>
-      <HeadRootContext.Provider value="">{children}</HeadRootContext.Provider>
+      <HeadActionsOnlyContext.Provider value={actionsOnly}>
+        <HeadRootContext.Provider value="">{children}</HeadRootContext.Provider>
+      </HeadActionsOnlyContext.Provider>
     </CardHeadContext.Provider>
   );
 }
@@ -115,6 +123,7 @@ export function useAppTabHead(input: {
   const { host, viewKey, enabled, label } = input;
   const setCardHead = useContext(CardHeadContext);
   const root = useContext(HeadRootContext);
+  const actionsOnly = useContext(HeadActionsOnlyContext);
   const [head, setHead] = useState<TabHead | null>(null);
   const live = enabled && host !== null && viewKey !== "";
   // 단추의 callback은 최신 값을 읽으므로 key가 바뀔 때만 다시 올린다.
@@ -147,9 +156,21 @@ export function useAppTabHead(input: {
     }
     if (head === null && shell === undefined) return;
     const send = (event: TabHeadEvent) => host!.sendTabHead(viewKey, event);
-    setCardHead(cardHeadOf(head ?? {}, root ?? label, send, shell));
+    setCardHead(
+      cardHeadOf(head ?? {}, root ?? label, send, shell, actionsOnly),
+    );
     return () => setCardHead(null);
-  }, [live, host, viewKey, setCardHead, head, label, root, shellKey]);
+  }, [
+    live,
+    host,
+    viewKey,
+    setCardHead,
+    head,
+    label,
+    root,
+    shellKey,
+    actionsOnly,
+  ]);
 }
 
 function cardHeadOf(
@@ -157,7 +178,9 @@ function cardHeadOf(
   label: string,
   send: (event: TabHeadEvent) => void,
   shell: ShellHead | undefined,
+  actionsOnly: boolean,
 ): CardHeadSpec {
+  if (actionsOnly) return actionsOnlyHeadOf(head, send);
   const extra = shell?.actions;
   const spec: {
     -readonly [K in keyof CardHeadSpec]: CardHeadSpec[K];
@@ -186,6 +209,7 @@ function cardHeadOf(
             key={action.id}
             size="sm"
             variant={action.primary ? "primary" : "ghost"}
+            icon={action.icon && actionIcons[action.icon]}
             disabled={action.disabled || action.busy}
             aria-busy={action.busy || undefined}
             data-app-head-action={action.id}
@@ -216,6 +240,49 @@ function cardHeadOf(
     };
   }
   return spec;
+}
+
+// tray popup 머리: 앱 단추만 그린다. icon이 있으면 icon 단추(label은 tooltip·접근성 이름), 없으면 작은 글 단추다.
+function actionsOnlyHeadOf(
+  head: TabHead,
+  send: (event: TabHeadEvent) => void,
+): CardHeadSpec {
+  if (head.actions === undefined) return {};
+  return {
+    actions: (
+      <span className={styles.actions}>
+        {head.actions.map((action) => {
+          const onClick = () => send({ type: "action", id: action.id });
+          const disabled = action.disabled || action.busy;
+          return action.icon === undefined ? (
+            <Button
+              key={action.id}
+              size="sm"
+              variant="ghost"
+              disabled={disabled}
+              aria-busy={action.busy || undefined}
+              data-app-head-action={action.id}
+              onClick={onClick}
+            >
+              {action.label}
+            </Button>
+          ) : (
+            <Tooltip key={action.id} content={action.label}>
+              <IconButton
+                icon={actionIcons[action.icon]}
+                label={action.label}
+                size="sm"
+                disabled={disabled}
+                aria-busy={action.busy || undefined}
+                data-app-head-action={action.id}
+                onClick={onClick}
+              />
+            </Tooltip>
+          );
+        })}
+      </span>
+    ),
+  };
 }
 
 // 기본 경로(앱 이름)를 대신 그리므로 같은 모양으로 앱 이름부터 둔다.

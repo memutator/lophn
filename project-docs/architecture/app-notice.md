@@ -21,7 +21,7 @@
 | `app_unavailable` | `app.record_unavailable`(`packages/core/apps/runtime/commands.ts`): `start_failed`, `crash_loop`, `unexpected_exit`, activation의 복원 실패·종료 확인 불가. 같은 사실의 재전송은 쓰지 않는다 | `app_unavailable`(앱마다 한 줄, 되풀이되면 그 줄을 안 읽음으로 되돌린다) |
 | `app_data_migrated`, `app_data_restored` | `activation.record_data_change`, `activation.record_data_restore`(`packages/core/apps/data/commands.ts`). 복원은 새로 기록할 때만 | 없음 |
 | `lophn_updated` | `notices.observe_version`(아래 "제품 판 marker") | 없음 |
-| `sdk_update_needed` | 제품 판이 바뀐 기동의 SDK 감지(`packages/core/apps/sdk-status/detect.ts`, 앱 wiring의 `productStartListeners`). 필수나 가능 SDK가 있는 앱이 하나라도 있으면 앱 없는 줄 하나. params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 새 판이 있는 앱 수), 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features.", action은 `open_home_skill` `update-apps` + 빈 args(전체) | `sdk_update_needed`(앱 없는 줄 하나, 다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
+| `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`packages/core/apps/sdk-status/detect.ts`, 앱 wiring의 `productStartListeners`). 필수나 가능 SDK가 있는 앱이 하나라도 있으면 앱 없는 줄 하나. params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 새 판이 있는 앱 수), 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features.", action은 `open_home_skill` `update-apps` + 빈 args(전체) | `sdk_update_needed`(앱 없는 줄 하나, 다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
 
 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 줄마다 [Ask lophn]이 있으면 home을 거칠 이유가 없어진다(0.20.0 정정 항목). 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 ledger에 남고 단추도 그대로 동작한다.
 
@@ -31,7 +31,9 @@ release·data·runtime command는 자기 tx 안에서 `recordProgramNotice(tx, i
 
 `core_meta`(ledger step `apps.notices.product-version`)의 `product_version` 한 줄이 data root가 마지막으로 돈 제품 판이다. core가 켜져 ready가 된 뒤 notices wiring의 `afterReady`가 root `package.json`의 `version`(개발은 repo root, 설치본은 `platform/package.json`)을 `notices.observe_version {version, fresh}`로 낸다. 한 tx에서 marker를 새 판으로 바꾸고, 판이 다르면 `lophn_updated {from, to}`를 쓴다(SDK 갱신 수는 싣지 않는다. 그 일은 `sdk_update_needed` 줄 하나가 한다). 새 data root(`fresh`: 이번 기동이 step을 전부 새로 적용했다)는 marker만 적는다. marker 없이 있던 옛 data root가 처음 켜지면 `from`을 모른 채(`unknown`) 한 번 쓴다.
 
-SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener의 쓰는 쪽이다. 같은 순간에 다른 일을 하려면 `ctx.productStartListeners`(`wiring/context.ts`)에 `(start: {version, from, changed}) => void | Promise<void>`를 올린다(build·start에서). marker를 견준 직후 올린 순서대로 부르고, 던져도 core 기동과 다른 listener에 영향이 없다(log만 남는다). `changed`는 판이 바뀐 기동, `from`은 바뀌기 전 판(새 data root·옛 data root는 null)이다.
+같은 표의 `sdk_versions` 한 줄은 마지막으로 본 설치 SDK 판(part → 가장 높은 판, 정렬한 JSON)이다. `afterReady`가 `<data root>/sdk`의 설치 사본에서 읽어(`readInstalledVersions`) `observe_version`의 `sdks`로 같이 내고, 적힌 것과 다르면 새로 적고 `sdks_changed`를 true로 돌려준다(행은 남기지 않는다. 새 data root는 적기만 하고 false, 적힌 것이 없던 옛 data root는 true). 표 모양이 그대로(키 값)라 migration은 없다. 사본을 못 읽으면 SDK 판은 견주지 않는다.
+
+SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener의 쓰는 쪽이다. 같은 순간에 다른 일을 하려면 `ctx.productStartListeners`(`wiring/context.ts`)에 `(start: {version, from, changed, sdksChanged}) => void | Promise<void>`를 올린다(build·start에서). marker를 견준 직후 올린 순서대로 부르고, 던져도 core 기동과 다른 listener에 영향이 없다(log만 남는다). `changed`는 판이 바뀐 기동, `from`은 바뀌기 전 판(새 data root·옛 data root는 null), `sdksChanged`는 설치된 SDK 판이 지난 기동과 달랐다(제품 판이 같아도 true일 수 있다)는 뜻이다.
 
 ## 흐름
 

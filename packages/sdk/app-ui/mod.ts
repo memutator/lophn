@@ -28,6 +28,7 @@ export {
   type TabHeadBridge,
   type TabHeadEvent,
   type TabHeadHandlers,
+  type TabHeadIcon,
   type TabHeadItem,
   useTabHead,
 } from "./use-tab-head.ts";

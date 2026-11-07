@@ -1,2 +1,6 @@
 export { recordSdkUpdates } from "./detect.ts";
-export { readSdkStatus, type SdkStatusDeps } from "./status.ts";
+export {
+  readInstalledVersions,
+  readSdkStatus,
+  type SdkStatusDeps,
+} from "./status.ts";

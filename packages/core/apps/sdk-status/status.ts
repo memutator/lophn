@@ -67,6 +67,16 @@ async function readInstalled(
   return installed;
 }
 
+// 설치된 SDK의 part → 가장 높은 판. 판이 바뀐 기동을 알아채는 데 쓴다(`notices.observe_version`).
+export async function readInstalledVersions(
+  dataRoot: string,
+): Promise<Record<string, string>> {
+  const versions: Record<string, string> = {};
+  for (const [part, installed] of await readInstalled(dataRoot))
+    versions[part] = installed.current;
+  return versions;
+}
+
 // `<part>-<version>.md` 메모의 part별 판 목록이다.
 async function readNotes(notesRoot: string): Promise<Map<string, string[]>> {
   const notes = new Map<string, string[]>();

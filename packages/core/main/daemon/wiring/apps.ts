@@ -361,8 +361,12 @@ export const appsWiring: WiringFactory = () => {
         if (!start.changed) return;
         const statuses = await readSdkStatus(sdkDeps);
         if (!statuses.ok) throw new Error(statuses.error.message);
-        const failed = await recordSdkUpdates(statuses.value, ctx.noticeRecorder);
-        if (failed !== null && !failed.ok) throw new Error(failed.error.message);
+        const failed = await recordSdkUpdates(
+          statuses.value,
+          ctx.noticeRecorder,
+        );
+        if (failed !== null && !failed.ok)
+          throw new Error(failed.error.message);
       });
       ctx.provide("appIntake", intake);
       ctx.provide("invocationLedger", ledger);

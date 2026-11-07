@@ -51,8 +51,18 @@ interface ApplyFailure {
   readonly reason: string;
 }
 
+/** 앱이 고정한 SDK 하나. required는 lophn이 더 돌리지 않는 옛 판, available은 옛 판이지만 돈다. */
+export interface SdkRow {
+  readonly sdk: string;
+  readonly pinned: string;
+  readonly current: string;
+  readonly level: "required" | "available" | "current";
+}
+
 export interface VersionView {
   readonly active: ReleaseCard | null;
+  /** 켜진 release가 고정한 SDK 판. 읽지 못하면 비운다. */
+  readonly sdks: readonly SdkRow[];
   readonly applying: Applying | null;
   readonly failed: ApplyFailure | null;
   /** 물러난 release, 새것부터. */

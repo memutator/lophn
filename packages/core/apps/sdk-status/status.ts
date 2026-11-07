@@ -24,7 +24,7 @@ export function compareVersion(a: string, b: string): number {
   return 0;
 }
 
-type Installed = { current: string; supportedFrom: string | null };
+export type Installed = { current: string; supportedFrom: string | null };
 
 async function dirNames(path: string): Promise<string[]> {
   try {
@@ -51,7 +51,10 @@ async function readInstalled(
     let supportedFrom: string | null = null;
     try {
       const manifest = JSON.parse(
-        await readFile(`${dataRoot}/sdk/${part}/${newest}/package.json`, "utf8"),
+        await readFile(
+          `${dataRoot}/sdk/${part}/${newest}/package.json`,
+          "utf8",
+        ),
       );
       const floor = manifest?.lophn?.supported_from;
       if (typeof floor === "string") supportedFrom = floor;
@@ -73,6 +76,40 @@ async function readNotes(notesRoot: string): Promise<Map<string, string[]>> {
     notes.set(found[1], [...(notes.get(found[1]) ?? []), found[2]]);
   }
   return notes;
+}
+
+// 고정 판 하나의 단계와 읽을 메모다. 지원 하한보다 옛 판은 required, 그 위에서 지금 판보다 옛 판은 available이다.
+export function sdkEntry(
+  pin: { name: string; version: string },
+  installed: Installed,
+  noteVersions: readonly string[],
+  part: string,
+): SdkStatusEntry {
+  const level: SdkLevel =
+    installed.supportedFrom !== null &&
+    compareVersion(pin.version, installed.supportedFrom) < 0
+      ? "required"
+      : compareVersion(pin.version, installed.current) < 0
+        ? "available"
+        : "current";
+  return {
+    sdk: pin.name,
+    pinned: pin.version,
+    current: installed.current,
+    supported_from: installed.supportedFrom,
+    level,
+    notes:
+      level === "current"
+        ? []
+        : noteVersions
+            .filter(
+              (version) =>
+                compareVersion(version, pin.version) > 0 &&
+                compareVersion(version, installed.current) <= 0,
+            )
+            .sort(compareVersion)
+            .map((version) => `${part}-${version}.md`),
+  };
 }
 
 export type SdkStatusDeps = {
@@ -104,31 +141,7 @@ export async function readSdkStatus(
       const part = pin.name.slice(SDK_PREFIX.length);
       const now = installed.get(part);
       if (now === undefined) continue;
-      const level: SdkLevel =
-        now.supportedFrom !== null &&
-        compareVersion(pin.version, now.supportedFrom) < 0
-          ? "required"
-          : compareVersion(pin.version, now.current) < 0
-            ? "available"
-            : "current";
-      sdks.push({
-        sdk: pin.name,
-        pinned: pin.version,
-        current: now.current,
-        supported_from: now.supportedFrom,
-        level,
-        notes:
-          level === "current"
-            ? []
-            : (notes.get(part) ?? [])
-                .filter(
-                  (version) =>
-                    compareVersion(version, pin.version) > 0 &&
-                    compareVersion(version, now.current) <= 0,
-                )
-                .sort(compareVersion)
-                .map((version) => `${part}-${version}.md`),
-      });
+      sdks.push(sdkEntry(pin, now, notes.get(part) ?? [], part));
     }
     sdks.sort((a, b) => (a.sdk < b.sdk ? -1 : 1));
     statuses.push({

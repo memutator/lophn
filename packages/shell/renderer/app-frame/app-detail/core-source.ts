@@ -17,6 +17,7 @@ import {
   appSetIcon,
 } from "../../../../protocol/apps/mod.ts";
 import type { Notice } from "../../../../protocol/apps/notice.ts";
+import type { AppSdkStatus } from "../../../../protocol/apps/sdk-status.ts";
 import {
   iconInputOf,
   iconViewOf,
@@ -58,6 +59,7 @@ import type {
   ReleaseCard,
   ReleaseChanges,
   ResourceKind,
+  SdkRow,
   ResourceRow,
   RewindItem,
   SecretInfo,
@@ -196,6 +198,7 @@ function versionView(
   releases: readonly ReleaseRecord[],
   active: string | null,
   queue: readonly ActivationQueueEntry[],
+  sdks: readonly SdkRow[],
 ): VersionView {
   const newest = [...releases].sort((a, b) => b.number - a.number);
   const activations = releases
@@ -227,6 +230,7 @@ function versionView(
   );
   return {
     active: current === null ? null : card(current),
+    sdks,
     applying:
       activating === undefined
         ? null
@@ -572,7 +576,7 @@ export function coreAppDetailSource(
     },
 
     async versions(app) {
-      const [releases, active, queue] = await Promise.all([
+      const [releases, active, queue, sdk] = await Promise.all([
         releaseRecords(core, app),
         activeRelease(core, app),
         read<{ entries: ActivationQueueEntry[] }>(
@@ -581,13 +585,27 @@ export function coreAppDetailSource(
           "queue",
           { app },
         ),
+        read<{ apps: AppSdkStatus[] }>(core, "apps", "sdk_status", { app }),
       ]);
       if (!releases.ok) return releases;
       if (!active.ok) return active;
       if (!queue.ok) return queue;
       return {
         ok: true,
-        value: versionView(releases.value, active.value, queue.value.entries),
+        value: versionView(
+          releases.value,
+          active.value,
+          queue.value.entries,
+          // SDK 상태를 못 읽어도 release 화면은 보인다.
+          sdk.ok
+            ? (sdk.value.apps[0]?.sdks.map((entry) => ({
+                sdk: entry.sdk,
+                pinned: entry.pinned,
+                current: entry.current,
+                level: entry.level,
+              })) ?? [])
+            : [],
+        ),
       };
     },
 

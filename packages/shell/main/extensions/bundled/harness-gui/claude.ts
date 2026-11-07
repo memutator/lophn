@@ -2199,6 +2199,8 @@ const start: (sdk: ClaudeSdk) => Start =
       old.input.end();
       old.q.close();
       await old.exited;
+      // 새 query가 죽은 CLI의 자리를 잇는다.
+      dead = null;
       live = open(from);
       empty = from.resume === undefined;
       cliSession = from.sessionId ?? from.resume ?? cliSession;
@@ -2332,19 +2334,33 @@ const start: (sdk: ClaudeSdk) => Start =
         );
       }
     }
+    // 명령마다 새 shell이라 `cd`가 이어지지 않는다. 끝난 cwd를 stdout 끝에 표시해 읽고 다음 `!`가 거기서 돈다.
+    let shellCwd = cwd;
+    const CWD_MARK = "\n:lophn-cwd:";
     function runShell(command: string) {
       const id = shellStart(command);
       const key = ids.newId("shl");
-      const proc = spawn("/bin/sh", ["-c", command], { cwd });
+      const script = `${command}\n__lophn_rc=$?; printf '${CWD_MARK}%s\\n' "$PWD"; exit $__lophn_rc`;
+      const proc = spawn("/bin/sh", ["-c", script], { cwd: shellCwd });
       const entry = { proc, killed: false };
       shells.set(key, entry);
       const cap = ACP_TOOL_BODY_LIMIT * 2;
       let out = "";
       let err = "";
-      proc.onStdout((text) => void (out = (out + text).slice(0, cap)));
+      // 출력이 cap을 넘으면 out에서 표시가 잘리므로 끝만 따로 둔다.
+      let tail = "";
+      proc.onStdout((text) => {
+        out = (out + text).slice(0, cap);
+        tail = (tail + text).slice(-8192);
+      });
       proc.onStderr((text) => void (err = (err + text).slice(0, cap)));
       proc.onExit((code) => {
         shells.delete(key);
+        const mark = tail.lastIndexOf(CWD_MARK);
+        if (mark >= 0 && !entry.killed)
+          shellCwd = tail.slice(mark + CWD_MARK.length).trim() || shellCwd;
+        const cut = out.lastIndexOf(CWD_MARK);
+        if (cut >= 0) out = out.slice(0, cut);
         shellEnd(
           id,
           command,
@@ -2369,13 +2385,17 @@ const start: (sdk: ClaudeSdk) => Start =
       content: ContentBlock[],
       delivery: "next_turn" | "steer" = "next_turn",
     ) {
-      if (dead !== null) {
-        addUser(root, id, content, now(), uuidOf(ids));
-        endTurn("failed", dead);
-        return;
-      }
       const uuid = uuidOf(ids);
       const body = await contentOf(sdk, content);
+      if (dead !== null) {
+        // CLI가 끝난 뒤 첫 메시지: 같은 session id로 query를 다시 연다. 못 열면 `failure`가 이 turn을 실패로 닫는다.
+        const old = retire();
+        addUser(root, id, content, now(), uuid);
+        await revive(old);
+        empty = false;
+        live.input.push(userMessage(uuid, body));
+        return;
+      }
       empty = false;
       if (root.turn === null) {
         addUser(root, id, content, now(), uuid);
@@ -2645,6 +2665,22 @@ const start: (sdk: ClaudeSdk) => Start =
       await refreshTitle();
     }
 
+    async function revive(old: Live) {
+      try {
+        await reopen(
+          old,
+          empty ? { sessionId: cliSession } : { resume: cliSession },
+        );
+      } catch (cause) {
+        failure(cause instanceof Error ? cause.message : String(cause));
+        return;
+      }
+      if (spawnFailed) {
+        live.q.close();
+        failure("`claude` was not found on PATH.");
+      }
+    }
+
     // 합계·계획·goal·task를 비운다(`/clear`와 session 바꾸기).
     function resetStats() {
       totals.input = totals.output = totals.read = totals.write = 0;
@@ -2671,7 +2707,7 @@ const start: (sdk: ClaudeSdk) => Start =
 
     // 같은 탭에서 이 폴더의 다른 CLI session으로 바꾼다. 옛 session의 transcript는 건드리지 않는다.
     async function openSession(target: string) {
-      if (target === cliSession) return;
+      if (target === cliSession && dead === null) return;
       const old = retire();
       publish({ type: "session_reset" });
       uuidOfMessage.clear();

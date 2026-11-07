@@ -60,7 +60,11 @@ type Fake = {
 };
 
 /** 대역 process. `exit()`가 불려야 끝난다. */
-function fakeProcess(command = "", args: readonly string[] = []) {
+function fakeProcess(
+  command = "",
+  args: readonly string[] = [],
+  cwd: string | undefined = undefined,
+) {
   const exits: Array<(code: number | null) => void> = [];
   const outs: Array<(text: string) => void> = [];
   const proc: ExtensionProcess = {
@@ -76,6 +80,7 @@ function fakeProcess(command = "", args: readonly string[] = []) {
     proc,
     command,
     args,
+    cwd,
     stdout: (text: string) => outs.forEach((listener) => listener(text)),
     exit: (code = 0) => exits.forEach((listener) => listener(code)),
   };
@@ -96,8 +101,12 @@ async function setup(
   const processes: ReturnType<typeof fakeProcess>[] = [];
   // 옛 session의 transcript를 바꾸는 SDK 호출. open_session은 이것을 부르면 안 된다.
   const calls: string[] = [];
-  const spawn = (command: string, args: readonly string[]) => {
-    const made = fakeProcess(command, args);
+  const spawn = (
+    command: string,
+    args: readonly string[],
+    spawnOptions?: { cwd?: string },
+  ) => {
+    const made = fakeProcess(command, args, spawnOptions?.cwd);
     processes.push(made);
     return made.proc;
   };
@@ -118,6 +127,7 @@ async function setup(
         async *[Symbol.asyncIterator]() {
           for (;;) {
             const next = sdkMessages.shift();
+            if (next instanceof Error) throw next;
             if (next !== undefined) yield next;
             else await new Promise<void>((resolve) => (wake = resolve));
           }
@@ -211,6 +221,12 @@ async function setup(
       let text = JSON.stringify(message);
       for (const [from, to] of this.rename) text = text.replaceAll(from, to);
       sdkMessages.push(JSON.parse(text));
+      wake?.();
+      await flush();
+    },
+    /** SDK의 message 흐름이 이 오류로 끝난다(CLI가 죽은 것). */
+    async fail(error: Error) {
+      sdkMessages.push(error);
       wake?.();
       await flush();
     },
@@ -602,11 +618,8 @@ test("`!`와 run_shell은 shouldQuery false 메시지만 input queue에 넣고, 
   await t.input({ type: "run_shell", key: "a", command: "ls" });
   await t.input(t.send("1", "!echo hi"));
   assert.deepEqual(
-    shells().map((one) => one.args),
-    [
-      ["-c", "ls"],
-      ["-c", "echo hi"],
-    ],
+    shells().map((one) => one.args[1]?.split("\n")[0]),
+    ["ls", "echo hi"],
   );
   assert.equal(sent().length, 0);
   shells()[0]?.stdout("a.txt\n");
@@ -671,4 +684,51 @@ test("open_session은 지금 session의 transcript를 바꾸는 SDK 호출 없�
   );
   assert.deepEqual(texts, ["user"]);
   assert.equal(t.state.reread, false);
+});
+
+// 명령마다 새 shell이라, 끝난 cwd를 이어 주지 않으면 `!cd sub` 뒤의 `!ls`가 원래 폴더에서 돈다.
+test("`!`는 앞 명령이 끝난 cwd에서 돌고 그 표시는 출력에 남지 않는다", async () => {
+  const t = await setup();
+  const shells = () => t.processes.filter((one) => one.command === "/bin/sh");
+
+  await t.input({ type: "run_shell", key: "a", command: "cd sub && ls" });
+  assert.equal(shells()[0]?.cwd, "/work/test");
+  shells()[0]?.stdout("a.txt");
+  shells()[0]?.stdout("\n:lophn-cwd:/work/te");
+  shells()[0]?.stdout("st/sub\n");
+  shells()[0]?.exit();
+  await flush();
+  assert.equal(tools(t.state)[0]?.body?.output, "a.txt");
+
+  await t.input({ type: "run_shell", key: "b", command: "ls" });
+  assert.equal(shells()[1]?.cwd, "/work/test/sub");
+});
+
+// CLI가 끝난 뒤 보낸 메시지가 실패로 끝나기만 하면 사람은 TUI로 넘겼다 와야 이어 간다.
+test("CLI가 끝난 뒤의 send는 같은 session id로 query를 다시 열어 그 메시지를 넣고, 못 열면 실패한 turn으로 끝난다", async () => {
+  const t = await setup({ resume: "resumed-id" });
+  const errors = () =>
+    t.state.items.flatMap((item) =>
+      item.kind === "notice" && item.notice.type === "error"
+        ? [item.notice.message]
+        : [],
+    );
+  await t.fail(new Error("boom"));
+  assert.deepEqual(errors(), ["boom"]);
+
+  await t.input(t.send("1", "again"));
+  assert.equal(t.queries.length, 2);
+  assert.equal(t.queryOptions?.resume, "resumed-id");
+  assert.equal(
+    t.queries[1]?.sent.map((one) => one.message.content).join(""),
+    "again",
+  );
+  assert.equal(t.state.turn?.phase, "working");
+
+  // 다시 죽으면 그 turn이 이유와 함께 실패로 닫힌다.
+  await t.fail(new Error("boom again"));
+  assert.equal(t.state.turn?.phase, "ended");
+  assert.deepEqual(errors(), ["boom", "boom again"]);
+  await t.input({ type: "open_session", key: "k", cli_session: "resumed-id" });
+  assert.equal(t.queries.length, 3);
 });

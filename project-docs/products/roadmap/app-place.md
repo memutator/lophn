@@ -22,6 +22,10 @@
 
 > 좋은 것 같아 extension이라는 걸 굳이 두지 않고도 우리 기존의 앱 개념으로 처리 가능하고 자리랑 hook만 추가로 만들면 된다는 거 아녀
 
+> Masup 같은 것도 내가 여러 프로젝트에서 바이브코딩하면서 열어두고싶잖아
+> 근데 workspace마다 다 따로 켜놔야한다는 게 불편한거야
+> minimized 상태도 같이 이제 전역적으로 보관되어야하고
+
 ## 왜
 
 - 지금 extension은 shell main에서 Node 권한으로 도는 기능 묶음이다(harness, harness-gui). shell 화면에는 아무것도 꽂지 못한다. 사람이 원하는 것은 다른 multi harness처럼 오른쪽 sidebar에 git worktree 같은 panel을 직접 만들어 꽂는 것이다.
@@ -125,7 +129,8 @@
 
 - **전역 float**: float에 desk float와 전역 float 두 범위를 둔다.
   - 전역 float는 workspace 창에 산다. 그 창에서 desk와 workspace를 바꿔도 남는다(정한 것 10).
-  - workspace layout 파일 밖에 저장한다.
+  - 자리(rect), 접힘(minimized), pin을 workspace layout 파일 밖 전역 한 곳에 저장한다. 어느 workspace에서 접어도 다른 workspace에서 접힌 채 보이고, lophn을 다시 켜도 그대로다(정한 것 11).
+  - workspace를 옮길 때 전역 float의 `<webview>`는 다시 load되지 않는다. 지금 `WorkspaceWindow`가 workspace마다 새로 mount되므로 전역 float 층은 그 밖(창 하나에 하나)에 둔다.
 - **작업 표시줄**: `.stage` 아래 16px 여백 자리에 bar를 둔다.
   - 왼쪽에는 접힌 float chip을 둔다(`tab-strip.tsx`에서 옮긴다). 전역 float는 늘 보이고, desk float는 그 desk의 것만 보인다.
   - 오른쪽에는 tray를 둔다.
@@ -146,7 +151,8 @@
 7. tray 항목 내용은 data이고 popup만 화면이다(agent). 항목마다 늘 떠 있는 `<webview>`를 두지 않는다. Claude Code mod의 `$.ui.status(text)`와 같은 꼴이다.
 8. 크기 bucket을 두지 않는다(agent). 앱이 아는 것은 자리와 인자이고, 크기는 앱 CSS가 `<webview>` 폭에 맞춘다. float가 사람 손으로 크기가 바뀌는 자리라 bucket이 맞지 않는다.
 9. 작업 표시줄은 설정 toggle `shell.taskbar`로 켜고 끈다. 기본은 켬이다(agent).
-10. 전역 float는 workspace 창에 산다(agent). 창 하나가 한 번에 workspace 하나를 보이고 왼쪽 sidebar로 옮긴다(`architecture/workspace-layout.md`). 그 밖의 창은 detached 탭 창과 앱 전용 창뿐이고 둘 다 탭이나 앱 하나만 든 창이다(`recentWindow`, `packages/shell/main/desktop/wiring/desktop-window.ts`). 그래서 전역 float는 그 창에서 desk와 workspace를 바꿔도 남고, detached 창과 앱 전용 창에는 뜨지 않는다.
+10. 전역 float는 workspace 창에 산다(agent). 창 하나가 한 번에 workspace 하나를 보이고 왼쪽 sidebar로 옮긴다(`architecture/workspace-layout.md`). 그 밖의 창은 detached 탭 창과 앱 전용 창뿐이고 둘 다 탭이나 앱 하나만 든 창이다(`recentWindow`, `packages/shell/main/desktop/wiring/desktop-window.ts`). 그래서 전역 float는 그 창에서 desk와 workspace를 바꿔도 남고, detached 창과 앱 전용 창에는 뜨지 않는다. 사람이 원한 것도 이것이다: 여러 project를 오가며 Masup을 workspace마다 따로 켜지 않는다(사람, 2026-11-07).
+11. 전역 float의 접힘 상태도 전역으로 보관한다(사람, 2026-11-07). rect와 pin도 같이 둔다(agent).
 
 ## 단계
 
@@ -158,7 +164,7 @@
 ## 끝남 기준
 
 - 사람이 Masup을 tray에서 본다. 어느 desk와 workspace에서든 같다.
-- 사람이 전역 float로 띄운 앱 panel이 desk와 workspace를 바꿔도 남는다.
+- 사람이 전역 float로 띄운 앱 panel이 desk와 workspace를 바꿔도 다시 load되지 않고 남는다. 한 workspace에서 접으면 다른 workspace에서도 접혀 있고, lophn을 다시 켜도 그대로다.
 - agent가 Mahas의 세션 하나를 인자로 넘긴 card로 보인다.
 - agent가 지은 git worktree 앱이 project 오른쪽 sidebar panel로 나오고, 그 project의 worktree를 보인다.
 

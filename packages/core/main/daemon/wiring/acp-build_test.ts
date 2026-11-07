@@ -461,6 +461,7 @@ test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title
         workspace,
         title: null,
         skip: false,
+        harness: null,
         model_selection: null,
       },
     },

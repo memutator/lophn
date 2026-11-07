@@ -4,6 +4,7 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { modelChoiceOutputSchema } from "./models.ts";
+import { HARNESS_RUNTIMES } from "./agent-values.ts";
 import {
   agentIdSchema,
   workspaceSchema,
@@ -52,6 +53,8 @@ const workspaceSessionObject = z.object({
   skip: z.boolean(),
   // 다른 workspace의 session이 불러 열린 session이면 그 workspace. home에 열린 그런 session은 폴더를 읽지 않는다.
   called_from: workspaceOutputSchema.nullable(),
+  // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
+  harness: z.enum(HARNESS_RUNTIMES).nullable(),
   state_seq: seqSchema,
 });
 

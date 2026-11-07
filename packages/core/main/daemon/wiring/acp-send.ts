@@ -323,11 +323,23 @@ export function createAcpSend(deps: AcpSendDeps) {
           request: input.request,
           choice: input.choice,
         });
-      case "send_queued":
+      case "send_queued": {
+        // harness의 입력 queue는 따로라 도는 turn에 올릴 수 없다. 거절하지 않으면 늘 conflict로 답해 이유가 틀린다.
+        const read = await deps.read(who, workspaceSessionRead, {
+          session: input.session,
+        });
+        if (!read.ok) return read;
+        if ((read.value as { session: { harness: unknown } }).session.harness) {
+          return err({
+            code: "unavailable" as const,
+            message: "a harness session takes queued messages after its turn",
+          });
+        }
         return await memory(who, steerQueuedNow, {
           session: input.session,
           message: input.message,
         });
+      }
       case "remove_queued":
         return await memory(who, removeQueued, {
           session: input.session,

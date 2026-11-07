@@ -387,6 +387,7 @@ export function workspaceSessionOf(row: AgentSessionRow): WorkspaceSession {
           },
     skip: row.skip,
     called_from: calledFromOf(row),
+    harness: row.harness,
     state_seq: row.state_seq,
   } as WorkspaceSession;
 }

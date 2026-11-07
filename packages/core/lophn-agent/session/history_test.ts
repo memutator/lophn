@@ -38,6 +38,7 @@ function stub(rows: Row[], request: number): CoreCall {
             compaction: null,
             skip: false,
             called_from: null,
+            harness: null,
             state_seq: "1",
           },
           ...common,

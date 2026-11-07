@@ -1029,21 +1029,24 @@ export const AGENT_MODES: AcpChoice[] = [
 
 // lophn agent가 가진 기능은 harness 전용 일곱(subagent 조작, task, toggle, goal, role, resume)을 뺀 전부다.
 // `!`(shell)는 명령을 돌릴 폴더가 있는 workspace(project·앱)의 session만 가진다. home은 없다.
-const capabilitiesOf = (folder: boolean) =>
+// harness session은 도는 turn에 steer를 올리지 못한다(입력이 다음 turn으로 간다).
+const capabilitiesOf = (folder: boolean, harness: boolean) =>
   Object.fromEntries(
     ACP_CAPABILITIES.map((name) => [
       name,
       name === "shell"
         ? folder
-        : ![
-            "stop_child",
-            "steer_child",
-            "tasks",
-            "toggles",
-            "goal",
-            "roles",
-            "resume",
-          ].includes(name),
+        : name === "steer"
+          ? !harness
+          : ![
+              "stop_child",
+              "steer_child",
+              "tasks",
+              "toggles",
+              "goal",
+              "roles",
+              "resume",
+            ].includes(name),
     ]),
   ) as AcpCapabilities;
 
@@ -1204,6 +1207,7 @@ export async function readUsage(
 type MetaParts = {
   // 명령을 돌릴 폴더가 있는 workspace의 session인가.
   folder: boolean;
+  harness: boolean;
   title: string | null;
   skip: boolean;
   model: Pick<AcpSessionMeta, "models" | "model">;
@@ -1216,7 +1220,7 @@ function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
   return {
     title: parts.title === null ? null : env.redact(parts.title),
     cli_session: null,
-    capabilities: capabilitiesOf(parts.folder),
+    capabilities: capabilitiesOf(parts.folder, parts.harness),
     ...parts.model,
     modes: AGENT_MODES,
     mode: parts.skip ? "skip" : "ask",
@@ -1339,6 +1343,7 @@ export async function readSessionMeta(
   ]);
   return metaOf(env, {
     folder: record.value.workspace !== null,
+    harness: record.value.harness !== null,
     title: record.value.title,
     skip: record.value.skip,
     model,
@@ -1362,6 +1367,7 @@ export async function readDraftMeta(
   ]);
   return metaOf(env, {
     folder: draft.workspace !== null,
+    harness: false,
     title: null,
     skip: false,
     model,

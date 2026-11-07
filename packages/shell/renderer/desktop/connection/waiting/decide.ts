@@ -6,7 +6,7 @@ import {
   turnRequestDecide,
 } from "../../../../../protocol/approvals/turn-request.ts";
 import { activationConsent } from "../../../../../protocol/apps/activation/consent.ts";
-import { appNoticeDismiss } from "../../../../../protocol/apps/notice.ts";
+import { noticeDismiss } from "../../../../../protocol/apps/notice.ts";
 import { shareRequestDecide } from "../../../../../protocol/approvals/share-request.ts";
 import {
   jobApprove,
@@ -210,8 +210,8 @@ export async function decideShare(
     : UNAVAILABLE;
 }
 
-/** 앱 알림 줄을 지운다. 줄은 AppNoticeClosed가 목록에서 뺀다. */
-export async function dismissAppNotice(
+/** 알림 줄을 지운다(영구 기록은 읽음으로만 바뀐다). 줄은 NoticeClosed·NoticeRead가 목록에서 뺀다. */
+export async function dismissNotice(
   core: CoreSource,
   id: string,
 ): Promise<
@@ -219,7 +219,7 @@ export async function dismissAppNotice(
 > {
   const reply = await core
     .call(
-      commandCall(appNoticeDismiss, {
+      commandCall(noticeDismiss, {
         input: { id },
         compare: {},
         key: `notice-dismiss-${id}`,
@@ -228,7 +228,7 @@ export async function dismissAppNotice(
     .catch(() => null);
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
-  return appNoticeDismiss.output.safeParse(reply.value).success
+  return noticeDismiss.output.safeParse(reply.value).success
     ? { ok: true }
     : UNAVAILABLE;
 }

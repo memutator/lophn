@@ -41,7 +41,7 @@ import {
   appRuntime,
 } from "./runtime.ts";
 import { APP_GRANT_ROUTES } from "./grants.ts";
-import { APP_NOTICE_ROUTES } from "./notice.ts";
+import { NOTICE_ROUTES } from "./notice.ts";
 import { APP_TRAY_ROUTES } from "./tray.ts";
 import { PACKAGE_ROUTES } from "./package-routes.ts";
 import {
@@ -103,7 +103,7 @@ export const ROUTES = [
   appsOAuthState,
   appUsage,
   ...APP_GRANT_ROUTES,
-  ...APP_NOTICE_ROUTES,
+  ...NOTICE_ROUTES,
   ...APP_TRAY_ROUTES,
   ...PACKAGE_ROUTES,
   ...ACTIVATION_ROUTES,

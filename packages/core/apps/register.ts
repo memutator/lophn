@@ -32,8 +32,9 @@ import {
   invocationsSchemaSteps,
 } from "./invocations/mod.ts";
 import {
-  appNoticesListRead,
   createNoticeCommands,
+  noticesListRead,
+  noticesOpenRead,
   noticeSchemaSteps,
 } from "./notices/mod.ts";
 import { rewindSchemaSteps } from "./rewind/mod.ts";
@@ -186,7 +187,9 @@ export function createLedgerRegistration(
       commands.setIcon,
       grants.revoke,
       notices.post,
+      notices.record,
       notices.dismiss,
+      notices.markRead,
       runtime.enableExecution,
       runtime.disableExecution,
       runtime.recordStarted,
@@ -214,7 +217,8 @@ export function createLedgerRegistration(
       releaseReads.activationCompare,
       releaseReads.activationConsents,
       grantReads.list,
-      appNoticesListRead,
+      noticesListRead,
+      noticesOpenRead,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocationReads.list,
@@ -284,7 +288,8 @@ export function createReaderRegistration(): ReaderRegistration {
       releaseReads.activationCompare,
       releaseReads.activationConsents,
       grantReads.list,
-      appNoticesListRead,
+      noticesListRead,
+      noticesOpenRead,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocations.list,

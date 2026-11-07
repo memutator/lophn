@@ -1,10 +1,13 @@
 // 알림을 어디에 띄울지 정하는 한 곳. 터미널 안 coding agent(tracker), lophn Agent session(Bus event),
-// 앱이 사람에게 한 알림(AppNoticePosted)이 같은 규칙(notice/rule.ts)으로 이리 온다: 보고 있으면 없음,
+// 사람에게 한 알림(NoticePosted: 앱이 한 것과 program이 남긴 기록)이 같은 규칙(notice/rule.ts)으로 이리 온다: 보고 있으면 없음,
 // lophn 창에 focus가 있으면 그 창의 toast, 없으면 OS 알림. 누르면 그 탭(앱 알림은 그 앱 공간)이 있는 창을
 // 앞으로 가져오고 고른다. toast를 받는 창은 하나뿐이라 창이 여럿이어도 한 번만 뜬다.
 import { BrowserWindow, Notification } from "electron";
 
-import type { AppNotice } from "../../../../protocol/apps/notice.ts";
+import type {
+  Notice as NoticeRow,
+  NoticeKind,
+} from "../../../../protocol/apps/notice.ts";
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
@@ -38,6 +41,15 @@ import type { TerminalFocusTable } from "../../terminal/controller.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { word } from "../i18n.ts";
 import type { Registered, ShellContext } from "./context.ts";
+
+// 띄우는 program 기록: 실패하거나 사람이 가서 볼 일. 켜짐·data migration 적용·lophn 업데이트는 결과가 기록으로 충분하다.
+const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
+  "release_failed",
+  "release_rolled_back",
+  "app_unavailable",
+  "app_data_restored",
+  "sdk_update_needed",
+]);
 
 const TITLES = {
   finished: {
@@ -354,14 +366,21 @@ export function createNoticeWiring(
     ],
   });
   ctx.relay.events.push((event) => void sessions.event(event));
-  // 앱이 사람에게 한 알림. 보고 있는 탭이 없으므로 lophn 창에 focus가 있으면 toast, 아니면 OS 알림이다.
-  // 놓친 알림은 다시 띄우지 않는다(Inbox 줄이 남는다).
-  ctx.relay.conditions.push({ types: ["AppNoticePosted"] });
+  // 사람에게 한 알림. 보고 있는 탭이 없으므로 lophn 창에 focus가 있으면 toast, 아니면 OS 알림이다.
+  // 놓친 알림은 다시 띄우지 않는다(Inbox 줄이 남는다). 앱이 한 알림은 모두 띄운다. program 기록은 사람이 알아야 하는
+  // 종류만 띄우고 나머지(켜짐, data migration 적용, lophn 업데이트)는 Inbox에만 남긴다.
+  ctx.relay.conditions.push({ types: ["NoticePosted"] });
   ctx.relay.events.push((event) => {
-    if (event.type !== "AppNoticePosted") return;
-    const posted = event.payload as AppNotice;
+    if (event.type !== "NoticePosted") return;
+    const posted = event.payload as NoticeRow;
+    if (posted.read_at !== null) return;
+    if (posted.source === "program" && !ALERT_PROGRAM_KINDS.has(posted.kind)) {
+      return;
+    }
+    // 앱에 관한 기록이 아니면(lophn 전체) 누를 곳이 없어 띄우지 않는다.
+    if (posted.app === null) return;
     present(
-      `${posted.app_name} · ${posted.title}`,
+      `${posted.app_name ?? "App"} · ${posted.title}`,
       excerpt(posted.body),
       undefined,
       { kind: "app", app: posted.app },

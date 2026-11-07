@@ -2,20 +2,27 @@ import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { atSchema } from "../base/values.ts";
+import { atSchema, readCursorSchema } from "../base/values.ts";
+import { projectIdSchema } from "../projects/values.ts";
 import { appIdSchema } from "./channel-values.ts";
 
-// 앱 notice. 앱 process가 사람에게 하는 알림이다(cap-notify). 앱이 core나 agent에 사실을 밀어 넣는 길이 아니다:
-// 받는 쪽은 사람의 Inbox와 toast·OS 알림뿐이다. 앱은 입력에 없다. 앱 자식 credential이 고정한 앱이다.
-// 권한(`notify.send` grant)은 broker가 요청마다 판정하고, 이 command는 그 뒤에서 표에 쓴다.
-// 같은 (app, key)의 열린 notice가 있으면 새 notice가 그것을 대신한다(id는 그대로, 내용·시각을 갱신). key가 없으면 매번 더한다.
-// 앱마다 열린 notice는 NOTICE_PER_APP_MAX개이고 넘으면 오래된 것부터 지운다.
-// 남지 않는 event(`packages/protocol/events/transient.ts`): AppNoticePosted(notice 한 건), AppNoticeClosed { id }.
+// notice는 사람에게 "답할 것"(승인·질문)이 아닌 것을 알리는 ledger 표 하나다(`architecture/app-notice.md`).
+// 출처는 둘이다. app: 앱 process가 사람에게 하는 알림(cap-notify). program: core가 남기는 기록(release 결과 등).
+// 받는 쪽은 사람뿐이다. core나 agent에 사실을 밀어 넣는 길이 아니다.
+// - 휘발(persistent=false): 사람이 지우면 행이 사라진다. 앱마다 NOTICE_EPHEMERAL_PER_APP_MAX개, 넘으면 오래된 것부터 지운다.
+// - 영구(persistent=true): 지우면 read_at만 채우고 행은 남는다. 앱마다 최근 NOTICE_PERSISTENT_PER_APP_MAX개. program 행은
+//   늘 영구이고 지우지 않는다.
+// 앱은 `app_notices.post`로 자기 행만 쓴다(앱은 입력에 없다. 자식 credential이 고정한다). program 행은 core 안 machine만 쓰고
+// 글은 고정 template + 매개변수로 core가 만든다(앱이 쓴 글이 program 행에 들어가지 않는다).
+// 같은 (source, app, key)의 행이 있으면 새 행이 그것을 대신한다(id 그대로, 내용·시각 갱신, 안 읽음으로 되돌린다).
+// 남지 않는 event(`packages/protocol/events/transient.ts`): NoticePosted(행 한 건), NoticeClosed { id }, NoticeRead { id, read_at }.
 
 export const NOTICE_TITLE_MAX = 120;
 export const NOTICE_BODY_MAX = 500;
 export const NOTICE_KEY_MAX = 64;
-export const NOTICE_PER_APP_MAX = 50;
+export const NOTICE_EPHEMERAL_PER_APP_MAX = 50;
+export const NOTICE_PERSISTENT_PER_APP_MAX = 200;
+export const NOTICE_LIST_LIMIT_MAX = 200;
 
 const noticeIdSchema = idSchema("ntc");
 export const noticeTitleSchema = z.string().trim().min(1).max(NOTICE_TITLE_MAX);
@@ -24,26 +31,68 @@ export const noticeKeySchema = z
   .string()
   .regex(new RegExp(`^[A-Za-z0-9_.:-]{1,${NOTICE_KEY_MAX}}$`));
 
-export const appNoticeSchema = z.strictObject({
+export const NOTICE_SOURCES = ["app", "program"] as const;
+export const noticeSourceSchema = z.enum(NOTICE_SOURCES);
+
+// program이 남기는 종류. 앱이 쓴 행의 종류는 `app` 하나다.
+export const PROGRAM_NOTICE_KINDS = [
+  "release_activated",
+  "release_failed",
+  "release_rolled_back",
+  "app_unavailable",
+  "app_data_migrated",
+  "app_data_restored",
+  "lophn_updated",
+  "sdk_update_needed",
+] as const;
+export const programNoticeKindSchema = z.enum(PROGRAM_NOTICE_KINDS);
+export type ProgramNoticeKind = z.infer<typeof programNoticeKindSchema>;
+export const noticeKindSchema = z.enum(["app", ...PROGRAM_NOTICE_KINDS]);
+export type NoticeKind = z.infer<typeof noticeKindSchema>;
+
+// 행을 누르면 할 일. 화면은 종류로만 그리고 실행한다. 종류를 더하면 이 union에 더하고 화면이 그 종류를 그린다.
+export const noticeActionSchema = z.discriminatedUnion("kind", [
+  // home lophn 대화를 그 skill로 연다. 사람이 단추를 눌러 시작한다.
+  z.strictObject({
+    kind: z.literal("open_home_skill"),
+    skill: z
+      .string()
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+      .max(64),
+    args: z.string().max(500),
+  }),
+]);
+export type NoticeAction = z.infer<typeof noticeActionSchema>;
+
+export const noticeSchema = z.strictObject({
   id: noticeIdSchema,
-  app: appIdSchema,
+  source: noticeSourceSchema,
+  // 앱의 행이거나 앱에 관한 기록이면 그 앱. lophn 전체에 관한 기록은 null이다.
+  app: appIdSchema.nullable(),
   // 사람에게 보일 이름. 읽을 때 푼 것이다.
-  app_name: z.string().min(1),
+  app_name: z.string().min(1).nullable(),
+  project: projectIdSchema.nullable(),
+  kind: noticeKindSchema,
   key: noticeKeySchema.nullable(),
   title: noticeTitleSchema,
   body: noticeBodySchema,
+  persistent: z.boolean(),
+  action: noticeActionSchema.nullable(),
   created_at: atSchema,
+  read_at: atSchema.nullable(),
 });
-export type AppNotice = z.infer<typeof appNoticeSchema>;
+export type Notice = z.infer<typeof noticeSchema>;
 
-export const appNoticePost = defineCommand({
-  resource: "app_notices",
+export const noticePost = defineCommand({
+  resource: "notices",
   method: "post",
-  name: "app_notices.post",
+  name: "notices.post",
   input: z.strictObject({
     title: noticeTitleSchema,
     body: noticeBodySchema.optional(),
     key: noticeKeySchema.optional(),
+    // 기본은 휘발이다.
+    persistent: z.boolean().optional(),
   }),
   output: z.object({ id: noticeIdSchema }),
   actors: ["app"],
@@ -56,30 +105,111 @@ export const appNoticePost = defineCommand({
   ],
 });
 
-export type AppNoticePostInput = z.infer<typeof appNoticePost.input>;
+export type NoticePostInput = z.infer<typeof noticePost.input>;
 
-export const appNoticeDismiss = defineCommand({
-  resource: "app_notices",
+// program 행의 매개변수다. 글은 core의 template(`packages/core/apps/notices/program-text.ts`)이 만든다.
+// 값은 짧은 식별자·판·이유 코드다. 앱이 쓴 글을 싣지 않는다.
+const short = z.string().trim().min(1).max(40);
+const reason = z.string().trim().min(1).max(200);
+
+function variant<K extends ProgramNoticeKind, P extends z.ZodRawShape>(
+  kind: K,
+  params: P,
+) {
+  return z.strictObject({
+    kind: z.literal(kind),
+    params: z.strictObject(params),
+    // lophn_updated 말고는 앱이 있어야 한다(command가 본다).
+    app: appIdSchema.optional(),
+    project: projectIdSchema.optional(),
+    key: noticeKeySchema.optional(),
+    action: noticeActionSchema.optional(),
+  });
+}
+
+export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
+  variant("release_activated", { release: short }),
+  variant("release_failed", { release: short, reason }),
+  variant("release_rolled_back", { release: short, to: short }),
+  variant("app_unavailable", { reason }),
+  variant("app_data_migrated", { release: short }),
+  variant("app_data_restored", { release: short }),
+  variant("lophn_updated", { from: short, to: short }),
+  variant("sdk_update_needed", { sdk: short, pinned: short, current: short }),
+]);
+export type NoticeRecordInput = z.infer<typeof noticeRecordInputSchema>;
+
+// core 안 machine만 쓴다. 사람·agent·앱·renderer는 program 행을 쓰지 못한다.
+export const noticeRecord = defineCommand({
+  resource: "notices",
+  method: "record",
+  name: "notices.record",
+  input: noticeRecordInputSchema,
+  output: z.object({ id: noticeIdSchema }),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
+export const noticeDismiss = defineCommand({
+  resource: "notices",
   method: "dismiss",
-  name: "app_notices.dismiss",
+  name: "notices.dismiss",
   input: z.strictObject({ id: noticeIdSchema }),
   output: z.object({ id: noticeIdSchema }),
   actors: ["user"],
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
-export const appNoticesList = defineRead({
-  resource: "app_notices",
+// 영구 행을 읽음으로 바꾼다(한 번에 여럿). 휘발 행과 이미 읽은 행, 없는 id는 건너뛰고 오류가 아니다.
+export const noticeMarkRead = defineCommand({
+  resource: "notices",
+  method: "mark_read",
+  name: "notices.mark_read",
+  input: z.strictObject({ ids: z.array(noticeIdSchema).min(1).max(200) }),
+  output: z.object({ marked: z.number().int().nonnegative() }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+// 기록 화면용. 최근 것이 먼저다. 보관한 앱의 행도 읽는다(예전 release를 찾을 수 있어야 한다).
+export const noticesList = defineRead({
+  resource: "notices",
   method: "list",
-  name: "app_notices.list",
-  input: z.strictObject({}),
-  output: withReadCommon(z.object({ notices: z.array(appNoticeSchema) })),
+  name: "notices.list",
+  input: z.strictObject({
+    source: noticeSourceSchema.optional(),
+    app: appIdSchema.optional(),
+    project: projectIdSchema.optional(),
+    kind: noticeKindSchema.optional(),
+    persistent: z.boolean().optional(),
+    // true면 안 읽은 것만(휘발 행은 모두 안 읽은 것이다), false면 읽은 것만.
+    unread: z.boolean().optional(),
+    // title이나 body에 들어 있는 글(대소문자 무시).
+    query: z.string().trim().min(1).max(100).optional(),
+    cursor: readCursorSchema.optional(),
+    limit: z.number().int().min(1).max(NOTICE_LIST_LIMIT_MAX).optional(),
+  }),
+  output: withReadCommon(z.object({ notices: z.array(noticeSchema) })),
   actors: ["user", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
-export const APP_NOTICE_ROUTES = [
-  appNoticePost,
-  appNoticeDismiss,
-  appNoticesList,
+// Inbox가 지금 보이는 줄: 안 읽은 행 전부(휘발 + 안 읽은 영구). 보관한 앱의 행은 뺀다. 오래된 것이 먼저다.
+export const noticesOpen = defineRead({
+  resource: "notices",
+  method: "open",
+  name: "notices.open",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({ notices: z.array(noticeSchema) })),
+  actors: ["user", "machine"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+});
+
+export const NOTICE_ROUTES = [
+  noticePost,
+  noticeRecord,
+  noticeDismiss,
+  noticeMarkRead,
+  noticesList,
+  noticesOpen,
 ] as const;

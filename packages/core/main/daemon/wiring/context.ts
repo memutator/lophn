@@ -70,6 +70,7 @@ import type { createIssuerRequests } from "../../../lophn-agent/issuer-requests.
 import type { RunService } from "../../../runs/mod.ts";
 import type { createWorkflowService } from "../../../workflows/mod.ts";
 import type { WorkflowFlows } from "../../../workflows/ports.ts";
+import type { NoticeRecorder } from "./notices.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
@@ -248,6 +249,8 @@ type Late = {
   workflowService: ReturnType<typeof createWorkflowService>;
   // flows wiring이 낸다. workflows wiring이 먼저 만들어지므로 부를 때 읽는다.
   flowHost: WorkflowFlows;
+  // notices wiring이 낸다. program이 사람에게 남기는 기록을 쓴다. 다른 wiring이 부를 때 읽는다.
+  noticeRecorder: NoticeRecorder;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -300,6 +303,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   runService: true,
   workflowService: true,
   flowHost: true,
+  noticeRecorder: true,
 };
 
 export type WiringContext = {

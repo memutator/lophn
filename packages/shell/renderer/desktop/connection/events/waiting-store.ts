@@ -1,7 +1,7 @@
 // 대기 목록. 사람이 답할 것(turn request, activation 동의, 질문, job 등록 승인, job의 놓친 차례)을 session을 가리지 않고 한 목록에 든다.
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
-import type { AppNotice } from "../../../../../protocol/apps/notice.ts";
+import type { Notice } from "../../../../../protocol/apps/notice.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
 import type { JobHold, JobRecord } from "../../../../../protocol/jobs/jobs.ts";
@@ -19,7 +19,7 @@ import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
 import type { EventClient } from "./client.ts";
 import {
   readActivationConsents,
-  readAppNotices,
+  readOpenNotices,
   readJobHolds,
   readJobPending,
   readSessionSnapshots,
@@ -82,7 +82,7 @@ export interface WaitingState {
   readonly count: number;
   readonly finished: readonly FinishedTerminal[];
   /** 앱이 사람에게 한 알림. 답할 것이 아니라 지우기만 하는 줄이라 entries와 따로 둔다. 오래된 것부터다. */
-  readonly notices: readonly AppNotice[];
+  readonly notices: readonly Notice[];
 }
 
 const WAITING_CONDITION: EventCondition = {
@@ -96,9 +96,10 @@ const WAITING_CONDITION: EventCondition = {
     "ActivationConsentClosed",
     "ShareRequestOpened",
     "ShareRequestClosed",
-    // 앱 알림도 session이 없어 types에만 건다.
-    "AppNoticePosted",
-    "AppNoticeClosed",
+    // 알림(앱과 program 기록)도 session이 없어 types에만 건다.
+    "NoticePosted",
+    "NoticeClosed",
+    "NoticeRead",
     // session이 없는 event라 session 조건과 섞지 않고 types에만 건다.
     "JobChanged",
   ],
@@ -135,7 +136,7 @@ export function createWaitingStore(
   // main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때 보인다.
   const finished = new Map<string, FinishedTerminal>();
   // 같은 key의 알림은 id가 같아 새 내용이 대신한다.
-  let notices = new Map<string, AppNotice>();
+  let notices = new Map<string, Notice>();
   // session의 agent와 workspace는 SessionStarted와 snapshot에 실려 온다.
   const sessions = new Map<
     string,
@@ -321,11 +322,13 @@ export function createWaitingStore(
       case "ShareRequestClosed":
         entries.delete(event.payload.app);
         break;
-      case "AppNoticePosted":
+      case "NoticePosted":
         notices.set(event.payload.id, event.payload);
         publish();
         return;
-      case "AppNoticeClosed":
+      // 열린 줄은 안 읽은 것이라 지운 줄도 읽은 줄도 목록에서 뺀다.
+      case "NoticeClosed":
+      case "NoticeRead":
         notices.delete(event.payload.id);
         publish();
         return;
@@ -375,7 +378,7 @@ export function createWaitingStore(
       readSessionSnapshots(client.core),
       readActivationConsents(client.core),
       readShareRequests(client.core),
-      readAppNotices(client.core),
+      readOpenNotices(client.core),
       readJobs(),
     ]);
     // snapshot과 동의와 공유 요청은 모두 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
@@ -429,7 +432,7 @@ export function createWaitingStore(
     snapshots: SessionSnapshot[];
     consents: ActivationConsent[];
     shares: ShareRequest[];
-    notices: AppNotice[];
+    notices: Notice[];
     jobs: JobReads | null;
   }) {
     notices = new Map(read.notices.map((one) => [one.id, one]));

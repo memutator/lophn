@@ -18,6 +18,7 @@ import { approvalsWiring } from "./wiring/approvals.ts";
 import { bareReplyWiring } from "./wiring/bare-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
 import { appsWiring } from "./wiring/apps.ts";
+import { noticesWiring } from "./wiring/notices.ts";
 import { sealedMarkerWiring } from "./wiring/sealed-marker.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
 import {
@@ -161,6 +162,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   sessionSnapshotsWiring,
   acpWiring,
   serverWiring,
+  // 표를 합치는 schema step이 낸 step 목록의 맨 끝이어야 해서 이 위치다(schema-steps.lock.json).
+  noticesWiring,
   // data step이 마지막이어야 한다. 앞선 옮기기 step이 다 끝난 뒤에 domains 표와 폴더를 거둔다.
   domainsRetireWiring,
 ];

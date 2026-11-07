@@ -143,6 +143,7 @@ export const brokerNotifyInputSchema = z.strictObject({
   title: noticeTitleSchema,
   body: noticeBodySchema.optional(),
   key: noticeKeySchema.optional(),
+  persistent: z.boolean().optional(),
 });
 export const brokerNotifyOutputSchema = z.strictObject({
   notified: z.literal(true),

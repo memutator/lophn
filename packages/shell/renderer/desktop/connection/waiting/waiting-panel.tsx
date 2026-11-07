@@ -3,7 +3,7 @@ import { StatusMark } from "@lophn/ui/feedback";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
-import type { AppNotice } from "../../../../../protocol/apps/notice.ts";
+import type { Notice } from "../../../../../protocol/apps/notice.ts";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
@@ -24,11 +24,7 @@ import {
 import { ShareCard } from "./cards/share-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
 import type { FinishedRow } from "./finished.ts";
-import {
-  decideWaiting,
-  dismissAppNotice,
-  type SettledState,
-} from "./decide.ts";
+import { decideWaiting, dismissNotice, type SettledState } from "./decide.ts";
 import { cardOf } from "./model.ts";
 import { useInboxNames } from "./names.ts";
 import type { Settled, SettledRow } from "./settled.ts";
@@ -159,31 +155,31 @@ function FinishedList({
   );
 }
 
-/** 앱이 사람에게 한 알림 한 줄. 줄을 누르면 그 앱이 열리고 [x]는 열지 않고 지운다. 답할 것이 아니다. */
-function AppNoticeList({
+/** 사람에게 한 알림(앱이 한 것, program 기록) 한 줄. 줄을 누르면 그 앱이 열리고(앱이 없는 기록은 열지 않는다) [x]는 열지 않고 지운다(영구 기록은 읽음이 된다). 답할 것이 아니다. */
+function NoticeList({
   rows,
   onOpen,
   onDismiss,
 }: {
-  rows: readonly AppNotice[];
+  rows: readonly Notice[];
   onOpen: (app: string) => void;
   onDismiss: (id: string) => void;
 }) {
   return (
     <section
       className={styles.group}
-      aria-label={t("waiting.label.group-app-notice")}
+      aria-label={t("waiting.label.group-notice")}
     >
       <div className={styles.groupHead}>
-        <span>{t("waiting.label.group-app-notice")}</span>
+        <span>{t("waiting.label.group-notice")}</span>
         <span>{rows.length}</span>
       </div>
       {rows.map((row) => (
         <div
           key={row.id}
           className={`${styles.request} ${styles.finished}`}
-          data-kind="app-notice"
-          onClick={() => onOpen(row.app)}
+          data-kind="notice"
+          onClick={() => row.app !== null && onOpen(row.app)}
         >
           <div className={styles.who}>
             <div className={styles.whoText}>
@@ -191,13 +187,15 @@ function AppNoticeList({
               {row.body === "" ? null : (
                 <span className={styles.meta}>{row.body}</span>
               )}
-              <span className={styles.meta}>{row.app_name}</span>
+              {row.app_name === null ? null : (
+                <span className={styles.meta}>{row.app_name}</span>
+              )}
             </div>
             <IconButton
               size="sm"
               icon={actionIcons.remove}
-              label={t("waiting.button.dismiss-app-notice")}
-              data-dismiss-app-notice=""
+              label={t("waiting.button.dismiss-notice")}
+              data-dismiss-notice=""
               onClick={(event) => {
                 // 줄을 누른 것(앱 열기)으로 올라가지 않게 한다.
                 event.stopPropagation();
@@ -234,7 +232,7 @@ export function WaitingPanel({
   entries: readonly WaitingEntry[];
   settled: Settled;
   finished: readonly FinishedRow[];
-  notices: readonly AppNotice[];
+  notices: readonly Notice[];
   initial?: PanelInitial;
   /** true면 탭 본문으로 그린다(떠 있는 panel의 폭·그림자·높이 제한이 없다). */
   page?: boolean;
@@ -364,10 +362,10 @@ export function WaitingPanel({
           />
         ) : null}
         {notices.length > 0 ? (
-          <AppNoticeList
+          <NoticeList
             rows={notices}
             onOpen={onOpenApp}
-            onDismiss={(id) => void dismissAppNotice(core, id)}
+            onDismiss={(id) => void dismissNotice(core, id)}
           />
         ) : null}
         {settled.rows.length > 0 ? <SettledList rows={settled.rows} /> : null}

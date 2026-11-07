@@ -177,3 +177,20 @@ guard: `claude_test.ts`·`codex_test.ts`·`opencode_test.ts`·`omp_test.ts`의 u
 고치려면: `start`가 resume 대상이 저장돼 있는지 먼저 보고, 없으면 조용히 새 session을 연다. Claude는 `getSessionInfo`가 없으면 `sessionId: resume`(같은 id, 새 session)으로 연다. Codex는 rollout이 없으면 `thread/start`다. OpenCode는 빈 session이면 실패 줄을 내지 않는다. omp도 `--resume`의 같은 경우를 확인한다. 작음. 추천.
 
 닫음: Claude는 `getSessionInfo`가 없으면 같은 id로 새 session(`sessionId`)을 연다(`start`, `open_session`). Codex는 `thread/resume`이 "no rollout found"면 `thread/start`다. OpenCode는 `api.get`이 404면 실패 줄 없이 새로 연다. omp는 `--resume`으로 띄운 process가 ready 전에 끝나면 `--resume` 없이 다시 띄운다.
+
+## GUI 탭 이름이 shell 제목(`user@host: ~/폴더`)으로 덮인다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+closed: fixed
+guard: `packages/shell/renderer/terminal/model_test.ts` tabName GUI title cases
+```
+
+지금: GUI는 ACP session 제목을 `GuiSwitch`의 `onTitle`로 `tab.title`에 쓴다(`packages/shell/renderer/terminal/terminal-gui.tsx`). 그런데 `packages/shell/renderer/workspace/workspace-window.tsx`가 terminal store가 바뀔 때마다 모든 터미널 탭의 `title`을 `terminalTabTitle`(사람 이름 > hook session 이름 > agent가 있는 동안의 마지막 OSC 제목 > 자동 이름)로 다시 쓴다. 이 계산은 GUI 제목을 모른다. GUI 동안 그 터미널의 마지막 OSC 제목은 TUI가 끝난 뒤 shell prompt가 낸 `user@host: 경로`다.
+
+영향: GUI 탭 이름이 session 이름이 아니라 shell 제목으로 보인다. 같은 대화를 TUI로 열면 session 이름이 보인다.
+
+고치려면: GUI 제목을 탭 field(예: `guiTitle`)에 두고, `tabName`이 GUI view일 때 사람 이름 다음으로 그것을 쓰게 한다. 그때는 OSC 제목을 보지 않는다. sidebar의 `otherWorkspaceTerminalTitle`도 같은 계산을 쓴다. 작음. 추천.
+
+닫음: `GuiSwitch`가 ACP session 제목을 탭 field `guiTitle`에 쓰고, `tabName`이 GUI view일 때 사람 이름 다음으로 그것을 쓴다(OSC 제목과 hook session 이름은 보지 않는다). TUI로 가거나 handle이 닫히면 지운다.

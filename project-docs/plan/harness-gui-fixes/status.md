@@ -8,5 +8,5 @@ lead만 고친다. `tools/status.py harness-gui-fixes build`가 `tasks/*.md`에�
 | `harness-empty-resume` | adapter | 1 | 없음 | merged | adapter/harness-empty-resume | acbb2fa64 |  |
 | `thread-index-bookmark` | chat | 1 | 없음 | merged | chat/thread-index-bookmark | 09b3b0862 |  |
 | `gui-snapshot` | gui | 1 | 없음 | merged | gui/gui-snapshot | 4d9fba45b |  |
-| `tab-title` | gui | 1 | gui-snapshot | running | gui/tab-title |  |  |
+| `tab-title` | gui | 1 | gui-snapshot | merged | gui/tab-title | 7ff8b56af |  |
 | `received-messages` | adapter | 2 | claude-fixes, harness-empty-resume | todo |  |  |  |

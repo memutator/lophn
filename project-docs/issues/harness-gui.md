@@ -29,19 +29,6 @@ modules: [packages/shell/main]
 
 고치려면: 출력 흐름은 tool body를 덧붙이는 갱신이 ACP에 생길 때 같이 한다. 작음.
 
-## GUI 탭 이름이 shell 제목(`user@host: ~/폴더`)으로 덮인다
-
-```yaml
-kind: bug
-modules: [packages/shell/renderer]
-```
-
-지금: GUI는 ACP session 제목을 `GuiSwitch`의 `onTitle`로 `tab.title`에 쓴다(`packages/shell/renderer/terminal/terminal-gui.tsx`). 그런데 `packages/shell/renderer/workspace/workspace-window.tsx`가 terminal store가 바뀔 때마다 모든 터미널 탭의 `title`을 `terminalTabTitle`(사람 이름 > hook session 이름 > agent가 있는 동안의 마지막 OSC 제목 > 자동 이름)로 다시 쓴다. 이 계산은 GUI 제목을 모른다. GUI 동안 그 터미널의 마지막 OSC 제목은 TUI가 끝난 뒤 shell prompt가 낸 `user@host: 경로`다.
-
-영향: GUI 탭 이름이 session 이름이 아니라 shell 제목으로 보인다. 같은 대화를 TUI로 열면 session 이름이 보인다.
-
-고치려면: GUI 제목을 탭 field(예: `guiTitle`)에 두고, `tabName`이 GUI view일 때 사람 이름 다음으로 그것을 쓰게 한다. 그때는 OSC 제목을 보지 않는다. sidebar의 `otherWorkspaceTerminalTitle`도 같은 계산을 쓴다. 작음. 추천.
-
 ## 다른 agent·CLI가 넣은 메시지가 GUI에서 사람 메시지로 그려진다
 
 ```yaml

@@ -82,6 +82,10 @@ import {
     살려 두기에 기대지 말고 되살릴 것(session 이름 등)은 앱이 저장한다.
   - page가 새로 load되면 신호가 꺼지고, 화면이 사라지거나 `active`가 `false`가 되면
     내려간다. 앱 view 밖이면 아무 일도 하지 않는다.
+  - 신호는 key별이다. 이 hook을 쓰는 곳마다 따로 켜지고(내부 key), 하나라도 켜져
+    있으면 page가 살아 있다. `@lophn/agent`가 turn이 도는 동안 스스로 켜는
+    신호와 서로 끄지 않으므로 agent 답을 기다리는 것만이면 이 hook이 필요 없다.
+    `lophnApp.setKeepAlive(active, key?)`를 직접 부를 때도 같은 key로 켜고 끈다.
 - type: `KeepAliveBridge`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
   `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`,

@@ -137,6 +137,7 @@ export function createAppTool(
   // shell이 머리 줄을 그리는지는 page가 받기 시작하기 전에 올 수 있어 여기 쥐고 있다가 새 listener에 준다.
   let shown = false;
   const listeners = new Set<(event: TabHeadEvent) => void>();
+  const keepAliveKeys = new Set<string>();
   transport.on(APP_TAB_HEAD_EVENT_CHANNEL, (payload) => {
     const event = payload as TabHeadEvent;
     if (event?.type === "shown") shown = event.shown === true;
@@ -198,9 +199,12 @@ export function createAppTool(
         // 보낼 수 없는 값(함수 등)이면 머리 줄을 바꾸지 않는다.
       }
     },
-    setKeepAlive(active: boolean): void {
+    setKeepAlive(active: boolean, key = "default"): void {
+      // 앱 코드와 SDK가 각자 key로 켜므로 host에는 "켠 key가 있나"만 올린다.
+      if (active === true) keepAliveKeys.add(String(key));
+      else keepAliveKeys.delete(String(key));
       try {
-        transport.sendToHost(APP_KEEP_ALIVE_CHANNEL, active === true);
+        transport.sendToHost(APP_KEEP_ALIVE_CHANNEL, keepAliveKeys.size > 0);
       } catch {
         // shell 밖이면 살려 둘 곳이 없다.
       }

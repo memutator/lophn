@@ -17,7 +17,9 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
 
 - `useAgentSession({agent, title?, session?, app?, newId?})` — `{session, state,
   send, stop, answer, rename, reset, error}`.
-  - `agent`는 agent handle이다(`@lophn/agent`가 그대로 lophn에 넘긴다). session은
+  - `agent`는 agent의 **handle**이다. `lophn agent create <handle>`로 agent를 만들 때
+    정한 짧은 소문자 이름(예: `omok-opponent`)이고, 이 앱 workspace의 agent(그 앱
+    안에서 만든 agent, 또는 전역 agent)를 가리킨다. id(`agt_…`)가 아니다. session은
     화면을 연 것만으로는 열리지 않고 **첫 `send`에서** 이 앱 workspace에 새로 열려
     바로 snapshot을 읽는다(열 때마다 lophn의 sidebar에 session이 하나 생기기
     때문이다). `session`이 없으면 화면이 새로 load될 때마다 첫 `send`에서 새
@@ -58,6 +60,16 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
     비지 않는다.
   - 화면을 떠났다 돌아오면 page가 다시 load된다. session id를 저장해 두고 `session`으로
     넘기면 이어 받고, 안 넘기면 새 session이다.
+- **keep-alive는 자동이다.** 보내는 중이거나 turn이 도는 동안(`state.turn`이
+  `ended`가 아닐 때) SDK가 알아서 page를 살려 둔다. 사람이 그 사이 다른
+  workspace로 가도 page가 다시 load되지 않아 기다리던 답을 받는다. 앱은 아무것도 하지
+  않는다. 앱이 자기 이유로 `useKeepAlive`(`@lophn/app-ui`)를 써도 서로 끄지 않는다.
+  turn이 끝나면 내려가므로 늘 살아 있지는 않다(그래서 판의 session id는 저장한다).
+- 앱 안에서 쓸 agent(상대 선수, 코치, 검토자)는 **bare agent를 이 앱 workspace에서
+  먼저 만들고**(`lophn agent create`, 지침에 역할과 답 꼴을 쓰고 `tools: []`) 그
+  handle을 `agent`에 준다. 앱을 짓는 agent의 `design-app` skill이 "앱 안 agent"
+  절에 절차를 적는다. lophn 기본 agent를 상대로 쓰지 않는다: 제품 규칙과 tool이
+  매 turn마다 실려 느리고 비싸다.
 - `contextBlock({name, mimeType, text})` — 화면의 context(보고 있는 글, 고른 항목)를
   `resource` block으로 싼다. 같은 `name`이 한 메시지에서 구별되게 짓는다.
 - 꼴은 JSON schema의 부분이다: `type`(object, array, string, number, integer,

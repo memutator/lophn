@@ -83,7 +83,9 @@ const port: ReadPort = {
       case projectList:
         return ok({ projects: [{ id: "prj_tax", name: "tax" }] });
       case agentList:
-        return ok({ agents: [{ agent: "lophn", handle: "lophn", name: "lophn" }] });
+        return ok({
+          agents: [{ agent: "lophn", handle: "lophn", name: "lophn" }],
+        });
       case workspaceSessionRead:
         return ok({ session: sessions[i.session] });
       case turnList:

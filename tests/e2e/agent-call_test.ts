@@ -433,7 +433,7 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
         const agent = c.ids.newId("agt");
         await c.call(agentCreate, {
           id: agent,
-          definition: { name: "reviewer", body: "review" },
+          definition: { handle: "reviewer", name: "reviewer", body: "review" },
         });
         fake.script(
           [

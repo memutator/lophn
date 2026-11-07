@@ -1,4 +1,4 @@
-// `lophn agent card|create|update`: agent 명함을 읽고, 정의를 만들고 고친다. 할당(권한)은 주지 못한다: 사람이 정한다.
+// `lophn agent card|create|update`: agent 명함을 읽고, 정의를 만들고 고친다. agent는 handle(주소)로 가리킨다. 할당(권한)은 주지 못한다: 사람이 정한다.
 // `mcp_servers`·`skip`·`apps`·`permissions`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
@@ -9,10 +9,12 @@ import {
   agentCreate,
   agentDefinitionSchema,
   agentList,
-  agentNameKey,
+  agentHandleKey,
+  agentHandleSchema,
   agentNameSchema,
   agentRead,
   LOPHN_AGENT_ID,
+  LOPHN_AGENT_HANDLE,
   LOPHN_AGENT_NAME,
 } from "../../protocol/lophn-agent/mod.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
@@ -22,18 +24,18 @@ const card = defineCommand({
   name: "agent.card",
   summary: "Read an agent's card",
   description:
-    "Read an agent's card by name: description, runtime, modality (what it takes and gives), replies it supports, how it differs from the default lophn agent (plus, minus) and notes. Read it before you call an agent.",
-  input: z.strictObject({ name: agentNameSchema }),
-  positional: ["name"],
+    "Read an agent's card by handle: handle, name, description, runtime, modality (what it takes and gives), replies it supports, how it differs from the default lophn agent (plus, minus) and notes. Read it before you call an agent.",
+  input: z.strictObject({ handle: agentHandleSchema }),
+  positional: ["handle"],
   effect: "read",
   routes: [agentCard],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const read = await ctx.core.read(agentCard, { name: input.name });
+    const read = await ctx.core.read(agentCard, { handle: input.handle });
     if (!read.ok) return read;
     const { callable } = read.value.card;
     return ok({
-      summary: `card of ${read.value.card.name}${
+      summary: `card of ${read.value.card.handle}${
         callable === undefined
           ? ""
           : `\ncallable at home (no workspace): ${callable.home ? "yes" : "no"}\ncallable in this workspace: ${callable.here ? "yes" : "no"}`
@@ -47,30 +49,32 @@ const create = defineCommand({
   name: "agent.create",
   summary: "Create an agent",
   description:
-    "Create an agent. Give its name (unique; `lophn` is reserved), description (one line), runtime (`lophn` by default; `bare` loads only the instructions body and the tools and skills you pick), tools (names to pick; bare only), skills (names to pick; bare only; picking one also gives skill.read), modality (input/output of text, image, file; all three by default), profile, model, skills_off, mcp_off and instructions (body). Its assignments are given by the person.",
+    "Create an agent. Give its handle (the address others use as `to.agent`; lowercase letters, digits, - and _, up to 40; unique, cannot change later; `lophn` is reserved), name (the display name; defaults to the handle), description (one line), runtime (`lophn` by default; `bare` loads only the instructions body and the tools and skills you pick), tools (names to pick; bare only), skills (names to pick; bare only; picking one also gives skill.read), modality (input/output of text, image, file; all three by default), profile, model, skills_off, mcp_off and instructions (body). It is scoped to the workspace you run in (global when you run at home). Its assignments are given by the person.",
   input: agentDefinitionSchema
     .omit({
+      workspace: true,
       mcp_servers: true,
       skip: true,
       apps: true,
       permissions: true,
     })
+    .extend({ name: agentNameSchema.optional() })
     .strict(),
-  positional: ["name"],
+  positional: ["handle"],
   effect: "write",
   routes: [agentCreate],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
     const made = await ctx.core.command(
       agentCreate,
-      { definition: input },
+      { definition: { ...input, name: input.name ?? input.handle } },
       {
         key: ctx.key,
       },
     );
     if (!made.ok) return made;
     return ok({
-      summary: `created agent ${input.name}`,
+      summary: `created agent ${input.handle}`,
       content: made.value,
     });
   },
@@ -80,17 +84,18 @@ const update = defineCommand({
   name: "agent.update",
   summary: "Change an agent",
   description:
-    "Change an agent by name. Only the fields you send change. Its assignments are given by the person.",
+    "Change an agent by handle. Only the fields you send change (its handle and workspace never change; name is the display name). Its assignments are given by the person.",
   input: agentDefinitionSchema
     .omit({
-      name: true,
+      handle: true,
+      workspace: true,
       mcp_servers: true,
       skip: true,
       apps: true,
       permissions: true,
     })
     .partial()
-    .extend({ agent: agentNameSchema })
+    .extend({ agent: agentHandleSchema })
     .strict(),
   positional: ["agent"],
   effect: "write",
@@ -100,9 +105,9 @@ const update = defineCommand({
     const { agent, ...rest } = input;
     const listed = await ctx.core.read(agentList, {});
     if (!listed.ok) return listed;
-    const key = agentNameKey(agent);
+    const key = agentHandleKey(agent);
     const row = listed.value.agents.find(
-      (entry) => agentNameKey(entry.name) === key,
+      (entry) => agentHandleKey(entry.handle) === key,
     );
     if (row === undefined) {
       return err({ code: "not_found", message: "agent not found" });
@@ -120,6 +125,7 @@ const update = defineCommand({
       });
     }
     const base: AgentDefinition = definition ?? {
+      handle: LOPHN_AGENT_HANDLE,
       name: LOPHN_AGENT_NAME,
       body: "",
     };

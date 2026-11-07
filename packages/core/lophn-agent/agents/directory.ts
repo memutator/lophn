@@ -3,20 +3,28 @@ import type {
   AgentCard,
   AgentId,
   AgentRuntime,
+  Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { cardByName } from "./card.ts";
+import { cardByHandle } from "./card.ts";
 import {
   type AgentContext,
   listAgents,
   loadAgent,
+  handleOf,
   type Loaded,
   nameOf,
+  workspaceOfAgent,
 } from "./inspect.ts";
 import type { ReadSql } from "./ports.ts";
 
 export type AgentInfo = {
   id: AgentId;
+  // 주소다. 틀린 정의 file은 handle을 알 수 없어 id다.
+  handle: string;
+  // 보이는 이름이다.
   name: string;
+  // 범위 workspace. 없으면 전역이다.
+  workspace: Workspace | null;
   skip: boolean;
   // 정의의 runtime. 없으면 lophn이다.
   runtime: AgentRuntime;
@@ -28,14 +36,16 @@ export type AgentInfo = {
 export interface AgentDirectory {
   agent(id: AgentId): AgentInfo | null;
   agents(): readonly AgentInfo[];
-  // 이름으로 찾은 명함. 없는 이름과 틀린 정의 file은 null이다.
-  cardOf(name: string): AgentCard | null;
+  // handle로 찾은 명함. 없는 handle과 틀린 정의 file은 null이다.
+  cardOf(handle: string): AgentCard | null;
 }
 
 function infoOf(loaded: Loaded): AgentInfo {
   return {
     id: loaded.agent,
+    handle: handleOf(loaded),
     name: nameOf(loaded),
+    workspace: workspaceOfAgent(loaded),
     skip: loaded.definition?.skip === true,
     runtime: loaded.definition?.runtime ?? "lophn",
     apps: loaded.definition?.apps ?? [],
@@ -43,7 +53,7 @@ function infoOf(loaded: Loaded): AgentInfo {
   };
 }
 
-// 정의 파일을 열어 id와 이름을 푸는 조회다. 틀린 file은 이름을 알 수 없어 id가 이름이다.
+// 정의 파일을 열어 id와 handle·이름을 푸는 조회다. 틀린 file은 알 수 없어 id가 handle이다.
 export function createAgentDirectory(
   open: (sql: ReadSql) => Result<AgentContext>,
 ): (sql: ReadSql) => AgentDirectory {
@@ -55,9 +65,9 @@ export function createAgentDirectory(
         const loaded = loadAgent(opened.value, id);
         return loaded.ok && loaded.value !== null ? infoOf(loaded.value) : null;
       },
-      cardOf(name) {
+      cardOf(handle) {
         if (!opened.ok) return null;
-        const card = cardByName(opened.value, name, null);
+        const card = cardByHandle(opened.value, handle, null);
         return card.ok ? card.value : null;
       },
       agents() {

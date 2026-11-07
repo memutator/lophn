@@ -221,7 +221,7 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
     const agent = core.ids.newId("agt");
     await core.call(agentCreate, {
       id: agent,
-      definition: { name: "Writer", body: "use the app" },
+      definition: { handle: "writer", name: "Writer", body: "use the app" },
     });
     // 할당이 있어야 agent가 앱 command를 부를 수 있다.
     await core.call(

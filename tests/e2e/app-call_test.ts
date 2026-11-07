@@ -79,6 +79,7 @@ async function agentWith(
   await core.call(agentCreate, {
     id: agent,
     definition: {
+      handle: name.toLowerCase(),
       name,
       body: "use the assigned app",
     },
@@ -170,7 +171,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     const agent = c.ids.newId("agt");
     await c.call(agentCreate, {
       id: agent,
-      definition: { name: "Caller", body: "use the app" },
+      definition: { handle: "caller", name: "Caller", body: "use the app" },
     });
     await c.call(
       assignmentSet,

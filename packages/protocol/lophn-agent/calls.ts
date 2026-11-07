@@ -212,10 +212,15 @@ export const agentCallSendable = defineRead({
       sessions: z.array(
         z.object({
           session: idSchema("ses"),
-          agent: agentIdSchema,
+          // agent의 주소(handle)와 보이는 이름이다. 새 session을 열 때는 handle을 쓴다.
+          handle: z.string(),
           name: z.string(),
+          title: z.string().nullable(),
           workspace: workspaceOutputSchema.nullable(),
+          // waiting은 사람의 동의나 질문 답을 기다리는 turn이다.
           state: z.enum(SENDABLE_SESSION_STATES),
+          // 마지막 turn이 끝난(없으면 시작한) 시각. turn이 없으면 null이다.
+          last_active_at: z.string().nullable(),
         }),
       ),
     }),

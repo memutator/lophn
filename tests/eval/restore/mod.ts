@@ -3,7 +3,7 @@ import { ok, type Result } from "../../../packages/base/mod.ts";
 import {
   type AgentAtWorkspace,
   LOPHN_AGENT_ID,
-  LOPHN_AGENT_NAME,
+  LOPHN_AGENT_HANDLE,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
 import type { Participant, RestoreContext, WorldIds } from "../types.ts";
@@ -68,7 +68,7 @@ export function agentAtWorkspaceOf(
     return id;
   };
   const id =
-    agent === LOPHN_AGENT_NAME
+    agent === LOPHN_AGENT_HANDLE
       ? LOPHN_AGENT_ID
       : found(world.agents[agent], `agent ${agent}`);
   if (workspace === undefined) return { agent: id, workspace: null };

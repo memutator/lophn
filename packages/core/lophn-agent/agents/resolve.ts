@@ -162,7 +162,7 @@ export async function resolveAgent(
     agent: copy(agent),
     workspace: copy(workspace),
     called_from: copy(input.called_from),
-    name: lophn ? LOPHN_AGENT_NAME : (definition as AgentDefinition).name,
+    name: definition?.name ?? LOPHN_AGENT_NAME,
     profile: copy(profile),
     agent_instructions: await sha256Hex(body),
     model: copy(chosen[0] as ModelChoice),
@@ -172,7 +172,10 @@ export async function resolveAgent(
     skills,
     mcp: copy(mcp),
     sources: {
-      name: lophn ? "global" : "agent",
+      name:
+        lophn && (definition?.name ?? LOPHN_AGENT_NAME) === LOPHN_AGENT_NAME
+          ? "global"
+          : "agent",
       profile: lophn || definition?.profile === undefined ? "global" : "agent",
       agent_instructions: body.length > 0 ? "agent" : "global",
       model: chosen[1],

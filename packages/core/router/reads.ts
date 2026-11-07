@@ -33,7 +33,6 @@ const readCallRead: ReadDefinition<typeof agentCallRead> = {
   },
 };
 
-// waiting·unknown은 지금 내는 곳이 없다.
 const STATES = ["running", "waiting", "idle", "unknown"] as const;
 
 // 부를 수 있는 열린 session 목록. 목록은 prompt에 넣지 않고 tool이 읽는다.
@@ -57,10 +56,12 @@ const sendableRead: ReadDefinition<typeof agentCallSendable> = {
       const state = STATES.find((one) => one === described?.state) ?? "unknown";
       sessions.push({
         session: target.session,
-        agent: target.agent.agent,
+        handle: target.handle,
         name: target.name,
+        title: target.title,
         workspace: target.agent.workspace,
         state,
+        last_active_at: target.last_active_at,
       });
     }
     return ok({

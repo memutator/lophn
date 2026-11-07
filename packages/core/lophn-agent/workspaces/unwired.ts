@@ -7,7 +7,7 @@ export const UNWIRED_WORKSPACE_DEPS: WorkspaceDeps = {
   apps: { app: () => null, appByName: () => null },
   agents: { agent: () => null, agents: () => [], cardOf: () => null },
   names: {
-    nameOf: () => "",
+    describe: (agent) => ({ handle: agent, name: agent }),
     resolveAddress: () =>
       err({ code: "not_found", message: "agent not found" }),
   },

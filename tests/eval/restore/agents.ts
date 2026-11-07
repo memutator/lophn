@@ -13,7 +13,10 @@ export async function restoreAgents(
   }[];
   for (const { definition } of agents) {
     const id = material.manifest.ids[definition.name] as Id<"agt">;
-    await ctx.core.call(agentCreate, { id, definition });
+    await ctx.core.call(agentCreate, {
+      id,
+      definition: { handle: definition.name, ...definition },
+    });
     ctx.world.agents[definition.name] = id;
   }
 }

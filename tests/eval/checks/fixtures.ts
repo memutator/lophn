@@ -8,7 +8,7 @@ import type {
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import {
   LOPHN_AGENT_ID,
-  LOPHN_AGENT_NAME,
+  LOPHN_AGENT_HANDLE,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type {
   CollectedToolCall,
@@ -53,7 +53,7 @@ function workspaceName(p: Participant): WorkspaceName | null {
 }
 
 function refOf(p: Participant): AgentId {
-  return p.agent === LOPHN_AGENT_NAME
+  return p.agent === LOPHN_AGENT_HANDLE
     ? LOPHN_AGENT_ID
     : (`agt_fx_${p.agent}` as AgentId);
 }

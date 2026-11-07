@@ -3,8 +3,10 @@ import {
   type AgentDefinition,
   type AgentDefinitionIssue,
   type AgentId,
-  agentNameKey,
+  agentHandleKey,
+  LOPHN_AGENT_ID,
   MCP_TOOL_PREFIX,
+  NEW_AGENT_HANDLE,
   WORKSPACE_KINDS,
   workspaceToolNames,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -14,11 +16,11 @@ import { serializeAgentFile } from "./definition-file.ts";
 import {
   type AgentContext,
   issuesOfError,
+  handleOf,
   listAgents,
-  nameOf,
 } from "./inspect.ts";
 
-// 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 이름 중복을 더한다.
+// 저장 때의 전체 검사. 파일 모양 검사에 파일만으로 알 수 없는 handle 중복을 더한다.
 
 function invalidInput(issues: AgentDefinitionIssue[]): Result<never> {
   return err({
@@ -39,21 +41,21 @@ function addAll(
   }
 }
 
-// 이름은 전역이다. 틀린 file은 이름을 알 수 없어 겹침에 넣지 않는다.
-function duplicateName(
+// handle은 범위 있는 agent까지 전역에 하나다. 틀린 file은 handle을 알 수 없어 겹침에 넣지 않는다.
+function duplicateHandle(
   context: AgentContext,
   self: AgentId,
-  name: string,
+  handle: string,
 ): Result<boolean> {
   const others = listAgents(context);
   if (!others.ok) return others;
-  const key = agentNameKey(name);
+  const key = agentHandleKey(handle);
   return ok(
     others.value.some(
       (other) =>
         other.agent !== self &&
         other.issues.length === 0 &&
-        agentNameKey(nameOf(other)) === key,
+        agentHandleKey(handleOf(other)) === key,
     ),
   );
 }
@@ -73,13 +75,15 @@ function knownToolName(name: string): boolean {
   return APP_COMMAND.test(name) && !isBuiltinWord(name.split(".")[0]);
 }
 
-// 맞으면 파일에 쓸 글을 돌려준다.
+// 맞으면 파일에 쓸 글을 돌려준다. 새로 만들 때(`creating`)만 handle의 모양과 범위 workspace가 있는지 본다:
+// 옛 정의의 handle은 name을 옮긴 것이라 모양이 다를 수 있다.
 export function checkAgent(input: {
   context: AgentContext;
   agent: AgentId;
   definition: AgentDefinition;
+  creating: boolean;
 }): Result<string> {
-  const { context, agent, definition } = input;
+  const { context, agent, definition, creating } = input;
   const issues: AgentDefinitionIssue[] = [];
   const text = serializeAgentFile(definition, { agent });
   if (!text.ok) addAll(issues, issuesOfError(text.error));
@@ -89,10 +93,24 @@ export function checkAgent(input: {
       addAll(issues, [{ field: `tools.${index}`, code: "unknown" }]);
   });
 
-  if (!issues.some((issue) => issue.field === "name")) {
-    const taken = duplicateName(context, agent, definition.name);
+  if (!issues.some((issue) => issue.field === "handle")) {
+    const taken = duplicateHandle(context, agent, definition.handle);
     if (!taken.ok) return taken;
-    if (taken.value) addAll(issues, [{ field: "name", code: "duplicate" }]);
+    if (taken.value) addAll(issues, [{ field: "handle", code: "duplicate" }]);
+  }
+  if (creating && agent !== LOPHN_AGENT_ID) {
+    if (
+      !issues.some((issue) => issue.field === "handle") &&
+      !NEW_AGENT_HANDLE.test(definition.handle)
+    ) {
+      addAll(issues, [{ field: "handle", code: "invalid_value" }]);
+    }
+    if (
+      definition.workspace !== undefined &&
+      !context.lookups.workspaceExists(definition.workspace)
+    ) {
+      addAll(issues, [{ field: "workspace", code: "invalid_value" }]);
+    }
   }
 
   if (issues.length > 0 || !text.ok) return invalidInput(issues);

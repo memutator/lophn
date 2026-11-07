@@ -84,4 +84,10 @@ export type BlockedReason =
 export type WirePack = { body: unknown; opaque_bytes: number };
 export type WirePacker = (request: PromptRequest) => WirePack;
 
-export type WorkspaceAgent = { name: string; description?: string };
+// handle은 call의 `to.agent`로 쓰는 주소이고 name은 보이는 이름이다. scoped는 이 workspace에서만 있는 agent다.
+export type WorkspaceAgent = {
+  handle: string;
+  name: string;
+  description?: string;
+  scoped?: boolean;
+};

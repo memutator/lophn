@@ -26,6 +26,8 @@ const APP = "app_00000000000000000000000001";
 const OTHER_APP = "app_00000000000000000000000002";
 const REVIEWER = "agt_00000000000000000000000001";
 const MISSING_AGENT = "agt_00000000000000000000000009";
+// APP 범위 agent. 그 workspace에서만 열린다.
+const SCOPED = "agt_00000000000000000000000003";
 
 // 저장소만 쓴다. 표는 실제 schema step 그대로다.
 function store() {
@@ -70,25 +72,40 @@ const deps: OpenDeps = {
   },
   agents: {
     agent: (id) =>
-      id === REVIEWER
+      id === SCOPED
         ? {
             id,
-            name: "reviewer",
-            skip: reviewerSkip,
+            handle: "scoped",
+            name: "scoped",
+            workspace: { kind: "app" as const, id: APP },
+            skip: false,
             runtime: "lophn" as const,
             apps: [],
             deny: [],
           }
-        : id === LOPHN_AGENT_ID
+        : id === REVIEWER
           ? {
               id,
-              name: "lophn",
-              skip: false,
+              handle: "reviewer",
+              workspace: null,
+              name: "reviewer",
+              skip: reviewerSkip,
               runtime: "lophn" as const,
               apps: [],
               deny: [],
             }
-          : null,
+          : id === LOPHN_AGENT_ID
+            ? {
+                id,
+                handle: "lophn",
+                workspace: null,
+                name: "lophn",
+                skip: false,
+                runtime: "lophn" as const,
+                apps: [],
+                deny: [],
+              }
+            : null,
     agents: () => [],
     cardOf: () => null,
   },
@@ -267,6 +284,9 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
     [MISSING_AGENT, null, "not_found"],
     [REVIEWER, { kind: "app", id: OTHER_APP }, "conflict"],
     [REVIEWER, { kind: "project", id: PROJECT }, "conflict"],
+    // 범위 agent는 자기 workspace 밖(home, 다른 workspace)에서는 없는 agent다.
+    [SCOPED, null, "not_found"],
+    [SCOPED, { kind: "project", id: PROJECT }, "not_found"],
   ];
   for (const [agent, workspace, code] of refused) {
     const done = open(tx, { id: "ses_bad", agent, workspace });
@@ -275,6 +295,13 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
   }
   archivedWorkspaces.clear();
 
+  assert.ok(
+    open(tx, {
+      id: "ses_scoped",
+      agent: SCOPED,
+      workspace: { kind: "app", id: APP },
+    }).ok,
+  );
   // lophn @ project, agt_… @ app은 열린다.
   assert.ok(
     open(tx, {

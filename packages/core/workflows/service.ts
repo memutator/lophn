@@ -7,7 +7,7 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
-import { LOPHN_AGENT_NAME } from "../../protocol/lophn-agent/mod.ts";
+import { LOPHN_AGENT_HANDLE } from "../../protocol/lophn-agent/mod.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
 import type {
   LineBy,
@@ -246,7 +246,7 @@ export function createWorkflowService(deps: {
           project: project.value.id,
           workflow: name,
           input: created.value.instance.input,
-          agent: parsed.declaration.agent ?? LOPHN_AGENT_NAME,
+          agent: parsed.declaration.agent ?? LOPHN_AGENT_HANDLE,
         });
         if (launched.ok) return created;
         // 시작은 성공이다. 이유가 program_exited → ended 줄로 남아야 사람이 본다.

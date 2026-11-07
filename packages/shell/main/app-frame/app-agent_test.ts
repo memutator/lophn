@@ -48,6 +48,13 @@ function setup() {
           : { ok: false, error: { code: "not_found", message: "no" } },
       );
     }
+    // 앱 workspace에서 보이는 agent. 앱은 handle로 부른다.
+    if (route === "agents/list") {
+      return Promise.resolve({
+        ok: true,
+        value: { agents: [{ agent: "agt_helper", handle: "Helper" }] },
+      });
+    }
     return Promise.resolve({ ok: true, value: { route } });
   };
   const pushed: Array<{ view: string; payload: unknown }> = [];
@@ -91,11 +98,14 @@ test("session은 늘 그 view의 앱 workspace에 열리고, 갱신은 그 앱 w
   const mine = view("v1", APP);
   const other = view("v2", OTHER_APP);
   // 페이지가 workspace를 주장해도 쓰이지 않는다.
-  const opened = await agent.open(mine, { agent: "lophn" });
+  const opened = await agent.open(mine, { agent: "helper" });
   assert.equal(
     opened.ok && (opened.value as { session: string }).session,
     "ses_new",
   );
+  // 이 앱 workspace에서 보이지 않는 handle은 열지 못한다.
+  const unknown = await agent.open(mine, { agent: "elsewhere" });
+  assert.equal(unknown.ok === false && unknown.error.code, "not_found");
   assert.deepEqual(workspaces.get("ses_new"), { kind: "app", id: APP });
 
   await agent.snapshot(other, { session: "ses_other_app" });

@@ -22,7 +22,12 @@ test("정의 파일을 저장하고 다시 읽어도 character의 형태·색과
   );
   profiles.push({ kind: "image", image: "avatar.png" });
   for (const profile of profiles) {
-    const definition = { name: "reviewer", profile, body: "Review changes." };
+    const definition = {
+      handle: "reviewer",
+      name: "reviewer",
+      profile,
+      body: "Review changes.",
+    };
     const saved = serializeAgentFile(definition, target);
     assert.ok(saved.ok);
     const read = parseAgentFile(saved.value, target);
@@ -35,6 +40,7 @@ test("정의 파일을 저장하고 다시 읽어도 character의 형태·색과
 test("modality는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도 읽힌다", () => {
   const target = { agent: AGENT } as const;
   const definition = {
+    handle: "reader",
     name: "reader",
     modality: {
       input: ["text" as const, "image" as const],
@@ -48,7 +54,10 @@ test("modality는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도
   assert.ok(read.ok);
   assert.deepStrictEqual(read.value, definition);
 
-  const old = parseAgentFile("---\nname: reader\n---\nRead.\n", target);
+  const old = parseAgentFile(
+    "---\nhandle: reader\nname: reader\n---\nRead.\n",
+    target,
+  );
   assert.ok(old.ok);
   assert.strictEqual(old.value.modality, undefined);
 });
@@ -57,6 +66,7 @@ test("modality는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의도
 test("runtime, description, tools, skills는 저장하고 다시 읽어도 남고, lophn runtime의 tools·skills와 내장 lophn의 bare는 거절된다", () => {
   const target = { agent: AGENT } as const;
   const definition = {
+    handle: "ops",
     name: "ops",
     runtime: "bare" as const,
     description: "Checks the deploy queue",
@@ -76,19 +86,49 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
   );
   assert.ok(!lophnWithTools.ok);
   assert.ok(
-    !serializeAgentFile({ name: "ops", skills: ["triage"], body: "" }, target)
-      .ok,
+    !serializeAgentFile(
+      { handle: "ops", name: "ops", skills: ["triage"], body: "" },
+      target,
+    ).ok,
   );
   assert.ok(
-    !serializeAgentFile({ name: "ops", tools: ["file.read"], body: "" }, target)
-      .ok,
+    !serializeAgentFile(
+      { handle: "ops", name: "ops", tools: ["file.read"], body: "" },
+      target,
+    ).ok,
   );
 
   const builtin = { agent: LOPHN_AGENT_ID } as const;
   assert.ok(
-    !serializeAgentFile({ name: "lophn", runtime: "bare", body: "" }, builtin)
-      .ok,
+    !serializeAgentFile(
+      { handle: "lophn", name: "lophn", runtime: "bare", body: "" },
+      builtin,
+    ).ok,
   );
   const text = "---\nruntime: bare\n---\nbody\n";
   assert.ok(!parseAgentFile(text, builtin).ok);
+});
+
+// lophn.md에 handle을 적으면 주소가 흔들린다. name은 사람이 바꿀 수 있고 바꾼 값만 file에 남는다.
+test("lophn은 handle·profile을 file에 적을 수 없고 name은 바꾼 값만 쓴다", () => {
+  const builtin = { agent: LOPHN_AGENT_ID } as const;
+  assert.ok(!parseAgentFile("---\nhandle: x\n---\n", builtin).ok);
+  const empty = parseAgentFile("", builtin);
+  assert.ok(empty.ok);
+  assert.deepStrictEqual(
+    [empty.value.handle, empty.value.name],
+    ["lophn", "lophn"],
+  );
+  const renamed = serializeAgentFile(
+    { handle: "lophn", name: "Mina", body: "" },
+    builtin,
+  );
+  assert.ok(renamed.ok);
+  assert.strictEqual(renamed.value, "---\nname: Mina\n---\n");
+  const kept = serializeAgentFile(
+    { handle: "lophn", name: "lophn", body: "" },
+    builtin,
+  );
+  assert.ok(kept.ok);
+  assert.strictEqual(kept.value, "");
 });

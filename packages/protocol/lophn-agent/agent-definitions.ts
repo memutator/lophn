@@ -13,7 +13,9 @@ import {
   agentCountsSchema,
   agentDefinitionOutputSchema,
   agentDefinitionSchema,
+  agentHandleSchema,
   agentNameSchema,
+  agentWorkspaceOutputSchema,
   agentProfileImageTypeSchema,
   agentRuntimeSchema,
   modalitySchema,
@@ -77,13 +79,16 @@ export type AgentDefinitionIssue = z.infer<typeof agentDefinitionIssueSchema>;
 
 // ---------- 전역 agent 정의 ----------
 
-// 정의는 전역이고 id가 file 이름이다. agent 자격은 목록, 읽기, 만들기, 고치기만 한다.
-// lophn의 name·profile을 바꾸거나 lophn을 지우면 `forbidden`이다.
+// 정의 file 이름은 id이고 주소는 handle(만들 때 정해 바뀌지 않는다)이다. 정의는 전역이거나 `workspace` 하나에 범위가 있다.
+// agent 자격은 목록, 읽기, 만들기, 고치기만 한다. lophn의 profile·handle을 바꾸거나 lophn을 지우면 `forbidden`이다.
 // 할당, `mcp_servers`, `skip`은 사람만 정하고 agent가 주면 core가 거절한다.
 
 export const agentRowSchema = z.object({
   agent: agentIdSchema,
+  handle: agentHandleSchema,
   name: agentNameSchema,
+  // 범위가 없으면 전역이다.
+  workspace: agentWorkspaceOutputSchema.nullable(),
   profile: profileOutputSchema,
   description: z.string().optional(),
   model: z
@@ -98,11 +103,13 @@ export const agentRowSchema = z.object({
 });
 export type AgentRow = z.infer<typeof agentRowSchema>;
 
+// 사람(editor)은 전부 읽는다. workspace를 주면 전역과 그 workspace의 범위 agent만 낸다.
+// agent 자격은 주지 않아도 자기 session의 workspace로 같이 좁혀진다(home이면 전역만).
 export const agentList = defineRead({
   resource: "agents",
   method: "list",
   name: "ListAgents",
-  input: z.strictObject({}),
+  input: z.strictObject({ workspace: workspaceSchema.optional() }),
   output: withReadCommon(z.object({ agents: z.array(agentRowSchema) })),
   actors: readActors,
   errors: [...readErrors],
@@ -137,7 +144,9 @@ export const agentRead = defineRead({
 // diff는 기본 lophn agent와 다른 점이다(workspace와 상관없다): plus는 더 가진 것, minus는 덜 가진 것.
 export const AGENT_REPLIES = ["none", "result", "conversation"] as const;
 export const agentCardSchema = z.object({
+  handle: agentHandleSchema,
   name: agentNameSchema,
+  workspace: agentWorkspaceOutputSchema.nullable(),
   description: z.string().optional(),
   runtime: agentRuntimeSchema,
   modality: z.object({
@@ -157,7 +166,7 @@ export const agentCard = defineRead({
   resource: "agents",
   method: "card",
   name: "ReadAgentCard",
-  input: z.strictObject({ name: agentNameSchema }),
+  input: z.strictObject({ handle: agentHandleSchema }),
   output: withReadCommon(z.object({ card: agentCardSchema })),
   actors: readActors,
   errors: [...readErrors],

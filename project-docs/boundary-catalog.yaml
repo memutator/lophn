@@ -88,7 +88,7 @@ elements:
 
           - id: agents
             kind: component
-            description: workspace에 놓인 agent와 그 설정.
+            description: handle로 부르는 agent(전역이거나 workspace 하나에 범위가 있다)와 그 설정.
 
           - id: agent-sessions
             kind: component

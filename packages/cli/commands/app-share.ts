@@ -5,8 +5,8 @@ import { err, ok } from "../../base/mod.ts";
 import { shareRequestOpen } from "../../protocol/approvals/mod.ts";
 import {
   agentList,
-  agentNameKey,
-  agentNameSchema,
+  agentHandleKey,
+  agentHandleSchema,
 } from "../../protocol/lophn-agent/mod.ts";
 import { defineCommand } from "./types.ts";
 
@@ -14,11 +14,11 @@ const share = defineCommand({
   name: "app.share",
   summary: "Ask the person to share this app with other agents",
   description:
-    "Ask the person to assign this app to other agents (--agent <name>, repeatable) and/or to coding agents in terminals (--coding-agents). " +
+    "Ask the person to assign this app to other agents (--agent <handle>, repeatable) and/or to coding agents in terminals (--coding-agents). " +
     "Only the app's own public skills and public commands are given. This opens a request in the waiting list; nothing changes until the person approves it, so tell them. " +
     "A new request for this app replaces the open one.",
   input: z.strictObject({
-    agent: z.array(agentNameSchema).default([]),
+    agent: z.array(agentHandleSchema).default([]),
     coding_agents: z.boolean().optional(),
     reason: z.string().max(200).optional(),
   }),
@@ -29,13 +29,16 @@ const share = defineCommand({
     const listed = await ctx.core.read(agentList, {});
     if (!listed.ok) return listed;
     const ids = [];
-    for (const name of input.agent) {
-      const key = agentNameKey(name);
+    for (const handle of input.agent) {
+      const key = agentHandleKey(handle);
       const row = listed.value.agents.find(
-        (entry) => agentNameKey(entry.name) === key,
+        (entry) => agentHandleKey(entry.handle) === key,
       );
       if (row === undefined) {
-        return err({ code: "not_found", message: `agent ${name} not found` });
+        return err({
+          code: "not_found",
+          message: `agent ${handle} not found`,
+        });
       }
       ids.push(row.agent);
     }

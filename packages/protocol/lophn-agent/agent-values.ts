@@ -26,11 +26,15 @@ function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).length;
 }
 
-// 정의가 전역이라 agent 이름은 전역에 하나다. 앞뒤 공백과 영문 대소문자를 무시해 견주는 열쇠다.
-// `lophn`은 예약 이름이라 사람이 만든 agent가 쓸 수 없다.
-export function agentNameKey(name: string): string {
-  return name.trim().toLowerCase();
+// agent의 주소는 handle이다. 만들 때 정해 바뀌지 않고 범위 있는 agent를 포함해 전역에 하나다.
+// 앞뒤 공백과 영문 대소문자를 무시해 견주는 열쇠다. `lophn`은 내장 agent의 handle이라 다른 agent가 쓸 수 없다.
+// name은 보이는 이름이라 겹쳐도 된다(주소가 아니다).
+export function agentHandleKey(handle: string): string {
+  return handle.trim().toLowerCase();
 }
+
+// 새로 만드는 handle의 모양. 옛 정의는 name을 그대로 handle로 옮겨 이 모양이 아닐 수 있어 파일 schema는 더 넓게 받는다.
+export const NEW_AGENT_HANDLE = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 
 // 지침 파일 하나(agent 정의 본문 포함)의 상한이다.
 export const AGENT_BODY_MAX_BYTES = INSTRUCTION_FILE_MAX_BYTES;
@@ -64,6 +68,10 @@ const mcpToolSchema = z.strictObject(mcpToolFields);
 export type McpTool = z.infer<typeof mcpToolSchema>;
 
 export const agentNameSchema = nonblankSchema;
+export const agentHandleSchema = nonblankSchema.refine(
+  (value) => value === value.trim(),
+  { message: "expected no surrounding whitespace" },
+);
 const bodySchema = z
   .string()
   .refine((value) => utf8Bytes(value) <= AGENT_BODY_MAX_BYTES, {
@@ -159,7 +167,9 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
 // 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: bare` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `permissions`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
+  handle: agentHandleSchema,
   name: agentNameSchema,
+  workspace: agentWorkspaceSchema.optional(),
   profile: profileSchema.optional(),
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
@@ -175,7 +185,9 @@ const frontmatterFields = {
   skip: z.boolean().optional(),
 };
 const frontmatterOutputFields = {
+  handle: agentHandleSchema,
   name: agentNameSchema,
+  workspace: agentWorkspaceOutputSchema.optional(),
   profile: profileOutputSchema.optional(),
   runtime: agentRuntimeSchema.optional(),
   description: descriptionSchema.optional(),
@@ -224,5 +236,6 @@ export const agentCountsSchema = z.object({
 export type AgentCounts = z.infer<typeof agentCountsSchema>;
 
 // 목록의 정본은 assignment다. issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다.
-// 주소가 이름이라 agent 이름은 전역에 하나다. `lophn`은 그 가운데 예약이고 내장 정의의 이름이다.
+// `lophn`은 내장 정의의 handle이고 예약이다. 이름의 기본값도 `lophn`이며 사람이 바꿀 수 있다.
+export const LOPHN_AGENT_HANDLE = "lophn";
 export const LOPHN_AGENT_NAME = "lophn";

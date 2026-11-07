@@ -42,22 +42,29 @@ function removedCommands(
 }
 
 // 한 agent의 할당. 정의 파일의 `apps`(slug)와 `permissions.deny`를 앱 id와 뺀 command 이름으로 푼다.
-// 없는 앱 slug는 건너뛴다.
+// 없는 앱 slug는 건너뛴다. 앱 범위 agent는 자기 앱을 사람의 할당 없이 받는다(deny는 그대로 적용한다).
 export function agentAssignment(
   sql: Query,
   agent: AgentId,
   agents: AgentDirectory = workspaceDepsOf(sql).agents,
 ): Result<Assignment> {
   const info = agents.agent(agent);
-  if (info === null || info.apps.length === 0) {
+  const own = info?.workspace?.kind === "app" ? info.workspace.id : null;
+  if (info === null || (info.apps.length === 0 && own === null)) {
     return ok({ agent, entries: [] });
   }
   const known = loadApps(sql, undefined);
   if (!known.ok) return known;
   const entries: Assignment["entries"] = [];
-  for (const slug of info.apps) {
-    const app = known.value.find((item) => item.slug === slug);
-    if (app === undefined) continue;
+  const ownApp = known.value.find((item) => item.id === own);
+  const wanted = [
+    ...info.apps.map((slug) => known.value.find((item) => item.slug === slug)),
+    ...(ownApp === undefined ? [] : [ownApp]),
+  ];
+  for (const app of wanted) {
+    if (app === undefined || entries.some((entry) => entry.app === app.id)) {
+      continue;
+    }
     const removed = removedCommands(sql, app, info.deny);
     if (!removed.ok) return removed;
     entries.push({ app: app.id, removed_tools: removed.value });

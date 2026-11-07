@@ -170,8 +170,11 @@ export const agents = {
     "Read after the project instructions. Your global instructions come before both.",
   "agents.notice.instructions-help-lophn":
     "Read after your global instructions (Settings \u203a Agents).",
-  "agents.notice.name-fixed-lophn":
-    "lophn's name and profile can't be changed.",
+  "agents.notice.handle-fixed-lophn":
+    "lophn's handle and profile can't be changed. You can rename how it is shown.",
+  "agents.label.handle": "Handle",
+  "agents.notice.handle-help":
+    "How other agents and apps address this agent. Lowercase letters, digits, - and _. Left empty, it is made from the name. It can't be changed after you save.",
   "agents.notice.workspace-help":
     "Where this agent works. Its sessions open in that workspace.",
   "agents.notice.profile-help":
@@ -242,7 +245,7 @@ export const agents = {
   "project-workspace.notice.agent-editor-delete-body":
     "Its open sessions close. The conversations stay.",
   "project-workspace.notice.agent-editor-issue":
-    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This name is reserved} duplicate {This is already in use} unknown {This isn't a tool, command, or MCP tool name} tooLarge {This is too large} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
+    "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This handle is reserved} duplicate {This is already in use} unknown {This isn't a tool, command, or MCP tool name} tooLarge {This is too large} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
     "Only the fields you change are saved; the rest follow project and global defaults.",
   "project-workspace.notice.agent-editor-save-first":

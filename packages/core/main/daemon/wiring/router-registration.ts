@@ -63,7 +63,17 @@ const environment: RouterEnvironment = {
         "select 1 as found from turns where session = ? and state = 'running'",
         [target.session],
       ) !== undefined;
-    return { state: running ? "running" : "idle" };
+    if (!running) return { state: "idle" };
+    // 사람의 동의를 기다리는 call(판정 전의 confirm call)이나 답을 기다리는 질문(시작한 ask)이 있으면 waiting이다.
+    const waiting =
+      view.sql.get(
+        `select 1 as found from tool_calls c join turns t on t.id = c.turn
+         where t.session = ? and t.state = 'running'
+           and ((c.state = 'requested' and c.decision is null and c.confirm = 1)
+             or (c.state = 'started' and c.tool = 'ask'))`,
+        [target.session],
+      ) !== undefined;
+    return { state: waiting ? "waiting" : "running" };
   },
 };
 

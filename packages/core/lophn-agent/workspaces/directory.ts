@@ -71,7 +71,7 @@ export function createSessionDirectory(
     },
     accepts(agent) {
       const info = deps.agents.agent(agent);
-      const card = info === null ? null : deps.agents.cardOf(info.name);
+      const card = info === null ? null : deps.agents.cardOf(info.handle);
       return card === null
         ? null
         : {
@@ -81,18 +81,25 @@ export function createSessionDirectory(
           };
     },
     listOpen() {
-      return deps
-        .sql()
-        .all(
-          `select ${SESSION_COLUMNS} from sessions
-         where lifecycle = 'open' order by created_seq`,
-          [],
-        )
-        .map(sessionRowOf)
-        .map((row) => ({
+      // 마지막 활동은 session 목록 read와 같은 기준이다(마지막 turn이 끝난, 없으면 시작한 시각).
+      const rows = deps.sql().all(
+        `select ${SESSION_COLUMNS},
+           (select max(coalesce(t.finished_at, t.started_at)) from turns t
+            where t.session = sessions.id) as last_active_at
+         from sessions where lifecycle = 'open' order by created_seq`,
+        [],
+      );
+      return rows.map((raw) => {
+        const row = sessionRowOf(raw);
+        const active = raw["last_active_at"];
+        return {
           ...targetOf(row),
-          name: deps.names.nameOf(row.agent),
-        }));
+          ...deps.names.describe(row.agent),
+          title: row.title,
+          last_active_at:
+            active === null || active === undefined ? null : String(active),
+        };
+      });
     },
   };
 }

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { t } from "@lophn/i18n";
 import { Skeleton } from "@lophn/ui/feedback";
-import { Input, SegmentedControl, Switch } from "@lophn/ui/input";
+import { Field, Input, SegmentedControl, Switch } from "@lophn/ui/input";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
@@ -77,23 +77,29 @@ function CommandRow({
   };
   return (
     <li className={styles.row} data-command-row={command.id}>
-      <Input
-        size="sm"
-        aria-label={t("project-settings.label.command-name")}
-        value={label}
-        maxLength={60}
-        onChange={(event) => setLabel(event.target.value)}
-        onBlur={save}
-      />
-      <Input
-        size="sm"
-        aria-label={t("project-settings.label.command-line")}
-        value={line}
-        maxLength={1000}
-        spellCheck={false}
-        onChange={(event) => setLine(event.target.value)}
-        onBlur={save}
-      />
+      <span className={styles.cell}>
+        <Field label={t("project-settings.label.command-name")}>
+          <Input
+            size="sm"
+            value={label}
+            maxLength={60}
+            onChange={(event) => setLabel(event.target.value)}
+            onBlur={save}
+          />
+        </Field>
+      </span>
+      <span className={styles.cell}>
+        <Field label={t("project-settings.label.command-line")}>
+          <Input
+            size="sm"
+            value={line}
+            maxLength={1000}
+            spellCheck={false}
+            onChange={(event) => setLine(event.target.value)}
+            onBlur={save}
+          />
+        </Field>
+      </span>
       <IconButton
         icon={actionIcons.remove}
         label={t("project-settings.button.remove-command")}
@@ -148,25 +154,31 @@ export function QuickCommandList({
         />
       ))}
       <li className={styles.row} data-command-add="">
-        <Input
-          size="sm"
-          aria-label={t("project-settings.label.command-name")}
-          placeholder={t("project-settings.label.command-name")}
-          value={label}
-          maxLength={60}
-          onChange={(event) => setLabel(event.target.value)}
-          onKeyDown={onEnter}
-        />
-        <Input
-          size="sm"
-          aria-label={t("project-settings.label.command-line")}
-          placeholder={t("project-settings.label.command-line")}
-          value={line}
-          maxLength={1000}
-          spellCheck={false}
-          onChange={(event) => setLine(event.target.value)}
-          onKeyDown={onEnter}
-        />
+        <span className={styles.cell}>
+          <Field label={t("project-settings.label.command-name")}>
+            <Input
+              size="sm"
+              placeholder={t("project-settings.label.command-name")}
+              value={label}
+              maxLength={60}
+              onChange={(event) => setLabel(event.target.value)}
+              onKeyDown={onEnter}
+            />
+          </Field>
+        </span>
+        <span className={styles.cell}>
+          <Field label={t("project-settings.label.command-line")}>
+            <Input
+              size="sm"
+              placeholder={t("project-settings.label.command-line")}
+              value={line}
+              maxLength={1000}
+              spellCheck={false}
+              onChange={(event) => setLine(event.target.value)}
+              onKeyDown={onEnter}
+            />
+          </Field>
+        </span>
         <Button
           size="sm"
           icon={actionIcons.add}

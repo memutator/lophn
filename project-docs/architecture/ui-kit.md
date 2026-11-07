@@ -76,6 +76,8 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 
 props는 guide 예산(`GUIDE_BUDGET_BYTES`, 20 KiB) 안에서만 붙고, 분류마다 한 번에 하나씩 돌아가며 배분한다. 그래서 컴포넌트가 늘어도 앞 알파벳 분류가 props를 다 가져가 뒤 분류가 사라지지 않는다. 예산 밖으로 밀린 props가 있는 분류에는 `- props 정의는 예산 밖이라 뺐다; ...` 한 줄이 남고, 이름·"언제 쓰나" 줄과 `import from` 줄은 분류마다 늘 있다. 뺀 props는 앱 폴더의 사본(`.lophn/sdk/ui/<판>/components/<분류>/**`)에서 읽는다. 예산은 `package.read` 한 창(`TEXT_MAX_BYTES`, 24 KiB)보다 작아 guide 색인과 예산 안의 props가 한 번에 온다. 그보다 긴 guide(`guide.md`를 쓰는 SDK)는 `package.read`가 창을 나눠 주고 `continuation.read_next`의 `offset_bytes`로 이어 받는다.
 
+판이 바뀔 때 앱이 옮길 곳은 내장 skill `migrate-sdk`(`packages/core/agent-workspaces/skills/migrate-sdk/`)의 메모 file `<패키지 이름에서 @lophn/를 뺀 것>-<판>.md`에 쌓는다(예: `declaration-4.0.0.md`). 판 하나가 file 하나이고 무엇이 바뀌었나, `Breaking:`, 앞 판에서 옮기는 code before/after, `Previous:`(앞 판)를 적으며 지우지 않는다. SKILL.md는 절차 하나라 판이 늘어도 길어지지 않고, 앱 agent는 고정 판 뒤부터 지금 판까지의 메모만 `Previous:`를 따라 `skill.read`로 읽는다. 각 SDK와 지원 소스의 `package.json`에는 `lophn.supported_from`(lophn이 아직 돌리는 가장 옛 판)이 있다. 설치 사본은 `package.json`을 의존 경로만 바꿔 그대로 담으므로 이 칸도 사본에 남는다. 고정 판이 하한보다 옛것이면 앱은 못 뜨거나 곧 못 뜬다. 하한은 그 판으로 봉인한 bundle이 지금 core에서 뜨는지와 사본이 기대는 판이 설치돼 있는지로 정한다(예: `@lophn/declaration` 4.0.0은 `sizes`로 봉인한 bundle이 안 떠서, `@lophn/app-ui`는 4.0.0에 기대는 2.3.0부터다). 옛 판 사본은 data root에 따로 싣지 않으므로 하한 아래의 앱은 처음 다시 release할 때 옮긴다. `tools/check-sdk-notes.ts`(check의 `sdk notes` 단계)가 지금 판과 하한의 메모, 하한이 판보다 높지 않은 것, 메모 사슬을 본다. SDK 판을 올리면 메모를 같이 써야 check가 통과한다.
+
 ## artifact에 닿는 길
 
 봉한 artifact view는 모듈을 import하지 못하고 바깥 library도 받지 않는다(`architecture/artifact.md`). 그래서 kit을 판을 고정한 browser build 하나로 묶어 가상 path로 준다. 사용자 앱의 `.lophn/sdk` 사본과 상관없는 길이다.

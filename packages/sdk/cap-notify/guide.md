@@ -74,6 +74,8 @@ setInterval(() => void refresh().catch(() => {}), 5 * 60_000);
 
 ## version 정책
 
+판마다 바뀐 점과 앱 code를 옮기는 법은 `migrate-sdk` skill의 메모 `<이름>-<판>.md`(예: `declaration-4.0.0.md`)에 있다(이 SDK의 판을 올리면 그 메모를 같이 쓴다).
+
 - **patch**: API·동작을 유지한 내부 수정·문서·예제 개선이다.
 - **minor**: 기존 API를 유지한 추가다.
 - **major**: API·동작의 제거나 변경이다. 요구 permission의 증가도 major다.

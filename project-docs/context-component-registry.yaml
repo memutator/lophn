@@ -589,6 +589,16 @@ components:
       paths: [packages/shell/main/desktop/core/routes.ts]
       note: 쓰지 않기로 한 말이나 꼴이 늘 때. shell이 core route를 부르는 꼴이 바뀔 때.
 
+  - id: tool-check-sdk-notes
+    kind: tool
+    roles: [worker]
+    description: 내장 SDK와 지원 소스(`@lophn/ui`·`@lophn/i18n`)의 지금 판과 지원 하한(`lophn.supported_from`)마다 `migrate-sdk` skill의 메모 file이 있는지, 메모 이름과 `Previous:` 사슬이 맞는지 본다. 없으면 더할 file 이름을 알려 준다. check의 sdk notes 단계.
+    path: tools/check-sdk-notes.ts
+    run: npm run check
+    change_reasons:
+      paths: [packages/core/agent-workspaces/skills/migrate-sdk/, packages/core/apps/packages/vendor.ts]
+      note: 메모 file의 꼴이나 지원 소스 목록이 바뀔 때.
+
   - id: tool-dev
     kind: tool
     roles: [worker, designer]

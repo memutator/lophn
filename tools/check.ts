@@ -254,6 +254,11 @@ async function buildSteps(
     name: "docs",
     commands: [["node", "tools/check-docs.ts"]],
   });
+  // SDK 판을 올리고 메모를 빼먹는 변경은 sdk 폴더만 바뀌므로 조건 없이 돈다.
+  checks.push({
+    name: "sdk notes",
+    commands: [["node", "tools/check-sdk-notes.ts"]],
+  });
 
   for (const p of ALL_PACKAGES.filter((p) => full || run.has(p))) {
     const commands = typeChecks(p);

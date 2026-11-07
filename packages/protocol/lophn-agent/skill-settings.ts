@@ -64,6 +64,12 @@ export const BUILTIN_SKILLS: readonly {
     can_disable: false,
     menu: false,
   },
+  {
+    name: "migrate-sdk",
+    workspaces: ["home", "app"],
+    can_disable: false,
+    menu: false,
+  },
 ];
 
 const skillEntrySchema = z.object({

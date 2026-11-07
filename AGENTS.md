@@ -40,6 +40,7 @@
 * 경계(API, command, protocol)에서는 공통 오류 코드 일곱(`invalid_input`, `not_found`, `forbidden`, `unauthorized`, `conflict`, `unavailable`, `internal`)과 `packages/base`의 Result만 쓴다.
 * 시각, id, 무작위 값, 파일 시스템, 네트워크는 인자로 받는다(`packages/base`의 Clock, IdSource). 전역 mutable 상태를 두지 않는다.
 * protocol을 바꾸면 쓰는 쪽을 같은 변경에서 고친다. `v2` 경로나 `FooV2` type을 만들지 않는다.
+* SDK 판(`packages/sdk/*`, `packages/design`)을 올리면 `migrate-sdk` skill에 그 판의 메모를 같이 쓰고, 지원 하한이 바뀌면 `lophn.supported_from`을 고친다. check의 sdk notes가 잡는다.
 * 주석은 "왜"만 쓴다. 죽은 코드는 지운다.
 * 의존성은 판을 정확히 고정한다.
 * 끝내기 전에 `npm run check`를 돌린다.

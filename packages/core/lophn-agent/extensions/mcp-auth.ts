@@ -519,7 +519,14 @@ export function createMcpAuth(options: {
       if (!received.ok) {
         if (session === held) {
           session = null;
-          state = { kind: "failed", reason: "callback_timeout" };
+          // 발급자가 거절하면 forbidden이고, 시한·취소는 unavailable이다.
+          state = {
+            kind: "failed",
+            reason:
+              received.error.code === "forbidden"
+                ? "exchange_failed"
+                : "callback_timeout",
+          };
           await held.listener.close();
         }
         return received;

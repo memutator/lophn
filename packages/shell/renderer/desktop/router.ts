@@ -35,6 +35,8 @@ export interface Route {
   readonly startSession?: NewSessionStart;
   /** project·app 공간에서 그 workspace의 설정(Project settings·App details) 탭을 열어 시작한다(왼쪽 sidebar 다른 workspace 줄의 설정 단추). */
   readonly startSettings?: true;
+  /** app 공간에서 앱 화면 탭을 열어(이미 있으면 골라) 시작한다(왼쪽 sidebar의 앱 줄). */
+  readonly startAppScreen?: true;
   /** app 공간에서 그 앱 workspace의 lophn을 새 session으로 열어 시작한다. */
   readonly newSession?: true;
   /** project 공간에서 열어 시작할 터미널의 terminal_ref(다른 project의 터미널 알림). */
@@ -70,6 +72,11 @@ export function openApp(app: string, session?: string): Route {
   return session === undefined
     ? { space: "app", app }
     : { space: "app", app, session };
+}
+
+/** 앱 공간으로 가서 앱 화면 탭을 연다. */
+export function openAppScreenAt(app: string): Route {
+  return { space: "app", app, startAppScreen: true };
 }
 
 /** 그 workspace로 가서 새 session을 연다. agent를 안 주면 그 workspace의 기본 lophn이다. */

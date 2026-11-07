@@ -128,6 +128,8 @@ export interface WorkspaceLeftSidebarProps {
   /** 다른 workspace의 session이거나 Inbox 카드의 session. 그 workspace로 가서 연다. */
   onOpenSession: (session: string) => void;
   onWorkspace: (ref: WorkspaceRef) => void;
+  /** workspace 줄 누르기. 앱 줄은 그 앱 화면으로 간다. */
+  onWorkspaceRow: (ref: WorkspaceRef) => void;
   onNewApp: (app: string) => void;
   /** Jobs overlay의 통로. 없으면 Jobs 줄이 바로 탭을 연다. */
   jobs?: JobsSource;
@@ -447,7 +449,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         {...(props.jobs === undefined ? {} : { jobs: props.jobs })}
         onInbox={props.onInbox}
         onJobs={props.onJobs}
-        onWorkspace={props.onWorkspace}
+        onWorkspace={props.onWorkspaceRow}
         onSession={open}
         onRemoveRecent={(_workspace, item) =>
           recentHidden.hide(item.ref, item.at)

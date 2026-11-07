@@ -26,6 +26,7 @@ import {
   openNewApp,
   openWorkspaceNewSession,
   openWorkspaceSettings,
+  openAppScreenAt,
   openProject,
   openSettings,
   type Route,
@@ -334,6 +335,7 @@ export function Desktop({
         onOpenApp={apps ? appSpace : undefined}
         apps={apps}
         onWorkspace={openWorkspace}
+        onAppScreenAt={(app) => setRoute(openAppScreenAt(app))}
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
@@ -375,6 +377,7 @@ export function Desktop({
         onOpenApp={apps ? appSpace : undefined}
         apps={apps}
         onWorkspace={openWorkspace}
+        onAppScreenAt={(app) => setRoute(openAppScreenAt(app))}
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
@@ -416,6 +419,7 @@ export function Desktop({
         apps={apps}
         appDetail={appDetail}
         onWorkspace={openWorkspace}
+        onAppScreenAt={(app) => setRoute(openAppScreenAt(app))}
         onNewApp={(app) => setRoute(openNewApp(app))}
         projects={projects}
         editor={editor}
@@ -428,6 +432,7 @@ export function Desktop({
         }
         onSettingsAt={(workspace) => setRoute(openWorkspaceSettings(workspace))}
         startSettings={route.startSettings}
+        startAppScreen={route.startAppScreen}
         startLophn={route.newSession}
       />
     );

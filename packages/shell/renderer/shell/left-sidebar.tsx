@@ -80,6 +80,7 @@ export interface LeftSidebarProps {
   /** Inbox·Jobs overlay의 [Open in tab]과 Jobs 줄(통로가 없을 때): 그 탭을 연다. */
   onInbox: () => void;
   onJobs: () => void;
+  /** workspace 줄 누르기. 앱 줄이면 그 앱 화면 탭으로 간다. */
   onWorkspace: (ref: WorkspaceRef) => void;
   onSession: (workspace: SidebarWorkspace, session: SidebarSession) => void;
   /** Recent 줄을 목록에서 지운다. 주지 않으면 menu가 없다. */

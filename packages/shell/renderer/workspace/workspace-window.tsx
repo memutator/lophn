@@ -269,6 +269,8 @@ export interface WorkspaceWindowProps {
   apps?: AppsSource;
   /** 왼쪽 sidebar에서 project나 앱 workspace로 간다(Home은 onHome). */
   onWorkspace?: (workspace: Exclude<WorkspaceRef, { kind: "home" }>) => void;
+  /** 왼쪽 sidebar의 다른 앱 줄. 그 앱 공간으로 가서 앱 화면 탭을 연다. */
+  onAppScreenAt?: (app: string) => void;
   /** Create app으로 만든 앱의 앱 공간으로 간다. */
   onNewApp?: (app: string) => void;
   /** project 등록(이름·폴더)을 고치는 통로. Home의 Workspaces panel이 쓰는 것과 같다. 없으면 settings 탭의 General을 쓸 수 없다. */
@@ -290,6 +292,8 @@ export interface WorkspaceWindowProps {
   startSession?: NewSessionStart;
   /** 처음 열 때 한 번 이 workspace의 설정 탭을 연다(다른 workspace 줄의 설정 단추로 왔다). */
   startSettings?: true;
+  /** 처음 열 때 한 번 앱 화면 탭을 연다(다른 앱 줄로 왔다). */
+  startAppScreen?: true;
   /** 왼쪽 sidebar 다른 workspace 줄의 +와 hover 목록. 그 workspace로 가서 새 session을 연다. */
   onNewSessionAt?: (workspace: WorkspaceRef, start: NewSessionStart) => void;
   /** 왼쪽 sidebar 다른 workspace 줄의 설정 단추. 그 workspace로 가서 설정 탭을 연다. */
@@ -1043,6 +1047,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     lophn?: true;
     fresh?: object;
     settings?: true;
+    appScreen?: true;
     open?: object;
     terminal?: string;
   }>({});
@@ -1069,6 +1074,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       else if (appId !== null && props.appDetail !== undefined) {
         openAppDetail(host);
       }
+    }
+    if (props.startAppScreen && started.current.appScreen === undefined) {
+      started.current.appScreen = true;
+      openAppScreen(host);
     }
     const reveal = props.revealTerminal;
     if (
@@ -1104,6 +1113,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     props.startLophn,
     props.startSession,
     props.startSettings,
+    props.startAppScreen,
     props.revealTerminal,
     props.open,
     sidebarAgents.agents,
@@ -2846,6 +2856,18 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   onWorkspace={(ref) =>
                     ref.kind === "home" ? onHome() : props.onWorkspace?.(ref)
                   }
+                  onWorkspaceRow={(ref) => {
+                    // 앱 줄은 앱 화면으로 간다. 이 앱이면 앱 화면 탭을 열거나 고른다.
+                    if (ref.kind === "home") onHome();
+                    else if (ref.kind === "app" && isApp && ref.id === appId) {
+                      openAppScreen(host);
+                    } else if (
+                      ref.kind === "app" &&
+                      props.onAppScreenAt !== undefined
+                    ) {
+                      props.onAppScreenAt(ref.id);
+                    } else props.onWorkspace?.(ref);
+                  }}
                   onNewApp={(app) => props.onNewApp?.(app)}
                   {...(openSettingsHere === undefined &&
                   props.onSettingsAt === undefined

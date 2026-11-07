@@ -19,7 +19,7 @@ function inScope(
   operation: string,
   app: string,
 ): Result<void> {
-  const access = authorizeAppId(snapshot.port, ctx, operation, app);
+  const access = authorizeAppId(snapshot, ctx, operation, app);
   return access.ok
     ? access
     : appAccessDenied(access)

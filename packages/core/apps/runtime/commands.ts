@@ -151,7 +151,7 @@ export function createRuntimeCommands(): {
         }
         const changed: App = { ...current.value, run_enabled: true };
         const access = authorizeApp(
-          tx.port,
+          tx,
           ctx,
           appEnableExecution.name,
           accessTarget(current.value, changed),
@@ -178,7 +178,7 @@ export function createRuntimeCommands(): {
         }
         const changed: App = { ...current.value, run_enabled: false };
         const access = authorizeApp(
-          tx.port,
+          tx,
           ctx,
           appDisableExecution.name,
           accessTarget(current.value, changed),

@@ -101,7 +101,7 @@ function releaseAndApp(
   const app = loadApp(tx.sql, found.value.app);
   if (!app.ok) return app;
   if (app.value === null) return absent();
-  const access = authorizeApp(tx.port, ctx, operation, {
+  const access = authorizeApp(tx, ctx, operation, {
     kind: "command",
     before: app.value,
     after: app.value,
@@ -551,7 +551,7 @@ export function createReleaseCommands(): {
         const app = loadApp(tx.sql, input.app);
         if (!app.ok) return app;
         if (app.value === null) return unreachableTarget();
-        const access = authorizeApp(tx.port, ctx, releaseRecord.name, {
+        const access = authorizeApp(tx, ctx, releaseRecord.name, {
           kind: "app",
           app: app.value,
         });

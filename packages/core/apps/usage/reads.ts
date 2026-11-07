@@ -2,7 +2,7 @@ import { err, ok } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { type AppToolUse, appUsage } from "../../../protocol/apps/usage.ts";
 import type { ReadDefinition } from "../../../protocol/server/mod.ts";
-import { loadApp, loadApps } from "../registration/mod.ts";
+import { archivedToAgent, loadApp, loadApps } from "../registration/mod.ts";
 import { usagePorts } from "./ports.ts";
 import { appToolUsers, order, workspaceKey } from "./users.ts";
 
@@ -30,7 +30,10 @@ export function createUsageReads(): ReadDefinition<typeof appUsage> {
       } else {
         const one = loadApp(snapshot.sql, input.app);
         if (!one.ok) return one;
-        if (one.value === null) {
+        if (
+          one.value === null ||
+          archivedToAgent(snapshot.sql, ctx, one.value.id)
+        ) {
           return err({ code: "not_found", message: "app not found" });
         }
         apps = [one.value.id];

@@ -20,6 +20,7 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
   const read = (agentFile: string, project: ModelChoice | null) => {
     const lookups: AgentLookups = {
       workspaceExists: () => true,
+      workspaceArchived: () => false,
       skills: () => [],
       shared: () => [],
       mcp: () => [],
@@ -43,7 +44,7 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
     });
     const result = reads.read.handle(
       { sql: {} } as unknown as ReadSnapshot,
-      {} as RequestContext,
+      { actor: "user" } as RequestContext,
       {
         agent: AGENT,
         workspace: { kind: "project", id: PROJECT },

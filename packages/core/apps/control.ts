@@ -481,6 +481,11 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       err({ code: absent, message: "app not found" });
     const allowed = createTargetAuthorizer(ctx)(ctx, route.name, { app });
     if (!allowed.ok) return refuse();
+    const facts = preparationFacts(app);
+    if (!facts.ok) return facts;
+    if (facts.value?.status === "archived" && ctx.actor.startsWith("agent:")) {
+      return refuse();
+    }
     const source = await sourcePathOf(app);
     if (!source.ok) return source;
     return source.value === null ? refuse() : ok(source.value);
@@ -509,12 +514,8 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     const facts = preparationFacts(app);
     if (!facts.ok) return facts;
     if (facts.value === null) return missing;
-    if (facts.value.status === "archived") {
-      return err({
-        code: "conflict",
-        message: "archived app cannot prepare a release",
-      });
-    }
+    // release 준비는 agent만 부르고 archived 앱은 agent에게 없는 앱이다.
+    if (facts.value.status === "archived") return missing;
     const sourcePath = facts.value.source_path;
     if (sourcePath === null) {
       return prepareFailed("build", "the app has no source folder");

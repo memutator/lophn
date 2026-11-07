@@ -28,7 +28,7 @@ function scopeOf(
   return (app) => {
     const known = seen.get(app);
     if (known !== undefined) return known;
-    const access = authorizeAppId(snapshot.port, ctx, operation, app);
+    const access = authorizeAppId(snapshot, ctx, operation, app);
     const verdict: Result<boolean> = access.ok
       ? ok(true)
       : appAccessDenied(access)

@@ -1,4 +1,4 @@
-import { ok } from "../../../base/mod.ts";
+import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { Workspace } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
@@ -49,6 +49,14 @@ export function createSessionDirectory(
     },
     resolveAddress: deps.names.resolveAddress,
     open(tx, agent, opener) {
+      // archived 앱은 agent에게 없는 앱이다. 사람과 program은 conflict로 닫힘을 안다.
+      if (
+        opener.kind === "agent" &&
+        agent.workspace?.kind === "app" &&
+        deps.apps.app(agent.workspace.id as Id<"app">)?.archived === true
+      ) {
+        return err({ code: "not_found", message: "app not found" });
+      }
       // 다른 workspace의 session이 불러 열린 session은 부른 workspace를 남긴다.
       const sender =
         opener.kind === "agent"

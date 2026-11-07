@@ -43,6 +43,8 @@ export function loadAllPackageRows(sql: Query): SqlRow[] {
 
 // release에 고정된 선언의 sdk_dependencies에서 그 version을 쓰는 release를 찾는다.
 // release 내용은 준비 뒤 바뀌지 않으므로 package에 새 version이 나와도 기존 사용처는 그대로다.
+// 지금 켜진 release만 센다: archived 앱과 지난 release는 그 version으로 더 돌지 않아 사용처로 보이면
+// 고칠 곳을 잘못 짚게 된다.
 export function loadUsages(
   sql: Query,
   name: string,
@@ -50,8 +52,11 @@ export function loadUsages(
 ): { app: string; release: string }[] {
   const rows = sql.all(
     `SELECT DISTINCT r.app AS app, r.id AS release, r.created_at AS created_at
-     FROM releases r, json_each(r.declaration, '$.sdk_dependencies') d
-     WHERE json_extract(d.value, '$.name') = ?
+     FROM releases r
+     JOIN apps a ON a.id = r.app AND a.status = 'active',
+       json_each(r.declaration, '$.sdk_dependencies') d
+     WHERE r.status = 'active'
+       AND json_extract(d.value, '$.name') = ?
        AND json_extract(d.value, '$.version') = ?
      ORDER BY r.created_at, r.id`,
     [name, version],

@@ -378,7 +378,7 @@ export const appsWiring: WiringFactory = () => {
         memory: [
           ...appOAuth.handlers,
           ["apps/call_tool", callToolHandler(path)],
-          ["apps/rewind", rewindHandler(rewind)],
+          ["apps/rewind", rewindHandler(rewind, link.sql)],
           [`${appTraySet.resource}/${appTraySet.method}`, tray.set],
           [`${appTrayList.resource}/${appTrayList.method}`, tray.list],
           [

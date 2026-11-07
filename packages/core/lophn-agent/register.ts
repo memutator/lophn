@@ -488,6 +488,8 @@ function agentLookups(
   };
   return {
     workspaceExists: (workspace) => workspaceExists(workspaces, sql, workspace),
+    workspaceArchived: (workspace) =>
+      workspace.kind === "app" && workspaces.appArchived(sql, workspace.id),
     // 이 workspace의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇 자리의 workspace-data 층을 더한다. 한 읽기 안에서 같은
     // workspace는 같은 목록이다. home(workspace 없음)은 전역 층만이다.
     skills: (workspace) => {

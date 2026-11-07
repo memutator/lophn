@@ -148,7 +148,7 @@ export function createGrantCommands(): {
         const app = loadApp(tx.sql, grant.app);
         if (!app.ok) return app;
         if (app.value === null) return absent();
-        const access = authorizeApp(tx.port, ctx, appGrantRevoke.name, {
+        const access = authorizeApp(tx, ctx, appGrantRevoke.name, {
           kind: "command",
           before: app.value,
           after: app.value,

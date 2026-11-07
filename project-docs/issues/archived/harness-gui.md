@@ -140,3 +140,40 @@ guard: 없음
 - 채팅 화면 가상화는 lophn agent와 같이 쓰는 화면이라 위를 한 뒤 다시 잰다.
 
 닫음: handle(`packages/shell/main/desktop/wiring/extensions.ts`)이 갱신 대신 `reduceAcp`로 접은 `AcpState`를 쥔다. view가 붙으면 `terminal/gui.ts`가 snapshot 하나를 보내고, 이어지는 갱신은 20ms마다 배열로 묶어 보낸다. renderer feed(`terminal-gui.tsx`)는 묶음을 다 접은 뒤 한 번 알리고, snapshot이 오면 `source.changed`로 화면이 다시 읽는다. 채팅 화면 가상화는 하지 않았다.
+
+## Claude GUI를 다시 열면 토큰 합계와 비용이 0부터 다시 센다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+closed: fixed
+guard: `packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` resume usage test
+```
+
+지금: `claude.ts`의 `totals`·`cost`는 run 메모리에만 있고 `onResult`에서만 더한다. resume, TUI→GUI toggle, `open_session`은 새 run이거나 `resetStats`를 거쳐 0부터 시작하고, `replay`는 transcript의 사용량을 읽지 않는다. transcript에는 assistant entry마다 `message.usage`가 있다. CLI가 resume에 쓰는 `cost-state` entry(`totalCostUSD`, `modelUsage`)도 있다.
+
+영향: GUI의 사용량 칸(input·output·cache token, turn 수, 비용)이 다시 열 때마다 앞 대화를 잃는다. TUI는 같은 session의 비용을 이어 센다.
+
+고치려면: `replay`에서 transcript의 마지막 `cost-state`로 합계와 `cost.base`를 채운다. 없으면 assistant `message.usage`를 `message.id`와 `requestId`로 중복을 빼고 합한다(같은 message가 content block마다 반복된다). 작음. 추천.
+
+닫음: `claude.ts`의 `restoreUsage`가 replay 끝에 transcript의 마지막 `cost-state`(없으면 assistant usage를 `message.id:requestId`로 중복을 빼고 합함)로 합계와 비용을 되살린다. 원본 줄은 SDK `importSessionToStore`로 메모리 store에 읽는다(@alpha). resume한 CLI의 `total_cost_usd`는 session 누적이라 되살린 비용은 `cost.last`에 둔다. 실패하면 조용히 넘어간다.
+
+## 메시지를 보내지 않은 TUI session에서 GUI로 넘기면 resume이 실패한다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+closed: fixed
+guard: `claude_test.ts`·`codex_test.ts`·`opencode_test.ts`·`omp_test.ts`의 unsaved session test
+```
+
+지금: TUI→GUI toggle은 tracker가 아는 TUI session id를 `resume`으로 넘긴다(`packages/shell/main/terminal/gui.ts`의 `open` → `index.ts`의 `gui` → `adapter.start`). 첫 메시지 전의 session은 CLI가 저장하지 않는다.
+- Claude: `claude.ts`의 `start`가 없는 id로 `resume`을 열고, `replay`도 그 id를 읽는다. 다시 보내도 같은 id로 다시 열어 계속 실패한다.
+- Codex: `codex.ts`의 시작이 `thread/resume`을 그대로 보내고, rollout이 없으면 시작이 실패한다.
+- OpenCode는 `api.get`이 실패하면 새 session을 만들지만, 실패한 turn("could not be loaded")을 남긴다.
+
+영향: `claude`·`codex`를 켜고 바로 "Open as chat"을 누르면 GUI를 쓸 수 없다.
+
+고치려면: `start`가 resume 대상이 저장돼 있는지 먼저 보고, 없으면 조용히 새 session을 연다. Claude는 `getSessionInfo`가 없으면 `sessionId: resume`(같은 id, 새 session)으로 연다. Codex는 rollout이 없으면 `thread/start`다. OpenCode는 빈 session이면 실패 줄을 내지 않는다. omp도 `--resume`의 같은 경우를 확인한다. 작음. 추천.
+
+닫음: Claude는 `getSessionInfo`가 없으면 같은 id로 새 session(`sessionId`)을 연다(`start`, `open_session`). Codex는 `thread/resume`이 "no rollout found"면 `thread/start`다. OpenCode는 `api.get`이 404면 실패 줄 없이 새로 연다. omp는 `--resume`으로 띄운 process가 ready 전에 끝나면 `--resume` 없이 다시 띄운다.

@@ -19,7 +19,7 @@ packages/design  (package @lophn/ui)          범용 kit. 사용자 앱도 그�
         │                                   parts/<component>/      lophn 전용 부품(Avatar, VendorIcon, TabStrip)
         │ 판 고정 사본(file:)
         └──────────────────────────────▶ 사용자 앱 src/screens/    @lophn/ui/<분류>로 import
-packages/sdk/app-ui  (package @lophn/app-ui)  앱 bridge를 쓰는 UI만: ToolButton, useTool, AppErrorBoundary
+packages/sdk/app-ui  (package @lophn/app-ui)  앱 bridge를 쓰는 UI만: ToolButton, useTool, usePlace, AppErrorBoundary
 
 tools/wireframes  (gallery)                   사람이 보고 승인하는 곳. 실제 component를 import만 한다
   pages/kit/<분류>/      분류마다 page 하나. 그 분류 mod.ts의 component를 상태별로 그린다
@@ -43,7 +43,7 @@ tools/wireframes  (gallery)                   사람이 보고 승인하는 곳.
 |---|---|---|
 | 범용 | `packages/design/components/<분류>/` | Button, Dialog, DataTable, AppShell, Sidebar, FilterBar, ReadState, ToastProvider |
 | lophn만의 뜻(session, agent, harness·provider, 대기 질문)이 이름이나 동작에 박힘 | `packages/shell/renderer/parts/` 또는 그 화면 폴더 | Avatar(agent character SVG와 profile 표시), VendorIcon, TabStrip(점이 session 상태), model picker |
-| lophn과의 약속(tool 호출 `lophnApp.callTool`, `lophn:render-error` event)을 앎 | `packages/sdk/app-ui` | ToolButton, useTool, AppErrorBoundary |
+| lophn과의 약속(tool 호출 `lophnApp.callTool`, 열린 자리·인자·workspace `lophnApp.place`, `lophn:render-error` event)을 앎 | `packages/sdk/app-ui` | ToolButton, useTool, usePlace, AppErrorBoundary |
 | 쓰는 곳이 gallery뿐 | 두지 않는다 | (지운 것: Chip, AuthorMark, LauncherFrame, OverviewFrame) |
 
 분류 안 component 폴더는 tsx, module.css, 보조 file을 같이 둔다(`components/overlay/dialog/dialog.tsx`). 분류 `mod.ts`의 `export { … } from` 문 하나가 component 하나(와 그 Props)이고, 값을 내보내는 문마다 바로 윗줄에 "언제 쓰나" 한 줄(`// …`)이 있다. 비슷한 것과 갈리는 지점을 쓴다(Popover와 Menu, Dialog와 Sheet, Table과 DataTable). 이 줄들이 kit의 목록이다. agent는 분류 이름 8개로 찾아 들어가 `mod.ts`를 읽는다.

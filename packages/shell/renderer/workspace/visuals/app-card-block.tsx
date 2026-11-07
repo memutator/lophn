@@ -1,4 +1,4 @@
-// 세션 앱 카드. 답 안의 앱 카드를 그 앱의 card 크기 화면으로 창의 <webview> 그릇에 보인다. 판을 싣은 카드는
+// 세션 앱 카드. 답 안의 앱 카드를 그 앱의 card 자리 화면으로 창의 <webview> 그릇에 보인다. 판을 싣은 카드는
 // 만든 때의 판에 고정된 live 표시이며 지금 판이 다르면 contract_changed, 앱이 없어지면 unavailable로 두고 다른 판으로
 // 바꾸지 않는다. 판을 싣지 않은 카드는 지금 판을 연다. view는 message·block 표시 참조에 묶여 열리고 보이는 사각형만
 // main에 간다. 카드를 열어도 command 권한은 늘지 않는다(view에는 command 통로가 없다).
@@ -136,7 +136,7 @@ export function AppCardBlock({
           mode="live"
           {...(card.release === null ? {} : { release: card.release })}
           screen={card.view}
-          size="card"
+          place="card"
           card={{ message, block }}
           label={label}
           onState={observe}

@@ -17,7 +17,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 - `validateInput(schema, value)` — command 입력을 검사한다.
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `AppDeclaration`, `ScreenDeclaration`, `OperationDeclaration`,
-  `CommandDeclaration`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
+  `CommandDeclaration`, `Place`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
   `SkillDeclaration`, `SDKDependency`, `ValidationResult`, `ValidationError`
 
 ## 선언의 칸
@@ -25,11 +25,18 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 `name`, `description`, `screens`, `operations`, `commands`, `permissions`,
 `app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`만 있다. 알 수 없는 칸은 거절한다.
 
-- `screens` — 화면 목록이다. 항목은 `{key, label, path, sizes}`다. `sizes`는
-  화면을 열 수 있는 자리다. `full`은 앱 창, `panel`은 project 창의 탭(사람이
-  "앱 · 화면 label"을 골라 열고 activity bar에 고정한다), `card`는 agent 대화 안의
-  카드다. 한 가지 일만 하는 화면을 `panel`로 따로 두면 사람이 앱 전체를 열지 않고
-  그 일만 옆에 띄운다. 넓어야만 쓸 수 있는 화면에는 `panel`을 빼 둔다.
+- `screens` — 화면 목록이다. 항목은 `{key, label, path, places, params?}`다. `places`는
+  화면을 열 수 있는 자리이고 비지 않고 겹치지 않는다.
+  - `tab` — 앱 workspace와 앱 창이다. 첫 `tab` 화면이 앱의 입구다.
+  - `panel` — project의 dock·float와 전역 float다. 사람이 "앱 · 화면 label"을 골라
+    열고 activity bar에 고정한다. 한 가지 일만 하는 화면을 `panel`로 따로 두면 사람이
+    앱 전체를 열지 않고 그 일만 옆에 띄운다. 넓어야만 쓸 수 있는 화면에는 `panel`을 뺀다.
+  - `card` — agent 대화 안의 카드다.
+  - `sidebar` — 오른쪽 sidebar다.
+  - `tray` — 작업 표시줄 tray popup이다.
+  - `params` — 화면이 받는 인자의 schema다. 없으면 인자가 없는 화면이다. root type은
+    object이고 command `inputSchema`와 같은 schema 규칙이다. 한 화면 안의 부분을
+    따로 쓰고 싶으면 인자로 가르지 말고 화면으로 나눈다.
 
 - `icon` — 앱 icon 이미지의 bundle 안 경로다(`"/assets/icon.svg"`). `.svg`, `.png`,
   `.webp`만 받고 64 KiB 이하여야 한다. 파일은 source에 commit해 두면 release에
@@ -97,7 +104,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "3.0.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.0.0" }],
 });
 
 const result = validateDeclaration(declaration);

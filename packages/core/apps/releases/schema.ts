@@ -143,4 +143,40 @@ export const releasesSchemaSteps: readonly SchemaStep[] = [
     BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
   `,
   },
+  // 화면의 `sizes`가 `places`가 됐다(`full`은 `tab`). `sizes`가 남은 선언은 새 검사가 알 수 없는 칸으로 거절한다.
+  // declaration_hash는 준비 때 낸 값이라 바꾸지 않는다.
+  {
+    id: "apps.releases.declaration-places",
+    sql: `
+    DROP TRIGGER releases_immutable;
+    UPDATE releases
+       SET declaration = json_set(
+         declaration,
+         '$.screens', (
+           SELECT json_group_array(json_remove(
+             json_set(
+               screen.value,
+               '$.places', (
+                 SELECT json_group_array(CASE place.value WHEN 'full' THEN 'tab' ELSE place.value END)
+                   FROM json_each(screen.value, '$.sizes') AS place
+               )
+             ),
+             '$.sizes'
+           ))
+             FROM json_each(releases.declaration, '$.screens') AS screen
+         )
+       )
+     WHERE json_type(declaration, '$.screens[0].sizes') IS NOT NULL;
+    CREATE TRIGGER releases_immutable BEFORE UPDATE ON releases
+    WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.number <> OLD.number
+      OR NEW.code_commit <> OLD.code_commit
+      OR NEW.bundle_hash <> OLD.bundle_hash
+      OR NEW.declaration_hash <> OLD.declaration_hash
+      OR NEW.data_schema <> OLD.data_schema
+      OR NEW.data_changes <> OLD.data_changes
+      OR NEW.created_by <> OLD.created_by OR NEW.created_at <> OLD.created_at
+      OR NEW.declaration <> OLD.declaration OR NEW.facts <> OLD.facts
+    BEGIN SELECT RAISE(ABORT, 'prepared release content is immutable'); END;
+  `,
+  },
 ];

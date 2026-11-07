@@ -189,7 +189,6 @@ function wireOf(
     // 관측 wire 계약이 아직 요구하는 칸이다. 연결 주소는 core에 알리지 않는다.
     endpoint: "",
     tools: observation.tools,
-    screens: observation.screens,
     ready: observation.ready,
     accepting: observation.accepting,
     ...(observation.reason ? { reason: observation.reason } : {}),

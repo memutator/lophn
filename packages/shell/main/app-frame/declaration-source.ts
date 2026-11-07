@@ -56,7 +56,7 @@ export function createDeclarationSource(
   };
 }
 
-/** release의 전용 창 screen. 선언에 `full` 크기로 적힌 첫 screen이다. */
+/** release의 전용 창 screen. 선언에 `tab` 자리로 적힌 첫 screen이다. */
 export function createEntryScreen(
   read: DeclarationRead,
 ): (app: string, release: string) => Promise<Outcome<string>> {
@@ -66,16 +66,16 @@ export function createEntryScreen(
     const screens = Array.isArray(found.value.screens)
       ? found.value.screens
       : [];
-    const full = screens
+    const entry = screens
       .map((item) => record(item) ?? {})
       .find(
         (screen) =>
-          Array.isArray(screen.sizes) &&
-          screen.sizes.includes("full") &&
+          Array.isArray(screen.places) &&
+          screen.places.includes("tab") &&
           typeof screen.key === "string",
       );
-    return full === undefined
-      ? failure("unavailable", "the app has no full screen")
-      : { ok: true, value: full.key as string };
+    return entry === undefined
+      ? failure("unavailable", "the app has no tab screen")
+      : { ok: true, value: entry.key as string };
   };
 }

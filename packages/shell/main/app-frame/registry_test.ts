@@ -16,7 +16,7 @@ const OPEN = {
   mode: "live",
   release: RELEASE,
   screen: "panel",
-  size: "full",
+  place: "tab",
 } as const;
 
 // fake 창·guest. guest id는 실제 Electron처럼 그 webContents id를 그대로 쓴다.

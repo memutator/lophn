@@ -1678,7 +1678,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         if (
           panelApps?.ok &&
           !app?.screens.some(
-            (item) => item.key === pin.surface && item.sizes.includes("panel"),
+            (item) => item.key === pin.surface && item.places.includes("panel"),
           )
         ) {
           return;
@@ -2352,7 +2352,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
           ? panelApps.value.find((item) => item.app === pin.app)
           : undefined;
         const screen = app?.screens.find(
-          (item) => item.key === pin.surface && item.sizes.includes("panel"),
+          (item) => item.key === pin.surface && item.places.includes("panel"),
         );
         if (panelApps?.ok && screen === undefined) return [];
         const title = app?.name ?? t("project-workspace.label.kind-app-panel");

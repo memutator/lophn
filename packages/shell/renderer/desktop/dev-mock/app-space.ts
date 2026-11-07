@@ -29,7 +29,7 @@ export function mockViews(): LophnShellViewsApi {
         release: input.release ?? null,
         mode: input.mode,
         screen: input.screen,
-        size: input.size,
+        place: input.place,
         src: "about:blank",
         connectionState: "running" as const,
       };
@@ -84,7 +84,7 @@ export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
             {
               key: "home",
               label: "Home",
-              sizes: ["full", "panel", "card"] as const,
+              places: ["tab", "panel", "card"] as const,
             },
           ],
         })),

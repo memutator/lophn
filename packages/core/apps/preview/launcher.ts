@@ -380,7 +380,6 @@ export function createPreviewLauncher(
       // 관측 wire 계약이 아직 요구하는 칸이다. 연결 주소는 더 이상 core에 알리지 않는다.
       endpoint: "",
       tools: [...entry.launch.tools],
-      screens: { ...(entry.launch.screens ?? {}) },
       ready,
       accepting: ready && entry.opened,
       ...(reason ? { reason } : {}),

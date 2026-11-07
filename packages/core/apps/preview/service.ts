@@ -48,7 +48,6 @@ export type PreviewBundle = {
   // bundle 선언의 operation과 command. preview 대상 호출이 이 선언으로 판정된다.
   operations: readonly OperationDeclaration[];
   commands: readonly CommandDeclaration[];
-  screens: NonNullable<PreviewLaunch["screens"]>;
   dataSchema: number;
   // bundle 파일 중 그 경로의 byte. fixture는 bundle 안의 파일이다.
   fixture(path: string): Promise<Uint8Array | undefined>;
@@ -237,7 +236,6 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       release,
       bundleHash,
       tools: handlerNames(bundle),
-      screens: { ...bundle.screens },
       dataSchema: bundle.dataSchema,
       entry: bundle.entry,
       dataPath,

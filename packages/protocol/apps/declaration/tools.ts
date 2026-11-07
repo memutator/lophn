@@ -10,7 +10,7 @@ import {
   nonBlank,
   type OperationDeclaration,
   type ScreenDeclaration,
-  type ScreenSize,
+  type Place,
   type ToolEffect,
   type ValidationResult,
 } from "./types.ts";
@@ -23,6 +23,8 @@ import { screenPath } from "./scope.ts";
 const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 // protocol/lophn-agent/tool-catalog.ts의 TOOL_NAME_MAX와 같은 값이다. 이 file은 의존성이 없어 따로 쓴다.
 const WIRE_NAME_MAX = 64;
+
+const PLACES: readonly unknown[] = ["tab", "panel", "card", "sidebar", "tray"];
 
 function blankDescription(schema: InputSchema): string | undefined {
   if (Object.hasOwn(schema, "description") && !nonBlank(schema.description)) {
@@ -55,32 +57,35 @@ export function validateLayers(
     if (!isObject(item)) return invalid("screen must be an object");
     const bad = exactKeys(
       item,
-      ["key", "label", "path", "sizes"],
-      ["key", "label", "path", "sizes"],
+      ["key", "label", "path", "places", "params"],
+      ["key", "label", "path", "places"],
     );
     if (bad) return invalid(`screen ${bad}`);
     if (!nonBlank(item.key) || !nonBlank(item.label)) {
       return invalid("screen key and label must be nonblank");
     }
     if (screenPath(item.path)) return invalid(screenPath(item.path)!);
-    if (!Array.isArray(item.sizes) || item.sizes.length === 0) {
-      return invalid("screen sizes must be nonempty");
+    if (!Array.isArray(item.places) || item.places.length === 0) {
+      return invalid("screen places must be nonempty");
     }
-    if (
-      item.sizes.some(
-        (size) => size !== "full" && size !== "panel" && size !== "card",
-      )
-    ) {
-      return invalid("screen size is unsupported");
+    if (item.places.some((place) => !PLACES.includes(place))) {
+      return invalid("screen place is unsupported");
     }
-    if (new Set(item.sizes).size !== item.sizes.length) {
-      return invalid("screen sizes are duplicated");
+    if (new Set(item.places).size !== item.places.length) {
+      return invalid("screen places are duplicated");
+    }
+    let params: InputSchema | undefined;
+    if (Object.hasOwn(item, "params")) {
+      const parsed = objectSchema(item.params, `screen ${item.key} params`);
+      if (!parsed.ok) return parsed;
+      params = parsed.value;
     }
     screens.push({
       key: item.key,
       label: item.label,
       path: item.path as string,
-      sizes: [...item.sizes] as ScreenSize[],
+      places: [...item.places] as Place[],
+      ...(params ? { params } : {}),
     });
   }
   if (

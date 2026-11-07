@@ -39,8 +39,6 @@ export type DesiredApp = {
   runEnabled: boolean;
   archived: boolean;
   tools: string[];
-  // 현재 선언의 화면과 크기. connection은 이 선언과의 교집합만 받는다.
-  screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
   entry: string;
   dataPath: string;
@@ -194,7 +192,6 @@ type AppObservation = {
   bundleHash: string;
   processNonce: string;
   tools: string[];
-  screens: Record<string, ("full" | "panel" | "card")[]>;
   ready: boolean;
   accepting: boolean;
   reason?: { code: string; summary: string };
@@ -750,7 +747,6 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         bundleHash: desired?.bundleHash ?? "",
         processNonce: tracked?.child.identity.processNonce ?? "",
         tools: [...(tracked?.tools ?? desired?.tools ?? [])],
-        screens: { ...(desired?.screens ?? {}) },
         // 검사를 통과한 자식만 ready다. 띄운 직후나 probe 중에는 아니다.
         ready: live && tracked.probed,
         accepting: live && tracked.probed && tracked.opened && !runtime.held,

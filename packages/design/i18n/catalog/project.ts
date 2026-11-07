@@ -11,7 +11,7 @@ export const project = {
   "app-panel.notice.app-space-only": "{app} opens only in the app space.",
   "app-panel.notice.no-version": "This app has no version ready to open yet.",
   "app-panel.notice.not-panel":
-    "This screen can't open in a tab. Open it in the app space.",
+    "This screen can't open as a panel. Open it in the app space.",
   "app-panel.title.choose": "Open an app in this tab",
   "conversation.notice.visual-app-card": "App cards can't be shown here.",
   "conversation.notice.visual-unavailable-drawing":

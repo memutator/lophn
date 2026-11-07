@@ -113,20 +113,27 @@ kit does the job, and style it with the token variables.
 
 ## Where screens open
 
-Each screen declares `sizes`. They decide where people can open it:
+Each screen declares `places`. They decide where people can open it:
 
-- `full`: the app window, with the app's own navigation.
-- `panel`: a tab in a project window, next to the person's work. People pick
-  "App · Screen" from a list (the screen's `label` is the second half), and can
-  pin it to the project's activity bar to open it with one click, docked in a
-  pane or floating.
+- `tab`: the app workspace and the app window, with the app's own navigation.
+  The first `tab` screen is the entry of the app.
+- `panel`: a tab in a project window (docked in a pane or floating) and the
+  global float, next to the person's work. People pick "App · Screen" from a
+  list (the screen's `label` is the second half), and can pin it to the
+  project's activity bar to open it with one click.
 - `card`: inside an agent conversation, when an agent shows the screen.
+- `sidebar`: the right sidebar.
+- `tray`: the taskbar tray popup.
+
+`params` is the schema of the input a screen receives (root type object; none
+means the screen takes no input). To use a part of one screen on its own, make
+it its own screen instead of splitting by `params`.
 
 Panels are where an app is used most often, so design them on purpose:
 
 - When one task is worth keeping beside the work (look up one session, add one
-  entry, watch one number), make it its own screen with `sizes: ["panel"]` or
-  `["panel", "full"]` instead of asking people to open the whole app. Give it a
+  entry, watch one number), make it its own screen with `places: ["panel"]` or
+  `["panel", "tab"]` instead of asking people to open the whole app. Give it a
   task-like `label` such as "Session lookup"; that label is what people pick
   and pin.
 - Leave `panel` out of screens that only work wide, such as a dashboard with

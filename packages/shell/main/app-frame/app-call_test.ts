@@ -17,7 +17,7 @@ function view(mode: "live" | "preview"): BoundView {
       mode,
       release: RELEASE,
       screen: "main",
-      size: "full",
+      place: "tab",
     },
     binding: {
       release: RELEASE,

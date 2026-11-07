@@ -34,7 +34,9 @@ const appDeclarationScreenSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   path: z.string().min(1),
-  sizes: z.array(z.enum(["full", "panel", "card"])).min(1),
+  places: z.array(z.enum(["tab", "panel", "card", "sidebar", "tray"])).min(1),
+  // 정규 InputSchema. 없으면 인자가 없는 화면이다.
+  params: jsonValueSchema.optional(),
 });
 
 // 설명과 구조 검증은 서로 다른 근거다. 설명이 완성됐다는 것만으로 구조가 맞다고 표시하지 않는다.

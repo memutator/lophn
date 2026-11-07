@@ -1,6 +1,6 @@
 // 프로젝트 작업대의 앱 패널 탭. 선언이 panel
-// 크기를 선언한 화면만 탭에 열고, 전체 화면만 선언한 앱은 앱 공간으로 열기를 안내한다. 탭의
-// 앱 view는 앱 공간과 같은 앱·판·mode 신원과 격리로 main이 열고(size만 panel), 크롬은 이 탭의
+// panel을 선언한 화면만 탭에 열고, 전체 화면만 선언한 앱은 앱 공간으로 열기를 안내한다. 탭의
+// 앱 view는 앱 공간과 같은 앱·판·mode 신원과 격리로 main이 열고(place만 panel), 크롬은 이 탭의
 // shell renderer가 그린다. 탭이 안 보이거나 다시 mount돼도 view는 남겨 숨기고, 탭이
 // layout에서 사라지면 폐기한다.
 import { useEffect, useState } from "react";
@@ -30,7 +30,7 @@ export interface PanelChoice {
 
 /** 패널을 선언한 화면만 고를 수 있다. 하나도 없으면 앱 공간으로 열기를 안내한다. */
 export function panelScreens(app: AppScreens): AppScreens["screens"] {
-  return app.screens.filter((screen) => screen.sizes.includes("panel"));
+  return app.screens.filter((screen) => screen.places.includes("panel"));
 }
 
 /**
@@ -176,7 +176,7 @@ interface AppPanelTabProps {
 
 type Facts = AppRead | null;
 
-/** 고른 앱 화면 하나를 panel 크기로 연 탭 본문. */
+/** 고른 앱 화면 하나를 panel 자리로 연 탭 본문. */
 export function AppPanelTab({
   app,
   screen,
@@ -263,7 +263,7 @@ export function AppPanelTab({
           mode="live"
           release={release}
           screen={screen}
-          size="panel"
+          place="panel"
           label={facts.value.name}
           shown={shown}
           keepKey={keepKey}

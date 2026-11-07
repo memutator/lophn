@@ -13,7 +13,7 @@ const screenKey = z
   .min(1)
   .refine((value) => value.trim().length > 0 && noControl(value));
 const mode = z.enum(["live", "preview"]);
-const size = z.enum(["full", "panel", "card"]);
+const place = z.enum(["tab", "panel", "card", "sidebar", "tray"]);
 
 export const VIEW_OPEN_APP_CHANNEL = "shell:view-open-app";
 export const VIEW_BOUNDS_CHANNEL = "shell:view-bounds";
@@ -46,11 +46,11 @@ export const appViewOpenSchema = z
     mode,
     release: releaseId.optional(),
     screen: screenKey,
-    size,
+    place,
     card: appViewCardSchema.optional(),
   })
   .strict()
-  .refine((value) => (value.size === "card") === (value.card !== undefined));
+  .refine((value) => (value.place === "card") === (value.card !== undefined));
 
 export const viewBoundsRequestSchema = z
   .object({
@@ -79,7 +79,7 @@ export const appFrameViewStateSchema = z
     release: releaseId.nullable(),
     mode,
     screen: screenKey,
-    size,
+    place,
     // renderer가 <webview src>에 그대로 넣는 주소. main이 붙일 화면을 새로 만들 때마다
     // (열기, release 바뀜, crash 뒤 다시 열기) 새 src를 낸다.
     src: z.string(),

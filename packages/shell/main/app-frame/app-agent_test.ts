@@ -13,7 +13,7 @@ function view(view_session: string, app: string): BoundView {
   return {
     view_session,
     generation: 1,
-    target: { app, mode: "live", release: null, screen: "main", size: "full" },
+    target: { app, mode: "live", release: null, screen: "main", place: "tab" },
     binding: { release: null, bundleHash: "a".repeat(64), processNonce: "n" },
   };
 }

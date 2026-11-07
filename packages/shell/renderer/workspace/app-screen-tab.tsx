@@ -1,4 +1,4 @@
-// 앱 workspace의 앱 화면 탭. 앱의 현재 release entry screen 하나를 full 크기로 연다. 탭이 안 보이거나 다시 mount돼도
+// 앱 workspace의 앱 화면 탭. 앱의 현재 release entry screen 하나를 tab 자리로 연다. 탭이 안 보이거나 다시 mount돼도
 // view는 남겨 숨기고(keepKey), 탭이 layout에서 사라지면 폐기한다. Annotate는 card 머리 줄 ⋯ 메뉴의 맨 위 항목(앱 항목 앞)이고,
 // 켜진 동안은 머리 줄 전체가 Annotate 줄(annotate-head.tsx)로 바뀐다. 보냄·실패 알림은 view 위쪽 toast다.
 import { useEffect, useRef, useState } from "react";
@@ -190,7 +190,7 @@ export function AppScreenTab(props: AppScreenTabProps) {
         mode="live"
         release={row.release}
         screen={entry.screen}
-        size="full"
+        place="tab"
         label={row.name}
         shown={shown}
         keepKey={keepKey}

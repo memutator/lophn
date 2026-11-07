@@ -32,8 +32,6 @@ import {
   MANIFEST_COPY_NAME,
 } from "../bundle/seal.ts";
 
-type ScreenSizes = Record<string, ("full" | "panel" | "card")[]>;
-
 type BundleParts = {
   // 사본 root. 자식의 cwd와 상대 경로의 기준이다.
   root: string;
@@ -41,7 +39,6 @@ type BundleParts = {
   entry: string;
   operations: OperationDeclaration[];
   commands: CommandDeclaration[];
-  screens: ScreenSizes;
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
   dataSchema: number;
 };
@@ -164,12 +161,6 @@ export async function readBundleCopy(
     entry: `${root}/${manifest.entrypoint}`,
     operations: declaration.value.operations,
     commands: declaration.value.commands,
-    screens: Object.fromEntries(
-      declaration.value.screens.map((screen) => [
-        screen.key,
-        [...screen.sizes],
-      ]),
-    ),
     dataSchema: dataSchemaOf(manifest),
   });
 }
@@ -195,7 +186,6 @@ export function desiredFromBundle(
     runEnabled: input.runEnabled,
     archived: input.archived,
     tools: handlerNames(parts),
-    screens: parts.screens,
     dataSchema: input.dataSchema,
     entry: parts.entry,
     dataPath: input.dataPath,
@@ -217,7 +207,6 @@ export function createCopyPreviewBundles(options: {
         entry: parts.entry,
         operations: parts.operations,
         commands: parts.commands,
-        screens: parts.screens,
         dataSchema: parts.dataSchema,
         async fixture(path) {
           const file = parts.manifest.files.find(

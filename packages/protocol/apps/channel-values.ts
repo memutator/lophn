@@ -27,8 +27,6 @@ export const APP_CALL_DEPTH_LIMIT = 8;
 export const runtimeModeSchema = z.enum(["live", "preview"]);
 export type ChannelMode = z.infer<typeof runtimeModeSchema>;
 
-export const screenSizeSchema = z.enum(["full", "panel", "card"]);
-
 // tool key. 존재·grant 판정은 runtime이다. 선언 tool 이름은 toolNameSchema가 검사한다.
 export const toolKeySchema = z
   .string()

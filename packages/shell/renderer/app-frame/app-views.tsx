@@ -5,7 +5,7 @@ import { createContext, useContext } from "react";
 
 import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
-import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import type { AppViewOpen, LophnShellViewsApi } from "../../ipc/app-frame.ts";
 
 /** 앱 등록에서 view 크롬과 판 고정이 쓰는 것만. */
 interface AppFacts {
@@ -24,7 +24,7 @@ export type AppRead =
 interface AppScreen {
   readonly key: string;
   readonly label: string;
-  readonly sizes: readonly ("full" | "panel" | "card")[];
+  readonly places: readonly AppViewOpen["place"][];
 }
 
 export interface AppScreens {
@@ -106,7 +106,7 @@ interface DeclarationValue {
   screens: {
     key: string;
     label: string;
-    sizes: ("full" | "panel" | "card")[];
+    places: AppViewOpen["place"][];
   }[];
 }
 
@@ -157,7 +157,7 @@ export function coreAppScreens(
         screens: declaration.screens.map((screen) => ({
           key: screen.key,
           label: screen.label,
-          sizes: screen.sizes,
+          places: screen.places,
         })),
       });
     }

@@ -163,7 +163,8 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
             key: screen.key,
             label: screen.label,
             path: screen.path,
-            sizes: screen.sizes,
+            places: screen.places,
+            ...(screen.params ? { params: screen.params } : {}),
           })),
           // 선언 사실은 고정 선언에서 푼다. 실행 범위(선언 ∩ grant)를 읽는 쪽이 쓴다.
           facts: {

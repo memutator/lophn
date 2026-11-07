@@ -47,7 +47,6 @@ export const SUPERVISOR_OPS = {
 const appId = z.string().regex(/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const releaseId = z.string().regex(/^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
-const screenSize = z.enum(["full", "panel", "card"]);
 
 export const desiredAppSchema = z.strictObject({
   app: z.string().min(1),
@@ -56,7 +55,6 @@ export const desiredAppSchema = z.strictObject({
   runEnabled: z.boolean(),
   archived: z.boolean(),
   tools: z.array(z.string().min(1)),
-  screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
   dataSchema: z.number().int().nonnegative(),
   entry: z.string().min(1),
   dataPath: z.string().min(1),
@@ -79,7 +77,6 @@ const observationWireSchema = z.strictObject({
   process_nonce: z.string(),
   endpoint: z.string(),
   tools: z.array(z.string()),
-  screens: z.record(z.string(), z.array(screenSize)),
   ready: z.boolean(),
   accepting: z.boolean(),
   reason: reasonSchema.optional(),
@@ -117,7 +114,6 @@ export const previewLaunchSchema = z.strictObject({
   release: releaseId.nullable(),
   bundleHash: sha256,
   tools: z.array(z.string().min(1)),
-  screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
   dataSchema: z.number().int().nonnegative(),
   entry: z.string().min(1),
   dataPath: z.string().min(1),

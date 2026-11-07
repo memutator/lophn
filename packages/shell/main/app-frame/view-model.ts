@@ -3,7 +3,7 @@
 import type {
   AppBinding,
   ConnectTarget,
-  ScreenSize,
+  Place,
   ViewMode,
 } from "./app-connection.ts";
 import type { ViewHealth, ViewHealthSignal } from "./crash.ts";
@@ -14,7 +14,7 @@ interface AppFrameOpen {
   mode: ViewMode;
   release: string | null;
   screen: string;
-  size: ScreenSize;
+  place: Place;
 }
 
 export type ConnectionState =
@@ -37,7 +37,7 @@ export interface AppFrameViewState {
   release: string | null;
   mode: ViewMode;
   screen: string;
-  size: ScreenSize;
+  place: Place;
   /** renderer가 `<webview src>`에 그대로 넣는 주소. main이 화면을 새로 붙일 때마다 새로 낸다. */
   src: string;
   connectionState: ConnectionState;
@@ -93,13 +93,13 @@ export interface ViewListing {
   release: string | null;
   mode: ViewMode;
   screen: string;
-  size: ScreenSize;
+  place: Place;
   card: CardDisplay | null;
 }
 
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const SIZES: readonly string[] = ["full", "panel", "card"];
+const PLACES: readonly string[] = ["tab", "panel", "card", "sidebar", "tray"];
 const MODES: readonly string[] = ["live", "preview"];
 const SAFE_TEXT = (value: unknown): value is string =>
   typeof value === "string" &&
@@ -112,7 +112,7 @@ const OPEN_KEYS: Record<string, true> = {
   mode: true,
   release: true,
   screen: true,
-  size: true,
+  place: true,
 };
 const OPEN_KEY_COUNT = Object.keys(OPEN_KEYS).length;
 
@@ -137,7 +137,7 @@ export function checkOpen(value: unknown): AppFrameOpen | undefined {
     ) ||
     (input.mode === "live" && input.release === null) ||
     !SAFE_TEXT(input.screen) ||
-    !SIZES.includes(input.size as string)
+    !PLACES.includes(input.place as string)
   ) {
     return undefined;
   }
@@ -188,7 +188,7 @@ export function stateOf(entry: ViewEntry): AppFrameViewState {
     release: entry.target.release,
     mode: entry.target.mode,
     screen: entry.target.screen,
-    size: entry.target.size,
+    place: entry.target.place,
     src: entry.src,
     connectionState: entry.connectionState,
     viewHealth: entry.viewHealth,
@@ -211,6 +211,6 @@ export function targetOf(input: AppFrameOpen): ConnectTarget {
     mode: input.mode,
     release: input.release,
     screen: input.screen,
-    size: input.size,
+    place: input.place,
   };
 }

@@ -51,7 +51,7 @@ export function AppWindow({ app, release, screen, views }: AppWindowProps) {
             mode="live"
             release={release}
             screen={screen}
-            size="full"
+            place="tab"
             label={name}
           />
           <WebviewLayer host={webviews} />

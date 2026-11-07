@@ -148,20 +148,20 @@ export function coreAppsSource(core: CoreSource): AppsSource {
     },
 
     // 앱 공간 본문에 여는 화면은 선언 read(`/apps/tools`)가 준다. 그 release의
-    // 선언에 `full` 크기로 적힌 첫 화면이다(main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
+    // 선언에 `tab` 자리로 적힌 첫 화면이다(main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
     async entryScreen(app, release) {
       const result = await call<{
         release: string;
-        screens: { key: string; sizes: string[] }[];
+        screens: { key: string; places: string[] }[];
       }>(core, "read", "tools", { app, release });
       if (!result.ok) return result;
-      const full =
+      const entry =
         result.value.release === release
-          ? result.value.screens.find((screen) => screen.sizes.includes("full"))
+          ? result.value.screens.find((screen) => screen.places.includes("tab"))
           : undefined;
-      return full === undefined
+      return entry === undefined
         ? { ok: false, code: "unavailable" }
-        : { ok: true, value: full.key };
+        : { ok: true, value: entry.key };
     },
   };
 }

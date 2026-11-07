@@ -35,7 +35,7 @@ export function failure(
 }
 
 export type ViewMode = "live" | "preview";
-export type ScreenSize = "full" | "panel" | "card";
+export type Place = "tab" | "panel" | "card" | "sidebar" | "tray";
 
 /** view가 묶일 대상. live는 release가 있다. preview의 release는 없어도 된다. */
 export interface ConnectTarget {
@@ -43,7 +43,7 @@ export interface ConnectTarget {
   mode: ViewMode;
   release: string | null;
   screen: string;
-  size: ScreenSize;
+  place: Place;
 }
 
 /** view에 묶인 앱 process. 같은 값이면 같은 process의 같은 bundle이다. */

@@ -60,6 +60,10 @@
     "sha256": "b830cb5d1d2de26edceb4a3cc0eb2f772a11d88e5f15af5547ce6918f3306a2b"
   },
   {
+    "id": "apps.releases.declaration-places",
+    "sha256": "1d70ecde8e00cab6da6a4625336590f626cf4e8c41a2b90b417657dfd60e789a"
+  },
+  {
     "id": "apps.permissions.tables",
     "sha256": "654a54ac60987faf5250c09119862c314a96f4983c28d4d6d159b35bbf6c13a0"
   },

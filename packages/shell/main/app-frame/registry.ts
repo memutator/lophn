@@ -261,8 +261,8 @@ export function createAppFrame(deps: AppFrameDeps) {
     const generation = entry.generation;
     entry.refreshing = (async () => {
       // 세션 카드는 만든 때의 release에 고정된다. 다른 release로 바꿔 열지 않고 묶음을 잃는다.
-      // 다른 크기는 지금 채택된 release를 따른다.
-      const next = await bind(entry.target, entry.target.size !== "card");
+      // 다른 자리는 지금 채택된 release를 따른다.
+      const next = await bind(entry.target, entry.target.place !== "card");
       // 그 사이 닫히거나 교체됐으면 늦은 결과를 붙이지 않는다.
       if (
         entries.get(entry.view_session) !== entry ||
@@ -337,7 +337,7 @@ export function createAppFrame(deps: AppFrameDeps) {
       const input = checkOpen(value);
       if (
         input === undefined ||
-        (input.size === "card") !== (card !== undefined)
+        (input.place === "card") !== (card !== undefined)
       ) {
         return failure("invalid_input", "view request is invalid");
       }
@@ -497,7 +497,7 @@ export function createAppFrame(deps: AppFrameDeps) {
           release: entry.target.release,
           mode: entry.target.mode,
           screen: entry.target.screen,
-          size: entry.target.size,
+          place: entry.target.place,
           card: entry.card === null ? null : { ...entry.card },
         }));
     },

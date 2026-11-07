@@ -13,7 +13,7 @@ export type {
   PermissionRequirement,
   PermissionScope,
   ScreenDeclaration,
-  ScreenSize,
+  Place,
   SDKDependency,
   ToolEffect,
   ValidationError,

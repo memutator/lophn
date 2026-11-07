@@ -13,7 +13,6 @@ export type PreviewLaunch = {
   release: string | null;
   bundleHash: string;
   tools: string[];
-  screens?: Record<string, ("full" | "panel" | "card")[]>;
   dataSchema: number;
   entry: string;
   // disposable 영역. `apps/<app ID>/preview/<nonce>`다.
@@ -29,7 +28,6 @@ export type PreviewObservationWire = {
   process_nonce: string;
   endpoint: string;
   tools: string[];
-  screens: Record<string, ("full" | "panel" | "card")[]>;
   ready: boolean;
   accepting: boolean;
   reason?: { code: string; summary: string };

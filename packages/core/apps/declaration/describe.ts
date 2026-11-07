@@ -17,7 +17,7 @@ function inputGaps(path: string, schema: InputSchema, gaps: string[]): void {
   if (schema.items !== undefined) inputGaps(`${path}[]`, schema.items, gaps);
 }
 
-// 설명이 없거나 빈 자리의 경로. 화면의 이름·시작 위치·크기, operation의 title, command의 설명과 입력 항목의
+// 설명이 없거나 빈 자리의 경로. 화면의 이름·시작 위치·자리, operation의 title, command의 설명과 입력 항목의
 // 뜻과 선택값을 본다. 입력 항목은 `commands.<name>.inputSchema.<필드>` 꼴이다.
 export function descriptionGaps(declaration: AppDeclaration): string[] {
   const gaps: string[] = [];
@@ -26,7 +26,7 @@ export function descriptionGaps(declaration: AppDeclaration): string[] {
   for (const screen of declaration.screens) {
     if (blank(screen.label)) gaps.push(`screens.${screen.key}.label`);
     if (blank(screen.path)) gaps.push(`screens.${screen.key}.path`);
-    if (screen.sizes.length === 0) gaps.push(`screens.${screen.key}.sizes`);
+    if (screen.places.length === 0) gaps.push(`screens.${screen.key}.places`);
   }
   for (const operation of declaration.operations) {
     if (blank(operation.title)) gaps.push(`operations.${operation.name}.title`);

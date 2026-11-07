@@ -18,7 +18,9 @@ export type ValidationResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: ValidationError };
 
-export type ScreenSize = "full" | "panel" | "card";
+// 화면이 열리는 자리. tab은 앱 workspace와 앱 창, panel은 project dock·float와 전역 float,
+// card는 대화, sidebar는 오른쪽 sidebar, tray는 작업 표시줄 tray popup이다.
+export type Place = "tab" | "panel" | "card" | "sidebar" | "tray";
 
 export type ToolEffect = "read" | "write" | "external";
 
@@ -73,7 +75,9 @@ export type ScreenDeclaration = {
   key: string;
   label: string;
   path: string;
-  sizes: ScreenSize[];
+  places: Place[];
+  // 화면이 받는 인자. root type은 object다.
+  params?: InputSchema;
 };
 
 export type PermissionKind =

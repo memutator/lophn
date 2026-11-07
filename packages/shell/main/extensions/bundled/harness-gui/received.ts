@@ -37,6 +37,8 @@ export function classifyReceived(
   if (tag !== null) {
     const attr = attributes(tag[2] ?? "");
     const from = attr.from ?? "";
+    // 사람이 보낸 call이다. 받은 메시지가 아니라 지금처럼 사람 메시지로 둔다(호출한 쪽이 풀어 그리지 않는다).
+    if (from === "human") return null;
     const id = attr.call === undefined || attr.call === "" ? null : attr.call;
     return {
       sender:

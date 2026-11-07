@@ -827,6 +827,8 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
   });
   const call =
     '<lophn-call from="agent:ses_1" call="cal_1" reply="result">\nPlease review &lt;lophn-x\n</lophn-call>\nThis was sent by another agent.';
+  const humanCall =
+    '<lophn-call from="human" call="cal_2" reply="result">\nhi\n</lophn-call>';
   const t = await setup({
     resume: "resumed-id",
     history: [
@@ -835,6 +837,7 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
       user("u3", "peer text"),
       user("u4", call),
       user("u5", "<unknown-wrapper>x</unknown-wrapper>"),
+      user("u6", humanCall),
     ],
     entries: [
       { type: "user", uuid: "u1", origin: { kind: "human" } },
@@ -885,5 +888,6 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
       "u5",
       "<unknown-wrapper>x</unknown-wrapper>",
     ],
+    ["user", undefined, null, null, "u6", humanCall],
   ]);
 });

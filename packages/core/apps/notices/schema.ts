@@ -56,3 +56,16 @@ export const noticeUnifiedSchemaSteps: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// data root가 마지막으로 돈 제품 판 한 값을 둔다(`lophn_updated` 기록의 근거). 키 값 표 하나로 두어 같은 성격의 단일 값이 더 생겨도 표를 새로 만들지 않는다.
+export const productVersionSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.notices.product-version",
+    sql: `
+    CREATE TABLE core_meta (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    ) STRICT;
+  `,
+  },
+];

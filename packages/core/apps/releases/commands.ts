@@ -42,6 +42,7 @@ import {
   createDataRecordStore,
   discardBackups,
 } from "../data/mod.ts";
+import { recordProgramNotice, releaseNameOf } from "../notices/mod.ts";
 import { syncAppGrants } from "../permissions/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { factsOfDeclaration } from "./facts.ts";
@@ -309,6 +310,26 @@ export function createReleaseCommands(): {
             WHERE release IN (SELECT id FROM releases WHERE app = ?)`,
           [release.app],
         );
+        // 이미 켜졌던 release를 다시 켠 것은 사람이 이전으로 돌아간 것이다(release 번호는 새로 매기지 않는다).
+        const before = active.value;
+        const noted = recordProgramNotice(
+          tx,
+          release.activated_at !== null && before !== null
+            ? {
+                kind: "release_rolled_back",
+                app: release.app,
+                params: {
+                  release: releaseNameOf(tx, before.id),
+                  to: releaseNameOf(tx, release.id),
+                },
+              }
+            : {
+                kind: "release_activated",
+                app: release.app,
+                params: { release: releaseNameOf(tx, release.id) },
+              },
+        );
+        if (!noted.ok) return noted;
         return ok({
           status: "active" as const,
           previous_release: activation.previous_release,
@@ -356,6 +377,21 @@ export function createReleaseCommands(): {
         tx.sql.run("DELETE FROM activation_requests WHERE release = ?", [
           release.id,
         ]);
+        // 복원한 실패는 앱이 이전 release로 돌아갔다는 말까지 한 행에 싣는다(실패 하나에 행 하나).
+        const back =
+          input.failure.restored === true &&
+          release.activation.previous_release !== null
+            ? ` The app is back on release ${releaseNameOf(tx, release.activation.previous_release)}.`
+            : "";
+        const noted = recordProgramNotice(tx, {
+          kind: "release_failed",
+          app: release.app,
+          params: {
+            release: releaseNameOf(tx, release.id),
+            reason: `${input.failure.summary.slice(0, 200 - back.length).trim()}${back}`,
+          },
+        });
+        if (!noted.ok) return noted;
         return ok({ status: "failed" as const });
       },
     },

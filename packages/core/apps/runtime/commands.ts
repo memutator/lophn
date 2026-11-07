@@ -22,6 +22,7 @@ import {
   loadApp,
   replaceApp,
 } from "../registration/mod.ts";
+import { recordProgramNotice } from "../notices/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { projection } from "./model.ts";
 import { CRASH_LIMIT } from "./supervisor/restart-policy.ts";
@@ -256,6 +257,19 @@ export function createRuntimeCommands(): {
             release: input.release,
             reason: input.reason,
           });
+          // 앱마다 현재 상태 한 줄이다(멈춤이 되풀이돼도 Inbox를 채우지 않는다).
+          const noted = recordProgramNotice(tx, {
+            kind: "app_unavailable",
+            app: input.app,
+            key: "app_unavailable",
+            params: {
+              reason: `${input.reason.code}: ${input.reason.summary}`.slice(
+                0,
+                200,
+              ),
+            },
+          });
+          if (!noted.ok) return noted;
           // crash loop로 멈춤은 commit 뒤 남지 않는 event로 알린다. 멈춘 횟수는 한도를 넘긴 수다.
           if (input.reason.code === CRASH_LOOP_CODE) {
             tx.port(afterCommit).push(APP_RESTART_HALTED_TOPIC, {

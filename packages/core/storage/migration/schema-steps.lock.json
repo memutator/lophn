@@ -218,5 +218,9 @@
   {
     "id": "apps.notices.unified",
     "sha256": "574831370d3f903acb6e6cc19632e253a2f6d08c7ece44dd1879f828b22a0f24"
+  },
+  {
+    "id": "apps.notices.product-version",
+    "sha256": "04c6973f1e78ea3858ae9cc8d76af1180d96f0bb5870156ae8354f04c05faebb"
   }
 ]

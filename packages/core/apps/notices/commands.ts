@@ -8,7 +8,9 @@ import {
   noticeDismiss,
   noticeMarkRead,
   noticePost,
+  type NoticeRecordInput,
   noticeRecord,
+  noticesObserveVersion,
 } from "../../../protocol/apps/notice.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
@@ -140,9 +142,55 @@ function trimApp(
   }
 }
 
+// 다른 command가 자기 transaction 안에서 program 기록을 남기는 길이다. 상태 변경과 같이 commit되어 한 번만 남는다.
+// 글(title·body)은 template과 매개변수로만 만든다. `lophn_updated`만 앱이 없고 나머지는 있는 앱이어야 한다.
+export function recordProgramNotice(
+  tx: Pick<Tx, "sql" | "now" | "newId" | "port">,
+  input: NoticeRecordInput,
+): Result<{ id: Notice["id"] }> {
+  if ((input.kind === "lophn_updated") !== (input.app === undefined)) {
+    return err({
+      code: "invalid_input",
+      message:
+        input.kind === "lophn_updated"
+          ? "lophn_updated has no app"
+          : "this kind needs an app",
+    });
+  }
+  if (input.app !== undefined) {
+    const app = loadApp(tx.sql, input.app);
+    if (!app.ok) return app;
+    if (app.value === null) {
+      return err({ code: "not_found", message: "app not found" });
+    }
+  }
+  const text = programNoticeText(input);
+  const id = writeNotice(tx, {
+    source: "program",
+    app: input.app ?? null,
+    project: input.project ?? null,
+    kind: input.kind,
+    key: input.key ?? null,
+    title: text.title,
+    body: text.body,
+    persistent: true,
+    action: input.action ?? null,
+  });
+  const written = loadNotice(tx.sql, id);
+  if (written !== undefined) pushPosted(tx, written);
+  return ok({ id: id as Notice["id"] });
+}
+
+// release 행의 사람이 아는 이름(Version 탭과 같은 `r<number>`)이다. 없으면 id를 그대로 쓴다.
+export function releaseNameOf(tx: Pick<Tx, "sql">, release: string): string {
+  const row = tx.sql.get("select number from releases where id = ?", [release]);
+  return row === undefined ? release.slice(0, 40) : `r${String(row["number"])}`;
+}
+
 export function createNoticeCommands(): {
   post: CommandDefinition<typeof noticePost>;
   record: CommandDefinition<typeof noticeRecord>;
+  observeVersion: CommandDefinition<typeof noticesObserveVersion>;
   dismiss: CommandDefinition<typeof noticeDismiss>;
   markRead: CommandDefinition<typeof noticeMarkRead>;
 } {
@@ -195,37 +243,38 @@ export function createNoticeCommands(): {
             message: "only the program records a program notice",
           });
         }
-        if ((input.kind === "lophn_updated") !== (input.app === undefined)) {
+        return recordProgramNotice(tx, input);
+      },
+    },
+    // 제품 판의 marker와 lophn_updated 행을 한 transaction에서 쓴다(기록 없이 판만 앞서가거나 그 반대가 되지 않는다).
+    observeVersion: {
+      route: noticesObserveVersion,
+      handle(tx, ctx, input) {
+        if (parseActor(ctx.actor)?.kind !== "machine") {
           return err({
-            code: "invalid_input",
-            message:
-              input.kind === "lophn_updated"
-                ? "lophn_updated has no app"
-                : "this kind needs an app",
+            code: "forbidden",
+            message: "only the program observes the product version",
           });
         }
-        if (input.app !== undefined) {
-          const app = loadApp(tx.sql, input.app);
-          if (!app.ok) return app;
-          if (app.value === null) {
-            return err({ code: "not_found", message: "app not found" });
-          }
-        }
-        const text = programNoticeText(input);
-        const id = writeNotice(tx, {
-          source: "program",
-          app: input.app ?? null,
-          project: input.project ?? null,
-          kind: input.kind,
-          key: input.key ?? null,
-          title: text.title,
-          body: text.body,
-          persistent: true,
-          action: input.action ?? null,
+        const stored = tx.sql.get(
+          "select value from core_meta where key = 'product_version'",
+          [],
+        );
+        const last = stored === undefined ? null : String(stored["value"]);
+        if (last === input.version) return ok({ changed: false, from: last });
+        tx.sql.run(
+          `insert into core_meta (key, value) values ('product_version', ?)
+           on conflict (key) do update set value = excluded.value`,
+          [input.version],
+        );
+        if (last === null && input.fresh)
+          return ok({ changed: false, from: null });
+        const recorded = recordProgramNotice(tx, {
+          kind: "lophn_updated",
+          params: { from: last ?? "unknown", to: input.version },
         });
-        const written = loadNotice(tx.sql, id);
-        if (written !== undefined) pushPosted(tx, written);
-        return ok({ id: id as Notice["id"] });
+        if (!recorded.ok) return recorded;
+        return ok({ changed: true, from: last });
       },
     },
     // 사람만 지운다. route의 actors가 같은 경계를 먼저 막고, 여기서 한 번 더 본다.

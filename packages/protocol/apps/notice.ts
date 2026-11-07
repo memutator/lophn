@@ -150,6 +150,23 @@ export const noticeRecord = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
+// core가 켜질 때 지금 제품 판을 알리고 data root에 적힌 마지막 판과 견준다. 다르면 lophn_updated 행을 남기고 판을 새로 적는다.
+// fresh(새 data root)는 판만 적고 행을 남기지 않는다. 적힌 판이 없는 옛 data root는 from을 모르는 채로 행을 남긴다(from null).
+export const noticesObserveVersion = defineCommand({
+  resource: "notices",
+  method: "observe_version",
+  name: "notices.observe_version",
+  input: z.strictObject({ version: short, fresh: z.boolean() }),
+  output: z.object({
+    // 판이 바뀐 기동이면 true. fresh이거나 같은 판이면 false다.
+    changed: z.boolean(),
+    // 바뀌기 전에 적힌 판. 모르면(fresh, 옛 data root) null이다.
+    from: z.string().nullable(),
+  }),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
 export const noticeDismiss = defineCommand({
   resource: "notices",
   method: "dismiss",
@@ -208,6 +225,7 @@ export const noticesOpen = defineRead({
 export const NOTICE_ROUTES = [
   noticePost,
   noticeRecord,
+  noticesObserveVersion,
   noticeDismiss,
   noticeMarkRead,
   noticesList,

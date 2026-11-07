@@ -15,6 +15,7 @@ import {
   BACKUP_BLOB_PURPOSE,
   backupBlobOwnerKey,
 } from "./blobs.ts";
+import { recordProgramNotice, releaseNameOf } from "../notices/mod.ts";
 import { discardBackups } from "./discard.ts";
 import type {
   CommandDefinition,
@@ -215,6 +216,12 @@ export function createDataCommands(
           backupHash: backup.backupHash,
           invocation: result.invocation,
         });
+        const noted = recordProgramNotice(tx, {
+          kind: "app_data_migrated",
+          app: gated.value.app,
+          params: { release: releaseNameOf(tx, result.release) },
+        });
+        if (!noted.ok) return noted;
         return ok(ACCEPTED);
       },
     },
@@ -258,6 +265,12 @@ export function createDataCommands(
           invocation: result.invocation,
           integrityOk: true,
         });
+        const noted = recordProgramNotice(tx, {
+          kind: "app_data_restored",
+          app: gated.value.app,
+          params: { release: releaseNameOf(tx, result.release) },
+        });
+        if (!noted.ok) return noted;
         return ok(ACCEPTED);
       },
     },

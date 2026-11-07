@@ -2020,16 +2020,20 @@ const start: (sdk: ClaudeSdk) => Start =
     // 메시지의 usage를 합한다. 원본 줄은 getSessionMessages가 주지 않아 SDK가 읽는 길(importSessionToStore)로 메모리 store에 받는다.
     async function restoreUsage(id: string) {
       const entries: SessionStoreEntry[] = [];
-      await sdk.importSessionToStore(
-        id,
-        {
-          append: async (key, batch) => {
-            if (key.subpath === undefined) entries.push(...batch);
+      try {
+        await sdk.importSessionToStore(
+          id,
+          {
+            append: async (key, batch) => {
+              if (key.subpath === undefined) entries.push(...batch);
+            },
+            load: async () => null,
           },
-          load: async () => null,
-        },
-        { dir: cwd, includeSubagents: false },
-      );
+          { dir: cwd, includeSubagents: false },
+        );
+      } catch {
+        // 사용량은 곁다리다(alpha API). 못 읽어도 다시 그린 대화를 실패로 만들지 않는다.
+      }
       const state = entries.findLast((one) => one.type === "cost-state") as
         | { totalCostUSD?: number; modelUsage?: Record<string, ModelTokens> }
         | undefined;

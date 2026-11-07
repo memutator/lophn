@@ -875,6 +875,8 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
       user("u4", call),
       user("u5", "<unknown-wrapper>x</unknown-wrapper>"),
       user("u6", humanCall),
+      // 다시 뜬 CLI가 origin 없이 SDK 입력으로 적은 알림.
+      user("u7", "<task-notification>late</task-notification>"),
     ],
     entries: [
       { type: "user", uuid: "u1", origin: { kind: "human" } },
@@ -926,6 +928,14 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
       "<unknown-wrapper>x</unknown-wrapper>",
     ],
     ["user", undefined, null, null, "u6", humanCall],
+    [
+      "received",
+      "program",
+      null,
+      null,
+      null,
+      "<task-notification>late</task-notification>",
+    ],
   ]);
 });
 

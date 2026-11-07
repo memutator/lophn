@@ -50,6 +50,9 @@ export function classifyReceived(
       text: (tag[3] ?? "").replace(/&lt;(\/?)lophn-/g, "<$1lophn-"),
     };
   }
+  // 다시 뜬 CLI는 앞 process가 띄운 task의 알림을 origin 없이 SDK 입력(`promptSource: "sdk"`)으로 적는다. 글 꼴로도 가른다.
+  if (/^\s*<task-notification>/.test(text))
+    return { sender: { kind: "program" }, call: null, reply_to: null, text };
   if (origin?.kind === undefined || origin.kind === "human") return null;
   if (origin.kind === "peer") {
     return {

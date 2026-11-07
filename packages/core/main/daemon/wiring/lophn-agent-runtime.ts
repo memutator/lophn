@@ -25,6 +25,7 @@ import {
   workspaceOperations,
 } from "../../../agent-workspaces/credentials.ts";
 import { FILE_HOOKS } from "../../../agent-workspaces/hooks.ts";
+import { toolsCloseStuckSteps } from "../../../lophn-agent/tools/mod.ts";
 import { createProviderRefresher } from "../../../lophn-agent/providers/oauth-refresh.ts";
 import {
   createQueue,
@@ -98,6 +99,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
   const queue = createQueue();
   return {
     name: "lophn-agent-runtime",
+    schemaStepsAfterTeams: toolsCloseStuckSteps,
     // Router가 같은 queue에 넣는다.
     prepare(ctx) {
       ctx.provide("queue", queue);

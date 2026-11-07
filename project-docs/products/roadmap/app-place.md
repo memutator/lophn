@@ -1,6 +1,6 @@
 # 앱 자리: 앱 화면 체계를 고치고, 앱이 shell 화면 자리(sidebar, 전역 float, tray)에 꽂힌다
 
-상태: 계획 `app-place`로 구현했다(2026-11-07, `project-docs/products/change-log/0.18.0.md`의 "앱 화면 자리, 전역 float, 작업 표시줄, sidebar panel, tray"). 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`, `app-call.md`, `app-notice.md`다. 아래 "지금 코드"는 착수 전 기록이다. 남은 일 없음. 사람의 앱 Mahas·Masup은 `places`로 고쳐 다시 release해야 한다.
+상태: 계획 `app-place`로 구현했다(2026-11-07, `project-docs/products/change-log/0.19.0.md`의 "앱 화면 자리, 전역 float, 작업 표시줄, sidebar panel, tray"). 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`, `app-call.md`, `app-notice.md`다. 아래 "지금 코드"는 착수 전 기록이다. 남은 일 없음. 사람의 앱 Mahas·Masup은 `places`로 고쳐 다시 release해야 한다.
 배경 문서: `project-docs/architecture/extension.md`, `project-docs/architecture/workspace-layout.md`, `project-docs/architecture/workflow.md`, `project-docs/architecture/acp.md`, `project-docs/architecture/app-notice.md`, `project-docs/products/roadmap/agent-platform.md`(정한 것 1), `project-docs/products/roadmap/workflow.md`(activity bar), `/home/pyosechang/projects/harness-lab/extension-systems-report.md`(Claude Code mod와 dsh plugin 비교).
 
 ## 사람의 말 (원문, 2026-11-07)

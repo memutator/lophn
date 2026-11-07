@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { AppsSource } from "../../apps/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
@@ -21,6 +22,7 @@ import {
 } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
 import { newId } from "../../prefixed-id.ts";
+import type { NewSessionStart } from "../../desktop/router.ts";
 import {
   closeTab,
   workspaceKey,
@@ -30,6 +32,7 @@ import {
 import { agentOf, sessionOf } from "../agent/tab-fields.ts";
 import type { WindowWorkspace } from "../workspace-window.tsx";
 import { LeftSidebar, type QuickLaunch } from "../../shell/left-sidebar.tsx";
+import { agentChoices, codingCommand } from "../../shell/agent-sections.tsx";
 import {
   type SidebarWorkspace,
   type SidebarSession,
@@ -112,9 +115,10 @@ export interface WorkspaceLeftSidebarProps {
   canTerminal: boolean;
   /** 이 workspace 줄의 +. */
   onNewSession: () => void;
-  /** 다른 workspace 줄의 +. 그 workspace로 가서 새 session을 연다. 없으면 그 +는 그 workspace로 가기만 한다. */
-  onNewSessionAt?: (workspace: WorkspaceRef) => void;
-  onNewLophn: (agent: SidebarAgent) => void;
+  /** 다른 workspace 줄의 +와 그 hover 목록. 그 workspace로 가서 새 session(또는 coding agent 터미널)을 연다. 없으면 그 +는 그 workspace로 가기만 한다. */
+  onNewSessionAt?: (workspace: WorkspaceRef, start: NewSessionStart) => void;
+  /** 이 workspace의 + hover 목록에서 고른 agent. 탭 줄 + menu와 같은 길이다. */
+  onNewChoice: (choice: AgentChoice) => void;
   onNewCoding: (command: string) => void;
   /** 이 project의 session을 desk 규칙으로 연다. */
   onOpenHere: (session: string, agent: string) => void;
@@ -136,8 +140,8 @@ export interface WorkspaceLeftSidebarProps {
   onRenameTab?: (item: SidebarSession, title: string) => boolean;
   /** 그 session·터미널의 탭을 보통 닫기 길로 닫는다(터미널은 확인을 묻는다). 탭이 없으면 아무것도 하지 않는다. */
   onCloseTab?: (item: SidebarSession) => void;
-  /** 이 workspace 줄의 설정 단추(project는 Project settings, 앱은 App details). */
-  onWorkspaceSettings?: () => void;
+  /** workspace 줄의 설정 단추(project는 Project settings, 앱은 App details). 다른 workspace면 그 workspace로 가서 연다. */
+  onWorkspaceSettings?: (workspace: WorkspaceRef) => void;
   onSettings: () => void;
 }
 
@@ -255,8 +259,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   );
   // 즐겨찾기 coding agent(Settings › Coding agents). + hover와 Terminal hover가 같이 쓴다.
   const { coding } = useQuickPrefs().prefs;
-  const commandOf = (id: HarnessId) =>
-    coding.commands[id] ?? HARNESS_ADAPTERS[id].commands[0];
+  const commandOf = (id: HarnessId) => codingCommand(coding.commands, id);
   const favorites = props.canTerminal ? coding.favorites : [];
   const runCoding = (id: HarnessId) => {
     const command = commandOf(id);
@@ -274,20 +277,15 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
             onSelect: () => runCoding(id),
           })),
         };
-  const choices: AgentChoice[] = [
-    ...props.agents.map((agent) => ({
-      kind: "lophn" as const,
-      id: agent.assignment,
-      name: agent.name,
-      face: { kind: "lophn" as const, profile: agent.profile },
-    })),
-    ...favorites.map((id) => ({
-      kind: "coding" as const,
-      id,
-      name: HARNESS_ADAPTERS[id].label,
-      face: codingFace(id),
-    })),
-  ];
+  const choices = agentChoices(props.agents, favorites);
+  // 다른 workspace의 agent 목록은 읽지 않았다. 어느 workspace에나 있는 기본 lophn agent와 즐겨찾기 coding agent(터미널은 project만)를 보인다.
+  const choicesAt = (ref: WorkspaceRef): readonly AgentChoice[] =>
+    workspaceKey(ref) === workspaceKey(current)
+      ? choices
+      : agentChoices(
+          props.agents.filter((agent) => agent.assignment === LOPHN_AGENT_ID),
+          ref.kind === "project" ? coding.favorites : [],
+        );
   const [registering, setRegistering] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -432,22 +430,27 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         workspaces={workspaces}
         current={current}
         selected={props.selected}
-        choices={choices}
+        choices={choicesAt}
         onNewSession={(ref) => {
           if (workspaceKey(ref) === workspaceKey(current)) props.onNewSession();
           else if (props.onNewSessionAt !== undefined) {
-            props.onNewSessionAt(ref);
+            props.onNewSessionAt(ref, {});
           } else props.onWorkspace(ref);
         }}
-        onNewSessionWith={(choice) => {
-          if (choice.kind === "coding") {
-            runCoding(choice.id as HarnessId);
+        onNewSessionWith={(choice, ref) => {
+          if (workspaceKey(ref) === workspaceKey(current)) {
+            props.onNewChoice(choice);
             return;
           }
-          const agent = props.agents.find(
-            (row) => row.assignment === choice.id,
+          const command =
+            choice.kind === "coding"
+              ? commandOf(choice.id as HarnessId)
+              : undefined;
+          if (choice.kind === "coding" && command === undefined) return;
+          props.onNewSessionAt?.(
+            ref,
+            command === undefined ? { agent: choice.id } : { command },
           );
-          if (agent !== undefined) props.onNewLophn(agent);
         }}
         onOpenSession={props.onOpenSession}
         {...(props.jobs === undefined ? {} : { jobs: props.jobs })}

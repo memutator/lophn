@@ -1,8 +1,9 @@
 // 탭 줄 끝의 새 탭(+) menu. Document · Terminal · Browser · Agent ▸ · Search · App panel이고 항목마다
-// 아이콘이 붙는다. Agent는 같은 menu가 그 목록으로 바뀐다(Radix menu는 한 번에 한 단계만 보인다).
+// 아이콘이 붙는다. Agent는 같은 menu가 그 목록으로 바뀐다(Radix menu는 한 번에 한 단계만 보인다). 그 목록은 sidebar + hover 목록과 같은 묶음이다.
 // 부르는 쪽이 통로가 있는 항목의 핸들러만 준다. 핸들러가 없는 항목은 두지 않는다.
 import { type ReactNode, useRef, useState } from "react";
-import { Avatar, type AvatarProfile } from "../parts/avatar/avatar.tsx";
+import type { AgentChoice } from "../parts/agent-session/agent-session.tsx";
+import { agentSections, sectionMenuItems } from "../shell/agent-sections.tsx";
 import { FileIcon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import {
@@ -16,19 +17,13 @@ import { useKeyLabel } from "../commands/react.tsx";
 
 import styles from "./add-tab-menu.module.css";
 
-interface NewTabAgent {
-  readonly id: string;
-  readonly name: string;
-  readonly profile: AvatarProfile;
-}
-
 interface NewTabMenuProps {
   onDocument?: () => void;
   onTerminal?: () => void;
   onBrowser?: () => void;
-  /** 주면 Agent ▸ 항목이 있고 이 목록으로 바뀐다. */
-  agents?: readonly NewTabAgent[];
-  onAgent?: (agent: string) => void;
+  /** 주면 Agent ▸ 항목이 있고 sidebar + hover 목록과 같은 묶음(`agentSections`)으로 바뀐다. */
+  choices?: readonly AgentChoice[];
+  onChoice?: (choice: AgentChoice) => void;
   onSearch?: () => void;
   onAppPanel?: () => void;
   /** 앱 workspace에서만 있다. 닫은 앱 화면 탭을 다시 연다. */
@@ -111,7 +106,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
       ...keyed("new.browser"),
     });
   }
-  if (props.agents !== undefined && props.onAgent) {
+  if (props.choices !== undefined && props.onChoice) {
     root.push({
       id: "agent",
       label: (
@@ -134,19 +129,13 @@ export function NewTabMenu(props: NewTabMenuProps) {
   const app = appTabEntries(props);
   root.push(...app.items);
 
+  const agentLevel = agentSections(
+    props.choices ?? [],
+    keyLabel("new.agent"),
+    (choice) => props.onChoice?.(choice),
+  );
   const items: MenuItem[] =
-    level === "agent"
-      ? (props.agents ?? []).map((agent) => ({
-          id: `agent:${agent.id}`,
-          label: agent.name,
-          textValue: agent.name,
-          leading: (
-            <MenuIcon>
-              <Avatar profile={agent.profile} size="sm" />
-            </MenuIcon>
-          ),
-        }))
-      : root;
+    level === "agent" ? sectionMenuItems(agentLevel) : root;
 
   const select = (id: string) => {
     if (id === "agent") {
@@ -158,8 +147,12 @@ export function NewTabMenu(props: NewTabMenuProps) {
     else if (id === "terminal") props.onTerminal?.();
     else if (id === "browser") props.onBrowser?.();
     else if (id === "search") props.onSearch?.();
-    else if (id.startsWith("agent:")) props.onAgent?.(id.slice(6));
-    else app.select(id);
+    else if (id === "app-screen" || id === "app-panel") app.select(id);
+    else
+      agentLevel
+        .flatMap((section) => section.items)
+        .find((item) => item.id === id)
+        ?.onSelect();
   };
 
   return (

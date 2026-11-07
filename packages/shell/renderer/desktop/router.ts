@@ -10,6 +10,12 @@ type Space =
   | "app-window"
   | "detached";
 
+/** 새 session의 시작: command는 coding agent 터미널, agent는 그 lophn agent, 둘 다 없으면 기본 lophn이다. */
+export interface NewSessionStart {
+  readonly agent?: string;
+  readonly command?: string;
+}
+
 export interface Route {
   readonly space: Space;
   /** project 공간의 프로젝트 id. 다른 공간은 없다. */
@@ -25,8 +31,10 @@ export interface Route {
   readonly settingsPane?: SettingsPane;
   /** home·project·app 공간에서 열어 시작할 session. */
   readonly session?: string;
-  /** home·project·app 공간에서 그 workspace의 lophn 새 session 탭을 열어 시작한다(왼쪽 sidebar 다른 workspace 줄의 +). */
-  readonly startSession?: true;
+  /** home·project·app 공간에서 새 session을 열어 시작한다(왼쪽 sidebar 다른 workspace 줄의 + hover 목록). */
+  readonly startSession?: NewSessionStart;
+  /** project·app 공간에서 그 workspace의 설정(Project settings·App details) 탭을 열어 시작한다(왼쪽 sidebar 다른 workspace 줄의 설정 단추). */
+  readonly startSettings?: true;
   /** app 공간에서 그 앱 workspace의 lophn을 새 session으로 열어 시작한다. */
   readonly newSession?: true;
   /** project 공간에서 열어 시작할 터미널의 terminal_ref(다른 project의 터미널 알림). */
@@ -64,13 +72,25 @@ export function openApp(app: string, session?: string): Route {
     : { space: "app", app, session };
 }
 
-/** 그 workspace로 가서 lophn 새 session 탭을 연다. */
-export function openWorkspaceNewSession(workspace: WorkspaceRef): Route {
+/** 그 workspace로 가서 새 session을 연다. agent를 안 주면 그 workspace의 기본 lophn이다. */
+export function openWorkspaceNewSession(
+  workspace: WorkspaceRef,
+  startSession: NewSessionStart = {},
+): Route {
   return workspace.kind === "home"
-    ? { space: "home", startSession: true }
+    ? { space: "home", startSession }
     : workspace.kind === "project"
-      ? { space: "project", project: workspace.id, startSession: true }
-      : { space: "app", app: workspace.id, startSession: true };
+      ? { space: "project", project: workspace.id, startSession }
+      : { space: "app", app: workspace.id, startSession };
+}
+
+/** 그 workspace로 가서 설정 탭을 연다. Home은 설정이 없어 그냥 간다. */
+export function openWorkspaceSettings(workspace: WorkspaceRef): Route {
+  return workspace.kind === "home"
+    ? HOME
+    : workspace.kind === "project"
+      ? { space: "project", project: workspace.id, startSettings: true }
+      : { space: "app", app: workspace.id, startSettings: true };
 }
 
 /** 방금 만든 앱의 앱 공간으로 이동한다. 오른쪽 패널이 그 앱 workspace의 lophn 새 session으로 열린다. */

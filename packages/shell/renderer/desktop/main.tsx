@@ -25,6 +25,7 @@ import {
   openHome,
   openNewApp,
   openWorkspaceNewSession,
+  openWorkspaceSettings,
   openProject,
   openSettings,
   type Route,
@@ -341,9 +342,11 @@ export function Desktop({
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}
-        onNewSessionAt={(workspace) =>
-          setRoute(openWorkspaceNewSession(workspace))
+        onNewSessionAt={(workspace, start) =>
+          setRoute(openWorkspaceNewSession(workspace, start))
         }
+        onSettingsAt={(workspace) => setRoute(openWorkspaceSettings(workspace))}
+        startSettings={route.startSettings}
         revealTerminal={route.terminal}
         open={route.open}
       />
@@ -379,9 +382,11 @@ export function Desktop({
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}
-        onNewSessionAt={(workspace) =>
-          setRoute(openWorkspaceNewSession(workspace))
+        onNewSessionAt={(workspace, start) =>
+          setRoute(openWorkspaceNewSession(workspace, start))
         }
+        onSettingsAt={(workspace) => setRoute(openWorkspaceSettings(workspace))}
+        startSettings={route.startSettings}
       />
     );
   } else if (route.space === "detached") {
@@ -418,9 +423,11 @@ export function Desktop({
         agentViewSource={agentViewSource}
         session={route.session}
         startSession={route.startSession}
-        onNewSessionAt={(workspace) =>
-          setRoute(openWorkspaceNewSession(workspace))
+        onNewSessionAt={(workspace, start) =>
+          setRoute(openWorkspaceNewSession(workspace, start))
         }
+        onSettingsAt={(workspace) => setRoute(openWorkspaceSettings(workspace))}
+        startSettings={route.startSettings}
         startLophn={route.newSession}
       />
     );

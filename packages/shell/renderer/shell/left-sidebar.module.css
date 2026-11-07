@@ -56,7 +56,8 @@
 }
 
 /* 설정 단추와 다른 workspace의 +는 workspace 줄에 hover하거나 focus가 있을 때만 보인다. 이 창 workspace의 +는 늘 보인다.
-   자리는 남겨 이름 폭이 흔들리지 않는다. +는 session 줄의 Stop 단추(.sessionAction)와 같은 칸이라 점과 세로로 맞는다. */
+   자리는 남겨 이름 폭이 흔들리지 않는다. 줄 끝 단추(Workspaces 머리의 +, 설정, 줄 +, 연필, Stop)는 모두 .rowAction 하나라
+   폭·오른쪽 끝·세로 가운데가 같고 점(.rowDot)의 가운데와도 맞는다. */
 .workspaceSettings,
 .workspaceNew {
   display: inline-flex;
@@ -189,7 +190,7 @@
   padding-inline-end: calc(var(--space-7) * 2 + var(--space-1));
 }
 
-.sessionActions {
+.rowActions {
   position: absolute;
   inset-block: var(--space-0);
   inset-inline-end: var(--space-0);
@@ -198,7 +199,7 @@
   align-items: center;
 }
 
-.sessionAction {
+.rowAction {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -212,18 +213,18 @@
   border-radius: var(--radius-full);
 }
 
-.sessionAction:hover {
+.rowAction:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-subtle);
 }
 
-.sessionAction[data-session-rename],
+.rowAction[data-session-rename],
 .stopCross {
   display: none;
 }
 
-.sessionLine:hover .sessionAction[data-session-rename],
-.sessionLine:focus-within .sessionAction[data-session-rename] {
+.sessionLine:hover .rowAction[data-session-rename],
+.sessionLine:focus-within .rowAction[data-session-rename] {
   display: inline-flex;
 }
 

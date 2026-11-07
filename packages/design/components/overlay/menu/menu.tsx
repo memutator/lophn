@@ -1,6 +1,6 @@
 import * as Radix from "@radix-ui/react-dropdown-menu";
-import { Fragment, type ReactElement, type ReactNode } from "react";
-import { keepFocus } from "../return-focus.ts";
+import { Fragment, type ReactElement, type ReactNode, useRef } from "react";
+import { focusLike, keepFocus, useInputMode } from "../return-focus.ts";
 import { Icon, type IconProps } from "../../primitives/icon/icon.tsx";
 import {
   componentMark,
@@ -26,7 +26,7 @@ export interface MenuItem {
   // 이 항목 위에 구분선을 긋는다. 항목 묶음의 경계에 쓴다.
   separatorBefore?: boolean;
   // 이 항목 위에 다는 묶음 이름. 항목이 아닌 글이라 키보드 이동과 typeahead가 지나친다.
-  heading?: string;
+  heading?: ReactNode;
 }
 
 export interface MenuProps {
@@ -71,15 +71,29 @@ export function Menu({
   returnFocus = true,
   ...state
 }: MenuProps) {
+  const anchor = useRef<HTMLButtonElement>(null);
+  const mode = useInputMode();
   return (
     <Radix.Root {...state}>
-      <Radix.Trigger asChild>{trigger}</Radix.Trigger>
+      <Radix.Trigger asChild ref={anchor}>
+        {trigger}
+      </Radix.Trigger>
       <Radix.Portal container={container}>
         <Radix.Content
           className={styles.menu}
           side="bottom"
           {...placementProps(placement)}
-          onCloseAutoFocus={returnFocus ? undefined : keepFocus}
+          {...mode.props}
+          onCloseAutoFocus={(event) => {
+            // Radix는 plain focus()로 trigger에 돌려줘 마우스로 닫아도 ring이 선다.
+            event.preventDefault();
+            const target = anchor.current;
+            if (returnFocus && !mode.outside.current && target !== null) {
+              focusLike(target, mode.keyboard.current);
+            }
+            // DropdownMenu Content에는 열릴 때 hook이 없어 쓴 뒤 다음 열기를 위해 되돌린다.
+            mode.start(false);
+          }}
           {...componentMark("Menu")}
         >
           {items.map((item) => (

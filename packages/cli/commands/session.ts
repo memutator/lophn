@@ -10,7 +10,7 @@ const list = defineCommand({
   name: "session.list",
   summary: "List the open sessions you can send a call to",
   description:
-    "List the open sessions you can send a call to (ID, agent, name, workspace, state).",
+    "List the open sessions you can send a call to (session ID, agent handle and name, title, workspace, state: running, waiting for a human, or idle, last activity time).",
   input: z.strictObject({}),
   effect: "read",
   routes: [agentCallSendable],

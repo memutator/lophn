@@ -53,21 +53,24 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
     return result.value.effective.model;
   };
   const own =
-    "---\nname: reviewer\nmodel:\n  provider: pvd_00000000000000000000000000\n  model_name: agent-model\n  option_values: {}\n---\nbody\n";
+    "---\nhandle: reviewer\nname: reviewer\nmodel:\n  provider: pvd_00000000000000000000000000\n  model_name: agent-model\n  option_values: {}\n---\nbody\n";
   const agent = read(own, choice("project-model"));
   assert.deepEqual(
     [agent?.value.model_name, agent?.source],
     ["agent-model", "agent"],
   );
   const project = read(
-    "---\nname: reviewer\n---\nbody\n",
+    "---\nhandle: reviewer\nname: reviewer\n---\nbody\n",
     choice("project-model"),
   );
   assert.deepEqual(
     [project?.value.model_name, project?.source],
     ["project-model", "project"],
   );
-  const global = read("---\nname: reviewer\n---\nbody\n", null);
+  const global = read(
+    "---\nhandle: reviewer\nname: reviewer\n---\nbody\n",
+    null,
+  );
   assert.deepEqual(
     [global?.value.model_name, global?.source],
     ["global-model", "global"],

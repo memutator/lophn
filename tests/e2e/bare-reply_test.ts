@@ -107,6 +107,7 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 한 �
     await c.call(agentCreate, {
       id: bare,
       definition: {
+        handle: "echo-bare",
         name: "echo-bare",
         runtime: "bare",
         tools: ["file.read"],

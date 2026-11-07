@@ -77,7 +77,7 @@ async function readNames(port: ReadPort): Promise<Names> {
   return {
     app: new Map(apps.map((a) => [a.id, a.name])),
     project: new Map(projects.map((p) => [p.id, p.name])),
-    agent: new Map(agents.map((a) => [a.agent, a.name])),
+    agent: new Map(agents.map((a) => [a.agent, a.handle])),
   };
 }
 

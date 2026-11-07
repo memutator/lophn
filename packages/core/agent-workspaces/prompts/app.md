@@ -58,7 +58,7 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    Preview output and errors are not in `lophn app logs`. End with `lophn preview stop`.
 6. `lophn release activate` the release:
    - `active`: tell the person. If the app has public skills other agents should
-     get, run `lophn app share --agent <name>... [--coding-agents] --reason <text>`.
+     get, run `lophn app share --agent <handle>... [--coding-agents] --reason <text>`.
      It opens a request that the person approves in the waiting list; say so.
    - `failed`: read `failure` (`code`, `summary`, `restored`: the previous
      release runs again) and `lophn app logs`, fix it, go back to step 3.

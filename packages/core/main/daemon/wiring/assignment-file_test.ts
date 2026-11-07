@@ -98,7 +98,7 @@ test("data step이 옛 할당을 정의 파일로 옮기면 judge가 같은 판�
     await mkdir(join(root, "agents"));
     await writeFile(
       join(root, "agents", `${REVIEWER}.md`),
-      "---\nname: reviewer\n---\nbody\n",
+      "---\nhandle: reviewer\nname: reviewer\n---\nbody\n",
     );
 
     const ran = await assignmentFileStep.run(root);
@@ -203,7 +203,7 @@ test("deny step은 앱 둘째 domain의 규칙을 앱 slug 규칙으로 바꾸�
     await mkdir(join(root, "agents"));
     await writeFile(
       join(root, "agents", `${REVIEWER}.md`),
-      `---\nname: reviewer\napps:\n  - notes\npermissions:\n  deny:\n    - lophn(journal entry add)\n    - lophn(side entry add)\n    - Bash(rm *)\n---\nbody\n`,
+      `---\nhandle: reviewer\nname: reviewer\napps:\n  - notes\npermissions:\n  deny:\n    - lophn(journal entry add)\n    - lophn(side entry add)\n    - Bash(rm *)\n---\nbody\n`,
     );
 
     // 바꾸기 전에는 domain 이름 규칙이 앱 slug 규칙과 맞지 않아 command가 열려 있다.

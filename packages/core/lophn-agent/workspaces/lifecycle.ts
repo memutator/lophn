@@ -59,6 +59,16 @@ export function startSession(
 ): Result<AgentSessionRow> {
   const definition = deps.agents.agent(input.agent);
   if (definition === null) return fail("not_found", "agent not found");
+  // 범위 agent는 그 workspace에서만 열린다. 밖에서는 없는 agent다.
+  const scope = definition.workspace;
+  if (
+    scope !== null &&
+    (input.workspace === null ||
+      input.workspace.kind !== scope.kind ||
+      input.workspace.id !== scope.id)
+  ) {
+    return fail("not_found", "agent not found");
+  }
   // harness runtime의 session은 열 때 그 harness로 정해 바뀌지 않는다. 설정이 꺼져 있으면 열지 않는다.
   const harness = isHarnessRuntime(definition.runtime)
     ? definition.runtime

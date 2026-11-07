@@ -8,7 +8,8 @@ import {
   type AgentDefinitionIssue,
   type AgentId,
   agentDefinitionSchema,
-  agentNameKey,
+  agentHandleKey,
+  LOPHN_AGENT_HANDLE,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -20,7 +21,7 @@ import {
 //   YAML이 깨졌거나 map이 아니면 `frontmatter`가 `malformed`다. 첫 줄이 `---`가 아니면 파일 전체가 본문이다.
 // - 본문은 앞쪽 빈 줄과 뒤쪽 공백을 뺀 글이다. 쓸 때는 끝에 줄바꿈 하나를 붙인다. 본문 안의 `---` 줄은 본문이다.
 // - 쓸 때는 있는 칸만 쓴다. 비운 칸과 빈 목록은 쓰지 않고, 칸이 하나도 없으면 frontmatter 줄 없이 본문만 쓴다.
-//   lophn의 name·profile은 file에 쓰지 않는다.
+//   lophn의 handle·profile은 file에 쓰지 않는다(고정). lophn의 name은 사람이 바꿨을 때만 쓴다.
 
 type AgentFileTarget = { agent: AgentId };
 export type AgentFileDefinition = AgentDefinition;
@@ -142,27 +143,29 @@ function checkDefinition(
   }
 
   const fields: Plain = { ...raw };
-  if (target.agent === LOPHN_AGENT_ID) {
-    if (Object.hasOwn(fields, "name")) {
-      addIssue(issues, "name", "not_allowed");
-      delete fields.name;
+  const isLophn = target.agent === LOPHN_AGENT_ID;
+  if (isLophn) {
+    for (const key of ["handle", "profile", "workspace"]) {
+      if (Object.hasOwn(fields, key)) {
+        addIssue(issues, key, "not_allowed");
+        delete fields[key];
+      }
     }
-    if (Object.hasOwn(fields, "profile")) {
-      addIssue(issues, "profile", "not_allowed");
-      delete fields.profile;
-    }
-    fields.name = LOPHN_AGENT_NAME;
+    fields.handle = LOPHN_AGENT_HANDLE;
+    fields.name ??= LOPHN_AGENT_NAME;
     // lophn은 자기 runtime만 쓴다(bare도 harness도 아니다).
     if (fields.runtime !== undefined && fields.runtime !== "lophn") {
       addIssue(issues, "runtime", "not_allowed");
     }
   } else {
-    const name = fields.name;
-    if (
-      name === undefined ||
-      (typeof name === "string" && name.trim() === "")
-    ) {
-      addIssue(issues, "name", "required");
+    for (const key of ["handle", "name"]) {
+      const value = fields[key];
+      if (
+        value === undefined ||
+        (typeof value === "string" && value.trim() === "")
+      ) {
+        addIssue(issues, key, "required");
+      }
     }
   }
 
@@ -177,23 +180,23 @@ function checkDefinition(
   if (!shaped.success) {
     for (const issue of schemaIssues(shaped.error)) {
       const top = issue.field.split(".")[0];
+      // 비었거나 없는 handle·name은 위에서 required로 이미 적었다.
       if (
-        (target.agent === LOPHN_AGENT_ID &&
-          (top === "name" || top === "profile")) ||
-        (target.agent !== LOPHN_AGENT_ID &&
-          top === "name" &&
-          (fields.name === undefined ||
-            (typeof fields.name === "string" && fields.name.trim() === "")))
+        !isLophn &&
+        (top === "handle" || top === "name") &&
+        (fields[top] === undefined ||
+          (typeof fields[top] === "string" &&
+            (fields[top] as string).trim() === ""))
       ) {
         continue;
       }
       addIssue(issues, issue.field, issue.code);
     }
   } else if (
-    target.agent !== LOPHN_AGENT_ID &&
-    agentNameKey(shaped.data.name) === agentNameKey(LOPHN_AGENT_NAME)
+    !isLophn &&
+    agentHandleKey(shaped.data.handle) === agentHandleKey(LOPHN_AGENT_HANDLE)
   ) {
-    addIssue(issues, "name", "reserved_name");
+    addIssue(issues, "handle", "reserved_name");
   }
 
   if (issues.length > 0 || !shaped.success) return refuse(issues);
@@ -222,7 +225,11 @@ function orderedModel(model: Plain): Plain {
 
 function orderedFrontmatter(value: Plain): Plain {
   const out: Plain = {};
+  if (value.handle !== undefined) out.handle = value.handle;
   if (value.name !== undefined) out.name = value.name;
+  if (value.workspace !== undefined) {
+    out.workspace = pick(value.workspace as Plain, ["kind", "id"]);
+  }
   if (value.profile !== undefined) {
     out.profile = pick(value.profile as Plain, [
       "kind",
@@ -279,18 +286,20 @@ export function serializeAgentFile(
 ): Result<string, AgentFileError> {
   const { body, ...fields } = definition as Plain;
   const stored: Plain = { ...fields };
-  if (target.agent === LOPHN_AGENT_ID) {
-    delete stored.name;
+  const isLophn = target.agent === LOPHN_AGENT_ID;
+  if (isLophn) {
+    delete stored.handle;
     delete stored.profile;
+    delete stored.workspace;
   }
   const checked = checkDefinition(stored, body, target);
   if (!checked.ok) return checked;
-  const { body: text, name: writtenName, ...kept } = checked.value as Plain;
-  const head = frontmatterText(
-    orderedFrontmatter(
-      target.agent === LOPHN_AGENT_ID ? kept : { ...kept, name: writtenName },
-    ),
-  );
+  const { body: text, ...kept } = checked.value as Plain;
+  if (isLophn) {
+    delete kept.handle;
+    if (kept.name === LOPHN_AGENT_NAME) delete kept.name;
+  }
+  const head = frontmatterText(orderedFrontmatter(kept));
   if (text === "") return ok(head);
   const rendered = `${text}\n`;
   return ok(head === "" ? rendered : `${head}\n${rendered}`);

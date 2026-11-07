@@ -60,6 +60,7 @@ import { secretsWiring } from "./wiring/secrets.ts";
 import { serverWiring } from "./wiring/server.ts";
 import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
 import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
+import { agentHandleWiring } from "./wiring/agent-handle.ts";
 import { createSkillsOffWiring } from "./wiring/skills-off.ts";
 import { storageWiring } from "./wiring/storage.ts";
 import { supervisionWiring } from "./wiring/supervision.ts";
@@ -131,7 +132,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   projectsWiring,
   lophnAgentSessionWiring,
   lophnAgentWiring,
-  // data step은 이 순서로 돈다. skills-off가 먼저 `skills`를 옮겨야 assignment-file이 엄격한 schema로 agent 파일을 읽는다.
+  // data step은 이 순서로 돈다. agent-handle이 가장 먼저 handle을 채운다(뒤 step들이 정의를 schema로 읽는다). skills-off가 먼저 `skills`를 옮겨야 assignment-file이 엄격한 schema로 agent 파일을 읽는다.
+  agentHandleWiring,
   createSkillsOffWiring,
   approvalsWiring,
   assignmentFileWiring,

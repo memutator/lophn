@@ -3,10 +3,10 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   agentChange,
   agentCreate,
+  agentHandleKey,
   type AgentId,
   agentDelete,
   LOPHN_AGENT_ID,
-  LOPHN_AGENT_NAME,
   type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -17,14 +17,22 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
-import { type AgentContext, loadAgent, openAgentContext } from "./inspect.ts";
+import {
+  type AgentContext,
+  handleOf,
+  loadAgent,
+  openAgentContext,
+  workspaceOfAgent,
+} from "./inspect.ts";
+import { loadSession, workspaceOf } from "../session/model.ts";
 import type { AgentDeps } from "./ports.ts";
 import { LOPHN_PROFILE } from "./resolve.ts";
 import { staleImagePaths } from "./profile-asset.ts";
 import { agentSlotOf } from "./store.ts";
 import { checkAgent } from "./validate.ts";
 
-// 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn의 이름·profile은 고정이고 lophn은 지울 수 없다.
+// 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn의 handle·profile은 고정이고 lophn은 지울 수 없다.
+// handle과 범위 workspace는 만들 때만 정한다. agent가 만들면 범위는 그 session의 workspace다(home이면 전역).
 // agent 자격은 `mcp_servers`, `skip`, `apps`, `permissions`를 바꾸지 못한다: 그 칸들은 사람의 승인 경계다.
 
 const HUMAN_ONLY_MESSAGE =
@@ -36,10 +44,6 @@ function notFound(what: string): Result<never> {
 
 function conflict(what: string): Result<never> {
   return err({ code: "conflict", message: `${what} hash changed` });
-}
-
-function same(left: unknown, right: unknown): boolean {
-  return canonicalize(left ?? null) === canonicalize(right ?? null);
 }
 
 function removeStaleImages(
@@ -67,6 +71,28 @@ function open(deps: AgentDeps, tx: Tx): Result<AgentContext> {
 
 function agentActor(ctx: RequestContext): boolean {
   return parseActor(ctx.actor)?.kind === "agent";
+}
+
+// agent가 만든 agent의 범위: 부른 session의 workspace다. home session이면 전역이다.
+function callerWorkspace(tx: Tx, ctx: RequestContext) {
+  const actor = parseActor(ctx.actor);
+  if (actor?.kind !== "agent") return undefined;
+  const session = loadSession(tx, actor.id);
+  return session === undefined
+    ? undefined
+    : (workspaceOf(session) ?? undefined);
+}
+
+function same(left: unknown, right: unknown): boolean {
+  return canonicalize(left ?? null) === canonicalize(right ?? null);
+}
+
+function notAllowed(field: string): Result<never> {
+  return err({
+    code: "invalid_input",
+    message: "agent is invalid",
+    details: { issues: [{ field, code: "not_allowed" }] },
+  });
 }
 
 export function createAgentCommands(deps: AgentDeps): {
@@ -102,16 +128,24 @@ export function createAgentCommands(deps: AgentDeps): {
         if (existing.value !== null) {
           return err({ code: "conflict", message: "agent already exists" });
         }
+        // agent 자격은 범위를 고르지 못하고 부른 session의 workspace를 받는다.
+        const { workspace: _asked, ...unscoped } = input.definition;
+        const scope = agentActor(ctx)
+          ? callerWorkspace(tx, ctx)
+          : input.definition.workspace;
+        const definition =
+          scope === undefined ? unscoped : { ...unscoped, workspace: scope };
         const checked = checkAgent({
           context: context.value,
           agent: id,
-          definition: input.definition,
+          definition,
+          creating: true,
         });
         if (!checked.ok) return checked;
         const slot = agentSlotOf(context.value.store.root, id);
         const written = context.value.store.write(slot, checked.value);
         if (!written.ok) return written;
-        removeStaleImages(deps, context.value, id, input.definition.profile);
+        removeStaleImages(deps, context.value, id, definition.profile);
         return ok({ agent: id, hash: written.value });
       },
     },
@@ -149,20 +183,33 @@ export function createAgentCommands(deps: AgentDeps): {
         }
         if (input.agent === LOPHN_AGENT_ID) {
           const profile = input.definition.profile;
-          if (
-            input.definition.name !== LOPHN_AGENT_NAME ||
-            (profile !== undefined && !same(profile, LOPHN_PROFILE))
-          ) {
+          if (profile !== undefined && !same(profile, LOPHN_PROFILE)) {
             return err({
               code: "forbidden",
-              message: "lophn's name and profile are fixed",
+              message: "lophn's profile is fixed",
             });
+          }
+        }
+        // handle과 범위는 만들 때 정한 채로 둔다. 틀린 file은 정한 값을 알 수 없어 고쳐 쓸 수 있게 둔다.
+        if (loaded.definition !== null) {
+          if (
+            agentHandleKey(input.definition.handle) !==
+            agentHandleKey(handleOf(loaded))
+          ) {
+            return notAllowed("handle");
+          }
+          if (
+            input.agent !== LOPHN_AGENT_ID &&
+            !same(input.definition.workspace, workspaceOfAgent(loaded))
+          ) {
+            return notAllowed("workspace");
           }
         }
         const checked = checkAgent({
           context: context.value,
           agent: input.agent,
           definition: input.definition,
+          creating: false,
         });
         if (!checked.ok) return checked;
         const written = context.value.store.write(loaded.slot, checked.value);

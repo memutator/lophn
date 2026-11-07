@@ -266,13 +266,15 @@ async function readWorkspaceData(
     }
   }
 
-  // 부를 수 있는 agent는 전역 정의 목록의 이름과 한 줄 목적이다. 자기 자신도 넣는다: 다른 workspace의 자기에게 call할 수 있다.
+  // 부를 수 있는 agent는 정의 목록(전역과 이 workspace의 범위 agent)의 handle·이름과 한 줄 목적이다. 자기 자신도 넣는다: 다른 workspace의 자기에게 call할 수 있다.
   const listed = await readOf(call, agentList, {});
   if (!listed.ok) return listed;
   const agents: WorkspaceAgent[] = listed.value.agents
     .filter((row) => row.issues.length === 0)
     .map((row) => ({
+      handle: row.handle,
       name: row.name,
+      ...(row.workspace === null ? {} : { scoped: true }),
       ...(row.description === undefined
         ? {}
         : { description: row.description }),

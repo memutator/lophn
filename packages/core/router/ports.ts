@@ -86,7 +86,12 @@ export interface SessionDirectory {
   // 받는 agent의 명함. 명함을 못 읽는 agent는 null이고 검사하지 않는다.
   accepts(agent: AgentId): AgentAccepts | null;
   // session 목록 tool이 쓴다.
-  listOpen(): readonly (TargetSession & { name: string })[];
+  listOpen(): readonly (TargetSession & {
+    handle: string;
+    name: string;
+    title: string | null;
+    last_active_at: string | null;
+  })[];
 }
 
 export interface InputTransport {

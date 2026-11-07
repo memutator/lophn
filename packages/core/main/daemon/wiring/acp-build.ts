@@ -232,14 +232,14 @@ export async function agentOfSession(
   return read.ok ? (read.value.session.agent as AgentId) : null;
 }
 
-/** lophn은 이름이 고정이다. 다른 agent는 정의에서 읽고, 못 읽으면 null이다. */
+/** 보이는 이름이다(주소가 아니다). 정의에서 읽고, 못 읽으면 lophn은 기본 이름, 다른 agent는 null이다. */
 export async function agentNameOf(
   env: AcpEnv,
   agent: AgentId,
 ): Promise<string | null> {
-  if (agent === LOPHN_AGENT_ID) return LOPHN_AGENT_NAME;
   const read = await env.read<Output<typeof agentRead>>(agentRead, { agent });
-  return read.ok ? env.redact(read.value.effective.name.value) : null;
+  if (read.ok) return env.redact(read.value.effective.name.value);
+  return agent === LOPHN_AGENT_ID ? LOPHN_AGENT_NAME : null;
 }
 
 // ---------------------------------------------------------------- tool

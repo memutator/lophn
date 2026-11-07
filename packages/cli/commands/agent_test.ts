@@ -5,7 +5,7 @@ import { AGENT_COMMANDS } from "./agent.ts";
 // 할당·정의 층 MCP server·skip은 사람만 쓴다. agent 명령 입력에 그 칸이 보이면 model이 권한을 넓힐 수 있다.
 test("agent.create와 agent.update 입력은 skip, mcp_servers, apps, permissions를 받지 않는다", () => {
   const cases: [string, Record<string, unknown>][] = [
-    ["agent.create", { name: "ops", body: "b" }],
+    ["agent.create", { handle: "ops", body: "b" }],
     ["agent.update", { agent: "ops", body: "b" }],
   ];
   for (const [name, minimal] of cases) {

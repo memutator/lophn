@@ -7,7 +7,7 @@ import { idSchema } from "../../protocol/base/ids.ts";
 import { jsonValueSchema } from "../../protocol/base/json-values.ts";
 import {
   type AgentAddress,
-  LOPHN_AGENT_NAME,
+  LOPHN_AGENT_HANDLE,
 } from "../../protocol/lophn-agent/mod.ts";
 import {
   RUN_WAIT_MAX_MS,
@@ -88,7 +88,7 @@ export async function start(
 
 const agentRunInput = z.strictObject({
   prompt: z.string().min(1),
-  agent: z.string().min(1).optional().describe("agent name (default lophn)"),
+  agent: z.string().min(1).optional().describe("agent handle (default lophn)"),
   project: z
     .string()
     .min(1)
@@ -166,9 +166,9 @@ const agentRun = defineCommand({
     };
     const wait = input.async !== true;
     if (input.session !== undefined) return start(ctx, base, wait);
-    // workspace가 없으면 home이다. 이름이나 id는 core가 푼다.
+    // workspace가 없으면 home이다. handle이나 이름·id는 core가 푼다.
     const agent: AgentAddress = {
-      agent: input.agent ?? LOPHN_AGENT_NAME,
+      agent: input.agent ?? LOPHN_AGENT_HANDLE,
       ...(input.project !== undefined
         ? { workspace: { project: input.project } }
         : input.app !== undefined

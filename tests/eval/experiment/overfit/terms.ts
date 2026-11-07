@@ -1,4 +1,4 @@
-import { LOPHN_AGENT_NAME } from "../../../../packages/protocol/lophn-agent/mod.ts";
+import { LOPHN_AGENT_HANDLE } from "../../../../packages/protocol/lophn-agent/mod.ts";
 import type { Participant, Scenario } from "../../types.ts";
 import { isAscii, normalize } from "./text.ts";
 
@@ -29,7 +29,7 @@ export function scenarioTerms(
     raw.push(
       workspace?.app,
       workspace?.project,
-      p.agent === LOPHN_AGENT_NAME ? undefined : p.agent,
+      p.agent === LOPHN_AGENT_HANDLE ? undefined : p.agent,
     );
   };
   for (const step of scenario.steps) {

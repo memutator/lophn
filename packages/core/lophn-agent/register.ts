@@ -968,6 +968,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         usageReads.usage,
         agentReads.list,
         agentReads.read,
+        agentReads.card,
         skillsReads.read,
         projectExtensionReads.read,
         turnReads.read,

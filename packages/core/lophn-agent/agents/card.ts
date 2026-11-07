@@ -6,7 +6,7 @@ import {
 import {
   type AgentAtWorkspace,
   type AgentCard,
-  agentNameKey,
+  agentHandleKey,
   MODALITIES,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
@@ -14,8 +14,11 @@ import {
   type AgentContext,
   effectiveModel,
   listAgents,
+  handleOf,
   type Loaded,
   nameOf,
+  visibleIn,
+  workspaceOfAgent,
 } from "./inspect.ts";
 
 // lophn은 셋 다 받는다. bare는 `call.reply`를 골랐을 때만 대화를 이어 간다(답을 보낼 길이 그것뿐이라서다).
@@ -79,7 +82,9 @@ function cardOf(
   }
 
   return {
+    handle: handleOf(loaded),
     name: nameOf(loaded),
+    workspace: workspaceOfAgent(loaded),
     ...(definition?.description === undefined
       ? {}
       : { description: definition.description }),
@@ -105,17 +110,20 @@ function cardOf(
   };
 }
 
-// 이름(앞뒤 공백과 대소문자 무시)으로 찾는 동기 조회다. 틀린 정의 file은 명함을 만들 수 없다.
-export function cardByName(
+// handle(앞뒤 공백과 대소문자 무시)로 찾는 동기 조회다. 틀린 정의 file은 명함을 만들 수 없다.
+// 부르는 agent session이 있으면 범위 agent는 그 workspace에서만 보인다(밖에서는 not_found).
+export function cardByHandle(
   context: AgentContext,
-  name: string,
+  handle: string,
   caller: CardCaller | null,
 ): Result<AgentCard> {
   const listed = listAgents(context);
   if (!listed.ok) return listed;
-  const key = agentNameKey(name);
+  const key = agentHandleKey(handle);
   const loaded = listed.value.find(
-    (entry) => agentNameKey(nameOf(entry)) === key,
+    (entry) =>
+      agentHandleKey(handleOf(entry)) === key &&
+      (caller === null || visibleIn(entry, caller.from.workspace)),
   );
   if (loaded === undefined) {
     return err({ code: "not_found", message: "agent not found" });

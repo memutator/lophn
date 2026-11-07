@@ -268,6 +268,7 @@ test("workspace 종류 목록 밖을 고른 bare는 그 tool을 보지도 부르
     workspace: null,
     called_from: null,
     definition: {
+      handle: "reviewer",
       name: "reviewer",
       body: "review",
       runtime: "bare",

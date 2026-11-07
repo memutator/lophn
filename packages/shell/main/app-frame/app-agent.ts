@@ -86,11 +86,28 @@ export function createAppAgent(deps: AppAgentDeps) {
       ) {
         return fail("invalid_input", "input is invalid");
       }
+      // 앱은 agent를 handle로 부른다. 이 앱 workspace에서 보이는 agent(전역과 이 앱의 범위 agent) 가운데서 id를 푼다.
+      const listed = await deps.call("read", "agents", "list", {
+        workspace: { kind: "app", id: view.target.app },
+      });
+      if (!listed.ok) return listed;
+      const key = input.agent.trim().toLowerCase();
+      const agents = record(listed.value)?.agents;
+      const found = (Array.isArray(agents) ? agents : [])
+        .map(record)
+        .find(
+          (row) =>
+            typeof row?.handle === "string" &&
+            row.handle.trim().toLowerCase() === key,
+        );
+      if (typeof found?.agent !== "string") {
+        return fail("not_found", "agent not found");
+      }
       const id = deps.ids.newId("ses");
       const opened = await deps.call("command", "sessions", "open", {
         input: {
           id,
-          agent: input.agent,
+          agent: found.agent,
           workspace: { kind: "app", id: view.target.app },
         },
         idempotency_key: `app-agent-open-${id}`,

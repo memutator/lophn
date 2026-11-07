@@ -40,7 +40,7 @@ workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거
 - 정의는 `<data>/projects/<prj>/workflows/<name>/`의 셋이다. 선언 `workflow.yaml`, 사람과 agent가 읽는 글 `workflow.md`, 고르는 artifact(`artifacts/static/index.html`, `artifacts/instance/index.html`). `<name>`은 slug다. `kind: flow`는 code `flow.ts`가 넷째다(이름은 선언에 적지 않는다). `flow.ts`는 같은 폴더의 다른 file을 import할 수 있다.
 - workflow의 신원은 `(project id, name)`이다. `<project 이름>/<name>`(key)은 보이는 이름일 뿐이고 도착할 때 project id로 푼다(이름이 여럿이면 `invalid_input`, 없으면 `not_found`). project는 이름을 바꿀 수 있어 이름을 저장하지 않는다.
 - lophn이 읽는 칸은 `kind`, `participants`의 `agent`·`workspace`·`kind`, flow의 `agent`, `steps`의 `by`·`with`·`prompt`·`in`·`out`·`next`뿐이다. 다른 칸은 두고 읽지 않는다(strict가 아니다). `kind: flow`에서는 `kind`, `agent`, `steps`의 key(step 이름)만 읽는다. step 이름은 화면과 report의 자리일 뿐이고 `participants`와 step의 다른 칸은 읽지 않는다. `steps`가 비면 틀린 선언이다. `in`, `out`, `prompt`는 자연어이고 그대로 전한다. 첫 step은 `steps`의 첫 key다.
-- 참가자는 `{agent, workspace?}`(agent 이름), `{kind: human}`다. step 이름 `end`는 예약이다(`next` 안의 끝).
+- 참가자는 `{agent, workspace?}`(agent handle), `{kind: human}`다. step 이름 `end`는 예약이다(`next` 안의 끝).
 - 선언은 형식만 본다. `by`·`with`·`next`가 가리키는 이름이 있는지는 읽을 때 보지 않는다. 그런 틀림은 넘길 때 `not_handed` 줄이 된다.
 - 틀린 선언은 그 workflow만 뺀다. 이유는 `ListWorkflows`의 `problem`(`no_declaration | invalid_yaml | invalid_declaration | no_flow_file`)에 첫 하나만 싣는다. `flow.ts`가 없는 flow는 시작하지 못하고 `no_flow_file`이다. flow의 목록 step은 `by: program`(`FLOW_STEP_BY`)이고 `with`·`next`가 비어 있다.
 - 목록(`ListWorkflows`)의 step에는 `prompt`·`in`·`out`이 없다. 목록을 읽는 참가자가 다른 step의 글을 알면 캡슐화가 깨진다.
@@ -63,7 +63,7 @@ report와 고치기
 
 넘기기
 - 담당 풀기는 command 앞(`plan.ts`)이 한다. step이 instance에 없으면 `unknown_step`, `by`가 참가자에 없으면 `unknown_participant`다.
-  - agent 참가자는 `workspace`가 없으면 instance의 project다. 이름이 풀리지 않으면 `unresolved`다.
+  - agent 참가자는 `workspace`가 없으면 instance의 project다. handle이 풀리지 않으면(범위 agent가 그 workspace가 아닌 곳이면 포함) `unresolved`다.
   - harness agent(정의의 runtime이 harness)는 이름이 있는 agent라 `{agent}` 참가자로 넘긴다(Router가 harness queue로 보낸다, `architecture/coding-agent.md`).
   - `human`이면 `with`의 참가자로 같은 풀이를 하고 instance에 사람 차례(`current.human_turn`)를 적는다. `with`가 없으면 `no_with`다.
 - `session: same`이면 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session(가장 나중 `handed` 줄의 `receiver`)에 `fallback: new`로 보낸다. 없으면 새 session이다. 안 적으면 `new`다.

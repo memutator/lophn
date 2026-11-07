@@ -23,6 +23,7 @@ import {
 } from "../../../../protocol/lophn-agent/models.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
+import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
@@ -117,9 +118,28 @@ function newAgentId(bytes: Uint8Array): string {
   return `agt_${body}`;
 }
 
+// 정의가 틀려 읽지 못한 agent는 handle을 알 수 없어 명함이 없다(없는 handle로 읽으면 not_found).
+function handleOf(agent: string, definition: AgentDraft | null): string {
+  return agent === LOPHN_AGENT_ID
+    ? LOPHN_AGENT_HANDLE
+    : (definition?.handle ?? agent);
+}
+
+// 영문 소문자·숫자만 남긴 handle 기본값. 비면 사람이 정해야 한다.
+function handleFromName(name: string | undefined): string | undefined {
+  const slug = (name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
+  return slug === "" ? undefined : slug;
+}
+
 function toRow(row: AgentRow): AgentListRow {
   return {
     assignment: row.agent,
+    handle: row.handle,
     name: row.name,
     profile: row.profile,
     ...(row.description === undefined ? {} : { description: row.description }),
@@ -243,9 +263,9 @@ export function coreAgentsSource(
   };
 
   // 명함은 core가 계산한다. 틀린 정의 file은 만들지 못해 없는 채로 둔다.
-  const cardOf = async (name: string): Promise<AgentCard | undefined> => {
+  const cardOf = async (handle: string): Promise<AgentCard | undefined> => {
     const read = await link.read<{ card: AgentCard }>("agents", "card", {
-      name,
+      handle,
     });
     return read.ok ? read.value.card : undefined;
   };
@@ -353,7 +373,7 @@ export function coreAgentsSource(
     if (!servers.ok) return servers;
     const text = workspace === null ? null : await instructionsOf(workspace);
     const saved = value.definition ?? { body: "" };
-    const card = await cardOf(value.effective.name.value);
+    const card = await cardOf(handleOf(agent, value.definition));
     if (value.effective.profile.value.kind === "image") {
       await loadImage(agent, value.effective.profile.value.image);
     }
@@ -420,7 +440,7 @@ export function coreAgentsSource(
       const view: AgentsOverview = {
         agents: await Promise.all(
           agents.value.map(async (row) => {
-            const card = await cardOf(row.name);
+            const card = await cardOf(row.handle);
             return card === undefined ? row : { ...row, card };
           }),
         ),
@@ -558,8 +578,15 @@ export function coreAgentsSource(
       const draft = input.definition;
       if (input.assignment === null) {
         const id = input.draftId ?? newAgentId(bytes());
+        const handle = draft.handle ?? handleFromName(draft.name);
         const created = await link.command(agentCreate, {
-          input: { id, definition: draft },
+          input: {
+            id,
+            definition: {
+              ...draft,
+              ...(handle === undefined ? {} : { handle }),
+            },
+          },
           compare: {},
         });
         if (!created.ok) return failed(created);
@@ -575,7 +602,7 @@ export function coreAgentsSource(
       if (!isAgentId(input.assignment)) {
         return { ok: false, message: "not_found", issues: [] };
       }
-      // 이번 저장에서 새로 생긴 server를 가리려고, 그리고 lophn의 잠긴 name·profile을 그대로 보내려고 읽는다.
+      // 이번 저장에서 새로 생긴 server를 가리려고, 그리고 lophn의 잠긴 handle·profile을 그대로 보내려고 읽는다.
       const before = await link.read<{
         definition: AgentDraft | null;
         effective: {
@@ -591,7 +618,8 @@ export function coreAgentsSource(
         input.assignment === LOPHN_AGENT_ID
           ? {
               ...draft,
-              name: stored?.name ?? before.value.effective.name.value,
+              handle: LOPHN_AGENT_HANDLE,
+              name: draft.name ?? before.value.effective.name.value,
               profile: stored?.profile ?? before.value.effective.profile.value,
             }
           : draft;

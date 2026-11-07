@@ -338,7 +338,9 @@ export function createFakeAgentsSource(
     const definition = item.definition;
     const bare = definition.runtime === "bare";
     return {
+      handle: definition.handle ?? item.name,
       name: item.name,
+      workspace: null,
       ...(definition.description === undefined
         ? {}
         : { description: definition.description }),
@@ -389,6 +391,7 @@ export function createFakeAgentsSource(
     const model = definition.model ?? inheritedModel(at).value;
     return {
       assignment: key,
+      handle: item.definition.handle ?? key,
       name: item.name,
       profile: profileOf(key, item),
       ...(definition.description === undefined

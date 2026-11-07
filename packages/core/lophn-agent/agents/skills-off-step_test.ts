@@ -30,7 +30,7 @@ test("옛 skills를 옮긴 뒤에도 agent가 받는 skill 집합이 같다", as
     const file = `${root}/agents/agt_01.md`;
     await writeFile(
       file,
-      `---\nname: Writer\nskills: [a, in-a, new-app]\ndomains: [${DOM_A}]\n---\nHello\n`,
+      `---\nhandle: Writer\nname: Writer\nskills: [a, in-a, new-app]\ndomains: [${DOM_A}]\n---\nHello\n`,
     );
 
     // 옛 규칙의 후보: 전역 층과 맡은 domain(DOM_A)의 skill.

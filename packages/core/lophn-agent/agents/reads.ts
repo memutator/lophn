@@ -6,6 +6,7 @@ import {
   type AgentRow,
   type AgentValueLayer,
   LOPHN_AGENT_ID,
+  LOPHN_AGENT_NAME,
   type ModelChoice,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -14,25 +15,36 @@ import type {
   Output,
   ReadDefinition,
   ReadSnapshot,
+  RequestContext,
 } from "../../../protocol/server/mod.ts";
 import {
   type AgentContext,
   effectiveModel,
   listAgents,
   loadAgent,
+  handleOf,
   type Loaded,
   nameOf,
   openAgentContext,
   profileOf,
+  visibleIn,
+  workspaceOfAgent,
 } from "./inspect.ts";
 import { callPolicyAt } from "../../config/setting-declarations.ts";
 import { loadSession, workspaceOf } from "../session/model.ts";
-import { type CardCaller, cardByName } from "./card.ts";
+import { type CardCaller, cardByHandle } from "./card.ts";
 import type { AgentDeps } from "./ports.ts";
 import { receivedSkills } from "./resolve.ts";
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
+}
+
+// agent session이 읽을 때 그 session이다. 사람과 machine은 undefined다.
+function callerSession(snapshot: ReadSnapshot, ctx: RequestContext) {
+  return ctx.conditions.session === undefined
+    ? undefined
+    : loadSession(snapshot, ctx.conditions.session);
 }
 
 function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
@@ -44,7 +56,9 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
   const mcpOff = definition?.mcp_off ?? [];
   return {
     agent: loaded.agent,
+    handle: handleOf(loaded),
     name: nameOf(loaded),
+    workspace: workspaceOfAgent(loaded),
     profile: profileOf(loaded),
     ...(definition?.description === undefined
       ? {}
@@ -94,15 +108,22 @@ export function createAgentReads(deps: AgentDeps): {
       route: agentList,
       handle(
         snapshot: ReadSnapshot,
-        _ctx,
-        _input: Input<typeof agentList>,
+        ctx,
+        input: Input<typeof agentList>,
       ): Result<Output<typeof agentList>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
         const listed = listAgents(context.value);
         if (!listed.ok) return listed;
+        // agent 자격은 자기 session의 workspace로 좁힌다. 사람은 workspace를 줄 때만 좁힌다.
+        const caller = callerSession(snapshot, ctx);
+        const scope =
+          caller === undefined ? input.workspace : workspaceOf(caller);
+        const narrowed = caller !== undefined || input.workspace !== undefined;
         return ok({
-          agents: listed.value.map((loaded) => rowOf(context.value, loaded)),
+          agents: listed.value
+            .filter((loaded) => !narrowed || visibleIn(loaded, scope ?? null))
+            .map((loaded) => rowOf(context.value, loaded)),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });
@@ -118,10 +139,7 @@ export function createAgentReads(deps: AgentDeps): {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
         // agent session이 읽을 때만 그 session의 workspace에서 부를 수 있는지 싣는다.
-        const session =
-          ctx.conditions.session === undefined
-            ? undefined
-            : loadSession(snapshot, ctx.conditions.session);
+        const session = callerSession(snapshot, ctx);
         const caller: CardCaller | null =
           session === undefined
             ? null
@@ -129,7 +147,7 @@ export function createAgentReads(deps: AgentDeps): {
                 from: { agent: session.agent, workspace: workspaceOf(session) },
                 policy: callPolicyAt(context.value.store.root),
               };
-        const card = cardByName(context.value, input.name, caller);
+        const card = cardByHandle(context.value, input.handle, caller);
         if (!card.ok) return card;
         return ok({
           card: card.value,
@@ -167,7 +185,11 @@ export function createAgentReads(deps: AgentDeps): {
           effective: {
             name: {
               value: nameOf(loaded),
-              source: loaded.agent === LOPHN_AGENT_ID ? "global" : "agent",
+              source:
+                loaded.agent === LOPHN_AGENT_ID &&
+                nameOf(loaded) === LOPHN_AGENT_NAME
+                  ? "global"
+                  : "agent",
             },
             profile: {
               value: profile,

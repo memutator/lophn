@@ -3,6 +3,7 @@ import {
   type AgentDefinitionIssue,
   type AgentId,
   type AgentValueLayer,
+  LOPHN_AGENT_HANDLE,
   LOPHN_AGENT_ID,
   LOPHN_AGENT_NAME,
   type ModelChoice,
@@ -72,17 +73,45 @@ function parsedAgent(
 ): Loaded {
   let definition: AgentFileDefinition | null = null;
   const issues: AgentDefinitionIssue[] = [];
-  if (file !== null) {
-    const parsed = parseAgentFile(file.text, { agent });
+  // lophn은 file이 없어도 기본 정의(handle·name)를 갖는다.
+  const text = file?.text ?? (agent === LOPHN_AGENT_ID ? "" : null);
+  if (text !== null) {
+    const parsed = parseAgentFile(text, { agent });
     if (parsed.ok) definition = parsed.value;
     else issues.push(...issuesOfError(parsed.error));
   }
   return { agent, slot, file, definition, issues };
 }
 
+// 틀린 file은 handle을 알 수 없어 id가 handle이다(주소로는 쓸 수 없고 목록에만 보인다).
+export function handleOf(loaded: Loaded): string {
+  if (loaded.agent === LOPHN_AGENT_ID) return LOPHN_AGENT_HANDLE;
+  return loaded.definition?.handle ?? loaded.agent;
+}
+
+// 보이는 이름이다. 주소가 아니다.
 export function nameOf(loaded: Loaded): string {
-  if (loaded.agent === LOPHN_AGENT_ID) return LOPHN_AGENT_NAME;
-  return loaded.definition?.name ?? loaded.agent;
+  if (loaded.definition !== null) return loaded.definition.name;
+  return loaded.agent === LOPHN_AGENT_ID ? LOPHN_AGENT_NAME : loaded.agent;
+}
+
+// 범위 없는 agent는 전역이다.
+export function workspaceOfAgent(loaded: Loaded): Workspace | null {
+  return loaded.definition?.workspace ?? null;
+}
+
+// 범위 agent는 그 workspace에서만 보인다. workspace가 null이면 home(전역만)이다.
+export function visibleIn(
+  loaded: Loaded,
+  workspace: Workspace | null,
+): boolean {
+  const scope = workspaceOfAgent(loaded);
+  return (
+    scope === null ||
+    (workspace !== null &&
+      workspace.kind === scope.kind &&
+      workspace.id === scope.id)
+  );
 }
 
 export function profileOf(loaded: Loaded) {

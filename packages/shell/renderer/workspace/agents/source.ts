@@ -8,6 +8,7 @@ import type {
 import type {
   AgentCounts,
   AgentRuntime,
+  AgentWorkspace,
   McpOff,
   Modality,
   Profile,
@@ -39,6 +40,9 @@ export type { ReadResult };
  */
 export interface AgentListRow {
   readonly assignment: string;
+  /** agent의 주소다. 만들 때 정하고 바뀌지 않는다. */
+  readonly handle: string;
+  /** 보이는 이름이다. 겹쳐도 되고 바꿀 수 있다. */
   readonly name: string;
   readonly profile: Profile;
   readonly description?: string;
@@ -72,11 +76,15 @@ export interface AgentsOverview {
 
 /**
  * 정의 파일 한 개의 값. 모든 agent가 같은 칸을 갖는다. `skills_off`는 이 agent가 끈 skill 이름이고 없으면 보이는 skill을 모두 받는다.
- * lophn의 `name`·`profile`은 바꾸지 못하고
+ * lophn의 `handle`·`profile`은 바꾸지 못하고(name은 바꾼다), `handle`과 `workspace`는 만들 때만 정한다.
  * `mcp_servers`·`skip`은 사람만 쓴다. 파일에는 사람이 바꾼 칸만 있어 없는 칸은 상속이다.
  */
 export interface AgentDraft {
+  /** 새 agent가 만들 때 정하는 주소. 비우면 name에서 만든다(영문 소문자·숫자가 없으면 만들지 못한다). 저장된 agent는 읽기만 한다. */
+  readonly handle?: string;
   readonly name?: string;
+  /** 범위 workspace. 없으면 전역이다. 저장된 값을 그대로 돌려보낸다. */
+  readonly workspace?: AgentWorkspace;
   readonly profile?: Profile;
   /** 없으면 lophn이다. bare는 본문과 `tools`, `skills`가 고른 것만 싣는다. */
   readonly runtime?: AgentRuntime;

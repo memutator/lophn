@@ -29,7 +29,7 @@ const lookups: AgentLookups = {
   projectModel: () => null,
 };
 
-test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름은 전역에 하나이며, agent 자격은 mcp_servers·skip·apps·permissions을 넣지 못한다", async () => {
+test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·permissions을 넣지 못한다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
   try {
     const files = createNodeAgentFiles();
@@ -67,36 +67,57 @@ test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름�
     assert.ok(!deleted.ok);
     assert.equal(deleted.error.code, "forbidden");
 
-    for (const definition of [
-      { name: "other", body: "x" },
-      {
-        name: "lophn",
-        profile: { kind: "character", shape: "arch", color: "sage" },
-        body: "x",
-      },
-    ]) {
-      const refused = change(definition);
-      assert.ok(!refused.ok);
-      assert.equal(refused.error.code, "forbidden");
-    }
+    const profileChange = change({
+      handle: "lophn",
+      name: "lophn",
+      profile: { kind: "character", shape: "arch", color: "sage" },
+      body: "x",
+    });
+    assert.ok(!profileChange.ok);
+    assert.equal(profileChange.error.code, "forbidden");
+    const handleChange = change({ handle: "other", name: "lophn", body: "x" });
+    assert.ok(!handleChange.ok);
+    assert.equal(handleChange.error.code, "invalid_input");
 
-    for (const name of ["lophn", " LOPHN "]) {
-      const refused = create(AGENT, { name, body: "x" });
+    for (const handle of ["lophn", " LOPHN "]) {
+      const refused = create(AGENT, { handle, name: "x", body: "x" });
       assert.ok(!refused.ok);
       assert.equal(refused.error.code, "invalid_input");
-      assert.deepEqual(
-        (refused.error.details as { issues: unknown[] }).issues,
-        [{ field: "name", code: "reserved_name" }],
+      assert.ok(
+        (refused.error.details as { issues: { field: string }[] }).issues.some(
+          (issue) => issue.field === "handle",
+        ),
       );
     }
 
-    assert.ok(create(AGENT, { name: "reviewer", body: "x" }).ok);
-    const twin = create(OTHER, { name: "Reviewer", body: "x" });
+    assert.ok(
+      create(AGENT, { handle: "reviewer", name: "Reviewer", body: "x" }).ok,
+    );
+    const twin = create(OTHER, {
+      handle: "Reviewer",
+      name: "Other",
+      body: "x",
+    });
     assert.ok(!twin.ok);
     assert.equal(twin.error.code, "invalid_input");
-    assert.deepEqual((twin.error.details as { issues: unknown[] }).issues, [
-      { field: "name", code: "duplicate" },
-    ]);
+    // 보이는 이름은 겹쳐도 된다.
+    assert.ok(
+      create(OTHER, { handle: "reviewer2", name: "Reviewer", body: "x" }).ok,
+    );
+    const reviewer = store.read(agentSlotOf(root, AGENT));
+    assert.ok(reviewer.ok && reviewer.value !== null);
+    const reviewerHash = reviewer.value.hash;
+    const moved = commands.change.handle(
+      tx,
+      user,
+      {
+        agent: AGENT,
+        definition: { handle: "renamed", name: "Reviewer", body: "x" },
+      } as never,
+      { hash: reviewerHash },
+    );
+    assert.ok(!moved.ok);
+    assert.equal(moved.error.code, "invalid_input");
 
     const humanOnly: Record<string, unknown> = {
       skip: true,
@@ -106,8 +127,13 @@ test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름�
     };
     for (const field of Object.keys(humanOnly)) {
       const refused = create(
-        OTHER,
-        { name: `with-${field}`, body: "x", [field]: humanOnly[field] },
+        "agt_00000000000000000000000003",
+        {
+          handle: `with-${field}`.replace("_", "-"),
+          name: `with-${field}`,
+          body: "x",
+          [field]: humanOnly[field],
+        },
         agent,
       );
       assert.ok(!refused.ok, field);
@@ -118,7 +144,12 @@ test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름�
       agent,
       {
         agent: LOPHN_AGENT_ID,
-        definition: { name: "lophn", body: "x", apps: ["notes"] },
+        definition: {
+          handle: "lophn",
+          name: "lophn",
+          body: "x",
+          apps: ["notes"],
+        },
       } as never,
       { hash: beforeHash },
     );
@@ -129,7 +160,7 @@ test("lophn은 지우거나 이름·profile을 바꿀 수 없고, agent 이름�
     assert.ok(after.ok && after.value?.hash === beforeHash);
     const ids = store.agentIds();
     assert.ok(ids.ok);
-    assert.deepEqual(ids.value, [AGENT]);
+    assert.deepEqual(ids.value, [AGENT, OTHER]);
   } finally {
     await rm(root, { recursive: true });
   }
@@ -149,7 +180,7 @@ test("옛 hash로 agent를 고치면 충돌이고 파일은 그대로다", async
       user,
       {
         id: AGENT,
-        definition: { name: "reviewer", body: "v1" },
+        definition: { handle: "reviewer", name: "reviewer", body: "v1" },
       },
       {} as never,
     );
@@ -159,7 +190,7 @@ test("옛 hash로 agent를 고치면 충돌이고 파일은 그대로다", async
       user,
       {
         agent: AGENT,
-        definition: { name: "reviewer", body: "v2" },
+        definition: { handle: "reviewer", name: "reviewer", body: "v2" },
       },
       { hash: "0".repeat(64) },
     );
@@ -187,7 +218,13 @@ test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하�
         user,
         {
           id,
-          definition: { name: id, runtime: "bare", tools, body: "x" },
+          definition: {
+            handle: id,
+            name: id,
+            runtime: "bare",
+            tools,
+            body: "x",
+          },
         } as never,
         {} as never,
       );
@@ -212,6 +249,68 @@ test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하�
         "mcp__github__create_issue",
       ]).ok,
     );
+  } finally {
+    await rm(root, { recursive: true });
+  }
+});
+
+// 범위는 만든 session의 workspace로 정해진다. agent가 다른 workspace를 적어도 따르지 않는다.
+test("agent가 만든 agent는 부른 session의 workspace에 범위가 잡히고 home이면 전역이다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
+  try {
+    const files = createNodeAgentFiles();
+    const sessionAt = (kind: string | null, id: string | null) =>
+      ({
+        sql: {
+          get: () => ({
+            id: "ses_00000000000000000000000001",
+            agent: LOPHN_AGENT_ID,
+            workspace_kind: kind,
+            workspace_id: id,
+            lifecycle: "open",
+            skip: 0,
+            created_seq: "1",
+            state_seq: "1",
+          }),
+        },
+      }) as unknown as Tx;
+    const commands = createAgentCommands({
+      files,
+      lookups: () => ({ ...lookups, workspaceExists: () => true }),
+      dataRoot: root,
+    });
+    const APP = "app_00000000000000000000000001";
+    const made = (agentId: string, at: Tx) =>
+      commands.create.handle(
+        at,
+        agent,
+        {
+          id: agentId,
+          definition: {
+            handle: agentId.slice(-3),
+            name: "x",
+            body: "x",
+            workspace: {
+              kind: "project",
+              id: "prj_00000000000000000000000001",
+            },
+          },
+        } as never,
+        {} as never,
+      );
+    assert.ok(made(AGENT, sessionAt("app", APP)).ok);
+    assert.ok(made(OTHER, sessionAt(null, null)).ok);
+    const store = createAgentStore(files, root);
+    const read = (id: string) => {
+      const file = store.read(agentSlotOf(root, id));
+      assert.ok(file.ok && file.value !== null);
+      return file.value.text;
+    };
+    assert.match(
+      read(AGENT),
+      new RegExp(`workspace:\\n  kind: app\\n  id: ${APP}`),
+    );
+    assert.doesNotMatch(read(OTHER), /workspace:/);
   } finally {
     await rm(root, { recursive: true });
   }

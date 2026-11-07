@@ -123,9 +123,9 @@ function workspaceLines(data: WorkspaceData): string[] {
 
 function agentLines(agents: readonly WorkspaceAgent[]): string[] {
   if (agents.length === 0) return [];
-  const sorted = [...agents].sort((a, b) => cmp(a.name, b.name));
+  const sorted = [...agents].sort((a, b) => cmp(a.handle, b.handle));
   return [
-    "Agents you can call (use the name as `to.agent` of a call; add `workspace` for a project or an app, none for no workspace)",
+    "Agents you can call (use the handle as `to.agent` of a call; add `workspace` for a project or an app, none for no workspace; an agent marked as this workspace only needs `workspace` set to this one)",
     ...sorted.map((a) => `- ${agentLine(a)}`),
   ];
 }

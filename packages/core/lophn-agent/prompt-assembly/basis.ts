@@ -15,7 +15,7 @@ export type SeenBasis = {
   instructions: Record<InstructionLayerName, string>;
   // 정본 tool 이름, 이름 순
   tools: string[];
-  // `이름: 목적` 줄, 정렬
+  // `handle: 목적` 줄, 정렬
   agents: string[];
 };
 
@@ -25,9 +25,14 @@ function cmp(a: string, b: string): number {
 
 // workspace 정보의 목록 줄과 판 비교가 같은 글을 쓴다. 목적이 바뀌면 system 글이 바뀌므로 notice도 가야 한다.
 export function agentLine(agent: WorkspaceAgent): string {
+  const label =
+    agent.name === agent.handle
+      ? agent.handle
+      : `${agent.handle} (${agent.name})`;
+  const scope = agent.scoped === true ? " [this workspace only]" : "";
   return agent.description === undefined
-    ? agent.name
-    : `${agent.name}: ${agent.description}`;
+    ? `${label}${scope}`
+    : `${label}${scope}: ${agent.description}`;
 }
 
 export async function basisOf(input: {

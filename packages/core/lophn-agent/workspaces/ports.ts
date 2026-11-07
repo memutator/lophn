@@ -16,9 +16,9 @@ import type { AgentDirectory } from "../agents/mod.ts";
 
 // 이름 규칙. agent-workspaces가 project·앱·agent 조회를 쥐고 만들어 wiring이 꽂는다.
 export type WorkspaceNameRules = {
-  // 목록에 보일 agent 이름. 못 찾으면 빈 글이다.
-  nameOf(agent: AgentId): string;
-  // agent 이름과 workspace 이름으로 받을 session 하나를 고른다. workspace가 없으면 home이다.
+  // 목록에 보일 agent의 handle과 보이는 이름. 정의를 못 읽으면 id다.
+  describe(agent: AgentId): { handle: string; name: string };
+  // agent handle과 workspace 이름으로 받을 session 하나를 고른다. workspace가 없으면 home이다.
   resolveAddress(address: AgentAddress): Result<AgentAtWorkspace>;
 };
 

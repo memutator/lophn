@@ -32,6 +32,7 @@ import styles from "./agent-editor.module.css";
 
 type FieldName =
   | "profile"
+  | "handle"
   | "name"
   | "description"
   | "runtime"
@@ -46,6 +47,7 @@ type FieldName =
 
 // 거절된 항목의 점 경로 첫 구간이 어느 칸에 속하는지. 칸에 없는 경로(frontmatter 등)는 맨 아래에 보인다.
 const FIELD_OF: Readonly<Record<string, FieldName>> = {
+  handle: "handle",
   name: "name",
   profile: "profile",
   description: "description",
@@ -306,26 +308,42 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </>
       )}
 
+      <div data-field="name">
+        <Field label={t("project-workspace.label.agent-editor-name")}>
+          <Input
+            value={definition.name ?? detail.effective.name.value}
+            aria-invalid={issuesOf("name").length > 0 || undefined}
+            onChange={(event) => set("name", event.currentTarget.value)}
+          />
+        </Field>
+        <Issues issues={issuesOf("name")} />
+      </div>
+
       {lophn ? (
-        <Group
-          name="name"
-          heading={t("project-workspace.label.agent-editor-name")}
-        >
-          <p className={styles.fixed} data-fixed-name="">
-            {detail.effective.name.value}
-          </p>
-          <p className={styles.note}>{t("agents.notice.name-fixed-lophn")}</p>
-        </Group>
+        <p className={styles.note} data-fixed-handle="">
+          {t("agents.notice.handle-fixed-lophn")}
+        </p>
       ) : (
-        <div data-field="name">
-          <Field label={t("project-workspace.label.agent-editor-name")}>
+        <div data-field="handle">
+          <Field
+            label={t("agents.label.handle")}
+            help={t("agents.notice.handle-help")}
+          >
             <Input
-              value={definition.name ?? ""}
-              aria-invalid={issuesOf("name").length > 0 || undefined}
-              onChange={(event) => set("name", event.currentTarget.value)}
+              value={definition.handle ?? ""}
+              readOnly={!fresh}
+              aria-invalid={issuesOf("handle").length > 0 || undefined}
+              onChange={(event) =>
+                set(
+                  "handle",
+                  event.currentTarget.value === ""
+                    ? undefined
+                    : event.currentTarget.value,
+                )
+              }
             />
           </Field>
-          <Issues issues={issuesOf("name")} />
+          <Issues issues={issuesOf("handle")} />
         </div>
       )}
 

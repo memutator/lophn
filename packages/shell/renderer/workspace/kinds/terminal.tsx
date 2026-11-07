@@ -94,37 +94,48 @@ function autoOf(tab: TabItem): string {
 /**
  * 탭에 지금 보일 이름. 탭 화면(`TerminalTab`)과 workspace가 같은 계산을 쓴다. 탭 화면이 없는 숨은 탭도
  * hook이 알린 session 이름을 따라가야 하기 때문이다.
+ *
+ * 터미널 제목(OSC)은 agent의 TUI가 foreground일 때만 쓴다. hook만 있고 foreground가 아니면(GUI가 띄운 CLI) 그 제목은
+ * shell prompt의 경로다. 저장본에서 다시 만든 탭은 GUI 제목이 `tab-current`가 답할 때까지 없으므로, 그동안은 탭에 있던
+ * 이름(지금 `title`, 없으면 저장된 `agentTitle`)을 지켜 경로가 잠깐 비치지 않게 한다.
  */
 export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
+  const agent = store.agentOf(tab.key);
+  const auto = autoOf(tab);
+  const kept =
+    agent?.hooked === true && agent.foreground !== true
+      ? tab.title !== auto
+        ? tab.title
+        : savedAgentTitleOf(tab)
+      : null;
   return tabName({
     person: personOf(tab),
     guiTitle: guiTitleOf(tab),
-    sessionName: store.agentOf(tab.key)?.name ?? null,
-    agentTitle: store.agentTitleOf(tab.key),
-    auto: autoOf(tab),
+    sessionName: agent?.name ?? null,
+    agentTitle: agent?.foreground === true ? store.agentTitleOf(tab.key) : null,
+    auto: kept ?? auto,
   });
 }
 
+function savedAgentTitleOf(tab: TabItem): string | null {
+  const saved = tab.fields?.agentTitle;
+  return typeof saved === "string" && saved.length > 0 ? saved : null;
+}
+
 /**
- * 다른 workspace의 저장된 layout에서 읽은 탭의 이름. 저장본에는 GUI view와 제목이 없고(`guiTitleOf`는 null), 그 workspace가
- * 마지막으로 저장한 agent 이름(`agentTitle`)에 그때 보이던 이름이 있다. agent의 TUI가 foreground에서 돌지 않으면(GUI가 띄운
- * CLI의 hook뿐) 이 창이 아는 터미널 제목은 shell prompt의 경로라 저장된 이름을 먼저 쓴다. TUI가 돌면 store의 지금 값이
- * 먼저이고, 아직 없으면 저장된 이름이다.
+ * 다른 workspace의 저장된 layout에서 읽은 탭의 이름. 저장본에는 GUI view와 제목이 없다(`guiTitleOf`는 null). 계산은 이 창의
+ * 탭과 같고(`terminalTabTitle`), agent가 이 창에 한 번도 없어 자동 이름만 남으면 그 workspace가 마지막으로 저장한 이름
+ * (`agentTitle`)을 쓴다.
  */
 export function otherWorkspaceTerminalTitle(
   tab: TabItem,
   store: TerminalStore,
 ): string {
-  const saved = tab.fields?.agentTitle;
-  const hasSaved = typeof saved === "string" && saved.length > 0;
-  if (
-    hasSaved &&
-    personOf(tab) === null &&
-    store.agentOf(tab.key)?.foreground !== true
-  )
-    return saved;
   const name = terminalTabTitle(tab, store);
-  return hasSaved && name === autoOf(tab) ? saved : name;
+  const saved = savedAgentTitleOf(tab);
+  return saved !== null && personOf(tab) === null && name === autoOf(tab)
+    ? saved
+    : name;
 }
 
 /** 사람이 붙인 이름(`person`, null이면 지움)을 준 터미널 탭. 이 창의 탭과 다른 workspace의 저장된 탭이 같이 쓴다. */

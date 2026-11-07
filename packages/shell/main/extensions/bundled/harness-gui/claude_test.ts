@@ -71,19 +71,23 @@ function fakeProcess(
     pid: 1,
     write() {},
     end() {},
-    kill() {},
+    kill() {
+      made.killed = true;
+    },
     onStdout: (listener) => void outs.push(listener),
     onStderr() {},
     onExit: (listener) => void exits.push(listener),
   };
-  return {
+  const made = {
     proc,
     command,
     args,
     cwd,
+    killed: false,
     stdout: (text: string) => outs.forEach((listener) => listener(text)),
     exit: (code = 0) => exits.forEach((listener) => listener(code)),
   };
+  return made;
 }
 
 async function setup(
@@ -685,6 +689,28 @@ test("`!`와 run_shell은 shouldQuery false 메시지만 input queue에 넣고, 
       .slice(3)
       .every((one) => one.shouldQuery === false),
   );
+});
+
+// stop이 아니라 stop_shell이 다른 명령까지 죽이면 사람이 돌려 둔 build 같은 긴 명령이 같이 사라진다.
+test("stop_shell은 그 줄의 명령만 죽이고 그 줄을 cancelled로 닫는다", async () => {
+  const t = await setup();
+  const shells = () => t.processes.filter((one) => one.command === "/bin/sh");
+  await t.input({ type: "run_shell", key: "a", command: "sleep 1" });
+  await t.input({ type: "run_shell", key: "b", command: "sleep 2" });
+  const [first, second] = tools(t.state);
+
+  await t.input({ type: "stop_shell", item: first?.id ?? "" });
+  assert.deepEqual(
+    shells().map((one) => one.killed),
+    [true, false],
+  );
+  shells()[0]?.exit(143);
+  await flush();
+  assert.deepEqual(
+    tools(t.state).map((one) => one.state),
+    ["cancelled", "running"],
+  );
+  assert.equal(second?.id, tools(t.state)[1]?.id);
 });
 
 // open_session이 옛 session을 fork·rewind·rename하면 사람이 열어 둔 대화가 바뀐다.

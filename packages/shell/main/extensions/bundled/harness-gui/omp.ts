@@ -2211,6 +2211,7 @@ const start: (io: OmpIo) => Start =
 
     // RPC `prompt`는 `!`을 해석하지 않아 model에게 글로 간다. `bash`로 보내고 사람이 돌린 tool 줄 하나로 그린다.
     // 사람 말풍선은 만들지 않는다. 도는 turn이 없으면 turn도 열지 않아 끝 줄(turn_end)이 생기지 않는다.
+    const bashCalls = new Set<string>();
     async function bashCommand(command: string) {
       bashJobs += 1;
       const call = main.toolStart(
@@ -2219,7 +2220,9 @@ const start: (io: OmpIo) => Start =
         { command },
         { user: command },
       );
+      bashCalls.add(call.id);
       const reply = await request<BashResult>("bash", { command });
+      bashCalls.delete(call.id);
       bashJobs -= 1;
       main.toolEnd(
         call,
@@ -2629,6 +2632,10 @@ const start: (io: OmpIo) => Start =
           if (command !== "") await bashCommand(command);
           return;
         }
+        case "stop_shell":
+          // `abort_bash`는 명령을 고르는 인자가 없어 도는 bash를 멈춘다.
+          if (bashCalls.has(message.item)) await request("abort_bash");
+          return;
         case "open_session":
           return openSession(message.cli_session);
         case "stop":

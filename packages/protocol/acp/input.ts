@@ -160,6 +160,12 @@ export const acpInputSchema = z.discriminatedUnion("type", [
     key: z.string().min(1),
     command: z.string().min(1),
   }),
+  /** `run_shell`이 만든 사람 쪽 tool item(`item`) 하나만 멈춘다. 그 줄은 `cancelled`로 끝난다. 도는 turn은 건드리지 않는다. */
+  z.strictObject({
+    type: z.literal("stop_shell"),
+    session,
+    item: z.string().min(1),
+  }),
   /** 그 CLI의 다른 session으로 같은 탭에서 바꾼다. */
   z.strictObject({
     type: z.literal("open_session"),

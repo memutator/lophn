@@ -186,6 +186,11 @@ export function createApi(transport: OpencodeTransport) {
       call("POST", `${session(id)}/command`, { body }),
     shell: (id: string, body: Json) =>
       call("POST", `${session(id)}/shell`, { body }),
+    // 도는 명령 하나를 죽이고 지운다(`interrupt`는 turn을 멈출 뿐 명령은 그대로 둔다). 끝은 killed로 온다.
+    killShell: (id: string, directory: string) =>
+      call("DELETE", `/api/shell/${encodeURIComponent(id)}`, {
+        query: { "location[directory]": directory },
+      }),
     compact: (id: string) =>
       call("POST", `${session(id)}/compact`, { body: {} }),
     interrupt: (id: string) => call("POST", `${session(id)}/interrupt`),
@@ -2629,6 +2634,12 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
             publishMeta({ title: input.title });
           });
           return;
+        case "stop_shell": {
+          const opened = [...shells].find(([, line]) => line.id === input.item);
+          if (opened !== undefined)
+            await attempt("Stop", () => api.killShell(opened[0], cwd));
+          return;
+        }
         case "stop_child":
           await attempt("Stop", () => api.interrupt(input.child));
           return;

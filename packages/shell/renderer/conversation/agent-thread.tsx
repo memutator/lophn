@@ -97,6 +97,8 @@ interface AgentThreadProps {
   onFork: (message: string) => void;
   /** subagent 줄을 눌러 그 자식 대화를 연다. */
   onOpenChild: (child: string) => void;
+  /** 도는 `!` 명령 하나를 멈춘다(`stop_shell`). source가 못 하면 없다. */
+  onStopShell?: ((item: string) => void) | undefined;
   onCheck: () => void;
   onResend: () => void;
   /** 편집 카드의 [Open]. 없으면 단추가 아무것도 하지 않는다. */
@@ -187,6 +189,7 @@ function AgentThreadView(props: AgentThreadProps): ReactElement {
       props.onOpenRef,
       props.onOpenSession,
       props.onOpenChild,
+      props.onStopShell,
     ],
   );
   const nodes = [...settled.nodes];
@@ -554,6 +557,7 @@ function itemsOf(
             state={entry.state}
             output={entry.output}
             readBody={props.source.toolCallBody}
+            onStop={props.onStopShell}
           />,
         );
         after = entry.id;

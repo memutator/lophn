@@ -509,6 +509,7 @@ export function createAcpSend(deps: AcpSendDeps) {
       case "stop_child":
       case "steer_child":
       case "stop_task":
+      case "stop_shell":
       case "set_toggle":
       case "set_goal":
       case "use_role":

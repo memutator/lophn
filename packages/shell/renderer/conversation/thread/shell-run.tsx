@@ -11,7 +11,7 @@ import {
 } from "react";
 import { CodeBlock } from "@lophn/ui/reading";
 import { Shimmer, StatusMark } from "@lophn/ui/feedback";
-import { Button, Icon } from "@lophn/ui/primitives";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
@@ -73,6 +73,7 @@ export function ShellRun({
   state,
   output,
   readBody,
+  onStop,
 }: {
   /** tool id. 출력이 item에 없으면(lophn) 이 id로 본문을 읽는다. */
   id: string;
@@ -80,6 +81,8 @@ export function ShellRun({
   state: ToolCallState;
   output: string | null;
   readBody: AgentTabSource["toolCallBody"];
+  /** 도는 동안 이 명령만 멈추는 단추. source가 못 하면 없다. */
+  onStop?: ((item: string) => void) | undefined;
 }): ReactElement {
   const running = state === "running";
   const [read, setRead] = useState<{ text: string; exit: number | null }>();
@@ -123,7 +126,18 @@ export function ShellRun({
             {command}
           </code>
           {running ? (
-            <Shimmer>{t("conversation.label.shell-running")}</Shimmer>
+            <>
+              <Shimmer>{t("conversation.label.shell-running")}</Shimmer>
+              {onStop === undefined ? null : (
+                <IconButton
+                  icon={conversationIcons.stop}
+                  label={t("conversation.button.stop")}
+                  size="sm"
+                  data-shell-stop=""
+                  onClick={() => onStop(id)}
+                />
+              )}
+            </>
           ) : exit !== null && exit !== 0 ? (
             <StatusMark
               tone="warning"

@@ -2513,11 +2513,10 @@ const start: (sdk: ClaudeSdk) => Start =
     const CWD_MARK = "\n:lophn-cwd:";
     function runShell(command: string) {
       const id = shellStart(command);
-      const key = ids.newId("shl");
       const script = `${command}\n__lophn_rc=$?; printf '${CWD_MARK}%s\\n' "$PWD"; exit $__lophn_rc`;
       const proc = spawn("/bin/sh", ["-c", script], { cwd: shellCwd });
       const entry = { proc, killed: false };
-      shells.set(key, entry);
+      shells.set(id, entry);
       const cap = ACP_TOOL_BODY_LIMIT * 2;
       let out = "";
       let err = "";
@@ -2529,7 +2528,7 @@ const start: (sdk: ClaudeSdk) => Start =
       });
       proc.onStderr((text) => void (err = (err + text).slice(0, cap)));
       proc.onExit((code) => {
-        shells.delete(key);
+        shells.delete(id);
         const mark = tail.lastIndexOf(CWD_MARK);
         if (mark >= 0 && !entry.killed)
           shellCwd = tail.slice(mark + CWD_MARK.length).trim() || shellCwd;
@@ -2548,10 +2547,14 @@ const start: (sdk: ClaudeSdk) => Start =
       });
     }
     function killShells() {
-      for (const one of shells.values()) {
-        one.killed = true;
-        one.proc.kill();
-      }
+      for (const id of [...shells.keys()]) killShell(id);
+    }
+    // 그 줄의 process만 죽인다. 줄은 onExit가 cancelled로 닫는다.
+    function killShell(id: string) {
+      const one = shells.get(id);
+      if (one === undefined) return;
+      one.killed = true;
+      one.proc.kill();
     }
 
     async function sendText(
@@ -2933,6 +2936,9 @@ const start: (sdk: ClaudeSdk) => Start =
         }
         case "run_shell":
           runShell(message.command);
+          return;
+        case "stop_shell":
+          killShell(message.item);
           return;
         case "open_session":
           await openSession(message.cli_session);

@@ -452,6 +452,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       key: actKey("task"),
       task,
     }));
+  const stopShell = (item: string) =>
+    actHere((target) => ({ type: "stop_shell", session: target, item }));
   const setGoal = (objective: string | null, paused: boolean) =>
     actHere((target) => ({
       type: "set_goal",
@@ -825,6 +827,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     ),
     onFork: useLatest((message: string) => void fork(message)),
     onOpenChild: useLatest(openChild),
+    onStopShell: useLatest(stopShell),
     onCheck: useLatest(() => void check()),
     onResend: useLatest(() => void sendAgain()),
     onOpenRef: useLatest((ref: EvidenceRef) => {
@@ -1030,6 +1033,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
               initialScroll={draft.scroll}
               rewindOpen={layer?.kind === "rewind" ? layer.message : null}
               {...threadHandlers}
+              onStopShell={
+                caps.shell && !caps.sessions
+                  ? threadHandlers.onStopShell
+                  : undefined
+              }
               onOpenFile={host.openFile}
               onOpenSession={host.openSession}
               artifacts={host.artifacts}

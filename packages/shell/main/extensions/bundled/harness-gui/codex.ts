@@ -2866,6 +2866,15 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         );
       }
 
+      // app-server에 명령만 멈추는 요청이 없어 그 명령이 속한 turn을 interrupt한다(`turn/interrupt`). shell만 있는 turn이면 명령만 멈추고,
+      // 도는 agent turn에 붙은 명령이면 그 turn이 같이 멈춘다(`ActiveTurnAuxiliary`가 turn의 취소 토큰을 쓴다).
+      function stopShell(item: string) {
+        for (const lane of lanes.values())
+          for (const call of lane.calls.values())
+            if (call.id === item && !call.done && lane.codexTurn !== null)
+              return interrupt(lane);
+      }
+
       // 지난 대화를 같은 탭에서 연다. TUI는 옛 thread에 남고 다음 toggle 때 새 id로 붙는다.
       async function openSession(target: string) {
         if (root.turn !== null || root.codexTurn !== null)
@@ -3069,6 +3078,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             return;
           case "run_shell":
             runShell(message.command);
+            return;
+          case "stop_shell":
+            stopShell(message.item);
             return;
           case "open_session":
             void openSession(message.cli_session);

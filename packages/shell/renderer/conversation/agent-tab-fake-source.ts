@@ -2371,13 +2371,15 @@ export function createFakeAgentTabSource(
         );
       case "run_shell": {
         // lophn은 끝나야 답하고 item도 그때 온다. `sleep`은 도는 줄을 gallery에서 보이려고 오래 기다린다.
-        if (input.command.includes("sleep")) {
+        // harness는 줄이 먼저 오고(도는 줄에 stop 단추), `stop_shell`이 닫는다.
+        const state = stateOf(session);
+        const harness = state.session?.harness != null;
+        const running = input.command.includes("sleep");
+        if (running && !harness) {
           await new Promise((resolve) => setTimeout(resolve, 600_000));
         }
-        const state = stateOf(session);
         const id = nextId("tcl");
         const output = `${input.command}: ok\n${LS_OUTPUT}`;
-        const harness = state.session?.harness != null;
         if (!harness) shellRuns.set(id, shellBody(output));
         return lift(
           apply(session, {
@@ -2387,13 +2389,29 @@ export function createFakeAgentTabSource(
                 0,
                 50,
                 input.command,
-                { id, seq: state.seq + 1, at: sentAt() },
+                {
+                  id,
+                  seq: state.seq + 1,
+                  at: sentAt(),
+                  ...(running && harness ? { state: "running" as const } : {}),
+                },
                 harness ? output : null,
               ),
             },
           }),
         );
       }
+      case "stop_shell":
+        return lift(
+          apply(session, {
+            type: "tool_ended",
+            tool_call: input.item,
+            state: "cancelled",
+            at: sentAt(),
+            detail: null,
+            body: null,
+          }),
+        );
       case "open_session": {
         // 같은 탭에서 다른 CLI session을 연다: 상태를 비우고(`session_reset`) 그 session의 대화를 다시 채운다.
         const target = CLI_EARLIER.find((one) => one.id === input.cli_session);

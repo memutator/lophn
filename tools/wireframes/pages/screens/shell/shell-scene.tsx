@@ -21,6 +21,7 @@ import {
 import { neighborLeaf } from "../../../../../packages/shell/renderer/shell/group-geometry.ts";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { Taskbar } from "../../../../../packages/shell/renderer/shell/taskbar/taskbar.tsx";
 import { TabDragProvider } from "../../../../../packages/shell/renderer/shell/tab-drag.tsx";
 import { TabStrip } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
 import {
@@ -104,10 +105,13 @@ export function ShellScene({
   keys,
   recentOpen = false,
   globalFloats = false,
+  taskbar = true,
 }: {
   variant: Variant;
-  /** 모든 workspace에 사는 전역 float을 desk float 위에 띄운다. tab 줄 오른쪽 끝에는 전역 표시가 붙은 chip이 먼저 놓인다. */
-  globalFloats?: boolean;
+  /** 모든 workspace에 사는 전역 float을 desk float 위에 띄운다. float chip 묶음에는 전역 표시가 붙은 chip이 먼저 놓인다. "chip"이면 접힌 것 하나만 둔다. */
+  globalFloats?: boolean | "chip";
+  /** 설정 `shell.taskbar`. 켜면 float chip이 맨 아래 작업 표시줄에 있고, 끄면 tab 줄 끝에 있다. 기본은 켬이다. */
+  taskbar?: boolean;
   /** 왼쪽 sidebar에서 project의 Recent를 펼친 채 시작한다. */
   recentOpen?: boolean;
   left?: boolean;
@@ -130,7 +134,9 @@ export function ShellScene({
   const floatArea = useObservedSize(floatRef);
   // 전역 float도 desk model의 floats 규칙을 그대로 쓴다(앱의 shell/global-floats/store.ts와 같다).
   const [globals, setGlobals] = useState<Desk>(() =>
-    globalFloats ? mockGlobalFloats() : emptyDesk("global", "Global"),
+    globalFloats
+      ? mockGlobalFloats(globalFloats === "chip")
+      : emptyDesk("global", "Global"),
   );
   const globalRef = useRef<HTMLDivElement>(null);
   const globalArea = useObservedSize(globalRef);
@@ -324,6 +330,11 @@ export function ShellScene({
     )
     .map((tab) => cardPane(mockOf(tab), menuState(tab)));
   const chosen = PANELS.find((p) => p.key === panel) ?? PANELS[0]!;
+  const deskChips = desk.floats.map((f) => stripTab(mockOf(f.tab)));
+  const globalChips = globals.floats.map((f) => stripTab(mockOf(f.tab)));
+  const pressedChips = [...globals.floats, ...desk.floats]
+    .filter((f) => !f.minimized)
+    .map((f) => f.tab.key);
 
   return (
     <TabDragProvider
@@ -388,11 +399,9 @@ export function ShellScene({
             selected={
               group === null ? desk.selected : leavesOf(group.layout)[0]!
             }
-            minimized={desk.floats.map((f) => stripTab(mockOf(f.tab)))}
-            globalFloats={globals.floats.map((f) => stripTab(mockOf(f.tab)))}
-            floating={[...globals.floats, ...desk.floats]
-              .filter((f) => !f.minimized)
-              .map((f) => f.tab.key)}
+            minimized={taskbar ? [] : deskChips}
+            globalFloats={taskbar ? [] : globalChips}
+            floating={pressedChips}
             onToggleGlobalFloat={toggleGlobal}
             onSelect={(key) => patch((d) => selectTab(d, key))}
             onClose={close}
@@ -426,6 +435,17 @@ export function ShellScene({
           />
         }
         rightSidebar={<MockRightSidebar title={chosen.label} />}
+        taskbar={
+          taskbar ? (
+            <Taskbar
+              globalFloats={globalChips}
+              floats={deskChips}
+              floating={pressedChips}
+              onToggleGlobalFloat={toggleGlobal}
+              onToggleFloat={toggleFloat}
+            />
+          ) : undefined
+        }
         floats={
           <>
             <FloatLayer

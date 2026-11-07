@@ -123,7 +123,7 @@ const itemOf = (tab: MockTab): TabItem => ({
 export const mockOf = (item: TabItem): MockTab => item.fields!.mock as MockTab;
 
 /** 전역 float(모든 workspace에 사는 앱 panel) 둘: 펴진 것 하나와 접힌 것 하나. desk float 위에 겹쳐 보이게 desk float 자리(FLOAT_RECTS)와 겹친다. */
-export function mockGlobalFloats(): Desk {
+export function mockGlobalFloats(chipOnly = false): Desk {
   const inbox = chat("g-inbox", "Mahas", "all workspaces", {
     kind: "lophn",
     shape: "round",
@@ -131,6 +131,13 @@ export function mockGlobalFloats(): Desk {
   });
   const notes = file("g-notes", "Masup", "all workspaces");
   let model = emptyDesk("global", "Global");
+  // chip 하나만 보이는 모양(작업 표시줄 page).
+  if (chipOnly) {
+    return minimizeFloat(
+      openFloatTab(model, itemOf(notes), FLOAT_RECTS[2]!),
+      notes.key,
+    );
+  }
   model = openFloatTab(model, itemOf(inbox), {
     x: 460,
     y: 110,
@@ -208,6 +215,7 @@ export type Variant =
   | "group-menu"
   | "desk-close"
   | "floats"
+  | "taskbar"
   | "empty"
   | "overflow"
   | "overflow-end"
@@ -335,6 +343,17 @@ export function mockDesks(variant: Variant): MockDesk[] {
             ],
           }),
         },
+        ...others,
+      ];
+    case "taskbar":
+      return [
+        desk("_default", "Main", [P1, C1, README, PLAN, TERM], {
+          selected: "readme",
+          floats: [
+            [P2, false],
+            [DEV, true],
+          ],
+        }),
         ...others,
       ];
     case "overflow": {

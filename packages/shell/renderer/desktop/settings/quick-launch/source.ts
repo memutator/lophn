@@ -1,5 +1,5 @@
-// 빠른 실행의 전역 값 셋: 단추 순서·고정 앱 panel(`shell.quick_launch`), 앱 panel 화면마다 여는 자리와
-// 마지막 float 자리(`shell.app_launch`), coding agent 즐겨찾기와 실행 명령어(`shell.coding_agents`).
+// 빠른 실행의 전역 값 넷: 단추 순서·고정 앱 panel(`shell.quick_launch`), 앱 panel 화면마다 여는 자리와
+// 마지막 float 자리(`shell.app_launch`), coding agent 즐겨찾기와 실행 명령어(`shell.coding_agents`), 작업 표시줄(`shell.taskbar`).
 // 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
 import { HARNESS_IDS } from "../../../../../protocol/coding-agent/harness-id.ts";
@@ -25,6 +25,8 @@ export interface QuickPrefs {
   readonly quick: WorkspaceQuick;
   readonly launch: AppLaunchMap;
   readonly coding: CodingPrefs;
+  /** workspace 창 맨 아래 작업 표시줄(`shell.taskbar`). */
+  readonly taskbar: boolean;
 }
 
 export interface QuickPrefsSource {
@@ -41,6 +43,7 @@ export const DEFAULT_QUICK_PREFS: QuickPrefs = {
   quick: { order: [], apps: [] },
   launch: {},
   coding: { favorites: ["claude", "codex", "opencode"], commands: {} },
+  taskbar: true,
 };
 
 export const launchKey = (app: string, surface: string): string =>

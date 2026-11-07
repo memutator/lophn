@@ -1,0 +1,65 @@
+/* float chip. tab 줄 끝에서는 아이콘만, 작업 표시줄에서는 아이콘과 이름(data-named)이다. 묶음의 자리(여백·나눔선)는 쓰는 쪽이 정한다. */
+.chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-sm-height);
+  height: var(--control-sm-height);
+  padding: var(--space-0);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-caption-size);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.chip[data-named] {
+  gap: var(--space-2);
+  max-width: calc(var(--space-12) * 3);
+  padding-inline: var(--space-3);
+}
+
+.name {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 전역 float(모든 workspace에 사는 앱 panel) 표시. 아이콘 오른쪽 아래의 작은 지구본이다. */
+.globalMark {
+  position: absolute;
+  right: var(--space-0);
+  bottom: var(--space-0);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-shell);
+  border-radius: var(--radius-full);
+}
+
+.chip[data-named] .globalMark {
+  right: auto;
+  bottom: var(--space-0);
+  left: calc(var(--space-3) + var(--space-6) - var(--space-4));
+}
+
+.chip:hover {
+  background: var(--color-surface-muted);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--color-surface-base);
+}
+
+.chip[aria-pressed="true"]::after {
+  position: absolute;
+  bottom: var(--space-0);
+  left: 50%;
+  width: var(--space-4);
+  height: var(--space-1);
+  content: "";
+  background: var(--color-ink-background);
+  border-radius: var(--radius-full);
+  transform: translateX(-50%);
+}

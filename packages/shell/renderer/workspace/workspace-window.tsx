@@ -128,6 +128,7 @@ import {
 import { neighborLeaf, type PaneDirection } from "../shell/group-geometry.ts";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
+import { Taskbar } from "../shell/taskbar/taskbar.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import { TabDragProvider } from "../shell/tab-drag.tsx";
 import {
@@ -146,7 +147,11 @@ import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
 import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
 import { openAppDetail } from "./kinds/app-detail.tsx";
-import { openAppPanel, openPinnedAppPanel } from "./kinds/app-panel.tsx";
+import {
+  newKey,
+  openAppPanel,
+  openPinnedAppPanel,
+} from "./kinds/app-panel.tsx";
 import {
   appScreenKey,
   appScreenTab,
@@ -425,6 +430,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const [rightOpen, setRightOpen] = useSidebarOpen(
     "right",
     windowWidth >= RIGHT_OPEN_MIN,
+    workspaceId,
   );
   const [panel, setPanel] = useState<string>(
     isHome ? "workspaces" : isApp ? "logs" : "explorer",
@@ -1445,11 +1451,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     if (moved) update((d) => closeFloat(d, key));
   };
   // 전역 float을 이 desk의 float으로 옮긴다. 이 창의 desk에 더 둘 수 없으면 false다.
-  const deskFloatCount = useRef(0);
   const globalToFloat = (float: GlobalFloatView): boolean => {
     if (stageSize === undefined) return false;
     const tab: TabItem = {
-      key: `app-panel-${Date.now().toString(36)}-g${++deskFloatCount.current}`,
+      key: newKey(),
       kind: "app_panel",
       title: float.title,
       app: float.app,
@@ -2441,6 +2446,34 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       })
     : [];
 
+  // float chip은 작업 표시줄이 켜져 있으면 거기에, 꺼져 있으면 tab 줄 끝에 그린다.
+  const taskbar = quickPrefs.taskbar;
+  const floatChips = desk.floats.map((item) => stripTab(item.tab));
+  const globalChips = globalFloats.floats.map((item) => ({
+    key: item.key,
+    title: t("shell.label.global-float", { title: item.title }),
+    label: item.title,
+    icon: <AppTabIcon app={item.app} />,
+  }));
+  const pressedChips = [
+    ...globalFloats.floats.map((item) => ({
+      key: item.key,
+      minimized: item.minimized,
+    })),
+    ...desk.floats.map((item) => ({
+      key: item.tab.key,
+      minimized: item.minimized,
+    })),
+  ]
+    .filter((item) => !item.minimized)
+    .map((item) => item.key);
+  const toggleDeskFloat = (key: string) =>
+    update((item) =>
+      item.floats.some((f) => f.tab.key === key && !f.minimized)
+        ? minimizeFloat(item, key)
+        : restoreFloat(item, key),
+    );
+
   const content = (
     <ViewKeepsProvider value={keeps}>
       <WebviewHostProvider value={webviews}>
@@ -2480,24 +2513,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                 <TabStrip
                   entries={entries}
                   selected={entryKey(desk)}
-                  minimized={desk.floats.map((item) => stripTab(item.tab))}
-                  globalFloats={globalFloats.floats.map((item) => ({
-                    key: item.key,
-                    title: t("shell.label.global-float", { title: item.title }),
-                    icon: <AppTabIcon app={item.app} />,
-                  }))}
-                  floating={[
-                    ...globalFloats.floats.map((item) => ({
-                      key: item.key,
-                      minimized: item.minimized,
-                    })),
-                    ...desk.floats.map((item) => ({
-                      key: item.tab.key,
-                      minimized: item.minimized,
-                    })),
-                  ]
-                    .filter((item) => !item.minimized)
-                    .map((item) => item.key)}
+                  minimized={taskbar ? [] : floatChips}
+                  globalFloats={taskbar ? [] : globalChips}
+                  floating={pressedChips}
                   onToggleGlobalFloat={globalFloats.toggle}
                   onSelect={(key) => update((item) => selectTab(item, key))}
                   onClose={close}
@@ -2511,13 +2529,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                       tabKindOf(tab.kind)?.rename?.(tab, name, host);
                     }
                   }}
-                  onToggleFloat={(key) =>
-                    update((item) =>
-                      item.floats.some((f) => f.tab.key === key && !f.minimized)
-                        ? minimizeFloat(item, key)
-                        : restoreFloat(item, key),
-                    )
-                  }
+                  onToggleFloat={toggleDeskFloat}
                   newTab={
                     <NewTabMenu
                       {...(pickFile === undefined
@@ -2758,6 +2770,17 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     activeWorkflow={desk.workflow}
                   />
                 )
+              }
+              taskbar={
+                taskbar ? (
+                  <Taskbar
+                    globalFloats={globalChips}
+                    floats={floatChips}
+                    floating={pressedChips}
+                    onToggleGlobalFloat={globalFloats.toggle}
+                    onToggleFloat={toggleDeskFloat}
+                  />
+                ) : undefined
               }
               floats={
                 <>

@@ -14,6 +14,7 @@ const KEYS = {
   quick: "shell.quick_launch",
   launch: "shell.app_launch",
   coding: "shell.coding_agents",
+  taskbar: "shell.taskbar",
 } as const satisfies Record<keyof QuickPrefs, string>;
 
 export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
@@ -28,6 +29,7 @@ export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
           quick: quickFromValue(read.value.get(KEYS.quick)),
           launch: launchFromValue(read.value.get(KEYS.launch)),
           coding: codingFromValue(read.value.get(KEYS.coding)),
+          taskbar: read.value.get(KEYS.taskbar) !== false,
         },
       };
     },

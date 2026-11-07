@@ -99,6 +99,8 @@ export const workspaceSettings = {
     "The font of documents and agent replies. Interface text keeps its own font.",
   "settings.appearance.reading-width-help":
     "How wide documents are laid out when you read them.",
+  "settings.appearance.taskbar-help":
+    "A bar at the bottom of the window that holds your floating panels.",
   "settings.appearance.text-size-help": "The size of text across lophn.",
   "settings.appearance.theme-help":
     "Light, dark, or follow the system setting.",
@@ -378,6 +380,7 @@ export const workspaceSettings = {
   "settings.label.tab-providers": "Providers",
   "settings.label.tab-quick-launch": "Quick launch",
   "settings.label.tab-shell-rules": "Shell rules",
+  "settings.label.taskbar": "Taskbar",
   "settings.label.text-size": "Text size",
   "settings.label.theme": "Theme",
   "settings.label.theme-dark": "Dark",

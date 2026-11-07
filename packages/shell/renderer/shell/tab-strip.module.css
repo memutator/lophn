@@ -356,52 +356,6 @@
   border-inline-start: var(--border-width) solid var(--color-border-base);
 }
 
-.chip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--control-sm-height);
-  height: var(--control-sm-height);
-  padding: var(--space-0);
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: var(--type-caption-size);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-}
-
-/* 전역 float(모든 workspace에 사는 앱 panel) 표시. 아이콘 오른쪽 아래의 작은 지구본이다. */
-.globalMark {
-  position: absolute;
-  right: var(--space-0);
-  bottom: var(--space-0);
-  color: var(--color-text-secondary);
-  background: var(--color-surface-shell);
-  border-radius: var(--radius-full);
-}
-
-.chip:hover {
-  background: var(--color-surface-muted);
-}
-
-.chip[aria-pressed="true"] {
-  background: var(--color-surface-base);
-}
-
-.chip[aria-pressed="true"]::after {
-  position: absolute;
-  bottom: var(--space-0);
-  left: 50%;
-  width: var(--space-4);
-  height: var(--space-1);
-  content: "";
-  background: var(--color-ink-background);
-  border-radius: var(--radius-full);
-  transform: translateX(-50%);
-}
-
 /* preview tab은 이름이 italic이다. */
 .title[data-preview] {
   font-style: italic;

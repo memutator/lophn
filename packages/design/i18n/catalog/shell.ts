@@ -78,4 +78,5 @@ export const shell = {
   "shell.label.new-desk-name": "Desk {number}",
   "shell.label.pane-position": "{at}/{count}",
   "shell.label.split-resize": "Resize split",
+  "shell.label.taskbar": "Taskbar",
 } as const;

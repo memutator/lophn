@@ -13,7 +13,7 @@ export const shellArea: Area = {
       id: "shell-project",
       title: "Shell · Project",
       description:
-        "project workspace의 Main desk. title bar에 sidebar 접기, desk 단추, 곡선으로 card와 이어지는 tab 줄, 오른쪽 끝의 접힌 float 칸과 panel icon tab, 창 단추가 있다. 가운데는 둥근 card 하나다.",
+        "project workspace의 Main desk. title bar에 sidebar 접기, desk 단추, 곡선으로 card와 이어지는 tab 줄, panel icon tab, 창 단추가 있다. 가운데는 둥근 card 하나이고 맨 아래에 작업 표시줄(float chip)이 있다.",
       render: () => <ShellScene variant="project" />,
     },
     {
@@ -167,15 +167,22 @@ export const shellArea: Area = {
       id: "shell-floats",
       title: "Shell · Floats",
       description:
-        "접힌 칸 둘을 펴서 card 위에 띄운 상태. 편 칸은 tab 줄 오른쪽 끝에서 눌린 모양이다. float의 단추로 접고, tab으로 dock하고, 닫는다.",
+        "접힌 칸 둘을 펴서 card 위에 띄운 상태. 편 칸은 작업 표시줄 chip에서 눌린 모양이다. float의 단추로 접고, tab으로 dock하고, 닫는다.",
       render: () => <ShellScene variant="floats" />,
     },
     {
       id: "shell-global-float",
       title: "Shell · Global float",
       description:
-        "workspace를 바꿔도 남는 전역 float. 앱 panel 화면을 desk float에서 float bar의 지구본 단추(Show in all workspaces)로 옮기면 title bar 아래 창 몸통 전체를 덮는 층에 떠서 어느 desk float보다 위에 놓인다(Mahas). 접힌 것은 tab 줄 오른쪽 끝 chip 칸에서 desk float의 chip보다 앞에 놓이고 아이콘에 작은 지구본이 붙는다(Masup). chip을 누르면 펴고 접는다. 전역 float의 bar 단추는 Move to this desk(이 desk의 float으로 옮긴다), 고정, 접기, 닫기이고 dock은 없다. 고정 안 한 전역 float은 바깥을 누르면 접힌다.",
+        "workspace를 바꿔도 남는 전역 float. 앱 panel 화면을 desk float에서 float bar의 지구본 단추(Show in all workspaces)로 옮기면 title bar 아래 창 몸통 전체를 덮는 층에 떠서 어느 desk float보다 위에 놓인다(Mahas). 접힌 것은 작업 표시줄 chip 칸에서 desk float의 chip보다 앞에 놓이고 아이콘에 작은 지구본이 붙는다(Masup). chip을 누르면 펴고 접는다. 전역 float의 bar 단추는 Move to this desk(이 desk의 float으로 옮긴다), 고정, 접기, 닫기이고 dock은 없다. 고정 안 한 전역 float은 바깥을 누르면 접힌다.",
       render: () => <ShellScene variant="floats" globalFloats />,
+    },
+    {
+      id: "shell-taskbar",
+      title: "Shell · Taskbar",
+      description:
+        "창 맨 아래 작업 표시줄(설정 Appearance › Taskbar, 기본 켬). 왼쪽은 float chip이고 전역 float(지구본 표시)이 먼저, 그 뒤가 지금 desk의 float이다. chip은 아이콘과 이름이고 편 것은 눌린 모양이며 누르면 펴고 접는다. 오른쪽 tray 자리는 비어 있다. desk float은 작업 표시줄 위에서 끝나 작업 표시줄을 덮지 않고, 꺼 두면 chip은 tab 줄 끝에 있다.",
+      render: () => <ShellScene variant="taskbar" globalFloats="chip" />,
     },
     {
       id: "shell-workspaces-panel",
@@ -278,7 +285,7 @@ export const shellArea: Area = {
       id: "shell-overflow",
       title: "Shell · Many tabs",
       description:
-        "tab이 많으면 먼저 좁아지고 최소 폭에서 가로 scroll이 된다. 접힌 float은 넷까지 아이콘 칸으로 보이고 나머지는 +N 메뉴에 든다.",
+        "tab이 많으면 먼저 좁아지고 최소 폭에서 가로 scroll이 된다. 접힌 float은 넷까지 작업 표시줄 chip으로 보이고 나머지는 +N 메뉴에 든다.",
       render: () => <ShellScene variant="overflow" />,
     },
     {

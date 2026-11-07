@@ -1,4 +1,5 @@
-// 새 shell의 창 틀. title bar(왼쪽 구역, tab 줄, 오른쪽 구역)와 몸통(왼쪽 sidebar, 둥근 card가 서는 stage, 오른쪽 sidebar)이다.
+// 새 shell의 창 틀. title bar(왼쪽 구역, tab 줄, 오른쪽 구역)와 몸통(왼쪽 sidebar, 둥근 card가 서는 stage, 오른쪽 sidebar),
+// 맨 아래 작업 표시줄(선택)이다.
 // 내용은 모두 slot으로 받는다: 틀은 칸의 폭, 접힘, 창 끌기 영역과 OS별 자리만 안다.
 import {
   type PointerEvent as ReactPointerEvent,
@@ -43,6 +44,8 @@ export interface ShellFrameProps {
   rightSidebar?: ReactNode;
   /** 몸통(title bar 아래, 양쪽 sidebar 포함) 전체를 덮는 층(webview 그릇과 FloatLayer). float 패널이 sidebar 위로도 간다. */
   floats?: ReactNode;
+  /** 창 맨 아래 작업 표시줄(Taskbar). 있으면 몸통 아래 마지막 줄이 되고 stage의 아래 여백이 없어진다. */
+  taskbar?: ReactNode;
   /** 가운데 card(ContentCard). */
   children: ReactNode;
 }
@@ -52,15 +55,20 @@ type Side = "left" | "right";
 // 폭은 창 UI 설정이라 사용자 data가 아니다. 쪽마다 localStorage에 둔다.
 const WIDTH_KEY = (side: Side) => `lophn.shell.sidebar-width.${side}`;
 
-const OPEN_KEY = (side: Side) => `lophn.shell.sidebar-open.${side}`;
+// 오른쪽은 workspace마다 따로 기억한다(workspace key가 붙는다). 왼쪽은 workspace와 무관하게 하나다.
+const OPEN_KEY = (side: Side, workspace?: string) =>
+  workspace === undefined
+    ? `lophn.shell.sidebar-open.${side}`
+    : `lophn.shell.sidebar-open.${side}.${workspace}`;
 
-/** sidebar 열림. 저장한 값이 있으면 그것이 이기고 없으면 fallback이다. 값은 workspace와 무관하게 쪽마다 하나다. */
+/** sidebar 열림. 저장한 값이 있으면 그것이 이기고 없으면 fallback이다. workspace를 주면 그 workspace만의 값이다. */
 export function useSidebarOpen(
   side: Side,
   fallback: boolean,
+  workspace?: string,
 ): [boolean, (open: boolean | ((open: boolean) => boolean)) => void] {
   const [open, setOpen] = useState(() => {
-    const stored = globalThis.localStorage?.getItem(OPEN_KEY(side));
+    const stored = globalThis.localStorage?.getItem(OPEN_KEY(side, workspace));
     return stored === null || stored === undefined
       ? fallback
       : stored === "true";
@@ -69,10 +77,13 @@ export function useSidebarOpen(
     (next: boolean | ((open: boolean) => boolean)) =>
       setOpen((current) => {
         const value = typeof next === "function" ? next(current) : next;
-        globalThis.localStorage?.setItem(OPEN_KEY(side), String(value));
+        globalThis.localStorage?.setItem(
+          OPEN_KEY(side, workspace),
+          String(value),
+        );
         return value;
       }),
-    [side],
+    [side, workspace],
   );
   return [open, set];
 }
@@ -158,6 +169,7 @@ export function ShellFrame({
   leftSidebar,
   rightSidebar,
   floats,
+  taskbar,
   children,
 }: ShellFrameProps) {
   const [widths, setWidths] = useState<Record<Side, number | null>>(() => ({
@@ -187,6 +199,7 @@ export function ShellFrame({
       data-platform={platform}
       data-left={left ? "open" : "closed"}
       data-right={right ? "open" : "closed"}
+      data-has-taskbar={taskbar === undefined ? undefined : ""}
     >
       <header className={styles.titlebar}>
         <div
@@ -264,6 +277,16 @@ export function ShellFrame({
         ) : null}
         {floats}
       </div>
+
+      {taskbar === undefined ? null : (
+        <footer
+          className={styles.taskbar}
+          data-taskbar=""
+          aria-label={t("shell.label.taskbar")}
+        >
+          {taskbar}
+        </footer>
+      )}
     </div>
   );
 }

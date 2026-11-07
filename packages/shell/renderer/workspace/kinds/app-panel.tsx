@@ -13,7 +13,8 @@ const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 let appPanelCount = 0;
 
-const newKey = () => `app-panel-${Date.now().toString(36)}-${++appPanelCount}`;
+export const newKey = () =>
+  `app-panel-${Date.now().toString(36)}-${++appPanelCount}`;
 
 /** 사람이 누른 앱 패널 열기. 탭은 앱을 고르는 자리로 시작한다. */
 export function openAppPanel(host: TabHost): void {

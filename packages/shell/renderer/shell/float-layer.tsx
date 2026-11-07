@@ -1,5 +1,5 @@
-// 창 몸통(title bar 아래, 양쪽 sidebar 포함) 위에 뜨는 float 패널들. 접힌 것은 호출자가 목록에서 빼고(tab 줄 오른쪽
-// 끝 칸), 여기에는 펴진 것만 온다. 이동·resize는 놓을 때만 onRect로 올리고 끄는 동안은 미리보기다.
+// 창 몸통(title bar 아래, 양쪽 sidebar 포함) 위에 뜨는 float 패널들. 접힌 것은 호출자가 목록에서 빼고(작업 표시줄이나 tab 줄
+// 끝의 chip), 여기에는 펴진 것만 온다. 이동·resize는 놓을 때만 onRect로 올리고 끄는 동안은 미리보기다.
 // 고정 안 한 패널은 그 패널 밖을 누르면 접힌다(onOutside). 고정한 패널은 늘 위에 남는다.
 import {
   type PointerEvent,
@@ -64,7 +64,7 @@ export interface FloatLayerProps {
   onOutside: (inside: string | undefined) => void;
 }
 
-// 패널에서 연 menu·dialog(portal이라 패널 DOM 밖)와 접힌 패널 아이콘 칸은 "밖"이 아니다. 아이콘 칸은 누르면 그
+// 패널에서 연 menu·dialog(portal이라 패널 DOM 밖)와 float chip 묶음은 "밖"이 아니다. chip은 누르면 그
 // 패널을 접고 펴는 자리라 여기서 먼저 접으면 다시 펴진다.
 const NOT_OUTSIDE =
   "[data-radix-popper-content-wrapper], [role=dialog], [role=menu], [role=listbox], [data-float-chips]";

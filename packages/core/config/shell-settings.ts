@@ -185,6 +185,13 @@ const codingAgentsSetting = declareSetting({
   default: { favorites: ["claude", "codex", "opencode"], commands: {} },
 });
 
+// workspace 창 맨 아래 작업 표시줄. 끄면 float chip이 tab 줄 끝에 있다.
+const taskbarSetting = declareSetting({
+  key: "shell.taskbar",
+  type: z.boolean(),
+  default: true,
+});
+
 // extension은 id마다 켜는 설정이 하나씩 정적으로 선언된다(core는 manifest를 읽지 못한다). 새 extension은 여기에 한 줄을 더하고
 // shellSettings에 올린다. 선언이 없는 id는 shell의 registry가 켜지 않는다. 사람만 켠다(settings/update는 user만).
 const extensionEnabled = (id: string) =>
@@ -220,6 +227,7 @@ export const shellSettings = [
   quickLaunchSetting,
   appLaunchSetting,
   codingAgentsSetting,
+  taskbarSetting,
   harnessExtensionSetting,
   harnessGuiExtensionSetting,
 ] as const;

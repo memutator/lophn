@@ -6,6 +6,7 @@ import {
   FieldContext,
   SearchSelect,
   Select,
+  Switch,
   SwatchPicker,
 } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
@@ -13,6 +14,7 @@ import { VisuallyHidden } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/i18n";
 
 import { NamedControl } from "../general/named-control.tsx";
+import { useQuickPrefs } from "../quick-launch/store.tsx";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
@@ -77,6 +79,7 @@ function WeightSelect({
 export function AppearancePanel({ source }: AppearancePanelProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   const [failed, setFailed] = useState(false);
+  const { prefs, set: setPrefs } = useQuickPrefs();
   // 설치된 글꼴. 읽기 전에는 null이고, 빈 목록이면 글꼴 칸을 열 때(사람이 누른 때) 다시 읽는다.
   const [fonts, setFonts] = useState<readonly InstalledFont[] | null>(null);
   const loadFonts = useCallback(() => {
@@ -198,6 +201,29 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
                   </NamedControl>
                 </li>
               ))}
+          {values === null ? null : (
+            <li className={styles.line} data-appearance-row="taskbar">
+              <div className={styles.lineMain}>
+                <span className={styles.lineName}>
+                  {t("settings.label.taskbar")}
+                </span>
+                <span className={styles.lineHelp}>
+                  {t("settings.appearance.taskbar-help")}
+                </span>
+              </div>
+              <div className={styles.endSlot}>
+                <Switch
+                  label={t(
+                    prefs.taskbar
+                      ? "settings.label.value-on"
+                      : "settings.label.value-off",
+                  )}
+                  checked={prefs.taskbar}
+                  onCheckedChange={(on) => setPrefs("taskbar", on)}
+                />
+              </div>
+            </li>
+          )}
         </ul>
         {failed ? (
           <p className={styles.rejected} role="alert" data-failed="">

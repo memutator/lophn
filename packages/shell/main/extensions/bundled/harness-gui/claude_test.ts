@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { manualClock } from "../../../../../base/clock.ts";
@@ -114,7 +114,7 @@ async function setup(
   const processes: ReturnType<typeof fakeProcess>[] = [];
   // 옛 session의 transcript를 바꾸는 SDK 호출. open_session은 이것을 부르면 안 된다.
   const calls: string[] = [];
-  const backgrounded = { count: 0 };
+  const backgrounded: string[] = [];
   const spawn = (
     command: string,
     args: readonly string[],
@@ -161,8 +161,8 @@ async function setup(
             categories: [],
           }),
         cancelAsyncMessage: () => Promise.resolve(true),
-        backgroundTasks: () => {
-          backgrounded.count++;
+        backgroundTasks: (id?: string) => {
+          backgrounded.push(id ?? "");
           return Promise.resolve(true);
         },
         rewindFiles: () => {
@@ -232,6 +232,7 @@ async function setup(
     processes,
     calls,
     backgrounded,
+    clock,
     get state() {
       return state;
     },
@@ -635,9 +636,8 @@ test("resume으로 다시 그린 사람 메시지의 origin은 처음 보낼 때
   );
 });
 
-// foreground tool이 도는 동안 steer가 줄에 서 있으면 CLI는 tool이 끝날 때까지 메시지를 읽지 않는다(실제 transcript에서 본 것).
-test("도는 foreground Bash가 있을 때 steer만 그 tool을 background로 보낸다", async () => {
-  const t = await setup();
+// foreground tool이 도는 동안 줄에 선 메시지는 tool이 끝날 때까지 CLI가 읽지 않는다. desktop처럼 tool_use id로 background에 보낸다(녹화 steer_detach).
+async function startBash(t: Awaited<ReturnType<typeof setup>>) {
   await t.input(t.send("1", "run it"));
   await t.feed({
     type: "assistant",
@@ -654,10 +654,33 @@ test("도는 foreground Bash가 있을 때 steer만 그 tool을 background로 �
       ],
     },
   });
+}
+
+test("steer는 3초 돈 Bash를 tool_use id로 background에 보내고 next_turn은 건드리지 않는다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const t = await setup();
+    await startBash(t);
+    await t.input(t.send("2", "later one"));
+    await t.input({ ...t.send("3", "steer"), delivery: "steer" });
+    assert.deepEqual(t.backgrounded, []);
+    t.clock.advance(3000);
+    mock.timers.tick(1000);
+    assert.deepEqual(t.backgrounded, ["tu_1"]);
+    mock.timers.tick(5000);
+    assert.deepEqual(t.backgrounded, ["tu_1"]);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("지금 보내기는 도는 Bash를 바로 tool_use id로 background에 보낸다", async () => {
+  const t = await setup();
+  await startBash(t);
   await t.input(t.send("2", "later one"));
-  assert.equal(t.backgrounded.count, 0);
-  await t.input({ ...t.send("3", "now"), delivery: "steer" });
-  assert.equal(t.backgrounded.count, 1);
+  await t.input({ type: "send_queued", message: "msg_2" });
+  assert.deepEqual(t.backgrounded, ["tu_1"]);
+  assert.equal(t.queries[0]?.sent.at(-1)?.priority, "now");
 });
 
 const result = (user: string) => ({

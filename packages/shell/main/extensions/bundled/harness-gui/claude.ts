@@ -210,6 +210,9 @@ const TODO_TOOL = "TodoWrite";
 // CLI의 todo tool(TUI와 같다). 목록은 이 tool들의 결과를 이어 붙여 만든다.
 const TASK_TOOLS = ["TaskCreate", "TaskUpdate"];
 const AGENT_TOOLS = ["Agent", "Task"];
+const STEER_DETACH_AGE_MS = 3000;
+const STEER_DETACH_RETRY_MS = 1000;
+const STEER_DETACH_WINDOW_MS = 15000;
 // 화면 동작이 대신하는 CLI 줄과, 화면에 내지 않는 CLI 줄(TUI 전용·원격·폐기).
 const SCREEN_COMMANDS = new Set([
   "model",
@@ -696,6 +699,10 @@ type Call = {
   id: string;
   done: boolean;
   denied: boolean;
+  /** tool_use를 본 시각(ms). steer가 3초 넘게 돈 tool만 background로 보낸다. */
+  startedMs: number;
+  /** `backgroundTasks`를 이미 부른 호출. */
+  detached?: boolean;
   /** 본문(`body.input`)에 쓸 입력. */
   input: Record<string, unknown>;
   tool: string;
@@ -1267,6 +1274,7 @@ const start: (sdk: ClaudeSdk) => Start =
         id: ids.newId("tcl"),
         done: false,
         denied: false,
+        startedMs: clock.nowMs(),
         input: toolInput,
         tool: name,
       };
@@ -2680,21 +2688,44 @@ const start: (sdk: ClaudeSdk) => Start =
       live.input.push(
         userMessage(uuid, body, delivery === "steer" ? "next" : "later"),
       );
-      // CLI는 도는 foreground tool이 끝나야 줄의 메시지를 읽는다. TUI처럼 Ctrl+B로 background에 보내 바로 닿게 한다.
-      if (delivery === "steer" && foregroundRunning()) {
-        void live.q.backgroundTasks().catch(() => {
-          // background task를 끈 session이면 tool이 끝나길 기다린다.
-        });
-      }
+      // CLI는 도는 foreground tool이 끝나야 줄의 메시지를 읽는다. desktop app처럼 오래 도는 tool을 background로 보내 바로 닿게 한다.
+      if (delivery === "steer") detachForSteer(uuid);
     }
 
-    function foregroundRunning() {
-      return [...root.calls.values()].some(
-        (call) =>
+    // Bash·Agent처럼 오래 도는 root tool. id 없는 `backgroundTasks()`는 CLI가 풀어 주지 않는다(녹화 steer_background).
+    function detachable() {
+      return [...root.calls.entries()].filter(
+        ([, call]) =>
           !call.done &&
+          !call.detached &&
           call.input.run_in_background !== true &&
-          (call.tool === "Bash" || AGENT_TOOLS.includes(call.tool)),
+          (call.tool === "Bash" ||
+            call.tool === "PowerShell" ||
+            AGENT_TOOLS.includes(call.tool)),
       );
+    }
+    function detach(useId: string, call: Call) {
+      call.detached = true;
+      void live.q.backgroundTasks(useId).catch(() => {
+        // background를 못 쓰는 session이면 tool이 끝나길 기다린다.
+      });
+    }
+    // desktop의 runSteerDetach: 3초 넘게 돈 tool을 1초마다 보며 15초 안에, 줄에 steer가 남아 있는 동안 최대 2개를 보낸다.
+    function detachForSteer(uuid: string) {
+      const until = clock.nowMs() + STEER_DETACH_WINDOW_MS;
+      let left = 2;
+      const tick = () => {
+        if (closed || root.turn === null || !queued.has(uuid)) return;
+        if (clock.nowMs() > until) return;
+        for (const [useId, call] of detachable()) {
+          if (left === 0) return;
+          if (clock.nowMs() - call.startedMs < STEER_DETACH_AGE_MS) continue;
+          left--;
+          detach(useId, call);
+        }
+        if (left > 0) setTimeout(tick, STEER_DETACH_RETRY_MS);
+      };
+      tick();
     }
 
     // CLI의 줄은 push한 순서다. 순서나 내용이 바뀌면 줄에 있는 것을 모두 빼고 새 순서로 다시 넣는다.
@@ -3103,6 +3134,8 @@ const start: (sdk: ClaudeSdk) => Start =
           live.input.push(
             userMessage(fresh, await contentOf(sdk, one.content), "now"),
           );
+          // desktop처럼 도는 tool을 모두 background로 보낸다. interrupt가 아니라 이 길로 tool이 살아남는다.
+          for (const [useId, call] of detachable()) detach(useId, call);
           return;
         }
         case "remove_queued": {

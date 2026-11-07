@@ -1,4 +1,6 @@
+import { rm } from "node:fs/promises";
 import { ok, type Result } from "../../../../base/mod.ts";
+import { toolResultFolder } from "../../../../protocol/lophn-agent/tool-results.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import type { RewindStore } from "./store.ts";
 
@@ -33,6 +35,21 @@ export function eraseSessionStore(
   session: string,
 ): Promise<boolean> {
   return store.removeSession(session).then(
+    () => true,
+    () => false,
+  );
+}
+
+// 넘친 tool 결과 폴더도 delete 때만 지운다. archive한 session은 계속 열어 볼 수 있어 그 결과를 읽는다.
+// 실패하면 폴더가 남을 뿐이고 command의 결과는 그대로다.
+export function eraseToolResults(
+  dataRoot: string,
+  session: string,
+): Promise<boolean> {
+  return rm(toolResultFolder(dataRoot, session), {
+    recursive: true,
+    force: true,
+  }).then(
     () => true,
     () => false,
   );

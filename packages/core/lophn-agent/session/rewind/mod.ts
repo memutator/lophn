@@ -6,7 +6,11 @@ export {
   type RecorderPorts,
 } from "./record.ts";
 export { createRewindStore, type RewindStore } from "./store.ts";
-export { deleteSessionReverts, eraseSessionStore } from "./erase.ts";
+export {
+  deleteSessionReverts,
+  eraseSessionStore,
+  eraseToolResults,
+} from "./erase.ts";
 export { lastArtifactWriter } from "./artifact-writer.ts";
 export { sweepRewindStore } from "./sweep.ts";
 export {

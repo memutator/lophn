@@ -2,10 +2,21 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ok } from "../../../../base/mod.ts";
+import {
+  archiveSession,
+  deleteSession,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import type {
   RequestContext,
   Sql,
@@ -24,7 +35,7 @@ import {
   revertSchemaSteps,
 } from "./mod.ts";
 import { observeFiles } from "./prepare.ts";
-import { requestApps } from "./files.ts";
+import { requestApps, withRewindFiles } from "./files.ts";
 
 const SESSION = "ses_00000000000000000000000001";
 const user: RequestContext = {
@@ -248,4 +259,41 @@ test("apps를 고르지 않으면 앱 rewind를 요청하지 않고, 고르면 �
   });
   assert.deepStrictEqual(asked, ["app_1:inv_2"]);
   assert.deepStrictEqual(recorded.length, 1);
+});
+
+test("session을 지우면 그 session의 tool-results 폴더만 지우고 다른 session과 archive는 남긴다", async () => {
+  const data = await mkdtemp(join(tmpdir(), "lophn-spill-"));
+  try {
+    for (const session of ["ses_a", "ses_b"]) {
+      await mkdir(join(data, "tool-results", session), { recursive: true });
+      await writeFile(join(data, "tool-results", session, "tcl_1.json"), "{}");
+    }
+    const writer = {
+      command: async () => ok({ replayed: false, result: {} }),
+    } as unknown as Writer;
+    const files = withRewindFiles(writer, {
+      snapshot: () => ok(undefined as never),
+      store: createRewindStore(data),
+      dataRoot: data,
+      apps: {} as never,
+    });
+    const send = (command: string, session: string) =>
+      files.command(
+        { ...user, actor: "user" } as never,
+        {
+          command,
+          input: { session },
+          idempotency_key: command,
+          compare: {},
+          prepared: [],
+        } as never,
+      );
+    await send(archiveSession.name, "ses_a");
+    await stat(join(data, "tool-results", "ses_a", "tcl_1.json"));
+    await send(deleteSession.name, "ses_a");
+    await assert.rejects(stat(join(data, "tool-results", "ses_a")));
+    await stat(join(data, "tool-results", "ses_b", "tcl_1.json"));
+  } finally {
+    await rm(data, { recursive: true, force: true });
+  }
 });

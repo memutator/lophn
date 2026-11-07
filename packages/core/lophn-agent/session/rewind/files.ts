@@ -18,6 +18,7 @@ import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   assertCheckpointVisible,
   eraseSessionStore,
+  eraseToolResults,
   type FileRef,
   installRestore,
   observationOf,
@@ -96,6 +97,8 @@ export type RewindFilesDeps = {
   // ledger를 짧게 읽는다. 파일을 읽는 동안 열어 두지 않는다.
   snapshot<T>(read: (lookup: Lookup) => T): Result<T>;
   store: RewindStore;
+  // delete한 session의 tool-results 폴더를 지우는 데 쓴다.
+  dataRoot: string;
   apps: RewindAppPorts;
 };
 
@@ -346,7 +349,7 @@ export function withRewindFiles(writer: Writer, deps: RewindFilesDeps): Writer {
     return sent;
   }
 
-  // session을 지우거나 닫으면 그 session의 저장소 디렉터리를 commit 뒤에 지운다. 지우지 못해도 command의
+  // session을 지우면 그 session의 저장소 디렉터리와 tool-results 폴더를 commit 뒤에 지운다. 지우지 못해도 command의
   // 결과는 그대로이고 시작 때와 주기의 쓸기(sweep)가 다시 쓸어낸다.
   async function erasedAfter(
     envelope: CommandEnvelope,
@@ -357,6 +360,7 @@ export function withRewindFiles(writer: Writer, deps: RewindFilesDeps): Writer {
       ?.session;
     if (result.ok && typeof session === "string") {
       await eraseSessionStore(deps.store, session);
+      await eraseToolResults(deps.dataRoot, session);
     }
     return result;
   }

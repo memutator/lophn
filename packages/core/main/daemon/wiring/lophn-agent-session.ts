@@ -94,6 +94,7 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
       const files: RewindFilesDeps = {
         snapshot,
         store,
+        dataRoot: ctx.root.path,
         apps: {
           // 고른 시점 뒤 이 session의 앱 write는 invocation 기록에서 읽는다.
           writes: {

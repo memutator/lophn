@@ -523,3 +523,47 @@ test("open_session은 thread/resume에 고른 id를 싣고 session_reset 뒤에�
   );
   assert.equal(t.state.session?.cli_session, chosen);
 });
+
+test("spawn item보다 먼저 온 자식 thread 이벤트는 lane이 열릴 때 그 안에 들어간다", async () => {
+  const { t } = await boot();
+  const root = (
+    recording("startup").find((one) => one.data.result?.thread !== undefined)
+      ?.data.result as { thread: { id: string } }
+  ).thread.id;
+  const child = "child-thread-1";
+  await t.push({
+    method: "turn/started",
+    params: { threadId: root, turn: { id: "turn_root" } },
+  });
+  // 자식의 첫 메시지가 spawn item보다 먼저 온다.
+  await t.push({
+    method: "item/completed",
+    params: {
+      threadId: child,
+      item: { type: "agentMessage", id: "am_child", text: "child says hi" },
+    },
+  });
+  await t.push({
+    method: "item/completed",
+    params: {
+      threadId: root,
+      item: {
+        type: "collabAgentToolCall",
+        id: "spawn_1",
+        tool: "spawnAgent",
+        status: "completed",
+        prompt: "do it",
+        receiverThreadIds: [child],
+        agentsStates: { [child]: { status: "running", message: null } },
+      },
+    },
+  });
+  const shown = t.state.children[child]?.items ?? [];
+  assert.ok(
+    shown.some(
+      (item) =>
+        item.kind === "message" &&
+        JSON.stringify(item.content).includes("child says hi"),
+    ),
+  );
+});

@@ -598,6 +598,9 @@ const newLane = (child: string | null, thread: string): Lane => ({
 
 type SubDetail = Extract<AcpToolItem["detail"], { kind: "subagent" }>;
 /** spawn한 subagent. detail은 spawn tool 줄이 지금 보이는 값이다. */
+const EARLY_PER_THREAD = 50;
+const EARLY_TOTAL = 200;
+
 type Sub = { call: Call; detail: SubDetail; started: string };
 
 type ApprovalWait = {
@@ -801,8 +804,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       let canPlan = false;
       const root = newLane(null, "");
       // thread id → 대화. root와 아는 자식(collab·subAgentActivity item이 알려 준 thread)이다. 모르는 thread(fork로 떠난
-      // 옛 thread)의 이벤트는 버린다.
+      // 옛 thread)의 이벤트는 `early`에 잠깐 쌓였다 버려진다.
       const lanes = new Map<string, Lane>();
+      // lane이 열리기 전(spawn item보다 먼저)에 온 자식 thread 이벤트. spawn item이 thread id를 알리면 lane에 붓고,
+      // root turn이 끝날 때까지 lane이 안 열린 thread의 것은 버린다. thread마다·전체가 작게 묶여 있고 넘치면 오래된 것부터 버린다.
+      const early = new Map<string, { method: string; params: Json }[]>();
+      let earlyCount = 0;
       let stopPending = false;
       let reverting = false;
       let tokenUsage: J = null;
@@ -1265,6 +1272,39 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         if (!lanes.has(thread)) lanes.set(thread, newLane(thread, thread));
       }
 
+      function holdEarly(thread: string, method: string, params: Json) {
+        const held = early.get(thread) ?? [];
+        early.set(thread, held);
+        held.push({ method, params });
+        earlyCount += 1;
+        if (held.length > EARLY_PER_THREAD) {
+          held.shift();
+          earlyCount -= 1;
+        }
+        while (earlyCount > EARLY_TOTAL) {
+          const [oldest, list] = early.entries().next().value as [
+            string,
+            { method: string; params: Json }[],
+          ];
+          list.shift();
+          earlyCount -= 1;
+          if (list.length === 0) early.delete(oldest);
+        }
+      }
+
+      function dropEarly() {
+        early.clear();
+        earlyCount = 0;
+      }
+
+      function flushEarly(thread: string) {
+        const held = early.get(thread);
+        if (held === undefined) return;
+        early.delete(thread);
+        earlyCount -= held.length;
+        for (const one of held) onNotification(one.method, one.params);
+      }
+
       function updateSub(child: string, patch: Partial<SubDetail>) {
         const sub = subs.get(child);
         if (sub === undefined) return;
@@ -1314,6 +1354,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             });
         }
         publishTasks();
+        // sub를 등록한 뒤에 붓는다: 쌓인 turn/started·turn/completed가 그 sub의 detail을 바꾼다.
+        for (const thread of [
+          ...(item.receiverThreadIds ?? []),
+          ...(item.agentThreadId ? [item.agentThreadId] : []),
+        ])
+          flushEarly(thread);
       }
 
       // --- background task: shell(thread/backgroundTerminals)과 subagent
@@ -2052,7 +2098,11 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         // thread 없는 알림(warning 일부, 사용 한도)은 root의 것이다. 같은 server의 모르는 thread(fork로 열린 옛 thread)는 버린다.
         const lane =
           params.threadId == null ? root : lanes.get(String(params.threadId));
-        if (lane === undefined) return;
+        if (lane === undefined) {
+          // spawn item이 이 thread를 알리기 전에 온 자식의 이벤트일 수 있어 잠깐 쌓는다.
+          holdEarly(String(params.threadId), method, params);
+          return;
+        }
         const item = params.item as Item | undefined;
         switch (method) {
           case "turn/started": {
@@ -2071,7 +2121,10 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           case "turn/completed": {
             const wire = params.turn as WireTurn;
             const plan = lane === root ? planText : null;
-            if (lane === root) planText = null;
+            if (lane === root) {
+              planText = null;
+              dropEarly();
+            }
             if (lane.turn === null && wire.status !== "failed") {
               // ACP turn이 열리지 않은 turn(shell만 돌았다). 꼬리 없이 닫는다.
               for (const [itemId, call] of lane.calls)
@@ -2389,6 +2442,16 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         }
       }
 
+      // 다시 연 뒤에도 도는 자식은 thread/resume으로 구독해야 이벤트가 다시 흘러온다.
+      async function resumeChildren() {
+        for (const [child, sub] of subs)
+          if (sub.detail.state === "running")
+            await request("thread/resume", {
+              threadId: child,
+              excludeTurns: true,
+            }).catch(() => {});
+      }
+
       // 사람의 실제 설정이 never이거나 danger-full-access일 때만 느슨하지 않은 값으로 바꾼다.
       // read-only나 untrusted를 고른 사람을 느슨하게 하지 않으려고 그 밖에는 아무것도 넘기지 않는다.
       async function readPolicy(): Promise<Json> {
@@ -2411,6 +2474,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         threadId = opened.thread.id;
         root.thread = threadId;
         lanes.clear();
+        dropEarly();
         lanes.set(threadId, root);
         applySettings({
           ...opened,
@@ -2453,6 +2517,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           );
           await replayThread(root);
           await replayChildren();
+          await resumeChildren();
         }
         models = (
           (await request("model/list", {}).catch(() => ({ data: [] }))).data ??
@@ -2806,6 +2871,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           materialized = false;
           await replayThread(root);
           await replayChildren();
+          await resumeChildren();
         });
       }
 

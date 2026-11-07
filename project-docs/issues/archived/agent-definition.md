@@ -686,3 +686,59 @@ guard: tests/harness/loop/loop_test.ts의 turn 안 Compact 줄, packages/core/lo
 추천: 둘째. 지금 지우기로 turn이 끝나지는 않는다.
 
 닫음: 사람이 대세 coding agent처럼 들이기로 정했다. turn 안 조립 추정이 예산의 85%를 넘거나 provider가 입력이 크다고 거절하면 turn이 자기 session을 먼저 Compact(이 turn의 진행 포함, turn당 2번까지)하고 같은 turn을 이어 간다. core는 도는 그 turn 자신(machine, 입력의 `turn`)의 Compact만 받는다. 요약이 실패하거나 할 것이 없으면 오래된 tool 결과 지우기로 물러난다(`run-loop/turn.ts`의 `relieve`, `session/compactor.ts`의 `compactInTurn`).
+
+## 넘친 tool 결과 파일을 지우지 않는다
+
+```yaml
+kind: defect
+modules: [packages/core/lophn-agent]
+closed: fixed
+guard: `packages/core/lophn-agent/session/rewind/rewind_test.ts` "session을 지우면 그 session의 tool-results 폴더만 지우고 다른 session과 archive는 남긴다"
+```
+
+지금: `spillLarge`(`packages/core/lophn-agent/tools/spill.ts`)가 쓴 `<data root>/tool-results/<session>/<tool call>.json`은 session을 보관하거나 지워도 남는다.
+
+영향: 큰 결과를 자주 받는 사람의 data root가 계속 커진다.
+
+고치려면: session 보관·삭제 때 그 폴더를 지운다(작음). 추천.
+
+닫음: session을 지우면 rewind 기록을 지우는 자리(`session/rewind/files.ts`의 `erasedAfter`)에서 `eraseToolResults`가 `<data root>/tool-results/<session>/`도 지운다. 보관(archive)은 지우지 않는다. 지우기가 도중에 실패한 폴더를 거두는 sweep은 없다.
+
+## bare의 고른 이름이 틀리거나 상한 밖이면 말없이 빠진다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/shell/renderer]
+closed: fixed
+guard: `packages/core/lophn-agent/agents/commands_test.ts` "bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하고, 내장 tool·명령·앱 command·MCP tool은 받는다"
+```
+
+지금: 정의의 `tools`는 아무 nonblank 이름이나 받는다(`packages/protocol/lophn-agent/agent-values.ts`). turn 조립(`packages/core/lophn-agent/run-loop/prepare.ts`의 `visibleTools`)은 workspace 종류 목록, 명령의 `workspaces`, 할당한 앱 command, 설정한 MCP에 없는 이름을 오류 없이 뺀다. 편집 화면(`packages/shell/renderer/workspace/agents/editor/tool-picks.tsx`)은 내장 tool만 체크로 고르고 lophn 명령, 앱 command, MCP tool은 글로 적는다.
+
+영향: 사람이 `call.reply`를 `call.replay`로 적거나 할당하지 않은 앱 command를 고르면 그 agent는 그 tool 없이 일한다. 저장도 turn도 알리지 않아 사람은 agent가 왜 못 하는지 모른다.
+
+고치려면:
+- 편집 화면이 명령 표(`packages/cli/commands/`의 `COMMANDS`), 할당한 앱 command, 설정한 MCP tool을 후보 목록으로 보이고, 적은 이름 중 어느 후보에도 없는 것은 그 칸 옆에 표시한다. 저장은 막지 않는다(workspace 종류와 할당은 나중에 바뀐다). 중간.
+- 저장 때 명령 표에도 `<slug>.<command>`·`mcp__` 꼴에도 맞지 않는 이름을 `invalid_input`으로 거절한다. 오타 대부분을 잡는다. 작음.
+
+추천: 둘째를 먼저, 첫째는 bare를 실제로 쓰며 필요해지면.
+
+닫음: 저장(`agents/create`·`agents/change`의 `checkAgent`, `packages/core/lophn-agent/agents/validate.ts`)이 내장 tool, `COMMANDS`의 명령, `mcp__<server>__<tool>`, 첫 낱말이 명령 묶음이 아닌 `<slug>.<command>` 어느 것도 아닌 이름을 `invalid_input`(`tools.<n>`, `unknown`)으로 거절하고 편집 화면이 그 이름을 보인다. 꼴만 본다. 할당하지 않은 앱 command나 설정하지 않은 MCP server는 여전히 말없이 빠진다. 후보 목록을 보이는 안은 bare를 실제로 쓰며 필요해지면 한다.
+
+## turn 안에서 던진 예외가 "설정 없음" 실패로 기록된다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
+closed: fixed
+guard: 없음
+```
+
+지금: `packages/core/lophn-agent/run-loop/driver.ts`는 turn loop가 던진 예외를 잡아 `closeStarted("loop_threw")`로 turn을 닫는다. 이때 outcome은 `{ kind: "failed", reason: "configuration_unavailable" }`이다. `packages/protocol/lophn-agent/turn-values.ts`의 `TURN_OUTCOME_REASONS.failed`에 내부 오류를 뜻하는 이유가 없기 때문이다. 화면은 이 이유를 `conversation.error.turn-configuration-unavailable` 문구로 보인다(`packages/shell/renderer/conversation/thread/provider-error.tsx`).
+
+영향: core 버그로 turn이 죽어도, 사람은 model이나 provider 설정이 빠졌다는 안내를 본다. 그 안내대로 설정을 고쳐도 풀리지 않는다. 진단하는 사람도 ledger의 `outcome_reason`만 보고 원인을 잘못 짚는다.
+
+고치려면:
+- `TURN_OUTCOME_REASONS.failed`에 `internal`을 더하고, driver가 그 이유로 닫게 하고, 화면 문구 key 하나를 더한다. `turns.outcome_reason`은 CHECK 없는 text라 schema step이 필요 없다. 작음. 추천.
+
+닫음: `TURN_OUTCOME_REASONS.failed`에 `internal`이 있다. driver의 `loop_threw`는 `internal`로 닫고(`closeStarted`가 `why`로 이유를 고른다. `credential`·`input_gone`은 `configuration_unavailable` 그대로), 화면은 `conversation.error.turn-internal`을 보인다. `turns.outcome_reason`은 CHECK 없는 text라 schema step이 없다.

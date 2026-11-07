@@ -174,3 +174,40 @@ guard: 없음
 정한 것: 지운다(잃는 기능이 없는 죽은 코드다. AGENTS.md "속도"). `packages.guide` route와 worker route 종류 전체, `forwardToWorker`를 같이 지운다(중간. 여러 module의 등록 file을 건드린다).
 
 닫음: route 종류 `worker`, `defineWorker`, `WorkerRoute`, `packages.guide`, dispatch의 worker 갈래, `ApiServerOptions.workers`, `isWorkerRoute`, `forwardToWorker`, 등록의 `workerRoutes`, shell main client의 `workerBytes`를 지웠다. file route에 handler가 없으면 dispatch가 바로 `unavailable`이다. renderer 쪽 `Link.worker`는 남았다(`issues/agent-definition.md` 새 이슈).
+
+## `npm run dev`가 같은 data root로 이미 떠 있는 dev 앱의 process를 남은 child로 보고 죽인다
+
+```yaml
+kind: bug
+modules: [tools, tests]
+closed: fixed
+guard: 없음
+```
+
+지금: `tools/dev.ts`의 `plantFakeProvider`는 앱을 띄우기 전에 `bootCore`(`tests/support/core/mod.ts`)로 core를 한 번 띄웠다 끈다. 끈 뒤 `waitGone`(`tests/support/core/process.ts`)이 env에 `LOPHN_HOME=<data root>`가 있는 process를 `/proc`에서 모두 찾아, 제한 시간 뒤에도 있으면 SIGKILL하고 "core가 child를 남긴다"로 실패한다. 같은 worktree의 `.dev-data`로 이미 떠 있는 dev 앱(shell main, core, terminal host, 그 아래 터미널)도 그 env를 가져 같이 걸린다. 재현: 한 worktree에서 `npm run dev`로 앱을 띄워 둔 채 같은 곳에서 `npm run dev`를 다시 친다(harness-gui-tab 확인 중 사람에게 생겼다. pid 둘이 죽었다).
+
+영향: 사람이 열어 둔 dev 앱(과 그 터미널의 CLI)이 경고 없이 죽고, 새 `npm run dev`도 실패로 끝난다.
+
+고치려면:
+- `plantFakeProvider`가 bootCore 전에 `processesOf(dataRoot)`를 읽어 `waitGone`의 `keep`으로 넘긴다(그 함수가 이미 받는 인자다). 작음. 추천.
+- 같은 data root에 process가 있으면 `npm run dev`가 "이미 떠 있다"로 바로 멈추고 앞 앱을 끄라고 한다. 작음.
+
+닫음: `plantFakeProvider`(`tools/dev.ts`)가 bootCore 전에 `processesOf(dataRoot)`를 읽어 `keep`으로 넘긴다(`tests/support/core/mod.ts`의 `BootOptions.keep` → `waitGone`). 앞서 적은 재현은 틀렸다. 앞 앱의 core와 fake가 살아 있으면 두 번째 실행은 fake port 7499(EADDRINUSE)나 core start_failed에서 먼저 멈춘다. 죽이는 길은 앞 core는 없고 같은 `LOPHN_HOME`의 shell main·terminal host·터미널이 남은 때였다.
+
+## `settings.json`을 못 읽은 뒤의 update가 디스크의 새 내용을 덮는다
+
+```yaml
+kind: bug
+modules: [packages/core/config]
+closed: fixed
+guard: `packages/core/config/store_test.ts` "reload 없이 파일이 바뀐 뒤의 update는 손으로 고친 key를 지우지 않는다"
+```
+
+지금: `packages/core/config/store.ts`의 `reload`는 파일 읽기가 실패하면(I/O 오류) log만 남기고 돌아간다. `raw`와 `lastText`는 앞서 읽은 값 그대로다. 그 뒤 `update`는 그 옛 `raw`에서 시작해 바꾼 key만 덮어 파일 전체를 쓴다. 사람이 손으로 고친 직후 watch가 읽다가 실패하면(Windows에서 편집기·백신이 파일을 잠깐 잡을 때), 다음 Settings 화면 조작이 손으로 고친 내용을 지운다.
+
+영향: 사람이 `settings.json`을 손으로 고친 내용(MCP server, shell 규칙 등)을 잃는다. 드물지만 알리지 않고 지운다.
+
+고치려면:
+- `update`가 쓰기 직전에 파일을 다시 읽어, 그 내용에서 시작해 바꾼 key만 덮는다. 읽기가 실패하면 쓰기를 거절(`unavailable`)한다. 작음. 추천.
+
+닫음: `update`가 쓰기 직전에 파일을 다시 읽어(`apply(readText())`) 그 내용에서 시작해 바꾼 key만 덮는다. 읽기가 실패하면 `unavailable`로 쓰지 않는다. watch debounce(100ms) 안의 손 편집 뒤 update가 옛 raw에서 시작하던 것도 같이 막힌다.

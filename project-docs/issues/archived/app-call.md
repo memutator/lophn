@@ -133,3 +133,39 @@ guard: packages/core/apps/agent-tools/runtime_test.ts "app.status 요약이 상�
 - 추천: 앞의 것.
 
 닫음: `runtime.ts`의 `app.status` 요약이 `body.state.state`를 쓰고, `reason`이 있으면 ` (<code>: <summary>)`를 덧붙인다. 예: `app app_x is unavailable (crash_loop: unexpected exits exceeded five within ten minutes)`.
+
+## 서비스가 sign-in을 거절해도 "시간이 지났다"로 보인다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/core/apps]
+closed: fixed
+guard: 없음
+```
+
+지금: 사람이 browser에서 [거부]를 누르면 발급자가 loopback으로 `error=access_denied`를 돌려준다. `openCallbackListener`(`packages/core/lophn-agent/extensions/mcp-auth-control.ts`)는 그 요청을 `refused`로 받아 `receive`를 실패로 끝내고, `createMcpAuth`의 `complete`(`packages/core/lophn-agent/extensions/mcp-auth.ts`)는 받기 실패를 모두 `callback_timeout`으로 적는다. 앱 Access 탭과 MCP 상태가 같은 code를 쓴다.
+
+영향: 사람이 거절했는데 앱 Access 탭은 "Sign-in timed out. Try again."을 보인다. 사람은 왜 끝났는지 모르고 다시 같은 sign-in을 연다.
+
+고치려면:
+- 작음(추천): listener가 거절을 `forbidden`으로, 시한·취소를 `unavailable`로 이미 나눠 돌려준다. `complete`가 `forbidden`이면 `exchange_failed`(문구 "The service rejected the sign-in.")로 적는다. 실패 이유 enum은 그대로다.
+- 작음: 이유 `denied`를 `McpAuthFailure`와 `APP_OAUTH_FAILURES`에 더하고 문구를 하나 더한다. 계약과 화면 둘을 고친다.
+
+닫음: `createMcpAuth`의 `complete`가 받기 실패의 `forbidden`(발급자가 거절)을 `exchange_failed`("The service rejected the sign-in.")로 적는다. 시한·취소(`unavailable`)는 `callback_timeout` 그대로다. 실패 이유 enum은 바뀌지 않았다.
+
+## 새 data root에는 옛 SDK 판이 없어 그 판에 고정된 앱이 준비되지 않음
+
+```yaml
+kind: bug
+modules: [packages/core/apps/packages]
+closed: fixed
+guard: 없음
+```
+
+지금: SDK package마다 source 폴더가 하나라 `installSdkCopies`(`packages/core/apps/packages/install.ts`)는 지금 판만 `<data root>/sdk/<이름>/<판>`에 깐다. 옛 판 사본은 지우지 않으므로 이미 쓰던 data root에서는 `@lophn/declaration` 2.0.0, `@lophn/app-ui` 2.0.0에 고정된 앱이 그대로 돈다. 새 data root에는 2.1.0만 있어, 2.0.0에 고정된 앱 source를 연결하면 release 준비의 SDK sync가 `not_found`로 실패한다.
+
+영향: 다른 기계나 새 data root로 옮긴 사람의 옛 앱이 의존 판을 올리기 전까지 준비되지 않는다. 판을 올릴 때마다 같다.
+
+고치려면: (가) 옛 판 사본을 제품에 같이 싣는다(SDK 폴더를 판마다 두거나 release 때 사본을 남긴다). (나) 준비 실패 이유에 "앱의 SDK 판을 지금 판으로 올린다"를 싣는다. 추천은 (나): 가장 단순하고 앱 agent가 바로 고친다.
+
+닫음: (나)로 했다. SDK sync의 `not_found`가 앱이 고정한 `<package>@<판>`, 깔린 판 목록, "앱의 의존 판을 깔린 판으로 올린다(새 SDK는 code를 고쳐야 할 수 있다)"를 싣고, release 준비(`from-source.ts`)가 그 글을 `sdk_not_installed: …` 이유에 그대로 넘긴다. 옛 판 사본은 여전히 싣지 않는다. 본문의 판 숫자는 그때 것이다(지금 `@lophn/declaration` 3.0.0, `@lophn/app-ui` 2.2.0).

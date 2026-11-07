@@ -2,21 +2,6 @@
 
 앱 tool 호출의 판정, 기록, write 직렬화와 changeset 기반 rewind. `project-docs/architecture/app-call.md`.
 
-## 서비스가 sign-in을 거절해도 "시간이 지났다"로 보인다
-
-```yaml
-kind: bug
-modules: [packages/core/lophn-agent, packages/core/apps]
-```
-
-지금: 사람이 browser에서 [거부]를 누르면 발급자가 loopback으로 `error=access_denied`를 돌려준다. `openCallbackListener`(`packages/core/lophn-agent/extensions/mcp-auth-control.ts`)는 그 요청을 `refused`로 받아 `receive`를 실패로 끝내고, `createMcpAuth`의 `complete`(`packages/core/lophn-agent/extensions/mcp-auth.ts`)는 받기 실패를 모두 `callback_timeout`으로 적는다. 앱 Access 탭과 MCP 상태가 같은 code를 쓴다.
-
-영향: 사람이 거절했는데 앱 Access 탭은 "Sign-in timed out. Try again."을 보인다. 사람은 왜 끝났는지 모르고 다시 같은 sign-in을 연다.
-
-고치려면:
-- 작음(추천): listener가 거절을 `forbidden`으로, 시한·취소를 `unavailable`로 이미 나눠 돌려준다. `complete`가 `forbidden`이면 `exchange_failed`(문구 "The service rejected the sign-in.")로 적는다. 실패 이유 enum은 그대로다.
-- 작음: 이유 `denied`를 `McpAuthFailure`와 `APP_OAUTH_FAILURES`에 더하고 문구를 하나 더한다. 계약과 화면 둘을 고친다.
-
 ## core를 다시 켜면 sign-in 실패 이유가 사라진다
 
 ```yaml
@@ -56,16 +41,3 @@ modules: [packages/shell/main, packages/core/apps]
 - 지금: shell main의 화면 호출(`packages/shell/main/app-frame/app-call.ts`)은 view의 고정 선언을 `declaration-source.ts`로 읽는데, live release일 때만 읽는다. preview view에서는 `unavailable`이다. core의 `callPreview`는 person의 preview 호출을 받는다.
 - 영향: 앱을 짓는 쪽이 preview에서 화면을 눌러 operation을 확인하지 못한다. agent는 `preview.call`로 부르지만 사람은 화면으로 확인할 길이 없다.
 - 고치려면: `declaration-source.ts`가 preview bundle의 선언도 읽고 호출 대상을 `{mode: "preview", app, process_nonce}`로 보낸다. 작다.
-
-## 새 data root에는 옛 SDK 판이 없어 그 판에 고정된 앱이 준비되지 않음
-
-```yaml
-kind: bug
-modules: [packages/core/apps/packages]
-```
-
-지금: SDK package마다 source 폴더가 하나라 `installSdkCopies`(`packages/core/apps/packages/install.ts`)는 지금 판만 `<data root>/sdk/<이름>/<판>`에 깐다. 옛 판 사본은 지우지 않으므로 이미 쓰던 data root에서는 `@lophn/declaration` 2.0.0, `@lophn/app-ui` 2.0.0에 고정된 앱이 그대로 돈다. 새 data root에는 2.1.0만 있어, 2.0.0에 고정된 앱 source를 연결하면 release 준비의 SDK sync가 `not_found`로 실패한다.
-
-영향: 다른 기계나 새 data root로 옮긴 사람의 옛 앱이 의존 판을 올리기 전까지 준비되지 않는다. 판을 올릴 때마다 같다.
-
-고치려면: (가) 옛 판 사본을 제품에 같이 싣는다(SDK 폴더를 판마다 두거나 release 때 사본을 남긴다). (나) 준비 실패 이유에 "앱의 SDK 판을 지금 판으로 올린다"를 싣는다. 추천은 (나): 가장 단순하고 앱 agent가 바로 고친다.

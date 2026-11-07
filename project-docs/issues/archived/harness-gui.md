@@ -66,3 +66,39 @@ guard: `codex_test.ts`(requestUserInput)
 - 그 요청을 ACP `question_asked`로 내고 `answer` 입력을 요청의 응답으로 돌려준다. 중간(harness마다 요청 꼴이 다르다). 추천.
 
 닫음: 계획 harness-gui-tab. Codex `item/tool/requestUserInput`은 질문 카드이고 답을 질문 id로 돌려준다. OpenCode는 server API로 다시 짜며 `form.created`가 카드를 열고 `form.reply`·`form.cancel`로 답한다. omp `ask`도 질문 카드다.
+
+## `claude`가 끝나면 그 GUI에서 더 이어 갈 수 없다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+closed: fixed
+guard: `packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` "CLI가 끝난 뒤의 send는 같은 session id로 query를 다시 열어 그 메시지를 넣고, 못 열면 실패한 turn으로 끝난다"
+```
+
+지금: `claude.ts`는 SDK의 `for await`가 끝나거나 throw하면 `dead`를 두고 실패한 turn을 하나 낸다(`failure`). 그 뒤의 `send`는 사람 메시지를 보이고 곧바로 같은 오류로 실패한 turn이 된다(`sendText`). `dead`를 되돌리는 곳이 없고, session menu에서 같은 session을 고르면 `openSession`이 아무것도 하지 않는다.
+
+영향: CLI가 죽거나 끝난 뒤에는 사람이 TUI로 넘겼다가 GUI로 다시 와야(새 adapter가 같은 session id로 resume한다) 이어 간다.
+
+고치려면:
+- 다음 `send`에서 같은 session id로 `reopen`해 query를 다시 열고 `dead`를 비운 뒤 그 메시지를 넣는다. 작음. 추천.
+- GUI에 "CLI가 끝났다"를 보이고 입력창을 막는다. 작음. 이어 가기는 여전히 toggle로만 된다.
+
+닫음: `dead` 뒤의 send는 같은 CLI session id로 query를 다시 열고(`revive`, 메시지가 없던 session은 `sessionId`) 그 메시지를 넣는다. 다시 열기가 실패하면 이유 줄과 함께 실패한 turn이다. `reopen`이 `dead`를 비우고, session menu에서 같은 session을 다시 고르면 다시 연다. 다시 열 때 돌던 `!` 명령은 끝나고 그 결과는 model에게 가지 않는다.
+
+## Codex subagent 이벤트가 lane이 열리기 전이나 다시 연 뒤에 빠진다
+
+```yaml
+kind: defect
+modules: [packages/shell/main]
+closed: fixed
+guard: `packages/shell/main/extensions/bundled/harness-gui/codex_test.ts` "spawn item보다 먼저 온 자식 thread 이벤트는 lane이 열릴 때 그 안에 들어간다"
+```
+
+지금: `codex.ts`는 `spawnAgent` item이 끝나 자식 thread id를 본 뒤에 자식 lane을 연다. 그 전에 온 자식 thread 이벤트는 모르는 thread라 버린다. 다시 열면(resume) 자식 대화를 `thread/turns/list`로 다시 그리지만 자식 thread를 구독하지 않는다.
+
+영향: 녹화에서는 순서가 맞았지만 보장되지 않는다. 자식의 첫 메시지·tool 줄이 subagent 보기에서 빠질 수 있다. GUI를 다시 연 뒤 아직 도는 subagent는 흘러나오지 않고 끝날 때까지 멈춘 것처럼 보인다.
+
+고치려면: 모르는 thread의 이벤트를 짧게 쌓아 두고 spawn item이 그 thread id를 알리면 lane에 붓는다. resume 때 도는 자식(`agentsStates`)마다 `thread/resume`으로 구독한다. 작음.
+
+닫음: lane이 없는 thread의 이벤트는 thread마다 50개, 모두 200개까지 쌓았다가 spawn item이 그 thread를 알리면 순서대로 붓고, root turn이 끝나면 버린다. 다시 열면 `replayChildren` 뒤에 도는 자식마다 `thread/resume`(`excludeTurns: true`)을 보낸다. `thread/turns/list`와 자식 `thread/resume` 사이에 온 이벤트는 여전히 빠질 수 있다.

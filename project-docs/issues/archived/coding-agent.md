@@ -640,3 +640,35 @@ guard: 없음
 - 고치려면: harness host를 extension `harness`(manifest와 entry)로 둔다(계획 harness-agent의 headless host, 작음).
 
 닫음: extension `harness`의 manifest(`packages/shell/main/extensions/bundled/harness/manifest.json`)가 있어 Settings › System › Extensions에 harness 줄이 보이고 켠다.
+
+## coding agent에게 준 공유 skill을 끄는 화면이 없다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/core/approvals]
+closed: fixed
+guard: 없음
+```
+
+지금: `lophn app share --coding-agents`를 승인하면 앱 slug가 설정 `coding-agent.shared_apps`에 들어가고, `lophn harness sync-skills`가 그 앱의 public skill을 harness skill 폴더에 깐다. 그 목록에서 앱을 빼는 화면은 없다. 사람은 `~/.lophn/settings.json`을 직접 고쳐야 하고, 고치면 다음 sync가 사본을 지운다.
+
+영향: coding agent가 더 이상 그 앱의 skill을 보지 않게 하려는 사람이 설정 파일 key 이름을 알아야 한다.
+
+고치려면: Settings의 coding agent 쪽에 공유 앱 목록과 빼기를 둔다(작음). 추천.
+
+닫음: Settings › Coding agents에 "Apps shared with coding agents" 목록과 앱마다 Remove가 있다(`packages/shell/renderer/desktop/settings/connections/`). 지우기는 쓰기 직전에 값을 다시 읽어 slug 하나만 뺀다(같은 값에 승인이 덧붙는다). 바뀌면 shell main이 `SettingsChanged`로 skill sync를 돈다. General 화면은 이 key를 더 보이지 않는다. 목록은 앱 이름이 아니라 slug다.
+
+## harness agent는 home에서 돌지 않고, opencode는 git root에 쓴다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+closed: fixed
+guard: 없음
+```
+
+- 지금: harness host(`packages/shell/main/extensions/bundled/harness/host.ts`)는 session workspace의 폴더를 cwd로 띄운다. workspace가 home이거나 폴더 없는 project·app이면 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄). opencode(`opencode run --standalone`, v2.1.4)는 spawn cwd가 아니라 그 위 git root를 작업 폴더로 써서, git 저장소 안 하위 폴더를 project 폴더로 둔 곳에서는 저장소 맨 위에 쓴다(lead가 실제 실행으로 봤다).
+- 영향: home의 전역 agent(Image Generator 같은 것)를 harness로 두면 부를 때마다 실패한다. 하위 폴더 project의 opencode agent는 폴더 밖 파일을 고친다. 앱 source 폴더는 늘 git root라 앱에서는 생기지 않는다.
+- 고치려면: home은 data root 안 session마다 빈 작업 폴더를 cwd로 준다(작음). opencode는 project 폴더가 git root가 아니면 띄우지 않거나, opencode의 directory 지정 수단을 찾아 넘긴다(작음). 추천: 둘 다.
+
+닫음: home session은 `<data root>/harness-home/<session>/`을 turn 시작 때 만들어 cwd로 준다(지우지 않는다). 폴더 없는 project·app은 그대로 띄우지 않는다. opencode(2.1.4 `run`에는 directory option이 없다)는 폴더가 git 저장소 안이지만 그 root가 아니면(`git rev-parse --show-prefix`가 비지 않으면) 띄우지 않고 이유 한 줄로 turn을 끝낸다. data root가 git 저장소 안이면 home의 opencode도 거절된다.

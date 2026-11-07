@@ -62,3 +62,18 @@ guard: 없음
 추천: 첫째의 `write`·`writeSync`만. 실수로 부를 만한 길은 그 둘이다.
 
 닫음: `packages/sdk/flow/wire.ts`가 module을 읽을 때 원래 `Deno.stdout.write`를 잡아 두고 통로는 그것만 쓴다. `packages/sdk/flow/entry.ts`는 `wire.ts`를 먼저 import한 뒤, `flow.ts`를 import하기 전에 `Deno.stdout.write`·`writeSync`를 stderr로 돌린다(`console`과 같은 자리). `Deno.stdout.writable` stream은 돌리지 않는다(실수로 부를 만한 길이 아니다). 진짜 flow process를 띄우는 test는 두지 않았다.
+
+## 이름 없는 `{kind: harness}` 참가자가 아직 선언된다
+
+```yaml
+kind: defect
+modules: [packages/protocol, packages/core/workflows, packages/shell/renderer]
+closed: fixed
+guard: `packages/core/workflows/schema_test.ts` "harness 참가자와 harness 이유가 저장된 행은 step 뒤 새 schema로 읽힌다"
+```
+
+- 지금: harness agent는 runtime이 harness인 이름 있는 agent라 `{agent}` 참가자로 넘긴다. 그런데 옛 설계의 `{kind: "harness"}`가 protocol(`packages/protocol/workflows/declaration.ts`, `values.ts`, `instances.ts`의 not_handed 이유 `harness`), core(`packages/core/workflows/declaration.ts`, `plan.ts`), renderer(`packages/shell/renderer/workspace/source.ts`)에 남아 선언으로 받고 넘길 때 `not_handed`(`unresolved`)가 된다.
+- 영향: workflow를 쓰는 사람이나 agent가 받을 곳 없는 참가자를 선언할 수 있고, 지울 때까지 세 package가 쓰이지 않는 꼴을 지닌다.
+- 고치려면: kind를 지우고 저장된 instance `participants`의 `{kind: "harness"}`를 옮기는 ledger step을 더한다(중간). 추천.
+
+닫음: protocol, core, renderer, `write-workflow` skill에서 `{kind: "harness"}`와 not_handed 이유 `harness`를 지웠다. ledger step `workflows.no-harness-kind`(목록 끝)가 저장된 instance의 harness 참가자를 지우고 `harness` not_handed 줄을 `unresolved`로 바꾼다(줄 trigger를 잠시 내렸다 같은 정의로 다시 건다). `workflow.yaml`에 아직 `{kind: harness}`가 있으면 `invalid_declaration`이고 손으로 고쳐야 한다(agent 이름을 알 수 없다).

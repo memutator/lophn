@@ -10,7 +10,7 @@
 
 ## 남은 일
 
-1. ~~서드 파티 harness 참가자~~ 끝남(계획 harness-agent, 2026-11-04): harness agent는 runtime이 harness인 이름 있는 agent라 `{agent}` 참가자로 넘긴다. 남은 이름 없는 `{kind: harness}` 지우기는 `project-docs/issues/workflow.md`.
+1. ~~서드 파티 harness 참가자~~ 끝남(계획 harness-agent, 2026-11-04): harness agent는 runtime이 harness인 이름 있는 agent라 `{agent}` 참가자로 넘긴다. 이름 없는 `{kind: harness}`는 지웠다(저장된 instance는 ledger step `workflows.no-harness-kind`가 옮긴다).
 
 ## 정한 것 (사람)
 

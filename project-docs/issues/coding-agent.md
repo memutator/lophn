@@ -13,40 +13,16 @@ modules: [packages/cli, packages/core]
 - 영향: 사람 터미널의 coding agent가 help를 보고 이 명령을 부르면 이유 없이 `forbidden`을 받는다. lophn이 띄운 harness agent turn은 env의 turn 자격(`LOPHN_AGENT_CREDENTIAL`)으로 `call.*`·`session.list`를 부른다(`architecture/coding-agent.md`의 "harness agent"). 사람 터미널의 coding agent에는 아직 신원이 없다.
 - 고치려면: 쓰기(`job.create`, `package.publish`)와 session 사이 메시지(`call.*`)는 coding agent의 신원이 정해질 때 연다(`project-docs/products/roadmap/command-surface.md` 15, `project-docs/products/roadmap/workflow.md`). 그때까지 binary help에서 binary가 부를 수 없는 명령을 빼거나 표시한다. 추천: coding agent 신원과 같이 연다.
 
-## coding agent에게 준 공유 skill을 끄는 화면이 없다
+## fork한 harness session이 harness 쪽 앞 대화를 물려받지 않는다
 
 ```yaml
 kind: bug
-modules: [packages/shell/renderer, packages/core/approvals]
+modules: [packages/core/lophn-agent]
 ```
 
-지금: `lophn app share --coding-agents`를 승인하면 앱 slug가 설정 `coding-agent.shared_apps`에 들어가고, `lophn harness sync-skills`가 그 앱의 public skill을 harness skill 폴더에 깐다. 그 목록에서 앱을 빼는 화면은 없다. 사람은 `~/.lophn/settings.json`을 직접 고쳐야 하고, 고치면 다음 sync가 사본을 지운다.
-
-영향: coding agent가 더 이상 그 앱의 skill을 보지 않게 하려는 사람이 설정 파일 key 이름을 알아야 한다.
-
-고치려면: Settings의 coding agent 쪽에 공유 앱 목록과 빼기를 둔다(작음). 추천.
-
-## harness session에서 대기 메시지 steer와 fork가 harness에 닿지 않는다
-
-```yaml
-kind: bug
-modules: [packages/core/main, packages/core/lophn-agent]
-```
-
-- 지금: harness session의 입력은 `packages/core/main/daemon/wiring/harness.ts`의 따로 둔 queue에 쌓인다. 대기 메시지를 "지금 steer"로 올리는 `steerNow`(`packages/core/main/daemon/wiring/lophn-agent-runtime.ts`)는 run-loop queue만 보므로 harness session에서는 늘 `conflict`("the turn already took this message")다. 도는 turn 중에 보낸 메시지는 다음 turn의 입력이 된다. fork한 harness session(`packages/core/lophn-agent/workspaces/lifecycle.ts` `startSession`)은 외부 session id(`sessions.harness_session`)를 물려받지 않아 harness 쪽 대화가 새로 시작한다.
-- 영향: 사람이 harness session에서 steer를 누르면 틀린 이유로 거절되고, fork하면 harness가 앞 대화를 모른다.
-- 고치려면: steer는 harness session이면 버튼을 숨기거나 `unavailable`("harness는 turn 중에 받지 못한다")로 거절한다(작음, 추천). fork는 headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주고 나머지는 지금처럼 새로 시작한다(중간).
-
-## harness agent는 home에서 돌지 않고, opencode는 git root에 쓴다
-
-```yaml
-kind: bug
-modules: [packages/shell/main]
-```
-
-- 지금: harness host(`packages/shell/main/extensions/bundled/harness/host.ts`)는 session workspace의 폴더를 cwd로 띄운다. workspace가 home이거나 폴더 없는 project·app이면 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄). opencode(`opencode run --standalone`, v2.1.4)는 spawn cwd가 아니라 그 위 git root를 작업 폴더로 써서, git 저장소 안 하위 폴더를 project 폴더로 둔 곳에서는 저장소 맨 위에 쓴다(lead가 실제 실행으로 봤다).
-- 영향: home의 전역 agent(Image Generator 같은 것)를 harness로 두면 부를 때마다 실패한다. 하위 폴더 project의 opencode agent는 폴더 밖 파일을 고친다. 앱 source 폴더는 늘 git root라 앱에서는 생기지 않는다.
-- 고치려면: home은 data root 안 session마다 빈 작업 폴더를 cwd로 준다(작음). opencode는 project 폴더가 git root가 아니면 띄우지 않거나, opencode의 directory 지정 수단을 찾아 넘긴다(작음). 추천: 둘 다.
+- 지금: fork한 harness session(`packages/core/lophn-agent/workspaces/lifecycle.ts` `startSession`)은 외부 session id(`sessions.harness_session`)를 물려받지 않아 harness 쪽 대화가 새로 시작한다. (같이 적었던 steer는 고쳤다: harness session은 ACP `steer` capability가 꺼져 있고 send-now가 `unavailable`이다.)
+- 영향: 사람이 harness session을 fork하면 harness가 앞 대화를 모른다.
+- 고치려면: headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주고 나머지는 지금처럼 새로 시작한다(중간).
 
 ## opencode harness agent는 사람의 opencode 권한 설정대로 돈다
 

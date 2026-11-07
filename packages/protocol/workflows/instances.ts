@@ -72,7 +72,6 @@ export type WorkflowInstance = z.infer<typeof workflowInstanceSchema>;
 export const NOT_HANDED_REASONS = [
   "unknown_step",
   "unknown_participant",
-  "harness",
   "no_with",
   "unresolved",
 ] as const;

@@ -10,7 +10,6 @@ import {
 // by·with·next가 가리키는 이름이 있는지는 읽을 때 보지 않는다(넘길 때 "넘기지 못함" 줄이 된다).
 const declarationParticipantSchema = z.union([
   z.looseObject({ kind: z.literal("human") }),
-  z.looseObject({ kind: z.literal("harness") }),
   z.looseObject({
     agent: z.string().min(1),
     workspace: workspaceNameSchema.optional(),

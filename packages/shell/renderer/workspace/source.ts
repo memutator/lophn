@@ -177,7 +177,7 @@ export interface WorkflowInstanceView {
             | { readonly project: string }
             | { readonly app: string };
         }
-      | { readonly kind: "human" | "harness" }
+      | { readonly kind: "human" }
     >
   >;
   readonly steps: readonly {

@@ -202,5 +202,9 @@
   {
     "id": "acp.items.tables",
     "sha256": "96e431cb96f2b7bfda13d694fb2af4dd979f98b8218cfd507e269092449136c6"
+  },
+  {
+    "id": "workflows.no-harness-kind",
+    "sha256": "314913f797299b4a35568e5f5c41ab0bfb235f068775e95b30bebfc7625a3725"
   }
 ]

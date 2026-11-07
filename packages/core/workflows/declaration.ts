@@ -64,9 +64,7 @@ export function participantsOf(
     const p = raw as Participant;
     out[key] =
       "kind" in p
-        ? p.kind === "harness"
-          ? { kind: "harness" }
-          : { kind: "human" }
+        ? { kind: "human" }
         : {
             agent: p.agent,
             ...(p.workspace !== undefined && { workspace: p.workspace }),

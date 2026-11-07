@@ -40,11 +40,10 @@ does not read it or call it wrong.
   see Flow workflows below.
 - `agent`: for a `flow`, the agent whose assignment the app
   command calls use. It is an agent name; when left out it is lophn.
-- `participants`: a map from a key you choose to `{ agent, workspace? }`,
-  `{ kind: human }` or `{ kind: harness }`.
+- `participants`: a map from a key you choose to `{ agent, workspace? }`
+  or `{ kind: human }`.
   - `agent` is the agent's name. `workspace` is `{project: <name>}` or
     `{app: <name>}`; when left out it is this instance's project, not home.
-  - `harness` can be declared but a step cannot be handed to it yet.
 - `steps`: a map from a step name to `{ by, with?, prompt, in?, out?, next? }`.
   The first key is the first step.
   - `by`: the participant key that does the step.

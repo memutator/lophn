@@ -41,7 +41,6 @@ export const workflow = {
   "workflow.label.note-line": "{who}: {text}",
   "workflow.label.note-stopped": "Stopped by you",
   "workflow.label.notes": "Notes",
-  "workflow.label.participant-harness": "Coding agent",
   "workflow.label.participant-human": "You",
   "workflow.label.participant-job": "Scheduled job {title}",
   "workflow.label.participant-job-untitled": "Scheduled job",
@@ -71,8 +70,6 @@ export const workflow = {
   "workflow.label.target": "this workflow",
   "workflow.note.input-help": "What the first step should work on.",
   "workflow.note.input-help-flow": "The flow gets this text as its input.",
-  "workflow.note.not-handed-harness":
-    "Couldn't send it on: the coding agent for this step isn't available.",
   "workflow.note.not-handed-no-with":
     "Couldn't send it on: this step is yours but has nobody to talk it through with.",
   "workflow.note.not-handed-unknown-participant":

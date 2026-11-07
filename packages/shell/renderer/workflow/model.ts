@@ -49,7 +49,6 @@ export const STEP_KEY: Record<StepShown, MessageKey> = {
 const NOT_HANDED_KEY: Record<string, MessageKey> = {
   unknown_step: "workflow.note.not-handed-unknown-step",
   unknown_participant: "workflow.note.not-handed-unknown-participant",
-  harness: "workflow.note.not-handed-harness",
   no_with: "workflow.note.not-handed-no-with",
   unresolved: "workflow.note.not-handed-unresolved",
 };
@@ -62,11 +61,7 @@ export function participantText(
   participant: WorkflowInstanceView["participants"][string],
 ): string {
   if ("kind" in participant) {
-    return t(
-      participant.kind === "human"
-        ? "workflow.label.participant-human"
-        : "workflow.label.participant-harness",
-    );
+    return t("workflow.label.participant-human");
   }
   const { agent, workspace } = participant;
   if (workspace === undefined) return agent;

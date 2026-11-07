@@ -38,6 +38,7 @@ import {
   createWorkflowService,
   runningInstances,
   WORKFLOW_CHANGED_TOPIC,
+  workflowsNoHarnessKindSteps,
   type WorkflowFlows,
 } from "../../../workflows/mod.ts";
 import { checkWorkflow } from "../../flow-host/check.ts";
@@ -177,6 +178,7 @@ export const workflowsWiring: WiringFactory = () => {
   let service: ReturnType<typeof createWorkflowService> | undefined;
   return {
     name: "workflows",
+    schemaStepsAfterTeams: workflowsNoHarnessKindSteps,
     records: () => [WORKFLOWS_CONTEXT],
     build(ctx) {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });

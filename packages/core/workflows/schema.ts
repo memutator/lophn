@@ -4,7 +4,7 @@ import type { SchemaStep } from "../../protocol/server/mod.ts";
 // - state_seq는 이 표 안에서 이어 센다(기록 event를 남기지 않는다).
 // - 끝난 instance를 막는 trigger는 없다. ended는 기록일 뿐이라 running으로 돌아올 수 있고,
 //   stopped의 넘기기는 command가 거절한다.
-// - participants는 `{ agent, workspace? } | { kind: "human" } | { kind: "harness" }` JSON이다.
+// - participants는 `{ agent, workspace? } | { kind: "human" }` JSON이다.
 // - 줄은 기록이라 고치거나 지우지 않는다. body는 started·report의 글, data는 kind별 나머지 칸이다.
 export const workflowsSchemaSteps: readonly SchemaStep[] = [
   {
@@ -61,6 +61,30 @@ export const workflowsSchemaSteps: readonly SchemaStep[] = [
       SELECT 1 FROM json_each(workflow_instances.participants)
       WHERE json_type(value, '$.place') IS NOT NULL
     );
+  `,
+  },
+];
+
+// 위 목록 뒤에 새 step을 붙일 수 없어(낸 step의 자리가 팀 등록 한가운데다) 목록 끝에 등록하는 wiring(workflows.ts)이 따로 낸다.
+// 이름 없는 `{ kind: "harness" }` 참가자와 not_handed 이유 `harness`를 없앴다. harness agent는 이름 있는 agent 참가자다.
+// 참가자는 지운다(그 key를 by로 쓰던 step은 넘길 때 unknown_participant가 된다). 줄은 trigger를 잠시 내려 이유를 unresolved로 옮긴다.
+export const workflowsNoHarnessKindSteps: readonly SchemaStep[] = [
+  {
+    id: "workflows.no-harness-kind",
+    sql: `
+    UPDATE workflow_instances SET participants = (
+      SELECT json_group_object(key, json(value))
+      FROM json_each(workflow_instances.participants)
+      WHERE value ->> '$.kind' IS NOT 'harness'
+    ) WHERE EXISTS (
+      SELECT 1 FROM json_each(workflow_instances.participants)
+      WHERE value ->> '$.kind' IS 'harness'
+    );
+    DROP TRIGGER workflow_lines_keep;
+    UPDATE workflow_lines SET data = json_set(data, '$.reason', 'unresolved')
+    WHERE kind = 'not_handed' AND data ->> '$.reason' = 'harness';
+    CREATE TRIGGER workflow_lines_keep BEFORE UPDATE ON workflow_lines
+    BEGIN SELECT RAISE(ABORT, 'a workflow line does not change'); END;
   `,
   },
 ];

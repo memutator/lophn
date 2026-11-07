@@ -209,7 +209,8 @@ export type LoopFailureReason =
   | "stall_limit"
   | "effect_unknown"
   | "configuration_unavailable"
-  | "target_unavailable";
+  | "target_unavailable"
+  | "internal";
 
 export type FinishRequest = {
   outcome:

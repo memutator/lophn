@@ -192,7 +192,7 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
           await turn.closeStarted("loop_threw").catch(() => {});
           return {
             kind: "finish_failed",
-            outcome: { kind: "failed", reason: "configuration_unavailable" },
+            outcome: { kind: "failed", reason: "internal" },
             error: { code: "internal", message: text },
           };
         })

@@ -113,6 +113,8 @@ export const conversation = {
     "This conversation is too long for the model. Compact it, or start a new one.",
   "conversation.error.turn-effect-unknown":
     "lophn couldn't tell whether the last action finished. Check it before trying again.",
+  "conversation.error.turn-internal":
+    "lophn hit an internal error and stopped this turn. Try again; if it keeps happening, report it.",
   "conversation.error.turn-model-attempt-limit":
     "The model failed too many times in a row.",
   "conversation.error.turn-model-error": "The model returned an error.",

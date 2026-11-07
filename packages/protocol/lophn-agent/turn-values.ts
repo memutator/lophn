@@ -28,6 +28,8 @@ const TURN_OUTCOME_REASONS = {
     "model_required",
     "target_unavailable",
     "no_answer",
+    // core 안에서 던진 예외 같은 lophn 자체의 오류다. 설정을 고쳐도 풀리지 않는다.
+    "internal",
   ],
   interrupted: ["user_stopped", "restarted", "session_ended"],
 } as const;

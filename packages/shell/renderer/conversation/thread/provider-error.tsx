@@ -40,6 +40,7 @@ const FAILED_TEXT = {
   model_required: "conversation.error.turn-model-required",
   target_unavailable: "conversation.error.turn-target-unavailable",
   no_answer: "conversation.error.turn-no-answer",
+  internal: "conversation.error.turn-internal",
 } as const satisfies Record<FailedReason, MessageKey>;
 
 export function ProviderError({

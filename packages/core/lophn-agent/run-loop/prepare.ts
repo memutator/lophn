@@ -232,7 +232,8 @@ type PreparedTurn = {
   begin: BeginTurnInput;
   startTurn(input: BeginTurnInput): Promise<Result<StartTurnResult>>;
   // StartTurn은 확정됐지만 loop를 이어 가지 못할 때(credential을 못 받음, 입력이 없어짐, loop가 던짐) turn을
-  // failed(configuration_unavailable)로 닫는다. 이미 끝났으면 아무것도 하지 않는다. why는 result blob에 남는다.
+  // failed로 닫는다. loop_threw는 internal, 나머지는 configuration_unavailable이다. 이미 끝났으면 아무것도 하지 않는다.
+  // why는 result blob에 남는다.
   closeStarted(why: "credential" | "input_gone" | "loop_threw"): Promise<void>;
   // StartTurn이 확정되고 credential을 받은 뒤에 loop 재료를 만든다.
   loop(
@@ -1099,7 +1100,13 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             finishTurn,
             {
               turn,
-              outcome: { kind: "failed", reason: "configuration_unavailable" },
+              outcome: {
+                kind: "failed",
+                reason:
+                  why === "loop_threw"
+                    ? "internal"
+                    : "configuration_unavailable",
+              },
               result: result.value.hash,
               result_size: result.value.size,
             },

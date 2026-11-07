@@ -57,6 +57,8 @@ type TxContext = {
   turn: string | null;
   // command 실행기의 현재 자격 snapshot. lowlevel transaction에는 없다.
   request?: RequestContext;
+  // command 정의의 unboundedRows. 행 수 한도를 보지 않는다.
+  unboundedRows?: boolean;
 };
 
 // handler 안에서는 throw로만 거절을 알릴 수 있다. 경계에서 Result로 바꾼다.
@@ -213,7 +215,9 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     if (changed < 0n) throw fail(err(internalError()));
     if (!write && changed > 0n) throw fail(READ_CHANGED);
     changedRows += changed;
-    if (changedRows > COMMAND_MAX_CHANGED_ROWS) throw fail(OVER_LIMIT);
+    if (ctx.unboundedRows !== true && changedRows > COMMAND_MAX_CHANGED_ROWS) {
+      throw fail(OVER_LIMIT);
+    }
     if (thrown !== undefined) throw sqlFailure(thrown.error, fail);
     return value as T;
   };

@@ -275,6 +275,7 @@ function commitCommand(
           actor: credential.value.actor,
           turn: effectiveTurn(credential.value, envelope.turn),
           request: request.value,
+          ...(definition.unboundedRows === true ? { unboundedRows: true } : {}),
         });
       },
       txDeps,

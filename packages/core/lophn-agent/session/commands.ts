@@ -192,6 +192,8 @@ export function createConversationCommands(deps: ConversationDeps): {
     },
     delete: {
       route: deleteSession,
+      // 긴 대화는 메시지·turn·model call 기록이 1000행을 넘는다. 사람만 부른다.
+      unboundedRows: true,
       // app.delete가 같은 Tx에서 그 앱 workspace의 session을 지운다.
       dispatchable: true,
       handle(tx, ctx, input: Input<typeof deleteSession>, compare) {

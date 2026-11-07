@@ -249,6 +249,8 @@ export function createAppCommands(): {
     // 파일과 shell 쪽은 commit 뒤 core/main이 지운다. 지운 앱의 event(AppCreated 등)는 immutable이라 남는다.
     delete: {
       route: appDelete,
+      // 쓰던 앱은 대화·invocation·data 기록이 1000행을 쉽게 넘는다. 사람만 부르고 보관한 앱만 지운다.
+      unboundedRows: true,
       handle(tx, ctx, input, compare) {
         const actor = requireUser(ctx);
         if (!actor.ok) return actor;

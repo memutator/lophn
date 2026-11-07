@@ -65,6 +65,9 @@ export type CommandDefinition<R extends CommandRoute = CommandRoute> = {
   // 상위 경로와 같은 transaction에서만 성립해야 해서
   // 어느 자격이든 `/...`로 직접 부르면 등록되지 않은 command와 같은 답을 받는다. `tx.call`은 그대로 부른다.
   dispatchOnly?: boolean;
+  // 한 command가 바꾸는 행 수 한도(1000)를 끈다. 사람만 부르는 command가 한 대상의 기록을 통째로 지울 때만 쓴다
+  // (예: 앱 지우기). 한도는 agent 쪽 폭주 쓰기를 막는 것이라 그 밖에서는 켜 둔다.
+  unboundedRows?: boolean;
   handle(
     tx: Tx,
     ctx: RequestContext,

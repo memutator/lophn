@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { stripStatusGlyphs, tabName } from "./model.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
+import { guiSessionId, stripStatusGlyphs, tabName } from "./model.ts";
 
 test("터미널 제목 앞의 상태 글리프를 뗀다", () => {
   const cases: [string, string][] = [
@@ -91,4 +92,10 @@ test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제
     }),
     auto,
   );
+});
+
+test("GUI 화면의 session id는 ACP 입력의 session 검사를 통과한다", () => {
+  const session = guiSessionId("win_01hzx3k4m5n6p7q8r9s0t1v2w3");
+  assert.equal(session, "ses_01hzx3k4m5n6p7q8r9s0t1v2w3");
+  assert.ok(idSchema("ses").safeParse(session).success);
 });

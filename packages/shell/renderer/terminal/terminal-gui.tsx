@@ -50,6 +50,7 @@ import {
 import type { TabItem } from "../workspace/model.ts";
 import type { TabHost } from "../workspace/kinds/host.ts";
 import type { TerminalDeps } from "./deps.ts";
+import { guiSessionId } from "./model.ts";
 import { useGuiRequests } from "./use-gui-requests.ts";
 
 // ---- 탭 fields ----
@@ -117,7 +118,7 @@ const NO_CORE: CoreSource = {
 
 // session id는 handle이 사는 동안 같아야 한다. 탭을 오가 다시 붙어도 창의 DraftStore가 같은 입력 글과 읽던 위치를 돌려준다.
 function createGuiFeed(handle: string, now: () => number): GuiFeed {
-  const session = `ses_${handle}`;
+  const session = guiSessionId(handle);
   let state = EMPTY_ACP_STATE;
   const listeners = new Set<(message: EventMessage) => void>();
   const watchers = new Set<() => void>();

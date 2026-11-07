@@ -214,3 +214,11 @@ export function tabName({
   const stripped = agentTitle === null ? "" : stripStatusGlyphs(agentTitle);
   return stripped.length > 0 ? stripped : auto;
 }
+
+/**
+ * GUI 화면이 쓰는 session id. handle(`win_<ULID>`)이 사는 동안 같아 탭을 오가도 쳐 둔 글이 남는다. ACP 입력이 session을
+ * `ses_<ULID>`로 검사하므로 handle의 ULID를 그대로 쓴다(`ses_win_…`이면 main이 모든 입력을 거절한다).
+ */
+export function guiSessionId(handle: string): string {
+  return `ses_${handle.slice(handle.indexOf("_") + 1)}`;
+}

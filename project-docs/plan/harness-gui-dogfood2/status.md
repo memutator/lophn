@@ -7,5 +7,7 @@ lead만 고친다. `tools/status.py harness-gui-dogfood2 build`가 `tasks/*.md`�
 | `code-block-shell` | chat | 1 | 없음 | merged | chat/code-block-shell | f7631fbd4 |  |
 | `live-throttle` | chat | 1 | 없음 | merged | chat/live-throttle | 1debcc29d |  |
 | `gui-title-flash` | gui | 1 | 없음 | merged | gui/gui-title-flash | e01f56f53 |  |
-| `steer-background` | adapter | 2 | 없음 | todo |  |  |  |
-| `toggle-queued` | gui | 2 | 없음 | todo |  |  |  |
+| `steer-background` | adapter | 2 | 없음 | running | adapter/steer-background |  |  |
+| `tick-sync` | chat | 2 | 없음 | todo |  |  |  |
+| `toggle-queued` | gui | 2 | 없음 | running | gui/toggle-queued |  |  |
+| `claude-child-tasks` | adapter | 3 | steer-background | todo |  |  |  |

@@ -135,19 +135,30 @@ export function parseAppUrl(
 
 /**
  * view 안에서 여는 첫 주소. 페이지가 자기 view_session을 알 수 있게 이 view의 식별자만 query로
- * 싣는다. 다른 화면의 주소에는 붙지 않고 core로도 넘기지 않는다.
+ * 싣는다. 자리·인자·workspace도 열릴 때 정해지므로 query로 싣고, 앱 preload가 읽는다.
+ * 다른 화면의 주소에는 붙지 않고 core로도 넘기지 않는다.
  */
 export function appEntryUrl(
   appLabel: string,
   screen: string,
   viewSession?: string,
+  place?: { place: string; params?: unknown; workspace?: unknown },
 ): string {
   const base = `${APP_SCHEME}://${appLabel}/${encodeURIComponent(
     screen,
   )}/index.html`;
-  return viewSession === undefined
-    ? base
-    : `${base}?${new URLSearchParams({ view_session: viewSession })}`;
+  if (viewSession === undefined) return base;
+  const query = new URLSearchParams({ view_session: viewSession });
+  if (place !== undefined) {
+    query.set("place", place.place);
+    if (place.params !== undefined) {
+      query.set("params", JSON.stringify(place.params));
+    }
+    if (place.workspace !== undefined) {
+      query.set("workspace", JSON.stringify(place.workspace));
+    }
+  }
+  return `${base}?${query}`;
 }
 
 function header(

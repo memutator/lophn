@@ -6,6 +6,8 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { appLogViewError } from "../../../../protocol/apps/mod.ts";
+import { validateInput } from "../../../../protocol/apps/declaration/schema.ts";
+import type { InputSchema } from "../../../../protocol/apps/declaration/types.ts";
 import {
   VIEW_STATE_CHANNEL,
   type AppViewOpen,
@@ -87,6 +89,8 @@ export function register(
   const appFrame = createAppFrame({
     connector: ctx.appConnector,
     views: appViews.views,
+    validateParams: (schema, params) =>
+      validateInput(schema as InputSchema | null, params),
     sessionHandle: appViews.sessionHandle,
     // 화면 byte는 core의 file route `app.screen_file`이 내준다.
     upstream: createCoreUpstream((input, signal) => {

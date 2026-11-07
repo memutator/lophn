@@ -4,6 +4,7 @@ import type {
   AppBinding,
   ConnectTarget,
   Place,
+  PlaceWorkspace,
   ViewMode,
 } from "./app-connection.ts";
 import type { ViewHealth, ViewHealthSignal } from "./crash.ts";
@@ -15,6 +16,8 @@ interface AppFrameOpen {
   release: string | null;
   screen: string;
   place: Place;
+  params?: ConnectTarget["params"];
+  workspace?: PlaceWorkspace;
 }
 
 export type ConnectionState =
@@ -113,17 +116,41 @@ const OPEN_KEYS: Record<string, true> = {
   release: true,
   screen: true,
   place: true,
+  params: true,
+  workspace: true,
 };
-const OPEN_KEY_COUNT = Object.keys(OPEN_KEYS).length;
+// 없어도 되는 칸. 나머지는 모두 있어야 한다.
+const OPTIONAL_KEYS = ["card", "params", "workspace"] as const;
+const REQUIRED_KEY_COUNT = Object.keys(OPEN_KEYS).length - OPTIONAL_KEYS.length;
 
-/** 모르는 field도 거절한다. 카드는 있을 때만 센다. */
+function plainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// 모양만 본다. params 값은 선언의 params schema가 registry에서 다시 검사한다.
+function checkWorkspace(value: unknown): value is PlaceWorkspace {
+  if (!plainObject(value)) return false;
+  return (
+    Object.keys(value).length === 3 &&
+    ["project", "home", "app"].includes(value.kind as string) &&
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
+    Array.isArray(value.folders) &&
+    value.folders.every((folder) => typeof folder === "string")
+  );
+}
+
+/** 모르는 field도 거절한다. 없어도 되는 칸은 있을 때만 센다. */
 export function checkOpen(value: unknown): AppFrameOpen | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const input = value as Record<string, unknown>;
+  if (!plainObject(value)) return undefined;
+  const input = value;
   const keys = Object.keys(input);
+  const optional = OPTIONAL_KEYS.filter(
+    (key) => input[key] !== undefined,
+  ).length;
   if (
     keys.some((key) => OPEN_KEYS[key] === undefined) ||
-    keys.length !== OPEN_KEY_COUNT - (input.card === undefined ? 1 : 0)
+    keys.length !== REQUIRED_KEY_COUNT + optional
   ) {
     return undefined;
   }
@@ -137,7 +164,9 @@ export function checkOpen(value: unknown): AppFrameOpen | undefined {
     ) ||
     (input.mode === "live" && input.release === null) ||
     !SAFE_TEXT(input.screen) ||
-    !PLACES.includes(input.place as string)
+    !PLACES.includes(input.place as string) ||
+    (input.params !== undefined && !plainObject(input.params)) ||
+    (input.workspace !== undefined && !checkWorkspace(input.workspace))
   ) {
     return undefined;
   }
@@ -212,5 +241,7 @@ export function targetOf(input: AppFrameOpen): ConnectTarget {
     release: input.release,
     screen: input.screen,
     place: input.place,
+    ...(input.params === undefined ? {} : { params: input.params }),
+    ...(input.workspace === undefined ? {} : { workspace: input.workspace }),
   };
 }

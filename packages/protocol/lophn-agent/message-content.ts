@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { canonicalize } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
 import { durationMsSchema, sha256Schema } from "../base/values.ts";
 import { type ContentBlock, contentBlocksSchema } from "./content-block.ts";
 import { messageImageTypeSchema } from "./message-images.ts";
@@ -22,6 +23,8 @@ const appCardFields = {
   kind: z.literal("app_card"),
   app: idSchema("app"),
   view: z.string().min(1),
+  // 카드 화면 선언의 params schema를 통과한 인자. 옛 message에는 없다.
+  params: jsonObjectSchema.optional(),
 };
 const appCardPartInputSchema = z.strictObject(appCardFields);
 const appCardPartSchema = z.object(appCardFields);

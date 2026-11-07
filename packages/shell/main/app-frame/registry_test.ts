@@ -19,6 +19,13 @@ const OPEN = {
   place: "tab",
 } as const;
 
+// 화면 선언의 params. panel 화면만 `status` 문자열 하나를 받고 나머지 화면은 params가 없다.
+const PANEL_PARAMS = {
+  type: "object",
+  properties: { status: { type: "string", description: "filter" } },
+  required: ["status"],
+};
+
 // fake 창·guest. guest id는 실제 Electron처럼 그 webContents id를 그대로 쓴다.
 function createFrame() {
   let contentsId = 0;
@@ -38,6 +45,12 @@ function createFrame() {
       },
       async hosts() {
         return { ok: true as const, value: [] };
+      },
+      async screenParams(_app, _release, screen) {
+        return {
+          ok: true as const,
+          value: screen === "panel" ? PANEL_PARAMS : null,
+        };
       },
     },
     views: {
@@ -63,6 +76,19 @@ function createFrame() {
       handleProtocol() {},
       async clearCache() {},
     }),
+    // 실제 검사는 protocol의 validateInput(wiring이 넘긴다). 여기서는 같은 모양의 거절만 흉내 낸다.
+    validateParams(schema, params) {
+      const value = params as Record<string, unknown>;
+      const keys = Object.keys(value);
+      if (schema === null) {
+        return keys.length === 0
+          ? { ok: true, value: undefined }
+          : { ok: false };
+      }
+      return keys.length === 1 && typeof value.status === "string"
+        ? { ok: true, value }
+        : { ok: false };
+    },
     upstream: async () => ({ status: 200, headers: {}, body: null }),
     platformPorts: () => [],
     diagnostics: createViewDiagnostics({
@@ -87,7 +113,7 @@ test("open은 src를 내고, acceptGuest는 그 창의 그 src만 한 번 받는
   const { src, view_session } = opened.value;
   assert.match(
     src,
-    /^lophn-app:\/\/app-[0-9a-z]+\/panel\/index\.html\?view_session=view-\d+&mount=1$/,
+    /^lophn-app:\/\/app-[0-9a-z]+\/panel\/index\.html\?view_session=view-\d+&place=tab&mount=1$/,
   );
   assert.equal(frame.owner(view_session), WINDOW);
 
@@ -160,4 +186,34 @@ test("다른 창은 이 창의 view를 닫거나 다시 열지 못한다", async
   assert.equal(frame.state(opened.value.view_session)?.src, opened.value.src);
   frame.closeWindow(WINDOW);
   assert.equal(frame.owner(opened.value.view_session), undefined);
+});
+
+test("선언의 params schema에 맞지 않는 인자와 params를 선언하지 않은 화면의 인자는 열기가 거절된다", async () => {
+  const { frame } = createFrame();
+  const bad = [
+    await frame.open(WINDOW, { ...OPEN, params: {} }),
+    await frame.open(WINDOW, { ...OPEN, params: { status: 1 } }),
+    await frame.open(WINDOW, { ...OPEN, params: { status: "x", extra: 1 } }),
+    await frame.open(WINDOW, { ...OPEN, screen: "plain", params: { a: 1 } }),
+  ];
+  for (const result of bad) {
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.error.code, "invalid_input");
+  }
+
+  const opened = await frame.open(WINDOW, {
+    ...OPEN,
+    params: { status: "open" },
+    workspace: { kind: "project", id: "prj_1", folders: ["/work/a"] },
+  });
+  if (!opened.ok) return assert.fail("view did not open");
+  // 검사를 통과한 값만 화면 주소로 간다.
+  const query = new URL(opened.value.src).searchParams;
+  assert.equal(query.get("place"), "tab");
+  assert.deepEqual(JSON.parse(query.get("params") ?? ""), { status: "open" });
+  assert.deepEqual(JSON.parse(query.get("workspace") ?? ""), {
+    kind: "project",
+    id: "prj_1",
+    folders: ["/work/a"],
+  });
 });

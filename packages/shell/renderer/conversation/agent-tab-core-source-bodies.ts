@@ -57,7 +57,14 @@ async function readBody(
       case "resource":
         return [{ kind: "resource", uri: part.uri, text: part.text }];
       case "app_card":
-        return [{ kind: "app_card", app: part.app, view: part.view }];
+        return [
+          {
+            kind: "app_card",
+            app: part.app,
+            view: part.view,
+            ...(part.params === undefined ? {} : { params: part.params }),
+          },
+        ];
       // harness가 쓴 tool 줄은 전용 줄이 생기기 전까지 글 한 줄로 보인다.
       case "harness_tool":
         return [

@@ -4,6 +4,9 @@
 // transport와 Electron event는 closure 안에 남는다.
 import type { Result } from "../../base/result.ts";
 import type {
+  AppPlace,
+  AppPlaceWorkspace,
+  Json,
   LophnApp,
   TabHead,
   TabHeadEvent,
@@ -82,7 +85,54 @@ async function result(
   } as Result<never>;
 }
 
-export function createAppTool(transport: AppTransport): LophnApp {
+const PLACES = ["tab", "panel", "card", "sidebar", "tray"] as const;
+
+function parsed(search: URLSearchParams, name: string): unknown {
+  const text = search.get(name);
+  if (text === null) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// main이 연 주소의 query에서 읽는다. 틀린 값은 place null로 돌려주고 앱이 자리를 모르는 채로 그린다.
+export function placeOf(query: string): AppPlace {
+  const search = new URLSearchParams(query);
+  const place = search.get("place");
+  const params = parsed(search, "params");
+  const workspace = parsed(search, "workspace");
+  const folders = isObject(workspace) ? workspace.folders : undefined;
+  if (
+    !PLACES.includes(place as (typeof PLACES)[number]) ||
+    (params !== undefined && !isObject(params)) ||
+    (workspace !== undefined &&
+      !(
+        isObject(workspace) &&
+        ["project", "home", "app"].includes(workspace.kind as string) &&
+        typeof workspace.id === "string" &&
+        Array.isArray(folders) &&
+        folders.every((folder) => typeof folder === "string")
+      ))
+  ) {
+    return { place: null, params: {}, workspace: null };
+  }
+  return {
+    place: place as AppPlace["place"],
+    params: (params ?? {}) as { [key: string]: Json },
+    workspace: (workspace ?? null) as AppPlaceWorkspace | null,
+  };
+}
+
+export function createAppTool(
+  transport: AppTransport,
+  query: string,
+): LophnApp {
   // shell이 머리 줄을 그리는지는 page가 받기 시작하기 전에 올 수 있어 여기 쥐고 있다가 새 listener에 준다.
   let shown = false;
   const listeners = new Set<(event: TabHeadEvent) => void>();
@@ -117,6 +167,7 @@ export function createAppTool(transport: AppTransport): LophnApp {
     // shell 밖이면 머리 줄이 없다.
   }
   return Object.freeze({
+    place: Object.freeze(placeOf(query)),
     callOperation: (operation: string, input: unknown) =>
       request(transport, APP_CALL_OPERATION_CHANNEL, { operation, input }),
     async openExternal(url: string): Promise<void> {

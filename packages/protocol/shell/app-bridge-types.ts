@@ -56,7 +56,25 @@ export type LophnAppAgent<
   send(input: Input): Promise<Result<void>>;
 };
 
+/** 화면이 열린 workspace. project의 folders는 등록한 폴더 path 목록이고, Home과 앱 workspace는 비어 있다. */
+export type AppPlaceWorkspace = {
+  kind: "project" | "home" | "app";
+  id: string;
+  folders: string[];
+};
+
+/**
+ * 화면이 열릴 때 정해진 자리와 인자와 workspace. 읽기만 하고 화면이 열려 있는 동안 바뀌지 않는다.
+ * lophn이 준 값이 틀리면 place는 null이고 params는 `{}`, workspace는 null이다.
+ */
+export type AppPlace = {
+  place: "tab" | "panel" | "card" | "sidebar" | "tray" | null;
+  params: { [key: string]: Json };
+  workspace: AppPlaceWorkspace | null;
+};
+
 export type LophnApp = {
+  place: AppPlace;
   callOperation(operation: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
   agent: LophnAppAgent;

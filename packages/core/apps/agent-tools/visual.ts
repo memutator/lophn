@@ -1,7 +1,7 @@
 import { ok } from "../../../base/mod.ts";
 import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import { recordMessage } from "../../../protocol/lophn-agent/mod.ts";
-import { cardViewDeclared } from "./app-card.ts";
+import { cardParams, cardViewDeclared } from "./app-card.ts";
 import {
   commandOf,
   defineTool,
@@ -21,18 +21,24 @@ const nonblank = z.string().refine((value) => value.trim().length > 0, {
 export const VISUAL_TOOLS: readonly ToolDefinition[] = [
   defineTool({
     name: "visual.show",
-    input: z.strictObject({ app: idSchema("app"), view: nonblank }),
+    input: z.strictObject({
+      app: idSchema("app"),
+      view: nonblank,
+      params: z.record(z.string(), z.json()).optional(),
+    }),
     routes: [appTools, recordMessage],
     description:
-      "Show an app card in the conversation. view is a screen key of the app's declaration that declares the card size.",
+      "Show an app card in the conversation. view is a screen key of the app's declaration that declares the card place. params is the input for that screen and must match the screen's declared params schema (omit it when the screen declares none).",
     effect: "read",
     handler: async (input, ctx) => {
-      const { app, view } = input;
+      const { app, view, params } = input;
       const read = await readOf(ctx.core, appTools, { app });
       if (!read.ok) return read;
       if (!cardViewDeclared(read.value.screens, view)) {
         return notFound("the app has no such card view");
       }
+      const checked = cardParams(read.value.screens, view, params);
+      if (!checked.ok) return checked;
       const posted = await commandOf(
         ctx.core,
         recordMessage,
@@ -42,7 +48,16 @@ export const VISUAL_TOOLS: readonly ToolDefinition[] = [
           turn: ctx.turn,
           content: {
             schema_version: 1,
-            parts: [{ kind: "app_card", app, view }],
+            parts: [
+              {
+                kind: "app_card",
+                app,
+                view,
+                ...(checked.value === undefined
+                  ? {}
+                  : { params: checked.value }),
+              },
+            ],
           },
         },
         {},

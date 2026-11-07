@@ -4,6 +4,14 @@
 // 바깥 host는 active net.fetch grant 가운데 지금 release가 선언한 것에서 읽는다.
 import type { FetchHost } from "./network-policy.ts";
 
+type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 // shell은 packages/base를 import하지 않는다. core 통로 결과 모양만 맞춘다.
 export type CallResult =
   | { ok: true; value: unknown }
@@ -37,6 +45,13 @@ export function failure(
 export type ViewMode = "live" | "preview";
 export type Place = "tab" | "panel" | "card" | "sidebar" | "tray";
 
+/** 화면이 열린 workspace. 앱 화면은 URL query로 받는다. */
+export interface PlaceWorkspace {
+  kind: "project" | "home" | "app";
+  id: string;
+  folders: string[];
+}
+
 /** view가 묶일 대상. live는 release가 있다. preview의 release는 없어도 된다. */
 export interface ConnectTarget {
   app: string;
@@ -44,6 +59,9 @@ export interface ConnectTarget {
   release: string | null;
   screen: string;
   place: Place;
+  /** 열 때 정한 화면 인자. 선언의 params schema를 통과한 값이다. */
+  params?: Record<string, JsonValue>;
+  workspace?: PlaceWorkspace;
 }
 
 /** view에 묶인 앱 process. 같은 값이면 같은 process의 같은 bundle이다. */
@@ -195,6 +213,28 @@ export function createAppConnector(call: CoreCaller) {
   }
 
   return {
+    /**
+     * release 선언에서 그 화면의 params schema를 읽는다. 선언에 params가 없으면 null이다.
+     * 화면이 선언에 없거나 선언을 읽지 못하면 실패다.
+     */
+    async screenParams(
+      app: string,
+      release: string,
+      screen: string,
+    ): Promise<Outcome<unknown>> {
+      const reply = await call("read", "apps", "tools", { app, release });
+      if (!reply.ok) return mapped(reply.error);
+      const value = record(reply.value);
+      const screens = Array.isArray(value?.screens) ? value.screens : [];
+      const found = screens
+        .map((item) => record(item))
+        .find((item) => item?.key === screen);
+      if (value?.release !== release || found === undefined) {
+        return failure("invalid_input", "the app has no such screen");
+      }
+      return { ok: true, value: found.params ?? null };
+    },
+
     /**
      * view 하나가 볼 앱 process를 알아낸다. live에서 `followRelease`면 지금 채택된 release를
      * 받아들인다(갱신). 아니면 다른 release는 conflict다. preview는 지금 preview process다.

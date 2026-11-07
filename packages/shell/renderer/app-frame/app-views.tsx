@@ -1,11 +1,12 @@
 // 프로젝트 앱 패널 탭과 세션 앱 카드가 같이 쓰는 창 통로. view는 shell
 // preload의 view 통로로 main이 열고, 이름·판은 core의 app read로 읽는다. 앱 UI 코드와 앱 scheme
 // 자원은 여기 오지 않는다. 창마다 하나를 provider로 둔다.
-import { createContext, useContext } from "react";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
 
 import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { AppViewOpen, LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import type { WorkspaceRef } from "../shell/desk-model.ts";
 
 /** 앱 등록에서 view 크롬과 판 고정이 쓰는 것만. */
 interface AppFacts {
@@ -56,6 +57,39 @@ export const AppViewsProvider = AppViewsContext.Provider;
 /** 없으면(테스트, overlay, preload 없는 창) 앱 view 자리는 그릴 수 없다는 안내만 둔다. */
 export function useAppViews(): AppViewsDeps | null {
   return useContext(AppViewsContext);
+}
+
+const AppWorkspaceContext = createContext<AppViewOpen["workspace"]>(undefined);
+
+/**
+ * 창이 보이는 workspace. 앱 화면이 열릴 때 `usePlace().workspace`로 받는다. 창 밖(전역 float)은
+ * provider가 없어 workspace 없이 연다. folders는 project의 등록 폴더 path 목록이다.
+ */
+export function AppWorkspaceProvider(props: {
+  workspace: WorkspaceRef;
+  folders: readonly string[];
+  children: ReactNode;
+}) {
+  const { workspace } = props;
+  const id = workspace.kind === "home" ? "home" : workspace.id;
+  const folders = JSON.stringify(props.folders);
+  const value = useMemo(
+    () => ({
+      kind: workspace.kind,
+      id,
+      folders: JSON.parse(folders) as string[],
+    }),
+    [workspace.kind, id, folders],
+  );
+  return (
+    <AppWorkspaceContext.Provider value={value}>
+      {props.children}
+    </AppWorkspaceContext.Provider>
+  );
+}
+
+export function useAppWorkspace(): AppViewOpen["workspace"] {
+  return useContext(AppWorkspaceContext);
 }
 
 interface AppGetValue {

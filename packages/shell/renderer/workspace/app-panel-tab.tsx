@@ -16,6 +16,7 @@ import {
   type AppScreens,
   type ScreensRead,
   useAppViews,
+  useAppWorkspace,
 } from "../app-frame/app-views.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
 import { ViewChrome } from "../app-frame/view-chrome.tsx";
@@ -185,6 +186,7 @@ export function AppPanelTab({
   onOpenAppSpace,
 }: AppPanelTabProps) {
   const deps = useAppViews();
+  const workspace = useAppWorkspace();
   const [facts, setFacts] = useState<Facts>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<AppFrameViewState | null>(null);
@@ -264,6 +266,7 @@ export function AppPanelTab({
           release={release}
           screen={screen}
           place="panel"
+          workspace={workspace}
           label={facts.value.name}
           shown={shown}
           keepKey={keepKey}

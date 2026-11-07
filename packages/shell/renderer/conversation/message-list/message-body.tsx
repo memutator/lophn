@@ -89,7 +89,12 @@ export const MessageBody = memo(function MessageBody({
                 key={index}
                 message={message}
                 block={`card-${index}`}
-                card={{ app: part.app, release: null, view: part.view }}
+                card={{
+                  app: part.app,
+                  release: null,
+                  view: part.view,
+                  ...(part.params === undefined ? {} : { params: part.params }),
+                }}
                 title={part.view}
               />
             );

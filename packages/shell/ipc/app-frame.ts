@@ -40,6 +40,15 @@ const appViewCardSchema = z
   })
   .strict();
 
+// 화면이 열린 workspace. 화면이 자기 workspace를 보고 맞춘다.
+const placeWorkspaceSchema = z
+  .object({
+    kind: z.enum(["project", "home", "app"]),
+    id: z.string().min(1),
+    folders: z.array(z.string()),
+  })
+  .strict();
+
 export const appViewOpenSchema = z
   .object({
     app: appId,
@@ -47,6 +56,9 @@ export const appViewOpenSchema = z
     release: releaseId.optional(),
     screen: screenKey,
     place,
+    // 그 화면 선언의 params schema로 main이 다시 검사한다.
+    params: z.record(z.string(), z.json()).optional(),
+    workspace: placeWorkspaceSchema.optional(),
     card: appViewCardSchema.optional(),
   })
   .strict()

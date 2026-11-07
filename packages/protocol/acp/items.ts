@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { acpApprovalSubjectSchema } from "../approvals/gate-call.ts";
 import { idSchema } from "../base/ids.ts";
+import { jsonObjectSchema } from "../base/json-values.ts";
 import { atSchema } from "../base/values.ts";
 import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 import {
@@ -42,6 +43,7 @@ export type AcpReasoning = z.infer<typeof acpReasoningSchema>;
 export const acpCardSchema = z.strictObject({
   app: idSchema("app"),
   view: id,
+  params: jsonObjectSchema.optional(),
 });
 export type AcpCard = z.infer<typeof acpCardSchema>;
 

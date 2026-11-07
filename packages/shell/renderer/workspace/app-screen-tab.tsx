@@ -11,7 +11,7 @@ import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import { annotateHead } from "../app-frame/annotate/annotate-head.tsx";
 import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
 import { STAY, useViewToast } from "../app-frame/annotate/use-view-toast.ts";
-import { useAppViews } from "../app-frame/app-views.tsx";
+import { useAppViews, useAppWorkspace } from "../app-frame/app-views.tsx";
 import type { ShellHead } from "../app-frame/app-tab-head.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
 import { ViewChrome } from "../app-frame/view-chrome.tsx";
@@ -49,6 +49,7 @@ interface AppScreenTabProps {
 export function AppScreenTab(props: AppScreenTabProps) {
   const { app, source, shown, keepKey, agentView } = props;
   const deps = useAppViews();
+  const workspace = useAppWorkspace();
   const [attempt, setAttempt] = useState(0);
   const [record, setRecord] = useState<AppRecord>({ state: "loading" });
   const [entry, setEntry] = useState<Entry>({ state: "loading" });
@@ -191,6 +192,7 @@ export function AppScreenTab(props: AppScreenTabProps) {
         release={row.release}
         screen={entry.screen}
         place="tab"
+        workspace={workspace}
         label={row.name}
         shown={shown}
         keepKey={keepKey}

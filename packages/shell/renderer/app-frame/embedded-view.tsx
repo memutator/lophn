@@ -68,6 +68,11 @@ interface EmbeddedViewProps extends AppViewOpen {
 
 export function EmbeddedView(props: EmbeddedViewProps) {
   const { views, app, mode, release, screen, place, label, onState } = props;
+  // 값이 같으면 같은 view다. 객체가 render마다 새로 만들어져도 다시 열지 않는다.
+  const paramsJson =
+    props.params === undefined ? "" : JSON.stringify(props.params);
+  const workspaceJson =
+    props.workspace === undefined ? "" : JSON.stringify(props.workspace);
   const cardMessage = props.card?.message;
   const cardBlock = props.card?.block;
   const shown = props.shown ?? true;
@@ -109,12 +114,22 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       mode,
       screen,
       place,
+      ...(paramsJson === "" ? {} : { params: JSON.parse(paramsJson) }),
+      ...(workspaceJson === "" ? {} : { workspace: JSON.parse(workspaceJson) }),
       ...(release === undefined ? {} : { release }),
       ...(cardMessage === undefined || cardBlock === undefined
         ? {}
         : { card: { message: cardMessage, block: cardBlock } }),
     };
-    const signature = [app, mode, release, screen, place].join("\n");
+    const signature = [
+      app,
+      mode,
+      release,
+      screen,
+      place,
+      paramsJson,
+      workspaceJson,
+    ].join("\n");
     const dispose = (state: AppFrameViewState) => {
       if (keepKey !== undefined && keeps !== null) {
         keeps.put(keepKey, {
@@ -178,6 +193,8 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     release,
     screen,
     place,
+    paramsJson,
+    workspaceJson,
     cardMessage,
     cardBlock,
     attempt,

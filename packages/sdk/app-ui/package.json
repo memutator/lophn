@@ -1,6 +1,6 @@
 {
   "name": "@lophn/app-ui",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "exports": "./mod.ts",
   "dependencies": {

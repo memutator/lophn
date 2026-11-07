@@ -65,7 +65,20 @@ export type AskQuestion = {
 };
 
 export type AcpReasoning = { text: string; duration_ms: number | null };
-export type AcpCard = { app: string; view: string };
+type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type AcpCard = {
+  app: string;
+  view: string;
+  /** 카드 화면에 넘긴 인자. 없으면 인자 없이 열린다. */
+  params?: { [key: string]: JsonValue };
+};
 
 export type AcpMessageItem = {
   id: string;

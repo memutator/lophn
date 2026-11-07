@@ -7,7 +7,11 @@ import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../../ipc/app-frame.ts";
-import { type AppRead, useAppViews } from "../../app-frame/app-views.tsx";
+import {
+  type AppRead,
+  useAppViews,
+  useAppWorkspace,
+} from "../../app-frame/app-views.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
 import { ViewChrome } from "../../app-frame/view-chrome.tsx";
 import { useWebviewHost } from "../../app-frame/webview-host.tsx";
@@ -55,6 +59,7 @@ export function AppCardBlock({
   label,
 }: AppCardBlockProps) {
   const deps = useAppViews();
+  const workspace = useAppWorkspace();
   const webviews = useWebviewHost();
   const [facts, setFacts] = useState<AppRead | null>(null);
   const [settled, setSettled] = useState<Settled | null>(null);
@@ -137,6 +142,8 @@ export function AppCardBlock({
           {...(card.release === null ? {} : { release: card.release })}
           screen={card.view}
           place="card"
+          {...(card.params === undefined ? {} : { params: card.params })}
+          workspace={workspace}
           card={{ message, block }}
           label={label}
           onState={observe}

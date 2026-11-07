@@ -20,6 +20,7 @@ import {
   slimDetachedTab,
 } from "../../ipc/detached.ts";
 import { APP_PANEL, type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
+import { AppWorkspaceProvider } from "../app-frame/app-views.tsx";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
 import { useBookmarks } from "../browser/bookmarks.ts";
 import { useBrowserApi } from "../browser/browser-api.tsx";
@@ -2870,5 +2871,14 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       </WebviewHostProvider>
     </ViewKeepsProvider>
   );
-  return <InboxNamesProvider value={inboxNames}>{content}</InboxNamesProvider>;
+  return (
+    <InboxNamesProvider value={inboxNames}>
+      <AppWorkspaceProvider
+        workspace={workspace}
+        folders={(loaded.project?.folders ?? []).map((folder) => folder.path)}
+      >
+        {content}
+      </AppWorkspaceProvider>
+    </InboxNamesProvider>
+  );
 }

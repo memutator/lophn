@@ -56,6 +56,7 @@ function partsOf(item: AcpMessageItem): BodyPart[] {
         kind: "app_card",
         app: card.app,
         view: card.view,
+        ...(card.params === undefined ? {} : { params: card.params }),
       }),
     ),
   ];

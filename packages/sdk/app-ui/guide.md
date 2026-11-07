@@ -4,7 +4,8 @@
 
 앱 view의 bridge(`lophnApp`)를 쓰는 UI 셋이다. 선언한 operation 하나를 부르는
 `OperationButton`·`useOperation`, 앱 화면 root의 `AppErrorBoundary`, 화면의 머리
-조작을 lophn 탭 머리 줄에 올리는 `useTabHead`다. 화면은
+조작을 lophn 탭 머리 줄에 올리는 `useTabHead`, 화면이 열린 자리·인자·workspace를 읽는
+`usePlace`다. 화면은
 operation만 부르고, 호출은 앱 view의 `lophnApp.callOperation` 하나로만 한다.
 호출이 허락되는지, 사람이 정해야 하는지는 lophn이 정하고 앱 안에 따로 확인
 dialog를 두지 않는다. 조작은 lophn 화면과 같은 component(`@lophn/ui`)다. bridge가
@@ -60,7 +61,18 @@ import {
     세션 카드처럼 머리 줄이 없는 곳이면 false이고, 화면이 같은 조작을 스스로
     그린다. `null`이나 화면이 사라지면 내린다. `head`는 값이 바뀔 때만 다시
     올린다.
-- type: `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
+- `usePlace()` — 이 화면이 열릴 때 정해진 `{place, params, workspace}`다. 읽기만
+  하고 화면이 열려 있는 동안 바뀌지 않는다(dock·desk float·전역 float는 모두
+  `panel`이라 자리가 바뀌는 경우가 없다).
+  - `place`는 `tab`·`panel`·`card`·`sidebar`·`tray`다. 앱 view 밖이거나 lophn이
+    준 값이 틀리면 `null`이다. 선언에 적은 자리(`places`)에서만 열린다.
+  - `params`는 화면 선언의 `params` schema를 lophn이 이미 검사한 인자다. 인자 없이
+    열렸으면 `{}`다. 값을 쓰기 전에 앱이 다시 검사할 필요는 없다.
+  - `workspace`는 `{kind: "project" | "home" | "app", id, folders}`다. 앱 sidebar
+    panel처럼 모든 workspace에 나오는 화면이 이걸 보고 맞춘다. `folders`는
+    project의 등록 폴더 path 목록이고 Home과 앱 workspace는 `[]`이다. workspace를
+    모르는 자리(앱 전용 창, 전역 float)에서는 `null`이다.
+- type: `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
   `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`,
   `TabHeadEvent`, `TabHeadHandlers`, `TabHeadBridge`
@@ -142,6 +154,34 @@ return (
     …
   </AppShell>
 );
+```
+
+자리마다 다른 꼴로 그리고, 크기는 자리가 아니라 CSS container query로 맞춘다.
+같은 자리도 칸의 크기가 다르다(sidebar 폭, float 크기). 그래서 `place`는 어떤
+정보를 보일지(카드는 요약, tab은 전체)를 고르는 데 쓰고, 배치는 container query가
+정한다.
+
+```tsx
+import { usePlace } from "@lophn/app-ui";
+
+function Orders() {
+  const { place, params } = usePlace();
+  const status = typeof params.status === "string" ? params.status : "open";
+  // card는 요약 한 줄, 나머지는 표.
+  return (
+    <div className="orders">
+      {place === "card" ? <Summary status={status} /> : <Table status={status} />}
+    </div>
+  );
+}
+```
+
+```css
+.orders { container-type: inline-size; }
+/* 좁은 칸(sidebar, 작은 float)에서는 열을 줄인다. */
+@container (max-width: 360px) {
+  .orders .col-secondary { display: none; }
+}
 ```
 
 ## version 정책

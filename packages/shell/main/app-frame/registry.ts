@@ -56,10 +56,18 @@ export type {
 export { checkOpen } from "./view-model.ts";
 
 interface AppFrameDeps {
-  connector: Pick<AppConnector, "connect" | "hosts">;
+  connector: Pick<AppConnector, "connect" | "hosts" | "screenParams">;
   views: AppViewHost;
   sessionHandle(partition: string): AppSessionHandle;
   upstream: Upstream;
+  /**
+   * 화면 선언의 params schema(없으면 null)로 인자를 검사하고 정규화한 값을 낸다(protocol의
+   * `validateInput`). main tsc가 그 파일을 읽지 못해 wiring이 넘긴다.
+   */
+  validateParams(
+    schema: unknown,
+    params: unknown,
+  ): { ok: true; value: unknown } | { ok: false };
   /** loopback에서 막을 플랫폼 port. */
   platformPorts(): readonly number[];
   diagnostics: ViewDiagnostics;
@@ -109,13 +117,13 @@ function screenTargetOf(entry: Entry): ScreenTarget {
 }
 
 // view 하나가 새 화면을 열 때의 주소. `mount`가 바뀔 때마다 renderer가 guest를 새로 만든다.
-function entryUrl(
-  label: string,
-  screen: string,
-  view_session: string,
-  mount: number,
-): string {
-  return `${appEntryUrl(label, screen, view_session)}&mount=${mount}`;
+function entryUrl(label: string, entry: Entry, mount: number): string {
+  const { screen, place, params, workspace } = entry.target;
+  return `${appEntryUrl(label, screen, entry.view_session, {
+    place,
+    params,
+    workspace,
+  })}&mount=${mount}`;
 }
 
 export function createAppFrame(deps: AppFrameDeps) {
@@ -190,12 +198,7 @@ export function createAppFrame(deps: AppFrameDeps) {
     unmount(entry);
     entry.generation += 1;
     entry.token = deps.ids.token();
-    entry.src = entryUrl(
-      label,
-      entry.target.screen,
-      entry.view_session,
-      entry.generation,
-    );
+    entry.src = entryUrl(label, entry, entry.generation);
     entry.srcUsed = false;
     entry.viewHealth = "ok";
     byToken.set(entry.token, entry);
@@ -346,6 +349,26 @@ export function createAppFrame(deps: AppFrameDeps) {
       }
       const bound = await bind(targetOf(input), false);
       if (!bound.ok) return bound;
+      // 인자는 그 화면 선언의 params schema로만 받는다. 선언이 없으면 인자도 받지 않는다.
+      if (input.params !== undefined) {
+        const release = bound.value.target.release;
+        if (release === null) {
+          return failure("unavailable", "the screen declaration is unknown");
+        }
+        const declared = await deps.connector.screenParams(
+          input.app,
+          release,
+          input.screen,
+        );
+        if (!declared.ok) return declared;
+        const checked = deps.validateParams(declared.value, input.params);
+        if (!checked.ok) {
+          return failure("invalid_input", "params do not match the screen");
+        }
+        bound.value.target.params = (checked.value ?? {}) as NonNullable<
+          typeof input.params
+        >;
+      }
       if (!deps.views.hasWindow(window)) {
         return failure("invalid_input", "window is not open");
       }

@@ -191,7 +191,11 @@ export async function readMessageBody(
         shell = part;
         break;
       case "app_card":
-        cards.push({ app: part.app, view: part.view });
+        cards.push({
+          app: part.app,
+          view: part.view,
+          ...(part.params === undefined ? {} : { params: part.params }),
+        });
         break;
       case "reasoning":
         reasoning = {

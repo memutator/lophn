@@ -19,6 +19,7 @@ import {
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
+  AcpCard,
   AcpChildState,
   AcpInput,
   AcpPlan,
@@ -99,7 +100,12 @@ export type BodyPart =
       readonly uri: string;
       readonly text: string;
     }
-  | { readonly kind: "app_card"; readonly app: string; readonly view: string }
+  | {
+      readonly kind: "app_card";
+      readonly app: string;
+      readonly view: string;
+      readonly params?: AcpCard["params"];
+    }
   /** agent 답 앞의 reasoning 요약. 글은 redaction을 거쳤고 없으면 ""다. 복사 글과 model 이력에는 들지 않는다. */
   | {
       readonly kind: "reasoning";

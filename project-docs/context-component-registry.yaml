@@ -561,6 +561,15 @@ components:
       paths: [.claude/skills/orchestrate/brief-template.md]
       note: 계획을 열거나 닫을 때.
 
+  - id: skill-sdk-note
+    kind: skill
+    roles: [worker, lead]
+    description: SDK 판을 올리거나 앱 agent가 읽는 지침을 바꿀 때 판 정하기, pin 고치기, migrate-sdk 메모와 Instruction diff 쓰기, 지원 하한 정하기.
+    path: .claude/skills/sdk-note/
+    change_reasons:
+      paths: [tools/check-sdk-notes.ts, packages/core/agent-workspaces/skills/migrate-sdk/SKILL.md, packages/core/apps/packages/template/app/]
+      note: 메모 꼴, 읽는 쪽 절차, pin이 있는 곳이 바뀔 때.
+
   - id: skill-write-test
     kind: skill
     roles: [worker]

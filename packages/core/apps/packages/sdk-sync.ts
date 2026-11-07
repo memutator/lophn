@@ -5,7 +5,7 @@
 // 실제 경로에서 위로 올라가 앱의 `node_modules`에서 풀려야 한다.
 // SDK 사본끼리의 의존도 `file:../../<이름>/<판>`이라 같은 방법으로 따라가 복사한다.
 import { chmod, cp, readdir, readFile, rm, stat } from "node:fs/promises";
-import { join, normalize, relative, sep } from "node:path";
+import { dirname, join, normalize, relative, sep } from "node:path";
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 
 export const APP_SDK_FOLDER = ".lophn/sdk";
@@ -60,6 +60,22 @@ async function removeCopy(target: string): Promise<void> {
   }
 }
 
+// 앱 agent가 읽는 이유다. 앱이 건 판과 설치된 판을 보여 줘 의존을 설치된 판으로 올리게 한다.
+async function notInstalledMessage(
+  dataRoot: string,
+  path: string,
+): Promise<string> {
+  const folder = dirname(path);
+  const name = folder.startsWith("sdk/@me/")
+    ? `@me/${folder.slice("sdk/@me/".length)}`
+    : `@lophn/${folder.slice("sdk/".length)}`;
+  const pinned = path.slice(folder.length + 1);
+  const installed = await readdir(join(dataRoot, folder)).catch(() => []);
+  const have =
+    installed.length > 0 ? installed.join(", ") : "none (not installed)";
+  return `SDK is not installed: ${name}@${pinned} (${path}). Installed versions: ${have}. Update the app's ${name} dependency in package.json to an installed version; the newer SDK may need code changes.`;
+}
+
 // 복사한 `sdk/...` 경로 목록을 돌려준다. 설치되지 않은 판은 not_found다.
 export async function syncAppSdk(
   appDir: string,
@@ -87,7 +103,7 @@ export async function syncAppSdk(
       } catch {
         return err({
           code: "not_found",
-          message: `SDK is not installed: ${path}`,
+          message: await notInstalledMessage(dataRoot, path),
         });
       }
       try {

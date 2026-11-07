@@ -240,7 +240,7 @@ export async function prepareFromSource(
     if (aborted()) return fail("cancelled");
 
     const synced = await syncAppSdk(staging, input.dataRoot);
-    if (!synced.ok) return fail("sdk_not_installed");
+    if (!synced.ok) return fail(`sdk_not_installed: ${synced.error.message}`);
     if (synced.value.length > 0)
       await makeTreeWritable(`${staging}/.lophn/sdk`);
     if (aborted()) return fail("cancelled");

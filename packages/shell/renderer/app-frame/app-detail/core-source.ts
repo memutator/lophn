@@ -16,6 +16,7 @@ import {
   appEditFolders,
   appSetIcon,
 } from "../../../../protocol/apps/mod.ts";
+import type { Notice } from "../../../../protocol/apps/notice.ts";
 import {
   iconInputOf,
   iconViewOf,
@@ -49,6 +50,7 @@ import type {
   ActivationStep,
   ActivityRow,
   AppDetailSource,
+  AppNoticeRow,
   AppToolRow,
   Caller,
   CallState,
@@ -66,6 +68,7 @@ import type {
 /** 목록을 끝까지 모을 때 page 상한. 넘으면 모은 것까지만 보인다. */
 const PAGE_LIMIT = 10;
 const ACTIVITY_LIMIT = 100;
+const NOTICE_LIMIT = 20;
 
 async function call<T>(
   core: CoreSource,
@@ -801,7 +804,7 @@ export function coreAppDetailSource(
       stored(call(core, "memory", "apps", "oauth_sign_out", { app, name })),
 
     async activity(app) {
-      const [invocations, releases, active] = await Promise.all([
+      const [invocations, releases, active, history] = await Promise.all([
         read<{ invocations: AppInvocation[] }>(core, "apps", "invocations", {
           app,
           mode: "live",
@@ -809,6 +812,11 @@ export function coreAppDetailSource(
         }),
         releaseRecords(core, app),
         activeRelease(core, app),
+        read<{ notices: Notice[] }>(core, "notices", "list", {
+          app,
+          persistent: true,
+          limit: NOTICE_LIMIT,
+        }),
       ]);
       if (!invocations.ok) return invocations;
       if (!active.ok) return active;
@@ -848,7 +856,17 @@ export function coreAppDetailSource(
             ? 1
             : b.at.localeCompare(a.at),
       );
-      return { ok: true, value: { rows } };
+      const notices: AppNoticeRow[] = history.ok
+        ? history.value.notices.map((row) => ({
+            id: row.id,
+            kind: row.kind,
+            title: row.title,
+            body: row.body,
+            at: row.created_at,
+            unread: row.read_at === null,
+          }))
+        : [];
+      return { ok: true, value: { rows, notices } };
     },
 
     async rewindPlan(app, from) {

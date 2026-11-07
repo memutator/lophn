@@ -20,7 +20,7 @@ export function WaitingPage({
   /** 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
 }) {
-  const { entries, notices } = useWaiting();
+  const { entries, notices, historyUnread } = useWaiting();
   const finished = useFinished();
   const settled = useSettled(entries);
   const { clear } = settled;
@@ -34,6 +34,7 @@ export function WaitingPage({
       settled={settled}
       finished={finished}
       notices={notices}
+      historyUnread={historyUnread}
       onOpenSession={onOpenSession}
       onShowFinished={(target) => notice()?.open(target)}
       onDismissFinished={(target) => void notice()?.dismiss(target)}

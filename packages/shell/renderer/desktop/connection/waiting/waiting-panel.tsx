@@ -1,7 +1,9 @@
-// 펼친 대기 목록. 종류를 나눠 한 목록에 보이고, 결정한 직후 남는 줄이 그 아래 붙는다.
+// 펼친 Inbox. Now(답할 것 묶음들, 그 아래 휘발 알림, 결정한 직후 남는 줄)와 History(영구 기록) 두 탭이다.
+import { useState } from "react";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
+import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
 import { t } from "@lophn/i18n";
 import type { Notice } from "../../../../../protocol/apps/notice.ts";
 import type { NoticeTarget } from "../../../../ipc/notice.ts";
@@ -25,8 +27,10 @@ import { ShareCard } from "./cards/share-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
 import type { FinishedRow } from "./finished.ts";
 import { decideWaiting, dismissNotice, type SettledState } from "./decide.ts";
+import { HistoryView } from "./history-view.tsx";
 import { cardOf } from "./model.ts";
 import { useInboxNames } from "./names.ts";
+import { NoticeRow } from "./notice-row.tsx";
 import type { Settled, SettledRow } from "./settled.ts";
 import styles from "./waiting.module.css";
 
@@ -90,26 +94,32 @@ function SettledList({ rows }: { rows: readonly SettledRow[] }) {
   );
 }
 
-/** turn이 끝난 탭 한 줄. 줄 어디를 눌러도 그 탭이 열린다. [x]는 열지 않고 줄만 지운다. */
-function FinishedList({
-  rows,
+/** 알림(휘발): turn이 끝난 탭과 앱·program이 한 휘발 알림. 답할 것이 아니라 지우면 끝이다. */
+function NotificationList({
+  finished,
+  notices,
   onShow,
-  onDismiss,
+  onDismissFinished,
+  onOpenApp,
+  onDismissNotice,
 }: {
-  rows: readonly FinishedRow[];
+  finished: readonly FinishedRow[];
+  notices: readonly Notice[];
   onShow: (target: NoticeTarget) => void;
-  onDismiss: (target: NoticeTarget) => void;
+  onDismissFinished: (target: NoticeTarget) => void;
+  onOpenApp: (app: string) => void;
+  onDismissNotice: (id: string) => void;
 }) {
   return (
     <section
       className={styles.group}
-      aria-label={t("waiting.label.group-finished")}
+      aria-label={t("waiting.label.group-notifications")}
     >
       <div className={styles.groupHead}>
-        <span>{t("waiting.label.group-finished")}</span>
-        <span>{rows.length}</span>
+        <span>{t("waiting.label.group-notifications")}</span>
+        <span>{finished.length + notices.length}</span>
       </div>
-      {rows.map((row) => {
+      {finished.map((row) => {
         const vendor =
           row.face.kind === "vendor"
             ? harnessVendorOf(row.face.harness)
@@ -144,72 +154,28 @@ function FinishedList({
                 onClick={(event) => {
                   // 줄을 누른 것(열기)으로 올라가지 않게 한다.
                   event.stopPropagation();
-                  onDismiss(row.target);
+                  onDismissFinished(row.target);
                 }}
               />
             </div>
           </div>
         );
       })}
-    </section>
-  );
-}
-
-/** 사람에게 한 알림(앱이 한 것, program 기록) 한 줄. 줄을 누르면 그 앱이 열리고(앱이 없는 기록은 열지 않는다) [x]는 열지 않고 지운다(영구 기록은 읽음이 된다). 답할 것이 아니다. */
-function NoticeList({
-  rows,
-  onOpen,
-  onDismiss,
-}: {
-  rows: readonly Notice[];
-  onOpen: (app: string) => void;
-  onDismiss: (id: string) => void;
-}) {
-  return (
-    <section
-      className={styles.group}
-      aria-label={t("waiting.label.group-notice")}
-    >
-      <div className={styles.groupHead}>
-        <span>{t("waiting.label.group-notice")}</span>
-        <span>{rows.length}</span>
-      </div>
-      {rows.map((row) => (
-        <div
+      {notices.map((row) => (
+        <NoticeRow
           key={row.id}
-          className={`${styles.request} ${styles.finished}`}
-          data-kind="notice"
-          onClick={() => row.app !== null && onOpen(row.app)}
-        >
-          <div className={styles.who}>
-            <div className={styles.whoText}>
-              <p className={styles.title}>{row.title}</p>
-              {row.body === "" ? null : (
-                <span className={styles.meta}>{row.body}</span>
-              )}
-              {row.app_name === null ? null : (
-                <span className={styles.meta}>{row.app_name}</span>
-              )}
-            </div>
-            <IconButton
-              size="sm"
-              icon={actionIcons.remove}
-              label={t("waiting.button.dismiss-notice")}
-              data-dismiss-notice=""
-              onClick={(event) => {
-                // 줄을 누른 것(앱 열기)으로 올라가지 않게 한다.
-                event.stopPropagation();
-                onDismiss(row.id);
-              }}
-            />
-          </div>
-        </div>
+          row={row}
+          onOpen={onOpenApp}
+          onDismiss={onDismissNotice}
+        />
       ))}
     </section>
   );
 }
 
 export interface PanelInitial {
+  /** 처음 보일 탭. 기본은 Now다. */
+  readonly view?: "now" | "history";
   /** 세부를 펼친 채 시작할 요청. 나머지는 접혀 있다. */
   readonly expanded?: readonly string[];
   /** 거절 이유 칸을 연 채 시작할 요청. */
@@ -221,6 +187,7 @@ export function WaitingPanel({
   settled,
   finished,
   notices,
+  historyUnread,
   initial,
   page = false,
   onOpenTab,
@@ -233,6 +200,8 @@ export function WaitingPanel({
   settled: Settled;
   finished: readonly FinishedRow[];
   notices: readonly Notice[];
+  /** 안 읽은 영구 기록 수. 배지에는 더하지 않고 History 탭 머리에만 보인다. */
+  historyUnread: number;
   initial?: PanelInitial;
   /** true면 탭 본문으로 그린다(떠 있는 panel의 폭·그림자·높이 제한이 없다). */
   page?: boolean;
@@ -246,6 +215,7 @@ export function WaitingPanel({
 }) {
   const core = useEventClient().core;
   const names = useInboxNames();
+  const [view, setView] = useState(initial?.view ?? "now");
 
   function decider(entry: WaitingEntry): OnDecide {
     return async (choice, reason) => {
@@ -327,48 +297,68 @@ export function WaitingPanel({
         )}
       </header>
       <div className={styles.panelBody}>
-        {entries.length === 0 &&
-        settled.rows.length === 0 &&
-        finished.length === 0 &&
-        notices.length === 0 ? (
-          <p className={styles.empty}>{t("waiting.notice.empty")}</p>
-        ) : null}
-        {GROUPS.map((group) => {
-          const rows = entries.filter((entry) =>
-            (group.kinds as readonly string[]).includes(entry.kind),
-          );
-          if (rows.length === 0) {
-            return null;
-          }
-          return (
-            <section
-              key={group.title}
-              className={styles.group}
-              aria-label={t(group.title)}
-            >
-              <div className={styles.groupHead}>
-                <span>{t(group.title)}</span>
-                <span>{rows.length}</span>
-              </div>
-              {rows.map(card)}
-            </section>
-          );
-        })}
-        {finished.length > 0 ? (
-          <FinishedList
-            rows={finished}
-            onShow={onShowFinished}
-            onDismiss={onDismissFinished}
-          />
-        ) : null}
-        {notices.length > 0 ? (
-          <NoticeList
-            rows={notices}
-            onOpen={onOpenApp}
-            onDismiss={(id) => void dismissNotice(core, id)}
-          />
-        ) : null}
-        {settled.rows.length > 0 ? <SettledList rows={settled.rows} /> : null}
+        <Tabs
+          value={view}
+          onValueChange={(next) => setView(next as "now" | "history")}
+        >
+          <div className={styles.tabBar}>
+            <TabList>
+              <Tab value="now">{t("waiting.label.tab-now")}</Tab>
+              <Tab value="history">
+                {historyUnread > 0
+                  ? t("waiting.label.tab-history-unread", {
+                      count: historyUnread,
+                    })
+                  : t("waiting.label.tab-history")}
+              </Tab>
+            </TabList>
+          </div>
+          <TabPanel value="now">
+            {entries.length === 0 &&
+            settled.rows.length === 0 &&
+            finished.length === 0 &&
+            notices.length === 0 ? (
+              <p className={styles.empty}>{t("waiting.notice.empty")}</p>
+            ) : null}
+            {GROUPS.map((group) => {
+              const rows = entries.filter((entry) =>
+                (group.kinds as readonly string[]).includes(entry.kind),
+              );
+              if (rows.length === 0) {
+                return null;
+              }
+              return (
+                <section
+                  key={group.title}
+                  className={styles.group}
+                  aria-label={t(group.title)}
+                >
+                  <div className={styles.groupHead}>
+                    <span>{t(group.title)}</span>
+                    <span>{rows.length}</span>
+                  </div>
+                  {rows.map(card)}
+                </section>
+              );
+            })}
+            {finished.length + notices.length > 0 ? (
+              <NotificationList
+                finished={finished}
+                notices={notices}
+                onShow={onShowFinished}
+                onDismissFinished={onDismissFinished}
+                onOpenApp={onOpenApp}
+                onDismissNotice={(id) => void dismissNotice(core, id)}
+              />
+            ) : null}
+            {settled.rows.length > 0 ? (
+              <SettledList rows={settled.rows} />
+            ) : null}
+          </TabPanel>
+          <TabPanel value="history">
+            <HistoryView onOpenApp={onOpenApp} />
+          </TabPanel>
+        </Tabs>
       </div>
     </section>
   );

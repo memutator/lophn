@@ -22,7 +22,7 @@ workspace 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하
      진입: 왼쪽 sidebar의 지금 project 줄 오른쪽 끝 톱니, 팔레트 행동 "Project settings". 이 project만의 순서와 고정은 workspace layout 파일의 `quick`에 남고(`host.projectSettings`로 고친다. 전역 값을 따르면 `quick`을 지운다) layout 파일에는 탭 kind와 key만 남는다
  app detail 탭(kind app_detail, key "app-detail", 앱 workspace에 하나, noDetach. 본문 app-frame/app-detail/app-detail.tsx) ─▶ Icon, Folders, Version·Access·Activity
      진입: 왼쪽 sidebar의 지금 앱 줄 오른쪽 끝 톱니. 앱은 workspace가 정하므로 layout 파일에는 탭 kind와 key만 남는다
- jobs·inbox 탭(kind jobs·inbox, key "jobs"·"inbox", 어느 workspace에서든 desk마다 하나, noDetach) ─▶ jobs는 모든 job의 목록·고치기·지우기·기록(desktop/jobs/jobs-page.tsx), inbox는 대기 목록 카드(desktop/connection/waiting/waiting-page.tsx). WorkspaceWindow의 `jobs` prop(JobsSource)을 host.props로 읽는다
+ jobs·inbox 탭(kind jobs·inbox, key "jobs"·"inbox", 어느 workspace에서든 desk마다 하나, noDetach) ─▶ jobs는 모든 job의 목록·고치기·지우기·기록(desktop/jobs/jobs-page.tsx), inbox는 두 탭(Now: 대기 목록 카드와 휘발 알림, History: 영구 기록. `architecture/app-notice.md`의 "Inbox") 화면(desktop/connection/waiting/waiting-page.tsx). WorkspaceWindow의 `jobs` prop(JobsSource)을 host.props로 읽는다
      진입: 왼쪽 sidebar의 Inbox·Jobs overlay 머리의 [Open in tab], Jobs 줄(통로가 없을 때), 오른쪽 sidebar Jobs panel의 줄과 [Open all jobs]. layout 파일에는 탭 kind와 key만 남는다. Settings에는 jobs 항목이 없다
  main/workspace/window-state.ts ── <data>/shell/window.json { bounds, maximized } 앱에 하나. desktop 창의 마지막 자리
 

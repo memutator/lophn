@@ -19,6 +19,7 @@ import {
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
 import { commandCall } from "../../../command-call.ts";
+import { newId } from "../../../prefixed-id.ts";
 import type { CoreSource } from "../connection.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 
@@ -222,7 +223,8 @@ export async function dismissNotice(
       commandCall(noticeDismiss, {
         input: { id },
         compare: {},
-        key: `notice-dismiss-${id}`,
+        // 영구 줄은 같은 id가 다시 안 읽음이 될 수 있어 누를 때마다 새 key다.
+        key: newId("ndm"),
       }),
     )
     .catch(() => null);

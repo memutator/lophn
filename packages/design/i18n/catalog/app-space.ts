@@ -44,6 +44,8 @@ export const appSpace = {
   "app-detail.heading.rewound": "Rewound",
   "app-detail.heading.what-was-rewound": "What was rewound",
   "app-detail.label.access-target": "this app's access",
+  "app-detail.label.calls": "Calls",
+  "app-detail.label.records": "Records",
   "app-detail.label.activity-target": "this app's activity",
   "app-detail.label.call-data-change": "Data change",
   "app-detail.label.call-start": "App start",
@@ -181,6 +183,7 @@ export const appSpace = {
   "app-detail.note.input-fingerprint":
     "A fingerprint. The input itself is not kept.",
   "app-detail.note.may-call": "This app may call it.",
+  "app-detail.note.no-records": "No records yet.",
   "app-detail.note.no-activity": "No activity yet.",
   "app-detail.note.no-folders":
     "Agents here use only the app source. Add a folder to let them read and edit it too.",

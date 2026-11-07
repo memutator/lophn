@@ -58,9 +58,9 @@ export function WaitingLayer({
   renderTrigger,
   initial,
 }: WaitingLayerProps) {
-  const { entries, notices } = useWaiting();
+  const { entries, notices, historyUnread } = useWaiting();
   const finished = useFinished(initial?.finished);
-  // 배지는 "볼 것이 있다"는 뜻이라 끝난 줄과 앱 알림도 센다.
+  // 배지는 "지금 볼 것이 있다"는 뜻이라 끝난 줄과 휘발 알림도 센다. 안 읽은 기록(History)은 조용히 탭 머리에만 둔다.
   const count = entries.length + finished.length + notices.length;
   const { open, setOpen } = useWaitingPanel();
   const settled = useSettled(entries, initial?.settled);
@@ -110,6 +110,7 @@ export function WaitingLayer({
         settled={settled}
         finished={finished}
         notices={notices}
+        historyUnread={historyUnread}
         initial={initial}
         onOpenTab={
           onOpenTab === undefined

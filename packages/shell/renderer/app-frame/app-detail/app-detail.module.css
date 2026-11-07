@@ -420,3 +420,18 @@
   transform: translateX(-50%);
   z-index: var(--z-toast);
 }
+
+/* Activity의 기록(release 결과 등)과 호출 기록을 가르는 소제목 */
+.sectionHead {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.record {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-5);
+}

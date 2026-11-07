@@ -10,6 +10,13 @@ import {
   activationConsents,
 } from "../../../../../protocol/apps/activation/consent.ts";
 import {
+  type Notice,
+  noticeDismiss,
+  noticeMarkRead,
+  noticesList,
+  noticesOpen,
+} from "../../../../../protocol/apps/notice.ts";
+import {
   type SessionSnapshot,
   sessionSnapshotsList,
 } from "../../../../../protocol/events/mod.ts";
@@ -275,7 +282,91 @@ const QUESTION: readonly AskQuestion[] = [
   },
 ];
 
+const notice = (
+  n: number,
+  minutes: number,
+  more: Partial<Notice> & Pick<Notice, "kind" | "title">,
+): Notice => ({
+  id: id("ntc", n),
+  source: more.kind === "app" ? "app" : "program",
+  app: ORDERS,
+  app_name: "Orders",
+  project: null,
+  key: null,
+  body: "",
+  persistent: true,
+  action: null,
+  created_at: ago(minutes),
+  read_at: null,
+  ...more,
+});
+
+/** 휘발 알림 하나(앱이 남긴 것). Now 탭의 Notifications에 나온다. */
+export const EPHEMERAL_NOTICE = () =>
+  notice(1, 3, {
+    kind: "app",
+    persistent: false,
+    app: BUDGET,
+    app_name: "Budget",
+    title: "Spending is at 84% of the monthly limit",
+    body: "Checked just now.",
+  });
+
+/** 영구 기록 여럿: program 기록 종류들과 앱이 남긴 영구 알림. 첫 둘이 안 읽은 줄이다. */
+export const HISTORY_NOTICES = (): readonly Notice[] => [
+  notice(2, 12, {
+    kind: "sdk_update_needed",
+    title: "Orders needs an SDK update",
+    body: "It pins @lophn/declaration 3.0.0, which this lophn no longer runs.",
+    action: {
+      kind: "open_home_skill",
+      skill: "update-apps",
+      args: ORDERS,
+    },
+  }),
+  notice(3, 45, {
+    kind: "release_failed",
+    title: "Release r8 of Orders failed",
+    body: "The app is back on release r7.",
+  }),
+  notice(4, 180, {
+    kind: "release_activated",
+    title: "Release r7 of Orders is active",
+    read_at: ago(170),
+  }),
+  notice(5, 400, {
+    kind: "app",
+    source: "app",
+    app: BUDGET,
+    app_name: "Budget",
+    title: "Weekly report is ready",
+    body: "3 categories went over budget.",
+    read_at: ago(390),
+  }),
+  notice(6, 1500, {
+    kind: "app_unavailable",
+    title: "Inventory stopped",
+    body: "It crashed 3 times in a row.",
+    app: INVENTORY,
+    app_name: "Inventory",
+    read_at: ago(1400),
+  }),
+  notice(7, 2900, {
+    kind: "release_rolled_back",
+    title: "Orders went back from r6 to r5",
+    read_at: ago(2800),
+  }),
+  notice(8, 4300, {
+    kind: "lophn_updated",
+    title: "lophn updated from 0.19.0 to 0.20.0",
+    app: null,
+    app_name: null,
+    read_at: ago(4200),
+  }),
+];
+
 type Item =
+  | Notice
   | ReturnType<typeof turnRequest>
   | ActivationConsent
   | JobHold
@@ -290,6 +381,8 @@ export const allItems = (): readonly Item[] => [
   ACTIVATION(),
   JOB_APPROVAL_TOOL(),
   JOB_HOLD_AGENT(),
+  EPHEMERAL_NOTICE(),
+  ...HISTORY_NOTICES(),
 ];
 
 /** 결정한 뒤 잠깐 남는 줄 시나리오. */
@@ -343,6 +436,7 @@ export function createFakeWaiting(
   let pending: JobRecord[] = [];
   const blocked = new Set<string>();
   let questionSession: FakeSession | null = null;
+  const notices: Notice[] = [];
 
   function snapshotOf(session: FakeSession): SessionSnapshot {
     let snapshot = sessions.get(session.id);
@@ -362,7 +456,9 @@ export function createFakeWaiting(
   }
 
   for (const item of items) {
-    if (item === "question") {
+    if (typeof item === "object" && "persistent" in item) {
+      notices.push(item);
+    } else if (item === "question") {
       questionSession = LOPHN_SESSION;
       const snapshot = snapshotOf(LOPHN_SESSION);
       sessions.set(snapshot.session, {
@@ -478,6 +574,95 @@ export function createFakeWaiting(
         });
         return ok({ release: consent.release, outcome: decided.choice });
       }
+      if (key === `read:${noticesOpen.resource}/${noticesOpen.method}`) {
+        return ok({ ...COMMON, notices: notices.filter((n) => !n.read_at) });
+      }
+      if (key === `read:${noticesList.resource}/${noticesList.method}`) {
+        const want = body as {
+          app?: string;
+          project?: string;
+          source?: string;
+          kind?: string;
+          persistent?: boolean;
+          query?: string;
+          cursor?: string;
+          limit?: number;
+        };
+        const found = notices
+          .filter(
+            (n) =>
+              (want.app === undefined || n.app === want.app) &&
+              (want.project === undefined || n.project === want.project) &&
+              (want.source === undefined || n.source === want.source) &&
+              (want.kind === undefined || n.kind === want.kind) &&
+              (want.persistent === undefined ||
+                n.persistent === want.persistent) &&
+              (want.query === undefined ||
+                `${n.title} ${n.body}`
+                  .toLowerCase()
+                  .includes(want.query.toLowerCase())),
+          )
+          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+        const from = Number(want.cursor ?? 0);
+        const limit = want.limit ?? 50;
+        const page = found.slice(from, from + limit);
+        return ok({
+          as_of_seq: "0",
+          next_cursor:
+            from + limit < found.length ? String(from + limit) : null,
+          notices: page,
+        });
+      }
+      if (
+        key === `command:${noticeMarkRead.resource}/${noticeMarkRead.method}`
+      ) {
+        const { ids } = (body.input as { ids: string[] }) ?? { ids: [] };
+        for (const row of notices) {
+          if (ids.includes(row.id) && row.persistent && !row.read_at) {
+            row.read_at = at();
+            emitEvent(base, {
+              type: "NoticeRead",
+              subject: row.app,
+              at: at(),
+              payload: { id: row.id, read_at: row.read_at },
+            });
+          }
+        }
+        return ok({ marked: ids.length });
+      }
+      if (key === `command:${noticeDismiss.resource}/${noticeDismiss.method}`) {
+        const row = notices.find(
+          (n) => n.id === (body.input as { id: string }).id,
+        );
+        if (!row) return fail("not_found");
+        if (row.persistent) {
+          row.read_at = at();
+          emitEvent(base, {
+            type: "NoticeRead",
+            subject: row.app,
+            at: at(),
+            payload: { id: row.id, read_at: row.read_at },
+          });
+        } else {
+          notices.splice(notices.indexOf(row), 1);
+          emitEvent(base, {
+            type: "NoticeClosed",
+            subject: row.app,
+            at: at(),
+            payload: { id: row.id },
+          });
+        }
+        return ok({ id: row.id });
+      }
+      if (key === `command:sessions/open`) {
+        return ok({
+          id: (body.input as { id: string }).id,
+          lifecycle: "open",
+          workspace: null,
+          state_seq: "0",
+        });
+      }
+      if (key === `memory:acp/send`) return ok({});
       if (key === `read:${jobHolds.resource}/${jobHolds.method}`) {
         return ok({ ...COMMON, holds });
       }

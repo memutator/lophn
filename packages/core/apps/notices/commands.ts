@@ -271,7 +271,13 @@ export function createNoticeCommands(): {
           return ok({ changed: false, from: null });
         const recorded = recordProgramNotice(tx, {
           kind: "lophn_updated",
-          params: { from: last ?? "unknown", to: input.version },
+          params: {
+            from: last ?? "unknown",
+            to: input.version,
+            ...(input.optional_sdk_apps
+              ? { optional_sdk_apps: input.optional_sdk_apps }
+              : {}),
+          },
         });
         if (!recorded.ok) return recorded;
         return ok({ changed: true, from: last });

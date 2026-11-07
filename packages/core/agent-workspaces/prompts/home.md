@@ -41,6 +41,9 @@ how lophn works and how their apps are doing.
   `lophn app read` and `lophn app status`, recent errors in its log with
   `lophn app logs`, failed calls with `lophn app invocations` (`--status failed`). Say "not confirmed"
   for numbers you did not read.
+- When lophn was updated, an app may need a newer SDK (a notice in the Inbox, or
+  `lophn app sdk-status`). The person calls `/update-apps` for it; follow that
+  skill and hand the work to lophn at each app.
 - `lophn call send` takes one short text of what you want. Point to evidence by ID or file
   path. Do not paste your conversation.
 - A claim in a plan must point to something you read. State risk first.

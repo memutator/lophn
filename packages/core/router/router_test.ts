@@ -360,3 +360,25 @@ test("a call the policy refuses is forbidden and leaves no row or session; a hum
   });
   assert.ok(human.ok);
 });
+
+// 권한 경계다. home의 기본 lophn이 private workspace의 lophn에게 reply none으로 일을 넘기는 고정 예외 하나. 답이 오가는 reply는 막힌다.
+test("home lophn hands work to a private app's lophn only with reply none", () => {
+  const app = { kind: "app", id: "app_private" } as const;
+  const sessions = {
+    [SENDER]: target(SENDER, true, { agent: "lophn", workspace: null }),
+    [RECEIVER]: target(RECEIVER, true, { agent: "lophn", workspace: app }),
+  };
+  const policy = { ...DEFAULT_CALL_POLICY, private: [app] };
+  const input = { ...base, to: { agent: "lophn" }, dedup: "tool-1" } as const;
+
+  const handoff = setup(sessions, undefined, policy);
+  const sent = handoff.router.route(handoff.tx, { ...input, reply: "none" });
+  assert.ok(sent.ok);
+  assert.deepStrictEqual(handoff.delivered.length, 1);
+
+  const asked = setup(sessions, undefined, policy);
+  const refused = asked.router.route(asked.tx, { ...input, reply: "result" });
+  assert.ok(!refused.ok);
+  assert.deepStrictEqual(refused.error.code, "forbidden");
+  assert.deepStrictEqual(asked.rows.size, 0);
+});

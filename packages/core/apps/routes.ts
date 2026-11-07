@@ -28,7 +28,8 @@ import type {
   ReadHandler,
 } from "../server/mod.ts";
 import { createTargetAuthorizer, type Writer } from "../storage/ledger/mod.ts";
-import { loadApp, loadApps } from "./registration/mod.ts";
+import { authorizeApp, loadApp, loadApps } from "./registration/mod.ts";
+import { readSdkStatus, type SdkStatusDeps } from "./sdk-status/mod.ts";
 import type { PreviewService } from "./preview/mod.ts";
 import { loadActiveDeclaration, loadRelease } from "./releases/store.ts";
 import { type AppStates } from "./calls/mod.ts";
@@ -46,6 +47,7 @@ import {
   appSkills,
 } from "../../protocol/apps/declaration/read.ts";
 import { type AppSkillsDeps, readAppSkills } from "./screens/skills.ts";
+import { appSdkStatus } from "../../protocol/apps/sdk-status.ts";
 import type {
   AppRewind,
   AppToolCallPath,
@@ -185,6 +187,50 @@ export function appSkillsRead(
       }
     }
     return ok({ skills });
+  };
+}
+
+// `app.sdk_status`. 앱 범위(app workspace의 agent는 자기 앱, 보관한 앱은 agent에게 없음)는 다른 앱 read와 같은 authorizeApp이 가른다.
+// 지정한 앱이 범위 밖이면 없는 앱과 같은 not_found이고, 지정하지 않으면 범위 안의 앱만 싣는다. 파일을 읽으므로 메인 스레드 read다.
+export function appSdkStatusRead(deps: SdkStatusDeps): ReadHandler {
+  return async (ctx, input) => {
+    const parsed = appSdkStatus.input.safeParse(input);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "invalid app sdk status input",
+      });
+    }
+    const snapshot = { sql: deps.sql, port: portOf(ctx) };
+    const allowed = (app: string): Result<void> => {
+      const loaded = loadApp(deps.sql, app);
+      if (!loaded.ok) return loaded;
+      if (loaded.value === null) {
+        return err({ code: "not_found", message: "app not found" });
+      }
+      return authorizeApp(snapshot, ctx, appSdkStatus.name, {
+        kind: "app",
+        app: loaded.value,
+      });
+    };
+    const found = await readSdkStatus(deps, {
+      app: parsed.data.app,
+      allow: (app) => allowed(app).ok,
+    });
+    if (!found.ok) return found;
+    if (parsed.data.app !== undefined && found.value.length === 0) {
+      // 없는 앱, 보관한 앱, 범위 밖 앱은 같은 답이다. 켜진 release가 없는 앱만 빈 목록이다.
+      const one = loadApp(deps.sql, parsed.data.app);
+      if (
+        !one.ok ||
+        one.value === null ||
+        one.value.status !== "active" ||
+        !allowed(parsed.data.app).ok
+      ) {
+        return err({ code: "not_found", message: "app not found" });
+      }
+    }
+    return ok({ apps: found.value });
   };
 }
 

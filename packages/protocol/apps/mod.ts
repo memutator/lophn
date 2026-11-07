@@ -37,4 +37,5 @@ export * from "./releases.ts";
 export * from "./annotation.ts";
 export * from "./calls/mod.ts";
 export * from "./activation/mod.ts";
+export * from "./sdk-status.ts";
 export * from "./usage.ts";

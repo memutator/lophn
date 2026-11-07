@@ -296,12 +296,13 @@ export function createRouter(deps: RouterDeps): Router {
   function policyRefusal(
     sender: string,
     to: AgentAtWorkspace,
+    reply: RouteInput["reply"],
   ): Result<RouteResult> | null {
     const from = directory.find(sesId(sender));
     if (from === null) {
       return err({ code: "not_found", message: "sender session not found" });
     }
-    return mayCall(callPolicy(), from.agent, to)
+    return mayCall(callPolicy(), from.agent, to, reply)
       ? null
       : err({
           code: "forbidden",
@@ -335,7 +336,7 @@ export function createRouter(deps: RouterDeps): Router {
     const { to, target } = resolved.value;
     if (from.kind === "agent") {
       const refused =
-        policyRefusal(from.session, target.agent) ??
+        policyRefusal(from.session, target.agent, input.reply) ??
         refusal(target.agent.agent, input);
       if (refused !== null) return refused;
     }

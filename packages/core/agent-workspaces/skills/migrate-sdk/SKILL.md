@@ -10,13 +10,10 @@ versions, the app's code may need changes. This skill is the one procedure;
 what changed in each version is in note files beside this file.
 
 If you are lophn at Home, you do not change apps (you cannot read their
-source). Read the notes that matter (steps 2 and 3), tell the person in plain
-words what changes for each app and whether it is required (a note says
-`Breaking: yes`), and hand the work to lophn at that app with `lophn call send`
-(`to: {agent: "lophn", workspace: {app: "<app name>"}}`, no reply expected). Put the
-app's pinned versions, the target versions and "follow the migrate-sdk skill" in
-the body. If the call is refused, tell the person to open the app and ask lophn
-there. Skip archived apps.
+source). Read the `update-apps` skill: it reads the SDK status, explains the
+changes to the person in plain words and hands each app to lophn at that app
+(`lophn call send`, no reply expected) with the pinned versions, the target
+versions and "follow the migrate-sdk skill". Skip archived apps.
 
 If you are lophn at the app, do steps 1 to 11 for this app only.
 
@@ -34,6 +31,8 @@ first: a release is built from the last commit.
 
 ## 2. Find the target versions
 
+`lophn app sdk-status <this app's ID>` gives each pinned SDK with the version
+lophn has now (the target), its level and the note files to read.
 `lophn package read` lists the SDK packages lophn has now with their versions.
 The target of each package is that version. Never pin a version lophn does not
 have. A package whose pinned version equals the target needs nothing.

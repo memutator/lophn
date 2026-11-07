@@ -40,15 +40,21 @@ export function programNoticeText(input: NoticeRecordInput): {
     case "lophn_updated":
       return {
         title: `lophn was updated to ${input.params.to}`,
-        body:
+        body: [
           input.params.from === "unknown"
             ? "The earlier version was not recorded."
             : `It was ${input.params.from} before.`,
+          input.params.optional_sdk_apps === undefined
+            ? ""
+            : `${input.params.optional_sdk_apps} ${input.params.optional_sdk_apps === 1 ? "app has" : "apps have"} optional SDK updates.`,
+        ]
+          .filter((line) => line !== "")
+          .join(" "),
       };
     case "sdk_update_needed":
       return {
-        title: `${input.params.sdk} needs an update`,
-        body: `This app uses ${input.params.sdk} ${input.params.pinned}. The current version is ${input.params.current}.`,
+        title: "The app needs an SDK update",
+        body: `It uses SDK versions lophn no longer runs: ${input.params.sdks}.`,
       };
   }
 }

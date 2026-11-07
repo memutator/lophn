@@ -47,6 +47,12 @@ export const BUILTIN_SKILLS: readonly {
     menu: true,
   },
   {
+    name: "update-apps",
+    workspaces: ["home"],
+    can_disable: false,
+    menu: true,
+  },
+  {
     name: "write-artifact",
     workspaces: ["project", "app"],
     can_disable: false,

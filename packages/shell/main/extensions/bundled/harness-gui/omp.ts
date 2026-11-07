@@ -2028,7 +2028,13 @@ const start: (io: OmpIo) => Start =
     };
 
     // 정의를 다 마친 뒤에 띄운다: ready 앞뒤로 온 frame이 아래 정의를 쓴다.
-    const launched = await connect(argsFor(resume ?? null, null));
+    // 첫 메시지 전의 TUI session은 파일이 없어 `--resume`이 ready 전에 끝난다. 조용히 새 session으로 다시 띄운다.
+    let resumed = resume !== undefined;
+    let launched = await connect(argsFor(resume ?? null, null));
+    if (launched === "exit" && resumed) {
+      resumed = false;
+      launched = await connect(argsFor(null, null));
+    }
     if (launched === "exit") {
       closed = true;
       return {
@@ -2098,7 +2104,7 @@ const start: (io: OmpIo) => Start =
       models = available.ok ? available.data.models : [];
       commands = commandsReply.ok ? commandsReply.data.commands : [];
       publishMeta();
-      if (resume !== undefined) await replayHistory();
+      if (resumed) await replayHistory();
       await attachRunning();
     })();
 

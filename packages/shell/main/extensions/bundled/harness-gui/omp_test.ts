@@ -84,6 +84,8 @@ async function setup(
     files?: Record<string, string>;
     /** session 폴더(file 이름 → 앞 글). */
     folder?: Record<string, string>;
+    /** 저장된 적 없는 session을 resume한다: 첫 process는 ready 전에 끝난다. */
+    unsaved?: string;
   } = {},
 ) {
   const tweak = options.tweak ?? ((frame: Frame) => frame);
@@ -175,11 +177,16 @@ async function setup(
   }).start({
     terminal: null,
     cwd: `/work/${name}`,
+    ...(options.unsaved === undefined ? {} : { resume: options.unsaved }),
     session,
     spawn: (_command, args) => spawnProc(args),
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
   });
+  if (options.unsaved !== undefined) {
+    latest().exit(1);
+    await flush();
+  }
   emit({ type: "ready" });
   const result = await started;
   assert.equal(result.ok, true);
@@ -635,6 +642,15 @@ test("a task tool line gets its subagent child, the child conversation and a bac
       ["steer_subagent", "ReadHello"],
     ],
   );
+});
+
+test("resuming a session omp never saved starts a new session instead of failing", async () => {
+  const omp = await setup("text", { unsaved: "01a1aa91-0000" });
+  assert.deepEqual(
+    omp.fakes.map((one) => one.args.some((arg) => arg.startsWith("--resume"))),
+    [true, false],
+  );
+  assert.deepEqual(omp.state.items, []);
 });
 
 test("changing the approval mode ends the old process before the new one takes the session", async () => {

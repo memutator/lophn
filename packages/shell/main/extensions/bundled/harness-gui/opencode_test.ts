@@ -33,8 +33,20 @@ const recording = (name: string): Entry[] =>
 
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-async function setup(name: string) {
+async function setup(name: string, resume?: string) {
   const rec = [...recording("start"), ...recording(name)];
+  // 손으로 만든 줄: 저장된 적 없는 session을 읽으면 server가 404로 답한다.
+  if (resume !== undefined)
+    rec.splice(1, 0, {
+      kind: "http",
+      data: {
+        client: "A",
+        method: "GET",
+        path: `/api/session/${resume}`,
+        status: 404,
+        error: "Session not found",
+      },
+    });
   type Waiter = {
     method: string;
     path: string;
@@ -144,6 +156,7 @@ async function setup(name: string) {
     .start({
       terminal: null,
       cwd: "/work",
+      ...(resume === undefined ? {} : { resume }),
       session,
       spawn: (command, args, options) => {
         spawned.push({ command, args, env: options?.env });
@@ -212,6 +225,17 @@ async function untilAsked(name: string) {
   assert.ok(approval);
   return { t, approval };
 }
+
+test("저장된 적 없는 session(404)을 resume하면 실패 줄 없이 새 session을 연다", async () => {
+  const t = await setup("approve_once", "ses_gone");
+  assert.equal(
+    t.requests.filter(
+      (one) => one.method === "POST" && one.path === "/api/session",
+    ).length,
+    1,
+  );
+  assert.deepEqual(t.state.items, []);
+});
 
 test("permission 요청은 창이 답하기 전까지 reply가 나가지 않고, 답하면 once가 나간다", async () => {
   const { t, approval } = await untilAsked("approve_once");

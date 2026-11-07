@@ -2649,10 +2649,15 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       const version = str(server.version);
       events = transport.events(onEvent, (cause) => failure(cause.message));
       let resumed = false;
+      // 404는 첫 메시지 전의 TUI session처럼 저장된 적이 없는 것이다. 조용히 새로 열고, 그 밖의 실패만 알린다.
+      let unreadable = false;
       if (resume !== undefined)
         resumed = await api.get(resume).then(
           () => true,
-          () => false,
+          (cause: { status?: number }) => {
+            unreadable = cause.status !== 404;
+            return false;
+          },
         );
       if (!resumed)
         sessionId = str(
@@ -2665,7 +2670,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           "warning",
         );
       if (resumed) await replay();
-      else if (resume !== undefined)
+      else if (unreadable)
         endTurn(main, "failed", {
           code: "not_found",
           message: `The session ${resume} could not be loaded, so a new session was started.`,

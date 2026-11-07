@@ -38,7 +38,11 @@ const recording = (name: string): Entry[] =>
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 async function boot(
-  options: { config?: Record<string, unknown>; resume?: string } = {},
+  options: {
+    config?: Record<string, unknown>;
+    resume?: string;
+    unsaved?: boolean;
+  } = {},
 ) {
   const written: Wire[] = [];
   let emit: (text: string) => void = () => {};
@@ -93,7 +97,23 @@ async function boot(
   if (options.resume !== undefined) {
     const start = rec.findIndex((one) => one.data.method === "thread/start");
     (rec[start] as Entry).data.method = "thread/resume";
-    rec.splice(start + 2, 0, ...recording("origin"));
+    if (options.unsaved === true) {
+      // 손으로 만든 줄: rollout이 없는 thread의 resume 오류 뒤에 thread/start가 이어진다.
+      rec.splice(
+        start + 1,
+        0,
+        {
+          kind: "recv",
+          data: {
+            error: {
+              code: -32600,
+              message: "no rollout found for thread id 01a1aa8e-0000",
+            },
+          } as Wire,
+        },
+        { kind: "send", data: { method: "thread/start" } },
+      );
+    } else rec.splice(start + 2, 0, ...recording("origin"));
   }
   let at = 0;
   let sent = 0;
@@ -428,6 +448,15 @@ test("resume 뒤 다시 그린 사람 메시지의 origin은 처음 보낼 때�
   // 다시 열면 app-server가 돌려주는 clientId가 같은 key다. 어긋나면 사람의 bookmark를 잃는다.
   const again = await boot({ resume: "01a1aa8e-4ef3-7541-8699-96c63c40a8bb" });
   assert.deepEqual(userOrigins(again.t.state), ["msg_a1", "msg_a2"]);
+});
+
+test("rollout이 없는 thread의 resume은 실패하지 않고 새 thread를 연다", async () => {
+  const { t } = await boot({ resume: "01a1aa8e-0000", unsaved: true });
+  assert.equal(requested(t.written, "thread/start").length, 1);
+  assert.equal(
+    t.state.session?.cli_session,
+    "01a1aa8e-4ef3-7541-8699-96c63c40a8bb",
+  );
 });
 
 const requested = (written: Wire[], method: string) =>

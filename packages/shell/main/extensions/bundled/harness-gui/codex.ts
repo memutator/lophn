@@ -2504,17 +2504,23 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         });
         write({ method: "initialized" });
         policy = await readPolicy();
-        if (resume === undefined) {
+        // 첫 메시지 전의 TUI thread는 rollout이 없어 resume이 "no rollout found"로 실패한다. 조용히 새 thread를 연다.
+        const resumed =
+          resume === undefined
+            ? null
+            : await request("thread/resume", {
+                threadId: resume,
+                cwd,
+                excludeTurns: true,
+                ...policy,
+              }).catch((cause: Error) => {
+                if (!/no rollout found/.test(cause.message)) throw cause;
+                return null;
+              });
+        if (resumed === null) {
           useThread(await request("thread/start", { cwd, ...policy }));
         } else {
-          useThread(
-            await request("thread/resume", {
-              threadId: resume,
-              cwd,
-              excludeTurns: true,
-              ...policy,
-            }),
-          );
+          useThread(resumed);
           await replayThread(root);
           await replayChildren();
           await resumeChildren();

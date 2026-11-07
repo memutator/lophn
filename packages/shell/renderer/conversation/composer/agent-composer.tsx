@@ -1,5 +1,5 @@
 // Agent 탭의 composer. 입력칸 안 아래 줄에 [+], model 단추(option 축 effort·speed는 그 menu 안), mode 하나(묻기/skip 같은),
-// 동작 단추 하나(보내기 ↑, 도는 중이고 글이 없으면 멈추기 ■)가 있고, 입력칸 밖 아래 줄에는 project(또는 앱) 표시와 권한 요약 ▾(앱 할당)이 왼쪽에, 사용량(`usage`)이 오른쪽 끝에 있다. 입력칸 안 글 위에 뗄 수
+// 동작 단추 하나(보내기 ↑, 도는 중이고 글이 없으면 멈추기 ■)가 있다. capability가 있으면 [+] 옆에 shell mode를 켜고 끄는 단추도 있다. 입력칸 밖 아래 줄에는 project(또는 앱) 표시와 권한 요약 ▾(앱 할당)이 왼쪽에, 사용량(`usage`)이 오른쪽 끝에 있다. 입력칸 안 글 위에 뗄 수
 // 있는 첨부 줄이 있다. 첨부는 [+]로 고르거나 OS 파일·Explorer 파일을 끌어 놓거나 붙여 넣는다. 입력칸은 글을 따라 정한
 // 높이까지 자란다. agent를 고르는 칸은 없다(session 안에서 agent를 바꾸지 않는다). 보내기 방식을 고르는 menu도 없다.
 // 일하는 중 보낸 메시지는 다음 turn을 기다리고, 도는 turn에 올리는 일은 `QueuedMessages`의 [Send now]가 한다. `/`로
@@ -293,6 +293,26 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     } else props.onSend();
   };
 
+  // 버튼으로 `!`를 붙이거나 뗀다. 글이 바뀐 뒤에 커서를 옮겨야 해서 layout effect가 적용한다.
+  const cursorAfter = useRef<number | null>(null);
+  const toggleShell = () => {
+    if (shellMode) {
+      cursorAfter.current = 0;
+      props.onDraft({ text: draft.text.slice(1), selection: [0, 0] });
+    } else {
+      cursorAfter.current = 1;
+      props.onDraft({ text: `!${draft.text}`, selection: [1, 1] });
+    }
+  };
+  useLayoutEffect(() => {
+    const at = cursorAfter.current;
+    const element = input.current;
+    if (at === null || !element) return;
+    cursorAfter.current = null;
+    element.focus();
+    element.setSelectionRange(at, at);
+  }, [draft.text]);
+
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     // 빈 shell mode(`!`만)에서 Esc나 Backspace는 mode를 끈다. 도는 turn을 멈추는 Esc보다 먼저 본다.
     if (
@@ -368,13 +388,15 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
           />
           <div className={styles.inputRow}>
             {shellMode ? (
-              <span className={styles.shellChip} data-shell-chip="">
-                <Icon
-                  icon={conversationIcons.shell}
-                  pixels={iconPixels("small")}
-                />
-                {t("conversation.label.shell-chip")}
-              </span>
+              <Tooltip content={t("conversation.label.shell-chip-tooltip")}>
+                <span className={styles.shellChip} data-shell-chip="">
+                  <Icon
+                    icon={conversationIcons.shell}
+                    pixels={iconPixels("small")}
+                  />
+                  {t("conversation.label.shell-chip")}
+                </span>
+              </Tooltip>
             ) : null}
             <textarea
               ref={input}
@@ -452,6 +474,30 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                 event.currentTarget.value = "";
               }}
             />
+            {capabilities.shell ? (
+              <Tooltip
+                content={t(
+                  shellMode
+                    ? "conversation.button.shell-off"
+                    : "conversation.button.shell-on",
+                )}
+              >
+                <IconButton
+                  icon={conversationIcons.shell}
+                  label={t(
+                    shellMode
+                      ? "conversation.button.shell-off"
+                      : "conversation.button.shell-on",
+                  )}
+                  variant="ghost"
+                  size="sm"
+                  aria-pressed={shellMode}
+                  data-shell-toggle=""
+                  disabled={locked}
+                  onClick={toggleShell}
+                />
+              </Tooltip>
+            ) : null}
             <span className={styles.spacer} />
             <div className={styles.actions} data-composer-actions="">
               {capabilities.model && props.meta !== null ? (

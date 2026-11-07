@@ -69,6 +69,8 @@ export const conversation = {
   "conversation.button.save": "Save",
   "conversation.button.send": "Send",
   "conversation.button.send-now": "Send now",
+  "conversation.button.shell-off": "Back to chat",
+  "conversation.button.shell-on": "Run a shell command (!)",
   "conversation.button.session-new": "New session",
   "conversation.button.stop": "Stop",
   "conversation.empty.no-agent": "lophn isn't set up for conversations yet.",
@@ -308,6 +310,8 @@ export const conversation = {
   "conversation.label.session-untitled": "New session",
   "conversation.label.session-opening": "Opening session",
   "conversation.label.shell-chip": "Shell",
+  "conversation.label.shell-chip-tooltip":
+    "Shell mode: what you send runs as a command",
   "conversation.label.shell-exit": "exit {code}",
   "conversation.label.shell-running": "Running",
   "conversation.label.shell-you-ran": "You ran",

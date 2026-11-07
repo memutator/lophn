@@ -29,18 +29,15 @@ modules: [packages/shell/main]
 
 고치려면: 출력 흐름은 tool body를 덧붙이는 갱신이 ACP에 생길 때 같이 한다. 작음.
 
-## 다른 agent·CLI가 넣은 메시지가 GUI에서 사람 메시지로 그려진다
+## OpenCode GUI에서 다른 client가 보낸 lophn call이 live로는 사람 메시지로 그려진다
 
 ```yaml
 kind: bug
-modules: [packages/shell/main, packages/protocol, packages/shell/renderer]
+modules: [packages/shell/main, packages/protocol]
 ```
 
-지금: Claude adapter의 `addUser`(`claude.ts`)는 늘 `actor: "user"`이고, `replay`는 글이 있는 user entry를 모두 사람 메시지로 그린다. 그런 entry에는 task-notification, lophn call(`<lophn-call>`·`<lophn-reply>`), 다른 session에서 온 메시지가 있다. live에서는 root 줄기의 남의 user 메시지를 그리지 않는다(`onUser`가 root에서는 tool_result만 본다). transcript는 출처를 적어 둔다: `origin.kind`(human, task-notification), `promptSource`, `turnOrigin`(human, task_notification, peer). ACP에는 이미 `actor: "received"`, `sender`(agent | program), `call`, `reply_to`가 있고, 화면은 `ReceivedMessage`로 그린다(`agent-thread.tsx`).
+지금: `packages/shell/main/extensions/bundled/harness-gui/opencode.ts`는 다시 그릴 때(`userMessage`) `classifyReceived`로 lophn call·reply를 받은 메시지로 그린다. 그런데 live로 다른 client(TUI, lophn)가 넣은 메시지는 `userQueued`가 `message_queued` 뒤 `message_taken`으로 그리고, ACP의 줄 선 item(`packages/protocol/acp/`)에는 `actor`·`sender`가 없다.
 
-영향: resume이나 toggle 뒤에는 남이 보낸 메시지가 내가 쓴 말로 보인다. 실시간에는 아예 보이지 않는다. 그 메시지로 rewind 시점과 사람 메시지 bookmark도 생긴다.
+영향: OpenCode GUI를 열어 둔 채 다른 agent가 그 session에 call을 보내면, 다시 열기 전까지 사람 메시지로 보인다.
 
-고치려면:
-- adapter가 출처로 가른다. human은 `user`다. lophn call tag는 `received`, agent sender, `call`·`reply_to`다. task-notification은 `received`, program이다. peer는 `received`다. 모르는 꼴은 지금처럼 둔다. live 경로도 같은 분류로 그린다. 작음.
-- ACP `sender`에 lophn agent가 아닌 다른 CLI session 종류와 알림 종류를 더한다. 화면은 `ReceivedMessage`를 보낸 쪽과 열기가 붙은 한 줄로 접는다. 중간. t3code(`createdBy`, `senderThreadId`, `notification.source`)와 happy desktop(`senderAgent.relation`)이 이 꼴이다.
-- 추천: 첫째를 먼저 하고 Codex·OpenCode·omp도 같은 확인을 한다. 둘째는 handoff UI와 같이 한다.
+고치려면: 줄 선 item에 받은 메시지 표시를 더하거나, 다른 client의 메시지는 줄을 거치지 않고 `message_added`로 그린다. 뒤의 것이 작다. 추천.

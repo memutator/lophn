@@ -19,26 +19,76 @@ test("터미널 제목 앞의 상태 글리프를 뗀다", () => {
   }
 });
 
-test("탭 이름은 사람 이름, harness session 이름, agent 제목, 자동 이름 순이다", () => {
+test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제목, 자동 이름 순이다", () => {
   const auto = "lophn";
   assert.deepStrictEqual(
-    tabName({ person: "mine", sessionName: "named", agentTitle: "⠋ x", auto }),
+    tabName({
+      person: "mine",
+      guiTitle: null,
+      sessionName: "named",
+      agentTitle: "⠋ x",
+      auto,
+    }),
     "mine",
   );
   assert.deepStrictEqual(
-    tabName({ person: null, sessionName: "named", agentTitle: "⠋ x", auto }),
+    tabName({
+      person: "mine",
+      guiTitle: "gui",
+      sessionName: "named",
+      agentTitle: "user@host: ~",
+      auto,
+    }),
+    "mine",
+  );
+  assert.deepStrictEqual(
+    tabName({
+      person: null,
+      guiTitle: "gui",
+      sessionName: "named",
+      agentTitle: "user@host: ~",
+      auto,
+    }),
+    "gui",
+  );
+  assert.deepStrictEqual(
+    tabName({
+      person: null,
+      guiTitle: null,
+      sessionName: "named",
+      agentTitle: "⠋ x",
+      auto,
+    }),
     "named",
   );
   assert.deepStrictEqual(
-    tabName({ person: null, sessionName: null, agentTitle: "⠋ x", auto }),
+    tabName({
+      person: null,
+      guiTitle: null,
+      sessionName: null,
+      agentTitle: "⠋ x",
+      auto,
+    }),
     "x",
   );
   assert.deepStrictEqual(
-    tabName({ person: null, sessionName: null, agentTitle: "✳", auto }),
+    tabName({
+      person: null,
+      guiTitle: null,
+      sessionName: null,
+      agentTitle: "✳",
+      auto,
+    }),
     auto,
   );
   assert.deepStrictEqual(
-    tabName({ person: null, sessionName: null, agentTitle: null, auto }),
+    tabName({
+      person: null,
+      guiTitle: null,
+      sessionName: null,
+      agentTitle: null,
+      auto,
+    }),
     auto,
   );
 });

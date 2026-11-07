@@ -41,11 +41,16 @@ interface TerminalTabProps {
     open(path: string, line: number | undefined): void;
   };
   /**
-   * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > harness session 이름 > agent의 터미널 제목 > 자동 이름.
+   * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > GUI 제목 > harness session 이름 > agent의 터미널 제목 > 자동 이름.
    * 탭 줄이 없는 자리는 주지 않는다.
    */
   naming?: {
-    name: { shown: string; person: string | null; auto: string };
+    name: {
+      shown: string;
+      person: string | null;
+      guiTitle: string | null;
+      auto: string;
+    };
     onName: (name: string) => void;
   };
   /** 이 탭에 GUI handle이 붙어 있다(shared 대화가 TUI view로 와 있다). TUI를 끄지 않고 view만 GUI로 바꾼다. */
@@ -86,6 +91,7 @@ export function TerminalTab({
       ? null
       : tabName({
           person: naming.name.person,
+          guiTitle: naming.name.guiTitle,
           sessionName,
           agentTitle,
           auto: naming.name.auto,

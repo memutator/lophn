@@ -71,6 +71,12 @@ export function guiOf(tab: TabItem): GuiField | null {
     : null;
 }
 
+/** GUI view가 알린 ACP session 제목. GUI를 그리는 동안만 있다(저장본에 남은 옛 값은 무시한다). */
+export function guiTitleOf(tab: TabItem): string | null {
+  const title = tab.fields?.guiTitle;
+  return viewOf(tab) === "gui" && typeof title === "string" ? title : null;
+}
+
 /** 탭이 지금 그리는 쪽. handle이 없으면 TUI(xterm)다. */
 export function viewOf(tab: TabItem): "gui" | "tui" {
   return tab.fields?.view === "gui" && guiOf(tab) !== null ? "gui" : "tui";
@@ -468,21 +474,26 @@ export function GuiSwitch({
       })),
     view: (change) =>
       host.patchTab(tab.key, (current) => {
-        const { gui: _gone, ...rest } = current.fields ?? {};
+        const { guiTitle: _title, ...kept } = current.fields ?? {};
+        // GUI를 떠나면 그 제목도 지운다. 다시 GUI가 되면 TerminalGui가 새로 붙어 제목을 다시 쓴다.
+        if (change.closed) {
+          const { gui: _gone, ...rest } = kept;
+          return { fields: { ...rest, view: "tui" } };
+        }
         return {
-          fields: change.closed
-            ? { ...rest, view: "tui" }
-            : { ...current.fields, view: change.view },
+          fields:
+            change.view === "gui"
+              ? { ...current.fields, view: "gui" }
+              : { ...kept, view: change.view },
         };
       }),
   });
-  // GUI 동안에는 TUI가 제목을 알리지 않으므로 CLI session 제목을 탭 이름으로 쓴다. 사람이 붙인 이름이 먼저다.
+  // GUI 동안에는 TUI가 제목을 알리지 않으므로 CLI session 제목을 탭 field에 두고, `tabName`이 사람 이름 다음으로 쓴다.
   const onTitle = useCallback(
     (title: string) =>
-      host.patchTab(tab.key, (current) => {
-        const person = current.fields?.name;
-        return typeof person === "string" && person.length > 0 ? {} : { title };
-      }),
+      host.patchTab(tab.key, (current) => ({
+        fields: { ...current.fields, guiTitle: title },
+      })),
     [host, tab.key],
   );
   // 탭은 view를 저장하지 않는다. 저장본에서 다시 만들어진 탭(다른 workspace에 갔다 옴)은 main에 살아 있는 GUI를 물어 되찾는다.

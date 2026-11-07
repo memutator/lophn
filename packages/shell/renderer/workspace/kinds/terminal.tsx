@@ -10,7 +10,12 @@ import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import { tabName } from "../../terminal/model.ts";
 import type { TerminalStore } from "../../terminal/store.ts";
-import { GuiSwitch, guiOf, viewOf } from "../../terminal/terminal-gui.tsx";
+import {
+  GuiSwitch,
+  guiOf,
+  guiTitleOf,
+  viewOf,
+} from "../../terminal/terminal-gui.tsx";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
 import { openFile } from "./document-editor.tsx";
@@ -93,6 +98,7 @@ function autoOf(tab: TabItem): string {
 export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
   return tabName({
     person: personOf(tab),
+    guiTitle: guiTitleOf(tab),
     sessionName: store.agentOf(tab.key)?.name ?? null,
     agentTitle: store.agentTitleOf(tab.key),
     auto: autoOf(tab),
@@ -126,6 +132,7 @@ export function terminalNamed(
     fields: person === null ? rest : { ...rest, name: person },
     title: tabName({
       person,
+      guiTitle: guiTitleOf(tab),
       sessionName: store?.agentOf(tab.key)?.name ?? null,
       agentTitle: store?.agentTitleOf(tab.key) ?? null,
       auto: autoOf(tab),
@@ -290,7 +297,12 @@ export const terminalKind: TabKindDef = {
         deps={terminal}
         gui={guiOf(tab)}
         naming={{
-          name: { shown: tab.title, person: personOf(tab), auto: autoOf(tab) },
+          name: {
+            shown: tab.title,
+            person: personOf(tab),
+            guiTitle: guiTitleOf(tab),
+            auto: autoOf(tab),
+          },
           onName: (title) => host.patchTab(tab.key, { title }, { later: true }),
         }}
         onStarted={(info) =>

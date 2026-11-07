@@ -190,22 +190,26 @@ export function stripStatusGlyphs(title: string): string {
 }
 
 /**
- * 탭에 보일 이름. 사람이 붙인 이름, harness가 hook으로 알린 session 이름(`sessionName`), 그다음 coding agent가
- * 도는 동안의 터미널 제목(`agentTitle`, agent가 없으면 null), 없으면 자동 이름이다. 일반 shell은 prompt가
- * 제목을 계속 바꾸므로 제목을 쓰지 않는다.
+ * 탭에 보일 이름. 사람이 붙인 이름, GUI view의 ACP session 제목(`guiTitle`, GUI가 아니면 null), harness가 hook으로
+ * 알린 session 이름(`sessionName`), 그다음 coding agent가 도는 동안의 터미널 제목(`agentTitle`, agent가 없으면 null),
+ * 없으면 자동 이름이다. GUI 동안의 터미널 제목은 TUI가 끝난 뒤 shell prompt가 낸 것이라 쓰지 않는다. 일반 shell은
+ * prompt가 제목을 계속 바꾸므로 제목을 쓰지 않는다.
  */
 export function tabName({
   person,
+  guiTitle,
   sessionName,
   agentTitle,
   auto,
 }: {
   person: string | null;
+  guiTitle: string | null;
   sessionName: string | null;
   agentTitle: string | null;
   auto: string;
 }): string {
   if (person !== null) return person;
+  if (guiTitle !== null && guiTitle.length > 0) return guiTitle;
   if (sessionName !== null && sessionName.length > 0) return sessionName;
   const stripped = agentTitle === null ? "" : stripStatusGlyphs(agentTitle);
   return stripped.length > 0 ? stripped : auto;

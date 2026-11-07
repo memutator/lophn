@@ -2,7 +2,7 @@
 // 한 Tx에서 지우고(createCoreRegistration), commit 뒤의 파일과 설정 정리를 쓰기 앞 처리기가 한다.
 // ledger를 먼저 지우므로 파일 정리 중에 끊겨도 설치된 척하는 앱은 없다. 남은 폴더는 이름 없는 고아일 뿐이다.
 import { chmod, readdir, rm } from "node:fs/promises";
-import { ok, type Result } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appDelete, appRemnantsEraser } from "../../../../protocol/apps/mod.ts";
 import { appFolder } from "../../../../protocol/apps/app-storage.ts";
 import { agentDelete } from "../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -154,6 +154,19 @@ export const appsDeleteWiring: WiringFactory = () => ({
       }
     }
 
+    // 지금 이 앱의 process가 살아 있는가(멈추는 중 포함). ledger의 마지막 AppStarted는 core가 꺼질 때 남은 옛 사실일 수 있어
+    // 보지 않는다. supervisor에 닿지 못하면 자식도 없다(core가 끊기면 자식은 끝난다).
+    async function aliveNow(app: string): Promise<boolean> {
+      const facts = await ctx.appsControl.facts.app(app);
+      if (!facts.ok || facts.value?.status !== "archived") return false;
+      const observed = await ctx.appsControl.client.observe(app);
+      return (
+        observed.ok &&
+        observed.value !== null &&
+        observed.value.process_nonce !== ""
+      );
+    }
+
     // 사람이 쓰는 설정에서 이 앱을 가리키는 것을 뺀다. 없는 앱은 shell이 그릴 때 건너뛰지만, 같은 slug의 새 앱이
     // 공유(coding agent)나 고정을 물려받지 않게 지운다.
     function cleanSettings(app: Deleted): void {
@@ -247,7 +260,15 @@ export const appsDeleteWiring: WiringFactory = () => ({
             return await inner.command(auth, envelope);
           }
           const target = (envelope.input as { app?: unknown } | undefined)?.app;
-          if (typeof target === "string") await stopPreview(auth, target);
+          if (typeof target === "string") {
+            await stopPreview(auth, target);
+            if (await aliveNow(target)) {
+              return err({
+                code: "unavailable",
+                message: "the app process is still stopping; try again shortly",
+              });
+            }
+          }
           const done = await inner.command(auth, envelope);
           if (done.ok) {
             const deleted = done.value.result as Deleted;

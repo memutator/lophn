@@ -94,3 +94,47 @@ test("app.delete가 끝나면 그 앱의 폴더와 고정만 지워지고 다른
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// 보관한 앱의 process가 아직 살아 있으면 지우기는 시작하지 않는다.
+test("supervisor가 이 앱의 process를 아직 갖고 있으면 app.delete는 unavailable이고 폴더가 남는다", async () => {
+  const root = await mkdtemp(`${tmpdir()}/lophn-app-delete-`);
+  try {
+    await mkdir(`${root}/apps/${GONE}`, { recursive: true });
+    let innerCalled = false;
+    const built = await appsDeleteWiring().build!({
+      telemetry: { logger: { error: () => {} } },
+      root: { path: root },
+      bus: { publish: () => {} },
+      clock: { now: () => "2026-02-01T00:00:00.000Z" },
+      appsControl: {
+        facts: { app: () => Promise.resolve(ok({ status: "archived" })) },
+        previews: { current: () => Promise.resolve(ok(null)) },
+        client: {
+          observe: () =>
+            Promise.resolve(ok({ process_nonce: "n1", app: GONE })),
+        },
+        forget: () => {},
+      },
+    } as unknown as WiringContext);
+    assert.ok(built.ok);
+    const writer = built.value.writer!({
+      command: () => {
+        innerCalled = true;
+        return Promise.resolve(ok({ result: {}, replayed: false }));
+      },
+    } as never);
+    const done = await writer.command(
+      {} as never,
+      {
+        command: appDelete.name,
+        input: { app: GONE },
+      } as never,
+    );
+    assert.ok(!done.ok);
+    assert.strictEqual(done.error.code, "unavailable");
+    assert.strictEqual(innerCalled, false);
+    assert.strictEqual(await exists(`${root}/apps/${GONE}`), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

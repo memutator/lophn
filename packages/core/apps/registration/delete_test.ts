@@ -172,6 +172,19 @@ test("agent는 app.delete로 앱을 지우지 못한다", () => {
   assert.deepStrictEqual(t.erased, []);
 });
 
+// core가 꺼질 때는 AppStopped를 남기지 않아 보관한 앱에 옛 AppStarted가 남을 수 있다. 살아 있는 process만 막는다.
+test("마지막 ledger 사실이 AppStarted여도 지금 process가 없으면 보관한 앱을 지운다", () => {
+  const t = open("archived");
+  t.db
+    .prepare(
+      `INSERT INTO events (type, subject, actor, payload, at)
+       VALUES ('AppStarted', ?, 'machine', '{"release":"rel_gone","process_nonce":"n1"}', '2026-01-01')`,
+    )
+    .run(GONE);
+  assert.strictEqual(t.remove(USER).ok, true);
+  assert.strictEqual(t.rows("apps", GONE, "id"), 0);
+});
+
 test("보관한 앱을 지우면 그 앱의 기록만 지우고 다른 앱과 program 기록은 남는다", () => {
   const t = open("archived");
   assert.strictEqual(t.remove(USER).ok, true);

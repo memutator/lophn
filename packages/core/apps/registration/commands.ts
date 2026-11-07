@@ -27,7 +27,6 @@ import type {
 import { checkIconUpload, parseActor } from "../../../protocol/base/mod.ts";
 import { RESERVED_APP_SLUGS } from "../../../protocol/apps/declaration/mod.ts";
 import { clearAppNotices } from "../notices/commands.ts";
-import { lastProcessFact } from "../permissions/store.ts";
 import { eraseApp } from "./delete.ts";
 import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
@@ -270,13 +269,8 @@ export function createAppCommands(): {
         if (current.value.revision !== compare.base_revision) {
           return conflict("app revision changed");
         }
-        // 도는 process가 살아 있으면 파일과 DB를 지울 수 없다. 보관이 멈추는 중이면 잠시 뒤 다시 한다.
-        if (lastProcessFact(tx.sql, input.app).kind === "started") {
-          return err({
-            code: "unavailable",
-            message: "the app process is still stopping; try again shortly",
-          });
-        }
+        // 도는 process가 아직 있는지는 ledger 사실(AppStarted)이 아니라 살아 있는 supervisor를 보고 쓰기 앞 처리기가 판정한다
+        // (core가 꺼질 때는 AppStopped를 남기지 않아 옛 사실이 남는다).
         // port가 없으면 tx.port가 internal로 거절한다. 다른 module의 기록을 남긴 채 앱만 지우지 않으려는 것이다.
         const others = tx.port(appRemnantsEraser).erase({
           id: current.value.id,

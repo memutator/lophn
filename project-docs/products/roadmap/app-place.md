@@ -1,6 +1,6 @@
 # 앱 자리: 앱 화면 체계를 고치고, 앱이 shell 화면 자리(sidebar, 전역 float, tray)에 꽂힌다
 
-상태: 로드맵. 2026-11-07 사람이 방향을 냈고 planner가 정리했다. 사람이 "extension"으로 낸 일이지만, 따로 extension 개념을 두지 않고 앱에 자리와 hook을 더해 푼다(정한 것 4). 지금의 extension(기능 묶음, `architecture/extension.md`)은 이 일과 따로 남는다. 정할 것은 없다.
+상태: 로드맵. 2026-11-07 사람이 방향을 냈고 planner가 정리했다. 사람이 "extension"으로 낸 일이지만, 따로 extension 개념을 두지 않고 앱에 자리와 hook을 더해 푼다(정한 것 4). 지금의 extension(기능 묶음, `architecture/extension.md`)은 이 일과 따로 남는다. 정할 것은 없다. 2026-11-07 계획 `app-place`로 열었다(`project-docs/plan/app-place/README.md`). 계획을 열며 정한 것(자리는 열린 view에 고정, sidebar panel은 모든 workspace에, tray 값은 `@lophn/cap-notify`)은 그 README에 있다.
 배경 문서: `project-docs/architecture/extension.md`, `project-docs/architecture/workspace-layout.md`, `project-docs/architecture/workflow.md`, `project-docs/architecture/acp.md`, `project-docs/architecture/app-notice.md`, `project-docs/products/roadmap/agent-platform.md`(정한 것 1), `project-docs/products/roadmap/workflow.md`(activity bar), `/home/pyosechang/projects/harness-lab/extension-systems-report.md`(Claude Code mod와 dsh plugin 비교).
 
 ## 사람의 말 (원문, 2026-11-07)
@@ -107,7 +107,7 @@
   - `params`는 그 화면을 열 때 받는 인자의 schema다(`InputSchema`). 예를 들어 Mahas `session` 화면은 `{harness, session}`을 받는다.
   - 화면을 여는 곳은 모두 인자를 넘길 수 있다. agent의 `app_card {app, view, params}`, 앱 화면 안 link, 탭 열기가 그렇다.
 - **자리**는 lophn이 정한다: `tab`(지금 `full`), `panel`(dock·float), `card`, `sidebar`, `tray`. 화면은 나갈 수 있는 자리를 `places`에 적는다. 이름이 크기에서 자리로 바뀐다(`sizes` → `places`).
-- **화면은 지금 자리를 안다.** bridge가 `{place, params}`를 주고, 자리가 바뀌면(dock↔float, 전역 float, tray popup) 알린다. `@lophn/app-ui`에 `usePlace()`를 둔다.
+- **화면은 지금 자리를 안다.** bridge가 `{place, params, workspace}`를 준다. 자리는 열릴 때 정해지고 바뀌지 않는다(dock, desk float, 전역 float 모두 `panel`). `@lophn/app-ui`에 `usePlace()`를 둔다.
 - **크기 반응은 앱 CSS가 한다.** `<webview>` 폭에 container·media query로 맞춘다. lophn은 크기 bucket을 정하지 않는다. float는 사람이 늘이고 줄이므로 크기가 정해진 자리가 아니다.
 - 앱 workspace 본문은 `tab` 자리를 가진 첫 화면으로 그대로 연다. 다른 화면은 인자와 함께 탭으로 연다.
 - 앱이 화면으로 선언한 부분은 그 화면이 적은 어느 자리에서든 따로 연다. 예: Mahas의 `sessions`(세션 검색) 화면이 `places: [tab, panel, sidebar]`, `params: {query?}`면 전역 float, project sidebar, 앱 workspace의 탭 어디서든 그 화면만 연다. 화면으로 선언하지 않은 부분(한 화면 안의 검색 칸 하나)은 lophn이 잘라 내지 않는다. 앱 agent가 화면으로 나눈다.
@@ -122,7 +122,7 @@
 ### 2. 화면 자리(slot)를 등록으로 연다
 
 - 오른쪽 sidebar의 내장 panel(explorer, artifact, workflow, jobs, workspaces, logs)을 하드코딩 함수에서 등록으로 옮긴다. `roadmap/workflow.md`의 "sidebar를 activity bar로"를 같이 한다.
-- 앱의 `sidebar` 화면은 어느 workspace 종류(project, home, 앱)에 나올지 적는다. shell은 그 화면의 인자로 지금 workspace를 준다(project라면 폴더 경로). git worktree 앱은 그 경로로 `git worktree list`를 돌린다. 앱 process는 권한을 막지 않는다(`packages/sdk/cap-fs/guide.md`).
+- 앱의 `sidebar` 화면은 모든 workspace 종류(project, home, 앱)의 sidebar에 나온다. 화면이 지금 workspace를 보고 맞춘다. shell은 그 화면에 지금 workspace를 준다(project라면 폴더 경로). git worktree 앱은 그 경로로 `git worktree list`를 돌린다. 앱 process는 권한을 막지 않는다(`packages/sdk/cap-fs/guide.md`).
 - 설치된 앱의 sidebar와 tray 기여는 사람이 켜야 나온다. 지금 QuickLaunch에 app panel을 pin하는 것과 같은 자리다(`shell.quick_launch`).
 
 ### 3. 전역 float, 작업 표시줄, tray

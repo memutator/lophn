@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { keepFocus } from "../return-focus.ts";
+import { focusLike, keepFocus, useInputMode } from "../return-focus.ts";
 import {
   componentMark,
   type Placement,
@@ -49,6 +49,8 @@ export function Popover({
   card = false,
   ...state
 }: PopoverProps) {
+  const anchor = useRef<HTMLButtonElement>(null);
+  const mode = useInputMode();
   if (hover) {
     return (
       <HoverPopover
@@ -62,15 +64,28 @@ export function Popover({
   }
   return (
     <Radix.Root {...state}>
-      <Radix.Trigger asChild>{trigger}</Radix.Trigger>
+      <Radix.Trigger asChild ref={anchor}>
+        {trigger}
+      </Radix.Trigger>
       <Radix.Portal container={container}>
         <Radix.Content
           className={styles.popover}
           side="bottom"
           {...placementProps(placement)}
+          {...mode.props}
           {...(card ? ({ side: "right", align: "center" } as const) : {})}
-          onOpenAutoFocus={card ? (event) => event.preventDefault() : undefined}
-          onCloseAutoFocus={returnFocus ? undefined : keepFocus}
+          onOpenAutoFocus={(event) => {
+            mode.start(false);
+            if (card) event.preventDefault();
+          }}
+          onCloseAutoFocus={(event) => {
+            // Radix는 plain focus()로 trigger에 돌려줘 마우스로 닫아도 ring이 선다.
+            event.preventDefault();
+            const target = anchor.current;
+            if (returnFocus && !mode.outside.current && target !== null) {
+              focusLike(target, mode.keyboard.current);
+            }
+          }}
           onEscapeKeyDown={onEscapeKeyDown}
           {...componentMark("Popover")}
         >

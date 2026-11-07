@@ -9,7 +9,7 @@ import {
   PopoverRow,
   Tooltip,
 } from "@lophn/ui/overlay";
-import { Icon, IconButton, Kbd } from "@lophn/ui/primitives";
+import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import {
   Fragment,
@@ -40,6 +40,12 @@ import {
   AgentFaceIcon,
   type AgentChoice,
 } from "../parts/agent-session/agent-session.tsx";
+import {
+  agentSections,
+  type HoverSection,
+  Keyed,
+  sectionHeading,
+} from "./agent-sections.tsx";
 import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import { workspaceKey, type WorkspaceRef } from "./desk-model.ts";
 import {
@@ -93,12 +99,12 @@ export interface LeftSidebarProps {
   current: WorkspaceRef;
   /** 고른 tab의 session 줄(`sessionKey`). 없으면 강조하지 않는다. */
   selected?: string;
-  /** 이 창 workspace의 +에 hover하면 뜨는 agent. lophn agent와 coding agent 묶음으로 나뉘고 빈 묶음은 없다. */
-  choices: readonly AgentChoice[];
+  /** workspace 줄의 +에 hover하면 뜨는 agent(`agentSections`가 lophn agent와 coding agent 묶음으로 나눈다). */
+  choices: (workspace: WorkspaceRef) => readonly AgentChoice[];
   /** workspace 줄의 +. 그 workspace의 lophn에서 새 session이다. 다른 workspace면 그 workspace로 가서 연다. */
   onNewSession: (workspace: WorkspaceRef) => void;
-  /** 이 창 workspace의 + hover 목록에서 고른 agent로 새 session이다. */
-  onNewSessionWith: (choice: AgentChoice) => void;
+  /** + hover 목록에서 고른 agent로 그 workspace의 새 session이다. 다른 workspace면 그 workspace로 가서 연다. */
+  onNewSessionWith: (choice: AgentChoice, workspace: WorkspaceRef) => void;
   /** Inbox 질문 카드의 [Open session]. */
   onOpenSession: (session: string) => void;
   /** Jobs overlay의 통로. 없으면 Jobs 줄이 바로 Jobs 탭을 연다. */
@@ -128,8 +134,8 @@ export interface LeftSidebarProps {
     workspace: SidebarWorkspace,
     session: SidebarSession,
   ) => void;
-  /** 이 창의 project·앱 줄 오른쪽 끝에 설정 단추를 둔다. hover와 focus 때만 보인다. project는 Project settings, 앱은 App details 탭을 연다. Home은 주지 않는다. */
-  onWorkspaceSettings?: () => void;
+  /** project·앱 줄 오른쪽 끝에 설정 단추를 둔다. hover와 focus 때만 보인다. project는 Project settings, 앱은 App details이고 다른 workspace면 그 workspace로 가서 연다. Home 줄에는 없다. */
+  onWorkspaceSettings?: (workspace: WorkspaceRef) => void;
   onSettings: () => void;
 }
 
@@ -172,16 +178,6 @@ function AgentMark({ agent }: { agent: SidebarSession["agent"] }) {
   );
 }
 
-/** 이름 뒤에 키를 붙인 tooltip·목록 머리 글. */
-function Keyed({ label, keys }: { label: string; keys: string }) {
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      {label}
-      <Kbd keys={[keys]} />
-    </span>
-  );
-}
-
 function QuickPin({ pin }: { pin: QuickPinButton }) {
   // 앱이 선언한 icon이 없으면 기본 앱 panel 아이콘이다.
   const icon = useAppIcon(pin.app);
@@ -209,15 +205,6 @@ function QuickPin({ pin }: { pin: QuickPinButton }) {
   );
 }
 
-/** hover 목록의 한 묶음. 묶음 사이에는 divider가 들어간다. */
-interface HoverSection {
-  id: string;
-  heading: string;
-  /** 머리 글 뒤에 붙일 키. */
-  keys?: string | null;
-  items: readonly QuickHoverItem[];
-}
-
 /** pointer를 올리면 묶음 목록이 뜨는 단추. 누르기는 단추 자기 일이다. 빈 묶음은 그리지 않는다. */
 function HoverList({
   id,
@@ -241,11 +228,7 @@ function HoverList({
         <Fragment key={section.id}>
           {index === 0 ? null : <div className={styles.quickHoverDivider} />}
           <div className={styles.quickHoverHead} data-quick-hover={id}>
-            {section.keys == null ? (
-              section.heading
-            ) : (
-              <Keyed label={section.heading} keys={section.keys} />
-            )}
+            {sectionHeading(section)}
           </div>
           {section.items.map((item) => (
             <PopoverRow key={item.id} onSelect={item.onSelect}>
@@ -431,28 +414,6 @@ export function LeftSidebar({
 }: LeftSidebarProps) {
   const keyLabel = useKeyLabel();
   const newSessionKeys = keyLabel("new.agent");
-  const choiceItems = (kind: AgentChoice["kind"]): QuickHoverItem[] =>
-    choices
-      .filter((choice) => choice.kind === kind)
-      .map((choice) => ({
-        id: `${choice.kind}:${choice.id}`,
-        label: choice.name,
-        leading: <AgentFaceIcon face={choice.face} />,
-        onSelect: () => onNewSessionWith(choice),
-      }));
-  const newSections: HoverSection[] = [
-    {
-      id: "lophn",
-      heading: t("left-sidebar.heading.lophn-agents"),
-      keys: newSessionKeys,
-      items: choiceItems("lophn"),
-    },
-    {
-      id: "coding",
-      heading: t("left-sidebar.heading.coding-agents"),
-      items: choiceItems("coding"),
-    },
-  ];
   // 이름 칸이 열린 current 줄(`sessionKey`). 저장하지 않는다.
   const [renaming, setRenaming] = useState<string | null>(null);
   // 펼친 Recent와 그 page는 workspace마다 기억한다. 저장하지 않는다.
@@ -608,12 +569,14 @@ export function LeftSidebar({
               (id === "project" ? onRegisterProject : onCreateApp)?.()
             }
             trigger={
-              <IconButton
-                icon={shellIcons.add}
-                label={t("left-sidebar.button.add-workspace")}
-                size="sm"
+              <button
+                type="button"
+                className={styles.rowAction}
+                aria-label={t("left-sidebar.button.add-workspace")}
                 data-add-workspace=""
-              />
+              >
+                <Icon icon={shellIcons.add} pixels={14} />
+              </button>
             }
           />
         )}
@@ -651,21 +614,22 @@ export function LeftSidebar({
                   <Icon icon={WORKSPACE_ICON[workspace.ref.kind]} pixels={16} />
                   <span className={styles.rowLabel}>{workspace.name}</span>
                 </button>
-                {here &&
-                workspace.ref.kind !== "home" &&
+                {workspace.ref.kind !== "home" &&
                 onWorkspaceSettings !== undefined ? (
                   <span className={styles.workspaceSettings}>
-                    <IconButton
-                      icon={commonIcons.settings}
-                      label={t(
+                    <button
+                      type="button"
+                      className={styles.rowAction}
+                      aria-label={t(
                         workspace.ref.kind === "app"
                           ? "left-sidebar.button.app-detail"
                           : "left-sidebar.button.project-settings",
                       )}
-                      size="sm"
                       data-workspace-settings=""
-                      onClick={onWorkspaceSettings}
-                    />
+                      onClick={() => onWorkspaceSettings(workspace.ref)}
+                    >
+                      <Icon icon={commonIcons.settings} pixels={14} />
+                    </button>
                   </span>
                 ) : null}
                 <span
@@ -674,7 +638,11 @@ export function LeftSidebar({
                 >
                   <HoverList
                     id="new-session"
-                    sections={here ? newSections : []}
+                    sections={agentSections(
+                      choices(workspace.ref),
+                      newSessionKeys,
+                      (choice) => onNewSessionWith(choice, workspace.ref),
+                    )}
                     tip={
                       here && newSessionKeys !== null ? (
                         <Keyed
@@ -688,7 +656,7 @@ export function LeftSidebar({
                     trigger={
                       <button
                         type="button"
-                        className={styles.sessionAction}
+                        className={styles.rowAction}
                         aria-label={t("left-sidebar.button.new-session-in", {
                           workspace: workspace.name,
                         })}
@@ -738,12 +706,12 @@ export function LeftSidebar({
                     data-session-line={itemKey}
                   >
                     {row}
-                    <span className={styles.sessionActions}>
+                    <span className={styles.rowActions}>
                       {onRenameSession === undefined ||
                       item.kind === "draft" ? null : (
                         <button
                           type="button"
-                          className={styles.sessionAction}
+                          className={styles.rowAction}
                           aria-label={t("left-sidebar.button.rename-session")}
                           data-session-rename=""
                           onClick={() => setRenaming(itemKey)}
@@ -754,7 +722,7 @@ export function LeftSidebar({
                       {onStopSession === undefined ? null : (
                         <button
                           type="button"
-                          className={styles.sessionAction}
+                          className={styles.rowAction}
                           aria-label={t("left-sidebar.button.stop-session")}
                           data-session-stop=""
                           data-dot={item.dot === null ? undefined : ""}

@@ -41,6 +41,7 @@ import {
   sidebarPanelsFor,
 } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-panels.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
+import { agentChoices } from "../../../../packages/shell/renderer/shell/agent-sections.tsx";
 import { LeftSidebar } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
 import type {
   SidebarWorkspace,
@@ -213,6 +214,8 @@ const AGENTS: readonly SidebarAgent[] = AGENT_ROWS.map((row) => ({
   profile: avatarOf(row.profile),
   waiting: false,
 }));
+
+const WIRE_CHOICES = agentChoices(AGENTS, ["claude", "codex", "opencode"]);
 
 // 열린 탭이 있는 session(Current). 나머지는 Recent에만 오른다.
 const OPEN = new Set(["weekly", "harness"]);
@@ -682,23 +685,7 @@ export function PageLeftSidebar(props: SidebarProps) {
           }
           selected={props.selected}
           quick={quick}
-          choices={[
-            ...AGENTS.map((agent) => ({
-              kind: "lophn" as const,
-              id: agent.assignment,
-              name: agent.name,
-              face: { kind: "lophn" as const, profile: agent.profile },
-            })),
-            ...[
-              { id: "claude", name: "Claude Code", vendor: "claude" as const },
-              { id: "codex", name: "Codex", vendor: "openai" as const },
-              { id: "opencode", name: "OpenCode", vendor: "opencode" as const },
-            ].map(({ vendor, ...choice }) => ({
-              kind: "coding" as const,
-              ...choice,
-              face: { kind: "coding" as const, vendor },
-            })),
-          ]}
+          choices={() => WIRE_CHOICES}
           onNewSession={() => props.onAgent("lophn")}
           onNewSessionWith={(choice) =>
             choice.kind === "lophn" && props.onAgent(choice.id)
@@ -811,12 +798,16 @@ export function PageNewTabMenu({
       onDocument={() => onPick("document")}
       onTerminal={() => onPick("terminal")}
       onBrowser={() => onPick("browser")}
-      agents={AGENTS.map((agent) => ({
-        id: agent.assignment,
-        name: agent.name,
-        profile: agent.profile,
-      }))}
-      onAgent={(id) => onPick(id === "lophn" ? "agent-lophn" : `agent:${id}`)}
+      choices={WIRE_CHOICES}
+      onChoice={(choice) =>
+        onPick(
+          choice.kind === "coding"
+            ? "terminal"
+            : choice.id === "lophn"
+              ? "agent-lophn"
+              : `agent:${choice.id}`,
+        )
+      }
       onSearch={() => onPick("search")}
       onAppPanel={() => onPick("app-panel")}
     />

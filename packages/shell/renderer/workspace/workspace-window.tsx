@@ -192,6 +192,10 @@ import {
 } from "../shell/left-sidebar-model.ts";
 import { WorkspaceLeftSidebar } from "./sidebar/workspace-left-sidebar.tsx";
 import type { QuickHoverItem } from "../shell/left-sidebar.tsx";
+import { agentChoices, codingCommand } from "../shell/agent-sections.tsx";
+import type { AgentChoice } from "../parts/agent-session/agent-session.tsx";
+import type { NewSessionStart } from "../desktop/router.ts";
+import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import { useSidebarWorkspaceList } from "../shell/use-left-sidebar.ts";
 import {
   type InboxNames,
@@ -270,10 +274,14 @@ export interface WorkspaceWindowProps {
   appDetail?: AppDetailSource;
   /** 처음 열 때 한 번 이 workspace의 lophn을 연다. 앱 workspace는 앱 화면과 붙인 split으로 연다. */
   startLophn?: true;
-  /** 처음 열 때 한 번 이 workspace의 lophn 새 session 탭을 연다(다른 workspace 줄의 +로 왔다). */
-  startSession?: true;
-  /** 왼쪽 sidebar 다른 workspace 줄의 +. 그 workspace로 가서 새 session을 연다. */
-  onNewSessionAt?: (workspace: WorkspaceRef) => void;
+  /** 처음 열 때 한 번 새 session을 연다(다른 workspace 줄의 +나 그 hover 목록으로 왔다). */
+  startSession?: NewSessionStart;
+  /** 처음 열 때 한 번 이 workspace의 설정 탭을 연다(다른 workspace 줄의 설정 단추로 왔다). */
+  startSettings?: true;
+  /** 왼쪽 sidebar 다른 workspace 줄의 +와 hover 목록. 그 workspace로 가서 새 session을 연다. */
+  onNewSessionAt?: (workspace: WorkspaceRef, start: NewSessionStart) => void;
+  /** 왼쪽 sidebar 다른 workspace 줄의 설정 단추. 그 workspace로 가서 설정 탭을 연다. */
+  onSettingsAt?: (workspace: WorkspaceRef) => void;
   /** 처음 열 때 한 번 고를 터미널의 terminal_ref(다른 project의 터미널 알림). */
   revealTerminal?: string;
   /** 처음 열 때 한 번 열 파일. path는 디스크의 절대 경로다. */
@@ -886,15 +894,47 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
   };
 
-  // 이 workspace의 lophn Agent 탭을 연다. agent 목록을 아직 읽지 못했으면 열지 않고 false다.
-  const openLophn = (): boolean => {
+  // 새 session을 연다: coding agent는 그 명령어의 새 터미널, lophn agent는 새 Agent 탭이다(안 주면 기본 lophn).
+  // agent 목록이나 터미널을 아직 쓸 수 없으면 열지 않고 false다.
+  const openNew = (start: NewSessionStart): boolean => {
+    if (start.command !== undefined) {
+      if (terminal === undefined) return false;
+      openTerminalTab(host, { command: start.command, docked: true });
+      return true;
+    }
     const row = sidebarAgents.agents.find(
-      (item) => item.assignment === LOPHN_AGENT_ID,
+      (item) => item.assignment === (start.agent ?? LOPHN_AGENT_ID),
     );
     if (agentViewSource === undefined || row === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name });
     return true;
   };
+  const openLophn = (): boolean => openNew({});
+  // 이 workspace의 설정 단추가 여는 탭(project는 Project settings, 앱은 App details). Home은 없다.
+  const openSettingsHere =
+    projectId !== null
+      ? () => openProjectSettings(host)
+      : isApp && props.appDetail !== undefined
+        ? () => openAppDetail(host)
+        : undefined;
+  // + hover 목록과 탭 줄 + menu가 같이 쓰는, 고른 agent로 새 session을 여는 길.
+  const startChoice = (choice: AgentChoice) => {
+    if (choice.kind === "lophn") {
+      openAgent(host, { agent: choice.id, name: choice.name });
+      return;
+    }
+    const command = codingCommand(
+      quickPrefs.coding.commands,
+      choice.id as HarnessId,
+    );
+    if (command !== undefined) {
+      openTerminalTab(host, { command, docked: true });
+    }
+  };
+  const agentChoiceList = agentChoices(
+    sidebarAgents.agents,
+    terminal === undefined ? [] : quickPrefs.coding.favorites,
+  );
 
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
   const openSessionTab = (session: string): boolean => {
@@ -963,7 +1003,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const started = useRef<{
     session?: string;
     lophn?: true;
-    fresh?: true;
+    fresh?: object;
+    settings?: true;
     open?: object;
     terminal?: string;
   }>({});
@@ -980,9 +1021,16 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     if (
       props.startSession !== undefined &&
       started.current.fresh !== props.startSession &&
-      openLophn()
+      openNew(props.startSession)
     ) {
       started.current.fresh = props.startSession;
+    }
+    if (props.startSettings && started.current.settings === undefined) {
+      started.current.settings = true;
+      if (projectId !== null) openProjectSettings(host);
+      else if (appId !== null && props.appDetail !== undefined) {
+        openAppDetail(host);
+      }
     }
     const reveal = props.revealTerminal;
     if (
@@ -1017,6 +1065,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     props.session,
     props.startLophn,
     props.startSession,
+    props.startSettings,
     props.revealTerminal,
     props.open,
     sidebarAgents.agents,
@@ -2616,19 +2665,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                       {...(agentView === null
                         ? {}
                         : {
-                            agents: sidebarAgents.agents.map((agent) => ({
-                              id: agent.assignment,
-                              name: agent.name,
-                              profile: agent.profile,
-                            })),
-                            onAgent: (id: string) => {
-                              const row = sidebarAgents.agents.find(
-                                (agent) => agent.assignment === id,
-                              );
-                              if (row !== undefined) {
-                                openAgent(host, { agent: id, name: row.name });
-                              }
-                            },
+                            choices: agentChoiceList,
+                            onChoice: startChoice,
                           })}
                       {...(source.searchSource === undefined ||
                       projectId === null
@@ -2671,12 +2709,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   {...(props.onNewSessionAt === undefined
                     ? {}
                     : { onNewSessionAt: props.onNewSessionAt })}
-                  onNewLophn={(agent) =>
-                    openAgent(host, {
-                      agent: agent.assignment,
-                      name: agent.name,
-                    })
-                  }
+                  onNewChoice={startChoice}
                   onNewCoding={(command) =>
                     openTerminalTab(host, { command, docked: true })
                   }
@@ -2728,11 +2761,15 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     ref.kind === "home" ? onHome() : props.onWorkspace?.(ref)
                   }
                   onNewApp={(app) => props.onNewApp?.(app)}
-                  {...(projectId !== null
-                    ? { onWorkspaceSettings: () => openProjectSettings(host) }
-                    : isApp && props.appDetail !== undefined
-                      ? { onWorkspaceSettings: () => openAppDetail(host) }
-                      : {})}
+                  {...(openSettingsHere === undefined &&
+                  props.onSettingsAt === undefined
+                    ? {}
+                    : {
+                        onWorkspaceSettings: (ref: WorkspaceRef) =>
+                          workspaceKey(ref) === workspaceKey(workspace)
+                            ? openSettingsHere?.()
+                            : props.onSettingsAt?.(ref),
+                      })}
                   quick={{
                     order: shownQuickOrder(quickNow),
                     pins: quickPins,

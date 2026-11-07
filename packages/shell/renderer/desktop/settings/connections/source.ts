@@ -23,4 +23,8 @@ export interface CodingConnectionsSource {
   installHooks(harness: HarnessName): Promise<SourceResult<HarnessHookView>>;
   /** 사람이 [Uninstall hooks]를 누를 때만 부른다. 제품의 전역 설정 file에서 lophn 항목만 지운다. */
   uninstallHooks(harness: HarnessName): Promise<SourceResult<HarnessHookView>>;
+  /** coding agent에게 준 앱 slug(설정 `coding-agent.shared_apps`). */
+  sharedApps(): Promise<SourceResult<readonly string[]>>;
+  /** 목록에서 앱을 뺀다. 사본은 shell main이 `SettingsChanged`를 듣고 다음 sync에서 지운다. */
+  unshareApp(slug: string): Promise<SourceResult<null>>;
 }

@@ -74,6 +74,8 @@ export function CodingConnectionsPanel({
   const [hooks, setHooks] = useState<readonly HarnessHookView[]>([]);
   const [changing, setChanging] = useState<HarnessName | null>(null);
   const [hookFailed, setHookFailed] = useState<HookAction | null>(null);
+  const [shared, setShared] = useState<readonly string[]>([]);
+  const [unshareFailed, setUnshareFailed] = useState(false);
   const [query, setQuery] = useState("");
   const { prefs, set } = useQuickPrefs();
   const coding = prefs.coding;
@@ -104,6 +106,9 @@ export function CodingConnectionsPanel({
     void source.hookStatus().then((read) => {
       if (read.ok) setHooks(read.value);
     });
+    void source.sharedApps().then((read) => {
+      if (read.ok) setShared(read.value);
+    });
   }, [source]);
   useReload(source, load);
 
@@ -132,6 +137,13 @@ export function CodingConnectionsPanel({
     if (read.ok) setHooks(read.value);
     const wanted = action === "install" ? "installed" : "missing";
     if (!done.ok || done.value.status !== wanted) setHookFailed(action);
+  }
+
+  async function unshare(slug: string): Promise<void> {
+    const done = await source.unshareApp(slug);
+    setUnshareFailed(!done.ok);
+    const read = await source.sharedApps();
+    if (read.ok) setShared(read.value);
   }
 
   if (loaded.state === "failed") {
@@ -179,6 +191,11 @@ export function CodingConnectionsPanel({
       {hookFailed === "uninstall" ? (
         <p className={styles.rejected} role="alert" data-hooks="failed">
           {t("settings.error.coding-hooks-uninstall")}
+        </p>
+      ) : null}
+      {unshareFailed ? (
+        <p className={styles.rejected} role="alert" data-shared="failed">
+          {t("settings.error.coding-unshare")}
         </p>
       ) : null}
       <Loading
@@ -241,6 +258,42 @@ export function CodingConnectionsPanel({
         <p className={`${styles.lineHelp} ${styles.tableNote}`}>
           {t("settings.note.coding-favorites")}
         </p>
+        <section className={styles.groupBlock} data-shared-apps="">
+          <h2 className={styles.groupTitle}>
+            {t("settings.label.coding-shared-apps")}
+          </h2>
+          <p className={styles.lineHelp}>
+            {t("settings.note.coding-shared-apps")}
+          </p>
+          {shared.length === 0 ? (
+            <p className={styles.lineHelp} data-shared="empty">
+              {t("settings.empty.coding-shared-apps")}
+            </p>
+          ) : (
+            <ul className={styles.lines}>
+              {shared.map((slug) => (
+                <li key={slug} className={styles.line} data-shared-app={slug}>
+                  <div className={styles.lineMain}>
+                    <span className={`${styles.lineName} ${styles.mono}`}>
+                      {slug}
+                    </span>
+                  </div>
+                  <div className={styles.lineControl}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={actionIcons.remove}
+                      data-action="unshare"
+                      onClick={() => void unshare(slug)}
+                    >
+                      {t("settings.button.coding-unshare")}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </Loading>
     </div>
   );

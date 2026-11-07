@@ -65,6 +65,8 @@ export function controlOf(type: Schema): Control {
 const SHOWN_ELSEWHERE = [
   "shell.",
   "approvals.shell_rules",
+  // Coding agents 항목이 공유 앱 목록을 보이고 뺀다.
+  "coding-agent.shared_apps",
   "lophn-agent.extensions.",
   // Extensions 항목이 설치와 함께 켜고 끈다.
   "extensions.",

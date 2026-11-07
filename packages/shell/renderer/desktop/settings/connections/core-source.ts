@@ -7,7 +7,12 @@ import type {
   HarnessName,
   HarnessSettingsView,
 } from "../../../../ipc/coding.ts";
+import {
+  SHARED_APPS_SETTING_KEY,
+  sharedAppsSettingSchema,
+} from "../../../../../protocol/approvals/share-request.ts";
 import type { CoreSource } from "../../connection/connection.ts";
+import { chooseSetting, readEffective } from "../declared.ts";
 import type { CodingConnectionsSource, SourceResult } from "./source.ts";
 
 /** Settings가 쓰는 shell IPC. `harnesses`는 저장한 감지 결과, `refresh`는 사람이 요청한 다시 감지다. */
@@ -56,8 +61,32 @@ export function coreCodingConnectionsSource(
     }
   };
 
+  // 공유 요청 승인이 같은 값에 slug를 더하므로 빼기 직전에 다시 읽어 한 slug만 빼고 값 전체를 쓴다.
+  async function readShared(): Promise<SourceResult<string[]>> {
+    const read = await readEffective(deps.core, [SHARED_APPS_SETTING_KEY]);
+    if (!read.ok) return read;
+    const parsed = sharedAppsSettingSchema.safeParse(
+      read.value.get(SHARED_APPS_SETTING_KEY),
+    );
+    return parsed.success
+      ? { ok: true, value: parsed.data }
+      : { ok: false, code: "internal" };
+  }
+
   return {
     watch: (listener) => deps.core.subscribe(listener),
+
+    sharedApps: readShared,
+
+    async unshareApp(slug) {
+      const current = await readShared();
+      if (!current.ok) return current;
+      return chooseSetting(
+        deps.core,
+        SHARED_APPS_SETTING_KEY,
+        current.value.filter((one) => one !== slug),
+      );
+    },
 
     harnesses: read,
 

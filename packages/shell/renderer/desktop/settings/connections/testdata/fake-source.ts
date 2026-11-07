@@ -78,6 +78,7 @@ const HOOKS: readonly HarnessHookView[] = [
 ];
 
 interface FakeConnectionsOptions {
+  shared?: readonly string[];
   hooks?: SourceResult<readonly HarnessHookView[]>;
   harnesses?: SourceResult<readonly HarnessSettingsView[]>;
   refresh?: SourceResult<readonly HarnessSettingsView[]>;
@@ -91,6 +92,7 @@ interface FakeConnections {
     hookStatus: number;
     installed: HarnessName[];
     uninstalled: HarnessName[];
+    unshared: string[];
   };
 }
 
@@ -103,7 +105,9 @@ export function fakeConnections(
     hookStatus: 0,
     installed: [],
     uninstalled: [],
+    unshared: [],
   };
+  let shared = [...(options.shared ?? ["grocery-list", "trip-notes"])];
   let hooks =
     options.hooks?.ok === false ? [] : [...(options.hooks?.value ?? HOOKS)];
   const source: CodingConnectionsSource = {
@@ -128,6 +132,14 @@ export function fakeConnections(
           ? options.hooks
           : { ok: true, value: hooks },
       );
+    },
+    sharedApps() {
+      return Promise.resolve({ ok: true, value: shared });
+    },
+    unshareApp(slug) {
+      calls.unshared.push(slug);
+      shared = shared.filter((one) => one !== slug);
+      return Promise.resolve({ ok: true, value: null });
     },
     installHooks(id) {
       calls.installed.push(id);

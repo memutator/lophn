@@ -110,6 +110,7 @@ export const workspaceSettings = {
   "settings.button.choose-in-agents": "Choose in Agents",
   "settings.button.coding-favorite": "Add to favorites",
   "settings.button.coding-unfavorite": "Remove from favorites",
+  "settings.button.coding-unshare": "Remove",
   "settings.button.connect-with": "Connect {name}",
   "settings.button.detect-again": "Detect again",
   "settings.button.extension-install": "Install",
@@ -136,6 +137,7 @@ export const workspaceSettings = {
   "settings.diagnostics.not-run":
     "No check has run yet. Checks run only when you press the button.",
   "settings.empty.coding-search": "No product matches your search.",
+  "settings.empty.coding-shared-apps": "No apps are shared with coding agents.",
   "settings.empty.extension-packages":
     "No extensions come with this version of lophn.",
   "settings.empty.general": "No settings are declared yet.",
@@ -151,6 +153,7 @@ export const workspaceSettings = {
     "The hooks weren't installed. Nothing changed. Try again.",
   "settings.error.coding-hooks-uninstall":
     "The hooks weren't uninstalled. Try again.",
+  "settings.error.coding-unshare": "Couldn't remove the app. Try again.",
   "settings.error.extension-action": "Could not change {name}. Try again.",
   "settings.error.extension-turn-off-first":
     "Turn {name} off before removing it.",
@@ -246,6 +249,7 @@ export const workspaceSettings = {
   "settings.label.coding-not-found": "Not found",
   "settings.label.coding-signal-no": "No signal",
   "settings.label.coding-signal-yes": "Has signal",
+  "settings.label.coding-shared-apps": "Apps shared with coding agents",
   "settings.label.extension-not-installed": "Not installed",
   "settings.label.extension-off": "Off",
   "settings.label.extension-on": "On",
@@ -412,6 +416,8 @@ export const workspaceSettings = {
     "Favorites appear under New session and when you hover Terminal in the left sidebar. Command is what the terminal runs; leave it empty for the default.",
   "settings.note.coding-hooks":
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
+  "settings.note.coding-shared-apps":
+    "Public skills of these apps are copied into the skill folders of the coding agents that have hooks installed. Removing an app deletes those copies.",
   "settings.note.key-app-panel":
     "Opens that app's panel, whether or not it is pinned to the sidebar.",
   "settings.note.key-conflict-reserved":

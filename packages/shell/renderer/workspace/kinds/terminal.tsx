@@ -347,7 +347,7 @@ export const terminalKind: TabKindDef = {
     );
     // 탭의 view가 gui이면 xterm 대신 채팅 화면을 그린다. PTY와 xterm은 그대로 산다.
     return (
-      <GuiSwitch tab={tab} host={host} deps={terminal}>
+      <GuiSwitch tab={tab} active={active} host={host} deps={terminal}>
         {body}
       </GuiSwitch>
     );

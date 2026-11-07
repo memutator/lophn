@@ -211,7 +211,6 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
 
     // 이 아래는 lophn session의 것이라 이 화면에 없다.
     searchMessages: none,
-    envelope: none,
     callState: none,
     cancelCall: none,
     permissions: none,

@@ -377,6 +377,11 @@
   );
 }
 
+/* 출력은 상자 폭을 다 쓴다. 내용 폭으로 줄면 복사 단추가 글 옆에 붙고 명령 줄과 왼쪽이 어긋난다. */
+.shellOutput {
+  align-self: stretch;
+}
+
 .shellPrompt {
   color: var(--color-text-muted);
   user-select: none;

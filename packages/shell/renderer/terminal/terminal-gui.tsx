@@ -443,11 +443,13 @@ export const OPEN_TERMINAL_ID = "open-terminal";
  */
 export function GuiSwitch({
   tab,
+  active,
   host,
   deps,
   children,
 }: {
   tab: TabItem;
+  active: boolean;
   host: TabHost;
   deps: TerminalDeps;
   children: ReactNode;
@@ -458,6 +460,26 @@ export function GuiSwitch({
     () => store.get(tab.key),
   );
   const terminalRef = entry?.terminalRef ?? null;
+  // GUI view에서는 TerminalTab이 서지 않아 main의 focus 표에 이 터미널을 적는 곳이 없다. 고른 GUI 탭도 '보고 있음'이어야
+  // 끝난 turn의 점과 알림이 사라진다.
+  const showingGui = viewOf(tab) === "gui";
+  const generation = entry?.generation ?? 0;
+  useEffect(() => {
+    const bridge = deps.bridge;
+    if (
+      !active ||
+      !showingGui ||
+      bridge === null ||
+      terminalRef === null ||
+      generation < 1
+    )
+      return;
+    const ref = { terminal_ref: terminalRef, generation };
+    void bridge.focus({ ...ref, focused: true });
+    return () => {
+      void bridge.focus({ ...ref, focused: false });
+    };
+  }, [active, showingGui, deps.bridge, terminalRef, generation]);
   const api = guiApi();
   useGuiRequests(api, terminalRef, {
     opened: (open) =>

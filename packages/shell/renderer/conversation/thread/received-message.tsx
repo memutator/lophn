@@ -48,7 +48,9 @@ export function ReceivedMessage({
         <SenderChip
           sender={sender}
           open={open}
-          onToggle={() => setOpen(!open)}
+          onToggle={
+            source.envelope === undefined ? undefined : () => setOpen(!open)
+          }
         />
         <span className={styles.time}>{time}</span>
       </div>

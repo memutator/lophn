@@ -593,8 +593,8 @@ export interface AgentTabSource {
    * workspace로 지금 session을 열면 받을 값이다. harness source는 session이 늘 있어 두지 않는다.
    */
   draft?(): Promise<SourceResult<AcpSessionMeta>>;
-  /** 보낸 쪽 chip을 누르면 읽는다: 맡긴 글, 근거 링크, 보낸 session. */
-  envelope(message: string): Promise<SourceResult<Envelope>>;
+  /** 보낸 쪽 chip을 누르면 읽는다: 맡긴 글, 근거 링크, 보낸 session. 없으면(harness GUI) chip은 열리지 않는다. */
+  envelope?(message: string): Promise<SourceResult<Envelope>>;
   /** call 블록이 취소한 뒤 읽는다. 상태가 바뀌어도 따로 알리지 않는다. */
   callState(call: string): Promise<SourceResult<CallStatus>>;
   /** call 줄을 펼칠 때 읽는다. 아직 출력이 없으면 output은 not_found다. */

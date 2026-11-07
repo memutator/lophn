@@ -153,7 +153,10 @@ export function ShellRun({
           </Button>
         ) : null}
         {text === "" ? null : (
-          <div className={styles.wrapCode} data-shell-output="">
+          <div
+            className={`${styles.wrapCode} ${styles.shellOutput}`}
+            data-shell-output=""
+          >
             <CodeBlock code={fold.shown} />
           </div>
         )}

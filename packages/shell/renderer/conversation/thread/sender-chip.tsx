@@ -34,7 +34,8 @@ function senderLabel(sender: Sender): string {
 interface SenderChipProps {
   sender: Sender;
   open: boolean;
-  onToggle: () => void;
+  /** 없으면 열 panel이 없어(읽을 상세가 없는 source) 이름만 보인다. */
+  onToggle?: (() => void) | undefined;
 }
 
 /** "From …" chip. 누르면 panel이 열린다. */
@@ -44,6 +45,20 @@ export function SenderChip({
   onToggle,
 }: SenderChipProps): ReactElement {
   const label = senderLabel(sender);
+  if (onToggle === undefined) {
+    return (
+      <span
+        className={styles.senderChip}
+        aria-label={t("conversation.label.sender-sent-by", { sender: label })}
+        data-sender-chip={sender.kind}
+      >
+        <span className={styles.senderFrom}>
+          {t("conversation.label.sender-from")}
+        </span>
+        <span className={styles.senderName}>{label}</span>
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -98,6 +113,7 @@ export function SenderPanel({
   useEffect(() => {
     let live = true;
     setLoaded({ state: "loading" });
+    if (source.envelope === undefined) return;
     void source.envelope(message).then((result) => {
       if (!live) return;
       setLoaded(

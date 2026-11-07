@@ -47,7 +47,6 @@ import {
   conversationIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
-import { newId } from "../prefixed-id.ts";
 import type { TabItem } from "../workspace/model.ts";
 import type { TabHost } from "../workspace/kinds/host.ts";
 import type { TerminalDeps } from "./deps.ts";
@@ -116,8 +115,9 @@ const NO_CORE: CoreSource = {
     }),
 };
 
-function createGuiFeed(now: () => number): GuiFeed {
-  const session = newId("ses", now());
+// session id는 handle이 사는 동안 같아야 한다. 탭을 오가 다시 붙어도 창의 DraftStore가 같은 입력 글과 읽던 위치를 돌려준다.
+function createGuiFeed(handle: string, now: () => number): GuiFeed {
+  const session = `ses_${handle}`;
   let state = EMPTY_ACP_STATE;
   const listeners = new Set<(message: EventMessage) => void>();
   const watchers = new Set<() => void>();
@@ -332,7 +332,7 @@ export function TerminalGui({
   onTitle?: (title: string) => void;
   now?: () => number;
 }) {
-  const feed = useMemo(() => createGuiFeed(now), [gui.handle, now]);
+  const feed = useMemo(() => createGuiFeed(gui.handle, now), [gui.handle, now]);
   useEffect(() => {
     if (onTitle === undefined) return;
     let last: string | null = null;

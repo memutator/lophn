@@ -106,18 +106,25 @@ export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
 }
 
 /**
- * 다른 workspace의 저장된 layout에서 읽은 탭의 이름. 창의 store가 아는 agent 이름이 먼저이고, 아직 없으면 그 workspace가
- * 마지막으로 저장한 agent 이름(`agent_title`)이다.
+ * 다른 workspace의 저장된 layout에서 읽은 탭의 이름. 저장본에는 GUI view와 제목이 없고(`guiTitleOf`는 null), 그 workspace가
+ * 마지막으로 저장한 agent 이름(`agentTitle`)에 그때 보이던 이름이 있다. agent의 TUI가 foreground에서 돌지 않으면(GUI가 띄운
+ * CLI의 hook뿐) 이 창이 아는 터미널 제목은 shell prompt의 경로라 저장된 이름을 먼저 쓴다. TUI가 돌면 store의 지금 값이
+ * 먼저이고, 아직 없으면 저장된 이름이다.
  */
 export function otherWorkspaceTerminalTitle(
   tab: TabItem,
   store: TerminalStore,
 ): string {
-  const name = terminalTabTitle(tab, store);
   const saved = tab.fields?.agentTitle;
-  return name === autoOf(tab) && typeof saved === "string" && saved.length > 0
-    ? saved
-    : name;
+  const hasSaved = typeof saved === "string" && saved.length > 0;
+  if (
+    hasSaved &&
+    personOf(tab) === null &&
+    store.agentOf(tab.key)?.foreground !== true
+  )
+    return saved;
+  const name = terminalTabTitle(tab, store);
+  return hasSaved && name === autoOf(tab) ? saved : name;
 }
 
 /** 사람이 붙인 이름(`person`, null이면 지움)을 준 터미널 탭. 이 창의 탭과 다른 workspace의 저장된 탭이 같이 쓴다. */

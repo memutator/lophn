@@ -209,6 +209,8 @@ export const project = {
   "terminal.button.try-again": "Try again",
   "terminal.dialog.close-text":
     "Anything still going on in this terminal will stop.",
+  "terminal.dialog.stop-queued":
+    "{count, plural, one {# queued message will not be sent. Its text goes back to the chat input.} other {# queued messages will not be sent. Their text goes back to the chat input.}}",
   "terminal.dialog.stop-tasks":
     "{count, plural, one {# background task will stop.} other {# background tasks will stop.}}",
   "terminal.dialog.stop-turn": "The running turn will stop.",

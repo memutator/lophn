@@ -95,7 +95,7 @@ test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제
 });
 
 test("GUI 화면의 session id는 ACP 입력의 session 검사를 통과한다", () => {
-  const session = guiSessionId("win_01hzx3k4m5n6p7q8r9s0t1v2w3");
+  const session = guiSessionId("trm_01hzx3k4m5n6p7q8r9s0t1v2w3");
   assert.equal(session, "ses_01hzx3k4m5n6p7q8r9s0t1v2w3");
   assert.ok(idSchema("ses").safeParse(session).success);
 });

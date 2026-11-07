@@ -50,6 +50,7 @@ import {
 import type { TabItem } from "../workspace/model.ts";
 import type { TabHost } from "../workspace/kinds/host.ts";
 import type { TerminalDeps } from "./deps.ts";
+import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import { guiSessionId } from "./model.ts";
 import { useGuiRequests } from "./use-gui-requests.ts";
 
@@ -116,9 +117,9 @@ const NO_CORE: CoreSource = {
     }),
 };
 
-// session id는 handle이 사는 동안 같아야 한다. 탭을 오가 다시 붙어도 창의 DraftStore가 같은 입력 글과 읽던 위치를 돌려준다.
-function createGuiFeed(handle: string, now: () => number): GuiFeed {
-  const session = guiSessionId(handle);
+// session id는 handle이 아니라 터미널 탭 기준이라 toggle로 새 handle이 만들어져도 같다. 탭을 오가 다시 붙어도 창의
+// DraftStore가 같은 입력 글과 읽던 위치를 돌려준다(restart는 queue에 남은 말의 글을 입력칸에 되돌려 놓는다).
+function createGuiFeed(session: string, now: () => number): GuiFeed {
   let state = EMPTY_ACP_STATE;
   const listeners = new Set<(message: EventMessage) => void>();
   const watchers = new Set<() => void>();
@@ -174,6 +175,8 @@ function createGuiFeed(handle: string, now: () => number): GuiFeed {
 export interface GuiStops {
   readonly turn: boolean;
   readonly tasks: number;
+  /** GUI queue에 남아 보내지 못할 말의 수. */
+  readonly queued?: number;
 }
 
 interface ToggleOptions {
@@ -189,6 +192,11 @@ interface ToggleOptions {
   confirm: () => GuiStops | null | Promise<GuiStops | null>;
   /** 지금은 바꿀 수 없다는 이유. 있으면 단추가 disabled이고 이유가 tooltip으로 보인다. */
   unavailable?: string | null;
+  /**
+   * 바꾸기로 한 순간(응답을 기다리기 전)에 부른다. 돌려준 함수는 바뀐 뒤에만 부른다: 바꾸다 실패하면 queue의 말이 그대로라
+   * 입력칸에 옮기면 두 번이 된다.
+   */
+  onSwitch?: () => () => void;
 }
 
 // 단추는 card 머리에 올라가고 머리는 deps가 바뀔 때마다 다시 서서 그 안의 상태가 사라진다. modal과 오류는 이 hook을 쓰는
@@ -215,9 +223,11 @@ export function useGuiToggle(options: ToggleOptions): {
     if (api === null || terminalRef === null) return;
     setStops(null);
     setBusy(true);
+    const switched = latest.current.onSwitch?.();
     const reply = await api.toggle({ terminal_ref: terminalRef, to: target });
     setBusy(false);
-    if (!reply.ok) setProblem(problemText(reply));
+    if (reply.ok) switched?.();
+    else setProblem(problemText(reply));
   };
   // run은 ref와 setter만 읽어 어느 render의 것이어도 같다.
   const startRef = useRef<() => void>(() => {});
@@ -288,6 +298,9 @@ export function useGuiToggle(options: ToggleOptions): {
         {stops !== null && stops.tasks > 0 ? (
           <p>{t("terminal.dialog.stop-tasks", { count: stops.tasks })}</p>
         ) : null}
+        {stops?.queued ? (
+          <p>{t("terminal.dialog.stop-queued", { count: stops.queued })}</p>
+        ) : null}
       </Dialog>
       {problem === null ? null : (
         <NoticeToast title={problem} onClose={() => setProblem(null)} />
@@ -333,7 +346,9 @@ export function TerminalGui({
   onTitle?: (title: string) => void;
   now?: () => number;
 }) {
-  const feed = useMemo(() => createGuiFeed(gui.handle, now), [gui.handle, now]);
+  // terminalRef(`trm_<ULID>`)는 터미널이 다시 시작해도 같다. 아직 모르면 handle로 둔다.
+  const sessionKey = guiSessionId(terminalRef ?? gui.handle);
+  const feed = useMemo(() => createGuiFeed(sessionKey, now), [sessionKey, now]);
   useEffect(() => {
     if (onTitle === undefined) return;
     let last: string | null = null;
@@ -391,6 +406,24 @@ export function TerminalGui({
       return {
         turn: feed.state().turn !== null || running?.turn === true,
         tasks: running?.tasks ?? 0,
+        queued: feed.state().queued.length,
+      };
+    },
+    // queue에 남은 말은 TUI로 가며 사라지니, 글만 입력칸에 되돌려 놓는다(첨부는 잃는다).
+    onSwitch: () => {
+      const queued = feed
+        .state()
+        .queued.map((item) => blocksText(item.content))
+        .filter((text) => text !== "")
+        .join("\n\n");
+      return () => {
+        if (queued === "") return;
+        const mine = (drafts ?? own).draft(feed.session).text;
+        const text = mine === "" ? queued : `${mine}\n\n${queued}`;
+        (drafts ?? own).save(feed.session, {
+          text,
+          selection: [text.length, text.length],
+        });
       };
     },
   });

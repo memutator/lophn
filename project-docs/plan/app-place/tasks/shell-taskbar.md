@@ -11,6 +11,7 @@ workspace 창 맨 아래에 작업 표시줄을 둔다. 왼쪽은 float chip(전
   - `packages/shell/renderer/shell/float-layer.tsx`
   - `packages/shell/renderer/shell/global-floats/**`
   - `packages/shell/renderer/workspace/workspace-window.tsx`
+  - 추가 소유: `packages/shell/renderer/workspace/kinds/app-panel.tsx`의 `newKey`를 export하는 줄만
   - `packages/shell/renderer/desktop/settings/quick-launch/{source.ts,core-source.ts,store.tsx}`
   - `packages/shell/renderer/desktop/settings/appearance/**`
   - `packages/core/config/shell-settings.ts` (`shell.taskbar` 선언만)
@@ -55,6 +56,7 @@ workspace 창 맨 아래에 작업 표시줄을 둔다. 왼쪽은 float chip(전
    - 오른쪽은 workspace key마다 따로 둔다: `lophn.shell.sidebar-open.right.<workspace key>`. `WorkspaceWindow`가 자기 workspace key를 넘긴다. 저장한 값이 없으면 지금처럼 창 폭 기본값이다.
    - 왼쪽 열림과 양쪽 폭은 지금처럼 쪽마다 하나다. Settings와 home gate는 왼쪽만 쓰므로 그대로다.
    - 옛 key `lophn.shell.sidebar-open.right`는 읽지 않는다(배치 값이라 data가 아니다).
+8. **(lead가 더함) 앱 panel 탭 key 생성기 하나로**: wave 1이 `workspace-window.tsx`의 `globalToFloat`에 `app-panel-…-g<n>` key를 만드는 지역 생성기를 두었다(`deskFloatCount`). `kinds/app-panel.tsx`의 `newKey`를 export하고 그것을 쓰게 바꾼 뒤 지역 생성기를 지운다.
 
 ## 끝남
 

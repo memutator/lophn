@@ -199,27 +199,35 @@ export function ThreadIndex({
     );
   };
 
+  // IndexCard는 portal로 그려져도 React event는 rail로 올라온다. rail 안에서 난 것만 받는다.
+  const inRail = (event: {
+    currentTarget: Element;
+    target: EventTarget;
+  }): boolean => event.currentTarget.contains(event.target as Node);
+
   // 누른 채 끌면 지나가는 메시지로 바로 간다. 누르기만 하면 부드럽게 간다.
   const down = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    if (!inRail(event) || event.button !== 0) return;
     dragging.current = true;
     event.currentTarget.setPointerCapture(event.pointerId);
     lastDrag.current = positionAt(event.clientY);
     go(shown[lastDrag.current]!, true);
   };
   const move = (event: PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
+    if (!inRail(event) || !dragging.current) return;
     const at = positionAt(event.clientY);
     if (at === lastDrag.current) return;
     lastDrag.current = at;
     go(shown[at]!, false);
   };
   const up = (event: PointerEvent<HTMLDivElement>) => {
+    if (!inRail(event)) return;
     dragging.current = false;
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const key = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!inRail(event)) return;
     const at =
       hoverAt >= 0 ? hoverAt : shown.findIndex((item) => item.id === stop);
     const next =
@@ -247,7 +255,7 @@ export function ThreadIndex({
       role="group"
       aria-label={t("conversation.label.thread-index")}
       data-thread-index=""
-      onWheel={(event) => wheel(event.deltaY)}
+      onWheel={(event) => inRail(event) && wheel(event.deltaY)}
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}

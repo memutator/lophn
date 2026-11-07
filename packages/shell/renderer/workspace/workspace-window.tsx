@@ -182,7 +182,6 @@ import { launchKey } from "../desktop/settings/quick-launch/source.ts";
 import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
-import { ArtifactPanel } from "./sidebar/artifact-panel.tsx";
 import { CrumbBrowse } from "./sidebar/crumb-browse.tsx";
 import type { TabAwareResult } from "./sidebar/explorer.tsx";
 import { agentRow } from "./sidebar/panel-sessions.ts";
@@ -198,16 +197,11 @@ import {
   InboxNamesProvider,
 } from "../desktop/connection/waiting/names.ts";
 import {
-  AppWorkspacePanel,
-  appPanelTabs,
-  type AppWorkspaceTab,
-} from "./sidebar/app-panel.tsx";
-import { HomePanel, homePanelTabs } from "./sidebar/home-panel.tsx";
-import {
-  ProjectPanel,
-  panelTabs,
-  type SidebarTab,
-} from "./sidebar/project-sidebar.tsx";
+  SIDEBAR_KEEP_PREFIX,
+  type SidebarCtx,
+  type SidebarKind,
+  sidebarPanelsFor,
+} from "./sidebar/sidebar-panels.tsx";
 import { usePanelTerminals } from "./sidebar/use-panel-terminals.ts";
 import type {
   FileRow,
@@ -433,9 +427,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     windowWidth >= RIGHT_OPEN_MIN,
     workspaceId,
   );
-  const [panel, setPanel] = useState<string>(
-    isHome ? "workspaces" : isApp ? "logs" : "explorer",
-  );
+  // 고른 panel의 key. 목록에 없으면(앱이 지워졌거나 다른 workspace 종류) 목록의 첫 panel이다.
+  const [panel, setPanel] = useState<string>("");
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
@@ -600,7 +593,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     for (const key of keeps.keys()) {
       const session = keeps.lookup<{ view_session: string }>(key)?.session;
       if (
-        !allKeys.has(key) ||
+        (!allKeys.has(key) && !key.startsWith(SIDEBAR_KEEP_PREFIX)) ||
         (detached.has(key) &&
           (session === undefined || !transferredViews.current.has(session)))
       ) {
@@ -1338,8 +1331,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     setReveal({ path, nonce: Date.now() });
   };
 
-  // Ctrl/Cmd+Shift+E. 숫자가 바뀔 때마다 오른쪽 sidebar가 Files를 고르고 고른 줄에 focus를 준다.
-  const [explorerFocus, setExplorerFocus] = useState(0);
+  // Ctrl/Cmd+Shift+E. 오른쪽 sidebar가 Files를 고르고 Explorer가 고른 줄에 focus를 받는다(받으면 내려놓는다).
+  const [explorerFocusAsked, setExplorerFocusAsked] = useState(false);
   // desk.rename이 desk 목록을 이름 바꾸기 상태로 여는 신호.
   const [deskRenameAsk, setDeskRenameAsk] = useState(0);
 
@@ -1762,7 +1755,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         if (projectId === null) return;
         setPanel("explorer");
         setRightOpen(true);
-        setExplorerFocus((count) => count + 1);
+        setExplorerFocusAsked((loaded.project?.folders.length ?? 0) > 0);
         return;
       case "search.open":
         if (source.searchSource !== undefined && projectId !== null) {
@@ -2304,10 +2297,82 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     appId ?? "",
     sidebarAgents.agents,
     agentViewSource,
-    isApp && rightOpen && panel === "logs",
+    isApp && rightOpen,
   );
 
-  const withJobs = props.jobs !== undefined;
+  // 오른쪽 sidebar의 panel 목록. 지금 workspace 종류로 거른 내장 panel과 사람이 켠 앱 sidebar 화면이다.
+  const sidebarKind: SidebarKind = isHome ? "home" : isApp ? "app" : "project";
+  const sidebarCtx: SidebarCtx = {
+    kind: sidebarKind,
+    ...(props.jobs === undefined ? {} : { jobs: props.jobs }),
+    onOpenJobs: () => openJobs(host),
+    project:
+      projectId === null
+        ? null
+        : {
+            view: loaded.project,
+            source,
+            onOpenArtifact: (name) => openArtifact(host, name),
+            onOpenWorkflow: (workflow) => openWorkflow(host, workflow),
+            activeWorkflow: desk.workflow,
+            explorer: {
+              current:
+                currentTab?.kind === "document_editor" ? currentTab.key : null,
+              focusAsked: explorerFocusAsked,
+              onFocusAsked: () => setExplorerFocusAsked(false),
+              reveal,
+              onOpenFile: (path, keep) =>
+                openFile(host, path, { preview: keep !== true }),
+              onMove: moveFile,
+              onTrash: trashFile,
+              explorerRoot: explorerRoot ?? null,
+              onExplorerRoot: setExplorerRoot,
+              onAddFolder: addProjectFolder,
+              onRemoveFolder: removeProjectFolder,
+              ...(terminal === undefined
+                ? {}
+                : {
+                    onOpenTerminal: (cwd: string) =>
+                      openTerminalTab(host, { cwd }),
+                  }),
+            },
+          },
+    home:
+      sidebarKind === "home"
+        ? {
+            projects: props.projects,
+            apps: props.apps,
+            onProject: (project) =>
+              props.onWorkspace?.({ kind: "project", id: project }),
+            onApp: (app) => props.onOpenApp?.(app),
+            onNewApp: (app) => props.onNewApp?.(app),
+          }
+        : null,
+    app: isApp
+      ? {
+          runs: runRows,
+          onRunSession: (session) => {
+            const row = sidebarAgents.agents.find(
+              (item) => item.assignment === session.agent,
+            );
+            if (row !== undefined) {
+              openAgent(host, {
+                agent: row.assignment,
+                name: row.name,
+                session: session.id,
+              });
+            }
+          },
+        }
+      : null,
+  };
+  const sidebarPanels = sidebarPanelsFor(
+    sidebarCtx,
+    quickPrefs.sidebarPanels,
+    panelApps,
+  );
+  const activePanel =
+    sidebarPanels.find((item) => item.key === panel) ?? sidebarPanels[0];
   const mainSection = (
     <div className={styles.stage}>
       <ContentCard
@@ -2580,14 +2645,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
               }
               panelTabs={
                 <PanelTabs
-                  tabs={
-                    isHome
-                      ? homePanelTabs(withJobs)
-                      : isApp
-                        ? appPanelTabs()
-                        : panelTabs(withJobs)
-                  }
-                  selected={panel}
+                  tabs={sidebarPanels}
+                  selected={activePanel?.key ?? ""}
                   onSelect={setPanel}
                 />
               }
@@ -2701,77 +2760,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   onSettings={() => onSettings()}
                 />
               }
-              rightSidebar={
-                isApp ? (
-                  <AppWorkspacePanel
-                    tab={panel as AppWorkspaceTab}
-                    runs={runRows}
-                    onRunSession={(session) => {
-                      const row = sidebarAgents.agents.find(
-                        (item) => item.assignment === session.agent,
-                      );
-                      if (row !== undefined) {
-                        openAgent(host, {
-                          agent: row.assignment,
-                          name: row.name,
-                          session: session.id,
-                        });
-                      }
-                    }}
-                  />
-                ) : projectId === null ? (
-                  <HomePanel
-                    tab={panel}
-                    projects={props.projects}
-                    apps={props.apps}
-                    jobs={props.jobs}
-                    onProject={(project) =>
-                      props.onWorkspace?.({ kind: "project", id: project })
-                    }
-                    onApp={(app) => props.onOpenApp?.(app)}
-                    onNewApp={(app) => props.onNewApp?.(app)}
-                    onOpenJobs={() => openJobs(host)}
-                  />
-                ) : (
-                  <ProjectPanel
-                    tab={panel as SidebarTab}
-                    project={loaded.project}
-                    source={source}
-                    artifactPanel={
-                      <ArtifactPanel
-                        project={projectId}
-                        onOpen={(name) => openArtifact(host, name)}
-                      />
-                    }
-                    jobs={props.jobs}
-                    onOpenJobs={() => openJobs(host)}
-                    current={
-                      currentTab?.kind === "document_editor"
-                        ? currentTab.key
-                        : null
-                    }
-                    focusExplorer={explorerFocus}
-                    reveal={reveal}
-                    onOpenFile={(path, keep) =>
-                      openFile(host, path, { preview: keep !== true })
-                    }
-                    onMove={moveFile}
-                    onTrash={trashFile}
-                    explorerRoot={explorerRoot ?? null}
-                    onExplorerRoot={setExplorerRoot}
-                    onAddFolder={addProjectFolder}
-                    onRemoveFolder={removeProjectFolder}
-                    {...(terminal === undefined
-                      ? {}
-                      : {
-                          onOpenTerminal: (cwd: string) =>
-                            openTerminalTab(host, { cwd }),
-                        })}
-                    onOpenWorkflow={(workflow) => openWorkflow(host, workflow)}
-                    activeWorkflow={desk.workflow}
-                  />
-                )
-              }
+              rightSidebar={activePanel?.render(sidebarCtx)}
               taskbar={
                 taskbar ? (
                   <Taskbar

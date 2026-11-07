@@ -192,6 +192,20 @@ const taskbarSetting = declareSetting({
   default: true,
 });
 
+// 사람이 켠 앱 화면(`sidebar` 자리를 가진 것)이 오른쪽 sidebar에 panel로 나온다. 설치돼 있고 그 자리를 가진 것만 그린다.
+const sidebarPanelsSetting = declareSetting({
+  key: "shell.sidebar_panels",
+  type: z
+    .array(
+      z.object({
+        app: z.string().min(1).max(64),
+        screen: z.string().min(1).max(128),
+      }),
+    )
+    .max(20),
+  default: [],
+});
+
 // extension은 id마다 켜는 설정이 하나씩 정적으로 선언된다(core는 manifest를 읽지 못한다). 새 extension은 여기에 한 줄을 더하고
 // shellSettings에 올린다. 선언이 없는 id는 shell의 registry가 켜지 않는다. 사람만 켠다(settings/update는 user만).
 const extensionEnabled = (id: string) =>
@@ -228,6 +242,7 @@ export const shellSettings = [
   appLaunchSetting,
   codingAgentsSetting,
   taskbarSetting,
+  sidebarPanelsSetting,
   harnessExtensionSetting,
   harnessGuiExtensionSetting,
 ] as const;

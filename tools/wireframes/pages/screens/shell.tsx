@@ -1,6 +1,7 @@
 import type { Area } from "../types.ts";
 import { WorkspacesScene, workspacesSteps } from "./shell/workspaces-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
+import { SidebarAppPanel } from "./shell/sidebar-app-panel.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
 
 export const shellArea: Area = {
@@ -183,6 +184,13 @@ export const shellArea: Area = {
       description:
         "창 맨 아래 작업 표시줄(설정 Appearance › Taskbar, 기본 켬). 왼쪽은 float chip이고 전역 float(지구본 표시)이 먼저, 그 뒤가 지금 desk의 float이다. chip은 아이콘과 이름이고 편 것은 눌린 모양이며 누르면 펴고 접는다. 오른쪽 tray 자리는 비어 있다. desk float은 작업 표시줄 위에서 끝나 작업 표시줄을 덮지 않고, 꺼 두면 chip은 tab 줄 끝에 있다.",
       render: () => <ShellScene variant="taskbar" globalFloats="chip" />,
+    },
+    {
+      id: "shell-sidebar-app-panel",
+      title: "Shell · Sidebar app panel",
+      description:
+        "project 창 오른쪽 sidebar에 앱 화면 하나가 panel로 켜진 상태. Settings › Quick launch › Sidebar panels에서 켠 앱 화면(`sidebar` 자리를 가진 것)은 모든 workspace의 panel icon tab 줄 끝에 앱 icon으로 더해지고, 고르면 sidebar 안에 앱 화면이 선다(Orders). 폭을 바꾸거나 다른 panel을 다녀와도 화면은 다시 load되지 않는다. 앱이 지워졌거나 화면이 없어지면 그 icon은 보이지 않는다.",
+      render: () => <SidebarAppPanel />,
     },
     {
       id: "shell-workspaces-panel",

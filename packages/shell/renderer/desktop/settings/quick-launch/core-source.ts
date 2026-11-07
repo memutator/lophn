@@ -7,6 +7,7 @@ import {
   type QuickPrefs,
   type QuickPrefsSource,
   quickFromValue,
+  sidebarPanelsFromValue,
 } from "./source.ts";
 
 // packages/core/config/shell-settings.ts의 key와 같은 글자다(shell은 core를 import하지 못한다).
@@ -15,6 +16,7 @@ const KEYS = {
   launch: "shell.app_launch",
   coding: "shell.coding_agents",
   taskbar: "shell.taskbar",
+  sidebarPanels: "shell.sidebar_panels",
 } as const satisfies Record<keyof QuickPrefs, string>;
 
 export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
@@ -30,6 +32,9 @@ export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
           launch: launchFromValue(read.value.get(KEYS.launch)),
           coding: codingFromValue(read.value.get(KEYS.coding)),
           taskbar: read.value.get(KEYS.taskbar) !== false,
+          sidebarPanels: sidebarPanelsFromValue(
+            read.value.get(KEYS.sidebarPanels),
+          ),
         },
       };
     },

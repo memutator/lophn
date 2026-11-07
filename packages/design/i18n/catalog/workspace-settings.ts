@@ -186,6 +186,7 @@ export const workspaceSettings = {
   "settings.heading.key-section-view": "View",
   "settings.heading.quick-app-panels": "App panels",
   "settings.heading.quick-buttons": "Buttons",
+  "settings.heading.quick-sidebar-panels": "Sidebar panels",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-global": "Global",
@@ -353,6 +354,7 @@ export const workspaceSettings = {
   "settings.label.quick-open-float": "Float",
   "settings.label.quick-open-tab": "Tab",
   "settings.label.quick-show": "Show {name}",
+  "settings.label.quick-sidebar-show": "Show {name} in the right sidebar",
   "settings.label.shell-action-allow": "Allow",
   "settings.label.shell-action-ask": "Ask",
   "settings.label.shell-action-deny": "Deny",
@@ -535,6 +537,8 @@ export const workspaceSettings = {
     "That feature won't start. Everything else keeps working.",
   "settings.note.quick-app-panels":
     "Pin an app panel to give it its own button. Tab opens it as a tab; Float opens it as a floating panel where you last left it.",
+  "settings.note.quick-sidebar-panels":
+    "A screen you turn on gets a tab in the right sidebar of every workspace.",
   "settings.note.shell-rules-built-in":
     "Rules you add can't unblock anything that is always blocked.",
   "settings.note.shell-rules-project":

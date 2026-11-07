@@ -1,4 +1,4 @@
-// 새 설계 page들이 같이 쓰는 project 화면 조각. 왼쪽 sidebar(`LeftSidebar`)·오른쪽 panel(`ProjectPanel`)·탭 줄(shell
+// 새 설계 page들이 같이 쓰는 project 화면 조각. 왼쪽 sidebar(`LeftSidebar`)·오른쪽 panel(sidebar panel 목록)·탭 줄(shell
 // `TabStrip`)·새 탭 menu(`NewTabMenu`)는 실제 renderer component다. 여기는 고정 data를 그 component의 props로 옮기는 일
 // (`PageLeftSidebar`, `PageProjectPanel`, `PageNewTabMenu`, `stripTabsOf`)과, page마다 sidebar를 한 상태로 세워 두는 일
 // (`useSidebarScript`)만 한다. 앱 코드는 고치지 않는다.
@@ -37,9 +37,9 @@ import {
   fakeWorkspaceSource,
 } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
 import {
-  ProjectPanel,
-  type SidebarTab,
-} from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
+  type SidebarCtx,
+  sidebarPanelsFor,
+} from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-panels.tsx";
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
 import { LeftSidebar } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
 import type {
@@ -722,7 +722,10 @@ export function PageLeftSidebar(props: SidebarProps) {
   );
 }
 
-/** 오른쪽 panel. 실제 `ProjectPanel`에 phroner의 고정 data(연결 폴더 둘)를 넘긴다. */
+/** project 오른쪽 sidebar의 내장 panel key. */
+export type SidebarTab = "explorer" | "artifact" | "workflow" | "jobs";
+
+/** 오른쪽 panel. 실제 sidebar panel 목록에서 고른 것에 phroner의 고정 data(연결 폴더 둘)를 넘긴다. */
 export function PageProjectPanel(props: SidebarProps & { tab: SidebarTab }) {
   const ref = useRef<HTMLDivElement>(null);
   useSidebarScript(ref, { ...props, mode: props.tab });
@@ -732,31 +735,42 @@ export function PageProjectPanel(props: SidebarProps & { tab: SidebarTab }) {
     () => fakeJobs({ jobs: props.noJobs === true ? [] : JOBS }).source,
     [props.noJobs],
   );
+  const ctx: SidebarCtx = {
+    kind: "project",
+    jobs,
+    onOpenJobs: () => {},
+    project: {
+      view: PROJECT,
+      source: DEMO_SOURCE,
+      onOpenArtifact: () => {},
+      onOpenWorkflow: () => {},
+      explorer: {
+        current: props.current === undefined ? null : absolute(props.current),
+        onOpenFile: (path) =>
+          props.onOpenFile(
+            path.startsWith(`${FAKE_PROJECT_FOLDER}/`)
+              ? path.slice(FAKE_PROJECT_FOLDER.length + 1)
+              : path,
+          ),
+        onMove: (from, to) => DEMO_SOURCE.rename(from, to),
+        onTrash: (path) => DEMO_SOURCE.trash(path),
+        explorerRoot: root,
+        onExplorerRoot: setRoot,
+        onAddFolder: () => Promise.resolve(true),
+        onRemoveFolder: () => Promise.resolve(true),
+        onOpenTerminal: () => {},
+      },
+    },
+    home: null,
+    app: null,
+  };
+  const panel = sidebarPanelsFor(ctx, [], null).find(
+    (item) => item.key === props.tab,
+  );
   return (
     <EventsProvider client={client}>
       <div ref={ref} style={{ display: "contents" }}>
-        <ProjectPanel
-          tab={props.tab}
-          project={PROJECT}
-          source={DEMO_SOURCE}
-          jobs={jobs}
-          onOpenJobs={() => {}}
-          current={props.current === undefined ? null : absolute(props.current)}
-          onOpenFile={(path) =>
-            props.onOpenFile(
-              path.startsWith(`${FAKE_PROJECT_FOLDER}/`)
-                ? path.slice(FAKE_PROJECT_FOLDER.length + 1)
-                : path,
-            )
-          }
-          onMove={(from, to) => DEMO_SOURCE.rename(from, to)}
-          onTrash={(path) => DEMO_SOURCE.trash(path)}
-          explorerRoot={root}
-          onExplorerRoot={setRoot}
-          onAddFolder={() => Promise.resolve(true)}
-          onRemoveFolder={() => Promise.resolve(true)}
-          onOpenTerminal={() => {}}
-        />
+        {panel?.render(ctx)}
       </div>
     </EventsProvider>
   );

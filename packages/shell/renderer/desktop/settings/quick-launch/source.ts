@@ -1,5 +1,6 @@
-// 빠른 실행의 전역 값 넷: 단추 순서·고정 앱 panel(`shell.quick_launch`), 앱 panel 화면마다 여는 자리와
-// 마지막 float 자리(`shell.app_launch`), coding agent 즐겨찾기와 실행 명령어(`shell.coding_agents`), 작업 표시줄(`shell.taskbar`).
+// 빠른 실행의 전역 값 다섯: 단추 순서·고정 앱 panel(`shell.quick_launch`), 앱 panel 화면마다 여는 자리와
+// 마지막 float 자리(`shell.app_launch`), coding agent 즐겨찾기와 실행 명령어(`shell.coding_agents`), 작업 표시줄(`shell.taskbar`),
+// 오른쪽 sidebar에 panel로 나올 앱 화면(`shell.sidebar_panels`).
 // 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
 import { HARNESS_IDS } from "../../../../../protocol/coding-agent/harness-id.ts";
@@ -27,6 +28,13 @@ export interface QuickPrefs {
   readonly coding: CodingPrefs;
   /** workspace 창 맨 아래 작업 표시줄(`shell.taskbar`). */
   readonly taskbar: boolean;
+  /** 오른쪽 sidebar에 panel로 나올 앱 화면(`shell.sidebar_panels`). */
+  readonly sidebarPanels: readonly SidebarPanelPick[];
+}
+
+export interface SidebarPanelPick {
+  readonly app: string;
+  readonly screen: string;
 }
 
 export interface QuickPrefsSource {
@@ -44,6 +52,7 @@ export const DEFAULT_QUICK_PREFS: QuickPrefs = {
   launch: {},
   coding: { favorites: ["claude", "codex", "opencode"], commands: {} },
   taskbar: true,
+  sidebarPanels: [],
 };
 
 export const launchKey = (app: string, surface: string): string =>
@@ -99,6 +108,17 @@ export function launchFromValue(value: unknown): AppLaunchMap {
     out[key] = { open: item.open, ...(rect === undefined ? {} : { rect }) };
   }
   return out;
+}
+
+export function sidebarPanelsFromValue(value: unknown): SidebarPanelPick[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item: unknown) =>
+    isRecord(item) &&
+    typeof item.app === "string" &&
+    typeof item.screen === "string"
+      ? [{ app: item.app, screen: item.screen }]
+      : [],
+  );
 }
 
 export function codingFromValue(value: unknown): CodingPrefs {

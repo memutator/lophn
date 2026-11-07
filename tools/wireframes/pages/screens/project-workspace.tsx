@@ -5,7 +5,8 @@ import { createEventClient } from "../../../../packages/shell/renderer/desktop/c
 import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
 import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { fakeWorkspaceSource } from "../../../../packages/shell/renderer/workspace/fake-source.ts";
-import { ProjectPanel } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
+import { RightSidebar } from "../../../../packages/shell/renderer/shell/right-sidebar.tsx";
+import { WorkflowPanel } from "../../../../packages/shell/renderer/workspace/sidebar/workflow-panel.tsx";
 import { openProject } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   LeftSidebarPage,
@@ -108,18 +109,9 @@ function SidebarWorkflowsEmpty() {
         }}
       >
         <div style={{ width: 320, padding: "var(--space-4)" }}>
-          <ProjectPanel
-            tab="workflow"
-            project={{ id: "prj_empty", title: "phroner", folders: [] }}
-            source={source}
-            onOpenFile={noop}
-            onMove={(from: string, to: string) => source.rename(from, to)}
-            onTrash={(path: string) => source.trash(path)}
-            explorerRoot={null}
-            onExplorerRoot={noop}
-            onAddFolder={() => Promise.resolve(true)}
-            onRemoveFolder={() => Promise.resolve(true)}
-          />
+          <RightSidebar title="Workflows" panel="workflow">
+            <WorkflowPanel project="prj_empty" source={source} onOpen={noop} />
+          </RightSidebar>
         </div>
       </div>
     </WithEvents>

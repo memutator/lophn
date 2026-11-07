@@ -1,76 +1,28 @@
-// project 창 오른쪽 sidebar의 본문. title bar의 panel icon tab이 고른 panel 하나(Files / Artifacts /
-// Workflows / Jobs)를 `RightSidebar` 틀에 담는다. 틀(폭, 접힘)은 ShellFrame이 정한다. 왼쪽은 shell/left-sidebar다.
+// project 창 오른쪽 sidebar의 Files panel. 틀(폭, 접힘)은 ShellFrame이 정하고 panel 목록은 sidebar-panels.tsx다.
+// 왼쪽은 shell/left-sidebar다.
 
 import { t } from "@lophn/i18n";
-import { type ReactNode, useEffect, useState } from "react";
-import type { PanelTab } from "../../shell/panel-tabs.tsx";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
 import { RightSidebar } from "../../shell/right-sidebar.tsx";
-import type { JobsSource } from "../../desktop/jobs/source.ts";
-import { shellIcons } from "../../icons/mod.ts";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { Explorer, type TabAwareResult } from "./explorer.tsx";
-import { JobPanel } from "./job-panel.tsx";
-import { WorkflowPanel } from "./workflow-panel.tsx";
-
-export type SidebarTab = "explorer" | "artifact" | "workflow" | "jobs";
 
 export interface Reveal {
   readonly path: string;
   readonly nonce: number;
 }
 
-/** title bar의 panel icon tab. Jobs는 통로가 있을 때만 있다. */
-export function panelTabs(withJobs: boolean): readonly PanelTab[] {
-  return [
-    {
-      key: "explorer",
-      label: t("project-workspace.label.sidebar-tab-explorer"),
-      icon: shellIcons.folder,
-    },
-    {
-      key: "artifact",
-      label: t("project-workspace.label.sidebar-tab-artifact"),
-      icon: shellIcons.artifact,
-    },
-    {
-      key: "workflow",
-      label: t("workflow.label.sidebar-tab"),
-      icon: shellIcons.workflow,
-    },
-    ...(withJobs
-      ? [
-          {
-            key: "jobs",
-            label: t("jobs.label.sidebar-tab"),
-            icon: shellIcons.jobs,
-          },
-        ]
-      : []),
-  ];
-}
-
-interface ProjectPanelProps {
-  tab: SidebarTab;
+export interface ExplorerPanelProps {
   project: ProjectView | null;
   /** Explorer가 폴더를 읽는 통로. */
   source: WorkspaceSource;
-  /** Artifacts 탭 본문. 목록은 이 panel이 읽는다. */
-  artifactPanel?: ReactNode;
-  /** Workflows 줄을 누르면 그 workflow의 탭을 연다. 주지 않으면 아무것도 하지 않는다. */
-  onOpenWorkflow?: (workflow: string) => void;
-  /** 보이는 desk가 workflow의 것이면 그 이름. Workflows 줄이 강조한다. */
-  activeWorkflow?: string;
-  /** Jobs panel의 통로. 주지 않으면 그 항목을 두지 않는다. */
-  jobs?: JobsSource;
-  /** Jobs panel의 줄과 [Open all jobs]. Jobs 탭을 연다. */
-  onOpenJobs?: () => void;
   /** 편집기에서 열려 있는 파일의 절대 경로. */
   current?: string | null;
   /** keep이면 고정 탭으로, 아니면 preview 탭으로 연다(한 번 클릭). */
   onOpenFile: (path: string, keep?: boolean) => void;
-  /** 올라갈 때마다 Explorer에 focus를 준다(Ctrl/Cmd+Shift+E). 0은 요청 없음. */
-  focusExplorer?: number;
+  /** Ctrl/Cmd+Shift+E. true면 Explorer가 그려질 때 focus를 받고 `onFocusAsked`로 내려놓는다. */
+  focusAsked?: boolean;
+  onFocusAsked?: () => void;
   /** Reveal in Explorer. Explorer에 그 파일을 알린다. */
   reveal?: Reveal | null;
   /** Explorer의 이름 바꾸기·옮기기. 열린 탭 정리까지 한다. */
@@ -87,18 +39,13 @@ interface ProjectPanelProps {
   onOpenTerminal?: (cwd: string) => void;
 }
 
-export function ProjectPanel({
-  tab,
+export function ExplorerPanel({
   project,
   source,
-  artifactPanel = null,
-  onOpenWorkflow,
-  activeWorkflow,
-  jobs,
-  onOpenJobs,
   current = null,
   reveal = null,
-  focusExplorer = 0,
+  focusAsked = false,
+  onFocusAsked,
   onOpenFile,
   onMove,
   onTrash,
@@ -107,63 +54,37 @@ export function ProjectPanel({
   onAddFolder,
   onRemoveFolder,
   onOpenTerminal,
-}: ProjectPanelProps) {
-  // Explorer가 아직 없을 수 있다(다른 panel). 그려질 때 한 번 focus하고 내려놓는다.
-  const [focusAsked, setFocusAsked] = useState(false);
-  const hasFolders = (project?.folders.length ?? 0) > 0;
-  useEffect(() => {
-    if (focusExplorer !== 0) setFocusAsked(hasFolders);
-  }, [focusExplorer]);
+}: ExplorerPanelProps) {
   const folders = project?.folders ?? [];
   // Files는 이름 대신 Explorer가 루트 폴더 선택을 머리 줄에 올린다.
   const title =
-    tab === "explorer" && folders.length > 0
+    folders.length > 0
       ? null
-      : (panelTabs(true).find((item) => item.key === tab)?.label ?? "");
+      : t("project-workspace.label.sidebar-tab-explorer");
   return (
-    <RightSidebar title={title} panel={tab}>
-      {tab === "explorer" ? (
-        folders.length === 0 ? (
-          <PanelEmpty>{t("project-workspace.empty.no-folders")}</PanelEmpty>
-        ) : (
-          <Explorer
-            // 프로젝트가 바뀌면 고른 루트와 펼침을 새로 시작한다.
-            key={project?.id}
-            source={source}
-            folders={folders}
-            current={current}
-            reveal={reveal}
-            focusAsked={focusAsked}
-            onFocusAsked={() => setFocusAsked(false)}
-            onOpenFile={onOpenFile}
-            onMove={onMove}
-            onTrash={onTrash}
-            rootPath={explorerRoot}
-            onRoot={onExplorerRoot}
-            onAddFolder={onAddFolder}
-            onRemoveFolder={onRemoveFolder}
-            onOpenTerminal={onOpenTerminal}
-          />
-        )
-      ) : null}
-      {tab === "artifact" ? artifactPanel : null}
-      {tab === "workflow" && project !== null ? (
-        <WorkflowPanel
-          key={project.id}
-          project={project.id}
+    <RightSidebar title={title} panel="explorer">
+      {folders.length === 0 ? (
+        <PanelEmpty>{t("project-workspace.empty.no-folders")}</PanelEmpty>
+      ) : (
+        <Explorer
+          // 프로젝트가 바뀌면 고른 루트와 펼침을 새로 시작한다.
+          key={project?.id}
           source={source}
-          active={activeWorkflow}
-          onOpen={onOpenWorkflow ?? (() => {})}
+          folders={folders}
+          current={current}
+          reveal={reveal}
+          focusAsked={focusAsked}
+          onFocusAsked={onFocusAsked ?? (() => {})}
+          onOpenFile={onOpenFile}
+          onMove={onMove}
+          onTrash={onTrash}
+          rootPath={explorerRoot}
+          onRoot={onExplorerRoot}
+          onAddFolder={onAddFolder}
+          onRemoveFolder={onRemoveFolder}
+          onOpenTerminal={onOpenTerminal}
         />
-      ) : null}
-      {tab === "jobs" && project !== null && jobs ? (
-        <JobPanel
-          key={project.id}
-          project={project.id}
-          source={jobs}
-          onOpenJobs={onOpenJobs ?? (() => {})}
-        />
-      ) : null}
+      )}
     </RightSidebar>
   );
 }

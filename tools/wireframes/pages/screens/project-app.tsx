@@ -1,6 +1,6 @@
 // 동작하는 project 화면. 새 shell 틀(title bar의 tab 줄, 가운데 card, 양쪽 sidebar) 안에서 sidebar·+ 메뉴·검색·상단 검색·toast·
 // 대화·문서의 링크가 탭을 열면 탭 줄에 그 탭이 생기고 선택된다(이미 열린 탭이면 그 탭을 고른다). 실제 ShellFrame·TabStrip·
-// ContentCard·Palette·Menu와 실제 sidebar(`LeftSidebar`, `ProjectPanel`)·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가
+// ContentCard·Palette·Menu와 실제 sidebar(`LeftSidebar`, sidebar panel 목록)·`NewTabMenu`를 쓴다(고정 data는 project-window.tsx가
 // 넘긴다). 칸이 둘인 page(`panes` 둘)는 두 탭을 한 칸으로 붙인 group 하나로 그린다. desk는 실제 desk model이다.
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -28,7 +28,6 @@ import {
   ungroup,
   ungroupTab,
 } from "../../../../packages/shell/renderer/shell/desk-model.ts";
-import type { SidebarTab } from "../../../../packages/shell/renderer/workspace/sidebar/project-sidebar.tsx";
 import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
 
 import { AgentSettingsEditor, AgentsBody } from "./agents-tab.tsx";
@@ -51,6 +50,7 @@ import {
   PageLeftSidebar,
   PageNewTabMenu,
   PageProjectPanel,
+  type SidebarTab,
   type SidebarSpec,
   stripTabsOf,
   type TabSpec,

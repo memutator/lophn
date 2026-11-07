@@ -1,4 +1,4 @@
-// 빠른 실행을 고치는 목록 둘. 단추 순서와 켜고 끄기(QuickOrderList), 고정할 앱 panel(AppPanelList)이다.
+// 빠른 실행을 고치는 목록. 단추 순서와 켜고 끄기(QuickOrderList), 고정할 앱 panel(AppPanelList), 오른쪽 sidebar에 나올 앱 화면(SidebarPanelList)이다.
 // Settings › Quick launch(전역 값)와 Project settings(이 project만의 값)가 같이 쓴다.
 import { useRef } from "react";
 import { t } from "@lophn/i18n";
@@ -12,6 +12,7 @@ import {
   type AppLaunch,
   type AppLaunchMap,
   launchKey,
+  type SidebarPanelPick,
 } from "../../desktop/settings/quick-launch/source.ts";
 import {
   actionIcons,
@@ -219,6 +220,84 @@ export function AppPanelList({
                 ? t("project-settings.button.unpin")
                 : t("project-settings.button.pin")}
             </Button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** `sidebar` 자리를 가진 앱 화면마다 줄 하나와 Switch. 켠 것이 오른쪽 sidebar의 panel이 된다(전역 값). */
+export function SidebarPanelList({
+  apps,
+  loading,
+  failed,
+  picks,
+  onPicks,
+}: {
+  apps: readonly AppScreens[];
+  loading: boolean;
+  failed: boolean;
+  picks: readonly SidebarPanelPick[];
+  onPicks: (next: readonly SidebarPanelPick[]) => void;
+}) {
+  const choices = apps.flatMap((app) =>
+    app.screens
+      .filter((screen) => screen.places.includes("sidebar"))
+      .map((screen) => ({
+        app: app.app,
+        screen: screen.key,
+        label: t("app-panel.label.screen", {
+          app: app.name,
+          screen: screen.label,
+        }),
+      })),
+  );
+  if (loading) return <Skeleton lines={3} />;
+  if (failed) {
+    return (
+      <p className={styles.note}>{t("project-settings.notice.apps-failed")}</p>
+    );
+  }
+  if (choices.length === 0) {
+    return (
+      <p className={styles.note}>
+        {t("project-settings.notice.no-sidebar-panels")}
+      </p>
+    );
+  }
+  const same = (a: SidebarPanelPick, b: SidebarPanelPick) =>
+    a.app === b.app && a.screen === b.screen;
+  return (
+    <ul className={styles.rows} data-sidebar-panel-rows="">
+      {choices.map((choice) => {
+        const pick = { app: choice.app, screen: choice.screen };
+        return (
+          <li
+            key={`${choice.app}:${choice.screen}`}
+            className={styles.row}
+            data-sidebar-panel-row={choice.app}
+          >
+            <span className={styles.rowName}>
+              <AppTabIcon app={choice.app} />
+              <span className={styles.rowLabel}>{choice.label}</span>
+            </span>
+            <span className={styles.toggle}>
+              <Switch
+                size="sm"
+                label={t("settings.label.quick-sidebar-show", {
+                  name: choice.label,
+                })}
+                checked={picks.some((item) => same(item, pick))}
+                onCheckedChange={(on) =>
+                  onPicks(
+                    on
+                      ? [...picks, pick]
+                      : picks.filter((item) => !same(item, pick)),
+                  )
+                }
+              />
+            </span>
           </li>
         );
       })}

@@ -104,6 +104,8 @@ export const project = {
     "Project details can't be edited in this window.",
   "project-settings.notice.no-app-panels":
     "No installed app has a panel screen.",
+  "project-settings.notice.no-sidebar-panels":
+    "No installed app has a sidebar screen.",
   "project-settings.notice.quick-global":
     "Buttons and pinned app panels come from Settings \u203a Quick launch.",
   "project-settings.notice.quick-own":

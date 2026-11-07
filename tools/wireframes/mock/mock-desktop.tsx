@@ -25,6 +25,9 @@ import type { SettingsPane } from "../../../packages/shell/renderer/desktop/sett
 import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
+import { DEFAULT_QUICK_PREFS } from "../../../packages/shell/renderer/desktop/settings/quick-launch/source.ts";
+import { QuickPrefsProvider } from "../../../packages/shell/renderer/desktop/settings/quick-launch/store.tsx";
+import { memoryQuickPrefsSource } from "../../../packages/shell/renderer/desktop/settings/quick-launch/testdata/fake-source.ts";
 import { BrowserApiProvider } from "../../../packages/shell/renderer/browser/browser-api.tsx";
 import {
   AnnotateApiProvider,
@@ -128,6 +131,12 @@ interface MockDesktopProps {
   readonly annotate?: LophnShellAnnotateApi;
   /** 주면 이 탭 하나를 그리는 detached 창으로 시작한다(route는 무시한다). */
   readonly detachedTab?: TabSpec;
+  /** 앱 하나의 `sidebar` 화면(key, 이름)을 설치된 것으로 두고 Settings에서 켠 상태로 시작한다. */
+  readonly sidebarPanel?: {
+    readonly app: string;
+    readonly screen: string;
+    readonly label: string;
+  };
 }
 
 // detached 통로의 가짜. preload가 없는 browser에는 없어서, 탭 menu의 Detach와 [Detach] 단추를 그리고 detached 창이 탭을 받게 한다.
@@ -356,33 +365,80 @@ export function MockDesktop(props: MockDesktopProps) {
     props.events,
   ]);
   const { mock } = wiring;
+  const { sidebarPanel } = props;
+  // dev mock의 앱 화면 목록에는 sidebar 자리가 없어, 이 page가 그 화면 하나를 더한다.
+  const appViews = useMemo(
+    () =>
+      sidebarPanel === undefined
+        ? mock.appViews
+        : {
+            ...mock.appViews,
+            screens: async () => {
+              const read = await mock.appViews.screens!();
+              if (!read.ok) return read;
+              return {
+                ok: true as const,
+                value: read.value.map((app) =>
+                  app.app === sidebarPanel.app
+                    ? {
+                        ...app,
+                        screens: [
+                          ...app.screens,
+                          {
+                            key: sidebarPanel.screen,
+                            label: sidebarPanel.label,
+                            places: ["sidebar" as const],
+                          },
+                        ],
+                      }
+                    : app,
+                ),
+              };
+            },
+          },
+    [mock, sidebarPanel],
+  );
+  const quickPrefs = useMemo(
+    () =>
+      sidebarPanel === undefined
+        ? undefined
+        : memoryQuickPrefsSource({
+            ...DEFAULT_QUICK_PREFS,
+            sidebarPanels: [
+              { app: sidebarPanel.app, screen: sidebarPanel.screen },
+            ],
+          }),
+    [sidebarPanel],
+  );
   const annotate = props.annotate ?? mock.annotate;
   return (
     <BrowserApiProvider value={props.browser ?? mock.browser}>
       <ArtifactApiProvider value={props.artifact ?? null}>
         <AnnotateApiProvider value={annotate}>
-          <AppViewsProvider value={mock.appViews}>
-            <ConversationProvider deps={wiring.conversation}>
-              <EventsProvider client={wiring.events}>
-                <Desktop
-                  source={core ?? mock.core}
-                  initial={route}
-                  workspace={wiring.workspace}
-                  editor={mock.editor}
-                  terminal={wiring.terminal}
-                  detached={wiring.detached}
-                  catalog={mock.catalog}
-                  projects={wiring.projects}
-                  apps={wiring.apps}
-                  settings={mock.settings}
-                  settingsPanels={wiring.settingsPanels}
-                  jobs={props.jobs ?? mock.jobs}
-                  appDetail={props.appDetail ?? mock.appDetail}
-                  views={mock.views}
-                  agentViewSource={mock.agentViewSource}
-                />
-              </EventsProvider>
-            </ConversationProvider>
+          <AppViewsProvider value={appViews}>
+            <QuickPrefsProvider source={quickPrefs}>
+              <ConversationProvider deps={wiring.conversation}>
+                <EventsProvider client={wiring.events}>
+                  <Desktop
+                    source={core ?? mock.core}
+                    initial={route}
+                    workspace={wiring.workspace}
+                    editor={mock.editor}
+                    terminal={wiring.terminal}
+                    detached={wiring.detached}
+                    catalog={mock.catalog}
+                    projects={wiring.projects}
+                    apps={wiring.apps}
+                    settings={mock.settings}
+                    settingsPanels={wiring.settingsPanels}
+                    jobs={props.jobs ?? mock.jobs}
+                    appDetail={props.appDetail ?? mock.appDetail}
+                    views={mock.views}
+                    agentViewSource={mock.agentViewSource}
+                  />
+                </EventsProvider>
+              </ConversationProvider>
+            </QuickPrefsProvider>
           </AppViewsProvider>
         </AnnotateApiProvider>
       </ArtifactApiProvider>

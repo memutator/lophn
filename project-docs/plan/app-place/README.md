@@ -32,6 +32,7 @@
 9. 작업 표시줄은 `.shell` 맨 아래 줄이다(agent). `.body` 밖이라 float가 덮지 않는다. `shell.taskbar` 기본은 켬이고, Settings › Appearance의 Switch로 바꾼다.
 10. tray 값은 앱 process가 `@lophn/cap-notify`의 `setTray`로 낸다(권한 `notify.send`)(agent). 새 SDK package와 새 permission kind를 만들지 않는다. core는 마지막 값을 memory에 둔다. 앱 process가 오래 살아서 다시 켜면 다시 낸다. shell에는 transient event와 read route로 준다.
 11. 어떤 앱 화면이 sidebar·tray에 나오는지는 사람이 켠다(agent). 설정은 `shell.sidebar_panels`와 `shell.tray`(각 `{app, screen}[]`)이고, Settings › Quick launch pane의 목록과 Switch로 켠다.
+12. 오른쪽 sidebar 열림은 workspace마다 따로 기억한다(사람, 2026-11-07). localStorage key에 workspace key를 붙인다. 왼쪽 열림과 폭은 그대로 쪽마다 하나다. `shell-taskbar`가 한다.
 
 ## task
 
@@ -48,7 +49,7 @@
 
 - merge마다: 보고의 "등록할 것"(protocol `mod.ts`, core wiring 목록, gallery `pages/index.ts`, `package.json`)을 합친다.
 - 다 끝나면:
-  - `project-docs/architecture/workspace-layout.md`를 고친다: 전역 float, 작업 표시줄, `<webview>` 그릇의 실제 수명, sidebar 등록, 앱 화면 자리 줄 128.
+  - `project-docs/architecture/workspace-layout.md`를 고친다: 전역 float, 작업 표시줄, `<webview>` 그릇의 실제 수명, sidebar 등록, 오른쪽 sidebar 열림(줄 37), 앱 화면 자리 줄 128.
   - `app-call.md`(선언 `places`·`params`, SDK pin), `app-notice.md`(tray), `ui-kit.md`(`usePlace`)를 고친다.
   - changelog 0.18.0에 항목을 덧붙이고 roadmap 상태를 고친다.
   - 사람에게 알린다: Mahas·Masup을 `places`로 고쳐 다시 release해야 한다.

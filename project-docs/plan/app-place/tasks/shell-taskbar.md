@@ -50,12 +50,17 @@ workspace 창 맨 아래에 작업 표시줄을 둔다. 왼쪽은 float chip(전
 4. **켜고 끄기**: `shell.taskbar`가 켜져 있으면 tab 줄 끝 chip 묶음을 그리지 않고 작업 표시줄에 그린다. 꺼져 있으면 작업 표시줄이 없고 chip은 지금처럼 tab 줄 끝에 있다.
 5. **gallery**: `shell` 영역에 작업 표시줄이 있는 page(id `shell-taskbar`)를 더한다. 전역 float chip 하나, desk float chip 둘, 빈 tray다. 기존 page는 설정 기본값(켬)으로 그려지므로 모양이 바뀌는 것을 확인한다.
 6. 문구는 `shell.ts`(작업 표시줄)와 `workspace-settings.ts`(설정 줄)에 둔다.
+7. **(lead가 더함) 오른쪽 sidebar 열림을 workspace마다 기억한다**(사람, 2026-11-07).
+   - 지금 `shell-frame.tsx`의 `useSidebarOpen`은 localStorage `lophn.shell.sidebar-open.<side>`에 쪽마다 값 하나를 두어 모든 workspace가 같이 쓴다.
+   - 오른쪽은 workspace key마다 따로 둔다: `lophn.shell.sidebar-open.right.<workspace key>`. `WorkspaceWindow`가 자기 workspace key를 넘긴다. 저장한 값이 없으면 지금처럼 창 폭 기본값이다.
+   - 왼쪽 열림과 양쪽 폭은 지금처럼 쪽마다 하나다. Settings와 home gate는 왼쪽만 쓰므로 그대로다.
+   - 옛 key `lophn.shell.sidebar-open.right`는 읽지 않는다(배치 값이라 data가 아니다).
 
 ## 끝남
 
 - `npm run check:full`이 통과한다. `node packages/shell/renderer/build.ts`와 `npm run wireframes`가 된다.
 - 위험 test: 없음(화면이다).
-- 남지 않음: 작업 표시줄이 켜졌을 때 tab 줄 끝 chip 묶음이 두 번 그려지지 않는다.
+- 남지 않음: 작업 표시줄이 켜졌을 때 tab 줄 끝 chip 묶음이 두 번 그려지지 않는다. `grep -rn "sidebar-open\.right\b\|sidebar-open.\${side}" packages/shell/renderer`로 오른쪽이 workspace key 없이 저장되는 곳이 없다.
 - `project-docs/plan/tools/lead/boot.sh`가 `boot 1 exit 0`, `boot 2 exit 0`.
 
 ## 보고

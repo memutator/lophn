@@ -1,5 +1,5 @@
-// AgentTabSource를 harness-gui의 ACP session 하나(터미널 탭의 handle)로 만든다. 대화는 받은 갱신을 접은 feed에서 읽고(snapshot
-// 없음), 대화 조작은 IPC로 extension의 handle에 보낸다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
+// AgentTabSource를 harness-gui의 ACP session 하나(터미널 탭의 handle)로 만든다. 대화는 main이 준 snapshot에 갱신을 접은 feed에서
+// 읽고, 대화 조작은 IPC로 extension의 handle에 보낸다. 무엇을 할 수 있는지는 ACP 상태의 `session.capabilities`가 말하고
 // 화면이 읽는다. 새 ACP 입력(model·mode·명령·rewind·fork·compact·이름)은 `act`로 handle에 간다. lophn session의 것(권한 요약,
 // call)은 없어서 unavailable로 답한다. session 목록은 그 CLI의 지난 session이고 id가 CLI session id다.
 import type {
@@ -22,8 +22,15 @@ import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 
 interface GuiSourceDeps {
   readonly info: HarnessGuiInfo;
-  /** 받은 갱신을 접은 값. `session`은 이 화면이 쓰는 session id(`ses_…`)다. */
-  readonly feed: { readonly session: string; state(): AcpState };
+  /**
+   * snapshot에 갱신을 접은 값. `session`은 이 화면이 쓰는 session id(`ses_…`)다. `changed`는 snapshot이 상태를 통째로
+   * 갈아 끼웠을 때 부른다.
+   */
+  readonly feed: {
+    readonly session: string;
+    state(): AcpState;
+    changed(listener: () => void): () => void;
+  };
   /** 조작을 handle에 준다. 받았으면 true다. */
   readonly input: (input: AcpInput) => Promise<boolean>;
   /** 그 CLI가 이 폴더에서 가진 지난 session. 못 읽으면 빈 배열이다. */
@@ -119,6 +126,8 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
       );
     },
     imageUrl: () => Promise.resolve(null),
+    // 화면이 붙은 뒤에 snapshot이 오면(창을 다시 load) 화면이 이 feed를 다시 읽는다.
+    changed: feed.changed,
 
     send: (input) =>
       send({

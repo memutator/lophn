@@ -1,4 +1,3 @@
-import type { AcpUpdate } from "../../protocol/acp/mod.ts";
 import {
   HARNESS_GUI_TAB_ACK_CHANNEL,
   HARNESS_GUI_TAB_CONNECT_CHANNEL,
@@ -14,6 +13,8 @@ import {
   HARNESS_GUI_TAB_UPDATE_CHANNEL,
   HARNESS_GUI_TAB_VIEW_CHANNEL,
   type HarnessGuiInfo,
+  type HarnessGuiTabBatch,
+  type HarnessGuiTabUpdate,
   type HarnessGuiRewindPreview,
   type HarnessGuiSessionEntry,
   type HarnessGuiTabApi,
@@ -39,10 +40,10 @@ interface HarnessGuiTabTransport {
 export function createHarnessGuiTabApi(
   transport: HarnessGuiTabTransport,
 ): HarnessGuiTabApi {
-  const updates = new Map<string, (update: AcpUpdate) => void>();
+  const batches = new Map<string, (batch: HarnessGuiTabBatch) => void>();
   transport.on(HARNESS_GUI_TAB_UPDATE_CHANNEL, (_event, payload) => {
-    const one = payload as { handle: string; update: AcpUpdate };
-    updates.get(one.handle)?.(one.update);
+    const one = payload as HarnessGuiTabUpdate;
+    batches.get(one.handle)?.(one);
   });
   const push = <T>(channel: string, listener: (value: T) => void) => {
     const callback = (_event: unknown, payload: unknown) =>
@@ -58,14 +59,14 @@ export function createHarnessGuiTabApi(
     },
     onView: (listener) =>
       push<HarnessGuiTabView>(HARNESS_GUI_TAB_VIEW_CHANNEL, listener),
-    async connect(handle, onUpdate) {
-      updates.set(handle, onUpdate);
+    async connect(handle, onBatch) {
+      batches.set(handle, onBatch);
       return (await transport.invoke(HARNESS_GUI_TAB_CONNECT_CHANNEL, {
         handle,
       })) as HarnessGuiInfo | null;
     },
     async disconnect(handle) {
-      updates.delete(handle);
+      batches.delete(handle);
       await transport.invoke(HARNESS_GUI_TAB_DISCONNECT_CHANNEL, { handle });
     },
     async input(handle, input) {

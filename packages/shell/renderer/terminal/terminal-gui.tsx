@@ -16,7 +16,6 @@ import {
 
 import {
   type AcpState,
-  type AcpUpdate,
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "../../../protocol/acp/mod.ts";
@@ -30,6 +29,7 @@ import type {
   HarnessGuiHandoff,
   HarnessGuiInfo,
   HarnessGuiTabApi,
+  HarnessGuiTabBatch,
   HarnessGuiTabToggleReply,
 } from "../../ipc/harness-gui.ts";
 import { guiAgentTabSource } from "../conversation/agent-tab-gui-source.ts";
@@ -85,16 +85,19 @@ export function guiApi(): HarnessGuiTabApi | null {
 
 // ---- 갱신 feed ----
 
-// handle의 갱신을 `EMPTY_ACP_STATE`부터 접는다. 대화 화면은 core 없이 갱신만 보므로 이 feed가 화면의 두 길에 답한다:
-// `AcpUpdated` event를 구독하는 event client와 snapshot을 읽는 source. 갱신은 main의 handle이 처음부터 보내 주므로 늦게
-// 붙은 화면도 같은 상태가 된다. 순번이 빠지면 `reread`가 서지만 다시 읽을 곳이 없어 받은 대로 그린다.
+// main의 handle이 접어 둔 상태(snapshot)로 시작해 이어지는 갱신을 접는다. 대화 화면은 core 없이 갱신만 보므로 이 feed가
+// 화면의 두 길에 답한다: `AcpUpdated` event를 구독하는 event client와 snapshot을 읽는 source. 붙을 때마다 snapshot을 받아
+// 늦게 붙은 화면도 같은 상태가 되고, `reread`가 서면 source가 이 feed의 지금 상태를 다시 읽는다.
 interface GuiFeed {
   readonly session: string;
   readonly client: EventClient;
   state(): AcpState;
-  push(update: AcpUpdate): void;
+  /** main이 보낸 push 하나: snapshot이 있으면 상태를 갈아 끼우고, 갱신은 모두 접은 뒤 한 번에 알린다. */
+  apply(batch: HarnessGuiTabBatch): void;
   /** 갱신을 접은 뒤마다 부른다. */
   watch(listener: () => void): () => void;
+  /** snapshot으로 상태가 통째로 바뀌었다. 화면이 다시 읽는다. */
+  changed(listener: () => void): () => void;
 }
 
 // 대기 목록·session 상태 같은 core 쪽 구독은 이 화면에 없다.
@@ -112,6 +115,7 @@ function createGuiFeed(now: () => number): GuiFeed {
   let state = EMPTY_ACP_STATE;
   const listeners = new Set<(message: EventMessage) => void>();
   const watchers = new Set<() => void>();
+  const resets = new Set<() => void>();
   return {
     session,
     state: () => state,
@@ -119,17 +123,28 @@ function createGuiFeed(now: () => number): GuiFeed {
       watchers.add(listener);
       return () => void watchers.delete(listener);
     },
-    push(update) {
-      state = reduceAcp(state, update);
+    changed(listener) {
+      resets.add(listener);
+      return () => void resets.delete(listener);
+    },
+    apply({ snapshot, updates }) {
+      if (snapshot !== undefined) state = snapshot;
+      for (const update of updates) state = reduceAcp(state, update);
       for (const watcher of [...watchers]) watcher();
-      const event = {
-        type: "AcpUpdated",
-        session,
-        subject: null,
-        at: new Date(now()).toISOString(),
-        payload: { session, update },
-      } as BusEvent;
-      for (const listener of [...listeners]) listener({ kind: "event", event });
+      if (snapshot !== undefined) for (const reset of [...resets]) reset();
+      // 한 batch는 한 task 안에서 모두 내보내 React가 한 번만 그린다.
+      for (const update of updates) {
+        const event = {
+          type: "AcpUpdated",
+          session,
+          subject: null,
+          at: new Date(now()).toISOString(),
+          payload: { session, update },
+        } as BusEvent;
+        for (const listener of [...listeners]) {
+          listener({ kind: "event", event });
+        }
+      }
     },
     client: {
       core: NO_CORE,
@@ -328,7 +343,7 @@ export function TerminalGui({
   const [info, setInfo] = useState<HarnessGuiInfo | null>(null);
   useEffect(() => {
     let live = true;
-    void api.connect(gui.handle, feed.push).then((read) => {
+    void api.connect(gui.handle, feed.apply).then((read) => {
       if (live) setInfo(read);
     });
     return () => {

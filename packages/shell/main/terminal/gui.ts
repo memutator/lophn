@@ -17,7 +17,11 @@ import {
   type HarnessGuiTabView,
 } from "../../ipc/harness-gui.ts";
 import { terminalGuiPayloadSchema } from "../../../protocol/coding-agent/terminal-hook.ts";
-import type { AcpInput, AcpUpdate } from "../../../protocol/acp/mod.ts";
+import type {
+  AcpInput,
+  AcpState,
+  AcpUpdate,
+} from "../../../protocol/acp/mod.ts";
 import {
   type AcpTabRequest,
   type AcpTerminal,
@@ -30,6 +34,9 @@ import type { RoutedHook } from "./agent/ingress.ts";
 
 // browser bridge와 같다. 탭을 가진 창이 이 안에 ack하지 않으면 handle을 닫는다.
 const ACK_TIMEOUT_MS = 1500;
+// 한 handle의 update를 모아 창에 한 번에 보내는 간격. resume 재생처럼 한꺼번에 오는 update가 한 번에 그려지고, 글 delta도
+// 프레임 하나에 하나로 줄어든다.
+const UPDATE_BATCH_MS = 20;
 
 export type TabHandlers = Parameters<ExtensionAcp["onTab"]>[0];
 
@@ -42,8 +49,9 @@ export type TabHandle = {
   /** adapter의 `handoff`(extension이 `open`에 실었다). */
   readonly handoff: HarnessGuiHandoff;
   readonly cwd: string;
-  /** 쌓인 update를 처음부터 보내고 이어서 새것을 보낸다. 돌려받은 함수로 그만 듣는다. 이미 닫혔으면 바로 `closed`다. */
+  /** 지금까지 접은 상태를 `snapshot`으로 한 번 주고 이어서 새 update를 보낸다. 돌려받은 함수로 그만 듣는다. 이미 닫혔으면 바로 `closed`다. */
   attach(listener: {
+    snapshot(state: AcpState): void;
     update(update: AcpUpdate): void;
     closed(): void;
   }): () => void;
@@ -276,6 +284,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       byHandle.set(handle.id, tab);
       // 닫힘은 어디서 시작했든(extension, 시간 초과, 터미널 끝) 한 곳에서 알린다.
       handle.attach({
+        snapshot: () => {},
         update: () => {},
         closed() {
           const mine = byHandle.get(handle.id) === tab;
@@ -394,23 +403,46 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     connect(sender, handleId) {
       const tab = byHandle.get(handleId);
       if (tab === undefined) return null;
-      // 다시 로드된 창은 처음부터 다시 받는다.
+      // 다시 로드된 창은 snapshot부터 다시 받는다.
       tab.attached.get(sender.id)?.();
-      const detach = tab.handle.attach({
+      // snapshot은 붙는 즉시 따로 보내고, 이어지는 update는 모아 한 message로 보낸다. 그래서 snapshot이 늘 먼저 닿는다.
+      let pending: AcpUpdate[] = [];
+      let cancelFlush: (() => void) | null = null;
+      const flush = () => {
+        cancelFlush = null;
+        const updates = pending;
+        pending = [];
+        if (sender.alive()) {
+          sender.send(HARNESS_GUI_TAB_UPDATE_CHANNEL, {
+            handle: handleId,
+            updates,
+          });
+        } else {
+          tab.attached.get(sender.id)?.();
+          tab.attached.delete(sender.id);
+        }
+      };
+      const stop = tab.handle.attach({
+        snapshot(snapshot) {
+          if (!sender.alive()) return;
+          sender.send(HARNESS_GUI_TAB_UPDATE_CHANNEL, {
+            handle: handleId,
+            snapshot,
+            updates: [],
+          });
+        },
         update(update) {
-          if (sender.alive()) {
-            sender.send(HARNESS_GUI_TAB_UPDATE_CHANNEL, {
-              handle: handleId,
-              update,
-            });
-          } else {
-            tab.attached.get(sender.id)?.();
-            tab.attached.delete(sender.id);
-          }
+          pending.push(update);
+          cancelFlush ??= deps.after(UPDATE_BATCH_MS, flush);
         },
         closed: () => {},
       });
-      tab.attached.set(sender.id, detach);
+      tab.attached.set(sender.id, () => {
+        stop();
+        cancelFlush?.();
+        cancelFlush = null;
+        pending = [];
+      });
       return { harness: tab.handle.harness, cwd: tab.handle.cwd };
     },
 

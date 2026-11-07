@@ -1,7 +1,8 @@
 // harness-gui와 main의 shell IPC 경계. 터미널 탭 하나가 ACP session 하나(extension harness-gui의 handle)를 그린다
-// (`HarnessGuiTabApi`). `connect`로 붙어 쌓인 갱신을 처음부터 받고, 대화 조작은 `input`으로 보낸다.
+// (`HarnessGuiTabApi`). `connect`로 붙으면 지금까지 접은 상태(snapshot)를 먼저 받고 이어서 갱신을 모아 받는다. 대화 조작은
+// `input`으로 보낸다.
 // 이 파일은 main·preload·renderer가 함께 부르므로 import는 type뿐이다.
-import type { AcpInput, AcpUpdate } from "../../protocol/acp/mod.ts";
+import type { AcpInput, AcpState, AcpUpdate } from "../../protocol/acp/mod.ts";
 import type {
   AcpCliSession,
   AcpRewindPreview,
@@ -20,10 +21,10 @@ export const HARNESS_GUI_TAB_OPENED_CHANNEL = "harness-gui:tab-opened";
 export const HARNESS_GUI_TAB_ACK_CHANNEL = "harness-gui:tab-ack";
 /** main → renderer push. 탭의 view가 바뀌어야 한다(toggle이나 handle이 닫힘). */
 export const HARNESS_GUI_TAB_VIEW_CHANNEL = "harness-gui:tab-view";
-/** renderer → main invoke. handle에 붙어 쌓인 갱신을 `UPDATE`로 처음부터 받는다. */
+/** renderer → main invoke. handle에 붙는다. 현재 상태(snapshot)와 이어지는 갱신을 `UPDATE`로 받는다. */
 export const HARNESS_GUI_TAB_CONNECT_CHANNEL = "harness-gui:tab-connect";
 export const HARNESS_GUI_TAB_DISCONNECT_CHANNEL = "harness-gui:tab-disconnect";
-/** main → renderer push. handle 하나의 갱신. */
+/** main → renderer push. handle 하나의 snapshot이나 모은 갱신(`HarnessGuiTabUpdate`). */
 export const HARNESS_GUI_TAB_UPDATE_CHANNEL = "harness-gui:tab-update";
 /** renderer → main invoke. 대화 조작 하나를 handle에 준다. */
 export const HARNESS_GUI_TAB_INPUT_CHANNEL = "harness-gui:tab-input";
@@ -49,6 +50,19 @@ export type HarnessGuiHandoff = "restart" | "shared";
 
 export type HarnessGuiSessionEntry = AcpCliSession;
 export type HarnessGuiRewindPreview = AcpRewindPreview;
+
+/**
+ * `UPDATE` push 하나. snapshot은 붙은 직후 한 번만 오고(그 뒤 `updates`는 비어 있다) 현재 상태로 갈아 끼운다. 이어서는 한 tick에
+ * 모인 갱신이 순서대로 온다.
+ */
+export interface HarnessGuiTabBatch {
+  readonly snapshot?: AcpState;
+  readonly updates: readonly AcpUpdate[];
+}
+
+export interface HarnessGuiTabUpdate extends HarnessGuiTabBatch {
+  readonly handle: string;
+}
 
 export interface HarnessGuiTabOpened {
   readonly request: string;
@@ -85,10 +99,10 @@ export interface HarnessGuiTabApi {
   onOpened(listener: (open: HarnessGuiTabOpened) => void): () => void;
   ackOpened(request: string): Promise<void>;
   onView(listener: (view: HarnessGuiTabView) => void): () => void;
-  /** handle에 붙는다. 다시 부르면 처음부터 다시 받는다. handle이 없으면 null. */
+  /** handle에 붙는다. 다시 부르면 snapshot부터 다시 받는다. handle이 없으면 null. */
   connect(
     handle: string,
-    onUpdate: (update: AcpUpdate) => void,
+    onBatch: (batch: HarnessGuiTabBatch) => void,
   ): Promise<HarnessGuiInfo | null>;
   disconnect(handle: string): Promise<void>;
   /** 조작을 보냈으면 true다. 통로가 끊기거나 main이 거절하면 false다. */

@@ -23,7 +23,9 @@ import {
 import {
   type AcpInput,
   acpInputSchema,
-  type AcpUpdate,
+  type AcpState,
+  EMPTY_ACP_STATE,
+  reduceAcp,
 } from "../../../../protocol/acp/mod.ts";
 import type {
   AcpSessionHandle,
@@ -124,13 +126,14 @@ const nodeSpawn =
 /** 탭 쪽이 handle 하나에 붙는 listener. */
 type AcpListener = Parameters<TabHandle["attach"]>[0];
 
-// handle은 탭이 닫히거나 extension이 닫을 때까지 update를 모두 쌓는다(늦게 붙는 탭이 처음부터 그린다).
+// handle은 탭이 닫히거나 extension이 닫을 때까지 update를 접은 상태(`AcpState`) 하나만 쥔다. 늦게 붙는 탭은 그 상태를 snapshot으로
+// 한 번 받고 이어서 새 update를 받는다(raw update와 글 조각을 쌓지 않는다).
 function createAcp(ids: IdSource, gui: Pick<TabGui, "opened">) {
   let tab: Parameters<ExtensionAcp["onTab"]>[0] | undefined;
   const acp: ExtensionAcp = {
     open(options) {
       const id = ids.newId("win");
-      const updates: AcpUpdate[] = [];
+      let state: AcpState = EMPTY_ACP_STATE;
       const attached = new Set<AcpListener>();
       const inputs: Array<(input: AcpInput) => void> = [];
       const closers: Array<() => void> = [];
@@ -138,7 +141,7 @@ function createAcp(ids: IdSource, gui: Pick<TabGui, "opened">) {
       const close = () => {
         if (closed) return;
         closed = true;
-        updates.length = 0;
+        state = EMPTY_ACP_STATE;
         for (const listener of [...attached]) listener.closed();
         attached.clear();
         for (const listener of closers) listener();
@@ -154,7 +157,7 @@ function createAcp(ids: IdSource, gui: Pick<TabGui, "opened">) {
             listener.closed();
             return () => {};
           }
-          for (const update of updates) listener.update(update);
+          listener.snapshot(state);
           attached.add(listener);
           return () => void attached.delete(listener);
         },
@@ -165,7 +168,7 @@ function createAcp(ids: IdSource, gui: Pick<TabGui, "opened">) {
         id,
         publish(update) {
           if (closed) return;
-          updates.push(update);
+          state = reduceAcp(state, update);
           for (const listener of attached) listener.update(update);
         },
         onInput: (listener) => void inputs.push(listener),

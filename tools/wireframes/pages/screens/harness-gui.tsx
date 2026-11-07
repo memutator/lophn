@@ -538,7 +538,8 @@ function fakeApi(
     onOpened: () => () => {},
     ackOpened: async () => {},
     onView: () => () => {},
-    async connect(_handle, onUpdate) {
+    async connect(_handle, onBatch) {
+      const onUpdate = (update: AcpUpdate) => onBatch({ updates: [update] });
       push = onUpdate;
       for (const update of [
         ...base,

@@ -41,3 +41,16 @@ modules: [packages/shell/main, packages/protocol]
 영향: OpenCode GUI를 열어 둔 채 다른 agent가 그 session에 call을 보내면, 다시 열기 전까지 사람 메시지로 보인다.
 
 고치려면: 줄 선 item에 받은 메시지 표시를 더하거나, 다른 client의 메시지는 줄을 거치지 않고 `message_added`로 그린다. 뒤의 것이 작다. 추천.
+
+## Claude Agent 줄의 시작 시각을 맞추려고 줄을 늦게 낸다
+
+```yaml
+kind: defect
+modules: [packages/shell/main, packages/protocol]
+```
+
+지금: `packages/shell/main/extensions/bundled/harness-gui/claude.ts`는 Agent tool 줄을 tool_use가 올 때가 아니라 `task_started`가 올 때 낸다(`startRow`를 `setAgent`·`toolEnd`·`canUseTool`·`onTask` 네 곳에서 먼저 낸다). ACP에 낸 tool item의 `at`을 고칠 갱신이 없어서다.
+
+영향: model이 subagent prompt를 쓰는 동안 줄이 없고, 같은 assistant 메시지에서 tool_use 뒤에 글이 있으면 줄이 그 글 뒤에 놓인다. 네 곳에서 미룬 줄을 챙겨야 해 고칠 때 빠뜨리기 쉽다.
+
+고치려면: ACP `tool_detail_changed`나 tool item에 실행 시작 시각(`started_at`)을 더하고 renderer가 그것으로 센다. 그러면 줄은 바로 내고 미루는 code를 지운다. 작음. 추천.

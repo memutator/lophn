@@ -114,6 +114,7 @@ async function setup(
   const processes: ReturnType<typeof fakeProcess>[] = [];
   // 옛 session의 transcript를 바꾸는 SDK 호출. open_session은 이것을 부르면 안 된다.
   const calls: string[] = [];
+  const backgrounded = { count: 0 };
   const spawn = (
     command: string,
     args: readonly string[],
@@ -160,6 +161,10 @@ async function setup(
             categories: [],
           }),
         cancelAsyncMessage: () => Promise.resolve(true),
+        backgroundTasks: () => {
+          backgrounded.count++;
+          return Promise.resolve(true);
+        },
         rewindFiles: () => {
           calls.push("rewindFiles");
           return Promise.resolve({ canRewind: true });
@@ -226,6 +231,7 @@ async function setup(
     queries,
     processes,
     calls,
+    backgrounded,
     get state() {
       return state;
     },
@@ -627,6 +633,31 @@ test("resume으로 다시 그린 사람 메시지의 origin은 처음 보낼 때
     user?.kind === "message" ? user.origin : null,
     "78fcee1c-e4ec-4dee-be36-96df9a9f7ac0",
   );
+});
+
+// foreground tool이 도는 동안 steer가 줄에 서 있으면 CLI는 tool이 끝날 때까지 메시지를 읽지 않는다(실제 transcript에서 본 것).
+test("도는 foreground Bash가 있을 때 steer만 그 tool을 background로 보낸다", async () => {
+  const t = await setup();
+  await t.input(t.send("1", "run it"));
+  await t.feed({
+    type: "assistant",
+    parent_tool_use_id: null,
+    message: {
+      role: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "tu_1",
+          name: "Bash",
+          input: { command: "sleep 99" },
+        },
+      ],
+    },
+  });
+  await t.input(t.send("2", "later one"));
+  assert.equal(t.backgrounded.count, 0);
+  await t.input({ ...t.send("3", "now"), delivery: "steer" });
+  assert.equal(t.backgrounded.count, 1);
 });
 
 const result = (user: string) => ({

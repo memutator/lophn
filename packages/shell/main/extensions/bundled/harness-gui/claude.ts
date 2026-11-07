@@ -2585,6 +2585,21 @@ const start: (sdk: ClaudeSdk) => Start =
       live.input.push(
         userMessage(uuid, body, delivery === "steer" ? "next" : "later"),
       );
+      // CLI는 도는 foreground tool이 끝나야 줄의 메시지를 읽는다. TUI처럼 Ctrl+B로 background에 보내 바로 닿게 한다.
+      if (delivery === "steer" && foregroundRunning()) {
+        void live.q.backgroundTasks().catch(() => {
+          // background task를 끈 session이면 tool이 끝나길 기다린다.
+        });
+      }
+    }
+
+    function foregroundRunning() {
+      return [...root.calls.values()].some(
+        (call) =>
+          !call.done &&
+          call.input.run_in_background !== true &&
+          (call.tool === "Bash" || AGENT_TOOLS.includes(call.tool)),
+      );
     }
 
     // CLI의 줄은 push한 순서다. 순서나 내용이 바뀌면 줄에 있는 것을 모두 빼고 새 순서로 다시 넣는다.

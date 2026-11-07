@@ -1,4 +1,4 @@
-// `lophn app read|tools|create|link-source|status|logs|invocations`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
+// `lophn app read|tools|create|link-source|status|sdk-status|logs|invocations`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
 // 다른 앱의 비공개 command를 숨기는 일은 `app.tool_index` route가 부른 쪽 credential을 보고 한다. 여기서는 부르기만 한다.
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -13,6 +13,7 @@ import {
   appLogs,
   appLogsReadInputSchema,
   appRuntime,
+  appSdkStatus,
   appSlugOf,
   declarationCheck,
 } from "../../protocol/apps/mod.ts";
@@ -215,6 +216,27 @@ const status = defineCommand({
   },
 });
 
+const sdkStatus = defineCommand({
+  name: "app.sdk_status",
+  summary: "Read which SDK versions an app uses and which are out of date",
+  description:
+    'For each app (or the one you name) with a live release: every lophn SDK package it pins with the pinned version, the version lophn has now, the oldest version lophn still runs (supported_from), a level and the note files to read. level "required": the pinned version is older than supported_from, so the app does not start or soon will not; "available": it still runs and only lacks newer features; "current". notes are the `migrate-sdk` skill note files after the pinned version up to the current one, oldest first (read each with `skill.read {name: "migrate-sdk", path}`). Archived apps are not listed.',
+  input: z.strictObject({ app: appIdSchema.optional() }),
+  positional: ["app"],
+  effect: "read",
+  routes: [appSdkStatus],
+  workspaces: ["home", "app"],
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(appSdkStatus, input);
+    if (!read.ok) return read;
+    return ok({
+      summary: countSummary("apps", read.value.apps.length, false),
+      content: read.value,
+      arrayKeys: ["apps"],
+    });
+  },
+});
+
 const logs = defineCommand({
   name: "app.logs",
   summary: "Read an app's log lines",
@@ -271,6 +293,7 @@ export const APP_COMMANDS = [
   linkSource,
   check,
   status,
+  sdkStatus,
   logs,
   invocations,
 ];

@@ -374,6 +374,26 @@ export function fakeDetail(options: FakeOptions = {}) {
     const active = RELEASES.find((item) => item.id === activeId) ?? null;
     return {
       active: active === null ? null : { ...active, replacedAt: null },
+      sdks: [
+        {
+          sdk: "@lophn/declaration",
+          pinned: "3.0.0",
+          current: "4.0.0",
+          level: "required",
+        },
+        {
+          sdk: "@lophn/app-ui",
+          pinned: "2.2.0",
+          current: "2.5.0",
+          level: "available",
+        },
+        {
+          sdk: "@lophn/cap-store",
+          pinned: "1.0.0",
+          current: "1.0.0",
+          level: "current",
+        },
+      ],
       applying:
         activation === "applying"
           ? {

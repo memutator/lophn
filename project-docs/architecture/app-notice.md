@@ -21,15 +21,15 @@
 | `app_unavailable` | `app.record_unavailable`(`packages/core/apps/runtime/commands.ts`): `start_failed`, `crash_loop`, `unexpected_exit`, activation의 복원 실패·종료 확인 불가. 같은 사실의 재전송은 쓰지 않는다 | `app_unavailable`(앱마다 한 줄, 되풀이되면 그 줄을 안 읽음으로 되돌린다) |
 | `app_data_migrated`, `app_data_restored` | `activation.record_data_change`, `activation.record_data_restore`(`packages/core/apps/data/commands.ts`). 복원은 새로 기록할 때만 | 없음 |
 | `lophn_updated` | `notices.observe_version`(아래 "제품 판 marker") | 없음 |
-| `sdk_update_needed` | SDK 감지 task | |
+| `sdk_update_needed` | 제품 판이 바뀐 기동의 SDK 감지(`packages/core/apps/sdk-status/detect.ts`, 앱 wiring의 `productStartListeners`). 필수 SDK가 있는 앱마다. params는 `{sdks}`(core가 판에서 만든 목록 글), action은 `open_home_skill` `update-apps` + 앱 이름 | `sdk_update_needed`(앱마다 한 줄) |
 
 release·data·runtime command는 자기 tx 안에서 `recordProgramNotice(tx, input)`(`packages/core/apps/notices/commands.ts`)를 부른다. 상태 변경과 줄이 한 commit이라 한쪽만 남지 않고, 응답을 잃은 재전송이 줄을 늘리지 않는다. 이미 commit된 뒤 core 안 다른 wiring이 쓸 때는 `ctx.noticeRecorder`(`notices.record`)를 쓴다. 그 값은 tx 안에서 부르면 안 된다(machine 자격으로 쓰기 층을 따로 지난다).
 
 ### 제품 판 marker
 
-`core_meta`(ledger step `apps.notices.product-version`)의 `product_version` 한 줄이 data root가 마지막으로 돈 제품 판이다. core가 켜져 ready가 된 뒤 notices wiring의 `afterReady`가 root `package.json`의 `version`(개발은 repo root, 설치본은 `platform/package.json`)을 `notices.observe_version {version, fresh}`로 낸다. 한 tx에서 marker를 새 판으로 바꾸고, 판이 다르면 `lophn_updated {from, to}`를 쓴다. 새 data root(`fresh`: 이번 기동이 step을 전부 새로 적용했다)는 marker만 적는다. marker 없이 있던 옛 data root가 처음 켜지면 `from`을 모른 채(`unknown`) 한 번 쓴다.
+`core_meta`(ledger step `apps.notices.product-version`)의 `product_version` 한 줄이 data root가 마지막으로 돈 제품 판이다. core가 켜져 ready가 된 뒤 notices wiring의 `afterReady`가 root `package.json`의 `version`(개발은 repo root, 설치본은 `platform/package.json`)을 `notices.observe_version {version, fresh}`로 낸다. 한 tx에서 marker를 새 판으로 바꾸고, 판이 다르면 `lophn_updated {from, to, optional_sdk_apps?}`를 쓴다. `optional_sdk_apps`는 필수는 아니지만 새 SDK 판이 있는 앱의 수로, afterReady가 판을 견주기 직전에 `ctx.sdkStatus`(앱 wiring이 낸다)로 세어 `observe_version`에 싣는다(0이면 싣지 않는다. 못 읽어도 업데이트 기록은 남는다). 줄 본문에 "N apps have optional SDK updates."가 붙는다. 새 data root(`fresh`: 이번 기동이 step을 전부 새로 적용했다)는 marker만 적는다. marker 없이 있던 옛 data root가 처음 켜지면 `from`을 모른 채(`unknown`) 한 번 쓴다.
 
-같은 순간에 다른 일을 하려면 `ctx.productStartListeners`(`wiring/context.ts`)에 `(start: {version, from, changed}) => void | Promise<void>`를 올린다(build·start에서). marker를 견준 직후 올린 순서대로 부르고, 던져도 core 기동과 다른 listener에 영향이 없다(log만 남는다). `changed`는 판이 바뀐 기동, `from`은 바뀌기 전 판(새 data root·옛 data root는 null)이다.
+SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener의 쓰는 쪽이다. 같은 순간에 다른 일을 하려면 `ctx.productStartListeners`(`wiring/context.ts`)에 `(start: {version, from, changed}) => void | Promise<void>`를 올린다(build·start에서). marker를 견준 직후 올린 순서대로 부르고, 던져도 core 기동과 다른 listener에 영향이 없다(log만 남는다). `changed`는 판이 바뀐 기동, `from`은 바뀌기 전 판(새 data root·옛 data root는 null)이다.
 
 ## 흐름
 

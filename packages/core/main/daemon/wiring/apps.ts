@@ -91,6 +91,7 @@ import {
 } from "../../../apps/rewind/mod.ts";
 import {
   appIconRead,
+  appSdkStatusRead,
   appSkillsRead,
   appStatesOf,
   appToolLookupOf,
@@ -103,6 +104,11 @@ import {
   withStartInvocation,
 } from "../../../apps/routes.ts";
 import { NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
+import {
+  readSdkStatus,
+  recordSdkUpdates,
+} from "../../../apps/sdk-status/mod.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
 import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
@@ -343,6 +349,25 @@ export const appsWiring: WiringFactory = () => {
           },
         });
       }
+      // SDK 상태: 고정 판은 ledger, 지금 판은 설치 사본, 메모는 내장 skill 폴더에서 읽는다(파일을 읽어 메인 스레드 read다).
+      const sdkDeps = {
+        dataRoot: ctx.root.path,
+        notesRoot: `${BUNDLED_SKILLS_ROOT}/migrate-sdk`,
+        sql: link.sql,
+      };
+      ctx.provide("sdkStatus", () => readSdkStatus(sdkDeps));
+      // lophn이 새 판으로 켜질 때마다 필수 SDK 갱신이 있는 앱에 줄을 남긴다(`architecture/app-notice.md`).
+      ctx.productStartListeners.push(async (start) => {
+        if (!start.changed) return;
+        const statuses = await readSdkStatus(sdkDeps);
+        if (!statuses.ok) throw new Error(statuses.error.message);
+        const failed = await recordSdkUpdates(
+          statuses.value,
+          ctx.noticeRecorder,
+        );
+        if (failed !== null && !failed.ok)
+          throw new Error(failed.error.message);
+      });
       ctx.provide("appIntake", intake);
       ctx.provide("invocationLedger", ledger);
       ctx.provide("appRewind", rewind);
@@ -461,6 +486,7 @@ export const appsWiring: WiringFactory = () => {
               uploaded: (app) => ok(loadAppIcon(link.sql, app)),
             }),
           );
+          reads.set("apps/sdk_status", appSdkStatusRead(sdkDeps));
           reads.set(
             "apps/skills",
             appSkillsRead(createAppSkillsDeps(locator), link.sql),

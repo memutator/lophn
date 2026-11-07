@@ -38,6 +38,7 @@ export const appSpace = {
   "app-detail.heading.other-apps": "Other apps",
   "app-detail.heading.outside-resources": "Outside resources",
   "app-detail.heading.progress": "Progress",
+  "app-detail.heading.sdk": "SDK versions",
   "app-detail.heading.rewind-before": "Rewind {name} to before {time}",
   "app-detail.heading.rewind-cancelled": "Rewind cancelled",
   "app-detail.heading.rewinds-together": "Rewinds together, newest first",
@@ -46,6 +47,9 @@ export const appSpace = {
   "app-detail.label.access-target": "this app's access",
   "app-detail.label.calls": "Calls",
   "app-detail.label.records": "Records",
+  "app-detail.label.sdk-available": "Update available",
+  "app-detail.label.sdk-current": "Current",
+  "app-detail.label.sdk-required": "Update required",
   "app-detail.label.activity-target": "this app's activity",
   "app-detail.label.call-data-change": "Data change",
   "app-detail.label.call-start": "App start",
@@ -174,6 +178,10 @@ export const appSpace = {
     "The agent that applied this version sees why it failed.",
   "app-detail.note.failed-unchanged":
     "Nothing you use has changed. The agent that applied this version sees why it failed.",
+  "app-detail.note.sdk-available":
+    "Optional. The app runs as it is; newer versions only add features.",
+  "app-detail.note.sdk-required":
+    "This app uses SDK versions lophn no longer runs. Ask lophn at Home with /update-apps to move it.",
   "app-detail.note.go-back-busy":
     "Not available while a release is being applied.",
   "app-detail.note.go-back-schema":

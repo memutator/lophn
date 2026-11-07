@@ -60,6 +60,7 @@ import {
 import { appsSecretValue } from "./secret-use.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
 import { RELEASE_ROUTES } from "./releases.ts";
+import { appSdkStatus } from "./sdk-status.ts";
 import { appUsage } from "./usage.ts";
 
 export const ROUTES = [
@@ -102,6 +103,7 @@ export const ROUTES = [
   appsOAuthSignOut,
   appsOAuthState,
   appUsage,
+  appSdkStatus,
   ...APP_GRANT_ROUTES,
   ...NOTICE_ROUTES,
   ...APP_TRAY_ROUTES,

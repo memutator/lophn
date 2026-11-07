@@ -31,6 +31,10 @@ Before you build a new app or feature, or change one, read the skill
 When the app needs an agent of its own (an opponent, a coach, a reviewer), you create
 and wire it yourself as `design-app` says; do not use the built-in `lophn` agent for it.
 
+When lophn (Home) hands you an SDK update, or the app stopped starting after a
+lophn update, read the skill `migrate-sdk`; `lophn app sdk-status` shows the
+pinned and current SDK versions.
+
 ## Building and releasing
 
 The source folder exists from registration (`Source folder:` in your workspace

@@ -134,8 +134,14 @@ export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
   variant("app_unavailable", { reason }),
   variant("app_data_migrated", { release: short }),
   variant("app_data_restored", { release: short }),
-  variant("lophn_updated", { from: short, to: short }),
-  variant("sdk_update_needed", { sdk: short, pinned: short, current: short }),
+  // optional_sdk_apps: 필수는 아니지만 새 SDK 판이 있는 앱의 수. 0이면 싣지 않는다.
+  variant("lophn_updated", {
+    from: short,
+    to: short,
+    optional_sdk_apps: z.number().int().min(1).max(9999).optional(),
+  }),
+  // sdks: 필수로 옮겨야 하는 SDK 목록 글(core가 판에서 만든다).
+  variant("sdk_update_needed", { sdks: reason }),
 ]);
 export type NoticeRecordInput = z.infer<typeof noticeRecordInputSchema>;
 
@@ -156,7 +162,12 @@ export const noticesObserveVersion = defineCommand({
   resource: "notices",
   method: "observe_version",
   name: "notices.observe_version",
-  input: z.strictObject({ version: short, fresh: z.boolean() }),
+  input: z.strictObject({
+    version: short,
+    fresh: z.boolean(),
+    // lophn_updated 줄에 싣는, 가능(옮기지 않아도 되는) SDK 갱신이 있는 앱의 수.
+    optional_sdk_apps: z.number().int().nonnegative().optional(),
+  }),
   output: z.object({
     // 판이 바뀐 기동이면 true. fresh이거나 같은 판이면 false다.
     changed: z.boolean(),

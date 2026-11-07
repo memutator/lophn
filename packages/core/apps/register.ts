@@ -68,6 +68,7 @@ import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
 import { appIcon, appSkills } from "../../protocol/apps/declaration/read.ts";
+import { appSdkStatus } from "../../protocol/apps/sdk-status.ts";
 import {
   appTrayList,
   appTraySet,
@@ -106,7 +107,8 @@ function unattachedRead<
     | typeof appRewindPlan
     | typeof appRewinds
     | typeof appIcon
-    | typeof appSkills,
+    | typeof appSkills
+    | typeof appSdkStatus,
 >(route: R) {
   return {
     route,
@@ -157,6 +159,7 @@ export function createLedgerRegistration(
       // 파일을 읽어야 해서 core 조립이 handler로 덮는다.
       unattachedRead(appIcon),
       unattachedRead(appSkills),
+      unattachedRead(appSdkStatus),
       // 도는 줄은 core 메모리라 core 조립(apps control)이 driver가 읽는 줄로 덮는다.
       createActivationQueueRead({
         entries: () =>

@@ -8,7 +8,12 @@ import { t } from "@lophn/i18n";
 import { Loadable } from "../loadable.tsx";
 import { dateTime, releaseName, stepText } from "../model.ts";
 import { Facts, Mono, Note, PaneToast, Section } from "../parts.tsx";
-import type { AppDetailSource, ReleaseCard, VersionView } from "../source.ts";
+import type {
+  AppDetailSource,
+  ReleaseCard,
+  SdkRow,
+  VersionView,
+} from "../source.ts";
 import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { Changes, hasChanges } from "./changes.tsx";
@@ -114,7 +119,7 @@ function VersionBody({
   pending: ReleaseCard | null;
   onGoBack: (release: ReleaseCard) => void;
 }) {
-  const { active, applying, failed, earlier } = view;
+  const { active, applying, failed, earlier, sdks } = view;
   const target = applying ?? failed ?? active;
   return (
     <>
@@ -249,6 +254,7 @@ function VersionBody({
           </div>
         </Section>
       )}
+      {active === null || sdks.length === 0 ? null : <SdkSection sdks={sdks} />}
       {target === null ? null : (
         <ChangesSection
           key={target.id}
@@ -287,6 +293,44 @@ function ChangesSection({
   const changes = read.loaded.value;
   if (!always && !hasChanges(changes)) return null;
   return <Changes changes={changes} />;
+}
+
+const SDK_TONE = {
+  required: "critical",
+  available: "warning",
+  current: "good",
+} as const;
+
+function SdkSection({ sdks }: { sdks: readonly SdkRow[] }) {
+  const needs = sdks.some((sdk) => sdk.level === "required");
+  const optional = sdks.some((sdk) => sdk.level === "available");
+  return (
+    <Section title={t("app-detail.heading.sdk")}>
+      <ul className={styles.list} data-sdk-status="">
+        {sdks.map((sdk) => (
+          <li key={sdk.sdk} className={styles.item} data-sdk={sdk.sdk}>
+            <div className={styles.rowText}>
+              <span className={styles.rowTitle}>{sdk.sdk}</span>
+              <span className={styles.muted}>
+                {sdk.level === "current"
+                  ? sdk.pinned
+                  : `${sdk.pinned} → ${sdk.current}`}
+              </span>
+            </div>
+            <StatusMark
+              tone={SDK_TONE[sdk.level]}
+              label={t(`app-detail.label.sdk-${sdk.level}`)}
+            />
+          </li>
+        ))}
+      </ul>
+      {needs ? (
+        <Note>{t("app-detail.note.sdk-required")}</Note>
+      ) : optional ? (
+        <p className={styles.muted}>{t("app-detail.note.sdk-available")}</p>
+      ) : null}
+    </Section>
+  );
 }
 
 const schemaName = (schema: number) => `v${schema}`;

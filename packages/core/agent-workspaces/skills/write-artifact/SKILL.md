@@ -92,9 +92,8 @@ mode and looks wrong.
 
 | Variable                                                                | Use                                      |
 | ----------------------------------------------------------------------- | ---------------------------------------- |
-| `--color-surface-floor`                                                 | page background                          |
-| `--color-surface-base`                                                  | cards and panels                         |
-| `--color-surface-subtle`                                                | table stripes, quiet areas               |
+| `--color-surface-base`                                                  | page background (same as lophn's tabs)   |
+| `--color-surface-subtle`                                                | cards, panels, table stripes             |
 | `--color-border-base`                                                   | borders and rules                        |
 | `--color-text-primary`                                                  | main text                                |
 | `--color-text-secondary`                                                | secondary text                           |
@@ -110,7 +109,7 @@ Example:
 
 ```css
 body {
-  background: var(--color-surface-floor);
+  background: var(--color-surface-base);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
 }

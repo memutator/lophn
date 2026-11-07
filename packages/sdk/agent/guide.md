@@ -15,19 +15,28 @@ context를 block으로 싸서 보내고, ACP 상태를 React state로 받고, �
 import { contextBlock, useAgentSession } from "@lophn/agent";
 ```
 
-- `useAgentSession({agent, app?, newId?})` — `{session, state, send, stop,
-  answer, error}`.
-  - `agent`는 놓인 agent의 id다. session은 화면을 연 것만으로는 열리지 않고
-    **첫 `send`에서** 이 앱 workspace에 새로 열려 바로 snapshot을 읽는다(열 때마다
-    lophn의 sidebar에 session이 하나 생기기 때문이다). `agent`가 바뀌면 새 session을
-    쓰고, 화면이 새로 load되면 다시 첫 `send`에서 연다.
-  - `session`은 첫 `send`로 열린 뒤의 session id이고 그 전에는 `null`이다. `state`는
-    ACP 상태(`AcpState`)이고 snapshot을 읽기 전에는 `null`이다. `stop`과 `answer`는
-    session이 열리기 전에는 `session is not open` 오류다. `items`가 대화의
+- `useAgentSession({agent, title?, session?, app?, newId?})` — `{session, state,
+  send, stop, answer, rename, reset, error}`.
+  - `agent`는 agent handle이다(`@lophn/agent`가 그대로 lophn에 넘긴다). session은
+    화면을 연 것만으로는 열리지 않고 **첫 `send`에서** 이 앱 workspace에 새로 열려
+    바로 snapshot을 읽는다(열 때마다 lophn의 sidebar에 session이 하나 생기기
+    때문이다). `session`이 없으면 화면이 새로 load될 때마다 첫 `send`에서 새
+    session을 연다.
+  - `title`은 SDK가 session을 **열 때** 붙이는 제목이다. 주지 않으면 첫 prompt 글이
+    제목이 되어 sidebar가 어지러우니 앱이 정한다(예: `"Game 3"`). 열 때 읽는 값이라
+    바뀌어도 session을 새로 잇지 않는다.
+  - `session`은 이 앱 workspace의 기존 session에 **다시 붙는다**. 주면 바로 snapshot을
+    읽어 `state`를 채우고 `send`도 거기로 간다(진행 중이던 turn의 답도 이어서 받는다).
+    그 앱 workspace의 session이 아니거나 없으면 `error`가 `forbidden: …`이다.
+    `agent`나 `session`이 바뀌면 session을 바꾼다. id는 앱이 저장한다(예: 판 기록에
+    넣고 화면이 다시 load될 때 `session`으로 넘긴다).
+  - 반환의 `session`은 지금 session id이고 열리기 전에는 `null`이다. `state`는
+    ACP 상태(`AcpState`)이고 snapshot을 읽기 전에는 `null`이다. `stop`과 `answer`와
+    `rename`은 session이 열리기 전에는 `session is not open` 오류다. `items`가 대화의
     줄(`message`, `tool`, `approval`, `notice`, `hidden`)이고 순서가 `seq`다.
     `turn`이 지금 turn(`phase`: working, waiting, ended)이고 `writing`이 흘러나오는
     글이다. 갱신은 `reduceAcp`로 접고 순번이 빠지면 snapshot을 다시 읽는다.
-  - `error`는 첫 `send`의 열기·읽기 실패 `"<code>: <message>"`다. bridge가 없으면(앱 view 밖)
+  - `error`는 열기·읽기 실패 `"<code>: <message>"`다. bridge가 없으면(앱 view 밖)
     `unavailable`이다.
   - `send(blocks, {reply?})` — 사람 메시지를 보낸다. 접수되면
     `{ok: true, reply}`, 아니면 `{ok: false, error}`다. 도는 turn이 있으면 다음
@@ -40,7 +49,15 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
   - `answer(answers)` — agent가 `ask`로 물은 질문 묶음에 답한다. 답은 질문 순서대로
     `{question, status: "answered" | "unanswered", answer: string[]}`이다.
     승인 카드(`state.pending.approval`)는 이 SDK가 결정하지 않는다. 사람이 lophn의
-    채팅 탭에서 결정한다.
+    채팅 탭에서 결정한다(bridge가 `send`·`stop`·`answer`·`rename` 밖의 입력은
+    `forbidden`으로 막는다).
+  - `rename(title)` — 지금 session의 제목을 바꾼다. `{ok}`나 `{ok: false, error}`다.
+  - `reset()` — 지금 session을 잊는다(`session`과 `state`가 `null`이 된다). 도는 turn은
+    멈추지 않으니 필요하면 먼저 `stop()`한다. 다음 `send`가 새 session을 열고 `title`을
+    붙인다. 판이 바뀌는 앱이 쓴다. 새 session id를 `session`으로 되넘겨도 화면은
+    비지 않는다.
+  - 화면을 떠났다 돌아오면 page가 다시 load된다. session id를 저장해 두고 `session`으로
+    넘기면 이어 받고, 안 넘기면 새 session이다.
 - `contextBlock({name, mimeType, text})` — 화면의 context(보고 있는 글, 고른 항목)를
   `resource` block으로 싼다. 같은 `name`이 한 메시지에서 구별되게 짓는다.
 - 꼴은 JSON schema의 부분이다: `type`(object, array, string, number, integer,
@@ -97,8 +114,13 @@ const NOTES = {
 type Note = { line: number; severity: "info" | "bug"; note: string };
 
 function Coach({ attempt }: { attempt: { id: string; title: string } }) {
-  // COACH_AGENT_ID는 이 앱 workspace에 놓인 코치 agent의 id다.
-  const coach = useAgentSession({ agent: COACH_AGENT_ID });
+  // COACH_HANDLE은 코치 agent의 handle이다. title은 이 session이 sidebar에 보일 이름이다.
+  // savedSession은 앱이 저장해 둔 session id로, 화면이 다시 load돼도 같은 대화를 잇는다.
+  const coach = useAgentSession({
+    agent: COACH_HANDLE,
+    title: `Review: ${attempt.title}`,
+    session: savedSession,
+  });
   const [code, setCode] = useState("");
   const [notes, setNotes] = useState<Note[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
@@ -145,7 +167,10 @@ function Coach({ attempt }: { attempt: { id: string; title: string } }) {
 - 흘러나오는 글은 `state.writing?.text`, 끝난 메시지는 `state.items`의
   `message`(`actor: "agent"`)다. 꼴이 있는 답이면 끝나기 전 글은 JSON 조각이므로
   그리지 않는다.
-- 새로 load된 화면은 첫 `send`에서 새 session을 연다. 이전 session은 lophn의 채팅 탭에 남는다.
+- `session`을 주지 않으면 새로 load된 화면은 첫 `send`에서 새 session을 연다. 이전 session은
+  lophn의 채팅 탭에 남는다. 다음 시도로 넘어갈 때는 `coach.reset()`으로 새 대화를 시작한다.
+- 앱이 연 session은 turn이 끝나도 lophn이 "끝났다"고 알리지 않는다. 승인이나 질문이
+  생겼는데 그 앱 화면이 안 보이면 알린다.
 
 ## version 정책
 

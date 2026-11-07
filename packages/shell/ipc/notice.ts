@@ -21,13 +21,19 @@ export const noticeTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("app"), app }).strict(),
 ]);
 
-/** 그 Agent session 탭이 이 창에 보이는지. 창은 보낸 webContents로 안다. */
-export const noticeVisibleSchema = z
-  .object({
-    session,
-    visible: z.boolean(),
-  })
-  .strict();
+/**
+ * 그 Agent session 탭이나 앱 화면(view_session)이 이 창에 보이는지. 창은 보낸 webContents로 안다. 앱 화면이 보이면 그
+ * 화면이 쥔 session의 승인·질문 알림을 낼 필요가 없다.
+ */
+export const noticeVisibleSchema = z.union([
+  z.object({ session, visible: z.boolean() }).strict(),
+  z
+    .object({
+      view_session: z.string().min(1).max(200),
+      visible: z.boolean(),
+    })
+    .strict(),
+]);
 
 export type NoticeTarget = z.infer<typeof noticeTargetSchema>;
 export type NoticeVisible = z.infer<typeof noticeVisibleSchema>;
@@ -58,7 +64,7 @@ export type NoticeReveal = { session: string } | { app: string };
 
 /** preload가 shell renderer에 여는 알림 통로. */
 export interface LophnNoticeApi {
-  /** Agent session 탭이 보이게 됐거나 안 보이게 됐다. */
+  /** Agent session 탭이나 앱 화면이 보이게 됐거나 안 보이게 됐다. */
   visible(input: NoticeVisible): Promise<void>;
   /** toast를 눌렀다. 그 탭이 있는 창을 앞으로 가져오고 탭을 고르는 것은 main이 한다. */
   open(target: NoticeTarget): Promise<void>;

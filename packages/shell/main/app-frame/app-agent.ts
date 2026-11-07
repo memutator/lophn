@@ -25,11 +25,18 @@ function record(value: unknown): Record<string, unknown> | undefined {
 
 const NOT_YOURS = fail("forbidden", "session is not available");
 
+// 앱 code(AI가 만든 code일 수 있다)가 보낼 수 있는 ACP 입력. `decide`(승인)는 사람이 채팅 탭에서만 하고, `run_shell`·
+// `rewind`·`fork` 같은 사람의 composer 조작도 앱이 대신하지 못한다. 목록에 없는 것은 모두 막는 쪽이 새 입력이 생겨도 안전하다.
+const ALLOWED_INPUTS: readonly unknown[] = ["send", "stop", "answer", "rename"];
+
 export function createAppAgent(deps: AppAgentDeps) {
   // 이 view가 열었거나 읽어서 앱 workspace의 것으로 확인한 session. 갱신을 거를 때 쓴다(session의 workspace는 열 때 정해져 안 바뀐다).
   const owned = new Map<string, Set<string>>();
+  // 앱 화면이 연 적 있는 session. view가 사라져도 남겨, 떠난 사이 끝난 turn도 앱 session의 알림 규칙을 따르게 한다.
+  const appSessions = new Set<string>();
 
   function remember(view: BoundView, session: string): void {
+    appSessions.add(session);
     const known = owned.get(view.view_session) ?? new Set<string>();
     known.add(session);
     owned.set(view.view_session, known);
@@ -67,10 +74,15 @@ export function createAppAgent(deps: AppAgentDeps) {
   return {
     async open(view: BoundView, value: unknown): Promise<CallOutcome<unknown>> {
       const input = record(value);
+      const title = input?.title;
       if (
         input === undefined ||
-        Object.keys(input).join() !== "agent" ||
-        typeof input.agent !== "string"
+        !Object.keys(input).every(
+          (key) => key === "agent" || key === "title",
+        ) ||
+        typeof input.agent !== "string" ||
+        (title !== undefined &&
+          (typeof title !== "string" || title.trim() === ""))
       ) {
         return fail("invalid_input", "input is invalid");
       }
@@ -87,6 +99,15 @@ export function createAppAgent(deps: AppAgentDeps) {
       });
       if (!opened.ok) return opened;
       remember(view, id);
+      // 제목은 겉모습이라 못 붙여도 session은 이미 열렸다. 앱은 `rename`으로 다시 붙일 수 있다.
+      if (typeof title === "string") {
+        await deps.call("memory", "acp", "send", {
+          type: "rename",
+          session: id,
+          key: `app-agent-title-${id}`,
+          title,
+        });
+      }
       return { ok: true, value: { session: id } };
     },
 
@@ -101,15 +122,26 @@ export function createAppAgent(deps: AppAgentDeps) {
     },
 
     async send(view: BoundView, value: unknown): Promise<CallOutcome<unknown>> {
-      // 앱 code(AI가 만든 code일 수 있다)가 사람의 승인 없이 shell을 돌리지 못하게 한다. `!`는 사람의 composer만 쓴다.
-      if (record(value)?.type === "run_shell") {
-        return fail("forbidden", "an app cannot run shell commands");
+      if (!ALLOWED_INPUTS.includes(record(value)?.type)) {
+        return fail("forbidden", "an app cannot send this input");
       }
       const refused = await check(view, record(value)?.session);
       if (refused !== undefined) return refused;
       // 크기 상한과 입력 검사는 AcpSend의 것을 따른다.
       const sent = await deps.call("memory", "acp", "send", value);
       return sent.ok ? { ok: true, value: undefined } : sent;
+    },
+
+    /** 앱 화면이 연(또는 다시 붙어 확인한) session이다. 알림 규칙이 turn 끝 알림을 거르는 데 쓴다. */
+    isAppSession(session: string): boolean {
+      return appSessions.has(session);
+    },
+
+    /** 그 session을 지금 쥔 view들. 그중 focus 창에 보이는 것이 있으면 사람이 보고 있다. */
+    viewsOf(session: string): string[] {
+      return [...owned]
+        .filter(([, sessions]) => sessions.has(session))
+        .map(([view_session]) => view_session);
     },
 
     /** core의 `AcpUpdated`. 그 session을 이 앱 workspace의 것으로 확인한 view에만 보낸다. */

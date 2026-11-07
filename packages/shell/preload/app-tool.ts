@@ -174,8 +174,11 @@ export function createAppTool(
       await request(transport, APP_OPEN_EXTERNAL_CHANNEL, { url });
     },
     agent: Object.freeze({
-      open: (input: { agent: string }) =>
-        result(transport, APP_AGENT_OPEN_CHANNEL, { agent: input.agent }),
+      open: (input: { agent: string; title?: string }) =>
+        result(transport, APP_AGENT_OPEN_CHANNEL, {
+          agent: input.agent,
+          ...(input.title === undefined ? {} : { title: input.title }),
+        }),
       snapshot: (session: string) =>
         result(transport, APP_AGENT_SNAPSHOT_CHANNEL, { session }),
       send: (input: unknown) =>

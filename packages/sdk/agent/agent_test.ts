@@ -2,13 +2,24 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { AcpInput as ProtocolInput } from "../../protocol/acp/input.ts";
 import type {
+  AcpChildState as ProtocolChildState,
+  AcpChildUpdate as ProtocolChildUpdate,
+  AcpEntry as ProtocolEntry,
   AcpItem as ProtocolItem,
   AcpState as ProtocolState,
   AcpUpdate as ProtocolUpdate,
 } from "../../protocol/acp/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import type { LophnAppAgent } from "../../protocol/shell/app-bridge-types.ts";
-import type { AcpInput, AcpItem, AcpState, AcpUpdate } from "./acp-types.ts";
+import type {
+  AcpChildState,
+  AcpChildUpdate,
+  AcpEntry,
+  AcpInput,
+  AcpItem,
+  AcpState,
+  AcpUpdate,
+} from "./acp-types.ts";
 import { newMessageId } from "./ids.ts";
 import { parseReply } from "./reply.ts";
 import type { AgentBridge } from "./session.ts";
@@ -19,6 +30,10 @@ const same = <_T extends true>() => {};
 same<Same<AcpState, ProtocolState>>();
 same<Same<AcpUpdate, ProtocolUpdate>>();
 same<Same<AcpItem, ProtocolItem>>();
+// 설치 사본의 reduce.ts가 import하는 type이다. 하나라도 빠지면 사본이 tsc를 못 지난다.
+same<Same<AcpEntry, ProtocolEntry>>();
+same<Same<AcpChildState, ProtocolChildState>>();
+same<Same<AcpChildUpdate, ProtocolChildUpdate>>();
 // 이 SDK가 보내는 입력은 정본 입력의 부분이다.
 same<AcpInput extends ProtocolInput ? true : false>();
 // bridge의 type 인자를 이 SDK의 type으로 채우면 SDK의 bridge 사본이 된다.

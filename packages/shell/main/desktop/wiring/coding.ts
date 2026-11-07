@@ -36,7 +36,7 @@ import { lophnCliPath } from "../paths.ts";
 import { createAgentWiring } from "./agent.ts";
 import { createBridgeWiring } from "./bridge.ts";
 import type { CallResult, Registered, ShellContext } from "./context.ts";
-import { createNoticeWiring } from "./notice.ts";
+import { type AppSessions, createNoticeWiring } from "./notice.ts";
 
 type CallSession = {
   call(
@@ -86,7 +86,7 @@ export type Coding = Registered & {
   bindTabGui(port: TabGuiPort): void;
 };
 
-export function register(ctx: ShellContext): Coding {
+export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
   const { here, dataRoot, overlays, core, ipc } = ctx;
   const terminals = createSupervisor({
     // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
@@ -200,6 +200,7 @@ export function register(ctx: ShellContext): Coding {
   const notice = createNoticeWiring(
     ctx,
     terminalFocus,
+    appSessions,
     (ref) =>
       terminals.runtimes().find((item) => item.terminal_ref === ref)?.project,
     // 탭을 본 것과 같다: 못 본 표시만 끄고 상태는 그대로다.

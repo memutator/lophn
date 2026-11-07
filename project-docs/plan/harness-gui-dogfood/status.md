@@ -4,6 +4,6 @@ lead만 고친다. `tools/status.py harness-gui-dogfood build`가 `tasks/*.md`�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `claude-meta` | adapter | 1 | 없음 | todo |  |  |  |
-| `chat-render-perf` | chat | 1 | 없음 | todo |  |  |  |
+| `claude-meta` | adapter | 1 | 없음 | merged | adapter/claude-meta | 5526cb0f1 |  |
+| `chat-render-perf` | chat | 1 | 없음 | merged | chat/chat-render-perf | 56f5adade |  |
 | `shell-stop` | adapter | 2 | chat-render-perf, claude-meta | todo |  |  |  |

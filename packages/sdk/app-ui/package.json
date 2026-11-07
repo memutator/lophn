@@ -2,6 +2,9 @@
   "name": "@lophn/app-ui",
   "version": "2.5.0",
   "type": "module",
+  "lophn": {
+    "supported_from": "2.3.0"
+  },
   "exports": "./mod.ts",
   "dependencies": {
     "@lophn/declaration": "4.0.0",

@@ -2,6 +2,9 @@
   "name": "@lophn/declaration",
   "version": "4.0.0",
   "type": "module",
+  "lophn": {
+    "supported_from": "4.0.0"
+  },
   "exports": {
     ".": "./mod.ts"
   }

@@ -53,7 +53,7 @@
 .agentTurn:hover > .messageActions,
 .messageActions:focus-within,
 .userTurn[data-open] > .messageActions,
-.turns > .agentTurn:last-child > .messageActions {
+.turns > :last-child > .agentTurn > .messageActions {
   opacity: 1;
   pointer-events: auto;
 }

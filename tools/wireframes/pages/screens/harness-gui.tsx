@@ -728,9 +728,12 @@ const perfReply = (index: number) =>
     "| flaky network | retried |",
   ].join("\n");
 
-const PERF_THREAD: readonly AcpUpdate[] = [
+// 긴 대화 page의 turn 수. 화면 근처 행만 그리는지(virtualization) 본다.
+const LONG_TURNS = 200;
+
+const perfThread = (turns: number): readonly AcpUpdate[] => [
   { type: "session_changed", session: fakeHarnessMeta() },
-  ...Array.from({ length: PERF_TURNS }, (_, index): AcpUpdate[] => {
+  ...Array.from({ length: turns }, (_, index): AcpUpdate[] => {
     const turn = `trn-p${index}`;
     const seq = index * 6;
     return [
@@ -814,11 +817,11 @@ const PERF_THREAD: readonly AcpUpdate[] = [
   ),
 ];
 
-function perfApi(): HarnessGuiTabApi {
+function perfApi(turns: number): HarnessGuiTabApi {
   return {
     ...fakeApi(null, [], "claude", NO_UPDATES),
     async connect(_handle, onBatch) {
-      onBatch({ updates: [...PERF_THREAD] });
+      onBatch({ updates: [...perfThread(turns)] });
       (globalThis as { __perf?: unknown }).__perf = {
         push: (updates: AcpUpdate[]) => onBatch({ updates }),
       };
@@ -827,8 +830,15 @@ function perfApi(): HarnessGuiTabApi {
   };
 }
 
-function PerfGui() {
-  const api = useMemo(perfApi, []);
+function PerfGui({
+  turns = PERF_TURNS,
+  steps = [],
+}: {
+  turns?: number;
+  steps?: readonly Step[];
+}) {
+  useDrive(() => runSteps(steps));
+  const api = useMemo(() => perfApi(turns), [turns]);
   // 실제 시계: live 글의 throttle과 도는 줄의 경과 시간이 시계를 읽는다.
   const origin = useMemo(() => Date.now(), []);
   const now = useMemo(() => () => NOW + (Date.now() - origin), [origin]);
@@ -858,6 +868,14 @@ function PerfGui() {
       </Profiler>
     </HeadCard>
   );
+}
+
+/** 사람이 위로 올려 중간쯤 읽는 것처럼 대화를 올린다(wheel이 맨 아래 따라가기를 끈다). */
+async function scrollThreadTo(share: number): Promise<void> {
+  const list = await find("[data-thread]");
+  list.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: -1 }));
+  list.scrollTop = list.scrollHeight * share;
+  await wait(400);
 }
 
 // 숨겼다가 되살린 구간. 항목이 제자리로 돌아와 숨긴 구간 줄이 남지 않는다.
@@ -930,6 +948,34 @@ export const harnessGuiArea: Area = {
       description:
         "긴 대화(40 turn)와 도는 turn 하나. 스트림 길이를 재는 측정용 page다(`globalThis.__perf.push`).",
       render: () => <PerfGui />,
+    },
+    {
+      id: "harness-gui-long-thread",
+      title: "Harness GUI · long thread",
+      description:
+        "200 turn짜리 긴 대화의 맨 아래다. 화면 근처 행만 DOM에 있고(virtualization) 나머지는 빈 칸이라, 길어도 그리는 값은 같다. 쓰는 중에도 맨 아래에 붙어 있다.",
+      render: () => <PerfGui turns={LONG_TURNS} />,
+    },
+    {
+      id: "harness-gui-long-thread-middle",
+      title: "Harness GUI · long thread, middle",
+      description:
+        "같은 긴 대화를 중간까지 올려 읽는 모습이다. 위쪽에 안 그린 행이 있어도 읽는 글은 제자리에 있고, 새 글이 와도 밀리지 않는다.",
+      render: () => (
+        <PerfGui turns={LONG_TURNS} steps={[() => scrollThreadTo(0.5)]} />
+      ),
+    },
+    {
+      id: "harness-gui-long-thread-jump",
+      title: "Harness GUI · long thread, index jump",
+      description:
+        "긴 대화에서 thread index의 맨 위 눈금을 눌러 첫 메시지로 간 모습이다. 안 그린 행에도 쌓아 둔 높이로 계산한 자리로 바로 가고, 거기서 그리면서 그 메시지를 맨 위에 둔다.",
+      render: () => (
+        <PerfGui
+          turns={LONG_TURNS}
+          steps={[() => click("[data-thread-index] button", undefined, 0)]}
+        />
+      ),
     },
     {
       id: "harness-gui-slash-empty",

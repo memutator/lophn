@@ -4,6 +4,7 @@
 import type { Outgoing } from "./delivery-state.ts";
 import type { ViewDetail } from "./activity/model.ts";
 import type { Attachment } from "./attachments.ts";
+import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 
 export interface Draft {
   readonly text: string;
@@ -13,8 +14,8 @@ export interface Draft {
   readonly attachments: readonly Attachment[];
   /** 보낸 말 하나. 접수되면 입력칸을 비우고 이것도 지운다. */
   readonly outgoing: Outgoing | null;
-  /** 읽던 위치. null이면 맨 아래를 따라간다. */
-  readonly scroll: number | null;
+  /** 읽던 위치(행과 그 행 위에서의 거리). null이면 맨 아래를 따라간다. */
+  readonly scroll: ThreadPosition | null;
   /** 단계 줄을 어디까지 보이는지(Messages·Compact·Everything). session마다 기억한다. */
   readonly detail: ViewDetail;
 }

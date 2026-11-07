@@ -80,6 +80,7 @@ import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { forkAndOpen } from "./header/fork.ts";
 import { FillShellProvider, RunCodeProvider } from "./message-list/run-code.ts";
+import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
@@ -829,7 +830,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   // 대화 줄은 memo다. 글을 칠 때마다 새로 만들어지는 함수를 넘기면 그 memo가 깨지므로 늘 같은 함수가 최신 것을 부른다.
   const threadHandlers = {
-    onScroll: useLatest((position: number | null) =>
+    onScroll: useLatest((position: ThreadPosition | null) =>
       drafts.save(key, { scroll: position }),
     ),
     onRewind: useLatest((message: string) =>
@@ -1050,6 +1051,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 }}
                 source={source}
                 initialScroll={draft.scroll}
+                renderAll={find.open}
                 rewindOpen={layer?.kind === "rewind" ? layer.message : null}
                 {...threadHandlers}
                 onStopShell={

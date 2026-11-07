@@ -42,6 +42,7 @@ import {
 import { LiveMessage } from "./message-list/live-message.tsx";
 import { MessageBody, UserBody } from "./message-list/message-body.tsx";
 import { ThreadScroll } from "./message-list/thread-scroll.tsx";
+import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 import { QuestionSummary } from "./question-card/question-card.tsx";
 import { HiddenRange } from "./session-rewind/hidden-range.tsx";
 import { CallBlock } from "./thread/call-block.tsx";
@@ -89,8 +90,10 @@ interface AgentThreadProps {
     AgentTabSource,
     "envelope" | "callState" | "cancelCall" | "retryTurn" | "toolCallBody"
   >;
-  initialScroll: number | null;
-  onScroll: (position: number | null) => void;
+  initialScroll: ThreadPosition | null;
+  onScroll: (position: ThreadPosition | null) => void;
+  /** 화면 밖 행도 다 그린다. 대화 안 찾기가 열려 있는 동안이다. */
+  renderAll?: boolean;
   /** rewind panel이 열려 있는 시점 메시지. */
   rewindOpen: string | null;
   onRewind: (message: string) => void;
@@ -267,19 +270,17 @@ function AgentThreadView(props: AgentThreadProps): ReactElement {
   }
   return (
     <ThreadScroll
-      count={nodes.length}
-      initialScroll={props.initialScroll}
-      onScroll={props.onScroll}
-      announcement={announcement}
-    >
-      {nodes.length === 0 ? (
+      rows={nodes}
+      empty={
         <p className={styles.empty} data-empty-thread="">
           {t("conversation.empty.no-messages")}
         </p>
-      ) : (
-        <div className={turns.turns}>{nodes}</div>
-      )}
-    </ThreadScroll>
+      }
+      initialPosition={props.initialScroll}
+      onScroll={props.onScroll}
+      renderAll={props.renderAll === true}
+      announcement={announcement}
+    />
   );
 }
 

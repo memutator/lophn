@@ -38,8 +38,12 @@ interface ThreadIndexProps {
   list: RefObject<HTMLDivElement | null>;
   items: readonly IndexItem[];
   bookmarks: Bookmarks | null;
-  /** node의 머리가 대화 맨 위에 오게 간다. */
-  goTo: (node: HTMLElement, smooth: boolean) => void;
+  /** 그리는 행 범위. 바뀌면 화면에 보이는지 보는 observer를 새 node에 다시 건다. */
+  mounted: string;
+  /** 그 사람 메시지의 머리가 대화 맨 위에 오게 간다. 그리지 않은 행에도 간다. */
+  goTo: (id: string, smooth: boolean) => void;
+  /** 그 사람 메시지의 위가 대화 맨 위에서 얼마나 떨어졌는지(위쪽이면 음수). 없으면 null이다. */
+  where: (id: string) => number | null;
   /** rail 위 wheel을 대화 scroll로 넘긴다. */
   wheel: (deltaY: number) => void;
 }
@@ -73,7 +77,11 @@ function useRailSpace(list: RefObject<HTMLDivElement | null>, count: number) {
 }
 
 /** 화면에 보이는 사람 메시지 id 전부(Codex는 이것을 "현재"로 본다). */
-function useVisible(list: RefObject<HTMLDivElement | null>, ids: string) {
+function useVisible(
+  list: RefObject<HTMLDivElement | null>,
+  ids: string,
+  mounted: string,
+) {
   const [visible, setVisible] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => {
     const element = list.current;
@@ -95,27 +103,22 @@ function useVisible(list: RefObject<HTMLDivElement | null>, ids: string) {
     );
     for (const node of element.querySelectorAll(USER)) observer.observe(node);
     return () => observer.disconnect();
-  }, [list, ids]);
+  }, [list, ids, mounted]);
   return visible;
-}
-
-function userNode(list: HTMLDivElement, id: string): HTMLElement | null {
-  for (const node of list.querySelectorAll<HTMLElement>(USER)) {
-    if (node.dataset.message === id) return node;
-  }
-  return null;
 }
 
 export function ThreadIndex({
   list,
   items,
   bookmarks,
+  mounted,
   goTo,
+  where,
   wheel,
 }: ThreadIndexProps): ReactElement | null {
   const space = useRailSpace(list, items.length);
   const ids = items.map((item) => item.id).join("\n");
-  const visible = useVisible(list, ids);
+  const visible = useVisible(list, ids, mounted);
   const [hover, setHover] = useState<string | null>(null);
   const rail = useRef<HTMLDivElement>(null);
   const closer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -141,26 +144,22 @@ export function ThreadIndex({
         (event.key !== "ArrowUp" && event.key !== "ArrowDown")
       )
         return;
-      const edge =
-        element.getBoundingClientRect().top +
-        Number.parseFloat(getComputedStyle(element).paddingTop);
-      const nodes = items.flatMap((item) => {
-        const node = userNode(element, item.id);
-        return node === null ? [] : [node];
+      // 그리지 않은 행도 자리를 계산해 준다.
+      const tops = items.flatMap((item) => {
+        const top = where(item.id);
+        return top === null ? [] : [{ id: item.id, top }];
       });
-      const top = (node: HTMLElement) =>
-        node.getBoundingClientRect().top - edge;
       const target =
         event.key === "ArrowDown"
-          ? nodes.find((node) => top(node) > EPSILON)
-          : (nodes.findLast((node) => top(node) < -EPSILON) ?? nodes[0]);
+          ? tops.find((one) => one.top > EPSILON)
+          : (tops.findLast((one) => one.top < -EPSILON) ?? tops[0]);
       if (target === undefined) return;
       event.preventDefault();
-      goTo(target, true);
+      goTo(target.id, true);
     };
     view.addEventListener("keydown", onKey);
     return () => view.removeEventListener("keydown", onKey);
-  }, [list, items, goTo]);
+  }, [list, items, goTo, where]);
 
   if (items.length < MIN_MESSAGES || space.margin < RAIL_MIN_MARGIN)
     return null;
@@ -188,8 +187,7 @@ export function ThreadIndex({
   };
   const go = (item: IndexItem, smooth: boolean) => {
     setHover(item.id);
-    const node = list.current ? userNode(list.current, item.id) : null;
-    if (node) goTo(node, smooth);
+    goTo(item.id, smooth);
   };
   const positionAt = (y: number) => {
     const top = rail.current!.getBoundingClientRect().top;

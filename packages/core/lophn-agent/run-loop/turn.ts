@@ -7,8 +7,8 @@ import {
   IMAGE_TOKENS,
   type PromptAnchor,
   sessionMaterial,
-  textTokens,
   type TurnPromptResult,
+  textTokens,
   type WireSize,
 } from "../prompt-assembly/mod.ts";
 import {
@@ -18,8 +18,8 @@ import {
   omitOldToolResults,
 } from "./history.ts";
 import {
-  callWithinLimits,
   type ConfirmedFacts,
+  callWithinLimits,
   type LimitReason,
   limitResult,
   type TurnLimiter,
@@ -73,6 +73,8 @@ export type LoopState = {
   modelCalls: Set<AbortController>;
   serverCalls: Map<string, Set<AbortController>>;
   history: HistoryMessage[];
+  // 끝내려는 turn의 마지막 답 글. 정상 종료 확정 전에 이력과 함께 남긴다(그 답은 state.history에 없다).
+  closing: string | null;
   // 연속으로 받은 partial 응답 수. 완전한 응답이 오면 0이 된다.
   partialRun: number;
   // 앞 call의 실제 prompt token과 그때의 크기. 다음 call의 입력 예산을 여기서 잰다. 이력을 줄이면 버린다.
@@ -147,7 +149,11 @@ async function finishWith(
 ): Promise<TurnResult> {
   const confirmed = facts ?? (await confirmedFacts(state));
   // 끝난 순간까지의 active를 `TurnEnded`가 싣게 한다. 마지막 checkpoint 뒤에 흐른 시간이 빠지지 않게 한다.
-  await state.deps.ports.checkpoint(state.limiter.snapshot());
+  // 이 turn의 이력(과 마지막 답)도 남긴다. 다음 turn이 그 이력을 그대로 이어 붙인다.
+  await state.deps.ports.checkpoint(
+    state.limiter.snapshot(),
+    keptHistory(state),
+  );
   const finished = await state.deps.ports.finish({
     outcome,
     facts: confirmed,
@@ -161,6 +167,17 @@ async function finishWith(
   const reason = await stopped(state);
   if (reason !== null) return stoppedEnd(reason);
   return endWith({ kind: "finish_failed", outcome, error: finished.error });
+}
+
+// 다음 turn이 이어 붙일 이 turn의 이력이다. 끝내려는 답은 이력에 아직 없어 끝에 붙인다.
+// 보낸 것과 같게 오래된 이미지는 뺀 채 남긴다.
+function keptHistory(state: LoopState): HistoryMessage[] {
+  const sent = omitOldImages(state.history, KEEP_IMAGE_BYTES);
+  if (state.closing === null || state.closing.trim() === "") return sent;
+  return [
+    ...sent,
+    { role: "assistant", parts: [{ kind: "text", text: state.closing }] },
+  ];
 }
 
 function failWith(
@@ -217,8 +234,9 @@ type Prepared = {
 const SHRINK_AT = 0.85;
 const SHRINK_TO = 0.6;
 // 첫 call이 예산의 COMPACT_AT보다 크고 그 가운데 이전 대화가 COMPACT_SESSION_SHARE 이상이면 다음 turn 전에
-// Compact한다. 이전 대화는 turn 안에서 줄일 수 없고, 남은 몫이 turn 안 tool loop의 자리다.
-const COMPACT_AT = 0.5;
+// Compact한다. 이전 대화는 turn 안에서 줄일 수 없고, 남은 몫이 turn 안 tool loop의 자리다. 넘치면 turn 안 Compact가
+// 받는다. Compact는 대화 prefix cache를 깨므로 창이 꽤 찰 때까지 미룬다.
+const COMPACT_AT = 0.7;
 const COMPACT_SESSION_SHARE = 0.2;
 // provider가 입력이 크다고 거절했을 때 이력을 줄여 다시 보내는 최대 수.
 const OVERFLOW_RECOVERY_MAX = 2;
@@ -280,7 +298,9 @@ function sessionTokens(context: TurnContext): number {
     for (const part of message.parts) {
       if (part.kind === "text" || part.kind === "tool_result") {
         tokens += textTokens(part.text);
-      } else if (part.kind === "image") {
+      } else if (part.kind === "tool_use") {
+        tokens += textTokens(part.name + JSON.stringify(part.input));
+      } else if (part.kind === "image" || part.kind === "tool_result_image") {
         tokens += IMAGE_TOKENS;
       }
     }
@@ -339,7 +359,7 @@ function historyOf(
   if (inputs.request !== null) {
     pushHistory(messages, "user", inputs.request);
   }
-  for (const message of omitOldImages(state.history, KEEP_IMAGE_BYTES)) {
+  for (const message of state.history) {
     pushHistory(messages, message.role, message.parts);
   }
   const tail: HistoryPart[] = [
@@ -347,7 +367,8 @@ function historyOf(
     ...context.notices.map((text): HistoryPart => ({ kind: "text", text })),
   ];
   if (tail.length > 0) pushHistory(messages, "user", tail);
-  return messages;
+  // 앞 turn 이력의 이미지도 이 turn의 것과 함께 센다. 이력이 turn을 넘어 이어지므로 이 turn 것만 세면 쌓인다.
+  return omitOldImages(messages, KEEP_IMAGE_BYTES);
 }
 
 async function prepare(
@@ -623,7 +644,7 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
         text: `[machine] The previous response was cut off (${why}). None of its tool calls were started. Continue from what is confirmed.`,
       },
     ]);
-    await ports.checkpoint(limiter.snapshot());
+    await ports.checkpoint(limiter.snapshot(), keptHistory(state));
     return continueTurn;
   }
   state.partialRun = 0;
@@ -754,7 +775,7 @@ async function afterModel(
   record(state, batch.results);
   // 확정한 tool 결과는 진행이다.
   if (batch.results.some((result) => result.entries > 0)) limiter.toolResult();
-  await ports.checkpoint(limiter.snapshot());
+  await ports.checkpoint(limiter.snapshot(), keptHistory(state));
   // 9. 계속·종료 판정은 다음 걸음이 한다.
   return continueTurn;
 }
@@ -771,11 +792,13 @@ async function conclude(
   const fresh =
     pending.ok && pending.value.steering.some((item) => !applied.has(item.id));
   if (!fresh) {
+    state.closing = text;
     const finished = await finishWith(
       state,
       { kind: "completed", reason: "answer_completed" },
       null,
     );
+    state.closing = null;
     if (finished.kind === "end") return finished;
   }
   if (text.trim() !== "") {

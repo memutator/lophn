@@ -1,9 +1,9 @@
 import {
   type CatalogEntry,
-  type ModelChoice,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_IMAGE_FIELD,
+  type ModelChoice,
   type TokenUsage,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { ReadSnapshot } from "../../../protocol/server/mod.ts";
@@ -35,6 +35,7 @@ export type Anchor = {
   id: string;
   turn: string;
   started_seq: number;
+  started_at: string;
   finished_at: string;
   usage: TokenUsage;
   model: CallModel;
@@ -51,13 +52,14 @@ function promptTokens(usage: TokenUsage): number | null {
   return usage.input + (usage.cache_read ?? 0) + (usage.cache_write ?? 0);
 }
 
-// 실패한 call은 provider가 usage를 주지 않아 창 크기를 모른다. usage가 있는 마지막 call이다.
+// 실패한 call은 provider가 usage를 주지 않아 창 크기를 모른다. usage가 있는 마지막 call이다. started_seq는 그 사이
+// event가 없으면 여러 call이 같은 값이라 시작 시각으로 가른다.
 export function lastAnchor(sql: Sql, session: string): Anchor | null {
   const row = sql.get(
-    `select id, turn, started_seq, finished_at, usage, call_model from model_calls
+    `select id, turn, started_seq, started_at, finished_at, usage, call_model from model_calls
       where session = ? and model_use = 'judgment' and state = 'finished'
         and json_extract(usage, '$.input') is not null
-      order by started_seq desc limit 1`,
+      order by started_seq desc, started_at desc limit 1`,
     [session],
   );
   if (row === undefined) return null;
@@ -65,6 +67,7 @@ export function lastAnchor(sql: Sql, session: string): Anchor | null {
     id: String(row["id"]),
     turn: String(row["turn"]),
     started_seq: Number(row["started_seq"]),
+    started_at: String(row["started_at"]),
     finished_at: String(row["finished_at"]),
     usage: JSON.parse(String(row["usage"])) as TokenUsage,
     model: JSON.parse(String(row["call_model"])) as CallModel,
@@ -75,12 +78,13 @@ export function lastAnchor(sql: Sql, session: string): Anchor | null {
 function stale(sql: Sql, session: AgentSessionRow, anchor: Anchor): boolean {
   if (session.compaction_summary_call !== null) {
     const summary = sql.get(
-      "select started_seq from model_calls where id = ?",
+      "select started_seq, started_at from model_calls where id = ?",
       [session.compaction_summary_call],
     );
     if (
       summary !== undefined &&
-      Number(summary["started_seq"]) > anchor.started_seq
+      Number(summary["started_seq"]) >= anchor.started_seq &&
+      String(summary["started_at"]) > anchor.started_at
     ) {
       return true;
     }

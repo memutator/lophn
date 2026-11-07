@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
-import { readCursorSchema, sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineRead } from "../base/route.ts";
+import { readCursorSchema, sha256Schema } from "../base/values.ts";
 import {
   turnOutcomeOutputSchema,
   turnRecordSchema,
@@ -77,10 +77,12 @@ export const turnResult = defineRead({
 
 // 복구가 저장된 본문(turn basis, model 응답, tool 결과)을 다시 읽는 길이다. 값은 core가 blob 바이트를
 // 읽고 hash를 확인한 JSON 값이다. machine만 읽고 그 밖은 없는 대상과 똑같이 답한다.
-// `turn_resolved`는 turn 기준이 hash로 가리키는 resolved agent의 전체 값이다.
+// `turn_resolved`는 turn 기준이 hash로 가리키는 resolved agent의 전체 값이다. `turn_history`는 turn이 마지막
+// checkpoint에 남긴 turn 안 이력이다(다음 turn의 이전 대화가 읽는다).
 const TURN_BODY_KINDS = [
   "turn_basis",
   "turn_resolved",
+  "turn_history",
   "model_call_output",
   "tool_call_output",
 ] as const;
@@ -88,6 +90,7 @@ const TURN_BODY_KINDS = [
 const BODY_ID_PREFIX = {
   turn_basis: "trn_",
   turn_resolved: "trn_",
+  turn_history: "trn_",
   model_call_output: "mcl_",
   tool_call_output: "tcl_",
 } as const;

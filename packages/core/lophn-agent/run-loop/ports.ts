@@ -1,15 +1,14 @@
 import type { Clock, Result } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import type {
   ModelOutcome,
   ToolResult,
   TurnElapsed,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { AgentEvent } from "../../../protocol/events/mod.ts";
-import type { ModelOutputMessage } from "../../../protocol/supervision/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
+import type { ModelOutputMessage } from "../../../protocol/supervision/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
-import type { TurnStart } from "./work.ts";
 import type {
   HistoryMessage,
   HistoryPart,
@@ -20,6 +19,7 @@ import type {
   WirePacker,
 } from "../prompt-assembly/mod.ts";
 import type { ConfirmedFacts, TurnLimits } from "./limits.ts";
+import type { TurnStart } from "./work.ts";
 
 // agent loop가 밖과 닿는 자리다. loop는 ledger·provider·tool 실행을 직접 부르지 않고 이 port만
 // 부른다. 실제 연결(core command·read, provider adapter, 판정·실행기)은 agent runtime이 꽂는다.
@@ -236,8 +236,12 @@ export type TurnPorts = {
   context(): Promise<Result<TurnContext>>;
   model: ModelPort;
   tools: ToolPort;
-  // 시간 값만 저장한다(CheckpointTurn).
-  checkpoint(elapsed: TurnElapsed): Promise<void>;
+  // 시간 값을 저장한다(CheckpointTurn). history가 있으면 이 turn이 쌓은 이력도 남긴다. 다음 turn이 그 이력을
+  // 이전 대화에 그대로 이어 붙여 이 turn의 prompt cache를 읽는다.
+  checkpoint(
+    elapsed: TurnElapsed,
+    history?: readonly HistoryMessage[],
+  ): Promise<void>;
   // 완전한 model 응답 하나의 글을 그 응답의 agent message로 남긴다(RecordMessage). 마지막 응답은 글이 비어도
   // 남기고, 중간 응답은 남길 글이 있을 때만 부른다. 그 응답의 tool call보다 먼저 부른다.
   answer(text: string): Promise<Result<void>>;

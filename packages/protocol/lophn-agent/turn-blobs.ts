@@ -8,6 +8,7 @@ export const TURN_BLOB_PURPOSES = {
   turn_basis: "turn_basis",
   turn_resolved: "turn_resolved",
   turn_result: "turn_result",
+  turn_history: "turn_history",
   model_call_input: "model_call_input",
   model_call_basis: "model_call_basis",
   model_call_output: "model_call_output",

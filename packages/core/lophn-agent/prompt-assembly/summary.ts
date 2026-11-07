@@ -25,6 +25,9 @@ export type SessionMessage = {
   role: "user" | "assistant";
   text: string;
   parts?: readonly HistoryPart[];
+  // 앞 turn이 남긴 turn 안 이력의 한 message다(tool 호출과 결과). 사람의 말로 세지 않는다. 요약 재료로는
+  // 조각마다 나눠 쓴다(compactor). text는 token 세기와 검색이 쓰는 풀어 쓴 글이다.
+  tool?: true;
 };
 
 // rewind가 숨기거나 접은 구간(lophn-agent/revert). 원문은 session에 그대로 있고 이후 model 입력에서만
@@ -116,6 +119,30 @@ export function sessionMaterial(conversation: SessionConversation): {
     compact_summary: conversation.compaction?.text ?? null,
     history,
   };
+}
+
+// 앞 turn 이력의 한 message를 token 세기가 쓰는 글로 푼다. tool 결과는 사람의 말이 아니라고 적는다.
+// 이미지와 reasoning은 뺀다.
+export function historyMessageText(
+  message: HistoryMessage,
+  names: ReadonlyMap<string, string>,
+): string {
+  const who = message.role === "user" ? "Person" : "Agent";
+  const lines: string[] = [];
+  for (const part of message.parts) {
+    if (part.kind === "text" && part.text.trim() !== "") {
+      lines.push(`[${who}] ${part.text}`);
+    } else if (part.kind === "tool_use") {
+      lines.push(
+        `[Agent] Called ${part.name} with ${JSON.stringify(part.input)}`,
+      );
+    } else if (part.kind === "tool_result") {
+      lines.push(
+        `[Agent] Result of ${names.get(part.id) ?? part.id} (a tool result, not from the person): ${part.text}`,
+      );
+    }
+  }
+  return lines.join("\n");
 }
 
 // ---- 요약 요청 ----

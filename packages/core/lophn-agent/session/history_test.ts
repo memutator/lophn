@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ok } from "../../../base/mod.ts";
+import { err, ok } from "../../../base/mod.ts";
+import type { HistoryMessage } from "../prompt-assembly/mod.ts";
 import type { CoreCall } from "../run-loop/core-call.ts";
 import { readSessionConversation } from "./history.ts";
 
@@ -21,9 +22,56 @@ type Row = {
   shell?: boolean;
 };
 
-function stub(rows: Row[], request: number): CoreCall {
+function stub(
+  rows: Row[],
+  request: number,
+  // turn 번호 → 그 turn을 연 메시지 번호와 남긴 turn 안 이력.
+  histories: Record<number, { input: number; messages: HistoryMessage[] }> = {},
+): CoreCall {
   const common = { as_of_seq: "100", next_cursor: null };
   return (path, body) => {
+    if (path === "/turns/list") {
+      return Promise.resolve(
+        ok({
+          turns: Object.entries(histories).map(([n, history]) => ({
+            id: id("trn", Number(n)),
+            session: SELF,
+            input_message: id("msg", history.input),
+            state: "finished",
+            basis: "a".repeat(64),
+            started_at: "2026-01-01T00:00:00.000Z",
+            limits: { model_attempts: null, stall_ms: 300_000 },
+            mode: "attended",
+            elapsed: { active_ms: 0, stall_ms: 0, checkpoint_at: null },
+            finished_at: "2026-01-01T00:00:01.000Z",
+            outcome: { kind: "completed", reason: "answer_completed" },
+            result: "b".repeat(64),
+            state_seq: "1",
+          })),
+          ...common,
+        }),
+      );
+    }
+    if (path === "/turns/body") {
+      const turn = (body as { id: string }).id;
+      const found = Object.entries(histories).find(
+        ([n]) => id("trn", Number(n)) === turn,
+      );
+      if (found === undefined) {
+        return Promise.resolve(err({ code: "not_found", message: "none" }));
+      }
+      return Promise.resolve(
+        ok({
+          kind: "turn_history",
+          id: turn,
+          turn,
+          hash: "c".repeat(64),
+          size_bytes: 1,
+          value: found[1].messages,
+          ...common,
+        }),
+      );
+    }
     if (path === "/sessions/read") {
       return Promise.resolve(
         ok({
@@ -198,5 +246,69 @@ test("turn 밖에서 돈 shell 메시지는 가져간 turn의 prompt에 요청�
   assert.deepStrictEqual(
     texts.filter((text) => text.includes("<lophn-shell")).length,
     1,
+  );
+});
+
+// 앞 turn의 tool 이력이 빠지면 다음 turn이 앞 turn의 prompt cache를 못 읽고, model은 읽은 것을 잊어 다시 부른다.
+test("앞 turn이 남긴 turn 안 이력은 그 turn의 요청 뒤에 그대로 들고, 이력이 맡은 그 turn의 답 메시지는 따로 들지 않는다", async () => {
+  const rows: Row[] = [
+    {
+      n: 1,
+      from: { kind: "human" },
+      reply_to: null,
+      reply: null,
+      text: "read it",
+    },
+    {
+      n: 2,
+      from: { kind: "agent", session: SELF },
+      reply_to: null,
+      reply: null,
+      text: "reading",
+    },
+    {
+      n: 3,
+      from: { kind: "agent", session: SELF },
+      reply_to: null,
+      reply: null,
+      text: "it says hi",
+    },
+    {
+      n: 4,
+      from: { kind: "human" },
+      reply_to: null,
+      reply: null,
+      text: "next",
+    },
+  ];
+  const history: HistoryMessage[] = [
+    {
+      role: "assistant",
+      parts: [
+        { kind: "text", text: "reading" },
+        { kind: "tool_use", id: "k1", name: "file.read", input: { path: "a" } },
+      ],
+    },
+    {
+      role: "user",
+      parts: [{ kind: "tool_result", id: "k1", text: '{"content":"hi"}' }],
+    },
+    { role: "assistant", parts: [{ kind: "text", text: "it says hi" }] },
+  ];
+  const read = await readSessionConversation(
+    stub(rows, 4, { 1: { input: 1, messages: history } }),
+    { session: SELF, request: id("msg", 4) },
+  );
+  if (!read.ok) throw new Error(read.error.message);
+  const [request, ...rest] = read.value.messages;
+  assert.deepStrictEqual([request!.role, request!.text], ["user", "read it"]);
+  assert.deepStrictEqual(
+    rest.map((message) => [message.role, message.parts, message.tool]),
+    history.map((message) => [message.role, message.parts, true]),
+  );
+  // 이력은 그 turn의 마지막 메시지 자리에 놓여 Compact·숨김이 turn 끝과 같이 덮는다.
+  assert.deepStrictEqual(
+    rest.map((message) => message.seq),
+    [3n, 3n, 3n],
   );
 });

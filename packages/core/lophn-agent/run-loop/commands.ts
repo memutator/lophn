@@ -1,5 +1,8 @@
-import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import { createHash } from "node:crypto";
+import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import {
   checkpointTurn,
   finishTurn,
@@ -18,15 +21,13 @@ import {
   type BlobFieldDefinition,
   defineBlobField,
 } from "../../../protocol/storage/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
-import { type TurnLimits, turnLimitsOf } from "./limits.ts";
 import { createFileSettingsReader } from "../../config/mod.ts";
+import { withEraseWindow } from "../../storage/ledger/mod.ts";
 import { dataRootOf } from "../agents/store.ts";
-import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
+import { type TurnLimits, turnLimitsOf } from "./limits.ts";
 import { loadTurn, type TurnRow } from "./model.ts";
 import type { CallSignals } from "./ports.ts";
-import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기. 짧은 transaction 하나다. 실패하면 이전 판
 // 전체가 유지된다. finished 행은 trigger도 다시 못 바꾼다.
@@ -49,6 +50,13 @@ export const turnBodyFields: readonly BlobFieldDefinition[] = [
   defineBlobField({
     owner_kind: "turn",
     field: "result",
+    retention: { kind: "permanent" },
+    general_read: false,
+  }),
+  // turn 안 이력이다. checkpoint마다 바뀌고 참조는 마지막 하나만 남는다.
+  defineBlobField({
+    owner_kind: "turn",
+    field: "history",
     retention: { kind: "permanent" },
     general_read: false,
   }),
@@ -295,6 +303,32 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
              elapsed_checkpoint_at = ? where id = ?`,
           [input.elapsed.active_ms, input.elapsed.stall_ms, at, row.id],
         );
+        if (input.history !== undefined && input.history_size !== undefined) {
+          const current = tx.sql.get(
+            `select hash from blob_refs
+              where owner_kind = 'turn' and owner_key = ? and field = 'history'`,
+            [row.id],
+          );
+          if (current?.["hash"] !== input.history) {
+            withEraseWindow(tx.sql, ["blob_refs"], () =>
+              tx.sql.run(
+                `delete from blob_refs
+                  where owner_kind = 'turn' and owner_key = ? and field = 'history'`,
+                [row.id],
+              ),
+            );
+            const registered = registerPreparedBlob(tx, ctx, {
+              owner_kind: "turn",
+              owner_key: row.id,
+              field: "history",
+              hash: input.history,
+              size: input.history_size,
+              purpose: TURN_BLOB_PURPOSES.turn_history,
+              seq: String(ledgerHead(tx)),
+            });
+            if (!registered.ok) return registered;
+          }
+        }
         return ok({
           id: row.id,
           state: "running" as const,

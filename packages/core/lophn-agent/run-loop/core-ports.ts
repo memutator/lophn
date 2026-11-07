@@ -5,6 +5,7 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AgentRuntime,
   type CallCost,
@@ -22,8 +23,8 @@ import {
   TURN_BLOB_PURPOSES,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
-import { estimatedCost } from "../usage/mod.ts";
+import type { ModelBinding } from "../models/binding.ts";
+import { toolCallDisplay } from "../tools/display.ts";
 import {
   definitionHash,
   executeToolCall,
@@ -31,7 +32,17 @@ import {
   type ToolDefinition,
   toolForWireName,
 } from "../tools/mod.ts";
-import { toolCallDisplay } from "../tools/display.ts";
+import { estimatedCost } from "../usage/mod.ts";
+import {
+  type BlobPort,
+  type RedactText,
+  redactValue,
+  storeRedacted,
+  storeValue,
+} from "./blobs.ts";
+import { type CoreCall, commandOf, readOf } from "./core-call.ts";
+import { type ImageReader, inputParts, loadParts } from "./input-text.ts";
+import { createLiveOutput, messageIdOf } from "./live-turns.ts";
 import type {
   AgentEventSink,
   FinishRequest,
@@ -48,17 +59,6 @@ import type {
   TurnInputs,
   TurnPorts,
 } from "./ports.ts";
-import { createLiveOutput, messageIdOf } from "./live-turns.ts";
-import { type ImageReader, inputParts, loadParts } from "./input-text.ts";
-import { commandOf, type CoreCall, readOf } from "./core-call.ts";
-import type { ModelBinding } from "../models/binding.ts";
-import {
-  type BlobPort,
-  type RedactText,
-  redactValue,
-  storeRedacted,
-  storeValue,
-} from "./blobs.ts";
 
 // agent loop의 port를 실제 core 호출로 잇는다. 읽기와 기록은 machine 자격의 loopback이고 tool 실행은 이
 // turn의 agent 자격(`ToolContext.core`)이다. turn 행이 정본이다: 이 모듈은 상태를 따로 들고 있지 않고
@@ -876,15 +876,27 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         ? {}
         : { dispatch: deps.tools.dispatch }),
     },
-    async checkpoint(elapsed) {
+    async checkpoint(elapsed, history) {
       const current = await turnRecord();
       if (!current.ok || current.value.turn.state !== "running") return;
+      // 이력을 남기지 못하면 시간만 남긴다. 다음 turn은 이 turn을 메시지로만 읽는다.
+      const stored =
+        history === undefined || history.length === 0
+          ? null
+          : await store(TURN_BLOB_PURPOSES.turn_history, history);
+      const kept = stored?.ok === true ? stored.value : null;
       await commandOf(
         machine,
         checkpointTurn,
-        { turn: seat.turn, elapsed },
+        {
+          turn: seat.turn,
+          elapsed,
+          ...(kept === null
+            ? {}
+            : { history: kept.hash, history_size: kept.size }),
+        },
         { state_seq: current.value.turn.state_seq },
-        `${seat.turn}:checkpoint:${elapsed.active_ms}:${elapsed.stall_ms}`,
+        `${seat.turn}:checkpoint:${elapsed.active_ms}:${elapsed.stall_ms}:${kept?.hash ?? ""}`,
       );
     },
     answer(text) {

@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   TURN_BODY_VIEW_MAX_BYTES,
   turnBody,
@@ -7,7 +8,6 @@ import {
   turnBodyViewInputSchema,
 } from "../../../protocol/lophn-agent/turn-reads.ts";
 import type { ApiReadDefinition } from "../../../protocol/server/mod.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
 import { type MessageBodyEnvironment, readBodyBytes } from "../session/mod.ts";
 
 // ReadTurnBody. 저장된 turn basis·model 응답·tool 결과를 다시 읽는 길이다. 참조 행 판정은 ledger
@@ -31,6 +31,13 @@ const SOURCES = {
     sql: "select owner_key as turn, hash from blob_refs where owner_kind = 'turn' and field = 'resolved' and owner_key = ?",
     owner: "turn",
     field: "resolved",
+  },
+  // turn이 마지막 checkpoint에 남긴 turn 안 이력이다. 이미지가 실려 다른 본문보다 크다.
+  turn_history: {
+    sql: "select owner_key as turn, hash from blob_refs where owner_kind = 'turn' and field = 'history' and owner_key = ?",
+    owner: "turn",
+    field: "history",
+    max: 16 * 1024 * 1024,
   },
   tool_call_input: {
     sql: "select id, turn, input as hash from tool_calls where id = ?",
@@ -101,7 +108,8 @@ async function loadStored(
   if (!found.ok) return found;
   if (found.value === undefined) return absent();
   const { turn, hash, size, asOf } = found.value;
-  if (size < 1 || size > TURN_BODY_MAX_BYTES) return unavailable();
+  const max = "max" in source ? source.max : TURN_BODY_MAX_BYTES;
+  if (size < 1 || size > max) return unavailable();
   const bytes = await readBodyBytes(environment, hash, size);
   if (!bytes.ok) return unavailable();
   let value: unknown;

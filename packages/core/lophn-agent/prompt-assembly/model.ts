@@ -16,7 +16,7 @@ export type PromptTool = {
 // 이력에 들어오는 조각. reasoning 본문은 조립에서 빠진다.
 export type HistoryPart =
   | { kind: "text"; text: string }
-  // signature는 Gemini가 낸 thoughtSignature다. 이 turn 메모리에만 있고 저장한 이력에는 없다.
+  // signature는 Gemini가 낸 thoughtSignature다. turn 이력(checkpoint)에 함께 남아 뒤 turn에도 그대로 간다.
   | {
       kind: "tool_use";
       id: string;

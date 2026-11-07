@@ -1,12 +1,12 @@
 import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
+import { defineCommand } from "../base/route.ts";
 import {
   atSchema,
   blobSizeSchema,
   seqSchema,
   sha256Schema,
 } from "../base/values.ts";
-import { defineCommand } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
 import {
   turnElapsedOutputSchema,
   turnElapsedSchema,
@@ -44,6 +44,10 @@ const startTurnInputSchema = z
 const checkpointTurnInputSchema = z.strictObject({
   ...turnRef,
   elapsed: turnElapsedSchema,
+  // turn 안 이력(model에 보낸 이 turn의 진행)을 준비한 blob. 있으면 이 turn의 이력 참조를 이 값으로 바꾼다.
+  // 다음 turn이 이 이력을 이전 대화에 그대로 이어 붙여 앞 turn의 prompt cache를 읽는다.
+  history: sha256Schema.optional(),
+  history_size: blobSizeSchema.optional(),
 });
 
 const finishTurnInputSchema = z.strictObject({

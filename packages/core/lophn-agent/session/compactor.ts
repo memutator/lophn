@@ -6,17 +6,19 @@ import {
   failSessionCompact,
   finishModelCall,
   finishRewindSummary,
-  modelCallList,
   type ModelChoice,
+  modelCallList,
+  requestSessionCompact,
+  startModelCall,
+  type TokenUsage,
+  TURN_BLOB_PURPOSES,
+  takeRewindSummaryRequest,
   type WorkspaceKind,
   workspaceSessionCompactRequests,
   workspaceSessionRead,
-  requestSessionCompact,
-  startModelCall,
-  takeRewindSummaryRequest,
-  type TokenUsage,
-  TURN_BLOB_PURPOSES,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { resolveTurnAgent } from "../agents/layers.ts";
+import { cappedOutput, type ModelBinding } from "../models/binding.ts";
 import {
   compactSummaryRequest,
   type HistoryMessage,
@@ -28,10 +30,6 @@ import {
   summaryOutputCap,
   visibleMessages,
 } from "../prompt-assembly/mod.ts";
-import { estimatedCost } from "../usage/mod.ts";
-import { resolveTurnAgent } from "../agents/layers.ts";
-import { commandOf, type CoreCall, readOf } from "../run-loop/core-call.ts";
-import { cappedOutput, type ModelBinding } from "../models/binding.ts";
 import {
   type BlobPort,
   type RedactText,
@@ -39,6 +37,8 @@ import {
   storeRedacted,
   storeValue,
 } from "../run-loop/blobs.ts";
+import { type CoreCall, commandOf, readOf } from "../run-loop/core-call.ts";
+import { estimatedCost } from "../usage/mod.ts";
 import { readSessionConversation } from "./history.ts";
 
 // 사람이 요청한 Compact를 끝낸다. 요청은 core의 읽기로 고르고(끝나지 않은 turn이 있는 session의 요청은 나오지
@@ -165,6 +165,19 @@ function progressMessages(
   return out;
 }
 
+// 앞 turn 이력의 message는 tool 결과 여럿을 한 message에 싣는다. 요약 재료에서는 조각마다 나눠 출처를 적고
+// chunk에 나뉘어 들어가게 한다.
+function materialOf(messages: readonly SessionMessage[]): SessionMessage[] {
+  return messages.flatMap((message) =>
+    message.tool === true && message.parts !== undefined
+      ? progressMessages(
+          [{ role: message.role, parts: message.parts }],
+          message.seq,
+        )
+      : [message],
+  );
+}
+
 const EMPTY_USAGE = (revision: string): TokenUsage => ({
   input: null,
   output: null,
@@ -200,7 +213,8 @@ function recentStart(messages: readonly SessionMessage[]): number {
   let start = messages.length;
   let kept = 0;
   for (let at = messages.length - 1; at >= 1 && kept < KEEP_RECENT; at--) {
-    if (messages[at]!.role === "user") {
+    // 앞 turn 이력의 tool 결과는 user role이지만 사람의 말이 아니다.
+    if (messages[at]!.role === "user" && messages[at]!.tool !== true) {
       start = at;
       kept++;
     }
@@ -513,6 +527,7 @@ ${IN_TURN_NOTE}`,
     const read = await readSessionConversation(machine, {
       session: request.session,
       request: null,
+      ...(request.turn === undefined ? {} : { running: request.turn }),
     });
     // 읽지 못한 것은 요약할 수 없는 session이 아니라 지금 닿지 못한 core다. 요청은 열려 있고 다음에 다시 본다.
     if (!read.ok) return { kind: "idle" };
@@ -534,7 +549,7 @@ ${IN_TURN_NOTE}`,
             .at(-1)!.seq;
     const summary = await summarizeMaterial(
       request,
-      [...material, ...progressMessages(progress, through)],
+      [...materialOf(material), ...progressMessages(progress, through)],
       covered?.text ?? null,
     );
     if (summary.kind === "idle") return summary;
@@ -581,7 +596,7 @@ ${IN_TURN_NOTE}`,
     }
     const summary = await summarizeMaterial(
       { session: input.session, request_seq: input.from_seq },
-      material,
+      materialOf(material),
       null,
     );
     return summary.kind === "ok"

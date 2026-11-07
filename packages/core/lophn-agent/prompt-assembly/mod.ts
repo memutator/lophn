@@ -1,4 +1,12 @@
 export {
+  type BasisDiff,
+  basisOf,
+  diffBasis,
+  INSTRUCTION_LAYERS,
+  type InstructionTexts,
+  type SeenBasis,
+} from "./basis.ts";
+export {
   BYTES_PER_TOKEN,
   estimateTokens,
   IMAGE_TOKENS,
@@ -11,15 +19,7 @@ export {
   wireSize,
 } from "./budget.ts";
 export { summaryOutputCap } from "./compaction.ts";
-export {
-  compactSummaryRequest,
-  type SessionConversation,
-  sessionMaterial,
-  type SessionMessage,
-  splitSummaryMaterial,
-  summaryBodyTokens,
-  visibleMessages,
-} from "./summary.ts";
+export * from "./input-tags.ts";
 export { anthropicSystem, anthropicTools } from "./layers.ts";
 export {
   type BlockedReason,
@@ -27,7 +27,6 @@ export {
   type HistoryMessage,
   type HistoryPart,
   type ModelLimits,
-  type WorkspaceAgent,
   type PromptMessage,
   type PromptPart,
   type PromptRequest,
@@ -36,17 +35,19 @@ export {
   type SystemLayerKind,
   type WirePack,
   type WirePacker,
+  type WorkspaceAgent,
 } from "./model.ts";
-export * from "./input-tags.ts";
-export {
-  type BasisDiff,
-  basisOf,
-  diffBasis,
-  INSTRUCTION_LAYERS,
-  type InstructionTexts,
-  type SeenBasis,
-} from "./basis.ts";
 export { type SkillListItem, skillListText } from "./skill-list.ts";
+export {
+  compactSummaryRequest,
+  historyMessageText,
+  type SessionConversation,
+  type SessionMessage,
+  sessionMaterial,
+  splitSummaryMaterial,
+  summaryBodyTokens,
+  visibleMessages,
+} from "./summary.ts";
 export {
   assembleTurnPrompt,
   type TurnPromptInput,

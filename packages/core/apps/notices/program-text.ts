@@ -40,7 +40,10 @@ export function programNoticeText(input: NoticeRecordInput): {
     case "lophn_updated":
       return {
         title: `lophn was updated to ${input.params.to}`,
-        body: `It was ${input.params.from} before.`,
+        body:
+          input.params.from === "unknown"
+            ? "The earlier version was not recorded."
+            : `It was ${input.params.from} before.`,
       };
     case "sdk_update_needed":
       return {

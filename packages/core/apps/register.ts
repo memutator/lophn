@@ -188,6 +188,7 @@ export function createLedgerRegistration(
       grants.revoke,
       notices.post,
       notices.record,
+      notices.observeVersion,
       notices.dismiss,
       notices.markRead,
       runtime.enableExecution,

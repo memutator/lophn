@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import type { Result } from "../../../base/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
 import {
   NOTICE_EPHEMERAL_PER_APP_MAX,
   NOTICE_PERSISTENT_PER_APP_MAX,
@@ -11,7 +11,11 @@ import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
 import { clearAppNotices, createNoticeCommands } from "./commands.ts";
-import { noticeSchemaSteps, noticeUnifiedSchemaSteps } from "./schema.ts";
+import {
+  noticeSchemaSteps,
+  noticeUnifiedSchemaSteps,
+  productVersionSchemaSteps,
+} from "./schema.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const OTHER = "app_01hzzzzzzzzzzzzzzzzzzzzzzb";
@@ -30,6 +34,7 @@ function setup() {
     ...appsSchemaSteps,
     ...noticeSchemaSteps,
     ...noticeUnifiedSchemaSteps,
+    ...productVersionSchemaSteps,
   ]) {
     db.exec(step.sql);
   }
@@ -74,6 +79,12 @@ function setup() {
       input: { title: string; key?: string; persistent?: boolean },
       app = APP,
     ) => run<{ id: string }>(commands.post.handle, `app:${app}`, input),
+    observe: (version: string, fresh: boolean) =>
+      run<{ changed: boolean; from: string | null }>(
+        commands.observeVersion.handle,
+        "machine",
+        { version, fresh },
+      ),
     record: (actor: string, input: unknown) =>
       run<{ id: string }>(commands.record.handle, actor, input),
     dismiss: (actor: string, id: string) =>
@@ -264,4 +275,52 @@ test("the unified step copies app_notices rows as unread ephemeral app rows", ()
     },
   ]);
   assert.throws(() => db.prepare("select 1 from app_notices").get());
+});
+
+// lophn_updated는 판이 바뀐 기동에서만 한 번 남는다. 새 data root는 판만 적고 남기지 않는다.
+test("the version marker records lophn_updated once per change and not on a fresh data root", () => {
+  const s = setup();
+  const rows = () =>
+    s.db
+      .prepare("select title, body from notices where kind = 'lophn_updated'")
+      .all()
+      .map((row) => ({ ...row }));
+
+  assert.deepStrictEqual(
+    s.observe("0.20.0", true),
+    ok({ changed: false, from: null }),
+  );
+  assert.deepStrictEqual(rows(), []);
+  // 같은 판으로 다시 켜도 남기지 않는다.
+  assert.deepStrictEqual(
+    s.observe("0.20.0", false),
+    ok({ changed: false, from: "0.20.0" }),
+  );
+  assert.deepStrictEqual(rows(), []);
+
+  assert.deepStrictEqual(
+    s.observe("0.21.0", false),
+    ok({ changed: true, from: "0.20.0" }),
+  );
+  assert.deepStrictEqual(rows(), [
+    { title: "lophn was updated to 0.21.0", body: "It was 0.20.0 before." },
+  ]);
+  assert.deepStrictEqual(
+    s.observe("0.21.0", false),
+    ok({ changed: false, from: "0.21.0" }),
+  );
+  assert.deepStrictEqual(rows().length, 1);
+
+  // 판을 적지 않던 옛 data root가 처음 켜질 때는 from을 모르는 채로 남긴다.
+  const old = setup();
+  assert.deepStrictEqual(
+    old.observe("0.21.0", false),
+    ok({ changed: true, from: null }),
+  );
+  assert.deepStrictEqual(
+    old.db
+      .prepare("select count(*) as n from notices where kind = 'lophn_updated'")
+      .get()?.["n"],
+    1,
+  );
 });

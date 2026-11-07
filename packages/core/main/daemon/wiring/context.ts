@@ -76,6 +76,17 @@ import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
 import type { DataRoot } from "../../../install-and-update/mod.ts";
 
+// core가 켜질 때 한 번, 제품 판을 data root의 마지막 판과 견준 결과다(notices wiring이 afterReady에서 낸다).
+// changed: 판이 바뀐 기동(`lophn_updated` 기록을 남겼다). from: 바뀌기 전 판, 모르면(새 data root, 판을 적지 않던 옛 data root) null.
+export type ProductStart = {
+  version: string;
+  from: string | null;
+  changed: boolean;
+};
+export type ProductStartListener = (
+  start: ProductStart,
+) => Promise<void> | void;
+
 // worker 통로와 제품 redactor를 가져오는 단일 import 지점이다. 위치가 옮겨지면 여기 두 줄만 고친다.
 export { createWorkerChannel } from "../../../supervision/responsiveness/mod.ts";
 export { createProductRedactor } from "../../../../base/redaction/mod.ts";
@@ -321,6 +332,8 @@ export type WiringContext = {
   readonly ioListeners: IoListener[];
   // 구성 요소 점검. owner마다 build에서 더하고 diagnostics가 status를 낼 때 모두 돌린다.
   readonly componentChecks: ComponentCheck[];
+  // 제품 판을 견준 뒤 부를 쪽. 다른 wiring이 build·start에서 올리고 notices wiring이 afterReady에서 부른다(올린 순서대로, 하나가 던져도 나머지를 부른다).
+  readonly productStartListeners: ProductStartListener[];
   readonly peek: Readonly<Partial<Late>>;
   provide<K extends keyof Late>(key: K, value: Late[K]): void;
 } & Readonly<Late>;
@@ -340,6 +353,7 @@ export function createWiringContext(base: {
     stopped: false,
     ioListeners: [],
     componentChecks: [],
+    productStartListeners: [],
     peek: slots,
     provide<K extends keyof Late>(key: K, value: Late[K]) {
       slots[key] = value;

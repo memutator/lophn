@@ -12,6 +12,25 @@
 - program 줄은 항상 영구이고 DB trigger가 지우기를 막는다(`notices_program_no_delete`). 앱 줄만 command가 지운다.
 - 옛 표 `app_notices`는 ledger step `apps.notices.unified`가 줄을 앱이 쓴 휘발·안 읽은 줄로 옮기고 지웠다.
 
+### program 줄을 어디서 쓰나
+
+| kind | 쓰는 곳 | key |
+|---|---|---|
+| `release_activated`, `release_rolled_back` | `activation.complete`(`packages/core/apps/releases/commands.ts`). 이미 켜졌던 release를 다시 켠 것은 `release_rolled_back` | 없음 |
+| `release_failed` | `activation.fail`(같은 file). 복원했으면 reason에 이전 release로 돌아갔다는 말이 붙는다 | 없음 |
+| `app_unavailable` | `app.record_unavailable`(`packages/core/apps/runtime/commands.ts`): `start_failed`, `crash_loop`, `unexpected_exit`, activation의 복원 실패·종료 확인 불가. 같은 사실의 재전송은 쓰지 않는다 | `app_unavailable`(앱마다 한 줄, 되풀이되면 그 줄을 안 읽음으로 되돌린다) |
+| `app_data_migrated`, `app_data_restored` | `activation.record_data_change`, `activation.record_data_restore`(`packages/core/apps/data/commands.ts`). 복원은 새로 기록할 때만 | 없음 |
+| `lophn_updated` | `notices.observe_version`(아래 "제품 판 marker") | 없음 |
+| `sdk_update_needed` | SDK 감지 task | |
+
+release·data·runtime command는 자기 tx 안에서 `recordProgramNotice(tx, input)`(`packages/core/apps/notices/commands.ts`)를 부른다. 상태 변경과 줄이 한 commit이라 한쪽만 남지 않고, 응답을 잃은 재전송이 줄을 늘리지 않는다. 이미 commit된 뒤 core 안 다른 wiring이 쓸 때는 `ctx.noticeRecorder`(`notices.record`)를 쓴다. 그 값은 tx 안에서 부르면 안 된다(machine 자격으로 쓰기 층을 따로 지난다).
+
+### 제품 판 marker
+
+`core_meta`(ledger step `apps.notices.product-version`)의 `product_version` 한 줄이 data root가 마지막으로 돈 제품 판이다. core가 켜져 ready가 된 뒤 notices wiring의 `afterReady`가 root `package.json`의 `version`(개발은 repo root, 설치본은 `platform/package.json`)을 `notices.observe_version {version, fresh}`로 낸다. 한 tx에서 marker를 새 판으로 바꾸고, 판이 다르면 `lophn_updated {from, to}`를 쓴다. 새 data root(`fresh`: 이번 기동이 step을 전부 새로 적용했다)는 marker만 적는다. marker 없이 있던 옛 data root가 처음 켜지면 `from`을 모른 채(`unknown`) 한 번 쓴다.
+
+같은 순간에 다른 일을 하려면 `ctx.productStartListeners`(`wiring/context.ts`)에 `(start: {version, from, changed}) => void | Promise<void>`를 올린다(build·start에서). marker를 견준 직후 올린 순서대로 부르고, 던져도 core 기동과 다른 listener에 영향이 없다(log만 남는다). `changed`는 판이 바뀐 기동, `from`은 바뀌기 전 판(새 data root·옛 data root는 null)이다.
+
 ## 흐름
 
 ```
@@ -43,14 +62,14 @@
  앱 보관: 그 앱의 휘발 줄을 지우고, 안 읽은 줄마다 NoticeClosed. 영구 줄은 남는다
 ```
 
-읽기: `notices.list`(필터 `source`·`app`·`project`·`kind`·`persistent`·`unread`·`query`(title·body 부분 일치)·`cursor`·`limit`(≤200, 기본 50), 최근 것이 먼저, 보관한 앱의 줄도 읽힌다), `notices.open`(안 읽은 줄 전부. Inbox가 쓴다. 보관한 앱의 줄은 뺀다). 쓰기: `notices.post`(app), `notices.record`(machine), `notices.dismiss`·`notices.mark_read`(user).
+읽기: `notices.list`(필터 `source`·`app`·`project`·`kind`·`persistent`·`unread`·`query`(title·body 부분 일치)·`cursor`·`limit`(≤200, 기본 50), 최근 것이 먼저, 보관한 앱의 줄도 읽힌다), `notices.open`(안 읽은 줄 전부. Inbox가 쓴다. 보관한 앱의 줄은 뺀다). 쓰기: `notices.post`(app), `notices.record`(machine), `notices.observe_version`(machine), `notices.dismiss`·`notices.mark_read`(user).
 
 ## 지키는 것
 
 - 받는 쪽은 사람뿐이다. Bus에서 `NoticePosted`를 받아 일을 하는 core 코드를 두지 않는다. agent에게 알릴 일이면 agent가 앱 tool로 읽는다.
 - 권한은 grant `notify.send`(scope 없음)다. 앱이 선언하고 activation 때 사람이 허락한다. broker가 요청마다 지금 release의 선언 ∩ grant를 본다. preview·test 자식과 옛 release의 자식은 거절한다. SDK는 live가 아닌 mode에서 broker를 부르지 않고 `standIn`을 돌려준다.
 - 앱은 입력에서 앱도 출처도 종류도 고르지 못한다. 어느 앱의 줄인지는 자식의 app credential이 정한다. app credential이 닿는 operation은 다른 앱 호출과 `notices.post`, `app_tray.set`뿐이다. 앱은 program 줄을 쓰지 못하고 다른 앱의 줄도 쓰지 못한다(`commands_test.ts`).
-- program 줄에는 앱이 쓴 글이 들어가지 않는다. 글은 core의 template과 매개변수(짧은 식별자, release 이름, core가 정한 이유 코드)로 만든다. 앱 이름이나 앱 출력을 이유 칸에 그대로 싣지 않는다.
+- program 줄에는 앱이 쓴 글이 들어가지 않는다. 글은 core의 template과 매개변수(짧은 식별자, release 이름, core가 정한 이유 코드)로 만든다. 앱 이름이나 앱 출력을 이유 칸에 그대로 싣지 않는다. 예외 하나: `release_failed`·`app_unavailable`의 reason은 core가 기록한 실패 summary다(release의 `failure.summary`, runtime reason). migration script 실패 summary에는 그 script가 낸 글이 섞일 수 있어 200자로 자른다.
 - 같은 key는 대신한다. 주기적으로 같은 사실을 다시 확인하는 앱이 Inbox를 채우지 않게 하려는 것이다. 대신한 줄은 id가 같아 `NoticeClosed` 없이 `NoticePosted`만 다시 나가고, toast도 다시 뜬다. 영구 줄이 읽음이었어도 안 읽음으로 돌아온다.
 - 남기는 기간: program 줄은 지우지 않는다. 앱이 영구로 남긴 줄은 앱마다 최근 200개, 휘발 줄은 앱마다 50개다. 고장 난 앱이 표를 끝없이 키우지 못하게 한다.
 - 정본은 표다. 줄은 사람이 지우거나(휘발) 상한에 밀리거나 앱이 보관될 때까지(휘발) 재시작을 넘어 남는다. toast는 shell 정책이라 놓친 것을 다시 띄우지 않는다.

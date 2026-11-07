@@ -9,6 +9,7 @@ import { iconPixels, systemClipboard } from "@lophn/ui/shared";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
+import { startSecondTick } from "../activity/elapsed.ts";
 import { duration } from "../activity/worked-for.tsx";
 import styles from "./turns.module.css";
 
@@ -18,7 +19,6 @@ const ELAPSED_AFTER_MS = 3_000;
 // 답이 더디면 한 줄로 이유를 짐작하게 한다. 30초는 느린 편, 90초는 큰 turn이나 붐비는 기계를 말한다.
 const SLOW_AFTER_MS = 30_000;
 const LONG_AFTER_MS = 90_000;
-const TICK_MS = 1000;
 
 /**
  * agent가 일하는 동안 대화 끝에 서는 한 줄. 300ms 안에 끝나는 일에는 보이지 않고, 3초가 넘으면 걸린 시간을
@@ -51,8 +51,7 @@ export function WorkingRow({
   const [start] = useState(now);
   const [, setTick] = useState(0);
   useEffect(() => {
-    const timer = setInterval(() => setTick((tick) => tick + 1), TICK_MS);
-    return () => clearInterval(timer);
+    return startSecondTick(() => setTick((tick) => tick + 1), now);
   }, []);
   if (!shown) return null;
   if (waiting !== undefined) {

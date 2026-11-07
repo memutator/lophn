@@ -19,6 +19,7 @@ const BROKER_ROUTES = {
   netFetch: "/_lophn/broker/net/fetch",
   secretsUse: "/_lophn/broker/secrets/use",
   notifySend: "/_lophn/broker/notify/send",
+  notifyTray: "/_lophn/broker/notify/tray",
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
 } as const;
@@ -66,7 +67,10 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (net) table.set(BROKER_ROUTES.netFetch, (c, b) => net.request(c, b));
   if (secrets) table.set(BROKER_ROUTES.secretsUse, (c, b) => secrets.use(c, b));
-  if (notify) table.set(BROKER_ROUTES.notifySend, (c, b) => notify.send(c, b));
+  if (notify) {
+    table.set(BROKER_ROUTES.notifySend, (c, b) => notify.send(c, b));
+    table.set(BROKER_ROUTES.notifyTray, (c, b) => notify.tray(c, b));
+  }
   if (exceptions) {
     table.set(BROKER_ROUTES.problemsObserve, (c, b) =>
       exceptions.observe(c, b),

@@ -17,6 +17,7 @@ const KEYS = {
   coding: "shell.coding_agents",
   taskbar: "shell.taskbar",
   sidebarPanels: "shell.sidebar_panels",
+  tray: "shell.tray",
 } as const satisfies Record<keyof QuickPrefs, string>;
 
 export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
@@ -35,6 +36,7 @@ export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
           sidebarPanels: sidebarPanelsFromValue(
             read.value.get(KEYS.sidebarPanels),
           ),
+          tray: sidebarPanelsFromValue(read.value.get(KEYS.tray)),
         },
       };
     },

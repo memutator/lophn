@@ -3,6 +3,7 @@ import { WorkspacesScene, workspacesSteps } from "./shell/workspaces-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
 import { SidebarAppPanel } from "./shell/sidebar-app-panel.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
+import { TrayScene } from "./shell/tray-scene.tsx";
 
 export const shellArea: Area = {
   id: "shell",
@@ -182,7 +183,7 @@ export const shellArea: Area = {
       id: "shell-taskbar",
       title: "Shell · Taskbar",
       description:
-        "창 맨 아래 작업 표시줄(설정 Appearance › Taskbar, 기본 켬). 왼쪽은 float chip이고 전역 float(지구본 표시)이 먼저, 그 뒤가 지금 desk의 float이다. chip은 아이콘과 이름이고 편 것은 눌린 모양이며 누르면 펴고 접는다. 오른쪽 tray 자리는 비어 있다. desk float은 작업 표시줄 위에서 끝나 작업 표시줄을 덮지 않고, 꺼 두면 chip은 tab 줄 끝에 있다.",
+        "창 맨 아래 작업 표시줄(설정 Appearance › Taskbar, 기본 켬). 왼쪽은 float chip이고 전역 float(지구본 표시)이 먼저, 그 뒤가 지금 desk의 float이다. chip은 아이콘과 이름이고 편 것은 눌린 모양이며 누르면 펴고 접는다. 오른쪽은 tray 자리다(Shell · Tray). desk float은 작업 표시줄 위에서 끝나 작업 표시줄을 덮지 않고, 꺼 두면 chip은 tab 줄 끝에 있다.",
       render: () => <ShellScene variant="taskbar" globalFloats="chip" />,
     },
     {
@@ -191,6 +192,13 @@ export const shellArea: Area = {
       description:
         "project 창 오른쪽 sidebar에 앱 화면 하나가 panel로 켜진 상태. Settings › Quick launch › Sidebar panels에서 켠 앱 화면(`sidebar` 자리를 가진 것)은 모든 workspace의 panel icon tab 줄 끝에 앱 icon으로 더해지고, 고르면 sidebar 안에 앱 화면이 선다(Orders). 폭을 바꾸거나 다른 panel을 다녀와도 화면은 다시 load되지 않는다. 앱이 지워졌거나 화면이 없어지면 그 icon은 보이지 않는다.",
       render: () => <SidebarAppPanel />,
+    },
+    {
+      id: "shell-tray",
+      title: "Shell · Tray",
+      description:
+        "작업 표시줄 오른쪽 tray(Settings › Quick launch › Tray에서 켠 앱 화면마다 항목 하나). 항목은 앱 아이콘이고 앱이 낸 짧은 글이 tone 색으로 붙는다(Usage, 62% left, good). 값이 없는 앱은 아이콘만 있다(Orders). 항목을 누르면 그 앱의 tray 화면이 항목 위에 popup(360×480, 창 밖으로 나가지 않게 당김)으로 뜨고 바깥을 누르거나 Esc를 누르면 닫힌다. 작업 표시줄이 꺼져 있으면 항목은 title bar 오른쪽 sidebar 단추 옆에 아이콘만 서고 popup은 그 아래로 뜬다. 값은 lophn을 다시 켜면 사라지고 앱이 시작할 때 다시 낸다.",
+      render: () => <TrayScene />,
     },
     {
       id: "shell-workspaces-panel",

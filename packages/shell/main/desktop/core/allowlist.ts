@@ -11,6 +11,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 대기 목록의 turn request 결정(`turn_requests/decide`)과 질문 읽기·답(`ask/read`·`ask/answer`)
 // - 대화 조작(`acp/send`). 보내기, 멈춤, 다시 하기, 질문 답, 허락 결정, queue 고치기를 core가 지금 route로 나눈다.
 // - workflow 목록 읽기와 시작·멈춤(Workflows 탭과 sidebar). 보고(`report`)와 고치기(`edit`)는 agent가 부르므로 renderer는 부르지 않는다.
+// - 앱 tray 값 읽기(`app_tray/list`. 작업 표시줄 tray). `app_tray/set`은 앱 process만 부른다.
 // 다른 memory route는 main의 고정 통로만 부른다.
 const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:agent-mcp-auth/begin",
@@ -35,6 +36,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:workflows/list",
   "memory:workflows/start",
   "memory:workflows/stop",
+  "memory:app_tray/list",
 ];
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지를 올리고 읽는다.

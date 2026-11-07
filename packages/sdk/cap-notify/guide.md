@@ -10,7 +10,7 @@ operation·flow·시작 코드에서 부른다. import는 grant를 주지 않는
 ## 공개 API와 type
 
 ```ts
-import { notify } from "@lophn/cap-notify";
+import { clearTray, notify, setTray } from "@lophn/cap-notify";
 ```
 
 - `notify({ title, body?, key? })` — `{ notified: true }`를 돌려준다.
@@ -22,13 +22,21 @@ import { notify } from "@lophn/cap-notify";
   - 앱마다 열린 알림은 50개까지다. 넘으면 오래된 것부터 지운다.
   - 사람이 Inbox에서 지우면 사라진다. 지우지 않은 알림은 앱이나 lophn을 다시 켜도 남는다.
   - 알림을 누르면 이 앱이 열린다.
+- `setTray({ text, tone? })`, `clearTray()` — 작업 표시줄 tray에 보이는 값을 바꾸거나 지운다.
+  - `text`는 1~16자의 짧은 글이고 앞뒤 공백은 지운다. `tone`은 `"neutral"`(기본), `"good"`, `"warn"`,
+    `"bad"`이고 글 색이 된다.
+  - 값은 앱마다 하나이고 마지막 값만 남는다. 사람이 Settings › Quick launch › Tray에서 이 앱의 `tray`
+    자리 화면을 켜 두었을 때만 보인다. 누르면 그 화면이 popup으로 뜬다. 앱 UI view에서는 부르지 못한다.
+  - 값은 core 메모리에만 있어 lophn을 다시 켜면 사라진다. 앱이 시작 코드에서 다시 낸다.
+  - 앱 process가 시작 코드나 timer에서 부른다. 사용량 앱이 몇 분마다 값을 바꾸는 식이다(아래 예제).
 - `createNotifyClient({ host? })` — 시험이나 preview에서 host를 바꿔 끼운다. live가 아닌
-  mode에서는 사람에게 닿지 않고 `{ notified: true, standIn: true }`만 돌려준다.
-- 거절은 `CapabilityError`다. grant가 없으면 `forbidden`이고 `permission`은
+  mode에서는 사람에게 닿지 않고 `notify`는 `{ notified: true, standIn: true }`만 돌려주며 `setTray`와
+  `clearTray`는 아무것도 하지 않는다.
+- 거절은 `CapabilityError`다(`setTray`와 `clearTray`도 같다). grant가 없으면 `forbidden`이고 `permission`은
   `notify.send`다. 입력이 한도를 넘으면 `invalid_input`이다.
 - `checkDeclaration(declaration)` — 이 package를 쓰는 선언이 `notify.send`를 빠뜨렸는지
   검사한다.
-- type: `NotifyClient`, `NotifyRequest`, `NotifyResult`, `CapabilityError`,
+- type: `NotifyClient`, `NotifyRequest`, `NotifyResult`, `TrayRequest`, `TrayTone`, `CapabilityError`,
   `DeclarationCheck`
 
 ## 요구 permission
@@ -50,6 +58,18 @@ await notify({
   body: "Resets on Monday.",
   key: "limit:account-x",
 });
+```
+
+```ts
+import { setTray } from "@lophn/cap-notify";
+
+// 앱 process의 시작 코드. 값은 lophn을 다시 켜면 사라지므로 시작할 때 한 번 내고 주기로 갱신한다.
+async function refresh() {
+  const left = await readRemainingPercent();
+  await setTray({ text: `${left}% left`, tone: left < 10 ? "bad" : "good" });
+}
+await refresh();
+setInterval(() => void refresh().catch(() => {}), 5 * 60_000);
 ```
 
 ## version 정책

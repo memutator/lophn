@@ -7,6 +7,10 @@ import {
   brokerNotifyInputSchema,
 } from "../../../../protocol/apps/mod.ts";
 import {
+  type AppTraySetInput,
+  brokerTrayInputSchema,
+} from "../../../../protocol/apps/tray.ts";
+import {
   type BrokerAccess,
   currentAccess,
   invalid,
@@ -16,13 +20,16 @@ import {
 } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
-// core의 `app_notices.post`를 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
+// core의 `app_notices.post`와 `app_tray.set`을 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
 export interface NoticePostPort {
   post(child: BrokerChild, input: AppNoticePostInput): Promise<Result<unknown>>;
+  setTray(child: BrokerChild, input: AppTraySetInput): Promise<Result<unknown>>;
 }
 
 export type NotifyService = {
   send(child: BrokerChild, body: unknown): Promise<Result<{ notified: true }>>;
+  // tray 값은 알림과 같은 권한(notify.send)이다. text가 null이면 지운다.
+  tray(child: BrokerChild, body: unknown): Promise<Result<{ set: true }>>;
 };
 
 export function createNotifyService(deps: {
@@ -47,6 +54,23 @@ export function createNotifyService(deps: {
         ...(key === undefined ? {} : { key }),
       });
       return posted.ok ? ok({ notified: true }) : posted;
+    },
+    async tray(child, body) {
+      const parsed = brokerTrayInputSchema.safeParse(body);
+      if (!parsed.success) return invalid("tray input is invalid");
+      const refused = liveOnly(child, "notify.send", {});
+      if (refused) return refused;
+      const access = await currentAccess(deps.access, child);
+      if (!access.ok) return access;
+      if (access.value === null || !notifyGranted(access.value)) {
+        return refuse("notify.send", {});
+      }
+      const { text, tone } = parsed.data;
+      const set = await deps.core.setTray(child, {
+        text,
+        ...(tone === undefined ? {} : { tone }),
+      });
+      return set.ok ? ok({ set: true }) : set;
     },
   };
 }

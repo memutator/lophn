@@ -130,6 +130,7 @@ import { neighborLeaf, type PaneDirection } from "../shell/group-geometry.ts";
 import { PanelTabs } from "../shell/panel-tabs.tsx";
 import { ShellFrame, useSidebarOpen } from "../shell/shell-frame.tsx";
 import { Taskbar } from "../shell/taskbar/taskbar.tsx";
+import { TrayHost } from "../shell/tray/tray.tsx";
 import { TabContextMenu, type TabMenuState } from "../shell/tab-menu.tsx";
 import { TabDragProvider } from "../shell/tab-drag.tsx";
 import {
@@ -2760,6 +2761,15 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   onSettings={() => onSettings()}
                 />
               }
+              titleTray={
+                taskbar ? undefined : (
+                  <TrayHost
+                    picks={quickPrefs.tray}
+                    screens={panelApps}
+                    side="below"
+                  />
+                )
+              }
               rightSidebar={activePanel?.render(sidebarCtx)}
               taskbar={
                 taskbar ? (
@@ -2769,6 +2779,13 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     floating={pressedChips}
                     onToggleGlobalFloat={globalFloats.toggle}
                     onToggleFloat={toggleDeskFloat}
+                    tray={
+                      <TrayHost
+                        picks={quickPrefs.tray}
+                        screens={panelApps}
+                        side="above"
+                      />
+                    }
                   />
                 ) : undefined
               }

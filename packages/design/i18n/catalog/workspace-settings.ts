@@ -187,6 +187,7 @@ export const workspaceSettings = {
   "settings.heading.quick-app-panels": "App panels",
   "settings.heading.quick-buttons": "Buttons",
   "settings.heading.quick-sidebar-panels": "Sidebar panels",
+  "settings.heading.quick-tray": "Tray",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-global": "Global",
@@ -355,6 +356,7 @@ export const workspaceSettings = {
   "settings.label.quick-open-tab": "Tab",
   "settings.label.quick-show": "Show {name}",
   "settings.label.quick-sidebar-show": "Show {name} in the right sidebar",
+  "settings.label.quick-tray-show": "Show {name} in the tray",
   "settings.label.shell-action-allow": "Allow",
   "settings.label.shell-action-ask": "Ask",
   "settings.label.shell-action-deny": "Deny",
@@ -537,8 +539,11 @@ export const workspaceSettings = {
     "That feature won't start. Everything else keeps working.",
   "settings.note.quick-app-panels":
     "Pin an app panel to give it its own button. Tab opens it as a tab; Float opens it as a floating panel where you last left it.",
+  "settings.note.quick-no-tray": "No installed app has a tray screen.",
   "settings.note.quick-sidebar-panels":
     "A screen you turn on gets a tab in the right sidebar of every workspace.",
+  "settings.note.quick-tray":
+    "A screen you turn on gets an item in the taskbar tray, or next to the right sidebar tabs when the taskbar is off. Click it to open the screen as a popup.",
   "settings.note.shell-rules-built-in":
     "Rules you add can't unblock anything that is always blocked.",
   "settings.note.shell-rules-project":

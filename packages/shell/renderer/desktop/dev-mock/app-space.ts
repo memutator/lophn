@@ -86,6 +86,21 @@ export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
               label: "Home",
               places: ["tab", "panel", "card"] as const,
             },
+            // Settings › Quick launch의 Sidebar panels·Tray 묶음이 비어 보이지 않게 한 앱에 둔다.
+            ...(app === APP_PLANNER
+              ? [
+                  {
+                    key: "week",
+                    label: "This week",
+                    places: ["sidebar"] as const,
+                  },
+                  {
+                    key: "usage",
+                    label: "Usage",
+                    places: ["tray"] as const,
+                  },
+                ]
+              : []),
           ],
         })),
       }),

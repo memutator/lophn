@@ -19,6 +19,7 @@ import {
   appsSecretValue,
   CONTROL_PATHS,
 } from "../../../protocol/apps/mod.ts";
+import { appTraySet } from "../../../protocol/apps/tray.ts";
 import { CALL_RESPONSE_MAX_BYTES } from "../../../protocol/base/mod.ts";
 import {
   type AppCallPort,
@@ -366,6 +367,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         `${appNoticePost.resource}/${appNoticePost.method}`,
         input,
       ),
+    setTray: (child, input) =>
+      asChild(child, `${appTraySet.resource}/${appTraySet.method}`, input),
   };
 
   const toCore = { post: io.post, bearer: () => hello.credential };

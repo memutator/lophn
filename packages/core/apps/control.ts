@@ -27,6 +27,7 @@ import {
   activationStart,
   appCallTool,
   appNoticePost,
+  appTraySet,
   appGrantsList,
   appLogFile,
   appLogPreviousFile,
@@ -170,7 +171,11 @@ const SUPERVISOR_OPERATIONS = [
 ];
 // 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출과 사람에게 알리기(notice)뿐이다.
 // 호출은 앱 process의 broker가 그 자식의 credential로 core를 부른다. notice의 권한은 broker가 판정한다.
-const APP_CHILD_OPERATIONS = [appCallTool.name, appNoticePost.name];
+const APP_CHILD_OPERATIONS = [
+  appCallTool.name,
+  appNoticePost.name,
+  appTraySet.name,
+];
 
 // registry 상한. 이 목록에 없는 operation은 그 actor에게 발급하지 못한다.
 export function appsOperationPolicies(): OperationPolicy[] {
@@ -190,6 +195,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
       kind: "command",
     },
     { name: appNoticePost.name, actors: ["machine", "app"], kind: "command" },
+    { name: appTraySet.name, actors: ["machine", "app"], kind: "command" },
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
     { name: appTools.name, actors: ["machine"], kind: "command" },
     { name: appGrantsList.name, actors: ["machine"], kind: "command" },

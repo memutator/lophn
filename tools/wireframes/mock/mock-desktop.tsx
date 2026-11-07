@@ -3,6 +3,10 @@
 // 고치지 않고, preload가 없는 일반 browser에 없는 통로(터미널 PTY, overlay)만 여기서 채운다.
 import { useMemo } from "react";
 
+import {
+  appTrayList,
+  type TrayTone,
+} from "../../../packages/protocol/apps/tray.ts";
 import { Desktop } from "../../../packages/shell/renderer/desktop/main.tsx";
 import {
   type DevMock,
@@ -136,6 +140,43 @@ interface MockDesktopProps {
     readonly app: string;
     readonly screen: string;
     readonly label: string;
+  };
+  /** 앱 화면(`tray` 자리)을 설치된 것으로 두고 Settings에서 켠 상태로 시작한다. text가 있으면 앱이 그 값을 낸 것이다. */
+  readonly tray?: readonly {
+    readonly app: string;
+    readonly screen: string;
+    readonly label: string;
+    readonly text?: string;
+    readonly tone?: TrayTone;
+  }[];
+}
+
+// 앱이 낸 tray 값. core의 `app_tray/list`를 이 값으로 답한다.
+function withTrayValues(
+  source: CoreSource,
+  tray: MockDesktopProps["tray"],
+): CoreSource {
+  if (tray === undefined) return source;
+  const values = tray.flatMap((item) =>
+    item.text === undefined
+      ? []
+      : [
+          {
+            app: item.app,
+            text: item.text,
+            tone: item.tone ?? "neutral",
+            at: "2026-11-07T00:00:00.000Z",
+          },
+        ],
+  );
+  return {
+    ...source,
+    call: (input) =>
+      input.kind === "memory" &&
+      input.resource === appTrayList.resource &&
+      input.method === appTrayList.method
+        ? Promise.resolve({ ok: true, value: { values } })
+        : source.call(input),
   };
 }
 
@@ -351,7 +392,9 @@ export function MockDesktop(props: MockDesktopProps) {
       workspace,
       terminal,
       conversation: { drafts: new DraftStore() },
-      events: createEventClient(props.events?.(mock.events) ?? mock.events),
+      events: createEventClient(
+        withTrayValues(props.events?.(mock.events) ?? mock.events, props.tray),
+      ),
       settingsPanels: mock.settingsPanels,
     };
   }, [
@@ -363,13 +406,23 @@ export function MockDesktop(props: MockDesktopProps) {
     detachedTab,
     props.runs,
     props.events,
+    props.tray,
   ]);
   const { mock } = wiring;
-  const { sidebarPanel } = props;
-  // dev mock의 앱 화면 목록에는 sidebar 자리가 없어, 이 page가 그 화면 하나를 더한다.
+  const { sidebarPanel, tray } = props;
+  // 이 page가 설치된 것으로 두는 화면. dev mock의 앱 화면 목록에 없는 자리의 화면을 더한다.
+  const extraScreens = useMemo(
+    () => [
+      ...(sidebarPanel === undefined
+        ? []
+        : [{ ...sidebarPanel, place: "sidebar" as const }]),
+      ...(tray ?? []).map((item) => ({ ...item, place: "tray" as const })),
+    ],
+    [sidebarPanel, tray],
+  );
   const appViews = useMemo(
     () =>
-      sidebarPanel === undefined
+      extraScreens.length === 0
         ? mock.appViews
         : {
             ...mock.appViews,
@@ -378,37 +431,38 @@ export function MockDesktop(props: MockDesktopProps) {
               if (!read.ok) return read;
               return {
                 ok: true as const,
-                value: read.value.map((app) =>
-                  app.app === sidebarPanel.app
-                    ? {
-                        ...app,
-                        screens: [
-                          ...app.screens,
-                          {
-                            key: sidebarPanel.screen,
-                            label: sidebarPanel.label,
-                            places: ["sidebar" as const],
-                          },
-                        ],
-                      }
-                    : app,
-                ),
+                value: read.value.map((app) => ({
+                  ...app,
+                  screens: [
+                    ...app.screens,
+                    ...extraScreens
+                      .filter((item) => item.app === app.app)
+                      .map((item) => ({
+                        key: item.screen,
+                        label: item.label,
+                        places: [item.place],
+                      })),
+                  ],
+                })),
               };
             },
           },
-    [mock, sidebarPanel],
+    [mock, extraScreens],
   );
   const quickPrefs = useMemo(
     () =>
-      sidebarPanel === undefined
+      extraScreens.length === 0
         ? undefined
         : memoryQuickPrefsSource({
             ...DEFAULT_QUICK_PREFS,
-            sidebarPanels: [
-              { app: sidebarPanel.app, screen: sidebarPanel.screen },
-            ],
+            sidebarPanels: extraScreens
+              .filter((item) => item.place === "sidebar")
+              .map((item) => ({ app: item.app, screen: item.screen })),
+            tray: extraScreens
+              .filter((item) => item.place === "tray")
+              .map((item) => ({ app: item.app, screen: item.screen })),
           }),
-    [sidebarPanel],
+    [extraScreens],
   );
   const annotate = props.annotate ?? mock.annotate;
   return (

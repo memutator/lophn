@@ -1,9 +1,11 @@
-export { createNotifyClient, notify } from "./notify.ts";
+export { clearTray, createNotifyClient, notify, setTray } from "./notify.ts";
 export type {
   NotifyClient,
   NotifyClientDeps,
   NotifyRequest,
   NotifyResult,
+  TrayRequest,
+  TrayTone,
 } from "./notify.ts";
 export { CapabilityError } from "./errors.ts";
 export type { CapabilityErrorCode } from "./errors.ts";

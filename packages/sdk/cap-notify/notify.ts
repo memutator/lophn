@@ -4,11 +4,13 @@ import { CapabilityError, fromBroker, missingHost } from "./errors.ts";
 import { type CapHost, readHost } from "./host.ts";
 
 export const NOTIFY_SEND_PATH = "/_lophn/broker/notify/send";
+export const NOTIFY_TRAY_PATH = "/_lophn/broker/notify/tray";
 
 // protocol/apps/notice.ts의 한도와 같다(SDK는 protocol을 import할 수 없어 사본으로 둔다).
 export const NOTIFY_TITLE_MAX = 120;
 export const NOTIFY_BODY_MAX = 500;
 export const NOTIFY_KEY_MAX = 64;
+export const TRAY_TEXT_MAX = 16;
 const KEY = /^[A-Za-z0-9_.:-]+$/;
 
 export type NotifyRequest = {
@@ -23,8 +25,20 @@ export type NotifyRequest = {
 
 export type NotifyResult = { notified: true; standIn?: true };
 
+export type TrayTone = "neutral" | "good" | "warn" | "bad";
+
+export type TrayRequest = {
+  // 작업 표시줄 tray에 보이는 짧은 글. 1~16자. 앞뒤 공백은 지운다.
+  text: string;
+  // 글 색. 기본은 neutral이다.
+  tone?: TrayTone;
+};
+
 export type NotifyClient = {
   notify(request: NotifyRequest): Promise<NotifyResult>;
+  // 이 앱의 tray 값을 바꾼다. 사람이 이 앱의 tray 화면을 켜 두었을 때만 보인다.
+  setTray(request: TrayRequest): Promise<void>;
+  clearTray(): Promise<void>;
 };
 
 function invalid(message: string): CapabilityError {
@@ -57,8 +71,46 @@ function check(request: NotifyRequest): void {
 
 export type NotifyClientDeps = { host?: CapHost };
 
+const TONES: readonly TrayTone[] = ["neutral", "good", "warn", "bad"];
+
 export function createNotifyClient(deps: NotifyClientDeps = {}): NotifyClient {
+  // setTray와 clearTray가 같다: text가 null이면 지운다.
+  async function tray(text: string | null, tone?: TrayTone): Promise<void> {
+    const host = deps.host ?? readHost();
+    if (!host) throw missingHost();
+    // preview·test는 사람에게 닿지 않는다.
+    if (host.mode !== "live") return;
+    const requested = { permission: "notify.send", scope: {} };
+    let response;
+    try {
+      response = await host.post(NOTIFY_TRAY_PATH, {
+        text,
+        ...(tone === undefined ? {} : { tone }),
+      });
+    } catch {
+      throw new CapabilityError({
+        code: "unavailable",
+        message: "notify could not reach the broker",
+      });
+    }
+    if (response.status !== 200) throw fromBroker(response.body, requested);
+  }
   return {
+    setTray(request) {
+      const text = typeof request.text === "string" ? request.text.trim() : "";
+      if (text.length === 0 || text.length > TRAY_TEXT_MAX) {
+        return Promise.reject(
+          invalid(`text must be 1 to ${TRAY_TEXT_MAX} characters`),
+        );
+      }
+      if (request.tone !== undefined && !TONES.includes(request.tone)) {
+        return Promise.reject(
+          invalid("tone must be neutral, good, warn or bad"),
+        );
+      }
+      return tray(text, request.tone);
+    },
+    clearTray: () => tray(null),
     async notify(request) {
       check(request);
       const host = deps.host ?? readHost();
@@ -90,4 +142,12 @@ const shared = createNotifyClient();
 
 export function notify(request: NotifyRequest): Promise<NotifyResult> {
   return shared.notify(request);
+}
+
+export function setTray(request: TrayRequest): Promise<void> {
+  return shared.setTray(request);
+}
+
+export function clearTray(): Promise<void> {
+  return shared.clearTray();
 }

@@ -40,6 +40,8 @@ export interface ShellFrameProps {
   tabs: ReactNode;
   /** 오른쪽 구역의 panel icon tab(PanelTabs). */
   panelTabs?: ReactNode;
+  /** 작업 표시줄이 꺼져 있을 때 tray 항목(Tray). 오른쪽 구역의 sidebar 단추 옆에 선다. */
+  titleTray?: ReactNode;
   leftSidebar: ReactNode;
   rightSidebar?: ReactNode;
   /** 몸통(title bar 아래, 양쪽 sidebar 포함) 전체를 덮는 층(webview 그릇과 FloatLayer). float 패널이 sidebar 위로도 간다. */
@@ -166,6 +168,7 @@ export function ShellFrame({
   deskSwitcher,
   tabs,
   panelTabs,
+  titleTray,
   leftSidebar,
   rightSidebar,
   floats,
@@ -233,6 +236,7 @@ export function ShellFrame({
         >
           {right ? panelTabs : null}
           <span className={styles.grow} />
+          {titleTray}
           {onToggleRight ? (
             <IconButton
               icon={shellIcons.rightPanel}

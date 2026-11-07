@@ -67,7 +67,11 @@ import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
 import { appIcon, appSkills } from "../../protocol/apps/declaration/read.ts";
-import { packagesGuideBody } from "../../protocol/apps/mod.ts";
+import {
+  appTrayList,
+  appTraySet,
+  packagesGuideBody,
+} from "../../protocol/apps/mod.ts";
 import type {
   ReaderRegistration,
   TxPortRegistration,
@@ -223,6 +227,8 @@ export function createLedgerRegistration(
     // invocations·rewind module이 자기 쓰기로 남긴다.
     memoryRoutes: [
       appCallTool,
+      appTraySet,
+      appTrayList,
       appRewind,
       appLogViewError,
       // handler는 wiring/apps.ts가 붙인다.

@@ -42,6 +42,7 @@ import {
 } from "./runtime.ts";
 import { APP_GRANT_ROUTES } from "./grants.ts";
 import { APP_NOTICE_ROUTES } from "./notice.ts";
+import { APP_TRAY_ROUTES } from "./tray.ts";
 import { PACKAGE_ROUTES } from "./package-routes.ts";
 import {
   ACTIVATION_ROUTES,
@@ -103,6 +104,7 @@ export const ROUTES = [
   appUsage,
   ...APP_GRANT_ROUTES,
   ...APP_NOTICE_ROUTES,
+  ...APP_TRAY_ROUTES,
   ...PACKAGE_ROUTES,
   ...ACTIVATION_ROUTES,
   // consent.ts가 activation.ts를 import해서 ACTIVATION_ROUTES에 넣으면 순환 import다.

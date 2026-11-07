@@ -103,6 +103,8 @@ import {
   withStartInvocation,
 } from "../../../apps/routes.ts";
 import { APP_NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
+import { createTray } from "../../../apps/tray/mod.ts";
+import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
@@ -293,6 +295,24 @@ export const appsWiring: WiringFactory = () => {
         newId: () => ids.newId("rwd") as Id<"rwd">,
       });
       const rewindReads = createRewindReads({ rewind });
+      // tray 값은 메모리에만 있다. 바뀌면 열린 창이 다시 읽게 Bus로 알린다.
+      const tray = createTray({
+        clock: ctx.clock,
+        appStatus(app) {
+          const loaded = loadApp(link.sql, app);
+          return loaded.ok && loaded.value !== null
+            ? loaded.value.status
+            : null;
+        },
+        changed(app, at) {
+          ctx.peek.bus?.publish({
+            type: "AppTrayChanged",
+            subject: app,
+            at,
+            payload: { app },
+          } as BusEvent);
+        },
+      });
       const locator: BundleLocator = {
         dir: (target) =>
           (
@@ -359,6 +379,8 @@ export const appsWiring: WiringFactory = () => {
           ...appOAuth.handlers,
           ["apps/call_tool", callToolHandler(path)],
           ["apps/rewind", rewindHandler(rewind)],
+          [`${appTraySet.resource}/${appTraySet.method}`, tray.set],
+          [`${appTrayList.resource}/${appTrayList.method}`, tray.list],
           [
             `${appLogViewError.resource}/${appLogViewError.method}`,
             viewErrorLogHandler({

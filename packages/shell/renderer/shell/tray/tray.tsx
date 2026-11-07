@@ -1,0 +1,255 @@
+// tray. 작업 표시줄 오른쪽(꺼져 있으면 title bar의 panel 탭 옆)에 사람이 켠 앱 화면마다 항목 하나가 선다: 앱 아이콘과 앱이 낸
+// 짧은 글(tone 색). 누르면 그 앱의 `tray` 화면이 항목 위(title bar면 아래)에 popup으로 뜬다. 바깥을 누르거나 Esc를 누르면 닫힌다.
+// popup은 자기 <webview> 그릇을 가진다: 닫으면 화면도 닫히고 다시 열면 새로 load된다.
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { t } from "@lophn/i18n";
+import { Tooltip } from "@lophn/ui/overlay";
+
+import type { TrayTone, TrayValue } from "../../../../protocol/apps/tray.ts";
+import { AppTabIcon } from "../../app-frame/app-icon.tsx";
+import {
+  type AppScreens,
+  type ScreensRead,
+  useAppViews,
+  useAppWorkspace,
+} from "../../app-frame/app-views.tsx";
+import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
+import {
+  createWebviewHost,
+  WebviewHostProvider,
+  WebviewLayer,
+} from "../../app-frame/webview-host.tsx";
+import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
+import { type PopupPlace, placePopup } from "./popup-place.ts";
+import styles from "./tray.module.css";
+import { useTrayValues } from "./use-tray-values.ts";
+
+export interface TrayItem {
+  readonly key: string;
+  readonly app: string;
+  readonly screen: string;
+  /** 앱 이름과 화면 이름. 값이 없을 때 title과 접근성 이름이다. */
+  readonly title: string;
+  readonly label: string;
+  readonly text?: string;
+  readonly tone?: TrayTone;
+}
+
+/** 켠 화면 가운데 설치돼 있고 `tray` 자리를 가진 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
+export function trayItems(
+  picks: readonly SidebarPanelPick[],
+  screens: ScreensRead | null,
+  values: readonly TrayValue[],
+): readonly TrayItem[] {
+  if (screens === null || !screens.ok) return [];
+  return picks.flatMap((pick) => {
+    const app = screens.value.find((item: AppScreens) => item.app === pick.app);
+    const screen = app?.screens.find((item) => item.key === pick.screen);
+    if (app === undefined || screen === undefined) return [];
+    if (!screen.places.includes("tray")) return [];
+    const value = values.find((item) => item.app === pick.app);
+    return [
+      {
+        key: `${pick.app}:${pick.screen}`,
+        app: pick.app,
+        screen: pick.screen,
+        title: t("app-panel.label.screen", {
+          app: app.name,
+          screen: screen.label,
+        }),
+        label: screen.label,
+        ...(value === undefined ? {} : { text: value.text, tone: value.tone }),
+      },
+    ];
+  });
+}
+
+function PopupBody({ item }: { item: TrayItem }) {
+  const deps = useAppViews();
+  const workspace = useAppWorkspace();
+  if (deps === null) return null;
+  return (
+    <EmbeddedView
+      views={deps.views}
+      app={item.app}
+      mode="live"
+      screen={item.screen}
+      place="tray"
+      workspace={workspace}
+      label={item.label}
+    />
+  );
+}
+
+function Popup({
+  item,
+  place,
+  onClose,
+  anchor,
+}: {
+  item: TrayItem;
+  place: PopupPlace;
+  onClose: () => void;
+  /** 항목 단추들의 묶음. 여기를 누르는 것은 바깥이 아니다(단추가 열고 닫는다). */
+  anchor: HTMLElement | null;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  // popup마다 자기 그릇을 가진다. 닫으면 그릇과 안의 화면이 함께 사라진다.
+  const host = useMemo(() => createWebviewHost(), []);
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!box.current?.contains(target) && !anchor?.contains(target))
+        onClose();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    // 다른 화면의 <webview> 안을 누르면 DOM pointer event가 오지 않고 focus만 옮겨 간다.
+    const blur = () =>
+      setTimeout(() => {
+        if (!box.current?.contains(document.activeElement)) onClose();
+      }, 0);
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    window.addEventListener("blur", blur);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+      window.removeEventListener("blur", blur);
+    };
+  }, [anchor, onClose]);
+  return createPortal(
+    <div
+      ref={box}
+      className={styles.popup}
+      role="dialog"
+      aria-label={item.title}
+      data-tray-popup={item.key}
+      style={place}
+    >
+      <WebviewHostProvider value={host}>
+        <div className={styles.body}>
+          <PopupBody item={item} />
+        </div>
+        <WebviewLayer host={host} />
+      </WebviewHostProvider>
+    </div>,
+    document.body,
+  );
+}
+
+export function Tray({
+  items,
+  side,
+  iconOnly = false,
+  open: initialOpen = null,
+}: {
+  items: readonly TrayItem[];
+  /** popup이 항목 위(작업 표시줄)에 뜨는지 아래(title bar)에 뜨는지. */
+  side: "above" | "below";
+  /** title bar는 좁아서 글 없이 아이콘만 그린다. 글은 접근성 이름에 남는다. */
+  iconOnly?: boolean;
+  /** 처음부터 열려 있는 항목의 key(gallery). */
+  open?: string | null;
+}) {
+  const [open, setOpen] = useState<string | null>(initialOpen);
+  const [place, setPlace] = useState<PopupPlace | null>(null);
+  const row = useRef<HTMLDivElement>(null);
+  const buttons = useRef(new Map<string, HTMLButtonElement>());
+  const current = items.find((item) => item.key === open) ?? null;
+  // 열 때와 창 크기가 바뀔 때 항목 자리를 다시 잰다.
+  useEffect(() => {
+    const button =
+      current === null ? undefined : buttons.current.get(current.key);
+    if (button === undefined) {
+      setPlace(null);
+      return;
+    }
+    const measure = () =>
+      setPlace(
+        placePopup(
+          button.getBoundingClientRect(),
+          { width: window.innerWidth, height: window.innerHeight },
+          side,
+        ),
+      );
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [current, side]);
+  if (items.length === 0) return null;
+  return (
+    <div
+      ref={row}
+      className={styles.tray}
+      role="group"
+      aria-label={t("shell.label.tray")}
+      data-tray=""
+    >
+      {items.map((item) => (
+        <Tooltip key={item.key} content={item.title}>
+          <button
+            ref={(node) => {
+              if (node === null) buttons.current.delete(item.key);
+              else buttons.current.set(item.key, node);
+            }}
+            type="button"
+            className={styles.item}
+            aria-label={
+              item.text === undefined
+                ? item.title
+                : t("shell.label.tray-item", {
+                    title: item.title,
+                    text: item.text,
+                  })
+            }
+            aria-expanded={open === item.key}
+            data-tray-item={item.app}
+            onClick={() => setOpen(open === item.key ? null : item.key)}
+          >
+            <AppTabIcon app={item.app} />
+            {item.text === undefined || iconOnly ? null : (
+              <span className={styles.text} data-tone={item.tone}>
+                {item.text}
+              </span>
+            )}
+          </button>
+        </Tooltip>
+      ))}
+      {current === null || place === null ? null : (
+        <Popup
+          key={current.key}
+          item={current}
+          place={place}
+          anchor={row.current}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** event로 값을 읽어 그리는 tray. 켠 화면이 없으면 아무것도 읽지 않는다. */
+function ConnectedTray(props: TrayHostProps) {
+  const values = useTrayValues();
+  return (
+    <Tray
+      items={trayItems(props.picks, props.screens, values)}
+      side={props.side}
+      iconOnly={props.side === "below"}
+    />
+  );
+}
+
+interface TrayHostProps {
+  picks: readonly SidebarPanelPick[];
+  screens: ScreensRead | null;
+  /** 작업 표시줄이면 above, title bar면 below. */
+  side: "above" | "below";
+}
+
+export function TrayHost(props: TrayHostProps): ReactNode {
+  return props.picks.length === 0 ? null : <ConnectedTray {...props} />;
+}

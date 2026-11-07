@@ -124,6 +124,12 @@ const appNoticeClosed = defineTransientEvent("AppNoticeClosed", {
   payload: z.strictObject({ id: idSchema("ntc") }),
 });
 
+// 앱의 tray 값이 바뀌거나 지워진 뒤 낸다. 값은 core 메모리에만 있어 화면은 `app_tray/list`로 다시 읽는다.
+const appTrayChanged = defineTransientEvent("AppTrayChanged", {
+  subject: idSchema("app"),
+  payload: z.strictObject({ app: idSchema("app") }),
+});
+
 // instance 행이나 줄이 바뀐 command가 commit된 뒤 한 번 낸다. 화면과 artifact view가 다시 읽으라는 신호다.
 // CLI로 낸 report는 session event가 없어 화면이 알 길이 이것뿐이다. 정의 file이 바뀐 것은 알리지 않는다.
 const workflowInstanceChanged = defineTransientEvent(
@@ -164,6 +170,7 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(shareRequestClosed),
   transientEventEnvelopeSchema(appNoticePosted),
   transientEventEnvelopeSchema(appNoticeClosed),
+  transientEventEnvelopeSchema(appTrayChanged),
   transientEventEnvelopeSchema(workflowInstanceChanged),
   transientEventEnvelopeSchema(jobChanged),
 ]);

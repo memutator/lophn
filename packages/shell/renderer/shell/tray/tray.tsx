@@ -166,7 +166,7 @@ function Popup({
         {head?.center === undefined ? <span className={styles.grow} /> : null}
         <HeadControls spec={head} />
         <IconButton
-          icon={pinned ? shellIcons.unpin : shellIcons.pin}
+          icon={shellIcons.pin}
           label={t(
             pinned ? "shell.button.tray-unpin" : "shell.button.tray-pin",
           )}

@@ -84,6 +84,15 @@
   line-height: var(--type-caption-line);
 }
 
+/* 고정한 pin은 빈 핀을 글자색으로 채운다(다크는 흰색, 라이트는 검정에 가깝다). */
+.head [data-tray-pin][aria-pressed="true"] {
+  color: var(--color-text-primary);
+}
+
+.head [data-tray-pin][aria-pressed="true"] svg {
+  fill: currentcolor;
+}
+
 .title {
   flex: 0 1 auto;
   min-width: var(--space-0);

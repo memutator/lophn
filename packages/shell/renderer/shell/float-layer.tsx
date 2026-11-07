@@ -240,7 +240,7 @@ function FloatEntryView({
             {float.pinned
               ? action(
                   "unpin",
-                  shellIcons.unpin,
+                  shellIcons.pin,
                   t("shell.button.float-unpin"),
                   () => onPin(float.key, false),
                 )

@@ -22,7 +22,6 @@ import {
   PanelRight,
   PictureInPicture2,
   Pin,
-  PinOff,
   Plus,
   RectangleHorizontal,
   RotateCw,
@@ -49,9 +48,8 @@ export const shellIcons = {
   reload: RotateCw,
   minimize: Minus,
   dock: ArrowDownToLine,
-  // floated 패널의 고정(always on top). 고정한 패널은 PinOff로 푼다.
+  // floated 패널과 tray popup의 고정. 고정한 상태는 같은 핀을 글자색으로 채워 보인다(쓰는 쪽 CSS).
   pin: Pin,
-  unpin: PinOff,
   desk: LayoutDashboard,
   workflow: Workflow,
   current: Check,

@@ -88,6 +88,11 @@ export function useAcpUpdates(session: string): AcpUpdatesState {
   return useSyncExternalStore(acpUpdates.subscribe, get);
 }
 
+/** provider가 없는 자리(wireframes gallery, 테스트)에서는 null이다. 없어도 그려야 하는 쪽이 쓴다. */
+export function useOptionalEventClient(): EventClient | null {
+  return useContext(EventsContext)?.client ?? null;
+}
+
 /** store 없이 event를 직접 듣는 쪽(toast 호스트)이 쓴다. */
 export function useEventClient(): EventClient {
   return useStores().client;

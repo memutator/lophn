@@ -31,6 +31,8 @@ import { useTrayValues } from "./use-tray-values.ts";
 export interface TrayItem {
   readonly key: string;
   readonly app: string;
+  /** 화면을 열 때 고정하는 판. */
+  readonly release: string;
   readonly screen: string;
   /** 앱 이름과 화면 이름. 값이 없을 때 title과 접근성 이름이다. */
   readonly title: string;
@@ -58,6 +60,7 @@ export function trayItems(
         {
           key: `${app.app}:${screen.key}`,
           app: app.app,
+          release: app.release,
           screen: screen.key,
           title: t("app-panel.label.screen", {
             app: app.name,
@@ -82,6 +85,7 @@ function PopupBody({ item }: { item: TrayItem }) {
       views={deps.views}
       app={item.app}
       mode="live"
+      release={item.release}
       screen={item.screen}
       place="tray"
       workspace={workspace}

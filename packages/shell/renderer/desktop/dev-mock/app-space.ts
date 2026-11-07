@@ -80,6 +80,7 @@ export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
         value: Object.entries(apps).map(([app, name]) => ({
           app,
           name,
+          release: "rel_01h455vb4pex5v6nkc6gd5fd01",
           screens: [
             {
               key: "home",

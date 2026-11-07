@@ -19,6 +19,7 @@ import {
   useAppWorkspace,
 } from "../app-frame/app-views.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
+import { useOptionalEventClient } from "../desktop/connection/events/hooks.tsx";
 import { ViewChrome } from "../app-frame/view-chrome.tsx";
 import styles from "./app-panel-tab.module.css";
 
@@ -43,12 +44,28 @@ export function useScreensRead(enabled = true): {
   retry: () => void;
 } {
   const deps = useAppViews();
+  const events = useOptionalEventClient();
   const [read, setRead] = useState<ScreensRead | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // 앱의 활성 판이 바뀌거나(AppViewChanged activation) core가 (다시) 붙으면(ready) 목록을 다시 읽는다.
+  // 처음 한 번만 읽으면 core가 아직 준비 전일 때 실패한 읽기와 새 판의 화면 선언이 창을 다시 열 때까지 남는다.
+  const [changes, setChanges] = useState(0);
+  useEffect(() => {
+    if (!enabled || events === null) return;
+    return events.subscribe({ types: ["AppViewChanged"] }, (message) => {
+      if (
+        message.kind === "ready" ||
+        (message.kind === "event" &&
+          message.event.type === "AppViewChanged" &&
+          message.event.payload.reason === "activation")
+      ) {
+        setChanges((count) => count + 1);
+      }
+    });
+  }, [events, enabled]);
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    setRead(null);
     if (deps?.screens === undefined) {
       setRead({ ok: false });
       return;
@@ -59,8 +76,14 @@ export function useScreensRead(enabled = true): {
     return () => {
       live = false;
     };
-  }, [deps, attempt, enabled]);
-  return { read, retry: () => setAttempt((count) => count + 1) };
+  }, [deps, attempt, changes, enabled]);
+  return {
+    read,
+    retry: () => {
+      setRead(null);
+      setAttempt((count) => count + 1);
+    },
+  };
 }
 
 /** 고를 수 있는 (앱, panel 화면) 목록. label은 "앱 · 화면"이다. picker가 쓴다. */

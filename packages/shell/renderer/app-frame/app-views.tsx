@@ -31,6 +31,8 @@ interface AppScreen {
 export interface AppScreens {
   readonly app: string;
   readonly name: string;
+  /** 지금 채택된 판. view를 열 때 이 판에 고정한다(main은 live에서 판 없이 열지 않는다). */
+  readonly release: string;
   readonly screens: readonly AppScreen[];
 }
 
@@ -188,6 +190,7 @@ export function coreAppScreens(
       found.push({
         app: app.id,
         name: app.name,
+        release: app.active_release,
         screens: declaration.screens.map((screen) => ({
           key: screen.key,
           label: screen.label,

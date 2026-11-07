@@ -177,7 +177,12 @@ export const appPanelKey = (app: string, screen: string) =>
 /** 앱 sidebar panel의 view를 숨겨 두는 보관 key. 탭 key가 아니라 창이 떠날 때까지 산다. */
 export const SIDEBAR_KEEP_PREFIX = "sidebar:";
 
-function AppSidebarBody(props: { app: string; screen: string; label: string }) {
+function AppSidebarBody(props: {
+  app: string;
+  release: string;
+  screen: string;
+  label: string;
+}) {
   const deps = useAppViews();
   const workspace = useAppWorkspace();
   if (deps === null) return null;
@@ -190,6 +195,7 @@ function AppSidebarBody(props: { app: string; screen: string; label: string }) {
         views={deps.views}
         app={props.app}
         mode="live"
+        release={props.release}
         screen={props.screen}
         place="sidebar"
         workspace={workspace}
@@ -225,6 +231,7 @@ function appPanels(
             <AppSidebarBody
               key={appPanelKey(pick.app, pick.screen)}
               app={pick.app}
+              release={app.release}
               screen={pick.screen}
               label={screen.label}
             />

@@ -71,10 +71,12 @@ agent that files the person's receipts, are examples. If it is:
 3. Declare it in `lophn.ts` `skills: [{name, public: true, commands}]`.
    `commands` are the public commands of this app that the skill calls.
 4. Write it under "Shared skills" in DESIGN.md.
-5. After the release is active, run `lophn app share --agent <handle>...
-   [--coding-agents] --reason <text>` for the agents that should get it. It only
-   opens a request; the person approves it in the waiting list, and only then
-   are the app assigned and the skill given. Tell the person it is waiting.
+5. Run `lophn app share --agent <handle>... [--coding-agents] --reason <text>`
+   for the agents that should get it, before or after `release activate`. It only
+   opens a request; nothing is given until the person approves. If the
+   activation is waiting for consent, the request is shown on that consent and
+   approved with it, so do not ask the person to approve sharing separately.
+   Otherwise it waits in the waiting list; tell the person.
 
 A change that removes a public skill or a command it calls shows in
 `removed_public_skills` or `removed_public_tools` at release prepare. Keep the

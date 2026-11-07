@@ -60,6 +60,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    - `active`: tell the person. If the app has public skills other agents should
      get, run `lophn app share --agent <handle>... [--coding-agents] --reason <text>`.
      It opens a request that the person approves in the waiting list; say so.
+     (If you run it before `release activate` and the activation waits for
+     consent, the person approves both with that one consent.)
    - `failed`: read `failure` (`code`, `summary`, `restored`: the previous
      release runs again) and `lophn app logs`, fix it, go back to step 3.
    - `waiting_consent`: a first activation, wider permissions or a data-loss

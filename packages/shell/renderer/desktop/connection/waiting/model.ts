@@ -2,6 +2,7 @@
 // program이 만든다(요청한 agent가 쓴 설명 칸은 없다).
 import { formatRelativeTime, t } from "@lophn/i18n";
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
+import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
 import type { JobAction } from "../../../../../protocol/jobs/values.ts";
@@ -30,6 +31,20 @@ export interface Line {
   readonly value: string;
 }
 
+export interface ShareView {
+  readonly who: string;
+  readonly reason: string;
+  readonly skills: number;
+  readonly commands: number;
+}
+
+function shareWho(request: ShareRequest): string {
+  return [
+    ...request.agents.map((agent) => agent.name),
+    ...(request.coding_agents ? [t("waiting.label.share-coding")] : []),
+  ].join(", ");
+}
+
 export interface CardView {
   readonly kind: WaitingEntry["kind"];
   readonly title: string;
@@ -48,6 +63,8 @@ export interface CardView {
   readonly loss: readonly Line[];
   /** 이전 활성 release가 없다. */
   readonly first: boolean;
+  /** activation 카드가 같이 승인할 앱 공유 요청. */
+  readonly share: ShareView | null;
   readonly choices: readonly WaitingChoice[];
 }
 
@@ -297,6 +314,7 @@ export function cardOf(
     added: NO_LINES,
     loss: NO_LINES,
     first: false,
+    share: null as ShareView | null,
     choices: [] as readonly WaitingChoice[],
   };
   switch (entry.kind) {
@@ -322,10 +340,7 @@ export function cardOf(
       };
     case "share": {
       const { request } = entry;
-      const who = [
-        ...request.agents.map((agent) => agent.name),
-        ...(request.coding_agents ? [t("waiting.label.share-coding")] : []),
-      ].join(", ");
+      const who = shareWho(request);
       return {
         ...base,
         title: t("waiting.title.share", { app: request.app_name }),
@@ -348,6 +363,15 @@ export function cardOf(
         description: view.first
           ? t("waiting.notice.activation-first", counts)
           : t("waiting.notice.activation-since", counts),
+        share:
+          entry.share === undefined
+            ? null
+            : {
+                who: shareWho(entry.share),
+                reason: entry.share.reason,
+                skills: entry.share.public_skills,
+                commands: entry.share.public_commands,
+              },
         choices: ["allow", "reject"],
       };
     }

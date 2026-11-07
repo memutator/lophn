@@ -25,6 +25,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
  앱 공유 요청 (turn 안 request와 달리 turn이 끝나도 남는다. activation 동의, job 승인과 같은 꼴)
    앱 workspace의 agent ─ lophn app share ─▶ share_request.open ─▶ share_requests 표 + ShareRequestOpened ─▶ 대기 목록
    사람: approve | reject (share_request.decide, 사람 자격만, compare requested_at)
+     (그 앱의 activation 동의가 대기 중이면 대기 목록이 요청을 동의 카드에 붙이고, 동의 허락(activation.consent + share_requested_at)이 같은 tx에서 이 approve를 같이 한다)
      approve ─▶ 같은 tx에서 받을 agent마다 할당 쓰기 길로 정의 파일 apps에 앱 slug를 더한다
               ─▶ commit 뒤 coding agent를 골랐으면 설정 coding-agent.shared_apps에 slug를 더한다
      ShareRequestClosed ─▶ 대기 목록에서 빠진다
@@ -69,6 +70,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - 결정은 사람 자격만 한다(`share_request.decide`, handler도 한 번 더 본다). compare `requested_at`이 열린 요청과 다르거나 요청이 없으면 `conflict`다: 그 사이 새 요청이 대신했거나 이미 정해졌다. 거절은 이유를 싣지 않는다. 카드는 앱 이름, 받을 agent, agent가 쓴 이유(200자까지), 받게 되는 것(지금 active 선언의 public skill 수와 public command 수)을 보인다. 이유는 agent가 쓴 글이라 참고일 뿐이고 수는 program이 선언에서 센다.
 - 승인은 같은 tx에서 받을 agent마다 할당 쓰기 길(`assignmentPorts.set`)로 앱을 더한다. 이미 있는 줄과 그 줄에서 뺀 command는 건드리지 않는다. 정의 파일은 tx 밖이라 중간에 실패하면 먼저 쓴 agent의 파일은 되돌아가지 않고, 다시 승인하면 이미 있는 줄은 건너뛰어 같은 결과가 된다.
 - coding agent를 골랐으면 commit 뒤(`afterCommit`)에 core가 설정 `coding-agent.shared_apps`에 앱 slug를 더한다(이미 있으면 더하지 않는다). 설정 store가 writer Worker 밖이라 commit 뒤에 쓴다. 쓰기가 실패해도 승인은 이미 확정이라 log(`shared_apps_not_saved`)만 남는다. 이 설정은 사람이 승인할 때만 더하고, 듣는 쪽은 `architecture/coding-agent.md`다.
+- 그 앱의 activation 동의가 대기 중이면 사람은 한 번만 승인한다(사람, 2026-11-07: builder가 만들고 grant까지 알아서 해 주기를 바랐다). 대기 목록(renderer waiting store)이 그 앱의 공유 요청을 동의 항목에 붙여 보이고 따로 줄을 세우지 않는다(요청이 먼저 열렸든 동의가 먼저 열렸든 같다). 동의를 허락하면 `activation.consent`가 카드가 본 요청의 `requested_at`을 `share_requested_at`으로 실어 core가 같은 tx에서 `approveShareWithConsent`로 승인한다: 효과는 `share_request.decide`의 approve와 같고(할당, commit 뒤 coding agent 설정), `ShareRequestClosed {approve}`도 낸다. 그 사이 새 요청이 대신했거나 이미 정해졌으면 동의째 `conflict`라 사람이 보지 못한 내용은 승인되지 않고, 요청이 하나라도 실패하면 동의도 허락되지 않고 대기로 남는다(공유가 먼저 적용된다). 동의를 거절하면 공유 요청은 그대로라 대기 목록에 제 줄로 다시 보인다. 동의 대기가 없으면 위의 따로 승인과 같다. apps는 approvals를 import하지 않아 core/apps의 port `bundledShare`를 `wiring/share-requests.ts`가 꽂는다.
 - 요청의 남지 않는 event는 `ShareRequestOpened`(새 요청이 대신해도 낸다)와 `ShareRequestClosed {outcome}`이고 commit 뒤 Bus로 나간다. 대기 목록은 `share_requests.list`를 읽고 이 event로 고친다.
 
 turn mode

@@ -1,5 +1,6 @@
 // `lophn app share`: 이 앱을 다른 agent(와 coding agent)에게 할당해 달라고 사람에게 청한다.
 // 할당은 사람이 대기 목록에서 승인해야 생긴다. 이 명령은 요청만 연다: agent 정의를 바꾸지 않는다.
+// 그 앱의 activation 동의가 기다리는 중이면 사람이 동의를 허락할 때 같이 승인된다(요청은 따로 줄을 서지 않는다).
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { shareRequestOpen } from "../../protocol/approvals/mod.ts";
@@ -15,7 +16,7 @@ const share = defineCommand({
   summary: "Ask the person to share this app with other agents",
   description:
     "Ask the person to assign this app to other agents (--agent <handle>, repeatable) and/or to coding agents in terminals (--coding-agents). " +
-    "Only the app's own public skills and public commands are given. This opens a request in the waiting list; nothing changes until the person approves it, so tell them. " +
+    "Only the app's own public skills and public commands are given. This opens a request; nothing changes until the person approves it. If this app's activation is waiting for the person's consent (before or after this command), the request is shown on that consent and approved with it, so there is no second prompt; otherwise it is its own entry in the waiting list, so tell the person. " +
     "A new request for this app replaces the open one.",
   input: z.strictObject({
     agent: z.array(agentHandleSchema).default([]),
@@ -54,7 +55,7 @@ const share = defineCommand({
     if (!opened.ok) return opened;
     return ok({
       summary:
-        "opened a share request; the person approves it in the waiting list",
+        "opened a share request; the person approves it with the activation consent if one is waiting, otherwise in the waiting list",
       content: opened.value,
     });
   },

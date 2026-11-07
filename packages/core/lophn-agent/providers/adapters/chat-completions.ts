@@ -10,7 +10,7 @@ import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import type { ToolCall } from "./messages.ts";
 import { quirksFor, verifiedJsonObject } from "./compat.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
-import type { SseFrame } from "./stream.ts";
+import { noteUnknownEvent, type SseFrame } from "./stream.ts";
 
 // Chat 요청 message. Anthropic 블록을 Chat messages로 바꾼다.
 type ChatMessage = {
@@ -173,8 +173,8 @@ type ChatStreamResult = {
   errorMessage?: string;
   // [DONE] sentinel을 봤다. sentinel 앞에 끝난 것도 단절은 아니다(연결 종료).
   sawDone: boolean;
-  // 잘못된 JSON·모르는 꼴을 만났다. 관측 기록이다.
-  sawUnknownEvent: boolean;
+  // 처음 본 모르는 꼴(event type 대신 꼴 이름) 몇 개. 기록의 증거다.
+  unknownEvents: string[];
   // 범위 밖 tool call index를 만났다. 일부 call만 남은 것이라 완성이 아니다.
   sawBadToolIndex: boolean;
 };
@@ -191,7 +191,7 @@ export function createChatStreamResult(): ChatStreamResult {
     usage: undefined,
     streamEndedWithoutFinish: false,
     sawDone: false,
-    sawUnknownEvent: false,
+    unknownEvents: [],
     sawBadToolIndex: false,
   };
 }
@@ -215,7 +215,7 @@ function applyDeltaToolCalls(
       index < 0 ||
       index >= MAX_CHAT_TOOL_CALLS
     ) {
-      out.sawUnknownEvent = true;
+      noteUnknownEvent(out.unknownEvents, "bad_tool_index");
       out.sawBadToolIndex = true;
       continue;
     }
@@ -271,7 +271,7 @@ function applyFrame(out: ChatStreamResult, frame: SseFrame): void {
     return;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    out.sawUnknownEvent = true;
+    noteUnknownEvent(out.unknownEvents, "non_object_frame");
     return;
   }
   const record = parsed as Record<string, unknown>;

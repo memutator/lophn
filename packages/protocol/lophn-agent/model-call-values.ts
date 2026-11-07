@@ -111,6 +111,26 @@ export const initialCallCostSchema = callCostSchema.refine(
   { message: "a started call cost is unknown" },
 );
 
+// 실패를 어느 판정 길로 가렸는가. code가 unknown이 되는 길을 기록으로 가르려고 둔다.
+export const VERDICT_PATHS = [
+  "structured_code",
+  "http_status",
+  "body_message",
+  "unclassified",
+  "stream_failed_without_code",
+  "unparseable_success_body",
+  "connection_failed",
+  "idle_timeout",
+] as const;
+
+// secret이 아닌 응답 증거다. header는 allow-list로 고른 값만 담고 본문은 한 글자도 담지 않는다.
+const evidenceFields = {
+  verdict_path: z.enum(VERDICT_PATHS).nullable(),
+  content_type: nonblankSchema.nullable(),
+  request_id: nonblankSchema.nullable(),
+  // 처음 본 모르는 SSE event type 몇 개.
+  unknown_events: z.array(nonblankSchema).max(3),
+};
 const outcomeFields = {
   kind: z.enum(MODEL_OUTCOMES),
   code: providerFailureSchema.nullable(),
@@ -118,6 +138,8 @@ const outcomeFields = {
   finish_reason: nonblankSchema.nullable(),
   http_status: httpStatusSchema.nullable(),
   provider_code: nonblankSchema.nullable(),
+  // 옛 기록에는 없다.
+  evidence: z.strictObject(evidenceFields).optional(),
 };
 
 function outcomeShape(value: {

@@ -5,10 +5,14 @@
 // 본문 원문은 여기에도 어디에도 남지 않는다.
 
 import { USAGE_WAIT_DEFAULT_MS } from "../../../protocol/lophn-agent/mod.ts";
-import type { ModelOutcome } from "../../../protocol/lophn-agent/mod.ts";
+import type {
+  ModelOutcome,
+  VERDICT_PATHS,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { PROVIDER_FAILURES } from "../../../protocol/lophn-agent/mod.ts";
 
 type ProviderFailure = (typeof PROVIDER_FAILURES)[number];
+export type VerdictPath = (typeof VERDICT_PATHS)[number];
 
 // ---- Retry-After 해석 ----
 
@@ -225,8 +229,6 @@ type FailureInput = {
   code?: string;
   // 종료 message 파편. 원문이 아니라 이 파편만 문구 파싱에 쓰고 버린다.
   message?: string;
-  // 사람이 요청을 멈췄는가. 취소는 항상 첫 단계다.
-  cancelled?: boolean;
   // 지금 시각(ms). 429 경계와 reset default에 쓴다.
   nowMs: number;
   // 429 경계(ms). 기본은 30_000이고 이 안이면 일시 실패다.
@@ -249,9 +251,11 @@ export type FailureVerdict = {
   http_status: number | null;
   // provider가 준 구조화 code 중 안전한 토큰 꼴만이다. 본문 문구는 아니다.
   provider_code: string | null;
+  // 어느 판정 길로 갈렸는가. 기록에 남는다.
+  path: VerdictPath;
 };
 
-type CoreVerdict = Omit<FailureVerdict, "provider_code">;
+type CoreVerdict = Omit<FailureVerdict, "provider_code" | "path">;
 
 const SAFE_PROVIDER_CODE = /^[A-Za-z0-9_.:-]{1,64}$/;
 
@@ -265,55 +269,30 @@ function failureVerdict(input: FailureInput): FailureVerdict {
   return { ...core, provider_code: code };
 }
 
-function coreVerdict(input: FailureInput): CoreVerdict {
-  // 1. 사람 취소 → cancelled. 원문은 남지 않는다.
-  if (input.cancelled === true) {
-    return {
-      code: "cancelled",
-      retry_at_ms: null,
-      until_ms: null,
-      unavailable_reason: null,
-      finish_reason: null,
-      http_status: input.status,
-    };
-  }
-  // 2. 구조화 코드.
+function coreVerdict(input: FailureInput): CoreVerdict & { path: VerdictPath } {
+  // 1. 구조화 코드.
   const structured = fromStructuredCode(input);
-  if (structured !== null) return structured;
-  // 3. HTTP status.
+  if (structured !== null) return { ...structured, path: "structured_code" };
+  // 2. HTTP status.
   const byStatus = fromStatus(input);
-  if (byStatus !== null) return byStatus;
-  // 4. 본문 문구: overflow 문구는 context_exceeded, 메모리 한도 문구는 temporary.
+  if (byStatus !== null) return { ...byStatus, path: "http_status" };
+  // 3. 본문 문구: overflow 문구는 context_exceeded, 메모리 한도 문구는 temporary.
   const fragment = input.message ?? "";
-  if (fragment.length > 0 && isOverflowMessage(fragment)) {
-    return {
-      code: "context_exceeded",
-      retry_at_ms: null,
-      until_ms: null,
-      unavailable_reason: null,
-      finish_reason: null,
-      http_status: input.status,
-    };
-  }
-  if (fragment.length > 0 && isMemoryCeilingMessage(fragment)) {
-    return {
-      code: "temporary",
-      retry_at_ms: null,
-      until_ms: null,
-      unavailable_reason: null,
-      finish_reason: null,
-      http_status: input.status,
-    };
-  }
-  // 5. 남은 것은 unknown이다. 인증 실패로 올리지 않는다.
-  return {
-    code: "unknown",
+  const blank = {
     retry_at_ms: null,
     until_ms: null,
     unavailable_reason: null,
     finish_reason: null,
     http_status: input.status,
   };
+  if (fragment.length > 0 && isOverflowMessage(fragment)) {
+    return { code: "context_exceeded", ...blank, path: "body_message" };
+  }
+  if (fragment.length > 0 && isMemoryCeilingMessage(fragment)) {
+    return { code: "temporary", ...blank, path: "body_message" };
+  }
+  // 4. 남은 것은 unknown이다. 인증 실패로 올리지 않는다.
+  return { code: "unknown", ...blank, path: "unclassified" };
 }
 
 function fromStructuredCode(input: FailureInput): CoreVerdict | null {
@@ -517,6 +496,7 @@ function rateVerdict(input: FailureInput): CoreVerdict {
 export function outcomeFromVerdict(
   verdict: FailureVerdict,
   at: (ms: number) => string,
+  seen: ResponseFacts = NO_RESPONSE_FACTS,
 ): ModelOutcome {
   return {
     kind: "failed",
@@ -525,6 +505,52 @@ export function outcomeFromVerdict(
     finish_reason: verdict.finish_reason,
     http_status: verdict.http_status,
     provider_code: verdict.provider_code,
+    evidence: { verdict_path: verdict.path, ...seen },
+  };
+}
+
+// ---- 응답 증거 ----
+
+// 기록에 남기는 응답 사실이다. header는 이름 allow-list로 고른 값만, 그것도 안전한 토큰 꼴일 때만 담는다.
+// Authorization·api key·cookie와 본문은 이 함수들이 읽지 않는다.
+export type ResponseFacts = {
+  content_type: string | null;
+  request_id: string | null;
+  unknown_events: string[];
+};
+
+export const NO_RESPONSE_FACTS: ResponseFacts = {
+  content_type: null,
+  request_id: null,
+  unknown_events: [],
+};
+
+// OpenAI는 x-request-id·x-oai-request-id, Anthropic은 request-id다.
+const REQUEST_ID_HEADERS = ["request-id", "x-oai-request-id", "x-request-id"];
+const SAFE_REQUEST_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
+const MEDIA_TYPE = /^[a-z0-9.+-]+\/[a-z0-9.+-]+$/;
+
+export function responseFacts(
+  headers: Headers,
+  unknownEvents: readonly string[],
+): ResponseFacts {
+  const mediaType = (headers.get("content-type") ?? "")
+    .split(";")[0]
+    ?.trim()
+    .toLowerCase();
+  let requestId: string | null = null;
+  for (const name of REQUEST_ID_HEADERS) {
+    const value = headers.get(name)?.trim();
+    if (value !== undefined && SAFE_REQUEST_ID.test(value)) {
+      requestId = value;
+      break;
+    }
+  }
+  return {
+    content_type:
+      mediaType !== undefined && MEDIA_TYPE.test(mediaType) ? mediaType : null,
+    request_id: requestId,
+    unknown_events: [...unknownEvents],
   };
 }
 
@@ -641,5 +667,10 @@ export function classifyStreamFailure(input: {
     nowMs: input.nowMs,
   });
   // 0은 HTTP status가 아니다. outcome에는 status 없음으로 남긴다.
-  return { ...verdict, http_status: status ?? null };
+  // type 없는 stream 실패(Responses response.failed에 code가 없는 경우 등)는 분류할 근거가 아예 없던 것이다.
+  const path =
+    input.type === undefined && verdict.path === "unclassified"
+      ? "stream_failed_without_code"
+      : verdict.path;
+  return { ...verdict, http_status: status ?? null, path };
 }

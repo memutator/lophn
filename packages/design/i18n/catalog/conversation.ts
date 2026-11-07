@@ -99,7 +99,9 @@ export const conversation = {
     "Couldn't start a new conversation. Try again.",
   "conversation.error.refresh-models":
     "Couldn't refresh the model list. Try again.",
+  "conversation.error.request-id": "Request ID: {id}",
   "conversation.error.stop-failed": "Couldn't stop this work. Try again.",
+  "conversation.error.verdict-path": "Failure path: {path}",
   "conversation.error.too-long":
     "This message is too long to send. Shorten it, or split it into parts.",
   "conversation.error.tool-body-failed": "Couldn't load the input and output.",

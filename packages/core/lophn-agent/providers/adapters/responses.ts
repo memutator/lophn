@@ -9,7 +9,7 @@ import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
 import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import type { ToolCall } from "./messages.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
-import type { SseFrame } from "./stream.ts";
+import { noteUnknownEvent, type SseFrame } from "./stream.ts";
 
 // 요청 item. prompt-assemble이 준 Anthropic 블록을 Responses item으로 바꾼다.
 type ResponsesItem = {
@@ -155,13 +155,13 @@ type ResponsesStreamResult = {
   incompleteReason?: string;
   responseEnded: boolean;
   usage?: TokenUsage;
-  // response.failed의 provider code·message. 오류 본문은 보존하지 않는다.
+  // response.failed·error event의 provider code·message. 오류 본문은 보존하지 않는다.
   errorType?: string;
   errorMessage?: string;
   // encrypted reasoning 원문들. turn 메모리로만 산다.
   reasoningItems: string[];
-  // 만나지 않은 event는 여기 세지 않는다.
-  sawUnknownEvent: boolean;
+  // 처음 본 모르는 event type 몇 개. 기록의 증거다.
+  unknownEvents: string[];
 };
 
 export function createResponsesStreamResult(): ResponsesStreamResult {
@@ -174,7 +174,7 @@ export function createResponsesStreamResult(): ResponsesStreamResult {
     completedCallIds: [],
     responseEnded: false,
     reasoningItems: [],
-    sawUnknownEvent: false,
+    unknownEvents: [],
   };
 }
 
@@ -223,13 +223,13 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     return;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    out.sawUnknownEvent = true;
+    noteUnknownEvent(out.unknownEvents, "non_object_frame");
     return;
   }
   const record = parsed as Record<string, unknown>;
   const type = typeof record.type === "string" ? record.type : undefined;
   if (type === undefined) {
-    out.sawUnknownEvent = true;
+    noteUnknownEvent(out.unknownEvents, "missing_type");
     return;
   }
   if (type === "response.output_item.done") {
@@ -291,11 +291,14 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
     out.responseEnded = true;
     return;
   }
-  if (type === "response.failed") {
-    const response = record.response;
-    const error = (response as Record<string, unknown> | undefined)?.error as
-      | { code?: unknown; message?: unknown }
-      | undefined;
+  // 최상위 error event(code·message가 최상위에 있다)도 response.failed와 같은 stream 실패다. 모르는 event로 버리면
+  // 뒤에 completed가 없을 때 partial로 끝난다.
+  if (type === "response.failed" || type === "error") {
+    const error = (
+      type === "error"
+        ? record
+        : (record.response as Record<string, unknown> | undefined)?.error
+    ) as { code?: unknown; message?: unknown } | undefined;
     out.errorType = typeof error?.code === "string" ? error.code : "?";
     out.errorMessage =
       typeof error?.message === "string" ? error.message : undefined;
@@ -321,7 +324,7 @@ function applyFrame(out: ResponsesStreamResult, frame: SseFrame): void {
   ) {
     return;
   }
-  out.sawUnknownEvent = true;
+  noteUnknownEvent(out.unknownEvents, type);
 }
 
 // push 후 호출한다.

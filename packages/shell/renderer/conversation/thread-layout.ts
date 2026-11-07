@@ -175,6 +175,7 @@ function entryOf(item: AcpItem): ThreadEntry | null {
             turn: item.turn,
             code: notice.code,
             message: notice.message,
+            evidence: notice.evidence,
           }
         : {
             kind: "turn-end",

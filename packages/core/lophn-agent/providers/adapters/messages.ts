@@ -7,7 +7,7 @@ import type { TokenUsage } from "../../../../protocol/lophn-agent/mod.ts";
 import type { JsonObject } from "../../../../protocol/base/mod.ts";
 import { recordOf } from "../issuer-http.ts";
 import { mergeRequestPatch } from "./request-patch.ts";
-import type { SseFrame } from "./stream.ts";
+import { noteUnknownEvent, type SseFrame } from "./stream.ts";
 
 // Anthropic thinking.signature와 redacted_thinking.data 원문. 사람이 읽을
 // 본문(thinking text)은 상태에 두지 않고, 응답 결과의 `reasoning`으로 따로 모은다.
@@ -234,8 +234,8 @@ type StreamResult = {
   // error frame의 provider type·message. 오류 본문은 보존하지 않는다.
   errorType?: string;
   errorMessage?: string;
-  // 만난 event 종류(관측 기록). 모르는 event는 여기 세지 않는다.
-  sawUnknownEvent: boolean;
+  // 처음 본 모르는 event type 몇 개. 기록의 증거다.
+  unknownEvents: string[];
 };
 
 export function createStreamResult(): StreamResult {
@@ -250,7 +250,7 @@ export function createStreamResult(): StreamResult {
     messageEnded: false,
     startedBlocks: [],
     lastBlock: -1,
-    sawUnknownEvent: false,
+    unknownEvents: [],
   };
 }
 
@@ -268,7 +268,7 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
     try {
       error = JSON.parse(frame.data);
     } catch {
-      out.sawUnknownEvent = true;
+      noteUnknownEvent(out.unknownEvents, "bad_error_frame");
       return;
     }
     const detail = error.error as
@@ -288,13 +288,13 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
     return;
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    out.sawUnknownEvent = true;
+    noteUnknownEvent(out.unknownEvents, "non_object_frame");
     return;
   }
   const record = parsed as Record<string, unknown>;
   const type = typeof record.type === "string" ? record.type : undefined;
   if (type === undefined) {
-    out.sawUnknownEvent = true;
+    noteUnknownEvent(out.unknownEvents, "missing_type");
     return;
   }
   if (type === "message_start") {
@@ -386,7 +386,7 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
   if (type === "ping" || type === "content_block_start_seen") {
     return;
   }
-  out.sawUnknownEvent = true;
+  noteUnknownEvent(out.unknownEvents, type);
 }
 
 // 알려진 event만 누적하고 모르는 event는 버린다. push 후 호출한다.

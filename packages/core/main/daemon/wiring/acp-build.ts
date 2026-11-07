@@ -63,6 +63,8 @@ import {
   type ReceivedMessage,
   receivedMessageList,
 } from "../../../../protocol/lophn-agent/received-messages.ts";
+import { modelCallList } from "../../../../protocol/lophn-agent/model-calls.ts";
+import type { ModelCallRecord } from "../../../../protocol/lophn-agent/model-call-values.ts";
 import { rewindList } from "../../../../protocol/lophn-agent/reverts.ts";
 import {
   toolCallList,
@@ -589,13 +591,46 @@ function latestTurn(turns: readonly TurnRecord[]): TurnRecord | null {
   return latest;
 }
 
-function noticeOf(turn: TurnRecord): AcpNoticeItem["notice"] | null {
+type ErrorEvidence = NonNullable<
+  Extract<AcpNoticeItem["notice"], { type: "error" }>["evidence"]
+>;
+
+// provider 호출 탓으로 실패한 turn의 마지막 실패 호출에서 판정 길과 request id를 읽는다. 그 밖의 실패 이유에는 호출 근거가 없다.
+async function failureEvidence(
+  env: AcpEnv,
+  turn: TurnRecord,
+): Promise<ErrorEvidence | undefined> {
+  if (
+    turn.outcome?.kind !== "failed" ||
+    (turn.outcome.reason !== "model_error" &&
+      turn.outcome.reason !== "model_attempt_limit")
+  ) {
+    return undefined;
+  }
+  const calls = await pages(
+    env,
+    modelCallList,
+    { turn: turn.id },
+    (out: { calls: ModelCallRecord[] }) => out.calls,
+  );
+  if (!calls.ok) return undefined;
+  const failed = calls.value.findLast((call) => call.outcome?.kind === "failed")
+    ?.outcome?.evidence;
+  if (failed === undefined) return undefined;
+  return { verdict_path: failed.verdict_path, request_id: failed.request_id };
+}
+
+function noticeOf(
+  turn: TurnRecord,
+  evidence: ErrorEvidence | undefined,
+): AcpNoticeItem["notice"] | null {
   if (turn.state !== "finished" || turn.outcome === null) return null;
   if (turn.outcome.kind === "failed") {
     return {
       type: "error",
       code: turn.outcome.reason,
       message: turn.outcome.reason.replaceAll("_", " "),
+      ...(evidence === undefined ? {} : { evidence }),
     };
   }
   const at = turn.finished_at ?? turn.started_at;
@@ -823,7 +858,7 @@ export async function buildAcpState(
   });
 
   for (const turn of turns.value) {
-    const notice = noticeOf(turn);
+    const notice = noticeOf(turn, await failureEvidence(env, turn));
     if (notice === null) continue;
     const at = turn.finished_at ?? turn.started_at;
     candidates.push({

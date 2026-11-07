@@ -178,7 +178,12 @@ export type AcpNoticeItem = {
         active_ms: number;
         waited_ms: number;
       }
-    | { type: "error"; code: string; message: string }
+    | {
+        type: "error";
+        code: string;
+        message: string;
+        evidence?: { verdict_path: string | null; request_id: string | null };
+      }
     | { type: "info"; text: string; level: "info" | "warning" }
     | {
         type: "command_output";

@@ -17,6 +17,8 @@ interface ProviderErrorProps {
   code: string;
   /** 어떤 오류인지. core가 준 글이고, code가 turn이 끝난 이유면 쓰지 않는다. */
   message: string;
+  /** provider 호출이 실패했을 때 판정 길과 request id. 원인 갈래를 DB 없이 알게 한다. */
+  evidence?: { verdict_path: string | null; request_id: string | null };
   source: Pick<AgentTabSource, "retryTurn">;
   /** `capabilities.retry`. 꺼져 있으면 [Retry]가 없다. 기본은 true다. */
   canRetry?: boolean;
@@ -47,6 +49,7 @@ export function ProviderError({
   turn,
   code,
   message,
+  evidence,
   source,
   canRetry = true,
 }: ProviderErrorProps): ReactElement {
@@ -66,6 +69,18 @@ export function ProviderError({
           label={t("conversation.notice.request-failed")}
         />
         <p className={styles.errorDetail}>{detail}</p>
+        {evidence?.verdict_path != null ? (
+          <p className={styles.errorDetail}>
+            {t("conversation.error.verdict-path", {
+              path: evidence.verdict_path,
+            })}
+          </p>
+        ) : null}
+        {evidence?.request_id != null ? (
+          <p className={styles.errorDetail}>
+            {t("conversation.error.request-id", { id: evidence.request_id })}
+          </p>
+        ) : null}
         {state === "failed" ? (
           <p className={styles.errorDetail}>
             {t("conversation.notice.retry-failed")}

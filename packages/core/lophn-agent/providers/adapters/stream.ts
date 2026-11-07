@@ -138,3 +138,14 @@ export function createSseParser(
     },
   };
 }
+
+// 모르는 event의 type을 처음 몇 개만 모은다. type 이름은 provider가 보낸 글이라 안전한 토큰 꼴이 아니면 이름을 버린다.
+const MAX_UNKNOWN_EVENTS = 3;
+const SAFE_EVENT_TYPE = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+export function noteUnknownEvent(seen: string[], type: string): void {
+  const label = SAFE_EVENT_TYPE.test(type) ? type : "unsafe_type";
+  if (seen.length < MAX_UNKNOWN_EVENTS && !seen.includes(label)) {
+    seen.push(label);
+  }
+}

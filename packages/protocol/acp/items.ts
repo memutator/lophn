@@ -211,6 +211,13 @@ export const acpNoticeItemSchema = z.strictObject({
       type: z.literal("error"),
       code: z.string().min(1),
       message: z.string(),
+      /** provider 호출이 실패한 turn에서 판정 길과 provider request id. DB를 열지 않고 원인 갈래를 알게 한다. */
+      evidence: z
+        .strictObject({
+          verdict_path: z.string().min(1).nullable(),
+          request_id: z.string().min(1).nullable(),
+        })
+        .optional(),
     }),
     /** turn 중간의 한 줄 알림(compaction, 재시도, 명령 출력). turn의 끝이 아니다. */
     z.strictObject({

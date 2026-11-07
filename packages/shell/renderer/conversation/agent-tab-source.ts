@@ -364,6 +364,11 @@ interface ThreadProviderError extends EntryBase {
   readonly turn: string;
   readonly code: string;
   readonly message: string;
+  /** provider 호출이 실패했을 때 판정 길과 request id. */
+  readonly evidence?: {
+    readonly verdict_path: string | null;
+    readonly request_id: string | null;
+  };
 }
 
 /** 한 줄 알림(compaction, 재시도, rate limit). `turn`이 null이면 turn 밖이다. */

@@ -45,6 +45,8 @@ import {
   classifyStreamFailure,
   type FailureVerdict,
   outcomeFromVerdict,
+  type ResponseFacts,
+  responseFacts,
 } from "./failures.ts";
 import type {
   InvokeModelCall,
@@ -109,6 +111,7 @@ type Collected = {
   errorType?: string;
   errorMessage?: string;
   providerCode: string | null;
+  unknownEvents: string[];
 };
 
 type Collector = {
@@ -173,6 +176,7 @@ function collectorFor(
           errorType: out.errorType,
           errorMessage: out.errorMessage,
           providerCode: verdict.providerCode ?? null,
+          unknownEvents: out.unknownEvents,
         };
       },
     };
@@ -197,6 +201,7 @@ function collectorFor(
           errorType: out.errorType === "?" ? undefined : out.errorType,
           errorMessage: out.errorMessage,
           providerCode: verdict.providerCode ?? null,
+          unknownEvents: out.unknownEvents,
         };
       },
     };
@@ -221,6 +226,7 @@ function collectorFor(
           errorType: out.errorType,
           errorMessage: out.errorMessage,
           providerCode: verdict.providerCode ?? null,
+          unknownEvents: [],
         };
       },
     };
@@ -242,6 +248,7 @@ function collectorFor(
         errorType: out.errorType,
         errorMessage: out.errorMessage,
         providerCode: verdict.providerCode ?? null,
+        unknownEvents: out.unknownEvents,
       };
     },
   };
@@ -289,6 +296,7 @@ function plainOutcome(
   kind: "complete" | "partial" | "cancelled" | "uncertain",
   status: number | null,
   finishReason: string | null,
+  seen?: ResponseFacts,
 ): ModelOutcome {
   return {
     kind,
@@ -297,6 +305,9 @@ function plainOutcome(
     finish_reason: finishReason,
     http_status: status,
     provider_code: null,
+    ...(seen === undefined
+      ? {}
+      : { evidence: { verdict_path: null, ...seen } }),
   };
 }
 
@@ -381,8 +392,9 @@ async function invoke(
   const doneFailed = (
     verdict: FailureVerdict,
     extra: Partial<ModelCallOutput> = {},
+    seen?: ResponseFacts,
   ): Result<ModelCallOutput> =>
-    done(outcomeFromVerdict(verdict, deps.at), { ...extra, verdict });
+    done(outcomeFromVerdict(verdict, deps.at, seen), { ...extra, verdict });
   if (!sent.ok) {
     const how = sent.error.details?.transport;
     if (how === "aborted" || combined.aborted) {
@@ -404,7 +416,7 @@ async function invoke(
       nowMs: deps.nowMs(),
     });
     // 본문은 여기서 버린다.
-    return doneFailed(verdict);
+    return doneFailed(verdict, {}, responseFacts(response.headers, []));
   }
   const collector = collectorFor(input.model.protocol, input.onDelta);
   let firstOutputMs: number | null = null;
@@ -416,7 +428,15 @@ async function invoke(
     if (frames === null) {
       // 읽을 수 없는 성공 본문은 원인 불명이다.
       const verdict = classifyStreamFailure({ nowMs: deps.nowMs() });
-      return doneFailed({ ...verdict, http_status: response.status });
+      return doneFailed(
+        {
+          ...verdict,
+          http_status: response.status,
+          path: "unparseable_success_body",
+        },
+        {},
+        responseFacts(response.headers, []),
+      );
     }
     firstOutputMs = deps.nowMs() - startedMs;
     collector.push(frames);
@@ -448,6 +468,7 @@ async function invoke(
     if (!disconnected && !over) parser.finish();
   }
   const collected = collector.finish();
+  const seen = responseFacts(response.headers, collected.unknownEvents);
   const usage = collected.usage ?? emptyUsage(usageRevision);
   const extra = {
     text: collected.text,
@@ -472,7 +493,7 @@ async function invoke(
       message: collected.errorMessage,
       nowMs: deps.nowMs(),
     });
-    return doneFailed(verdict, extra);
+    return doneFailed(verdict, extra, seen);
   }
   if (collected.kind === "refused") {
     return done(
@@ -483,6 +504,7 @@ async function invoke(
         finish_reason: collected.finishReason,
         http_status: response.status,
         provider_code: collected.providerCode,
+        evidence: { verdict_path: null, ...seen },
       },
       extra,
     );
@@ -490,12 +512,12 @@ async function invoke(
   if (over) {
     // 크기 상한 초과는 일시가 아니라 응답 크기 문제다. 받은 것까지 partial이다.
     return done(
-      plainOutcome("partial", response.status, collected.finishReason),
+      plainOutcome("partial", response.status, collected.finishReason, seen),
       extra,
     );
   }
   return done(
-    plainOutcome(collected.kind, response.status, collected.finishReason),
+    plainOutcome(collected.kind, response.status, collected.finishReason, seen),
     extra,
   );
 }
@@ -510,6 +532,12 @@ function abortOutcome(signal: AbortSignal): ModelOutcome {
     finish_reason: null,
     http_status: null,
     provider_code: null,
+    evidence: {
+      verdict_path: "idle_timeout",
+      content_type: null,
+      request_id: null,
+      unknown_events: [],
+    },
   };
 }
 
@@ -522,5 +550,6 @@ function classifyHttpFailureDisconnect(): FailureVerdict {
     finish_reason: null,
     http_status: null,
     provider_code: null,
+    path: "connection_failed",
   };
 }

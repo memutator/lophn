@@ -401,6 +401,7 @@ function itemsOf(
             turn={entry.turn}
             code={entry.code}
             message={entry.message}
+            evidence={entry.evidence}
             source={props.source}
             canRetry={props.can.retry}
           />,

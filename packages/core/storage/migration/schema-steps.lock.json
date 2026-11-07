@@ -214,5 +214,9 @@
   {
     "id": "lophn-agent.harness-tools.close-stuck",
     "sha256": "32c3c163ea147aec30861f9e6a52f1096530803f61551873f0ffb2859f100fdc"
+  },
+  {
+    "id": "apps.notices.unified",
+    "sha256": "574831370d3f903acb6e6cc19632e253a2f6d08c7ece44dd1879f828b22a0f24"
   }
 ]

@@ -21,6 +21,9 @@ export type NotifyRequest = {
   // 같은 key의 열린 notice가 있으면 그것을 대신한다(내용 갱신, 맨 뒤로, toast 다시). 없으면 매번 더한다.
   // 1~64자의 영문자·숫자·`_.:-`.
   key?: string;
+  // true면 사람이 Inbox에서 지워도 읽음으로만 바뀌고 기록으로 남는다(앱마다 최근 200개). 기본 false는 지우면 사라지는
+  // 알림이다(앱마다 50개).
+  persistent?: boolean;
 };
 
 export type NotifyResult = { notified: true; standIn?: true };
@@ -56,6 +59,12 @@ function check(request: NotifyRequest): void {
       request.body.trim().length > NOTIFY_BODY_MAX)
   ) {
     throw invalid(`body must be at most ${NOTIFY_BODY_MAX} characters`);
+  }
+  if (
+    request.persistent !== undefined &&
+    typeof request.persistent !== "boolean"
+  ) {
+    throw invalid("persistent must be true or false");
   }
   if (
     request.key !== undefined &&
@@ -124,6 +133,9 @@ export function createNotifyClient(deps: NotifyClientDeps = {}): NotifyClient {
           title: request.title,
           ...(request.body === undefined ? {} : { body: request.body }),
           ...(request.key === undefined ? {} : { key: request.key }),
+          ...(request.persistent === undefined
+            ? {}
+            : { persistent: request.persistent }),
         });
       } catch {
         throw new CapabilityError({

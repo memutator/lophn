@@ -26,7 +26,7 @@ import {
   activationRecordDataRestore,
   activationStart,
   appCallTool,
-  appNoticePost,
+  noticePost,
   appTraySet,
   appGrantsList,
   appLogFile,
@@ -173,7 +173,7 @@ const SUPERVISOR_OPERATIONS = [
 // 호출은 앱 process의 broker가 그 자식의 credential로 core를 부른다. notice의 권한은 broker가 판정한다.
 const APP_CHILD_OPERATIONS = [
   appCallTool.name,
-  appNoticePost.name,
+  noticePost.name,
   appTraySet.name,
 ];
 
@@ -194,7 +194,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
       actors: ["machine", "agent", "app"],
       kind: "command",
     },
-    { name: appNoticePost.name, actors: ["machine", "app"], kind: "command" },
+    { name: noticePost.name, actors: ["machine", "app"], kind: "command" },
     { name: appTraySet.name, actors: ["machine", "app"], kind: "command" },
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
     { name: appTools.name, actors: ["machine"], kind: "command" },

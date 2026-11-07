@@ -1,0 +1,51 @@
+import type { NoticeRecordInput } from "../../../protocol/apps/notice.ts";
+
+// program 줄의 글은 여기 template과 매개변수로만 만든다. 앱이 쓴 글이 program 줄에 들어가지 않게 하려고
+// command 입력에 title·body를 두지 않았다. 매개변수는 짧은 식별자와 core가 정한 이유 코드다(protocol/apps/notice.ts).
+export function programNoticeText(input: NoticeRecordInput): {
+  title: string;
+  body: string;
+} {
+  switch (input.kind) {
+    case "release_activated":
+      return {
+        title: `Release ${input.params.release} is live`,
+        body: "",
+      };
+    case "release_failed":
+      return {
+        title: `Release ${input.params.release} failed`,
+        body: input.params.reason,
+      };
+    case "release_rolled_back":
+      return {
+        title: `Release ${input.params.release} was rolled back`,
+        body: `The app is running release ${input.params.to} again.`,
+      };
+    case "app_unavailable":
+      return {
+        title: "The app stopped and is not running",
+        body: input.params.reason,
+      };
+    case "app_data_migrated":
+      return {
+        title: "App data was migrated",
+        body: `Release ${input.params.release} changed the data and the migration was applied.`,
+      };
+    case "app_data_restored":
+      return {
+        title: "App data was restored from a backup",
+        body: `The data was put back to what it was before release ${input.params.release}.`,
+      };
+    case "lophn_updated":
+      return {
+        title: `lophn was updated to ${input.params.to}`,
+        body: `It was ${input.params.from} before.`,
+      };
+    case "sdk_update_needed":
+      return {
+        title: `${input.params.sdk} needs an update`,
+        body: `This app uses ${input.params.sdk} ${input.params.pinned}. The current version is ${input.params.current}.`,
+      };
+  }
+}

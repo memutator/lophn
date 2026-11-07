@@ -19,8 +19,8 @@ import {
   shareRequestList,
 } from "../../../../../protocol/approvals/share-request.ts";
 import {
-  type AppNotice,
-  appNoticesList,
+  type Notice,
+  noticesOpen,
 } from "../../../../../protocol/apps/notice.ts";
 import type { ConnectionState, CoreSource } from "../connection.ts";
 import { matchesCondition } from "./client.ts";
@@ -30,7 +30,7 @@ interface FakeSnapshot {
   readonly snapshots: readonly SessionSnapshot[];
   readonly consents: readonly ActivationConsent[];
   readonly shares?: readonly ShareRequest[];
-  readonly notices?: readonly AppNotice[];
+  readonly notices?: readonly Notice[];
 }
 
 export interface FakeSource extends CoreSource {
@@ -124,8 +124,8 @@ export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
         });
       }
       if (
-        input.resource === appNoticesList.resource &&
-        input.method === appNoticesList.method
+        input.resource === noticesOpen.resource &&
+        input.method === noticesOpen.method
       ) {
         return Promise.resolve({
           ok: true,

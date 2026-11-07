@@ -15,7 +15,7 @@ import {
   toolCallOutputSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import {
-  appNoticePost,
+  noticePost,
   appsSecretValue,
   CONTROL_PATHS,
 } from "../../../protocol/apps/mod.ts";
@@ -364,7 +364,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     post: (child, input) =>
       asChild(
         child,
-        `${appNoticePost.resource}/${appNoticePost.method}`,
+        `${noticePost.resource}/${noticePost.method}`,
         input,
       ),
     setTray: (child, input) =>

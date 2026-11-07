@@ -4,7 +4,7 @@ import { atSchema } from "../base/values.ts";
 import { eventTypeSchema } from "../base/event.ts";
 import { workflowNameSchema } from "../workflows/values.ts";
 import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
-import { appNoticeSchema } from "../apps/notice.ts";
+import { noticeSchema } from "../apps/notice.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
 // 놓쳐도 그 대상은 표에 남아 있어 snapshot으로 맞춘다.
@@ -111,17 +111,23 @@ const shareRequestClosed = defineTransientEvent("ShareRequestClosed", {
   }),
 });
 
-// 앱이 사람에게 알린 notice가 표에 쓰이고 commit된 뒤 낸다. subject는 앱이다. 같은 key의 notice가 다시 와도 낸다(id는 같다).
-// payload가 notice 한 건이라 화면은 다시 읽지 않고 toast와 Inbox 줄을 만든다.
-const appNoticePosted = defineTransientEvent("AppNoticePosted", {
-  subject: idSchema("app"),
-  payload: appNoticeSchema,
+// notice 행이 표에 쓰이고 commit된 뒤 낸다. subject는 앱(앱에 관한 행이 아니면 null)이다. 같은 key의 행이 다시 와도 낸다(id는 같다).
+// payload가 행 한 건이라 화면은 다시 읽지 않고 toast와 Inbox 줄을 만든다.
+const noticePosted = defineTransientEvent("NoticePosted", {
+  subject: idSchema("app").nullable(),
+  payload: noticeSchema,
 });
 
-// 사람이 지웠거나 앱당 상한·앱 보관으로 notice가 표에서 빠진 뒤 낸다. 같은 key의 교체는 id가 같아 Posted만 낸다.
-const appNoticeClosed = defineTransientEvent("AppNoticeClosed", {
-  subject: idSchema("app"),
+// 휘발 행을 사람이 지웠거나 앱당 상한·앱 보관으로 행이 표에서 빠진 뒤 낸다. 같은 key의 교체는 id가 같아 Posted만 낸다.
+const noticeClosed = defineTransientEvent("NoticeClosed", {
+  subject: idSchema("app").nullable(),
   payload: z.strictObject({ id: idSchema("ntc") }),
+});
+
+// 영구 행이 읽음이 된 뒤 낸다. 행은 표에 남고 화면의 열린 줄에서만 빠진다.
+const noticeRead = defineTransientEvent("NoticeRead", {
+  subject: idSchema("app").nullable(),
+  payload: z.strictObject({ id: idSchema("ntc"), read_at: atSchema }),
 });
 
 // 앱의 tray 값이 바뀌거나 지워진 뒤 낸다. 값은 core 메모리에만 있어 화면은 `app_tray/list`로 다시 읽는다.
@@ -168,8 +174,9 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(activationConsentClosed),
   transientEventEnvelopeSchema(shareRequestOpened),
   transientEventEnvelopeSchema(shareRequestClosed),
-  transientEventEnvelopeSchema(appNoticePosted),
-  transientEventEnvelopeSchema(appNoticeClosed),
+  transientEventEnvelopeSchema(noticePosted),
+  transientEventEnvelopeSchema(noticeClosed),
+  transientEventEnvelopeSchema(noticeRead),
   transientEventEnvelopeSchema(appTrayChanged),
   transientEventEnvelopeSchema(workflowInstanceChanged),
   transientEventEnvelopeSchema(jobChanged),

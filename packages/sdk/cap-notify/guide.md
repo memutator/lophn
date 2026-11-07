@@ -13,14 +13,18 @@ operation·flow·시작 코드에서 부른다. import는 grant를 주지 않는
 import { clearTray, notify, setTray } from "@lophn/cap-notify";
 ```
 
-- `notify({ title, body?, key? })` — `{ notified: true }`를 돌려준다.
+- `notify({ title, body?, key?, persistent? })` — `{ notified: true }`를 돌려준다.
   - `title`은 필수이고 1~120자다. `body`는 일반 글이고 500자까지다. 앞뒤 공백은 지운다.
   - `key`는 선택이고 1~64자의 영문자·숫자·`_.:-`다. 같은 앱에 같은 `key`의 열린 알림이
     있으면 새 알림이 그것을 대신한다: 내용이 바뀌고, 맨 뒤로 옮겨지고, toast나 OS 알림이
     다시 뜬다. 30분마다 한도를 다시 확인하는 앱이 Inbox를 채우지 않게 한다. `key`가
     없으면 부를 때마다 알림이 하나 늘어난다.
-  - 앱마다 열린 알림은 50개까지다. 넘으면 오래된 것부터 지운다.
-  - 사람이 Inbox에서 지우면 사라진다. 지우지 않은 알림은 앱이나 lophn을 다시 켜도 남는다.
+  - `persistent`는 선택이고 기본은 `false`다. 휘발(`false`) 알림은 사람이 Inbox에서 지우면 사라지고 앱마다 50개까지다.
+    영구(`true`) 알림은 지우면 읽음으로만 바뀌고 기록으로 남아 사람이 나중에 찾을 수 있다. 앱마다 최근 200개까지이고
+    넘으면 오래된 것부터 지운다. 휘발과 영구의 상한은 따로 센다. 앱이 처리한 결과나 사람이 나중에 찾을 일(예: 한도 초과로
+    멈춘 사실, 큰 작업이 끝난 사실)은 영구로, 곧 지나가는 상태(예: 남은 한도 경고)는 휘발로 남긴다. 같은 `key`로 다시 부르면
+    `persistent`도 새 값으로 바뀐다.
+  - 지우지 않은 알림은 앱이나 lophn을 다시 켜도 남는다. 앱을 보관하면 휘발 알림은 지워지고 영구 알림은 남는다.
   - 알림을 누르면 이 앱이 열린다.
 - `setTray({ text, tone? })`, `clearTray()` — 작업 표시줄 tray에 보이는 값을 바꾸거나 지운다.
   - `text`는 1~16자의 짧은 글이고 앞뒤 공백은 지운다. `tone`은 `"neutral"`(기본), `"good"`, `"warn"`,
@@ -58,6 +62,9 @@ await notify({
   body: "Resets on Monday.",
   key: "limit:account-x",
 });
+
+// 사람이 나중에 찾을 기록은 영구로 남긴다.
+await notify({ title: "Weekly report was sent", persistent: true });
 ```
 
 ```ts

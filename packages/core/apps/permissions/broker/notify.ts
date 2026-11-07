@@ -1,9 +1,9 @@
 // broker `/_lophn/broker/notify/send`. 앱이 사람에게 알린다. 선언∩grant의 `notify.send`를 요청마다 검사한 뒤
-// core의 app_notices.post를 그 자식의 app credential로 부른다. 앱은 notice 내용만 정하고 어느 앱인지는 자식
+// core의 notices.post를 그 자식의 app credential로 부른다. 앱은 notice 내용만 정하고 어느 앱인지는 자식
 // 연결이 정한다. 받는 쪽은 사람뿐이다: agent나 core 로직에 사실을 보내는 길이 아니다.
 import { ok, type Result } from "../../../../base/mod.ts";
 import {
-  type AppNoticePostInput,
+  type NoticePostInput,
   brokerNotifyInputSchema,
 } from "../../../../protocol/apps/mod.ts";
 import {
@@ -20,9 +20,9 @@ import {
 } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
-// core의 `app_notices.post`와 `app_tray.set`을 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
+// core의 `notices.post`와 `app_tray.set`을 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
 export interface NoticePostPort {
-  post(child: BrokerChild, input: AppNoticePostInput): Promise<Result<unknown>>;
+  post(child: BrokerChild, input: NoticePostInput): Promise<Result<unknown>>;
   setTray(child: BrokerChild, input: AppTraySetInput): Promise<Result<unknown>>;
 }
 
@@ -47,11 +47,12 @@ export function createNotifyService(deps: {
       if (access.value === null || !notifyGranted(access.value)) {
         return refuse("notify.send", {});
       }
-      const { title, body: text, key } = parsed.data;
+      const { title, body: text, key, persistent } = parsed.data;
       const posted = await deps.core.post(child, {
         title,
         ...(text === undefined ? {} : { body: text }),
         ...(key === undefined ? {} : { key }),
+        ...(persistent === undefined ? {} : { persistent }),
       });
       return posted.ok ? ok({ notified: true }) : posted;
     },

@@ -237,7 +237,7 @@ components:
   - id: architecture-app-notice
     kind: doc
     roles: [planner, lead]
-    description: 앱이 사람에게 알리는 길(cap-notify). grant, broker 판정, 같은 key 대신하기, 앱당 상한, Inbox 줄과 toast.
+    description: 사람에게 알리는 기록 표(notices). 앱 알림(cap-notify, grant, broker 판정, 같은 key 대신하기)과 program 기록, 휘발·영구, 남기는 기간, Inbox 줄과 toast.
     path: project-docs/architecture/app-notice.md
     change_reasons:
       boundaries: [app-runtime]

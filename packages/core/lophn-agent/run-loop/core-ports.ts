@@ -140,6 +140,29 @@ const UNKNOWN_COST: CallCost = {
   confirmed_at: null,
 };
 
+// 기록 열에 넣는 줄인 result다. 내용은 버리되 이미지는 개수만 남긴다: 다음 model 호출 전 context 추정이 이 열에서
+// 이미지 수를 센다(`session/context.ts`).
+function compactRecord(result: ToolResult): ToolResult {
+  const image = (result.content as { image?: { media_type?: unknown } } | null)
+    ?.image;
+  const kept =
+    image !== undefined && image !== null && typeof image === "object"
+      ? { image: { media_type: String(image.media_type), data_base64: "" } }
+      : null;
+  return {
+    ...result,
+    summary:
+      result.summary.length > 400
+        ? `${result.summary.slice(0, 399)}…`
+        : result.summary,
+    content: kept,
+    pending: [
+      ...result.pending.slice(0, 31),
+      "The stored record omits the content.",
+    ],
+  };
+}
+
 export function createCorePorts(deps: CorePortsDeps): TurnPorts {
   const { seat, machine, clock, ids } = deps;
   const store = (purpose: string, value: unknown) =>
@@ -573,8 +596,8 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     const startedMs = clock.nowMs();
 
     // 각 command의 compare는 앞 command가 올린 state_seq다(요청 0, decide 1, start 2). command 출력에는
-    // state_seq가 없어 성공한 만큼 센다.
-    let seq = 0;
+    // state_seq가 없어 성공한 만큼 센다. enter가 중간에 실패해도 닫기가 행의 현재 값을 알도록 enter가 올린다.
+    const cursor = { seq: 0 };
     let bookkeeping: string | null = null;
     const gated = { ran: false };
     // 결정과 시작은 handler가 돌기 직전에 남긴다. 실패하면 tool을 실행하지 않는다.
@@ -586,26 +609,52 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
             ...tool,
             handler: async (input: unknown, context: ToolContext) => {
               const entered = recorded.ok
-                ? await enter(id, seq, gated.ran)
+                ? await enter(id, cursor, gated.ran)
                 : ok(undefined);
               if (!entered.ok) {
                 bookkeeping = entered.error.message;
                 return entered;
               }
-              if (recorded.ok) seq += 2;
               return await tool.handler!(input, context);
             },
           },
     );
-    const executed = await executeToolCall(
-      { ...ctx, listed },
-      call.name,
-      call.input,
-    );
-    if (bookkeeping !== null) {
+    // 이 뒤에서 행이 요청·진입 상태로 남는 길은 모두 giveUp으로 닫는다. 끝나지 않은 행은 ACP 화면에 영원히
+    // 실행 중으로 남는다.
+    const giveUp = async (summary: string): Promise<ToolDone> => {
       publish("ToolCallEnded", { tool_call: id, outcome: "error" });
-      return done(id, "uncertain", "uncertain", bookkeeping);
+      const closed = done(id, "uncertain", "uncertain", summary);
+      if (recorded.ok) {
+        // 닫기가 실패해도 turn은 간다. 원래 finish가 이미 commit됐다면 conflict이고 그대로 둔다.
+        await commandOf(
+          machine,
+          finishToolCall,
+          {
+            tool_call: id,
+            outcome: { kind: "uncertain", code: "uncertain" },
+            output: null,
+            result: closed.result,
+            finished_at: clock.now(),
+            duration_ms: Math.max(0, clock.nowMs() - startedMs),
+          },
+          { state_seq: String(cursor.seq) },
+          `${id}:close`,
+        );
+      }
+      return closed;
+    };
+    // handler가 던지면 효과가 났는지 알 수 없다. 던짐을 batch까지 올리면 행이 진입 상태로 남고 turn이 죽는다.
+    let executed: Awaited<ReturnType<typeof executeToolCall>>;
+    try {
+      executed = await executeToolCall(
+        { ...ctx, listed },
+        call.name,
+        call.input,
+      );
+    } catch {
+      return await giveUp("the tool call threw");
     }
+    if (bookkeeping !== null) return await giveUp(bookkeeping);
     let outputBlob: { hash: string; size: number } | null = null;
     if (executed.outcome.kind === "success") {
       const stored = await store(
@@ -613,53 +662,45 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         executed.result,
       );
       // 결과를 저장하지 못하면 확정 사실이 없다. 불명확으로 닫는다.
-      if (!stored.ok) {
-        publish("ToolCallEnded", { tool_call: id, outcome: "error" });
-        return done(
-          id,
-          "uncertain",
-          "uncertain",
-          "the result could not be stored",
-        );
-      }
+      if (!stored.ok) return await giveUp("the result could not be stored");
       outputBlob = stored.value;
     }
     if (recorded.ok) {
       // 기록 열의 결과도 blob과 같이 redaction을 거친 값만 남긴다.
       const safeResult = await redactValue(deps.redact, executed.result);
-      if (!safeResult.ok) {
-        publish("ToolCallEnded", { tool_call: id, outcome: "error" });
-        return done(
-          id,
-          "uncertain",
-          "uncertain",
-          "the result could not be recorded",
-        );
-      }
-      const finished = await commandOf(
+      if (!safeResult.ok)
+        return await giveUp("the result could not be recorded");
+      const finishInput = {
+        tool_call: id,
+        outcome: executed.outcome,
+        output: outputBlob?.hash ?? null,
+        ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
+        finished_at: clock.now(),
+        duration_ms: Math.max(0, clock.nowMs() - startedMs),
+      };
+      let finished = await commandOf(
         machine,
         finishToolCall,
-        {
-          tool_call: id,
-          outcome: executed.outcome,
-          output: outputBlob?.hash ?? null,
-          ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
-          result: safeResult.value as ToolResult,
-          finished_at: clock.now(),
-          duration_ms: Math.max(0, clock.nowMs() - startedMs),
-        },
-        { state_seq: String(seq) },
+        { ...finishInput, result: safeResult.value as ToolResult },
+        { state_seq: String(cursor.seq) },
         `${id}:finish`,
       );
-      if (!finished.ok) {
-        publish("ToolCallEnded", { tool_call: id, outcome: "error" });
-        return done(
-          id,
-          "uncertain",
-          "uncertain",
-          "the result could not be recorded",
+      // 기록 열의 result는 core의 JSON 본문 한도(256 KiB·깊이 16·항목 4,096)와 summary 400자를 지켜야 한다.
+      // 넘는 결과(큰 이미지·긴 page·깊은 설정 schema)는 거절되고 같은 입력의 재시도도 같으므로 줄인 기록으로
+      // 한 번 더 낸다. 전체는 output blob에 있고 model에는 전체가 간다.
+      if (!finished.ok && finished.error.code === "invalid_input") {
+        finished = await commandOf(
+          machine,
+          finishToolCall,
+          {
+            ...finishInput,
+            result: compactRecord(safeResult.value as ToolResult),
+          },
+          { state_seq: String(cursor.seq) },
+          `${id}:finish-compact`,
         );
       }
+      if (!finished.ok) return await giveUp("the result could not be recorded");
     }
     publish("ToolCallEnded", {
       tool_call: id,
@@ -677,7 +718,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
   // 묻지 않은 call(정책상 허락)을 reason으로 가른다.
   async function enter(
     id: Id<"tcl">,
-    seq: number,
+    cursor: { seq: number },
     gated: boolean,
   ): Promise<Result<void>> {
     const decided = await commandOf(
@@ -692,7 +733,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
           agent_hash: deps.agentHash,
         },
       },
-      { state_seq: String(seq) },
+      { state_seq: String(cursor.seq) },
       `${id}:decide`,
     );
     if (!decided.ok) {
@@ -701,6 +742,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         message: "the decision could not be recorded",
       });
     }
+    cursor.seq += 1;
     const turn = await turnRecord();
     if (!turn.ok) {
       return err({
@@ -713,19 +755,21 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       startToolCall,
       { tool_call: id, started_at: clock.now() },
       {
-        state_seq: String(seq + 1),
+        state_seq: String(cursor.seq),
         turn_state_seq: turn.value.turn.state_seq,
         // command는 이 값을 보지 않는다. 자격 재검사는 실행기가 하고 turn은 assignment 판을 들고 있지 않다.
         assignment_revision: 1,
       },
       `${id}:start`,
     );
-    return started.ok
-      ? ok(undefined)
-      : err({
-          code: started.error.code,
-          message: "the start could not be recorded",
-        });
+    if (!started.ok) {
+      return err({
+        code: started.error.code,
+        message: "the start could not be recorded",
+      });
+    }
+    cursor.seq += 1;
+    return ok(undefined);
   }
 
   // 진입하지 않고 끝나는 call(없는 tool·잘못된 인자·미실행)이다. 시작하지 않았으므로 event는 없다.

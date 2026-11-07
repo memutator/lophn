@@ -210,5 +210,9 @@
   {
     "id": "workflows.no-harness-kind",
     "sha256": "314913f797299b4a35568e5f5c41ab0bfb235f068775e95b30bebfc7625a3725"
+  },
+  {
+    "id": "lophn-agent.harness-tools.close-stuck",
+    "sha256": "32c3c163ea147aec30861f9e6a52f1096530803f61551873f0ffb2859f100fdc"
   }
 ]

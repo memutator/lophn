@@ -80,6 +80,25 @@ create index tool_call_supplements_event
   },
 ];
 
+// 새 step은 등록된 전체 목록의 맨 끝에 붙어야 한다(lock test가 이미 낸 step의 순서를 대조한다). 그래서 위 목록이
+// 아니라 WIRINGS에서 workflows 뒤에 오는 runtime wiring의 `schemaStepsAfterTeams`로 잇는다.
+export const toolsCloseStuckSteps: readonly SchemaStep[] = [
+  {
+    // finish 기록이 core의 본문 한도에 거절돼 started로 남은 행이 끝난 turn 안에 있다. turn이 끝났으면 도는 call은 없으므로 불명확으로
+    // 닫는다(결과를 모르는 것이 사실이다). ACP 화면이 finished가 아닌 행을 실행 중으로 그린다.
+    id: "lophn-agent.harness-tools.close-stuck",
+    sql: `
+update tool_calls
+set state = 'finished',
+    outcome = '{"kind":"uncertain","code":"uncertain"}',
+    result = '{"status":"uncertain","summary":"The call did not finish before its turn ended; its outcome is not confirmed.","content":null,"complete":true,"source":null,"continuation":null,"pending":[]}',
+    finished_at = (select finished_at from turns where turns.id = tool_calls.turn),
+    state_seq = state_seq + 1
+where state in ('requested', 'started')
+  and turn in (select id from turns where state = 'finished');`,
+  },
+];
+
 export type CallRow = Record<string, SqlParam>;
 
 function parseJson(value: unknown): unknown {

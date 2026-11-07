@@ -104,7 +104,7 @@ redaction
 화면
 - 화면(`agent-tab-core-source-commands.ts`)은 대화 조작을 모두 `AcpSend`로 보낸다. 줄 고치기는 메시지 id만 알아서 `ReadReceivedMessage`로 session을 찾아 싣는다. `edit_queued`의 글이 아닌 block(이미지, 링크)을 지키는 것은 보내는 쪽(화면)의 몫이다.
 - 대기 목록(waiting store)은 승인 결정과 질문 답을 제 memory route(`turn_requests/decide`, `ask/answer`)로 그대로 보낸다. 대화 화면이 아닌 곳의 조작이라 `AcpSend`를 거치지 않는다.
-- 앱 화면도 ACP 화면이다. 앱 bridge(`lophnApp.agent`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 workspace의 session으로 묶어 사람 자격으로 넘긴다(`architecture/app-call.md`의 "앱 화면의 agent session"). core는 앱이 연 session을 따로 다루지 않는다. 앱 code는 SDK `@lophn/agent`로 쓰고, 그 SDK가 snapshot 위에 갱신을 `reduceAcp`로 접는다.
+- 앱 화면도 ACP 화면이다. 앱 bridge(`lophnApp.agent`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 workspace의 session으로 묶어 사람 자격으로 넘긴다. `AcpSend`로는 입력 `send`·`stop`·`answer`·`rename`만 간다(승인 `decide` 등은 `forbidden`, `architecture/app-call.md`의 "앱 화면의 agent session"). core는 앱이 연 session을 따로 다루지 않는다. 앱 code는 SDK `@lophn/agent`로 쓰고, 그 SDK가 snapshot 위에 갱신을 `reduceAcp`로 접는다.
 - 앱 SDK의 설치 사본은 zod도 저장소도 없이 앱 bundle 안에서 읽혀 protocol의 ACP type(zod 정본)을 싣지 못한다. 그래서 `packages/sdk/agent/acp-types.ts`가 zod 없는 사본이고, 설치 사본의 `reduce.ts`는 그 type을 본다(`packages/core/apps/packages/vendor.ts`). ACP 항목·상태·갱신의 모양을 바꾸면 그 사본도 같이 고친다. 어긋나면 `packages/sdk/agent/agent_test.ts`의 type 검사(서로 대입되는지)가 `npm run check`에서 깨진다. `reduce.ts`가 runtime import를 더하면 설치 사본 import test(`packages/core/apps/packages/install_test.ts`)가 깨진다.
 
 ## core 밖에서 내는 ACP

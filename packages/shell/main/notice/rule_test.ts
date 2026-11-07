@@ -33,6 +33,7 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
       ),
     bodyOf: () => Promise.resolve(undefined),
     looking: () => looking,
+    appSession: (session) => session === "ses_app",
     notify: (notice) => {
       sent.push(notice);
       return !looking;
@@ -49,7 +50,16 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
 
   await ended("ses_a", "interrupted");
   await ended("ses_unknown", "completed");
+  // 앱 화면이 연 session은 turn이 끝나도 알리지 않고 못 본 점도 찍지 않지만, 물음은 알린다.
+  await ended("ses_app", "completed");
+  await ended("ses_app", "failed");
   assert.equal(sent.length, 0);
+  assert.deepEqual(sessionsOf(notices.unseen()), []);
+  await notices.event({ type: "QuestionAsked", session: "ses_app" });
+  assert.deepEqual(
+    sent.splice(0).map((notice) => notice.kind),
+    ["permission"],
+  );
 
   await ended("ses_a", "completed");
   await ended("ses_b", "failed");

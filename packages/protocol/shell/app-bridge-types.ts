@@ -40,7 +40,7 @@ export type TabHeadEvent =
 
 /**
  * 앱 화면이 자기 앱 workspace의 agent session과 ACP로 이야기하는 길. session이 이 앱 workspace의 것이 아니면 모두
- * `forbidden`이다. 값은 protocol/acp의 `AcpState`·`AcpUpdate`·`AcpInput`이다. 이 entry가 그 type을 import하면 shell main의
+ * `forbidden`이다. `send`는 ACP 입력 `send`·`stop`·`answer`·`rename`만 받고 나머지(승인 `decide` 등)는 `forbidden`이다. 값은 protocol/acp의 `AcpState`·`AcpUpdate`·`AcpInput`이다. 이 entry가 그 type을 import하면 shell main의
  * tsconfig.json(noUncheckedIndexedAccess)이 `base/mod.ts`까지 읽어 깨지므로 type 인자로 두고, 쓰는 쪽(SDK)이 채운다.
  */
 export type LophnAppAgent<
@@ -48,8 +48,11 @@ export type LophnAppAgent<
   Update = unknown,
   Input = unknown,
 > = {
-  /** 이 앱 workspace에 그 agent의 새 session을 연다. */
-  open(input: { agent: string }): Promise<Result<{ session: string }>>;
+  /** 이 앱 workspace에 그 agent의 새 session을 연다. `title`을 주면 sidebar에 보일 session 제목이 된다. */
+  open(input: {
+    agent: string;
+    title?: string;
+  }): Promise<Result<{ session: string }>>;
   snapshot(session: string): Promise<Result<State>>;
   /** 이 화면이 열었거나 snapshot·send로 확인한 session의 갱신만 온다. 놓치면 snapshot을 다시 읽는다. */
   onUpdate(listener: (session: string, update: Update) => void): () => void;

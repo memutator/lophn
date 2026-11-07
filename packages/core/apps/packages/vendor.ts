@@ -85,7 +85,8 @@ const CAP_PROBLEM: VendorRule = {
 };
 
 // @lophn/agent: ACP 갱신을 접는 reduce.ts는 runtime에 의존이 없다. 그 type import(items.ts·state.ts)는 zod 정본으로 닿으므로
-// 사본 안 얇은 re-export로 사본의 zod 없는 type(acp-types.ts)에 잇는다. 정본과 같은지는 agent_test.ts가 본다.
+// 사본 안 얇은 re-export로 사본의 zod 없는 type(acp-types.ts)에 잇는다. 이름을 하나씩 적으면 reduce.ts가 import를 늘릴 때
+// 어긋나므로 통째로 다시 낸다. 정본과 같은지는 agent_test.ts가 본다.
 const AGENT: VendorRule = {
   files: {
     "protocol/acp/reduce.ts": "vendor/protocol/acp/reduce.ts",
@@ -95,9 +96,9 @@ const AGENT: VendorRule = {
   },
   generated: {
     "vendor/protocol/acp/items.ts":
-      'export type { AcpItem, AcpMessageItem, AcpToolItem } from "../../../acp-types.ts";\n',
+      'export type * from "../../../acp-types.ts";\n',
     "vendor/protocol/acp/state.ts":
-      'export type { AcpState, AcpTurn, AcpUpdate } from "../../../acp-types.ts";\n',
+      'export type * from "../../../acp-types.ts";\n',
   },
 };
 

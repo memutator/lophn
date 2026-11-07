@@ -548,7 +548,7 @@ export type AcpAnswer = {
   answer: string[];
 };
 
-// 이 SDK가 보내는 입력만 싣는다. 정본 AcpInput의 부분이라는 것은 agent_test.ts가 본다.
+// 이 SDK가 보내는 입력만 싣는다(앱 bridge가 받는 입력 send·stop·answer·rename과 같다). 정본 AcpInput의 부분이라는 것은 agent_test.ts가 본다.
 export type AcpInput =
   | {
       type: "send";
@@ -564,4 +564,5 @@ export type AcpInput =
       session: string;
       tool_call: string;
       answers: AcpAnswer[];
-    };
+    }
+  | { type: "rename"; session: string; key: string; title: string };

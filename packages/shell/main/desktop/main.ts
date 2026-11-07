@@ -37,11 +37,11 @@ add(core.register(ctx));
 const browserViews = add(browser.register(ctx));
 const artifacts = add(artifact.register(ctx, browserViews));
 const views = add(appViews.register(ctx, browserViews, artifacts));
-add(appCalls.register(ctx, views));
+const calls = add(appCalls.register(ctx, views));
 add(annotate.register(ctx, views, artifacts));
 add(secretInput.register(ctx));
 add(appearance.register(ctx));
-const terminals = add(coding.register(ctx));
+const terminals = add(coding.register(ctx, calls.appSessions));
 add(bookmarks.register(ctx));
 add(threadBookmarks.register(ctx));
 add(

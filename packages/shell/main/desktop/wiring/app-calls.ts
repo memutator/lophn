@@ -14,6 +14,11 @@ import type { Registered, ShellContext } from "./context.ts";
 /** 뒤 영역이 쓰는 앱 호출. */
 type AppCalls = Registered & {
   appCall: ReturnType<typeof createAppCall>;
+  /** 알림 규칙이 앱 화면이 연 session을 가르는 데 쓴다. */
+  appSessions: Pick<
+    ReturnType<typeof createAppAgent>,
+    "isAppSession" | "viewsOf"
+  >;
 };
 
 // 앱 preload 통로. 신원은 IPC sender view에서만 정한다. view 오류는 viewErrors가 core를 거쳐 그 앱
@@ -49,5 +54,9 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
     agentSnapshot: (view, input) => appAgent.snapshot(view, input),
     agentSend: (view, input) => appAgent.send(view, input),
   });
-  return { appCall, stop: () => removeAppIpc(ctx.ipc) };
+  return {
+    appCall,
+    appSessions: appAgent,
+    stop: () => removeAppIpc(ctx.ipc),
+  };
 }

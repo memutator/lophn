@@ -20,6 +20,7 @@ import type {
   AppViewOpen,
   LophnShellViewsApi,
 } from "../../ipc/app-frame.ts";
+import { useReportViewVisible } from "../conversation/report-visible.ts";
 import { type ShellHead, useAppTabHead } from "./app-tab-head.tsx";
 import { createViewKeeps, type ViewKeeps } from "./view-keeps.ts";
 import {
@@ -234,6 +235,7 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     shown: shown && phase === "ready",
     layer,
   });
+  useReportViewVisible(viewSession, shown && phase === "ready");
   useAppTabHead({
     host,
     viewKey: elementKey,

@@ -108,14 +108,31 @@ test("session은 늘 그 view의 앱 workspace에 열리고, 갱신은 그 앱 w
   ]);
 });
 
-test("앱 bridge는 run_shell을 forbidden으로 막고 core route를 부르지 않는다", async () => {
+test("앱 bridge는 send·stop·answer·rename만 넘기고 승인(decide) 같은 나머지는 core에 닿기 전에 forbidden으로 막는다", async () => {
   const { agent, routes } = setup();
-  const sent = await agent.send(view("v1", APP), {
-    type: "run_shell",
+  const mine = view("v1", APP);
+  const refused = [
+    {
+      type: "decide",
+      session: "ses_mine",
+      request: "req_1",
+      decision: { kind: "tool", choice: "once" },
+    },
+    { type: "run_shell", session: "ses_mine", key: "k", command: "echo hi" },
+    { type: "rewind", session: "ses_mine", key: "k" },
+    { session: "ses_mine" },
+  ];
+  for (const input of refused) {
+    const sent = await agent.send(mine, input);
+    assert.deepEqual(sent.ok === false && sent.error.code, "forbidden");
+  }
+  assert.equal(routes.includes("acp/send"), false);
+  const renamed = await agent.send(mine, {
+    type: "rename",
     session: "ses_mine",
     key: "k",
-    command: "echo hi",
+    title: "Game 1",
   });
-  assert.deepEqual(sent.ok === false && sent.error.code, "forbidden");
-  assert.equal(routes.includes("acp/send"), false);
+  assert.equal(renamed.ok, true);
+  assert.equal(routes.includes("acp/send"), true);
 });

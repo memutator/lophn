@@ -13,3 +13,20 @@ export function useReportVisible(session: string | null, shown = true): void {
     return () => void notice.visible({ session, visible: false });
   }, [session, shown]);
 }
+
+/**
+ * 앱 화면이 사람 눈에 보이는 동안 main에 알린다. 앱이 연 session의 승인·질문 알림은 그 화면이 보이면 내지 않는다.
+ * 앱 화면이 보이는 자리는 EmbeddedView 하나라 거기서만 부른다.
+ */
+export function useReportViewVisible(
+  viewSession: string | null,
+  shown: boolean,
+): void {
+  useEffect(() => {
+    const notice = (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice;
+    if (notice === undefined || viewSession === null || !shown) return;
+    void notice.visible({ view_session: viewSession, visible: true });
+    return () =>
+      void notice.visible({ view_session: viewSession, visible: false });
+  }, [viewSession, shown]);
+}

@@ -92,15 +92,24 @@ export type NoticeWiring = Registered & {
   show(notice: Notice): boolean;
 };
 
+/** 앱 화면이 연 session. main의 앱 agent service가 안다. */
+export type AppSessions = {
+  isAppSession(session: string): boolean;
+  viewsOf(session: string): string[];
+};
+
 export function createNoticeWiring(
   ctx: ShellContext,
   focus: TerminalFocusTable,
+  appSessions: AppSessions,
   // 그 터미널이 속한 project. 터미널을 모르면 undefined다.
   projectOf: (terminalRef: string) => string | undefined,
   // 터미널 coding agent의 못 본 표시를 끈다. tracker는 이 wiring 뒤에 생겨 함수로 받는다.
   dismissTerminal: (terminalRef: string) => void,
 ): NoticeWiring {
   const visibility = new SessionVisibility();
+  // 창마다 보이는 앱 화면(view_session). 같은 표 type을 session 대신 view_session으로 쓴다.
+  const viewVisibility = new SessionVisibility();
   let serial = 0;
 
   // focus를 가진 lophn 창. 앱 전용 창 같은 shell 밖의 창은 아니다.
@@ -116,7 +125,10 @@ export function createNoticeWiring(
     if (target.kind === "app") return false;
     return target.kind === "terminal"
       ? focus.focused(contents, target.terminal_ref)
-      : visibility.isVisible(contents, target.session);
+      : visibility.isVisible(contents, target.session) ||
+          appSessions
+            .viewsOf(target.session)
+            .some((view) => viewVisibility.isVisible(contents, view));
   }
 
   // 알림을 누르면 그 탭을 가진 창을 앞으로 가져오고 탭을 고르라고 알린다.
@@ -319,6 +331,7 @@ export function createNoticeWiring(
     who,
     bodyOf,
     looking: (session) => looking({ kind: "session", session }),
+    appSession: (session) => appSessions.isAppSession(session),
     notify: (notice: SessionNotice) =>
       show({
         kind: notice.kind,
@@ -357,16 +370,29 @@ export function createNoticeWiring(
   ctx.windowHooks.created.push((window) =>
     window.on("focus", () => sessions.recheck()),
   );
-  ctx.windowHooks.closed.push(({ contentsId }) =>
-    visibility.forget(contentsId),
-  );
+  ctx.windowHooks.closed.push(({ contentsId }) => {
+    visibility.forget(contentsId);
+    viewVisibility.forget(contentsId);
+  });
 
   const registry = ctx.overlays.overlayRegistry();
   ctx.ipc.handle(NOTICE_VISIBLE_CHANNEL, (event: IpcEvent, input: unknown) => {
     if (!checkCaller(registry, event).ok) return;
     const parsed = checkInput(noticeVisibleSchema, input);
     if (!parsed.ok) return;
-    visibility.set(event.sender.id, parsed.value.session, parsed.value.visible);
+    if ("view_session" in parsed.value) {
+      viewVisibility.set(
+        event.sender.id,
+        parsed.value.view_session,
+        parsed.value.visible,
+      );
+    } else {
+      visibility.set(
+        event.sender.id,
+        parsed.value.session,
+        parsed.value.visible,
+      );
+    }
     if (parsed.value.visible) sessions.recheck();
   });
   ctx.ipc.handle(NOTICE_OPEN_CHANNEL, (event: IpcEvent, input: unknown) => {

@@ -22,7 +22,10 @@ type BridgeResult<T> =
 
 // 앱 view preload bridge `lophnApp.agent`의 SDK 쪽 사본(protocol/shell/app-bridge-types.ts의 LophnAppAgent).
 export interface AgentBridge {
-  open(input: { agent: string }): Promise<BridgeResult<{ session: string }>>;
+  open(input: {
+    agent: string;
+    title?: string;
+  }): Promise<BridgeResult<{ session: string }>>;
   snapshot(session: string): Promise<BridgeResult<AcpState>>;
   onUpdate(listener: (session: string, update: AcpUpdate) => void): () => void;
   send(input: AcpInput): Promise<BridgeResult<void>>;
@@ -53,8 +56,21 @@ export interface AgentController {
   ): Promise<Sent>;
   stop(): Promise<Done>;
   answer(answers: AcpAnswer[]): Promise<Done>;
+  /** 지금 session의 제목을 바꾼다. session이 열리기 전에는 오류다(열 때의 제목은 `title` 옵션이다). */
+  rename(title: string): Promise<Done>;
+  /** 지금 session을 잊는다. 다음 `send`가 새 session을 연다. 도는 turn은 멈추지 않는다. */
+  reset(): void;
   close(): void;
 }
+
+export type AgentSessionOptions = {
+  /** agent handle이다. 그대로 bridge `open`에 넘긴다. */
+  agent: string;
+  /** SDK가 session을 열 때 붙일 제목. 읽는 시점의 값이 쓰인다. */
+  title?: (() => string | undefined) | undefined;
+  /** 이 앱 workspace의 기존 session에 다시 붙는다. 주면 바로 snapshot을 읽고 첫 `send`도 거기로 간다. */
+  session?: string | undefined;
+};
 
 type Watcher = { check(state: AcpState): boolean; cancel(): void };
 
@@ -112,11 +128,14 @@ function replyOf(
  */
 export function openAgentSession(
   app: AgentBridge,
-  agent: string,
+  options: AgentSessionOptions,
   onChange: (view: SessionView) => void,
   newId: () => string = newMessageId,
 ): AgentController {
+  const { agent } = options;
   let closed = false;
+  // reset 앞에 시작한 열기·읽기가 뒤늦게 끝나 새 상태를 덮지 않게 한다.
+  let epoch = 0;
   let opened: string | null = null;
   let current: AcpState | null = null;
   let error: string | null = null;
@@ -141,18 +160,24 @@ export function openAgentSession(
   };
 
   // snapshot을 읽는 동안 온 갱신은 snapshot에 들었을 수도 있어 접고(idempotent), 읽기 전에 접은 것은 이미 상태에 있다.
-  const read = async (again: boolean): Promise<void> => {
+  const read = async (again: boolean): Promise<Done> => {
+    const mine = epoch;
     reading = true;
     buffered = [];
     const snapshot = await app.snapshot(opened as string);
-    if (closed) return;
+    if (closed || mine !== epoch) return { ok: false, error: "session closed" };
     reading = false;
-    if (!snapshot.ok) return fail(snapshot.error);
+    if (!snapshot.ok) {
+      fail(snapshot.error);
+      return { ok: false, error: describe(snapshot.error) };
+    }
     let next = snapshot.value;
     for (const update of buffered) next = reduceAcp(next, update);
     buffered = [];
     if (next.reread && again) return await read(false);
+    error = null;
     publish({ ...next, reread: false });
+    return { ok: true };
   };
 
   const off = app.onUpdate((id, update) => {
@@ -170,7 +195,13 @@ export function openAgentSession(
   let opening: Promise<Done> | null = null;
   const ensureOpen = (): Promise<Done> => {
     opening ??= (async (): Promise<Done> => {
-      const result = await app.open({ agent });
+      const mine = epoch;
+      const title = options.title?.();
+      const result = await app.open({
+        agent,
+        ...(title === undefined ? {} : { title }),
+      });
+      if (mine !== epoch) return { ok: false, error: "session reset" };
       if (!result.ok) {
         opening = null;
         fail(result.error);
@@ -185,6 +216,12 @@ export function openAgentSession(
     return opening;
   };
 
+  // 다시 붙을 session은 바로 읽는다. 읽기 실패는 `error`로 알리고, 보내기는 그 session으로 가서 거기서 거절이 나면 그 오류를 낸다.
+  if (options.session !== undefined) {
+    opened = options.session;
+    opening = read(true).then(() => ({ ok: true }));
+  }
+
   const post = async (input: AcpInput): Promise<Done> => {
     const result = await app.send(input);
     return result.ok
@@ -195,13 +232,15 @@ export function openAgentSession(
   const notOpen: Done = { ok: false, error: "session is not open" };
 
   return {
-    async send(blocks, options) {
+    async send(blocks, sendOptions) {
       if (closed) return notOpen;
-      const schema = options?.reply;
+      const schema = sendOptions?.reply;
       const id = newId();
+      const mine = epoch;
       const ready = await ensureOpen();
       if (!ready.ok) return ready;
       if (closed) return notOpen;
+      if (mine !== epoch) return { ok: false, error: "session reset" };
       // 답은 보내기 전에 지켜보기 시작한다. 갱신이 보내기 응답보다 먼저 올 수 있다.
       let watcher: Watcher | undefined;
       const reply =
@@ -262,6 +301,30 @@ export function openAgentSession(
         tool_call: asked.tool_call,
         answers,
       });
+    },
+
+    async rename(title) {
+      if (closed || opened === null) return notOpen;
+      return await post({
+        type: "rename",
+        session: opened,
+        key: `rename-${newId()}`,
+        title,
+      });
+    },
+
+    reset() {
+      if (closed) return;
+      epoch += 1;
+      opened = null;
+      current = null;
+      error = null;
+      opening = null;
+      reading = true;
+      buffered = [];
+      for (const watcher of watchers) watcher.cancel();
+      watchers.clear();
+      notify();
     },
 
     close() {

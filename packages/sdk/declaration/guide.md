@@ -18,14 +18,14 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `AppDeclaration`, `ScreenDeclaration`, `OperationDeclaration`,
   `CommandDeclaration`, `Place`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
-  `SkillDeclaration`, `SDKDependency`, `ValidationResult`, `ValidationError`
+  `SkillDeclaration`, `SDKDependency`, `TraySize`, `ValidationResult`, `ValidationError`
 
 ## 선언의 칸
 
 `name`, `description`, `screens`, `operations`, `commands`, `permissions`,
 `app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`만 있다. 알 수 없는 칸은 거절한다.
 
-- `screens` — 화면 목록이다. 항목은 `{key, label, path, places, params?}`다. `places`는
+- `screens` — 화면 목록이다. 항목은 `{key, label, path, places, params?, tray?}`다. `places`는
   화면을 열 수 있는 자리이고 비지 않고 겹치지 않는다.
   - `tab` — 앱 workspace와 앱 창이다. 첫 `tab` 화면이 앱의 입구다.
   - `panel` — project의 dock·float와 전역 float다. 사람이 "앱 · 화면 label"을 골라
@@ -34,6 +34,16 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   - `card` — agent 대화 안의 카드다.
   - `sidebar` — 오른쪽 sidebar다.
   - `tray` — 작업 표시줄 tray popup이다.
+  - `tray` 칸 — tray popup의 크기다. `{width?, height?}`이고 단위는 px다. 너비는
+    240~720, 높이는 160~720의 정수이고 둘 중 하나는 있어야 한다. 없는 쪽은 기본값
+    (너비 360, 높이 480)이다. `places`에 `tray`가 없는 화면에 두면 선언 오류다. 창이
+    더 작으면 lophn이 창 안으로 줄인다. 크기는 release에 고정되므로 바꾸려면 다시
+    release한다.
+
+    ```ts
+    { key: "status", label: "Status", path: "/status", places: ["tray"],
+      tray: { width: 420, height: 300 } }
+    ```
   - `params` — 화면이 받는 인자의 schema다. 없으면 인자가 없는 화면이다. root type은
     object이고 command `inputSchema`와 같은 schema 규칙이다. 한 화면 안의 부분을
     따로 쓰고 싶으면 인자로 가르지 말고 화면으로 나눈다.
@@ -104,7 +114,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.0.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.1.0" }],
 });
 
 const result = validateDeclaration(declaration);

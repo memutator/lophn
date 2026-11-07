@@ -78,7 +78,11 @@ export type ScreenDeclaration = {
   places: Place[];
   // 화면이 받는 인자. root type은 object다.
   params?: InputSchema;
+  // tray popup의 크기(px). places에 tray가 있을 때만 둔다. 없는 쪽은 lophn 기본값이다.
+  tray?: TraySize;
 };
+
+export type TraySize = { width?: number; height?: number };
 
 export type PermissionKind =
   | "fs.read"

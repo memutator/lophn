@@ -19,6 +19,7 @@ export type {
   SDKDependency,
   SkillDeclaration,
   ToolEffect,
+  TraySize,
   ValidationError,
   ValidationResult,
 } from "./types.ts";

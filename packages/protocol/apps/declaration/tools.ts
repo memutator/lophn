@@ -12,6 +12,7 @@ import {
   type ScreenDeclaration,
   type Place,
   type ToolEffect,
+  type TraySize,
   type ValidationResult,
 } from "./types.ts";
 import { unique } from "./json.ts";
@@ -25,6 +26,11 @@ const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 const WIRE_NAME_MAX = 64;
 
 const PLACES: readonly unknown[] = ["tab", "panel", "card", "sidebar", "tray"];
+// tray popup 크기의 범위(px). 창이 더 작으면 shell이 창 안으로 줄인다.
+const TRAY_SIZE = {
+  width: { min: 240, max: 720 },
+  height: { min: 160, max: 720 },
+} as const;
 
 function blankDescription(schema: InputSchema): string | undefined {
   if (Object.hasOwn(schema, "description") && !nonBlank(schema.description)) {
@@ -42,6 +48,35 @@ function blankDescription(schema: InputSchema): string | undefined {
   }
 }
 
+function traySize(
+  value: unknown,
+  places: unknown[],
+  key: string,
+): ValidationResult<TraySize> {
+  if (!places.includes("tray")) {
+    return invalid(`screen ${key} tray needs the tray place`);
+  }
+  if (!isObject(value)) return invalid(`screen ${key} tray must be an object`);
+  const bad = exactKeys(value, ["width", "height"], []);
+  if (bad) return invalid(`screen ${key} tray ${bad}`);
+  if (!Object.hasOwn(value, "width") && !Object.hasOwn(value, "height")) {
+    return invalid(`screen ${key} tray needs width or height`);
+  }
+  const size: TraySize = {};
+  for (const side of ["width", "height"] as const) {
+    if (!Object.hasOwn(value, side)) continue;
+    const n = value[side];
+    const { min, max } = TRAY_SIZE[side];
+    if (!Number.isInteger(n) || (n as number) < min || (n as number) > max) {
+      return invalid(
+        `screen ${key} tray ${side} must be an integer from ${min} to ${max}`,
+      );
+    }
+    size[side] = n as number;
+  }
+  return { ok: true, value: size };
+}
+
 export function validateLayers(
   screenItems: unknown[],
   operationItems: unknown[],
@@ -57,7 +92,7 @@ export function validateLayers(
     if (!isObject(item)) return invalid("screen must be an object");
     const bad = exactKeys(
       item,
-      ["key", "label", "path", "places", "params"],
+      ["key", "label", "path", "places", "params", "tray"],
       ["key", "label", "path", "places"],
     );
     if (bad) return invalid(`screen ${bad}`);
@@ -80,12 +115,19 @@ export function validateLayers(
       if (!parsed.ok) return parsed;
       params = parsed.value;
     }
+    let tray: TraySize | undefined;
+    if (Object.hasOwn(item, "tray")) {
+      const parsed = traySize(item.tray, item.places, item.key);
+      if (!parsed.ok) return parsed;
+      tray = parsed.value;
+    }
     screens.push({
       key: item.key,
       label: item.label,
       path: item.path as string,
       places: [...item.places] as Place[],
       ...(params ? { params } : {}),
+      ...(tray ? { tray } : {}),
     });
   }
   if (

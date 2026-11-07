@@ -29,7 +29,7 @@ import {
 } from "../../app-frame/webview-host.tsx";
 import { shellIcons } from "../../icons/mod.ts";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
-import { type PopupPlace, placePopup } from "./popup-place.ts";
+import { type PopupPlace, type PopupSize, placePopup } from "./popup-place.ts";
 import styles from "./tray.module.css";
 import { useTrayValues } from "./use-tray-values.ts";
 
@@ -44,6 +44,8 @@ export interface TrayItem {
   readonly label: string;
   readonly text?: string;
   readonly tone?: TrayTone;
+  /** 앱이 선언한 popup 크기(px). 없는 쪽은 기본값이다. */
+  readonly size?: PopupSize;
 }
 
 /** 설치된 앱의 `tray` 자리 화면 가운데 사람이 끄지 않은 것. 앱이 지워졌거나 화면이 없어졌으면 빠진다. */
@@ -72,6 +74,7 @@ export function trayItems(
             screen: screen.label,
           }),
           label: screen.label,
+          ...(screen.tray === undefined ? {} : { size: screen.tray }),
           ...(value === undefined
             ? {}
             : { text: value.text, tone: value.tone }),
@@ -220,9 +223,11 @@ export function Tray({
     }
     const measure = () =>
       setPlace(
-        placePopup(button.getBoundingClientRect(), {
-          width: window.innerWidth,
-        }),
+        placePopup(
+          button.getBoundingClientRect(),
+          { width: window.innerWidth },
+          current?.size,
+        ),
       );
     measure();
     window.addEventListener("resize", measure);

@@ -17,6 +17,7 @@ export type {
   ScreenDeclaration,
   SDKDependency,
   ToolEffect,
+  TraySize,
   ValidationError,
   ValidationResult,
 } from "../../protocol/apps/declaration/mod.ts";

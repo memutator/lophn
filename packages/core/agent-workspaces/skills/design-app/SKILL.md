@@ -131,7 +131,10 @@ Each screen declares `places`. They decide where people can open it:
   so keep the screen itself compact. lophn's popup head shows only the
   `useTabHead` actions, as icon buttons (no status, crumbs, tabs or menu): give
   the one or two actions that matter at a glance, such as refresh, an `icon`
-  and put them first.
+  and put them first. The popup is 360 x 480 px by default. If the content
+  wants another size, set it on the screen: `tray: { width, height }` in px
+  (width 240-720, height 160-720, either may be left out). Pick the size the
+  content needs, not the largest; lophn shrinks it to fit a small window.
 
 `params` is the schema of the input a screen receives (root type object; none
 means the screen takes no input). To use a part of one screen on its own, make

@@ -26,6 +26,8 @@ interface AppScreen {
   readonly key: string;
   readonly label: string;
   readonly places: readonly AppViewOpen["place"][];
+  /** 선언한 tray popup 크기(px). */
+  readonly tray?: { readonly width?: number; readonly height?: number };
 }
 
 export interface AppScreens {
@@ -143,6 +145,7 @@ interface DeclarationValue {
     key: string;
     label: string;
     places: AppViewOpen["place"][];
+    tray?: { width?: number; height?: number };
   }[];
 }
 
@@ -195,6 +198,7 @@ export function coreAppScreens(
           key: screen.key,
           label: screen.label,
           places: screen.places,
+          ...(screen.tray === undefined ? {} : { tray: screen.tray }),
         })),
       });
     }

@@ -89,6 +89,10 @@ function fakeProcess(
 async function setup(
   options: {
     history?: unknown[];
+    /** transcript의 원본 줄(cost-state 등). */
+    entries?: unknown[];
+    /** 첫 메시지 전이라 CLI가 저장하지 않은 session. */
+    unsaved?: boolean;
     resume?: string;
     terminal?: AcpTerminal | null;
     /** false면 query를 닫아도 process가 끝나지 않는다(test가 `exit()`를 부른다). */
@@ -155,7 +159,18 @@ async function setup(
     },
     getSessionMessages: () => Promise.resolve(options.history ?? []),
     getSubagentMessages: () => Promise.resolve([]),
-    getSessionInfo: () => Promise.resolve(undefined),
+    getSessionInfo: (id: string) =>
+      Promise.resolve(
+        options.unsaved
+          ? undefined
+          : { sessionId: id, summary: "", lastModified: 0 },
+      ),
+    importSessionToStore: async (
+      _id: string,
+      store: { append(key: object, entries: unknown[]): Promise<void> },
+    ) => {
+      await store.append({}, options.entries ?? []);
+    },
     forkSession: () => {
       calls.push("forkSession");
       return Promise.resolve({ sessionId: "forked" });
@@ -731,4 +746,71 @@ test("CLI가 끝난 뒤의 send는 같은 session id로 query를 다시 열어 �
   assert.deepEqual(errors(), ["boom", "boom again"]);
   await t.input({ type: "open_session", key: "k", cli_session: "resumed-id" });
   assert.equal(t.queries.length, 3);
+});
+
+// 합계가 0부터 다시 세면 앞 대화의 비용을 잃는다. resume한 CLI의 total_cost_usd는 session 누적이라 더하지 않고 바꾼다.
+test("resume은 transcript의 cost-state로 합계와 비용을 되살리고 이어 오는 result의 누적 비용에 겹치지 않는다", async () => {
+  const history = JSON.parse(
+    readFileSync(`${fixtures}resume-history.json`, "utf8"),
+  );
+  const t = await setup({
+    history,
+    resume: "92f4aba9-f419-4338-aaa4-a04f5146a533",
+    entries: [
+      { type: "cost-state", totalCostUSD: 9, modelUsage: { old: {} } },
+      {
+        type: "cost-state",
+        totalCostUSD: 0.5,
+        modelUsage: {
+          a: {
+            inputTokens: 10,
+            outputTokens: 20,
+            cacheReadInputTokens: 30,
+            cacheCreationInputTokens: 40,
+          },
+          b: { inputTokens: 1, outputTokens: 2 },
+        },
+      },
+    ],
+  });
+  await flush();
+  const usage = () => t.state.session?.usage;
+  assert.deepEqual(
+    [usage()?.input_tokens, usage()?.output_tokens, usage()?.cache_read_tokens],
+    [11, 22, 30],
+  );
+  assert.equal(usage()?.cache_write_tokens, 40);
+  assert.equal(usage()?.turns, 1);
+  assert.equal(usage()?.costs[0]?.amount, "0.5000");
+
+  await t.feed({
+    type: "result",
+    subtype: "success",
+    total_cost_usd: 0.75,
+    usage: { input_tokens: 5, output_tokens: 5 },
+  });
+  assert.equal(usage()?.costs[0]?.amount, "0.7500");
+  assert.equal(usage()?.input_tokens, 16);
+});
+
+// 첫 메시지 전의 session은 CLI가 저장하지 않아 resume이 "No conversation found"로 실패한다.
+test("저장되지 않은 session을 resume하라는 요청은 같은 id의 새 session으로 열고 TUI로는 --session-id로 넘긴다", async () => {
+  const t = await setup({ resume: "unsaved-id", unsaved: true });
+  await flush();
+  assert.equal(t.queryOptions?.resume, undefined);
+  assert.equal(t.queryOptions?.sessionId, "unsaved-id");
+  assert.equal(t.state.session?.cli_session, "unsaved-id");
+  assert.equal(t.state.items.length, 0);
+
+  await t.input({
+    type: "open_session",
+    key: "k",
+    cli_session: "other-unsaved",
+  });
+  assert.equal(t.queryOptions?.resume, undefined);
+  assert.equal(t.queryOptions?.sessionId, "other-unsaved");
+
+  assert.ok(t.started.ok);
+  await t.started.value.stop();
+  assert.match(t.started.value.tuiCommand(), /--session-id 'other-unsaved'/);
 });

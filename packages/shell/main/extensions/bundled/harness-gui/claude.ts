@@ -13,6 +13,7 @@ import {
   getSessionInfo,
   getSessionMessages,
   getSubagentMessages,
+  importSessionToStore,
   listSessions,
   query,
   renameSession,
@@ -23,6 +24,7 @@ import {
   type PermissionUpdate,
   type Query,
   type SDKUserMessage,
+  type SessionStoreEntry,
   type SlashCommand,
   type SpawnedProcess,
   type SpawnOptions,
@@ -71,6 +73,7 @@ export type ClaudeSdk = {
   getSessionMessages: typeof getSessionMessages;
   getSubagentMessages: typeof getSubagentMessages;
   getSessionInfo: typeof getSessionInfo;
+  importSessionToStore: typeof importSessionToStore;
   forkSession: typeof forkSession;
   listSessions: typeof listSessions;
   renameSession: typeof renameSession;
@@ -90,6 +93,19 @@ type Block = {
   tool_use_id?: string;
   is_error?: boolean;
   content?: string | Block[];
+};
+type SdkUsage = {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+};
+// transcript의 cost-state 줄이 model마다 두는 합계.
+type ModelTokens = {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
 };
 type SdkMessage = {
   type: string;
@@ -117,12 +133,7 @@ type SdkMessage = {
   errors?: string[];
   user_message_uuid?: string;
   total_cost_usd?: number;
-  usage?: {
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_read_input_tokens?: number;
-    cache_creation_input_tokens?: number;
-  };
+  usage?: SdkUsage;
   // command_lifecycle
   command_uuid?: string;
   state?: string;
@@ -788,6 +799,10 @@ const start: (sdk: ClaudeSdk) => Start =
       rules: new Set(),
       dirs: new Set(),
     };
+    // 첫 메시지 전의 session은 CLI가 저장하지 않아 resume이 못 연다. 그 id로 새 session을 연다.
+    const saved = async (id: string) =>
+      (await sdk.getSessionInfo(id, { dir: cwd })) !== undefined;
+    const resumable = resume !== undefined && (await saved(resume));
     let cliSession = resume ?? uuidOf(ids);
     let models: ModelInfo[] = [];
     let modelId: string | null = null; // 지금 model의 resolved id
@@ -805,7 +820,7 @@ const start: (sdk: ClaudeSdk) => Start =
     // 마지막으로 CLI에 보낸 명령의 이름. 이름 없이 오는 명령 출력이 쓴다.
     let lastCommand = "";
     // 이 CLI session에 메시지가 하나라도 갔나. 비었으면 TUI가 --resume으로 못 연다(`--session-id`로 연다).
-    let empty = resume === undefined;
+    let empty = !resumable;
     const totals = { input: 0, output: 0, read: 0, write: 0, turns: 0 };
     let contextUsage: NonNullable<AcpUsage["context"]> | null = null;
     let cost = { base: 0, last: 0 };
@@ -2001,6 +2016,52 @@ const start: (sdk: ClaudeSdk) => Start =
       }
     }
 
+    // 합계와 비용을 transcript에서 되살린다. cost-state(CLI가 resume에 쓰는 session 누적)가 있으면 그것이고, 없으면 assistant
+    // 메시지의 usage를 합한다. 원본 줄은 getSessionMessages가 주지 않아 SDK가 읽는 길(importSessionToStore)로 메모리 store에 받는다.
+    async function restoreUsage(id: string) {
+      const entries: SessionStoreEntry[] = [];
+      await sdk.importSessionToStore(
+        id,
+        {
+          append: async (key, batch) => {
+            if (key.subpath === undefined) entries.push(...batch);
+          },
+          load: async () => null,
+        },
+        { dir: cwd, includeSubagents: false },
+      );
+      const state = entries.findLast((one) => one.type === "cost-state") as
+        | { totalCostUSD?: number; modelUsage?: Record<string, ModelTokens> }
+        | undefined;
+      if (state !== undefined) {
+        for (const one of Object.values(state.modelUsage ?? {})) {
+          totals.input += one.inputTokens ?? 0;
+          totals.output += one.outputTokens ?? 0;
+          totals.read += one.cacheReadInputTokens ?? 0;
+          totals.write += one.cacheCreationInputTokens ?? 0;
+        }
+        cost = { base: 0, last: state.totalCostUSD ?? 0 };
+      } else {
+        // 같은 API 메시지가 content block마다 줄로 반복된다.
+        const seen = new Set<string>();
+        for (const one of entries) {
+          const message = one.message as
+            | { id?: string; usage?: SdkUsage }
+            | undefined;
+          if (one.type !== "assistant" || message?.usage === undefined)
+            continue;
+          const key = `${message.id}:${String(one.requestId)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          totals.input += message.usage.input_tokens ?? 0;
+          totals.output += message.usage.output_tokens ?? 0;
+          totals.read += message.usage.cache_read_input_tokens ?? 0;
+          totals.write += message.usage.cache_creation_input_tokens ?? 0;
+        }
+      }
+      changed({ usage: usageNow() });
+    }
+
     // 앞 대화는 resume이 다시 흘리지 않아 transcript를 읽어 같은 길로 그린다. 사람 메시지마다 turn 하나다.
     // subagent의 대화는 다시 그리지 않는다(Agent tool 줄만 남고 `child`는 null이다).
     async function replay(id: string) {
@@ -2056,8 +2117,10 @@ const start: (sdk: ClaudeSdk) => Start =
             now(),
             message.uuid,
           );
+          totals.turns += 1;
         }
         if (root.turn !== null) endTurn("completed");
+        await restoreUsage(id);
       } catch (cause) {
         endTurn("failed", {
           code: "internal",
@@ -2205,10 +2268,15 @@ const start: (sdk: ClaudeSdk) => Start =
       empty = from.resume === undefined;
       cliSession = from.sessionId ?? from.resume ?? cliSession;
       changed({ cli_session: cliSession });
-      cost = { base: cost.base + cost.last, last: 0 };
+      // resume한 CLI는 session의 cost-state를 이어 받아 total_cost_usd가 session 누적이다. 새 session은 0부터다.
+      const total = cost.base + cost.last;
+      cost =
+        from.resume === undefined
+          ? { base: total, last: 0 }
+          : { base: 0, last: total };
     }
 
-    live = open(resume === undefined ? { sessionId: cliSession } : { resume });
+    live = open(resumable ? { resume } : { sessionId: cliSession });
     // SDK가 query() 안에서 바로 process를 띄운다.
     if (spawnFailed) {
       live.q.close();
@@ -2249,7 +2317,7 @@ const start: (sdk: ClaudeSdk) => Start =
       await refreshContext();
     })();
 
-    const ready = resume === undefined ? Promise.resolve() : replay(resume);
+    const ready = resumable ? replay(resume) : Promise.resolve();
 
     // --- 사람 입력 ------------------------------------------------------------------------------
     function userMessage(
@@ -2708,6 +2776,7 @@ const start: (sdk: ClaudeSdk) => Start =
     // 같은 탭에서 이 폴더의 다른 CLI session으로 바꾼다. 옛 session의 transcript는 건드리지 않는다.
     async function openSession(target: string) {
       if (target === cliSession && dead === null) return;
+      const keep = await saved(target);
       const old = retire();
       publish({ type: "session_reset" });
       uuidOfMessage.clear();
@@ -2715,9 +2784,9 @@ const start: (sdk: ClaudeSdk) => Start =
       userOfTurn.clear();
       root.seen.clear();
       lastCommand = "";
-      await reopen(old, { resume: target });
+      await reopen(old, keep ? { resume: target } : { sessionId: target });
       resetStats();
-      await replay(target);
+      if (keep) await replay(target);
       changed({ cli_session: cliSession, model: currentModel() });
     }
 
@@ -3004,6 +3073,7 @@ export const claudeAdapter = createClaudeAdapter({
   getSessionMessages,
   getSubagentMessages,
   getSessionInfo,
+  importSessionToStore,
   forkSession,
   listSessions,
   renameSession,

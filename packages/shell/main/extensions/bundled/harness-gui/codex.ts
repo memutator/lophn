@@ -38,6 +38,7 @@ import type {
 import type { AcpTerminal } from "../../../../../protocol/extensions/mod.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
+import { classifyBlocks, type ReceivedText } from "./received.ts";
 
 // app-server 메시지에서 읽는 칸만 읽는다. 모양은 `codex app-server generate-ts --experimental`이 정한다.
 // biome-ignore lint/suspicious/noExplicitAny: wire JSON을 칸마다 타입으로 옮기지 않는다.
@@ -1050,9 +1051,11 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         content: ContentBlock[],
         delivery: "next_turn" | "steer",
         origin: string,
+        // 다른 agent가 넣은 글이다. 사람 메시지가 아니라 rewind 글도 bookmark(origin)도 아니다.
+        received: ReceivedText | null = null,
       ) {
         const owner = delivery === "steer" ? lane.turn : ensureTurn(lane);
-        if (owner !== null && !lane.hasUser) {
+        if (received === null && owner !== null && !lane.hasUser) {
           lane.hasUser = true;
           if (lane === root) userOf.set(owner, content);
         }
@@ -1063,14 +1066,17 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             id,
             seq: ++lane.seq,
             at: now(),
-            actor: "user",
-            sender: null,
-            call: null,
-            reply_to: null,
+            actor: received === null ? "user" : "received",
+            sender: received?.sender ?? null,
+            call: received?.call ?? null,
+            reply_to: received?.reply_to ?? null,
             delivery,
             turn: owner,
-            origin,
-            content,
+            origin: received === null ? origin : null,
+            content:
+              received === null
+                ? content
+                : [{ type: "text", text: received.text }],
             reasoning: null,
             cards: [],
             complete: true,
@@ -2067,6 +2073,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           content,
           lane.turn !== null && lane.hasUser ? "steer" : "next_turn",
           item.clientId ?? item.id,
+          classifyBlocks(content),
         );
       }
 
@@ -2385,6 +2392,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                   content,
                   "next_turn",
                   item.clientId ?? item.id,
+                  classifyBlocks(content),
                 );
               if (lane === root && lane.turn !== null)
                 wireOf.set(lane.turn, wire.id);

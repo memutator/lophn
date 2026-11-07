@@ -39,6 +39,7 @@ import type {
 import type { AcpCliSession } from "../../../../../protocol/extensions/mod.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
+import { classifyReceived, type ReceivedText } from "./received.ts";
 
 type Start = HarnessGuiAdapter["start"];
 
@@ -521,6 +522,7 @@ function thread(
     extra: {
       origin: string | null;
       actor?: "user" | "received";
+      received?: ReceivedText;
       delivery?: "next_turn" | "steer";
     },
   ): string {
@@ -534,11 +536,12 @@ function thread(
         at: now(),
         actor: extra.actor ?? "user",
         sender:
-          extra.actor === "received"
+          extra.received?.sender ??
+          (extra.actor === "received"
             ? { kind: "agent", agent: null, name: null }
-            : null,
-        call: null,
-        reply_to: null,
+            : null),
+        call: extra.received?.call ?? null,
+        reply_to: extra.received?.reply_to ?? null,
         delivery: extra.delivery ?? "next_turn",
         turn: mine,
         origin: extra.origin,
@@ -1024,6 +1027,15 @@ const start: (io: OmpIo) => Start =
       userIds.push(id);
       const mine = main.message(id, content, { origin });
       turnText.set(mine, textOf(content));
+    }
+
+    // 다른 agent가 넣은 lophn call·reply다. 사람 메시지가 아니라 rewind 글(userIds)도 bookmark(origin)도 아니다.
+    function addReceived(received: ReceivedText) {
+      main.message(ids.newId("msg"), [{ type: "text", text: received.text }], {
+        origin: null,
+        actor: "received",
+        received,
+      });
     }
 
     // --- 연결 ---
@@ -1876,6 +1888,11 @@ const start: (io: OmpIo) => Start =
         pendingEcho.splice(echo, 1);
         return;
       }
+      const received = classifyReceived(text);
+      if (received !== null) {
+        addReceived(received);
+        return;
+      }
       const index = queue.findIndex((one) => one.text === text);
       const one = queue[index];
       if (one === undefined) {
@@ -2083,9 +2100,10 @@ const start: (io: OmpIo) => Start =
         main.replay(page.data.messages, (msg) => {
           if (msg.synthetic || msg.attribution === "agent") return;
           main.endTurn("completed");
-          addUser(ids.newId("msg"), [
-            { type: "text", text: joined(msg.content, "text") },
-          ]);
+          const text = joined(msg.content, "text");
+          const received = classifyReceived(text);
+          if (received !== null) addReceived(received);
+          else addUser(ids.newId("msg"), [{ type: "text", text }]);
         });
         cursor = page.data.nextCursor;
         if (cursor === undefined) return;
@@ -2388,7 +2406,8 @@ const start: (io: OmpIo) => Start =
           entry.type === "message" &&
           entry.message?.role === "user" &&
           !entry.message.synthetic &&
-          entry.message.attribution !== "agent",
+          entry.message.attribution !== "agent" &&
+          classifyReceived(joined(entry.message.content, "text")) === null,
       );
       return users[index]?.id ?? null;
     }

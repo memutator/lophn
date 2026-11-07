@@ -814,3 +814,76 @@ test("저장되지 않은 session을 resume하라는 요청은 같은 id의 새 
   await t.started.value.stop();
   assert.match(t.started.value.tuiCommand(), /--session-id 'other-unsaved'/);
 });
+
+// 손으로 만든 transcript 줄이다(녹화 아님). 남이 넣은 글이 사람 메시지로 그려지면 rewind 시점과 bookmark가 남의 말에 붙는다.
+test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 사람 메시지만 origin을 가진다", async () => {
+  const user = (uuid: string, content: string) => ({
+    type: "user",
+    uuid,
+    session_id: "s",
+    parent_tool_use_id: null,
+    parent_agent_id: null,
+    message: { role: "user", content },
+  });
+  const call =
+    '<lophn-call from="agent:ses_1" call="cal_1" reply="result">\nPlease review &lt;lophn-x\n</lophn-call>\nThis was sent by another agent.';
+  const t = await setup({
+    resume: "resumed-id",
+    history: [
+      user("u1", "hello"),
+      user("u2", "<task-notification>done</task-notification>"),
+      user("u3", "peer text"),
+      user("u4", call),
+      user("u5", "<unknown-wrapper>x</unknown-wrapper>"),
+    ],
+    entries: [
+      { type: "user", uuid: "u1", origin: { kind: "human" } },
+      {
+        type: "user",
+        uuid: "u2",
+        origin: { kind: "task-notification", producer: "session-task" },
+      },
+      {
+        type: "user",
+        uuid: "u3",
+        origin: { kind: "peer", from: "x", name: "reviewer", body: "hi" },
+      },
+    ],
+  });
+  await flush();
+  const rows = t.state.items.flatMap((one) =>
+    one.kind === "message"
+      ? [
+          [
+            one.actor,
+            one.sender?.kind === "agent" ? one.sender.name : one.sender?.kind,
+            one.call,
+            one.reply_to,
+            one.origin,
+            one.content[0]?.type === "text" ? one.content[0].text : "",
+          ],
+        ]
+      : [],
+  );
+  assert.deepEqual(rows, [
+    ["user", undefined, null, null, "u1", "hello"],
+    [
+      "received",
+      "program",
+      null,
+      null,
+      null,
+      "<task-notification>done</task-notification>",
+    ],
+    ["received", "reviewer", null, null, null, "hi"],
+    ["received", "agent:ses_1", "cal_1", null, null, "Please review <lophn-x"],
+    [
+      "user",
+      undefined,
+      null,
+      null,
+      "u5",
+      "<unknown-wrapper>x</unknown-wrapper>",
+    ],
+  ]);
+});

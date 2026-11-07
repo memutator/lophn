@@ -33,6 +33,7 @@ import type {
 import type { AcpApprovalSubject } from "../../../../../protocol/approvals/gate-call.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
+import { classifyReceived } from "./received.ts";
 
 /** lophn이 녹화하고 확인한 OpenCode 판. 다르면 창에 한 번 알린다. */
 export const RECORDED_OPENCODE_VERSION = "2.1.4";
@@ -1976,17 +1977,23 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     }
 
     // 사람 메시지 하나를 대화에 바로 올린다. 다시 열 때와 자식 session의 첫 메시지다. `origin`은 그 CLI의 message id다.
+    // 다른 agent가 넣은 lophn call·reply는 받은 메시지로 그린다(rewind 글도 origin도 아니다).
     function userMessage(
       lane: Lane,
       id: string,
       payload: Json,
       replay: boolean,
     ) {
-      const content = contentOf(payload.text, payload.files);
+      const received = classifyReceived(str(payload.text));
+      const content =
+        received === null
+          ? contentOf(payload.text, payload.files)
+          : [{ type: "text" as const, text: received.text }];
       const steered = lane.turnHasUser;
       const turnId = startTurn(lane);
       lane.turnHasUser = true;
-      if (replay && !userOf.has(turnId)) userOf.set(turnId, content);
+      if (received === null && replay && !userOf.has(turnId))
+        userOf.set(turnId, content);
       lane.emit({
         type: "message_added",
         item: {
@@ -1994,13 +2001,13 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           id,
           seq: ++lane.seq,
           at: now(),
-          actor: "user",
-          sender: null,
-          call: null,
-          reply_to: null,
+          actor: received === null ? "user" : "received",
+          sender: received?.sender ?? null,
+          call: received?.call ?? null,
+          reply_to: received?.reply_to ?? null,
           delivery: steered ? "steer" : "next_turn",
           turn: turnId,
-          origin: id,
+          origin: received === null ? id : null,
           content,
           reasoning: null,
           cards: [],
@@ -2246,7 +2253,10 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       publishMeta({ cli_session: id, title: str(created.title) || null });
       // 새 session의 사람 메시지는 옛 id와 달라서, 순서대로 짝지어 rewind·fork가 맞는 id를 쓰게 한다.
       const fresh = (await allMessages(id))
-        .filter((item) => item.type === "user")
+        .filter(
+          (item) =>
+            item.type === "user" && classifyReceived(str(item.text)) === null,
+        )
         .map((item) => str(item.id));
       users.forEach((acp, index) => {
         const server = fresh[index];

@@ -29,6 +29,11 @@ import {
   type SpawnedProcess,
   type SpawnOptions,
 } from "@anthropic-ai/claude-agent-sdk";
+import {
+  classifyReceived,
+  type ReceivedText,
+  type TranscriptOrigin,
+} from "./received.ts";
 import type { IdSource } from "../../../../../base/id.ts";
 import type { Result } from "../../../../../base/result.ts";
 import type { AcpInput } from "../../../../../protocol/acp/input.ts";
@@ -119,6 +124,7 @@ type SdkMessage = {
   };
   message?: { content?: string | Block[] };
   isReplay?: boolean;
+  origin?: TranscriptOrigin;
   local_command_run?: { command: string };
   // active_goal
   value?: {
@@ -1019,6 +1025,37 @@ const start: (sdk: ClaudeSdk) => Start =
       });
     }
 
+    // 사람이 치지 않은 글(call, task 알림, 다른 session)이다. 사람 메시지가 아니라 rewind 시점도 bookmark(origin)도 없다.
+    function addReceived(
+      lane: Lane,
+      received: ReceivedText,
+      at: string,
+      uuid: string,
+    ) {
+      const turnId = ensureTurn(lane);
+      if (uuid !== "") lane.seen.add(uuid);
+      lane.emit({
+        type: "message_added",
+        item: {
+          kind: "message",
+          id: ids.newId("msg"),
+          seq: ++lane.seq,
+          at,
+          actor: "received",
+          sender: received.sender,
+          call: received.call,
+          reply_to: received.reply_to,
+          delivery: "next_turn",
+          turn: turnId,
+          origin: null,
+          content: [{ type: "text", text: received.text }],
+          reasoning: null,
+          cards: [],
+          complete: true,
+        },
+      });
+    }
+
     function notify(lane: Lane, body: AcpNoticeItem["notice"]) {
       lane.emit({
         type: "notice_added",
@@ -1529,7 +1566,14 @@ const start: (sdk: ClaudeSdk) => Start =
       }
       const text = textOf(content);
       if (lane !== root && text !== "" && text === lane.prompt) return;
-      if (lane !== root && text !== "")
+      // root에서 tool_result 말고 글이 오면 남이 넣은 것이다(사람 메시지는 이미 보낼 때 그렸다).
+      const received =
+        lane === root && text !== ""
+          ? classifyReceived(text, message.origin)
+          : null;
+      if (received !== null)
+        addReceived(root, received, now(), message.uuid ?? "");
+      else if (lane !== root && text !== "")
         addUser(
           lane,
           ids.newId("msg"),
@@ -2016,9 +2060,9 @@ const start: (sdk: ClaudeSdk) => Start =
       }
     }
 
-    // 합계와 비용을 transcript에서 되살린다. cost-state(CLI가 resume에 쓰는 session 누적)가 있으면 그것이고, 없으면 assistant
-    // 메시지의 usage를 합한다. 원본 줄은 getSessionMessages가 주지 않아 SDK가 읽는 길(importSessionToStore)로 메모리 store에 받는다.
-    async function restoreUsage(id: string) {
+    // transcript의 원본 줄이다. getSessionMessages가 주지 않는 줄(cost-state, usage, origin)을 SDK가 읽는 길(importSessionToStore)로
+    // 메모리 store에 받는다.
+    async function readEntries(id: string) {
       const entries: SessionStoreEntry[] = [];
       try {
         await sdk.importSessionToStore(
@@ -2032,8 +2076,13 @@ const start: (sdk: ClaudeSdk) => Start =
           { dir: cwd, includeSubagents: false },
         );
       } catch {
-        // 사용량은 곁다리다(alpha API). 못 읽어도 다시 그린 대화를 실패로 만들지 않는다.
+        // 곁다리다(alpha API). 못 읽어도 다시 그린 대화를 실패로 만들지 않는다.
       }
+      return entries;
+    }
+
+    // 합계와 비용을 되살린다. cost-state(CLI가 resume에 쓰는 session 누적)가 있으면 그것이고, 없으면 assistant 메시지의 usage를 합한다.
+    function restoreUsage(entries: SessionStoreEntry[]) {
       const state = entries.findLast((one) => one.type === "cost-state") as
         | { totalCostUSD?: number; modelUsage?: Record<string, ModelTokens> }
         | undefined;
@@ -2072,6 +2121,11 @@ const start: (sdk: ClaudeSdk) => Start =
       replaying = true;
       try {
         const list = await sdk.getSessionMessages(id, { dir: cwd });
+        // getSessionMessages는 줄의 origin을 주지 않아 원본 줄에서 uuid로 찾는다.
+        const entries = await readEntries(id);
+        const originOf = new Map(
+          entries.map((one) => [one.uuid, one.origin as TranscriptOrigin]),
+        );
         const blocksOf = (message: (typeof list)[number]): Block[] => {
           const raw =
             (message.message as { content?: string | Block[] }).content ?? [];
@@ -2114,17 +2168,22 @@ const start: (sdk: ClaudeSdk) => Start =
             );
             continue;
           }
-          addUser(
-            root,
-            ids.newId("msg"),
-            [{ type: "text", text }],
-            now(),
-            message.uuid,
-          );
+          const received = classifyReceived(text, originOf.get(message.uuid));
+          if (received !== null) {
+            addReceived(root, received, now(), message.uuid);
+          } else {
+            addUser(
+              root,
+              ids.newId("msg"),
+              [{ type: "text", text }],
+              now(),
+              message.uuid,
+            );
+          }
           totals.turns += 1;
         }
         if (root.turn !== null) endTurn("completed");
-        await restoreUsage(id);
+        restoreUsage(entries);
       } catch (cause) {
         endTurn("failed", {
           code: "internal",

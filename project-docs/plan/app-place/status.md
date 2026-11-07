@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py app-place build`가 `tasks/*.md`에서 id, �
 |---|---|---|---|---|---|---|---|
 | `place-declaration` | place | 1 | 없음 | merged | place/place-declaration | 6d8fb883b |  |
 | `shell-global-float` | shell | 1 | 없음 | merged | shell/shell-global-float | bcd3adc68 |  |
-| `place-params` | place | 2 | place-declaration | todo |  |  |  |
-| `shell-taskbar` | shell | 2 | shell-global-float | todo |  |  |  |
+| `place-params` | place | 2 | place-declaration | running | place/place-params |  |  |
+| `shell-taskbar` | shell | 2 | shell-global-float | merged | shell/shell-taskbar | 3ad8597d2 |  |
 | `shell-sidebar-slots` | shell | 3 | place-params, shell-taskbar | todo |  |  |  |
 | `tray` | tray | 4 | shell-sidebar-slots | todo |  |  |  |

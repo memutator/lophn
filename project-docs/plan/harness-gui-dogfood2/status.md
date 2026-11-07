@@ -4,5 +4,6 @@ lead만 고친다. `tools/status.py harness-gui-dogfood2 build`가 `tasks/*.md`�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `code-block-shell` | chat | 1 | 없음 | todo |  |  |  |
-| `gui-title-flash` | gui | 1 | 없음 | todo |  |  |  |
+| `code-block-shell` | chat | 1 | 없음 | running | chat/code-block-shell |  |  |
+| `live-throttle` | chat | 1 | 없음 | todo |  |  |  |
+| `gui-title-flash` | gui | 1 | 없음 | running | gui/gui-title-flash |  |  |

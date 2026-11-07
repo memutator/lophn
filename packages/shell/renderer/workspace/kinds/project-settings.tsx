@@ -48,6 +48,8 @@ export const projectSettingsKind: TabKindDef = {
           onProjectChanged={slice.projectChanged}
           quick={slice.quick}
           onQuick={slice.setQuick}
+          commands={slice.commands}
+          onCommands={slice.setCommands}
           iconField={
             <ProjectIconField
               project={project}

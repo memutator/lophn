@@ -4,6 +4,7 @@
 import type { FloatRect, TabItem } from "../model.ts";
 import type {
   Desk,
+  QuickCommand,
   WorkspaceQuick,
   WorkspaceRef,
 } from "../../shell/desk-model.ts";
@@ -81,6 +82,9 @@ export interface ProjectSettingsSlice {
   readonly quick: WorkspaceQuick | undefined;
   /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
   setQuick(next: WorkspaceQuick | undefined): void;
+  /** 이 project만의 터미널 명령. 전역 값을 따르는지와 상관없다. */
+  readonly commands: readonly QuickCommand[];
+  setCommands(next: readonly QuickCommand[]): void;
 }
 
 export interface TabHost {

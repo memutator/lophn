@@ -463,3 +463,39 @@ test("browser 탭의 keep_alive는 쓴 대로 읽히고 없는 옛 탭도 읽힌
     });
   });
 });
+
+test("터미널 명령(commands)은 쓴 대로 읽히고, 빈 값이나 모르는 필드는 거절한다", async () => {
+  await withRoot(async (root) => {
+    const store = createWorkspaceLayoutStore(root);
+    const layout = {
+      active_desk: "_default",
+      desks: {
+        _default: {
+          label: "Main",
+          tabs: [],
+          selected_tab: null,
+          groups: [],
+          floats: [],
+          detached: [],
+        },
+      },
+    };
+    const commands = [{ id: "cmd_1", label: "Dev", command: "npm run dev" }];
+    assert.deepEqual(await store.write(PROJECT, { ...layout, commands }), {
+      ok: true,
+      value: null,
+    });
+    const back = await store.read(PROJECT);
+    assert.ok(back.ok && back.value?.ok);
+    assert.deepEqual(back.value.layout.commands, commands);
+
+    for (const bad of [
+      [{ id: "cmd_1", label: "", command: "x" }],
+      [{ id: "cmd_1", label: "Dev", command: "" }],
+      [{ id: "cmd_1", label: "Dev", command: "x", extra: 1 }],
+    ]) {
+      const result = await store.write(PROJECT, { ...layout, commands: bad });
+      assert.ok(!result.ok && result.error.code === "invalid_input");
+    }
+  });
+});

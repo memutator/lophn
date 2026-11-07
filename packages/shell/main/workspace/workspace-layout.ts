@@ -166,12 +166,20 @@ const quickSchema = z.strictObject({
   hidden: z.array(z.string().min(1).max(200)).max(64).optional(),
 });
 
+// project만의 터미널 명령. Terminal hover 목록에 나오고 누르면 새 터미널이 그 명령 줄을 돌린다. 전역 값은 없다.
+const commandSchema = z.strictObject({
+  id: z.string().min(1).max(64),
+  label: z.string().min(1).max(60),
+  command: z.string().min(1).max(1000),
+});
+
 export const workspaceLayoutSchema = z
   .strictObject({
     schema_version: z.literal(WORKSPACE_SCHEMA_VERSION),
     active_desk: deskKey,
     desks: z.record(deskKey, workspaceDeskSchema),
     quick: quickSchema.optional(),
+    commands: z.array(commandSchema).max(20).optional(),
   })
   .refine(
     (layout) => {

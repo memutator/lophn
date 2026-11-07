@@ -21,9 +21,12 @@ import {
   type AgentChoice,
 } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
+import { Icon } from "@lophn/ui/primitives";
+import { workspaceIcons } from "../../icons/mod.ts";
 import { newId } from "../../prefixed-id.ts";
 import type { NewSessionStart } from "../../desktop/router.ts";
 import {
+  type QuickCommand,
   closeTab,
   workspaceKey,
   type WorkspaceRef,
@@ -113,6 +116,8 @@ export interface WorkspaceLeftSidebarProps {
   selected?: string;
   /** 터미널 탭을 열 수 있다. 없으면 coding agent 항목이 없다. */
   canTerminal: boolean;
+  /** 이 project만의 터미널 명령. Terminal hover 목록의 Commands 묶음이다. */
+  commands?: readonly QuickCommand[];
   /** 이 workspace 줄의 +. */
   onNewSession: () => void;
   /** 다른 workspace 줄의 +와 그 hover 목록. 그 workspace로 가서 새 session(또는 coding agent 터미널)을 연다. 없으면 그 +는 그 workspace로 가기만 한다. */
@@ -276,6 +281,14 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
             leading: <AgentFaceIcon face={codingFace(id)} />,
             onSelect: () => runCoding(id),
           })),
+          terminalCommands: props.canTerminal
+            ? (props.commands ?? []).map((item) => ({
+                id: item.id,
+                label: item.label,
+                leading: <Icon icon={workspaceIcons.terminal} pixels={16} />,
+                onSelect: () => props.onNewCoding(item.command),
+              }))
+            : [],
         };
   const choices = agentChoices(props.agents, favorites);
   // 다른 workspace의 agent 목록은 읽지 않았다. 어느 workspace에나 있는 기본 lophn agent와 즐겨찾기 coding agent(터미널은 project만)를 보인다.
@@ -298,6 +311,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       );
       if (desk !== undefined) {
         await props.source.layout.saveWorkspaceLayout(ref, {
+          ...read.layout,
           active: desk.key,
           desks: { ...read.layout.desks, [desk.key]: selectTab(desk, tab) },
         });

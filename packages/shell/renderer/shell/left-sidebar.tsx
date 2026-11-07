@@ -82,6 +82,8 @@ export interface QuickLaunch {
   onTerminal?: () => void;
   /** Terminal hover: 즐겨찾기한 coding agent. 누르면 그 명령어로 새 터미널이다. */
   terminalItems?: readonly QuickHoverItem[];
+  /** Terminal hover: project의 명령. coding agent 묶음 다음의 "Commands" 묶음이다. */
+  terminalCommands?: readonly QuickHoverItem[];
   onBrowser?: () => void;
   /** Browser hover: bookmark. 누르면 그 주소로 새 browser 탭이다. */
   browserItems?: readonly QuickHoverItem[];
@@ -249,6 +251,7 @@ function QuickButton({
   label,
   keys,
   items,
+  moreSections = [],
   onClick,
 }: {
   id: string;
@@ -256,6 +259,7 @@ function QuickButton({
   label: string;
   keys?: string | null;
   items?: readonly QuickHoverItem[];
+  moreSections?: readonly HoverSection[];
   onClick?: () => void;
 }) {
   return (
@@ -270,7 +274,10 @@ function QuickButton({
           onClick={onClick}
         />
       }
-      sections={[{ id, heading: label, keys, items: items ?? [] }]}
+      sections={[
+        { id, heading: label, keys, items: items ?? [] },
+        ...moreSections,
+      ]}
       tip={keys == null ? null : <Keyed label={label} keys={keys} />}
     />
   );
@@ -465,6 +472,13 @@ export function LeftSidebar({
           icon={workspaceIcons.terminal}
           label={t("left-sidebar.button.quick-terminal")}
           items={quick.terminalItems}
+          moreSections={[
+            {
+              id: "terminal-commands",
+              heading: t("left-sidebar.heading.commands"),
+              items: quick.terminalCommands ?? [],
+            },
+          ]}
           onClick={quick.onTerminal}
         />
       ),

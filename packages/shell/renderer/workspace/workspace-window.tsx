@@ -1002,6 +1002,11 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
               const { quick: _old, ...rest } = latestLayout.current;
               commit(quick === undefined ? rest : { ...rest, quick });
             },
+            commands: layout.commands ?? [],
+            setCommands: (commands) => {
+              const { commands: _old, ...rest } = latestLayout.current;
+              commit(commands.length === 0 ? rest : { ...rest, commands });
+            },
           },
   };
 
@@ -2729,6 +2734,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     : { terminal: windowTerminal })}
                   selected={selectedSessionKey}
                   canTerminal={terminal !== undefined}
+                  {...(layout.commands === undefined
+                    ? {}
+                    : { commands: layout.commands })}
                   onNewSession={() => void openLophn()}
                   {...(props.onNewSessionAt === undefined
                     ? {}

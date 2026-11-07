@@ -1,0 +1,22 @@
+# harness-gui-fixes
+
+- 목표: 사람이 실제로 써 보다 찾은 harness GUI bug 여섯을 고친다(`project-docs/issues/harness-gui.md`의 bug 절들). 붙을 때 snapshot과 묶어 보내기, Claude 사용량 복원, 탭 이름, 빈 session resume, 받은 메시지 분류, thread index bookmark.
+- 재료:
+  - `project-docs/issues/harness-gui.md`의 bug 절 여섯(각 절의 "고치려면" 추천안을 따른다)
+  - `project-docs/architecture/harness-gui.md`, `project-docs/architecture/acp.md`, `project-docs/architecture/agent-chat.md`
+  - 남의 구현 참고: `/home/pyosechang/projects/harness-lab`의 emdash·t3code·happy(읽기만). 붙을 때 snapshot, 50ms 묶기, Claude usage 중복 빼기(`message.id:requestId`), transcript `origin.kind`로 받은 메시지 가르기
+- 범위 밖:
+  - ACP `sender`를 넓히는 일과 받은 메시지 화면을 다시 그리는 일(A2A·handoff UI). 사람이 모양을 먼저 정한다. 이 계획은 있는 `actor: "received"`·`sender`(agent | program)·`call`·`reply_to`로만 가른다.
+  - 채팅 화면 가상화(lophn agent와 같이 쓰는 화면. snapshot 뒤에 다시 잰다).
+- 단위: `gui`(탭 GUI의 main·IPC·renderer 길), `adapter`(harness-gui extension의 adapter), `chat`(채팅 화면 부품). 소유는 brief가 정한다.
+- 순서:
+  - wave 1: `gui-snapshot`, `claude-fixes`, `harness-empty-resume`, `thread-index-bookmark`, `tab-title`(선행 `gui-snapshot`. `terminal-gui.tsx`를 같이 고친다)
+  - wave 2: `received-messages`(adapter 넷을 고치므로 wave 1의 adapter task 뒤)
+- 사람이 정할 것: 없음. 범위 밖으로 뺀 A2A 화면은 다음 계획에서 사람에게 묻는다.
+- 정한 것(agent):
+  - `gui-snapshot`이 `packages/shell/ipc/harness-gui.ts`의 갱신 통로 모양을 바꾼다. 쓰는 곳이 main `terminal/gui.ts`, preload, `terminal-gui.tsx` 셋뿐이고 모두 같은 task 소유라 lead가 따로 고정하지 않는다.
+  - 빈 session(첫 메시지 전에 저장되지 않은 CLI session)을 resume하려 하면 실패를 보이지 않고 조용히 새 session을 연다. 사람이 말한 동작이다.
+- 돌리기 전에: 녹화(실제 model 호출)는 하지 않는다. 있는 fixture와 문서, type으로 만든 fixture로 test한다.
+- lead가 할 일:
+  - merge마다: 그 task가 닫는 이슈를 `project-docs/issues/archived/harness-gui.md`로 옮긴다(closed, guard, 닫음).
+  - 다 끝나면: `project-docs/architecture/harness-gui.md`의 "지키는 것"(handle이 갱신을 쌓는다, GUI view는 `EMPTY_ACP_STATE`부터 접는다, 탭 이름)과 "왜 이 모양인가"를 고친다. changelog 열린 판에 남긴다. 사람에게 CLI마다 해 볼 것 목록을 준다.

@@ -79,7 +79,7 @@ import { ConversationFindBar } from "./find/conversation-find.tsx";
 import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { forkAndOpen } from "./header/fork.ts";
-import { RunCodeProvider } from "./message-list/run-code.ts";
+import { FillShellProvider, RunCodeProvider } from "./message-list/run-code.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
@@ -361,6 +361,16 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     if (session === null || drafts.draft(session).text !== "") return;
     drafts.save(session, { text, selection: [text.length, text.length] });
   });
+
+  // 대화의 `!` 코드 블록 단추. 보내지 않고 composer를 shell mode 글로 채워 focus만 옮긴다.
+  const [focusSignal, setFocusSignal] = useState(0);
+  const fillShell =
+    caps.shell && !readOnly
+      ? (text: string) => {
+          drafts.save(key, { text, selection: [text.length, text.length] });
+          setFocusSignal((n) => n + 1);
+        }
+      : null;
 
   // dock과 자식 대화가 harness에 보내는 조작. source가 가졌는지는 capability가 알려 단추를 그린다.
   const openChild = (child: string) => {
@@ -1015,34 +1025,40 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           />
         ) : null}
         <RunCodeProvider value={host.runCommand ?? null}>
-          <ThreadIndexContext.Provider value={threadIndex}>
-            <AgentThread
-              key={key}
-              agent={agent}
-              entries={thread?.entries ?? NO_ENTRIES}
-              detail={draft.detail}
-              live={thread?.live ?? null}
-              outgoing={draft.outgoing}
-              pendingShell={shells.filter((item) => item.session === session)}
-              working={working}
-              now={now}
-              imageUrl={imageUrl}
-              readOnly={readOnly}
-              can={{ rewind: caps.rewind, fork: caps.fork, retry: caps.retry }}
-              source={source}
-              initialScroll={draft.scroll}
-              rewindOpen={layer?.kind === "rewind" ? layer.message : null}
-              {...threadHandlers}
-              onStopShell={
-                caps.shell && !caps.sessions
-                  ? threadHandlers.onStopShell
-                  : undefined
-              }
-              onOpenFile={host.openFile}
-              onOpenSession={host.openSession}
-              artifacts={host.artifacts}
-            />
-          </ThreadIndexContext.Provider>
+          <FillShellProvider value={fillShell}>
+            <ThreadIndexContext.Provider value={threadIndex}>
+              <AgentThread
+                key={key}
+                agent={agent}
+                entries={thread?.entries ?? NO_ENTRIES}
+                detail={draft.detail}
+                live={thread?.live ?? null}
+                outgoing={draft.outgoing}
+                pendingShell={shells.filter((item) => item.session === session)}
+                working={working}
+                now={now}
+                imageUrl={imageUrl}
+                readOnly={readOnly}
+                can={{
+                  rewind: caps.rewind,
+                  fork: caps.fork,
+                  retry: caps.retry,
+                }}
+                source={source}
+                initialScroll={draft.scroll}
+                rewindOpen={layer?.kind === "rewind" ? layer.message : null}
+                {...threadHandlers}
+                onStopShell={
+                  caps.shell && !caps.sessions
+                    ? threadHandlers.onStopShell
+                    : undefined
+                }
+                onOpenFile={host.openFile}
+                onOpenSession={host.openSession}
+                artifacts={host.artifacts}
+              />
+            </ThreadIndexContext.Provider>
+          </FillShellProvider>
         </RunCodeProvider>
         {layer === null || layer.kind === "status" ? null : (
           <div className={styles.layer} data-panel-layer={layer.kind}>
@@ -1237,6 +1253,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           ) : null}
           <AgentComposer
             key={key}
+            focusSignal={focusSignal}
             source={source}
             meta={meta}
             capabilities={caps}

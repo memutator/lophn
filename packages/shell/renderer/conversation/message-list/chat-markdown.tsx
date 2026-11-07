@@ -5,9 +5,10 @@ import { IconButton } from "@lophn/ui/primitives";
 import { Markdown } from "@lophn/ui/reading";
 import { t } from "@lophn/i18n";
 
-import { workspaceIcons } from "../../icons/mod.ts";
+import { conversationIcons, workspaceIcons } from "../../icons/mod.ts";
 import { MermaidBlock } from "./mermaid-block.tsx";
-import { runnable, useRunCode } from "./run-code.ts";
+import { runnable, shellInput, useFillShell, useRunCode } from "./run-code.ts";
+import styles from "./chat-markdown.module.css";
 
 import { artifactMentions } from "../../../../protocol/projects/artifact.ts";
 import { windowLinkOpener } from "../../desktop/settings/core-call.ts";
@@ -39,6 +40,7 @@ export function ChatMarkdown({
   useArtifactReload(text, artifacts);
   const open = windowLinkOpener();
   const run = useRunCode();
+  const fillShell = useFillShell();
   const renderText =
     artifacts === undefined
       ? undefined
@@ -60,30 +62,41 @@ export function ChatMarkdown({
           ) : undefined;
         };
   return (
-    <Markdown
-      source={text}
-      variant="chat"
-      images="link"
-      onOpenLink={open === undefined ? undefined : (href) => void open(href)}
-      renderText={renderText}
-      renderCode={(code, language) =>
-        language?.toLowerCase() === "mermaid" && code !== openFence ? (
-          <MermaidBlock code={code} />
-        ) : undefined
-      }
-      codeAction={
-        run === null
-          ? undefined
-          : (code, language) =>
-              runnable(code, language) ? (
-                <IconButton
-                  icon={workspaceIcons.terminal}
-                  size="sm"
-                  label={t("conversation.button.run-in-terminal")}
-                  onClick={() => run(code)}
-                />
-              ) : undefined
-      }
-    />
+    // display: contents라 layout은 그대로이고, 코드 블록을 줄바꿈하는 규칙만 아래로 건다.
+    <div className={styles.chat}>
+      <Markdown
+        source={text}
+        variant="chat"
+        images="link"
+        onOpenLink={open === undefined ? undefined : (href) => void open(href)}
+        renderText={renderText}
+        renderCode={(code, language) =>
+          language?.toLowerCase() === "mermaid" && code !== openFence ? (
+            <MermaidBlock code={code} />
+          ) : undefined
+        }
+        codeAction={(code, language) => {
+          // `!` 블록은 터미널 명령이 아니라 shell mode 입력이므로 터미널 실행 단추를 두지 않는다.
+          if (shellInput(code))
+            return fillShell === null ? undefined : (
+              <IconButton
+                icon={conversationIcons.shell}
+                size="sm"
+                label={t("conversation.button.fill-shell")}
+                data-fill-shell=""
+                onClick={() => fillShell(code.trim())}
+              />
+            );
+          return run !== null && runnable(code, language) ? (
+            <IconButton
+              icon={workspaceIcons.terminal}
+              size="sm"
+              label={t("conversation.button.run-in-terminal")}
+              onClick={() => run(code)}
+            />
+          ) : undefined;
+        }}
+      />
+    </div>
   );
 }

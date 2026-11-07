@@ -485,6 +485,31 @@ const FORKED: readonly AcpUpdate[] = [
   ),
 ];
 
+// 대화 속 코드 블록: 긴 줄은 줄바꿈하고, `!`로 시작하는 블록에는 복사 단추 왼쪽에 shell mode 단추가 선다.
+const CODE_BLOCKS: readonly AcpUpdate[] = [
+  { type: "session_changed", session: fakeHarnessMeta() },
+  message("msg-c1", 1, 0, "user", "How do I find the slow upload tests?"),
+  message(
+    "msg-c2",
+    2,
+    2,
+    "agent",
+    [
+      "Run this in shell mode:",
+      "",
+      "```bash",
+      "!find /home/dev/projects/upload-service/src/queue/workers -type f -name '*.test.ts' -newer /home/dev/projects/upload-service/package.json -not -path '*/node_modules/*' -exec grep -l 'retry' {} + | sort | head -n 50",
+      "```",
+      "",
+      "A plain block keeps its own wrapping and has no shell button:",
+      "",
+      "```ts",
+      "const delays = [200, 400, 800].map((ms) => new Promise((resolve) => setTimeout(resolve, ms, 'a-long-literal-that-goes-past-the-right-edge-of-the-block')));",
+      "```",
+    ].join("\n"),
+  ),
+];
+
 const CWD = "/home/phroner/projects/upload-service";
 
 // 머리 session menu의 목록: 그 CLI가 이 폴더에 가진 지난 session. 앞의 것이 지금 열린 session(fakeHarnessMeta)이다.
@@ -1063,6 +1088,26 @@ export const harnessGuiArea: Area = {
               ),
             () => click("[data-composer-action=send]"),
           ]}
+        />
+      ),
+    },
+    {
+      id: "harness-gui-code-block-shell",
+      title: "Harness GUI · code block shell button",
+      description:
+        "대화의 코드 블록이다. 긴 줄은 가로 scroll 없이 줄바꿈된다. 첫 글자가 !인 블록(fence 언어는 무관)에는 복사 단추 왼쪽에 shell 단추가 서고, 누르면 그 글이 composer에 shell mode로 채워진다(보내지는 않는다). !로 시작하지 않는 블록에는 단추가 없다.",
+      render: () => <TerminalTabGui approval={null} base={CODE_BLOCKS} />,
+    },
+    {
+      id: "harness-gui-code-block-shell-filled",
+      title: "Harness GUI · code block shell button (pressed)",
+      description:
+        "위 블록의 shell 단추를 누른 뒤다. composer가 shell mode(Shell chip, 경고색 테두리, hint)로 열리고 글이 채워지며 커서는 끝에 있다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          base={CODE_BLOCKS}
+          steps={[() => click("[data-fill-shell]")]}
         />
       ),
     },

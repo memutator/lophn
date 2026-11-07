@@ -1,6 +1,7 @@
 export {
   clearAppNotices,
   createNoticeCommands,
+  eraseAppNotices,
   NOTICE_TOPIC,
   recordProgramNotice,
   releaseNameOf,

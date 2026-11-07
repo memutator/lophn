@@ -49,6 +49,16 @@ export const appRegistrationLookup = definePort<AppRegistrationLookup>(
   "apps.AppRegistrationLookup",
 );
 
+// app.delete가 같은 Tx에서 다른 module이 가진 앱 workspace의 기록(대화, job, 공유 요청, agent 할당)을 지우는 길이다.
+// core/main이 끼운다. 끼우지 않으면 app.delete는 internal로 거절한다.
+interface AppRemnantsEraser {
+  erase(app: { id: string; slug: string }): Result<{ sessions: string[] }>;
+}
+
+export const appRemnantsEraser = definePort<AppRemnantsEraser>(
+  "apps.AppRemnantsEraser",
+);
+
 const appFields = {
   id: appIdSchema,
   slug: slugSchema,
@@ -131,6 +141,22 @@ export const appUnarchive = defineCommand({
   compare: appCompareSchema,
   actors: ["user"],
   errors: ["conflict", "not_found"],
+});
+// 보관한 앱을 영구히 지운다. 앱 source 폴더, 데이터, 대화, release와 기록이 함께 사라지고 되돌릴 수 없다. 사람만 한다.
+// sessions는 같은 transaction에서 지운 그 앱 workspace의 session id다(commit 뒤 디스크 정리가 쓴다).
+export const appDelete = defineCommand({
+  resource: "apps",
+  method: "delete",
+  name: "app.delete",
+  input: appInputSchema,
+  output: z.object({
+    id: appIdSchema,
+    slug: slugSchema,
+    sessions: z.array(z.string().min(1)),
+  }),
+  compare: appCompareSchema,
+  actors: ["user"],
+  errors: ["conflict", "forbidden", "not_found", "unavailable"],
 });
 const appRenameInputSchema = z.strictObject({
   app: appIdSchema,
@@ -234,4 +260,10 @@ export const appRenamed = defineEvent("AppRenamed", {
 export const appFoldersEdited = defineEvent("AppFoldersEdited", {
   subject: appIdSchema,
   payload: z.object({ folders: projectFoldersSchema }),
+});
+
+// 앱의 기록은 지워도 이 event는 남는다(event는 지우지 않는다).
+export const appDeleted = defineEvent("AppDeleted", {
+  subject: appIdSchema,
+  payload: z.object({ slug: slugSchema }),
 });

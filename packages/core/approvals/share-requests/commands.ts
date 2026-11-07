@@ -82,6 +82,16 @@ export function approveShareWithConsent(
   return ok(undefined);
 }
 
+// 앱을 지우면 그 앱의 열린 공유 요청도 닫는다(거절과 같은 알림이라 열린 대기 목록에서 빠진다).
+export function eraseShareRequest(
+  tx: Pick<Tx, "sql" | "port" | "now">,
+  app: string,
+): void {
+  if (loadShare(tx.sql, app) === null) return;
+  tx.sql.run("delete from share_requests where app = ?", [app]);
+  push(tx, { type: "ShareRequestClosed", app, outcome: "reject" });
+}
+
 export function createShareRequestCommands(): {
   open: CommandDefinition<typeof shareRequestOpen>;
   decide: CommandDefinition<typeof shareRequestDecide>;

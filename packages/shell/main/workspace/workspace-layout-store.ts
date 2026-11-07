@@ -35,6 +35,8 @@ export interface WorkspaceLayoutStore {
     workspace: string,
     layout: unknown,
   ): Promise<WorkspaceStoreResult<null>>;
+  /** 지운 앱의 layout 파일을 지운다. 없으면 그대로 성공이다. */
+  remove(workspace: string): Promise<WorkspaceStoreResult<null>>;
 }
 
 export function createWorkspaceLayoutStore(
@@ -69,6 +71,17 @@ export function createWorkspaceLayoutStore(
       } catch {
         return { ok: true, value: { ok: false, reason: "corrupt" } };
       }
+    },
+    async remove(workspace) {
+      if (!isWorkspaceKey(workspace)) return INVALID_WORKSPACE;
+      try {
+        await impl.unlink(fileOf(workspace));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+          return { ok: false, error: fsError("unwritable") };
+        }
+      }
+      return { ok: true, value: null };
     },
     async write(workspace, layout) {
       if (!isWorkspaceKey(workspace)) return INVALID_WORKSPACE;

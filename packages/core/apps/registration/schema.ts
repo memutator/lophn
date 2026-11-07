@@ -67,3 +67,34 @@ export const appsSchemaSteps: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// app.delete(보관한 앱을 영구히 지움)만 지울 수 있게 DELETE trigger 다섯을 erase window 조건부로 바꾼다
+// (storage/ledger/erase.ts; session delete가 쓰는 것과 같은 장치). 창이 닫혀 있으면 이름도 메시지도 그대로 막는다.
+// 새 step으로 더한다. 낸 step의 SQL은 고치지 않는다.
+export const appDeleteSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.delete.erase-windows",
+    sql: `
+    DROP TRIGGER apps_no_delete;
+    CREATE TRIGGER apps_no_delete BEFORE DELETE ON apps
+    WHEN NOT EXISTS (SELECT 1 FROM erase_windows WHERE table_name = 'apps')
+    BEGIN SELECT RAISE(ABORT, 'apps are archived, not deleted'); END;
+    DROP TRIGGER releases_no_delete;
+    CREATE TRIGGER releases_no_delete BEFORE DELETE ON releases
+    WHEN NOT EXISTS (SELECT 1 FROM erase_windows WHERE table_name = 'releases')
+    BEGIN SELECT RAISE(ABORT, 'releases are kept'); END;
+    DROP TRIGGER grants_no_delete;
+    CREATE TRIGGER grants_no_delete BEFORE DELETE ON grants
+    WHEN NOT EXISTS (SELECT 1 FROM erase_windows WHERE table_name = 'grants')
+    BEGIN SELECT RAISE(ABORT, 'grants are revoked, not deleted'); END;
+    DROP TRIGGER invocations_no_delete;
+    CREATE TRIGGER invocations_no_delete BEFORE DELETE ON invocations
+    WHEN NOT EXISTS (SELECT 1 FROM erase_windows WHERE table_name = 'invocations')
+    BEGIN SELECT RAISE(ABORT, 'invocations are recorded, not deleted'); END;
+    DROP TRIGGER app_rewinds_no_delete;
+    CREATE TRIGGER app_rewinds_no_delete BEFORE DELETE ON app_rewinds
+    WHEN NOT EXISTS (SELECT 1 FROM erase_windows WHERE table_name = 'app_rewinds')
+    BEGIN SELECT RAISE(ABORT, 'rewinds are recorded, not deleted'); END;
+  `,
+  },
+];

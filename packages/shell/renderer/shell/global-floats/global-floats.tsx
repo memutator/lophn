@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import { useAppViews } from "../../app-frame/app-views.tsx";
+import { useOptionalEventClient } from "../../desktop/connection/events/hooks.tsx";
 import { createViewKeeps, type ViewKeeps } from "../../app-frame/view-keeps.ts";
 import {
   createWebviewHost,
@@ -164,6 +165,22 @@ export function GlobalFloatsProvider({
       store.flush();
     };
   }, [enabled, store]);
+
+  // 앱이 영구히 지워지면 그 앱의 전역 float을 닫는다(없는 앱의 화면은 열려 있어도 쓸모가 없다).
+  const events = useOptionalEventClient();
+  useEffect(() => {
+    if (!enabled || events === null) return;
+    return events.subscribe({ types: ["AppRemoved"] }, (message) => {
+      if (message.kind !== "event" || message.event.type !== "AppRemoved")
+        return;
+      const removed = message.event.subject;
+      store.commit((desk) =>
+        desk.floats
+          .filter((item) => item.tab.app === removed)
+          .reduce((next, item) => closeFloat(next, item.tab.key), desk),
+      );
+    });
+  }, [enabled, events, store]);
 
   // 앱 이름은 저장하지 않고 앱 목록에서 한 번 읽는다.
   const asked = useRef(new Set<string>());

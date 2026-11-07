@@ -59,6 +59,20 @@ export function clearAppNotices(
   for (const row of rows) pushClosed(tx, app, String(row["id"]));
 }
 
+// 앱을 지우면 그 앱의 알림 줄을 영구 줄까지 모두 지운다. 안 읽은 줄마다 Closed를 낸다.
+// program 줄은 기록이라 trigger가 지우기를 막고 남긴다(읽는 쪽이 앱 이름 없이 읽는다).
+export function eraseAppNotices(
+  tx: Pick<Tx, "sql" | "port" | "now">,
+  app: string,
+): void {
+  const rows = tx.sql.all(
+    "select id from notices where source = 'app' and app = ? and read_at is null",
+    [app],
+  );
+  tx.sql.run("delete from notices where source = 'app' and app = ?", [app]);
+  for (const row of rows) pushClosed(tx, app, String(row["id"]));
+}
+
 type Write = {
   source: "app" | "program";
   app: string | null;

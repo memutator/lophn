@@ -9,6 +9,10 @@ import { createLedgerRegistration } from "../../projects/register.ts";
 import { createLedgerRegistration as createRunsRegistration } from "../../runs/register.ts";
 import { createLedgerRegistration as createWorkflowsRegistration } from "../../workflows/register.ts";
 import { createCoreRegistration as createAcpRegistration } from "./wiring/acp-registration.ts";
+import {
+  appsDeleteWiring,
+  createCoreRegistration as createAppsDeleteRegistration,
+} from "./wiring/apps-delete.ts";
 import { acpWiring } from "./wiring/acp.ts";
 import { annotationsWiring } from "./wiring/annotations.ts";
 import { artifactMoveWiring } from "./wiring/artifact-move.ts";
@@ -84,6 +88,7 @@ export const TEAMS = [
   { createCoreRegistration: createAssignmentRegistration },
   { createCoreRegistration: createShareRequestsRegistration },
   { createCoreRegistration: createAcpRegistration },
+  { createCoreRegistration: createAppsDeleteRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -109,6 +114,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/assignment-file.ts", import.meta.url).href,
   new URL("./wiring/share-requests.ts", import.meta.url).href,
   new URL("./wiring/acp-registration.ts", import.meta.url).href,
+  new URL("./wiring/apps-delete.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.
@@ -147,6 +153,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   shareRequestsWiring,
   routerWiring,
   appsWiring,
+  // 쓰기 앞 처리기는 앞이 안쪽이다. lophn-agent의 session 정리(rewind files)보다 안쪽이라 app.delete의 session 정리도 이 위에서 한다.
+  appsDeleteWiring,
   sealedMarkerWiring,
   lophnAgentRewindWiring,
   lophnAgentProviderLoginWiring,

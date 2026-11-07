@@ -136,7 +136,7 @@ const keybindingsSetting = declareSetting({
 
 // 왼쪽 sidebar 빠른 실행의 전역 값. 모양은 workspace layout의 `quick`과 같고(packages/shell/main/workspace/workspace-layout.ts),
 // workspace가 자기 `quick`을 두지 않으면 이 값을 쓴다. 모르는 id와 없어진 앱은 shell이 그릴 때 건너뛴다.
-const quickLaunchSetting = declareSetting({
+export const quickLaunchSetting = declareSetting({
   key: "shell.quick_launch",
   type: z.object({
     order: z.array(z.string().min(1).max(200)).max(64),
@@ -161,7 +161,7 @@ const floatRect = z.object({
   width: z.number().int().min(1),
   height: z.number().int().min(1),
 });
-const appLaunchSetting = declareSetting({
+export const appLaunchSetting = declareSetting({
   key: "shell.app_launch",
   type: z
     .record(
@@ -193,7 +193,7 @@ const taskbarSetting = declareSetting({
 });
 
 // 설치된 앱의 `sidebar` 자리 화면은 선언하면 오른쪽 sidebar에 panel로 나온다. 사람이 끈 것만 여기에 쌓인다.
-const sidebarPanelsOffSetting = declareSetting({
+export const sidebarPanelsOffSetting = declareSetting({
   key: "shell.sidebar_panels_off",
   type: z
     .array(
@@ -207,7 +207,7 @@ const sidebarPanelsOffSetting = declareSetting({
 });
 
 // 설치된 앱의 `tray` 자리 화면은 선언하면 작업 표시줄 오른쪽 tray에 항목으로 나온다. 사람이 끈 것만 여기에 쌓인다.
-const trayOffSetting = declareSetting({
+export const trayOffSetting = declareSetting({
   key: "shell.tray_off",
   type: z
     .array(

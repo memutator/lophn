@@ -286,6 +286,8 @@ type AppsControl = {
   // 원하는 앱 상태를 supervisor에 알린다. 마지막 상태를 기억해 supervisor가 다시 떠도
   // 같은 상태로 맞춘다(releases 조립이 활성 release를 보고 부른다).
   reconcile(desired: DesiredApp): Promise<Result<void>>;
+  // 지운 앱의 마지막 원하는 상태를 잊는다(sweep이 다시 알리지 않게).
+  forget(app: string): void;
   // activation 진행·운영 DesiredApp 맞춤. 조립이 없으면 null이다.
   readonly activation: ActivationDriver | null;
   // supervisor 감독 callback의 message. credential 요청과 진단을 처리한다.
@@ -816,6 +818,9 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     previews: previewService ?? unattachedPreviewService(),
     facts,
     reconcile: reconcileApp,
+    forget(app) {
+      desired.delete(app);
+    },
     activation,
     onSupervisorMessage(message) {
       if (channel.onMessage(message)) return;

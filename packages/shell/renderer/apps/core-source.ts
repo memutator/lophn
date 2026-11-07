@@ -3,6 +3,7 @@
 import {
   appArchive,
   appCreate,
+  appDelete,
   appUnarchive,
 } from "../../../protocol/apps/apps.ts";
 import { appSlugOf } from "../../../protocol/apps/app-slug.ts";
@@ -145,6 +146,20 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return result.ok
         ? { ok: true, value: await withNumber(result.value) }
         : result;
+    },
+
+    async deleteApp(app) {
+      const result = await call<unknown>(
+        core,
+        "command",
+        appDelete.method,
+        commandBody(appDelete, {
+          input: { app: app.id },
+          compare: { base_revision: app.revision },
+          key: `apps-${appDelete.method}-${crypto.randomUUID()}`,
+        }),
+      );
+      return result.ok ? { ok: true, value: null } : result;
     },
 
     // 앱 공간 본문에 여는 화면은 선언 read(`/apps/tools`)가 준다. 그 release의

@@ -18,7 +18,7 @@ import type {
   ProjectsSource,
 } from "../desktop/workspaces/projects/source.ts";
 import { RegisterDialog } from "../desktop/workspaces/register-dialog.tsx";
-import { commonIcons, homeIcons } from "../icons/mod.ts";
+import { actionIcons, commonIcons, homeIcons } from "../icons/mod.ts";
 import { WorkspaceMark } from "../parts/workspace-mark/workspace-mark.tsx";
 import { ProjectWorkspaceMark } from "../parts/project-icon/project-icon.tsx";
 import {
@@ -27,6 +27,7 @@ import {
   PanelRows,
   PanelSection,
 } from "./panel-rows.tsx";
+import { DeleteAppDialog } from "./delete-app-dialog.tsx";
 import { RightSidebar } from "./right-sidebar.tsx";
 
 export interface WorkspacesPanelProps {
@@ -127,6 +128,12 @@ export function WorkspacesPanel({
   const [creatingApp, setCreatingApp] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
   const [archivedFolded, setArchivedFolded] = useState(true);
+  // 지우기 확인 dialog가 가리키는 보관한 앱과 지우는 중, 지우지 못한 이유.
+  const [deleting, setDeleting] = useState<{
+    row: AppRow;
+    busy: boolean;
+    failure?: string;
+  } | null>(null);
 
   const loadProjects = useCallback(async () => {
     if (!projects) return;
@@ -178,6 +185,30 @@ export function WorkspacesPanel({
     if (!apps) return;
     await apps.setArchived(app, archived);
     await loadApps();
+  };
+
+  const deleteApp = async () => {
+    if (!apps || deleting === null) return;
+    const { row } = deleting;
+    setDeleting({ row, busy: true });
+    const result = await apps.deleteApp(row);
+    if (result.ok) {
+      setDeleting(null);
+      await loadApps();
+      return;
+    }
+    // 앱 process가 아직 멈추는 중이면 잠시 뒤 다시 하면 된다. 그 밖의 실패는 다른 창이 먼저 바꿨을 수 있어 최신을 읽는다.
+    setDeleting({
+      row,
+      busy: false,
+      failure: t(
+        result.code === "unavailable"
+          ? "home.error.app-delete-stopping"
+          : "home.error.app-delete-failed",
+        { name: row.name },
+      ),
+    });
+    if (result.code !== "unavailable") void loadApps();
   };
 
   const relocate = async (
@@ -279,11 +310,13 @@ export function WorkspacesPanel({
   );
 
   const unarchive = t("home.button.unarchive");
+  const deleteLabel = t("home.button.delete");
   const archivedRow = (
     kind: "project" | "app",
     id: string,
     name: string,
     restore: () => void,
+    remove?: () => void,
   ) => (
     <PanelRow
       key={`${kind}:${id}`}
@@ -292,15 +325,28 @@ export function WorkspacesPanel({
       leading={<WorkspaceMark kind={kind} id={id} name={name} />}
       title={name}
       trailing={
-        <Tooltip content={unarchive}>
-          <IconButton
-            icon={commonIcons.unarchive}
-            label={unarchive}
-            size="sm"
-            data-action="unarchive"
-            onClick={restore}
-          />
-        </Tooltip>
+        <>
+          {remove === undefined ? null : (
+            <Tooltip content={deleteLabel}>
+              <IconButton
+                icon={actionIcons.delete}
+                label={deleteLabel}
+                size="sm"
+                data-action="delete"
+                onClick={remove}
+              />
+            </Tooltip>
+          )}
+          <Tooltip content={unarchive}>
+            <IconButton
+              icon={commonIcons.unarchive}
+              label={unarchive}
+              size="sm"
+              data-action="unarchive"
+              onClick={restore}
+            />
+          </Tooltip>
+        </>
       }
     />
   );
@@ -396,6 +442,7 @@ export function WorkspacesPanel({
                 item.id,
                 item.name,
                 () => void setAppArchived(item, false),
+                () => setDeleting({ row: item, busy: false }),
               ),
             )}
           </PanelRows>
@@ -421,6 +468,15 @@ export function WorkspacesPanel({
           onLatest={() => void loadProjects()}
           onRelocate={relocate}
           onClose={() => setDetail(null)}
+        />
+      ) : null}
+      {apps && deleting !== null ? (
+        <DeleteAppDialog
+          name={deleting.row.name}
+          busy={deleting.busy}
+          failure={deleting.failure}
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => void deleteApp()}
         />
       ) : null}
       {apps ? (

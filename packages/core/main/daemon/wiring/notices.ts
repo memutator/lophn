@@ -17,6 +17,7 @@ import {
   noticeUnifiedSchemaSteps,
   productVersionSchemaSteps,
 } from "../../../apps/notices/mod.ts";
+import { appDeleteSchemaSteps } from "../../../apps/registration/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 const NOTICE_RECORDER_PRINCIPAL = "machine:notice-recorder";
@@ -61,6 +62,8 @@ export function createNoticesWiring(
     schemaStepsAfterTeams: [
       ...noticeUnifiedSchemaSteps,
       ...productVersionSchemaSteps,
+      // 앱 팀의 schemaSteps는 목록 중간이라 이미 낸 뒤에 더하는 step은 여기에 붙는다.
+      ...appDeleteSchemaSteps,
     ],
     operations: () => [
       { name: noticeRecord.name, actors: ["machine"], kind: "command" },

@@ -8,6 +8,9 @@ import {
   appConnectSource,
   appCreate,
   appCreated,
+  appDelete,
+  appDeleted,
+  appRemnantsEraser,
   appRename,
   appRenamed,
   appSetIcon,
@@ -24,6 +27,8 @@ import type {
 import { checkIconUpload, parseActor } from "../../../protocol/base/mod.ts";
 import { RESERVED_APP_SLUGS } from "../../../protocol/apps/declaration/mod.ts";
 import { clearAppNotices } from "../notices/commands.ts";
+import { lastProcessFact } from "../permissions/store.ts";
+import { eraseApp } from "./delete.ts";
 import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import {
@@ -111,6 +116,7 @@ export function createAppCommands(): {
   create: CommandDefinition<typeof appCreate>;
   connectSource: CommandDefinition<typeof appConnectSource>;
   archive: CommandDefinition<typeof appArchive>;
+  delete: CommandDefinition<typeof appDelete>;
   unarchive: CommandDefinition<typeof appUnarchive>;
   rename: CommandDefinition<typeof appRename>;
   editFolders: CommandDefinition<typeof appEditFolders>;
@@ -237,6 +243,53 @@ export function createAppCommands(): {
           // 보관 해제는 실행 재개의 숨은 동의가 아니다. false를 유지한다.
           event: appUnarchived,
           payload: { run_enabled: false as const },
+        });
+      },
+    },
+    // 보관한 앱만 지운다(보관 -> 지움 두 걸음). 다른 module의 기록(대화, job, 공유 요청, 할당)은 port가 같은 Tx에서 지우고,
+    // 파일과 shell 쪽은 commit 뒤 core/main이 지운다. 지운 앱의 event(AppCreated 등)는 immutable이라 남는다.
+    delete: {
+      route: appDelete,
+      handle(tx, ctx, input, compare) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const current = loadApp(tx.sql, input.app);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const access = authorizeApp(
+          tx,
+          ctx,
+          appDelete.name,
+          accessTarget(current.value, current.value),
+        );
+        if (denied(access)) return notFound();
+        if (!access.ok) return access;
+        if (current.value.status !== "archived") {
+          return conflict("only an archived app can be deleted");
+        }
+        if (current.value.revision !== compare.base_revision) {
+          return conflict("app revision changed");
+        }
+        // 도는 process가 살아 있으면 파일과 DB를 지울 수 없다. 보관이 멈추는 중이면 잠시 뒤 다시 한다.
+        if (lastProcessFact(tx.sql, input.app).kind === "started") {
+          return err({
+            code: "unavailable",
+            message: "the app process is still stopping; try again shortly",
+          });
+        }
+        // port가 없으면 tx.port가 internal로 거절한다. 다른 module의 기록을 남긴 채 앱만 지우지 않으려는 것이다.
+        const others = tx.port(appRemnantsEraser).erase({
+          id: current.value.id,
+          slug: current.value.slug,
+        });
+        if (!others.ok) return others;
+        const erased = eraseApp(tx, input.app);
+        if (!erased.ok) return erased;
+        tx.emit(appDeleted, input.app, { slug: current.value.slug });
+        return ok({
+          id: current.value.id,
+          slug: current.value.slug,
+          sessions: others.value.sessions,
         });
       },
     },

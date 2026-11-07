@@ -126,6 +126,26 @@ function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
   return ok(job);
 }
 
+// 앱을 지우면 그 앱을 부르는 job(앱 tool, 앱 workspace의 agent 호출)과 그 앱 workspace가 만든 job을 지운다.
+// 도는 run은 끝까지 돈다(job 지우기와 같다).
+export function eraseJobsOfApp(tx: Tx, app: string): void {
+  const ids = tx.sql
+    .all(
+      `SELECT id FROM jobs
+       WHERE creator_workspace = ?1
+          OR (json_extract(action, '$.kind') = 'tool_run' AND json_extract(action, '$.app') = ?1)
+          OR (json_extract(action, '$.kind') = 'agent_run'
+              AND json_extract(action, '$.agent_workspace.kind') = 'app'
+              AND json_extract(action, '$.agent_workspace.id') = ?1)`,
+      [app],
+    )
+    .map((row) => String(row["id"]));
+  for (const id of ids) {
+    deleteJob(tx.sql, id);
+    changed(tx, id);
+  }
+}
+
 export function createJobCommands(): {
   create: CommandDefinition<typeof jobCreate>;
   update: CommandDefinition<typeof jobUpdate>;

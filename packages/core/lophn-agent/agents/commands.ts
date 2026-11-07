@@ -225,6 +225,8 @@ export function createAgentCommands(deps: AgentDeps): {
     },
     delete: {
       route: agentDelete,
+      // app.delete가 같은 Tx에서 그 앱에 범위가 있는 agent 정의를 지운다.
+      dispatchable: true,
       handle(
         tx: Tx,
         _ctx: RequestContext,

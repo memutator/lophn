@@ -29,6 +29,8 @@ interface FakeAppsOptions {
   createCode?: string;
   /** 보관·꺼내기 결과 code. 없으면 성공이다. */
   archiveCode?: string;
+  /** 지우기 결과 code. 없으면 성공이다. */
+  deleteCode?: string;
 }
 
 export function fakeApps(options: FakeAppsOptions = {}) {
@@ -82,6 +84,14 @@ export function fakeApps(options: FakeAppsOptions = {}) {
       };
       rows = rows.map((row) => (row.id === app.id ? next : row));
       return Promise.resolve({ ok: true, value: next });
+    },
+    deleteApp(app) {
+      calls.push(["delete", app.id, app.revision]);
+      if (options.deleteCode) {
+        return Promise.resolve({ ok: false, code: options.deleteCode });
+      }
+      rows = rows.filter((row) => row.id !== app.id);
+      return Promise.resolve({ ok: true, value: null });
     },
     entryScreen(app, release): Promise<SourceResult<string>> {
       calls.push(["entry", app, release]);

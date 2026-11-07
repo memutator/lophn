@@ -81,5 +81,9 @@ export const workspacesSteps = {
   archived: [
     () => click('[data-section="archived"] [data-toggle]'),
   ] as readonly Step[],
+  deleteApp: [
+    () => click('[data-section="archived"] [data-toggle]'),
+    () => click('[data-archived="app"] [data-action="delete"]'),
+  ] as readonly Step[],
   register: [() => click("[data-register-project]")] as readonly Step[],
 };

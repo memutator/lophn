@@ -1,5 +1,6 @@
 export {
   type AgentSessionRow,
+  appWorkspaceSessions,
   conversationSchemaSteps,
   loadMessage,
   messageBodyFields,

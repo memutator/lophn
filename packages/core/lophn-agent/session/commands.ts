@@ -192,6 +192,8 @@ export function createConversationCommands(deps: ConversationDeps): {
     },
     delete: {
       route: deleteSession,
+      // app.delete가 같은 Tx에서 그 앱 workspace의 session을 지운다.
+      dispatchable: true,
       handle(tx, ctx, input: Input<typeof deleteSession>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;

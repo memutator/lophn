@@ -42,6 +42,8 @@ export interface GlobalFloatsStore {
   read(): Promise<GlobalFloat[]>;
   /** 검증한 값을 원자 교체로 쓴다. 검증에 실패하면 `invalid_input`이고 파일은 그대로다. */
   write(floats: unknown): Promise<GlobalFloatsWriteResult>;
+  /** 지운 앱의 float을 목록에서 뺀다. 그 앱의 float이 없으면 파일을 건드리지 않는다. */
+  removeApp(app: string): Promise<GlobalFloatsWriteResult>;
 }
 
 export function createGlobalFloatsStore(
@@ -50,7 +52,7 @@ export function createGlobalFloatsStore(
 ): GlobalFloatsStore {
   const impl: StoreDeps = { ...defaultStoreDeps, ...deps };
   const file = join(dataRoot, "shell", "global-floats.json");
-  return {
+  const store: GlobalFloatsStore = {
     async read() {
       try {
         const raw = await impl.readFile(file);
@@ -79,5 +81,13 @@ export function createGlobalFloatsStore(
         impl,
       );
     },
+    async removeApp(app) {
+      const floats = await store.read();
+      if (!floats.some((item) => item.app === app)) {
+        return { ok: true, value: null };
+      }
+      return store.write(floats.filter((item) => item.app !== app));
+    },
   };
+  return store;
 }

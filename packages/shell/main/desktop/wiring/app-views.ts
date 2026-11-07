@@ -1,5 +1,5 @@
 // 앱 view·frame·guest 붙이기와 view IPC, 외부 링크, view 오류, 앱 전용 창, 창 열기 intent.
-import { app, shell } from "electron";
+import { app, session, shell } from "electron";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -13,6 +13,7 @@ import {
   type AppViewOpen,
 } from "../../../ipc/app-frame.ts";
 import { createCoreUpstream } from "../../app-frame/app-protocol.ts";
+import { clearAppStorage } from "../../app-frame/app-storage.ts";
 import { createEntryScreen } from "../../app-frame/declaration-source.ts";
 import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
 import { electronAppViews } from "../../app-frame/electron-app-frame.ts";
@@ -300,6 +301,19 @@ export function register(
   ctx.relay.conditions.push({ types: ["AppViewChanged"] });
   ctx.relay.events.push((event) => {
     if (event.type === "AppViewChanged") void appFrame.refresh(event.subject);
+  });
+  // 앱이 영구히 지워지면 그 앱의 browser 저장소(cookie, localStorage, IndexedDB, cache)도 비운다. 보관한 앱이라 열린 view는 이미 없다.
+  ctx.relay.conditions.push({ types: ["AppRemoved"] });
+  ctx.relay.events.push((event) => {
+    if (event.type !== "AppRemoved" || event.subject === null) return;
+    void clearAppStorage(
+      {
+        userData: app.getPath("userData"),
+        partition: (name) => session.fromPartition(name),
+        log,
+      },
+      event.subject,
+    );
   });
   ctx.windowHooks.closed.push(({ ref }) => appFrame.closeWindow(ref));
 

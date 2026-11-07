@@ -184,6 +184,7 @@ export function createLedgerRegistration(
       commands.create,
       commands.connectSource,
       commands.archive,
+      commands.delete,
       commands.unarchive,
       commands.rename,
       commands.editFolders,

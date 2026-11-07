@@ -22,6 +22,7 @@ export const workspace = {
   "home.button.archive": "Archive",
   "home.button.choose-location": "Choose new location",
   "home.button.create-app": "Create",
+  "home.button.delete": "Delete",
   "home.button.details": "Details",
   "home.button.hide-details": "Hide details",
   "home.button.more": "More actions for {name}",
@@ -31,6 +32,14 @@ export const workspace = {
   "home.button.remove-folder": "Remove folder",
   "home.button.show-details": "Show details",
   "home.button.unarchive": "Unarchive",
+  "home.dialog.delete-app-conversations": "Conversations with the app's agent",
+  "home.dialog.delete-app-intro":
+    "This permanently deletes the app. It can't be undone.",
+  "home.dialog.delete-app-kept": "Secret values you saved are kept.",
+  "home.dialog.delete-app-releases": "Releases and history of this app",
+  "home.dialog.delete-app-source": "Source code and the app's data",
+  "home.dialog.delete-app-title": "Delete {name}?",
+  "home.dialog.delete-app-will": "These are deleted:",
   "home.dialog.new-app-note":
     "An app starts with a name and a one-line purpose. lophn builds it from there.",
   "home.dialog.register-note":
@@ -41,6 +50,10 @@ export const workspace = {
   "home.empty.no-projects": "No projects yet.",
   "home.error.app-create-failed":
     "{name} wasn't created, so nothing was saved. Try again.",
+  "home.error.app-delete-failed":
+    "{name} wasn't deleted, so nothing changed. Try again.",
+  "home.error.app-delete-stopping":
+    "{name} is still shutting down. Try again in a moment.",
   "home.error.app-name-taken":
     "{name} is already taken. Choose a different name.",
   "home.error.name-required": "Enter a name.",

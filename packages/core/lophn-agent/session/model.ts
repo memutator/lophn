@@ -316,6 +316,21 @@ export function loadSession(
   return row === undefined ? undefined : sessionRowOf(row);
 }
 
+// 앱 workspace의 session 전부(archive한 것도). 앱을 지울 때 지운다.
+export function appWorkspaceSessions(
+  lookup: {
+    sql: { all: (query: string, params: SqlParams) => SqlRow[] };
+  },
+  app: string,
+): AgentSessionRow[] {
+  return lookup.sql
+    .all(
+      `select ${SESSION_COLUMNS} from sessions where app = ? order by created_seq`,
+      [app],
+    )
+    .map(sessionRowOf);
+}
+
 // 열린 session 전부. archive한 session은 빼고 연 순서다.
 export function openSessions(lookup: {
   sql: { all: (query: string, params: SqlParams) => SqlRow[] };

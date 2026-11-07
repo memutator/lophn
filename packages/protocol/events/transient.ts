@@ -50,6 +50,12 @@ const appViewChanged = defineTransientEvent("AppViewChanged", {
   }),
 });
 
+// 앱을 영구히 지운 command(app.delete)가 commit된 뒤 낸다. 지운 앱을 가리키던 shell 쪽 자리(browser 저장소, layout, 전역 float)를 정리한다.
+const appRemoved = defineTransientEvent("AppRemoved", {
+  subject: idSchema("app"),
+  payload: z.strictObject({}),
+});
+
 // core가 설정 파일 바뀜을 보고 낸다. 쓰는 요소가 값을 다시 읽는 신호다.
 const settingsChanged = defineTransientEvent("SettingsChanged", {
   subject: z.null(),
@@ -168,6 +174,7 @@ export const transientEventSchema = z.discriminatedUnion("type", [
     session: idSchema("ses"),
   }),
   transientEventEnvelopeSchema(appViewChanged),
+  transientEventEnvelopeSchema(appRemoved),
   transientEventEnvelopeSchema(settingsChanged),
   transientEventEnvelopeSchema(appRestartHalted),
   transientEventEnvelopeSchema(activationConsentRequested),

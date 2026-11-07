@@ -1,10 +1,12 @@
 // tray. 작업 표시줄 오른쪽(꺼져 있으면 title bar의 panel 탭 옆)에 사람이 켠 앱 화면마다 항목 하나가 선다: 앱 아이콘과 앱이 낸
-// 짧은 글(tone 색). 누르면 그 앱의 `tray` 화면이 항목 위(title bar면 아래)에 popup으로 뜬다. 바깥을 누르거나 Esc를 누르면 닫힌다.
+// 짧은 글(tone 색). 누르면 그 앱의 `tray` 화면이 항목 위(title bar면 아래)에 popup으로 뜬다. 바깥을 누르거나 창이 focus를 잃거나 Esc를 누르면 닫힌다.
+// popup 머리의 pin을 켜면 바깥 누르기·창 blur·다른 항목 누르기로 닫히지 않는다(Esc와 자기 항목 다시 누르기는 닫는다). pin은 메모리에만 있다.
 // popup은 자기 <webview> 그릇을 가진다: 닫으면 화면도 닫히고 다시 열면 새로 load된다.
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { t } from "@lophn/i18n";
 import { Tooltip } from "@lophn/ui/overlay";
+import { IconButton } from "@lophn/ui/primitives";
 
 import type { TrayTone, TrayValue } from "../../../../protocol/apps/tray.ts";
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
@@ -20,6 +22,7 @@ import {
   WebviewHostProvider,
   WebviewLayer,
 } from "../../app-frame/webview-host.tsx";
+import { shellIcons } from "../../icons/mod.ts";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
 import { type PopupPlace, placePopup } from "./popup-place.ts";
 import styles from "./tray.module.css";
@@ -85,11 +88,17 @@ function PopupBody({ item }: { item: TrayItem }) {
 function Popup({
   item,
   place,
+  side,
+  pinned,
+  onPin,
   onClose,
   anchor,
 }: {
   item: TrayItem;
   place: PopupPlace;
+  side: "above" | "below";
+  pinned: boolean;
+  onPin: (pinned: boolean) => void;
   onClose: () => void;
   /** 항목 단추들의 묶음. 여기를 누르는 것은 바깥이 아니다(단추가 열고 닫는다). */
   anchor: HTMLElement | null;
@@ -99,6 +108,7 @@ function Popup({
   const host = useMemo(() => createWebviewHost(), []);
   useEffect(() => {
     const outside = (event: PointerEvent) => {
+      if (pinned) return;
       const target = event.target as Node;
       if (!box.current?.contains(target) && !anchor?.contains(target))
         onClose();
@@ -109,6 +119,7 @@ function Popup({
     // 다른 화면의 <webview> 안을 누르면 DOM pointer event가 오지 않고 focus만 옮겨 간다.
     const blur = () =>
       setTimeout(() => {
+        if (pinned) return;
         if (!box.current?.contains(document.activeElement)) onClose();
       }, 0);
     document.addEventListener("pointerdown", outside);
@@ -119,7 +130,7 @@ function Popup({
       document.removeEventListener("keydown", escape);
       window.removeEventListener("blur", blur);
     };
-  }, [anchor, onClose]);
+  }, [anchor, onClose, pinned]);
   return createPortal(
     <div
       ref={box}
@@ -127,8 +138,22 @@ function Popup({
       role="dialog"
       aria-label={item.title}
       data-tray-popup={item.key}
+      data-side={side}
       style={place}
     >
+      <div className={styles.head}>
+        <span className={styles.title}>{item.title}</span>
+        <IconButton
+          icon={pinned ? shellIcons.unpin : shellIcons.pin}
+          label={t(
+            pinned ? "shell.button.tray-unpin" : "shell.button.tray-pin",
+          )}
+          size="sm"
+          aria-pressed={pinned}
+          data-tray-pin=""
+          onClick={() => onPin(!pinned)}
+        />
+      </div>
       <WebviewHostProvider value={host}>
         <div className={styles.body}>
           <PopupBody item={item} />
@@ -156,10 +181,15 @@ export function Tray({
 }) {
   const [open, setOpen] = useState<string | null>(initialOpen);
   const [place, setPlace] = useState<PopupPlace | null>(null);
+  const [pinned, setPinned] = useState(false);
   const row = useRef<HTMLDivElement>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
+  const close = () => {
+    setOpen(null);
+    setPinned(false);
+  };
   const current = items.find((item) => item.key === open) ?? null;
-  // 열 때와 창 크기가 바뀔 때 항목 자리를 다시 잰다.
+  // 열 때와 창 크기가 바뀔 때 항목의 가로 자리를 다시 잰다.
   useEffect(() => {
     const button =
       current === null ? undefined : buttons.current.get(current.key);
@@ -169,16 +199,14 @@ export function Tray({
     }
     const measure = () =>
       setPlace(
-        placePopup(
-          button.getBoundingClientRect(),
-          { width: window.innerWidth, height: window.innerHeight },
-          side,
-        ),
+        placePopup(button.getBoundingClientRect(), {
+          width: window.innerWidth,
+        }),
       );
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [current, side]);
+  }, [current]);
   if (items.length === 0) return null;
   return (
     <div
@@ -207,7 +235,11 @@ export function Tray({
             }
             aria-expanded={open === item.key}
             data-tray-item={item.app}
-            onClick={() => setOpen(open === item.key ? null : item.key)}
+            onClick={() => {
+              // pin한 popup은 자기 항목으로만 닫는다. 다른 항목은 눌러도 바꾸지 않는다.
+              if (open === item.key) close();
+              else if (!pinned) setOpen(item.key);
+            }}
           >
             <AppTabIcon app={item.app} />
             {item.text === undefined || iconOnly ? null : (
@@ -223,8 +255,11 @@ export function Tray({
           key={current.key}
           item={current}
           place={place}
+          side={side}
           anchor={row.current}
-          onClose={() => setOpen(null)}
+          pinned={pinned}
+          onPin={setPinned}
+          onClose={close}
         />
       )}
     </div>

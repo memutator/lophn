@@ -14,7 +14,7 @@ import {
 } from "../parts/agent-session/agent-session.tsx";
 import { codingFace } from "../parts/agent-session/coding.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
-import type { QuickHoverItem } from "./left-sidebar.tsx";
+import type { QuickHoverItem } from "./quick-launch.tsx";
 
 /** hover 목록·menu의 한 묶음. 묶음 사이에는 divider가 들어간다. */
 export interface HoverSection {

@@ -48,6 +48,8 @@ export interface ShellFrameProps {
   floats?: ReactNode;
   /** 창 맨 아래 작업 표시줄(Taskbar). 있으면 몸통 아래 마지막 줄이 되고 stage의 아래 여백이 없어진다. */
   taskbar?: ReactNode;
+  /** 작업 표시줄의 왼쪽 끝(빠른 실행). 왼쪽 sidebar가 펼쳐져 있으면 그 폭과 같아서 `taskbar`는 card가 시작하는 곳에서 시작한다. */
+  taskbarStart?: ReactNode;
   /** 가운데 card(ContentCard). */
   children: ReactNode;
 }
@@ -173,6 +175,7 @@ export function ShellFrame({
   rightSidebar,
   floats,
   taskbar,
+  taskbarStart,
   children,
 }: ShellFrameProps) {
   const [widths, setWidths] = useState<Record<Side, number | null>>(() => ({
@@ -288,7 +291,13 @@ export function ShellFrame({
           data-taskbar=""
           aria-label={t("shell.label.taskbar")}
         >
-          {taskbar}
+          <div
+            className={styles.taskbarStart}
+            style={left ? { minWidth: leftWidth } : undefined}
+          >
+            {taskbarStart}
+          </div>
+          <div className={styles.taskbarMain}>{taskbar}</div>
         </footer>
       )}
     </div>

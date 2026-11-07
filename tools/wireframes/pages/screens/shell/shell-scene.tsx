@@ -21,6 +21,7 @@ import {
 import { neighborLeaf } from "../../../../../packages/shell/renderer/shell/group-geometry.ts";
 import { PanelTabs } from "../../../../../packages/shell/renderer/shell/panel-tabs.tsx";
 import { ShellFrame } from "../../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { QuickLaunchRow } from "../../../../../packages/shell/renderer/shell/quick-launch.tsx";
 import { Taskbar } from "../../../../../packages/shell/renderer/shell/taskbar/taskbar.tsx";
 import { TabDragProvider } from "../../../../../packages/shell/renderer/shell/tab-drag.tsx";
 import { TabStrip } from "../../../../../packages/shell/renderer/shell/tab-strip.tsx";
@@ -75,7 +76,7 @@ import {
   type Variant,
 } from "../../../mock/shell-data.tsx";
 import { MockRightSidebar } from "../../../mock/shell-sidebars.tsx";
-import { PageLeftSidebar } from "../project-window.tsx";
+import { PageLeftSidebar, pageQuick } from "../project-window.tsx";
 import {
   click,
   contextMenu,
@@ -432,9 +433,15 @@ export function ShellScene({
             onAgent={() => {}}
             recentOpen={recentOpen}
             selected="session:weekly"
+            taskbar={taskbar}
           />
         }
         rightSidebar={<MockRightSidebar title={chosen.label} />}
+        taskbarStart={
+          taskbar ? (
+            <QuickLaunchRow quick={pageQuick("project", () => {})} />
+          ) : undefined
+        }
         taskbar={
           taskbar ? (
             <Taskbar
@@ -443,6 +450,7 @@ export function ShellScene({
               floating={pressedChips}
               onToggleGlobalFloat={toggleGlobal}
               onToggleFloat={toggleFloat}
+              onSettings={() => {}}
             />
           ) : undefined
         }

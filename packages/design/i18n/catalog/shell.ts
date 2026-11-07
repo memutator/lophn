@@ -46,6 +46,8 @@ export const shell = {
     "{count, plural, one {Close tab} other {Close tabs}}",
   "shell.button.toggle-left": "Toggle left sidebar",
   "shell.button.toggle-right": "Toggle right sidebar",
+  "shell.button.tray-pin": "Keep open",
+  "shell.button.tray-unpin": "Stop keeping open",
   "shell.dialog.desk-close-detached":
     "{count, plural, one {# separate window is} other {# separate windows are}} closed too.",
   "shell.dialog.desk-close-floats":

@@ -172,14 +172,35 @@
   padding-inline-end: var(--space-6);
 }
 
-/* 작업 표시줄. 높이는 chip(--control-sm-height)과 위아래 여백이 들어가는 token 조합이고, 전역 float 층의 아래 끝
-   (global-floats/global-float-layer.module.css)이 같은 값을 쓴다. 한쪽을 바꾸면 다른 쪽도 바꾼다. */
+/* 작업 표시줄. 높이는 title bar와 같고(space-10), 전역 float 층의 아래 끝(global-floats/global-float-layer.module.css)이
+   같은 값을 쓴다. 한쪽을 바꾸면 다른 쪽도 바꾼다. 왼쪽 끝(빠른 실행)은 열린 왼쪽 sidebar와 같은 폭(ShellFrame이 인라인
+   min-width로 끌어서 바꾼 폭을 준다)이라 나머지 줄이 stage(card)와 같은 x에서 시작한다. */
 .taskbar {
   display: flex;
   flex: none;
   align-items: center;
-  height: var(--space-9);
-  padding-inline: var(--space-4);
+  height: var(--space-10);
+}
+
+.taskbarStart {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  padding-inline: calc(var(--space-4) + var(--space-3)) var(--space-3);
+}
+
+.shell[data-left="open"] .taskbarStart {
+  min-width: calc(var(--space-12) * 4 + var(--space-6));
+}
+
+.taskbarMain {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: var(--space-0);
+  padding-inline: var(--space-2) var(--space-4);
 }
 
 /* 폭 끌기 손잡이. sidebar 안쪽 가장자리(card 쪽 여백 안)에 놓아 card나 webview와 겹치지 않는다. */

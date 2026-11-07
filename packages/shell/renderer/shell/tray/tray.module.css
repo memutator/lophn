@@ -42,11 +42,13 @@
   color: var(--status-critical-text);
 }
 
-/* 화면 밖으로 안 나가게 당긴 자리는 inline style이다. webview 그릇이 이 안에 있어 popup이 stacking context다. */
+/* 가로 자리와 높이는 inline style이다(popup-place.ts). 세로는 줄에 붙는다: 작업 표시줄(높이 space-10, shell-frame.module.css) 위나
+   title bar(높이 space-10) 아래에서 여백만큼 띄운다. webview 그릇이 이 안에 있어 popup이 stacking context다. */
 .popup {
   position: fixed;
   z-index: var(--z-popover);
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: var(--color-surface-base);
   border-radius: var(--radius-lg);
@@ -55,8 +57,37 @@
   app-region: no-drag;
 }
 
+.popup[data-side="above"] {
+  bottom: calc(var(--space-10) + var(--space-4));
+}
+
+.popup[data-side="below"] {
+  top: calc(var(--space-10) + var(--space-4));
+}
+
 .body {
   display: flex;
   flex: 1;
   min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+/* popup 머리. 앱 화면 이름과 pin 단추. */
+.head {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.title {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

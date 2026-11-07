@@ -16,13 +16,8 @@ import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx"
 import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
 import { RegisterDialog } from "../../desktop/workspaces/register-dialog.tsx";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
-import {
-  AgentFaceIcon,
-  type AgentChoice,
-} from "../../parts/agent-session/agent-session.tsx";
-import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
-import { Icon } from "@lophn/ui/primitives";
-import { workspaceIcons } from "../../icons/mod.ts";
+import { type AgentChoice } from "../../parts/agent-session/agent-session.tsx";
+import { codingDot } from "../../parts/agent-session/coding.ts";
 import { newId } from "../../prefixed-id.ts";
 import type { NewSessionStart } from "../../desktop/router.ts";
 import {
@@ -34,7 +29,8 @@ import {
 } from "../../shell/desk-model.ts";
 import { agentOf, sessionOf } from "../agent/tab-fields.ts";
 import type { WindowWorkspace } from "../workspace-window.tsx";
-import { LeftSidebar, type QuickLaunch } from "../../shell/left-sidebar.tsx";
+import { LeftSidebar } from "../../shell/left-sidebar.tsx";
+import type { QuickLaunch } from "../../shell/quick-launch.tsx";
 import { agentChoices, codingCommand } from "../../shell/agent-sections.tsx";
 import {
   type SidebarWorkspace,
@@ -137,7 +133,7 @@ export interface WorkspaceLeftSidebarProps {
   jobs?: JobsSource;
   onInbox: () => void;
   onJobs: () => void;
-  /** 맨 아래 줄의 빠른 실행. Terminal hover 목록(즐겨찾기 coding agent)은 여기서 붙인다. */
+  /** 맨 아래 줄의 빠른 실행. 작업 표시줄이 켜져 있으면 주지 않는다(작업 표시줄이 그린다). */
   quick?: QuickLaunch;
   /** 이 창의 탭(draft 줄)을 고른다. */
   onTab: (key: string) => void;
@@ -147,7 +143,8 @@ export interface WorkspaceLeftSidebarProps {
   onCloseTab?: (item: SidebarSession) => void;
   /** workspace 줄의 설정 단추(project는 Project settings, 앱은 App details). 다른 workspace면 그 workspace로 가서 연다. */
   onWorkspaceSettings?: (workspace: WorkspaceRef) => void;
-  onSettings: () => void;
+  /** 작업 표시줄이 켜져 있으면 주지 않는다(작업 표시줄이 그린다). */
+  onSettings?: () => void;
 }
 
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
@@ -270,26 +267,6 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     const command = commandOf(id);
     if (command !== undefined) props.onNewCoding(command);
   };
-  const quick =
-    props.quick === undefined
-      ? undefined
-      : {
-          ...props.quick,
-          terminalItems: favorites.map((id) => ({
-            id,
-            label: HARNESS_ADAPTERS[id].label,
-            leading: <AgentFaceIcon face={codingFace(id)} />,
-            onSelect: () => runCoding(id),
-          })),
-          terminalCommands: props.canTerminal
-            ? (props.commands ?? []).map((item) => ({
-                id: item.id,
-                label: item.label,
-                leading: <Icon icon={workspaceIcons.terminal} pixels={16} />,
-                onSelect: () => props.onNewCoding(item.command),
-              }))
-            : [],
-        };
   const choices = agentChoices(props.agents, favorites);
   // 다른 workspace의 agent 목록은 읽지 않았다. 어느 workspace에나 있는 기본 lophn agent와 즐겨찾기 coding agent(터미널은 project만)를 보인다.
   const choicesAt = (ref: WorkspaceRef): readonly AgentChoice[] =>
@@ -483,11 +460,13 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         {...(apps === undefined
           ? {}
           : { onCreateApp: () => setCreating(true) })}
-        {...(quick === undefined ? {} : { quick })}
+        {...(props.quick === undefined ? {} : { quick: props.quick })}
         {...(props.onWorkspaceSettings === undefined
           ? {}
           : { onWorkspaceSettings: props.onWorkspaceSettings })}
-        onSettings={props.onSettings}
+        {...(props.onSettings === undefined
+          ? {}
+          : { onSettings: props.onSettings })}
       />
       {projects === undefined ? null : (
         <RegisterDialog

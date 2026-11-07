@@ -193,9 +193,19 @@ import {
   sessionKey,
 } from "../shell/left-sidebar-model.ts";
 import { WorkspaceLeftSidebar } from "./sidebar/workspace-left-sidebar.tsx";
-import type { QuickHoverItem } from "../shell/left-sidebar.tsx";
+import {
+  type QuickHoverItem,
+  type QuickLaunch,
+  QuickLaunchRow,
+} from "../shell/quick-launch.tsx";
 import { agentChoices, codingCommand } from "../shell/agent-sections.tsx";
-import type { AgentChoice } from "../parts/agent-session/agent-session.tsx";
+import {
+  AgentFaceIcon,
+  type AgentChoice,
+} from "../parts/agent-session/agent-session.tsx";
+import { codingFace } from "../parts/agent-session/coding.ts";
+import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
+import { workspaceIcons } from "../icons/mod.ts";
 import type { NewSessionStart } from "../desktop/router.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import { useSidebarWorkspaceList } from "../shell/use-left-sidebar.ts";
@@ -2590,6 +2600,50 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       })
     : [];
 
+  // 빠른 실행 단추 줄. 작업 표시줄이 켜져 있으면 작업 표시줄 왼쪽 끝에, 꺼져 있으면 왼쪽 sidebar 맨 아래에 그린다.
+  // Terminal hover 목록은 즐겨찾기 coding agent와 이 project의 명령이다.
+  const quickCoding = terminal === undefined ? [] : quickPrefs.coding.favorites;
+  const quickLaunch: QuickLaunch = {
+    order: shownQuickOrder(quickNow),
+    pins: quickPins,
+    ...(terminal === undefined
+      ? {}
+      : {
+          onTerminal: () => openTerminalTab(host),
+          terminalItems: quickCoding.map((id) => ({
+            id,
+            label: HARNESS_ADAPTERS[id].label,
+            leading: <AgentFaceIcon face={codingFace(id)} />,
+            onSelect: () => {
+              const command = codingCommand(quickPrefs.coding.commands, id);
+              if (command !== undefined) {
+                openTerminalTab(host, { command, docked: true });
+              }
+            },
+          })),
+          terminalCommands: (layout.commands ?? []).map((item) => ({
+            id: item.id,
+            label: item.label,
+            leading: <Icon icon={workspaceIcons.terminal} pixels={16} />,
+            onSelect: () =>
+              openTerminalTab(host, { command: item.command, docked: true }),
+          })),
+        }),
+    ...(browserApi === null
+      ? {}
+      : {
+          onBrowser: () => openBrowserTab(host),
+          browserItems: quickBrowserItems,
+        }),
+    ...(host.appScreens ? { onApp: () => openAppPanel(host) } : {}),
+    appItems: quickAppItems,
+    // project의 Search 탭. 검색 통로가 없는 workspace(Home 등)는 팔레트를 연다.
+    onSearch:
+      source.searchSource === undefined || projectId === null
+        ? openQuickFiles
+        : () => openSearchShortcut(host),
+  };
+
   // float chip은 작업 표시줄이 켜져 있으면 거기에, 꺼져 있으면 tab 줄 끝에 그린다.
   const taskbar = quickPrefs.taskbar;
   const floatChips = desk.floats.map((item) => stripTab(item.tab));
@@ -2802,32 +2856,11 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                             ? openSettingsHere?.()
                             : props.onSettingsAt?.(ref),
                       })}
-                  quick={{
-                    order: shownQuickOrder(quickNow),
-                    pins: quickPins,
-                    ...(terminal === undefined
-                      ? {}
-                      : { onTerminal: () => openTerminalTab(host) }),
-                    ...(browserApi === null
-                      ? {}
-                      : {
-                          onBrowser: () => openBrowserTab(host),
-                          browserItems: quickBrowserItems,
-                        }),
-                    ...(host.appScreens
-                      ? { onApp: () => openAppPanel(host) }
-                      : {}),
-                    appItems: quickAppItems,
-                    // project의 Search 탭. 검색 통로가 없는 workspace(Home 등)는 팔레트를 연다.
-                    onSearch:
-                      source.searchSource === undefined || projectId === null
-                        ? openQuickFiles
-                        : () => openSearchShortcut(host),
-                  }}
+                  {...(taskbar ? {} : { quick: quickLaunch })}
                   jobs={props.jobs}
                   onInbox={() => openInbox(host)}
                   onJobs={() => openJobs(host)}
-                  onSettings={() => onSettings()}
+                  {...(taskbar ? {} : { onSettings: () => onSettings() })}
                 />
               }
               titleTray={
@@ -2840,6 +2873,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                 )
               }
               rightSidebar={activePanel?.render(sidebarCtx)}
+              taskbarStart={
+                taskbar ? <QuickLaunchRow quick={quickLaunch} /> : undefined
+              }
               taskbar={
                 taskbar ? (
                   <Taskbar
@@ -2848,6 +2884,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     floating={pressedChips}
                     onToggleGlobalFloat={globalFloats.toggle}
                     onToggleFloat={toggleDeskFloat}
+                    onSettings={() => onSettings()}
                     tray={
                       <TrayHost
                         picks={quickPrefs.tray}

@@ -43,6 +43,7 @@ import {
 import type { SidebarAgent } from "../../../../packages/shell/renderer/workspace/sidebar/sidebar-agent.ts";
 import { agentChoices } from "../../../../packages/shell/renderer/shell/agent-sections.tsx";
 import { LeftSidebar } from "../../../../packages/shell/renderer/shell/left-sidebar.tsx";
+import type { QuickLaunch } from "../../../../packages/shell/renderer/shell/quick-launch.tsx";
 import type {
   SidebarWorkspace,
   SidebarSession,
@@ -183,6 +184,8 @@ interface SidebarProps extends SidebarSpec {
   readonly workspace?: "project" | "home" | "app";
   /** 맨 아래 줄의 빠른 실행을 누르면 + menu와 같은 pick을 알린다. */
   readonly onQuick?: (pick: NewTabPick) => void;
+  /** 작업 표시줄이 켜져 있다. 빠른 실행과 Settings 단추가 sidebar에 없다. */
+  readonly taskbar?: boolean;
 }
 
 // ---- sidebar에 넘기는 고정 data ----
@@ -628,17 +631,13 @@ const JOBS: readonly JobView[] = [
   }),
 ];
 
-/** 왼쪽 sidebar. 실제 `LeftSidebar`에 workspace 넷(Home, phroner, Grocery, Orders)과 그 session의 고정 data를 넘긴다. */
-export function PageLeftSidebar(props: SidebarProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  useSidebarScript(ref, { ...props, mode: "workflow" });
-  // Inbox(WaitingLayer)가 event를 듣는다.
-  const [client] = useState(() => createEventClient(createFakeSource()));
-  const jobs = useMemo(() => fakeJobs({ jobs: JOBS }).source, []);
-  const pick = props.onQuick ?? (() => {});
-  // hover 목록: 즐겨찾기 coding agent와 앱 화면(앱 workspace).
-  const quick = {
-    ...(props.workspace === "home"
+/** 빠른 실행 줄. hover 목록은 즐겨찾기 coding agent와 앱 화면(앱 workspace)이다. 작업 표시줄이 켜져 있으면 shell scene이 작업 표시줄에 그린다. */
+export function pageQuick(
+  workspace: "project" | "home" | "app" | undefined,
+  pick: (pick: NewTabPick) => void,
+): QuickLaunch {
+  return {
+    ...(workspace === "home"
       ? {}
       : {
           onTerminal: () => pick("terminal"),
@@ -655,7 +654,7 @@ export function PageLeftSidebar(props: SidebarProps) {
     onSearch: () => pick("search"),
     onApp: () => pick("app-panel"),
     appItems:
-      props.workspace === "app"
+      workspace === "app"
         ? [
             {
               id: "app-screen",
@@ -671,6 +670,16 @@ export function PageLeftSidebar(props: SidebarProps) {
           ]
         : [],
   };
+}
+
+/** 왼쪽 sidebar. 실제 `LeftSidebar`에 workspace 넷(Home, phroner, Grocery, Orders)과 그 session의 고정 data를 넘긴다. */
+export function PageLeftSidebar(props: SidebarProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  useSidebarScript(ref, { ...props, mode: "workflow" });
+  // Inbox(WaitingLayer)가 event를 듣는다.
+  const [client] = useState(() => createEventClient(createFakeSource()));
+  const jobs = useMemo(() => fakeJobs({ jobs: JOBS }).source, []);
+  const pick = props.onQuick ?? (() => {});
   return (
     <EventsProvider client={client}>
       <div ref={ref} style={{ display: "contents" }}>
@@ -684,7 +693,9 @@ export function PageLeftSidebar(props: SidebarProps) {
                 : { kind: "project", id: PROJECT_ID }
           }
           selected={props.selected}
-          quick={quick}
+          {...(props.taskbar === true
+            ? {}
+            : { quick: pageQuick(props.workspace, pick) })}
           choices={() => WIRE_CHOICES}
           onNewSession={() => props.onAgent("lophn")}
           onNewSessionWith={(choice) =>
@@ -702,7 +713,7 @@ export function PageLeftSidebar(props: SidebarProps) {
           onRemoveRecent={() => {}}
           onRegisterProject={() => {}}
           onCreateApp={() => {}}
-          onSettings={() => {}}
+          {...(props.taskbar === true ? {} : { onSettings: () => {} })}
         />
       </div>
     </EventsProvider>

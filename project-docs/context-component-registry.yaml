@@ -465,6 +465,15 @@ components:
       paths: [project-docs/plan/tools/]
       note: worker model이나 merge 절차가 바뀔 때.
 
+  - id: skill-harness-gui
+    kind: skill
+    roles: [lead, planner]
+    description: harness GUI를 고치거나 기능을 더하는 순서(조사, CLI 넷, ACP로, 녹화 규칙), 확인하는 법(gallery, 사람이 하는 실제 앱 확인, 탭 상태), 자주 틀린 곳.
+    path: .claude/skills/harness-gui/
+    change_reasons:
+      paths: [packages/shell/main/extensions/bundled/harness-gui/adapter.ts, packages/shell/main/terminal/gui.ts, packages/shell/ipc/harness-gui.ts, packages/shell/renderer/conversation/agent-tab-gui-source.ts, tools/wireframes/pages/screens/harness-gui.tsx]
+      note: 녹화에 쓰는 싼 model, 사람이 확인하는 방식이 바뀔 때.
+
   - id: plan
     kind: plan
     roles: [lead]

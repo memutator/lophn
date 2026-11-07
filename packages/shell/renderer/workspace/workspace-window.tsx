@@ -168,6 +168,7 @@ import { openBrowserTab } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { tabKindOf } from "./kinds/registry.ts";
+import { TabBoundary } from "./tab-boundary.tsx";
 import { openProjectSettings } from "./kinds/project-settings.tsx";
 import { openSearchShortcut } from "./kinds/search.tsx";
 import {
@@ -1253,10 +1254,11 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const bodyOf = (tab: TabItem, active: boolean): ReactNode => {
     const def = tabKindOf(tab.kind);
     return (
-      def?.keep?.(tab, true, host) ??
-      def?.render?.(tab, active, host) ?? (
-        <h1 className={styles.heading}>{tab.title}</h1>
-      )
+      <TabBoundary key={tab.key}>
+        {def?.keep?.(tab, true, host) ?? def?.render?.(tab, active, host) ?? (
+          <h1 className={styles.heading}>{tab.title}</h1>
+        )}
+      </TabBoundary>
     );
   };
 

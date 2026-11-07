@@ -28,6 +28,7 @@
     "dev:mock": "node tools/dev.ts dev:mock",
     "doctor": "node tools/doctor/main.ts",
     "wireframes": "node tools/wireframes/build.ts",
+    "wireframes:smoke": "node tools/wireframes/smoke.ts",
     "package": "node tools/package/main.ts"
   },
   "dependencies": {

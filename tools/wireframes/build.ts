@@ -36,7 +36,7 @@ function assetPlugin(): esbuild.Plugin {
   };
 }
 
-async function buildGallery(outdir = OUTPUT): Promise<void> {
+export async function buildGallery(outdir = OUTPUT): Promise<void> {
   await rm(outdir, { recursive: true, force: true });
   try {
     await esbuild.build({

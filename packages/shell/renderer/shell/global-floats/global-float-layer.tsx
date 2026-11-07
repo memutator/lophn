@@ -11,6 +11,7 @@ import {
   WebviewLayer,
 } from "../../app-frame/webview-host.tsx";
 import { AppPanelTab } from "../../workspace/app-panel-tab.tsx";
+import { TabBoundary } from "../../workspace/tab-boundary.tsx";
 import { FloatLayer } from "../float-layer.tsx";
 import styles from "./global-float-layer.module.css";
 import { useGlobalFloats, useGlobalFloatsHost } from "./global-floats.tsx";
@@ -47,13 +48,15 @@ export function GlobalFloatLayer({
                 pinned: item.pinned,
                 global: true,
                 body: (
-                  <AppPanelTab
-                    app={item.app}
-                    screen={item.screen}
-                    shown
-                    keepKey={item.key}
-                    onOpenAppSpace={onOpenApp}
-                  />
+                  <TabBoundary key={item.key}>
+                    <AppPanelTab
+                      app={item.app}
+                      screen={item.screen}
+                      shown
+                      keepKey={item.key}
+                      onOpenAppSpace={onOpenApp}
+                    />
+                  </TabBoundary>
                 ),
               }))}
             onRaise={floats.expand}

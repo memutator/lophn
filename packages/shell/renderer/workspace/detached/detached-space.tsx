@@ -27,6 +27,7 @@ import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.
 import type { ProjectView, WorkspaceSource } from "../source.ts";
 import { useTabHostSlices } from "../use-tab-host-slices.ts";
 import { tabKindOf } from "../kinds/registry.ts";
+import { TabBoundary } from "../tab-boundary.tsx";
 import type { TabHost } from "../kinds/host.ts";
 import type { TabItem } from "../model.ts";
 import { deskTabs, emptyDesk, type Desk } from "../../shell/desk-model.ts";
@@ -288,9 +289,11 @@ function DetachedTab({
         ));
   const dot = def?.dotOf?.(tab, host) ?? null;
   const body =
-    def === undefined
-      ? null
-      : (def.keep?.(tab, true, host) ?? def.render?.(tab, true, host) ?? null);
+    def === undefined ? null : (
+      <TabBoundary key={tab.key}>
+        {def.keep?.(tab, true, host) ?? def.render?.(tab, true, host)}
+      </TabBoundary>
+    );
 
   return (
     <ViewKeepsProvider value={keeps}>

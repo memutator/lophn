@@ -1,0 +1,22 @@
+/* 탭 본문 자리 가운데에 아이콘·문장·다시 시도 하나를 둔다(design의 ErrorState와 같은 위계). */
+.failed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+  padding: var(--space-6) var(--space-0);
+}
+
+.icon {
+  flex: none;
+  color: var(--status-critical-marker);
+}
+
+.message {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-regular);
+}

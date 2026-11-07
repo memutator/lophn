@@ -167,7 +167,7 @@ export function McpList({
           (signingIn.includes(item.name) || login.state === "in_progress");
         return (
           <li
-            key={item.name}
+            key={`${item.layer}/${item.name}`}
             className={`${styles.toggleRow} ${styles.mcpRow}`}
             data-mcp={item.name}
           >

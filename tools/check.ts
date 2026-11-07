@@ -277,6 +277,13 @@ async function buildSteps(
       commands: [["node", "tools/check-kit.ts"]],
     });
   } else skip("kit", "design, tools가 안 돎");
+  // 브라우저(offscreen Electron)로 gallery 전체를 그리는 데 30초쯤 걸려 check:full에서만 돈다.
+  if (full) {
+    checks.push({
+      name: "wireframes smoke",
+      commands: [["node", "tools/wireframes/smoke.ts"]],
+    });
+  } else skip("wireframes smoke", "full에서만 돎");
   if (has("design")) {
     checks.push({
       name: "token 생성",

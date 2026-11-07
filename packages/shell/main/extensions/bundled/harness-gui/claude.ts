@@ -7,6 +7,8 @@
 // 결과를 `shouldQuery: false` 사람 메시지로 transcript에만 붙인다(model은 다음 turn에 본다).
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { PassThrough, Writable } from "node:stream";
 import {
   forkSession,
@@ -83,6 +85,8 @@ export type ClaudeSdk = {
   listSessions: typeof listSessions;
   renameSession: typeof renameSession;
   readFile: (path: string) => Promise<Uint8Array>;
+  /** 사람의 Claude 설정 폴더(`~/.claude`). 처음 mode를 설정 file에서 읽는다(읽기만). */
+  userDir: string;
 };
 
 type Start = HarnessGuiAdapter["start"];
@@ -607,6 +611,30 @@ function modelGroups(models: ModelInfo[]): AcpModelGroup[] {
   ];
 }
 
+// CLI가 첫 turn 전에 쓸 mode. 설정 file 셋을 CLI와 같은 순서로 읽고 뒤가 이긴다. SDK init 응답에는 mode가 없다.
+async function settingsMode(
+  sdk: ClaudeSdk,
+  cwd: string,
+): Promise<string | null> {
+  let mode: string | null = null;
+  for (const path of [
+    join(sdk.userDir, "settings.json"),
+    join(cwd, ".claude", "settings.json"),
+    join(cwd, ".claude", "settings.local.json"),
+  ]) {
+    try {
+      const text = new TextDecoder().decode(await sdk.readFile(path));
+      const value = (
+        JSON.parse(text) as { permissions?: { defaultMode?: unknown } }
+      ).permissions?.defaultMode;
+      if (typeof value === "string") mode = value;
+    } catch {
+      // 없거나 깨진 file은 건너뛴다. 모르면 null이다.
+    }
+  }
+  return mode;
+}
+
 /** 대화 한 줄기. root 대화와 subagent마다 하나씩이고, 자식의 갱신은 `child_update`로 싸서 낸다. */
 type Lane = {
   /** `AcpState.children`의 key. root는 null. */
@@ -854,7 +882,15 @@ const start: (sdk: ClaudeSdk) => Start =
         options.fast = (carry.fast ?? fastState === "on") ? "on" : "off";
       if (canThinkOff(row))
         options.thinking = carry.thinking === false ? "off" : "on";
-      return { model: row.value, label: row.displayName, options, layer: null };
+      return { model: row.value, label: labelOf(row), options, layer: null };
+    }
+    // "Default" 줄은 실제로 쓰는 model 이름으로 보인다. 고르는 값(`model`)은 그대로 default다.
+    function labelOf(row: ModelInfo): string {
+      if (row.value !== "default" || modelId === null) return row.displayName;
+      const alias = models.find(
+        (one) => one.value !== "default" && one.resolvedModel === modelId,
+      );
+      return alias?.displayName ?? modelId;
     }
     const publishModels = () =>
       changed({ models: modelGroups(models), model: currentModel() });
@@ -2184,6 +2220,12 @@ const start: (sdk: ClaudeSdk) => Start =
         }
         if (root.turn !== null) endTurn("completed");
         restoreUsage(entries);
+        // 마지막으로 쓴 mode. init이 오기 전까지만 쓴다.
+        const last = entries.findLast(
+          (one) => one.type === "permission-mode",
+        ) as { permissionMode?: string } | undefined;
+        if (last?.permissionMode !== undefined && carry.mode === null)
+          changed({ mode: last.permissionMode });
       } catch (cause) {
         endTurn("failed", {
           code: "internal",
@@ -2352,6 +2394,7 @@ const start: (sdk: ClaudeSdk) => Start =
       } satisfies Result<never>;
     }
 
+    const firstMode = await settingsMode(sdk, cwd);
     changed({
       title: null,
       cli_session: cliSession,
@@ -2359,7 +2402,7 @@ const start: (sdk: ClaudeSdk) => Start =
       models: [],
       model: null,
       modes: MODES.map(([id, label]) => ({ id, label, description: null })),
-      mode: null,
+      mode: firstMode,
       commands: [],
       usage: null,
       toggles: [],
@@ -3141,4 +3184,5 @@ export const claudeAdapter = createClaudeAdapter({
   listSessions,
   renameSession,
   readFile,
+  userDir: process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"),
 });

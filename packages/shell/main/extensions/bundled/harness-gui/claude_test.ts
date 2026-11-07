@@ -97,6 +97,11 @@ async function setup(
     terminal?: AcpTerminal | null;
     /** false면 query를 닫아도 process가 끝나지 않는다(test가 `exit()`를 부른다). */
     autoExit?: boolean;
+    /** 읽을 수 있는 file(경로 → 글). 나머지는 없다. */
+    files?: Record<string, string>;
+    models?: unknown[];
+    /** getContextUsage가 말하는 resolved model. */
+    contextModel?: string;
   } = {},
 ) {
   const sdkMessages: unknown[] = [];
@@ -141,13 +146,13 @@ async function setup(
           fake.closed = true;
           if (options.autoExit !== false) processes.at(-1)?.exit();
         },
-        supportedModels: () => Promise.resolve([]),
+        supportedModels: () => Promise.resolve(options.models ?? []),
         supportedCommands: () => Promise.resolve([]),
         getContextUsage: () =>
           Promise.resolve({
             totalTokens: 1,
             maxTokens: 2,
-            model: "m",
+            model: options.contextModel ?? "m",
             categories: [],
           }),
         cancelAsyncMessage: () => Promise.resolve(true),
@@ -179,7 +184,13 @@ async function setup(
       calls.push("renameSession");
       return Promise.resolve();
     },
-    readFile: () => Promise.reject(new Error("no files in this test")),
+    readFile: (path: string) => {
+      const text = options.files?.[path];
+      return text === undefined
+        ? Promise.reject(new Error("no such file"))
+        : Promise.resolve(new TextEncoder().encode(text));
+    },
+    userDir: "/home/me/.claude",
   } as unknown as ClaudeSdk;
 
   let state: AcpState = EMPTY_ACP_STATE;
@@ -890,4 +901,44 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
     ],
     ["user", undefined, null, null, "u6", humanCall],
   ]);
+});
+
+// 사람의 설정이 auto인데 첫 turn 전까지 "Ask before edits"로 보였다.
+test("첫 turn 전의 mode는 설정 file 셋을 뒤가 이기게 읽은 값이고, init이 오면 그것이 이긴다", async () => {
+  const mode = (value: string) =>
+    JSON.stringify({ permissions: { defaultMode: value } });
+  const t = await setup({
+    files: {
+      "/home/me/.claude/settings.json": mode("plan"),
+      "/work/test/.claude/settings.json": mode("auto"),
+      "/work/test/.claude/settings.local.json": "{ broken",
+    },
+  });
+  assert.equal(t.state.session?.mode, "auto");
+  assert.equal(t.queryOptions?.permissionMode, undefined);
+  await t.feed({
+    type: "system",
+    subtype: "init",
+    permissionMode: "acceptEdits",
+  });
+  assert.equal(t.state.session?.mode, "acceptEdits");
+});
+
+test("Default model 줄은 resolved model의 이름으로 보이고 고르는 값은 default 그대로다", async () => {
+  const row = (value: string, displayName: string, resolvedModel: string) => ({
+    value,
+    displayName,
+    description: "",
+    resolvedModel,
+  });
+  const t = await setup({
+    models: [
+      row("default", "Default (recommended)", "claude-opus-5"),
+      row("opus", "Opus", "claude-opus-5"),
+    ],
+    contextModel: "claude-opus-5",
+  });
+  await flush();
+  assert.equal(t.state.session?.model?.model, "default");
+  assert.equal(t.state.session?.model?.label, "Opus");
 });

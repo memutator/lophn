@@ -154,11 +154,13 @@ When a screen needs an agent to do something (review what the person wrote,
 explain a result, fill a form), use `@lophn/agent`. Do not build your own
 transport, and do not add an operation or command only to reach an agent.
 
-- `useAgentSession({agent})` gives the ACP state of a session in this app's
-  workspace. The session opens on the first `send`, not when the screen opens, so
-  `session` and `state` are `null` until then; do not send just to warm it up.
-  The session also shows in lophn's sidebar and chat tab, so the person can
-  follow it there. Approvals are decided there too.
+- `useAgentSession({agent: "<handle>", title})` gives the ACP state of a session
+  in this app's workspace. `agent` is the handle of an agent you create first
+  (see "An agent inside the app"), not an id. The session opens on the first
+  `send`, not when the screen opens, so `session` and `state` are `null` until
+  then; do not send just to warm it up. The session also shows in lophn's
+  sidebar and chat tab, so the person can follow it there. Approvals are decided
+  there too.
 - Send what the screen shows with `contextBlock({name, mimeType, text})`, one
   block per piece (the code, the picked item, the filter).
 - When the screen needs a value back, pass `{reply: schema}` to `send` and wait
@@ -169,3 +171,49 @@ transport, and do not add an operation or command only to reach an agent.
   coding-coach example. Apps made from the current template already declare the
   package. An app made before needs it added to both `lophn.ts` and
   `package.json`, with the same exact version.
+
+## An agent inside the app
+
+Use this when the app needs an agent of its own: an opponent in a game, a
+coach, a reviewer, a helper that is asked one thing at a time. The person does
+not know how agents or the SDK work; you decide all of it and never ask them
+about it.
+
+1. Create the agent before the screen, in this app's workspace, with
+   `lophn agent create <handle>`. It is scoped to this app automatically and
+   shows only here. The handle is short, lowercase and fixed for good, such as
+   `omok-opponent`. Do not use the built-in `lophn` agent for this: it carries
+   the whole product's rules and tools on every turn, which is slow and costly
+   and lets it touch files and the shell.
+2. Make it bare (`runtime: bare`) with `tools: []` and text modality. A bare
+   agent gets only the instructions you write. Write them as a role, not a
+   chat: who it is, what the app sends it (name each context block), the exact
+   reply shape (the JSON fields and their meaning), and "do not use tools" is
+   unnecessary because it has none. Add a one-line `description`.
+3. Prefer "the app assembles the context, the agent answers JSON". The screen
+   sends the board, the draft or the history as context blocks and asks for a
+   reply schema. Give the agent commands only when it must act on app data; then
+   pick only this app's commands in `tools` (the app's own agent may call its
+   own commands without anyone assigning them) and say in the instructions when
+   to call which.
+4. `model` takes a provider and model pair. Set it only when you know one that
+   suits the call frequency (a small fast model for a move per click, a stronger
+   one for a review). If you do not know, leave it unset: the person's default
+   model is used. Say in the handoff that the calls are frequent.
+5. In the screen: one session per unit of work (a game, a review, an attempt).
+   Pass `title` (such as "Game 3", not left to the first prompt). Store the
+   session id from the hook in the app's data, and pass it as `session` after a
+   reload so the same unit continues. For the next unit call `reset()` and give
+   the new `title`.
+6. The app draws the result. A session the app opened sends no turn-end
+   notification to the person, and the page stays alive while it waits for the
+   turn even if the person goes to another workspace; you do nothing for either.
+   An approval or a question still reaches the person.
+7. Check what comes back in app code (a legal move, a field in range). When it
+   is wrong, send again with the reason in the message; give up after a few
+   tries and show the state to the person.
+
+You cannot see the screen when you test in preview. Keep the logic that talks to
+the agent in plain functions (build the context, parse and check the reply,
+choose what to do on a bad reply) and test those; keep the component thin.
+

@@ -19,7 +19,10 @@ where you start; do not ask again for what they already said.
 4. Hand it to lophn at the chosen app with `lophn call send`
    (`to: {agent: "lophn", workspace: {app: "<app name>"}}`, no reply
    expected). Write in the body what the person wants, in their words, and what
-   is decided and what is not. Do not design the app in detail; that is done in
+   is decided and what is not. If the app needs an
+   agent inside it (an opponent, a coach, a reviewer), say so as decided or
+   undecided; the app's conversation creates and wires that agent, so do not ask
+   the person about agents or the SDK. Do not design the app in detail; that is done in
    the app's conversation.
 5. Tell the person who took it and where they continue: the conversation your
    handoff opened. They open it with "Open conversation" on the handoff in

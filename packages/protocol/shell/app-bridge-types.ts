@@ -87,7 +87,8 @@ export type LophnApp = {
   onTabHead(listener: (event: TabHeadEvent) => void): () => void;
   /**
    * true인 동안 사람이 이 화면이 있는 workspace를 떠나도 lophn이 page를 숨겨 살려 둔다(다시 load하지 않는다).
-   * page가 새로 load되면 꺼지므로 다시 보내야 한다.
+   * `key`마다 켜고 끄며(없으면 하나의 기본 key) 켠 key가 하나라도 있으면 살려 둔다. 앱 코드와 SDK가 서로의 신호를
+   * 끄지 않게 하려는 것이다. page가 새로 load되면 모두 꺼지므로 다시 보내야 한다.
    */
-  setKeepAlive(active: boolean): void;
+  setKeepAlive(active: boolean, key?: string): void;
 };

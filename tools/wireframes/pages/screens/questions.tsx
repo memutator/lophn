@@ -26,7 +26,7 @@ export const questionsArea: Area = {
       id: "new-waiting-list",
       title: "Waiting · list",
       description:
-        "창 위 pill(4 waiting)을 펼친 대기 목록이다. 모든 session의 권한 요청, 질문, 앱 업데이트(activation 동의), 예약된 job의 놓친 차례가 네 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다.",
+        "창 위 pill(4 waiting)을 펼친 대기 목록의 Now 탭이다. 모든 session의 권한 요청, 질문, 앱 업데이트(activation 동의), 예약된 job의 놓친 차례가 묶음으로 나뉘고 항목마다 agent, session, 앱이나 project가 보인다. 세부는 접혀 있어 제목, 한 줄 설명, 단추만 보이고 단추는 카드 오른쪽 끝에 모인다.",
       render: () => <WaitingList />,
     },
     {

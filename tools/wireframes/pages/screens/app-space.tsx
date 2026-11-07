@@ -158,7 +158,7 @@ export const appSpaceArea: Area = {
       id: "new-app-activity",
       title: "App workspace · Activity",
       description:
-        "호출 기록이다. 호출자(사람 화면, agent session 링크, 다른 앱, 앱 시작), project, 효과, 대기와 되돌림됨이 보인다. 지금 release의 live write, external, 앱 시작 행에만 [Rewind from here]가 있고, 행을 펼치면 부른 쪽 session과 tool call, 입력 지문, 결과, 되돌림 기록이 있다.",
+        "위에 그 앱의 영구 기록(Records: release 켜짐·실패, 앱 멈춤 등, 새것부터)이 있고 아래 호출 기록(Calls)이다. 호출자(사람 화면, agent session 링크, 다른 앱, 앱 시작), project, 효과, 대기와 되돌림됨이 보인다. 지금 release의 live write, external, 앱 시작 행에만 [Rewind from here]가 있고, 행을 펼치면 부른 쪽 session과 tool call, 입력 지문, 결과, 되돌림 기록이 있다.",
       render: () => <ActivityLog />,
     },
     {

@@ -55,7 +55,7 @@ release·data·runtime command는 자기 tx 안에서 `recordProgramNotice(tx, i
  Bus: NoticePosted(줄 한 건) / 휘발 줄이 빠지면 NoticeClosed { id } / 영구 줄이 읽음이 되면 NoticeRead { id, read_at }
    ▼ Gateway
  shell main: toast(lophn 창에 focus) 또는 OS 알림. 누르면 그 앱 공간을 연다
- renderer Inbox: "Notices" 묶음에 줄을 더하거나 뺀다. ready 뒤 notices.open으로 맞춘다
+ renderer Inbox: 휘발 줄은 Now의 Notifications에, 안 읽은 영구 줄은 History 탭 머리의 수로 센다. ready 뒤 notices.open으로 맞춘다
 
  사람: 줄의 [x] → notices.dismiss → 휘발이면 줄 지움(NoticeClosed), 영구이면 read_at만 채움(NoticeRead)
  사람: notices.mark_read { ids } → 영구 줄을 한꺼번에 읽음으로
@@ -74,7 +74,10 @@ release·data·runtime command는 자기 tx 안에서 `recordProgramNotice(tx, i
 - 남기는 기간: program 줄은 지우지 않는다. 앱이 영구로 남긴 줄은 앱마다 최근 200개, 휘발 줄은 앱마다 50개다. 고장 난 앱이 표를 끝없이 키우지 못하게 한다.
 - 정본은 표다. 줄은 사람이 지우거나(휘발) 상한에 밀리거나 앱이 보관될 때까지(휘발) 재시작을 넘어 남는다. toast는 shell 정책이라 놓친 것을 다시 띄우지 않는다.
 - toast·OS 알림 규칙(`wiring/notice.ts`): app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱이 없는 줄(`lophn_updated`)은 누를 곳이 없어 띄우지 않는다.
-- Inbox에서 알림은 답할 것이 아니라 지우기만 하는 줄이다. 대기 항목(entries)과 따로 두고, 알림 단추의 수에는 더한다. 열린 줄은 안 읽은 줄(`notices.open`)이다. 기록 화면(영구 줄 찾기)은 `notices.list`를 쓰는 Inbox 화면 task의 몫이다.
+- Inbox(`desktop/connection/waiting/`)는 탭 둘이다. **Now**: 위에 답할 것(승인·질문·동의·공유·job 묶음. 동작은 `approval.md`), 그 아래 **Notifications**(끝난 탭과 휘발 줄. [x]로 지우면 끝), 맨 아래 방금 결정한 줄(`SettledList`는 결정 직후 허락·거절·cancelled를 확인하는 화면 메모리라 기록과 다른 일이라 남겼다). **History**: 영구 줄(`notices.list`의 `persistent: true`)을 최근 것부터 cursor로 잇고 `app`·`project`·종류(`source`나 `kind` 하나)·`query`로 거르고 찾는다. 안 읽은 줄은 앞에 점이고 줄 오른쪽 끝에 읽음 단추, action이 있으면 그 단추가 선다. [Mark all read]는 보이는 안 읽은 줄(≤200)을 `notices.mark_read`로 읽음으로 바꾼다. 앱이 있는 줄을 누르면 그 앱이 열린다. History 탭은 열 때 읽고 `NoticePosted`(영구)가 오면 첫 page를 다시 읽으며 `NoticeRead`는 있는 줄만 고친다. 종류 거르기는 core `kind`가 하나만 받아 "앱이 한 것"·"lophn이 한 것"(source)과 program 종류 하나씩이다. project 칸은 program 줄에 아직 project가 없어 비어 있다.
+- 배지와 개수: sidebar 배지는 "지금 볼 것"이다(대기 항목 + 끝난 탭 + 휘발 알림). 안 읽은 영구 기록은 배지에 세지 않고 History 탭 머리의 숫자(`History (2)`)로만 보인다. 기록은 사람이 나중에 찾는 것이라 배지를 계속 켜 두지 않으려는 것이다(급한 program 기록은 toast가 따로 띄운다).
+- action 단추: `action.kind`로만 그린다(`open_home_skill`은 [Ask lophn]). 누르면 renderer가 home의 lophn agent로 새 session을 열고(`sessions.open`) 첫 말로 `/<skill> <args>`를 보낸 뒤(`acp.send`, Agent 탭이 첫 말에 하는 것과 같은 source) 그 대화를 열고 줄을 읽음으로 바꾼다(`desktop/connection/waiting/notice-action.ts`). 사람이 누른 것이 명령이라 program이 session을 스스로 여는 것(`event.md`)이 아니고 새 core route도 없다. 앱 줄은 action이 없어 단추가 없다.
+- 앱 상세 Activity 탭 위쪽 Records가 그 앱의 영구 줄(최근 20, 보관해도 남은 것)을 보이고 그 아래가 호출 기록이다(`app-frame/app-detail/`).
 
 ## 왜 이 모양인가
 

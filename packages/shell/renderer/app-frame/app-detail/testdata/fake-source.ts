@@ -4,6 +4,7 @@ import type {
   AccessView,
   ActivityRow,
   AppDetailSource,
+  AppNoticeRow,
   AppToolRow,
   Caller,
   OAuthReason,
@@ -181,6 +182,25 @@ function row(
     ...more,
   };
 }
+
+const NOTICES: readonly AppNoticeRow[] = [
+  {
+    id: "ntc_1",
+    kind: "release_failed",
+    title: "Release r8 of Orders failed",
+    body: "The app is back on release r7.",
+    at: "2026-10-15T14:40:00",
+    unread: true,
+  },
+  {
+    id: "ntc_2",
+    kind: "release_activated",
+    title: "Release r7 of Orders is active",
+    body: "",
+    at: "2026-10-14T09:12:00",
+    unread: false,
+  },
+];
 
 const ACTIVITY: readonly ActivityRow[] = [
   row(
@@ -570,6 +590,7 @@ export function fakeDetail(options: FakeOptions = {}) {
     activity: () =>
       reply("activity", {
         rows: ACTIVITY,
+        notices: NOTICES,
       }),
     rewindPlan: (_app, from) => {
       calls.push(["rewindPlan", from]);

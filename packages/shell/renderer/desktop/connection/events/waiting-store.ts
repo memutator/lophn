@@ -81,8 +81,10 @@ export interface WaitingState {
   /** entries 수. */
   readonly count: number;
   readonly finished: readonly FinishedTerminal[];
-  /** 앱이 사람에게 한 알림. 답할 것이 아니라 지우기만 하는 줄이라 entries와 따로 둔다. 오래된 것부터다. */
+  /** 휘발 알림(앱이 사람에게 한 것). 답할 것이 아니라 지우기만 하는 줄이라 entries와 따로 둔다. 오래된 것부터다. */
   readonly notices: readonly Notice[];
+  /** 안 읽은 영구 기록(History) 수. 배지에는 더하지 않고 History 탭 머리에만 보인다. */
+  readonly historyUnread: number;
 }
 
 const WAITING_CONDITION: EventCondition = {
@@ -131,11 +133,12 @@ export function createWaitingStore(
     count: 0,
     finished: [],
     notices: [],
+    historyUnread: 0,
   });
   let entries = new Map<string, WaitingEntry>();
   // main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때 보인다.
   const finished = new Map<string, FinishedTerminal>();
-  // 같은 key의 알림은 id가 같아 새 내용이 대신한다.
+  // 안 읽은 줄 전부(휘발과 영구). 같은 key의 알림은 id가 같아 새 내용이 대신한다.
   let notices = new Map<string, Notice>();
   // session의 agent와 workspace는 SessionStarted와 snapshot에 실려 온다.
   const sessions = new Map<
@@ -174,15 +177,19 @@ export function createWaitingStore(
       entries: list,
       count: list.length,
       finished: [...finished.values()],
-      notices: [...notices.values()].sort((a, b) =>
-        a.created_at === b.created_at
-          ? a.id < b.id
-            ? -1
-            : 1
-          : a.created_at < b.created_at
-            ? -1
-            : 1,
-      ),
+      notices: [...notices.values()]
+        .filter((one) => !one.persistent)
+        .sort((a, b) =>
+          a.created_at === b.created_at
+            ? a.id < b.id
+              ? -1
+              : 1
+            : a.created_at < b.created_at
+              ? -1
+              : 1,
+        ),
+      historyUnread: [...notices.values()].filter((one) => one.persistent)
+        .length,
     });
   }
 
@@ -326,7 +333,7 @@ export function createWaitingStore(
         notices.set(event.payload.id, event.payload);
         publish();
         return;
-      // 열린 줄은 안 읽은 것이라 지운 줄도 읽은 줄도 목록에서 뺀다.
+      // 열린 줄은 안 읽은 것이라 지운 줄도 읽은 줄도 뺀다.
       case "NoticeClosed":
       case "NoticeRead":
         notices.delete(event.payload.id);

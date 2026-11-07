@@ -2,7 +2,8 @@
 // 성공한 읽기는 기록하지 않는다. 호출 성공은 업무가 맞다는 뜻이 아니다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/i18n";
+import { formatRelativeTime, t } from "@lophn/i18n";
+import { KIND_LABEL } from "../../../desktop/connection/waiting/notice-kinds.ts";
 
 import { Loadable } from "../loadable.tsx";
 import {
@@ -251,6 +252,35 @@ function ActivityRows({
   const rows = view.rows;
   return (
     <>
+      <h3 className={styles.sectionHead}>{t("app-detail.label.records")}</h3>
+      {view.notices.length === 0 ? (
+        <p className={styles.state} data-records-empty="">
+          {t("app-detail.note.no-records")}
+        </p>
+      ) : (
+        <div className={styles.table} data-records="">
+          {view.notices.map((row) => (
+            <div key={row.id} className={styles.tableBlock}>
+              <div
+                className={styles.record}
+                data-unread={row.unread || undefined}
+              >
+                <span className={styles.strong}>{row.title}</span>
+                <span className={styles.muted}>
+                  {[
+                    row.kind === "app" ? null : t(KIND_LABEL[row.kind]),
+                    formatRelativeTime(new Date(row.at), now()),
+                    row.body === "" ? null : row.body,
+                  ]
+                    .filter((part) => part !== null)
+                    .join(" · ")}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <h3 className={styles.sectionHead}>{t("app-detail.label.calls")}</h3>
       <div className={styles.filters}>
         <p className={styles.muted}>{t("app-detail.note.activity-scope")}</p>
       </div>

@@ -103,6 +103,7 @@ shell 규칙
 - workflow를 쓴다는 것은 바깥 효과까지 책임지겠다는 뜻이고 사람이 loop에서 자주 빠진다. 그래서 unattended는 묻지 않고, 시작한 사람이 그 사슬 전체를 시켰으니 call을 따라 간다. skip은 사람이 그 대화에 정한 것이라 따라 가지 않는다.
 - shell 규칙은 prefix와 `*`, 마지막 일치다(OpenCode, Codex). regex 사전(Hermes)과 명령 parser(OpenCode의 tree-sitter)는 쓰지 않는다. 조각의 길이를 고르는 표 없이 `<앞 두 낱말> *`로 `always`의 줄을 만든다.
 - LLM judge는 넣지 않았다. 판정은 program이 결정적으로 하고 결정은 사람이 한다.
+- 대기 목록은 Inbox의 Now 탭 위쪽("답할 것")이다. 그 아래 휘발 알림과 따로 있는 History 탭(영구 기록)은 답할 것이 아니라 sidebar 배지에 세지 않는다(`architecture/app-notice.md`).
 - timeout은 없다. attended에서는 대기 목록에 남고, unattended에서는 묻지 않는다.
 - OS sandbox는 두지 않는다. 조사한 harness 가운데 기본으로 켜는 것은 Codex 하나다.
 - 결과 본문을 믿는 문제는 판정과 따로다. web 검색과 읽기 결과만 바깥 글로 감싸고, 앱 tool과 외부 MCP 결과는 감싸지 않는다.

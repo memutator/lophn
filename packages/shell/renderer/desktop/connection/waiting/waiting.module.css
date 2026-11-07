@@ -325,3 +325,45 @@
   color: var(--status-serious-text);
   text-align: right;
 }
+
+/* History의 거르기 줄과 그 아래 오른쪽 끝의 [Mark all read]. */
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.filterActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) var(--space-6);
+}
+
+/* 안 읽은 영구 줄 표시. 켜진 것의 표시라 ink 색이다. 읽은 줄도 같은 폭을 비워 제목이 맞는다. */
+.unreadSlot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--type-body-line);
+}
+
+.unreadDot {
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-ink-background);
+}
+
+/* Inbox 탭 줄. 탭 줄의 아래선이 panel 머리 줄과 같은 안쪽 여백에 선다. */
+.tabBar {
+  padding: var(--space-0) var(--space-6);
+}

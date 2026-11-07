@@ -1,6 +1,8 @@
 // app-detail이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만
 // 안다. 모양은 protocol의 activation(release 기록·선언 비교)·app grant·app invocation·rewind에서
 // 이 화면이 쓰는 field만 옮긴 것이다.
+
+import type { NoticeKind } from "../../../../protocol/apps/notice.ts";
 import type {
   IconFile,
   IconView,
@@ -206,8 +208,20 @@ export interface ActivityRow {
   readonly result: string;
 }
 
+/** 그 앱의 영구 기록 한 줄(release 결과, 앱 멈춤, 앱이 남긴 영구 알림). */
+export interface AppNoticeRow {
+  readonly id: string;
+  readonly kind: NoticeKind;
+  readonly title: string;
+  readonly body: string;
+  readonly at: string;
+  readonly unread: boolean;
+}
+
 export interface ActivityView {
   readonly rows: readonly ActivityRow[];
+  /** 그 앱의 영구 기록, 새것부터. 읽지 못해도 호출 기록은 보이게 비운다. */
+  readonly notices: readonly AppNoticeRow[];
 }
 
 export type RewindOutcome = "undone" | "stays" | "cannot";

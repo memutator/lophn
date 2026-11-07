@@ -1009,3 +1009,95 @@ test("Default model 줄은 resolved model의 이름으로 보이고 고르는 �
   assert.equal(t.state.session?.model?.model, "default");
   assert.equal(t.state.session?.model?.label, "Opus");
 });
+
+// subagent가 띄운 background task의 알림이 root 대화에 회색 줄로 섞여 보였다. Agent 줄은 task_started부터 시간을 센다.
+test("subagent 안에서 띄운 task는 root에 알림을 내지 않고 Agent 줄은 task_started에 선다", async () => {
+  const t = await setup();
+  await t.input(t.send("1", "go"));
+  const use = (
+    id: string,
+    name: string,
+    input: object,
+    parent: string | null,
+  ) =>
+    t.feed({
+      type: "assistant",
+      parent_tool_use_id: parent,
+      message: {
+        role: "assistant",
+        content: [{ type: "tool_use", id, name, input }],
+      },
+    });
+  const infos = () =>
+    t.state.items.flatMap((item) =>
+      item.kind === "notice" && item.notice.type === "info"
+        ? [item.notice.text]
+        : [],
+    );
+  const tools = () => t.state.items.filter((item) => item.kind === "tool");
+  await use("tu_agent", "Agent", { description: "d", prompt: "p" }, null);
+  assert.equal(tools().length, 0);
+  await t.feed({
+    type: "system",
+    subtype: "task_started",
+    task_id: "a1",
+    tool_use_id: "tu_agent",
+    description: "d",
+  });
+  assert.equal(tools().length, 1);
+  await use(
+    "tu_bash",
+    "Bash",
+    { command: "sleep 9", run_in_background: true },
+    "tu_agent",
+  );
+  await t.feed({
+    type: "system",
+    subtype: "task_started",
+    task_id: "b1",
+    tool_use_id: "tu_bash",
+    description: "child bash",
+  });
+  await t.feed({
+    type: "system",
+    subtype: "task_notification",
+    task_id: "b1",
+    status: "completed",
+    summary: "child bash done",
+  });
+  await t.feed({
+    type: "system",
+    subtype: "task_started",
+    task_id: "r1",
+    description: "root bash",
+  });
+  assert.deepEqual(infos(), ["Started: root bash"]);
+});
+
+test("고르지 않은 effort는 init이나 설정 file의 값을 보이고, 고른 값은 건드리지 않는다", async () => {
+  const model = {
+    value: "default",
+    displayName: "Default",
+    description: "",
+    resolvedModel: "claude-opus-5",
+    supportsEffort: true,
+    supportedEffortLevels: ["low", "high", "xhigh"],
+  };
+  const t = await setup({
+    models: [model],
+    contextModel: "claude-opus-5",
+    files: {
+      "/home/me/.claude/settings.json": JSON.stringify({ effortLevel: "low" }),
+      "/work/test/.claude/settings.local.json": JSON.stringify({
+        effortLevel: "high",
+        modelSettings: { default: { effortLevel: "xhigh" } },
+      }),
+    },
+  });
+  await flush();
+  assert.equal(t.state.session?.model?.options.effort, "xhigh");
+  await t.feed({ type: "system", subtype: "init", effort: "low" });
+  assert.equal(t.state.session?.model?.options.effort, "low");
+  await t.feed({ type: "system", subtype: "init", effort: null });
+  assert.equal(t.state.session?.model?.options.effort, undefined);
+});

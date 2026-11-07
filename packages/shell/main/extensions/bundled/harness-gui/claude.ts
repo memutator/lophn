@@ -164,6 +164,8 @@ type SdkMessage = {
   task_id?: string;
   prompt?: string;
   task_type?: string;
+  effort?: string | null;
+  parent_task_id?: string;
   tool_use_id?: string;
   last_tool_name?: string;
   patch?: { status?: string };
@@ -611,12 +613,12 @@ function modelGroups(models: ModelInfo[]): AcpModelGroup[] {
   ];
 }
 
-// CLI가 첫 turn 전에 쓸 mode. 설정 file 셋을 CLI와 같은 순서로 읽고 뒤가 이긴다. SDK init 응답에는 mode가 없다.
-async function settingsMode(
+// 설정 file 셋을 CLI와 같은 순서로 읽는다(뒤가 이긴다). 없거나 깨진 file은 건너뛴다.
+async function settingsFiles(
   sdk: ClaudeSdk,
   cwd: string,
-): Promise<string | null> {
-  let mode: string | null = null;
+): Promise<Record<string, unknown>[]> {
+  const found: Record<string, unknown>[] = [];
   for (const path of [
     join(sdk.userDir, "settings.json"),
     join(cwd, ".claude", "settings.json"),
@@ -624,15 +626,42 @@ async function settingsMode(
   ]) {
     try {
       const text = new TextDecoder().decode(await sdk.readFile(path));
-      const value = (
-        JSON.parse(text) as { permissions?: { defaultMode?: unknown } }
-      ).permissions?.defaultMode;
-      if (typeof value === "string") mode = value;
+      const value: unknown = JSON.parse(text);
+      if (typeof value === "object" && value !== null)
+        found.push(value as Record<string, unknown>);
     } catch {
-      // 없거나 깨진 file은 건너뛴다. 모르면 null이다.
+      // 없거나 깨진 file은 건너뛴다.
     }
   }
-  return mode;
+  return found;
+}
+
+type SettingsDefaults = {
+  mode: string | null;
+  effort: string | null;
+  modelEffort: Map<string, string>;
+};
+
+// CLI가 첫 turn 전에 쓸 mode와 effort. SDK init 응답에는 mode가 없다.
+function settingsDefaults(files: Record<string, unknown>[]): SettingsDefaults {
+  const found: SettingsDefaults = {
+    mode: null,
+    effort: null,
+    modelEffort: new Map(),
+  };
+  for (const file of files) {
+    const value = (file.permissions as { defaultMode?: unknown } | undefined)
+      ?.defaultMode;
+    if (typeof value === "string") found.mode = value;
+    if (typeof file.effortLevel === "string") found.effort = file.effortLevel;
+    const byModel = file.modelSettings;
+    if (typeof byModel === "object" && byModel !== null)
+      for (const [model, one] of Object.entries(byModel)) {
+        const level = (one as { effortLevel?: unknown } | null)?.effortLevel;
+        if (typeof level === "string") found.modelEffort.set(model, level);
+      }
+  }
+  return found;
 }
 
 /** 대화 한 줄기. root 대화와 subagent마다 하나씩이고, 자식의 갱신은 `child_update`로 싸서 낸다. */
@@ -672,6 +701,8 @@ type Call = {
   tool: string;
   /** TodoWrite·TaskCreate처럼 tool 줄을 내지 않는 호출. */
   hidden?: boolean;
+  /** 미뤄 둔 subagent 줄을 내는 함수. 낸 뒤에는 없다. */
+  startRow?: () => void;
   /** subagent(Agent tool) 호출이면 그 상태. */
   agent?: {
     detail: SubagentDetail;
@@ -795,6 +826,8 @@ const start: (sdk: ClaudeSdk) => Start =
     let replaying = false;
     // Agent tool 줄 → 그 호출. background subagent는 turn이 끝난 뒤에 알림이 오므로 turn이 끝나도 남긴다.
     const agentCalls = new Map<string, Call>();
+    // subagent 안에서 띄운 task의 id. task_notification에는 부모 단서가 없어 started 때 적어 둔다.
+    const childTasks = new Set<string>();
     const approvals = new Map<string, ApprovalWait>();
     const questions = new Map<string, QuestionWait>();
     // CLI 줄에 있는 사람 메시지(uuid → 메시지). Map의 순서가 줄 순서다.
@@ -842,6 +875,13 @@ const start: (sdk: ClaudeSdk) => Start =
     let modelId: string | null = null; // 지금 model의 resolved id
     let shownModel: string | null = null; // 사람이 고른 model row의 value
     let fastState = "off"; // init의 fast_mode_state
+    // 사람이 effort를 고르지 않았을 때 CLI가 쓸 값. init의 effort가 설정 file보다 앞선다(null은 effort 없음).
+    let initEffort: string | null | undefined;
+    let defaults: SettingsDefaults = {
+      mode: null,
+      effort: null,
+      modelEffort: new Map(),
+    };
     let rawCommands: SlashCommand[] = [];
     let terminalCommands = new Set<string>();
     let skills: string[] = [];
@@ -872,12 +912,27 @@ const start: (sdk: ClaudeSdk) => Start =
         (modelId === null ? undefined : rows[0])
       );
     }
+    // 고르지 않은 effort는 CLI가 쓸 값을 보인다. 그 model이 지원하는 level일 때만.
+    function shownEffort(row: ModelInfo): string | null {
+      if (!row.supportsEffort) return null;
+      const level =
+        initEffort !== undefined
+          ? initEffort
+          : (defaults.modelEffort.get(modelId ?? "") ??
+            defaults.modelEffort.get(row.value) ??
+            defaults.effort);
+      return level !== null &&
+        (row.supportedEffortLevels as string[] | undefined)?.includes(level)
+        ? level
+        : null;
+    }
     function currentModel(): AcpSessionMeta["model"] {
       const row = currentRow();
       if (row === undefined) return null;
       // 축이 있는 model에만 값을 싣는다. 값을 안 고른 switch는 CLI가 말해 주는 현재 값이다.
       const options: Record<string, string> = {};
-      if (carry.effort !== null) options.effort = carry.effort;
+      const effort = carry.effort ?? shownEffort(row);
+      if (effort !== null) options.effort = effort;
       if (row.supportsFastMode === true)
         options.fast = (carry.fast ?? fastState === "on") ? "on" : "off";
       if (canThinkOff(row))
@@ -1191,6 +1246,7 @@ const start: (sdk: ClaudeSdk) => Start =
     function setAgent(call: Call, patch: Partial<SubagentDetail>) {
       const agent = call.agent;
       if (agent === undefined) return;
+      startRow(call);
       agent.detail = { ...agent.detail, ...patch };
       agent.owner.emit({
         type: "tool_detail_changed",
@@ -1247,25 +1303,37 @@ const start: (sdk: ClaudeSdk) => Start =
         agentCalls.set(useId, call);
       }
       const summary = summaryOf(cwd, toolInput);
-      lane.emit({
-        type: "tool_started",
-        item: {
-          kind: "tool",
-          id: call.id,
-          seq: ++lane.seq,
-          at: now(),
-          by: "agent",
-          turn: ensureTurn(lane),
-          tool: name,
-          category: CATEGORIES[name] ?? "other",
-          title: summary === "" ? name : `${name} ${summary}`,
-          state: "running",
-          duration_ms: null,
-          detail,
-          body: toolBody(JSON.stringify(toolInput, null, 2), null),
-        },
-      });
+      const publishRow = () =>
+        lane.emit({
+          type: "tool_started",
+          item: {
+            kind: "tool",
+            id: call.id,
+            seq: ++lane.seq,
+            at: now(),
+            by: "agent",
+            turn: ensureTurn(lane),
+            tool: name,
+            category: CATEGORIES[name] ?? "other",
+            title: summary === "" ? name : `${name} ${summary}`,
+            state: "running",
+            duration_ms: null,
+            detail,
+            body: toolBody(JSON.stringify(toolInput, null, 2), null),
+          },
+        });
+      // subagent 줄은 SDK가 tool을 돌리기 시작했다고(task_started) 알릴 때 낸다. tool_use 블록은 긴 prompt를 쓰는 동안 먼저
+      // 오고, 줄의 시간(`at`)은 낸 뒤에 못 고치므로(protocol에 갱신이 없다) 그때 낸 줄은 다른 subagent보다 몇 초 앞선다.
+      if (call.agent !== undefined && !replaying) call.startRow = publishRow;
+      else publishRow();
       return call;
+    }
+
+    // 미뤄 둔 subagent 줄을 낸다. 줄을 가리키는 다른 갱신(detail, 끝, 승인)이 먼저 올 때도 부른다.
+    function startRow(call: Call) {
+      const publishRow = call.startRow;
+      call.startRow = undefined;
+      publishRow?.();
     }
 
     function toolEnd(
@@ -1274,6 +1342,7 @@ const start: (sdk: ClaudeSdk) => Start =
       state: "ok" | "error" | "denied" | "cancelled",
       output: string | null = null,
     ) {
+      startRow(call);
       call.done = true;
       const asked = call.question;
       lane.emit({
@@ -1409,6 +1478,7 @@ const start: (sdk: ClaudeSdk) => Start =
             one.calls.has(options.toolUseID),
           ) ?? root;
         const call = toolStart(lane, options.toolUseID, name, toolInput);
+        startRow(call);
         if (name === "AskUserQuestion") {
           const asked = (
             (toolInput.questions as Question[] | undefined) ?? []
@@ -1816,12 +1886,23 @@ const start: (sdk: ClaudeSdk) => Start =
       }
     }
 
+    // subagent 안에서 띄운 task인가. 그 tool 줄이 자식 줄기에 있거나 SDK가 부모 task를 알려 준다.
+    function inChild(message: SdkMessage): boolean {
+      if (childTasks.has(message.task_id ?? "")) return true;
+      const useId = message.tool_use_id ?? "";
+      return (
+        message.parent_task_id !== undefined ||
+        [...lanes.values()].some((one) => one.calls.has(useId))
+      );
+    }
+
     function onTask(message: SdkMessage) {
       const taskId = message.task_id ?? "";
       const call = agentCalls.get(message.tool_use_id ?? "");
       switch (message.subtype) {
         case "task_started":
           if (call?.agent !== undefined) {
+            startRow(call);
             call.agent.taskId = taskId;
             liveAgents.add(taskId);
             if (message.prompt) {
@@ -1834,6 +1915,9 @@ const start: (sdk: ClaudeSdk) => Start =
                 "",
               );
             }
+          } else if (inChild(message)) {
+            // subagent의 background task는 root 대화에 알리지 않는다(TUI도 main view에 내지 않는다).
+            childTasks.add(taskId);
           } else {
             info(`Started: ${message.description ?? ""}`);
           }
@@ -1860,7 +1944,11 @@ const start: (sdk: ClaudeSdk) => Start =
             message.summary,
           );
           // subagent는 tool 줄이 보인다. 그 밖의 task만 알린다.
-          if (call?.agent === undefined && agentByTask(taskId) === undefined)
+          if (
+            call?.agent === undefined &&
+            agentByTask(taskId) === undefined &&
+            !inChild(message)
+          )
             info(
               `${message.summary ?? "A background task"} (${message.status ?? "done"})`,
             );
@@ -1952,8 +2040,13 @@ const start: (sdk: ClaudeSdk) => Start =
             terminalCommands = new Set(message.terminal_slash_commands);
           publishCommands();
           if (message.permissionMode) setMode(message.permissionMode);
-          if (message.model && message.model !== modelId) {
-            modelId = message.model;
+          const effortBefore = initEffort;
+          if (message.effort !== undefined) initEffort = message.effort;
+          if (
+            (message.model && message.model !== modelId) ||
+            initEffort !== effortBefore
+          ) {
+            if (message.model) modelId = message.model;
             changed({ model: currentModel() });
           }
           return;
@@ -2348,6 +2441,7 @@ const start: (sdk: ClaudeSdk) => Start =
         if (call.agent !== undefined) call.agent.lane.dead = true;
       }
       agentCalls.clear();
+      childTasks.clear();
       lanes.clear();
       liveAgents.clear();
       let stoppedTask = false;
@@ -2394,7 +2488,8 @@ const start: (sdk: ClaudeSdk) => Start =
       } satisfies Result<never>;
     }
 
-    const firstMode = await settingsMode(sdk, cwd);
+    defaults = settingsDefaults(await settingsFiles(sdk, cwd));
+    const firstMode = defaults.mode;
     changed({
       title: null,
       cli_session: cliSession,

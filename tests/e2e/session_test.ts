@@ -558,6 +558,7 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
                 call("grep", "file_grep", { pattern: "notes" }),
                 call("web", "web_fetch", { url: `${f.url}/probe` }),
                 lophnCall("agent", "agent create", {
+                  handle: "helper",
                   name: "helper",
                   body: "Help.",
                 }),

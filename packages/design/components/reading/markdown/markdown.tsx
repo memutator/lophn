@@ -12,10 +12,14 @@ import {
 import { CodeBlock } from "../code-block/code-block.tsx";
 import styles from "../reading.module.css";
 import type { Align, Block, Inline, ListItem } from "./model.ts";
+import { parseCached } from "./cache.ts";
 import { parseMarkdown, type ParseOptions } from "./parse.ts";
+import { presentStreamingTail } from "./stream.ts";
 
 export interface MarkdownProps extends ParseOptions {
   source: string;
+  /** 쓰는 중인 글의 꼬리. 더 오면 다르게 그려질 끝(쓰다 만 표·marker 줄·link 주소)을 숨기고 parse 결과를 memo하지 않는다. 열린 code fence는 호출자가 먼저 닫는다. */
+  streaming?: boolean;
   /** reading(기본): 읽기 본문 16/28. chat: 대화 글 body 14/22와 좁은 간격. */
   variant?: "reading" | "chat";
   /** show(기본): image를 그린다. link: 불러오지 않고 alt 글(비면 주소)의 link로 둔다. */
@@ -318,11 +322,16 @@ export function Markdown({
   clipboard = systemClipboard,
   codeAction,
   renderCode,
+  streaming = false,
 }: MarkdownProps) {
-  const document = useMemo(
-    () => parseMarkdown(source, { resolveImage }),
-    [source, resolveImage],
-  );
+  const document = useMemo(() => {
+    if (streaming) {
+      return parseMarkdown(presentStreamingTail(source), { resolveImage });
+    }
+    return resolveImage === undefined
+      ? parseCached(source)
+      : parseMarkdown(source, { resolveImage });
+  }, [source, resolveImage, streaming]);
   return (
     <div
       className={

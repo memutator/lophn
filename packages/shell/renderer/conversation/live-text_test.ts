@@ -31,3 +31,13 @@ test("splitLive cuts at a new block outside fences and joins back to the text", 
   assert.equal(tail, "Last paragraph, still growing");
   assert.equal(done.join("") + tail, text);
 });
+
+test("splitLive gives up splitting when syntax ties blocks together", () => {
+  for (const tied of [
+    "See [docs][1].\n\nMore.\n\n[1]: https://example.com",
+    "Note[^a].\n\nMore.\n\n[^a]: footnote",
+    "Intro\n\n$$\nx = 1\n$$\n\nOutro",
+  ]) {
+    assert.deepEqual(splitLive(tied), { done: [], tail: tied });
+  }
+});

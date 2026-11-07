@@ -29,6 +29,8 @@ export interface ChatMarkdownProps {
    * 않았으므로 mermaid diagram을 그리지 않고 code로 둔다.
    */
   readonly openFence?: string | null | undefined;
+  /** 쓰는 중인 글의 꼬리. 더 오면 다르게 그려질 끝을 숨긴다(Markdown `streaming`). */
+  readonly streaming?: boolean | undefined;
 }
 
 /** markdown 글 전체(원문)에서 모르는 artifact path를 찾아 목록을 다시 읽는다. code 안 path도 본다. */
@@ -36,6 +38,7 @@ export function ChatMarkdown({
   text,
   artifacts,
   openFence,
+  streaming,
 }: ChatMarkdownProps): ReactElement {
   useArtifactReload(text, artifacts);
   const open = windowLinkOpener();
@@ -66,6 +69,7 @@ export function ChatMarkdown({
     <div className={styles.chat}>
       <Markdown
         source={text}
+        streaming={streaming}
         variant="chat"
         images="link"
         onOpenLink={open === undefined ? undefined : (href) => void open(href)}

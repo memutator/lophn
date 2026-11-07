@@ -55,15 +55,19 @@ export function openFenceContent(text: string): string | null {
 // 빈 줄 뒤에 0칸 들여쓴 줄이 새 block을 연다. 목록 항목과 인용은 앞 block의 이어짐일 수 있어(느슨한 목록) 가르지 않는다.
 const CONTINUES = /^(?:[-*+]\s|\d+[.)]\s|>)/;
 
+// 링크 참조 정의·각주·$$는 떨어진 block을 묶는다. 이 글은 가르면 통째로 parse한 것과 달라지므로 가르지 않는다.
+const SPANS_BLOCKS = /^ {0,3}(?:\[[^\]\n]+\]:|\$\$)|\[\^/m;
+
 /**
  * 쓰는 중인 글을 끝난 block 묶음들과 아직 자라는 꼬리로 가른다. 끝난 묶음은 글이 자라도 바뀌지 않아 다시 parse하지
  * 않는다(긴 글을 delta마다 통째로 parse하면 글이 길수록 느려진다). code fence 안에서는 자르지 않으므로 열린 fence는
- * 늘 꼬리에 있다. `done.join("") + tail`은 원문이다.
+ * 늘 꼬리에 있다. block을 묶는 문법이 있으면 가르지 않고 전부 꼬리다. `done.join("") + tail`은 원문이다.
  */
 export function splitLive(text: string): {
   readonly done: readonly string[];
   readonly tail: string;
 } {
+  if (SPANS_BLOCKS.test(text)) return { done: [], tail: text };
   const done: string[] = [];
   let from = 0;
   let offset = 0;

@@ -119,7 +119,7 @@ function variant<K extends ProgramNoticeKind, P extends z.ZodRawShape>(
   return z.strictObject({
     kind: z.literal(kind),
     params: z.strictObject(params),
-    // lophn_updated 말고는 앱이 있어야 한다(command가 본다).
+    // lophn_updated와 sdk_update_needed 말고는 앱이 있어야 한다(command가 본다).
     app: appIdSchema.optional(),
     project: projectIdSchema.optional(),
     key: noticeKeySchema.optional(),
@@ -134,14 +134,13 @@ export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
   variant("app_unavailable", { reason }),
   variant("app_data_migrated", { release: short }),
   variant("app_data_restored", { release: short }),
-  // optional_sdk_apps: 필수는 아니지만 새 SDK 판이 있는 앱의 수. 0이면 싣지 않는다.
-  variant("lophn_updated", {
-    from: short,
-    to: short,
-    optional_sdk_apps: z.number().int().min(1).max(9999).optional(),
+  variant("lophn_updated", { from: short, to: short }),
+  // 앱 없이 한 줄이다(숲을 보는 일은 home lophn의 몫이라 앱마다 줄을 만들지 않는다).
+  // required: 옮겨야 하는 앱 수, available: 필수는 아니지만 새 SDK 판이 있는 앱 수.
+  variant("sdk_update_needed", {
+    required: z.number().int().min(0).max(9999),
+    available: z.number().int().min(0).max(9999),
   }),
-  // sdks: 필수로 옮겨야 하는 SDK 목록 글(core가 판에서 만든다).
-  variant("sdk_update_needed", { sdks: reason }),
 ]);
 export type NoticeRecordInput = z.infer<typeof noticeRecordInputSchema>;
 
@@ -165,8 +164,6 @@ export const noticesObserveVersion = defineCommand({
   input: z.strictObject({
     version: short,
     fresh: z.boolean(),
-    // lophn_updated 줄에 싣는, 가능(옮기지 않아도 되는) SDK 갱신이 있는 앱의 수.
-    optional_sdk_apps: z.number().int().nonnegative().optional(),
   }),
   output: z.object({
     // 판이 바뀐 기동이면 true. fresh이거나 같은 판이면 false다.
@@ -214,6 +211,9 @@ export const noticesList = defineRead({
     unread: z.boolean().optional(),
     // title이나 body에 들어 있는 글(대소문자 무시).
     query: z.string().trim().min(1).max(100).optional(),
+    // created_at 기간. since는 포함, until은 미포함이다.
+    since: atSchema.optional(),
+    until: atSchema.optional(),
     cursor: readCursorSchema.optional(),
     limit: z.number().int().min(1).max(NOTICE_LIST_LIMIT_MAX).optional(),
   }),

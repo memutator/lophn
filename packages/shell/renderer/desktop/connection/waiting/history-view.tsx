@@ -4,6 +4,7 @@
 import { t } from "@lophn/i18n";
 import { ErrorState } from "@lophn/ui/feedback";
 import {
+  DateRangeFilter,
   Field,
   FilterBar,
   SearchFilter,
@@ -85,6 +86,7 @@ export function HistoryView({
     filter.app !== null ||
     filter.project !== null ||
     filter.type !== "all" ||
+    filter.range !== null ||
     typed !== "";
   const filtered = dirty;
 
@@ -102,6 +104,12 @@ export function HistoryView({
             setFilter(NO_FILTER);
           }}
         >
+          <DateRangeFilter
+            // 기간을 안 고른 상태(null)는 빈 직접 기간으로 보인다.
+            value={filter.range ?? { preset: "custom", from: "", to: "" }}
+            now={new Date()}
+            onChange={(range) => setFilter((now) => ({ ...now, range }))}
+          />
           <Field label={t("waiting.label.history-app")}>
             <Select
               size="sm"

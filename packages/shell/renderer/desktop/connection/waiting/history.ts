@@ -1,5 +1,6 @@
 // History(영구 기록) 읽기. 정본은 core의 `notices.list`다. 탭을 열 때와 거르기가 바뀔 때 첫 page를 읽고, [Load more]가 cursor로 잇는다.
 // 새 영구 줄(NoticePosted)은 첫 page를 다시 읽고, 읽음(NoticeRead)은 있는 줄만 고친다.
+import { type DateRange, parseDay, resolveRange } from "@lophn/ui/input";
 import { useCallback, useEffect, useState } from "react";
 import {
   type Notice,
@@ -23,6 +24,8 @@ export interface HistoryFilter {
   readonly project: string | null;
   readonly type: TypeFilter;
   readonly query: string;
+  // null은 기간을 거르지 않는다.
+  readonly range: DateRange | null;
 }
 
 export const NO_FILTER: HistoryFilter = {
@@ -30,6 +33,7 @@ export const NO_FILTER: HistoryFilter = {
   project: null,
   type: "all",
   query: "",
+  range: null,
 };
 
 /** 거르기 선택지 순서. 사람이 찾는 것(release)을 앞에 둔다. */
@@ -39,6 +43,23 @@ export const TYPE_OPTIONS: readonly TypeFilter[] = [
   "program",
   ...PROGRAM_NOTICE_KINDS,
 ];
+
+// 기간은 사람이 있는 곳의 달력 날짜라 그 지역 자정에서 다음 날 자정 앞까지(until 미포함)로 푼다.
+function periodOf(range: DateRange | null): { since?: string; until?: string } {
+  if (range === null) return {};
+  const { from, to } = resolveRange(range, new Date());
+  const start = parseDay(from);
+  const end = parseDay(to);
+  if (start === undefined || end === undefined) return {};
+  return {
+    since: start.toISOString(),
+    until: new Date(
+      end.getFullYear(),
+      end.getMonth(),
+      end.getDate() + 1,
+    ).toISOString(),
+  };
+}
 
 function inputOf(filter: HistoryFilter, cursor: string | null) {
   return {
@@ -51,6 +72,7 @@ function inputOf(filter: HistoryFilter, cursor: string | null) {
         ? {}
         : { kind: filter.type }),
     ...(filter.query.trim() === "" ? {} : { query: filter.query.trim() }),
+    ...periodOf(filter.range),
     ...(cursor === null ? {} : { cursor }),
     limit: PAGE,
   };
@@ -114,23 +136,25 @@ export function useHistory(filter: HistoryFilter): History {
   const core = client.core;
   const [state, setState] = useState<State>({ status: "loading" });
   const [tick, setTick] = useState(0);
-  const { app, project, type, query } = filter;
+  const { app, project, type, query, range } = filter;
 
   useEffect(() => {
     let live = true;
     setState({ status: "loading" });
-    void readPage(core, { app, project, type, query }, null).then((page) => {
-      if (!live) return;
-      setState(
-        page === null
-          ? { status: "failed" }
-          : { status: "ready", rows: page.notices, next: page.next },
-      );
-    });
+    void readPage(core, { app, project, type, query, range }, null).then(
+      (page) => {
+        if (!live) return;
+        setState(
+          page === null
+            ? { status: "failed" }
+            : { status: "ready", rows: page.notices, next: page.next },
+        );
+      },
+    );
     return () => {
       live = false;
     };
-  }, [core, app, project, type, query, tick]);
+  }, [core, app, project, type, query, range, tick]);
 
   useEffect(
     () =>
@@ -159,20 +183,22 @@ export function useHistory(filter: HistoryFilter): History {
   const loadMore = useCallback(() => {
     if (state.status !== "ready" || state.next === null) return;
     const cursor = state.next;
-    void readPage(core, { app, project, type, query }, cursor).then((page) => {
-      if (page === null) return;
-      setState((now) => {
-        // 그 사이 거르기가 바뀌어 첫 page로 돌아갔으면 이어 붙이지 않는다.
-        if (now.status !== "ready" || now.next !== cursor) return now;
-        const seen = new Set(now.rows.map((row) => row.id));
-        return {
-          status: "ready",
-          rows: [...now.rows, ...page.notices.filter((r) => !seen.has(r.id))],
-          next: page.next,
-        };
-      });
-    });
-  }, [core, app, project, type, query, state]);
+    void readPage(core, { app, project, type, query, range }, cursor).then(
+      (page) => {
+        if (page === null) return;
+        setState((now) => {
+          // 그 사이 거르기가 바뀌어 첫 page로 돌아갔으면 이어 붙이지 않는다.
+          if (now.status !== "ready" || now.next !== cursor) return now;
+          const seen = new Set(now.rows.map((row) => row.id));
+          return {
+            status: "ready",
+            rows: [...now.rows, ...page.notices.filter((r) => !seen.has(r.id))],
+            next: page.next,
+          };
+        });
+      },
+    );
+  }, [core, app, project, type, query, range, state]);
 
   const reload = useCallback(() => setTick((n) => n + 1), []);
   return { state, loadMore, reload };

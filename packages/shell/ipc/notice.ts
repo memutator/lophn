@@ -19,6 +19,8 @@ export const noticeTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("session"), session }).strict(),
   // 앱이 사람에게 한 알림. 누르면 그 앱 공간을 연다.
   z.object({ kind: z.literal("app"), app }).strict(),
+  // 앱 없는 program 기록(SDK 업데이트 필요). 누르면 Inbox를 연다.
+  z.object({ kind: z.literal("inbox") }).strict(),
 ]);
 
 /**
@@ -59,8 +61,11 @@ export type NoticeToast = {
   target: NoticeTarget;
 };
 
-/** main이 창에 고르라고 보내는 것: Agent session 탭이나 앱 공간. */
-export type NoticeReveal = { session: string } | { app: string };
+/** main이 창에 고르라고 보내는 것: Agent session 탭, 앱 공간, Inbox. */
+export type NoticeReveal =
+  | { session: string }
+  | { app: string }
+  | { inbox: true };
 
 /** preload가 shell renderer에 여는 알림 통로. */
 export interface LophnNoticeApi {

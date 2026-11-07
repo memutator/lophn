@@ -148,13 +148,12 @@ export function recordProgramNotice(
   tx: Pick<Tx, "sql" | "now" | "newId" | "port">,
   input: NoticeRecordInput,
 ): Result<{ id: Notice["id"] }> {
-  if ((input.kind === "lophn_updated") !== (input.app === undefined)) {
+  const appless =
+    input.kind === "lophn_updated" || input.kind === "sdk_update_needed";
+  if (appless !== (input.app === undefined)) {
     return err({
       code: "invalid_input",
-      message:
-        input.kind === "lophn_updated"
-          ? "lophn_updated has no app"
-          : "this kind needs an app",
+      message: appless ? `${input.kind} has no app` : "this kind needs an app",
     });
   }
   if (input.app !== undefined) {
@@ -271,13 +270,7 @@ export function createNoticeCommands(): {
           return ok({ changed: false, from: null });
         const recorded = recordProgramNotice(tx, {
           kind: "lophn_updated",
-          params: {
-            from: last ?? "unknown",
-            to: input.version,
-            ...(input.optional_sdk_apps
-              ? { optional_sdk_apps: input.optional_sdk_apps }
-              : {}),
-          },
+          params: { from: last ?? "unknown", to: input.version },
         });
         if (!recorded.ok) return recorded;
         return ok({ changed: true, from: last });

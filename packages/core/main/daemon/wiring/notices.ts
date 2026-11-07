@@ -12,7 +12,6 @@ import {
   noticesObserveVersion,
 } from "../../../../protocol/apps/notice.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { optionalUpdateCount } from "../../../apps/sdk-status/mod.ts";
 import {
   noticeUnifiedSchemaSteps,
   productVersionSchemaSteps,
@@ -100,16 +99,12 @@ export function createNoticesWiring(
       const version = await productVersion();
       if (!version.ok)
         return logFailure("product_version_failed", version.error.message);
-      // lophn_updated 줄에 싣는 "옮기지 않아도 되는 SDK 갱신이 있는 앱" 수다. 못 읽어도 업데이트 기록은 남긴다.
-      const sdk = await ctx.peek.sdkStatus?.();
-      const optionalApps = sdk?.ok ? optionalUpdateCount(sdk.value) : 0;
       const done = await ctx.writer.command(NOTICE_RECORDER_CONTEXT, {
         command: noticesObserveVersion.name,
         input: {
           version: version.value,
           // 이번 기동이 step을 전부 새로 적용했으면 새 data root다.
           fresh: ctx.migrationsApplied === ctx.schemaSteps.length,
-          ...(optionalApps > 0 ? { optional_sdk_apps: optionalApps } : {}),
         },
         compare: {},
         idempotency_key: crypto.randomUUID(),

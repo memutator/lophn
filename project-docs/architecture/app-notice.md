@@ -6,7 +6,7 @@
 
 `notices`(`packages/core/apps/notices/schema.ts`의 `apps.notices.unified`): `id`(`ntc_…`), `source`(`app`|`program`), `app`(nullable. lophn 전체에 관한 기록은 null), `project`(nullable), `kind`, `key`(nullable), `title`(≤120), `body`(≤500), `persistent`, `action`(nullable JSON), `created_at`, `read_at`(nullable).
 
-- `kind`: app 줄은 `app`. program 줄은 `release_activated`, `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_migrated`, `app_data_restored`, `lophn_updated`, `sdk_update_needed`(목록은 protocol zod가 정한다. 표에 CHECK를 걸지 않아 종류를 더해도 표를 다시 짜지 않는다).
+- `kind`: app 줄은 `app`. program 줄은 `release_activated`, `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_migrated`, `app_data_restored`, `lophn_updated`, `sdk_update_needed`(둘은 앱이 없다. 목록은 protocol zod가 정한다. 표에 CHECK를 걸지 않아 종류를 더해도 표를 다시 짜지 않는다).
 - `action`: 줄을 누르면 할 일. 지금은 `{kind: "open_home_skill", skill, args}` 하나다. 화면은 종류로만 그리고 실행한다. app 줄은 action이 없다(앱이 home skill을 열 수 없다).
 - 같은 `(source, app, key)`는 줄 하나다(key가 있을 때). 새로 오면 그 줄의 내용·시각·`persistent`·`action`을 바꾸고 안 읽음으로 되돌린다(id 그대로).
 - program 줄은 항상 영구이고 DB trigger가 지우기를 막는다(`notices_program_no_delete`). 앱 줄만 command가 지운다.
@@ -21,13 +21,15 @@
 | `app_unavailable` | `app.record_unavailable`(`packages/core/apps/runtime/commands.ts`): `start_failed`, `crash_loop`, `unexpected_exit`, activation의 복원 실패·종료 확인 불가. 같은 사실의 재전송은 쓰지 않는다 | `app_unavailable`(앱마다 한 줄, 되풀이되면 그 줄을 안 읽음으로 되돌린다) |
 | `app_data_migrated`, `app_data_restored` | `activation.record_data_change`, `activation.record_data_restore`(`packages/core/apps/data/commands.ts`). 복원은 새로 기록할 때만 | 없음 |
 | `lophn_updated` | `notices.observe_version`(아래 "제품 판 marker") | 없음 |
-| `sdk_update_needed` | 제품 판이 바뀐 기동의 SDK 감지(`packages/core/apps/sdk-status/detect.ts`, 앱 wiring의 `productStartListeners`). 필수 SDK가 있는 앱마다. params는 `{sdks}`(core가 판에서 만든 목록 글), action은 `open_home_skill` `update-apps` + 앱 이름 | `sdk_update_needed`(앱마다 한 줄) |
+| `sdk_update_needed` | 제품 판이 바뀐 기동의 SDK 감지(`packages/core/apps/sdk-status/detect.ts`, 앱 wiring의 `productStartListeners`). 필수나 가능 SDK가 있는 앱이 하나라도 있으면 앱 없는 줄 하나. params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 새 판이 있는 앱 수), 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features.", action은 `open_home_skill` `update-apps` + 빈 args(전체) | `sdk_update_needed`(앱 없는 줄 하나, 다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
+
+앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 줄마다 [Ask lophn]이 있으면 home을 거칠 이유가 없어진다(0.20.0 정정 항목). 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 ledger에 남고 단추도 그대로 동작한다.
 
 release·data·runtime command는 자기 tx 안에서 `recordProgramNotice(tx, input)`(`packages/core/apps/notices/commands.ts`)를 부른다. 상태 변경과 줄이 한 commit이라 한쪽만 남지 않고, 응답을 잃은 재전송이 줄을 늘리지 않는다. 이미 commit된 뒤 core 안 다른 wiring이 쓸 때는 `ctx.noticeRecorder`(`notices.record`)를 쓴다. 그 값은 tx 안에서 부르면 안 된다(machine 자격으로 쓰기 층을 따로 지난다).
 
 ### 제품 판 marker
 
-`core_meta`(ledger step `apps.notices.product-version`)의 `product_version` 한 줄이 data root가 마지막으로 돈 제품 판이다. core가 켜져 ready가 된 뒤 notices wiring의 `afterReady`가 root `package.json`의 `version`(개발은 repo root, 설치본은 `platform/package.json`)을 `notices.observe_version {version, fresh}`로 낸다. 한 tx에서 marker를 새 판으로 바꾸고, 판이 다르면 `lophn_updated {from, to, optional_sdk_apps?}`를 쓴다. `optional_sdk_apps`는 필수는 아니지만 새 SDK 판이 있는 앱의 수로, afterReady가 판을 견주기 직전에 `ctx.sdkStatus`(앱 wiring이 낸다)로 세어 `observe_version`에 싣는다(0이면 싣지 않는다. 못 읽어도 업데이트 기록은 남는다). 줄 본문에 "N apps have optional SDK updates."가 붙는다. 새 data root(`fresh`: 이번 기동이 step을 전부 새로 적용했다)는 marker만 적는다. marker 없이 있던 옛 data root가 처음 켜지면 `from`을 모른 채(`unknown`) 한 번 쓴다.
+`core_meta`(ledger step `apps.notices.product-version`)의 `product_version` 한 줄이 data root가 마지막으로 돈 제품 판이다. core가 켜져 ready가 된 뒤 notices wiring의 `afterReady`가 root `package.json`의 `version`(개발은 repo root, 설치본은 `platform/package.json`)을 `notices.observe_version {version, fresh}`로 낸다. 한 tx에서 marker를 새 판으로 바꾸고, 판이 다르면 `lophn_updated {from, to}`를 쓴다(SDK 갱신 수는 싣지 않는다. 그 일은 `sdk_update_needed` 줄 하나가 한다). 새 data root(`fresh`: 이번 기동이 step을 전부 새로 적용했다)는 marker만 적는다. marker 없이 있던 옛 data root가 처음 켜지면 `from`을 모른 채(`unknown`) 한 번 쓴다.
 
 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener의 쓰는 쪽이다. 같은 순간에 다른 일을 하려면 `ctx.productStartListeners`(`wiring/context.ts`)에 `(start: {version, from, changed}) => void | Promise<void>`를 올린다(build·start에서). marker를 견준 직후 올린 순서대로 부르고, 던져도 core 기동과 다른 listener에 영향이 없다(log만 남는다). `changed`는 판이 바뀐 기동, `from`은 바뀌기 전 판(새 data root·옛 data root는 null)이다.
 
@@ -62,7 +64,7 @@ SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener�
  앱 보관: 그 앱의 휘발 줄을 지우고, 안 읽은 줄마다 NoticeClosed. 영구 줄은 남는다
 ```
 
-읽기: `notices.list`(필터 `source`·`app`·`project`·`kind`·`persistent`·`unread`·`query`(title·body 부분 일치)·`cursor`·`limit`(≤200, 기본 50), 최근 것이 먼저, 보관한 앱의 줄도 읽힌다), `notices.open`(안 읽은 줄 전부. Inbox가 쓴다. 보관한 앱의 줄은 뺀다). 쓰기: `notices.post`(app), `notices.record`(machine), `notices.observe_version`(machine), `notices.dismiss`·`notices.mark_read`(user).
+읽기: `notices.list`(필터 `source`·`app`·`project`·`kind`·`persistent`·`unread`·`query`(title·body 부분 일치)·`since`·`until`(`created_at` 기간. since 포함, until 미포함, ISO 시각)·`cursor`·`limit`(≤200, 기본 50), 최근 것이 먼저, 보관한 앱의 줄도 읽힌다), `notices.open`(안 읽은 줄 전부. Inbox가 쓴다. 보관한 앱의 줄은 뺀다). 쓰기: `notices.post`(app), `notices.record`(machine), `notices.observe_version`(machine), `notices.dismiss`·`notices.mark_read`(user).
 
 ## 지키는 것
 
@@ -73,9 +75,9 @@ SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener�
 - 같은 key는 대신한다. 주기적으로 같은 사실을 다시 확인하는 앱이 Inbox를 채우지 않게 하려는 것이다. 대신한 줄은 id가 같아 `NoticeClosed` 없이 `NoticePosted`만 다시 나가고, toast도 다시 뜬다. 영구 줄이 읽음이었어도 안 읽음으로 돌아온다.
 - 남기는 기간: program 줄은 지우지 않는다. 앱이 영구로 남긴 줄은 앱마다 최근 200개, 휘발 줄은 앱마다 50개다. 고장 난 앱이 표를 끝없이 키우지 못하게 한다.
 - 정본은 표다. 줄은 사람이 지우거나(휘발) 상한에 밀리거나 앱이 보관될 때까지(휘발) 재시작을 넘어 남는다. toast는 shell 정책이라 놓친 것을 다시 띄우지 않는다.
-- toast·OS 알림 규칙(`wiring/notice.ts`): app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱이 없는 줄(`lophn_updated`)은 누를 곳이 없어 띄우지 않는다.
-- Inbox(`desktop/connection/waiting/`)는 탭 둘이다. **Now**: 위에 답할 것(승인·질문·동의·공유·job 묶음. 동작은 `approval.md`), 그 아래 **Notifications**(끝난 탭과 휘발 줄. [x]로 지우면 끝), 맨 아래 방금 결정한 줄(`SettledList`는 결정 직후 허락·거절·cancelled를 확인하는 화면 메모리라 기록과 다른 일이라 남겼다). **History**: 영구 줄(`notices.list`의 `persistent: true`)을 최근 것부터 cursor로 잇고 `app`·`project`·종류(`source`나 `kind` 하나)·`query`로 거르고 찾는다. 안 읽은 줄은 앞에 점이고 줄 오른쪽 끝에 읽음 단추, action이 있으면 그 단추가 선다. [Mark all read]는 보이는 안 읽은 줄(≤200)을 `notices.mark_read`로 읽음으로 바꾼다. 앱이 있는 줄을 누르면 그 앱이 열린다. History 탭은 열 때 읽고 `NoticePosted`(영구)가 오면 첫 page를 다시 읽으며 `NoticeRead`는 있는 줄만 고친다. 종류 거르기는 core `kind`가 하나만 받아 "앱이 한 것"·"lophn이 한 것"(source)과 program 종류 하나씩이다. project 칸은 program 줄에 아직 project가 없어 비어 있다.
-- 배지와 개수: sidebar 배지는 "지금 볼 것"이다(대기 항목 + 끝난 탭 + 휘발 알림). 안 읽은 영구 기록은 배지에 세지 않고 History 탭 머리의 숫자(`History (2)`)로만 보인다. 기록은 사람이 나중에 찾는 것이라 배지를 계속 켜 두지 않으려는 것이다(급한 program 기록은 toast가 따로 띄운다).
+- toast·OS 알림 규칙(`wiring/notice.ts`): app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱 없는 줄은 `sdk_update_needed`만 띄우고(`lophn_updated`는 Inbox에만) 누르면 Inbox를 연다(NoticeTarget `inbox`). 기동 중에 쓴 줄은 toast가 뜨지 않는다: `afterReady`는 core가 부모(shell main)에게 hello를 보내기 전에 돌아 shell의 event 구독이 아직 없다(놓친 알림은 다시 띄우지 않는다). 그 줄은 배지와 History로만 보인다.
+- Inbox(`desktop/connection/waiting/`)는 탭 둘이다. **Now**: 위에 답할 것(승인·질문·동의·공유·job 묶음. 동작은 `approval.md`), 그 아래 **Notifications**(끝난 탭과 휘발 줄. [x]로 지우면 끝), 맨 아래 방금 결정한 줄(`SettledList`는 결정 직후 허락·거절·cancelled를 확인하는 화면 메모리라 기록과 다른 일이라 남겼다). **History**: 영구 줄(`notices.list`의 `persistent: true`)을 최근 것부터 cursor로 잇고 `app`·`project`·종류(`source`나 `kind` 하나)·`query`·기간(`since`·`until`. 필터 바의 `DateRangeFilter`가 고른 달력 날짜를 지역 자정으로 풀어 보낸다. 안 고르면 거르지 않는다)로 거르고 찾는다. 기간도 [Reset filters]로 돌아가고 [Load more]·[Mark all read]는 거른 줄에만 쓴다. 안 읽은 줄은 앞에 점이고 줄 오른쪽 끝에 읽음 단추, action이 있으면 그 단추가 선다. [Mark all read]는 보이는 안 읽은 줄(≤200)을 `notices.mark_read`로 읽음으로 바꾼다. 앱이 있는 줄을 누르면 그 앱이 열린다. History 탭은 열 때 읽고 `NoticePosted`(영구)가 오면 첫 page를 다시 읽으며 `NoticeRead`는 있는 줄만 고친다. 종류 거르기는 core `kind`가 하나만 받아 "앱이 한 것"·"lophn이 한 것"(source)과 program 종류 하나씩이다. project 칸은 program 줄에 아직 project가 없어 비어 있다.
+- 배지와 개수: sidebar 배지는 "볼 것"이다(대기 항목 + 끝난 탭 + 휘발 알림 + 안 읽은 영구 기록). 안 읽은 영구 기록도 세는 것은 SDK 업데이트 같은 놓치면 안 되는 program 기록이 배지에 없어서 사람이 몰랐기 때문이다(0.20.0 정정 항목). History 탭 머리의 숫자(`History (2)`)는 그대로다. 읽음으로 바꾸면(줄의 단추, [Mark all read], action 단추) 배지가 준다.
 - action 단추: `action.kind`로만 그린다(`open_home_skill`은 [Ask lophn]). 누르면 renderer가 home의 lophn agent로 새 session을 열고(`sessions.open`) 첫 말로 `/<skill> <args>`를 보낸 뒤(`acp.send`, Agent 탭이 첫 말에 하는 것과 같은 source) 그 대화를 열고 줄을 읽음으로 바꾼다(`desktop/connection/waiting/notice-action.ts`). 사람이 누른 것이 명령이라 program이 session을 스스로 여는 것(`event.md`)이 아니고 새 core route도 없다. 앱 줄은 action이 없어 단추가 없다.
 - 앱 상세 Activity 탭 위쪽 Records가 그 앱의 영구 줄(최근 20, 보관해도 남은 것)을 보이고 그 아래가 호출 기록이다(`app-frame/app-detail/`).
 

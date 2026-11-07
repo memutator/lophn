@@ -45,6 +45,14 @@ export const noticesListRead: ReadDefinition<typeof noticesList> = {
       where.push("(n.title like ? escape '\\' or n.body like ? escape '\\')");
       params.push(likeOf(input.query), likeOf(input.query));
     }
+    if (input.since !== undefined) {
+      where.push("n.created_at >= ?");
+      params.push(input.since);
+    }
+    if (input.until !== undefined) {
+      where.push("n.created_at < ?");
+      params.push(input.until);
+    }
     if (input.cursor !== undefined) {
       const at = decodeCursor(input.cursor);
       if (at === undefined) {

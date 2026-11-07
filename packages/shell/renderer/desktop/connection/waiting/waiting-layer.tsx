@@ -60,8 +60,10 @@ export function WaitingLayer({
 }: WaitingLayerProps) {
   const { entries, notices, historyUnread } = useWaiting();
   const finished = useFinished(initial?.finished);
-  // 배지는 "지금 볼 것이 있다"는 뜻이라 끝난 줄과 휘발 알림도 센다. 안 읽은 기록(History)은 조용히 탭 머리에만 둔다.
-  const count = entries.length + finished.length + notices.length;
+  // 배지는 "지금 볼 것이 있다"는 뜻이라 끝난 줄과 휘발 알림, 안 읽은 기록(History)도 센다. 기록을 빼면 SDK 업데이트 같은
+  // 놓치면 안 되는 줄이 있어도 사람은 모른다.
+  const count =
+    entries.length + finished.length + notices.length + historyUnread;
   const { open, setOpen } = useWaitingPanel();
   const settled = useSettled(entries, initial?.settled);
   const initialOpen = initial?.open;

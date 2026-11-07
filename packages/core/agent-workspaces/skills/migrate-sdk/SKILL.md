@@ -10,12 +10,13 @@ versions, the app's code may need changes. This skill is the one procedure;
 what changed in each version is in note files beside this file.
 
 If you are lophn at Home, you do not change apps (you cannot read their
-source). Read the `update-apps` skill: it reads the SDK status, explains the
-changes to the person in plain words and hands each app to lophn at that app
-(`lophn call send`, no reply expected) with the pinned versions, the target
-versions and "follow the migrate-sdk skill". Skip archived apps.
+source). Read the `update-apps` skill: it looks at all apps as a whole, decides
+per app whether to migrate, adopt new features or leave it, asks the person, and
+hands each chosen app to lophn at that app (`lophn call send`, no reply
+expected) with the required migration, the chosen features, the target
+versions, the note files and "follow the migrate-sdk skill". Skip archived apps.
 
-If you are lophn at the app, do steps 1 to 11 for this app only.
+If you are lophn at the app, do steps 1 to 12 for this app only.
 
 ## 1. Find the pinned versions
 
@@ -65,8 +66,10 @@ version: stop and tell the person which package and version.
 
 Apply the notes: declaration (`lophn.ts`) first, then handlers, then screens.
 Search the app for each old name a note lists. Update `DESIGN.md`, tests and
-text that mention the old names. Do not do more than the notes require; new
-features of a newer version are optional and are not part of this migration.
+text that mention the old names. Do not do more than the notes require in
+this step; new features of a newer version are not part of the migration
+itself. If the handoff lists features the person chose, they come after the
+migration is released (step 11).
 
 ## 6. Check
 
@@ -105,8 +108,20 @@ be lost before you activate; if you are not sure, do not drop it.
 If the app uses something the notes do not cover, or a note's change would
 change what the app does, stop and ask the person (`ask`). Do not guess.
 
-## 11. Report
+## 11. Features chosen by the person
+
+Only if the handoff from Home lists features. Do this after the migration is
+released and working, as a separate change. Each feature is a proposal the
+person picked from a short description, not a finished spec: confirm what they
+want in this app's conversation (`ask` for the open choices, such as the
+threshold or whether it is persistent), design it with the `design-app` skill,
+read the notes of the version that adds it for the exact API, then implement,
+check, preview and release as in steps 6 and 7. If a feature does not fit once
+you see the code, say so and skip it instead of forcing it.
+
+## 12. Report
 
 For each package: from version, to version, what you changed in the code. Then
 what you verified (check, tests, preview) and what you did not, and the release
-result. If something was left undone, say what and why.
+result. List each chosen feature as done, changed after talking to the person, or
+skipped with the reason. If something was left undone, say what and why.

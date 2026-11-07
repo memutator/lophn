@@ -350,12 +350,36 @@
 
 .shellCommand {
   min-width: var(--space-0);
+  max-width: 100%;
   color: var(--color-text-primary);
   font-family: var(--font-mono);
   font-weight: var(--font-weight-medium);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   user-select: text;
+}
+
+/* 3줄을 넘는 명령은 접어(data-clamp) 끝을 흐리게 하고(data-fade), 누르면 펼친다. 펼친 뒤에도 눌러 접는다. */
+.shellCommand[data-clamp] {
+  max-height: calc(3 * var(--type-small-line));
+  overflow: hidden;
+}
+
+.shellCommand[data-foldable] {
+  cursor: pointer;
+}
+
+.shellCommand[data-fade] {
+  mask-image: linear-gradient(
+    to bottom,
+    var(--color-text-primary) calc(100% - var(--type-small-line)),
+    transparent
+  );
+}
+
+.shellPrompt {
+  color: var(--color-text-muted);
+  user-select: none;
 }
 
 .shellExit {

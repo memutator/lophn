@@ -1,10 +1,17 @@
-// 사람이 `!`로 돌린 명령 한 줄. 사람 줄 자리(오른쪽, 사람 bubble과 같은 폭 규칙)에 "You ran"과 `$ 명령` 머리가 서고
-// 바로 아래에 출력을 펼쳐 둔다(20줄이 넘으면 접는다). 끝나면 exit code(0이 아니면 경고색)를 보인다. harness는 exit code를
+// 사람이 `!`로 돌린 명령 한 줄. 사람 줄 자리(오른쪽, 사람 bubble과 같은 폭 규칙)에 "You ran"과 `! 명령` 머리가 서고
+// 긴 명령은 줄바꿈해 3줄까지만 보이고(끝이 흐려진다) 눌러 펼친다. 바로 아래에 출력을 펼쳐 둔다(20줄이 넘으면 접는다).
+// 끝나면 exit code(0이 아니면 경고색)를 보인다. harness는 exit code를
 // 싣지 않아 실패·취소만 표시한다. agent 덩어리에 넣지 않으므로 이름과 "Worked for"가 붙지 않는다.
-import { type ReactElement, useEffect, useState } from "react";
+import {
+  type ReactElement,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { CodeBlock } from "@lophn/ui/reading";
 import { Shimmer, StatusMark } from "@lophn/ui/feedback";
-import { Icon } from "@lophn/ui/primitives";
+import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
@@ -41,6 +48,25 @@ function readOf(value: unknown): { text: string; exit: number | null } {
   };
 }
 
+/** 명령이 접힌 높이(3줄)를 넘쳐 잘리는지. 폭이 바뀌면 줄바꿈이 달라지므로 크기를 따라 다시 잰다. */
+function useClamped(
+  open: boolean,
+  command: string,
+): { ref: RefObject<HTMLElement | null>; clamped: boolean } {
+  const ref = useRef<HTMLElement>(null);
+  const [clamped, setClamped] = useState(false);
+  useEffect(() => {
+    const node = ref.current;
+    if (node === null || open) return;
+    const measure = () => setClamped(node.scrollHeight > node.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [open, command]);
+  return { ref, clamped };
+}
+
 export function ShellRun({
   id,
   command,
@@ -74,6 +100,9 @@ export function ShellRun({
   const text = (output ?? read?.text ?? "").replace(/\n+$/, "");
   const exit = read?.exit ?? null;
   const fold = useFold(text, FOLD_LINES);
+  const [open, setOpen] = useState(false);
+  const { ref, clamped } = useClamped(open, command);
+  const foldable = open || clamped;
   return (
     <div className={styles.shellRun} data-shell-run={id} data-side="end">
       <span className={styles.shellLabel}>
@@ -82,7 +111,17 @@ export function ShellRun({
       </span>
       <div className={styles.shellBox}>
         <div className={styles.shellHead}>
-          <code className={styles.shellCommand}>$ {command}</code>
+          <code
+            ref={ref}
+            className={styles.shellCommand}
+            data-clamp={open ? undefined : ""}
+            data-fade={!open && clamped ? "" : undefined}
+            data-foldable={foldable ? "" : undefined}
+            onClick={foldable ? () => setOpen(!open) : undefined}
+          >
+            <span className={styles.shellPrompt}>! </span>
+            {command}
+          </code>
           {running ? (
             <Shimmer>{t("conversation.label.shell-running")}</Shimmer>
           ) : exit !== null && exit !== 0 ? (
@@ -98,6 +137,21 @@ export function ShellRun({
             <ToolStateMark state={state} />
           )}
         </div>
+        {foldable ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={open}
+            data-fold-toggle=""
+            onClick={() => setOpen(!open)}
+          >
+            {t(
+              open
+                ? "conversation.button.fold-less"
+                : "conversation.button.fold-more",
+            )}
+          </Button>
+        ) : null}
         {text === "" ? null : (
           <div className={styles.wrapCode} data-shell-output="">
             <CodeBlock code={fold.shown} />

@@ -1048,6 +1048,25 @@ export const harnessGuiArea: Area = {
       ),
     },
     {
+      id: "harness-gui-shell-run-long",
+      title: "Harness GUI · shell run (long command)",
+      description:
+        "긴 !명령이 대화에 남은 모습이다. 명령은 가로 scroll 없이 줄바꿈되고(긴 경로는 중간에서 끊긴다), 3줄을 넘으면 끝이 흐려지며 접힌다. 명령을 누르거나 [Show more]를 누르면 펼쳐진다.",
+      render: () => (
+        <TerminalTabGui
+          approval={null}
+          steps={[
+            () =>
+              type(
+                "[data-composer-input]",
+                "!find /home/dev/projects/upload-service/src/queue/workers/very/deeply/nested/directory/structure -type f -name '*.test.ts' -newer /home/dev/projects/upload-service/package.json -not -path '*/node_modules/*' -exec grep -l 'retry' {} + | sort | head -n 50 | xargs -I{} wc -l {} && echo done-with-the-whole-pipeline",
+              ),
+            () => click("[data-composer-action=send]"),
+          ]}
+        />
+      ),
+    },
+    {
       id: "harness-gui-rewind",
       title: "Harness GUI · rewind",
       description:

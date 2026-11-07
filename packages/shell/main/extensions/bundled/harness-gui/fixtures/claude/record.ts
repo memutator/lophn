@@ -554,6 +554,216 @@ const SCENARIOS: Record<string, (ctx: Ctx) => Promise<void>> = {
     await run.close();
   },
 
+  // (e2) foreground Bash가 도는 중 steer(priority next)를 넣고 backgroundTasks()를 부른다. TUI처럼 tool이 background로
+  // 가고 steer가 바로 닿는지, 몇 ms 걸리는지 본다(GUI adapter의 steer 길).
+  async steer_background({ rec, open }) {
+    const run = open();
+    run.send(
+      run.user(
+        "Run exactly this shell command in the foreground (not in the background): `timeout 40 tail -f /dev/null; echo finished`. Then say done.",
+      ),
+    );
+    // 사람 설정의 hook이 standalone `sleep`을 막아 tail로 기다린다.
+    await run.until("long tool_use", () =>
+      run.messages.some(
+        (m) => m.type === "assistant" && hasText(m, "tail -f /dev/null"),
+      ),
+    );
+    await sleep(3000);
+    const sentAt = Date.now();
+    run.send(
+      run.user("Reply with the single word STEERED right now.", {
+        priority: "next",
+      }),
+    );
+    await run.call("backgroundTasks", {}, () => run.q.backgroundTasks());
+    await run.until(
+      "steer reached the model",
+      () =>
+        run.messages.some(
+          (m) => m.type === "assistant" && hasText(m, "STEERED"),
+        ),
+      60_000,
+    );
+    rec.write("lead_note", { steerToReplyMs: Date.now() - sentAt });
+    await run.settle(5000);
+    await run.close();
+  },
+
+  // (e2b) 같은 상황에서 steer를 priority now로만 보낸다. print mode의 CLI는 옮길 수 있는 call이 돌면 now를 interrupt하지 않고
+  // next로 바꿔 그 call을 background로 옮기고 바로 전한다(`print_send_now`, TUI의 "moved to the background so that a message
+  // ... can reach you"). 옮길 call이 없거나 꺼져 있으면 now는 turn을 멈춘다.
+  async steer_now({ rec, open }) {
+    const run = open();
+    run.send(
+      run.user(
+        "Run exactly this shell command in the foreground (not in the background): `timeout 40 tail -f /dev/null; echo finished`. Then say done.",
+      ),
+    );
+    await run.until("long tool_use", () =>
+      run.messages.some(
+        (m) => m.type === "assistant" && hasText(m, "tail -f /dev/null"),
+      ),
+    );
+    await sleep(3000);
+    const sentAt = Date.now();
+    run.send(
+      run.user("Reply with the single word STEERED right now.", {
+        priority: "now",
+      }),
+    );
+    await run.until(
+      "steer reached the model",
+      () =>
+        run.messages.some(
+          (m) => m.type === "assistant" && hasText(m, "STEERED"),
+        ),
+      60_000,
+    );
+    rec.write("lead_note", {
+      steerToReplyMs: Date.now() - sentAt,
+      results: run.messages
+        .filter((m) => m.type === "result")
+        .map((m) => m.terminal_reason ?? m.subtype),
+    });
+    await run.settle(5000);
+    await run.close();
+  },
+
+  // (e2c) TUI의 Enter와 같은 길: steer를 next(uuid)로 넣고 control_request `interrupt {send_now, message_uuid}`를 보낸다
+  // (CLI가 init에서 `interrupt_send_now_v1`을 알린다. 공개 `Query.interrupt()`는 이 칸을 넘기지 않아 내부 `request`를 부른다).
+  // 명령은 따로 process group을 만들지 않는 평범한 foreground 명령이다.
+  async steer_send_now({ rec, open }) {
+    const run = open();
+    run.send(
+      run.user(
+        "Run exactly this shell command in the foreground (not in the background): `ping -c 40 127.0.0.1`. Then say done.",
+      ),
+    );
+    await run.until("long tool_use", () =>
+      run.messages.some(
+        (m) => m.type === "assistant" && hasText(m, "ping -c 40"),
+      ),
+    );
+    await sleep(3000);
+    const sentAt = Date.now();
+    const uuid = randomUUID();
+    run.send(
+      run.user("Reply with the single word STEERED right now.", {
+        priority: "next",
+        uuid,
+      }),
+    );
+    await sleep(300);
+    const internal = run.q as unknown as {
+      request(body: Record<string, unknown>): Promise<unknown>;
+    };
+    await run.call("request interrupt send_now", { message_uuid: uuid }, () =>
+      internal.request({
+        subtype: "interrupt",
+        send_now: true,
+        message_uuid: uuid,
+      }),
+    );
+    await run.until(
+      "steer reached the model",
+      () =>
+        run.messages.some(
+          (m) => m.type === "assistant" && hasText(m, "STEERED"),
+        ),
+      60_000,
+    );
+    rec.write("lead_note", {
+      steerToReplyMs: Date.now() - sentAt,
+      results: run.messages
+        .filter((m) => m.type === "result")
+        .map((m) => m.terminal_reason ?? m.subtype),
+    });
+    await run.settle(5000);
+    await run.close();
+  },
+
+  // (e2d) Claude desktop과 같은 길: steer를 next로 넣고, 3초 넘게 돈 Bash의 tool_use id로 backgroundTasks(id)를 부른다.
+  async steer_detach({ rec, open }) {
+    const run = open();
+    run.send(
+      run.user(
+        "Run exactly this shell command in the foreground (not in the background): `ping -c 40 127.0.0.1`. Then say done.",
+      ),
+    );
+    const toolId = () => {
+      for (const m of run.messages) {
+        if (m.type !== "assistant") continue;
+        const content = (m.message as { content?: unknown })?.content;
+        if (!Array.isArray(content)) continue;
+        for (const block of content as {
+          type?: string;
+          id?: string;
+          name?: string;
+        }[])
+          if (block.type === "tool_use" && block.name === "Bash")
+            return block.id;
+      }
+      return undefined;
+    };
+    await run.until("bash tool_use", () => toolId() !== undefined);
+    await sleep(3500);
+    const sentAt = Date.now();
+    run.send(
+      run.user("Reply with the single word STEERED right now.", {
+        priority: "next",
+      }),
+    );
+    const id = toolId() ?? "";
+    await run.call("backgroundTasks", id, () => run.q.backgroundTasks(id));
+    await run.until(
+      "steer reached the model",
+      () =>
+        run.messages.some(
+          (m) => m.type === "assistant" && hasText(m, "STEERED"),
+        ),
+      60_000,
+    );
+    rec.write("lead_note", {
+      steerToReplyMs: Date.now() - sentAt,
+      results: run.messages
+        .filter((m) => m.type === "result")
+        .map((m) => m.terminal_reason ?? m.subtype),
+    });
+    await run.settle(5000);
+    await run.close();
+  },
+
+  // (e3) subagent 안에서 background Bash를 띄운다. 그 task_started가 parent_task_id나 자식 tool_use_id를 싣는지 본다.
+  async child_background({ rec, open }) {
+    const run = open();
+    run.send(
+      run.user(
+        "Use the Agent tool (general-purpose subagent, foreground) with this task: run the shell command `timeout 20 tail -f /dev/null` with Bash run_in_background true, then immediately report the background task id and stop. After the subagent returns, say done.",
+      ),
+    );
+    await run.until(
+      "child background task",
+      () =>
+        run.messages.filter(
+          (m) => m.type === "system" && m.subtype === "task_started",
+        ).length >= 2,
+      180_000,
+    );
+    await run.settle(8000);
+    rec.write("lead_note", {
+      tasks: run.messages
+        .filter((m) => m.type === "system" && m.subtype === "task_started")
+        .map((m) => ({
+          task_id: m.task_id,
+          tool_use_id: m.tool_use_id,
+          parent_task_id: (m as { parent_task_id?: string }).parent_task_id,
+          task_type: m.task_type,
+        })),
+    });
+    await run.close();
+  },
+
   // (f) background task 하나, perTaskStopAffordance로 interrupt해도 살아남고 stopTask로 끈다.
   async background_task({ rec, open }) {
     const run = open();

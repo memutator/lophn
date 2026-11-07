@@ -1,6 +1,6 @@
 # inbox 기록과 SDK migration: 남는 알림, 판이 바뀐 앱을 lophn이 옮긴다
 
-상태: 로드맵. 2026-11-07 사람이 방향을 냈다. 아래 "지금 코드"는 0.20.0 기준이다.
+상태: 계획 `inbox-sdk-migration`으로 열었다(2026-11-07). 2026-11-07 사람이 방향을 냈다. 아래 "지금 코드"는 0.20.0 기준이다.
 배경 문서: `project-docs/architecture/app-notice.md`, `approval.md`, `activation.md`, `event.md`, `agent-call.md`, `app-call.md`.
 
 ## 사람의 말 (원문)
@@ -55,10 +55,7 @@ SDK와 migration
 9. home lophn이 앱마다 고정 판, 지원 하한, 지금 판, 읽을 메모 파일을 받는 read를 둔다(home은 앱 source를 못 읽는다). (agent)
 10. archived 앱은 agent에게 보이지 않는다(`app read|status|logs`, 사용처, call 대상). SDK 감지에서도 빠진다. 되살리기는 사람이 화면에서 한다. (사람)
 11. migration 메모는 지우지 않는다. 쌓여도 agent는 범위만 읽어 context가 그 앱이 뒤처진 만큼만 커지고, 자동으로 지우면 되살린 archived 앱이나 옛 data root가 필요한 메모를 잃는다. 너무 길어지면 제품을 낼 때 오래된 major 구간을 한 파일로 합친다. (사람이 추천을 받음, 2026-11-07)
-
-## 정할 것
-
-1. private 앱으로의 handoff. 지금은 private이 home → 앱 call을 막아 정한 것 8의 마지막 걸음이 `forbidden`이다. 추천: home의 기본 lophn이 private workspace의 lophn에게 `reply: none` handoff만 보낼 수 있는 고정 예외 하나. 일은 들어가고 답·결과는 나오지 않으며 private 쪽에서 나가는 call은 그대로 막힌다. home을 통째로 예외로 두면 home의 전역 agent(바깥 글을 읽는 agent 포함)가 private에 일을 넣고 결과를 받아 가 private의 뜻이 없어진다.
+12. private 앱으로의 handoff: home의 기본 lophn이 private workspace의 lophn에게 `reply: none` handoff만 보낼 수 있는 고정 예외 하나를 둔다. 일은 들어가고 답·결과는 나오지 않으며 private 쪽에서 나가는 call은 그대로 막힌다. home을 통째로 예외로 두면 home의 전역 agent가 private에 일을 넣고 결과를 받아 가 private의 뜻이 없어진다. (사람이 추천을 받음, 2026-11-07)
 
 ## 단계
 
@@ -68,9 +65,9 @@ SDK와 migration
 | 2 | program 기록: release·앱 멈춤·data migration·lophn 업데이트 기록, 마지막 제품 판 적기 | 1 |
 | 3 | Inbox 화면: 답할 것·알림·기록, 기록 거르기·찾기, 앱 상세 Activity의 기록 | 1 |
 | 4 | SDK 메모와 지원 하한: `migrate-sdk` skill과 판별 `.md`, 지원 하한, 메모 없는 판 올리기를 막는 check, 지금 판들의 첫 메모 | 없음 |
-| 5 | SDK 감지와 맡기기: SDK 상태 read, 필수/가능 기록, 단추, `update-apps` home skill, private 예외(정할 것 1) | 2, 4 |
+| 5 | SDK 감지와 맡기기: SDK 상태 read, 필수/가능 기록, 단추, `update-apps` home skill, private 예외(정한 것 12) | 2, 4 |
 | 6 | archived 숨기기: agent read·사용처·call에서 archived 앱 빼기 | 없음 |
 
 ## 계획
 
-- 없음. 정할 것 1이 정해지면 단계 1·4·6을 먼저 연다.
+- `project-docs/plan/inbox-sdk-migration/`: 단계 1~6 전부.

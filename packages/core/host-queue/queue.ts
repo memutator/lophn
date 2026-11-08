@@ -40,6 +40,8 @@ export type HostQueue = {
     target: HostTabTarget;
     place: TabPlace | null;
     source: Id<"ses"> | null;
+    // target이 tui일 때 CLI를 다시 여는 값.
+    resume?: { harness: string; external_session: string };
   }): Id<"tab">;
   // 마지막 take가 3초 안이다.
   attached(): boolean;
@@ -84,7 +86,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       tabs.set(tab, {
         opener: input.opener,
         workspace: input.workspace,
-        kind: "session" in input.target ? "agent" : "browser",
+        kind: "browser" in input.target ? "browser" : "agent",
         state: null,
       });
       enqueue({
@@ -96,6 +98,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
           target: input.target,
           place: input.place,
           source: input.source,
+          resume: input.resume ?? null,
         },
       });
       return tab;

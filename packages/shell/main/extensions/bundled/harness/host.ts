@@ -55,6 +55,14 @@ function harnessEnv(credential: string): Record<string, string> {
   return env;
 }
 
+// 터미널 탭에서 TUI가 도는 session. shell main(surface wiring)이 전역에 건 함수로 받는다(extension은 shell main 내부를 import하지 못한다).
+// 이름은 `wiring/surface.ts`와 같다. 매 Take가 core에 주는 heartbeat다.
+const TUI_SESSIONS = Symbol.for("lophn.harness.tuiSessions");
+function tuiSessions(): string[] {
+  const list = (globalThis as Record<symbol, unknown>)[TUI_SESSIONS];
+  return typeof list === "function" ? (list() as string[]) : [];
+}
+
 const TICK_MS = 1000;
 const STDERR_TAIL = 500;
 
@@ -323,7 +331,7 @@ export function createHarnessHost(
     ticking = true;
     try {
       for (;;) {
-        const taken = await harness("take", {});
+        const taken = await harness("take", { tui: tuiSessions() });
         if (!taken.ok) return;
         const input = (taken.value as { input: Taken | null }).input;
         if (input === null) return;

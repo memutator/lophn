@@ -13,6 +13,7 @@ import {
   blocksOfContent,
   type ContentBlock,
   finishTurn,
+  HARNESS_ADAPTER_ID,
   harnessFinishTurn,
   harnessRecord,
   harnessSetExternalId,
@@ -28,6 +29,7 @@ import type {
   Output,
 } from "../../../../protocol/server/mod.ts";
 import { harnessExtensionSetting } from "../../../config/mod.ts";
+import { createHold } from "../../../host-queue/mod.ts";
 import {
   createSessionDirectory,
   workspaceDepsOf,
@@ -99,6 +101,8 @@ export const harnessWiring: WiringFactory = () => {
         record: (context) => ctx.runtime.record(context),
       });
       credentials = turnCredentials;
+      // TUI가 열린 session. queue와 따로 둔다: setRunning으로 막으면 steer 입력이 steering으로 가 harness가 읽지 않고 잃는다.
+      const hold = createHold({ clock: ctx.clock });
       const read = async <T>(
         r: { resource: string; method: string },
         input: unknown,
@@ -151,11 +155,57 @@ export const harnessWiring: WiringFactory = () => {
         });
       };
 
-      const take: MemoryHandler = async (who) => {
+      // `tabs/open`의 tui가 부른다. 판정을 통과하면 그 자리에서 hold를 건다(core는 한 thread라 사이에 turn이 끼지 못한다).
+      ctx.provide("harnessHold", {
+        open(session) {
+          const found = harnessSession(session);
+          if (!found.ok) {
+            return found.error.code === "not_found"
+              ? found
+              : err({
+                  code: "invalid_input",
+                  message: "a tui opens harness agent sessions only",
+                });
+          }
+          const row = found.value.row;
+          if (row.workspace_kind !== "project") {
+            return err({
+              code: "invalid_input",
+              message: "a tui opens sessions of a project workspace only",
+            });
+          }
+          if (row.harness_session === null) {
+            return err({
+              code: "conflict",
+              message: "this session has not run yet",
+            });
+          }
+          if (queue.isRunning(session)) {
+            return err({
+              code: "conflict",
+              message: "a turn is running; wait or stop it",
+            });
+          }
+          if (hold.held(session)) {
+            return err({
+              code: "conflict",
+              message: "this session is already open in a tui",
+            });
+          }
+          hold.reserve(session);
+          return ok({
+            harness: HARNESS_ADAPTER_ID[row.harness],
+            external_session: row.harness_session,
+          });
+        },
+      });
+
+      const take: MemoryHandler = async (who, body) => {
         const allowed = gate(who, true);
         if (!allowed.ok) return allowed;
+        hold.beat(harnessTake.input.parse(body).tui as Id<"ses">[]);
         for (const session of queue.waiting()) {
-          if (queue.isRunning(session)) continue;
+          if (queue.isRunning(session) || hold.held(session)) continue;
           const found = harnessSession(session);
           if (!found.ok || !found.value.accepting) {
             // 끝났거나 보관된 session의 입력은 받을 곳이 없다.
@@ -220,7 +270,8 @@ export const harnessWiring: WiringFactory = () => {
           !found.value.accepting ||
           head === undefined ||
           head.message !== input.input_message ||
-          queue.isRunning(input.session as Id<"ses">)
+          queue.isRunning(input.session as Id<"ses">) ||
+          hold.held(input.session as Id<"ses">)
         ) {
           return err({
             code: "conflict",

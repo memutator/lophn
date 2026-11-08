@@ -82,9 +82,12 @@ export const hostQueueWiring: WiringFactory = () => ({
       if (from === undefined) {
         return err({ code: "not_found", message: "session not found" });
       }
-      if ("session" in input.target) {
+      let resume: { harness: string; external_session: string } | undefined;
+      if ("session" in input.target || "tui" in input.target) {
         // 같은 workspace의 열린 session만 연다.
-        const target = sessionRow(input.target.session);
+        const session =
+          "session" in input.target ? input.target.session : input.target.tui;
+        const target = sessionRow(session);
         const here = workspaceOf(from);
         const there = target === undefined ? undefined : workspaceOf(target);
         if (
@@ -94,6 +97,11 @@ export const hostQueueWiring: WiringFactory = () => ({
           there?.id !== here?.id
         ) {
           return err({ code: "not_found", message: "session not found" });
+        }
+        if ("tui" in input.target) {
+          const held = ctx.harnessHold.open(input.target.tui as Id<"ses">);
+          if (!held.ok) return held;
+          resume = held.value;
         }
       } else {
         const protocol = URL.canParse(input.target.browser.url)
@@ -112,6 +120,7 @@ export const hostQueueWiring: WiringFactory = () => ({
         target: input.target,
         place: input.place ?? null,
         source: opener.value,
+        ...(resume === undefined ? {} : { resume }),
       });
       return ok({ tab, status: "accepted" as const });
     };

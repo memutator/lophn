@@ -19,6 +19,10 @@ import {
   TerminalFocusTable,
 } from "../../terminal/controller.ts";
 import { createTabGui, type TabGui } from "../../terminal/gui.ts";
+import {
+  createHarnessTui,
+  type HarnessTui,
+} from "../../terminal/harness-tui.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
 import { TerminalOutputs } from "../../terminal/output.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
@@ -83,6 +87,8 @@ export type TabGuiPort = Pick<
 export type Coding = Registered & {
   terminals: ReturnType<typeof createSupervisor>;
   gui: TabGui;
+  /** agent가 `--tui`로 연 터미널의 session 표. surface wiring이 묶고 extension `harness`가 읽는다. */
+  tui: HarnessTui;
   bindTabGui(port: TabGuiPort): void;
 };
 
@@ -385,9 +391,20 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     outputs.forget(window.contentsId);
   });
 
+  const tui = createHarnessTui({
+    onForegroundExit: (ref, listener) =>
+      agent.tracker.onForegroundExit(ref, listener),
+    tuiRunning: (ref) => agent.tracker.tuiOf(ref) !== null,
+    after(ms, run) {
+      const timer = setTimeout(run, ms);
+      return () => clearTimeout(timer);
+    },
+  });
+
   return {
     terminals,
     gui,
+    tui,
     bindTabGui(port) {
       tabPort = port;
     },

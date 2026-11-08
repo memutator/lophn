@@ -2,8 +2,9 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory } from "../base/route.ts";
 import { seqSchema } from "../base/values.ts";
+import type { HarnessId } from "../coding-agent/harness-id.ts";
 import { extensionSettingKey } from "../extensions/manifest.ts";
-import { HARNESS_RUNTIMES } from "./agent-values.ts";
+import { HARNESS_RUNTIMES, type HarnessRuntime } from "./agent-values.ts";
 import { callFromOutputSchema, callReplySchema } from "./calls.ts";
 import { workspaceOutputSchema } from "./workspaces.ts";
 import { turnOutcomeSchema } from "./turn-values.ts";
@@ -13,6 +14,10 @@ import { turnOutcomeSchema } from "./turn-values.ts";
 // 나머지(Record, FinishTurn, SetExternalId)는 꺼져 있어도 일해서, 꺼질 때 돌던 turn이 끝날 수 있다.
 // 모든 route는 runtime이 harness인 session이 아니면 `forbidden`이다.
 //
+// TUI가 열린 session(`tabs/open`의 tui)은 그 CLI session에 process 둘이 쓰지 않게 hold된다. Take는 hold된 session의 입력을 건너뛰고
+// StartTurn은 `conflict`다. hold는 임대다: 열 때 30초, Take의 `tui`에 실려 오면 10초로 갱신하고, 한 번 실렸던 session이 빠지면 바로 푼다.
+// shell이 죽거나 core가 다시 떠도 저절로 풀리고 다시 맞춰진다.
+//
 // 한 turn의 순서: Take(다음 입력을 본다) → StartTurn(입력을 꺼내 turn을 시작) → Record(메시지, 여러 번)
 // → FinishTurn. TurnEnded는 turn마다 한 번이다. 재시작하면 끝나지 않은 turn은 interrupted(restarted)로 끝나
 // FinishTurn은 `conflict`다.
@@ -20,6 +25,12 @@ import { turnOutcomeSchema } from "./turn-values.ts";
 export const HARNESS_SETTING_KEY = extensionSettingKey("harness");
 
 const harnessRuntimeSchema = z.enum(HARNESS_RUNTIMES);
+// runtime 값 → `HARNESS_ADAPTERS`의 id. TUI를 그 CLI의 resume으로 열 때 쓴다.
+export const HARNESS_ADAPTER_ID = {
+  "claude-code": "claude",
+  codex: "codex",
+  opencode: "opencode",
+} as const satisfies Record<HarnessRuntime, HarnessId>;
 const errors = [
   "invalid_input",
   "forbidden",
@@ -48,13 +59,13 @@ const takenInputSchema = z.strictObject({
   prompt: z.string(),
 });
 
-// queue에서 시작할 수 있는 입력 하나를 꺼내지 않고 본다. 도는 turn이 없는 harness session 중 먼저 기다린 것이고
-// 사람 메시지가 먼저다. 없으면 null이다.
+// queue에서 시작할 수 있는 입력 하나를 꺼내지 않고 본다. 도는 turn이 없고 TUI로 열려 있지 않은 harness session 중 먼저 기다린 것이고
+// 사람 메시지가 먼저다. 없으면 null이다. `tui`는 지금 터미널 탭에서 TUI가 도는 session 전부다(매 Take가 heartbeat다).
 export const harnessTake = defineMemory({
   resource: "harness",
   method: "take",
   name: "HarnessTake",
-  input: z.strictObject({}),
+  input: z.strictObject({ tui: z.array(idSchema("ses")).max(64) }),
   output: z.strictObject({ input: takenInputSchema.nullable() }),
   actors: ["user"],
   errors,

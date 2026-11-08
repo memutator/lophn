@@ -13,8 +13,13 @@ import {
   surfaceWorkspaceSchema,
   type SurfaceWorkspace,
 } from "../../../ipc/surface.ts";
+import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
+
+// extension `harness`가 매 tick 읽는 함수의 이름이다. extension은 shell main 내부를 import하지 못하고 같은 process에서 돌아
+// 전역 한 곳으로 넘긴다. extension 쪽(`harness/host.ts`)에 같은 이름이 있다.
+const TUI_SESSIONS = Symbol.for("lophn.harness.tuiSessions");
 
 const POLL_MS = 1000;
 // 한 번에 가져가는 요청 수의 상한. 넘으면 다음 tick에 이어 간다.
@@ -28,7 +33,7 @@ type Request = { id: string; workspace: Workspace };
 const sameWorkspace = (a: Workspace, b: Workspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
 
-export function register(ctx: ShellContext): Registered {
+export function register(ctx: ShellContext, tui: HarnessTui): Registered {
   const registry = ctx.overlays.overlayRegistry();
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
@@ -57,9 +62,14 @@ export function register(ctx: ShellContext): Registered {
       if (!checkCaller(registry, event).ok) return;
       const parsed = checkInput(surfaceReportSchema, input);
       if (!parsed.ok) return;
+      if ("tui" in parsed.value) {
+        tui.bind(parsed.value.tui.terminal_ref, parsed.value.tui.session);
+        return;
+      }
       await ctx.coreInternal("memory", "host", "report", parsed.value);
     },
   );
+  (globalThis as Record<symbol, unknown>)[TUI_SESSIONS] = () => tui.sessions();
 
   // 그 workspace를 보이는 창 중 가장 최근에 focus를 받은 하나(`windows`의 끝)다. 둘이 같은 탭을 열지 않게 하나에만 보낸다.
   function windowOf(workspace: Workspace) {
@@ -140,6 +150,7 @@ export function register(ctx: ShellContext): Registered {
   return {
     stop() {
       clearInterval(timer);
+      delete (globalThis as Record<symbol, unknown>)[TUI_SESSIONS];
       ctx.ipc.removeHandler(SURFACE_WORKSPACE_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_ACK_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_REPORT_CHANNEL);

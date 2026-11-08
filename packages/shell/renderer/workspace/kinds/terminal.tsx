@@ -22,6 +22,7 @@ import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 import { openAt } from "../open-policy.ts";
+import type { SessionTabOpen } from "./agent.tsx";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
@@ -41,16 +42,23 @@ export function openTerminal(
     command?: string;
     /** command를 float가 아니라 tab으로 연다(New session의 coding agent). */
     docked?: boolean;
+    /** agent가 연 탭의 key·자리(`host:<tab>`). 주면 그 자리에 고르지 않고 연다. */
+    open?: SessionTabOpen;
   } = {},
-): void {
+): string | null {
   const terminal = host.props.terminal;
   // Home에는 터미널이 없다.
-  if (!terminal || host.projectId === null) return;
-  const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
+  if (!terminal || host.projectId === null) return null;
+  const key =
+    options.open?.key ??
+    `terminal-${Date.now().toString(36)}-${++terminalCount}`;
   const title = host.projectTitle ?? t("project-workspace.label.kind-terminal");
+  // resume은 CLI가 cwd별로 session을 찾으므로 Explorer root가 아니라 주어진 폴더(없으면 첫 폴더)에서 연다.
   const cwd =
     options.cwd ??
-    (options.folderRef === undefined ? host.explorerRoot : undefined);
+    (options.folderRef === undefined && options.resume === undefined
+      ? host.explorerRoot
+      : undefined);
   terminal.store.request(key, options.folderRef ?? null, {
     ...(options.resume === undefined ? {} : { resume: options.resume }),
     ...(options.command === undefined ? {} : { command: options.command }),
@@ -62,6 +70,12 @@ export function openTerminal(
     title,
     fields: { auto: title },
   };
+  if (options.open !== undefined) {
+    if (options.open.float === true) {
+      host.openFloat(tab, undefined, options.open.options);
+    } else host.openTab(tab, options.open.options);
+    return key;
+  }
   const at = openAt(
     host.desk,
     undefined,
@@ -69,6 +83,7 @@ export function openTerminal(
   );
   if (at.kind === "float") host.openFloat(tab);
   else host.openTab(tab);
+  return key;
 }
 
 // 이름의 두 입력. 사람이 붙인 이름과 자동 이름(폴더 제목)은 fields에 두고,

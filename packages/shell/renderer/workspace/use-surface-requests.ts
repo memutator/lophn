@@ -10,9 +10,31 @@ import { sessionOf } from "./agent/tab-fields.ts";
 import type { SessionTabOpen } from "./kinds/agent.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
+import { openTerminal } from "./kinds/terminal.tsx";
+import { closeTerminalTab } from "../terminal/deps.ts";
+import type { TerminalStore } from "../terminal/store.ts";
 import { openAt } from "./open-policy.ts";
 
 const HOST_KEY = "host:";
+
+// 터미널 탭의 터미널이 열리면(terminalRef가 생기면) main에 알린다. main은 그 터미널에서 TUI가 도는 동안 session을 hold하게 한다.
+// 열리기 전에 탭이 닫히면 알리지 않는다.
+function reportTuiWhenOpened(
+  surface: LophnSurfaceApi,
+  store: TerminalStore,
+  key: string,
+  session: string,
+): void {
+  const off = store.subscribe(() => {
+    const entry = store.get(key);
+    if (entry === undefined) return off();
+    if (entry.terminalRef === null) return;
+    off();
+    void surface.report({
+      tui: { session, terminal_ref: entry.terminalRef },
+    });
+  });
+}
 
 export function surfaceApi(): LophnSurfaceApi | null {
   return (
@@ -58,13 +80,16 @@ export function useSurfaceRequests(args: Args): void {
         void surface.ack({ request: request.id, opened: true });
       if (request.kind === "tab_close") {
         // 없는 탭(이미 닫았거나 이미 열려 있던 session 탭을 가리킨 것)은 닫을 것이 없어 끝난 일이다.
-        if (
-          host()
-            .windowTabs()
-            .some((tab) => tab.key === key)
-        ) {
-          host().removeTab(key);
-        }
+        const found = host()
+          .windowTabs()
+          .find((tab) => tab.key === key);
+        const terminal = host().props.terminal;
+        if (found?.kind === "terminal" && terminal !== undefined) {
+          // 터미널은 탭만 빼면 PTY가 남는다. agent가 닫는 것이라 사람 확인은 묻지 않는다.
+          void closeTerminalTab(terminal, key, true).then((closed) => {
+            if (closed) host().removeTab(key);
+          });
+        } else if (found !== undefined) host().removeTab(key);
         done();
         return;
       }
@@ -89,6 +114,16 @@ export function useSurfaceRequests(args: Args): void {
       };
       if ("session" in target) {
         if (openSession(target.session, open)) done();
+        return;
+      }
+      if ("tui" in target) {
+        const { resume } = request.payload;
+        const terminal = host().props.terminal;
+        if (terminal === undefined || resume === null) return;
+        const opened = openTerminal(host(), { resume, open });
+        if (opened === null) return;
+        reportTuiWhenOpened(surface, terminal.store, opened, target.tui);
+        done();
         return;
       }
       openBrowserTab(host(), target.browser.url, open);

@@ -16,11 +16,15 @@ const open = defineCommand({
   summary: "Open an agent session or a browser page as a tab in the shell",
   description:
     "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab (give exactly one). " +
+    "--session <ses> --tui opens a harness agent session (claude-code, codex, opencode) of a project workspace in a terminal tab through the CLI's own resume; " +
+    "while it is open that session starts no turn and its inputs and calls wait in its queue, and they run after the TUI ends. " +
+    "A tui is invalid_input for a session that is not a harness agent of a project workspace, and conflict if the session has not run yet, a turn is running, or it is already open in a tui. " +
     "--place beside|group|float hints where it goes (next to your own tab, into your tab's group, or floating); without it the tab goes right after your tab. " +
     "Returns the tab ID with status accepted: the shell opens it when it shows this workspace, and an opened tab never takes focus from what the person is looking at. " +
     "Close only tabs you opened (tab close). Read a browser tab with browser read.",
   input: z.strictObject({
     session: idSchema("ses").optional(),
+    tui: z.boolean().optional(),
     url: z.string().min(1).max(8192).optional(),
     place: tabPlaceSchema.optional(),
   }),
@@ -34,11 +38,19 @@ const open = defineCommand({
         message: "give exactly one of --session or --url",
       });
     }
+    if (input.tui === true && input.session === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "--tui needs --session",
+      });
+    }
     const opened = await ctx.core.read(tabsOpen, {
       target:
         input.session === undefined
           ? { browser: { url: input.url! } }
-          : { session: input.session },
+          : input.tui === true
+            ? { tui: input.session }
+            : { session: input.session },
       ...(input.place === undefined ? {} : { place: input.place }),
     });
     if (!opened.ok) return opened;

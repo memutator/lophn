@@ -32,8 +32,10 @@ export const TAB_PLACES = ["beside", "group", "float"] as const;
 export const tabPlaceSchema = z.enum(TAB_PLACES);
 export type TabPlace = z.infer<typeof tabPlaceSchema>;
 
+// `tui`는 harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(project workspace의 session만).
 export const hostTabTargetSchema = z.union([
   z.strictObject({ session: idSchema("ses") }),
+  z.strictObject({ tui: idSchema("ses") }),
   z.strictObject({
     browser: z.strictObject({ url: z.string().min(1).max(8192) }),
   }),
@@ -46,6 +48,14 @@ const tabOpenPayloadSchema = z.strictObject({
   place: tabPlaceSchema.nullable(),
   // 연 agent session이다. renderer가 그 session의 탭 옆에 놓는다.
   source: idSchema("ses").nullable(),
+  // target이 tui일 때 CLI를 다시 여는 값이다. harness는 `HARNESS_ADAPTERS`의 id, external_session은 그 CLI의 session id다.
+  // renderer는 session의 CLI id를 읽을 길이 없어 core가 실어 보낸다.
+  resume: z
+    .strictObject({
+      harness: z.string().min(1),
+      external_session: z.string().min(1),
+    })
+    .nullable(),
 });
 
 export const hostRequestSchema = z.discriminatedUnion("kind", [
@@ -121,6 +131,9 @@ const acceptedSchema = z.strictObject({
 
 // 같은 workspace의 열린 session이나 http(s) url의 탭을 연다. 접수만 답하고 기다리지 않는다.
 // session이 아니면 `not_found`, url이 http·https가 아니면 `invalid_input`이다.
+// `tui`는 harness agent session을 터미널 탭에서 CLI의 resume으로 연다. harness가 아니거나 project workspace의 session이 아니면
+// `invalid_input`, 첫 turn 전이거나 turn이 돌거나 이미 TUI로 열려 있으면 `conflict`다. 열리면 그 session의 headless turn은
+// TUI가 끝날 때까지 시작하지 않고 입력은 queue에 남는다(`harness-host.ts`의 Take).
 export const tabsOpen = defineMemory({
   resource: "tabs",
   method: "open",

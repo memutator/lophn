@@ -26,22 +26,38 @@ export const surfaceAckSchema = z
   .object({ request: id("hrq"), opened: z.boolean() })
   .strict();
 
-/** host 탭(key가 `host:<tab>`)의 browser 상태나 닫힘. */
-export const surfaceReportSchema = z
-  .object({
-    tab: id("tab"),
-    state: z.union([
-      z
-        .object({
-          url: z.string(),
-          title: z.string().max(1024),
-          loading: z.boolean(),
-        })
-        .strict(),
-      z.literal("closed"),
-    ]),
-  })
-  .strict();
+const terminalRef = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
+/**
+ * host 탭(key가 `host:<tab>`)의 browser 상태나 닫힘, 또는 agent가 `--tui`로 연 터미널 탭의 터미널이 열려 session을 알린 것.
+ * tui는 main이 그 터미널에서 TUI가 도는 동안 session을 hold해 달라고 core에 알리는 근거다.
+ */
+export const surfaceReportSchema = z.union([
+  z
+    .object({
+      tab: id("tab"),
+      state: z.union([
+        z
+          .object({
+            url: z.string(),
+            title: z.string().max(1024),
+            loading: z.boolean(),
+          })
+          .strict(),
+        z.literal("closed"),
+      ]),
+    })
+    .strict(),
+  z
+    .object({
+      tui: z.object({ session: id("ses"), terminal_ref: terminalRef }).strict(),
+    })
+    .strict(),
+]);
 
 export type SurfaceWorkspace = z.infer<typeof surfaceWorkspaceSchema>;
 export type SurfaceAck = z.infer<typeof surfaceAckSchema>;

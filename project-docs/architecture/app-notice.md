@@ -90,7 +90,7 @@ SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지")가 이 listener�
 - 표를 하나로 합친 것은 사람이 "예전에 release한 것"을 찾아야 하기 때문이다. release 결과는 `releases` 표에만 있어 앱 상세에서만 보였다. 앱 알림과 program 기록을 같은 표에 두면 Inbox 하나가 거르고 찾는다(`products/roadmap/inbox-history-sdk-migration.md`).
 - program 줄의 글을 template으로 고정한 것은 앱이 쓴 글이 lophn의 기록처럼 보이는 일을 막으려는 것이다.
 - 대신하기는 key로 한다. 앱이 열린 알림을 직접 지우는 길을 두지 않았다. 지우는 것은 사람의 일이다.
-- schema step `apps.notices.unified`는 앱 팀 목록이 아니라 목록 맨 뒤 `notices` wiring에 있다. 낸 step 목록의 끝에만 새 step을 붙일 수 있어서다(`schema-steps.lock.json`).
+- schema step `apps.notices.unified`는 앱 팀 목록이 아니라 `notices` wiring에 있다. 낸 때 step 목록의 끝에 붙어야 했기 때문이다(`schema-steps.lock.json`). 그 뒤에 낸 step은 이 wiring이 아니라 WIRINGS 맨 뒤 wiring에 붙는다.
 
 ## tray 값
 

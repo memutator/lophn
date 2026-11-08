@@ -302,7 +302,7 @@ export const lophnSplitDataStep: DataStep = {
 
 export const lophnSplitWiring: WiringFactory = () => ({
   name: "lophn-split",
-  // 새 step은 낸 step 목록의 끝에만 붙는다(schema-steps.lock.json).
+  // 낸 때 step 목록의 끝이었다(schema-steps.lock.json). 그 뒤의 새 step은 WIRINGS 맨 뒤 wiring에 붙는다.
   schemaStepsAfterTeams: lophnSplitSchemaSteps,
   dataSteps: [lophnSplitDataStep],
 });

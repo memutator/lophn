@@ -76,7 +76,7 @@
 
 - detach는 project만 한다. Home과 앱 workspace는 못 뗀다.
 - Home에는 터미널이 없다.
-- 앱 workspace에 preview 열기·승격 UI가 없다(`products/roadmap/app-preview.md`).
+- 앱 workspace에 preview 승격(live로 올리기) UI가 없다. preview 열기는 앱 화면 탭의 [Preview]다(계획 browser-use, changelog 0.22.0).
 - desk 닫기가 일부 거절되어 멈출 때 toast가 없다(desk가 남은 것으로만 보인다).
 - 지운 desk의 닫은 tab은 "닫은 탭 다시 열기" 목록에 없다.
 - Ctrl+Alt+화살표(`pane.focus-*`)가 Linux의 작업 공간 전환 키와 겹칠 수 있다. Keyboard 설정에서 바꾼다.

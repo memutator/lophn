@@ -58,7 +58,7 @@ tool registry (`packages/core/lophn-agent/tools/`)
 5. handler가 core를 부를 때는 사람 권한이 아니라 그 호출 session의 agent 자격(상한은 그 workspace 종류)을 쓴다. (agent) agent가 tool 하나로 사람 권한을 얻지 않게. harness turn 자격(`harness-credential.ts`)과 같은 선례.
 6. 처음부터 다 싣는다. 늦게 싣기는 하지 않는다. (agent) `agent-definition.md:69` "숨기거나 늦게 펼치는 장치는 없다". tool이 많은 extension의 비용은 사람이 할당으로 조절한다(MCP와 같다, `command-surface.md:132`).
 7. model에 보이는 이름은 `ext__<extension id>__<tool name>`이다. provider 이름 규칙(`[A-Za-z0-9_-]{1,64}`)에 맞고 내장(`_` 하나)·MCP(`mcp__`)와 겹치지 않는다. tool name은 `[a-z][a-z0-9_]*`이고 `__`가 없으며 길이는 manifest schema가 막는다. (agent, 계획 agent-surface가 정함)
-8. extension tool의 첫 실제 사용자는 browser-use extension이다. 이 로드맵은 test extension fixture로만 확인한다. (agent) AGENTS.md "쓰일지 모를 확장 지점을 미리 만들지 않는다"와 어긋나지만, 사람이 명시해 만든다.
+8. extension tool의 첫 실제 사용자는 browser-use extension이다. (2026-11-09: browser use는 CLI + skill로 갔다(사람, changelog 0.22.0). extension tool의 실제 사용자는 아직 없고, 남길지는 사람이 정한다.) 이 로드맵은 test extension fixture로만 확인한다. (agent) AGENTS.md "쓰일지 모를 확장 지점을 미리 만들지 않는다"와 어긋나지만, 사람이 명시해 만든다.
 
 ## 단계
 

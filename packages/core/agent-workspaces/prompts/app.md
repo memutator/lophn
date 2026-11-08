@@ -58,7 +58,9 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    id. `failed` gives `stage` and `reason`: fix, commit, prepare again. It
    replaces the app's preview. For `removed_public_tools` and `removed_public_skills` see "What you do".
 5. `lophn preview start` a prepared release (`--fixture` is a SQLite path inside
-   the release, none means empty data). If `ready` is false read `reason`. Walk the
+   the release, none means empty data). If `ready` is false read `reason`. When it is ready a
+   preview tab opens for the person and `tab` is its id: look at the screen with
+   `lophn browser snapshot <tab>` or `lophn browser screenshot <tab>`. Walk the
    journeys with `lophn preview call` (an operation or a command, with its
    input) in real order: the
    outcome is `succeeded`, `failed` (the app's `error`), `denied` or `unknown`.

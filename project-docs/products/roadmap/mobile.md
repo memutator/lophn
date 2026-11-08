@@ -2,7 +2,7 @@
 
 상태: **개념 정리만 했다.** 2026-11-08 사람이 방향을 냈고 planner가 대화를 정리했다. 사람이 더 고민하기로 해서 아래 "열린 질문"은 정하지 않았다. 추천은 planner의 것이고 결정이 아니다. 계획으로 열기 전에 사람과 다시 정하고, "지금 코드"는 그때 worker 조사로 채운다.
 배경 문서: `project-docs/architecture/{platform,app-call,terminal-agent,app-notice}.md`, `project-docs/products/roadmap/{agent-surface,tool-extension,browser-tab,app-preview}.md`. 비교: `../harness-lab/_report/remote-control/`(README와 `t3code.md`, `paseo.md`, `orca.md`, `happy.md`, `omp.md`).
-짝 로드맵: `browser-use.md`. 아래 "browser-use와 닿는 곳".
+browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `browser-use`가 했다(changelog 0.22.0, `architecture/browser-tab.md`). 실제 폰의 앱을 다루는 것은 이 로드맵에 남는다. 아래 "browser-use와 닿는 곳".
 
 ## 사람의 말 (원문)
 
@@ -77,7 +77,8 @@
 
 - browser-use의 대상은 browser 탭만이 아니라 lophn이 만든 사용자 앱(desktop `<webview>`)과 사용자 모바일 앱이다(사람). desktop의 둘은 같은 `<webview>`라 같은 CDP 길로 된다.
 - 모바일 앱 테스트는 먼저 desktop preview에서 mobile emulation으로 한다(사람이 기움). emulation은 Chromium에 들어 있어(`webContents.enableDeviceEmulation`, CDP `Emulation`) 번들이 거의 늘지 않는다. 기기는 일반 목록이 아니라 등록한 사람의 기기다.
-- preview 탭은 아직 없다. `browser-use.md` 1단계가 만들고 mobile preview는 그 위에 선다(같은 로드맵 3단계).
+- preview 탭과 등록한 기기의 emulation은 있다(설정 `shell.devices`, `architecture/browser-tab.md`).
+- 실제 폰의 앱을 agent가 다루는 것(옛 browser-use 로드맵 단계 5)은 이 로드맵의 일이다. Android WebView는 CDP로 원격 디버깅이 되고 iOS WKWebView는 Web Inspector다. T3 Code와 Orca는 desktop browser 화면을 `Page.startScreencast`로 폰에 흘려 보이고 폰에서 take control도 한다(`../harness-lab/_report/browser-use/{t3code,orca}.md`).
 - emulation은 진짜 폰이 아니다(iOS WKWebView는 WebKit). 실제 폰 확인은 remote가 선 뒤다.
 
 ## 열린 질문 (사람이 고민 중)

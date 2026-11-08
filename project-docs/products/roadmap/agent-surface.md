@@ -78,7 +78,7 @@ desk coordinator (root, 사람이 연 session)
   - **browser**: `{url}`. 
 - 놓는 자리는 `beside | group | float` 힌트 하나이고 실제 자리는 `openAt()`이 정한다. agent가 연 탭은 focus를 뺏지 않는다.
 - agent는 자기가 연 탭만 닫는다. 옮기고 크기를 바꾸는 것은 사람이다.
-- `browser read {tab}`: url, title, loading. page 내용·screenshot·조작은 browser-use 로드맵이다.
+- `browser read {tab}`: url, title, loading. page 내용·screenshot·조작은 계획 browser-use가 더했다(changelog 0.22.0).
 
 ### host queue
 
@@ -118,7 +118,7 @@ desk coordinator (root, 사람이 연 session)
 
 ## 하지 않는 것
 
-- browser page 내용·screenshot·클릭(browser-use 로드맵).
+- browser page 내용·screenshot·클릭(계획 browser-use가 더했다, changelog 0.22.0).
 - 앱 화면을 agent가 읽거나 조작하기.
 - 표준 Agent Client Protocol·A2A 맞추기, 외부 A2A endpoint.
 - 아무 명령의 터미널 탭, 사람이 연 터미널에 메시지 넣기(coding session 층은 지웠다).

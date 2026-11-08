@@ -352,7 +352,7 @@ components:
   - id: architecture-annotation
     kind: doc
     roles: [planner, lead]
-    description: 앱 화면과 artifact에 남긴 annotation이 그 workspace의 session에게 가는 길.
+    description: 앱 화면(preview 포함)과 artifact에 남긴 annotation이 그 workspace의 session에게 가는 길.
     path: project-docs/architecture/annotation.md
     change_reasons:
       boundaries: [sdk]
@@ -360,7 +360,7 @@ components:
   - id: architecture-browser-tab
     kind: doc
     roles: [planner, lead]
-    description: workspace의 browser 탭이 인터넷 page를 여는 길. navigation·popup·permission·download 규칙, persistent session, bookmark 저장, terminal의 `$BROWSER`·Ctrl/Cmd-click link를 browser 탭으로 넘기는 bridge.
+    description: workspace의 browser 탭이 인터넷 page를 여는 길. navigation·popup·permission·download 규칙, persistent session, bookmark 저장, terminal의 `$BROWSER`·Ctrl/Cmd-click link를 browser 탭으로 넘기는 bridge, agent가 연 browser·preview 탭을 CDP로 보고 다루는 `lophn browser`(ref, untrusted 감싸기, take control, 기기 emulation).
     path: project-docs/architecture/browser-tab.md
     change_reasons:
       boundaries: [shell]
@@ -420,7 +420,7 @@ components:
   - id: architecture-workspace-layout
     kind: doc
     roles: [planner, lead]
-    description: workspace 창(Home, project, 앱) 하나의 shell, desk와 split group 모델, 탭 자리(tabs, group, floated, detached), floats 층, `<webview>` 그릇과 native view 층, view 보관, 탭을 OS 창으로 떼고 붙이는 main 중계, workspace layout 파일(판 8)과 옛 layout 올리기, Settings 틀.
+    description: workspace 창(Home, project, 앱) 하나의 shell, desk와 split group 모델, 탭 자리(tabs, group, floated, detached), floats 층, `<webview>` 그릇과 native view 층, view 보관, agent가 연 탭(host queue, preview 탭), 탭을 OS 창으로 떼고 붙이는 main 중계, workspace layout 파일(판 8)과 옛 layout 올리기, Settings 틀.
     path: project-docs/architecture/workspace-layout.md
     change_reasons:
       boundaries: [shell]

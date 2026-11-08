@@ -93,7 +93,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - 답(`call reply`)은 자식의 queue로 배달하지 않는다. Router가 call을 `done`으로 두고 commit 뒤 topic `router.ask-answered`를 내면 main thread가 짝을 푼다. 승인 call의 답은 `decision`(`allow` | `reject`)이 있어야 하고 다른 call의 답은 `decision`을 싣지 못한다(`invalid_input`). harness·bare 부모의 자동 답(`calls.auto-reply`)이 승인 call에 닿으면 `reject`다.
   - 자식 쪽이 먼저 끝나면 main thread가 `calls.ask-withdraw`로 취소하고 부모는 취소 알림을 받는다. 부모가 끝나 `receiver_ended`면 자식 queue에 실패 알림을 넣지 않고 topic `router.ask-ended`로 기다리는 쪽을 거절로 푼다.
   - 재시작하면 짝이 메모리와 함께 사라진다. 그래서 켤 때 `lophn_restarted`로 닫는 call에 부모가 이미 가져간 ask call도 넣는다. 자식에게는 알리지 않는다(자식 turn은 같은 recover에서 interrupted로 닫힌다). 부모의 늦은 답은 `closed: true`다.
-- **같은 workspace의 자식은 부모 옆에 열린다.** spawn이 commit된 뒤 router wiring이 `hostQueue.openTab({opener: 부모, target: {session: 자식}, place: "group", source: 부모})`를 부른다(`workspace-layout.md` "agent가 연 탭"). 다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
+- **같은 workspace의 자식은 부모 옆에 열린다.** spawn이 commit된 뒤 router wiring이 `hostQueue.openTab({owner: 부모, target: {session: 자식}, place: "group", source: 부모})`를 부른다(`workspace-layout.md` "agent가 연 탭"). 다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
 
 ## 왜 이 모양인가
 

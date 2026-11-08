@@ -2,8 +2,11 @@
 import {
   type LophnSurfaceApi,
   SURFACE_ACK_CHANNEL,
+  SURFACE_CONTROL_CHANNEL,
   SURFACE_REPORT_CHANNEL,
   SURFACE_REQUEST_CHANNEL,
+  SURFACE_TAKE_CHANNEL,
+  type SurfaceControl,
   type SurfaceRequest,
   SURFACE_WORKSPACE_CHANNEL,
 } from "../ipc/surface.ts";
@@ -31,6 +34,16 @@ function isRequest(value: unknown): value is SurfaceRequest {
   );
 }
 
+function isControl(value: unknown): value is SurfaceControl {
+  if (typeof value !== "object" || value === null) return false;
+  const control = value as Record<string, unknown>;
+  return (
+    typeof control.tab === "string" &&
+    typeof control.agent === "boolean" &&
+    typeof control.held === "boolean"
+  );
+}
+
 export function createSurfaceApi(transport: SurfaceTransport): LophnSurfaceApi {
   const send = async (channel: string, input: unknown) => {
     await transport.invoke(channel, input).catch(() => {});
@@ -46,5 +59,14 @@ export function createSurfaceApi(transport: SurfaceTransport): LophnSurfaceApi {
     ack: (input) => send(SURFACE_ACK_CHANNEL, input),
     workspace: (input) => send(SURFACE_WORKSPACE_CHANNEL, input),
     report: (input) => send(SURFACE_REPORT_CHANNEL, input),
+    control(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (isControl(payload)) listener(payload);
+      };
+      transport.on(SURFACE_CONTROL_CHANNEL, callback);
+      return () => transport.removeListener(SURFACE_CONTROL_CHANNEL, callback);
+    },
+    take: (tab) => send(SURFACE_TAKE_CHANNEL, { tab, held: true }),
+    release: (tab) => send(SURFACE_TAKE_CHANNEL, { tab, held: false }),
   } satisfies LophnSurfaceApi);
 }

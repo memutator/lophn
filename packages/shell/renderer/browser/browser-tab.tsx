@@ -26,6 +26,7 @@ import type { Disposable } from "../commands/registry.ts";
 import { useViewBounds } from "./native-bounds.ts";
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { startPointerDrag } from "../workspace/drag.ts";
+import { useAgentControl } from "../workspace/use-surface-requests.ts";
 import type {
   DevtoolsPlace,
   DevtoolsState,
@@ -160,6 +161,7 @@ function OpenTab(
     ...(props.favicon === undefined ? {} : { favicon: props.favicon }),
   });
   const [failed, setFailed] = useState(false);
+  const agent = useAgentControl(props.keepKey, viewSession);
   // 값이 올 때마다 새로 띄우도록 번호를 key로 쓴다. null이면 알림 없음.
   const [notice, setNotice] = useState<{
     n: number;
@@ -520,6 +522,7 @@ function OpenTab(
         onDevtools={devtoolsAction}
         keepAlive={props.keepAlive}
         onKeepAlive={props.onKeepAlive}
+        agent={agent}
       />
       {notice === null ? null : (
         <div className={styles.notice}>

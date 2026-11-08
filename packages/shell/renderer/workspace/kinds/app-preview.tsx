@@ -46,6 +46,7 @@ export const appPreviewKind: TabKindDef = {
     return (
       <AppPreviewTab
         app={tab.app}
+        tabKey={tab.key}
         source={host.props.apps}
         shown={shown}
         agentView={host.agentView}

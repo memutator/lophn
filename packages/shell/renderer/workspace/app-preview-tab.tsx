@@ -16,6 +16,8 @@ import {
 } from "../desktop/connection/connection.ts";
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import type { AgentViewSlice } from "./kinds/host.ts";
+import { AgentControlBar } from "../browser/browser-chrome.tsx";
+import { useAgentControl } from "./use-surface-requests.ts";
 import { useTabAnnotate } from "./use-tab-annotate.tsx";
 import styles from "./app-preview-tab.module.css";
 
@@ -122,6 +124,8 @@ type Entry =
 
 interface AppPreviewTabProps {
   app: string;
+  /** 탭 key. agent가 연 탭은 `host:<tab id>`다. */
+  tabKey: string;
   source: AppsSource | undefined;
   shown: boolean;
   /** annotation을 받는 lophn session. 통로가 없으면 null이다. */
@@ -168,6 +172,7 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
     };
   }, [source, app, release, preview?.nonce]);
 
+  const agent = useAgentControl(props.tabKey, state?.view_session ?? null);
   const { shellHead, toast } = useTabAnnotate({
     viewSession: state?.view_session ?? null,
     target: row?.name ?? "",
@@ -208,6 +213,7 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
         <span className={styles.text}>
           {t("app-space.text.preview-notice")}
         </span>
+        {agent === null ? null : <AgentControlBar control={agent} />}
         <Button
           size="sm"
           variant="ghost"

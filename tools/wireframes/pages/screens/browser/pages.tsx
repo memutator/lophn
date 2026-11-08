@@ -6,6 +6,10 @@ import { t } from "@lophn/i18n";
 import { Palette } from "@lophn/ui/overlay";
 
 import { openProject } from "../../../../../packages/shell/renderer/desktop/router.ts";
+import type {
+  LophnSurfaceApi,
+  SurfaceControl,
+} from "../../../../../packages/shell/ipc/surface.ts";
 import { fakeBrowserApi } from "../../../../../packages/shell/renderer/browser/testdata/fake-browser-api.ts";
 import { groupLabel } from "../../../../../packages/shell/renderer/desktop/palette/labels.ts";
 import {
@@ -393,3 +397,80 @@ export function BrowserPaletteBookmark() {
     </>
   );
 }
+
+// agent가 `lophn tab open --url`로 연 탭이다. key가 `host:<tab id>`라서 탭이 main에 view를 알리고 take control 상태를 받는다.
+const HOST_TAB = "tab_01hzzzzzzzzzzzzzzzzzzzzzzz";
+const AGENT = {
+  key: `host:${HOST_TAB}`,
+  kind: "browser",
+  title: "deno.com",
+  url: "https://deno.com/",
+} as const;
+const AGENT_PANES: readonly PaneSpec[] = [
+  { tabs: [NOTES, AGENT], selected: AGENT.key },
+];
+
+// shell main을 흉내 낸 surface 통로. view를 알리면 agent가 다루는 중이라고 답하고, 가져오기와 돌려주기를 받아 되돌린다.
+function useFakeSurface(): void {
+  useMemo(() => {
+    let listener: ((control: SurfaceControl) => void) | undefined;
+    let held = false;
+    const push = () => listener?.({ tab: HOST_TAB, agent: true, held });
+    const surface: LophnSurfaceApi = {
+      on: () => () => {},
+      ack: async () => {},
+      workspace: async () => {},
+      report: async (input) => {
+        if ("bind" in input) queueMicrotask(push);
+      },
+      control(next) {
+        listener = next;
+        return () => {
+          listener = undefined;
+        };
+      },
+      take: async () => {
+        held = true;
+        push();
+      },
+      release: async () => {
+        held = false;
+        push();
+      },
+    };
+    (globalThis as { lophnSurface?: LophnSurfaceApi }).lophnSurface = surface;
+  }, []);
+  useEffect(
+    () => () => {
+      delete (globalThis as { lophnSurface?: LophnSurfaceApi }).lophnSurface;
+    },
+    [],
+  );
+}
+
+function AgentTab({ held }: { held: boolean }) {
+  const fake = useFake();
+  useFakeSurface();
+  useDrive(async () => {
+    await showPage(
+      fake,
+      AGENT.key,
+      ["https://deno.com/"],
+      "Deno, the next-generation JavaScript runtime",
+    );
+    if (held) await click("[data-agent-control] button", "Take control");
+  });
+  return (
+    <MockDesktop
+      route={openProject(PROJECT_GROCERY)}
+      panes={AGENT_PANES}
+      browser={fake.api}
+    />
+  );
+}
+
+/** agent가 연 탭. 머리에 "Agent is controlling this tab"과 [Take control]이 선다. */
+export const BrowserAgentControl = () => <AgentTab held={false} />;
+
+/** [Take control]을 눌러 사람이 가져왔다. "You have control"과 [Hand back]이 서고, 그동안 agent의 쓰기는 conflict다. */
+export const BrowserAgentHeld = () => <AgentTab held />;

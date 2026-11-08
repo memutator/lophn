@@ -1,7 +1,7 @@
 // core의 host queue가 시킨 탭 열기·닫기(agent가 `lophn tab open|close`로 한 것)를 이 창에서 한다. main이 이 창이 보이는
 // workspace를 알아야 요청을 보내므로 layout을 다 읽은 뒤에 알리고, 탭을 연 뒤에만 ack한다(못 열면 ack하지 않아 main이
 // retry로 되돌린다). 열린 탭의 key는 `host:<tab id>`다. host 탭의 browser 상태와 닫힘은 main을 거쳐 core에 알린다.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
 import type { LophnSurfaceApi } from "../../ipc/surface.ts";
@@ -43,6 +43,45 @@ export function surfaceApi(): LophnSurfaceApi | null {
   return (
     (globalThis as { lophnSurface?: LophnSurfaceApi }).lophnSurface ?? null
   );
+}
+
+export interface AgentControl {
+  /** agent가 그 탭을 다루는 중이다. 사람이 가져왔어도 true다. */
+  agent: boolean;
+  /** 사람이 가져왔다. 그동안 agent의 쓰기는 conflict다. */
+  held: boolean;
+  take(): void;
+  release(): void;
+}
+
+/**
+ * host 탭(key가 `host:<tab>`)의 view session을 main에 알리고(agent가 이 탭의 page를 찾는 길) take control 상태를 받는다.
+ * agent가 다루지 않는 탭이나 host 탭이 아니면 null이다.
+ */
+export function useAgentControl(
+  key: string,
+  viewSession: string | null,
+): AgentControl | null {
+  const surface = surfaceApi();
+  const tab = key.startsWith(HOST_KEY) ? key.slice(HOST_KEY.length) : null;
+  const [state, setState] = useState({ agent: false, held: false });
+  useEffect(() => {
+    if (surface === null || tab === null || viewSession === null) return;
+    // 구독을 먼저 한다: bind에 main이 지금 상태로 답한다.
+    const off = surface.control((control) => {
+      if (control.tab === tab) {
+        setState({ agent: control.agent, held: control.held });
+      }
+    });
+    void surface.report({ bind: { tab, view_session: viewSession } });
+    return off;
+  }, [surface, tab, viewSession]);
+  if (surface === null || tab === null || !state.agent) return null;
+  return {
+    ...state,
+    take: () => void surface.take(tab),
+    release: () => void surface.release(tab),
+  };
 }
 
 type Args = {

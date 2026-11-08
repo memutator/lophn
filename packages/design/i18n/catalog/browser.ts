@@ -1,4 +1,6 @@
 export const browser = {
+  "browser.button.agent-release": "Hand back",
+  "browser.button.agent-take": "Take control",
   "browser.button.back": "Back",
   "browser.button.bookmark-add": "Add bookmark",
   "browser.button.bookmark-edit": "Edit bookmark",
@@ -30,6 +32,8 @@ export const browser = {
   "browser.notice.no-bookmarks": "No bookmarks yet.",
   "browser.notice.popup-blocked":
     "A page tried to open a window without a click, so it was blocked.",
+  "browser.text.agent-controlling": "Agent is controlling this tab",
+  "browser.text.agent-held": "You have control",
   "settings.button.bookmark-edit": "Edit",
   "settings.button.bookmark-remove": "Remove",
   "settings.button.bookmark-save": "Save",

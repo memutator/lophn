@@ -11,13 +11,14 @@ import {
   useState,
 } from "react";
 import { FieldContext, Input } from "@lophn/ui/input";
-import { IconButton } from "@lophn/ui/primitives";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import type { BrowserViewState, LophnBrowserApi } from "../../ipc/browser.ts";
 import type { DevtoolsPlace } from "../workspace/kinds/browser-devtools.tsx";
 import { currentPlatform } from "../desktop/top-bar/platform.ts";
+import type { AgentControl } from "../workspace/use-surface-requests.ts";
 import { browserIcons } from "../icons/mod.ts";
 import { useCardHead } from "../shell/card-head.tsx";
 import { BookmarkMenu } from "./bookmark-menu.tsx";
@@ -54,6 +55,8 @@ interface BrowserChromeProps {
   /** 다른 workspace에 가도 이 탭의 page를 다시 load하지 않고 살려 두는지(사람이 켠다). */
   keepAlive: boolean;
   onKeepAlive(on: boolean): void;
+  /** agent가 이 탭을 다루는 중이면 "agent 조작 중"과 [가져오기]를 머리에 둔다. */
+  agent: AgentControl | null;
 }
 
 type DevtoolsAction = DevtoolsPlace | "open" | "close";
@@ -95,6 +98,36 @@ function isBookmarkKey(event: KeyboardEvent): boolean {
     (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&
     !event.altKey &&
     !event.shiftKey
+  );
+}
+
+/** browser 탭 머리와 preview 탭 안내 줄이 같이 쓴다. 가져오면 "내가 조작 중"과 [돌려주기]로 바뀐다. */
+export function AgentControlBar(props: { control: AgentControl }) {
+  const { control } = props;
+  return (
+    <div
+      className={styles.agentControl}
+      data-agent-control={control.held ? "held" : "agent"}
+    >
+      <span className={styles.agentText}>
+        {t(
+          control.held
+            ? "browser.text.agent-held"
+            : "browser.text.agent-controlling",
+        )}
+      </span>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={control.held ? control.release : control.take}
+      >
+        {t(
+          control.held
+            ? "browser.button.agent-release"
+            : "browser.button.agent-take",
+        )}
+      </Button>
+    </div>
   );
 }
 
@@ -280,11 +313,14 @@ export function BrowserChrome(props: BrowserChromeProps) {
     />
   );
   const actions = (
-    <PageActions
-      chrome={props}
-      presses={props.bookmarkKey + keyPresses}
-      onBookmarkKey={bookmarkKey}
-    />
+    <>
+      {props.agent === null ? null : <AgentControlBar control={props.agent} />}
+      <PageActions
+        chrome={props}
+        presses={props.bookmarkKey + keyPresses}
+        onBookmarkKey={bookmarkKey}
+      />
+    </>
   );
 
   const inCard = useCardHead(
@@ -325,6 +361,8 @@ export function BrowserChrome(props: BrowserChromeProps) {
       keyPresses,
       props.devtools,
       props.keepAlive,
+      props.agent?.agent,
+      props.agent?.held,
       props.focusAddress,
       props.native,
       detached,

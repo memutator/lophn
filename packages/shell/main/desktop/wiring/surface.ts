@@ -1,22 +1,33 @@
 // core의 host queue를 가져와 그 workspace를 보이는 창에 push한다(agent가 연 탭). core가 시킬 일을 담는 queue는
 // 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기가 `host/take`를 쉬지 않고 이어 불러(long-poll) 가져간다. 창을 앞으로 가져오거나
 // focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
+// `browser_call`은 browser·preview 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
+// agent가 다루는 탭의 take control 상태(사람이 가져왔는가)를 이 메모리가 든다. core는 모른다.
 // extension `harness`의 tick과 한 loop로 합치지 못한다. 그 tick은 extension 안에서 설정 `extensions.harness.enabled`가 꺼지면
 // 돌지 않고, extension은 shell main 내부를 import하지 못한다(check-deps rule `extension`).
 import {
   SURFACE_ACK_CHANNEL,
+  SURFACE_CONTROL_CHANNEL,
   SURFACE_REPORT_CHANNEL,
   SURFACE_REQUEST_CHANNEL,
+  SURFACE_TAKE_CHANNEL,
   SURFACE_WORKSPACE_CHANNEL,
   surfaceAckSchema,
   surfaceReportSchema,
+  surfaceTakeSchema,
   surfaceWorkspaceSchema,
   type SurfaceWorkspace,
 } from "../../../ipc/surface.ts";
 import {
+  type ControlState,
+  createTabControl,
+} from "../../browser/agent/control.ts";
+import {
   type BrowserDriver,
   createBrowserDriver,
 } from "../../browser/agent/driver.ts";
+import { electronLookup } from "../../browser/agent/electron-page.ts";
+import type { AppFrameService } from "../../app-frame/registry.ts";
 import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
@@ -49,16 +60,40 @@ export function register(
   ctx: ShellContext,
   tui: HarnessTui,
   tools: ExtensionTools,
+  appFrame: Pick<AppFrameService, "senderView">,
 ): Registered {
   const registry = ctx.overlays.overlayRegistry();
-  const driver = createBrowserDriver(ctx);
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
   const pending = new Map<string, (opened: boolean) => void>();
+  // browser·preview host 탭이 어느 창(webContents id)의 어느 view인지. 창이 bind로 알린다.
+  const bound = new Map<string, { window: number; view_session: string }>();
+
+  // 그 탭을 가진 창의 renderer에 take control 상태를 민다.
+  const pushControl = (tab: string, state: ControlState) => {
+    const at = bound.get(tab);
+    for (const window of ctx.windows) {
+      if (window.isDestroyed() || window.webContents.id !== at?.window)
+        continue;
+      window.webContents.send(SURFACE_CONTROL_CHANNEL, { tab, ...state });
+    }
+  };
+  const control = createTabControl(pushControl);
+  const driver = createBrowserDriver({
+    viewSession: (tab) => bound.get(tab)?.view_session,
+    lookup: electronLookup(appFrame),
+    control,
+    nowMs: () => Date.now(),
+  });
 
   ctx.windowHooks.closed.push(({ contentsId }) => {
     shown.delete(contentsId);
     tui.closeWindow(contentsId);
+    for (const [tab, at] of bound) {
+      if (at.window !== contentsId) continue;
+      bound.delete(tab);
+      control.forget(tab);
+    }
   });
 
   ctx.ipc.handle(
@@ -82,16 +117,39 @@ export function register(
       if (!checkCaller(registry, event).ok) return;
       const parsed = checkInput(surfaceReportSchema, input);
       if (!parsed.ok) return;
+      if ("bind" in parsed.value) {
+        const { tab, view_session } = parsed.value.bind;
+        bound.set(tab, { window: event.sender.id, view_session });
+        // 창이 다시 mount했거나 다른 창으로 옮겨 왔으면 지금 상태를 다시 준다.
+        const now = control.current(tab);
+        if (now !== undefined) pushControl(tab, now);
+        return;
+      }
       if ("tui" in parsed.value) {
         const { tab, session, terminal_ref } = parsed.value.tui;
         if (terminal_ref === undefined) tui.open(tab, session, event.sender.id);
         else tui.bind(tab, terminal_ref);
         return;
       }
-      if (parsed.value.state === "closed") tui.release(parsed.value.tab);
+      if (parsed.value.state === "closed") {
+        tui.release(parsed.value.tab);
+        bound.delete(parsed.value.tab);
+        control.forget(parsed.value.tab);
+      }
       await ctx.coreInternal("memory", "host", "report", parsed.value);
     },
   );
+
+  ctx.ipc.handle(SURFACE_TAKE_CHANNEL, (event: IpcEvent, input: unknown) => {
+    if (!checkCaller(registry, event).ok) return;
+    const parsed = checkInput(surfaceTakeSchema, input);
+    if (!parsed.ok) return;
+    const { tab, held } = parsed.value;
+    // 그 탭을 가진 창만 가져오거나 돌려줄 수 있다.
+    if (bound.get(tab)?.window !== event.sender.id) return;
+    if (held) control.take(tab);
+    else control.release(tab);
+  });
 
   // 그 workspace를 보이는 창 중 가장 최근에 focus를 받은 하나(`windows`의 끝)다. 둘이 같은 탭을 열지 않게 하나에만 보낸다.
   function windowOf(workspace: Workspace) {
@@ -202,6 +260,7 @@ export function register(
       ctx.ipc.removeHandler(SURFACE_WORKSPACE_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_ACK_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_REPORT_CHANNEL);
+      ctx.ipc.removeHandler(SURFACE_TAKE_CHANNEL);
     },
   };
 }

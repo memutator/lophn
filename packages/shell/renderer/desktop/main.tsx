@@ -60,6 +60,7 @@ import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { KeybindingsApi } from "../../ipc/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
+import { AppKeyContributions } from "../commands/app-keys.ts";
 import { CommandsProvider } from "../commands/react.tsx";
 import { mountExtensionKeys } from "../commands/extension-keys.ts";
 import { WorkspaceViewsProvider } from "../app-frame/workspace-views.tsx";
@@ -495,6 +496,7 @@ export function Desktop({
   const tree = (
     <SidebarMemoryProvider memory={sidebarMemory}>
       <CommandsProvider value={commands}>
+        <AppKeyContributions />
         <PaletteProvider deps={palette} onHome={home}>
           <DefaultToastHandler
             openSession={openSession}

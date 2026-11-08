@@ -7,3 +7,7 @@ agent view·composer·slash menu·찾기·thread index key를 command와 context
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/conversation/`
   - `packages/shell/renderer/terminal/terminal-gui.tsx`
+  - `packages/shell/renderer/commands/{window.ts,keybinding-service.ts,commands_test.ts}`
+  - `packages/shell/ipc/keybindings.ts`
+  - `tools/wireframes/pages/screens/harness-gui.tsx`
+  - `packages/design/i18n/catalog/`

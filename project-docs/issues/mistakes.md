@@ -85,10 +85,11 @@ kind: mistake
 modules: [tools]
 ```
 
-지금: orchestrate skill의 "merge" 절과 `project-docs/plan/tools/lead/land.sh` 머리 주석이 "wave가 모두 merged면 land"로 정한다. land는 lock을 잡고 main 위로 rebase하고, `check:full`, e2e 전체, core 두 번 기동을 거친 뒤 main을 fast-forward한다. workspace-layers는 wave가 넷이고 wave 2·3·4가 task 하나씩이라, task 하나마다 land가 붙는다. land가 도는 동안 lead는 plan branch에 commit할 수 없고, launch.sh가 status를 바꾸므로 다음 wave도 띄우지 않고 기다린다. wave 1 land는 세 번 돌았다.
+지금: orchestrate skill의 "merge" 절과 `project-docs/plan/tools/lead/land.sh` 머리 주석이 "wave가 모두 merged면 land"로 정한다. land는 lock을 잡고 main 위로 rebase하고, `check:full`, e2e 전체, core 두 번 기동을 거친 뒤 main을 fast-forward한다. workspace-layers는 wave가 넷이고 wave 2·3·4가 task 하나씩이라, task 하나마다 land가 붙는다. land가 도는 동안 lead는 plan branch에 commit할 수 없고, launch.sh가 status를 바꾸므로 다음 wave도 띄우지 않고 기다린다. wave 1 land는 네 번 돌았다.
 - 첫 번째: 다른 session이 main에 더한 의존성(`@xterm/addon-unicode11`) 때문에 lead worktree의 `node_modules`가 낡아 wireframes smoke에서 멈췄다.
 - 두 번째: `npm ci` 뒤 다시 돌렸는데 e2e 한 줄(옛 lophn id 기대값)에서 멈췄다.
 - 세 번째: 그 줄을 고친 뒤 다시 돌렸다.
+- 네 번째: 세 번째 land가 e2e와 기동까지 통과한 뒤 main fast-forward 직전에 다른 session이 main에 terminal 코드를 올려 `STOP: land 사이 main에 코드가 바뀌었다`로 멈췄다. 처음부터(`check:full`, e2e 약 7분) 다시 돌아 올라갔다.
 
 영향: 사람의 시간. 계획 하나의 대부분이 land와 그 대기로 간다. lock 때문에 다른 계획의 land와도 줄을 선다. 사람이 "왜 wave마다 그 긴 과정을 거치나"라고 물어 드러났다.
 
@@ -101,3 +102,4 @@ modules: [tools]
   - plan branch가 오래 열려 rebase가 커질 때
 - e2e는 land에서만 돌므로, land를 미루면 e2e 실패가 늦게 드러난다. 그 대신 protocol 이름이나 id 꼴을 바꾼 task의 brief "남지 않음" grep에 `tests/`를 넣는다. 이번 실패는 brief grep이 `packages tools`만 봐서 `tests/e2e`의 옛 문자열 기대값을 놓친 것이다.
 - land.sh가 rebase 뒤 `package-lock.json`이 바뀌었으면 `npm ci`를 돌린다.
+- land 사이 main에 코드가 바뀌면 처음부터 다시 도는 대신, 새 rebase 뒤 바뀐 package만 빠른 check로 보고 e2e는 바뀐 쪽이 e2e에 닿을 때만 다시 돈다. main에 자주 올리는 session이 있으면 지금 규칙으로는 land가 끝나지 않을 수 있다.

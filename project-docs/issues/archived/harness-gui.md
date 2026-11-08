@@ -214,3 +214,71 @@ guard: `packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` recei
 - 추천: 첫째를 먼저 하고 Codex·OpenCode·omp도 같은 확인을 한다. 둘째는 handoff UI와 같이 한다.
 
 닫음: `received.ts`의 `classifyReceived`가 `<lophn-call>`·`<lophn-reply>` tag(`from="human"`은 사람)와 Claude transcript `origin.kind`(human 밖)로 가르고, adapter 넷이 다시 그릴 때(Claude·Codex·omp는 live도) `actor: "received"`, sender(agent | program), `call`·`reply_to`로 그린다. 받은 메시지는 `origin`이 없어 rewind 시점과 bookmark가 되지 않는다. ACP sender 확장과 A2A 화면은 하지 않았다(사람이 모양을 정한다).
+
+## GUI의 변경 파일 Open이 cwd 상대 경로로 열어 "못 연다"가 뜬다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer, packages/shell/main]
+closed: fixed
+guard: 없음
+```
+
+지금: edit 카드의 Open은 `packages/shell/renderer/conversation/agent-thread.tsx`에서 `onOpenFile(entry.edit.path)`로 document 탭을 연다. ACP edit detail(`packages/protocol/acp/items.ts`)은 `document`(절대 경로)와 `path`(보이는 이름) 둘을 갖는데, harness-gui adapter는 `path`를 cwd 상대로 낸다(`claude.ts` `relative`, `codex.ts`, `opencode.ts`, `omp.ts`). document 탭의 file adapter(`packages/shell/main/editor/file-adapter.ts` `accept`)는 절대 경로가 아니면 `invalid_input`으로 거절한다. `thread-layout.ts`가 `document`를 entry에 옮기지만 읽는 곳이 없다. lophn agent는 core가 `document`와 `path`를 같은 경로로 내서 열린다.
+
+영향: GUI에서 agent가 고친 파일을 카드의 Open으로 열 수 없다. 카드에 보이는 경로가 맞아 사람은 원인을 모른다. Claude가 cwd 밖에서 고친 파일은 절대 경로라 열린다.
+
+고치려면: Open과 `EditCard`가 `entry.edit.document`를 쓴다. adapter마다 `document`가 절대 경로인지 fixture로 확인한다(omp는 `args.path`가 상대일 수 있다). 작음. 추천.
+
+닫음: edit 카드의 Open이 절대 경로인 `entry.edit.document`로 연다. omp adapter는 상대 경로로 온 `args.path`를 cwd에 붙여 `document`를 절대 경로로 낸다.
+
+## 도는 중에 보낸 메시지가 대화에 잠깐 보낸 메시지로 그려졌다가 줄로 간다
+
+```yaml
+kind: bug
+modules: [packages/shell/renderer]
+closed: fixed
+guard: `packages/shell/renderer/conversation/delivery-state_test.ts` "대화에서 빠지는 것은 줄에 설 말이 보내는 중이거나 접수된 동안뿐이다"
+```
+
+지금: 보내기(`packages/shell/renderer/conversation/agent-view.tsx` `dispatch`)는 곧바로 draft에 `outgoing`을 두고, `agent-thread.tsx`는 `hasEntry`가 대화 entry에서 그 id를 찾지 못하면 `outgoing`을 사람 메시지로 그린다. `hasEntry`는 줄(`queued`)을 보지 않는다. turn이 도는 중이면 adapter가 `message_queued`를 낸 뒤에야 `agent-view.tsx`의 `arrived`가 `outgoing`을 지운다. 그 사이(IPC 왕복, adapter, `packages/shell/main/terminal/gui.ts`의 20ms 묶음)에 메시지가 대화에 보인다. adapter 넷이 다 그렇고, OpenCode는 server의 `inbox.enqueued`를 기다려 가장 길다. lophn agent 탭에서도 보이는지는 확인하지 못했다.
+
+영향: 사람이 도는 중에 보낸 메시지가 대화에 들어간 것처럼 보였다가 아래 줄로 옮겨져, 보냈는지 줄에 섰는지 헷갈린다.
+
+고치려면: turn이 돌고 delivery가 다음 turn이면 `outgoing`을 대화에 그리지 않고 줄 끝에 "보내는 중" 항목으로 보인다. 작음. 추천.
+
+닫음: 보낼 때 turn이 돌고 다음 turn으로 가는 말은 `Outgoing.queued`로 표시하고(`delivery-state.ts` `waitsInQueue`), 대화에 그리지 않고 Queue 카드 끝에 흐린 "보내는 중" 줄로 보인다. 못 보냄·접수 확인 안 됨은 다시 보내기 단추가 있는 대화 줄에 그대로 남는다.
+
+## Claude GUI에서 줄의 첫 메시지가 나가면 남은 메시지가 다 steer로 나간다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+closed: fixed
+guard: `packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` "줄 선 later 메시지가 잇따라 시작해도 steer가 아니라 첫 메시지가 연 turn의 next_turn이다"
+```
+
+지금: `packages/shell/main/extensions/bundled/harness-gui/claude.ts` `onStarted`는 CLI의 `command_lifecycle` `started`를 받을 때 `root.turn !== null`이면 steer로 본다. 첫 메시지가 turn을 열고 나머지의 `started`가 곧이어 오면, 나머지는 열린 turn을 보고 모두 `message_taken`의 `delivery: "steer"`로 줄을 떠난다. CLI가 줄 선 `later` 메시지 여럿을 한 번에 시작하는지는 녹화로 확인하지 못했다(`fixtures/claude/steer.jsonl`은 남은 메시지가 하나뿐이다). 사람이 본 harness가 Claude인지도 확인하지 못했다. Codex·OpenCode·omp는 code로는 한 번에 하나만 꺼낸다.
+
+영향: 사람이 줄에 세운 다음 turn 메시지들이 한꺼번에 지금 turn에 끼어든 것으로 보인다. 다음 turn으로 미룬 순서가 사라진다.
+
+고치려면: 먼저 `fixtures/claude/record.ts`로 도는 중에 메시지 셋을 세우고 첫 것을 지금 보내는 녹화를 떠, `started`가 어떻게 오는지 본다. steer 여부는 turn 상태가 아니라 보낼 때의 priority(`next`·`now`)로 정한다. CLI가 정말 여럿을 한 turn으로 묶으면 화면이 그것을 한 다음 turn 묶음으로 그려야 한다. 작음~중간.
+
+닫음: `Queued`가 보낼 때의 priority를 들고, `onStarted`는 priority `next`가 도는 turn에 끼어들 때만 steer로 본다. `later`·`now`는 늘 next_turn이고, 열린 turn에서 시작하면 그 turn에 붙는다. CLI가 실제로 `started`를 잇따라 내는지는 녹화로 확인하지 않았다(SDK 문서의 batch 설명에 기댔다).
+
+## Claude GUI에서 줄 고치기·옮기기가 steer 메시지를 다음 turn으로 바꾼다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+closed: fixed
+guard: `packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` "steer 메시지를 고치거나 옮겨 다시 세워도 priority가 later로 내려가지 않는다"
+```
+
+지금: `claude.ts` `requeue`(`edit_queued`·`move_queued`가 부른다)는 줄의 메시지를 모두 `cancelAsyncMessage`로 빼고 `priority: "later"`로 다시 넣는다. `Queued`에 보낼 때의 priority가 없어 steer(`next`)로 세운 메시지도 later가 된다.
+
+영향: 사람이 steer로 보낸 메시지를 고치거나 옮기면 turn이 끝날 때까지 기다린다. 화면에는 바뀐 표시가 없다.
+
+고치려면: `Queued`에 priority를 두고 `requeue`가 그대로 쓴다. 작음. 추천. 줄 code를 adapter 넷이 같이 쓰게 하는 위 defect와 같이 하면 한 번에 고친다.
+
+닫음: `requeue`가 각 메시지의 priority를 그대로 다시 넣는다.

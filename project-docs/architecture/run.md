@@ -99,7 +99,7 @@ CLI와 자격(`architecture/coding-agent.md`)
 - 명령은 `lophn agent run <prompt>`(`--agent`, `--project`, `--app`, `--session`, `--schema`, `--data`, `--async`), `lophn <app> <command>`(앱 command, command의 입력 칸이 flag다), `lophn run wait|show|cancel <run>`이다. `lophn <domain> <command>`는 첫 낱말이 명령 표에 없으면 binary가 사람 자격으로 `domain.list`와 `app.tools`를 읽어 찾고 tool run(`runs.start kind:tool`)으로 부른 뒤 기다린다(`packages/cli/commands/app-command.ts`). 사람은 그 domain의 command를 모두 본다. `--agent`는 agent 이름(없으면 lophn)이고 `--project`나 `--app`이 workspace(이름이나 id, 둘을 같이 쓰지 않는다, 없으면 home)다. `--session`은 셋과 같이 쓰지 않는다. 이어 쓰는 session의 agent와 workspace는 열 때 정해졌다. `--schema`는 JSON 글이다.
 - 결과는 stdout에 낸다. 답이 글이면 그대로, 아니면 JSON이고 `--json`이면 run 전체다. `agent run --async`는 run id(`--json`이면 run)를 내고 바로 끝난다.
 - 종료 코드는 0 성공, 1 internal, 2 invalid_input, 3 unauthorized·forbidden, 4 실패, 5 unavailable, 6 쓰기 응답을 잃음(effect_unknown)이다. 실패하거나 취소된 run은 `--json`이 없으면 stdout을 비우고 stderr에 한 줄(`failed: <reason>: <message>` 또는 `cancelled`)을 쓰고 4로 끝난다. `--json`이면 run을 stdout에 내고 4로 끝난다. `--async`, `run show`, `run cancel`은 명령 자체가 되면 0이다.
-- 자격은 `<data root>/run/user-token`이다. core가 부모가 있을 때 hello frame을 쓰며 같은 token을 0600 file로 쓴다. 켤 때(lock을 잡은 뒤)와 종료, 기동 실패 때 지운다. file을 쓰지 못하면 core는 시작을 멈춘다. file이 없으면 lophn이 꺼진 것이고 CLI는 core를 띄우지 않고 `unavailable`(exit 5)로 끝난다.
+- 자격은 control `connect {client: cli}`가 주는 user token이다. 사람의 명령은 공용 ensure로 core에 붙고, 꺼져 있으면 core를 띄운 뒤 부른다(`architecture/coding-agent.md`, `architecture/platform.md` "core 수명"). token은 CLI 메모리에만 있고 file로 쓰지 않는다. `LOPHN_AGENT_CREDENTIAL`이 있으면 그 자격만 쓰고 user connect로 바꾸지 않는다.
 - 명령은 명령 표(`packages/cli/commands/`)의 `packages/cli/commands/run.ts`에 있고 `protocol/runs`의 route를 부른다. 이 명령들은 workspace 종류가 비어 binary만 부른다.
 
 화면
@@ -120,5 +120,5 @@ CLI와 자격(`architecture/coding-agent.md`)
 - 취소할 때 run을 먼저 닫는다. 뒷일(입력 빼기, turn 멈추기)이 실패해도 run의 상태는 사람이 요청한 대로 남는다.
 - tool run은 사람이 부르는 길이다. 사람이 시킨 일이 승낙이고(`architecture/approval.md`), CLI는 사람의 입구다.
 - `origin`과 `agent_resolved`는 route 입력에 없고 core 안 `RunService.start`만 받는다. `origin`이 만든 agent(또는 flow creator)의 할당으로 앱 tool을 부르는 program·flow 자격이 되므로, route 입력으로 열려 있으면 누구든 남의 할당을 빌려 쓰는 길이 된다.
-- 자격은 가장 단순한 길이다. 같은 OS 사용자로 도는 agent가 file을 읽어 사람 자격을 쓸 수 있다는 위험은 신경 쓰지 않는다.
+- 자격은 가장 단순한 길이다. 같은 OS 사용자로 도는 agent가 control socket에 붙어 사람 자격을 받을 수 있다는 위험은 신경 쓰지 않는다(지난 `run/user-token` file과 같은 경계다). 사람 결정 handle만은 shell capability로 따로 지킨다(`architecture/approval.md`).
 - `invalid_output`을 오류 코드가 아니라 실패 이유로 둔다. 경계의 오류 코드는 일곱으로 두고, run이 어떻게 끝났는지는 run의 기록이다.

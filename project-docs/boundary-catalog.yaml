@@ -177,7 +177,7 @@ elements:
 
       - id: coding-agent-cli
         kind: application
-        description: lophn이 내놓는 명령 표(`packages/cli`)와 그 binary. lophn agent는 native tool `lophn`으로, coding agent와 사람은 binary로 같은 명령을 부른다. binary는 user token을 쓰고, harness hook·감지·공유 skill 사본 명령(local)은 coding-agent가 갖고 binary가 끼운다.
+        description: lophn이 내놓는 명령 표(`packages/cli`)와 그 binary. lophn agent는 native tool `lophn`으로, coding agent와 사람은 binary로 같은 명령을 부른다. 사람이 부르면 binary는 공용 ensure로 core에 붙거나 띄우고 control `connect`(client cli)의 user token을 쓴다. `core stop`은 binary만 아는 명령이다. harness hook·감지·공유 skill 사본 명령(local)은 coding-agent가 갖고 binary가 끼운다.
 
   - id: design
     kind: library
@@ -250,7 +250,7 @@ interfaces:
 
   - id: child-supervision-protocol
     kind: interface
-    description: core daemon과 child process(shell main과 core 사이 포함) 사이의 감독 계약. control frame은 json 하나가 256KiB 안이고, 넘는 본문은 같은 request의 channel에 bytes frame과 end·abort로 보낸다(blob 준비, 앱 rewind 적용). child의 crash는 진단 한 줄로 core에 오고 core가 component·location을 정해 log에 쓴다.
+    description: core daemon과 그 child process(writer·reader Worker, platform/io, 앱 supervisor child, agent runtime, flow host, job child) 사이의 감독 계약. control frame은 json 하나가 256KiB 안이고, 넘는 본문은 같은 request의 channel에 bytes frame과 end·abort로 보낸다(blob 준비, 앱 rewind 적용). child의 crash는 진단 한 줄로 core에 오고 core가 component·location을 정해 log에 쓴다. shell main과 CLI는 core의 부모가 아니고 `core-control-protocol`로 붙는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:
@@ -260,7 +260,17 @@ interfaces:
       - app-runtime
       - app-releases
       - diagnostics
+
+  - id: core-control-protocol
+    kind: interface
+    description: data root마다 하나인 core control socket(공통 socket 자리의 `core`, POSIX 0700 폴더의 unix socket, win32 named pipe)의 계약. 한 연결에 JSON 한 줄 요청 하나와 Result 답 하나다. `identify`(판, `core_epoch`, `api_url`, starting·ready·stopping, credential 없음), `connect`(client cli 또는 shell. user token, shell이면 shell capability도), `stop`, `diagnostic`, shell capability로만 받는 사람 결정 handle 등록·창 닫기. shell과 CLI는 같은 `ensureCore`로 붙거나 detached core를 띄우고, 띄운 core는 stdout 첫 줄로 `ready`나 `start_failed`만 알린다. 경계는 socket 자리이고 OS peer 신원은 보지 않는다.
+    interface_type: protocol
+    defined_by: protocol
+    provided_by:
+      - server
+    used_by:
       - shell
+      - coding-agent-cli
 
   - id: agent-tool-spi
     kind: interface
@@ -352,7 +362,7 @@ interfaces:
 
   - id: coding-agent-cli-interface
     kind: interface
-    description: lophn 명령의 계약(`lophn <group> <verb>`, 앱 command는 `lophn <app> <command>`). lophn agent는 `lophn` tool로, 사람과 coding agent는 user token(data root의 run/user-token)으로 binary를 쓰고, harness는 hook 명령만 부른다.
+    description: lophn 명령의 계약(`lophn <group> <verb>`, 앱 command는 `lophn <app> <command>`). lophn agent는 `lophn` tool로, 사람과 coding agent는 control connect로 받은 user token으로 binary를 쓰고(core가 없으면 binary가 띄운다), harness agent는 turn 자격(`LOPHN_AGENT_CREDENTIAL`)만 쓰며, harness hook은 hook 명령만 부른다.
     interface_type: protocol
     defined_by: coding-agent
     provided_by:

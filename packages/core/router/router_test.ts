@@ -2,13 +2,17 @@ import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
-import type { AgentCallRow } from "../../protocol/lophn-agent/calls.ts";
+import {
+  type AgentCallRow,
+  callReply,
+} from "../../protocol/lophn-agent/calls.ts";
 import {
   type CallPolicy,
   DEFAULT_CALL_POLICY,
 } from "../../protocol/lophn-agent/call-policy.ts";
 import type { AgentAtWorkspace } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import { ASK_ANSWERED_TOPIC, ASK_ENDED_TOPIC } from "./model.ts";
 import { createRouter } from "./router.ts";
 import type {
   CallStore,
@@ -51,6 +55,7 @@ function setup(
   const rows = new Map<string, AgentCallRow>();
   const delivered: { to: string; input: RoutedInput }[] = [];
   const cancelled: boolean[] = [];
+  const announced: { topic: string; data: unknown }[] = [];
   let opened = 0;
   const openedBy: (string | null)[] = [];
   const store: CallStore = {
@@ -94,6 +99,7 @@ function setup(
     directory,
     store,
     callPolicy: () => policy,
+    announce: (_tx, topic, data) => announced.push({ topic, data }),
     transport: {
       deliver: (_tx, to, input) => {
         delivered.push({ to: to.session, input });
@@ -111,6 +117,7 @@ function setup(
     rows,
     delivered,
     cancelled,
+    announced,
     opened: () => opened,
     openedBy,
   };
@@ -461,4 +468,101 @@ test("call.send to an agent name opens a session that belongs to no team", () =>
   });
   assert.ok(routed.ok);
   assert.deepStrictEqual(openedBy, [null]);
+});
+
+// 팀 자식(SENDER)이 부모 ses_p에게 질문·승인 call을 연다.
+function askCall(kind: "question" | "approval") {
+  const world = setup(team());
+  const opened = world.router.route(world.tx, {
+    ...base,
+    to: { session: "ses_p" },
+    dedup: null,
+    ask: kind,
+  });
+  assert.ok(opened.ok && opened.value.call !== null);
+  world.delivered.length = 0;
+  return { ...world, call: opened.value.call };
+}
+
+const parentReply = (
+  world: ReturnType<typeof askCall>,
+  decision?: "allow" | "reject",
+  text = "ok",
+) =>
+  world.router.reply(
+    world.tx,
+    { session: "ses_p" as never },
+    {
+      call: world.call as never,
+      body: textBlocks(text),
+      refs: [],
+      ...(decision === undefined ? {} : { decision }),
+    },
+  );
+
+test("a parent's answer to an ask call closes it and goes to the pairing, never to the child's queue", () => {
+  const approval = askCall("approval");
+  const answered = parentReply(approval, "allow", "go ahead");
+  assert.ok(answered.ok);
+  assert.deepStrictEqual(answered.value, { delivered: false, closed: false });
+  assert.deepStrictEqual(approval.delivered, []);
+  assert.strictEqual(approval.rows.get(approval.call)!.state, "done");
+  assert.deepStrictEqual(approval.announced, [
+    {
+      topic: ASK_ANSWERED_TOPIC,
+      data: { call: approval.call, decision: "allow", text: "go ahead" },
+    },
+  ]);
+  // 늦은 답은 closed다.
+  const late = parentReply(approval, "reject");
+  assert.ok(late.ok && late.value.closed);
+  assert.strictEqual(approval.announced.length, 1);
+});
+
+test("an approval call needs a decision, no other call takes one, and always does not exist", () => {
+  const approval = askCall("approval");
+  const missing = parentReply(approval);
+  assert.ok(!missing.ok && missing.error.code === "invalid_input");
+  const question = askCall("question");
+  const extra = parentReply(question, "allow");
+  assert.ok(!extra.ok && extra.error.code === "invalid_input");
+  assert.deepStrictEqual(question.announced, []);
+  // 보통 call에도 결정을 주지 못한다.
+  const plain = setup(team());
+  const sent = plain.router.route(plain.tx, {
+    ...base,
+    to: { session: "ses_p" },
+    dedup: "tool-1",
+  });
+  assert.ok(sent.ok && sent.value.call !== null);
+  const decided = plain.router.reply(
+    plain.tx,
+    { session: "ses_p" as never },
+    {
+      call: sent.value.call as never,
+      body: textBlocks("x"),
+      refs: [],
+      decision: "allow",
+    },
+  );
+  assert.ok(!decided.ok && decided.error.code === "invalid_input");
+  // 부모가 shell 규칙을 더하는 길은 schema에 없다.
+  assert.ok(
+    !callReply.input.safeParse({
+      call: "cal_01h455vb4pex5v6nkc6gd5fd01",
+      body: textBlocks("x"),
+      decision: "always",
+    }).success,
+  );
+});
+
+test("when the parent ends, an ask call fails without telling the child's queue and the pairing is told", () => {
+  const world = askCall("approval");
+  const done = world.router.failReceivedBy(world.tx, "ses_p");
+  assert.ok(done.ok);
+  assert.strictEqual(world.rows.get(world.call)!.state, "failed");
+  assert.deepStrictEqual(world.delivered, []);
+  assert.deepStrictEqual(world.announced, [
+    { topic: ASK_ENDED_TOPIC, data: { call: world.call } },
+  ]);
 });

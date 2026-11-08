@@ -17,6 +17,8 @@ type Entry = {
   turn: string;
   toolCall: string;
   questions: AskInput["questions"];
+  // 팀 자식의 질문이라 사람이 아니라 부모가 답한다.
+  toParent: boolean;
   settle(result: AskResult): void;
 };
 
@@ -62,6 +64,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
     ask(
       call: { session: string; turn: string; tool_call: string },
       questions: AskInput["questions"],
+      toParent: boolean,
     ): Promise<AskResult> {
       const key = keyOf(call.session, call.tool_call);
       const waiting = promises.get(key);
@@ -74,6 +77,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
           turn: call.turn,
           toolCall: call.tool_call,
           questions,
+          toParent,
           settle: resolve,
         });
       }).finally(() => promises.delete(key));
@@ -82,7 +86,12 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
         session: call.session,
         type: "QuestionAsked",
         at: deps.clock.now(),
-        payload: { group, turn: call.turn, tool_call: call.tool_call },
+        payload: {
+          group,
+          turn: call.turn,
+          tool_call: call.tool_call,
+          to_parent: toParent,
+        },
       });
       return promise;
     },
@@ -102,15 +111,19 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
     },
 
     // 그 session의 답 없는 질문. snapshot이 읽는다.
-    list(
-      session: string,
-    ): { group: Id<"qgr">; turn: Id<"trn">; tool_call: Id<"tcl"> }[] {
+    list(session: string): {
+      group: Id<"qgr">;
+      turn: Id<"trn">;
+      tool_call: Id<"tcl">;
+      to_parent: boolean;
+    }[] {
       return [...entries.values()]
         .filter((one) => one.session === session)
         .map((one) => ({
           group: one.group,
           turn: one.turn as Id<"trn">,
           tool_call: one.toolCall as Id<"tcl">,
+          to_parent: one.toParent,
         }));
     },
 
@@ -139,6 +152,16 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       const result: AskResult = { outcome: "submitted", answers: [...answers] };
       close(key, entry, result);
       return ok(result);
+    },
+
+    // 부모가 call reply로 답했거나(parent_reply) 부모가 답 없이 끝났다(cancelled). 이미 풀렸으면 아무것도 하지 않는다.
+    settleGroup(group: string, result: Settled): void {
+      for (const [key, entry] of entries) {
+        if (entry.group === group) {
+          close(key, entry, result);
+          return;
+        }
+      }
     },
 
     // 사람이 기다리는 중에 그 session에 메시지를 보냈다. 답인지는 LLM이 읽는다.

@@ -25,7 +25,8 @@ const spawn = defineCommand({
     "Open a new session of an agent as your team member and send it the first call; returns the session and call IDs. The session is yours: only you (and the sessions above you) can end it, and it can call only its parent, siblings and its own members. " +
     'agent is the handle (see agent list). workspace is {"project": name} or {"app": name}; without it the member opens in your own workspace. ' +
     "reply: none requires no answer; result (default) asks it to reply; conversation lets both sides continue via call reply. body is text; repeat --image <path> to attach an image file as in call send. " +
-    "The team is limited in size and depth (conflict when full). A member in your workspace appears as a tab next to yours.",
+    "The team is limited in size and depth (conflict when full). A member in your workspace appears as a tab next to yours. " +
+    "After you spawn, end your turn: the answers arrive as new input. Do not poll. A member does the work itself; if it is unsure or needs approval, it uses `ask`, which goes to its parent (you).",
   input: z.strictObject({
     agent: z.string().min(1),
     workspace: workspaceNameSchema.optional(),
@@ -57,7 +58,7 @@ const read = defineCommand({
   name: "team.read",
   summary: "Read your team: parent, siblings and members",
   description:
-    "Read your team: your parent, your siblings (same parent) and the open sessions you spawned, each with session ID, agent handle and name, one-line description, runtime and state (running, waiting for a human, or idle). Empty when you are not in a team. Run it when you are told your team changed.",
+    "Read your team: your parent, your siblings (same parent) and the open sessions you spawned, each with session ID, agent handle and name, one-line description, runtime, state (running, waiting for a human, or idle) and open_calls (calls you sent it that it has not answered yet). Empty when you are not in a team. Run it when you are told your team changed.",
   input: z.strictObject({}),
   effect: "read",
   routes: [teamRead],

@@ -129,7 +129,8 @@ export interface CallStore {
   // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 답 없는 call은 여기서 done이 된다. 재시작 때 잃어버린 call을
   // 가리는 근거다.
   markConsumed(tx: Tx, call: Id<"cal">): Result<void>;
-  // 끝나지 않았고 아직 가져가지 않은 call. queue와 앱 줄이 메모리라 lophn을 켤 때 잃어버린 것이다.
+  // 끝나지 않았고 아직 가져가지 않은 call, 그리고 가져갔어도 끝나지 않은 ask call. queue와 앱 줄이 메모리라 lophn을 켤 때
+  // 잃어버린 것이다.
   lost(tx: Tx): readonly AgentCallRow[];
   // 이 session이 받은 끝나지 않은 call. archive나 지움에서 receiver_ended로 닫는다.
   openReceivedBy(tx: Tx, session: Id<"ses">): readonly AgentCallRow[];

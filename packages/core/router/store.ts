@@ -18,7 +18,7 @@ export type SqlView = {
 };
 
 const COLUMNS = `call, from_session, "to", receiver_session, reply, state, fail_reason, dedup,
-   unattended, created_at, state_at`;
+   unattended, ask, created_at, state_at`;
 
 function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
   let to: unknown;
@@ -39,6 +39,7 @@ function recordOf(row: Record<string, unknown>): Result<AgentCallRow> {
     fail_reason: (row["fail_reason"] ?? null) as CallFailReason | null,
     dedup: (row["dedup"] ?? null) as string | null,
     unattended: Number(row["unattended"]) === 1,
+    ask: (row["ask"] ?? null) as AgentCallRow["ask"],
     created_at: String(row["created_at"]),
     state_changed_at: String(row["state_at"]),
   });
@@ -78,9 +79,9 @@ export function createCallStore(): CallStore {
       }
       tx.sql.run(
         `insert into agent_calls (call, from_session, "to", receiver_session,
-           reply, state, fail_reason, dedup, consumed, unattended,
+           reply, state, fail_reason, dedup, consumed, unattended, ask,
            created_at, state_at)
-         values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+         values (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
         [
           record.call,
           record.from.session,
@@ -91,6 +92,7 @@ export function createCallStore(): CallStore {
           record.fail_reason,
           record.dedup,
           record.unattended ? 1 : 0,
+          record.ask,
           record.created_at,
           record.state_changed_at,
         ],
@@ -145,11 +147,13 @@ export function createCallStore(): CallStore {
       );
       return ok(undefined);
     },
+    // ask call은 부모가 가져갔어도 닫는다: 자식의 request·질문이 메모리라 사라져 부모의 늦은 답이 갈 곳이 없다.
     lost(tx) {
       return many(
         tx.sql.all(
           `select ${COLUMNS} from agent_calls
-         where state = 'accepted' and consumed = 0 order by created_at, call`,
+         where state = 'accepted' and (consumed = 0 or ask is not null)
+         order by created_at, call`,
           [],
         ),
       );
@@ -165,6 +169,21 @@ export function createCallStore(): CallStore {
       );
     },
   };
+}
+
+// 그 session이 보낸, 아직 답을 받지 못한 result·conversation call. 팀원마다 묶는 것은 읽는 쪽이 한다.
+export function openCallsSentBy(
+  view: SqlView,
+  sender: Id<"ses">,
+): readonly AgentCallRow[] {
+  return many(
+    view.sql.all(
+      `select ${COLUMNS} from agent_calls
+       where from_session = ? and state = 'accepted' and reply <> 'none'
+       order by created_at, call`,
+      [sender],
+    ),
+  );
 }
 
 // 받는 session의 turn이 call 입력을 가져갔다는 신호를 받는 쪽이다. run-loop가 turn을 시작하는 tx에서 부른다.

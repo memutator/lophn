@@ -9,7 +9,16 @@ import {
   type ShellRuleLayers,
 } from "../../../protocol/approvals/mod.ts";
 import type { TurnMode } from "../../../protocol/lophn-agent/turn-values.ts";
-import { judge } from "./judge.ts";
+import { judge as judgeTurn } from "./judge.ts";
+
+// toParent는 팀 자식(사람이 skip을 켜지 않은 session)이다. 따로 말하지 않은 test는 팀 밖이다.
+const judge = (
+  call: GateCall,
+  assignment: Parameters<typeof judgeTurn>[1],
+  shell: ShellRuleLayers,
+  mode: TurnMode,
+  toParent = false,
+) => judgeTurn(call, assignment, shell, mode, toParent);
 
 const APP = "app_0000000000000000000000000a";
 const OTHER = "app_0000000000000000000000000b";
@@ -136,4 +145,31 @@ test("project 층의 allow 규칙은 floor deny를 덮지 못한다", () => {
       },
     );
   }
+});
+
+test("부모에게 가는 session의 shell ask는 mode와 상관없이 ask이고 deny는 부모도 풀지 못한다", () => {
+  const shell = rules([{ pattern: "git push *", action: "deny" }]);
+  for (const mode of MODES) {
+    assert.deepStrictEqual(
+      judge(shellCall("rm -r build"), null, shell, mode, true),
+      { kind: "ask" },
+      mode,
+    );
+    // deny는 ask 앞에서 끝나 request도 call도 열리지 않는다.
+    assert.deepStrictEqual(
+      judge(shellCall("git push origin main"), null, shell, mode, true),
+      denied("git push *"),
+      mode,
+    );
+    assert.deepStrictEqual(
+      judge(shellCall("rm -rf /"), null, shell, mode, true),
+      denied("rm -rf /"),
+      mode,
+    );
+  }
+  // 팀 밖(toParent false)은 그대로다: unattended와 skip은 묻지 않는다.
+  assert.deepStrictEqual(
+    judge(shellCall("rm -r build"), null, shell, "unattended"),
+    { kind: "run" },
+  );
 });

@@ -62,10 +62,12 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
         turn: origin.turn,
         tool_call: origin.tool_call,
         subject,
+        // 부모가 푸는 request는 always가 없다: 부모가 shell 규칙을 더하는 길은 없다.
         always_patterns:
-          subject.kind === "shell"
+          subject.kind === "shell" && !origin.toParent
             ? alwaysPatterns(deps.shellRules(origin.workspace), subject.command)
             : [],
+        to_parent: origin.toParent,
         created_at: deps.clock.now(),
       };
       entries.set(request.id, {
@@ -101,7 +103,12 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
       effects: ReadonlyMap<string, AlwaysEffect>,
     ): Promise<Result<{ outcome: TurnRequestOutcome }>> {
       const entry = entries.get(id);
-      if (entry === undefined || entry.request.session !== session) {
+      // 부모가 푸는 request는 카드가 없다. 사람이 결정하는 길을 열지 않는다.
+      if (
+        entry === undefined ||
+        entry.request.session !== session ||
+        entry.request.to_parent
+      ) {
         return err({
           code: "not_found",
           message: "the request does not exist",
@@ -145,6 +152,22 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
       }
       resolve(entry, outcome);
       return ok({ outcome });
+    },
+
+    // 부모의 답(call reply)이나 부모의 끝남. once와 reject만 낸다. 이미 풀렸으면 아무것도 하지 않는다.
+    answerFromParent(
+      id: string,
+      decision: "allow" | "reject",
+      reason: string | null,
+    ): void {
+      const entry = entries.get(id);
+      if (entry === undefined || entry.closed) return;
+      resolve(
+        entry,
+        decision === "allow"
+          ? { outcome: "allow", scope: "once" }
+          : { outcome: "reject", reason },
+      );
     },
 
     // turn이 끝나거나 session이 닫히거나 시작 때 정리한다. 기다리던 쪽은 거절과 구별해 cancelled를 받는다.

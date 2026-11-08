@@ -46,7 +46,7 @@ export const callRefOutputSchema = refSchemas(false);
 export type CallRef = z.infer<typeof callRefOutputSchema>;
 
 export const CALL_STATES = ["accepted", "done", "failed", "cancelled"] as const;
-const callStateSchema = z.enum(CALL_STATES);
+export const callStateSchema = z.enum(CALL_STATES);
 export type CallState = z.infer<typeof callStateSchema>;
 
 export const CALL_FAIL_REASONS = [
@@ -62,6 +62,17 @@ export type CallFailReason = z.infer<typeof callFailReasonSchema>;
 export function callCanMove(from: CallState, to: CallState): boolean {
   return from === "accepted" && to !== "accepted";
 }
+
+// 팀 자식의 질문(`ask`)이나 shell 승인이 사람 대신 부모에게 가는 result call이다. 부모의 답이 그 질문·승인을 푼다.
+export const CALL_ASK_KINDS = ["question", "approval"] as const;
+export const callAskKindSchema = z.enum(CALL_ASK_KINDS);
+export type CallAskKind = z.infer<typeof callAskKindSchema>;
+
+// 승인 call(ask = approval)의 답은 결정이 있어야 하고, 다른 call의 답은 결정을 싣지 않는다. always는 없다:
+// 부모가 shell 규칙을 더하는 길은 없다.
+export const CALL_DECISIONS = ["allow", "reject"] as const;
+export const callDecisionSchema = z.enum(CALL_DECISIONS);
+export type CallDecision = z.infer<typeof callDecisionSchema>;
 
 const commandErrors = [
   "invalid_input",
@@ -89,6 +100,7 @@ export const callReply = defineCommand({
     call: idSchema("cal"),
     body: contentBlocksSchema,
     refs: z.array(callRefSchema).default([]),
+    decision: callDecisionSchema.optional(),
   }),
   output: z.object({ delivered: z.boolean(), closed: z.boolean() }),
   actors: ["agent"],
@@ -173,6 +185,8 @@ export const agentCallRowSchema = z
     fail_reason: callFailReasonSchema.nullable(),
     dedup: z.string().min(1).nullable(),
     unattended: z.boolean(),
+    // 질문이나 승인을 부모에게 보낸 call이면 그 종류.
+    ask: callAskKindSchema.nullable(),
     created_at: atSchema,
     state_changed_at: atSchema,
   })

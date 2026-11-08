@@ -414,22 +414,22 @@ test("max_depth와 max_members를 넘는 spawn은 conflict이고 session이 남�
     {} as never,
   );
   assert.ok(root.ok);
-  // 깊이: root 0 → 1 → 2 → 3은 되고 4는 안 된다(기본 max_depth 3).
+  // 깊이: root 0 → 1 → 2는 되고 3은 안 된다(기본 max_depth 2).
   let parent = "ses_root";
-  for (let depth = 1; depth <= 3; depth += 1) {
+  for (let depth = 1; depth <= 2; depth += 1) {
     parent = String(spawn(parent));
   }
   const before = count();
   const tooDeep = spawn(parent) as { ok: false; error: { code: string } };
   assert.deepStrictEqual(tooDeep.error.code, "conflict");
   assert.deepStrictEqual(count(), before);
-  // 폭: root 아래 열린 자손이 이미 3이다. 기본 max_members 16에 닿을 때까지 채우면 다음은 conflict다.
-  for (let n = 3; n < 16; n += 1)
+  // 폭: root 아래 열린 자손이 이미 2다. 기본 max_members 8에 닿을 때까지 채우면 다음은 conflict다.
+  for (let n = 2; n < 8; n += 1)
     assert.equal(typeof spawn("ses_root"), "string");
-  const before16 = count();
+  const beforeFull = count();
   const full = spawn("ses_root") as { ok: false; error: { code: string } };
   assert.deepStrictEqual(full.error.code, "conflict");
-  assert.deepStrictEqual(count(), before16);
+  assert.deepStrictEqual(count(), beforeFull);
 });
 
 test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자식은 forbidden이다", () => {
@@ -438,7 +438,6 @@ test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자�
   const a = String(spawn(root));
   const b = String(spawn(root));
   const aChild = String(spawn(a));
-  const aGrandchild = String(spawn(aChild));
   const as = (session: string): RequestContext => ({
     ...user,
     actor: `agent:${session}`,
@@ -457,10 +456,10 @@ test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자�
   }
   const open = () =>
     sql.all("select id from sessions where lifecycle = 'open'", []).length;
-  assert.deepStrictEqual(open(), 5);
+  assert.deepStrictEqual(open(), 4);
   // root는 아래 어디든 끝낼 수 있고 대상 밑까지 닫는다.
-  const done = end(root, aChild);
+  const done = end(root, a);
   assert.ok(done.ok);
-  assert.deepStrictEqual(done.value.ended, [aGrandchild, aChild]);
-  assert.deepStrictEqual(open(), 3);
+  assert.deepStrictEqual(done.value.ended, [aChild, a]);
+  assert.deepStrictEqual(open(), 2);
 });

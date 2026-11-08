@@ -23,6 +23,18 @@ export type TurnOrigin = {
   turn: string;
   tool_call: string;
   workspace: Workspace | null;
+  // 팀 자식의 request면 true: 사람이 아니라 부모가 푼다(카드도 always도 없다).
+  toParent: boolean;
+};
+
+// 부모가 ask call에 답했거나 끝났을 때 조립이 알려 주는 입구다. approvals는 Router를 모르고, call과 request의 짝은 조립이 갖는다.
+export type AskReplies = {
+  answered(data: {
+    call: string;
+    decision: "allow" | "reject" | null;
+    text: string;
+  }): void;
+  ended(data: { call: string }): void;
 };
 
 // Gate를 부르는 쪽이 쓰는 한 입구. Bus는 생성자에서 받는다.
@@ -35,6 +47,8 @@ export interface Approvals {
       session: string;
       workspace: Workspace | null;
       mode: TurnMode;
+      // spawned_by가 있고 skip이 아닌 session이면 true. 이때 shell ask는 mode와 상관없이 부모에게 간다.
+      toParent: boolean;
     },
   ): Promise<Result<Judgment>>;
   // 메모리에 두고 Bus에 TurnRequestOpened를 낸다.

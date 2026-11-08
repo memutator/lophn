@@ -16,7 +16,11 @@ import {
   callReply,
 } from "../../../../protocol/lophn-agent/calls.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
-import { teamEnd, teamSpawn } from "../../../../protocol/lophn-agent/team.ts";
+import {
+  TEAM_MEMBER_PREAMBLE,
+  teamEnd,
+  teamSpawn,
+} from "../../../../protocol/lophn-agent/team.ts";
 import {
   archiveSession,
   blocksOfContent,
@@ -36,6 +40,7 @@ import {
   type Workspace,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import type { ApprovalsService } from "../../../approvals/approvals.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import { appExists, appStatusOf } from "../../../apps/lookups.ts";
 import {
@@ -59,7 +64,11 @@ import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
 import { projectStatusOf } from "../../../projects/lookups.ts";
 import {
+  ASK_ANSWERED_TOPIC,
+  ASK_ENDED_TOPIC,
   CANCEL_TEXT,
+  callsAskOpen,
+  callsAskWithdraw,
   callsRecover,
   FAILURE_TEXTS,
   TEAM_SPAWNED_TOPIC,
@@ -160,7 +169,8 @@ function createCallBodyPreparer(deps: {
     if (
       name === agentCallSend.name ||
       name === callReply.name ||
-      name === teamSpawn.name
+      name === teamSpawn.name ||
+      name === callsAskOpen.name
     ) {
       // 모양이 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
       const shaped = contentBlocksSchema.safeParse(
@@ -175,9 +185,14 @@ function createCallBodyPreparer(deps: {
       if (safe === null) {
         return rejected("unavailable", "call redaction did not finish");
       }
-      bodies.push(safe);
-      next = { ...envelope, input: { ...(input as object), body: safe } };
-    } else if (name === callCancel.name) {
+      // team spawn의 첫 call은 앞에 고정 글 하나를 붙인다. 받은 메시지로 저장되어 이력 재생이 같은 bytes다.
+      const body =
+        name === teamSpawn.name
+          ? [{ type: "text" as const, text: TEAM_MEMBER_PREAMBLE }, ...safe]
+          : safe;
+      bodies.push(body);
+      next = { ...envelope, input: { ...(input as object), body } };
+    } else if (name === callCancel.name || name === callsAskWithdraw.name) {
       bodies.push(textBlocks(CANCEL_TEXT));
     } else if (
       name === archiveSession.name ||
@@ -250,6 +265,18 @@ export const routerWiring: WiringFactory = () => {
         for (const action of actions) {
           if (action.topic === TEAM_SPAWNED_TOPIC) {
             openChildTab(action.data as Parameters<typeof openChildTab>[0]);
+          } else if (action.topic === ASK_ANSWERED_TOPIC) {
+            ctx.peek.approvals?.askReplies.answered(
+              action.data as Parameters<
+                ApprovalsService["askReplies"]["answered"]
+              >[0],
+            );
+          } else if (action.topic === ASK_ENDED_TOPIC) {
+            ctx.peek.approvals?.askReplies.ended(
+              action.data as Parameters<
+                ApprovalsService["askReplies"]["ended"]
+              >[0],
+            );
           }
         }
       };

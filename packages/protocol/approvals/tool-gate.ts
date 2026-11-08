@@ -19,9 +19,11 @@ export type ToolGateInput = z.infer<typeof toolGateInputSchema>;
 const toolGateResultSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("run") }),
   z.strictObject({ kind: z.literal("denied"), reason: denyReasonSchema }),
+  // by는 누가 거절했는지다. 팀 자식의 request는 부모가 푼다.
   z.strictObject({
     kind: z.literal("rejected"),
     reason: z.string().nullable(),
+    by: z.enum(["person", "parent"]),
   }),
   z.strictObject({
     kind: z.literal("cancelled"),

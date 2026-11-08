@@ -66,6 +66,7 @@ test("attended turn에서 ask 규칙에 걸린 shell 명령은 사람이 허락�
           agent,
           workspace: null,
           mode: "attended",
+          toParent: false,
         }),
     },
   } as unknown as ToolContext;

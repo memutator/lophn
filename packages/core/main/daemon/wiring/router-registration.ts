@@ -44,6 +44,7 @@ const environment: RouterEnvironment = {
       directory,
       transport,
       store: createCallStore(),
+      announce: (tx, topic, data) => tx.port(afterCommit).push(topic, data),
       // writer Worker 안에서 설정 파일을 읽는다. data root는 ledger 파일이 있는 폴더이고, 읽지 못하면 규칙이 없는 기본(모두 허용)이다.
       callPolicy: () => {
         const root = dataRootOf(view.sql, undefined);

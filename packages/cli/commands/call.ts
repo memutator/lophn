@@ -134,21 +134,43 @@ const reply = defineCommand({
   name: "call.reply",
   summary: "Answer a call you received",
   description:
-    "Answer a call you received, with call (its ID), body (text), optional --image <path> files and refs. If you will not take the work, reply with the reason. closed: true means the call already ended and the reply was not delivered.",
-  input: callReply.input
-    .omit({ body: true })
-    .extend({ ...bodyFields, refs: z.array(callRefSchema).default([]) }),
+    "Answer a call you received, with call (its ID), body (text), optional --image <path> files and refs. If you will not take the work, reply with the reason. closed: true means the call already ended and the reply was not delivered. " +
+    "A call from a team member that needs approval to run something is answered with --allow or --reject (--body is the reason for a reject); any other call takes --body.",
+  input: callReply.input.omit({ body: true, decision: true }).extend({
+    ...bodyFields,
+    body: z.string().optional(),
+    allow: z.boolean().optional(),
+    reject: z.boolean().optional(),
+    refs: z.array(callRefSchema).default([]),
+  }),
   positional: ["call"],
   effect: "read",
   routes: [callReply, messageImagePrepare],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const body = await bodyOf(input, ctx);
+    if (input.allow === true && input.reject === true) {
+      return fail("invalid_input", "use either --allow or --reject");
+    }
+    const decision =
+      input.allow === true
+        ? "allow"
+        : input.reject === true
+          ? "reject"
+          : undefined;
+    // 결정만 보내는 답은 글이 없어도 된다(reject의 이유는 선택).
+    if (decision === undefined && (input.body ?? "") === "") {
+      return fail("invalid_input", "body is required");
+    }
+    const body = await bodyOf({ ...input, body: input.body ?? "" }, ctx);
     if (!body.ok) return body;
-    const { image: _image, ...rest } = input;
+    const { image: _image, allow: _allow, reject: _reject, ...rest } = input;
     const sent = await ctx.core.command(
       callReply,
-      { ...rest, body: body.value },
+      {
+        ...rest,
+        body: body.value,
+        ...(decision === undefined ? {} : { decision }),
+      },
       { key: ctx.key },
     );
     if (!sent.ok) return sent;

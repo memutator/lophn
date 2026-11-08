@@ -190,11 +190,11 @@ export const acpWiring: WiringFactory = () => {
             data: row["data"] === null ? null : String(row["data"]),
           }));
 
-      // 승인 카드는 harness 물음을 뺀 첫 요청이다. harness 물음은 터미널에서 답한다.
+      // 승인 카드는 harness 물음과 부모가 푸는 요청(팀 자식)을 뺀 첫 요청이다. harness 물음은 터미널에서 답한다.
       const approvalOf = (session: string) => {
         for (const request of ctx.approvals.turnRequests(session)) {
           const subject = request.subject;
-          if (subject.kind === "harness") continue;
+          if (subject.kind === "harness" || request.to_parent) continue;
           return {
             id: request.id,
             subject: redactDeep(env, subject),
@@ -206,7 +206,9 @@ export const acpWiring: WiringFactory = () => {
       };
 
       const questionOf = (session: string) => {
-        const asked = ctx.questionWaits.list(session)[0];
+        const asked = ctx.questionWaits
+          .list(session)
+          .find((one) => !one.to_parent);
         if (asked === undefined) return null;
         const read = ctx.questionWaits.read(session, asked.tool_call);
         return {
@@ -269,6 +271,8 @@ export const acpWiring: WiringFactory = () => {
 
       // 승인 요청의 내용(redaction을 거친 것). 닫힐 때 결과 항목으로 저장한다.
       const openRequests = new Map<string, TurnRequest["subject"]>();
+      // 부모가 푸는 request·질문(팀 자식)은 카드가 아니라 ACP에 나가지 않는다. 닫힘 event를 거르려고 열 때 기억한다.
+      const toParent = new Set<string>();
 
       const capture = (event: AgentEvent): AcpCaptured => ({
         // 줄에 선 메시지: 도는 중에 사람이 다음 turn으로 보냈다.
@@ -333,6 +337,25 @@ export const acpWiring: WiringFactory = () => {
         send: (event) => {
           if (!("session" in event)) return;
           const agent = event as AgentEvent;
+          if (
+            agent.type === "TurnRequestOpened" &&
+            agent.payload.request.to_parent
+          ) {
+            toParent.add(agent.payload.request.id);
+            return;
+          }
+          if (agent.type === "QuestionAsked" && agent.payload.to_parent) {
+            toParent.add(agent.payload.group);
+            return;
+          }
+          if (
+            (agent.type === "TurnRequestClosed" &&
+              toParent.delete(agent.payload.request)) ||
+            (agent.type === "QuestionResolved" &&
+              toParent.delete(agent.payload.group))
+          ) {
+            return;
+          }
           const cap = capture(agent);
           enqueue(async () => {
             // 압축은 대화 항목이 없다. 사용량만 바뀐다.

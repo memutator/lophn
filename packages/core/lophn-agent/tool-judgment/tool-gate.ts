@@ -21,6 +21,8 @@ export type ToolGateCall = {
   agent: AgentId;
   workspace: Workspace | null;
   mode: TurnMode;
+  // spawned_by가 있고 skip이 아닌 session. shell ask를 사람 대신 부모에게 보낸다.
+  toParent: boolean;
   tool: string;
   call: GateCall;
 };
@@ -41,6 +43,7 @@ export function createToolGate(deps: ToolGateDeps): ToolGate {
         session: call.session,
         workspace: call.workspace,
         mode: call.mode,
+        toParent: call.toParent,
       });
       if (!judged.ok) return judged;
       const judgment = judged.value;
@@ -55,6 +58,7 @@ export function createToolGate(deps: ToolGateDeps): ToolGate {
           turn: call.turn,
           tool_call: call.toolCall,
           workspace: call.workspace,
+          toParent: call.toParent,
         },
         call.call,
       );
@@ -62,7 +66,11 @@ export function createToolGate(deps: ToolGateDeps): ToolGate {
       // 물은 입력을 그대로 실행한다. 허락 뒤 다시 판정하거나 비교하지 않는다.
       const outcome = await deps.approvals.waitTurnDecision(opened.value.id);
       if (outcome.outcome === "reject") {
-        return ok({ kind: "rejected", reason: outcome.reason });
+        return ok({
+          kind: "rejected",
+          reason: outcome.reason,
+          by: opened.value.to_parent ? "parent" : "person",
+        });
       }
       if (outcome.outcome === "cancelled") {
         return ok({ kind: "cancelled", cause: outcome.cause });

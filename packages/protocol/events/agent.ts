@@ -183,17 +183,22 @@ const turnRequestClosed = defineAgentEvent(
   }),
 );
 
-// 질문 내용은 싣지 않는다. session snapshot과 질문 read가 준다.
+// 질문 내용은 싣지 않는다. session snapshot과 질문 read가 준다. to_parent는 팀 자식의 질문이라 부모가 답한다는 표시다.
 const questionAsked = defineAgentEvent(
   "QuestionAsked",
-  z.strictObject({ group, turn, tool_call: toolCall }),
+  z.strictObject({ group, turn, tool_call: toolCall, to_parent: z.boolean() }),
 );
 
 const questionResolved = defineAgentEvent(
   "QuestionResolved",
   z.strictObject({
     group,
-    outcome: z.enum(["submitted", "cancelled", "human_message"]),
+    outcome: z.enum([
+      "submitted",
+      "cancelled",
+      "human_message",
+      "parent_reply",
+    ]),
   }),
 );
 

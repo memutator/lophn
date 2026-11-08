@@ -192,6 +192,10 @@
     "sha256": "474df33ea737310c8421f1f49fc0a932c719fbeff21cab77b00492adcff21da5"
   },
   {
+    "id": "router.agent-calls.ask",
+    "sha256": "38fcd5f25ecab89b382a1334c06dc4e317e271c1440917e0f6413d606179e1c9"
+  },
+  {
     "id": "apps.annotations.tables",
     "sha256": "5bd31b946b4fe9abe71625d36e23412888b8c5d1b00d22dd86bd22402f8368e0"
   },

@@ -1,9 +1,13 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
-import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
+import {
+  blocksText,
+  type ContentBlock,
+} from "../../protocol/lophn-agent/content-block.ts";
 import type {
   AgentCallRow,
+  CallDecision,
   CallFailReason,
   CallFrom,
   CallRef,
@@ -22,6 +26,8 @@ import type {
 } from "../../protocol/lophn-agent/workspaces.ts";
 import {
   addressingOf,
+  ASK_ANSWERED_TOPIC,
+  ASK_ENDED_TOPIC,
   calId,
   FAILURE_TEXTS,
   failureCode,
@@ -46,6 +52,8 @@ export type RouterDeps = {
   store: CallStore;
   // 지금 call 정책. 설정이 바뀌면 다음 call부터 닿는다.
   callPolicy(): CallPolicy;
+  // commit 뒤 main thread에 일을 알린다(tx가 되돌아가면 버려진다). ask call의 답과 끝남이 이 길로 간다.
+  announce(tx: Tx, topic: string, data: unknown): void;
 };
 
 // 받는 session의 transport에 따라 queue를 고른다. 받을 곳이 없는 취소는 lophn 쪽이 조용히 넘긴다.
@@ -72,6 +80,8 @@ export interface Router {
       body: ContentBlock[];
       refs: CallRef[];
       unattended?: boolean;
+      // ask = approval인 call의 답은 결정이 있어야 하고 다른 call의 답은 결정을 싣지 않는다.
+      decision?: CallDecision;
     },
   ): Result<{ delivered: boolean; closed: boolean }>;
   cancel(
@@ -105,7 +115,7 @@ const MODALITY_OF = {
 } as const satisfies Record<ContentBlock["type"], Modality>;
 
 export function createRouter(deps: RouterDeps): Router {
-  const { directory, transport, store, callPolicy } = deps;
+  const { directory, transport, store, callPolicy, announce } = deps;
 
   function open(
     tx: Tx,
@@ -248,6 +258,7 @@ export function createRouter(deps: RouterDeps): Router {
       fail_reason: reason,
       dedup: input.dedup,
       unattended: input.unattended === true,
+      ask: input.ask ?? null,
       created_at: at,
       state_changed_at: at,
     };
@@ -409,6 +420,7 @@ export function createRouter(deps: RouterDeps): Router {
       body: ContentBlock[];
       refs: CallRef[];
       unattended?: boolean;
+      decision?: CallDecision;
     },
   ): Result<{ delivered: boolean; closed: boolean }> {
     const record = store.read(tx, calId(input.call));
@@ -426,6 +438,33 @@ export function createRouter(deps: RouterDeps): Router {
       return err({ code: "conflict", message: "this call takes no reply" });
     }
     if (isFinished(record.state)) return ok({ delivered: false, closed: true });
+    const decision = input.decision ?? null;
+    if (asReceiver && record.ask !== null) {
+      if ((record.ask === "approval") !== (decision !== null)) {
+        return err({
+          code: "invalid_input",
+          message:
+            record.ask === "approval"
+              ? "answer an approval call with --allow or --reject"
+              : "a question call takes no decision",
+        });
+      }
+      // 답은 자식의 queue가 아니라 main thread의 짝(request·질문)으로 간다.
+      const closed = store.move(tx, calId(record.call), "done", null);
+      if (!closed.ok) return closed;
+      announce(tx, ASK_ANSWERED_TOPIC, {
+        call: record.call,
+        decision,
+        text: blocksText(input.body),
+      });
+      return ok({ delivered: false, closed: false });
+    }
+    if (decision !== null) {
+      return err({
+        code: "invalid_input",
+        message: "only an approval call takes a decision",
+      });
+    }
     const toSession = asReceiver ? sender : record.receiver_session;
     const target = toSession === null ? null : directory.find(sesId(toSession));
     // 받을 session이 없어졌으면 답은 보낸 쪽 기록에만 남는다.
@@ -503,6 +542,13 @@ export function createRouter(deps: RouterDeps): Router {
     for (const record of records) {
       const moved = store.move(tx, calId(record.call), "failed", reason);
       if (!moved.ok) return moved;
+      // ask call의 보낸 쪽은 기다리는 request·질문이라 queue에 알리지 않고 main thread가 푼다. 재시작이면 짝이 이미 없다.
+      if (record.ask !== null) {
+        if (reason === "receiver_ended") {
+          announce(tx, ASK_ENDED_TOPIC, { call: record.call });
+        }
+        continue;
+      }
       if (notify && record.from.kind === "agent") {
         const told = notifyFailed(
           tx,

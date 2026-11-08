@@ -8,7 +8,7 @@ import { teamRead } from "../../protocol/lophn-agent/team.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import { routerEnvironment } from "./environment.ts";
 import { calId, sesId, teamMayReach } from "./model.ts";
-import { readCall } from "./store.ts";
+import { openCallsSentBy, readCall } from "./store.ts";
 
 // call을 누를 때 그때의 상태를 읽는다. 상태 구독은 없다. agent는 자기가 보냈거나 받은 call만 본다.
 const readCallRead: ReadDefinition<typeof agentCallRead> = {
@@ -76,7 +76,7 @@ const sendableRead: ReadDefinition<typeof agentCallSendable> = {
   },
 };
 
-// caller의 부모, 형제, 자식(열린 것). 팀 밖 session은 모두 빈 목록이다.
+// caller의 부모, 형제, 자식(열린 것). 팀 밖 session은 모두 빈 목록이다. 팀원마다 내가 보내고 답을 못 받은 call(open_calls)을 싣는다.
 const readTeam: ReadDefinition<typeof teamRead> = {
   route: teamRead,
   handle(snapshot, ctx) {
@@ -97,6 +97,7 @@ const readTeam: ReadDefinition<typeof teamRead> = {
     const open = directory
       .listOpen()
       .filter((target) => target.accepting && target.session !== me.session);
+    const sent = openCallsSentBy(snapshot, me.session);
     const memberOf = (target: (typeof open)[number]) => {
       const described = environment.value.describe?.(snapshot, target);
       return {
@@ -106,6 +107,13 @@ const readTeam: ReadDefinition<typeof teamRead> = {
         description: target.description,
         runtime: target.runtime,
         state: STATES.find((one) => one === described?.state) ?? "unknown",
+        open_calls: sent
+          .filter((one) => one.receiver_session === target.session)
+          .map((one) => ({
+            call: one.call,
+            reply: one.reply,
+            created_at: one.created_at,
+          })),
       };
     };
     const parent = open.find((target) => target.session === me.spawned_by);

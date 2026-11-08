@@ -129,6 +129,7 @@ test("data step이 옛 할당을 정의 파일로 옮기면 judge가 같은 판�
           assignment,
           { floor: [], layers: [] },
           "attended",
+          false,
         );
       assert.deepStrictEqual(call(NOTES, "note.add"), { kind: "run" });
       assert.deepStrictEqual(call(LEDGER, "session.usage"), { kind: "run" });
@@ -244,6 +245,7 @@ test("deny step은 앱 둘째 domain의 규칙을 앱 slug 규칙으로 바꾸�
           read.value.assignment,
           { floor: [], layers: [] },
           "attended",
+          false,
         );
       assert.deepStrictEqual(call("entry.add"), {
         kind: "deny",

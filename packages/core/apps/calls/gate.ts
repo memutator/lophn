@@ -55,6 +55,7 @@ export async function callAllowed(
       assignment.value,
       NO_SHELL_RULES,
       "unattended",
+      false,
     );
     if (judged.kind === "deny") return ok(false);
     if (target.public) return ok(true);
@@ -76,6 +77,7 @@ export async function callAllowed(
       assignment.value,
       NO_SHELL_RULES,
       "attended",
+      false,
     );
     return ok(judged.kind !== "deny");
   }

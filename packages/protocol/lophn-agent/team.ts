@@ -4,6 +4,7 @@ import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { contentBlocksSchema } from "./content-block.ts";
 import { agentRuntimeSchema } from "./agent-values.ts";
+import { atSchema } from "../base/values.ts";
 import { callReplySchema, SENDABLE_SESSION_STATES } from "./calls.ts";
 import { workspaceNameSchema } from "./workspaces.ts";
 
@@ -21,9 +22,13 @@ export const teamLimitsSchema = z.strictObject({
 export type TeamLimits = z.infer<typeof teamLimitsSchema>;
 
 export const DEFAULT_TEAM_LIMITS: TeamLimits = {
-  max_members: 16,
-  max_depth: 3,
+  max_members: 8,
+  max_depth: 2,
 };
+
+// `team spawn`의 첫 call 본문 앞에 core가 붙이는 고정 글이다. system prompt에 넣지 않아 prompt cache를 깨지 않는다.
+export const TEAM_MEMBER_PREAMBLE =
+  "You are a team member spawned by your parent session. Do the work yourself. When done, answer this call with `lophn call reply`. If you are unsure or need approval, use `ask`; it goes to your parent. If you spawn members yourself, end your turn after spawning and do not poll; their answers arrive as new input.";
 
 // 팀이 바뀌었다고 다음 turn 끝에 붙는 고정 글이다. 연락처는 system prompt에 싣지 않는다.
 export const TEAM_CHANGED_TEXT =
@@ -84,6 +89,14 @@ const teamMemberSchema = z.object({
   description: z.string().nullable(),
   runtime: agentRuntimeSchema,
   state: z.enum(SENDABLE_SESSION_STATES),
+  // 내가 이 팀원에게 보낸, 아직 답을 받지 못한 result·conversation call. 팀원이 `call reply`를 잊은 것을 알아채는 길이다.
+  open_calls: z.array(
+    z.object({
+      call: idSchema("cal"),
+      reply: callReplySchema,
+      created_at: atSchema,
+    }),
+  ),
 });
 
 export const teamRead = defineRead({

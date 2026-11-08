@@ -37,6 +37,7 @@ function world() {
     unattendedTurn: (_view, turn) => MODES[turn] === "unattended",
     deps: () => ({
       callPolicy: () => DEFAULT_CALL_POLICY,
+      announce: () => {},
       directory: {
         find: (session) => target(session),
         resolveAddress: () => ok({ agent: "lophn", workspace: null }),

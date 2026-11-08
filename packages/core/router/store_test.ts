@@ -30,6 +30,8 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
     ["cal_result", "result", true],
     ["cal_conversation", "conversation", true],
     ["cal_none_waiting", "none", false],
+    // 부모가 가져간 ask call도 켤 때 잃은 것이다: 자식의 request는 메모리라 사라졌다.
+    ["cal_ask", "result", true],
   ];
   for (const [call, reply] of calls) {
     const stored = store.insert(tx, {
@@ -42,6 +44,7 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
       fail_reason: null,
       dedup: call,
       unattended: false,
+      ask: call === "cal_ask" ? "approval" : null,
       created_at: AT,
       state_changed_at: AT,
     });
@@ -53,7 +56,7 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
 
   assert.deepStrictEqual(
     calls.map(([call]) => store.read(tx, call)?.state),
-    ["done", "accepted", "accepted", "accepted"],
+    ["done", "accepted", "accepted", "accepted", "accepted"],
   );
   // 받는 session이 끝날 때 닫을 것과 켤 때 잃은 것에 가져간 handoff가 없다.
   assert.deepStrictEqual(
@@ -61,10 +64,10 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
       .openReceivedBy(tx, RECEIVER)
       .map((row) => row.call)
       .sort(),
-    ["cal_conversation", "cal_none_waiting", "cal_result"],
+    ["cal_ask", "cal_conversation", "cal_none_waiting", "cal_result"],
   );
   assert.deepStrictEqual(
     store.lost(tx).map((row) => row.call),
-    ["cal_none_waiting"],
+    ["cal_ask", "cal_none_waiting"],
   );
 });

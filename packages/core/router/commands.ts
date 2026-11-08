@@ -5,9 +5,12 @@ import { defineCommand, parseActor } from "../../protocol/base/mod.ts";
 import { z } from "zod";
 import {
   agentCallSend,
+  callAskKindSchema,
   callCancel,
+  callFailReasonSchema,
   type CallFrom,
   callReply,
+  callStateSchema,
 } from "../../protocol/lophn-agent/calls.ts";
 import { teamSpawn } from "../../protocol/lophn-agent/team.ts";
 import { afterCommit } from "../storage/ledger/after-commit.ts";
@@ -57,6 +60,44 @@ export const callsAutoReply = defineCommand({
   compare: z.strictObject({}),
   actors: ["machine"],
   errors: ["forbidden", "not_found", "conflict", "unavailable", "internal"],
+});
+
+// 팀 자식의 질문이나 shell 승인을 부모에게 가는 result call로 연다. 자식 session 이름으로 보내고 call.send와 같은 거름(call 정책,
+// 팀 규칙, 명함)을 거친다. 부모에게 닿지 않으면 call이 failed로 돌아오고 main thread가 기다리는 쪽을 바로 푼다.
+// core 안 machine만 쓴다.
+export const callsAskOpen = defineCommand({
+  resource: "calls",
+  method: "ask-open",
+  name: "OpenAskCall",
+  input: z.strictObject({
+    from: idSchema("ses"),
+    to: idSchema("ses"),
+    ask: callAskKindSchema,
+    body: contentBlocksSchema,
+    // 자식 turn의 mode가 unattended인지.
+    unattended: z.boolean(),
+  }),
+  output: z.object({
+    call: idSchema("cal"),
+    state: callStateSchema,
+    fail_reason: callFailReasonSchema.nullable(),
+  }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["forbidden", "not_found", "conflict", "unavailable", "internal"],
+});
+
+// 기다리던 request·질문이 부모 답 말고 다른 것으로 닫혔다. 자식 이름으로 ask call을 취소한다(부모에게 취소 알림이 간다).
+// 이미 끝난 call은 그대로다. core 안 machine만 쓴다.
+export const callsAskWithdraw = defineCommand({
+  resource: "calls",
+  method: "ask-withdraw",
+  name: "WithdrawAskCall",
+  input: z.strictObject({ call: idSchema("cal"), session: idSchema("ses") }),
+  output: z.object({ call: idSchema("cal"), state: callStateSchema }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["forbidden", "not_found", "unavailable", "internal"],
 });
 
 // 호출한 agent의 session이다. agent 자격은 session에 묶인다.
@@ -158,6 +199,60 @@ const teamSpawnCommand: CommandDefinition<typeof teamSpawn> = {
   },
 };
 
+const askOpenCommand: CommandDefinition<typeof callsAskOpen> = {
+  route: callsAskOpen,
+  handle(tx, ctx, input) {
+    if (parseActor(ctx.actor)?.kind !== "machine") {
+      return err({ code: "forbidden", message: "only core opens an ask call" });
+    }
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const routed = router.value.route(tx, {
+      from: { kind: "agent", session: input.from },
+      to: { session: input.to },
+      reply: "result",
+      body: input.body,
+      refs: [],
+      reply_to: null,
+      dedup: null,
+      kind: "call",
+      delivery: "next_turn",
+      unattended: input.unattended,
+      ask: input.ask,
+    });
+    if (!routed.ok) return routed;
+    if (routed.value.call === null) {
+      return err({ code: "internal", message: "an agent call has an ID" });
+    }
+    return ok({
+      call: calId(routed.value.call),
+      state: routed.value.state,
+      fail_reason: routed.value.fail_reason,
+    });
+  },
+};
+
+const askWithdrawCommand: CommandDefinition<typeof callsAskWithdraw> = {
+  route: callsAskWithdraw,
+  handle(tx, ctx, input) {
+    if (parseActor(ctx.actor)?.kind !== "machine") {
+      return err({
+        code: "forbidden",
+        message: "only core withdraws an ask call",
+      });
+    }
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const cancelled = router.value.cancel(
+      tx,
+      { kind: "agent", session: input.session },
+      { call: input.call },
+    );
+    if (!cancelled.ok) return cancelled;
+    return ok({ call: cancelled.value.call, state: cancelled.value.state });
+  },
+};
+
 const replyCallCommand: CommandDefinition<typeof callReply> = {
   route: callReply,
   handle(tx, ctx, input) {
@@ -239,6 +334,8 @@ const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
 export const ROUTER_COMMANDS = [
   sendCallCommand,
   teamSpawnCommand,
+  askOpenCommand,
+  askWithdrawCommand,
   replyCallCommand,
   autoReplyCallCommand,
   cancelCallCommand,

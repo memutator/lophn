@@ -81,6 +81,7 @@ function turnRequest(
       tool_call: id("tcl", n),
       subject,
       always_patterns: alwaysPatterns,
+      to_parent: false,
       created_at: ago(minutes),
     },
   };
@@ -470,6 +471,7 @@ export function createFakeWaiting(
             group: QUESTION_GROUP,
             turn: QUESTION_TURN,
             tool_call: QUESTION_CALL,
+            to_parent: false,
           },
         ],
       });

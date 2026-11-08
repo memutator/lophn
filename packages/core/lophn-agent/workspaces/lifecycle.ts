@@ -58,7 +58,10 @@ export function checkSpawnSlot(
   if (top === undefined) return fail("not_found", "session not found");
   // root가 0이고 새 자식은 부모보다 한 칸 아래다.
   if (Number(top["depth"]) + 1 > limits.max_depth) {
-    return fail("conflict", "the team is too deep for another member");
+    return fail(
+      "conflict",
+      "the team is too deep for another member; do the work yourself or ask your parent",
+    );
   }
   const members = tx.sql.get(
     `with recursive down(id) as (
@@ -69,7 +72,10 @@ export function checkSpawnSlot(
     [top["id"]],
   );
   if (Number(members?.["n"]) >= limits.max_members) {
-    return fail("conflict", "the team is full");
+    return fail(
+      "conflict",
+      "the team is full; do the work yourself or ask your parent",
+    );
   }
   return ok(undefined);
 }

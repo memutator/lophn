@@ -87,7 +87,9 @@ export function createSessionNotices(deps: SessionNoticesDeps): SessionNotices {
     const kind =
       event.type === "TurnEnded"
         ? turnEndKind(event.payload)
-        : event.type === "TurnRequestOpened" || event.type === "QuestionAsked"
+        : (event.type === "TurnRequestOpened" ||
+              event.type === "QuestionAsked") &&
+            !goesToParent(event)
           ? "permission"
           : null;
     if (kind === null) return;
@@ -119,6 +121,14 @@ export function createSessionNotices(deps: SessionNoticesDeps): SessionNotices {
     dismiss: forget,
     unseen: () => [...unseen.values()],
   };
+}
+
+// 팀 자식의 요청과 질문은 부모가 푼다. 사람에게 알리지 않는다.
+function goesToParent(event: SessionEvent): boolean {
+  const payload = event.payload as
+    | { request?: { to_parent?: boolean }; to_parent?: boolean }
+    | undefined;
+  return (payload?.request?.to_parent ?? payload?.to_parent) === true;
 }
 
 // TurnEnded의 outcome은 `{ kind, reason }`이다(protocol lophn-agent/turn-values.ts `turnOutcomeOutputSchema`).

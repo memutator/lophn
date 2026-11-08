@@ -303,13 +303,16 @@ export function createWaitingStore(
           workspace: event.payload.workspace,
         });
         return;
+      // 팀 자식의 요청(to_parent)은 부모가 푼다. 사람에게 카드를 만들지 않는다.
       case "TurnRequestOpened":
+        if (event.payload.request.to_parent) return;
         put(permission(event.payload.request, event.at));
         break;
       case "TurnRequestClosed":
         entries.delete(event.payload.request);
         break;
       case "QuestionAsked":
+        if (event.payload.to_parent) return;
         put(question(event.session, event.payload, event.at));
         break;
       case "QuestionResolved":
@@ -358,10 +361,12 @@ export function createWaitingStore(
         workspace: snapshot.workspace,
       });
       for (const request of snapshot.turn_requests) {
-        next.push(permission(request, request.created_at));
+        if (!request.to_parent) {
+          next.push(permission(request, request.created_at));
+        }
       }
       for (const group of snapshot.questions) {
-        next.push(question(snapshot.session, group, at));
+        if (!group.to_parent) next.push(question(snapshot.session, group, at));
       }
     }
     return next;

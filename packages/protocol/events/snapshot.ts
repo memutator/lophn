@@ -26,6 +26,7 @@ const sessionSnapshotSchema = z.object({
       group: idSchema("qgr"),
       turn: idSchema("trn"),
       tool_call: idSchema("tcl"),
+      to_parent: z.boolean(),
     }),
   ),
 });

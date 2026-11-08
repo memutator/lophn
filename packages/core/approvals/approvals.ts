@@ -14,7 +14,7 @@ import type {
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Bus } from "../events/ports.ts";
 import { judge } from "./gate/mod.ts";
-import type { AlwaysEffect, Approvals } from "./ports.ts";
+import type { AlwaysEffect, Approvals, AskReplies } from "./ports.ts";
 import { createTurnRequests } from "./turn-requests.ts";
 
 type ApprovalsDeps = {
@@ -32,6 +32,14 @@ export type ApprovalsService = Approvals & {
     ctx: { actor: string },
     body: unknown,
   ): Promise<Result<{ outcome: TurnRequestOutcome }>>;
+  // 부모가 팀 자식의 request를 푼다. allow는 once뿐이라 always 규칙이 더해지지 않는다.
+  answerFromParent(
+    request: string,
+    decision: "allow" | "reject",
+    reason: string | null,
+  ): void;
+  // Router가 ask call의 답을 알리는 입구다. 짝 표는 조립이 갖고 이 칸을 꽂는다.
+  askReplies: AskReplies;
 };
 
 export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
@@ -47,7 +55,13 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
         assignment = loaded.value;
       }
       return ok(
-        judge(call, assignment, deps.shellRules(who.workspace), who.mode),
+        judge(
+          call,
+          assignment,
+          deps.shellRules(who.workspace),
+          who.mode,
+          who.toParent,
+        ),
       );
     },
     openTurnRequest: turns.open,
@@ -57,6 +71,8 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     remember(kind, effect) {
       effects.set(kind, effect);
     },
+    answerFromParent: turns.answerFromParent,
+    askReplies: { answered() {}, ended() {} },
     decide(ctx, body) {
       if (ctx.actor !== "user") {
         return Promise.resolve(

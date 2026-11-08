@@ -5,6 +5,7 @@ import {
 } from "../../protocol/lophn-agent/content-block.ts";
 import type {
   CallAddressInput,
+  CallAskKind,
   CallFailReason,
   CallFrom,
   CallRef,
@@ -44,6 +45,8 @@ export type RouteInput = {
   notice?: NoticeKind | null;
   // agent의 SendCall·ReplyCall과 run이 넣은 사람 메시지(`SendMessage`의 `unattended: true`)가 싣는다. 없으면 false.
   unattended?: boolean;
+  // 팀 자식의 질문·승인이 부모에게 가는 call이면 그 종류. 답은 보낸 session의 queue로 가지 않고 topic으로 main thread에 간다.
+  ask?: CallAskKind | null;
   // `team spawn`이면 true: 받는 곳의 새 session은 보낸 session의 자식(spawned_by)으로 열리고 workspace를 빼면 보낸 session의 workspace다.
   spawn?: boolean;
 };
@@ -98,6 +101,11 @@ export function teamMayReach(
 
 // `team spawn`이 새 session을 연 뒤 main thread가 자식 탭을 열도록 commit 뒤에 넘기는 일의 이름이다.
 export const TEAM_SPAWNED_TOPIC = "router.team-spawned";
+
+// 부모가 ask call에 답했다(`{call, decision, text}`). main thread가 짝인 request나 질문을 푼다.
+export const ASK_ANSWERED_TOPIC = "router.ask-answered";
+// 부모가 답하지 않고 끝나 ask call이 receiver_ended로 닫혔다(`{call}`). main thread가 짝을 거절·취소로 푼다.
+export const ASK_ENDED_TOPIC = "router.ask-ended";
 
 export function isFinished(state: CallState): boolean {
   return state !== "accepted";

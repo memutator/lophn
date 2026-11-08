@@ -25,6 +25,7 @@ function permission(n: number): TurnRequest {
     tool_call: CALL,
     subject: { kind: "shell", command: "git push origin main" },
     always_patterns: ["git push *"],
+    to_parent: false,
     created_at: AT,
   };
 }
@@ -65,7 +66,12 @@ const questionAsked = (n: number) =>
     session: SES,
     type: "QuestionAsked",
     at: AT,
-    payload: { group: id("qgr", n), turn: TURN, tool_call: CALL },
+    payload: {
+      group: id("qgr", n),
+      turn: TURN,
+      tool_call: CALL,
+      to_parent: false,
+    },
   });
 const consentRequested = () =>
   busEventSchema.parse({
@@ -120,7 +126,14 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
         workspace: null,
         state: "waiting",
         turn_requests: [permission(3)],
-        questions: [{ group: id("qgr", 4), turn: TURN, tool_call: CALL }],
+        questions: [
+          {
+            group: id("qgr", 4),
+            turn: TURN,
+            tool_call: CALL,
+            to_parent: false,
+          },
+        ],
       },
     ],
     consents: [],
@@ -138,5 +151,55 @@ test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청�
   // snapshot으로 들어온 것은 toast를 만들지 않고 live event는 만든다.
   assert.deepStrictEqual(reactionsOf(consentRequested(), "snapshot"), []);
   assert.deepStrictEqual(reactionsOf(consentRequested(), "live").length, 1);
+  stop();
+});
+
+test("팀 자식의 요청과 질문(to_parent)은 사람의 대기 목록에 카드로 서지 않는다", async () => {
+  const toParent = { ...permission(7), to_parent: true };
+  const source = createFakeSource({
+    snapshots: [
+      {
+        session: SES,
+        agent: "lophn",
+        workspace: null,
+        state: "waiting",
+        turn_requests: [toParent, permission(8)],
+        questions: [
+          { group: id("qgr", 9), turn: TURN, tool_call: CALL, to_parent: true },
+        ],
+      },
+    ],
+    consents: [],
+  });
+  const store = createWaitingStore(
+    createEventClient(source),
+    () => "2026-10-16T09:00:01.000Z",
+    null,
+  );
+  const stop = store.start();
+  await settle();
+  source.emitEvent(
+    busEventSchema.parse({
+      session: SES,
+      type: "TurnRequestOpened",
+      at: AT,
+      payload: { request: { ...permission(10), to_parent: true } },
+    }),
+  );
+  source.emitEvent(
+    busEventSchema.parse({
+      session: SES,
+      type: "QuestionAsked",
+      at: AT,
+      payload: {
+        group: id("qgr", 11),
+        turn: TURN,
+        tool_call: CALL,
+        to_parent: true,
+      },
+    }),
+  );
+  await settle();
+  assert.deepStrictEqual(ids(store), [id("apr", 8)]);
   stop();
 });

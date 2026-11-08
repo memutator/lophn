@@ -27,6 +27,8 @@ lophn call reply cal_xxx --body "what you did or found"
 
 If you will not take the work, reply with the reason. Add \`--image <path>\` to attach an image file. \`closed: true\` in the output means the call already ended and the reply was not delivered.
 
+A call from a team member that needs approval to run something is answered with \`lophn call reply cal_xxx --allow\` or \`lophn call reply cal_xxx --reject --body "reason"\`; any other call takes \`--body\`.
+
 ## Hand work to another agent
 
 \`\`\`
@@ -49,7 +51,8 @@ lophn team end ses_xxx
 
 - \`team spawn <agent>\` opens a new session of that agent under you and sends it the first call (same \`--body\`, \`--reply\`, \`--image\` as \`call send\`; reply defaults to \`result\`). It returns the session and call IDs at once. Without \`--workspace\` (\`{"project":"name"}\` or \`{"app":"name"}\`) the member opens in your own workspace, where it appears as a tab next to yours. The team is limited in size and depth; a full team answers \`conflict\`.
 - A session opened by \`team spawn\` can call only its parent, its siblings (same parent) and the sessions under it, and \`session list\` shows only those. If a member needs someone else, ask your parent with \`call send\`.
-- \`team read\` shows your parent, siblings and the open sessions you spawned. Run it when a notice says your team changed.
+- After you spawn, end your turn: the answers arrive as new input. Do not poll. A member does the work itself; if it is unsure or needs approval, it uses \`ask\`, which goes to its parent (you).
+- \`team read\` shows your parent, siblings and the open sessions you spawned, each with \`open_calls\` (calls you sent it that it has not answered yet). Run it when a notice says your team changed.
 - \`team end <session>\` ends a session under you and everything under it. You can end only your own members, not your parent or siblings.
 
 ## Find who you can call

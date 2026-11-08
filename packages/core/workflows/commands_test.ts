@@ -57,6 +57,7 @@ test("a stopped instance is not handed: report with next records the line only a
         listOpen: () => [],
       },
       store: {} as never,
+      announce: () => {},
       callPolicy: () => DEFAULT_CALL_POLICY,
       transport: {
         deliver: (_tx, _to, input) => {

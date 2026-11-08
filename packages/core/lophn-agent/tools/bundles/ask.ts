@@ -11,17 +11,10 @@ export const ASK_TOOLS: readonly ToolDefinition[] = [
     routes: [],
     description:
       `Ask the person and wait for answers; free-text answers are always allowed. Each question needs a short header and options with one-line descriptions. ${ASK_TOOL_RULES} ` +
-      "Returns submitted, cancelled, or human_message (read it to see whether it answers). Unattended turns return unattended immediately; decide yourself or report what remains.",
+      "Returns submitted, cancelled, human_message or parent_reply (read the message to see whether it answers). Unattended turns return unattended immediately; decide yourself or report what remains. In a team, questions go to your parent.",
     effect: "read",
+    // 사람이 없는 turn과 팀 자식의 질문은 core가 가른다(unattended를 돌려주거나 부모에게 보낸다).
     handler: async (input, ctx) => {
-      // skip turn은 사람이 곁에 있으므로 기다린다. 사람이 없는 turn만 묻지 않는다.
-      if (ctx.mode === "unattended") {
-        return ok(
-          fitted("ask unattended: no person is present in this turn", {
-            outcome: "unattended" as const,
-          }),
-        );
-      }
       const asked = await ctx.questions.ask(
         { session: ctx.session, turn: ctx.turn, tool_call: ctx.tool_call },
         input.questions,

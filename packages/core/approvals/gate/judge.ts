@@ -11,9 +11,9 @@ import { normalize, shellPieces, shellVerdict } from "./shell-match.ts";
 // 사람이 묻기로 정하면 이 상수만 켠다.
 const ASK_EXTERNAL_WHEN_ATTENDED = false;
 
-// unattended·skip에서는 묻는 대신 그냥 돈다. deny는 이 길을 타지 않는다.
-function askIn(mode: TurnMode): Judgment {
-  return mode === "attended" ? { kind: "ask" } : { kind: "run" };
+// unattended·skip에서는 묻는 대신 그냥 돈다. 팀 자식(toParent)은 부모가 있으므로 mode와 상관없이 묻는다. deny는 이 길을 타지 않는다.
+function askIn(mode: TurnMode, toParent: boolean): Judgment {
+  return mode === "attended" || toParent ? { kind: "ask" } : { kind: "run" };
 }
 
 // IO 없는 순수 함수다. 같은 입력은 같은 결과다.
@@ -22,6 +22,7 @@ export function judge(
   assignment: Pick<Assignment, "entries"> | null,
   shell: ShellRuleLayers,
   mode: TurnMode,
+  toParent: boolean,
 ): Judgment {
   if (call.kind === "shell") {
     const normalized = normalize(call.command);
@@ -32,7 +33,7 @@ export function judge(
       return { kind: "deny", reason: "shell_rule", pattern: denied.pattern };
     }
     return verdicts.some((verdict) => verdict.action === "ask")
-      ? askIn(mode)
+      ? askIn(mode, toParent)
       : { kind: "run" };
   }
   // MCP server는 설정한 층이 곧 할당이라 할당을 보지 않는다. app_tool의 tool은 앱의 command 이름이고
@@ -45,7 +46,7 @@ export function judge(
     }
   }
   if (ASK_EXTERNAL_WHEN_ATTENDED && call.effect === "external") {
-    return askIn(mode);
+    return askIn(mode, toParent);
   }
   return { kind: "run" };
 }

@@ -53,6 +53,7 @@ const answers = z.array(askAnswerSchema).max(ASK_QUESTION_MAX);
 
 // submitted: 사람이 답을 냈다. cancelled: 꺼졌다 켜지거나 turn이 끊겼다.
 // human_message: 기다리는 중 사람이 보낸 메시지가 답을 대신한다(답인지는 LLM이 읽는다).
+// parent_reply: 팀 자식의 질문에 부모가 call reply로 답했다(답인지는 LLM이 읽는다).
 // unattended: 사람이 없는 turn이라 묻지 않았다.
 const askResultSchema = z.discriminatedUnion("outcome", [
   z.object({ outcome: z.literal("submitted"), answers }),
@@ -62,6 +63,7 @@ const askResultSchema = z.discriminatedUnion("outcome", [
     message: z.string(),
     answers,
   }),
+  z.object({ outcome: z.literal("parent_reply"), message: z.string() }),
   z.object({ outcome: z.literal("unattended") }),
 ]);
 export type AskResult = z.infer<typeof askResultSchema>;

@@ -77,7 +77,8 @@ browser 탭
 
 - 탭 kind `app_preview {app}`. layout에 저장하지 않는다. 지금 앱 view를 `mode: "preview"`로 쓰고, 안내 줄(preview, fixture data, 바깥 연결 대역)과 [Stop]을 둔다. preview가 멈추면 "돌고 있는 preview 없음"을 보인다.
 - `lophn tab open --preview <app>`. 그 앱 workspace의 session과 사람 token만 연다(`preview call`과 같은 규칙). 돌고 있는 preview가 없으면 `conflict`다.
-- preview 탭의 annotation은 release 대신 preview의 bundle hash를 싣는다.
+- agent가 `preview start`로 preview를 띄우면 그 session을 주인으로 preview 탭이 저절로 열린다(사람, 2026-10-19, `app-preview.md` 정한 것). 앱 탭 toolbar에 [Preview]를 두고 돌고 있는 preview가 있을 때만 보인다.
+- preview 탭의 annotation은 ledger 칸 `preview_bundle`(새 schema step)에 bundle hash를 싣는다. preview에도 release가 있을 수 있어 release만으로는 live와 갈리지 않는다(lead, 2026-11-09).
 - `roadmap/app-preview.md`의 1~3을 이것이 가져온다.
 
 ### 2. host queue long-poll과 browser 호출
@@ -101,7 +102,7 @@ browser 탭
 - 낡은 ref는 `conflict`와 "다시 snapshot하라"는 글이다.
 - page에서 온 글(snapshot, logs, evaluate 결과, title)은 `<lophn-untrusted>`로 감싼다. lophn agent는 tool 이름 규칙에, harness CLI는 stdout 글에 같은 tag를 둔다.
 - screenshot: lophn agent에게는 image content로 바로 준다. harness CLI는 PNG를 file로 쓰고 path를 찍는다(harness가 자기 Read tool로 본다).
-- 사람 token도 `tab open`·`tab close`·`browser *`를 부른다. 주인은 "사람"으로 남는다.
+- 사람 token도 `tab open --url|--preview`·`tab close`·`browser *`를 부른다. 주인은 "사람"으로 남는다. 사람 token은 session이 없어 workspace를 `--workspace` → env `LOPHN_WORKSPACE`(shell이 project 터미널에 넣는다) → home 순으로 정한다(lead, 2026-11-09).
 - 공유 skill `lophn-agent`에 `tab`, `preview`, `browser` 쓰는 법을 더한다. "사람 token이면 실패한다"는 줄을 고친다.
 
 ### 4. shell main의 CDP

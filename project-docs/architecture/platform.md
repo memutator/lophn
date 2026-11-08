@@ -23,7 +23,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 ```
  shell(앱 실행·--core) ─┐                    identify 답 있음 ─▶ 판 대조 ─▶ connect {client}
  CLI 사람 명령 ─────────┼─▶ ensureCore ─ control socket ─┤                     판 다름 ─▶ stop → identify 사라짐 → 새로 띄우기(한 번)
-                        ┘   (packages/protocol/client)   └ 답 없음 ─▶ detached spawn(--standalone) ─▶ stdout 첫 줄 ready | start_failed
+                        ┘   (packages/protocol/client)   └ 답 없음 ─▶ detached spawn ─▶ stdout 첫 줄 ready | start_failed
  core: instance lock ─▶ control listen(starting) ─▶ migration·API·wiring·afterReady ─▶ ready ─▶ … ─▶ stop | idle-exit | signal ─▶ 같은 shutdown barrier
 ```
 
@@ -36,7 +36,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 
 ## file
 
-- **data root.** 기본은 `homeOf` 아래 `.lophn`(Windows `%USERPROFILE%\.lophn`)이다. POSIX는 소유 uid와 mode(group·other 권한 없음)를 보고 아니면 기동을 거절한다. Windows는 mode·uid가 없어 보지 않고 user profile ACL을 믿는다. `secrets.json`·`run/user-token`도 같은 file 그대로이고 Windows는 0600 검사를 하지 않는다.
+- **data root.** 기본은 `homeOf` 아래 `.lophn`(Windows `%USERPROFILE%\.lophn`)이다. POSIX는 소유 uid와 mode(group·other 권한 없음)를 보고 아니면 기동을 거절한다. Windows는 mode·uid가 없어 보지 않고 user profile ACL을 믿는다. `secrets.json`도 같은 file 그대로이고 Windows는 0600 검사를 하지 않는다. core의 user token은 file로 쓰지 않는다(control `connect`).
 - **봉인.** 앱 bundle 사본(`apps/<app>/bundles/<hash>/`)은 file 0444·폴더 0555로 좁힌 뒤 옆에 빈 표지 `<사본>.sealed`를 쓴다. 봉인 판정은 표지가 있는가 하나다(Windows 폴더에는 쓰기 bit가 없다). 표지 없는 사본은 끊긴 준비가 남긴 것이라 쓰기 권한을 돌려준 뒤 지우고 다시 쓰고, 못 지우면 준비가 실패한다. 옛 data root는 data step `apps.sealed-marker`(`packages/core/main/daemon/wiring/sealed-marker.ts`)가 쓰기 bit 없는 사본에 표지를 써서 옮긴다.
 - **연결.** bundle과 flow host의 directory 연결은 Windows에서 junction(권한이 필요 없다), 그 밖은 symlink다. file 연결은 모든 OS에서 symlink다.
 - **권한 path 비교**(`packages/core/apps/permissions/model.ts` `isSameOrInside`)는 `relative`로 보고, Windows와 macOS는 대소문자를 가리지 않는다.

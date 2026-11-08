@@ -1,6 +1,6 @@
 # standalone core: core가 shell 밖에서 스스로 선다
 
-상태: 계획 `standalone-core`로 열림. 2026-11-08 사람이 방향을 냈고 planner가 정리했다. `platform-ipc.md` 뒤에 한다(control socket이 그 socket 자리 규칙을 쓴다).
+상태: **끝남.** 계획 `standalone-core`의 여섯 task(control, idle, shell, cli, launchers, cleanup)를 main에 land했다. full check·E2E·core 두 번 기동이 통과했고, Linux에서 CLI가 core를 띄우고 launcher가 끝난 뒤에도 core가 남으며 `lophn core stop`으로 끝나는 것을 손으로 확인했다. core SIGKILL 뒤 child가 스스로 끝나는 것은 Linux에서 `tests/e2e/boot_test.ts`가 본다. 사람 확인이 남은 것: 앱 Quit 뒤 켜진 job이 돌고 켜진 job이 없으면 10분 뒤 core가 끝나는지, 다시 켜면 돌던 core에 붙는지, macOS(`wasOpenedAtLogin`)와 Windows(named pipe)에서 core를 찾는지. 남은 결함은 `project-docs/issues/platform.md`. 2026-11-08 사람이 방향을 냈고 planner가 정리했다.
 배경 문서: `project-docs/architecture/job.md`, `coding-agent.md`, `platform.md`, `event.md`, `app-notice.md`. 비교 대상: `../harness-lab/hermes/hermes-desktopapp`(공식 Hermes Desktop), `../harness-lab/hermes/hermes-cli`(`hermes_cli/gateway_runtime.py`, `gateway/control_socket.py`), `../harness-lab/hermes/hermes-desktopapp-fathah`.
 
 ## 사람의 말 (원문)

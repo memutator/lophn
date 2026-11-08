@@ -55,19 +55,6 @@ modules: [packages/shell/main, packages/protocol]
 
 고치려면: ACP `tool_detail_changed`나 tool item에 실행 시작 시각(`started_at`)을 더하고 renderer가 그것으로 센다. 그러면 줄은 바로 내고 미루는 code를 지운다. 작음. 추천.
 
-## Claude GUI 사용 한도 warning이 SDK 값 그대로 나오고 이벤트마다 다시 뜬다
-
-```yaml
-kind: bug
-modules: [packages/shell/main]
-```
-
-지금: `packages/shell/main/extensions/bundled/harness-gui/claude.ts`의 `onRateLimit`은 `rate_limit_event`의 status가 `allowed`가 아니면 `Usage limit ${status} (${rateLimitType})`(예: "Usage limit allowed_warning (seven_day)")를 warning info로 낸다. status가 그대로인 동안 이벤트가 올 때마다 또 낸다.
-
-영향: 사람이 읽을 수 없는 글이 대화에 끼고, 같은 warning이 여러 번 쌓인다.
-
-고치려면: "주간 한도의 N%를 썼다. <시각>에 초기화된다"처럼 그 창(`LIMIT_LABELS`)의 이름, 사용률, 초기화 시각으로 글을 만들고, 창마다 status가 바뀔 때 한 번만 낸다(gallery `harness-gui` status limits 문구와 같게). 작음. 추천.
-
 ## GUI에서 띄운 subagent session이 lophn의 recent session에 보인다
 
 ```yaml

@@ -931,6 +931,24 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
       user("u6", humanCall),
       // 다시 뜬 CLI가 origin 없이 SDK 입력으로 적은 알림.
       user("u7", "<task-notification>late</task-notification>"),
+      // compact 요약과 TUI에서 친 명령의 기록. 사람 메시지가 아니다.
+      {
+        ...user("u8", "This session is being continued"),
+        isCompactSummary: true,
+        is_meta: true,
+      },
+      {
+        ...user("u9", "<local-command-caveat>x</local-command-caveat>"),
+        is_meta: true,
+      },
+      user(
+        "u10",
+        "<command-name>/theme</command-name>\n<command-args></command-args>",
+      ),
+      user(
+        "u11",
+        "<local-command-stdout>Theme set to light</local-command-stdout>",
+      ),
     ],
     entries: [
       { type: "user", uuid: "u1", origin: { kind: "human" } },
@@ -991,6 +1009,15 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
       "<task-notification>late</task-notification>",
     ],
   ]);
+  assert.ok(
+    t.state.items.some(
+      (one) =>
+        one.kind === "notice" &&
+        one.notice.type === "command_output" &&
+        one.notice.command === "theme" &&
+        one.notice.text === "Theme set to light",
+    ),
+  );
 });
 
 // 사람의 설정이 auto인데 첫 turn 전까지 "Ask before edits"로 보였다.

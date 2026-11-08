@@ -190,7 +190,7 @@ type SdkMessage = {
     // 타입에는 없지만 CLI가 창마다 실어 보낸다(녹화).
     unifiedWindows?: Record<
       string,
-      { utilization?: number; resetsAt?: number }
+      { utilization?: number; resetsAt?: number; status?: string }
     >;
   };
 };
@@ -243,6 +243,15 @@ const LIMIT_LABELS: Record<string, string> = {
   seven_day_sonnet: "7d Sonnet",
   seven_day_overage_included: "7d",
   overage: "Overage",
+};
+// warning 글에 넣는 창 이름.
+const LIMIT_NAMES: Record<string, string> = {
+  five_hour: "5-hour",
+  seven_day: "weekly",
+  seven_day_opus: "weekly Opus",
+  seven_day_sonnet: "weekly Sonnet",
+  seven_day_overage_included: "weekly",
+  overage: "extra usage",
 };
 const CATEGORIES: Record<string, AcpToolItem["category"]> = {
   Read: "read",
@@ -898,6 +907,8 @@ const start: (sdk: ClaudeSdk) => Start =
     // 도는 background subagent의 task id. tool 줄(subagent detail)이 보이고 task 목록에는 올리지 않는다.
     const liveAgents = new Set<string>();
     const limits = new Map<string, AcpUsageLimit>();
+    // 창마다 마지막으로 알린 status. 같은 status의 event가 와도 다시 알리지 않는다.
+    const limitStatus = new Map<string, string>();
     // 마지막으로 CLI에 보낸 명령의 이름. 이름 없이 오는 명령 출력이 쓴다.
     let lastCommand = "";
     // 이 CLI session에 메시지가 하나라도 갔나. 비었으면 TUI가 --resume으로 못 연다(`--session-id`로 연다).
@@ -2015,21 +2026,62 @@ const start: (sdk: ClaudeSdk) => Start =
               ? null
               : new Date(resetsAt * 1000).toISOString(),
         });
+      const warn = (
+        type: string,
+        status: string | undefined,
+        utilization: number | undefined,
+        resetsAt: number | undefined,
+      ) => {
+        if (status === undefined || limitStatus.get(type) === status) return;
+        limitStatus.set(type, status);
+        if (status === "allowed") return;
+        const name = LIMIT_NAMES[type] ?? type.replaceAll("_", " ");
+        const resets =
+          resetsAt === undefined
+            ? ""
+            : ` It resets ${whenOf(resetsAt * 1000)}.`;
+        info(
+          status === "rejected"
+            ? `You've hit your ${name} limit.${resets}`
+            : utilization === undefined
+              ? `You're close to your ${name} limit.${resets}`
+              : `You've used ${Math.round(utilization * 100)}% of your ${name} limit.${resets}`,
+          "warning",
+        );
+      };
       const windows = Object.entries(info_.unifiedWindows ?? {});
       for (const [type, one] of windows)
         set(type, one.utilization, one.resetsAt);
-      if (windows.length === 0)
-        set(
-          info_.rateLimitType ?? "default",
-          info_.utilization,
-          info_.resetsAt,
-        );
+      const type = info_.rateLimitType ?? "default";
+      if (windows.length === 0) set(type, info_.utilization, info_.resetsAt);
       changed({ usage: usageNow() });
-      if (info_.status !== "allowed")
-        info(
-          `Usage limit ${info_.status} (${info_.rateLimitType ?? "default"})`,
-          "warning",
+      // 창마다 실린 status를 쓰고, 맨 위 status는 rateLimitType 창의 것이다.
+      const statuses = new Map(
+        windows.map(([one, window]) => [one, window.status]),
+      );
+      if (info_.status !== "allowed" || !statuses.has(type))
+        statuses.set(type, info_.status);
+      for (const [one, status] of statuses) {
+        const window = info_.unifiedWindows?.[one];
+        warn(
+          one,
+          status,
+          window?.utilization ?? (one === type ? info_.utilization : undefined),
+          window?.resetsAt ?? (one === type ? info_.resetsAt : undefined),
         );
+      }
+    }
+
+    // 초기화 시각. 하루 안이면 시각만, 넘으면 요일을 붙인다.
+    function whenOf(ms: number): string {
+      const at = new Date(ms);
+      const time = at.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return ms - clock.nowMs() < 86_400_000
+        ? `at ${time}`
+        : `${at.toLocaleDateString(undefined, { weekday: "short" })} at ${time}`;
     }
 
     function onSystem(message: SdkMessage) {
@@ -2305,9 +2357,40 @@ const start: (sdk: ClaudeSdk) => Start =
             );
             continue;
           }
+          const flags = message as {
+            is_meta?: boolean;
+            isCompactSummary?: boolean;
+          };
+          // compact가 남긴 요약은 사람 메시지가 아니다. 그 앞 대화는 이 목록에 없다.
+          if (flags.isCompactSummary === true) {
+            info("Compacted the conversation");
+            continue;
+          }
+          // TUI에서 친 `/` 명령과 그 출력도 user entry로 남는다. live처럼 명령 출력으로 그린다.
+          const command = /^\s*<command-name>\/?([^<]*)<\/command-name>/.exec(
+            text,
+          );
+          if (command !== null) {
+            lastCommand = (command[1] ?? "").trim();
+            continue;
+          }
+          const local =
+            /^\s*<local-command-(stdout|stderr)>([\s\S]*?)<\/local-command-\1>/.exec(
+              text,
+            );
+          if (local !== null) {
+            const body = local[2] ?? "";
+            if (local[1] === "stderr") info(body, "warning");
+            // `/compact`는 위 요약이 이미 알렸다. 출력 뒤에 hook 글이 붙어 온다.
+            else if (!body.startsWith("Compacted"))
+              commandOutput(lastCommand, body);
+            continue;
+          }
           const received = classifyReceived(text, originOf.get(message.uuid));
           if (received !== null) {
             addReceived(root, received, now(), message.uuid);
+          } else if (flags.is_meta === true) {
+            continue;
           } else {
             addUser(
               root,

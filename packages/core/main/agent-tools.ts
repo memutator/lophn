@@ -2,6 +2,7 @@ import { TOOL_ORDER } from "../agent-workspaces/tool-lists.ts";
 import { APPS_AGENT_TOOLS } from "../apps/agent-tools/mod.ts";
 import { ASK_TOOLS } from "../lophn-agent/tools/bundles/ask.ts";
 import { createFileTools } from "../lophn-agent/tools/bundles/file.ts";
+import { createMemoryTools } from "../lophn-agent/tools/bundles/memory.ts";
 import { SHELL_TOOLS } from "../lophn-agent/tools/bundles/shell.ts";
 import { SKILL_TOOLS } from "../lophn-agent/tools/bundles/skill.ts";
 import { WEB_TOOLS } from "../lophn-agent/tools/bundles/web.ts";
@@ -20,6 +21,7 @@ export function agentTools(hooks: {
 }): readonly ToolDefinition[] {
   const all = [
     ...createFileTools(hooks.file),
+    ...createMemoryTools(hooks.file),
     ...SHELL_TOOLS,
     ...WEB_TOOLS,
     ...APPS_AGENT_TOOLS,

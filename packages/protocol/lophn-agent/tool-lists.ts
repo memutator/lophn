@@ -14,7 +14,11 @@ export const COMMON_TOOLS = [
   "lophn",
   "ask",
   "skill.read",
+  "agent.memory",
 ] as const;
+
+// memory 파일 하나의 크기 상한(byte)이다. 넘치는 쓰기는 거절한다.
+export const MEMORY_MAX_BYTES = 8192;
 
 // 작업 tool은 home이 빼고 project·app이 갖는다.
 export const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;

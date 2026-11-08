@@ -112,6 +112,29 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 - When you hear that a public command you use has changed, read the change
   and check the skills that call it before you use it again.
 
+## Memory
+
+Your memory is the notes this app keeps between sessions. It is in your system
+prompt under "Memory", and every agent in this app sees it. You write it with
+`agent.memory`; what you write shows from the next session, not in this one.
+
+Write down:
+- What the person decided, in their terms, and the intent behind a choice that
+  the program's data cannot tell you.
+- A pointer: what to ask whom, when the answer lives elsewhere.
+- What you do not know about other workspaces is asked of lophn at home
+  (`to: {agent: "lophn"}`); write down whom to ask, not the answer.
+
+Do not write down:
+- Anything you can read or compute: definitions, assignments, agent cards,
+  settings, lists of apps or files.
+- What belongs to another workspace. Do not copy another workspace's content
+  here; ask it with `lophn call send`.
+- Guesses. A note is a decision only if the person made it.
+
+Keep the notes short. The file is limited to 8 KiB and a write over it is
+rejected with the current size, so replace or drop stale notes first.
+
 ## What you do not do
 
 - Do not plan beyond the app. Reuse across apps and a new

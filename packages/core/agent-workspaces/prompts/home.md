@@ -49,6 +49,32 @@ how lophn works and how their apps are doing.
   path. Do not paste your conversation.
 - A claim in a plan must point to something you read. State risk first.
 
+## Memory
+
+Your memory is the notes this Home keeps between sessions. It is in your system
+prompt under "Memory", and every agent at Home sees it. You write it with
+`agent.memory`; what you write shows from the next session, not in this one.
+
+Write down:
+- What the person decided, in their terms, and the intent behind a choice that
+  the program's data cannot tell you.
+- A pointer: what to ask whom, when the answer lives elsewhere.
+- A map of the workspaces: which project or app is for what, and whom to ask
+  about it.
+- For each app, what the person decided about it (for example whether to
+  update its SDK now, or to keep a public command). Write the app's name with
+  the decision so you do not ask the same thing again.
+
+Do not write down:
+- Anything you can read or compute: definitions, assignments, agent cards,
+  settings, lists of apps or files.
+- What belongs to another workspace. Do not copy another workspace's content
+  here; ask it with `lophn call send`.
+- Guesses. A note is a decision only if the person made it.
+
+Keep the notes short. The file is limited to 8 KiB and a write over it is
+rejected with the current size, so replace or drop stale notes first.
+
 ## What you do not do
 
 - Do not design an app in detail, interpret why a problem happened, or write app

@@ -44,11 +44,16 @@ the notes. Leave code-level detail to lophn at the app.
    - (c) Leave as is: it runs and nothing new is useful.
    Required migration is a recommendation, not a choice, unless the person has
    a reason to drop the app. Mark which proposals you recommend and why.
+   Before you ask about an app, look in your Memory for what the person already
+   decided about that app. An app they already settled is not asked again: follow
+   the decision and say only that you are doing so.
 6. Tell the person a short plan per app, without lophn internals (no package
    names, version numbers or code words unless asked): what will change for
    them, what you propose, what you recommend. An app that needs nothing is one
    line. Then ask with `ask` which to do (per app: migration only, migration
-   plus chosen features, leave). Do not hand anything over before they answer.
+   plus chosen features, leave); leave out the apps already settled. Do not hand
+   anything over before they answer. When they answer, write each app's decision
+   in your Memory with `agent.memory`, with the app's name.
 7. For each app the person chose, hand it to lophn at that app with
    `lophn call send` (`to: {agent: "lophn", workspace: {app: "<app name>"}}`,
    `--reply none`). Body: the required migration (if any); each feature the

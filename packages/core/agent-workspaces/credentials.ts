@@ -42,7 +42,11 @@ const WORKSPACE_READS: readonly string[] = [
   agentList.name,
 ];
 
-const REWIND_WRITE_TOOLS: readonly string[] = ["file.write", "file.edit"];
+const REWIND_WRITE_TOOLS: readonly string[] = [
+  "file.write",
+  "file.edit",
+  "agent.memory",
+];
 
 function isWorkspaceKind(kind: string): kind is WorkspaceKind {
   return (WORKSPACE_KINDS as readonly string[]).includes(kind);
@@ -69,7 +73,7 @@ export function workspaceOperations(
       ...commandsForWorkspace(kind).flatMap((command) =>
         command.routes.map((route) => route.name),
       ),
-      // 쓰는 tool(file.write, file.edit)이 쓰기 전후에 core에 pre-image를 남기는 route다.
+      // 쓰는 tool(file.write, file.edit, agent.memory)이 쓰기 전후에 core에 pre-image를 남기는 route다.
       ...(tools.some((tool) => REWIND_WRITE_TOOLS.includes(tool.name))
         ? [stageRewindFile.name, recordRewindWrite.name]
         : []),

@@ -896,9 +896,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   };
 
   // popup 같은 탭을 floated로 연다. float 층을 못 쟀으면 tabs에 붙인다.
-  const openFloatInStage: TabHost["openFloat"] = (tab, at) => {
+  const openFloatInStage: TabHost["openFloat"] = (tab, at, options) => {
     if (stageSize === undefined) {
-      openTab(tab);
+      openTab(tab, options);
       return;
     }
     const rect =

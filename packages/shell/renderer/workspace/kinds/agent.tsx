@@ -120,7 +120,7 @@ export function openAgent(host: TabHost, input: OpenAgentInput): boolean {
       ...(session === null ? {} : { session }),
     },
   };
-  if (input.float === true) host.openFloat(tab);
+  if (input.float === true) host.openFloat(tab, undefined, input.options);
   else host.openTab(tab, input.options);
   return true;
 }

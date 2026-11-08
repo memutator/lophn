@@ -131,6 +131,8 @@ export interface TabHost {
   openFloat(
     tab: TabItem,
     at?: { readonly width: number; readonly height: number } | FloatRect,
+    /** stage를 못 쟈서 tabs에 붙여 열 때 `openTab`에 넘기는 옵션. */
+    options?: { readonly select?: boolean },
   ): void;
   /**
    * key의 탭 필드를 바꾸고 저장한다. 함수를 주면 그 사이 바뀐 탭에서 계산한다. 타이핑처럼 잦은

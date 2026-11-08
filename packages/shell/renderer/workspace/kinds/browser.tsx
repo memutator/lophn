@@ -49,7 +49,7 @@ export function openBrowserTab(
     title: nameOf("", url ?? ""),
     fields: { url: url ?? "" },
   };
-  if (open?.float === true) host.openFloat(tab);
+  if (open?.float === true) host.openFloat(tab, undefined, open.options);
   else host.openTab(tab, open?.options);
 }
 

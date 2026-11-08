@@ -117,8 +117,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     done(id: Id<"hrq">, result: "done" | "retry"): void {
       const at = pending.findIndex((entry) => entry.request.id === id);
       if (at < 0) return;
-      if (result === "done") pending.splice(at, 1);
-      else pending[at]!.borrowedAt = null;
+      const [entry] = pending.splice(at, 1);
+      // 못 여는 요청이 앞에서 뒤 요청을 막지 않게 retry는 맨 뒤로 보낸다.
+      if (result === "retry") {
+        entry!.borrowedAt = null;
+        pending.push(entry!);
+      }
     },
     // renderer가 host 탭의 상태나 닫힘을 알린다. 모르는 탭은 무시한다.
     report(tab: Id<"tab">, state: BrowserTabState | "closed"): void {

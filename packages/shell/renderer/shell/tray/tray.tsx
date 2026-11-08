@@ -1,6 +1,7 @@
 // tray. 작업 표시줄 오른쪽(꺼져 있으면 title bar의 panel 탭 옆)에 설치된 앱의 `tray` 화면마다(사람이 끈 것은 빼고) 항목 하나가 선다: 앱 아이콘과 앱이 낸
 // 짧은 글(tone 색). 누르면 그 앱의 `tray` 화면이 항목 위(title bar면 아래)에 popup으로 뜬다. 바깥을 누르거나 창이 focus를 잃거나 Esc를 누르면 닫힌다.
-// popup 머리의 pin을 켜면 바깥 누르기·창 blur·다른 항목 누르기로 닫히지 않는다(Esc와 자기 항목 다시 누르기는 닫는다). pin은 메모리에만 있다.
+// popup 머리의 pin을 켜면 바깥 누르기·창 blur·다른 항목 누르기로 닫히지 않는다(Esc와 자기 항목 다시 누르기는 닫는다). pin은 메모리에만 있고,
+// workspace를 옮겨 Tray가 새로 서도 창의 TrayMemory가 pin한 항목을 다시 pin해서 연다(앱 화면은 새로 load된다).
 // popup은 자기 <webview> 그릇을 가진다: 닫으면 화면도 닫히고 다시 열면 새로 load된다.
 import {
   type ReactNode,
@@ -46,6 +47,7 @@ import {
   placePopup,
 } from "./popup-place.ts";
 import styles from "./tray.module.css";
+import { useTrayMemory } from "./tray-memory.tsx";
 import { useTrayValues } from "./use-tray-values.ts";
 
 export interface TrayItem {
@@ -235,6 +237,7 @@ export function Tray({
   /** 처음부터 열려 있는 항목의 key(gallery). */
   open?: string | null;
 }) {
+  const memory = useTrayMemory();
   const [open, setOpen] = useState<string | null>(initialOpen);
   const [place, setPlace] = useState<PopupPlace | null>(null);
   // 열린 항목의 앱 page가 알린 내용 크기. 다른 항목을 열면 버린다.
@@ -248,7 +251,23 @@ export function Tray({
   const close = () => {
     setOpen(null);
     setPinned(false);
+    if (memory !== null) memory.pinned = null;
   };
+  const pin = (next: boolean) => {
+    setPinned(next);
+    if (memory !== null) memory.pinned = next ? open : null;
+  };
+  // 화면 목록은 비동기로 읽히므로 기억한 항목이 목록에 나타날 때까지 기다렸다가 pin해서 연다. 끝내 안 나타나면 아무것도 열지 않는다.
+  const remembered = memory?.pinned ?? null;
+  const restorable =
+    open === null &&
+    remembered !== null &&
+    items.some((item) => item.key === remembered);
+  useEffect(() => {
+    if (!restorable) return;
+    setOpen(remembered);
+    setPinned(true);
+  }, [restorable, remembered]);
   const current = items.find((item) => item.key === open) ?? null;
   const fitted =
     content !== null && content.key === current?.key ? content.size : undefined;
@@ -337,7 +356,7 @@ export function Tray({
           side={side}
           anchor={row.current}
           pinned={pinned}
-          onPin={setPinned}
+          onPin={pin}
           onClose={close}
           onContent={onContent}
         />

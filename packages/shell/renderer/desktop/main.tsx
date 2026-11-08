@@ -23,6 +23,10 @@ import {
   SidebarMemoryProvider,
 } from "../shell/sidebar-memory.tsx";
 import {
+  createTrayMemory,
+  TrayMemoryProvider,
+} from "../shell/tray/tray-memory.tsx";
+import {
   HOME,
   openApp,
   openHome,
@@ -226,6 +230,8 @@ export function Desktop({
   const [visits, setVisits] = useState(0);
   // workspace를 옮겨도 왼쪽 sidebar가 빈 목록부터 다시 그리지 않게 마지막 읽기 값을 창에 둔다.
   const [sidebarMemory] = useState(createSidebarMemory);
+  // pin한 tray popup도 workspace를 옮겨 Tray가 새로 서면 다시 열어야 하므로 창에 둔다.
+  const [trayMemory] = useState(createTrayMemory);
   const home = () => setRoute(HOME);
   // Settings를 열기 전 자리. Settings의 [Back]이 돌아가는 곳이고, 없으면(처음부터 Settings) Home으로 간다.
   const beforeSettings = useRef<Route | null>(null);
@@ -495,43 +501,47 @@ export function Desktop({
   // 창 shortcut의 Home 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
   const tree = (
     <SidebarMemoryProvider memory={sidebarMemory}>
-      <CommandsProvider value={commands}>
-        <AppKeyContributions />
-        <PaletteProvider deps={palette} onHome={home}>
-          <DefaultToastHandler
-            openSession={openSession}
-            goApp={(app) => setRoute(openApp(app))}
-          />
-          <GlobalFloatsProvider
-            enabled={route.space !== "detached" && route.space !== "app-window"}
-          >
-            <WorkspaceViewsProvider>
-              {space}
-              {globalFloats ? (
-                <GlobalFloatLayer onOpenApp={apps ? appSpace : undefined} />
-              ) : null}
-            </WorkspaceViewsProvider>
-          </GlobalFloatsProvider>
-          {overlay &&
-          route.space !== "detached" &&
-          route.space !== "app-window" ? (
-            <ToastHost overlay={overlay} />
-          ) : null}
-          {overlay && hookPrompt ? (
-            <HookPromptHost overlay={overlay} coding={hookPrompt} />
-          ) : null}
-          {intents &&
-          route.space !== "detached" &&
-          route.space !== "app-window" ? (
-            <DesktopIntents
-              intents={intents}
-              catalog={catalog}
-              go={go}
-              onSettings={settingsSpace}
+      <TrayMemoryProvider memory={trayMemory}>
+        <CommandsProvider value={commands}>
+          <AppKeyContributions />
+          <PaletteProvider deps={palette} onHome={home}>
+            <DefaultToastHandler
+              openSession={openSession}
+              goApp={(app) => setRoute(openApp(app))}
             />
-          ) : null}
-        </PaletteProvider>
-      </CommandsProvider>
+            <GlobalFloatsProvider
+              enabled={
+                route.space !== "detached" && route.space !== "app-window"
+              }
+            >
+              <WorkspaceViewsProvider>
+                {space}
+                {globalFloats ? (
+                  <GlobalFloatLayer onOpenApp={apps ? appSpace : undefined} />
+                ) : null}
+              </WorkspaceViewsProvider>
+            </GlobalFloatsProvider>
+            {overlay &&
+            route.space !== "detached" &&
+            route.space !== "app-window" ? (
+              <ToastHost overlay={overlay} />
+            ) : null}
+            {overlay && hookPrompt ? (
+              <HookPromptHost overlay={overlay} coding={hookPrompt} />
+            ) : null}
+            {intents &&
+            route.space !== "detached" &&
+            route.space !== "app-window" ? (
+              <DesktopIntents
+                intents={intents}
+                catalog={catalog}
+                go={go}
+                onSettings={settingsSpace}
+              />
+            ) : null}
+          </PaletteProvider>
+        </CommandsProvider>
+      </TrayMemoryProvider>
     </SidebarMemoryProvider>
   );
   // model picker 같은 곳에서도 provider 연결 화면을 열 수 있게 화면 전체를 감싼다.

@@ -275,12 +275,12 @@ const publish = defineCommand({
   name: "package.publish",
   summary: "Publish an app folder as a user package",
   description:
-    "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples; use --input for it), and the permissions it needs. The code is the HEAD commit of the app source, so commit the folder first.",
+    "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples; use --input for it), and the permissions it needs (publish fails if they do not cover what its @lophn/cap-* dependencies require; apps that use the package must declare all of them). The code is the HEAD commit of the app source, so commit the folder first.",
   input: packagePublishInputSchema
     .omit({ key: true, path: true, permissions: true })
     .extend({
       path: sourceRelativePathSchema,
-      permissions: z.array(z.string().min(1)).default([]),
+      permissions: packagePublishInputSchema.shape.permissions.default([]),
     }),
   positional: ["app", "name", "version"],
   effect: "write",

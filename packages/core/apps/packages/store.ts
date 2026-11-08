@@ -78,3 +78,15 @@ export function loadStoredVersion(
     [packageId, version],
   );
 }
+
+// release 준비가 `@me` 의존의 정확한 판이 요구하는 permission을 찾는다. catalog에 없는 판은 null이다.
+export function loadVersionPermissions(
+  sql: Query,
+  name: string,
+  version: string,
+): readonly string[] | null {
+  const pkg = loadPackage(sql, name);
+  if (!pkg.ok || pkg.value === null) return null;
+  const found = pkg.value.versions.find((entry) => entry.version === version);
+  return found === undefined ? null : (found.permissions ?? []);
+}

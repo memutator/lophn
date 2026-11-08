@@ -22,6 +22,7 @@ import {
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
 import { canonicalJson, validateDeclaration } from "../declaration/mod.ts";
+import { loadVersionPermissions } from "../packages/store.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import type {
   CommandDefinition,
@@ -630,7 +631,20 @@ export function createReleaseCommands(): {
         ) {
           return invalid("manifest dependencies differ from the declaration");
         }
-        const missing = missingSdkPermission(declaration);
+        // `@me` 의존은 그 정확한 판이 publish 때 적은 permission을 catalog에서 찾아 대조한다.
+        const userPermissions = new Map<string, readonly string[]>();
+        for (const dependency of declaration.sdk_dependencies) {
+          if (!dependency.name.startsWith("@me/")) continue;
+          const key = `${dependency.name}@${dependency.version}`;
+          const found = loadVersionPermissions(
+            tx.sql,
+            dependency.name,
+            dependency.version,
+          );
+          if (found === null) return invalid(`${key} is not published`);
+          userPermissions.set(key, found);
+        }
+        const missing = missingSdkPermission(declaration, userPermissions);
         if (missing !== undefined) {
           return err({
             code: "invalid_input",

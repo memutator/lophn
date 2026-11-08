@@ -20,26 +20,55 @@ type SdkPermissionFailure = {
   message: string;
 };
 
-// 요구 permission이 없는 첫 의존을 낸다. 모두 갖췄으면 undefined다.
-export function missingSdkPermission(
-  declaration: Pick<AppDeclaration, "sdk_dependencies" | "permissions">,
+// `@lophn/cap-*` 의존들이 요구하는 permission 중 declared에 없는 첫 group을 낸다.
+// release 선언과 `@me` package publish가 같은 규칙을 쓰므로 where로 문구만 가른다.
+export function missingCapPermission(
+  dependencyNames: Iterable<string>,
+  declared: ReadonlySet<string>,
+  where: string,
 ): SdkPermissionFailure | undefined {
-  const declared = new Set(
-    declaration.permissions.map((permission) => permission.kind),
-  );
-  for (const dependency of declaration.sdk_dependencies) {
-    const groups = SDK_REQUIRED_PERMISSIONS[dependency.name];
+  for (const name of dependencyNames) {
+    const groups = SDK_REQUIRED_PERMISSIONS[name];
     if (groups === undefined) continue;
     for (const group of groups) {
-      if (group.some((kind) => declared.has(kind as never))) continue;
+      if (group.some((kind) => declared.has(kind))) continue;
       return {
-        package: dependency.name,
+        package: name,
         permissions: group,
-        message: `${dependency.name} needs ${group.join(
-          " or ",
-        )} in the declaration permissions`,
+        message: `${name} needs ${group.join(" or ")} in the ${where}`,
       };
     }
+  }
+  return undefined;
+}
+
+// 요구 permission이 없는 첫 의존을 낸다. 모두 갖췄으면 undefined다.
+// `@me` package의 요구는 catalog에 있어서 호출하는 쪽이 `userPackagePermissions`로 찾아 준다.
+export function missingSdkPermission(
+  declaration: Pick<AppDeclaration, "sdk_dependencies" | "permissions">,
+  userPackagePermissions: ReadonlyMap<string, readonly string[]> = new Map(),
+): SdkPermissionFailure | undefined {
+  const declared = new Set<string>(
+    declaration.permissions.map((permission) => permission.kind),
+  );
+  const cap = missingCapPermission(
+    declaration.sdk_dependencies.map((dependency) => dependency.name),
+    declared,
+    "declaration permissions",
+  );
+  if (cap !== undefined) return cap;
+  // `@me` package가 publish 때 적은 permission은 소비 앱 선언에도 모두 있어야 한다.
+  for (const dependency of declaration.sdk_dependencies) {
+    const key = `${dependency.name}@${dependency.version}`;
+    const needed = userPackagePermissions.get(key);
+    if (needed === undefined) continue;
+    const missing = needed.find((kind) => !declared.has(kind));
+    if (missing === undefined) continue;
+    return {
+      package: dependency.name,
+      permissions: [missing],
+      message: `${key} needs ${missing} in the declaration permissions`,
+    };
   }
   return undefined;
 }

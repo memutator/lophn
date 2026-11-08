@@ -13,6 +13,7 @@ import {
   extractCommit,
   type GitRunner,
   gitCommandRunner,
+  missingCapPermission,
 } from "../releases/mod.ts";
 import {
   bundleBytes,
@@ -50,6 +51,18 @@ function guideText(guide: PackagePublishInput["guide"]): string {
     `# Purpose\n\n${guide.purpose.trim()}\n\n# API\n\n${guide.api.trim()}\n\n` +
     `# Examples\n\n${guide.examples.trim()}\n`
   );
+}
+
+// package.json의 dependencies 이름. 모양 오류는 prepareCopyFiles가 이미 거절했다.
+export function dependencyNames(
+  files: readonly { path: string; bytes: Uint8Array }[],
+): string[] {
+  const manifest = files.find((file) => file.path === "package.json");
+  if (manifest === undefined) return [];
+  const parsed = JSON.parse(new TextDecoder().decode(manifest.bytes)) as {
+    dependencies?: Record<string, unknown>;
+  };
+  return Object.keys(parsed.dependencies ?? {});
 }
 
 export function publishPackage(deps: PublishDeps): MemoryHandler {
@@ -107,6 +120,13 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     // 사본은 package.json을 갖고, 그 안의 @lophn·@me 의존은 설치 사본 사이의 `file:` 경로다.
     const copy = prepareCopyFiles(input.name, input.version, files);
     if (!copy.ok) return copy;
+    // 낸 permission이 내부 `@lophn/cap-*` 의존이 요구하는 것을 덮어야 소비 앱이 release 때 빠짐없이 선언한다.
+    const missing = missingCapPermission(
+      dependencyNames(files),
+      new Set<string>(input.permissions),
+      "package permissions",
+    );
+    if (missing !== undefined) return invalid(missing.message);
 
     const bundle = bundleBytes(files);
     const guide = new TextEncoder().encode(guideText(input.guide));

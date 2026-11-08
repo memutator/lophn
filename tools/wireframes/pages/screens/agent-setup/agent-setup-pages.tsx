@@ -7,11 +7,14 @@ import {
   BUDGET_REVIEWER_ID,
   EVAL_ANALYST_ID,
   type FakeAgentsOptions,
+  HOME_LOPHN_ID,
   PROJECT_LOPHN_ID,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import {
   AGENTS_TAB_SPEC,
   AgentSettingsEditor,
+  AgentsBody,
+  type AgentsAt,
   agentTab,
 } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
@@ -37,7 +40,7 @@ function editor(
   id: string,
   steps: readonly Step[] = [],
   source?: FakeAgentsOptions,
-  workspace: "project" | "app" = "project",
+  workspace: AgentsAt = "project",
 ) {
   return alone({
     ...agentTab(id),
@@ -59,10 +62,28 @@ const GRANTS_TAB: Step = () =>
 /** project의 Agents 탭. Settings에서 연다. */
 export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC);
 
+// Home이나 앱의 Agents 탭. 같은 화면이 그 workspace의 층을 읽는다.
+const agentsAt = (at: AgentsAt, title: string, source?: FakeAgentsOptions) =>
+  alone({
+    ...AGENTS_TAB_SPEC,
+    title,
+    body: <AgentsBody open={() => {}} at={at} source={source} />,
+  });
+
+/** Home의 Agents 탭. Home lophn 카드의 범위는 Home이고, Home의 지침(LOPHN.md)·memory·model·skill·MCP 층이 있다. */
+export const HomeAgentsPage = () => agentsAt("home", "Home · Agents");
+
+/** 앱의 Agents 탭. 지침은 앱 source의 AGENTS.md다. */
+export const AppAgentsPage = () => agentsAt("app", "Budget tracker · Agents");
+
+/** source를 잇지 않은 앱의 Agents 탭. AGENTS.md 칸이 비어 있고 [Edit]이 없다. */
+export const AppAgentsNoSourcePage = () =>
+  agentsAt("app", "Budget tracker · Agents", { appHasSource: false });
+
 /** 사람이 만든 agent의 설정. */
 export const AgentEditorPage = () => editor(EVAL_ANALYST_ID);
 
-/** agent의 Model 칸 picker를 연 상태. project 층에 고른 model이 있어 맨 위 줄이 "Use project default — Haiku 5.5"다. */
+/** agent의 Model 칸 picker를 연 상태. project 층에 고른 model이 있어 맨 위 줄이 "Use workspace default — Haiku 5.5"다. */
 export const AgentModelPickerPage = () =>
   editor(
     EVAL_ANALYST_ID,
@@ -73,7 +94,7 @@ export const AgentModelPickerPage = () =>
       () => click("[data-model-field] [data-model-button]"),
     ],
     {
-      projectModel: {
+      workspaceModel: {
         provider: ANTHROPIC,
         model_name: "Haiku 5.5",
         option_values: {},
@@ -87,9 +108,13 @@ export const AgentCreatePage = () => editor("new");
 /** project의 lophn 설정. profile과 handle이 잠기고 Delete가 없다. */
 export const LophnEditorPage = () => editor(PROJECT_LOPHN_ID);
 
-/** 앱 자리에서 연 agent의 설정. 앱에는 project 지침이 없어 지침 블록에 안내만 있다. */
+/** 앱 자리에서 연 agent의 설정. 앱 source의 AGENTS.md가 workspace 지침으로 보인다. */
 export const AppWorkspaceEditorPage = () =>
   editor(BUDGET_REVIEWER_ID, [], undefined, "app");
+
+/** Home lophn의 설정. 범위가 Home으로 보이고 workspace memory는 Agents 탭에서 고친다. */
+export const HomeLophnEditorPage = () =>
+  editor(HOME_LOPHN_ID, [], undefined, "home");
 
 /** agent 층에서 MCP server를 더하는 form을 열고 web 주소와 OAuth 2.1 로그인을 고른 상태. */
 export const AgentServerFormPage = () =>

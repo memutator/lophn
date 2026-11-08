@@ -5,9 +5,9 @@ import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-def
 import type {
   McpAuthFailure,
   McpAuthStateName,
+  McpOwnerWorkspace,
 } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
-import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 
 /**
  * model 선택을 사람이 읽는 글로 바꾼다("Sonnet 5.5 · Medium"). model 이름과 option 표시 이름은 catalog가
@@ -28,12 +28,20 @@ export interface InstructionsFile {
 }
 
 /**
- * project 지침 `LOPHN.md`. 파일이 없거나 비면 text가 빈 글이다. project는 그 지침이 속한 project의 이름이고,
- * 알 수 없으면 null이다(앱 자리 agent의 project 폴더를 모를 때).
+ * workspace 지침. project와 Home은 `LOPHN.md`, 앱은 source 폴더의 `AGENTS.md`다. 파일이 없거나 비면 text가 빈 글이다.
+ * workspace는 그 지침이 속한 자리의 이름이고, 알 수 없으면 null이다.
  */
-export interface ProjectInstructionsView extends InstructionsFile {
-  readonly project: string | null;
+export interface WorkspaceInstructionsView extends InstructionsFile {
+  readonly workspace: string | null;
+  readonly file: "LOPHN.md" | "AGENTS.md";
+  /** false면 파일이 놓일 곳이 없다(source를 잇지 않은 앱). 빈 글로 보이고 고치지 않는다. */
+  readonly editable: boolean;
 }
+
+/** 어느 memory인가: workspace memory(Home이면 "home", 아니면 project·앱 id)이거나 사람이 만든 agent의 memory. */
+export type MemoryTarget =
+  | { readonly kind: "workspace"; readonly workspace: string }
+  | { readonly kind: "agent"; readonly agent: string };
 
 /** 값과 그 값이 어느 층에서 왔는지. */
 export interface Sourced<T> {
@@ -41,7 +49,7 @@ export interface Sourced<T> {
   readonly source: AgentValueLayer;
 }
 
-/** skill의 층. 내장은 workspace 종류가 가진 것이고 나머지는 전역, project·app, 그릇 자리의 skills/(workspace-data)다. */
+/** skill의 층. 내장은 workspace 종류가 가진 것이고 나머지는 전역, project·app, Home·project·앱 그릇 자리의 skills/(workspace-data)다. */
 export type SkillLayer =
   | "builtin"
   | "global"
@@ -59,18 +67,18 @@ export interface SkillRow {
   readonly builtIn: boolean;
 }
 
-/** MCP server의 층. agent 층은 그 agent의 정의가 가진 것이다. */
-export type McpLayer = "global" | "project" | "agent";
+/** MCP server의 층. workspace 층은 Home·project·앱의 `extensions.json`이고 agent 층은 그 agent의 정의가 가진 것이다. */
+export type McpLayer = "global" | "workspace" | "agent";
 
 /** 연결 상태. 지금 열려 있는지 읽는 길이 없으면 null이고 점은 중립 색이다. */
 export type McpStatus = "connected" | "needs-sign-in" | null;
 
 /**
- * OAuth server의 로그인 상태다. `workspace`·`agent`는 서버의 소유자이고(전역은 둘 다 null) 로그인은 이 소유자로
+ * OAuth server의 로그인 상태다. `workspace`·`agent`는 서버의 소유자이고(전역은 둘 다 null, Home 층은 `{kind: "home"}`) 로그인은 이 소유자로
  * 부른다. `client_id`·`scopes`는 등록한 설정값이라 화면이 begin에 그대로 넣는다.
  */
 export interface McpLogin {
-  readonly workspace: Workspace | null;
+  readonly workspace: McpOwnerWorkspace | null;
   /** agent 정의 층 서버면 그 agent의 id다. 그 밖에는 null이다. */
   readonly agent: string | null;
   readonly client_id: string;

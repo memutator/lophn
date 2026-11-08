@@ -13,6 +13,7 @@ import {
 import { CloseGuard, guardWindowClose } from "../../editor/close-guard.ts";
 import { createFileAdapter } from "../../editor/file-adapter.ts";
 import { createInstructions } from "../../editor/instructions.ts";
+import { createMemory } from "../../editor/memory.ts";
 import { registerFilesIpc, removeFilesIpc } from "../../editor/ipc.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
@@ -94,10 +95,17 @@ export function register(ctx: ShellContext): Registered {
       await mkdir(path, { recursive: true });
     },
   });
+  const memory = createMemory({
+    dataRoot,
+    makeDir: async (path) => {
+      await mkdir(path, { recursive: true });
+    },
+  });
   registerFilesIpc(ipc, {
     registry: overlays.overlayRegistry(),
     adapter: fileAdapter,
     instructions,
+    memory,
     guardOf: (id) => closeGuards.get(id),
   });
 

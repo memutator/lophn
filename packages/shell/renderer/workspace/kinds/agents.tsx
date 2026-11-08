@@ -1,6 +1,7 @@
-// agents 탭 kind. 전역 agent와 이 workspace 범위 agent의 카드, 설정 구역을 보이고, [Open]이나 [New agent]로 같은 탭 안에서
-// editor를 연다. 탭은 project에 하나이고 열어 둔 agent만 필드로 남긴다.
+// agents 탭 kind. 전역 agent와 이 workspace(Home, project, 앱) 범위 agent의 카드, 설정 구역을 보이고, [Open]이나 [New agent]로
+// 같은 탭 안에서 editor를 연다. 탭은 workspace에 하나이고 열어 둔 agent만 필드로 남긴다.
 import { commonIcons } from "../../icons/mod.ts";
+import { workspaceKey } from "../../shell/desk-model.ts";
 import { t } from "@lophn/i18n";
 
 import { AgentsPage } from "../agents/agents-page.tsx";
@@ -53,14 +54,20 @@ export const agentsKind: TabKindDef = {
   // 열어 둔 agent는 현재 보기에 싣지 않는다. 어느 카드를 보는지는 agent가 알 일이 아니다.
   render(tab, _active, host) {
     const agents = host.agents;
-    const project = host.projectId;
-    if (agents === null || project === null) return null;
+    if (agents === null) return null;
+    const { workspace } = host;
+    // Home은 이름이 없는 자리라 글을 따로 둔다.
+    const name =
+      workspace.kind === "home"
+        ? t("agents.label.workspace-home")
+        : ((workspace.kind === "project" ? host.projectTitle : host.appName) ??
+          "");
     return (
       <PaddedTab bare>
         <AgentsPage
           key={tab.key}
-          project={project}
-          projectName={host.projectTitle ?? ""}
+          workspace={workspaceKey(workspace)}
+          workspaceName={name}
           source={agents.source}
           agent={agentOf(tab)}
           onAgent={(assignment) =>

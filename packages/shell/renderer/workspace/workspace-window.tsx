@@ -2831,6 +2831,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   apps={props.apps}
                   agentViewSource={agentViewSource}
                   agents={sidebarAgents.agents}
+                  lophnNames={sidebarAgents.lophnNames}
                   openTitles={agentTabTitles}
                   agentDrafts={agentDrafts}
                   terminals={panelTerminals}

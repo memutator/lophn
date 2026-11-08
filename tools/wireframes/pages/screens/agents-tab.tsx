@@ -1,5 +1,5 @@
-// project의 Agents 탭과 agent 설정 탭. 화면은 renderer의 workspace/agents가 그리고, 여기서는 project 창(ProjectApp)이 부르는
-// 이름으로 fake source에 이어 준다. 정의는 project 폴더가 아니라 lophn에 저장된다.
+// workspace(project, Home, 앱)의 Agents 탭과 agent 설정 탭. 화면은 renderer의 workspace/agents가 그리고, 여기서는 project 창(ProjectApp)이
+// 부르는 이름으로 fake source에 이어 준다. 정의는 project 폴더가 아니라 lophn에 저장된다.
 import { useMemo } from "react";
 
 import { AgentsPage } from "../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
@@ -24,6 +24,14 @@ export const AGENTS_TAB_SPEC: TabSpec = {
   title: `${PROJECT_NAME} · Agents`,
 };
 
+/** Agents 탭을 보일 자리. 이름은 fake source가 가진 것과 같다. */
+export type AgentsAt = "project" | "home" | "app";
+const AT: Record<AgentsAt, { workspace: string; name: string }> = {
+  project: { workspace: PROJECT_ID, name: PROJECT_NAME },
+  home: { workspace: "home", name: "Home" },
+  app: { workspace: APP_ID, name: APP_NAME },
+};
+
 /** agent 설정 화면을 여는 탭. 새 agent는 id가 "new"다. */
 export function agentTab(id: string): TabSpec {
   return {
@@ -36,13 +44,21 @@ export function agentTab(id: string): TabSpec {
 
 const noop = () => {};
 
-/** project의 Agents 탭. 카드의 Open은 agent 설정 탭을 따로 연다. */
-export function AgentsBody({ open }: { open: Open }) {
-  const source = useMemo(() => createFakeAgentsSource(), []);
+/** workspace의 Agents 탭. 카드의 Open은 agent 설정 탭을 따로 연다. */
+export function AgentsBody({
+  open,
+  at = "project",
+  source: options,
+}: {
+  open: Open;
+  at?: AgentsAt;
+  source?: FakeAgentsOptions;
+}) {
+  const source = useMemo(() => createFakeAgentsSource(options), []);
   return (
     <AgentsPage
-      project={PROJECT_ID}
-      projectName={PROJECT_NAME}
+      workspace={AT[at].workspace}
+      workspaceName={AT[at].name}
       source={source}
       agent={null}
       onAgent={(key) => {
@@ -64,21 +80,20 @@ export function AgentSettingsEditor({
 }: {
   id: string;
   /** 화면을 연 자리다. `app`이면 앱 그릇의 skill·MCP를 그린다. */
-  workspace?: "project" | "app";
+  workspace?: AgentsAt;
   onDone: () => void;
   steps?: readonly Step[];
-  /** provider와 project 층 model의 상태. */
+  /** provider와 workspace 층 model의 상태. */
   source?: FakeAgentsOptions;
 }) {
   const source = useMemo(() => createFakeAgentsSource(options), []);
   useDrive(() => runSteps(steps));
-  const inApp = workspace === "app";
   return (
     <div>
       <AgentEditor
         source={source}
-        project={inApp ? APP_ID : PROJECT_ID}
-        projectName={inApp ? APP_NAME : PROJECT_NAME}
+        workspace={AT[workspace].workspace}
+        workspaceName={AT[workspace].name}
         agent={id === "new" ? null : id}
         onDone={onDone}
         onChanged={noop}

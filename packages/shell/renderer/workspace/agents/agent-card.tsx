@@ -2,9 +2,10 @@
 import { t } from "@lophn/i18n";
 import type { ReactElement } from "react";
 import type { AgentCard } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import type {
-  AgentWorkspace,
-  Modality,
+import {
+  type AgentWorkspace,
+  LOPHN_AGENT_HANDLE,
+  type Modality,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
 import styles from "./agent-card.module.css";
 
@@ -22,13 +23,17 @@ const replyLabel = (reply: AgentCard["replies"][number]): string =>
       ? t("agents.label.reply-result")
       : t("agents.label.reply-conversation");
 
-/** agent의 범위 표시: 전역이거나 `<name> · project`·`<name> · app`. name은 그 workspace의 이름이다. */
+/**
+ * agent의 범위 표시: 전역이거나 `<name> · project`·`<name> · app`이다. name은 그 workspace의 이름이다.
+ * Home lophn은 범위가 없는 정의라 workspace가 null이어서 `home`으로 전역과 가른다.
+ */
 export const scopeLabel = (
   workspace: AgentWorkspace | null | undefined,
   name: string,
+  home = false,
 ): string =>
   workspace === null || workspace === undefined
-    ? t("agents.label.workspace-lophn")
+    ? t(home ? "agents.label.workspace-home" : "agents.label.workspace-lophn")
     : t(
         workspace.kind === "app"
           ? "agents.label.workspace-named-app"
@@ -48,7 +53,13 @@ export function CardFacts({
 }): ReactElement {
   return (
     <ul className={styles.facts} data-agent-card-facts="">
-      <li data-card-scope="">{scopeLabel(card.workspace, workspaceName)}</li>
+      <li data-card-scope="">
+        {scopeLabel(
+          card.workspace,
+          workspaceName,
+          card.handle === LOPHN_AGENT_HANDLE,
+        )}
+      </li>
       <li data-card-runtime="">
         {t("agents.label.card-runtime", {
           runtime:

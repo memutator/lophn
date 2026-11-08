@@ -80,7 +80,7 @@ export interface ModelPickerProps {
   };
 }
 
-/** 목록 맨 위의 "Use project default — X" 줄. `on`이면 지금 이 칸은 따르는 중이다. 고르면 `onFollow`를 부른다. */
+/** 목록 맨 위의 "Use workspace default — X" 줄. `on`이면 지금 이 칸은 따르는 중이다. 고르면 `onFollow`를 부른다. */
 export interface FollowView {
   readonly label: string;
   readonly on: boolean;

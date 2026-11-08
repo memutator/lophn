@@ -28,6 +28,7 @@ import {
   INSTRUCTIONS_OPEN_CHANNEL,
   instructionsOpenSchema,
 } from "../../ipc/instructions.ts";
+import { MEMORY_OPEN_CHANNEL, memoryOpenSchema } from "../../ipc/memory.ts";
 import {
   checkCaller,
   type ContentsRegistry,
@@ -37,6 +38,7 @@ import {
 import type { CloseGuard } from "./close-guard.ts";
 import type { FileAdapter } from "./file-adapter.ts";
 import type { Instructions } from "./instructions.ts";
+import type { Memory } from "./memory.ts";
 
 interface FilesIpcMain {
   handle(
@@ -52,6 +54,7 @@ interface FilesIpcDeps {
   registry: ContentsRegistry;
   adapter: FileAdapter;
   instructions: Instructions;
+  memory: Memory;
   /** sender 창의 guard. 창 본문이 아니면 없다. */
   guardOf(contentsId: number): CloseGuard | undefined;
 }
@@ -67,6 +70,7 @@ const HANDLED = [
   FILE_REVEAL_CHANNEL,
   FILE_WATCH_CHANNEL,
   INSTRUCTIONS_OPEN_CHANNEL,
+  MEMORY_OPEN_CHANNEL,
 ] as const;
 const HEARD = [FILE_COUNTS_CHANNEL, FILE_CLOSE_ANSWER_CHANNEL] as const;
 
@@ -180,6 +184,17 @@ export function registerFilesIpc(ipc: FilesIpcMain, deps: FilesIpcDeps) {
     );
     if (!checked.ok) return reject(checked.error.code);
     return await deps.instructions.open(checked.value);
+  });
+
+  ipc.handle(MEMORY_OPEN_CHANNEL, async (event, input) => {
+    const checked = guardIpc(
+      deps.registry,
+      event as IpcEvent,
+      memoryOpenSchema,
+      input,
+    );
+    if (!checked.ok) return reject(checked.error.code);
+    return await deps.memory.open(checked.value);
   });
 
   ipc.on(FILE_COUNTS_CHANNEL, (event, input) => {

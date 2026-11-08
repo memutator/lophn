@@ -4,13 +4,18 @@ import {
   isLophn,
   lophnIdOf,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
+import type { WorkspaceKind } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { WorkspaceRef } from "../../shell/desk-model.ts";
 
 export const AGENT_ID = /^agt_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
-/** 자리 id의 접두사가 앱인지 project인지 정한다. 앱 공간의 관리 화면이 같은 source를 쓴다. */
+/** 자리 id의 접두사가 앱인지 정한다. 앱 공간의 관리 화면이 같은 source를 쓴다. */
 export const isAppWorkspace = (workspace: string) =>
   workspace.startsWith("app_");
+
+/** 화면이 workspace를 가리키는 열쇠("home", project id, 앱 id)가 어느 종류인가. */
+export const kindOfWorkspace = (workspace: string): WorkspaceKind =>
+  workspace === "home" ? "home" : isAppWorkspace(workspace) ? "app" : "project";
 
 /** 그 자리의 lophn id. */
 export const lophnIdAt = (ref: WorkspaceRef) =>

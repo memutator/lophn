@@ -1,8 +1,10 @@
 // AgentsSource를 제품 core로 잇는다. token·port는 main에 있고 이 쪽은 route 이름과 입력만 보낸다. agent는 AgentId로
 // 가리킨다. 저장 거절(invalid_input)은 details의 항목별 이유를 issues로 그대로 싣는다.
-// 앱 자리에는 project 층이 없어 project 층 model 고르기, skill 켬·끔, server 켬·끔은 unavailable로 답한다.
+// 자리는 "home"이거나 project·앱 id다. Home·project·앱이 같은 층(지침, skill 끄기, MCP, model)과 memory를 갖는다.
 // profile 이미지는 byte route(upload·file)로 올리고 읽는다. 읽은 이미지는 blob URL로 기억하고, 목록과 상세를
 // 읽을 때 미리 받아 두어 imageSrc는 기다리지 않고 답한다.
+import { t } from "@lophn/i18n";
+
 import {
   agentChange,
   agentCreate,
@@ -28,6 +30,7 @@ import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-value
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
+import type { MemoryApi } from "../../../ipc/memory.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../ipc/secret-input.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
@@ -36,16 +39,19 @@ import {
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../../desktop/settings/core-call.ts";
-import { isAgentId, isAppWorkspace } from "./agent-key.ts";
+import { isAgentId, isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import {
   cancelMcpSignIn,
-  changeProjectSettings,
+  changeWorkspaceSettings,
+  instructionsTargetOf,
+  memoryOpenOf,
   workspaceOf,
   readGlobalModel,
   readAgentServerLogins,
   readInstructions,
   windowFiles,
   windowInstructions,
+  windowMemory,
   writeInstructions,
   readServers,
   readSkills,
@@ -54,6 +60,11 @@ import {
 import { readGrants, saveGrants } from "./core-grants.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
 import { providerChoiceOf } from "./model-picker-data.ts";
+import type {
+  InstructionsFile,
+  MemoryTarget,
+  WorkspaceInstructionsView,
+} from "./views.ts";
 
 // 켜진 shell extension의 tool 목록이다. 읽지 못하면 비어 있다.
 async function extensionsOf(link: Link): Promise<PublishedExtension[]> {
@@ -109,7 +120,9 @@ const DEFAULT_PROFILE = {
 interface AgentsDeps {
   /** 지침 파일의 경로를 알려 주는 main 통로. 없으면 지침은 읽지도 쓰지도 못한다(unavailable). */
   instructions: InstructionsApi | undefined;
-  /** 지침 파일을 읽고 쓰는 main file 통로. 없으면 지침은 읽지도 쓰지도 못한다(unavailable). */
+  /** memory 파일의 경로를 알려 주는 main 통로. 없으면 memory는 읽지도 쓰지도 못한다(unavailable). */
+  memory: MemoryApi | undefined;
+  /** 지침·memory 파일을 읽고 쓰는 main file 통로. 없으면 읽지도 쓰지도 못한다(unavailable). */
   files: Pick<FilesApi, "read" | "write"> | undefined;
   /** command key의 무작위 부분. 테스트가 고정한다. */
   random: () => string;
@@ -172,6 +185,7 @@ export function coreAgentsSource(
 ): AgentsSource {
   const instructions =
     "instructions" in deps ? deps.instructions : windowInstructions();
+  const memory = "memory" in deps ? deps.memory : windowMemory();
   const files = "files" in deps ? deps.files : windowFiles();
   const random = deps.random ?? (() => crypto.randomUUID());
   const bytes =
@@ -206,13 +220,12 @@ export function coreAgentsSource(
     }
   };
 
-  // 놓인 곳의 이름(project의 title, 앱의 name). 읽지 못하면 빈 글이다.
+  // 놓인 곳의 이름(Home, project의 title, 앱의 name). 읽지 못하면 빈 글이다.
   const nameOf = async (workspace: string): Promise<string> => {
+    if (workspace === "home") return t("agents.label.workspace-home");
     if (isAppWorkspace(workspace)) {
-      const app = await link.read<{ app: { name: string } }>("apps", "get", {
-        app: workspace,
-      });
-      return app.ok ? app.value.app.name : "";
+      const app = await appOf(workspace);
+      return app?.name ?? "";
     }
     const project = await link.read<{ project: { title: string } }>(
       "projects",
@@ -220,6 +233,21 @@ export function coreAgentsSource(
       { project: workspace },
     );
     return project.ok ? project.value.project.title : "";
+  };
+
+  // 앱의 이름과 source 폴더가 이어졌는지. 읽지 못하면 null이다.
+  const appOf = async (
+    app: string,
+  ): Promise<{ name: string; hasSource: boolean } | null> => {
+    const read = await link.read<{
+      app: { name: string; source_path: string | null };
+    }>("apps", "get", { app });
+    return read.ok
+      ? {
+          name: read.value.app.name,
+          hasSource: read.value.app.source_path !== null,
+        }
+      : null;
   };
 
   const providers = async () => {
@@ -272,6 +300,12 @@ export function coreAgentsSource(
       : result;
   };
 
+  // core 입력의 workspace. Home과 Settings는 없다(handle이 lophn이면 Home lophn이 먼저 걸린다).
+  const scopeInput = (workspace: string | null) => {
+    const scope = workspace === null ? null : workspaceOf(workspace);
+    return scope === null ? {} : { workspace: scope };
+  };
+
   // 명함은 core가 계산한다. 틀린 정의 file은 만들지 못해 없는 채로 둔다. workspace는 handle이 lophn일 때 어느 lophn인지 고른다
   // (없거나 home이면 Home).
   const cardOf = async (
@@ -280,9 +314,7 @@ export function coreAgentsSource(
   ): Promise<AgentCard | undefined> => {
     const read = await link.read<{ card: AgentCard }>("agents", "card", {
       handle,
-      ...(workspace === null || workspace === "home"
-        ? {}
-        : { workspace: workspaceOf(workspace) }),
+      ...scopeInput(workspace),
     });
     return read.ok ? read.value.card : undefined;
   };
@@ -295,7 +327,7 @@ export function coreAgentsSource(
     const result = await link.read<{ agents: AgentRow[] }>(
       "agents",
       "list",
-      workspace === "home" ? {} : { workspace: workspaceOf(workspace) },
+      scopeInput(workspace),
     );
     if (!result.ok) return result;
     const rows = result.value.agents
@@ -352,6 +384,16 @@ export function coreAgentsSource(
       : null;
   };
 
+  const viewOf = async (workspace: string | null): Promise<WorkspaceView> => {
+    if (workspace === null) return { kind: "none", id: null, name: "" };
+    const kind = kindOfWorkspace(workspace);
+    return {
+      kind,
+      id: kind === "home" ? null : workspace,
+      name: await nameOf(workspace),
+    };
+  };
+
   const detailOf = async (
     workspace: string | null,
     agent: string,
@@ -377,24 +419,21 @@ export function coreAgentsSource(
       issues: AgentDetail["issues"];
     }>("agents", "read", {
       agent,
-      ...(workspace === null ? {} : { workspace: workspaceOf(workspace) }),
+      ...scopeInput(workspace),
     });
     if (!read.ok) return read;
     const value = read.value;
-    const workspaceView: WorkspaceView =
-      workspace === null
-        ? { kind: "none", id: null, name: "" }
-        : {
-            kind: workspaceOf(workspace).kind,
-            id: workspace,
-            name: await nameOf(workspace),
-          };
+    const workspaceView = await viewOf(workspace);
     const skills = await readSkills(link, workspace);
     if (!skills.ok) return skills;
     const servers = await readServers(link, workspace);
     if (!servers.ok) return servers;
     const text = workspace === null ? null : await instructionsOf(workspace);
     const saved = value.definition ?? { body: "" };
+    // lophn은 따로 agent memory가 없다(workspace memory를 쓴다).
+    const memory = isLophn(agent)
+      ? null
+      : await readMemoryFile({ kind: "agent", agent });
     const card = await cardOf(handleOf(agent, value.definition), workspace);
     if (value.effective.profile.value.kind === "image") {
       await loadImage(agent, value.effective.profile.value.image);
@@ -422,58 +461,94 @@ export function coreAgentsSource(
           saved.mcp_servers ?? [],
         ),
         instructions: text,
+        memory,
         harnessEnabled: await harnessEnabledOf(link),
         extensions: await extensionsOf(link),
       },
     };
   };
 
-  // project 지침. 그 project 폴더의 LOPHN.md다. 앱 자리에는 project 지침이 없다. 읽지 못하면 빈 글이다.
-  const instructionsOf = async (workspace: string) => {
-    if (isAppWorkspace(workspace)) return null;
-    const read = await readInstructions(instructions, files, {
-      layer: "project",
-      workspace,
-    });
+  // workspace 지침. project와 Home은 LOPHN.md, 앱은 source 폴더의 AGENTS.md다. 읽지 못하면 빈 글이다.
+  // source를 잇지 않은 앱은 파일이 놓일 곳이 없어 빈 글이고 고치지 못한다.
+  const instructionsOf = async (
+    workspace: string,
+  ): Promise<WorkspaceInstructionsView> => {
+    const app = isAppWorkspace(workspace) ? await appOf(workspace) : null;
+    const file = isAppWorkspace(workspace) ? "AGENTS.md" : "LOPHN.md";
+    const name = await nameOf(workspace);
+    if (app !== null && !app.hasSource) {
+      return { text: "", hash: null, workspace: name, file, editable: false };
+    }
+    const read = await readInstructions(
+      instructions,
+      files,
+      instructionsTargetOf(workspace),
+    );
     return {
       ...(read.ok ? read.value : { text: "", hash: null }),
-      project: await nameOf(workspace),
+      workspace: name,
+      file,
+      editable: true,
     };
+  };
+
+  // memory는 파일이 없거나 읽지 못하면 빈 글이다. 화면은 읽지 못했다고 따로 알리지 않는다.
+  const readMemoryFile = async (
+    target: MemoryTarget,
+  ): Promise<InstructionsFile> => {
+    const read = await readInstructions(memory, files, memoryOpenOf(target));
+    return read.ok ? read.value : { text: "", hash: null };
   };
 
   return {
     list,
 
-    async overview(project) {
-      const agents = await list(project);
+    // workspace 없이 부르면 core가 모든 lophn을 낸다(`list`는 이 중 한 workspace의 것만 남긴다).
+    async lophnNames() {
+      const result = await link.read<{ agents: AgentRow[] }>(
+        "agents",
+        "list",
+        {},
+      );
+      if (!result.ok) return result;
+      return {
+        ok: true,
+        value: Object.fromEntries(
+          result.value.agents
+            .filter((row) => isLophn(row.agent))
+            .map((row) => [row.agent, row.name]),
+        ),
+      };
+    },
+
+    async overview(workspace) {
+      const agents = await list(workspace);
       if (!agents.ok) return agents;
-      const skills = await readSkills(link, project);
+      const skills = await readSkills(link, workspace);
       if (!skills.ok) return skills;
-      const servers = await readServers(link, project);
+      const servers = await readServers(link, workspace);
       if (!servers.ok) return servers;
       const global = await readGlobalModel(link);
-      const chosen = isAppWorkspace(project)
-        ? null
-        : await link.read<{ model: ModelChoice | null }>(
-            "workspace-model",
-            "read",
-            { workspace: project },
-          );
-      const text = await instructionsOf(project);
+      const chosen = await link.read<{ model: ModelChoice | null }>(
+        "workspace-model",
+        "read",
+        { workspace },
+      );
       const view: AgentsOverview = {
         agents: await Promise.all(
           agents.value.map(async (row) => {
-            const card = await cardOf(row.handle, project);
+            const card = await cardOf(row.handle, workspace);
             return card === undefined ? row : { ...row, card };
           }),
         ),
-        instructions: text,
-        projectModel: {
-          chosen: chosen?.ok ? chosen.value.model : null,
+        instructions: await instructionsOf(workspace),
+        workspaceModel: {
+          chosen: chosen.ok ? chosen.value.model : null,
           inherited: global.ok ? global.value : null,
         },
         skills: skills.value,
         mcpServers: servers.value,
+        memory: await readMemoryFile({ kind: "workspace", workspace }),
       };
       return { ok: true, value: view };
     },
@@ -556,27 +631,23 @@ export function coreAgentsSource(
 
     readAgent: (project, agent) => detailOf(project, agent),
 
-    async newAgent(project) {
-      const current: WorkspaceView =
-        project === null
-          ? { kind: "none", id: null, name: "" }
-          : { ...workspaceOf(project), name: await nameOf(project) };
+    async newAgent(workspace) {
+      const current = await viewOf(workspace);
+      const scope = workspace === null ? null : workspaceOf(workspace);
       const draftId = newAgentId(bytes());
-      const skills = await readSkills(link, project);
+      const skills = await readSkills(link, workspace);
       if (!skills.ok) return skills;
-      const servers = await readServers(link, project);
+      const servers = await readServers(link, workspace);
       if (!servers.ok) return servers;
-      const text = project === null ? null : await instructionsOf(project);
+      const text = workspace === null ? null : await instructionsOf(workspace);
       const global = await readGlobalModel(link);
       const detail: AgentDetail = {
         assignment: null,
         draftId,
         workspace: current,
-        // 새 agent의 범위는 화면을 연 자리가 기본이다. 편집기에서 전역으로 바꿀 수 있다.
+        // 새 agent의 범위는 화면을 연 자리가 기본이다(Home과 Settings는 전역뿐). 편집기에서 전역으로 바꿀 수 있다.
         definition:
-          project === null
-            ? { body: "" }
-            : { body: "", workspace: workspaceOf(project) },
+          scope === null ? { body: "" } : { body: "", workspace: scope },
         hash: null,
         effective: {
           name: { value: "", source: "global" },
@@ -593,6 +664,7 @@ export function coreAgentsSource(
         harnessEnabled: await harnessEnabledOf(link),
         extensions: await extensionsOf(link),
         instructions: text,
+        memory: null,
       };
       return { ok: true, value: detail };
     },
@@ -699,12 +771,12 @@ export function coreAgentsSource(
       return { ok: true, value: { image } };
     },
 
-    imageSrc: (_project, agent, image) => images.get(`${agent}/${image}`) ?? "",
+    imageSrc: (_workspace, agent, image) =>
+      images.get(`${agent}/${image}`) ?? "",
 
-    async setProjectModel(project, choice) {
-      if (isAppWorkspace(project)) return unavailable;
+    async setWorkspaceModel(workspace, choice) {
       const changed = await link.command(workspaceModelChange, {
-        input: { workspace: project, model: choice },
+        input: { workspace, model: choice },
         compare: {},
       });
       return changed.ok
@@ -712,10 +784,9 @@ export function coreAgentsSource(
         : { ok: false, message: changed.code };
     },
 
-    // project 층에서 skill을 켜고 끈다. 끈 이름은 project 설정 파일의 skills_off에 둔다(agent 정의의 skills_off와 다른 층이다).
-    setSkill(project, name, on) {
-      if (isAppWorkspace(project)) return Promise.resolve(unavailable);
-      return changeProjectSettings(link, project, (current) => ({
+    // workspace 층에서 skill을 켜고 끈다. 끈 이름은 workspace 설정 파일의 skills_off에 둔다(agent 정의의 skills_off와 다른 층이다).
+    setSkill(workspace, name, on) {
+      return changeWorkspaceSettings(link, workspace, (current) => ({
         ...current,
         skillsOff: on
           ? current.skillsOff.filter((one) => one !== name)
@@ -723,10 +794,9 @@ export function coreAgentsSource(
       }));
     },
 
-    // project 층 server는 enabled를 바꾸고, 전역 server는 이 project에서 끈 이름(mcp_off)에 넣고 뺀다.
-    setMcp(project, name, on) {
-      if (isAppWorkspace(project)) return Promise.resolve(unavailable);
-      return changeProjectSettings(link, project, (current) => {
+    // workspace 층 server는 enabled를 바꾸고, 전역 server는 이 workspace에서 끈 이름(mcp_off)에 넣고 뺀다.
+    setMcp(workspace, name, on) {
+      return changeWorkspaceSettings(link, workspace, (current) => {
         if (current.servers.some((server) => server.name === name)) {
           return {
             ...current,
@@ -754,23 +824,22 @@ export function coreAgentsSource(
     setGrants: (project, agent, entries, revision) =>
       saveGrants(link, project, agent, entries, revision),
 
-    readInstructions: (project) =>
-      isAppWorkspace(project)
-        ? Promise.resolve(unavailable)
-        : readInstructions(instructions, files, {
-            layer: "project",
-            workspace: project,
-          }),
+    readInstructions: (workspace) =>
+      readInstructions(instructions, files, instructionsTargetOf(workspace)),
 
-    writeInstructions: (project, text, hash) =>
-      isAppWorkspace(project)
-        ? Promise.resolve(unavailable)
-        : writeInstructions(
-            instructions,
-            files,
-            { layer: "project", workspace: project },
-            text,
-            hash,
-          ),
+    writeInstructions: (workspace, text, hash) =>
+      writeInstructions(
+        instructions,
+        files,
+        instructionsTargetOf(workspace),
+        text,
+        hash,
+      ),
+
+    readMemory: (target) =>
+      readInstructions(memory, files, memoryOpenOf(target)),
+
+    writeMemory: (target, text, hash) =>
+      writeInstructions(memory, files, memoryOpenOf(target), text, hash),
   };
 }

@@ -1,8 +1,9 @@
-// skill·MCP server·instruction·model 기본값을 읽는 부분. agent 설정 화면과 Agents 탭이 같이 쓴다. 전역 층은 settings 읽기와
-// skills 읽기에서, project 층은 project 확장 설정에서 온다. 앱 자리에는 project 층이 없다.
+// skill·MCP server·instruction·memory·model 기본값을 읽는 부분. agent 설정 화면과 Agents 탭이 같이 쓴다. 전역 층은 settings 읽기와
+// skills 읽기에서, workspace(Home, project, 앱) 층은 workspace 확장 설정에서 온다.
 import {
   type McpAuthFailure,
   type McpAuthStateName,
+  type McpOwnerWorkspace,
   type McpServer,
   workspaceExtensionSettingsChange,
 } from "../../../../protocol/lophn-agent/mcp-settings.ts";
@@ -11,24 +12,27 @@ import {
   BUILTIN_SKILLS,
   type SkillEntry,
 } from "../../../../protocol/lophn-agent/skill-settings.ts";
-import {
-  workspaceKindOf,
-  type Workspace,
-} from "../../../../protocol/lophn-agent/workspaces.ts";
+import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type {
+  EditorReply,
   InstructionsApi,
   InstructionsWorkspace,
 } from "../../../ipc/instructions.ts";
+import type {
+  MemoryApi,
+  MemoryTarget as MemoryOpen,
+} from "../../../ipc/memory.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { ReadResult } from "../source.ts";
-import { isAppWorkspace } from "./agent-key.ts";
+import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
 import type {
   InstructionsFile,
   McpLayer,
   McpLogin,
   McpRow,
+  MemoryTarget,
   SkillRow,
 } from "./views.ts";
 
@@ -40,28 +44,24 @@ function detailOf(server: McpServer): string {
     : server.http.url;
 }
 
-/** 자리 id에서 계약의 workspace를 만든다. 앱 id가 아니면 project다. */
-export const workspaceOf = (workspace: string): Workspace => ({
-  kind: isAppWorkspace(workspace) ? "app" : "project",
-  id: workspace,
-});
+/** 자리 열쇠에서 계약의 workspace를 만든다. Home("home")은 workspace가 아니라 null이고, 앱 id가 아니면 project다. */
+export const workspaceOf = (workspace: string): Workspace | null =>
+  workspace === "home"
+    ? null
+    : { kind: isAppWorkspace(workspace) ? "app" : "project", id: workspace };
 
-/** 이 자리에서 보이는 skill. 내장 skill은 그 workspace 종류가 가진 것만 보인다. */
+/** 이 자리에서 보이는 skill. 내장 skill은 그 workspace 종류가 가진 것만 보인다. null은 Settings(전역만)다. */
 export async function readSkills(
   link: Link,
   workspace: string | null,
 ): Promise<ReadResult<SkillRow[]>> {
-  const result = await link.read<{ skills: SkillEntry[] }>("skills", "read", {
-    ...(workspace === null
-      ? {}
-      : isAppWorkspace(workspace)
-        ? { app: workspace }
-        : { project: workspace }),
-  });
-  if (!result.ok) return result;
-  const kind = workspaceKindOf(
-    workspace === null ? null : workspaceOf(workspace),
+  const result = await link.read<{ skills: SkillEntry[] }>(
+    "skills",
+    "read",
+    workspace === null ? {} : { workspace },
   );
+  if (!result.ok) return result;
+  const kind = workspace === null ? "home" : kindOfWorkspace(workspace);
   return {
     ok: true,
     value: result.value.skills
@@ -101,7 +101,7 @@ async function readGlobalServers(link: Link): Promise<ReadResult<McpServer[]>> {
 interface ServerEntry {
   readonly server: McpServer;
   readonly layer: McpLayer;
-  readonly workspace: Workspace | null;
+  readonly workspace: McpOwnerWorkspace | null;
   readonly agent: string | null;
 }
 
@@ -201,24 +201,24 @@ export async function readAgentServerLogins(
   );
 }
 
-interface ProjectSettings {
+interface WorkspaceSettings {
   readonly servers: readonly McpServer[];
   readonly skillsOff: readonly string[];
   readonly mcpOff: readonly string[];
   readonly hash: string | null;
 }
 
-async function readProjectSettings(
+async function readWorkspaceSettings(
   link: Link,
-  project: string,
-): Promise<ReadResult<ProjectSettings>> {
+  workspace: string,
+): Promise<ReadResult<WorkspaceSettings>> {
   return await link
     .read<{
       mcp_servers: McpServer[];
       skills_off: string[];
       mcp_off: string[];
       hash: string | null;
-    }>("workspace-extension-settings", "read", { workspace: project })
+    }>("workspace-extension-settings", "read", { workspace })
     .then((result) =>
       result.ok
         ? {
@@ -234,19 +234,19 @@ async function readProjectSettings(
     );
 }
 
-/** project 층 설정을 읽어 edit로 고친 새 내용 전체를 쓴다. 읽은 뒤 바뀌었으면 conflict로 거절된다. */
-export async function changeProjectSettings(
+/** workspace 층 설정을 읽어 edit로 고친 새 내용 전체를 쓴다. 읽은 뒤 바뀌었으면 conflict로 거절된다. */
+export async function changeWorkspaceSettings(
   link: Link,
-  project: string,
-  edit: (current: ProjectSettings) => Omit<ProjectSettings, "hash"> | null,
+  workspace: string,
+  edit: (current: WorkspaceSettings) => Omit<WorkspaceSettings, "hash"> | null,
 ): Promise<ReadResult<null>> {
-  const current = await readProjectSettings(link, project);
+  const current = await readWorkspaceSettings(link, workspace);
   if (!current.ok) return current;
   const next = edit(current.value);
   if (next === null) return { ok: false, message: "unavailable" };
   const changed = await link.command(workspaceExtensionSettingsChange, {
     input: {
-      workspace: project,
+      workspace,
       mcp_servers: next.servers,
       skills_off: next.skillsOff,
       mcp_off: next.mcpOff,
@@ -258,14 +258,14 @@ export async function changeProjectSettings(
     : { ok: false, message: changed.code };
 }
 
-/** 이 자리에서 보이는 MCP server: 전역과 project 층(Home·앱은 wui). 전역 server를 project에서 끈 것은 꺼진 것으로 보인다. */
+/** 이 자리에서 보이는 MCP server: 전역과 workspace(Home, project, 앱) 층. 전역 server를 workspace에서 끈 것은 꺼진 것으로 보인다. */
 export async function readServers(
   link: Link,
   workspace: string | null,
 ): Promise<ReadResult<McpRow[]>> {
   const global = await readGlobalServers(link);
   if (!global.ok) return global;
-  if (workspace === null || isAppWorkspace(workspace)) {
+  if (workspace === null) {
     return {
       ok: true,
       value: await rowsWithLogins(
@@ -280,10 +280,10 @@ export async function readServers(
       ),
     };
   }
-  const project = await readProjectSettings(link, workspace);
-  if (!project.ok) return project;
-  const overridden = new Set(project.value.servers.map((one) => one.name));
-  const workspaceOfProject: Workspace = { kind: "project", id: workspace };
+  const own = await readWorkspaceSettings(link, workspace);
+  if (!own.ok) return own;
+  const overridden = new Set(own.value.servers.map((one) => one.name));
+  const owner: McpOwnerWorkspace = workspaceOf(workspace) ?? { kind: "home" };
   return {
     ok: true,
     value: await rowsWithLogins(
@@ -297,17 +297,17 @@ export async function readServers(
             workspace: null,
             agent: null,
           })),
-        ...project.value.servers.map((server) => ({
+        ...own.value.servers.map((server) => ({
           server,
-          layer: "project" as const,
-          workspace: workspaceOfProject,
+          layer: "workspace" as const,
+          workspace: owner,
           agent: null,
         })),
       ],
       (entry) =>
         entry.server.enabled &&
         (entry.layer !== "global" ||
-          !project.value.mcpOff.includes(entry.server.name)),
+          !own.value.mcpOff.includes(entry.server.name)),
     ),
   };
 }
@@ -402,27 +402,53 @@ export function windowFiles(): Pick<FilesApi, "read" | "write"> | undefined {
     : undefined;
 }
 
-async function instructionsPath(
-  instructions: InstructionsApi | undefined,
-  target: InstructionsWorkspace,
+/** memory 파일의 경로를 알려 주는 main 통로(`lophnMemory`). */
+export function windowMemory(): MemoryApi | undefined {
+  const bridge = (globalThis as { lophnMemory?: MemoryApi }).lophnMemory;
+  return bridge && typeof bridge.open === "function" ? bridge : undefined;
+}
+
+/** 화면의 MemoryTarget을 main이 받는 꼴로 바꾼다. */
+export function memoryOpenOf(target: MemoryTarget): MemoryOpen {
+  if (target.kind === "agent") return { kind: "agent", agent: target.agent };
+  const kind = kindOfWorkspace(target.workspace);
+  return kind === "home"
+    ? { kind: "home" }
+    : { kind, workspace: target.workspace };
+}
+
+/** 지침 파일의 target을 main이 받는 꼴로 바꾼다. */
+export function instructionsTargetOf(workspace: string): InstructionsWorkspace {
+  const kind = kindOfWorkspace(workspace);
+  return kind === "home" ? { layer: "home" } : { layer: kind, workspace };
+}
+
+/** 파일 경로를 알려 주는 main 통로. 지침과 memory가 같은 길로 읽고 쓴다. */
+interface PathOpener<T> {
+  open(input: { target: T }): Promise<EditorReply<{ readonly path: string }>>;
+}
+
+async function pathOf<T>(
+  opener: PathOpener<T> | undefined,
+  target: T,
 ): Promise<string | null> {
-  if (instructions === undefined) return null;
-  const opened = await instructions.open({ target });
+  if (opener === undefined) return null;
+  const opened = await opener.open({ target });
   return opened.ok ? opened.value.path : null;
 }
 
 /**
- * 지침 파일(전역·project의 LOPHN.md)의 글과 hash. 경로는 main(`instructions.open`)이 알려 주고 글은 shell main의
- * file read로 읽는다. 파일이 아직 없으면 빈 글과 null hash다(첫 저장이 만든다).
+ * 지침 파일(전역·Home·project의 LOPHN.md, 앱의 AGENTS.md)과 memory 파일의 글과 hash. 경로는 main(`instructions.open`,
+ * `memory.open`)이 알려 주고 글은 shell main의 file read로 읽는다. 파일이 아직 없으면 빈 글과 null hash다(첫 저장이 만든다).
  */
-export async function readInstructions(
-  instructions: InstructionsApi | undefined,
+export async function readInstructions<T = InstructionsWorkspace>(
+  instructions: PathOpener<T> | undefined,
   files: Pick<FilesApi, "read"> | undefined,
-  target: InstructionsWorkspace,
+  target: T,
 ): Promise<ReadResult<InstructionsFile>> {
   if (files === undefined) return { ok: false, message: "unavailable" };
   try {
-    const path = await instructionsPath(instructions, target);
+    const path = await pathOf(instructions, target);
     if (path === null) return { ok: false, message: "unavailable" };
     const read = await files.read({ path });
     if (read.ok) {
@@ -443,16 +469,16 @@ export async function readInstructions(
  * 지침 파일을 통째로 쓴다. hash는 읽을 때 받은 값이고 디스크가 그사이 바뀌었으면 main이 `conflict`로 거절하고
  * 디스크는 그대로다. hash가 null이면 파일을 새로 만들고, 이미 있으면 `conflict`다.
  */
-export async function writeInstructions(
-  instructions: InstructionsApi | undefined,
+export async function writeInstructions<T = InstructionsWorkspace>(
+  instructions: PathOpener<T> | undefined,
   files: Pick<FilesApi, "write"> | undefined,
-  target: InstructionsWorkspace,
+  target: T,
   text: string,
   hash: string | null,
 ): Promise<ReadResult<InstructionsFile>> {
   if (files === undefined) return { ok: false, message: "unavailable" };
   try {
-    const path = await instructionsPath(instructions, target);
+    const path = await pathOf(instructions, target);
     if (path === null) return { ok: false, message: "unavailable" };
     const written = await files.write({ path, base_hash: hash, text });
     return written.ok

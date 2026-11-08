@@ -1,16 +1,18 @@
-// project의 Agents 탭 본문. 위에서부터 전역 agent와 이 workspace 범위 agent의 카드 목록(lophn이 첫 줄)과 [New agent], 같이 쓰는 LOPHN.md,
-// project 층 model 하나, skill, MCP server와 맨 아래 "Agent definitions are stored in lophn, not in your project folder."
-// 한 줄이다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
+// workspace(Home, project, 앱)의 Agents 탭 본문. 위에서부터 전역 agent와 이 workspace 범위 agent의 카드 목록(lophn이 첫 줄)과 [New agent],
+// 같이 쓰는 지침(LOPHN.md, 앱은 AGENTS.md), workspace memory, workspace 층 model 하나, skill, MCP server와 맨 아래
+// "Agent definitions are stored in lophn, not in your project folder." 한 줄이다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 
 import { Card } from "@lophn/ui/layout";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
+import { MEMORY_MAX_BYTES } from "../../../../protocol/lophn-agent/tool-lists.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import { CardFacts, scopeLabel } from "./agent-card.tsx";
+import { kindOfWorkspace } from "./agent-key.ts";
 import styles from "./agents-tab.module.css";
 import {
   InstructionsEditor,
@@ -22,8 +24,10 @@ import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
 import type { ImageSrc } from "./views.ts";
 
 interface AgentsTabProps {
-  /** project(앱 자리면 앱) 이름. */
-  readonly projectName: string;
+  /** 이 탭의 workspace 열쇠: "home", project id, 앱 id. */
+  readonly workspace: string;
+  /** workspace(Home, project, 앱)의 이름. */
+  readonly workspaceName: string;
   readonly overview: AgentsOverview;
   readonly models: ModelsView | null;
   /** Model 칸이 목록을 다시 읽는 통로. */
@@ -33,16 +37,18 @@ interface AgentsTabProps {
   readonly onOpenAgent: (assignment: string) => void;
   /** [New agent]. */
   readonly onNewAgent: () => void;
-  /** Instructions의 LOPHN.md를 이 자리에서 고치는 길. */
+  /** Instructions의 지침 파일을 이 자리에서 고치는 길. */
   readonly instructions: InstructionsPort;
-  readonly onProjectModel: (choice: ModelChoice | null) => void;
+  /** workspace memory를 이 자리에서 고치는 길. */
+  readonly memory: InstructionsPort;
+  readonly onWorkspaceModel: (choice: ModelChoice | null) => void;
   readonly onToggleSkill: (name: string, on: boolean) => void;
   readonly onAddSkill: () => void;
   readonly onToggleMcp: (name: string, on: boolean) => void;
   readonly onAddServer: () => void;
 }
 
-/** 미리보기로 보이는 LOPHN.md 줄 수. */
+/** 미리보기로 보이는 지침·memory 줄 수. */
 const PREVIEW_LINES = 3;
 
 function avatarProfile(row: AgentListRow, imageSrc: ImageSrc): AvatarProfile {
@@ -108,7 +114,11 @@ function AgentCardView({
             {/* 명함이 없는 줄(틀린 정의 file)은 범위를 여기서 보인다. */}
             {row.card === undefined ? (
               <li data-agent-scope="">
-                {scopeLabel(row.workspace, workspaceName)}
+                {scopeLabel(
+                  row.workspace,
+                  workspaceName,
+                  isLophn(row.assignment),
+                )}
               </li>
             ) : null}
           </ul>
@@ -154,9 +164,23 @@ function Section({
   );
 }
 
+// 지침 파일 안내. project는 repo의 AGENTS.md와 다른 파일이라는 말이고, Home과 앱은 파일이 어디 있는지 말한다.
+function instructionsNote(kind: string, editable: boolean): string {
+  if (kind === "home") return t("agents.notice.instructions-file-home");
+  if (kind === "app") {
+    return t(
+      editable
+        ? "agents.notice.instructions-file-app"
+        : "agents.notice.instructions-file-app-none",
+    );
+  }
+  return t("project-workspace.info.instructions-file");
+}
+
 export function AgentsTab(props: AgentsTabProps): ReactElement {
   const { overview } = props;
-  const inherited = overview.projectModel.inherited;
+  const kind = kindOfWorkspace(props.workspace);
+  const inherited = overview.workspaceModel.inherited;
   return (
     <div className={styles.page} data-agents-tab="">
       <h1 className={styles.title}>{t("project-workspace.heading.agents")}</h1>
@@ -180,7 +204,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
             <AgentCardView
               key={row.assignment}
               row={row}
-              workspaceName={props.projectName}
+              workspaceName={props.workspaceName}
               imageSrc={props.imageSrc}
               onOpen={() => props.onOpenAgent(row.assignment)}
             />
@@ -188,52 +212,74 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         </ul>
       </Section>
 
-      {overview.instructions === null ? null : (
-        <Section
-          name="instructions"
-          heading={t("project-workspace.heading.instructions")}
-        >
-          <InstructionsEditor
-            head={t("project-workspace.label.instructions-shared", {
-              project: props.projectName,
-            })}
-            file={overview.instructions}
-            lines={PREVIEW_LINES}
-            empty={t("project-workspace.empty.no-instructions")}
-            port={props.instructions}
-          />
-          <p className={styles.note}>
-            {t("project-workspace.info.instructions-file")}
-          </p>
-        </Section>
-      )}
+      <Section
+        name="instructions"
+        heading={t("project-workspace.heading.instructions")}
+      >
+        <InstructionsEditor
+          head={t("project-workspace.label.instructions-shared", {
+            workspace: props.workspaceName,
+          })}
+          file={overview.instructions}
+          lines={PREVIEW_LINES}
+          empty={t("project-workspace.empty.no-instructions")}
+          port={props.instructions}
+          editable={overview.instructions.editable}
+        />
+        <p className={styles.note}>
+          {instructionsNote(kind, overview.instructions.editable)}
+        </p>
+      </Section>
 
-      <Section name="model" heading={t("agents.heading.model-for-project")}>
+      <Section name="memory" heading={t("agents.heading.memory")}>
+        <InstructionsEditor
+          head={t("agents.label.memory-head", {
+            workspace: props.workspaceName,
+          })}
+          file={overview.memory}
+          lines={PREVIEW_LINES}
+          empty={t("agents.empty.memory")}
+          port={props.memory}
+          limit={MEMORY_MAX_BYTES}
+        />
+        <p className={styles.note}>
+          {t("agents.notice.memory-workspace", {
+            workspace: props.workspaceName,
+          })}
+        </p>
+      </Section>
+
+      <Section
+        name="model"
+        heading={t("agents.heading.model-for-workspace", { kind })}
+      >
         <ModelField
           models={props.models}
           source={props.source}
           label={t("project-workspace.heading.agent-editor-model")}
           inheritLabel={
             inherited === null
-              ? t("project-workspace.label.agent-editor-model-unset")
+              ? t("agents.label.model-unset-global")
               : t("agents.label.model-inherit", {
                   layer: "global",
                   model: inherited.model_name,
                 })
           }
           inherited={inherited}
-          value={overview.projectModel.chosen}
+          value={overview.workspaceModel.chosen}
           layer={
-            overview.projectModel.chosen === null
+            overview.workspaceModel.chosen === null
               ? inherited === null
                 ? null
                 : "global"
               : "project"
           }
           overrideNote={t("agents.label.model-overrides", { layer: "global" })}
-          onChange={props.onProjectModel}
+          onChange={props.onWorkspaceModel}
         />
-        <p className={styles.note}>{t("agents.notice.model-for-project")}</p>
+        <p className={styles.note}>
+          {t("agents.notice.model-for-workspace", { kind })}
+        </p>
       </Section>
 
       <Section
@@ -252,7 +298,9 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         ) : (
           <SkillList items={overview.skills} onToggle={props.onToggleSkill} />
         )}
-        <p className={styles.note}>{t("agents.notice.skills-project")}</p>
+        <p className={styles.note}>
+          {t("agents.notice.skills-workspace", { kind })}
+        </p>
       </Section>
 
       <Section

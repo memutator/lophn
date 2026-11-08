@@ -127,6 +127,7 @@ test("home의 앱 목록에는 공개 command와 쓰는 곳이 실리고 package
   const read = await workspaceData(call, agent(null, "lophn"), files);
   assert.ok(read.ok);
   const text = read.value.workspace.text;
+  assert.ok(text.includes("Skills folder: /data/home/skills\n"));
   assert.ok(
     text.includes("`lophn ledger <command>`): show (read) show does it"),
   );

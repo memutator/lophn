@@ -287,9 +287,9 @@ export const agentArea: Area = {
     },
     {
       id: "new-model-picker-inherited",
-      title: "Agent · model picker, project default",
+      title: "Agent · model picker, workspace default",
       description:
-        "이 대화에서 model을 고르지 않아 project default를 따르는 상태다. 머리의 층 한 줄이 project default를 말한다. 목록에서 고르면 이 대화의 model이 된다.",
+        "이 대화에서 model을 고르지 않아 workspace default를 따르는 상태다. 머리의 층 한 줄이 workspace default를 말한다. 목록에서 고르면 이 대화의 model이 된다.",
       render: () => <ModelPickerInherited />,
     },
     {

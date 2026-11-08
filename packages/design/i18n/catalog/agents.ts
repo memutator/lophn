@@ -32,13 +32,26 @@ export const agents = {
     "Skill folders follow the Agent Skills format (SKILL.md). lophn has no built-in skills yet.",
   "agents.notice.stored-in-lophn":
     "Agent definitions are stored in lophn, in one place for every project, not in your project folder.",
-  "agents.heading.model-for-project": "Model for this project",
+  "agents.heading.model-for-workspace":
+    "Model for {kind, select, home {Home} app {this app} other {this project}}",
   "agents.label.card-model":
-    "Model: {layer, select, agent {{model}} project {project default ({model})} other {global default ({model})}}",
-  "agents.notice.model-for-project":
-    "One model for every agent in this project. An agent can pick its own in its settings.",
-  "agents.notice.skills-project":
-    "A switch turns a skill on or off for this project. Global skills can be turned off here too.",
+    "Model: {layer, select, agent {{model}} project {workspace default ({model})} other {global default ({model})}}",
+  "agents.notice.model-for-workspace":
+    "One model for every agent in {kind, select, home {Home} app {this app} other {this project}}. An agent can pick its own in its settings.",
+  "agents.notice.skills-workspace":
+    "A switch turns a skill on or off for {kind, select, home {Home} app {this app} other {this project}}. Global skills can be turned off here too.",
+  "agents.heading.memory": "Memory",
+  "agents.label.memory-head": "Memory \u00b7 memory.md of {workspace}",
+  "agents.label.memory-head-agent": "Memory of this agent",
+  "agents.label.memory-size": "{size} of {max}",
+  "agents.label.memory-size-over": "{size} of {max} \u2014 too long",
+  "agents.empty.memory": "Nothing remembered yet.",
+  "agents.notice.memory-workspace":
+    "lophn writes this with its memory tool. Every agent in {workspace} reads it. Your edits show from the next session on.",
+  "agents.notice.memory-agent":
+    "This agent writes this with its memory tool and reads it at the start of a session. Your edits show from the next session on.",
+  "agents.notice.memory-agent-after-create":
+    "This agent can remember things once it is saved.",
   "agents.notice.tab-lead":
     "Global agents work in every project and app. An agent scoped to this workspace shows only here. A session works in the workspace where you open it.",
   "agents.button.assign-app": "Assign app",
@@ -126,23 +139,23 @@ export const agents = {
     "{used, number} of {total, number} tools",
   "agents.label.grants-target": "the grants",
   "agents.label.instructions-head-placed":
-    "Project instructions \u00b7 LOPHN.md in {project} \u2014 read by every agent working there",
-  "agents.label.instructions-head-unknown":
-    "Project instructions \u00b7 LOPHN.md",
+    "Workspace instructions \u00b7 {file} in {workspace} \u2014 read by every agent working there",
   "agents.label.layer-agent": "This agent",
   "agents.label.layer-app": "App",
   "agents.label.layer-builtin": "Built-in",
   "agents.label.layer-global": "Global",
   "agents.label.layer-workspace-data": "Data folder",
   "agents.label.layer-project": "Project",
+  "agents.label.layer-workspace": "Workspace",
   "agents.label.layer-shared": "Shared by an app",
   "agents.label.model-inherit":
-    "Use {layer, select, project {project} other {global}} default \u2014 {model}",
+    "Use {layer, select, project {workspace} other {global}} default \u2014 {model}",
   "agents.label.model-overrides":
-    "Overrides {layer, select, project {project} other {global}}",
+    "Overrides {layer, select, project {workspace} other {global}}",
   "agents.label.no-model-chosen": "No model chosen yet",
   "agents.label.workspace": "Workspace",
   "agents.label.workspace-lophn": "All of lophn",
+  "agents.label.workspace-home": "Home",
   "agents.label.workspace-named": "{name} \u00b7 project",
   "agents.label.workspace-named-app": "{name} \u00b7 app",
   "agents.label.protected-key": "Key or token",
@@ -154,15 +167,15 @@ export const agents = {
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
   "agents.notice.grants-after-create":
     "You can assign apps in the Grants tab once the agent exists.",
-  "agents.notice.app-no-project":
-    "An app has no project instructions. Only the instructions below apply here.",
+  "agents.notice.instructions-app-none":
+    "This app has no source folder yet, so it has no AGENTS.md. Only the instructions below apply here.",
   "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
   "agents.notice.grants-lead":
     "What {name} can use besides its own tools. Anything you don't assign here, {name} can't use.",
   "agents.notice.grants-mcp-layers":
     "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this agent's Definition.",
   "agents.notice.instructions-help":
-    "Read after the project instructions. Your global instructions come before both.",
+    "Read after the workspace instructions. Your global instructions come before both.",
   "agents.notice.instructions-help-lophn":
     "Read after your global instructions (Settings \u203a Agents).",
   "agents.notice.handle-fixed-lophn":
@@ -208,8 +221,8 @@ export const agents = {
   "project-workspace.button.new-agent": "New agent",
   "project-workspace.button.open-agent": "Open",
   "project-workspace.empty.agent-editor-no-project":
-    "This project has no instructions yet.",
-  "project-workspace.empty.no-instructions": "LOPHN.md is empty.",
+    "No instructions here yet.",
+  "project-workspace.empty.no-instructions": "No instructions yet.",
   "project-workspace.empty.no-mcp-servers": "No MCP servers registered yet.",
   "project-workspace.empty.no-skills": "No skills registered yet.",
   "project-workspace.heading.agent-editor-delete-title": "Delete {name}?",
@@ -223,6 +236,12 @@ export const agents = {
   "project-workspace.heading.skills": "Skills",
   "project-workspace.info.instructions-file":
     "Your project's AGENTS.md is for coding agents. lophn agents read LOPHN.md.",
+  "agents.notice.instructions-file-home":
+    "Home's LOPHN.md is kept in lophn's data folder. It is read by lophn in Home.",
+  "agents.notice.instructions-file-app":
+    "This is the AGENTS.md in the app's source folder. Coding agents and lophn agents read it.",
+  "agents.notice.instructions-file-app-none":
+    "This app has no source folder yet, so there is no AGENTS.md to edit.",
   "project-workspace.label.agent-counts":
     "{skills, plural, one {# skill} other {# skills}} · {mcp, number} MCP",
   "project-workspace.label.agent-counts-unknown":
@@ -230,19 +249,20 @@ export const agents = {
   "project-workspace.label.agent-editor-image-file": "Image file",
   "project-workspace.label.agent-editor-instructions": "Instructions",
   "project-workspace.label.agent-editor-model-unset":
-    "Use project default — none chosen yet",
+    "Use workspace default — none chosen yet",
+  "agents.label.model-unset-global": "Use global default — none chosen yet",
   "project-workspace.label.agent-editor-name": "Name",
   "project-workspace.label.agent-no-model": "No model",
   "project-workspace.label.agents-target": "the agents",
   "project-workspace.label.instructions-shared":
-    "Shared by every agent in {project}",
+    "Shared by every agent in {workspace}",
   "project-workspace.label.open-agent-named": "Open {name}",
   "project-workspace.notice.agent-editor-delete-body":
     "Its open sessions close. The conversations stay.",
   "project-workspace.notice.agent-editor-issue":
     "{code, select, malformed {This part couldn't be read} unknownField {This field isn't recognized} invalidValue {This value isn't allowed} required {This is required} notAllowed {This isn't allowed here} reservedName {This handle is reserved} duplicate {This is already in use} unknown {This isn't a tool, command, or MCP tool name} tooLarge {This is too large} overCap {This is wider than the project allows} other {This couldn't be saved}}.",
   "project-workspace.notice.agent-editor-model-help":
-    "Only the fields you change are saved; the rest follow project and global defaults.",
+    "Only the fields you change are saved; the rest follow workspace and global defaults.",
   "project-workspace.notice.agent-editor-save-first":
     "Save first to upload an image.",
   "project-workspace.notice.agents-change-failed":

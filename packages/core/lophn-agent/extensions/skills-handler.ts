@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentWorkspace,
   skillsRead,
+  workspaceOfKey,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   Input,
@@ -27,7 +28,7 @@ import {
   type SkillSources,
 } from "./skills.ts";
 
-// `ReadSkills` handler다. 내장, 전역, (project나 app을 주면) 그 workspace 폴더와 그릇 자리의 층을 합친 skill 목록과
+// `ReadSkills` handler다. 내장, 전역, (workspace를 주면) 그 workspace(Home, project, 앱) 폴더와 그릇 자리의 층을 합친 skill 목록과
 // 끈 이름을 사람 화면과 machine에 준다. 같은 이름은 마지막 층이 덮고 가려진 쪽은 목록에 두지 않는다. 끈 skill도
 // 목록에 남고 enabled만 false다. 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다. 내장 skill은 workspace 종류를 가리지
 // 않고 모두 낸다(어느 workspace 종류의 것인지는 선언이 말한다).
@@ -67,14 +68,12 @@ export function createSkillsRead(deps: SkillsReadDeps): {
         let off = [...lookups.skillsOff()];
         let workspaceData: string | null = null;
         let workspaceSkills: WorkspaceSkills | null = null;
-        const workspace: AgentWorkspace | null =
-          input.project !== undefined
-            ? { kind: "project", id: input.project }
-            : input.app !== undefined
-              ? { kind: "app", id: input.app }
-              : null;
-        if (workspace !== null) {
-          if (!lookups.workspaceExists(workspace)) {
+        // 열쇠가 없으면 전역만이다. "home"은 workspace 없이 Home의 그릇 자리를 읽는다.
+        const workspace = (
+          input.workspace === undefined ? null : workspaceOfKey(input.workspace)
+        ) as AgentWorkspace | null;
+        if (input.workspace !== undefined) {
+          if (workspace !== null && !lookups.workspaceExists(workspace)) {
             return err({
               code: "not_found",
               message: `${workspace.kind} not found`,
@@ -85,7 +84,7 @@ export function createSkillsRead(deps: SkillsReadDeps): {
           workspaceSkills = workspaceSkillsOf(
             deps.projectLayer,
             workspace,
-            lookups.sourceFolder(workspace),
+            workspace === null ? null : lookups.sourceFolder(workspace),
           );
           workspaceData = deps.projectLayer.workspaceDataSkillsFolder(
             root.value,

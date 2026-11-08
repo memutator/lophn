@@ -48,14 +48,16 @@ export type AgentEditorSource = Pick<
   | "cancelMcpSignIn"
   | "readInstructions"
   | "writeInstructions"
+  | "readMemory"
+  | "writeMemory"
 >;
 
 interface AgentEditorProps {
   readonly source: AgentEditorSource;
-  /** agent가 놓인 곳의 id(project나 앱). null이면 놓인 곳이 없다(전역). */
-  readonly project: string | null;
+  /** 화면을 연 자리의 열쇠("home", project나 앱 id). null이면 Settings다. */
+  readonly workspace: string | null;
   /** 그 곳의 이름. */
-  readonly projectName: string;
+  readonly workspaceName: string;
   /** 열 agent를 가리키는 값. 새 agent는 null이다. */
   readonly agent: string | null;
   /** 저장·삭제·취소로 editor를 떠난다. */
@@ -139,7 +141,7 @@ function DeleteAgent({
 }
 
 export function AgentEditor(props: AgentEditorProps): ReactElement {
-  const { source, project, agent } = props;
+  const { source, workspace, agent } = props;
   const [state, setState] = useState<Loaded>({ kind: "loading" });
   const [models, setModels] = useState<ModelsView | null>(null);
   const [tab, setTab] = useState<Section>("definition");
@@ -167,8 +169,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     setState({ kind: "loading" });
     const opened =
       agent === null
-        ? source.newAgent(project)
-        : source.readAgent(project, agent);
+        ? source.newAgent(workspace)
+        : source.readAgent(workspace, agent);
     void opened.then((result) => {
       if (!live) return;
       if (!result.ok) {
@@ -188,14 +190,14 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       live = false;
     };
     // props.onDone은 부르는 쪽이 만드는 함수라 바뀔 때마다 다시 읽지 않는다.
-  }, [source, project, agent, attempt]);
+  }, [source, workspace, agent, attempt]);
 
   // Grants 탭은 열 때 읽는다. 새 agent는 저장하기 전에는 붙일 수 없다.
   useEffect(() => {
     if (tab !== "grants" || agent === null) return;
     let live = true;
     setGrants({ kind: "loading" });
-    void source.grants(project, agent).then((result) => {
+    void source.grants(workspace, agent).then((result) => {
       if (live) {
         if (result.ok) revision.current = result.value.revision;
         setGrants(
@@ -208,7 +210,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     return () => {
       live = false;
     };
-  }, [source, project, agent, tab]);
+  }, [source, workspace, agent, tab]);
 
   if (state.kind === "loading") return <Loading />;
   if (state.kind === "failed") {
@@ -239,13 +241,13 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           src:
             detail.assignment === null
               ? ""
-              : source.imageSrc(project, detail.assignment, profile.image),
+              : source.imageSrc(workspace, detail.assignment, profile.image),
         };
   })();
 
   const save = () => {
     void source
-      .saveAgent(project, {
+      .saveAgent(workspace, {
         assignment: detail.assignment,
         draftId: detail.draftId,
         definition,
@@ -282,7 +284,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const remove = () => {
     if (detail.assignment === null || detail.hash === null) return;
     void source
-      .deleteAgent(project ?? "", detail.assignment, detail.hash)
+      .deleteAgent(workspace ?? "", detail.assignment, detail.hash)
       .then((result) => {
         if (!result.ok) {
           setNotice({
@@ -364,26 +366,28 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
 
   const upload = (file: File) => {
     if (detail.assignment === null) return;
-    void source.uploadImage(project, detail.assignment, file).then((result) => {
-      if (!result.ok) {
-        setNotice({
-          title: "agents.title.upload-failed",
-          body: "project-workspace.notice.agents-upload-failed",
+    void source
+      .uploadImage(workspace, detail.assignment, file)
+      .then((result) => {
+        if (!result.ok) {
+          setNotice({
+            title: "agents.title.upload-failed",
+            body: "project-workspace.notice.agents-upload-failed",
+          });
+          return;
+        }
+        setNotice(null);
+        edit({
+          ...definition,
+          profile: { kind: "image", image: result.value.image },
         });
-        return;
-      }
-      setNotice(null);
-      edit({
-        ...definition,
-        profile: { kind: "image", image: result.value.image },
       });
-    });
   };
 
   // 할당은 정의 파일의 apps·permissions라 Grants 저장이 파일 hash를 바꾼다. 들고 있는 hash와 두 칸을 파일에 맞춰,
   // 이어지는 정의 저장이 conflict가 되거나 방금 바꾼 할당을 옛 값으로 덮지 않게 한다. 편집 중인 다른 칸은 그대로 둔다.
   const syncGrantsFile = async (assignment: string) => {
-    const read = await source.readAgent(project, assignment);
+    const read = await source.readAgent(workspace, assignment);
     if (!read.ok) return;
     const stored = read.value.definition as {
       apps?: unknown;
@@ -422,7 +426,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     setGrants({ kind: "ready", view: { ...before, entries } });
     saving.current = saving.current.then(async () => {
       const result = await source.setGrants(
-        project,
+        workspace,
         assignment,
         entries,
         revision.current,
@@ -432,7 +436,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
         await syncGrantsFile(assignment);
         return;
       }
-      const fresh = await source.grants(project, assignment);
+      const fresh = await source.grants(workspace, assignment);
       if (fresh.ok) revision.current = fresh.value.revision;
       setGrants(
         fresh.ok
@@ -483,21 +487,34 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             issues={state.issues}
             models={models}
             source={source}
-            workspaceName={props.projectName}
+            workspaceName={props.workspaceName}
             imageSrc={(image) =>
               detail.assignment === null
                 ? ""
-                : source.imageSrc(project, detail.assignment, image)
+                : source.imageSrc(workspace, detail.assignment, image)
             }
             onChange={edit}
             onUpload={upload}
             onSignIn={signIn}
             onCancelSignIn={cancelSignIn}
             signingIn={signingIn}
-            projectInstructions={{
-              read: () => source.readInstructions(project ?? ""),
+            workspaceInstructions={{
+              read: () => source.readInstructions(workspace ?? ""),
               write: (text, hash) =>
-                source.writeInstructions(project ?? "", text, hash),
+                source.writeInstructions(workspace ?? "", text, hash),
+            }}
+            memoryPort={{
+              read: () =>
+                source.readMemory({
+                  kind: "agent",
+                  agent: detail.assignment ?? "",
+                }),
+              write: (text, hash) =>
+                source.writeMemory(
+                  { kind: "agent", agent: detail.assignment ?? "" },
+                  text,
+                  hash,
+                ),
             }}
           />
           <div className={styles.formActions}>

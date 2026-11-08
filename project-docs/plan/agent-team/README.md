@@ -25,7 +25,8 @@
   - 자식 turn은 지금처럼 turn 안 request로 기다리고, 부모의 답이 그 request를 푼다.
   - 근거: 사람, 2026-11-08: "cordinator든 leader든 걔가 먼저 답하고 걔 판단으로 안 되겠음 걔가 사용자한테 올리고".
 - **올리는 장치는 따로 없다.** 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 spawn된 session이면 그 위로 가고, root에서 사람에게 닿는다. (agent) 규칙 하나가 사슬을 만든다.
-- **turn mode와 상관없이 같다.** root가 unattended면 root의 `ask`가 `unattended`를 돌려주고, root가 스스로 정한다. (agent) 사람이 없는 사슬에서도 coordinator가 한 번은 본다. 지금 unattended의 "ask 명령은 그냥 실행"보다 엄하다.
+- **attended와 unattended는 같은 길이다.** root가 unattended면 root의 `ask`가 `unattended`를 돌려주고, root가 스스로 정한다. (agent) 사람이 없는 사슬에서도 coordinator가 한 번은 본다. 지금 unattended의 "ask 명령은 그냥 실행"보다 엄하다.
+- **skip은 지킨다.** skip session의 shell ask는 지금처럼 run이고 부모에게 가지 않는다. `ask` tool(질문)은 skip이어도 부모에게 간다. (agent) skip은 사람이 그 session에 직접 정한 "묻지 마"라서 부모가 뒤집지 않는다(`approval.md`: "skip은 사람이 그 대화에 정한 것"). 질문은 승인이 아니라서, 지금도 skip turn의 `ask`가 기다린다.
 - **부모의 승인 답은 이번 한 번의 허락·거절뿐이다.** 글에서 읽지 않고 구조로 받는다. `always`(shell 규칙 더하기)는 사람만 한다. `deny`는 누구도 풀지 못한다. (agent) 규칙 층은 사람의 settings다(`approval.md`).
 - **팀 밖 session의 `ask`는 지금 그대로다.** 자식 탭에는 승인 카드가 뜨지 않는다. (agent)
 - **`team spawn`과 `team read`.** `team spawn`의 `--reply` 기본은 `result`다. `team read`는 팀원마다 답하지 않은 call을 보인다. (agent)

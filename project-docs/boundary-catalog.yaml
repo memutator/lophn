@@ -136,7 +136,7 @@ elements:
 
       - id: approvals
         kind: component
-        description: tool 호출의 판정과 사람에게 묻는 길. 할당(agent 정의 파일의 앱과 뺀 tool), shell 규칙, turn mode로 판정하고, 물을 것은 기다리는 turn의 request 하나로 묻는다. 앱이 청한 공유 요청(share_requests)도 사람이 한 번 승인한다.
+        description: tool 호출의 판정과 사람에게 묻는 길. 할당(agent 정의 파일의 앱과 뺀 tool), shell 규칙, turn mode로 판정하고, 물을 것은 기다리는 turn의 request 하나로 묻는다. 팀 자식(`spawned_by`)의 물음은 사람이 아니라 부모에게 간다. 앱이 청한 공유 요청(share_requests)도 사람이 한 번 승인한다.
 
       - id: config
         kind: component

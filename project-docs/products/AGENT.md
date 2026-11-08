@@ -108,7 +108,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - H1. 사람은 무엇을 만들고 무엇을 원하는지 agent에게 이야기한다.
 - H2. 앱을 처음 activation하거나 새 release가 선언을 넓히면, 사람이 앱 grant를 허락한다.
 - H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(전역, project, 그 agent의 정의)이 할당이고 정의에서 끈다. 전역과 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. 다른 앱의 command는 공개(`public`) command만 쓸 수 있다(비공개는 그 앱 workspace의 session만, P12).
-- H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 거절하며 적은 이유는 agent에게 그대로 간다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다.
+- H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 거절하며 적은 이유는 agent에게 그대로 간다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다. 팀으로 spawn된 session(skip 꺼짐)의 승인은 사람이 아니라 부모가 `lophn call reply --allow | --reject`로 답한다.
 - H5. 앱 workspace의 session이 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
 - H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
 - H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
@@ -120,7 +120,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 
 - R1. call: agent가 다른 session에 일을 맡기는 것은 모두 call이다. 보내는 쪽이 받는 곳(새 session, 열린 session, 열린 session이 없으면 새 session)과 답 방식을 고른다.
 - R2. 답 방식은 셋이다: 답을 받지 않음(none), 결과 하나를 받음(result), 대화로 주고받음(conversation). 답을 받지 않는 call을 화면에서는 handoff라 부르고, 사람은 그 블록의 [Open conversation]으로 받은 session에 가서 일을 잇는다. 결과를 받던 escalate는 결과를 받는 call이다.
-- R4. 사람에게 올림(escalate): 사람의 결정이나 취향이 필요하면 session에서 사람에게 묻는다. 이것은 call도 동작 허락(approval)도 아니다. escalate라는 말은 이것에만 쓴다.
+- R4. 사람에게 올림(escalate): 사람의 결정이나 취향이 필요하면 session에서 사람에게 묻는다. 이것은 call도 동작 허락(approval)도 아니다. escalate라는 말은 이것에만 쓴다. 팀으로 spawn된 session의 `ask`는 사람이 아니라 부모에게 가는 call이고, 부모가 판단할 수 없으면 자기 `ask`로 위에 올려 root에서 사람에게 닿는다.
 - R6. step 메시지: 사람이 시작한 workflow instance에서 참가자의 report나 고치기가 말한 step의 담당에게 program이 넣는 입력이다. call이 아니다(call 행과 답 방식이 없다). 답 대신 report를 낸다(W1).
 - R7. job의 run: job의 차례마다 program이 연 run의 입력이다. 받는 agent와 workspace는 job에 적힌 것이고 call이 아니다(call 행과 답 방식이 없다). 입력은 사람이 없는 입력(unattended)이고 답은 run 기록에 남는다(J3).
 - R8. flow의 run: flow code가 `agent(...)`로 연 run의 입력이다. 받는 agent는 code가 고른 누구든 되고(workspace가 없으면 instance의 project) call이 아니다. 입력은 unattended이고, 받은 session은 자기 할당으로만 일한다(T5, T6). 답은 run 기록에 남고 code가 받는다.

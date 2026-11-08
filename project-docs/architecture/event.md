@@ -26,7 +26,7 @@ core 안에서 일어난 일은 두 부류로 갈린다. program이나 agent가 
 - 남지 않는 event: session 밖에서 화면만 알면 되는 일(activation 동의 대기 `ActivationConsentRequested`·`ActivationConsentClosed`, 앱 view 다시 그리기, 설정 바뀜, 앱 재시작 멈춤 `AppRestartHalted`, 사람에게 한 알림 `NoticePosted`·`NoticeClosed`·`NoticeRead`, workflow instance를 다시 읽으라는 신호 `WorkflowInstanceChanged`, job이나 job run이 바뀌었다는 신호 `JobChanged`, ACP 갱신 `AcpUpdated`). 메모리뿐이다. `AcpUpdated`는 core acp wiring이 agent event를 차례로 받아 `acpUpdatesOf`로 바꿔 낸다(`architecture/acp.md`). subject가 null이라 session 조건에 걸리지 않으니 type으로 구독하고 payload의 session으로 고른다.
 - Router는 "agent session에 입력을 넣는" 한 입구다. 사람 메시지, agent call, program의 알림, workflow의 step 메시지가 모두 여기로 들어가 run-loop queue로 간다.
 - 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다.
-- session snapshot은 session의 지금 상태와 대기 중인 turn 안 request(`turn_requests`), 질문을 담는다. 대기 목록과 session 목록이 읽는다. 대화 화면이 읽는 상태(쓰는 중인 model 글, 도는 turn의 active, 올린 steer)는 ACP snapshot `AcpSnapshot`이 싣는다(`architecture/acp.md`). 둘 다 화면이 붙거나 다시 붙을 때 읽는다.
+- session snapshot은 session의 지금 상태와 대기 중인 turn 안 request(`turn_requests`), 질문을 담는다. 팀 자식의 물음은 부모가 푸는 것이라 request와 `TurnRequestOpened`·`QuestionAsked`, snapshot의 질문 항목에 `to_parent`가 붙고 대기 목록과 알림이 그것으로 거른다. 대기 목록과 session 목록이 읽는다. 대화 화면이 읽는 상태(쓰는 중인 model 글, 도는 turn의 active, 올린 steer)는 ACP snapshot `AcpSnapshot`이 싣는다(`architecture/acp.md`). 둘 다 화면이 붙거나 다시 붙을 때 읽는다.
 
 ## 지키는 것
 

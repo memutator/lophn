@@ -10,7 +10,6 @@ host queue의 `host/take`를 long-poll로 바꾸고, 요청 종류 `browser_call
   - `packages/core/host-queue/{queue,queue_test}.ts`
   - `packages/core/main/daemon/wiring/host-queue.ts`
   - `packages/core/lophn-agent/prompt-assembly/input-tags.ts`
-  - `packages/core/lophn-agent/prompt-assembly/turn-prompt.ts`(untrusted 안내 한 줄만)
   - `packages/core/agent-workspaces/prompts/prompts.ts`(untrusted 안내 한 줄만)
   - `packages/cli/commands/{tab,browser}.ts`
   - `packages/cli/{main,output}.ts`
@@ -107,7 +106,7 @@ export function createBrowserDriver(ctx: ShellContext): BrowserDriver; // 이 ta
 - untrusted:
   - `UNTRUSTED_SOURCES`에 `browser.read`, `browser.snapshot`, `browser.act`, `browser.navigate`, `browser.evaluate`, `browser.logs`, `browser.wait`를 더한다. lophn agent는 이 tool 이름 규칙으로 history가 감싼다(명령 호출의 tool 이름이 정말 `browser.snapshot`꼴인지 먼저 확인하고, 아니면 멈추고 보고한다).
   - harness·사람 CLI는 명령의 `text`(binary가 찍는 글)를 `<lophn-untrusted source="browser.snapshot">…</lophn-untrusted>`로 감싼다. CLI는 core를 import하지 못하므로(`tools/check-deps.ts`) `escapeTagBody`와 untrusted 한 줄 만들기를 `packages/protocol/lophn-agent/input-tags.ts`로 옮기고 core `prompt-assembly/input-tags.ts`가 그것을 쓴다. 사본을 만들지 않는다.
-  - 안내 문장 두 곳(`turn-prompt.ts`의 untrusted 줄, `agent-workspaces/prompts/prompts.ts:37`)을 "web search, web fetch and browser page results"로 고친다.
+  - 안내 문장 `agent-workspaces/prompts/prompts.ts:37`을 "web search, web fetch and browser page results"로 고친다. `packages/core/lophn-agent/prompt-assembly/turn-prompt.ts:212`의 같은 줄은 workspace-layers의 `wlayer`가 소유해 lead가 그 task 뒤에 고친다(이 task는 건드리지 않는다).
 - screenshot:
   - lophn agent: 명령 content에 `image: {media_type: "image/png", data_base64}`를 둔다(history가 image로 준다).
   - binary(`packages/cli/main.ts`·`output.ts`): content에 `image`가 있으면 PNG를 file로 쓰고 `image` 대신 `image_path`를 둔다. 자리는 `--out <path>`(cwd 기준)이고, 없으면 `<os.tmpdir()>/lophn-screenshots/<tab>-<unix ms>.png`. 글 출력은 그 path 한 줄이다.

@@ -38,7 +38,7 @@ function actions(platform: WindowPlatform): PaletteEntry<DesktopTarget>[] {
       group: "actions",
       key: "action:home",
       label: t("common.button.palette-home"),
-      hint: windowShortcutLabel("home", platform),
+      hint: windowShortcutLabel("home.open", platform) ?? undefined,
       icon: "home",
       target: { kind: "home" },
     },

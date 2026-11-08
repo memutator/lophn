@@ -2,9 +2,10 @@
 import { t } from "@lophn/i18n";
 
 import {
-  type PaletteShortcut,
-  WINDOW_SHORTCUTS,
-} from "../../../ipc/shortcuts.ts";
+  type BindingCommand,
+  commandLabel,
+  type KeyOverrides,
+} from "../../../ipc/keybindings.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import type { PaletteGroup } from "./model.ts";
 
@@ -25,35 +26,16 @@ export function groupLabel(group: PaletteGroup): string {
   }
 }
 
-// macOS는 ⌘⇧ 기호를 붙여 쓰고 다른 OS는 Ctrl+Shift+처럼 +로 잇는다.
-const MODIFIERS: readonly {
-  name: string;
-  mac: string;
-  other: string;
-}[] = [
-  { name: "CommandOrControl", mac: "⌘", other: "Ctrl" },
-  { name: "Alt", mac: "⌥", other: "Alt" },
-  { name: "Shift", mac: "⇧", other: "Shift" },
-];
-
-/** accelerator를 사람이 읽는 키 이름으로 쓴다. 표에 없는 modifier는 이름 그대로 둔다. */
-function shortcutLabel(accelerator: string, platform: WindowPlatform): string {
-  const parts = accelerator.split("+");
-  const key = parts.pop()!.toUpperCase();
-  const mac = platform === "mac";
-  const known = MODIFIERS.filter((modifier) =>
-    parts.includes(modifier.name),
-  ).map((modifier) => (mac ? modifier.mac : modifier.other));
-  const rest = parts.filter(
-    (part) => !MODIFIERS.some((modifier) => modifier.name === part),
-  );
-  if (mac && rest.length === 0) return `${known.join("")}${key}`;
-  return [...known, ...rest, key].join("+");
-}
-
+/** 표의 command 하나의 키 이름. 사람이 바꾼 키가 있으면 그것을 보인다. 키가 없으면 null이다. */
 export function windowShortcutLabel(
-  shortcut: PaletteShortcut,
+  command: BindingCommand,
   platform: WindowPlatform,
-): string {
-  return shortcutLabel(WINDOW_SHORTCUTS[shortcut], platform);
+  overrides: KeyOverrides = {},
+): string | null {
+  return commandLabel(
+    command,
+    platform === "mac" ? "mac" : "other",
+    undefined,
+    overrides,
+  );
 }

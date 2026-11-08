@@ -1,8 +1,8 @@
 // xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. clipboard(OSC 52)·자동 링크
 // (OSC 8)·파일·앱·플랫폼 동작 handler는 등록하지 않고, 그 escape는 parser에서 먹어 xterm
 // 기본 동작(링크 열기 확인 창)도 생기지 않게 한다. 화면에 보이는 http/https 글자와 파일 경로만 Ctrl/Cmd-click
-// 하면 `onLink`·`onPathLink`로 알리고, 여는 것은 듣는 쪽이 한다. clipboard는 사람이 누른 키(Linux·Windows의
-// Ctrl+Shift+C/V)로만 쓴다. macOS의 Cmd+C/V는 창 menu가 하므로 여기서 받지 않는다.
+// 하면 `onLink`·`onPathLink`로 알리고, 여는 것은 듣는 쪽이 한다. clipboard는 사람이 부른 command
+// (`terminal.copy`·`terminal.paste`)로만 쓴다.
 import { pathMatches } from "./path-links.ts";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -35,6 +35,13 @@ export interface TerminalView {
   }): () => void;
   /** program이 OSC 0/2로 터미널 제목을 바꿨다. */
   onTitle(listener: (title: string) => void): () => void;
+  /**
+   * 고른 글을 OS clipboard에 쓴다. 고른 글이 없으면 아무것도 하지 않는다(그래도 key는 먹는다).
+   * shell 창 session은 web clipboard permission을 거절하므로 main이 쓴다.
+   */
+  copySelection(): void;
+  /** OS clipboard 글을 terminal에 붙여 넣는다. xterm이 bracketed paste로 감싸 줄마다 실행되지 않는다. */
+  paste(): void;
   dispose(): void;
 }
 
@@ -96,7 +103,6 @@ interface XtermLike {
   hasSelection(): boolean;
   getSelection(): string;
   paste(data: string): void;
-  attachCustomKeyEventHandler(handler: (event: KeyboardEvent) => boolean): void;
   registerLinkProvider(provider: {
     provideLinks(
       y: number,
@@ -370,7 +376,7 @@ function adoptInlineStyles(root: HTMLElement): () => void {
 
 /**
  * xterm.js를 host 요소에 연다. edge는 host를 둘러싼 여백 전체를 덮는 canvas이고 `paintEdges`가 칠한다.
- * clipboard가 없으면 Ctrl+Shift+C/V는 아무것도 하지 않는다. parts는 테스트가 바꾼다.
+ * clipboard가 없으면 `copySelection`·`paste`는 아무것도 하지 않는다. parts는 테스트가 바꾼다.
  */
 export function createXtermView(
   host: HTMLElement,
@@ -415,32 +421,6 @@ export function createXtermView(
       for (const listener of linkListeners) listener(uri);
     }),
   );
-  // Linux·Windows의 Ctrl+C는 shell의 SIGINT라 복사는 Ctrl+Shift+C, 붙여 넣기는 Ctrl+Shift+V다. 고른 글이 없으면
-  // Ctrl+Shift+C도 shell로 보내지 않고 먹는다. paste는 xterm이 bracketed paste로 감싸 줄마다 실행되지 않는다.
-  // shell 창 session은 web clipboard permission을 거절하므로 OS clipboard는 main이 쓴다(`clipboard`).
-  const mac = /Mac OS X|Macintosh/.test(globalThis.navigator?.userAgent ?? "");
-  term.attachCustomKeyEventHandler((event) => {
-    if (
-      mac ||
-      !event.ctrlKey ||
-      !event.shiftKey ||
-      event.altKey ||
-      event.metaKey ||
-      (event.code !== "KeyC" && event.code !== "KeyV")
-    )
-      return true;
-    if (event.type === "keydown") {
-      event.preventDefault();
-      if (event.code === "KeyC") {
-        if (term.hasSelection()) void clipboard?.copy(term.getSelection());
-      } else {
-        void clipboard?.paste().then((text) => {
-          if (text !== "") term.paste(text);
-        });
-      }
-    }
-    return false;
-  });
   let pathLinks: Parameters<TerminalView["onPathLink"]>[0] | null = null;
   const pathProvider = term.registerLinkProvider({
     provideLinks(y, callback) {
@@ -565,6 +545,17 @@ export function createXtermView(
     onTitle(listener) {
       const subscription = term.onTitleChange(listener);
       return () => subscription.dispose();
+    },
+    copySelection() {
+      if (clipboard !== null && term.hasSelection()) {
+        void clipboard.copy(term.getSelection());
+      }
+    },
+    paste() {
+      if (clipboard === null) return;
+      void clipboard.paste().then((text) => {
+        if (text !== "") term.paste(text);
+      });
     },
     dispose() {
       for (const handler of swallowed) handler.dispose();

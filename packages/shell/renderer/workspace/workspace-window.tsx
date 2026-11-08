@@ -313,9 +313,17 @@ interface Loaded {
 
 const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
 const CLOSED_TABS_MAX = 10;
-// 작업대가 주인인 command id. 단축키 표에 있는 것 모두다. app.panel은 표에 줄이 없어 따로 올린다.
+// 작업대가 주인인 command id. 단축키 표에 있는 것 중 context가 있는 줄(agent·terminal·browser)과
+// 팔레트가 여는 줄은 다른 화면이 올린다. app.panel은 표에 줄이 없어 따로 올린다.
 const WORKSPACE_COMMANDS: readonly Command[] = [
-  ...new Set(KEYBINDINGS.map((binding) => binding.command)),
+  ...new Set(
+    KEYBINDINGS.filter(
+      (binding) =>
+        binding.context === undefined &&
+        binding.command !== "palette.open" &&
+        binding.command !== "home.open",
+    ).map((binding) => binding.command as Command),
+  ),
 ];
 
 // context menu와 같은 일인 command. 새 길을 만들지 않고 runTabAction을 부른다.

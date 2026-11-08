@@ -11,6 +11,7 @@ import {
   type WindowOpenHandlerResponse,
 } from "electron";
 
+import { matchKey } from "../../ipc/keybindings.ts";
 import type { BrowserViewOrder } from "./view-order.ts";
 import { type HeadlessMode, surfaceOptions } from "../desktop/headless.ts";
 import { webPreferences } from "../desktop/security.ts";
@@ -80,22 +81,32 @@ function hookBrowserContents(
     )
       hooks.activation.mark(id);
   });
-  const mac = process.platform === "darwin";
-  contents.on("before-input-event", (event, input) => {
-    const primary = mac
-      ? input.meta && !input.control
-      : input.control && !input.meta;
-    if (
-      input.type === "keyDown" &&
-      input.key.toLowerCase() === "d" &&
-      primary &&
-      !input.shift &&
-      !input.alt
-    ) {
+  // native popup(browserView)의 bookmark key. <webview> guest는 창의 shortcut listener가 표의
+  // browser.bookmark 줄(사람이 바꾼 key 포함)로 받아 그 탭에만 알리므로 여기서 보지 않는다.
+  // popup은 사람이 바꾼 key를 main이 알 수 없어 표의 기본 key만 본다.
+  if (contents.getType() !== "webview") {
+    const platform = process.platform === "darwin" ? "mac" : "other";
+    contents.on("before-input-event", (event, input) => {
+      if (input.type !== "keyDown") return;
+      const hit = matchKey(
+        {
+          key: input.key,
+          code: input.code,
+          ctrl: input.control,
+          meta: input.meta,
+          alt: input.alt,
+          shift: input.shift,
+        },
+        platform,
+        undefined,
+        undefined,
+        "browser",
+      );
+      if (hit?.command !== "browser.bookmark") return;
       event.preventDefault();
       if (!input.isAutoRepeat) hooks.onBookmarkKey();
-    }
-  });
+    });
+  }
 
   const changed = () => hooks.onChange();
   contents.on("did-navigate", changed);

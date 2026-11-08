@@ -112,7 +112,7 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
       "home",
       t("common.button.palette-home"),
       "home",
-      windowShortcutLabel("home", input.platform),
+      windowShortcutLabel("home.open", input.platform, input.keys) ?? undefined,
     ),
     ...(input.terminal
       ? [

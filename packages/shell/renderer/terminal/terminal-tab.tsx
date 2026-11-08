@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
 import type { TerminalRuntime } from "../../ipc/terminal.ts";
+import { useWindowCommands } from "../commands/react.tsx";
+import type { Disposable } from "../commands/registry.ts";
 import { conversationIcons } from "../icons/mod.ts";
 import { useCardHead } from "../shell/card-head.tsx";
 import type { TerminalDeps } from "./deps.ts";
@@ -174,6 +176,27 @@ export function TerminalTab({
   const size = useObservedSize(screenRef);
   const latestPaths = useRef(paths);
   latestPaths.current = paths;
+
+  // 복사·붙여 넣기는 창 하나의 command(`terminal.copy`·`terminal.paste`)가 부르고, 그 command는 마지막으로
+  // focus를 받은 터미널로 간다. 화면 안에 focus가 들어올 때 이 탭이 그 자리를 맡는다(탭이 여럿이어도 하나).
+  const commands = useWindowCommands();
+  const focusBinding = useRef<Disposable[]>([]);
+  const bindFocus = () => {
+    if (commands === null) return;
+    focusBinding.current = [
+      commands.focus.set("terminal.copy", () =>
+        viewRef.current?.copySelection(),
+      ),
+      commands.focus.set("terminal.paste", () => viewRef.current?.paste()),
+    ];
+  };
+  useEffect(
+    () => () => {
+      for (const one of focusBinding.current) one.dispose();
+      focusBinding.current = [];
+    },
+    [],
+  );
 
   const begin = useCallback(
     (runtime: TerminalRuntime) => {
@@ -409,7 +432,8 @@ export function TerminalTab({
         hidden={!showScreen}
         role="region"
         aria-label={t("terminal.label.output")}
-        data-terminal-screen=""
+        data-key-context="terminal"
+        onFocus={bindFocus}
       >
         <div ref={hostRef} className={styles.screenHost} />
       </div>

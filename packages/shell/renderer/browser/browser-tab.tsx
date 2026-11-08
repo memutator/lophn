@@ -21,6 +21,8 @@ import type {
 } from "../../ipc/browser.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
+import { useWindowCommands } from "../commands/react.tsx";
+import type { Disposable } from "../commands/registry.ts";
 import { useViewBounds } from "./native-bounds.ts";
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { startPointerDrag } from "../workspace/drag.ts";
@@ -166,6 +168,26 @@ function OpenTab(
   } | null>(null);
   const [bookmarkKey, setBookmarkKey] = useState(0);
   const bookmarks = useBookmarks();
+  // browser page에 focus가 있으면 main이 그 view_session으로 bookmark key를 알린다(위의 구독). 머리에
+  // focus가 있을 때는 renderer keydown이 표의 `browser.bookmark` 줄을 보고 이 command를 부른다.
+  // 창 하나의 command라 마지막으로 focus를 받은 browser 탭이 그 자리를 맡는다.
+  const commands = useWindowCommands();
+  const focusBinding = useRef<Disposable[]>([]);
+  const bindFocus = () => {
+    if (commands === null) return;
+    focusBinding.current = [
+      commands.focus.set("browser.bookmark", () =>
+        setBookmarkKey((count) => count + 1),
+      ),
+    ];
+  };
+  useEffect(
+    () => () => {
+      for (const one of focusBinding.current) one.dispose();
+      focusBinding.current = [];
+    },
+    [],
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const region = useRef<HTMLDivElement | null>(null);
   const body = useRef<HTMLDivElement | null>(null);
@@ -480,7 +502,7 @@ function OpenTab(
   };
 
   return (
-    <div className={styles.tab}>
+    <div className={styles.tab} data-key-context="browser" onFocus={bindFocus}>
       <BrowserChrome
         browser={browser}
         viewSession={viewSession}

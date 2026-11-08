@@ -11,7 +11,7 @@ import {
 import { bindingLabel, type KeyOverrides } from "../../ipc/keybindings.ts";
 
 import type { CommandHandler, CommandOptions } from "./registry.ts";
-import type { WindowCommands } from "./window.ts";
+import type { ContributedCommand, WindowCommands } from "./window.ts";
 
 const CommandsContext = createContext<WindowCommands | null>(null);
 
@@ -52,7 +52,17 @@ export function useCommands(
 }
 
 const NO_OVERRIDES: KeyOverrides = {};
+const NO_CONTRIBUTIONS: readonly ContributedCommand[] = [];
 const noSubscribe = () => () => {};
+
+/** 지금 기여된 command들. extension을 켜고 끄거나 앱이 생기고 지면 다시 그려진다. */
+export function useContributedCommands(): readonly ContributedCommand[] {
+  const commands = useContext(CommandsContext);
+  return useSyncExternalStore(
+    commands?.subscribe ?? noSubscribe,
+    () => commands?.contributions() ?? NO_CONTRIBUTIONS,
+  );
+}
 
 /**
  * binding id의 키 이름을 돌려주는 함수. 사람이 키를 바꾸면 다시 그려진다. 키가 없는 줄과 command 표가 없는

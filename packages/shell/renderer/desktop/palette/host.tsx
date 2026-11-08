@@ -16,10 +16,13 @@ import { t } from "@lophn/i18n";
 
 import { parseBindingId } from "../../../ipc/keybindings.ts";
 import type { OverlayApi } from "../../../ipc/overlay.ts";
-import { useWindowCommands } from "../../commands/react.tsx";
+import {
+  useCommands,
+  useKeyLabel,
+  useWindowCommands,
+} from "../../commands/react.tsx";
 import type { ShortcutApi } from "../../../ipc/shortcuts.ts";
 import { currentPlatform, type WindowPlatform } from "../top-bar/platform.ts";
-import { windowShortcutLabel } from "./labels.ts";
 import type { FileFound } from "./model.ts";
 import {
   type PaletteOpener,
@@ -109,6 +112,16 @@ export function PaletteProvider({
     }),
     [platform, search, available],
   );
+  // 팔레트·Home 열기는 표의 줄(`palette.open`·`home.open`)이 정한다. 여기서 command를 올려 두면
+  // main이 보낸 binding id와 renderer keydown이 같은 command로 온다.
+  useCommands(
+    available
+      ? {
+          "palette.open": () => hub.toggle(activeElement()),
+          "home.open": () => home.current(),
+        }
+      : {},
+  );
   // 통로가 있을 때만 연다. 창이 닫히면 열린 팔레트와 shortcut 구독을 함께 놓는다.
   useEffect(() => {
     if (!deps) return;
@@ -117,14 +130,10 @@ export function PaletteProvider({
     });
     opener.current = created;
     const release = deps.shortcuts.subscribe((shortcut) => {
-      if (shortcut === "palette") hub.toggle(activeElement());
-      else if (shortcut === "home") home.current();
-      // main이 먼저 받아 보낸 작업대 binding id. 주인(작업대)이 없는 공간이면 키만 삼킨 것이다.
-      else {
-        const parsed = parseBindingId(shortcut);
-        if (parsed !== null)
-          commands?.registry.execute(parsed.command, parsed.arg);
-      }
+      // main이 먼저 받아 보낸 표의 binding id. 주인(작업대)이 없는 공간이면 키만 삼킨 것이다.
+      const parsed = parseBindingId(shortcut);
+      if (parsed !== null)
+        commands?.registry.execute(parsed.command, parsed.arg);
     });
     return () => {
       release();
@@ -194,15 +203,15 @@ export function usePaletteEnv(): {
 // 상단 바의 팔레트 열기. 이름은 tooltip과 aria-label이고 키를 같이 보인다.
 export function PaletteButton() {
   const hub = useContext(PaletteContext);
+  const keys = useKeyLabel()("palette.open");
   if (!hub?.available) return null;
   const label = t("common.button.palette-open");
-  const keys = windowShortcutLabel("palette", hub.platform);
   return (
     <Tooltip
       content={
         <span className={styles.tip}>
           {label}
-          <Kbd keys={[keys]} />
+          {keys === null ? null : <Kbd keys={[keys]} />}
         </span>
       }
     >

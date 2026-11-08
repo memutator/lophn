@@ -13,11 +13,12 @@ import {
   parseBindingId,
   parseKeyOverrides,
   resolveBindings,
+  shellOwns,
 } from "./keybindings.ts";
 import { isWindowShortcut } from "./shortcuts.ts";
 
 function inputOf(chord: string, key = ""): KeyInput {
-  const parts = chord.split("+");
+  const parts = chord.split(" ")[0]!.split("+");
   return {
     key,
     code: parts.at(-1),
@@ -28,49 +29,58 @@ function inputOf(chord: string, key = ""): KeyInput {
   };
 }
 
-test("기본 표는 platform마다 겹침이 없고 RESERVED와 겹치지 않으며 shell이 쓰는 Ctrl+글자는 W·B·P·T·N·O뿐이다", () => {
+test("기본 표는 platform과 context마다 겹침이 없고, 표의 홑 타는 그 줄로 맞으며, 터미널이 가져가는 Ctrl+글자는 shellOwns가 정한다", () => {
   for (const platform of ["mac", "other"] as KeyPlatform[]) {
-    const shell: string[] = [];
     assert.deepStrictEqual(findConflicts(platform, {}), [], platform);
     for (const binding of KEYBINDINGS) {
       for (const chord of binding[platform]) {
-        const hit = matchKey(inputOf(chord), platform);
+        // 두 타는 service가 세고 matchKey는 홑 타만 본다(기본 표에는 아직 없다).
+        if (chord.includes(" ")) continue;
+        const hit = matchKey(
+          inputOf(chord),
+          platform,
+          undefined,
+          undefined,
+          binding.context,
+        );
         assert.deepStrictEqual(
           hit?.command,
           binding.command,
           `${platform} ${chord}`,
         );
         assert.deepStrictEqual(hit?.arg, binding.arg, `${platform} ${chord}`);
-        if (hit?.shell) shell.push(chord);
       }
     }
-    // Ctrl/Cmd+K 팔레트와 Ctrl/Cmd+Shift+L 런처는 main의 창 shortcut이 먼저 받는다.
-    const primary = platform === "mac" ? "Cmd" : "Ctrl";
-    assert.deepStrictEqual(
-      matchKey(inputOf(`${primary}+KeyK`), platform),
-      null,
-    );
-    assert.deepStrictEqual(
-      matchKey(inputOf(`${primary}+Shift+KeyL`), platform),
-      null,
-    );
-    assert.deepStrictEqual(
-      shell.sort(),
-      platform === "mac"
-        ? []
-        : [
-            "Ctrl+KeyB",
-            "Ctrl+KeyN",
-            "Ctrl+KeyO",
-            "Ctrl+KeyP",
-            "Ctrl+KeyT",
-            "Ctrl+KeyW",
-          ],
-    );
   }
+  // Linux·Windows 터미널에서 PTY로 가는 Ctrl+글자 하나는 W·B·P·T·N·O뿐이다.
+  const owned = ["KeyW", "KeyB", "KeyP", "KeyT", "KeyN", "KeyO"].map((code) =>
+    shellOwns(chordOf(`Ctrl+${code}`), "other"),
+  );
+  assert.deepStrictEqual(owned, [true, true, true, true, true, true]);
+  assert.deepStrictEqual(shellOwns(chordOf("Ctrl+KeyQ"), "other"), true);
+  assert.deepStrictEqual(shellOwns(chordOf("Ctrl+Shift+KeyC"), "other"), false);
+  assert.deepStrictEqual(shellOwns(chordOf("Ctrl+KeyC"), "mac"), false);
 });
 
-test("한글 입력 상태의 키와 modifier가 더 붙은 키를 가려서 판정한다", () => {
+function strokeOf(text: string) {
+  const parts = text.split("+");
+  const code = parts.at(-1)!;
+  return {
+    text,
+    code,
+    letter: /^Key[A-Z]$/.test(code) ? code.slice(3).toLowerCase() : null,
+    ctrl: parts.includes("Ctrl"),
+    meta: parts.includes("Cmd"),
+    alt: parts.includes("Alt"),
+    shift: parts.includes("Shift"),
+  };
+}
+
+function chordOf(text: string) {
+  return { text, strokes: [strokeOf(text)] };
+}
+
+test("한글 입력 상태의 키와 modifier가 더 붙은 키를 가려서 판정하고, context가 있는 줄은 그 context에서만 본다", () => {
   // 한글 입력기에서는 key가 ㅈ이지만 code는 KeyW다.
   assert.deepStrictEqual(
     matchKey(inputOf("Ctrl+KeyW", "ㅈ"), "other")?.command,
@@ -111,16 +121,53 @@ test("한글 입력 상태의 키와 modifier가 더 붙은 키를 가려서 판
     matchKey(inputOf("Ctrl+Shift+KeyT"), "other", "main")?.command,
     "tab.reopen",
   );
-  // page가 쓰는 키와 나머지 작업대 키는 main이 가져가지 않는다.
   assert.deepStrictEqual(matchKey(inputOf("Ctrl+KeyP"), "other", "main"), null);
   assert.deepStrictEqual(
     matchKey(inputOf("Alt+Digit1"), "other", "main"),
     null,
   );
+  // context가 있는 줄은 그 context를 아는 곳만 본다.
+  assert.deepStrictEqual(
+    matchKey(inputOf("Ctrl+Shift+KeyC"), "other")?.command,
+    undefined,
+  );
+  assert.deepStrictEqual(
+    matchKey(
+      inputOf("Ctrl+Shift+KeyC"),
+      "other",
+      undefined,
+      undefined,
+      "terminal",
+    )?.command,
+    "terminal.copy",
+  );
+  assert.deepStrictEqual(
+    matchKey(inputOf("Escape"), "other", undefined, undefined, "agentView")
+      ?.command,
+    "agent.interrupt",
+  );
+  assert.deepStrictEqual(
+    matchKey(inputOf("Enter"), "other", undefined, undefined, "composer")
+      ?.command,
+    "agent.send",
+  );
+  assert.deepStrictEqual(
+    matchKey(inputOf("Ctrl+KeyD"), "other", "main", undefined, "browser")
+      ?.command,
+    "browser.bookmark",
+  );
+  // main은 context를 모르면 그 줄을 보지 않고, 두 타는 첫 타만으로 맞지 않는다.
+  assert.deepStrictEqual(matchKey(inputOf("Ctrl+KeyD"), "other", "main"), null);
+  const twoStroke = compileBindings(
+    resolveBindings("other", { "tab.close": ["Ctrl+KeyX Ctrl+KeyE"] }),
+  );
+  assert.deepStrictEqual(
+    matchKey(inputOf("Ctrl+KeyX"), "other", "main", twoStroke),
+    null,
+  );
 });
 
-test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키도 바뀐 키를 따른다", () => {
-  // 모르는 id, 읽을 수 없는 chord, 너무 많은 chord는 버리고 그 줄은 표의 키다. 빈 배열은 키를 뺀 것이다.
+test("사람이 바꾼 키는 표의 줄을 덮고 main도 따르며, 읽을 수 없는 값은 그 줄만 버린다", () => {
   const overrides = parseKeyOverrides({
     "tab.close": ["Ctrl+Shift+KeyW"],
     "sidebar.toggle": [],
@@ -148,7 +195,7 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
   assert.deepStrictEqual(hit("Ctrl+KeyB"), null);
   assert.deepStrictEqual(hit("Ctrl+Tab", "main"), "tab.next");
 
-  // 겹침은 modifier 순서와 상관없이 잡고, 팔레트 키와 modifier 없는 키는 받지 않는다.
+  // 겹침은 modifier 순서와 상관없이 잡고, 팔레트 키는 표의 줄이라 "바꾸기"이고 전역 팔레트 키는 예약이다.
   const taken = checkChord(
     "Shift+Ctrl+KeyW",
     ["pane.split"],
@@ -163,11 +210,16 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
     checkChord("Ctrl+KeyW", ["pane.split"], "other", overrides).ok,
     true,
   );
+  const palette = checkChord("Ctrl+KeyK", ["pane.split"], "other", {});
+  assert.deepStrictEqual(
+    palette.ok ? null : "by" in palette ? palette.by.command : palette.reason,
+    "palette.open",
+  );
   for (const [chord, reason] of [
-    ["Ctrl+KeyK", "reserved"],
-    ["Ctrl+Shift+KeyC", "reserved"],
+    ["Ctrl+Shift+KeyK", "reserved"],
     ["KeyJ", "needs_modifier"],
     ["Shift+KeyJ", "needs_modifier"],
+    ["Escape Escape", "needs_modifier"],
     ["Ctrl+Bogus", "unsupported"],
   ] as const) {
     const check = checkChord(chord, ["pane.split"], "other", {});
@@ -184,6 +236,63 @@ test("사람이 바꾼 키는 검사를 지난 것만 덮고 main이 받는 키�
   assert.deepStrictEqual(
     pane.ok ? null : "by" in pane ? pane.by.command : pane.reason,
     "pane.focus",
+  );
+  // context가 다르면 같은 key를 써도 된다.
+  assert.deepStrictEqual(
+    checkChord("Ctrl+KeyF", ["tab.rename"], "other", {}).ok,
+    true,
+  );
+  const agent = checkChord(
+    "Ctrl+KeyF",
+    ["tab.rename"],
+    "other",
+    {},
+    "agentView",
+  );
+  assert.deepStrictEqual(
+    agent.ok ? null : "by" in agent ? agent.by.command : agent.reason,
+    "agent.find",
+  );
+  assert.deepStrictEqual(
+    checkChord("Ctrl+Shift+KeyC", ["tab.rename"], "other", {}).ok,
+    true,
+  );
+  const copy = checkChord(
+    "Ctrl+Shift+KeyC",
+    ["terminal.paste"],
+    "other",
+    {},
+    "terminal",
+  );
+  assert.deepStrictEqual(
+    copy.ok ? null : "by" in copy ? copy.by.command : copy.reason,
+    "terminal.copy",
+  );
+});
+
+test("parseKeyOverrides는 지금 등록되지 않은 ext·app id와 두 타 chord를 남기고, resolveBindings는 표의 줄만 둔다", () => {
+  const overrides = parseKeyOverrides({
+    "ext.harness-gui.rewind": ["Escape Escape"],
+    "app.app_x.save": ["Ctrl+KeyS"],
+    "ext.bad": ["Ctrl+KeyJ"],
+    "ext.:name": ["Ctrl+KeyJ"],
+    "app.panel:no-surface": ["Ctrl+Alt+KeyK"],
+    "app.panel:a b:main": ["Ctrl+Alt+KeyK"],
+  });
+  assert.deepStrictEqual(overrides, {
+    "ext.harness-gui.rewind": ["Escape Escape"],
+    "app.app_x.save": ["Ctrl+KeyS"],
+  });
+  assert.deepStrictEqual(parseBindingId("ext.harness-gui.rewind"), {
+    command: "ext.harness-gui.rewind",
+  });
+  assert.deepStrictEqual(parseBindingId("app.app_x.save"), {
+    command: "app.app_x.save",
+  });
+  // 동적 id는 표 밖 기여 binding이 자기 기본 key에 덮는다. 표를 만드는 resolveBindings는 붙이지 않는다.
+  assert.deepStrictEqual(
+    resolveBindings("other", overrides).length,
+    KEYBINDINGS.length,
   );
 });
 
@@ -228,10 +337,10 @@ test("parseKeyOverrides는 모양이 맞는 app.panel id만 남기고 resolveBin
   );
 });
 
-test("사람이 단 키가 다른 binding의 기본 키나 RESERVED와 같으면 findConflicts가 그 둘을 낸다", () => {
+test("겹침은 context마다 보고, 두 타의 머리가 홑 binding과 같아도 겹침이 아니다", () => {
   const conflicts = findConflicts("other", {
     "tab.rename": ["Shift+Ctrl+KeyT"],
-    "tab.reveal": ["Ctrl+KeyC", "Ctrl+KeyC"],
+    "tab.reveal": ["Ctrl+Shift+KeyK"],
     "tab.keep-open": ["Ctrl+Alt+KeyJ", "Ctrl+Alt+KeyJ"],
   });
   assert.deepStrictEqual(
@@ -241,14 +350,29 @@ test("사람이 단 키가 다른 binding의 기본 키나 RESERVED와 같으면
       { ids: ["tab.reveal"], reserved: true },
     ],
   );
+  // context가 다르면 같은 chord라도 겹침이 아니고, 홑 binding의 머리와 두 타는 다른 chord다.
+  assert.deepStrictEqual(
+    findConflicts("other", { "tab.rename": ["Ctrl+KeyF"] }),
+    [],
+  );
+  assert.deepStrictEqual(
+    findConflicts("other", {
+      "agent.interrupt": ["Escape"],
+      "agent.rewind": ["Escape Escape"],
+    }),
+    [],
+  );
 });
 
-test("isWindowShortcut은 palette·home·표의 binding id·app.panel id를 받고 모르는 글자는 거절한다", () => {
+test("isWindowShortcut은 팔레트·Home·표의 binding id·동적 id·app.panel id를 받고 모르는 글자는 거절한다", () => {
   for (const ok of [
-    "palette",
-    "home",
+    "palette.open",
+    "home.open",
     "tab.close",
     "desk.nth:3",
+    "agent.send",
+    "ext.harness-gui.rewind",
+    "app.app_x.save",
     appPanelBindingId("app_x", "main"),
   ]) {
     assert.deepStrictEqual(isWindowShortcut(ok), true, ok);
@@ -258,6 +382,7 @@ test("isWindowShortcut은 palette·home·표의 binding id·app.panel id를 받�
     "tab.bogus",
     "app.panel",
     "app.panel:a",
+    "ext.bad",
     3,
     null,
   ]) {

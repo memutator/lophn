@@ -1,24 +1,31 @@
 // Settings › Keyboard의 순수 규칙. 표(ipc/keybindings.ts)의 command마다 한 줄이고 줄의 이름과 설명은 wording이다.
 // 번호가 있는 command(n번째 탭, split의 n번째 쪽)는 번호마다 바인딩이 따로지만 한 줄로 묶는다. 그 줄은 modifier를
 // 바꾸고 번호마다 `<modifier>+Digit<n>`이 된다. 바꾸면 이 기기 OS의 것만 바꾸고 다른 OS의 값은 다시 쓴다.
+// extension·앱이 기여한 command(`ext.*`·`app.*`)는 기여의 metadata로 줄을 만들고, 지금 기여가 없는 저장 값은
+// "없는 command" 줄로 남겨 지우게 한다.
 import { type MessageKey, t } from "@lophn/i18n";
 
 import {
   APP_PANEL,
   appPanelBindingId,
   type Binding,
+  type BindingCommand,
   bindingId,
   type Command,
-  KEYBINDINGS,
+  isDynamicBindingId,
   type KeyConflict,
-  type KeySection,
   type KeyOverrides,
   type KeyPlatform,
+  type KeySection,
   parseBindingId,
   parseChord,
-  sameChord,
+  parseStroke,
   resolveBindings,
+  sameChord,
+  sameStroke,
+  tableBinding,
 } from "../../../../ipc/keybindings.ts";
+import type { ContributedCommand } from "../../../commands/window.ts";
 import type { StoredKeybindings } from "./source.ts";
 
 interface Wording {
@@ -255,6 +262,14 @@ const WORDING: Readonly<Record<Exclude<Command, "app.panel">, Wording>> = {
     name: "settings.label.key-settings-open",
     help: "settings.note.key-settings-open",
   },
+  "palette.open": {
+    name: "settings.label.key-palette-open",
+    help: "settings.note.key-palette-open",
+  },
+  "home.open": {
+    name: "settings.label.key-home-open",
+    help: "settings.note.key-home-open",
+  },
   "inbox.open": {
     name: "settings.label.key-inbox-open",
     help: "settings.note.key-inbox-open",
@@ -263,13 +278,93 @@ const WORDING: Readonly<Record<Exclude<Command, "app.panel">, Wording>> = {
     name: "settings.label.key-jobs-open",
     help: "settings.note.key-jobs-open",
   },
+  "terminal.copy": {
+    name: "settings.label.key-terminal-copy",
+    help: "settings.note.key-terminal-copy",
+  },
+  "terminal.paste": {
+    name: "settings.label.key-terminal-paste",
+    help: "settings.note.key-terminal-paste",
+  },
+  "browser.bookmark": {
+    name: "settings.label.key-browser-bookmark",
+    help: "settings.note.key-browser-bookmark",
+  },
+  "agent.send": {
+    name: "settings.label.key-agent-send",
+    help: "settings.note.key-agent-send",
+  },
+  "agent.newline": {
+    name: "settings.label.key-agent-newline",
+    help: "settings.note.key-agent-newline",
+  },
+  "agent.interrupt": {
+    name: "settings.label.key-agent-interrupt",
+    help: "settings.note.key-agent-interrupt",
+  },
+  "agent.model-picker": {
+    name: "settings.label.key-agent-model-picker",
+    help: "settings.note.key-agent-model-picker",
+  },
+  "agent.find": {
+    name: "settings.label.key-agent-find",
+    help: "settings.note.key-agent-find",
+  },
+  "agent.jump-previous": {
+    name: "settings.label.key-agent-jump-previous",
+    help: "settings.note.key-agent-jump",
+  },
+  "agent.jump-next": {
+    name: "settings.label.key-agent-jump-next",
+    help: "settings.note.key-agent-jump",
+  },
+  "agent.cycle-mode": {
+    name: "settings.label.key-agent-cycle-mode",
+    help: "settings.note.key-agent-cycle-mode",
+  },
+  "agent.send-now": {
+    name: "settings.label.key-agent-send-now",
+    help: "settings.note.key-agent-send-now",
+  },
+  "agent.queue": {
+    name: "settings.label.key-agent-queue",
+    help: "settings.note.key-agent-queue",
+  },
+  "agent.rewind": {
+    name: "settings.label.key-agent-rewind",
+    help: "settings.note.key-agent-rewind",
+  },
+  "agent.history-previous": {
+    name: "settings.label.key-agent-history-previous",
+    help: "settings.note.key-agent-history",
+  },
+  "agent.history-next": {
+    name: "settings.label.key-agent-history-next",
+    help: "settings.note.key-agent-history",
+  },
+  "agent.history-search": {
+    name: "settings.label.key-agent-history-search",
+    help: "settings.note.key-agent-history-search",
+  },
+  "agent.background": {
+    name: "settings.label.key-agent-background",
+    help: "settings.note.key-agent-background",
+  },
+  "agent.toggle-details": {
+    name: "settings.label.key-agent-toggle-details",
+    help: "settings.note.key-agent-toggle-details",
+  },
+  "agent.clear-input": {
+    name: "settings.label.key-agent-clear-input",
+    help: "settings.note.key-agent-clear-input",
+  },
 };
 
 export function commandName(command: Exclude<Command, "app.panel">): string {
   return t(WORDING[command].name);
 }
 
-/** Settings 묶음의 순서와 제목. 표가 이미 이 순서로 놓였고 app은 사람이 단 키가 뒤에 붙는다. */
+/** Settings 묶음의 순서와 제목. 표가 이미 이 순서로 놓였고 app·contributed는 사람이 단 키가 뒤에 붙는다. */
 export const SECTIONS: readonly { section: KeySection; title: MessageKey }[] = [
   { section: "tab", title: "settings.heading.key-section-tab" },
   { section: "pane", title: "settings.heading.key-section-pane" },
@@ -277,7 +372,14 @@ export const SECTIONS: readonly { section: KeySection; title: MessageKey }[] = [
   { section: "float", title: "settings.heading.key-section-float" },
   { section: "open", title: "settings.heading.key-section-open" },
   { section: "view", title: "settings.heading.key-section-view" },
+  { section: "agent", title: "settings.heading.key-section-agent" },
+  { section: "terminal", title: "settings.heading.key-section-terminal" },
+  { section: "browser", title: "settings.heading.key-section-browser" },
   { section: "app", title: "settings.heading.key-section-app" },
+  {
+    section: "contributed",
+    title: "settings.heading.key-section-contributed",
+  },
 ];
 
 /** 한 줄. 번호 줄이면 modifier 하나를 보이고 바꾼다. */
@@ -286,12 +388,14 @@ export type KeyRow =
       readonly kind: "single";
       readonly id: string;
       readonly section: KeySection;
-      readonly command: Command;
+      readonly command: string;
       readonly name: string;
       readonly help: string;
+      /** 이 줄이 듣는 key context. 있으면 설명에 보인다. */
+      readonly context?: string;
       readonly chords: readonly string[];
       readonly changed: boolean;
-      /** 저장된 `app.panel:*`인데 설치된 앱의 panel 화면 목록에 없다. 지우기만 된다. */
+      /** 저장된 `app.panel:*`인데 설치된 앱의 panel 화면 목록에 없거나, 기여가 없는 동적 id다. 지우기만 된다. */
       readonly missing: boolean;
     }
   | {
@@ -309,6 +413,12 @@ export type KeyRow =
       readonly changed: boolean;
     };
 
+function contextNote(context: string | undefined): string {
+  return context === undefined
+    ? ""
+    : ` ${t("settings.label.key-context", { context })}`;
+}
+
 function modifierOf(chord: string | undefined): string | null {
   if (chord === undefined || !/\+Digit[0-9]$/.test(chord)) return null;
   return chord.slice(0, chord.lastIndexOf("+"));
@@ -322,7 +432,7 @@ export function keyRows(
   const rows: KeyRow[] = [];
   for (const binding of bindings) {
     const command = binding.command;
-    // 사람이 단 앱 panel 키는 appRows가 줄을 만든다.
+    // 사람이 단 앱 panel 키는 appRows가, 기여한 command는 contributedRows가 줄을 만든다.
     if (command === APP_PANEL) continue;
     if (binding.arg === undefined) {
       rows.push({
@@ -330,8 +440,9 @@ export function keyRows(
         id: bindingId(binding),
         section: binding.section,
         command,
-        name: commandName(command),
-        help: t(WORDING[command].help),
+        name: commandName(command as Exclude<Command, "app.panel">),
+        help: `${t(WORDING[command as Exclude<Command, "app.panel">].help)}${contextNote(binding.context)}`,
+        ...(binding.context === undefined ? {} : { context: binding.context }),
         chords: binding[platform],
         changed: overrides[bindingId(binding)] !== undefined,
         missing: false,
@@ -344,16 +455,93 @@ export function keyRows(
     rows.push({
       kind: "numbered",
       section: binding.section,
-      command,
+      command: command as Command,
       ids: group.map(bindingId),
-      name: commandName(command),
-      help: t(WORDING[command].help),
+      name: commandName(command as Exclude<Command, "app.panel">),
+      help: t(WORDING[command as Exclude<Command, "app.panel">].help),
       modifier: modifiers.size === 1 ? [...modifiers][0]! : null,
       numbers: group.map((one) => one.arg as number),
       changed: group.some((one) => overrides[bindingId(one)] !== undefined),
     });
   }
   return rows;
+}
+
+/** 기여한 command의 줄과, 기여가 없는데 저장된 동적 id의 "없는 command" 줄. */
+export function contributedRows(
+  commands: readonly ContributedCommand[],
+  platform: KeyPlatform,
+  overrides: KeyOverrides,
+): readonly KeyRow[] {
+  const rows: KeyRow[] = commands.map((command) => ({
+    kind: "single" as const,
+    id: command.id,
+    section: "contributed" as const,
+    command: command.id,
+    name: command.title,
+    help: `${t("settings.note.key-contributed", { source: command.source })}${contextNote(command.context)}`,
+    ...(command.context === undefined ? {} : { context: command.context }),
+    chords: overrides[command.id] ?? command[platform],
+    changed: overrides[command.id] !== undefined,
+    missing: false,
+  }));
+  const known = new Set(commands.map((command) => command.id));
+  for (const id of Object.keys(overrides)) {
+    if (known.has(id) || !isDynamicBindingId(id)) continue;
+    rows.push({
+      kind: "single",
+      id,
+      section: "contributed",
+      command: id,
+      name: t("settings.label.key-missing-command", { id }),
+      help: t("settings.note.key-missing-command"),
+      chords: overrides[id] ?? [],
+      changed: true,
+      missing: true,
+    });
+  }
+  return rows;
+}
+
+/**
+ * 겹침·바꾸기 판정에 쓰는 표 밖 binding. 기여한 command는 사람이 바꾼 키(있으면)를, 지금 기여가 없는 저장 값은
+ * 그 키를 쓴다.
+ */
+export function contributedBindings(
+  commands: readonly ContributedCommand[],
+  platform: KeyPlatform,
+  overrides: KeyOverrides,
+): readonly Binding[] {
+  const bindings: Binding[] = commands.map((command) => {
+    const chords = overrides[command.id] ?? command[platform];
+    return {
+      command: command.id as BindingCommand,
+      section: "contributed",
+      ...(command.context === undefined ? {} : { context: command.context }),
+      other: platform === "other" ? chords : [],
+      mac: platform === "mac" ? chords : [],
+    };
+  });
+  const known = new Set(commands.map((command) => command.id));
+  for (const id of Object.keys(overrides)) {
+    if (known.has(id) || !isDynamicBindingId(id)) continue;
+    const chords = overrides[id] ?? [];
+    bindings.push({
+      command: id as BindingCommand,
+      section: "contributed",
+      other: platform === "other" ? chords : [],
+      mac: platform === "mac" ? chords : [],
+    });
+  }
+  return bindings;
+}
+
+/** 기여한 command의 기본 key. `withKeys`가 "표와 같아졌나"를 볼 때 쓴다. */
+export function contributedDefaults(
+  commands: readonly ContributedCommand[],
+  platform: KeyPlatform,
+): ReadonlyMap<string, readonly string[]> {
+  return new Map(commands.map((command) => [command.id, command[platform]]));
 }
 
 /** 검색어가 이름·설명·키 이름에 들어 있는 줄. 대소문자는 보지 않는다. */
@@ -372,67 +560,80 @@ export function filterRows(
 }
 
 /**
- * 누른 키 조합을 쓰는 줄. 키로 찾기 토글이 켜졌을 때 쓴다. 번호 줄은 modifier가 같고 누른 키가 그 줄의 숫자면
- * 맞는다(Alt+3이면 탭 번호 줄).
+ * 누른 키 조합을 쓰는 줄. 키로 찾기 토글이 켜졌을 때 쓴다. 두 타 chord는 어느 타든 맞으면 그 줄이다.
+ * 번호 줄은 modifier가 같고 누른 키가 그 줄의 숫자면 맞는다(Alt+3이면 탭 번호 줄).
  */
 export function rowsWithChord(
   rows: readonly KeyRow[],
   chord: string,
 ): readonly KeyRow[] {
-  const pressed = parseChord(chord);
+  const pressed = parseStroke(chord);
   return rows.filter((row) => {
     if (row.kind === "single") {
-      return row.chords.some((one) => sameChord(parseChord(one), pressed));
+      return row.chords.some((one) =>
+        parseChord(one).strokes.some((stroke) => sameStroke(stroke, pressed)),
+      );
     }
     if (row.modifier === null) return false;
     return row.numbers.some((n) =>
-      sameChord(parseChord(`${row.modifier}+Digit${n}`), pressed),
+      sameStroke(parseStroke(`${row.modifier}+Digit${n}`), pressed),
     );
   });
 }
 
-// 표에 없는 id(앱 panel)의 표 키는 없음이다.
-function sameAsTable(
+/** 표의 키. 표에 없는 id(앱 panel·기여 command·없는 command)의 기본 키는 주어진 map에서 온다. */
+function defaultChords(
   id: string,
   platform: KeyPlatform,
-  chords: readonly string[],
-) {
-  const base =
-    KEYBINDINGS.find((binding) => bindingId(binding) === id)?.[platform] ?? [];
-  return (
-    base.length === chords.length &&
-    base.every((chord, at) => chord === chords[at])
-  );
+  extra: ReadonlyMap<string, readonly string[]> | undefined,
+): readonly string[] {
+  return tableBinding(id)?.[platform] ?? extra?.get(id) ?? [];
 }
 
-/** binding id들의 키를 한꺼번에 바꾼다. null은 표의 키로 돌린다. 표와 같아지면(앱 panel은 키가 없어지면) 저장에서 뺀다. */
+/** binding id들의 키를 한꺼번에 바꾼다. null은 기본 키로 돌린다. 기본 키와 같아지면 저장에서 뺀다. */
 export function withKeys(
   stored: StoredKeybindings,
   platform: KeyPlatform,
   changes: Readonly<Record<string, readonly string[] | null>>,
+  extraDefaults?: ReadonlyMap<string, readonly string[]>,
 ): StoredKeybindings {
   const next: Record<string, readonly string[]> = { ...stored[platform] };
   for (const [id, chords] of Object.entries(changes)) {
-    if (chords === null || sameAsTable(id, platform, chords)) delete next[id];
+    const base = defaultChords(id, platform, extraDefaults);
+    const same =
+      chords !== null &&
+      base.length === chords.length &&
+      base.every((chord, at) => chord === chords[at]);
+    if (chords === null || same) delete next[id];
     else next[id] = chords;
   }
   return { ...stored, [platform]: next };
 }
 
 /**
- * "바꾸기". keys(id → 새 chord)를 달고, 그 chord를 가진 다른 binding에서는 그 chord만 뺀 변경 하나를 만든다.
- * 번호 줄의 한 번호가 빼는 쪽이면 그 번호의 chord만 빠진다.
+ * "바꾸기". keys(id → 새 chord)를 달고, 같은 context에서 그 chord를 가진 다른 binding에서는 그 chord만 뺀
+ * 변경 하나를 만든다. context가 다르면 같은 key라도 겹침이 아니다. 번호 줄의 한 번호가 빼는 쪽이면 그
+ * 번호의 chord만 빠진다.
  */
 export function takeKeys(
   platform: KeyPlatform,
   overrides: KeyOverrides,
   keys: Readonly<Record<string, readonly string[]>>,
+  extra: readonly Binding[] = [],
 ): Record<string, readonly string[]> {
+  const bindings = [...resolveBindings(platform, overrides), ...extra];
+  const contextOf = new Map(
+    bindings.map((binding) => [bindingId(binding), binding.context ?? ""]),
+  );
+  const contexts = new Set(
+    Object.keys(keys).map((id) => contextOf.get(id) ?? ""),
+  );
   const taken = Object.values(keys).flat().map(parseChord);
   const changes: Record<string, readonly string[]> = { ...keys };
-  for (const binding of resolveBindings(platform, overrides)) {
+  for (const binding of bindings) {
     const id = bindingId(binding);
     if (id in keys) continue;
+    if (!contexts.has(binding.context ?? "")) continue;
     const kept = binding[platform].filter(
       (chord) => !taken.some((one) => sameChord(one, parseChord(chord))),
     );
@@ -447,7 +648,6 @@ export function takeKeys(
  */
 export function appRows(
   choices: readonly { app: string; screen: string; label: string }[] | null,
-  platform: KeyPlatform,
   overrides: KeyOverrides,
 ): readonly KeyRow[] {
   const row = (id: string, name: string, missing: boolean): KeyRow => ({
@@ -562,14 +762,17 @@ export function numberedKeys(
   );
 }
 
-/** 번호 줄에서 누른 키의 modifier. 숫자를 같이 눌렀든 아니든 modifier만 본다. */
+/** 번호 줄에서 누른 키의 modifier. 숫자를 같이 눌렀든 아니든 modifier만 본다(두 타는 받지 않는다). */
 export function modifierOfInput(chord: string): string | null {
   const parsed = parseChord(chord);
+  if (parsed.strokes.length !== 1) return null;
+  const [stroke] = parsed.strokes;
+  if (stroke === undefined) return null;
   const parts = [
-    ...(parsed.ctrl ? ["Ctrl"] : []),
-    ...(parsed.meta ? ["Cmd"] : []),
-    ...(parsed.alt ? ["Alt"] : []),
-    ...(parsed.shift ? ["Shift"] : []),
+    ...(stroke.ctrl ? ["Ctrl"] : []),
+    ...(stroke.meta ? ["Cmd"] : []),
+    ...(stroke.alt ? ["Alt"] : []),
+    ...(stroke.shift ? ["Shift"] : []),
   ];
   return parts.length === 0 ? null : parts.join("+");
 }

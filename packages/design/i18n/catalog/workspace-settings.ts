@@ -164,7 +164,7 @@ export const workspaceSettings = {
   "settings.error.key-numbered-needs-modifier":
     "Hold {modifiers}. The numbers are added for you.",
   "settings.error.key-reserved":
-    "lophn already uses this key for search, the launcher, or copy and paste in the terminal.",
+    "lophn or your OS already uses this key for something else.",
   "settings.error.key-unsupported": "That key can't be used for a shortcut.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
@@ -177,12 +177,16 @@ export const workspaceSettings = {
   "settings.error.value-wrong-type":
     "That isn't the kind of value this setting takes. Nothing was saved, and the setting keeps its value.",
   "settings.heading.call-policy": "Calls between workspaces",
+  "settings.heading.key-section-agent": "Agent",
   "settings.heading.key-section-app": "App panels",
+  "settings.heading.key-section-browser": "Browser",
+  "settings.heading.key-section-contributed": "Extensions and apps",
   "settings.heading.key-section-desk": "Desks",
   "settings.heading.key-section-float": "Floating tabs",
   "settings.heading.key-section-open": "Open",
   "settings.heading.key-section-pane": "Splits",
   "settings.heading.key-section-tab": "Tabs",
+  "settings.heading.key-section-terminal": "Terminal",
   "settings.heading.key-section-view": "View",
   "settings.heading.quick-app-panels": "App panels",
   "settings.heading.quick-buttons": "Buttons",
@@ -286,6 +290,31 @@ export const workspaceSettings = {
   "settings.label.key-conflicts":
     "{n, plural, one {# key is used by more than one shortcut.} other {# keys are used by more than one shortcut.}}",
   "settings.label.key-capture": "Press the new keys for {name}",
+  "settings.label.key-agent-background":
+    "Send the running tool to the background",
+  "settings.label.key-agent-clear-input": "Clear the input",
+  "settings.label.key-agent-cycle-mode": "Change the mode",
+  "settings.label.key-agent-find": "Find in the conversation",
+  "settings.label.key-agent-history-next": "Next input",
+  "settings.label.key-agent-history-previous": "Previous input",
+  "settings.label.key-agent-history-search": "Search the input history",
+  "settings.label.key-agent-interrupt": "Stop the agent",
+  "settings.label.key-agent-jump-next": "Next message",
+  "settings.label.key-agent-jump-previous": "Previous message",
+  "settings.label.key-agent-model-picker": "Choose the model",
+  "settings.label.key-agent-newline": "New line in the message",
+  "settings.label.key-agent-queue": "Queue the message",
+  "settings.label.key-agent-rewind": "Rewind the conversation",
+  "settings.label.key-agent-send": "Send the message",
+  "settings.label.key-agent-send-now": "Send the message now",
+  "settings.label.key-agent-toggle-details": "Show or hide tool details",
+  "settings.label.key-browser-bookmark": "Bookmark this page",
+  "settings.label.key-context": "Works in {context}.",
+  "settings.label.key-home-open": "Go to Home",
+  "settings.label.key-missing-command": "{id} (not available)",
+  "settings.label.key-palette-open": "Open the command palette",
+  "settings.label.key-terminal-copy": "Copy the selection",
+  "settings.label.key-terminal-paste": "Paste into the terminal",
   "settings.label.key-desk-close": "Close the desk",
   "settings.label.key-desk-new": "New desk",
   "settings.label.key-desk-next": "Next desk",
@@ -425,13 +454,43 @@ export const workspaceSettings = {
     "Hooks let lophn show when a coding agent you start in a terminal is working or waiting for you. Installing them adds lines to the product's own settings file, and uninstalling removes only those lines.",
   "settings.note.coding-shared-apps":
     "Public skills of these apps are copied into the skill folders of the coding agents that have hooks installed. Removing an app deletes those copies.",
+  "settings.note.key-agent-background":
+    "Keeps the running tool going without waiting for it.",
+  "settings.note.key-agent-clear-input": "Clears what you typed.",
+  "settings.note.key-agent-cycle-mode": "Cycles through the agent's modes.",
+  "settings.note.key-agent-find": "Searches the text of this conversation.",
+  "settings.note.key-agent-history": "Brings back input you sent before.",
+  "settings.note.key-agent-history-search": "Searches input you sent before.",
+  "settings.note.key-agent-interrupt": "Stops the running turn.",
+  "settings.note.key-agent-jump": "Moves to that message in the conversation.",
+  "settings.note.key-agent-model-picker": "Opens the model picker.",
+  "settings.note.key-agent-newline": "Adds a new line without sending.",
+  "settings.note.key-agent-queue":
+    "Keeps what you typed to send after the running turn.",
+  "settings.note.key-agent-rewind":
+    "Takes the conversation back to an earlier point.",
+  "settings.note.key-agent-send": "Sends what you typed to the agent.",
+  "settings.note.key-agent-send-now":
+    "Sends what you typed without queueing it behind the turn.",
+  "settings.note.key-agent-toggle-details":
+    "Expands or folds tool details in the conversation.",
   "settings.note.key-app-panel":
     "Opens that app's panel, whether or not it is pinned to the sidebar.",
+  "settings.note.key-browser-bookmark": "Adds the open page to bookmarks.",
+  "settings.note.key-contributed": "From {source}.",
+  "settings.note.key-home-open": "Goes to the Home workspace.",
+  "settings.note.key-missing-command":
+    "This command isn't available now. Remove the shortcut, or leave it for when the extension or app comes back.",
+  "settings.note.key-palette-open":
+    "Opens search and commands from anywhere in the window.",
+  "settings.note.key-terminal-copy":
+    "Copies the selected text in the terminal. With nothing selected, the key still isn't sent to the shell.",
+  "settings.note.key-terminal-paste": "Pastes the clipboard into the terminal.",
   "settings.note.key-conflict-reserved":
     "lophn or your OS uses this key first.",
   "settings.note.key-conflict-with": "Also used by {names}.",
   "settings.note.key-capture":
-    "Press Esc to cancel. Press Backspace to remove the shortcut.",
+    "Press the new keys. For two keys in a row, press the second within 1.5 seconds. Press Esc to cancel. Press Backspace to remove the shortcut.",
   "settings.note.key-capture-numbered":
     "Press the modifier keys with any number. Press Esc to cancel. Press Backspace to remove the shortcut.",
   "settings.note.key-desk-close":

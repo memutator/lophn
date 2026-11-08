@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { KeyPlatform } from "../../ipc/keybindings.ts";
+import { shellOwns } from "../../ipc/keybindings.ts";
 import {
   createKeybindingService,
   type KeyEventLike,
@@ -13,18 +15,31 @@ function setup() {
   const registry = createCommandRegistry({
     log: (message) => logged.push(message),
   });
+  const timers: { run: () => void; canceled: boolean }[] = [];
   const keybindings = createKeybindingService({
     registry,
-    platform: "other",
-    inShell: (target) => target === "terminal",
+    platform: "other" as KeyPlatform,
+    // 테스트는 target에 context 이름 배열을 그대로 준다(DOM walk 대신).
+    contexts: (target) => (Array.isArray(target) ? target : ["global"]),
     ignores: (target) => target === "capture",
+    setTimer: (run, _ms) => {
+      const entry = { run, canceled: false };
+      timers.push(entry);
+      return () => {
+        entry.canceled = true;
+      };
+    },
   });
-  return { registry, keybindings, logged };
+  const fireTimer = () => {
+    const waiting = timers.filter((entry) => !entry.canceled);
+    waiting.at(-1)?.run();
+  };
+  return { registry, keybindings, logged, timers, fireTimer };
 }
 
 function press(
   code: string,
-  mods: { ctrl?: boolean; shift?: boolean } = {},
+  mods: { ctrl?: boolean; shift?: boolean; alt?: boolean; meta?: boolean } = {},
   extra: Partial<KeyEventLike> = {},
 ) {
   const seen = { prevented: false };
@@ -32,8 +47,8 @@ function press(
     key: "",
     code,
     ctrlKey: mods.ctrl ?? false,
-    metaKey: false,
-    altKey: false,
+    metaKey: mods.meta ?? false,
+    altKey: mods.alt ?? false,
     shiftKey: mods.shift ?? false,
     repeat: false,
     isComposing: false,
@@ -92,6 +107,174 @@ test("handler가 던지면 internal로 돌리고 다음 키는 그대로 받는�
   assert.deepStrictEqual(logged.length, 2);
 });
 
+test("안쪽 context가 먼저 듣고, 한 context 안에서는 사용자 > 기여 > 표 순서이며 부를 수 없는 것은 건너뛴다", () => {
+  const { registry, keybindings } = setup();
+  const ran: string[] = [];
+  for (const command of ["inner", "user", "registered", "default", "outer"]) {
+    registry.register(command, () => ran.push(command));
+  }
+  keybindings.setDefaults([
+    { command: "default", other: ["Ctrl+KeyJ"], mac: [], context: "app" },
+    { command: "outer", other: ["Ctrl+KeyJ"], mac: [] },
+  ]);
+  keybindings.setUser([
+    { command: "user", other: ["Ctrl+KeyJ"], mac: [], context: "app" },
+  ]);
+  keybindings.register({
+    command: "registered",
+    other: ["Ctrl+KeyJ"],
+    mac: [],
+    context: "app",
+  });
+  const inner = keybindings.register({
+    command: "inner",
+    other: ["Ctrl+KeyJ"],
+    mac: [],
+    context: "inner",
+  });
+  const handle = (target: unknown) =>
+    keybindings.handle(press("KeyJ", { ctrl: true }, { target }).event);
+
+  assert.deepStrictEqual(handle(["inner", "app", "global"]), true);
+  assert.deepStrictEqual(handle(["app", "global"]), true);
+  assert.deepStrictEqual(ran, ["inner", "user"]);
+
+  inner.dispose();
+  handle(["app", "global"]);
+  assert.deepStrictEqual(ran.at(-1), "user");
+  // 사용자 binding을 풀면(context 없는 outer, app의 기여/표는 남는다) app의 기여 binding이 다음이다.
+  keybindings.setUser([]);
+  handle(["app", "global"]);
+  assert.deepStrictEqual(ran.at(-1), "registered");
+});
+
+test("context가 owns한 chord는 바깥 binding에 가지 않고, 그 context의 binding은 받는다", () => {
+  const { registry, keybindings } = setup();
+  let closed = 0;
+  let terminal = 0;
+  registry.register("tab.close", () => closed++);
+  registry.register("terminal.close", () => terminal++);
+  keybindings.setDefaults([
+    { command: "tab.close", other: ["Ctrl+KeyW"], mac: [] },
+    {
+      command: "terminal.close",
+      other: ["Ctrl+KeyW"],
+      mac: [],
+      context: "terminal",
+    },
+  ]);
+  keybindings.defineContext("terminal", {
+    owns: (chord) => shellOwns(chord, "other"),
+  });
+  const terminalKey = press(
+    "KeyW",
+    { ctrl: true },
+    {
+      target: ["terminal", "global"],
+    },
+  );
+  const shellKey = press("KeyW", { ctrl: true }, { target: ["global"] });
+  assert.deepStrictEqual(keybindings.handle(terminalKey.event), true);
+  assert.deepStrictEqual(terminal, 1);
+  assert.deepStrictEqual(closed, 0);
+  assert.deepStrictEqual(keybindings.handle(shellKey.event), true);
+  assert.deepStrictEqual(closed, 1);
+});
+
+test("머리 두 타를 지금 부를 수 없으면 기다리지 않고 홑 binding을 바로 실행한다", () => {
+  const { registry, keybindings, fireTimer, timers } = setup();
+  const ran: string[] = [];
+  registry.register("agent.interrupt", () => ran.push("interrupt"));
+  registry.register("agent.rewind", () => ran.push("rewind"), {
+    when: () => false,
+  });
+  keybindings.setDefaults([
+    { command: "agent.interrupt", other: ["Escape"], mac: [] },
+    { command: "agent.rewind", other: ["Escape Escape"], mac: [] },
+  ]);
+  const first = press("Escape");
+  assert.deepStrictEqual(keybindings.handle(first.event), true);
+  assert.deepStrictEqual(ran, ["interrupt"]);
+  assert.deepStrictEqual(timers.length, 0);
+  fireTimer();
+  assert.deepStrictEqual(ran, ["interrupt"]);
+});
+
+test("두 타의 머리를 누르면 기다렸다가 둘째 타에서 실행하고, 없으면 timeout에 홑 binding을 실행한다", () => {
+  const { registry, keybindings, fireTimer } = setup();
+  const ran: string[] = [];
+  registry.register("agent.interrupt", () => ran.push("interrupt"));
+  registry.register("agent.rewind", () => ran.push("rewind"));
+  keybindings.setDefaults([
+    { command: "agent.interrupt", other: ["Escape"], mac: [] },
+    { command: "agent.rewind", other: ["Escape Escape"], mac: [] },
+  ]);
+  const head = press("Escape");
+  assert.deepStrictEqual(keybindings.handle(head.event), true);
+  assert.deepStrictEqual(head.seen.prevented, true);
+  assert.deepStrictEqual(ran, []);
+  // modifier만 누른 keydown(Ctrl을 뗐다 다시 누른 것)은 연속을 끊지도, 키를 삼키지도 않는다.
+  const modifier = press("ControlLeft", { ctrl: true }, { key: "Control" });
+  assert.deepStrictEqual(keybindings.handle(modifier.event), false);
+  assert.deepStrictEqual(modifier.seen.prevented, false);
+  fireTimer();
+  assert.deepStrictEqual(ran, ["interrupt"]);
+
+  const second = press("Escape");
+  keybindings.handle(second.event);
+  // 머리 뒤에 modifier만 눌러도 기다림은 이어지고, 둘째 타가 오면 두 타가 된다.
+  const again = press("ShiftRight", { shift: true }, { key: "Shift" });
+  assert.deepStrictEqual(keybindings.handle(again.event), false);
+  assert.deepStrictEqual(again.seen.prevented, false);
+  const complete = press("Escape");
+  assert.deepStrictEqual(keybindings.handle(complete.event), true);
+  assert.deepStrictEqual(ran, ["interrupt", "rewind"]);
+});
+
+test("기다리는 중에 다른 key가 오면 머리를 버리고 그 key를 새로 맞춘다", () => {
+  const { registry, keybindings, fireTimer } = setup();
+  const ran: string[] = [];
+  registry.register("agent.interrupt", () => ran.push("interrupt"));
+  registry.register("agent.rewind", () => ran.push("rewind"));
+  registry.register("files.quick-open", () => ran.push("palette"));
+  keybindings.setDefaults([
+    { command: "agent.interrupt", other: ["Escape"], mac: [] },
+    { command: "agent.rewind", other: ["Escape Escape"], mac: [] },
+    { command: "files.quick-open", other: ["Ctrl+KeyP"], mac: [] },
+  ]);
+  keybindings.handle(press("Escape").event);
+  const other = press("KeyP", { ctrl: true });
+  assert.deepStrictEqual(keybindings.handle(other.event), true);
+  assert.deepStrictEqual(ran, ["palette"]);
+  fireTimer();
+  assert.deepStrictEqual(ran, ["palette"]);
+
+  // 맞는 binding이 없는 key도 잃지 않고 그대로 지나간다(머리의 홑 binding은 실행되지 않는다).
+  keybindings.handle(press("Escape").event);
+  const nothing = press("KeyY", { ctrl: true });
+  assert.deepStrictEqual(keybindings.handle(nothing.event), false);
+  assert.deepStrictEqual(nothing.seen.prevented, false);
+  fireTimer();
+  assert.deepStrictEqual(ran, ["palette"]);
+});
+
+test("연속의 둘째 타가 반복이면 두 타가 되지 않고, 홑 binding도 부르지 않는다", () => {
+  const { registry, keybindings, fireTimer } = setup();
+  const ran: string[] = [];
+  registry.register("agent.interrupt", () => ran.push("interrupt"));
+  registry.register("agent.rewind", () => ran.push("rewind"));
+  keybindings.setDefaults([
+    { command: "agent.interrupt", other: ["Escape"], mac: [] },
+    { command: "agent.rewind", other: ["Escape Escape"], mac: [] },
+  ]);
+  keybindings.handle(press("Escape").event);
+  const repeat = press("Escape", {}, { repeat: true });
+  assert.deepStrictEqual(keybindings.handle(repeat.event), true);
+  assert.deepStrictEqual(ran, []);
+  fireTimer();
+  assert.deepStrictEqual(ran, ["interrupt"]);
+});
+
 test("같은 키는 나중 바인딩부터 보고 부를 수 없는 command는 건너뛰며 아무도 못 받으면 키를 넘긴다", () => {
   const { registry, keybindings } = setup();
   const ran: string[] = [];
@@ -127,17 +310,16 @@ test("같은 키는 나중 바인딩부터 보고 부를 수 없는 command는 �
   }
 });
 
-test("조합 중·터미널의 Ctrl+글자는 넘기고 눌러 둔 반복은 삼키기만 한다", () => {
+test("조합 중과 키를 받지 않는 칸은 넘기고, 눌러 둔 반복은 삼키기만 한다", () => {
   const { registry, keybindings } = setup();
   let closed = 0;
   registry.register("tab.close", () => closed++);
   keybindings.register({ command: "tab.close", other: ["Ctrl+KeyW"], mac: [] });
   const composing = press("KeyW", { ctrl: true }, { isComposing: true });
-  const terminal = press("KeyW", { ctrl: true }, { target: "terminal" });
+  const capture = press("KeyW", { ctrl: true }, { target: "capture" });
   const repeat = press("KeyW", { ctrl: true }, { repeat: true });
   assert.deepStrictEqual(keybindings.handle(composing.event), false);
-  assert.deepStrictEqual(keybindings.handle(terminal.event), false);
-  assert.deepStrictEqual(terminal.seen.prevented, false);
+  assert.deepStrictEqual(keybindings.handle(capture.event), false);
   assert.deepStrictEqual(keybindings.handle(repeat.event), true);
   assert.deepStrictEqual(repeat.seen.prevented, true);
   assert.deepStrictEqual(closed, 0);

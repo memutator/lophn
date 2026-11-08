@@ -1,7 +1,7 @@
 // Settings의 새 설계 page. 모두 인자 없이 한 상태를 그린다.
 
 import { SettingsFrame } from "./settings-frame.tsx";
-import { click, find, press, type } from "../../mock/drive.ts";
+import { click, find, press, type, wait } from "../../mock/drive.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import { appPanelBindingId } from "../../../../packages/shell/ipc/keybindings.ts";
 import { APP_BUDGET } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
@@ -142,6 +142,8 @@ export const SettingsKeyboardChanged = () => (
             cancelable: true,
           }),
         );
+        // 새 키 칸은 둘째 타를 1.5초 기다린다. 둘째 타가 없는 경우를 기다려 저장 뒤 상태를 그린다.
+        await wait(1700);
       },
     ]}
   />
@@ -152,9 +154,15 @@ export const SettingsKeyboardConflicts = () => (
   <SettingsFrame
     pane="keyboard"
     keyboard={{
-      // Rename the tab이 Next tab과 같은 키를, Reveal이 lophn이 먼저 쓰는 Ctrl+K를 단 상태다.
-      other: { "tab.rename": ["Ctrl+Tab"], "tab.reveal": ["Ctrl+KeyK"] },
-      mac: { "tab.rename": ["Ctrl+Tab"], "tab.reveal": ["Cmd+KeyK"] },
+      // Rename the tab이 Next tab과 같은 키를, Reveal이 OS 전역 팔레트가 먼저 쓰는 Ctrl+Shift+K를 단 상태다.
+      other: {
+        "tab.rename": ["Ctrl+Tab"],
+        "tab.reveal": ["Ctrl+Shift+KeyK"],
+      },
+      mac: {
+        "tab.rename": ["Ctrl+Tab"],
+        "tab.reveal": ["Cmd+Shift+KeyK"],
+      },
     }}
     steps={[() => click("[data-key-conflicts-only]")]}
   />

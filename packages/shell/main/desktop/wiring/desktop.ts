@@ -20,6 +20,7 @@ import {
   FOLDER_PICK_CHANNEL,
 } from "../../../ipc/folder-picker.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
+import { BROWSER_EVENT_CHANNEL } from "../../../ipc/browser.ts";
 import {
   type CompiledBindings,
   compileBindings,
@@ -29,6 +30,8 @@ import {
 } from "../../../ipc/keybindings.ts";
 import { WINDOW_SHORTCUT_CHANNEL } from "../../../ipc/shortcuts.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
+import { guestViewSession } from "../../browser/webview-guest.ts";
+import { isViewScheme } from "../security.ts";
 import {
   type AutostartOs,
   nodeAutostartFiles,
@@ -257,6 +260,12 @@ export function register(
 
   // 창 안 shortcut. 창 본문·overlay·앱 view·browser 탭 어디에 focus가 있어도 그 창의 shell
   // renderer가 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다.
+  // browser page(<webview> guest)만 아는 key context `browser`를 준다. app·artifact view의 주소는
+  // view scheme이라 browser가 아니다.
+  const keyContextOf = (contents: WebContents): string | undefined => {
+    if (contents.getType() !== "webview") return undefined;
+    return isViewScheme(contents.getURL()) ? undefined : "browser";
+  };
   app.on("web-contents-created", (_event, contents) => {
     listenShortcuts(
       contents,
@@ -277,19 +286,33 @@ export function register(
               )),
         );
         if (!window) return false;
+        // browser page의 bookmark key는 그 탭(view_session)에만 알린다. shell:shortcut 글자 하나로는
+        // 어느 browser 탭인지 알 수 없다.
+        if (shortcut === "browser.bookmark") {
+          if (send) {
+            window.webContents.send(BROWSER_EVENT_CHANNEL, {
+              kind: "bookmark-key",
+              view_session: guestViewSession(contents.id),
+            });
+          }
+          return true;
+        }
         // shell renderer 자신의 키는 macOS(menu가 먼저 가져간다)에서만 main이 삼킨다. 다른 OS는
-        // renderer의 keydown이 받아야 터미널에서 Ctrl+W 같은 키를 shell로 보낼 수 있다.
+        // renderer의 keydown이 받아야 표의 같은 줄을 쓸 수 있고, 터미널에서 Ctrl+W도 PTY로 간다.
+        // palette·Home은 예외다. 터미널 context가 Ctrl+글자를 PTY로 보내므로(Ctrl+K도 그 하나)
+        // renderer에 맡기면 터미널 안에서 팔레트가 열리지 않는다. main이 모든 OS에서 삼키고 보낸다.
         if (
           window.webContents === contents &&
           process.platform !== "darwin" &&
-          shortcut !== "palette" &&
-          shortcut !== "home"
+          shortcut !== "palette.open" &&
+          shortcut !== "home.open"
         )
           return false;
         if (send) window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
         return true;
       },
       () => compiled,
+      () => keyContextOf(contents),
     );
   });
 

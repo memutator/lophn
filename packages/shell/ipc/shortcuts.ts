@@ -1,32 +1,20 @@
 // 창 안 shortcut. main이 창의 모든 webContents에서 키를 보고 이 이름 하나만 shell
 // renderer로 보낸다. renderer는 같은 표로 팔레트 행의 키 이름을 그린다.
-// 작업대 단축키(탭·칸·sidebar)는 keybindings.ts의 표가 정하고, 그중 main이 먼저 받아야 하는
-// 것(menu와 겹치는 Cmd+W, page가 삼키는 키)만 이 channel로 온다. 그 payload는 binding id 글자다.
+// 작업대 단축키(탭·칸·sidebar·팔레트·Home)는 keybindings.ts의 표가 정하고, 그중 main이 먼저 받아야
+// 하는 것(menu와 겹치는 Cmd+W, page가 삼키는 키)만 이 channel로 온다. 그 payload는 binding id 글자다.
 import { parseBindingId } from "./keybindings.ts";
 
-/** main이 shell renderer로 보내는 channel. payload는 WindowShortcut 하나다. */
+/** main이 shell renderer로 보내는 channel. payload는 WindowShortcut(binding id) 하나다. */
 export const WINDOW_SHORTCUT_CHANNEL = "shell:shortcut";
 
 /**
- * 창 안에서만 듣는 키. 전역 팔레트 CommandOrControl+Shift+K는
- * 전역 등록이 맡고(main/desktop/global-shortcut.ts) 이 표에 넣지 않는다. 전역 Ctrl+K는
- * 어디서도 등록하지 않는다.
+ * channel로 오는 binding id(`tab.close`, `desk.nth:3`, `palette.open`, `app.panel:<app>:<surface>`).
+ * 표가 아는 모양만 받는다.
  */
-export const WINDOW_SHORTCUTS = {
-  palette: "CommandOrControl+K",
-  home: "CommandOrControl+Shift+L",
-} as const;
-
-export type PaletteShortcut = keyof typeof WINDOW_SHORTCUTS;
-
-/** channel로 오는 이름: 위 둘이거나 main이 먼저 받는 작업대 binding id(`tab.close`, `desk.nth:3`, `app.panel:<app>:<surface>`). */
-export type WindowShortcut = PaletteShortcut | string;
+export type WindowShortcut = string;
 
 export function isWindowShortcut(value: unknown): value is WindowShortcut {
-  return (
-    typeof value === "string" &&
-    (Object.hasOwn(WINDOW_SHORTCUTS, value) || parseBindingId(value) !== null)
-  );
+  return typeof value === "string" && parseBindingId(value) !== null;
 }
 
 export interface ShortcutApi {

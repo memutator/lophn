@@ -96,6 +96,8 @@ function setup() {
     onLink: () => () => {},
     onPathLink: () => () => {},
     onTitle: () => () => {},
+    copySelection: () => {},
+    paste: () => {},
     dispose: () => {
       disposed++;
     },

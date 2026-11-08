@@ -40,9 +40,10 @@ workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커
 
  terminal bridge (shell 탭만, Linux·macOS)
    앱 시작: wiring/coding.ts register ─▶ wiring/bridge.ts createBridgeWiring
-     run-dir.ts prepareRunDir: <XDG_RUNTIME_DIR>/lophn 또는 <tmpdir>/lophn-<uid> / <data root sha256 12자> / shell-<pid>/ (0700)
-     shim.ts writeShim: browser(sh, 0700: ELECTRON_RUN_AS_NODE=1 exec <execPath> browser.js) · browser.js(0600)
-     socket.ts listenBridge: b.sock (0600)
+     run-dir.ts prepareRunDir: socketDirectoryPath의 공통 자리 / shell-<pid>/ (POSIX 0700). Windows file은 <data root>/run/shell-<pid>/, endpoint는 별도 named pipe
+     폴더 준비 ─▶ run 확정 ─▶ hook은 자기 endpoint를 독립적으로 연다(shim·bridge listen 실패에도 유지)
+     shim.ts writeShim: POSIX browser(sh, 0700) 또는 Windows browser.cmd · 공통 browser.js(0600), Electron Node로 실행
+     socket.ts listenBridge: ipcPath로 만든 bridge endpoint(POSIX b.sock 0600, Windows shell-<pid>-b pipe)
    shell 탭 열기: terminal/ipc.ts open ─ bridge.issue() ─▶ {key(64 hex), env: {BROWSER: <shim>, LPN_BROWSER_BRIDGE: {"socket","key"}}}
      host open 요청의 env ─▶ host가 `terminalEnv`(stripPlatformEnv + `COLORTERM=truecolor`) 뒤에 덮는다(restart도 같은 env) ─ 답이 ok ─▶ bind(key, terminal_ref)
      탭을 닫아 close가 exited ─▶ revoke(terminal_ref)
@@ -51,7 +52,7 @@ workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커
        browser_tab이면 모든 shell 창에 shell:terminal-bridge-open push
          ─▶ 그 terminal 탭을 가진 창(어느 desk든)의 Workspace(useBridgeOpenRequests)가 browser 탭을 열고 ack
        1500ms 안의 첫 ack ─▶ {"result":"pane"}, 아니면 {"result":"declined"}
-     shim: pane이면 끝, 그 밖(declined·접속 실패·3000ms)은 bridge env를 지운 env로 xdg-open/open
+     shim: pane이면 끝, 그 밖(declined·접속 실패·3000ms)은 bridge env를 지운 env로 xdg-open/open/Windows cmd.exe start
    terminal Ctrl/Cmd-click(@xterm/addon-web-links) ─▶ shell:terminal-link ─▶ bridge.openLink: 같은 판정·같은 push, 탭이 안 열리면 main이 OS browser로
 ```
 
@@ -81,10 +82,10 @@ workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커
 - **bookmark url은 http/https이고 userinfo가 없는 것만, `href` 완전 일치로 하나만 둔다.** 1000개, title 200자, url 8192자까지다.
 - **bridge의 권한 판정은 `main/browser-bridge/policy.ts`의 순수 함수가 한다.** 요청 줄은 JSON 한 줄, `v === 1`, key 64자 hex, 8192 byte 이하만 받는다. browser 탭으로 넘기는 URL은 절대 http/https, userinfo 없음, 8192자 이하다(`isRelayableUrl`). local은 `localhost`·`*.localhost`·`*.local`·loopback·사설·link-local IPv4와 `::1`·`fc00::/7`·`fe80::/10`이다. 표는 `policy_test.ts`, key·설정·ack 조건은 `bridge_test.ts`가 지킨다.
 - **`pane`은 "창이 실제로 탭을 열었다"는 뜻이다.** main은 push만 하고 답하지 않는다. 그 terminal 탭을 가진 창의 renderer가 탭을 연 때만 `ackBridgeOpen`을 보내고, 1500ms(shim의 3000ms보다 짧다) 안에 ack가 없으면 `declined`다. terminal 탭을 가진 창이 없는 때(Settings route, 닫힌 창)의 URL은 OS browser로 간다. detached 창에는 이 hook이 없지만, 뗄 때의 `terminal_ref`가 project 창의 `TerminalStore`에 남아(`transfer`가 지우지 않는다) project 창이 URL을 그 terminal 탭 바로 뒤에(group이면 group 뒤에) browser 탭으로 열고 ack한다. 다시 열어 복원한 detached terminal은 어느 창도 ref를 몰라 `declined`(OS browser)다. 조용히 사라지는 URL은 없다. Ctrl/Cmd-click도 탭이 안 열리면 main이 OS browser로 연다. bridge가 꺼져 있어도(win32, 준비 실패) link는 OS browser로 간다.
-- **key는 terminal 탭마다 main이 발급한다.** `issue()`는 key와 env만 만들고, host `open`이 성공해야 `bind`한다. 묶이지 않은 key의 요청은 `declined`다. 탭을 닫아 `close`가 `exited`로 답할 때 `revoke`한다. 비교는 `Map` 조회다. socket이 `0700` 폴더 안의 `0600` file이라 같은 사용자만 닿고, 그 사용자는 env로 key를 이미 안다.
+- **key는 terminal 탭마다 main이 발급한다.** bridge는 자기 listen에 성공한 뒤에만 `issue()`가 key와 env를 만들고, host `open`이 성공해야 `bind`한다. 묶이지 않은 key의 요청은 `declined`다. 탭을 닫아 `close`가 `exited`로 답할 때 `revoke`한다. 비교는 `Map` 조회다. POSIX socket은 `0700` 폴더 안의 `0600` file이고 Windows는 named pipe다. 인증은 같은 64 hex key 검사만 쓰며 SID·DACL 검사는 더하지 않는다. 그 터미널의 process는 env로 key를 이미 안다.
 - **env는 `BROWSER`와 `LPN_BROWSER_BRIDGE` 둘이다.** `LOPHN_`로 시작하면 `stripPlatformEnv`가 지운다. host는 strip 뒤에 덮는다. 사용자가 앱 env에 `BROWSER`를 두었으면 넣지 않는다. 그 shell은 key도 없어(`issue()`가 null이라 `bind`하지 않는다) Ctrl/Cmd-click link도 OS browser로 간다. 단 `LPN_BROWSER_BRIDGE`가 같이 있으면 바깥 lophn의 shim이라 덮는다(`bridgeEnv`).
-- **shim은 앱이 켜질 때마다 main이 per-run 폴더에 써 넣는다.** sh에 박는 `process.execPath`가 packaged와 dev에서 달라 설치 묶음에 싣지 않는다. Electron을 node로 띄워 사용자 PATH의 `node`를 기대하지 않는다. shim은 URL·key를 출력하지 않고, OS opener에 넘길 때 `BROWSER`·`LPN_BROWSER_BRIDGE`·`ELECTRON_RUN_AS_NODE`를 지운다(안 지우면 `xdg-open`이 shim을 다시 부른다).
-- **폴더 자리는 core socket 폴더 규칙을 따른다.** socket 경로가 104 byte 이상이면 bridge를 켜지 않고 로그 한 줄만 남긴다. 앱과 shell 탭은 그대로 뜬다(OS browser). 폴더는 app ready 뒤 single-instance lock을 가진 process만 만든다(두 번째 instance는 ready 전에 `will-quit` 없이 끝나 지울 기회가 없다). 시작할 때 죽은 pid의 `shell-<pid>` 폴더를 지우고, 앱을 끌 때 자기 폴더를 동기로 지운다.
+- **shim은 앱이 켜질 때마다 main이 per-run 폴더에 써 넣는다.** 박아 넣는 `process.execPath`가 packaged와 dev에서 달라 설치 묶음에 싣지 않는다. POSIX sh와 Windows `.cmd` 둘 다 공통 JS를 Electron Node로 띄워 사용자 PATH의 `node`를 기대하지 않는다. `.cmd`는 자기 process 안에서만 `ELECTRON_RUN_AS_NODE=1`을 둔다. Windows OS fallback은 `cmd.exe start`의 빈 title과 URL을 분리하고 cmd metacharacter를 escape한다. shim은 URL·key를 출력하지 않고, OS opener에 넘길 때 `BROWSER`·`LPN_BROWSER_BRIDGE`·`ELECTRON_RUN_AS_NODE`를 지운다(안 지우면 `xdg-open`이 shim을 다시 부른다).
+- **폴더 자리는 base의 `socketDirectoryPath` 규칙을 쓴다.** POSIX는 공통 directory 아래, Windows file은 `<data root>/run/shell-<pid>/`이고 pipe는 file처럼 mkdir·chmod·remove하지 않는다. 두 endpoint의 UTF-8 byte가 `ipcPathLimit`(Linux 107·macOS 103·Windows 256)을 초과하면 폴더 정리 전에 hook·bridge를 끄고 로그 한 줄만 남긴다. pointer file·TCP fallback은 없다. 앱과 shell 탭은 그대로 뜬다(OS browser). 폴더는 app ready 뒤 single-instance lock을 가진 process만 만든다. 시작할 때 같은 data root의 자기 pid 또는 죽은 pid의 `shell-<숫자>` 폴더만 지우고, 살아 있는 sibling·다른 이름·core socket·다른 data root는 건드리지 않는다. 앱을 끌 때 자기 폴더만 동기로 지운다. shim·bridge listen 실패는 hook이 쓰는 폴더를 지우지 않는다.
 - **link를 열 곳은 core 선언 설정 `shell.browser.web_links`·`shell.browser.local_links`(`browser_tab` | `system_browser`, 기본 `browser_tab`)다.** main이 요청마다 `memory:settings/list`로 읽고, 못 읽으면 기본값이다. Settings › Browser › Links가 고친다. key 글자는 `packages/core/config/shell-settings.ts`와 `policy.ts`의 `LINK_SETTING_KEYS` 두 곳에 있다(shell은 core를 import하지 못한다).
 - **여는 자리는 renderer의 `workspace/open-policy.ts`(`openAt`·`showAfter`)가 정한다.** 규칙은 `workspace-layout.md`의 "탭 안에서 연 것의 자리"다. terminal이 보이지 않는 desk에 있으면 그 desk로 넘어가 terminal 탭 바로 뒤에 연다(`openTab`의 `after`가 다른 desk의 탭이면 그 desk로 건너간다). 로그인 URL은 사람이 그 page를 봐야 해서 넘어간다. 그 desk의 view를 hook이 모르므로 반대쪽 pane 규칙은 보이는 desk에만 쓴다. 그냥 click은 text 선택이고 Ctrl/Cmd-click만 link다. OSC 8 자동 링크는 지금도 삼킨다.
 - **browser 탭 layout은 `{key, url, favicon}`만 저장한다.** title, history, DevTools 자리는 저장하지 않는다. 다시 열면 그 url을 load한다. favicon은 `data:image/`로 시작하는 65536자까지만 받고, 맞지 않으면 renderer가 빼고 저장한다(탭을 잃지 않게).

@@ -31,6 +31,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 - **macOS Dock.** 창이 없을 때 Dock을 누르면(`activate`) 창을 다시 연다.
 - **harness 찾기**(`packages/coding-agent/harnesses/detect.ts`). Windows는 이름마다 `PATHEXT` 확장자로 찾고 실행 bit 대신 확장자로 판정한다. `.cmd`·`.bat`은 shell로 띄운다.
 - **터미널 끄기.** POSIX는 `SIGHUP` 뒤 process group, Windows는 `pty.kill()` 뒤 `taskkill /T`다.
+- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 directory의 `shell-<pid>/`(0700), endpoint는 `ipcPath(dir, "b" | "h", platform)`(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root namespace의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 `ipcPathLimit`을 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다. file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. Windows 실행 gate는 PowerShell 시작 층을 붙일 때까지 남아 있다.
 
 ## Windows에서 꺼진 기능
 

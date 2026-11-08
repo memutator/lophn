@@ -36,3 +36,42 @@ modules: [packages/shell/main, packages/core/install-and-update]
 - 고치려면:
   - 새 shell이 기동 실패 이유가 lock(이미 실행 중)이면 몇 초(예: 5초) 동안 짧은 간격으로 core를 다시 띄운다(작음). 이전 core가 진짜로 계속 돌고 있으면 시간이 지나 지금처럼 실패한다. 추천.
   - 끌 때 shell이 core가 끝나기를 기다린 뒤 끝난다(`will-quit`에서 `preventDefault` 후 core exit를 기다리고 다시 quit, 시간 상한)(중간). OS 종료와 강제 종료에서는 여전히 겹칠 수 있어 위 안이 같이 필요하다.
+
+## Quit 중에 돌던 ensure가 끝난 뒤 core를 새로 띄울 수 있다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+```
+
+지금: shell의 crash 복구·판 교체 ensure(`packages/shell/main/desktop/core/connection.ts` `recover`, `packages/protocol/client/ensure.ts` `ensureCore`)는 취소할 길이 없다. 일반 Quit의 `detach()`나 `Stop lophn`의 `stopCore()`가 그 사이에 와도 ensure는 끝까지 돌아 core를 띄울 수 있다. 시작 중(ready 전)에 `Stop lophn`을 누르면 control stop이 `unavailable`로 돌아오고 성공으로 치여, 막 뜬 core가 남는다.
+
+영향: 사람이 끄라고 했는데 core가 남는다. 켜진 job이 없으면 10분 뒤 idle-exit로 끝나므로 data는 잃지 않는다.
+
+고치려면: ensure에 abort signal을 받아 spawn 전에 보고, `Stop lophn`은 starting core면 ready를 기다린 뒤 stop한다(작음). 추천.
+
+## shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+```
+
+지금: shell이 `closed(shutdown)`이나 identify `stopping`을 보면 그 process에서는 core를 다시 띄우지 않는다(`connection.ts`의 `shutdownSeen`). 새 core(CLI가 띄운 것)에 붙는 것은 renderer의 core 호출(file tree poll, Reconnect 단추)이 `join()`할 때뿐이고 판이 같아야 한다. 주기적 identify는 없다.
+
+영향: `lophn core stop` 뒤 CLI가 core를 다시 띄워도 shell 화면은 Reconnect를 누르기 전까지 끊긴 채일 수 있다.
+
+고치려면: `shutdownSeen` 동안 30초마다 identify만 묻고(띄우지 않는다) ready면 join한다(작음).
+
+## 업데이트 뒤 첫 로그인 실행은 창을 한 번 연다
+
+```yaml
+kind: bug
+modules: [packages/shell/main]
+```
+
+지금: 켜 둔 autostart의 옛 `--tray` 등록은 일반 실행에서 한 번 `--core`로 다시 쓴다(`packages/shell/main/desktop/autostart.ts`). 업데이트 뒤 첫 실행이 그 로그인 등록이면 `--tray`를 모르는 새 판이 일반 실행으로 창을 연다. 같은 실행에서 등록은 고쳐진다. macOS `wasOpenedAtLogin`과 core-only 실행의 userData 폴더는 실기로 확인하지 않았다.
+
+영향: 한 번 창이 뜬다. 그 뒤로는 core만 뜬다.
+
+고치려면: 그대로 둔다(`--tray` 호환 장치를 두지 않는 것이 결정이다). macOS·Windows 실기 확인은 사람이 한다.

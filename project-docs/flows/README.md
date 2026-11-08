@@ -103,6 +103,7 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 - `invalid_input`처럼 schema가 막는 것은 그 flow가 따로 다루는 갈래일 때만 쓴다.
 - outcome은 handler가 실제로 낼 수 있는 것만 둔다. schema enum에 있어도 code가 만들지 않으면 outcome이 아니라 `unclear`에 쓴다.
 - step에 쓴 판정은 모두 outcome이 있어야 한다. 앞 read나 port가 실패해 그대로 돌려주는 오류, 이른 return, `preventDefault` 같은 방어 갈래도 갈래다.
+- route마다 handler 맨 앞의 부르는 쪽 검사(`gate()`, `requireUser`, `requireMachine`, desktop 창 sender 검사)가 내는 `forbidden`도 outcome이다. wrapper가 부르는 안쪽 command의 실패도 그 flow의 갈래다. 두 방향 channel이면 두 방향을 다 쓴다.
 - 같은 code를 내는 원인이 여럿이면 `when`에 모두 쓴다. handler 묶음이 같은 guard(예: `requireUser`)로 시작하면 그 묶음의 flow마다 그 guard를 `when`에 쓴다.
 - `observe`는 test가 단정할 자리다. 앞머리는 `disk:`, `ledger:<표>`, `event:<name>`, `response`, `request:<받는 쪽>`(fake model, 바깥 server), `process:`, `screen:<frame id>`, `log:` 가운데 하나다.
 - 창으로 밀어 보내는 상태는 `screen:<frame id>`나 `event:`다. 부른 쪽이 받는 답만 `response`다. 거절되어 밖에서 아무 일도 없으면 거절을 받은 쪽(`response`, `log:`)을 쓴다.

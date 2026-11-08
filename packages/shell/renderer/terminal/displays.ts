@@ -2,6 +2,7 @@ import type {
   TerminalApi,
   TerminalOutput,
   TerminalRuntime,
+  TerminalTraceEvent,
 } from "../../ipc/terminal.ts";
 import { acceptOutput, phaseOfRuntime, splitInput } from "./model.ts";
 import type { TerminalStore } from "./store.ts";
@@ -26,18 +27,39 @@ type Kept = TerminalDisplay & {
 };
 type OutputBridge = Pick<
   TerminalApi,
-  "snapshot" | "onOutput" | "onRuntime" | "respond" | "input" | "resize"
+  | "snapshot"
+  | "onOutput"
+  | "onRuntime"
+  | "respond"
+  | "input"
+  | "resize"
+  | "trace"
 >;
+
+/** 개수로 묶어 남기는 잦은 일(mouse 이동, wheel, PTY로 보낸 입력). 다른 일이 오면 그 앞에 내보내 순서를 지킨다. */
+const COUNTED = new Set(["sent", "wheel"]);
+const TRACE_FLUSH_MS = 500;
 
 /** React의 tab mount와 terminal의 수명을 분리해 화면을 옮길 때도 이미 파싱한 출력을 유지한다. */
 export class TerminalDisplays {
   readonly #kept = new Map<string, Kept>();
   readonly #store: TerminalStore;
   readonly #bridge: OutputBridge | null;
+  readonly #now: () => number;
+  // 진단 기록. main이 꺼져 있다고 답하면 그 뒤로 모으지 않는다.
+  #traceOff = false;
+  #traced: TerminalTraceEvent[] = [];
+  readonly #counted = new Map<string, TerminalTraceEvent>();
+  #flushing: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(store: TerminalStore, bridge: OutputBridge | null) {
+  constructor(
+    store: TerminalStore,
+    bridge: OutputBridge | null,
+    now: () => number = Date.now,
+  ) {
     this.#store = store;
     this.#bridge = bridge;
+    this.#now = now;
     store.subscribe(() => {
       for (const [key, kept] of this.#kept) {
         if (store.get(key)) this.#sync(key, kept);
@@ -84,6 +106,10 @@ export class TerminalDisplays {
       };
       this.#kept.set(key, kept);
       const display = kept;
+      display.off.push(
+        display.view.onTrace((event) => this.#trace(key, display, event)),
+      );
+      this.#trace(key, display, { e: "acquire", restore: display.restore });
       // 숨거나 focus가 없는 terminal도 새 질의에 답해야 harness가 멎지 않는다.
       let replies = Promise.resolve<unknown>(undefined);
       display.off.push(
@@ -97,11 +123,26 @@ export class TerminalDisplays {
           };
           const human = display.active;
           for (const part of splitInput(text))
-            replies = replies.then(() =>
-              human
-                ? this.#bridge?.input({ ...ref, text: part })
-                : this.#bridge?.respond({ ...ref, text: part }),
-            );
+            replies = replies
+              .then(() =>
+                human
+                  ? this.#bridge?.input({ ...ref, text: part })
+                  : this.#bridge?.respond({ ...ref, text: part }),
+              )
+              .then((reply) => {
+                // main이 거절한 입력(focus 표에 없음, 구독 안 함)은 PTY에 닿지 않는다.
+                const refused = !reply?.ok
+                  ? (reply?.error.code ?? "no bridge")
+                  : reply.value.ok
+                    ? null
+                    : reply.value.reason;
+                if (refused !== null)
+                  this.#trace(key, display, {
+                    e: "input_refused",
+                    human,
+                    reason: refused,
+                  });
+              });
         }),
       );
       display.off.push(
@@ -152,6 +193,13 @@ export class TerminalDisplays {
         }
         const { runtime, output } = reply.value;
         kept.generation = runtime.generation;
+        this.#trace(key, kept, {
+          e: "snapshot",
+          replay,
+          chunks: output.length,
+          pty_cols: runtime.columns,
+          pty_rows: runtime.rows,
+        });
         // snapshot은 PTY 치수로 직렬화돼 있다. 새 view(80x24)나 다른 칸 크기로 쓰면 줄이 꺾여 화면이 엉키고, 그 뒤 칸에
         // 맞춰도 PTY 치수가 그대로면 TUI는 SIGWINCH를 못 받아 다시 그리지 않는다. PTY 치수로 쓴 뒤 칸에 맞추고,
         // 치수가 달라졌으면 PTY에 알려 TUI가 새 치수로 다시 그리게 한다.
@@ -215,7 +263,39 @@ export class TerminalDisplays {
 
   setActive(key: string, active: boolean): void {
     const kept = this.#kept.get(key);
-    if (kept) kept.active = active;
+    if (!kept || kept.active === active) return;
+    kept.active = active;
+    this.#trace(key, kept, { e: "active", on: active });
+  }
+
+  #trace(key: string, kept: Kept, event: TerminalTraceEvent): void {
+    if (this.#traceOff || !this.#bridge) return;
+    const where = { t: this.#now(), tab: key, ref: kept.ref };
+    if (COUNTED.has(String(event.e))) {
+      const id = `${key}\u0000${event.e}\u0000${event.kind ?? event.tui_mouse}`;
+      const seen = this.#counted.get(id);
+      if (seen) seen.n = Number(seen.n) + 1;
+      else this.#counted.set(id, { ...where, ...event, n: 1 });
+    } else {
+      this.#traced.push(...this.#counted.values(), { ...where, ...event });
+      this.#counted.clear();
+    }
+    this.#flushing ??= setTimeout(() => this.#flush(), TRACE_FLUSH_MS);
+  }
+
+  #flush(): void {
+    this.#flushing = null;
+    const events = [...this.#traced, ...this.#counted.values()];
+    this.#traced = [];
+    this.#counted.clear();
+    if (events.length === 0 || !this.#bridge) return;
+    for (let at = 0; at < events.length; at += 500) {
+      void this.#bridge
+        .trace({ events: events.slice(at, at + 500) })
+        .then((reply) => {
+          if (reply.ok && reply.value === false) this.#traceOff = true;
+        });
+    }
   }
 
   #unwatch(ref: string): void {
@@ -229,6 +309,7 @@ export class TerminalDisplays {
   release(key: string): void {
     const kept = this.#kept.get(key);
     if (!kept) return;
+    this.#trace(key, kept, { e: "release" });
     this.#kept.delete(key);
     if (kept.ref) this.#unwatch(kept.ref);
     for (const off of kept.off) off();

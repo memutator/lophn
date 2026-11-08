@@ -3,6 +3,7 @@
 // http/https 글자와 파일 경로만 Ctrl/Cmd-click 하면 `onLink`·`onPathLink`로 알리고, 여는 것은 듣는 쪽이 한다.
 // clipboard는 사람이 부른 command(`terminal.copy`·`terminal.paste`)와, 사람이 이 터미널에서 mouse를 뗀 뒤 TUI가
 // 보낸 OSC 52 쓰기 한 번으로만 쓴다. OSC 52 읽기는 답하지 않는다.
+import type { TerminalTraceEvent } from "../../ipc/terminal.ts";
 import { pathMatches } from "./path-links.ts";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
@@ -36,6 +37,11 @@ export interface TerminalView {
     resolve(path: string): Promise<string | null>;
     open(path: string, line: number | undefined): void;
   }): () => void;
+  /**
+   * 진단 기록에 남길 일. mode 바뀜, mouse 누름·뗌과 그때 xterm이 mouse를 받는 중이었는지, 누른 자리 맨 위 요소,
+   * PTY로 보낸 입력의 종류. 친 글과 출력 내용은 싣지 않는다.
+   */
+  onTrace(listener: (event: TerminalTraceEvent) => void): () => void;
   /** program이 OSC 0/2로 터미널 제목을 바꿨다. */
   onTitle(listener: (title: string) => void): () => void;
   /**
@@ -56,6 +62,33 @@ export interface TerminalClipboard {
 
 /** 출력이 바꿔도 동작이 생기지 않게 먹는 OSC 번호. 8은 링크다. */
 const SWALLOWED_OSC = [8] as const;
+
+/** 진단 기록에 남기는 DEC mode: mouse tracking·인코딩, focus 알림, alternate screen, bracketed paste, 동기 출력. */
+const TRACED_MODES = [
+  9, 1000, 1002, 1003, 1004, 1005, 1006, 1015, 1016, 1047, 1049, 2004, 2026,
+];
+
+/** PTY로 보낸 입력의 종류. 글 자체는 남기지 않는다. */
+function sentKind(text: string): string {
+  if (!text.startsWith("\u001b[")) return "keys";
+  const body = text.slice(2);
+  if (body.startsWith("<")) {
+    const button = Number.parseInt(body.slice(1), 10);
+    if (button & 64) return "mouse_wheel";
+    return button & 32 ? "mouse_motion" : "mouse";
+  }
+  if (body === "I" || body === "O") return "focus";
+  // DA·CPR·DECRQM 같은 질의 답.
+  if (/^[?>]?[\d;]*\$?[cnRy]$/.test(body)) return "reply";
+  return "keys";
+}
+
+/** 요소 이름: tag와 첫 class. */
+function describe(element: Element): string {
+  const first = element.classList[0];
+  const name = element.tagName.toLowerCase();
+  return (first === undefined ? name : `${name}.${first}`).slice(0, 80);
+}
 
 interface CellLike {
   isInverse(): number;
@@ -102,6 +135,14 @@ interface XtermLike {
     registerOscHandler(
       ident: number,
       callback: (data: string) => boolean,
+    ): { dispose(): void };
+    registerCsiHandler(
+      id: { prefix?: string; final: string },
+      callback: (params: (number | number[])[]) => boolean,
+    ): { dispose(): void };
+    registerEscHandler(
+      id: { final: string },
+      callback: () => boolean,
     ): { dispose(): void };
   };
   hasSelection(): boolean;
@@ -422,9 +463,36 @@ export function createXtermView(
     theme = next;
     term.options.theme = next;
   };
+  const traceListeners = new Set<(event: TerminalTraceEvent) => void>();
+  const trace = (event: TerminalTraceEvent) => {
+    for (const listener of traceListeners) listener(event);
+  };
   const swallowed = SWALLOWED_OSC.map((ident) =>
     term.parser.registerOscHandler(ident, () => true),
   );
+  // 진단 기록: TUI가 켜고 끈 mode. mouse가 죽는 일은 mode와 인코딩이 어긋나서 생겼다.
+  const traceModes = (set: boolean) => (params: (number | number[])[]) => {
+    const modes = params.filter(
+      (param): param is number =>
+        typeof param === "number" && TRACED_MODES.includes(param),
+    );
+    if (modes.length > 0) trace({ e: "mode", set, modes: modes.join(",") });
+    return false;
+  };
+  const parsing = [
+    term.parser.registerCsiHandler(
+      { prefix: "?", final: "h" },
+      traceModes(true),
+    ),
+    term.parser.registerCsiHandler(
+      { prefix: "?", final: "l" },
+      traceModes(false),
+    ),
+    term.parser.registerEscHandler({ final: "c" }, () => {
+      trace({ e: "ris" });
+      return false;
+    }),
+  ];
   // TUI(Claude Code, OpenCode)는 mouse를 받아 스스로 글을 고르고, 뗄 때 OSC 52로 clipboard에 쓴다. 출력은 인터넷에서
   // 온 글일 수 있어(cat한 file) 아무 때나 쓰게 두지 않는다. 사람이 이 터미널에서 mouse를 뗀 뒤 첫 쓰기 하나만 받고, 키를
   // 누르면 거둔다.
@@ -437,9 +505,55 @@ export function createXtermView(
   };
   host.addEventListener("pointerup", arm, true);
   host.addEventListener("keydown", disarm, true);
+  // 진단 기록: 누른 자리 맨 위 요소(덮은 것이 있는지), 그때 xterm이 mouse를 TUI에 넘기는 중이었는지, 뗀 곳이 터미널
+  // 밖인지, 뗀 뒤 xterm 선택이 생겼는지.
+  const tuiMouse = () =>
+    term.element?.classList.contains("enable-mouse-events") ?? false;
+  const pointerFacts = (event: PointerEvent): TerminalTraceEvent => {
+    const top = host.ownerDocument.elementFromPoint(
+      event.clientX,
+      event.clientY,
+    );
+    return {
+      button: event.button,
+      shift: event.shiftKey,
+      tui_mouse: tuiMouse(),
+      top: top === null ? null : describe(top),
+      inside: top !== null && host.contains(top),
+    };
+  };
+  const releasedOutside = (event: PointerEvent) => {
+    host.ownerDocument.removeEventListener("pointerup", releasedOutside, true);
+    if (!host.contains(event.target as Node | null))
+      trace({ e: "pointerup_outside", ...pointerFacts(event) });
+  };
+  const pressed = (event: PointerEvent) => {
+    trace({ e: "pointerdown", ...pointerFacts(event) });
+    host.ownerDocument.addEventListener("pointerup", releasedOutside, true);
+  };
+  const released = (event: PointerEvent) => {
+    trace({ e: "pointerup", ...pointerFacts(event) });
+    // xterm은 같은 pointerup에서 선택을 정한다. 그 뒤에 읽는다.
+    setTimeout(() => {
+      trace({
+        e: "selection",
+        has: term.hasSelection(),
+        length: term.getSelection().length,
+      });
+    }, 0);
+  };
+  const wheeled = () => trace({ e: "wheel", tui_mouse: tuiMouse() });
+  const focused = () => trace({ e: "focus" });
+  const blurred = () => trace({ e: "blur" });
+  host.addEventListener("pointerdown", pressed, true);
+  host.addEventListener("pointerup", released, true);
+  host.addEventListener("wheel", wheeled, { capture: true, passive: true });
+  host.addEventListener("focusin", focused, true);
+  host.addEventListener("focusout", blurred, true);
   swallowed.push(
     term.parser.registerOscHandler(52, (data) => {
       const payload = data.slice(data.indexOf(";") + 1);
+      trace({ e: "osc52", armed, read: payload === "?" });
       if (!armed || clipboard === null || payload === "?") return true;
       armed = false;
       try {
@@ -525,6 +639,7 @@ export function createXtermView(
     }
     webgl = addon;
     addon.onContextLoss(() => {
+      trace({ e: "webgl_lost" });
       addon.dispose();
       if (webgl === addon) webgl = null;
     });
@@ -539,6 +654,7 @@ export function createXtermView(
   // 다시 쓰는 출력이 끝나기 전에 나온 응답을 거른다. write 큐는 순서대로 처리되므로 callback이 불릴 때까지가
   // 그 출력의 구문 분석 구간이고, 그 뒤에 쓴 새 출력의 응답은 그대로 나간다.
   let replaying = 0;
+  let fitted = { cols: 0, rows: 0 };
   return {
     write: (text) => term.write(text),
     replay(text) {
@@ -547,10 +663,14 @@ export function createXtermView(
         replaying -= 1;
       });
     },
-    reset: () => term.reset(),
+    reset() {
+      trace({ e: "view_reset" });
+      term.reset();
+    },
     resize(columns, rows) {
-      if (columns !== term.cols || rows !== term.rows)
-        term.resize(columns, rows);
+      if (columns === term.cols && rows === term.rows) return;
+      trace({ e: "view_resize", cols: columns, rows });
+      term.resize(columns, rows);
     },
     focus() {
       attachWebgl();
@@ -566,18 +686,27 @@ export function createXtermView(
       }
       // cols·rows가 그대로인 크기 바뀜은 다시 그리지 않으므로 여백 폭은 여기서 맞춘다.
       paintEdges(term, edge, theme);
+      if (term.cols !== fitted.cols || term.rows !== fitted.rows) {
+        fitted = { cols: term.cols, rows: term.rows };
+        trace({ e: "fit", ...fitted });
+      }
       return term.cols > 0 && term.rows > 0
         ? { columns: term.cols, rows: term.rows }
         : null;
     },
     onData(listener) {
       const subscription = term.onData((text) => {
+        trace({
+          e: "sent",
+          kind: replaying === 0 ? sentKind(text) : "suppressed",
+        });
         if (replaying === 0) listener(text);
       });
       // mouse report 인코딩을 고르지 않은 TUI(?1000h만)에는 xterm이 X10 report를 onBinary로 낸다. 입력은 UTF-8 글로
       // 가므로 0x80 아래(칸 95 안)만 그대로 보낸다. 그 밖은 X10으로 나타낼 수 없는 자리다.
       const binary = term.onBinary((text) => {
         const ascii = [...text].every((c) => c.charCodeAt(0) < 0x80);
+        trace({ e: "sent", kind: ascii ? "mouse_x10" : "x10_dropped" });
         if (replaying === 0 && ascii) listener(text);
       });
       return () => {
@@ -594,6 +723,10 @@ export function createXtermView(
       return () => {
         if (pathLinks === handlers) pathLinks = null;
       };
+    },
+    onTrace(listener) {
+      traceListeners.add(listener);
+      return () => traceListeners.delete(listener);
     },
     onTitle(listener) {
       const subscription = term.onTitleChange(listener);
@@ -613,6 +746,18 @@ export function createXtermView(
     dispose() {
       host.removeEventListener("pointerup", arm, true);
       host.removeEventListener("keydown", disarm, true);
+      host.removeEventListener("pointerdown", pressed, true);
+      host.removeEventListener("pointerup", released, true);
+      host.removeEventListener("wheel", wheeled, true);
+      host.removeEventListener("focusin", focused, true);
+      host.removeEventListener("focusout", blurred, true);
+      host.ownerDocument.removeEventListener(
+        "pointerup",
+        releasedOutside,
+        true,
+      );
+      for (const handler of parsing) handler.dispose();
+      traceListeners.clear();
       for (const handler of swallowed) handler.dispose();
       rendered.dispose();
       pathProvider.dispose();

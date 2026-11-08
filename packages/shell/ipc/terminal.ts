@@ -125,6 +125,27 @@ export const terminalCopySchema = z
   .object({ text: z.string().min(1).max(60_000) })
   .strict();
 
+/**
+ * 터미널 진단 기록 한 묶음. 켜졌을 때만(`LOPHN_TERMINAL_TRACE=1`) main이 `<data root>/logs/terminal-trace.jsonl`에 쓴다.
+ * 이벤트 이름·mode·좌표·개수만 싣는다. 친 글과 출력 내용은 싣지 않는다(비밀번호·token이 지나간다).
+ */
+export const terminalTraceSchema = z
+  .object({
+    events: z
+      .array(
+        z.record(
+          z.string().max(40),
+          z.union([z.string().max(200), z.number(), z.boolean(), z.null()]),
+        ),
+      )
+      .max(500),
+  })
+  .strict();
+export type TerminalTraceEvent = Record<
+  string,
+  string | number | boolean | null
+>;
+
 /** terminal에서 Ctrl/Cmd-click한 link. 어디에서 열지는 main이 정한다. */
 export const terminalLinkSchema = z
   .object({
@@ -339,6 +360,10 @@ export interface TerminalApi {
   copy(input: { text: string }): Promise<TerminalCall<null>>;
   /** 사람이 Ctrl+Shift+V를 눌렀다. OS clipboard의 글을 돌려준다. */
   paste(): Promise<TerminalCall<string>>;
+  /** 진단 기록을 보낸다. 기록이 꺼져 있으면 false라 더 보내지 않는다. */
+  trace(input: {
+    events: TerminalTraceEvent[];
+  }): Promise<TerminalCall<boolean>>;
   /** main이 push한 bridge 요청에 browser 탭을 열었는지 답한다. */
   ackBridgeOpen(input: TerminalBridgeAck): Promise<TerminalCall<null>>;
   /** main이 URL을 browser 탭으로 열어 달라고 push한다. 구독 해지를 돌려준다. */
@@ -375,6 +400,7 @@ export const TERMINAL_TAB_NAME_CHANNEL = "shell:terminal-tab-name";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_COPY_CHANNEL = "shell:terminal-copy";
 export const TERMINAL_PASTE_CHANNEL = "shell:terminal-paste";
+export const TERMINAL_TRACE_CHANNEL = "shell:terminal-trace";
 export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";
 export const TERMINAL_BRIDGE_OPEN_CHANNEL = "shell:terminal-bridge-open";
 export const TERMINAL_REVEAL_CHANNEL = "shell:terminal-reveal";

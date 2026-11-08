@@ -20,6 +20,7 @@ import {
   type TerminalRuntime,
   type TerminalSnapshot,
   type TerminalSnapshotReply,
+  type TerminalTraceEvent,
   terminalAgentSessionRenameSchema,
   terminalAgentSessionsSchema,
   terminalBridgeAckSchema,
@@ -28,6 +29,7 @@ import {
   terminalTabNameSchema,
   terminalInputSchema,
   terminalCopySchema,
+  terminalTraceSchema,
   terminalLinkSchema,
   terminalOpenSchema,
   terminalResizeSchema,
@@ -84,6 +86,8 @@ export type TerminalIpc = {
   copy(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** OS clipboard의 글. 붙여 넣기는 renderer의 xterm이 한다. */
   paste(event: IpcEvent, input: unknown): Promise<IpcResult<string>>;
+  /** renderer의 진단 기록. 기록이 꺼져 있으면 false다. */
+  trace(event: IpcEvent, input: unknown): Promise<IpcResult<boolean>>;
   /** bridge push를 받은 renderer의 답. browser 탭을 열었을 때만 온다. */
   bridgeAck(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
   /** 그 project에서 저장한 coding agent session. 새것부터다. */
@@ -171,6 +175,8 @@ export function createTerminalIpc(deps: {
     writeText(text: string): Promise<void>;
     readText(): Promise<string>;
   };
+  /** 터미널 진단 기록에 덧붙인다. 기록이 꺼져 있으면 없다. window는 보낸 창(webContents id)이다. */
+  trace?: (window: number, events: readonly TerminalTraceEvent[]) => void;
   /**
    * 새 shell이 시작 층을 다 읽을 때까지 기다린다(출력이 잠잠해질 때). 그 전에 친 글은 시작 중에 버려진다.
    * 없으면 기다리지 않는다.
@@ -421,6 +427,18 @@ export function createTerminalIpc(deps: {
       if (!parsed.ok) return parsed;
       await deps.clipboard?.writeText(parsed.value.text).catch(() => {});
       return { ok: true, value: null };
+    },
+    trace: async (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return caller;
+      if (deps.trace === undefined) return { ok: true, value: false };
+      const parsed = checkInput<{ events: TerminalTraceEvent[] }>(
+        terminalTraceSchema,
+        input,
+      );
+      if (!parsed.ok) return parsed;
+      deps.trace(event.sender.id, parsed.value.events);
+      return { ok: true, value: true };
     },
     paste: async (event) => {
       const caller = checkCaller(deps.registry, event);

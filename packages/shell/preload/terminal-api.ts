@@ -13,6 +13,7 @@ import {
   TERMINAL_RESPONSE_CHANNEL,
   TERMINAL_LINK_CHANNEL,
   TERMINAL_COPY_CHANNEL,
+  TERMINAL_TRACE_CHANNEL,
   TERMINAL_PASTE_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TERMINAL_OUTPUT_CHANNEL,
@@ -117,6 +118,7 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
     openLink: (input) => invoke(TERMINAL_LINK_CHANNEL, input),
     copy: (input) => invoke(TERMINAL_COPY_CHANNEL, input),
     paste: () => invoke(TERMINAL_PASTE_CHANNEL, null),
+    trace: (input) => invoke(TERMINAL_TRACE_CHANNEL, input),
     ackBridgeOpen: (input) => invoke(TERMINAL_BRIDGE_ACK_CHANNEL, input),
     onBridgeOpen(listener) {
       const callback = (_event: unknown, payload: unknown) => {

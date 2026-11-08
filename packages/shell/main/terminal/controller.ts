@@ -19,6 +19,7 @@ import {
   TERMINAL_RESIZE_CHANNEL,
   TERMINAL_RESTART_CHANNEL,
   TERMINAL_SNAPSHOT_CHANNEL,
+  TERMINAL_TRACE_CHANNEL,
 } from "../../ipc/terminal.ts";
 
 import type { TerminalIpc } from "./ipc.ts";
@@ -50,6 +51,7 @@ export function registerTerminalIpc(register: MainIpc, ipc: TerminalIpc): void {
     [TERMINAL_LINK_CHANNEL, "link"],
     [TERMINAL_COPY_CHANNEL, "copy"],
     [TERMINAL_PASTE_CHANNEL, "paste"],
+    [TERMINAL_TRACE_CHANNEL, "trace"],
     [TERMINAL_BRIDGE_ACK_CHANNEL, "bridgeAck"],
     [TERMINAL_AGENT_SESSIONS_CHANNEL, "agentSessions"],
     [TERMINAL_AGENT_SESSION_RENAME_CHANNEL, "renameAgentSession"],
@@ -79,6 +81,7 @@ export function removeTerminalIpc(register: MainIpc): void {
     TERMINAL_LINK_CHANNEL,
     TERMINAL_COPY_CHANNEL,
     TERMINAL_PASTE_CHANNEL,
+    TERMINAL_TRACE_CHANNEL,
     TERMINAL_BRIDGE_ACK_CHANNEL,
     TERMINAL_AGENT_SESSIONS_CHANNEL,
     TERMINAL_AGENT_SESSION_RENAME_CHANNEL,

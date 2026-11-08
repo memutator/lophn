@@ -88,6 +88,7 @@ export function fakeTerminal(
     openLink: () => ok(null),
     copy: () => ok(null),
     paste: () => ok(""),
+    trace: () => ok(false),
     ackBridgeOpen: () => ok(null),
     onBridgeOpen: () => () => {},
     onReveal: () => () => {},

@@ -74,13 +74,20 @@ function setup() {
       return { ok: true, value: { ok: true, runtime: runtime() } };
     },
     input: async () => ({ ok: true, value: { ok: true, runtime: runtime() } }),
+    trace: async () => ({ ok: true, value: false }),
     resize: async (input) => {
       order.push(`pty ${input.columns}x${input.rows}`);
       return { ok: true, value: { ok: true, runtime: runtime() } };
     },
   } satisfies Pick<
     TerminalApi,
-    "snapshot" | "onOutput" | "onRuntime" | "respond" | "input" | "resize"
+    | "snapshot"
+    | "onOutput"
+    | "onRuntime"
+    | "respond"
+    | "input"
+    | "resize"
+    | "trace"
   >;
   const view: TerminalView = {
     write: (text) => {
@@ -107,6 +114,7 @@ function setup() {
     onLink: () => () => {},
     onPathLink: () => () => {},
     onTitle: () => () => {},
+    onTrace: () => () => {},
     copySelection: () => {},
     paste: () => {},
     dispose: () => {

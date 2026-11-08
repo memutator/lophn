@@ -44,3 +44,13 @@ Home과 앱에서도 Agents 탭을 열어 그 workspace의 층(지시, skill, MC
 - Home의 Agents 탭을 열면 Home lophn 명함의 범위가 아직 "All of lophn"(scope null)으로 보인다. Home lophn에 맞는 범위 글로 바꾼다.
 - `left-sidebar-workspaces.ts`는 다른 workspace의 lophn session을 지금 workspace의 lophn 줄(이름, 얼굴)로 그린다. 사람이 lophn 이름을 workspace마다 바꾸면 다른 workspace session이 이 workspace의 이름으로 보인다. sidebar의 새 session 목록도 다른 workspace의 lophn을 기본 이름 "lophn"으로 보인다. 그 workspace의 lophn 이름을 읽어 보인다(Home에서 workspace 없이 `agents/list`를 부르면 모든 lophn이 온다).
 - wireframe mock(`tools/wireframes/mock/agents-data.ts` 등)이 옛 id `"lophn"`을 쓴다. Agents page를 고칠 때 lophn id로 맞춘다.
+
+## wlayer가 남긴 것 (lead가 더함)
+
+추가 소유: `packages/protocol/lophn-agent/{skill-settings,agent-definitions}.ts`, `packages/core/lophn-agent/extensions/skills-handler.ts`, `packages/core/agent-workspaces/workspace/workspace-info.ts`와 옆 `*_test.ts`
+
+- 계약: `skillsRead` 입력(`skill-settings.ts`)이 Home의 skill 층을 물을 길이 없다(null은 전역만이고 Settings가 쓴다). `wlayer`의 route처럼 `{workspace: "home" | prj id | app id}` 열쇠(`workspaceKeySchema`, `protocol/lophn-agent/mcp-settings.ts`)로 Home·project·앱을 고르게 하고 `skills-handler.ts`가 그 workspace의 `extensions.json` 끄기 목록을 읽게 한다. Settings의 전역 읽기는 그대로 둔다.
+- model 출처 이름: `agent-definitions.ts` `AGENT_VALUE_LAYERS`의 `"project"`가 이제 workspace 층(Home·project·앱)을 뜻한다. `"workspace"`로 바꾸고 쓰는 곳(화면 문구 포함)을 같이 고친다. 문자열로도 grep한다.
+- `workspace-info.ts`: project·앱 prompt는 "Skills folder" 줄이 있는데 Home은 없다. Home의 `<data>/home/skills/`도 같은 꼴로 보인다.
+- 화면: 할당·MCP 인증 화면이 Home 층 owner `{kind: "home"}`(`McpOwnerWorkspace`)를 보낸다. source가 없는 앱은 `AGENTS.md` 지시 칸을 비워 보이고 편집을 열지 않는다(지금은 열면 `unavailable`).
+- Home lophn에는 file 쓰기 tool이 없어(`tool-lists.ts`) Home `skills/`는 사람이 직접 고친다. 이 task에서 Home tool은 바꾸지 않는다.

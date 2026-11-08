@@ -13,8 +13,9 @@ import styles from "./agents-tab.module.css";
 import type { AgentsOverview, AgentsSource, ModelsView } from "./source.ts";
 
 interface AgentsPageProps {
-  project: string;
-  projectName: string;
+  /** 이 탭의 workspace 열쇠: "home", project id, 앱 id. */
+  workspace: string;
+  workspaceName: string;
   source: AgentsSource;
   /** 탭이 열어 둔 agent를 가리키는 값. 없으면 목록이다. */
   agent: string | null;
@@ -32,7 +33,7 @@ type Loaded =
   | { readonly kind: "ready"; readonly value: AgentsOverview };
 
 export function AgentsPage(props: AgentsPageProps): ReactElement {
-  const { project, source, agent } = props;
+  const { workspace, source, agent } = props;
   const [overview, setOverview] = useState<Loaded>({ kind: "loading" });
   const [models, setModels] = useState<ModelsView | null>(null);
   const [reloads, setReloads] = useState(0);
@@ -44,7 +45,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
 
   useEffect(() => {
     let live = true;
-    void source.overview(project).then((result) => {
+    void source.overview(workspace).then((result) => {
       if (!live) return;
       setOverview(
         result.ok ? { kind: "ready", value: result.value } : { kind: "failed" },
@@ -53,7 +54,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     return () => {
       live = false;
     };
-  }, [source, project, reloads]);
+  }, [source, workspace, reloads]);
 
   useEffect(() => {
     let live = true;
@@ -74,8 +75,8 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     return (
       <AgentEditor
         source={source}
-        project={project}
-        projectName={props.projectName}
+        workspace={workspace}
+        workspaceName={props.workspaceName}
         agent={agent}
         onDone={leave}
         onChanged={props.onChanged}
@@ -125,28 +126,35 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         </div>
       ) : null}
       <AgentsTab
-        projectName={props.projectName}
+        workspace={workspace}
+        workspaceName={props.workspaceName}
         overview={overview.value}
         models={models}
         source={source}
         imageSrc={(assignment, image) =>
-          source.imageSrc(project, assignment, image)
+          source.imageSrc(workspace, assignment, image)
         }
         onOpenAgent={(assignment) => props.onAgent(assignment)}
         onNewAgent={() => setCreating(true)}
         instructions={{
-          read: () => source.readInstructions(project),
-          write: (text, hash) => source.writeInstructions(project, text, hash),
+          read: () => source.readInstructions(workspace),
+          write: (text, hash) =>
+            source.writeInstructions(workspace, text, hash),
         }}
-        onProjectModel={(choice: ModelChoice | null) =>
-          change(() => source.setProjectModel(project, choice))
+        memory={{
+          read: () => source.readMemory({ kind: "workspace", workspace }),
+          write: (text, hash) =>
+            source.writeMemory({ kind: "workspace", workspace }, text, hash),
+        }}
+        onWorkspaceModel={(choice: ModelChoice | null) =>
+          change(() => source.setWorkspaceModel(workspace, choice))
         }
         onToggleSkill={(name, on) =>
-          change(() => source.setSkill(project, name, on))
+          change(() => source.setSkill(workspace, name, on))
         }
         onAddSkill={props.onAddExtension}
         onToggleMcp={(name, on) =>
-          change(() => source.setMcp(project, name, on))
+          change(() => source.setMcp(workspace, name, on))
         }
         onAddServer={props.onAddExtension}
       />

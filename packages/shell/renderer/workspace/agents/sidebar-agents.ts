@@ -15,7 +15,12 @@ import type { AgentsSource } from "./source.ts";
 export function useSidebarAgents(
   source: AgentsSource | undefined,
   project: string | null,
-): { readonly agents: readonly SidebarAgent[]; readonly reload: () => void } {
+): {
+  readonly agents: readonly SidebarAgent[];
+  /** 모든 workspace의 lophn 이름(agent id → 이름). 아직 읽지 못했으면 비어 있다. */
+  readonly lophnNames: Readonly<Record<string, string>>;
+  readonly reload: () => void;
+} {
   // workspace를 옮기면 새 목록을 읽기 전까지 창의 마지막 값에서 시작한다(범위 agent는 읽은 뒤 바뀐다). 비면 sidebar의 lophn session 줄이 모두 빠졌다 돌아온다.
   // 남은 lophn 줄은 옛 workspace의 것이라 id만 이 workspace의 lophn으로 바꿔 읽는다.
   const [remembered, setAgents] = useRemembered("agents");
@@ -28,6 +33,17 @@ export function useSidebarAgents(
     [remembered, mine],
   );
   const [reloads, setReloads] = useState(0);
+  const [lophnNames, setLophnNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (source === undefined) return;
+    let live = true;
+    void source.lophnNames().then((result) => {
+      if (live && result.ok) setLophnNames({ ...result.value });
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, reloads]);
   useEffect(() => {
     if (source === undefined) return;
     let live = true;
@@ -63,5 +79,5 @@ export function useSidebarAgents(
     };
   }, [source, project, reloads, setAgents]);
   const reload = useCallback(() => setReloads((count) => count + 1), []);
-  return { agents, reload };
+  return { agents, lophnNames, reload };
 }

@@ -20,6 +20,8 @@ export const PROJECT_ID = id("prj", "ph1");
 export const PROJECT_NAME = "phroner";
 /** 이 project의 lophn. 다른 workspace의 lophn은 fake source가 이 정의를 본떠 만든다. */
 export const PROJECT_LOPHN_ID = lophnIdOf({ kind: "project", id: PROJECT_ID });
+/** Home의 lophn. */
+export const HOME_LOPHN_ID = lophnIdOf(null);
 export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
 const EVAL_BOARD_ID = id("app", "eb1");
@@ -44,6 +46,32 @@ export const LOPHN_MD = [
   "Reports go in docs/reports. Keep summaries short.",
   "Ask before you rewrite a report that is already published.",
 ].join("\n");
+
+/** 앱 source 폴더의 AGENTS.md. */
+export const APP_AGENTS_MD = [
+  "# Budget tracker",
+  "Expenses are stored per month. Amounts are in whole cents.",
+  "Run the tests before you change the budget limits.",
+].join("\n");
+
+/** Home의 LOPHN.md. */
+export const HOME_LOPHN_MD = [
+  "# Home",
+  "Apps live in the app list. Ask which project an idea belongs to before you start a new app.",
+].join("\n");
+
+/** workspace memory와 agent memory의 처음 글. */
+export const PROJECT_MEMORY = [
+  "- Weekly report goes out on Friday. (you told me on Oct 18)",
+  "- Ask Eval analyst about run scores before you read the raw files.",
+].join("\n");
+export const HOME_MEMORY = [
+  "- You keep receipts in the Budget tracker app, not in a project.",
+  "- Ask Budget reviewer when an expense looks odd.",
+].join("\n");
+export const APP_MEMORY = "- Month closes on the 25th. (you told me on Nov 2)";
+export const AGENT_MEMORY =
+  "- Keep summaries under five lines. (you told me on Oct 30)";
 
 export const GLOBAL_LOPHN_MD = [
   "# About me",
@@ -302,6 +330,36 @@ export const PROJECT_SKILLS: readonly SkillRow[] = [
   },
 ];
 
+export const HOME_SKILLS: readonly SkillRow[] = [
+  {
+    name: "inbox-triage",
+    detail: "Sorts what came in today into projects and apps.",
+    layer: "workspace-data",
+    on: true,
+    builtIn: false,
+  },
+];
+
+export const HOME_MCP: readonly McpRow[] = [
+  {
+    name: "notes-index",
+    detail: "Searches the notes you keep outside projects",
+    layer: "workspace",
+    on: true,
+    status: "connected",
+  },
+];
+
+export const APP_MCP: readonly McpRow[] = [
+  {
+    name: "bank-feed",
+    detail: "Reads new transactions of your bank accounts",
+    layer: "workspace",
+    on: true,
+    status: "connected",
+  },
+];
+
 export const APP_SKILLS: readonly SkillRow[] = [
   {
     name: "expense-categories",
@@ -319,16 +377,24 @@ export const APP_SKILLS: readonly SkillRow[] = [
   },
 ];
 
-/** project 자리에서 보이는 내장 skill. 끌 수 없다. */
-export const BUILT_IN_SKILLS: readonly SkillRow[] = [
-  {
-    name: "write-workflow",
-    detail: "Write or update a workflow of the project.",
-    layer: "builtin",
-    on: true,
-    builtIn: true,
-  },
-];
+/** workspace 종류마다 보이는 내장 skill. 끌 수 없다. */
+const builtIn = (name: string, detail: string): SkillRow => ({
+  name,
+  detail,
+  layer: "builtin",
+  on: true,
+  builtIn: true,
+});
+export const BUILT_IN_SKILLS = {
+  home: [
+    builtIn("new-app", "Start a new app from an idea."),
+    builtIn("update-apps", "Move your apps to the current SDK."),
+  ],
+  project: [
+    builtIn("write-workflow", "Write or update a workflow of the project."),
+  ],
+  app: [builtIn("design-app", "Design the screens of the app.")],
+} as const;
 
 export const GLOBAL_MCP: readonly McpRow[] = [
   {
@@ -366,14 +432,14 @@ export const PROJECT_MCP: readonly McpRow[] = [
   {
     name: "github",
     detail: "Issues and pull requests of the harness repo",
-    layer: "project",
+    layer: "workspace",
     on: true,
     status: "connected",
   },
   {
     name: "linear",
     detail: "Planning board",
-    layer: "project",
+    layer: "workspace",
     on: true,
     status: "needs-sign-in",
     login: {

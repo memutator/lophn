@@ -18,6 +18,7 @@ const workflows = "/data/projects/prj_a/workflows";
 const skills = "/data/projects/prj_a/skills";
 const artifacts = "/data/projects/prj_a/artifacts";
 const appSkills = "/data/apps/app_a/skills";
+const homeSkills = "/data/home/skills";
 const appArtifacts = "/data/apps/app_a/artifacts";
 const project = { kind: "project", id: "prj_a" } as const;
 const app = { kind: "app", id: "app_a" } as const;
@@ -54,17 +55,22 @@ test("workspace 종류마다 쓰기 폴더는 그 그릇의 폴더뿐이다", ()
       base: "/data/projects/prj_a",
     },
   );
-  // home은 모든 project 폴더를 읽기만 한다
-  assert.deepStrictEqual(workspaceScope({ ...base, workspace: null }), {
-    read: ["/p1", "/p2", "/q"],
-    write: [],
-  });
+  // home은 모든 project 폴더를 읽기만 하고 자기 skills/만 쓴다
+  assert.deepStrictEqual(
+    workspaceScope({ ...base, workspace: null, skillsFolder: homeSkills }),
+    { read: ["/p1", "/p2", "/q", homeSkills], write: [homeSkills] },
+  );
 });
 
 // 이 규칙이 풀리면 project A가 부른 home의 전역 agent가 project B의 폴더를 읽는다.
 test("다른 workspace의 session이 불러 열린 home session은 project 폴더를 읽지 못한다", () => {
   assert.deepStrictEqual(
-    workspaceScope({ ...base, workspace: null, calledFromWorkspace: true }),
-    { read: [], write: [] },
+    workspaceScope({
+      ...base,
+      workspace: null,
+      calledFromWorkspace: true,
+      skillsFolder: homeSkills,
+    }),
+    { read: [homeSkills], write: [homeSkills] },
   );
 });

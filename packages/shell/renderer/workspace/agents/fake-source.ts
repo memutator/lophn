@@ -22,25 +22,34 @@ import {
   type UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ReadResult } from "../source.ts";
-import { isAppWorkspace } from "./agent-key.ts";
+import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import { appsFor } from "./editor/grants-model.ts";
 import {
+  AGENT_MEMORY,
   ANTHROPIC,
+  APP_AGENTS_MD,
+  APP_MCP,
+  APP_MEMORY,
   APP_NAME,
   APP_SKILLS,
   AVATAR_SRC,
   BUILT_IN_SKILLS,
   CATALOG,
+  EVAL_ANALYST_ID,
   FAKE_AGENTS,
   FAKE_GRANTS,
   GLOBAL_MCP,
   GLOBAL_MODEL,
   GLOBAL_SKILLS,
   GRANT_CATALOG,
+  HOME_LOPHN_MD,
+  HOME_MCP,
+  HOME_MEMORY,
+  HOME_SKILLS,
   LOPHN_MD,
-  PROJECT_ID as PROJECT,
   PROJECT_LOPHN_ID,
   PROJECT_MCP,
+  PROJECT_MEMORY,
   PROJECT_NAME,
   PROJECT_SKILLS,
 } from "./fake-data.ts";
@@ -59,7 +68,14 @@ import type {
   UserModelKey,
   UserModels,
 } from "./source.ts";
-import type { InstructionsFile, McpRow, SkillRow } from "./views.ts";
+import type {
+  InstructionsFile,
+  McpRow,
+  MemoryTarget,
+  SkillRow,
+  WorkspaceInstructionsView,
+} from "./views.ts";
+import type { McpOwnerWorkspace } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 
 export {
   ANTHROPIC,
@@ -73,6 +89,7 @@ export {
   GLOBAL_MCP,
   GLOBAL_MODEL,
   GLOBAL_SKILLS,
+  HOME_LOPHN_ID,
   PROJECT_ID,
   PROJECT_LOPHN_ID,
   PROJECT_NAME,
@@ -87,19 +104,19 @@ type FakeCall =
     }
   | { method: "deleteAgent"; assignment: string; hash: string }
   | { method: "uploadImage"; assignment: string; name: string }
-  | { method: "setProjectModel"; choice: ModelChoice | null }
+  | { method: "setWorkspaceModel"; choice: ModelChoice | null }
   | { method: "setSkill"; name: string; on: boolean }
   | { method: "setMcp"; name: string; on: boolean }
   | {
       method: "signInMcp";
       name: string;
-      workspace: Workspace | null;
+      workspace: McpOwnerWorkspace | null;
       agent: string | null;
     }
   | {
       method: "cancelMcpSignIn";
       name: string;
-      workspace: Workspace | null;
+      workspace: McpOwnerWorkspace | null;
       agent: string | null;
     }
   | {
@@ -112,7 +129,13 @@ type FakeCall =
   | { method: "refreshModels"; provider: string }
   | { method: "saveModelInfo"; item: UserModelItem; seq: string }
   | { method: "removeModelInfo"; key: UserModelKey; seq: string }
-  | { method: "writeInstructions"; text: string; hash: string | null };
+  | { method: "writeInstructions"; text: string; hash: string | null }
+  | {
+      method: "writeMemory";
+      target: MemoryTarget;
+      text: string;
+      hash: string | null;
+    };
 
 export interface FakeAgentsSource extends AgentsSource {
   changed(listener: () => void): () => void;
@@ -174,14 +197,16 @@ const BUILT_IN_PROFILE = {
 
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
 
-/** gallery가 provider와 project 층 model의 상태를 정하는 설정. 기본은 내장 provider 하나와 project 층 model 없음이다. */
+/** gallery가 provider와 workspace 층 model의 상태를 정하는 설정. 기본은 내장 provider 하나와 workspace 층 model 없음이다. */
 export interface FakeAgentsOptions {
   /** none은 연결된 provider가 없다. several은 내장 provider 셋(Anthropic, OpenAI, xAI)이다. custom은 Anthropic에 custom provider 하나를 더한다. */
   readonly providers?: "none" | "built_in" | "several" | "custom";
   /** custom provider의 model 목록을 읽어 둔 상태인가. 기본은 읽어 둔 상태다. */
   readonly customListed?: boolean;
   /** project 층에 처음부터 고른 model. */
-  readonly projectModel?: ModelChoice;
+  readonly workspaceModel?: ModelChoice;
+  /** false면 앱에 source 폴더가 없다: 앱의 AGENTS.md 칸이 빈 채 잠긴다. 기본은 source가 있다. */
+  readonly appHasSource?: boolean;
   /** 처음부터 켠 model. 없으면 꺼져 있다. */
   readonly shown?: readonly ShownModel[];
   /** [Refresh models]가 늘 실패한다(앞 목록은 그대로다). */
@@ -293,17 +318,63 @@ export function createFakeAgentsSource(
     stored.set(key, { ...model, hash: nextHash() });
     grants.set(key, grants.get(PROJECT_LOPHN_ID) ?? []);
   };
-  // project의 LOPHN.md. 쓸 때마다 hash가 바뀌어 옛 hash로 쓰면 conflict다.
-  let lophnFile: InstructionsFile = { text: LOPHN_MD, hash: nextHash() };
-  let projectModel: ModelChoice | null = options.projectModel ?? null;
   let customListed = options.customListed ?? true;
-  // 층에서 끈 skill(project 층)과 끈 MCP server(project 층).
-  const projectSkillOff = new Set(
-    PROJECT_SKILLS.filter((row) => !row.on).map((row) => row.name),
-  );
-  const projectMcpOff = new Set(
-    PROJECT_MCP.filter((row) => !row.on).map((row) => row.name),
-  );
+  // workspace마다 같은 층을 갖는다: 지침 파일(쓸 때마다 hash가 바뀌어 옛 hash로 쓰면 conflict다), model, 끈 skill, 끈 MCP server, memory.
+  // 지침이 null이면 파일이 놓일 곳이 없다(source 없는 앱).
+  interface Layer {
+    instructions: InstructionsFile | null;
+    model: ModelChoice | null;
+    skillOff: Set<string>;
+    mcpOff: Set<string>;
+    memory: InstructionsFile;
+  }
+  const layers = new Map<string, Layer>();
+  const layerOf = (workspace: string): Layer => {
+    const found = layers.get(workspace);
+    if (found !== undefined) return found;
+    const kind = kindOfWorkspace(workspace);
+    const rows = {
+      home: { skills: HOME_SKILLS, mcp: HOME_MCP },
+      project: { skills: PROJECT_SKILLS, mcp: PROJECT_MCP },
+      app: { skills: APP_SKILLS, mcp: APP_MCP },
+    }[kind];
+    const made: Layer = {
+      instructions:
+        kind === "app" && options.appHasSource === false
+          ? null
+          : {
+              text:
+                kind === "home"
+                  ? HOME_LOPHN_MD
+                  : kind === "app"
+                    ? APP_AGENTS_MD
+                    : LOPHN_MD,
+              hash: nextHash(),
+            },
+      model: kind === "project" ? (options.workspaceModel ?? null) : null,
+      skillOff: new Set(
+        rows.skills.filter((row) => !row.on).map((row) => row.name),
+      ),
+      mcpOff: new Set(rows.mcp.filter((row) => !row.on).map((row) => row.name)),
+      memory: {
+        text: { home: HOME_MEMORY, project: PROJECT_MEMORY, app: APP_MEMORY }[
+          kind
+        ],
+        hash: nextHash(),
+      },
+    };
+    layers.set(workspace, made);
+    return made;
+  };
+  // 사람이 만든 agent의 memory. 처음에는 Eval analyst만 적어 둔 것이 있다.
+  const agentMemories = new Map<string, InstructionsFile>([
+    [EVAL_ANALYST_ID, { text: AGENT_MEMORY, hash: nextHash() }],
+  ]);
+  const agentMemoryOf = (key: string): InstructionsFile => {
+    const found = agentMemories.get(key) ?? { text: "", hash: null };
+    agentMemories.set(key, found);
+    return found;
+  };
   let shown: readonly ShownModel[] = options.shown ?? [];
   // 사람이 적은 custom provider model 정보. custom provider를 붙인 상태에서만 처음부터 하나가 있다.
   let userModels: UserModels = {
@@ -336,39 +407,66 @@ export function createFakeAgentsSource(
     return { ok: false, message };
   };
 
-  type WorkspaceKind = "none" | "project" | "app";
+  type WorkspaceKind = "none" | "home" | "project" | "app";
   const workspaceKind = (workspace: string | null): WorkspaceKind =>
-    workspace === null ? "none" : isAppWorkspace(workspace) ? "app" : "project";
+    workspace === null ? "none" : kindOfWorkspace(workspace);
+  const nameOfWorkspace = (workspace: string): string =>
+    ({ home: "Home", project: PROJECT_NAME, app: APP_NAME })[
+      kindOfWorkspace(workspace)
+    ];
   const workspaceView = (workspace: string | null): WorkspaceView =>
     workspace === null
       ? { kind: "none", id: null, name: "" }
-      : isAppWorkspace(workspace)
-        ? { kind: "app", id: workspace, name: APP_NAME }
-        : { kind: "project", id: workspace, name: PROJECT_NAME };
+      : {
+          kind: kindOfWorkspace(workspace),
+          id: workspace === "home" ? null : workspace,
+          name: nameOfWorkspace(workspace),
+        };
 
-  const skillsFor = (at: WorkspaceKind): SkillRow[] => [
-    ...(at === "project" ? BUILT_IN_SKILLS : []),
-    ...GLOBAL_SKILLS,
-    ...(at === "project"
-      ? PROJECT_SKILLS.map((row) => ({
-          ...row,
-          on: !projectSkillOff.has(row.name),
-        }))
-      : at === "app"
-        ? APP_SKILLS
-        : []),
-  ];
-  const mcpFor = (at: WorkspaceKind): McpRow[] => [
-    ...GLOBAL_MCP,
-    ...(at === "project"
-      ? PROJECT_MCP.map((row) => ({ ...row, on: !projectMcpOff.has(row.name) }))
-      : []),
-  ];
+  const skillsFor = (workspace: string | null): SkillRow[] => {
+    if (workspace === null) return [...GLOBAL_SKILLS];
+    const kind = kindOfWorkspace(workspace);
+    const off = layerOf(workspace).skillOff;
+    const own = {
+      home: HOME_SKILLS,
+      project: PROJECT_SKILLS,
+      app: APP_SKILLS,
+    }[kind];
+    return [
+      ...BUILT_IN_SKILLS[kind],
+      ...GLOBAL_SKILLS,
+      ...own.map((row) => ({ ...row, on: !off.has(row.name) })),
+    ];
+  };
+  const mcpFor = (workspace: string | null): McpRow[] => {
+    if (workspace === null) return [...GLOBAL_MCP];
+    const off = layerOf(workspace).mcpOff;
+    const own = { home: HOME_MCP, project: PROJECT_MCP, app: APP_MCP }[
+      kindOfWorkspace(workspace)
+    ];
+    return [
+      ...GLOBAL_MCP,
+      ...own.map((row) => ({ ...row, on: !off.has(row.name) })),
+    ];
+  };
 
-  const inheritedModel = (at: WorkspaceKind) =>
-    at === "project" && projectModel !== null
-      ? { value: projectModel, source: "project" as const }
+  const inheritedModel = (workspace: string | null) => {
+    const chosen = workspace === null ? null : layerOf(workspace).model;
+    return chosen !== null
+      ? { value: chosen, source: "project" as const }
       : { value: GLOBAL_MODEL, source: "global" as const };
+  };
+
+  const instructionsOf = (workspace: string): WorkspaceInstructionsView => {
+    const file = layerOf(workspace).instructions;
+    return {
+      text: file?.text ?? "",
+      hash: file?.hash ?? null,
+      workspace: nameOfWorkspace(workspace),
+      file: kindOfWorkspace(workspace) === "app" ? "AGENTS.md" : "LOPHN.md",
+      editable: file !== null,
+    };
+  };
 
   const profileOf = (key: string, item: Stored) =>
     item.definition.profile ??
@@ -440,7 +538,7 @@ export function createFakeAgentsSource(
   const rowOf = (
     key: string,
     item: Stored,
-    at: WorkspaceKind,
+    workspace: string | null,
   ): AgentListRow => {
     const definition = item.definition;
     const off = definition.skills_off ?? [];
@@ -448,16 +546,16 @@ export function createFakeAgentsSource(
     const skills =
       definition.runtime === "bare"
         ? (definition.skills?.length ?? 0)
-        : skillsFor(at).filter(
+        : skillsFor(workspace).filter(
             (row) => row.on && (row.builtIn || !off.includes(row.name)),
           ).length;
     const own = (definition.mcp_servers ?? []).filter(
       (server) => server.enabled,
     ).length;
     const mcp =
-      mcpFor(at).filter((row) => row.on && !mcpOff.includes(row.name)).length +
-      own;
-    const model = definition.model ?? inheritedModel(at).value;
+      mcpFor(workspace).filter((row) => row.on && !mcpOff.includes(row.name))
+        .length + own;
+    const model = definition.model ?? inheritedModel(workspace).value;
     return {
       assignment: key,
       handle: isLophn(key) ? "lophn" : (item.definition.handle ?? key),
@@ -471,7 +569,9 @@ export function createFakeAgentsSource(
         provider: model.provider,
         model_name: model.model_name,
         source:
-          definition.model === undefined ? inheritedModel(at).source : "agent",
+          definition.model === undefined
+            ? inheritedModel(workspace).source
+            : "agent",
       },
       issues: [],
       counts: {
@@ -484,8 +584,7 @@ export function createFakeAgentsSource(
 
   const detailOf = (key: string, workspace: string | null): AgentDetail => {
     const item = stored.get(key)!;
-    const at = workspaceKind(workspace);
-    const row = rowOf(key, item, at);
+    const row = rowOf(key, item, workspace);
     return {
       assignment: key,
       draftId: null,
@@ -496,11 +595,11 @@ export function createFakeAgentsSource(
         name: { value: item.name, source: "agent" },
         profile: { value: row.profile, source: "agent" },
       },
-      inheritedModel: inheritedModel(at),
+      inheritedModel: inheritedModel(workspace),
       issues: [],
       card: cardOf(key, item),
-      skills: skillsFor(at),
-      mcpServers: mcpFor(at),
+      skills: skillsFor(workspace),
+      mcpServers: mcpFor(workspace),
       // 저장된 정의의 OAuth server는 로그인 전이다. 화면은 그 줄에 [Sign in]을 그린다.
       agentMcpLogins: Object.fromEntries(
         (item.definition.mcp_servers ?? []).flatMap((server) =>
@@ -523,8 +622,8 @@ export function createFakeAgentsSource(
       ),
       harnessEnabled: true,
       extensions: EXTENSIONS,
-      instructions:
-        at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
+      instructions: workspace === null ? null : instructionsOf(workspace),
+      memory: isLophn(key) ? null : agentMemoryOf(key),
     };
   };
 
@@ -545,31 +644,45 @@ export function createFakeAgentsSource(
       overviewFailure = code;
     },
 
-    list(project) {
+    list(workspace) {
       return Promise.resolve(
         ok(
-          visible(project).map(([key, item]) =>
-            rowOf(key, item, workspaceKind(project)),
+          visible(workspace).map(([key, item]) => rowOf(key, item, workspace)),
+        ),
+      );
+    },
+
+    lophnNames() {
+      return Promise.resolve(
+        ok(
+          Object.fromEntries(
+            [...stored]
+              .filter(([key]) => isLophn(key))
+              .map(([key, item]) => [key, item.name]),
           ),
         ),
       );
     },
 
-    overview(project): Promise<ReadResult<AgentsOverview>> {
+    overview(workspace): Promise<ReadResult<AgentsOverview>> {
       if (overviewFailure !== null) {
         const message = overviewFailure;
         overviewFailure = null;
         return Promise.resolve({ ok: false, message });
       }
-      const at = workspaceKind(project);
       return Promise.resolve(
         ok({
-          agents: visible(project).map(([key, item]) => rowOf(key, item, at)),
-          instructions:
-            at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
-          projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
-          skills: skillsFor(at),
-          mcpServers: mcpFor(at),
+          agents: visible(workspace).map(([key, item]) =>
+            rowOf(key, item, workspace),
+          ),
+          instructions: instructionsOf(workspace),
+          workspaceModel: {
+            chosen: layerOf(workspace).model,
+            inherited: GLOBAL_MODEL,
+          },
+          skills: skillsFor(workspace),
+          mcpServers: mcpFor(workspace),
+          memory: layerOf(workspace).memory,
         }),
       );
     },
@@ -677,32 +790,33 @@ export function createFakeAgentsSource(
       );
     },
 
-    newAgent(project) {
-      const at = workspaceKind(project);
+    newAgent(workspace) {
+      const at = workspaceKind(workspace);
       const draftId = `agt_${`nw${created + 1}`.padStart(26, "0")}`;
       return Promise.resolve(
         ok({
           assignment: null,
           draftId,
-          workspace: workspaceView(project),
+          workspace: workspaceView(workspace),
+          // Home과 Settings는 전역 agent만 만든다.
           definition:
-            at === "none" || project === null
+            workspace === null || at === "none" || at === "home"
               ? { body: "" }
-              : { body: "", workspace: { kind: at, id: project } },
+              : { body: "", workspace: { kind: at, id: workspace } },
           hash: null,
           effective: {
             name: { value: "", source: "global" },
             profile: { value: DEFAULT_PROFILE, source: "global" },
           },
-          inheritedModel: inheritedModel(at),
+          inheritedModel: inheritedModel(workspace),
           issues: [],
-          skills: skillsFor(at),
-          mcpServers: mcpFor(at),
+          skills: skillsFor(workspace),
+          mcpServers: mcpFor(workspace),
           agentMcpLogins: {},
           harnessEnabled: true,
           extensions: EXTENSIONS,
-          instructions:
-            at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
+          instructions: workspace === null ? null : instructionsOf(workspace),
+          memory: null,
         } satisfies AgentDetail),
       );
     },
@@ -774,20 +888,20 @@ export function createFakeAgentsSource(
 
     imageSrc: () => AVATAR_SRC,
 
-    setProjectModel(_project, choice) {
-      calls.push({ method: "setProjectModel", choice });
+    setWorkspaceModel(workspace, choice) {
+      calls.push({ method: "setWorkspaceModel", choice });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      projectModel = choice;
+      layerOf(workspace).model = choice;
       return Promise.resolve(ok(null));
     },
 
-    setSkill(_project, name, on) {
+    setSkill(workspace, name, on) {
       calls.push({ method: "setSkill", name, on });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      if (on) projectSkillOff.delete(name);
-      else projectSkillOff.add(name);
+      if (on) layerOf(workspace).skillOff.delete(name);
+      else layerOf(workspace).skillOff.add(name);
       return Promise.resolve(ok(null));
     },
 
@@ -811,12 +925,12 @@ export function createFakeAgentsSource(
       return Promise.resolve(ok(null));
     },
 
-    setMcp(_project, name, on) {
+    setMcp(workspace, name, on) {
       calls.push({ method: "setMcp", name, on });
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      if (on) projectMcpOff.delete(name);
-      else projectMcpOff.add(name);
+      if (on) layerOf(workspace).mcpOff.delete(name);
+      else layerOf(workspace).mcpOff.add(name);
       return Promise.resolve(ok(null));
     },
 
@@ -841,26 +955,53 @@ export function createFakeAgentsSource(
       return Promise.resolve(ok({ revision: revision + 1 }));
     },
 
-    readInstructions(project) {
+    readInstructions(workspace) {
+      const file = layerOf(workspace).instructions;
       return Promise.resolve(
-        workspaceKind(project) === "project"
-          ? ok(lophnFile)
-          : { ok: false, message: "unavailable" },
+        file === null ? { ok: false, message: "unavailable" } : ok(file),
       );
     },
 
-    writeInstructions(project, text, hash) {
+    writeInstructions(workspace, text, hash) {
       calls.push({ method: "writeInstructions", text, hash });
-      if (workspaceKind(project) !== "project") {
+      const layer = layerOf(workspace);
+      if (layer.instructions === null) {
         return Promise.resolve({ ok: false, message: "unavailable" });
       }
       const failed = takeChangeFailure();
       if (failed !== null) return Promise.resolve(failed);
-      if (hash !== lophnFile.hash) {
+      if (hash !== layer.instructions.hash) {
         return Promise.resolve({ ok: false, message: "conflict" });
       }
-      lophnFile = { text, hash: nextHash() };
-      return Promise.resolve(ok(lophnFile));
+      layer.instructions = { text, hash: nextHash() };
+      return Promise.resolve(ok(layer.instructions));
+    },
+
+    readMemory(target) {
+      return Promise.resolve(
+        ok(
+          target.kind === "agent"
+            ? agentMemoryOf(target.agent)
+            : layerOf(target.workspace).memory,
+        ),
+      );
+    },
+
+    writeMemory(target, text, hash) {
+      calls.push({ method: "writeMemory", target, text, hash });
+      const failed = takeChangeFailure();
+      if (failed !== null) return Promise.resolve(failed);
+      const current =
+        target.kind === "agent"
+          ? agentMemoryOf(target.agent)
+          : layerOf(target.workspace).memory;
+      if (hash !== current.hash) {
+        return Promise.resolve({ ok: false, message: "conflict" });
+      }
+      const next = { text, hash: nextHash() };
+      if (target.kind === "agent") agentMemories.set(target.agent, next);
+      else layerOf(target.workspace).memory = next;
+      return Promise.resolve(ok(next));
     },
   };
 }

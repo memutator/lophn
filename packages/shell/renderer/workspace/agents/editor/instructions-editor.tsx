@@ -1,4 +1,4 @@
-// 지침 파일(LOPHN.md) 하나를 그 자리에서 보고 고친다. 평소에는 상자에 글을 보이고 [Edit]을 누르면 같은 자리가
+// 지침 파일(LOPHN.md, 앱은 AGENTS.md)이나 memory 파일 하나를 그 자리에서 보고 고친다. 평소에는 상자에 글을 보이고 [Edit]을 누르면 같은 자리가
 // 파일 탭과 같은 markdown 편집기(live preview)가 된다. 저장은 이 파일만 통째로 쓴다. 다른 곳에서 파일이 바뀌었으면(conflict)
 // 디스크를 덮지 않고 고친 글을 둔 채 [Reload]를 보인다.
 import { Button } from "@lophn/ui/primitives";
@@ -30,8 +30,31 @@ interface InstructionsEditorProps {
   /** 파일이 비었을 때의 한 줄. */
   readonly empty: string;
   readonly port: InstructionsPort;
+  /** false면 고치는 단추가 없다(파일이 놓일 곳이 없을 때). 기본은 고친다. */
+  readonly editable?: boolean;
+  /** 있으면 파일 크기를 이 byte 상한과 견주어 보이고, 넘으면 저장하지 못한다(memory). */
+  readonly limit?: number;
   /** 있으면 보기 없이 편집으로 열리고, [Cancel]·저장·[Reload] 뒤에 이것을 부른다(줄 menu에서 연 문서). */
   readonly onClose?: () => void;
+}
+
+const KIB = 1024;
+
+function sizeText(bytes: number): string {
+  return bytes < KIB ? `${bytes} B` : `${(bytes / KIB).toFixed(1)} KiB`;
+}
+
+/** 파일 크기와 상한. 넘으면 다른 글이 된다. */
+function SizeLine({ text, limit }: { text: string; limit: number }) {
+  const bytes = new TextEncoder().encode(text).length;
+  const args = { size: sizeText(bytes), max: sizeText(limit) };
+  return (
+    <p className={styles.instrEmpty} data-instructions-size="">
+      {bytes > limit
+        ? t("agents.label.memory-size-over", args)
+        : t("agents.label.memory-size", args)}
+    </p>
+  );
 }
 
 export function InstructionsEditor(
@@ -56,14 +79,16 @@ export function InstructionsEditor(
       <div className={styles.instr} data-instructions-editor="view">
         <div className={styles.instrHead}>
           <span>{props.head}</span>
-          <Button
-            size="sm"
-            icon={actionIcons.edit}
-            data-action="edit-instructions"
-            onClick={() => setDraft(file.text)}
-          >
-            {t("project-workspace.button.edit-instructions")}
-          </Button>
+          {props.editable === false ? null : (
+            <Button
+              size="sm"
+              icon={actionIcons.edit}
+              data-action="edit-instructions"
+              onClick={() => setDraft(file.text)}
+            >
+              {t("project-workspace.button.edit-instructions")}
+            </Button>
+          )}
         </div>
         {file.text.trim() === "" ? (
           <p className={styles.instrEmpty} data-instructions-empty="">
@@ -75,6 +100,9 @@ export function InstructionsEditor(
               ? file.text
               : file.text.split("\n").slice(0, props.lines).join("\n")}
           </pre>
+        )}
+        {props.limit === undefined ? null : (
+          <SizeLine text={file.text} limit={props.limit} />
         )}
       </div>
     );
@@ -117,6 +145,9 @@ export function InstructionsEditor(
           onChange={setDraft}
         />
       </div>
+      {props.limit === undefined ? null : (
+        <SizeLine text={draft} limit={props.limit} />
+      )}
       {failure === null ? null : (
         <p className={styles.issue} role="alert" data-instructions-failure="">
           {failure === "conflict"
@@ -142,7 +173,12 @@ export function InstructionsEditor(
           variant="primary"
           icon={actionIcons.save}
           data-action="save-instructions"
-          disabled={busy || draft === file.text}
+          disabled={
+            busy ||
+            draft === file.text ||
+            (props.limit !== undefined &&
+              new TextEncoder().encode(draft).length > props.limit)
+          }
           onClick={() => void save()}
         >
           {t("settings.button.save")}

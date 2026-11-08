@@ -32,7 +32,7 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
       sharedCommands: () => [],
       inputMedia: () => null,
       modelDefault: () => choice("global-model"),
-      projectModel: (workspace) =>
+      workspaceModel: (workspace) =>
         workspace?.kind === "project" ? project : null,
     };
     const files: AgentFileSystem = {
@@ -60,18 +60,18 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
   };
   const own =
     "---\nhandle: reviewer\nname: reviewer\nmodel:\n  provider: pvd_00000000000000000000000000\n  model_name: agent-model\n  option_values: {}\n---\nbody\n";
-  const agent = read(own, choice("project-model"));
+  const agent = read(own, choice("workspace-model"));
   assert.deepEqual(
     [agent?.value.model_name, agent?.source],
     ["agent-model", "agent"],
   );
   const project = read(
     "---\nhandle: reviewer\nname: reviewer\n---\nbody\n",
-    choice("project-model"),
+    choice("workspace-model"),
   );
   assert.deepEqual(
     [project?.value.model_name, project?.source],
-    ["project-model", "project"],
+    ["workspace-model", "project"],
   );
   const global = read(
     "---\nhandle: reviewer\nname: reviewer\n---\nbody\n",
@@ -104,7 +104,7 @@ test("an app lophn's MCP server and token are not seen by the project lophn", ()
     sharedCommands: () => [],
     inputMedia: () => null,
     modelDefault: () => choice("global-model"),
-    projectModel: () => null,
+    workspaceModel: () => null,
   };
   const reads = createAgentReads({
     files: {

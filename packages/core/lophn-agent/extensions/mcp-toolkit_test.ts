@@ -43,9 +43,9 @@ function toolkit(connected: string[], projectOff: string[] = []) {
     machine: (path) =>
       Promise.resolve(
         ok(
-          path === "/project-extension-settings/read"
+          path === "/workspace-extension-settings/read"
             ? {
-                project: workspace.id,
+                workspace: workspace.id,
                 mcp_servers: [],
                 skills_off: [],
                 mcp_off: projectOff,

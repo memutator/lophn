@@ -208,7 +208,7 @@ export const conversation = {
   "conversation.label.model-input-limit-default": "Same as context",
   "conversation.label.model-input-media": "Input media",
   "conversation.label.model-layer":
-    "Using: {layer, select, session {this conversation} agent {this agent} project {project default} other {global default}}",
+    "Using: {layer, select, session {this conversation} agent {this agent} project {workspace default} other {global default}}",
   "conversation.label.model-list": "Models",
   "conversation.label.model-name": "Model name",
   "conversation.label.model-output-limit": "Output limit",

@@ -15,6 +15,7 @@ export const TOOL_ORDER = [
   "web.fetch",
   "ask",
   "skill.read",
+  "agent.memory",
   "visual.show",
   "lophn",
 ] as const;

@@ -19,9 +19,9 @@ import type {
   McpLayer,
   McpRow,
   McpStatus,
-  ProjectInstructionsView,
   SkillLayer,
   SkillRow,
+  WorkspaceInstructionsView,
 } from "../views.ts";
 import styles from "./agent-editor.module.css";
 import {
@@ -34,6 +34,7 @@ const LAYER_LABEL: Record<SkillLayer | McpLayer, MessageKey> = {
   global: "agents.label.layer-global",
   "workspace-data": "agents.label.layer-workspace-data",
   project: "agents.label.layer-project",
+  workspace: "agents.label.layer-workspace",
   app: "agents.label.layer-app",
   shared: "agents.label.layer-shared",
   agent: "agents.label.layer-agent",
@@ -395,17 +396,17 @@ export function ProfileField({
   );
 }
 
-/** project 지침이 보기에서 보이는 줄 수. */
-const PROJECT_LINES = 4;
+/** workspace 지침이 보기에서 보이는 줄 수. */
+const WORKSPACE_LINES = 4;
 
 interface InstructionsBlockProps {
-  /** project 지침. null이면 이 agent는 project 지침을 받지 않는다(앱 자리, 놓인 곳 없음). */
-  readonly project: ProjectInstructionsView | null;
-  /** project 지침 머리 글. */
+  /** workspace 지침. null이면 이 agent는 workspace 지침을 받지 않는다(놓인 곳 없음). */
+  readonly workspace: WorkspaceInstructionsView | null;
+  /** workspace 지침 머리 글. */
   readonly head: string;
-  /** project 지침을 그 자리에서 고치는 길. */
+  /** workspace 지침을 그 자리에서 고치는 길. */
   readonly port: InstructionsPort;
-  /** project 지침을 받지 않는 이유 같은 안내. */
+  /** workspace 지침이 비어 보이는 이유 같은 안내. */
   readonly note?: string;
   readonly value: string;
   readonly help: string;
@@ -413,9 +414,9 @@ interface InstructionsBlockProps {
   readonly onChange: (value: string) => void;
 }
 
-/** 지침 블록: project 지침과 이 agent의 지침을 같이 보이고 둘 다 이 자리에서 고친다. */
+/** 지침 블록: workspace 지침과 이 agent의 지침을 같이 보이고 둘 다 이 자리에서 고친다. */
 export function InstructionsBlock({
-  project,
+  workspace,
   head,
   port,
   note,
@@ -429,14 +430,15 @@ export function InstructionsBlock({
       <legend className={styles.legend}>
         {t("project-workspace.label.agent-editor-instructions")}
       </legend>
-      {project === null ? null : (
-        <div data-project-instructions="">
+      {workspace === null ? null : (
+        <div data-workspace-instructions="">
           <InstructionsEditor
             head={head}
-            file={project}
-            lines={PROJECT_LINES}
+            file={workspace}
+            lines={WORKSPACE_LINES}
             empty={t("project-workspace.empty.agent-editor-no-project")}
             port={port}
+            editable={workspace.editable}
           />
         </div>
       )}

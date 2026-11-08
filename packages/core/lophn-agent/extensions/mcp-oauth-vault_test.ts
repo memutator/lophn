@@ -99,3 +99,21 @@ test("OAuth token은 각자 알려진 값이 되고 갱신이 거절되면 세 �
   assert.equal(store.known.match(`x ${access} ${refresh}`), undefined);
   store.stop();
 });
+
+test("Home 층 server의 OAuth token 이름은 전역 층과 agent 층의 같은 이름 server와 겹치지 않는다", () => {
+  const key = (workspace: Parameters<typeof mcpTokenNames>[0]["workspace"]) =>
+    mcpTokenNames({ workspace, agent: null, name: "notes" }).access;
+  const names = [
+    key(null),
+    key({ kind: "home" }),
+    key({ kind: "project", id: "prj_work" }),
+    key({ kind: "app", id: "app_cal" }),
+    mcpTokenNames({
+      workspace: null,
+      agent: "lophn_home",
+      name: "notes",
+    }).access,
+  ];
+  assert.equal(new Set(names).size, names.length);
+  assert.equal(key({ kind: "home" }), "mcp-oauth.home.notes.access");
+});

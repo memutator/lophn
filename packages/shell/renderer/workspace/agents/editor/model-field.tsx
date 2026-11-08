@@ -62,7 +62,7 @@ interface ModelFieldProps {
   readonly models: ModelsView | null;
   readonly source?: ModelFieldSource;
   readonly label: string;
-  /** "Use project default — Haiku 5.5" 같은 따르기 줄의 글. */
+  /** "Use workspace default — Haiku 5.5" 같은 따르기 줄의 글. */
   readonly inheritLabel: string;
   /** 따를 때의 값. 어느 층에도 없으면 null이다. */
   readonly inherited: ModelChoice | null;

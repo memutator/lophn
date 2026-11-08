@@ -153,7 +153,9 @@ async function splitCallPolicy(
 }
 
 // `mcp.lophn.<서버>`와 `mcp-oauth.lophn.<서버>.<access|refresh|meta>`를 lophn마다의 이름으로 복사하고 옛 이름은 지운다.
-// 이미 있는 이름은 덮지 않는다.
+// 이미 있는 이름은 덮지 않는다. refresh token을 쓸 때마다 바꾸는 발급자면 lophn 하나가 refresh한 뒤 다른 lophn의 사본은
+// 거절되고(`refresh_rejected`) 그 workspace에서 한 번 다시 인증한다. 다시 인증하는 길이 있고, 복사하지 않으면 모든 workspace가
+// 처음부터 인증해야 해서 복사한다.
 async function splitSecrets(
   root: string,
   lophns: readonly string[],

@@ -8,18 +8,19 @@ lophn에서 일하는 agent가 누구이고, session이 어디(workspace)에서 
 
 ## 1. agent, session, workspace
 
-agent는 lophn과 사람이 만든 agent 둘이다. agent는 workspace에 놓이지 않는다. session이 workspace를 갖는다(`architecture/workspace-session.md`, `architecture/agent-definition.md`).
+agent는 lophn과 사람이 만든 agent 둘이다. 사람이 만든 agent는 workspace에 놓이지 않는다(범위를 고르면 그 workspace에서만 보인다). session이 workspace를 갖는다(`architecture/workspace-session.md`, `architecture/agent-definition.md`).
 
-- P1. lophn은 고정 id(`lophn`)를 가진 내장 agent다. 이름과 profile은 바꾸지 못하고 지우지 못한다. 나머지 칸(model, skill, 지침 본문)은 다른 agent와 같다.
-- P2. 사람이 만든 agent의 정의는 전역에 하나다. 이름은 전역에서 겹치지 않고 `lophn`은 쓰지 못한다. 정의에 권한 칸은 없다.
+- P1. lophn은 workspace마다 하나인 내장 agent다. handle `lophn`은 예약이고 id는 workspace에서 나온다(`lophn_home`, `lophn_<prj id>`, `lophn_<app id>`. `lophnIdOf`). 한 lophn은 (handle `lophn`, workspace) 짝으로 가리킨다. handle과 profile은 바꾸지 못하고 지우지 못한다. 나머지 칸(name, model, skill, 지침 본문)은 다른 agent처럼 그 workspace의 lophn 것이다. 정의 file이 없으면 기본 정의다.
+- P2. 사람이 만든 agent의 정의는 전역이거나 workspace 하나에 범위가 있다. handle은 전역에서 겹치지 않고 `lophn`은 쓰지 못한다. 정의에 권한 칸은 없다.
 - P3. session은 열 때 agent 하나와 workspace 하나를 정하고 바꾸지 않는다. workspace는 home(workspace 없음), project, app 셋 가운데 하나다. 창에서 열면 그 창의 workspace다.
-- P4. 같은 workspace 종류의 lophn runtime session은 agent가 누구든 같은 tool 목록, 지침, 내장 skill, credential 상한, file 범위를 받는다. 좁히는 것은 정의의 `skills_off`와 사람의 할당이다. 정의가 `runtime: bare`인 agent는 제품 규칙, workspace 지침, 전역·project 지침, skill 없이 정의 본문과 정의 `tools`가 고른 tool만 받는다. 고를 수 있는 것은 그 workspace 종류 목록 안의 tool과 명령, 할당한 앱 command, 설정한 MCP tool이고, credential 상한과 file 범위는 workspace 종류 그대로다. result call은 turn이 끝날 때 마지막 응답이 답이다(`architecture/agent-definition.md`, `architecture/agent-call.md`).
+- P4. 같은 workspace 종류의 lophn runtime session은 agent가 누구든 같은 tool 목록, 지침, 내장 skill, credential 상한, file 범위를 받는다. 좁히는 것은 정의의 `skills_off`와 사람의 할당이다. 정의가 `runtime: bare`인 agent는 제품 규칙, workspace 지침, 전역·workspace 지침, skill 없이 정의 본문과 정의 `tools`가 고른 tool만 받는다. 고를 수 있는 것은 그 workspace 종류 목록 안의 tool과 명령, 할당한 앱 command, 설정한 MCP tool이고, credential 상한과 file 범위는 workspace 종류 그대로다. result call은 turn이 끝날 때 마지막 응답이 답이다(`architecture/agent-definition.md`, `architecture/agent-call.md`).
 - P5. 앱은 project에 묶이지 않는다. 앱마다 app workspace가 있고 앱은 home에서 등록한다. 등록할 때 agent를 만들지 않는다. project도 마찬가지다.
 - P6. coding agent는 lophn 밖의 harness다. 사람이 터미널 탭에서 자기 coding agent를 쓰는 것은 lophn agent의 일과 별개이고, lophn은 그 탭의 상태(icon, 점, 알림)만 보인다(`architecture/terminal-agent.md`). 사람이 harness(Claude Code, Codex, OpenCode)를 정의의 runtime으로 두면 그 agent는 lophn A2A로 일을 받고, lophn이 그 harness의 headless CLI 명령으로 실행한다. 켜기는 설정 `extensions.harness.enabled`(Settings › System › Extensions)다(`architecture/coding-agent.md`).
 - P7. 사람은 왼쪽 sidebar의 New session(▾로 agent 고르기. Home, project, 앱 workspace 어디서나), toast로 agent를 부른다. 고르면 그 workspace의 session이 열린다.
-- P8. project workspace의 session은 그 project의 `LOPHN.md`를 지침으로 같이 읽는다. app workspace와 home에는 project 지침이 없다.
+- P8. Home, project, 앱은 같은 층을 갖는다: 지침, 외부 MCP server와 `mcp_off`, `skills_off`, model. session은 자기 workspace의 지침을 같이 읽는다. project는 `LOPHN.md`, Home은 `<data>/home/LOPHN.md`, 앱은 앱 source의 `AGENTS.md`다(source를 잇지 않은 앱은 없다). 사람은 각 workspace의 Agents 탭에서 이 층을 고친다.
 - P10. project는 사람의 폴더 없이도 등록할 수 있다(폴더 0개 project). 폴더가 없는 project의 `LOPHN.md`는 lophn data의 project 자리에 있고, project workspace session의 file 범위 밖이라 사람이 editor로 고친다.
 - P12. 경계는 그릇(project, app)이다. session은 그 workspace 그릇의 지침, skill, 앱 command를 받는다. 앱의 비공개 command는 그 앱 workspace의 session만 보고, 다른 곳은 할당받은 공개 command로만 쓴다.
+- P13. workspace memory는 그 workspace 그릇 자리의 `memory.md`이고 그 workspace의 lophn만 쓰며 그 workspace의 모든 agent가 받는다. 사람이 만든 agent는 자기 agent memory를 따로 갖고 자기만 쓰고 받는다. 둘 다 `agent.memory` tool로만 쓰고 8 KiB까지이며 session 첫 turn에 고정되어 다음 session부터 바뀐 글을 본다. 담는 것은 사람이 정한 것, 계산할 수 없는 의도, 어디에 물으면 되는지 pointer다(`architecture/agent-definition.md`).
 
 ## 2. workspace마다 언제 무엇을 하나
 
@@ -108,14 +109,14 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 
 - H1. 사람은 무엇을 만들고 무엇을 원하는지 agent에게 이야기한다.
 - H2. 앱을 처음 activation하거나 새 release가 선언을 넓히면, 사람이 앱 grant를 허락한다.
-- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 설치되고 켜진 shell extension이 내는 tool도 정의의 `extensions`로 할당한 agent에게만 실리고, 할당이 허락이라 묻지 않는다. 외부 MCP server는 설정한 곳(전역, project, 그 agent의 정의)이 할당이고 정의에서 끈다. 전역과 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. 다른 앱의 command는 공개(`public`) command만 쓸 수 있다(비공개는 그 앱 workspace의 session만, P12).
+- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 설치되고 켜진 shell extension이 내는 tool도 정의의 `extensions`로 할당한 agent에게만 실리고, 할당이 허락이라 묻지 않는다. 외부 MCP server는 설정한 곳(전역, Home·project·앱 중 session의 workspace, 그 agent의 정의)이 할당이고 정의에서 끈다. 전역과 workspace 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. 다른 앱의 command는 공개(`public`) command만 쓸 수 있다(비공개는 그 앱 workspace의 session만, P12).
 - H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 거절하며 적은 이유는 agent에게 그대로 간다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다. 팀으로 spawn된 session(skip 꺼짐)의 승인은 사람이 아니라 부모가 `lophn call reply --allow | --reject`로 답한다.
 - H5. 앱 workspace의 session이 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
 - H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
 - H8. 사람 step이 오면, 사람은 `with` 참가자 agent의 session에서 그 agent와 논의하고 결과는 그 agent가 report한다. 사람은 승인 단추가 아니라 참가자다. 순서를 바꾸고 싶으면 그 agent에게 말한다.
 - H9. 사람은 Jobs 탭과 왼쪽 sidebar의 Jobs overlay(모든 job)와 project 창 오른쪽 sidebar의 Jobs panel(그 project와 걸린 job)에서 job을 보고 켜고 끄고 고치고 지운다. 놓친 차례를 `hold`로 둔 job은 대기 목록의 card에서 [Start now]나 [Skip]을 고른다. lophn이 꺼진 사이 놓친 차례와, 켜진 채라도 컴퓨터가 잠들어 차례 시각보다 10분 넘게 늦은 차례가 놓친 차례다.
 - H10. 앱이 선언한 secret은 사람이 앱 Access 탭에서 넣는다. OAuth secret이면 사람이 그 서비스에 만든 client의 id와 secret을 넣고 [Sign in]한다. agent는 값을 대화로 묻지 않고 무엇을 넣을지 알린다. sign-in이 끊기면 앱이 다시 sign-in하라고 알린다.
-- H11. 사람은 Agents 탭에서 agent를 만들고 고치고 지운다. 목록은 전역 agent와 그 workspace 범위 agent다(home은 전역만). 새 agent의 범위는 만들 때 고르고(기본은 화면을 연 workspace) 뒤에 바꾸지 못한다. lophn은 이름과 profile이 잠기고 지우기가 없다.
+- H11. 사람은 Agents 탭에서 agent를 만들고 고치고 지운다. Agents 탭은 Home, project, 앱 어디서나 열린다. 목록은 그 workspace의 lophn(첫 줄)과 전역 agent, 그 workspace 범위 agent다. 새 agent의 범위는 만들 때 고르고(기본은 화면을 연 workspace) 뒤에 바꾸지 못한다. lophn은 handle과 profile이 잠기고 name만 바꾸며 지우기가 없다. Settings › Agents에는 lophn이 없다. 탭은 그 workspace의 층(지침, workspace memory, model, skill 켜고 끄기, MCP server)도 보이고 고친다.
 
 ## 3. 넘기는 길
 
@@ -184,7 +185,7 @@ call(result) 받은 쪽 ──답──▶ 보낸 쪽          : 맡은 일을 �
 
 ### 5.2 받는 쪽 고르기
 
-call의 `to`는 `{session}`이나 `{agent, workspace?}`(+ 열린 session이 닫혔을 때 열 `fallback`)다. `agent`는 agent 이름이고 workspace가 없으면 home이다. Router는 적힌 이름과 workspace가 정확히 맞는 것만 고르고 짐작하지 않는다(`architecture/agent-call.md`).
+call의 `to`는 `{session}`이나 `{agent, workspace?}`(+ 열린 session이 닫혔을 때 열 `fallback`)다. `agent`는 agent handle이고 workspace가 없으면 home이다. handle `lophn`은 (handle, workspace) 짝으로 그 workspace의 lophn을 가리킨다. Router는 적힌 handle과 workspace가 정확히 맞는 것만 고르고 짐작하지 않는다(`architecture/agent-call.md`).
 
 - 받는 workspace는 일이 관한 그릇이다: 앱 일은 그 앱(`{app: "<앱 이름>"}`), project 일은 그 project(`{project: "<project 이름>"}`), 그릇을 넘는 기획과 새 앱·project 등록은 home(workspace 없음)이다.
 - 받는 agent는 기본이 lophn이다. lophn은 늘 있는 agent라 받을 agent가 없어 실패하는 일이 없다. 사람이 만든 agent에게 맡기려면 그 이름을 적는다.

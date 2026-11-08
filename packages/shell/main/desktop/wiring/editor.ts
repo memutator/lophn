@@ -13,6 +13,7 @@ import {
 import { CloseGuard, guardWindowClose } from "../../editor/close-guard.ts";
 import { createFileAdapter } from "../../editor/file-adapter.ts";
 import { createInstructions } from "../../editor/instructions.ts";
+import { createMemory } from "../../editor/memory.ts";
 import { registerFilesIpc, removeFilesIpc } from "../../editor/ipc.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
@@ -83,6 +84,19 @@ export function register(ctx: ShellContext): Registered {
         projects.find((one) => one.id === project)?.folders[0]?.path ?? null
       );
     },
+    appSource: async (app) => {
+      const reply = await ctx.coreInternal("read", "apps", "get", { app });
+      if (!reply.ok) throw new Error("core is not ready");
+      const found = (reply.value as { app?: { source_path: string | null } })
+        .app;
+      return found?.source_path ?? null;
+    },
+    makeDir: async (path) => {
+      await mkdir(path, { recursive: true });
+    },
+  });
+  const memory = createMemory({
+    dataRoot,
     makeDir: async (path) => {
       await mkdir(path, { recursive: true });
     },
@@ -91,6 +105,7 @@ export function register(ctx: ShellContext): Registered {
     registry: overlays.overlayRegistry(),
     adapter: fileAdapter,
     instructions,
+    memory,
     guardOf: (id) => closeGuards.get(id),
   });
 

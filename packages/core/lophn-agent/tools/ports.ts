@@ -4,6 +4,7 @@ import type {
   ToolGateResult,
 } from "../../../protocol/approvals/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type {
   AskInput,
   AskResult,
@@ -28,13 +29,16 @@ export interface ToolGatePort {
 }
 
 // file.write와 file.edit에 workspace 층이 끼우는 규칙이다. aroundWrite는 실제 쓰기(run)를 감싼다. 쓰기 기록을 어디에
-// 남기는지는 harness가 모른다.
+// 남기는지는 harness가 모른다. agent.memory도 같은 aroundWrite를 쓴다.
 export interface FileHooks {
   aroundWrite(
     ctx: ToolContext,
     target: { root: string; relative: string },
     run: () => Promise<Result<void>>,
   ): Promise<Result<void>>;
+  // agent.memory가 쓸 파일(절대 경로)이다. 부른 session의 agent만 보고 정한다: lophn이면 자기 workspace의 workspace memory,
+  // 사람이 만든 agent면 자기 agent memory다. 자리를 모르면 null이고, 없으면 agent.memory는 돌지 않는다.
+  memoryFile?(agent: AgentId): string | null;
 }
 
 // 그 session의 workspace가 file tool에 열어 둔 폴더다. 절대 경로이고 쓰기 폴더는 읽기 폴더 안에 있다.

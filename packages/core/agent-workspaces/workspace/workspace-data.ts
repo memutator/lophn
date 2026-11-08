@@ -35,11 +35,10 @@ import type { ArtifactEntry } from "./artifact-list.ts";
 
 // workspace 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
 export type WorkspaceFiles = {
-  // project·앱 workspace의 `skills/` 폴더. data root를 모르면 null.
-  skillsFolder(workspace: {
-    kind: "project" | "app";
-    id: string;
-  }): string | null;
+  // workspace의 `skills/` 폴더. null은 Home이다. data root를 모르면 null.
+  skillsFolder(
+    workspace: { kind: "project" | "app"; id: string } | null,
+  ): string | null;
   // project·앱 workspace의 `artifacts/` 폴더. data root를 모르면 null.
   artifactsFolder(workspace: {
     kind: "project" | "app";
@@ -315,9 +314,9 @@ async function readWorkspaceData(
     }
   }
 
-  // project·앱 workspace의 turn 시작에 skills 폴더를 만든다(workflows와 같다).
+  // Home·project·앱 workspace의 turn 시작에 skills 폴더를 만든다(workflows와 같다).
   let skillsFolder: string | null = null;
-  if (workspace !== null) {
+  {
     const folder = files.skillsFolder(workspace);
     if (folder !== null) {
       try {

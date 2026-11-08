@@ -273,10 +273,11 @@ components:
   - id: architecture-workspace-session
     kind: doc
     roles: [planner, lead]
-    description: agent가 놓이는 workspace와 session의 수명, fork, rewind.
+    description: agent가 놓이는 workspace(Home, project, 앱)와 session의 수명, fork, rewind, workspace마다의 file 범위와 지침 층.
     path: project-docs/architecture/workspace-session.md
     change_reasons:
       boundaries: [agents, agent-workspaces, agent-sessions]
+      paths: [packages/protocol/lophn-agent/workspaces.ts]
 
   - id: architecture-run
     kind: doc
@@ -307,10 +308,12 @@ components:
   - id: architecture-agent-definition
     kind: doc
     roles: [planner, lead]
-    description: agent 정의(할당 칸 포함), prompt 조립, 지침 파일, skill 층과 공유 skill, tool, model.
+    description: agent 정의(할당 칸 포함, workspace마다 하나인 lophn), prompt 조립, 지침 파일, Home·project·앱의 같은 층(지침, MCP, skills_off, model), skill 층과 공유 skill, workspace memory와 agent memory(`agent.memory`), tool, model.
     path: project-docs/architecture/agent-definition.md
     change_reasons:
       boundaries: [agent-workspaces, agent-tools, run-loop, models, agent-tool-spi]
+      paths: [packages/protocol/lophn-agent/workspaces.ts, packages/core/agent-workspaces/workspace/data-folder.ts, packages/core/lophn-agent/agents/layers.ts, packages/core/lophn-agent/tools/memory/, packages/core/lophn-agent/tools/bundles/memory.ts]
+      note: lophn id 규칙, Home 그릇 자리(`<data>/home/`), memory 파일 자리(`<data>/agent-memory/`)와 `agent.memory` tool이 바뀔 때.
 
   - id: architecture-coding-agent
     kind: doc

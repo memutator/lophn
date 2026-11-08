@@ -47,8 +47,8 @@ export type AgentLookups = {
   inputMedia(model: ModelChoice): readonly string[] | null;
   // 전역 기본 model. 없으면 null.
   modelDefault(): ModelChoice | null;
-  // project workspace의 model. project 층이 없는 workspace(앱, lophn)나 값이 없으면 null.
-  projectModel(workspace: Workspace | null): ModelChoice | null;
+  // workspace(null은 Home)의 model 층. 값이 없으면 null.
+  workspaceModel(workspace: Workspace | null): ModelChoice | null;
 };
 
 // project·앱 표를 가진 module이 내놓는 읽기다. 조립(core/main)이 그 module의 함수로 만들어 꽂는다.

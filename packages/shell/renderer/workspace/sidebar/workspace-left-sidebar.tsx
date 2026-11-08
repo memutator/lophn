@@ -100,6 +100,8 @@ export interface WorkspaceLeftSidebarProps {
   apps?: AppsSource;
   agentViewSource?: AgentTabSourceFactory;
   agents: readonly SidebarAgent[];
+  /** 모든 workspace의 lophn 이름(agent id → 이름). 다른 workspace의 새 session 줄이 쓴다. */
+  lophnNames: Readonly<Record<string, string>>;
   /** 이 창에 탭이 열린 session id → 그 탭의 제목. */
   openTitles: ReadonlyMap<string, string>;
   /** 이 창의 아직 session이 없는 Agent 탭. */
@@ -272,18 +274,21 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     if (command !== undefined) props.onNewCoding(command);
   };
   const choices = agentChoices(props.agents, favorites);
-  // 다른 workspace의 agent 목록은 읽지 않았다. 어느 workspace에나 있는 그 workspace의 lophn(이름은 모르니 기본 이름)과 즐겨찾기 coding agent(터미널은 project만)를 보인다.
+  // 다른 workspace의 agent 목록은 읽지 않았다. 어느 workspace에나 있는 그 workspace의 lophn(사람이 바꾼 이름, 못 읽었으면 기본 이름)과 즐겨찾기 coding agent(터미널은 project만)를 보인다.
   const choicesAt = (ref: WorkspaceRef): readonly AgentChoice[] =>
     workspaceKey(ref) === workspaceKey(current)
       ? choices
       : agentChoices(
           props.agents
             .filter((agent) => isLophn(agent.assignment))
-            .map((agent) => ({
-              ...agent,
-              assignment: lophnIdAt(ref),
-              name: LOPHN_AGENT_NAME,
-            })),
+            .map((agent) => {
+              const assignment = lophnIdAt(ref);
+              return {
+                ...agent,
+                assignment,
+                name: props.lophnNames[assignment] ?? LOPHN_AGENT_NAME,
+              };
+            }),
           ref.kind === "project" ? coding.favorites : [],
         );
   const [registering, setRegistering] = useState(false);

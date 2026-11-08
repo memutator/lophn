@@ -1,11 +1,11 @@
 # workspace-session
 
-lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. agent와 하는 대화가 session이고, session이 workspace(없음·project·app)를 갖는다. 이 문서는 session의 정체가 무엇인지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, turn 안 request, 질문)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 skip이 새거나, 되돌린 대화에 낡은 요청이 남는다.
+lophn의 agent는 내장 lophn과 사람이 만든 agent다. lophn은 workspace(Home, project, 앱)마다 하나이고, 사람이 만든 agent는 전역이거나 workspace 하나에 범위가 있다(`architecture/agent-definition.md`). agent와 하는 대화가 session이고, session이 workspace(없음·project·app)를 갖는다. 이 문서는 session의 정체가 무엇인지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, turn 안 request, 질문)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 skip이 새거나, 되돌린 대화에 낡은 요청이 남는다.
 
 ## 흐름
 
 ```
- 첫 기동      ──▶ lophn 정의 (고정 id lophn)             ┐ agents: <data>/agents/<id>.md
+ workspace마다 ──▶ lophn 정의 (id lophn_home·lophn_<prj|app id>, 파일이 없으면 기본) ┐ agents: <data>/agents/<id>.md
  사람이 만듦  ──▶ agent 정의 (agt_…, 이름은 전역에 하나)  ┘ project 등록·앱 만들기는 agent를 만들지 않는다
 
  session 열기 ◀── person | Router(call의 새 session, program 알림)
@@ -28,10 +28,10 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
   - agent 정의, 할당, 지침, file 범위가 agent와 workspace에서 나온다. 열린 session의 agent나 workspace를 바꾸면 이미 쌓인 대화가 다른 agent의 것이 된다.
 - session을 여는 길은 사람과 Router 둘이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림(`open_session_or_new`)으로 연다.
   - 열 때의 검사(agent 정의, workspace, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
-- agent는 lophn과 사람이 만든 agent뿐이다. lophn은 지우지 못하고, 사람이 만든 agent는 사람이 만들고 지운다.
+- agent는 lophn과 사람이 만든 agent뿐이다. lophn은 workspace마다 있고 지우지 못한다(앱을 지우면 그 앱의 lophn 정의 file도 지운다). 사람이 만든 agent는 사람이 만들고 지운다.
   - workspace는 project 또는 app이고(`Workspace`) 없으면 home이다. 앱은 project에 묶이지 않고 앱마다 app workspace가 있다.
   - workspace는 그릇이고 경계도 그릇이다. agent가 받는 지침, skill, 앱 command는 그 workspace의 것이다.
-  - 정의는 파일이라 DB tx에 묶을 수 없다. lophn 정의 만들기는 멱등이다(있으면 그대로).
+  - 정의는 파일이라 DB tx에 묶을 수 없다. lophn 정의는 미리 만들지 않는다. 파일이 없으면 기본 정의이고, 사람이 고치면 그때 생긴다.
 - run(`architecture/run.md`)도 `OpenSession`으로 session을 연다. 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. 화면은 sidebar에 그대로 두지 않고 그 session을 연 run 아래로 묶어 보인다(`--session`으로 이어 쓴 session은 원래 자리다).
 - session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다.
   - lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
@@ -50,11 +50,11 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
 - session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(restore_all)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다.
   - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고, 사람에게 함께 되돌아갈 목록을 먼저 보인다.
   - 앱 rewind는 그 session의 첫 write invocation부터 요청한다. 앱 rewind가 거절되거나 취소돼도 대화와 파일은 되돌리지 않고, 결과만 기록에 남긴다. 앱 쪽 순서와 충돌 판단은 앱이 정한다.
-- file tool의 범위는 session의 workspace 종류가 정한다: project workspace는 그 project의 폴더들(사람이 이은 것. 없을 수도 있다), 그 project의 `workflows/`·`artifacts/`·`skills/`(`<data>/projects/<prj>/…`)를 읽고 쓴다. app workspace는 앱 source 폴더, 사람이 앱에 더 이은 폴더(`app.edit_folders`, App details의 Folders), 그 앱의 `artifacts/`·`skills/`(`<data>/apps/<app>/…`)를 읽고 쓴다. home은 등록된 모든 project 폴더를 읽기만 한다.
+- file tool의 범위는 session의 workspace 종류가 정한다: project workspace는 그 project의 폴더들(사람이 이은 것. 없을 수도 있다), 그 project의 `workflows/`·`artifacts/`·`skills/`(`<data>/projects/<prj>/…`)를 읽고 쓴다. app workspace는 앱 source 폴더, 사람이 앱에 더 이은 폴더(`app.edit_folders`, App details의 Folders), 그 앱의 `artifacts/`·`skills/`(`<data>/apps/<app>/…`)를 읽고 쓴다. home은 등록된 모든 project 폴더를 읽기만 하고 자기 `skills/`(`<data>/home/skills/`)를 읽고 쓴다.
   - 다른 workspace(project, 앱)의 session이 부른 call로 열린 home session은 project 폴더를 읽지 않고 call에 실려 온 것만 본다(사람, 2026-11-04). home의 전역 agent(예: 이미지 생성)가 부른 쪽과 상관없는 project를 보지 않게 한다. 열 때 부른 workspace를 `sessions.called_from_kind`·`called_from_id`에 남기고(바뀌지 않는다, fork가 옮긴다) `workspaceScope`가 그것을 보고 읽기 범위를 비운다(`packages/core/agent-workspaces/workspace/workspace-folders.ts`). 이미 열린 home session에 닿은 call과 사람이 연 home session은 좁히지 않는다.
-  - home의 session은 기획하고 call로 맡기며 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
+  - home의 session은 기획하고 call로 맡기며 project·앱을 직접 쓰지 않는다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다.
   - 앱의 data와 release 사본(`<data>/apps/<app>/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 workspace 종류의 범위에도 없다. 앱 data는 앱 tool로만 다루고 release 사본은 봉인된 것이다. 앱 source는 기본 자리(`<data>/apps/<app>/source`)이거나 사람이 이은 폴더다. 앱에 더 이은 폴더는 project 연결 폴더와 같은 모양(`{path, description}`)이고, 서로나 source와 겹치면 `invalid_input`이다. release에는 source만 봉인되고 더한 폴더는 들어가지 않는다. agent 정의(`<data>/agents/`)도 열지 않는다.
-  - 사람의 폴더가 없는 project의 `LOPHN.md`는 `<data>/projects/<prj>/LOPHN.md`이고 file 범위 밖이다. 사람이 editor로 고친다. 앱 workspace에는 `LOPHN.md`가 없다.
+  - 사람의 폴더가 없는 project의 `LOPHN.md`는 `<data>/projects/<prj>/LOPHN.md`이고 file 범위 밖이다. 사람이 editor로 고친다. Home의 `LOPHN.md`와 `extensions.json`은 `<data>/home/`에 있고 역시 file 범위 밖이다(Home 그릇 자리에서 file 범위에 열리는 것은 `skills/`뿐이다). 앱 workspace의 지침은 `LOPHN.md`가 아니라 source의 `AGENTS.md`이고 source 폴더가 file 범위라 agent가 직접 고칠 수 있다.
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱 source가 있으면 source, 없으면 앱의 첫 더한 폴더)이고, 없으면 workspace의 data 폴더(`<data>/projects/<prj>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
   - `workspaceScope`(`packages/core/agent-workspaces/workspace/workspace-folders.ts`)가 workspace에서 이 범위를 만든다. turn의 file tool 범위와 rewind의 쓰기 폴더가 이것으로 만든다(`main/daemon/workspace-folders-glue.ts`). 범위 밖은 file tool이 `resolveInWorkspace`(`packages/core/lophn-agent/tools/file/scope.ts`)로 realpath를 보고 `forbidden` "path is outside the workspace"로 거절한다.
   - agent runtime child(`kind` `lophn-agent/runtime`)는 Electron의 Node로 뜨고 권한 flag가 없다(사람이 정했다). launch spec(`packages/core/supervision/security/launch-spec.ts`)에는 권한 칸이 없다(kind, entry, policy, memory limit만). child 하나가 여러 session을 돌리므로 session마다 띄우지 않고, 폴더·provider·MCP·skill 목록이 바뀌어도 child를 다시 띄우지 않는다.
@@ -69,7 +69,7 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
 - **session이 일하는 그릇(home, project, app)을 workspace라 부른다(사람, 2026-11-05).** 전에는 place였다. 코드·protocol·화면·문서의 이름을 모두 바꿨고, 사람이 쓰던 data root는 schema step(`lophn-agent.sessions.workspace`, `jobs.workspace`, `runs.workspace`, `router.agent-calls.workspace`, `workflows.workspace`)과 data step(`settings.call-policy-workspaces`, `shell.workspace-layouts`, `workflows.participant-workspace`)이 옮긴다. 이미 낸 step의 id와 SQL(`domains.place-data` 등)은 기록이라 옛 이름 그대로다. 전역 설정 층은 화면에서 "Workspace" 대신 "Global"로 부른다(agent). workspace 하나와 헷갈리지 않게 한다.
 - **agent는 전역이고 workspace는 session이 갖는다(사람, 2026-10-28).** role(lophn, Project Manager, App Engineer, Operator)이 agent를 workspace에 묶었지만, workspace가 하는 일(file 범위, credential 조건, prompt, 주소)은 모두 "session이 어디서 일하나"의 일이다. Claude Code, Codex, OpenCode도 agent 설정은 전역이고 작업 폴더는 session마다다. 옛 assignment 상태 machine(누가 무엇을 맡았나)은 agent와 할당으로 대체했다. 상태를 따로 추적하지 않아도, 맡기는 것은 call이고 허락은 할당이다.
 - **앱 일은 그 앱 workspace의 session이 한다.** 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱 workspace에서 한다. 앱은 사람이 Home의 Workspaces panel에서 New app으로 직접 만들거나(그 앱 workspace의 lophn 새 session으로 시작한다), home의 lophn이 등록하고 그 앱 workspace의 lophn session에 call로 맡긴다.
-- **앱 workspace에는 project 지침이 없다.** 앱은 project에 묶이지 않으므로 앱 workspace의 session은 `LOPHN.md`를 받지 않는다. 지침 층은 전역과 agent 정의 본문이다.
+- **앱 workspace에는 project 지침이 없고 앱 지침이 있다.** 앱은 project에 묶이지 않으므로 앱 workspace의 session은 `LOPHN.md`를 받지 않는다. 지침 층은 전역, 앱 source의 `AGENTS.md`(source가 없으면 없다), agent 정의 본문이다. Home의 지침 층은 전역, `<data>/home/LOPHN.md`(없으면 `CLAUDE.md`), agent 정의 본문이다.
 - **"이 session 동안" 허락은 없다.** 할당했으면 허락한 것이고, shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다.
 - **agent runtime child 하나가 여러 session을 돈다.** 폴더·provider·MCP·skill 목록이 바뀌어도 다시 띄우지 않는다. session마다의 file 범위는 `workspaceScope`가 코드로 지킨다.
 - **fork는 있는 그대로 복사하되 묶인 것은 놓고 간다.** skip을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다.

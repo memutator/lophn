@@ -57,7 +57,7 @@ export type WorkspaceData = {
   release: { version: string; command_names: readonly string[] } | null;
   // project workspace만. 만들어 둔 workflows 폴더의 절대 path다. home과 app workspace는 null
   workflowsFolder: string | null;
-  // project·앱 workspace의 `skills/` 폴더 절대 path다. 폴더를 만들지 못했거나 home이면 null
+  // workspace(Home, project, 앱)의 `skills/` 폴더 절대 path다. 폴더를 만들지 못했으면 null
   skillsFolder: string | null;
   // project·앱 workspace의 artifacts 폴더와 목록. 폴더를 만들지 못했거나 home이면 null
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
@@ -118,7 +118,12 @@ function workspaceLines(data: WorkspaceData): string[] {
         : [`  Skills folder: ${data.skillsFolder}`]),
     ];
   }
-  return ["Workspace: none"];
+  return [
+    "Workspace: none",
+    ...(data.skillsFolder === null
+      ? []
+      : [`  Skills folder: ${data.skillsFolder}`]),
+  ];
 }
 
 function agentLines(agents: readonly WorkspaceAgent[]): string[] {

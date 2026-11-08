@@ -29,7 +29,7 @@ import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 
 // 제품 runtime의 skill 발견이다. 파일 출처는 내장 skill 폴더, 등록 순서의 설정
 // `lophn-agent.extensions.skill_folders`, data root의 개인 보관소(`<LOPHN_HOME>/skills`), agent workspace의 첫 폴더나 앱 source의
-// `.lophn/skills`, agent workspace 그릇 자리의 `skills/`(workspace-data 층 규칙이 정한다) 다섯뿐이다. 다른 workspace의 폴더,
+// `.lophn/skills`, agent workspace 그릇 자리의 `skills/`(workspace-data 층 규칙이 정한다, Home 포함) 다섯뿐이다. 다른 workspace의 폴더,
 // 상위 폴더, 다른 harness 보관소(`.agents/skills` 포함), 원격은 열지 않는다. 할당한 앱의 공유 skill은 파일을 열지 않고 core의
 // `app.skills`가 bundle에서 읽어 준 본문을 쓴다. 층은 내장, 공유, 전역(등록 폴더와 개인 보관소), project·app, workspace-data 순이다.
 
@@ -37,11 +37,11 @@ import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 type SkillStores = {
   bundled: string | null;
   personal: string | null;
-  // workspace-data 층을 읽을 그릇이다. lophn은 null이다.
+  // 층을 읽을 그릇이다. null은 Home이다.
   workspace: AgentWorkspace | null;
-  // project에서 끈 이름이 든 파일이다. 앱에는 없다.
-  project_file: string | null;
-  // data root다. workspace-data·project 폴더를 여는 허락이 이 아래로 좁다.
+  // 이 workspace에서 끈 이름이 든 파일이다. data root를 모르면 null이다.
+  extensions_file: string | null;
+  // data root다. workspace-data 폴더와 설정 파일을 여는 허락이 이 아래로 좁다.
   root: string | null;
   layer: ProjectLayer;
   sourceFolder: SkillStoreDeps["sourceFolder"];
@@ -70,26 +70,23 @@ export function productSkillStores(
   deps: SkillStoreDeps,
 ): SkillStores {
   const root = dataRootOfEnv();
-  const project =
-    root === null || workspace === null
-      ? null
-      : deps.projectLayer.projectOf(workspace);
   return {
     bundled: deps.bundledSkillsRoot,
     personal: root === null ? null : `${root}/skills`,
     workspace,
-    project_file:
-      project === null
-        ? null
-        : deps.projectLayer.extensionsFile(root!, project),
+    extensions_file:
+      root === null ? null : deps.projectLayer.extensionsFile(root, workspace),
     root,
     layer: deps.projectLayer,
     sourceFolder: deps.sourceFolder,
   };
 }
 
-// project에서 끈 이름이다. 파일이 없거나 틀렸거나 읽다 던지면 끈 것이 없다.
-function projectOff(port: SkillFiles, file: string | null): readonly string[] {
+// workspace에서 끈 이름이다. 파일이 없거나 틀렸거나 읽다 던지면 끈 것이 없다.
+function workspaceOff(
+  port: SkillFiles,
+  file: string | null,
+): readonly string[] {
   if (file === null) return [];
   try {
     const read = port.read(file, SKILL_BODY_MAX_BYTES);
@@ -101,9 +98,9 @@ function projectOff(port: SkillFiles, file: string | null): readonly string[] {
   }
 }
 
-// workspace 그릇 자리의 `skills/` 폴더다. lophn(home)은 그릇이 없다. 아직 없는 폴더는 발견이 skill이 없는 것으로 넘긴다.
+// workspace 그릇 자리의 `skills/` 폴더다. 아직 없는 폴더는 발견이 skill이 없는 것으로 넘긴다.
 function workspaceDataSkills(stores: SkillStores): string | null {
-  return stores.root === null || stores.workspace === null
+  return stores.root === null
     ? null
     : stores.layer.workspaceDataSkillsFolder(stores.root, stores.workspace);
 }
@@ -155,7 +152,9 @@ export async function registeredSkillEntries(
     },
     {
       kind,
-      off: [...new Set([...off, ...projectOff(port, stores.project_file)])],
+      off: [
+        ...new Set([...off, ...workspaceOff(port, stores.extensions_file)]),
+      ],
     },
   ).entries;
 }
@@ -183,7 +182,7 @@ export function productSkillSnapshotDeps(
       return {
         workspace_skills,
         workspace_data: workspaceDataSkills(where),
-        off: projectOff(port, where.project_file),
+        off: workspaceOff(port, where.extensions_file),
       };
     },
   };
@@ -205,27 +204,25 @@ async function globalSkillSettings(
 }
 
 // 등록 root·내장 폴더·개인 보관소·workspace의 `.lophn/skills`·workspace-data skill 폴더와 그 아래만 연다. symlink는 lstat로 보고 따라가지 않는다.
-// ~/.lophn, ~/.config/lophn, home 자체는 등록돼 있어도 열지 않는다. 개인 보관소와 workspace-data의 skill 폴더, project의
+// ~/.lophn, ~/.config/lophn, home 자체는 등록돼 있어도 열지 않는다. 개인 보관소와 workspace-data의 skill 폴더, workspace의
 // 끈 이름 파일은 data root 안의 정해진 곳만 예외로 연다.
 function productFiles(
   roots: readonly string[],
   stores: SkillStores,
   workspace: WorkspaceSkills | null,
 ): SkillFiles {
-  // data root 아래 workspace-data skill 폴더와 project의 설정 파일만이다.
+  // data root 아래 workspace-data skill 폴더와 workspace의 설정 파일만이다.
   const projectPath = (path: string): boolean => {
     if (stores.root === null) return false;
     const { layer } = stores;
     const root = stores.root;
     const target = lexical(path);
     if (target === null) return false;
-    if (layer.isWorkspaceDataSkills(lexical(root) ?? root, target)) return true;
-    const area = lexical(layer.settingsFolderArea(root));
-    if (area === null || !target.startsWith(`${area}/`)) return false;
-    const id = layer.projectIdOfFolder(
-      target.slice(area.length + 1).split("/")[0],
+    const base = lexical(root) ?? root;
+    return (
+      layer.isWorkspaceDataSkills(base, target) ||
+      layer.isExtensionsFile(base, target)
     );
-    return id !== null && target === lexical(layer.extensionsFile(root, id));
   };
   const allowed = (path: string): boolean =>
     projectPath(path) ||

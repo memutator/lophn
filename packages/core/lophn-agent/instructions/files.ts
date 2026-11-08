@@ -1,8 +1,9 @@
 // 사람 지침(LOPHN.md, 없으면 CLAUDE.md) 읽기 통로의 core 쪽 길(lophn-agent/instructions). LOPHN.md는 document·판 없이 그냥
-// 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), project의
-// LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`). 전역과 project 자리는
-// LOPHN.md가 없으면(ENOENT) 같은 자리의 CLAUDE.md를 읽는다. 그리고 agent 정의 본문이다.
-// 어느 project인지는 읽는 쪽이 정하지 않고 그 session의 workspace로 정한다.
+// 파일이라 GetInstructions는 읽을 때마다 파일을 연다: 전역 `~/.lophn/LOPHN.md`(data root), Home의 `<data>/home/LOPHN.md`,
+// project의 LOPHN.md(첫 등록 폴더 바로 아래, 폴더가 없으면 `<data>/projects/<prj>/`). 전역·Home·project 자리는
+// LOPHN.md가 없으면(ENOENT) 같은 자리의 CLAUDE.md를 읽는다. 앱은 source 폴더의 AGENTS.md다(source가 없으면 그 층이 없다).
+// 그리고 agent 정의 본문이다. 어느 workspace인지는 읽는 쪽이 정하지 않고 그 session의 workspace로 정하며, session의
+// workspace가 아닌 층은 부재(null)다.
 // 읽기만 있다. 파일 저장은 사람이 editor에서 하고 agent는 만들 길이 없다.
 // 이 모듈은 core가 정적으로 import하지 않는다(팀 file wiring/instructions-registration.ts만 reader Worker가 부른다). 동기
 // file API는 reader Worker 안에서만 쓴다(core_imports_test).
@@ -16,6 +17,7 @@ import {
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import {
+  APP_INSTRUCTION_FILE_NAME,
   INSTRUCTION_FILE_NAMES,
   instructionsGet,
   type AgentId,
@@ -78,7 +80,7 @@ function openFile(
   }
 }
 
-// 전역·project 자리의 지침. LOPHN.md가 있으면 CLAUDE.md는 보지 않는다(있는데 못 읽어도 그대로 unavailable이다).
+// 전역·Home·project 자리의 지침. LOPHN.md가 있으면 CLAUDE.md는 보지 않는다(있는데 못 읽어도 그대로 unavailable이다).
 function openInstructionFile(folder: string): Result<InstructionFile | null> {
   for (const name of INSTRUCTION_FILE_NAMES) {
     const file = openFile(`${folder}/${name}`, name);
@@ -101,18 +103,16 @@ function loadInstructionSession(
   return { agent: found.agent, workspace: workspaceOf(found) };
 }
 
-// 조립이 넘기는 조회와 규칙이다. project 표와 agent 정의 file 자리는 harness가 모른다.
+// 조립이 넘기는 조회와 규칙이다. project·앱 표와 agent 정의 file 자리는 harness가 모른다.
 export type InstructionReadDeps = {
   projectFirstFolder(sql: ReadSnapshot["sql"], project: string): string | null;
+  // 앱의 source 폴더다. 앱이 없거나 source가 없으면 null이다.
+  appSourceFolder(sql: ReadSnapshot["sql"], app: string): string | null;
   // 등록 폴더가 없는 project의 지침은 data root의 project 자리에 있다.
   projectDataFolder(root: string, project: string): string;
+  homeDataFolder(root: string): string;
   agentFilePathOf(root: string, session: SessionRow): string | null;
 };
-
-// 그 session의 agent가 prompt로 읽는 project. home은 workspace가 없어 없고, 앱 그릇에는 LOPHN.md가 없다.
-function ownProject(session: SessionRow) {
-  return session.workspace?.kind === "project" ? session.workspace.id : null;
-}
 
 // 정의 파일의 frontmatter를 뺀 본문. 닫는 줄이 없으면 깨진 파일이라 null이다.
 function bodyOf(text: string): string | null {
@@ -151,7 +151,7 @@ function readAgentBody(
 }
 
 // GetInstructions의 읽기. 층 하나의 파일을 돌려준다(부재는 null).
-// - project 층은 session의 workspace가 가리키는 project다. home과 앱 workspace는 project 지침이 없다.
+// - home·project·app 층은 session의 workspace가 그 종류일 때만 있다. 다른 종류의 층은 부재다.
 function readInstruction(
   deps: InstructionReadDeps,
   snapshot: ReadSnapshot,
@@ -164,11 +164,26 @@ function readInstruction(
   if (!root.ok) return unavailable();
   if (layer === "global") return openInstructionFile(root.value);
   if (layer === "agent") return readAgentBody(deps, root.value, session);
-  const project = ownProject(session);
-  if (project === null) return ok(null);
+  const { workspace } = session;
+  if (layer === "home") {
+    return workspace === null
+      ? openInstructionFile(deps.homeDataFolder(root.value))
+      : ok(null);
+  }
+  if (layer === "app") {
+    if (workspace?.kind !== "app") return ok(null);
+    const source = deps.appSourceFolder(snapshot.sql, workspace.id);
+    return source === null
+      ? ok(null)
+      : openFile(
+          `${source}/${APP_INSTRUCTION_FILE_NAME}`,
+          APP_INSTRUCTION_FILE_NAME,
+        );
+  }
+  if (workspace?.kind !== "project") return ok(null);
   const folder =
-    deps.projectFirstFolder(snapshot.sql, project) ??
-    deps.projectDataFolder(root.value, project);
+    deps.projectFirstFolder(snapshot.sql, workspace.id) ??
+    deps.projectDataFolder(root.value, workspace.id);
   return openInstructionFile(folder);
 }
 

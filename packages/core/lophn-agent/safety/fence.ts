@@ -64,6 +64,21 @@ export function defuseTransmittedText(text: string): string {
   return withoutTokens.replace(MARKER_RUN, (run) => run.split("").join(" "));
 }
 
+// 자료 경계 하나 안에 출처마다 글을 놓는다. 글은 전송본 치환을 거친다(저장본은 그대로다).
+export function fencedSections(
+  sections: readonly { source: string; text: string }[],
+): string {
+  return [
+    DATA_START_MARKER,
+    DATA_NOTE,
+    ...sections.flatMap(({ source, text }) => [
+      `출처 종류: ${source}`,
+      defuseTransmittedText(text.trim()),
+    ]),
+    DATA_END_MARKER,
+  ].join("\n");
+}
+
 // machine이 확인한 출처 밖 슬롯. 종류·주소·수집 시각만 밖에 두고, 자료 유래
 // 문자열(제목·작성자 등)은 모두 경계 안의 본문에 둔다.
 

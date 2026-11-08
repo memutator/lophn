@@ -50,25 +50,25 @@ type ExtensionRegistryDeps = {
 };
 
 export type ExtensionRegistry = {
-  // 이 workspace의 agent가 발견하는 skill이다. 내장, 전역, project·app, workspace-data 순으로 덮고 끈 것은 enabled false다. 내장 skill은
-  // `workspaces`에 선언된 종류만이고 null이면 모두다.
+  // 이 workspace(null은 Home)의 agent가 발견하는 skill이다. 내장, 전역, project·app, workspace-data 순으로 덮고 끈 것은
+  // enabled false다. 내장 skill은 `workspaces`에 선언된 종류만이고 null이면 모두다.
   // `shared`는 그 agent에게 할당한 앱의 public skill이다. 내장 바로 위 층이다.
   skills(
-    workspace: AgentWorkspace,
+    workspace: AgentWorkspace | null,
     kind: WorkspaceKind | null,
     shared?: readonly SharedSkillHead[],
   ): SkillListing;
-  // 이 workspace에서 쓸 수 있는 서버다. 전역에 project 층이 덮이고 이어진다. 앱 workspace에는 project 층이 없다.
-  mcpServers(workspace: AgentWorkspace): readonly McpRuntimeServer[];
+  // 이 workspace(null은 Home)에서 쓸 수 있는 서버다. 전역에 workspace 층이 덮이고 이어진다.
+  mcpServers(workspace: AgentWorkspace | null): readonly McpRuntimeServer[];
 };
 
-function key(workspace: AgentWorkspace): string {
-  return `${workspace.kind}:${workspace.id}`;
+function key(workspace: AgentWorkspace | null): string {
+  return workspace === null ? "home" : `${workspace.kind}:${workspace.id}`;
 }
 
 // 한 읽기의 등록부 하나를 같은 workspace의 여러 agent가 같이 쓴다. skill 목록은 workspace 종류마다 다르다.
 function skillKey(
-  workspace: AgentWorkspace,
+  workspace: AgentWorkspace | null,
   kind: WorkspaceKind | null,
   shared: readonly SharedSkillHead[],
 ): string {
@@ -84,13 +84,11 @@ export function createExtensionRegistry(
     runtimeServerOfLayer(server, null),
   );
 
-  // 틀린 파일은 그 project 층이 없는 것과 같다. 연결하지 않는 쪽으로 닫는다.
-  function projectOf(workspace: AgentWorkspace): ProjectExtensions {
-    const project = deps.projectLayer.projectOf(workspace);
-    if (project === null) return EMPTY_PROJECT_EXTENSIONS;
+  // 틀린 파일은 그 workspace 층이 없는 것과 같다. 연결하지 않는 쪽으로 닫는다.
+  function projectOf(workspace: AgentWorkspace | null): ProjectExtensions {
     try {
       const text = deps.files.read(
-        deps.projectLayer.extensionsFile(deps.root, project),
+        deps.projectLayer.extensionsFile(deps.root, workspace),
       );
       if (text === null) return EMPTY_PROJECT_EXTENSIONS;
       const parsed = parseProjectExtensions(text);
@@ -118,7 +116,7 @@ export function createExtensionRegistry(
           workspace: workspaceSkillsOf(
             deps.projectLayer,
             workspace,
-            deps.sourceFolder(workspace),
+            workspace === null ? null : deps.sourceFolder(workspace),
           ),
           workspaceData: deps.projectLayer.workspaceDataSkillsFolder(
             deps.root,
@@ -138,7 +136,7 @@ export function createExtensionRegistry(
         { servers: global, off: [] },
         {
           servers: own.mcp_servers.map((server) =>
-            runtimeServerOfLayer(server, workspace),
+            runtimeServerOfLayer(server, workspace ?? { kind: "home" }),
           ),
           off: own.mcp_off,
         },

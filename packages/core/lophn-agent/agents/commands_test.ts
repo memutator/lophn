@@ -28,7 +28,7 @@ const lookups: AgentLookups = {
   sharedCommands: () => [],
   inputMedia: () => null,
   modelDefault: () => null,
-  projectModel: () => null,
+  workspaceModel: () => null,
 };
 
 test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·extensions·permissions을 넣지 못한다", async () => {

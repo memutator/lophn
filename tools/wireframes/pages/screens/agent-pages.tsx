@@ -96,7 +96,7 @@ export const ModelPickerEmpty = () =>
     modelDemo: "picker",
     picker: { providers: "none", layer: null },
   });
-/** 이 대화에서 model을 고르지 않아 project default를 따르는 picker. */
+/** 이 대화에서 model을 고르지 않아 workspace default를 따르는 picker. */
 export const ModelPickerInherited = () =>
   weekly({
     stage: "report",

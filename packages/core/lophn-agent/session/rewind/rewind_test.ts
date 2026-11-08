@@ -36,6 +36,7 @@ import {
 } from "./mod.ts";
 import { observeFiles } from "./prepare.ts";
 import { requestApps, withRewindFiles } from "./files.ts";
+import { editMemory } from "../../tools/memory/edit.ts";
 
 const SESSION = "ses_00000000000000000000000001";
 const user: RequestContext = {
@@ -294,6 +295,95 @@ test("session을 지우면 그 session의 tool-results 폴더만 지우고 다�
     await assert.rejects(stat(join(data, "tool-results", "ses_a")));
     await stat(join(data, "tool-results", "ses_b", "tcl_1.json"));
   } finally {
+    await rm(data, { recursive: true, force: true });
+  }
+});
+
+// agent.memory가 file tool과 같은 쓰기 기록(root, 상대 경로)을 남기지 않으면 rewind가 memory를 되돌리지 못한다.
+test("agent.memory의 쓰기를 rewind하면 쓰기 전 내용으로 돌아간다", async () => {
+  const { sql, tx } = setup();
+  const dir = await mkdtemp(join(tmpdir(), "lophn-memory-rewind-"));
+  const data = await mkdtemp(join(tmpdir(), "lophn-memory-rewind-store-"));
+  try {
+    const store = createRewindStore(data);
+    const file = join(dir, "memory.md");
+    let seq = 0;
+    // record.ts가 file tool 쓰기에 하는 일과 같다: 쓰기 전 내용을 저장소에 두고 쓰고 기록 행을 남긴다.
+    const hooks = {
+      memoryFile: () => file,
+      async aroundWrite(
+        _ctx: unknown,
+        target: { root: string; relative: string },
+        run: () => Promise<never>,
+      ) {
+        const path = join(target.root, target.relative);
+        const before = await readFile(path, "utf8").catch(() => null);
+        const blob =
+          before === null
+            ? null
+            : (await store.put(SESSION, new TextEncoder().encode(before))).key;
+        const written = await run();
+        const after = await readFile(path, "utf8");
+        sql.run(
+          `insert into rewind_files
+             (tool_call, root, path, checkpoint, seq, before_exists, before_sha256, before_blob,
+              before_size, after_exists, after_sha256, moved_from, reverted_by)
+           values (?, ?, ?, 'msg_2', ?, ?, ?, ?, ?, 1, ?, null, null)`,
+          [
+            `tcl_${++seq}`,
+            target.root,
+            target.relative,
+            seq,
+            before === null ? 0 : 1,
+            before === null ? null : sha(before),
+            blob,
+            before === null ? null : before.length,
+            sha(after),
+          ],
+        );
+        return written;
+      },
+    };
+    const edit = (input: { old_string?: string; new_string: string }) =>
+      editMemory(input, { agent: "agt_x" } as never, hooks as never);
+
+    // msg_2 turn이 같은 memory를 덧붙이고 고친다.
+    await writeFile(file, "origin");
+    assert.ok((await edit({ new_string: "first" })).ok);
+    assert.ok((await edit({ old_string: "first", new_string: "second" })).ok);
+    assert.deepStrictEqual(await readFile(file, "utf8"), "origin\nsecond");
+
+    const first = planRewind(
+      { sql },
+      {
+        observe: (files) => {
+          const seen = new Map();
+          for (const f of files) {
+            for (const [path, stat] of observeFiles(f.root, [f.path])) {
+              seen.set(path, stat);
+            }
+          }
+          return seen;
+        },
+      },
+      { session: SESSION, checkpoint: "msg_2", choice: "restore_all" },
+    );
+    assert.ok(first.ok);
+    const files = await prepareRestore({
+      store,
+      session: SESSION,
+      judged: first.value.judged,
+      current: first.value.current,
+    });
+    await installRestore({
+      store,
+      session: SESSION,
+      judged: first.value.judged,
+      prepared: files,
+    });
+    assert.deepStrictEqual(await readFile(file, "utf8"), "origin");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
     await rm(data, { recursive: true, force: true });
   }
 });

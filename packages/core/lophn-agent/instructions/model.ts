@@ -9,18 +9,18 @@ import type {
 
 export const INSTRUCTION_FILE_MAX_BYTES = 32768;
 
-// 전역, project(LOPHN.md), agent 순서다.
+// 전역, Home | project | 앱, agent 순서다(PROMPT_INSTRUCTION_LAYERS).
 export type InstructionLayerKind = (typeof PROMPT_INSTRUCTION_LAYERS)[number];
 // 지침을 읽는 쪽이 보는 한 층의 파일. bytes는 처음부터 최대 INSTRUCTION_FILE_MAX_BYTES 만큼이다.
 // 상한을 넘는 파일은 size_bytes로만 알면 되므로 끝까지 읽지 않는다.
 export type InstructionFile = {
-  // 전역·project 층이 실제로 연 파일(LOPHN.md 또는 CLAUDE.md).
+  // 실제로 연 파일(LOPHN.md, CLAUDE.md, 앱 층은 AGENTS.md). agent 층에는 없다.
   name?: InstructionFileName;
   size_bytes: number;
   bytes: Uint8Array;
 };
 
-// 읽기 통로는 읽기만 있다. 지침 파일 저장은 사람이 editor에서 파일을 저장하는 일이다. 어느 project의
+// 읽기 통로는 읽기만 있다. 지침 파일 저장은 사람이 editor에서 파일을 저장하는 일이다. 어느 workspace의
 // 파일인지는 통로가 이미 안다(그 session의 workspace).
 export interface InstructionFiles {
   // 그 층의 지금 파일. 파일이 없으면 null(부재)이고 읽지 못하면 err다.

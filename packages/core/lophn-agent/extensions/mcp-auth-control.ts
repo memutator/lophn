@@ -1,7 +1,6 @@
 import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentId,
-  type AgentWorkspace,
   mcpAuthBegin,
   mcpAuthBeginInputSchema,
   mcpAuthCancel,
@@ -10,6 +9,7 @@ import {
   mcpAuthCompleteInputSchema,
   mcpAuthState,
   mcpAuthStateInputSchema,
+  type McpOwnerWorkspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   secretDestinationOf,
@@ -27,6 +27,7 @@ import {
   type McpOAuthVault,
   mcpTokenNames,
 } from "./mod.ts";
+import { mcpOwnerScope } from "./mcp-oauth-vault.ts";
 import type { McpRuntimeServer } from "./mcp-server.ts";
 import type { RegisteredMcpServer } from "./mcp-snapshot.ts";
 
@@ -68,13 +69,12 @@ const TWO_OWNERS = err({
   message: "서버 자리와 agent 중 하나만 고른다",
 });
 
+// 소유자 열쇠(`global`, `home`, workspace id)가 같은 서버만 같은 자리다.
 function sameWorkspace(
-  left: AgentWorkspace | null,
-  right: AgentWorkspace | null,
+  left: McpOwnerWorkspace | null,
+  right: McpOwnerWorkspace | null,
 ) {
-  return left === null || right === null
-    ? left === right
-    : left.kind === right.kind && left.id === right.id;
+  return mcpOwnerScope(left) === mcpOwnerScope(right);
 }
 
 // 서버가 가는 곳의 origin이 청한 목적지와 같은지 본다.
@@ -89,7 +89,7 @@ function sameOrigin(url: string, destination: SecretFileUse["destination"]) {
 
 // OAuth로 로그인하는 http 서버만 McpOAuthServer가 된다. client secret은 사람이 넣은 값을 이름으로 읽는다.
 function oauthServerOf(
-  workspace: AgentWorkspace | null,
+  workspace: McpOwnerWorkspace | null,
   agent: AgentId | null,
   server: McpRuntimeServer,
   secretValue: (name: string) => string | null,
@@ -144,7 +144,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
   }
 
   async function registeredServerOf(
-    workspace: AgentWorkspace | null,
+    workspace: McpOwnerWorkspace | null,
     agent: AgentId | null,
     name: string,
   ): Promise<Result<McpRuntimeServer>> {
@@ -164,7 +164,7 @@ export function createMcpAuthControl(deps: McpAuthControlDeps): {
 
   // 로그인할 수 있는 서버: 그 소유자에 등록된 http oauth2 서버다.
   async function oauthTarget(
-    workspace: AgentWorkspace | null,
+    workspace: McpOwnerWorkspace | null,
     agent: AgentId | null,
     name: string,
   ): Promise<Result<McpOAuthServer>> {

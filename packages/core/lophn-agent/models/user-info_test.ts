@@ -44,7 +44,7 @@ function open() {
   const commands = createModelCommands({
     definitionKey: () => DEFINITION,
     catalogEntry: (definition, name) => checkEntryOf(sql, [], definition, name),
-    projectExists: () => true,
+    workspaceExists: () => true,
   });
   return { db, sql, tx, commands };
 }

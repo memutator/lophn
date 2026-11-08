@@ -29,9 +29,10 @@ import type {
   McpLogin,
   InstructionsFile,
   McpRow,
-  ProjectInstructionsView,
+  MemoryTarget,
   SkillRow,
   Sourced,
+  WorkspaceInstructionsView,
 } from "./views.ts";
 
 export type { ReadResult };
@@ -64,17 +65,19 @@ export interface AgentListRow {
 export interface AgentsOverview {
   /** 전역 agent와 이 workspace 범위 agent(lophn이 첫 줄). */
   readonly agents: readonly AgentListRow[];
-  /** 같이 쓰는 `LOPHN.md`. 앱 자리에는 project 지침이 없어 null이다. 파일이 없거나 읽을 수 없으면 빈 글이다. */
-  readonly instructions: ProjectInstructionsView | null;
-  /** 이 project가 고른 model 하나(null이면 전역 기본을 따른다)와 따를 전역 기본. */
-  readonly projectModel: {
+  /** 같이 쓰는 지침. 파일이 없거나 읽을 수 없으면 빈 글이다. source를 잇지 않은 앱은 고치지 못하는 빈 글이다. */
+  readonly instructions: WorkspaceInstructionsView;
+  /** 이 workspace가 고른 model 하나(null이면 전역 기본을 따른다)와 따를 전역 기본. */
+  readonly workspaceModel: {
     readonly chosen: ModelChoice | null;
     readonly inherited: ModelChoice | null;
   };
-  /** 이 project에서 발견되는 skill. 꺼진 것도 줄로 남는다. */
+  /** 이 workspace에서 발견되는 skill. 꺼진 것도 줄로 남는다. */
   readonly skills: readonly SkillRow[];
-  /** 이 project가 쓰는 MCP server(전역과 project 층). */
+  /** 이 workspace가 쓰는 MCP server(전역과 workspace 층). */
   readonly mcpServers: readonly McpRow[];
+  /** workspace memory. 파일이 없거나 읽을 수 없으면 빈 글이다. */
+  readonly memory: InstructionsFile;
 }
 
 /**
@@ -113,9 +116,9 @@ export interface AgentDraft {
   readonly body: string;
 }
 
-/** 화면을 연 자리. `kind: "none"`은 Settings다. */
+/** 화면을 연 자리. `kind: "none"`은 Settings다. Home은 id가 없다. */
 export interface WorkspaceView {
-  readonly kind: "project" | "app" | "none";
+  readonly kind: "home" | "project" | "app" | "none";
   readonly id: string | null;
   readonly name: string;
 }
@@ -146,17 +149,21 @@ export interface AgentDetail {
   readonly issues: readonly AgentDefinitionIssue[];
   /** 저장된 정의로 계산한 명함. 새 agent와 틀린 file은 없다. */
   readonly card?: AgentCard;
-  /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, project). 이 agent가 끈 것은 정의의 skills_off가 말한다. */
+  /** 이 agent가 놓인 곳에서 보이는 skill(내장, 전역, workspace). 이 agent가 끈 것은 정의의 skills_off가 말한다. */
   readonly skills: readonly SkillRow[];
-  /** 전역과 project 층 MCP server. 이 agent 층은 정의의 mcp_servers다. */
+  /** 전역과 workspace 층 MCP server. 이 agent 층은 정의의 mcp_servers다. */
   readonly mcpServers: readonly McpRow[];
   /**
    * 저장된 정의가 가진 OAuth server의 로그인 상태(이름별). core가 읽는 정의 파일의 서버만 있어 저장하지 않은
    * 편집의 새 server에는 로그인이 없다.
    */
   readonly agentMcpLogins: Readonly<Record<string, McpLogin>>;
-  /** project 지침. 앱 자리이거나 놓인 곳이 없으면 null이다. */
-  readonly instructions: ProjectInstructionsView | null;
+  /** workspace 지침. 놓인 곳이 없으면(Settings) null이다. */
+  readonly instructions: WorkspaceInstructionsView | null;
+  /**
+   * 이 agent의 memory. lophn은 따로 agent memory가 없어(workspace memory를 쓴다) null이고, 저장 전의 새 agent도 null이다.
+   */
+  readonly memory: InstructionsFile | null;
   /** 설정 `extensions.harness.enabled`. 꺼져 있으면 runtime 고르기가 harness 값을 내지 않는다. */
   readonly harnessEnabled: boolean;
   /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). 읽지 못하면 빈 목록이다. */
@@ -251,9 +258,14 @@ export interface GrantsView {
 }
 
 export interface AgentsSource {
-  /** 전역 agent와 화면을 연 자리(첫 인자, home은 "home") 범위 agent의 목록(lophn이 첫 줄). sidebar의 Agents 묶음이 이것만 읽는다. */
-  list(project: string): Promise<ReadResult<readonly AgentListRow[]>>;
-  overview(project: string): Promise<ReadResult<AgentsOverview>>;
+  /**
+   * 전역 agent와 화면을 연 자리 범위 agent의 목록(lophn이 첫 줄). 자리는 "home"이거나 project·앱 id다. sidebar의 Agents 묶음이
+   * 이것만 읽는다.
+   */
+  list(workspace: string): Promise<ReadResult<readonly AgentListRow[]>>;
+  overview(workspace: string): Promise<ReadResult<AgentsOverview>>;
+  /** 모든 workspace의 lophn 이름(agent id → 보이는 이름). 사람이 workspace마다 바꾼 이름을 다른 workspace 줄에서도 보이려고 읽는다. */
+  lophnNames(): Promise<ReadResult<Readonly<Record<string, string>>>>;
   models(): Promise<ReadResult<ModelsView>>;
   /** custom provider의 model 목록을 다시 읽는다. 성공하면 true다. */
   refreshModels(provider: string): Promise<boolean>;
@@ -273,40 +285,44 @@ export interface AgentsSource {
     key: UserModelKey,
     seq: string,
   ): Promise<ReadResult<UserModels>>;
-  /** 첫 인자는 화면을 연 자리(project나 앱, Settings는 null)다. agent는 두 번째 인자 하나로 가리킨다. */
+  /** 첫 인자는 화면을 연 자리("home", project나 앱 id, Settings는 null)다. agent는 두 번째 인자 하나로 가리킨다. */
   readAgent(
-    project: string | null,
+    workspace: string | null,
     assignment: string,
   ): Promise<ReadResult<AgentDetail>>;
-  /** 첫 저장 전의 agent. 상속하는 값과 기본 범위는 화면을 연 자리가 정한다(null이면 전역). */
-  newAgent(project: string | null): Promise<ReadResult<AgentDetail>>;
-  saveAgent(project: string | null, input: SaveInput): Promise<SaveResult>;
+  /** 첫 저장 전의 agent. 상속하는 값과 기본 범위는 화면을 연 자리가 정한다(null이나 "home"이면 전역). */
+  newAgent(workspace: string | null): Promise<ReadResult<AgentDetail>>;
+  saveAgent(workspace: string | null, input: SaveInput): Promise<SaveResult>;
   deleteAgent(
-    project: string,
+    workspace: string,
     assignment: string,
     hash: string,
   ): Promise<ReadResult<null>>;
   /** profile 이미지를 올리고 정의의 profile에 쓸 파일 이름을 돌려준다. 저장은 따로다. */
   uploadImage(
-    project: string | null,
+    workspace: string | null,
     assignment: string,
     file: File,
   ): Promise<ReadResult<{ readonly image: string }>>;
   /** 올린 이미지 avatar를 화면이 읽을 수 있는 주소로 푼다. 풀 수 없으면 빈 글이다. */
-  imageSrc(project: string | null, assignment: string, image: string): string;
-  /** project 층 model을 고르거나(choice) 비워 전역 기본을 따르게(null) 한다. */
-  setProjectModel(
-    project: string,
+  imageSrc(workspace: string | null, assignment: string, image: string): string;
+  /** workspace 층 model을 고르거나(choice) 비워 전역 기본을 따르게(null) 한다. */
+  setWorkspaceModel(
+    workspace: string,
     choice: ModelChoice | null,
   ): Promise<ReadResult<null>>;
-  /** project 층에서 skill을 켜고 끈다. agent 층은 정의의 skills_off로 저장한다. */
+  /** workspace 층에서 skill을 켜고 끈다. agent 층은 정의의 skills_off로 저장한다. */
   setSkill(
-    project: string,
+    workspace: string,
     name: string,
     on: boolean,
   ): Promise<ReadResult<null>>;
-  /** project 층 MCP server를 켜고 끈다. agent 층은 정의의 mcp_off로 저장한다. */
-  setMcp(project: string, name: string, on: boolean): Promise<ReadResult<null>>;
+  /** workspace 층 MCP server를 켜고 끈다. agent 층은 정의의 mcp_off로 저장한다. */
+  setMcp(
+    workspace: string,
+    name: string,
+    on: boolean,
+  ): Promise<ReadResult<null>>;
   /** OAuth MCP server 로그인을 시작하고 사람이 browser에서 돌아올 때까지 기다린다. */
   signInMcp(name: string, login: McpLogin): Promise<ReadResult<null>>;
   /** 기다리는 MCP 로그인을 그만둔다. */
@@ -316,24 +332,32 @@ export interface AgentsSource {
   ): Promise<ReadResult<null>>;
   /** 이 agent에 붙은 할당과 붙일 수 있는 앱. */
   grants(
-    project: string | null,
+    workspace: string | null,
     assignment: string,
   ): Promise<ReadResult<GrantsView>>;
   /** 붙은 할당 전체를 새 내용으로 바꾸고 새 저장 판을 돌려준다. revision이 지금과 다르면 `conflict`다. */
   setGrants(
-    project: string | null,
+    workspace: string | null,
     assignment: string,
     entries: readonly AssignmentEntry[],
     revision: number,
   ): Promise<ReadResult<{ readonly revision: number }>>;
-  /** project의 `LOPHN.md`를 다시 읽는다. 앱 자리에는 없어 unavailable이다. */
-  readInstructions(project: string): Promise<ReadResult<InstructionsFile>>;
+  /** workspace 지침(project·Home은 `LOPHN.md`, 앱은 source의 `AGENTS.md`)을 다시 읽는다. source가 없는 앱은 unavailable이다. */
+  readInstructions(workspace: string): Promise<ReadResult<InstructionsFile>>;
   /**
-   * project의 `LOPHN.md`를 통째로 쓴다. hash는 읽은 때의 값이고, 그사이 파일이 바뀌었으면 message가 conflict이고
+   * workspace 지침을 통째로 쓴다. hash는 읽은 때의 값이고, 그사이 파일이 바뀌었으면 message가 conflict이고
    * 파일은 그대로다.
    */
   writeInstructions(
-    project: string,
+    workspace: string,
+    text: string,
+    hash: string | null,
+  ): Promise<ReadResult<InstructionsFile>>;
+  /** memory 파일을 다시 읽는다. 파일이 없으면 빈 글이다. */
+  readMemory(target: MemoryTarget): Promise<ReadResult<InstructionsFile>>;
+  /** memory 파일을 통째로 쓴다. hash 규칙은 writeInstructions와 같다. */
+  writeMemory(
+    target: MemoryTarget,
     text: string,
     hash: string | null,
   ): Promise<ReadResult<InstructionsFile>>;

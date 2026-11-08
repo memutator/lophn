@@ -1,4 +1,4 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Input and output · Card · Instructions · Model · Tools(bare) · Skills · MCP servers · Shell extensions · Skip permissions.
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Input and output · Card · Instructions · Memory · Model · Tools(bare) · Skills · MCP servers · Shell extensions · Skip permissions.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
@@ -24,7 +24,11 @@ import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { CardFacts, modalityLabel, scopeLabel } from "../agent-card.tsx";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
 import type { McpLogin, McpRow } from "../views.ts";
-import type { InstructionsPort } from "./instructions-editor.tsx";
+import { MEMORY_MAX_BYTES } from "../../../../../protocol/lophn-agent/tool-lists.ts";
+import {
+  InstructionsEditor,
+  type InstructionsPort,
+} from "./instructions-editor.tsx";
 import { ModelField, type ModelFieldSource } from "./model-field.tsx";
 import {
   InstructionsBlock,
@@ -46,6 +50,7 @@ type FieldName =
   | "modality"
   | "tools"
   | "instructions"
+  | "memory"
   | "model"
   | "skills"
   | "mcp"
@@ -118,6 +123,9 @@ function Group({
   );
 }
 
+/** memory가 보기에서 보이는 줄 수. */
+const MEMORY_LINES = 4;
+
 const ALL_MODALITIES: readonly Modality[] = ["text", "image", "file"];
 
 // 셋 다 고른 쪽은 칸에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.
@@ -144,12 +152,11 @@ function withModality(
 }
 
 function instructionsHead(detail: AgentDetail, workspaceName: string): string {
-  const project =
-    detail.instructions?.project ??
-    (detail.workspace.kind === "project" ? workspaceName : null);
-  return project === null
-    ? t("agents.label.instructions-head-unknown")
-    : t("agents.label.instructions-head-placed", { project });
+  const file = detail.instructions?.file ?? "LOPHN.md";
+  return t("agents.label.instructions-head-placed", {
+    file,
+    workspace: detail.instructions?.workspace ?? workspaceName,
+  });
 }
 
 // 비어 가는 칸은 정의에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.
@@ -208,8 +215,10 @@ interface DefinitionFormProps {
   readonly onCancelSignIn: (row: McpRow) => void;
   /** 이 화면이 시작해 기다리는 server 이름. */
   readonly signingIn: readonly string[];
-  /** project 지침(LOPHN.md)을 그 자리에서 고치는 길. */
-  readonly projectInstructions: InstructionsPort;
+  /** workspace 지침을 그 자리에서 고치는 길. */
+  readonly workspaceInstructions: InstructionsPort;
+  /** 이 agent의 memory를 그 자리에서 고치는 길. memory가 없는 agent(lophn, 저장 전)는 쓰지 않는다. */
+  readonly memoryPort: InstructionsPort;
   /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). */
   readonly extensions: readonly PublishedExtension[];
 }
@@ -235,7 +244,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
 
   // 새 agent가 고를 수 있는 범위: 화면을 연 workspace. home이나 Settings는 없고 전역뿐이다.
   const here =
-    detail.workspace.kind === "none"
+    detail.workspace.kind === "none" || detail.workspace.kind === "home"
       ? null
       : ({
           kind: detail.workspace.kind,
@@ -414,7 +423,10 @@ export function DefinitionForm(props: DefinitionFormProps) {
               }
             />
           ) : (
-            <Input value={scopeLabel(scope, props.workspaceName)} readOnly />
+            <Input
+              value={scopeLabel(scope, props.workspaceName, lophn)}
+              readOnly
+            />
           )}
         </Field>
         <Issues issues={issuesOf("workspace")} />
@@ -496,12 +508,12 @@ export function DefinitionForm(props: DefinitionFormProps) {
       )}
 
       <InstructionsBlock
-        project={detail.instructions}
+        workspace={detail.instructions}
         head={instructionsHead(detail, props.workspaceName)}
-        port={props.projectInstructions}
+        port={props.workspaceInstructions}
         note={
-          detail.workspace.kind === "app"
-            ? t("agents.notice.app-no-project")
+          detail.instructions?.editable === false
+            ? t("agents.notice.instructions-app-none")
             : undefined
         }
         value={definition.body}
@@ -513,6 +525,29 @@ export function DefinitionForm(props: DefinitionFormProps) {
         issues={<Issues issues={issuesOf("instructions")} />}
         onChange={(body) => onChange({ ...definition, body })}
       />
+
+      {/* lophn은 workspace memory를 쓰고(Agents 탭에서 고친다) harness는 lophn의 prompt를 받지 않는다. */}
+      {lophn || harness ? null : (
+        <Group name="memory" heading={t("agents.heading.memory")}>
+          {detail.memory === null ? (
+            <p className={styles.note}>
+              {t("agents.notice.memory-agent-after-create")}
+            </p>
+          ) : (
+            <>
+              <InstructionsEditor
+                head={t("agents.label.memory-head-agent")}
+                file={detail.memory}
+                lines={MEMORY_LINES}
+                empty={t("agents.empty.memory")}
+                port={props.memoryPort}
+                limit={MEMORY_MAX_BYTES}
+              />
+              <p className={styles.note}>{t("agents.notice.memory-agent")}</p>
+            </>
+          )}
+        </Group>
+      )}
 
       {harness ? null : (
         <div className={styles.group} data-field="model">

@@ -37,21 +37,21 @@ modules: [packages/core/lophn-agent, packages/protocol]
 정할 것:
 - C를 할지. 오류 본문에는 provider가 되돌려 보낸 credential 조각(예: "Incorrect API key provided: sk-…")이 섞일 수 있어 규칙이 생긴 것으로 보인다. redaction을 거치면 그 위험은 출력 blob과 같다. secret 경계의 규칙을 바꾸는 것이라 사람이 정한다.
 
-## 전역 lophn의 MCP OAuth refresh token이 lophn마다 복사되어 서로 무효로 만들 수 있다
+## Home memory의 workspace 지도를 채우는 길이 없다
 
 ```yaml
 kind: bug
-modules: [packages/core/main, packages/core/lophn-agent]
+modules: [packages/core/agent-workspaces]
 ```
 
-지금: 전역 lophn을 workspace마다로 나누는 data step(`packages/core/main/daemon/wiring/lophn-split.ts`)이 `secrets.json`의 `mcp-oauth.lophn.<서버>.<access|refresh|meta>`를 모든 lophn id(`lophn_home`, `lophn_<prj|app id>`)의 이름으로 복사하고 옛 이름을 지운다. 그래서 같은 refresh token을 lophn 여럿이 따로 갖는다.
+지금: Home prompt(`packages/core/agent-workspaces/prompts/home.md` "Memory")는 Home의 lophn에게 workspace 지도(어느 project·앱이 무엇을 맡고 무엇을 물으면 되나)를 workspace memory에 적으라고 한다. project·앱 prompt(`prompts/project.md`, `prompts/app.md`의 "Memory")는 다른 workspace에 대해 모르는 것을 Home의 lophn에게 물으라고만 한다. 자기 workspace에 다른 workspace가 물을 만한 것이 생겼을 때(새 report, 맡은 일이 바뀜) Home에 알리라는 말은 어느 prompt에도 없다. Home workspace 정보(`workspace/workspace-info.ts`)는 project를 이름과 목적 한 줄로만 싣는다. 그래서 Home이 지도를 얻는 길은 사람이 Home에서 직접 말해 주는 것과 Home이 스스로 넘긴 일뿐이다.
 
-영향: refresh token을 쓸 때마다 바꾸는(rotation) 발급자라면, lophn 하나가 먼저 refresh하는 순간 다른 lophn의 사본이 무효가 된다. 사람은 그 server를 쓰는 다른 workspace마다 OAuth를 다시 해야 한다. MCP를 전역 lophn 정의에 OAuth로 붙여 두었던 사람만 겪는다.
+영향: 사람이 path를 주지 않아도 agent가 필요한 자료를 찾아가게 하려는 memory의 목적이 이뤄지지 않는다. 예: harness-lab project의 lophn이 memory 구조 비교 report를 써도 Home의 지도에는 없다. lophn project의 agent가 Home에게 "memory 조사 자료가 있나"를 물어도 Home은 모른다고 답하고, 사람이 매번 path를 알려 준다.
 
 고치려면:
-- 그대로 둔다(작음). refresh가 거절되면 지금도 `refresh_rejected`로 다시 인증을 묻는다. 잃는 것: workspace마다 한 번씩 다시 인증.
-- token을 복사하지 않고 Home lophn에만 옮긴다(작음). 잃는 것: project·앱 lophn은 처음부터 다시 인증. "동작을 그대로 잇는다"는 계획 결정과 어긋난다.
-- 추천: 그대로 둔다. 다시 인증 길이 이미 있고, 전역 lophn에 OAuth MCP를 붙인 사람은 적다.
+- project·앱 prompt에 알리기를 더한다(작음). 다른 workspace가 물을 만한 것이 생기면 Home의 lophn에게 `lophn call send --reply none`으로 한 줄(무엇이 어디에 있고 누구에게 물으면 되나)을 보내고, Home prompt는 받은 알림을 지도에 pointer로 적게 한다. 잃는 것: 알릴지는 model의 판단이라 빠질 수 있다.
+- Home이 지도가 비었거나 낡았을 때 각 workspace의 lophn에게 물어 채운다(중간). 잃는 것: 물을 때마다 workspace 수만큼 call이 든다.
+- 추천: 첫째. memory의 "자기 것만 든다, 경계를 넘는 것은 call"과 맞고 prompt 문구만 바꾼다. 앱 agent가 읽는 `prompts/app.md`를 바꾸므로 `sdk-note` 판단이 필요하다.
 
 ## 이미 있는 provider id로 연결하면 그 provider의 key·token이 새 값으로 덮인다
 

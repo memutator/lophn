@@ -20,6 +20,7 @@ import { createHarnessGuiTabApi } from "./harness-gui-api.ts";
 import { createSecretInputOpener } from "./secret-input-open.ts";
 import { createAnnotateApi } from "./annotate-api.ts";
 import { createInstructionsApi } from "./instructions-api.ts";
+import { createMemoryApi } from "./memory-api.ts";
 import { createGlobalFloatsApi } from "./global-floats-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
 import { createShellApi } from "./shell-api.ts";
@@ -169,6 +170,8 @@ if (role === "shell") {
     "lophnInstructions",
     createInstructionsApi(ipcRenderer),
   );
+  // [Memory]: memory 파일을 같은 편집기 길로 연다. 경로는 main에만 있다.
+  contextBridge.exposeInMainWorld("lophnMemory", createMemoryApi(ipcRenderer));
 }
 
 contextBridge.exposeInMainWorld("lophnCore", createCoreApi(ipcRenderer));

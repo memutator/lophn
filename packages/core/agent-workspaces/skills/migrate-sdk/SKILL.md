@@ -110,7 +110,10 @@ be lost before you activate; if you are not sure, do not drop it.
 ## 10. If a note cannot be followed
 
 If the app uses something the notes do not cover, or a note's change would
-change what the app does, stop and ask the person (`ask`). Do not guess.
+change what the app does, first look in your Memory for what the person already
+decided about it. If they settled it, follow that and say only that you did. If
+not, stop and ask the person (`ask`); do not guess. When they answer, write the
+decision in your Memory with `agent.memory`.
 
 ## 11. Features chosen by the person
 
@@ -118,9 +121,10 @@ Only if the handoff from Home lists features. Do this after the migration is
 released and working, as a separate change. Each feature is a proposal the
 person picked from a short description, not a finished spec: confirm what they
 want in this app's conversation (`ask` for the open choices, such as the
-threshold or whether it is persistent), design it with the `design-app` skill,
-read the notes of the version that adds it for the exact API, then implement,
-check, preview and release as in steps 6 and 7. If a feature does not fit once
+threshold or whether it is persistent; skip a choice your Memory already holds,
+follow it, and write each new answer there with `agent.memory`), design it with
+the `design-app` skill, read the notes of the version that adds it for the exact
+API, then implement, check, preview and release as in steps 6 and 7. If a feature does not fit once
 you see the code, say so and skip it instead of forcing it.
 
 ## 12. Report

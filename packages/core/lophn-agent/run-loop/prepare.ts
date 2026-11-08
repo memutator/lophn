@@ -52,10 +52,11 @@ import {
   type TurnInstructionLayer,
 } from "../instructions/mod.ts";
 import { cappedOutput, type ModelBinding } from "../models/binding.ts";
-import type {
-  HistoryMessage,
-  SeenBasis,
-  TurnPromptInput,
+import {
+  type HistoryMessage,
+  noInstructions,
+  type SeenBasis,
+  type TurnPromptInput,
 } from "../prompt-assembly/mod.ts";
 import { readSessionConversation } from "../session/history.ts";
 import {
@@ -205,6 +206,11 @@ type PreparerDeps = {
   // workspace 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 workspace 층이 정한다.
   workspaceTools(kind: WorkspaceKind): readonly string[];
   instructions: InstructionDeps;
+  // session 첫 turn에 prompt로 싣는 memory 글을 읽는다(workspace memory, agent memory). 없으면 memory block이 없다.
+  memory?(
+    agent: AgentId,
+    workspace: AgentWorkspace | null,
+  ): Promise<NonNullable<TurnPromptInput["memory"]>>;
   // session마다 그 session으로 지침 파일을 읽는 통로. 있으면 `instructions.files` 대신 쓴다(core가 session의
   // workspace로 어느 project인지 정한다).
   instructionFilesFor?(session: Id<"ses">): InstructionDeps["files"];
@@ -267,6 +273,36 @@ type FixedTools = {
   // bare가 그 session을 시작할 때 고른 이름이다. 뒤 turn에 고른 이름이 늘어도 이 밖은 실행하지 않는다.
   picks: ReadonlySet<string>;
 };
+
+type MemoryTexts = NonNullable<TurnPromptInput["memory"]>;
+
+// memory 글을 session 첫 turn에 읽어 고정한다. 그 뒤 turn은 같은 글(같은 bytes)을 싣고, session 중에 쓴 memory는 다음
+// session부터 보인다(prefix cache). daemon이 다시 뜨면 map이 비어 다시 읽고, Compact로 compaction 경계가 바뀌어도 다시 읽는다:
+// 지금 고정값(tool 목록, seen)이 사라지는 때와 같다.
+export function createFixedMemory() {
+  const bySession = new Map<
+    string,
+    { compaction: string | null; texts: MemoryTexts }
+  >();
+  return {
+    async get(
+      session: string,
+      compaction: string | null,
+      read: () => Promise<MemoryTexts>,
+    ): Promise<MemoryTexts> {
+      const held = bySession.get(session);
+      if (held !== undefined && held.compaction === compaction) {
+        return held.texts;
+      }
+      const texts = await read();
+      bySession.set(session, { compaction, texts });
+      return texts;
+    },
+    forget(session: string) {
+      bySession.delete(session);
+    },
+  };
+}
 
 // 지난 turn이 본 prompt의 판이다. compaction 경계(through_seq)를 같이 두어 Compact 뒤 첫 turn은 seen 없이 부른다.
 type Seen = { basis: SeenBasis; compaction: string | null };
@@ -406,7 +442,7 @@ function instructionTexts(
   layers: readonly TurnInstructionLayer[],
 ): TurnPromptInput["instructions"] {
   const files: Partial<Record<TurnInstructionLayer["layer"], string>> = {};
-  const texts = { global: "", project: "", agent: "", files };
+  const texts = { ...noInstructions(), files };
   for (const layer of layers) {
     texts[layer.layer] = layer.text ?? "";
     if (layer.file !== null) files[layer.layer] = layer.file;
@@ -418,6 +454,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   const { machine, clock, ids } = deps;
   const fixedBySession = new Map<string, FixedTools>();
   const seenBySession = new Map<string, Seen>();
+  const fixedMemory = createFixedMemory();
 
   // 등록된 외부 MCP tool이다. 읽지 못하면 서버 자체가 없는 것과 같은 답이다(fails closed).
   async function loadMcp(session: string, options: McpSourceOptions = {}) {
@@ -680,6 +717,17 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         images,
         runtime: resolved.runtime,
       });
+    // bare는 workspace memory를 받지 않는다(workspace 정보와 지침 층을 받지 않는 것과 같다). 자기 agent memory는 받는다.
+    const memoryOf = async (compaction: string | null) => {
+      const texts = await fixedMemory.get(
+        seat.session,
+        compaction,
+        () =>
+          deps.memory?.(session.agent, session.workspace) ??
+          Promise.resolve({ workspace: "", agent: "" }),
+      );
+      return resolved.runtime === "bare" ? { ...texts, workspace: "" } : texts;
+    };
     let built: Promise<Result<Built>> | undefined;
     const build = async (): Promise<Result<Built>> => {
       // bare는 workspace 종류 지침(제품 고정 규칙)을 싣지 않는다.
@@ -701,6 +749,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       scope.base = placed.value.scope.base;
       scope.results = placed.value.scope.results;
       const compaction = compactionOf(read.value);
+      const memory = await memoryOf(compaction);
       const notices =
         m.current.length === 0 || (await keyOf(m.current)) === fixed.key
           ? []
@@ -715,6 +764,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
           })),
           instructions,
+          memory,
           skills: promptSkills(
             (await deps.skills?.(
               resolved.workspace,
@@ -799,6 +849,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
               }
               const prompt = { ...loaded.value.prompt };
               delete prompt.seen;
+              prompt.memory = await memoryOf(compactionOf(reread.value));
               built = Promise.resolve(
                 ok({
                   ...loaded.value,
@@ -951,24 +1002,21 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     }
 
     // 사람 지침은 turn을 시작할 때 한 번 읽고 turn 끝까지 쓴다. 한 층이라도 읽지 못했으면 turn을 시작하지 않는다.
-    // bare는 전역·project 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.
+    // bare는 agent 층 밖의 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.
     const files =
       deps.instructionFilesFor?.(start.session) ?? deps.instructions.files;
-    const instructions = await readTurnInstructions(
-      {
-        ...deps.instructions,
-        files:
-          agent.runtime === "bare"
-            ? {
-                read: (layer) =>
-                  layer === "agent"
-                    ? files.read(layer)
-                    : Promise.resolve(ok(null)),
-              }
-            : files,
-      },
-      { kind },
-    );
+    const instructions = await readTurnInstructions({
+      ...deps.instructions,
+      files:
+        agent.runtime === "bare"
+          ? {
+              read: (layer) =>
+                layer === "agent"
+                  ? files.read(layer)
+                  : Promise.resolve(ok(null)),
+            }
+          : files,
+    });
     if (instructions.status === "blocked") {
       return await closeUnstarted(
         start,
@@ -1161,6 +1209,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     forget(session) {
       fixedBySession.delete(session);
       seenBySession.delete(session);
+      fixedMemory.forget(session);
     },
   };
 }

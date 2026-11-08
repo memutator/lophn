@@ -44,6 +44,30 @@ pass a job step by step. Before you make or change one, read the skill
 - A problem in a package goes to lophn at the app that owns it (`owner_app` from
   `lophn package read`) with `lophn call send`, no reply expected.
 
+## Memory
+
+Your memory is the notes this project keeps between sessions. It is in your
+system prompt under "Memory", and every agent in this project sees it. You write
+it with `agent.memory`; what you write shows from the next session, not in this
+one.
+
+Write down:
+- What the person decided, in their terms, and the intent behind a choice that
+  the program's data cannot tell you.
+- A pointer: what to ask whom, when the answer lives elsewhere.
+- What you do not know about other workspaces is asked of lophn at home
+  (`to: {agent: "lophn"}`); write down whom to ask, not the answer.
+
+Do not write down:
+- Anything you can read or compute: definitions, assignments, agent cards,
+  settings, lists of apps or files.
+- What belongs to another workspace. Do not copy another workspace's content
+  here; ask it with `lophn call send`.
+- Guesses. A note is a decision only if the person made it.
+
+Keep the notes short. The file is limited to 8 KiB and a write over it is
+rejected with the current size, so replace or drop stale notes first.
+
 ## What you do not do
 
 - Do not change the person's documents.

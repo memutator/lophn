@@ -50,6 +50,7 @@ const saveCompareSchema = z.strictObject({ hash: sha256Schema.nullable() });
 const existingCompareSchema = z.strictObject({ hash: sha256Schema });
 
 // 값을 준 층. 설정의 층은 전역, project, agent이고 composer가 session 하나만 고른 model이 session이다.
+// "project"는 workspace 층(Home, project, 앱)을 가리킨다. 이름을 바꾸지 않는 것은 공개 ACP SDK type(`AcpSessionMeta.layer`)에 있기 때문이다.
 const AGENT_VALUE_LAYERS = ["global", "project", "agent", "session"] as const;
 const agentValueLayerSchema = z.enum(AGENT_VALUE_LAYERS);
 export type AgentValueLayer = z.infer<typeof agentValueLayerSchema>;

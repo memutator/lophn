@@ -6,7 +6,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
 import {
   agentIdSchema,
-  workspaceOutputSchema,
+  type Workspace,
   workspaceSchema,
 } from "./workspaces.ts";
 import { skillNameSchema, SKILLS_OFF_MAX } from "./skill-settings.ts";
@@ -17,9 +17,9 @@ const effectSchema = z.enum(["read", "write", "external"]);
 const headerName = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
 const absolutePath = z.string().regex(/^(\/|[A-Za-z]:\\).+/);
 
-// 층(전역, project, agent)에 두는 서버 한 칸이다. tool 분류는 없다: tool의 효과는 readOnlyHint가 참이면 read,
+// 층(전역, Home·project·app, agent)에 두는 서버 한 칸이다. tool 분류는 없다: tool의 효과는 readOnlyHint가 참이면 read,
 // 아니면 external이다. credential은 `secrets.json`의 이름 참조다: 값은 보호 입력 창을 거쳐 `secrets/put`으로만 들어오고
-// 설정 파일에는 이름만 남는다. 이름은 `mcp.`로 시작해야 한다(보통 `mcp.<global 또는 project id>.<서버>`). 설정이
+// 설정 파일에는 이름만 남는다. 이름은 `mcp.`로 시작해야 한다(보통 `mcp.<global, home 또는 workspace id>.<서버>`). 설정이
 // `provider.`나 OAuth token(`mcp-oauth.`)을 가리켜 그 값이 MCP URL로 가지 않게 한다. OAuth token은 core가 서버
 // 소유자(workspace 또는 agent)와 이름으로 정한 `mcp-oauth.` 이름에 둔다.
 const secretCredentialSchema = z.strictObject({
@@ -88,7 +88,19 @@ export const mcpServerSchema = z.discriminatedUnion("transport", [
 ]);
 export type McpServer = z.infer<typeof mcpServerSchema>;
 
-const mcpAuthWorkspaceSchema = workspaceSchema.nullable();
+// 서버가 놓인 자리다. 전역 서버는 자리가 아니라 null이고, Home 층 서버(`<data>/home/extensions.json`)는 `{ kind: "home" }`다.
+// Home 층을 전역과 다른 소유자로 둬서 OAuth token 이름이 겹치지 않는다.
+const mcpOwnerWorkspaceSchema = z.discriminatedUnion("kind", [
+  ...workspaceSchema.options,
+  z.strictObject({ kind: z.literal("home") }),
+]);
+const mcpOwnerWorkspaceOutputSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("project"), id: idSchema("prj") }),
+  z.object({ kind: z.literal("app"), id: idSchema("app") }),
+  z.object({ kind: z.literal("home") }),
+]);
+export type McpOwnerWorkspace = z.infer<typeof mcpOwnerWorkspaceSchema>;
+const mcpAuthWorkspaceSchema = mcpOwnerWorkspaceSchema.nullable();
 
 // MCP OAuth 2.1의 시작 입구다.
 // 사람이 서버 이름을 정하고 lophn이 S256 PKCE verifier·challenge와 무작위 state를 만들어
@@ -97,15 +109,15 @@ const mcpAuthWorkspaceSchema = workspaceSchema.nullable();
 // mcp-oauth.ts)에만 산다. 기다리는 시한은 5분이다. ledger queue를 거치지 않는다(작업 메모리가
 // 곧 상태다). 진행 중인 로그인을 그만두려면 `CancelMcpAuth`다.
 //
-// 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 소유자(전역, project·app 자리, agent 정의)가 같은 이름의
+// 서버는 이름만으로 하나가 정해지지 않는다: 서로 다른 소유자(전역, Home·project·app 자리, agent 정의)가 같은 이름의
 // 서버를 따로 둘 수 있다. 그래서 시작·완료 입력은 서버의 소유자를 함께 받는다.
 export const mcpAuthBeginInputSchema = z.strictObject({
   // 등록한 서버 이름이다. 위 nameSchema와 같은 규칙이다.
   name: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   // 서버가 등록된 자리다. 전역 서버는 자리가 아니므로 null이다(이웃 route는 전역을 다른
-  // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다).
+  // 설정이 맡아 자리만 받지만, 이 입구는 전역 서버의 로그인도 열어야 해서 null을 둔다). Home 층 서버는 `{ kind: "home" }`다.
   workspace: mcpAuthWorkspaceSchema,
-  // 서버가 등록된 agent 정의다. project·app 자리나 전역 서버면 null이다. workspace와 둘 다 있으면 거절이다.
+  // 서버가 등록된 agent 정의다. Home·project·app 자리나 전역 서버면 null이다. workspace와 둘 다 있으면 거절이다.
   agent: agentIdSchema.nullable(),
   // 사람이 등록한 client_id다(동적 등록을 지원하지 않는 서버도 이 하나로 진행한다).
   client_id: z.string().min(1).max(200),
@@ -209,7 +221,7 @@ const mcpAuthStateOutputSchema = z.strictObject({
   servers: z.array(
     z.strictObject({
       name: mcpAuthServerName,
-      workspace: workspaceOutputSchema.nullable(),
+      workspace: mcpOwnerWorkspaceOutputSchema.nullable(),
       agent: agentIdSchema.nullable(),
       state: mcpAuthStateSchema,
       reason: mcpAuthFailureSchema.nullable(),
@@ -253,8 +265,8 @@ export const mcpAuthCancel = defineMemory({
 // Grants 화면이 서버별 MCP tool 목록(원래 이름, 설명, effect)을 읽는 입구다. 부르는 쪽은 사람이다.
 // MCP 연결은 agent runtime child가 쥐고 core module graph에는 외부 연결이 없어서, core는 요청을 대기열에 놓고
 // runtime이 `request-take`·`request-done`으로 가져가 답한다(발급자 요청 `issuer-requests.ts`와 같은 길). 그 대기열 상태를 쥔 memory
-// route라서 reader Worker의 read로는 못 한다. workspace는 Grants를 여는 agent의 자리다: project면 전역 서버에 그 project
-// 층을 더한 목록이고 app이거나 null이면 전역 서버만이다. agent는 Grants를 여는 agent의 id(lophn 포함)다: 그 agent 정의 층의
+// route라서 reader Worker의 read로는 못 한다. workspace는 Grants를 여는 agent의 자리다(null이 Home): 전역 서버에 그 자리의
+// 층(Home, project, app)을 더한 목록이다. agent는 Grants를 여는 agent의 id(lophn 포함)다: 그 agent 정의 층의
 // 서버를 마지막 층으로 더한다. 정의 층을 더하지 않을 때 null이다.
 //
 // 서버마다 reason이 목록을 못 읽은 이유다. null이면 읽었다. 아니면 tools는 빈 배열이다.
@@ -281,7 +293,7 @@ export const mcpToolsList = defineMemory({
   method: "list",
   name: "ListMcpTools",
   input: z.strictObject({
-    workspace: mcpAuthWorkspaceSchema,
+    workspace: workspaceSchema.nullable(),
     agent: agentIdSchema.nullable(),
   }),
   output: z.strictObject({ servers: z.array(mcpToolServerSchema) }),
@@ -301,7 +313,7 @@ export const mcpToolsRequestTake = defineMemory({
     request: z
       .strictObject({
         id: z.string().min(1).max(64),
-        workspace: mcpAuthWorkspaceSchema,
+        workspace: workspaceSchema.nullable(),
         agent: agentIdSchema.nullable(),
       })
       .nullable(),
@@ -332,7 +344,7 @@ const readErrors = [
   "unavailable",
 ] as const;
 
-const projectServersSchema = z
+const workspaceServersSchema = z
   .array(mcpServerSchema)
   .max(32)
   .refine(
@@ -341,23 +353,42 @@ const projectServersSchema = z
     { message: "mcp server names must be unique" },
   );
 
-// project 층의 설정이다. 같은 이름의 MCP 서버는 마지막 층(agent)이 덮고 이름이 다르면 모두 쓴다.
-// skills_off는 이 project에서 끈 skill 이름이고 mcp_off는 이 project에서 끈 전역 MCP 서버 이름이다.
-// 지금 없는 이름도 지우지 않는다. 모두 새 내용 전체다.
-const projectSkillsOffSchema = z.array(skillNameSchema).max(SKILLS_OFF_MAX);
-const projectMcpOffSchema = z.array(nameSchema).max(32);
+// workspace 설정 층의 열쇠다. Home은 "home", project와 앱은 id다. model 층 route도 같은 열쇠를 쓴다.
+export const workspaceKeySchema = z.union([
+  z.literal("home"),
+  idSchema("prj"),
+  idSchema("app"),
+]);
+export type WorkspaceKey = z.infer<typeof workspaceKeySchema>;
 
-export const projectExtensionSettingsRead = defineRead({
-  resource: "project-extension-settings",
+export function workspaceOfKey(key: WorkspaceKey): Workspace | null {
+  if (key === "home") return null;
+  return key.startsWith("app_")
+    ? { kind: "app", id: key }
+    : { kind: "project", id: key };
+}
+
+export function workspaceKeyOf(workspace: Workspace | null): WorkspaceKey {
+  return workspace === null ? "home" : workspace.id;
+}
+
+// workspace(Home, project, 앱) 층의 설정이다. 같은 이름의 MCP 서버는 마지막 층(agent)이 덮고 이름이 다르면 모두 쓴다.
+// skills_off는 이 workspace에서 끈 skill 이름이고 mcp_off는 이 workspace에서 끈 전역 MCP 서버 이름이다.
+// 지금 없는 이름도 지우지 않는다. 모두 새 내용 전체다.
+const workspaceSkillsOffSchema = z.array(skillNameSchema).max(SKILLS_OFF_MAX);
+const workspaceMcpOffSchema = z.array(nameSchema).max(32);
+
+export const workspaceExtensionSettingsRead = defineRead({
+  resource: "workspace-extension-settings",
   method: "read",
-  name: "ReadProjectExtensionSettings",
-  input: z.strictObject({ project: idSchema("prj") }),
+  name: "ReadWorkspaceExtensionSettings",
+  input: z.strictObject({ workspace: workspaceKeySchema }),
   output: withReadCommon(
     z.object({
-      project: idSchema("prj"),
+      workspace: workspaceKeySchema,
       mcp_servers: z.array(mcpServerSchema),
-      skills_off: projectSkillsOffSchema,
-      mcp_off: projectMcpOffSchema,
+      skills_off: workspaceSkillsOffSchema,
+      mcp_off: workspaceMcpOffSchema,
       hash: sha256Schema.nullable(),
     }),
   ),
@@ -365,18 +396,18 @@ export const projectExtensionSettingsRead = defineRead({
   errors: [...readErrors],
 });
 
-export const projectExtensionSettingsChange = defineCommand({
-  resource: "project-extension-settings",
+export const workspaceExtensionSettingsChange = defineCommand({
+  resource: "workspace-extension-settings",
   method: "change",
-  name: "ChangeProjectExtensionSettings",
+  name: "ChangeWorkspaceExtensionSettings",
   input: z.strictObject({
-    project: idSchema("prj"),
-    mcp_servers: projectServersSchema,
-    skills_off: projectSkillsOffSchema,
-    mcp_off: projectMcpOffSchema,
+    workspace: workspaceKeySchema,
+    mcp_servers: workspaceServersSchema,
+    skills_off: workspaceSkillsOffSchema,
+    mcp_off: workspaceMcpOffSchema,
   }),
   output: z.object({
-    project: idSchema("prj"),
+    workspace: workspaceKeySchema,
     hash: sha256Schema,
   }),
   compare: z.strictObject({ hash: sha256Schema.nullable() }),
@@ -391,6 +422,6 @@ export const projectExtensionSettingsChange = defineCommand({
 });
 
 export const EXTENSION_ROUTES = [
-  projectExtensionSettingsRead,
-  projectExtensionSettingsChange,
+  workspaceExtensionSettingsRead,
+  workspaceExtensionSettingsChange,
 ] as const;

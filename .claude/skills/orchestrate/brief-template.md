@@ -36,7 +36,7 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 
 - `npm run check`가 통과한다.
 - 위험 test: "<결과 한 문장>" | 없음
-- 남지 않음: `grep -rn "<옛 이름>" packages tools`가 0줄이다.
+- 남지 않음: `grep -rn "<옛 이름>" packages tools tests`가 0줄이다.
 - (화면) `npm run wireframes`가 되고, gallery의 `<page>`가 옮긴 component로 그려진다.
 
 ## 보고
@@ -60,5 +60,6 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 - 계약 task의 brief는 모양을 적는다. 옛 계약은 지우지 않고 새것을 옆에 더한다(옛것을 쓰는 곳이 남아 있다). 옛것은 구현 task와 cleanup이 지운다.
 - 화면 task의 brief는 wireframe 코드를 옮기게 한다. 보고 다시 그리지 않는다. wireframe file과 갈 renderer 위치를 짝지어 적고, 가짜 data를 대신할 source와 박아 둔 글을 바꿀 i18n catalog 영역을 적는다.
 - 외부 data(models.dev 등)를 읽는 task는 정하기 전에 실제 data 한 건을 열어 없는 칸과 빈 값이 어떻게 오는지 본다. brief가 `limit.input`이 없으면 null로 정했다가 대부분 model을 고를 수 없게 된 일이 있다.
+- "남지 않음" grep은 `tests/`(e2e 기대값, fixture)까지 본다. protocol 이름, id 꼴, 문자열 값을 바꾸면 e2e가 옛 값을 기대하고 있을 수 있고, e2e는 land에서만 돈다.
 - 위험 test는 `write-test` skill 기준이다. 화면, 문구, 내부 구현은 test하지 않는다.
 - 말: 개발자 영어 단어를 그대로 쓴다. 뜻을 옮긴 번역어(장부, 가림, 시험)를 새로 만들지 않는다.

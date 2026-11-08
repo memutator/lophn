@@ -9,7 +9,7 @@ lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의
 
 계획 하나가 `project-docs/plan/<계획>/` 폴더 하나다(꼴은 `project-docs/plan/README.md`). task brief 꼴은 [brief-template.md](brief-template.md)다. 도구는 `project-docs/plan/tools/`(`status.py`, `lead/*`)이고 모두 첫 인자로 계획 이름을 받는다.
 
-**lead는 main checkout에서 일하지 않는다.** 계획마다 branch `plan/<계획>`과 그 worktree(`.claude/worktrees/plan-<계획>`)가 lead의 자리다. `lead/lead.sh <계획>`이 만들고 경로를 찍는다. lead의 모든 명령(status, launch, prompt, merge, 이슈와 status commit)은 그 경로에서 돌린다(Bash 호출마다 `cd <그 경로> && ...`). task branch는 plan branch에서 갈라지고 merge.sh는 plan branch로 합친다. main에는 wave가 끝날 때 `lead/land.sh <계획>`이 올린다. 그래서 계획 둘이 같이 돌아도 main checkout과 서로의 작업 트리를 건드리지 않는다. `status.md`와 brief는 lead worktree의 것이 바른 것이다. `status.py ready`는 다른 계획의 lead worktree에서 running task를 읽어 소유가 겹치는 task를 거른다.
+**lead는 main checkout에서 일하지 않는다.** 계획마다 branch `plan/<계획>`과 그 worktree(`.claude/worktrees/plan-<계획>`)가 lead의 자리다. `lead/lead.sh <계획>`이 만들고 경로를 찍는다. lead의 모든 명령(status, launch, prompt, merge, 이슈와 status commit)은 그 경로에서 돌린다(Bash 호출마다 `cd <그 경로> && ...`). task branch는 plan branch에서 갈라지고 merge.sh는 plan branch로 합친다. main에는 `lead/land.sh <계획>`이 올린다. 기본은 계획 끝에 한 번이다(아래 "merge"). 그래서 계획 둘이 같이 돌아도 main checkout과 서로의 작업 트리를 건드리지 않는다. `status.md`와 brief는 lead worktree의 것이 바른 것이다. `status.py ready`는 다른 계획의 lead worktree에서 running task를 읽어 소유가 겹치는 task를 거른다.
 
 ## 병렬 규칙
 
@@ -89,7 +89,12 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 `project-docs/plan/tools/lead/merge.sh <계획> <id>`(`fix/<id>` branch는 `merge-fix.sh <계획> <id>`). 하는 일: node_modules 검사 → plan branch 위로 rebase → worktree `check:full` → plan branch로 ff-merge → plan branch `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
 - `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 i18n catalog다. catalog 충돌은 두 쪽 key를 다 남긴다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
 - merge 바로 뒤에 보고의 "등록할 것"을 고치고 check가 통과하면 commit한다. `merge.sh`가 바꾼 `status.md`는 commit하지 않으니 lead가 같이 commit한다.
-- wave가 모두 merged면 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `check:full` → (`tests/e2e`에 test가 있으면) `npm run e2e:deps`, `npm run e2e` → core 두 번 기동 → main fast-forward. land는 lock(`.git/lophn-land.lock`)으로 하나씩 돈다. 다른 land가 돌면 "다른 land가 끝나기를 기다린다"를 찍고 기다린다. 그 사이 main에 `project-docs/`만 늘었으면 다시 rebase하고 빠른 check 뒤 올린다. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
+- land는 계획 끝에 한 번이 기본이다. land 하나에 `check:full`, e2e 전체, core 기동으로 수십 분이 들고 그동안 다음 wave를 띄우지 못한다(workspace-layers는 wave마다 land해 계획 대부분이 land 대기였다). 중간 land는 다음 가운데 하나일 때만 하고, 그 wave를 README에 적는다.
+  - 사람의 data root 모양을 바꾸는 migration이 든 wave(그 wave 전부가 함께 올라야 root가 깨지지 않는다)
+  - main에서 같은 file을 고치는 다른 계획이나 session이 있을 때
+  - plan branch가 오래 열려 rebase가 커질 때
+- land를 미루면 e2e 실패가 늦게 드러난다. 그래서 protocol 이름, id 꼴, 문자열 값을 바꾸는 task의 brief "남지 않음" grep은 `tests/`까지 본다(e2e의 옛 기대값을 brief grep이 `packages tools`만 봐서 놓쳤다).
+- land할 때는 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `package-lock.json`이 바뀌었으면 `npm ci` → `check:full` → (`tests/e2e`에 test가 있으면) `npm run e2e:deps`, `npm run e2e` → core 두 번 기동 → main fast-forward. land는 lock(`.git/lophn-land.lock`)으로 하나씩 돈다. 다른 land가 돌면 "다른 land가 끝나기를 기다린다"를 찍고 기다린다. 그 사이 main이 움직이면 처음부터 다시 돌지 않는다: 다시 rebase하고 빠른 check를 본 뒤, 바뀐 쪽이 e2e에 닿을 때(core, protocol, cli, sdk, base, tests)만 e2e와 기동을 다시 돈다. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
 - 계획이 끝나면 계획 폴더를 지운 commit까지 land하고 lead worktree와 plan branch를 지운다(`git worktree remove`, `git branch -d plan/<계획>`).
 - push는 사람 확인 뒤에만 한다.
 
@@ -122,7 +127,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - land.sh가 plan branch를 main 위로 다시 쓰면, 그 전에 갈라진 task branch의 merge-base가 옛 wave commit 앞으로 간다. 그대로 rebase하면 옛 commit까지 다시 올리다 충돌한다(여섯 번). launch.sh가 갈라진 점을 branch config(`lophnBase`)에 적고 merge.sh가 `rebase --onto`로 그 뒤만 옮긴다. 이 장치 전에 띄운 task는 merge 전에 task worktree에서 `git rebase --onto plan/<계획> <launch 때 plan HEAD> <task branch>`를 한다.
 - schema 칸 이름을 바꾼 task 뒤에 type 오류가 나면 먼저 칸 이름(`run` → `turn` 같은 것)이 어긋난 곳을 의심한다.
 - merge가 도는 동안 plan branch에 commit하지 않는다. merge.sh가 rebase한 뒤 ff하려다 `STOP: ff failed`로 멈춘다. status·이슈 commit은 merge 사이에 한다.
-- land가 도는 동안 main에 코드를 commit하지 않는다. land.sh가 `STOP: land 사이 main에 코드가 바뀌었다`로 멈추고 full check부터 다시 돌아야 한다. 계획 문서(`project-docs/`)만 commit한 것은 land.sh가 받아 올린다.
+- land가 도는 동안 main에 commit하면 land.sh가 다시 rebase하고 check를 더 돈다. 코드가 e2e에 닿으면 e2e도 다시 돈다. 그래서 land 중에는 main에 commit하지 않는 편이 빠르다.
 - land 뒤에 다음 merge를 이어 붙일 때는 `land.sh && merge.sh …`처럼 land의 종료 코드를 본다. agent-card에서 land가 e2e로 실패했는데 명령이 그 실패를 보지 않아 다음 task merge가 먼저 돌았고, 그 뒤 land를 모두 다시 돌렸다.
 - land.sh가 rebase 충돌로 멈추면 lead worktree에서 풀고 `git add`, `git rebase --continue` 뒤 land.sh를 다시 돈다. changelog 열린 판의 끝 항목은 다른 계획과 늘 부딪힌다: 둘 다 남긴다. plan branch를 손으로 `git rebase main`하는 명령은 분류기가 막았다(worker branch가 그 위에 있을 때). land.sh 길로 한다.
 - lead가 쓸 문서(이슈 닫기, changelog, architecture)가 main에서 다른 계획이 고친 file과 겹치면, main에서 갈라진 branch에서 쓰고 land의 rebase가 끝난 뒤 lead worktree에 cherry-pick한다. 옛 base에서 쓰면 rebase 충돌이 문서마다 난다.

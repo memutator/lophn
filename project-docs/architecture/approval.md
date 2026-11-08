@@ -32,17 +32,17 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
      ShareRequestClosed ─▶ 대기 목록에서 빠진다
 ```
 
-- 할당은 사람이 agent에게 앱을 붙이고 그 앱에서 뺄 tool(command)을 적는 것이다. 정본은 그 agent 정의 파일(`<data root>/agents/<agt_id>.md`)의 `apps`(앱 slug)와 `permissions.deny`(`lophn(<app> <command>)`)다. 할당한 앱의 tool만 그 agent의 tool 목록에 뜨고, 그 앱의 public skill도 같이 받는다(`architecture/agent-definition.md`).
-- MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이다. 끄기는 `mcp_off`다. 할당 줄이 없다.
+- 할당은 사람이 agent에게 앱을 붙이고 그 앱에서 뺄 tool(command)을 적는 것이다. 정본은 그 agent 정의 파일(`<data root>/agents/<agent id>.md`. lophn은 workspace마다 `lophn_<workspace>`라 workspace의 lophn마다 파일이 따로다)의 `apps`(앱 slug)와 `permissions.deny`(`lophn(<app> <command>)`)다. 할당한 앱의 tool만 그 agent의 tool 목록에 뜨고, 그 앱의 public skill도 같이 받는다(`architecture/agent-definition.md`).
+- MCP server는 설정한 층(전역, Home·project·앱 중 session의 workspace, agent 정의)이 곧 할당이다. 끄기는 `mcp_off`다. 할당 줄이 없다.
 - 효과(read, write, external)는 판정에 쓰지 않는다. 할당한 tool은 바깥 효과도 묻지 않는다(사람, 2026-10-21). 효과는 기록과 재시도에만 쓰인다.
-- 사람이 앱 화면에서 누르는 것, 사람이 보내는 메시지, agent call, 지침 파일(`LOPHN.md`) 쓰기, file·web·pdf·image tool은 묻지 않는다. file tool은 workspace가 범위이고 쓰기는 rewind로 되돌린다.
+- 사람이 앱 화면에서 누르는 것, 사람이 보내는 메시지, agent call, 지침 파일(`LOPHN.md`) 쓰기, memory 쓰기(`agent.memory`), file·web·pdf·image tool은 묻지 않는다. file tool은 workspace가 범위이고 쓰기는 rewind로 되돌린다. memory 쓰기도 rewind가 되돌린다.
 - coding agent의 tool call은 harness의 일이다. lophn은 harness의 물음을 대기 목록에 비추기만 하고(`subject.kind: "harness"`) 답은 터미널에서 한다. runtime이 harness인 lophn agent도 같아서 tool call은 Gate를 거치지 않고, 정의의 deny는 harness의 권한 flag로 옮기거나 못 옮기면 띄우지 않는다(`architecture/coding-agent.md`의 "harness agent").
 
 ## 지키는 것
 
 판정
 - `judge`는 IO 없는 함수다(`packages/core/approvals/gate/judge.ts`). 시각, 상태, 전역을 읽지 않는다. 같은 입력은 같은 결과다.
-- 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. MCP tool은 `judge`가 늘 `run`을 내고(할당 줄이 없다), 연결 쪽 `call`(`packages/core/lophn-agent/extensions/mcp-toolkit.ts`)이 부를 때마다 전역·project 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. agent 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
+- 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. MCP tool은 `judge`가 늘 `run`을 내고(할당 줄이 없다), 연결 쪽 `call`(`packages/core/lophn-agent/extensions/mcp-toolkit.ts`)이 부를 때마다 전역·workspace 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. agent 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
 - `deny`는 어느 mode에서나 막는다. skip은 묻지 않는 것이지 금지를 푸는 것이 아니다.
 - `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다. 팀 자식(`spawned_by` 있음, skip 꺼짐)은 예외다: mode와 상관없이 묻고 그 물음은 부모에게 간다(아래 "팀 자식의 물음"). `judge`는 그 여부를 입력 `toParent`(`spawned_by !== null && !skip`)로 받는다. skip이 먼저다.
 - 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다. 팀 자식의 request는 부모가 이번 한 번만 풀고(아래), 사람의 결정 route는 그 request를 `not_found`로 거절한다.
@@ -102,7 +102,7 @@ shell 규칙
 - 층은 셋이다: 제품 기본(`PRODUCT_SHELL_RULES`의 floor deny와 ask), 전역, project. 전역과 project 규칙은 Settings 값 `approvals.shell_rules`에 있다. 사람의 project 폴더에 두지 않는다. PM이 그 폴더를 file tool로 쓰기 때문이다.
 - 명령 전체와 `&&`·`||`·`;`·`|`·줄바꿈으로 나눈 조각마다 floor, 그다음 층을 이어 본 가운데 마지막에 맞은 규칙, 없으면 allow다. 그 가운데 가장 엄한 것(deny > ask > allow)이 명령의 결과다. 조각을 이어야 보이는 위험(`curl * | sh *`, fork bomb)도 전체에서 잡힌다.
 - floor deny는 어느 층도, `always`도, skip도 덮지 못한다. 글자 그대로 맞추므로 floor는 `rm`의 flag 순서와 `sudo` 앞붙임을 따로 적는다.
-- `always`는 ask였던 조각마다 `<앞 두 낱말> *`(한 낱말이면 그 조각, 조각을 이어야 ask인 명령은 명령 전체)를 allow로 더한다. 층은 turn의 workspace로 정한다: project workspace면 그 project 층, 앱 workspace와 lophn이면 전역 층이다. 사람은 Settings › Shell rules에서 옮기고 고친다.
+- `always`는 ask였던 조각마다 `<앞 두 낱말> *`(한 낱말이면 그 조각, 조각을 이어야 ask인 명령은 명령 전체)를 allow로 더한다. 층은 turn의 workspace로 정한다: project workspace면 그 project 층, 앱 workspace와 Home이면 전역 층이다. 사람은 Settings › Shell rules에서 옮기고 고친다.
 - `shell.run`의 효과는 `external`이다. 판정은 규칙이 하고, `read`면 일시 실패에 다시 돌아 같은 명령이 두 번 돈다.
 - 규칙은 실수를 줄일 뿐 경계가 아니다. 따옴표와 escape를 풀지 않고, `shell.run`은 file 범위와 rewind 밖이다(`project-docs/issues/workspace-session.md`).
 

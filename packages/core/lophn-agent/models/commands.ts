@@ -4,9 +4,11 @@ import {
   changeShownModels,
   type ModelChoice,
   modelDefaultChange,
-  projectModelChange,
   removeUserModelInfo,
   saveUserModelInfo,
+  type Workspace,
+  workspaceModelChange,
+  workspaceOfKey,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -36,8 +38,8 @@ export type ModelCommandDeps = {
   // provider 기록의 provider 정의 key다. 기록이 없으면 undefined다.
   definitionKey(provider: string): string | undefined;
   catalogEntry(definition: string, modelName: string): CatalogEntry | undefined;
-  // project 표를 가진 module의 읽기다. 조립이 꽂는다.
-  projectExists(project: string): boolean;
+  // project·앱 표를 가진 module의 읽기다. 조립이 꽂는다. Home은 늘 있어 묻지 않는다.
+  workspaceExists(workspace: Workspace): boolean;
 };
 
 function requireUser(ctx: RequestContext): Result<void> {
@@ -90,7 +92,7 @@ export function createModelCommands(
   deps: ModelCommandDeps | ((tx: Tx) => ModelCommandDeps),
 ): {
   changeDefault: CommandDefinition<typeof modelDefaultChange>;
-  changeProject: CommandDefinition<typeof projectModelChange>;
+  changeWorkspace: CommandDefinition<typeof workspaceModelChange>;
   changeShown: CommandDefinition<typeof changeShownModels>;
   saveUserInfo: CommandDefinition<typeof saveUserModelInfo>;
   removeUserInfo: CommandDefinition<typeof removeUserModelInfo>;
@@ -112,20 +114,24 @@ export function createModelCommands(
         return ok({ default: input.default });
       },
     },
-    changeProject: {
-      route: projectModelChange,
+    changeWorkspace: {
+      route: workspaceModelChange,
       handle(tx, ctx, input) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
         const resolved = resolve(tx);
-        if (!resolved.projectExists(input.project)) {
-          return err({ code: "not_found", message: "project not found" });
+        const workspace = workspaceOfKey(input.workspace);
+        if (workspace !== null && !resolved.workspaceExists(workspace)) {
+          return err({
+            code: "not_found",
+            message: `${workspace.kind} not found`,
+          });
         }
         if (input.model !== null) {
-          const checked = checkChoice(resolved, "project", input.model);
+          const checked = checkChoice(resolved, "workspace", input.model);
           if (!checked.ok) return checked;
         }
-        saveChoice(tx.sql, input.project, input.model);
+        saveChoice(tx.sql, input.workspace, input.model);
         if (input.model !== null) {
           showChosen(tx.sql, input.model);
           defaultIfUnset(tx.sql, input.model);

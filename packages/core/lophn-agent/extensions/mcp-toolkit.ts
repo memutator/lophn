@@ -5,7 +5,8 @@ import {
   agentRead,
   type McpServer,
   type McpToolServer,
-  projectExtensionSettingsRead,
+  workspaceExtensionSettingsRead,
+  workspaceKeyOf,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import {
@@ -28,8 +29,8 @@ import { globalMcpServersSetting } from "./settings.ts";
 import { mcpToolEffect } from "./mcp-tools.ts";
 import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
 
-// 제품 runtime의 외부 MCP tool 등록이다. 서버는 전역 설정(`lophn-agent.extensions.mcp_servers`), project 층,
-// agent 정의 층에서 온다. 같은 이름은 마지막 층이 덮고 이름이 다르면 모두 쓴다. 연결과 재조회는 이 모듈 하나가
+// 제품 runtime의 외부 MCP tool 등록이다. 서버는 전역 설정(`lophn-agent.extensions.mcp_servers`), workspace 층(Home,
+// project, 앱), agent 정의 층에서 온다. 같은 이름은 마지막 층이 덮고 이름이 다르면 모두 쓴다. 연결과 재조회는 이 모듈 하나가
 // 소유한다. list_changed 알림과 재연결 뒤 그 server의
 // 전체 tool 목록을 다시 읽고, 재조회가 끝날 때까지 그 server tool 호출을 막는다.
 // 재조회가 실패하면 옛 정의를 호출 가능으로 두지 않는다.
@@ -50,7 +51,7 @@ type McpToolkitDeps = {
 export type McpKit = {
   // turn마다 받는 등록 통로다. prepare.ts의 Toolkit.mcp다.
   toolkit(assignment: string): McpToolkit;
-  // Grants 화면이 읽는 서버별 tool 목록이다. turn의 등록·재조회 상태와 따로 이 호출 전용 연결로 읽는다.
+  // Grants 화면이 읽는 서버별 tool 목록이다. workspace가 null이면 Home이다. turn의 등록·재조회 상태와 따로 이 호출 전용 연결로 읽는다.
   // agent가 있으면 그 정의 층의 서버를 마지막 층으로 더한다. 그 agent의 mcp_off는 적용하지 않는다:
   // 끈 server도 목록에 보여야 사람이 tool을 assign해 둘 수 있고, 끄기는 turn 준비가 맡는다.
   listTools(
@@ -60,6 +61,9 @@ export type McpKit = {
   // 데몬 종료다. 모든 연결을 닫는다.
   endAll(): Promise<void>;
 };
+
+// Home 층 서버의 소유자다. 전역(null)과 OAuth token 이름이 겹치지 않는다.
+const HOME_OWNER = { kind: "home" } as const;
 
 const TOOL_DESCRIPTION_MAX = 500;
 // Grants 읽기에서 서버 하나에 주는 시간이다. core가 답을 기다리는 기한(15초)보다 짧아야 한다.
@@ -130,8 +134,8 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     );
   }
 
-  // 이 workspace의 agent가 쓸 수 있는 서버다: 전역에 project 층, agent 정의 층이 차례로 덮인다. 하위 층을 읽지 못하면
-  // 그 층이 없는 것과 같다: 위 층만 남긴다(fails closed).
+  // 이 workspace(null은 Home)의 agent가 쓸 수 있는 서버다: 전역에 workspace 층, agent 정의 층이 차례로 덮인다. 하위 층을
+  // 읽지 못하면 그 층이 없는 것과 같다: 위 층만 남긴다(fails closed).
   async function serversOf(
     workspace: AgentWorkspace | null,
     agent: McpSourceOptions["agent"],
@@ -139,18 +143,17 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
     const global = await registeredServers();
     if (!global.ok) return global;
     const layers = [{ servers: global.value, off: [] as readonly string[] }];
-    if (workspace !== null && workspace.kind === "project") {
-      const own = await readOf(deps.machine, projectExtensionSettingsRead, {
-        project: workspace.id,
+    const own = await readOf(deps.machine, workspaceExtensionSettingsRead, {
+      workspace: workspaceKeyOf(workspace),
+    });
+    if (own.ok) {
+      const owner = workspace ?? HOME_OWNER;
+      layers.push({
+        servers: own.value.mcp_servers.map((server) =>
+          runtimeServerOfLayer(server, owner),
+        ),
+        off: own.value.mcp_off,
       });
-      if (own.ok) {
-        layers.push({
-          servers: own.value.mcp_servers.map((server) =>
-            runtimeServerOfLayer(server, workspace),
-          ),
-          off: own.value.mcp_off,
-        });
-      }
     }
     if (agent !== undefined) {
       layers.push({

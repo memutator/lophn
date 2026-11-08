@@ -6,7 +6,11 @@ import {
   AgentGrantsPage,
   AgentModelPickerPage,
   AgentServerFormPage,
+  AppAgentsNoSourcePage,
+  AppAgentsPage,
   AppWorkspaceEditorPage,
+  HomeAgentsPage,
+  HomeLophnEditorPage,
   LophnEditorPage,
   ProjectAgentsPage,
 } from "./agent-setup/agent-setup-pages.tsx";
@@ -14,27 +18,49 @@ import {
 export const agentSettingsArea: Area = {
   id: "agent-settings",
   title: "Agent settings",
-  summary: "프로젝트 Agents 탭, agent 편집, MCP server 추가, 앱 할당.",
+  summary:
+    "workspace(project, Home, 앱)의 Agents 탭, agent 편집, MCP server 추가, 앱 할당.",
   pages: [
     {
       id: "new-project-agents",
       title: "Agent settings · project Agents tab",
       description:
-        "전역 agent 카드 목록(lophn 카드에 Built-in chip)과 [New agent], 같이 쓰는 지침(LOPHN.md), project 층 model 하나, 층 표시가 붙은 skill과 MCP가 있다. sidebar Agents 묶음의 Manage로 연다.",
+        "전역 agent 카드 목록(lophn 카드에 Built-in chip)과 [New agent], 같이 쓰는 지침(LOPHN.md), workspace memory(크기가 8 KiB 대비로 보이고 lophn이 쓴다는 안내와 다음 session부터 보인다는 안내가 있다), project 층 model 하나, 층 표시가 붙은 skill과 MCP가 있다. 지침과 memory는 [Edit]으로 그 자리에서 고친다.",
       render: () => <ProjectAgentsPage />,
+    },
+    {
+      id: "agents-tab-home",
+      title: "Agent settings · Home Agents tab",
+      description:
+        "Home에서 여는 같은 Agents 탭이다. Home lophn 카드의 범위는 Home이고, 지침은 Home의 LOPHN.md, memory는 Home의 memory.md이며 model·skill·MCP 층도 Home의 것이다.",
+      render: () => <HomeAgentsPage />,
+    },
+    {
+      id: "agents-tab-app",
+      title: "Agent settings · app Agents tab",
+      description:
+        "앱에서 여는 Agents 탭이다. 지침은 앱 source 폴더의 AGENTS.md이고, memory와 model·skill·MCP 층은 그 앱의 것이다.",
+      render: () => <AppAgentsPage />,
+    },
+    {
+      id: "agents-tab-app-no-source",
+      title: "Agent settings · app without source",
+      description:
+        "source 폴더를 잇지 않은 앱의 Agents 탭이다. AGENTS.md 칸이 비어 있고 [Edit]이 없으며 파일이 없다는 안내만 있다.",
+      render: () => <AppAgentsNoSourcePage />,
     },
     {
       id: "agent-settings-agent",
       title: "Agent settings · agent",
       description:
-        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 아래의 Shell extensions 칸에는 설치되고 켜진 extension이 줄마다 이름, 설명, tool 수와 할당 check로 보인다(bare면 할당한 extension의 tool을 Tools에서 고른다). MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 agent의 설정이다. 프로필, 이름, workspace 지침과 이 agent 지침을 같이 보이는 블록, 이 agent의 Memory 칸(8 KiB 대비 크기와 [Edit]), model, skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 아래의 Shell extensions 칸에는 설치되고 켜진 extension이 줄마다 이름, 설명, tool 수와 할당 check로 보인다(bare면 할당한 extension의 tool을 Tools에서 고른다). MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
       render: () => <AgentEditorPage />,
     },
     {
       id: "agent-settings-model-picker",
       title: "Agent settings · agent model picker",
       description:
-        'agent의 Model 칸 picker를 연 상태다. 맨 위에 "Use project default — …" 줄이 있고 그 아래에 검색칸, provider별 model이 있다. provider 묶음은 대화의 picker와 같이 접고 펼 수 있다(묶음이 하나뿐이라 늘 펼쳐 있다). 맨 아래에 Manage models 줄이 있다. 칸 아래 한 줄이 층이다.',
+        'agent의 Model 칸 picker를 연 상태다. 맨 위에 "Use workspace default — …" 줄이 있고 그 아래에 검색칸, provider별 model이 있다. provider 묶음은 대화의 picker와 같이 접고 펼 수 있다(묶음이 하나뿐이라 늘 펼쳐 있다). 맨 아래에 Manage models 줄이 있다. 칸 아래 한 줄이 층이다.',
       render: () => <AgentModelPickerPage />,
     },
     {
@@ -55,8 +81,15 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-app-workspace",
       title: "Agent settings · agent in an app",
       description:
-        "앱 자리에서 연 agent의 설정이다. 앱에는 project 지침이 없어 지침은 이 agent의 본문뿐이다.",
+        "앱 자리에서 연 agent의 설정이다. 앱 source의 AGENTS.md가 workspace 지침으로 위에 보이고 그 아래에 이 agent의 본문이 있다.",
       render: () => <AppWorkspaceEditorPage />,
+    },
+    {
+      id: "agent-settings-home-lophn",
+      title: "Agent settings · Home lophn",
+      description:
+        "Home의 lophn이다. 범위 칸이 Home이고 handle과 profile이 잠기며 Delete가 없다. lophn은 따로 agent memory가 없어 Memory 칸도 없다.",
+      render: () => <HomeLophnEditorPage />,
     },
     {
       id: "new-agent-mcp-server-form",

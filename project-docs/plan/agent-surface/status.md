@@ -7,5 +7,5 @@ lead만 고친다. `tools/status.py agent-surface build`가 `tasks/*.md`에서 i
 | `surf-queue` | surf | 1 | 없음 | merged | surf/surf-queue | 9f29cc8fb | 진짜 Electron 창 확인은 wave 2 뒤(사람 결정) |
 | `surf-team` | surf | 2 | surf-queue | merged | surf/surf-team | f494503c6 |  |
 | `ext-tools` | ext | 3 | surf-tui | todo |  |  |  |
-| `surf-tui` | surf | 3 | 없음 | running | surf/surf-tui |  |  |
+| `surf-tui` | surf | 3 | 없음 | merged | surf/surf-tui | fb22dedf2 |  |
 | `ext-tools-ui` | ext | 4 | 없음 | todo |  |  |  |

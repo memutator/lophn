@@ -1,0 +1,425 @@
+# flows — area 지도
+#
+# area 하나가 file 하나(areas/<id>.yaml)다. 칸:
+# - entries: 이 area가 소유를 맡는 entry의 정의 path. file이나 폴더(끝에 /). entry 하나는 가장 긴 path가 맞는
+#   area 하나에 든다. 맞는 area가 없는 entry는 `node tools/flows.ts entries`가 따로 보인다.
+# - owns: `system:`·`ui:` flow처럼 code에서 뽑히지 않는 동작 가운데 이 area가 맡는 mechanism. 여기 없는 것을
+#   찾으면 쓰지 않고 보고한다. 같은 mechanism을 두 area에 적지 않는다.
+# - read: 읽을 architecture 문서(project-docs 기준)와 code path. 다른 area와 겹쳐도 된다. 읽기만 한다.
+# test_groups는 tests/<id>.yaml, journey_groups는 journeys/<id>.yaml이다. test file 하나는 가장 긴 path가 맞는 group에 든다.
+
+areas:
+
+  - id: sessions
+    title: session, 메시지, ACP, event stream
+    entries:
+      - packages/protocol/acp/
+      - packages/protocol/events/
+      - packages/core/router/
+      - packages/core/lophn-agent/session/
+      - packages/protocol/lophn-agent/sessions.ts
+      - packages/protocol/lophn-agent/agent-sessions.ts
+      - packages/protocol/lophn-agent/messages.ts
+      - packages/protocol/lophn-agent/inputs.ts
+      - packages/protocol/lophn-agent/received-messages.ts
+      - packages/protocol/lophn-agent/message-images.ts
+      - packages/protocol/lophn-agent/message-search.ts
+      - packages/protocol/lophn-agent/session-status.ts
+      - packages/protocol/lophn-agent/commands.ts
+    owns:
+      - session 열기, 닫기, archive, 이름
+      - 메시지 넣기와 queue, steer(turn이 도는 중의 메시지), router가 받는 session을 고르기
+      - ACP snapshot, draft, 화면이 다시 붙을 때 이어 받기
+      - Gateway 연결과 event 전달(commit 뒤 event, 남지 않는 event)
+      - 이미지 첨부, 메시지 검색, slash command 목록
+      - thread bookmark
+    read:
+      - architecture/acp.md
+      - architecture/agent-chat.md
+      - architecture/event.md
+      - architecture/workspace-session.md
+      - packages/core/lophn-agent/session/
+      - packages/core/router/
+      - packages/core/events/
+      - packages/shell/renderer/conversation/
+      - packages/shell/main/thread-bookmarks/
+
+  - id: turns
+    title: turn, model 호출, tool 호출 기록
+    entries:
+      - packages/protocol/lophn-agent/turns.ts
+      - packages/protocol/lophn-agent/turn-reads.ts
+      - packages/protocol/lophn-agent/tool-calls.ts
+      - packages/protocol/lophn-agent/model-calls.ts
+      - packages/protocol/lophn-agent/traces.ts
+      - packages/protocol/lophn-agent/ask-tool.ts
+      - packages/protocol/lophn-agent/extension-tools.ts
+      - packages/protocol/lophn-agent/issuer-requests.ts
+    owns:
+      - turn 시작, 끝, 멈춤, 실패 분류, turn의 운명(끊긴 turn의 회복)
+      - model 호출, retry, idle 한도, compact
+      - prompt 조립(규칙, 지침, workspace 정보)
+      - 질문 tool(ask)과 그 답
+      - extension tool 호출, trace, 사용량
+    read:
+      - architecture/acp.md
+      - architecture/agent-chat.md
+      - packages/core/lophn-agent/run-loop/
+      - packages/core/lophn-agent/prompt-assembly/
+      - packages/core/lophn-agent/observability/
+      - packages/core/lophn-agent/usage/
+      - packages/core/main/agent-runtime/
+
+  - id: approvals
+    title: 판정, 사람에게 묻기, 되돌리기
+    entries:
+      - packages/protocol/approvals/
+      - packages/protocol/lophn-agent/reverts.ts
+      - packages/protocol/lophn-agent/session-rewinds.ts
+    owns:
+      - tool 호출 판정(Gate), shell 규칙, turn mode
+      - 사람에게 묻기(turn request)와 결정, 팀 자식의 물음이 부모에게 가기
+      - 앱 할당 읽기·쓰기, 앱 공유 요청 승인
+      - session rewind, file revert
+      - 사람 결정 handle(decision handle)
+    read:
+      - architecture/approval.md
+      - packages/core/approvals/
+      - packages/core/lophn-agent/tool-judgment/
+      - packages/core/lophn-agent/safety/
+      - packages/shell/main/decision-handle/
+      - packages/shell/renderer/conversation/approval-card/
+      - packages/shell/renderer/conversation/permissions-view/
+      - packages/shell/renderer/conversation/session-rewind/
+
+  - id: agent-tools
+    title: agent tool
+    entries:
+      - packages/core/lophn-agent/tools/
+      - packages/core/apps/agent-tools/
+      - packages/core/agent-workspaces/
+    owns:
+      - tool 하나하나의 실행(file 읽기·쓰기, shell 실행, web 등)
+      - workspace 종류마다의 tool 목록 조립, file 범위, file tool hook
+      - tool 결과가 클 때의 처리
+    read:
+      - architecture/approval.md
+      - packages/core/lophn-agent/tools/
+      - packages/core/apps/agent-tools/
+      - packages/core/agent-workspaces/
+      - packages/core/main/agent-tools.ts
+
+  - id: agents
+    title: agent 정의, call, team, 지침, 내장 skill
+    entries:
+      - packages/protocol/lophn-agent/agent-definitions.ts
+      - packages/protocol/lophn-agent/calls.ts
+      - packages/protocol/lophn-agent/team.ts
+      - packages/protocol/lophn-agent/instructions.ts
+      - packages/protocol/lophn-agent/skill-settings.ts
+      - packages/core/agent-workspaces/skills/
+    owns:
+      - agent 정의 만들기, 고치기, 지우기, 정의 file 읽기
+      - call(결과를 받는 것, 받지 않는 것), 답하기
+      - team spawn, read, end
+      - 지침 읽기(전역, project LOPHN.md)
+      - 내장 skill 켜기·끄기와 부르기
+    read:
+      - architecture/agent-call.md
+      - architecture/agent-definition.md
+      - architecture/workspace-session.md
+      - packages/core/lophn-agent/agents/
+      - packages/core/lophn-agent/instructions/
+      - packages/core/agent-workspaces/
+
+  - id: models
+    title: model, provider, MCP, 설정, secret
+    entries:
+      - packages/protocol/lophn-agent/providers.ts
+      - packages/protocol/lophn-agent/models.ts
+      - packages/protocol/lophn-agent/mcp-settings.ts
+      - packages/protocol/config/
+      - packages/protocol/secrets/
+    owns:
+      - provider 연결(key, loopback, OAuth 구독 로그인과 token 갱신)
+      - model catalog 갱신, custom model, 기본 model 고르기
+      - MCP server 설정과 연결
+      - 설정 file 읽기·쓰기와 층
+      - secret 저장과 요청에 붙이기
+    read:
+      - packages/core/lophn-agent/models/
+      - packages/core/lophn-agent/providers/
+      - packages/core/lophn-agent/secret-destinations.ts
+      - packages/core/config/
+      - packages/core/secrets/
+
+  - id: harness
+    title: harness host, host queue, 터미널, coding agent
+    entries:
+      - packages/protocol/lophn-agent/harness-host.ts
+      - packages/protocol/lophn-agent/host-queue.ts
+      - packages/protocol/coding-agent/
+      - packages/coding-agent/
+    owns:
+      - runtime이 harness인 agent의 turn(take, start_turn, record, finish_turn)
+      - host queue(agent가 연 탭 열기·닫기, browser read)
+      - 터미널 탭과 그 안의 agent 상태
+      - harness hook, coding agent 감지, 공유 skill 사본
+      - harness GUI(터미널 탭의 채팅 화면)
+    read:
+      - architecture/coding-agent.md
+      - architecture/harness-gui.md
+      - architecture/terminal-agent.md
+      - packages/core/host-queue/
+      - packages/core/lophn-agent/session/
+      - packages/shell/main/terminal/
+      - packages/shell/terminal-host/
+      - packages/shell/renderer/terminal/
+      - packages/shell/main/extensions/bundled/
+      - packages/coding-agent/
+
+  - id: app-release
+    title: release 준비, preview, activation, package
+    entries:
+      - packages/protocol/apps/activation/
+      - packages/protocol/apps/releases.ts
+      - packages/protocol/apps/declaration/
+      - packages/protocol/apps/previews.ts
+      - packages/protocol/apps/package-routes.ts
+    owns:
+      - release 준비와 검사(의존, migration, 선언과 handler 일치)
+      - preview 띄우기, 부르기, 멈추기
+      - activation과 동의, 앱 DB migration
+      - 사용자 package 올리기, 내장 SDK 사본
+    read:
+      - architecture/activation.md
+      - architecture/package.md
+      - packages/core/apps/
+
+  - id: app-runtime
+    title: 앱 등록, 실행, 호출, capability, grant
+    entries:
+      - packages/protocol/apps/apps.ts
+      - packages/protocol/apps/runtime.ts
+      - packages/protocol/apps/calls/
+      - packages/protocol/apps/oauth.ts
+      - packages/protocol/apps/grants.ts
+      - packages/protocol/apps/secret-use.ts
+      - packages/protocol/apps/usage.ts
+      - packages/protocol/apps/app-log.ts
+      - packages/protocol/apps/sdk-status.ts
+    owns:
+      - 앱 등록, 지우기, source 폴더
+      - 앱 process 감독(시작, crash, 다시 띄우기)
+      - 앱 호출(operation, command, 앱끼리의 call)과 호출 기록, 앱 data rewind
+      - capability broker(fs, net, secret, store, notify, problem)
+      - 앱 OAuth, grant, 앱 log
+    read:
+      - architecture/app-call.md
+      - architecture/activation.md
+      - packages/core/apps/
+      - packages/core/main/app-supervisor/
+
+  - id: app-surface
+    title: 앱 화면, 앱 창, notice, tray, annotation
+    entries:
+      - packages/protocol/apps/notice.ts
+      - packages/protocol/apps/tray.ts
+      - packages/protocol/apps/annotation.ts
+      - packages/core/apps/annotations/
+    owns:
+      - 앱 화면 탭과 앱 창(app frame), 앱 단축키
+      - notice(사람에게 알리기)
+      - tray
+      - annotation(screenshot 올리기와 앱 workspace agent에게 전하기)
+    read:
+      - architecture/annotation.md
+      - architecture/app-notice.md
+      - packages/core/apps/annotations/
+      - packages/shell/main/app-frame/
+      - packages/shell/renderer/app-frame/
+      - packages/shell/renderer/apps/
+      - packages/shell/main/notice/
+
+  - id: projects
+    title: project, 문서, blob, artifact, browser 탭
+    entries:
+      - packages/protocol/projects/
+      - packages/protocol/storage/
+    owns:
+      - project 등록, 폴더 더하기·빼기, project 설정
+      - 문서 editor(열기, 저장)
+      - blob 올리기
+      - artifact 보기
+      - browser 탭(page 열기, 바깥 link)
+    read:
+      - architecture/artifact.md
+      - architecture/browser-tab.md
+      - packages/core/projects/
+      - packages/core/storage/
+      - packages/shell/main/artifact/
+      - packages/shell/main/browser/
+      - packages/shell/main/browser-bridge/
+      - packages/shell/main/editor/
+      - packages/shell/renderer/artifact/
+      - packages/shell/renderer/artifact-kit/
+      - packages/shell/renderer/browser/
+      - packages/shell/renderer/editor/
+
+  - id: automation
+    title: workflow, job, run
+    entries:
+      - packages/protocol/workflows/
+      - packages/protocol/jobs/
+      - packages/protocol/runs/
+    owns:
+      - workflow 정의, instance, step 메시지, report, flow host
+      - job 주기, 놓친 차례와 hold
+      - run(화면 없는 agent 호출, 앱 tool 호출)
+    read:
+      - architecture/workflow.md
+      - architecture/job.md
+      - architecture/run.md
+      - packages/core/workflows/
+      - packages/core/jobs/
+      - packages/core/runs/
+      - packages/core/main/flow-host/
+      - packages/shell/renderer/workflow/
+
+  - id: core-platform
+    title: core 기동, control socket, 저장, 감독, 진단
+    entries:
+      - packages/protocol/server/
+      - packages/protocol/diagnostics/
+      - packages/protocol/client/
+      - packages/protocol/supervision/
+      - packages/core/server/
+    owns:
+      - core 기동, data root, instance lock, 실행 metadata
+      - ledger schema step과 data step 적용(기동 거절 포함)
+      - control socket과 ensureCore(붙기, 띄우기, 멈추기)
+      - user token, credential, identity
+      - child process 감독과 crash 진단
+      - health, readiness, log, telemetry, 자원 snapshot
+      - 설치와 update
+    read:
+      - architecture/observability.md
+      - architecture/platform.md
+      - packages/core/main/daemon/
+      - packages/core/main/worker/
+      - packages/core/server/
+      - packages/core/storage/
+      - packages/core/supervision/
+      - packages/core/diagnostics/
+      - packages/core/install-and-update/
+
+  - id: shell-workspace
+    title: workspace 창, desk, 탭, layout
+    entries: []
+    owns:
+      - desk 만들기, 바꾸기, 닫기
+      - 탭 열기, 닫기, 다시 열기, 옮기기, 끌기, group 나누기
+      - float 탭, detached 탭
+      - layout 저장과 되살리기, 창 상태
+      - sidebar, quick launch, 탭 닫기 dialog
+    read:
+      - architecture/workspace-layout.md
+      - packages/shell/renderer/shell/
+      - packages/shell/renderer/workspace/
+      - packages/shell/renderer/overlay/
+      - packages/shell/main/workspace/
+
+  - id: shell-desktop
+    title: desktop app, 창, extension host, 모양
+    entries:
+      - packages/protocol/shell/
+      - packages/protocol/extensions/
+    owns:
+      - 창 열기, 닫기, 되살리기, single instance, 종료
+      - tray, autostart, open intent(link·file로 열기), headless
+      - 보호 입력 창(secret input)
+      - extension 켜기, 끄기, load
+      - appearance, 언어
+    read:
+      - architecture/extension.md
+      - architecture/appearance.md
+      - architecture/platform.md
+      - packages/shell/main/desktop/
+      - packages/shell/main/extensions/
+      - packages/shell/main/secret-input/
+      - packages/shell/renderer/secret-input/
+      - packages/shell/renderer/desktop/
+
+  - id: cli
+    title: lophn CLI
+    entries:
+      - packages/cli/
+    owns:
+      - binary가 core에 붙거나 띄우기, core stop
+      - 인자 parse와 출력 꼴, help
+    read:
+      - architecture/coding-agent.md
+      - packages/cli/
+
+  - id: keys
+    title: 단축키와 화면 command
+    entries:
+      - packages/shell/ipc/keybindings.ts
+    owns:
+      - key 판정, chord, context
+      - 사람이 단 키 저장과 되살리기
+      - global shortcut
+    read:
+      - architecture/keybindings.md
+      - packages/shell/renderer/commands/
+      - packages/shell/main/desktop/shortcuts.ts
+      - packages/shell/main/desktop/global-shortcut.ts
+
+  - id: ipc
+    title: shell IPC 통로
+    entries:
+      - packages/shell/ipc/
+    owns:
+      - preload 통로 검사(ipc guard), navigation guard
+      - IPC에만 있는 동작(창 조작, folder picker, 바깥 link 열기)
+    read:
+      - packages/shell/ipc/
+      - packages/shell/preload/
+      - packages/shell/main/desktop/
+
+  - id: sdk
+    title: 앱 SDK
+    entries:
+      - packages/sdk/
+    owns:
+      - SDK가 broker에 닿기 전에 하는 일(입력 검사, hook 상태)
+      - 앱 화면이 operation을 부르는 길
+    read:
+      - architecture/app-call.md
+      - architecture/package.md
+      - architecture/ui-kit.md
+      - packages/sdk/
+
+test_groups:
+  - id: e2e
+    paths: [tests/e2e/, tests/harness/, tests/live/]
+  - id: lophn-agent
+    paths: [packages/core/lophn-agent/]
+  - id: core-apps
+    paths: [packages/core/apps/]
+  - id: core-rest
+    paths: [packages/core/]
+  - id: shell
+    paths: [packages/shell/]
+  - id: libs-tooling
+    paths: [packages/, tests/, tools/]
+
+journey_groups:
+  - id: setup
+    title: 처음 켜기와 설정(provider, model, 설정, extension, 단축키, 모양)
+  - id: app
+    title: 앱 기획, 짓기, 올리기, 쓰기, 고치기, 되돌리기, package
+  - id: project-work
+    title: project 일(폴더, 문서, artifact, browser, 터미널과 coding agent, harness GUI, desk와 탭)
+  - id: agent-automation
+    title: agent 만들기와 할당, call과 team, 승인, workflow, job, run, session rewind

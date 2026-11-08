@@ -43,6 +43,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
   4. core 전체. 경계를 볼 때만 쓰고 file 안에서 공유한다. 준비가 던져도 자원이 닫히게 만든다.
 - 시각과 timer는 주입한다(Clock, 수동 clock). 실제로 기다리지 않는다.
 - 사람의 data root(`~/.lophn`)를 쓰지 않는다. 임시 폴더와 비운 환경(`clearEnv`, 임시 HOME)을 쓴다.
+- test file을 더하거나 지우면 `project-docs/flows/tests/<group>.yaml`에 그 file과 단정하는 outcome(`covers`)을 고친다. 무엇을 쓸지 고를 때는 `node tools/flows.ts report`의 덮이지 않은 risk outcome과 E2E 후보에서 고른다.
 - test file은 대상 바로 옆에 `*_test.ts`로 둔다. helper는 작게 둔다. 거대한 시나리오 helper를 만들지 않는다.
 - model이 끼는 부분은 fake로 본다: loop는 scripted model(`tests/support/loop`), provider wire는 녹화 재생 `fetch`(`tests/support/wire`)와 `tests/fixtures/provider/`, core E2E와 `npm run dev`는 fake server(`tests/support/fake-server`). model 판단의 품질은 test가 아니라 eval(`tests/eval`, `project-docs/architecture/eval.md`)이 잰다.
 

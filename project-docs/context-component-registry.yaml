@@ -138,6 +138,24 @@ components:
     change_reasons:
       note: module 폴더가 생기거나 옮겨질 때. tools/check-modules.ts가 잡는다.
 
+  - id: flow-catalog
+    kind: catalog
+    roles: [planner, lead, worker]
+    description: lophn의 모든 동작. entry(route·CLI·tool·단축키·IPC·SDK·skill·control)를 소유하는 flow와 outcome, journey, test file이 덮는 outcome. coverage를 잰다.
+    path: project-docs/flows/
+    change_reasons:
+      paths: [packages/protocol/, packages/cli/commands/, packages/shell/ipc/, packages/sdk/, packages/core/agent-workspaces/skills/]
+      note: entry나 test file을 더하거나 지울 때, 동작의 끝 갈래가 바뀔 때. tools/flows.ts check가 잡는다.
+
+  - id: tool-flows
+    kind: tool
+    roles: [planner, lead]
+    description: code에서 entry를 뽑고(entries), flow catalog의 참조와 빠짐을 보고(check), coverage를 잰다(report). index는 prompt에 붙일 flow 목록, sample은 review용 표본.
+    path: tools/flows.ts
+    run: node tools/flows.ts report
+    change_reasons:
+      note: flow catalog의 꼴이나 entry 종류가 바뀔 때.
+
   - id: context-component-registry
     kind: catalog
     roles: [planner]

@@ -83,7 +83,7 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 - `actor`는 입구를 부르는 쪽이다. 사람이 화면에서 눌러 renderer가 부르는 route는 `person`, shell main이 스스로 부르는 것(harness host, host queue)은 `shell`, CLI나 tool로 agent가 부르는 것은 `agent`, core나 child process만 부르는 내부 route는 `system`이다.
 - `pre`는 모두 성립해야 하는 앞 상태다(AND). 둘 중 하나면 흔한 쪽 하나만 쓴다.
 - `pre`, `uses`가 다른 area를 가리킬 때 그 area의 flow가 아직 없으면 entry ID로 쓴다. entry는 code에서 뽑으므로 늘 있다.
-- `crosses_process`는 이 flow가 lophn process 하나(core daemon, agent runtime, worker, 앱 child, preview·prepare child, flow host, shell main, renderer) 밖으로 나가야 끝나는지다. git, npm 같은 바깥 CLI는 세지 않는다. core E2E 후보를 고를 때 쓴다.
+- `crosses_process`는 부른 쪽의 요청을 받은 process가 일을 끝내려고 다른 lophn process(core daemon, agent runtime, worker, 앱 child, preview·prepare child, flow host, shell main, renderer)를 하나 더 거쳐야 하는지다. 부르는 쪽에서 받는 쪽으로 한 번 건너는 것(renderer가 core route를 부름, agent가 tool로 core를 부름)만으로는 false다. git, npm 같은 바깥 CLI는 세지 않는다. core E2E 후보를 고를 때 쓴다.
 - `risk`는 아래 다섯 가운데서만 고른다. 없으면 칸을 두지 않는다.
 
 | risk | 언제 |
@@ -103,6 +103,7 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 - `invalid_input`처럼 schema가 막는 것은 그 flow가 따로 다루는 갈래일 때만 쓴다.
 - outcome은 handler가 실제로 낼 수 있는 것만 둔다. schema enum에 있어도 code가 만들지 않으면 outcome이 아니라 `unclear`에 쓴다.
 - step에 쓴 판정은 모두 outcome이 있어야 한다. 앞 read나 port가 실패해 그대로 돌려주는 오류, 이른 return, `preventDefault` 같은 방어 갈래도 갈래다.
+- 기계 전용 route의 `requireMachine` 같은 검사도 똑같이 outcome으로 둔다(actor가 `system`이어도).
 - route마다 handler 맨 앞의 부르는 쪽 검사(`gate()`, `requireUser`, `requireMachine`, desktop 창 sender 검사)가 내는 `forbidden`도 outcome이다. wrapper가 부르는 안쪽 command의 실패도 그 flow의 갈래다. 두 방향 channel이면 두 방향을 다 쓴다.
 - 같은 code를 내는 원인이 여럿이면 `when`에 모두 쓴다. handler 묶음이 같은 guard(예: `requireUser`)로 시작하면 그 묶음의 flow마다 그 guard를 `when`에 쓴다.
 - `observe`는 test가 단정할 자리다. 앞머리는 `disk:`, `ledger:<표>`, `event:<name>`, `response`, `request:<받는 쪽>`(fake model, 바깥 server), `process:`, `screen:<frame id>`, `log:` 가운데 하나다.

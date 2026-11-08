@@ -9,6 +9,7 @@ import {
   asJson,
   DECLARATION_KEYS,
   DECLARATION_REQUIRED_KEYS,
+  type AppKeyDeclaration,
   type DeclarationOptions,
   exactKeys,
   invalid,
@@ -22,7 +23,7 @@ import {
   type ValidationResult,
 } from "./types.ts";
 import { normalizeJson, sortBy, unique } from "./json.ts";
-import { validateLayers } from "./tools.ts";
+import { TOOL_NAME, validateLayers } from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { iconPath, permissionScope, scopeKey } from "./scope.ts";
 
@@ -96,6 +97,81 @@ function validateSkills(
   };
 }
 
+// 앱이 내는 key(`keys`)의 검사. 앱 key는 홑 타만 받는다(연속 key는 앱 page가 맞추지 않는다). 글 입력을 삼키지
+// 않게 modifier가 있거나 F키여야 한다. key 이름 목록은 shell의 ipc/keybindings.ts와 같다(의존 없이 두려고 옮겨 적었다).
+const NAMED_KEYS =
+  "Backquote|Backslash|BracketLeft|BracketRight|Comma|Period|Slash|Semicolon|Quote|Minus|Equal|" +
+  "ArrowUp|ArrowDown|ArrowLeft|ArrowRight|PageUp|PageDown|Home|End|Tab|Enter|Space|Escape|" +
+  "Backspace|Delete|Insert";
+const WITH_MODIFIER = new RegExp(
+  `^(?:(?:Ctrl|Cmd|Alt|Shift)\\+)+(?:Key[A-Z]|Digit[0-9]|F[1-9]|F1[0-2]|${NAMED_KEYS})$`,
+);
+const FUNCTION_KEY = /^F(?:1[0-2]|[1-9])$/;
+
+function keyChordOk(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    (WITH_MODIFIER.test(value) || FUNCTION_KEY.test(value))
+  );
+}
+
+export function validateKeys(
+  items: unknown,
+): ValidationResult<AppKeyDeclaration[]> {
+  if (items === undefined) return { ok: true, value: [] };
+  if (!Array.isArray(items)) return invalid("keys must be an array");
+  const keys: AppKeyDeclaration[] = [];
+  for (const item of items) {
+    if (!isObject(item)) return invalid("key must be an object");
+    const bad = exactKeys(
+      item,
+      ["context", "id", "key", "title"],
+      ["id", "key", "title"],
+    );
+    if (bad) return invalid(`key ${bad}`);
+    if (typeof item.id !== "string" || !TOOL_NAME.test(item.id)) {
+      return invalid(
+        "key name must be 1-64 characters of letters, digits, _ - .",
+      );
+    }
+    if (!singleLine(item.title)) {
+      return invalid(`key ${item.id} title must be one line of text`);
+    }
+    if (!isObject(item.key))
+      return invalid(`key ${item.id} key must be an object`);
+    const chords = exactKeys(item.key, ["mac", "other"], ["other"]);
+    if (chords) return invalid(`key ${item.id} key ${chords}`);
+    if (!keyChordOk(item.key.other)) {
+      return invalid(
+        `key ${item.id} needs a single key with a modifier or an F key`,
+      );
+    }
+    if (item.key.mac !== undefined && !keyChordOk(item.key.mac)) {
+      return invalid(
+        `key ${item.id} mac needs a single key with a modifier or an F key`,
+      );
+    }
+    if (item.context !== undefined && !singleLine(item.context)) {
+      return invalid(`key ${item.id} context must be one line of text`);
+    }
+    keys.push({
+      id: item.id,
+      title: item.title,
+      key: {
+        other: item.key.other,
+        ...(item.key.mac === undefined ? {} : { mac: item.key.mac }),
+      },
+      ...(item.context === undefined ? {} : { context: item.context }),
+    });
+  }
+  const dup = unique(
+    keys.map((key) => key.id),
+    "key",
+  );
+  if (dup) return invalid(dup);
+  return { ok: true, value: sortBy(keys, (key) => key.id) };
+}
+
 export function validateDeclaration(
   value: unknown,
   options?: DeclarationOptions,
@@ -157,6 +233,8 @@ export function validateDeclaration(
 
   const skills = validateSkills(value.skills, commands);
   if (!skills.ok) return skills;
+  const keys = validateKeys(value.keys);
+  if (!keys.ok) return keys;
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
@@ -218,6 +296,7 @@ export function validateDeclaration(
     // 없으면 칸을 두지 않는다. 옛 선언의 hash가 그대로이다.
     ...(typeof value.icon === "string" ? { icon: value.icon } : {}),
     ...(skills.value.length > 0 ? { skills: skills.value } : {}),
+    ...(keys.value.length > 0 ? { keys: keys.value } : {}),
     screens: sortBy(screens, (screen) => screen.key),
     operations: sortBy(operations, (operation) => operation.name),
     commands: sortBy(commands, (command) => command.name),

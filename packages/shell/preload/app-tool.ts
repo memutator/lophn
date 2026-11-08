@@ -8,9 +8,22 @@ import type {
   AppPlaceWorkspace,
   Json,
   LophnApp,
+  LophnAppCommands,
   TabHead,
   TabHeadEvent,
 } from "../../protocol/shell/app-bridge-types.ts";
+import {
+  APP_KEYS_CHANNEL,
+  APP_KEYS_FORWARD_CHANNEL,
+  type AppKeysPayload,
+} from "../ipc/app-keys.ts";
+import {
+  type KeyInput,
+  MODIFIER_CODES,
+  parseChord,
+  type Stroke,
+  strokeMatches,
+} from "../ipc/keybindings.ts";
 import {
   APP_AGENT_OPEN_CHANNEL,
   APP_AGENT_SEND_CHANNEL,
@@ -130,6 +143,99 @@ export function placeOf(query: string): AppPlace {
   };
 }
 
+/** keydown에서 맞추기에 쓰는 DOM KeyboardEvent의 부분. */
+interface AppKeyEvent {
+  readonly key: string;
+  readonly code: string;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly altKey: boolean;
+  readonly shiftKey: boolean;
+  readonly repeat: boolean;
+  readonly isComposing: boolean;
+  preventDefault(): void;
+  stopPropagation(): void;
+}
+
+interface HeardKey {
+  readonly text: string;
+  readonly stroke: Stroke;
+}
+
+const heard = (text: string): HeardKey => ({
+  text,
+  stroke: parseChord(text).strokes[0]!,
+});
+
+/**
+ * 앱 page의 key 맞추기. host가 준 글(`AppKeysPayload`)과 page가 건 handler로 keydown을 판정한다. 앱 key가
+ * 맞고 handler가 있고 `when`이 참이면 handler를 부르고 삼킨다. 아니면 shell 글에 맞을 때 host로 넘기고 삼킨다.
+ * 맞지 않으면 그대로 둔다. 눌러 둔 반복은 삼키기만 하고 부르거나 넘기지 않는다.
+ */
+export function createAppKeys(
+  transport: Pick<AppTransport, "on" | "sendToHost">,
+): {
+  commands: LophnAppCommands;
+  handle(event: AppKeyEvent): void;
+} {
+  const handlers = new Map<string, { run: () => void; when?: () => boolean }>();
+  let own: (HeardKey & { name: string })[] = [];
+  let shell: HeardKey[] = [];
+  transport.on(APP_KEYS_CHANNEL, (payload) => {
+    const value = payload as AppKeysPayload;
+    own = Object.entries(value.keys).flatMap(([name, texts]) =>
+      texts.map((text) => ({ name, ...heard(text) })),
+    );
+    shell = value.forward.map(heard);
+  });
+  const commands: LophnAppCommands = {
+    register(name, handler, when) {
+      const entry = { run: handler, when };
+      handlers.set(name, entry);
+      return () => {
+        if (handlers.get(name) === entry) handlers.delete(name);
+      };
+    },
+  };
+  function handle(event: AppKeyEvent): void {
+    // 한글 조합 중과 modifier만 누른 key는 맞추지 않는다(shell service와 같다).
+    if (
+      event.isComposing ||
+      MODIFIER_CODES.test(event.code) ||
+      MODIFIER_CODES.test(event.key)
+    ) {
+      return;
+    }
+    const input: KeyInput = {
+      key: event.key,
+      code: event.code,
+      ctrl: event.ctrlKey,
+      meta: event.metaKey,
+      alt: event.altKey,
+      shift: event.shiftKey,
+    };
+    const mine = own.find((one) => {
+      if (!strokeMatches(one.stroke, input)) return false;
+      const handler = handlers.get(one.name);
+      return handler !== undefined && (handler.when?.() ?? true);
+    });
+    if (mine !== undefined) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) handlers.get(mine.name)?.run();
+      return;
+    }
+    const forwarded = shell.find((one) => strokeMatches(one.stroke, input));
+    if (forwarded === undefined) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.repeat) {
+      transport.sendToHost(APP_KEYS_FORWARD_CHANNEL, forwarded.text);
+    }
+  }
+  return { commands, handle };
+}
+
 export function createAppTool(
   transport: AppTransport,
   query: string,
@@ -168,8 +274,21 @@ export function createAppTool(
   } catch {
     // shell 밖이면 머리 줄이 없다.
   }
+  const keys = createAppKeys(transport);
+  // 창(window)에서 듣는다. page의 keydown listener보다 먼저 받아야 맞은 key를 page가 받기 전에 삼킬 수 있다.
+  // Node 테스트처럼 window가 없으면 듣지 않는다.
+  (
+    globalThis as unknown as {
+      addEventListener?(
+        type: "keydown",
+        listener: (event: AppKeyEvent) => void,
+        capture: true,
+      ): void;
+    }
+  ).addEventListener?.("keydown", keys.handle, true);
   return Object.freeze({
     place: Object.freeze(placeOf(query)),
+    commands: Object.freeze(keys.commands),
     callOperation: (operation: string, input: unknown) =>
       request(transport, APP_CALL_OPERATION_CHANNEL, { operation, input }),
     async openExternal(url: string): Promise<void> {

@@ -94,11 +94,20 @@ export type AppPlace = {
   workspace: AppPlaceWorkspace | null;
 };
 
+/**
+ * 앱이 선언한 key(`keys`)의 handler를 건다. name은 선언의 key `id`다. `when`이 없거나 참을 돌려줄 때만 handler가
+ * 돈다. 맞은 key는 page가 삼키고, `when`이 거짓이면 shell의 key로 넘어간다. 돌려주는 함수로 handler를 푼다.
+ */
+export type LophnAppCommands = {
+  register(name: string, handler: () => void, when?: () => boolean): () => void;
+};
+
 export type LophnApp = {
   place: AppPlace;
   callOperation(operation: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
   agent: LophnAppAgent;
+  commands: LophnAppCommands;
   /** 이 화면 탭의 머리 줄을 바꾼다. null이면 내린다. */
   setTabHead(head: TabHead | null): void;
   /** 머리 줄의 event를 받는다. 받기 시작하면 지금 `shown`을 바로 한 번 준다. */

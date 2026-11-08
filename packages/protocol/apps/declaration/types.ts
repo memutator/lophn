@@ -150,6 +150,16 @@ export type SkillDeclaration = {
   commands: string[];
 };
 
+// 앱이 내는 key. 맞는 것은 앱 page(guest preload)가 하고, shell은 Settings에 줄로 보이고 바꾸게만 한다.
+// `key.mac`이 없으면 `key.other`와 같다. 홑 타이고 modifier가 있거나 F1~F12여야 한다(글 입력을 삼키지 않게).
+export type AppKeyDeclaration = {
+  id: string;
+  title: string;
+  key: { mac?: string; other: string };
+  // Settings 줄의 context 이름. 없으면 `app:<app id>`다.
+  context?: string;
+};
+
 export type AppDeclaration = {
   name: string;
   description: string;
@@ -157,6 +167,8 @@ export type AppDeclaration = {
   icon?: string;
   // 없어도 된다. skill 폴더는 commit의 .lophn/skills/<name>/SKILL.md다.
   skills?: SkillDeclaration[];
+  // 없어도 된다. 칸이 없는 옛 선언의 hash는 그대로다.
+  keys?: AppKeyDeclaration[];
   screens: ScreenDeclaration[];
   // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
   operations: OperationDeclaration[];
@@ -174,6 +186,7 @@ export const DECLARATION_KEYS = [
   "commands",
   "description",
   "icon",
+  "keys",
   "name",
   "operations",
   "permissions",
@@ -182,9 +195,9 @@ export const DECLARATION_KEYS = [
   "skills",
 ] as const;
 
-// icon과 skills는 칸이 없어도 된다.
+// icon, skills, keys는 칸이 없어도 된다.
 export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(
-  (key) => key !== "icon" && key !== "skills",
+  (key) => key !== "icon" && key !== "skills" && key !== "keys",
 );
 
 export const INPUT_KEYS = [

@@ -8,6 +8,11 @@ import { createContext, useContext, useEffect, useRef } from "react";
 
 import { APP_KEEP_ALIVE_CHANNEL } from "../../ipc/app-keep-alive.ts";
 import {
+  APP_KEYS_CHANNEL,
+  APP_KEYS_FORWARD_CHANNEL,
+  type AppKeysPayload,
+} from "../../ipc/app-keys.ts";
+import {
   APP_CONTENT_SIZE_CHANNEL,
   type ContentSize,
   readContentSize,
@@ -19,10 +24,17 @@ import {
   type TabHead,
   type TabHeadEvent,
 } from "../../ipc/app-tab-head.ts";
+import { type AppKeysBridge, useAppKeysBridge } from "../commands/app-keys.ts";
 import styles from "./webview-host.module.css";
 
 // main의 BROWSER_PARTITION(main/browser/session.ts)과 같은 이름이다. 다르면 main이 attach를 거절한다.
 const PARTITION = "persist:lophn-browser";
+
+/** 앱 화면의 주소(`lophn-app://app-<id 소문자>/…`)에서 앱 id(`app_<id>`)를 낸다. main의 appHostLabel을 거꾸로 푼 것이다. */
+function appOfSrc(src: string): string | undefined {
+  const label = /^lophn-app:\/\/app-([0-9a-z]+)\//.exec(src)?.[1];
+  return label === undefined ? undefined : `app_${label}`;
+}
 
 /** guest 탭의 view_session. main이 같은 규칙으로 guest를 부른다(`bt-webview-main`). */
 export function guestSession(contentsId: number): string {
@@ -81,6 +93,9 @@ interface Entry {
   headListeners: Set<(head: TabHead | null) => void>;
   /** 앱 page가 켠 살려 두기 신호(ipc/app-keep-alive.ts). page가 새로 load되면 꺼진다. */
   keepAlive: boolean;
+  /** 앱 화면의 앱 id와 key 통로(commands/app-keys.ts). 앱 화면이 `keys`로 붙였을 때만 있다. */
+  app?: string;
+  keys?: AppKeysBridge;
   /** 사람이 browser 탭에 켠 Keep alive. */
   userKeep: boolean;
   /** 이 탭의 page가 download를 받는 중. */
@@ -111,6 +126,11 @@ export interface WebviewHost {
   onTabHead(key: string, listener: (head: TabHead | null) => void): () => void;
   /** 앱 page에 머리 줄 event를 보낸다. */
   sendTabHead(key: string, event: TabHeadEvent): void;
+  /**
+   * 앱 화면의 key를 page와 맞춘다(ipc/app-keys.ts). page가 새로 load되거나 key 설정이 바뀌거나 shell key가 돌면
+   * 글을 다시 보낸다. 돌려주는 함수로 푼다.
+   */
+  bindAppKeys(key: string, app: string, bridge: AppKeysBridge): () => void;
   /** 앱 page가 알린 내용 크기(ipc/app-content-size.ts). tray popup처럼 그릇에 화면이 하나인 곳이 쓴다. */
   onContentSize(listener: (size: ContentSize) => void): () => void;
   release(key: string): void;
@@ -269,7 +289,10 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       };
       element.addEventListener("did-finish-load", loaded);
       element.addEventListener("did-fail-load", loaded);
-      if (entry.kind === "app") bindTabHead(entry, element);
+      if (entry.kind === "app") {
+        bindTabHead(entry, element);
+        bindKeys(entry, element);
+      }
       return;
     }
     if (!webviewSupported()) {
@@ -298,6 +321,51 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     } catch {
       // 위와 같다.
     }
+  }
+
+  // page에 key 글을 보낸다. page가 아직 붙기 전이면 send가 던지므로 그때는 dom-ready에서 다시 보낸다.
+  function pushKeys(entry: Entry): void {
+    if (entry.app === undefined || entry.keys === undefined) return;
+    const payload: AppKeysPayload = entry.keys.payload(entry.app);
+    try {
+      void (entry.element as WebviewElement)
+        .send(APP_KEYS_CHANNEL, payload)
+        .catch(() => {});
+    } catch {
+      // 위와 같다.
+    }
+  }
+
+  // 새 page(dom-ready)와 focus가 들어올 때 글을 새로 보낸다. page가 넘긴 shell key는 창의 service로 돌리고 글을 다시 보낸다.
+  function bindKeys(entry: Entry, element: HTMLElement): void {
+    if (entry.app !== undefined) {
+      element.setAttribute("data-key-context", `app:${entry.app}`);
+    }
+    element.addEventListener("dom-ready", () => {
+      if (entry.element === element) pushKeys(entry);
+    });
+    element.addEventListener("focus", () => {
+      if (entry.element === element) pushKeys(entry);
+    });
+    element.addEventListener("ipc-message", (event) => {
+      const { channel, args } = event as unknown as {
+        channel: string;
+        args: unknown[];
+      };
+      if (entry.element !== element || channel !== APP_KEYS_FORWARD_CHANNEL) {
+        return;
+      }
+      const chord = args[0];
+      if (
+        typeof chord !== "string" ||
+        entry.app === undefined ||
+        entry.keys === undefined
+      ) {
+        return;
+      }
+      entry.keys.run(chord, element);
+      pushKeys(entry);
+    });
   }
 
   function setTabHead(entry: Entry, head: TabHead | null): void {
@@ -435,6 +503,22 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
         return null;
       }
     },
+    bindAppKeys(key, app, bridge) {
+      const entry = entries.get(key);
+      if (entry === undefined || entry.kind !== "app") return () => {};
+      entry.app = app;
+      entry.keys = bridge;
+      entry.element.setAttribute("data-key-context", `app:${app}`);
+      const off = bridge.subscribe(() => pushKeys(entry));
+      pushKeys(entry);
+      return () => {
+        off();
+        if (entry.keys !== bridge) return;
+        entry.keys = undefined;
+        entry.app = undefined;
+        entry.element.removeAttribute("data-key-context");
+      };
+    },
     keyOf(session) {
       for (const [key, entry] of entries) {
         if (entry.session === session) return key;
@@ -542,6 +626,7 @@ export function useWebviewSlot(input: {
   const onSession = useRef(input.onSession);
   onSession.current = input.onSession;
   const wantsSession = input.onSession !== undefined;
+  const appKeys = useAppKeysBridge();
 
   useEffect(() => {
     if (host === null || !enabled) return;
@@ -549,6 +634,14 @@ export function useWebviewSlot(input: {
     if (!wantsSession) return;
     return host.onSession(key, (session) => onSession.current?.(session));
   }, [host, kind, enabled, key, src, wantsSession]);
+
+  // 앱 화면만 key를 맞춘다. element를 새로 만들면(src 바뀜) 위 effect가 먼저 돌아 그 element에 붙는다.
+  useEffect(() => {
+    if (host === null || !enabled || kind !== "app" || appKeys === null) return;
+    const app = appOfSrc(src);
+    if (app === undefined) return;
+    return host.bindAppKeys(key, app, appKeys);
+  }, [host, enabled, kind, key, src, appKeys]);
 
   useEffect(() => {
     if (host === null || !enabled) return;

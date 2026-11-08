@@ -5,7 +5,8 @@
 앱 view의 bridge(`lophnApp`)를 쓰는 UI 셋이다. 선언한 operation 하나를 부르는
 `OperationButton`·`useOperation`, 앱 화면 root의 `AppErrorBoundary`, 화면의 머리
 조작을 lophn 탭 머리 줄에 올리는 `useTabHead`, 화면이 열린 자리·인자·workspace를 읽는
-`usePlace`, 일이 도는 동안 page를 살려 두는 `useKeepAlive`다. 화면은
+`usePlace`, 일이 도는 동안 page를 살려 두는 `useKeepAlive`, 선언한 key의 handler를 거는
+`useCommand`다. 화면은
 operation만 부르고, 호출은 앱 view의 `lophnApp.callOperation` 하나로만 한다.
 호출이 허락되는지, 사람이 정해야 하는지는 lophn이 정하고 앱 안에 따로 확인
 dialog를 두지 않는다. 조작은 lophn 화면과 같은 component(`@lophn/ui`)다. bridge가
@@ -74,6 +75,13 @@ import {
     프레임의 머리 줄이 없는 곳이면 false이고, 그때만 화면이 꼭 필요한 조작을
     스스로 그린다(최소한으로). `null`이나 화면이 사라지면 내린다. `head`는 값이
     바뀔 때만 다시 올린다.
+- `useCommand(id, handler, options?)` — 선언의 key `id`(`declaration`의 `keys`)에 handler를 건다. 화면이
+  mount된 동안만 산다. `options.when`은 `() => boolean`이다. 거짓을 돌려주면 handler가 돌지 않고 그 key는
+  shell로 넘어간다(없으면 늘 참이다). handler와 `when`은 부를 때의 가장 최근 것을 쓰므로 그릴 때마다 새로 넘겨도 된다.
+  앱 view 밖이면 아무 일도 없다. 선언에 없는 `id`는 아무도 부르지 않는다.
+  ```tsx
+  useCommand("save", () => void save(), { when: () => dirty });
+  ```
 - `usePlace()` — 이 화면이 열릴 때 정해진 `{place, params, workspace}`다. 읽기만
   하고 화면이 열려 있는 동안 바뀌지 않는다(dock·desk float·전역 float는 모두
   `panel`이라 자리가 바뀌는 경우가 없다).
@@ -99,7 +107,7 @@ import {
     있으면 page가 살아 있다. `@lophn/agent`가 turn이 도는 동안 스스로 켜는
     신호와 서로 끄지 않으므로 agent 답을 기다리는 것만이면 이 hook이 필요 없다.
     `lophnApp.setKeepAlive(active, key?)`를 직접 부를 때도 같은 key로 켜고 끈다.
-- type: `KeepAliveBridge`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
+- type: `CommandOptions`, `CommandBridge`, `KeepAliveBridge`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
   `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`, `TabHeadIcon`,
   `TabHeadEvent`, `TabHeadHandlers`, `TabHeadBridge`
@@ -117,7 +125,7 @@ import {
 | -------------------- | ------- |
 | `react`              | 19.3.0  |
 | `lucide-react`       | 1.51.0  |
-| `@lophn/declaration` | 4.0.0   |
+| `@lophn/declaration` | 4.3.0   |
 | `@lophn/ui`          | 1.1.0   |
 | `@lophn/i18n`        | 1.0.0   |
 

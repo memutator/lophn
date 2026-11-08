@@ -40,3 +40,8 @@ export {
   usePlace,
 } from "./use-place.ts";
 export { type KeepAliveBridge, useKeepAlive } from "./use-keep-alive.ts";
+export {
+  type CommandOptions,
+  type CommandBridge,
+  useCommand,
+} from "./use-command.ts";

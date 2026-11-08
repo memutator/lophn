@@ -7,7 +7,10 @@ import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { AppViewOpen, LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { WorkspaceRef } from "../shell/desk-model.ts";
-import type { TraySize } from "../../../protocol/apps/declaration/mod.ts";
+import type {
+  AppKeyDeclaration,
+  TraySize,
+} from "../../../protocol/apps/declaration/mod.ts";
 
 /** 앱 등록에서 view 크롬과 판 고정이 쓰는 것만. */
 interface AppFacts {
@@ -37,6 +40,8 @@ export interface AppScreens {
   /** 지금 채택된 판. view를 열 때 이 판에 고정한다(main은 live에서 판 없이 열지 않는다). */
   readonly release: string;
   readonly screens: readonly AppScreen[];
+  /** 앱이 선언한 key. Settings › Keyboard 줄이 되고, 앱 page가 맞출 글이 된다. */
+  readonly keys?: readonly AppKeyDeclaration[];
 }
 
 export type ScreensRead =
@@ -148,6 +153,7 @@ interface DeclarationValue {
     places: AppViewOpen["place"][];
     tray?: TraySize;
   }[];
+  keys?: AppKeyDeclaration[];
 }
 
 /** 목록을 끝까지 읽는 page 상한. 넘으면 모은 앱까지만 고를 수 있다. */
@@ -201,6 +207,7 @@ export function coreAppScreens(
           places: screen.places,
           ...(screen.tray === undefined ? {} : { tray: screen.tray }),
         })),
+        keys: declaration.keys ?? [],
       });
     }
     return { ok: true, value: found };

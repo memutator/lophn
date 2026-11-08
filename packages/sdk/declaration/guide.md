@@ -18,12 +18,12 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `AppDeclaration`, `ScreenDeclaration`, `OperationDeclaration`,
   `CommandDeclaration`, `Place`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
-  `SkillDeclaration`, `SDKDependency`, `TraySide`, `TraySize`, `ValidationResult`, `ValidationError`
+  `SkillDeclaration`, `AppKeyDeclaration`, `SDKDependency`, `TraySide`, `TraySize`, `ValidationResult`, `ValidationError`
 
 ## 선언의 칸
 
 `name`, `description`, `screens`, `operations`, `commands`, `permissions`,
-`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`만 있다. 알 수 없는 칸은 거절한다.
+`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`만 있다. 알 수 없는 칸은 거절한다.
 
 - `screens` — 화면 목록이다. 항목은 `{key, label, path, places, params?, tray?}`다. `places`는
   화면을 열 수 있는 자리이고 비지 않고 겹치지 않는다.
@@ -69,6 +69,16 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다.
   공개 skill을 지우는 release는 막지 않고, 그 앱을 할당받은 agent가 있으면 준비 결과의
   `removed_public_skills`에 그 skill이 실린다.
+- `keys` — 앱이 내는 key(단축키) 목록이다. 항목은 `{id, title, key: {mac?, other}, context?}`다.
+  - `id`는 이 앱 안의 이름이다(영문·숫자·`_ - .`, 1~64자, 겹치지 못한다). Settings › Keyboard에는
+    `app.<앱 id>.<id>` command의 줄로 보이고 사람이 바꿀 수 있다. `title`은 그 줄의 이름이다(한 줄).
+  - `key.other`는 Linux·Windows의 key, `key.mac`은 macOS의 key다. `mac`이 없으면 `other`와 같다.
+    key는 홑 타 하나이고 modifier(`Ctrl`·`Cmd`·`Alt`·`Shift`)가 있거나 F1~F12여야 한다(글 입력을 삼키지 않게).
+    예 `"Ctrl+KeyS"`, `"Cmd+KeyS"`, `"F5"`. 두 타 key(`"Ctrl+KeyX Ctrl+KeyE"`)는 선언할 수 없다.
+  - `context`는 Settings 줄에 쓰는 context 이름이다. 빼면 `app:<앱 id>`다. 보통 빼 둔다.
+  - key는 화면이 `@lophn/app-ui`의 `useCommand`로 같은 `id`에 handler를 건 동안만 돈다. handler가 없으면 줄만 보이고
+    아무 일도 없다. 앱 안에서 맞은 key는 앱이 가져가고, 앱이 맞추지 않은 shell key(탭 이동, palette 등)는 shell이 돈다.
+    `main`이 먼저 받는 key(탭 닫기 Ctrl+W 등)는 앱에 닿기 전에 shell이 가져가므로 앱 key로 주지 않는다.
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
   자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
   막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이
@@ -121,7 +131,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.2.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.3.0" }],
 });
 
 const result = validateDeclaration(declaration);

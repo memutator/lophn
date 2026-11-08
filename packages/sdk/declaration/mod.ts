@@ -1,6 +1,7 @@
 // 공개 SDK. 정본 검증기는 protocol/apps/declaration의 의존성 없는 파일들이다.
 export type {
   AppDeclaration,
+  AppKeyDeclaration,
   AppCommandUseDeclaration,
   CommandDeclaration,
   DeclarationOptions,

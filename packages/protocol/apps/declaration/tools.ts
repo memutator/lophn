@@ -21,7 +21,7 @@ import { screenPath } from "./scope.ts";
 
 // toolNameSchema(channel-values.ts)와 같은 규칙이다.
 // 이 file은 의존성이 없어 따로 쓴다.
-const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
+export const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 // protocol/lophn-agent/tool-catalog.ts의 TOOL_NAME_MAX와 같은 값이다. 이 file은 의존성이 없어 따로 쓴다.
 const WIRE_NAME_MAX = 64;
 

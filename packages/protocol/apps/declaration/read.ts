@@ -79,6 +79,17 @@ const appFactsSchema = z.object({
   tools: z.array(z.string().min(1)),
 });
 
+// 앱이 낸 key. 칸이 없는 선언은 없다. shell이 Settings 줄과 앱 page의 key 글을 만든다.
+const appKeySchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  key: z.object({
+    mac: z.string().min(1).optional(),
+    other: z.string().min(1),
+  }),
+  context: z.string().min(1).optional(),
+});
+
 const appDeclarationOutputSchema = withReadCommon(
   z.object({
     app: appIdSchema,
@@ -92,6 +103,7 @@ const appDeclarationOutputSchema = withReadCommon(
     tools: z.array(appCommandSchema),
     operations: z.array(appOperationSchema),
     screens: z.array(appDeclarationScreenSchema),
+    keys: z.array(appKeySchema).optional(),
     facts: appFactsSchema,
     evidence: appDeclarationEvidenceSchema,
   }),

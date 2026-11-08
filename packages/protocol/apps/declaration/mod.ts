@@ -2,6 +2,7 @@
 // route 정의(read.ts)는 zod를 쓰므로 여기서 내보내지 않는다.
 export type {
   AppDeclaration,
+  AppKeyDeclaration,
   CommandDeclaration,
   AppCommandUseDeclaration,
   DeclarationOptions,

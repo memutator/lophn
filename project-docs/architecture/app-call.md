@@ -108,6 +108,7 @@
 - release를 넘는 rewind는 없다. activation이 끝나면 이전 release의 changeset을 지운다(invocation 기록은 남는다). 이전 release로 돌아가는 것은 activation의 일이다.
 - preview는 따로 띄운 process와 일회용 DB로 돈다. invocation을 남기지 않고(응답의 `invocation`은 null) rewind 대상이 아니다. 운영 앱의 drain과 정지에도 걸리지 않는다.
   - preview 호출은 그 preview bundle의 선언으로 tool과 effect를 판정한다. 아직 release에 없는 새 앱과 새 tool도 부를 수 있다. ledger의 `release`는 비울 수 없어 release 없는 bundle의 호출은 기록할 자리도 없다.
+  - preview는 shell의 preview 탭(`app_preview`, `workspace-layout.md` "agent가 연 탭")으로 본다. `lophn preview start`가 ready 뒤 그 탭을 열고, 사람은 앱 화면 탭의 [Preview]로 연다. 앱 live 화면은 preview 탭이 되지 않는다.
   - preview를 부르는 쪽은 사람과 그 앱 workspace의 session(`preview.call`)이다. agent caller는 그 앱 workspace의 session일 때만 preview target을 부르고, 다른 workspace의 session은 `forbidden`이다(`verifyCaller`, `packages/core/apps/calls/caller.ts`). 앱 workspace의 session이 지은 release를 운영 data 없이 확인하는 길이다. agent의 live 호출 규칙(활성 release, `release` 없음)은 그대로다.
 - 앱 호출 사슬은 같은 앱이 다시 나오면(call_loop) 또는 깊이 한도를 넘으면 handler에 가기 전에 막는다. 앱끼리 서로 부르다 줄이 영영 풀리지 않는 것을 막는다.
 - 앱 log는 앱마다 `<data root>/apps/<app>/logs/app.log`와 돌린 앞 file `app.log.1` 둘이다(`appLogFile`, `packages/protocol/apps/app-storage.ts`). file 하나는 8 MiB까지이고 앱마다 합쳐 16 MiB다. 줄을 더해 8 MiB를 넘게 되면 `app.log`를 `app.log.1`로 옮기고(앞 `.1`은 버린다) 새 `app.log`에 쓴다. 모양은 `packages/protocol/apps/app-log.ts`가 정한다.

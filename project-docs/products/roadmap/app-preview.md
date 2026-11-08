@@ -1,7 +1,8 @@
 # app preview: 만드는 중인 앱을 사람이 본다
 
 상태: 로드맵. 2026-10-18 사람이 방향을 내고 planner가 정리했다. 2026-10-19 사람이 정할 것을 정했다.
-2026-11-08: 1(preview 탭)·2(여는 길)·3(preview annotation)은 `roadmap/browser-use.md` 1단계가 가져갔다. 그 계획을 열 때 아래를 지금 코드와 다시 맞춘다.
+2026-11-09: 1(preview 탭)·2(여는 길: `preview start`가 ready 뒤 탭을 연다, 앱 탭의 [Preview])·3(preview annotation, `preview_bundle`)을 계획 `browser-use`의 `bu-preview`가 끝냈다. 자리 규칙(coding agent terminal 옆)과 App Engineer·ticket 줄은 하지 않았다. 남은 것은 4(gallery는 했다)뿐이다.
+2026-11-08: 1(preview 탭)·2(여는 길)·3(preview annotation)은 `roadmap/browser-use.md` 1단계가 가져갔다.
 2026-10-28: 계획 `remove-role`이 role을 없앴다. agent는 lophn과 사람이 만든 agent이고 session이 workspace(home, project, app)를 갖는다(`products/AGENT.md`, changelog `0.9.0`). 아래에서 Project Manager는 그 project workspace의 session, App Engineer는 그 앱 workspace의 session, Operator는 사람이 만든 agent로 읽는다.
 2026-10-19: 앱 interface가 app-api에서 MCP tool(선언의 `tools[]`)로 바뀌었다(계획 `domain-entity`). 아래 "지금 코드"는 그 앞 기준이므로 계획을 열 때 코드와 다시 맞춘다. 아래 결정은 그대로 간다.
 2026-10-21: `ae-builds`가 App Engineer가 앱을 직접 짓고 `preview.start|call|stop`을 쓰게 바꿨고 ticket과 skill `lophn-build-app`을 지웠다(changelog `0.6.0`). 아래의 coding agent, ticket, `lophn ticket show`, `ticket.verify` 줄은 그 앞의 흐름이다. 계획을 열 때 "preview를 띄우는 것은 App Engineer, annotation은 App Engineer가 바로 받는다, live로 올리기는 `release.activate`"로 다시 쓴다.

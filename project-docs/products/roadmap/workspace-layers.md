@@ -1,6 +1,6 @@
 # workspace-layers: workspace마다 lophn과 설정 층, 그리고 agent memory
 
-상태: 아직 계획으로 열지 않았다.
+상태: 2026-11-09 계획 `project-docs/plan/workspace-layers/`로 열었다. 계획을 열며 자리와 id를 고쳤다(그 README의 "정한 것"이 이 문서보다 앞선다): lophn 정의는 그릇 자리가 아니라 `<data>/agents/<lophn id>.md`, agent memory는 `<data>/agent-memory/<agt_id>.md`.
 2026-11-08 사람이 memory roadmap을 열려 했다. 동기는 둘이다. SDK migration 때마다 agent가 사람의 이전 결정을 몰라 다시 묻는다. agent는 무엇을 알 수 있는지 모른다(사람: "agent는 메타인지가 없다. 무엇을 알 수 있는지에 대한 정보를 memory가 책임져야 한다"). 이야기하다 보니 memory의 주인이 될 "workspace의 lophn"이 코드에 객체로 없다는 것이 드러났고, 그것을 먼저 바로잡기로 했다.
 조사: `harness-lab/_report/memory-architecture/`(Claude Code, Codex, Hermes, Mixdog, omp/pi, OpenCode, dsh, antigravity의 memory 구조 비교, 2026-11-08).
 배경 문서: `project-docs/architecture/agent-definition.md`, `project-docs/architecture/workspace-session.md`, `project-docs/products/roadmap/harness-config.md`.

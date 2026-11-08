@@ -2,7 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { errorCode, ok, type Result } from "../../../base/mod.ts";
 import type {
   AgentId,
-  AgentWorkspace,
+  McpOwnerWorkspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type McpRuntimeServer, runtimeServerOfLayer } from "./mcp-server.ts";
 import { createFileSettingsReader } from "../../config/mod.ts";
@@ -13,7 +13,7 @@ import {
 } from "./project-servers.ts";
 import type { ProjectLayer } from "./project-settings.ts";
 
-// 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 모든 project의 `extensions.json`과 모든 agent 정의의
+// 등록한 MCP server의 snapshot 재료다. 전역 설정 위에 Home과 모든 project·앱의 `extensions.json`과 모든 agent 정의의
 // 서버를 더한다. `mcp.` secret 목적지와 MCP OAuth begin의 서버 조회가 이 snapshot을 읽는다.
 // agent 정의가 가진 서버는 정의 파일에 있어 조립이 `agents`로 넘긴다.
 
@@ -50,9 +50,9 @@ const fsProjectSource: ProjectServerSource = {
 };
 
 type McpSnapshotDeps = {
-  // project 폴더 규칙이다. workspace 층의 값을 조립이 넘긴다.
+  // workspace 폴더 규칙이다. workspace 층의 값을 조립이 넘긴다.
   projectLayer: ProjectLayer;
-  // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 project 폴더다.
+  // 테스트가 바꿔 끼운다. 기본은 설정 파일과 data root의 workspace 폴더다.
   global?: () => Result<McpRuntimeServer[]>;
   projects?: ProjectServerSource;
   // 모든 agent 정의 층의 서버다. harness는 agent-workspaces를 모르므로 조립이 읽어 넘긴다. 없으면 빈 목록이다.
@@ -65,15 +65,15 @@ export type AgentMcpEntry = {
   server: McpRuntimeServer;
 };
 
-// 서버와 그 서버가 놓인 곳이다. 전역 서버는 workspace와 agent가 모두 null이고, project·app 서버는
+// 서버와 그 서버가 놓인 곳이다. 전역 서버는 workspace와 agent가 모두 null이고, Home·project·app 서버는
 // workspace만, agent 정의 층 서버는 agent만 있다.
 export type RegisteredMcpServer = {
-  workspace: AgentWorkspace | null;
+  workspace: McpOwnerWorkspace | null;
   agent: AgentId | null;
   server: McpRuntimeServer;
 };
 
-// 전역 서버가 먼저고 project 서버가 project id 순으로, agent 정의 층 서버가 마지막으로 따른다. 서로 다른
+// 전역 서버가 먼저고 Home, project·앱 서버가 id 순으로, agent 정의 층 서버가 마지막으로 따른다. 서로 다른
 // 소유자의 같은 이름은 모두 남고 `workspace`·`agent`로 가른다: OAuth 시작이 입력의 소유자로 서버를 고른다.
 export async function registeredMcpServers(
   ledgerPath: string,

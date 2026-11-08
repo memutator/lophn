@@ -1,8 +1,5 @@
 import { sha256Hex } from "../../../base/mod.ts";
-import {
-  PROMPT_INSTRUCTION_LAYERS,
-  type WorkspaceKind,
-} from "../../../protocol/lophn-agent/mod.ts";
+import { PROMPT_INSTRUCTION_LAYERS } from "../../../protocol/lophn-agent/mod.ts";
 import {
   inspectInstruction,
   type InstructionDeps,
@@ -18,7 +15,7 @@ export type TurnInstructionLayer = {
   text: string | null;
   // 본문의 sha256. 부재면 null이다.
   hash: string | null;
-  // 실제로 읽은 파일 이름(LOPHN.md 또는 CLAUDE.md). 전역·project 층만 있고 그 밖이거나 부재면 null이다.
+  // 실제로 읽은 파일 이름(LOPHN.md, CLAUDE.md, 앱 층은 AGENTS.md). agent 층이거나 부재면 null이다.
   file: string | null;
 };
 
@@ -36,11 +33,10 @@ function absent(layer: InstructionLayerKind): TurnInstructionLayer {
   return { layer, status: "absent", text: null, hash: null, file: null };
 }
 
-// 전역 → project → agent 순서(PROMPT_INSTRUCTION_LAYERS)로 읽는다. home은 workspace가 없어 project 층이
-// 비어 있다. deps.files는 그 session에 묶인 읽기다(instructionFilesOverCore).
+// 전역 → home | project | 앱 → agent 순서(PROMPT_INSTRUCTION_LAYERS)로 읽는다. session의 workspace가 아닌 층은 core가
+// 부재로 답한다. deps.files는 그 session에 묶인 읽기다(instructionFilesOverCore).
 export async function readTurnInstructions(
   deps: InstructionDeps,
-  session: { kind: WorkspaceKind },
 ): Promise<TurnInstructions> {
   const layers: TurnInstructionLayer[] = [];
   const blocked = (
@@ -70,10 +66,6 @@ export async function readTurnInstructions(
     return { text: inspected.text, file: read.value.name ?? null };
   };
   for (const layer of PROMPT_INSTRUCTION_LAYERS) {
-    if (layer === "project" && session.kind === "home") {
-      layers.push(absent(layer));
-      continue;
-    }
     const read = await readFile(layer);
     if (read !== null && "status" in read) return read;
     const raw = read?.text ?? null;

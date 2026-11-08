@@ -29,6 +29,7 @@ import {
   HARNESS_HOST_MEMORY_ROUTES,
   messageImageUpload,
   type Workspace,
+  workspaceKeyOf,
   workspaceKindOf,
   QUEUED_INPUT_ROUTES,
   readRewindSummary,
@@ -79,7 +80,6 @@ import {
   createProjectExtensionReads,
   createSkillsRead,
   dataRootOf,
-  discoverSkills,
   type ExtensionRegistry,
   extensionSettings,
   globalMcpServersSetting,
@@ -259,7 +259,8 @@ function modelCommandDeps(
 ): ModelCommandDeps {
   const base = checkCatalog(tx);
   return {
-    projectExists: (id) => workspaces.projectExists(tx.sql, id),
+    workspaceExists: (workspace) =>
+      workspaceExists(workspaces, tx.sql, workspace),
     definitionKey: (provider) => providerDefinitionKey(tx.sql, provider),
     catalogEntry: (providerDefinition, modelName) =>
       checkEntryOf(tx.sql, base, providerDefinition, modelName),
@@ -500,15 +501,12 @@ function agentLookups(
     workspaceExists: (workspace) => workspaceExists(workspaces, sql, workspace),
     workspaceArchived: (workspace) =>
       workspace.kind === "app" && workspaces.appArchived(sql, workspace.id),
-    // 이 workspace의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇 자리의 workspace-data 층을 더한다. 한 읽기 안에서 같은
-    // workspace는 같은 목록이다. home(workspace 없음)은 전역 층만이다.
-    skills: (workspace) => {
-      return workspace === null
-        ? globalSkillNames(sql, layers)
-        : (registryOf()
-            ?.skills(workspace, workspaceKindOf(workspace))
-            .entries.filter((entry) => entry.enabled) ?? []);
-    },
+    // 이 workspace(null은 Home)의 agent가 쓸 수 있는 skill·MCP다: 전역 층에 그릇 자리의 workspace-data 층을 더한다. 한 읽기
+    // 안에서 같은 workspace는 같은 목록이다.
+    skills: (workspace) =>
+      registryOf()
+        ?.skills(workspace, workspaceKindOf(workspace))
+        .entries.filter((entry) => entry.enabled) ?? [],
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
     // 할당한 앱의 public skill. 이름만 필요한 개수 계산이 쓴다.
@@ -535,8 +533,7 @@ function agentLookups(
     },
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),
-    projectModel: (workspace) =>
-      workspace?.kind === "project" ? loadChoice(sql, workspace.id) : null,
+    workspaceModel: (workspace) => loadChoice(sql, workspaceKeyOf(workspace)),
   };
 }
 
@@ -553,17 +550,6 @@ function sharedHeadsOf(
     readSharedHeads(skillFiles, workspaces.sharedSkills(sql, root.value, apps)),
     workspace,
   );
-}
-
-// 전역 층에서 발견하는 skill이다. home에 선언된 내장 skill만이고 전역에서 끈 것은 뺀다.
-function globalSkillNames(
-  sql: Pick<Tx["sql"], "get" | "all">,
-  layers: SkillLayers,
-) {
-  return discoverSkills(skillFiles, globalSkillSources(sql, layers), {
-    kind: "home",
-    off: registeredSkillsOff(sql),
-  }).entries.filter((entry) => entry.enabled);
 }
 
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
@@ -703,7 +689,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     modelCommandDeps(ports.lookups, tx),
   );
   const modelReads = createModelReads({
-    projectExists: (sql, id) => ports.lookups.projectExists(sql, id),
+    workspaceExists: (sql, workspace) =>
+      workspaceExists(ports.lookups, sql, workspace),
     readDerived,
   });
   const agentDeps: AgentDeps = {
@@ -756,18 +743,20 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       sourceFolder: (workspace) => ports.lookups.sourceFolder(sql, workspace),
     }),
   });
-  const projectExtensionDeps = {
+  const workspaceExtensionDeps = {
     projectLayer: ports.projectLayer,
     files: workspaceFiles,
     lookups: (sql: Pick<Tx["sql"], "get" | "all">) => ({
-      projectExists: (id: string) =>
-        workspaceExists(ports.lookups, sql, { kind: "project", id }),
+      workspaceExists: (workspace: Workspace) =>
+        workspaceExists(ports.lookups, sql, workspace),
     }),
   };
-  const projectExtensionCommands =
-    createProjectExtensionCommands(projectExtensionDeps);
-  const projectExtensionReads =
-    createProjectExtensionReads(projectExtensionDeps);
+  const workspaceExtensionCommands = createProjectExtensionCommands(
+    workspaceExtensionDeps,
+  );
+  const workspaceExtensionReads = createProjectExtensionReads(
+    workspaceExtensionDeps,
+  );
 
   // 그 agent 정의가 끈 skill 이름과 할당한 앱이다. 정의를 읽지 못하면 끈 skill이 없다.
   function ownOf(
@@ -802,17 +791,8 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         session.workspace,
       );
       return commandSkillsOf(
-        session.workspace === null
-          ? discoverSkills(
-              skillFiles,
-              { ...globalSkillSources(sql, ports), shared },
-              { kind, off: registeredSkillsOff(sql) },
-            ).entries
-          : (extensionRegistry(sql, ports)?.skills(
-              session.workspace,
-              kind,
-              shared,
-            ).entries ?? []),
+        extensionRegistry(sql, ports)?.skills(session.workspace, kind, shared)
+          .entries ?? [],
         own.skills_off,
       );
     },
@@ -839,7 +819,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       commands.completeLogin,
       commands.cancelLogin,
       modelCommands.changeDefault,
-      modelCommands.changeProject,
+      modelCommands.changeWorkspace,
       modelCommands.changeShown,
       modelCommands.saveUserInfo,
       modelCommands.removeUserInfo,
@@ -849,7 +829,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       agentCommands.create,
       agentCommands.change,
       agentCommands.delete,
-      projectExtensionCommands.change,
+      workspaceExtensionCommands.change,
       turnCommands.start,
       turnCommands.checkpoint,
       turnCommands.finish,
@@ -888,7 +868,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       reads.read,
       reads.list,
       modelReads.modelDefault,
-      modelReads.projectModel,
+      modelReads.workspaceModel,
       modelReads.shown,
       modelReads.userInfo,
       modelReads.catalog,
@@ -899,7 +879,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       agentReads.read,
       agentReads.card,
       skillsReads.read,
-      projectExtensionReads.read,
+      workspaceExtensionReads.read,
       turnReads.read,
       turnReads.list,
       turnReads.result,
@@ -972,7 +952,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         reads.read,
         reads.list,
         modelReads.modelDefault,
-        modelReads.projectModel,
+        modelReads.workspaceModel,
         modelReads.shown,
         modelReads.userInfo,
         modelReads.catalog,
@@ -983,7 +963,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         agentReads.read,
         agentReads.card,
         skillsReads.read,
-        projectExtensionReads.read,
+        workspaceExtensionReads.read,
         turnReads.read,
         turnReads.list,
         turnReads.result,

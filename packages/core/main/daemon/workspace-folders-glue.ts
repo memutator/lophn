@@ -53,10 +53,7 @@ function scopeOf(
       workspace?.kind === "project"
         ? workflowsFolder(dataRoot, workspace.id)
         : null,
-    skillsFolder:
-      workspace === null
-        ? null
-        : workspaceDataSkillsFolder(dataRoot, workspace),
+    skillsFolder: workspaceDataSkillsFolder(dataRoot, workspace as never),
     artifactsFolder:
       workspace === null ? null : artifactsFolder(dataRoot, workspace),
   };

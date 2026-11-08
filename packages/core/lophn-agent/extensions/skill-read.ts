@@ -31,9 +31,9 @@ export type SkillSnapshotDeps = {
   personal_store: string | null;
   // 사람이 등록한 폴더(등록 순서)와 전역에서 끈 이름이다. turn마다 읽는다.
   global(): Promise<{ roots: readonly string[]; off: readonly string[] }>;
-  // workspace 폴더의 `.lophn/skills`, workspace 그릇 자리의 `skills/`와 그 project에서 끈 이름이다.
-  // 파일이 없거나 앱이면 끈 이름은 비어 있다.
-  workspace(workspace: AgentWorkspace): Promise<{
+  // workspace 폴더의 `.lophn/skills`, workspace 그릇 자리의 `skills/`와 그 workspace에서 끈 이름이다. workspace가 null이면
+  // Home이다. 파일이 없으면 끈 이름은 비어 있다.
+  workspace(workspace: AgentWorkspace | null): Promise<{
     workspace_skills: WorkspaceSkills | null;
     workspace_data: string | null;
     off: readonly string[];
@@ -48,7 +48,7 @@ export type SkillSnapshotDeps = {
 type SkillSession = {
   id: Id<"ses">;
   kind: WorkspaceKind;
-  // agent가 놓인 workspace다. home은 null이라 전역 층만 본다.
+  // agent가 놓인 workspace다. home은 null이다.
   workspace: AgentWorkspace | null;
   // agent 정의가 끈 이름(`skills_off`)이다.
   off: readonly string[];
@@ -70,14 +70,7 @@ export async function createSkillSnapshot(
   session: SkillSession,
 ): Promise<SkillSnapshot> {
   const global = await deps.global();
-  const layer =
-    session.workspace === null
-      ? {
-          workspace_skills: null as WorkspaceSkills | null,
-          workspace_data: null as string | null,
-          off: [] as readonly string[],
-        }
-      : await deps.workspace(session.workspace);
+  const layer = await deps.workspace(session.workspace);
   const shared = await deps.shared(session.apps, session.workspace);
   const found = discoverSkills(
     deps.port,

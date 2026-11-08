@@ -1,6 +1,6 @@
 // 세 질문
-// - contract: boundary `run-loop`(prompt 조립: 지침 층은 `LOPHN.md`(없으면 `CLAUDE.md`)뿐이고, 바뀐 판은 다음 turn 시작에 notice로 알린다), `agent-workspaces`(project 층 지침의 자리).
-// - 현실적 회귀: 사람이 고친 지침이 도는 session에 영영 안 닿는 것, notice 없이 system만 바뀌어 model이 무엇이 바뀌었는지 모르는 것, `AGENTS.md`를 fallback으로 읽는 수정이 들어가 사람이 모르는 글이 prompt에 섞이는 것.
+// - contract: boundary `run-loop`(prompt 조립: project 층 지침은 `LOPHN.md`(없으면 `CLAUDE.md`)뿐이고, 바뀐 판은 다음 turn 시작에 notice로 알린다), `agent-workspaces`(project 층 지침의 자리).
+// - 현실적 회귀: 사람이 고친 지침이 도는 session에 영영 안 닿는 것, notice 없이 system만 바뀌어 model이 무엇이 바뀌었는지 모르는 것, project 층이 `AGENTS.md`를 fallback으로 읽는 수정이 들어가 사람이 모르는 글이 prompt에 섞이는 것(`AGENTS.md`는 앱 source 층에서만 읽는다).
 // - 왜 지금 test로 못 잡나: `assembleTurnPrompt`에 unit이 없고, harness loop의 `context` port는 notice를 비워 둔다. file 읽기(core)와 판 기억(runtime child 메모리)과 model 요청이 이어지는 길은 process를 건너야 보인다.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -17,7 +17,7 @@ import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
 import { lastUserText, systemText } from "../support/fake-server/probe.ts";
 
-test("고친 지침은 다음 turn의 system과 notice로 닿고 AGENTS.md는 어느 요청에도 없다", async () => {
+test("고친 지침은 다음 turn의 system과 notice로 닿고 project의 AGENTS.md는 어느 요청에도 없다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -59,7 +59,7 @@ test("고친 지침은 다음 turn의 system과 notice로 닿고 AGENTS.md는 �
     assert.ok(tail.includes("lophn-notice"));
     assert.ok(tail.includes("instructions_changed"));
     assert.ok(tail.includes(two));
-    // AGENTS.md는 어느 요청에도 들어가지 않는다.
+    // project 폴더의 AGENTS.md는 어느 요청에도 들어가지 않는다.
     assert.ok(!JSON.stringify(first.body).includes(decoy));
     assert.ok(!JSON.stringify(second.body).includes(decoy));
     // ledger: 두 turn 모두 정상으로 끝났다.

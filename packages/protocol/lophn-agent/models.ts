@@ -14,6 +14,7 @@ import {
   priceBasisOutputSchema,
   priceBasisSchema,
 } from "./resolved-model.ts";
+import { workspaceKeySchema } from "./mcp-settings.ts";
 import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
@@ -474,23 +475,23 @@ export const modelDefaultChange = defineCommand({
   ],
 });
 
-// project 층 model. 처음은 null이고 null이면 전역 기본을 따른다.
-export const projectModelRead = defineRead({
-  resource: "project-model",
+// workspace(Home, project, 앱) 층 model. 처음은 null이고 null이면 전역 기본을 따른다.
+export const workspaceModelRead = defineRead({
+  resource: "workspace-model",
   method: "read",
-  name: "ReadProjectModel",
-  input: z.strictObject({ project: idSchema("prj") }),
+  name: "ReadWorkspaceModel",
+  input: z.strictObject({ workspace: workspaceKeySchema }),
   output: withReadCommon(z.object({ model: modelDefaultOutputSchema })),
   actors: readActors,
   errors: [...readErrors, "not_found"],
 });
 
-export const projectModelChange = defineCommand({
-  resource: "project-model",
+export const workspaceModelChange = defineCommand({
+  resource: "workspace-model",
   method: "change",
-  name: "ChangeProjectModel",
+  name: "ChangeWorkspaceModel",
   input: z.strictObject({
-    project: idSchema("prj"),
+    workspace: workspaceKeySchema,
     model: modelDefaultSchema,
   }),
   output: z.object({ model: modelDefaultOutputSchema }),
@@ -507,8 +508,8 @@ export const projectModelChange = defineCommand({
 export const MODEL_ROUTES = [
   modelDefaultRead,
   modelDefaultChange,
-  projectModelRead,
-  projectModelChange,
+  workspaceModelRead,
+  workspaceModelChange,
   changeShownModels,
   shownModelsRead,
   saveUserModelInfo,

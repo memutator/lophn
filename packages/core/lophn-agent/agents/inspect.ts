@@ -164,8 +164,11 @@ export function effectiveModel(
 ): { value: ModelChoice; source: AgentValueLayer } | null {
   const own = loaded.definition?.model;
   if (own !== undefined) return { value: own, source: "agent" };
-  const project = context.lookups.projectModel(workspace);
-  if (project !== null) return { value: project, source: "project" };
+  // 출처 이름 "project"는 workspace 층(Home, project, 앱)을 가리킨다.
+  const workspaceChoice = context.lookups.workspaceModel(workspace);
+  if (workspaceChoice !== null) {
+    return { value: workspaceChoice, source: "project" };
+  }
   const global = context.lookups.modelDefault();
   return global === null ? null : { value: global, source: "global" };
 }

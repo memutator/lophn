@@ -1,14 +1,14 @@
 import { canonicalize } from "../../../base/mod.ts";
 import type {
   AgentId,
-  AgentWorkspace,
+  McpOwnerWorkspace,
   McpServer,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type SecretDestination,
   secretDestinationOf,
 } from "../../../protocol/secrets/mod.ts";
-import { mcpTokenNames } from "./mcp-oauth-vault.ts";
+import { mcpOwnerScope, mcpTokenNames } from "./mcp-oauth-vault.ts";
 
 // 연결이 쓰는 MCP 서버 한 대다. 층에서 온 설정(`McpServer`, secret은 `secrets.json`의 이름 `{secret}`)을 연결,
 // OAuth, secret 부착이 읽는 한 모양으로 옮긴다. 값은 없고 이름뿐이다. 서버는 이름만으로 하나가 정해지지 않는다:
@@ -62,18 +62,18 @@ export type McpRuntimeServer = Common &
       }
   );
 
-// 전역, project, agent 정의 층의 서버다. 층의 소유자는 workspace(project·app) 또는 agent(정의)이고 전역은 둘 다
+// 전역, Home·project·app, agent 정의 층의 서버다. 층의 소유자는 workspace(Home·project·app) 또는 agent(정의)이고 전역은 둘 다
 // null이다. OAuth token의 이름과 설정 지문도 이 소유자에서 정해진다.
 export function runtimeServerOfLayer(
   server: McpServer,
-  workspace: AgentWorkspace | null,
+  workspace: McpOwnerWorkspace | null,
   agent: AgentId | null = null,
 ): McpRuntimeServer {
   const common = {
     name: server.name,
     enabled: server.enabled,
     call_timeout_ms: server.call_timeout_ms,
-    fingerprint: canonicalize([workspace?.id ?? null, agent, server]),
+    fingerprint: canonicalize([mcpOwnerScope(workspace), agent, server]),
   };
   if (server.transport === "stdio") {
     return {
@@ -166,7 +166,7 @@ type McpLayer = {
   off: readonly string[];
 };
 
-// 층 순서(전역, project, agent)로 서버를 합친다. 같은 이름은 마지막 층이 덮고 이름이 다르면 모두 쓴다.
+// 층 순서(전역, Home·project·app, agent)로 서버를 합친다. 같은 이름은 마지막 층이 덮고 이름이 다르면 모두 쓴다.
 // 서버 자신의 enabled가 false인 것은 남는다. 연결하는 쪽이 거른다.
 export function mergeMcpLayers(
   layers: readonly McpLayer[],

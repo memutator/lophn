@@ -91,24 +91,20 @@ export function createSkillsRead(deps: SkillsReadDeps): {
             root.value,
             workspace,
           );
-          // 앱 그릇에는 project 층 설정이 없다. 파일이 없거나 틀렸으면 이 project에서 끈 것이 없다.
-          // 틀린 파일은 설정을 읽는 쪽이 알린다.
-          if (input.project !== undefined) {
-            try {
-              const text = deps.files.read(
-                deps.projectLayer.extensionsFile(root.value, input.project),
-              );
-              const parsed =
-                text === null ? null : parseProjectExtensions(text);
-              if (parsed !== null && parsed.ok) {
-                off = [...new Set([...off, ...parsed.value.skills_off])];
-              }
-            } catch {
-              return err({
-                code: "unavailable",
-                message: "project extensions file could not be read",
-              });
+          // 이 workspace에서 끈 이름이다. 파일이 없거나 틀렸으면 끈 것이 없다. 틀린 파일은 설정을 읽는 쪽이 알린다.
+          try {
+            const text = deps.files.read(
+              deps.projectLayer.extensionsFile(root.value, workspace),
+            );
+            const parsed = text === null ? null : parseProjectExtensions(text);
+            if (parsed !== null && parsed.ok) {
+              off = [...new Set([...off, ...parsed.value.skills_off])];
             }
+          } catch {
+            return err({
+              code: "unavailable",
+              message: "extensions file could not be read",
+            });
           }
         }
         let listing: ReturnType<typeof discoverSkills>;

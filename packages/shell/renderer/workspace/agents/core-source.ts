@@ -17,9 +17,9 @@ import type {
 } from "../../../../protocol/lophn-agent/models.ts";
 import {
   changeShownModels,
-  projectModelChange,
   removeUserModelInfo,
   saveUserModelInfo,
+  workspaceModelChange,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
@@ -455,9 +455,9 @@ export function coreAgentsSource(
       const chosen = isAppWorkspace(project)
         ? null
         : await link.read<{ model: ModelChoice | null }>(
-            "project-model",
+            "workspace-model",
             "read",
-            { project },
+            { workspace: project },
           );
       const text = await instructionsOf(project);
       const view: AgentsOverview = {
@@ -703,8 +703,8 @@ export function coreAgentsSource(
 
     async setProjectModel(project, choice) {
       if (isAppWorkspace(project)) return unavailable;
-      const changed = await link.command(projectModelChange, {
-        input: { project, model: choice },
+      const changed = await link.command(workspaceModelChange, {
+        input: { workspace: project, model: choice },
         compare: {},
       });
       return changed.ok

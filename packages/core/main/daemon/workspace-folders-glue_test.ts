@@ -39,7 +39,10 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더뿐
     "/data/apps/app_a/skills",
     "/data/apps/app_a/artifacts",
   ]);
-  assert.deepStrictEqual(workspaceFoldersOf({ sql }, "/data", "ses_home"), []);
+  // home은 자기 skills/만 쓴다
+  assert.deepStrictEqual(workspaceFoldersOf({ sql }, "/data", "ses_home"), [
+    "/data/home/skills",
+  ]);
   assert.deepStrictEqual(
     workspaceFoldersOf({ sql }, "/data", "ses_missing"),
     [],

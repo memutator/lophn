@@ -18,6 +18,7 @@ test("data root 아래 정의·설정 자리는 전과 같다", () => {
     workspaceDataFolder("/r", { kind: "app", id: "app_b2" }),
     "/r/apps/app_b2",
   );
+  assert.deepStrictEqual(workspaceDataFolder("/r", null), "/r/home");
   assert.deepStrictEqual(projectIdOfFolder("prj_a1"), "prj_a1");
   assert.deepStrictEqual(appIdOfFolder("app_b2"), "app_b2");
   assert.deepStrictEqual(appIdOfFolder("prj_a1"), null);

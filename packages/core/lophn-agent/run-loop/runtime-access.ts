@@ -21,7 +21,7 @@ import {
   modelDefaultRead,
   workspaceSessionCompactRequests,
   workspaceSessionRead,
-  projectModelRead,
+  workspaceModelRead,
   providerList,
   providerRead,
   receivedMessageList,
@@ -73,8 +73,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   // 사람이 적은 custom model 정보(catalog user 층). model resolver가 turn마다 읽는다.
   userModelInfoRead,
   modelDefaultRead,
-  // project 층 model. 전역 기본 → project → agent 정의 → session 순으로 쌓는다.
-  projectModelRead,
+  // workspace 층 model. 전역 기본 → workspace → agent 정의 → session 순으로 쌓는다.
+  workspaceModelRead,
   workspaceSessionRead,
   // Compact를 끝낸다: 열린 요청을 읽고, 앞 구간의 요약 본문을 읽고, 요약 call을 잇거나 요청을 닫는다.
   // 이전 대화가 커진 session은 다음 turn 전에 runtime이 요청을 연다.

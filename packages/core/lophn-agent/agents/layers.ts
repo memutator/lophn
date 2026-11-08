@@ -9,7 +9,8 @@ import {
   type WorkspaceKind,
   workspaceKindOf,
   workspaceSessionRead,
-  projectModelRead,
+  workspaceKeyOf,
+  workspaceModelRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
@@ -20,7 +21,7 @@ import {
 } from "./resolve.ts";
 
 // turn을 준비할 때 resolved agent를 만드는 길이다. session(agent id와 workspace, 고른 model), agent 정의,
-// project 층 model을 core의 읽기 route로 모은다. 합치는 규칙은 agents의 resolveAgent다.
+// workspace 층 model을 core의 읽기 route로 모은다. 합치는 규칙은 agents의 resolveAgent다.
 
 export type CannotStart = {
   reason: "configuration_unavailable" | "target_unavailable" | "model_required";
@@ -96,14 +97,10 @@ export async function resolveTurnAgent(
       ? effective.value
       : null;
 
-  let projectModel: ModelChoice | null = null;
-  if (workspace?.kind === "project") {
-    const project = await readOf(machine, projectModelRead, {
-      project: workspace.id,
-    });
-    if (!project.ok) return project;
-    projectModel = project.value.model;
-  }
+  const own = await readOf(machine, workspaceModelRead, {
+    workspace: workspaceKeyOf(workspace),
+  });
+  if (!own.ok) return own;
 
   const resolved = await resolveAgent({
     agent,
@@ -111,7 +108,7 @@ export async function resolveTurnAgent(
     called_from: session.called_from,
     definition,
     global_model: globalModel,
-    project_model: projectModel,
+    workspace_model: own.value.model,
     session_model: session.model_selection,
     tools: input.workspaceTools(kind),
     environment: {

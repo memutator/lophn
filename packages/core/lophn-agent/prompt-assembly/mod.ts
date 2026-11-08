@@ -2,8 +2,9 @@ export {
   type BasisDiff,
   basisOf,
   diffBasis,
-  INSTRUCTION_LAYERS,
+  type InstructionLayerName,
   type InstructionTexts,
+  noInstructions,
   type SeenBasis,
 } from "./basis.ts";
 export {

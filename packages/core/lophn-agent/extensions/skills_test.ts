@@ -340,10 +340,10 @@ test("내장 skill은 선언한 workspace 종류의 prompt와 `/` 메뉴에만 �
   const layer: ProjectLayer = {
     workspaceDataSkillsFolder: () => nowhere,
     isWorkspaceDataSkills: () => false,
-    projectOf: () => null,
     extensionsFile: () => nowhere,
-    settingsFolderArea: () => nowhere,
-    projectIdOfFolder: () => null,
+    isExtensionsFile: () => false,
+    settingsFolderAreas: () => [],
+    workspaceOfFolder: () => null,
     workspaceSkillsFolder: () => nowhere,
   };
   const registry = createExtensionRegistry({

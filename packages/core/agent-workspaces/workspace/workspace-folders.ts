@@ -14,7 +14,7 @@ export type WorkspaceFacts = {
   calledFromWorkspace: boolean;
   // workspace가 project일 때 그 project의 `workflows/` 절대 경로. 그 project workspace의 session이 쓴다(아래 workspaceScope)
   workflowsFolder: string | null;
-  // workspace의 `skills/` 절대 경로. project·앱 workspace의 session이 쓴다(아래 workspaceScope)
+  // workspace의 `skills/` 절대 경로. Home·project·앱 workspace의 session이 쓴다(아래 workspaceScope)
   skillsFolder: string | null;
   // workspace의 `artifacts/` 절대 경로. project·앱 workspace의 session이 쓴다(아래 workspaceScope)
   artifactsFolder: string | null;
@@ -34,9 +34,14 @@ export type FolderScope = {
 export function workspaceScope(facts: WorkspaceFacts): FolderScope {
   const { workspace } = facts;
   if (workspace === null) {
+    // home은 project 폴더를 읽기만 하고 자기 `skills/`만 쓴다.
+    const skills = facts.skillsFolder === null ? [] : [facts.skillsFolder];
     return {
-      read: facts.calledFromWorkspace ? [] : [...facts.allProjectFolders],
-      write: [],
+      read: [
+        ...(facts.calledFromWorkspace ? [] : facts.allProjectFolders),
+        ...skills,
+      ],
+      write: skills,
     };
   }
   // 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 data 폴더들보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
@@ -59,7 +64,7 @@ export function workspaceScope(facts: WorkspaceFacts): FolderScope {
   // workflows/는 그 project workspace의 session이 쓴다.
   if (workspace.kind === "project" && facts.workflowsFolder !== null)
     folders.push(facts.workflowsFolder);
-  // skills/도 project·앱 workspace의 session이 쓴다. rewind 기록의 root가 되고 path는 `<skill 이름>/…`이다.
+  // skills/도 project·앱 workspace의 session이 쓴다(home은 위에서 따로). rewind 기록의 root가 되고 path는 `<skill 이름>/…`이다.
   if (facts.skillsFolder !== null) folders.push(facts.skillsFolder);
   // artifacts/는 project·앱 workspace의 session이 쓴다. 폴더 자체가 허용 폴더라 rewind 기록의 root가 되고 path는 `<name>/…`이다.
   if (facts.artifactsFolder !== null) folders.push(facts.artifactsFolder);

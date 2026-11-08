@@ -114,7 +114,13 @@ export function loopHarness(init: {
             description: tool.name,
             input_schema: { type: "object" },
           })),
-          instructions: { global: "", project: "", agent: "" },
+          instructions: {
+            global: "",
+            home: "",
+            project: "",
+            app: "",
+            agent: "",
+          },
           skills: [],
           workspace: { text: "", agents: [] },
           limits: {

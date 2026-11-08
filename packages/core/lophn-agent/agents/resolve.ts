@@ -53,7 +53,7 @@ type ResolveInput = {
   called_from: Workspace | null;
   definition: AgentFileDefinition | null;
   global_model: ModelChoice | null;
-  project_model?: ModelChoice | null;
+  workspace_model?: ModelChoice | null;
   session_model: ModelChoice | null;
   tools: readonly string[];
   environment: ResolveEnvironment;
@@ -107,7 +107,7 @@ export async function resolveAgent(
   const modelLayers: [ModelChoice | null | undefined, AgentValueLayer][] = [
     [input.session_model, "session"],
     [definition?.model, "agent"],
-    [input.project_model, "project"],
+    [input.workspace_model, "project"],
     [input.global_model, "global"],
   ];
   const chosen = modelLayers.find(([choice]) => choice != null);

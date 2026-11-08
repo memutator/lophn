@@ -4,7 +4,7 @@ import {
   type McpAuthFailure,
   type McpAuthStateName,
   type McpServer,
-  projectExtensionSettingsChange,
+  workspaceExtensionSettingsChange,
 } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import {
@@ -218,7 +218,7 @@ async function readProjectSettings(
       skills_off: string[];
       mcp_off: string[];
       hash: string | null;
-    }>("project-extension-settings", "read", { project })
+    }>("workspace-extension-settings", "read", { workspace: project })
     .then((result) =>
       result.ok
         ? {
@@ -244,9 +244,9 @@ export async function changeProjectSettings(
   if (!current.ok) return current;
   const next = edit(current.value);
   if (next === null) return { ok: false, message: "unavailable" };
-  const changed = await link.command(projectExtensionSettingsChange, {
+  const changed = await link.command(workspaceExtensionSettingsChange, {
     input: {
-      project,
+      workspace: project,
       mcp_servers: next.servers,
       skills_off: next.skillsOff,
       mcp_off: next.mcpOff,
@@ -258,7 +258,7 @@ export async function changeProjectSettings(
     : { ok: false, message: changed.code };
 }
 
-/** 이 자리에서 보이는 MCP server: 전역과 project 층. 전역 server를 project에서 끈 것은 꺼진 것으로 보인다. */
+/** 이 자리에서 보이는 MCP server: 전역과 project 층(Home·앱은 wui). 전역 server를 project에서 끈 것은 꺼진 것으로 보인다. */
 export async function readServers(
   link: Link,
   workspace: string | null,

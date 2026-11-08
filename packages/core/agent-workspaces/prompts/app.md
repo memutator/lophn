@@ -49,8 +49,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    call. A skill that other agents should get is declared in `skills`
    (`{name, public, commands}`) and its `SKILL.md` lives in `.lophn/skills/<name>/`
    in the source. Read the skill `design-app` for how to split them and when to share.
-2. Code: read `AGENTS.md` in the source folder (layout, commands, SDK guide),
-   then write with the file tools.
+2. Code: the source folder's `AGENTS.md` (layout, commands, SDK guide) is in your
+   instructions already. Write with the file tools.
 3. Test: `shell.run` in the source folder: `npm run check`, `npm test`.
    Test business rules. Raise `timeout_ms` for the first run. Then commit:
    `lophn release prepare` builds from HEAD, so uncommitted changes are not in it.

@@ -1,15 +1,22 @@
 import { sha256Hex } from "../../../base/mod.ts";
+import { PROMPT_INSTRUCTION_LAYERS } from "../../../protocol/lophn-agent/mod.ts";
 import type { WorkspaceAgent } from "./model.ts";
 
 // 지난 turn이 본 prompt의 판이다. turn이 시작할 때 지금 판과 비교해 바뀐 것마다 notice를 만든다.
 // 이름 목록은 "무엇이 더해지고 빠졌는지"를 쓰려고 hash가 아니라 목록으로 둔다. 긴 글(지침, 용어집)은 hash다.
 // session 기록에 쓰는 일은 호출하는 쪽이 한다.
 
-export const INSTRUCTION_LAYERS = ["global", "project", "agent"] as const;
-type InstructionLayerName = (typeof INSTRUCTION_LAYERS)[number];
+// 층 목록은 protocol의 PROMPT_INSTRUCTION_LAYERS 하나다(읽기, 조립, 판 비교가 같은 순서를 쓴다).
+export type InstructionLayerName = (typeof PROMPT_INSTRUCTION_LAYERS)[number];
 
 // 층별 지침 전문. 없는 층은 빈 문자열이다.
 export type InstructionTexts = Record<InstructionLayerName, string>;
+
+export function noInstructions(): InstructionTexts {
+  return Object.fromEntries(
+    PROMPT_INSTRUCTION_LAYERS.map((layer) => [layer, ""]),
+  ) as InstructionTexts;
+}
 
 export type SeenBasis = {
   instructions: Record<InstructionLayerName, string>;
@@ -44,7 +51,7 @@ export async function basisOf(input: {
   team: readonly string[];
 }): Promise<SeenBasis> {
   const instructions = {} as SeenBasis["instructions"];
-  for (const layer of INSTRUCTION_LAYERS) {
+  for (const layer of PROMPT_INSTRUCTION_LAYERS) {
     instructions[layer] = await sha256Hex(input.instructions[layer]);
   }
   return {
@@ -79,7 +86,7 @@ function listChange(
 // 순수 함수다. 바뀐 것이 없으면 모든 칸이 비어 있다.
 export function diffBasis(seen: SeenBasis, now: SeenBasis): BasisDiff {
   return {
-    instructions: INSTRUCTION_LAYERS.filter(
+    instructions: PROMPT_INSTRUCTION_LAYERS.filter(
       (layer) => seen.instructions[layer] !== now.instructions[layer],
     ),
     tools: listChange(seen.tools, now.tools),

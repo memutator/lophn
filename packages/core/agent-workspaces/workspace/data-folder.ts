@@ -5,13 +5,24 @@ export function projectsDataArea(root: string): string {
   return `${root}/projects`;
 }
 
-// workspace의 data 폴더. project는 `<data>/projects/<prj>`, 앱은 `<data>/apps/<app>`다.
+export function appsDataArea(root: string): string {
+  return `${root}/apps`;
+}
+
+// Home의 그릇 자리다(`LOPHN.md`, `extensions.json`, `skills/`). data root 최상위의 다른 이름(agents, apps,
+// projects, skills, settings 등)과 겹치지 않는다.
+export function homeDataFolder(root: string): string {
+  return `${root}/home`;
+}
+
+// workspace의 data 폴더. Home은 `<data>/home`, project는 `<data>/projects/<prj>`, 앱은 `<data>/apps/<app>`다.
 export function workspaceDataFolder(
   root: string,
-  workspace: Workspace,
+  workspace: Workspace | null,
 ): string {
+  if (workspace === null) return homeDataFolder(root);
   const area =
-    workspace.kind === "project" ? projectsDataArea(root) : `${root}/apps`;
+    workspace.kind === "project" ? projectsDataArea(root) : appsDataArea(root);
   return `${area}/${workspace.id}`;
 }
 
@@ -19,7 +30,7 @@ export function workspaceDataFolder(
 export const WORKSPACE_DATA_SKILLS = "skills";
 export function workspaceDataSkillsFolder(
   root: string,
-  workspace: Workspace,
+  workspace: Workspace | null,
 ): string {
   return `${workspaceDataFolder(root, workspace)}/${WORKSPACE_DATA_SKILLS}`;
 }

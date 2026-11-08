@@ -25,7 +25,7 @@ const app = {
 };
 
 const files: WorkspaceFiles = {
-  skillsFolder: (workspace) => `/data/${workspace.id}/skills`,
+  skillsFolder: (workspace) => `/data/${workspace?.id ?? "home"}/skills`,
   dataFolder: (workspace) => `/data/${workspace.id}`,
   workflowsFolder: (project) => `/data/${project}/workflows`,
   artifactsFolder: (workspace) => `/data/${workspace.id}/artifacts`,

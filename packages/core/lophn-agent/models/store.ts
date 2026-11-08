@@ -12,7 +12,7 @@ type Query = Pick<Sql, "get" | "all">;
 
 export const GLOBAL_SCOPE = "global";
 
-// scope는 'global'(전역 기본)이나 project id다. 줄이 없으면 null이다.
+// scope는 'global'(전역 기본), 'home'(Home 층), project·앱 id(그 workspace 층)다. 줄이 없으면 null이다.
 export function loadChoice(sql: Query, scope: string): ModelChoice | null {
   const row = sql.get(
     "select provider, model_name, option_values from model_choices where scope = ?",

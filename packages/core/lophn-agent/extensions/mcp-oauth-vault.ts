@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   AgentId,
-  AgentWorkspace,
+  McpOwnerWorkspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type SecretDestination,
@@ -9,25 +9,30 @@ import {
 } from "../../../protocol/secrets/mod.ts";
 
 // MCP OAuth token 보관. `secrets.json`에 서버(소유자+이름)마다 세 이름을 둔다: `mcp-oauth.<scope>.<server>.access`,
-// `.refresh`, `.meta`. scope는 agent 정의 층 서버면 그 agent id, 전역 서버면 `global`, 아니면 workspace id다. 같은
-// 이름의 서버도 소유자가 다르면 따로다.
+// `.refresh`, `.meta`. scope는 agent 정의 층 서버면 그 agent id, 전역 서버면 `global`, Home 층 서버면 `home`, 아니면
+// workspace id다. 셋(`global`, `home`, id)은 서로 겹치지 않는다. 같은 이름의 서버도 소유자가 다르면 따로다.
 // - 접근 token과 갱신 token은 각자 이름이다. 알려진 값 registry가 값 전체로 맞추므로 JSON 하나로 합치면 token 하나를
 //   redaction할 수 없다.
 // - meta(만료, token endpoint, binding)는 비밀이 아니지만 저장소를 하나로 두려고 같은 파일에 JSON으로 둔다. binding
 //   (발급자·서버 URL·client)이 지금 설정과 다르면 옛 token을 쓰지 않는다.
 // - secret store의 put이 값을 알려진 값으로 먼저 올리고 지움이 회수한다. 여기서 따로 맞출 것이 없다.
 
-// 한 서버의 식별이다. 전역 서버는 workspace와 agent가 모두 null이고, project·app 서버는 workspace만, agent
+// 한 서버의 식별이다. 전역 서버는 workspace와 agent가 모두 null이고, Home·project·app 서버는 workspace만, agent
 // 정의 층 서버는 agent만 있다.
 export type McpAuthKey = {
-  workspace: AgentWorkspace | null;
+  workspace: McpOwnerWorkspace | null;
   agent: AgentId | null;
   name: string;
 };
 
+// 서버를 가진 workspace 층의 소유자 열쇠다. 설정 지문도 이것을 쓴다.
+export function mcpOwnerScope(workspace: McpOwnerWorkspace | null): string {
+  if (workspace === null) return "global";
+  return workspace.kind === "home" ? "home" : workspace.id;
+}
+
 function scopeOf(key: McpAuthKey): string {
-  if (key.agent !== null) return key.agent;
-  return key.workspace === null ? "global" : key.workspace.id;
+  return key.agent !== null ? key.agent : mcpOwnerScope(key.workspace);
 }
 
 // 서버 하나를 가리키는 문자열이다(작업 메모리의 열쇠). 소유자가 다르면 같은 이름도 다르다.

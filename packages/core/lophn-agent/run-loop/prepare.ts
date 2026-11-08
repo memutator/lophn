@@ -52,10 +52,11 @@ import {
   type TurnInstructionLayer,
 } from "../instructions/mod.ts";
 import { cappedOutput, type ModelBinding } from "../models/binding.ts";
-import type {
-  HistoryMessage,
-  SeenBasis,
-  TurnPromptInput,
+import {
+  type HistoryMessage,
+  noInstructions,
+  type SeenBasis,
+  type TurnPromptInput,
 } from "../prompt-assembly/mod.ts";
 import { readSessionConversation } from "../session/history.ts";
 import {
@@ -406,7 +407,7 @@ function instructionTexts(
   layers: readonly TurnInstructionLayer[],
 ): TurnPromptInput["instructions"] {
   const files: Partial<Record<TurnInstructionLayer["layer"], string>> = {};
-  const texts = { global: "", project: "", agent: "", files };
+  const texts = { ...noInstructions(), files };
   for (const layer of layers) {
     texts[layer.layer] = layer.text ?? "";
     if (layer.file !== null) files[layer.layer] = layer.file;
@@ -951,24 +952,21 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     }
 
     // 사람 지침은 turn을 시작할 때 한 번 읽고 turn 끝까지 쓴다. 한 층이라도 읽지 못했으면 turn을 시작하지 않는다.
-    // bare는 전역·project 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.
+    // bare는 agent 층 밖의 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.
     const files =
       deps.instructionFilesFor?.(start.session) ?? deps.instructions.files;
-    const instructions = await readTurnInstructions(
-      {
-        ...deps.instructions,
-        files:
-          agent.runtime === "bare"
-            ? {
-                read: (layer) =>
-                  layer === "agent"
-                    ? files.read(layer)
-                    : Promise.resolve(ok(null)),
-              }
-            : files,
-      },
-      { kind },
-    );
+    const instructions = await readTurnInstructions({
+      ...deps.instructions,
+      files:
+        agent.runtime === "bare"
+          ? {
+              read: (layer) =>
+                layer === "agent"
+                  ? files.read(layer)
+                  : Promise.resolve(ok(null)),
+            }
+          : files,
+    });
     if (instructions.status === "blocked") {
       return await closeUnstarted(
         start,

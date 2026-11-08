@@ -83,6 +83,13 @@ export function register(ctx: ShellContext): Registered {
         projects.find((one) => one.id === project)?.folders[0]?.path ?? null
       );
     },
+    appSource: async (app) => {
+      const reply = await ctx.coreInternal("read", "apps", "get", { app });
+      if (!reply.ok) throw new Error("core is not ready");
+      const found = (reply.value as { app?: { source_path: string | null } })
+        .app;
+      return found?.source_path ?? null;
+    },
     makeDir: async (path) => {
       await mkdir(path, { recursive: true });
     },

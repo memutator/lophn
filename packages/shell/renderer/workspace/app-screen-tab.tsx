@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { MenuIcon, Toast } from "@lophn/ui/overlay";
+import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
@@ -18,6 +19,7 @@ import { useAnnotateApi } from "../artifact/artifact-api.tsx";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
 import { editorIcons } from "../icons/mod.ts";
 import type { AppRow, AppsSource } from "../apps/source.ts";
+import { useRunningPreview } from "./app-preview-tab.tsx";
 import type { AgentViewSlice } from "./kinds/host.ts";
 import styles from "./app-screen-tab.module.css";
 
@@ -43,10 +45,14 @@ interface AppScreenTabProps {
   keepKey: string;
   /** annotation을 받는 lophn session. 통로가 없으면 null이다. */
   agentView: AgentViewSlice | null;
+  /** 이 앱의 preview 탭을 연다. */
+  onOpenPreview: () => void;
 }
 
 export function AppScreenTab(props: AppScreenTabProps) {
-  const { app, source, shown, keepKey, agentView } = props;
+  const { app, source, shown, keepKey, agentView, onOpenPreview } = props;
+  // 돌고 있는 preview가 있을 때만 머리 줄에 [Preview]가 선다.
+  const previewRunning = (useRunningPreview(app).preview ?? null) !== null;
   const deps = useAppViews();
   const workspace = useAppWorkspace();
   const [attempt, setAttempt] = useState(0);
@@ -116,8 +122,13 @@ export function AppScreenTab(props: AppScreenTabProps) {
   const count = annotating.state?.items.length ?? 0;
   const sending = annotating.state?.phase === "sending";
   // 머리 줄에 올린 단추의 callback은 다시 올리지 않아도 최신 값을 읽는다.
-  const latest = useRef({ annotating, annotateOn, sendAnnotations });
-  latest.current = { annotating, annotateOn, sendAnnotations };
+  const latest = useRef({
+    annotating,
+    annotateOn,
+    sendAnnotations,
+    onOpenPreview,
+  });
+  latest.current = { annotating, annotateOn, sendAnnotations, onOpenPreview };
 
   const retry = () => setAttempt((count) => count + 1);
   const row = record.state === "ready" ? record.row : null;
@@ -143,7 +154,21 @@ export function AppScreenTab(props: AppScreenTabProps) {
     };
   } else {
     shellHead = {
-      key: "off",
+      key: `off:${previewRunning}`,
+      ...(previewRunning
+        ? {
+            actions: (
+              <Button
+                size="sm"
+                variant="ghost"
+                data-open-preview=""
+                onClick={() => latest.current.onOpenPreview()}
+              >
+                {t("app-space.button.open-preview")}
+              </Button>
+            ),
+          }
+        : {}),
       menu: {
         items: [
           {

@@ -4,6 +4,7 @@ import { t } from "@lophn/i18n";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
 import { AppScreenTab } from "../app-screen-tab.tsx";
+import { openAppPreview } from "./app-preview.tsx";
 import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
@@ -50,6 +51,7 @@ export const appScreenKind: TabKindDef = {
         shown={shown}
         keepKey={tab.key}
         agentView={host.agentView}
+        onOpenPreview={() => openAppPreview(host, tab.app!)}
       />
     );
   },

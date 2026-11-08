@@ -25,10 +25,14 @@ const BORROW_MS = 10_000;
 const PENDING_MAX = 200;
 
 type Entry = { request: HostRequest; borrowedAt: number | null };
+// 탭의 주인이다. 사람 token은 모두 같은 주인 "person"이다.
+export type TabOwner = Id<"ses"> | "person";
 type TabEntry = {
-  opener: Id<"ses"> | null;
+  owner: TabOwner;
   workspace: HostWorkspace;
-  kind: "agent" | "browser";
+  kind: "agent" | "browser" | "preview";
+  // preview 탭이 따르는 앱. 앱마다 탭 하나라 이걸로 찾는다.
+  app: string | null;
   state: BrowserTabState | null;
 };
 
@@ -43,9 +47,9 @@ export type HostQueue = {
     result: Promise<Result<ExtensionToolContent[]>>;
   };
   abandon(id: Id<"hrq">): void;
-  // 탭 표에 올리고 tab_open 요청을 넣는다.
+  // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이 이미 있으면 새로 넣지 않고 그 탭의 주인만 바꿔 돌려준다.
   openTab(input: {
-    opener: Id<"ses"> | null;
+    owner: TabOwner;
     workspace: HostWorkspace;
     target: HostTabTarget;
     place: TabPlace | null;
@@ -101,16 +105,16 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   }
 
   // 자기가 연 탭만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close: forbidden, read: not_found).
-  function owned(tab: Id<"tab">, caller: Id<"ses">, missing: "close" | "read") {
+  function owned(tab: Id<"tab">, caller: TabOwner, missing: "close" | "read") {
     const entry = tabs.get(tab);
     if (entry === undefined) {
       return err({ code: "not_found" as const, message: "tab not found" });
     }
-    if (entry.opener !== caller) {
+    if (entry.owner !== caller) {
       return missing === "close"
         ? err({
             code: "forbidden" as const,
-            message: "only the session that opened the tab can close it",
+            message: "only the caller that opened the tab can close it",
           })
         : err({ code: "not_found" as const, message: "tab not found" });
     }
@@ -135,11 +139,26 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     attached: () =>
       lastTakeMs !== null && deps.clock.nowMs() - lastTakeMs <= ATTACHED_MS,
     openTab(input: Parameters<HostQueue["openTab"]>[0]) {
+      const app = "preview" in input.target ? input.target.preview.app : null;
+      if (app !== null) {
+        for (const [id, entry] of tabs) {
+          if (entry.app === app) {
+            entry.owner = input.owner;
+            return id;
+          }
+        }
+      }
       const tab = deps.ids.newId("tab") as Id<"tab">;
       tabs.set(tab, {
-        opener: input.opener,
+        owner: input.owner,
         workspace: input.workspace,
-        kind: "browser" in input.target ? "browser" : "agent",
+        kind:
+          app !== null
+            ? "preview"
+            : "browser" in input.target
+              ? "browser"
+              : "agent",
+        app,
         state: null,
       });
       enqueue({
@@ -203,7 +222,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         if (entry !== undefined) entry.state = state;
       }
     },
-    close(tab: Id<"tab">, caller: Id<"ses">): Result<Id<"tab">> {
+    close(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
       const found = owned(tab, caller, "close");
       if (!found.ok) return found;
       tabs.delete(tab);
@@ -215,7 +234,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       });
       return ok(tab);
     },
-    read(tab: Id<"tab">, caller: Id<"ses">): Result<BrowserTabState> {
+    read(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabState> {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
       return found.value.kind === "browser" && found.value.state !== null

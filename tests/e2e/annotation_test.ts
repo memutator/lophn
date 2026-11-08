@@ -80,6 +80,7 @@ const annotationOf = (
   },
   view: { screen: "home", path: "/" },
   release: release as AnnotationInput["release"],
+  preview_bundle: null,
 });
 
 async function ship(

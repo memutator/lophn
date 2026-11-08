@@ -8,6 +8,7 @@ import type { LophnSurfaceApi } from "../../ipc/surface.ts";
 import { type WorkspaceRef, workspaceKey } from "../shell/desk-model.ts";
 import { sessionOf } from "./agent/tab-fields.ts";
 import type { SessionTabOpen } from "./kinds/agent.tsx";
+import { appPreviewTab } from "./kinds/app-preview.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
@@ -114,6 +115,26 @@ export function useSurfaceRequests(args: Args): void {
             : {}),
         },
       };
+      if ("preview" in target) {
+        // 사람이 [Preview]로 연 같은 앱의 탭이 있으면 그 자리에 이 탭을 열고 그것을 닫는다(앱마다 preview 탭은 하나다).
+        const person = host()
+          .windowTabs()
+          .find(
+            (tab) =>
+              tab.kind === "app_preview" &&
+              tab.app === target.preview.app &&
+              !tab.key.startsWith(HOST_KEY),
+          );
+        const tab = appPreviewTab(target.preview.app, key);
+        if (person !== undefined) {
+          host().openTab(tab, { select: false, after: person.key });
+        } else if (open.float === true) {
+          host().openFloat(tab, undefined, open.options);
+        } else host().openTab(tab, open.options);
+        if (person !== undefined) host().removeTab(person.key);
+        done();
+        return;
+      }
       if ("session" in target) {
         if (openSession(target.session, open)) done();
         return;

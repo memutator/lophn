@@ -1,5 +1,8 @@
 export { ANNOTATION_BLOB_FIELDS, ANNOTATION_BLOB_PURPOSES } from "./blobs.ts";
-export { annotationSchemaSteps } from "./schema.ts";
+export {
+  annotationPreviewBundleSchemaSteps,
+  annotationSchemaSteps,
+} from "./schema.ts";
 export {
   annotationAddRefs,
   annotationDiscard,

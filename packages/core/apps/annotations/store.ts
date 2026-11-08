@@ -56,6 +56,8 @@ function readOf(row: Record<string, unknown>, root: string | null) {
     rect: json(row["rect"]),
     view: json(row["view"]),
     release: row["release"] === null ? null : String(row["release"]),
+    preview_bundle:
+      row["preview_bundle"] === null ? null : String(row["preview_bundle"]),
     screenshot_path:
       hash === null || root === null ? null : objectPathFor(root, String(hash)),
   } as AnnotationRead;

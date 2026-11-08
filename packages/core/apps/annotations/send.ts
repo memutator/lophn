@@ -70,6 +70,7 @@ export function createAnnotations(deps: AnnotationDeps) {
       rect: item.rect,
       view: item.view,
       release: item.release,
+      preview_bundle: item.preview_bundle,
     }));
     return ok({ batch, ids, text: renderAnnotationMessage(stored) });
   }

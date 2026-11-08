@@ -67,13 +67,15 @@ interface AnnotateDeps {
   cropAndFit: CropAndFit;
 }
 
-type Item = { picked: PickedItem; release: string | null };
+// 번호가 처음 생길 때 그 view가 본 판. live는 release, preview는 bundle hash다(artifact는 둘 다 null).
+type Origin = { release: string | null; preview_bundle: string | null };
+type Item = { picked: PickedItem } & Origin;
 type ViewState = {
   on: boolean;
   phase: "idle" | "sending";
   items: Item[];
-  /** 번호가 처음 생길 때의 release(artifact는 늘 null). 페이지가 번호를 쥐고 있어 번호로 찾는다. */
-  releases: Map<number, string | null>;
+  /** 페이지가 번호를 쥐고 있어 번호로 찾는다. */
+  releases: Map<number, Origin>;
 };
 
 const DESKTOP_HOST = "desktop";
@@ -90,8 +92,12 @@ function labelOf({ component, element, kind }: PickedItem): string {
   return element.role ?? element.name ?? kind;
 }
 
-const releaseOf = (port: AnnotateViewPort) =>
-  port.target.kind === "app" ? port.target.release : null;
+const originOf = (port: AnnotateViewPort): Origin =>
+  port.target.kind !== "app"
+    ? { release: null, preview_bundle: null }
+    : port.target.preview !== null
+      ? { release: null, preview_bundle: port.target.preview }
+      : { release: port.target.release, preview_bundle: null };
 
 const KNOWN_CODES = ["invalid_input", "forbidden", "conflict", "unavailable"];
 
@@ -240,7 +246,9 @@ export function createAnnotate(deps: AnnotateDeps) {
       }
       if (
         port.target.kind === "app" &&
-        state.items.some((item) => item.release === null)
+        state.items.some(
+          (item) => item.release === null && item.preview_bundle === null,
+        )
       ) {
         return fail("invalid_input", "view has no release");
       }
@@ -250,7 +258,10 @@ export function createAnnotate(deps: AnnotateDeps) {
       let reply: AnnotateReply<AnnotateSendResult>;
       try {
         const annotations = [];
-        for (const [i, { picked, release }] of items.entries()) {
+        for (const [
+          i,
+          { picked, release, preview_bundle },
+        ] of items.entries()) {
           // screenshot이 안 되면 그 annotation만 없이 보낸다(목록과 메모는 잃지 않는다).
           const png = await capturer.shoot(port, picked.n);
           const screenshot = png === null ? null : await uploadShot(png);
@@ -268,6 +279,7 @@ export function createAnnotate(deps: AnnotateDeps) {
               path: picked.path,
             },
             release,
+            preview_bundle,
           });
         }
         const { target } = port;
@@ -305,7 +317,7 @@ export function createAnnotate(deps: AnnotateDeps) {
       return reply;
     },
 
-    // 페이지가 고른 목록 전체를 보냈다. 새 번호에는 그 view의 release를 적어 둔다.
+    // 페이지가 고른 목록 전체를 보냈다. 새 번호에는 그 view의 release나 preview bundle을 적어 둔다.
     items(event: IpcEvent, input: unknown): void {
       const port = pageView(event);
       if (port === undefined) return;
@@ -313,14 +325,14 @@ export function createAnnotate(deps: AnnotateDeps) {
       if (!parsed.success) return;
       const state = stateOf(port.view_session);
       if (state.phase === "sending") return;
-      const releases = new Map<number, string | null>();
+      const releases = new Map<number, Origin>();
       for (const { n } of parsed.data.items) {
-        releases.set(n, state.releases.get(n) ?? releaseOf(port));
+        releases.set(n, state.releases.get(n) ?? originOf(port));
       }
       state.releases = releases;
       state.items = parsed.data.items.map((picked) => ({
         picked,
-        release: releases.get(picked.n) ?? null,
+        ...(releases.get(picked.n) ?? originOf(port)),
       }));
       push(port.view_session, state);
     },

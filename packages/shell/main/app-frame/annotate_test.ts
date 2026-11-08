@@ -32,7 +32,16 @@ function item(n: number, note: string): PickedItem {
   };
 }
 
-function setup(opts: { captureFails?: boolean; uploadFails?: boolean } = {}) {
+const BUNDLE = "b".repeat(64);
+
+function setup(
+  opts: {
+    captureFails?: boolean;
+    uploadFails?: boolean;
+    /** preview view: release 없이 bundle hash를 싣는다. */
+    preview?: boolean;
+  } = {},
+) {
   const shell: CallerContents = {
     id: 1,
     isDestroyed: () => false,
@@ -63,7 +72,13 @@ function setup(opts: { captureFails?: boolean; uploadFails?: boolean } = {}) {
   const later: { annotate?: ReturnType<typeof createAnnotate> } = {};
   const port: AnnotateViewPort = {
     view_session: "view-1",
-    target: { kind: "app", app: APP, release: RELEASE, screen: "orders" },
+    target: {
+      kind: "app",
+      app: APP,
+      release: opts.preview ? null : RELEASE,
+      preview: opts.preview ? BUNDLE : null,
+      screen: "orders",
+    },
     pageUrl: () => null,
     current: () => true,
     send(channel, payload) {
@@ -177,4 +192,24 @@ test("capture나 upload가 실패해도 모은 목록과 메모는 screenshot �
       ],
     );
   }
+});
+
+// release 없는 preview에서도 보낼 수 있어야 하고, 그때 판 자리는 bundle hash가 채운다.
+test("preview view의 annotation은 release 없이 bundle hash를 싣고 간다", async () => {
+  const { annotate, shellEvent, pageEvent, sentCalls } = setup({
+    preview: true,
+  });
+  annotate.items(pageEvent, { items: [item(1, "a")] });
+  const sent = await annotate.send(shellEvent, {
+    view_session: "view-1",
+    session: null,
+  });
+  assert.equal(sent.ok, true);
+  const { annotations } = sentCalls[0] as {
+    annotations: { release: unknown; preview_bundle: unknown }[];
+  };
+  assert.deepEqual(
+    [annotations[0]?.release, annotations[0]?.preview_bundle],
+    [null, BUNDLE],
+  );
 });

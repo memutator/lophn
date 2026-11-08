@@ -19,6 +19,9 @@ import {
   CoachIdle,
   CoachReviewed,
   CoachWorking,
+  PreviewButton,
+  PreviewStopped,
+  PreviewTab,
   RewindConfirm,
   RewindConflict,
   RewindDone,
@@ -49,6 +52,27 @@ export const appSpaceArea: Area = {
       description:
         "앱 화면 탭 머리 줄의 ⋯ 메뉴를 열었다. 맨 위 묶음에 Annotate가 있고(앱이 올린 메뉴 항목이 있으면 그 앞), 구분선 아래가 탭 기본 항목이다.",
       render: () => <AppWorkspaceMenu />,
+    },
+    {
+      id: "app-preview-button",
+      title: "App workspace · [Preview]",
+      description:
+        "그 앱에 preview가 돌고 있을 때만 앱 화면 탭 머리 줄에 [Preview]가 선다. 누르면 사람이 연 preview 탭이 열린다.",
+      render: () => <PreviewButton />,
+    },
+    {
+      id: "app-preview-tab",
+      title: "App workspace · Preview tab",
+      description:
+        "preview 탭. 위 한 줄에 preview라는 것, fixture data, 바깥 연결이 대역이라는 것을 적고 [Stop]이 있다. 아래는 앱 view(mode preview) 자리이고 Annotate는 앱 화면 탭과 같이 ⋯ 메뉴에 있다. 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다.",
+      render: () => <PreviewTab />,
+    },
+    {
+      id: "app-preview-stopped",
+      title: "App workspace · Preview tab (stopped)",
+      description:
+        "[Stop]을 누르거나 preview가 멈춘 뒤. 탭은 남고 view 대신 한 줄 안내만 있다. 다시 start하면 같은 탭이 새 preview를 load한다.",
+      render: () => <PreviewStopped />,
     },
     {
       id: "new-app-split",

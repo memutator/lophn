@@ -132,3 +132,12 @@ export const annotationSchemaSteps: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// 낸 step 목록의 맨 끝에 붙어야 해서(schema-steps.lock.json) 위 목록이 아니라 notices wiring의 schemaStepsAfterTeams에서 잇는다.
+// preview view에서 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다. 옛 행은 null이다.
+export const annotationPreviewBundleSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.annotations.preview-bundle",
+    sql: "ALTER TABLE annotations ADD COLUMN preview_bundle TEXT;",
+  },
+];

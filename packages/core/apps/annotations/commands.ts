@@ -129,8 +129,8 @@ export function createAnnotationCommands(): {
           tx.sql.run(
             `INSERT INTO annotations
                (id, batch, n, kind, note, screenshot_hash, screenshot_size,
-                component, element, rect, view, release)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                component, element, rect, view, release, preview_bundle)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               id,
               batch,
@@ -144,6 +144,7 @@ export function createAnnotationCommands(): {
               JSON.stringify(item.rect),
               JSON.stringify(item.view),
               item.release,
+              item.preview_bundle,
             ],
           );
           if (item.screenshot !== null) {

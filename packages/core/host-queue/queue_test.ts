@@ -17,7 +17,7 @@ function setup() {
 test("다른 session이 연 탭은 닫지도 읽지도 못한다", () => {
   const { queue } = setup();
   const tab = queue.openTab({
-    opener: OWNER,
+    owner: OWNER,
     workspace: HOME,
     target: { browser: { url: "https://example.com" } },
     place: null,
@@ -46,7 +46,7 @@ test("retry한 요청은 뒤로 가서 다음 요청을 막지 않는다", () =>
   const { queue } = setup();
   const open = (url: string) =>
     queue.openTab({
-      opener: OWNER,
+      owner: OWNER,
       workspace: HOME,
       target: { browser: { url } },
       place: null,

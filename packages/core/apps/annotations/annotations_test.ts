@@ -12,7 +12,10 @@ import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { domainsSchemaSteps } from "../../main/daemon/wiring/domains-retire.ts";
 import { createAnnotationCommands } from "./commands.ts";
 import { createAnnotationReads } from "./reads.ts";
-import { annotationSchemaSteps } from "./schema.ts";
+import {
+  annotationPreviewBundleSchemaSteps,
+  annotationSchemaSteps,
+} from "./schema.ts";
 import { createAnnotations, type RunCommand } from "./send.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -52,6 +55,7 @@ function input(n: number, patch: Partial<AnnotationInput> = {}) {
     },
     view: { screen: "orders", path: "/orders" },
     release: "rel_01hzzzzzzzzzzzzzzzzzzzzzza",
+    preview_bundle: null,
     ...patch,
   } as AnnotationInput;
 }
@@ -59,7 +63,11 @@ function input(n: number, patch: Partial<AnnotationInput> = {}) {
 function open(status: "active" | "archived" = "active") {
   const dir = mkdtempSync(join(tmpdir(), "lophn-annotations-"));
   const db = new DatabaseSync(`${dir}/ledger.sqlite`);
-  for (const step of [...domainsSchemaSteps, ...annotationSchemaSteps]) {
+  for (const step of [
+    ...domainsSchemaSteps,
+    ...annotationSchemaSteps,
+    ...annotationPreviewBundleSchemaSteps,
+  ]) {
     db.exec(step.sql);
   }
   db.exec("CREATE TABLE events (seq INTEGER)");
@@ -386,4 +394,28 @@ test("artifact 묶음의 domain 칸이 그 domain의 그릇 칸으로 옮겨지�
       4,
     );
   }
+});
+
+test("preview bundle 칸을 더하는 step은 옛 annotation 행을 null로 남긴다", () => {
+  const db = new DatabaseSync(":memory:");
+  for (const step of domainsSchemaSteps) db.exec(step.sql);
+  const [tables, container] = annotationSchemaSteps;
+  db.exec(tables!.sql);
+  db.exec(container!.sql);
+  db.exec(
+    `INSERT INTO annotation_batches (id, target_kind, app, sent_at, sent_by)
+       VALUES ('anb_1', 'app', '${APP}', 't', 'user');
+     INSERT INTO annotations (id, batch, n, kind, note, element, rect, view, release)
+       VALUES ('ann_1', 'anb_1', 1, 'element', 'note', '{}', '{}', '{}', 'rel_x')`,
+  );
+
+  for (const step of annotationPreviewBundleSchemaSteps) db.exec(step.sql);
+
+  const row = db
+    .prepare("SELECT release, preview_bundle FROM annotations")
+    .get();
+  assert.deepStrictEqual(
+    { ...row },
+    { release: "rel_x", preview_bundle: null },
+  );
 });

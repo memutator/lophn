@@ -309,6 +309,9 @@ export function createAppFrame(deps: AppFrameDeps) {
         kind: "app",
         app: entry.target.app,
         release: entry.target.release,
+        // preview view는 release 대신 그 process의 bundle hash를 싣는다.
+        preview:
+          entry.target.mode === "preview" ? entry.binding.bundleHash : null,
         screen: entry.target.screen,
       },
       pageUrl: () => entry.contents?.pageUrl() ?? null,

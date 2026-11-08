@@ -7,6 +7,7 @@ import { agentKind } from "./agent.tsx";
 import { agentsKind } from "./agents.tsx";
 import { appDetailKind } from "./app-detail.tsx";
 import { appPanelKind } from "./app-panel.tsx";
+import { appPreviewKind } from "./app-preview.tsx";
 import { appScreenKind } from "./app-screen.tsx";
 import { artifactKind } from "./artifact.tsx";
 import { browserKind } from "./browser.tsx";
@@ -24,6 +25,7 @@ const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
   appPanelKind,
   appScreenKind,
+  appPreviewKind,
   terminalKind,
   searchKind,
   agentsKind,

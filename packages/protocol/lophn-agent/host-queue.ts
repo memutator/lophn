@@ -9,8 +9,8 @@ import { extensionToolContentSchema } from "../extensions/manifest.ts";
 // shell이 없거나 그 workspace를 보이는 창이 없으면 요청은 대기하고, core가 다시 뜨면 사라진다.
 //
 // host/*는 shell main이 사람 token(actor user)으로만 부르고 renderer 통로에는 없다.
-// tabs/*와 browser/read는 agent가 `lophn tab`·`lophn browser` 명령으로 부른다. 부른 session은 자격의
-// session 조건에서 읽고 입력으로 받지 않는다.
+// tabs/*는 agent session이나 사람 token이 `lophn tab` 명령으로 부른다. browser/read는 agent만 부른다. 부른 session은 자격의
+// session 조건에서 읽고 입력으로 받지 않는다. 탭의 주인은 그 session이고, 사람 token은 모두 같은 주인 "person"이다.
 
 const errors = [
   "invalid_input",
@@ -35,12 +35,14 @@ export const tabPlaceSchema = z.enum(TAB_PLACES);
 export type TabPlace = z.infer<typeof tabPlaceSchema>;
 
 // `tui`는 harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(project workspace의 session만).
+// `preview`는 그 앱에서 지금 돌고 있는 preview를 앱 view 탭으로 연다(요청의 workspace는 그 앱이다).
 export const hostTabTargetSchema = z.union([
   z.strictObject({ session: idSchema("ses") }),
   z.strictObject({ tui: idSchema("ses") }),
   z.strictObject({
     browser: z.strictObject({ url: z.string().min(1).max(8192) }),
   }),
+  z.strictObject({ preview: z.strictObject({ app: idSchema("app") }) }),
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
 
@@ -166,8 +168,10 @@ const acceptedSchema = z.strictObject({
   status: z.literal("accepted"),
 });
 
-// 같은 workspace의 열린 session이나 http(s) url의 탭을 연다. 접수만 답하고 기다리지 않는다.
+// 같은 workspace의 열린 session이나 http(s) url의 탭, 그 앱의 preview 탭을 연다. 접수만 답하고 기다리지 않는다.
 // session이 아니면 `not_found`, url이 http·https가 아니면 `invalid_input`이다.
+// `preview`는 그 앱 workspace의 session과 사람 token만 연다(agent가 다른 앱이면 `not_found`). 돌고 있는 preview가 없으면 `conflict`다.
+// 사람 token은 `preview`만 연다(나머지는 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
 // `tui`는 harness agent session을 터미널 탭에서 CLI의 resume으로 연다. harness가 아니거나 project workspace의 session이 아니면
 // `invalid_input`, 첫 turn 전이거나 turn이 돌거나 이미 TUI로 열려 있으면 `conflict`다. 열리면 그 session의 headless turn은
 // TUI가 끝날 때까지 시작하지 않고 입력은 queue에 남는다(`harness-host.ts`의 Take).
@@ -180,7 +184,7 @@ export const tabsOpen = defineMemory({
     place: tabPlaceSchema.optional(),
   }),
   output: acceptedSchema,
-  actors: ["agent"],
+  actors: ["agent", "user"],
   errors,
 });
 
@@ -191,7 +195,7 @@ export const tabsClose = defineMemory({
   name: "CloseTab",
   input: z.strictObject({ tab: idSchema("tab") }),
   output: acceptedSchema,
-  actors: ["agent"],
+  actors: ["agent", "user"],
   errors,
 });
 

@@ -9,6 +9,7 @@ import {
   previewsStop,
   releasesGetRecord,
 } from "../../protocol/apps/mod.ts";
+import { tabsOpen } from "../../protocol/lophn-agent/host-queue.ts";
 import { relativePathSchema } from "../../protocol/projects/values.ts";
 import { defineCommand } from "./types.ts";
 
@@ -34,14 +35,14 @@ const start = defineCommand({
   name: "preview.start",
   summary: "Start a preview of a prepared release",
   description:
-    "Start a preview of a prepared release of your app: the sealed bundle runs with fixture data and stand-ins for network and secrets. fixture is the path of a sqlite file inside the bundle to start the data from. The previous preview of the app stops. Waits until it is ready or failed.",
+    "Start a preview of a prepared release of your app: the sealed bundle runs with fixture data and stand-ins for network and secrets. fixture is the path of a sqlite file inside the bundle to start the data from. The previous preview of the app stops. Waits until it is ready or failed. When it is ready the preview opens as a tab in the shell (the app's one preview tab, which you own and can close with tab close); if the tab cannot be opened the preview still runs and the result carries a note.",
   input: z.strictObject({
     release: idSchema("rel"),
     fixture: relativePathSchema.optional(),
   }),
   positional: ["release"],
   effect: "write",
-  routes: [releasesGetRecord, previewsStart, previewsGet],
+  routes: [releasesGetRecord, previewsStart, previewsGet, tabsOpen],
   workspaces: ["app"],
   run: async (input, ctx) => {
     const { release, fixture } = input;
@@ -82,9 +83,24 @@ const start = defineCommand({
       await sleep(POLL_MS, ctx.signal);
     }
     if (observation?.ready === true) {
+      // 탭이 안 열려도 preview는 떠 있다. 실패는 note로 알린다.
+      const tab = await ctx.core.read(tabsOpen, {
+        target: { preview: { app } },
+      });
       return ok({
         summary: `preview of ${app} is ready`,
-        content: { app, release, process_nonce: nonce, ready: true },
+        content: {
+          app,
+          release,
+          process_nonce: nonce,
+          ready: true,
+          tab: tab.ok ? tab.value.tab : null,
+        },
+        ...(tab.ok
+          ? {}
+          : {
+              note: `tab_not_opened: ${tab.error.code}: ${tab.error.message}`,
+            }),
       });
     }
     const reason =

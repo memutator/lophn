@@ -238,5 +238,9 @@
   {
     "id": "lophn.split-per-workspace",
     "sha256": "f88948d53da06d355ed7a91854316e46502dec204f99f69c088e1746cf625b22"
+  },
+  {
+    "id": "apps.annotations.preview-bundle",
+    "sha256": "9a65b9cb8dd6e09fa31ab5fcbb34dbc3d2afae5b01c252660c0a8be68b19144e"
   }
 ]

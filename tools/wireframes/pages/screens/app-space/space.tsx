@@ -18,6 +18,10 @@ import {
   GRANT_SECRET,
   type SecretsFake,
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
+import {
+  type PreviewSource,
+  PreviewSourceProvider,
+} from "../../../../../packages/shell/renderer/workspace/app-preview-tab.tsx";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
 import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/connection/connection.ts";
 import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
@@ -66,6 +70,11 @@ interface AppWorkspaceProps {
   readonly rightClosed?: boolean;
   /** 앱 화면 탭 머리 줄의 ⋯ 메뉴를 연 채 둔다. */
   readonly menu?: boolean;
+  /**
+   * preview가 돌고 있다. button은 앱 화면 탭 머리 줄에 [Preview]가 선 모양, tab은 그것을 눌러 preview 탭을 연 모양,
+   * stopped는 그 탭에서 [Stop]을 누른 뒤다.
+   */
+  readonly preview?: "button" | "tab" | "stopped";
 }
 
 const APP = APP_BUDGET;
@@ -79,6 +88,7 @@ const TAB_LABEL = {
   access: "app-detail.label.tab-access",
   activity: "app-detail.label.tab-activity",
 } as const satisfies Record<OpsTab, string>;
+const PREVIEW_RELEASE = "rel_01h455vb4pex5v6nkc6gd5fd91";
 const CALL_ID: Record<string, string> = { "i-20": "inv_38" };
 const REWIND_FROM = "inv_32";
 
@@ -170,13 +180,15 @@ function shownMarks(
 }
 
 // <webview>가 없는 gallery에서 webview 그릇은 앱 화면을 빈 div로 그리고 view 자리 위를 덮는다. 그 div를 찾는다.
-function useScreenRegion(): HTMLElement | null {
+function useScreenRegion(preview: boolean): HTMLElement | null {
   const [region, setRegion] = useState<HTMLElement | null>(null);
   useEffect(() => {
     const look = () =>
       setRegion(
         document.querySelector<HTMLElement>(
-          '[data-webview-kind="app"][data-webview-key^="app-screen:"]',
+          preview
+            ? '[data-webview-kind="app"]:not([data-webview-key^="app-screen:"])'
+            : '[data-webview-kind="app"][data-webview-key^="app-screen:"]',
         ),
       );
     look();
@@ -188,7 +200,9 @@ function useScreenRegion(): HTMLElement | null {
 }
 
 export function AppSpace(props: AppWorkspaceProps = {}) {
-  const region = useScreenRegion();
+  const region = useScreenRegion(
+    props.preview === "tab" || props.preview === "stopped",
+  );
   const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
   const fakes = useMemo(
     () => ({
@@ -222,6 +236,20 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
     [],
   );
   useEffect(() => fakes.annotate.subscribeState(setAnnotating), [fakes]);
+  // preview 한 개가 돌고 있다. [Stop]이 멈춘다.
+  const preview = useMemo<PreviewSource>(() => {
+    let running = true;
+    return {
+      current: () =>
+        Promise.resolve(
+          running ? { nonce: "pv1", release: PREVIEW_RELEASE } : null,
+        ),
+      stop: () => {
+        running = false;
+        return Promise.resolve();
+      },
+    };
+  }, []);
 
   const layout = props.layout ?? "screen";
   const panes = useMemo(
@@ -256,6 +284,10 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
       await press("[data-tab-menu]");
       await click('[role="menuitem"]', t("app-space.button.annotate"));
     }
+    if (props.preview === "tab" || props.preview === "stopped") {
+      await click("[data-open-preview]");
+    }
+    if (props.preview === "stopped") await click("[data-preview-stop]");
     if (props.menu === true) await press("[data-tab-menu]");
     if (props.rightClosed === true) {
       await click("button", new RegExp(`^${t("shell.button.toggle-right")}$`));
@@ -263,7 +295,7 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
   });
 
   return (
-    <>
+    <PreviewSourceProvider value={props.preview === undefined ? null : preview}>
       <MockDesktop
         route={openApp(APP)}
         panes={panes}
@@ -278,6 +310,6 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
             <OrdersView marks={shownMarks(props, annotating)} />,
             region,
           )}
-    </>
+    </PreviewSourceProvider>
   );
 }

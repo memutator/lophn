@@ -239,23 +239,30 @@ export const appSpace = {
   "app-space.button.annotate": "Annotate",
   "app-space.button.annotate-done": "Done",
   "app-space.button.clear-annotations": "Clear all",
+  "app-space.button.open-preview": "Preview",
   "app-space.button.send-annotations": "Send to agent",
   "app-space.button.send-annotations-to": "Send to {agent}",
   "app-space.empty.archived":
     "This app is archived. Restore it in Apps to open it again.",
   "app-space.empty.no-version": "This app has nothing to show yet.",
+  "app-space.button.stop-preview": "Stop",
+  "app-space.empty.no-preview": "No preview is running.",
   "app-space.empty.not-found": "This app isn't here anymore.",
   "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
   "app-space.error.annotations-archived":
     "This app is archived, so it can't take new messages. Restore it in Apps first.",
   "app-space.error.annotations-failed":
     "The annotations didn't go through. Try again.",
+  "app-space.label.kind-app-preview": "App preview",
   "app-space.label.kind-app-screen": "App screen",
   "app-space.label.menu-app-screen": "App screen",
   "app-space.heading.panel-logs": "Logs",
   "app-space.label.annotate-mode": "Annotate",
   "app-space.label.sending-annotations": "Sending…",
   "app-space.label.this-app": "this app",
+  "app-space.text.preview-notice":
+    "Preview: fixture data, and network and secrets are stand-ins.",
+  "app-space.title.preview-tab": "Preview",
   "app-space.text.annotate-on":
     "Click an element or drag an area, then write a note.",
   "app-space.text.annotations-note":

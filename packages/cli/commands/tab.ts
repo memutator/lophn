@@ -1,5 +1,5 @@
-// `lophn tab open|close`: lophn agent가 shell에 탭을 열고 자기가 연 탭을 닫는다. 두 route는 actor가 agent뿐이라
-// binary(사람)에서는 forbidden이다. core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다).
+// `lophn tab open|close`: lophn agent session이나 사람 token이 shell에 탭을 열고 자기가 연 탭을 닫는다. 사람 token은
+// --preview 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다).
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -13,9 +13,12 @@ import { defineCommand } from "./types.ts";
 
 const open = defineCommand({
   name: "tab.open",
-  summary: "Open an agent session or a browser page as a tab in the shell",
+  summary:
+    "Open an agent session, a browser page or an app preview as a tab in the shell",
   description:
-    "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab (give exactly one). " +
+    "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab, --preview <app> shows the running preview of an app (give exactly one). " +
+    "--preview is for the session of that app's workspace and for the person (a person token opens only --preview tabs); another app's workspace gets not_found, and it is conflict if no preview is running (run preview start first). " +
+    "An app has one preview tab: opening it again returns the same tab and you own it. " +
     "--session <ses> --tui opens a harness agent session (claude-code, codex, opencode) of a project workspace in a terminal tab through the CLI's own resume; " +
     "while it is open that session starts no turn and its inputs and calls wait in its queue, and they run after the TUI ends. " +
     "A tui is invalid_input for a session that is not a harness agent of a project workspace, and conflict if the session has not run yet, a turn is running, or it is already open in a tui. " +
@@ -26,16 +29,20 @@ const open = defineCommand({
     session: idSchema("ses").optional(),
     tui: z.boolean().optional(),
     url: z.string().min(1).max(8192).optional(),
+    preview: idSchema("app").optional(),
     place: tabPlaceSchema.optional(),
   }),
   effect: "write",
   routes: [tabsOpen],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    if ((input.session === undefined) === (input.url === undefined)) {
+    const given = [input.session, input.url, input.preview].filter(
+      (value) => value !== undefined,
+    );
+    if (given.length !== 1) {
       return err({
         code: "invalid_input",
-        message: "give exactly one of --session or --url",
+        message: "give exactly one of --session, --url or --preview",
       });
     }
     if (input.tui === true && input.session === undefined) {
@@ -46,11 +53,13 @@ const open = defineCommand({
     }
     const opened = await ctx.core.read(tabsOpen, {
       target:
-        input.session === undefined
-          ? { browser: { url: input.url! } }
-          : input.tui === true
-            ? { tui: input.session }
-            : { session: input.session },
+        input.preview !== undefined
+          ? { preview: { app: input.preview } }
+          : input.session === undefined
+            ? { browser: { url: input.url! } }
+            : input.tui === true
+              ? { tui: input.session }
+              : { session: input.session },
       ...(input.place === undefined ? {} : { place: input.place }),
     });
     if (!opened.ok) return opened;
@@ -65,7 +74,7 @@ const close = defineCommand({
   name: "tab.close",
   summary: "Close a tab you opened",
   description:
-    "Close a tab you opened with tab open. You cannot close tabs other sessions or the person opened (forbidden). Returns accepted: the shell closes it when it shows this workspace.",
+    "Close a tab you opened with tab open (a person token closes tabs a person token opened). You cannot close tabs other sessions or the person opened (forbidden). Returns accepted: the shell closes it when it shows this workspace.",
   input: z.strictObject({ tab: idSchema("tab") }),
   positional: ["tab"],
   effect: "write",

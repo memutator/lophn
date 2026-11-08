@@ -58,6 +58,21 @@ export function AppWorkspaceMenu() {
   return <AppSpace menu />;
 }
 
+/** 그 앱에 preview가 돌고 있다. 앱 화면 탭 머리 줄에 [Preview]가 선다. */
+export function PreviewButton() {
+  return <AppSpace preview="button" />;
+}
+
+/** [Preview]를 눌러 연 preview 탭. 위 안내 줄과 [Stop], 아래가 앱 view 자리다. */
+export function PreviewTab() {
+  return <AppSpace preview="tab" />;
+}
+
+/** preview 탭에서 [Stop]을 누른 뒤. */
+export function PreviewStopped() {
+  return <AppSpace preview="stopped" />;
+}
+
 /** 앱 화면과 그 앱 workspace의 lophn session을 붙인 group. 오른쪽 sidebar는 접었다. */
 export function AppWorkspaceSplit() {
   return <AppSpace layout="split" rightClosed />;

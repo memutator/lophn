@@ -253,7 +253,7 @@ export const routerWiring: WiringFactory = () => {
           return;
         }
         ctx.hostQueue.openTab({
-          opener: data.parent,
+          owner: data.parent,
           workspace: workspace ?? { kind: "home" },
           target: { session: data.child },
           place: "group",

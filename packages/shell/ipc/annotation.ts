@@ -80,8 +80,15 @@ export interface LophnShellAnnotateApi {
 }
 
 // artifact는 project나 앱의 artifacts 폴더 안 이름이고, file은 사람의 폴더에 있는 .html(그 project)이다.
+// app view의 preview는 그 view의 bundle hash다(live는 null). preview view는 release가 없거나 있어도 싣지 않는다.
 export type AnnotateTarget =
-  | { kind: "app"; app: string; release: string | null; screen: string }
+  | {
+      kind: "app";
+      app: string;
+      release: string | null;
+      preview: string | null;
+      screen: string;
+    }
   | { kind: "artifact"; project: string; name: string }
   | { kind: "artifact"; app: string; name: string }
   | { kind: "file"; project: string };

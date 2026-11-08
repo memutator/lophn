@@ -12,6 +12,7 @@ import {
   noticesObserveVersion,
 } from "../../../../protocol/apps/notice.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { annotationPreviewBundleSchemaSteps } from "../../../apps/annotations/mod.ts";
 import { readInstalledVersions } from "../../../apps/sdk-status/mod.ts";
 import {
   noticeUnifiedSchemaSteps,
@@ -64,6 +65,7 @@ export function createNoticesWiring(
       ...productVersionSchemaSteps,
       // 앱 팀의 schemaSteps는 목록 중간이라 이미 낸 뒤에 더하는 step은 여기에 붙는다.
       ...appDeleteSchemaSteps,
+      ...annotationPreviewBundleSchemaSteps,
     ],
     operations: () => [
       { name: noticeRecord.name, actors: ["machine"], kind: "command" },

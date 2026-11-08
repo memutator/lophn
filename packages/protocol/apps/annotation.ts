@@ -86,8 +86,10 @@ export const annotationInputSchema = z.strictObject({
   element: annotationElementSchema,
   rect: annotationRectSchema,
   view: annotationViewSchema,
-  // app이 아닌 target이면 null.
+  // app이 아닌 target이면 null. preview view에서 보냈으면 null이고 preview_bundle이 찬다.
   release: releaseIdSchema.nullable(),
+  // preview view의 bundle hash. preview가 아니면 null.
+  preview_bundle: sha256Schema.nullable(),
 });
 export type AnnotationInput = z.infer<typeof annotationInputSchema>;
 
@@ -110,6 +112,7 @@ const annotationSchema = z.strictObject({
   rect: annotationRectSchema,
   view: annotationViewSchema,
   release: releaseIdSchema.nullable(),
+  preview_bundle: sha256Schema.nullable(),
 });
 export type Annotation = z.infer<typeof annotationSchema>;
 
@@ -169,10 +172,16 @@ export const annotationSendInputSchema = z
     (value) =>
       value.annotations.every((item) =>
         value.target.kind === "app"
-          ? item.release !== null && item.view.screen !== null
-          : item.release === null && item.view.screen === null,
+          ? (item.release !== null || item.preview_bundle !== null) &&
+            item.view.screen !== null
+          : item.release === null &&
+            item.preview_bundle === null &&
+            item.view.screen === null,
       ),
-    { message: "app annotations carry release and screen, others do not" },
+    {
+      message:
+        "app annotations carry a release or a preview bundle and a screen, others do not",
+    },
   );
 const annotationSendOutputSchema = z.object({
   batch: annotationBatchIdSchema,

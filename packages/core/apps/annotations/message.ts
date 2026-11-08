@@ -20,6 +20,12 @@ function blockOf(annotation: Annotation): string {
   const { rect } = annotation;
   const lines: [string, string | undefined][] = [
     ["Note", annotation.note === "" ? "(none)" : annotation.note],
+    [
+      "Preview",
+      annotation.preview_bundle === null
+        ? undefined
+        : `bundle ${annotation.preview_bundle}, fixture data (not the live app)`,
+    ],
     ["Component", annotation.component ?? undefined],
     ["Element", elementText(annotation.element)],
     [
@@ -48,6 +54,7 @@ function blockOf(annotation: Annotation): string {
       ? {
           app: target.app,
           release: annotation.release ?? undefined,
+          preview: annotation.preview_bundle ?? undefined,
           view: annotation.view.screen ?? undefined,
         }
       : {

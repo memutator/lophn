@@ -301,7 +301,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const offline = data.connection === "reconnecting";
   const locked = composerLocked(draft.outgoing);
   const messages = messagesOf(thread);
-  const history = useMemo(() => historyOf(thread), [thread]);
+  // 입력 history는 ↑↓나 Ctrl+R을 쓸 때만 읽는다. 스트리밍마다 대화를 훑지 않게 값이 아니라 읽는 함수다.
+  const history = useLatest(() => historyOf(thread));
   const readOnly = entry?.archived === true;
   const imageUrl = useCallback(
     (id: string) =>
@@ -934,9 +935,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       run: () => keys.current?.historyNext(),
       when: () => keys.current?.canHistoryNext() === true,
     },
+    // 항상 듣는다: 이 화면의 context 안에서 Ctrl+R이 window 새로고침으로 새지 않게 한다. history가 없으면 검색 상자가
+    // "없음"만 보인다.
     "agent.history-search": {
       run: () => keys.current?.openHistorySearch(),
-      when: () => keys.current?.focused() === true && history.length > 0,
+      when: () => true,
     },
     // 도는 root tool을 background로 보낸다. adapter가 tool을 고르므로 화면은 도는 tool이 있는지만 본다.
     "agent.background": {

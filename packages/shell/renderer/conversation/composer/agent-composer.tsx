@@ -93,8 +93,11 @@ interface AgentComposerProps {
   meta: AcpSessionMeta | null;
   /** 어떤 칸을 그릴지. */
   capabilities: AcpCapabilities;
-  /** 사람이 보낸 글, 새 것이 앞이다. ↑↓와 Ctrl+R 검색이 쓴다. */
-  history: readonly string[];
+  /**
+   * 사람이 보낸 글, 새 것이 앞이다. 부를 때마다 최신 대화에서 읽는다. ↑↓ 판정과 검색 상자를 열 때만 부른다(그릴 때마다
+   * 모으면 긴 대화의 글 조각마다 대화 전체를 훑는다).
+   */
+  history: () => readonly string[];
   /** model과 축 값을 정한다. 접수되었는지 돌려준다. */
   onChooseModel: (
     model: string,
@@ -201,7 +204,8 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const [modeOpen, setModeOpen] = useState(false);
   // ↑↓로 넘기는 중인 자리. 글을 치거나 보내면 끝난다. 그릴 때마다 정할 값이 아니라 ref에 둔다.
   const browse = useRef<HistoryBrowse | null>(null);
-  const [searching, setSearching] = useState(false);
+  // 검색 상자가 열린 동안은 연 때의 history를 든다(null이면 닫혀 있다).
+  const [search, setSearch] = useState<readonly string[] | null>(null);
   // `!`로 시작하는 글은 shell을 돌리는 명령이다. capability가 없는 곳(Home의 lophn agent 등)에서는 보통 글이다.
   const shellMode = capabilities.shell && draft.text.startsWith("!");
   const shellCommand = shellMode ? draft.text.slice(1).trim() : "";
@@ -342,7 +346,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const historyReady = () =>
     document.activeElement === input.current &&
     slash.menu === null &&
-    !searching &&
+    search === null &&
     !locked;
   const onFirstLine = () => {
     const element = input.current;
@@ -367,13 +371,13 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     });
   };
   const pickHistory = (text: string) => {
-    setSearching(false);
+    setSearch(null);
     browse.current = null;
     props.onDraft({ text, selection: [text.length, text.length] });
     input.current?.focus();
   };
   const closeHistory = () => {
-    setSearching(false);
+    setSearch(null);
     input.current?.focus();
   };
 
@@ -406,18 +410,20 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       newline,
       clear: clearText,
       togglePicker: () => picker.props.onOpenChange(!picker.props.open),
+      // 싼 판정을 먼저 한다. 글이 비었는지 보려고 history를 읽는 것은 그 뒤다.
       canHistoryPrevious: () =>
         historyReady() &&
         onFirstLine() &&
-        previousEntry(props.history, draft.text, browse.current) !== null,
+        (browse.current !== null || draft.text === "") &&
+        previousEntry(props.history(), draft.text, browse.current) !== null,
+      // 넘기는 중일 때만 된다(`nextEntry`가 null이 되는 것도 그때뿐이다).
       canHistoryNext: () =>
-        historyReady() &&
-        onLastLine() &&
-        nextEntry(props.history, browse.current) !== null,
+        historyReady() && browse.current !== null && onLastLine(),
       historyPrevious: () =>
-        moveHistory(previousEntry(props.history, draft.text, browse.current)),
-      historyNext: () => moveHistory(nextEntry(props.history, browse.current)),
-      openHistorySearch: () => setSearching(true),
+        moveHistory(previousEntry(props.history(), draft.text, browse.current)),
+      historyNext: () =>
+        moveHistory(nextEntry(props.history(), browse.current)),
+      openHistorySearch: () => setSearch(props.history()),
     };
     props.keys.current = handle;
     return () => {
@@ -463,10 +469,10 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
         className={styles.boxWrap}
         data-key-context={slash.menu === null ? undefined : "slashMenu"}
       >
-        {searching ? (
+        {search !== null ? (
           <div className={styles.slash}>
             <HistorySearch
-              history={props.history}
+              history={search}
               onPick={pickHistory}
               onClose={closeHistory}
             />

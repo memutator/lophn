@@ -1,0 +1,512 @@
+area: sdk
+
+flows:
+
+  # ---------- agent: 앱 화면의 agent session ----------
+
+  - id: sdk-agent-session
+    title: "앱 화면 hook이 자기 앱 workspace의 agent session을 열고 보낸다"
+    actor: app
+    entries: [sdk:agent/useAgentSession]
+    uses: [app-agent-open:opened, app-agent-open:not-found, app-agent-snapshot:snapshot, app-agent-send:sent, app-agent-send:forbidden, app-page-hints:keep-alive-set]
+    boundary: [sdk-api, shell, acp]
+    code: [packages/sdk/agent/use-agent-session.ts, packages/sdk/agent/session.ts]
+    steps:
+      - "session 값이 없으면 첫 send에서 bridge open으로 새 session을 연다(제목은 그때 읽는다). session 값을 주면 열지 않고 바로 snapshot을 읽는다"
+      - "열린 뒤 snapshot을 한 번 읽고, 읽는 동안 온 갱신은 모았다가 reduceAcp로 접어 React state에 준다"
+      - "send는 options.reply가 있으면 답의 꼴을 알리는 글을 뒤에 붙여 보낸다. 답은 그 turn의 마지막 agent 메시지에서 parseReply로 꺼낸다"
+      - "stop, answer, rename은 열린 session과 지금 turn이나 질문을 보고, 없으면 bridge를 부르지 않고 거절한다"
+      - "보내는 중이거나 turn이 도는 동안 keep-alive 신호를 켰다가 끈다. session 값이나 agent가 바뀌면 이전 session을 닫고 다시 연다"
+    outcomes:
+      - id: opened
+        when: "첫 send가 session을 열었다"
+        observe: ["event:SessionStarted", "response"]
+      - id: sent
+        when: "send가 접수됐다(reply 옵션이 없으면 reply는 null)"
+        observe: ["response"]
+      - id: reply-value
+        when: "reply 옵션을 준 send의 turn이 completed로 끝났고 JSON이 schema에 맞았다"
+        observe: ["response"]
+      - id: reply-failed
+        when: "turn이 failed나 stopped로 끝났거나, 마지막 agent 글이 없거나, JSON이 아니거나, schema에 맞지 않는다"
+        observe: ["response"]
+      - id: open-failed
+        when: "bridge open이 거절했다(agent handle이 없음, 권한 등). 오류 글이 state.error에 남는다"
+        observe: ["response"]
+      - id: bridge-missing
+        when: "lophnApp 브리지가 없다(앱 view 밖). state.error가 unavailable이고 send는 session is not open이다"
+        observe: ["response"]
+      - id: refused
+        when: "열린 session이 없거나, stop할 turn이 없거나, answer할 질문이 없거나, app-agent-send가 거절했다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/app-call.md]
+
+  # ---------- app-ui: 화면의 오류 경계와 operation ----------
+
+  - id: sdk-render-error
+    title: "앱 화면 root의 render 오류를 잡아 fallback을 보이고 오류를 넘긴다"
+    actor: app
+    entries: [sdk:app-ui/AppErrorBoundary]
+    uses: [app-view-error-capture:forwarded]
+    boundary: [sdk-api, shell]
+    code: [packages/sdk/app-ui/app-error-boundary.tsx]
+    steps:
+      - "자식 render가 던지면 getDerivedStateFromError가 failed를 세워 자식 대신 한 문장과 Try again을 그린다. 원문 오류는 화면에 두지 않는다"
+      - "componentDidCatch가 페이지 window에 lophn:render-error event를 {name, message}로 보낸다. preload가 그 event를 app:view-error로 넘긴다(app-view-error-capture)"
+      - "Try again을 누르면 failed를 풀어 자식을 다시 그린다. 다시 던지면 같은 순서로 돈다"
+    outcomes:
+      - id: caught
+        when: "render 오류를 잡아 fallback을 보인다"
+        observe: ["screen:app-space"]
+      - id: retried
+        when: "Try again으로 자식을 다시 그렸다"
+        observe: ["screen:app-space"]
+    crosses_process: false
+    docs: [architecture/ui-kit.md]
+
+  - id: sdk-operation-call
+    title: "앱 화면의 버튼이나 hook이 선언한 operation 하나를 부른다"
+    actor: person
+    entries: [sdk:app-ui/useOperation, sdk:app-ui/OperationButton]
+    uses: [app-operation-call:succeeded, app-operation-call:failed, app-operation-call:unknown, app-operation-call:denied-gate-blocked, app-operation-call:denied-app-unavailable, app-operation-call:denied-not-declared, app-operation-call:forbidden, app-operation-call:invalid-input]
+    boundary: [sdk-api, shell, app-runtime]
+    code: [packages/sdk/app-ui/use-operation.ts, packages/sdk/app-ui/operation-button.tsx]
+    steps:
+      - "버튼은 누를 때 input(값이나 값을 만드는 함수)을 정하고 run을 부른다. 실행 중에는 버튼이 disabled이고 aria-busy다"
+      - "run은 이미 실행 중이면 아무것도 하지 않고 undefined를 준다. 아니면 state를 pending으로 두고 bridge.callOperation(operation 이름, input)을 부른다"
+      - "bridge가 없으면 호출하지 않고 unavailable로 실패한다. 던져진 Error 글 앞의 `<code>:`를 실패 code로 쓴다(없으면 unavailable)"
+      - "값이 오면 done state가 되고 onDone이 불린다. 실패하면 failed state가 되어 버튼 옆에 실패 글이 남고 onFailed가 불린다"
+      - "Gate, 기록, 직렬화는 core가 한다(app-operation-call). 사람이 누른 호출이라 할당 판정을 거치지 않는다"
+    outcomes:
+      - id: done
+        when: "operation이 값을 돌려줬다(app-operation-call:succeeded)"
+        observe: ["response", "screen:app-space"]
+      - id: failed
+        when: "bridge가 실패를 던졌다(앱 handler 실패, 막힘, 알 수 없음, 선언에 없음 등). state.code에 code를 싣는다"
+        observe: ["screen:app-space"]
+      - id: no-bridge
+        when: "lophnApp 브리지가 없다. 호출 없이 failed(unavailable)다"
+        observe: ["screen:app-space"]
+      - id: ignored-busy
+        when: "실행 중에 다시 불렀다. 아무 일도 없고 undefined다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/app-call.md, architecture/ui-kit.md]
+
+  # ---------- cap-net ----------
+
+  - id: sdk-net-fetch
+    title: "앱 command가 외부 HTTP 요청 하나를 broker로 보낸다"
+    actor: app
+    entries: [sdk:cap-net/netFetch, sdk:cap-net/createNetClient]
+    uses: [app-broker-net-fetch:fetched, app-broker-net-fetch:refused, app-broker-net-fetch:invalid-input, app-broker-net-fetch:request-failed]
+    boundary: [sdk-api, app-capability, child-supervision-protocol]
+    code: [packages/sdk/cap-net/fetch.ts, packages/sdk/cap-net/errors.ts, packages/sdk/cap-net/host.ts]
+    steps:
+      - "요청 모양을 먼저 본다. host와 port, path(/로 시작), method(GET, HEAD, POST, PUT, PATCH, DELETE), header 수와 이름, Authorization·Cookie·Host 등 금지 header, body 10 MiB 이하, GET·HEAD에 body 없음. 틀리면 broker 전에 invalid_input이다"
+      - "host 문맥이 없으면 앱 process 밖이라 unavailable이다. command 처리 밖이면 invalid_input이다"
+      - "body는 글이나 base64로 싸서 broker의 net/fetch에 보낸다. 시도 하나의 기본 시간 제한은 10초다"
+      - "GET·HEAD는 연결 실패와 429, 502, 503, 504에서 기본 2회 다시 부른다(200ms, 400ms 간격). 다른 메서드는 다시 부르지 않는다"
+      - "응답 없이 끝난 읽기가 아닌 요청은 상대에 닿았는지 모르므로 outcome unknown으로 표시하고 다시 부르지 않는다"
+      - "broker가 200이면 status와 body를 돌려준다. 거절은 forbidden이면 permission과 scope를 실어 옮기고, 나머지 unavailable은 같은 규칙으로 옮긴다"
+    outcomes:
+      - id: fetched
+        when: "broker가 200으로 외부 응답의 status와 body를 돌려줬다"
+        observe: ["request:external-host", "response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "요청 모양이 틀려 broker 전에 거절했다(외부 요청 없음), 또는 command 처리 밖에서 불렀다"
+        observe: ["response"]
+      - id: no-host
+        code: unavailable
+        when: "앱 process 밖이라 broker를 찾지 못했다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "broker가 net.fetch를 거절했다(선언 안과 grant의 교집합 밖). permission과 scope를 싣는다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "broker에 닿지 못했거나 시간 제한을 넘겼고 읽기의 재시도를 다 썼다"
+        observe: ["response"]
+      - id: unknown
+        code: unavailable
+        when: "읽기가 아닌 요청이 응답 없이 끝났다. outcome unknown이라 앱이 자기 계약으로 확인해야 한다"
+        observe: ["response"]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/app-call.md]
+
+  # ---------- cap-notify ----------
+
+  - id: sdk-notify-send
+    title: "앱이 사람에게 알림 한 줄을 보낸다"
+    actor: app
+    entries: [sdk:cap-notify/notify, sdk:cap-notify/createNotifyClient]
+    uses: [app-broker-notify:notified, app-broker-notify:refused, app-broker-notify:invalid-input]
+    boundary: [sdk-api, app-capability, child-supervision-protocol]
+    code: [packages/sdk/cap-notify/notify.ts, packages/sdk/cap-notify/errors.ts]
+    steps:
+      - "제목은 앞뒤 공백을 지운 뒤 1~120자, 본문은 500자 이하, persistent는 boolean, key는 1~64자의 영문자·숫자·_.:-인지 본다. 틀리면 broker 전에 invalid_input이다"
+      - "live가 아니면(preview, test) 사람에게 닿지 않으므로 broker를 부르지 않고 {notified: true, standIn: true}를 돌려준다"
+      - "broker의 notify/send에 title, body, key, persistent를 보낸다. 닿지 못하면 unavailable이다"
+      - "broker가 200이 아니면 fromBroker로 옮긴다(notify.send 거절은 forbidden). 200이면 {notified: true}다"
+    outcomes:
+      - id: notified
+        when: "broker가 알림을 받았다(같은 key의 열린 알림은 broker가 갱신한다)"
+        observe: ["event:NoticePosted", "response"]
+      - id: stand-in
+        when: "preview나 test라 사람에게 닿지 않았다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "제목, 본문, persistent, key 가운데 하나가 맞지 않는다"
+        observe: ["response"]
+      - id: refused
+        code: forbidden
+        when: "broker가 notify.send를 거절했다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "앱 process 밖이라 host가 없다, 또는 broker에 닿지 못했다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/app-notice.md]
+
+  - id: sdk-tray-set
+    title: "앱이 자기 tray 값을 바꾸거나 지운다"
+    actor: app
+    entries: [sdk:cap-notify/setTray, sdk:cap-notify/clearTray]
+    uses: [app-broker-notify:tray-set, app-broker-notify:refused, app-broker-notify:invalid-input]
+    boundary: [sdk-api, app-capability, child-supervision-protocol]
+    code: [packages/sdk/cap-notify/notify.ts]
+    steps:
+      - "setTray는 글을 앞뒤 공백을 지우고 1~16자인지, tone이 neutral, good, warn, bad 가운데 하나인지 본다. 틀리면 broker 전에 invalid_input이다"
+      - "live가 아니면(preview, test) broker를 부르지 않고 바로 돌아온다"
+      - "clearTray는 text를 null로 보내 그 앱의 tray 값을 지우게 한다"
+      - "broker의 notify/tray에 보낸다. 닿지 못하면 unavailable이고, 200이 아니면 fromBroker로 옮긴다"
+    outcomes:
+      - id: set
+        when: "setTray로 값을 바꿨다"
+        observe: ["event:AppTrayChanged", "response"]
+      - id: cleared
+        when: "clearTray로 값을 지웠다"
+        observe: ["event:AppTrayChanged", "response"]
+      - id: stand-in
+        when: "preview나 test라 값을 바꾸지 않고 돌아왔다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "글이 비었거나 16자를 넘는다, 또는 tone이 목록 밖이다"
+        observe: ["response"]
+      - id: refused
+        code: forbidden
+        when: "broker가 notify.send를 거절했다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "앱 process 밖이라 host가 없다, 또는 broker에 닿지 못했다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/app-notice.md]
+
+  # ---------- cap-problem ----------
+
+  - id: sdk-exception-report
+    title: "앱 process가 잡히지 않은 예외를 broker로 보고한다"
+    actor: app
+    entries: [sdk:cap-problem/createExceptionObserver]
+    uses: [app-broker-problem:written, app-broker-problem:invalid-input]
+    boundary: [sdk-api, app-capability, child-supervision-protocol]
+    code: [packages/sdk/cap-problem/exception-observer.ts, packages/sdk/cap-problem/deliver.ts]
+    steps:
+      - "앱 entry가 app code를 읽기 전에 observer를 설치한다. process의 uncaughtException과 unhandledRejection을 받는다"
+      - "예외마다 report id, 시각, 오류 이름(비면 UnknownError), 글, stack, 현재 호출 id를 담은 입력을 만든다"
+      - "보류 중인 보고의 개수나 바이트가 상한을 넘으면 보내지 않고 queue-full로 끝낸다"
+      - "transport로 보낸다. 재시도 가능한 실패는 간격을 두고 다시 보내되 같은 입력을 쓴다. 응답을 잃으면 response_lost다"
+      - "completion(report id)과 settled()로 끝을 본다. 앱 process가 죽기 전에 기다리는 데 쓴다"
+    outcomes:
+      - id: accepted
+        when: "broker가 보고를 받았다(앱 log에 쓰인다)"
+        observe: ["log:app", "response"]
+      - id: queue-full
+        when: "보류 개수나 바이트 상한을 넘어 보내지 않았다(reason unavailable)"
+        observe: ["response"]
+      - id: failed-after-retry
+        when: "재시도 가능한 실패가 다 끝났거나, broker가 invalid_input으로 거절해 다시 보내지 않았다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/app-call.md]
+
+  # ---------- cap-secret ----------
+
+  - id: sdk-secret-use
+    title: "secret을 외부 요청에 붙이라고 broker에 알린다"
+    actor: app
+    entries: [sdk:cap-secret/useSecret, sdk:cap-secret/createSecretClient, sdk:cap-secret/createSecretStandIn]
+    uses: [app-broker-secret-use:used, app-broker-secret-use:refused-secret, app-broker-secret-use:refused-destination, app-broker-secret-use:sign-in-required, app-broker-secret-use:undeliverable, app-broker-secret-use:invalid-input]
+    boundary: [sdk-api, app-capability, secrets]
+    code: [packages/sdk/cap-secret/secret.ts]
+    steps:
+      - "secret 이름이 비었거나 destination의 host가 없거나 port가 1~65535가 아니면 broker 전에 invalid_input이다"
+      - "live가 아니면(preview, test) 대역(createSecretStandIn)이 받는다. 대역은 값 없이 이름과 목적지를 쌓고 standIn을 돌려준다. allowed를 주면 그 밖의 이름은 운영 broker처럼 forbidden이다"
+      - "live인데 command 처리 밖이거나 문맥의 release가 null이면 invalid_input이다"
+      - "broker의 secrets/use에 release, invocation, command, input hash, 이름, 목적지를 보낸다. scheme은 loopback host면 http, 아니면 https다. 값은 앱에 오지 않는다"
+      - "전송이 끊기거나 broker가 unavailable을 돌려주면 값이 나갔는지 모르므로 outcome unknown으로 표시하고 다시 부르지 않는다"
+      - "200이면 used를 돌려준다. 그 밖의 거절은 fromBroker로 옮긴다(secret.use와 net.fetch 거절은 forbidden, OAuth 재인증은 conflict)"
+    outcomes:
+      - id: used
+        when: "broker가 secret 사용을 허락해 목적지 요청에 값이 붙도록 했다"
+        observe: ["response"]
+      - id: stand-in-used
+        when: "preview나 test의 대역이 사용 요청을 받아 기록했다(값은 없다)"
+        observe: ["response"]
+      - id: stand-in-refused
+        code: forbidden
+        when: "preview나 test의 대역에서 allowed 밖의 이름이다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "이름이나 목적지가 틀렸다, 또는 live인데 command 처리 밖이거나 release가 없다"
+        observe: ["response"]
+      - id: refused
+        code: forbidden
+        when: "broker가 secret.use(이름과 command 허락) 또는 net.fetch(목적지 허락)를 거절했다"
+        observe: ["response"]
+      - id: sign-in-required
+        code: conflict
+        when: "OAuth secret의 sign-in이 필요하다"
+        observe: ["response"]
+      - id: unknown
+        code: unavailable
+        when: "broker에 닿지 못했거나 broker가 unavailable을 돌려줬다. outcome unknown이라 자동으로 다시 부르지 않는다"
+        observe: ["response"]
+    crosses_process: true
+    risk: [secret]
+    docs: [architecture/app-call.md]
+
+  # ---------- cap-store ----------
+
+  - id: sdk-store-open
+    title: "앱이 자기 data DB를 열고 migration 단계를 적용한다"
+    actor: app
+    entries: [sdk:cap-store/openStore]
+    boundary: [sdk-api, app-data]
+    code: [packages/sdk/cap-store/store.ts, packages/sdk/cap-store/connection.ts]
+    steps:
+      - "경로를 주지 않으면 host의 data 영역 app.sqlite를 연다. host가 없으면 unavailable이다. 연결은 process마다 파일당 하나다"
+      - "DB를 열지 못하면 unavailable이다. WAL, foreign key, busy timeout을 켠다"
+      - "runtime이 쓰기 구간을 시작했으면 표마다 SQLite session을 걸어 변경을 changeset으로 뜬다. 응답에 싣는 것은 app-command-call이 한다"
+      - "migrate는 live에서 forbidden이다. 운영 schema는 activation의 data worker(migrateAppDatabase)가 backup을 뜬 뒤 같은 단계 파일로 바꾼다(activation-data-change-record). 릴리스 준비의 migration 검사도 같은 worker가 돈다"
+      - "preview나 test에서는 현재 schema에서 목표까지 이어지는 단계를 단계마다 transaction으로 적용하고 lophn_data_schema를 갱신한다. 끊기거나, 뒤로 가거나, 갈라지거나, 새 표에 PRIMARY KEY가 없거나, 단계가 실패하면 invalid_input이다(실패는 rollback)"
+    outcomes:
+      - id: opened
+        when: "연결을 열고 schema 번호를 돌려준다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "앱 process 밖이고 경로도 없다, 또는 DB를 열지 못했다"
+        observe: ["response"]
+      - id: migrated
+        when: "preview나 test에서 단계를 적용했다"
+        observe: ["disk:apps/<app>/data", "response"]
+      - id: live-refused
+        code: forbidden
+        when: "live 앱이 migrate를 불렀다"
+        observe: ["response"]
+      - id: migration-invalid
+        code: invalid_input
+        when: "단계가 끊기거나 뒤로 가거나 갈라짐, 목표가 현재보다 낮음, PRIMARY KEY 없는 새 표, 단계 실패(rollback)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss]
+    unclear:
+      - "SDK migrate의 검사(끊김, 뒤로 감, PRIMARY KEY)와 data worker의 migrateAppDatabase 검사가 같은 규칙인지 코드로 대조하지 않았다"
+    docs: [architecture/app-call.md]
+
+  # ---------- cap-tool ----------
+
+  - id: sdk-command-call
+    title: "앱 command가 다른 앱의 command를 broker로 부른다"
+    actor: app
+    entries: [sdk:cap-tool/connectCommands]
+    uses: [app-broker-apps-call:forwarded, app-broker-apps-call:invalid-input, app-broker-apps-call:forbidden, app-broker-apps-call:internal]
+    boundary: [sdk-api, app-capability, core-api]
+    code: [packages/sdk/cap-tool/connect.ts]
+    steps:
+      - "connectCommands(app, commands)는 import만으로는 아무것도 열지 않는다. call이 부를 때 이름이 연결 목록에 없으면 broker 전에 forbidden이다"
+      - "호출 port가 없으면(앱 process 밖) unavailable이다"
+      - "broker의 apps/call에 target 앱, command, 입력, 현재 호출의 invocation을 부모로 보낸다"
+      - "보낸 뒤 연결이 끊기면 처리됐는지 모르므로 다시 부르지 않고 unknown(connection_lost)을 돌려준다"
+      - "200이면 core가 준 outcome(succeeded, failed, denied, unknown)과 invocation을 그대로 싣는다. 모양이 맞지 않으면 unavailable이다. 200이 아니면 broker의 오류 code를 옮긴다"
+    outcomes:
+      - id: forwarded
+        when: "core의 결과(succeeded, failed, denied, unknown 가운데 하나)를 그대로 돌려줬다"
+        observe: ["response", "ledger:invocations"]
+      - id: outside-connection
+        code: forbidden
+        when: "연결 목록에 없는 command를 불렀다(broker 전에 거절)"
+        observe: ["response"]
+      - id: no-host
+        code: unavailable
+        when: "앱 process 밖이라 호출 port가 없다"
+        observe: ["response"]
+      - id: connection-lost
+        when: "broker 호출 중 연결이 끊겼다. unknown(connection_lost)으로 돌려주고 자동으로 다시 부르지 않는다"
+        observe: ["response"]
+      - id: response-mismatch
+        code: unavailable
+        when: "broker 답의 outcome이나 invocation 모양이 맞지 않는다"
+        observe: ["response"]
+      - id: rejected
+        when: "broker가 200이 아닌 답을 줬다. 공통 오류 code(invalid_input, forbidden, internal 등)를 그대로 옮긴다. 목록 밖이면 request failed(unavailable)다"
+        observe: ["response"]
+    unclear:
+      - "app-command-call에는 handler가 HandlerRejection을 던졌을 때의 갈래가 없다. readRejection이 code를 정해 failed로 나간다(entrypoint/invoke.ts). 그 갈래를 app-command-call에 더할지 정할 것"
+
+    crosses_process: true
+    docs: [architecture/app-call.md]
+
+  - id: sdk-handler-register
+    title: "앱 process가 command와 operation의 handler를 이름으로 등록한다"
+    actor: app
+    entries: [sdk:cap-tool/handle]
+    uses: [app-supervisor-reconcile:start-failed, app-child-exit:restarted]
+    boundary: [sdk-api, app-spi]
+    code: [packages/sdk/cap-tool/handlers.ts, packages/sdk/cap-tool/context.ts]
+    steps:
+      - "앱 code가 load될 때 handle(이름, 함수)을 부른다. 같은 process에 port가 이미 있으면 그 registry를 쓴다"
+      - "같은 이름이 이미 있으면 Error(handler already registered)를 던진다. 앱 load가 실패하면 자식이 준비되지 못한다"
+      - "등록된 이름 목록은 자식의 attestation이 알리고 supervisor의 ready probe가 선언과 맞춘다. 빠지거나 더해지면 start-failed다"
+      - "호출은 등록된 이름으로 handler를 찾는다(app-command-call, app-operation-call). 없으면 not_found다"
+    outcomes:
+      - id: registered
+        when: "이름이 registry에 들어갔다"
+        observe: ["process:app-child"]
+      - id: duplicate-refused
+        when: "같은 이름이 이미 있다. 앱 load가 Error로 끝나 자식이 준비되지 못한다"
+        observe: ["process:app-child", "log:app"]
+    unclear:
+      - "load가 실패했을 때 start-failed로 남는지 app-child-exit로 남는지는 자식이 ready 전에 죽는 시점에 따라 갈려서 코드 읽기로 정하지 못했다"
+
+    crosses_process: false
+    docs: [architecture/app-call.md]
+
+  # ---------- declaration ----------
+
+  - id: sdk-define-app
+    title: "lophn.ts가 선언을 defineApp으로 감싸 작성 때 검사한다"
+    actor: system
+    entries: [sdk:declaration/defineApp]
+    uses: [declaration-check:passed, declaration-check:errors]
+    boundary: [sdk, app-spi]
+    code: [packages/sdk/declaration/define.ts]
+    steps:
+      - "lophn.ts가 defineApp(선언)을 부르면 정본 validateDeclaration으로 검사하고 정규화한 값을 돌려준다"
+      - "검사가 실패하면 TypeError를 던진다. 평가 자식이 0이 아닌 code로 끝나 declaration-check가 errors로 돌려주고, release 준비도 같은 평가를 쓴다"
+    outcomes:
+      - id: defined
+        when: "선언이 맞아 정규화한 값을 돌려줬다"
+        observe: ["response"]
+      - id: type-error
+        when: "선언이 맞지 않아 TypeError를 던졌다. 평가 자식이 실패로 끝난다"
+        observe: ["process:declaration 평가 자식"]
+    unclear:
+      - "actor를 system으로 골랐다. lophn.ts는 declaration-check와 release 준비의 평가 자식만 읽으므로 사람이나 agent가 직접 부르지 않는다. 맞는지 확인할 것"
+
+    crosses_process: false
+    docs: [architecture/package.md]
+
+  # ---------- flow: @lophn/flow ----------
+
+  - id: sdk-flow-request
+    title: "flow code가 agent, tool, report 요청 한 줄을 core에 보내고 답을 받는다"
+    actor: system
+    entries: [sdk:flow/agent, sdk:flow/tool, sdk:flow/report]
+    uses: [workflow-flow-agent-run:answered, workflow-flow-agent-run:run-failed, workflow-flow-agent-run:cancelled, workflow-flow-tool-run:answered, workflow-flow-tool-run:run-failed, workflow-flow-tool-run:cancelled, workflow-flow-report:recorded, workflow-flow-report:ended]
+    pre: [workflow-start-flow:running]
+    boundary: [sdk-api, child-supervision-protocol, workflows]
+    code: [packages/sdk/flow/wire.ts, packages/sdk/flow/mod.ts]
+    steps:
+      - "flow host가 준 start 줄(instance, 입력)을 port로 잡는다. flow process 밖에서 import하면 mod.ts가 Error를 던진다"
+      - "요청을 type을 붙인 JSON 한 줄로 stdout에 쓴다. JSON이 아니거나 1 MiB를 넘으면 core에 보내지 않고 invalid_input 답을 준다. process는 산다"
+      - "요청마다 id를 붙여 같은 id의 응답 줄을 기다린다. core의 outcome을 ok, result 또는 reason, message 꼴로 그대로 넘긴다"
+      - "core가 stdin을 닫으면 기다리던 요청을 버리고 process를 1로 끝낸다"
+      - "result의 T는 부르는 쪽의 단언이라 SDK는 검사하지 않는다"
+    outcomes:
+      - id: answered
+        when: "core가 결과를 돌려줬다(agent 답, tool 결과, report 기록)"
+        observe: ["response"]
+      - id: run-failed
+        when: "core가 agent나 tool run이 failed로 끝났다고 돌려줬다(reason 그대로)"
+        observe: ["response"]
+      - id: cancelled
+        when: "core가 run을 cancelled로 돌려줬다"
+        observe: ["response"]
+      - id: value-refused
+        code: invalid_input
+        when: "요청이 JSON이 아니거나 1 MiB를 넘어 core에 보내지 않았다(process는 산다)"
+        observe: ["response"]
+      - id: stdin-closed
+        when: "core가 통로를 닫아 process가 1로 끝난다. 기다리던 요청은 버려진다"
+        observe: ["process:flow"]
+    unclear:
+      - "flow process 밖에서 import할 때 mod.ts가 던지는 Error는 개발 중 잘못 실행한 경우라 outcome으로 쓰지 않았다"
+
+    crosses_process: true
+    docs: [architecture/workflow.md]
+
+links:
+  - {entry: "sdk:cap-problem/reportProblem", flow: app-log-write}
+  - {entry: "sdk:app-ui/useKeepAlive", flow: app-page-hints}
+  - {entry: "sdk:app-ui/usePlace", flow: app-view-open}
+  - {entry: "sdk:app-ui/useTabHead", flow: app-tab-head}
+  - {entry: "sdk:cap-tool/HandlerRejection", flow: app-command-call}
+  - {entry: "sdk:cap-tool/runWith", flow: app-command-call}
+
+ignore:
+  - {entry: "sdk:agent/agentBridge", reason: "window의 lophnApp.agent를 꺼내는 접근자다. 값만 돌려주고 동작이 없다. 호출은 sdk-agent-session과 app-agent-* 흐름이 한다"}
+  - {entry: "sdk:agent/contextBlock", reason: "앱 context를 resource block으로 싸는 순수 값 helper다. 보내는 일은 sdk-agent-session의 send가 한다"}
+  - {entry: "sdk:agent/parseReply", reason: "agent 답 글에서 JSON을 꺼내 schema 꼴만 보는 순수 함수다. 상태를 바꾸지 않는다. 답을 받는 갈래는 sdk-agent-session이 쓴다"}
+  - {entry: "sdk:app-ui/RENDER_ERROR_EVENT", reason: "event 이름 상수다. 보내는 쪽은 sdk-render-error, 받는 쪽은 preload다"}
+  - {entry: "sdk:app-ui/appBridge", reason: "window의 lophnApp을 꺼내는 접근자다. 호출은 sdk-operation-call이 한다"}
+  - {entry: "sdk:cap-fs/CapabilityError", reason: "오류 class다. 던지는 쪽의 값일 뿐 동작이 없다"}
+  - {entry: "sdk:cap-fs/REQUIRED_PERMISSIONS", reason: "상수다. 같은 요구를 core가 옮겨 release 준비(release-prepare)가 검사한다"}
+  - {entry: "sdk:cap-fs/checkDeclaration", reason: "SDK 쪽 선언 검사 사본이다. 실제 판정은 release 준비(release-prepare의 failed-release)이고, 이 export는 앱 code가 직접 부를 때만 쓴다"}
+  - {entry: "sdk:cap-net/CAP_HOST", reason: "host port의 symbol 상수다. 값을 세우는 쪽은 앱 child의 runtime이다"}
+  - {entry: "sdk:cap-net/CapabilityError", reason: "오류 class다. 동작이 없다"}
+  - {entry: "sdk:cap-net/DEFAULT_READ_RETRIES", reason: "재시도 횟수 기본값 상수다. 쓰는 동작은 sdk-net-fetch가 맡는다"}
+  - {entry: "sdk:cap-net/DEFAULT_RETRY_DELAYS_MS", reason: "재시도 간격 기본값 상수다. 쓰는 동작은 sdk-net-fetch가 맡는다"}
+  - {entry: "sdk:cap-net/DEFAULT_TIMEOUT_MS", reason: "시도 하나의 시간 제한 기본값 상수다. 쓰는 동작은 sdk-net-fetch가 맡는다"}
+  - {entry: "sdk:cap-net/REQUIRED_PERMISSIONS", reason: "상수다. release 준비가 검사한다"}
+  - {entry: "sdk:cap-net/checkDeclaration", reason: "SDK 쪽 선언 검사 사본이다. 실제 판정은 release 준비(release-prepare의 failed-release)다"}
+  - {entry: "sdk:cap-notify/CAP_HOST", reason: "host port의 symbol 상수다. 값을 세우는 쪽은 앱 child의 runtime이다"}
+  - {entry: "sdk:cap-notify/CapabilityError", reason: "오류 class다. 동작이 없다"}
+  - {entry: "sdk:cap-notify/REQUIRED_PERMISSIONS", reason: "상수다. release 준비가 검사한다"}
+  - {entry: "sdk:cap-notify/checkDeclaration", reason: "SDK 쪽 선언 검사 사본이다. 실제 판정은 release 준비(release-prepare의 failed-release)다"}
+  - {entry: "sdk:cap-secret/CAP_HOST", reason: "host port의 symbol 상수다. 값을 세우는 쪽은 앱 child의 runtime이다"}
+  - {entry: "sdk:cap-secret/CapabilityError", reason: "오류 class다. 동작이 없다"}
+  - {entry: "sdk:cap-secret/REQUIRED_PERMISSIONS", reason: "상수다. release 준비가 검사한다"}
+  - {entry: "sdk:cap-secret/checkDeclaration", reason: "SDK 쪽 선언 검사 사본이다. 실제 판정은 release 준비(release-prepare의 failed-release)다"}
+  - {entry: "sdk:cap-store/CAP_HOST", reason: "host port의 symbol 상수다. 같은 port를 cap-net, cap-notify, cap-secret도 읽는다"}
+  - {entry: "sdk:cap-store/CapabilityError", reason: "오류 class다. 동작이 없다"}
+  - {entry: "sdk:cap-store/DEFAULT_DATABASE_FILE", reason: "기본 DB 파일 이름 상수다. data worker도 같은 파일을 연다(sdk-store-open)"}
+  - {entry: "sdk:cap-store/SCHEMA_TABLE", reason: "schema 번호 표 이름 상수다. data worker도 같은 표를 쓴다"}
+  - {entry: "sdk:cap-store/STORE_HOOKS", reason: "changeset 훅의 전역 symbol이다. connection.ts가 훅을 달고 runtime(entrypoint/cap-host.ts)이 부른다. 흐름은 app-command-call(write의 changeset)과 app-rewind-apply(되돌림 적용)가 본다"}
+  - {entry: "sdk:cap-store/migrationOfSql", reason: "정본 migration-sql.ts의 재내보내기다. `-- loss:` 머리를 읽는 파서이고, 손실 선언의 판정은 activation 흐름(activation-ask-consent)이 같은 파서로 한다"}
+  - {entry: "sdk:cap-tool/APP_TOOL_PORT", reason: "host port의 symbol 상수다. 같은 registry를 core의 entrypoint/tool-port.ts가 설치한다"}
+  - {entry: "sdk:cap-tool/READ_COVERAGE", reason: "read 결과 상태 목록 상수다. 앱이 결과 모양에 쓴다. core는 해석하지 않는다"}
+  - {entry: "sdk:cap-tool/READ_FRESHNESS", reason: "read 결과 상태 목록 상수다. 앱이 결과 모양에 쓴다. core는 해석하지 않는다"}
+  - {entry: "sdk:cap-tool/TRACE_NAME_MAX_CHARS", reason: "trace 이름 상한 상수다. core와 flow가 읽지 않는다(SDK와 guide에만 있다). 죽은 코드인지 사람이 정한다"}
+  - {entry: "sdk:cap-tool/traceName", reason: "trace 이름 검사 helper다. core와 flow가 읽지 않는다(SDK와 guide에만 있다). 죽은 코드인지 사람이 정한다"}
+  - {entry: "sdk:cap-tool/continueRead", reason: "앱이 read 결과 이어 읽기 모양을 만드는 순수 helper다. continuation은 값으로만 실리고 core가 해석하지 않는다"}
+  - {entry: "sdk:cap-tool/decodeContinuation", reason: "앱이 이어 읽기 값을 푸는 순수 helper다. core가 해석하지 않는다"}
+  - {entry: "sdk:cap-tool/readResult", reason: "앱이 read 결과 모양을 만드는 순수 helper다. core가 해석하지 않는다"}
+  - {entry: "sdk:cap-tool/currentContext", reason: "현재 호출 문맥을 읽는 접근자다. 문맥을 세우는 쪽은 runWith(app-command-call)이다"}
+  - {entry: "sdk:cap-tool/registeredHandlers", reason: "등록 이름 목록의 복사본이다. 자식 attestation과 ready probe는 registry를 직접 읽는다(app-supervisor-reconcile). 앱 test용이다"}
+  - {entry: "sdk:declaration/canonicalInputHash", reason: "정본 hash 함수의 재내보내기다. core의 child가 같은 방식으로 호출 입력 hash를 만든다(app-command-call의 inputHash, app-broker-secret-use의 input hash)"}
+  - {entry: "sdk:declaration/validateDeclaration", reason: "정본 검증기의 재내보내기다. core의 declaration-check와 release 준비가 같은 함수를 쓴다"}
+  - {entry: "sdk:declaration/validateInput", reason: "정본 입력 검사의 재내보내기다. command 입력은 app-command-call의 child가 같은 함수로 검사한다"}
+  - {entry: "sdk:flow/input", reason: "start 줄의 입력 글을 옮겨 담은 상수다. 시작은 workflow-start-flow가 한다"}
+  - {entry: "sdk:flow/instance", reason: "start 줄의 instance id를 옮겨 담은 상수다. 시작은 workflow-start-flow가 한다"}

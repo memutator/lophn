@@ -1,0 +1,2066 @@
+area: shell-workspace
+flows:
+  # ---- desk ----
+  - id: desk-new
+    title: "사람이 만든 desk를 하나 더 만든다"
+    actor: person
+    entries: [ui:desk-new]
+    when: "DeskSwitcher의 New desk 단추나 desk.new 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-switcher.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "newDesk가 desk-<시각>-<번호> key와 Desk N label로 addDesk를 부르고 그 desk를 고른다"
+      - "desk가 200개(DESKS_MAX)면 addDesk가 layout을 그대로 돌려주고 setActiveDesk도 없는 key라 아무 일도 없다"
+      - "commit이 layout을 저장하고, 보던 desk가 바뀌었으므로 syncDetached가 보이는 desk가 아닌 창을 숨긴다"
+    uses: [ipc:shell:workspace-layout-save, ipc:shell:detached-show]
+    outcomes:
+      - id: created
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "desk가 200개 상한이다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등 schema) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시해 화면은 바뀌고 파일은 그대로다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+
+  - id: desk-switch
+    title: "보이는 desk를 바꾼다"
+    actor: person
+    entries: [ui:desk-switch]
+    when: "DeskSwitcher 줄을 고르거나 desk.next, desk.prev, desk.nth 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "고른 key가 layout에 있으면 setActiveDesk로 active를 바꾸고 commit으로 저장한다"
+      - "보이는 desk가 바뀌면 syncDetached가 가는 desk의 detached 창만 보이게 하고 나머지는 숨긴다(닫지 않는다)"
+      - "가는 desk 창이 없으면 detached open으로 되살린다"
+      - "고른 key가 layout에 없으면 workflow 이름일 때만 openWorkflow로 workflow 탭을 열어 그 desk를 만든다. 그 밖(desk.nth 번호에 desk가 없다)은 아무 일도 없다"
+    uses: [ipc:shell:detached-show, ipc:shell:detached-open, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: switched
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:detached-window"]
+      - id: workflow-desk-opened
+        when: "고른 key가 layout에 없는 workflow 이름이고 desk가 200개 미만이다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "이미 보이는 desk이거나 desk.nth 번호에 desk가 없거나, layout에 없는 workflow인데 desk가 200개 상한이라 만들지 못했다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "workflow-desk-opened의 탭 열기 자체는 workflow-tab-open flow가 맡는다"
+
+  - id: desk-rename
+    title: "사람이 만든 desk의 이름을 바꾼다"
+    actor: person
+    entries: [ui:desk-rename]
+    pre: [desk-new:created]
+    when: "DeskSwitcher 줄의 연필이나 desk.rename 키. Main과 workflow desk는 막힌다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/desk-switcher.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "desk.rename 키나 연필이 이름 입력을 연다. Main이나 workflow desk면 입력을 열지 않는다"
+      - "확정하면 앞뒤 공백을 자르고, 빈 입력은 원래 이름으로 되돌린다. Esc는 취소다"
+      - "renameDesk가 label만 바꾸고 key는 그대로 둔다(같은 이름이면 바뀌는 것이 없다). commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: renamed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "빈 입력이나 지금과 같은 이름이라 바뀌는 것이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: cancelled
+        when: "Esc로 입력을 닫았다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: blocked
+        when: "Main이거나 workflow desk라 입력을 열지 않는다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: desk-close
+    title: "사람이 만든 desk를 끝내고 지운다"
+    actor: person
+    entries: [ui:desk-close]
+    pre: [desk-new:created]
+    when: "DeskSwitcher 줄의 x나 desk.close 키. Main과 workflow desk에서는 아무 일도 없다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/desk-close-dialog.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "requestCloseDesk가 Main과 workflow desk를 거른 뒤 DeskCloseDialog를 띄운다. 탭, 터미널, float, 창 수와 저장 안 된 파일(이름과 경로)을 보인다"
+      - "확인하면 finishDesk가 탭을 kind의 beforeClose(confirmed)로 하나씩 닫고 float과 detached 창을 닫는다"
+      - "모두 닫히면 removeDesk로 desk만 지운다(보던 desk였으면 Main으로 간다)"
+      - "거절되면 거기서 멈추고 desk는 남는다"
+    uses: [ipc:shell:detached-close, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: asked
+        observe: ["screen:shell-desk-close"]
+      - id: removed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:detached-window"]
+      - id: stopped
+        when: "저장 안 된 파일이나 kind의 beforeClose가 거절했다. 그 앞에 닫은 탭은 빠진 채로 남는다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: cancelled
+        when: "dialog에서 Cancel"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: blocked
+        when: "Main이거나 workflow desk이거나 그 key의 desk가 없다(finishDesk가 바로 돌아간다)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    risk: [data-loss]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+
+  - id: desk-workflow-merge
+    title: "사라진 workflow의 desk를 Main에 합친다"
+    actor: shell
+    entries: [system:desk-workflow-merge]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "project를 열 때와 desk 단추를 열 때 source.workflows로 workflow 목록을 읽는다. Home이면 읽지 않는다"
+      - "읽는 사이 project가 바뀌었으면(shownProject) 결과를 버린다"
+      - "읽기가 성공했고 목록에 없는 workflow desk가 있으면 mergeDeskIntoMain으로 Main에 합친다"
+      - "tab은 Main 끝에 붙고 float과 detached는 상한이 남으면 그대로, 아니면 tab으로 간다"
+      - "합쳐서 detached가 아니게 된 창은 닫고 layout을 저장한다(syncDetached가 보이는 창을 맞춘다)"
+    uses: [ipc:shell:detached-close, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: merged
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:detached-window"]
+      - id: kept
+        when: "읽기가 실패했거나 목록에 모든 workflow desk가 있다, Home이라 읽지 않았다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: discarded-stale
+        when: "읽는 사이 project가 바뀌어 결과를 버렸다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "합친 layout을 main이 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+
+  # ---- tab ----
+  - id: tab-select
+    title: "탭을 고른다"
+    actor: person
+    entries: [ui:tab-select]
+    when: "탭 줄의 탭(group이면 누른 반쪽)을 누르거나 tab.next, tab.prev, tab.nth 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/tab-strip.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "탭 줄이 고를 key를 정한다. tab.nth 0은 마지막 탭이고 group이면 그 group의 focus다. 번호에 탭이 없으면 바뀌는 것이 없다"
+      - "selectTab이나 stepTab이 selected를 바꾸고 focusTabBody로 그 본문에 focus를 준다"
+      - "commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "이미 고른 탭이거나 번호에 탭이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: tab-close
+    title: "탭을 닫는다"
+    actor: person
+    entries: [ui:tab-close]
+    when: "탭의 x, 가운데 클릭, 탭 메뉴 Close, tab.close 키(group이면 고른 반쪽)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/kinds/terminal.tsx
+      - packages/shell/renderer/workspace/kinds/document-editor.tsx
+    steps:
+      - "close(key)가 layout에 없는 탭이면 아무 일도 없다. 있으면 kind의 beforeClose를 부른다. 살아 있는 터미널과 저장 안 된 파일은 확인을 기다린다"
+      - "확인이 필요 없거나 승인되면 되살리기 목록에 넣고 removeTab으로 tabs, floats, detached에서 뺀다"
+      - "확인을 기다리는 사이 탭이 사라졌으면 removeTab이 아무 일도 없다"
+      - "취소하면 탭을 그대로 둔다"
+      - "commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: closed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: confirmed-closed
+        when: "확인 dialog에서 닫기를 골랐다(살아 있는 터미널 종료, 저장 안 된 파일 버리기)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:terminal"]
+      - id: kept
+        when: "확인에서 취소했거나 터미널 종료를 확인받지 못했다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: gone-meanwhile
+        when: "탭이 layout에 없었거나 확인을 기다리는 사이 사라졌다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    risk: [data-loss]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "터미널과 파일 확인 dialog의 화면과 문구는 각 kind(harness, projects) 쪽 flow가 정한다. 여기는 닫기 길만 본다"
+      - "확인 뒤 사라진 탭도 rememberClosed에 들어가 reopen 목록에 남는다(removeTab만 없는 탭을 무시한다). 의도인지 확인이 필요하다"
+
+  - id: tab-reopen
+    title: "닫은 탭을 다시 연다"
+    actor: person
+    entries: [ui:tab-reopen]
+    pre: [tab-close:closed]
+    when: "tab.reopen 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "이 창 메모리의 닫은 탭 목록에서 가장 최근 것을 꺼낸다. 저장하지 않아 앱을 다시 켜면 비어 있다"
+      - "이미 layout에 있는 key는 건너뛰고 다음 것을 본다"
+      - "openTab(preview 아님)으로 붙이고 focus를 준다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: reopened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: nothing
+        when: "목록이 비었거나 모두 이미 열려 있다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: tab-close-many
+    title: "여러 탭을 한 번에 닫는다"
+    actor: person
+    entries: [ui:tab-close-many]
+    when: "탭 메뉴의 Close others, Close others in pane, Close group, Close to the right, Close saved, Close all, 또는 tab.close-others, tab.close-right, tab.close-saved, tab.close-all, pane.close-others, pane.close-group 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/tabs-close-dialog.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "closeTargets가 scope에 맞는 탭을 고른다. 닫을 탭이 없으면(예: 오른쪽에 탭이 없다, 닫을 저장된 탭이 없다) 아무 일도 없다"
+      - "닫을 파일의 마지막 고침을 먼저 flush한 뒤, 살아 있는 터미널이나 저장 안 된 파일이 있으면 TabsCloseDialog 하나에 줄로 보인다. 없으면 dialog 없이 닫는다"
+      - "확인하면 보인 파일의 남은 고침을 버리고(discard), 터미널은 되묻지 않고 탭마다 beforeClose를 거쳐 닫는다"
+      - "확인 뒤 새로 저장 안 된 파일이 생겼으면 그 탭에서 다시 묻고, 거절하면 거기서 멈춘다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: closed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: asked
+        observe: ["screen:shell-tabs-close"]
+      - id: closed-after-confirm
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:terminal"]
+      - id: stopped
+        when: "확인 뒤 다시 묻는 파일을 거절했다. 그 전에 닫은 탭만 빠진다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: nothing
+        when: "closeTargets가 빈 목록이다(닫을 탭이 없다)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    risk: [data-loss]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+
+  - id: tab-keep-open
+    title: "미리보기 탭을 고정 탭으로 만든다"
+    actor: person
+    entries: [ui:tab-keep-open]
+    when: "preview 탭의 메뉴 Keep open, preview 탭 더블클릭, tab.keep-open 키(preview 탭일 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/tab-strip.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "pinTab이 그 탭의 preview를 풀어 고정 탭으로 만든다. preview가 아니면 바뀌는 것이 없다"
+      - "commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: pinned
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "이미 고정 탭이거나 key의 탭이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: preview-tab-pin
+    title: "저장 안 된 미리보기 탭을 자동으로 고정한다"
+    actor: shell
+    entries: [system:preview-tab-pin]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "편집기의 저장 안 된 상태가 바뀌면(onUnsettledChange) 그 desk의 preview 탭을 찾는다"
+      - "저장 안 된 preview 탭은 pinTab으로 고정하고 commit이 저장한다. 고정할 탭이 없으면 아무 일도 없다"
+      - "openTab도 저장 안 된 preview 자리는 바꿔 쓰지 않는다(첫 장치와 함께 쓰는 두 번째 장치)"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: pinned
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "저장 안 된 preview 탭이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: tab-move
+    title: "탭을 탭 줄에서 한 칸 옮긴다"
+    actor: person
+    entries: [ui:tab-move]
+    when: "tab.move-left, tab.move-right 키(메뉴 항목은 없다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "moveTab이 고른 탭을 tabs 안에서 왼쪽이나 오른쪽 한 칸으로 옮긴다"
+      - "group 구성원이면 group의 탭을 같이 옮긴다"
+      - "맨 앞이나 맨 끝 칸에서 더 밀면 순서가 그대로라 layout이 같은 참조로 남아 commit이 저장하지 않는다"
+      - "commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: moved
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "맨 앞이나 맨 끝 칸에서 더 밀려고 했다(순서가 그대로다), 또는 고른 탭이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: tab-drag
+    title: "탭을 끌어 순서를 바꾸거나 group을 만든다"
+    actor: person
+    entries: [ui:tab-drag]
+    when: "탭 줄의 칸이나 group 칸의 머리를 4px 넘게 끈다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/tab-drag.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+      - packages/shell/renderer/workspace/drag.ts
+    steps:
+      - "TabDragProvider가 pointer로 끈다(HTML5 drag가 아니다). 놓을 자리는 사각형으로 찾는다: tab 줄, group 칸 안, 칸 가장자리, 칸 가운데"
+      - "tabDropState가 ok, full, none을 정하고 applyTabDrop이 reorderTab, ungroupTab, splitTab, stackTab, swapTabs 가운데 하나를 부른다"
+      - "Esc나 pointercancel이면 취소한다"
+      - "commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: reordered
+        when: "tab 줄 안에 놓았다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: split
+        when: "칸 가장자리에 놓아 새 group이 생겼다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: stacked
+        when: "group 칸 가운데나 group 칸 stack 자리에 놓았다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: swapped
+        when: "group이 아닌 칸의 가운데에 놓아 두 탭을 맞바꿨다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: refused
+        when: "full: group이 가득 찬(4칸) 칸의 가장자리에 놓았다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: unchanged
+        when: "none: 자기 자신이나 group 칸 통째로 칸 가운데에 놓았다, 바뀌는 것이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: cancelled
+        when: "Esc 또는 pointercancel"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: tab-rename
+    title: "탭 이름을 바꾸기를 시작하고 확정한다"
+    actor: person
+    entries: [ui:tab-rename]
+    when: "이름 바꿀 수 있는 탭의 더블클릭, 탭 메뉴 Rename, tab.rename 키, 왼쪽 sidebar 줄의 연필"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/tab-strip.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "setRenaming(key)가 탭 줄에 이름 입력을 연다. kind가 rename을 가지지 않으면 메뉴와 키가 막힌다"
+      - "확정하면 kind의 rename(tab, name)을 부른다. 파일 이름 바꾸기, session 이름, 터미널 이름은 각 kind가 정한다"
+      - "Esc나 빈 입력이면 그만이다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: renamed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: cancelled
+        when: "Esc나 빈 입력이다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "실제 이름 바꾸기 결과(파일, session 이름)는 해당 kind의 flow 소관이다. 이 flow는 shell 쪽 입력 흐름까지다"
+
+  - id: tab-reveal
+    title: "파일 탭을 Files panel에서 찾는다"
+    actor: person
+    entries: [ui:tab-reveal]
+    when: "파일 탭의 메뉴 Reveal in Explorer, tab.reveal 키(파일 탭일 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    steps:
+      - "revealInExplorer가 Files panel을 고르고 오른쪽 sidebar를 연 뒤 그 파일을 알린다"
+      - "파일 경로가 없는 탭이면 아무것도 하지 않는다"
+    outcomes:
+      - id: revealed
+        observe: ["screen:shell-project"]
+      - id: unchanged
+        when: "파일 경로가 없는 탭"
+        observe: []
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "오른쪽 sidebar 열림은 localStorage에 쓰지만 observe 종류에 맞는 자리가 없어 screen으로만 적었다"
+
+  - id: tab-copy-path
+    title: "파일 탭의 경로를 클립보드에 복사한다"
+    actor: person
+    entries: [ui:tab-copy-path]
+    when: "파일 탭의 메뉴 Copy path, Copy relative path, tab.copy-path, tab.copy-relative-path 키(파일 탭일 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "탭의 절대 경로를 navigator.clipboard에 쓴다(쓰기 결과는 기다리지 않는다)"
+      - "relative면 project 폴더 기준 조각으로 쓰고, 폴더 밖이면 절대 경로를 쓴다"
+    outcomes:
+      - id: copied
+        observe: []
+      - id: unchanged
+        when: "파일 탭이 아니라 경로가 없다"
+        observe: []
+    crosses_process: false
+    unclear:
+      - "클립보드 쓰기는 observe 종류가 없어 관찰 자리를 비웠다. test는 clipboard mock으로 단정한다"
+      - "clipboard 쓰기 실패는 void로 버려져 화면에 드러나지 않는다"
+
+  - id: tab-float
+    title: "탭을 떠 있는 패널로 띄운다"
+    actor: person
+    entries: [ui:tab-float]
+    when: "탭 메뉴 Float, tab.float 키, palette의 Float tab"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+      - packages/shell/renderer/shell/float-layer.tsx
+    steps:
+      - "floatByKey가 float 층을 못 쟀으면 아무것도 하지 않는다"
+      - "app_panel 탭은 마지막으로 연 자리(shell.app_launch의 rect)를 쓰고, 나머지는 float 층 가운데 60% 크기 자리를 쓴다"
+      - "floatTab이 탭을 tabs에서 빼 floats 맨 위에 넣는다(float은 20개가 상한이고 그때는 그대로다)"
+      - "commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: floated
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "float 층 크기를 아직 못 쟀거나, float이 20개 상한이거나, key의 탭이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: tab-detach
+    title: "탭을 OS 창으로 뗀다"
+    actor: person
+    entries: [ui:tab-detach]
+    when: "탭 메뉴 Detach(또는 Move to new window), tab.detach 키(canDetach일 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/main/desktop/detached/ipc.ts
+      - packages/shell/main/desktop/wiring/detached.ts
+    steps:
+      - "분리 통로(props.detached)가 없거나 탭이 없거나 이미 분리된 탭이거나 noDetach kind면 아무 일도 없다"
+      - "detach가 kind의 transfer로 탭 값과 옮길 native view 묶음을 만든다. 편집기는 저장 안 된 글을 flush하고, 실패하면 null이다"
+      - "transfer가 null이면 옮기지 않는다"
+      - "detached open IPC로 main이 OS 창을 만들고 탭 값을 넘긴다. 실패하면 renderer는 값을 버리고 layout은 그대로다"
+      - "창을 여는 사이 탭이 layout에서 사라졌으면 그 창을 detached close로 닫는다"
+      - "성공한 뒤에야 layout에서 탭을 bounds를 가진 detached 항목으로 바꾼다. detachTab이 상한이면 layout은 그대로다"
+      - "commit이 layout을 저장한다"
+    uses: [ipc:shell:detached-open, ipc:shell:detached-close, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: detached
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:detached-window"]
+      - id: refused
+        when: "transfer가 null이다(저장 안 된 글을 저장하지 못했다)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: open-failed
+        code: unavailable
+        when: "main이 창을 만들지 못했거나 view를 옮기지 못했다. 보낸 값이 틀리거나(invalid_input) 창 권한이 없는(forbidden) 경우도 renderer가 같게 버린다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "response"]
+      - id: unchanged
+        when: "분리 통로가 없거나, 탭이 없거나, 이미 분리된 탭이거나, noDetach kind라 메뉴에 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: closed-meanwhile
+        when: "transfer나 창 열기를 기다리는 사이 탭이 layout에서 사라졌다. 이미 연 창은 detached close로 닫는다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "process:detached-window"]
+      - id: detached-full
+        when: "desk의 detached가 20개 상한이다. 창은 이미 열렸는데 detachTab이 layout을 그대로 둔다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "process:detached-window"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    risk: [data-loss]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "detached-full: api.open이 먼저 창을 열고 detachTab이 상한에서 layout을 안 바꿔, 탭이 tabs에 남은 채 창도 떠 있다. 창을 닫는 code가 없어 같은 탭이 두 자리에 남는다. 결함으로 보고 issue 후보로 올린다"
+
+  # ---- pane (group) ----
+  - id: pane-split
+    title: "탭을 옆 칸에 나눠 group을 만든다"
+    actor: person
+    entries: [ui:pane-split]
+    when: "탭 메뉴 Split right, Split down, pane.split, pane.split-down 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "splitPartner가 붙일 탭을 고른다(칸 뒤의 첫 plain tab, 없으면 앞의 마지막). 대상 group이 이미 4칸이면 null이다"
+      - "붙일 탭이 없으면 아무것도 하지 않는다"
+      - "splitTab이 그 탭을 right나 bottom 칸으로 나눠 group을 만들고 고른다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: split
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "탭이 하나뿐이라 붙일 탭이 없거나, 대상 group이 이미 4칸(GROUP_MAX)이다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: pane-focus
+    title: "group 칸의 focus를 옮긴다"
+    actor: person
+    entries: [ui:pane-focus]
+    when: "group 칸 안에서 pane.focus(번호 1~4) 또는 pane.focus-left, right, up, down 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/group-geometry.ts
+    steps:
+      - "번호는 group의 leaf 순서로, 방향은 neighborLeaf가 맞닿은 칸을 고른다. 고른 탭이 group이 아니면 아무 일도 없다"
+      - "고른 칸을 selectTab하고 focusTabBody로 그 본문에 focus를 준다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: focused
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "group이 아니거나, 번호에 칸이 없거나, 그 방향에 맞닿은 칸이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: pane-swap
+    title: "group 칸끼리 탭을 맞바꾼다"
+    actor: person
+    entries: [ui:pane-swap]
+    when: "group 칸 안에서 pane.swap-left, right, up, down 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "고른 탭이 group이 아니면 아무 일도 없다. neighborLeaf가 맞닿은 칸을 찾는다"
+      - "swapTabs가 두 칸의 탭을 맞바꾸고, 고른 탭이 selected로 남아 focus는 그 탭의 새 칸을 따른다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: swapped
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "group이 아니거나 맞닿은 칸이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: pane-stack-cycle
+    title: "칸에 쌓인 탭을 돌려 본다"
+    actor: person
+    entries: [ui:pane-stack-cycle]
+    when: "칸 머리의 ‹ › 단추, pane.stack-next, pane.stack-prev 키(쌓인 탭이 있을 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/content-card.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "cyclePane이 그 칸의 stack에서 다음이나 이전 탭을 고른다(끝에서 처음으로 돈다)"
+      - "칸에 보이는 탭이 바뀐다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: shown
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "그 칸에 다른 탭이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: pane-tab-leave
+    title: "탭을 group 밖으로 꺼낸다"
+    actor: person
+    entries: [ui:pane-tab-leave]
+    when: "탭 메뉴 Move out of pane 또는 Remove from split(group이 셋 이상), pane.unstack, pane.remove 키(group이 셋 이상일 때 pane.remove 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "ungroupTab이 고른 탭을 group에서 꺼내 plain tab으로 둔다"
+      - "칸에 숨은 탭이 있으면 이웃이 보이고 칸은 남는다. 남은 leaf가 하나면 group은 풀린다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: left-pane
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "그 탭이 group에 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: pane-unsplit
+    title: "group을 풀어 탭을 탭 줄에 내놓는다"
+    actor: person
+    entries: [ui:pane-unsplit]
+    when: "탭 메뉴 Unsplit 또는 Unsplit all, pane.unsplit 키(group일 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "ungroup이 group을 풀고 칸에 숨은 탭까지 탭 줄의 plain tab으로 내놓는다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: ungrouped
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "group이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  # ---- float ----
+  - id: float-raise
+    title: "떠 있는 패널을 맨 위로 올린다"
+    actor: person
+    entries: [ui:float-raise]
+    when: "떠 있는 패널을 누르거나 그 안에 focus가 들어온다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/float-layer.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "onRaise가 restoreFloat를 부른다. 접힌 패널은 펴고 floats의 맨 위로 올린다"
+      - "고정 안 한 패널은 고정한 패널 바로 아래까지만 올라간다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: raised
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "이미 맨 위다, 또는 key의 패널이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: float-move
+    title: "떠 있는 패널을 옮기거나 크기를 바꾼다"
+    actor: person
+    entries: [ui:float-move]
+    when: "패널 bar를 끌거나 가장자리를 끈다. 놓을 때 한 번 저장한다"
+    boundary: [shell, core-api]
+    code:
+      - packages/shell/renderer/shell/float-layer.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "바뀐 rect를 float 층 안으로 가두고(clampFloatRect) 최소 320×200을 지킨다. 끄는 동안은 미리보기다"
+      - "놓을 때 움직임이 있었으면 onRect가 setFloatRect로 layout의 rect를 바꾸고 저장한다. 움직임 없이 놓으면 저장하지 않는다. Esc나 pointercancel이면 버린다"
+      - "앱 panel이면 rememberFloatRect가 그 화면의 launch rect를 shell.app_launch 설정에 쓴다(다음에 여는 자리)"
+    uses: [ipc:shell:workspace-layout-save, route:settings/update]
+    outcomes:
+      - id: rect-saved
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: rect-saved-app-panel
+        when: "앱 panel 화면의 float이다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "disk:<data>/settings.json"]
+      - id: unchanged
+        when: "끌지 않고 놓았다(움직임 없음)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: cancelled
+        when: "Esc나 pointercancel로 끌기를 버렸다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: float-minimize
+    title: "떠 있는 패널 하나를 접는다"
+    actor: person
+    entries: [ui:float-minimize]
+    when: "패널 bar의 Minimize 단추, palette의 Minimize panel(맨 위 패널)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/float-layer.tsx
+      - packages/shell/renderer/shell/taskbar/float-chips.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "minimizeFloat이 그 패널을 접는다"
+      - "접힌 패널은 mount하지 않고 title bar 오른쪽 칸이나 작업 표시줄 chip 아이콘으로 남는다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: minimized
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "이미 접혀 있거나 key의 패널이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: float-collapse-loose
+    title: "고정 안 한 떠 있는 패널을 밖을 눌러 접는다"
+    actor: person
+    entries: [ui:float-collapse-loose]
+    when: "펼쳐 있는 고정 안 한 패널 밖을 누르거나 float.minimize 키(펼친 고정 안 한 패널이 있을 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/float-layer.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "FloatLayer가 document pointerdown을 capture로 보고 밖이면 minimizeLooseFloats를 부른다"
+      - "고정한 패널은 남고, 고정 안 한 펼친 패널은 모두 접힌다. 패널에서 연 menu와 dialog(portal)는 밖이 아니다"
+      - "webview 안의 click은 그릇이 focusin으로 보고, 코드가 옮긴 focus로는 접지 않는다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: collapsed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "펼쳐 있는 고정 안 한 패널이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: float-chip-toggle
+    title: "접힌 패널을 펴고 펼친 패널을 접는다"
+    actor: person
+    entries: [ui:float-chip-toggle]
+    when: "title bar 오른쪽 floats 아이콘 칸, 작업 표시줄 chip(넘치면 +N menu)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/taskbar/float-chips.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/global-floats/store.ts
+    steps:
+      - "desk float이 펼쳐 있으면 minimizeFloat으로 접고, 접혀 있으면 restoreFloat으로 펴서 맨 위로 올린다"
+      - "전역 float chip이면 onToggleGlobal이 전역 목록에서 펼치거나 접는다"
+    uses: [ipc:shell:workspace-layout-save, ipc:shell:global-floats-save]
+    outcomes:
+      - id: shown
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: hidden
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: global-toggled
+        observe: ["disk:<data>/shell/global-floats.json"]
+      - id: unchanged
+        when: "desk float의 key가 목록에 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: float-pin
+    title: "떠 있는 패널을 고정하거나 고정을 푼다"
+    actor: person
+    entries: [ui:float-pin]
+    when: "패널 bar의 핀 단추"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/float-layer.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "pinFloat이 고정을 켜거나 끈다. 켜면 고정한 패널이 floats 뒤쪽(위)으로 모인다"
+      - "저장은 pinned가 true일 때만 적는다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: pinned
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unpinned
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "이미 그 상태이거나 key의 패널이 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: float-dock
+    title: "떠 있는 패널을 탭 줄에 붙인다"
+    actor: person
+    entries: [ui:float-dock]
+    when: "패널 bar의 Dock 단추, 패널 bar 더블클릭, float.dock 키(맨 위 패널), palette의 Dock panel"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/float-layer.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "dockFloat이 패널을 floats에서 빼고 tabs 끝에 붙여 고른다. preview와 transient 표시는 지운다"
+      - "focusTabBody로 그 본문에 focus를 준다. 떠 있던 자리는 저장하지 않는다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: docked
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "떠 있는 패널이 없다(key가 없다)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: float-to-all-workspaces
+    title: "앱 panel float을 모든 workspace의 전역 float으로 옮긴다"
+    actor: person
+    entries: [ui:float-to-all-workspaces]
+    when: "앱 panel float bar의 Show in all workspaces 단추"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/global-floats/store.ts
+      - packages/shell/main/workspace/global-floats.ts
+    steps:
+      - "floatToGlobal이 desk float을 찾는다. 없거나 앱 panel이 아니거나 app·screen이 없으면 아무 일도 없다"
+      - "global-floats.tsx의 add가 rect, 접힘, 고정과 app·screen을 전역 목록에 더한다(같은 화면이 있으면 먼저 뺀다). 전역 목록을 아직 읽기 전이면 바뀌지 않고 false다"
+      - "더하기에 성공하면 desk float을 닫는다. 전역 목록이 20개 상한이면 옮기지 않아 desk float은 그대로 남는다"
+      - "전역 목록은 store가 저장을 예약해 global-floats-save로 보낸다"
+    uses: [ipc:shell:global-floats-save, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: moved
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "disk:<data>/shell/global-floats.json"]
+      - id: refused
+        when: "전역 목록이 상한(20)이라 더 넣을 수 없다, 또는 전역 목록을 아직 읽기 전이라 add가 false를 돌려준다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: unchanged
+        when: "desk에 그 float이 없거나 앱 panel이 아니거나 app·screen 정보가 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 desk layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "add는 상한에서 실패해도 앱 이름(store.setName)을 먼저 쓴다. 이름만 바뀌는지 확인이 필요하다"
+
+  - id: float-to-desk
+    title: "전역 float을 이 desk의 float으로 옮긴다"
+    actor: person
+    entries: [ui:float-to-desk]
+    when: "전역 float bar의 Move to this desk 단추(이 desk가 등록된 창에서만)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/global-floats/global-floats.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "globalToFloat이 float 층을 못 쟀으면 false다"
+      - "같은 화면의 float을 이 desk에 새 key로 열고 rect를 float 층 안으로 가두며 고정은 유지한다"
+      - "이 desk에 더 둘 수 없으면(float 20개 상한) false를 돌려주고 옮기지 않는다"
+      - "성공하면 moveToDesk가 전역 목록에서 그 float을 뺀다. 그릇이 달라 page는 다시 load된다"
+      - "moveToDesk는 등록된 desk가 없으면 아무 일도 하지 않는다"
+    uses: [ipc:shell:global-floats-save, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: moved
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "disk:<data>/shell/global-floats.json"]
+      - id: refused
+        when: "float 층을 못 쟀거나, 이 desk에 float 20개 상한이라 더 둘 수 없거나, 등록된 desk가 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "disk:<data>/shell/global-floats.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 desk layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "move 뒤 page가 다시 load되는 것은 알려진 모양이다. test는 page 재load 여부를 따로 정해야 한다"
+
+  # ---- detached ----
+  - id: detached-dock
+    title: "분리된 창을 project 창의 탭으로 되돌린다"
+    actor: person
+    entries: [ui:detached-dock]
+    when: "분리된 창의 Dock 단추, 창의 x(dock-request를 거쳐 같은 흐름)"
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/detached/ipc.ts
+      - packages/shell/main/desktop/wiring/detached.ts
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "분리된 창이 탭 값과 transfer(view 묶음)를 main에 보낸다"
+      - "main이 보낸 창이 detached 창이 아니거나 그 창의 항목이 없으면 거절한다. 탭 key가 창과 다르거나 view가 그 창의 것이 아니어도 거절한다"
+      - "main이 view를 project 창으로 옮기고 docked 이벤트를 보낸 뒤 창을 닫는다. project 창이 없거나 view를 못 옮기면 창은 그대로 남는다"
+      - "project 창이 reattachTab으로 탭을 tabs 끝에 넣고 고르며, kind의 receive가 transfer를 받는다. 그 탭이 layout에 없으면 docked를 버린다"
+    uses: [ipc:shell:detached-dock, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: docked
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:detached-window"]
+      - id: not-detached
+        code: forbidden
+        when: "보낸 쪽이 desktop 창이 아니거나 detached 창이 아니다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "보낸 창의 detached 항목이 없다"
+        observe: ["response"]
+      - id: invalid
+        code: invalid_input
+        when: "탭 key가 창과 다르거나, transfer의 view가 그 창의 것이 아니거나, 스키마가 틀리다"
+        observe: ["response"]
+      - id: refused
+        code: unavailable
+        when: "project 창이 없거나 view를 옮기지 못했다. 창은 그대로 남는다"
+        observe: ["process:detached-window"]
+      - id: dropped-by-project
+        when: "project 창이 그 탭을 layout에서 이미 모른다. main은 창을 닫아 탭 값이 버려진다"
+        observe: ["process:detached-window"]
+    risk: [data-loss]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "dropped-by-project: main은 docked를 보낸 뒤 창을 닫는데 renderer가 탭을 찾지 못하면 값이 사라진다. 실제로 그런 순서가 생기는지 코드로 확인이 필요하다"
+
+  - id: detached-open-tab
+    title: "분리된 창 안에서 연 탭을 project 창에 붙인다"
+    actor: person
+    entries: [ui:detached-open-tab]
+    when: "분리된 창 안에서 agent 새 탭 등 탭을 여는 요청"
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/detached/ipc.ts
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "분리된 창의 openTab이 detached openTab IPC로 project 창에 open-tab 이벤트를 보낸다"
+      - "project 창은 distinctAgentTab으로 key를 정해 openTab으로 붙인다. 이미 어느 desk에 있으면 그 자리로 가서 고르고, 분리된 탭이면 그 창을 앞으로 가져온다"
+      - "project 창은 그 창을 앞으로 가져온다"
+    uses: [ipc:shell:detached-open-tab, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened-in-project
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: focused-existing
+        when: "같은 탭이 이미 어느 desk에 있다. 그 자리로 가서 고르거나(분리된 탭이면 창을 앞으로 가져온다)"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:detached-window"]
+      - id: not-detached
+        code: forbidden
+        when: "보낸 쪽이 desktop 창이 아니다(guard)"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "보낸 detached 창의 항목이 없다"
+        observe: ["response"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+
+  - id: detached-popup-open
+    title: "분리된 창의 page가 크기 준 popup을 연다"
+    actor: person
+    entries: [ui:detached-popup-open]
+    when: "분리된 창 안 page가 browser popup을 연다(window.open)"
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/detached/ipc.ts
+      - packages/shell/main/desktop/wiring/detached.ts
+    steps:
+      - "detached open이 보낸 창이 detached면 parent를 그 창의 project 창으로 잡는다"
+      - "같은 탭 key의 창이 있으면 앞으로 가져온다"
+      - "없으면 opener 창 가운데 features 크기로 새 detached 창을 열고 popup view를 그 창으로 옮긴다(window.opener를 지킨다)"
+      - "보낸 창이 detached였으면 project 창에 opened 이벤트를 보내고, project 창이 layout에 detached 항목을 더해 저장한다"
+    uses: [ipc:shell:detached-open, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["process:detached-window", "disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: conflict
+        code: conflict
+        when: "같은 탭 key의 창이 이미 있어 그 창을 앞으로 가져왔다"
+        observe: ["process:detached-window"]
+      - id: invalid
+        code: invalid_input
+        when: "project가 창과 맞지 않거나 view가 그 창의 것이 아니거나 스키마가 틀리다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 쪽이 desktop 창이 아니다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "보낸 detached 창의 항목이 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "새 창을 만들지 못했거나 popup view를 옮기지 못했다. 만든 창은 없던 일로 한다"
+        observe: ["response"]
+      - id: save-refused
+        code: invalid_input
+        when: "project 창이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md, architecture/browser-tab.md]
+
+  - id: detached-close-silent
+    title: "project 창을 떠날 때 분리된 창을 조용히 닫는다"
+    actor: shell
+    entries: [system:detached-close-silent]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/detached.ts
+      - packages/shell/main/desktop/detached/registry.ts
+    steps:
+      - "project 창이 닫히거나 같은 창에서 다른 공간으로 가면 그 창의 detached 창을 silent로 닫는다. 닫을 창이 없으면 아무 일도 없다"
+      - "PTY 값은 kept에 넣어 두어 같은 key를 다시 열 때 한 번 쓰고, layout의 detached 항목은 그대로 둔다"
+      - "앱을 끄는 중이면 dock으로 돌리지 않는다(다음 실행에 detached로 돌아온다)"
+    outcomes:
+      - id: closed-kept
+        observe: ["process:detached-window"]
+      - id: closed-on-quit
+        when: "앱을 끄는 중이라 dock으로 돌리지 않고 닫았다. layout의 detached 항목을 그대로 둔다"
+        observe: ["process:detached-window"]
+      - id: nothing
+        when: "그 project의 detached 창이 없다"
+        observe: ["process:detached-window (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+
+  - id: detached-window-lost
+    title: "분리된 창이 예기치 않게 사라지면 탭을 layout에 돌려준다"
+    actor: shell
+    entries: [system:detached-window-lost]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/detached.ts
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "분리된 창이 renderer crash 등으로 silent 없이 사라지면 main이 저장된 값으로 docked(transfer 없음)를 project 창에 보낸다"
+      - "project 창이 reattachTab으로 탭을 tabs에 돌려 놓는다. PTY와 편집 중 글은 다시 붙지 못한다"
+      - "project 창이 없으면 아무 일도 없고 layout의 detached 항목이 남는다"
+    outcomes:
+      - id: docked-without-transfer
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "process:detached-window"]
+      - id: kept-no-window
+        when: "project 창이 없다. layout의 detached 항목이 남는다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    risk: [data-loss]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "crash 때 저장 안 된 편집 내용이 이미 사라졌는지 코드로 확인이 필요하다"
+
+  # ---- global floats ----
+  - id: global-floats-save
+    title: "전역 float 목록을 저장한다"
+    actor: shell
+    entries: [system:global-floats-save]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/global-floats/store.ts
+      - packages/shell/main/workspace/global-floats.ts
+      - packages/shell/main/desktop/core/global-floats-ipc.ts
+    steps:
+      - "전역 float 목록이 바뀌면 store가 저장을 예약하고(SAVE_DELAY 뒤 flush) shell:global-floats-save로 보낸다"
+      - "main이 보낸 쪽이 desktop 창이 아니면 거절한다"
+      - "main이 schema(전역 float 20개 상한 포함)로 검증해 원자 교체로 쓴다. 검증에 실패하면 파일은 그대로다"
+      - "쓰기가 실패하면 파일은 그대로다. renderer는 결과를 무시한다"
+    uses: [ipc:shell:global-floats-save]
+    outcomes:
+      - id: saved
+        observe: ["disk:<data>/shell/global-floats.json"]
+      - id: rejected
+        code: invalid_input
+        when: "schema가 거절했다(전역 float 20개 상한 포함)"
+        observe: ["disk:<data>/shell/global-floats.json (변화 없음)"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 쪽이 desktop 창이 아니다"
+        observe: ["disk:<data>/shell/global-floats.json (변화 없음)"]
+      - id: write-failed
+        code: unavailable
+        when: "파일을 쓰지 못했다"
+        observe: ["disk:<data>/shell/global-floats.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "renderer의 flush는 결과를 버리고(catch) dirty를 먼저 지워 재시도가 없다. rejected·forbidden·write-failed면 화면의 전역 float과 파일이 어긋난다. 결함 후보로 issue를 올린다"
+
+  - id: global-floats-read
+    title: "전역 float 목록을 읽는다"
+    actor: shell
+    entries: [system:global-floats-read]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/global-floats/store.ts
+      - packages/shell/main/workspace/global-floats.ts
+      - packages/shell/main/desktop/core/global-floats-ipc.ts
+    steps:
+      - "Desktop에 전역 float 층이 붙을 때 store.load가 shell:global-floats-read로 목록을 읽는다"
+      - "처음 읽기 전에 바뀐 것은 읽은 목록 위에 얹는다"
+      - "읽기가 실패하면(forbidden 포함) 빈 목록으로 시작한다"
+    uses: [ipc:shell:global-floats-read]
+    outcomes:
+      - id: loaded
+        observe: ["response"]
+      - id: empty
+        when: "파일이 없거나 모양이 틀리거나 IPC가 실패(forbidden 포함)해 빈 목록으로 시작한다"
+        observe: ["response"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  # ---- layout ----
+  - id: layout-restore
+    title: "workspace의 layout을 읽어 desk를 그린다"
+    actor: shell
+    entries: [system:layout-restore]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/layout-source.ts
+      - packages/shell/main/workspace/workspace-layout-store.ts
+      - packages/shell/main/workspace/workspace-layout.ts
+      - packages/shell/main/desktop/core/layout-ipc.ts
+    steps:
+      - "WorkspaceWindow가 mount될 때(창을 열거나 workspace를 옮길 때) shell:workspace-layout-read로 그 workspace 파일을 읽는다. project 목록과 파일은 기다리지 않는다"
+      - "값이 있으면 desk layout으로 쓴다. 없거나 읽기가 실패하면 freshLayout을 쓴다(Main 하나, 앱 workspace는 앱 화면 탭 하나)"
+      - "보이는 desk의 detached 창을 transfer 없이 되살린다. 다른 desk의 창은 그 desk로 갈 때 연다"
+      - "읽는 동안 card는 빈 채로 둔다"
+    uses: [ipc:shell:workspace-layout-read, ipc:shell:detached-open]
+    risk: [data-loss]
+    outcomes:
+      - id: restored
+        observe: ["screen:shell-project"]
+      - id: fresh-absent
+        when: "그 workspace의 파일이 없다"
+        observe: ["screen:shell-empty"]
+      - id: fresh-corrupt
+        when: "판이 다르거나(unsupported_schema) 손상(corrupt)됐다. 파일은 다음 저장 전까지 그대로다"
+        observe: ["screen:shell-empty", "disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: read-failed
+        code: unavailable
+        when: "읽기 저장소가 오류를 냈다. 기본 layout으로 시작한다"
+        observe: ["screen:shell-empty"]
+      - id: read-refused
+        code: invalid_input
+        when: "입력이 틀렸다. 보낸 쪽이 desktop 창이 아니면 forbidden으로 같은 자리다. 기본 layout으로 시작한다"
+        observe: ["screen:shell-empty"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "결함 후보: read-failed(IPC 오류)와 read-refused에서 기본 layout이 올라가고, 다음 commit(workspace-window.tsx:722-727)이 그 layout을 파일 위에 쓴다(:533-536). 읽기 한 번 실패로 사람의 layout이 덮인다. issue로 올린다. fresh-corrupt는 손상 파일이라 덮는 것이 의도인지 정한다"
+
+  - id: layout-app-removed
+    title: "앱을 지우면 그 앱 workspace의 layout과 전역 float을 지운다"
+    actor: system
+    entries: [system:layout-app-removed]
+    boundary: [shell, app]
+    code:
+      - packages/shell/main/desktop/wiring/layout.ts
+      - packages/shell/main/workspace/workspace-layout-store.ts
+    steps:
+      - "core가 앱을 영구히 지우면 AppRemoved 이벤트가 main에 온다"
+      - "main이 그 앱 workspace의 layout 파일을 지운다. 파일이 없으면 그대로 성공이다"
+      - "전역 float 목록에서 그 앱의 float을 지운다. 열린 창의 전역 float 층도 그 float을 닫는다"
+    outcomes:
+      - id: removed
+        observe: ["disk:<data>/shell/workspaces/<app>.json (지워짐)", "disk:<data>/shell/global-floats.json"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "지우기가 실패할 때 처리(재시도, 남김)는 코드로 확인이 필요하다. outcome을 아직 쓰지 못했다"
+
+  # ---- window state ----
+  - id: window-state-save
+    title: "desktop 창의 자리를 기억한다"
+    actor: shell
+    entries: [system:window-state-save]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/workspace/window-state.ts
+    steps:
+      - "창을 옮기거나 크기를 바꾸면 500ms 뒤에, 최대화, 되돌림, 닫기 때는 바로 getNormalBounds 자리를 저장한다"
+      - "최소화나 전체 화면이면 저장하지 않는다"
+    outcomes:
+      - id: saved
+        observe: ["disk:<data>/shell/window.json"]
+      - id: skipped
+        when: "최소화나 전체 화면이다"
+        observe: ["disk:<data>/shell/window.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: window-state-restore
+    title: "새 desktop 창을 저장한 자리에 연다"
+    actor: shell
+    entries: [system:window-state-restore]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/workspace/window-state.ts
+    steps:
+      - "새 desktop 창을 열 때 저장된 자리를 지금 작업 영역 안으로 당긴다"
+      - "다른 desktop 창이 떠 있으면 32px 비켜 연다. 최대화였으면 maximized로 연다"
+    outcomes:
+      - id: restored
+        observe: ["process:desktop-window"]
+      - id: default
+        when: "저장한 적이 없거나 읽지 못해 OS 기본 크기로 연다"
+        observe: ["process:desktop-window"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "창을 여는 일 자체는 shell-desktop 소관이다. 이 flow는 자리와 크기를 정하는 부분만 본다"
+
+  # ---- agent가 연 탭 (renderer 쪽) ----
+  - id: agent-tab-request
+    title: "agent가 요청한 탭을 이 창에서 열거나 닫는다"
+    actor: shell
+    entries: [system:agent-tab-request]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/use-surface-requests.ts
+      - packages/shell/renderer/workspace/open-policy.ts
+      - packages/shell/main/desktop/wiring/surface.ts
+    steps:
+      - "shell main이 host queue에서 가져온 요청을 이 창이 보이는 workspace와 맞으면 shell:surface-request로 받는다(queue는 harness 쪽). 다른 workspace의 요청이면 이 창은 아무것도 하지 않고 main이 다른 창에 준다"
+      - "layout을 다 읽은 뒤에만 받고, openAt의 hint(beside, group, float, 없음)로 자리를 정해 select 없이 session, TUI, browser 탭을 연다"
+      - "열었으면 ack하고, 못 열었으면(agent 목록을 모름, resume 없음, 터미널 통로 없음) ack하지 않아 main이 되돌린다"
+      - "place가 float인데 desk float이 20개 상한이면 openFloatTab이 조용히 아무것도 안 하지만 browser·session 경로는 그래도 ack한다"
+      - "tab_close면 그 탭을 빼고(터미널은 PTY까지 닫고) ack한다. 터미널 종료를 확인받지 못하면 탭은 남고 ack는 간다. 사람이 닫은 탭은 shell:surface-report로 closed를 알린다"
+    uses: [ipc:shell:surface-request, ipc:shell:surface-ack, ipc:shell:surface-workspace, ipc:shell:surface-report]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "response"]
+      - id: opened-no-tab
+        when: "place가 float이고 desk float이 20개 상한이다. 탭이 생기지 않았는데 ack는 열렸다고 간다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "response"]
+      - id: closed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "response"]
+      - id: closed-absent
+        when: "닫을 탭이 없다(이미 닫았거나 이미 열려 있던 session 탭을 가리켰다). 끝난 일로 ack한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "response"]
+      - id: closed-kept
+        when: "터미널 종료를 확인받지 못했다. 탭은 남고 ack는 간다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "response"]
+      - id: retried
+        when: "탭을 열지 못해 ack하지 않았다(session이나 agent 목록을 모름, TUI의 resume 없음이나 터미널 통로 없음, 터미널 열기 실패). main이 queue 끝으로 되돌린다"
+        observe: ["response"]
+      - id: other-workspace
+        when: "요청의 workspace가 이 창이 보이는 workspace가 아니다. 이 창은 아무것도 하지 않는다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "열린 탭의 layout을 main이 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시해 ack는 이미 갔다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    refs: [G4]
+    docs: [architecture/workspace-layout.md, architecture/workspace-session.md]
+    unclear:
+      - "tab_close에서 터미널 store가 없는데 found가 터미널이면 PTY를 닫지 않고 탭만 뺀다. 의도인지 확인이 필요하다"
+      - "host queue와 1초 poll, 요청을 보내는 CLI 쪽은 harness area 소관이다. 여기는 renderer에서 자리 정하기와 ack까지다"
+
+  # ---- 새 탭 열기 (+ menu, 빠른 실행, key) ----
+  - id: terminal-tab-new
+    title: "새 터미널 탭을 연다"
+    actor: person
+    entries: [ui:terminal-tab-new]
+    when: "탭 줄 끝 + menu의 Terminal, 빠른 실행 Terminal 단추와 hover 목록(coding agent, project 명령), new.terminal 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/terminal.tsx
+      - packages/shell/renderer/workspace/open-policy.ts
+      - packages/shell/renderer/shell/quick-launch.tsx
+    steps:
+      - "openTerminal이 Home(project 없음)이나 터미널 통로가 없으면 아무것도 하지 않는다"
+      - "명령이 있으면 terminal store에 그 명령을 맡기고(PTY는 harness 쪽), docked면 탭으로 붙인다. source가 없으니 desk 끝이다"
+      - "명령이 없으면 빈 터미널 탭을 desk 끝에 붙인다. commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: command-opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unavailable
+        when: "Home이거나 터미널 통로가 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: float-full
+        when: "명령 실행(docked 아님)이라 openAt이 float을 골랐는데 float이 20개 상한이다. store에 요청은 이미 맡겼지만 탭이 열리지 않는다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
+    unclear:
+      - "명령 실행의 PTY 시작은 harness 쪽이라 이 flow의 observe에 없다"
+
+  - id: browser-tab-new
+    title: "새 browser 탭을 연다"
+    actor: person
+    entries: [ui:browser-tab-new]
+    when: "탭 줄 끝 + menu의 Browser, 빠른 실행 Browser 단추와 hover 목록의 bookmark 줄, new.browser 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/browser.tsx
+      - packages/shell/renderer/shell/quick-launch.tsx
+    steps:
+      - "openBrowserTab이 빈 url(또는 bookmark의 url)로 browser 탭을 만든다"
+      - "열기 옵션이 없으면 desk 끝에 붙인다. page는 browser 쪽 flow가 연다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/browser-tab.md, architecture/workspace-layout.md]
+
+  - id: agent-tab-new
+    title: "새 lophn agent 탭을 연다"
+    actor: person
+    entries: [ui:agent-tab-new]
+    when: "탭 줄 끝 + menu의 Agent, 왼쪽 sidebar workspace 줄의 +와 hover 목록의 agent 줄, new.agent 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/kinds/agent.tsx
+      - packages/shell/renderer/shell/agent-sections.tsx
+    steps:
+      - "openLophn이 이 workspace의 lophn agent 할당을 찾아 openAgent로 agent 탭(New session 초안)을 연다"
+      - "agent 목록을 아직 모르거나 agent 통로가 없으면 열지 않는다. 다른 agent를 고르면 그 agent로, coding agent를 고르면 그 명령의 docked 새 터미널로 간다. 그 명령이 설정에 없으면 아무 일도 없다"
+      - "session은 첫 메시지를 보낼 때 생긴다(sessions 쪽 flow)"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unavailable
+        when: "agent 목록을 아직 모르거나 agent 통로가 없다. coding agent의 명령이 설정에 없어도 같다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    refs: [P7]
+    docs: [architecture/workspace-session.md, architecture/workspace-layout.md]
+
+  - id: document-tab-new
+    title: "파일을 골라 문서 탭으로 연다"
+    actor: person
+    entries: [ui:document-tab-new]
+    when: "탭 줄 끝 + menu의 문서, new.document 키(파일 선택기가 있을 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/document-editor.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "pickFile(file-pick IPC)로 파일 하나를 고른다"
+      - "고르지 않으면 아무것도 하지 않는다"
+      - "고르면 openFile이 showAfter 자리에 문서 editor 탭을 연다(.html은 project에서 artifact 탭)"
+    uses: [ipc:shell:file-pick, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: cancelled
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: search-tab-open
+    title: "Search 탭을 고르거나 새로 연다"
+    actor: person
+    entries: [ui:search-tab-open]
+    when: "탭 줄 끝 + menu의 Search, 빠른 실행 Search 단추(검색 통로가 있는 project), search.open 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/search.tsx
+      - packages/shell/renderer/shell/quick-launch.tsx
+    steps:
+      - "열린 search 탭이 있으면 openTab으로 고른다"
+      - "없으면 keyword search 탭을 새로 연다"
+      - "검색 통로가 없거나 Home이면 이 command가 올라가지 않아 키는 다음 처리로 넘어간다(탭은 열리지 않는다)"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unavailable
+        when: "검색 통로가 없거나 Home이다. 키는 넘어가고 아무 일도 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: jobs-tab-open
+    title: "Jobs 탭을 연다"
+    actor: person
+    entries: [ui:jobs-tab-open]
+    when: "Jobs overlay 머리의 Open in tab, 왼쪽 sidebar Jobs 줄(통로가 없을 때), 오른쪽 sidebar Jobs panel의 Open all jobs, jobs.open 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/jobs.tsx
+    steps:
+      - "openJobs가 고정 key jobs 탭을 연다"
+      - "이미 어느 desk에 있으면 그 desk로 가서 고른다"
+      - "jobs 통로가 없으면(props.jobs 없음) 키가 넘어가고 아무 일도 없다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unavailable
+        when: "jobs 통로가 없다. 키는 넘어간다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: inbox-tab-open
+    title: "Inbox 탭을 연다"
+    actor: person
+    entries: [ui:inbox-tab-open]
+    when: "Inbox overlay 머리의 Open in tab, inbox.open 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/inbox.tsx
+    steps:
+      - "openInbox가 고정 key inbox 탭을 연다"
+      - "이미 어느 desk에 있으면 그 desk로 가서 고른다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: workflow-tab-open
+    title: "workflow 탭을 자기 workflow의 desk에 연다"
+    actor: person
+    entries: [ui:workflow-tab-open]
+    when: "왼쪽 sidebar의 workflow 줄"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/workflow.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/desk-model.ts
+    steps:
+      - "openWorkflow가 workflow 탭을 연다. homeDesk 규칙으로 이미 열린 desk가 있으면 그리로 간다"
+      - "desk가 없으면 addDesk로 workflow 이름의 desk를 만들고 그 안에 붙인다. desk가 200개 상한이면 desk를 못 만들고 아무 일도 없다"
+      - "그 desk가 보이면 sidebar Workflows 줄이 강조된다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "desk가 없는데 200개 상한이라 workflow desk를 만들지 못했다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: app-screen-tab-open
+    title: "앱 workspace의 앱 화면 탭을 연다"
+    actor: person
+    entries: [ui:app-screen-tab-open]
+    when: "앱 workspace의 + menu App screen, 왼쪽 sidebar의 앱 줄"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/app-screen.tsx
+      - packages/shell/renderer/workspace/app-screen-tab.tsx
+    steps:
+      - "workspace가 앱이 아니면 아무 일도 없다"
+      - "openAppScreen이 app-screen:<app> 탭을 연다. 앱 workspace마다 하나다"
+      - "이미 있으면 고른다. 화면 자리는 앱 화면 탭이 현재 release의 tab 화면을 찾아 정한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "이 workspace가 앱이 아니다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "선언에 tab 자리 화면이 없으면 탭을 열지 못한다고 적혀 있으나 openAppScreen은 조건 없이 연다. 코드로 확인이 필요하다"
+
+  - id: terminal-tab-focus
+    title: "터미널 탭을 고르거나 새로 연다"
+    actor: person
+    entries: [ui:terminal-tab-focus]
+    when: "terminal.focus 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/kinds/terminal.tsx
+    steps:
+      - "터미널 통로가 없으면 키가 넘어간다"
+      - "지금 desk의 터미널 탭을 찾고, 없으면 다른 desk의 터미널 탭을 찾는다"
+      - "있으면 openTab으로 고른다(다른 desk면 그리로 가고, float이면 펴고, detached면 창을 앞으로 가져온다)"
+      - "없으면 terminal-tab-new와 같은 길로 새 터미널을 연다. Home이면 열 수 없다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unavailable
+        when: "터미널 통로가 없다(키가 다음 handler로 넘어간다), 또는 Home이라 열 터미널 탭이 없고 openTerminal이 null이다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
+
+  # ---- 앱 panel, 빠른 실행 ----
+  - id: app-panel-open
+    title: "앱 panel 화면 하나를 연다"
+    actor: person
+    entries: [ui:app-panel-open]
+    when: "빠른 실행 App hover 목록의 줄, 고정한 빠른 실행 단추, app.panel:<app>:<surface> 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/app-panel.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/global-floats/store.ts
+    steps:
+      - "그 화면이 전역 float이면 새로 열지 않고 펴서 맨 위로 올린다"
+      - "같은 앱과 화면의 탭이 이 창 어디든 있으면 그 자리에서 고른다(float이면 펴고, detached면 창을 앞으로 가져온다)"
+      - "없으면 shell.app_launch의 open(tab 또는 float)대로 새로 연다. float은 마지막 rect를 float 층 안으로 당겨 쓰고, 없으면 60% 가운데다. float 층을 못 쟀으면 tab으로 연다"
+      - "float이 20개 상한이면 openFloatTab이 조용히 아무것도 안 한다"
+      - "앱이나 화면이 목록에서 없어졌으면(목록을 읽은 뒤 키로 부른 경우) 아무것도 하지 않는다"
+    uses: [ipc:shell:workspace-layout-save, ipc:shell:global-floats-save]
+    outcomes:
+      - id: tab-opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: float-opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: shown-existing
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: expanded-global
+        observe: ["disk:<data>/shell/global-floats.json"]
+      - id: float-full
+        when: "float으로 열 자리인데 desk float이 20개 상한이다. 아무 일도 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: unchanged
+        when: "앱이나 화면이 목록에 없다, 또는 키의 인자가 틀렸다, 또는 이 창에 앱 화면 통로가 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: app-panel-chooser-open
+    title: "빠른 실행 App 단추로 앱 panel 고르기 탭을 연다"
+    actor: person
+    entries: [ui:app-panel-chooser-open]
+    when: "빠른 실행의 App 단추 누르기"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/kinds/app-panel.tsx
+      - packages/shell/renderer/shell/quick-launch.tsx
+    steps:
+      - "openAppPanel이 앱과 화면을 아직 고르지 않은 빈 app_panel 탭을 desk 끝에 연다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "빈 탭에서 화면을 고른 뒤의 흐름(탭 필드 바꾸기)은 app-panel 쪽 코드를 더 읽어야 정한다"
+
+  - id: quick-launch-edit
+    title: "빠른 실행의 순서, 끈 단추, 고정 앱 panel을 고친다"
+    actor: person
+    entries: [ui:quick-launch-edit]
+    when: "Project settings의 Quick launch 편집(위아래 순서, Switch로 끄기, App panels 고정), Settings의 Quick launch 줄"
+    boundary: [shell, core-api]
+    code:
+      - packages/shell/renderer/workspace/project-settings/quick-launch-editor.tsx
+      - packages/shell/renderer/workspace/project-settings/quick-launch.ts
+      - packages/shell/renderer/desktop/settings/quick-launch/core-source.ts
+    steps:
+      - "project 창은 그 project의 layout quick에 순서, 고정, 끈 단추를 쓴다. 전역 값을 따르면 quick을 지운다"
+      - "앱 panel 고정은 20개 상한(PINS_MAX)이면 바꾸지 않는다. 명령 추가는 20개(COMMANDS_MAX)이거나 입력이 비었으면 아무 일도 없다"
+      - "Settings에서 바꾸면 settings/update로 전역 shell.quick_launch 같은 선언 설정을 쓴다(project 빠른 실행은 layout quick에 쓰므로 이 route를 안 탄다). 쓰기는 먼저 화면에 반영하고 거절되면 다시 읽는다"
+      - "Coding agents 즐겨찾기와 명령어는 Settings 표로 같은 설정 쓰기를 탄다"
+    uses: [route:settings/update, ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: saved-project
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: saved-global
+        observe: ["disk:<data>/settings.json"]
+      - id: unchanged
+        when: "앱 panel 고정 20개 상한, 명령 20개 상한, 명령 입력이 비었다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: rejected
+        when: "settings/update가 값을 거절했다(route는 ok로 돌려주고 reason unknown_key, wrong_type, out_of_range, invalid_value 가운데 하나다). 아무것도 쓰지 않고 화면은 다시 읽는다"
+        observe: ["disk:<data>/settings.json (변화 없음)"]
+      - id: settings-unavailable
+        code: unavailable
+        when: "settings/update가 설정 파일을 읽거나 쓰지 못했다. 화면은 다시 읽는다"
+        observe: ["disk:<data>/settings.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "project layout을 main이 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  # ---- sidebar ----
+  - id: sidebar-toggle-left
+    title: "왼쪽 sidebar를 접거나 편다"
+    actor: person
+    entries: [ui:sidebar-toggle-left]
+    when: "왼쪽 sidebar 접기 단추, sidebar.toggle 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/shell-frame.tsx
+      - packages/shell/renderer/shell/left-sidebar.tsx
+    steps:
+      - "useSidebarOpen이 열림을 바꾸고 localStorage lophn.shell.sidebar-open.left 하나에 쓴다. workspace와 Settings가 같이 쓴다"
+    outcomes:
+      - id: opened
+        observe: ["screen:shell-left-sidebar"]
+      - id: collapsed
+        observe: ["screen:shell-collapsed"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: sidebar-toggle-right
+    title: "오른쪽 sidebar를 접거나 편다"
+    actor: person
+    entries: [ui:sidebar-toggle-right]
+    when: "오른쪽 sidebar 단추, sidebar.toggle-right 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/shell-frame.tsx
+      - packages/shell/renderer/shell/right-sidebar.tsx
+    steps:
+      - "setRightOpen이 열림을 바꾸고 workspace마다 lophn.shell.sidebar-open.right.<workspace key>에 쓴다"
+    outcomes:
+      - id: opened
+        observe: ["screen:shell-project"]
+      - id: collapsed
+        observe: ["screen:shell-collapsed"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: explorer-focus
+    title: "Files panel을 고르고 Explorer에 focus를 준다"
+    actor: person
+    entries: [ui:explorer-focus]
+    when: "explorer.focus 키"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    steps:
+      - "project 창이면 panel을 explorer로 고르고 오른쪽 sidebar를 열고, 폴더가 있으면 Explorer에 focus를 요청한다"
+      - "Home에는 project가 없어 아무것도 하지 않는다"
+    outcomes:
+      - id: focused
+        observe: ["screen:shell-project"]
+      - id: none
+        when: "Home 창이다(project 없음)"
+        observe: ["screen:shell-workspaces-panel"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: workspace-switch
+    title: "왼쪽 sidebar에서 다른 workspace로 간다"
+    actor: person
+    entries: [ui:workspace-switch, ui:home-open]
+    when: "왼쪽 sidebar의 Workspaces 줄(project, 앱, Home)을 누르거나 home.open 키(Home)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/shell/left-sidebar.tsx
+      - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
+      - packages/shell/renderer/desktop/main.tsx
+    steps:
+      - "openWorkspace가 setRoute(openProject, openApp, Home)로 바꾸면 WorkspaceWindow가 그 key로 다시 mount된다"
+      - "새 창은 그 workspace의 layout을 layout-restore로 읽는다. 지금 창의 layout은 commit마다 이미 저장돼 있다"
+      - "떠나는 workspace의 detached 창은 조용히 닫힌다(detached-close-silent)"
+    uses: [ipc:shell:workspace-layout-read]
+    outcomes:
+      - id: to-project
+        observe: ["screen:shell-project"]
+      - id: to-app
+        observe: ["screen:app-space"]
+      - id: to-home
+        observe: ["screen:shell-workspaces-panel"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+
+  - id: sidebar-session-open
+    title: "왼쪽 sidebar의 session, 터미널, workflow 줄을 연다"
+    actor: person
+    entries: [ui:sidebar-session-open]
+    when: "왼쪽 sidebar의 session 줄, 터미널 줄, draft 줄, workflow 줄을 누른다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
+      - packages/shell/renderer/shell/left-sidebar-model.ts
+    steps:
+      - "이 workspace의 session이면 openSessionTab이 agent 탭을 연다. 이미 있으면 고른다. session이나 agent 목록을 모르면 열지 않는다"
+      - "draft 줄이면 그 탭을 고르고, 터미널 줄이면 터미널 탭을 연다(terminal-tab-focus와 같은 길)"
+      - "다른 workspace의 session이나 터미널이면 showTerminalAt이 그 workspace의 저장된 layout에서 탭을 골라 두고 그 workspace로 간다. layout을 못 읽었거나 탭이 없으면 저장 없이 그 workspace로만 간다"
+    uses: [ipc:shell:workspace-layout-save, ipc:shell:workspace-layout-read]
+    outcomes:
+      - id: tab-opened
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: tab-selected
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: workspace-moved
+        observe: ["disk:<data>/shell/workspaces/<other workspace>.json"]
+      - id: workspace-moved-only
+        when: "다른 workspace의 layout을 못 읽었거나 그 탭이 없다. 저장 없이 그 workspace로만 간다"
+        observe: ["disk:<data>/shell/workspaces/<other workspace>.json (변화 없음)"]
+      - id: unavailable
+        when: "session이나 agent 목록을 아직 몰라 openSessionTab이 열지 않았다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "탭을 연 layout을 main이 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md, architecture/workspace-session.md]
+
+  - id: sidebar-session-stop
+    title: "current 줄의 session을 Stop으로 내린다"
+    actor: person
+    entries: [ui:sidebar-session-stop]
+    when: "왼쪽 sidebar current 줄 오른쪽 x(hover나 focus 때 보임)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
+      - packages/shell/renderer/shell/left-sidebar.tsx
+    steps:
+      - "lophn session이면 source.stopSession으로 도는 turn을 멈춘다(sessions 쪽 flow). source가 없거나 멈추지 못하면 탭을 남긴다"
+      - "이 workspace의 탭이면 onCloseTab으로 닫고, 다른 workspace면 그 workspace의 저장된 layout에서 agent 탭을 뺀다(editTabAt). layout을 못 읽으면 그대로 둔다"
+      - "터미널은 이 workspace면 탭 닫기처럼 확인을 묻고, 다른 workspace면 PTY store로 닫은 뒤 저장된 layout에서 뺀다. PTY를 못 닫으면 탭을 남긴다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: closed
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: closed-elsewhere
+        observe: ["disk:<data>/shell/workspaces/<other workspace>.json"]
+      - id: kept
+        when: "stopSession이 source 없이 실패했거나 멈추지 못했다, 터미널 종료를 확인받지 못했다, 다른 workspace의 layout을 못 읽었다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "이 workspace의 layout을 main이 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "stopSession이 실패할 때 돌아오는 code는 sessions 쪽 route를 보고 맞춘다. 여기서는 code를 비웠다"
+
+  - id: sidebar-recent-hide
+    title: "Recent 줄을 목록에서 뺀다"
+    actor: person
+    entries: [ui:sidebar-recent-hide]
+    when: "왼쪽 sidebar Recent 줄의 x"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/hidden-recent.ts
+    steps:
+      - "그 session을 7일 동안 Recent에서 뺀다. project별 localStorage에 쓴다"
+      - "그 session이 움직이면 다시 나온다"
+    outcomes:
+      - id: hidden
+        observe: ["screen:shell-left-sidebar"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  # ---- 탭 메뉴의 pane 밖 동작은 위의 flow에 있다. 여기는 이동 기록 ----
+  - id: nav-trail
+    title: "이동 기록을 따라 앞이나 뒤의 자리로 간다"
+    actor: person
+    entries: [ui:nav-back, ui:nav-forward]
+    when: "card 머리의 ← → 단추, nav.back, nav.forward 키(갈 자리가 있을 때만 키가 받는다)"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/content-card.tsx
+    steps:
+      - "이동 기록(창 메모리, 최대 50개)에서 앞이나 뒤의 자리(desk, 고른 칸, focus)를 고른다"
+      - "지운 탭이나 desk의 자리는 건너뛴다. 걷는 동안에는 기록에 새로 쌓지 않는다"
+      - "walk가 desk를 바꾸고 탭을 고른 뒤 commit이 layout을 저장한다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: walked
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json"]
+      - id: unchanged
+        when: "건너갈 수 있는 자리가 없다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "이동 기록은 owns 목록에 없는 mechanism이다. keys area가 nav.back, nav.forward를 붙일 곳이 없어 여기 두었다. lead가 owner를 정한다"
+
+  # ---- 단축키가 여는 화면 (keys area가 쓴다) ----
+  - id: palette-open
+    title: "창 팔레트를 연다(명령, 탭, 파일, bookmark 검색)"
+    actor: person
+    entries: [ui:palette-open]
+    when: "palette.open 키(Ctrl/Cmd+K). 상단 바의 팔레트 단추도 같은 열기다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/palette/host.tsx
+      - packages/shell/renderer/desktop/palette/session.ts
+      - packages/shell/ipc/keybindings.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "main이 palette.open을 모든 OS에서 먼저 받아 shell renderer로 보낸다(terminal 안에서도 열리게)"
+      - "host의 palette.open 처리기가 hub.toggle을 부른다. 팔레트가 열려 있으면 닫고, 닫혀 있으면 창의 scope(작업대 scope)가 있을 때만 연다"
+      - "paletteOpener가 scope의 탭, 파일, bookmark, 동작 목록으로 model을 만들고 overlay(별도 view)를 연다. 검색어는 debounce 뒤 scope.search로 찾는다"
+      - "고른 항목은 scope.choose로 간다(그 흐름은 각 대상 flow가 맡는다)"
+    outcomes:
+      - id: opened
+        observe: ["process:overlay-view", "screen:browser-palette-bookmark"]
+      - id: closed
+        when: "이미 열려 있어 다시 누르면 닫는다"
+        observe: ["process:overlay-view (닫힘)"]
+      - id: no-scope
+        when: "팔레트는 있지만 이 창에 scope가 없다(열린 것도 없다). 아무 일도 없다"
+        observe: ["process:overlay-view (변화 없음)"]
+      - id: unavailable
+        when: "이 창에 팔레트 통로가 없다(hub 없음). 명령이 올라가지 않아 키가 아무 일도 하지 않는다"
+        observe: ["process:overlay-view (변화 없음)"]
+      - id: open-failed
+        when: "overlay 열기가 실패해 세션을 버린다"
+        observe: ["process:overlay-view (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+    unclear:
+      - "팔레트 전용 wireframe frame이 없어 browser-palette-bookmark 화면을 빌렸다. keys area가 frame을 정하면 바꾼다"
+      - "keys area가 소유하는 key 판정과 main이 먼저 받는 경로는 keys 쪽 flow가 맡는다. 여기는 열기와 닫기까지다"
+
+  - id: files-quick-open
+    title: "파일 빠른 열기(팔레트를 파일 검색으로 연다)"
+    actor: person
+    entries: [ui:files-quick-open]
+    when: "files.quick-open 키(Ctrl/Cmd+P). workspace 창이 있을 때 키가 받는다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/desktop/palette/host.tsx
+      - packages/shell/renderer/desktop/palette/workspace-scope.ts
+    steps:
+      - "workspace 창의 files.quick-open 처리기가 useOpenPalette를 부른다. palette.open과 같은 hub.toggle이라 같은 팔레트를 연다"
+      - "작업대 scope의 파일 목록(loaded.files)과 project 검색(scope.search)이 뜬다. 입력한 파일 이름을 고르면 document 대상으로 간다"
+      - "팔레트를 열 scope가 없거나 통로가 없으면 아무 일도 없다"
+    outcomes:
+      - id: opened
+        observe: ["process:overlay-view", "screen:browser-palette-bookmark"]
+      - id: closed
+        when: "이미 팔레트가 열려 있어 다시 누르면 닫는다"
+        observe: ["process:overlay-view (닫힘)"]
+      - id: no-scope
+        when: "팔레트는 있지만 열 scope가 없다. 아무 일도 없다"
+        observe: ["process:overlay-view (변화 없음)"]
+      - id: unavailable
+        when: "이 창에 팔레트 통로가 없다(hub 없음)"
+        observe: ["process:overlay-view (변화 없음)"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+    unclear:
+      - "files.quick-open과 palette.open은 같은 팔레트를 연다. 파일 전용 모드가 없어 둘의 차이는 키와 설명 문구뿐이다. keys area가 정한다"
+      - "파일을 고른 뒤 여는 흐름은 document-tab-new나 tab 열기 flow의 openFile이 맡는다"
+
+  - id: settings-open
+    title: "Settings 화면을 연다"
+    actor: person
+    entries: [ui:settings-open]
+    when: "settings.open 키(Ctrl/Cmd+,). workspace 창이 있을 때 키가 받는다. 팔레트의 Settings 동작도 같은 길이다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/desktop/main.tsx
+      - packages/shell/renderer/desktop/router.ts
+    steps:
+      - "workspace 창의 settings.open 처리기가 onSettings()를 부른다(pane 없음)"
+      - "main의 settingsSpace가 지금 route가 Settings가 아니면 돌아갈 자리(beforeSettings)를 기억하고, Settings route(기본 pane)로 바꾼다"
+      - "이미 Settings면 같은 route를 다시 세운다(pane은 기본 값으로 돌아갈 수 있다)"
+    outcomes:
+      - id: opened
+        observe: ["screen:new-settings-general"]
+      - id: reopened
+        when: "이미 Settings 화면이다. 같은 route를 다시 세운다"
+        observe: ["screen:new-settings-general"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "기본 pane을 new-settings-general frame으로 적었다. Settings의 기본 pane 값을 코드로 확인이 필요하다"
+      - "돌아가는 길(Settings를 닫아 beforeSettings로 가기)은 shell-desktop 또는 settings 쪽 flow가 맡는다"
+
+links: []
+ignore: []

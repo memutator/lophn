@@ -1,0 +1,1109 @@
+area: approvals
+flows:
+  - id: tool-gate-check
+    title: 실행 전 tool 호출을 판정하고 shell 규칙 ask면 사람에게 묻는다
+    actor: agent
+    entries: [route:tool_gate/check]
+    boundary: [approvals, agent-tools]
+    code: [packages/core/lophn-agent/tool-judgment/, packages/core/main/daemon/wiring/approvals.ts, packages/core/approvals/, packages/core/lophn-agent/tools/work.ts]
+    steps:
+      - "runtime이 gate가 걸린 tool(shell.run, app command, MCP tool)을 실행하기 직전에 `tool_gate/check`를 부른다. credential의 session·turn이 입력과 같아야 한다."
+      - "core가 session의 agent·workspace·`spawned_by`·`skip`과 turn의 `mode`를 읽는다. 못 읽으면 판정하지 않는다."
+      - "`judge`가 할당 없는 앱 tool은 `not_assigned`, 할당에서 뺀 tool은 `removed`, shell 규칙 floor와 deny 줄은 `shell_rule`로 실행 없이 이유를 돌려준다."
+      - "shell 규칙이 `ask`를 내고 mode가 attended이거나 팀 자식(`toParent`)이면 turn request를 메모리에 열고 기다린다. unattended와 skip은 묻지 않고 run이다."
+      - "app tool과 MCP tool은 판정이 늘 run이다(외부 효과 묻기가 꺼져 있다)."
+      - "사람이 `turn_requests/decide`로 once나 always를 고르면 기다리던 call이 입력을 그대로 실행한다(다시 판정하지 않는다). reject면 `the person rejected this tool call: <이유>`를 받는다."
+      - "기다림이 turn 끝, session 닫힘, 재시작으로 풀리면 cancelled를 받는다(`turn-request-cancel`)."
+    outcomes:
+      - id: run
+        when: "할당과 규칙에 걸리지 않음, 또는 unattended·skip이라 묻지 않음"
+        observe: ["response"]
+      - id: run-after-allow
+        when: "사람이 once나 always로 허락한 뒤 실행"
+        observe: ["event:TurnRequestClosed", "response"]
+      - id: denied-not-assigned
+        when: "할당하지 않은 앱의 tool"
+        observe: ["response"]
+      - id: denied-removed
+        when: "할당에서 뺀 command"
+        observe: ["response"]
+      - id: denied-shell-rule
+        when: "shell 규칙 floor나 deny 줄이 명령(또는 조각)에 맞음. 맞은 pattern을 싣는다"
+        observe: ["response"]
+      - id: rejected-by-person
+        when: "승인 카드에서 사람이 거절함"
+        observe: ["event:TurnRequestClosed", "response"]
+      - id: cancelled
+        when: "기다리던 turn이 끝났거나 session이 닫혔거나 core가 내려감"
+        observe: ["event:TurnRequestClosed", "response"]
+      - id: forbidden
+        code: forbidden
+        when: "credential이 묶은 session·turn이 입력과 다름"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "할당이나 session·turn 값을 읽지 못함"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["H3", "H4", "P4"]
+    docs: [architecture/approval.md, architecture/agent-call.md]
+    unclear:
+      - "app tool과 MCP tool은 판정이 늘 run이라(ASK_EXTERNAL_WHEN_ATTENDED가 꺼짐) 이 flow가 묻는 것은 shell 규칙뿐이다. 외부 효과를 다시 묻으려면 판정 상수를 켠다. 사람이 정할 일이다."
+      - "MCP server를 끈 것이 막히는 곳은 판정이 아니라 연결 call(packages/core/lophn-agent/extensions/mcp-toolkit.ts)이다. models 영역의 flow가 맡는다."
+      - "forbidden과 unavailable은 sessionOf·modeOf의 읽기 오류를 그대로 돌려주므로, 그 읽기가 낼 수 있는 code를 이 flow 안에서 더 좁히지 못했다."
+
+  - id: turn-request-decide
+    title: 사람이 대기 중인 shell 규칙 승인 request를 once, always, reject로 결정한다
+    actor: person
+    entries: [route:turn_requests/decide]
+    pre: [route:tool_gate/check]
+    boundary: [approvals, acp]
+    code: [packages/core/approvals/turn-requests.ts, packages/core/approvals/approvals.ts, packages/core/main/daemon/wiring/approvals.ts, packages/shell/renderer/desktop/connection/waiting/decide.ts]
+    steps:
+      - "사람 자격만 받는다. agent, 앱, MCP server는 스스로 허락할 수 없다. 입력이 결정 형식이 아니면 invalid_input이다."
+      - "메모리에서 session과 id가 맞는 request를 찾는다. 없거나 다른 session의 것이거나 팀 자식(`to_parent`)의 request면 not_found다(사람에게 카드가 없다)."
+      - "이미 닫힌 request면 conflict다."
+      - "reject면 이유 한 줄과 함께 닫는다. 기다리던 call은 거절 결과를 받는다."
+      - "always면 request의 `always_patterns`를 shell 규칙 allow 줄로 설정 `approvals.shell_rules`에 더한다. project workspace면 그 project 층, 아니면 전역 층이다. 저장이 실패하면 internal이고 request는 다시 열린다."
+      - "once나 always면 기다리던 call이 입력을 그대로 실행한다. TurnRequestClosed(allow)를 Bus로 낸다."
+    outcomes:
+      - id: once
+        observe: ["event:TurnRequestClosed", "response"]
+      - id: always
+        when: "always_patterns가 있고 shell 규칙 저장에 성공"
+        observe: ["disk:settings.json", "event:TurnRequestClosed", "response"]
+      - id: reject
+        when: "사람이 거절함(이유는 한 줄, 없을 수 있음)"
+        observe: ["event:TurnRequestClosed", "response"]
+      - id: not-found
+        code: not_found
+        when: "request가 없거나 다른 session의 것이거나 팀 자식의 request"
+        observe: ["response"]
+      - id: conflict
+        code: conflict
+        when: "이미 결정되었거나 닫힌 request"
+        observe: ["response"]
+      - id: always-without-pattern
+        code: invalid_input
+        when: "always를 골랐는데 always_patterns가 비었거나 그 kind에 always 처리기가 없음. 규칙은 쓰지 않는다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격이 아님"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "always의 shell 규칙을 저장하지 못함"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["H4", "R4"]
+    docs: [architecture/approval.md]
+    unclear:
+      - "always 저장 중에 turn이 끝나면 request는 cancelled로 닫히는데 규칙은 이미 저장되고 응답은 conflict다(turn-requests.ts decide의 await 뒤 확인). 이 규칙을 남길지는 정하지 못했다."
+
+  - id: turn-request-cancel
+    title: turn이 끝나거나 session이 닫히거나 core가 내려가면 기다리던 승인 request를 cancelled로 닫는다
+    actor: system
+    entries: [system:turn-request-cancel]
+    boundary: [approvals, router]
+    code: [packages/core/main/daemon/wiring/approvals.ts, packages/core/approvals/turn-requests.ts]
+    steps:
+      - "Bus가 TurnEnded를 내면 그 session에 열린 turn request를 모두 cancelled(turn_ended)로 닫는다. SessionEnded면 session_closed다."
+      - "core가 내려갈 때(closeIntake) 이 기동에서 request를 연 session의 메모리 request를 restart로 닫는다."
+      - "같은 구독이 그 session의 질문 대기도 cancelled로 푼다(QuestionResolved). 질문 쪽 결과는 turns 영역이다."
+      - "닫힌 request를 기다리던 call은 `the request was cancelled (<cause>)` 결과로 끝난다. 거절과 구별된다."
+      - "팀 자식의 request가 부모 답 없이 닫히면 부모에게 간 ask call을 자식 이름으로 취소한다(`calls/ask-withdraw`)."
+      - "닫힐 때마다 TurnRequestClosed(cancelled)를 Bus로 낸다."
+    outcomes:
+      - id: cancelled-turn-ended
+        observe: ["event:TurnRequestClosed", "response"]
+      - id: cancelled-session-closed
+        observe: ["event:TurnRequestClosed", "response"]
+      - id: cancelled-restart
+        when: "core가 정상 종료(closeIntake)하면서 기다리던 request"
+        observe: ["event:TurnRequestClosed", "response"]
+    crosses_process: false
+    risk: []
+    refs: ["H4"]
+    docs: [architecture/approval.md, architecture/workspace-session.md]
+    unclear:
+      - "비정상 종료(crash)에서는 request가 메모리와 함께 사라져 TurnRequestClosed가 나가지 않는다. 기다리던 turn을 회복하는 쪽은 turns 영역이라 확인하지 못했다."
+      - "TurnEnded는 turn 하나가 아니라 그 session의 request 전부를 닫는다(한 session에 turn 하나가 도는 전제에 기댄다)."
+
+  - id: team-child-approval-to-parent
+    title: 팀 자식의 shell 규칙 ask를 사람 대신 부모 session에 올려 부모의 답으로 푼다
+    actor: agent
+    uses: [route:calls/ask-open, route:calls/ask-withdraw, route:calls/reply]
+    pre: [route:tool_gate/check]
+    when: "spawned_by가 있고 skip이 꺼진 session의 shell 규칙 ask (skip이 켜지면 run이다)"
+    boundary: [approvals, router]
+    code: [packages/core/main/daemon/wiring/approvals.ts, packages/core/approvals/turn-requests.ts, packages/core/router/]
+    steps:
+      - "자식의 shell 규칙 ask는 사람 대신 부모에게 가는 result call(`calls/ask-open`)로 연다. call 본문은 명령 글(또는 tool 이름)뿐이고 agent가 쓴 설명은 싣지 않는다."
+      - "이 request에는 카드도 always도 없다(always_patterns가 비어 있다). 자식 turn은 turn request로 기다린다."
+      - "부모가 `lophn call reply <call> --allow` 또는 `--reject --body <이유>`로 답하면 once 허락이나 거절이 그 request를 푼다. 부모의 답은 always가 될 수 없다."
+      - "부모가 끝나 call이 receiver_ended로 닫히면 `the parent session ended without answering` 거절이다. 처음부터 닿지 않으면 `the request could not reach the parent session` 거절이다."
+      - "자식 request가 부모 답 없이 다른 이유(turn 끝, session 닫힘)로 닫히면 core가 ask call을 취소한다. 부모의 늦은 답은 closed true다."
+    outcomes:
+      - id: parent-allowed
+        observe: ["event:TurnRequestClosed", "ledger:messages", "response"]
+      - id: parent-rejected
+        when: "부모가 --reject로 답함. 이유는 한 줄로 자식에게 간다"
+        observe: ["event:TurnRequestClosed", "ledger:messages", "response"]
+      - id: parent-ended
+        when: "부모 session이 답 없이 끝남"
+        observe: ["response"]
+      - id: parent-unreachable
+        when: "처음부터 부모에게 call이 닿지 않음"
+        observe: ["response"]
+      - id: withdrawn
+        when: "자식 turn이 끝나거나 session이 닫혀 부모의 call을 취소함"
+        observe: ["ledger:messages", "response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["R4", "H4", "T4"]
+    docs: [architecture/approval.md, architecture/agent-call.md]
+
+  - id: team-child-question-to-parent
+    title: 팀 자식의 질문(ask)을 부모 session에 올려 부모의 답으로 푼다
+    actor: agent
+    uses: [route:ask/wait, route:calls/ask-open, route:calls/ask-withdraw, route:calls/reply]
+    when: "spawned_by가 있는 session의 ask tool (mode와 skip에 상관없이 부모에게 간다)"
+    boundary: [approvals, router]
+    code: [packages/core/main/daemon/wiring/approvals.ts, packages/core/lophn-agent/tools/questions/, packages/core/router/]
+    steps:
+      - "자식의 ask tool 질문은 mode와 skip에 상관없이 부모에게 간다. 질문 목록을 적은 call(`calls/ask-open`)을 부모에게 보낸다."
+      - "자식 turn은 질문 대기에서 기다린다. 질문 대기는 부모의 답이 풀거나 아래 경우에 풀린다."
+      - "부모가 `lophn call reply <call> --body <답>`로 답하면 parent_reply로 풀린다."
+      - "사람이 자식 session에 메시지를 보내면 질문은 human_message로 풀리고, 부모의 call은 `calls/ask-withdraw`로 취소된다."
+      - "부모가 답 없이 끝나거나 call이 닿지 않으면 cancelled로 풀린다. 자식 turn이 끝나거나 session이 닫혀도 cancelled다."
+    outcomes:
+      - id: parent-reply
+        observe: ["event:QuestionResolved", "ledger:messages", "response"]
+      - id: human-message
+        when: "사람이 자식 session에 보낸 메시지가 질문을 풂"
+        observe: ["event:QuestionResolved", "response"]
+      - id: cancelled-parent-gone
+        when: "부모 session이 답 없이 끝났거나 부모에게 call이 닿지 않음"
+        observe: ["response"]
+      - id: cancelled-turn-ended
+        when: "자식 turn이 끝나거나 session이 닫힘"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    refs: ["R4", "T4"]
+    docs: [architecture/approval.md, architecture/agent-call.md]
+    unclear:
+      - "질문 대기 자체(QuestionWait, 질문 tool의 입구 route:ask/wait)는 turns 영역이다. 이 flow는 팀 자식일 때 부모로 가는 분기만 본다."
+
+  - id: ask-unattended-returns
+    title: 사람이 없는 turn의 ask tool은 기다리지 않고 unattended를 돌려준다
+    actor: agent
+    uses: [route:ask/wait]
+    when: "spawned_by가 없는 session이고 turn이 unattended인 ask tool"
+    boundary: [approvals, run-loop]
+    code: [packages/core/main/daemon/wiring/approvals.ts, packages/protocol/lophn-agent/ask-tool.ts]
+    steps:
+      - "ask 입구(`askWaitHandler`)는 먼저 호출한 credential이 입력의 session·turn과 같은지 본다. 다르면 forbidden이다."
+      - "session과 turn을 읽는다. 읽지 못하면 그 오류가 그대로 간다."
+      - "팀 밖 session의 turn이 unattended면 기다림 없이 바로 돌려준다."
+      - "질문은 열리지 않아 카드도 대기 목록도 생기지 않는다. 사람이 없으므로 질문을 보낼 곳이 없다."
+      - "agent는 unattended 결과를 받고 스스로 정한다."
+      - "attended turn의 ask는 이 흐름이 아니다. 사람이 답하는 질문 대기는 turns 영역이다."
+    outcomes:
+      - id: unattended
+        observe: ["response"]
+      - id: other-turn
+        code: forbidden
+        when: "credential이 다른 session이나 turn에 묶임"
+        observe: ["response"]
+      - id: lookup-failed
+        when: "session이나 turn을 읽지 못함. 읽기의 오류 code가 그대로 간다"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    refs: ["T4", "W4"]
+    docs: [architecture/approval.md]
+
+  - id: extension-tool-judge
+    title: shell extension tool 호출을 agent 정의의 extensions와 켜진 catalog로 판정한다
+    actor: agent
+    uses: [route:extension_tools/call]
+    boundary: [approvals, agent-tools]
+    code: [packages/core/main/daemon/wiring/extension-tools.ts, packages/core/approvals/gate/judge.ts, packages/core/approvals/approvals.ts, packages/core/main/daemon/wiring/harness-credential.ts]
+    steps:
+      - "extension tool은 tool 정의에 gate가 없고, `extension_tools/call` 입구가 판정한다. lophn runtime과 harness CLI가 같은 길을 거친다. session과 turn에 묶인 agent 자격이 아니면 forbidden이다."
+      - "이름으로 extension과 tool을 가른다. extension 이름 형식이 아니면 not_found다. 그 session을 읽어 agent와 workspace를 얻는데 읽기가 실패하면 그 오류가 그대로 간다."
+      - "`judge`가 agent 정의를 읽어(실패하면 그 오류가 그대로 간다) `extensions`에 없으면 not_assigned, 켜진 extension의 catalog에 tool이 없으면(꺼짐, 목록에서 빠짐) removed, 아니면 run이다."
+      - "묻지 않는다. 할당이 허락이라 결과를 `<lophn-untrusted>`로 감싸지 않는다."
+      - "run이면 shell이 붙어 있을 때 이 호출만 쓰는 agent 자격을 내고(실패하면 그 오류가 간다) shell host queue로 넘겨 shell main의 결과를 기다린다. 붙어 있지 않으면 unavailable이다. 기다리는 동안 shell이 떨어지거나 core가 내려가면 unavailable로 끝난다. 끝나면 그 자격을 거둔다."
+    outcomes:
+      - id: not-agent-session
+        code: forbidden
+        when: "agent 자격이 아니거나 session·turn 조건이 없음"
+        observe: ["response"]
+      - id: not-extension-tool
+        code: not_found
+        when: "extension tool 이름 형식이 아님"
+        observe: ["response"]
+      - id: lookup-failed
+        when: "session이나 agent 정의를 읽지 못함. 읽기의 오류 code가 그대로 간다"
+        observe: ["response"]
+      - id: not-assigned
+        code: forbidden
+        when: "agent 정의의 extensions에 없는 extension"
+        observe: ["response"]
+      - id: removed
+        code: forbidden
+        when: "extension이 꺼졌거나 catalog에서 tool이 빠짐"
+        observe: ["response"]
+      - id: host-not-attached
+        code: unavailable
+        when: "판정은 run이지만 shell이 host queue에 붙어 있지 않음"
+        observe: ["response"]
+      - id: credential-failed
+        when: "이 호출만 쓰는 agent 자격을 내거나 ledger에 기록하지 못함. 오류 code가 그대로 간다"
+        observe: ["response"]
+      - id: handed-to-host
+        when: "판정이 run이고 shell main이 결과(content)를 돌려줌"
+        observe: ["response"]
+      - id: host-failed
+        when: "shell main의 handler가 오류를 돌려주거나 기다리는 중 shell이 떨어져 unavailable로 끝남"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["H3"]
+    docs: [architecture/approval.md, architecture/agent-definition.md]
+
+  - id: app-call-assignment-judge
+    title: agent나 flow가 앱 command를 부를 때 그 호출자의 할당으로 막는다
+    actor: agent
+    uses: [route:apps/call_tool]
+    boundary: [approvals, app-runtime]
+    code: [packages/core/apps/calls/gate.ts, packages/core/apps/calls/service.ts, packages/core/approvals/gate/judge.ts]
+    steps:
+      - "사람이 부른 호출과 program(job의 tool run)의 호출은 판정하지 않는다. job 등록 승인이 허락이다."
+      - "agent 호출자는 그 agent의 지금 할당으로 `judge`(app_tool, attended)를 본다. deny면 막는다. ask가 나와도 묻지 않고 지나간다."
+      - "flow 호출자(flow instance)는 그 project PM의 지금 할당으로 `judge`(unattended)를 본다. 공개(public) command가 아니면 PM이 그 앱 workspace에 있을 때만 허락한다."
+      - "막히면 그 호출은 denied(gate_blocked, `the call is not granted`)로 기록되고 호출자에게 그대로 간다. app 호출자는 부른 앱의 active grant `app.call`로 보므로 이 flow가 아니다(app-runtime)."
+    outcomes:
+      - id: passed
+        when: "판정을 통과해 실행 쪽으로 넘어감(할당 있음, 사람이나 program 호출, flow의 공개 command나 PM의 앱 workspace)"
+        observe: ["response"]
+      - id: gate-blocked
+        when: "agent의 할당에 없거나 뺀 tool이거나, flow가 비공개 command를 다른 workspace에서 부름"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["H3", "E11", "J4"]
+    docs: [architecture/app-call.md, architecture/approval.md]
+    unclear:
+      - "gate_blocked 호출을 invocation 기록에 어떻게 남기는지는 apps 영역이라 확인하지 않았다."
+
+  - id: assignment-read
+    title: 사람이 agent의 앱 할당(apps와 뺀 command)을 읽는다
+    actor: person
+    entries: [route:agent_assignments/get]
+    boundary: [approvals, agents]
+    code: [packages/core/approvals/assignment/reads.ts, packages/core/main/daemon/wiring/assignment-file.ts]
+    steps:
+      - "사람 화면(agent 권한 화면)이 agent의 할당을 읽는다. reader Worker가 snapshot에서 읽는다."
+      - "정의 파일의 `apps`(slug)는 앱 id로, `permissions.deny`의 `lophn(<slug> <command>)`는 뺀 command 이름으로 푼다."
+      - "없는 앱 slug와 active 선언에 없는 command는 빠진다. 앱 workspace agent는 자기 앱을 사람의 할당 없이 포함한다(deny는 그대로 적용한다)."
+      - "revision은 할당 내용의 hash에서 정한 값이다(없으면 0). 정의 파일의 다른 칸을 고쳐도 바뀌지 않는다."
+      - "정의 파일이 없는 agent도 실패하지 않고 빈 할당과 revision 0을 돌려준다."
+    outcomes:
+      - id: ok
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    refs: ["P4"]
+    docs: [architecture/approval.md, architecture/agent-definition.md]
+    unclear:
+      - "저장된 앱이나 선언 값이 깨졌을 때 나오는 오류 code는 확인하지 못했다(loadApp의 invalidStored)."
+
+  - id: assignment-set
+    title: 사람이 agent에게 앱을 붙이고 그 앱에서 뺄 command를 고른다
+    actor: person
+    entries: [route:agent_assignments/set]
+    pre: [route:agent_assignments/get]
+    boundary: [approvals, agents]
+    code: [packages/core/approvals/assignment/commands.ts, packages/core/main/daemon/wiring/assignment-file.ts, packages/core/lophn-agent/agents/store.ts]
+    steps:
+      - "사람만 바꾼다. route의 actors와 handler가 같이 막는다."
+      - "revision을 비교한다. 화면이 읽은 값과 다르면 conflict이고, 화면이 다시 읽는다."
+      - "앱 id는 slug로, 뺀 command는 `lophn(<slug> <command>)` deny 규칙으로 바꾼다. 없는 앱과 active 선언에 없는 command는 버린다(조용히 빠진다)."
+      - "agent 정의 파일의 `apps`와 `permissions.deny`만 다시 쓴다. 이 할당이 다루는 옛 앱과 새 앱의 command 규칙만 바꾸고 그 밖의 deny 규칙은 지킨다. 본문과 다른 칸은 그대로다."
+      - "정의 파일이 없는 agent면 not_found다. 아무것도 쓰지 않는다."
+      - "쓴 뒤 다시 읽은 할당과 새 revision을 돌려준다."
+    outcomes:
+      - id: saved
+        observe: ["disk:agents/<agent>.md", "response"]
+      - id: conflict
+        code: conflict
+        when: "revision이 화면이 읽은 값과 다름"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "agent가 없거나 agent 정의 파일이 없음"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아님"
+        observe: ["response"]
+      - id: file-unavailable
+        code: unavailable
+        when: "정의 파일이나 ledger 위치를 읽거나 쓰지 못함"
+        observe: ["response"]
+      - id: definition-invalid
+        code: invalid_input
+        when: "정의 파일이 정의 schema로 읽히지 않아 다시 쓰지 못함"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["P4", "G1", "C25"]
+    docs: [architecture/approval.md, architecture/agent-definition.md]
+    unclear:
+      - "정의 파일 쓰기는 ledger transaction 안에서 일어나고 파일은 transaction으로 되돌아가지 않는다(store.ts는 읽기·쓰기 실패를 unavailable로, 파일 parse 실패를 invalid_input으로 낸다)."
+
+  - id: assignment-file-migrate
+    title: 옛 agent_assignments 표의 할당을 agent 정의 파일로 옮기고 deny 규칙을 앱 slug로 바꾼다
+    actor: system
+    entries: [system:assignment-file]
+    boundary: [storage, agents]
+    code: [packages/core/main/daemon/wiring/assignment-file.ts, packages/core/storage/migration/]
+    steps:
+      - "옛 표의 schema step(id `agent_assignments`)은 목록에 남는다. 이미 적용한 ledger가 그 id를 기록하고 있어 빼면 기동을 거절한다."
+      - "data step `approvals.assignment-file`이 표 줄마다 agent 정의 파일에 `apps`와 `permissions.deny`를 쓰고 표를 지운다. 쓰기는 줄의 값으로 두 칸을 통째로 바꾼다."
+      - "앱이 없는 줄, active 선언에 없는 command, 정의 파일이 없거나 틀린 agent의 줄은 버린다."
+      - "뒤의 data step `approvals.deny-rule-slug`가 파일의 `lophn(<domain> <낱말>)` 규칙을 앱 slug로 바꾼다. 못 찾은 규칙은 그대로다."
+      - "순서는 `agents.skills-off`(옛 `skills`를 옮김)가 먼저다. 순서가 바뀌면 옛 `skills`가 남은 파일이 거절되어 할당이 버려진다(approval.md의 주장, assembly.ts는 확인하지 않았다)."
+    outcomes:
+      - id: moved
+        observe: ["disk:agents/<agent>.md", "ledger:agent_assignments"]
+      - id: row-dropped
+        when: "쓸 곳이 없는 줄(앱 없음, command 없음, 정의 파일 없음·틀림)은 버리고 표는 지운다"
+        observe: ["ledger:agent_assignments"]
+      - id: deny-rule-slugged
+        when: "파일의 lophn(<domain>) 규칙이 앱 slug로 바뀜"
+        observe: ["disk:agents/<agent>.md"]
+      - id: step-failed
+        code: unavailable
+        when: "ledger를 열지 못함, 앱·선언을 읽지 못함(그 오류 code가 그대로 감), 정의 파일을 읽거나 쓰지 못함(unavailable). 표는 남고 다음 기동이 다시 한다"
+        observe: ["log:data-step"]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/approval.md, architecture/agent-definition.md]
+    unclear:
+      - "옛 표 줄이 있는 agent 파일의 `apps`와 `permissions.deny`를 표 값으로 통째로 바꾼다(store.ts writeAgentAssignment가 두 칸을 줄 값으로 덮는다, 사람이 `assignment-set`으로 쓴 길처럼 그 밖의 deny 규칙을 지키지 않는다). 표에 없는 앱이나 deny 규칙이 파일에 있었다면 사라진다. 옛 쓰기가 파일과 표를 항상 같이 썼는지 확인하지 못했다. 사람이 확인할 일이다."
+      - "data step이 실패하면 기동을 막는지는 storage/migration의 규칙이라 확인하지 않았다."
+
+  - id: share-request-open
+    title: 앱 workspace의 agent가 그 앱을 다른 agent와 coding agent에게 공유하도록 청한다
+    actor: agent
+    entries: [route:share_requests/open]
+    boundary: [approvals, app-runtime]
+    code: [packages/core/approvals/share-requests/commands.ts, packages/core/approvals/share-requests/schema.ts, packages/core/main/daemon/wiring/share-requests.ts]
+    steps:
+      - "agent 자격만 받는다(`lophn app share`가 부른다). 사람이나 program이 부르면 forbidden이다."
+      - "앱은 입력이 아니다. credential의 `conditions.app`이 고정한 앱이고, 앱 workspace가 아니면 forbidden이다."
+      - "받을 agent id가 없으면 invalid_input이다. 받을 agent도 coding agent도 없는 요청은 schema가 막는다."
+      - "`share_requests` 표에 앱마다 한 줄로 쓴다. 같은 앱의 열린 요청이 있으면 새 요청이 대신한다. turn이 끝나도 재시작해도 남는다."
+      - "어느 agent의 정의도 바꾸지 않는다. commit 뒤 ShareRequestOpened(앱 이름)를 Bus로 낸다."
+    outcomes:
+      - id: opened
+        when: "새 요청을 쓰거나 같은 앱의 열린 요청을 대신함"
+        observe: ["ledger:share_requests", "event:ShareRequestOpened", "response"]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격이 아니거나 앱 workspace 밖의 session"
+        observe: ["response"]
+      - id: app-not-found
+        code: not_found
+        when: "credential이 묶은 앱이 없음"
+        observe: ["response"]
+      - id: unknown-agent
+        code: invalid_input
+        when: "받을 agent id 가운데 없는 것이 있음"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    refs: ["C25"]
+    docs: [architecture/approval.md, architecture/app-call.md]
+
+  - id: share-request-list
+    title: 대기 목록이 열린 앱 공유 요청을 읽는다
+    actor: person
+    entries: [route:share_requests/list]
+    boundary: [approvals, app-runtime]
+    code: [packages/core/approvals/share-requests/reads.ts, packages/core/approvals/share-requests/rows.ts]
+    steps:
+      - "대기 목록(사람 화면)이 읽는다. reader Worker가 `share_requests` 표를 오래된 것부터 읽는다."
+      - "앱이 없는 줄은 뺀다."
+      - "받을 agent 이름은 지금 이름이고, 지워진 agent는 id가 이름이다."
+      - "공개 skill과 공개 command 수는 지금 active 선언에서 센다."
+    outcomes:
+      - id: ok
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    docs: [architecture/approval.md]
+
+  - id: share-request-decide
+    title: 사람이 앱 공유 요청을 승인하거나 거절한다
+    actor: person
+    entries: [route:share_requests/decide]
+    pre: [route:share_requests/open]
+    boundary: [approvals, app-runtime, agents]
+    code: [packages/core/approvals/share-requests/commands.ts, packages/core/approvals/assignment/ports.ts, packages/core/main/daemon/wiring/share-requests.ts, packages/core/main/daemon/wiring/assignment-file.ts]
+    steps:
+      - "사람만 정한다. route의 actors와 handler가 같이 막는다."
+      - "열린 요청의 `requested_at`이 카드가 본 값과 같은지 본다. 다르거나 요청이 없으면 conflict다(그 사이 새 요청이 대신했거나 이미 정해졌다)."
+      - "approve면 받을 agent마다 할당 쓰기 길로 앱을 더한다. 이미 있는 줄과 그 줄의 뺀 command는 건드리지 않는다. 정의 파일은 transaction으로 되돌아가지 않으므로 중간에 실패하면 먼저 쓴 파일은 남는다."
+      - "coding agent를 골랐으면 commit 뒤 설정 `coding-agent.shared_apps`에 slug를 더한다. 쓰기가 실패해도 승인은 확정이고 log(shared_apps_not_saved)만 남는다."
+      - "표 줄을 지우고 ShareRequestClosed(approve나 reject)를 Bus로 낸다. reject는 agent 파일을 건드리지 않는다."
+    outcomes:
+      - id: approved
+        observe: ["disk:agents/<agent>.md", "ledger:share_requests", "event:ShareRequestClosed", "response"]
+      - id: approved-coding-not-saved
+        when: "approve였고 coding agent 공유 설정 쓰기가 실패함(승인은 확정)"
+        observe: ["log:share-requests", "ledger:share_requests", "event:ShareRequestClosed", "response"]
+      - id: rejected
+        observe: ["ledger:share_requests", "event:ShareRequestClosed", "response"]
+      - id: conflict
+        code: conflict
+        when: "요청이 없거나 requested_at이 카드가 본 값과 다름"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아님"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "approve 중 받을 agent의 정의 파일이 없거나 앱이 없음. transaction이 되돌아가 요청은 그대로 열려 남는다"
+        observe: ["ledger:share_requests", "response"]
+      - id: approve-write-failed
+        when: "approve 중 할당을 읽거나 쓰지 못함(파일 읽기·쓰기 실패는 unavailable, 정의 파일이 읽히지 않으면 invalid_input). 요청은 그대로 열려 남지만 먼저 쓴 agent 파일은 바뀐 채다"
+        observe: ["disk:agents/<agent>.md", "ledger:share_requests", "response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["C25", "H3", "G2"]
+    docs: [architecture/approval.md, architecture/coding-agent.md]
+    unclear:
+      - "approve 중 두 번째 agent의 파일 쓰기가 실패하면 첫 agent 파일은 바뀐 채 남는다(commands.ts applyApproval 반복문, 재승인은 이미 든 앱을 건너뛰어 같은 결과가 된다)."
+
+  - id: share-request-consent
+    title: 앱 activation 동의 카드에 붙은 공유 요청을 동의와 같은 tx에서 승인한다
+    actor: person
+    uses: [route:activations/consent]
+    pre: [route:share_requests/open]
+    boundary: [approvals, app-releases]
+    code: [packages/core/apps/releases/commands.ts, packages/core/approvals/share-requests/commands.ts, packages/core/main/daemon/wiring/share-requests.ts]
+    when: "그 앱의 activation 동의가 대기 중이고 동의 카드가 공유 요청의 requested_at을 share_requested_at으로 실을 때"
+    steps:
+      - "동의 허락(allow)이 `share_requested_at`을 실으면 같은 transaction 안에서 `approveShareWithConsent`를 부른다."
+      - "공유가 먼저 적용된다. 요청의 requested_at이 지금 것과 다르면 conflict이고 동의도 허락되지 않는다(사람이 보지 못한 내용)."
+      - "승인 효과는 `share_request.decide`의 approve와 같다: 받을 agent의 할당 쓰기, commit 뒤 coding agent 설정, ShareRequestClosed(approve)."
+      - "공유가 실패하면 동의도 transaction째 되돌아가 대기로 남는다."
+      - "동의를 거절(reject)하면 공유 요청은 그대로 남아 대기 목록에 제 줄로 다시 보인다."
+    outcomes:
+      - id: approved-with-consent
+        observe: ["ledger:share_requests", "ledger:activation_consents", "event:ShareRequestClosed", "event:ActivationConsentClosed", "response"]
+      - id: share-replaced
+        code: conflict
+        when: "동의 카드가 본 requested_at과 지금 요청이 다름. 동의째 conflict"
+        observe: ["ledger:activation_consents", "response"]
+      - id: share-failed
+        code: not_found
+        when: "승인 중 받을 agent의 정의 파일이 없거나 앱이 없음(not_found), 할당 읽기·쓰기가 실패하면 그 code(unavailable, invalid_input)가 간다. 동의는 대기로 남고 먼저 쓴 agent 파일은 바뀐 채다"
+        observe: ["ledger:activation_consents", "response"]
+      - id: consent-rejected
+        when: "동의를 거절함. 공유 요청은 그대로 남음"
+        observe: ["ledger:activation_consents", "ledger:share_requests", "event:ActivationConsentClosed", "response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["A11"]
+    docs: [architecture/activation.md, architecture/approval.md]
+    unclear:
+      - "share-failed는 대표 code를 not_found로 적었다. 파일 쓰기 실패는 unavailable, 정의 파일 parse 실패는 invalid_input이다."
+
+  - id: session-rewind-preview
+    title: 사람이 고른 시점으로 되돌리기 전에 복원과 건너뜀, 남는 영향을 미리 본다
+    actor: person
+    entries: [route:rewind/preview]
+    boundary: [agent-sessions, storage]
+    code: [packages/core/lophn-agent/session/rewind/reads.ts, packages/core/lophn-agent/session/rewind/preview.ts, packages/core/lophn-agent/session/rewind/judge.ts, packages/core/lophn-agent/session/rewind/prepare.ts, packages/core/lophn-agent/session/rewind/reader.ts]
+    steps:
+      - "고른 checkpoint가 이미 숨긴 구간 안이면 invalid_input이다."
+      - "ledger의 판정 기록(`rewind_files`)과 남는 사실(고른 시점 뒤 외부 효과 tool call, 앱 tool은 제외)을 읽는다."
+      - "restore_all이면 기록에 든 경로의 지금 파일을 읽어 restore나 skip(이유)을 정하고 `preview_hash`를 만든다. messages_only와 summarize는 파일을 보지 않는다."
+      - "restore_all인데 그 checkpoint의 파일이 복원 불가면 invalid_input이다."
+      - "restore_all에만 `app_writes`(고른 시점 뒤 이 session이 앱에 한 write invocation)를 붙인다."
+      - "파일 읽기는 reader Worker의 동기 file API로 한다. core는 이 모듈을 import하지 않는다."
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: hidden-checkpoint
+        code: invalid_input
+        when: "checkpoint가 이미 숨긴 구간 안에 있음"
+        observe: ["response"]
+      - id: not-restorable
+        code: invalid_input
+        when: "restore_all인데 files_restorable이 false"
+        observe: ["response"]
+      - id: checkpoint-not-found
+        code: not_found
+        when: "session에 없는 메시지이거나 checkpoint 행이 없는 메시지"
+        observe: ["response"]
+      - id: files-unavailable
+        code: unavailable
+        when: "기록에 든 경로의 지금 파일을 읽지 못함"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    docs: [architecture/workspace-session.md, architecture/app-call.md]
+
+  - id: session-rewind-apply
+    title: 사람이 고른 시점으로 대화를 되돌리고 파일과 고른 앱의 data를 함께 되돌린다
+    actor: person
+    entries: [route:rewind/apply]
+    pre: [route:rewind/preview]
+    uses: [route:rewind/amend-install, route:rewind/record-apps]
+    boundary: [agent-sessions, storage]
+    code: [packages/core/lophn-agent/session/rewind/commands.ts, packages/core/lophn-agent/session/rewind/files.ts, packages/core/lophn-agent/session/rewind/restore.ts, packages/core/lophn-agent/session/rewind/settle.ts, packages/core/lophn-agent/session/rewind/schema.ts, packages/protocol/lophn-agent/session-rewinds.ts]
+    steps:
+      - "restore_all이면 writer 앞의 처리기(files.ts)가 파일을 관측하고 판정·준비한 뒤 command에 넘긴다. command는 파일을 쓰지 않는다."
+      - "command가 준비와 같은 판정을 다시 해 preview_hash가 다르거나 건너뜀·남는 영향이 있는데 accept_remaining이 아니면 blocked로 기록한다(항목 없음, 아무것도 바꾸지 않는다)."
+      - "아니면 같은 transaction에서 대화를 숨기고(restore_all·messages_only) 항목을 확정해 `reverts`·`revert_items`를 쓴다. 복원한 기록에는 `reverted_by`를 표시한다. summarize는 완료된 요약 call로 그 구간을 접는다."
+      - "commit 뒤 installRestore가 파일을 쓴다. hash가 바뀌어 건너뛴 경로는 `AmendRevertInstall`(system)로 skipped(edited_outside)로 고친다."
+      - "사람이 고른 앱은 앱 rewind를 요청하고 결과를 `RecordRewindApps`(system)로 남긴다. 기다리지 않는다. 앱이 거절돼도 대화와 파일은 이미 되돌아가 있다."
+      - "같은 id를 다시 보내면 저장된 결과를 replayed true로 돌려주고 아무것도 다시 하지 않는다."
+      - "도는 turn이 있거나 session이 닫혔으면 되돌리지 않는다."
+    outcomes:
+      - id: applied
+        when: "건너뜀과 남는 영향이 없음(restore_all, messages_only, summarize 모두)"
+        observe: ["ledger:reverts", "ledger:revert_items", "ledger:rewind_files", "event:RevertApplied", "disk:<restored files>", "response"]
+      - id: applied-partial
+        when: "건너뜀이나 남는 영향이 있었고 accept_remaining이 true였음"
+        observe: ["ledger:reverts", "ledger:revert_items", "event:RevertApplied", "response"]
+      - id: blocked
+        when: "preview_hash가 다르거나 건너뜀·남는 영향이 있는데 accept_remaining이 false"
+        observe: ["ledger:reverts", "event:RevertBlocked", "response"]
+      - id: replayed
+        when: "같은 id를 같은 session·checkpoint·choice로 다시 보냄"
+        observe: ["response"]
+      - id: id-reused
+        code: conflict
+        when: "같은 id를 다른 입력으로 보냄"
+        observe: ["response"]
+      - id: turn-running
+        code: conflict
+        when: "session에 도는 turn이 있음"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "session이 없음 또는 checkpoint 메시지가 없음"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아님 또는 session이 닫힘(archived)"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "숨긴 구간의 checkpoint, apps가 restore_all이 아님, summarize의 접는 구간에 숨긴 메시지, 요약이 완전 성공이 아님, restore_all인데 파일 복원 불가"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss]
+    refs: []
+    docs: [architecture/workspace-session.md, architecture/app-call.md, issues/workspace-session.md]
+    unclear:
+      - "rewind의 cancelWaiting은 production에서 UNWIRED_END_DEPS.effects.cancelPendingRequests(no-op)를 꽂는다(packages/core/lophn-agent/register.ts). 도는 turn이 없어야 하므로 대기 request가 남을 수 없어 실제 영향은 없어 보인다."
+      - "outcome partial, uncertain, applying은 schema에 있으나 command는 applied와 blocked만 쓴다."
+      - "HTTP 입력의 `files`가 비어 있지 않으면 files.ts가 준비 없이 그 값을 command에 보내 restored로 기록하고 설치하지 않는다(restore_all 분기). 정상 클라이언트가 빈 목록을 보내는지 renderer에서 확인하지 못했다."
+      - "rename 단위의 설치 중 두 번째 동작이 실패하면 첫 동작은 되돌리지 않은 채 기록은 skipped로 고친다(restore.ts installUnit). 파일 상태를 되돌리는 길은 없다."
+      - "shell.run으로 바뀐 파일은 기록에 없어 되돌리지 않는다(issues/workspace-session.md)."
+      - "설치 뒤 AmendRevertInstall이 실패하면 apply 응답은 error인데 revert는 applied로 남는다(files.ts amendInstalled)."
+
+  - id: rewind-reads
+    title: 사람이 되돌리기 메뉴용 checkpoint 목록과 되돌리기 기록 목록을 읽는다
+    actor: person
+    entries: [route:rewind/checkpoints, route:rewind/list]
+    boundary: [agent-sessions, storage]
+    code: [packages/core/lophn-agent/session/rewind/reads.ts, packages/core/lophn-agent/session/rewind/hidden.ts, packages/core/lophn-agent/session/rewind/reader.ts]
+    steps:
+      - "checkpoint 목록은 turn을 시작한 입력 메시지마다 한 줄이다(files_restorable과 이유, 숨김 여부). 50개씩 커서로 넘긴다."
+      - "되돌리기 기록 목록은 session의 되돌리기 시도(blocked 포함)를 항목과 앱 요청과 함께 읽는다. hidden_from_seq를 돌려준다."
+      - "숨김 구간은 reverts 행에서 계산한다. messages는 바꾸지 않는다."
+      - "파일을 읽지 않는다."
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: session-not-found
+        code: not_found
+        when: "session이 없음"
+        observe: ["response"]
+      - id: invalid-cursor
+        code: invalid_input
+        when: "커서를 풀 수 없음"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    docs: [architecture/workspace-session.md]
+
+  - id: rewind-summary-request
+    title: 사람이 "여기서부터 요약"을 요청하면 요약 대기열에 넣는다
+    actor: person
+    entries: [route:rewind/summary-request]
+    uses: [route:rewind/summary-take, route:rewind/summary-done]
+    boundary: [agent-sessions]
+    code: [packages/core/lophn-agent/session/rewind/summary.ts, packages/core/main/daemon/wiring/lophn-agent-session.ts]
+    steps:
+      - "고른 입력 메시지의 seq를 정한다. 닫힌 session은 forbidden, 없는 session이나 메시지는 not_found, checkpoint가 아니면(steer 메시지, Fork 복사본) invalid_input, 도는 turn이 있으면 conflict, 숨긴 구간 안이면 invalid_input이다."
+      - "같은 곳의 기다리는 요청이 있으면 그 id를 돌려준다."
+      - "아니면 메모리 대기열(최대 32개, 15분)에 넣는다. ledger에는 쓰지 않는다."
+      - "runtime이 가져가 요약 call을 하고 끝낸다(`rewind-summary-take`, `rewind-summary-done`). 사람은 `summary-state`로 끝난 call을 보고 summarize 되돌리기로 확인한다."
+      - "core가 재시작하면 대기열이 비고 사람이 다시 요청한다."
+    outcomes:
+      - id: requested
+        observe: ["response"]
+      - id: session-closed
+        code: forbidden
+        when: "session이 archived"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "session이나 메시지가 없음"
+        observe: ["response"]
+      - id: not-checkpoint
+        code: invalid_input
+        when: "checkpoint가 아니거나 숨긴 구간 안"
+        observe: ["response"]
+      - id: turn-running
+        code: conflict
+        when: "session에 도는 turn이 있음"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    docs: [architecture/workspace-session.md]
+    unclear:
+      - "runtime이 가져간 요청을 끝내지 못하면 요청은 waiting으로 남고 15분 TTL이 지나야 사라진다. 그 사이 같은 곳의 요청은 같은 id를 돌려준다(summary.ts)."
+
+  - id: rewind-summary-state
+    title: 사람이 요약 요청의 진행 상태를 읽는다
+    actor: person
+    entries: [route:rewind/summary-state]
+    pre: [route:rewind/summary-request]
+    boundary: [agent-sessions]
+    code: [packages/core/lophn-agent/session/rewind/summary.ts]
+    steps:
+      - "사람 화면이 요청 id로 대기열의 상태를 읽는다."
+      - "기한(15분)이 지났거나, core가 재시작했거나, 대기열에서 밀려난 요청은 없다."
+    outcomes:
+      - id: waiting
+        observe: ["response"]
+      - id: summarized
+        when: "summary_call을 돌려줌(summarize 되돌리기에 쓴다)"
+        observe: ["response"]
+      - id: failed
+        when: "runtime이 실패로 끝냄"
+        observe: ["response"]
+      - id: gone
+        code: not_found
+        when: "요청이 기한이 지났거나 재시작으로 사라지거나 밀려남"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    docs: [architecture/workspace-session.md]
+
+  - id: rewind-summary-take
+    title: runtime이 대기 중인 요약 요청을 하나 가져간다
+    actor: system
+    entries: [route:rewind/summary-take]
+    boundary: [agent-sessions, run-loop]
+    code: [packages/core/lophn-agent/session/rewind/summary.ts]
+    steps:
+      - "runtime이 대기 중이고 아직 가져가지 않은 가장 오래된 요청 하나를 받는다. 요청에는 from_seq가 붙는다."
+      - "가져간 요청은 다시 나오지 않는다."
+      - "요청이 없으면 null을 돌려준다."
+    outcomes:
+      - id: taken
+        observe: ["response"]
+      - id: none
+        when: "가져갈 대기 요청이 없음"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    docs: [architecture/workspace-session.md]
+
+  - id: rewind-summary-done
+    title: runtime이 요약 call의 결과를 요청에 돌려준다
+    actor: system
+    entries: [route:rewind/summary-done]
+    boundary: [agent-sessions, run-loop]
+    code: [packages/core/lophn-agent/session/rewind/summary.ts]
+    steps:
+      - "runtime이 요약 call을 끝내고 결과(완전 성공한 summary call id 또는 실패 이유)를 낸다."
+      - "요청이 아직 waiting이면 상태를 summarized나 failed로 바꾼다."
+      - "모르는 요청, 기한이 지난 요청, 이미 끝난 요청이면 accepted가 false이고 상태를 바꾸지 않는다."
+    outcomes:
+      - id: summarized
+        observe: ["response"]
+      - id: failed
+        observe: ["response"]
+      - id: not-accepted
+        when: "요청을 모르거나 기한이 지났거나 이미 끝남"
+        observe: ["response"]
+    crosses_process: true
+    risk: []
+    docs: [architecture/workspace-session.md]
+
+  - id: file-write-stage
+    title: file tool이 파일을 쓰기 직전에 그 내용을 되돌리기 저장소에 둔다
+    actor: agent
+    entries: [route:rewind/stage-file]
+    boundary: [agent-tools, storage]
+    code: [packages/core/lophn-agent/session/rewind/write-routes.ts, packages/core/lophn-agent/session/rewind/restore.ts, packages/core/lophn-agent/session/rewind/store.ts, packages/core/agent-workspaces/hooks.ts]
+    steps:
+      - "file.write와 file.edit이 쓰기 직전에 `stage-file`을 부른다. agent 자격의 session·turn이 입력과 같아야 하고 root가 그 session의 file tool 폴더여야 한다."
+      - "core가 허용 폴더 안에서 파일의 지금 내용을 직접 읽어 session 저장소(`<dataRoot>/rewind/<session>/`)에 sha256 주소로 둔다. agent가 보낸 내용은 받지 않는다."
+      - "파일이 없었으면 exists false로 답한다."
+      - "10 MB를 넘거나 저장에 실패하면 blob 없이 hash만 돌려준다. 저장 실패가 쓰기를 막지는 않는다."
+      - "허용 폴더 밖을 가리키는 경로는 읽지 않고 unavailable이다."
+    outcomes:
+      - id: staged
+        observe: ["disk:rewind/<session>/<sha256>", "response"]
+      - id: absent
+        when: "파일이 없었음"
+        observe: ["response"]
+      - id: no-blob
+        when: "10 MB를 넘었거나 저장에 실패함(hash만 돌려줌)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "turn이 다르거나 root가 그 session의 열린 폴더가 아님"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "파일을 읽지 못함(허용 폴더 밖 경로 포함)"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss, sandbox]
+    docs: [architecture/workspace-session.md, issues/workspace-session.md]
+
+  - id: file-write-record
+    title: file tool이 쓴 뒤 그 기록을 checkpoint에 남긴다
+    actor: agent
+    entries: [route:rewind/record-write]
+    pre: [route:rewind/stage-file]
+    uses: [route:rewind/record-file]
+    boundary: [agent-tools, storage]
+    code: [packages/core/lophn-agent/session/rewind/write-routes.ts, packages/core/lophn-agent/session/rewind/record.ts]
+    steps:
+      - "쓴 뒤 agent가 `record-write`를 부른다. core가 같은 확인(agent 자격의 session·turn, 열린 폴더)을 하고 blob이 이 session 저장소에 있는지 본다. 없으면 invalid_input이다."
+      - "core가 쓴 뒤의 내용 hash를 읽어 machine 자격으로 `record-file`을 낸다(`rewind-file-record`)."
+      - "기록은 turn을 시작한 입력 메시지(checkpoint)에 붙는다. 같은 tool call과 path가 이미 있으면 다시 쓰지 않는다."
+      - "blob이 없거나 크기가 10 MB를 넘으면 그 checkpoint를 files_restorable false로 낮춘다(record_failed나 limit_file). 한 번 낮아지면 되돌아가지 않는다."
+      - "checkpoint가 100개를 넘거나 session 저장물이 200 MB를 넘으면 가장 오래된 checkpoint의 기록을 지우고 낮춘다(limit_count, limit_total). 쓰기는 막지 않는다."
+    outcomes:
+      - id: recorded
+        observe: ["ledger:rewind_files", "response"]
+      - id: lowered
+        when: "한도나 저장 실패로 checkpoint가 restorable이 아니게 됨(기록이 없거나 지워짐)"
+        observe: ["ledger:checkpoints", "ledger:rewind_files", "response"]
+      - id: replayed
+        when: "같은 tool call과 path의 기록이 이미 있음"
+        observe: ["response"]
+      - id: turn-finished
+        code: conflict
+        when: "turn이 이미 끝남. 쓰기는 이미 일어났고 기록만 빠진다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "turn이 다르거나 root가 열린 폴더가 아님"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "pre-image blob이 session 저장소에 없음, tool call이나 turn이나 checkpoint가 없거나 다른 turn의 것"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/workspace-session.md]
+    unclear:
+      - "moved_from은 FILE_HOOKS가 늘 null로 준다(rename tool이 없다). 이름 변경 판정은 이 입구로 들어오지 않는다."
+
+  - id: rewind-file-record
+    title: core가 파일 쓰기 기록 행을 machine 자격으로 쓰고 한도를 정리한다
+    actor: system
+    entries: [route:rewind/record-file]
+    boundary: [agent-sessions, storage]
+    code: [packages/core/lophn-agent/session/rewind/record.ts]
+    steps:
+      - "file-write-record를 받은 core가 machine 자격으로 낸다. agent는 직접 부르지 못한다."
+      - "turn이 running이어야 한다. 아니면 conflict다."
+      - "같은 tool call과 path의 기록이 있으면 replayed로 돌려준다."
+      - "기록 행(`rewind_files`)을 seq 순서로 넣는다. 행은 되돌려짐 표시(`reverted_by`) 말고는 바뀌지 않는다."
+      - "한도 정리와 checkpoint 낮추기를 같은 transaction에서 한다."
+    outcomes:
+      - id: recorded
+        observe: ["ledger:rewind_files", "response"]
+      - id: lowered
+        observe: ["ledger:checkpoints", "ledger:rewind_files", "response"]
+      - id: replayed
+        observe: ["response"]
+      - id: turn-finished
+        code: conflict
+        when: "turn이 running이 아님"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "tool call이 없거나 다른 turn의 것, turn이 session에 없음, turn에 checkpoint가 없음"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아님"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/workspace-session.md]
+
+  - id: revert-install-amend
+    title: 설치가 덮지 않은 복원 항목을 skipped(edited_outside)로 한 번 고친다
+    actor: system
+    entries: [route:rewind/amend-install]
+    boundary: [agent-sessions, storage]
+    code: [packages/core/lophn-agent/session/rewind/files.ts, packages/core/lophn-agent/session/rewind/commands.ts, packages/core/lophn-agent/session/rewind/settle.ts]
+    steps:
+      - "설치 직후 hash가 바뀌어 덮지 않은 경로를 core가 machine 자격으로 넘긴다. 시작 때 맞추기(`rewind-startup-reconcile`)도 같은 길이다."
+      - "command가 그 경로의 항목을 skipped(edited_outside)로 고치고, 그 기록의 `reverted_by`를 풀어 되돌려짐 표시를 없앤다."
+      - "같은 항목은 한 번만 고친다. 두 번째는 항목이 더 restored가 아니라서 conflict다."
+      - "고친 뒤 결과별 수를 RevertAmended로 Bus에 낸다."
+    outcomes:
+      - id: amended
+        observe: ["ledger:revert_items", "ledger:rewind_files", "event:RevertAmended", "response"]
+      - id: not-restored
+        code: conflict
+        when: "revert가 applied가 아니거나 그 경로가 이 revert로 복원된 적 없음"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "revert가 없음"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아님"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/workspace-session.md]
+
+  - id: revert-apps-record
+    title: 사람이 고른 앱마다 앱 rewind 요청의 결과를 되돌리기 기록에 남긴다
+    actor: system
+    entries: [route:rewind/record-apps]
+    uses: [route:apps/rewind]
+    boundary: [agent-sessions, app-runtime]
+    code: [packages/core/lophn-agent/session/rewind/files.ts, packages/core/lophn-agent/session/rewind/commands.ts, packages/core/main/daemon/wiring/lophn-agent-session.ts]
+    steps:
+      - "session rewind이 applied된 뒤 사람이 고른 앱마다 고른 시점 뒤 첫 write invocation 직전으로 되돌리라고 앱 rewind를 청한다(사람 자격). 고른 시점 뒤 write가 없는 앱은 청하지 않는다."
+      - "앱 rewind는 앱 쪽 순서(drain, 충돌 시 통째로 취소)를 따르므로 결과를 기다리되 session rewind를 되돌리지 않는다."
+      - "결과(accepted, applied, rejected)를 RecordRewindApps로 남긴다. 거절 이유는 오류 code나 cancelled다. accepted는 끝나면 한 번 더 고친다."
+      - "revert가 applied가 아니면 conflict다."
+    outcomes:
+      - id: recorded
+        observe: ["ledger:rewind_apps", "response"]
+      - id: not-applied
+        code: conflict
+        when: "revert가 applied가 아님"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "revert가 없음"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아님"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/app-call.md, architecture/workspace-session.md]
+    unclear:
+      - "앱 rewind 청구가 route:apps/rewind를 거치는지는 wiring의 requestRewind(rewind.apply)를 읽어 추정했다. app-runtime 영역에서 확인할 일이다."
+
+  - id: rewind-startup-reconcile
+    title: 기동 때 설치 전에 죽은 되돌리기의 항목을 결과에 맞춘다
+    actor: system
+    entries: [system:rewind-startup-reconcile]
+    uses: [route:rewind/amend-install]
+    boundary: [agent-sessions, storage]
+    code: [packages/core/lophn-agent/session/rewind/reconcile.ts, packages/core/lophn-agent/session/rewind/recover.ts, packages/core/main/daemon/wiring/lophn-agent-session.ts]
+    steps:
+      - "기동 때 한 번, 열린 session마다 blocked가 아닌 가장 나중의 revert가 applied이면 그것 하나만 본다. 앞선 revert는 hash로 설치 여부를 가를 수 없어 보지 않는다."
+      - "그 revert에서 restored인 경로 가운데 파일이 아직 agent가 마지막으로 쓴 상태(설치되지 않음)인 것을 찾는다. 이름 변경이 낀 단위와 그 뒤에 다시 쓰인 경로는 건드리지 않는다."
+      - "찾은 경로를 revert마다 모아 `AmendRevertInstall`로 skipped(edited_outside)로 고친다. 설치를 이어서 하지 않는다(사람이 고친 내용을 덮을 수 있다)."
+      - "한 revert의 정정이 실패하거나 ledger snapshot을 읽지 못하면 아무것도 바꾸지 않고 넘어간다. 다른 revert를 막지 않고 다음 기동이 다시 본다."
+    outcomes:
+      - id: amended
+        observe: ["ledger:revert_items", "ledger:rewind_files", "event:RevertAmended"]
+      - id: nothing-to-amend
+        when: "정정할 경로가 없음"
+        observe: ["ledger:revert_items"]
+      - id: amend-failed
+        when: "정정 command가 실패하거나 snapshot을 읽지 못함. 그 항목은 restored로 남고 다음 기동이 다시 본다"
+        observe: ["ledger:revert_items"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/workspace-session.md]
+
+  - id: rewind-store-sweep
+    title: 기동과 한 시간마다 되돌리기 저장소의 고아 저장물과 끝난 session의 폴더를 지운다
+    actor: system
+    entries: [system:rewind-store-sweep]
+    boundary: [storage, agent-sessions]
+    code: [packages/core/lophn-agent/session/rewind/sweep.ts, packages/core/lophn-agent/session/rewind/sweep-core.ts, packages/core/lophn-agent/session/rewind/store.ts, packages/core/main/daemon/wiring/lophn-agent-session.ts]
+    steps:
+      - "기동 때 한 번, 그 뒤 1시간마다 `<dataRoot>/rewind/<session>/` 디렉터리를 본다."
+      - "ledger를 짧게 읽지 못하면 아무것도 지우지 않는다."
+      - "session이 archived이거나 ledger에 없으면 그 디렉터리 전체를 지운다. archived session은 되돌릴 수 없다."
+      - "열린 session이면 `rewind_files.before_blob`이 가리키지 않는 고아 저장물만 지운다. 10분 안에 만든 것은 row 등록 전일 수 있어 건너뛴다."
+      - "한 session의 실패가 다른 session을 막지 않는다."
+    outcomes:
+      - id: session-removed
+        when: "session이 archived이거나 ledger에 없어 디렉터리를 지움"
+        observe: ["disk:rewind/<session>/"]
+      - id: orphans-removed
+        when: "열린 session에서 고아 저장물을 지움"
+        observe: ["disk:rewind/<session>/"]
+      - id: kept
+        when: "ledger를 읽지 못했거나 저장물이 모두 최근 것이라 아무것도 지우지 않음"
+        observe: ["disk:rewind/<session>/"]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/workspace-session.md]
+
+  - id: rewind-records-erase
+    title: session을 지울 때 그 session의 되돌리기 기록과 저장물을 지운다
+    actor: person
+    uses: [route:sessions/delete]
+    boundary: [agent-sessions, storage]
+    code: [packages/core/lophn-agent/session/rewind/erase.ts, packages/core/lophn-agent/session/rewind/files.ts]
+    steps:
+      - "session 삭제의 transaction 안에서 되돌리기 표 다섯 개(rewind_apps, revert_items, reverts, rewind_files, checkpoints)의 그 session 행을 자식부터 지운다. transaction이 실패하면 함께 되돌아간다."
+      - "이 지움은 메시지를 지우기 전에 일어난다. checkpoints가 messages를 가리키기 때문이다."
+      - "commit 뒤 session 저장소 디렉터리와 tool-results 폴더를 지운다. 지우지 못해도 삭제 결과는 그대로이고 rewind-store-sweep이 다시 지운다."
+      - "이미 복원된 파일과 앱 변경은 이 기록 밖이라 남는다."
+    outcomes:
+      - id: erased
+        observe: ["ledger:reverts", "ledger:revert_items", "ledger:rewind_files", "ledger:checkpoints", "disk:rewind/<session>/"]
+      - id: store-left
+        when: "디렉터리 지우기가 실패해 쓸기가 나중에 지우게 됨"
+        observe: ["disk:rewind/<session>/"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/workspace-session.md, architecture/app-call.md]
+
+  - id: decision-handle-issue
+    title: 보호 입력 창이나 확인 창이 사람 결정의 1회용 참조를 발급받는다
+    actor: person
+    uses: [ipc:shell:decision-handle]
+    boundary: [shell, server]
+    code: [packages/shell/main/decision-handle/ipc.ts, packages/shell/main/decision-handle/issue.ts, packages/shell/main/decision-handle/handle.ts, packages/core/server/identity/confirmation.ts]
+    steps:
+      - "shell main은 일반 shell 창 본문에서 온 요청만 받는다. 보호 입력 창, overlay, 앱 view는 forbidden이다."
+      - "요청은 결정 이름과 대상뿐이다. shell main이 내용 기준(canonical JSON의 sha256)을 만들고, 기한을 발급 뒤 120초와 대상 기한 중 이른 시각으로 정한다."
+      - "core가 shell capability로만 등록을 받아 32바이트 무작위 참조를 메모리에 두고 대상, 내용, 허용 결정, 기한에 묶는다."
+      - "결과에는 참조와 기한만 돌아간다. 원문은 renderer로 가지 않고 ledger, event, log에 쓰지 않는다."
+      - "HTTP token, agent credential, CLI로는 등록할 수 없다."
+    outcomes:
+      - id: issued
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 일반 shell 창 본문이 아님"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "결정 요청 형식이 아니거나 대상 기한이 이미 지남"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "core가 준비되지 않음"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "core가 참조를 만들지 못함"
+        observe: ["response"]
+    crosses_process: true
+    risk: [secret]
+    docs: [architecture/approval.md]
+    unclear:
+      - "core 쪽 등록 메시지가 도는 control socket의 entry는 supervision 영역이라 여기서 확인하지 않았다."
+
+  - id: decision-handle-consume
+    title: 결정 확인이 필요한 route가 사람 결정 참조를 대상과 내용에 맞춰 예약하고 commit 뒤 소비한다
+    actor: person
+    uses: [route:providers/disconnect]
+    pre: [decision-handle-issue:issued]
+    boundary: [server, models]
+    code: [packages/core/storage/ledger/executor.ts, packages/core/server/identity/confirmation.ts, packages/core/server/identity/confirmation-binding.ts, packages/core/server/identity/confirmation-route.ts]
+    steps:
+      - "`confirmation: required`인 route(지금은 command인 providers/disconnect뿐)는 executor가 binding 값으로 대상과 내용 기준을 만든다. 참조가 없거나 binding을 만들 수 없으면 forbidden이다. core의 확인 registry가 없으면 unavailable이다."
+      - "ledger transaction 안에서 registry가 참조를 예약한다. 참조가 없거나 이미 소비됨, 기한이 지남, 허용되지 않은 결정, 대상이나 내용이 다름이면 forbidden이다. 다른 요청이 예약해 쓰는 중이면 conflict다."
+      - "예약한 채 route의 나머지 검사(compare 불일치, 대상 없음 등)와 handler를 돈다. 실패해 rollback하면 예약만 풀고 참조는 살아 있어 사람이 다시 쓸 수 있다."
+      - "commit이 끝나면 참조를 소비한다. 같은 key 재전달은 저장된 결과만 돌려주고 참조를 보지 않는다."
+      - "file·worker route용 길(`consumeRouteConfirmation`)은 예약과 소비를 한 번에 하고 route가 실패해도 소비된 채다. 지금 이 길을 쓰는 route는 없다."
+    outcomes:
+      - id: consumed
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "참조가 없음이나 이미 소비됨, 허용되지 않은 결정, 대상이나 내용이 다름, 기한이 지남"
+        observe: ["response"]
+      - id: in-use
+        code: conflict
+        when: "같은 참조를 다른 요청이 예약해 쓰는 중"
+        observe: ["response"]
+      - id: registry-unavailable
+        code: unavailable
+        when: "확인 registry를 쓸 수 없음(다리가 없음)"
+        observe: ["response"]
+      - id: route-failed-handle-kept
+        when: "예약은 됐지만 route가 실패해 rollback함. 참조는 소비되지 않고 예약만 풀림"
+        observe: ["response"]
+    crosses_process: true
+    risk: [secret, permission]
+    docs: [architecture/approval.md]
+
+  - id: turn-mode-decide
+    title: turn을 시작할 때 unattended, skip, attended 중 mode를 정하고 기록한다
+    actor: person
+    uses: [route:messages/send, route:runs/start]
+    boundary: [agent-sessions, run-loop]
+    code: [packages/core/lophn-agent/run-loop/turn-mode.ts, packages/core/lophn-agent/run-loop/prepare.ts]
+    steps:
+      - "입력이 unattended면 mode는 unattended다. run, workflow step, job의 입력이 이렇게 온다. unattended가 skip보다 먼저다."
+      - "입력이 unattended가 아니면 session의 skip이 켜졌을 때 skip, 아니면 attended다."
+      - "mode는 `turns.mode`에 남고 그 turn 동안 바뀌지 않는다. 도는 turn에 steer된 사람 메시지도 그 turn의 mode를 따른다."
+      - "session이 open이 아니면 conflict다. mode를 정한 뒤 확인한다."
+    outcomes:
+      - id: unattended
+        observe: ["ledger:turns", "response"]
+      - id: skip
+        when: "사람이 skip을 켠 session의 attended 입력"
+        observe: ["ledger:turns"]
+      - id: attended
+        observe: ["ledger:turns"]
+      - id: session-not-open
+        code: conflict
+        when: "session이 archived라 열려 있지 않음"
+        observe: ["response"]
+    crosses_process: true
+    risk: [permission]
+    refs: ["T4", "W4", "R7"]
+    docs: [architecture/approval.md, architecture/run.md]
+    unclear:
+      - "turns_started_immutable 트리거는 approval.md의 주장이고 schema에서 확인하지 않았다."
+
+links: []
+ignore: []

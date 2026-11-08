@@ -1,0 +1,470 @@
+area: ipc
+
+# 여기 있는 flow는 IPC 통로에만 있는 동작이다(sender 검사, 창 조작, OS 선택기, 바깥 link, 전달 방식).
+# 나머지 channel은 그 동작을 시작하는 domain flow로 links를 건다. channel이 push면 그 결과를 전하는 flow로 건다.
+
+flows:
+  # ---------- sender 검사 (공유) ----------
+  - id: ipc-caller-guard
+    title: "shell IPC 통로가 부른 쪽을 검사한다(desktop 창 본문만 지난다)"
+    actor: person
+    uses:
+      - ipc:shell:window-control
+      - ipc:shell:view-open-app
+      - ipc:shell:artifact-open
+      - ipc:shell:browser-navigate
+      - ipc:shell:detached-open
+      - ipc:shell:notice-open
+      - ipc:shell:decision-handle
+      - ipc:harness-gui:tab-toggle
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/ipc-guard.ts
+      - packages/shell/main/app-frame/app-ipc.ts
+      - packages/shell/main/app-frame/view-ipc.ts
+    steps:
+      - "매 IPC마다 sender가 등록된 살아 있는 webContents이고, main frame이며, URL이 등록된 주소와 같은지 본다"
+      - "desktop 창 본문 통로는 sender의 origin이 desktop이고 그 창을 찾을 수 있을 때만 지난다(overlay, 보호 입력 창, 앱 view는 거절)"
+      - "앱 view 통로(app:*)는 desktop 검사 대신 sender가 살아 있는 앱 view의 main frame이고 그 주소가 자기 screen인지 본다"
+      - "입력은 직렬화 64 KiB 이하이고 channel의 zod schema(strict)에 맞아야 한다"
+      - "caller 거절은 forbidden, 입력 거절은 invalid_input이다. harness GUI 통로는 같은 거절에서 code 없이 null을 돌려준다"
+    outcomes:
+      - id: forbidden
+        code: forbidden
+        when: "sender가 등록된 살아 있는 webContents가 아니거나, main frame이 아니거나, URL이 등록과 다르다. 또는 desktop 창 본문이 아니다(창을 못 찾음, overlay). 앱 통로는 sender is not an app view다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "직렬화가 64 KiB를 넘거나 직렬화할 수 없거나 channel schema에 맞지 않는다"
+        observe: [response]
+      - id: refused-silent
+        when: "harness GUI 통로(harness-gui:tab-*)와 extension 통로가 같은 검사에 걸리면 오류 code 없이 null을 돌려준다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    unclear:
+      - "core-call은 등록 registry만 보고 desktop host는 보지 않는다(core-call-relay 참고). thread bookmarks와 일부 통로의 검사 모양도 이 flow와 같은지 확인하지 않았다"
+
+  # ---------- navigation ----------
+  - id: shell-navigation
+    title: "shell 창이 lophn 밖의 page로 이동하거나 새 창을 여는 것을 막고, http·https link는 OS browser로 넘긴다"
+    actor: system
+    entries: [system:shell-navigation]
+    uses: [shell-open-external:opened]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/navigation-guard.ts
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+    steps:
+      - "will-frame-navigate, will-redirect, window open 요청마다 main frame 여부와 URL을 본다"
+      - "lophn-shell://desktop이거나 subframe이면 허락한다(subframe은 정하지 않는다)"
+      - "main frame의 http·https link면 막고 open-external 규칙으로 OS browser에 넘긴다"
+      - "그 밖의 주소는 막는다. 새 창(window open)은 항상 deny한다"
+    outcomes:
+      - id: allowed
+        when: "lophn-shell://desktop이거나 subframe이라 막지 않았다"
+        observe: [screen:shell-project]
+      - id: external-link
+        when: "main frame의 http·https link라 막고 shell-open-external로 넘겼다"
+        observe: [log:shell link opened]
+      - id: blocked
+        when: "그 밖의 주소이거나 주소를 읽지 못해 막았다(화면은 그대로다)"
+        observe: [screen:shell-project]
+    crosses_process: false
+    risk: [sandbox]
+
+  # ---------- shell 크롬의 바깥 link ----------
+  - id: shell-open-external
+    title: "shell 크롬의 외부 링크를 OS 기본 browser로 연다"
+    actor: person
+    entries: [ipc:shell:open-external]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/open-external.ts
+      - packages/shell/ipc/open-external.ts
+    steps:
+      - "desktop 창 본문의 caller인지 본다(ipc-caller-guard)"
+      - "입력 url이 http·https이고 userinfo가 없고 8,192자 이하인지 본다"
+      - "통과하면 OS 기본 browser로 열고, 기록에는 origin과 path만 남긴다(query, fragment는 남기지 않는다)"
+      - "열기가 실패하면 unavailable로 답한다. 같은 함수를 navigation guard도 쓴다(shell-navigation)"
+    outcomes:
+      - id: opened
+        when: "검사를 통과해 OS 기본 browser를 열었다(headless 확인에서는 열지 않고 성공으로 답한다)"
+        observe: [log:shell link opened, response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 꼴이 틀리거나, http·https가 아니거나, userinfo가 있거나, 8,192자를 넘는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "OS 기본 browser를 여는 것이 실패했다"
+        observe: [log:shell link not opened, response]
+    crosses_process: true
+    risk: [sandbox]
+
+  # ---------- 창 조작 ----------
+  - id: window-control
+    title: "desktop 창의 최소화, 최대화, 닫기 단추를 부른 창에만 건다"
+    actor: person
+    entries: [ipc:shell:window-control, ipc:shell:window-state]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/window-controls.ts
+      - packages/shell/ipc/window-controls.ts
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+    steps:
+      - "sender가 desktop 창 본문인지 본다(overlay와 앱 view는 거절된다)"
+      - "action이 state, minimize, toggle-maximize, close 가운데 하나인지 본다(strict)"
+      - "sender가 본문인 창을 찾아 그 창에만 동작을 건다. close는 그 창을 닫는다"
+      - "최대화 상태가 바뀌면(창 밖에서 바뀐 것 포함) 그 창의 renderer에 window-state를 보낸다"
+    outcomes:
+      - id: done
+        when: "state 읽기, minimize, toggle-maximize, close가 그 창에 걸렸다. 답은 지금 상태다"
+        observe: [process:desktop-window, response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "action이 목록 밖이거나 다른 필드가 있다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "sender에 해당하는 창이 없다"
+        observe: [response]
+      - id: state-pushed
+        when: "창의 최대화 상태가 바뀌어 그 창에 window-state를 보냈다"
+        observe: [screen:shell-project]
+    crosses_process: true
+    risk: []
+
+  # ---------- OS 선택기 ----------
+  - id: folder-pick
+    title: "프로젝트 폴더를 고르는 OS 폴더 선택기를 연다"
+    actor: person
+    entries: [ipc:shell:folder-pick]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/folder-picker.ts
+      - packages/shell/ipc/folder-picker.ts
+    steps:
+      - "sender가 desktop 창 본문인지 본다(overlay와 앱 view는 경로를 고르지 못한다)"
+      - "입력 purpose가 register, relocate 가운데 하나거나 없어야 한다(strict). 없으면 register다"
+      - "headless 확인이면 dialog 없이 개발 확인이 준 경로(LOPHN_SHELL_PICK_FOLDER)를 쓴다"
+      - "그 밖에는 부른 창에 붙은 OS 폴더 선택기를 열고, 고른 첫 경로를 돌려준다. 그만두면 null이다"
+      - "dialog가 던지면 unavailable이다. 쓰는 domain flow는 아직 links로 잇지 않았다"
+    outcomes:
+      - id: picked
+        when: "사람이 절대 경로의 폴더를 골랐다"
+        observe: [response]
+      - id: canceled
+        when: "사람이 그만두었거나, headless 값이 절대 경로가 아니라 path가 null이다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "OS 선택기를 여는 것이 던졌다"
+        observe: [response]
+    crosses_process: true
+    risk: []
+
+  - id: file-pick
+    title: "project 밖 파일 하나를 고르는 OS 파일 선택기를 연다"
+    actor: person
+    entries: [ipc:shell:file-pick]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/folder-picker.ts
+      - packages/shell/ipc/folder-picker.ts
+    steps:
+      - "sender가 desktop 창 본문인지 본다(overlay와 앱 view는 경로를 고르지 못한다)"
+      - "입력이 빈 객체여야 한다(strict)"
+      - "headless 확인이면 dialog 없이 개발 확인이 준 경로(LOPHN_SHELL_PICK_FILE)를 쓴다"
+      - "그 밖에는 부른 창에 붙은 OS 파일 선택기를 열고, 고른 첫 경로를 돌려준다. 그만두면 null이다"
+    outcomes:
+      - id: picked
+        when: "사람이 절대 경로의 파일을 골랐다"
+        observe: [response]
+      - id: canceled
+        when: "사람이 그만두었거나, headless 값이 절대 경로가 아니라 path가 null이다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 빈 객체가 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "OS 선택기를 여는 것이 던졌다"
+        observe: [response]
+    crosses_process: true
+    risk: []
+
+  # ---------- workspace layout 저장 ----------
+  - id: workspace-layout-save
+    title: "workspace layout을 파일에 저장한다(살아 있는 detached 창의 자리는 main 값으로 덮는다)"
+    actor: person
+    entries: [ipc:shell:workspace-layout-save]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/core/layout-ipc.ts
+      - packages/shell/main/workspace/workspace-layout-store.ts
+      - packages/shell/ipc/workspace.ts
+    steps:
+      - "sender가 desktop 창 본문인지 본다(ipc-caller-guard)"
+      - "입력 workspace와 layout 모양을 strict schema로 본다(active_desk, desks)"
+      - "살아 있는 detached 창의 bounds가 renderer가 아는 값보다 새로우니 각 detached 항목의 bounds를 그 값으로 바꾼다"
+      - "workspace store에 쓴다. 쓰기가 invalid_input이면 invalid_input, 그 밖의 실패면 unavailable이다"
+    outcomes:
+      - id: ok
+        when: "<data root>/shell/workspaces/<workspace>.json을 새 layout으로 바꿨다"
+        observe: [disk:<data root>/shell/workspaces/<workspace>.json, response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않거나, 64 KiB를 넘거나, store가 invalid_input을 돌려줬다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "store 쓰기가 실패했다(store가 invalid_input이 아닌 오류를 돌려줬다)"
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss]
+
+  # ---------- 여러 요청을 나누는 channel ----------
+  - id: coding-call-dispatch
+    title: "Settings › Coding agents의 요청(shell:coding)을 감지와 hook 종류로 나눈다"
+    actor: person
+    entries: [ipc:shell:coding]
+    uses:
+      - harness-detect:ok
+      - harness-hook-check:ok
+      - harness-hook-install:installed
+      - harness-hook-uninstall:removed
+      - terminal-hook-install:installed
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/coding-ipc.ts
+      - packages/shell/ipc/coding.ts
+    steps:
+      - "sender가 desktop 창 본문인지 본다. overlay와 앱 view는 감지를 시키지 못한다"
+      - "입력을 coding call schema로 본다(op 이름과 harness id, strict)"
+      - "harnesses와 refresh는 harness 감지로, hook_status는 전역 hook 상태 읽기로 넘긴다"
+      - "install_hooks와 uninstall_hooks는 hook 설치와 지우기로 넘긴다"
+      - "hook_answer는 main이 띄운 설치 물음의 답으로 넘긴다. token과 경로는 이 통로에 없다"
+    outcomes:
+      - id: dispatched
+        when: "입력이 맞고 op에 맞는 flow로 넘겼다. 답은 그 flow의 결과다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다(overlay, 앱 view 포함)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "op 이름이나 harness id가 schema에 맞지 않는다"
+        observe: [response]
+    crosses_process: true
+    risk: []
+
+  - id: extension-call-dispatch
+    title: "Settings › Extensions의 요청(shell:extensions)을 목록, 설치, 지우기, 실행으로 나눈다"
+    actor: person
+    entries: [ipc:shell:extensions]
+    uses:
+      - extension-install:installed
+      - extension-remove:removed
+      - extension-command-run:ok
+    boundary: [shell, shell-extension]
+    code:
+      - packages/shell/main/desktop/wiring/extensions.ts
+      - packages/shell/ipc/extensions.ts
+    steps:
+      - "sender가 desktop 창 본문인지 본다(overlay와 앱 view는 거절된다)"
+      - "입력을 extensions call schema로 본다(op는 list, install, remove, run 가운데 하나, strict)"
+      - "list는 registry를 맞춘 뒤 목록(켜진 것의 contributes 포함)을 돌려준다"
+      - "install, remove, run은 registry의 같은 이름 동작으로 넘긴다"
+      - "켜기와 끄기는 이 통로가 아니라 설정 쓰기다"
+    outcomes:
+      - id: dispatched
+        when: "입력이 맞고 op를 registry에 넘겼다. 답은 그 동작의 결과다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 extensions call schema에 맞지 않는다"
+        observe: [response]
+    crosses_process: true
+    risk: []
+    unclear:
+      - "list op의 목록 읽기를 설명하는 domain flow가 없다(missing-domain-flow: extension 목록)"
+
+  # ---------- core 요청 통로 ----------
+  - id: core-call-relay
+    title: "renderer의 core 요청(read, command, memory, upload, file)을 core session에 넘긴다"
+    actor: person
+    entries: [ipc:shell:core-call]
+    boundary: [shell, core-api]
+    code:
+      - packages/shell/main/desktop/core/connection.ts
+      - packages/shell/ipc/core.ts
+    steps:
+      - "등록 registry가 있으면 sender가 등록된 webContents인지 본다. desktop host는 보지 않는다"
+      - "입력을 coreCallSchema로 본다(kind, resource, method, body, upload일 때만 bytes)"
+      - "core에 붙지 않았으면 한 번 붙어 보고, 그래도 없으면 unavailable이다"
+      - "맞으면 kind, resource, method, body, bytes를 core session의 call에 그대로 넘기고 core의 답을 돌려준다"
+    outcomes:
+      - id: forwarded
+        when: "core가 답했다. ok든 core의 오류든 그 답을 그대로 돌려준다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "sender가 등록된 webContents가 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "입력 schema가 틀렸다(invalid_input이 아니라 unavailable로 답한다). 또는 core에 붙지 못했다"
+        observe: [response]
+    crosses_process: true
+    risk: []
+    unclear:
+      - "core.ts 주석은 어떤 route를 받을지 main allowlist가 정한다고 하나, connection.ts에서 allowlist 검사를 찾지 못했다. 그 검사가 session call 쪽인지 확인할 것"
+      - "schema 틀림이 invalid_input이 아니라 unavailable인 것은 코드가 그렇다. 의도인지 확인할 것"
+
+# ---------- 다른 area의 flow가 시작하는 channel ----------
+# push(main → renderer)는 그 결과를 전하는 flow에 건다.
+links:
+  # app 화면 (sender가 앱 view)
+  - {entry: "ipc:app:agent-open", flow: app-agent-open}
+  - {entry: "ipc:app:agent-snapshot", flow: app-agent-snapshot}
+  - {entry: "ipc:app:agent-update", flow: app-agent-snapshot}
+  - {entry: "ipc:app:agent-send", flow: app-agent-send}
+  - {entry: "ipc:app:content-size", flow: app-page-hints}
+  - {entry: "ipc:app:keep-alive", flow: app-page-hints}
+  - {entry: "ipc:app:keys", flow: app-keys-forward}
+  - {entry: "ipc:app:keys-forward", flow: app-keys-forward}
+  - {entry: "ipc:app:tab-head", flow: app-tab-head}
+  - {entry: "ipc:app:tab-head-event", flow: app-tab-head}
+  - {entry: "ipc:app:call-operation", flow: app-operation-call}
+  - {entry: "ipc:app:open-external", flow: app-external-link}
+  - {entry: "ipc:app:view-error", flow: app-view-error-capture}
+  # 앱 view와 창, 단축키
+  - {entry: "ipc:shell:view-open-app", flow: app-view-open}
+  - {entry: "ipc:shell:view-state", flow: app-view-open}
+  - {entry: "ipc:shell:view-close", flow: app-view-close}
+  - {entry: "ipc:shell:view-reopen", flow: app-view-reopen}
+  - {entry: "ipc:shell:app-window-open", flow: app-window-open}
+  - {entry: "ipc:shell:app-shortcut-add", flow: app-shortcut}
+  - {entry: "ipc:shell:app-shortcut-remove", flow: app-shortcut}
+  # annotation
+  - {entry: "ipc:shell:annotate-mode", flow: annotate-mode}
+  - {entry: "ipc:shell:annotate-state", flow: annotate-mode}
+  - {entry: "ipc:shell:annotate-remove", flow: annotate-remove}
+  - {entry: "ipc:shell:annotate-send", flow: annotate-send}
+  # notice
+  - {entry: "ipc:shell:notice-visible", flow: notice-unseen}
+  - {entry: "ipc:shell:notice-unseen-get", flow: notice-unseen}
+  - {entry: "ipc:shell:notice-unseen", flow: notice-unseen}
+  - {entry: "ipc:shell:notice-dismiss", flow: notice-unseen}
+  - {entry: "ipc:shell:notice-open", flow: notice-reveal}
+  - {entry: "ipc:shell:notice-reveal", flow: notice-reveal}
+  - {entry: "ipc:shell:notice-toast", flow: notice-alert}
+  # artifact
+  - {entry: "ipc:shell:artifact-open", flow: artifact-open}
+  - {entry: "ipc:shell:artifact-list", flow: artifact-open}
+  - {entry: "ipc:shell:artifact-state", flow: artifact-open}
+  - {entry: "ipc:shell:artifact-reload", flow: artifact-guest-health}
+  - {entry: "ipc:shell:artifact-event", flow: artifact-navigation}
+  # browser 탭
+  - {entry: "ipc:shell:browser-navigate", flow: browser-page-open}
+  - {entry: "ipc:shell:browser-state", flow: browser-page-open}
+  - {entry: "ipc:shell:browser-command", flow: browser-chrome-command}
+  - {entry: "ipc:shell:browser-clear-data", flow: browser-clear-data}
+  - {entry: "ipc:shell:browser-devtools-open", flow: browser-devtools-open}
+  - {entry: "ipc:shell:browser-devtools-close", flow: browser-devtools-open}
+  - {entry: "ipc:shell:browser-devtools-window", flow: browser-devtools-open}
+  - {entry: "ipc:shell:browser-adopt", flow: browser-popup}
+  - {entry: "ipc:shell:browser-event", flow: browser-popup}
+  - {entry: "ipc:shell:bookmarks-add", flow: browser-bookmark-save}
+  - {entry: "ipc:shell:bookmarks-update", flow: browser-bookmark-save}
+  - {entry: "ipc:shell:bookmarks-remove", flow: browser-bookmark-save}
+  - {entry: "ipc:shell:bookmarks-changed", flow: browser-bookmark-save}
+  - {entry: "ipc:shell:terminal-link", flow: browser-terminal-link}
+  - {entry: "ipc:shell:terminal-bridge-open", flow: browser-bridge-request}
+  - {entry: "ipc:shell:terminal-bridge-ack", flow: browser-bridge-request}
+  # 편집기
+  - {entry: "ipc:shell:file-read", flow: editor-open}
+  - {entry: "ipc:shell:file-read-bytes", flow: editor-open}
+  - {entry: "ipc:shell:file-watch", flow: editor-open}
+  - {entry: "ipc:shell:instructions-open", flow: editor-open}
+  - {entry: "ipc:shell:file-write", flow: editor-save}
+  - {entry: "ipc:shell:file-changed", flow: editor-disk-watch}
+  - {entry: "ipc:shell:file-counts", flow: editor-window-close}
+  - {entry: "ipc:shell:file-close-request", flow: editor-window-close}
+  - {entry: "ipc:shell:file-close-answer", flow: editor-window-close}
+  # 작업 공간, detached 창, layout, 탭 요청
+  - {entry: "ipc:shell:workspace-layout-read", flow: layout-restore}
+  - {entry: "ipc:shell:detached-open", flow: tab-detach}
+  - {entry: "ipc:shell:detached-take", flow: tab-detach}
+  - {entry: "ipc:shell:detached-focus", flow: terminal-tab-focus}
+  - {entry: "ipc:shell:detached-close", flow: desk-close}
+  - {entry: "ipc:shell:detached-show", flow: desk-switch}
+  - {entry: "ipc:shell:detached-dock", flow: detached-dock}
+  - {entry: "ipc:shell:detached-event", flow: detached-dock}
+  - {entry: "ipc:shell:detached-open-tab", flow: detached-open-tab}
+  - {entry: "ipc:shell:detached-remove", flow: tab-close}
+  - {entry: "ipc:shell:global-floats-read", flow: global-floats-read}
+  - {entry: "ipc:shell:global-floats-save", flow: global-floats-save}
+  - {entry: "ipc:shell:surface-request", flow: agent-tab-request}
+  - {entry: "ipc:shell:surface-ack", flow: agent-tab-request}
+  - {entry: "ipc:shell:surface-workspace", flow: agent-tab-request}
+  - {entry: "ipc:shell:surface-report", flow: host-tab-report}
+  - {entry: "ipc:shell:intent", flow: desktop-window-intent}
+  - {entry: "ipc:shell:appearance", flow: appearance-set}
+  # 보호 입력, 결정 handle
+  - {entry: "ipc:shell:secret-input-open", flow: secret-input}
+  - {entry: "ipc:secret-input:display", flow: secret-input}
+  - {entry: "ipc:secret-input:submit", flow: secret-input}
+  - {entry: "ipc:secret-input:cancel", flow: secret-input}
+  - {entry: "ipc:shell:decision-handle", flow: decision-handle-issue}
+  # harness, 터미널 agent, coding hook
+  - {entry: "ipc:harness-gui:tab-opened", flow: harness-gui-open}
+  - {entry: "ipc:harness-gui:tab-ack", flow: harness-gui-open}
+  - {entry: "ipc:harness-gui:tab-view", flow: harness-gui-toggle}
+  - {entry: "ipc:harness-gui:tab-toggle", flow: harness-gui-toggle}
+  - {entry: "ipc:harness-gui:tab-running", flow: harness-gui-toggle}
+  - {entry: "ipc:harness-gui:tab-input", flow: harness-gui-input}
+  - {entry: "ipc:shell:terminal-state", flow: terminal-agent-track}
+  - {entry: "ipc:shell:terminal-reveal", flow: terminal-agent-notice}
+  - {entry: "ipc:shell:terminal-agent-sessions-changed", flow: terminal-agent-identity}
+  - {entry: "ipc:shell:coding-hook-ask", flow: terminal-hook-install}
+  - {entry: "ipc:shell:coding-hook-result", flow: terminal-hook-install}
+  # core 연결과 event 전달
+  - {entry: "ipc:shell:core-state", flow: core-ensure}
+  - {entry: "ipc:shell:core-state-get", flow: core-ensure}
+  - {entry: "ipc:shell:core-watch", flow: gateway-stream}
+  - {entry: "ipc:shell:core-event", flow: gateway-stream}
+
+# 이 area의 flow가 맡은 channel은 위 flow의 entries에 있다. flow가 아닌 입구는 없다.
+ignore: []

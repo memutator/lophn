@@ -1,0 +1,873 @@
+area: core-platform
+flows:
+  - id: platform-status-read
+    title: "core의 준비 상태와 구성 요소 관측을 읽는다"
+    actor: person
+    entries: [route:platform/status, route:platform/health]
+    boundary: [core-api, diagnostics]
+    code: [packages/core/diagnostics/status.ts, packages/core/diagnostics/components.ts, packages/core/main/daemon/runtime.ts]
+    steps:
+      - "gate를 통과한 user token 요청이 runtime의 platform read map으로 간다. status는 ready, schema, data_root, ledger_id, components를, health는 observations만 준다"
+      - "구성 요소 점검(core, ledger, wiring이 더한 것)을 지금 동시에 돌린다. 점검마다 2초가 한도고 넘으면 불가다. 점검은 모두 이 process 안의 상태를 본다"
+      - "불가인 점검은 reason을 붙인다. 경로, key, 값은 싣지 않는다"
+    outcomes:
+      - id: all-available
+        observe: ["response"]
+        when: "모든 점검이 가능하다. status라면 ready도 true다"
+      - id: component-unavailable
+        observe: ["response"]
+        when: "점검 하나 이상이 불가이거나 status의 ready가 false다. 응답은 그래도 ok다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 빈 객체가 아니거나 POST가 아니거나 JSON이 아니다. dispatch가 handler 전에 막는다"
+    crosses_process: false
+    docs: [architecture/observability.md]
+    unclear:
+      - "호출하는 쪽이 repo 안에 없다. shell과 CLI 어디서도 부르지 않는다. user token으로 열린 읽기인지 확인할 것"
+
+  - id: identity-current-read
+    title: "지금 token의 actor, scope, conditions를 읽는다"
+    actor: person
+    entries: [route:identity/current]
+    boundary: [core-api, server]
+    code: [packages/protocol/server/routes.ts, packages/core/server/dispatch.ts, packages/core/main/daemon/runtime.ts]
+    steps:
+      - "gate가 Bearer를 현재 credential 기록으로 검증해 context를 만든다"
+      - "dispatch가 body를 route schema(빈 객체)로 보고, 맞으면 identity/current의 read handler를 reads map에서 찾는다"
+      - "찾지 못해 unavailable(read unavailable)로 끝난다. 응답 schema의 actor, scope, conditions를 채우는 코드는 어디에도 없다"
+    outcomes:
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 빈 객체가 아니거나 POST가 아니거나 JSON이 아니다. dispatch가 handler 조회 전에 막는다"
+      - id: unavailable
+        code: unavailable
+        when: "identity/current의 read handler가 어느 wiring이나 team에도 등록되지 않은 현재 상태"
+        observe: ["response"]
+    crosses_process: false
+    unclear:
+      - "route:identity/current에 handler가 없고 packages/core 전체에 resource identity 등록이 없다. 살릴지 지울지 정할 것. 살리면 ok 갈래를 채운다"
+      - "호출하는 쪽도 repo 안에 없다"
+
+  - id: command-result-read
+    title: "idempotency key로 지난 command의 결과를 자기 principal 것만 읽는다"
+    actor: agent
+    entries: [route:commands/result]
+    boundary: [core-api, storage]
+    code: [packages/core/storage/ledger/command-results.ts, packages/core/storage/ledger/reader-registration.ts, packages/core/storage/ledger/reads.ts, packages/core/main/daemon/runtime.ts]
+    steps:
+      - "runtime이 read를 reader pool(Worker)에 넘긴다. writer queue는 기다리지 않는다. healthy reader가 없거나 대기 한도(전체 64, principal당 8)를 넘으면 unavailable이다"
+      - "reader가 input(idempotency_key)을 route schema로 보고, authorizeConditions로 commands/result operation이 scope에 있는지 본다. credential의 현재 상태는 API gate가 이미 봤고 reader는 다시 보지 않는다"
+      - "자기 principal과 idempotency_key로 command_results 행 하나를 snapshot으로 읽는다"
+      - "행이 없으면 result null을 준다. 미실행의 증거가 아니다. 있으면 저장된 결과와 seq 범위를 준다. 저장된 JSON이 계약과 다르면 internal이다"
+    outcomes:
+      - id: found
+        observe: ["response"]
+        when: "같은 principal과 key의 행이 있다"
+      - id: absent
+        observe: ["response"]
+        when: "행이 없다. 실패로 정하지 않는다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "idempotency_key가 route 계약과 다르다. dispatch 또는 reader가 막는다. body가 POST가 아니거나 JSON이 아니어도 여기다. 입력을 reader Worker로 넘기지 못한 것(구조 복제 실패)도 여기다"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "reader 등록 목록에 commands/result가 없다. 기동 때 정해져 사실상 나지 않는다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "token scope에 commands/result operation이 없다, 또는 actor 종류가 이 read의 허용 밖이다"
+      - id: internal
+        code: internal
+        observe: ["response"]
+        when: "저장된 command_results 행이 모양이나 JSON이 계약과 다르다"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "healthy reader가 없거나 대기 한도를 넘었다, reader가 unhealthy가 되어 기다리던 read가 끊겼다, 또는 snapshot·ledger 읽기가 실패했다"
+    crosses_process: true
+    unclear:
+      - "CLI가 transport 유실 뒤 같은 key를 다시 볼 때 부른다. 사람이 친 CLI 명령에서도 불리므로 actor는 agent로 잡았다. 사람 쪽이 많으면 바꿀 것"
+      - "reader는 credential을 다시 확인하지 않는다. API gate가 본 뒤 요청 처리 중에 폐기된 자격의 read도 통과할 수 있다. 의도인지 확인할 것"
+
+  - id: diagnostics-list-read
+    title: "기록된 진단 줄을 읽는다"
+    actor: person
+    entries: [route:diagnostics/list]
+    boundary: [core-api, diagnostics]
+    code: [packages/core/diagnostics/list.ts, packages/core/main/daemon/wiring/diagnostics.ts]
+    steps:
+      - "list는 <root>/logs의 platform-N.jsonl 파일 전부를 읽는다(회전으로 다섯 개다). DiagnosticRecord 모양인 줄만 쓰고, 모르는 줄은 개수만 세어 unreadable_lines 한 줄로 붙인다. 파일이 없으면 빈 목록이다"
+      - "component와 kind 필터를 걸고 at 역순으로 최대 200개를 준다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body의 component나 kind가 route 계약과 다르다. dispatch가 막는다"
+      - id: internal
+        code: internal
+        observe: ["response"]
+        when: "logs 폴더나 platform-N.jsonl을 ENOENT가 아닌 오류로 읽지 못했다. handler가 던져 경계에서 internal이다"
+    crosses_process: false
+    unclear:
+      - "호출하는 쪽이 repo 안에 없다"
+
+  - id: diagnostics-status
+    title: "지금 구성 요소 점검 결과를 본다"
+    actor: person
+    entries: [route:diagnostics/status]
+    boundary: [core-api, diagnostics]
+    code: [packages/core/diagnostics/status.ts, packages/core/diagnostics/components.ts, packages/core/main/daemon/wiring/diagnostics.ts]
+    steps:
+      - "호출할 때마다 모든 점검을 지금 돌린다(core, ledger, wiring이 더한 agent-runtime 등). 옛 시각을 다시 쓰지 않는다"
+      - "각 구성 요소의 available, reason, checked_at을 그대로 준다. reason에는 경로와 값을 담지 않는다"
+    outcomes:
+      - id: all-available
+        observe: ["response"]
+      - id: component-unavailable
+        observe: ["response"]
+        when: "점검 하나 이상이 불가다. 응답은 그래도 ok다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 빈 객체가 아니거나 POST가 아니거나 JSON이 아니다. dispatch가 handler 전에 막는다"
+    crosses_process: false
+    unclear:
+      - "DIAGNOSTIC_COMPONENTS에는 app-runtime, sandbox가 있지만 그 이름으로 점검을 더하는 wiring이 없다"
+
+  - id: control-identify
+    title: "같은 data root의 core에 판과 상태를 묻는다"
+    actor: shell
+    entries: [control:identify]
+    boundary: [core-control-protocol, server]
+    code: [packages/core/main/daemon/control.ts, packages/core/server/control/handler.ts, packages/protocol/client/control.ts]
+    steps:
+      - "control socket 한 줄 요청을 받는다. credential은 없다. 줄이 JSON이 아니거나 계약 밖이면 invalid_input으로 끝난다"
+      - "제품 판을 root package.json에서 한 번 읽어 캐시한다"
+      - "starting이면 api_url null, ready이면 API 주소, stopping이면 stopping을 답한다"
+    outcomes:
+      - id: ready
+        observe: ["response"]
+        when: "core가 ready이고 api_url이 있다"
+      - id: starting
+        observe: ["response"]
+        when: "core가 시작 중이다. api_url은 null이다"
+      - id: stopping
+        observe: ["response"]
+        when: "shutdown barrier가 시작됐다. api_url은 null이다"
+      - id: internal
+        code: internal
+        observe: ["response"]
+        when: "root package.json의 판을 읽지 못한다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "요청 줄이 JSON이 아니거나 control 계약과 다르다. handler가 모든 control 요청보다 먼저 본다"
+    crosses_process: false
+
+  - id: control-connect
+    title: "붙는 쪽에 user token을 발급한다. shell이면 capability도 준다"
+    actor: shell
+    entries: [control:connect]
+    pre: [core-boot:ready]
+    boundary: [core-control-protocol, server]
+    code: [packages/core/main/daemon/control.ts, packages/core/server/control/handler.ts, packages/core/server/identity/registry.ts, packages/core/server/credentials.ts]
+    steps:
+      - "요청 줄을 계약으로 본다. client는 cli 또는 shell이어야 한다. 아니면 invalid_input이다"
+      - "handler가 identify로 core가 ready인지 본다. 아니면 unavailable이다. 판을 읽지 못하면 internal이다"
+      - "client(cli 또는 shell)에 맞춰 user credential을 발급한다. scope는 user actor 상한의 route 전부와 platform read이고 process 조건은 cli 또는 electron-main이다. scope 모양이 계약과 다르면 invalid_input, 생성 충돌이면 unavailable이다"
+      - "발급 직후 revalidate하고 writer 명령으로 credentials 표에 기록한다. revalidate가 자격을 못 찾으면 unauthorized다. 기록은 writer가 닫혔거나 SQL이 실패하면 unavailable, 같은 ref에 다른 권한이 있으면 conflict, context 모양이 계약 밖이면 internal이다. ledger에는 context와 ref만 남고 token 원문은 core 메모리에만 있다"
+      - "client가 shell이면 shell capability를 붙인다. cli 응답에는 붙지 않는다"
+    outcomes:
+      - id: ok
+        observe: ["response", "ledger:credentials"]
+        when: "발급과 기록이 됐다. shell 응답에만 shell_capability가 있다"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "core가 ready가 아니다(starting이나 stopping). 발급 생성 충돌, 또는 writer가 닫혀 credential 기록을 못 남겼다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "요청 줄이 계약 밖이다(client 값 포함), 또는 발급할 scope나 actor 모양이 계약과 다르다"
+      - id: unauthorized
+        code: unauthorized
+        observe: ["response"]
+        when: "발급 직후 revalidate가 자격을 찾지 못했다(상태나 epoch이 어긋남). 실제로는 드물다"
+      - id: conflict
+        code: conflict
+        observe: ["response"]
+        when: "credential 기록이 이미 있고 권한이 다르다(writer). 새 random ref라 사실상 일어나지 않는다"
+      - id: internal
+        code: internal
+        observe: ["response"]
+        when: "identify가 root package.json의 판을 읽지 못한다(credential은 발급하지 않는다). 또는 writer가 context 모양을 계약 밖으로 거절했다"
+    crosses_process: true
+    risk: [permission, secret]
+    docs: [architecture/platform.md]
+    unclear:
+      - "연결마다 새 user credential을 발급하고 끝내는 길이 없다. 폐기는 core epoch이 바뀔 때뿐이라 연결 수만큼 active 자격이 쌓인다. 의도인지 확인할 것"
+
+  - id: control-stop
+    title: "사람이 core를 끈다. 판 교체에서도 같은 길을 쓴다"
+    actor: person
+    entries: [control:stop]
+    pre: [core-boot:ready]
+    boundary: [core-control-protocol, core]
+    code: [packages/core/server/control/handler.ts, packages/core/main/daemon/core.ts, packages/core/main/worker/maintenance-entry.ts]
+    steps:
+      - "요청 줄을 계약으로 본다. 아니면 invalid_input이다"
+      - "identify로 ready인지 본다. starting이나 stopping이면 unavailable로 끝난다. 판을 읽지 못하면 internal로 끝난다"
+      - "응답 ok null을 먼저 쓰고, 쓴 뒤에 shutdown barrier를 시작한다"
+      - "barrier는 stopping을 공개하고, 새 입장을 닫고, server.stop으로 in-flight 요청을 기다리고, 앱과 io child를 정지하고, runtime을 닫는다"
+      - "세 정지 조건이 모두 관측되면 정지 유지보수 child를 띄운다. field의 retention 유예가 지난 참조 없는 blob을 지운다. 유지보수가 실패해도 응답과 종료는 그대로이고 로그만 남는다"
+      - "control socket을 닫고 instance lock을 푼 뒤 OTLP를 한 번 flush하고 exit 0으로 끝난다"
+    outcomes:
+      - id: ok
+        observe: ["response", "process:core 종료", "disk:run/ control socket 제거"]
+        when: "응답이 나간 뒤 barrier가 끝까지 돈다"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "core가 starting이나 stopping이다"
+      - id: internal
+        code: internal
+        observe: ["response"]
+        when: "identify가 root package.json의 판을 읽지 못한다. 종료는 시작하지 않는다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "요청 줄이 JSON이 아니거나 control 계약과 다르다"
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/platform.md]
+
+  - id: control-diagnostic-write
+    title: "shell이 보낸 안전 진단 한 줄을 core가 기록한다"
+    actor: shell
+    entries: [control:diagnostic]
+    pre: [core-boot:ready]
+    boundary: [core-control-protocol, diagnostics]
+    code: [packages/core/main/daemon/diagnostics.ts, packages/core/main/daemon/wiring/diagnostics.ts, packages/core/diagnostics/log.ts, packages/core/diagnostics/files.ts]
+    steps:
+      - "요청이 두 kind(shell_view_lifetime, lophn_internal) 가운데 하나인지 계약으로 본다. 다른 것이나 모양이 틀린 것은 invalid_input이다. 이 요청에는 capability를 보지 않는다"
+      - "shell_view_lifetime은 <root>/logs/shell-view.jsonl에 고정 필드 한 줄을 덧붙인다. 쓰기 실패는 삼키고 응답은 그대로 ok다"
+      - "lophn_internal은 component를 platform/shell-main으로, location을 shell main crash로 core가 정해 platform/io에 보내고 응답은 기다리지 않는다"
+      - "platform/io가 catalog에 맞는지 보고 platform-N.jsonl(10MB, 다섯 개 회전)에 한 줄을 쓴다. io가 없거나 거절하면 버리고, 그래도 응답은 ok다"
+    outcomes:
+      - id: shell-view-recorded
+        observe: ["response", "disk:logs/shell-view.jsonl"]
+        when: "shell_view_lifetime 진단이다. 쓰기가 실패해도 같은 ok 응답이다(삼킨다)"
+      - id: internal-queued
+        observe: ["response", "disk:logs/platform-N.jsonl"]
+        when: "lophn_internal 진단을 platform/io에 넘겼다. 기록은 비동기라 응답 뒤에 남는다. io가 없거나 거절해도 응답은 같다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "계약 밖 kind나 모양이다. 줄이 JSON이 아닌 것도 여기다"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "core가 아직 starting이다(control이 ready를 받기 전). stopping 중에는 control이 아직 붙어 있어 그대로 기록한다"
+    crosses_process: true
+    unclear:
+      - "logs/shell-view.jsonl은 회전 없이 계속 덧붙인다(크기 상한이 없다). platform-N.jsonl과 다르다"
+      - "같은 사용자의 아무 process나 socket으로 이 진단을 보낼 수 있다. 쓰기 자리는 core가 고정하므로 위험은 줄었지만 의도인지 확인"
+
+  - id: confirmation-handle-register
+    title: "사람 결정 확인 handle을 shell main 요청으로 등록한다"
+    actor: shell
+    entries: [control:confirmation_handle_register]
+    pre: [core-boot:ready]
+    boundary: [core-control-protocol, approvals, server]
+    code: [packages/core/main/daemon/control.ts, packages/core/server/control/handler.ts, packages/core/server/identity/confirmation.ts, packages/core/storage/ledger/writer-worker.ts]
+    steps:
+      - "요청 모양을 계약으로 본다(확인 등록 payload와 shell_capability 형식 43자). capability가 없거나 형식 밖이면 invalid_input이다"
+      - "shell capability가 발급된 값과 같은지 대조한다. 형식은 맞고 값이 다르면 forbidden이다. HTTP user token이나 agent credential로는 등록할 길이 없다"
+      - "writer Worker의 confirmation registry가 handle을 만든다. 기한은 요청 기한과 TTL 가운데 이른 것이다. 기한이 이미 지났으면 invalid_input이다"
+      - "확인 ref와 만료 시각을 shell에 준다. ref는 writer 메모리에만 있고 ledger에는 없다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "shell_capability 형식은 맞지만 발급된 값과 다르다. core가 아직 ready가 아니어도 같다(발급된 값이 없다)"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "요청 줄이 계약 밖이다(shell_capability가 없거나 형식 밖 포함). writer가 payload 모양을 거절했다. 확인 기한이 이미 지났다"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "writer에 등록을 전달하지 못했다(종료 중 writer가 닫힘 등). core가 ready가 아니면 forbidden이 먼저라 여기 오지 않는다"
+      - id: internal
+        code: internal
+        observe: ["response"]
+        when: "ref를 만들지 못했거나 겹쳤거나, writer의 결과가 계약과 다르다. 사실상 일어나지 않는 방어 갈래다"
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/approval.md]
+
+  - id: confirmation-handle-close-window
+    title: "창 하나를 닫을 때 그 창의 확인 handle만 무효로 한다"
+    actor: shell
+    entries: [control:confirmation_handle_close_window]
+    pre: [core-boot:ready]
+    boundary: [core-control-protocol, approvals, server]
+    code: [packages/core/main/daemon/control.ts, packages/core/server/identity/confirmation.ts, packages/core/storage/ledger/writer-worker.ts]
+    steps:
+      - "요청 모양을 계약으로 본다(shell_capability 형식 43자와 window_id). 아니면 invalid_input이다"
+      - "shell capability가 발급된 값과 같은지 대조한다. 형식은 맞고 값이 다르면 forbidden이다. core가 ready가 되기 전에는 발급된 값이 없어 늘 forbidden이다"
+      - "writer의 confirmation registry에서 그 window_id의 handle만 지운다. 다른 창의 handle은 그대로다"
+      - "값 없는 ok를 준다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "shell_capability 형식은 맞지만 발급된 값과 다르다. core가 아직 ready가 아니어도 같다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "요청 줄이 계약 밖이다(shell_capability가 없거나 형식 밖, window_id가 빈 문자열)"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "writer에 전달하지 못했다(종료 중 writer가 닫힘 등)"
+    crosses_process: true
+    docs: [architecture/approval.md]
+
+  - id: core-boot
+    title: "core를 띄워 data root와 ledger를 맞추고 ready로 연다"
+    actor: system
+    entries: [system:core-boot]
+    uses: [system:ledger-migrate, system:data-steps-apply, system:builtin-install]
+    boundary: [core, storage, core-control-protocol]
+    code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/core.ts, packages/core/install-and-update/data-root.ts, packages/core/install-and-update/instance-lock.ts, packages/core/main/daemon/wiring/context.ts]
+    steps:
+      - "data root를 풀고 POSIX면 소유자와 0700(apps, run 포함)을 검사한다. 어긋나면 기동을 거절한다. 그 뒤 run/instance.lock을 EXCLUSIVE sqlite lock으로 잡는다. 이미 잡혔으면 물러선다"
+      - "앞 판의 run/user-token과 run/location.json을 지운다(ENOENT가 아닌 오류는 throw다). control socket을 listen한다(state starting)"
+      - "팀 조립과 route 등록을 확인한다. ledger schema step(system:ledger-migrate)을 적용하고, data step(system:data-steps-apply)을 적용한 뒤 ledger-id를 정하고 재시작 점검을 돈다. 점검 결과는 어디에도 기록하지 않는다"
+      - "writer와 reader Worker를 열고 wiring의 build를 돈다. sdk-install build는 node·npm shim, SDK 사본(app-release flow), 내장 앱 template 순서로 깐다(system:builtin-install)"
+      - "memory route와 handler 짝을 확인하고 API를 연 뒤 wiring start를 돈다. platform/io child가 이때 뜬다. @me 사본 되살리기도 start에서 돈다(app-release 몫)"
+      - "ready를 세우고 afterReady를 돈다(복구본 정리, idle 시작). control을 ready로 바꾼다"
+      - "stdout에 ready 한 줄을 쓴다. 실패는 start_failed와 reason 한 줄을 쓰고 exit 1로 끝난다. reason은 migration이 낸 세 가지만 구별하고 나머지는 other다"
+    outcomes:
+      - id: ready
+        observe: ["process:stdout 첫 줄 ready", "ledger:schema_migrations", "log:core started"]
+      - id: start-failed-newer-schema
+        code: unavailable
+        observe: ["process:stdout start_failed newer_schema"]
+        when: "ledger가 설치본보다 새 판의 step을 기록하고 있거나, data-migrations.json에 지금 목록에 없는 id가 있다"
+      - id: start-failed-history-mismatch
+        code: unavailable
+        observe: ["process:stdout start_failed history_mismatch", "ledger:schema_migrations"]
+        when: "적용한 step의 SQL hash가 설치본과 다르다. ledger는 바뀌지 않는다"
+      - id: start-failed-damaged-original
+        code: unavailable
+        observe: ["process:stdout start_failed damaged_original"]
+        when: "ledger를 열지 못했거나 시작 전 무결성 검사가 실패했다. 복구본을 만들지 못한 것은 여기가 아니라 other다"
+      - id: start-failed-other
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "reason을 구별하지 않는 나머지 실패 전부다. data root 검사 실패, instance lock 충돌(내부 conflict)과 lock 파일 열기 실패, control socket·API·writer·reader 기동 실패, 팀 조립 실패, route 등록 충돌이나 schema step id 중복(internal), 복구본 만들기 실패(recovery-copy-failed), 적용 step 실패나 적용 뒤 FK·무결성 검사 실패(step-failed), data step의 기록 깨짐·기록 쓰기 실패·step 실패, ledger 식별 기록 실패, 재시작 점검 실패, wiring record 실패, builtin-install build 실패, platform/io 시작 실패와 다른 wiring의 start 실패(@me 되살리기 읽기 실패 등), memory route와 handler 불일치(internal), API 열기 실패"
+      - id: uncaught-throw
+        observe: ["process:stdout 줄 없음", "process:exit 1"]
+        when: "Result가 아니라 throw로 startCore를 떠난다(run/user-token이나 location.json을 ENOENT가 아닌 오류로 지울 때 등). start_failed 줄이 나가지 않는다"
+    crosses_process: true
+    risk: [data-loss, sandbox]
+    docs: [architecture/platform.md]
+    unclear:
+      - "checkRestart가 내는 관측(ledger-head unknown)은 core.ts에서 ok만 보고 버린다. 아무 곳에도 남지 않는다. 옛 주석은 근거를 남긴다고 했다"
+      - "@me 사본 되살리기(start)와 SDK 사본 깔기는 app-release가 맡는다. 이 flow는 build 순서만 적었다"
+      - "복구본 만들기 실패가 stdout에서 other로 나간다. migrations.ts 주석은 시작 거절이라고만 하고 damaged_original로 가른다는 말은 없다. 코드가 맞는지 설계가 맞는지 정할 것"
+
+  - id: ledger-migrate
+    title: "ledger schema step을 설치본과 대조해 적용하거나 시작을 거절한다"
+    actor: system
+    entries: [system:ledger-migrate]
+    boundary: [storage]
+    code: [packages/core/storage/migration/migrations.ts, packages/core/storage/migration/recovery.ts, packages/core/storage/migration/verification.ts, packages/core/storage/ledger/schema.ts, packages/core/storage/migration/schema-steps.lock.json]
+    steps:
+      - "등록된 schema step(wiring 앞 몫, 팀, wiring 뒤 몫)의 id와 SQL hash를 계산한다. id가 겹치면 내부 오류로 거절한다"
+      - "ledger를 열어 무결성을 본다. 열지 못하거나 실패하면 damaged-original로 거절한다"
+      - "schema_migrations 기록과 견준다. 목록에 없는 id가 있으면 newer-schema, 같은 id의 hash가 다르면 history-mismatch로 거절하고 아무것도 쓰지 않는다"
+      - "적용할 step이 있고 기록이 있는 ledger면 SQLite backup으로 recovery/s<N>-<stamp>/ledger.db를 만들고 다시 열어 검사한다. stamp는 clock 시각에서 만든다. 실패하면 원본을 건드리지 않고 recovery-copy-failed로 거절한다. 이전 복구본은 새 것이 검사를 통과한 뒤에만 지운다"
+      - "step마다 begin immediate, step SQL, schema_migrations 행, commit을 한 transaction으로 돌린다. 실패하면 그 step만 되돌리고 step-failed로 거절한다"
+      - "끝에 FK와 integrity 검사를 한다(verifyMigrated). 실패하면 step-failed로 거절한다"
+      - "복구본 정리는 여기서 하지 않는다. 적용 0개인 정상 기동의 afterReady에서 recovery 폴더를 지운다"
+    outcomes:
+      - id: applied
+        observe: ["ledger:schema_migrations", "disk:recovery/s<N>-<stamp>/ledger.db"]
+        when: "1개 이상 step을 적용했다. 기록이 있던 ledger면 복구본이 함께 남는다"
+      - id: up-to-date
+        observe: ["ledger:schema_migrations"]
+        when: "적용할 step이 없다. 기록은 바뀌지 않는다"
+      - id: newer-schema
+        code: unavailable
+        observe: ["ledger:schema_migrations"]
+        when: "기록에 지금 목록에 없는 id가 있다. 아무것도 쓰지 않는다. stdout은 newer_schema다"
+      - id: history-mismatch
+        code: unavailable
+        observe: ["ledger:schema_migrations"]
+        when: "같은 id의 SQL hash가 설치본과 다르다. 아무것도 쓰지 않는다. stdout은 history_mismatch다"
+      - id: damaged-original
+        code: unavailable
+        observe: ["disk:ledger.db"]
+        when: "ledger를 열지 못했거나 무결성 검사가 실패했다. stdout은 damaged_original이다"
+      - id: duplicate-step-id
+        code: internal
+        observe: ["ledger:schema_migrations"]
+        when: "등록된 schema step의 id가 겹친다. 아무것도 쓰지 않는다. stdout은 other다"
+      - id: clock-unreadable
+        code: invalid_input
+        observe: ["disk:recovery/"]
+        when: "clock 시각을 복구본 이름(stamp)으로 바꾸지 못했다. 사실상 일어나지 않는다. stdout은 other다"
+      - id: recovery-copy-failed
+        code: unavailable
+        observe: ["disk:recovery/"]
+        when: "복구본 폴더를 만들지 못했다, 같은 이름의 복구본이 이미 있다, 원본을 여는 데 실패했다, SQLite backup이 실패했다, 복구본 검사가 실패했다. 원본은 변환하지 않는다. stdout은 other다"
+      - id: step-failed
+        code: unavailable
+        observe: ["ledger:schema_migrations"]
+        when: "step SQL이 실패해 그 step을 rollback했거나 transaction을 끝냈다, 또는 적용 뒤 FK나 integrity 검사가 실패했다. stdout은 other다"
+    crosses_process: false
+    risk: [data-loss]
+    unclear:
+      - "ledger migration과 복구본을 설명하는 architecture 문서가 없다. platform.md에는 없다"
+      - "복구본은 적용 0개인 정상 기동에서만 지운다. 적용한 기동 직후 죽으면 다음 기동이 지울 때까지 남는다"
+      - "schema_migrations를 읽는 sql 호출(readRecorded)과 verifyMigrated 밖의 sql 호출이 던지면 Result가 아니라 throw가 된다. 이 flow의 갈래에 없다"
+
+  - id: data-steps-apply
+    title: "ledger 밖 data root 파일의 data step을 한 번씩 적용한다"
+    actor: system
+    entries: [system:data-steps-apply]
+    boundary: [core]
+    code: [packages/core/storage/migration/data-steps.ts, packages/core/main/daemon/core.ts, packages/core/main/daemon/wiring/context.ts]
+    steps:
+      - "data root의 data-migrations.json을 읽는다. 파일이 없고 ledger가 이번에 새로 만들어진 기동(fresh)이면 지금 step id를 모두 적용된 것으로 적고 step은 돌리지 않는다"
+      - "파일이 없는데 ledger는 있던 옛 data root면 모든 step을 목록 순서대로 돌린다"
+      - "파일을 읽지 못하거나 모양이 깨졌으면 record-broken으로 거절한다. 기록에 지금 목록에 없는 id가 있으면 더 새 판이 쓴 data root이므로 newer-schema로 거절하고 파일을 건드리지 않는다"
+      - "아직 안 돈 step을 실행하고 끝날 때마다 기록을 temp에 쓰고 rename한다. 쓰기나 rename이 실패하면 record-write-failed로 멈춘다. 중간에 끊기면 그 step부터 다시 돈다. 그래서 step은 다시 돌아도 결과가 같아야 한다"
+      - "ledger 적용(system:ledger-migrate)이 끝난 뒤에만 부른다. ledger가 거절한 판이면 파일도 건드리지 않는다"
+    outcomes:
+      - id: applied
+        observe: ["disk:data-migrations.json", "disk:step이 바꾼 data root 파일"]
+        when: "1개 이상 step을 돌렸다"
+      - id: fresh-recorded
+        observe: ["disk:data-migrations.json"]
+        when: "새 data root라 step을 돌리지 않고 기록만 남겼다"
+      - id: up-to-date
+        observe: ["disk:data-migrations.json"]
+        when: "모든 step이 이미 기록돼 있다. 아무것도 쓰지 않는다. 다만 기록 파일이 없던 옛 data root에 step이 하나도 없으면 빈 기록을 남긴다"
+      - id: newer-schema
+        code: unavailable
+        observe: ["process:stdout start_failed newer_schema"]
+        when: "기록에 지금 목록에 없는 id가 있다"
+      - id: record-broken
+        code: unavailable
+        observe: ["disk:data-migrations.json"]
+        when: "data-migrations.json을 읽지 못했거나 모양이 깨졌다. stdout은 other다"
+      - id: record-write-failed
+        code: unavailable
+        observe: ["disk:data-migrations.json"]
+        when: "fresh 기록이나 step 뒤 기록을 temp에 쓰거나 rename하지 못했다. stdout은 other다"
+      - id: step-failed
+        observe: ["disk:data-migrations.json"]
+        when: "step이 err를 돌려 기동을 멈춘다. 오류 code는 step마다 다르다. stdout은 other다"
+    crosses_process: false
+    risk: [data-loss]
+    unclear:
+      - "step-failed의 code는 step이 정한다. 일곱 가운데 하나로 고정되지 않아 code를 비웠다"
+      - "이 flow는 step의 멱등성을 검사하지 않는다. step은 소유 wiring이 쓴다(sealed-marker, agent-handle 등)"
+
+  - id: builtin-install
+    title: "node·npm shim과 내장 앱 template 사본을 data root에 맞춘다"
+    actor: system
+    entries: [system:builtin-install]
+    boundary: [core, supervision]
+    code: [packages/core/main/daemon/wiring/sdk-install.ts, packages/core/supervision/security/node-shims.ts, packages/core/apps/packages/template/install.ts, packages/core/apps/packages/template/files.ts, packages/core/apps/packages/install.ts]
+    steps:
+      - "sdk-install wiring의 build가 가장 먼저 node와 npm shim을 run/bin/에 쓴다. 매 기동 덮어쓰고 실행 권한을 준다. POSIX는 sh, Windows는 cmd와 sh 둘이다"
+      - "shim 쓰기가 실패하면 build가 err를 돌려 기동을 멈춘다"
+      - "그다음 SDK 사본을 깐다(app-release의 flow가 맡는다). SDK 사본이 실패해도 build가 멈춘다"
+      - "내장 template은 저장소 원본 byte를 읽어 <data root>/templates/app과 비교한다. 같으면 아무것도 쓰지 않는다. 다르면 사본을 지우고 파일 0444, 디렉터리 0555로 다시 쓴다"
+      - "template 원본을 읽지 못하거나 쓰기가 실패하면 build가 err를 돌려 기동을 멈춘다"
+    outcomes:
+      - id: installed
+        observe: ["disk:run/bin/ shim", "disk:templates/app"]
+        when: "shim을 썼고 template byte가 달라 새로 깔았다"
+      - id: template-same
+        observe: ["disk:run/bin/ shim"]
+        when: "shim은 썼고 template 사본은 byte가 같아 그대로 두었다"
+      - id: shim-failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "node·npm shim을 run/bin에 쓰지 못했다. build가 err라 기동을 멈춘다"
+      - id: sdk-failed
+        code: invalid_input
+        observe: ["process:stdout start_failed other"]
+        when: "SDK 원본 폴더를 읽지 못했다(invalid_input). 쓰기가 실패하면 unavailable이다. build가 err라 template은 깔지 않고 기동을 멈춘다"
+      - id: template-failed
+        code: not_found
+        observe: ["process:stdout start_failed other"]
+        when: "내장 template 폴더를 읽지 못했다(not_found). 필수 파일이 없으면 invalid_input, 사본 쓰기가 실패하면 unavailable이다. build가 err라 기동을 멈춘다"
+    crosses_process: false
+    docs: [architecture/platform.md]
+    unclear:
+      - "shim은 매 기동 다시 쓰고 template만 byte를 비교한다. 두 방식이 다른 것이 의도인지 확인할 것"
+      - "SDK 사본 실패의 code는 app-release의 installSdkCopies가 정한다. 이 flow는 pass-through로 받는다"
+
+  - id: core-ensure
+    title: "shell이나 CLI가 core에 붙거나, 없으면 띄우고, 판이 다르면 바꾼다"
+    actor: shell
+    entries: [system:core-ensure]
+    uses: [control:identify, control:connect, control:stop]
+    boundary: [core-control-protocol, shell, coding-agent-cli]
+    code: [packages/protocol/client/ensure.ts, packages/shell/main/desktop/core/supervise.ts, packages/cli/connection/core.ts, packages/protocol/client/control.ts]
+    steps:
+      - "control identify로 socket을 묻는다. 응답이 계약과 다르거나 core가 internal을 주면 그대로 돌려준다. stopping이면 사라질 때까지 15초까지 기다린 뒤 새로 띄운다"
+      - "ready이고 product_version과 protocol_version이 같으면 바로 control connect한다(attached)"
+      - "ready인데 판이 다르면 control stop을 한 번 보내고 사라질 때까지 기다린 뒤 새로 띄운다(replaced). 돌던 run은 다시 시작하지 않는다. 이것이 update 경로다"
+      - "답이 없으면 detached로 core를 띄우고 stdout 첫 줄을 30초까지 기다린다. start_failed의 newer_schema, history_mismatch, damaged_original이면 그 reason으로 실패한다. other이거나 줄이 없으면 identify로 합류를 본다"
+      - "띄운 뒤 identify를 100ms마다 다시 물어 ready와 api_url을 60초까지 기다린다(spawned). 판이 다르면 version-mismatch다"
+      - "connect가 unavailable로 실패하면 그 code를 그대로 준다. connect 결과의 shell_capability는 client가 shell일 때만 있어야 한다. 다르면 contract-mismatch다"
+      - "shell은 capability를 main 메모리에만 두고, CLI는 user token만 쓴다"
+    outcomes:
+      - id: attached
+        observe: ["response"]
+        when: "같은 판의 ready core가 이미 있어 붙었다"
+      - id: spawned
+        observe: ["process:detached core", "response"]
+        when: "core가 없어 새로 띄웠고 ready에 붙었다"
+      - id: replaced
+        observe: ["process:옛 core 종료", "process:새 core", "response"]
+        when: "판이 달라 옛 core를 멈추고 새 판을 띄웠다"
+      - id: start-failed-newer-schema
+        code: unavailable
+        observe: ["response"]
+        when: "새 core가 start_failed newer_schema로 떴다. reason을 붙여 실패한다"
+      - id: start-failed-history-mismatch
+        code: unavailable
+        observe: ["response"]
+        when: "새 core가 start_failed history_mismatch로 떴다"
+      - id: start-failed-damaged-original
+        code: unavailable
+        observe: ["response"]
+        when: "새 core가 start_failed damaged_original로 떴다"
+      - id: not-ready
+        code: unavailable
+        observe: ["response"]
+        when: "ready나 api_url이 60초 안에 오지 않는다. spawn의 첫 줄이 30초 안에 없었던 경우도 여기로 온다"
+      - id: stop-timeout
+        code: unavailable
+        observe: ["response"]
+        when: "판 교체에서 옛 core가 15초 안에 identify에서 사라지지 않는다"
+      - id: version-mismatch
+        code: unavailable
+        observe: ["response"]
+        when: "띄운 core의 판이 다르다"
+      - id: connect-failed
+        code: unavailable
+        observe: ["response"]
+        when: "control connect가 unavailable로 실패했다(core가 ready가 아니거나 credential 발급·기록이 실패). 받은 code를 그대로 준다"
+      - id: control-internal
+        code: internal
+        observe: ["response"]
+        when: "identify, stop, connect 가운데 하나의 응답이 계약과 다르거나 core가 internal을 돌려줬다(판을 읽지 못함 등). 그대로 준다"
+      - id: contract-mismatch
+        code: internal
+        observe: ["response"]
+        when: "connect 결과의 shell_capability 유무가 client와 맞지 않는다"
+    crosses_process: true
+    docs: [architecture/platform.md]
+    unclear:
+      - "CLI의 coreStop과 tray의 Stop lophn이 같은 control stop인지, cli 영역 flow가 이 entry를 uses로 쓸지 확인할 것. ensure는 CLI와 shell이 함께 쓴다"
+
+  - id: child-crash-restart
+    title: "감독하는 child가 끝나면 다시 띄우거나 포기한다"
+    actor: system
+    entries: [system:child-crash]
+    boundary: [supervision, child-supervision-protocol]
+    code: [packages/core/supervision/responsiveness/supervisor.ts, packages/core/supervision/responsiveness/slot.ts, packages/core/supervision/responsiveness/run.ts, packages/core/main/daemon/wiring/supervision.ts]
+    steps:
+      - "supervisor는 kind마다 slot 하나를 둔다. child가 ready 전에 끝나거나, ready 뒤 끝나거나, stdout이 깨지거나, stdin 쓰기가 20초를 넘으면 그 기동을 끝낸다"
+      - "끝낼 때 group에 stop frame을 보내고 5초 뒤 강제로 끝낸다. 종료가 확인되지 않으면 그 kind를 unavailable로 막는다"
+      - "연속 실패가 3회 미만이면 1, 2, 4초 뒤 같은 spec과 hello로 다시 띄운다. ready는 10초 안에 와야 한다. ready 뒤 60초를 버틴 child가 끝나면 실패 수를 0으로 되돌린다"
+      - "진행 중이던 요청은 다시 보내지 않는다. 그 기동에 보낸 요청은 onEnd로 끝나 호출자가 실패로 받는다"
+      - "한도를 넘기거나 ready 시한, protocol 위반, 종료 미확인, 재기동 대기 실패면 kind를 unavailable로 막는다. 새 child는 띄우지 않는다"
+      - "core의 stop이나 updateSpec이 부른 정지는 재기동하지 않고 종료만 확인한다"
+    outcomes:
+      - id: restarted
+        observe: ["process:새 child가 ready"]
+        when: "child가 끝났고 연속 실패가 한도 안이라 다시 띄웠다"
+      - id: gave-up
+        code: unavailable
+        observe: ["process:새 child를 띄우지 않음", "response"]
+        when: "재기동 한도(restart limit reached), ready 시한(ready timed out), protocol 위반(protocol violation), 종료 미확인(teardown unconfirmed), 재기동 대기 실패(restart wait failed), supervision 자체 실패(supervision failed) 가운데 하나다. 대기하던 요청은 unavailable로 끝난다"
+      - id: stopped
+        observe: ["process:child group 종료 확인"]
+        when: "core가 정지시켰다. 재기동하지 않는다"
+    crosses_process: true
+    unclear:
+      - "onGiveUp 콜백을 붙이는 caller가 repo 안에 없다(grep). 포기한 kind를 다시 띄우는 곳도 없고 다음 start가 unavailable을 받는다. platform/io가 포기하면 진단 기록도 멈춘다. 의도인지 확인"
+      - "app supervisor도 이 supervisor를 쓴다. 앱 재기동 정책과 앱 log는 app-runtime이 맡는다"
+      - "start와 updateSpec의 invalid_input(spec이나 hello 모양, 이미 도는 kind)과 unavailable(첫 기동 실패), send 계열의 쓰기 실패는 이 flow의 갈래가 아니다. 부른 wiring이나 flow가 받는다"
+
+  - id: reader-crash-respawn
+    title: "ledger reader Worker가 멈추면 격리하고 다시 띄운다"
+    actor: system
+    entries: [system:reader-respawn]
+    boundary: [storage]
+    code: [packages/core/storage/ledger/reader-pool.ts, packages/core/storage/ledger/reads.ts, packages/core/main/daemon/runtime.ts]
+    steps:
+      - "reader Worker가 error를 내거나 read 응답이 2초(READ_TIMEOUT_MS)를 넘기거나 known secret 등록을 5초 안에 확인하지 못하면 그 slot을 unhealthy로 격리한다. 기다리던 read는 unavailable이 된다"
+      - "격리한 Worker는 terminate한다. 동기 SQLite의 read를 취소했다고 주장하지 않는다"
+      - "한 번에 하나씩 backoff(250, 500, 1000, 2000, 4000, 8000ms)로 새 Worker를 띄운다. healthy가 되면 pool에 붙이고 onRespawn으로 known secret 값을 다시 넣는다"
+      - "core 기동마다 6회까지 다시 띄운다(실패한 기동도 한 회다). 넘으면 더 띄우지 않고 respawn_exhausted error 한 줄을 한 번 남긴다"
+    outcomes:
+      - id: respawned
+        observe: ["process:새 reader Worker가 healthy"]
+        when: "격리된 slot이 healthy로 돌아왔다"
+      - id: exhausted
+        code: unavailable
+        observe: ["log:reader-pool respawn_exhausted", "response"]
+        when: "재기동 한도를 넘어 그 slot은 격리된 채 남는다. 남은 healthy slot이 하나도 없으면 read는 unavailable이고, 다른 slot이 있으면 read는 그쪽이 받는다"
+    crosses_process: true
+    unclear:
+      - "writer Worker는 이 respawn 대상이 아니다. writer가 죽었을 때의 경로는 이 flow에 없다"
+
+  - id: core-crash-record
+    title: "처리 못한 예외로 core가 죽기 전에 분류 한 줄을 남기고 exit 1로 끝난다"
+    actor: system
+    entries: [system:core-crash]
+    boundary: [diagnostics]
+    code: [packages/core/diagnostics/crash.ts, packages/core/main/daemon/wiring/diagnostics.ts, packages/core/main/daemon/diagnostics.ts, packages/core/main/worker/io.ts]
+    steps:
+      - "uncaughtException이나 unhandledRejection이 오면 처리기가 한 번만 기록을 시도한다. 기록 중에 또 죽으면 기다리지 않고 exit 1이다"
+      - "stderr에 uncaught 줄을 쓴다. 원문은 credential 패턴과 알려진 secret으로 가린 뒤 쓴다. 알려진 secret이 아직 없으면 패턴만 쓴다"
+      - "platform/io에 platform/core의 daemon-crash 위치로 lophn_internal 진단을 보내고 2초까지 수락을 기다린다"
+      - "수락되면 platform-N.jsonl에 daemon-crash 한 줄이 남는다. 거절이나 2초 초과면 stderr만 남는다. 그다음 exit 1이다"
+    outcomes:
+      - id: recorded
+        observe: ["log:logs/platform-N.jsonl daemon-crash", "process:exit 1"]
+        when: "platform/io가 진단을 2초 안에 수락했다"
+      - id: stderr-only
+        observe: ["log:stderr uncaught", "process:exit 1"]
+        when: "platform/io가 아직 없거나 거절했거나 2초를 넘겼다"
+      - id: crashed-again
+        observe: ["process:exit 1"]
+        when: "기록 처리 중에 또 예외가 났다. 기다리지 않고 바로 exit 1이다"
+    crosses_process: true
+    risk: [secret]
+    unclear:
+      - "알려진 secret 등록 전에 죽으면 패턴 규칙만 적용된다. 값이 stderr에 새는지는 test로 본 적이 없다"
+
+  - id: core-idle-exit
+    title: "일도 client도 없는 상태가 10분 이어지면 core가 스스로 끝난다"
+    actor: system
+    entries: [system:core-idle-exit]
+    boundary: [core]
+    code: [packages/core/main/daemon/idle.ts, packages/core/main/daemon/wiring/idle.ts]
+    steps:
+      - "ready가 된 뒤 30초마다 깨어 일을 본다. 일은 job, run, workflow instance의 activity read 셋을 machine:idle 자격으로 읽은 것이다"
+      - "붙은 client(진행 중 HTTP 요청과 Gateway 구독)가 있거나 일이 있거나 읽는 동안 새 client가 들어왔으면 유휴를 비운다"
+      - "읽기가 err를 돌려주거나 throw하면 일이 있는 것으로 보고 warn 한 줄을 남기고 살아 있는다"
+      - "일도 client도 없는 상태가 10분 이어지면 shutdown barrier를 시작한다. control stop과 같은 barrier다"
+    outcomes:
+      - id: idle-exit
+        observe: ["log:core idle_exit", "process:core 종료"]
+        when: "유휴가 10분 이어졌다"
+      - id: kept-alive
+        observe: ["process:core 계속 실행"]
+        when: "일이나 client가 있다. 활동 읽기가 err를 돌려주거나 throw했다(log:core idle_activity_read_failed로도 남는다)"
+    crosses_process: true
+    risk: [data-loss]
+
+  - id: core-signal-exit
+    title: "SIGINT나 SIGTERM을 받으면 core가 barrier를 돌고 끝난다"
+    actor: system
+    entries: [system:core-signal-exit]
+    boundary: [core]
+    code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/core.ts]
+    steps:
+      - "main이 SIGINT나 SIGTERM을 받으면 shutdown을 부른다. 여러 번 와도 barrier는 하나다"
+      - "barrier 순서는 control stop과 같다. 새 입장을 닫고, in-flight를 기다리고, child를 정지하고, writer를 닫고, 정지 유지보수를 돌리고, socket과 lock을 푼다"
+      - "barrier가 끝나면 exit 0이다. stdin은 수명 신호로 보지 않는다"
+    outcomes:
+      - id: exited
+        observe: ["process:exit 0", "disk:run/instance.lock 해제"]
+    crosses_process: true
+    risk: [data-loss]
+
+  - id: api-request-gate
+    title: "들어온 HTTP 요청을 헤더, Host, Origin, Bearer 순서로 거른다"
+    actor: system
+    entries: [system:api-request]
+    boundary: [core-api, server]
+    code: [packages/core/server/request.ts, packages/core/server/server.ts, packages/core/server/identity/registry.ts]
+    steps:
+      - "헤더 크기가 상한을 넘으면 invalid_input(headers exceed limit)으로 거절한다"
+      - "Host가 loopback 허용 목록(포트 포함)에 없으면 invalid_input(host not allowed)이다"
+      - "Origin 헤더가 있으면 forbidden(origin not allowed)이다. 브라우저 요청을 막는다"
+      - "Bearer가 없으면 unauthorized(credential required)다. 있으면 registry가 digest로 찾아 active, epoch, 만료, live 조건을 보고 scope를 좁혀 context를 만든다. 안 맞으면 unauthorized다"
+      - "거절은 auth_rejected나 origin_rejected warn 한 줄만 남긴다. ledger에는 쓰지 않는다"
+      - "통과하면 구독 경로(upgrade)가 아닌 것을 본다. 구독 경로를 HTTP로 부르면 invalid_input이다. HTTP 동시 요청 한도(전체 128, principal당 16)를 넘으면 queue 없이 unavailable이다. 경로가 route registry에 없으면 not_found다"
+      - "남은 것은 /healthz와 /readyz는 health-probe로, 나머지는 route의 flow로 간다"
+    outcomes:
+      - id: headers-too-large
+        code: invalid_input
+        observe: ["response"]
+        when: "헤더 전체 크기가 상한을 넘었다"
+      - id: host-refused
+        code: invalid_input
+        observe: ["response", "log:api auth_rejected"]
+        when: "Host가 loopback 허용 목록에 없다"
+      - id: origin-refused
+        code: forbidden
+        observe: ["response", "log:api origin_rejected"]
+        when: "Origin 헤더가 있다"
+      - id: no-credential
+        code: unauthorized
+        observe: ["response", "log:api auth_rejected"]
+        when: "Bearer가 없거나 형식이 맞지 않는다"
+      - id: bad-credential
+        code: unauthorized
+        observe: ["response", "log:api auth_rejected"]
+        when: "모르는 token, 폐기나 만료된 것, 다른 epoch, live 조건이 맞지 않는 것이다"
+      - id: upgrade-required
+        code: invalid_input
+        observe: ["response"]
+        when: "구독 경로를 일반 HTTP로 불렀다(upgrade가 필요하다)"
+      - id: busy
+        code: unavailable
+        observe: ["response"]
+        when: "HTTP 동시 요청 한도(전체 128, principal당 16)를 넘었다. queue 없이 바로 거절한다"
+      - id: route-not-found
+        code: not_found
+        observe: ["response"]
+        when: "경로가 route registry에 없다"
+      - id: passed
+        observe: ["response"]
+        when: "gate를 통과했다. 응답은 다음 flow가 낸다"
+    crosses_process: false
+    risk: [sandbox, permission]
+    docs: [architecture/observability.md]
+
+  - id: health-probe
+    title: "/healthz와 /readyz로 core가 살아 있는지, 일을 받는지 본다"
+    actor: person
+    entries: [system:healthz, system:readyz]
+    boundary: [server, diagnostics]
+    code: [packages/core/diagnostics/health.ts, packages/core/server/server.ts, packages/core/main/daemon/core.ts]
+    steps:
+      - "api-request-gate를 통과한 GET만 받는다. 다른 method는 invalid_input(method not allowed)이다"
+      - "/healthz는 점검을 돌리지 않는다. status ok, service, uptime_s, pid, memory를 준다"
+      - "/readyz는 구성 요소 점검을 지금 돌리고 점검마다 latency_ms를 붙인다. ledger reader 상태 수, event loop 지연(마지막 readyz 뒤로만), memory를 더한다. 점검은 모두 이 process 안의 상태를 본다"
+      - "ready가 아니거나, core나 ledger 점검이 불가이거나, healthy reader가 없으면 not_ready(503)다"
+      - "그 밖에 구성 요소가 불가면 degraded(200)이고 degraded 목록에 이름을 싣는다"
+    outcomes:
+      - id: live
+        observe: ["response"]
+        when: "/healthz 요청이다"
+      - id: ready
+        observe: ["response"]
+        when: "/readyz에서 모두 된다"
+      - id: degraded
+        observe: ["response"]
+        when: "/readyz에서 core와 ledger는 되고 다른 구성 요소 일부가 안 된다"
+      - id: not-ready
+        observe: ["response"]
+        when: "/readyz에서 503이다. 응답 status가 not_ready다"
+      - id: method-not-allowed
+        code: invalid_input
+        observe: ["response"]
+        when: "GET이 아닌 method다"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "API에 health 점검이 없을 때. core는 항상 넘기므로 제품에서는 나지 않는다"
+    crosses_process: false
+    docs: [architecture/observability.md]
+    unclear:
+      - "doctor가 /readyz를 부르고 사람 token으로 연결한다. actor는 person으로 잡았다"
+
+  - id: resource-snapshot
+    title: "kill -USR2로 자원 요약과 CPU profile을 data root에 남긴다"
+    actor: person
+    entries: [system:resource-snapshot]
+    boundary: [diagnostics]
+    code: [packages/core/diagnostics/snapshot.ts, packages/core/main/daemon/core.ts]
+    steps:
+      - "SIGUSR2가 오면 이미 도는 snapshot이 없을 때만 시작한다. 도는 중에 온 신호는 버린다"
+      - "runtime-<at>-<pid>.json을 쓴다. memory, v8 heap과 space, resourceUsage, cpuUsage, event loop의 활성 자원 종류별 개수다"
+      - "LOPHN_HEAP_SNAPSHOT=1이면 heap snapshot을 쓴다. 쓰는 동안 core가 멈춘다"
+      - "5초 CPU profile을 cpu-<at>-<pid>.cpuprofile로 쓴다"
+      - "파일은 <root>/diagnostics(0700)에 0600으로 쓴다. 끝나면 snapshot_written, 실패하면 snapshot_failed log를 남긴다"
+    outcomes:
+      - id: written
+        observe: ["disk:diagnostics/runtime-*.json", "disk:diagnostics/cpu-*.cpuprofile", "log:diagnostics snapshot_written"]
+        when: "요약 파일과 CPU profile을 모두 썼다(heap은 옵션)"
+      - id: failed
+        observe: ["log:diagnostics snapshot_failed"]
+        when: "폴더 만들기, 파일 쓰기, profiler 가운데 하나가 던졌다. 일부 파일이 남을 수 있다"
+      - id: ignored
+        observe: ["disk:diagnostics/ 변화 없음"]
+        when: "이전 snapshot이 아직 도는 중이다"
+    crosses_process: false
+    unclear:
+      - "heap snapshot과 CPU profile은 메모리 원문을 담을 수 있다. 0600이고 data root 안에만 쓰지만 risk(secret)로 잡을지 정할 것"
+
+  - id: telemetry-export
+    title: "OTLP 모드에서 쌓인 span, log, metric을 loopback collector에 보낸다"
+    actor: system
+    entries: [system:telemetry-export]
+    boundary: [diagnostics]
+    code: [packages/core/diagnostics/telemetry.ts, packages/base/telemetry/otlp.ts]
+    steps:
+      - "LOPHN_TELEMETRY=otlp일 때만 10초마다 timer가 exportNow를 부른다. 종료 때 shutdown이 한 번 더 부른다"
+      - "span과 log 버퍼를 보내기 전에 비우고, metric snapshot과 함께 loopback의 /v1/traces, /v1/logs, /v1/metrics로 POST한다"
+      - "세 POST 가운데 하나라도 실패하면 보낸 batch는 다시 보내지 않고 버린다. metric은 cumulative라 다음 차례에 전체가 다시 간다"
+      - "실패는 otlp_export_failed warn을 연속 실패 동안 한 번만 남긴다. 성공하면 다시 셀 수 있게 된다"
+      - "버퍼는 span과 log 각 2048개까지 쌓고 넘으면 버린다"
+    outcomes:
+      - id: exported
+        observe: ["request:otlp-collector"]
+      - id: export-failed
+        observe: ["request:otlp-collector", "log:telemetry otlp_export_failed"]
+        when: "POST 하나 이상이 실패했다(연결 오류, timeout, 응답 300 이상). 실패한 batch는 버려진다"
+    crosses_process: false
+    unclear:
+      - "docs/architecture/observability.md는 실패 뒤 buffer를 말하지만 코드는 exportNow에서 buffer를 먼저 비운다. 실패한 batch는 다시 보내지 않는다. 문서나 코드 가운데 하나를 고칠 것"
+
+  - id: log-line-write
+    title: "logger 호출 한 줄을 level과 redaction을 거쳐 stderr에 쓴다"
+    actor: system
+    entries: [system:log-line]
+    boundary: [diagnostics]
+    code: [packages/base/telemetry/log.ts, packages/core/diagnostics/telemetry.ts]
+    steps:
+      - "logger 호출(debug, info, warn, error)이 LOPHN_LOG_LEVEL보다 낮으면 버린다"
+      - "그 밖이면 message와 fields의 문자열을 credential 패턴으로 가린다. password, token, api_key 같은 key 이름도 가린다"
+      - "core가 알려진 secret redactor를 등록했으면 그 값도 가린다. 등록 전이면 패턴만 쓴다"
+      - "record(timestamp, level, service_name, component, event, trace id)를 format(json 또는 pretty)대로 stderr에 한 줄 쓴다"
+      - "otlp 모드면 같은 record를 export 버퍼에 넣는다(system:telemetry-export)"
+    outcomes:
+      - id: written
+        observe: ["log:stderr 한 줄"]
+      - id: filtered
+        observe: ["log:stderr 변화 없음"]
+        when: "level이 LOPHN_LOG_LEVEL보다 낮다"
+    crosses_process: false
+    risk: [secret]
+    docs: [architecture/observability.md]
+
+links: []
+ignore: []

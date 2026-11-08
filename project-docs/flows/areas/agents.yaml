@@ -1,0 +1,1006 @@
+area: agents
+flows:
+  - id: agent-definition-read
+    title: 사람이 Agents 목록과 agent 하나의 정의를 읽는다
+    actor: person
+    entries: [route:agents/list, route:agents/read]
+    boundary: [agents, core-api]
+    code: [packages/core/lophn-agent/agents/reads.ts, packages/core/lophn-agent/agents/inspect.ts, packages/protocol/lophn-agent/agent-definitions.ts]
+    steps:
+      - Agents 화면이 agents/list(workspace를 주면 그 범위)나 agents/read(agent 하나)를 부른다
+      - core가 정의 file을 읽고 틀린 칸을 항목별 issues로 싣는다. 틀린 file도 목록에 남고 오류로 끊지 않는다
+      - 목록은 전역 agent와 그 workspace의 범위 agent를 보이고, lophn은 자기 workspace의 것만 보인다
+      - file이 없는 lophn의 read는 기본 정의(definition null, hash null)를 준다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: agent-not-found
+        code: not_found
+        when: read에서 agent나 workspace가 없다. agent 자격에게는 보관된 앱 workspace의 agent도 없다
+        observe: [response]
+      - id: store-unavailable
+        code: unavailable
+        when: ledger 위치를 모르거나 agent 정의 folder를 읽지 못했다
+        observe: [response]
+    crosses_process: true
+    refs: [H11, P1]
+    docs: [architecture/agent-definition.md]
+
+  - id: agent-create
+    title: 사람이 agent 정의를 만든다
+    actor: person
+    entries: [route:agents/create]
+    boundary: [agents, core-api]
+    code: [packages/core/lophn-agent/agents/commands.ts, packages/core/lophn-agent/agents/validate.ts, packages/core/lophn-agent/agents/definition-file.ts]
+    steps:
+      - Agents 화면이 정의 전체(handle, name, workspace, profile, runtime 등과 본문)를 agents/create로 보낸다
+      - agent 자격이 부르면 mcp_servers, skip, apps, extensions, permissions를 거절하고, 범위는 부른 session의 workspace로 정한다(home이면 전역)
+      - 사람이 낸 id가 이미 있으면 거절하고, id가 없으면 core가 새로 정한다
+      - checkAgent가 파일 모양, 도구 이름, handle 중복과 예약 이름, 새 handle 모양, 범위 workspace의 존재를 검사한다
+      - 통과하면 agents/<id>.md를 쓰고 저장하지 않은 옛 avatar 이미지를 지운다
+    outcomes:
+      - id: created
+        observe: [disk:agents/<id>.md, disk:agents/<id>/avatar.<ext>]
+      - id: human-only-field
+        code: forbidden
+        when: agent 자격이 mcp_servers, skip, apps, extensions, permissions 가운데 하나를 냈다
+        observe: [response]
+      - id: agent-exists
+        code: conflict
+        when: 낸 id의 정의가 이미 있다
+        observe: [response]
+      - id: invalid-definition
+        code: invalid_input
+        when: 파일 모양(malformed, unknown_field, invalid_value, required, not_allowed, reserved_name, duplicate, too_large, unknown)이 틀리다, 도구 이름이 모르는 것이다, handle이 다른 agent와 겹치거나 예약 이름이다, 새 handle 모양이 아니다, 없는 workspace다. details.issues에 항목이 든다
+        observe: [response]
+      - id: store-unavailable
+        code: unavailable
+        when: 정의 file이나 ledger 위치를 읽거나 쓰지 못했다
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    refs: [G1, P2]
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - agent 자격이 만들 때 부르는 workspace 입력은 무시된다. 옛 정의의 handle 모양(NEW_AGENT_HANDLE)은 만들 때만 본다
+
+  - id: agent-change
+    title: 사람이 agent 정의를 고친다
+    actor: person
+    entries: [route:agents/change]
+    boundary: [agents, core-api]
+    code: [packages/core/lophn-agent/agents/commands.ts, packages/core/lophn-agent/agents/validate.ts, packages/core/lophn-agent/agents/definition-file.ts]
+    steps:
+      - 정의 전체와 읽을 때의 hash(compare)를 agents/change로 보낸다
+      - hash가 file과 다르면 conflict로 거절한다
+      - agent 자격이 mcp_servers, skip, apps, extensions, permissions 가운데 하나를 바꾸면 거절한다
+      - lophn의 profile이 고정 값과 다르면 거절한다
+      - 정의가 있는 agent의 handle과(lophn 포함) 범위 workspace는 만들 때 정한 값과 같아야 한다
+      - checkAgent 뒤 파일 전체를 새 내용으로 쓴다. 쓰지 않은 칸은 지워진다
+    outcomes:
+      - id: saved
+        observe: [disk:agents/<id>.md]
+      - id: agent-not-found
+        code: not_found
+        when: agent가 없거나 사람이 만든 agent의 file이 없다. lophn은 그 workspace가 없으면 없다
+        observe: [response]
+      - id: hash-changed
+        code: conflict
+        when: 낸 hash가 지금 file의 hash와 다르다
+        observe: [response]
+      - id: human-only-field
+        code: forbidden
+        when: agent 자격이 사람만 정하는 칸을 바꿨다
+        observe: [response]
+      - id: lophn-profile
+        code: forbidden
+        when: lophn의 profile을 고정 값과 다르게 낸다
+        observe: [response]
+      - id: handle-changed
+        code: invalid_input
+        when: 정의가 있는 agent의 handle을 바꿨다(lophn 포함)
+        observe: [response]
+      - id: workspace-changed
+        code: invalid_input
+        when: lophn이 아닌 agent의 범위 workspace를 바꿨다
+        observe: [response]
+      - id: invalid-definition
+        code: invalid_input
+        when: 파일 모양이 틀리다(tools나 skills를 bare가 아닌 정의에 적은 것 포함), 도구 이름이 모르는 것이다, handle이 다른 agent와 겹친다
+        observe: [response]
+      - id: store-unavailable
+        code: unavailable
+        when: 정의 file이나 ledger 위치를 읽거나 쓰지 못했다
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss, permission]
+    refs: [G1, P1, P2]
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - protocol/agent-definitions.ts 주석은 lophn의 handle 변경을 forbidden이라 적지만 handler는 invalid_input(not_allowed)이다. 여기서는 코드대로 적었다
+      - 옛 정의 file이 틀려 handle을 모르면 handle과 범위 검사를 건너뛴다(고쳐 쓸 수 있게 둔다)
+
+  - id: agent-delete
+    title: 사람이 사람이 만든 agent 정의를 지운다
+    actor: person
+    entries: [route:agents/delete]
+    boundary: [agents, core-api]
+    code: [packages/core/lophn-agent/agents/commands.ts]
+    steps:
+      - Agents 화면이 agents/delete를 hash와 함께 보낸다
+      - lophn이면 거절한다. lophn은 지울 수 없고 workspace를 지울 때만 정의 file이 지워진다
+      - hash가 file과 다르면 conflict로 거절한다
+      - 정의 file을 지우고 옛 avatar 이미지를 지운다. app.delete가 같은 tx에서 그 앱 범위 agent를 부를 수 있다(dispatchable)
+    outcomes:
+      - id: deleted
+        observe: [disk:agents/<id>.md, disk:agents/<id>/avatar.<ext>]
+      - id: lophn-cannot-delete
+        code: forbidden
+        when: agent가 lophn이다
+        observe: [response]
+      - id: agent-not-found
+        code: not_found
+        when: agent가 없거나 file이 없다
+        observe: [response]
+      - id: hash-changed
+        code: conflict
+        when: 낸 hash가 지금 file의 hash와 다르다
+        observe: [response]
+      - id: store-unavailable
+        code: unavailable
+        when: ledger 위치나 정의 file을 읽거나 지우지 못했다
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss]
+    refs: [H11, P1]
+    docs: [architecture/agent-definition.md]
+
+  - id: agent-card-read
+    title: agent가 부를 상대의 명함을 읽는다
+    actor: agent
+    entries: [route:agents/card]
+    boundary: [agents, router, core-api]
+    code: [packages/core/lophn-agent/agents/card.ts, packages/core/lophn-agent/agents/reads.ts]
+    steps:
+      - agent가 handle(와 필요하면 workspace)로 명함을 읽는다. workspace를 빼면 자기 session의 workspace다
+      - core가 그 workspace에서 보이는 agent를 handle로 찾는다(lophn은 workspace마다 하나)
+      - 명함에는 답 방식(replies), 기본 lophn과의 차이, 입력 modality와 자기 session에서 부를 수 있는지(callable)를 싣는다. prompt 원문은 싣지 않는다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: agent-not-found
+        code: not_found
+        when: 그 workspace에서 보이는 agent가 없다(범위 agent가 밖에서 보이면 없는 것이다). 보관된 앱 workspace의 agent도 없다
+        observe: [response]
+      - id: file-broken
+        code: invalid_input
+        when: agent 정의 file이 틀려 명함을 만들 수 없다
+        observe: [response]
+      - id: store-unavailable
+        code: unavailable
+        when: ledger 위치를 모르거나 agent 정의 folder를 읽지 못했다
+        observe: [response]
+    crosses_process: true
+    refs: [R2]
+    docs: [architecture/agent-definition.md]
+
+  - id: agent-profile-image-upload
+    title: 사람이 agent의 profile 이미지를 올린다
+    actor: person
+    entries: [route:profile-images/upload]
+    boundary: [agents, core-api]
+    code: [packages/core/lophn-agent/agents/profile-asset.ts]
+    steps:
+      - 편집 화면이 형식(png, jpg, webp), 크기와 바이트를 보낸다
+      - core가 선언한 형식, 크기, 길이와 첫 byte의 형식이 모두 맞는지 본다
+      - agent를 읽어 lophn이 아닌지 본다
+      - 맞으면 agents/<id>/avatar.<ext>를 원자적으로 쓴다. 정의는 바꾸지 않는다. 정의를 저장할 때 profile로 연결된다
+    outcomes:
+      - id: stored
+        observe: [disk:agents/<id>/avatar.<ext>]
+      - id: invalid-image
+        code: invalid_input
+        when: 입력이 틀렸거나, 형식이 png·jpg·webp가 아니거나, 크기가 범위 밖이거나, 선언 길이와 다르거나, 첫 byte가 형식과 다르거나, body를 읽지 못했다
+        observe: [response]
+      - id: lophn-profile
+        code: forbidden
+        when: lophn의 profile은 고정이라 올릴 수 없다
+        observe: [response]
+      - id: agent-not-found
+        code: not_found
+        when: agent가 없다(정의 읽기의 not_found를 그대로 돌려준다)
+        observe: [response]
+      - id: store-unavailable
+        code: unavailable
+        when: 정의를 읽지 못했다(ledger 위치나 정의 folder, 정의 읽기의 unavailable을 그대로 돌려준다)
+        observe: [response]
+      - id: write-failed
+        code: unavailable
+        when: 이미지 file을 쓰지 못했다
+        observe: [response]
+      - id: internal
+        code: internal
+        when: 정의 읽기 결과의 모양이 틀렸다(우리 코드의 결함)
+        observe: [response]
+    crosses_process: true
+    refs: [P1]
+    docs: [architecture/agent-definition.md]
+
+  - id: agent-profile-image-read
+    title: 사람이 화면에서 agent의 profile 이미지를 받는다
+    actor: person
+    entries: [route:profile-images/read]
+    boundary: [agents, core-api]
+    code: [packages/core/lophn-agent/agents/profile-asset.ts]
+    steps:
+      - 화면이 agent의 이미지를 file route로 요청한다
+      - core가 정의의 profile이 image인지 본다
+      - 파일을 읽고 실제 형식(png, jpeg, webp)을 sniff해서 Content-Type으로 준다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: image-not-found
+        code: not_found
+        when: agent가 없거나, 정의의 profile이 image가 아니거나, 파일이 없다
+        observe: [response]
+      - id: lophn-profile
+        code: forbidden
+        when: lophn의 profile은 고정이라 이미지가 없다
+        observe: [response]
+      - id: image-unreadable
+        code: unavailable
+        when: 파일을 읽지 못했거나 저장된 파일이 지원하는 형식이 아니다
+        observe: [response]
+      - id: store-unavailable
+        code: unavailable
+        when: 정의를 읽지 못했다(ledger 위치나 정의 folder, 정의 읽기의 unavailable을 그대로 돌려준다)
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 입력이 schema에 맞지 않다(agent id 꼴이 아니다)
+        observe: [response]
+      - id: internal
+        code: internal
+        when: 정의 읽기 결과의 모양이 틀렸다(우리 코드의 결함)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: call-send
+    title: agent가 다른 session에 일을 맡긴다(call)
+    actor: agent
+    entries: [route:calls/send]
+    boundary: [router, agent-sessions, core-api]
+    code: [packages/core/router/router.ts, packages/core/router/commands.ts, packages/core/agent-workspaces/workspace/session-directory.ts, packages/protocol/lophn-agent/calls.ts]
+    steps:
+      - agent가 lophn call send로 받는 곳(session, 또는 agent handle과 workspace 이름, fallback new), reply(none, result, conversation), body, refs와 dedup(tool call ID)을 보낸다
+      - Router가 받는 곳을 푼다. workspace를 뺀 lophn은 부른 쪽 workspace의 lophn이고 다른 agent는 home이다
+      - 주소가 안 풀리거나 session이 닫혔거나 workspace가 보관됐으면 주소가 풀린 경우에만 call 행을 failed로 남기고 보낸 쪽에는 state로 돌려준다. 열린 session 주소는 닫혔으면 fallback이 없는 한 새로 열지 않는다
+      - call 정책, 팀 규칙, 받는 agent 명함(modality, reply 방식) 순으로 거른다. 거르면 err로 돌려 tx가 되돌아가 행도 새 session도 없다
+      - 통과하면 agent_calls에 accepted 행을 쓰고 받는 session의 queue에 봉투를 넣는다. unattended 표시는 call을 따라간다
+      - 보낸 쪽은 기다리지 않고 답은 나중에 새 입력으로 온다
+    outcomes:
+      - id: accepted
+        observe: [ledger:agent_calls, event:MessageReceived, response]
+        when: 열린 session에 넣었거나 fallback으로 새 session을 열었다
+      - id: deduplicated
+        observe: [ledger:agent_calls, response]
+        when: 같은 보낸 session과 tool call ID의 call이 이미 있다. 새 행과 session을 만들지 않고 그 상태를 돌려준다
+      - id: failed-not-found
+        observe: [ledger:agent_calls, response]
+        when: 받는 이름이나 session을 풀지 못했다(archived 앱 workspace 포함). ok 응답의 state가 failed이고 fail_reason이 not_found다. 주소로 못 푼 것이면 행 없이 ID만 돌려준다
+      - id: failed-closed
+        observe: [ledger:agent_calls, response]
+        when: 주소의 session이 닫혔거나 workspace가 보관됐다. ok 응답의 state가 failed이고 fail_reason이 closed다
+      - id: call-policy-refused
+        code: forbidden
+        when: call 정책(private workspace, workspace 쌍, agent 쌍)이 막는다
+        observe: [response]
+      - id: team-refused
+        code: forbidden
+        when: spawned_by가 있는 팀원이 부모, 형제, 자기 자손 밖으로 보냈다
+        observe: [response]
+      - id: card-refused
+        code: invalid_input
+        when: 받는 agent 명함의 입력 modality나 답 방식에 없다
+        observe: [response]
+      - id: harness-off
+        code: unavailable
+        when: 받는 session이 harness runtime인데 extensions.harness.enabled가 꺼졌다(새 session을 열 때나 입력을 넣을 때)
+        observe: [response]
+      - id: caller-not-bound
+        code: forbidden
+        when: agent 자격이 session에 묶이지 않았다(agent:ses_ 꼴이 아님), 또는 agent 호출에 turn 표시가 없다
+        observe: [response]
+      - id: sender-not-found
+        code: not_found
+        when: 보낸 session을 Router가 찾지 못했다
+        observe: [response]
+      - id: router-unwired
+        code: unavailable
+        when: Router가 아직 연결되지 않았다(기동 중)
+        observe: [response]
+    crosses_process: true
+    refs: [R1, T1, T7, T9, T12, T15]
+    docs: [architecture/agent-call.md, architecture/workspace-session.md]
+    unclear:
+      - 문서는 받는 이름이 여럿이면 invalid_input이라 하나 코드는 이름 조회가 첫 행을 고르거나 not_found로 떨어진다(session-directory.ts, lophn-agent-registration.ts)
+      - 받는 session이 archived 앱 workspace일 때 open 결과 not_found는 agent 보낸 쪽에만 적용된다(directory.ts)
+
+  - id: call-reply
+    title: agent가 받은 call에 답한다
+    actor: agent
+    entries: [route:calls/reply]
+    pre: [call-send:accepted]
+    boundary: [router, agent-sessions, core-api]
+    code: [packages/core/router/router.ts, packages/core/router/commands.ts]
+    steps:
+      - agent가 lophn call reply로 call ID, body, refs와 승인 call이면 allow나 reject를 보낸다
+      - Router가 call을 찾고 받은 쪽이거나 conversation의 보낸 쪽인지 본다
+      - reply none인 call에는 답하지 못한다. 끝난 call이면 아무것도 쓰지 않고 closed로 돌려준다
+      - 팀 자식의 질문이나 승인이면 자식 queue가 아니라 main thread의 짝으로 보낸다(topic router.ask-answered)
+      - 보낸 session이 열려 있으면 답을 그 session의 queue에 넣고, result 답이면 call을 done으로 닫는다
+    outcomes:
+      - id: delivered
+        observe: [ledger:agent_calls, event:MessageReceived, response]
+        when: 답이 보낸 session의 queue에 들어갔다
+      - id: not-delivered
+        observe: [ledger:agent_calls, response]
+        when: 답을 받을 session이 이미 끝났다. 답은 기록에만 남고 result call은 done이 된다
+      - id: closed
+        observe: [response]
+        when: call이 이미 done, failed, cancelled로 끝났다. 아무것도 쓰지 않는다
+      - id: ask-answered
+        observe: [ledger:agent_calls, response]
+        when: 팀 자식의 질문이나 승인 call에 부모가 답했다. 짝인 request나 질문은 approvals가 푼다
+      - id: not-found
+        code: not_found
+        observe: [response]
+      - id: not-a-party
+        code: forbidden
+        observe: [response]
+      - id: caller-not-bound
+        code: forbidden
+        when: agent 자격이 session에 묶이지 않았다(agent:ses_ 꼴이 아님), 또는 agent 호출에 turn 표시가 없다
+        observe: [response]
+      - id: takes-no-reply
+        code: conflict
+        when: call의 reply가 none이다
+        observe: [response]
+      - id: decision-mismatch
+        code: invalid_input
+        when: 승인 call에 allow나 reject가 없거나, 질문이나 일반 call에 결정을 실었다
+        observe: [response]
+      - id: router-unwired
+        code: unavailable
+        when: Router가 아직 연결되지 않았다(기동 중)
+        observe: [response]
+    crosses_process: true
+    refs: [R2, T4, T11, T18]
+    docs: [architecture/agent-call.md]
+
+  - id: call-cancel
+    title: 사람이 보낸 call을 취소한다
+    actor: person
+    entries: [route:calls/cancel]
+    pre: [call-send:accepted]
+    boundary: [router, agent-sessions, core-api]
+    code: [packages/core/router/router.ts, packages/core/router/commands.ts]
+    steps:
+      - 화면이 call을 취소한다. agent가 lophn call cancel로 같은 route를 부르면 자기가 보낸 call만 된다
+      - 끝나지 않은 call을 cancelled로 바꾼다
+      - 받은 session이 lophn이면 call_cancelled 알림을 queue에 넣는다(다음 turn 입력)
+    outcomes:
+      - id: cancelled
+        observe: [ledger:agent_calls, event:MessageReceived, response]
+      - id: already-ended
+        observe: [response]
+        when: call이 이미 done, failed, cancelled다. 상태를 그대로 돌려준다
+      - id: not-found
+        code: not_found
+        observe: [response]
+      - id: not-your-call
+        code: forbidden
+        when: agent가 자기가 보내지 않은 call을 취소하려 했다
+        observe: [response]
+      - id: caller-not-bound
+        code: forbidden
+        when: agent 자격이 session에 묶이지 않았다(agent:ses_ 꼴이 아님)
+        observe: [response]
+      - id: notice-failed
+        code: conflict
+        when: 받은 session의 queue에 call_cancelled 알림을 넣지 못했다(보관된 session 등)
+        observe: [response]
+      - id: router-unwired
+        code: unavailable
+        when: Router가 아직 연결되지 않았다(기동 중)
+        observe: [response]
+    crosses_process: true
+    refs: [T18]
+    docs: [architecture/agent-call.md]
+
+  - id: call-state-read
+    title: 사람이 call 하나의 현재 상태를 읽는다
+    actor: person
+    entries: [route:calls/read]
+    boundary: [router, core-api]
+    code: [packages/core/router/reads.ts]
+    steps:
+      - 화면이 call을 누르면 calls/read로 그때의 상태를 읽는다. 상태 구독은 없다
+      - agent 자격은 자기가 보냈거나 받은 call만 읽는다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: call이 없거나 agent가 관계없는 call을 읽었다
+        observe: [response]
+      - id: internal
+        code: internal
+        when: call 행을 읽지 못했다(행의 모양이 깨졌다)
+        observe: [response]
+    crosses_process: true
+    refs: [T14]
+    docs: [architecture/agent-call.md]
+
+  - id: call-sendable-list
+    title: agent가 부를 수 있는 열린 session 목록을 읽는다
+    actor: agent
+    entries: [route:calls/sendable]
+    boundary: [router, agent-sessions, core-api]
+    code: [packages/core/router/reads.ts]
+    steps:
+      - agent가 session 목록을 tool로 읽는다. 목록은 prompt에 넣지 않는다
+      - 팀 member에게는 부모, 형제, 자기 자손만 보인다
+      - 자기 자신과 닫힌 session은 빼고, 상태는 running, waiting, idle, unknown으로 준다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not-agent
+        code: forbidden
+        when: agent 자격이 아니다(route가 agent만 받아 dispatch가 먼저 막는다. 여기는 방어 갈래다)
+        observe: [response]
+      - id: router-unwired
+        code: unavailable
+        when: Router가 아직 연결되지 않았다(기동 중)
+        observe: [response]
+    crosses_process: true
+    refs: [T7]
+    docs: [architecture/agent-call.md]
+
+  - id: team-spawn
+    title: agent가 팀원 session을 열고 첫 call을 보낸다
+    actor: agent
+    entries: [route:team/spawn]
+    boundary: [router, agent-sessions, core-api]
+    code: [packages/core/router/commands.ts, packages/core/lophn-agent/workspaces/lifecycle.ts, packages/core/lophn-agent/workspaces/directory.ts, packages/protocol/lophn-agent/team.ts]
+    steps:
+      - agent가 lophn team spawn으로 agent handle, workspace 이름(빼면 자기 workspace), reply(none, result, conversation)와 본문을 보낸다. 본문 앞에는 고정 글(TEAM_MEMBER_PREAMBLE)이 붙는다
+      - 팀 상한을 본다. root 아래 열린 자손이 max_members(기본 8) 이상이면 거절한다. 새 자식의 깊이가 max_depth(기본 2)를 넘으면 거절한다
+      - 새 session을 spawned_by가 부모인 것으로 열고, 받는 곳 풀기, call 정책, 명함 검사를 call.send와 같게 거친다
+      - 거절되면 tx가 되돌아가 session도 call 행도 남지 않는다
+      - 성공하면 첫 call을 accepted로 남기고, 같은 workspace의 자식 탭은 commit 뒤 main thread가 연다(topic router.team-spawned)
+    outcomes:
+      - id: spawned
+        observe: [ledger:sessions, ledger:agent_calls, event:SessionStarted, event:MessageReceived, response]
+      - id: deduplicated
+        observe: [response]
+        when: 같은 보낸 session과 dedup의 call이 이미 있다. 새 session을 열지 않고 그 session과 call을 돌려준다
+      - id: team-full
+        code: conflict
+        when: root 아래 열린 자손이 max_members에 찼다
+        observe: [response]
+      - id: team-too-deep
+        code: conflict
+        when: 새 자식의 깊이가 max_depth를 넘는다
+        observe: [response]
+      - id: workspace-closed
+        code: conflict
+        when: 받을 project나 앱 workspace가 보관됐거나 id가 없다. 보관된 앱 workspace를 agent가 열려 하면 agent-not-found다
+        observe: [response]
+      - id: agent-not-found
+        code: not_found
+        when: agent handle이나 workspace 이름을 풀지 못했거나 범위 agent가 그 workspace 밖이다(보관된 앱 workspace 포함)
+        observe: [response]
+      - id: call-policy-refused
+        code: forbidden
+        observe: [response]
+      - id: card-refused
+        code: invalid_input
+        observe: [response]
+      - id: harness-off
+        code: unavailable
+        when: 받을 session이 harness runtime인데 extensions.harness.enabled가 꺼졌다
+        observe: [response]
+      - id: caller-not-bound
+        code: forbidden
+        when: agent 자격이 session에 묶이지 않았다(agent:ses_ 꼴이 아님), 또는 agent 호출에 turn 표시가 없다
+        observe: [response]
+      - id: parent-not-found
+        code: not_found
+        when: 부모(보낸) session을 찾지 못했다
+        observe: [response]
+      - id: router-unwired
+        code: unavailable
+        when: Router가 아직 연결되지 않았다(기동 중)
+        observe: [response]
+    crosses_process: true
+    refs: [G4, T15]
+    docs: [architecture/agent-call.md, architecture/workspace-session.md]
+    unclear:
+      - 자식 탭을 여는 쪽(host queue, workspace layout)은 다른 area의 flow다. 여기서는 commit 뒤 일이라고만 적었다
+
+  - id: team-end
+    title: agent가 자기 밑의 팀원 session을 끝낸다
+    actor: agent
+    entries: [route:team/end]
+    boundary: [router, agent-sessions, core-api]
+    code: [packages/core/lophn-agent/session/team-commands.ts, packages/core/lophn-agent/workspaces/lifecycle.ts]
+    steps:
+      - agent가 lophn team end로 session 하나를 준다
+      - core가 대상이 부른 agent의 엄격한 자손인지 본다. 자기, 형제, 부모, 남의 session이면 거절한다
+      - 대상과 그 밑의 열린 session을 잎부터 archive처럼 닫는다(도는 turn interrupted, 받은 call receiver_ended, 대기 request cancelled, queue 비움, SessionEnded)
+      - 사람의 archive와 달리 자식을 따라 닫는다
+    outcomes:
+      - id: ended
+        observe: [ledger:sessions, event:SessionEnded, ledger:agent_calls, response]
+        when: 열린 session이 하나 이상 닫혔다. 응답의 ended에 닫힌 session ID가 잎부터 든다
+      - id: already-ended
+        observe: [response]
+        when: 대상 밑에 열린 session이 없다. ended가 빈 목록이다
+      - id: not-descendant
+        code: forbidden
+        when: 대상이 부른 agent의 엄격한 자손이 아니다(자기, 형제, 부모, 남의 session)
+        observe: [response]
+      - id: session-not-found
+        code: not_found
+        observe: [response]
+      - id: not-agent
+        code: forbidden
+        when: agent 자격이 아니다(route가 agent만 받아 dispatch가 먼저 막는다. 여기는 방어 갈래다)
+        observe: [response]
+      - id: end-failed
+        code: unavailable
+        when: 닫는 일(turn 멈춤, 받은 call 닫기, 대기 request 취소) 가운데 하나가 오류를 돌려줘 tx가 되돌아갔다. port가 준 code를 그대로 낸다
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    refs: [G4]
+    docs: [architecture/workspace-session.md]
+
+  - id: team-read
+    title: agent가 자기 팀(부모, 형제, 자식)을 읽는다
+    actor: agent
+    entries: [route:team/read]
+    boundary: [router, agent-sessions, core-api]
+    code: [packages/core/router/reads.ts]
+    steps:
+      - agent가 lophn team read로 팀을 읽는다
+      - 부모, 형제(같은 부모), 자식(열린 것)의 handle, 이름, 설명, runtime, 상태를 주고, 내가 그 팀원에게 보내 답을 받지 못한 call(open_calls)을 싣는다
+      - 팀 밖 session은 빈 목록이다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: session-not-found
+        code: not_found
+        when: agent 자격의 session을 찾지 못했다
+        observe: [response]
+      - id: not-agent
+        code: forbidden
+        when: agent 자격이 아니다(route가 agent만 받아 dispatch가 먼저 막는다. 여기는 방어 갈래다)
+        observe: [response]
+      - id: router-unwired
+        code: unavailable
+        when: Router가 아직 연결되지 않았다(기동 중)
+        observe: [response]
+    crosses_process: true
+    refs: [G4]
+    docs: [architecture/agent-call.md]
+
+  - id: skills-list-read
+    title: 사람이 agent 설정 화면에서 skill 목록을 읽는다
+    actor: person
+    entries: [route:skills/read]
+    boundary: [agent-workspaces, lophn-agent, core-api]
+    code: [packages/core/lophn-agent/extensions/skills-handler.ts, packages/protocol/lophn-agent/skill-settings.ts]
+    steps:
+      - 설정 화면이 전역 목록(project나 app을 주면 그 workspace 층을 더한 목록)을 읽는다
+      - 같은 이름은 마지막 층이 덮고, 끈 skill도 enabled false로 남는다
+      - 끈 이름은 지금 발견되지 않는 것까지 그대로 돌려준다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: workspace-not-found
+        code: not_found
+        when: project나 app이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: project 설정 file을 읽지 못했거나 skill 목록을 만들지 못했거나 data root(ledger 위치)를 정하지 못했다
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: instruction-read
+    title: agent runtime이 session의 지침 file을 읽는다
+    actor: system
+    entries: [route:instructions/get]
+    boundary: [agent-workspaces, core-api]
+    code: [packages/core/lophn-agent/instructions/files.ts, packages/core/lophn-agent/instructions/read.ts]
+    steps:
+      - agent runtime child가 turn을 준비하며 층(global, project, agent)마다 instructions/get을 부른다(actor가 system인 것은 호출자가 core와 child process뿐이라서다)
+      - core가 session을 찾고 층의 file을 연다. project 층은 project의 첫 폴더 아래 LOPHN.md, 없으면 CLAUDE.md, 폴더가 없으면 데이터 자리다
+      - home과 app session에는 project 층이 없어 file null이다. agent 층은 정의 file의 본문(frontmatter 뺀 것)이다
+      - agent 자격은 자기 session만 읽는다
+      - 32 KiB를 넘으면 처음 32 KiB와 실제 크기(size_bytes)를 준다. 상한을 넘는 것은 읽는 쪽이 turn을 멈춘다
+    outcomes:
+      - id: ok
+        observe: [response]
+        when: 파일을 줬거나 파일이 없어 file null이다
+      - id: forbidden
+        code: forbidden
+        when: agent가 다른 session의 지침을 읽으려 했다
+        observe: [response]
+      - id: session-not-found
+        code: not_found
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 지침 file을 열지 못했다(폴더, 권한, 일반 file이 아님), 또는 agent 정의의 frontmatter가 닫히지 않았다, 또는 data root나 agent 정의 자리를 정하지 못했다
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    refs: [P8, P10]
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - 이 route는 내부 read라 부모 flow(turn 준비, prompt-assembly)가 uses로 가리켜야 한다. 그 flow는 turns area가 쓴다
+
+  - id: skill-new-app
+    title: 사람이 /new-app으로 새 앱 시작 안내 skill을 부른다
+    actor: person
+    entries: [skill:new-app]
+    uses: [route:messages/send, tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/new-app/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - 사람이 composer에 /new-app과 글을 치면 core가 Use the "new-app" skill for this request.와 글을 한 사람 메시지로 접수한다(route:messages/send, next_turn)
+      - 그 turn의 agent가 skill.read로 new-app 본문을 읽는다
+      - reader가 이 session의 발견 목록에서 이름을 찾는다. home이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - 본문(frontmatter 뺀 것)을 tool 결과로 준다. 절차(질문, 견주기, 앱 등록, call)는 본문이 정한다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: 이 workspace 종류에서 선언되지 않아 turn의 skill 목록에 없다. 전역이나 project에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-repair-app
+    title: 사람이 /repair-app으로 앱 고장 원인 찾기 skill을 부른다
+    actor: person
+    entries: [skill:repair-app]
+    uses: [route:messages/send, tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/repair-app/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - 사람이 composer에 /repair-app과 글을 치면 core가 Use the "repair-app" skill for this request.와 글을 한 사람 메시지로 접수한다
+      - agent가 skill.read로 repair-app 본문을 읽는다
+      - home이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - 본문을 tool 결과로 준다. 본문은 앱을 고치지 않고 원인을 찾아 그 앱의 lophn에게 call로 넘기라고 정한다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: 이 workspace 종류에서 선언되지 않아 turn의 skill 목록에 없다. 전역이나 project에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-update-apps
+    title: 사람이 /update-apps로 SDK 갱신 검토 skill을 부른다
+    actor: person
+    entries: [skill:update-apps]
+    uses: [route:messages/send, tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/update-apps/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - 사람이 composer에 /update-apps를 치거나 Inbox 알림에서 부르면 core가 Use the "update-apps" skill for this request.를 사람 메시지로 접수한다
+      - agent가 skill.read로 update-apps 본문을 읽는다
+      - home이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - 본문을 tool 결과로 준다. 앱별 판단과 사람에게 묻기, 고른 앱에 call로 넘기기는 본문이 정한다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: 이 workspace 종류에서 선언되지 않아 turn의 skill 목록에 없다. 전역이나 project에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-write-artifact
+    title: agent가 write-artifact skill을 읽는다
+    actor: agent
+    entries: [skill:write-artifact]
+    uses: [tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/write-artifact/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - agent가 결과를 화면에 보일 artifact를 쓰기 전에 skill.read로 write-artifact 본문을 읽는다. prompt의 skill 목록에 이름이 있다
+      - reader가 발견 목록에서 이름을 찾는다. project나 app이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - 본문(artifact 자리, 폴더와 data, sealed view, theme token)을 tool 결과로 준다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: home 같은 선언에 없는 workspace 종류라 turn의 skill 목록에 없다. 전역이나 project에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-write-workflow
+    title: agent가 write-workflow skill을 읽는다
+    actor: agent
+    entries: [skill:write-workflow]
+    uses: [tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/write-workflow/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - agent가 workflow 정의를 쓰기 전에 skill.read로 write-workflow 본문을 읽는다
+      - project 종류가 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - 본문(폴더, workflow.yaml 선언, step 메시지 규칙)을 tool 결과로 준다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: project가 아닌 workspace 종류라 turn의 skill 목록에 없다. 전역이나 project에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-design-app
+    title: agent가 design-app skill을 읽는다
+    actor: agent
+    entries: [skill:design-app]
+    uses: [tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/design-app/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - app workspace의 agent가 짓기나 고치기 전에 skill.read로 design-app 본문을 읽는다
+      - app 종류가 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - 본문(DESIGN.md의 절, 명령과 공유 판단)을 tool 결과로 준다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: app이 아닌 workspace 종류라 turn의 skill 목록에 없다. 전역이나 project에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-migrate-sdk
+    title: agent가 migrate-sdk skill과 그 note 파일을 읽는다
+    actor: agent
+    entries: [skill:migrate-sdk]
+    uses: [tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/migrate-sdk/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - agent가 app SDK 갱신을 맡으면 skill.read로 migrate-sdk 본문을 읽는다
+      - 버전마다의 note 파일(SKILL.md 옆의 .md)은 skill.read에 path를 줘서 읽는다. 목록에 없는 path는 not_found다
+      - home이거나 app이면 선언에 있다. 다른 종류면 turn의 skill 목록에 없어 forbidden으로 막힌다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: 선언되지 않은 workspace 종류라 turn의 skill 목록에 없다. 전역이나 project에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: file-not-found
+        code: not_found
+        when: path에 맞는 파일이 없다, 또는 turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다)
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-publish-package
+    title: agent가 publish-package skill을 읽는다
+    actor: agent
+    entries: [skill:publish-package]
+    uses: [tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/publish-package/, packages/core/lophn-agent/extensions/skills.ts, packages/protocol/lophn-agent/skill-settings.ts]
+    steps:
+      - app 종류 agent가 package 발행이나 사용을 맡으면 app.md의 지시에 따라 skill.read로 publish-package를 읽으려 한다
+      - 발견할 때 BUILTIN_SKILLS 선언이 없는 내장 skill은 built-in skill is not declared 이유로 건너뛴다
+      - 그래서 지금은 어느 workspace에서도 발견되지 않는다
+    outcomes:
+      - id: not-available
+        code: forbidden
+        when: 현재 선언이 없어 어느 workspace에서도 turn의 skill 목록에 없다(defect 후보)
+        observe: [response]
+    crosses_process: true
+    refs: [A17]
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - publish-package가 BUILTIN_SKILLS(protocol/lophn-agent/skill-settings.ts)에 선언되지 않아 발견되지 않는다. app.md는 이 skill을 읽으라고 시킨다. 선언을 넣을지 skill을 지울지 정해야 한다. issue 후보다
+      - 선언을 넣으면 loaded와 not-found가 생긴다. 지금은 도달하지 않아 적지 않았다
+
+  - id: bare-call-reply
+    title: bare agent가 끝낸 turn의 마지막 글을 result call의 답으로 보낸다
+    actor: system
+    entries: [system:bare-call-reply]
+    uses: [route:calls/auto-reply]
+    boundary: [router, run-loop]
+    code: [packages/core/main/daemon/wiring/bare-reply.ts]
+    steps:
+      - TurnEnded(commit 뒤)가 오면 wiring이 그 turn을 읽는다
+      - 끝 상태가 completed이고, 입력이 result call이고, 그 call이 아직 이 session이 받은 accepted이고, turn의 resolved runtime이 bare이거나 harness session의 turn인지 본다
+      - 마지막 agent 메시지 글이 비지 않았으면 redaction과 본문 준비를 거쳐 calls/auto-reply로 답한다. agent의 reply와 같은 규칙이다
+      - 그 밖(멈춤, 실패, 빈 글, conversation이나 none call, 이미 reply로 답함)은 보내지 않고 call은 accepted로 남는다
+    outcomes:
+      - id: replied
+        observe: [ledger:agent_calls, event:MessageReceived]
+      - id: not-sent
+        observe: [ledger:agent_calls]
+        when: 위 조건 가운데 하나라도 맞지 않는다(멈춤, 실패, conversation이나 none call, bare도 harness도 아닌 runtime, 빈 글, 이미 reply로 답함). call은 archive나 지움 때 receiver_ended로 닫힌다
+      - id: unavailable
+        code: unavailable
+        when: redaction이 끝나지 않았거나 본문을 준비하지 못했다. log로 남고 call은 accepted로 남는다
+        observe: [ledger:agent_calls, log:bare-reply]
+      - id: not-machine
+        code: forbidden
+        when: calls/auto-reply의 machine 자격 검사가 막았다(core 안에서만 부르므로 실제로는 드물다)
+        observe: [log:bare-reply]
+      - id: read-failed
+        when: turn, 받은 메시지, call 행, turn의 정의 값을 읽지 못했다, 또는 calls/auto-reply가 오류를 돌려줬다(not_found, conflict). log로 남고 call은 accepted로 남는다
+        observe: [log:bare-reply, ledger:agent_calls]
+    crosses_process: true
+    refs: [T11]
+    docs: [architecture/agent-call.md]
+
+  - id: call-restart-recovery
+    title: lophn을 켤 때 잃어버린 call과 도는 turn을 닫는다
+    actor: system
+    entries: [system:call-restart-recovery]
+    uses: [route:calls/recover]
+    boundary: [router, run-loop, agent-sessions]
+    code: [packages/core/main/daemon/wiring/router.ts, packages/core/router/commands.ts]
+    steps:
+      - agent runtime이 turn을 읽기 전에 core가 calls/recover를 machine 자격으로 부른다(wiring start)
+      - queue와 call 줄이 메모리라서 accepted인데 아직 가져가지 않은 call을 failed(lophn_restarted)로 닫는다. 팀의 ask call은 부모가 가져갔어도 닫는다
+      - 보낸 session이 살아 있고 실패 글의 blob이 준비됐으면 이유를 새 입력으로 돌려준다. 자식 ask call은 자식에게 알리지 않는다
+      - 같은 시점에 도는 turn은 interrupted로 닫는다
+    outcomes:
+      - id: recovered
+        observe: [ledger:agent_calls, ledger:turns, event:MessageReceived]
+        when: 잃은 call을 닫고 이유를 보낸 session에 알렸다
+      - id: recovered-without-notice
+        observe: [ledger:agent_calls, ledger:turns]
+        when: 실패 글의 blob을 준비하지 못해 알림 없이 닫았다
+      - id: not-machine
+        code: forbidden
+        when: calls/recover의 machine 자격 검사가 막았다(core 안에서만 부르므로 실제로는 드물다)
+        observe: [log:router]
+      - id: router-unwired
+        code: unavailable
+        when: Router가 아직 연결되지 않았다(기동 중)
+        observe: [log:router]
+      - id: recovery-failed
+        observe: [log:router]
+        when: 닫는 일이나 알림이 오류를 돌려줬다. 기동은 계속하고 close_lost_calls_failed log만 남긴다
+    crosses_process: true
+    refs: [T9]
+    docs: [architecture/agent-call.md, architecture/workspace-session.md]
+    unclear:
+      - 접수만 되고 turn이 가져가지 않은 사람 메시지를 queue에 되돌리는 일(같은 start)은 turns area의 input-requeued다
+
+  - id: team-changed-notice
+    title: 팀이 바뀌면 다음 turn 끝에 team_changed 글을 붙인다
+    actor: system
+    entries: [system:team-changed-notice]
+    uses: [route:team/read]
+    boundary: [router, run-loop]
+    code: [packages/core/lophn-agent/prompt-assembly/turn-prompt.ts, packages/protocol/lophn-agent/team.ts]
+    steps:
+      - turn을 준비할 때 지금 팀(부모, 형제, 자식의 handle과 session 줄)을 그 session이 앞서 본 팀(SeenBasis.team)과 비교한다
+      - 다르면 고정 글 team_changed를 이 turn 요청의 대화 끝에 붙인다
+      - queue에 입력으로 넣지 않으므로 쉬던 session을 깨우지 않는다. 이력에는 저장하지 않는다
+    outcomes:
+      - id: notice-added
+        observe: [request:model]
+      - id: unchanged
+        observe: [request:model]
+        when: 팀이 앞서 본 것과 같다. notice를 붙이지 않는다. 앞선 기준(seen)이 없는 turn도 붙이지 않는다
+    crosses_process: true
+    refs: [G4]
+    docs: [architecture/agent-call.md]
+    unclear:
+      - turn 준비(prompt-assembly)는 turns area의 module이다. 이 flow가 turns의 prompt flow와 겹치면 turns 쪽에서 uses로 잇는다
+
+  - id: agent-definition-data-steps
+    title: 옛 agent 정의 file을 새 모양으로 옮긴다(data step)
+    actor: system
+    entries: [system:agent-definition-data-steps]
+    boundary: [agents, storage]
+    code: [packages/core/lophn-agent/agents/handle-step.ts, packages/core/lophn-agent/agents/domains-field-step.ts, packages/core/lophn-agent/agents/skills-off-step.ts]
+    steps:
+      - 기동 때 data step agents.handle이 먼저 돈다. name을 handle로 채운다(handle이 있거나 name이 없으면 두고 고치지 않는다)
+      - agents.drop-domains가 옛 domains 칸을 지운다
+      - agents.skills-off가 옛 skills를 skills_off로 옮긴다. 옮기기 전에 받던 skill이 그대로 받아지도록 끈 이름을 적는다
+      - 정의마다 새 모양만 schema로 검사해 다시 쓴다. 칸이 없는 파일이나 깨진 파일은 건드리지 않는다
+    outcomes:
+      - id: migrated
+        observe: [disk:agents/<id>.md]
+        when: 옛 칸이 있는 정의 file을 다시 썼다
+      - id: untouched
+        observe: [disk:agents/<id>.md]
+        when: 옛 칸이 없거나 file이 깨져 그대로 두었다
+      - id: unavailable
+        code: unavailable
+        when: 정의 file을 읽거나 쓰지 못해 step이 실패했다. 기동을 거절하는지는 core-platform의 data step 적용이 정한다
+        observe: [log:core]
+    crosses_process: false
+    risk: [data-loss]
+    refs: [P2]
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - data step 실행기(기동 거절, 적용 기록)는 core-platform area의 것이다. 여기서는 step 내용만 적었다

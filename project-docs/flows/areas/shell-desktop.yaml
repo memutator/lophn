@@ -1,0 +1,863 @@
+area: shell-desktop
+
+flows:
+  # ---------- 켜기, 두 번째 실행, 로그인 시작 ----------
+  - id: shell-start
+    title: "desktop app을 켠다(single instance, tray, 전역 팔레트, 첫 창)"
+    actor: system
+    entries: [system:shell-start]
+    uses: [control:identify, control:connect, desktop-window-open:opened]
+    boundary: [shell, core-control-protocol]
+    code:
+      - packages/shell/main/desktop/main.ts
+      - packages/shell/main/desktop/wiring/context.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+      - packages/shell/main/desktop/single-instance.ts
+      - packages/shell/main/desktop/core/connection.ts
+      - packages/shell/main/desktop/core/login-path.ts
+      - packages/shell/main/desktop/tray.ts
+      - packages/shell/main/desktop/headless.ts
+    steps:
+      - "main.ts가 macOS에서 login shell의 PATH를 한 번 읽어 맞춘다(core와 terminal이 물려받는다)"
+      - "context가 data root, headless 값, window 상태 자리를 만들고 core 연결을 시작한다. 연결은 조립 중에 바로 control identify와 ensure를 시도한다(두 번째 process도 여기까지 간다)"
+      - "영역마다 wiring이 등록되고 desktop 영역이 `requestSingleInstanceLock(dataRoot)`를 건다. 못 얻으면 `app.quit()`으로 끝난다"
+      - "ready 뒤 window 상태를 읽고 autostart 등록을 migrate하고 `lophn-shell` scheme을 붙인다"
+      - "headless가 아니면 tray를 올린다. tray 실패는 log만 남기고 창은 연다"
+      - "전역 팔레트 key를 건다(keys 소유). 실패하면 tray에 안내 한 줄만 보인다"
+      - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, 그 밖의 argv(`--quit`도)는 기본 창을 연다"
+    outcomes:
+      - id: window-opened
+        when: "기본 창이 열렸다(desktop-window-open:opened). 첫 실행의 `--quit`은 종료가 아니라 창 열기로 읽힌다. core 연결이 실패(failed-start)해도, 전역 팔레트 등록이 실패해도 창은 연다(tray 안내만 남는다)"
+        observe: ["process:shell 기본 창 하나가 생긴다"]
+      - id: window-opened-tray-failed
+        when: "LOPHN_SHELL_HEADLESS가 아니고 tray를 띄우지 못했다. log만 남기고 기본 창은 연다. tray가 없어도 창 닫기는 종료가 아니다"
+        observe: ["log:tray를 띄우지 못했다", "process:shell 기본 창 하나가 생긴다"]
+      - id: headless-window-opened
+        when: "LOPHN_SHELL_HEADLESS=1이다. 창은 숨긴 채 offscreen으로 그리고 tray와 전역 팔레트는 등록하지 않는다"
+        observe: ["log:headless global-shortcut 줄", "disk:LOPHN_SHELL_SHOT_DIR 아래 window-N-first.png"]
+      - id: app-window-requested
+        when: "첫 argv가 `--open-app <app ID>`이고 ID 모양이 맞다. 앱 전용 창은 app-surface가 열고, 열지 못하면 기본 창(desktop-window-show)으로 돌아간다"
+        observe: ["process:앱 전용 창 요청(app-surface 소유)"]
+      - id: second-process-exits
+        when: "single instance lock을 다른 main이 잡고 있다. 이 process는 창 없이 끝난다(core identify와 ensure는 이미 돌았다)"
+        observe: ["process:두 번째 shell process가 끝난다"]
+    crosses_process: true
+    docs: [architecture/platform.md]
+    unclear:
+      - "두 번째 process도 createShellContext에서 core `recover()`(identify와 ensure)를 부른 뒤 lock에서 끝난다. 의도인지 확인이 필요하다(core/connection.ts 끝의 `void recover()`)"
+      - "첫 실행의 `--quit`은 무시되고 창이 열린다(desktop.ts는 readOpenIntent가 app이 아니면 desktop.open()을 부른다). 종료 요청은 이미 떠 있는 main의 second-instance에서만 된다"
+
+  - id: login-core-start
+    title: "로그인 자동 시작으로 core만 띄우고 끝난다(창, tray, extension 없음)"
+    actor: system
+    entries: [system:login-core]
+    boundary: [shell, core-control-protocol]
+    code:
+      - packages/shell/main/desktop/main.ts
+      - packages/shell/main/desktop/launch-mode.ts
+      - packages/shell/main/desktop/core/supervise.ts
+    steps:
+      - "argv에 `--core`가 있거나 macOS가 login item으로 띄웠다고 알리면(wasOpenedAtLogin) 창을 조립하지 않고 core만 띄우는 길로 간다"
+      - "package.json의 판을 읽는다. 못 읽으면 core를 띄우지 않고 종료 코드 1로 끝난다"
+      - "control 자리(openShellCoreControl)를 잡고 ensure로 core에 붙거나 띄운다. 판이 다르면 ensure가 갈아 띄운다"
+      - "ensure 결과로 app.exit(0) 또는 app.exit(1)을 한다. shell 자원은 하나도 만들지 않는다"
+    outcomes:
+      - id: core-ready
+        when: "ensure가 성공했다. launcher는 종료 코드 0이다"
+        observe: ["process:core가 ready로 떠 있고 launcher는 끝난다"]
+      - id: version-unreadable
+        when: "package.json의 version을 읽지 못해 core를 띄우지 않았다"
+        observe: ["log:stderr 한 줄(package.json 판을 읽지 못해 core를 띄우지 않는다)", "process:launcher 종료 코드 1"]
+      - id: control-unavailable
+        when: "control socket 자리를 잡지 못했다"
+        observe: ["process:launcher 종료 코드 1"]
+      - id: ensure-failed
+        when: "ensure가 core를 붙이거나 띄우지 못했다"
+        observe: ["process:launcher 종료 코드 1"]
+    crosses_process: true
+    docs: [architecture/platform.md]
+    unclear:
+      - "ensure 실패 사유(start_failed 등)별로 outcome을 나누지 않았다. launcher는 메시지 한 줄만 찍는다"
+
+  - id: second-instance
+    title: "이미 떠 있는 desktop main이 두 번째 실행의 argv를 받아 창을 열거나 끄기로 답한다"
+    actor: system
+    entries: [system:second-instance]
+    uses: [desktop-window-open:opened, ui:tray-quit, shell-stop:stopped]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/single-instance.ts
+      - packages/shell/main/desktop/open-intent.ts
+      - packages/shell/main/desktop/launch-mode.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "Electron이 두 번째 실행의 argv를 second-instance event로 넘긴다. 두 번째 process는 곧 끝난다"
+      - "argv를 readOpenIntent로 읽는다. 모양이 조금이라도 다르면 기본 창 요청으로 본다"
+      - "`--core`이면 아무 일도 하지 않는다(창을 열지 않는다)"
+      - "`--quit`이면 창이 하나라도 있을 때 tray Quit과 같은 확인 경로를 타고, 창이 없으면 확인 없이 shell 정리를 밟는다"
+      - "`--open-app <ID>`이 맞으면 앱 전용 창(app-surface)을 요청한다"
+      - "그 밖의 argv는 desktop-window-open과 같은 길로 새 기본 창을 연다"
+    outcomes:
+      - id: window-opened
+        when: "기본 창 요청이다. argv에 대상이 없거나 모양이 틀린 것도 여기다"
+        observe: ["process:desktop 창 하나가 생긴다"]
+      - id: app-window-requested
+        when: "`--open-app`의 ID 모양이 맞다. 앱 전용 창을 열지 못하면 app-surface가 log를 남기고 desktop-window-show로 돌아간다"
+        observe: ["process:앱 전용 창 요청(app-surface 소유)"]
+      - id: core-intent-ignored
+        when: "`--core`다. 창은 바뀌지 않는다"
+        observe: ["process:창 수가 그대로다"]
+      - id: quit-with-window
+        when: "`--quit`이고 BrowserWindow가 하나 이상 있다(detached와 앱 창 포함). ui:tray-quit과 같은 경로라 quit-app의 quit·cancelled·busy 가운데 하나가 된다. 두 번째 `--quit`이 확인 창 중에 오면 busy로 조용히 끝난다"
+        observe: ["process:진행 중인 터미널·저장이 있으면 끄기 확인 창이 뜨고, 없으면 확인 없이 shell이 끝난다"]
+      - id: quit-without-window
+        when: "`--quit`이고 창이 없다. 진행 중 터미널과 저장을 묻지 않고 shell을 끈다"
+        observe: ["process:shell 정리 뒤 app이 끝난다", "process:core는 남는다"]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/platform.md]
+    unclear:
+      - "risk sandbox는 OS가 넘긴 argv를 정해진 flag만 읽는다는 경계(실행 권한으로 읽지 않는다)로 봤다"
+      - "창이 없을 때의 `--quit`은 확인 창을 띄울 부모 창이 없다는 이유로 진행 중 터미널과 저장을 묻지 않고 끈다. 데이터 손실 위험이 있어 사람 확인이 필요하다"
+
+  # ---------- 창 ----------
+  - id: desktop-window-open
+    title: "새 desktop 창을 Home으로 연다(저장한 자리와 크기를 되살린다)"
+    actor: person
+    entries: [ui:tray-home]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/window.ts
+      - packages/shell/main/desktop/security.ts
+      - packages/shell/main/desktop/work-area.ts
+      - packages/shell/main/workspace/window-state.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "저장한 자리(`<data root>/shell/window.json`)가 있으면 work area 안으로 당기고, 다른 desktop 창이 떠 있으면 32px 비켜 연다. 저장한 자리가 없으면 OS가 자리를 정한다"
+      - "저장한 자리가 있으면 숨긴 채 만들고 ready-to-show에서 크기와 최대화를 맞춘 뒤 보인다(Wayland 보정). 없으면 기본 크기 960x600이다"
+      - "`lophn-shell://desktop` 주소를 연다. 개발 전용 시작 env가 있으면 그 주소와 hash를 쓴다. 창은 security.ts의 webPreferences와 preload로 만든다"
+      - "창의 탐색 가드를 달아 shell 밖의 http·https는 OS browser로 넘기고 나머지는 막는다(navigation-guard 규칙을 같이 쓴다). 보호 창은 이 길로 만들지 않는다. detached 탭 창과 앱 전용 창은 같은 함수에 시작 값(hash, 자리)을 주어 만든다. 그때는 저장한 자리를 쓰지도 고치지도 않는다"
+      - "창을 windows 집합에 넣고 created 반응(core 상태 전달, 편집기 close guard)을 건다. 옮기거나 크기를 바꾸면 500ms 뒤, 최대화·되돌림·닫기 때 window.json에 저장한다"
+    outcomes:
+      - id: opened
+        when: "desktop 창 하나가 생겨 Home 주소를 읽기 시작했다. 일반 창이면 자리를 저장한다. 같은 함수로 만든 detached 탭·앱 전용 창(시작 값이 있는 경우)은 같은 길이지만 저장하지 않는다"
+        observe: ["process:desktop 창 하나가 생긴다"]
+    crosses_process: true
+    docs: [architecture/platform.md]
+    unclear:
+      - "window.json 저장은 shell-workspace의 '창 상태'와 겹쳐 보인다. 여기서는 되살리기 절차만 적었다(저장 file은 workspace/window-state.ts)"
+
+  - id: desktop-window-show
+    title: "가장 최근 desktop 창을 앞으로 가져오고, 창이 없으면 새 기본 창을 연다"
+    actor: person
+    entries: [ui:tray-open-window, system:dock-activate]
+    uses: [desktop-window-open:opened]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/tray.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "windows 집합에서 focus를 가장 최근에 받은 desktop 창을 고른다. detached 탭 창과 앱 전용 창은 건너뛴다"
+      - "그 창이 있으면 최소화를 풀고 show와 focus만 한다. headless이면 아무 일도 하지 않는다"
+      - "창이 하나도 없으면 desktop-window-open과 같은 길로 새 기본 창을 연다"
+      - "macOS Dock 클릭(activate)은 창이 하나도 없을 때만 이 길로 간다. 창이 있으면 아무 일도 하지 않는다"
+    outcomes:
+      - id: focused
+        when: "최근 desktop 창이 있다(tray 아이콘 클릭). headless면 앞으로 가져오지 않아 noop과 같다"
+        observe: ["process:그 창이 앞으로 온다"]
+      - id: opened
+        when: "desktop 창이 하나도 없어 새 기본 창을 연다"
+        observe: ["process:desktop 창 하나가 생긴다"]
+      - id: noop
+        when: "macOS activate인데 창이 이미 있다(창 수가 0이 아니면 detached 창만 있어도 아무 일 없다). 또는 headless라 창을 앞으로 가져오지 않는다"
+        observe: ["process:창 수와 순서가 그대로다"]
+    crosses_process: true
+    docs: [architecture/platform.md]
+    unclear:
+      - "Dock 클릭(system:dock-activate)은 OS 이벤트라 system이지만, 같은 동작을 하는 tray 클릭이 person이라 flow의 actor는 person 하나로 적었다"
+
+  - id: desktop-window-intent
+    title: "창 밖에서 온 요청(전역 팔레트, extension 설정 열기)을 최근 창에 전한다"
+    actor: person
+    uses: [ipc:shell:intent, desktop-window-open:opened]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/wiring/context.ts
+      - packages/shell/ipc/shortcuts.ts
+    steps:
+      - "전역 팔레트 key(keys 소유)나 harness-gui 탭이 꺼져 있을 때의 요청이 desktop.send로 온다. intent는 global-palette 또는 extension-settings다"
+      - "최근 desktop 창이 있으면 최소화를 풀고 앞으로 가져온다. 창이 아직 로딩 중이면 did-finish-load 뒤에 intent를 보낸다"
+      - "창이 없으면 새 기본 창을 연 뒤 같은 방식으로 보낸다. 창이 구독하기 전에 막 연 창은 preload가 받아 두었다가 넘긴다"
+    outcomes:
+      - id: sent
+        when: "최근 desktop 창이 있다. 아직 로딩 중이면 did-finish-load 뒤에 보낸다"
+        observe: ["process:창 renderer가 shell:intent를 받는다"]
+      - id: opened
+        when: "창이 없어 새 기본 창을 연 뒤 보냈다"
+        observe: ["process:창 renderer가 shell:intent를 받는다"]
+      - id: dropped
+        when: "보내기 전에 그 창이 사라졌다(로딩 중에 닫힘). 아무것도 보내지 않는다"
+        observe: ["process:창 renderer가 shell:intent를 받지 않는다"]
+    crosses_process: true
+    unclear:
+      - "전역 팔레트 key의 등록과 해제는 keys 소유(global-shortcut.ts)다. 여기서는 창으로 전달되는 것만 본다"
+
+  - id: desktop-window-close
+    title: "desktop 창을 닫는다(종료가 아니다. shell과 core는 남는다)"
+    actor: person
+    uses:
+      - ipc:shell:window-control
+      - ipc:shell:file-close-request
+      - ipc:shell:file-close-answer
+      - control:confirmation_handle_close_window
+    boundary: [shell, core-control-protocol]
+    code:
+      - packages/shell/main/desktop/window-controls.ts
+      - packages/shell/main/desktop/wiring/editor.ts
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/wiring/core.ts
+      - packages/shell/main/desktop/core/connection.ts
+    steps:
+      - "상단 바의 닫기가 window-control close를 보내면 main이 sender가 등록된 창 본문인지 보고(아니면 forbidden), 입력을 검사하고(invalid_input), 그 sender의 창을 찾아 닫는다(없으면 unavailable). 다른 창은 건드리지 않는다"
+      - "편집기 close guard가 먼저 본다. 저장 중이거나 실패한 문서가 있으면 renderer에 닫기 확인을 요청하고(file-close-request) 답(file-close-answer)을 기다린다(projects 소유). 허락이면 닫고, 막으면 창을 남긴다. 사람이 고르는 중이라는 답이면 기한을 멈춘다. 답이 15초 안에 없으면(거절돼 버려진 답도 여기다) 닫는다"
+      - "창이 닫히면 일반 창은 창 자리를 window.json에 저장하고(detached·앱 전용 창은 저장하지 않는다), core가 붙어 있으면 그 창이 받은 미소비 결정 handle을 버린다(control closeWindow, 실패는 무시한다)"
+      - "창 목록에서 뺀다. 마지막 창을 닫아도 종료하지 않는다(window-all-closed는 아무 일도 하지 않는다). tray와 shell, core는 남는다"
+    outcomes:
+      - id: closed
+        when: "창이 닫혔고 다른 desktop 창이 남아 있다. 물을 것이 없었거나, renderer가 허락했거나, 답 없이 15초가 지나 닫혔다"
+        observe: ["process:창 하나가 사라진다", "disk:<data root>/shell/window.json(일반 창만)"]
+      - id: last-closed
+        when: "닫은 창 뒤에 desktop 창이 남지 않았다(위 closed와 같은 원인). shell과 tray, core는 남는다"
+        observe: ["process:shell과 tray가 남는다", "process:core가 남는다"]
+      - id: kept-open
+        when: "편집기 guard가 닫기를 멈춰 창이 그대로 남았다. renderer가 거절했거나, 다른 닫기 질문이 나가 있는 동안 온 닫기를 삼켰다"
+        observe: ["process:창이 그대로 있다", "disk:window.json이 닫기 요청 시점의 자리로 저장될 수 있다(일반 창만)"]
+      - id: forbidden
+        code: forbidden
+        when: "window-control을 보낸 sender가 등록된 desktop 창 본문의 main frame이 아니다(등록되지 않았거나 다른 origin)"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "window-control 입력이 schema와 맞지 않다(action이 state·minimize·toggle-maximize·close 밖이거나 모르는 필드가 있다)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "sender의 창을 찾지 못했다(이미 닫혔거나 windows 집합에 없다)"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/platform.md]
+    unclear:
+      - "편집기 저장 확인 흐름은 projects 소유라 여기서는 결과(닫힘, 마지막 닫힘, 유지)만 본다"
+      - "file-close-answer는 guardIpc가 거절하면 아무 응답 없이 버려진다. 그러면 guard는 15초 뒤 닫는다. 저장 중 문서가 있으면 답 없이 닫힐 수 있다. 의도인지 확인이 필요하다"
+      - "app.quit으로 닫히는 창은 quit.quitting 때문에 이 guard를 건너뛴다(끄기 확인은 quit-app이 묻는다). 저장 중·실패 문서는 끄기 확인 뒤 묻지 않고 닫힌다"
+
+  # ---------- 끄기와 Stop ----------
+  - id: quit-app
+    title: "끄기: 진행 중인 터미널과 저장을 확인한 뒤 shell만 끈다(core는 남는다)"
+    actor: person
+    entries: [ui:tray-quit]
+    uses: [shell-stop:stopped]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/quit.ts
+      - packages/shell/main/desktop/tray.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "진행 중인 PTY(starting·running)와 아직 확인이 끝나지 않은 문서 저장 수를 센다"
+      - "둘 다 0이면 확인 없이 shell 정리(shell-stop)를 밟고 app.quit한다"
+      - "하나라도 있으면 OS 확인 창을 띄운다. 기본 단추는 Cancel이고 Esc와 창 닫기는 취소다"
+      - "확인 창이 떠 있는 동안 다시 누르면 두 번째 창을 띄우지 않는다(busy). 확인 창을 띄우지 못하면 끄지 않는다"
+      - "Quit을 고르면 shell 정리 뒤 app.quit한다. core는 stop하지 않는다"
+    outcomes:
+      - id: quit
+        when: "진행 중인 일이 없거나 사람이 Quit을 골랐다. 이미 끄는 중에 다시 불린 것도 아무 일 없이 quit으로 본다"
+        observe: ["process:shell이 끝난다", "process:core는 계속 돈다"]
+      - id: cancelled
+        when: "확인 창에서 Cancel, Esc, 창 닫기를 골랐거나 확인 창을 띄우지 못했다"
+        observe: ["process:shell이 그대로 돈다"]
+      - id: busy
+        when: "확인 창이 떠 있는 동안 다시 Quit을 눌렀다"
+        observe: ["process:확인 창이 하나만 있다"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/platform.md]
+    unclear:
+      - "진행 중 터미널 수는 harness 쪽 terminal runtime 목록을 쓴다(harness 소유). 저장 수는 편집기 guard가 알린 값이다(projects 소유)"
+      - "끄기 확인을 허락하면 stopNow가 quitting을 세운 뒤 창을 닫는다. 그 뒤 창 guard는 묻지 않고 닫는다. 저장 중·실패 문서는 확인 창의 저장 수로만 알리고 기다리지 않는다. 의도인지 확인이 필요하다"
+
+  - id: stop-lophn
+    title: "Stop lophn: control stop으로 core를 멈추고 shell을 끈다"
+    actor: person
+    entries: [ui:tray-stop-lophn]
+    uses: [control:stop, shell-stop:stopped]
+    boundary: [shell, core-control-protocol]
+    code:
+      - packages/shell/main/desktop/wiring/desktop.ts
+      - packages/shell/main/desktop/core/connection.ts
+      - packages/shell/main/desktop/quit.ts
+    steps:
+      - "quit-app과 같은 확인(진행 중 터미널과 저장)을 먼저 한다. 취소하면 아무것도 멈추지 않는다"
+      - "core 연결의 재연결을 멈추고 control stop을 보내 답을 기다린다. 멈추는 동안에는 core를 다시 띄우지 않는다"
+      - "control 자리가 있으면 답의 결과와 상관없이 연결 상태를 stale로 바꿔 화면이 끊긴 core를 ready로 보이지 않게 한다. 답이 실패였으면 log만 남긴다"
+      - "답과 상관없이 shell 정리(shell-stop)를 하고 app.quit한다"
+    outcomes:
+      - id: stopped
+        when: "control stop이 ok로 답했다. core가 이미 없어 control이 unavailable을 돌려준 것도 ok로 본다"
+        observe: ["process:core가 stop 요청을 받고 끝난다", "process:shell이 끝난다"]
+      - id: no-answer
+        when: "control stop이 unavailable 밖의 오류로 실패했다. core 판을 읽지 못해 control 자리가 없었던 것도 여기다(이때 연결은 stale로 바뀌지 않는다). shell만 끝낸다"
+        observe: ["log:core stop이 답하지 않았다. shell만 끝낸다", "process:core가 남았을 수 있다"]
+      - id: cancelled
+        when: "확인 창에서 취소했다"
+        observe: ["process:core와 shell이 그대로 돈다"]
+      - id: busy
+        when: "확인 창이 떠 있는 동안 다시 눌렀다"
+        observe: ["process:확인 창이 하나만 있다"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/platform.md]
+    unclear:
+      - "control stop이 실패해도 shell은 끈다(코드 그대로). 그때 core가 살아 있을 수 있는데 사람에게는 log 한 줄만 남는다. 확인이 필요하다"
+
+  - id: shell-stop
+    title: "shell을 끈다: 영역을 등록의 반대 순서로 멈추고 core 연결을 놓는다"
+    actor: shell
+    entries: [system:app-will-quit]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/context.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+      - packages/shell/main/desktop/wiring/core.ts
+      - packages/shell/main/desktop/wiring/extensions.ts
+    steps:
+      - "will-quit에서 stopAll을 부른다. stopAll은 한 번만 돌고 영역의 stop을 등록의 반대 순서로 부른다(IPC handler 제거, tray 제거, 전역 팔레트 해제, overlay 정리)"
+      - "core 연결은 detach한다. Gateway만 끊고 core는 그대로 둔다"
+      - "coding 영역의 stop이 terminal host child(terminal-host.cjs)를 SIGTERM으로 끈다. 진행 중이던 PTY는 unknown(host_lost)으로 남긴다"
+      - "extension registry는 켜진 것을 모두 deactivate한다"
+      - "before-quit에서 ctx.quit.requested를 세워 편집기 close guard가 종료 중인 것을 알게 한다"
+      - "quit-app, stop-lophn, second-instance의 `--quit` 경로가 모두 이 순서를 쓴다"
+    outcomes:
+      - id: stopped
+        when: "처음 부른 stopAll이 영역들을 멈췄다"
+        observe: ["process:shell 자원 정리가 끝난다", "process:terminal host child가 SIGTERM을 받는다", "process:core는 남는다"]
+      - id: already-stopped
+        when: "이미 한 번 돌았다(quit 흐름과 will-quit이 둘 다 부른다)"
+        observe: ["process:변화가 없다"]
+    crosses_process: true
+    docs: [architecture/platform.md]
+
+  # ---------- 자동 시작 ----------
+  - id: autostart-toggle
+    title: "tray의 로그인 시 시작 항목을 켜거나 끈다(core만 띄우는 등록)"
+    actor: person
+    entries: [ui:tray-autostart]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/autostart.ts
+      - packages/shell/main/desktop/tray.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "등록할 실행 경로를 검증한다. packaged이고 절대 경로이고 실행 가능하고 안전한 글자일 때만 된다. 맞지 않으면 항목이 꺼진 채 보인다(개발 실행 포함)"
+      - "Linux는 autostart 폴더의 lophn.desktop을 원자적으로 쓰거나 지운다. Exec 줄은 검증한 경로를 따옴표로 묶고 `--core` intent를 붙인다"
+      - "macOS와 Windows는 login item을 같은 경로와 `--core` args로 켜거나 끈다"
+      - "끝나면 OS에서 다시 읽은 상태로 체크를 맞춘다. OS 쓰기가 실패하면 꺼진 채로 보인다"
+    outcomes:
+      - id: enabled
+        when: "OS 등록이 켜졌다고 다시 읽혔다"
+        observe: ["disk:<XDG config>/autostart/lophn.desktop", "process:macOS·Windows login item"]
+      - id: disabled
+        when: "OS 등록을 지웠다고 다시 읽혔다"
+        observe: ["disk:<XDG config>/autostart/lophn.desktop 없음", "process:macOS·Windows login item이 꺼짐"]
+      - id: os-refused
+        when: "OS 등록 쓰기가 실패했거나, 쓴 뒤 OS에서 다시 읽는 것이 실패했다(os_failed). 체크는 꺼진 채로 보인다"
+        observe: ["log:자동 시작을 바꾸지 못했다", "process:체크가 꺼진 채로 보인다"]
+      - id: path-unverified
+        when: "개발 실행이거나(not_packaged) 실행 경로가 절대 경로·실행 가능한 파일·안전한 글자가 아니다(unverified_path). 메뉴 항목이 꺼져 있어 보통 누를 수 없고, 누른 경우에도 등록을 쓰지 않는다"
+        observe: ["disk:<XDG config>/autostart/lophn.desktop이 바뀌지 않는다", "process:macOS·Windows login item이 바뀌지 않는다"]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/platform.md]
+    unclear:
+      - "risk sandbox는 lophn data root 밖(XDG autostart, login item)에 쓰는 것으로 봤다. 경로는 검증하고 argv는 `--core` 하나로 고정한다. 판단이 다르면 뺀다"
+
+  - id: autostart-migrate
+    title: "업데이트 전에 등록한 `--tray` 자동 시작을 `--core`로 한 번 다시 쓴다"
+    actor: system
+    entries: [system:autostart-migrate]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/autostart.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "ready 뒤에 검증한 실행 경로를 얻는다. 검증이 안 되면 아무 일도 하지 않는다"
+      - "Linux는 lophn.desktop 내용이 옛 `--tray` 줄과 같은지 본다. Windows는 login item의 `--tray` args가 켜져 있는지 본다. macOS는 argv를 저장하지 않아 할 일이 없다"
+      - "옛 등록이면 `--core`로 한 번 다시 쓴다. 아니면 그대로 둔다"
+      - "OS 등록은 data root 파일이 아니라서 ledger나 data step migration이 아니다(코드 주석 그대로)"
+    outcomes:
+      - id: rewritten
+        when: "옛 `--tray` 등록을 `--core`로 다시 썼다(Linux는 파일, Windows는 login item args)"
+        observe: ["disk:<XDG config>/autostart/lophn.desktop의 Exec 줄이 `--core`다", "process:Windows login item이 `--core` args로 켜져 있다"]
+      - id: kept
+        when: "옛 등록이 없거나 실행 경로가 검증되지 않았다. macOS는 할 일이 없어 여기다"
+        observe: ["disk:<XDG config>/autostart/lophn.desktop이 바뀌지 않는다"]
+      - id: failed
+        when: "옛 등록을 읽거나 새 intent로 쓰는 중 OS 쓰기가 실패했다. 등록은 그대로 남고 log만 남는다"
+        observe: ["log:옛 자동 시작 등록을 새 intent로 바꾸지 못했다"]
+    crosses_process: false
+    docs: [architecture/platform.md]
+
+  # ---------- extension ----------
+  - id: extension-sync
+    title: "각 extension을 설정과 제품 판에 맞춘다(켜진 것만 load와 activate)"
+    actor: system
+    entries: [system:extension-sync]
+    uses: [route:settings/list, route:extension_tools/publish]
+    boundary: [extension-host, extension-api, core-api]
+    code:
+      - packages/shell/main/extensions/registry.ts
+      - packages/shell/main/desktop/wiring/extensions.ts
+      - packages/protocol/extensions/manifest.ts
+      - packages/core/config/shell-settings.ts
+      - packages/shell/main/extensions/bundled/harness/manifest.json
+    steps:
+      - "core가 준비되거나 다시 붙을 때(1초 간격으로 session을 본다), SettingsChanged 중 extensions.*가 바뀔 때, 목록 IPC와 탭 GUI 호출 앞에서 sync가 돈다. 겹치면 차례로 돈다"
+      - "roots(본체 안 extensions/bundled, packaged는 설치 root의 extensions/)의 <id>/manifest.json을 읽는다. 꼴이 틀리거나 폴더 이름과 id가 다르면 invalid다"
+      - "manifest가 맞으면 설정 extensions.<id>.enabled를 판과 관계없이 core에서 먼저 읽는다. 선언이 없으면 no_setting이다. 판(manifest.version)이 제품 판과 다르면 incompatible이다"
+      - "설정을 읽지 못하면 그 extension은 건드리지 않는다. 켜진 것을 끄지 않는다"
+      - "켜졌고 판이 맞으면 entry를 require해(없거나 activate·deactivate를 내보내지 않으면 failed) activate(ctx)를 부른다. 표시 file을 먼저 두고, activate가 던지면 deactivate를 한 번 부른 뒤 failed다"
+      - "꺼졌거나 판이 다르면 켜져 있던 것만 deactivate한다. 그 extension이 건 command와 tool handler는 모두 버린다"
+      - "판이 맞는 manifest의 tool 목록 전부를 route:extension_tools/publish로 core에 통째로 올린다. 올리지 못해도 sync는 실패하지 않는다"
+    outcomes:
+      - id: loaded
+        when: "enabled가 true이고 판이 맞고 activate가 끝났다(extension마다 상태 하나)"
+        observe: ["disk:<data root>/extensions/<id>/.lophn-extension", "process:entry의 activate가 불렸다"]
+      - id: off
+        when: "enabled가 false다. 켜져 있던 것이면 deactivate한다(deactivate가 던지면 log만 남긴다)"
+        observe: ["process:entry 모듈이 require되지 않는다(manifest만 읽힌다)", "log:extension <id> failed to stop(던진 경우)"]
+      - id: incompatible
+        when: "manifest.version이 제품 판과 다르다. 켜져 있던 것은 끈다"
+        observe: ["process:entry 모듈이 require되지 않는다"]
+      - id: no-setting
+        when: "core 설정 선언에 extensions.<id>.enabled가 없다. 켜져 있던 것이면 끈다"
+        observe: ["process:entry 모듈이 require되지 않는다"]
+      - id: invalid
+        when: "manifest 꼴이 틀리거나 폴더 이름과 id가 다르다. 설정은 읽지 않고, 이미 켜진 것은 끄지 않는다(목록에는 on으로 남는다)"
+        observe: ["process:entry 모듈이 require되지 않는다"]
+      - id: failed
+        when: "entry를 require하지 못했다, activate·deactivate를 내보내지 않는다, activate가 던졌다, 표시 file을 쓰지 못했다. 목록에 failed와 이유가 보인다. 다음 sync에 다시 시도한다"
+        observe: ["log:extension <id> failed to start"]
+      - id: tools-unpublished
+        when: "판이 맞는 tool 목록을 core(route:extension_tools/publish)에 올리지 못했다. extension마다의 상태는 그대로이고 sync는 실패하지 않는다. core가 unavailable이면 연결이 있는 동안 1초마다 다시 올린다"
+        observe: ["log:extension tools were not published"]
+      - id: kept
+        when: "설정 읽기가 실패해 이 extension은 지금 상태 그대로 둔다"
+        observe: ["disk:<data root>/extensions/<id>/.lophn-extension이 바뀌지 않는다"]
+    crosses_process: true
+    risk: [sandbox]
+    refs: [P6, H3]
+    docs: [architecture/extension.md]
+    unclear:
+      - "extension entry는 shell main 프로세스 안에서 require된다(wiring/extensions.ts의 load). 그래서 ctx 밖으로 나가는 것을 막는 것은 ctx 함수 모양뿐이고, 코드가 main의 node API를 직접 부를 수 있다. sandbox risk로 볼지 사람이 정해야 한다"
+      - "invalid가 된 켜진 extension은 끄지 않는다(코드 그대로, 목록에는 on으로 남는다). 의도인지 확인이 필요하다"
+
+  - id: extension-install
+    title: "Settings에서 extension을 설치한다(표시 file만 둔다. 켜지는 않는다)"
+    actor: person
+    uses: [ipc:shell:extensions]
+    boundary: [extension-host]
+    code:
+      - packages/shell/main/extensions/registry.ts
+      - packages/shell/main/desktop/wiring/extensions.ts
+      - packages/shell/renderer/desktop/settings/extension-packages/
+    steps:
+      - "desktop 창 본문의 install 요청만 받는다. 다른 caller는 forbidden이다"
+      - "입력 꼴이 틀리거나 id가 `[a-z][a-z0-9-]*`에 맞지 않으면 invalid_input이다"
+      - "roots에서 <id> 폴더와 manifest.json을 찾는다. 없으면 not_found다. manifest가 틀려도 파일이 있으면 찾은 것이다"
+      - "<data root>/extensions/<id>/.lophn-extension을 빈 목록으로 둔다. 이미 있으면 그대로 둔다(다시 해도 같다)"
+      - "내려받기는 아직 없다. 켜기는 사람이 설정 extensions.<id>.enabled를 바꿔야 하고 install은 켜지 않는다"
+    outcomes:
+      - id: installed
+        when: "표시 file을 두었다(이미 있으면 그대로 두고 같은 결과다)"
+        observe: ["disk:<data root>/extensions/<id>/.lophn-extension", "response"]
+      - id: not-found
+        code: not_found
+        when: "roots에 <id> 폴더나 manifest.json이 없다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력 꼴이 틀리거나 id가 규칙에 맞지 않는다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다)"
+        observe: ["response"]
+    crosses_process: false
+    docs: [architecture/extension.md]
+
+  - id: extension-remove
+    title: "Settings에서 extension을 지운다(extension이 쓴 file과 표시 file만)"
+    actor: person
+    uses: [ipc:shell:extensions, route:settings/list]
+    boundary: [extension-host]
+    code:
+      - packages/shell/main/extensions/registry.ts
+      - packages/shell/main/desktop/wiring/extensions.ts
+      - packages/shell/renderer/desktop/settings/extension-packages/
+    steps:
+      - "desktop 창 본문의 remove 요청만 받는다. 다른 caller는 forbidden이다"
+      - "id 꼴을 검사한다. 틀리면 invalid_input이다"
+      - "설정 extensions.<id>.enabled를 core에서 읽는다. 읽지 못하면 그 오류를 그대로 돌려준다. 켜져 있거나 활성이면 conflict로 먼저 끄라고 한다"
+      - "표시 file에 적힌 file들을 지운다. extension이 ctx.files.write로 쓴 것만 지운다"
+      - "표시 file을 지우고, 비게 된 폴더만 지운다. 사람이 넣은 file이 남아 있으면 폴더도 남는다"
+    outcomes:
+      - id: removed
+        when: "적힌 file과 표시 file을 지웠다. 표시 file이 없던 extension도 같은 결과다"
+        observe: ["disk:<data root>/extensions/<id>/.lophn-extension이 없다", "disk:표시 file에 적힌 file이 없다", "response"]
+      - id: conflict
+        code: conflict
+        when: "켜져 있거나 활성 상태다"
+        observe: ["response"]
+      - id: settings-unreadable
+        when: "설정을 core에서 읽지 못해 그 오류를 돌려준다. 오류 code는 core가 준 값이다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "id 꼴이 틀리다(wiring의 입력 검사 또는 registry의 id 검사)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다)"
+        observe: ["response"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/extension.md]
+
+  - id: extension-command-run
+    title: "켜진 extension이 건 command(ext.<id>.<name>)를 key나 팔레트에서 부른다"
+    actor: person
+    pre: [extension-sync:loaded]
+    uses: [ipc:shell:extensions]
+    boundary: [extension-host, extension-api]
+    code:
+      - packages/shell/main/extensions/registry.ts
+      - packages/shell/main/desktop/wiring/extensions.ts
+      - packages/protocol/extensions/manifest.ts
+    steps:
+      - "renderer가 key나 팔레트에서 ext.<id>.<name>을 IPC run으로 보낸다. desktop 창 본문만 받는다"
+      - "registry가 켜진 extension이 ctx.commands.register로 건 handler를 찾는다. 없으면 not_found다"
+      - "handler가 끝나면 ok다. 던지면 log를 남기고 internal이다. 오류 원문은 응답에 싣지 않는다"
+    outcomes:
+      - id: ok
+        when: "handler가 끝났다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "그 command를 건 extension이 꺼졌거나 없다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "handler가 던졌다"
+        observe: ["response", "log:command 실패 한 줄"]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다)"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "run 입력이 schema와 맞지 않다(command 꼴이 틀리다)"
+        observe: ["response"]
+    crosses_process: false
+    docs: [architecture/extension.md]
+    unclear:
+      - "key와 팔레트 쪽 등록(commands/extension-keys.ts)은 keys 소유다. 여기서는 IPC run 이후만 본다"
+      - "handler는 main 안에서 돈다. handler가 core route를 부르거나 탭을 여는 일은 이 flow의 갈래가 아니라 그 handler가 하는 일이다(코드에서 정해지지 않는다)"
+
+  # ---------- 보호 입력 ----------
+  - id: secret-input
+    title: "보호 입력 창에서 secret 값을 받아 core secrets에 저장한다"
+    actor: person
+    uses:
+      - ipc:shell:secret-input-open
+      - ipc:secret-input:display
+      - ipc:secret-input:submit
+      - ipc:secret-input:cancel
+      - route:secrets/status
+      - route:secrets/put
+    boundary: [shell, secrets]
+    refs: [H10]
+    code:
+      - packages/shell/main/secret-input/ipc.ts
+      - packages/shell/main/secret-input/window.ts
+      - packages/shell/main/secret-input/submit.ts
+      - packages/shell/main/desktop/wiring/secret-input.ts
+      - packages/shell/renderer/secret-input/secret-input.tsx
+      - packages/shell/ipc/secret-input.ts
+    steps:
+      - "shell 창 본문(windows 집합에 든 창: 일반 desktop, detached 탭, 앱 전용 창)만 open(name, purpose, subject)을 보낼 수 있다. 그 밖의 sender는 forbidden이다. 부모 창은 보낸 창이고 renderer가 준 값은 쓰지 않는다. 꼴이 틀리면 invalid_input이다"
+      - "보호 창이 이미 열려 있거나 여는 중이면 conflict다. core가 준비되지 않았으면 unavailable이다"
+      - "core route secrets/status로 같은 이름이 이미 있는지만 읽는다(configured 표시용이고 값은 읽지 않는다). 읽지 못하면 configured를 false로 두고 연다"
+      - "요청한 창의 child modal로 연다. 창마다 메모리 partition을 쓰고 설치된 secret-input 페이지만 연다. 권한 요청, download, network, 탐색, 새 창, webview를 막고 부모 창의 앱·문서 view 입력도 막는다"
+      - "사람이 저장하면 칸을 먼저 비우고 main이 값을 UTF-8 1~64KiB로 secrets/put upload에 올린다. 성공이면 창을 닫고 stored를 돌려준다. 실패면 창이 남아 다시 할 수 있다"
+      - "취소나 창 닫기는 cancelled다. 렌더 프로세스가 죽거나 응답이 없으면 unavailable로 끝난다. 값과 core·OS 오류 원문은 log와 응답에 싣지 않는다"
+    outcomes:
+      - id: stored
+        when: "core가 secrets/put을 ok로 답했다. open 응답은 {ok, result: stored}다"
+        observe: ["disk:<data root>/secrets.json", "response"]
+      - id: cancelled
+        when: "사람이 Cancel을 누르거나 창을 닫았다. open 응답은 {ok, result: cancelled}다"
+        observe: ["response", "disk:<data root>/secrets.json이 바뀌지 않는다"]
+      - id: conflict
+        code: conflict
+        when: "이미 열린 보호 창이 있거나 여는 중이다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "windows 집합에 없는 sender(보호 창 등)가 open을 불렀다. 또는 열린 보호 창이 아닌 caller가 display, submit, cancel을 불렀다(invoke가 reject로 끝난다)"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "name, purpose, subject 꼴이 틀리다. 제출 값이 비었거나 64KiB를 넘는다. core가 invalid_input으로 거절했다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "core가 준비되지 않았거나 제출 중에 다시 눌렀다. core upload가 실패했다. 보호 창이 렌더 프로세스 종료나 응답 없음으로 죽었다"
+        observe: ["response"]
+    crosses_process: true
+    risk: [secret]
+    unclear:
+      - "보호 창의 화면은 wireframe new-secret-input(app, mcp 변형 포함)에 대응한다. journey에서 쓴다"
+      - "앱 view 입력 차단은 창을 열 때 잡힌 webContents 목록에만 건다. 열린 뒤 새로 붙은 webview는 막히지 않을 수 있다. 코드 확인이 필요하다"
+      - "이 기능의 architecture 문서가 없다. 규칙은 wiring과 ipc 주석, approval.md의 capability 단락에 흩어져 있다"
+      - "open의 sender 검사는 windows 집합에 들었는지만 본다(checkCaller의 origin·main frame 검사가 없다). 그래서 detached 탭 창과 앱 전용 창의 본문도 보호 입력을 열 수 있다. 의도인지 사람이 정해야 한다(secret risk)"
+      - "보호 창의 loadURL이 실패하면 catch가 없어 창은 숨은 채 open이 끝나지 않고 열린 보호 창으로 남는다. 코드 확인이 필요하다"
+
+  # ---------- 모양 ----------
+  - id: appearance-set
+    title: "고른 appearance를 nativeTheme과 lophn 문서들의 CSS에 건다"
+    actor: person
+    uses: [ipc:shell:appearance, route:settings/list, route:settings/update]
+    boundary: [shell, design-api]
+    code:
+      - packages/shell/main/desktop/wiring/appearance.ts
+      - packages/design/appearance.ts
+      - packages/design/presets.ts
+      - packages/shell/renderer/desktop/settings/appearance/model.ts
+      - packages/shell/renderer/desktop/settings/appearance/appearance-panel.tsx
+    steps:
+      - "Settings › Appearance에서 고르면 renderer의 applyAppearance가 같은 값을 IPC appearance로 보낸다. 이어서 shell.* 선언 설정을 route:settings/update로 한 줄씩 쓴다. 저장이 실패하면 저장된 값을 다시 읽는다"
+      - "시작할 때는 core가 준비되면 renderer가 shell.*을 읽어 같은 IPC로 보낸다"
+      - "main은 desktop 창 본문만 받는다. parseAppearance로 다시 검사한다. 목록 밖 값이 하나라도 있으면 전체를 버리고 응답이 없다"
+      - "글꼴 이름이 규칙(글자·숫자·공백·-·_, 1~64자)을 어기면 그 이름만 버리고 그 칸은 기본 글꼴이다. 나머지 값은 적용된다"
+      - "nativeTheme.themeSource를 맞춘다. CSS가 옛것과 같으면 여기서 끝이다. 다르면 열린 lophn 문서마다 옛 CSS를 지우고 새로 넣는다"
+    outcomes:
+      - id: applied
+        when: "값이 목록 안이고 main이 theme과 CSS를 맞췄다"
+        observe: ["screen:new-settings-appearance"]
+      - id: ignored
+        when: "목록 밖 값이 있거나 객체가 아니거나, desktop 창 본문이 아닌 곳이 보냈다(checkCaller 실패 또는 origin이 desktop이 아니다). 아무것도 바뀌지 않고 IPC 응답은 값 없이 끝난다"
+        observe: ["response", "process:변화가 없다"]
+      - id: save-failed
+        when: "shell.* 설정 쓰기가 하나라도 실패했다(route:settings/update의 거절 포함). 화면은 먼저 바뀌었다가 저장된 값을 다시 읽어 그 모양으로 돌아가고 main에도 그 값이 간다. 다시 읽기도 실패하면 read-failed 화면이 된다"
+        observe: ["screen:new-settings-appearance"]
+      - id: read-failed
+        when: "shell.* 읽기(route:settings/list)가 실패했다. 시작할 때나 저장 실패 뒤 다시 읽을 때다. 적용하지 않고 오류 화면(다시 시도)을 보인다"
+        observe: ["screen:new-settings-appearance"]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/appearance.md]
+    unclear:
+      - "risk sandbox는 CSS를 앱 화면 guest에 넣는 경계(글꼴 이름 검사로 CSS 문자열 밖으로 못 나간다)로 봤다. 판단이 다르면 뺀다"
+      - "언어를 고르는 설정은 없다. LOPHN_LOCALE이 en 상수다(packages/design/i18n/format.ts). 그래서 언어 flow는 만들지 않았다"
+
+  - id: appearance-on-load
+    title: "새 lophn 문서가 읽힐 때 지금 CSS와 앱 화면의 locale을 넣는다"
+    actor: system
+    entries: [system:appearance-on-load]
+    boundary: [shell, design-api]
+    code:
+      - packages/shell/main/desktop/wiring/appearance.ts
+      - packages/shell/main/app-frame/network-policy.ts
+      - packages/shell/main/artifact/theme-css.ts
+    steps:
+      - "web-contents-created로 받은 webContents마다 dom-ready를 듣는다"
+      - "lophn-shell, lophn-app, lophn-artifact 문서가 아니면(browser 탭 등) 아무 일도 하지 않는다"
+      - "lophn 문서면 지금 CSS를 insertCSS한다. artifact 문서는 CSS가 비어도 token 정의를 넣는다"
+      - "lophn-app 문서면 html에 data-lophn-locale=en을 executeJavaScript로 적는다. 페이지 CSP와 상관없이 main이 넣는 script다"
+    outcomes:
+      - id: inserted
+        when: "lophn 문서이고 넣을 CSS가 있다(artifact는 항상)"
+        observe: ["process:문서에 CSS가 적용된다"]
+      - id: locale-stamped
+        when: "lophn-app 문서가 dom-ready되었다. inserted와 같이 일어날 수 있다"
+        observe: ["process:앱 화면 html에 data-lophn-locale=en"]
+      - id: skipped
+        when: "lophn 문서가 아니거나 넣을 CSS가 없다. insertCSS가 실패해도(문서가 그 사이 사라진 경우 등) 조용히 여기로 끝난다"
+        observe: ["process:문서에 아무것도 들어가지 않는다"]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/appearance.md]
+
+  # ---------- 개발 확인 ----------
+  - id: headless-paint
+    title: "개발 확인용 headless 실행에서 창의 첫 그림과 안정된 그림을 PNG로 쓴다"
+    actor: system
+    entries: [system:headless-paint]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/headless.ts
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/wiring/secret-input.ts
+    steps:
+      - "LOPHN_SHELL_HEADLESS=1일 때만 켜진다. LOPHN_SHELL_SHOT_DIR이 있어야 쓴다"
+      - "desktop 창과 보호 창이 만들어질 때 offscreen paint event를 듣는다"
+      - "처음 비지 않은 paint를 <name>-first.png로 쓴다"
+      - "paint가 1.5초 동안 멈추면 마지막 그림을 <name>-settled.png로 덮어쓴다. 다시 그려지면 다시 센다"
+      - "headless가 아니면 아무 파일도 쓰지 않는다. 사람 화면에는 영향이 없다"
+    outcomes:
+      - id: first-shot
+        when: "처음 비지 않은 paint가 왔다(비어 있는 paint는 무시하고 다음 것을 기다린다)"
+        observe: ["disk:<LOPHN_SHELL_SHOT_DIR>/<name>-first.png"]
+      - id: settled-shot
+        when: "paint가 1.5초 멈췄다"
+        observe: ["disk:<LOPHN_SHELL_SHOT_DIR>/<name>-settled.png"]
+      - id: no-shot
+        when: "headless가 아니거나 shot dir이 없다"
+        observe: ["process:파일이 쓰이지 않는다"]
+    crosses_process: true
+    docs: [architecture/platform.md]
+
+  # ---------- 현재 보기 relay (protocol/shell의 route 4개) ----------
+  - id: view-relay-publish
+    title: "shell 창이 지금 보는 것(요약과 탭 page)을 core 메모리의 현재 보기 relay에 올린다"
+    actor: shell
+    entries: [route:workspace/publish]
+    boundary: [shell, core-api]
+    code:
+      - packages/protocol/shell/workspace.ts
+      - packages/core/server/workspace.ts
+    steps:
+      - "shell main이 user 자격으로 부른다. window_ref, generation, 관측 시각, 요약(UTF-8 2048 bytes 이하), 탭 page(한 page 20개, 탭 종류와 대상 참조만)를 받는다. 본문과 터미널 출력은 schema가 막는다"
+      - "같은 window_ref가 이미 있으면 값을 대체한다. 그 창에 bind된 session 결합은 유지한다"
+      - "새 window_ref인데 창 수가 64에 이르렀으면 conflict다"
+      - "relay가 끊겨 있으면(main 연결이 끊긴 뒤) unavailable이다"
+      - "값은 core 메모리에만 있고 ledger, blob, log에 가지 않는다"
+    outcomes:
+      - id: ok
+        observe: ["response", "process:core 메모리의 창 값 하나가 대체된다"]
+      - id: conflict
+        code: conflict
+        when: "창이 이미 64개 있고 새 window_ref다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "relay가 끊긴 상태다. disconnect 뒤에는 되돌아오지 않는다(unclear 참고)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 route의 actors(user)가 아니다(core dispatch의 actorAllowed가 먼저 막는다)"
+        observe: ["response"]
+    crosses_process: false
+    unclear:
+      - "shell main·renderer 어디에도 workspace/publish를 부르는 곳이 없다(grep 확인). publish 출처가 아직 붙지 않았다"
+      - "현재 보기 relay는 화면 상태라서 shell-workspace 쪽일 수도 있다. entry 경로(protocol/shell)를 따라 여기 두었다"
+      - "connected 값은 disconnect()에서 false가 되고 true로 돌아가는 곳이 없다(core/server/workspace.ts). disconnect는 shell의 Gateway가 닫힐 때(server.ts onClose → shell capability end)와 core 종료 때 불린다. 그러면 shell이 다시 붙은 뒤에도 publish·bind·unpublish가 core가 끝날 때까지 unavailable일 수 있다. 결함인지 확인이 필요하다"
+
+  - id: view-relay-bind
+    title: "session 하나를 publish된 창 하나에 잇는다"
+    actor: shell
+    entries: [route:workspace/bind]
+    pre: [route:workspace/publish]
+    boundary: [shell, core-api]
+    code:
+      - packages/protocol/shell/workspace.ts
+      - packages/core/server/workspace.ts
+    steps:
+      - "shell main이 user 자격으로 session과 window_ref를 받는다"
+      - "window_ref가 publish되어 있지 않으면 not_found다"
+      - "session 하나에 창 하나다. 이미 다른 창에 잇던 session이면 옮긴다"
+      - "relay가 끊겼으면 unavailable이다"
+    outcomes:
+      - id: ok
+        observe: ["response", "process:그 창의 결합 session이 바뀐다"]
+      - id: not-found
+        code: not_found
+        when: "window_ref가 publish되어 있지 않다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "relay가 끊긴 상태다(disconnect 뒤에는 되돌아오지 않는다. view-relay-publish 참고)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 route의 actors(user)가 아니다(core dispatch의 actorAllowed가 먼저 막는다)"
+        observe: ["response"]
+    crosses_process: false
+
+  - id: view-relay-unpublish
+    title: "publish된 창의 값과 그 창에 잇던 session 결합을 지운다"
+    actor: shell
+    entries: [route:workspace/unpublish]
+    pre: [route:workspace/publish]
+    boundary: [shell, core-api]
+    code:
+      - packages/protocol/shell/workspace.ts
+      - packages/core/server/workspace.ts
+    steps:
+      - "shell main이 user 자격으로 window_ref를 받는다"
+      - "publish된 값이 없으면 not_found다"
+      - "창의 값을 지우고, 그 창에 잇던 session 결합도 모두 지운다"
+      - "relay가 끊겼으면 unavailable이다"
+    outcomes:
+      - id: ok
+        observe: ["response", "process:relay에 그 창 값이 없다"]
+      - id: not-found
+        code: not_found
+        when: "window_ref가 publish되어 있지 않다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "relay가 끊긴 상태다(disconnect 뒤에는 되돌아오지 않는다. view-relay-publish 참고)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 route의 actors(user)가 아니다(core dispatch의 actorAllowed가 먼저 막는다)"
+        observe: ["response"]
+    crosses_process: false
+
+  - id: view-relay-read
+    title: "agent가 자기 session의 창이 지금 보여 주는 요약과 탭 page를 읽는다"
+    actor: agent
+    entries: [route:workspace/read]
+    pre: [route:workspace/bind]
+    boundary: [core-api]
+    code:
+      - packages/core/server/workspace.ts
+      - packages/protocol/shell/workspace.ts
+    steps:
+      - "입력 session이 호출한 agent의 credential에 묶인 session과 다르면 unavailable 답이다. 자기 session의 창만 읽는다"
+      - "session이 창에 bind되지 않았거나 창이 publish되어 있지 않으면 disconnected 답이다"
+      - "page 번호가 범위 밖이면 unavailable 답이다. 다음 page가 있으면 next_page를 준다"
+      - "돌려주기 전에 등록된 secret을 redaction으로 가린다. redaction이 막히면 unavailable 답이다"
+      - "답의 모양이 출력 schema와 맞지 않으면 unavailable 답이다"
+    outcomes:
+      - id: current
+        when: "창이 publish되어 있고 session이 묶였다. availability current로 요약과 page를 돌려준다"
+        observe: ["response"]
+      - id: disconnected
+        when: "session이 창에 bind되지 않았거나 창이 publish되지 않았다. relay가 끊기면 값이 비워져 이 답이다"
+        observe: ["response"]
+      - id: unavailable
+        when: "session이 맞지 않거나 page가 범위 밖이거나 redaction으로 막히거나 출력 모양이 맞지 않는다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 route의 actors(agent)가 아니다(core dispatch의 actorAllowed가 먼저 막는다)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [secret]
+    unclear:
+      - "protocol 주석은 요약만 주는 첫 read가 tab_page를 생략한다고 하지만 core 코드는 page 0을 항상 싣는다. 코드 확인이 필요하다"

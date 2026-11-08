@@ -1,0 +1,1082 @@
+area: harness
+flows:
+  # ---- harness host: core 메모리의 harness queue와 session ----
+  - id: harness-take
+    title: harness 입력 하나를 꺼내지 않고 본다
+    actor: shell
+    entries: [route:harness/take]
+    boundary: [harness-host-interface, harness-host-core]
+    code:
+      - packages/protocol/lophn-agent/harness-host.ts
+      - packages/core/main/daemon/wiring/harness.ts
+    steps:
+      - "shell main의 extension harness host가 1초마다 사람 token으로 부른다. 설정 extensions.harness.enabled가 꺼져 있으면 unavailable"
+      - "대기 중인 session을 앞에서부터 보고, 도는 turn이나 TUI hold가 있는 session은 건너뛴다"
+      - "session이 없거나 harness가 아니면 그 session의 queue를 비우고 다음으로 간다"
+      - "입력 본문을 session 기록에서 읽어 prompt를 만든다. 본문이 없어졌으면 queue에서 뺀다"
+      - "첫 입력의 정보와 prompt를 돌려준다. 시작할 입력이 없으면 input이 null이다"
+    outcomes:
+      - id: input
+        observe: [response]
+      - id: none
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "설정 extensions.harness.enabled가 꺼져 있다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부른다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-turn-start
+    title: harness 입력 하나로 turn을 연다
+    actor: shell
+    entries: [route:harness/start_turn]
+    pre: [harness-take:input]
+    boundary: [harness-host-interface, harness-host-core]
+    code:
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/core/main/daemon/wiring/harness-credential.ts
+      - packages/protocol/lophn-agent/turns.ts
+    steps:
+      - "shell host가 take로 받은 input_message를 넘긴다. 설정이 꺼져 있으면 unavailable"
+      - "session이 없으면 not_found, harness session이 아니면 forbidden으로 끝낸다"
+      - "queue 머리가 그 입력이고 session이 입력을 받으며 돌거나 hold되지 않았는지 본다. 아니면 conflict"
+      - "턴 한도 설정을 읽고 잘못되었으면 invalid_input. 그다음 turn 자격(credential)을 발급한다"
+      - "StartTurn을 machine 자격으로 쓰고(ledger turns), queue에서 그 입력을 꺼내 running으로 표시한다"
+      - "StartTurn이 입력 메시지 없음으로 실패하면 queue에서도 빼고 not_found를 돌려준다. 실패한 자격은 바로 끝낸다"
+      - "turn id와 credential을 돌려준다. credential은 harness process의 env로만 넘어간다"
+    outcomes:
+      - id: started
+        observe: [ledger:turns, event:TurnStarted, response]
+      - id: conflict
+        code: conflict
+        when: "입력이 queue 머리가 아니거나, session이 입력을 받지 않거나, turn이 돌거나, TUI hold 중이다. 또는 StartTurn이 같은 입력으로 이미 turn을 열었거나 session에 도는 turn이 기록에 있다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "session이 없거나 입력 메시지가 없어졌다(StartTurn이 입력 메시지를 못 찾은 것 포함)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부르거나, session의 runtime이 harness가 아니다. 또는 StartTurn의 machine 검사가 거절했다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "턴 한도 설정이 양의 정수가 아니다. 또는 StartTurn이 읽은 한도가 기록 시점의 설정과 다르다(그사이 설정이 바뀌었다). 또는 turn 자격 범위가 맞지 않다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "설정 extensions.harness.enabled가 꺼져 있다. session 기록을 읽지 못했다. ledger에 쓰지 못했다. StartTurn이 턴 한도를 정하지 못했다. turn 자격 발급이나 기록이 실패했다"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "방금 발급한 turn 자격을 registry가 다시 찾지 못했다"
+        observe: [response]
+    crosses_process: false
+    risk: [permission, secret]
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-turn-record
+    title: harness가 낸 글과 tool 기록을 대화에 넣는다
+    actor: shell
+    entries: [route:harness/record]
+    pre: [harness-turn-start:started]
+    boundary: [harness-host-interface, harness-host-core]
+    code:
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/protocol/lophn-agent/harness-host.ts
+    steps:
+      - "shell host의 실행 loop가 CLI 출력 한 줄마다 text나 harness_tool part로 부른다"
+      - "session이 있고 harness인지 본다(아니면 not_found 또는 forbidden)"
+      - "RecordMessage를 machine 자격으로 쓰고(ledger messages), model_call이 없는 MessageRecorded를 낸다"
+      - "turn이 이미 끝났으면 conflict다. 호출한 host는 conflict를 받으면 CLI process를 멈춘다"
+    outcomes:
+      - id: recorded
+        observe: [ledger:messages, event:MessageRecorded, response]
+      - id: conflict
+        code: conflict
+        when: "turn이 이미 끝났다. 같은 message id가 다른 내용에 쓰였다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "session이 없거나, turn이 없거나 그 session의 turn이 아니다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부르거나, session의 runtime이 harness가 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "session 기록을 읽지 못했다. ledger나 본문 저장에 쓰지 못했다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-turn-finish
+    title: harness turn을 끝낸다
+    actor: shell
+    entries: [route:harness/finish_turn]
+    pre: [harness-turn-start:started]
+    boundary: [harness-host-interface, harness-host-core]
+    code:
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/core/main/daemon/wiring/bare-reply.ts
+      - packages/protocol/lophn-agent/turns.ts
+    steps:
+      - "turn을 읽는다. 없으면 not_found, 그 session이 harness가 아니면 forbidden"
+      - "outcome이 interrupted면 schema가 invalid_input으로 막는다(이 flow의 갈래가 아니다). 멈춤과 재시작은 core가 닫는다"
+      - "FinishTurn을 machine 자격으로 turn의 state_seq에 맞춰 쓴다. 이미 끝났거나 재시작으로 닫혔으면 conflict"
+      - "TurnEnded를 turn마다 한 번 낸다. queue는 running을 내리고 turn 자격을 끝낸다"
+      - "입력이 answer를 기다리는 result call이면 마지막 기록 메시지가 그 답이 된다(bare-reply가 TurnEnded를 듣고 보낸다)"
+    outcomes:
+      - id: finished
+        observe: [ledger:turns, event:TurnEnded, response]
+      - id: conflict
+        code: conflict
+        when: "turn이 이미 끝났거나 재시작으로 interrupted가 되었다. 읽은 뒤 turn 상태가 바뀌었다(state_seq가 맞지 않다)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "turn이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부르거나, turn의 session이 harness가 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "session 기록을 읽지 못했다. ledger에 쓰지 못했다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-session-bind
+    title: harness가 알려 준 CLI session id를 lophn session에 둔다
+    actor: shell
+    entries: [route:harness/set_external_id]
+    pre: [harness-turn-start:started]
+    uses: [harness-bind-session:bound, harness-bind-session:unchanged]
+    boundary: [harness-host-interface, harness-host-core]
+    code:
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/core/lophn-agent/session/harness.ts
+    steps:
+      - "CLI가 session id를 알리면 shell host의 실행 loop가 부른다"
+      - "session이 없으면 not_found, harness session이 아니면 forbidden"
+      - "BindHarnessSession(machine 자격)에 맡긴다. 같은 id면 아무것도 쓰지 않는다"
+      - "다음 turn의 take가 이 id를 external_session_id로 돌려주어 CLI가 이어 간다"
+    outcomes:
+      - id: bound
+        observe: [ledger:sessions, response]
+      - id: unchanged
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "session이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부르거나, session의 runtime이 harness가 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "session 기록을 읽지 못했다. ledger에 쓰지 못했다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-bind-session
+    title: 같은 core 안에서 harness session id를 ledger에 쓴다
+    actor: system
+    entries: [route:harness/bind_session]
+    boundary: [harness-host-core]
+    code:
+      - packages/core/lophn-agent/session/harness.ts
+      - packages/core/main/daemon/wiring/harness.ts
+    steps:
+      - "사람과 agent는 부를 수 없다(machine 전용). harness-session-bind의 handler가 core 안에서 부른다"
+      - "session이 harness인지 harnessOf로 본다"
+      - "같은 harness_session이면 아무것도 쓰지 않는다"
+      - "다르면 sessions의 harness_session을 바꾸고 state_seq를 올린다"
+    outcomes:
+      - id: bound
+        observe: [ledger:sessions, response]
+      - id: unchanged
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "session이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아니거나(requireMachine), session의 runtime이 harness가 아니다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  # ---- host queue: core 메모리의 host 요청과 agent가 연 탭 ----
+  - id: host-request-take
+    title: shell main이 보이는 workspace의 host 요청 하나를 빌린다
+    actor: shell
+    entries: [route:host/take]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/queue.ts
+      - packages/core/host-queue/hold.ts
+      - packages/shell/main/desktop/wiring/surface.ts
+    steps:
+      - "shell main의 surface poller가 1초마다 보이는 workspace 목록과 TUI 탭 session 목록을 싣고 부른다"
+      - "매 take가 heartbeat다. TUI hold를 갱신하고 shell이 붙어 있다는 표시(마지막 take 3초 안)를 갱신한다"
+      - "보이는 workspace의 가장 오래된 대기 요청 하나를 빌려 주고 빌린 시각을 적는다"
+      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. tool_call은 기한이 없다"
+      - "tool_call은 workspace와 상관없이 아무 shell이나 가져간다. 요청이 없으면 request가 null이다"
+    outcomes:
+      - id: request
+        observe: [response]
+      - id: none
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부른다"
+        observe: [response]
+    crosses_process: false
+    risk: [secret]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "tool_call 요청 payload에 credential이 실려 shell로 간다. 이 credential을 실제로 누가 받는지는 extension-tools 쪽 flow가 정한다"
+
+  - id: host-request-done
+    title: shell이 끝낸 host 요청을 떼고, 못 연 요청은 다시 대기시킨다
+    actor: shell
+    entries: [route:host/done]
+    pre: [host-request-take:request]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "shell이 요청 id와 결과(done 또는 retry)를 보낸다. 없는 id면 아무것도 하지 않는다"
+      - "retry면 그 요청을 빌림 해제하고 맨 뒤로 보낸다. 앞 요청이 뒤를 막지 않게 한다"
+      - "done이고 tool_call이면 output을 그 호출을 기다리던 extension tool 호출에 넘긴다(content는 성공, error는 실패)"
+      - "tool_call인데 output이 없으면 기다리던 쪽은 unavailable로 끝난다"
+    outcomes:
+      - id: done
+        when: "빌린 요청을 끝냈다. tool_call이면 output을 기다리던 호출에 넘긴다. 다른 종류면 요청을 지운다"
+        observe: [response]
+      - id: retry
+        when: "shell이 창에 열지 못했다. 요청을 빌림 해제하고 맨 뒤로 보낸다"
+        observe: [response]
+      - id: unknown
+        when: "그 id의 요청이 없다(이미 끝났거나 거둬졌다). 아무것도 하지 않고 ok다"
+        observe: [response]
+      - id: tool-no-output
+        when: "tool_call인데 output이 없다. 기다리던 호출은 unavailable로 끝난다(turns 쪽 flow가 본다)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부른다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "tool_call 결과를 기다리는 extension tool 호출 flow는 turns 쪽에 있다. 여기서는 done 쪽만 적었다"
+
+  - id: host-tab-report
+    title: shell이 알려 준 host 탭의 browser 상태나 닫힘을 기록한다
+    actor: shell
+    entries: [route:host/report]
+    pre: [host-tab-open:accepted]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "renderer가 host 탭의 url, title, loading을 shell main에 알리면 shell main이 부른다"
+      - "탭이 표에 있으면 browser 상태를 저장한다"
+      - "closed면 탭을 표에서 뺀다. 이후 browser/read는 not_found다"
+      - "모르는 탭이면 아무것도 하지 않고 ok다"
+    outcomes:
+      - id: state
+        when: "탭이 표에 있고 browser 상태(url, title, loading)를 저장했다"
+        observe: [response]
+      - id: closed
+        when: "closed를 받았다. 탭을 표에서 뺀다(표에 없었어도 ok다)"
+        observe: [response]
+      - id: unknown
+        when: "표에 없는 탭이고 closed가 아니다. 아무것도 하지 않고 ok다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token(shell main)이 아닌 자격이 부른다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/browser-tab.md]
+
+  - id: host-tab-open
+    title: agent가 session이나 browser 탭을 열어 달라고 요청한다
+    actor: agent
+    entries: [route:tabs/open]
+    when: "target이 session이거나 browser일 때. tui는 harness-tui-open이 맡는다"
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/queue.ts
+      - packages/protocol/lophn-agent/host-queue.ts
+    steps:
+      - "lophn tool이나 lophn tab open 명령이 agent 자격으로 부른다"
+      - "자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
+      - "session 대상이면 같은 workspace의 열린 session인지 본다. 아니면 not_found"
+      - "browser 대상이면 url이 http나 https인지 본다. 아니면 invalid_input"
+      - "탭 표에 opener를 적고 tab_open 요청을 host queue에 넣는다. workspace는 부른 session의 것(home이면 home)이다"
+      - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell host poll이 연다"
+    outcomes:
+      - id: accepted
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "호출 session이 없거나, 대상 session이 없거나 닫혔거나 다른 workspace다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "browser url이 http나 https가 아니다"
+        observe: [response]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md]
+    unclear:
+      - "lophn tab open 명령(packages/cli/commands/tab.ts)은 cli area의 entry다. 그 entry는 이 flow로 links를 걸어야 한다"
+
+  - id: harness-tui-open
+    title: harness agent session을 TUI 탭으로 연다(CLI session을 hold한다)
+    actor: agent
+    uses: [route:tabs/open]
+    when: "target이 tui일 때"
+    pre: [harness-turn-start:started]
+    boundary: [host-queue-interface, host-queue-core, harness-host-core]
+    code:
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/shell/main/terminal/harness-tui.ts
+    steps:
+      - "host-tab-open과 같은 판정을 거친다. session이 없거나 닫혔거나 다른 workspace면 not_found"
+      - "harness session이 아니거나 project workspace가 아니면 invalid_input. home과 app은 터미널이 없다"
+      - "CLI session id가 아직 없으면(첫 turn 전) conflict. turn이 돌거나 이미 hold되어 있어도 conflict"
+      - "통과하면 그 자리에서 30초 hold를 예약하고 resume 값(adapter id, CLI session id)을 tab_open 요청에 싣는다"
+      - "shell host가 터미널 탭을 열고 CLI resume 명령을 친다. 탭이 있는 동안 그 session의 headless turn은 시작하지 않는다"
+    outcomes:
+      - id: accepted
+        observe: [response, process:cli-tui]
+      - id: not_found
+        code: not_found
+        when: "호출 session이나 대상 session이 없거나 닫혔거나 다른 workspace다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "대상이 harness session이 아니거나 project workspace가 아니다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "CLI session id가 없거나, turn이 돌거나, 이미 hold되어 있다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss]
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "TUI가 끝내 뜨지 않으면 사람이 탭을 닫을 때까지 hold가 남는다. 그 release 경로는 system:harness-tui-hold가 맡는다"
+
+  - id: host-tab-close
+    title: agent가 자기가 연 탭을 닫는다
+    actor: agent
+    entries: [route:tabs/close]
+    pre: [host-tab-open:accepted]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "agent 자격의 session이 부른다"
+      - "탭이 없으면 not_found. 다른 session이 연 탭이면 forbidden"
+      - "탭을 표에서 빼고 tab_close 요청을 그 탭의 workspace로 넣는다"
+      - "화면에서 닫는 것은 shell host poll이 한다. 터미널 탭을 닫으면 PTY도 닫힌다"
+    outcomes:
+      - id: accepted
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "탭이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "다른 session이 연 탭이거나, agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md]
+
+  - id: host-browser-read
+    title: agent가 자기가 연 browser 탭의 url, title, loading을 읽는다
+    actor: agent
+    entries: [route:browser/read]
+    pre: [host-tab-report:state]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "agent 자격의 session이 부른다"
+      - "남이 연 탭이거나 탭이 없으면 not_found"
+      - "browser 탭이고 상태가 있으면 url, title, loading을 돌려준다. 상태가 아직 없거나 agent 탭이면 not_found"
+    outcomes:
+      - id: state
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "남의 탭이거나 없거나, browser 상태가 아직 없거나, agent 탭이다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+    crosses_process: false
+
+  # ---- shell 쪽 timer와 core 쪽 lease ----
+  - id: harness-turn-run
+    title: harness 입력을 headless CLI로 실행해 turn을 끝까지 돌린다
+    actor: shell
+    entries: [system:harness-turn-run]
+    uses:
+      - harness-take:input
+      - harness-turn-start:started
+      - harness-turn-record:recorded
+      - harness-session-bind:bound
+      - harness-turn-finish:finished
+      - route:turns/read
+      - route:agents/read
+      - route:projects/get
+      - route:apps/get
+    boundary: [shell-extension, harness-host-interface]
+    code:
+      - packages/shell/main/extensions/bundled/harness/host.ts
+      - packages/protocol/coding-agent/headless/
+      - packages/protocol/coding-agent/harness-adapter.ts
+    steps:
+      - "extension harness가 1초마다 tick한다. take로 입력을 보고(없으면 끝), start_turn으로 turn을 연다. 둘 중 하나가 거절하면 이번 tick을 끝낸다"
+      - "cwd를 고른다. home은 harness-home의 빈 폴더, project와 app은 첫 폴더다. 없으면 configuration-unavailable"
+      - "agent 정의의 deny를 그 CLI의 권한 표현으로 옮긴다. 옮길 수 없으면 configuration-unavailable. git 저장소 안의 하위 폴더면 띄우지 않는다"
+      - "headless CLI(claude -p, codex exec, opencode run)를 cwd와 turn 자격 env로 띄우고 stdin을 닫는다"
+      - "줄마다 parser로 읽어 글과 harness_tool은 record로, CLI session id는 set_external_id로 보낸다"
+      - "1초마다 turns/read로 core가 turn을 닫았는지 본다. 닫혔으면(멈춤) process를 죽이고 더 기록하지 않는다"
+      - "process가 끝나면 글이 있으면 completed, 없으면 no-answer, 실패는 실패 글을 record한 뒤 model-error나 target-unavailable로 finish한다"
+    outcomes:
+      - id: idle
+        when: "take가 입력을 주지 않았다. 이번 tick에 할 일이 없다"
+        observe: [response]
+      - id: not-started
+        when: "take가 실패했거나 start_turn이 거절했다(설정이 꺼짐, queue 머리가 아님, 다른 turn이 돎 등). turn이 열리지 않았다"
+        observe: [response]
+      - id: completed
+        observe: [ledger:turns, event:TurnEnded]
+      - id: model-error
+        when: "CLI가 end event로 실패를 알리거나 0이 아닌 exit code로 끝났다"
+        observe: [ledger:messages, ledger:turns, event:TurnEnded]
+      - id: target-unavailable
+        when: "CLI를 띄우지 못했거나(headless를 지원하지 않는 CLI 포함) 신호로 끝났다. agent 정의를 읽지 못했다. extension이 꺼지며 process를 끊었다. 실행 중 예외가 났다"
+        observe: [ledger:messages, ledger:turns, event:TurnEnded]
+      - id: configuration-unavailable
+        when: "cwd가 없거나 deny를 옮길 수 없거나 빈 입력이거나 git 최상위가 아니다"
+        observe: [ledger:messages, ledger:turns, event:TurnEnded]
+      - id: no-answer
+        when: "글 없이 끝났다"
+        observe: [ledger:turns, event:TurnEnded]
+      - id: stopped-by-core
+        when: "사람의 멈춤이나 재시작으로 core가 turn을 이미 닫았다(turns/read가 finished). 또는 record가 conflict를 받았다. finish를 부르지 않는다"
+        observe: [ledger:turns]
+    crosses_process: true
+    risk: [sandbox, secret]
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "extension 종료(stop) 때 실행 중 turn은 target-unavailable로 finish한다. 설정이 꺼진 뒤의 finish는 core가 conflict로 거절할 수 있다"
+
+  - id: host-queue-poll
+    title: shell main이 1초마다 host 요청을 가져가 창에 열거나 extension tool을 돌린다
+    actor: shell
+    entries: [system:host-queue-poll]
+    uses: [host-request-take:request, host-request-take:none, host-request-done:done, host-request-done:retry]
+    boundary: [host-queue-interface, shell]
+    code:
+      - packages/shell/main/desktop/wiring/surface.ts
+      - packages/shell/ipc/surface.ts
+    steps:
+      - "POLL_MS(1초)마다 host/take를 부른다. 보이는 workspace와 TUI 목록을 싣는다. 한 tick에 최대 20번 반복한다"
+      - "tool_call이면 extension tool을 따로 돌리고 기다리지 않는다. 끝나면 done에 결과를 싣는다"
+      - "탭 요청이면 그 workspace를 보이는 창에 push하고 창의 ack를 1.5초 기다린다"
+      - "ack가 오면 done. 창이 없거나 ack가 없으면 retry로 done하고 이번 tick을 끝낸다"
+      - "요청이 없으면 tick을 끝낸다"
+      - "앞 tick이 아직 돌고 있으면 이번 tick은 아무것도 하지 않는다"
+    outcomes:
+      - id: offered
+        observe: [screen:project-terminal]
+      - id: retry
+        when: "창이 없거나, 창이 1.5초 안에 ack하지 않았거나, 창이 열지 못했다고 답했다"
+        observe: [response]
+      - id: tool-call
+        when: "tool_call 요청이다. extension tool을 따로 돌리고 끝나면 done에 결과를 싣는다"
+        observe: [response]
+      - id: idle
+        when: "take가 요청을 주지 않았다"
+        observe: [response]
+      - id: take-failed
+        when: "host/take가 실패해 답이 없다. 이번 tick을 끝낸다"
+        observe: [response]
+      - id: busy
+        when: "앞 tick이 아직 돌고 있다. 이번 tick은 아무것도 하지 않는다"
+        observe: []
+    crosses_process: true
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "offered 결과 화면은 프레임 project-terminal로 근사했다. agent가 연 탭의 정확한 프레임은 확인하지 않았다"
+
+  - id: harness-tui-hold
+    title: TUI 탭이 열린 harness session의 hold를 연장하거나 푼다
+    actor: system
+    entries: [system:harness-tui-hold]
+    uses: [harness-tui-open:accepted, host-request-take:none]
+    boundary: [harness-host-core, host-queue-core]
+    code:
+      - packages/core/host-queue/hold.ts
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/shell/main/terminal/harness-tui.ts
+    steps:
+      - "tabs/open의 tui 판정을 통과하면 그 자리에서 30초 예약한다(첫 heartbeat까지의 틈)"
+      - "shell main이 매 take에 실어 주는 TUI 탭 session 목록이 heartbeat다. 목록에 실린 session은 10초로 연장한다"
+      - "한 번 목록에 실렸던 session이 빠지면 바로 푼다. 탭 닫힘, 창 닫힘, CLI가 foreground를 떠남이 여기서 드러난다"
+      - "한 번도 실리지 않은 session은 30초 뒤 만료된다"
+      - "hold된 동안 harness/take는 그 session을 건너뛰고 harness/start_turn은 conflict다"
+    outcomes:
+      - id: extended
+        when: "heartbeat 목록에 실렸다. 10초로 연장한다"
+        observe: [response]
+      - id: released
+        when: "한 번 실렸던 session이 목록에서 빠졌다"
+        observe: [response]
+      - id: expired
+        when: "예약 30초 안에 한 번도 실리지 않았다. 또는 heartbeat가 끊겨 연장된 시각을 넘었다"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-queue-restore
+    title: core가 다시 떠서 접수만 된 harness 입력을 queue에 되돌린다
+    actor: system
+    entries: [system:harness-queue-restore]
+    boundary: [harness-host-core]
+    code:
+      - packages/core/main/daemon/wiring/harness.ts
+      - packages/core/lophn-agent/session/message-commands.ts
+    steps:
+      - "core 기동 때 harness wiring의 start가 ledger에서 아직 시작하지 않은 사람 메시지를 찾는다"
+      - "session이 입력을 받고 harness이면 harness queue에 다시 넣는다. 본문은 take가 기록에서 읽는다"
+      - "닫혔거나 보관되었거나 harness가 아니면 건너뛴다"
+      - "돌던 turn은 router가 interrupted(restarted)로 먼저 닫는다. 그 뒤의 harness-turn-finish는 conflict다"
+    outcomes:
+      - id: queued
+        observe: [response]
+      - id: skipped
+        when: "session이 닫혔거나 보관되었거나 harness가 아니다"
+        observe: [response]
+      - id: unopened
+        when: "ledger를 열지 못했다. 아무것도 다시 넣지 않고 기동을 이어 간다"
+        observe: []
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "start()는 core 기동 때 한 번 돈다. 설정을 껐다 켰을 때 queue가 비고 start()가 다시 도는지는 확인하지 못했다"
+
+  # ---- 터미널 탭의 coding agent: hook과 상태 ----
+  - id: terminal-hook-forward
+    title: harness hook이 부른 lophn hook을 터미널 hook socket으로 보낸다
+    actor: coding-agent
+    entries: [cli:hook]
+    boundary: [coding-agent, coding-agent-cli]
+    code:
+      - packages/coding-agent/local/hook.ts
+      - packages/protocol/coding-agent/terminal-hook.ts
+      - packages/protocol/coding-agent/hook-signal.ts
+    steps:
+      - "harness의 전역 hook이 lophn hook <harness> <event>를 부르고 JSON을 stdin으로 준다"
+      - "LPN_TERMINAL_HOOK이 없으면 stdin을 읽지 않고 harness가 요구하는 stdout만 내고 끝낸다"
+      - "stdin은 1 MiB까지 읽고 최상위 글 field를 4096자로 자른다. event가 lophn-gui면 호출한 cwd를 더한다"
+      - "payload가 64 KiB를 넘거나 JSON이 깨졌으면 버린다"
+      - "터미널 socket에 {v, key, harness, event, payload} 한 줄을 쓰고 답 없이 닫는다. 1초 안에 못 쓰면 버린다. 실패해도 성공으로 끝낸다"
+    outcomes:
+      - id: sent
+        when: "줄을 터미널 socket에 썼다"
+        observe: [response]
+      - id: skipped
+        when: "LPN_TERMINAL_HOOK이 없거나 맞지 않다. stdin을 읽지 않는다"
+        observe: [response]
+      - id: dropped
+        when: "stdin이 1 MiB를 넘었다, JSON이 깨졌다, payload가 64 KiB를 넘었다, 줄이 계약에 맞지 않다, socket에 1초 안에 못 썼다(실패도 성공으로 끝난다)"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/terminal-agent.md, architecture/coding-agent.md]
+
+  - id: harness-gui-open
+    title: 터미널 탭에서 claude gui 등을 치면 탭을 GUI 채팅 화면으로 바꾼다
+    actor: person
+    uses: [cli:hook]
+    when: "hook event가 lophn-gui일 때"
+    boundary: [shell-extension, shell]
+    code:
+      - packages/shell/main/terminal/gui.ts
+      - packages/shell/main/extensions/bundled/harness-gui/index.ts
+      - packages/shell/main/extensions/bundled/harness-gui/adapter.ts
+      - packages/shell/renderer/terminal/terminal-gui.tsx
+    steps:
+      - "사람이 터미널에서 claude gui, codex gui, opencode gui, omp gui(gui --resume id 포함)를 친다. 셸 함수가 lophn hook으로 resume 값을 보낸다"
+      - "shell main이 key로 탭을 찾는다. harness가 GUI를 지원하고 터미널이 살아 있을 때만 extension의 onTab.gui를 부른다. 아니면 무시한다"
+      - "extension이 꺼져 있으면 Settings › System › Extensions를 열고 끝낸다"
+      - "이미 그 터미널에 GUI를 여는 중이면 이 요청은 아무 일도 하지 않는다"
+      - "TUI가 떠 있으면 adapter.exitTui로 끄고 5초 안에 foreground가 shell이 되기를 기다린다. 못 기다리면 실패"
+      - "adapter.start로 CLI를 사람의 login env와 탭 폴더에서 띄우고 ACP handle을 만든다. 시작하는 사이 탭이나 터미널이 닫혔으면 CLI를 세운다"
+      - "탭을 가진 창에 GUI 열림을 push하고 1.5초 안에 ack가 와야 탭이 GUI view가 된다. 없으면 handle을 닫는다"
+    outcomes:
+      - id: opened
+        observe: [screen:harness-gui-terminal-tab]
+      - id: already-open
+        when: "그 터미널에 handle이 이미 있다. view만 gui로 바꾼다"
+        observe: [screen:harness-gui-terminal-tab]
+      - id: already-opening
+        when: "같은 터미널의 GUI 열기가 아직 도는 중이다. 이 요청은 아무 일도 하지 않는다"
+        observe: [response]
+      - id: ack-timeout
+        when: "탭을 가진 창이 1.5초 안에 ack하지 않았다. handle을 닫는다"
+        observe: [screen:project-terminal]
+      - id: extension-off
+        when: "harness-gui extension이 꺼져 있다. Settings를 연다"
+        observe: [process:settings-window]
+      - id: start-failed
+        when: "adapter.start나 exitTui가 실패했다, 또는 exitTui 뒤 5초 안에 shell이 foreground가 되지 않았다. GUI view에는 실패한 turn으로 보인다"
+        observe: [screen:harness-gui-terminal-tab]
+      - id: terminal-gone
+        when: "adapter가 시작하는 사이 터미널이 끝났다. handle을 닫아 CLI를 세운다"
+        observe: [process:cli-gui]
+      - id: ignored
+        when: "탭 runtime이 없거나, GUI를 지원하지 않는 harness거나, payload가 틀렸다"
+        observe: [response]
+    crosses_process: true
+    refs: [P6]
+    docs: [architecture/harness-gui.md]
+    unclear:
+      - "Settings › System › Extensions 화면에는 wireframe frame이 없다. extension-off의 observe는 process:settings-window로 적었다"
+
+  - id: terminal-agent-track
+    title: 터미널 탭의 coding agent 상태(running, waiting, idle, unknown)를 정하고 탭 점을 바꾼다
+    actor: shell
+    entries: [system:terminal-agent-track]
+    uses: [cli:hook, ipc:shell:terminal-state]
+    boundary: [shell, coding-agent]
+    code:
+      - packages/shell/main/terminal/agent/tracker.ts
+      - packages/shell/main/terminal/agent/ingress.ts
+      - packages/shell/main/desktop/wiring/agent.ts
+      - packages/protocol/coding-agent/hook-signal.ts
+    steps:
+      - "hook 줄을 socket에서 받아 key로 터미널을 찾는다. 모르는 key, 상한을 넘는 줄, 깨진 줄은 버린다. lophn-gui는 harness-gui-open으로 넘긴다"
+      - "terminal-host가 1초마다 보내는 foreground argv로 harnessOfProcess가 harness를 고른다. 다른 harness의 hook은 버린다"
+      - "TurnStarted는 running, PermissionRequested는 waiting(수를 센다), TurnEnded는 main turn을 끝내고 권한 수를 0으로 둔다. ChildStarted·ChildEnded는 child 집합을 바꾼다. SessionEnded는 unknown이다"
+      - "보이는 상태는 권한 물음이 있으면 waiting, main turn이나 child가 있으면 running, 아니면 idle이다. hook을 한 번도 못 들었으면 unknown이다"
+      - "Esc나 Ctrl-C를 사람이 치면 끊김 hook이 없는 harness에 한해 unknown으로 짐작(guessed)한다. 뒤따르는 PermissionResolved가 오면 running으로 되돌린다"
+      - "child는 10분 동안 신호가 없으면 뺀다. foreground를 떠나면 집합을 비운다"
+      - "상태가 바뀌면 runtime(agent와 탭 이름 포함)을 모든 창에 push하고 탭 점을 갱신한다"
+    outcomes:
+      - id: running
+        observe: [screen:project-terminal]
+      - id: waiting
+        observe: [screen:project-terminal]
+      - id: idle
+        observe: [screen:project-terminal]
+      - id: unknown
+        when: "hook을 한 번도 못 들었다. 또는 사람이 Esc·Ctrl-C로 끊어 짐작(guessed)했다"
+        observe: [screen:project-terminal]
+      - id: left
+        when: "foreground가 harness가 아닌 process로 바뀌었다. agent가 탭에서 빠진다"
+        observe: [screen:project-terminal]
+      - id: terminal-ended
+        when: "터미널이 끝났다. 그 탭의 agent가 빠진다"
+        observe: [screen:project-terminal]
+      - id: gui-routed
+        when: "lophn-gui 줄이라 harness-gui-open이 이어 받는다. hook에는 답이 없다"
+        observe: [response]
+      - id: ignored
+        when: "key나 harness가 맞지 않거나, 줄이 상한을 넘거나 깨졌거나, 터미널이 이미 끝났거나, 상태를 바꾸지 않는 신호다"
+        observe: [screen:project-terminal]
+    crosses_process: true
+    refs: [P6]
+    docs: [architecture/terminal-agent.md]
+
+  - id: terminal-agent-notice
+    title: 터미널 탭의 turn 끝과 권한 물음을 알릴지 정하고 toast나 OS 알림을 낸다
+    actor: shell
+    entries: [system:terminal-agent-notice]
+    uses: [ipc:shell:terminal-reveal]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/agent.ts
+      - packages/shell/main/notice/rule.ts
+      - packages/shell/main/terminal/agent/tracker.ts
+    steps:
+      - "tracker가 turn 끝(완료나 실패)이나 권한 물음을 알리면 판정한다. 사람이 끊은 turn, /clear, compact는 알리지 않는다"
+      - "그 탭이 focus를 가진 창에서 보이는 탭이면 알리지 않는다"
+      - "turn 끝은 idle이 되고 1.5초 기다린다. child가 남았으면 보내지 않는다. 그사이 running이나 waiting이 되면 취소한다"
+      - "lophn 창에 focus가 있는데 그 탭이 안 보이면 그 창의 toast, 어느 창에도 focus가 없으면 OS 알림이다. 누르면 탭이 있는 창을 앞으로 가져와 탭을 고른다"
+      - "알림 본문은 hook payload가 준 마지막 답이나 오류 글, 권한 물음의 요약만 쓴다. transcript는 읽지 않는다"
+      - "알림을 낸 탭은 못 본 것(unseen)으로 남아 Finished 줄이 생긴다. 탭을 고르거나 focus를 받으면 지운다"
+    outcomes:
+      - id: toast
+        observe: [screen:new-waiting-toasts, screen:new-waiting-finished]
+      - id: os-notification
+        observe: [process:os-notification, screen:new-waiting-finished]
+      - id: silent-watched
+        when: "그 탭을 사람이 보고 있다"
+        observe: [screen:new-waiting-finished]
+      - id: silent-stopped
+        when: "사람이 끊은 turn이거나 /clear, compact다"
+        observe: [screen:new-waiting-finished]
+      - id: cancelled
+        when: "1.5초 안에 다시 running이나 waiting이 되었다. 또는 turn 끝 뒤 child가 남아 있다"
+        observe: [screen:new-waiting-finished]
+    crosses_process: true
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "toast 화면은 프레임 new-waiting-toasts로 근사했다. 정확한 프레임 정합성은 확인하지 않았다"
+
+  - id: terminal-hook-install
+    title: 사람 터미널에서 harness를 처음 알아보면 hook 설치를 묻고 허락하면 놓는다
+    actor: shell
+    entries: [system:terminal-hook-install]
+    uses: [cli:harness.install, cli:harness.sync_skills, ipc:shell:coding-hook-ask, ipc:shell:coding-hook-result, ipc:shell:coding]
+    boundary: [shell, coding-agent]
+    code:
+      - packages/shell/main/terminal/agent/hook-install.ts
+      - packages/shell/main/terminal/agent/hook-ask.ts
+      - packages/shell/ipc/coding.ts
+    steps:
+      - "사람 터미널에서 harness를 foreground로 처음 알아본 때 harness마다 앱 실행당 한 번 돈다"
+      - "lophn harness install을 dry_run으로 불러 hook과 옛 skill 상태를 본다. 둘 다 missing이 아니면 끝난다"
+      - "missing이면 그 터미널을 가진 lophn 창(모르면 마지막 focus 창)에 dialog로 harness 이름, 하는 일 한 문장, 쓸 file 목록을 보내고 답을 기다린다. 창이 없거나 답 전에 창이 닫히거나 reload되면 거절이다"
+      - "거절이면 기억하지 않는다. 이 앱 실행에서는 다시 묻지 않고 다음 실행에서 묻는다"
+      - "허락하면 lophn harness install을 실행한다. 성공은 toast 하나, 실패는 까닭과 file을 담은 dialog다"
+      - "놓은 뒤 공유 skill 사본을 맞춘다(harness sync-skills). 묻기나 놓기가 실패해도 터미널은 그대로 돈다"
+    outcomes:
+      - id: skipped
+        when: "hook 자리가 없는 harness이거나, CLI 경로를 모르거나, 이 앱 실행에서 이미 물었다, 같은 harness를 묻는 중이다"
+        observe: [response]
+      - id: dry-run-failed
+        when: "dry_run 결과를 읽지 못했다(CLI 실패, 형식이 맞지 않음, 예외). 아무것도 묻지 않는다"
+        observe: [response]
+      - id: not-needed
+        observe: [response]
+      - id: declined
+        when: "창이 없거나, 답 전에 창이 닫히거나 reload되었거나, 사람이 거절했다. 이 앱 실행에서는 다시 묻지 않는다"
+        observe: [response]
+      - id: installed
+        observe: [disk:"<harness 전역 설정 file>", screen:new-waiting-toasts]
+      - id: failed
+        when: "허락했는데 install이 실패했다(CLI 오류, 실패한 hook이나 skill, 예외). 까닭을 담은 dialog를 보인다"
+        observe: [screen:settings-coding]
+    risk: [data-loss, permission]
+    crosses_process: true
+    refs: [P6]
+    docs: [architecture/terminal-agent.md, architecture/coding-agent.md]
+    unclear:
+      - "실패 dialog는 wireframe 프레임이 없다. observe의 screen:settings-coding은 근사다"
+
+  - id: terminal-agent-identity
+    title: hook이 session id를 알려 준 coding agent session의 identity를 project 파일에 남긴다
+    actor: shell
+    entries: [system:terminal-agent-identity]
+    uses: [ipc:shell:terminal-agent-sessions]
+    boundary: [shell]
+    code:
+      - packages/shell/main/terminal/agent/session-store.ts
+    steps:
+      - "hook이 session id를 알린 session의 identity를 만든다(harness, session id, folder, cwd, 첫 prompt, harness가 붙인 이름, 시각)"
+      - "project별 파일 <data root>/shell/agent-sessions/<project>.json에 원자 교체로 쓴다. 상태(running 등)는 저장하지 않는다"
+      - "같은 session은 갱신하고, 50개를 넘으면 가장 오래된 것부터 뺀다"
+      - "저장본 목록은 ipc:shell:terminal-agent-sessions로 읽는다. 저장본을 여는 길은 이 flow 밖이다"
+    outcomes:
+      - id: saved
+        observe: ["disk:<data root>/shell/agent-sessions/<project>.json"]
+      - id: failed
+        when: "파일을 쓰지 못했다. wiring이 log를 남기고 넘어가 목록은 그대로다"
+        observe: [log:shell]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md]
+
+  # ---- harness GUI: 사람이 채팅 화면에서 하는 일 ----
+  - id: harness-gui-toggle
+    title: 터미널 탭 머리의 toggle로 GUI와 TUI를 오간다
+    actor: person
+    uses: [ipc:harness-gui:tab-toggle, ipc:harness-gui:tab-running]
+    boundary: [shell-extension, shell]
+    code:
+      - packages/shell/renderer/terminal/terminal-gui.tsx
+      - packages/shell/ipc/harness-gui.ts
+      - packages/shell/main/terminal/gui.ts
+      - packages/shell/main/extensions/bundled/harness-gui/index.ts
+    steps:
+      - "GUI에서 TUI로 갈 때 handoff가 restart(Claude, omp)이면 돌던 turn이나 task, 대기 입력을 modal(harness-gui-restart-modal)로 보여 주고 확인받는다. shared(Codex, OpenCode)는 묻지 않는다"
+      - "renderer가 harness-gui:tab-toggle을 {terminal_ref, to}로 main에 보낸다. 화면의 Open as chat도 같은 길이다"
+      - "to tui: restart면 run.stop()으로 CLI를 끝낸 뒤 handle을 닫고 PTY에 tuiCommand를 친다. shared면 TUI client가 foreground에 없을 때만 친다"
+      - "to tui인데 handle이 없으면 view만 tui로 바꾸고 끝낸다"
+      - "to gui: handle이 있으면 view만 바꾼다. 없으면 TUI의 session id를 읽는다. id가 없으면 no-session, TUI가 떠 있지 않으면 not-running"
+      - "handle이 없을 때 gui로 가는 길은 harness-gui-open과 같은 open이다. harness-gui가 꺼져 있으면 Settings를 연다"
+      - "to tui에서 extension handler가 던지면 failed다"
+    outcomes:
+      - id: to-tui
+        observe: [process:cli-tui, screen:project-terminal]
+      - id: tui-without-handle
+        when: "그 터미널에 handle이 없다. view만 tui로 바꾼다"
+        observe: [screen:project-terminal]
+      - id: to-gui
+        observe: [screen:harness-gui-terminal-tab]
+      - id: no-session
+        when: "TUI의 CLI session id를 아직 모른다(hook이 안 왔다)"
+        observe: [screen:terminal-open-chat-disabled]
+      - id: not-running
+        when: "그 터미널에 지원하는 coding agent가 떠 있지 않다"
+        observe: [screen:terminal-open-chat-disabled]
+      - id: extension-off
+        when: "to gui에서 harness-gui extension이 꺼져 있다. Settings를 연다"
+        observe: [process:settings-window]
+      - id: failed
+        when: "to tui에서 extension handler가 던졌다. 또는 to gui의 adapter 시작이 던졌다"
+        observe: [log:shell]
+      - id: refused
+        when: "desktop 창이 아니거나 입력 schema가 맞지 않다(IPC가 null을 돌려준다)"
+        observe: [response]
+    crosses_process: true
+    refs: [P6]
+    docs: [architecture/harness-gui.md]
+
+  - id: harness-gui-input
+    title: GUI 채팅 화면에서 보낸 입력을 CLI에 넘긴다
+    actor: person
+    uses: [ipc:harness-gui:tab-input]
+    boundary: [shell-extension, shell, acp]
+    code:
+      - packages/shell/main/terminal/gui.ts
+      - packages/shell/main/extensions/bundled/harness-gui/adapter.ts
+      - packages/shell/renderer/conversation/agent-tab-gui-source.ts
+    steps:
+      - "GUI 화면에서 사람이 보낸 입력(ACP input)을 renderer가 harness-gui:tab-input으로 main에 준다"
+      - "main이 handle을 찾는다. 없으면 false로 거절한다"
+      - "있으면 handle의 input으로 넘긴다. adapter가 입력을 CLI 호출로 옮기고 ACP update를 돌려 화면이 그린다"
+      - "GUI의 CLI session은 lophn ledger에 기록하지 않는다. 지난 대화는 CLI session 목록에서 읽는다"
+    outcomes:
+      - id: sent
+        observe: [process:cli-run, screen:harness-gui-terminal-tab]
+      - id: refused
+        when: "handle이 없다. 또는 desktop 창이 아니거나 입력 schema가 맞지 않다(IPC가 null을 돌려준다)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/harness-gui.md]
+    unclear:
+      - "adapter별 입력 전달(claude.ts, codex.ts 등)은 읽지 않았다. ACP 입력 종류(interrupt, rewind 등)는 sessions 쪽 ACP flow가 맡는다"
+
+  # ---- lophn CLI의 local 명령: 감지, hook 설치, skill 사본 ----
+  - id: harness-detect
+    title: 이 컴퓨터의 harness 실행 파일을 찾는다(refresh면 version도 읽는다)
+    actor: shell
+    entries: [cli:harness.detect, cli:harness.refresh]
+    uses: [ipc:shell:coding]
+    boundary: [coding-agent-cli, coding-agent-harness-api]
+    code:
+      - packages/coding-agent/local/harness.ts
+      - packages/coding-agent/local/harness-run.ts
+      - packages/coding-agent/harnesses/detect.ts
+    steps:
+      - "Settings › Coding agents를 열거나 [Detect again]을 누르면 shell main이 lophn harness detect(또는 refresh)를 exec한다. core에는 붙지 않는다"
+      - "detect는 PATH에서 제품 실행 파일을 찾기만 한다. refresh는 찾은 제품을 한 번 실행해 version을 읽는다. 사람이 누른 때만이다"
+      - "결과를 출력하고 CLI는 저장하지 않는다. shell main은 성공한 마지막 결과만 메모리에 쥔다(Settings를 다시 열면 그것을 보인다)"
+      - "CLI가 실패하거나 출력이 배열이 아니면 shell main은 모든 harness를 unknown으로 채우고 쥐지 않는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "시각 값(ctx.now)이 날짜로 읽히지 않는다. 실제로는 나지 않는다"
+        observe: [response]
+      - id: cli-failed
+        when: "shell main의 exec가 실패했다. 출력이 배열이 아니다. CLI 경로를 모른다. 모든 harness가 unknown으로 보인다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-hook-check
+    title: 모든 harness의 전역 hook과 옛 skill 상태를 한 번에 읽는다
+    actor: shell
+    entries: [cli:harness.status]
+    uses: [cli:harness.install, ipc:shell:coding]
+    boundary: [coding-agent-cli, coding-agent]
+    code:
+      - packages/coding-agent/local/harness.ts
+      - packages/coding-agent/local/harness-run.ts
+      - packages/coding-agent/harnesses/install.ts
+    steps:
+      - "Settings를 열거나 창이 focus를 다시 받으면 shell main이 lophn harness status를 한 번 exec한다. process 하나로 모든 harness를 본다"
+      - "harness마다 install --dry_run을 돌려 행을 낸다(installed, unchanged, missing, failed, not_supported)"
+      - "한 harness가 실패해도 나머지 행을 보이고 그 행만 failed다"
+      - "아무것도 쓰지 않는다"
+      - "command 입력이 맞지 않으면 invalid_input이다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "command 입력이 맞지 않다"
+        observe: [response]
+    crosses_process: false
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-hook-install
+    title: harness의 전역 설정에 lophn hook을 놓는다(dry_run이 아닐 때)
+    actor: shell
+    entries: [cli:harness.install]
+    when: "dry_run이 아닐 때. dry_run은 harness-hook-check와 terminal-hook-install이 쓴다"
+    boundary: [coding-agent-cli, coding-agent]
+    code:
+      - packages/coding-agent/local/harness.ts
+      - packages/coding-agent/local/harness-run.ts
+      - packages/coding-agent/harnesses/install.ts
+      - packages/coding-agent/harnesses/install-common.ts
+      - packages/protocol/coding-agent/harness-install.ts
+    steps:
+      - "Settings의 [Install hooks]나 terminal-hook-install의 허락 뒤 shell main이 lophn harness install을 exec한다. 허락은 호출한 쪽이 받는다"
+      - "command 입력(harness, command)을 검사한다. 틀리면 invalid_input"
+      - "옛 skill 사본은 lophn이 쓰던 byte 그대로일 때만 지운다(RETIRED_SKILL_NAMES)"
+      - "harness의 전역 설정에 lophn 항목만 넣는다. JSON, JSONC, TOML, YAML, plugin file 꼴에 따라 다르다. 사람의 나머지 byte는 그대로 둔다"
+      - "Codex는 config.toml에 우리 hook의 trust hash를 쓴다"
+      - "파싱되지 않거나 고칠 수 없으면 아무것도 쓰지 않고 failed다. muse에 다른 managed_hooks_path가 있으면 conflict다. 쓰기 자체가 던지면 unavailable이다"
+    outcomes:
+      - id: installed
+        observe: ["disk:<harness 전역 설정 file>", response]
+      - id: unchanged
+        observe: [response]
+      - id: failed
+        observe: [response]
+      - id: not-supported
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "muse 설정에 다른 managed_hooks_path가 있다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "harness 전역 설정에 쓰지 못했다(쓰기 자체가 던졌다)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "harness나 command 입력이 틀렸다"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "installed 결과에 옛 skill 사본을 지운 것도 함께 담긴다. 그 지우기를 따로 outcome으로 적지 않았다"
+
+  - id: harness-hook-uninstall
+    title: harness의 전역 설정에서 lophn 항목만 지운다
+    actor: shell
+    entries: [cli:harness.uninstall]
+    uses: [ipc:shell:coding]
+    boundary: [coding-agent-cli, coding-agent]
+    code:
+      - packages/coding-agent/local/harness.ts
+      - packages/coding-agent/local/harness-run.ts
+      - packages/coding-agent/harnesses/uninstall.ts
+    steps:
+      - "Settings의 [Uninstall hooks]를 누르면 shell main이 exec한다. 누른 것이 허락이라 묻지 않는다"
+      - "lophn 항목만 알아본다(command가 lophn hook으로 시작, 표시 block, lophn 이름의 file). 사람이 더한 항목은 남긴다"
+      - "글 형식은 놓기 전 byte로 돌아가고, 우리 것만 남은 event key와 file은 지운다. Codex는 우리 trust 기록을 지운다"
+      - "그 harness의 skill 폴더에서 lophn이 쓴 공유 사본도 지운다"
+      - "설정을 파싱할 수 없거나 사람 항목이 섞여 안전하게 못 고치면 아무것도 쓰지 않고 failed다"
+    outcomes:
+      - id: removed
+        observe: ["disk:<harness 전역 설정 file>", response]
+      - id: unchanged
+        observe: [response]
+      - id: not-supported
+        observe: [response]
+      - id: failed
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "harness 전역 설정을 고치지 못했다(쓰기 자체가 던졌다)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "harness 입력이 틀렸다"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+
+  - id: harness-sync-skills
+    title: 공유 앱 skill과 lophn-agent skill의 사본을 harness skill 폴더에 맞춘다
+    actor: shell
+    entries: [cli:harness.sync_skills]
+    boundary: [coding-agent-cli, coding-agent]
+    code:
+      - packages/coding-agent/local/harness.ts
+      - packages/coding-agent/local/harness-run.ts
+      - packages/coding-agent/harnesses/skill-copies.ts
+      - packages/coding-agent/skills/lophn-agent.ts
+    steps:
+      - "shell main이 core 준비 때 한 번, 앱 activation 때, coding-agent.shared_apps와 extensions.harness.enabled가 바뀔 때, hook을 놓거나 지운 뒤 exec한다"
+      - "core에 user token으로 붙어 두 설정 값과 공유 앱의 public skill을 읽는다(app.skills)"
+      - "hook이 놓인 harness의 skill 폴더에 공유 사본을 맞춘다. harness가 켜져 있으면 lophn-agent skill을 hook과 상관없이 둔다. 꺼지면 lophn 사본만 지운다"
+      - "폴더 이름과 file 이름은 폴더 밖으로 못 나가는 것만 받는다. 표시 file(.lophn-shared)이 있는 폴더만 덮고 지우고, 사람 폴더는 건너뛴다(skipped)"
+      - "core에 못 붙거나 core 읽기가 실패하거나 skill 폴더를 못 쓰면 unavailable이다"
+    outcomes:
+      - id: synced
+        observe: ["disk:<harness skill 폴더>", response]
+      - id: unavailable
+        code: unavailable
+        when: "core에 붙지 못했다. settings.list나 app.skills 읽기가 실패했다(core가 준 code를 그대로 넘긴다). skill 폴더를 쓸 수 없다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    refs: [P6]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "core 읽기 실패의 code는 core가 정한 그대로 넘긴다. 보통 unavailable이지만 다른 code가 올 수 있다고 보고 unavailable 하나로 묶었다"

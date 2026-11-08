@@ -1,0 +1,873 @@
+group: agent-automation
+journeys:
+
+  # ---- session 열기와 대화 (나머지 journey의 출발점) ----
+
+  - id: agent-open-session-and-chat
+    title: "사람이 agent와 workspace를 골라 session을 열고 첫 메시지를 보낸다"
+    actor: person
+    goal: "사람이 Home에서 agent를 골라 session을 열고 메시지를 보내 turn이 돌고 답을 받는다"
+    steps:
+      - {do: "Home에서 New session으로 agent를 골라 session을 연다", screen: home-session, flow: session-open:ok}
+      - {do: "메시지를 보낸다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "메시지 입력으로 turn의 mode가 attended로 정해진다", flow: turn-mode-decide:attended}
+      - {do: "입력 하나를 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "agent가 답을 끝내 turn이 completed로 닫힌다", flow: turn-loop:completed}
+
+  # ---- agent 정의 (사람과 agent) ----
+
+  - id: agent-create-by-person
+    title: "사람이 agent를 새로 만든다"
+    actor: person
+    goal: "사람이 Agents 화면에서 새 agent 정의를 저장하고 저장된 설정을 다시 연다"
+    refs: [H11, P2, G1]
+    steps:
+      - {do: "Agents 목록을 연다", screen: new-project-agents, flow: agent-definition-read:ok}
+      - {do: "New agent 폼에서 skill 목록을 본다", screen: agent-settings-create, flow: skills-list-read:ok}
+      - {do: "이름, 지침, model을 채워 저장한다", screen: agent-settings-create, flow: agent-create:created}
+      - {do: "저장된 agent 설정을 다시 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
+
+  - id: agent-create-human-only-refused
+    title: "agent가 사람만 정하는 칸을 넣어 정의를 만들려다 막힌다"
+    actor: agent
+    goal: "agent가 agent.create로 정의를 만들면서 apps 할당을 넣으면 거절되고, 할당 칸을 뺀 정의로 다시 만든다"
+    refs: [G1, G2, P2]
+    steps:
+      - {do: "agent가 lophn agent create로 정의를 보내며 apps 할당을 넣는다", flow: agent-create:human-only-field}
+      - {do: "agent가 할당 칸을 빼고 다시 만든다. 할당은 사람이 정한다", flow: agent-create:created}
+      - {do: "agent가 새 agent의 명함을 읽어 부를 수 있는지 확인한다", flow: agent-card-read:ok}
+
+  - id: agent-change-by-person
+    title: "사람이 agent 정의를 고친다"
+    actor: person
+    goal: "사람이 agent의 model이나 지침을 고쳐 저장한다"
+    refs: [H11, P2]
+    steps:
+      - {do: "agent 설정을 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
+      - {do: "Model을 고르고 저장한다", screen: agent-settings-model-picker, flow: agent-change:saved}
+
+  - id: agent-change-stale-retry
+    title: "낡은 화면으로 저장하면 충돌하고 다시 읽어 저장한다"
+    actor: person
+    goal: "다른 곳에서 정의가 바뀐 뒤 낡은 화면이 저장하면 hash 충돌로 막히고, 다시 읽은 정의에 고쳐 저장한다"
+    refs: [H11]
+    steps:
+      - {do: "낡은 화면에서 저장한다", screen: agent-settings-agent, flow: agent-change:hash-changed}
+      - {do: "화면이 정의를 다시 읽는다", screen: agent-settings-agent, flow: agent-definition-read:ok}
+      - {do: "고친 내용을 다시 저장한다", screen: agent-settings-agent, flow: agent-change:saved}
+
+  - id: agent-change-human-only-by-agent
+    title: "agent가 자기 할당을 바꾸려다 막히고 사람에게 올린다"
+    actor: agent
+    goal: "agent가 agent.update로 자기 apps 할당을 바꾸려 하면 거절되고, 사람에게 질문으로 올린 뒤 사람이 할당을 정한다"
+    refs: [G1, G2, C25]
+    steps:
+      - {do: "agent가 agent.update로 apps 칸을 바꾸려 한다", flow: agent-change:human-only-field}
+      - {do: "agent가 ask로 사람에게 할당을 청하고 사람이 답한다", screen: new-agent-question, flow: tool-ask:submitted}
+      - {do: "사람이 Grants에서 앱을 붙이고 뺄 tool을 고른다", screen: new-agent-grants-app, flow: assignment-set:saved}
+    gaps:
+      - "C25의 할당 제안 자체(이유와 함께 사람에게 제안하는 글)에 대응하는 flow가 없다. ask 질문 글로만 간다"
+
+  - id: agent-profile-image-change
+    title: "사람이 agent의 프로필 이미지를 바꾼다"
+    actor: person
+    goal: "사람이 이미지를 올리고 저장해 agent 프로필로 잇고, 화면이 그 이미지를 받아 보인다"
+    refs: [H11]
+    steps:
+      - {do: "agent 설정에서 이미지를 고른다", screen: agent-settings-agent, flow: agent-profile-image-upload:stored}
+      - {do: "저장해서 정의의 profile로 잇는다", screen: agent-settings-agent, flow: agent-change:saved}
+      - {do: "화면이 이미지를 받아 보인다", flow: agent-profile-image-read:ok}
+
+  - id: agent-delete-by-person
+    title: "사람이 사람이 만든 agent를 지운다"
+    actor: person
+    goal: "사람이 agent 설정에서 agent 정의를 지운다"
+    refs: [H11]
+    steps:
+      - {do: "agent 설정을 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
+      - {do: "Delete로 지운다", screen: agent-settings-agent, flow: agent-delete:deleted}
+
+  # ---- 앱 할당과 앱 tool 호출 ----
+
+  - id: app-assign-to-agent
+    title: "사람이 agent에게 앱을 붙이고 뺄 tool을 고른다"
+    actor: person
+    goal: "사람이 Grants 탭에서 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 정해 저장한다"
+    refs: [H3, P4, C25]
+    steps:
+      - {do: "Grants 탭을 연다", screen: new-agent-grants, flow: assignment-read:ok}
+      - {do: "앱을 펼쳐 뺄 tool의 Allowed를 끄고 저장한다", screen: new-agent-grants-app, flow: assignment-set:saved}
+
+  - id: app-assign-stale-retry
+    title: "낡은 할당 화면으로 저장하면 다시 읽고 저장한다"
+    actor: person
+    goal: "할당이 다른 곳에서 바뀐 뒤 낡은 화면이 저장하면 revision 충돌로 막히고, 다시 읽어 저장한다"
+    refs: [H3]
+    steps:
+      - {do: "낡은 화면에서 Allowed를 바꿔 저장한다", screen: new-agent-grants-app, flow: assignment-set:conflict}
+      - {do: "화면이 할당을 다시 읽는다", screen: new-agent-grants, flow: assignment-read:ok}
+      - {do: "다시 고른 값을 저장한다", screen: new-agent-grants-app, flow: assignment-set:saved}
+
+  - id: agent-app-tool-allowed
+    title: "할당한 앱 tool은 묻지 않고 실행된다"
+    actor: agent
+    goal: "agent가 할당받은 앱 tool을 부르면 승인 카드 없이 실행되고 결과를 받는다"
+    refs: [H3]
+    steps:
+      - {do: "agent가 할당된 앱 tool을 부른다", flow: tool-gate-check:run}
+      - {do: "앱 tool의 결과를 받는다", flow: tool-call-execute:ok}
+
+  - id: agent-app-tool-not-assigned
+    title: "할당하지 않은 앱 tool은 실행 없이 막힌다"
+    actor: agent
+    goal: "agent가 할당 밖의 앱 tool을 부르면 실행되지 않고 이유를 tool 결과로 받는다"
+    refs: [H3]
+    steps:
+      - {do: "agent가 할당 밖의 앱 tool을 부른다", flow: tool-gate-check:denied-not-assigned}
+      - {do: "agent가 막힌 결과를 tool 결과로 받는다", flow: tool-call-execute:gate-denied}
+
+  # ---- 앱 공유 요청 ----
+
+  - id: app-share-request-approve
+    title: "앱 workspace agent의 공유 요청을 사람이 승인한다"
+    actor: agent
+    goal: "앱 workspace의 agent가 그 앱을 다른 agent에게 공유하도록 청하고, 사람이 승인하면 받을 agent에 할당된다"
+    refs: [C25, H3]
+    steps:
+      - {do: "앱 workspace의 agent가 lophn app share로 공유를 청한다", flow: share-request-open:opened}
+      - {do: "대기 목록에서 열린 공유 요청을 읽는다", screen: new-waiting-list, flow: share-request-list:ok}
+      - {do: "요청을 승인한다", flow: share-request-decide:approved}
+    gaps:
+      - "공유 요청 줄과 승인 단추를 그린 wireframe frame이 없다(new-waiting-list의 묶음 목록에 공유 요청이 보이는지 확인하지 못했다)"
+
+  - id: app-share-request-reject
+    title: "앱 공유 요청을 사람이 거절한다"
+    actor: agent
+    goal: "사람이 공유 요청을 거절하면 agent 정의는 바뀌지 않고 요청이 닫힌다"
+    refs: [C25]
+    steps:
+      - {do: "앱 workspace의 agent가 공유를 청한다", flow: share-request-open:opened}
+      - {do: "대기 목록에서 요청을 거절한다", screen: new-waiting-list, flow: share-request-decide:rejected}
+
+  - id: app-share-with-activation-consent
+    title: "앱 activation 동의와 함께 공유 요청을 승인한다"
+    actor: agent
+    goal: "앱 activation 동의 카드에서 허락하면 그 앱에 붙은 공유 요청도 같은 transaction에서 승인된다"
+    refs: [H2, C25]
+    steps:
+      - {do: "앱 workspace의 agent가 공유를 청한다", flow: share-request-open:opened}
+      - {do: "동의 카드에서 허락을 누르면 공유도 함께 승인된다", screen: new-waiting-first-activation, flow: share-request-consent:approved-with-consent}
+
+  # ---- call (agent가 다른 session에 일을 맡김) ----
+
+  - id: call-with-result
+    title: "agent가 열린 session에 결과를 받는 일을 맡긴다"
+    actor: agent
+    goal: "agent가 열린 session을 골라 결과 call을 보내고, 받은 session이 답을 돌려주면 call이 닫힌다"
+    refs: [R1, R2, T1, T11, T12]
+    steps:
+      - {do: "call 목록으로 부를 수 있는 열린 session을 고른다", flow: call-sendable-list:ok}
+      - {do: "상대의 명함을 읽어 답 방식과 입력 modality를 본다", flow: agent-card-read:ok}
+      - {do: "lophn call send를 reply result로 보낸다", screen: new-agent-call-open, flow: call-send:accepted}
+      - {do: "받은 session이 입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "받은 session이 일을 끝낸다", flow: turn-loop:completed}
+      - {do: "받은 session이 lophn call reply로 결과를 보낸다", screen: new-agent-call-replies, flow: call-reply:delivered}
+
+  - id: call-handoff-none
+    title: "답이 필요 없는 일을 handoff로 맡기고 사람이 이어 받는다"
+    actor: agent
+    goal: "agent가 답 없이 맡긴 일(reply none)을 받은 session이 끝내고, 사람이 그 session을 열어 이어 말한다"
+    refs: [R2, T12]
+    steps:
+      - {do: "lophn call send를 reply none으로 보낸다", screen: new-agent-call-open, flow: call-send:accepted}
+      - {do: "받은 session이 입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "받은 session이 일을 끝낸다", flow: turn-loop:completed}
+      - {do: "사람이 Open conversation으로 받은 session에 이어 말한다", screen: new-agent-call-open, flow: session-send:ok}
+
+  - id: call-conversation
+    title: "대화로 주고받는 call의 상태를 사람이 읽는다"
+    actor: agent
+    goal: "agent가 reply conversation으로 보낸 call에 받은 쪽이 답하고, 사람이 보낸 쪽 대화에서 그 call 상태를 읽는다"
+    refs: [R2, T14]
+    steps:
+      - {do: "lophn call send를 reply conversation으로 보낸다", flow: call-send:accepted}
+      - {do: "받은 session이 입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "받은 session이 lophn call reply로 답한다. call은 열린 채 남는다", flow: call-reply:delivered}
+      - {do: "사람이 보낸 쪽 대화의 call을 눌러 상태를 읽는다", screen: new-agent-call-replies, flow: call-state-read:ok}
+    gaps:
+      - "call-send의 outcome이 답 방식(none, result, conversation)을 나누지 않아 conversation 주고받기는 call-reply:delivered로만 보인다"
+
+  - id: call-result-bare-receiver
+    title: "bare agent가 끝낸 turn의 마지막 글이 result call의 답이 된다"
+    actor: agent
+    goal: "result call을 받은 bare agent가 turn을 끝내면 마지막 글이 call의 답으로 자동 전달된다"
+    refs: [R2, T11]
+    steps:
+      - {do: "lophn call send를 reply result로 bare agent에게 보낸다", flow: call-send:accepted}
+      - {do: "bare agent가 입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "bare agent가 turn을 끝낸다", flow: turn-loop:completed}
+      - {do: "마지막 글이 call의 답으로 자동 전달된다", flow: bare-call-reply:replied}
+
+  - id: call-cancel-late-reply
+    title: "사람이 보낸 call을 취소하면 뒤늦은 답은 닫힘으로 돌아간다"
+    actor: person
+    goal: "사람이 기다리던 call을 취소하면 받은 쪽이 뒤늦게 답해도 답은 닫힘으로 돌아가고 call은 바뀌지 않는다"
+    refs: [T18, R2]
+    steps:
+      - {do: "agent가 result call을 보내 기다린다", flow: call-send:accepted}
+      - {do: "call 블록의 Cancel을 누른다", screen: new-agent-call-open, flow: call-cancel:cancelled}
+      - {do: "받은 쪽이 취소 뒤에 답을 보낸다", flow: call-reply:closed}
+
+  - id: call-to-closed-session
+    title: "닫힌 session으로 보낸 call은 실패로 돌아온다"
+    actor: person
+    goal: "사람이 받을 session을 archive한 뒤 agent가 그 session으로 call을 보내면, 새로 열지 않고 실패가 돌아온다"
+    refs: [T7, T9]
+    steps:
+      - {do: "받을 session을 archive한다", flow: session-archive:ok}
+      - {do: "agent가 그 session으로 call을 보낸다", flow: call-send:failed-closed}
+
+  - id: call-restart-recovered
+    title: "lophn을 다시 켜면 잃은 call과 도는 turn이 닫힌다"
+    actor: person
+    goal: "lophn을 껐다 켜면 끝나지 못한 turn이 interrupted로 닫히고, 잃은 call은 이유와 함께 보낸 session에 알려진다"
+    refs: [T9]
+    steps:
+      - {do: "lophn을 다시 켠다", flow: turn-restart:turns-interrupted}
+      - {do: "잃은 call을 닫고 이유를 보낸 session에 알린다", flow: call-restart-recovery:recovered}
+
+  # ---- team (spawn, 읽기, 끝내기, 팀원의 승인과 질문) ----
+
+  - id: team-spawn-and-end
+    title: "agent가 팀원을 열어 나눠 맡기고 끝난 팀원을 닫는다"
+    actor: agent
+    goal: "부모 agent가 팀원 session을 열어 일을 맡기고, 팀원이 팀을 읽어 결과를 돌려주면 부모가 그 팀원을 닫는다"
+    refs: [G4, R1]
+    steps:
+      - {do: "lophn team spawn으로 팀원 session을 열고 첫 call을 보낸다", screen: new-agent-call-open, flow: team-spawn:spawned}
+      - {do: "부모의 다음 turn 요청 끝에 team_changed 글이 붙는다", flow: team-changed-notice:notice-added}
+      - {do: "팀원이 입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "팀원이 lophn team read로 부모와 형제의 연락처를 읽는다", flow: team-read:ok}
+      - {do: "팀원이 결과를 lophn call reply로 돌려준다", flow: call-reply:delivered}
+      - {do: "부모가 끝난 팀원을 lophn team end로 닫는다", flow: team-end:ended}
+
+  - id: team-spawn-full
+    title: "팀 상한에 찬 상태에서 팀원을 더 열면 막힌다"
+    actor: agent
+    goal: "팀이 max_members에 찼으면 spawn이 막히고, 끝난 자손 하나를 닫은 뒤 다시 연다"
+    refs: [G4]
+    steps:
+      - {do: "팀이 상한에 찬 상태에서 lophn team spawn을 부른다", flow: team-spawn:team-full}
+      - {do: "부모가 열린 자손 하나를 lophn team end로 닫는다", flow: team-end:ended}
+      - {do: "다시 lophn team spawn으로 팀원을 연다", flow: team-spawn:spawned}
+
+  - id: team-child-shell-allowed
+    title: "팀원의 shell 규칙 ask를 부모가 허락한다"
+    actor: agent
+    goal: "팀원의 shell 명령이 ask에 걸리면 사람 대신 부모에게 승인 call이 가고, 부모가 허락하면 명령이 실행된다"
+    refs: [H4, R4, T4]
+    steps:
+      - {do: "부모가 lophn team spawn으로 팀원을 연다", flow: team-spawn:spawned}
+      - {do: "팀원 turn이 attended로 열린다", flow: turn-mode-decide:attended}
+      - {do: "팀원의 명령이 ask에 걸려 부모에게 승인 call이 올라간다", flow: team-ask-open:ok}
+      - {do: "부모가 lophn call reply --allow로 허락한다", screen: new-agent-call-open, flow: call-reply:ask-answered}
+      - {do: "허락이 팀원의 request를 once로 푼다", flow: team-child-approval-to-parent:parent-allowed}
+      - {do: "gate가 허락을 받아 팀원의 명령을 실행한다", flow: tool-gate-check:run-after-allow}
+      - {do: "명령이 끝나 결과가 돌아온다", flow: tool-shell-run:finished}
+    gaps:
+      - "부모 화면에서 자식의 승인 call에 답하는 카드를 그린 wireframe frame이 없다(new-agent-call-open은 맡긴 일 블록만 보인다)"
+
+  - id: team-child-shell-rejected
+    title: "부모가 팀원의 shell 명령을 거절한다"
+    actor: agent
+    goal: "부모가 팀원의 승인 call을 거절하면 이유가 팀원에게 가고 명령은 실행되지 않는다"
+    refs: [H4, R4]
+    steps:
+      - {do: "팀원의 명령이 ask에 걸려 부모에게 승인 call이 올라간다", flow: team-ask-open:ok}
+      - {do: "부모가 lophn call reply --reject로 이유를 적어 거절한다", screen: new-agent-call-open, flow: call-reply:ask-answered}
+      - {do: "거절 이유가 팀원에게 한 줄로 간다", flow: team-child-approval-to-parent:parent-rejected}
+      - {do: "gate가 거절로 명령을 실행하지 않는다", flow: tool-gate-check:rejected-by-person}
+      - {do: "팀원이 거절 결과를 tool 결과로 받는다", flow: tool-call-execute:gate-rejected}
+
+  - id: team-child-shell-parent-gone
+    title: "부모가 답 없이 archive되면 팀원의 승인 요청은 거절로 풀린다"
+    actor: person
+    goal: "팀원의 승인 call을 받은 부모 session을 사람이 archive하면, 그 call은 receiver_ended로 닫히고 요청은 거절로 풀린다"
+    refs: [H4, T17]
+    steps:
+      - {do: "팀원의 명령이 ask에 걸려 부모에게 승인 call이 올라간다", flow: team-ask-open:ok}
+      - {do: "사람이 부모 session을 archive한다", flow: session-archive:ok}
+      - {do: "팀원의 승인 request가 부모 없이 거절로 풀린다", flow: team-child-approval-to-parent:parent-ended}
+
+  - id: team-child-shell-withdrawn
+    title: "팀원의 turn을 멈추면 부모에게 간 승인 call이 취소된다"
+    actor: person
+    goal: "사람이 팀원의 turn을 멈추면 팀원 쪽 request가 닫히고, 부모에게 간 승인 call은 취소된다"
+    refs: [H4, T18]
+    steps:
+      - {do: "팀원의 명령이 ask에 걸려 부모에게 승인 call이 올라간다", flow: team-ask-open:ok}
+      - {do: "사람이 팀원의 turn을 Stop으로 멈춘다", screen: new-agent-conversation, flow: turn-stop:stopped}
+      - {do: "기다리던 request가 turn 종료로 취소된다", flow: turn-request-cancel:cancelled-turn-ended}
+      - {do: "부모에게 간 승인 call을 자식 이름으로 취소한다", flow: team-child-approval-to-parent:withdrawn}
+
+  - id: team-child-question-parent-reply
+    title: "팀원의 질문에 부모가 답하고 팀원이 이어 간다"
+    actor: agent
+    goal: "팀원이 ask로 질문하면 사람 대신 부모에게 call이 가고, 부모가 답하면 팀원의 질문 대기가 풀리고 tool 결과로 돌아온다"
+    refs: [R4, T4]
+    steps:
+      - {do: "팀원이 ask tool로 질문 묶음을 올린다", flow: team-ask-open:ok}
+      - {do: "부모가 lophn call reply --body로 답한다", screen: new-agent-call-open, flow: call-reply:ask-answered}
+      - {do: "질문 대기가 부모의 답으로 풀린다", flow: team-child-question-to-parent:parent-reply}
+      - {do: "팀원의 ask tool이 부모의 답을 결과로 받는다", flow: tool-ask:parent-reply}
+
+  - id: team-child-question-human-takes-over
+    title: "팀원의 질문에 사람이 메시지로 답하면 부모에게 간 call이 취소된다"
+    actor: person
+    goal: "팀원의 질문이 열린 동안 사람이 팀원 session에 메시지를 보내면 질문은 사람 메시지로 풀리고, 부모에게 간 질문 call은 취소된다"
+    refs: [R4]
+    steps:
+      - {do: "팀원이 ask tool로 질문 묶음을 올린다", flow: team-ask-open:ok}
+      - {do: "팀원 session에 답을 메시지로 보낸다", screen: new-agent-question-ended, flow: session-steer:ok}
+      - {do: "질문이 사람 메시지로 풀린다", flow: team-child-question-to-parent:human-message}
+      - {do: "부모에게 간 질문 call을 취소한다", flow: team-ask-withdraw:ok}
+      - {do: "팀원의 ask tool이 사람 메시지를 결과로 받는다", flow: tool-ask:human-message}
+
+  - id: team-child-question-parent-gone
+    title: "부모가 답 없이 archive되면 팀원의 질문은 취소로 풀린다"
+    actor: person
+    goal: "팀원의 질문을 받은 부모 session을 사람이 archive하면 질문 대기가 취소로 풀리고 팀원은 취소를 결과로 받는다"
+    refs: [R4, T9]
+    steps:
+      - {do: "팀원이 ask tool로 질문 묶음을 올린다", flow: team-ask-open:ok}
+      - {do: "사람이 부모 session을 archive한다", flow: session-archive:ok}
+      - {do: "질문 대기가 부모 없이 취소로 풀린다", flow: team-child-question-to-parent:cancelled-parent-gone}
+      - {do: "팀원의 ask tool이 취소를 결과로 받는다", flow: tool-ask:cancelled}
+
+  # ---- ask (사람에게 질문) ----
+
+  - id: agent-asks-human-answered
+    title: "agent가 사람에게 질문하고 사람이 순서대로 답한다"
+    actor: agent
+    goal: "agent의 ask가 질문 카드로 올라가고, 사람이 질문 순서대로 답하면 agent가 그 답을 tool 결과로 받는다"
+    refs: [R4]
+    steps:
+      - {do: "agent가 ask tool로 질문 묶음을 올린다", screen: new-agent-question, flow: ask-read:open}
+      - {do: "사람이 질문 순서대로 답한다", screen: new-agent-question-answered, flow: ask-answer:answered}
+      - {do: "질문 대기가 답으로 풀린다", flow: ask-wait:submitted}
+      - {do: "agent가 답을 tool 결과로 받는다", flow: tool-ask:submitted}
+
+  - id: agent-ask-ended-by-message
+    title: "질문 카드 대신 메시지를 보내면 질문이 풀린다"
+    actor: agent
+    goal: "agent가 질문을 올린 동안 사람이 카드 대신 메시지를 보내면 질문은 사람 메시지로 풀리고 agent가 그 메시지를 받는다"
+    refs: [R4]
+    steps:
+      - {do: "agent가 ask tool로 질문 묶음을 올린다", screen: new-agent-question, flow: ask-read:open}
+      - {do: "카드 대신 session에 메시지를 보낸다", screen: new-agent-question-ended, flow: session-steer:ok}
+      - {do: "질문 대기가 사람 메시지로 풀린다", flow: ask-wait:human-message}
+      - {do: "agent가 사람 메시지를 tool 결과로 받는다", flow: tool-ask:human-message}
+
+  # ---- 승인 (shell 규칙 ask, 사람이 결정) ----
+
+  - id: shell-ask-allow-once
+    title: "shell 명령의 승인 카드에서 한 번 허락한다"
+    actor: person
+    goal: "agent가 규칙 ask인 shell 명령을 돌리려 하면, 사람이 Allow once로 허락하고 명령이 실행되어 결과가 돌아온다"
+    refs: [H4]
+    steps:
+      - {do: "agent에게 명령이 필요한 일을 메시지로 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "turn의 mode를 attended로 정한다", flow: turn-mode-decide:attended}
+      - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "카드에서 Allow once를 누른다", screen: new-agent-approval, flow: turn-request-decide:once}
+      - {do: "gate가 허락을 받아 명령을 실행한다", flow: tool-gate-check:run-after-allow}
+      - {do: "명령이 끝나 결과를 돌려준다", flow: tool-shell-run:finished}
+      - {do: "agent가 tool 결과를 받는다", flow: tool-call-execute:ok}
+      - {do: "model 응답의 tool 호출 묶음이 모두 성공으로 모인다", flow: tool-call-batch:success}
+
+  - id: shell-ask-always
+    title: "shell 명령의 승인 카드에서 항상 허락하고 다음부터 묻지 않는다"
+    actor: person
+    goal: "사람이 Always allow로 규칙 줄을 더하면, 같은 명령은 다음부터 묻지 않고 실행된다"
+    refs: [H4]
+    steps:
+      - {do: "agent에게 명령이 필요한 일을 메시지로 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "카드에서 Always allow를 누르고 더할 규칙 줄을 확인한다", screen: new-agent-approval-scopes, flow: turn-request-decide:always}
+      - {do: "gate가 허락을 받아 명령을 실행한다", flow: tool-gate-check:run-after-allow}
+      - {do: "같은 명령을 다시 부르면 규칙에 걸려 묻지 않고 실행된다", flow: tool-gate-check:run}
+    gaps:
+      - "설정 화면에서 shell 규칙 줄을 더하거나 지우는 동작(new-settings-shell-rules)은 어느 area의 flow도 소유하지 않는다. 설정 쓰기 route(models 영역)로 가는지 확인해야 한다"
+
+  - id: shell-ask-deny-with-reason
+    title: "shell 명령의 승인 카드에서 이유를 적고 거절한다"
+    actor: person
+    goal: "사람이 Deny하며 적은 이유가 agent에게 가고, 명령은 실행되지 않는다"
+    refs: [H4]
+    steps:
+      - {do: "agent에게 명령이 필요한 일을 메시지로 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "Deny를 누르고 이유를 적는다", screen: new-agent-approval-deny, flow: turn-request-decide:reject}
+      - {do: "gate가 거절로 명령을 실행하지 않는다", flow: tool-gate-check:rejected-by-person}
+      - {do: "agent가 거절 결과를 tool 결과로 받는다", screen: new-agent-approval-states, flow: tool-call-execute:gate-rejected}
+
+  - id: shell-ask-denied-by-rule
+    title: "deny 규칙에 걸린 shell 명령은 묻지 않고 막힌다"
+    actor: agent
+    goal: "agent가 deny 규칙에 맞는 shell 명령을 부르면 사람에게 묻지 않고 실행 없이 막힌다"
+    refs: [H4]
+    steps:
+      - {do: "agent가 deny 규칙에 맞는 명령을 부른다", flow: tool-gate-check:denied-shell-rule}
+      - {do: "agent가 막힌 결과를 tool 결과로 받는다", flow: tool-call-execute:gate-denied}
+
+  - id: shell-ask-skip-mode
+    title: "Skip permissions를 켠 session은 ask를 묻지 않는다"
+    actor: person
+    goal: "사람이 session의 skip을 켜면 다음 turn의 shell 규칙 ask는 묻지 않고 실행된다"
+    refs: [H4, T4]
+    steps:
+      - {do: "Skip permissions를 켠다", screen: new-agent-skip, flow: session-change-skip:ok}
+      - {do: "agent에게 명령이 필요한 일을 메시지로 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "turn의 mode가 skip으로 정해진다", flow: turn-mode-decide:skip}
+      - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "gate가 묻지 않고 명령을 실행한다", flow: tool-gate-check:run}
+      - {do: "명령이 끝나 결과를 돌려준다", flow: tool-shell-run:finished}
+
+  - id: shell-ask-stopped-while-waiting
+    title: "승인을 기다리는 중 사람이 turn을 멈추면 request가 취소된다"
+    actor: person
+    goal: "승인 카드가 떠 있는 동안 사람이 Stop을 누르면 request는 cancelled로 닫히고 명령은 실행되지 않는다"
+    refs: [H4]
+    steps:
+      - {do: "agent에게 명령이 필요한 일을 메시지로 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "카드가 떠 있는 채 Stop을 누른다", screen: new-agent-conversation, flow: turn-stop:stopped}
+      - {do: "기다리던 request가 turn 종료로 취소된다", flow: turn-request-cancel:cancelled-turn-ended}
+      - {do: "gate가 취소되어 명령을 실행하지 않는다", flow: tool-gate-check:cancelled}
+      - {do: "agent가 취소 결과를 tool 결과로 받는다", flow: tool-call-execute:gate-cancelled}
+
+  - id: shell-ask-session-archived
+    title: "승인을 기다리는 session을 archive하면 request가 취소된다"
+    actor: person
+    goal: "사람이 승인 카드가 떠 있는 session을 archive하면 도는 turn이 닫히고 기다리던 shell 승인 request가 session 닫힘으로 취소된다"
+    refs: [H4, T17]
+    steps:
+      - {do: "agent에게 명령이 필요한 일을 메시지로 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "카드가 떠 있는 채 session을 archive한다", screen: new-agent-session-archived, flow: session-archive:ok}
+      - {do: "도는 turn이 session_ended로 닫힌다", flow: turn-end-by-session:closed-running}
+      - {do: "기다리던 request가 session 닫힘으로 취소된다", flow: turn-request-cancel:cancelled-session-closed}
+
+  - id: shell-ask-lophn-restarted
+    title: "승인을 기다리는 중 lophn을 끄면 request가 재시작으로 취소된다"
+    actor: person
+    goal: "lophn이 꺼지는 동안 기다리던 승인 request는 cancelled-restart로 닫히고, 다시 켠 뒤 돌던 turn이 interrupted로 닫힌다"
+    refs: [H4]
+    steps:
+      - {do: "승인 카드가 뜬 채 lophn을 끈다", flow: turn-request-cancel:cancelled-restart}
+      - {do: "기다리던 gate가 취소를 받는다", flow: tool-gate-check:cancelled}
+      - {do: "lophn을 다시 켠다", flow: turn-restart:turns-interrupted}
+
+  - id: turn-stop-running
+    title: "사람이 도는 turn을 멈춘다"
+    actor: person
+    goal: "사람이 Stop을 누르면 진행 중인 model 호출이 끊기고 turn이 user_stopped로 닫힌다"
+    refs: [T16]
+    steps:
+      - {do: "일하는 중 Stop을 누른다", screen: new-agent-conversation, flow: turn-stop:stopped}
+      - {do: "진행 중인 model 호출이 취소된다", flow: model-call-run:cancelled}
+      - {do: "loop가 새 호출 없이 끝난다", flow: turn-loop:stopped}
+
+  # ---- shell extension tool ----
+
+  - id: extension-tool-assigned-call
+    title: "정의에 할당한 shell extension tool을 부른다"
+    actor: agent
+    goal: "agent가 extensions로 할당받은 extension tool을 부르면 묻지 않고 shell main handler가 실행해 결과를 돌려준다"
+    refs: [H3]
+    steps:
+      - {do: "agent가 ext 이름으로 extension tool을 부른다", flow: extension-tool-judge:handed-to-host}
+      - {do: "shell main handler가 결과를 돌려준다", flow: extension-tool-call:ran}
+
+  - id: extension-tool-not-assigned
+    title: "할당하지 않은 extension tool은 forbidden으로 막힌다"
+    actor: agent
+    goal: "정의의 extensions에 없는 extension의 tool을 agent가 부르면 forbidden으로 막힌다"
+    refs: [H3]
+    steps:
+      - {do: "agent가 할당 밖 extension tool을 부른다", flow: extension-tool-judge:not-assigned}
+      - {do: "agent가 forbidden 결과를 받는다", flow: extension-tool-call:not-assigned}
+
+  # ---- 되돌리기 (session rewind, file revert) ----
+
+  - id: session-rewind-revert-file
+    title: "agent가 쓴 파일을 사람이 고른 시점으로 되돌린다"
+    actor: person
+    goal: "agent가 file tool로 바꾼 파일을 사람이 되돌리기 메뉴에서 고른 시점으로 되돌리고, 그 결과를 확인한다"
+    steps:
+      - {do: "agent가 파일을 쓰기 직전 내용을 되돌리기 저장소에 둔다", flow: file-write-stage:staged}
+      - {do: "agent가 파일을 쓴다", flow: tool-file-write:created}
+      - {do: "agent가 쓴 뒤 기록을 checkpoint에 남긴다", flow: file-write-record:recorded}
+      - {do: "되돌리기 메뉴의 checkpoint 목록을 읽는다", screen: new-agent-rewind, flow: rewind-reads:ok}
+      - {do: "고른 시점의 복원 목록과 남는 영향을 미리 본다", screen: new-agent-rewind, flow: session-rewind-preview:ok}
+      - {do: "Rewind를 확인한다", screen: new-agent-rewind, flow: session-rewind-apply:applied}
+
+  - id: session-rewind-blocked-partial
+    title: "되돌리기가 막혔다가 남는 영향을 알고 나머지를 되돌린다"
+    actor: person
+    goal: "미리 본 뒤 파일이 바뀌어 되돌리기가 막히면, 사람이 건너뛸 항목과 남는 영향을 알고 허락해 나머지를 되돌린다"
+    steps:
+      - {do: "고른 시점의 복원 목록을 미리 본다", screen: new-agent-rewind, flow: session-rewind-preview:ok}
+      - {do: "되돌리기를 누르면 미리 본 것과 달라 막힌다", screen: new-agent-rewind, flow: session-rewind-apply:blocked}
+      - {do: "건너뛸 항목과 남는 영향을 알고 나머지를 되돌리기로 허락한다", screen: new-agent-rewind, flow: session-rewind-apply:applied-partial}
+      - {do: "사람이 그사이 고친 파일은 skipped로 고친다", flow: revert-install-amend:amended}
+
+  - id: session-rewind-with-app
+    title: "되돌리기에서 고른 앱의 data도 함께 되돌린다"
+    actor: person
+    goal: "사람이 되돌리기에서 앱을 고르면 대화와 파일을 되돌린 뒤 그 앱의 data 되돌리기를 청하고 결과를 남긴다"
+    steps:
+      - {do: "되돌리기 메뉴에서 앱을 고른다", screen: new-agent-rewind, flow: session-rewind-preview:ok}
+      - {do: "Rewind를 확인한다", screen: new-agent-rewind, flow: session-rewind-apply:applied}
+      - {do: "앱이 고른 시점 직전으로 돌아갔는지 결과를 남긴다", screen: new-app-rewind-done, flow: revert-apps-record:recorded}
+
+  - id: session-rewind-turn-running
+    title: "도는 turn이 있으면 되돌리기가 막혀 멈춘 뒤 다시 한다"
+    actor: person
+    goal: "session에 도는 turn이 있으면 되돌리기는 conflict로 막히고, 사람이 turn을 멈춘 뒤 다시 되돌린다"
+    steps:
+      - {do: "도는 turn이 있는 채 되돌리기를 확인한다", screen: new-agent-rewind, flow: session-rewind-apply:turn-running}
+      - {do: "도는 turn을 Stop으로 멈춘다", screen: new-agent-conversation, flow: turn-stop:stopped}
+      - {do: "되돌리기를 다시 확인한다", screen: new-agent-rewind, flow: session-rewind-apply:applied}
+
+  - id: session-rewind-summarize
+    title: "여기서부터 요약을 요청하고 요약으로 그 구간을 접는다"
+    actor: person
+    goal: "사람이 한 시점을 골라 요약을 요청하면 runtime이 요약 call을 하고, 완료된 요약으로 그 구간을 접는다"
+    steps:
+      - {do: "메시지에서 여기서부터 요약을 요청한다", screen: new-agent-rewind, flow: rewind-summary-request:requested}
+      - {do: "runtime이 요약 요청을 가져간다", flow: rewind-summary-take:taken}
+      - {do: "runtime이 요약 call을 끝내 결과를 돌려준다", flow: rewind-summary-done:summarized}
+      - {do: "요약 요청의 상태를 읽어 완료를 확인한다", flow: rewind-summary-state:summarized}
+      - {do: "요약 되돌리기로 그 구간을 접는다", screen: new-agent-rewind, flow: session-rewind-apply:applied}
+
+  - id: session-delete-with-rewind
+    title: "session을 지우면 되돌리기 기록과 저장물도 지워진다"
+    actor: person
+    goal: "사람이 session을 지우면 그 session의 되돌리기 기록과 저장물이 함께 지워진다"
+    steps:
+      - {do: "session을 지운다", screen: new-agent-sessions-edit, flow: session-delete:ok}
+      - {do: "그 session의 되돌리기 기록과 저장물을 지운다", flow: rewind-records-erase:erased}
+
+  # ---- workflow ----
+
+  - id: workflow-define-flow
+    title: "agent가 flow workflow의 flow.ts를 쓰고 type check를 통과시킨다"
+    actor: agent
+    goal: "project의 agent가 write-workflow 지침을 읽고 workflow 폴더에 flow.ts를 쓰고, 실행 없이 type check를 통과시킨다"
+    refs: [C29]
+    steps:
+      - {do: "write-workflow skill을 읽는다", flow: skill-write-workflow:loaded}
+      - {do: "flow.ts를 쓴다", flow: tool-file-write:created}
+      - {do: "실행 없이 type check를 돌린다", flow: workflow-check:has-errors}
+      - {do: "오류를 고쳐 flow.ts 전체를 다시 쓴다", flow: tool-file-write:overwritten}
+      - {do: "type check를 다시 돌려 통과한다", flow: workflow-check:passed}
+      - {do: "사람이 Workflows 목록에서 시작할 수 있는지 본다", screen: new-sidebar-workflows, flow: workflow-list:ok}
+    gaps:
+      - "agent kind workflow(workflow.yaml과 workflow.md)를 쓴 뒤 선언을 검사하는 flow는 없다. workflow.check는 flow.ts만 본다"
+
+  - id: workflow-start-agent
+    title: "사람이 agent workflow를 시작하고 참가자들이 step을 넘긴다"
+    actor: person
+    goal: "사람이 agent workflow를 시작하면 첫 step이 담당 agent에게 넘어가고, 참가자의 report가 다음 step으로 이어져 끝난다"
+    refs: [H7, W1, E9]
+    steps:
+      - {do: "Workflows 목록에서 workflow를 고른다", screen: new-sidebar-workflows, flow: workflow-list:ok}
+      - {do: "입력 글을 적고 Start를 누른다", screen: workflow-start-dialog, flow: workflow-start-agent:handed}
+      - {do: "instance 탭에서 진행을 읽는다", screen: workflow-tab-running, flow: workflow-instance-read:ok}
+      - {do: "참가자가 report하고 다음 step으로 넘긴다", screen: workflow-tab-running, flow: workflow-report:handed}
+      - {do: "마지막 참가자가 next를 end로 report한다", screen: workflow-tab-ended, flow: workflow-report:ended}
+
+  - id: workflow-step-to-human
+    title: "사람 step에서 with agent와 논의하면 agent가 결과를 report한다"
+    actor: agent
+    goal: "참가자가 사람 step으로 넘기면 with agent의 session에 step 메시지가 가고, 사람이 그 agent와 논의한 뒤 agent가 결과를 report한다"
+    refs: [H8, W1, E9]
+    steps:
+      - {do: "참가자가 report하며 사람 step으로 넘긴다", screen: workflow-tab-human-turn, flow: workflow-report:handed}
+      - {do: "사람이 with agent의 session에 글을 보낸다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "with agent가 결과를 report하고 다음 step으로 넘긴다", flow: workflow-report:handed}
+
+  - id: workflow-start-not-handed
+    title: "첫 step 담당을 풀지 못하면 참가자가 같은 step을 다시 넘긴다"
+    actor: person
+    goal: "workflow 시작 때 step 담당을 풀지 못하면 instance는 running으로 남고, 줄의 이유를 보고 참가자가 hand_now로 다시 넘긴다"
+    refs: [E9, W5]
+    steps:
+      - {do: "Start를 누른다", screen: workflow-start-dialog, flow: workflow-start-agent:not-handed}
+      - {do: "참가자가 hand_now로 같은 step을 다시 넘긴다", screen: workflow-tab-not-handed, flow: workflow-edit:handed}
+
+  - id: workflow-participant-edit
+    title: "참가자가 instance의 step을 고쳐 지금 넘긴다"
+    actor: agent
+    goal: "예외가 생기면 참가자가 workflow.edit로 step을 고치고, 누가 고쳤는지 줄로 남으며, 지금 넘길 수 있다"
+    refs: [W3]
+    steps:
+      - {do: "참가자가 instance의 step을 더하거나 고친다", flow: workflow-edit:edited}
+      - {do: "고친 step을 담당에게 지금 넘긴다", flow: workflow-edit:handed}
+
+  - id: workflow-restart-step-lost
+    title: "lophn이 다시 켜져 넘긴 step이 끊기면 다시 넘긴다"
+    actor: person
+    goal: "lophn을 다시 켜면 도는 step은 lophn_restarted 줄로 남고 자동으로 다시 넣지 않으며, 사람이나 참가자가 확인해 hand_now로 다시 넘긴다"
+    refs: [W5]
+    steps:
+      - {do: "lophn을 다시 켠다", flow: workflow-restart:step-lost}
+      - {do: "끊긴 step을 확인하고 지금 넘긴다", screen: workflow-tab-restarted, flow: workflow-edit:handed}
+
+  - id: workflow-stop-late-report
+    title: "사람이 instance를 멈추면 뒤늦은 report는 줄만 남는다"
+    actor: person
+    goal: "사람이 Stop으로 instance를 멈추고, 멈춘 뒤 도착한 참가자의 report는 줄로만 남고 instance는 다시 running이 되지 않는다"
+    refs: [H7]
+    steps:
+      - {do: "도는 instance의 Stop을 누른다", screen: workflow-tab-stopped, flow: workflow-stop:stopped}
+      - {do: "멈춘 뒤 참가자의 report가 도착한다", flow: workflow-report:after-stop}
+
+  - id: workflow-flow-kind-run
+    title: "flow workflow를 시작하면 code가 agent와 앱 tool을 부르고 report로 끝낸다"
+    actor: person
+    goal: "사람이 flow workflow를 시작하면 flow.ts 프로그램이 agent run과 앱 tool 호출을 하고, report를 남긴 뒤 끝난다"
+    refs: [E11, W6, R8]
+    steps:
+      - {do: "입력 글을 적고 flow workflow를 Start한다", screen: workflow-start-dialog-flow, flow: workflow-start-flow:running}
+      - {do: "flow code가 agent(...)로 run을 열고 답을 받는다", flow: workflow-flow-agent-run:answered}
+      - {do: "flow code가 앱 tool을 부르고 할당 판정을 통과한다", flow: app-call-assignment-judge:passed}
+      - {do: "flow code가 tool(...) 결과를 받는다", flow: workflow-flow-tool-run:answered}
+      - {do: "flow code가 report를 next end로 남겨 끝낸다", screen: workflow-tab-flow, flow: workflow-flow-report:ended}
+      - {do: "끝난 뒤 program의 끝 code가 줄로 남는다", flow: workflow-flow-exit:after-stop}
+
+  - id: workflow-flow-program-crash
+    title: "flow program이 오류로 끝나면 instance가 ended로 닫힌다"
+    actor: person
+    goal: "flow program이 report를 남긴 뒤 오류로 끝나면 instance는 ended로 닫히고, 끝 code와 stderr 끝 줄이 화면에 남는다"
+    refs: [E11]
+    steps:
+      - {do: "flow workflow를 Start한다", screen: workflow-start-dialog-flow, flow: workflow-start-flow:running}
+      - {do: "flow code가 report를 next 없이 남긴다", flow: workflow-flow-report:recorded}
+      - {do: "program이 오류로 끝나 instance가 ended로 닫힌다", screen: workflow-tab-flow-exited, flow: workflow-flow-exit:ended}
+
+  - id: workflow-flow-missing-file
+    title: "flow.ts가 없으면 시작이 막히고 agent가 쓴 뒤 시작한다"
+    actor: person
+    goal: "flow.ts가 없는 flow workflow는 시작이 conflict로 막히고, agent가 flow.ts를 쓰고 통과시킨 뒤 다시 시작한다"
+    refs: [C29, E11]
+    steps:
+      - {do: "flow workflow를 Start한다", screen: workflow-tab-flow-missing, flow: workflow-start-flow:conflict}
+      - {do: "agent가 flow.ts를 쓴다", flow: tool-file-write:created}
+      - {do: "agent가 type check를 통과시킨다", flow: workflow-check:passed}
+      - {do: "다시 Start한다", screen: workflow-start-dialog-flow, flow: workflow-start-flow:running}
+
+  - id: workflow-flow-restart-closed
+    title: "flow가 도는 중 lophn이 다시 켜지면 flow는 닫힌 채 다시 뜨지 않는다"
+    actor: person
+    goal: "flow가 도는 중에 lophn이 꺼졌다 켜지면 instance는 flow-closed로 닫히고 program은 다시 띄우지 않는다"
+    refs: [W6]
+    steps:
+      - {do: "lophn을 다시 켠다", screen: workflow-tab-flow-restarted, flow: workflow-restart:flow-closed}
+
+  - id: workflow-flow-tool-denied
+    title: "flow code가 다른 workspace의 비공개 앱 command를 부르면 막힌다"
+    actor: person
+    goal: "flow code가 비공개 command를 다른 workspace에서 부르면 판정에서 막히고, tool run이 실패로 끝나 code가 그 실패를 받는다"
+    refs: [E11, J4]
+    steps:
+      - {do: "flow workflow를 Start한다", screen: workflow-start-dialog-flow, flow: workflow-start-flow:running}
+      - {do: "flow code가 다른 workspace의 비공개 command를 부른다", flow: app-call-assignment-judge:gate-blocked}
+      - {do: "tool run이 failed로 끝나 code가 실패를 받는다", flow: workflow-flow-tool-run:run-failed}
+
+  # ---- job ----
+
+  - id: job-create-approve
+    title: "agent가 만든 job을 사람이 승인하고 첫 차례가 돈다"
+    actor: agent
+    goal: "agent가 정해진 때 할 일을 job으로 만들고, 사람이 대기 목록에서 승인하면 첫 차례가 돌아 run이 끝나고 기록이 남는다"
+    refs: [J1, J2, H9, E10]
+    steps:
+      - {do: "agent가 job.create로 할 일과 주기를 청한다", flow: job-create:created}
+      - {do: "agent가 job.list로 자기가 만든 job을 확인한다", flow: job-list:ok}
+      - {do: "사람이 job 등록 승인 card에서 Approve를 누른다", screen: waiting-job-approval, flow: job-approve:approved}
+      - {do: "차례 시각이 되어 queued 줄이 생긴다", flow: job-claim-due:queued}
+      - {do: "타이머가 run을 시작하고 job run 줄이 running이 된다", flow: job-timer:started}
+      - {do: "run이 끝나 job run 줄이 done으로 닫힌다", flow: job-run-end:done}
+      - {do: "사람이 Jobs 탭에서 job 기록을 읽는다", screen: jobs-tab-history, flow: job-run-list:ok}
+
+  - id: job-approval-rejected
+    title: "사람이 agent가 만든 job 등록을 거절하면 job이 지워진다"
+    actor: agent
+    goal: "agent가 청한 job을 사람이 등록 승인에서 거절하면 job이 지워지고 차례는 돌지 않는다"
+    refs: [J1, H9]
+    steps:
+      - {do: "agent가 job.create로 job을 청한다", flow: job-create:created}
+      - {do: "사람이 Reject를 누른다", screen: waiting-job-approval, flow: job-approve:rejected}
+
+  - id: job-agent-edit-delete
+    title: "agent가 자기가 만든 job을 고치고 지운다"
+    actor: agent
+    goal: "agent가 자기 job의 주기와 놓친 차례 정책을 고치고 지우며, 다른 agent가 만든 job은 찾지 못한다"
+    refs: [J2]
+    steps:
+      - {do: "agent가 job.update로 주기와 놓친 차례 정책을 고친다", flow: job-update:updated}
+      - {do: "다른 agent가 만든 job을 고치려 하면 찾지 못한다", flow: job-update:not_found}
+      - {do: "agent가 job.delete로 자기 job을 지운다", flow: job-delete:deleted}
+
+  - id: job-missed-hold-start-now
+    title: "꺼진 사이 놓친 차례를 hold card에서 지금 돌린다"
+    actor: person
+    goal: "lophn이 꺼진 사이 놓친 job 차례는 hold card로 대기 목록에 남고, 사람이 Start now를 누르면 다음 바퀴에 run이 돈다"
+    refs: [J3, E10, H9]
+    steps:
+      - {do: "lophn을 켠다. 꺼진 사이의 차례를 놓친 차례로 센다", flow: job-startup:missed-counted}
+      - {do: "hold 정책의 놓친 차례가 대기 목록에 card로 뜬다", screen: waiting-job-hold-list, flow: job-claim-due:held}
+      - {do: "대기 목록을 읽어 card와 hold 줄을 맞춘다", screen: waiting-job-hold-list, flow: job-waiting-read:ok}
+      - {do: "사람이 Start now를 누른다", screen: waiting-job-hold-list, flow: job-hold-decide:run-now}
+      - {do: "다음 바퀴에서 타이머가 run을 시작한다", flow: job-timer:started}
+      - {do: "run이 끝나 job run 줄이 닫힌다", flow: job-run-end:done}
+
+  - id: job-missed-hold-skip
+    title: "놓친 차례를 hold card에서 건너뛴다"
+    actor: person
+    goal: "hold card에서 Skip을 고르면 놓친 차례는 사람이 건너뛴 것으로 닫히고 run은 돌지 않는다"
+    refs: [H9, E10]
+    steps:
+      - {do: "놓친 차례가 hold card로 대기 목록에 뜬다", screen: waiting-job-hold-list, flow: job-claim-due:held}
+      - {do: "Skip을 누른다", screen: waiting-job-hold-list, flow: job-hold-decide:skipped}
+
+  - id: job-hold-start-blocked
+    title: "앞 차례가 아직 돌면 Start now가 막히고 Skip으로 정한다"
+    actor: person
+    goal: "같은 job이 아직 도는 중이면 Start now는 conflict로 막히고 card는 남으며, 사람이 Skip으로 정한다"
+    refs: [H9]
+    steps:
+      - {do: "놓친 차례가 hold card로 대기 목록에 뜬다", screen: waiting-job-hold-list, flow: job-claim-due:held}
+      - {do: "앞 차례가 아직 도는 채 Start now를 누른다", screen: waiting-job-hold-conflict, flow: job-hold-decide:conflict}
+      - {do: "Skip으로 정한다", screen: waiting-job-hold-conflict, flow: job-hold-decide:skipped}
+
+  - id: job-timer-start-failed
+    title: "job 차례를 시작하지 못하면 실패로 남고 자동으로 다시 하지 않는다"
+    actor: person
+    goal: "job 차례의 run을 시작하지 못하면 job run은 failed와 이유로 닫히고, 자동으로 다시 하지 않는다"
+    refs: [J6, E10]
+    steps:
+      - {do: "job 차례가 queued 줄이 된다", flow: job-claim-due:queued}
+      - {do: "타이머가 run을 시작하지 못한다", flow: job-timer:failed}
+      - {do: "job run 줄이 failed와 이유로 닫힌다", screen: jobs-tab-history, flow: job-run-ended:failed}
+
+  - id: job-restart-interrupted
+    title: "job run이 도는 중에 lophn이 꺼졌다 켜지면 interrupted로 닫힌다"
+    actor: person
+    goal: "lophn이 꺼지며 돌던 job run은 켤 때 interrupted로 닫히고, 꺼진 사이의 차례는 run 정책이면 한 번 돈다"
+    refs: [J6]
+    steps:
+      - {do: "lophn을 다시 켠다", flow: job-startup:interrupted}
+      - {do: "놓친 차례가 run 정책이라 한 번 돌도록 줄이 생긴다", flow: job-claim-due:queued}
+      - {do: "타이머가 run을 시작한다", flow: job-timer:started}
+
+  - id: job-tool-run-done
+    title: "job이 앱 tool을 부르는 차례가 돌아 기록이 닫힌다"
+    actor: person
+    goal: "정해진 때 job이 앱 tool을 run으로 부르면 호출이 끝나 tool run이 done이 되고, job run 줄이 done으로 닫힌다"
+    refs: [E10, J4]
+    steps:
+      - {do: "job 차례가 queued 줄이 된다", flow: job-claim-due:queued}
+      - {do: "타이머가 앱 tool run을 시작한다", flow: job-timer:started}
+      - {do: "앱 호출이 끝나 tool run이 done으로 닫힌다", flow: run-tool-end:done}
+      - {do: "job run 줄이 done으로 닫힌다", flow: job-run-end:done}
+    gaps:
+      - "J4는 job이 앱 tool을 부르는 차례가 만든 agent의 지금 할당 안에서만 된다고 적지만, approvals의 app-call-assignment-judge는 program(job)의 호출을 판정하지 않는다고 적는다. 어느 쪽이 맞는지 정해야 한다(job 차례가 할당 밖 tool을 막는 flow가 없다)"
+
+  # ---- run (화면 없는 agent 호출, 앱 tool 호출) ----
+
+  - id: run-agent-person
+    title: "사람이 agent에게 run을 시키고 결과를 기다려 읽는다"
+    actor: person
+    goal: "사람이 입력 글과 출력 schema로 agent run을 시작하면, 입력은 사람 없는 turn으로 돌고 답은 run 기록에 남는다"
+    refs: [R7]
+    steps:
+      - {do: "입력 글과 출력 schema를 적어 agent run을 시작한다", flow: run-agent-start:running}
+      - {do: "입력을 사람 없는 turn(unattended)으로 정한다", flow: turn-mode-decide:unattended}
+      - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "agent가 일을 끝낸다", flow: turn-loop:completed}
+      - {do: "run이 끝나 답이 run 기록에 남는다", flow: run-agent-end:done}
+      - {do: "사람이 run을 기다려 결과를 읽는다", flow: run-wait:finished}
+    gaps:
+      - "사람이 agent run을 시작하는 화면 frame이 없다(new-app-runs의 Logs는 앱 쪽 run을 보여 줄 뿐이다). route와 CLI로만 보인다"
+
+  - id: run-agent-invalid-output
+    title: "run의 답이 출력 schema에 맞지 않으면 invalid_output으로 닫힌다"
+    actor: person
+    goal: "출력 schema가 있는 run의 답이 JSON이 아니거나 schema에 맞지 않으면 run은 failed(invalid_output)로 닫힌다"
+    refs: [R7]
+    steps:
+      - {do: "schema를 적어 agent run을 시작한다", flow: run-agent-start:running}
+      - {do: "agent가 일을 끝낸다", flow: turn-loop:completed}
+      - {do: "답이 schema에 맞지 않아 run이 invalid_output으로 닫힌다", flow: run-agent-end:invalid-output}
+      - {do: "사람이 run 기록을 읽는다", flow: run-read:ok}
+
+  - id: run-tool-person
+    title: "사람이 앱 tool을 run으로 시작하고 결과 기록을 읽는다"
+    actor: person
+    goal: "사람이 앱 tool 호출을 run으로 시작하면 기다리지 않고 run 기록을 돌려받고, 호출이 끝나면 run이 done으로 닫힌다"
+    steps:
+      - {do: "앱 tool을 run으로 시작한다", screen: new-app-runs, flow: run-tool-start:running}
+      - {do: "앱 호출이 끝나 run이 done으로 닫힌다", flow: run-tool-end:done}
+      - {do: "Logs에서 run 기록을 읽는다", screen: new-app-runs, flow: run-read:ok}
+
+  - id: run-cancel-person
+    title: "사람이 실행 중인 agent run을 취소한다"
+    actor: person
+    goal: "사람이 실행 중인 agent run을 취소하면 run이 cancelled로 닫히고, 이미 가져간 입력의 turn이 멈춘다"
+    steps:
+      - {do: "agent run을 시작한다", flow: run-agent-start:running}
+      - {do: "Logs에서 run을 취소한다", screen: new-app-runs, flow: run-cancel:cancelled}
+      - {do: "이미 가져간 입력의 turn이 멈춘다", flow: turn-stop:stopped}
+
+  - id: run-tool-lost-on-restart
+    title: "앱 tool run이 도는 중 lophn이 꺼지면 run은 lophn_restarted로 닫힌다"
+    actor: person
+    goal: "앱 tool 호출 run이 도는 중에 lophn이 꺼졌다 켜지면 호출 결과를 알 수 없어 run은 다시 넣지 않고 닫힌다"
+    refs: [J6]
+    steps:
+      - {do: "앱 tool을 run으로 시작한다", screen: new-app-runs, flow: run-tool-start:running}
+      - {do: "lophn을 다시 켠다", flow: run-restart:tool-lost}
+      - {do: "Logs에서 닫힌 run을 읽는다", screen: new-app-runs, flow: run-read:ok}
+
+  - id: run-agent-unattended-ask
+    title: "사람이 없는 run 안의 ask는 기다리지 않고 unattended를 받는다"
+    actor: person
+    goal: "사람이 없는 run의 agent가 ask를 부르면 질문을 열지 않고 unattended를 받아 스스로 정하고, run이 done으로 닫힌다"
+    refs: [W4, T4, R7]
+    steps:
+      - {do: "입력을 사람 없는 run으로 시작한다", flow: run-agent-start:running}
+      - {do: "agent가 ask를 부르지만 묻지 않고 unattended를 받는다", flow: ask-unattended-returns:unattended}
+      - {do: "agent가 unattended 결과를 tool 결과로 받는다", flow: tool-ask:unattended}
+      - {do: "agent가 일을 끝내고 run이 done으로 닫힌다", flow: run-agent-end:done}
+
+  - id: run-session-archived
+    title: "run이 연 session을 archive하면 run이 session_ended로 닫힌다"
+    actor: person
+    goal: "run이 도는 중에 사람이 그 session을 archive하면 run은 session_ended로 닫힌다"
+    steps:
+      - {do: "agent run을 시작한다", flow: run-agent-start:running}
+      - {do: "run이 연 session을 archive한다", flow: session-archive:ok}
+      - {do: "run이 session_ended로 닫힌다", flow: run-session-end:session-ended}
+
+  # ---- 사람 결정 참조 (provider 연결 끊기 확인) ----
+
+  - id: provider-disconnect-confirmed
+    title: "사람이 provider 연결 끊기를 확인 창에서 결정한다"
+    actor: person
+    goal: "사람이 연결 끊기를 누르고 확인 창에서 결정하면, 1회용 결정 참조가 발급되고 끊기 요청이 그것을 한 번 소비한다"
+    steps:
+      - {do: "Settings › Providers에서 끊기를 누르면 확인 창이 1회용 결정 참조를 발급받는다", screen: new-settings-providers, flow: decision-handle-issue:issued}
+      - {do: "끊기 요청이 결정 참조를 한 번 소비하고 연결을 끊는다", screen: new-settings-providers, flow: decision-handle-consume:consumed}

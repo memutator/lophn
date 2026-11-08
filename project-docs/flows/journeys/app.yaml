@@ -1,0 +1,509 @@
+group: app
+journeys:
+  - id: app-plan-from-home
+    title: "Home에서 기획하고 새 앱을 등록해 앱 workspace에 맡긴다"
+    actor: person
+    goal: "말로 정한 것이 기존 앱으로 되는지 보고, 새 앱이면 등록한 뒤 앱 workspace session에 설계와 짓기를 맡긴다"
+    refs: [L2, L4, L9, L10, P5]
+    steps:
+      - {do: "Home에서 New session을 연다", screen: home-session, flow: session-open:ok}
+      - {do: "/new-app과 만들고 싶은 것을 적어 보낸다", flow: session-send:ok}
+      - {do: "home lophn이 new-app 지침을 읽는다", flow: skill-new-app:loaded}
+      - {do: "home lophn이 기존 앱의 공개 command 목록을 보고 고치기나 재사용으로 되는지 견준다", flow: app-declaration-read:ok}
+      - {do: "재사용할 command를 쓰는 다른 앱과 project가 있는지 사용 관계를 본다", flow: app-usage-read:listed}
+      - {do: "재사용과 새 앱 가운데 무엇으로 할지 사람에게 묻는다", screen: new-agent-question, flow: tool-ask:submitted}
+      - {do: "사람이 질문에 답한다", screen: new-agent-question, flow: ask-answer:answered}
+      - {do: "새 앱이면 home lophn이 앱을 등록한다. project는 고르지 않는다", flow: app-create:linked}
+      - {do: "앱 workspace session에 설계와 짓기를 답을 받지 않는 call로 맡긴다", flow: call-send:accepted}
+
+  - id: app-create-from-workspaces
+    title: "Workspaces의 New app으로 앱을 등록하고 앱 workspace를 연다"
+    actor: person
+    goal: "이름과 한 줄 목적을 적어 앱 하나를 만들고, 앱 화면과 lophn session이 붙은 workspace를 받는다"
+    refs: [P5, L4]
+    steps:
+      - {do: "Workspaces panel의 New app을 열어 이름과 한 줄 목적을 적고 만든다", screen: home-new-app, flow: app-create:linked}
+      - {do: "앱 workspace가 앱 화면과 그 앱의 lophn session을 좌우 group으로 연다", screen: new-app-split, flow: session-open:ok}
+
+  - id: app-create-source-retry
+    title: "앱은 만들어졌지만 source 폴더가 없어서 폴더를 다시 잇는다"
+    actor: person
+    goal: "source 폴더가 없는 앱에 git 저장소 맨 위 폴더를 이어서 앱 session이 짓기를 시작할 수 있게 한다"
+    steps:
+      - {do: "New app을 만든다. source 폴더 깔기나 잇기가 실패해 앱은 source 없이 남는다", screen: home-new-app, flow: app-create:unlinked}
+      - {do: "고른 폴더가 git 저장소의 맨 위가 아니라서 거절된다", flow: app-connect-source:invalid-folder}
+      - {do: "git 저장소 맨 위 폴더를 다시 잇는다", flow: app-connect-source:connected}
+    gaps:
+      - "source 폴더 잇기 화면의 wireframe frame이 없다(route apps/connect_source)."
+      - "AGENT.md A17은 source 폴더 잇기를 앱 workspace session만 한다고 쓰는데 route는 사람도 받는다(app-connect-source actor person). 정책과 맞는지 확인이 필요하다."
+
+  - id: app-first-build-and-activate
+    title: "앱 workspace session이 앱을 설계하고 짓고 preview로 확인한 뒤 첫 activation을 한다"
+    actor: person
+    goal: "말로 설명한 앱을 설계, 선언 검사, 준비, preview 확인을 거쳐 첫 activation으로 운영 앱으로 올린다"
+    refs: [A1, A4, A5, A6, A7, A8, A9, A11, H2, H5]
+    steps:
+      - {do: "앱 workspace의 New session에 만들 것을 말한다", screen: new-app-session, flow: session-send:ok}
+      - {do: "session이 design-app 지침을 읽는다", flow: skill-design-app:loaded}
+      - {do: "재사용할 package와 공개 command를 사용자 package 목록에서 찾는다", flow: package-catalog-read:ok}
+      - {do: "DESIGN.md에 설계를 쓴다", flow: tool-file-write:created}
+      - {do: "lophn.ts 선언을 쓰고 검사를 통과한다", flow: declaration-check:passed}
+      - {do: "코드를 쓰고 shell.run으로 test와 type 검사를 돌린 뒤 commit한다", flow: tool-shell-run:finished}
+      - {do: "지금 commit으로 release를 준비한다", flow: release-prepare:prepared}
+      - {do: "준비한 release를 fixture data로 preview에 띄운다", flow: preview-start:started}
+      - {do: "preview의 준비 확인을 읽는다", flow: preview-observe:observed}
+      - {do: "preview를 멈춘다", flow: preview-stop:stopped}
+      - {do: "release를 활성화한다. 첫 activation이라 동의가 필요하다", flow: release-activate:waiting-consent}
+      - {do: "동의 카드를 펼쳐 늘어난 선언 전부를 보고 Allow를 누른다", screen: new-waiting-first-activation, flow: activation-consent:allow}
+      - {do: "허락된 줄을 sweep이 가져가 activation을 시작한다", flow: activation-sweep:started}
+      - {do: "시도가 끝나 새 release가 active가 된다", flow: activation-complete:active}
+      - {do: "session이 확인한 것과 확인하지 못한 것을 사람에게 알린다", flow: agent-reply-record:ok}
+    gaps:
+      - "preview 대상 호출(preview.call, appToolTargetSchema의 mode preview)은 app-command-call의 when이 live만 적어 flow에 없다(packages/protocol/apps/calls/call.ts). when에 preview 갈래를 더할지 정한다."
+
+  - id: app-first-activation-declined
+    title: "첫 activation의 동의 카드에서 거절하고 session이 선언을 줄여 다시 준비한다"
+    actor: person
+    goal: "늘어난 선언이 받아들여지지 않으면 release는 prepared로 남고, 사람이 방향을 정해 다시 준비한다"
+    refs: [A11, E6, H2]
+    steps:
+      - {do: "session이 release를 활성화하자 driver가 동의 줄을 쓴다", flow: activation-ask-consent:requested}
+      - {do: "release.activate가 waiting_consent를 돌려주고 동의 카드가 선다", flow: release-activate:waiting-consent}
+      - {do: "동의 카드에서 늘어난 선언을 보고 Deny를 누른다. 이유 칸은 없다", screen: new-waiting-activation, flow: activation-consent:reject}
+      - {do: "사람이 session에 거절 이유와 바꿀 방향을 말한다", flow: session-send:ok}
+      - {do: "session이 선언을 줄여 release를 다시 준비한다", flow: release-prepare:prepared}
+    gaps:
+      - "거절 결과를 release를 만든 session에 알리는 flow가 없다. activation.md는 거절이 이유를 받지 않는다고만 쓰고 ActivationConsentClosed는 event뿐이다. agent는 사람이 말해 줘야 안다. 알림이 필요한지 확인이 필요하다."
+
+  - id: app-consent-with-share
+    title: "앱 공유 요청이 붙은 activation 동의를 허락하면 공유도 같이 승인된다"
+    actor: person
+    goal: "앱을 만든 agent가 청한 공유를 동의 카드에서 함께 보고 한 번에 허락한다"
+    refs: [A11, C25]
+    steps:
+      - {do: "앱 workspace agent가 lophn app share로 이 앱의 공유를 청한다", flow: share-request-open:opened}
+      - {do: "activation 동의 카드에 그 공유 요청이 같이 보인다", screen: new-waiting-activation, flow: activation-state-read:ok}
+      - {do: "Allow를 누르면 같은 tx에서 공유 요청도 승인된다", screen: new-waiting-activation, flow: share-request-consent:approved-with-consent}
+
+  - id: app-share-request-decide
+    title: "앱 공유 요청을 대기 목록에서 따로 승인한다"
+    actor: person
+    goal: "받을 agent와 coding agent에게 앱을 공유할지 대기 목록에서 정한다"
+    refs: [C25, H3, G2]
+    steps:
+      - {do: "앱 workspace agent가 다른 agent에게 앱 공유를 청한다", flow: share-request-open:opened}
+      - {do: "대기 목록에서 받을 agent와 공개 skill·command 수를 읽는다", screen: new-waiting-list, flow: share-request-list:ok}
+      - {do: "승인한다", screen: new-waiting-list, flow: share-request-decide:approved}
+
+  - id: app-activation-fails-and-fixed
+    title: "activation이 migration 실패로 끝나 이전 release가 돌아오고, session이 고쳐 다시 올린다"
+    actor: agent
+    goal: "실패한 activation 뒤에도 data와 앱이 이전 release로 돌아가 있고, 원인을 고친 release가 active가 된다"
+    refs: [A9, A10]
+    steps:
+      - {do: "session이 release를 활성화해 시도가 열린다", flow: activation-start:started}
+      - {do: "data migration 전에 보호 복구본을 ledger에 확정한다", flow: activation-backup-record:recorded}
+      - {do: "migration이 실패해 복구본으로 data를 되돌리고 그 결과를 기록한다", flow: activation-data-restore-record:recorded}
+      - {do: "시도를 failed로 닫고 이전 release를 다시 띄운다", flow: activation-fail:failed}
+      - {do: "release.activate가 failed와 실패 근거를 돌려준다", flow: release-activate:failed}
+      - {do: "session이 앱 log를 읽어 원인을 찾는다", flow: app-log-read:read}
+      - {do: "migration과 코드를 고쳐 다시 준비한다", flow: release-prepare:prepared}
+      - {do: "다시 활성화해 active가 된다", flow: release-activate:active}
+
+  - id: app-migration-activate
+    title: "data 손실 migration이 있는 release를 동의 뒤 활성화하면 복구본을 먼저 두고 data를 옮긴 뒤 active가 된다"
+    actor: person
+    goal: "data가 줄 수 있는 migration을 사람이 허락하면, 복구본을 ledger에 확정하고 migration 결과를 기록한 뒤 새 release가 active가 된다"
+    refs: [A11, E6, A9]
+    steps:
+      - {do: "data 손실 migration이 든 release를 활성화하면 동의 줄이 선다", flow: release-activate:waiting-consent}
+      - {do: "사람이 동의 카드에서 Allow를 누른다", screen: new-waiting-activation, flow: activation-consent:allow}
+      - {do: "허락된 줄을 sweep이 가져가 시도를 시작한다", flow: activation-sweep:started}
+      - {do: "시도가 연다. 앱은 접수를 닫고 도는 호출을 기다린다", flow: activation-start:started}
+      - {do: "migration 전에 보호 복구본을 ledger에 확정한다", flow: activation-backup-record:recorded}
+      - {do: "data worker가 migration을 적용하고 무결성과 변경 결과를 기록한다", flow: activation-data-change-record:recorded}
+      - {do: "새 release가 active가 된다", flow: activation-complete:active}
+
+  - id: app-activation-running-report
+    title: "활성화가 120초를 넘겨 running으로 돌아가고, 끝난 결과가 session에 알려진다"
+    actor: agent
+    goal: "오래 걸리는 activation이 core 안에서 끝나고, release를 만든 session이 다음 turn에 결과를 받는다"
+    refs: [A9, A10]
+    steps:
+      - {do: "session이 release를 활성화하자 시도가 120초를 넘긴다", flow: release-activate:running}
+      - {do: "Version 탭에서 도는 줄과 단계를 본다", screen: new-app-version-applying, flow: activation-state-read:ok}
+      - {do: "시도가 끝나 새 release가 active가 된다", flow: activation-complete:active}
+      - {do: "기다리지 않은 결과가 release를 만든 session의 다음 입력으로 간다", flow: activation-report:delivered}
+      - {do: "session이 release.get으로 결과를 확인한다", flow: release-state-read:ok}
+    gaps:
+      - "AGENT.md E3은 동의 뒤 시도의 실패를 session에 부르지 않는다고 쓰지만 activation.md와 activation-report는 session에 알린다. 어느 쪽이 맞는지 맞춘다."
+
+  - id: app-rollback-previous
+    title: "Version 탭에서 이전 release로 돌아간다"
+    actor: person
+    goal: "data schema가 같은 이전 release를 골라 앱 code를 되돌리고, 열린 앱 화면이 그 release로 다시 붙는다"
+    steps:
+      - {do: "Version 탭에서 지금 release와 이전 release를 본다", screen: new-app-version-applied, flow: activation-state-read:ok}
+      - {do: "이전 release로 돌아가기를 누른다", screen: new-app-version-applied, flow: activation-activate-previous:requested}
+      - {do: "요청 행을 sweep이 가져가 activation을 시작한다", flow: activation-sweep:started}
+      - {do: "이전 release가 active가 되고 되돌린 기록이 남는다", flow: activation-complete:active}
+      - {do: "열린 앱 화면이 이전 release로 다시 붙는다", flow: app-view-refresh:remounted}
+    gaps:
+      - "data schema가 달라 돌아가기가 꺼지는 것은 화면 규칙이라 activation-activate-previous:invalid_input은 사람 화면에 나오지 않을 수 있다. 화면 문구와 함께 확인이 필요하다."
+
+  - id: app-prepare-fails-and-fixed
+    title: "release 준비가 handler 불일치로 실패해 session이 선언과 handler를 맞추고 다시 준비한다"
+    actor: agent
+    goal: "준비 검사가 가리킨 빠진 tool을 고쳐 다음 준비에서 prepared release를 얻는다"
+    refs: [A4, A7]
+    steps:
+      - {do: "lophn.ts를 검사해 errors를 읽는다", flow: declaration-check:errors}
+      - {do: "errors를 고쳐 다시 검사를 통과한다", flow: declaration-check:passed}
+      - {do: "지금 commit으로 release를 준비하고 선언과 handler가 어긋난 것을 본다", flow: release-prepare:failed-handlers}
+      - {do: "reason에 적힌 빠진 handler를 더하거나 선언을 고친다", flow: tool-file-edit:edited}
+      - {do: "다시 준비해 prepared release를 얻는다", flow: release-prepare:prepared}
+
+  - id: app-run-disable-enable
+    title: "사람이 앱 실행을 끄고 다시 켠다"
+    actor: person
+    goal: "실행을 끄면 자식이 멈추고 종료가 기록되며, 다시 켜면 supervisor가 자식을 띄워 열린 것을 기록한다"
+    steps:
+      - {do: "앱 실행을 끈다", flow: app-execution-disable:disabled}
+      - {do: "다음 reconcile이 자식을 멈추고 OS 종료를 확인한다", flow: app-supervisor-reconcile:stopped}
+      - {do: "멈춘 자식의 종료를 AppStopped로 남긴다", flow: app-record-stopped:stopped}
+      - {do: "session이 앱이 멈춘 것을 읽는다", flow: app-runtime-read:state-stopped}
+      - {do: "앱 실행을 다시 켠다", flow: app-execution-enable:enabled}
+      - {do: "다음 reconcile이 자식을 띄우고 ready probe를 통과한다", flow: app-supervisor-reconcile:started}
+      - {do: "자식이 열렸음을 AppStarted로 남긴다", flow: app-record-started:started}
+    gaps:
+      - "실행 켜기와 끄기의 wireframe frame이 없다. 어느 화면에 두는지 확인이 필요하다."
+
+  - id: app-archive-and-restore
+    title: "앱을 보관했다가 되살린 뒤 실행을 다시 켠다"
+    actor: person
+    goal: "보관한 앱을 Archived 구역에서 되살리고, 실행은 사람이 따로 다시 켠다"
+    steps:
+      - {do: "앱을 보관한다. 실행이 꺼지고 agent에게서 앱이 빠진다", flow: app-archive:archived}
+      - {do: "Archived 구역에서 앱을 되살린다", screen: shell-workspaces-archived, flow: app-unarchive:unarchived}
+      - {do: "되살린 뒤 실행이 꺼진 채라 실행을 다시 켠다", flow: app-execution-enable:enabled}
+    gaps:
+      - "앱 줄의 ⋯ 메뉴와 Archive 단추의 frame이 없다. shell/workspaces-scene.tsx의 menu는 project 줄만 연다."
+
+  - id: app-delete
+    title: "보관한 앱을 영구히 지운다"
+    actor: person
+    goal: "앱의 source, data, 대화, release 기록을 지운다. 자식이 아직 멈추는 중이면 잠시 뒤 다시 지운다"
+    steps:
+      - {do: "앱을 보관한다", flow: app-archive:archived}
+      - {do: "보관하자마자 지우면 자식 process가 아직 살아 있어 막힌다", flow: app-delete:still-running}
+      - {do: "Archived 구역의 Delete에서 확인 dialog를 승인한다", screen: shell-workspaces-delete-app, flow: app-delete:deleted}
+    gaps:
+      - "still-running일 때 사람 화면이 기다림과 재시도를 어떻게 보이는지 frame이 없다."
+
+  - id: app-settings-rename-icon-folders
+    title: "앱 이름, icon, 더한 폴더를 고친다"
+    actor: person
+    goal: "앱 목록에서 앱을 고르고 이름, icon, 폴더를 바꾼다"
+    steps:
+      - {do: "Workspaces panel에서 앱 목록을 읽는다", screen: home-empty, flow: app-read:ok}
+      - {do: "앱 이름을 바꾼다", flow: app-rename:renamed}
+      - {do: "앱 icon을 올린다", flow: app-set-icon:uploaded}
+      - {do: "목록에 올린 icon이 보인다", flow: app-icon-read:uploaded}
+      - {do: "앱에 더한 폴더 목록을 통째로 바꾼다", flow: app-edit-folders:edited}
+
+  - id: app-use-screen
+    title: "앱 화면을 열어 operation을 부르고, 창과 바로가기로 다룬다"
+    actor: person
+    goal: "앱 화면에서 단추로 operation을 부르고, 바깥 링크를 열고, 앱 전용 창과 OS 바로가기로도 연다"
+    refs: [P12]
+    steps:
+      - {do: "앱 줄을 눌러 앱 화면을 연다", screen: app-space, flow: app-view-open:opened}
+      - {do: "shell이 앱 bundle의 화면 파일을 내준다", flow: app-screen-file-read:served}
+      - {do: "앱 화면이 탭 머리의 이름과 상태를 정한다", flow: app-tab-head:head-set}
+      - {do: "앱 화면이 자기 크기를 알려 창 안에 맞춰진다", flow: app-page-hints:content-size-set}
+      - {do: "화면의 단추가 operation을 부른다", screen: app-space, flow: app-operation-call:succeeded}
+      - {do: "앱 화면에서 누른 단축키가 shell 단축키로 넘어가 실행된다", flow: app-keys-forward:ran}
+      - {do: "앱 안의 외부 링크를 누르면 OS 기본 browser가 열린다", flow: app-external-link:opened}
+      - {do: "Open in new window로 앱 전용 창을 연다", flow: app-window-open:opened}
+      - {do: "앱을 OS 바로가기에 넣는다", flow: app-shortcut:added}
+      - {do: "바로가기를 뺀다", flow: app-shortcut:removed}
+      - {do: "앱 화면을 닫는다", flow: app-view-close:closed}
+
+  - id: app-screen-broken
+    title: "앱 화면의 오류가 앱 log에 남고, 화면이 깨지면 사람이 다시 연다"
+    actor: person
+    goal: "앱 화면에서 난 처리되지 않은 오류를 앱 log에서 찾고, 깨진 화면을 같은 연결로 되살린다"
+    refs: [A2, A15]
+    steps:
+      - {do: "앱 화면에 처리되지 않은 오류가 나서 shell이 거르고 core로 넘긴다", flow: app-view-error-capture:forwarded}
+      - {do: "core가 앱 log에 view_error 한 줄을 쓴다", flow: app-view-error-log-write:written}
+      - {do: "session이 앱 log를 읽어 오류를 확인한다", flow: app-log-read:read}
+      - {do: "render process가 죽어 앱 화면 자리가 깨져 보인다", flow: app-view-crash:crashed}
+      - {do: "깨진 화면에서 [새 view 열기]를 누른다", flow: app-view-reopen:reopened}
+
+  - id: app-error-to-log
+    title: "앱 handler가 잡은 예외가 reportProblem으로 앱 log에 남고 session이 읽는다"
+    actor: agent
+    goal: "앱이 잡은 예외가 source 줄로 풀린 채 앱 log에 쌓여 session이 원인을 찾는다"
+    refs: [A15]
+    steps:
+      - {do: "앱 handler가 잡은 예외를 reportProblem으로 보낸다", flow: app-broker-problem:written}
+      - {do: "supervisor가 앱 log에 exception 한 줄과 stack 줄을 쓴다", flow: app-log-write:written}
+      - {do: "session이 app.logs로 앱 log의 최근 줄을 읽는다", flow: app-log-read:read}
+
+  - id: app-repair-by-home
+    title: "사람이 /repair-app으로 깨진 앱의 원인을 찾고 앱 workspace에 넘긴다"
+    actor: person
+    goal: "home lophn이 앱 상태, log, 실패한 호출을 읽어 원인을 찾고, 고치기는 그 앱 workspace의 lophn에게 맡긴다"
+    refs: [L7, A2, A10]
+    steps:
+      - {do: "Home session에 /repair-app과 증상을 적어 보낸다", screen: home-session, flow: session-send:ok}
+      - {do: "home lophn이 repair-app 지침을 읽는다. 앱은 고치지 않고 원인만 찾는다", flow: skill-repair-app:loaded}
+      - {do: "앱 상태를 읽는다", flow: app-runtime-read:state-unavailable}
+      - {do: "앱 log를 읽는다", flow: app-log-read:read}
+      - {do: "실패한 호출 기록을 찾는다", flow: app-invocation-read:found}
+      - {do: "원인을 그 앱 workspace의 lophn에게 답을 받지 않는 call로 넘긴다", flow: call-send:accepted}
+      - {do: "앱 workspace session이 고쳐 다시 준비한다", flow: release-prepare:prepared}
+      - {do: "다시 활성화해 active가 된다", flow: release-activate:active}
+
+  - id: app-crash-loop-halted
+    title: "앱 자식이 짧은 시간에 여러 번 죽어 자동 재시작이 멈추고 사람에게 알린다"
+    actor: person
+    goal: "예상 밖 종료가 한도를 넘으면 supervisor가 재시작을 멈추고 사람에게 toast로 알린다. 사람이 session에 물어 원인을 찾는다"
+    steps:
+      - {do: "앱 자식이 예상 밖으로 끝나 backoff 뒤 다시 뜬다", flow: app-child-exit:restarted}
+      - {do: "10분 창 안의 종료가 한도를 넘어 자동 재시작을 멈춘다", flow: app-child-exit:halted}
+      - {do: "앱을 쓸 수 없다고 기록한다. 이유는 crash loop다", flow: app-record-unavailable:halted}
+      - {do: "사람에게 toast로 알린다", screen: new-waiting-toasts, flow: notice-alert:toast}
+      - {do: "사람이 session에 앱 상태를 묻는다", flow: app-runtime-read:state-unavailable}
+      - {do: "session이 앱 log를 읽는다", flow: app-log-read:read}
+      - {do: "원인을 고친 release를 활성화한다", flow: release-activate:active}
+    gaps:
+      - "crash loop로 멈춘 앱을 다시 띄우는 조건이 flow에 없다. 새 활성화가 창을 비우는지, 사람의 실행 켜기가 필요한지 app-supervisor-reconcile의 halted-crash-loop 해제 경로로 확인한다."
+
+  - id: app-data-rewind-from-activity
+    title: "Activity에서 고른 호출 시점으로 앱 data를 되돌린다"
+    actor: person
+    goal: "호출 기록에서 시점을 고르고 되돌릴 목록을 확인한 뒤 앱 data를 그 시점 직전으로 되돌린다"
+    steps:
+      - {do: "App details의 Activity에서 호출 기록을 읽는다", screen: new-app-activity, flow: app-invocation-read:listed}
+      - {do: "고른 호출의 Rewind from here로 되돌릴 목록을 본다. external은 Won't be undone으로 보인다", screen: new-app-rewind-confirm, flow: app-rewind-plan:planned}
+      - {do: "사람이 확인하고 시작한다", screen: new-app-rewind-done, flow: app-rewind-apply:applied}
+      - {do: "Activity에서 되돌리기 기록을 읽는다", flow: app-rewind-history-read:listed}
+    gaps:
+      - "사람 화면 Activity의 호출 목록이 route apps/invocations로 읽히는데 app-invocation-read의 actor는 agent다. 사람 자격의 읽기로 바꿀지 확인이 필요하다."
+
+  - id: app-data-rewind-cancelled
+    title: "앱 data 되돌리기가 도는 호출이나 계획 변경으로 취소된다"
+    actor: person
+    goal: "되돌리기가 접수를 닫고 기다리다 취소되어도 앱 data는 바뀌지 않고, 사람이 다시 계획을 본다"
+    steps:
+      - {do: "고른 시점의 되돌릴 목록을 본다", screen: new-app-rewind-confirm, flow: app-rewind-plan:planned}
+      - {do: "시작하자 도는 호출이 60초 안에 끝나지 않아 취소된다", screen: new-app-rewind-running, flow: app-rewind-apply:cancelled-running}
+      - {do: "다시 시작하는 사이 계획이 바뀌어 통째로 취소된다", screen: new-app-rewind-conflict, flow: app-rewind-apply:cancelled-conflict}
+
+  - id: app-rewind-with-session
+    title: "대화를 되돌리면서 고른 앱의 data도 함께 되돌린다"
+    actor: person
+    goal: "대화 시점을 고르고 파일과 고른 앱 data를 같은 시점으로 되돌리며, 앱 되돌리기는 기록으로 남는다"
+    steps:
+      - {do: "되돌리기 메뉴에서 checkpoint 목록과 되돌리기 기록을 읽는다", screen: new-agent-rewind, flow: rewind-reads:ok}
+      - {do: "되돌릴 시점과 함께 되돌릴 앱을 골라 미리 본다", screen: new-agent-rewind, flow: session-rewind-preview:ok}
+      - {do: "대화와 파일, 고른 앱의 data를 함께 되돌린다", flow: session-rewind-apply:applied}
+      - {do: "앱 되돌리기 요청의 결과가 되돌리기 기록에 남는다. 기다리지 않는다", flow: revert-apps-record:recorded}
+
+  - id: app-oauth-sign-in
+    title: "앱 OAuth 서비스에 사람이 client를 넣고 sign-in해서 앱이 외부 요청에 token을 붙인다"
+    actor: person
+    goal: "client id와 client secret을 넣고 browser에서 로그인하면, 앱 SDK가 외부 요청에 token을 한 번씩 받아 붙인다"
+    refs: [H10, H2]
+    steps:
+      - {do: "앱 Access의 OAuth 줄에 client id를 넣고 Save한다", screen: new-app-access-oauth-setup, flow: app-oauth-client-set:stored}
+      - {do: "client secret을 보호 입력 창에 넣는다", screen: new-secret-input-app, flow: secret-input:stored}
+      - {do: "Sign in을 누르고 OS browser에서 허락한다", screen: new-app-access-oauth-waiting, flow: app-oauth-sign-in:url-returned}
+      - {do: "browser가 돌려준 응답을 받아 token으로 바꿔 보관한다", flow: app-oauth-callback:signed-in}
+      - {do: "Access에 Signed in 상태가 보인다", screen: new-app-access-oauth-signed-in, flow: app-oauth-state:listed}
+      - {do: "앱 SDK가 외부 요청에 secret을 붙이겠다고 broker에 알린다", flow: app-broker-secret-use:used}
+      - {do: "supervisor가 secret 값을 한 번 받아 요청에 붙인다", flow: app-secret-value:delivered}
+      - {do: "broker가 외부 HTTP 요청을 보낸다", flow: app-broker-net-fetch:fetched}
+
+  - id: app-oauth-failed-and-signed-out
+    title: "OAuth sign-in이 실패하거나 refresh가 거절되어 사람이 다시 sign-in하거나 sign-out한다"
+    actor: person
+    goal: "실패 이유를 보고 다시 sign-in하거나, token을 지워 앱이 다시 sign-in을 요구하게 한다"
+    refs: [H10]
+    steps:
+      - {do: "browser의 응답이 제시간에 오지 않아 실패로 보인다", screen: new-app-access-oauth-failed, flow: app-oauth-callback:failed-callback-timeout}
+      - {do: "Sign in again을 누른다", screen: new-app-access-oauth-failed, flow: app-oauth-sign-in:url-returned}
+      - {do: "외부 요청의 refresh가 거절되어 보관한 token이 지워진다", flow: app-secret-value:refresh-rejected}
+      - {do: "Sign out으로 남은 token 셋을 지운다. client id와 client secret은 남는다", screen: new-app-access-oauth-signed-in, flow: app-oauth-sign-out:signed-out}
+
+  - id: app-secret-set-plain
+    title: "앱이 선언한 plain secret의 값을 보호 입력 창에 넣는다"
+    actor: person
+    goal: "값은 보호 입력 창에서만 받고, 앱 요청이 그 값을 외부 요청에 붙여 보낸다"
+    refs: [H10]
+    steps:
+      - {do: "Access의 plain secret 줄에서 Set value를 누른다", screen: new-secret-input-app, flow: secret-input:stored}
+      - {do: "앱 SDK가 그 secret을 외부 요청에 붙이겠다고 알린다", flow: app-broker-secret-use:used}
+      - {do: "supervisor가 값을 한 번 받아 요청에 붙인다", flow: app-secret-value:delivered}
+
+  - id: app-grant-review-and-revoke
+    title: "사람이 앱이 허락받은 바깥 자원을 보고 거둔다"
+    actor: person
+    goal: "앱이 허락받은 network host, secret, 파일을 Access에서 보고, 거둔 뒤에는 그 호출이 막힌다"
+    refs: [H2]
+    steps:
+      - {do: "Access 탭에서 앱이 허락받은 바깥 자원을 본다", screen: new-app-access, flow: app-grant-list:listed}
+      - {do: "Revoke를 누르지만 앱 process가 아직 살아 있어 접수만 된다", screen: new-app-access-revoking, flow: app-grant-revoke:process-running}
+      - {do: "자식 종료가 확인된 뒤 다시 거둔다", screen: new-app-access-revoking, flow: app-grant-revoke:revoked}
+      - {do: "거둔 뒤 같은 host로 가는 앱 요청이 막힌다", flow: app-broker-net-fetch:refused}
+
+  - id: app-public-call-assigned
+    title: "agent에게 앱의 공개 command를 할당하고 agent가 그것을 부른다"
+    actor: person
+    goal: "사람이 할당한 command만 agent가 앱에 부르고, 결과를 받는다"
+    refs: [P12, H3, C25]
+    steps:
+      - {do: "agent의 Grants에서 현재 앱 할당을 읽는다", screen: new-agent-grants-app, flow: assignment-read:ok}
+      - {do: "앱을 붙이고 쓸 command를 넣는다", screen: new-agent-grants-app, flow: assignment-set:saved}
+      - {do: "agent가 앱 지도에서 그 command의 입력 모양을 읽는다", flow: app-declaration-read:ok}
+      - {do: "할당으로 호출 판정을 통과한다", flow: app-call-assignment-judge:passed}
+      - {do: "앱 handler가 결과를 돌려 succeeded로 끝난다", flow: app-command-call:succeeded}
+      - {do: "다른 앱의 app process가 broker로 같은 command를 부르면 core가 그대로 전달한다", flow: app-broker-apps-call:forwarded}
+
+  - id: app-public-call-denied
+    title: "할당에 없는 앱 command를 agent가 부르면 막히고, 사람이 할당을 넣으면 다시 통과한다"
+    actor: agent
+    goal: "할당 밖의 호출은 handler에 가지 않고 denied로 기록되며, 사람이 고친 뒤에는 같은 호출이 통과한다"
+    refs: [H3, P12]
+    steps:
+      - {do: "할당에 없는 command를 agent가 부른다", flow: app-call-assignment-judge:gate-blocked}
+      - {do: "core가 denied(gate_blocked)로 기록하고 호출자에게 돌려준다", flow: app-command-call:denied-gate-blocked}
+      - {do: "사람이 agent 할당에 그 command를 넣는다", flow: assignment-set:saved}
+      - {do: "agent가 다시 부르면 판정을 통과한다", flow: app-call-assignment-judge:passed}
+
+  - id: app-remove-public-command
+    title: "공개 command를 지우는 release를 준비하고 쓰는 쪽에 알린 뒤 사람이 정한다"
+    actor: agent
+    goal: "다른 곳이 쓰는 command를 지우기 전에 쓰는 쪽에 알리고 사람에게 묻는다. 허락되면 activate하고, 아니면 tool을 되살린다"
+    refs: [A21, E8]
+    steps:
+      - {do: "공개 command를 지우는 release를 준비한다. 결과에 지우는 command가 실린다", flow: release-prepare:prepared}
+      - {do: "그 command를 쓰는 그릇의 lophn에게 답을 받지 않는 call로 알린다", flow: call-send:accepted}
+      - {do: "지워도 되는지 사람에게 묻는다", flow: tool-ask:submitted}
+      - {do: "사람이 질문 카드에서 답한다", screen: new-agent-question, flow: ask-answer:answered}
+      - {do: "허락되면 release를 활성화한다", flow: release-activate:active}
+    gaps:
+      - "A21의 '쓰는 그릇의 lophn'을 앱 workspace session이 어떻게 찾는지 flow가 없다. app-usage-read는 home session만 읽는다(forbidden). 지운 command를 쓰는 곳을 찾는 길을 정한다."
+
+  - id: app-package-publish
+    title: "앱 code의 package를 사용자 package로 내고 다른 앱이 그 판을 고정한다"
+    actor: agent
+    goal: "앱이 만든 package가 버전과 설치 사본으로 등록되고, 다른 앱이 정확한 판을 골라 의존에 고정한다"
+    refs: [A17, A5]
+    steps:
+      - {do: "앱 source의 package 폴더를 사용자 package로 publish한다", flow: package-publish:published}
+      - {do: "사용자 package 판이 catalog에 등록된다", flow: package-register-version:registered}
+      - {do: "다른 앱 session이 사용자 package 목록과 판을 읽는다", flow: package-catalog-read:ok}
+      - {do: "새 앱이 그 판을 선언의 의존에 고정해 release를 준비한다", flow: release-prepare:prepared}
+    gaps:
+      - "publish-package skill은 BUILTIN_SKILLS에 선언이 없어 skill.read로 도달하지 않는다(skill-publish-package not-available, defect 후보). 그래서 이 journey는 skill 없이 publish로 쓴다."
+
+  - id: app-package-publish-dirty
+    title: "커밋하지 않은 변경이 있어 package publish가 거절되고, commit 뒤 다시 낸다"
+    actor: agent
+    goal: "publish는 HEAD commit을 기준으로 하므로 dirty tree를 commit해 다시 낸다"
+    refs: [A17]
+    steps:
+      - {do: "커밋하지 않은 변경이 남은 채 publish를 부르면 거절된다", flow: package-publish:invalid_input}
+      - {do: "session이 shell.run으로 변경을 commit한다", flow: tool-shell-run:finished}
+      - {do: "다시 publish해 판이 등록된다", flow: package-publish:published}
+
+  - id: app-sdk-update
+    title: "사람이 /update-apps로 앱이 쓰는 SDK 판을 올리고 앱이 다시 준비된다"
+    actor: person
+    goal: "알림의 action으로 home에 SDK 갱신 검토를 맡기고, 고른 앱이 migrate-sdk 지침으로 고쳐 다시 준비한다"
+    steps:
+      - {do: "Inbox 알림의 action 단추로 /update-apps를 home에 보낸다", screen: inbox-tab, flow: notice-action:sent}
+      - {do: "home lophn이 update-apps 지침을 읽는다", flow: skill-update-apps:loaded}
+      - {do: "앱이 고정한 SDK 판과 지원 하한을 읽는다", flow: app-sdk-status-read:listed}
+      - {do: "새 SDK 판의 안내를 읽는다", flow: package-guide-read:ok}
+      - {do: "고른 앱 workspace에 call로 넘긴다", flow: call-send:accepted}
+      - {do: "앱 session이 migrate-sdk 지침을 읽고 코드를 고친다", flow: skill-migrate-sdk:loaded}
+      - {do: "고친 코드로 release를 준비한다", flow: release-prepare:prepared}
+
+  - id: app-notify-person
+    title: "앱이 사람에게 알림을 보내고 tray에 값을 둔다"
+    actor: person
+    goal: "앱의 알림이 toast와 Inbox 줄로 남고, 사람이 줄을 눌러 앱으로 가거나 읽음으로 바꾸며, tray에 짧은 값이 보인다"
+    refs: [E2]
+    steps:
+      - {do: "앱 SDK가 notify를 부르면 broker가 허락을 본다", flow: app-broker-notify:notified}
+      - {do: "core가 알림 줄을 쓴다. 같은 key면 내용을 바꾸고 안 읽음으로 되돌린다", flow: notice-post:posted}
+      - {do: "새 줄이 toast로 뜬다", screen: new-waiting-toasts, flow: notice-alert:toast}
+      - {do: "Inbox에서 안 읽은 줄을 본다", screen: inbox-tab, flow: inbox-open:ok}
+      - {do: "줄을 눌러 앱 공간을 앞으로 가져온다", flow: notice-reveal:revealed}
+      - {do: "줄을 읽음으로 바꾼다", flow: notice-dismiss:marked-read}
+      - {do: "History에서 알림 기록을 거르고 찾는다", flow: notice-read:ok}
+      - {do: "영구 줄을 한꺼번에 읽음으로 바꾼다", flow: notice-mark-read:marked}
+      - {do: "앱이 tray에 짧은 글과 tone을 놓는다", flow: tray-set:set}
+      - {do: "tray 목록에 앱 값이 보인다", flow: tray-read:ok}
+
+  - id: app-steer-during-build
+    title: "앱 session이 도는 중에 사람이 방향을 바꾸는 말을 넣고 필요하면 멈춘다"
+    actor: person
+    goal: "도는 turn을 끊지 않고 steer로 방향을 바꾸고, 그래도 안 되면 turn을 멈추고 본 글을 남긴다"
+    steps:
+      - {do: "도는 turn 안에 방향을 바꾸는 말을 steer로 넣는다", flow: session-steer:ok}
+      - {do: "멈춰야 하면 turn을 멈춘다. 사람이 본 글이 남는다", flow: turn-stop:stopped}
+
+  - id: app-needs-project-data
+    title: "앱 session이 읽을 자료가 필요해 project의 lophn에게 결과를 받는 call을 보낸다"
+    actor: agent
+    goal: "앱 짓기에 필요한 자료 묶음을 project workspace의 lophn에게 받아 이어 짓는다"
+    refs: [A13, L5]
+    steps:
+      - {do: "열린 session 목록에서 project의 lophn을 찾는다", flow: call-sendable-list:ok}
+      - {do: "자료 묶음을 결과로 받는 call을 보낸다", flow: call-send:accepted}
+      - {do: "project lophn이 결과를 답 call로 돌려준다", flow: call-reply:delivered}
+
+  - id: app-annotation-fix
+    title: "사람이 앱 화면에 annotation을 달아 보내고, 받은 앱 session이 고친다"
+    actor: person
+    goal: "고칠 요소와 메모를 화면에서 골라 보내면, 앱 workspace session이 screenshot과 함께 읽고 코드를 고친다"
+    refs: [A3]
+    steps:
+      - {do: "앱 화면 ⋯ 메뉴에서 Annotate를 켠다", screen: new-app-menu, flow: annotate-mode:on}
+      - {do: "고칠 요소를 고르고 메모를 적는다", screen: new-app-annotate, flow: annotate-pick:picked}
+      - {do: "잘못 고른 표지 하나를 ×로 지운다", screen: new-app-annotate-list, flow: annotate-remove:removed}
+      - {do: "Send to lophn을 누르면 화면 capture를 올린다", screen: new-app-annotate-list, flow: annotation-screenshot-upload:prepared}
+      - {do: "묶음이 저장되고 고른 agent의 그 앱 workspace session에 메시지로 들어간다", screen: new-app-annotate-list, flow: annotation-send:delivered}
+      - {do: "목록과 표지가 비고 annotate mode가 꺼진다", flow: annotate-send:sent}
+      - {do: "받은 session이 annotation과 screenshot 경로를 읽는다", flow: annotation-get:ok}
+      - {do: "image.read로 screenshot을 본다", flow: tool-image-read:annotation}
+      - {do: "요청대로 코드를 고친다", flow: tool-file-edit:edited}
+
+  - id: app-annotation-send-failed
+    title: "annotation을 보냈는데 받는 session이 닫혀 있어 묶음이 지워지고 목록은 남는다"
+    actor: person
+    goal: "전달이 실패하면 저장한 묶음은 지워지고, 사람은 화면에 남은 목록을 보고 다시 보낼 수 있다"
+    refs: [A3]
+    steps:
+      - {do: "고른 annotation을 Send to lophn으로 보낸다. 지정한 session이 이미 닫혀 있다", screen: new-app-annotate-list, flow: annotation-send:session-not-open}
+      - {do: "전달 실패로 저장한 묶음을 지운다", flow: annotation-discard:discarded}
+      - {do: "화면의 목록은 남고 보내기가 실패했다고 보인다", screen: new-app-annotate-list, flow: annotate-send:core-rejected}
+
+  - id: app-coach-agent-in-screen
+    title: "앱 화면이 자기 앱 workspace session에 리뷰를 맡기고 줄 주석을 그린다"
+    actor: person
+    goal: "앱 화면에서 쓴 코드를 앱의 agent가 리뷰하고, 답 꼴이 맞으면 줄 주석을 textarea에 그린다"
+    refs: [A22]
+    steps:
+      - {do: "Send for review를 누르면 첫 보내기에 session이 열린다", screen: coach-idle, flow: app-agent-open:opened}
+      - {do: "attempt와 코드를 context block으로 보낸다", screen: coach-working, flow: app-agent-send:sent}
+      - {do: "session의 turn이 돈다", screen: coach-working, flow: turn-loop:completed}
+      - {do: "agent 답을 session 기록에 남긴다", flow: agent-reply-record:ok}
+      - {do: "화면이 답을 읽어 gutter와 줄 주석을 그린다", screen: coach-reviewed, flow: app-agent-snapshot:snapshot}
+    gaps:
+      - "답이 꼴에 맞지 않아 다시 보내기를 보이는 분기(coach-failed)는 앱 page 쪽 처리라 flow가 없다."

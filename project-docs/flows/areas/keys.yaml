@@ -1,0 +1,261 @@
+area: keys
+
+flows:
+  # ---------- 창 안 키 판정 (main before-input-event와 renderer keydown) ----------
+  - id: key-press
+    title: "창 안에서 누른 키를 표와 맞춰 command를 부르거나 page로 넘긴다"
+    actor: person
+    entries: [ui:key-press]
+    uses: [ipc:shell:shortcut]
+    boundary: [shell]
+    code:
+      - packages/shell/ipc/keybindings.ts
+      - packages/shell/main/desktop/shortcuts.ts
+      - packages/shell/renderer/commands/keybinding-service.ts
+      - packages/shell/renderer/commands/window.ts
+    steps:
+      - "main의 before-input-event가 표에서 main이 먼저 받는 줄(tab 이동·닫기·다시 열기, new.browser, palette·Home, desk.next·prev·nth, app.panel:* 등)을 맞추면 삼키고 창 renderer에 binding id를 shell:shortcut으로 보낸다. browser page(context browser)는 그 줄만 본다"
+      - "그 밖의 키는 renderer의 document keydown capture가 받는다. 안쪽 context부터 사람 > 등록 > 표 순서로 맞춘다. context가 owns한 chord(터미널의 Linux·Windows Ctrl+글자 등)는 바깥 binding에 가지 않는다"
+      - "맞은 binding의 command를 registry가 지금 부를 수 있을 때(canRun)만 실행하고 키를 삼킨다. 눌러 둔 반복은 부르지 않고 삼키기만 한다"
+      - "두 타의 머리면 1.5초(SEQUENCE_WAIT_MS) 기다린다. 둘째 타가 맞으면 실행하고, 다른 키면 머리를 버리고 그 키를 새로 맞추며, 시간이 다 되면 첫 타의 홑 binding을 부른다"
+      - "조합 중이거나 새 키를 받는 칸(data-key-capture) 안이거나 맞는 binding이 없으면 키를 넘겨 focus가 있는 page나 입력칸이 받는다"
+    outcomes:
+      - id: command-run
+        observe: ["process:맞은 command의 handler가 돈다. 어느 flow인지는 key:<command>의 link가 정한다"]
+      - id: passed-on
+        when: "맞는 binding이 없거나, 맞아도 command를 지금 부를 수 없거나, context가 owns한 chord이거나, 조합 중이거나 새 키 칸이다"
+        observe: ["process:키가 focus가 있는 page나 입력칸으로 간다"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+
+  # ---------- 사람이 단 키 저장 ----------
+  - id: key-record
+    title: "Settings › Keyboard에서 사람이 새 키를 고르고 저장한다"
+    actor: person
+    entries: [ui:key-record]
+    uses: [settings-update:changed, ipc:shell:keybindings]
+    boundary: [shell, config]
+    code:
+      - packages/shell/renderer/desktop/settings/keyboard/keyboard-panel.tsx
+      - packages/shell/renderer/desktop/settings/keyboard/model.ts
+      - packages/shell/renderer/desktop/settings/keyboard/core-source.ts
+      - packages/shell/renderer/commands/window.ts
+    steps:
+      - "새 키를 받는 칸이 누른 chord를 checkChord로 본다. 두 타면 타마다 본다. modifier 없는 키(F1~F12 빼고)와 RESERVED(전역 팔레트 키, 글자 편집 Ctrl·Cmd 키, OS 키)는 거절하고 이유를 보인다"
+      - "다른 줄이 쓰는 chord(taken)는 거절하지 않고 바꾸기를 준다. 사람이 고르면 그 chord를 가진 다른 줄에서 빼고 한 번에 저장한다"
+      - "통과하면 WindowCommands.setOverrides로 이 창의 binding을 먼저 바꾸고 ipc:shell:keybindings로 main에 알린다"
+      - "shell.keybindings 값을 settings-update로 쓴다. 쓰기가 거절되거나 실패하면 이전 값으로 되돌리고 저장되지 않았다고 보인다"
+    outcomes:
+      - id: saved
+        observe: ["disk:<root>/settings.json", "event:SettingsChanged", "screen:settings-keyboard-changed"]
+      - id: saved-taking-keys
+        when: "다른 줄이 쓰던 chord를 바꾸기로 빼고 같은 저장으로 함께 쓴다"
+        observe: ["disk:<root>/settings.json", "event:SettingsChanged", "screen:settings-keyboard-changed"]
+      - id: rejected-needs-modifier
+        when: "modifier 없는 키다. 입력칸의 글자를 삼키기 때문이다"
+        observe: ["screen:settings-keyboard"]
+      - id: rejected-reserved
+        when: "RESERVED에 든 키다. lophn이나 OS가 먼저 쓴다"
+        observe: ["screen:settings-keyboard"]
+      - id: not-saved
+        when: "settings-update가 rejected나 unavailable로 돌아왔다. 화면은 이전 값으로 되돌아간다"
+        observe: ["response", "screen:settings-keyboard"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+    unclear:
+      - "settings-update는 rejected를 ok 응답의 목록으로 준다. keyboard source(declared.ts chooseSetting)가 이것을 오류 code로 바꾸므로 not-saved 안의 실패 code는 나누지 않았다"
+
+  # ---------- 사람이 단 키 되살리기 (창을 열 때와 설정이 바뀔 때) ----------
+  - id: key-overrides-restore
+    title: "저장된 사람의 키를 창을 열 때와 설정이 바뀔 때 다시 적용한다"
+    actor: system
+    entries: [system:key-overrides-restore]
+    uses: [settings-read:ok, ipc:shell:keybindings]
+    boundary: [shell, config]
+    code:
+      - packages/shell/renderer/desktop/main.tsx
+      - packages/shell/renderer/desktop/settings/keyboard/core-source.ts
+      - packages/shell/ipc/keybindings.ts
+    steps:
+      - "desktop main이 keyboard source의 watch를 걸면 shell.keybindings를 읽는다(settings-read). 설정이 바뀌면 watch가 다시 읽는다"
+      - "parseKeyOverrides로 검사하고 이 OS 것만 골라 WindowCommands.setOverrides로 창의 binding을 덮는다"
+      - "같은 값을 ipc:shell:keybindings로 main에 알려 main이 먼저 받는 키도 같게 맞춘다"
+      - "읽기가 실패하면 아무것도 덮지 않아 표의 기본 키로 남는다"
+    outcomes:
+      - id: restored
+        observe: ["process:창의 키 표가 사람이 바꾼 키로 덮인다", "process:main의 키 표도 같이 바뀐다"]
+      - id: read-failed
+        when: "settings-read가 실패했다. 창은 표의 기본 키 그대로다"
+        observe: ["process:창의 키 표는 기본 키 그대로다"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+    unclear:
+      - "Settings › Keyboard 화면을 열 때의 load도 같은 setOverrides를 부른다(keyboard-panel.tsx). 그 경로는 화면 열기의 일이라 따로 두지 않았다"
+
+  # ---------- ipc: 사람이 바꾼 키를 main에 알린다 ----------
+  - id: key-overrides-main
+    title: "사람이 바꾼 키를 main에 알려 main이 먼저 받는 키도 같게 바꾼다"
+    actor: person
+    entries: [ipc:shell:keybindings]
+    boundary: [shell]
+    code:
+      - packages/shell/ipc/keybindings.ts
+      - packages/shell/preload/keybindings-api.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "preload의 createKeybindingsApi가 이 OS의 overrides를 KEYBINDINGS_CHANNEL로 invoke한다. 오류는 버린다"
+      - "desktop wiring의 handler가 보낸 창이 desktop 창인지 본다(checkCaller와 origin.host). 아니면 아무것도 하지 않는다"
+      - "parseKeyOverrides로 검사하고 resolveBindings와 compileBindings로 main의 표를 바꾼다. 틀린 줄만 버리고 나머지는 산다"
+    outcomes:
+      - id: applied
+        observe: ["response", "process:main의 before-input-event 표가 사람이 바꾼 키를 따른다"]
+      - id: ignored-sender
+        when: "보낸 창이 desktop 창이 아니다(checkCaller가 거절하거나 origin.host가 desktop이 아니다)"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+    unclear:
+      - "호출하는 쪽이 사람의 저장(key-record)과 창을 열 때의 되살리기(key-overrides-restore) 둘이라 actor를 person으로 두었다"
+      - "sender 검사(checkCaller)는 ipc 통로 검사라 ipc area 소관일 수 있다. 여기서는 이 channel이 그것을 어떻게 쓰는지만 적었다"
+
+  # ---------- 전역 팔레트 키 (OS 전역 단축키) ----------
+  - id: global-palette-register
+    title: "전역 팔레트 키(CommandOrControl+Shift+K)를 OS에 건다. 못 걸면 알린다"
+    actor: system
+    entries: [system:global-palette-register]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/global-shortcut.ts
+      - packages/shell/main/desktop/headless.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+      - packages/shell/ipc/shortcuts.ts
+    steps:
+      - "shell 기동 중 desktop wiring이 installGlobalPalette로 GLOBAL_PALETTE_ACCELERATOR를 OS port에 건다"
+      - "headless면 guardShortcuts가 등록을 거절하고 log만 남긴다. 그러면 아래 unavailable 경로도 탄다(tray가 없어 안내는 보이지 않는다)"
+      - "등록이 false를 주거나 throw하면 다른 키로 대신 걸지 않고 tray에 사용 불가 안내(global-search-unavailable)를 보인다"
+      - "shell이 멈출 때 dispose가 자기 key만 푼다"
+    outcomes:
+      - id: registered
+        observe: ["process:OS에 전역 팔레트 키 하나가 걸린다"]
+      - id: headless-skipped
+        when: "LOPHN_SHELL_HEADLESS라 OS에 걸지 않았다"
+        observe: ["log:headless global-shortcut 줄"]
+      - id: unavailable
+        when: "다른 앱이 이미 쓰거나 등록이 throw했다"
+        observe: ["log:전역 팔레트를 등록하지 못했다 줄", "process:tray에 사용 불가 안내 한 줄"]
+    crosses_process: false
+    docs: [architecture/keybindings.md]
+
+  - id: global-palette-press
+    title: "다른 앱에 focus가 있어도 전역 팔레트 키를 누르면 lophn 창을 앞으로 가져온다"
+    actor: person
+    entries: [ui:global-palette-key]
+    uses: [desktop-window-intent:sent, desktop-window-intent:opened]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/global-shortcut.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "OS가 전역 키를 주면 installGlobalPalette의 callback이 desktop.send(\"global-palette\")를 부른다"
+      - "desktop-window-intent가 최근 창을 앞으로 가져와 global-palette intent를 창 renderer에 보낸다"
+    outcomes:
+      - id: handed-over
+        observe: ["process:창 renderer가 shell:intent(global-palette)를 받는다"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+    unclear:
+      - "팔레트 화면을 여는 flow는 아직 없다(palette.open과 같은 missing-domain-flow). 여기서는 창으로 전달하는 데까지만 본다"
+
+links:
+  # tab (shell-workspace)
+  - {entry: "key:tab.next", flow: tab-select}
+  - {entry: "key:tab.prev", flow: tab-select}
+  - {entry: "key:tab.nth", flow: tab-select}
+  - {entry: "key:tab.close", flow: tab-close}
+  - {entry: "key:tab.reopen", flow: tab-reopen}
+  - {entry: "key:tab.move-left", flow: tab-move}
+  - {entry: "key:tab.move-right", flow: tab-move}
+  - {entry: "key:tab.rename", flow: tab-rename}
+  - {entry: "key:tab.close-others", flow: tab-close-many}
+  - {entry: "key:tab.close-right", flow: tab-close-many}
+  - {entry: "key:tab.close-saved", flow: tab-close-many}
+  - {entry: "key:tab.close-all", flow: tab-close-many}
+  - {entry: "key:tab.keep-open", flow: tab-keep-open}
+  - {entry: "key:tab.copy-path", flow: tab-copy-path}
+  - {entry: "key:tab.copy-relative-path", flow: tab-copy-path}
+  - {entry: "key:tab.reveal", flow: tab-reveal}
+  - {entry: "key:tab.float", flow: tab-float}
+  - {entry: "key:tab.detach", flow: tab-detach}
+  # pane (shell-workspace)
+  - {entry: "key:pane.split", flow: pane-split}
+  - {entry: "key:pane.split-down", flow: pane-split}
+  - {entry: "key:pane.focus", flow: pane-focus}
+  - {entry: "key:pane.focus-left", flow: pane-focus}
+  - {entry: "key:pane.focus-right", flow: pane-focus}
+  - {entry: "key:pane.focus-up", flow: pane-focus}
+  - {entry: "key:pane.focus-down", flow: pane-focus}
+  - {entry: "key:pane.swap-left", flow: pane-swap}
+  - {entry: "key:pane.swap-right", flow: pane-swap}
+  - {entry: "key:pane.swap-up", flow: pane-swap}
+  - {entry: "key:pane.swap-down", flow: pane-swap}
+  - {entry: "key:pane.stack-next", flow: pane-stack-cycle}
+  - {entry: "key:pane.stack-prev", flow: pane-stack-cycle}
+  - {entry: "key:pane.unstack", flow: pane-tab-leave}
+  - {entry: "key:pane.remove", flow: pane-tab-leave}
+  - {entry: "key:pane.unsplit", flow: pane-unsplit}
+  - {entry: "key:pane.close-others", flow: tab-close-many}
+  - {entry: "key:pane.close-group", flow: tab-close-many}
+  # desk (shell-workspace)
+  - {entry: "key:desk.new", flow: desk-new}
+  - {entry: "key:desk.next", flow: desk-switch}
+  - {entry: "key:desk.prev", flow: desk-switch}
+  - {entry: "key:desk.nth", flow: desk-switch}
+  - {entry: "key:desk.rename", flow: desk-rename}
+  - {entry: "key:desk.close", flow: desk-close}
+  # float (shell-workspace)
+  - {entry: "key:float.dock", flow: float-dock}
+  - {entry: "key:float.minimize", flow: float-collapse-loose}
+  # open (shell-workspace)
+  - {entry: "key:new.terminal", flow: terminal-tab-new}
+  - {entry: "key:new.browser", flow: browser-tab-new}
+  - {entry: "key:new.agent", flow: agent-tab-new}
+  - {entry: "key:new.document", flow: document-tab-new}
+  - {entry: "key:search.open", flow: search-tab-open}
+  # view (shell-workspace)
+  - {entry: "key:sidebar.toggle", flow: sidebar-toggle-left}
+  - {entry: "key:sidebar.toggle-right", flow: sidebar-toggle-right}
+  - {entry: "key:explorer.focus", flow: explorer-focus}
+  - {entry: "key:terminal.focus", flow: terminal-tab-focus}
+  - {entry: "key:nav.back", flow: nav-trail}
+  - {entry: "key:nav.forward", flow: nav-trail}
+  - {entry: "key:home.open", flow: workspace-switch}
+  - {entry: "key:inbox.open", flow: inbox-tab-open}
+  - {entry: "key:jobs.open", flow: jobs-tab-open}
+  # app panel (shell-workspace)
+  - {entry: "key:app.panel", flow: app-panel-open}
+  # browser (projects)
+  - {entry: "key:browser.bookmark", flow: browser-bookmark-save}
+  # agent 화면 (sessions·turns·approvals·harness). core 탭 쪽 flow를 잇는다. harness GUI 탭은 아래 보고서 참고
+  - {entry: "key:agent.send", flow: session-send}
+  - {entry: "key:agent.queue", flow: session-send}
+  - {entry: "key:agent.send-now", flow: queued-steer-now}
+  - {entry: "key:agent.interrupt", flow: turn-stop}
+  - {entry: "key:agent.cycle-mode", flow: session-change-skip}
+  - {entry: "key:agent.rewind", flow: session-rewind-preview}
+  - {entry: "key:agent.background", flow: harness-gui-input}
+
+ignore:
+  - {entry: "key:agent.newline", reason: "입력칸 안에서 줄을 바꾼다. 글은 보낼 때 session-send가 본다"}
+  - {entry: "key:agent.find", reason: "열린 대화 줄의 DOM 글을 훑어 칠하는 화면 찾기다(창 메모리). 세션 간 검색은 session-message-search다"}
+  - {entry: "key:agent.jump-previous", reason: "대화 목차에서 앞 사람 글로 scroll한다. 제품 상태를 바꾸지 않는다"}
+  - {entry: "key:agent.jump-next", reason: "대화 목차에서 다음 사람 글로 scroll한다. 제품 상태를 바꾸지 않는다"}
+  - {entry: "key:agent.scroll-page-up", reason: "대화 scroll이다. 제품 상태를 바꾸지 않는다"}
+  - {entry: "key:agent.scroll-page-down", reason: "대화 scroll이다. 제품 상태를 바꾸지 않는다"}
+  - {entry: "key:agent.scroll-top", reason: "대화 scroll이다. 제품 상태를 바꾸지 않는다"}
+  - {entry: "key:agent.scroll-bottom", reason: "대화 scroll이다. 제품 상태를 바꾸지 않는다"}
+  - {entry: "key:agent.model-picker", reason: "composer의 model 목록을 여닫는다. 고른 model은 set_model(session-change-model)이 쓴다"}
+  - {entry: "key:agent.history-previous", reason: "이미 받은 대화의 사람 글을 입력칸에 넣는다(창 메모리)"}
+  - {entry: "key:agent.history-next", reason: "이미 받은 대화의 사람 글을 입력칸에 넣는다(창 메모리)"}
+  - {entry: "key:agent.history-search", reason: "이미 받은 대화의 사람 글을 찾아 입력칸에 넣는다(창 메모리)"}
+  - {entry: "key:agent.clear-input", reason: "창 메모리의 입력칸 글을 지운다. 디스크와 core에 가지 않는다"}
+  - {entry: "key:agent.toggle-details", reason: "창 메모리의 줄 세부 단계(Messages·Compact·Everything)를 바꾼다"}

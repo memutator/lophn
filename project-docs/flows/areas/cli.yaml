@@ -1,0 +1,225 @@
+area: cli
+flows:
+  - id: cli-core-connect
+    title: "binary가 명령 하나를 돌리려고 core에 붙는다. 없으면 띄우고, 쓰기 응답을 잃으면 같은 key로 결과를 다시 본다"
+    actor: person
+    entries: []
+    uses: [system:core-ensure, control:identify, control:connect, route:commands/result]
+    boundary: [core-control-protocol, coding-agent-cli, core-api]
+    code:
+      - packages/cli/connection/core.ts
+      - packages/cli/connection/client/core.ts
+      - packages/cli/connection/client/daemon.ts
+      - packages/cli/connection/client/node.ts
+      - packages/cli/connection/client/token.ts
+    steps:
+      - "LOPHN_AGENT_CREDENTIAL env가 있으면 그 자격으로만 부른다. connect도 띄우기도 하지 않고 identify로 core가 ready인지만 본다"
+      - "LOPHN_DAEMON_URL이 있으면 loopback http 주소인지 보고, identify가 알린 api_url과 같은 core일 때만 control connect로 user 자격을 받는다. 띄우지 않는다"
+      - "그 밖에는 system:core-ensure로 붙거나 띄운다. 판이 다른 core는 ensure가 한 번 갈아 띄운다. 받은 자격으로 core route를 HTTP로 부른다"
+      - "data root(LOPHN_HOME, 없으면 $HOME/.lophn)를 못 구하면 control socket 자리도 못 구해 unavailable이다"
+      - "쓰기 호출의 전송이 끊기면 같은 key로 route:commands/result를 읽는다. 결과가 있으면 그 결과를 성공으로 쓰고, 없으면 effect_unknown 진단과 key를 싣고 exit 6으로 끝난다"
+      - "읽기 호출의 전송이 끊기면 unavailable을 그대로 돌려준다(exit 5). 다시 부르는 것은 호출자 몫이다"
+    outcomes:
+      - id: attached
+        observe: [response]
+        when: "ensure가 붙거나 띄워 붙었다(system:core-ensure의 attached, spawned, replaced 가운데 하나)"
+      - id: joined-agent
+        observe: [response]
+        when: "agent 자격 env가 있고 그 core가 ready다. 띄우지 않고 그 자격으로 부른다"
+      - id: joined-address
+        observe: [response]
+        when: "LOPHN_DAEMON_URL이 identify가 알린 core와 같다. 띄우지 않고 user 자격을 받는다"
+      - id: invalid-address
+        code: invalid_input
+        observe: [response]
+        when: "LOPHN_DAEMON_URL이 비었거나 http가 아니거나 loopback이 아니다"
+      - id: address-mismatch
+        code: unavailable
+        observe: [response]
+        when: "명시 주소가 identify의 api_url과 다르다. 자격을 받기 전에 끝낸다"
+      - id: no-data-root
+        code: unavailable
+        observe: [response]
+        when: "LOPHN_HOME도 HOME도 없어 data root를 못 구한다"
+      - id: core-unavailable
+        code: unavailable
+        observe: [response]
+        when: "agent 자격의 core가 떠 있지 않거나 api_url이 아직 null이다, 또는 system:core-ensure가 unavailable로 끝났다(start-failed, not-ready, stop-timeout, version-mismatch)"
+      - id: contract-mismatch
+        code: internal
+        observe: [response]
+        when: "system:core-ensure의 contract-mismatch다"
+      - id: replayed
+        observe: [response]
+        when: "쓰기 응답을 잃었고 같은 key의 결과가 core에 남아 있다. 그 결과를 성공으로 쓴다"
+      - id: effect-unknown
+        code: unavailable
+        observe: [response]
+        when: "쓰기 응답을 잃었고 같은 key의 결과도 없다. details에 diagnosis effect_unknown과 key를 싣고 exit 6이다"
+      - id: read-lost
+        code: unavailable
+        observe: [response]
+        when: "읽기 호출이 전송에서 끊겼다(exit 5)"
+    crosses_process: true
+    risk: [secret]
+    docs: [architecture/platform.md]
+    unclear:
+      - "명시 주소(LOPHN_DAEMON_URL) 경로는 identify 뒤 api_url 비교만 하고 product_version을 보지 않는다. 다른 판의 core에도 자격을 준다. core-ensure처럼 판을 맞출지 사람이 정한다"
+      - "agent 자격 경로는 core가 떠 있지 않으면 띄우지 않고 unavailable이다. harness shell에서 core가 꺼진 뒤의 기대 동작을 확인할 것"
+
+  - id: core-stop
+    title: "lophn core stop: 떠 있는 core에 control stop을 보낸다. 띄우지는 않는다"
+    actor: person
+    entries: [cli:core.stop]
+    uses: [control:stop]
+    boundary: [core-control-protocol, coding-agent-cli]
+    code:
+      - packages/cli/commands/core.ts
+      - packages/cli/connection/core.ts
+      - packages/cli/connection/client/node.ts
+    steps:
+      - "LOPHN_AGENT_CREDENTIAL env가 있으면 agent 자격으로는 core를 멈출 수 없어 forbidden으로 끝난다. 연결하지 않는다"
+      - "data root와 control socket 자리를 구한다. 못 구하면 unavailable이다"
+      - "control stop 한 줄을 보낸다. 띄우지 않는다. core가 없어 socket이 답하지 않으면 unavailable이다"
+      - "core가 ready이면 control-stop이 ok를 먼저 쓰고 barrier를 돌린 뒤 나간다. tray의 Stop lophn과 같은 control stop이다(architecture/platform.md)"
+      - "출력은 stopped true다(--json이면 JSON 한 줄). 출력 꼴은 cli-argv가 맡는다"
+    outcomes:
+      - id: stopped
+        observe: [response, "process:core 종료"]
+        when: "control stop이 ok로 왔다"
+      - id: forbidden
+        code: forbidden
+        observe: [response]
+        when: "LOPHN_AGENT_CREDENTIAL env가 있다(harness shell). core를 멈추지 않고 연결도 하지 않는다"
+      - id: unavailable
+        code: unavailable
+        observe: [response]
+        when: "data root를 못 구했거나, core가 없어 socket이 답하지 않거나, core가 starting이나 stopping이다"
+      - id: internal
+        code: internal
+        observe: [response]
+        when: "core가 root package.json의 판을 읽지 못해 control-stop이 internal로 답했다. 종료는 시작하지 않는다"
+    crosses_process: true
+    docs: [architecture/platform.md]
+
+  - id: cli-argv
+    title: "lophn 명령줄 한 줄을 명령 하나로 읽는다. 틀리면 invalid_input으로 끝내고, 결과는 줄이나 --json으로 쓴다"
+    actor: person
+    entries: []
+    uses: [system:core-ensure, route:apps/list, route:apps/tools]
+    boundary: [coding-agent-cli-interface, core-api]
+    code:
+      - packages/cli/main.ts
+      - packages/cli/parser.ts
+      - packages/cli/output.ts
+      - packages/cli/help.ts
+      - packages/cli/commands/app-command.ts
+      - packages/cli/commands/types.ts
+    steps:
+      - "첫 낱말이 help면 명령 표로 help 글을 낸다. 인자가 없으면 같은 글을 exit 2로 낸다. version은 core 없이 제품 판을 낸다"
+      - "명령 표의 점 이름을 argv 낱말로 맞춘다(app.link_source는 app link-source). 맞는 명령이 없고 첫 낱말이 표에 없으면 system:core-ensure로 core에 붙어 그 slug의 앱 command를 표에 더해 다시 맞춘다. 그래도 없으면 unknown command다"
+      - "flag와 위치 인자를 칸에 맞춘다. 모르는 flag, 값 없는 flag, 중복, 위치 인자 초과, 숫자·boolean·JSON 변환 실패는 usage 한 줄과 함께 invalid_input이다"
+      - "--input은 JSON object여야 하고 칸과 겹치면 안 된다. 칸 schema가 막으면 빠진 칸과 틀린 칸을 항목별로 적은 invalid_input이다. 명령의 run은 실행 전에 인자 조합을 한 번 더 거른다"
+      - "run이 돌려준 오류는 code 그대로 쓴다. 갈래는 그 명령의 flow가 정한다. 결과는 --json이면 JSON 한 줄, 아니면 text나 줄로 푼 글을 stdout에 쓴다"
+      - "끝난 일이 failed면 결과를 쓴 뒤 사유를 stderr에 쓰고 exit 4다. note는 stderr에 한 줄 쓰고 exit 0이다. 오류는 stderr에 code와 message를 쓰고 code를 exit으로 바꾼다(invalid_input 2, forbidden·unauthorized 3, unavailable 5, effect_unknown 6, internal 1, 그 밖 4)"
+      - "받은 user token과 agent 자격은 stdout·stderr 어디에도 남기지 않는다"
+    outcomes:
+      - id: result
+        observe: [response]
+        when: "명령이 ok로 끝났다. exit 0"
+      - id: note
+        observe: [response]
+        when: "명령은 ok이고 알릴 것이 있다(workflow.start가 첫 step을 넘기지 못함). stderr에 한 줄, exit 0"
+      - id: failed
+        observe: [response]
+        when: "명령은 끝났지만 일의 결과가 실패다(끝난 run이 failed나 cancelled, preview가 ready가 아님, release prepare·activate의 failed). stderr에 사유, exit 4다"
+      - id: help
+        observe: [response]
+        when: "lophn help, lophn <묶음> --help, lophn <명령> --help. stdout에 글, exit 0"
+      - id: help-no-args
+        observe: [response]
+        when: "인자가 없다. help 글을 stdout에 쓰고 exit 2다"
+      - id: version
+        observe: [response]
+        when: "lophn version. core를 부르지 않고 제품 판을 쓴다"
+      - id: unknown-command
+        code: invalid_input
+        observe: [response]
+        when: "명령 표와 앱 command 어디에도 없는 낱말이다(앱 slug가 없는 경우 포함). Run lophn help를 안내한다"
+      - id: help-unknown-topic
+        code: invalid_input
+        observe: [response]
+        when: "help 뒤의 낱말이 명령도 묶음도 아니다"
+      - id: invalid-argument
+        code: invalid_input
+        observe: [response]
+        when: "모르는 flag, 값 없는 flag, 중복 flag, 위치 인자 초과나 중복, 숫자·boolean·JSON 변환 실패"
+      - id: invalid-input
+        code: invalid_input
+        observe: [response]
+        when: "칸 schema가 막았다, --input이 JSON object가 아니다, --input과 --input-file을 같이 줬다, --input-file을 못 읽었다, 같은 칸을 --input과 flag로 둘 다 줬다"
+      - id: run-args-invalid
+        code: invalid_input
+        observe: [response]
+        when: "명령 run이 실행 전에 인자 조합을 거른다. agent run의 --session과 --agent·--project·--app, --project와 --app, --schema가 JSON object가 아님. tab open의 --session과 --url이 둘 다 있거나 둘 다 없음, --tui에 --session이 없음. call reply의 --allow와 --reject 동시, 결정 없이 body도 없음. package read에서 name 없이 version이나 offset_bytes"
+      - id: app-lookup-unavailable
+        code: unavailable
+        observe: [response]
+        when: "표에 없는 첫 낱말이라 core에 붙었는데 붙지 못했다(cli-core-connect의 unavailable)"
+    crosses_process: false
+    risk: [secret]
+    unclear:
+      - "표에 없는 첫 낱말이면 core를 띄운다(system:core-ensure). lophn 뒤의 틀린 명령 이름만으로 core가 뜨는 것이 의도인지 확인할 것"
+
+links:
+  - {entry: "cli:agent.card", flow: agent-card-read}
+  - {entry: "cli:agent.create", flow: agent-create}
+  - {entry: "cli:agent.update", flow: agent-change}
+  - {entry: "cli:agent.run", flow: run-agent-start}
+  - {entry: "cli:app.share", flow: share-request-open}
+  - {entry: "cli:app.read", flow: app-read}
+  - {entry: "cli:app.tools", flow: app-declaration-read}
+  - {entry: "cli:app.create", flow: app-create}
+  - {entry: "cli:app.link_source", flow: app-connect-source}
+  - {entry: "cli:declaration.check", flow: declaration-check}
+  - {entry: "cli:app.status", flow: app-runtime-read}
+  - {entry: "cli:app.sdk_status", flow: app-sdk-status-read}
+  - {entry: "cli:app.logs", flow: app-log-read}
+  - {entry: "cli:app.invocations", flow: app-invocation-read}
+  - {entry: "cli:browser.read", flow: host-browser-read}
+  - {entry: "cli:call.send", flow: call-send}
+  - {entry: "cli:call.reply", flow: call-reply}
+  - {entry: "cli:call.cancel", flow: call-cancel}
+  - {entry: "cli:ext.call", flow: extension-tool-call}
+  - {entry: "cli:job.create", flow: job-create}
+  - {entry: "cli:job.update", flow: job-update}
+  - {entry: "cli:job.delete", flow: job-delete}
+  - {entry: "cli:job.list", flow: job-list}
+  - {entry: "cli:package.read", flow: package-catalog-read}
+  - {entry: "cli:package.publish", flow: package-publish}
+  - {entry: "cli:preview.start", flow: preview-start}
+  - {entry: "cli:preview.stop", flow: preview-stop}
+  - {entry: "cli:preview.call", flow: app-command-call}
+  - {entry: "cli:release.list", flow: release-state-read}
+  - {entry: "cli:release.get", flow: release-state-read}
+  - {entry: "cli:release.prepare", flow: release-prepare}
+  - {entry: "cli:release.activate", flow: release-activate}
+  - {entry: "cli:run.wait", flow: run-wait}
+  - {entry: "cli:run.show", flow: run-read}
+  - {entry: "cli:run.cancel", flow: run-cancel}
+  - {entry: "cli:session.list", flow: call-sendable-list}
+  - {entry: "cli:settings.get", flow: settings-read}
+  - {entry: "cli:tab.open", flow: host-tab-open}
+  - {entry: "cli:tab.close", flow: host-tab-close}
+  - {entry: "cli:team.spawn", flow: team-spawn}
+  - {entry: "cli:team.read", flow: team-read}
+  - {entry: "cli:team.end", flow: team-end}
+  - {entry: "cli:workflow.list", flow: workflow-list}
+  - {entry: "cli:workflow.get", flow: workflow-instance-read}
+  - {entry: "cli:workflow.report", flow: workflow-report}
+  - {entry: "cli:workflow.edit", flow: workflow-edit}
+  - {entry: "cli:workflow.check", flow: workflow-check}
+  - {entry: "cli:workflow.start", flow: workflow-start-agent}
+  - {entry: "cli:workflow.stop", flow: workflow-stop}
+
+ignore: []

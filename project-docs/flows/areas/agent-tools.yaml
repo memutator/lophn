@@ -1,0 +1,789 @@
+area: agent-tools
+flows:
+  - id: tool-file-read
+    title: "workspace 안 파일을 줄 단위로 읽거나 markdown 목차를 본다"
+    actor: agent
+    entries: [tool:file.read, tool:file.outline]
+    boundary: [agent-tools, agent-workspaces]
+    code:
+      - packages/core/lophn-agent/tools/bundles/file.ts
+      - packages/core/lophn-agent/tools/file/read.ts
+      - packages/core/lophn-agent/tools/file/outline.ts
+      - packages/core/lophn-agent/tools/file/scope.ts
+    steps:
+      - "resolveInWorkspace가 path를 실제 경로로 풀어 read 범위(workspace 폴더, tool-results 폴더) 안인지 본다"
+      - "file.read가 10 MiB 이하 UTF-8 text를 offset·limit 줄 범위로 자르고, 300줄이나 24 KiB 상한에 걸리면 이어 읽을 offset을 준다"
+      - "file.outline이 .md 파일의 제목 tree와 절마다의 줄 범위를 돌려준다. 본문은 file.read로 읽는다"
+      - "파일이 없으면 not_found, 그 밖의 fs 오류는 invalid_input으로 끝낸다"
+    outcomes:
+      - id: read
+        observe: ["response"]
+        when: "file.read가 파일 끝까지 읽었다(complete true)"
+      - id: partial
+        observe: ["response"]
+        when: "file.read가 상한에 걸려 continuation(offset=N)을 남겼다"
+      - id: outline
+        observe: ["response"]
+        when: "file.outline이 제목 tree를 돌려줬다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "path가 workspace 범위 밖이다(.. 로 나가는 경로, 밖 절대 경로, 밖으로 나가는 symlink)"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "파일이 없다"
+      - id: too-large
+        code: invalid_input
+        observe: ["response"]
+        when: "파일이 10 MiB를 넘는다(file.grep으로 찾으라고 답한다)"
+      - id: not-text
+        code: invalid_input
+        observe: ["response"]
+        when: "파일에 NUL이 있거나 UTF-8로 읽히지 않는다(file.read는 pdf·이미지면 pdf.read·image.read를 안내한다. file.outline은 안내 없이 같은 code다)"
+      - id: offset-past-end
+        code: invalid_input
+        observe: ["response"]
+        when: "offset이 파일 끝을 넘는다"
+      - id: not-file
+        code: invalid_input
+        observe: ["response"]
+        when: "path가 파일이 아니다(폴더 등)"
+      - id: cannot-access
+        code: invalid_input
+        observe: ["response"]
+        when: "그 밖의 fs 오류다(cannot access this path)"
+      - id: not-markdown
+        code: invalid_input
+        observe: ["response"]
+        when: "file.outline인데 path가 .md·.markdown이 아니다(이 검사는 workspace 범위 검사보다 먼저라 밖의 경로여도 이 결과다)"
+    crosses_process: false
+    refs: [P4]
+    docs: [architecture/workspace-session.md]
+    unclear:
+      - "file.outline의 parseOutline 'not ready' 분기는 media type이 text/markdown으로 고정이라 닿지 않는다(죽은 분기다. 지울지 정해야 한다)"
+
+  - id: tool-file-search
+    title: "workspace 안에서 파일 이름과 파일 내용을 찾는다"
+    actor: agent
+    entries: [tool:file.glob, tool:file.grep]
+    boundary: [agent-tools, agent-workspaces]
+    code:
+      - packages/core/lophn-agent/tools/bundles/file.ts
+      - packages/core/lophn-agent/tools/file/search.ts
+      - packages/core/lophn-agent/tools/file/scope.ts
+    steps:
+      - "path가 없으면 workspace 첫 폴더를 resolveInWorkspace(read)로 풀고, 폴더면 아래를 훑고 파일이면 그 파일 하나만 본다"
+      - "훑을 때 .git과 node_modules는 건너뛰고, 범위 밖으로 나가는 symlink는 넣지 않는다"
+      - "file.glob은 ** * ? {a,b} 패턴에 맞는 경로를 모은다(200개 상한). file.grep은 정규식을 줄마다 맞춘다(2 MiB 넘거나 NUL이 있는 파일은 건너뛰고, 100줄 상한, 줄은 300자로 자른다)"
+      - "상한에 걸리면 complete false와 narrow pattern or path 안내(continuation)를 준다"
+    outcomes:
+      - id: matched
+        observe: ["response"]
+        when: "상한 안에서 끝까지 결과를 돌려줬다(0건도 ok). glob은 파일 이름 목록, grep은 path:line:text 목록이다. .git·node_modules, 범위 밖 symlink, 건너뛴 큰 파일과 이진 파일은 결과에 없다"
+      - id: partial
+        observe: ["response"]
+        when: "glob 200개, grep 100줄, 또는 결과 24 KiB 상한에 걸려 complete false와 narrow 안내(continuation)를 남겼다"
+      - id: invalid-regex
+        code: invalid_input
+        observe: ["response"]
+        when: "file.grep의 pattern이 정규식이 아니다(path 검사보다 먼저라 밖의 path여도 이 결과다)"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "path가 workspace 범위 밖이다"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "path가 없다"
+      - id: cannot-access
+        code: invalid_input
+        observe: ["response"]
+        when: "그 밖의 fs 오류다(path의 stat이 ENOENT가 아닌 오류)"
+    crosses_process: false
+    refs: [P4]
+    docs: [architecture/workspace-session.md]
+
+  - id: tool-file-write
+    title: "workspace 안 text file을 쓴다(없으면 만들고, 있으면 내용 전체를 바꾼다)"
+    actor: agent
+    entries: [tool:file.write]
+    uses: [route:rewind/stage-file, route:rewind/record-write]
+    boundary: [agent-tools, approvals, agent-workspaces]
+    code:
+      - packages/core/lophn-agent/tools/file/write.ts
+      - packages/core/lophn-agent/tools/file/scope.ts
+      - packages/core/agent-workspaces/hooks.ts
+      - packages/core/lophn-agent/session/rewind/record.ts
+    steps:
+      - "resolveInWorkspace(write)로 path를 풀고, 범위 밖이면 forbidden으로 끝낸다"
+      - "기존 파일을 읽는다. 없으면 새 파일이다. ENOENT가 아닌 오류는 invalid_input이다"
+      - "FILE_HOOKS의 aroundWrite가 쓰기 전 pre-image를 stage-file route로 core에 남긴다"
+      - "부모 폴더가 없으면 만들고 content를 쓴 뒤, record-write route로 쓴 뒤의 hash를 남긴다. stage나 record가 실패해도 쓰기는 막지 않는다(기록이 없을 뿐이다)"
+      - "summary에 created 또는 wrote와 bytes를 실어 돌려준다. file tool은 Gate를 거치지 않는다"
+    outcomes:
+      - id: created
+        observe: ["disk:<path>", "ledger:rewind_files", "response"]
+        when: "파일이 없어서 새로 만들었다(content.created true). rewind 기록의 stage나 record가 실패했으면 ledger 행이 없다"
+      - id: overwritten
+        observe: ["disk:<path>", "ledger:rewind_files", "response"]
+        when: "있던 파일 내용을 전체 바꿨다(content.created false). rewind 기록이 실패했으면 ledger 행이 없다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "path가 workspace 범위 밖이다"
+      - id: cannot-write
+        code: invalid_input
+        observe: ["response"]
+        when: "폴더 만들기나 쓰기가 실패했다(cannot write this path), 또는 기존 내용 읽기가 ENOENT가 아닌 오류다(폴더를 가리키는 path 포함)"
+    crosses_process: false
+    risk: [data-loss, sandbox]
+    refs: [A1, A6, C28, C29]
+    docs: [architecture/approval.md, architecture/workspace-session.md]
+
+  - id: tool-file-edit
+    title: "workspace 안 text file의 한 자리를 바꾼다"
+    actor: agent
+    entries: [tool:file.edit]
+    uses: [route:rewind/stage-file, route:rewind/record-write]
+    boundary: [agent-tools, approvals, agent-workspaces]
+    code:
+      - packages/core/lophn-agent/tools/file/write.ts
+      - packages/core/lophn-agent/tools/file/scope.ts
+      - packages/core/agent-workspaces/hooks.ts
+      - packages/core/lophn-agent/session/rewind/record.ts
+    steps:
+      - "resolveInWorkspace(write)로 path를 풀고, 범위 밖이면 forbidden으로 끝낸다"
+      - "기존 파일을 읽는다. 없으면 not_found다(edit은 새로 만들지 않는다)"
+      - "old_string이 비었거나 new_string과 같으면, 한 번도 안 나오면, 두 번 넘게 나오는데 replace_all이 아니면 invalid_input이다"
+      - "file.write와 같은 aroundWrite(stage-file, record-write)로 바뀐 내용을 쓴다. stage나 record가 실패해도 쓰기는 막지 않는다"
+      - "summary에 edited와 바꾼 수(N replaced)를 실어 돌려준다"
+    outcomes:
+      - id: edited
+        observe: ["disk:<path>", "ledger:rewind_files", "response"]
+        when: "정확히 한 번 나온 자리나 replace_all로 모든 자리를 바꿨다. rewind 기록이 실패했으면 ledger 행이 없다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "path가 workspace 범위 밖이다"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "파일이 없다"
+      - id: bad-old-string
+        code: invalid_input
+        observe: ["response"]
+        when: "old_string이 비었거나 new_string과 같다"
+      - id: no-match
+        code: invalid_input
+        observe: ["response"]
+        when: "old_string이 파일에 없다"
+      - id: ambiguous
+        code: invalid_input
+        observe: ["response"]
+        when: "old_string이 여러 번 나오고 replace_all이 아니다(횟수를 알린다)"
+      - id: cannot-write
+        code: invalid_input
+        observe: ["response"]
+        when: "쓰기가 실패했다(cannot write this path), 또는 기존 내용 읽기가 ENOENT가 아닌 오류다"
+    crosses_process: false
+    risk: [data-loss, sandbox]
+    refs: [A6]
+    docs: [architecture/approval.md, architecture/workspace-session.md]
+
+  - id: tool-pdf-read
+    title: "workspace 안 pdf의 쪽 범위 text를 읽는다"
+    actor: agent
+    entries: [tool:pdf.read]
+    boundary: [agent-tools]
+    code:
+      - packages/core/lophn-agent/tools/file/pdf.ts
+      - packages/core/lophn-agent/tools/file/scope.ts
+    steps:
+      - "pages를 from과 to로 나눈다. from이 1보다 작거나 to가 from보다 작으면 invalid_input이다"
+      - "resolveInWorkspace(read)로 path를 풀고, 50 MiB를 넘는 파일은 거절한다"
+      - "unpdf로 쪽마다 text를 뽑는다. 읽지 못하면 invalid_input이다"
+      - "from이 총 쪽수를 넘으면 invalid_input이고, 아니면 최대 20쪽, 쪽당 6000자까지 돌려준다"
+      - "끝까지 못 읽었으면 continuation(pages=N-M)을 남긴다"
+    outcomes:
+      - id: read
+        observe: ["response"]
+        when: "요청한 쪽 범위를 끝까지 읽었다(complete true). 쪽 글이 6000자를 넘으면 그 쪽에 truncated가 붙지만 complete는 그대로다"
+      - id: partial
+        observe: ["response"]
+        when: "20쪽 상한이나 쪽 범위의 끝 전에 멈춰 continuation이 남았다"
+      - id: invalid-pages
+        code: invalid_input
+        observe: ["response"]
+        when: "from이 1보다 작거나 범위가 거꾸로다(pages 형식이 틀린 것은 실행기가 먼저 invalid_input으로 거절한다)"
+      - id: past-end
+        code: invalid_input
+        observe: ["response"]
+        when: "시작 쪽이 pdf 쪽수보다 크다"
+      - id: not-pdf
+        code: invalid_input
+        observe: ["response"]
+        when: "pdf text를 뽑지 못했다(cannot read this pdf, unpdf를 불러오지 못한 것도 같다)"
+      - id: too-large
+        code: invalid_input
+        observe: ["response"]
+        when: "파일이 50 MiB를 넘는다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "path가 workspace 범위 밖이다"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "파일이 없다"
+      - id: cannot-access
+        code: invalid_input
+        observe: ["response"]
+        when: "파일이 아니거나 그 밖의 fs 오류다"
+    crosses_process: false
+
+  - id: tool-image-read
+    title: "그림 파일, 앱 annotation의 screenshot, 사람이 붙인 그림을 model에 보인다"
+    actor: agent
+    entries: [tool:image.read]
+    uses: [route:annotations/get, route:message-images/path]
+    boundary: [agent-tools, apps, core]
+    code:
+      - packages/core/lophn-agent/tools/file/image.ts
+      - packages/core/lophn-agent/tools/file/scope.ts
+    steps:
+      - "path가 annotation:<id>면 annotations/get route로 그 annotation의 screenshot 파일 경로를 받는다(agent 자격의 앱 것만)"
+      - "path가 attachment:<id>면 message-images/path route로 이 session에 붙은 이미지 파일 경로를 받는다"
+      - "그 밖의 path는 확장자(png, jpg, jpeg, gif, webp)를 먼저 보고, 그다음 resolveInWorkspace(read)로 범위를 본다"
+      - "파일이 5 MiB를 넘으면 invalid_input이고, 아니면 base64 image part로 돌려준다"
+      - "annotation과 attachment는 summary에 page content이고 지시가 아니라는 글을 붙인다"
+    outcomes:
+      - id: image
+        observe: ["response"]
+        when: "workspace 파일 그림을 돌려줬다"
+      - id: annotation
+        observe: ["response"]
+        when: "annotation:<id>의 screenshot을 돌려줬다"
+      - id: attachment
+        observe: ["response"]
+        when: "attachment:<id>의 사람이 붙인 그림을 돌려줬다"
+      - id: unsupported-type
+        code: invalid_input
+        observe: ["response"]
+        when: "확장자가 png·jpg·jpeg·gif·webp가 아니다(범위 검사보다 먼저다)"
+      - id: too-large
+        code: invalid_input
+        observe: ["response"]
+        when: "파일이 5 MiB를 넘는다"
+      - id: no-screenshot
+        code: not_found
+        observe: ["response"]
+        when: "annotation에 screenshot이 없거나 annotation 목록이 비었다(agent 자격으로 볼 수 없는 annotation도 여기로 온다)"
+      - id: core-read-failed
+        observe: ["response"]
+        when: "annotations/get이나 message-images/path 읽기가 실패했다(그 route가 돌려준 code 그대로)"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "file path가 workspace 범위 밖이다"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "파일이 없다"
+      - id: cannot-access
+        code: invalid_input
+        observe: ["response"]
+        when: "파일이 아니거나 그 밖의 fs 오류다"
+    crosses_process: false
+    refs: [A3]
+    docs: [architecture/annotation.md]
+
+  - id: tool-shell-run
+    title: "workspace 첫 폴더에서 shell 명령을 돌린다"
+    actor: agent
+    entries: [tool:shell.run]
+    uses: [route:tool_gate/check]
+    boundary: [agent-tools, approvals]
+    code:
+      - packages/core/lophn-agent/tools/shell/run.ts
+      - packages/core/lophn-agent/tools/shell/env.ts
+      - packages/core/lophn-agent/tools/shell/classify.ts
+      - packages/core/lophn-agent/tools/bundles/shell.ts
+    steps:
+      - "shell.run은 정의에 gate가 있어 실행기가 매 호출마다 core의 tool_gate/check에 먼저 묻는다. 허락·거절·사람에게 묻기는 approvals가 정하고, 결과 옮기기는 tool-call-execute가 한다. 이 flow는 허락된 뒤의 실행이다"
+      - "cwd는 workspace 첫 폴더다. 없으면 invalid_input으로 끝낸다"
+      - "자식 환경 변수는 PATH HOME USER LANG LC_ALL TERM TMPDIR SHELL만 넘기고 PATH 앞에 node shim 폴더를 붙인다. LOPHN_ 값과 secret은 나가지 않는다"
+      - "POSIX는 /bin/sh -c로, Windows는 Git for Windows의 bash로 detached process group을 띄운다. bash가 없으면 unavailable이다"
+      - "출력은 stream마다 앞 12 KiB와 뒤 12 KiB만 남기고 가운데는 생략 표시한다. 제한 시간(기본 120초, 최대 600초)이 지나면 group을 죽인다"
+      - "사람이 turn을 멈추면 group을 죽이고 stopped로 끝난다. OS sandbox는 없다(열린 issue)"
+    outcomes:
+      - id: finished
+        observe: ["process:sh group", "response"]
+        when: "명령이 끝났다. exit code가 0이 아니어도 status는 success이고 summary는 exit code N이다. 출력을 잘랐으면 complete false다"
+      - id: timed-out
+        observe: ["process:sh group", "response"]
+        when: "제한 시간을 넘어 group을 죽였다(status failure)"
+      - id: stopped
+        observe: ["process:sh group", "response"]
+        when: "turn이 멈춰 group을 죽였다(status failure)"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "Windows에 Git for Windows bash가 없다, 또는 process를 띄우지 못했다"
+      - id: no-folder
+        code: invalid_input
+        observe: ["response"]
+        when: "workspace에 실행할 폴더가 없다"
+    crosses_process: true
+    risk: [sandbox, data-loss]
+    refs: [A6, H4]
+    docs: [architecture/approval.md, issues/workspace-session.md]
+
+  - id: tool-web-search
+    title: "웹을 검색해 결과의 제목, 주소, 요약을 받는다"
+    actor: agent
+    entries: [tool:web.search]
+    boundary: [agent-tools]
+    code:
+      - packages/core/lophn-agent/tools/web/search.ts
+    steps:
+      - "query를 검색 endpoint(Brave Search의 HTML 결과)에 q 값으로 보내고 20초 안에 응답을 기다린다"
+      - "응답이 2xx가 아니거나 요청이 실패하면 unavailable로 끝낸다"
+      - "data-type=\"web\" 블록에서 title, url, snippet을 최대 10개까지 뽑는다. 0개면 No results.라고 답한다"
+      - "결과 글을 <lophn-untrusted>로 감싸 돌려준다. Gate를 거치지 않는다"
+    outcomes:
+      - id: results
+        observe: ["request:brave-search", "response"]
+        when: "결과가 1개 이상이다"
+      - id: no-results
+        observe: ["request:brave-search", "response"]
+        when: "파싱한 결과가 0개다"
+      - id: failed
+        code: unavailable
+        observe: ["request:brave-search", "response"]
+        when: "응답이 2xx가 아니거나 요청이 실패했다(20초 초과와 응답 본문을 읽다 실패한 것 포함)"
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/approval.md]
+
+  - id: tool-web-fetch
+    title: "http·https 주소 하나의 text를 받는다"
+    actor: agent
+    entries: [tool:web.fetch]
+    boundary: [agent-tools]
+    code:
+      - packages/core/lophn-agent/tools/web/fetch.ts
+      - packages/core/lophn-agent/tools/web/target.ts
+    steps:
+      - "checkFetchTarget이 http·https만 받고, localhost와 사설 IPv4·IPv6 주소 literal을 막는다. DNS로 사설 주소가 되는 host는 보지 않는다"
+      - "30초 제한의 GET을 redirect manual로 보낸다. 3xx의 location은 최대 5번까지 따라가고, 매 hop마다 같은 검사를 한다"
+      - "404는 not_found, 그 밖의 비 2xx는 unavailable로 끝낸다"
+      - "content-type이 text, json, xml, xhtml이 아니면 invalid_input이다. body는 256 KiB까지 읽고, html이면 태그를 걷어 text로 바꾼다"
+      - "결과를 <lophn-untrusted>로 감싸 돌려준다"
+    outcomes:
+      - id: fetched
+        observe: ["request:<url>", "response"]
+        when: "body를 끝까지 읽었다(complete true)"
+      - id: truncated
+        observe: ["request:<url>", "response"]
+        when: "body가 256 KiB를 넘어 잘렸다(complete false)"
+      - id: refused-scheme
+        code: invalid_input
+        observe: ["response"]
+        when: "첫 주소나 redirect 뒤 주소가 http도 https도 아니거나 URL로 읽히지 않는다(only http and https urls are allowed, not a valid url)"
+      - id: refused-private
+        code: invalid_input
+        observe: ["response"]
+        when: "첫 주소나 redirect 뒤 주소가 local 또는 사설 주소 literal이다"
+      - id: bad-content-type
+        code: invalid_input
+        observe: ["response"]
+        when: "content-type이 읽을 수 있는 text가 아니다(content-type이 없으면 그대로 읽는다)"
+      - id: not-found
+        code: not_found
+        observe: ["request:<url>", "response"]
+        when: "http 404다"
+      - id: http-error
+        code: unavailable
+        observe: ["request:<url>", "response"]
+        when: "404가 아닌 비 2xx다(location이 없는 3xx 포함)"
+      - id: request-failed
+        code: unavailable
+        observe: ["request:<url>", "response"]
+        when: "요청이 실패했다(네트워크 오류, 30초 초과. 본문을 읽는 중 끊긴 것은 unclear 참고)"
+      - id: too-many-redirects
+        code: unavailable
+        observe: ["request:<url>", "response"]
+        when: "redirect가 5번을 넘는다"
+      - id: invalid-redirect
+        code: unavailable
+        observe: ["request:<url>", "response"]
+        when: "location을 URL로 풀 수 없다"
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/approval.md]
+    unclear:
+      - "DNS로 사설 주소가 되는 host name은 막지 않는다(target.ts 주석). 의도한 한계인지 정해야 한다"
+      - "body를 읽는 중(readCapped의 reader.read) 연결이 끊기거나 30초가 지나면 err 없이 예외가 난다. 실행기가 이를 잡는지, 잡으면 어느 code인지 정해야 한다"
+
+  - id: tool-skill-read
+    title: "이 agent에게 켜진 skill의 본문이나 딸린 .md 파일을 읽는다"
+    actor: agent
+    entries: [tool:skill.read]
+    uses: [route:settings/list, route:projects/get, route:apps/get, route:apps/skills]
+    boundary: [agent-tools, agents]
+    code:
+      - packages/core/lophn-agent/tools/bundles/skill.ts
+      - packages/core/lophn-agent/extensions/skill-read.ts
+    steps:
+      - "turnSkillReader가 이름이 이 turn의 켜진 목록(agent 정의의 skills_off를 뺀 것, bare는 고른 것만)에 있는지 본다. 없으면 forbidden이다"
+      - "첫 호출 때 turn의 skill 판을 만들어 고정한다. 판은 전역 설정(settings/list), 원천 폴더(projects/get·apps/get), 공유 skill(apps/skills)을 core에서 읽는다. 이 읽기들이 실패하면 그 재료는 빈 값이 되어 판에서 빠지고 오류는 돌려주지 않는다"
+      - "판에서 이름을 찾는다. 없으면 not_found, 전역·project 설정에서 끈 skill이면 forbidden이다"
+      - "본문은 SKILL.md의 frontmatter 뒤 줄이다. SKILL.md가 없거나 24 KiB를 넘거나 frontmatter가 없으면 본문을 읽지 못한 skill이다. 딸린 .md는 skill 폴더 바로 아래의 24 KiB 이하 파일만 판에 든다"
+      - "path가 없거나 SKILL.md(앞의 ./와 /를 뗀 뒤)·.이면 본문을, 그 밖이면 딸린 .md 파일을 고른다"
+      - "본문이나 파일을 돌려줄 때 300줄을 넘으면 앞부분만 주고 omitted_bytes를 붙인다"
+    outcomes:
+      - id: read
+        observe: ["response"]
+        when: "본문이나 딸린 파일을 상한 안에서 끝까지 돌려줬다(omitted_bytes가 없다)"
+      - id: truncated
+        observe: ["response"]
+        when: "300줄 상한에 걸려 앞부분과 omitted_bytes를 돌려줬다(24 KiB 상한은 판을 만들 때 먼저 걸러져 여기서 닿지 않는다)"
+      - id: not-enabled
+        code: forbidden
+        observe: ["response"]
+        when: "이 turn의 켜진 목록에 없다(is not available to this agent: agent 정의가 끈 skill, bare가 고르지 않은 skill). 또는 판에는 있지만 전역·project 설정에서 끈 skill이다(is turned off)"
+      - id: not-found
+        code: not_found
+        observe: ["response"]
+        when: "판에 그 이름의 skill이 없다(설치 안 됨, 폴더에서 빠짐, 발견 단계에서 형식이 틀려 빠짐, 전역 설정·원천 폴더·공유 skill 읽기가 실패해 빈 값이 된 판). 또는 딸린 file이 없다(skill 폴더 바로 아래 .md가 아님, symlink, 24 KiB 초과로 빠짐. 메시지에 판의 file 이름 목록을 싣는다). 또는 다른 session의 판을 가리켰다(no skill list for this session)"
+      - id: unreadable
+        code: unavailable
+        observe: ["response"]
+        when: "판에는 있고 켜졌지만 본문을 읽지 못했다(SKILL.md가 없거나 24 KiB를 넘거나 frontmatter가 없음, skill 폴더 밖 검사나 폴더 읽기가 throw함, 공유 skill의 본문이 없음)"
+    crosses_process: false
+    refs: [P4, C24]
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - "판을 만드는 core 읽기 셋(settings/list, projects/get·apps/get, apps/skills)은 실패를 빈 값으로 삼킨다. 전역 설정 읽기가 실패하면 등록 폴더 skill이 빠지고 끈 목록이 비어 끈 skill이 켜져 보일 수 있다. 이것이 의도인지 정해야 한다"
+
+  - id: tool-ask
+    title: "사람(또는 팀의 부모)에게 질문하고 답을 기다린다"
+    actor: agent
+    entries: [tool:ask]
+    uses: [route:ask/wait, route:ask/answer, route:messages/send, route:calls/reply]
+    boundary: [agent-tools, approvals]
+    code:
+      - packages/core/lophn-agent/tools/bundles/ask.ts
+      - packages/core/lophn-agent/tools/questions/wait.ts
+      - packages/protocol/lophn-agent/ask-tool.ts
+      - packages/core/main/daemon/wiring/approvals.ts
+    steps:
+      - "runtime이 질문 묶음을 ask/wait route로 core에 올린다. 같은 tool call의 재전송은 같은 기다림을 쓴다"
+      - "core의 wait 입구는 credential의 session·turn이 입력과 같은지 먼저 보고, session과 turn을 읽는다. 사람 없는 turn이고 팀 밖이면 기다리지 않고 unattended를 돌려준다"
+      - "그 밖이면 QuestionWait가 질문을 대기 목록에 올리고 QuestionAsked를 낸다. 팀 자식의 질문은 부모에게 간다"
+      - "사람이 ask/answer로 답하면 submitted, 기다리는 중 사람이 그 session에 메시지를 보내면 human_message, 부모가 calls/reply로 답하면 parent-reply로 풀린다"
+      - "turn이나 session이 끝나거나 core가 내려가면 cancelled로 풀리고 QuestionResolved를 낸다"
+    outcomes:
+      - id: submitted
+        observe: ["event:QuestionResolved", "response"]
+        when: "사람이 질문 순서대로 답을 냈다"
+      - id: human-message
+        observe: ["event:QuestionResolved", "response"]
+        when: "기다리는 중 사람이 그 session에 메시지를 보냈다(답인지는 model이 읽는다)"
+      - id: parent-reply
+        observe: ["event:QuestionResolved", "response"]
+        when: "팀 자식의 질문에 부모가 답했다(답인지는 model이 읽는다)"
+      - id: cancelled
+        observe: ["event:QuestionResolved", "response"]
+        when: "turn이 끝났거나 session이 닫혔거나 core가 내려갔거나, 팀 자식의 call이 답 없이 끝났다"
+      - id: unattended
+        observe: ["response"]
+        when: "사람 없는 turn이고 팀 밖이라 묻지 않았다(QuestionAsked 없이 바로 돌아온다)"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "ask/wait 입구에서 credential의 session·turn과 입력이 다르다"
+      - id: route-failed
+        observe: ["response"]
+        when: "ask/wait 호출이 실패했다. core 연결이 끊겼거나(unavailable), session이나 turn을 읽지 못했다(그 read가 돌려준 code 그대로)"
+    crosses_process: true
+    refs: [R4, T4]
+    docs: [architecture/agent-call.md, architecture/approval.md]
+
+  - id: tool-visual-show
+    title: "앱 화면의 card를 대화에 올린다"
+    actor: agent
+    entries: [tool:visual.show]
+    uses: [route:apps/tools, route:messages/record]
+    boundary: [apps, agent-tools]
+    code:
+      - packages/core/apps/agent-tools/visual.ts
+      - packages/core/apps/agent-tools/app-card.ts
+    steps:
+      - "apps/tools route로 이 앱의 활성 release 선언을 읽는다"
+      - "view가 선언된 화면이면서 card place를 가진 화면이 아니면 not_found로 끝낸다"
+      - "params가 있으면 그 화면 선언의 params schema로 검사한다. 맞지 않으면 invalid_input이다"
+      - "messages/record route로 app_card part 하나를 session에 기록하고, 그 message 번호를 돌려준다"
+    outcomes:
+      - id: shown
+        observe: ["ledger:messages", "response"]
+        when: "card message가 session에 기록됐다"
+      - id: no-card-view
+        code: not_found
+        observe: ["response"]
+        when: "앱에 그 view가 없거나 card place를 선언하지 않았다(두 경우 같은 문장이다)"
+      - id: invalid-params
+        code: invalid_input
+        observe: ["response"]
+        when: "params가 그 화면의 선언 schema와 맞지 않는다"
+      - id: app-read-failed
+        observe: ["response"]
+        when: "apps/tools 읽기가 실패했다(그 route가 돌려준 code 그대로)"
+      - id: record-failed
+        observe: ["response"]
+        when: "messages/record가 실패했다(그 route가 돌려준 code 그대로). card는 올라가지 않았다"
+    crosses_process: false
+    docs: [architecture/app-call.md]
+    unclear:
+      - "카드 message 기록이 MessageRecorded event를 내는지 코드에서 확인하지 못했다. 그 event는 run loop의 답 기록에서 난다"
+
+  - id: tool-lophn-help
+    title: "lophn tool로 도움말을 보거나, 틀린 명령줄을 거절받는다"
+    actor: agent
+    entries: [tool:lophn]
+    uses: [route:agent_assignments/get, route:apps/tools]
+    boundary: [agent-tools, coding-agent-cli]
+    code:
+      - packages/core/lophn-agent/tools/lophn/tool.ts
+      - packages/core/lophn-agent/tools/lophn/resolve.ts
+      - packages/core/lophn-agent/tools/dispatch.ts
+      - packages/core/lophn-agent/tools/app-toolkit.ts
+    steps:
+      - "dispatchTarget이 lophn 호출을 명령 하나로 읽히면 그 명령의 정의로 바꿔 실행한다. 명령 자체의 flow는 cli와 route 쪽이다"
+      - "풀리지 않은 호출(help, 그룹이나 명령의 --help, 틀린 명령줄, 할당 밖 앱 command)만 이 handler가 받는다"
+      - "parseCommandLine으로 읽는다. help면 그 workspace 종류의 명령과 지금 부를 수 있는 앱 command의 도움말 글을 돌려준다. 앱 command 목록은 할당(agent_assignments/get)과 선언(apps/tools)을 읽어 붙이고, 그 읽기가 실패하면 앱 command 없이 답한다"
+      - "명령줄이 틀리거나 도움말 대상이 없으면 invalid_input으로 돌려준다"
+    outcomes:
+      - id: help
+        observe: ["response"]
+        when: "도움말 글을 돌려줬다. 앱 command 읽기(할당, 선언)가 실패했으면 앱 command 없이 돌려준다"
+      - id: invalid-command
+        code: invalid_input
+        observe: ["response"]
+        when: "알 수 없는 명령이나 flag, 값 오류, 도움말 대상 없음, 명령으로 읽히지 않는 줄이다"
+    crosses_process: false
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - "the call did not resolve to a command 분기는 닿는다: resolveAppCall은 앱 command의 wire 이름이 형식에 안 맞으면 풀지 않는데 이 handler의 parse는 그것을 run으로 읽는다(그 앱 command를 걸러 도움말에서 빼는 편이 맞는지 정해야 한다)"
+
+  - id: tool-call-execute
+    title: "모델이 부른 tool 호출 하나를 목록 확인, 입력 검사, Gate, handler 순으로 실행한다"
+    actor: system
+    entries: [system:tool-call-execute]
+    uses: [route:tool_gate/check]
+    boundary: [agent-tools, agent-tool-spi, run-loop]
+    code:
+      - packages/core/lophn-agent/tools/work.ts
+      - packages/core/lophn-agent/tools/schema.ts
+      - packages/core/lophn-agent/tools/registry.ts
+    steps:
+      - "session 시작 때 고정한 목록(ctx.listed)에서 wire 이름을 찾는다. 없으면 실행하지 않는다"
+      - "zod schema로 입력을 검사하고, 값이 바뀌는 변환이 있었으면 실행하지 않는다"
+      - "정의에 gate가 있으면(shell.run, 앱·MCP tool) core의 tool_gate/check에 묻는다. 판정은 approvals 몫이고, 막히면 그 이유를 tool 결과로 옮긴다"
+      - "handler를 부른다. 정의에 handler가 없으면 unavailable이다"
+      - "실패는 공통 문장으로 바꿔 돌려준다. invalid_input과 skill.read만 handler 문장을 붙인다. 성공이면 결과를 spillLarge에 넘긴다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+        when: "handler가 status success를 돌려줬다"
+      - id: status-failure
+        observe: ["response"]
+        when: "handler가 status failure를 돌려줬다(shell의 시간 초과와 멈춤)"
+      - id: not-listed
+        code: not_found
+        observe: ["response"]
+        when: "목록에 없는 이름이다(tool is not available)"
+      - id: input-invalid
+        code: invalid_input
+        observe: ["response"]
+        when: "schema와 맞지 않거나 입력 값이 실행 중에 바뀌었다"
+      - id: no-handler
+        code: unavailable
+        observe: ["response"]
+        when: "정의에 handler가 없다"
+      - id: gate-denied
+        observe: ["response"]
+        when: "Gate가 denied로 막아 실행하지 않았다(not_executed)"
+      - id: gate-rejected
+        observe: ["response"]
+        when: "사람이나 부모가 rejected로 답해 실행하지 않았다(not_executed)"
+      - id: gate-cancelled
+        observe: ["response"]
+        when: "Gate 요청이 cancelled로 끝나 실행하지 않았다(not_executed)"
+      - id: gate-unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "tool_gate/check 호출이 실패했다"
+      - id: handler-failed
+        observe: ["response"]
+        when: "handler가 실패 code 하나(일곱 가운데)로 Result 오류를 돌려줬다"
+    crosses_process: true
+    refs: [H3]
+    docs: [architecture/approval.md]
+    unclear:
+      - "denied, rejected, cancelled는 not_executed 결과라 공통 일곱 code 밖이다. outcome에 code를 달지 않았다"
+
+  - id: tool-result-spill
+    title: "상한을 넘는 tool 결과를 파일로 빼고 model에는 미리보기만 준다"
+    actor: system
+    entries: [system:tool-result-spill]
+    boundary: [agent-tools]
+    code:
+      - packages/core/lophn-agent/tools/spill.ts
+      - packages/core/lophn-agent/tools/result.ts
+      - packages/protocol/lophn-agent/tool-results.ts
+    steps:
+      - "결과에 spill 표시(arrayKeys)가 없거나 content가 24 KiB 이하면 그대로 둔다"
+      - "arrayKeys가 있으면 배열의 뒤쪽 항목부터 덜어 낸 미리보기를, 없으면 JSON 머리를 미리보기로 만든다"
+      - "ctx.spill이 있으면 <data root>/tool-results/<session>/<tool call>.json에 전체를 쓴다"
+      - "쓰기가 실패하면 stderr에 한 줄 남기고 경로 없는 미리보기만 준다"
+      - "미리보기 뒤에 전체 bytes와 경로(file.read나 file.grep으로 읽으라는 글)를 붙인다"
+    outcomes:
+      - id: as-is
+        observe: ["response"]
+        when: "spill 표시가 없거나 상한 안이다"
+      - id: spilled
+        observe: ["disk:<data root>/tool-results/<session>/<tool call>.json", "response"]
+        when: "전체를 파일에 썼다"
+      - id: preview-only
+        observe: ["response"]
+        when: "쓸 곳이 없다(ctx.spill이 없다. LOPHN_HOME이 절대 경로가 아닌 경우)"
+      - id: write-failed
+        observe: ["log:stderr", "response"]
+        when: "파일 쓰기가 실패했다"
+    crosses_process: false
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - "현재 spill 표시를 다는 것은 lophn 명령과 앱 command 결과뿐이라 static tool은 이 길을 타지 않는다. test는 명령 결과로 해야 한다"
+
+  - id: workspace-file-scope
+    title: "turn 시작에 workspace 종류마다 file tool이 닿는 폴더를 정한다"
+    actor: system
+    entries: [system:workspace-file-scope]
+    uses: [route:projects/get, route:projects/list, route:apps/get, route:apps/list, route:apps/tools, route:apps/tool_index, route:apps/usage, route:packages/list, route:agents/list, route:team/read]
+    boundary: [agent-workspaces, core]
+    code:
+      - packages/core/agent-workspaces/workspace/workspace-folders.ts
+      - packages/core/agent-workspaces/workspace/workspace-data.ts
+      - packages/core/agent-workspaces/workspace/data-folder.ts
+    steps:
+      - "turn 시작에 core 읽기(agent 자격)로 workspace 재료를 모은다. project는 projects/get으로 폴더를, 앱은 apps/get으로 source와 더한 폴더를 읽는다. home은 projects/list와 apps/list로 등록된 모든 project 폴더와 앱 목록을 읽는다. 모든 종류가 agents/list를 읽는다"
+      - "project와 앱은 skills·artifacts 폴더를, project는 또 workflows 폴더를 없으면 만든다. 만들지 못한 폴더는 범위에서 뺀다. 팀(team/read)과 앱 도움말 재료(tool_index, usage, packages/list)는 실패하면 빈 값이다"
+      - "workspaceScope가 종류별 read·write 목록과 base(상대 경로의 기준)를 정한다. 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 목록 앞에 오고 base는 그 첫 폴더다. 사람의 폴더가 없으면 base는 workspace data 폴더고 목록에는 들지 않는다"
+      - "projects/get, apps/get, projects/list, apps/list, agents/list 중 하나라도 실패하면 범위를 정하지 않고 그 오류를 run-loop에 돌려준다"
+      - "home이 다른 workspace가 부른 것이면 읽기 범위를 비운다. 직접 연 home은 등록된 project 폴더를 읽기만 연다"
+      - "앱 data·release 사본과 agent 정의 폴더는 어느 종류에도 열지 않는다. tool-results 폴더는 withToolResults가 읽기 칸(results)에만 더한다"
+    outcomes:
+      - id: home
+        observe: ["response"]
+        when: "직접 연 home session(workspace 없음)이다. 읽기는 등록된 모든 project 폴더이고 쓰기는 없다"
+      - id: home-called
+        observe: ["response"]
+        when: "다른 workspace session이 부른 home이다. 읽기와 쓰기 모두 비어 있다"
+      - id: project
+        observe: ["disk:<data>/projects/<prj>/{workflows,skills,artifacts}", "response"]
+        when: "project workspace다. 사람의 폴더와 workflows·skills·artifacts가 읽고 쓰는 범위다. 못 만든 폴더는 빠지고, 팀이나 도움말 재료 읽기가 실패해도 범위는 정해진다"
+      - id: app
+        observe: ["disk:<data>/apps/<app>/{skills,artifacts}", "response"]
+        when: "app workspace다. 앱 source와 더한 폴더, skills·artifacts가 범위다. source를 아직 잇지 않았으면 skills·artifacts만이고 base는 앱 data 폴더다. 못 만든 폴더는 빠진다"
+      - id: read-failed
+        observe: ["response"]
+        when: "범위 재료를 읽는 core 읽기가 실패했다. projects/get이나 apps/get 실패(project·앱이 없음 등, 그 read가 돌려준 code), home의 projects/list나 apps/list 실패, 목록이 50쪽을 넘김(unavailable), agents/list 실패. 이 turn은 준비되지 못한다"
+    crosses_process: false
+    risk: [sandbox]
+    refs: [P4, P10, P12]
+    docs: [architecture/workspace-session.md]
+
+  - id: tool-list-assembly
+    title: "workspace 종류마다 model에 보일 tool 목록을 세션 시작 때 정한다"
+    actor: system
+    entries: [system:tool-list-assembly]
+    boundary: [agent-workspaces, agent-tools, run-loop]
+    code:
+      - packages/protocol/lophn-agent/tool-lists.ts
+      - packages/core/agent-workspaces/tool-lists.ts
+      - packages/core/main/agent-tools.ts
+      - packages/core/lophn-agent/tools/registry.ts
+      - packages/core/lophn-agent/run-loop/prepare.ts
+    steps:
+      - "main/agent-tools.ts가 내장 tool 정의를 모아 TOOL_ORDER로 정렬한다. 이 순서가 model에 보이는 bytes다"
+      - "workspace 종류의 이름 목록(공통 목록, visual.show, project와 app은 WORK_TOOLS)을 selectTools로 정의와 맞춘다"
+      - "resolveModel로 model을 고른다(실패하면 목록을 만들지 못한다). model이 image 입력을 받지 않으면 image.read를 뺀다"
+      - "lophn 명령 정의와 외부 MCP·extension tool을 더해 세션 시작 때 고정하고, turn마다 같은 목록을 쓴다"
+      - "bare agent는 고른 이름(picks)만 보이고, lophn tool은 고른 명령이 있을 때만 선다. 앱 command 읽기가 실패하면 앱 command 없이 만든다"
+      - "시작 뒤 정의가 바뀌었으면 The tools available to this session changed. notice를 prompt 끝에 붙이고, 목록은 그대로 둔다"
+    outcomes:
+      - id: fixed
+        observe: ["request:model"]
+        when: "종류의 고정 목록이 model 요청에 실렸다"
+      - id: image-dropped
+        observe: ["request:model"]
+        when: "model이 image 입력을 받지 않아 image.read가 빠졌다"
+      - id: bare-narrowed
+        observe: ["request:model"]
+        when: "runtime이 bare인 agent라서 고른 이름만 보인다"
+      - id: changed-notice
+        observe: ["request:model"]
+        when: "고정한 목록과 지금 정의가 달라 notice가 붙었다"
+      - id: model-failed
+        observe: ["response"]
+        when: "resolveModel이 실패했다(model이 어느 층에도 없음, catalog 실패 등, 그 code 그대로). input_media를 몰라 목록을 만들지 못하고 turn을 시작하지 않는다"
+    crosses_process: false
+    refs: [P4, P12]
+    docs: [architecture/agent-definition.md, architecture/workspace-session.md]
+    unclear:
+      - "bare의 picks(정의 tools 칸)와 changed-notice를 agents와 turns 중 어느 쪽이 소유하는지 정해야 한다. 여기서는 목록 조립으로만 적었다"
+
+  - id: tool-operations-ceiling
+    title: "workspace 종류마다 agent credential이 부를 수 있는 route의 상한을 정한다"
+    actor: system
+    entries: [system:tool-operations-ceiling]
+    boundary: [agent-workspaces, core]
+    code:
+      - packages/core/agent-workspaces/credentials.ts
+      - packages/core/main/agent-runtime/main.ts
+      - packages/core/lophn-agent/run-loop/credentials.ts
+    steps:
+      - "runtime이 turn을 시작할 때 credential open을 core에 청하면서 session의 종류를 싣는다. core가 그 종류의 workspaceOperations(종류, 내장 tool 정의)로 상한을 정해 발급한다"
+      - "상한은 종류 목록 tool이 부르는 route, 그 종류 lophn 명령의 route, project와 앱 읽기 route, 공통 AGENT_BASE_OPERATIONS의 합집합이다"
+      - "목록에 file.write나 file.edit가 있으면 rewind의 stage-file과 record-write route를 더한다"
+      - "project와 app 종류는 annotations/get을 더한다. home에는 없다"
+      - "core는 같은 상한으로 credential의 route 호출을 대조하고, 밖이면 forbidden이다. agentConditions가 app·project 조건을 credential에 고정한다"
+    outcomes:
+      - id: home
+        observe: ["response"]
+        when: "home 종류다. 작업 tool, rewind route, annotation 읽기가 없다"
+      - id: project
+        observe: ["response"]
+        when: "project 종류다. rewind route와 annotation 읽기가 든다"
+      - id: app
+        observe: ["response"]
+        when: "app 종류다. rewind route와 annotation 읽기가 든다"
+      - id: conflict
+        code: conflict
+        observe: ["response"]
+        when: "같은 turn에 credential이 이미 열려 있다(두 번째 open)"
+      - id: issue-failed
+        observe: ["response"]
+        when: "credential 발급기(issuer)가 실패했다(그 code 그대로). 이 turn의 자리는 비워진다"
+      - id: out-of-ceiling
+        code: forbidden
+        observe: ["response"]
+        when: "상한 밖의 route를 credential로 부르면 forbidden이다"
+    crosses_process: false
+    risk: [permission]
+    refs: [P4]
+    docs: [architecture/workspace-session.md]
+    unclear:
+      - "harnessOperations와 agentConditions(같은 파일)는 harness credential 쪽이라 여기 넣지 않았다. 소유 area를 정해야 한다"

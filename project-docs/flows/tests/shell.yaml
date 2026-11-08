@@ -1,0 +1,458 @@
+group: shell
+files:
+  - path: packages/shell/ipc/app-tab-head_test.ts
+    covers:
+      - app-tab-head:head-set
+      - app-tab-head:head-cleared
+    note: "readTabHead가 그릴 값과 그릴 것 없는 값을 가르는 판정(그릴 것 없으면 head-cleared, 글 길이와 항목 수 상한에서 자르면 head-set)"
+
+  - path: packages/shell/ipc/keybindings_test.ts
+    covers: []
+    note: "key 표, chord, context 판정, 사람이 바꾼 key 저장, 겹침 보고 단위. keys 영역 flow가 아직 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/app-frame/annotate_test.ts
+    covers:
+      - annotate-pick:picked
+      - annotate-pick:ignored
+      - annotate-send:sent
+      - annotate-send:invalid-input
+    note: "앱 view가 아닌 sender의 고르기는 무시, 페이지가 보낸 app·release는 버리고 view에서 정한 값만 core에 간다. capture·upload가 실패해도 screenshot 없이 보낸다. 빈 목록 보내기는 거절"
+
+  - path: packages/shell/main/app-frame/app-agent_test.ts
+    covers:
+      - app-agent-open:opened
+      - app-agent-open:not-found
+      - app-agent-snapshot:snapshot
+      - app-agent-snapshot:forbidden
+      - app-agent-send:sent
+      - app-agent-send:forbidden
+    note: "앱 view는 자기 앱 workspace의 session만 읽고 보낸다. send·stop·answer·rename만 넘기고 decide·run_shell·rewind는 core 전에 forbidden"
+
+  - path: packages/shell/main/app-frame/app-call_test.ts
+    covers:
+      - app-operation-call:succeeded
+      - app-operation-call:invalid-input
+      - app-operation-call:denied-not-declared
+    note: "app-runtime 영역의 app-operation-call이다. 모르는 field는 invalid_input, 선언에 없는 operation은 core 호출 없이 forbidden(denied-not-declared)"
+
+  - path: packages/shell/main/app-frame/overlay-security_test.ts
+    covers: []
+    note: "shell 기본 session 권한 판정(clipboard write만 main frame shell 페이지에 허용). 어느 flow도 이 판정을 outcome으로 적지 않는다(missing-outcome 참고)"
+
+  - path: packages/shell/main/app-frame/registry_test.ts
+    covers:
+      - app-view-open:opened
+      - app-view-open:invalid-input
+      - app-view-crash:crashed
+      - app-view-reopen:reopened
+      - app-view-reopen:conflict
+      - app-view-reopen:invalid-input
+    note: "view 열기의 src와 guest 신원 묶기, params schema 거절, crash 뒤 reopen 세대 교체, 건강한 view의 reopen 거절, 다른 창의 reopen 거절"
+
+  - path: packages/shell/main/artifact/navigation_test.ts
+    covers:
+      - artifact-navigation:same-host
+      - artifact-navigation:external-link-opened
+      - artifact-navigation:blocked
+    note: "artifact page의 main frame·subframe navigation 판정표"
+
+  - path: packages/shell/main/artifact/paths_test.ts
+    covers:
+      - artifact-serve:served
+      - artifact-serve:not-found
+    note: "봉한 scheme이 root 밖 path, symlink, 일반 file이 아닌 것, 상한을 넘는 file을 404로 거절한다. _entries.json이 밖으로 가는 symlink와 하위 폴더를 싣지 않는다는 목록 규칙은 served 안에 든다"
+
+  - path: packages/shell/main/artifact/source_test.ts
+    covers:
+      - artifact-open:opened
+      - artifact-open:invalid-source
+      - artifact-open:not-found
+    note: "artifact 이름 slug, .html 일반 file, workflow view·instance 짝, artifacts 밖 symlink 거절을 resolveSource로 본다"
+
+  - path: packages/shell/main/browser-bridge/bridge_test.ts
+    covers:
+      - browser-bridge-request:declined
+      - browser-bridge-request:pane
+    note: "모르는 key·bind 안 된 key·버전 틀림·system_browser 설정은 declined, browser_tab은 창에 밀어 ack를 받으면 pane, ack가 없으면 declined"
+
+  - path: packages/shell/main/browser-bridge/policy_test.ts
+    covers:
+      - browser-bridge-request:declined
+      - browser-bridge-request:os-opener-direct
+      - browser-terminal-link:browser-tab
+      - browser-terminal-link:system-browser
+      - browser-terminal-link:dropped
+    note: "parseBridgeRequest의 형식과 상한 거절(declined), isRelayableUrl이 아니면 main을 거치지 않고 OS로 넘김, linkTarget의 browser 탭·OS browser·버림 판정. link 설정 읽기와 BROWSER env는 판정 outcome을 정하지 않는 helper라 covers에 넣지 않았다"
+
+  - path: packages/shell/main/browser-bridge/run-dir_test.ts
+    covers:
+      - browser-bridge-start:path-too-long
+      - browser-bridge-start:listening
+    note: "socket 경로가 OS byte 한도를 넘으면 폴더를 만지기 전에 거절. Windows pipe 이름 길이, 죽은 shell의 run 폴더 정리와 POSIX 권한"
+
+  - path: packages/shell/main/browser/bookmarks_test.ts
+    covers:
+      - browser-bookmark-save:corrupt-refused
+      - browser-bookmark-save:saved
+    note: "깨진 bookmarks.json은 add·update·remove가 모두 거절되고 파일 byte가 그대로다(data-loss). 정상 파일에 동시에 add해도 둘 다 남는다"
+
+  - path: packages/shell/main/browser/navigation_test.ts
+    covers:
+      - browser-navigation:allowed
+      - browser-navigation:blocked
+      - browser-navigation:os-handoff
+    note: "browser page의 main frame·subframe 목적지 판정표(http·https 허용, credential·scheme 차단, mailto·tel는 OS로)"
+
+  - path: packages/shell/main/browser/permission_test.ts
+    covers:
+      - browser-session-policy:permission-granted
+      - browser-session-policy:permission-denied
+    note: "browser partition은 main frame http(s)의 clipboard write만 허락한다"
+
+  - path: packages/shell/main/browser/popup_test.ts
+    covers:
+      - browser-popup:popup-blocked
+      - browser-popup:floated
+      - browser-popup:docked
+      - browser-popup:denied-scheme
+    note: "사용자 입력 뒤 5초 안에서만 popup을 열고, width와 height가 모두 있을 때만 floated, 아니면 docked. navigation 검사에 걸린 url은 입력이 있어도 거절"
+
+  - path: packages/shell/main/browser/user-agent_test.ts
+    covers: []
+    note: "UA 문자열에서 Electron token만 빼는 순수 함수. Google 로그인 때문에 두 번 고친 자리다. 어느 flow도 UA 설정을 outcome으로 적지 않는다(missing-outcome 참고)"
+
+  - path: packages/shell/main/browser/webview-guest_test.ts
+    covers:
+      - browser-guest-attach:attached-browser
+      - browser-guest-attach:attached-registered-view
+      - browser-guest-attach:rejected
+      - browser-guest-attach:first-src-blocked
+    note: "webview 붙이기 때 shell이 준 browser partition만 받고 설정을 덮는다. app·artifact는 registry가 받은 src만. 맞지 않는 src는 붙지 않고 scheme이 위험하면 about:blank"
+
+  - path: packages/shell/main/decision-handle/ipc_test.ts
+    covers:
+      - decision-handle-issue:issued
+      - decision-handle-issue:forbidden
+    note: "일반 shell 창 본문이 아닌 sender와 고정되지 않은 결정은 forbidden, shell 창의 고정 결정은 handle을 받는다"
+
+  - path: packages/shell/main/desktop/coding-connection_test.ts
+    covers:
+      - harness-detect:ok
+      - harness-detect:cli-failed
+    note: "shell main이 lophn CLI를 child로 부르는 runner 단위. --json 성공 출력은 data, {error} 출력은 실패로 돌아온다. harness detect 호출의 결과 판정이다"
+
+  - path: packages/shell/main/desktop/detached/ipc_test.ts
+    covers:
+      - detached-close-silent:closed-kept
+      - desk-switch:switched
+    note: "project 창을 떠날 때 detached 창을 조용히 닫고 PTY 참조는 남긴다(closed-kept). showOnly는 보낸 project 창의 detached 창만 숨기고 보이며 없는 key는 missing으로 답한다. detached 되받기 한 번만 주는 규칙은 missing-outcome 참고"
+
+  - path: packages/shell/main/desktop/navigation-guard_test.ts
+    covers: []
+    note: "shell 창 main frame의 탐색 판정(lophn-shell://desktop 밖 차단, http·https는 OS browser). desktop-window-open이 쓰지만 그 flow에 이 outcome이 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/editor/file-adapter_test.ts
+    covers:
+      - editor-save:saved
+      - editor-save:conflict
+      - editor-save:unknown-result
+    note: "write는 hash가 다르면 conflict로 원본을 안 바꾸고, 쓰기가 끊겨도 원본이 남고 임시 파일을 치운다(unknown-result 갈래로 묶음). 파일 트리의 만들기·옮기기·지우기 3건은 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/extensions/bundled/harness-gui/claude_test.ts
+    covers:
+      - harness-gui-toggle:to-tui
+      - harness-gui-toggle:to-gui
+      - harness-gui-open:start-failed
+      - harness-gui-input:sent
+      - session-send:ok
+      - queued-edit:ok
+      - queued-move:ok
+      - session-open:ok
+      - session-message-read:ok
+      - session-status-read:ok
+      - shell-run:ok
+    note: "claude GUI adapter. 토글 두 방향과 한 session에 process 둘 금지, GUI 입력의 줄 서기와 순서, steer 메시지 고치기·옮기기, resume·open_session(session-open 판정으로 묶음), 받은 메시지 목록, resume 뒤 비용, `!` 명령. 승인·질문·plan·subagent·background·사용 한도·명령 출력 등 harness GUI 고유 동작은 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/extensions/bundled/harness-gui/codex_test.ts
+    covers:
+      - session-open:ok
+      - shell-run:ok
+      - harness-gui-input:sent
+    note: "codex GUI adapter. resume·open_session·rollout 없는 thread resume을 session-open으로, `!`는 thread/shellCommand로 가는 shell-run으로 묶음. 승인, 질문, 추가 권한, 권한 설정, TUI 메시지 보이기, 자식 thread lane은 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/extensions/bundled/harness-gui/omp_test.ts
+    covers:
+      - harness-gui-open:start-failed
+      - harness-gui-toggle:to-tui
+      - harness-gui-toggle:to-gui
+      - harness-gui-toggle:no-session
+      - harness-gui-input:sent
+      - session-send:ok
+      - shell-run:ok
+      - session-open:ok
+    note: "omp GUI adapter. ready 전에 죽은 omp는 start 실패, 토글 두 방향 순서, 모델 turn 없는 session은 토글에서 CLI session id가 없다. 도는 중 메시지는 turn 뒤로 간다. `!ls`는 bash로만 간다. 승인·질문·roles·mode·task는 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/extensions/bundled/harness-gui/opencode_test.ts
+    covers:
+      - session-open:ok
+      - shell-run:ok
+    note: "opencode GUI adapter. 저장 안 된 session(404) resume은 새 session으로 열고, `!ls`는 shell API로만 간다. permission 응답, auto-accept, subagent, background, todo plan, undo·redo, 명령 출력, TUI server 비밀번호는 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/extensions/extension-tools_test.ts
+    covers:
+      - extension-sync:loaded
+      - extension-tool-call:ran
+    note: "켜진 fixture extension이 tool 이름 ext__<id>__<name>으로 catalog에 서고, shell main handler가 결과를 돌려준다"
+
+  - path: packages/shell/main/extensions/registry_test.ts
+    covers:
+      - extension-sync:loaded
+      - extension-sync:off
+      - extension-sync:incompatible
+      - extension-sync:no-setting
+      - extension-remove:removed
+      - extension-remove:conflict
+      - extension-tool-call:ran
+    note: "켰다 끄고 지우면 data root가 처음과 같고 사람 file은 남는다. 판이 다르거나 설정 선언이 없으면 load하지 않는다. 꺼진 tool handler는 버리고 목록은 켜진 것과 꺼진 것을 가리지 않는다(꺼진 호출의 not_found 답은 flow의 갈래와 맞지 않아 뺐다)"
+
+  - path: packages/shell/main/notice/rule_test.ts
+    covers:
+      - session-notice:looking
+      - session-notice:notified
+      - session-notice:app-session
+      - notice-alert:toast
+      - notice-alert:os-notification
+      - notice-unseen:seen
+    note: "보고 있으면 알리지 않고, 창이 있으면 toast, 없으면 OS 알림. 끊은 turn과 모르는 session은 알리지 않는다는 규칙은 flow에 outcome이 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/secret-input/submit_test.ts
+    covers:
+      - secret-input:stored
+      - secret-input:invalid-input
+      - secret-input:unavailable
+    note: "secret 제출 실패는 고정 code만 나가고 값은 결과에 남지 않는다. 성공은 이름과 byte 수만 올린다"
+
+  - path: packages/shell/main/terminal/agent/agent_test.ts
+    covers:
+      - terminal-agent-track:running
+      - terminal-agent-track:waiting
+      - terminal-agent-track:idle
+      - terminal-agent-track:unknown
+      - terminal-agent-track:ignored
+      - terminal-agent-notice:toast
+      - terminal-agent-notice:cancelled
+    note: "hook 줄 ingress(모르는 key, 틀린 줄, 크기 초과는 버림)와 coding agent 상태 tracker. Esc·Ctrl-C로 unknown, 다른 harness hook은 탭을 안 바꿈, 1.5초 안의 TurnStarted는 완료 알림을 취소, subagent가 끝나야 알림"
+
+  - path: packages/shell/main/terminal/agent/hook-ask_test.ts
+    covers:
+      - terminal-hook-install:declined
+    note: "보던 창이 없거나 답하기 전에 닫히면 허락이 아니다. 답의 발신 창이 물은 창과 같아야 한다는 규칙은 flow에 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/terminal/agent/session-store_test.ts
+    covers:
+      - terminal-agent-identity:saved
+    note: "coding agent session 목록을 project 파일에 저장한다. 같은 session은 started_at과 첫 title을 지키고, 50개를 넘으면 오래된 것부터 버리고, 손상 파일은 빈 목록이다. 사람이 붙인 이름은 hook 이름에 덮이지 않는다(missing-outcome 참고)"
+
+  - path: packages/shell/main/terminal/cwd_test.ts
+    covers: []
+    note: "터미널 시작 폴더가 등록 폴더 안인지 보는 순수 함수. `..`와 밖으로 나가는 symlink는 거절. 어느 outcome도 이 규칙을 적지 않는다(missing-outcome 참고)"
+
+  - path: packages/shell/main/terminal/gui_test.ts
+    covers:
+      - harness-gui-open:opened
+      - harness-gui-open:ignored
+    note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 missing-outcome 참고)"
+
+  - path: packages/shell/main/terminal/output_test.ts
+    covers: []
+    note: "터미널 출력은 그 terminal을 구독한 창에만 가고 창이 놓으면 더 보내지 않는다. 어느 flow도 출력 전달 경로를 outcome으로 적지 않는다(missing-outcome 참고)"
+
+  - path: packages/shell/main/terminal/supervisor_test.ts
+    covers: []
+    note: "pipe에서 읽은 줄 나누기 순수 함수. 조각 사이에 갈린 UTF-8과 큰 JSON 한 줄을 보존한다"
+
+  - path: packages/shell/main/thread-bookmarks/store_test.ts
+    covers: []
+    note: "thread bookmark 저장소. 깨진 파일은 set이 덮어쓰지 못하고(data-loss), session별로 켜고 끈다, 같이 부른 set 둘 다 남는다. sessions 영역에 thread bookmark flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/main/workspace/global-floats_test.ts
+    covers:
+      - global-floats-save:saved
+      - global-floats-save:rejected
+      - global-floats-read:loaded
+      - global-floats-read:empty
+    note: "전역 float 목록을 쓰고 읽는다. 모양이 틀린 값은 거절하고 파일을 그대로 두며, 틀린 파일이나 다른 schema_version은 빈 목록으로 읽는다"
+
+  - path: packages/shell/main/workspace/window-state_test.ts
+    covers:
+      - window-state-save:saved
+      - window-state-restore:restored
+      - window-state-restore:default
+    note: "창 자리를 쓰고 다시 읽는다(POSIX 600 권한). 없거나 망가진 파일은 null이라 기본 창으로 연다"
+
+  - path: packages/shell/main/workspace/workspace-layout_test.ts
+    covers:
+      - layout-restore:fresh-absent
+      - layout-restore:restored
+      - layout-restore:fresh-corrupt
+      - layout-restore:read-failed
+      - quick-launch-edit:saved-project
+    note: "workspace layout 읽기. 옛 layouts/ 파일은 무시, 없으면 null, 판이 다르면 unsupported_schema로 읽고 파일을 안 고친다, 폴더 밖 workspace key는 거절. group·stack·agent·앱 화면·browser keep_alive·terminal 명령은 쓴 대로 읽힌다. quick 필드 쓰기는 quick-launch-edit에 묶었다. 쓰기 쪽 거절 규칙은 missing-outcome 참고"
+
+  - path: packages/shell/preload/app-tool_test.ts
+    covers:
+      - app-page-hints:keep-alive-set
+      - app-keys-forward:ran
+    note: "앱 코드의 keep-alive 요청과 자동 신호가 서로 끄지 않는다. 앱 key가 맞고 handler가 참이면 돌고 삼키며, 그 key가 아니면 shell key는 host로 넘긴다(forward)"
+
+  - path: packages/shell/renderer/command-call_test.ts
+    covers: []
+    note: "command 봉투 helper가 만든 봉투가 route의 봉투 schema를 통과하는지 보는 단위"
+
+  - path: packages/shell/renderer/commands/commands_test.ts
+    covers:
+      - extension-command-run:ok
+      - extension-command-run:not-found
+      - extension-command-run:internal
+    note: "command registry의 실행 판정. 주인이 없으면 not_found, handler가 던지면 internal, 있으면 실행. 같은 registry가 extension command(ext.<id>.<name>)의 호출을 맡으므로 그 outcome의 판정으로 본다. key 판정(chord, context, 두 타, 반복, focus 표)은 keys 영역 flow가 아직 없다(missing-outcome 참고)"
+
+  - path: packages/shell/renderer/conversation/agent-view-model_test.ts
+    covers: []
+    note: "/ 메뉴의 정렬 순수 함수. 화면 모양에 가까워 flow가 아니다"
+
+  - path: packages/shell/renderer/conversation/composer/history_test.ts
+    covers: []
+    note: "입력창 ↑↓ history 이동 규칙 순수 함수"
+
+  - path: packages/shell/renderer/conversation/delivery-state_test.ts
+    covers:
+      - session-send:ok
+      - session-send:not_found
+      - session-send:conflict
+      - acp-read:ok
+    note: "afterReply의 NOT_TAKEN 분류(not_found·conflict 등은 접수 안 됨, 그 밖은 결과를 모름)가 session-send 답을 정하고, ok는 접수됨이다. afterCheck의 찾음 판정은 acp snapshot 읽기(acp-read:ok)로 정한다. 같은 id·key 재전송 규칙은 판정이 아니라 전송 상태라 빠진 것은 없다"
+
+  - path: packages/shell/renderer/conversation/live-text_test.ts
+    covers: []
+    note: "스트리밍 글을 block 단위로 나누는 순수 함수"
+
+  - path: packages/shell/renderer/conversation/message-list/follow_test.ts
+    covers: []
+    note: "message list 따라가기 scroll 판정 순수 함수"
+
+  - path: packages/shell/renderer/conversation/message-list/virtual-rows_test.ts
+    covers: []
+    note: "가상 행 높이와 화면 범위 계산 순수 함수"
+
+  - path: packages/shell/renderer/conversation/thread-layout_test.ts
+    covers: []
+    note: "ACP 기록에서 줄을 만드는 순수 layout. 갱신을 접은 상태와 같은 기록 snapshot의 줄이 같아야 한다"
+
+  - path: packages/shell/renderer/desktop/connection/events/acp-updates-store_test.ts
+    covers: []
+    note: "ACP 갱신 stream을 timer로 모아 내는 client store 단위. 순서를 지킨다"
+
+  - path: packages/shell/renderer/desktop/connection/events/waiting-store_test.ts
+    covers:
+      - session-snapshot-read:ok
+    note: "다시 붙을 때 snapshot으로 사람의 대기 목록을 맞춘다(사라진 요청은 남지 않고 같은 event는 한 번만). team 자식의 to_parent 요청은 사람 목록에 서지 않는다는 화면 필터는 flow 대상이 아니다"
+
+  - path: packages/shell/renderer/desktop/settings/keyboard/model_test.ts
+    covers: []
+    note: "설정의 key 바꾸기 model(같은 context의 다른 줄에서 그 key를 빼고 기본 key와 같아지면 저장에서 뺀다). keys 영역 flow가 아직 없다(missing-outcome 참고)"
+
+  - path: packages/shell/renderer/desktop/settings/shell-rules/core-source_test.ts
+    covers: []
+    note: "설정 화면에서 shell 규칙 줄 하나를 더할 때 저장 직전에 다시 읽은 값에 그 줄만 더한다. turn-request-decide의 always와 같은 저장이지만 설정 화면 경로는 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/renderer/editor/save-state_test.ts
+    covers:
+      - editor-save:saved
+      - editor-save:conflict
+      - editor-save:unknown-result
+      - editor-conflict-resolve:kept-mine
+      - editor-disk-watch:adopted
+      - editor-disk-watch:conflict
+    note: "편집기 저장 상태 기계. 충돌은 사람이 고르기 전까지 디스크에 쓰지 않고, 결과를 모르는 쓰기는 읽은 hash로 저장됨·안 써짐·충돌을 가른다. 밖에서 바뀐 파일은 고치지 않았을 때만 다시 읽는다. 내 쓰기의 메아리는 충돌이 아니다"
+
+  - path: packages/shell/renderer/editor/transfer_test.ts
+    covers:
+      - tab-detach:refused
+      - tab-detach:detached
+      - editor-save:denied
+    note: "편집기 탭을 다른 창으로 옮길 때 저장이 실패하면 transfer가 null이라 탭과 글이 남는다(refused). 저장이 되면 옮기기가 진행된다는 것은 transfer 단계만 본다"
+
+  - path: packages/shell/renderer/highlight/incremental_test.ts
+    covers: []
+    note: "code 강조의 줄 단위 증분 tokenize와 LRU 순수 함수"
+
+  - path: packages/shell/renderer/shell/desk-model_test.ts
+    covers:
+      - tab-select:selected
+      - tab-close:closed
+      - tab-close-many:closed
+      - tab-move:moved
+      - tab-float:floated
+      - tab-detach:detached
+      - tab-drag:split
+      - tab-drag:stacked
+      - tab-drag:swapped
+      - tab-drag:refused
+      - tab-drag:unchanged
+      - pane-split:split
+      - pane-split:unchanged
+      - pane-swap:swapped
+      - pane-tab-leave:left-pane
+      - pane-unsplit:ungrouped
+      - pane-focus:focused
+      - pane-focus:unchanged
+      - pane-stack-cycle:shown
+      - float-dock:docked
+      - float-minimize:minimized
+      - float-chip-toggle:shown
+      - detached-dock:docked
+      - preview-tab-pin:pinned
+      - desk-close:removed
+      - desk-switch:switched
+      - desk-workflow-merge:merged
+    note: "workspace model 순수 상태 전이 모음. 여는·쪼개기·바꾸기·띄우기·닫기 순서를 섞어도 tab을 잃거나 둘로 만들지 않는다는 불변 조건을 본다. 칸 비율 조절(setRatio)은 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/renderer/shell/group-geometry_test.ts
+    covers:
+      - pane-focus:focused
+      - pane-focus:unchanged
+    note: "방향 키가 맞닿은 칸 중 겹침이 큰 칸으로 갈지, 가장자리에서 멈출지 정하는 판정. pane-focus의 focused와 unchanged를 정한다"
+
+  - path: packages/shell/renderer/terminal/displays_test.ts
+    covers: []
+    note: "터미널 view 재사용, snapshot 중 출력 순서, restart 뒤 늦은 snapshot을 새 generation에 쓰지 않는 규칙. 터미널 다시 붙이기는 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/renderer/terminal/model_test.ts
+    covers: []
+    note: "터미널 제목의 상태 글리프 제거, 탭 이름 우선순위, GUI session id 변환. 표시 규칙 순수 함수"
+
+  - path: packages/shell/renderer/terminal/store_test.ts
+    covers: []
+    note: "agent 상태 push(foreground와 이름만 바뀐 것도 반영)를 terminal store가 받는 단위"
+
+  - path: packages/shell/renderer/workspace/agents/core-source_test.ts
+    covers:
+      - agent-create:created
+    note: "새 agent는 저장 전에 받은 id로 만들어지고, mcp credential 이름의 주인이 그 id와 같다"
+
+  - path: packages/shell/renderer/workspace/agents/editor/grants-model_test.ts
+    covers: []
+    note: "agent에 붙일 앱 tool 목록 순수 함수. 앱의 비공개 tool은 그 agent가 일하는 앱 것만 붙는다. assignment-set의 화면 쪽 규칙이지만 flow outcome에 없다"
+
+  - path: packages/shell/renderer/workspace/open-policy_test.ts
+    covers:
+      - agent-tab-request:opened
+    note: "agent가 요청한 탭을 source 탭 옆(beside, grow)이나 float으로 열지, source가 없으면 자리 없이 열지 정하는 판정"
+
+  - path: packages/shell/terminal-host/env_test.ts
+    covers: []
+    note: "터미널 shell env에 COLORTERM=truecolor. 두 번 renderer만 고쳤다가 다시 생긴 bug라 test를 둔다. 터미널 시작 env는 flow가 없다(missing-outcome 참고)"
+
+  - path: packages/shell/terminal-host/screen_test.ts
+    covers: []
+    note: "다시 붙은 터미널 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살린다. 터미널 다시 붙이기는 flow가 없다(missing-outcome 참고)"

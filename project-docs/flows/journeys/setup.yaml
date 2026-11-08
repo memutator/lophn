@@ -1,0 +1,480 @@
+group: setup
+journeys:
+  - id: first-launch
+    title: 처음 켜서 빈 Home을 본다
+    actor: person
+    goal: 설치한 앱을 처음 켜면 data root와 ledger가 맞춰지고 빈 Home이 뜬다
+    steps:
+      - {do: "앱을 처음 켠다. 창은 열리고 core가 준비되는 동안 Home에 한 줄이 흐른다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "data root에 ledger가 새로 생겨 schema step을 모두 적용한다", flow: ledger-migrate:applied}
+      - {do: "data step은 돌리지 않고 기록만 남긴다", flow: data-steps-apply:fresh-recorded}
+      - {do: "node·npm shim과 내장 앱 template을 data root에 깐다", flow: builtin-install:installed}
+      - {do: "secrets.json을 연다. 파일이 없으니 빈 저장소로 시작한다", flow: secret-store-open:opened}
+      - {do: "core가 ready로 열린다", flow: core-boot:ready}
+      - {do: "shell이 ready core에 붙고 Home의 빈 desk 안내가 보인다", screen: home-empty, flow: core-ensure:spawned}
+    gaps:
+      - "설치 파일을 받아 실행하는 일(설치 마법사, 패키지 설치)은 flow가 없다(packages/core/install-and-update/)"
+
+  - id: first-use
+    title: 처음 켜서 provider를 붙이고 기본 model을 정한다
+    actor: person
+    goal: 처음 쓰는 사람이 API key provider 하나를 붙이고 대화에 쓸 기본 model까지 정한다
+    steps:
+      - {do: "앱을 처음 켠다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "data root와 ledger를 새로 맞춘다", flow: ledger-migrate:applied}
+      - {do: "data step은 기록만 남긴다", flow: data-steps-apply:fresh-recorded}
+      - {do: "내장 template을 data root에 깐다", flow: builtin-install:installed}
+      - {do: "core가 ready로 열린다", flow: core-boot:ready}
+      - {do: "shell이 core에 붙고 Home이 뜬다", screen: home-empty, flow: core-ensure:spawned}
+      - {do: "Settings › Providers에서 [+ Connect]를 누르고 API key 방식을 고른다", screen: new-settings-connect, flow: provider-read:ok}
+      - {do: "보호 입력 창에 key를 넣고 Save한다. 값은 일반 renderer 통로를 지나지 않고 shell main을 거쳐 secrets.json에 간다", screen: new-secret-input, flow: secret-input:stored}
+      - {do: "provider가 연결되어 목록에 줄이 생긴다", screen: new-settings-providers, flow: provider-connect:connected}
+      - {do: "전역 기본 model이 없으면 Choose a default model 창에서 model을 고른다", screen: new-settings-default-model-prompt, flow: model-default-change:ok}
+    gaps:
+      - "[Skip]으로 기본 model 없이 닫는 것은 상태를 바꾸지 않아 flow가 없다. 기본이 비었을 때의 안내(new-settings-required-empty)도 flow가 없다"
+
+  - id: relaunch-attach
+    title: shell만 끄고 다시 켜면 떠 있는 core에 붙는다
+    actor: person
+    goal: 앱 창을 끄고 다시 켜도 core는 그대로 있고 새 shell이 붙는다
+    steps:
+      - {do: "tray의 Quit을 누른다. 진행 중인 일이 없으면 확인 없이 끈다", flow: quit-app:quit}
+      - {do: "shell이 영역을 등록의 반대 순서로 멈추고 core 연결만 놓는다", flow: shell-stop:stopped}
+      - {do: "앱을 다시 켠다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "이미 ready인 core에 붙는다. 다시 띄우지 않는다", flow: core-ensure:attached}
+
+  - id: quit-blocked
+    title: 진행 중인 일이 있으면 끄기가 확인을 받는다
+    actor: person
+    goal: 진행 중인 터미널이나 저장하지 않은 문서가 있으면 끄기 전에 사람에게 묻는다
+    steps:
+      - {do: "Quit을 눌렀는데 진행 중인 터미널이나 저장 중인 문서가 있어 확인 창이 뜬다. Cancel을 누른다", flow: quit-app:cancelled}
+      - {do: "일을 마친 뒤 Quit을 다시 누르면 shell만 끝난다. core는 남는다", flow: quit-app:quit}
+
+  - id: stop-core
+    title: Stop lophn으로 core까지 끈다
+    actor: person
+    goal: 사람이 core와 shell을 함께 끈다
+    steps:
+      - {do: "Stop lophn을 누르고 확인 창에서 허락한다. shell이 control stop을 보낸다", flow: control-stop:ok}
+      - {do: "답을 받은 shell이 연결을 stale로 바꾸고 끝난다", flow: stop-lophn:stopped}
+    gaps:
+      - "control stop이 답하지 않으면 shell만 끝나 core가 남을 수 있다. 사람에게 그 사실을 알리는 화면이 없다(stop-lophn:no-answer는 log만 남긴다)"
+
+  - id: login-autostart
+    title: 로그인할 때 core만 미리 띄우게 한다
+    actor: person
+    goal: 로그인하면 창 없이 core가 떠 있어 앱을 켜면 바로 붙는다
+    steps:
+      - {do: "tray의 로그인 시 시작 항목을 켠다. OS 등록이 다시 읽혀 체크가 맞춰진다", flow: autostart-toggle:enabled}
+      - {do: "다음 로그인 때 창 없이 core만 뜬다", flow: login-core-start:core-ready}
+
+  - id: update-start
+    title: 업데이트한 뒤 처음 켠다
+    actor: person
+    goal: 새 판을 설치한 뒤 옛 core를 바꿔 띄우고 자동 시작 등록을 맞춘다
+    steps:
+      - {do: "업데이트된 앱을 켠다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "판이 다른 옛 core를 멈추고 새 판을 띄운다. 돌던 run은 다시 시작하지 않는다", flow: core-ensure:replaced}
+      - {do: "바뀐 내장 template을 data root에 다시 쓴다", flow: builtin-install:installed}
+      - {do: "업데이트 전에 등록한 --tray 자동 시작을 --core로 다시 쓴다", flow: autostart-migrate:rewritten}
+    gaps:
+      - "업데이트 파일을 받아 교체하는 일은 flow가 없다(packages/core/install-and-update/)"
+
+  - id: boot-newer-schema
+    title: 더 새 판이 쓴 data라 시작이 거절된다
+    actor: person
+    goal: 이전 판 앱이 새 판의 data를 열지 않고, 원본을 그대로 둔 채 업데이트를 안내받는다
+    steps:
+      - {do: "앱을 켠다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "ledger 기록에 지금 판에 없는 schema step이 있다. 아무것도 쓰지 않는다", flow: ledger-migrate:newer-schema}
+      - {do: "core가 start_failed newer_schema를 남기고 exit 1로 끝난다", flow: core-boot:start-failed-newer-schema}
+      - {do: "shell이 높은 schema 실패 화면을 보이고 update 안내와 Try again을 준다", screen: home-schema-failed, flow: core-ensure:start-failed-newer-schema}
+    gaps:
+      - "update 안내 뒤 업데이트를 받아 설치하고 다시 켜는 일은 flow가 없다"
+
+  - id: boot-history-mismatch
+    title: 적용한 schema 이력이 설치본과 달라 시작이 거절된다
+    actor: person
+    goal: 이력이 어긋난 data root는 아무것도 고치지 않고 시작 실패를 보인다
+    steps:
+      - {do: "앱을 켠다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "적용한 step의 SQL hash가 설치본과 다르다. ledger는 바뀌지 않는다", flow: ledger-migrate:history-mismatch}
+      - {do: "core가 start_failed history_mismatch를 남기고 끝난다", flow: core-boot:start-failed-history-mismatch}
+      - {do: "shell이 세 경우 시작 실패 화면에서 이력이 다른 경우를 보인다", screen: home-start-failure-cases, flow: core-ensure:start-failed-history-mismatch}
+    gaps:
+      - "이력이 어긋난 뒤 사람이 복구하거나 판을 맞추는 길을 안내하는 flow가 없다. 화면은 update 안내와 Try again만 준다"
+
+  - id: boot-damaged-original
+    title: 손상된 원본이 있으면 시작이 거절된다
+    actor: person
+    goal: ledger를 열 수 없는 data root는 원본을 건드리지 않고 시작 실패를 보인다
+    steps:
+      - {do: "앱을 켠다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "ledger를 열지 못했거나 무결성 검사가 실패했다. 원본은 변환하지 않는다", flow: ledger-migrate:damaged-original}
+      - {do: "core가 start_failed damaged_original을 남기고 끝난다", flow: core-boot:start-failed-damaged-original}
+      - {do: "shell이 손상된 data 실패 화면을 보인다", screen: home-start-failure-cases, flow: core-ensure:start-failed-damaged-original}
+    gaps:
+      - "손상 원본을 복구본으로 되돌리는 사람의 길은 flow가 없다"
+
+  - id: boot-start-failed
+    title: core가 시작하지 못하면 시작 실패 화면을 본다
+    actor: person
+    goal: 기동 중 data root 검사, lock, socket, worker 중 하나가 실패하면 실패 종류와 다음 행동 하나를 본다
+    steps:
+      - {do: "앱을 켠다", screen: home-starting, flow: shell-start:window-opened}
+      - {do: "core가 start_failed other를 남기고 끝난다. data root 검사, lock, socket, API, worker, builtin-install 실패가 여기 든다", flow: core-boot:start-failed-other}
+      - {do: "줄을 받지 못하고 60초 동안 ready를 기다린 뒤 실패로 보인다", screen: home-start-failed, flow: core-ensure:not-ready}
+    gaps:
+      - "sandbox 시작 실패 화면(home-sandbox-failed, 연결 state failed-sandbox)을 세우는 flow가 없다. packages/shell/ipc/core.ts에 state 값만 있고 main은 세우지 않는다"
+      - "connection failed 화면(home-connection-failed, state failed)을 세우는 flow가 없다. packages/shell/main/desktop/core/connection.ts는 실패를 failed-start로 끝낸다"
+
+  - id: provider-apikey-connect
+    title: API key로 provider를 연결하고 기본 model을 고른다
+    actor: person
+    goal: API key를 보호 입력으로 넣어 provider를 연결하고 대화에 쓸 기본 model을 정한다
+    steps:
+      - {do: "Settings › Providers에서 [+ Connect]를 누르고 API key 방식을 고른다", screen: new-settings-connect, flow: provider-read:ok}
+      - {do: "보호 입력 창에 key를 넣고 Save한다. 값은 일반 renderer 통로를 지나지 않고 shell main을 거쳐 secrets.json에 간다", screen: new-secret-input, flow: secret-input:stored}
+      - {do: "lophn이 그 secret 이름으로 provider를 연결한다", screen: new-settings-providers, flow: provider-connect:connected}
+      - {do: "전역 기본 model이 없으면 Choose a default model 창에서 model을 고른다", screen: new-settings-default-model-prompt, flow: model-default-change:ok}
+    gaps:
+      - "[Skip]으로 기본 model 없이 닫는 것은 상태를 바꾸지 않아 flow가 없다. 기본이 비었을 때의 안내(new-settings-required-empty)도 flow가 없다"
+
+  - id: provider-apikey-cancel
+    title: API key 입력을 취소하면 아무것도 저장되지 않는다
+    actor: person
+    goal: 보호 입력 창을 닫으면 key도 provider도 만들어지지 않는다
+    steps:
+      - {do: "Connect를 누르고 API key 방식을 고른다", screen: new-settings-connect, flow: provider-read:ok}
+      - {do: "보호 입력 창에서 Cancel을 누르거나 창을 닫는다. 저장도 연결도 보내지 않는다", screen: new-secret-input, flow: secret-input:cancelled}
+
+  - id: provider-custom-connect
+    title: custom provider를 붙이고 제공하는 model 목록을 읽는다
+    actor: person
+    goal: 이름과 주소를 적은 custom provider를 붙이고 목록에서 model을 고른다
+    steps:
+      - {do: "Custom provider 연결 창에 Provider ID, 이름, API 방식, Base URL을 적는다. API key가 있으면 보호 입력을 먼저 거친다", screen: new-settings-connect-custom, flow: provider-connect:connected}
+      - {do: "연결 직후 provider의 /models 목록을 한 번 읽는다", screen: new-settings-providers-connected-found, flow: provider-models-refresh:refreshed}
+      - {do: "전역 기본 model이 없으면 대화창에서 고른다", screen: new-settings-default-model-prompt, flow: model-default-change:ok}
+
+  - id: provider-custom-no-list
+    title: custom provider가 model 목록을 주지 않으면 이름으로 더한다
+    actor: person
+    goal: /models가 없는 provider에 model을 이름으로 적어 넣고 기본 model을 정한다
+    steps:
+      - {do: "Custom provider를 붙인다", screen: new-settings-connect-custom, flow: provider-connect:connected}
+      - {do: "/models가 404라 목록을 읽지 못한다. Manage models가 Add model form을 연 채 열리고 이름으로 더하라고 알린다", screen: new-model-info-connect-empty, flow: provider-models-refresh:unavailable}
+      - {do: "model 이름과 정보(context, 입력 종류, 가격)를 적어 Add model로 저장한다", screen: new-model-info-add, flow: user-model-info-save:ok}
+      - {do: "창을 닫은 뒤 전역 기본 model이 없으면 기본 model을 고른다", screen: new-settings-default-model-prompt, flow: model-default-change:ok}
+
+  - id: provider-models-refresh-failed
+    title: model 목록 다시 읽기가 실패하면 앞 목록이 그대로 남는다
+    actor: person
+    goal: 목록을 다시 읽지 못해도 기존 목록을 잃지 않고, provider가 회복되면 다시 읽는다
+    steps:
+      - {do: "Manage models에서 custom provider 묶음의 [Refresh models]를 누르지만 읽지 못한다. 앞 목록은 그대로 있고 실패 한 줄이 보인다", screen: new-manage-models-refresh-failed, flow: provider-models-refresh:unavailable}
+      - {do: "provider가 회복된 뒤 다시 누르면 목록이 바뀐다", screen: new-manage-models-custom, flow: provider-models-refresh:refreshed}
+
+  - id: provider-login-subscription
+    title: 구독 계정(ChatGPT)으로 로그인해 provider를 붙인다
+    actor: person
+    goal: API key 없이 구독 계정 로그인으로 provider를 연결하고 기본 model을 정한다
+    steps:
+      - {do: "Connect에서 구독 로그인(ChatGPT)을 고른다. OS browser가 발급자 로그인 주소를 연다", screen: new-settings-connect, flow: provider-login-start:started}
+      - {do: "browser에서 계정으로 로그인하는 동안 화면은 기다린다", flow: provider-login-finish:pending}
+      - {do: "callback을 받으면 token 세 이름을 secrets.json에 저장하고 같은 id로 provider를 연결한다", flow: provider-login-finish:connected}
+      - {do: "전역 기본 model이 없으면 대화창에서 고른다", screen: new-settings-default-model-prompt, flow: model-default-change:ok}
+      - {do: "나중에 access token이 만료되기 전에 core가 refresh token으로 갱신한다", flow: provider-token-refresh:refreshed}
+
+  - id: provider-login-cancel
+    title: 기다리던 구독 로그인을 그만둔다
+    actor: person
+    goal: browser에서 로그인하지 않고 그만두면 세션과 callback listener만 닫히고 provider는 생기지 않는다
+    steps:
+      - {do: "구독 로그인을 고르고 browser를 연 뒤 기다리는 중 연결 창에서 그만둔다", screen: new-settings-connect, flow: provider-login-start:started}
+      - {do: "로그인 세션과 callback listener를 닫는다. provider와 secret은 건드리지 않는다", flow: provider-login-cancel:cancelled}
+
+  - id: provider-login-denied
+    title: 구독 로그인이 발급자에게서 거절되면 연결되지 않는다
+    actor: person
+    goal: 발급자가 허락을 거절했거나 token 응답이 맞지 않으면 연결 없이 실패가 보인다
+    steps:
+      - {do: "구독 로그인을 고르고 browser에서 허락하지 않았다", screen: new-settings-connect, flow: provider-login-start:started}
+      - {do: "발급자가 거절했거나 token 응답에 access나 refresh가 없어 연결이 실패한다", flow: provider-login-finish:forbidden}
+
+  - id: provider-disconnect
+    title: provider 연결을 끊고 그 key 값을 지운다
+    actor: person
+    goal: 쓰지 않는 provider의 연결과 저장된 key를 없앤다
+    steps:
+      - {do: "Providers에서 [Disconnect]를 누르고 확인 창에서 허락한다. model 선택과 사용자 정의 model 정보는 남는다", screen: new-settings-providers, flow: provider-disconnect:disconnected}
+      - {do: "화면이 뒤에서 provider의 secret 값을 지운다", flow: secret-delete:deleted}
+      - {do: "그 provider로 돌던 대화는 model 호출을 멈추고 provider 회수로 표시된다", flow: provider-disconnect-revoke:revoked}
+    gaps:
+      - "secret 정리가 core가 아니라 renderer의 best-effort 호출이다. 중간에 창이 죽으면 provider.<id> 값과 구독 token이 secrets.json에 남는다(packages/shell/renderer/desktop/settings/providers/core-source.ts)"
+
+  - id: choose-default-model
+    title: Settings › Agents에서 전역 기본 model을 고른다
+    actor: person
+    goal: 대화가 쓸 전역 기본 model을 picker에서 고른다
+    steps:
+      - {do: "앱이 켜질 때 model catalog를 models.dev에서 받아 둔다(24시간 주기)", flow: model-catalog-auto-update:received}
+      - {do: "Settings › Agents의 기본 model 칸에서 현재 기본 model을 본다", screen: new-settings-agents, flow: model-default-read:ok}
+      - {do: "picker에 켜 둔 model 목록을 읽는다", screen: new-settings-agents, flow: shown-models-read:ok}
+      - {do: "목록에서 model 하나를 고른다. 목록에 없던 것이면 picker에도 켜진다", screen: new-settings-agents, flow: model-default-change:ok}
+
+  - id: choose-project-model
+    title: project의 Agents 탭에서 project model을 고른다
+    actor: person
+    goal: 한 project의 대화가 전역 기본과 다른 model을 쓰도록 정한다
+    steps:
+      - {do: "project 창의 Agents 탭에서 project 층 model 칸을 본다. 줄이 없으면 전역 기본을 따른다", screen: new-project-agents, flow: project-model-read:ok}
+      - {do: "model을 고른다. 전역 기본이 비어 있으면 같은 model이 전역 기본으로 들어간다", screen: new-project-agents, flow: project-model-change:ok}
+
+  - id: manage-models
+    title: Manage models에서 picker에 보일 model을 고르고 정보를 적는다
+    actor: person
+    goal: picker에 보일 model을 켜고, custom model에 정보를 적거나 지운다
+    steps:
+      - {do: "picker 맨 아래 Manage models를 열어 provider별 model 목록을 읽는다", screen: new-manage-models, flow: model-catalog-read:ok}
+      - {do: "사람이 적어 둔 custom model 정보를 함께 읽어 줄마다 입력 종류와 context를 보인다", screen: new-model-info-manage, flow: user-model-info-read:ok}
+      - {do: "보일 model의 toggle을 켜거나 끈다. 끈 model은 picker에 보이지 않는다", screen: new-manage-models, flow: shown-models-change:ok}
+      - {do: "custom provider의 model에 context, 입력 종류, 가격을 Add model form으로 적어 저장한다", screen: new-model-info-add, flow: user-model-info-save:ok}
+      - {do: "필요 없어진 custom model 정보는 줄의 [Edit]에서 [Remove model]로 지운다", screen: new-model-info-edit, flow: user-model-info-remove:ok}
+
+  - id: manage-models-conflict
+    title: model 정보 저장이 다른 창의 변경과 겹치면 다시 저장한다
+    actor: person
+    goal: form을 연 사이 바뀐 정보와 충돌해도 form 값을 잃지 않고 한 번 더 저장한다
+    steps:
+      - {do: "form을 연 사이 다른 창이 정보를 바꿔 Save가 충돌한다. form 값은 그대로 있다", screen: new-model-info-conflict, flow: user-model-info-save:conflict}
+      - {do: "판을 다시 읽었으니 한 번 더 Save한다", screen: new-model-info-conflict, flow: user-model-info-save:ok}
+
+  - id: mcp-oauth-add-login
+    title: 전역 MCP 서버를 OAuth로 더하고 로그인한다
+    actor: person
+    goal: web 주소의 MCP 서버를 OAuth 2.1로 더해 로그인하고 token을 secrets.json에 보관한다
+    steps:
+      - {do: "Settings › Tools and skills를 연다. 전역 MCP 서버 목록을 읽는다", screen: new-settings-tools, flow: settings-read:ok}
+      - {do: "서버 줄에 client secret이 설정됐는지 보인다", screen: new-settings-tools, flow: secret-status:ok}
+      - {do: "Add server에서 web 주소와 OAuth 2.1을 고르고 issuer, client ID, scopes를 적는다. client secret은 보호 입력 창에 넣는다", screen: new-secret-input-mcp, flow: secret-input:stored}
+      - {do: "서버 줄을 저장한다", screen: new-settings-tools-oauth-form, flow: settings-update:changed}
+      - {do: "서버 줄의 [Sign in]을 누르면 browser를 열 로그인 주소를 받는다", screen: new-settings-tools, flow: mcp-auth-begin:ok}
+      - {do: "browser에서 승인하면 callback의 code를 교환해 refresh와 access token을 secrets.json에 보관한다", flow: mcp-auth-finish:completed}
+      - {do: "서버 줄에 로그인 상태가 signed-in으로 보인다", screen: new-settings-tools, flow: mcp-auth-state:signed-in}
+      - {do: "다음 대화 turn이 시작하면 설정한 서버에 붙고 token을 요청에 붙여 tool을 쓴다", flow: mcp-server-connect:attached}
+
+  - id: mcp-login-timeout
+    title: MCP 서버 로그인을 5분 안에 마치지 않으면 실패로 보인다
+    actor: person
+    goal: 승인하지 않은 채 시한이 지나면 로그인이 실패로 남고 다시 시작할 수 있다
+    steps:
+      - {do: "서버 줄의 [Sign in]을 누르고 browser를 연다", screen: new-settings-tools, flow: mcp-auth-begin:ok}
+      - {do: "5분 안에 승인하지 않아 callback이 오지 않는다", flow: mcp-auth-finish:timed-out}
+      - {do: "서버 줄에 callback_timeout 실패가 보이고 [Sign in]을 다시 할 수 있다", screen: new-settings-tools, flow: mcp-auth-state:failed}
+
+  - id: mcp-login-cancel
+    title: 기다리던 MCP 서버 로그인을 그만둔다
+    actor: person
+    goal: 로그인을 그만두면 기다리는 시도만 없어지고 이미 보관한 token은 그대로 있다
+    steps:
+      - {do: "서버 줄의 [Sign in]을 누르고 browser를 연 뒤 기다리는 중 그만둔다", screen: new-settings-tools, flow: mcp-auth-begin:ok}
+      - {do: "기다리는 로그인의 세션과 callback listener를 닫는다", flow: mcp-auth-cancel:cancelled}
+
+  - id: mcp-server-off
+    title: 전역 MCP 서버를 끈다
+    actor: person
+    goal: 쓰지 않는 MCP 서버를 끄면 agent가 그 서버의 tool을 쓰지 못하고 Grants에서도 꺼진 것으로 보인다
+    refs: [H3]
+    steps:
+      - {do: "서버 줄의 enabled를 끈다", screen: new-settings-tools, flow: settings-update:changed}
+      - {do: "Grants 화면에서 그 서버가 꺼진 것으로 보인다", screen: new-agent-grants, flow: mcp-tools-list:disabled}
+    gaps:
+      - "도는 turn 중에 끈 서버를 끊는 경로는 없다. 다음 tool 호출부터 막힌다(revokeServer를 부르는 곳이 저장소에 없다)"
+
+  - id: project-mcp-change
+    title: project 층에서 MCP 서버를 더하거나 끈다
+    actor: person
+    goal: 한 project에만 쓰는 MCP 서버를 project Agents 탭에서 더하거나 끈다
+    steps:
+      - {do: "project Agents 탭에서 project 층 MCP 서버와 끈 항목을 읽는다", screen: new-project-agents, flow: project-extension-read:ok}
+      - {do: "project 층 MCP 서버를 더하거나 끈 뒤 저장한다", screen: new-project-agents, flow: project-extension-change:ok}
+
+  - id: settings-general-change
+    title: Settings › General의 값을 바꾼다
+    actor: person
+    goal: 선언된 설정 값을 고쳐 저장하고 다른 key는 그대로 둔다
+    steps:
+      - {do: "Settings › General을 열어 선언된 값과 사람이 고른 값을 본다", screen: new-settings-general, flow: settings-read:ok}
+      - {do: "값을 바꿔 저장한다. 바뀐 key만 settings.json에 쓴다", screen: new-settings-general, flow: settings-update:changed}
+
+  - id: settings-general-rejected
+    title: 범위를 넘은 설정 값은 저장되지 않고 이유가 보인다
+    actor: person
+    goal: 선언에 없는 key나 범위 밖 값을 적으면 아무것도 쓰지 않고 거절 이유를 본다
+    steps:
+      - {do: "Settings › General을 연다", screen: new-settings-general, flow: settings-read:ok}
+      - {do: "범위를 넘은 값을 적으면 아무것도 쓰지 않고 칸 옆에 거절 이유가 보인다", screen: new-settings-general, flow: settings-update:rejected}
+
+  - id: settings-json-hand-edit
+    title: settings.json을 손으로 고치면 앱에 반영된다
+    actor: person
+    goal: 편집기로 settings.json을 고쳐 저장하면 앱이 다시 읽어 값을 맞춘다
+    steps:
+      - {do: "settings.json을 편집기로 고쳐 저장한다. 폴더 watch가 100ms 묶음으로 다시 읽는다", flow: settings-file-watch:changed}
+      - {do: "선언에 없는 key를 적으면 그 key만 기본값으로 두고 log에 남긴다. 나머지 값은 적용된다", flow: settings-file-watch:rejected-key}
+
+  - id: settings-json-broken
+    title: settings.json이 깨지면 앱은 이전 값을 두고 저장을 막는다
+    actor: person
+    goal: JSON이 깨진 settings.json은 이전 값을 유지하고, 사람이 고칠 때까지 화면 저장도 거절된다
+    steps:
+      - {do: "settings.json을 편집기로 저장하면서 JSON을 깨뜨린다. 이전 값이 그대로 남는다", flow: settings-file-watch:broken-json}
+      - {do: "Settings 화면에서 값을 바꾸려 하면 settings.json을 읽지 못해 저장이 거절된다", screen: new-settings-general, flow: settings-update:unavailable}
+
+  - id: keyboard-rebind
+    title: 단축키 하나를 바꾼다
+    actor: person
+    goal: 줄의 키를 새 키로 바꾸면 바로 저장되어 이 OS에서 적용되고, 그 키로 command가 돈다
+    steps:
+      - {do: "Settings › Keyboard를 열어 묶음별 줄 목록을 본다", screen: settings-keyboard, flow: settings-read:ok}
+      - {do: "줄 오른쪽 키 칸을 누르고 새 키를 누르면 바로 저장된다", screen: settings-keyboard-changed, flow: key-record:saved}
+      - {do: "main이 먼저 받는 키(전역 팔레트 등)도 같은 키로 바꾼다", flow: key-overrides-main:applied}
+      - {do: "다음에 창을 열 때도 저장된 키가 표 위에 덮여 적용된다", flow: key-overrides-restore:restored}
+      - {do: "새 키를 누르면 그 command가 돈다", flow: key-press:command-run}
+    gaps:
+      - "[Reset to default]와 [Reset all shortcuts]로 기본 키에 되돌리는 것은 keys 영역 flow가 없다"
+
+  - id: keyboard-key-rejected
+    title: 모양이 맞지 않는 키는 저장되지 않는다
+    actor: person
+    goal: 글자를 삼키는 키나 lophn·OS가 먼저 쓰는 키를 골라도 저장되지 않고 화면이 이전 값으로 남는다
+    steps:
+      - {do: "Settings › Keyboard에서 modifier 없는 글자 키를 누른다. 입력칸의 글자를 삼키므로 저장하지 않는다", screen: settings-keyboard, flow: key-record:rejected-needs-modifier}
+      - {do: "lophn이나 OS가 먼저 쓰는 키를 누른다. 저장하지 않고 예약된 키라고 보인다", screen: settings-keyboard, flow: key-record:rejected-reserved}
+
+  - id: keyboard-conflict-clear
+    title: 겹친 단축키를 찾아 하나를 비운다
+    actor: person
+    goal: 같은 키를 쓰는 줄을 찾아 키를 옮기거나 지운다
+    steps:
+      - {do: "Show conflicts only로 겹친 줄만 본다. 겹친 줄은 상대 이름을 보인다", screen: settings-keyboard-conflicts, flow: settings-read:ok}
+      - {do: "키 칸에서 다른 줄이 쓰는 키를 고르고 Replace를 누르면 그 줄에서 키가 빠지고 같은 저장으로 함께 쓰인다", screen: settings-keyboard-conflicts, flow: key-record:saved-taking-keys}
+      - {do: "남은 겹친 줄의 [Remove]를 눌러 키를 지운다", screen: settings-keyboard-conflicts, flow: settings-update:changed}
+
+  - id: global-palette-key
+    title: 창 밖에서 전역 팔레트 키를 누른다
+    actor: person
+    goal: 어느 앱에 focus가 있어도 전역 팔레트 키로 최근 lophn 창을 앞으로 가져와 팔레트를 연다
+    steps:
+      - {do: "앱을 켤 때 전역 팔레트 키가 OS에 걸린다", flow: global-palette-register:registered}
+      - {do: "다른 앱에 focus가 있어도 전역 팔레트 키를 누른다. 최근 lophn 창이 앞으로 와 팔레트 요청을 받는다", flow: global-palette-press:handed-over}
+      - {do: "창이 하나도 없으면 새 기본 창을 열고 그 창에 팔레트 요청을 보낸다", flow: desktop-window-intent:opened}
+
+  - id: appearance-preset
+    title: Appearance에서 색과 글꼴을 고른다
+    actor: person
+    goal: preset을 고르면 모든 lophn 화면과 다음에 여는 문서에 같은 모양이 입혀진다
+    steps:
+      - {do: "Settings › Appearance에서 preset을 고른다. 화면이 바로 바뀐다", screen: new-settings-appearance-presets, flow: appearance-set:applied}
+      - {do: "다음에 읽히는 lophn 문서와 앱 화면에도 지금 CSS와 locale이 들어간다", flow: appearance-on-load:inserted}
+    gaps:
+      - "설치되지 않은 코드 글꼴을 기본 글꼴로 그리고 Not installed로 보이는 일은 flow가 없다(new-settings-appearance-font-missing)"
+
+  - id: appearance-save-failed
+    title: 모양 저장이 실패하면 칸이 저장된 값으로 돌아간다
+    actor: person
+    goal: 저장이 실패해도 화면과 저장된 값이 어긋난 채 남지 않는다
+    steps:
+      - {do: "preset을 고른다. 화면은 먼저 바뀐다", screen: new-settings-appearance, flow: appearance-set:save-failed}
+      - {do: "저장된 값을 다시 읽어 칸과 화면이 옛 값으로 돌아간다", screen: new-settings-appearance, flow: settings-read:ok}
+
+  - id: extension-install-on
+    title: extension을 설치하고 켠다
+    actor: person
+    goal: Settings › System › Extensions에서 extension을 설치해 켜고, 그 command를 단축키에서 부른다
+    refs: [P6]
+    steps:
+      - {do: "Settings › System › Extensions에서 [Install]을 누른다. 표시 file만 두고 켜지는 않는다", flow: extension-install:installed}
+      - {do: "[Turn on]을 누른다. 설정 extensions.<id>.enabled가 바뀐다", flow: settings-update:changed}
+      - {do: "registry가 manifest의 판을 확인하고 entry를 activate한다", flow: extension-sync:loaded}
+      - {do: "켜진 extension이 건 command를 단축키나 팔레트에서 부른다", flow: extension-command-run:ok}
+    gaps:
+      - "Settings › System › Extensions 화면의 wireframe frame이 없다. 설치와 켜기 칸을 그림으로 확인할 수 없다"
+
+  - id: extension-off
+    title: 켜진 extension을 끈다
+    actor: person
+    goal: 끄면 그 extension의 command와 tool handler가 버려지고 code는 다시 require되지 않는다
+    steps:
+      - {do: "[Turn off]를 누른다", flow: settings-update:changed}
+      - {do: "켜져 있던 extension만 deactivate해 handler를 모두 버린다", flow: extension-sync:off}
+
+  - id: extension-remove-blocked
+    title: 켜진 extension은 먼저 꺼야 지운다
+    actor: person
+    goal: 켜진 채 지우려 하면 막히고, 끈 뒤에 extension이 쓴 file만 지운다
+    steps:
+      - {do: "켜진 채 [Remove]를 누르면 먼저 끄라는 말을 듣는다", flow: extension-remove:conflict}
+      - {do: "[Turn off]를 누른다", flow: settings-update:changed}
+      - {do: "끈 상태가 되어 handler가 버려진다", flow: extension-sync:off}
+      - {do: "[Remove]를 다시 누른다. 표시 file에 적힌 file과 표시 file만 지우고 비게 된 폴더를 치운다", flow: extension-remove:removed}
+
+  - id: extension-start-failed
+    title: extension을 켰는데 시작하지 못한다
+    actor: person
+    goal: activate가 실패하면 목록에 failed와 이유가 보이고 다른 extension은 그대로 돈다
+    steps:
+      - {do: "[Turn on]을 누른다", flow: settings-update:changed}
+      - {do: "activate가 던져 deactivate를 부른다. 목록에 failed와 이유가 보인다(판이 다르면 incompatible로 보이고 켜지지 않는다는 별도 갈래다)", flow: extension-sync:failed}
+
+  - id: window-open-new
+    title: 새 창을 열고 한 창을 닫는다
+    actor: person
+    goal: 창을 더 열면 저장해 둔 자리와 크기로 Home이 열리고, 닫아도 다른 창은 남는다
+    steps:
+      - {do: "tray에서 새 창을 연다. 저장한 자리와 크기를 되살린다", screen: home-empty, flow: desktop-window-open:opened}
+      - {do: "다른 창이 남은 상태에서 한 창을 닫는다. 그 창의 자리만 window.json에 저장한다", flow: desktop-window-close:closed}
+
+  - id: window-close-reopen
+    title: 마지막 창을 닫고 tray에서 다시 연다
+    actor: person
+    goal: 창을 닫아도 앱은 tray에 남고, tray에서 새 창을 연다
+    steps:
+      - {do: "마지막 desktop 창을 닫는다. 종료되지 않고 shell의 tray와 core는 남는다", flow: desktop-window-close:last-closed}
+      - {do: "tray 아이콘을 누르면 최근 창이 없으므로 새 기본 창을 연다", flow: desktop-window-show:opened}
+
+  - id: second-launch
+    title: 이미 켜진 앱을 한 번 더 켠다
+    actor: person
+    goal: 두 번째 실행은 창을 만들지 않고 떠 있는 앱이 기본 창을 연다
+    steps:
+      - {do: "앱을 한 번 더 켠다. 두 번째 process는 single instance lock에 밀려 창 없이 끝난다", flow: shell-start:second-process-exits}
+      - {do: "떠 있는 main이 두 번째 실행의 argv를 받아 기본 창을 연다", flow: second-instance:window-opened}
+
+  - id: diagnostics-check
+    title: Diagnostics에서 구성 요소 상태를 점검한다
+    actor: person
+    goal: 구성 요소마다 쓸 수 있는지와 불가 이유를 보고, 고친 뒤 다시 점검한다
+    steps:
+      - {do: "[Run checks]를 누른다. 구성 요소 하나가 불가로 보이고 이유와 점검 시각이 나온다", screen: new-settings-diagnostics, flow: diagnostics-status:component-unavailable}
+      - {do: "원인을 고친 뒤 다시 [Run checks]를 누르면 모두 가능하다", screen: new-settings-diagnostics, flow: diagnostics-status:all-available}
+
+  - id: core-health-check
+    title: 밖에서 core가 살아 있고 일을 받는지 본다
+    actor: person
+    goal: core가 떠 있는지와 구성 요소가 모두 준비됐는지를 HTTP 주소로 확인한다
+    steps:
+      - {do: "/healthz를 부른다. 점검 없이 살아 있는지와 pid, 메모리만 본다", flow: health-probe:live}
+      - {do: "/readyz를 부른다. 구성 요소를 지금 점검하고, 하나가 불가면 degraded로 이름을 본다", flow: health-probe:degraded}
+    gaps:
+      - "doctor 명령이 /readyz를 어떻게 부르는지는 cli 영역 flow가 맡는다(여기서는 HTTP 주소를 직접 부른다고 적었다)"
+
+  - id: resource-snapshot
+    title: core가 느릴 때 자원 요약과 profile을 남긴다
+    actor: person
+    goal: 사람이 SIGUSR2를 보내 core의 메모리와 CPU 상태를 data root에 남긴다
+    steps:
+      - {do: "kill -USR2로 core에 신호를 보낸다. runtime 요약 json과 5초 CPU profile이 diagnostics 폴더에 남는다", flow: resource-snapshot:written}
+      - {do: "이전 snapshot이 아직 도는 중에 한 번 더 보내면 그 신호는 버려진다", flow: resource-snapshot:ignored}

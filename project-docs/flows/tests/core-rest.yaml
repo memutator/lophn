@@ -1,0 +1,369 @@
+group: core-rest
+files:
+  - path: packages/core/agent-workspaces/tool-lists_test.ts
+    covers: [tool-list-assembly:fixed]
+    note: workspace 종류별 model tool 목록의 wire 이름 충돌과 종류별 포함 규칙
+
+  - path: packages/core/agent-workspaces/workspace/data-folder_test.ts
+    covers: []
+    note: data root 아래 workspace 폴더 자리 계산(순수 path helper)
+
+  - path: packages/core/agent-workspaces/workspace/workspace-folders_test.ts
+    covers:
+      - workspace-file-scope:project
+      - workspace-file-scope:app
+      - workspace-file-scope:home
+      - workspace-file-scope:home-called
+    note: workspaceScope의 read·write 목록과 base
+
+  - path: packages/core/agent-workspaces/workspace/workspace-info_test.ts
+    covers: [workspace-file-scope:app]
+    note: 앱 workspace의 쓰기 범위만 본다. workspace 정보 text(prompt 조립)는 flow outcome이 없다(missing-outcome)
+
+  - path: packages/core/approvals/approvals_test.ts
+    covers:
+      - turn-request-decide:forbidden
+      - turn-request-decide:not-found
+      - turn-request-decide:once
+      - team-child-approval-to-parent:parent-allowed
+      - team-child-approval-to-parent:parent-ended
+
+  - path: packages/core/approvals/assignment/commands_test.ts
+    covers: [assignment-set:forbidden]
+
+  - path: packages/core/approvals/gate/judge_test.ts
+    covers:
+      - tool-gate-check:run
+      - tool-gate-check:denied-shell-rule
+      - tool-gate-check:denied-not-assigned
+      - tool-gate-check:denied-removed
+      - app-call-assignment-judge:gate-blocked
+      - extension-tool-judge:not-assigned
+      - extension-tool-judge:removed
+    note: judge 순수 함수의 판정표. ask 판정은 outcome이 없어 covers에 없다
+
+  - path: packages/core/approvals/share-requests/commands_test.ts
+    covers:
+      - share-request-open:opened
+      - share-request-open:forbidden
+      - share-request-decide:forbidden
+      - share-request-decide:conflict
+      - share-request-decide:approved
+
+  - path: packages/core/config/store_test.ts
+    covers:
+      - settings-update:changed
+      - settings-update:rejected
+      - settings-update:unchanged
+      - settings-update:unavailable
+      - settings-file-watch:changed
+      - settings-file-watch:rejected-key
+    note: settings store의 update와 기동 때 읽기
+
+  - path: packages/core/events/gateway_test.ts
+    covers:
+      - gateway-stream:ok
+      - gateway-stream:slow-consumer
+    note: 잘못된 watch 조건의 1008 close는 steps에만 있고 outcome이 없다
+
+  - path: packages/core/host-queue/hold_test.ts
+    covers:
+      - harness-tui-hold:extended
+      - harness-tui-hold:expired
+      - harness-tui-hold:released
+
+  - path: packages/core/host-queue/queue_test.ts
+    covers:
+      - host-browser-read:state
+      - host-browser-read:not_found
+      - host-tab-close:accepted
+      - host-tab-close:forbidden
+      - host-tab-close:not_found
+      - host-request-take:request
+      - host-request-take:none
+      - host-request-done:done
+      - host-request-done:retry
+      - extension-tool-call:ran
+      - extension-tool-call:shell-detached
+    note: host queue 표의 함수(openTab, take, done, abandon). 탭 요청은 route 입구 없이 queue를 직접 부른다
+
+  - path: packages/core/install-and-update/data-root_test.ts
+    covers: [core-boot:start-failed-other]
+    note: POSIX data root의 group·other 권한 거절(기동 거절 other)
+
+  - path: packages/core/jobs/commands_test.ts
+    covers:
+      - job-create:created
+      - job-update:updated
+      - job-update:not_found
+      - job-delete:deleted
+      - job-delete:not_found
+
+  - path: packages/core/jobs/due_test.ts
+    covers:
+      - job-claim-due:queued
+      - job-claim-due:held
+      - job-claim-due:held-again
+      - job-claim-due:skipped-overlap
+      - job-startup:interrupted
+      - job-startup:missed-counted
+      - job-hold-decide:conflict
+    note: 승인 전 job이 claim에서 빠지는 것은 steps에만 있다(missing-outcome)
+
+  - path: packages/core/jobs/schedule_test.ts
+    covers: []
+    note: 서머타임 날의 job 차례 계산(순수 함수)
+
+  - path: packages/core/jobs/scheduler_test.ts
+    covers:
+      - job-run-end:done
+      - job-run-end:cancelled
+    note: workflow_start 줄이 instance 끝 상태에 맞춰 닫히는 것
+
+  - path: packages/core/main/agent-tools_test.ts
+    covers:
+      - tool-operations-ceiling:home
+      - tool-operations-ceiling:project
+      - tool-operations-ceiling:app
+      - tool-list-assembly:fixed
+      - tool-list-assembly:bare-narrowed
+      - tool-call-execute:not-listed
+    note: JSON Schema 변환 검사는 순수 helper라 covers에서 뺐다. lophn write 명령의 idempotency key는 outcome이 없다(missing-outcome)
+
+  - path: packages/core/main/daemon/idle_test.ts
+    covers:
+      - core-idle-exit:idle-exit
+      - core-idle-exit:kept-alive
+      - job-activity:idle
+      - job-activity:busy
+      - run-activity:idle
+      - run-activity:busy
+      - workflow-activity:idle
+      - workflow-activity:busy
+
+  - path: packages/core/main/daemon/schema-steps_test.ts
+    covers: []
+    note: 낸 schema step의 id·순서·hash를 lock과 견주는 개발 시점 검사(기동 시 대조는 ledger-migrate가 맡는다)
+
+  - path: packages/core/main/daemon/wiring/acp-build_test.ts
+    covers:
+      - acp-projection:ok
+      - acp-read:ok
+    note: snapshot과 갱신 event를 접은 상태가 같은지, redaction과 tool 종류
+
+  - path: packages/core/main/daemon/wiring/acp-send_test.ts
+    covers:
+      - acp-send:ok
+      - acp-send:forbidden
+      - shell-run:ok
+      - shell-run:forbidden
+
+  - path: packages/core/main/daemon/wiring/approvals_test.ts
+    covers:
+      - tool-gate-check:forbidden
+      - ask-unattended-returns:unattended
+    note: 팀 자식 ask가 부모에게 가는 판정(toParent)은 호출 인자만 본다. 결과 outcome은 assert하지 않는다
+
+  - path: packages/core/main/daemon/wiring/apps-delete_test.ts
+    covers:
+      - app-delete:deleted
+      - app-delete:still-running
+
+  - path: packages/core/main/daemon/wiring/artifact-move_test.ts
+    covers:
+      - data-steps-apply:applied
+      - session-rewind-apply:applied
+    note: artifact 옮기기 data step(domains에서 project 폴더로)은 전용 flow가 없다(missing-outcome)
+
+  - path: packages/core/main/daemon/wiring/assignment-file_test.ts
+    covers:
+      - assignment-file-migrate:moved
+      - assignment-file-migrate:deny-rule-slugged
+
+  - path: packages/core/main/daemon/wiring/bare-reply_test.ts
+    covers:
+      - bare-call-reply:replied
+      - bare-call-reply:not-sent
+
+  - path: packages/core/main/daemon/wiring/call-policy-private_test.ts
+    covers: [data-steps-apply:applied]
+    note: 옛 call policy(private→workspaces) data step. 전용 flow가 없다(missing-outcome)
+
+  - path: packages/core/main/daemon/wiring/domains-retire_test.ts
+    covers: [data-steps-apply:applied]
+    note: domains 표와 kinds.sqlite를 거두고 file은 남긴다
+
+  - path: packages/core/main/daemon/wiring/extension-tools_test.ts
+    covers: []
+    note: extension handler의 core 호출 자격 범위와 해제. 호출 자격의 outcome이 없다(missing-outcome)
+
+  - path: packages/core/main/daemon/wiring/harness-credential_test.ts
+    covers: [harness-turn-start:started]
+    note: harness turn 자격이 자기 session·turn에만 닿고 turn 끝에 멈춘다. user 자격의 call.reply 발급 거절은 outcome이 없다
+
+  - path: packages/core/main/daemon/wiring/lophn-split_test.ts
+    covers: [data-steps-apply:applied]
+    note: 옛 lophn id를 workspace별 값으로 나누는 data step. 전용 flow가 없다(missing-outcome)
+
+  - path: packages/core/main/daemon/wiring/places-default-on_test.ts
+    covers: [data-steps-apply:applied]
+    note: 옛 sidebar panel·tray 설정 key 제거
+
+  - path: packages/core/main/daemon/wiring/sealed-marker_test.ts
+    covers: [data-steps-apply:applied]
+    note: 옛 봉인 사본에 표지 쓰기
+
+  - path: packages/core/main/daemon/wiring/share-activation_test.ts
+    covers:
+      - share-request-consent:share-replaced
+      - share-request-consent:approved-with-consent
+
+  - path: packages/core/main/daemon/wiring/workspace-data-move_test.ts
+    covers:
+      - data-steps-apply:applied
+      - session-rewind-apply:applied
+    note: skill 옮기기 data step. 전용 flow가 없다(missing-outcome)
+
+  - path: packages/core/main/daemon/wiring/workspace-rename_test.ts
+    covers:
+      - ledger-migrate:applied
+      - data-steps-apply:applied
+    note: place에서 workspace로 이름 바꾸기(ledger 행, 판 9 layout, call 정책). 전용 flow가 없다(missing-outcome)
+
+  - path: packages/core/main/daemon/workspace-folders-glue_test.ts
+    covers:
+      - workspace-file-scope:project
+      - workspace-file-scope:app
+      - workspace-file-scope:home
+    note: rewind 쓰기 폴더 목록을 session의 workspace 종류로 고른다
+
+  - path: packages/core/main/flow-host/sdk-link_test.ts
+    covers: []
+    note: flow.ts가 @lophn/flow를 설치된 SDK 사본으로 풀게 하는 symlink. workflow-check의 step이고 outcome이 없다(missing-outcome)
+
+  - path: packages/core/main/tool-names_test.ts
+    covers: []
+    note: 내장 tool 이름이 앱 slug 예약과 겹치지 않는지 보는 정적 검사
+
+  - path: packages/core/projects/registry/registry_test.ts
+    covers:
+      - project-register:ok
+      - project-archive:archived
+      - project-unarchive:unarchived
+    note: 보관해도 폴더 파일은 그대로다
+
+  - path: packages/core/projects/search/search_test.ts
+    covers: [project-search:ok]
+    note: gitignore, symlink 밖 제외, NFC와 대소문자, 페이지 나눔
+
+  - path: packages/core/router/commands_test.ts
+    covers:
+      - call-send:accepted
+      - call-reply:delivered
+    note: unattended 표시를 turn mode에서 찍는다
+
+  - path: packages/core/router/router_test.ts
+    covers:
+      - call-send:accepted
+      - call-send:deduplicated
+      - call-send:failed-closed
+      - call-send:card-refused
+      - call-send:call-policy-refused
+      - call-send:team-refused
+      - call-reply:delivered
+      - call-reply:closed
+      - call-reply:ask-answered
+      - call-reply:decision-mismatch
+      - call-cancel:cancelled
+      - team-spawn:spawned
+      - team-child-approval-to-parent:parent-allowed
+      - team-child-approval-to-parent:parent-rejected
+      - team-child-approval-to-parent:parent-ended
+      - workflow-instance-apply:handed
+      - session-archive:ok
+    note: step 입력 전달은 workflow handoff로 보고 workflow-instance-apply:handed에 붙였다. 받는 session 종료 때 call 실패는 session-archive의 receiver_ended다
+
+  - path: packages/core/router/store_test.ts
+    covers: []
+    note: call 저장소의 consume과 lost 목록(복구 대상). 저장소 직접 호출이라 outcome에 붙이지 않았다
+
+  - path: packages/core/runs/service_test.ts
+    covers:
+      - run-agent-start:running
+      - run-agent-end:done
+    note: run의 결과는 그 입력이 연 turn의 답
+
+  - path: packages/core/runs/store_test.ts
+    covers: []
+    note: run 줄의 session_opened 저장과 읽기(INTEGER를 bigint로 읽는 helper)
+
+  - path: packages/core/secrets/file-attach_test.ts
+    covers:
+      - secret-attach:sent
+      - secret-attach:forbidden
+    note: 허락된 이름과 목적지만 요청에 붙고, OAuth 내부 이름은 누구에게도 가지 않는다
+
+  - path: packages/core/secrets/file-store_test.ts
+    covers:
+      - secret-store-open:mode-fixed
+      - secret-store-open:unreadable
+      - secret-put:stored
+      - secret-put:invalid_input
+      - secret-put:unavailable
+      - secret-delete:deleted
+      - secret-delete:absent
+      - secret-status:ok
+    note: 0600 고치기, 쓰기 실패 때 이전 값 유지, 값이 오류와 log와 status에 나가지 않음
+
+  - path: packages/core/server/control/handler_test.ts
+    covers:
+      - confirmation-handle-register:ok
+      - confirmation-handle-register:invalid_input
+      - confirmation-handle-register:forbidden
+      - control-connect:ok
+
+  - path: packages/core/server/identity/registry_test.ts
+    covers: []
+    note: credential registry 단위(session·turn 범위 대조, turn 끝 폐기, 앱 credential 종료가 agent 자격을 남김). HTTP 쪽 결과는 api-request-gate가 맡는다(missing-outcome)
+
+  - path: packages/core/storage/migration/data-steps_test.ts
+    covers:
+      - data-steps-apply:applied
+      - data-steps-apply:up-to-date
+      - data-steps-apply:newer-schema
+      - data-steps-apply:fresh-recorded
+
+  - path: packages/core/storage/migration/migrations_test.ts
+    covers:
+      - ledger-migrate:applied
+      - ledger-migrate:up-to-date
+      - ledger-migrate:newer-schema
+      - ledger-migrate:history-mismatch
+      - ledger-migrate:damaged-original
+      - core-boot:start-failed-newer-schema
+      - core-boot:start-failed-history-mismatch
+      - core-boot:start-failed-damaged-original
+      - core-boot:start-failed-other
+      - core-boot:ready
+    note: 복구본 정리는 정상 기동의 afterReady에서 일어난다(confirmStartup)
+
+  - path: packages/core/supervision/responsiveness/run_test.ts
+    covers: []
+    note: ready 뒤 60초를 버틴 child의 실패 수 계산(재기동 횟수 0으로 되돌림). steps에만 있고 outcome이 없다(missing-outcome)
+
+  - path: packages/core/workflows/commands_test.ts
+    covers:
+      - workflow-instance-create:handed
+      - workflow-report:handed
+      - workflow-report:after-stop
+      - workflow-edit:conflict
+      - workflow-stop:stopped
+    note: 멈춘 instance는 넘기지 않고 줄만 남는다
+
+  - path: packages/core/workflows/schema_test.ts
+    covers: [ledger-migrate:applied]
+    note: harness 참가자 저장 행이 step 뒤 새 schema로 읽힌다
+
+  - path: packages/core/workflows/service_test.ts
+    covers: [workflow-restart:flow-closed]
+    note: 켤 때 running flow instance를 닫고 다시 띄우지 않는다. agent instance는 건드리지 않는다

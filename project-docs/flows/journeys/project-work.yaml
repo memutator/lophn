@@ -1,0 +1,747 @@
+group: project-work
+journeys:
+  - id: project-register-first
+    title: "project를 등록하고 그 작업대를 처음 연다"
+    actor: person
+    goal: "Home에서 project를 등록하고 sidebar로 그 작업대에 들어간다"
+    refs: [P10]
+    steps:
+      - {do: "Home의 Workspaces에서 Register project를 열어 이름과 목적, 폴더를 적고 등록한다", screen: home-register, flow: project-register:ok}
+      - {do: "왼쪽 sidebar의 새 project 줄을 누른다", screen: shell-left-sidebar-project, flow: workspace-switch:to-project}
+      - {do: "layout 파일이 없어 기본 layout(Main 하나)으로 그린다", screen: shell-empty, flow: layout-restore:fresh-absent}
+    gaps:
+      - "폴더 고르기(folder picker)를 소유한 flow가 없다(ipc:shell:folder-pick)"
+
+  - id: project-register-refused
+    title: "겹치는 폴더로 등록이 막히면 폴더를 바로잡아 다시 등록한다"
+    actor: person
+    goal: "같은 project에 겹치는 폴더를 넣으면 등록이 막히고, 고쳐서 다시 등록한다"
+    refs: [P10]
+    steps:
+      - {do: "같은 폴더나 서로 겹치는 폴더를 넣고 등록을 누른다", screen: home-register, flow: project-register:folders-overlap}
+      - {do: "겹친 폴더를 빼고 다시 등록한다", screen: home-register, flow: project-register:ok}
+
+  - id: project-settings-edit
+    title: "project 설정에서 폴더, 아이콘, 빠른 실행 순서를 고친다"
+    actor: person
+    goal: "project의 이름과 폴더 목록, 아이콘, 빠른 실행 단추 순서를 바꾼다"
+    refs: [P10]
+    steps:
+      - {do: "project 작업대에서 Project settings 탭을 연다", screen: project-settings, flow: workspace-switch:to-project}
+      - {do: "General에서 폴더를 더하거나 뺀다", screen: project-settings, flow: project-edit:ok}
+      - {do: "아이콘 이미지를 올린다", screen: project-settings, flow: project-icon-set:uploaded}
+      - {do: "Quick launch에서 단추 순서를 바꿔 저장한다", screen: project-settings, flow: quick-launch-edit:saved-project}
+
+  - id: project-folder-moved
+    title: "옮겨진 등록 폴더를 새 위치로 잇는다"
+    actor: person
+    goal: "디스크에서 옮겨진 폴더를 project에 다시 연결한다"
+    refs: [P10]
+    steps:
+      - {do: "project를 열면 등록 폴더가 없다고 표시된다", flow: project-read:ok}
+      - {do: "폴더의 새 위치를 골라 잇는다", flow: project-relink-folder:ok}
+
+  - id: project-archive-restore
+    title: "project를 보관했다가 다시 연다"
+    actor: person
+    goal: "쓰지 않는 project를 보관하고 필요할 때 되살린다. 폴더의 파일은 건드리지 않는다"
+    steps:
+      - {do: "Home으로 간다", screen: shell-workspaces-panel, flow: workspace-switch:to-home}
+      - {do: "project 줄 ⋯ 메뉴에서 Archive를 누른다", screen: shell-workspaces-panel, flow: project-archive:archived}
+      - {do: "Archived 구역을 펼쳐 줄 끝 단추로 되살린다", screen: shell-workspaces-archived, flow: project-unarchive:unarchived}
+
+  - id: document-open-edit-save
+    title: "Files에서 문서를 열고 고쳐서 저장한다"
+    actor: person
+    goal: "project 폴더의 문서를 편집기 탭에서 고치고 디스크에 저장한다"
+    steps:
+      - {do: "오른쪽 sidebar를 열어 Files panel을 보인다", screen: new-explorer-root, flow: sidebar-toggle-right:opened}
+      - {do: "Files panel에 focus를 주고 문서를 고른다", screen: new-explorer-root, flow: explorer-focus:focused}
+      - {do: "문서를 누르면 미리보기 탭으로 열린다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "본문을 고치기 시작하면 미리보기 탭이 고정 탭이 된다", screen: new-document-tab, flow: preview-tab-pin:pinned}
+      - {do: "입력이 멈추면 자동으로 디스크에 저장한다", screen: new-document-editing, flow: editor-save:saved}
+    gaps:
+      - "Files panel의 New File, 이름 바꾸기, 지우기(휴지통)를 소유한 flow가 없다(ipc:shell:file-create, file-rename, file-delete)"
+
+  - id: document-quick-open
+    title: "Ctrl/Cmd+P로 파일 이름을 쳐서 문서를 연다"
+    actor: person
+    goal: "팔레트를 파일 빠른 열기로 쓰면 Files panel을 거치지 않고 문서 탭이 열린다"
+    steps:
+      - {do: "files.quick-open 키로 파일 빠른 열기를 연다. 팔레트가 파일 목록을 보인다", flow: files-quick-open:opened}
+      - {do: "파일 이름을 고르면 문서 탭으로 열린다", screen: new-document-tab, flow: editor-open:ready}
+
+  - id: document-conflict-keep-mine
+    title: "편집 중 밖에서 바뀐 파일을 내 글로 덮는다"
+    actor: person
+    goal: "디스크가 바뀐 것을 알고 내 편집 글을 유지하기로 정한다"
+    steps:
+      - {do: "문서를 열고 고친다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "다른 편집기나 git이 같은 파일을 바꾸면 편집기는 충돌 상태로 두고 쓰지 않는다", screen: new-file-conflict, flow: editor-disk-watch:conflict}
+      - {do: "저장을 시도하면 디스크가 바뀌었다며 쓰지 않고 막는다", screen: new-file-conflict, flow: editor-save:conflict}
+      - {do: "Compare로 두 쪽을 나란히 보고 Keep my version을 누른다", screen: new-file-conflict-compare, flow: editor-conflict-resolve:kept-mine}
+
+  - id: document-conflict-take-disk
+    title: "충돌에서 디스크 글을 받고 내 편집을 버린다"
+    actor: person
+    goal: "디스크 쪽 글을 받기로 하면 편집 중이던 글은 버려진다"
+    refs: []
+    steps:
+      - {do: "문서를 열고 고친 뒤 저장하려 한다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "저장이 디스크 변경으로 충돌을 알린다", screen: new-file-conflict, flow: editor-save:conflict}
+      - {do: "Use disk version을 누른다. 편집 중이던 글은 버려진다", screen: new-file-conflict-compare, flow: editor-conflict-resolve:took-theirs}
+
+  - id: document-save-denied-keep-open
+    title: "저장이 실패해도 편집 글을 잃지 않고 권한을 고쳐 저장한다"
+    actor: person
+    goal: "디스크 권한 때문에 저장이 실패해도 편집기는 글을 메모리에 두고, 고친 뒤 다시 저장한다"
+    steps:
+      - {do: "문서를 열고 고친다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "디스크 권한이 없어 저장이 실패하고 편집기는 failed가 된다", screen: new-document-editing, flow: editor-save:denied}
+      - {do: "탭을 닫으려다 저장 안 된 글을 묻는 dialog에서 취소한다", flow: tab-close:kept}
+      - {do: "권한을 고치면 편집 글이 다시 저장된다", flow: editor-save:saved}
+      - {do: "탭을 다시 닫는다", flow: tab-close:closed}
+
+  - id: document-close-discard
+    title: "저장 안 된 글을 버리고 문서 탭을 닫는다"
+    actor: person
+    goal: "저장되지 않은 편집 글을 버리기로 하고 탭을 닫는다. 되돌릴 수 없다"
+    steps:
+      - {do: "문서를 열고 고친다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "저장이 실패해 글이 저장 안 된 상태로 남는다", screen: new-document-editing, flow: editor-save:denied}
+      - {do: "탭을 닫는 확인 dialog에서 버리고 닫기를 고른다. 저장 안 된 글은 사라진다", flow: tab-close:confirmed-closed}
+
+  - id: document-window-close-guard
+    title: "저장 안 된 문서가 있으면 창 닫기를 막고 묻는다"
+    actor: person
+    goal: "창을 닫을 때 저장 안 된 편집이 있으면 사람에게 묻고, 저장을 끝낸 뒤 닫는다"
+    steps:
+      - {do: "문서를 열고 고친다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "저장이 실패해 편집 글이 저장 안 된 상태로 남는다", flow: editor-save:denied}
+      - {do: "창을 닫으면 저장 안 된 글을 묻고, 사람이 취소한다", flow: editor-window-close:kept-open}
+      - {do: "권한을 고쳐 저장한다", flow: editor-save:saved}
+      - {do: "다시 창을 닫는다", flow: editor-window-close:closed}
+
+  - id: document-tab-keep-reveal
+    title: "미리보기 탭을 고정하고 경로를 복사해 Files에서 찾는다"
+    actor: person
+    goal: "열어 둔 문서를 고정하고 경로를 가져가며 Files panel에서 그 파일을 찾는다"
+    steps:
+      - {do: "문서를 미리보기 탭으로 연다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "미리보기 탭을 더블클릭해 고정 탭으로 만든다", flow: tab-keep-open:pinned}
+      - {do: "탭 메뉴 Copy Path로 경로를 복사한다", screen: new-editor-tab-menu, flow: tab-copy-path:copied}
+      - {do: "Reveal in Explorer로 Files panel에서 파일을 찾는다", screen: new-explorer-root, flow: tab-reveal:revealed}
+      - {do: "← 단추로 앞 자리로 돌아간다", flow: nav-trail:walked}
+
+  - id: project-find-in-files
+    title: "project 폴더에서 글자를 찾아 그 줄을 연다"
+    actor: person
+    goal: "Search 탭에서 project 등록 폴더의 글자를 찾고 결과 줄로 문서를 연다"
+    steps:
+      - {do: "Ctrl/Cmd+Shift+F나 sidebar 검색으로 Search 탭을 연다", screen: new-file-search, flow: search-tab-open:opened}
+      - {do: "검색어를 치고 폴더를 골라 찾는다", screen: new-file-search-folder, flow: project-search:ok}
+      - {do: "결과를 누르면 그 줄로 문서가 열린다", screen: new-file-search-opened, flow: editor-open:ready}
+
+  - id: session-message-search-open
+    title: "agent session의 메시지 글에서 찾아 그 session을 연다"
+    actor: person
+    goal: "session 제목만이 아니라 메시지 글에서 찾아 그 대화를 연다"
+    steps:
+      - {do: "session 목록 검색칸에 글을 치면 제목과 메시지 글에서 찾는다", screen: new-agent-session-search, flow: session-message-search:ok}
+      - {do: "결과를 누르면 그 session을 열고 찾기 줄에 query를 넣는다", screen: new-agent-find, flow: session-read:ok}
+
+  - id: agent-writes-artifact-open
+    title: "agent에게 결과 문서를 artifact로 만들게 하고 대화 link로 연다"
+    actor: person
+    goal: "project session이 쓴 결과 문서를 대화의 artifact link로 연다"
+    refs: [C28]
+    steps:
+      - {do: "project session에 결과를 artifact로 만들어 달라고 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "queue의 입력으로 turn이 시작된다", flow: turn-pump-start:started}
+      - {do: "agent가 project 폴더에 index.html과 자료 파일을 쓴다", screen: new-agent-tool-running, flow: tool-file-write:created}
+      - {do: "답이 끝나고 대화에 artifact 경로 link가 남는다", screen: artifact-chat-link, flow: turn-loop:completed}
+      - {do: "link를 누르면 artifact 탭이 열린다", screen: artifact-tab, flow: artifact-open:opened}
+
+  - id: artifact-live-update
+    title: "열린 artifact는 폴더가 바뀌면 다시 불러지고 바깥 link는 밖으로 간다"
+    actor: person
+    goal: "agent가 artifact 파일을 고치면 탭이 따라가고, page 안의 바깥 link는 OS browser로 연다"
+    refs: [C28]
+    steps:
+      - {do: "Artifacts 목록에서 artifact를 고른다", screen: artifact-sidebar-list, flow: artifact-open:opened}
+      - {do: "agent가 파일을 고치면 탭이 잠시 뒤 다시 불러진다", screen: artifact-tab, flow: artifact-watch:reloaded}
+      - {do: "본문의 바깥 link는 OS 기본 browser로 연다", flow: artifact-navigation:external-link-opened}
+
+  - id: artifact-guest-crash
+    title: "artifact 화면이 죽으면 탭이 알리고 다시 연다"
+    actor: person
+    goal: "artifact guest가 죽거나 멈추면 탭에 안내를 띄우고 Try again으로 되살린다"
+    steps:
+      - {do: "artifact를 연다", screen: artifact-tab, flow: artifact-open:opened}
+      - {do: "화면 프로세스가 죽으면 탭이 안내와 Try again을 그린다", screen: artifact-tab, flow: artifact-guest-health:crashed}
+      - {do: "Try again을 누르면 새 화면 세대가 열린다", screen: artifact-tab, flow: artifact-guest-health:recovered}
+
+  - id: artifact-folder-gone
+    title: "폴더가 사라진 artifact를 다시 열면 안내를 본다"
+    actor: person
+    goal: "artifact 폴더가 지워지면 탭이 조용히 멈추고, 다시 열 때 없다는 안내를 본다"
+    steps:
+      - {do: "artifact를 연다", screen: artifact-tab, flow: artifact-open:opened}
+      - {do: "감시하던 폴더가 사라지면 watch가 조용히 멈춘다", screen: artifact-tab, flow: artifact-watch:watch-stopped}
+      - {do: "다시 열면 폴더가 없다는 안내와 Try again을 본다", screen: artifact-missing, flow: artifact-open:not-found}
+
+  - id: browser-open-page-bookmark
+    title: "browser 탭에서 page를 열고 bookmark로 더해 다시 연다"
+    actor: person
+    goal: "주소로 page를 열고, 뒤로 가기와 새로 고침을 쓰고, bookmark로 저장해 새 탭에서 다시 연다"
+    steps:
+      - {do: "탭 줄 끝 menu의 Browser로 빈 browser 탭을 연다", screen: browser-blank, flow: browser-tab-new:opened}
+      - {do: "주소를 치고 Enter를 누른다", screen: browser-tab, flow: browser-page-open:loaded}
+      - {do: "뒤로, 앞으로, 새로 고침을 쓴다", screen: browser-tab, flow: browser-chrome-command:done}
+      - {do: "별을 눌러 bookmark로 더한다", screen: browser-star-filled, flow: browser-bookmark-save:saved}
+      - {do: "새 탭 menu의 bookmark 줄로 같은 page를 다시 연다", screen: browser-new-tab-bookmarks, flow: browser-tab-new:opened}
+
+  - id: browser-external-and-download
+    title: "page의 바깥 주소 link와 파일 download가 어디로 가는지 본다"
+    actor: person
+    goal: "browser 안에서 mailto 같은 link는 OS로 넘기고, 파일 link는 download로 받는다"
+    steps:
+      - {do: "page를 연다", screen: browser-tab, flow: browser-page-open:loaded}
+      - {do: "mailto 같은 link를 누르면 OS 기본 앱으로 넘긴다", flow: browser-navigation:os-handoff}
+      - {do: "파일 link를 누르면 download가 시작된다", flow: browser-session-policy:download-started}
+
+  - id: browser-sign-in-popup
+    title: "로그인 popup은 떠 있는 탭으로 뜨고 Dock하면 보통 탭이 된다"
+    actor: person
+    goal: "로그인 page가 크기를 준 popup을 열면 floated 탭으로 떠서 로그인하고, 필요하면 보통 탭으로 붙인다"
+    steps:
+      - {do: "로그인 page를 연다", screen: browser-tab, flow: browser-page-open:loaded}
+      - {do: "로그인 단추가 크기를 준 popup을 열어 floated 탭으로 뜬다", screen: browser-oauth-popup, flow: browser-popup:floated}
+      - {do: "패널 bar의 Dock으로 같은 주소의 보통 탭이 된다", flow: float-dock:docked}
+
+  - id: browser-popup-blocked
+    title: "사용자 입력 없이 열린 popup은 막힌다"
+    actor: person
+    goal: "page가 입력 없이 새 창을 여는 것은 막히고 안내만 남는다"
+    steps:
+      - {do: "page를 연다", screen: browser-tab, flow: browser-page-open:loaded}
+      - {do: "page가 입력 없이 새 창을 열려다 막히고 toast가 뜬다", screen: browser-popup-blocked, flow: browser-popup:popup-blocked}
+
+  - id: browser-devtools-clear-data
+    title: "page의 DevTools를 띄우고 browser의 쿠키와 저장소를 지운다"
+    actor: person
+    goal: "page를 디버깅하고, 필요하면 browser partition의 쿠키와 저장소를 지운다"
+    steps:
+      - {do: "page를 연다", screen: browser-tab, flow: browser-page-open:loaded}
+      - {do: "⋯ 메뉴에서 DevTools를 연다", screen: browser-devtools-float, flow: browser-devtools-open:opened}
+      - {do: "Settings › Browser에서 쿠키와 저장소를 지운다", screen: settings-browser-clear-data, flow: browser-clear-data:cleared}
+
+  - id: browser-terminal-link-open
+    title: "터미널 출력의 주소를 browser 탭으로 열고 $BROWSER도 같은 길로 받는다"
+    actor: person
+    goal: "dev 서버 주소를 터미널에서 눌러 browser 탭으로 열고, child process가 $BROWSER로 여는 주소도 받는다"
+    steps:
+      - {do: "앱을 켜면 terminal bridge가 준비된다", flow: browser-bridge-start:listening}
+      - {do: "터미널 탭을 열어 dev 서버를 띄운다", screen: project-terminal, flow: terminal-tab-new:opened}
+      - {do: "출력의 주소를 Ctrl/Cmd+click하면 터미널 옆에 browser 탭이 붙는다", screen: browser-bridge-pane, flow: browser-terminal-link:browser-tab}
+      - {do: "터미널 child가 $BROWSER로 연 URL은 같은 browser 탭으로 간다", screen: browser-bridge-one-pane, flow: browser-bridge-request:pane}
+
+  - id: agent-opens-browser-and-reads
+    title: "agent가 browser 탭을 열어 url과 title을 읽고 닫는다"
+    actor: agent
+    goal: "agent가 사람에게 보일 page를 browser 탭으로 열고, 자기가 연 탭의 상태를 읽은 뒤 닫는다"
+    refs: [G4]
+    steps:
+      - {do: "agent가 lophn tab open <url>로 browser 탭을 요청한다", flow: host-tab-open:accepted}
+      - {do: "shell main이 1초 안에 창에 탭을 연다", screen: browser-tab, flow: host-queue-poll:offered}
+      - {do: "shell이 탭의 url, title, loading 상태를 알린다", flow: host-tab-report:state}
+      - {do: "agent가 lophn browser read로 자기 탭의 상태를 읽는다", flow: host-browser-read:state}
+      - {do: "끝나면 lophn tab close로 자기가 연 탭을 닫는다", flow: host-tab-close:accepted}
+
+  - id: agent-opens-session-tab
+    title: "agent가 같은 workspace의 session을 탭으로 열어 보이고 닫는다"
+    actor: agent
+    goal: "agent가 사람에게 보여 줄 session을 탭으로 열고, 끝나면 자기가 연 탭을 닫는다"
+    refs: [G4]
+    steps:
+      - {do: "agent가 같은 workspace의 session을 lophn tab open으로 연다", flow: host-tab-open:accepted}
+      - {do: "창이 그 session의 agent 탭을 연다", screen: new-agent-conversation, flow: agent-tab-request:opened}
+      - {do: "agent가 자기가 연 탭을 닫는다", flow: host-tab-close:accepted}
+      - {do: "창이 탭을 닫는다", flow: agent-tab-request:closed}
+    gaps:
+      - "agent가 문서 탭을 차례로 여는 길은 flow가 없다. host tab open은 session과 browser만 받는다(shell-workspace의 pane-stack 화면)"
+
+  - id: agent-opens-tui
+    title: "agent가 harness session을 터미널 TUI 탭으로 열어 준다"
+    actor: agent
+    goal: "agent가 harness session의 CLI를 터미널 TUI 탭에서 이어 보이게 하고, 탭이 열린 동안 headless turn을 멈춘다"
+    refs: [P6]
+    steps:
+      - {do: "agent가 harness session을 TUI 탭으로 연다. CLI session을 hold한다", flow: harness-tui-open:accepted}
+      - {do: "탭이 열려 있는 동안 shell이 heartbeat로 hold를 연장한다", flow: harness-tui-hold:extended}
+      - {do: "탭을 닫으면 hold가 풀리고 headless turn이 다시 돈다", flow: harness-tui-hold:released}
+
+  - id: desk-new-rename-switch
+    title: "desk를 만들고 이름을 바꾸고 desk를 옮겨 본다"
+    actor: person
+    goal: "작업 묶음마다 desk를 하나씩 두고 이름을 붙여 오간다"
+    steps:
+      - {do: "DeskSwitcher의 New desk로 빈 desk를 만든다", screen: shell-desk-menu, flow: desk-new:created}
+      - {do: "연필 단추로 desk 이름을 바꾼다", screen: shell-desk-menu, flow: desk-rename:renamed}
+      - {do: "desk 줄을 골라 다른 desk로 간다", screen: shell-desk-menu, flow: desk-switch:switched}
+
+  - id: desk-close-removed
+    title: "desk를 끝내고 지운다"
+    actor: person
+    goal: "desk의 탭, float, 창을 모두 닫고 desk만 지운다. 저장 안 된 파일이 없을 때"
+    steps:
+      - {do: "desk를 하나 만든다", screen: shell-desk-menu, flow: desk-new:created}
+      - {do: "desk 줄의 x를 누르면 닫을 탭과 저장 안 된 파일을 보인다", screen: shell-desk-close, flow: desk-close:asked}
+      - {do: "Close desk를 확인한다. desk만 지워지고 Main으로 돌아간다", screen: shell-desk-close, flow: desk-close:removed}
+
+  - id: desk-close-stopped-unsaved
+    title: "저장 안 된 파일이 있으면 desk 닫기가 멈춘다"
+    actor: person
+    goal: "desk를 닫다가 저장 안 된 파일을 만나면 멈추고, 그 앞에 닫은 탭은 빠진 채 desk가 남는다"
+    steps:
+      - {do: "desk를 하나 만든다", screen: shell-desk-menu, flow: desk-new:created}
+      - {do: "desk 줄의 x를 누른다", screen: shell-desk-close, flow: desk-close:asked}
+      - {do: "저장 안 된 파일 때문에 멈춘다. 앞에서 닫은 탭은 빠진 채 desk가 남는다", screen: shell-desk-close, flow: desk-close:stopped}
+
+  - id: tab-split-and-group
+    title: "두 탭을 한 칸에 나눠 보고 group을 풀어 탭 줄로 되돌린다"
+    actor: person
+    goal: "같은 칸에서 두 문서를 나란히 보고, 탭을 바꾸고, 다시 탭 줄에 놓는다"
+    steps:
+      - {do: "탭 줄 끝 menu의 문서로 파일을 골라 연다", screen: new-document-tab, flow: document-tab-new:opened}
+      - {do: "탭 메뉴 Split right로 옆 칸을 만든다", screen: shell-split, flow: pane-split:split}
+      - {do: "칸을 눌러 focus를 옮긴다", screen: shell-pane-focus, flow: pane-focus:focused}
+      - {do: "칸끼리 탭을 맞바꾼다", flow: pane-swap:swapped}
+      - {do: "칸에서 탭 하나를 group 밖으로 꺼낸다", flow: pane-tab-leave:left-pane}
+      - {do: "Unsplit all로 group을 풀어 탭을 탭 줄에 놓는다", screen: shell-group-menu, flow: pane-unsplit:ungrouped}
+
+  - id: tab-drag-reorder-split
+    title: "탭을 끌어 순서를 바꾸거나 칸 가장자리에 놓아 group을 만든다"
+    actor: person
+    goal: "탭 줄에서 탭을 옮기고, 끌어서 옆 칸에 붙여 group을 만든다"
+    steps:
+      - {do: "탭 줄에서 탭을 한 칸 옮긴다", flow: tab-move:moved}
+      - {do: "탭을 끌어 탭 줄 안의 순서를 바꾼다", screen: shell-drag, flow: tab-drag:reordered}
+      - {do: "탭을 칸 가장자리에 놓아 새 group을 만든다", screen: shell-drag-edge, flow: tab-drag:split}
+      - {do: "탭을 group 칸 가운데에 놓아 쌓는다", flow: tab-drag:stacked}
+      - {do: "쌓인 탭을 ‹ › 로 돌려 본다", screen: shell-pane-stack, flow: pane-stack-cycle:shown}
+
+  - id: tab-float-dock
+    title: "탭을 떠 있는 패널로 띄웠다가 탭 줄에 붙인다"
+    actor: person
+    goal: "탭을 작업 위에 띄워 두고 위치를 옮긴 뒤 다시 탭 줄에 붙인다"
+    steps:
+      - {do: "탭 메뉴 Float로 떠 있는 패널을 만든다", screen: shell-floats, flow: tab-float:floated}
+      - {do: "여러 패널 가운데 이 패널을 맨 위로 올린다", screen: new-float-stack, flow: float-raise:raised}
+      - {do: "패널 bar를 끌어 옮기고 가장자리로 크기를 바꾼다", flow: float-move:rect-saved}
+      - {do: "Dock 단추로 탭 줄 끝에 붙인다", screen: shell-project, flow: float-dock:docked}
+
+  - id: float-collapse-pin-minimize
+    title: "떠 있는 패널을 접고 펴고 고정한다"
+    actor: person
+    goal: "고정하지 않은 패널은 밖을 누르면 접히고, 고정하거나 접은 패널은 작업 표시줄 chip으로 다시 편다"
+    steps:
+      - {do: "탭을 떠 있는 패널로 띄운다", screen: shell-floats, flow: tab-float:floated}
+      - {do: "고정하지 않은 패널은 밖을 누르면 접힌다", screen: new-float-minimized, flow: float-collapse-loose:collapsed}
+      - {do: "작업 표시줄 chip을 눌러 다시 펼친다", screen: shell-taskbar, flow: float-chip-toggle:shown}
+      - {do: "핀으로 고정한다. 고정한 패널은 위쪽에 모인다", flow: float-pin:pinned}
+      - {do: "패널 bar의 Minimize로 접는다", screen: new-float-minimized, flow: float-minimize:minimized}
+
+  - id: app-panel-float-global
+    title: "앱 panel을 떠 있는 패널로 열어 모든 workspace에 남기고 desk로 되돌린다"
+    actor: person
+    goal: "앱 화면을 여러 workspace에서 보이는 전역 float으로 두고, 필요하면 이 desk로 옮긴다"
+    steps:
+      - {do: "빠른 실행 App ▾에서 앱 panel을 고른다", screen: shell-left-sidebar-project, flow: app-panel-chooser-open:opened}
+      - {do: "앱 panel 화면을 떠 있는 패널로 띄운다", screen: shell-sidebar-app-panel, flow: app-panel-open:float-opened}
+      - {do: "float bar의 지구본 단추로 모든 workspace에 남긴다", screen: shell-global-float, flow: float-to-all-workspaces:moved}
+      - {do: "전역 float을 이 desk의 Move to this desk로 옮긴다", flow: float-to-desk:moved}
+
+  - id: tab-detach-agent-tab
+    title: "탭을 OS 창으로 떼고 그 창에서 연 탭을 project 창에 붙여 되돌린다"
+    actor: person
+    goal: "탭을 별도 창으로 떼어 보고, 그 창에서 agent 탭을 열면 project 창에 붙고, Dock으로 되돌린다"
+    steps:
+      - {do: "탭 메뉴 Detach로 OS 창에 뗀다", screen: new-detached-terminal, flow: tab-detach:detached}
+      - {do: "떨어진 창에서 agent 탭을 열면 project 창에 붙는다", flow: detached-open-tab:opened-in-project}
+      - {do: "창의 Dock으로 탭을 project 창에 되돌린다", screen: new-detached-terminal, flow: detached-dock:docked}
+
+  - id: tab-detach-browser-popup
+    title: "떼어 낸 browser 창에서 크기를 준 popup을 연다"
+    actor: person
+    goal: "분리된 browser 창의 page가 연 popup은 같은 창 옆에 뜨고, 창은 Dock으로 되돌린다"
+    steps:
+      - {do: "browser 탭을 OS 창으로 뗀다", flow: tab-detach:detached}
+      - {do: "떨어진 창의 page가 크기를 준 popup을 연다", flow: detached-popup-open:opened}
+      - {do: "Dock으로 browser 탭을 project 창에 되돌린다", flow: detached-dock:docked}
+
+  - id: tab-close-reopen
+    title: "닫은 탭을 다시 연다"
+    actor: person
+    goal: "실수로 닫은 탭을 키로 되살린다. 앱을 다시 켜면 되살릴 목록은 비어 있다"
+    steps:
+      - {do: "탭의 x로 탭을 닫는다", flow: tab-close:closed}
+      - {do: "tab.reopen 키로 가장 최근 닫은 탭을 다시 연다", flow: tab-reopen:reopened}
+
+  - id: tab-close-live-terminal
+    title: "살아 있는 터미널 탭은 확인을 거쳐야 닫힌다"
+    actor: person
+    goal: "터미널 process가 살아 있으면 닫기 전에 묻고, 확인해야 process를 끝낸다"
+    steps:
+      - {do: "터미널 탭을 연다", screen: project-terminal, flow: terminal-tab-new:opened}
+      - {do: "탭을 닫으려 하면 확인 dialog가 뜨고 취소한다", flow: tab-close:kept}
+      - {do: "다시 닫고 확인해 터미널 process를 끝낸다", flow: tab-close:confirmed-closed}
+
+  - id: tab-close-many
+    title: "여러 탭을 한 번에 닫을 때 저장 안 된 파일과 터미널을 한 번 묻는다"
+    actor: person
+    goal: "Close others 같은 일괄 닫기는 한 dialog에서 멈출 것을 보여 주고 확인하면 닫는다"
+    steps:
+      - {do: "탭 메뉴 Close others를 누르면 한 dialog에 멈출 것을 보인다", screen: shell-tabs-close, flow: tab-close-many:asked}
+      - {do: "확인하면 남은 탭을 닫는다", screen: shell-tabs-close, flow: tab-close-many:closed-after-confirm}
+
+  - id: layout-restore-after-restart
+    title: "앱을 다시 켜면 desk, 칸, float 자리가 그대로 그려진다"
+    actor: person
+    goal: "탭을 나눠 둔 채 앱을 닫고 다시 켜면 같은 desk와 칸과 창 자리가 돌아온다"
+    steps:
+      - {do: "탭을 칸으로 나눠 둔다", screen: shell-split, flow: pane-split:split}
+      - {do: "창을 닫고 다시 열면 저장한 자리와 크기로 연다", flow: window-state-restore:restored}
+      - {do: "앱을 켜면 workspace의 layout 파일을 읽어 desk를 그린다", screen: shell-project, flow: layout-restore:restored}
+
+  - id: layout-restore-fresh-corrupt
+    title: "layout 파일이 깨졌으면 기본 layout으로 시작한다"
+    actor: person
+    goal: "layout 파일이 깨졌거나 판이 다르면 빈 기본 layout으로 시작하고, 새로 만든 desk가 다음 저장에 파일을 바꾼다"
+    steps:
+      - {do: "layout 파일이 깨졌거나 판이 다르면 빈 기본 layout으로 시작한다", screen: shell-empty, flow: layout-restore:fresh-corrupt}
+      - {do: "빈 layout에 desk를 새로 만들면 다음 저장에서 layout 파일이 바뀐다", screen: shell-desk-menu, flow: desk-new:created}
+
+  - id: sidebar-workspace-session
+    title: "project로 옮겨 sidebar의 session 줄로 agent 탭을 열고 줄을 정리한다"
+    actor: person
+    goal: "왼쪽 sidebar에서 project의 session 상태를 보고, 줄로 탭을 열거나 내리고, 최근 줄을 뺀다"
+    refs: [P7]
+    steps:
+      - {do: "왼쪽 sidebar에서 project 줄을 누른다", screen: shell-left-sidebar-project, flow: workspace-switch:to-project}
+      - {do: "그 project의 layout을 읽어 desk를 그린다", screen: shell-project, flow: layout-restore:restored}
+      - {do: "sidebar의 session 줄마다 대기 상태 점을 채운다", screen: new-agent-sidebar, flow: session-snapshot-read:ok}
+      - {do: "session 줄을 누르면 agent 탭이 열린다", screen: new-agent-sidebar, flow: sidebar-session-open:tab-opened}
+      - {do: "current 줄의 Stop으로 session 탭을 내린다", flow: sidebar-session-stop:closed}
+      - {do: "Recent 줄을 목록에서 뺀다", flow: sidebar-recent-hide:hidden}
+      - {do: "왼쪽 sidebar를 접으면 card가 가장자리에서 조금 띄워지고 tab 줄이 당겨진다", screen: shell-collapsed, flow: sidebar-toggle-left:collapsed}
+
+  - id: terminal-tab-basics
+    title: "터미널 탭을 열고 이름을 바꾸고 옮기고 고른다"
+    actor: person
+    goal: "project 폴더에서 빈 터미널 탭을 열어 이름을 붙이고 탭 줄에서 옮겨 다닌다"
+    steps:
+      - {do: "탭 줄 끝 menu의 Terminal로 빈 터미널 탭을 연다", screen: project-terminal, flow: terminal-tab-new:opened}
+      - {do: "탭을 더블클릭해 이름을 바꾼다", flow: tab-rename:renamed}
+      - {do: "탭 줄에서 한 칸 옮긴다", flow: tab-move:moved}
+      - {do: "탭 줄에서 다른 탭을 고른다", flow: tab-select:selected}
+      - {do: "terminal.focus 키로 터미널 탭으로 간다", flow: terminal-tab-focus:selected}
+    gaps:
+      - "터미널 본문에 글을 쳐서 명령을 주는 입력(ipc:shell:terminal-input)을 소유한 flow가 없다"
+
+  - id: terminal-coding-agent-first-run
+    title: "터미널에서 coding agent를 처음 띄우면 hook 설치를 허락하고 탭 점과 알림을 받는다"
+    actor: person
+    goal: "사람이 쓰던 coding agent를 터미널 탭에서 띄우면 lophn이 hook을 붙이고 상태를 탭 점과 알림으로 보인다"
+    refs: [P6]
+    steps:
+      - {do: "빠른 실행 Terminal의 hover 목록에서 claude 명령을 고른다", screen: project-terminal, flow: terminal-tab-new:command-opened}
+      - {do: "처음 알아본 harness의 hook 설치를 허락한다. 성공은 toast 하나다", screen: new-waiting-toasts, flow: terminal-hook-install:installed}
+      - {do: "첫 메시지 뒤 CLI session id가 project 파일에 남는다", flow: terminal-agent-identity:saved}
+      - {do: "일을 하면 탭 점이 running이 된다", screen: project-terminal, flow: terminal-agent-track:running}
+      - {do: "사람이 그 탭을 보고 있지 않을 때 turn이 끝나면 toast로 알린다", screen: new-waiting-toasts, flow: terminal-agent-notice:toast}
+    gaps:
+      - "저장된 coding agent session 목록을 여는 길(ipc:shell:terminal-agent-sessions)은 flow가 없다"
+
+  - id: terminal-hook-declined
+    title: "hook 설치를 거절하면 터미널은 그대로 돌고 탭 점은 unknown이다"
+    actor: person
+    goal: "hook 설치를 거절해도 coding agent는 돈다. 상태는 hook 없이 unknown으로 보이고, 다음 실행에서 다시 묻는다"
+    refs: [P6]
+    steps:
+      - {do: "터미널에서 claude를 친다", screen: project-terminal, flow: terminal-tab-new:opened}
+      - {do: "설치 dialog에서 거절한다. 이 실행에서는 다시 묻지 않는다", flow: terminal-hook-install:declined}
+      - {do: "hook이 없어 탭 점은 unknown이다", screen: project-terminal, flow: terminal-agent-track:unknown}
+
+  - id: coding-agent-waiting-permission
+    title: "coding agent가 권한을 물으면 탭 점이 waiting이 되고 창 밖이면 OS 알림이 간다"
+    actor: coding-agent
+    goal: "터미널의 coding agent가 권한을 묻는 순간을 탭 점과 알림으로 사람에게 알린다"
+    refs: [P6]
+    steps:
+      - {do: "Claude Code가 권한을 묻고 lophn hook이 터미널 hook socket으로 보낸다", flow: terminal-hook-forward:sent}
+      - {do: "탭 점이 waiting이 된다", screen: project-terminal, flow: terminal-agent-track:waiting}
+      - {do: "창에 focus가 없으면 OS 알림을 낸다", flow: terminal-agent-notice:os-notification}
+
+  - id: harness-gui-chat-and-back
+    title: "claude gui로 연 탭을 채팅으로 쓰고 TUI로 되돌아간다"
+    actor: person
+    goal: "터미널에서 claude gui를 치면 탭이 채팅 화면이 되고, 필요하면 같은 CLI session의 TUI로 돌아간다"
+    refs: [P6]
+    steps:
+      - {do: "터미널에서 claude gui를 친다. 탭이 채팅 화면이 된다", screen: harness-gui-terminal-tab, flow: harness-gui-open:opened}
+      - {do: "채팅 입력칸에 말을 보내면 CLI에 넘어간다", screen: harness-gui-terminal-tab, flow: harness-gui-input:sent}
+      - {do: "탭 머리 toggle로 TUI로 돌아간다. restart harness는 먼저 묻는다", screen: harness-gui-restart-modal, flow: harness-gui-toggle:to-tui}
+
+  - id: terminal-open-as-chat
+    title: "TUI로 도는 CLI session을 Open as chat으로 채팅 화면에 붙인다"
+    actor: person
+    goal: "터미널에서 coding agent를 쓰다가 Open as chat으로 같은 CLI session을 채팅 화면에서 잇는다"
+    refs: [P6]
+    steps:
+      - {do: "첫 메시지 뒤 hook이 CLI session id를 알린다", flow: terminal-hook-forward:sent}
+      - {do: "session identity가 project 파일에 남는다", flow: terminal-agent-identity:saved}
+      - {do: "탭 머리의 Open as chat으로 같은 CLI session을 채팅 화면에 붙인다", screen: harness-gui-terminal-tab, flow: harness-gui-toggle:to-gui}
+      - {do: "채팅에서 이어 말한다", screen: harness-gui-terminal-tab, flow: harness-gui-input:sent}
+
+  - id: terminal-open-as-chat-no-session
+    title: "CLI가 session을 알리기 전에는 Open as chat이 막힌다"
+    actor: person
+    goal: "첫 메시지 전의 coding agent 탭에서는 Open as chat이 disabled로 보이고 이유를 붙인다"
+    refs: [P6]
+    steps:
+      - {do: "터미널에서 claude를 쳤으나 아직 첫 메시지 전이다", screen: project-terminal, flow: terminal-tab-new:opened}
+      - {do: "Open as chat이 disabled로 보이고 No session yet 이유가 붙는다", screen: terminal-open-chat-disabled, flow: harness-gui-toggle:no-session}
+
+  - id: harness-gui-extension-off
+    title: "harness-gui 확장이 꺼져 있으면 claude gui 대신 설정을 연다"
+    actor: person
+    goal: "claude gui를 쳤는데 확장이 꺼져 있으면 Settings의 Extensions를 열어 사람이 켜게 한다"
+    refs: [P6]
+    steps:
+      - {do: "터미널에서 claude gui를 친다", screen: project-terminal, flow: terminal-tab-new:opened}
+      - {do: "Settings › System › Extensions를 연다", flow: harness-gui-open:extension-off}
+
+  - id: harness-setup-detect-install
+    title: "설치된 coding agent를 찾고 hook과 공유 skill을 놓는다"
+    actor: person
+    goal: "Settings › Coding agents에서 harness를 찾고, hook을 놓고, 공유 skill 사본을 맞춘다"
+    refs: [P6]
+    steps:
+      - {do: "Settings › Coding agents를 열거나 Detect again을 누른다", screen: settings-coding, flow: harness-detect:ok}
+      - {do: "열 때 harness별 hook 상태 행을 본다", screen: settings-coding, flow: harness-hook-check:ok}
+      - {do: "Install hooks를 누른다. 사람이 쓴 나머지 설정은 그대로 둔다", screen: settings-coding, flow: harness-hook-install:installed}
+      - {do: "공유 skill 사본을 harness skill 폴더에 맞춘다", flow: harness-sync-skills:synced}
+
+  - id: harness-hook-install-failed
+    title: "설정 file을 고칠 수 없으면 아무것도 쓰지 않고 실패를 보인다"
+    actor: person
+    goal: "harness 설정 file을 파싱할 수 없으면 hook을 놓지 않고 실패를 보인다"
+    refs: [P6]
+    steps:
+      - {do: "Detect again으로 harness를 찾는다", screen: settings-coding, flow: harness-detect:ok}
+      - {do: "설정 file을 파싱할 수 없어 아무것도 쓰지 않고 실패를 보인다", screen: settings-coding, flow: harness-hook-install:failed}
+
+  - id: harness-hook-remove
+    title: "lophn이 넣은 hook 항목만 지운다"
+    actor: person
+    goal: "Uninstall hooks로 lophn의 항목만 지운다. 사람이 더한 항목은 남는다"
+    refs: [P6]
+    steps:
+      - {do: "Uninstall hooks를 누른다. 사람이 더한 항목은 남는다", screen: settings-coding, flow: harness-hook-uninstall:removed}
+      - {do: "다시 열어 hook 상태가 missing으로 바뀐 것을 본다", screen: settings-coding, flow: harness-hook-check:ok}
+
+  - id: project-agent-session-first-message
+    title: "project의 lophn agent 탭을 열고 첫 메시지로 session을 연다"
+    actor: person
+    goal: "project 작업대에서 agent 탭을 열고 첫 메시지를 보내 session을 만들고 답을 받는다"
+    refs: [P3, P7, P8]
+    steps:
+      - {do: "왼쪽 sidebar의 + 또는 탭 줄 끝 menu의 Agent로 project agent 탭을 연다", screen: new-agent-conversation, flow: agent-tab-new:opened}
+      - {do: "입력칸에 /를 쳐 내장 명령과 skill 목록을 본다", screen: new-agent-commands, flow: command-list-read:ok}
+      - {do: "첫 메시지를 보내며 session이 열린다", flow: session-open:ok}
+      - {do: "화면이 session의 대화 상태를 읽어 그린다", flow: acp-read:ok}
+      - {do: "메시지를 보낸다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "queue의 입력으로 turn이 시작된다", flow: turn-pump-start:started}
+      - {do: "답이 대화에 남는다", screen: new-agent-conversation, flow: turn-loop:completed}
+
+  - id: session-steer-while-running
+    title: "도는 turn 안에 말을 steer로 넣는다"
+    actor: person
+    goal: "agent가 일하는 중에 보낸 말을 다음 model 요청 앞에서 turn 안으로 넣는다"
+    steps:
+      - {do: "긴 작업을 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "turn이 시작된다", flow: turn-pump-start:started}
+      - {do: "도는 중에 보낸 말은 steer로 들어가 표시가 붙는다", screen: new-agent-conversation, flow: session-steer:ok}
+      - {do: "steer를 반영한 뒤 답으로 끝난다", flow: turn-loop:completed}
+
+  - id: session-queue-edit-move-steer
+    title: "turn이 가져가기 전 queue의 말을 고치고 순서를 바꾸고 steer로 올린다"
+    actor: person
+    goal: "도는 turn이 아직 가져가지 않은 말을 고치고, 순서를 바꾸고, 지금 steer로 올린다"
+    steps:
+      - {do: "도는 중에 보낸 말이 Next turn 줄에 쌓인다", screen: new-agent-queued-message, flow: session-send:ok}
+      - {do: "줄을 눌러 글을 고친다", screen: new-agent-queued-message-edit, flow: queued-edit:ok}
+      - {do: "↑ ↓로 순서를 바꾼다", screen: new-agent-queued-message, flow: queued-move:ok}
+      - {do: "Send now로 도는 turn의 steer로 올린다", screen: new-agent-queued-message, flow: queued-steer-now:ok}
+
+  - id: session-queue-remove
+    title: "queue에 쌓인 말을 기록과 함께 뺀다"
+    actor: person
+    goal: "turn이 가져가기 전 보낸 말을 queue와 기록에서 지운다"
+    steps:
+      - {do: "도는 중에 말을 보낸다", screen: new-agent-queued-message, flow: session-send:ok}
+      - {do: "줄의 x로 뺀다. queue와 기록에서 지워진다", flow: queued-remove:ok}
+
+  - id: session-stop-turn
+    title: "도는 turn을 멈추고 사람이 본 글을 남긴다"
+    actor: person
+    goal: "길어지는 turn을 Stop으로 멈추고 loop가 model 요청과 tool을 끊게 한다"
+    steps:
+      - {do: "긴 작업을 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "turn이 시작된다", flow: turn-pump-start:started}
+      - {do: "멈춤 단추로 Stop을 누른다", screen: new-agent-conversation, flow: turn-stop:stopped}
+      - {do: "loop가 멈춤을 알고 model 요청과 tool을 끊는다", flow: turn-loop:stopped}
+
+  - id: session-ask-answer
+    title: "agent의 질문 카드에 순서대로 답한다"
+    actor: person
+    goal: "agent가 사람에게 물을 것이 있으면 질문 카드로 받고 답을 기다리던 tool에 넘긴다"
+    refs: [R4]
+    steps:
+      - {do: "확인이 필요한 일을 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "agent가 ask tool로 질문 묶음을 올리고 기다린다", flow: ask-wait:submitted}
+      - {do: "질문 카드가 열린다", screen: new-agent-question, flow: ask-read:open}
+      - {do: "질문 순서대로 답하면 기다리던 tool에 전달된다", screen: new-agent-question-answered, flow: ask-answer:answered}
+
+  - id: session-rename-archive-read
+    title: "session 이름을 바꾸고 archive한 뒤 기록만 읽는다"
+    actor: person
+    goal: "session 제목을 고치고 archive해 새 입력을 막은 뒤, 기록은 그대로 읽는다"
+    steps:
+      - {do: "헤더의 session 제목을 바꾼다", screen: new-agent-sessions-edit, flow: session-rename:ok}
+      - {do: "archive하면 새 입력을 받지 않는다", screen: new-agent-sessions, flow: session-archive:ok}
+      - {do: "archive한 session을 열면 기록만 보이고 입력칸이 없다", screen: new-agent-session-archived, flow: session-read:ok}
+
+  - id: session-delete
+    title: "session과 대화 기록을 지운다"
+    actor: person
+    goal: "archive한 session을 지운다. 대화 기록은 되돌릴 수 없다"
+    steps:
+      - {do: "먼저 session을 archive한다", screen: new-agent-sessions, flow: session-archive:ok}
+      - {do: "도는 turn이 있었다면 session_ended로 닫힌다", flow: turn-end-by-session:closed-running}
+      - {do: "지우기를 확인한다. 대화 기록은 되돌릴 수 없다", screen: new-agent-sessions-edit, flow: session-delete:ok}
+
+  - id: session-fork
+    title: "고른 메시지까지의 확정 메시지를 복사해 새 session을 만든다"
+    actor: person
+    goal: "대화의 한 지점에서 나눠 새 session으로 이어 간다. skip과 대기 요청은 가져가지 않는다"
+    steps:
+      - {do: "메시지에서 여기서 나누기를 고르면 새 session이 열린다", screen: new-agent-conversation, flow: session-fork:ok}
+      - {do: "새 session의 복사된 기록을 본다", flow: session-read:ok}
+
+  - id: session-model-skip-status
+    title: "session의 model과 권한 표시를 바꾸고 /status로 확인한다"
+    actor: person
+    goal: "model을 고르고 skip을 켠 뒤 /status로 창 점유와 사용량을 확인한다"
+    steps:
+      - {do: "composer의 model을 고르면 ACP 입력이 그 route로 넘어간다", flow: acp-send:ok}
+      - {do: "composer의 model을 고른다", screen: new-agent-model-picker, flow: session-change-model:ok}
+      - {do: "권한 단추를 Skip permissions로 바꾼다. 다음 turn부터 닿는다", screen: new-agent-skip, flow: session-change-skip:ok}
+      - {do: "/status로 model, 창 점유, 사용량을 본다", screen: new-agent-status, flow: session-status-read:ok}
+
+  - id: session-compact
+    title: "긴 대화를 요약해 줄이고 요약 본문을 본다"
+    actor: person
+    goal: "대화가 길어져 창이 찰 때 이전 대화를 요약해 session에 이어 붙인다"
+    steps:
+      - {do: "/compact로 이전 대화를 요약해 달라고 청한다", screen: new-agent-context-warning, flow: session-compact-request:ok}
+      - {do: "앞 구간을 요약 call로 줄인다", flow: compact-summarize:compacted}
+      - {do: "요약을 session에 이어 붙이고 요청을 닫는다", flow: session-compact-commit:ok}
+      - {do: "요약 본문을 펼쳐 본다", flow: session-summary-read:ok}
+
+  - id: session-compact-failed
+    title: "요약 model이 없으면 compact 요청이 이유와 함께 닫힌다"
+    actor: person
+    goal: "compact가 실패하면 요청을 이유와 함께 닫고 대화는 그대로 둔다"
+    steps:
+      - {do: "/compact로 요약을 청한다", screen: new-agent-context-warning, flow: session-compact-request:ok}
+      - {do: "요약 model을 쓸 수 없어 실패한다", flow: compact-summarize:failed-model-unavailable}
+      - {do: "이유와 함께 요청을 닫는다", flow: session-compact-fail:ok}
+
+  - id: session-shell-bang
+    title: "! 명령을 돌려 출력을 session 기록에 남기고 agent에게 잇는다"
+    actor: person
+    goal: "composer의 ! 명령 결과를 기록으로 남기고, 다음 agent 답에서 그 출력을 보게 한다"
+    steps:
+      - {do: "composer에 !명령을 쳐 돌린다. turn은 열리지 않는다", screen: new-agent-shell-run, flow: shell-run:ok}
+      - {do: "결과를 보고 agent에게 이어 말한다", screen: new-agent-conversation, flow: session-send:ok}
+
+  - id: session-shell-bang-home-refused
+    title: "Home에서는 ! 명령이 기본 폴더가 없어 막힌다"
+    actor: person
+    goal: "Home의 lophn agent에서 ! 명령을 치면 돌리기 전에 막힌다"
+    steps:
+      - {do: "Home의 lophn agent에 첫 메시지를 보내 session을 연다", flow: session-open:ok}
+      - {do: "! 명령을 치면 기본 폴더가 없다고 막힌다", screen: new-agent-shell-mode, flow: shell-run:invalid_input}
+
+  - id: session-message-image
+    title: "사진을 붙여 보내고 대화에서 다시 본다"
+    actor: person
+    goal: "메시지에 사진을 붙여 보내고, 대화에 붙은 사진을 다시 본다"
+    steps:
+      - {do: "메시지에 붙일 사진을 올린다. 5 MiB 이하다", flow: message-image-upload:ok}
+      - {do: "사진과 함께 메시지를 보낸다", flow: session-send:ok}
+      - {do: "대화의 메시지에 붙은 사진을 본다", flow: message-image-read:ok}
+      - {do: "agent가 그 메시지의 사진 파일 경로를 푼다", flow: message-image-path:ok}
+
+  - id: harness-agent-session
+    title: "harness로 켠 agent session에 말을 걸면 CLI가 headless turn을 돈다"
+    actor: person
+    goal: "Settings에서 harness를 켜고 harness agent session을 열어 말하면 CLI가 입력을 받아 turn을 끝까지 돈다"
+    refs: [P6]
+    steps:
+      - {do: "harness 설정이 꺼져 있으면 harness agent를 열 수 없다", flow: session-open:unavailable}
+      - {do: "Settings › System › Extensions에서 harness를 켜고 다시 연다", screen: new-agent-harness, flow: session-open:ok}
+      - {do: "메시지를 보낸다", screen: new-agent-harness, flow: session-send:ok}
+      - {do: "headless CLI가 입력을 가져가 turn을 연다", flow: harness-turn-start:started}
+      - {do: "CLI가 알려 준 session id를 session에 둔다", flow: harness-session-bind:bound}
+      - {do: "headless CLI가 turn을 끝까지 돌린다", flow: harness-turn-run:completed}
+
+  - id: usage-and-trace-read
+    title: "turn, tool, model 호출의 기록과 사용량을 펼쳐 본다"
+    actor: person
+    goal: "답의 근거가 된 turn과 tool, model 호출을 거슬러 보고, 기간별 사용량을 합산해 본다"
+    steps:
+      - {do: "답의 근거가 된 turn 한 건을 연다", flow: turn-read:ok}
+      - {do: "tool 입력과 결과 본문을 펼쳐 본다", screen: new-agent-tool-running, flow: turn-body-view-read:ok}
+      - {do: "잘린 메시지 본문을 펼친다", flow: message-body-read:ok}
+      - {do: "tool 호출 한 건과 turn별 목록을 본다", flow: tool-call-read:ok}
+      - {do: "model 호출 한 건을 본다", flow: model-call-read:ok}
+      - {do: "원본 참조 trace를 읽는다", flow: agent-trace-read:ok}
+      - {do: "사용량과 비용을 기간별로 합산해 본다", flow: agent-usage-read:ok}
+
+  - id: agent-reads-project-files
+    title: "agent가 project 폴더에서 자료를 찾고 읽어 답한다"
+    actor: person
+    goal: "사람이 맡긴 자료 찾기를 agent가 파일 이름과 내용으로 찾고, 읽고, 답에 쓴다"
+    steps:
+      - {do: "폴더 안의 자료를 찾아 읽어 달라고 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "agent가 파일 이름과 내용으로 찾는다", flow: tool-file-search:matched}
+      - {do: "agent가 찾은 파일을 줄 단위로 읽는다", flow: tool-file-read:read}
+      - {do: "pdf는 쪽 범위의 text로 읽는다", flow: tool-pdf-read:read}
+      - {do: "tool 호출 묶음을 순서와 병렬 규칙으로 실행하고 결과를 모은다", flow: tool-call-batch:success}
+      - {do: "그림 파일을 model에 보인다", screen: new-agent-tool-running, flow: tool-image-read:image}
+      - {do: "답이 대화에 남는다", flow: turn-loop:completed}
+
+  - id: agent-edits-open-document
+    title: "agent가 사람이 열어 둔 문서를 고치면 탭이 그 글을 받는다"
+    actor: person
+    goal: "편집 중이 아닌 열린 문서는 agent가 바꾼 글을 자동으로 다시 읽는다"
+    steps:
+      - {do: "문서를 열어 둔다", screen: new-document-tab, flow: editor-open:ready}
+      - {do: "문서의 한 자리를 고쳐 달라고 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
+      - {do: "queue의 입력으로 turn이 시작된다", flow: turn-pump-start:started}
+      - {do: "agent가 문서의 한 자리를 바꾼다", screen: new-agent-tool-running, flow: tool-file-edit:edited}
+      - {do: "고치지 않은 열린 문서는 바뀐 글을 다시 읽는다", screen: new-file-reloaded, flow: editor-disk-watch:adopted}
+      - {do: "답이 대화에 남는다", flow: turn-loop:completed}

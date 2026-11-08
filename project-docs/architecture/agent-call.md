@@ -80,7 +80,19 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 화면의 call 블록은 펼치지 않는다. 머리 줄이 답 방식에 맞는 말(none은 "Handoff to", result는 "Asked", conversation은 "Working with")과 받는 곳이고, 오른쪽 끝 [Open conversation]이 받은 session을 연다. 실패만 그 자리에 이유 한 줄로 보이고, 답과 늦게 안 실패는 이어지는 새 메시지다(`packages/shell/renderer/conversation/thread/call-block.tsx`).
 - call의 `to`는 셋 중 하나다(`callAddressInputSchema`, `packages/protocol/lophn-agent/calls.ts`): `{session}`(열린 session), `{agent, workspace?}`(새 session), `{agent, workspace?, session, fallback: "new"}`(열린 session, 닫혔으면 그 agent+workspace의 새 session). `agent`는 agent의 handle이고 workspace가 없으면 home이다. handle은 전역에 하나라(범위 있는 agent 포함) 하나로 풀린다. 범위 있는 agent(`architecture/agent-definition.md`)는 그 workspace에 여는 call(`{agent, workspace: <그 workspace>}`)로만 닿고, 다른 곳에 열려 하면 not_found다. call 정책(private workspace 포함)은 그대로 걸린다. `fallback`은 session이 닫혔을 때 열 새 session의 `{agent, workspace?}`를 같이 적는 꼴이다. 보낸 이(`from`)는 사람, program, agent session 셋이다.
 
+
+## 팀
+
+- **팀은 spawn tree다.** `lophn team spawn <agent> [--workspace …] --body …`(route `team/spawn`, `packages/protocol/lophn-agent/team.ts`, 명령 `packages/cli/commands/team.ts`)로 연 session은 연 session의 자식이고 `sessions.spawned_by`(ledger step `lophn-agent.sessions.spawned-by`, 바꾸지 못한다)에 부모가 남는다. spawn은 `call.send`의 새 session 길(`route`에 `spawn: true`)을 그대로 거쳐 call 하나를 같이 만든다. 받는 곳 풀기, call 정책, 명함 검사가 같다. `--workspace`가 없으면 부모의 workspace다. 부모는 입력이 아니라 자격의 session이라 spawn은 늘 내 밑이다. 지금 `call.send`의 `to: {agent, workspace}` 새 session은 `spawned_by`가 없는 팀 밖이다(home lophn이 project lophn에 넘기는 흐름이 팀 규칙에 묶이지 않게).
+- **`spawned_by`가 있는 session의 call은 부모, 형제(같은 부모), 자기 자손에게만 간다.** Router `route()`가 call 정책(`policyRefusal`) 다음에 `teamRefusal`로 보고 아니면 `forbidden`이다. call 정책은 그 위에 그대로 겹친다. root(`spawned_by` 없음), 사람 메시지, program 입력, `reply`·`cancel`은 거르지 않는다. 팀 밖에서 팀원에게 오는 call도 지금 규칙 그대로다. member의 `session list`도 같은 집합만 보인다.
+- **끝내기는 자기 엄격한 자손만이다.** `lophn team end <ses>`(`team/end`, `packages/core/lophn-agent/session/team-commands.ts`)가 대상과 그 밑의 열린 session을 잎부터 archive처럼 닫는다(`endSession`). 남의 자손이면 `forbidden`이다. 사람이 부모를 archive하거나 지워도 자식은 남는다.
+- **상한은 설정 `lophn-agent.team`(기본 `max_members: 16`, `max_depth: 3`)이다.** core는 desk를 모르므로 root session 아래 열린 자손 수와 새 자식의 깊이(root 0)로 센다(`checkSpawnSlot`, `workspaces/lifecycle.ts`). desk는 root가 있는 자리라 같은 뜻이다. 넘으면 `conflict`이고 tx가 되돌아가 session도 call 행도 남지 않는다. 설정은 call 정책처럼 data root 설정 file에서 spawn마다 읽는다.
+- **연락처는 prompt가 아니라 `lophn team read`(`team/read`)다.** 부모, 형제, 자식의 handle·이름·description·runtime·상태다. 팀이 바뀌면 turn을 준비할 때 앞에 본 팀(`SeenBasis.team`, 부모·형제·자식의 `ses_id handle` 줄)과 비교해 고정 글 notice `team_changed`를 대화 끝에 붙인다(`tools_changed`와 같은 길). queue에 입력으로 넣지 않으므로 쉬던 session을 깨우지 않고 그 session의 다음 turn에 닿는다. bare는 팀을 보지 않는다.
+- **같은 workspace의 자식은 부모 옆에 열린다.** spawn이 commit된 뒤 router wiring이 `hostQueue.openTab({opener: 부모, target: {session: 자식}, place: "group", source: 부모})`를 부른다(`workspace-layout.md` "agent가 연 탭"). 다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
+
 ## 왜 이 모양인가
+
+- **팀은 spawn tree이고 규칙은 세 줄이다(사람, 2026-11-08).** 일손을 늘리고 줄이는 것과 누가 누구에게 말할지를 연 관계 하나로 정한다. layout group을 팀으로 쓰면 사람이 탭을 옮길 때 팀이 바뀐다. 연락처를 prompt에 싣지 않는 것은 팀원이 늘고 줄 때마다 prompt cache가 깨지지 않게 하려는 것이다.
 
 - **call 하나의 모양.** handoff, escalate, program 알림을 따로 만들면 실패 처리와 화면이 세 벌이 된다. 다른 것은 받는 곳(새 session, 열린 session)과 답 방식(none, result, conversation)뿐이다. 선례: A2A의 id 없음/taskId, Erlang의 cast/call.
 - **동기 호출과 subagent는 버렸다.** turn이 분 단위라 보낸 turn이 결과를 기다리면 맞지 않는다(Erlang call 5초, Orleans의 turn 점유). 답은 Akka ask의 pipeToSelf처럼 보낸 session의 새 입력으로 온다. A2A의 polling, SSE, webhook도 쓰지 않는다.

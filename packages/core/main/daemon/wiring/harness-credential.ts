@@ -11,12 +11,20 @@ import type { CredentialRegistry } from "../../../server/identity/registry.ts";
 // 만료는 TurnEnded가 `end`를 부르는 것이고, core가 다시 뜨면 registry가 비어 모두 끝난다.
 const HARNESS_PROCESS = "harness";
 
+type CredentialInput = {
+  session: string;
+  turn: string;
+  workspace: { kind: "project" | "app"; id: string } | null;
+};
+
 export type HarnessCredentials = {
-  issue(input: {
-    session: string;
-    turn: string;
-    workspace: { kind: "project" | "app"; id: string } | null;
-  }): Promise<Result<string>>;
+  issue(input: CredentialInput): Promise<Result<string>>;
+  // 같은 자격을 다른 process 이름으로 내고 token과 ref를 돌려준다. extension tool 호출이 호출 하나만 쓰는 자격에 쓰고
+  // `release(ref)`로 그 자격만 거둔다(`end(turn)`은 그 turn의 다른 자격까지 끝낸다).
+  lease(
+    input: CredentialInput & { process: string },
+  ): Promise<Result<{ token: string; ref: string }>>;
+  release(ref: string): void;
   end(turn: string): void;
 };
 
@@ -25,33 +33,42 @@ export function createHarnessCredentials(deps: {
   // 발급한 자격은 core 메모리의 token과 ledger 기록 둘이 있어야 쓰인다.
   record: (context: AuthenticatedContext) => Promise<Result<void>>;
 }): HarnessCredentials {
+  async function lease({
+    session,
+    turn,
+    workspace,
+    process,
+  }: CredentialInput & { process: string }): Promise<
+    Result<{ token: string; ref: string }>
+  > {
+    const issued = deps.registry.issue({
+      actor: `agent:${session}`,
+      principal: `agent:${session}`,
+      scope: {
+        operations: [...harnessOperations(workspace?.kind ?? "home")],
+        targets: { session, turn },
+      },
+      conditions: agentConditions({ session, turn, process, workspace }),
+    });
+    if (!issued.ok) return issued;
+    const ref = issued.value.credential_ref;
+    const current = deps.registry.revalidate({ credential_ref: ref });
+    if (!current.ok) return current;
+    const recorded = await deps.record(current.value);
+    if (!recorded.ok) {
+      deps.registry.end(ref);
+      return recorded;
+    }
+    return ok({ token: issued.value.token, ref });
+  }
   return {
-    async issue({ session, turn, workspace }) {
-      const issued = deps.registry.issue({
-        actor: `agent:${session}`,
-        principal: `agent:${session}`,
-        scope: {
-          operations: [...harnessOperations(workspace?.kind ?? "home")],
-          targets: { session, turn },
-        },
-        conditions: agentConditions({
-          session,
-          turn,
-          process: HARNESS_PROCESS,
-          workspace,
-        }),
-      });
-      if (!issued.ok) return issued;
-      const current = deps.registry.revalidate({
-        credential_ref: issued.value.credential_ref,
-      });
-      if (!current.ok) return current;
-      const recorded = await deps.record(current.value);
-      if (!recorded.ok) {
-        deps.registry.end(issued.value.credential_ref);
-        return recorded;
-      }
-      return ok(issued.value.token);
+    lease,
+    async issue(input) {
+      const leased = await lease({ ...input, process: HARNESS_PROCESS });
+      return leased.ok ? ok(leased.value.token) : leased;
+    },
+    release(ref) {
+      deps.registry.end(ref);
     },
     end(turn) {
       deps.registry.endBy("turn", turn);

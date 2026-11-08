@@ -23,14 +23,10 @@ import {
 } from "../../../../protocol/extensions/manifest.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { z } from "zod";
-import {
-  agentConditions,
-  harnessOperations,
-} from "../../../agent-workspaces/credentials.ts";
 import type { ExtensionGrant } from "../../../approvals/mod.ts";
-import type { CredentialRegistry } from "../../../server/identity/registry.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
+import { createHarnessCredentials } from "./harness-credential.ts";
 
 // shell extension의 tool 목록(메모리)과 호출 입구다. 흐름은 `protocol/lophn-agent/extension-tools.ts`.
 // shell main이 판이 맞는 manifest의 tool을 통째로 올리고(`publish`), 켜진 것만 `catalog`로 나간다. core가 다시 뜨면 비고
@@ -61,43 +57,6 @@ const enabledSetting = (id: string) =>
     default: false,
   });
 
-// 이 호출만 쓰는 agent 자격이다. 그 session·turn에 묶이고 상한은 그 workspace 종류의 `lophn` 명령 route라 사람 전용 route
-// (설정 바꾸기 등)는 닿지 않는다. 호출이 끝나면 거둔다. 사람 token(`ctx.coreInternal`)을 넘기지 않는다.
-export async function issueCallCredential(
-  deps: {
-    registry: CredentialRegistry;
-    // 발급한 자격은 core 메모리의 token과 ledger 기록 둘이 있어야 쓰인다.
-    record: (context: AuthenticatedContext) => Promise<Result<void>>;
-  },
-  input: { session: string; turn: string; workspace: Workspace | null },
-): Promise<Result<{ token: string; ref: string }>> {
-  const { session, turn, workspace } = input;
-  const issued = deps.registry.issue({
-    actor: `agent:${session}`,
-    principal: `agent:${session}`,
-    scope: {
-      operations: [...harnessOperations(workspace?.kind ?? "home")],
-      targets: { session, turn },
-    },
-    conditions: agentConditions({
-      session,
-      turn,
-      process: EXTENSION_PROCESS,
-      workspace,
-    }),
-  });
-  if (!issued.ok) return issued;
-  const ref = issued.value.credential_ref;
-  const current = deps.registry.revalidate({ credential_ref: ref });
-  if (!current.ok) return current;
-  const recorded = await deps.record(current.value);
-  if (!recorded.ok) {
-    deps.registry.end(ref);
-    return recorded;
-  }
-  return ok({ token: issued.value.token, ref });
-}
-
 const forbidden = (message: string) =>
   err({ code: "forbidden" as const, message });
 
@@ -108,6 +67,10 @@ export const extensionToolsWiring: WiringFactory = () => {
     name: "extension-tools",
     records: () => [CONTEXT],
     build(ctx) {
+      const credentials = createHarnessCredentials({
+        registry: ctx.registry,
+        record: (context) => ctx.runtime.record(context),
+      });
       const enabledCatalog = (settings: SettingsReader) =>
         published.filter(
           (extension) => settings.get(enabledSetting(extension.id)) === true,
@@ -195,10 +158,14 @@ export const extensionToolsWiring: WiringFactory = () => {
             message: "the shell is not attached",
           });
         }
-        const credential = await issueCallCredential(
-          { registry: ctx.registry, record: (c) => ctx.runtime.record(c) },
-          { session, turn, workspace },
-        );
+        // 이 호출만 쓰는 agent 자격이다. 상한은 그 workspace 종류의 `lophn` 명령 route라 사람 전용 route는 닿지 않는다.
+        // 사람 token(`ctx.coreInternal`)을 넘기지 않는다.
+        const credential = await credentials.lease({
+          session,
+          turn,
+          workspace,
+          process: EXTENSION_PROCESS,
+        });
         if (!credential.ok) return credential;
         const hostWorkspace: HostWorkspace =
           workspace === null ? { kind: "home" } : workspace;
@@ -222,7 +189,7 @@ export const extensionToolsWiring: WiringFactory = () => {
         } finally {
           clearInterval(watch);
           inflight.delete(abandon);
-          ctx.registry.end(credential.value.ref);
+          credentials.release(credential.value.ref);
         }
       };
 

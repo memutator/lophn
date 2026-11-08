@@ -4,7 +4,7 @@ import { cryptoRandom, manualClock, ok } from "../../../../base/mod.ts";
 import { settingsUpdate } from "../../../../protocol/config/file.ts";
 import { harnessOperations } from "../../../agent-workspaces/credentials.ts";
 import { CredentialRegistry } from "../../../server/identity/registry.ts";
-import { issueCallCredential } from "./extension-tools.ts";
+import { createHarnessCredentials } from "./harness-credential.ts";
 
 // extension handler의 `core`는 사람 token이 아니라 그 호출 session의 agent 자격이다. 깨지면 extension tool 하나로 agent가
 // 사람 권한(설정 바꾸기 등)을 얻거나, 다른 session을 대신하거나, 호출이 끝난 뒤에도 자격이 살아 있게 된다.
@@ -27,10 +27,16 @@ test("a tool call credential reaches only lophn commands of its own session and 
       { name: settingsUpdate.name, actors: ["user"], kind: "command" },
     ],
   });
-  const issued = await issueCallCredential(
-    { registry, record: () => Promise.resolve(ok(undefined)) },
-    { session: SESSION, turn: TURN, workspace: null },
-  );
+  const credentials = createHarnessCredentials({
+    registry,
+    record: () => Promise.resolve(ok(undefined)),
+  });
+  const issued = await credentials.lease({
+    session: SESSION,
+    turn: TURN,
+    workspace: null,
+    process: "extension",
+  });
   assert.ok(issued.ok);
   const authenticated = await registry.authenticate(issued.value.token);
   assert.ok(authenticated.ok);
@@ -48,6 +54,6 @@ test("a tool call credential reaches only lophn commands of its own session and 
     false,
   );
 
-  registry.end(issued.value.ref);
+  credentials.release(issued.value.ref);
   assert.equal(registry.authorize(ctx, lophnRoute!, own).ok, false);
 });

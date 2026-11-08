@@ -81,7 +81,7 @@ export type AgentDefinitionIssue = z.infer<typeof agentDefinitionIssueSchema>;
 
 // 정의 file 이름은 id이고 주소는 handle(만들 때 정해 바뀌지 않는다)이다. 정의는 전역이거나 `workspace` 하나에 범위가 있다.
 // agent 자격은 목록, 읽기, 만들기, 고치기만 한다. lophn의 profile·handle을 바꾸거나 lophn을 지우면 `forbidden`이다.
-// 할당, `mcp_servers`, `skip`은 사람만 정하고 agent가 주면 core가 거절한다.
+// 할당(`apps`, `extensions`, `permissions`), `mcp_servers`, `skip`은 사람만 정하고 agent가 주면 core가 거절한다.
 
 export const agentRowSchema = z.object({
   agent: agentIdSchema,

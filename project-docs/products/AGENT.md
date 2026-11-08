@@ -43,6 +43,7 @@ L1~L11은 home 지침(`packages/core/agent-workspaces/prompts/home.md`)에 쓰�
 - G1. 사람이 새 agent를 원하거나 agent를 고쳐 달라고 하면, 어느 workspace의 session이든 `agent.create`·`agent.update`로 만들거나 고친다. 정의가 전역이라 어느 workspace에서 만들어도 같다. 할당, 정의 층 MCP server, skip은 주지 못하고 사람이 정한다.
 - G2. 자기 정의나 할당을 바꿔야 하면, session은 사람에게 올린다.
 - G3. 일하다 다른 그릇의 일(앱의 버그, 다른 project의 문서)을 만나면, session은 그 그릇 workspace의 lophn에게 call로 맡긴다. 결과가 있어야 이어갈 수 있으면 결과를 받는 call로 맡긴다. 같은 그릇의 일이면 직접 고친다.
+- G4. 같은 일을 나눠 병렬로 돌려야 하면, session은 `lophn team spawn`으로 팀원 session을 열어 call로 맡긴다(팀 상한 안에서, 기본 답은 결과). 팀원은 부모의 spawn tree에 남고(`spawned_by`) 서로의 연락처는 `lophn team read`로 읽으며, 끝낼 수 있는 것은 자기 자손뿐이다(`team end`). 사람이나 보는 이에게 보여야 하면 `lophn tab open`으로 같은 workspace의 session이나 url을 탭으로 열고, 자기가 연 browser 탭의 url·title·loading만 `lophn browser read`로 읽는다.
 
 ### app
 
@@ -107,7 +108,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 
 - H1. 사람은 무엇을 만들고 무엇을 원하는지 agent에게 이야기한다.
 - H2. 앱을 처음 activation하거나 새 release가 선언을 넓히면, 사람이 앱 grant를 허락한다.
-- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 외부 MCP server는 설정한 곳(전역, project, 그 agent의 정의)이 할당이고 정의에서 끈다. 전역과 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. 다른 앱의 command는 공개(`public`) command만 쓸 수 있다(비공개는 그 앱 workspace의 session만, P12).
+- H3. 사람이 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 고른다. 할당한 tool은 실행 때 묻지 않는다(할당이 허락이다). 설치되고 켜진 shell extension이 내는 tool도 정의의 `extensions`로 할당한 agent에게만 실리고, 할당이 허락이라 묻지 않는다. 외부 MCP server는 설정한 곳(전역, project, 그 agent의 정의)이 할당이고 정의에서 끈다. 전역과 project 층에서 끈 server는 도는 turn에서도 다음 호출부터 막힌다. 다른 앱의 command는 공개(`public`) command만 쓸 수 있다(비공개는 그 앱 workspace의 session만, P12).
 - H4. agent가 shell 규칙이 `ask`인 명령을 돌리려 하면, 사람이 toast나 모든 session의 대기 목록, 대화의 카드에서 한 번 허락, 항상 허락(규칙 줄을 더한다), 거절로 답한다. 거절하며 적은 이유는 agent에게 그대로 간다. 사람이 없는 실행(unattended)과 사람이 skip을 켠 session은 묻지 않지만, deny 규칙은 어느 경우에도 막는다. 팀으로 spawn된 session(skip 꺼짐)의 승인은 사람이 아니라 부모가 `lophn call reply --allow | --reject`로 답한다.
 - H5. 앱 workspace의 session이 확인한 것(앱 test, preview, release 준비, activation)과 확인하지 못한 것을 알리면, 사람이 받아 확인한다.
 - H7. 사람은 workflow instance를 시작하고 멈춘다(화면, CLI). 정해진 때 시작하게 하려면 job을 agent에게 청한다(J1). 시작이 그 사슬을 agent에게 맡기는 것이다. 멈춘 instance에는 더 넘기지 않는다.
@@ -208,7 +209,7 @@ program은 스스로 정해 agent를 부르지 않는다. 앱 오류는 사람�
 ## 7. 하지 않는 것
 
 - agent가 다른 agent를 자식(subagent)으로 띄워 결과를 기다리는 구조를 두지 않는다. 넘기는 것은 늘 다른 session이다.
-- 누가 누구를 부를 수 있는지를 고정 표로 두지 않는다. program은 기본으로 부르기를 막지 않고, 사람이 private workspace와 workspace 쌍·agent 쌍 call 정책으로 좁힌다. 누구를 부를지는 지침이 정한다.
+- 누가 누구를 부를 수 있는지를 고정 표로 두지 않는다. program은 기본으로 부르기를 막지 않고, 사람이 private workspace와 workspace 쌍·agent 쌍 call 정책으로 좁힌다. 다만 `team spawn`으로 열린 팀원의 call은 부모·형제·자기 자손으로만 간다. 누구를 부를지는 지침이 정한다.
 - 보낸 쪽의 대화를 복사하거나 권한을 물려주지 않는다.
 - 보낸 쪽이 결과를 기다리며 막히는 동기 호출, 자동 재시도, 실패를 조용히 버리기.
 - agent 정의의 권한 칸(짓기 가능). 차이는 session의 workspace 종류와 정의의 skills_off, 할당이 만든다.

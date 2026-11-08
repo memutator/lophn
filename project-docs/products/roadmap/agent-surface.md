@@ -94,10 +94,16 @@ desk coordinator (root, 사람이 연 session)
 4. `agent-platform.md`의 "agent도 client는 뺀다"는 탭을 열고 배치하고 agent가 연 browser 탭의 상태를 읽는 데까지만 연다. 앱 화면 읽기·조작은 계속 없다. (사람, 2026-11-08)
 5. TUI는 harness agent session을 TUI로 여는 것이다. 아무 명령을 터미널에 띄우는 것은 하지 않는다. (사람, 2026-11-08)
 6. spawn은 `team spawn`으로만 팀을 만든다. 지금 `call.send`의 `to: {agent, workspace}` 새 session은 팀 밖(`spawned_by` 없음)으로 그대로 둔다. (agent) home lophn이 project lophn에 넘기는 지금 흐름이 갑자기 팀 규칙(밖으로 call 못 함)에 묶이지 않게.
-7. 상한: desk당 열린 팀원 수와 tree 깊이를 설정(`lophn-agent.team`, 기본 `max_members: 16`, `max_depth: 3`)으로 두고 넘으면 `conflict`다. core는 desk를 모르므로 팀원 수는 root session 아래 열린 자손 수로 센다. desk는 root가 있는 자리라 같은 뜻이다. (agent) agent 실수로 spawn이 되풀이되면 비용이 터진다(AGENTS.md "속도").
+7. 상한: desk당 열린 팀원 수와 tree 깊이를 설정(`lophn-agent.team`, 기본 `max_members: 8`, `max_depth: 2`(root 0))으로 두고 넘으면 `conflict`다. 거절 글은 "직접 하거나 부모에게 청하라"를 담는다. core는 desk를 모르므로 팀원 수는 root session 아래 열린 자손 수로 센다. desk는 root가 있는 자리라 같은 뜻이다. (agent) agent 실수로 spawn이 되풀이되면 비용이 터진다(AGENTS.md "속도"). 기본값은 agent-team에서 3·16에서 2·8로 내렸다. 사람이 든 예(root → 번역 coordinator → 번역 셋)가 깊이 2다. (agent)
 8. 일 나누기는 program이 하지 않는다. 새 worker에게 무엇을 줄지는 coordinator가 call 본문으로 정한다. (agent) workflow의 "program은 기록하고 전달만"과 같다.
 9. 연락처는 prompt가 아니라 `team read`로 읽고 바뀌면 notice만 간다. (agent) 작업 중 팀원이 늘고 줄 때마다 prompt cache가 깨지지 않게(`agent-definition.md` "같은 재료는 같은 bytes").
 10. TUI 탭이 열린 동안 그 session의 headless turn은 시작하지 않고 입력은 queue에 남는다(call은 accepted). TUI가 끝나면 이어 돈다. TUI에서 한 turn은 lophn 기록에 남지 않고, 다음 headless turn이 같은 CLI session을 resume하므로 agent는 기억한다. (agent) 한 CLI session에 두 process가 동시에 쓰지 않게. 기록에 남기기는 쓰는 곳이 생기면 한다.
+
+11. spawn된 session의 `ask`(질문)와 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다. 부모가 답하거나, 판단할 수 없으면 자기 `ask`를 써서 위로 올린다. root에서 사람에게 닿는다. 올리는 장치는 따로 없다. (사람, 2026-11-08: "cordinator든 leader든 걔가 먼저 답하고 걔 판단으로 안 되겠음 걔가 사용자한테 올리고")
+12. attended와 unattended는 같은 길이다. unattended 사슬의 root가 받은 물음에는 root의 `ask`가 `unattended`를 돌려주고 root가 스스로 정한다. skip session의 shell `ask`는 지금처럼 그냥 돌고 부모에게 가지 않는다. 질문은 skip이어도 부모에게 간다. (agent, skip은 planner 2026-11-08) skip은 사람이 그 session에 정한 "묻지 마"라서 부모가 뒤집지 않는다.
+13. 부모의 승인 답은 이번 한 번의 허락·거절뿐이고 글이 아니라 구조(`call reply --allow|--reject`)로 받는다. 규칙 더하기(`always`)는 사람만 하고 `deny`는 누구도 풀지 못한다. 자식 탭에는 승인 카드가 뜨지 않는다. 팀 밖 session의 `ask`는 지금 그대로다. (agent)
+14. `team spawn`의 `--reply` 기본은 `result`이고 `team read`는 팀원마다 답하지 않은 call을 보인다. lophn 자식이 `call reply`를 잊으면 부모가 깨지 않아서다. (agent)
+15. 팀 지시문(spawn한 뒤 turn을 끝낸다, poll하지 않는다, worker면 직접 한다, 모르면 `ask`)은 system prompt에 넣지 않고 `team spawn` help, 자식이 받는 첫 call의 고정 글, skill `lophn-agent`에 둔다. prompt cache를 깨지 않으려는 것이다. (agent)
 
 ## 단계
 
@@ -119,5 +125,10 @@ desk coordinator (root, 사람이 연 session)
 - workflow desk·참가자를 팀으로 옮기기. workflow는 지금 그대로 두고 팀을 써 본 뒤 정한다.
 - 사람이 손으로 session을 팀에 넣고 빼기(`join`). 필요해지면 명령 하나로 더한다.
 - 사람이 부모 session을 archive할 때 자식까지 닫기. 자식은 남는다.
+- 자식 답 묶기(fan-in). program은 누가 답을 빚졌는지는 알지만 언제 올지는 모른다. 묶는다면 coordinator가 묶음을 선언하는 꼴로 하고, 그 전에 reply 잊음을 먼저 푼다. (사람, 2026-11-08)
+- 팀원 격리(worktree)와 spawn cwd. project context(skill)의 일이다. (사람, 2026-11-08)
+- agent끼리 steer. 도는 turn에 끼어드는 것은 사람 메시지만이다.
+- harness runtime 자식의 승인을 부모에게 보내기. 그 CLI가 headless에서 스스로 처리한다.
+- 사람이 자식 탭에서 바로 승인하기.
 - home·앱 workspace session의 TUI 탭. home에는 터미널이 없고 앱 workspace의 headless cwd는 터미널 cwd 검사를 지나지 못한다. 이번에는 project workspace의 session만 연다. 첫 turn 전(CLI session id 없음)이거나 turn이 도는 중이면 `conflict`다.
 - TUI에서 `/clear` 같은 것으로 CLI session id가 바뀌는 경우를 따라가기.

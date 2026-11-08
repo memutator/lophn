@@ -9,6 +9,8 @@
   - `packages/core/host-queue/{queue,queue_test}.ts`
   - `packages/core/main/daemon/wiring/host-queue.ts`
   - `packages/cli/commands/tab.ts`
+  - `packages/cli/commands/preview.ts`(추가 소유: `preview start`가 ready 뒤 탭을 여는 곳만)
+  - `packages/shell/renderer/workspace/{app-screen-tab.tsx,app-screen-tab.module.css}`(추가 소유: [Preview] 버튼만)
   - `packages/shell/renderer/workspace/use-surface-requests.ts`
   - `packages/shell/renderer/workspace/kinds/app-preview.tsx`(새로), `packages/shell/renderer/workspace/kinds/registry.ts`
   - `packages/shell/renderer/workspace/{app-preview-tab.tsx,app-preview-tab.module.css}`(새로)
@@ -56,6 +58,14 @@
    - shell `annotate.ts`: preview view(mode preview)면 그 view의 bundle hash를 싣고, release가 null이어도 거절하지 않는다. live view는 지금처럼 release를 요구한다.
    - 받는 쪽 메시지: annotation tag 속성에 `preview`(bundle hash)를 더한다(`INPUT_TAG_ATTRIBUTES.annotation`). 메시지 본문의 release 줄은 preview와 bundle hash를 적는다.
 
+## lead가 더함 (planner, 2026-11-09: `app-preview.md` 정한 것(사람)을 살림)
+
+7. 저절로 열기: `lophn preview start`가 preview의 ready를 본 뒤(지금 명령이 `previews.get`로 기다리는 끝) 같은 자격으로 `tabs/open {target: {preview: {app}}}`를 부른다. 새 통로나 core event를 만들지 않는다. 주인은 부른 쪽(agent session, 사람 token이면 `"person"`)이라 그 agent가 바로 그 탭을 다룬다. 명령 `routes`에 `tabsOpen`을 더한다. 탭 열기가 실패해도(`unavailable` 등) preview start는 성공으로 끝내고 `note`에 적는다. 결과에 탭 id를 싣는다.
+8. 같은 앱의 preview 탭은 하나다(`app-preview.md` 정한 것(agent)):
+   - core: 표에 그 앱의 preview 탭이 이미 있으면 새로 넣지 않고 그 탭 id를 돌려주며 주인을 새 caller로 바꾼다. 탭은 이미 지금 preview를 따라간다.
+   - renderer: `tab_open`의 preview 탭이 올 때 그 창에 같은 앱의 `app_preview` 탭(사람이 [Preview]로 연 것)이 있으면 그것을 닫고 그 자리에 `host:<tab>` 탭을 연다.
+9. [Preview] 버튼: 앱 화면 탭(`app-screen-tab.tsx`) toolbar에 둔다. 그 앱에 돌고 있는 preview가 있을 때만 보인다(`previews.get`). 누르면 사람이 연 `app_preview` 탭(key `app-preview:<app>`, host 표에 없다)을 연다. 이 탭은 agent가 다루지 못한다(roadmap 정한 것 5). gallery page에 버튼을 더한다.
+
 ## 끝남
 
 - `npm run check`가 통과한다.
@@ -63,6 +73,7 @@
   - "다른 앱이나 project·home workspace의 agent session이 `tab open --preview <app>`을 부르면 `not_found`이고 탭 표에 아무것도 남지 않는다. 그 앱 workspace session과 사람 token은 연다"(`packages/core/host-queue` 또는 wiring test)
   - "사람 token은 agent session이 연 탭을 닫지 못하고(`forbidden`), agent session도 사람이 연 탭을 닫지 못한다"
   - "preview가 없는 앱의 `tab open --preview`는 `conflict`다"
+  - "같은 앱에 preview 탭을 두 번 열면 탭 표에 하나만 있고 주인은 나중 caller다"
   - "새 schema step이 옛 annotation 행을 `preview_bundle` null로 남긴다"(ledger migration)
 - 남지 않음: `grep -rn "opener" packages/core/host-queue packages/core/main/daemon/wiring/host-queue.ts`가 0줄. `grep -rn "binary(사람)에서는 forbidden" packages/cli`가 0줄.
 - (화면) `npm run wireframes`가 되고 gallery의 preview 탭 page가 renderer와 같은 component로 그려진다.

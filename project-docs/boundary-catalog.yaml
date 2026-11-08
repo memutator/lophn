@@ -356,7 +356,7 @@ interfaces:
 
   - id: harness-host-interface
     kind: interface
-    description: shell main의 harness host가 사람 token으로 부르는 core의 memory route(`harness/take`, `start_turn`, `record`, `finish_turn`, `set_external_id`). renderer의 호출 통로에는 없다.
+    description: shell main의 harness host가 사람 token으로 부르는 core의 memory route(`harness/take`, `start_turn`, `record`, `finish_turn`, `set_external_id`). TUI 탭이 hold한 session은 take가 건너뛰고 start_turn이 `conflict`다. renderer의 호출 통로에는 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:
@@ -366,7 +366,7 @@ interfaces:
 
   - id: host-queue-interface
     kind: interface
-    description: shell main이 사람 token으로 부르는 host queue의 memory route(`host/take`, `done`, `report`)와 agent 자격의 `tabs/open`, `tabs/close`, `browser/read`. renderer의 호출 통로에는 없다.
+    description: shell main이 사람 token으로 부르는 host queue의 memory route(`host/take {workspaces, tui}` — tui는 harness TUI hold의 heartbeat —, `done`, `report`)와 agent 자격의 `tabs/open`, `tabs/close`, `browser/read`. renderer의 호출 통로에는 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:

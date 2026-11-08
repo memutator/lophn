@@ -36,3 +36,11 @@ Home과 앱에서도 Agents 탭을 열어 그 workspace의 층(지시, skill, MC
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴을 따른다.
+
+## wave 1이 남긴 것 (lead가 더함)
+
+추가 소유: `packages/shell/renderer/shell/left-sidebar-workspaces.ts`, `packages/shell/renderer/workspace/sidebar/`, `tools/wireframes/mock/`
+
+- Home의 Agents 탭을 열면 Home lophn 명함의 범위가 아직 "All of lophn"(scope null)으로 보인다. Home lophn에 맞는 범위 글로 바꾼다.
+- `left-sidebar-workspaces.ts`는 다른 workspace의 lophn session을 지금 workspace의 lophn 줄(이름, 얼굴)로 그린다. 사람이 lophn 이름을 workspace마다 바꾸면 다른 workspace session이 이 workspace의 이름으로 보인다. sidebar의 새 session 목록도 다른 workspace의 lophn을 기본 이름 "lophn"으로 보인다. 그 workspace의 lophn 이름을 읽어 보인다(Home에서 workspace 없이 `agents/list`를 부르면 모든 lophn이 온다).
+- wireframe mock(`tools/wireframes/mock/agents-data.ts` 등)이 옛 id `"lophn"`을 쓴다. Agents page를 고칠 때 lophn id로 맞춘다.

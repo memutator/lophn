@@ -9,4 +9,4 @@ lead만 고친다. `tools/status.py standalone-core build`가 `tasks/*.md`에서
 | `score-shell` | shell | 3 | score-idle | merged | shell/score-shell | cb85d646e |  |
 | `score-cli` | cli | 4 | score-shell | merged | cli/score-cli | 67f9a42bd |  |
 | `score-launchers` | launchers | 5 | score-cli | merged | launchers/score-launchers | 9ca86278d |  |
-| `score-cleanup` | cleanup | 6 | score-launchers | todo |  |  |  |
+| `score-cleanup` | cleanup | 6 | score-launchers | running | cleanup/score-cleanup |  |  |

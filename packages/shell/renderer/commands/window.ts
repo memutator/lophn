@@ -3,6 +3,7 @@
 import {
   KEYBINDINGS,
   type Binding,
+  type Chord,
   type KeyOverrides,
   type KeyPlatform,
   parseBindingId,
@@ -75,7 +76,8 @@ export interface WindowCommands {
    * (터미널·browser)은 자기 command를 여기 걸고 창 하나의 command가 부른다.
    */
   readonly focus: {
-    set(command: string, run: () => void): Disposable;
+    /** `when`이 거짓이면 이 화면의 동작은 없는 것과 같다(고른 칸이 지금 그 일을 못 할 때). */
+    set(command: string, run: () => void, when?: () => boolean): Disposable;
     has(command: string): boolean;
     run(command: string): boolean;
   };
@@ -89,7 +91,47 @@ const FOCUSED_COMMANDS = [
   "terminal.copy",
   "terminal.paste",
   "browser.bookmark",
+  "agent.send",
+  "agent.newline",
+  "agent.interrupt",
+  "agent.model-picker",
+  "agent.find",
+  "agent.jump-previous",
+  "agent.jump-next",
+  "agent.cycle-mode",
+  "agent.send-now",
+  "agent.queue",
+  "agent.rewind",
+  "agent.clear-input",
 ] as const;
+
+/**
+ * 입력 칸·카드·찾기 줄처럼 Esc·Tab·화살표가 그 자리의 뜻인 곳. 여기 focus가 있으면 창의 key(안쪽 context가 owns한 것)가
+ * 이 key를 가져가지 않는다. Enter는 뺀다. 입력 칸의 Enter는 `agent.send`가 받는다.
+ */
+const PLAIN_KEYS_HERE = [
+  "Escape",
+  "Tab",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+];
+
+/** modifier 없이 누른 key 하나가 `keys`에 드는가. */
+function plainKey(keys: readonly string[]) {
+  return (chord: Chord): boolean => {
+    const stroke = chord.strokes[0];
+    return (
+      stroke !== undefined &&
+      !stroke.ctrl &&
+      !stroke.alt &&
+      !stroke.meta &&
+      !stroke.shift &&
+      keys.includes(stroke.code)
+    );
+  };
+}
 
 function closest(target: unknown, selector: string): boolean {
   return (
@@ -177,6 +219,11 @@ export function createWindowCommands(deps: {
   keybindings.defineContext("terminal", {
     owns: (chord) => shellOwns(chord, deps.platform),
   });
+  // Esc·Tab·화살표를 제 뜻으로 쓰는 칸(카드, 찾기 줄, 목록). slashMenu는 Enter도 가진다(입력 칸의 Enter는 보내기다).
+  keybindings.defineContext("modal", { owns: plainKey(PLAIN_KEYS_HERE) });
+  keybindings.defineContext("slashMenu", {
+    owns: plainKey([...PLAIN_KEYS_HERE, "Enter"]),
+  });
 
   let current: KeyOverrides = {};
   let contributed: readonly {
@@ -190,7 +237,10 @@ export function createWindowCommands(deps: {
   }[] = [];
   let keymapSnapshot: readonly KeymapEntry[] = [];
   const listeners = new Set<() => void>();
-  const focused = new Map<string, () => void>();
+  const focused = new Map<
+    string,
+    { readonly run: () => void; readonly when?: () => boolean }
+  >();
   const notify = () => {
     for (const listener of listeners) listener();
   };
@@ -201,22 +251,26 @@ export function createWindowCommands(deps: {
   };
 
   const focus = {
-    set(command: string, run: () => void) {
-      focused.set(command, run);
+    set(command: string, run: () => void, when?: () => boolean) {
+      const entry = { run, when };
+      focused.set(command, entry);
       let disposed = false;
       return {
         dispose() {
           if (disposed) return;
           disposed = true;
-          if (focused.get(command) === run) focused.delete(command);
+          if (focused.get(command) === entry) focused.delete(command);
         },
       };
     },
-    has: (command: string) => focused.has(command),
+    has(command: string) {
+      const entry = focused.get(command);
+      return entry !== undefined && (entry.when?.() ?? true);
+    },
     run(command: string) {
-      const run = focused.get(command);
-      if (run === undefined) return false;
-      run();
+      const entry = focused.get(command);
+      if (entry === undefined) return false;
+      entry.run();
       return true;
     },
   };

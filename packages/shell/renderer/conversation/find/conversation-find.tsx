@@ -64,6 +64,7 @@ export function ConversationFindBar({
               onChange={(event) => onQuery(event.currentTarget.value)}
               onKeyDown={onKey}
               data-find-input=""
+              data-key-context="modal"
             />
           </Field>
         </span>

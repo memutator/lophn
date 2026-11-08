@@ -130,6 +130,7 @@ export function ApprovalCard({
       className={styles.card}
       aria-label={t("conversation.label.approval")}
       data-approval-id={request.id}
+      data-key-context="modal"
       onKeyDown={keyDown}
     >
       <div className={styles.approval}>

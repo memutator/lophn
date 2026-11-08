@@ -32,6 +32,7 @@ import type {
 } from "../../../../protocol/acp/mod.ts";
 import type {
   AgentTabSource,
+  Delivery,
   PermissionsView as PermissionsData,
 } from "../agent-tab-source.ts";
 import {
@@ -51,6 +52,25 @@ import { ModeMenu, ToggleChips } from "./session-controls.tsx";
 import { runComposerCommand } from "./slash-actions.ts";
 
 const IMAGE_PATH = /\.(png|jpe?g|gif|webp)$/i;
+
+/**
+ * composer의 일을 agent command가 부르는 통로. composer가 입력 칸과 picker를 쥐고 있어 화면이 이것을 통해 부른다.
+ * 그릴 때마다 최신 것으로 바뀐다.
+ */
+export interface ComposerKeys {
+  /** 입력 칸에 focus가 있다. */
+  readonly focused: () => boolean;
+  /** 입력 칸 안에 고른 글이 있다. */
+  readonly selected: () => boolean;
+  /** `/` 메뉴가 열려 있다. */
+  readonly slashOpen: boolean;
+  /** model picker가 있다(model을 고를 수 있는 session). */
+  readonly canPicker: boolean;
+  readonly send: (delivery: Delivery) => void;
+  readonly newline: () => void;
+  readonly clear: () => void;
+  readonly togglePicker: () => void;
+}
 
 interface AgentComposerProps {
   /** `/` 명령 창이 메뉴를 열 때 명령 목록을 다시 읽는 통로. */
@@ -112,8 +132,8 @@ interface AgentComposerProps {
   onLoadPermissions: () => void;
   /** 권한 보기의 [Edit in Agents]. */
   onEditPermissions: () => void;
-  /** 글이나 chip을 보낸다. 일하는 중이면 다음 turn을 기다리는 줄이 된다. */
-  onSend: () => void;
+  /** 글이나 chip을 보낸다. 일하는 중이면 다음 turn을 기다리는 줄이 된다(`next_turn`). `steer`는 도는 turn에 든다. */
+  onSend: (delivery: Delivery) => void;
   /** shell mode(`!`)에서 보냈다. 앞 `!`와 앞뒤 빈칸을 뗀 명령이다. */
   onShell: (command: string) => void;
   onStop: () => void;
@@ -125,6 +145,8 @@ interface AgentComposerProps {
   usage?: ReactNode;
   /** 올라갈 때마다 입력칸에 focus를 옮기고 커서를 글 끝에 둔다(대화의 `!` 코드 블록 단추). */
   focusSignal?: number;
+  /** agent command가 composer를 부르는 통로. 입력칸이 있는 동안만 값이 있다. */
+  keys: { current: ComposerKeys | null };
 }
 
 export function AgentComposer(props: AgentComposerProps): ReactNode {
@@ -167,6 +189,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const clearText = () => props.onDraft({ text: "", selection: [0, 0] });
   const slash = useSlashMenu({
     source: props.source,
+    onSend: () => send(),
     session: props.session,
     commands: props.meta?.commands ?? [],
     text: draft.text,
@@ -287,13 +310,49 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     });
   };
 
-  const send = () => {
+  const send = (delivery: Delivery = "next_turn") => {
     if (!canSend) return;
     if (shellMode) props.onShell(shellCommand);
     else if (draft.text.startsWith("/") && capabilities.commands) {
       void slash.submit();
-    } else props.onSend();
+    } else props.onSend(delivery);
   };
+
+  // Shift+Enter(Ctrl+J)는 줄바꿈이다. 커서 자리에 넣고 input 사건을 내 React가 글을 받게 한다.
+  const newline = () => {
+    const element = input.current;
+    if (!element) return;
+    element.setRangeText(
+      "\n",
+      element.selectionStart,
+      element.selectionEnd,
+      "end",
+    );
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  // 화면의 agent command가 이 composer를 부른다. 그릴 때마다 최신 값으로 다시 건다.
+  useLayoutEffect(() => {
+    const handle: ComposerKeys = {
+      focused: () => document.activeElement === input.current,
+      selected: () => {
+        const element = input.current;
+        return (
+          element !== null && element.selectionStart !== element.selectionEnd
+        );
+      },
+      slashOpen: slash.menu !== null,
+      canPicker: capabilities.model && props.meta !== null,
+      send,
+      newline,
+      clear: clearText,
+      togglePicker: () => picker.props.onOpenChange(!picker.props.open),
+    };
+    props.keys.current = handle;
+    return () => {
+      if (props.keys.current === handle) props.keys.current = null;
+    };
+  });
 
   // 대화의 `!` 코드 블록 단추가 글을 채우고 나면 입력칸에 focus를 옮기고 커서를 끝에 둔다.
   useLayoutEffect(() => {
@@ -303,8 +362,9 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     element.setSelectionRange(element.value.length, element.value.length);
   }, [props.focusSignal]);
 
+  // 보내기·줄바꿈·멈추기 같은 key는 화면의 agent command가 받는다. 여기는 입력 칸에서만 보는 것을 본다: 빈 shell
+  // mode(`!`만)의 Esc·Backspace는 mode를 끈다(Esc는 이 칸이 modal이라 command로 가지 않는다).
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
-    // 빈 shell mode(`!`만)에서 Esc나 Backspace는 mode를 끈다. 도는 turn을 멈추는 Esc보다 먼저 본다.
     if (
       shellMode &&
       draft.text === "!" &&
@@ -316,45 +376,22 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       return;
     }
     slash.onKeyDown(event);
-    if (event.defaultPrevented) return;
-    // Esc는 도는 turn을 멈춘다. slash menu가 열려 있으면 그 Esc가 메뉴를 닫으므로 위에서 먼저 걸러진다.
-    if (event.key === "Escape") {
-      if (!working) return;
-      event.preventDefault();
-      props.onStop();
-      return;
-    }
-    if (
-      event.key !== "Enter" ||
-      event.shiftKey ||
-      event.nativeEvent.isComposing ||
-      !(event.target as HTMLElement).matches("[data-composer-input]")
-    ) {
-      return;
-    }
-    event.preventDefault();
-    send();
-  };
-
-  // ChatGPT의 Ctrl/Cmd+Shift+M과 같은 자리. composer 안에 focus가 있을 때 model picker를 열고 닫는다.
-  const modelShortcut = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key.toLowerCase() !== "m" || !event.shiftKey) return;
-    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-    event.preventDefault();
-    picker.props.onOpenChange(!picker.props.open);
   };
 
   return (
     <div
       className={styles.composer}
       data-agent-composer=""
+      data-key-context="composer"
       onKeyDown={keyDown}
-      onKeyDownCapture={modelShortcut}
     >
       {offline ? (
         <p className={styles.note}>{t("conversation.notice.offline")}</p>
       ) : null}
-      <div className={styles.boxWrap}>
+      <div
+        className={styles.boxWrap}
+        data-key-context={slash.menu === null ? undefined : "slashMenu"}
+      >
         {slash.menu === null ? null : (
           <div className={styles.slash}>{slash.menu}</div>
         )}
@@ -397,6 +434,9 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               placeholder={props.hint}
               readOnly={locked}
               data-composer-input=""
+              data-key-context={
+                shellMode && draft.text === "!" ? "modal" : undefined
+              }
               onChange={(event) =>
                 props.onDraft({
                   text: event.currentTarget.value,
@@ -497,7 +537,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                 size="sm"
                 data-composer-action={stopping ? "stop" : "send"}
                 disabled={stopping ? offline : !canSend}
-                onClick={stopping ? props.onStop : send}
+                onClick={stopping ? props.onStop : () => send()}
               />
             </div>
           </div>

@@ -14,6 +14,7 @@ import {
   useState,
 } from "react";
 
+import { type FocusRoutes, useFocusRoutes } from "../agent-keys.ts";
 import type { Bookmarks } from "./bookmarks.ts";
 import { IndexCard } from "./index-card.tsx";
 import {
@@ -127,39 +128,44 @@ export function ThreadIndex({
 
   useEffect(() => () => clearTimeout(closer.current), []);
 
-  // Alt+↑/↓: 대화 화면 어디서든 앞뒤 사람 메시지로. 눈금이 숨어도(여백이 좁아도) 동작한다.
+  // Alt+↑/↓: 대화 화면 어디서든 앞뒤 사람 메시지로. 눈금이 숨어도(여백이 좁아도) 동작한다. 창의 agent command로 걸고,
+  // 화면 안에 focus가 들어올 때 올린다(AgentView와 같은 때).
+  const jumps = useRef<FocusRoutes>({});
+  const jumpTo = (direction: 1 | -1): string | null => {
+    // 그리지 않은 행도 자리를 계산해 준다.
+    const tops = items.flatMap((item) => {
+      const top = where(item.id);
+      return top === null ? [] : [{ id: item.id, top }];
+    });
+    const target =
+      direction === 1
+        ? tops.find((one) => one.top > EPSILON)
+        : (tops.findLast((one) => one.top < -EPSILON) ?? tops[0]);
+    return target?.id ?? null;
+  };
+  jumps.current = {
+    "agent.jump-previous": {
+      run: () => {
+        const id = jumpTo(-1);
+        if (id !== null) goTo(id, true);
+      },
+      when: () => jumpTo(-1) !== null,
+    },
+    "agent.jump-next": {
+      run: () => {
+        const id = jumpTo(1);
+        if (id !== null) goTo(id, true);
+      },
+      when: () => jumpTo(1) !== null,
+    },
+  };
+  const claimJump = useFocusRoutes(jumps);
   useEffect(() => {
     const view = list.current?.closest("[data-agent-view]");
     if (!view) return;
-    const onKey = (raw: Event) => {
-      const event = raw as globalThis.KeyboardEvent;
-      const element = list.current;
-      if (
-        !element ||
-        event.defaultPrevented ||
-        !event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey ||
-        (event.key !== "ArrowUp" && event.key !== "ArrowDown")
-      )
-        return;
-      // 그리지 않은 행도 자리를 계산해 준다.
-      const tops = items.flatMap((item) => {
-        const top = where(item.id);
-        return top === null ? [] : [{ id: item.id, top }];
-      });
-      const target =
-        event.key === "ArrowDown"
-          ? tops.find((one) => one.top > EPSILON)
-          : (tops.findLast((one) => one.top < -EPSILON) ?? tops[0]);
-      if (target === undefined) return;
-      event.preventDefault();
-      goTo(target.id, true);
-    };
-    view.addEventListener("keydown", onKey);
-    return () => view.removeEventListener("keydown", onKey);
-  }, [list, items, goTo, where]);
+    view.addEventListener("focusin", claimJump);
+    return () => view.removeEventListener("focusin", claimJump);
+  }, [list, claimJump]);
 
   if (items.length < MIN_MESSAGES || space.margin < RAIL_MIN_MARGIN)
     return null;
@@ -259,6 +265,7 @@ export function ThreadIndex({
       onPointerUp={up}
       onPointerCancel={up}
       onKeyDown={key}
+      data-key-context="modal"
       onBlur={(event) => {
         const next = event.relatedTarget as Element | null;
         if (

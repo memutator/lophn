@@ -128,6 +128,7 @@ export function QueuedMessages({
                   text: item.text,
                 })}
                 value={text}
+                data-key-context="modal"
                 onChange={(event) => setText(event.currentTarget.value)}
                 onKeyDown={(event) => editKeyDown(event, item.id)}
               />

@@ -1,7 +1,7 @@
 // harness-gui: 터미널 탭에서 `claude gui`를 치면 그 탭이 바뀌는 채팅 화면. 실제 탭 화면(TerminalGui)을 main 대신 fake 통로로
 // 그린다. fake 통로는 adapter가 낼 ACP 갱신을 붙을 때 한꺼번에 보내고, 보낸 말은 사람 메시지로 되돌려 준다. card 머리는
 // 이 page가 한 줄로 흉내 낸다(실제 앱은 ContentCard가 머리에 올린다).
-import { Profiler, useMemo } from "react";
+import { Profiler, type ReactNode, useEffect, useMemo } from "react";
 
 import type {
   AcpChildUpdate,
@@ -12,6 +12,8 @@ import type {
 import type { HarnessGuiTabApi } from "../../../../packages/shell/ipc/harness-gui.ts";
 import type { TerminalAgent } from "../../../../packages/shell/ipc/terminal.ts";
 import type { ThreadBookmarksApi } from "../../../../packages/shell/ipc/thread-bookmarks.ts";
+import { CommandsProvider } from "../../../../packages/shell/renderer/commands/react.tsx";
+import { createWindowCommands } from "../../../../packages/shell/renderer/commands/window.ts";
 import { TerminalGui } from "../../../../packages/shell/renderer/terminal/terminal-gui.tsx";
 import { TerminalAgentBody } from "./bodies.tsx";
 import { fakeHarnessMeta } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
@@ -35,6 +37,23 @@ const text = (value: string) => [{ type: "text" as const, text: value }];
 
 // 화면이 "지금"으로 보는 시각. 도는 줄의 경과 시간이 gallery마다 같다.
 const NOW = Date.parse("2026-11-05T09:02:00.000Z");
+
+/** 창의 key 표를 gallery에도 건다(Desktop과 같은 길). 그러지 않으면 Enter·Esc·Ctrl+F 같은 agent key가 gallery에서 죽는다. */
+function GalleryKeys({ children }: { children: ReactNode }) {
+  const commands = useMemo(
+    () =>
+      createWindowCommands({
+        platform: "other",
+        log: (message, error) => console.error(message, error),
+      }),
+    [],
+  );
+  useEffect(() => {
+    const listening = commands.keybindings.listen(document);
+    return () => listening.dispose();
+  }, [commands]);
+  return <CommandsProvider value={commands}>{children}</CommandsProvider>;
+}
 
 const message = (
   id: string,
@@ -688,12 +707,14 @@ function TerminalTabGui({
   );
   return (
     <HeadCard>
-      <TerminalGui
-        api={api}
-        gui={{ handle: "win_gallery", harness, handoff: "restart" }}
-        terminalRef="trm_gallery"
-        now={() => NOW}
-      />
+      <GalleryKeys>
+        <TerminalGui
+          api={api}
+          gui={{ handle: "win_gallery", harness, handoff: "restart" }}
+          terminalRef="trm_gallery"
+          now={() => NOW}
+        />
+      </GalleryKeys>
     </HeadCard>
   );
 }
@@ -859,12 +880,14 @@ function PerfGui({
           if (phase === "update") bag.updates += 1;
         }}
       >
-        <TerminalGui
-          api={api}
-          gui={{ handle: "win_perf", harness: "claude", handoff: "restart" }}
-          terminalRef="trm_perf"
-          now={now}
-        />
+        <GalleryKeys>
+          <TerminalGui
+            api={api}
+            gui={{ handle: "win_perf", harness: "claude", handoff: "restart" }}
+            terminalRef="trm_perf"
+            now={now}
+          />
+        </GalleryKeys>
       </Profiler>
     </HeadCard>
   );

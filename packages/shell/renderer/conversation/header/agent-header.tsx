@@ -257,6 +257,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
         ref={renameInput}
         className={styles.renameInput}
         data-header-rename
+        data-key-context="modal"
         aria-label={t("conversation.label.rename-session", {
           title: session?.title ?? t("conversation.label.session-untitled"),
         })}

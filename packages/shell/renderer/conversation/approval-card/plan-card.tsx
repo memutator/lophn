@@ -77,6 +77,7 @@ export function PlanCard({
       aria-label={t("conversation.label.approval")}
       data-approval-id={id}
       data-plan-card=""
+      data-key-context="modal"
       onKeyDown={keyDown}
     >
       <div className={styles.approval}>

@@ -6,7 +6,6 @@ import { formatRelativeTime, t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 import type { MenuItem } from "@lophn/ui/overlay";
 import {
-  type KeyboardEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -43,6 +42,7 @@ import type {
   ThreadEntry,
 } from "./agent-tab-source.ts";
 import { AgentThread } from "./agent-thread.tsx";
+import { type FocusRoutes, useFocusRoutes } from "./agent-keys.ts";
 import styles from "./agent-view.module.css";
 import {
   capabilitiesOf,
@@ -61,12 +61,16 @@ import { threadIndexOf } from "./thread-index/model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
 import { PlanCard } from "./approval-card/plan-card.tsx";
 import { fileBlock } from "./attachments.ts";
-import { AgentComposer } from "./composer/agent-composer.tsx";
+import {
+  AgentComposer,
+  type ComposerKeys,
+} from "./composer/agent-composer.tsx";
 import { useDraftFill } from "./composer/use-draft-fill.ts";
 import {
   afterCheck,
   afterReply,
   composerLocked,
+  type Delivery,
   fitsMessage,
   type Outgoing,
   resend,
@@ -116,6 +120,8 @@ export interface AgentViewHost {
 
 interface AgentViewProps {
   source: AgentTabSource;
+  /** GUI 탭의 harness(`claude|codex|opencode|omp`). 있으면 키 context가 `agentView:<harness>`이고 CLI의 key가 먼저 든다. */
+  harness?: string;
   /** 창마다 하나인 입력 메모리. 탭을 닫았다 열어도 쓰던 글이 남는다. */
   drafts: DraftStore;
   /** 보고 있는 session. null은 아직 만들지 않은 새 session이고 첫 말을 보낼 때 만든다. */
@@ -265,15 +271,10 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   >([]);
   const stage = useRef<HTMLDivElement>(null);
   const find = useConversationFind(stage, props.findSeed, props.onFindSeedUsed);
-
-  // Ctrl/Cmd+F는 이 화면이 focus를 가질 때만 받는다. 편집기·browser 탭의 같은 키와 겹치지 않게 표에 넣지 않는다.
-  const findKeys = (event: KeyboardEvent<HTMLElement>) => {
-    if (!(event.metaKey || event.ctrlKey)) return;
-    if (event.altKey || event.shiftKey || event.code !== "KeyF") return;
-    event.preventDefault();
-    event.stopPropagation();
-    find.show();
-  };
+  // agent command가 이 화면을 부르는 길: composer의 일과, focus를 받은 화면의 동작(`routes`).
+  const keys = useRef<ComposerKeys | null>(null);
+  const routes = useRef<FocusRoutes>({});
+  const claimFocus = useFocusRoutes(routes);
 
   const { agent, thread, refresh } = data;
   const entry = data.sessions.find((item) => item.id === session) ?? null;
@@ -293,6 +294,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const turn = thread?.turn ?? null;
   const active = turn !== null && turn.phase !== "ended" ? turn : null;
   const offline = data.connection === "reconnecting";
+  const locked = composerLocked(draft.outgoing);
   const messages = messagesOf(thread);
   const readOnly = entry?.archived === true;
   const imageUrl = useCallback(
@@ -574,14 +576,18 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     else drafts.save(target, { outgoing: next });
   };
 
-  const dispatch = async (content: ContentBlock[], target: string) => {
+  const dispatch = async (
+    content: ContentBlock[],
+    target: string,
+    delivery: Delivery,
+  ) => {
     const id = newId("msg", now());
-    // 일하는 중에 보낸 말은 다음 turn을 기다린다. 도는 turn에 올리는 일은 "다음 turn" 줄의 [Send now]가 한다.
+    // 일하는 중에 보낸 말은 다음 turn을 기다린다(`next_turn`). 도는 turn에 넣는 `steer`는 agent command `agent.send-now`가 보낸다.
     const outgoing = startSend({
       id,
       key: `session-messages-send-${id}`,
       content,
-      delivery: "next_turn",
+      delivery,
     });
     drafts.save(target, { outgoing });
     await deliver(target, outgoing);
@@ -589,7 +595,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   // 첨부한 이미지는 보내기 전에 올려 image block으로, 파일은 resource_link block으로 글 뒤에 싣는다. 하나라도 못
   // 올리면 보내지 않고 글과 첨부는 그대로 남는다.
-  const send = async () => {
+  const send = async (delivery: Delivery = "next_turn") => {
     if (readOnly || composerLocked(draft.outgoing)) return;
     const { attachments } = draft;
     if (draft.text.trim() === "" && attachments.length === 0) return;
@@ -610,7 +616,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       }
       content.push(uploaded.value.block);
     }
-    await dispatch(content, target);
+    await dispatch(content, target, delivery);
   };
 
   // composer의 shell mode(`!`). 명령은 모델 메시지가 아니라 `run_shell`로 간다.
@@ -828,6 +834,94 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     })();
   };
 
+  // agent command가 이 화면에서 하는 일. focus가 이 화면에 있을 때만 창이 부른다. `when`은 키를 삼키기 전에 보므로 싸게 둔다.
+  const selectedText = () =>
+    (keys.current?.selected() ?? false) ||
+    (window.getSelection()?.toString() ?? "") !== "";
+  const typing = () => keys.current?.focused() === true && draft.text !== "";
+  const lastUser = messages.findLast(
+    (item) => item.actor === "user" && item.delivery === "next_turn",
+  );
+  const queued = thread?.queued ?? [];
+  const modeReady =
+    session !== null &&
+    !readOnly &&
+    caps.mode &&
+    meta !== null &&
+    meta.modes.length >= 2;
+  routes.current = {
+    "agent.send": {
+      run: () => keys.current?.send("next_turn"),
+      when: () => keys.current?.focused() === true,
+    },
+    "agent.newline": {
+      run: () => keys.current?.newline(),
+      when: () => keys.current?.focused() === true && !locked,
+    },
+    "agent.interrupt": {
+      run: () => void stop(),
+      when: () => active !== null && !selectedText(),
+    },
+    "agent.model-picker": {
+      run: () => keys.current?.togglePicker(),
+      when: () => keys.current?.canPicker === true,
+    },
+    "agent.find": { run: () => find.show(), when: () => true },
+    "agent.cycle-mode": {
+      run: () => {
+        if (session === null || meta === null) return;
+        const at = meta.modes.findIndex((mode) => mode.id === meta.mode);
+        const next = meta.modes[(at + 1) % meta.modes.length];
+        if (next === undefined) return;
+        void act(session, {
+          type: "set_mode",
+          session,
+          key: actKey("mode"),
+          mode: next.id,
+        });
+      },
+      when: () => modeReady && keys.current?.slashOpen === false,
+    },
+    // 다음 turn 줄의 첫 글을 지금 올린다(줄의 [Send now]와 같은 길). 줄이 없으면 입력칸의 글을 steer로 보낸다.
+    "agent.send-now": {
+      run: () => {
+        const first = queued[0];
+        if (first !== undefined) {
+          void perform(async () => {
+            const result = await source.sendQueuedNow(first.id);
+            if (result.ok) await data.reload();
+            return result;
+          });
+        } else keys.current?.send("steer");
+      },
+      when: () =>
+        caps.steer &&
+        !offline &&
+        (queued.length > 0 || (active !== null && typing())),
+    },
+    "agent.queue": {
+      run: () => keys.current?.send("next_turn"),
+      when: () => active !== null && typing() && !locked,
+    },
+    "agent.rewind": {
+      run: () => {
+        if (lastUser !== undefined) {
+          setLayer({ kind: "rewind", message: lastUser.id });
+        }
+      },
+      when: () =>
+        active === null &&
+        lastUser !== undefined &&
+        caps.rewind &&
+        !readOnly &&
+        session !== null,
+    },
+    "agent.clear-input": {
+      run: () => keys.current?.clear(),
+      when: () => typing() && !locked && !selectedText(),
+    },
+  };
+
   // 대화 줄은 memo다. 글을 칠 때마다 새로 만들어지는 함수를 넘기면 그 memo가 깨지므로 늘 같은 함수가 최신 것을 부른다.
   const threadHandlers = {
     onScroll: useLatest((position: ThreadPosition | null) =>
@@ -948,7 +1042,10 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     <section
       className={styles.view}
       data-agent-view=""
-      onKeyDownCapture={findKeys}
+      data-key-context={
+        props.harness === undefined ? "agentView" : `agentView:${props.harness}`
+      }
+      onFocus={claimFocus}
     >
       <AgentHeader
         agent={agent}
@@ -1067,7 +1164,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           </FillShellProvider>
         </RunCodeProvider>
         {layer === null || layer.kind === "status" ? null : (
-          <div className={styles.layer} data-panel-layer={layer.kind}>
+          <div
+            className={styles.layer}
+            data-panel-layer={layer.kind}
+            data-key-context="modal"
+          >
             {layer.kind === "child" &&
             thread !== null &&
             childId !== null &&
@@ -1253,12 +1354,17 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         />
         <div className={styles.composerAnchor}>
           {layer?.kind === "status" && status !== null ? (
-            <div className={styles.statusOverlay} data-panel-layer="status">
+            <div
+              className={styles.statusOverlay}
+              data-panel-layer="status"
+              data-key-context="modal"
+            >
               <StatusView status={status} onClose={() => setLayer(null)} />
             </div>
           ) : null}
           <AgentComposer
             key={key}
+            keys={keys}
             focusSignal={focusSignal}
             source={source}
             meta={meta}
@@ -1283,7 +1389,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             pathOf={windowPathOf()}
             readImage={windowReadImage()}
             working={active !== null}
-            locked={composerLocked(draft.outgoing)}
+            locked={locked}
             tooLong={!fitsMessage(draft.text)}
             offline={offline}
             readOnly={readOnly}
@@ -1342,7 +1448,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             onDraft={(patch) => drafts.save(key, patch)}
             onLoadPermissions={() => void loadPermissions()}
             onEditPermissions={host.openPermissions}
-            onSend={() => void send()}
+            onSend={(delivery) => void send(delivery)}
             onShell={(command) => void runShell(command)}
             onStop={() => void stop()}
             onCommand={runSlash}

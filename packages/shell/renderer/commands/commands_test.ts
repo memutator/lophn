@@ -9,6 +9,7 @@ import {
   type KeyTarget,
 } from "./keybinding-service.ts";
 import { createCommandRegistry } from "./registry.ts";
+import { createWindowCommands } from "./window.ts";
 
 function setup() {
   const logged: string[] = [];
@@ -390,4 +391,24 @@ test("사람이 바꾼 key는 기여·표의 기본 key를 모든 context에서 
   const replaced = press("KeyK", { ctrl: true }, { target: stacks[0] });
   assert.deepStrictEqual(keybindings.handle(replaced.event), true);
   assert.deepStrictEqual(ran, ["cycle"]);
+});
+
+test("focus 표의 동작은 마지막으로 focus를 받은 화면이 맡고, 그 화면의 when이 막으면 없는 것과 같다", () => {
+  const commands = createWindowCommands({ platform: "other", log: () => {} });
+  let ready = false;
+  let ran = 0;
+  const held = commands.focus.set(
+    "agent.interrupt",
+    () => {
+      ran += 1;
+    },
+    () => ready,
+  );
+  assert.deepStrictEqual(commands.registry.canRun("agent.interrupt"), false);
+  ready = true;
+  assert.deepStrictEqual(commands.registry.canRun("agent.interrupt"), true);
+  assert.deepStrictEqual(commands.registry.execute("agent.interrupt").ok, true);
+  assert.deepStrictEqual(ran, 1);
+  held.dispose();
+  assert.deepStrictEqual(commands.registry.canRun("agent.interrupt"), false);
 });

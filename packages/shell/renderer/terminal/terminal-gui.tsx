@@ -431,34 +431,38 @@ export function TerminalGui({
     <>
       {source === null ? null : (
         <EventsProvider client={feed.client}>
-          <AgentView
-            source={source}
-            drafts={drafts ?? own}
-            session={feed.session}
-            onSessionChange={NOWHERE}
-            host={{
-              openPermissions: NOWHERE,
-              openAgentSettings: NOWHERE,
-              openForked: NOWHERE,
-              showUsage: NOWHERE,
-              closeTab: NOWHERE,
-              ...host,
-            }}
-            now={now}
-            trailing={toggle.button}
-            extraMenu={{
-              items: [
-                {
-                  id: OPEN_TERMINAL_ID,
-                  label: t("terminal.menu.open-terminal"),
-                  leading: <MenuIcon icon={workspaceIcons.terminal} />,
+          {/* key context `agentView`은 이 바깥 칸이고, AgentView 안의 `agentView:<harness>`가 CLI key를 먼저 든다. 칸은 상자를 만들지 않는다. */}
+          <div data-key-context="agentView" style={{ display: "contents" }}>
+            <AgentView
+              source={source}
+              harness={gui.harness}
+              drafts={drafts ?? own}
+              session={feed.session}
+              onSessionChange={NOWHERE}
+              host={{
+                openPermissions: NOWHERE,
+                openAgentSettings: NOWHERE,
+                openForked: NOWHERE,
+                showUsage: NOWHERE,
+                closeTab: NOWHERE,
+                ...host,
+              }}
+              now={now}
+              trailing={toggle.button}
+              extraMenu={{
+                items: [
+                  {
+                    id: OPEN_TERMINAL_ID,
+                    label: t("terminal.menu.open-terminal"),
+                    leading: <MenuIcon icon={workspaceIcons.terminal} />,
+                  },
+                ],
+                onSelect: (id) => {
+                  if (id === OPEN_TERMINAL_ID) toggle.start();
                 },
-              ],
-              onSelect: (id) => {
-                if (id === OPEN_TERMINAL_ID) toggle.start();
-              },
-            }}
-          />
+              }}
+            />
+          </div>
         </EventsProvider>
       )}
       {toggle.overlays}

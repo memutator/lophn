@@ -32,6 +32,8 @@ interface SlashMenuInput {
   working: boolean;
   /** 고른 명령을 실행한다. 입력칸을 비우는 일도 실행하는 쪽이 한다. */
   onRun: (entry: SlashEntryView, argument: string) => void;
+  /** Enter로 보낸다. 메뉴가 열린 동안 Enter는 입력칸의 보내기가 아니라 이 메뉴의 것이다. */
+  onSend: () => void;
   /** 입력칸을 이 글로 바꾸고 커서를 끝에 둔다. */
   onText: (text: string) => void;
 }
@@ -39,7 +41,7 @@ interface SlashMenuInput {
 interface SlashMenuControl {
   /** composer 위에 놓을 메뉴. 닫혀 있으면 null이다. */
   menu: ReactNode | null;
-  /** composer를 감싼 곳의 keydown. 입력칸에서 온 위아래·Esc만 본다. */
+  /** composer를 감싼 곳의 keydown. 입력칸에서 온 위아래·Enter·Esc만 본다. */
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   /** 입력칸이 `/…`일 때 Enter·보내기. */
   submit: () => Promise<void>;
@@ -101,6 +103,12 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (!(event.target as HTMLElement).matches("[data-composer-input]")) return;
     if (state === null) return;
+    if (event.key === "Enter") {
+      if (event.nativeEvent.isComposing) return;
+      event.preventDefault();
+      latest.current.onSend();
+      return;
+    }
     if (event.key === "Escape") {
       event.preventDefault();
       setUnknown(null);

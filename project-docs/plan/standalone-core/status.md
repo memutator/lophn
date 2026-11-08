@@ -8,5 +8,5 @@ lead만 고친다. `tools/status.py standalone-core build`가 `tasks/*.md`에서
 | `score-idle` | idle | 2 | score-control | merged | idle/score-idle | 79859d6a3 |  |
 | `score-shell` | shell | 3 | score-idle | merged | shell/score-shell | cb85d646e |  |
 | `score-cli` | cli | 4 | score-shell | merged | cli/score-cli | 67f9a42bd |  |
-| `score-launchers` | launchers | 5 | score-cli | running | launchers/score-launchers |  |  |
+| `score-launchers` | launchers | 5 | score-cli | merged | launchers/score-launchers | 9ca86278d |  |
 | `score-cleanup` | cleanup | 6 | score-launchers | todo |  |  |  |

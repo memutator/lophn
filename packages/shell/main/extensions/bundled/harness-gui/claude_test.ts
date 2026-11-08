@@ -699,6 +699,103 @@ const result = (user: string) => ({
   usage: {},
 });
 
+// 줄 선 later 여럿이 한 turn으로 묶여 started가 잇따라 오면 모두 steer로 보였다(고친 뒤 다시 깨진 적 있다).
+test("줄 선 later 메시지가 잇따라 시작해도 steer가 아니라 첫 메시지가 연 turn의 next_turn이다", async () => {
+  const t = await setup();
+  await t.input(t.send("1", "first"));
+  await t.input(t.send("2", "second"));
+  await t.input(t.send("3", "third"));
+  const [, second, third] = t.queries[0]?.sent ?? [];
+  await t.feed(result("x"));
+  for (const one of [second, third])
+    await t.feed({
+      type: "command_lifecycle",
+      command_uuid: one?.uuid,
+      state: "started",
+    });
+  const taken = (id: string) => {
+    const found = t.state.items.find(
+      (item) => item.kind === "message" && item.id === id,
+    );
+    assert.equal(found?.kind, "message");
+    return found?.kind === "message" ? found : undefined;
+  };
+  assert.equal(taken("msg_2")?.delivery, "next_turn");
+  assert.equal(taken("msg_3")?.delivery, "next_turn");
+  assert.notEqual(taken("msg_2")?.turn, taken("msg_1")?.turn);
+  assert.equal(taken("msg_3")?.turn, taken("msg_2")?.turn);
+});
+
+test("steer 메시지를 고치거나 옮겨 다시 세워도 priority가 later로 내려가지 않는다", async () => {
+  const t = await setup();
+  await t.input(t.send("1", "first"));
+  await t.input({ ...t.send("2", "steer"), delivery: "steer" });
+  await t.input({
+    type: "edit_queued",
+    message: "msg_2",
+    content: [{ type: "text", text: "steer edited" }],
+  });
+  assert.equal(t.queries[0]?.sent.at(-1)?.priority, "next");
+});
+
+// 현재 CLI는 run_in_background 없이도 Agent를 비동기로 띄워 tool 결과가 바로 오고 끝은 task 알림이 알린다. 줄이 done이 되면 running 카드에서 빠졌다.
+test("비동기로 띄운 Agent는 tool 결과와 turn 끝 뒤에도 task 알림이 끝낼 때까지 running이다", async () => {
+  const t = await setup();
+  await t.input(t.send("1", "go"));
+  await t.feed({
+    type: "assistant",
+    parent_tool_use_id: null,
+    message: {
+      role: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "tu_agent",
+          name: "Agent",
+          input: { description: "d", prompt: "p" },
+        },
+      ],
+    },
+  });
+  await t.feed({
+    type: "system",
+    subtype: "task_started",
+    task_id: "a1",
+    tool_use_id: "tu_agent",
+    description: "d",
+  });
+  await t.feed({
+    type: "user",
+    parent_tool_use_id: null,
+    message: {
+      role: "user",
+      content: [
+        { type: "tool_result", tool_use_id: "tu_agent", content: "launched" },
+      ],
+    },
+    tool_use_result: { status: "async_launched", agentId: "a1" },
+  });
+  await t.feed(result("x"));
+  const stateOf = () => {
+    const found = t.state.items.find(
+      (item) => item.kind === "tool" && item.tool === "Agent",
+    );
+    return found?.kind === "tool"
+      ? (found.detail as { state?: string } | null)?.state
+      : undefined;
+  };
+  assert.equal(stateOf(), "running");
+  await t.feed({
+    type: "system",
+    subtype: "task_notification",
+    task_id: "a1",
+    tool_use_id: "tu_agent",
+    status: "completed",
+    summary: "finished",
+  });
+  assert.equal(stateOf(), "done");
+});
+
 // `!` 명령이 model prompt로 새면 사람이 친 shell 명령을 model이 지시로 받는다(녹화 shell_append: shouldQuery false는 turn을 열지 않는다).
 test("`!`와 run_shell은 shouldQuery false 메시지만 input queue에 넣고, 도는 turn이 있으면 그 turn이 끝난 뒤에 넣는다", async () => {
   const t = await setup();

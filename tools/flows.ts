@@ -365,6 +365,7 @@ type Catalog = {
   areaFiles: { file: string; data: Obj }[];
   journeyFiles: { file: string; data: Obj }[];
   testFiles: { file: string; data: Obj }[];
+  broken: { file: string; message: string }[];
   testGroups: Obj[];
   journeyGroups: Obj[];
   entries: Entry[];
@@ -428,18 +429,21 @@ async function load(): Promise<Catalog> {
     seen.add(r.id);
   }
 
-  const areaFiles = yamlFiles(`${FLOWS}/areas`).map((file) => ({
-    file,
-    data: yamlOf(file),
-  }));
-  const journeyFiles = yamlFiles(`${FLOWS}/journeys`).map((file) => ({
-    file,
-    data: yamlOf(file),
-  }));
-  const testFiles = yamlFiles(`${FLOWS}/tests`).map((file) => ({
-    file,
-    data: yamlOf(file),
-  }));
+  // 여러 agent가 file을 하나씩 동시에 쓴다. 깨진 file 하나가 남의 check까지 막지 않게 따로 모은다.
+  const broken: { file: string; message: string }[] = [];
+  const loadDir = (dir: string) =>
+    yamlFiles(dir).flatMap((file) => {
+      try {
+        return [{ file, data: yamlOf(file) }];
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        broken.push({ file, message: message.split("\n")[0] ?? message });
+        return [];
+      }
+    });
+  const areaFiles = loadDir(`${FLOWS}/areas`);
+  const journeyFiles = loadDir(`${FLOWS}/journeys`);
+  const testFiles = loadDir(`${FLOWS}/tests`);
 
   // 소유: flow의 entries, area의 links, area의 ignore. 두 번째부터는 duplicates에 모은다.
   const owners = new Map<string, string>();
@@ -480,6 +484,7 @@ async function load(): Promise<Catalog> {
     areas,
     areaIds: areas.map((a) => String(a.id)),
     areaFiles,
+    broken,
     journeyFiles,
     testFiles,
     testGroups: asArray(areasYaml.test_groups).map(asObj),
@@ -532,6 +537,7 @@ function check(c: Catalog, only: string | undefined, partial: boolean) {
   const warn = (file: string, field: string, message: string) =>
     warnings.push({ file, text: `warning: ${file}: ${field}: ${message}` });
 
+  for (const b of c.broken) add(b.file, "yaml", b.message);
   const generated = new Map(c.entries.map((e) => [e.id, e]));
   const flows = flowsOf(c);
   const outcomes = outcomeRefs(c);

@@ -15,6 +15,8 @@ shell main이 `browser_call`을 받아 그 탭의 guest(`<webview>`)나 preview 
   - `packages/design/i18n/catalog/browser.ts`
   - `tools/wireframes/pages/screens/browser/`
   - `packages/shell/main/{tsconfig,tsconfig.node}.json`(추가 소유: `browser/agent/`를 옮기는 줄만)
+  - `packages/shell/renderer/app-frame/webview-host.tsx`(추가 소유: agent가 다루는 숨은 guest를 그리게 하는 곳만)
+  - `packages/shell/renderer/workspace/workspace-window.tsx`(추가 소유: host 탭 본문을 고르지 않아도 mount하는 곳만)
 - 읽을 것:
   - 계획: `project-docs/plan/browser-use/README.md`, `project-docs/plan/browser-use/tasks/bu-call.md`("고정한 꼴" 전체가 이 task의 계약), `project-docs/products/roadmap/browser-use.md`("무엇을 만드나" 3·4, "정한 것" 3·5·6·11·12)
   - architecture: `project-docs/architecture/{browser-tab,workspace-layout}.md`
@@ -48,6 +50,13 @@ shell main이 `browser_call`을 받아 그 탭의 guest(`<webview>`)나 preview 
 10. `bu-call`이 둔 `createBrowserDriver(ctx: unknown)`은 `ShellContext`를 import하면 strict한 `packages/shell/main/tsconfig.json` project가 `desktop/wiring`까지 끌어 27개 오류가 났다. driver가 `ShellContext`가 필요하면 `browser/agent/`를 `tsconfig.json`에서 `tsconfig.node.json`으로 옮긴다. 필요한 것만 넘기는 작은 deps type으로 끝나면 옮기지 않는다.
 11. route 출력 꼴은 `bu-call`이 정했다: snapshot `{snapshot}`, logs `{logs}`, act·navigate·wait `{url, title, dialog?}`, screenshot `{image: {media_type, data_base64}}`, evaluate `{value?, exception?}`. shell은 brief "고정한 꼴"대로 `hostToolOutputSchema` content를 돌려주고 core가 이 꼴로 편다(`packages/core/main/daemon/wiring/host-queue.ts`). 어긋나면 core 쪽이 아니라 shell 쪽을 맞춘다.
 12. preview 탭의 화면은 `bu-preview-screen`이 core에서 내주게 고친 뒤에 그려진다. 진짜 Electron 확인은 lead의 확인 script(`/home/pyosechang/projects/lophn/.claude/worktrees/plan-browser-use/.dev-data/verify/harness.ts`의 `startHarness`, 본보기 `preview-check.ts`)를 네 worktree의 `.dev-data/bu-cdp/`로 복사해 쓴다. 숨은 `<webview>`는 `Page.captureScreenshot`이 20초 걸려 멈췄다(확인 script가 겪었다). 그래서 focus emulation 뒤 screenshot이 되는지가 이 task의 확인 대상이다.
+
+13. (첫 review 뒤) agent가 뒤에 연 탭을 다룬다. `tab open`은 `select: false`라 탭이 늘 뒤에 열린다. 지금은 사람이 고르기 전까지 본문이 mount되지 않아 모든 호출이 `unavailable`이고, 가려진 guest는 screenshot이 8초 뒤 `unavailable`이다. 이것이 agent의 기본 흐름(연 탭을 바로 확인)이라 이 task에서 고친다.
+    - host 탭(key `host:`)의 browser·preview 본문은 고르지 않아도 mount한다(`workspace-window.tsx`의 본문 그리기). 사람이 보는 탭과 자리는 바꾸지 않는다.
+    - agent가 다루는 동안(take control 상태의 agent) 숨은 guest는 `visibility: hidden` 대신 마지막 크기로 그리기를 이어 가게 둔다(사람 화면 위에 보이지 않게: 다른 내용 뒤, pointer 없음). 그래야 screenshot과 입력이 된다. 다루지 않는 탭은 지금처럼 숨긴다.
+    - 확인 script로: 사람이 다른 탭을 보는 채로 agent가 `tab open --url` → 바로 `snapshot`·`act`·`screenshot`이 되고, 그동안 창 screenshot에는 사람이 보던 탭이 그대로다.
+14. (첫 review 뒤) `press --ref`가 대상을 누른 뒤 키를 보내 버튼에서 Enter·Space가 두 번 동작한다. press는 누르지 말고 `DOM.focus`로 focus만 옮긴 뒤 키를 보낸다. headless에서 그것으로 키가 안 들어가면 그 사실을 보고하고, type·fill의 누르기는 그대로 둔다.
+15. (첫 review 뒤) 탭이 닫히면(bind의 `closed`) driver의 그 탭 session과 debugger를 정리한다.
 
 ## 끝남
 

@@ -9,8 +9,9 @@
   - `packages/protocol/shell/app-bridge-types.ts`
   - `packages/shell/ipc/app-keys.ts`
   - `packages/shell/preload/{app-tool.ts,app-tool_test.ts}`
-  - `packages/shell/renderer/app-frame/webview-host.tsx`
+  - `packages/shell/renderer/app-frame/{webview-host.tsx,app-views.tsx}`
   - `packages/shell/renderer/commands/app-keys.ts`
+  - `packages/shell/renderer/desktop/entry.tsx`
   - `packages/sdk/declaration/`
   - `packages/sdk/app-ui/`
   - `packages/core/agent-workspaces/skills/migrate-sdk/`
@@ -18,3 +19,4 @@
   - `tests/support/app/sample/`
   - `tools/wireframes/package.json`
   - `package-lock.json`
+  - `packages/design/i18n/catalog/`

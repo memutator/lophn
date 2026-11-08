@@ -12,4 +12,7 @@ extension manifest `contributes`(commands, keybindings), `ctx.commands`, rendere
   - `packages/shell/main/desktop/wiring/extensions.ts`
   - `packages/shell/ipc/extensions.ts`
   - `packages/shell/preload/extensions-api.ts`
-  - `packages/shell/renderer/commands/extension-keys.ts`
+  - `packages/shell/renderer/commands/{extension-keys.ts,window.ts,keybinding-service.ts,commands_test.ts}`
+  - `packages/shell/renderer/desktop/main.tsx`
+  - `packages/shell/renderer/desktop/settings/keyboard/`
+  - `packages/design/i18n/catalog/`

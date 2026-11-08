@@ -1,10 +1,11 @@
-// xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. clipboard(OSC 52)·자동 링크
-// (OSC 8)·파일·앱·플랫폼 동작 handler는 등록하지 않고, 그 escape는 parser에서 먹어 xterm
-// 기본 동작(링크 열기 확인 창)도 생기지 않게 한다. 화면에 보이는 http/https 글자와 파일 경로만 Ctrl/Cmd-click
-// 하면 `onLink`·`onPathLink`로 알리고, 여는 것은 듣는 쪽이 한다. clipboard는 사람이 부른 command
-// (`terminal.copy`·`terminal.paste`)로만 쓴다.
+// xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. 자동 링크(OSC 8)·파일·앱·플랫폼 동작 handler는
+// 등록하지 않고, 그 escape는 parser에서 먹어 xterm 기본 동작(링크 열기 확인 창)도 생기지 않게 한다. 화면에 보이는
+// http/https 글자와 파일 경로만 Ctrl/Cmd-click 하면 `onLink`·`onPathLink`로 알리고, 여는 것은 듣는 쪽이 한다.
+// clipboard는 사람이 부른 command(`terminal.copy`·`terminal.paste`)와, 사람이 이 터미널에서 mouse를 뗀 뒤 TUI가
+// 보낸 OSC 52 쓰기 한 번으로만 쓴다. OSC 52 읽기는 답하지 않는다.
 import { pathMatches } from "./path-links.ts";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
@@ -19,6 +20,8 @@ export interface TerminalView {
   replay(text: string): void;
   /** 새 generation이면 화면을 비운다. 옛 출력·입력을 다시 쓰지 않는다. */
   reset(): void;
+  /** PTY 치수로 맞춘다. 다시 붙을 때 snapshot은 PTY 치수로 직렬화돼 있어 그 치수로 써야 줄이 맞는다. */
+  resize(columns: number, rows: number): void;
   focus(): void;
   /** 지금 표시 영역에 맞춘 PTY 치수. 아직 잴 수 없으면 null이다. */
   fit(): { columns: number; rows: number } | null;
@@ -51,8 +54,8 @@ export interface TerminalClipboard {
   paste(): Promise<string>;
 }
 
-/** 출력이 바꿔도 동작이 생기지 않게 먹는 OSC 번호. 8은 링크, 52는 clipboard다. */
-const SWALLOWED_OSC = [8, 52] as const;
+/** 출력이 바꿔도 동작이 생기지 않게 먹는 OSC 번호. 8은 링크다. */
+const SWALLOWED_OSC = [8] as const;
 
 interface CellLike {
   isInverse(): number;
@@ -93,6 +96,7 @@ interface XtermLike {
   readonly rows: number;
   readonly element: HTMLElement | undefined;
   readonly buffer: { readonly active: BufferLike };
+  readonly unicode: { activeVersion: string };
   onRender(listener: () => void): { dispose(): void };
   readonly parser: {
     registerOscHandler(
@@ -113,8 +117,10 @@ interface XtermLike {
   loadAddon(addon: unknown): void;
   write(data: string, callback?: () => void): void;
   reset(): void;
+  resize(columns: number, rows: number): void;
   focus(): void;
   onData(listener: (data: string) => void): { dispose(): void };
+  onBinary(listener: (data: string) => void): { dispose(): void };
   onTitleChange(listener: (title: string) => void): { dispose(): void };
   dispose(): void;
 }
@@ -131,6 +137,7 @@ interface WebglLike {
 interface XtermParts {
   Terminal: new (options: Record<string, unknown>) => XtermLike;
   FitAddon: new () => FitLike;
+  Unicode11Addon: new () => unknown;
   WebglAddon: new () => WebglLike;
   WebLinksAddon: new (
     handler: (
@@ -143,6 +150,7 @@ interface XtermParts {
 const REAL: XtermParts = {
   Terminal: Terminal as unknown as XtermParts["Terminal"],
   FitAddon: FitAddon as unknown as XtermParts["FitAddon"],
+  Unicode11Addon: Unicode11Addon as unknown as XtermParts["Unicode11Addon"],
   WebLinksAddon: WebLinksAddon as unknown as XtermParts["WebLinksAddon"],
   WebglAddon: WebglAddon as unknown as XtermParts["WebglAddon"],
 };
@@ -398,7 +406,13 @@ export function createXtermView(
     // 오른쪽 여백을 겸해 양쪽 간격이 같게 한다.
     overviewRuler: { width: Number.parseFloat(token(host, "--space-3") ?? "") },
     theme,
+    // unicode(글자 폭) API가 proposed다.
+    allowProposedApi: true,
   });
+  // 기본 Unicode 6 폭표는 이모지(🔥✅🚀)를 1칸으로 센다. TUI(OpenCode, Claude Code)는 2칸으로 그리므로 그 줄의 뒤가
+  // 한 칸씩 밀리고, 바뀐 칸만 다시 그리는 TUI 화면이 크게 깨진다. host의 화면(`terminal-host/screen.ts`)도 같은 폭표다.
+  term.loadAddon(new parts.Unicode11Addon());
+  term.unicode.activeVersion = "11";
   let shown = JSON.stringify(theme);
   const retheme = () => {
     const next = themeOf(host);
@@ -410,6 +424,32 @@ export function createXtermView(
   };
   const swallowed = SWALLOWED_OSC.map((ident) =>
     term.parser.registerOscHandler(ident, () => true),
+  );
+  // TUI(Claude Code, OpenCode)는 mouse를 받아 스스로 글을 고르고, 뗄 때 OSC 52로 clipboard에 쓴다. 출력은 인터넷에서
+  // 온 글일 수 있어(cat한 file) 아무 때나 쓰게 두지 않는다. 사람이 이 터미널에서 mouse를 뗀 뒤 첫 쓰기 하나만 받고, 키를
+  // 누르면 거둔다.
+  let armed = false;
+  const arm = () => {
+    armed = true;
+  };
+  const disarm = () => {
+    armed = false;
+  };
+  host.addEventListener("pointerup", arm, true);
+  host.addEventListener("keydown", disarm, true);
+  swallowed.push(
+    term.parser.registerOscHandler(52, (data) => {
+      const payload = data.slice(data.indexOf(";") + 1);
+      if (!armed || clipboard === null || payload === "?") return true;
+      armed = false;
+      try {
+        const bytes = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
+        void clipboard.copy(new TextDecoder().decode(bytes));
+      } catch {
+        // base64가 아니면 쓰지 않는다.
+      }
+      return true;
+    }),
   );
   const fitAddon = new parts.FitAddon();
   term.loadAddon(fitAddon);
@@ -508,6 +548,10 @@ export function createXtermView(
       });
     },
     reset: () => term.reset(),
+    resize(columns, rows) {
+      if (columns !== term.cols || rows !== term.rows)
+        term.resize(columns, rows);
+    },
     focus() {
       attachWebgl();
       term.focus();
@@ -530,7 +574,16 @@ export function createXtermView(
       const subscription = term.onData((text) => {
         if (replaying === 0) listener(text);
       });
-      return () => subscription.dispose();
+      // mouse report 인코딩을 고르지 않은 TUI(?1000h만)에는 xterm이 X10 report를 onBinary로 낸다. 입력은 UTF-8 글로
+      // 가므로 0x80 아래(칸 95 안)만 그대로 보낸다. 그 밖은 X10으로 나타낼 수 없는 자리다.
+      const binary = term.onBinary((text) => {
+        const ascii = [...text].every((c) => c.charCodeAt(0) < 0x80);
+        if (replaying === 0 && ascii) listener(text);
+      });
+      return () => {
+        subscription.dispose();
+        binary.dispose();
+      };
     },
     onLink(listener) {
       linkListeners.add(listener);
@@ -558,6 +611,8 @@ export function createXtermView(
       });
     },
     dispose() {
+      host.removeEventListener("pointerup", arm, true);
+      host.removeEventListener("keydown", disarm, true);
       for (const handler of swallowed) handler.dispose();
       rendered.dispose();
       pathProvider.dispose();

@@ -1,3 +1,16 @@
 # browser-tab
 
 workspace의 browser 탭(`<webview>` 탭, native popup·DevTools view, bookmark). architecture는 `project-docs/architecture/browser-tab.md`.
+
+## preview 탭에 기기를 건 뒤 DevTools를 열면 emulation이 말없이 풀린다
+
+```yaml
+kind: bug
+modules: [packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer]
+```
+
+- 지금: `packages/shell/main/browser/agent/emulation.ts`는 기기를 걸 때만 DevTools 열림을 보고(`isDevToolsOpened`) 못 걸면 탭이 Desktop으로 돌아가 "Close DevTools to set the device size."를 보인다. 기기를 건 뒤 사람이 DevTools를 열면 debugger가 떨어져 크기·DPR·touch·user agent가 풀리는데, 그 사실이 renderer로 가는 길이 없다. `devtoolsOpened` 알림은 driver(`driver.ts`)에만 간다. 탭은 phone frame과 고른 기기 이름을 그대로 보인다.
+- 영향: 사람이 폰 크기로 본다고 믿는 화면이 실제로는 frame 크기로 줄인 desktop page다(user agent·touch가 없다). 반응형 확인을 잘못 믿는다.
+- 고치려면:
+  - (추천, 작음~중간) main → renderer push 하나(`shell:surface-emulation {view_session, device: null, reason: "devtools"}`)를 `ipc/surface.ts`·`preload/surface-api.ts`에 더하고, `devtoolsOpened`에서 emulation을 지운 뒤 보낸다. preview 탭이 Desktop으로 돌아가 기존 안내를 보인다.
+  - (작음) DevTools가 닫힐 때 고른 기기를 다시 건다. 사람이 DevTools를 닫으면 그대로 이어진다. 하지만 열려 있는 동안의 틀린 frame은 남는다.

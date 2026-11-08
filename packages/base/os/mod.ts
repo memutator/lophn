@@ -2,6 +2,7 @@ export { cmdShimCommand } from "./cmd-shim.ts";
 export { homeOf, type OsPlatform } from "./home.ts";
 export { ipcPath, ipcPathLimit } from "./ipc.ts";
 export { prependPath } from "./path-env.ts";
+export { socketDirectoryPath } from "./socket-dir.ts";
 export {
   nodeTreeDeps,
   signalTree,

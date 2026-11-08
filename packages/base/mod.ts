@@ -29,6 +29,7 @@ export {
   type OsPlatform,
   prependPath,
   signalTree,
+  socketDirectoryPath,
   treeGone,
   type TreeChild,
   type TreeDeps,

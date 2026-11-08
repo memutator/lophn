@@ -1,7 +1,13 @@
 // 앱 socket 디렉터리. slug는 경로에 넣지 않는다. Windows는 디렉터리 없이 pipe 이름만 낸다.
 import { createHash } from "node:crypto";
 import process from "node:process";
-import { err, ipcPathLimit, ok, type Result } from "../../../../base/mod.ts";
+import {
+  err,
+  ipcPathLimit,
+  ok,
+  type Result,
+  socketDirectoryPath,
+} from "../../../../base/mod.ts";
 import {
   APP_SOCKET_SLOTS,
   appBrokerSocketPath,
@@ -37,29 +43,22 @@ function fail(message: string): Result<never, SocketDirError> {
   return err({ code: "invalid_input", message });
 }
 
-// data root 절대 경로의 짧은 hash. socket 폴더 이름이다.
-function socketRootKey(dataRoot: string): string {
-  return createHash("sha256").update(dataRoot).digest("hex").slice(0, 12);
-}
-
-// XDG runtime이 있으면 거기를, 없으면 사용자별 0700 임시 디렉터리를 쓴다.
-// 어느 쪽이든 경로가 OS의 socket 경로 한도를 넘으면 거절한다. TCP로 바꾸지 않는다.
+// data root의 자리 규칙은 base에 있다. 여기서는 Node hash와 0700 폴더 만들기를 연결한다.
 export function createSocketDirectory(
   deps: SocketDirDeps,
 ): Result<SocketDirectory, SocketDirError> {
-  if ((deps.platform ?? process.platform) === "win32") {
-    return ok({ directory: deps.dataRoot });
-  }
-  if (!Number.isSafeInteger(deps.uid) || deps.uid < 0) {
-    return fail("uid is not valid");
-  }
-  const base =
-    deps.xdgRuntimeDir && deps.xdgRuntimeDir.length > 0
-      ? `${deps.xdgRuntimeDir}/lophn`
-      : `${deps.tempParent}/lophn-${deps.uid}`;
-  const directory = `${base}/${socketRootKey(deps.dataRoot)}`;
-  deps.ensureDir(directory, MODE);
-  return ok({ directory });
+  const platform = deps.platform ?? process.platform;
+  const directory = socketDirectoryPath({
+    dataRoot: deps.dataRoot,
+    xdgRuntimeDir: deps.xdgRuntimeDir,
+    tempParent: deps.tempParent,
+    uid: deps.uid,
+    platform,
+    hash: (text) => createHash("sha256").update(text).digest("hex"),
+  });
+  if (!directory.ok) return err(directory.error);
+  if (platform !== "win32") deps.ensureDir(directory.value, MODE);
+  return ok({ directory: directory.value });
 }
 
 // 앱 socket 자리의 수. 앱 하나는 자리 하나를 계속 써서 같은 앱이 다시 떠도 socket 경로가 같다.

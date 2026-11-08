@@ -104,6 +104,7 @@ workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커
 - **dialog는 자동으로 닫는다.** alert·beforeunload는 accept, confirm·prompt는 dismiss이고 그 호출(다루지 않는 사이에 뜬 것은 다음 act·navigate·wait)의 결과에 `dialog`로 적는다.
 - **take control.** agent가 다루기 시작한 탭은 탭 머리(preview는 안내 줄)에 "Agent is controlling this tab"과 [Take control]을 둔다. 사람이 가져오면 agent의 act·navigate·evaluate는 `conflict`이고 snapshot·screenshot·logs·wait·read는 된다. [Hand back]으로 푼다. 상태는 shell main 메모리에 탭마다 있고 core는 모른다.
 - **뒤에 연 탭도 바로 다룬다.** `tab open`은 늘 뒤에 열리므로 host 탭(key `host:`)의 browser·preview 본문은 고르지 않아도 숨은 그릇에 mount된다(`workspace-window.tsx`). agent가 다루는 동안 숨은 guest는 그리기를 이어 가야 screenshot과 입력이 된다(`webview-host.tsx`의 `setDriven`).
+- **기기 emulation은 preview 탭에만 있다(사람, 2026-11-08).** 사람이 Settings > Browser에 자기 기기를 등록한다(설정 `shell.devices`: 이름, 크기, DPR, OS `ios|android`, 32개까지. 일반 기기 표는 두지 않는다). preview 탭 안내 줄의 기기 고르기(Desktop과 등록한 기기)나 `lophn tab open --preview <app> --device <name>`(없는 이름은 `not_found`)으로 고르면 shell main(`browser/agent/emulation.ts`)이 그 guest에 크기·DPR(`mobile`), touch, OS별 고정 user agent를 걸고 page를 다시 load한다. 고른 기기는 탭 상태에만 있다. emulation은 driver와 같은 debugger를 owner를 나눠 같이 쓴다(webContents 하나에 debugger 하나). DevTools가 열려 있으면 걸지 못해 Desktop으로 돌아가고 안내를 보인다. emulation된 page의 screenshot은 CSS px 크기다. 진짜 폰이 아니다(iOS는 WebKit이다. 실제 폰은 roadmap `mobile.md`).
 - **screenshot.** lophn agent는 image content로 받는다. binary는 PNG를 `--out <path>`나 `<os tmpdir>/lophn-screenshots/<tab>-<unix ms>.png`에 쓰고 그 path를 찍는다(harness는 자기 Read tool로 본다).
 
 ## 왜 이 모양인가

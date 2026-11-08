@@ -9,4 +9,4 @@ lead만 고친다. `tools/status.py browser-use build`가 `tasks/*.md`에서 id,
 | `bu-call` | bu-call | 2 | bu-preview | merged | bu-call/bu-call | c140f80ec |  |
 | `bu-cdp` | bu-cdp | 3 | bu-call | merged | bu-cdp/bu-cdp | c35d6fd6a |  |
 | `bu-cdp-ghost` | bu-cdp | 3 | 없음 | merged | bu-cdp/bu-cdp-ghost | b37a36fca |  |
-| `bu-device` | bu-device | 4 | bu-cdp | todo |  |  |  |
+| `bu-device` | bu-device | 4 | bu-cdp | running | bu-device/bu-device |  |  |

@@ -35,6 +35,8 @@ const ID_PREFIXES = {
   job: "Job",
   jbr: "JobRun",
   ntc: "Notice",
+  tab: "Tab",
+  hrq: "HostRequest",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

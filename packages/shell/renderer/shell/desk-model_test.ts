@@ -381,6 +381,28 @@ test("터미널 옆에 열기는 group을 만들거나 다음 칸에 쌓고, 칸
   assert.equal(deskEntries(desk).length, 6);
 });
 
+test("고르지 않고 열어도 옆 칸과 group 칸 자리를 지키고 보던 tab을 바꾸지 않는다", () => {
+  let desk = deskOf("a", "t", "b");
+  desk = openTab(desk, tab("n1"), { after: "t", beside: true, select: false });
+  assertValid(desk, ["a", "t", "b", "n1"]);
+  assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n1"]);
+  assert.equal(desk.selected, "b");
+
+  // group이 있으면 grow는 칸을 더하고 beside는 다음 칸 stack에 숨어 쌓인다. 어느 쪽도 선택은 그대로다.
+  desk = openTab(desk, tab("n2"), {
+    after: "t",
+    beside: true,
+    grow: true,
+    select: false,
+  });
+  assertValid(desk, ["a", "t", "b", "n1", "n2"]);
+  assert.equal(leavesOf(groupOf(desk, "t")!.layout).length, 3);
+  desk = openTab(desk, tab("n3"), { after: "t", beside: true, select: false });
+  assertValid(desk, ["a", "t", "b", "n1", "n2", "n3"]);
+  assert.equal(leavesOf(groupOf(desk, "t")!.layout).length, 3);
+  assert.equal(desk.selected, "b");
+});
+
 test("tab 메뉴의 여러 개 닫기는 의도한 tab만 닫고 group을 유효하게 둔다", () => {
   let desk = deskOf("a", "b", "c", "d", "e");
   desk = splitTab(desk, "b", "c", "right");

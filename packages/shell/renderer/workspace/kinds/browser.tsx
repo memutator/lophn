@@ -30,14 +30,27 @@ function newKey(): string {
   return `browser-${Date.now().toString(36)}-${++browserCount}`;
 }
 
-/** 사람이 연 새 browser 탭. 빈 url이면 빈 주소 칸으로 열린다. */
-export function openBrowserTab(host: TabHost, url?: string): void {
-  host.openTab({
-    key: newKey(),
+/**
+ * 새 browser 탭. 빈 url이면 빈 주소 칸으로 열린다. agent가 연 탭은 `open`으로 key와 자리를 주고, 고르지 않고
+ * 열며 float이면 떠 있는 패널로 연다.
+ */
+export function openBrowserTab(
+  host: TabHost,
+  url?: string,
+  open?: {
+    readonly key?: string;
+    readonly options?: Parameters<TabHost["openTab"]>[1];
+    readonly float?: boolean;
+  },
+): void {
+  const tab = {
+    key: open?.key ?? newKey(),
     kind: "browser",
     title: nameOf("", url ?? ""),
     fields: { url: url ?? "" },
-  });
+  };
+  if (open?.float === true) host.openFloat(tab);
+  else host.openTab(tab, open?.options);
 }
 
 export const browserKind: TabKindDef = {

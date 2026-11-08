@@ -149,7 +149,11 @@ import { NewTabMenu } from "./add-tab-menu.tsx";
 import { panelChoices, useScreensRead } from "./app-panel-tab.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { focusTabBody } from "./focus-tab.ts";
-import { distinctAgentTab, openAgent } from "./kinds/agent.tsx";
+import {
+  distinctAgentTab,
+  openAgent,
+  type SessionTabOpen,
+} from "./kinds/agent.tsx";
 import { openAppDetail } from "./kinds/app-detail.tsx";
 import {
   newKey,
@@ -229,6 +233,7 @@ import type {
   WorkspaceSource,
 } from "./source.ts";
 import { useCommands, useWindowCommands } from "../commands/react.tsx";
+import { surfaceApi, useSurfaceRequests } from "./use-surface-requests.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
 import styles from "./workspace-window.module.css";
 
@@ -390,6 +395,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const isApp = appId !== null;
   const workspaceId = workspaceKey(workspace);
   const browserApi = useBrowserApi();
+  const surface = surfaceApi();
   // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
   const workspaceViews = useWorkspaceViews();
   const pool = useMemo(
@@ -841,9 +847,21 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     const select = options?.select !== false;
     if (!select) {
       if (found !== null) return;
-      update((item) =>
-        openTabInDesk(item, tab, { select: false, unsaved: isUnsaved }),
-      );
+      const open = (item: Desk) =>
+        openTabInDesk(item, tab, {
+          select: false,
+          after: options?.after,
+          beside: options?.beside,
+          grow: options?.grow,
+          unsaved: isUnsaved,
+        });
+      // source가 다른 desk에 있어도 보는 desk를 바꾸지 않고 그 desk에 붙인다.
+      const at =
+        options?.after === undefined
+          ? undefined
+          : findTab(all, options.after)?.desk;
+      if (at === undefined) update(open);
+      else updateAt(at, open);
       return;
     }
     // 사는 desk가 있는 탭(workflow)은 그 desk로 건너가서 연다(없는 desk는 만든다). 이미 어느 desk에 열려 있으면 그 desk가 먼저다.
@@ -870,6 +888,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         openTabInDesk(item, tab, {
           after: options?.after,
           beside: options?.beside,
+          grow: options?.grow,
           unsaved: isUnsaved,
         }),
       ),
@@ -983,15 +1002,19 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   );
 
   // session 하나를 그 agent의 탭으로 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다.
-  const openSessionTab = (session: string): boolean => {
+  const openSessionTab = (session: string, open?: SessionTabOpen): boolean => {
     const entry = sessionStates.find((item) => item.session === session);
     const row =
       entry === undefined
         ? undefined
         : agentRow(entry, sidebarAgents.agents, workspace);
     if (row === undefined || agentViewSource === undefined) return false;
-    openAgent(host, { agent: row.assignment, name: row.name, session });
-    return true;
+    return openAgent(host, {
+      agent: row.assignment,
+      name: row.name,
+      session,
+      ...open,
+    });
   };
 
   // kind 선언이 배치와 통로를 건드리는 유일한 길이다. 본문·열기·닫기 확인은 모두 kind의 선언에서 오고
@@ -1129,6 +1152,15 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     sessionIds,
   ]);
 
+  useSurfaceRequests({
+    surface,
+    workspace,
+    ready: readyWorkspace === workspaceId,
+    host: () => hostRef.current,
+    openSession: openSessionTab,
+    browserApi,
+    keyOf: (session) => webviews.keyOf(session),
+  });
   useBridgeOpenRequests(terminal?.bridge ?? null, (request) =>
     terminal === undefined
       ? false

@@ -29,7 +29,14 @@ import type { TabKindDef } from "./kind.ts";
 // 탭 fields.workspace와 layout의 Home 표식. project id와 겹치지 않는다.
 const HOME = workspaceKey({ kind: "home" });
 
-interface OpenAgentInput {
+/** agent가 연 탭의 key·자리. 고르지 않고 열며 float이면 떠 있는 패널로 연다. */
+export interface SessionTabOpen {
+  readonly key?: string;
+  readonly options?: Parameters<TabHost["openTab"]>[1];
+  readonly float?: boolean;
+}
+
+interface OpenAgentInput extends SessionTabOpen {
   /** sidebar의 agent 줄이 주는 agent id. */
   readonly agent: string;
   /** 탭 제목이 될 agent 이름. source가 읽으면 그 이름으로 바뀐다. */
@@ -92,18 +99,19 @@ export function distinctAgentTab(
 
 /**
  * Agent 탭을 연다. 같은 agent의 같은 session이 열려 있거나 아직 말하지 않은 탭이 있으면 새로
- * 만들지 않고 그 탭을 고른다. 그 밖에는 그 agent의 새 탭이다. 통로가 없으면 열지 않는다.
+ * 만들지 않고 그 탭을 고른다(`options.select`가 false면 고르지 않는다). 그 밖에는 그 agent의 새 탭이다.
+ * 통로가 없으면 열지 않고 false다.
  */
-export function openAgent(host: TabHost, input: OpenAgentInput): void {
-  if (host.agentView === null) return;
+export function openAgent(host: TabHost, input: OpenAgentInput): boolean {
+  if (host.agentView === null) return false;
   const found = reusable(host, input);
   if (found !== undefined) {
-    host.openTab(found);
-    return;
+    host.openTab(found, input.options);
+    return true;
   }
   const session = input.session ?? null;
-  host.openTab({
-    key: freshKey(host.windowTabs(), input.agent),
+  const tab: TabItem = {
+    key: input.key ?? freshKey(host.windowTabs(), input.agent),
     kind: "agent",
     title: input.name,
     fields: {
@@ -111,7 +119,10 @@ export function openAgent(host: TabHost, input: OpenAgentInput): void {
       workspace: workspaceKey(host.workspace),
       ...(session === null ? {} : { session }),
     },
-  });
+  };
+  if (input.float === true) host.openFloat(tab);
+  else host.openTab(tab, input.options);
+  return true;
 }
 
 /** 탭 하나의 Agent 화면이 작업대에 닿는 길. */

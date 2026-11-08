@@ -2,6 +2,7 @@
 // 명령을 더하려면 명령 file에서 `defineCommand`로 만들고 아래 COMMANDS에 올린다.
 import type { WorkspaceKind } from "../../protocol/lophn-agent/workspaces.ts";
 import { AGENT_COMMANDS } from "./agent.ts";
+import { BROWSER_COMMANDS } from "./browser.ts";
 import { APP_COMMANDS } from "./app.ts";
 import { APP_SHARE_COMMANDS } from "./app-share.ts";
 import { CALL_COMMANDS } from "./call.ts";
@@ -12,6 +13,7 @@ import { RELEASE_COMMANDS } from "./release.ts";
 import { RUN_COMMANDS } from "./run.ts";
 import { SESSION_COMMANDS } from "./session.ts";
 import { SETTINGS_COMMANDS } from "./settings.ts";
+import { TAB_COMMANDS } from "./tab.ts";
 import type { Command } from "./types.ts";
 import { WORKFLOW_COMMANDS } from "./workflow.ts";
 
@@ -31,12 +33,14 @@ export const COMMANDS: readonly Command[] = [
   ...JOB_COMMANDS,
   ...APP_COMMANDS,
   ...APP_SHARE_COMMANDS,
+  ...BROWSER_COMMANDS,
   ...PACKAGE_COMMANDS,
   ...PREVIEW_COMMANDS,
   ...RELEASE_COMMANDS,
   ...RUN_COMMANDS,
   ...SESSION_COMMANDS,
   ...SETTINGS_COMMANDS,
+  ...TAB_COMMANDS,
   ...WORKFLOW_COMMANDS,
 ];
 

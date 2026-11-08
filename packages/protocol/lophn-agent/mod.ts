@@ -7,6 +7,7 @@ export * from "./command-filter.ts";
 export * from "./commands.ts";
 export * from "./content-block.ts";
 export * from "./harness-host.ts";
+export * from "./host-queue.ts";
 export * from "./input-tags.ts";
 export * from "./inputs.ts";
 export * from "./instructions.ts";

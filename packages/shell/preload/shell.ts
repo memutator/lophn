@@ -29,6 +29,7 @@ import { createAppearanceApi } from "./appearance-api.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { createBrowserApi } from "./browser-api.ts";
 import { createNoticeApi } from "./notice-api.ts";
+import { createSurfaceApi } from "./surface-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 import { createThreadBookmarksApi } from "./thread-bookmarks-api.ts";
 import { createViewsApi } from "./views-api.ts";
@@ -92,6 +93,11 @@ if (role === "shell") {
   );
   // 알림 toast와 Agent 탭의 보임·못 본 상태. 어디에 알릴지는 main이 정한다.
   contextBridge.exposeInMainWorld("lophnNotice", createNoticeApi(ipcRenderer));
+  // core가 시킨 탭 열기·닫기(agent가 연 탭)와 보이는 workspace, host 탭의 browser 상태. 어느 창에 보낼지는 main이 정한다.
+  contextBridge.exposeInMainWorld(
+    "lophnSurface",
+    createSurfaceApi(ipcRenderer),
+  );
   contextBridge.exposeInMainWorld(
     "lophnShortcuts",
     createShortcutApi(ipcRenderer),

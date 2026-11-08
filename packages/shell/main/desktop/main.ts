@@ -21,6 +21,7 @@ import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
 import * as extensions from "./wiring/extensions.ts";
 import * as layout from "./wiring/layout.ts";
+import * as surface from "./wiring/surface.ts";
 import { loginPathOf } from "./core/login-path.ts";
 import { openShellCoreControl, productVersionOf } from "./core/supervise.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
@@ -112,6 +113,7 @@ function startDesktop(): void {
   add(editor.register(ctx));
   const detachedWindows = add(detached.register(ctx, views));
   add(layout.register(ctx, detachedWindows));
+  add(surface.register(ctx));
   add(desktop.register(ctx, views, terminals));
 
   // shell 자원과 core 연결을 정리하는 한 번의 순서. Quit·`--quit`·OS 종료가 같이 쓴다.

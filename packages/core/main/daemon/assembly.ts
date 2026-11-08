@@ -2,6 +2,7 @@
 
 // 최상위 팀마다 등록 파일 하나.
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
+import { createCoreRegistration as createHostQueueRegistration } from "../../host-queue/register.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
 import { createLedgerRegistration as createJobsRegistration } from "../../jobs/register.ts";
@@ -21,6 +22,7 @@ import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { bareReplyWiring } from "./wiring/bare-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
+import { hostQueueWiring } from "./wiring/host-queue.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { noticesWiring } from "./wiring/notices.ts";
 import { sealedMarkerWiring } from "./wiring/sealed-marker.ts";
@@ -82,6 +84,7 @@ export const TEAMS = [
   { lophnAgentDefinitions },
   { createLedgerRegistration: createLophnAgentRegistration },
   { createCoreRegistration: createApprovalsRegistration },
+  { createCoreRegistration: createHostQueueRegistration },
   { createCoreRegistration: createRouterRegistration },
   { createCoreRegistration: createAnnotationsRegistration },
   { createCoreRegistration: createWorkspaceRegistration },
@@ -107,6 +110,7 @@ export const TEAM_MODULES = [
   new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,
   new URL("./wiring/instructions-registration.ts", import.meta.url).href,
   new URL("../../approvals/registration.ts", import.meta.url).href,
+  new URL("../../host-queue/register.ts", import.meta.url).href,
   new URL("./wiring/router-registration.ts", import.meta.url).href,
   new URL("../../apps/annotations/register.ts", import.meta.url).href,
   new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
@@ -163,6 +167,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   runsWiring,
   bareReplyWiring,
   harnessWiring,
+  hostQueueWiring,
   workflowsWiring,
   flowsWiring,
   jobsWiring,

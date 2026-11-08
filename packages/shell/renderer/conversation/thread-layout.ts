@@ -257,6 +257,7 @@ function entryOf(item: AcpItem): ThreadEntry | null {
                 group: detail.group ?? item.id,
                 outcome: detail.outcome ?? "cancelled",
                 lines: detail.lines,
+                reply: detail.reply,
               };
         case "consent":
           return {

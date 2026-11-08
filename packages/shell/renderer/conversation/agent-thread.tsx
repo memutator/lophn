@@ -503,6 +503,7 @@ function itemsOf(
             key={entry.id}
             outcome={entry.outcome}
             lines={entry.lines}
+            reply={entry.reply}
           />,
         );
         break;

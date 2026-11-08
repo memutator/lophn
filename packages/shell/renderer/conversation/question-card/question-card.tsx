@@ -285,12 +285,18 @@ interface QuestionSummaryProps {
   outcome: QuestionOutcome;
   /** 질문 순서대로 header와 답. */
   lines: readonly AnsweredLine[];
+  /** `parent_reply`일 때 부모의 답 글. */
+  reply?: string;
 }
 
-/** 풀린 묶음이 대화에 남는 접힌 요약. 사람 메시지로 끝난 묶음은 늘 펼쳐 고른 답이 없음을 보인다. */
+/**
+ * 풀린 묶음이 대화에 남는 접힌 요약. 사람 메시지로 끝난 묶음은 늘 펼쳐 고른 답이 없음을 보이고,
+ * 부모가 답한 묶음(팀 자식)은 늘 펼쳐 부모의 답 글을 보인다.
+ */
 export function QuestionSummary({
   outcome,
   lines,
+  reply,
 }: QuestionSummaryProps): ReactElement {
   const [open, setOpen] = useState(false);
   const submitted = outcome === "submitted";
@@ -320,6 +326,11 @@ export function QuestionSummary({
             </>
           ) : outcome === "cancelled" ? (
             t("conversation.label.question-cancelled")
+          ) : outcome === "parent_reply" ? (
+            <>
+              <span className={styles.ok}>✓</span>{" "}
+              {t("conversation.label.question-answered-by-parent")}
+            </>
           ) : (
             t("conversation.label.questions-ended-by-message")
           )}
@@ -332,7 +343,8 @@ export function QuestionSummary({
               {t("conversation.notice.questions-ended-by-message")}
             </li>
           ) : null}
-          {lines.map((line) => (
+          {outcome === "parent_reply" ? <li>{reply}</li> : null}
+          {(outcome === "parent_reply" ? [] : lines).map((line) => (
             <li key={line.header}>
               <span className={styles.summaryKey}>{line.header}</span>
               {line.answer !== null ? (

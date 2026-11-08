@@ -333,14 +333,21 @@ export async function toolDetailOf(
       ? (result["answers"] as unknown[])
       : [];
     const outcome = result?.["outcome"];
+    const reply =
+      outcome === "parent_reply" && typeof result?.["message"] === "string"
+        ? result["message"]
+        : undefined;
     return {
       kind: "question",
       // 묶음 id는 메모리에만 있다. 풀린 묶음은 알 필요가 없다.
       group: null,
       outcome:
-        outcome === "submitted" || outcome === "human_message"
+        outcome === "submitted" ||
+        outcome === "human_message" ||
+        outcome === "parent_reply"
           ? outcome
           : "cancelled",
+      ...(reply === undefined ? {} : { reply }),
       lines: questions.map((question, index) => {
         const answer = asRecord(answers[index]);
         const given = Array.isArray(answer?.["answer"])

@@ -220,7 +220,11 @@ export interface QuestionAnswer {
   readonly answer: readonly string[];
 }
 
-export type QuestionOutcome = "submitted" | "cancelled" | "human_message";
+export type QuestionOutcome =
+  | "submitted"
+  | "cancelled"
+  | "human_message"
+  | "parent_reply";
 
 /** 답한 뒤 접힌 요약의 한 줄. 답을 모르는 줄(다른 창에서 답함)은 null이다. */
 export interface AnsweredLine {
@@ -346,6 +350,8 @@ interface ThreadQuestions extends EntryBase {
   readonly group: string;
   readonly outcome: QuestionOutcome;
   readonly lines: readonly AnsweredLine[];
+  /** `parent_reply`일 때 부모의 답 글. */
+  readonly reply?: string;
 }
 
 interface ThreadApprovalResult extends EntryBase {

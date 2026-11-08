@@ -281,7 +281,12 @@ export const acpChildUpdateSchema = z.discriminatedUnion("type", [
   z.strictObject({
     type: z.literal("question_resolved"),
     group: id,
-    outcome: z.enum(["submitted", "cancelled", "human_message"]),
+    outcome: z.enum([
+      "submitted",
+      "cancelled",
+      "human_message",
+      "parent_reply",
+    ]),
   }),
   /** session 칸의 일부가 바뀌었다. 맨 위 칸만 덮어 합치고 `capabilities`는 통째로 바꾼다. */
   z.strictObject({

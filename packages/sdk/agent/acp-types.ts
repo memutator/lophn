@@ -127,7 +127,14 @@ export type AcpToolDetail =
   | {
       kind: "question";
       group: string | null;
-      outcome: "submitted" | "cancelled" | "human_message" | null;
+      outcome:
+        | "submitted"
+        | "cancelled"
+        | "human_message"
+        | "parent_reply"
+        | null;
+      /** `parent_reply`일 때 부모가 `call reply`로 한 답 글. */
+      reply?: string;
       lines: { header: string; answer: string | null }[];
     }
   | { kind: "consent"; release: string }
@@ -527,7 +534,7 @@ export type AcpChildUpdate =
   | {
       type: "question_resolved";
       group: string;
-      outcome: "submitted" | "cancelled" | "human_message";
+      outcome: "submitted" | "cancelled" | "human_message" | "parent_reply";
     }
   | { type: "session_changed"; session: Partial<AcpSessionMeta> }
   | { type: "plan_changed"; entries: AcpPlan["entries"] }

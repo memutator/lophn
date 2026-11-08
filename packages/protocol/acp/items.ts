@@ -101,11 +101,17 @@ export const acpToolDetailSchema = z.discriminatedUnion("kind", [
     fail_reason: z.enum(CALL_FAIL_REASONS).nullable(),
     session: id.nullable(),
   }),
-  /** 사람에게 묻는 `ask`. 풀리기 전에는 outcome이 null이고, 답 줄은 모르면 answer가 null이다. */
+  /**
+   * 사람에게 묻는 `ask`. 풀리기 전에는 outcome이 null이고, 답 줄은 모르면 answer가 null이다.
+   * 팀 자식의 질문을 부모가 `call reply`로 답했으면 outcome이 `parent_reply`이고 `reply`가 그 답 글이다.
+   */
   z.strictObject({
     kind: z.literal("question"),
     group: id.nullable(),
-    outcome: z.enum(["submitted", "cancelled", "human_message"]).nullable(),
+    outcome: z
+      .enum(["submitted", "cancelled", "human_message", "parent_reply"])
+      .nullable(),
+    reply: z.string().optional(),
     lines: z.array(
       z.strictObject({ header: z.string(), answer: z.string().nullable() }),
     ),

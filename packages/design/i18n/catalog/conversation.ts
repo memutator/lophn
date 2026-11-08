@@ -239,6 +239,7 @@ export const conversation = {
   "conversation.label.plan-in-progress": "In progress",
   "conversation.label.plan-not-approved": "Plan not approved",
   "conversation.label.plan-pending": "To do",
+  "conversation.label.question-answered-by-parent": "Answered by the parent",
   "conversation.label.question-answered-elsewhere":
     "Answered in another window",
   "conversation.label.question-cancelled": "Cancelled",

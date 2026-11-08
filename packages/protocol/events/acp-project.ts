@@ -355,11 +355,7 @@ export function acpUpdatesOf(
         {
           type: "question_resolved",
           group: event.payload.group,
-          // parent_reply는 팀 자식의 질문이라 ACP에 나가지 않는다(core acp.ts가 거른다).
-          outcome:
-            event.payload.outcome === "parent_reply"
-              ? "cancelled"
-              : event.payload.outcome,
+          outcome: event.payload.outcome,
         },
       ];
     default:

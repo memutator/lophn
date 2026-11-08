@@ -17,6 +17,7 @@ export {
 export { cryptoRandom, type RandomSource, seededRandom } from "./random.ts";
 export { createIdSource, type IdSource } from "./id.ts";
 export { formatSeq, parseSeq } from "./seq.ts";
+export { compareVersions } from "./version.ts";
 export { invertAll } from "./changeset-invert.ts";
 export { canonicalize } from "./canonical-json.ts";
 export { fingerprint, sha256Hex } from "./hash.ts";

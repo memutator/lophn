@@ -2,7 +2,13 @@
 // 내장 SDK는 catalog가 아니라 설치 사본이 정본이다(catalog에 등록하지 않는다).
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { err, errorCode, ok, type Result } from "../../../base/mod.ts";
+import {
+  compareVersions,
+  err,
+  errorCode,
+  ok,
+  type Result,
+} from "../../../base/mod.ts";
 import type { BuiltinPackage } from "../../../protocol/apps/package-routes.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 
@@ -22,16 +28,6 @@ type CategoryIndex = {
   lines: string[];
   blocks: { after: number; code: string }[];
 };
-
-function versionOrder(a: string, b: string): number {
-  const left = a.split(/[.+-]/).map(Number);
-  const right = b.split(/[.+-]/).map(Number);
-  for (let at = 0; at < 3; at += 1) {
-    const diff = (left[at] ?? 0) - (right[at] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return a < b ? -1 : a > b ? 1 : 0;
-}
 
 async function readDirNames(path: string): Promise<string[]> {
   const names: string[] = [];
@@ -298,7 +294,7 @@ export function readBuiltinSdk(deps: { dataRoot: string }): MemoryHandler {
         if (part.startsWith("@")) continue;
         if (name !== undefined && name !== `@lophn/${part}`) continue;
         const newest = (await readDirNames(`${sdkRoot}/${part}`))
-          .sort(versionOrder)
+          .sort(compareVersions)
           .at(-1);
         if (newest === undefined) continue;
         const text = await guideOf(`${sdkRoot}/${part}/${newest}`);

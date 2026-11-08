@@ -12,7 +12,7 @@ const MACHINE = { actor: "machine:install" } as RequestContext;
 
 type Out = {
   ok: boolean;
-  value?: { package: { owner_app: string | null } };
+  value?: { package: { owner_app: string | null; description: string } };
   error?: { code: string };
 };
 
@@ -40,10 +40,10 @@ function open() {
   ) => Out;
   return {
     db,
-    register: (app: string, version: string) =>
+    register: (app: string, version: string, description = "Shared code.") =>
       handle(tx, MACHINE, {
         name: "@me/shared",
-        description: "Shared code.",
+        description,
         version,
         owner_app: app,
         bundle_hash: HASH,
@@ -71,5 +71,35 @@ test("주인이 없는 package는 다음에 publish한 앱이 주인이 된다",
   assert.deepStrictEqual(
     register(APP_B, "1.1.0").value?.package.owner_app,
     APP_B,
+  );
+});
+
+test("새 version은 설명을 바꾸고 옛 version의 재시도는 되돌리지 않는다", () => {
+  const { db, register } = open();
+  register(APP_A, "1.0.0", "first");
+  const added = register(APP_A, "1.1.0", "second");
+  assert.deepStrictEqual(added.value?.package.description, "second");
+  const retry = register(APP_A, "1.0.0", "first");
+  assert.deepStrictEqual(retry.ok, true);
+  assert.deepStrictEqual(retry.value?.package.description, "second");
+  assert.deepStrictEqual(
+    (
+      db.prepare("SELECT description FROM packages").get() as {
+        description: string;
+      }
+    ).description,
+    "second",
+  );
+});
+
+test("version 목록은 숫자 순서로 돌려준다", () => {
+  const { register } = open();
+  register(APP_A, "0.9.0");
+  const out = register(APP_A, "0.10.0") as unknown as {
+    value: { package: { versions: { version: string }[] } };
+  };
+  assert.deepStrictEqual(
+    out.value.package.versions.map((item) => item.version),
+    ["0.9.0", "0.10.0"],
   );
 });

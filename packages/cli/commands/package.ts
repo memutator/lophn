@@ -1,6 +1,12 @@
 // `lophn package read|publish`: SDK와 사용자 package를 읽고, 앱 code의 폴더를 사용자 package(@me/...)로 낸다.
 import { z } from "zod";
-import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
+import {
+  compareVersions,
+  err,
+  type LophnError,
+  ok,
+  type Result,
+} from "../../base/mod.ts";
 import {
   appGet,
   appList,
@@ -38,17 +44,6 @@ const jsonBytes = (value: unknown) =>
 
 function failure(code: LophnError["code"], message: string): Out {
   return err({ code, message });
-}
-
-// 가장 높은 version. 숫자 부분을 비교하고 같으면 문자열 순서다.
-function newer(a: string, b: string): number {
-  const left = a.split(/[.+-]/).map(Number);
-  const right = b.split(/[.+-]/).map(Number);
-  for (let at = 0; at < 3; at += 1) {
-    const diff = (left[at] ?? 0) - (right[at] ?? 0);
-    if (diff !== 0) return diff;
-  }
-  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 // 안내 본문 한 창이다. content 전체 JSON이 WINDOW_BYTES 안에 들어오도록 창을 고르고, 더 남았으면
@@ -173,7 +168,7 @@ async function packageDetail(
   const all = versions.value.versions;
   const chosen =
     version === undefined
-      ? [...all].sort((a, b) => newer(a.version, b.version)).at(-1)
+      ? [...all].sort((a, b) => compareVersions(a.version, b.version)).at(-1)
       : all.find((entry) => entry.version === version);
   if (chosen === undefined) {
     return failure("not_found", "package version not found");
@@ -242,7 +237,7 @@ const read = defineCommand({
   name: "package.read",
   summary: "List packages or read one with its guide",
   description:
-    "List the SDK built into lophn and the user packages (@me) with their versions and owner app, or read one package by name: its guide (purpose, API and types, examples), required permissions, owner app and the apps that use the version. version needs name; without version the newest one. Built-in SDK names start with @lophn/. A guide longer than one result is paged: when guide_next_offset_bytes is set, call again with that value as --offset-bytes to read the next part.",
+    "List the SDK built into lophn and the user packages (@me) with their versions and owner app, or read one package by name: its guide (purpose, API and types, examples), required permissions, owner app and, for a user package, the apps that use the version (used_by). Built-in SDK reads have no used_by: the version each app pins is shown by app.sdk_status. version needs name; without version the newest one. Built-in SDK names start with @lophn/. A guide longer than one result is paged: when guide_next_offset_bytes is set, call again with that value as --offset-bytes to read the next part.",
   input: z.strictObject({
     name: nonblank.optional(),
     version: nonblank.optional(),

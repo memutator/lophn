@@ -135,6 +135,7 @@ export function packageInstallPath(
 function rewriteDependencies(
   installPath: string,
   text: string,
+  identity: { name: string; version: string },
 ): Result<string> {
   let parsed: unknown;
   try {
@@ -146,6 +147,17 @@ function rewriteDependencies(
     return invalid("package.json is not an object");
   }
   const manifest = parsed as Record<string, unknown>;
+  // 입력 name·version이 설치 경로와 catalog 값을 정하므로 폴더가 다른 package를 이 이름으로 내지 못하게 맞춘다.
+  if (manifest["name"] !== identity.name) {
+    return invalid(
+      `package.json name does not match ${identity.name}: ${String(manifest["name"])}`,
+    );
+  }
+  if (manifest["version"] !== identity.version) {
+    return invalid(
+      `package.json version does not match ${identity.version}: ${String(manifest["version"])}`,
+    );
+  }
   for (const field of ["dependencies", "devDependencies"] as const) {
     const value = manifest[field];
     if (value === undefined) continue;
@@ -184,6 +196,7 @@ export function prepareCopyFiles(
   const text = rewriteDependencies(
     installPath.value,
     new TextDecoder().decode(manifest.bytes),
+    { name, version },
   );
   if (!text.ok) return text;
   return ok(

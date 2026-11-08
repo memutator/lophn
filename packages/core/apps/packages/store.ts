@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
+import { compareVersions, err, ok, type Result } from "../../../base/mod.ts";
 import type { Package, PackageVersion } from "../../../protocol/apps/mod.ts";
 import type { Sql, SqlRow, Tx } from "../../../protocol/server/mod.ts";
 import { packageFromRow, versionFromRow } from "./rows.ts";
@@ -12,17 +12,17 @@ export function loadPackageRow(sql: Query, name: string): SqlRow | undefined {
 
 // 잡힌 version 값. 등록된 판만 남는다(자동 최신 선택은 없다).
 export function loadVersions(sql: Query, packageId: string): PackageVersion[] {
-  const rows = sql.all(
-    "SELECT * FROM package_versions WHERE package = ? ORDER BY version",
-    [packageId],
-  );
+  const rows = sql.all("SELECT * FROM package_versions WHERE package = ?", [
+    packageId,
+  ]);
   const versions: PackageVersion[] = [];
   for (const row of rows) {
     const version = versionFromRow(row);
     if (!version.ok) continue;
     versions.push(version.value);
   }
-  return versions;
+  // 문자열 정렬은 0.10.0을 0.9.0 앞에 놓으므로 코드에서 숫자로 정렬한다.
+  return versions.sort((a, b) => compareVersions(a.version, b.version));
 }
 
 // 이름 → catalog 값(잡힌 version 포함). 없는 이름은 null이다.

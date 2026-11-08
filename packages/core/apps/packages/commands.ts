@@ -195,13 +195,18 @@ export function createSdkCommands(): {
         // 새 version을 더한다. 기존 version byte·guide는 그대로다.
         const seq = emitRegistered(tx, packageId, input);
         insertVersion(tx, packageId, input);
+        // 설명은 가장 새로 낸 판을 따른다. 이미 있는 판의 재시도(위 분기)는 옛 설명으로 되돌리지 못한다.
+        tx.sql.run("UPDATE packages SET description = ? WHERE id = ?", [
+          input.description,
+          packageId,
+        ]);
         const guide = registerGuide(tx, input, seq);
         if (!guide.ok) return guide;
         return registered(
           tx,
           packageId,
           input.name,
-          description,
+          input.description,
           owner,
           input.version,
         );

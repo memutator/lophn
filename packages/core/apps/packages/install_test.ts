@@ -12,7 +12,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex } from "../../../base/mod.ts";
-import { installSdkCopies, removeInstallCopy } from "./install.ts";
+import {
+  installSdkCopies,
+  prepareCopyFiles,
+  removeInstallCopy,
+} from "./install.ts";
 
 const REPO_PACKAGES = fileURLToPath(
   new URL("../../../", import.meta.url),
@@ -171,4 +175,27 @@ test("깐 declaration·cap-store·cap-problem·agent 사본이 repo 없이 impor
       assert.ok(Object.keys(copy).length > 0, name);
     }
   });
+});
+
+test("폴더 package.json의 name이나 version이 입력과 다르면 사본을 만들지 않는다", () => {
+  const files = (manifest: object) => [
+    {
+      path: "package.json",
+      bytes: new TextEncoder().encode(JSON.stringify(manifest)),
+    },
+  ];
+  const code = (manifest: object) => {
+    const result = prepareCopyFiles("@me/foo", "1.0.0", files(manifest));
+    return result.ok ? "ok" : result.error.code;
+  };
+  assert.deepStrictEqual(code({ name: "@me/foo", version: "1.0.0" }), "ok");
+  assert.deepStrictEqual(
+    code({ name: "@me/other", version: "1.0.0" }),
+    "invalid_input",
+  );
+  assert.deepStrictEqual(
+    code({ name: "@me/foo", version: "1.0.1" }),
+    "invalid_input",
+  );
+  assert.deepStrictEqual(code({ name: "@me/foo" }), "invalid_input");
 });

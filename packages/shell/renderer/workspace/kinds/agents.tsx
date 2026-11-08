@@ -1,4 +1,4 @@
-// agents 탭 kind. 전역 agent 카드와 설정 구역을 보이고, [Open]이나 [New agent]로 같은 탭 안에서
+// agents 탭 kind. 전역 agent와 이 workspace 범위 agent의 카드, 설정 구역을 보이고, [Open]이나 [New agent]로 같은 탭 안에서
 // editor를 연다. 탭은 project에 하나이고 열어 둔 agent만 필드로 남긴다.
 import { commonIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";

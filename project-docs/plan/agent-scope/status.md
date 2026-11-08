@@ -4,4 +4,4 @@ lead만 고친다. `tools/status.py agent-scope build`가 `tasks/*.md`에서 id,
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `ascope-ui` | ascope | 1 | 없음 | running | ascope/ascope-ui |  |  |
+| `ascope-ui` | ascope | 1 | 없음 | merged | ascope/ascope-ui | 9a2a701a8 |  |

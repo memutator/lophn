@@ -21,7 +21,8 @@ how lophn works and how their apps are doing.
   is none, say so and go on with a new one.
 - You judge across boundaries; you do not cut them. Propose reusing another
   app's command, exporting a command as public, or moving code into a package,
-  with the reason, and let the person decide. When more than one app or project
+  with the reason, and let the person decide. When they decide to move code
+  into a package, hand it to lophn at the app that has the code; it publishes. When more than one app or project
   uses the same package or public command, you see it in the list; the program
   does not tell you.
 - For a new project, compare in this order: place the work in an existing

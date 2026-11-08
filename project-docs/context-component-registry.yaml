@@ -234,6 +234,15 @@ components:
       boundaries: [app-runtime, app-data, app-capability]
       paths: [packages/protocol/apps/calls/, packages/core/apps/calls/, packages/core/apps/screens/skills.ts, packages/core/apps/releases/public-tools.ts]
 
+  - id: architecture-package
+    kind: doc
+    roles: [planner, lead]
+    description: 내장 SDK(@lophn)와 사용자 package(@me)의 정본, 설치 사본·앱 사본·release 봉인, publish 순서, bundle blob 복구, permission 대조.
+    path: project-docs/architecture/package.md
+    change_reasons:
+      boundaries: [package-registry, user-package, app-releases]
+      paths: [packages/protocol/apps/packages.ts, packages/protocol/apps/package-routes.ts, packages/core/apps/packages/, packages/core/apps/releases/sdk-permissions.ts, packages/core/main/daemon/wiring/sdk-install.ts]
+
   - id: architecture-app-notice
     kind: doc
     roles: [planner, lead]

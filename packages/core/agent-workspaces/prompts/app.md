@@ -104,6 +104,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   command back.
 - A problem in another app's package goes to lophn at that app (`owner_app` from
   `lophn package read`) with `lophn call send`, no reply expected.
+- When you are asked to move code into a package, or you add another app's
+  package to this app, read the skill `publish-package`.
 - When the person gives you a job, do it with the
   tools and commands you were given. Read before you judge, and leave the result where the
   person can see it, with the evidence you read.

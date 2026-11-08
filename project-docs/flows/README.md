@@ -80,15 +80,16 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 칸:
 
 - 필수: `id`, `title`, `actor`, `boundary`, `code`, `steps`, `outcomes`, `crosses_process`. `entries`나 `uses` 가운데 하나는 비지 않는다.
-- `actor`는 입구를 부르는 쪽이다. shell main이 사람 token으로 부르는 memory route는 `shell`이다.
+- `actor`는 입구를 부르는 쪽이다. 사람이 화면에서 눌러 renderer가 부르는 route는 `person`, shell main이 스스로 부르는 것(harness host, host queue)은 `shell`, CLI나 tool로 agent가 부르는 것은 `agent`, core나 child process만 부르는 내부 route는 `system`이다.
+- `pre`는 모두 성립해야 하는 앞 상태다(AND). 둘 중 하나면 흔한 쪽 하나만 쓴다.
 - `pre`, `uses`가 다른 area를 가리킬 때 그 area의 flow가 아직 없으면 entry ID로 쓴다. entry는 code에서 뽑으므로 늘 있다.
-- `crosses_process`는 이 flow가 process 하나(core daemon, agent runtime, worker, 앱 child, shell main, renderer) 밖으로 나가야 끝나는지다. core E2E 후보를 고를 때 쓴다.
+- `crosses_process`는 이 flow가 lophn process 하나(core daemon, agent runtime, worker, 앱 child, preview·prepare child, flow host, shell main, renderer) 밖으로 나가야 끝나는지다. git, npm 같은 바깥 CLI는 세지 않는다. core E2E 후보를 고를 때 쓴다.
 - `risk`는 아래 다섯 가운데서만 고른다. 없으면 칸을 두지 않는다.
 
 | risk | 언제 |
 |---|---|
 | `data-loss` | 사용자 data(사람의 파일, ledger, 앱 DB, 설정, secret)를 잃거나 망가뜨릴 수 있다. 되돌리기(rewind, revert)도 여기다 |
-| `permission` | 허락, 할당, 승인, credential 범위를 판정한다 |
+| `permission` | 허락, 할당, 승인, 동의, credential 발급을 판정하는 것이 그 flow의 일이다. scope로 거르기만 하는 read에는 붙이지 않는다 |
 | `secret` | secret 값이 새거나 엉뚱한 요청에 붙을 수 있다 |
 | `sandbox` | 폴더 밖 쓰기, 앱·agent process의 file·network 경계, 인터넷에서 온 것 |
 | `twice-fixed` | 두 번 이상 고친 bug가 있다. 그 이슈나 changelog를 `docs`에 둔다 |
@@ -97,7 +98,7 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 
 부르는 쪽이 구별할 수 있는 끝 상태 하나다.
 
-- `id`는 flow 안에서 하나다. 성공은 상태 이름(`running`, `queued`)이나 `ok`, 실패는 공통 오류 code(`not_found`, `conflict` 등)나 그 갈래 이름이다. 실패면 `code`에 일곱 가운데 하나를 쓴다.
+- `id`는 flow 안에서 하나다. 성공은 상태 이름(`running`, `queued`)이나 `ok`, 실패는 공통 오류 code(`not_found`, `conflict` 등)나 그 갈래 이름이다. route가 오류로 돌려주면 `code`에 일곱 가운데 하나를 쓴다. ok로 돌려주고 출력의 상태로 실패를 알리면(release 준비의 `failed`) 갈래 이름만 쓰고 `code`를 두지 않는다.
 - 오류 문구가 달라도 부르는 쪽이 같게 다루면 같은 outcome이다. handler가 돌려주는 code와 상태가 다르면 나눈다.
 - `invalid_input`처럼 schema가 막는 것은 그 flow가 따로 다루는 갈래일 때만 쓴다.
 - `observe`는 test가 단정할 자리다. 앞머리는 `disk:`, `ledger:<표>`, `event:<name>`, `response`, `request:<받는 쪽>`(fake model, 바깥 server), `process:`, `screen:<frame id>`, `log:` 가운데 하나다.
@@ -106,11 +107,12 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 ## 쪼개는 기준
 
 1. 상태를 바꾸거나, 경계를 넘거나, 판정이 있을 때만 flow다. 다른 flow 안의 한 단계는 그 flow의 `steps`에 쓴다.
-2. 부수효과 없는 같은 resource의 read route는 flow 하나로 묶어도 된다(`entries`에 여럿). outcome은 `ok`와 handler가 실제로 돌려주는 실패만 둔다.
+2. 부수효과 없는 read route는 resource와 부르는 쪽(actor)이 같으면 flow 하나로 묶는다(`entries`에 여럿). outcome은 `ok`와 handler가 실제로 돌려주는 실패만 둔다.
 3. 같은 일을 하는 다른 입구(route와 그것을 부르는 CLI 명령과 tool)는 flow 하나다. surface area는 `links`로 잇는다. CLI나 IPC에만 있는 동작(core가 없으면 띄우기, 창 조작)은 그 surface area의 flow다.
-4. 같은 입구가 조건에 따라 아예 다른 일을 하면 flow를 나눈다. 하나는 그 입구를 소유하고 나머지는 `uses`와 `when`으로 쓴다(예: turn이 도는 중의 메시지 보내기는 steer).
-5. 화면의 모양, 문구, 배치는 flow가 아니다. 화면은 journey와 `observe`의 `screen:`에 쓴다.
-6. agent가 의미로 판단하는 일(AGENT.md의 L·A 줄)은 flow가 아니다. journey가 줄 ID로 가리킨다.
+4. core나 child process만 부르는 내부 route(activation 기록, report 같은)도 entry라 소유가 필요하다. 그 route가 자기 판정(거절, 상태)을 가지면 작은 flow 하나(actor `system`)로 두고 부모 flow가 `uses`로 가리킨다. 판정 없이 값만 읽는 내부 read는 부모 flow의 `entries`에 같이 둔다.
+5. 같은 입구가 조건에 따라 아예 다른 일을 하면 flow를 나눈다. 하나는 그 입구를 소유하고 나머지는 `uses`와 `when`으로 쓴다(예: turn이 도는 중의 메시지 보내기는 steer).
+6. 화면의 모양, 문구, 배치는 flow가 아니다. 화면은 journey와 `observe`의 `screen:`에 쓴다.
+7. agent가 의미로 판단하는 일(AGENT.md의 L·A 줄)은 flow가 아니다. journey가 줄 ID로 가리킨다.
 
 ## journey
 

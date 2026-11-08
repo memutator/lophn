@@ -273,16 +273,17 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
         (entry.kind === "browser" || entry.loaded)
       ) {
         // agent가 다루는 화면은 가려져도 그린다(visibility: hidden이면 guest가 그리기를 멈춰 screenshot이 끝나지 않는다).
-        // 마지막 크기 그대로 보이지 않게 둔다: pointer를 받지 않고 거의 투명하다. 실험으로 확인했다: opacity 0이거나 다른 내용 뒤
-        // (z-index -1)면 compositor가 가려진 것으로 보고 그리기를 멈춰 screenshot이 끝나지 않는다.
+        // 사람 화면에는 비치지 않게 그릇의 오른쪽 아래 모서리 밖에 두고 한 점만 걸친다. 실험으로 확인했다(opacity 1에서):
+        // 한 점이라도 그릇 안에 걸치면 그리기가 이어지고, 다른 내용 뒤(z-index -1)나 opacity 0이면 compositor가 가려진 것으로
+        // 보고 멈춰 screenshot이 끝나지 않는다. 크기는 마지막 그대로(없으면 800x600)이고 % 위치라 창 크기가 바뀌어도 한 점이다.
         if (style.width === "") {
-          style.left = "0px";
-          style.top = "0px";
           style.width = "800px";
           style.height = "600px";
         }
+        style.left = "calc(100% - 1px)";
+        style.top = "calc(100% - 1px)";
         style.zIndex = "1";
-        style.opacity = "0.01";
+        style.opacity = "";
         style.pointerEvents = "none";
         style.visibility = "visible";
         return;

@@ -20,7 +20,7 @@ import {
   archiveSession,
   deleteSession,
 } from "../../../protocol/lophn-agent/sessions.ts";
-import { projectGet } from "../../../protocol/projects/project-routes.ts";
+import { projectApi } from "../../../protocol/projects/project-api.ts";
 import {
   dropValue,
   type Env,
@@ -49,7 +49,7 @@ async function workspaceNameOf(
 ): Promise<SourceResult<string>> {
   if (workspace === null) return { ok: true, value: "" };
   if (workspace.kind === "project") {
-    const read = await env.read(projectGet, { project: workspace.id });
+    const read = await env.read(projectApi.get, { project: workspace.id });
     return read.ok ? { ok: true, value: read.value.project.title } : read;
   }
   const read = await env.read(appGet, { app: workspace.id });

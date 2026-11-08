@@ -1,6 +1,6 @@
 import { appList } from "../../../packages/protocol/apps/mod.ts";
 import type { Route } from "../../../packages/protocol/base/mod.ts";
-import { projectList } from "../../../packages/protocol/projects/mod.ts";
+import { projectApi } from "../../../packages/protocol/projects/mod.ts";
 import {
   type AgentId,
   agentCallRead,
@@ -70,7 +70,7 @@ async function readNames(port: ReadPort): Promise<Names> {
     return { items: out.apps, next_cursor: out.next_cursor };
   });
   const projects = await readAll(async (cursor) => {
-    const out = (await read(port, projectList, { cursor }))!;
+    const out = (await read(port, projectApi.list, { cursor }))!;
     return { items: out.projects, next_cursor: out.next_cursor };
   });
   const { agents } = (await read(port, agentList, {}))!;

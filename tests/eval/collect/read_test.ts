@@ -14,7 +14,7 @@ import {
   turnList,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import { appList } from "../../../packages/protocol/apps/mod.ts";
-import { projectList } from "../../../packages/protocol/projects/mod.ts";
+import { projectApi } from "../../../packages/protocol/projects/mod.ts";
 import { collectSessions, type ReadPort } from "./read.ts";
 
 const T0 = "2026-01-01T00:10:00.000Z";
@@ -80,7 +80,7 @@ const port: ReadPort = {
     switch (route) {
       case appList:
         return ok({ apps: [] });
-      case projectList:
+      case projectApi.list:
         return ok({ projects: [{ id: "prj_tax", name: "tax" }] });
       case agentList:
         return ok({

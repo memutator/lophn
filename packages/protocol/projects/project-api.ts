@@ -1,4 +1,4 @@
-// project 등록·수정·보관·조회 계약. 옛 `project-routes.ts`와 route 이름이 같아서 `projectApi` 객체에 담는다.
+// project 등록·수정·보관·조회 계약.
 import { z } from "zod";
 import {
   iconReadOutputSchema,

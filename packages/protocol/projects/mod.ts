@@ -1,7 +1,5 @@
 export * from "./values.ts";
 export * from "./artifact.ts";
-export * from "./projects.ts";
-export * from "./project-routes.ts";
 export * from "./openable-format.ts";
 export * from "./outline-markdown.ts";
 export * from "./project-folders.ts";

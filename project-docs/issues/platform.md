@@ -23,20 +23,6 @@ modules: [packages/shell/main, packages/shell/terminal-host, packages/coding-age
 
 정할 것: 안 1로 Windows 지원을 만들지, 안 2로 꺼진 것을 보일지. 안 1은 Linux session이 정한 설계(Windows에서 끈다)를 넓히는 일이라 계획으로 연다.
 
-## lophn을 끄고 바로 켜면 "lophn didn't start"로 멈춘다
-
-```yaml
-kind: bug
-modules: [packages/shell/main, packages/core/install-and-update]
-```
-
-- 지금: 끄기는 `app.once("will-quit", () => ctx.stopAll())`(`packages/shell/main/desktop/main.ts`)이고 `stopAll`(`packages/shell/main/desktop/wiring/context.ts`)은 영역마다 `stop()`을 부르기만 하고 core process가 끝나기를 기다리지 않는다. 그래서 shell이 먼저 끝나고 core는 data root lock을 쥔 채 조금 더 산다. 그 사이 새 lophn을 켜면 새 core가 `packages/core/install-and-update/instance-lock.ts`에서 lock을 못 얻어 `start_failed`("이 데이터 폴더에는 이미 실행 중인 instance가 있다")를 내고, shell(`packages/shell/main/desktop/core/supervise.ts`의 `StartFailedError`)은 다시 시도하지 않고 "lophn didn't start" 화면에 머문다. core 없이 shell만 떠 있다.
-  - 실제 사례(user journal): 새 core `start_failed` 19:54:05.605, 이전 core `stopped` 19:54:06.483. 이전 shell scope는 그보다 먼저 끝났다.
-- 영향: 사람이 lophn을 다시 켰는데 쓸 수 없다. 원인이 보이지 않아(화면은 "didn't start"뿐, 이유는 journal에만 있다) 한 번 더 끄고 켜야 하는 줄 모른다. data는 잃지 않는다.
-- 고치려면:
-  - 새 shell이 기동 실패 이유가 lock(이미 실행 중)이면 몇 초(예: 5초) 동안 짧은 간격으로 core를 다시 띄운다(작음). 이전 core가 진짜로 계속 돌고 있으면 시간이 지나 지금처럼 실패한다. 추천.
-  - 끌 때 shell이 core가 끝나기를 기다린 뒤 끝난다(`will-quit`에서 `preventDefault` 후 core exit를 기다리고 다시 quit, 시간 상한)(중간). OS 종료와 강제 종료에서는 여전히 겹칠 수 있어 위 안이 같이 필요하다.
-
 ## Quit 중에 돌던 ensure가 끝난 뒤 core를 새로 띄울 수 있다
 
 ```yaml

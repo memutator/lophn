@@ -47,8 +47,8 @@ support에는 띄우기와 연결만 둔다. flow의 단계는 test file에 그�
 | `fake-oauth/` | `startFakeIssuer`(device code·PKCE loopback 발급자), `connectOAuthProvider` |
 | `annotation/` | `uploadScreenshot` |
 
-- `bootCore`는 daemon을 Electron의 Node(`ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron packages/core/main/daemon/main.ts --port=0`)로 pipe에 띄우고 stdout 첫 frame(hello)에서 user token을 받는다. env는 비운 뒤 `LOPHN_HOME`, 빈 `HOME`, `PATH`와 `env` 옵션에 준 것만 준다.
-- `kill()`(SIGKILL)과 `stop()`(stdin을 닫음)은 `/proc/*/environ`에 그 `LOPHN_HOME`이 든 process가 없어질 때까지 기다린다. child가 남으면 그 pid만 끄고 실패한다. Linux 전용이다.
+- `bootCore`는 늘 새 core를 직접 띄운다(이미 도는 core에 합류하지 않는다). daemon을 Electron의 Node(`ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron packages/core/main/daemon/main.ts --port=0`)로 자기 pid를 가진 detached process로 띄우고, stdout 첫 줄 `ready`(실패면 `start_failed {reason}`)를 읽은 뒤 control `identify`·`connect {client: cli}`로 API 주소와 user token을 받는다(`tests/support/core/process.ts`). stderr는 `core.log`에 쓴다. env는 비운 뒤 `LOPHN_HOME`, 빈 `HOME`, `PATH`와 `env` 옵션에 준 것만 준다.
+- `stop()`은 control `stop`, `kill()`은 자기 core pid의 SIGKILL이다. 둘 다 그 pid가 끝나고 `/proc/*/environ`에 그 `LOPHN_HOME`이 든 process가 없어질 때까지 기다린다. child가 남으면 그 pid만 끄고 실패한다. Linux 전용이다(Windows는 시작 pid의 `ParentProcessId` tree를 본다). core가 SIGKILL로 죽은 뒤 child가 스스로 끝나는 것은 `tests/e2e/boot_test.ts`의 SIGKILL 행이 Linux에서 본다.
 - 기다림은 신호를 읽는 poll(제한 30초, 맞으면 바로 돌아옴)이나 fake server의 `arrived`·`aborted`다. 고정 sleep을 쓰지 않는다.
 
 ## 앱 길

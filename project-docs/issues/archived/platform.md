@@ -315,3 +315,19 @@ guard: 없음
 고치려면: daemon wiring이 agent runtime slot에 `onStderr`를 걸어 core stderr에 접두를 붙여 쓴다(작음). child가 이미 redaction해서 쓰니 그대로 옮겨도 된다. 추천.
 
 닫음: `packages/core/lophn-agent/run-loop/runtime.ts`의 `startAgentRuntimeChild`가 slot callbacks에 `onStderr`를 걸어 dep `stderr`로 넘기고, wiring(`packages/core/main/daemon/wiring/lophn-agent-runtime.ts`)이 줄마다 `agent runtime: ` 접두를 붙여 core stderr에 쓴다. 줄은 가공하지 않는다.
+
+## lophn을 끄고 바로 켜면 "lophn didn't start"로 멈춘다
+
+```yaml
+kind: bug
+modules: [packages/shell/main, packages/core/install-and-update]
+closed: fixed
+guard: 없음
+```
+
+- 지금: 끄기는 `app.once("will-quit", () => ctx.stopAll())`(`packages/shell/main/desktop/main.ts`)이고 `stopAll`(`packages/shell/main/desktop/wiring/context.ts`)은 영역마다 `stop()`을 부르기만 하고 core process가 끝나기를 기다리지 않는다. 그래서 shell이 먼저 끝나고 core는 data root lock을 쥔 채 조금 더 산다. 그 사이 새 lophn을 켜면 새 core가 `packages/core/install-and-update/instance-lock.ts`에서 lock을 못 얻어 `start_failed`("이 데이터 폴더에는 이미 실행 중인 instance가 있다")를 내고, shell(`packages/shell/main/desktop/core/supervise.ts`의 `StartFailedError`)은 다시 시도하지 않고 "lophn didn't start" 화면에 머문다. core 없이 shell만 떠 있다.
+  - 실제 사례(user journal): 새 core `start_failed` 19:54:05.605, 이전 core `stopped` 19:54:06.483. 이전 shell scope는 그보다 먼저 끝났다.
+- 영향: 사람이 lophn을 다시 켰는데 쓸 수 없다. 원인이 보이지 않아(화면은 "didn't start"뿐, 이유는 journal에만 있다) 한 번 더 끄고 켜야 하는 줄 모른다. data는 잃지 않는다.
+- 고치려면: 새 shell이 lock 실패면 몇 초 동안 다시 띄운다(추천), 또는 끌 때 core 종료를 기다린다.
+
+닫음: standalone core로 shell은 core의 부모가 아니다. Quit는 core를 끄지 않고, 새 shell은 `ensureCore`(`packages/protocol/client/ensure.ts`)로 identify에 답하는 core에 붙는다. 끝나는 중(`stopping`)이면 ready나 사라짐을 기다리고, lock 경쟁으로 진 시작은 identify를 다시 물어 이긴 core에 합류한다.

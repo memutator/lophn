@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
+import { EXTENSION_ID } from "../extensions/manifest.ts";
 import { slugSchema } from "../projects/values.ts";
 import { profileOutputSchema, profileSchema } from "./agent-profile.ts";
 import { mcpServerSchema } from "./mcp-settings.ts";
@@ -90,6 +91,13 @@ const skillsSchema = z.array(nonblankSchema).refine(unique, {
 const appsSchema = z.array(slugSchema).refine(unique, {
   message: "duplicate app",
 });
+// 할당한 shell extension의 id. 그 extension이 manifest로 선언한 tool 전부가 이 agent의 `tools[]`에 든다(bare는 `tools`가 고른 것만).
+// 사람만 쓰는 칸이다. 꺼졌거나 없는 extension의 id를 적어도 저장은 되고, 그 tool은 목록에 서지 않는다.
+const extensionsSchema = z
+  .array(z.string().regex(EXTENSION_ID).max(64))
+  .refine(unique, {
+    message: "duplicate extension",
+  });
 // agent 층 권한 규칙. 지금은 할당한 앱에서 뺀 command(`lophn(<앱 slug> <command>)`)만 쓴다.
 const permissionsSchema = z.strictObject({
   deny: z
@@ -164,7 +172,7 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate tool",
 });
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: bare` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `permissions`, `skip`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: bare` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `extensions`, `permissions`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   handle: agentHandleSchema,
@@ -181,6 +189,7 @@ const frontmatterFields = {
   mcp_off: mcpOffListSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),
+  extensions: extensionsSchema.optional(),
   permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),
 };
@@ -199,6 +208,7 @@ const frontmatterOutputFields = {
   mcp_off: mcpOffListOutputSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),
+  extensions: extensionsSchema.optional(),
   permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),
 };

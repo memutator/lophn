@@ -64,7 +64,7 @@ export const hostQueueWiring: WiringFactory = () => ({
       const allowed = shell(who);
       if (!allowed.ok) return allowed;
       const input = hostDone.input.parse(body);
-      queue.done(input.id as Id<"hrq">, input.result);
+      queue.done(input.id as Id<"hrq">, input.result, input.output);
       return ok({});
     };
     const report: MemoryHandler = (who, body) => {

@@ -60,3 +60,35 @@ test("retry한 요청은 뒤로 가서 다음 요청을 막지 않는다", () =>
   const next = queue.take([HOME])!;
   assert.notEqual(next.id, first.id);
 });
+
+// 같은 호출을 두 번 실행하면 extension handler의 효과(탭 조작, 결제 같은 외부 일)가 겹친다.
+test("tool_call은 workspace 없이 가져가고, 빌려 간 뒤 기한이 지나도 다시 내놓지 않으며, 결과나 abandon으로 끝난다", async () => {
+  const { clock, queue } = setup();
+  const payload = (tool: string) => ({
+    extension: "web",
+    tool,
+    input: {},
+    session: OWNER,
+    workspace: HOME,
+    credential: "token",
+  });
+
+  const first = queue.callTool(payload("a"));
+  const taken = queue.take([]);
+  assert.equal(taken?.id, first.id);
+  clock.advance(60_000);
+  assert.equal(queue.take([]), null, "a borrowed tool call is not lent twice");
+
+  queue.done(first.id, "done", {
+    content: [{ type: "text", text: "ok" }],
+  });
+  const done = await first.result;
+  assert.ok(done.ok && done.value[0]?.type === "text");
+
+  // shell이 떨어져 부른 쪽이 거두면 unavailable로 끝나고 다시 가져갈 수 없다.
+  const second = queue.callTool(payload("b"));
+  queue.abandon(second.id);
+  const gone = await second.result;
+  assert.ok(!gone.ok && gone.error.code === "unavailable");
+  assert.equal(queue.take([]), null);
+});

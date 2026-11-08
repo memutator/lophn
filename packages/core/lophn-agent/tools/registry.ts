@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { canonicalize, type Result, sha256Hex } from "../../../base/mod.ts";
-import type { GateCall } from "../../../protocol/approvals/mod.ts";
+import type { AskedCall } from "../../../protocol/approvals/mod.ts";
 import type {
   ToolCallDisplay,
   ToolEffect,
@@ -12,7 +12,7 @@ import { inputJsonSchema } from "./wire.ts";
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과를 쓴다.
 // 내장 이름은 `<자원>.<동사>` 점 표기다. model에는 wire 이름으로 간다(wire.ts).
 
-type ToolOrigin = "builtin" | "app" | "external";
+type ToolOrigin = "builtin" | "app" | "external" | "extension";
 
 export type ToolCallHandler = (
   input: unknown,
@@ -40,7 +40,7 @@ export type ToolDefinition = {
   gate?: (
     input: unknown,
     ctx: ToolContext,
-  ) => GateCall | null | Promise<GateCall | null>;
+  ) => AskedCall | null | Promise<AskedCall | null>;
   // 이 tool이 core에 부르는 route 이름이다. agent credential 상한은 core가 대조하는 route 이름이어야 한다.
   operations: readonly string[];
 };

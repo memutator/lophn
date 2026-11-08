@@ -10,6 +10,7 @@ import type {
   Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { TurnMode } from "../../protocol/lophn-agent/turn-values.ts";
+import type { ExtensionGrant } from "./gate/mod.ts";
 
 // `always`를 고르면 그 kind의 request에 하는 일. request의 `always_patterns`를 규칙으로 더하는 등이다.
 export type AlwaysEffect = (
@@ -51,6 +52,11 @@ export interface Approvals {
       toParent: boolean;
     },
   ): Promise<Result<Judgment>>;
+  // `extension_tool`을 판정하는 재료(그 agent의 정의 `extensions`와 켜진 extension의 tool 목록)를 읽는 길을 등록한다.
+  // 등록하지 않으면 모든 extension tool은 `not_assigned`다.
+  useExtensions(
+    read: (agent: AgentId) => Promise<Result<ExtensionGrant>>,
+  ): void;
   // 메모리에 두고 Bus에 TurnRequestOpened를 낸다.
   openTurnRequest(
     origin: TurnOrigin,

@@ -7,7 +7,7 @@ import { toolEffectSchema } from "../lophn-agent/tool-values.ts";
 // Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다:
 //   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode): Judgment
 // mode는 `lophn-agent/turn-values.ts`의 `TurnMode`다.
-export const gateCallSchema = z.discriminatedUnion("kind", [
+const askedCallOptions = [
   z.strictObject({
     kind: z.literal("app_tool"),
     app: idSchema("app"),
@@ -24,8 +24,27 @@ export const gateCallSchema = z.discriminatedUnion("kind", [
     kind: z.literal("shell"),
     command: z.string().min(1),
   }),
+] as const;
+
+// 사람에게 물을 수 있는 호출이다. 승인 카드(turn request)와 ACP 승인 subject가 이것만 쓴다.
+export const askedCallSchema = z.discriminatedUnion("kind", askedCallOptions);
+
+// Gate가 판정하는 호출 하나. kind로 가른다.
+// Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다:
+//   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode, extensions: ExtensionGrant | null): Judgment
+// mode는 `lophn-agent/turn-values.ts`의 `TurnMode`다.
+// shell extension의 tool. 할당(정의 `extensions`)이 곧 허락이라 묻지 않는다: run이나 deny뿐이다.
+// 묻지 않으므로 승인 카드와 `acpApprovalSubjectSchema`에는 들지 않는다(ACP 승인 type이 넓어지지 않게).
+export const gateCallSchema = z.discriminatedUnion("kind", [
+  ...askedCallOptions,
+  z.strictObject({
+    kind: z.literal("extension_tool"),
+    extension: z.string().min(1),
+    tool: z.string().min(1),
+  }),
 ]);
 export type GateCall = z.infer<typeof gateCallSchema>;
+export type AskedCall = z.infer<typeof askedCallSchema>;
 
 // harness가 파일 바꾸기를 승인에 올린다. core Gate가 판정하는 호출이 아니라 ACP 승인 카드의 subject만 넓힌다.
 // added·removed는 줄 수이고 모르면 null이다.
@@ -51,13 +70,14 @@ export const planSubjectSchema = z.strictObject({
     .min(1),
 });
 export const acpApprovalSubjectSchema = z.discriminatedUnion("kind", [
-  ...gateCallSchema.options,
+  ...askedCallSchema.options,
   fileChangeSubjectSchema,
   planSubjectSchema,
 ]);
 export type AcpApprovalSubject = z.infer<typeof acpApprovalSubjectSchema>;
 
-// not_assigned는 할당에 없는 앱의 tool, removed는 할당에서 뺀 tool, shell_rule은 shell 규칙(floor)이 막음.
+// not_assigned는 할당에 없는 앱의 tool(extension_tool은 정의 `extensions`에 없는 extension), removed는 할당에서 뺀 tool
+// (extension_tool은 꺼졌거나 목록에서 빠진 tool), shell_rule은 shell 규칙(floor)이 막음.
 export const DENY_REASONS = ["not_assigned", "removed", "shell_rule"] as const;
 export const denyReasonSchema = z.enum(DENY_REASONS);
 export type DenyReason = z.infer<typeof denyReasonSchema>;

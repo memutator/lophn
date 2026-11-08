@@ -173,3 +173,39 @@ test("부모에게 가는 session의 shell ask는 mode와 상관없이 ask이고
     { kind: "run" },
   );
 });
+
+test("할당하지 않은 extension의 tool은 not_assigned, 꺼졌거나 목록에서 빠진 tool은 removed이고 할당했으면 묻지 않고 run이다", () => {
+  const call: GateCall = {
+    kind: "extension_tool",
+    extension: "web",
+    tool: "go",
+  };
+  // 켜진 extension의 catalog에는 web.go만 있다.
+  const has = (extension: string, tool: string) =>
+    extension === "web" && tool === "go";
+  const notAssigned: Judgment = {
+    kind: "deny",
+    reason: "not_assigned",
+    pattern: null,
+  };
+  const removed: Judgment = { kind: "deny", reason: "removed", pattern: null };
+  for (const mode of MODES) {
+    const judged = (assigned: string[], one: GateCall = call) =>
+      judgeTurn(one, null, rules(), mode, false, { assigned, has });
+    assert.deepStrictEqual(judged([]), notAssigned, mode);
+    assert.deepStrictEqual(judged(["other"]), notAssigned, mode);
+    assert.deepStrictEqual(judge(call, null, rules(), mode), notAssigned);
+    assert.deepStrictEqual(judged(["web"]), { kind: "run" }, mode);
+    assert.deepStrictEqual(
+      judged(["web"], { ...call, tool: "gone" }),
+      removed,
+      mode,
+    );
+    // 꺼진 extension은 catalog에 없다.
+    assert.deepStrictEqual(
+      judged(["off"], { kind: "extension_tool", extension: "off", tool: "go" }),
+      removed,
+      mode,
+    );
+  }
+});

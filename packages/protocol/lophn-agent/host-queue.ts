@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { ERROR_CODES } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
+import { extensionToolContentSchema } from "../extensions/manifest.ts";
 
 // core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기)을 담고, shell main이 1초마다 가져가
 // 그 workspace를 보이는 창에 push한다(harness queue와 같은 꼴: core 메모리 + shell main이 가져감).
@@ -58,6 +60,17 @@ const tabOpenPayloadSchema = z.strictObject({
     .nullable(),
 });
 
+// extension tool 호출이다. 어느 workspace의 일이 아니라 아무 shell main이나 가져간다(요청에 workspace 칸이 없다).
+// `workspace`는 부른 session의 자리이고 handler의 호출 맥락이 된다. `credential`은 그 호출만 쓰는 agent token이다.
+const toolCallPayloadSchema = z.strictObject({
+  extension: z.string().min(1).max(64),
+  tool: z.string().min(1).max(64),
+  input: z.json(),
+  session: idSchema("ses"),
+  workspace: hostWorkspaceSchema,
+  credential: z.string().min(1),
+});
+
 export const hostRequestSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: idSchema("hrq"),
@@ -71,6 +84,11 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     workspace: hostWorkspaceSchema,
     payload: z.strictObject({ tab: idSchema("tab") }),
   }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("tool_call"),
+    payload: toolCallPayloadSchema,
+  }),
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;
 
@@ -82,8 +100,11 @@ export const browserTabStateSchema = z.strictObject({
 });
 export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 
-// 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 없으면 null이다. workspaces가 비어도 tui가 있으면 부른다.
-// 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다.
+// 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 없으면 null이다. workspaces가 비어도 부른다:
+// 부르는 것이 shell이 붙어 있다는 표시(tool 호출의 `unavailable` 판정)이고 tui의 heartbeat다. `tool_call` 요청은 workspaces와
+// 상관없이 아무 호출자에게 간다.
+// 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다. 단 `tool_call`은 기한이 없다: handler가 오래 돌 수 있고 두 번
+// 실행하면 안 된다. shell이 떨어지면 부른 쪽이 `unavailable`로 끝내고 요청을 거둔다.
 export const hostTake = defineMemory({
   resource: "host",
   method: "take",
@@ -98,6 +119,19 @@ export const hostTake = defineMemory({
   errors,
 });
 
+// extension handler의 결과다. `tool_call` 요청의 done에만 싣는다.
+export const hostToolOutputSchema = z.union([
+  z.strictObject({ content: z.array(extensionToolContentSchema).max(64) }),
+  z.strictObject({
+    error: z.strictObject({
+      code: z.enum(ERROR_CODES),
+      message: z.string(),
+      details: z.record(z.string(), z.unknown()).optional(),
+    }),
+  }),
+]);
+export type HostToolOutput = z.infer<typeof hostToolOutputSchema>;
+
 // `retry`면 창이 받지 못한 것이라 요청은 다시 대기한다.
 export const hostDone = defineMemory({
   resource: "host",
@@ -106,6 +140,7 @@ export const hostDone = defineMemory({
   input: z.strictObject({
     id: idSchema("hrq"),
     result: z.enum(["done", "retry"]),
+    output: hostToolOutputSchema.optional(),
   }),
   output: z.strictObject({}),
   actors: ["user"],

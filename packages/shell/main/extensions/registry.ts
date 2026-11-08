@@ -12,6 +12,10 @@ import {
   type ExtensionManifest,
   type ExtensionModule,
   type ExtensionSpawn,
+  type ExtensionToolCall,
+  type ExtensionToolContent,
+  type ExtensionToolDefinition,
+  type ExtensionToolHandler,
   extensionManifestSchema,
   extensionSettingKey,
   extensionVersionError,
@@ -20,6 +24,14 @@ import {
 
 export const EXTENSION_MARKER = ".lophn-extension";
 type CommandHandler = () => void | Promise<void>;
+
+/** core에 올리는 tool 목록의 한 줄. 켜진 것과 꺼진 것 상관없이 판이 맞는 manifest의 것이다. */
+export type PublishedTools = {
+  id: string;
+  name: string;
+  description: string;
+  tools: ExtensionToolDefinition[];
+};
 
 export type ExtensionFiles = {
   read(path: string): Promise<string | null>;
@@ -71,6 +83,8 @@ export type RegistryDeps = {
   acp: ExtensionContext["acp"];
   clock: Clock;
   ids: IdSource;
+  /** core에 tool 목록을 통째로 올린다. sync가 끝날 때마다 부른다. 올리지 못해도 sync는 실패하지 않는다. */
+  publishTools(extensions: PublishedTools[]): Promise<void>;
   log(message: string): void;
 };
 
@@ -84,10 +98,14 @@ type Found = {
 export function createExtensionRegistry(deps: RegistryDeps) {
   const { files } = deps;
   const base = `${deps.dataRoot}/extensions`;
-  // 켜진 extension마다 그 module과 등록한 command. 끄면 command도 함께 버린다.
+  // 켜진 extension마다 그 module과 등록한 command·tool handler. 끄면 함께 버린다.
   const active = new Map<
     string,
-    { module: ExtensionModule; commands: Map<string, CommandHandler> }
+    {
+      module: ExtensionModule;
+      commands: Map<string, CommandHandler>;
+      tools: Map<string, ExtensionToolHandler>;
+    }
   >();
   const problem = new Map<
     string,
@@ -153,6 +171,7 @@ export function createExtensionRegistry(deps: RegistryDeps) {
   function contextFor(
     id: string,
     commands: Map<string, CommandHandler>,
+    tools: Map<string, ExtensionToolHandler>,
   ): ExtensionContext {
     return {
       core: deps.core,
@@ -166,6 +185,14 @@ export function createExtensionRegistry(deps: RegistryDeps) {
           commands.set(name, handler);
           return () => {
             if (commands.get(name) === handler) commands.delete(name);
+          };
+        },
+      },
+      tools: {
+        handle(name, handler) {
+          tools.set(name, handler);
+          return () => {
+            if (tools.get(name) === handler) tools.delete(name);
           };
         },
       },
@@ -222,13 +249,14 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       const module = loaded as ExtensionModule;
       await writeMarker(id, await markerFiles(id));
       const commands = new Map<string, CommandHandler>();
+      const tools = new Map<string, ExtensionToolHandler>();
       try {
-        await module.activate(contextFor(id, commands));
+        await module.activate(contextFor(id, commands, tools));
       } catch (cause) {
         await Promise.resolve(module.deactivate()).catch(() => {});
         throw cause;
       }
-      active.set(id, { module, commands });
+      active.set(id, { module, commands, tools });
       problem.delete(id);
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
@@ -248,7 +276,8 @@ export function createExtensionRegistry(deps: RegistryDeps) {
   }
 
   async function runSync() {
-    for (const found of await discover()) {
+    const discovered = await discover();
+    for (const found of discovered) {
       const { id, manifest } = found;
       if (manifest === undefined) {
         problem.set(id, { status: "invalid", reason: found.invalid ?? "" });
@@ -275,6 +304,24 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       if (bad) problem.set(id, bad);
       else problem.delete(id);
     }
+    // core는 manifest를 읽지 못하므로 sync마다 판이 맞는 manifest의 tool을 통째로 올린다(켜진 것과 꺼진 것 상관없이).
+    const tools: PublishedTools[] = discovered.flatMap(({ manifest }) =>
+      manifest !== undefined &&
+      extensionVersionError(manifest, deps.productVersion) === null &&
+      manifest.contributes.tools.length > 0
+        ? [
+            {
+              id: manifest.id,
+              name: manifest.name,
+              description: manifest.description,
+              tools: manifest.contributes.tools,
+            },
+          ]
+        : [],
+    );
+    await deps.publishTools(tools).catch((cause) => {
+      deps.log(`extension tools were not published: ${String(cause)}`);
+    });
   }
 
   return {
@@ -332,6 +379,31 @@ export function createExtensionRegistry(deps: RegistryDeps) {
         return {
           ok: false,
           error: { code: "internal", message: "command failed" },
+        };
+      }
+    },
+
+    /** 켜진 extension이 `ctx.tools.handle`로 등록한 handler를 부른다. 없으면 not_found, handler가 던지면 internal이다. */
+    async callTool(
+      extension: string,
+      tool: string,
+      input: unknown,
+      call: ExtensionToolCall,
+    ): Promise<Result<ExtensionToolContent[]>> {
+      const handler = active.get(extension)?.tools.get(tool);
+      if (handler === undefined) {
+        return {
+          ok: false,
+          error: { code: "not_found", message: "tool is not running" },
+        };
+      }
+      try {
+        return await handler(input, call);
+      } catch (cause) {
+        deps.log(`tool ${extension}.${tool} failed: ${String(cause)}`);
+        return {
+          ok: false,
+          error: { code: "internal", message: "tool failed" },
         };
       }
     },

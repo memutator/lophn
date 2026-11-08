@@ -30,7 +30,7 @@ const lookups: AgentLookups = {
   projectModel: () => null,
 };
 
-test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·permissions을 넣지 못한다", async () => {
+test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·extensions·permissions을 넣지 못한다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
   try {
     const files = createNodeAgentFiles();
@@ -124,6 +124,7 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
       skip: true,
       mcp_servers: [],
       apps: ["notes"],
+      extensions: ["web"],
       permissions: { deny: ["lophn(notes read)"] },
     };
     for (const field of Object.keys(humanOnly)) {
@@ -234,6 +235,7 @@ test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하�
       "call.replay",
       "notes",
       "mcp__github",
+      "ext__web",
     ]);
     assert.ok(!refused.ok);
     assert.equal(refused.error.code, "invalid_input");
@@ -241,6 +243,7 @@ test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하�
       { field: "tools.1", code: "unknown" },
       { field: "tools.2", code: "unknown" },
       { field: "tools.3", code: "unknown" },
+      { field: "tools.4", code: "unknown" },
     ]);
     assert.ok(
       create(OTHER, [
@@ -248,6 +251,7 @@ test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하�
         "call.reply",
         "notes.add-item",
         "mcp__github__create_issue",
+        "ext__web__go_to",
       ]).ok,
     );
   } finally {

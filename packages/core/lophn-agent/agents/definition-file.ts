@@ -208,6 +208,7 @@ const EMPTY_DEFAULT_LISTS = [
   "mcp_off",
   "mcp_servers",
   "apps",
+  "extensions",
 ] as const;
 
 function pick(source: Plain, keys: readonly string[]): Plain {

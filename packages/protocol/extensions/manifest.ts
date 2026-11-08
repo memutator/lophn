@@ -25,6 +25,48 @@ export function parseExtensionCommand(
   return match === null ? null : { extension: match[1]!, name: match[2]! };
 }
 
+/** `ext__<extension id>__<tool name>`의 `<tool name>`. `__`가 없어야 model 이름에서 id와 tool을 가른다. */
+export const EXTENSION_TOOL_NAME = /^[a-z][a-z0-9_]*$/;
+export const EXTENSION_TOOL_PREFIX = "ext__";
+/** provider가 받는 tool 이름 상한(`WIRE_TOOL_NAME_PATTERN`의 64)이다. */
+const MODEL_NAME_MAX = 64;
+
+/** model에 보이는 이름이다. 내장(`_` 하나)과 MCP(`mcp__`)와 겹치지 않는다. */
+export function extensionToolModelName(extension: string, tool: string) {
+  return `${EXTENSION_TOOL_PREFIX}${extension}__${tool}`;
+}
+
+export const EXTENSION_TOOL_EFFECTS = ["read", "write", "external"] as const;
+
+/** 기여하는 tool 하나. schema는 정적이다. */
+export const extensionToolSchema = z.strictObject({
+  name: z
+    .string()
+    .regex(EXTENSION_TOOL_NAME)
+    .refine((name) => !name.includes("__"), {
+      message: "tool name must not contain __",
+    }),
+  description: z.string().min(1).max(2000),
+  inputSchema: z
+    .record(z.string(), z.unknown())
+    .refine((schema) => schema.type === "object", {
+      message: "inputSchema must be a JSON Schema object",
+    }),
+  effect: z.enum(EXTENSION_TOOL_EFFECTS),
+});
+export type ExtensionToolDefinition = z.infer<typeof extensionToolSchema>;
+
+/** handler가 돌려주는 결과 한 조각이다. MCP content 꼴이고 image는 base64다. */
+export const extensionToolContentSchema = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("text"), text: z.string() }),
+  z.strictObject({
+    type: z.literal("image"),
+    mimeType: z.string().min(1),
+    data: z.string(),
+  }),
+]);
+export type ExtensionToolContent = z.infer<typeof extensionToolContentSchema>;
+
 /**
  * 기여하는 command와 key. `keybindings`의 `command`는 내장 command(`agent.cycle-mode`)나 이 extension의
  * `ext.<id>.<name>`이다. `key.mac`이 없으면 `key.other`와 같다.
@@ -52,34 +94,56 @@ export const extensionContributesSchema = z.strictObject({
     )
     .max(128)
     .default([]),
+  tools: z.array(extensionToolSchema).max(64).default([]),
 });
 export type ExtensionContributes = z.infer<typeof extensionContributesSchema>;
 
-export const extensionManifestSchema = z.strictObject({
-  id: z.string().regex(EXTENSION_ID).max(64),
-  name: z.string().min(1).max(80),
-  description: z.string().max(500),
-  /** 제품 판(root package.json의 version)과 같아야 켠다. */
-  version: z.string().min(1).max(32),
-  /** 폴더 안 상대 경로. 따로 빌드한 CJS file이고, 폴더 밖을 가리키지 못한다. */
-  entry: z
-    .string()
-    .min(1)
-    .max(200)
-    .refine(
-      (path) =>
-        !path.startsWith("/") &&
-        !path.includes("\\") &&
-        path.split("/").every((part) => part !== ".." && part !== ""),
-      { message: "entry must stay inside the extension folder" },
-    ),
-  /** 들어 있는 것의 이름들(설정 화면에 보인다). */
-  provides: z.array(z.string().min(1).max(64)).max(16),
-  contributes: extensionContributesSchema.default({
-    commands: [],
-    keybindings: [],
-  }),
-});
+export const extensionManifestSchema = z
+  .strictObject({
+    id: z.string().regex(EXTENSION_ID).max(64),
+    name: z.string().min(1).max(80),
+    description: z.string().max(500),
+    /** 제품 판(root package.json의 version)과 같아야 켠다. */
+    version: z.string().min(1).max(32),
+    /** 폴더 안 상대 경로. 따로 빌드한 CJS file이고, 폴더 밖을 가리키지 못한다. */
+    entry: z
+      .string()
+      .min(1)
+      .max(200)
+      .refine(
+        (path) =>
+          !path.startsWith("/") &&
+          !path.includes("\\") &&
+          path.split("/").every((part) => part !== ".." && part !== ""),
+        { message: "entry must stay inside the extension folder" },
+      ),
+    /** 들어 있는 것의 이름들(설정 화면에 보인다). */
+    provides: z.array(z.string().min(1).max(64)).max(16),
+    contributes: extensionContributesSchema.default({
+      commands: [],
+      keybindings: [],
+      tools: [],
+    }),
+  })
+  .superRefine((manifest, context) => {
+    const seen = new Set<string>();
+    manifest.contributes.tools.forEach((tool, index) => {
+      const path = ["contributes", "tools", index, "name"];
+      if (seen.has(tool.name)) {
+        context.addIssue({ code: "custom", path, message: "duplicate tool" });
+      }
+      seen.add(tool.name);
+      if (
+        extensionToolModelName(manifest.id, tool.name).length > MODEL_NAME_MAX
+      ) {
+        context.addIssue({
+          code: "custom",
+          path,
+          message: "model tool name is longer than 64",
+        });
+      }
+    });
+  });
 export type ExtensionManifest = z.infer<typeof extensionManifestSchema>;
 
 /** 판이 제품 판과 다르면 오류 문구, 같으면 null. */
@@ -110,6 +174,23 @@ export type ExtensionSpawn = (
   options?: { cwd?: string; env?: Record<string, string> },
 ) => ExtensionProcess;
 
+/** tool을 부른 session의 자리다. home에는 workspace가 없다. */
+export type ExtensionToolWorkspace =
+  | { kind: "home" }
+  | { kind: "project"; id: string }
+  | { kind: "app"; id: string };
+
+/** `ctx.tools.handle`의 handler가 받는 호출 맥락이다. `core`는 그 호출 session의 agent 자격으로 부르고 `ctx.core`(사람 권한)와 다르다. */
+export type ExtensionToolCall = {
+  session: string;
+  workspace: ExtensionToolWorkspace;
+  core: ExtensionContext["core"];
+};
+export type ExtensionToolHandler = (
+  input: unknown,
+  call: ExtensionToolCall,
+) => Promise<Result<ExtensionToolContent[]>>;
+
 /** extension code가 lophn에 닿는 유일한 길이다. shell main 내부 module은 import하지 못한다. */
 export type ExtensionContext = {
   /** core protocol route 호출. 사람 권한이다. */
@@ -138,6 +219,10 @@ export type ExtensionContext = {
   /** main에서 도는 command를 `ext.<id>.<name>`으로 올린다. renderer가 key나 팔레트로 부르면 여기로 온다. 돌려받은 함수로 지운다. */
   commands: {
     register(name: string, handler: () => void | Promise<void>): () => void;
+  };
+  /** manifest `contributes.tools`로 선언한 tool을 처리한다. 돌려받은 함수로 지운다. 선언에 없는 이름은 호출되지 않는다. */
+  tools: {
+    handle(name: string, handler: ExtensionToolHandler): () => void;
   };
 };
 

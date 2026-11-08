@@ -27,15 +27,24 @@ import {
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "../../../../protocol/acp/mod.ts";
+import { createRpcClient } from "../../../../protocol/client/mod.ts";
 import type {
   AcpSessionHandle,
   ExtensionAcp,
+  ExtensionContext,
   ExtensionSpawn,
 } from "../../../../protocol/extensions/mod.ts";
+import {
+  type HostRequest,
+  type HostToolOutput,
+  hostToolOutputSchema,
+} from "../../../../protocol/lophn-agent/host-queue.ts";
 import {
   createExtensionRegistry,
   type ExtensionFiles,
 } from "../../extensions/registry.ts";
+import { nodeFetch } from "../core/node-io.ts";
+import { routeByName } from "../core/routes.ts";
 import {
   EXTENSIONS_CHANNEL,
   extensionsCallSchema,
@@ -286,12 +295,19 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
   };
 }
 
+/** core가 `tool_call` 요청으로 보낸 extension tool 호출. surface가 가져와 `run`에 넘긴다. */
+export type ExtensionTools = {
+  run(
+    payload: Extract<HostRequest, { kind: "tool_call" }>["payload"],
+  ): Promise<HostToolOutput>;
+};
+
 export function register(
   ctx: ShellContext,
   /** harness-gui가 꺼져 있을 때 탭이 띄울 Settings › System › Extensions. */
   port: { showExtensionSettings(): void },
   coding: Pick<Coding, "gui" | "bindTabGui">,
-): Registered {
+): Registered & ExtensionTools {
   const repoRoot = join(ctx.here, "..", "..", "..", "..");
   // packaged는 설치 root의 extensions/다(tools/package/main.ts가 채운다).
   const bundled = app.isPackaged
@@ -300,6 +316,8 @@ export function register(
   const clock = systemClock;
   const ids = createIdSource({ clock, random: cryptoRandom });
   const { acp, tab } = createAcp(ids, coding.gui);
+  // 마지막으로 맞춘 core 연결 session. 못 올렸으면 비워 다음 확인에서 다시 맞춘다.
+  let connected: unknown;
   const registry = createExtensionRegistry({
     roots: [bundled],
     dataRoot: ctx.dataRoot,
@@ -340,6 +358,20 @@ export function register(
     acp,
     clock,
     ids,
+    // core는 manifest를 읽지 못하므로 sync마다 판이 맞는 manifest의 tool을 통째로 올린다. core가 없어 못 올리면 다음 확인에서 다시 올린다.
+    publishTools: async (extensions) => {
+      const sent = await ctx.coreInternal(
+        "memory",
+        "extension_tools",
+        "publish",
+        { extensions },
+      );
+      if (!sent.ok) {
+        // core가 아직 안 붙었을 때만 다시 시도한다. 거절당한 목록을 매초 다시 올리지 않는다.
+        if (sent.error.code === "unavailable") connected = undefined;
+        throw new Error(sent.error.message);
+      }
+    },
     log: ctx.log,
   });
   const sync = () =>
@@ -404,18 +436,61 @@ export function register(
       sync();
     }
   });
-  // core가 준비되면 한 번 맞춘다. 준비 신호를 main이 받는 길이 없어 상태를 본다(agent.ts와 같다).
-  const startup = setInterval(() => {
-    if (ctx.core.state.state === "starting") return;
-    clearInterval(startup);
-    if (ctx.core.state.state === "ready") sync();
+  // core가 준비되면 한 번, core에 다시 붙을 때마다 맞춘다(sync가 tool 목록도 올린다: core는 목록을 메모리에만 둔다).
+  // 준비 신호를 main이 받는 길이 없어 연결 session이 바뀌는지 본다. 다시 붙을 때마다 새 session이 선다.
+  const watch = setInterval(() => {
+    const session = ctx.core.session();
+    if (session === null || session === connected) return;
+    connected = session;
+    sync();
   }, 1000);
 
+  // handler의 `core`는 사람 token이 아니라 그 호출만 쓰는 agent token으로 부른다(`ctx.coreInternal`을 쓰지 않는다).
+  const coreWith = (token: string): ExtensionContext["core"] => ({
+    async call(kind, resource, method, input) {
+      const session = ctx.core.session();
+      const route = routeByName(`${kind}:${resource}/${method}`);
+      if (session === null || route === undefined) {
+        return {
+          ok: false,
+          error: {
+            code: session === null ? "unavailable" : "not_found",
+            message: "route is not available",
+          },
+        };
+      }
+      return (await createRpcClient({
+        baseUrl: `http://127.0.0.1:${session.apiPort}`,
+        token,
+        fetch: nodeFetch,
+      }).call(route as never, input as never)) as never;
+    },
+  });
+
   return {
+    async run({ extension, tool, input, session, workspace, credential }) {
+      const result = await registry.callTool(extension, tool, input, {
+        session,
+        workspace,
+        core: coreWith(credential),
+      });
+      // core가 형식을 거절하면 기다리는 호출이 끝나지 않는다. 모양이 틀린 결과는 여기서 오류로 바꾼다.
+      const output = hostToolOutputSchema.safeParse(
+        result.ok ? { content: result.value } : { error: result.error },
+      );
+      return output.success
+        ? output.data
+        : {
+            error: {
+              code: "internal",
+              message: "the extension returned an invalid result",
+            },
+          };
+    },
     stop() {
       offTabGui();
       ctx.ipc.removeHandler(EXTENSIONS_CHANNEL);
-      clearInterval(startup);
+      clearInterval(watch);
       void registry.stop();
     },
   };

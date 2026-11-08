@@ -16,6 +16,7 @@ import {
 import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
+import type { ExtensionTools } from "./extensions.ts";
 
 const POLL_MS = 1000;
 // 한 번에 가져가는 요청 수의 상한. 넘으면 다음 tick에 이어 간다.
@@ -24,12 +25,23 @@ const TAKE_MAX = 20;
 const ACK_TIMEOUT_MS = 1500;
 
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
-type Request = { id: string; workspace: Workspace };
+// tab 요청은 workspace가 있고, extension tool 호출(`tool_call`)은 workspace를 가리지 않아 payload만 있다.
+type Request =
+  | { id: string; kind: "tab_open" | "tab_close"; workspace: Workspace }
+  | {
+      id: string;
+      kind: "tool_call";
+      payload: Parameters<ExtensionTools["run"]>[0];
+    };
 
 const sameWorkspace = (a: Workspace, b: Workspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
 
-export function register(ctx: ShellContext, tui: HarnessTui): Registered {
+export function register(
+  ctx: ShellContext,
+  tui: HarnessTui,
+  tools: ExtensionTools,
+): Registered {
   const registry = ctx.overlays.overlayRegistry();
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
@@ -104,7 +116,10 @@ export function register(ctx: ShellContext, tui: HarnessTui): Registered {
     return found;
   }
 
-  function offer(request: Request, payload: unknown): Promise<boolean> {
+  function offer(
+    request: Extract<Request, { workspace: Workspace }>,
+    payload: unknown,
+  ): Promise<boolean> {
     const window = windowOf(request.workspace);
     if (window === undefined) return Promise.resolve(false);
     return new Promise((resolve) => {
@@ -126,17 +141,25 @@ export function register(ctx: ShellContext, tui: HarnessTui): Registered {
     busy = true;
     try {
       for (let taken = 0; taken < TAKE_MAX; taken += 1) {
-        const workspaces = visibleWorkspaces();
-        const sessions = tui.sessions();
-        // 보이는 workspace가 없어도 TUI 탭이 있으면 부른다: take가 hold의 heartbeat다.
-        if (workspaces.length === 0 && sessions.length === 0) return;
+        // 늘 부른다: take가 shell이 붙어 있다는 표시(tool 호출을 받을 수 있다는 뜻)이고 hold의 heartbeat다.
         const reply = await ctx.coreInternal("memory", "host", "take", {
-          workspaces,
-          tui: sessions,
+          workspaces: visibleWorkspaces(),
+          tui: tui.sessions(),
         });
         if (!reply.ok) return;
         const request = (reply.value as { request: Request | null }).request;
         if (request === null) return;
+        if (request.kind === "tool_call") {
+          // handler가 오래 걸려도 탭 요청을 막지 않게 따로 돈다. 끝나면 결과를 done에 싣는다.
+          void tools.run(request.payload).then((output) =>
+            ctx.coreInternal("memory", "host", "done", {
+              id: request.id,
+              result: "done",
+              output,
+            }),
+          );
+          continue;
+        }
         const opened = await offer(request, { request });
         await ctx.coreInternal("memory", "host", "done", {
           id: request.id,

@@ -16,6 +16,12 @@ function askIn(mode: TurnMode, toParent: boolean): Judgment {
   return mode === "attended" || toParent ? { kind: "ask" } : { kind: "run" };
 }
 
+// shell extension tool을 판정하는 재료다. assigned는 그 agent 정의의 `extensions`, has는 켜진 extension의 catalog에 그 tool이 있는지다.
+export type ExtensionGrant = {
+  assigned: readonly string[];
+  has(extension: string, tool: string): boolean;
+};
+
 // IO 없는 순수 함수다. 같은 입력은 같은 결과다.
 export function judge(
   call: GateCall,
@@ -23,7 +29,17 @@ export function judge(
   shell: ShellRuleLayers,
   mode: TurnMode,
   toParent: boolean,
+  extensions: ExtensionGrant | null = null,
 ): Judgment {
+  // 할당이 곧 허락이라 묻지 않는다. 꺼진 extension과 목록에서 빠진 tool은 `removed`다.
+  if (call.kind === "extension_tool") {
+    if (!extensions?.assigned.includes(call.extension)) {
+      return { kind: "deny", reason: "not_assigned", pattern: null };
+    }
+    return extensions.has(call.extension, call.tool)
+      ? { kind: "run" }
+      : { kind: "deny", reason: "removed", pattern: null };
+  }
   if (call.kind === "shell") {
     const normalized = normalize(call.command);
     const candidates = [...new Set([normalized, ...shellPieces(call.command)])];

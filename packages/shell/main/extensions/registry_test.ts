@@ -5,7 +5,11 @@ import { manualClock } from "../../../base/clock.ts";
 import { createIdSource } from "../../../base/id.ts";
 import { seededRandom } from "../../../base/random.ts";
 import type { ExtensionModule } from "../../../protocol/extensions/mod.ts";
-import { createExtensionRegistry, type ExtensionFiles } from "./registry.ts";
+import {
+  createExtensionRegistry,
+  type ExtensionFiles,
+  type PublishedTools,
+} from "./registry.ts";
 
 const BUNDLED = "/app/bundled";
 const DATA = "/data";
@@ -41,7 +45,14 @@ function memory(files: Map<string, string>): ExtensionFiles {
   };
 }
 
-function manifest(id: string, version = VERSION) {
+const ECHO = {
+  name: "echo",
+  description: "echo",
+  inputSchema: { type: "object" },
+  effect: "read",
+};
+
+function manifest(id: string, version = VERSION, tools: unknown[] = []) {
   return JSON.stringify({
     id,
     name: id,
@@ -49,6 +60,7 @@ function manifest(id: string, version = VERSION) {
     version,
     entry: "index.cjs",
     provides: [],
+    contributes: { tools },
   });
 }
 
@@ -64,10 +76,17 @@ function setup(manifests: Record<string, string>) {
   ]);
   const calls: string[] = [];
   const loaded: string[] = [];
+  const published: PublishedTools[][] = [];
   const module: ExtensionModule = {
     async activate(ctx) {
       calls.push("activate");
       await ctx.files.write("state/cache.json", "{}");
+      ctx.tools.handle("echo", (input) =>
+        Promise.resolve({
+          ok: true as const,
+          value: [{ type: "text" as const, text: JSON.stringify(input) }],
+        }),
+      );
     },
     deactivate() {
       calls.push("deactivate");
@@ -101,9 +120,13 @@ function setup(manifests: Record<string, string>) {
     },
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
+    publishTools: (tools) => {
+      published.push(tools);
+      return Promise.resolve();
+    },
     log: () => {},
   });
-  return { files, settings, calls, loaded, registry };
+  return { files, settings, calls, loaded, published, registry };
 }
 
 test("켰다가 끄고 지우면 data root가 처음과 같고 사람 file과 다른 설정은 그대로다", async () => {
@@ -172,4 +195,38 @@ test("판이 다르거나 설정 선언이 없으면 켜지 않고, 꺼진 exten
   t.settings.set("extensions.demo.enabled", true);
   await t.registry.sync();
   assert.deepEqual(t.loaded, [`${BUNDLED}/demo/index.cjs`]);
+});
+
+test("tool handler는 켜진 동안만 불리고, core에 올리는 목록은 켜진 것과 꺼진 것을 가리지 않는다", async () => {
+  const t = setup({
+    demo: manifest("demo", VERSION, [ECHO]),
+    old: manifest("old", "0.0.1", [ECHO]),
+    plain: manifest("plain"),
+  });
+  const call = {
+    session: "ses_1",
+    workspace: { kind: "home" as const },
+  } as never;
+
+  // 꺼져 있다: handler가 없고, 목록에는 판이 맞고 tool이 있는 demo만 있다.
+  await t.registry.sync();
+  const off = await t.registry.callTool("demo", "echo", {}, call);
+  assert.ok(!off.ok && off.error.code === "not_found");
+  assert.deepEqual(
+    t.published.at(-1)?.map((one) => [one.id, one.tools.length]),
+    [["demo", 1]],
+  );
+
+  t.settings.set("extensions.demo.enabled", true);
+  await t.registry.sync();
+  const on = await t.registry.callTool("demo", "echo", { a: 1 }, call);
+  assert.ok(on.ok && on.value[0]?.type === "text");
+  assert.equal(t.published.at(-1)?.length, 1);
+
+  // 끄면 handler도 버린다.
+  t.settings.set("extensions.demo.enabled", false);
+  await t.registry.sync();
+  const after = await t.registry.callTool("demo", "echo", {}, call);
+  assert.ok(!after.ok && after.error.code === "not_found");
+  assert.equal(t.published.at(-1)?.length, 1);
 });

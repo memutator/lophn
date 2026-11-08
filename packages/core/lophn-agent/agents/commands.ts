@@ -33,10 +33,10 @@ import { checkAgent } from "./validate.ts";
 
 // 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn의 handle·profile은 고정이고 lophn은 지울 수 없다.
 // handle과 범위 workspace는 만들 때만 정한다. agent가 만들면 범위는 그 session의 workspace다(home이면 전역).
-// agent 자격은 `mcp_servers`, `skip`, `apps`, `permissions`를 바꾸지 못한다: 그 칸들은 사람의 승인 경계다.
+// agent 자격은 `mcp_servers`, `skip`, `apps`, `extensions`, `permissions`를 바꾸지 못한다: 그 칸들은 사람의 승인 경계다.
 
 const HUMAN_ONLY_MESSAGE =
-  "an agent cannot set MCP servers, skip, apps or permissions";
+  "an agent cannot set MCP servers, skip, apps, extensions or permissions";
 
 function notFound(what: string): Result<never> {
   return err({ code: "not_found", message: `${what} not found` });
@@ -113,6 +113,7 @@ export function createAgentCommands(deps: AgentDeps): {
           (input.definition.mcp_servers !== undefined ||
             input.definition.skip !== undefined ||
             input.definition.apps !== undefined ||
+            input.definition.extensions !== undefined ||
             input.definition.permissions !== undefined)
         ) {
           return err({
@@ -174,6 +175,7 @@ export function createAgentCommands(deps: AgentDeps): {
           ) ||
             !same(input.definition.skip, loaded.definition?.skip) ||
             !same(input.definition.apps, loaded.definition?.apps) ||
+            !same(input.definition.extensions, loaded.definition?.extensions) ||
             !same(input.definition.permissions, loaded.definition?.permissions))
         ) {
           return err({

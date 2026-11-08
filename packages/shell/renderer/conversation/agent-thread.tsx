@@ -2,7 +2,13 @@
 // 왼쪽 메시지, 그 밖(agent의 말, tool 줄, call 블록, 편집 카드, 질문 요약, 허락 결과, 끝 줄, 오류)은 사이에 내 말이 없는
 // 동안 agent 한 덩어리로 묶는다. agent가 일하는 동안에는 끝에 일하는 중 줄이 서고, 쓰는 중인 글은 끝 agent 묶음의
 // 마지막에 선다.
-import { memo, type ReactElement, type ReactNode, useMemo } from "react";
+import {
+  memo,
+  type ReactElement,
+  type ReactNode,
+  type Ref,
+  useMemo,
+} from "react";
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
@@ -28,7 +34,11 @@ import type {
 import type { AcpWriting } from "../../../protocol/acp/mod.ts";
 import { partsOfContent } from "./thread-layout.ts";
 import { ApprovalResult } from "./approval-card/approval-card.tsx";
-import { deliveryAction, type Outgoing } from "./delivery-state.ts";
+import {
+  deliveryAction,
+  type Outgoing,
+  waitsInQueue,
+} from "./delivery-state.ts";
 import {
   agentReplyIds,
   useThreadAnnouncement,
@@ -41,7 +51,10 @@ import {
 } from "./message-list/agent-turn.tsx";
 import { LiveMessage } from "./message-list/live-message.tsx";
 import { MessageBody, UserBody } from "./message-list/message-body.tsx";
-import { ThreadScroll } from "./message-list/thread-scroll.tsx";
+import {
+  ThreadScroll,
+  type ThreadScrollHandle,
+} from "./message-list/thread-scroll.tsx";
 import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 import { QuestionSummary } from "./question-card/question-card.tsx";
 import { HiddenRange } from "./session-rewind/hidden-range.tsx";
@@ -112,6 +125,8 @@ interface AgentThreadProps {
   onOpenSession: ((session: string) => void) | undefined;
   /** 글 안 artifact path를 link로 그리는 길. */
   artifacts: ArtifactsSlice | undefined;
+  /** 화면이 key로 대화를 scroll하는 길. */
+  scroll?: Ref<ThreadScrollHandle>;
 }
 
 // 글을 칠 때마다 대화 줄 전체를 다시 그리지 않도록 memo다. 부르는 쪽이 새로 만드는 작은 객체는 값으로 비교한다.
@@ -222,7 +237,11 @@ function AgentThreadView(props: AgentThreadProps): ReactElement {
     };
   }
   if (tail !== null) nodes.push(turnOf(tail, props, false));
-  if (outgoing !== null && !hasEntry(entries, outgoing.id)) {
+  if (
+    outgoing !== null &&
+    !waitsInQueue(outgoing) &&
+    !hasEntry(entries, outgoing.id)
+  ) {
     nodes.push(
       <UserMessage
         key={outgoing.id}
@@ -280,6 +299,8 @@ function AgentThreadView(props: AgentThreadProps): ReactElement {
       onScroll={props.onScroll}
       renderAll={props.renderAll === true}
       announcement={announcement}
+      sent={outgoing?.id ?? null}
+      handle={props.scroll}
     />
   );
 }
@@ -455,7 +476,8 @@ function itemsOf(
               state={entry.edit.toolState}
               call={entry.edit.id}
               readInput={props.source.toolCallBody}
-              onOpen={() => props.onOpenFile?.(entry.edit.path)}
+              // 카드에 보이는 path는 cwd 상대라 열 때는 절대 경로인 document를 쓴다.
+              onOpen={() => props.onOpenFile?.(entry.edit.document)}
             />,
           );
         }

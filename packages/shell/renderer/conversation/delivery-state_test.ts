@@ -7,6 +7,7 @@ import {
   deliveryAction,
   resend,
   startSend,
+  waitsInQueue,
 } from "./delivery-state.ts";
 
 const sending = startSend({
@@ -14,6 +15,7 @@ const sending = startSend({
   key: "key-1",
   content: [{ type: "text", text: "Write the report." }],
   delivery: "next_turn",
+  queued: false,
 });
 
 // 접수 여부를 모르는 채 다시 보내면 같은 말이 두 번 접수될 수 있다.
@@ -48,4 +50,20 @@ test("결과를 모르는 전송은 접수 조회가 없다고 답한 뒤에만 
       code,
     );
   }
+});
+
+// 줄로 갈 말이 대화에서 빠지는 동안에도, 못 보낸 말의 다시 보내기 단추는 대화 줄에 남아야 한다.
+test("대화에서 빠지는 것은 줄에 설 말이 보내는 중이거나 접수된 동안뿐이다", () => {
+  const queued = { ...sending, queued: true };
+  assert.equal(waitsInQueue(queued), true);
+  assert.equal(waitsInQueue(afterReply(queued, { ok: true })), true);
+  assert.equal(
+    waitsInQueue(afterReply(queued, { ok: false, code: "internal" })),
+    false,
+  );
+  assert.equal(
+    waitsInQueue(afterReply(queued, { ok: false, code: "conflict" })),
+    false,
+  );
+  assert.equal(waitsInQueue(sending), false);
 });

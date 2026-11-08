@@ -305,6 +305,11 @@ export const workspaceSettings = {
   "settings.label.key-agent-newline": "New line in the message",
   "settings.label.key-agent-queue": "Queue the message",
   "settings.label.key-agent-rewind": "Rewind the conversation",
+  "settings.label.key-agent-scroll-bottom": "Scroll to the latest message",
+  "settings.label.key-agent-scroll-page-down": "Scroll the conversation down",
+  "settings.label.key-agent-scroll-page-up": "Scroll the conversation up",
+  "settings.label.key-agent-scroll-top":
+    "Scroll to the start of the conversation",
   "settings.label.key-agent-send": "Send the message",
   "settings.label.key-agent-send-now": "Send the message now",
   "settings.label.key-agent-toggle-details": "Show or hide tool details",
@@ -470,6 +475,8 @@ export const workspaceSettings = {
     "Keeps what you typed to send after the running turn.",
   "settings.note.key-agent-rewind":
     "Takes the conversation back to an earlier point.",
+  "settings.note.key-agent-scroll":
+    "Scrolls the conversation while the cursor stays in the input.",
   "settings.note.key-agent-send": "Sends what you typed to the agent.",
   "settings.note.key-agent-send-now":
     "Sends what you typed without queueing it behind the turn.",

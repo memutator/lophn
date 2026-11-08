@@ -8,8 +8,10 @@ import {
   type PointerEvent,
   type ReactElement,
   type ReactNode,
+  type Ref,
   memo,
   useContext,
+  useImperativeHandle,
   useLayoutEffect,
   useReducer,
   useRef,
@@ -46,6 +48,14 @@ const SPACE = Number.parseFloat(tokens.space[6]);
 // layout effect가 연달아 다시 그리는 한도. 높이가 수렴하지 않는 bug가 화면을 얼리지 않게 한다.
 const MAX_PASSES = 12;
 
+/** 화면이 key로 대화를 scroll하는 길. 위로 가면 따라가기가 꺼지고, 아래로 맨 아래 여유에 닿으면 켜진다. */
+export interface ThreadScrollHandle {
+  scroll: (to: "page-up" | "page-down" | "top" | "bottom") => void;
+}
+
+// 한 쪽 scroll에서 이전 쪽의 끝 줄이 보이게 남기는 비율.
+const PAGE = 0.875;
+
 interface ThreadScrollProps {
   /** 대화의 행. 위에서 아래 순서이고 key가 있다. 새 말이 오면 늘어난다. */
   rows: readonly ReactElement[];
@@ -58,6 +68,9 @@ interface ThreadScrollProps {
   renderAll: boolean;
   /** 새 답이 시작했거나 왔다는 한 줄. log는 읽지 않고 이 줄만 화면 낭독기가 읽는다. */
   announcement: { readonly text: string; readonly id: number } | null;
+  /** 사람이 방금 보낸 말의 id. 바뀌면 따라가기를 켜고 맨 아래로 간다(올려 읽던 중이어도 보낸 말과 답을 보게). */
+  sent: string | null;
+  handle?: Ref<ThreadScrollHandle>;
 }
 
 interface Measure {
@@ -113,6 +126,8 @@ export function ThreadScroll({
   onScroll,
   renderAll,
   announcement,
+  sent,
+  handle,
 }: ThreadScrollProps): ReactNode {
   const count = rows.length;
   const listRef = useRef<HTMLDivElement>(null);
@@ -393,6 +408,47 @@ export function ThreadScroll({
     saved.current = null;
     onScroll(null);
   };
+
+  // 보내기: "최신으로" 단추와 같은 길이다. 처음 그릴 때 이미 있던 말(탭을 다시 연 경우)은 새로 보낸 것이 아니다.
+  const sentSeen = useRef(sent);
+  useLayoutEffect(() => {
+    if (sent === sentSeen.current) return;
+    sentSeen.current = sent;
+    if (sent !== null) jump();
+  }, [sent]);
+
+  // key scroll. 위로 가는 것은 사람이 올려 읽는 입력이라 따라가기를 먼저 끄고(`input`), 코드가 옮긴 자리는 scroll
+  // event가 기준을 다시 잡지 않으므로(lastTop과 같다) 여기서 기준 행과 그릴 범위를 바로 잡는다.
+  const scrollTo = (top: number, key: "PageUp" | "PageDown") => {
+    const list = listRef.current;
+    if (!list) return;
+    const from = list.scrollTop;
+    const max = list.scrollHeight - list.clientHeight;
+    const to = Math.min(Math.max(0, top), max);
+    if (to < from) input({ kind: "key", key, shiftKey: false });
+    if (followAfterScroll(following.current, from, to, max - to)) {
+      jump();
+      return;
+    }
+    moveTo(list, to);
+    capture(list);
+    view.current = {
+      top: list.scrollTop - pad.current,
+      height: list.clientHeight,
+    };
+    flushSync(redraw);
+  };
+  useImperativeHandle(handle, () => ({
+    scroll(to) {
+      const list = listRef.current;
+      if (!list) return;
+      const page = Math.round(list.clientHeight * PAGE);
+      if (to === "bottom") jump();
+      else if (to === "top") scrollTo(0, "PageUp");
+      else if (to === "page-up") scrollTo(list.scrollTop - page, "PageUp");
+      else scrollTo(list.scrollTop + page, "PageDown");
+    },
+  }));
 
   // thread index가 사람 메시지로 간다. 따라가기를 먼저 꺼야 다음 render가 맨 아래로 되돌리지 않는다.
   // 그리지 않은 행은 쌓아 둔 높이로 계산한 자리로 바로 가고, 거기서 그리고 재면서 이 행을 제자리에 둔다.

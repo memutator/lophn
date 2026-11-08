@@ -21,6 +21,7 @@ import type {
 } from "../../../protocol/acp/mod.ts";
 import { EMPTY_ACP_CHILD_STATE } from "../../../protocol/acp/mod.ts";
 import {
+  blocksSummary,
   type ContentBlock,
   textBlocks,
 } from "../../../protocol/lophn-agent/content-block.ts";
@@ -78,6 +79,7 @@ import {
   type Outgoing,
   resend,
   startSend,
+  waitsInQueue,
 } from "./delivery-state.ts";
 import type { DraftStore } from "./drafts.ts";
 import { ChildView } from "./dock/child-view.tsx";
@@ -87,6 +89,7 @@ import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { forkAndOpen } from "./header/fork.ts";
 import { FillShellProvider, RunCodeProvider } from "./message-list/run-code.ts";
+import type { ThreadScrollHandle } from "./message-list/thread-scroll.tsx";
 import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
@@ -280,6 +283,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const keys = useRef<ComposerKeys | null>(null);
   const routes = useRef<FocusRoutes>({});
   const claimFocus = useFocusRoutes(routes);
+  const scroller = useRef<ThreadScrollHandle>(null);
 
   const { agent, thread, refresh } = data;
   const entry = data.sessions.find((item) => item.id === session) ?? null;
@@ -595,6 +599,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       key: `session-messages-send-${id}`,
       content,
       delivery,
+      queued: delivery === "next_turn" && active !== null,
     });
     drafts.save(target, { outgoing });
     await deliver(target, outgoing);
@@ -874,6 +879,23 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       when: () => keys.current?.canPicker === true,
     },
     "agent.find": { run: () => find.show(), when: () => true },
+    // 층(rewind·자식 대화·권한)이 열려 있으면 그 안의 PageUp·PageDown이 제 일을 한다.
+    "agent.scroll-page-up": {
+      run: () => scroller.current?.scroll("page-up"),
+      when: () => layer === null,
+    },
+    "agent.scroll-page-down": {
+      run: () => scroller.current?.scroll("page-down"),
+      when: () => layer === null,
+    },
+    "agent.scroll-top": {
+      run: () => scroller.current?.scroll("top"),
+      when: () => layer === null,
+    },
+    "agent.scroll-bottom": {
+      run: () => scroller.current?.scroll("bottom"),
+      when: () => layer === null,
+    },
     "agent.cycle-mode": {
       run: () => {
         if (session === null || meta === null) return;
@@ -1182,6 +1204,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 detail={draft.detail}
                 live={thread?.live ?? null}
                 outgoing={draft.outgoing}
+                scroll={scroller}
                 pendingShell={shells.filter((item) => item.session === session)}
                 working={working}
                 now={now}
@@ -1368,6 +1391,12 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           now={now}
           queue={{
             items: thread?.queued ?? [],
+            pending: waitsInQueue(draft.outgoing)
+              ? {
+                  id: draft.outgoing!.id,
+                  summary: blocksSummary(draft.outgoing!.content),
+                }
+              : null,
             disabled: offline,
             canSteer: caps.steer,
             canEdit: caps.queue_edit,

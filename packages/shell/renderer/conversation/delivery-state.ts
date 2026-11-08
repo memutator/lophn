@@ -14,6 +14,8 @@ export interface Outgoing {
   /** 보낸 본문. 다시 보내도 같은 본문 값이다(올린 이미지도 같은 blob이다). */
   readonly content: readonly ContentBlock[];
   readonly delivery: Delivery;
+  /** 보낼 때 turn이 돌고 있어 다음 turn 줄에 설 말이다. */
+  readonly queued: boolean;
   readonly phase: DeliveryPhase;
   /** 접수 확인 안 됨에서 조회했으나 찾지 못했다. 그 뒤에야 다시 보내기를 내놓는다. */
   readonly checked: boolean;
@@ -77,6 +79,18 @@ export function deliveryAction(outgoing: Outgoing): DeliveryAction {
     case "unconfirmed":
       return outgoing.checked ? "resend" : "check";
   }
+}
+
+/**
+ * 대화가 아니라 줄 끝에서 기다리는 말인지. 도는 중에 보낸 말은 곧 줄로 가므로, 줄에 오기 전 잠깐 대화에 보낸 말로
+ * 그려지면 그 자리에서 줄로 옮겨 가는 것처럼 보인다. 못 보냄·접수 확인 안 됨은 다시 보내기 단추가 대화 줄에 있다.
+ */
+export function waitsInQueue(outgoing: Outgoing | null): boolean {
+  return (
+    outgoing !== null &&
+    outgoing.queued &&
+    (outgoing.phase === "sending" || outgoing.phase === "accepted")
+  );
 }
 
 /**

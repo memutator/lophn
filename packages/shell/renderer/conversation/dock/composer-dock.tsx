@@ -82,7 +82,7 @@ export function ComposerDock(props: ComposerDockProps): ReactElement | null {
         onStopTask={props.onStopTask}
       />
     ) : null,
-    props.queue.items.length === 0 ? null : (
+    props.queue.items.length + (props.queue.pending ? 1 : 0) === 0 ? null : (
       <DockCard
         key="queue"
         id="queue"
@@ -90,7 +90,7 @@ export function ComposerDock(props: ComposerDockProps): ReactElement | null {
         open={open === "queue"}
         onToggle={toggle("queue")}
         summary={t("conversation.label.dock-queued", {
-          count: props.queue.items.length,
+          count: props.queue.items.length + (props.queue.pending ? 1 : 0),
         })}
       >
         <QueuedMessages {...props.queue} />

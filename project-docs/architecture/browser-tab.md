@@ -91,6 +91,8 @@ workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커
 - **여는 자리는 renderer의 `workspace/open-policy.ts`(`openAt`·`showAfter`)가 정한다.** 규칙은 `workspace-layout.md`의 "탭 안에서 연 것의 자리"다. terminal이 보이지 않는 desk에 있으면 그 desk로 넘어가 terminal 탭 바로 뒤에 연다(`openTab`의 `after`가 다른 desk의 탭이면 그 desk로 건너간다). 로그인 URL은 사람이 그 page를 봐야 해서 넘어간다. 그 desk의 view를 hook이 모르므로 반대쪽 pane 규칙은 보이는 desk에만 쓴다. 그냥 click은 text 선택이고 Ctrl/Cmd-click만 link다. OSC 8 자동 링크는 지금도 삼킨다.
 - **browser 탭 layout은 `{key, url, favicon}`만 저장한다.** title, history, DevTools 자리는 저장하지 않는다. 다시 열면 그 url을 load한다. favicon은 `data:image/`로 시작하는 65536자까지만 받고, 맞지 않으면 renderer가 빼고 저장한다(탭을 잃지 않게).
 
+- **agent가 연 browser 탭("agent가 연 탭", `workspace-layout.md`)만 상태를 core에 알린다.** renderer `workspace/use-surface-requests.ts`가 browser 상태 push(`subscribeState` → `keyOf`)에서 key가 `host:`로 시작하는 탭의 url·title·loading을 `shell:surface-report`로 보내고 main이 `host/report`로 core 표에 둔다. agent는 `lophn browser read <tab>`(`browser/read`)로 자기가 연 탭의 마지막 상태만 읽는다. 남의 탭, 사람이 연 탭, 상태가 아직 없는 탭은 `not_found`다. page 내용, screenshot, 조작은 agent에게 없다.
+
 ## 왜 이 모양인가
 
 - **보통 탭을 `<webview>`로 바꿨다(사람).** 처음에는 앱 화면과 같이 native `WebContentsView`였다. native view는 shell HTML 위에 그려져 toolbar menu, 별 popover, floated 패널이 page 밑에 깔렸고, 피하려고 page를 숨기거나 줄였다. `<webview>`는 DOM 안에 그려져 그 위에 DOM이 겹친다. ChatGPT desktop도 `<webview>` 탭이지만, popup을 `<webview>`에 adopt하는 것은 고친 Electron(`_createWebViewAdoptionLease`)으로 한다(rea `analysis/embedded-browser-reverse-engineering.md` 1.3). 표준 Electron에는 그 길이 없어 크기 준 popup만 native로 남겼다.

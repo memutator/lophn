@@ -34,7 +34,7 @@
 
 ## 하지 않는 것
 
-- agent가 browser 탭을 보거나 다루기(CDP, `capturePage`를 agent tool로 주기, annotation을 browser page로 넓히기). browser 탭이 쓰인 뒤 따로 roadmap을 쓴다.
+- agent가 browser page를 보거나 다루기(CDP, `capturePage`를 agent tool로 주기, annotation을 browser page로 넓히기). browser-use roadmap의 일이다. agent는 탭을 열고 자기가 연 탭의 url·title·loading만 읽는다(`agent-surface.md`).
 - site allow/block list, capability별 승인, 관리자 policy, storage mode(rea `policy-settings.js`).
 - 방문 기록, 주소 칸 검색과 자동 완성, page 안 찾기, 확대·축소 UI.
 - bookmark folder, bookmark bar, 가져오기와 내보내기.

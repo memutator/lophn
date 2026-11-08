@@ -106,6 +106,10 @@ elements:
             kind: component
             description: model catalog, 사람이 적은 custom model 정보, provider 연결, provider가 알려 주는 model 목록.
 
+          - id: host-queue-core
+            kind: component
+            description: core가 shell에 시킬 일(agent가 연 탭의 열기·닫기)의 메모리 queue와 agent가 연 탭의 표. shell main이 가져간다.
+
           - id: harness-host-core
             kind: component
             description: runtime이 harness(claude-code, codex, opencode)인 agent의 session을 core가 받는 쪽. queue, turn·메시지 기록, harness의 session id. 실행은 shell의 host가 한다.
@@ -359,6 +363,17 @@ interfaces:
       - harness-host-core
     used_by:
       - shell
+
+  - id: host-queue-interface
+    kind: interface
+    description: shell main이 사람 token으로 부르는 host queue의 memory route(`host/take`, `done`, `report`)와 agent 자격의 `tabs/open`, `tabs/close`, `browser/read`. renderer의 호출 통로에는 없다.
+    interface_type: protocol
+    defined_by: lophn-agent
+    provided_by:
+      - host-queue-core
+    used_by:
+      - shell
+      - coding-agent
 
   - id: coding-agent-cli-interface
     kind: interface

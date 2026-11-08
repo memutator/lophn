@@ -31,7 +31,6 @@ import {
   writeUserToken,
 } from "../../install-and-update/run-metadata.ts";
 import {
-  CRASH_LOCATIONS,
   createHealth,
   createTelemetry,
   type Health,
@@ -41,13 +40,17 @@ import {
   tracedCall,
 } from "../../diagnostics/mod.ts";
 import { describeThrown } from "../../../base/telemetry/mod.ts";
+import { createShellCapabilities } from "../../server/control/capability.ts";
 import { assemble } from "./registration.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
 import { openRuntime } from "./runtime.ts";
+import { type CoreControl, createCoreControl } from "./control.ts";
 import {
+  createParentDiagnostics,
   greet,
+  type ParentDiagnostics,
   type ParentPipe,
-  shellViewLog,
+  routeDiagnostic,
   watchParent,
   writeParent,
 } from "./parent.ts";
@@ -83,7 +86,7 @@ type Core = {
   port: number;
   epoch: string;
   dataRoot: string;
-  // 부모 pipe의 종료 감시가 끝나면 resolve된다. 부모가 없으면 이미 끝난 상태다.
+  // shutdown barrier가 끝나면 resolve된다. 부모 pipe가 없어도 control stop·신호로 끝난다.
   done: Promise<void>;
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다.
   shutdown(): Promise<void>;
@@ -104,16 +107,34 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   // lock을 잡은 뒤에 지워야 이미 도는 core의 file을 지우지 않는다.
   await removeUserToken(root.value.run);
 
+  // epoch은 control이 먼저 알린다(migration 전에도 identify가 답한다). open은 같은 값을 쓴다.
+  const epoch = hex(random, 16);
+  // socket 잔여물을 치우고 듣는 것도 lock을 잡은 뒤다. 진 core는 살아 있는 core의 socket을 건드리지 않는다.
+  const control = await createCoreControl({
+    root: root.value,
+    coreEpoch: epoch,
+    clock,
+    random,
+    platform: process.platform,
+  });
+  if (!control.ok) {
+    await locked.value.release();
+    return control;
+  }
+
   const opened = await open(
     options,
     root.value,
     locked.value,
+    control.value,
+    epoch,
     clock,
     random,
     telemetry,
   );
   if (!opened.ok) {
-    // 기동이 실패하면 위치 metadata와 user token을 남기지 않고 lock을 푼다.
+    // 기동이 실패하면 listener·socket을 닫고, 위치 metadata와 user token을 남기지 않고 lock을 푼다.
+    await control.value.close();
     await removeRunMetadata(root.value.run);
     await removeUserToken(root.value.run);
     await locked.value.release();
@@ -126,6 +147,8 @@ async function open(
   options: CoreOptions,
   root: DataRoot,
   lock: InstanceLock,
+  control: CoreControl,
+  epoch: string,
   clock: Clock,
   random: RandomSource,
   telemetry: Telemetry,
@@ -200,7 +223,6 @@ async function open(
     owners: wirings.flatMap((wiring) => wiring.restartOwners ?? []),
   });
   if (!restart.ok) return restart;
-  const epoch = hex(random, 16);
   ctx.provide("epoch", epoch);
   const operations = [];
   for (const wiring of wirings) {
@@ -245,9 +267,20 @@ async function open(
     readerRead,
   );
   ctx.provide("runtime", runtime);
+  // shell capability는 control `connect {client: shell}`이 발급하고, 검증한 Gateway 연결이 끝나면 버린다.
+  // core는 남아도 그 shell의 view relay와 미소비 handle은 남기지 않는다.
+  const capabilities = createShellCapabilities({
+    random: (bytes) => random.fill(bytes),
+    ended: () => {
+      runtime.memory.disconnect();
+      void runtime.confirmation({ action: "clear" });
+    },
+  });
   // API 직전에 만들고 ready 뒤에 신호를 건다. 그 앞에서 기동이 실패해도 남는 timer·listener가 없다.
   let health: Health | undefined;
   let uninstallSnapshot = () => {};
+  // shutdown barrier가 끝나면 resolve된다. main은 이것으로 core가 끝났음을 안다.
+  const done = Promise.withResolvers<void>();
 
   // 종료 순서: 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
   // 정리(closeIntake) → server.stop() → closeChildren(앱 제어) → 앱 supervisor 정지 → io 정지 →
@@ -260,6 +293,8 @@ async function open(
     return (shutdownRun ??= (async () => {
       if (ctx.stopped) return;
       ctx.stopped = true;
+      // control의 identify가 stopping을 내고 붙을 API가 없다고 알린다.
+      control.stopping();
       const stoppedAt: StoppedConditions = {
         preparationsBlocked: false,
         commandsBlocked: false,
@@ -299,10 +334,16 @@ async function open(
             await removeUserToken(root.run);
           } finally {
             try {
-              await lock.release();
+              // listener와 socket file을 먼저 닫아야 identify가 사라진다. 그 뒤에 lock을 푼다.
+              await control.close();
             } finally {
-              telemetry.logger.info({ component: "core", event: "stopped" });
-              await telemetry.shutdown();
+              try {
+                await lock.release();
+              } finally {
+                telemetry.logger.info({ component: "core", event: "stopped" });
+                await telemetry.shutdown();
+                done.resolve();
+              }
             }
           }
         }
@@ -377,6 +418,7 @@ async function open(
       memory,
       bus: ctx.bus,
       gateway: ctx.gateway,
+      shellCapabilities: capabilities,
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
@@ -436,6 +478,22 @@ async function open(
       }),
   });
   for (const wiring of wirings) await wiring.afterReady?.(ctx);
+  const diagnostics: ParentDiagnostics = createParentDiagnostics(
+    root.path,
+    ctx.diagnosticsWrite,
+  );
+  // ready 뒤에야 control의 identify가 ready를 내고 connect가 된다.
+  control.ready({
+    coreEpoch: epoch,
+    apiUrl: `http://127.0.0.1:${server.port}`,
+    registry: ctx.registry,
+    routes: allRoutes,
+    events: ctx.eventNames,
+    runtime,
+    capabilities,
+    diagnostic: (diagnostic) => routeDiagnostic(diagnostics, diagnostic),
+    shutdown: () => void shutdown(),
+  });
 
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
   const parent = options.parent;
@@ -456,7 +514,7 @@ async function open(
     port: server.port,
     epoch,
     dataRoot: root.path,
-    done: Promise.resolve(),
+    done: done.promise,
     shutdown,
   };
   const greeted = await hello;
@@ -464,31 +522,18 @@ async function open(
     await core.shutdown();
     return greeted;
   }
-  core.done = parent
-    ? watchParent(
-        parent,
-        () => core.shutdown(),
-        {
-          confirmation: (body) => runtime.confirmation(body),
-          reply: (message) => writeParent(parent, message),
-        },
-        {
-          ...shellViewLog(root.path),
-          // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
-          internal: (diagnostic) =>
-            void ctx
-              .diagnosticsWrite({
-                ...diagnostic,
-                payload: {
-                  ...diagnostic.payload,
-                  component: "platform/shell-main",
-                  location: CRASH_LOCATIONS.shellMain,
-                },
-              })
-              .catch(() => {}),
-        },
-      )
-    : Promise.resolve();
+  // 옛 shell main의 parent pipe. standalone 시작은 이 길을 열지 않는다.
+  if (parent) {
+    void watchParent(
+      parent,
+      () => core.shutdown(),
+      {
+        confirmation: (body) => runtime.confirmation(body),
+        reply: (message) => writeParent(parent, message),
+      },
+      diagnostics,
+    );
+  }
   telemetry.logger.info({
     component: "core",
     event: "started",

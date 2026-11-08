@@ -7,6 +7,8 @@ import {
 } from "../../../protocol/supervision/mod.ts";
 import type { Frame, Route } from "../../../protocol/base/mod.ts";
 import type { CredentialRegistry } from "../../server/identity/mod.ts";
+import { userOperations } from "../../server/control/handler.ts";
+import { CRASH_LOCATIONS } from "../../diagnostics/mod.ts";
 import {
   createFrameWriter,
   readFrames,
@@ -18,25 +20,6 @@ export type ParentPipe = {
   stdin: ReadableStream<Uint8Array>;
   stdout: WritableStream<Uint8Array>;
 };
-
-// 사람 token이 지니는 operation은 route 등록의 actor 상한에서 계산한다. 손으로 쓴
-// 목록이 아니어서 새 route는 user를 허용하면 자동으로 들어가고, machine·app·worker
-// 전용 route는 들어가지 않는다. status·health read는 route 이름과 별개로 늘 포함한다.
-function userOperations(
-  routes: readonly Route[],
-  // 팀이 공개 정책을 내놓은 event 이름. owner 정책이 사람에게 event를 보이려면 필요하다.
-  events: readonly string[] = [],
-): string[] {
-  const names = new Set<string>([
-    "platform/status",
-    "platform/health",
-    ...events,
-  ]);
-  for (const route of routes) {
-    if (route.actors.includes("user")) names.add(route.name);
-  }
-  return [...names];
-}
 
 // user token은 여기서 한 번만 준다. hello frame과 run 폴더의 file에 같은 token을 준다.
 // 발급한 자격은 ledger에 적어 writer가 다시 검증한다.
@@ -133,7 +116,7 @@ type ShellViewLifetime = Extract<Diagnostic, { kind: "shell_view_lifetime" }>;
 type InternalDiagnostic = Extract<Diagnostic, { kind: "lophn_internal" }>;
 
 // main의 안전 진단을 받는 곳. 기록 실패는 core를 멈추지 않는다.
-type ParentDiagnostics = {
+export type ParentDiagnostics = {
   shellView(diagnostic: ShellViewLifetime): Promise<void>;
   internal(diagnostic: InternalDiagnostic): void;
 };
@@ -179,6 +162,39 @@ export function shellViewLog(
       }
     },
   };
+}
+
+// main이 보내는 안전 진단 두 종류를 받는 곳. parent pipe와 control socket이 같은 처리를 쓴다.
+// 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
+export function createParentDiagnostics(
+  dataRoot: string,
+  write: (diagnostic: Diagnostic) => Promise<boolean>,
+): ParentDiagnostics {
+  const log = shellViewLog(dataRoot);
+  return {
+    shellView: (diagnostic) => log.shellView(diagnostic),
+    internal: (diagnostic) =>
+      void write({
+        ...diagnostic,
+        payload: {
+          ...diagnostic.payload,
+          component: "platform/shell-main",
+          location: CRASH_LOCATIONS.shellMain,
+        },
+      }).catch(() => {}),
+  };
+}
+
+// 진단 하나를 그 종류의 처리로 보낸다. 다른 종류는 받지 않는다(control 계약이 두 종류만 받는다).
+export async function routeDiagnostic(
+  diagnostics: ParentDiagnostics,
+  diagnostic: Diagnostic,
+): Promise<void> {
+  if (diagnostic.kind === "shell_view_lifetime") {
+    await diagnostics.shellView(diagnostic);
+  } else if (diagnostic.kind === "lophn_internal") {
+    diagnostics.internal(diagnostic);
+  }
 }
 
 // pipe EOF나 main의 명시 종료가 core 종료를 시작한다.

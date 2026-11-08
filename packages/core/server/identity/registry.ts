@@ -103,7 +103,6 @@ function randomValue(random: RandomSource): string {
 
 export class CredentialRegistry {
   #records = new Map<string, CredentialRecord>();
-  #userIssued = false;
   #options: CredentialRegistryOptions;
 
   constructor(options: CredentialRegistryOptions) {
@@ -117,7 +116,6 @@ export class CredentialRegistry {
   issue(
     input: CredentialIssue,
   ): Result<{ token: string; credential_ref: string }> {
-    let userReserved = false;
     try {
       const parsedScope = credentialScopeSchema.safeParse({
         operations: input.scope.operations,
@@ -222,16 +220,6 @@ export class CredentialRegistry {
         )
           return invalid();
       }
-      if (kind === "user") {
-        if (this.#userIssued) {
-          return err({
-            code: "conflict",
-            message: "user credential already issued",
-          });
-        }
-        this.#userIssued = true;
-        userReserved = true;
-      }
       const token = randomValue(this.#options.random);
       const credential_ref = randomValue(this.#options.random);
       const digest = digestOf(token);
@@ -242,7 +230,6 @@ export class CredentialRegistry {
           constantTimeDigestEqual(record.digest, digest),
         )
       ) {
-        if (userReserved) this.#userIssued = false;
         return err({
           code: "unavailable",
           message: "credential generation unavailable",
@@ -257,7 +244,6 @@ export class CredentialRegistry {
       });
       return ok({ token, credential_ref });
     } catch {
-      if (userReserved) this.#userIssued = false;
       return err({
         code: "unavailable",
         message: "credential generation unavailable",

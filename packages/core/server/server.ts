@@ -50,6 +50,7 @@ import {
   gatewayAllowed,
   refuseSocket,
 } from "./socket.ts";
+import type { ShellCapabilities } from "./control/capability.ts";
 
 // core entry가 조립한다. core entry·data root·시작 순서는 여기 없다.
 export type ApiServerOptions = {
@@ -70,6 +71,9 @@ export type ApiServerOptions = {
   bus?: Bus;
   // Gateway client 하나에 Bus 밖 frame을 보내는 목록. 연결마다 올린다.
   gateway?: GatewayFrames;
+  // Gateway handshake가 보인 shell capability. 그 연결의 종료가 그 shell의 종료다.
+  // 없으면 capability를 보인 연결을 거절한다.
+  shellCapabilities?: ShellCapabilities;
   bodyLimit?: DispatchDeps["bodyLimit"];
   // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
   logger?: Logger;
@@ -375,6 +379,24 @@ export async function startApiServer(
           }),
         );
       }
+      // shell main은 자기 수명을 이 capability로 묶는다. HTTP user token만 가진 Gateway는 이 값을 모른다.
+      const shellCapability = request.headers["x-lophn-shell-capability"];
+      const shell =
+        typeof shellCapability === "string" && shellCapability.length > 0
+          ? shellCapability
+          : undefined;
+      if (
+        shell !== undefined &&
+        !(options.shellCapabilities?.has(shell) ?? false)
+      ) {
+        return refuseSocket(
+          socket,
+          failure({
+            code: "forbidden",
+            message: "shell capability is not valid",
+          }),
+        );
+      }
       // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
       const connection = admission.enterEvent(decision.context.principal);
       if (!connection.ok) {
@@ -388,7 +410,11 @@ export async function startApiServer(
       gateway.accept(request, socket, head, decision.context, {
         bus: options.bus,
         frames: options.gateway,
-        onClose: connection.value.release,
+        onClose: () => {
+          connection.value.release();
+          // capability를 검증한 그 Gateway가 끝났다. 그 shell의 handle과 view relay를 버린다.
+          if (shell !== undefined) options.shellCapabilities?.end(shell);
+        },
       });
     } catch {
       // 경계 밖 throw는 stack·원문 없이 internal이다.

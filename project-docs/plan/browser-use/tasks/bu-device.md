@@ -12,7 +12,7 @@
   - `packages/shell/renderer/desktop/settings/browser/`
   - `packages/shell/renderer/workspace/{app-preview-tab.tsx,app-preview-tab.module.css}`
   - `packages/shell/renderer/workspace/kinds/app-preview.tsx`, `packages/shell/renderer/workspace/use-surface-requests.ts`
-  - `packages/shell/main/browser/agent/emulation.ts`(새로)
+  - `packages/shell/main/browser/agent/emulation.ts`(새로), `packages/shell/main/browser/agent/{driver,electron-page}.ts`(추가 소유: debugger를 emulation과 같이 쓰는 곳만)
   - `packages/shell/ipc/surface.ts`, `packages/shell/preload/surface-api.ts`, `packages/shell/main/desktop/wiring/surface.ts`(emulation channel만)
   - `packages/design/i18n/catalog/{app-space,browser}.ts`
   - `tools/wireframes/pages/screens/app-space/`(preview 탭 기기 고르기·폰 테두리), `tools/wireframes/pages/screens/settings-pages.tsx`(Browser의 기기 목록)
@@ -34,6 +34,13 @@
 3. emulation(`emulation.ts`): 그 view의 webContents에 크기·DPR(`Emulation.setDeviceMetricsOverride`, `mobile: true`), touch(`Emulation.setTouchEmulationEnabled`, `Emulation.setEmitTouchEventsForMouse`), user agent(OS별 고정 문자열 하나씩)를 건다. debugger는 `bu-cdp`의 붙이기를 같이 쓴다(webContents 하나에 debugger 하나). DevTools가 열려 있어 못 붙으면 탭에 "DevTools를 닫아야 기기 크기를 건다"를 보인다. 앱 live view에는 걸지 않는다.
 4. `--device <name>`: core가 `shell.devices`에서 이름을 찾고 없으면 `not_found`("no device named <name>; register it in Settings > Browser"). renderer가 그 기기로 탭을 연다.
 5. agent의 screenshot·snapshot·act가 emulation된 크기에서 그대로 돈다(좌표는 emulation 뒤 CSS px).
+
+## lead가 더함 (bu-cdp 뒤)
+
+6. debugger 붙이기는 `packages/shell/main/browser/agent/{electron-page,driver}.ts`에 있다(`electronPage(contents).attach`, driver의 탭 session). webContents 하나에 debugger 하나라 emulation은 driver가 쓰는 같은 붙이기를 거친다. 두 번 attach하지 않는다. agent가 아직 다루지 않은 preview 탭에서도 emulation을 걸 수 있어야 한다(사람이 기기를 고를 때).
+7. preview 탭의 view는 앱 view registry에서 찾는다(driver의 preview 찾기와 같은 길, `mode: "preview"`만). 앱 live view에는 emulation을 걸지 않는다.
+8. 진짜 Electron 확인은 lead의 확인 script를 쓴다: `/home/pyosechang/projects/lophn/.claude/worktrees/plan-browser-use/.dev-data/verify/harness.ts`(core, fake model, 준비된 release가 있는 앱, headless shell, 사람 CLI `h.cli`)와 본보기 `preview-check.ts`, 뒤 탭 확인 `.dev-data/verify/ghost/`. 네 worktree의 `.dev-data/bu-device/`로 복사해 쓴다. 매번 `node packages/shell/renderer/build.ts`, `node packages/shell/main/build.ts` 뒤 돌린다.
+9. "남지 않음" grep은 `tests/`까지 본다(main 절차가 바뀌었다: land가 계획 끝 한 번이라 e2e의 옛 기대값이 늦게 드러난다).
 
 ## 끝남
 

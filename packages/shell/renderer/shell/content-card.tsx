@@ -224,7 +224,11 @@ export function ContentCard({
                   cycle={
                     stack.length < 2 || onCycle === undefined
                       ? undefined
-                      : (delta) => onCycle(pane.key, delta)
+                      : {
+                          at: stack.indexOf(pane.key) + 1,
+                          count: stack.length,
+                          onStep: (delta) => onCycle(pane.key, delta),
+                        }
                   }
                   onDragStart={
                     grouped
@@ -328,8 +332,14 @@ function CardHead({
   onBack: () => void;
   onForward: () => void;
   onAction: (action: TabAction) => void;
-  /** 칸이 여러 tab을 돌려 볼 때 넘기기. */
-  cycle: ((delta: number) => void) | undefined;
+  /** 칸이 돌려 보는 tab 중 몇째(1부터)인지와 넘기기. 하나뿐이면 없다. */
+  cycle:
+    | {
+        readonly at: number;
+        readonly count: number;
+        readonly onStep: (delta: number) => void;
+      }
+    | undefined;
   /** group의 칸이면 머리 줄을 눌러 끌어 옮길 수 있다. */
   onDragStart: ((event: PointerEvent<HTMLElement>) => void) | undefined;
 }) {
@@ -348,17 +358,17 @@ function CardHead({
     >
       <IconButton
         icon={shellIcons.back}
-        label={t(cycle ? "shell.button.pane-previous" : "shell.button.back")}
+        label={t("shell.button.back")}
         size="sm"
-        disabled={cycle === undefined && !nav.canBack}
-        onClick={cycle ? () => cycle(-1) : nav.onBack}
+        disabled={!nav.canBack}
+        onClick={nav.onBack}
       />
       <IconButton
         icon={shellIcons.forward}
-        label={t(cycle ? "shell.button.pane-next" : "shell.button.forward")}
+        label={t("shell.button.forward")}
         size="sm"
-        disabled={cycle === undefined && !nav.canForward}
-        onClick={cycle ? () => cycle(1) : nav.onForward}
+        disabled={!nav.canForward}
+        onClick={nav.onForward}
       />
       {nav.onReload === undefined ? null : (
         <IconButton
@@ -400,6 +410,28 @@ function CardHead({
         <span className={styles.center}>{spec.center}</span>
       )}
       {spec?.actions}
+      {cycle === undefined ? null : (
+        <span className={styles.cycle}>
+          <IconButton
+            icon={shellIcons.panePrevious}
+            label={t("shell.button.pane-previous")}
+            size="sm"
+            onClick={() => cycle.onStep(-1)}
+          />
+          <span className={styles.cycleAt}>
+            {t("shell.label.pane-position", {
+              at: cycle.at,
+              count: cycle.count,
+            })}
+          </span>
+          <IconButton
+            icon={shellIcons.paneNext}
+            label={t("shell.button.pane-next")}
+            size="sm"
+            onClick={() => cycle.onStep(1)}
+          />
+        </span>
+      )}
       <Menu
         placement="corner-end"
         onOpenChange={extra?.onOpenChange}

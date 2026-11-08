@@ -15,7 +15,19 @@ export const PACKAGE_GUIDE_BLOB_FIELD = defineBlobField({
   general_read: true,
 });
 
-// 한 Package version의 안내 하나다. 이름과 정확한 version이 owner key다.
+// 설치 사본의 정본 byte(`bundleBytes`)다. 설치 사본을 잃어도 core가 이 blob으로 되살린다.
+// 사본을 되살리는 core만 읽으므로 일반 읽기는 열지 않는다. 같은 owner key를 쓰고 field만 다르다.
+export const PACKAGE_BUNDLE_BLOB_PURPOSE = "sdk_bundle";
+export const PACKAGE_BUNDLE_BLOB_FIELD_NAME = "bundle";
+
+export const PACKAGE_BUNDLE_BLOB_FIELD = defineBlobField({
+  owner_kind: PACKAGE_GUIDE_BLOB_OWNER_KIND,
+  field: PACKAGE_BUNDLE_BLOB_FIELD_NAME,
+  retention: { kind: "permanent" },
+  general_read: false,
+});
+
+// 한 Package version의 blob(안내·bundle)이 같이 쓰는 owner key다. 이름과 정확한 version이다.
 export function packageGuideOwnerKey(name: string, version: string): string {
   return `${name}@${version}`;
 }

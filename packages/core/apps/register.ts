@@ -57,7 +57,10 @@ import { releasesSchemaSteps } from "./releases/schema.ts";
 import { loadActiveDeclaration, releaseFacts } from "./releases/store.ts";
 import { createRuntimeCommands } from "./runtime/commands.ts";
 import { createRuntimeReads } from "./runtime/reads.ts";
-import { PACKAGE_GUIDE_BLOB_FIELD } from "./packages/blobs.ts";
+import {
+  PACKAGE_BUNDLE_BLOB_FIELD,
+  PACKAGE_GUIDE_BLOB_FIELD,
+} from "./packages/blobs.ts";
 import { createSdkCommands } from "./packages/commands.ts";
 import { createSdkReads } from "./packages/reads.ts";
 import { sdkSchemaSteps } from "./packages/schema.ts";
@@ -144,10 +147,11 @@ export function createLedgerRegistration(
   const releaseReads = createReleaseReads();
   const declarationReads = createDeclarationReads(loadActiveDeclaration);
   return {
-    // 보호 backup blob(일반 blob 읽기 없음)과 공개 SDK 사용 안내 blob(일반 읽기 허용).
+    // 보호 backup blob(일반 blob 읽기 없음), 공개 SDK 사용 안내 blob(일반 읽기 허용), 설치 사본 bundle blob(일반 읽기 없음).
     blobFields: [
       BACKUP_BLOB_FIELD,
       PACKAGE_GUIDE_BLOB_FIELD,
+      PACKAGE_BUNDLE_BLOB_FIELD,
       ...INVOCATION_BLOB_FIELDS,
     ],
     // `/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.

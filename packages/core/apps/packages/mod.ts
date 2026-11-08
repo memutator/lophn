@@ -2,6 +2,7 @@
 // ledger 조립은 아래 모듈을 직접 부른다(packages/core/apps/register.ts).
 
 export {
+  PACKAGE_BUNDLE_BLOB_FIELD,
   PACKAGE_GUIDE_BLOB_FIELD,
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,

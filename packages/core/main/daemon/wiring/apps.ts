@@ -4,7 +4,6 @@ import {
   err,
   ok,
   type Result,
-  sha256Hex,
 } from "../../../../base/mod.ts";
 import type { PermissionScope } from "../../../../protocol/apps/declaration/mod.ts";
 import {
@@ -17,7 +16,6 @@ import {
   appLogViewError,
   declarationCheck,
   packagePublish,
-  packageRegisterVersion,
   packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
@@ -62,6 +60,7 @@ import {
   packageGuideOwnerKey,
 } from "../../../apps/packages/blobs.ts";
 import { readBuiltinSdk } from "../../../apps/packages/mod.ts";
+import { registerVersionEnvelope } from "../../../apps/packages/install.ts";
 import { publishPackage } from "../../../apps/packages/publish.ts";
 import {
   effectiveScope,
@@ -449,21 +448,9 @@ export const appsWiring: WiringFactory = () => {
               sourceRootOf: (app) => sourceRootOfApp(link.sql, app),
               prepareBlob: (call) => ctx.blobRelay.prepare(call),
               registerVersion: async (input) => {
-                const key = `package-publish-${await sha256Hex(
-                  `${input.name}\n${input.version}\n${input.bundle_hash}\n${input.guide_hash}`,
-                )}`;
                 const done = await ctx.writer.command(
                   PACKAGE_PUBLISH_CONTEXT as never,
-                  {
-                    command: packageRegisterVersion.name,
-                    input,
-                    compare: {},
-                    idempotency_key: key,
-                    prepared:
-                      input.guide_blob === undefined
-                        ? []
-                        : [input.guide_blob.preparation],
-                  },
+                  (await registerVersionEnvelope(input)) as never,
                 );
                 return done.ok ? ok(done.value.result as never) : done;
               },

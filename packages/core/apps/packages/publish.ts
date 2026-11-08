@@ -145,6 +145,9 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
       permissions: input.permissions,
       bundle_hash: prepared.value.bundleHash,
       guide_hash: prepared.value.guideHash,
+      ...(prepared.value.bundleBlob === undefined
+        ? {}
+        : { bundle_blob: prepared.value.bundleBlob }),
       ...(prepared.value.guideBlob === undefined
         ? {}
         : { guide_blob: prepared.value.guideBlob }),

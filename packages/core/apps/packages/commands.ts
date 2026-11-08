@@ -5,11 +5,14 @@ import {
   type PackageVersion,
   packageVersionRegistered,
 } from "../../../protocol/apps/mod.ts";
+import type { PreparedBlob } from "../../../protocol/storage/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
 import {
+  PACKAGE_BUNDLE_BLOB_FIELD_NAME,
+  PACKAGE_BUNDLE_BLOB_PURPOSE,
   PACKAGE_GUIDE_BLOB_FIELD_NAME,
   PACKAGE_GUIDE_BLOB_OWNER_KIND,
   PACKAGE_GUIDE_BLOB_PURPOSE,
@@ -32,30 +35,49 @@ function requireMachine(ctx: RequestContext): Result<void> {
     : forbidden("package versions are registered by the install machine only");
 }
 
-// 안내 byte를 준비한 blob이 있으면 그 참조를 같은 transaction에서 등록한다. 실제로 보존한 byte의 hash만
-// guide_hash로 둘 수 있다: 준비한 blob의 hash·purpose가 다르면 이 command 전체가 거절이다.
-function registerGuide(
+type BlobSpec = {
+  blob: PreparedBlob | undefined;
+  hash: string;
+  purpose: string;
+  field: string;
+  what: string;
+};
+
+// byte를 준비한 blob이 있으면 그 참조를 같은 transaction에서 등록한다. 실제로 보존한 byte의 hash만
+// *_hash로 둘 수 있다: 준비한 blob의 hash·purpose가 다르면 이 command 전체가 거절이다.
+// missingOnly는 이미 잡힌 version의 재시도용이다: 참조가 이미 있으면 그대로 두고, 없을 때만(옛 판을 되살리는
+// 마이그레이션이나 참조 등록 전에 끊긴 재시도) 붙인다.
+function registerBlob(
   tx: Parameters<CommandDefinition<typeof packageRegisterVersion>["handle"]>[0],
   input: Parameters<
     CommandDefinition<typeof packageRegisterVersion>["handle"]
   >[2],
   seq: string,
+  spec: BlobSpec,
+  missingOnly: boolean,
 ): Result<void> {
-  const blob = input.guide_blob;
+  const blob = spec.blob;
   if (blob === undefined) return ok(undefined);
-  if (
-    blob.hash !== input.guide_hash ||
-    blob.purpose !== PACKAGE_GUIDE_BLOB_PURPOSE
-  ) {
+  if (blob.hash !== spec.hash || blob.purpose !== spec.purpose) {
     return err({
       code: "invalid_input",
-      message: "guide hash is not the preserved guide blob",
+      message: `${spec.what} hash is not the preserved ${spec.what} blob`,
     });
+  }
+  const ownerKey = packageGuideOwnerKey(input.name, input.version);
+  if (
+    missingOnly &&
+    tx.sql.get(
+      "SELECT 1 AS found FROM blob_refs WHERE owner_kind = ? AND owner_key = ? AND field = ?",
+      [PACKAGE_GUIDE_BLOB_OWNER_KIND, ownerKey, spec.field],
+    ) !== undefined
+  ) {
+    return ok(undefined);
   }
   const registered = tx.registerBlobRef({
     owner_kind: PACKAGE_GUIDE_BLOB_OWNER_KIND,
-    owner_key: packageGuideOwnerKey(input.name, input.version),
-    field: PACKAGE_GUIDE_BLOB_FIELD_NAME,
+    owner_key: ownerKey,
+    field: spec.field,
     registered_seq: seq,
     source: { kind: "prepared", blob: { ...blob } },
   });
@@ -65,8 +87,56 @@ function registerGuide(
     ? registered
     : err({
         code: "invalid_input",
-        message: "guide blob is not a prepared blob of this caller",
+        message: `${spec.what} blob is not a prepared blob of this caller`,
       });
+}
+
+function registerBlobs(
+  tx: Parameters<CommandDefinition<typeof packageRegisterVersion>["handle"]>[0],
+  input: Parameters<
+    CommandDefinition<typeof packageRegisterVersion>["handle"]
+  >[2],
+  seq: string,
+  missingOnly = false,
+): Result<void> {
+  const guide = registerBlob(
+    tx,
+    input,
+    seq,
+    {
+      blob: input.guide_blob,
+      hash: input.guide_hash,
+      purpose: PACKAGE_GUIDE_BLOB_PURPOSE,
+      field: PACKAGE_GUIDE_BLOB_FIELD_NAME,
+      what: "guide",
+    },
+    missingOnly,
+  );
+  if (!guide.ok) return guide;
+  return registerBlob(
+    tx,
+    input,
+    seq,
+    {
+      blob: input.bundle_blob,
+      hash: input.bundle_hash,
+      purpose: PACKAGE_BUNDLE_BLOB_PURPOSE,
+      field: PACKAGE_BUNDLE_BLOB_FIELD_NAME,
+      what: "bundle",
+    },
+    missingOnly,
+  );
+}
+
+// 재시도에는 새 event가 없어 참조 등록 시각을 지금의 ledger 끝으로 둔다.
+function headSeq(
+  tx: Parameters<CommandDefinition<typeof packageRegisterVersion>["handle"]>[0],
+): string {
+  const row = tx.sql.get(
+    "SELECT COALESCE(MAX(seq), 0) AS head FROM events",
+    [],
+  );
+  return String(row?.["head"] ?? 0);
 }
 
 type RegisterInput = Parameters<
@@ -149,8 +219,8 @@ export function createSdkCommands(): {
             [id, input.name, input.description, input.owner_app],
           );
           insertVersion(tx, id, input);
-          const guide = registerGuide(tx, input, seq);
-          if (!guide.ok) return guide;
+          const blobs = registerBlobs(tx, input, seq);
+          if (!blobs.ok) return blobs;
           return registered(
             tx,
             id,
@@ -183,6 +253,8 @@ export function createSdkCommands(): {
             stored["guide_hash"] === input.guide_hash &&
             stored["permissions"] === JSON.stringify(input.permissions ?? []);
           if (!same) return conflict("published version bytes are immutable");
+          const blobs = registerBlobs(tx, input, headSeq(tx), true);
+          if (!blobs.ok) return blobs;
           return registered(
             tx,
             packageId,
@@ -200,8 +272,8 @@ export function createSdkCommands(): {
           input.description,
           packageId,
         ]);
-        const guide = registerGuide(tx, input, seq);
-        if (!guide.ok) return guide;
+        const blobs = registerBlobs(tx, input, seq);
+        if (!blobs.ok) return blobs;
         return registered(
           tx,
           packageId,

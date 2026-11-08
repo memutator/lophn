@@ -18,8 +18,13 @@ import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
   type PackageRegisterVersionInput,
   packageNameSchema,
+  packageRegisterVersion,
   packageVersionNameSchema,
 } from "../../../protocol/apps/mod.ts";
+import {
+  PACKAGE_BUNDLE_BLOB_PURPOSE,
+  PACKAGE_GUIDE_BLOB_PURPOSE,
+} from "./blobs.ts";
 import { sdkCopyDependency } from "./sdk-sync.ts";
 import {
   keepSourceFile,
@@ -96,6 +101,35 @@ export function bundleBytes(
     offset += chunk.length;
   }
   return out;
+}
+
+// bundleBytes의 역이다. 모양이 어긋나면 invalid_input이다(hash가 맞아도 되살리기는 이 모양만 받는다).
+export function bundleFiles(bytes: Uint8Array): Result<SourceFile[]> {
+  const decoder = new TextDecoder();
+  const files: SourceFile[] = [];
+  let offset = 0;
+  // 줄 하나(`\n` 앞까지)를 읽고 offset을 줄 뒤로 옮긴다.
+  const line = (): string | undefined => {
+    const end = bytes.indexOf(0x0a, offset);
+    if (end < 0) return undefined;
+    const text = decoder.decode(bytes.subarray(offset, end));
+    offset = end + 1;
+    return text;
+  };
+  while (offset < bytes.length) {
+    const path = line();
+    const length = line();
+    if (path === undefined || length === undefined || !/^\d+$/.test(length)) {
+      return invalid("bundle bytes are malformed");
+    }
+    const size = Number(length);
+    if (offset + size + 1 > bytes.length || bytes[offset + size] !== 0x0a) {
+      return invalid("bundle bytes are malformed");
+    }
+    files.push({ path, bytes: bytes.slice(offset, offset + size) });
+    offset += size + 1;
+  }
+  return files.length === 0 ? invalid("bundle bytes are empty") : ok(files);
 }
 
 // 설치 사본 이름 경계. `..`·절대·빈 구간은 거절이다.
@@ -210,6 +244,68 @@ export function prepareCopyFiles(
   );
 }
 
+function byteStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+}
+
+// 준비 참조를 받으면 register_version이 같은 transaction에서 등록한다. 참조 없는 준비는 등록할 수 없다.
+type PreparedResult = {
+  hash: string;
+  size_bytes: number;
+  preparation?: string;
+};
+function asPreparedBlob(
+  principal: string,
+  purpose: string,
+  prepared: PreparedResult,
+): PackageRegisterVersionInput["bundle_blob"] {
+  return prepared.preparation === undefined
+    ? undefined
+    : {
+        preparation: prepared.preparation,
+        principal,
+        purpose,
+        hash: prepared.hash,
+        size_bytes: prepared.size_bytes,
+      };
+}
+
+// bundle byte를 blob으로 준비한다. 준비한 byte의 hash만 ledger에 간다.
+export async function prepareBundleBlob(
+  bundle: Uint8Array,
+  principal: string,
+  prepareBlob: PrepareBlob,
+): Promise<
+  Result<{
+    bundleHash: string;
+    bundleBlob: PackageRegisterVersionInput["bundle_blob"];
+  }>
+> {
+  const bundleHash = await sha256Hex(bundle);
+  const prepared = await prepareBlob({
+    principal,
+    purpose: PACKAGE_BUNDLE_BLOB_PURPOSE,
+    bytes: byteStream(bundle),
+  });
+  if (!prepared.ok) return prepared;
+  if (prepared.value.hash !== bundleHash) {
+    return invalid("bundle hash changed during preparation");
+  }
+  return ok({
+    bundleHash,
+    bundleBlob: asPreparedBlob(
+      principal,
+      PACKAGE_BUNDLE_BLOB_PURPOSE,
+      prepared.value,
+    ),
+  });
+}
+
 // bundle과 안내 byte를 blob으로 준비한다. 준비한 byte의 hash만 ledger에 간다.
 export async function prepareBundleBlobs(
   bundle: Uint8Array,
@@ -220,48 +316,55 @@ export async function prepareBundleBlobs(
   Result<{
     bundleHash: string;
     guideHash: string;
+    bundleBlob: PackageRegisterVersionInput["bundle_blob"];
     guideBlob: PackageRegisterVersionInput["guide_blob"];
   }>
 > {
-  const bundleHash = await sha256Hex(bundle);
-  const guideHash = await sha256Hex(guide);
-  const stream = (bytes: Uint8Array) =>
-    new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(bytes);
-        controller.close();
-      },
-    });
-  const bundlePrepared = await prepareBlob({
+  const bundlePrepared = await prepareBundleBlob(
+    bundle,
     principal,
-    purpose: "sdk_bundle",
-    bytes: stream(bundle),
-  });
+    prepareBlob,
+  );
   if (!bundlePrepared.ok) return bundlePrepared;
-  if (bundlePrepared.value.hash !== bundleHash) {
-    return invalid("bundle hash changed during preparation");
-  }
+  const guideHash = await sha256Hex(guide);
   const guidePrepared = await prepareBlob({
     principal,
-    purpose: "sdk_guide",
-    bytes: stream(guide),
+    purpose: PACKAGE_GUIDE_BLOB_PURPOSE,
+    bytes: byteStream(guide),
   });
   if (!guidePrepared.ok) return guidePrepared;
   if (guidePrepared.value.hash !== guideHash) {
     return invalid("guide hash changed during preparation");
   }
-  // 준비 참조를 받으면 안내 blob을 register_version이 같은 transaction에서 등록한다.
-  const guideBlob =
-    guidePrepared.value.preparation === undefined
-      ? undefined
-      : {
-          preparation: guidePrepared.value.preparation,
-          principal,
-          purpose: "sdk_guide",
-          hash: guidePrepared.value.hash,
-          size_bytes: guidePrepared.value.size_bytes,
-        };
-  return ok({ bundleHash, guideHash, guideBlob });
+  return ok({
+    ...bundlePrepared.value,
+    guideHash,
+    guideBlob: asPreparedBlob(
+      principal,
+      PACKAGE_GUIDE_BLOB_PURPOSE,
+      guidePrepared.value,
+    ),
+  });
+}
+
+// package.register_version을 writer에 내는 envelope. publish와 부팅 때 bundle blob 붙이기가 같은 key를 쓴다.
+// 옛 판(bundle blob 없이 등록)의 key와 겹치면 writer가 옛 결과를 그대로 돌려줘 blob이 안 붙으므로
+// bundle blob을 가진 입력이라는 표시가 key에 들어 있다.
+export async function registerVersionEnvelope(
+  input: PackageRegisterVersionInput,
+) {
+  const key = `package-publish-${await sha256Hex(
+    `${input.name}\n${input.version}\n${input.bundle_hash}\n${input.guide_hash}\nbundle-blob`,
+  )}`;
+  return {
+    command: packageRegisterVersion.name,
+    input,
+    compare: {},
+    idempotency_key: key,
+    prepared: [input.guide_blob, input.bundle_blob]
+      .filter((blob) => blob !== undefined)
+      .map((blob) => blob.preparation),
+  };
 }
 
 export async function removeInstallCopy(target: string): Promise<void> {

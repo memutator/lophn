@@ -59,7 +59,7 @@ test("preview 탭은 그 앱 workspace의 session과 사람만 연다", async ()
   assert.equal(queue.take([{ kind: "app", id: APP as never }]), null);
   assert.equal(code(await open(agent(1), target)), "ok");
   assert.equal(code(await open(person, target)), "ok");
-  // 사람 token은 preview 탭만 연다.
+  // 사람 token은 session 탭을 열지 못한다.
   const session = { target: { session: id("ses", 1) } };
   assert.equal(code(await open(person, session)), "invalid_input");
 });
@@ -82,4 +82,29 @@ test("탭은 연 쪽만 닫고, 같은 앱의 preview 탭은 하나이며 주인
   assert.equal(code(await close(agent(1), { tab })), "forbidden");
   assert.equal(code(await close(person, { tab })), "ok");
   assert.equal(code(await close(person, { tab })), "not_found");
+});
+
+// 남의 탭을 보거나 조작하면 다른 session의 로그인 page를 읽는다. 주인 대조가 shell 가용 판정보다 앞서야 not_found가 먼저 나간다.
+test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 not_found다", async () => {
+  const { open, snapshot, act } = setup(true);
+  const browser = { target: { browser: { url: "https://example.com" } } };
+  const mine = await open(agent(1), browser);
+  const theirs = await open(person, browser);
+  assert.ok(mine.ok && theirs.ok);
+  const agentTab = (mine.value as { tab: string }).tab;
+  const personTab = (theirs.value as { tab: string }).tab;
+
+  assert.equal(code(await snapshot(agent(2), { tab: agentTab })), "not_found");
+  assert.equal(code(await snapshot(person, { tab: agentTab })), "not_found");
+  assert.equal(code(await snapshot(agent(1), { tab: personTab })), "not_found");
+  assert.equal(
+    code(await act(agent(2), { tab: agentTab, type: "click", ref: "e1" })),
+    "not_found",
+  );
+  // 주인은 주인 대조를 지나 shell이 붙어 있는지로 간다.
+  assert.equal(
+    code(await snapshot(agent(1), { tab: agentTab })),
+    "unavailable",
+  );
+  assert.equal(code(await snapshot(person, { tab: personTab })), "unavailable");
 });

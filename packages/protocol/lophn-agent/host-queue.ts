@@ -3,13 +3,14 @@ import { ERROR_CODES } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { extensionToolContentSchema } from "../extensions/manifest.ts";
+import { workspaceSchema } from "./workspaces.ts";
 
-// core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기)을 담고, shell main이 1초마다 가져가
-// 그 workspace를 보이는 창에 push한다(harness queue와 같은 꼴: core 메모리 + shell main이 가져감).
+// core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기, extension tool 호출, browser 호출)을 담고, shell main이
+// `host/take`를 이어 불러(long-poll) 가져가 그 workspace를 보이는 창에 push한다(harness queue와 같은 꼴: core 메모리 + shell main이 가져감).
 // shell이 없거나 그 workspace를 보이는 창이 없으면 요청은 대기하고, core가 다시 뜨면 사라진다.
 //
 // host/*는 shell main이 사람 token(actor user)으로만 부르고 renderer 통로에는 없다.
-// tabs/*는 agent session이나 사람 token이 `lophn tab` 명령으로 부른다. browser/read는 agent만 부른다. 부른 session은 자격의
+// tabs/*와 browser/*는 agent session이나 사람 token이 `lophn tab`·`lophn browser` 명령으로 부른다. 부른 session은 자격의
 // session 조건에서 읽고 입력으로 받지 않는다. 탭의 주인은 그 session이고, 사람 token은 모두 같은 주인 "person"이다.
 
 const errors = [
@@ -73,6 +74,81 @@ const toolCallPayloadSchema = z.strictObject({
   credential: z.string().min(1),
 });
 
+// browser 호출의 act 하나다. ref는 snapshot마다 새로 나고, 낡은 ref는 shell이 `conflict`로 답한다.
+const browserRefSchema = z.string().regex(/^e[1-9][0-9]{0,8}$/);
+export const browserActSchema = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("click"), ref: browserRefSchema }),
+  // 지금 값 끝에 입력한다.
+  z.strictObject({
+    type: z.literal("type"),
+    ref: browserRefSchema,
+    text: z.string().max(10_000),
+  }),
+  // 값을 바꾼다.
+  z.strictObject({
+    type: z.literal("fill"),
+    ref: browserRefSchema,
+    text: z.string().max(10_000),
+  }),
+  // "Enter", "Control+a".
+  z.strictObject({
+    type: z.literal("press"),
+    key: z.string().min(1).max(64),
+    ref: browserRefSchema.optional(),
+  }),
+  z.strictObject({ type: z.literal("hover"), ref: browserRefSchema }),
+  // option의 value나 label.
+  z.strictObject({
+    type: z.literal("select"),
+    ref: browserRefSchema,
+    values: z.array(z.string().max(1_000)).min(1).max(64),
+  }),
+  // ref면 보이게, 아니면 page를 dy px.
+  z.strictObject({
+    type: z.literal("scroll"),
+    ref: browserRefSchema.optional(),
+    dy: z.number().int().min(-100_000).max(100_000).optional(),
+  }),
+]);
+export type BrowserAct = z.infer<typeof browserActSchema>;
+
+export const BROWSER_WAIT_DEFAULT_MS = 10_000;
+export const BROWSER_WAIT_MAX_MS = 25_000;
+// core가 browser 호출의 답을 기다리는 기한이다. 넘으면 거두고 `unavailable`이다. wait의 최대(25초)가 이 안에 든다.
+export const BROWSER_CALL_MS = 30_000;
+// `host/take`가 요청을 기다리는 시간이다. 매 take가 TUI hold의 heartbeat이고 hold 갱신이 10초(`BEAT_MS`)라 그보다 짧아야 한다.
+export const HOST_TAKE_WAIT_MS = 5_000;
+
+export const browserActionSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("snapshot") }),
+  z.strictObject({ kind: z.literal("act"), act: browserActSchema }),
+  z.strictObject({
+    kind: z.literal("navigate"),
+    url: z.string().min(1).max(8192),
+  }),
+  z.strictObject({ kind: z.literal("screenshot") }),
+  z.strictObject({
+    kind: z.literal("evaluate"),
+    expression: z.string().min(1).max(65_536),
+  }),
+  z.strictObject({ kind: z.literal("logs") }),
+  // text와 url 중 정확히 하나.
+  z.strictObject({
+    kind: z.literal("wait"),
+    text: z.string().min(1).max(1_000).optional(),
+    url: z.string().min(1).max(8192).optional(),
+    timeout_ms: z.number().int().min(100).max(BROWSER_WAIT_MAX_MS),
+  }),
+]);
+export type BrowserAction = z.infer<typeof browserActionSchema>;
+
+// browser 탭을 CDP로 다루는 호출이다. `tool_call`처럼 workspace 칸이 없고 아무 shell main이 가져간다. 결과는 `host/done`의 output이다.
+const browserCallPayloadSchema = z.strictObject({
+  tab: idSchema("tab"),
+  view: z.enum(["browser", "preview"]),
+  action: browserActionSchema,
+});
+
 export const hostRequestSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: idSchema("hrq"),
@@ -91,6 +167,11 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     kind: z.literal("tool_call"),
     payload: toolCallPayloadSchema,
   }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("browser_call"),
+    payload: browserCallPayloadSchema,
+  }),
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;
 
@@ -102,10 +183,11 @@ export const browserTabStateSchema = z.strictObject({
 });
 export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 
-// 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 없으면 null이다. workspaces가 비어도 부른다:
-// 부르는 것이 shell이 붙어 있다는 표시(tool 호출의 `unavailable` 판정)이고 tui의 heartbeat다. `tool_call` 요청은 workspaces와
-// 상관없이 아무 호출자에게 간다.
-// 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다. 단 `tool_call`은 기한이 없다: handler가 오래 돌 수 있고 두 번
+// 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 있으면 바로, 없으면 요청이 들어올 때까지 기다리다
+// `HOST_TAKE_WAIT_MS` 뒤 null이다(long-poll). core가 멈출 때도 null로 끝난다. workspaces가 비어도 부른다:
+// 부르는 것이 shell이 붙어 있다는 표시(tool 호출의 `unavailable` 판정)이고 tui의 heartbeat다. `tool_call`·`browser_call` 요청은
+// workspaces와 상관없이 아무 호출자에게 간다.
+// 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다. 단 `tool_call`·`browser_call`은 기한이 없다: 오래 돌 수 있고 두 번
 // 실행하면 안 된다. shell이 떨어지면 부른 쪽이 `unavailable`로 끝내고 요청을 거둔다.
 export const hostTake = defineMemory({
   resource: "host",
@@ -121,7 +203,7 @@ export const hostTake = defineMemory({
   errors,
 });
 
-// extension handler의 결과다. `tool_call` 요청의 done에만 싣는다.
+// extension handler나 browser 호출의 결과다. `tool_call`·`browser_call` 요청의 done에만 싣는다.
 export const hostToolOutputSchema = z.union([
   z.strictObject({ content: z.array(extensionToolContentSchema).max(64) }),
   z.strictObject({
@@ -171,7 +253,7 @@ const acceptedSchema = z.strictObject({
 // 같은 workspace의 열린 session이나 http(s) url의 탭, 그 앱의 preview 탭을 연다. 접수만 답하고 기다리지 않는다.
 // session이 아니면 `not_found`, url이 http·https가 아니면 `invalid_input`이다.
 // `preview`는 그 앱 workspace의 session과 사람 token만 연다(agent가 다른 앱이면 `not_found`). 돌고 있는 preview가 없으면 `conflict`다.
-// 사람 token은 `preview`만 연다(나머지는 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
+// 사람 token은 `browser`와 `preview`만 연다(session·tui는 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
 // `tui`는 harness agent session을 터미널 탭에서 CLI의 resume으로 연다. harness가 아니거나 project workspace의 session이 아니면
 // `invalid_input`, 첫 turn 전이거나 turn이 돌거나 이미 TUI로 열려 있으면 `conflict`다. 열리면 그 session의 headless turn은
 // TUI가 끝날 때까지 시작하지 않고 입력은 queue에 남는다(`harness-host.ts`의 Take).
@@ -182,6 +264,8 @@ export const tabsOpen = defineMemory({
   input: z.strictObject({
     target: hostTabTargetSchema,
     place: tabPlaceSchema.optional(),
+    // 사람 token이 browser 탭을 놓을 workspace다. 없으면 home이다. agent는 자기 session의 workspace를 쓰므로 이 칸을 무시한다.
+    workspace: workspaceSchema.optional(),
   }),
   output: acceptedSchema,
   actors: ["agent", "user"],
@@ -206,7 +290,131 @@ export const browserRead = defineMemory({
   name: "ReadBrowserTab",
   input: z.strictObject({ tab: idSchema("tab") }),
   output: browserTabStateSchema,
-  actors: ["agent"],
+  actors: ["agent", "user"],
+  errors,
+});
+
+// 아래 browser/* 호출은 자기가 연 browser·preview 탭만 다룬다(남의 탭, 사람이 손으로 연 탭, session·agent 탭은 `not_found`).
+// 낡은 ref, DevTools가 열려 있음, 사람이 take control 중인 쓰기는 `conflict`, shell이 없거나 탭이 창에 열려 있지 않거나 기한이 지나면
+// `unavailable`, 틀린 url(http(s)·about:blank 밖)·preview 탭의 navigate·틀린 act는 `invalid_input`이다.
+const browserTabInput = { tab: idSchema("tab") };
+
+// 접근성 tree다. 줄마다 `- <role> "<name>" [ref=e12]`고 들여쓰기가 깊이다.
+export const browserSnapshot = defineMemory({
+  resource: "browser",
+  method: "snapshot",
+  name: "BrowserSnapshot",
+  input: z.strictObject(browserTabInput),
+  output: z.strictObject({ snapshot: z.string() }),
+  actors: ["agent", "user"],
+  errors,
+});
+
+const browserPageSchema = z.strictObject({
+  url: z.string(),
+  title: z.string(),
+  // 조작 중 열린 dialog를 닫았으면 그 내용이다.
+  dialog: z.strictObject({ type: z.string(), message: z.string() }).optional(),
+});
+export type BrowserPage = z.infer<typeof browserPageSchema>;
+
+export const browserAct = defineMemory({
+  resource: "browser",
+  method: "act",
+  name: "BrowserAct",
+  // browserActSchema의 칸을 펴 둔 것이다. core가 type별로 다시 검사한다.
+  input: z.strictObject({
+    ...browserTabInput,
+    type: z.enum([
+      "click",
+      "type",
+      "fill",
+      "press",
+      "hover",
+      "select",
+      "scroll",
+    ]),
+    ref: z.string().optional(),
+    text: z.string().optional(),
+    key: z.string().optional(),
+    values: z.array(z.string()).optional(),
+    dy: z.number().optional(),
+  }),
+  output: browserPageSchema,
+  actors: ["agent", "user"],
+  errors,
+});
+
+export const browserNavigate = defineMemory({
+  resource: "browser",
+  method: "navigate",
+  name: "BrowserNavigate",
+  input: z.strictObject({
+    ...browserTabInput,
+    url: z.string().min(1).max(8192),
+  }),
+  output: browserPageSchema,
+  actors: ["agent", "user"],
+  errors,
+});
+
+// 보이는 영역의 PNG다.
+export const browserScreenshot = defineMemory({
+  resource: "browser",
+  method: "screenshot",
+  name: "BrowserScreenshot",
+  input: z.strictObject(browserTabInput),
+  output: z.strictObject({
+    image: z.strictObject({
+      media_type: z.literal("image/png"),
+      data_base64: z.string(),
+    }),
+  }),
+  actors: ["agent", "user"],
+  errors,
+});
+
+// page 안의 예외는 오류가 아니라 `exception` 글이다.
+export const browserEvaluate = defineMemory({
+  resource: "browser",
+  method: "evaluate",
+  name: "BrowserEvaluate",
+  input: z.strictObject({
+    ...browserTabInput,
+    expression: z.string().min(1).max(65_536),
+  }),
+  output: z.strictObject({
+    value: z.json().optional(),
+    exception: z.string().optional(),
+  }),
+  actors: ["agent", "user"],
+  errors,
+});
+
+// 붙은 뒤의 console 줄과 page 오류, 최근 200줄이다.
+export const browserLogs = defineMemory({
+  resource: "browser",
+  method: "logs",
+  name: "BrowserLogs",
+  input: z.strictObject(browserTabInput),
+  output: z.strictObject({ logs: z.string() }),
+  actors: ["agent", "user"],
+  errors,
+});
+
+// text·url 중 정확히 하나가 시간 안에 맞기를 기다린다.
+export const browserWait = defineMemory({
+  resource: "browser",
+  method: "wait",
+  name: "BrowserWait",
+  input: z.strictObject({
+    ...browserTabInput,
+    text: z.string().min(1).max(1_000).optional(),
+    url: z.string().min(1).max(8192).optional(),
+    timeout_ms: z.number().int().min(100).max(BROWSER_WAIT_MAX_MS).optional(),
+  }),
+  output: browserPageSchema,
+  actors: ["agent", "user"],
   errors,
 });
 
@@ -217,4 +425,11 @@ export const HOST_QUEUE_MEMORY_ROUTES = [
   tabsOpen,
   tabsClose,
   browserRead,
+  browserSnapshot,
+  browserAct,
+  browserNavigate,
+  browserScreenshot,
+  browserEvaluate,
+  browserLogs,
+  browserWait,
 ] as const;

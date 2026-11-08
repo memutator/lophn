@@ -245,6 +245,8 @@ export function createTerminalIpc(deps: {
         const hooked = deps.hooks?.issue() ?? null;
         const shellInit = deps.shellInit?.() ?? null;
         const env = {
+          // 사람 token의 `lophn tab open --url`이 이 project에 탭을 놓게 한다.
+          LOPHN_WORKSPACE: JSON.stringify({ project: value.project }),
           ...issued?.env,
           ...hooked?.env,
           ...deps.cliPath?.(),

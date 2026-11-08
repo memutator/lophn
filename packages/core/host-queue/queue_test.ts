@@ -92,3 +92,45 @@ test("tool_call은 workspace 없이 가져가고, 빌려 간 뒤 기한이 지�
   assert.ok(!gone.ok && gone.error.code === "unavailable");
   assert.equal(queue.take([]), null);
 });
+
+// 기한을 넘은 browser 호출이 pending에 남으면 shell이 오래 뒤 낡은 click을 실행한다.
+test("기한을 넘은 browser_call은 unavailable로 끝나고 pending에서 빠지며 늦은 done은 무시된다", async () => {
+  const { clock, queue } = setup();
+  const call = queue.callBrowser({
+    tab: "tab_x" as Id<"tab">,
+    view: "browser",
+    action: { kind: "snapshot" },
+  });
+  assert.equal(queue.take([])?.id, call.id);
+  clock.advance(29_000);
+  queue.expire();
+  clock.advance(2_000);
+  queue.expire();
+
+  const late = await call.result;
+  assert.ok(!late.ok && late.error.code === "unavailable");
+  assert.match(late.error.message, /timed out/);
+  assert.equal(queue.take([]), null);
+  queue.done(call.id, "done", { content: [{ type: "text", text: "late" }] });
+});
+
+test("take가 기다리는 동안은 attached이고 기다림이 끝난 뒤 3초가 지나면 아니다", async () => {
+  const { clock, queue } = setup();
+  assert.equal(queue.attached(), false);
+  const waited = queue.wait([HOME]);
+  clock.advance(60_000);
+  assert.equal(queue.attached(), true);
+
+  // 요청이 들어오면 기다리던 take가 바로 받는다.
+  queue.openTab({
+    owner: OWNER,
+    workspace: HOME,
+    target: { browser: { url: "https://example.com" } },
+    place: null,
+    source: OWNER,
+  });
+  assert.equal((await waited)?.kind, "tab_open");
+  assert.equal(queue.attached(), true);
+  clock.advance(3_001);
+  assert.equal(queue.attached(), false);
+});

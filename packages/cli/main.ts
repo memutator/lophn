@@ -4,8 +4,9 @@
 // `packages/coding-agent`의 local 명령 가운데 `harness sync-skills`만 같은 길로 core를 읽고,
 // `hook`과 그 밖의 `harness *`는 core를 부르지 않는다.
 import { Buffer } from "node:buffer";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -31,7 +32,8 @@ import { HOOK_STDIN_MAX_BYTES } from "../protocol/coding-agent/mod.ts";
 import { loadAppCommands } from "./commands/app-command.ts";
 import { CORE_COMMANDS, type CoreCommand } from "./commands/core.ts";
 import { COMMANDS } from "./commands/mod.ts";
-import type { Command, CommandCore } from "./commands/types.ts";
+import { parseWorkspaceText } from "./commands/tab.ts";
+import type { Command, CommandCore, CommandResult } from "./commands/types.ts";
 import { openConnection, stopCore } from "./connection/mod.ts";
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
@@ -90,6 +92,34 @@ function dataRootOf(
   const set = env.get("LOPHN_HOME");
   if (set !== undefined && set !== "") return set;
   return home === "" ? undefined : join(home, ".lophn");
+}
+
+// screenshot의 image는 file로 쓰고 path를 찍는다. 터미널의 agent는 image를 읽을 길이 없고 base64를 찍으면 context만 먹는다.
+function saveImage(
+  result: CommandResult,
+  input: Record<string, unknown>,
+): Result<CommandResult, LophnError> {
+  const image = result.content.image as { data_base64: string } | undefined;
+  if (image === undefined) return ok(result);
+  const path =
+    typeof input.out === "string"
+      ? resolve(process.cwd(), input.out)
+      : join(
+          tmpdir(),
+          "lophn-screenshots",
+          `${String(input.tab)}-${systemClock.nowMs()}.png`,
+        );
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, Buffer.from(image.data_base64, "base64"));
+  } catch {
+    return err({
+      code: "invalid_input",
+      message: `cannot write the screenshot to ${path}`,
+    });
+  }
+  const { image: _image, ...rest } = result.content;
+  return ok({ ...result, content: { ...rest, image_path: path }, text: path });
 }
 
 export async function cliMain(
@@ -238,13 +268,16 @@ export async function cliMain(
   const ran = await command.run(input, {
     core: core.value,
     key: line.key ?? crypto.randomUUID(),
-    workspace: undefined,
+    // project 터미널의 env다. `tab open --url`이 사람 token일 때 놓을 자리로 쓴다.
+    workspace: parseWorkspaceText(env.get("LOPHN_WORKSPACE") ?? ""),
     cwd: process.cwd(),
     clock: systemClock,
     signal: new AbortController().signal,
   });
   if (!ran.ok) return await fail(ran.error);
-  const result = ran.value;
+  const saved = saveImage(ran.value, input);
+  if (!saved.ok) return await fail(saved.error);
+  const result = saved.value;
   if (result.failed !== undefined) {
     if (json) await output().result(result.content);
     await output().note(result.failed);

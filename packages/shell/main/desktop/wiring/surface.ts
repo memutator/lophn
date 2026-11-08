@@ -1,5 +1,5 @@
 // core의 host queue를 가져와 그 workspace를 보이는 창에 push한다(agent가 연 탭). core가 시킬 일을 담는 queue는
-// 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기가 1초마다 `host/take`로 가져간다. 창을 앞으로 가져오거나
+// 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기가 `host/take`를 쉬지 않고 이어 불러(long-poll) 가져간다. 창을 앞으로 가져오거나
 // focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
 // extension `harness`의 tick과 한 loop로 합치지 못한다. 그 tick은 extension 안에서 설정 `extensions.harness.enabled`가 꺼지면
 // 돌지 않고, extension은 shell main 내부를 import하지 못한다(check-deps rule `extension`).
@@ -13,25 +13,33 @@ import {
   surfaceWorkspaceSchema,
   type SurfaceWorkspace,
 } from "../../../ipc/surface.ts";
+import {
+  type BrowserDriver,
+  createBrowserDriver,
+} from "../../browser/agent/driver.ts";
 import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import type { ExtensionTools } from "./extensions.ts";
 
-const POLL_MS = 1000;
-// 한 번에 가져가는 요청 수의 상한. 넘으면 다음 tick에 이어 간다.
-const TAKE_MAX = 20;
-// 창이 탭을 열고 ack하는 기한이다. 넘으면 retry로 되돌려 다음 tick에 다시 보낸다.
+// take가 실패하거나 창이 탭 요청을 받지 못했을 때 다시 가져가기 전에 쉬는 시간이다.
+const RETRY_MS = 1000;
+// 창이 탭을 열고 ack하는 기한이다. 넘으면 retry로 되돌려 RETRY_MS 뒤 다시 보낸다.
 const ACK_TIMEOUT_MS = 1500;
 
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
-// tab 요청은 workspace가 있고, extension tool 호출(`tool_call`)은 workspace를 가리지 않아 payload만 있다.
+// tab 요청은 workspace가 있고, extension tool 호출(`tool_call`)과 browser 호출(`browser_call`)은 workspace를 가리지 않아 payload만 있다.
 type Request =
   | { id: string; kind: "tab_open" | "tab_close"; workspace: Workspace }
   | {
       id: string;
       kind: "tool_call";
       payload: Parameters<ExtensionTools["run"]>[0];
+    }
+  | {
+      id: string;
+      kind: "browser_call";
+      payload: Parameters<BrowserDriver["run"]>[0];
     };
 
 const sameWorkspace = (a: Workspace, b: Workspace) =>
@@ -43,6 +51,7 @@ export function register(
   tools: ExtensionTools,
 ): Registered {
   const registry = ctx.overlays.overlayRegistry();
+  const driver = createBrowserDriver(ctx);
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
   const pending = new Map<string, (opened: boolean) => void>();
@@ -135,48 +144,61 @@ export function register(
     });
   }
 
-  let busy = false;
-  async function tick() {
-    if (busy) return;
-    busy = true;
-    try {
-      for (let taken = 0; taken < TAKE_MAX; taken += 1) {
-        // 늘 부른다: take가 shell이 붙어 있다는 표시(tool 호출을 받을 수 있다는 뜻)이고 hold의 heartbeat다.
-        const reply = await ctx.coreInternal("memory", "host", "take", {
-          workspaces: visibleWorkspaces(),
-          tui: tui.sessions(),
-        });
-        if (!reply.ok) return;
-        const request = (reply.value as { request: Request | null }).request;
-        if (request === null) return;
-        if (request.kind === "tool_call") {
-          // handler가 오래 걸려도 탭 요청을 막지 않게 따로 돈다. 끝나면 결과를 done에 싣는다.
-          void tools.run(request.payload).then((output) =>
-            ctx.coreInternal("memory", "host", "done", {
-              id: request.id,
-              result: "done",
-              output,
-            }),
-          );
-          continue;
-        }
-        const opened = await offer(request, { request });
-        await ctx.coreInternal("memory", "host", "done", {
-          id: request.id,
-          result: opened ? "done" : "retry",
-        });
-        // 받지 못한 요청을 바로 다시 가져가지 않는다. 다음 tick에 다시 시도한다.
-        if (!opened) return;
+  const done = (id: string, output: unknown) =>
+    ctx.coreInternal("memory", "host", "done", {
+      id,
+      result: "done",
+      output,
+    });
+
+  // take가 기다리는 동안 다음 요청이 오면 바로 답이 오므로 답을 받자마자 다시 부른다.
+  let stopped = false;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  const rest = () =>
+    new Promise<void>((resolve) => {
+      retry = setTimeout(resolve, RETRY_MS);
+    });
+  async function loop() {
+    while (!stopped) {
+      // 늘 부른다: take가 shell이 붙어 있다는 표시(tool 호출을 받을 수 있다는 뜻)이고 hold의 heartbeat다.
+      const reply = await ctx.coreInternal("memory", "host", "take", {
+        workspaces: visibleWorkspaces(),
+        tui: tui.sessions(),
+      });
+      if (!reply.ok) {
+        await rest();
+        continue;
       }
-    } finally {
-      busy = false;
+      const request = (reply.value as { request: Request | null }).request;
+      if (request === null) continue;
+      // handler가 오래 걸려도 탭 요청을 막지 않게 따로 돈다. 끝나면 결과를 done에 싣는다.
+      if (request.kind === "tool_call") {
+        void tools
+          .run(request.payload)
+          .then((output) => done(request.id, output));
+        continue;
+      }
+      if (request.kind === "browser_call") {
+        void driver
+          .run(request.payload)
+          .then((output) => done(request.id, output));
+        continue;
+      }
+      const opened = await offer(request, { request });
+      await ctx.coreInternal("memory", "host", "done", {
+        id: request.id,
+        result: opened ? "done" : "retry",
+      });
+      // 받지 못한 요청을 바로 다시 가져가지 않는다.
+      if (!opened) await rest();
     }
   }
-  const timer = setInterval(() => void tick(), POLL_MS);
+  void loop();
 
   return {
     stop() {
-      clearInterval(timer);
+      stopped = true;
+      clearTimeout(retry);
       ctx.ipc.removeHandler(SURFACE_WORKSPACE_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_ACK_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_REPORT_CHANNEL);

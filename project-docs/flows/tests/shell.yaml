@@ -16,7 +16,7 @@ files:
       - annotate-pick:ignored
       - annotate-send:sent
       - annotate-send:invalid-input
-    note: "앱 view가 아닌 sender의 고르기는 무시, 페이지가 보낸 app·release는 버리고 view에서 정한 값만 core에 간다. capture·upload가 실패해도 screenshot 없이 보낸다. 빈 목록 보내기는 거절"
+    note: "앱 view가 아닌 sender의 고르기는 무시, 페이지가 보낸 app·release는 버리고 view에서 정한 값만 core에 간다. capture·upload가 실패해도 screenshot 없이 보낸다. 빈 목록 보내기는 거절. preview view의 annotation은 release 없이 bundle hash(preview_bundle)를 싣고 간다"
 
   - path: packages/shell/main/app-frame/app-agent_test.ts
     covers:
@@ -89,6 +89,14 @@ files:
       - browser-bridge-start:path-too-long
       - browser-bridge-start:listening
     note: "socket 경로가 OS byte 한도를 넘으면 폴더를 만지기 전에 거절. Windows pipe 이름 길이, 죽은 shell의 run 폴더 정리와 POSIX 권한"
+
+  - path: packages/shell/main/browser/agent/driver_test.ts
+    covers:
+      - browser-call-run:done
+      - browser-call-run:stale-ref
+      - browser-call-run:person-holds
+      - browser-call-run:tab-not-open
+    note: "browser driver를 가짜 page로 돌린다. snapshot마다 ref가 새로 나고 옛 ref(새 snapshot, main frame 이동 뒤)는 conflict이며 새 node를 가리키지 않는다. 사람이 가져간 탭에서 act, navigate, evaluate는 conflict이고 snapshot, screenshot, logs는 된다. bind가 앱 live view를 가리켜도 page를 고르지 않고 unavailable이며 debugger를 붙이지 않는다"
 
   - path: packages/shell/main/browser/bookmarks_test.ts
     covers:

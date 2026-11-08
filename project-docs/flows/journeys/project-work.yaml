@@ -289,10 +289,28 @@ journeys:
     refs: [G4]
     steps:
       - {do: "agent가 lophn tab open <url>로 browser 탭을 요청한다", flow: host-tab-open:accepted}
-      - {do: "shell main이 1초 안에 창에 탭을 연다", screen: browser-tab, flow: host-queue-poll:offered}
+      - {do: "shell main이 쉬지 않고 가져가는 take로 곧바로 창에 탭을 연다", screen: browser-tab, flow: host-queue-poll:offered}
       - {do: "shell이 탭의 url, title, loading 상태를 알린다", flow: host-tab-report:state}
       - {do: "agent가 lophn browser read로 자기 탭의 상태를 읽는다", flow: host-browser-read:state}
+      - {do: "agent가 lophn browser snapshot으로 page의 접근성 tree를 읽는다", flow: host-browser-inspect:ok}
+      - {do: "agent가 browser act로 ref를 눌러 page를 다루고 browser wait로 결과를 기다린다", flow: host-browser-act:ok}
+      - {do: "page가 바뀐 뒤 browser wait가 text를 기다린다", flow: host-browser-wait:ok}
       - {do: "끝나면 lophn tab close로 자기가 연 탭을 닫는다", flow: host-tab-close:accepted}
+
+  - id: agent-drives-preview-person-takes-control
+    title: "agent가 앱의 preview 탭을 다루는 중 사람이 take control로 가져온다"
+    actor: agent
+    goal: "agent가 앱 preview를 기기 크기로 열어 보고, 사람이 가져가면 agent의 쓰기는 멈추고 읽기만 된다"
+    refs: [G4]
+    steps:
+      - {do: "agent가 lophn tab open --preview <app> --device <name>으로 앱의 preview 탭을 연다", flow: host-preview-tab-open:accepted}
+      - {do: "창이 그 앱의 preview 탭을 열고 기기를 건다", screen: app-preview-device, flow: agent-tab-request:opened}
+      - {do: "창이 고른 기기를 view에 건다", flow: preview-tab-emulate:applied}
+      - {do: "agent가 browser snapshot과 act로 화면을 다룬다", screen: browser-agent-control, flow: host-browser-act:ok}
+      - {do: "사람이 Take control로 탭을 가져온다", screen: browser-agent-held, flow: browser-tab-control:held}
+      - {do: "agent의 act는 conflict가 되고 snapshot은 된다", flow: host-browser-act:conflict}
+      - {do: "사람이 탭을 돌려준다", screen: browser-agent-control, flow: browser-tab-control:released}
+      - {do: "끝나면 agent가 자기가 연 preview 탭을 닫는다", flow: host-tab-close:accepted}
 
   - id: agent-opens-session-tab
     title: "agent가 같은 workspace의 session을 탭으로 열어 보이고 닫는다"

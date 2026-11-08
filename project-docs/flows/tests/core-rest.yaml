@@ -94,9 +94,11 @@ files:
       - host-request-take:none
       - host-request-done:done
       - host-request-done:retry
+      - host-preview-tab-open:reused
+      - host-browser-inspect:unavailable
       - extension-tool-call:ran
       - extension-tool-call:shell-detached
-    note: host queue 표의 함수(openTab, take, done, abandon). 탭 요청은 route 입구 없이 queue를 직접 부른다
+    note: "host queue 표의 함수(openTab, take, wait, done, abandon, expire). 탭 요청은 route 입구 없이 queue를 직접 부른다. 이미 열린 preview 탭에 기기를 주면 같은 tab id로 tab_open이 다시 나가는 것(reused), 기한을 넘은 browser_call이 unavailable로 끝나고 늦은 done이 무시되는 것, 기다리는 take가 attached로 보이고 요청이 오면 바로 받는 것"
 
   - path: packages/core/install-and-update/data-root_test.ts
     covers: [core-boot:start-failed-other]
@@ -214,6 +216,21 @@ files:
   - path: packages/core/main/daemon/wiring/harness-credential_test.ts
     covers: [harness-turn-start:started]
     note: harness turn 자격이 자기 session·turn에만 닿고 turn 끝에 멈춘다. user 자격의 call.reply 발급 거절은 outcome이 없다
+
+  - path: packages/core/main/daemon/wiring/host-queue_test.ts
+    covers:
+      - host-preview-tab-open:accepted
+      - host-preview-tab-open:reused
+      - host-preview-tab-open:not_found
+      - host-preview-tab-open:conflict
+      - host-tab-open:invalid_input
+      - host-tab-close:accepted
+      - host-tab-close:forbidden
+      - host-tab-close:not_found
+      - host-browser-inspect:not_found
+      - host-browser-inspect:unavailable
+      - host-browser-act:not_found
+    note: "createTabHandlers 직접 호출. preview 탭은 그 앱 workspace의 session과 사람 token만 열고(다른 앱·project·home session은 not_found), 사람 token은 session 탭을 열지 못하며(invalid_input), 돌고 있는 preview가 없으면 conflict. 같은 앱의 preview 탭은 하나고 주인은 나중에 연 쪽이라 이전 주인의 close는 forbidden. browser 호출은 주인만 하고 남이나 사람이 연 탭은 not_found, 주인은 shell이 붙지 않아 unavailable. device 이름 not_found와 shell 쪽 판정(낡은 ref 등)은 covers 밖"
 
   - path: packages/core/main/daemon/wiring/lophn-split_test.ts
     covers: [data-steps-apply:applied, lophn-split-per-workspace:split]

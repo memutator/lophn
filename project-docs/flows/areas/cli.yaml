@@ -187,6 +187,13 @@ links:
   - {entry: "cli:app.logs", flow: app-log-read}
   - {entry: "cli:app.invocations", flow: app-invocation-read}
   - {entry: "cli:browser.read", flow: host-browser-read}
+  - {entry: "cli:browser.snapshot", flow: host-browser-inspect}
+  - {entry: "cli:browser.screenshot", flow: host-browser-inspect}
+  - {entry: "cli:browser.logs", flow: host-browser-inspect}
+  - {entry: "cli:browser.wait", flow: host-browser-wait}
+  - {entry: "cli:browser.act", flow: host-browser-act}
+  - {entry: "cli:browser.navigate", flow: host-browser-act}
+  - {entry: "cli:browser.evaluate", flow: host-browser-act}
   - {entry: "cli:call.send", flow: call-send}
   - {entry: "cli:call.reply", flow: call-reply}
   - {entry: "cli:call.cancel", flow: call-cancel}

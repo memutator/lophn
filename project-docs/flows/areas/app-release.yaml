@@ -985,7 +985,7 @@ flows:
     title: release나 bundle을 fixture data로 preview 프로세스에 띄운다
     actor: agent
     entries: [route:previews/start]
-    uses: [route:previews/get]
+    uses: [route:previews/get, route:tabs/open]
     boundary: [app-runtime]
     code:
       - packages/core/apps/preview/service.ts
@@ -997,6 +997,7 @@ flows:
       - "bundle을 열고 fixture 파일이 bundle 안에 있는지 본다. 없으면 invalid_input이다"
       - "같은 앱의 지금 preview를 먼저 멈춘 뒤 disposable 영역을 만들고 fixture를 app.sqlite로 놓는다"
       - "supervisor에 preview 자식을 띄운다. 운영 DB와 backup에는 닿지 않는다. 응답은 ready가 false다. 준비 확인은 뒤에서 된다"
+      - "CLI만: ready가 되면 tabs/open(preview)로 그 앱의 preview 탭을 연다(host-preview-tab-open). 탭이 안 열려도 preview는 떠 있고 결과에 note만 붙는다"
     outcomes:
       - id: started
         when: "preview 자식을 띄우라고 supervisor에 넘겼다. route 응답은 ready가 false다. CLI `lophn preview start`는 이 뒤에 500ms마다 관측을 물어 아래 갈래로 끝낸다"
@@ -1026,7 +1027,10 @@ flows:
         when: "preview nonce 형식이 맞지 않음(validNonce 실패)"
         observe: [response]
       - id: ready
-        when: "CLI만: 관측이 ready가 되어 60초 안에 끝났다. 응답 content의 ready가 true다"
+        when: "CLI만: 관측이 ready가 되어 60초 안에 끝났다. 응답 content의 ready가 true이고 tab에 연 preview 탭 id가 든다"
+        observe: [response]
+      - id: ready-tab-not-opened
+        when: "CLI만: ready가 됐지만 tabs/open이 어떤 code로든 거절했다(shell이 없어도 접수는 된다). content의 tab이 null이고 note가 `tab_not_opened: <code>: <message>`다. preview는 그대로 떠 있다"
         observe: [response]
       - id: not-ready-timeout
         when: "CLI만: 60초 안에 ready가 안 되었다. 명령은 ok로 돌아가고 failed가 '60 seconds' 문구다. preview 자식은 그대로 떠 있다"
@@ -1040,7 +1044,7 @@ flows:
     crosses_process: true
     risk: [sandbox]
     refs: [A8]
-    docs: [architecture/app-call.md]
+    docs: [architecture/app-call.md, architecture/browser-tab.md]
     unclear:
       - "release 없이 bundle hash만으로 띄우는 경로가 있다(release가 null). 같은 outcome이지만 호출자가 다르게 쓰는지 확인 못 했다"
 

@@ -1228,7 +1228,8 @@ flows:
     steps:
       - "shell main이 lophn-app:// 요청을 화면 byte로 바꾸려고 부른다. 대상은 view가 묶인 release다."
       - "화면 이름과 path를 검사한다(빈 값, '.', '..', '/'나 '\\' 포함, 상대 경로가 아니거나 콜론 포함은 거절)."
-      - "bundle 사본의 screens/<screen>/<path>를 realpath로 풀어 그 screen 폴더 밖이면 not_found다. 폴더는 8 MiB를 넘는 파일을 조용히 not_found로 답한다. preview 대상은 이 경로가 사본 자리를 찾지 못해 not_found다."
+      - "bundle 사본의 screens/<screen>/<path>를 realpath로 풀어 그 screen 폴더 밖이면 not_found다. 폴더는 8 MiB를 넘는 파일을 조용히 not_found로 답한다."
+      - "preview 대상은 그 앱의 지금 preview가 연 bundle 사본에서 읽는다. nonce가 지금 preview의 것이 아니면(멈춘 preview, 다른 앱) 사본을 찾지 못해 not_found다."
       - "파일을 읽기만 하고 형식으로 Content-Type을 정한다."
     outcomes:
       - id: served
@@ -1239,7 +1240,7 @@ flows:
         observe: [response]
       - id: not-found
         code: not_found
-        when: "파일이 없음, 그 screen 폴더 밖을 가리킴, 8 MiB를 넘는 파일(조용히 막음), preview 대상, 활성 release가 없거나 다른 앱의 release"
+        when: "파일이 없음, 그 screen 폴더 밖을 가리킴, 8 MiB를 넘는 파일(조용히 막음), preview 대상인데 그 nonce가 그 앱의 지금 preview가 아님, 활성 release가 없거나 다른 앱의 release"
         observe: [response]
       - id: forbidden
         code: forbidden

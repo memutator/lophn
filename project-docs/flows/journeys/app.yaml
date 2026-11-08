@@ -52,6 +52,10 @@ journeys:
       - {do: "지금 commit으로 release를 준비한다", flow: release-prepare:prepared}
       - {do: "준비한 release를 fixture data로 preview에 띄운다", flow: preview-start:started}
       - {do: "preview의 준비 확인을 읽는다", flow: preview-observe:observed}
+      - {do: "ready가 되면 CLI가 그 앱의 preview 탭을 연다", flow: preview-start:ready}
+      - {do: "shell이 앱 bundle 사본의 화면 파일을 preview 탭에 내준다", flow: app-screen-file-read:served}
+      - {do: "agent가 preview 탭의 접근성 tree를 읽는다", flow: host-browser-inspect:ok}
+      - {do: "agent가 ref로 click하거나 입력해 화면을 눌러 본다", flow: host-browser-act:ok}
       - {do: "preview 프로세스의 command를 기록과 Gate 없이 불러 결과를 본다", flow: app-preview-command-call:succeeded}
       - {do: "preview를 멈춘다", flow: preview-stop:stopped}
       - {do: "release를 활성화한다. 첫 activation이라 동의가 필요하다", flow: release-activate:waiting-consent}

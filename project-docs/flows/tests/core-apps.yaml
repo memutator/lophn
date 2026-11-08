@@ -2,7 +2,7 @@ group: core-apps
 files:
   - path: packages/core/apps/annotations/annotations_test.ts
     covers: [annotation-persist:saved, annotation-persist:archived, annotation-send:delivered, annotation-send:archived, annotation-add-refs:referenced, annotation-get:ok, annotation-get:not-found, annotation-get:forbidden]
-    note: "보관한 앱 거절과 아무것도 안 씀, 묶음 저장과 읽기(screenshot 경로), lophn- tag escape, annotations.get의 project·앱·home 범위. artifact domain 칸 옮기기는 schema step이라 covers 밖"
+    note: "보관한 앱 거절과 아무것도 안 씀, 묶음 저장과 읽기(screenshot 경로), lophn- tag escape, annotations.get의 project·앱·home 범위. artifact domain 칸 옮기기와 preview bundle 칸(apps.annotations.preview-bundle, 옛 행은 null)을 더하는 것은 schema step이라 covers 밖"
 
   - path: packages/core/apps/calls/calls_test.ts
     covers: [app-command-call:succeeded, app-command-call:forbidden, app-command-call:denied-gate-blocked, app-command-call:denied-call-loop, app-command-call:denied-call-too-deep, app-command-call:denied-not-declared, app-operation-call:succeeded, app-operation-call:denied-gate-blocked, app-command-call:held-then-run, app-preview-command-call:succeeded, app-preview-command-call:denied-not-declared, app-preview-command-call:forbidden]
@@ -131,6 +131,10 @@ files:
   - path: packages/core/apps/rewind/rewind_test.ts
     covers: [app-rewind-plan:planned, app-rewind-plan:planned-blocked, app-rewind-plan:not-pickable, app-rewind-apply:applied, app-rewind-apply:conflict, app-rewind-apply:cancelled-conflict, app-rewind-apply:cancelled-running, app-rewind-apply:forbidden]
     note: "결과를 모르는 write가 범위에 있으면 계획은 blocked이고 apply는 conflict로 시작하지 않음(app_rewinds 행 없음), 고를 수 없는 시작점은 invalid_input, 더 오래된 호출은 범위 밖, 충돌과 유예 초과는 접수를 다시 열고 되돌림 표시를 안 함, 사람만 부름, 충돌 없는 적용은 최신부터 뒤집어 보내고 external도 표시. 첫 test는 invertAll과 sqlite applyChangeset 검증이라 covers 밖"
+
+  - path: packages/core/apps/routes_test.ts
+    covers: [app-screen-file-read:served, app-screen-file-read:not-found]
+    note: "bundleLocatorOf의 preview 대상: 그 앱의 지금 preview nonce일 때만 bundle 사본을 찾고(served), 멈춘 preview의 옛 nonce나 다른 앱의 nonce는 not_found. 파일 읽기 자체는 serve_test가 본다"
 
   - path: packages/core/apps/runtime/entrypoint/control_test.ts
     covers: [release-prepare:failed-handlers]

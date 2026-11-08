@@ -226,7 +226,7 @@ flows:
 
   # ---- host queue: core 메모리의 host 요청과 agent가 연 탭 ----
   - id: host-request-take
-    title: shell main이 보이는 workspace의 host 요청 하나를 빌린다
+    title: shell main이 보이는 workspace의 host 요청 하나를 빌린다(요청이 올 때까지 기다린다)
     actor: shell
     entries: [route:host/take]
     boundary: [host-queue-interface, host-queue-core]
@@ -236,15 +236,16 @@ flows:
       - packages/core/host-queue/hold.ts
       - packages/shell/main/desktop/wiring/surface.ts
     steps:
-      - "shell main의 surface poller가 1초마다 보이는 workspace 목록과 TUI 탭 session 목록을 싣고 부른다"
-      - "매 take가 heartbeat다. TUI hold를 갱신하고 shell이 붙어 있다는 표시(마지막 take 3초 안)를 갱신한다"
-      - "보이는 workspace의 가장 오래된 대기 요청 하나를 빌려 주고 빌린 시각을 적는다"
-      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. tool_call은 기한이 없다"
-      - "tool_call은 workspace와 상관없이 아무 shell이나 가져간다. 요청이 없으면 request가 null이다"
+      - "shell main의 surface loop가 보이는 workspace 목록과 TUI 탭 session 목록을 싣고 take를 쉬지 않고 이어 부른다(long-poll)"
+      - "매 take가 heartbeat다. TUI hold를 갱신한다. 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이면 shell이 붙어 있다(attached)고 본다"
+      - "보이는 workspace의 가장 오래된 대기 요청 하나를 빌려 주고 빌린 시각을 적는다. 없으면 요청이 들어올 때까지 최대 5초 기다린다(기다리는 동안 attached다)"
+      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. tool_call과 browser_call은 기한이 없다"
+      - "tool_call과 browser_call은 workspace와 상관없이 아무 shell이나 가져간다. 5초 안에 요청이 없거나 core가 멈추면 request가 null이다"
     outcomes:
       - id: request
         observe: [response]
       - id: none
+        when: "기다린 5초 안에 요청이 없었거나 core가 멈춰 기다림이 풀렸다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -252,7 +253,7 @@ flows:
         observe: [response]
     crosses_process: false
     risk: [secret]
-    docs: [architecture/coding-agent.md]
+    docs: [architecture/coding-agent.md, architecture/workspace-layout.md]
     unclear:
       - "tool_call 요청 payload에 credential이 실려 shell로 간다. 이 credential을 실제로 누가 받는지는 extension-tools 쪽 flow가 정한다"
 
@@ -268,11 +269,11 @@ flows:
     steps:
       - "shell이 요청 id와 결과(done 또는 retry)를 보낸다. 없는 id면 아무것도 하지 않는다"
       - "retry면 그 요청을 빌림 해제하고 맨 뒤로 보낸다. 앞 요청이 뒤를 막지 않게 한다"
-      - "done이고 tool_call이면 output을 그 호출을 기다리던 extension tool 호출에 넘긴다(content는 성공, error는 실패)"
-      - "tool_call인데 output이 없으면 기다리던 쪽은 unavailable로 끝난다"
+      - "done이고 tool_call이나 browser_call이면 output을 그 호출을 기다리던 쪽(extension tool 호출, browser/* route)에 넘긴다(content는 성공, error는 실패)"
+      - "그 호출인데 output이 없으면 기다리던 쪽은 unavailable로 끝난다"
     outcomes:
       - id: done
-        when: "빌린 요청을 끝냈다. tool_call이면 output을 기다리던 호출에 넘긴다. 다른 종류면 요청을 지운다"
+        when: "빌린 요청을 끝냈다. tool_call이나 browser_call이면 output을 기다리던 호출에 넘긴다. 다른 종류면 요청을 지운다"
         observe: [response]
       - id: retry
         when: "shell이 창에 열지 못했다. 요청을 빌림 해제하고 맨 뒤로 보낸다"
@@ -281,7 +282,7 @@ flows:
         when: "그 id의 요청이 없다(이미 끝났거나 거둬졌다). 아무것도 하지 않고 ok다"
         observe: [response]
       - id: tool-no-output
-        when: "tool_call인데 output이 없다. 기다리던 호출은 unavailable로 끝난다(turns 쪽 flow가 본다)"
+        when: "tool_call이나 browser_call인데 output이 없다. 기다리던 호출은 unavailable로 끝난다(turns 쪽 flow, host-browser-* flow가 본다)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -324,22 +325,23 @@ flows:
     docs: [architecture/browser-tab.md]
 
   - id: host-tab-open
-    title: agent가 session이나 browser 탭을 열어 달라고 요청한다
+    title: agent나 사람 token이 session이나 browser 탭을 열어 달라고 요청한다
     actor: agent
     entries: [route:tabs/open]
-    when: "target이 session이거나 browser일 때. tui는 harness-tui-open이 맡는다"
+    when: "target이 session이거나 browser일 때. tui는 harness-tui-open, preview는 host-preview-tab-open이 맡는다"
     boundary: [host-queue-interface, host-queue-core]
     code:
       - packages/core/main/daemon/wiring/host-queue.ts
       - packages/core/host-queue/queue.ts
       - packages/protocol/lophn-agent/host-queue.ts
     steps:
-      - "lophn tool이나 lophn tab open 명령이 agent 자격으로 부른다"
-      - "자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
+      - "lophn tool이나 lophn tab open 명령이 agent 자격이나 사람 token으로 부른다. 탭의 주인은 agent면 그 session, 사람 token이면 모두 같은 주인 person이다"
+      - "사람 token은 browser(--url) 탭만 연다. session 대상이면 invalid_input"
+      - "agent면 자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
       - "session 대상이면 같은 workspace의 열린 session인지 본다. 아니면 not_found"
       - "browser 대상이면 url이 http나 https인지 본다. 아니면 invalid_input"
-      - "탭 표에 opener를 적고 tab_open 요청을 host queue에 넣는다. workspace는 부른 session의 것(home이면 home)이다"
-      - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell host poll이 연다"
+      - "탭 표에 주인을 적고 tab_open 요청을 host queue에 넣는다. workspace는 agent면 부른 session의 것(home이면 home), 사람 token이면 입력의 workspace(없으면 home)다"
+      - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell host take가 가져가 연다"
     outcomes:
       - id: accepted
         observe: [response]
@@ -349,17 +351,60 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "browser url이 http나 https가 아니다"
+        when: "browser url이 http나 https가 아니다. 또는 사람 token이 browser나 preview가 아닌 대상(session, tui)을 열려 한다"
         observe: [response]
     crosses_process: false
     risk: [sandbox]
-    docs: [architecture/browser-tab.md]
+    docs: [architecture/browser-tab.md, architecture/workspace-layout.md]
+
+  - id: host-preview-tab-open
+    title: agent나 사람 token이 앱의 지금 preview를 앱마다 하나인 preview 탭으로 열어 달라고 요청한다
+    actor: agent
+    uses: [route:tabs/open]
+    when: "target이 preview일 때"
+    boundary: [host-queue-interface, host-queue-core, app-runtime]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/queue.ts
+      - packages/core/config/shell-settings.ts
+    steps:
+      - "agent면 자기 session이 그 앱의 workspace인지 본다. 아니면 앱이 있는지도 알리지 않고 not_found다. 사람 token은 어느 앱이든 된다"
+      - "앱이 있는지 본다. 없으면 not_found"
+      - "device가 있으면 설정 shell.devices의 이름인지 본다. 없으면 not_found"
+      - "그 앱의 preview가 지금 돌고 있는지 본다. 없으면 conflict(preview start를 먼저)"
+      - "앱마다 preview 탭은 하나다. 이미 있으면 새로 만들지 않고 그 탭 id를 돌려주며 주인이 새로 연 쪽이 된다. device를 줬으면 같은 탭 id로 tab_open을 다시 넣는다"
+      - "없으면 새 탭을 표에 올리고 앱 workspace로 tab_open을 넣은 뒤 accepted를 돌려준다"
+    outcomes:
+      - id: accepted
+        when: "새 preview 탭을 접수했다"
+        observe: [response]
+      - id: reused
+        when: "그 앱의 preview 탭이 이미 있다. 같은 tab id를 돌려주고 주인이 바뀐다(device를 줬으면 기기만 다시 알린다)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "agent의 session이 없거나 그 앱 workspace의 것이 아니다, 앱이 없다, device 이름이 shell.devices에 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "그 앱에서 돌고 있는 preview가 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: read-failed
+        when: "앱 조회나 지금 preview 조회가 실패했다(그 code를 그대로 돌려준다)"
+        observe: [response]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md, architecture/workspace-layout.md]
     unclear:
-      - "lophn tab open 명령(packages/cli/commands/tab.ts)은 cli area의 entry다. 그 entry는 이 flow로 links를 걸어야 한다"
+      - "preview 탭 접수 뒤 preview가 멈추거나 바뀌면 shell이 어떻게 그 탭을 다루는지는 shell-workspace 쪽이 본다"
 
   - id: harness-tui-open
     title: harness agent session을 TUI 탭으로 연다(CLI session을 hold한다)
@@ -373,7 +418,7 @@ flows:
       - packages/core/main/daemon/wiring/host-queue.ts
       - packages/shell/main/terminal/harness-tui.ts
     steps:
-      - "host-tab-open과 같은 판정을 거친다. session이 없거나 닫혔거나 다른 workspace면 not_found"
+      - "host-tab-open과 같은 판정을 거친다. 사람 token이면 invalid_input, session이 없거나 닫혔거나 다른 workspace면 not_found"
       - "harness session이 아니거나 project workspace가 아니면 invalid_input. home과 app은 터미널이 없다"
       - "CLI session id가 아직 없으면(첫 turn 전) conflict. turn이 돌거나 이미 hold되어 있어도 conflict"
       - "통과하면 그 자리에서 30초 hold를 예약하고 resume 값(adapter id, CLI session id)을 tab_open 요청에 싣는다"
@@ -387,7 +432,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "대상이 harness session이 아니거나 project workspace가 아니다"
+        when: "대상이 harness session이 아니거나 project workspace가 아니다. 또는 사람 token이 불렀다(사람 token은 browser와 preview 탭만 연다)"
         observe: [response]
       - id: conflict
         code: conflict
@@ -395,7 +440,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
         observe: [response]
     crosses_process: true
     risk: [data-loss]
@@ -405,7 +450,7 @@ flows:
       - "TUI가 끝내 뜨지 않으면 사람이 탭을 닫을 때까지 hold가 남는다. 그 release 경로는 system:harness-tui-hold가 맡는다"
 
   - id: host-tab-close
-    title: agent가 자기가 연 탭을 닫는다
+    title: agent나 사람 token이 자기가 연 탭을 닫는다
     actor: agent
     entries: [route:tabs/close]
     pre: [host-tab-open:accepted]
@@ -414,10 +459,10 @@ flows:
       - packages/core/host-queue/queue.ts
       - packages/core/main/daemon/wiring/host-queue.ts
     steps:
-      - "agent 자격의 session이 부른다"
-      - "탭이 없으면 not_found. 다른 session이 연 탭이면 forbidden"
+      - "agent 자격의 session이나 사람 token이 부른다. 사람 token의 주인은 모두 person이다"
+      - "탭이 없으면 not_found. 주인이 다른 탭(다른 session이 연 탭, agent가 연 탭을 사람이, 사람이 연 탭을 agent가)이면 forbidden"
       - "탭을 표에서 빼고 tab_close 요청을 그 탭의 workspace로 넣는다"
-      - "화면에서 닫는 것은 shell host poll이 한다. 터미널 탭을 닫으면 PTY도 닫힌다"
+      - "화면에서 닫는 것은 shell host take가 가져가 한다. 터미널 탭을 닫으면 PTY도 닫힌다"
     outcomes:
       - id: accepted
         observe: [response]
@@ -427,13 +472,13 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "다른 session이 연 탭이거나, agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        when: "주인이 다른 탭이거나, agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
         observe: [response]
     crosses_process: false
-    docs: [architecture/terminal-agent.md]
+    docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
 
   - id: host-browser-read
-    title: agent가 자기가 연 browser 탭의 url, title, loading을 읽는다
+    title: agent나 사람 token이 자기가 연 browser 탭의 url, title, loading을 읽는다
     actor: agent
     entries: [route:browser/read]
     pre: [host-tab-report:state]
@@ -442,21 +487,223 @@ flows:
       - packages/core/host-queue/queue.ts
       - packages/core/main/daemon/wiring/host-queue.ts
     steps:
-      - "agent 자격의 session이 부른다"
+      - "agent 자격의 session이나 사람 token이 부른다"
       - "남이 연 탭이거나 탭이 없으면 not_found"
-      - "browser 탭이고 상태가 있으면 url, title, loading을 돌려준다. 상태가 아직 없거나 agent 탭이면 not_found"
+      - "browser 탭이고 상태가 있으면 url, title, loading을 돌려준다. 상태가 아직 없거나 agent 탭이나 preview 탭이면 not_found"
     outcomes:
       - id: state
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 없거나, browser 상태가 아직 없거나, agent 탭이다"
+        when: "남의 탭이거나 없거나, browser 상태가 아직 없거나, agent 탭이나 preview 탭이다"
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "agent 자격이 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
         observe: [response]
     crosses_process: false
+    docs: [architecture/browser-tab.md]
+
+  # ---- agent가 연 browser·preview 탭을 CDP로 다루는 호출 ----
+  - id: host-browser-inspect
+    title: agent나 사람 token이 자기가 연 browser·preview 탭의 접근성 tree, screenshot, console 줄을 읽는다
+    actor: agent
+    entries: [route:browser/snapshot, route:browser/screenshot, route:browser/logs]
+    uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
+    pre: [host-tab-open:accepted]
+    boundary: [host-queue-interface, host-queue-core, shell]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/queue.ts
+      - packages/protocol/lophn-agent/host-queue.ts
+      - packages/shell/main/browser/agent/driver.ts
+    steps:
+      - "agent 자격의 session이나 사람 token이 부른다. 남이 연 탭이거나 없는 탭이거나 session·agent 탭이면 not_found다(주인 대조가 shell 판정보다 앞선다)"
+      - "shell이 붙어 있지 않으면(기다리는 take도 없고 마지막 take가 3초 전보다 앞) unavailable이다"
+      - "browser_call 요청을 queue에 넣고 shell main의 결과를 기다린다. 1초마다 shell이 떨어졌는지와 30초 기한을 본다"
+      - "shell이 done에 실은 결과를 모양으로 펴 돌려준다: snapshot과 logs는 글, screenshot은 PNG 하나. 모양이 맞지 않으면 internal"
+      - "shell 쪽 실패(탭이 창에 없음, DevTools 열림, page 무응답)는 browser-call-run의 code 그대로다"
+    outcomes:
+      - id: ok
+        when: "snapshot은 접근성 tree 글, screenshot은 PNG, logs는 최근 200줄이다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭이거나 session·agent 탭이다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "shell이 붙어 있지 않거나, 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나, page가 답하지 않거나, 가려진 탭이라 screenshot이 그려지지 않았다. queue가 가득 차도 같다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "그 탭에 DevTools가 열려 있거나 다른 debugger가 붙어 있다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "shell 결과에 글이나 이미지가 없다(core가 모양을 펴지 못한다). shell의 예상 밖 예외도 같다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md, architecture/workspace-layout.md]
+
+  - id: host-browser-wait
+    title: agent나 사람 token이 자기가 연 탭에서 text나 url이 맞기를 기다린다
+    actor: agent
+    entries: [route:browser/wait]
+    uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
+    pre: [host-tab-open:accepted]
+    boundary: [host-queue-interface, host-queue-core, shell]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/shell/main/browser/agent/driver.ts
+    steps:
+      - "host-browser-inspect와 같이 주인을 대조한다. text와 url 가운데 정확히 하나가 아니면 invalid_input이다"
+      - "shell이 붙어 있으면 timeout_ms(기본 10초, 최대 25초) 안에 맞기를 기다리는 browser_call을 넣는다"
+      - "shell이 200ms마다 page를 보고, 맞으면 그때의 url과 title(열린 dialog를 닫았으면 그 내용)을 돌려준다"
+      - "시간 안에 맞지 않으면 unavailable이다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭이거나 session·agent 탭이다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "text와 url을 둘 다 주었거나 둘 다 주지 않았다"
+        observe: [response]
+      - id: timeout
+        code: unavailable
+        when: "timeout_ms 안에 조건이 맞지 않았다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "shell이 붙어 있지 않거나, 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나, page가 답하지 않는다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "그 탭에 DevTools가 열려 있거나 다른 debugger가 붙어 있다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md]
+
+  - id: host-browser-act
+    title: agent나 사람 token이 자기가 연 탭에서 조작하거나 이동하거나 script를 돌린다
+    actor: agent
+    entries: [route:browser/act, route:browser/navigate, route:browser/evaluate]
+    uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
+    pre: [host-tab-open:accepted]
+    boundary: [host-queue-interface, host-queue-core, shell]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/protocol/lophn-agent/host-queue.ts
+      - packages/shell/main/browser/agent/driver.ts
+      - packages/shell/main/browser/agent/keys.ts
+    steps:
+      - "host-browser-inspect와 같이 주인을 대조한다. act는 type별 칸을 다시 검사하고, navigate는 preview 탭이면 거절하고 url이 http·https·about:blank인지 본다"
+      - "shell이 붙어 있으면 browser_call을 넣고 결과를 기다린다. 사람이 그 탭을 가져가(take control) 있으면 shell이 conflict로 거절한다"
+      - "act는 ref가 가리키는 node에 click, type, fill, press, hover, select, scroll을 하고 page가 가라앉기를 기다린 뒤 url, title을 돌려준다. 낡은 ref는 conflict다"
+      - "navigate는 이동하고 가라앉기를 기다린다. evaluate는 page에서 식을 돌려 JSON 값을 돌려준다. page 안의 예외는 오류가 아니라 exception 글이다"
+    outcomes:
+      - id: ok
+        when: "act와 navigate는 url과 title(닫은 dialog가 있으면 그 내용), evaluate는 value다"
+        observe: [response]
+      - id: exception
+        when: "evaluate한 식이 page 안에서 예외를 냈거나 값이 너무 크다. 오류가 아니라 응답의 exception 글이다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭이거나 session·agent 탭이다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "act의 type에 맞지 않는 칸, preview 탭의 navigate, http·https·about:blank 밖의 url, 모르는 key 이름, ref의 node가 그 조작을 받지 못한다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "낡은 ref(새 snapshot이나 main frame 이동 뒤), 사람이 그 탭을 가져가 있음, DevTools가 열려 있거나 다른 debugger가 붙어 있다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "shell이 붙어 있지 않거나, 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나, page가 답하지 않거나, 이동이 실패했다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "shell 결과를 JSON으로 펴지 못한다. shell의 예상 밖 예외도 같다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md, architecture/workspace-layout.md]
+
+  - id: browser-call-run
+    title: shell main이 browser_call을 그 탭의 page에 CDP로 돌려 결과를 done에 싣는다
+    actor: shell
+    entries: [system:browser-call-run]
+    uses: [host-request-take:request, host-request-done:done]
+    boundary: [shell, host-queue-interface]
+    code:
+      - packages/shell/main/browser/agent/driver.ts
+      - packages/shell/main/browser/agent/control.ts
+      - packages/shell/main/browser/agent/page.ts
+      - packages/shell/main/browser/agent/electron-page.ts
+      - packages/shell/main/browser/agent/snapshot.ts
+      - packages/shell/main/desktop/wiring/surface.ts
+    steps:
+      - "take가 browser_call을 주면 창에 보내지 않고 shell main이 따로 돌린다. 끝나면 결과나 오류를 done에 싣는다"
+      - "창이 bind로 알린 view session에서 page를 찾는다. browser 탭은 webview guest, preview 탭은 mode가 preview인 앱 view다. 앱 live view는 어떤 경우에도 고르지 않는다. 없으면 unavailable"
+      - "그 탭을 agent가 다루는 중으로 적는다. 사람이 take control 중이면 act, navigate, evaluate는 conflict이고 읽기(snapshot, screenshot, logs, wait)는 된다"
+      - "DevTools가 열려 있거나 다른 debugger가 붙어 있으면 붙지 않고 conflict다. 붙으면 DOM, Accessibility 등 domain을 켠다"
+      - "snapshot마다 ref를 새로 매긴다. 새 snapshot이나 main frame 이동 뒤 옛 ref는 conflict다"
+      - "page가 CALL 기한 안에 답하지 않으면 unavailable이다. page 안의 예외(evaluate)는 오류가 아니라 exception 결과다"
+    outcomes:
+      - id: done
+        when: "snapshot, act, navigate, screenshot, evaluate, logs, wait의 결과(content)를 done에 실었다. evaluate가 page 예외로 끝난 것도 여기다"
+        observe: [response]
+      - id: tab-not-open
+        code: unavailable
+        when: "bind된 view session이 없거나 page가 닫혔거나 browser·preview 종류가 맞지 않는다(앱 live view 포함)"
+        observe: [response]
+      - id: person-holds
+        code: conflict
+        when: "사람이 그 탭을 가져가 있는데 act, navigate, evaluate가 왔다"
+        observe: [response]
+      - id: debugger-busy
+        code: conflict
+        when: "DevTools가 열려 있거나 우리 것이 아닌 debugger가 붙어 있다"
+        observe: [response]
+      - id: stale-ref
+        code: conflict
+        when: "act가 가리킨 ref가 현재 snapshot에 없다"
+        observe: [response]
+      - id: rejected
+        code: invalid_input
+        when: "preview 탭의 navigate, 허용하지 않는 url, 모르는 key, ref의 node가 그 조작을 받지 못해 page 함수가 던짐, wait에 text와 url이 둘 다/둘 다 없음"
+        observe: [response]
+      - id: timeout
+        code: unavailable
+        when: "page가 기한 안에 답하지 않았거나, wait 조건이 시간 안에 맞지 않았거나, 이동이 실패했거나, 가려진 탭이라 screenshot이 그려지지 않았다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "CallError가 아닌 예외가 났다"
+        observe: [response]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md, architecture/workspace-layout.md]
 
   # ---- shell 쪽 timer와 core 쪽 lease ----
   - id: harness-turn-run
@@ -518,7 +765,7 @@ flows:
       - "extension 종료(stop) 때 실행 중 turn은 target-unavailable로 finish한다. 설정이 꺼진 뒤의 finish는 core가 conflict로 거절할 수 있다"
 
   - id: host-queue-poll
-    title: shell main이 1초마다 host 요청을 가져가 창에 열거나 extension tool을 돌린다
+    title: shell main이 host 요청을 쉬지 않고 가져가 창에 열거나 extension tool·browser 호출을 돌린다
     actor: shell
     entries: [system:host-queue-poll]
     uses: [host-request-take:request, host-request-take:none, host-request-done:done, host-request-done:retry]
@@ -527,12 +774,11 @@ flows:
       - packages/shell/main/desktop/wiring/surface.ts
       - packages/shell/ipc/surface.ts
     steps:
-      - "POLL_MS(1초)마다 host/take를 부른다. 보이는 workspace와 TUI 목록을 싣는다. 한 tick에 최대 20번 반복한다"
-      - "tool_call이면 extension tool을 따로 돌리고 기다리지 않는다. 끝나면 done에 결과를 싣는다"
+      - "host/take를 쉬지 않고 이어 부른다(core가 요청이 올 때까지 최대 5초 잡아 둔다). 보이는 workspace와 TUI 목록을 싣는다. 답을 받자마자 다시 부른다"
+      - "tool_call이면 extension tool을, browser_call이면 browser driver를 따로 돌리고 기다리지 않는다. 끝나면 done에 결과를 싣는다"
       - "탭 요청이면 그 workspace를 보이는 창 가운데 focus를 가장 최근에 받은 하나에만 push하고 창의 ack를 1.5초 기다린다(두 창이 같은 탭을 열지 않는다)"
-      - "ack가 오면 done. 창이 없거나 ack가 없으면 retry로 done하고 이번 tick을 끝낸다"
-      - "요청이 없으면 tick을 끝낸다"
-      - "앞 tick이 아직 돌고 있으면 이번 tick은 아무것도 하지 않는다"
+      - "ack가 오면 done. 창이 없거나 ack가 없으면 retry로 done하고 1초 쉰 뒤 다시 가져간다"
+      - "요청이 없으면(null) 바로 다시 부른다. take가 실패해도 1초 쉰 뒤 다시 부른다"
     outcomes:
       - id: offered
         observe: [screen:project-terminal]
@@ -542,17 +788,17 @@ flows:
       - id: tool-call
         when: "tool_call 요청이다. extension tool을 따로 돌리고 끝나면 done에 결과를 싣는다"
         observe: [response]
+      - id: browser-call
+        when: "browser_call 요청이다. browser driver(browser-call-run)를 따로 돌리고 끝나면 done에 결과를 싣는다"
+        observe: [response]
       - id: idle
-        when: "take가 요청을 주지 않았다"
+        when: "take가 요청을 주지 않았다(5초 기다림이 끝났거나 core가 멈춤). 바로 다시 부른다"
         observe: [response]
       - id: take-failed
-        when: "host/take가 실패해 답이 없다. 이번 tick을 끝낸다"
+        when: "host/take가 실패해 답이 없다. 1초 쉰 뒤 다시 부른다"
         observe: [response]
-      - id: busy
-        when: "앞 tick이 아직 돌고 있다. 이번 tick은 아무것도 하지 않는다"
-        observe: []
     crosses_process: true
-    docs: [architecture/coding-agent.md]
+    docs: [architecture/coding-agent.md, architecture/workspace-layout.md]
     unclear:
       - "offered 결과 화면은 프레임 project-terminal로 근사했다. agent가 연 탭의 정확한 프레임은 확인하지 않았다"
 

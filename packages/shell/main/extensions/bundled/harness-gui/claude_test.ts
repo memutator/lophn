@@ -1183,3 +1183,26 @@ test("사용 한도 warning은 TUI처럼 70%부터, 창마다 단계가 바뀔 �
   assert.match(warnings[0] ?? "", /^You've used 71% of your weekly limit\./);
   assert.match(warnings[1] ?? "", /^You've hit your weekly limit\./);
 });
+
+// 두 번 고친 것: `/compact` 출력이 색 code와 hook 글을 단 채 명령 출력으로 그려졌다.
+test("명령 출력은 색 code를 떼고 `/compact` 출력은 그리지 않는다", async () => {
+  const t = await setup({});
+  await t.feed({
+    type: "system",
+    subtype: "local_command_output",
+    content:
+      "\u001b[2mCompacted (ctrl+o to see full summary)\u001b[22m PostCompact [$HOME]",
+  });
+  await t.feed({
+    type: "system",
+    subtype: "local_command_output",
+    content: "\u001b[1mTheme set\u001b[22m",
+  });
+  const notices = t.state.items.flatMap((one) =>
+    one.kind === "notice" ? [one.notice] : [],
+  );
+  assert.deepEqual(
+    notices.map((one) => ("text" in one ? one.text : "")),
+    ["Theme set"],
+  );
+});

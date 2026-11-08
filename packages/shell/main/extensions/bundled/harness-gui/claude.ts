@@ -246,6 +246,8 @@ const LIMIT_LABELS: Record<string, string> = {
 };
 // 이 사용률(0-1)부터 allowed_warning을 알린다(CLI TUI와 같다).
 const WARN_FROM = 0.7;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: 터미널 색 escape를 지운다.
+const ANSI = /\u001b\[[0-9;]*m/g;
 // warning 글에 넣는 창 이름.
 const LIMIT_NAMES: Record<string, string> = {
   five_hour: "5-hour",
@@ -1186,8 +1188,9 @@ const start: (sdk: ClaudeSdk) => Start =
       if (clean !== "") notify(root, { type: "info", text: clean, level });
     }
     function commandOutput(command: string, text: string) {
-      const clean = text.trim().slice(0, 64_000);
-      if (clean === "") return;
+      // CLI는 출력에 색 code를 싣는다. `/compact` 출력(뒤에 hook 글이 붙는다)은 compact_boundary가 이미 알린다.
+      const clean = text.replace(ANSI, "").trim().slice(0, 64_000);
+      if (clean === "" || clean.startsWith("Compacted")) return;
       if (command === "") info(clean);
       else
         notify(root, {
@@ -2222,8 +2225,7 @@ const start: (sdk: ClaudeSdk) => Start =
               /<local-command-stderr>([\s\S]*?)<\/local-command-stderr>/.exec(
                 content,
               );
-            if (out !== null && !out[1]?.startsWith("Compacted"))
-              commandOutput(lastCommand, out[1] ?? "");
+            if (out !== null) commandOutput(lastCommand, out[1] ?? "");
             if (err !== null) info(err[1] ?? "", "warning");
           }
           return;
@@ -2392,9 +2394,7 @@ const start: (sdk: ClaudeSdk) => Start =
           if (local !== null) {
             const body = local[2] ?? "";
             if (local[1] === "stderr") info(body, "warning");
-            // `/compact`는 위 요약이 이미 알렸다. 출력 뒤에 hook 글이 붙어 온다.
-            else if (!body.startsWith("Compacted"))
-              commandOutput(lastCommand, body);
+            else commandOutput(lastCommand, body);
             continue;
           }
           const received = classifyReceived(text, originOf.get(message.uuid));

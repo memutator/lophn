@@ -51,7 +51,7 @@
   - lophn 채팅 화면은 ACP만 보고 그린다. lophn agent도 이 규격에 맞춰 고친다.
   - 사용자 앱 화면도 ACP의 화면이다. 앱이 SDK로 앱 context를 prompt로 어떻게 조립할지 정해 보내고, agent 응답을 받아 자기 식으로 그린다(예: 코드 textarea의 줄에 주석).
   - third-party CLI의 출력을 ACP로 옮기면 같은 채팅 화면이 그 위에 GUI를 덮는다(`claude gui`).
-  - agent가 앱 화면을 읽거나 조작하는 길(agent가 client)은 두지 않는다. 탭을 열고 배치하고 agent가 연 browser 탭의 url·title·loading을 읽는 데까지만 연다(사람, 2026-11-08, `agent-surface.md` 정한 것 4).
+  - agent가 앱 live 화면을 읽거나 조작하는 길은 두지 않는다. 자기 앱의 preview를 테스트하려고 다루는 것은 연다(사람, 2026-11-08: 앱을 CDP로 테스트한다. 계획 `browser-use`의 preview 탭과 `lophn browser`). agent는 자기가 연 browser 탭과 preview 탭만 다룬다(`architecture/browser-tab.md` "agent가 다루는 browser 탭").
 - **A2A는 agent와 agent 사이의 lophn 자체 규격이다.** lophn끼리, lophn ↔ third-party harness. home의 전역 agent(Image Generator)를 어디서든 부른다. 핵심은 불린 agent의 시야다. 시야는 workspace와 workspace 사이의 정책이 크게 정하고 agent와 agent 사이의 정책이 예외로 덧쓴다. 명함에 modality와 skill diff를 싣고, 내부 구현을 몰라도 무엇을 기대할지 안다. third-party harness는 CLI 명령으로 실행한다.
 - **bare:** 기본으로 다 덜어진 상태이고 사람이 더한다(tool, lophn 명령, 앱 command, MCP, skill). lophn agent는 지금 그대로다.
 - **SDK:** 위 것을 lophn agent SDK로 묶는다.

@@ -155,6 +155,23 @@ export function useSurfaceRequests(args: Args): void {
         },
       };
       if ("preview" in target) {
+        // 이미 이 창에 열려 있는 탭이면 새로 열지 않고 기기만 바꾼다. at이 달라야 같은 기기를 다시 줘도 탭이 알아챈다.
+        const existing = host()
+          .windowTabs()
+          .find((tab) => tab.key === key);
+        if (existing !== undefined) {
+          if (target.preview.device !== null) {
+            host().patchTab(key, (current) => ({
+              fields: {
+                ...current.fields,
+                device: target.preview.device,
+                device_at: Date.now(),
+              },
+            }));
+          }
+          done();
+          return;
+        }
         // 사람이 [Preview]로 연 같은 앱의 탭이 있으면 그 자리에 이 탭을 열고 그것을 닫는다(앱마다 preview 탭은 하나다).
         const person = host()
           .windowTabs()

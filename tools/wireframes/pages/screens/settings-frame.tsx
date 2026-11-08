@@ -16,7 +16,10 @@ import { fakeProviders } from "../../../../packages/shell/renderer/desktop/setti
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
 import { fakeBrowserSettings } from "../../../../packages/shell/renderer/desktop/settings/browser/testdata/fake-source.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
-import type { LinkValues } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
+import type {
+  Device,
+  LinkValues,
+} from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
 import { fakeKeyboard } from "../../../../packages/shell/renderer/desktop/settings/keyboard/testdata/fake-source.ts";
 import type { StoredKeybindings } from "../../../../packages/shell/renderer/desktop/settings/keyboard/source.ts";
 import { CUSTOM_PROVIDER } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
@@ -40,6 +43,8 @@ interface SettingsFrameProps {
     readonly corrupt?: boolean;
     /** Links 줄의 처음 값. 안 쓴 줄은 Browser tab이다. */
     readonly links?: Partial<LinkValues>;
+    /** Devices 구역의 등록한 기기. 안 쓰면 비어 있다. */
+    readonly devices?: Device[];
   };
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;

@@ -164,6 +164,8 @@ interface AppPreviewTabProps {
   agentView: AgentViewSlice | null;
   /** agent가 `--device`로 열었을 때의 기기 이름. 고른 기기는 이 탭의 state에만 있다. */
   initialDevice: string | null;
+  /** 이미 열린 탭에 agent가 `--device`를 줄 때마다 달라지는 값. 0이면 준 적이 없다. */
+  deviceAt: number;
 }
 
 /** 등록한 기기 목록. 탭이 보일 때마다 다시 읽어 Settings에서 고친 것이 따라온다. */
@@ -217,6 +219,11 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
   const devices = useDevices(shown);
   const [chosen, setChosen] = useState<string | null>(props.initialDevice);
   const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    if (props.deviceAt === 0) return;
+    setBlocked(false);
+    setChosen(props.initialDevice);
+  }, [props.deviceAt, props.initialDevice]);
   const device = devices.find((d) => d.name === chosen) ?? null;
   const [row, setRow] = useState<AppRow | null>(null);
   const [entry, setEntry] = useState<Entry>({ state: "loading" });

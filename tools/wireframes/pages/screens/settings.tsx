@@ -24,6 +24,8 @@ import {
   SettingsBrowserBookmarks,
   SettingsBrowserBookmarksCorrupt,
   SettingsBrowserClearData,
+  SettingsBrowserDeviceAdd,
+  SettingsBrowserDevices,
   SettingsBrowserLinks,
   SettingsBrowserLinksSystem,
   SettingsCoding,
@@ -264,6 +266,20 @@ export const settingsArea: Area = {
       description:
         "web link는 System browser, local link는 Browser tab이다. `gh auth login`이 연 주소는 OS browser로, `vite`가 낸 주소는 browser 탭으로 가는 설정이다.",
       render: () => <SettingsBrowserLinksSystem />,
+    },
+    {
+      id: "settings-browser-devices",
+      title: "Settings · Browser · devices",
+      description:
+        "Devices 구역이다. preview 탭이 흉내 낼 기기(이름, 크기, DPR, OS)가 줄마다 서고 [Edit]·[Remove]가 있다. 아래 [Add device]로 더한다.",
+      render: () => <SettingsBrowserDevices />,
+    },
+    {
+      id: "settings-browser-device-add",
+      title: "Settings · Browser · add a device",
+      description:
+        "[Add device]를 눌러 입력 칸(Name, Width, Height, Pixel ratio, OS)이 열렸다. 처음 값은 iPhone 크기다. 범위 밖이거나 이름이 겹치면 저장되지 않고 한 줄 오류가 난다.",
+      render: () => <SettingsBrowserDeviceAdd />,
     },
     {
       id: "settings-browser-clear-data",

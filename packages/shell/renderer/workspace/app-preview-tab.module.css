@@ -14,7 +14,8 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
   min-width: var(--space-0);
   padding: var(--space-1) var(--space-3);
   border-bottom: var(--border-width) solid var(--color-border-base);

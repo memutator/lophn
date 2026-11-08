@@ -60,7 +60,7 @@ export type HostQueue = {
   };
   abandon(id: Id<"hrq">, message?: string): void;
 
-  // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이 이미 있으면 새로 넣지 않고 그 탭의 주인만 바꿔 돌려준다.
+  // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔 돌려준다(기기가 있으면 같은 탭 id로 tab_open을 다시 넣는다).
   openTab(input: {
     owner: TabOwner;
     workspace: HostWorkspace;
@@ -238,10 +238,30 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     },
     openTab(input: Parameters<HostQueue["openTab"]>[0]) {
       const app = "preview" in input.target ? input.target.preview.app : null;
+      const open = (tab: Id<"tab">) =>
+        enqueue({
+          id: deps.ids.newId("hrq") as Id<"hrq">,
+          kind: "tab_open",
+          workspace: input.workspace,
+          payload: {
+            tab,
+            target: input.target,
+            place: input.place,
+            source: input.source,
+            resume: input.resume ?? null,
+          },
+        });
       if (app !== null) {
         for (const [id, entry] of tabs) {
           if (entry.app === app) {
             entry.owner = input.owner;
+            // 이미 열린 탭에 기기를 주면 같은 탭에 기기를 다시 알린다(창이 그 탭의 기기만 바꾼다).
+            if (
+              "preview" in input.target &&
+              input.target.preview.device !== null
+            ) {
+              open(id);
+            }
             return id;
           }
         }
@@ -259,18 +279,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         app,
         state: null,
       });
-      enqueue({
-        id: deps.ids.newId("hrq") as Id<"hrq">,
-        kind: "tab_open",
-        workspace: input.workspace,
-        payload: {
-          tab,
-          target: input.target,
-          place: input.place,
-          source: input.source,
-          resume: input.resume ?? null,
-        },
-      });
+      open(tab);
       return tab;
     },
     take,

@@ -3,7 +3,6 @@
 import { SettingsFrame } from "./settings-frame.tsx";
 import { click, find, press, type, wait } from "../../mock/drive.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
-import type { Device } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
 import { appPanelBindingId } from "../../../../packages/shell/ipc/keybindings.ts";
 import { APP_BUDGET } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 
@@ -119,18 +118,18 @@ export const SettingsBrowser = () => (
   <SettingsFrame pane="browser" browser={{ bookmarks: BOOKMARKS }} />
 );
 
-// SettingsFrame의 browser prop 타입에는 devices가 없지만 fakeBrowserSettings가 그대로 받는다(변수라 초과 속성 검사를 거치지 않는다).
-const DEVICES_BROWSER: { bookmarks: Bookmark[]; devices: Device[] } = {
-  bookmarks: BOOKMARKS,
-  devices: [
-    { name: "iPhone 15", width: 390, height: 844, dpr: 3, os: "ios" },
-    { name: "Pixel 8", width: 412, height: 915, dpr: 2.6, os: "android" },
-  ],
-};
-
 /** Settings › Browser: Devices 구역에 기기 둘이 등록되어 있다. 줄마다 크기·DPR·OS와 [Edit], [Remove]가 있다. */
 export const SettingsBrowserDevices = () => (
-  <SettingsFrame pane="browser" browser={DEVICES_BROWSER} />
+  <SettingsFrame
+    pane="browser"
+    browser={{
+      bookmarks: BOOKMARKS,
+      devices: [
+        { name: "iPhone 15", width: 390, height: 844, dpr: 3, os: "ios" },
+        { name: "Pixel 8", width: 412, height: 915, dpr: 2.6, os: "android" },
+      ],
+    }}
+  />
 );
 
 /** Settings › Browser: [Add device]를 눌러 기기 입력 칸이 열린 상태. 처음 값은 iPhone 크기다. */

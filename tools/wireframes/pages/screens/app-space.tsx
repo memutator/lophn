@@ -20,6 +20,7 @@ import {
   CoachReviewed,
   CoachWorking,
   PreviewButton,
+  PreviewDevice,
   PreviewStopped,
   PreviewTab,
   RewindConfirm,
@@ -66,6 +67,13 @@ export const appSpaceArea: Area = {
       description:
         "preview 탭. 위 한 줄에 preview라는 것, fixture data, 바깥 연결이 대역이라는 것을 적고 [Stop]이 있다. 아래는 앱 view(mode preview) 자리이고 Annotate는 앱 화면 탭과 같이 ⋯ 메뉴에 있다. 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다.",
       render: () => <PreviewTab />,
+    },
+    {
+      id: "app-preview-device",
+      title: "App workspace · Preview tab (device)",
+      description:
+        "안내 줄의 Device에서 등록한 기기(iPhone 15)를 골랐다. view가 그 크기의 폰 테두리 안에 서고, 크기·DPR·touch·user agent가 그 기기 것이다. 화면보다 크면 이 칸이 스크롤한다. Desktop을 고르면 풀린다.",
+      render: () => <PreviewDevice />,
     },
     {
       id: "app-preview-stopped",

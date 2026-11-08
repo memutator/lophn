@@ -42,6 +42,26 @@ test("다른 session이 연 탭은 닫지도 읽지도 못한다", () => {
   assert.equal(!again.ok && again.error.code, "not_found");
 });
 
+test("이미 열린 preview 탭에 기기를 주면 같은 탭 id로 tab_open이 다시 나간다", () => {
+  const { queue } = setup();
+  const APP = "app_a" as Id<"app">;
+  const open = (device: string | null) =>
+    queue.openTab({
+      owner: OWNER,
+      workspace: { kind: "app", id: APP },
+      target: { preview: { app: APP, device } },
+      place: null,
+      source: OWNER,
+    });
+  const tab = open(null);
+  queue.done(queue.take([{ kind: "app", id: APP }])!.id as Id<"hrq">, "done");
+  assert.equal(open(null), tab);
+  assert.equal(queue.take([{ kind: "app", id: APP }]), null);
+  assert.equal(open("iPhone"), tab);
+  const again = queue.take([{ kind: "app", id: APP }])!;
+  assert.equal(again.kind === "tab_open" && again.payload.tab === tab, true);
+});
+
 test("retry한 요청은 뒤로 가서 다음 요청을 막지 않는다", () => {
   const { queue } = setup();
   const open = (url: string) =>

@@ -1,31 +1,24 @@
 // app_preview 탭. 그 앱에서 지금 돌고 있는 preview를 앱 view(mode preview)로 보인다. 앱마다 탭 하나이고 지금 preview를 따라간다:
 // 2초마다 `previews.get`을 읽어 process가 바뀌면 view를 새로 열고, 없어지면 "돌고 있는 preview 없음"을 보인다.
-// Annotate는 앱 화면 탭(app-screen-tab.tsx)과 같은 길이고, 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다.
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+// Annotate는 앱 화면 탭과 같은 길(use-tab-annotate.tsx)이고, 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다.
+import { createContext, useContext, useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { MenuIcon, Toast } from "@lophn/ui/overlay";
+import { Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
-import { annotateHead } from "../app-frame/annotate/annotate-head.tsx";
-import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
-import { STAY, useViewToast } from "../app-frame/annotate/use-view-toast.ts";
+import { STAY } from "../app-frame/annotate/use-view-toast.ts";
 import { useAppViews, useAppWorkspace } from "../app-frame/app-views.tsx";
-import type { ShellHead } from "../app-frame/app-tab-head.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
-import { useAnnotateApi } from "../artifact/artifact-api.tsx";
-import { useBrowserOverlay } from "../browser/browser-api.tsx";
 import type { AppRow, AppsSource } from "../apps/source.ts";
 import {
   type CoreSource,
   windowCoreSource,
 } from "../desktop/connection/connection.ts";
-import { editorIcons } from "../icons/mod.ts";
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import type { AgentViewSlice } from "./kinds/host.ts";
+import { useTabAnnotate } from "./use-tab-annotate.tsx";
 import styles from "./app-preview-tab.module.css";
 
-const ANNOTATE_ITEM = "shell:annotate";
 const POLL_MS = 2000;
 
 /** 지금 돌고 있는 preview 하나. release는 없을 수 있다(bundle만 띄운 preview). */
@@ -175,77 +168,11 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
     };
   }, [source, app, release, preview?.nonce]);
 
-  // ---- annotate (app-screen-tab.tsx와 같은 길) ----
-
-  const annotateApi = useAnnotateApi();
-  const annotating = useAnnotate(annotateApi, state?.view_session ?? null);
-  const toast = useViewToast(useBrowserOverlay() ?? undefined);
-  const annotateOn = annotating.state?.on ?? false;
-  const failure = annotating.failure;
-  useEffect(() => {
-    if (failure === null) return;
-    toast.show({
-      title:
-        failure === "archived"
-          ? t("app-space.error.annotations-archived")
-          : t("app-space.error.annotations-failed"),
-    });
-  }, [failure]);
-
-  async function sendAnnotations(): Promise<void> {
-    const session = agentView?.workspaceLophnSession() ?? null;
-    const sent = await annotating.send({ agent: LOPHN_AGENT_ID, session });
-    if (sent === null) return;
-    const agent = agentView?.nameOf(sent.session) ?? "lophn";
-    toast.show({
-      title: t("app-space.title.annotations-sent-to", {
-        count: sent.sent,
-        agent,
-      }),
-      body: t("app-space.text.annotations-sent"),
-    });
-    agentView?.openSession(sent.session);
-  }
-  const count = annotating.state?.items.length ?? 0;
-  const sending = annotating.state?.phase === "sending";
-  const latest = useRef({ annotating, annotateOn, sendAnnotations });
-  latest.current = { annotating, annotateOn, sendAnnotations };
-
-  const target = row?.name ?? "";
-  let shellHead: ShellHead | undefined;
-  if (annotateApi === undefined || state === null) shellHead = undefined;
-  else if (annotateOn) {
-    shellHead = {
-      key: `on:${count}:${sending}:${target}`,
-      ...annotateHead({
-        target,
-        count,
-        sending,
-        sendLabel: t("app-space.button.send-annotations-to", {
-          agent: "lophn",
-        }),
-        note: t("app-space.text.annotations-note-to", { agent: "lophn" }),
-        guide: t("app-space.text.annotate-on"),
-        onClear: () => latest.current.annotating.remove("all"),
-        onDone: () => latest.current.annotating.setMode(false),
-        onSend: () => void latest.current.sendAnnotations(),
-      }),
-    };
-  } else {
-    shellHead = {
-      key: "off",
-      menu: {
-        items: [
-          {
-            id: ANNOTATE_ITEM,
-            label: t("app-space.button.annotate"),
-            leading: <MenuIcon icon={editorIcons.edit} />,
-          },
-        ],
-        onSelect: () => latest.current.annotating.setMode(true),
-      },
-    };
-  }
+  const { shellHead, toast } = useTabAnnotate({
+    viewSession: state?.view_session ?? null,
+    target: row?.name ?? "",
+    agentView,
+  });
 
   let body;
   if (preview === undefined) body = null;

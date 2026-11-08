@@ -1,6 +1,6 @@
-// 터미널 안에서 도는 coding agent를 따라가는 길을 앱에 올린다. harness hook의 unix socket, foreground
+// 터미널 안에서 도는 coding agent를 따라가는 길을 앱에 올린다. harness hook의 socket, foreground
 // process argv와 hook으로 상태를 따라가는 tracker, 못 본 turn 끝·권한 물음의 알림(notice.ts가 어디에 띄울지 정한다)이다.
-// socket은 browser bridge의 per-run 폴더에 선다. 어느 단계든 실패하면 hook 없이 뜬다(foreground만 쓴다).
+// socket은 browser bridge가 확정한 per-run 폴더의 hook endpoint에 선다. 어느 단계든 실패하면 hook 없이 뜬다(foreground만 쓴다).
 import { app } from "electron";
 import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -27,6 +27,7 @@ import {
   type TerminalRuntime,
 } from "../../../ipc/terminal.ts";
 import { prependPath } from "../../../../base/os/mod.ts";
+import { type ShellRun } from "../../browser-bridge/run-dir.ts";
 import { writeShellInit } from "../../../terminal-host/shell-integration.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import {
@@ -51,7 +52,7 @@ import type { NoticeWiring } from "./notice.ts";
 export function createAgentWiring(options: {
   ctx: ShellContext;
   notice: Pick<NoticeWiring, "looking" | "show">;
-  runDir: Promise<string | null>;
+  run: Promise<ShellRun | null>;
   terminals: Pick<Supervisor, "on" | "runtimes">;
   /** 사람 터미널이 harness를 처음 알아봤다. hook 설치를 물을 때다. */
   identified(harness: string, terminalRef: string): void;
@@ -233,11 +234,10 @@ export function createAgentWiring(options: {
   let live: ReturnType<typeof createHookIngress> | null = null;
   let shellInit: string | null = null;
   let stopped = false;
-  const server = options.runDir.then(async (dir) => {
-    if (dir === null || stopped) return null;
-    const socket = `${dir}/h.sock`;
+  const server = options.run.then(async (run) => {
+    if (run === null || stopped) return null;
     const ingress = createHookIngress({
-      socket,
+      socket: run.hookSocket,
       envName: TERMINAL_HOOK_ENV,
       maxBytes: TERMINAL_HOOK_LINE_MAX_BYTES,
       newKey: () => randomBytes(32).toString("hex"),
@@ -253,7 +253,8 @@ export function createAgentWiring(options: {
     });
     try {
       const started = await listenHooks({
-        socket,
+        socket: run.hookSocket,
+        platform: process.platform,
         maxBytes: TERMINAL_HOOK_LINE_MAX_BYTES,
         handleLine: ingress.handleLine,
         log: ctx.log,
@@ -267,7 +268,7 @@ export function createAgentWiring(options: {
             mkdir: (path) => void mkdirSync(path, { recursive: true }),
             write: (path, text) => writeFileSync(path, text, { mode: 0o600 }),
           },
-          dir,
+          run.dir,
           // 터미널 env에는 LOPHN_CLI가 없다. main이 고른 launcher 경로를 함수에 넣는다.
           cli ?? "lophn",
         );

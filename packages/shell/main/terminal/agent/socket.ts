@@ -1,11 +1,15 @@
-// hook의 unix socket 서버. 연결마다 줄 하나를 받고 답 없이 닫는다.
+// hook의 socket 서버. 연결마다 줄 하나를 받고 답 없이 닫는다. POSIX는 unix socket이라 listen 뒤
+// 0600으로 좁히고, Windows named pipe는 mode가 없어 server close가 곧 정리다.
 import { createServer, type Socket } from "node:net";
 import { chmod } from "node:fs/promises";
+
+import type { OsPlatform } from "../../../../base/os/mod.ts";
 
 const SOCKET_TIMEOUT_MS = 3000;
 
 export async function listenHooks(options: {
   socket: string;
+  platform: OsPlatform;
   maxBytes: number;
   handleLine(line: string): void;
   log(message: string): void;
@@ -49,11 +53,13 @@ export async function listenHooks(options: {
       server.close(() => resolve());
       for (const connection of open) connection.destroy();
     });
-  try {
-    await chmod(options.socket, 0o600);
-  } catch (cause) {
-    await stop();
-    throw cause;
+  if (options.platform !== "win32") {
+    try {
+      await chmod(options.socket, 0o600);
+    } catch (cause) {
+      await stop();
+      throw cause;
+    }
   }
   return { stop };
 }

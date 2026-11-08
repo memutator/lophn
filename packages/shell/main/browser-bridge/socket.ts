@@ -1,11 +1,14 @@
-// bridge의 unix socket 서버. 연결마다 요청 한 줄을 받고 답 한 줄로 끝낸다.
+// bridge의 socket 서버. 연결마다 요청 한 줄을 받고 답 한 줄로 끝낸다. POSIX는 unix socket이라
+// listen 뒤 0600으로 좁히고, Windows named pipe는 mode가 없어 server close가 곧 정리다.
 import { createServer, type Socket } from "node:net";
 import { chmod } from "node:fs/promises";
 
+import type { OsPlatform } from "../../../base/os/mod.ts";
 import { MAX_REQUEST_BYTES, SOCKET_TIMEOUT_MS } from "./policy.ts";
 
 export async function listenBridge(options: {
   socket: string;
+  platform: OsPlatform;
   handleLine(line: string): Promise<"pane" | "declined">;
   log(message: string): void;
 }): Promise<{ stop(): Promise<void> }> {
@@ -49,11 +52,13 @@ export async function listenBridge(options: {
       server.close(() => resolve());
       for (const connection of open) connection.destroy();
     });
-  try {
-    await chmod(options.socket, 0o600);
-  } catch (cause) {
-    await stop();
-    throw cause;
+  if (options.platform !== "win32") {
+    try {
+      await chmod(options.socket, 0o600);
+    } catch (cause) {
+      await stop();
+      throw cause;
+    }
   }
   return { stop };
 }

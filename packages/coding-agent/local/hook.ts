@@ -35,7 +35,8 @@ function terminalHookOf(env: LocalContext["env"]) {
   }
 }
 
-function connectUnix(path: string): Promise<Socket> {
+// Node `connect({ path })`는 POSIX unix socket과 Windows named pipe를 같은 API로 연다.
+function connectSocket(path: string): Promise<Socket> {
   return new Promise((resolve, reject) => {
     const socket = connect({ path });
     socket.once("error", reject);
@@ -53,7 +54,7 @@ async function writeLine(path: string, line: string): Promise<void> {
   let done = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const send = (async () => {
-    const connected = await connectUnix(path);
+    const connected = await connectSocket(path);
     if (done) {
       connected.destroy();
       return;

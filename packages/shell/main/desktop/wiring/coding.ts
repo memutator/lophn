@@ -211,7 +211,7 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
   const agent = createAgentWiring({
     ctx,
     notice,
-    runDir: bridgeWiring.runDir,
+    run: bridgeWiring.run,
     terminals,
     identified: (harness, terminalRef) =>
       installer.ensureOnce(harness, terminalRef),

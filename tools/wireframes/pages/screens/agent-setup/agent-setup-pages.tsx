@@ -7,6 +7,7 @@ import {
   BUDGET_REVIEWER_ID,
   EVAL_ANALYST_ID,
   type FakeAgentsOptions,
+  PROJECT_LOPHN_ID,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import {
   AGENTS_TAB_SPEC,
@@ -83,8 +84,8 @@ export const AgentModelPickerPage = () =>
 /** 새 agent를 만든다. */
 export const AgentCreatePage = () => editor("new");
 
-/** lophn의 설정. 이름·profile이 잠기고 Delete가 없다. */
-export const LophnEditorPage = () => editor("lophn");
+/** project의 lophn 설정. profile과 handle이 잠기고 Delete가 없다. */
+export const LophnEditorPage = () => editor(PROJECT_LOPHN_ID);
 
 /** 앱 자리에서 연 agent의 설정. 앱에는 project 지침이 없어 지침 블록에 안내만 있다. */
 export const AppWorkspaceEditorPage = () =>
@@ -127,15 +128,6 @@ export const SettingsAgentsInstructionsPage = () => (
     pane="agents"
     steps={[() => click("[data-action=edit-instructions]")]}
   />
-);
-
-/** Settings › Agents › lophn. [Open lophn settings]를 눌러 연 둘째 화면이다. */
-export const SettingsLophnPage = () => (
-  <Driven
-    steps={[() => press("button", t("agents.button.settings-open-lophn"))]}
-  >
-    <SettingsFrame pane="agents" />
-  </Driven>
 );
 
 /** Settings › Providers. */

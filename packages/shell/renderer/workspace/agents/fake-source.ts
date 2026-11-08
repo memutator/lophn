@@ -8,7 +8,12 @@ import type {
   AgentDefinitionIssue,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
-import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
+import {
+  isLophn,
+  lophnIdOf,
+  type Workspace,
+  workspaceOfLophn,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import {
   type CatalogEntry,
   effortAxisOf,
@@ -34,6 +39,7 @@ import {
   GRANT_CATALOG,
   LOPHN_MD,
   PROJECT_ID as PROJECT,
+  PROJECT_LOPHN_ID,
   PROJECT_MCP,
   PROJECT_NAME,
   PROJECT_SKILLS,
@@ -68,6 +74,7 @@ export {
   GLOBAL_MODEL,
   GLOBAL_SKILLS,
   PROJECT_ID,
+  PROJECT_LOPHN_ID,
   PROJECT_NAME,
 } from "./fake-data.ts";
 
@@ -279,6 +286,13 @@ export function createFakeAgentsSource(
     Object.entries(FAKE_GRANTS),
   );
   const grantRevisions = new Map<string, number>();
+  // workspace마다 lophn이 하나 있다. project의 것은 처음부터 있고 나머지는 그 정의를 본떠 처음 볼 때 만든다.
+  const ensureLophn = (key: string) => {
+    if (stored.has(key)) return;
+    const model = stored.get(PROJECT_LOPHN_ID)!;
+    stored.set(key, { ...model, hash: nextHash() });
+    grants.set(key, grants.get(PROJECT_LOPHN_ID) ?? []);
+  };
   // project의 LOPHN.md. 쓸 때마다 hash가 바뀌어 옛 hash로 쓰면 conflict다.
   let lophnFile: InstructionsFile = { text: LOPHN_MD, hash: nextHash() };
   let projectModel: ModelChoice | null = options.projectModel ?? null;
@@ -358,26 +372,44 @@ export function createFakeAgentsSource(
 
   const profileOf = (key: string, item: Stored) =>
     item.definition.profile ??
-    (key === "lophn" ? BUILT_IN_PROFILE.lophn : DEFAULT_PROFILE);
+    (isLophn(key) ? BUILT_IN_PROFILE.lophn : DEFAULT_PROFILE);
 
-  // 전역 agent와 그 자리 범위 agent만 보인다. home("home")은 전역만 남는다.
-  const visible = (workspace: string) =>
-    [...stored].filter(
-      ([, item]) =>
-        item.definition.workspace === undefined ||
-        item.definition.workspace.id === workspace,
+  // 그 자리의 lophn(첫 줄), 전역 agent, 그 자리 범위 agent만 보인다. home("home")은 Home lophn과 전역만 남는다.
+  const visible = (workspace: string) => {
+    const lophn = lophnIdOf(
+      workspace === "home"
+        ? null
+        : {
+            kind: isAppWorkspace(workspace) ? "app" : "project",
+            id: workspace,
+          },
     );
+    ensureLophn(lophn);
+    return [
+      ...[...stored].filter(([key]) => key === lophn),
+      ...[...stored].filter(
+        ([key, item]) =>
+          !isLophn(key) &&
+          (item.definition.workspace === undefined ||
+            item.definition.workspace.id === workspace),
+      ),
+    ];
+  };
 
   const ALL_MODALITIES = ["text", "image", "file"] as const;
 
+  // lophn의 범위는 정의 file이 아니라 id가 말한다.
+  const scopeOf = (key: string, item: Stored) =>
+    isLophn(key) ? workspaceOfLophn(key) : (item.definition.workspace ?? null);
+
   // core의 cardOf를 줄인 것: 차이는 skill·MCP 이름만 센다.
-  const cardOf = (item: Stored): AgentCard => {
+  const cardOf = (key: string, item: Stored): AgentCard => {
     const definition = item.definition;
     const bare = definition.runtime === "bare";
     return {
-      handle: definition.handle ?? item.name,
+      handle: isLophn(key) ? "lophn" : (definition.handle ?? item.name),
       name: item.name,
-      workspace: definition.workspace ?? null,
+      workspace: scopeOf(key, item),
       ...(definition.description === undefined
         ? {}
         : { description: definition.description }),
@@ -428,8 +460,8 @@ export function createFakeAgentsSource(
     const model = definition.model ?? inheritedModel(at).value;
     return {
       assignment: key,
-      handle: item.definition.handle ?? key,
-      workspace: definition.workspace ?? null,
+      handle: isLophn(key) ? "lophn" : (item.definition.handle ?? key),
+      workspace: scopeOf(key, item),
       name: item.name,
       profile: profileOf(key, item),
       ...(definition.description === undefined
@@ -446,7 +478,7 @@ export function createFakeAgentsSource(
         skills,
         mcp,
       },
-      card: cardOf(item),
+      card: cardOf(key, item),
     };
   };
 
@@ -466,7 +498,7 @@ export function createFakeAgentsSource(
       },
       inheritedModel: inheritedModel(at),
       issues: [],
-      card: cardOf(item),
+      card: cardOf(key, item),
       skills: skillsFor(at),
       mcpServers: mcpFor(at),
       // 저장된 정의의 OAuth server는 로그인 전이다. 화면은 그 줄에 [Sign in]을 그린다.
@@ -637,6 +669,7 @@ export function createFakeAgentsSource(
     },
 
     readAgent(_project, key) {
+      if (isLophn(key)) ensureLophn(key);
       return Promise.resolve(
         stored.has(key)
           ? ok(detailOf(key, _project))
@@ -788,6 +821,7 @@ export function createFakeAgentsSource(
     },
 
     grants(_project, key): Promise<ReadResult<GrantsView>> {
+      if (isLophn(key)) ensureLophn(key);
       return Promise.resolve(
         ok({
           entries: grants.get(key) ?? [],

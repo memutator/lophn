@@ -37,7 +37,7 @@ import type {
 export type { ReadResult };
 
 /**
- * 목록의 줄. `assignment`는 agent id(`lophn`이거나 `agt_…`)다. lophn이 첫 줄이다.
+ * 목록의 줄. `assignment`는 agent id(그 workspace의 lophn이거나 `agt_…`)다. lophn이 첫 줄이다.
  */
 export interface AgentListRow {
   readonly assignment: string;
@@ -155,7 +155,7 @@ export interface AgentDetail {
    * 편집의 새 server에는 로그인이 없다.
    */
   readonly agentMcpLogins: Readonly<Record<string, McpLogin>>;
-  /** project 지침. lophn은 project 지침을 받지 않아 null이다. */
+  /** project 지침. 앱 자리이거나 놓인 곳이 없으면 null이다. */
   readonly instructions: ProjectInstructionsView | null;
   /** 설정 `extensions.harness.enabled`. 꺼져 있으면 runtime 고르기가 harness 값을 내지 않는다. */
   readonly harnessEnabled: boolean;
@@ -314,7 +314,7 @@ export interface AgentsSource {
     name: string,
     login: Pick<McpLogin, "workspace" | "agent">,
   ): Promise<ReadResult<null>>;
-  /** 이 agent에 붙은 할당과 붙일 수 있는 앱. project가 null이면 lophn이다. */
+  /** 이 agent에 붙은 할당과 붙일 수 있는 앱. */
   grants(
     project: string | null,
     assignment: string,

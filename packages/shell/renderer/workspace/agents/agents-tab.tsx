@@ -7,6 +7,7 @@ import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import { CardFacts, scopeLabel } from "./agent-card.tsx";
@@ -83,7 +84,7 @@ function AgentCardView({
             <h3 className={styles.name} data-agent-name="">
               {row.name}
             </h3>
-            {row.assignment === "lophn" ? (
+            {isLophn(row.assignment) ? (
               <span className={styles.kind} data-agent-kind="">
                 {t("agents.label.built-in")}
               </span>

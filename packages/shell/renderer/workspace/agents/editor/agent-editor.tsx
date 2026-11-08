@@ -27,7 +27,7 @@ import styles from "./agent-editor.module.css";
 import { DefinitionForm } from "./definition-form.tsx";
 import { GrantsPanel } from "./grants-panel.tsx";
 
-/** editor가 source에서 쓰는 것. 설정 화면의 lophn 편집도 이만 채우면 된다. */
+/** editor가 source에서 쓰는 것. */
 export type AgentEditorSource = Pick<
   AgentsSource,
   | "readAgent"
@@ -52,7 +52,7 @@ export type AgentEditorSource = Pick<
 
 interface AgentEditorProps {
   readonly source: AgentEditorSource;
-  /** agent가 놓인 곳의 id(project나 앱). lophn 전체 설정은 null이다. */
+  /** agent가 놓인 곳의 id(project나 앱). null이면 놓인 곳이 없다(전역). */
   readonly project: string | null;
   /** 그 곳의 이름. */
   readonly projectName: string;
@@ -62,8 +62,6 @@ interface AgentEditorProps {
   readonly onDone: () => void;
   /** 목록이나 정의가 바뀌었다. */
   readonly onChanged: () => void;
-  /** 폭과 여백을 이미 둔 기둥(Settings) 안에 놓인다. 없으면 탭 본문처럼 스스로 기둥을 둔다. */
-  readonly inColumn?: boolean;
 }
 
 type Section = "definition" | "grants";
@@ -452,10 +450,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   };
 
   return (
-    <div
-      className={`${styles.page} ${props.inColumn ? styles.inColumn : ""}`}
-      data-agent-editor="ready"
-    >
+    <div className={styles.page} data-agent-editor="ready">
       {notice === null ? null : (
         <div className={styles.toastSlot}>
           <Toast

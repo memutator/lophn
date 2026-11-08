@@ -1,4 +1,5 @@
 // `useSessions()`의 session을 workspace의 agent 줄이 읽는 값으로 옮긴다. 상태 점은 parts/agent-session/lophn.ts다.
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
 import type { WorkspaceRef } from "../../shell/desk-model.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
@@ -20,18 +21,21 @@ function sessionAtWorkspace(
 }
 
 /**
- * 이 workspace의 열린 lophn session 가운데 가장 최근 것.
+ * 이 workspace의 열린 lophn session 가운데 가장 최근 것. workspace마다 lophn이 하나라 자리로 거른 lophn은 그 workspace의 것이다.
  */
 export function openedWorkspaceLophnSession(
   entries: readonly SessionEntry[],
   workspace: WorkspaceRef,
 ): string | null {
-  const found = entries.filter(
-    (entry) =>
+  const found = entries.filter((entry) => {
+    const key = sessionAgentKey(entry);
+    return (
       entry.ended === null &&
-      sessionAgentKey(entry) === "lophn" &&
-      sessionAtWorkspace(entry, workspace),
-  );
+      key !== null &&
+      isLophn(key) &&
+      sessionAtWorkspace(entry, workspace)
+    );
+  });
   return found.length === 0 ? null : found[found.length - 1].session;
 }
 

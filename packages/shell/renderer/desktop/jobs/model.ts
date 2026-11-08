@@ -57,7 +57,7 @@ export function nextText(job: JobView, now: Date): string {
   });
 }
 
-/** agent 이름. 표에 없으면 lophn은 고정 이름이고 나머지는 이름 모르는 agent다. */
+/** agent 이름. 표(workspace마다의 lophn 포함)에 없으면 lophn은 기본 이름이고 나머지는 이름 모르는 agent다. */
 export function agentName(agent: AgentId, names: JobNames): string {
   return (
     names.agents[agent] ??

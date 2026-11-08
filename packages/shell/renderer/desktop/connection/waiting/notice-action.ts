@@ -19,6 +19,7 @@ export async function runNoticeAction(
   core: CoreSource,
   action: NoticeAction,
 ): Promise<boolean> {
+  // 이름 그대로 Home lophn의 새 대화다(`open_home_skill`).
   const source = coreAgentTabSourceFactory(core)({
     assignment: lophnIdOf(null),
     workspace: { kind: "global", id: "" },

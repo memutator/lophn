@@ -78,6 +78,7 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
   const session = feed.session;
   const label = HARNESS_ADAPTERS[info.harness].label;
   const vendor = harnessVendorOf(info.harness);
+  // harness GUI는 lophn session이 아니라 agent id를 쓰는 곳이 없다. 자리표시로 Home lophn을 둔다(자리가 project라 어떤 lophn session과도 겹치지 않는다).
   const face: AgentFace = {
     agent: lophnIdOf(null),
     name: label,

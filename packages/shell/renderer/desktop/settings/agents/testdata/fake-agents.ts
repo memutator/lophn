@@ -1,8 +1,8 @@
-// Settings › Agents와 Tools and skills의 가짜 통로. core를 부르지 않고 부른 것을 모두 기록한다. lophn 둘째 화면은
+// Settings › Agents와 Tools and skills의 가짜 통로. core를 부르지 않고 부른 것을 모두 기록한다. model picker는
 // Agents 탭의 fake source(workspace/agents)와 같은 것을 쓴다. 전역 model·skill·MCP는 wireframe과 같은 data로 시작한다.
+import { lophnIdOf } from "../../../../../../protocol/lophn-agent/workspaces.ts";
 import {
   createFakeAgentsSource,
-  FAKE_GRANTS,
   type FakeAgentsOptions as FakeEditorOptions,
   GLOBAL_LOPHN_MD,
   GLOBAL_MCP,
@@ -58,15 +58,8 @@ interface FakeAgentsOptions {
   failing?: Partial<Record<Failing, string>>;
 }
 
-const grants = FAKE_GRANTS.lophn ?? [];
-
 const VIEW: AgentsSettingsView = {
   defaultModel: GLOBAL_MODEL,
-  lophn: {
-    name: "lophn",
-    model: null,
-    apps: grants.length,
-  },
   instructions: { text: GLOBAL_LOPHN_MD, hash: "1".padStart(64, "0") },
 };
 
@@ -88,7 +81,11 @@ const CALL_POLICY: CallPolicyView = {
   },
   agents: {
     options: [
-      { value: "lophn", label: "lophn" },
+      { value: lophnIdOf(null), label: "lophn \u00b7 Home" },
+      {
+        value: lophnIdOf({ kind: "project", id: "prj_a" }),
+        label: "lophn \u00b7 Project A",
+      },
       { value: "agt_images", label: "Image Generator" },
     ],
     rules: [],

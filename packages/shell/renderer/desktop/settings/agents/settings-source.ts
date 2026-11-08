@@ -1,6 +1,6 @@
-// Settings › Agents와 Tools and skills가 읽고 쓰는 통로. 전역 기본 model 하나, lophn 카드, 전역 지침, 전역 skill과
+// Settings › Agents와 Tools and skills가 읽고 쓰는 통로. 전역 기본 model 하나, 전역 지침, 전역 skill과
 // MCP server를 한 곳에서 보고 바꾼다. model 이름·option 이름과 값은 화면 코드에 없고 모두 catalog가 준다.
-// lophn의 설정 화면은 project 없는 agent editor라서 editor가 쓰는 통로(`editor`)를 그대로 싣는다.
+// lophn은 workspace마다 있어 여기서 고치지 않는다. model picker가 쓰는 통로(`editor`)만 싣는다.
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../../protocol/lophn-agent/models.ts";
 import type { AgentEditorSource } from "../../../workspace/agents/editor/agent-editor.tsx";
@@ -20,19 +20,9 @@ export type {
   SourceResult,
 };
 
-/** lophn 카드가 보이는 것. lophn은 전체에 하나다. */
-export interface LophnSummary {
-  readonly name: string;
-  /** lophn이 따로 고른 model. 고르지 않았으면 null이고 전역 기본을 따른다. */
-  readonly model: ModelChoice | null;
-  /** lophn에 붙은 앱 수. */
-  readonly apps: number;
-}
-
 export interface AgentsSettingsView {
   /** 전역 기본 model 하나. 아직 고르지 않았으면 null이다. */
   readonly defaultModel: ModelChoice | null;
-  readonly lophn: LophnSummary;
   /** 모든 project의 LOPHN.md. 아직 없으면 빈 글과 null hash다. */
   readonly instructions: InstructionsFile;
 }
@@ -93,7 +83,7 @@ export interface AgentsSettingsSource {
   read(): Promise<SourceResult<AgentsSettingsView>>;
   /** 전역 기본 model을 바꾼다. 새 값은 다음 일부터 적용되고 이미 시작한 일은 바뀌지 않는다. */
   changeDefaultModel(choice: ModelChoice): Promise<SourceResult<null>>;
-  /** lophn의 설정 화면(project 없는 agent editor)이 쓰는 통로. model 목록도 여기서 읽는다. */
+  /** 기본 model picker가 model 목록을 읽는 통로. */
   readonly editor: AgentEditorSource;
   /** 모든 project의 LOPHN.md를 다시 읽는다. */
   readInstructions(): Promise<SourceResult<InstructionsFile>>;

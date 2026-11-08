@@ -13,6 +13,7 @@
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
 import { t } from "@lophn/i18n";
 
+import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
 import { codingFace } from "../parts/agent-session/coding.ts";
 import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
@@ -73,6 +74,10 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   const agents = new Map(
     input.agents.map((agent) => [agent.assignment, agent]),
   );
+  // 다른 workspace의 session은 그 workspace의 lophn이 한다. 이 workspace의 목록에는 없어도 lophn의 얼굴은 같다(profile이 고정이다).
+  const lophnRow = input.agents.find((agent) => isLophn(agent.assignment));
+  const agentOf = (id: string) =>
+    agents.get(id) ?? (isLophn(id) ? lophnRow : undefined);
   const current = new Map<string, SidebarSession[]>();
   const recent = new Map<string, SidebarSession[]>();
   const add = (
@@ -82,7 +87,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   ) => map.set(workspace, [...(map.get(workspace) ?? []), item]);
 
   for (const entry of input.entries) {
-    const agent = entry.agent === null ? undefined : agents.get(entry.agent);
+    const agent = entry.agent === null ? undefined : agentOf(entry.agent);
     if (agent === undefined || entry.archived) continue;
     const workspace = workspaceKeyOfEntry(entry);
     const read = input.known.get(entry.session);

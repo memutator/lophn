@@ -12,8 +12,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
 import { useAppRuns } from "../app-frame/app-runs.ts";
+import { lophnIdAt } from "./agents/agent-key.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import {
   type DetachedEvent,
@@ -967,11 +967,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       openTerminalTab(host, { command: start.command, docked: true });
       return true;
     }
-    const row = sidebarAgents.agents.find((item) =>
-      start.agent === undefined
-        ? isLophn(item.assignment)
-        : item.assignment === start.agent,
-    );
+    const wanted = start.agent ?? lophnIdAt(workspace);
+    const row = sidebarAgents.agents.find((item) => item.assignment === wanted);
     if (agentViewSource === undefined || row === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name });
     return true;

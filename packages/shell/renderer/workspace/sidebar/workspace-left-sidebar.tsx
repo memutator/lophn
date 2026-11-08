@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { lophnIdAt } from "../agents/agent-key.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { AppsSource } from "../../apps/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
@@ -270,12 +272,18 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     if (command !== undefined) props.onNewCoding(command);
   };
   const choices = agentChoices(props.agents, favorites);
-  // 다른 workspace의 agent 목록은 읽지 않았다. 어느 workspace에나 있는 기본 lophn agent와 즐겨찾기 coding agent(터미널은 project만)를 보인다.
+  // 다른 workspace의 agent 목록은 읽지 않았다. 어느 workspace에나 있는 그 workspace의 lophn(이름은 모르니 기본 이름)과 즐겨찾기 coding agent(터미널은 project만)를 보인다.
   const choicesAt = (ref: WorkspaceRef): readonly AgentChoice[] =>
     workspaceKey(ref) === workspaceKey(current)
       ? choices
       : agentChoices(
-          props.agents.filter((agent) => isLophn(agent.assignment)),
+          props.agents
+            .filter((agent) => isLophn(agent.assignment))
+            .map((agent) => ({
+              ...agent,
+              assignment: lophnIdAt(ref),
+              name: LOPHN_AGENT_NAME,
+            })),
           ref.kind === "project" ? coding.favorites : [],
         );
   const [registering, setRegistering] = useState(false);

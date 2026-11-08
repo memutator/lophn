@@ -13,12 +13,6 @@
   font-family: var(--font-sans);
 }
 
-/* Settings처럼 폭과 여백을 이미 둔 기둥 안에서는 그 기둥을 그대로 채운다. */
-.page.inColumn {
-  max-width: none;
-  padding: var(--space-0);
-}
-
 .fill {
   box-sizing: border-box;
   width: 100%;

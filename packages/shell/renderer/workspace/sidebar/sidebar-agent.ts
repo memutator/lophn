@@ -4,7 +4,7 @@ import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 
 /** Agent 모양의 agent 줄 하나. */
 export interface SidebarAgent {
-  /** agent id(`lophn` 또는 `agt_…`). */
+  /** agent id(그 workspace의 lophn 또는 `agt_…`). */
   readonly assignment: string;
   /** 줄에 보이는 이름(고정 글자가 아니라 사람이 지은 이름일 수 있다). */
   readonly name: string;

@@ -7,7 +7,6 @@ import {
   SettingsConnectCustomPage,
   SettingsConnectPage,
   SettingsDefaultModelPromptPage,
-  SettingsLophnPage,
   SettingsProvidersConnectedEmptyPage,
   SettingsProvidersConnectedFoundPage,
   SettingsProvidersPage,
@@ -172,7 +171,7 @@ export const settingsArea: Area = {
       id: "new-settings-agents",
       title: "Settings · Agents",
       description:
-        "전역 기본 model 하나(대화와 같은 picker 칸)와 lophn 카드(전체에 하나), 전역 지침이 있다. 그림은 기본 model 칸의 picker를 연 모습으로, 맨 아래 Manage models 줄 한 줄로 보일 model을 정한다. 기본 model은 여기서 정한다. role별 기본 model과 요약용 model 줄은 없다.",
+        "전역 기본 model 하나(대화와 같은 picker 칸)와 전역 지침이 있다. lophn은 workspace마다 있어 여기서 고치지 않는다. 그림은 기본 model 칸의 picker를 연 모습으로, 맨 아래 Manage models 줄 한 줄로 보일 model을 정한다. 기본 model은 여기서 정한다. role별 기본 model과 요약용 model 줄은 없다.",
       render: () => <SettingsAgentsPage />,
     },
     {
@@ -181,13 +180,6 @@ export const settingsArea: Area = {
       description:
         "모든 project의 지침(LOPHN.md) 상자의 [Edit]을 누르면 같은 자리가 파일 탭과 같은 markdown 편집기(live preview)가 된다. [Cancel]·[Save]가 오른쪽 끝에 있고, 다른 곳에서 파일이 바뀌었으면 저장하지 않고 [Reload]를 보인다. 따로 열리는 편집기 화면은 없다.",
       render: () => <SettingsAgentsInstructionsPage />,
-    },
-    {
-      id: "new-settings-lophn",
-      title: "Settings · Agents › lophn",
-      description:
-        "lophn의 설정이다. agent 설정 화면과 같고 project 지침 칸은 없다. 놓인 곳은 lophn 전체이고 Grants 탭이 있다. 폭은 다른 Settings 항목과 같은 기둥이다.",
-      render: () => <SettingsLophnPage />,
     },
     {
       id: "new-settings-tools",

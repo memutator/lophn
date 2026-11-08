@@ -272,22 +272,30 @@ export function coreAgentsSource(
       : result;
   };
 
-  // 명함은 core가 계산한다. 틀린 정의 file은 만들지 못해 없는 채로 둔다.
-  const cardOf = async (handle: string): Promise<AgentCard | undefined> => {
+  // 명함은 core가 계산한다. 틀린 정의 file은 만들지 못해 없는 채로 둔다. workspace는 handle이 lophn일 때 어느 lophn인지 고른다
+  // (없거나 home이면 Home).
+  const cardOf = async (
+    handle: string,
+    workspace: string | null,
+  ): Promise<AgentCard | undefined> => {
     const read = await link.read<{ card: AgentCard }>("agents", "card", {
       handle,
+      ...(workspace === null || workspace === "home"
+        ? {}
+        : { workspace: workspaceOf(workspace) }),
     });
     return read.ok ? read.value.card : undefined;
   };
 
-  // 전역 agent와 화면을 연 자리 범위 agent다. home은 자리 id가 없어 전역만 남는다.
+  // 전역 agent와 화면을 연 자리 범위 agent, 그 자리의 lophn이다. home은 자리 id가 없어 core가 모든 lophn을 내므로
+  // 전역 agent와 Home lophn만 남긴다.
   const list = async (
     workspace: string,
   ): Promise<ReadResult<AgentListRow[]>> => {
     const result = await link.read<{ agents: AgentRow[] }>(
       "agents",
       "list",
-      {},
+      workspace === "home" ? {} : { workspace: workspaceOf(workspace) },
     );
     if (!result.ok) return result;
     const rows = result.value.agents
@@ -387,7 +395,7 @@ export function coreAgentsSource(
     if (!servers.ok) return servers;
     const text = workspace === null ? null : await instructionsOf(workspace);
     const saved = value.definition ?? { body: "" };
-    const card = await cardOf(handleOf(agent, value.definition));
+    const card = await cardOf(handleOf(agent, value.definition), workspace);
     if (value.effective.profile.value.kind === "image") {
       await loadImage(agent, value.effective.profile.value.image);
     }
@@ -455,7 +463,7 @@ export function coreAgentsSource(
       const view: AgentsOverview = {
         agents: await Promise.all(
           agents.value.map(async (row) => {
-            const card = await cardOf(row.handle);
+            const card = await cardOf(row.handle, project);
             return card === undefined ? row : { ...row, card };
           }),
         ),

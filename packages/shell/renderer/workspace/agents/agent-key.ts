@@ -1,6 +1,10 @@
-// 화면이 agent를 가리키는 값(key)을 다룬다. agent id는 `lophn`이거나 `agt_…`이고, workspace는 화면을 연 자리일 뿐
-// agent를 가리키는 값에 끼지 않는다.
-import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
+// 화면이 agent를 가리키는 값(key)을 다룬다. agent id는 workspace마다의 lophn(`lophn_home`, `lophn_<prj|app id>`)이거나
+// `agt_…`이다. lophn의 id에는 그 workspace가 들어 있고, 사람이 만든 agent의 id에는 workspace가 끼지 않는다.
+import {
+  isLophn,
+  lophnIdOf,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
+import type { WorkspaceRef } from "../../shell/desk-model.ts";
 
 export const AGENT_ID = /^agt_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
@@ -8,6 +12,10 @@ export const AGENT_ID = /^agt_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 export const isAppWorkspace = (workspace: string) =>
   workspace.startsWith("app_");
 
-/** agent id(`lophn`이거나 `agt_…`)인가. */
+/** 그 자리의 lophn id. */
+export const lophnIdAt = (ref: WorkspaceRef) =>
+  lophnIdOf(ref.kind === "home" ? null : ref);
+
+/** agent id(workspace의 lophn이거나 `agt_…`)인가. */
 export const isAgentId = (value: unknown): value is string =>
   typeof value === "string" && (isLophn(value) || AGENT_ID.test(value));

@@ -1,5 +1,6 @@
 // Scheduled jobs 화면의 가짜 통로. core를 부르지 않고 job을 메모리에 두며 부른 것을 기록한다.
 // 기본 값은 화면 확인용 대표 job 다섯(하나는 꺼짐)과 그 기록이다. 시각은 지금 기준 상대값이다.
+import { lophnIdOf } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type {
   JobNames,
   JobRunState,
@@ -53,12 +54,12 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_DIGEST,
     title: "Morning digest",
-    creator: { agent: "lophn", workspace: null },
+    creator: { agent: lophnIdOf(null), workspace: null },
     every: "1d",
     at: "09:00",
     action: {
       kind: "agent_run",
-      agent: "lophn",
+      agent: lophnIdOf({ kind: "project", id: GROCERY }),
       agent_workspace: { kind: "project", id: GROCERY },
       prompt:
         "Summarize yesterday's finished tasks and list the open questions for today.",
@@ -72,7 +73,10 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_REVIEW,
     title: "Weekly review",
-    creator: { agent: "lophn", workspace: { kind: "project", id: PHRONER } },
+    creator: {
+      agent: lophnIdOf({ kind: "project", id: PHRONER }),
+      workspace: { kind: "project", id: PHRONER },
+    },
     every: "7d",
     at: "10:00",
     action: {
@@ -89,7 +93,10 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_ORDERS,
     title: "Refresh stale orders",
-    creator: { agent: "lophn", workspace: { kind: "app", id: ORDERS } },
+    creator: {
+      agent: lophnIdOf({ kind: "app", id: ORDERS }),
+      workspace: { kind: "app", id: ORDERS },
+    },
     every: "30m",
     at: null,
     action: { kind: "tool_run", app: ORDERS, tool: "refresh_stale" },
@@ -102,7 +109,7 @@ const JOBS: readonly JobView[] = [
   {
     id: JOB_BUDGET,
     title: "Bookkeeping notes",
-    creator: { agent: "lophn", workspace: null },
+    creator: { agent: lophnIdOf(null), workspace: null },
     every: "1d",
     at: "23:30",
     action: {

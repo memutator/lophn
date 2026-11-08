@@ -48,7 +48,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-editor-lophn",
       title: "Agent settings · lophn",
       description:
-        "lophn은 고정 id의 내장 agent다. 이름과 profile 칸이 잠기고 Delete가 없다. 나머지 칸은 다른 agent와 같다.",
+        "project의 lophn이다(workspace마다 하나). handle과 profile 칸이 잠기고 이름은 바꿀 수 있으며 Delete가 없다. 나머지 칸은 다른 agent와 같다.",
       render: () => <LophnEditorPage />,
     },
     {

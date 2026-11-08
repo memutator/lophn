@@ -31,6 +31,7 @@ import {
 } from "../../../protocol/acp/mod.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
+import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   CLI_COMMANDS,
   HARNESS_APP_COMMANDS,
@@ -119,8 +120,10 @@ const SESSION_EARLIER = sessionId(2);
 /** 기록만 읽는 archive한 session. */
 export const SESSION_ARCHIVED = sessionId(3);
 
+const PHRONER = { kind: "project", id: fakeId("prj", 1) } as const;
+
 const LOPHN: AgentFace = {
-  agent: "lophn",
+  agent: lophnIdOf(PHRONER),
   name: "lophn",
   profile: { kind: "character", shape: "pear", color: "lavender" },
   workspace: { kind: "project", name: "phroner" },
@@ -128,7 +131,7 @@ const LOPHN: AgentFace = {
 };
 
 const CLAUDE: AgentFace = {
-  agent: "lophn",
+  agent: lophnIdOf(null),
   name: "Claude",
   profile: { kind: "vendor", vendor: "claude" },
   workspace: { kind: "project", name: "phroner" },
@@ -1127,7 +1130,7 @@ function sceneData(scene: AgentTabScene): SceneData {
         null,
       );
       const lophn = envelope(
-        { kind: "agent", agent: "lophn", name: "lophn" },
+        { kind: "agent", agent: lophnIdOf(PHRONER), name: "lophn" },
         "Keep the scenario names in Eval board as they are. A person asked for that, so do not rename them in the fix.",
         [
           {

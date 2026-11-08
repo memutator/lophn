@@ -1,23 +1,16 @@
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { Card } from "@lophn/ui/layout";
-import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Avatar } from "../../../parts/avatar/avatar.tsx";
-import { actionIcons, commonIcons } from "../../../icons/mod.ts";
 
-import { AgentEditor } from "../../../workspace/agents/editor/agent-editor.tsx";
 import { InstructionsEditor } from "../../../workspace/agents/editor/instructions-editor.tsx";
 import { DefaultModelField } from "../../../workspace/agents/editor/model-field.tsx";
-import { modelLabelOf } from "../../../workspace/agents/model-picker-data.ts";
 import type { ModelsView } from "../../../workspace/agents/source.ts";
 import styles from "./agents.module.css";
 import { CallPolicySection } from "./call-policy-section.tsx";
 import type {
   AgentsSettingsSource,
   AgentsSettingsView,
-  LophnSummary,
   ModelChoice,
 } from "./settings-source.ts";
 
@@ -25,10 +18,9 @@ interface AgentsPanelProps {
   source: AgentsSettingsSource;
 }
 
-// Settings › Agents. 모든 project에 적용되는 기본값이다. 위에서 아래로 전역 기본 model 하나, lophn 카드
-// ([Open lophn settings]), 모든 project의 지침(LOPHN.md)이다. 지침은 이 자리에서 [Edit]으로 고친다. agent별 기본 model은
-// 이 화면에 없다. lophn 카드는 같은 panel 안 둘째 화면을 열고, 거기는 project 없는 agent editor다.
-// Skills와 MCP server는 Tools and skills에 있다.
+// Settings › Agents. 모든 project에 적용되는 기본값이다. 위에서 아래로 전역 기본 model 하나, 모든 project의
+// 지침(LOPHN.md), 호출 정책이다. 지침은 이 자리에서 [Edit]으로 고친다. agent별 기본 model은 이 화면에 없고,
+// lophn은 workspace마다 있어 그 workspace의 Agents 탭에서 고친다. Skills와 MCP server는 Tools and skills에 있다.
 
 type Loaded =
   | { readonly state: "loading" }
@@ -39,28 +31,8 @@ type Loaded =
       readonly models: ModelsView | null;
     };
 
-type Screen = "list" | "lophn";
-
-function modelLine(
-  lophn: LophnSummary,
-  fallback: ModelChoice | null,
-  label: (choice: ModelChoice) => string,
-): string {
-  if (lophn.model !== null) {
-    return t("agents.label.settings-lophn-model-own", {
-      model: label(lophn.model),
-    });
-  }
-  return fallback === null
-    ? t("agents.label.settings-lophn-model-none")
-    : t("agents.label.settings-lophn-model-default", {
-        model: label(fallback),
-      });
-}
-
 export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
-  const [screen, setScreen] = useState<Screen>("list");
   // 실패는 그 칸 바로 아래에 보인다. 화면 위쪽 한 줄은 무엇이 안 됐는지 말하지 못한다.
   const [failed, setFailed] = useState(false);
   // 고른 model은 저장이 끝나기 전에도 바로 보인다. 저장하지 못하면 읽은 값으로 돌아간다.
@@ -94,36 +66,6 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
       alive.current = false;
     };
   }, [load]);
-
-  if (screen === "lophn") {
-    const back = () => {
-      setScreen("list");
-      load();
-    };
-    return (
-      <div className={styles.page} data-agents-screen="lophn">
-        <div className={styles.backRow}>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={commonIcons.back}
-            onClick={back}
-          >
-            {t("agents.button.settings-back")}
-          </Button>
-        </div>
-        <AgentEditor
-          source={source.editor}
-          project={null}
-          projectName=""
-          agent="lophn"
-          inColumn
-          onDone={back}
-          onChanged={() => {}}
-        />
-      </div>
-    );
-  }
 
   if (loaded.state === "failed") {
     return (
@@ -179,52 +121,6 @@ export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
                 void changeModel(choice);
               }}
             />
-          </section>
-
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>
-              {t("settings.label.lophn-card")}
-            </h2>
-            <Card>
-              <div className={styles.cardHead}>
-                <h3 className={styles.cardTitle}>
-                  <Avatar
-                    profile={{
-                      kind: "character",
-                      shape: "square",
-                      color: "coral",
-                    }}
-                    size="md"
-                  />
-                  {view.lophn.name}
-                </h3>
-                <span className={styles.chip}>
-                  {t("agents.label.settings-lophn-chip")}
-                </span>
-              </div>
-              <p className={styles.purpose}>
-                {t("agents.notice.settings-lophn-purpose")}
-              </p>
-              <ul className={styles.rows}>
-                <li data-lophn-model="">
-                  {modelLine(view.lophn, chosen, modelLabelOf(models))}
-                </li>
-                <li data-lophn-grants="">
-                  {t("agents.label.settings-lophn-grants", {
-                    apps: view.lophn.apps,
-                  })}
-                </li>
-              </ul>
-              <div className={styles.actions}>
-                <Button
-                  trailingIcon={actionIcons.open}
-                  data-action="open-lophn"
-                  onClick={() => setScreen("lophn")}
-                >
-                  {t("agents.button.settings-open-lophn")}
-                </Button>
-              </div>
-            </Card>
           </section>
 
           <section className={styles.section}>

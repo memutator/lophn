@@ -35,10 +35,6 @@ import { appGrantRevoke } from "../../../../protocol/apps/grants.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import {
-  isLophn,
-  LOPHN_AGENT_NAME,
-} from "../../../../protocol/lophn-agent/mod.ts";
 import { commandBody, type CompareOf } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import {
@@ -393,9 +389,8 @@ function lookups(core: CoreSource) {
       }
       return found;
     },
-    // 부른 agent는 몇 안 되어 id마다 한 번 읽는다. lophn은 이름이 고정이다.
+    // 부른 agent는 몇 안 되어 id마다 한 번 읽는다. lophn도 workspace마다 이름이 달라 그 id로 읽는다.
     agentName(agent: string): Promise<string | null> {
-      if (isLophn(agent)) return Promise.resolve(LOPHN_AGENT_NAME);
       let found = agents.get(agent);
       if (found === undefined) {
         found = read<{ effective: { name: { value: string } } }>(

@@ -3,6 +3,8 @@
 // 신원(앱, release, 화면)은 sender view가 정한다. 페이지 주장은 쓰지 않는다.
 import { z } from "zod";
 
+import { agentIdSchema } from "../../protocol/lophn-agent/workspaces.ts";
+
 const noControl = (value: string) => !/\p{Cc}/u.test(value);
 const viewSession = z.string().min(1).refine(noControl);
 const sessionId = z.string().regex(/^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
@@ -23,16 +25,12 @@ export const annotateRemoveRequestSchema = z.strictObject({
   view_session: viewSession,
   n: z.union([z.number().int().min(1), z.literal("all")]),
 });
-// agent는 앱 공간 agent pane이 보이는 agent(없으면 lophn)이고 session은 그 agent의 이 앱 workspace session이다.
-// 없으면 null이라 core가 새로 연다. agent는 protocol의 AgentId 사본이다.
-const agentId = z.union([
-  z.literal("lophn"),
-  z.string().regex(/^agt_[0-7][0-9a-hjkmnp-tv-z]{25}$/),
-]);
+// agent는 앱 공간 agent pane이 보이는 agent(없으면 그 앱의 lophn)이고 session은 그 agent의 이 앱 workspace session이다.
+// 없으면 null이라 core가 새로 연다.
 export const annotateSendRequestSchema = z.strictObject({
   view_session: viewSession,
   session: sessionId.nullable(),
-  agent: agentId.optional(),
+  agent: agentIdSchema.optional(),
 });
 
 // label은 component 이름, 없으면 role과 접근 이름이다(모은 목록 panel이 그린다).

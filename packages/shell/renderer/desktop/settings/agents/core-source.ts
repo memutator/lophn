@@ -3,7 +3,7 @@
 // 보관 이름과 저장 여부만 묻는다.
 //
 // - 전역 기본 model: model-default 읽기와 바꾸기.
-// - lophn 카드와 둘째 화면: Agents 탭과 같은 AgentsSource(workspace/agents)의 project 없는 읽기·저장이다.
+// - model picker: Agents 탭과 같은 AgentsSource(workspace/agents)의 model 읽기다.
 // - 모든 project의 LOPHN.md: 경로는 shell main(`instructions.open`)이 알려 주고 읽기·쓰기는 main file 통로다.
 //   Agents 화면이 그 자리에서 고친다.
 // - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
@@ -15,6 +15,10 @@ import {
   callPolicySchema,
 } from "../../../../../protocol/lophn-agent/call-policy.ts";
 import { modelDefaultChange } from "../../../../../protocol/lophn-agent/models.ts";
+import {
+  isLophn,
+  workspaceOfLophn,
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import {
   cancelMcpSignIn,
@@ -59,7 +63,6 @@ import type {
   AgentsSettingsSource,
   CallPolicySource,
   CallRule,
-  LophnSummary,
   McpRow,
   SourceResult,
 } from "./settings-source.ts";
@@ -152,6 +155,10 @@ function callPolicySource(core: CoreSource): CallPolicySource {
           label: one.name,
         })),
       ];
+      const workspaceLabels = new Map([
+        ["home", t("settings.label.call-home")],
+        ...containers.map((one): [string, string] => [one.value, one.label]),
+      ]);
       return {
         ok: true,
         value: {
@@ -171,9 +178,20 @@ function callPolicySource(core: CoreSource): CallPolicySource {
             })),
           },
           agents: {
+            // lophn은 workspace마다 하나라 이름이 같다. 어느 workspace의 것인지 붙여 가른다.
             options: agents.value.agents.map((one) => ({
               value: one.agent,
-              label: one.name,
+              label: isLophn(one.agent)
+                ? t("agents.label.settings-lophn-in", {
+                    agent: one.name,
+                    workspace:
+                      workspaceLabels.get(
+                        workspaceKey(
+                          workspaceOfLophn(one.agent) ?? { kind: "home" },
+                        ),
+                      ) ?? "",
+                  })
+                : one.name,
             })),
             rules: policy.data.agents,
           },
@@ -228,18 +246,6 @@ export function coreAgentsSettingsSource(
   const link = createLink(core, random);
   const editor = coreAgentsSource(core);
 
-  /** lophn 카드. 못 읽는 칸은 비워 두고 카드는 그대로 보인다. */
-  async function lophnSummary(): Promise<LophnSummary> {
-    const detail = await editor.readAgent(null, "lophn");
-    const grants = await editor.grants(null, "lophn");
-    const entries = grants.ok ? grants.value.entries : [];
-    return {
-      name: detail.ok ? (detail.value.definition.name ?? "lophn") : "lophn",
-      model: detail.ok ? (detail.value.definition.model ?? null) : null,
-      apps: entries.length,
-    };
-  }
-
   return {
     editor,
     callPolicy: callPolicySource(core),
@@ -248,14 +254,12 @@ export function coreAgentsSettingsSource(
       // core reader는 한 사람의 동시 읽기 수를 제한하므로 하나씩 읽는다.
       const model = await readGlobalModel(link);
       if (!model.ok) return { ok: false, code: model.message };
-      const lophn = await lophnSummary();
       // 지침은 못 읽으면 빈 칸으로 보인다. 고쳐 저장하면 hash가 맞지 않아 conflict로 막힌다.
       const file = await readInstructions(instructions, files, global);
       return {
         ok: true,
         value: {
           defaultModel: model.value,
-          lophn,
           instructions: file.ok ? file.value : { text: "", hash: null },
         },
       };

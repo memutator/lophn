@@ -8,6 +8,7 @@ import type {
   OptionAxis,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
+import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { AgentDraft, GrantApp, GrantCatalog } from "./source.ts";
 import type { McpRow, SkillRow } from "./views.ts";
 
@@ -17,6 +18,8 @@ const id = (prefix: string, seed: string) =>
 export const ANTHROPIC = id("pvd", "an1");
 export const PROJECT_ID = id("prj", "ph1");
 export const PROJECT_NAME = "phroner";
+/** 이 project의 lophn. 다른 workspace의 lophn은 fake source가 이 정의를 본떠 만든다. */
+export const PROJECT_LOPHN_ID = lophnIdOf({ kind: "project", id: PROJECT_ID });
 export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
 const EVAL_BOARD_ID = id("app", "eb1");
@@ -133,7 +136,7 @@ export const AVATAR_SRC = AVATAR;
 
 export const FAKE_AGENTS: readonly FakeAgent[] = [
   {
-    key: "lophn",
+    key: PROJECT_LOPHN_ID,
     name: "lophn",
     summary:
       "Talks with you about lophn itself: your projects, apps and settings.",
@@ -445,7 +448,7 @@ export const FAKE_GRANTS: Readonly<Record<string, readonly AssignmentEntry[]>> =
       { app: EVAL_BOARD_ID, removed_tools: [] },
     ],
     [EXPERIMENT_PLANNER_ID]: [{ app: EVAL_BOARD_ID, removed_tools: [] }],
-    lophn: [
+    [PROJECT_LOPHN_ID]: [
       { app: APP_ID, removed_tools: [] },
       { app: EVAL_BOARD_ID, removed_tools: [] },
     ],

@@ -1,5 +1,4 @@
-/* Settings › Agents. 제목·절·카드는 wireframe의 Settings 화면 규칙을 따른다. 행동 단추는 줄 오른쪽 끝에 둔다. 폭은
-   Settings 기둥(settings.module.css `.column`)이 정한다. */
+/* Settings › Agents. 제목·절은 wireframe의 Settings 화면 규칙을 따른다. 폭은 Settings 기둥(settings.module.css `.column`)이 정한다. */
 .page {
   font-family: var(--font-sans);
 }
@@ -42,65 +41,4 @@
 
 .after {
   margin-top: var(--space-3);
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-0) var(--space-3);
-  border-radius: var(--radius-xs);
-  background: var(--color-surface-muted);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  white-space: nowrap;
-}
-
-/* lophn 카드 */
-.cardHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.cardTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: var(--space-0);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
-}
-
-.purpose {
-  margin: var(--space-3) var(--space-0) var(--space-4);
-  color: var(--color-text-secondary);
-}
-
-.rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-0);
-  padding: var(--space-0);
-  list-style: none;
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-4);
-  margin-top: var(--space-5);
-}
-
-.backRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
 }

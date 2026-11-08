@@ -33,7 +33,10 @@ import {
   type AskQuestion,
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
-import type { AgentId } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import {
+  type AgentId,
+  lophnIdOf,
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import { createFakeSource, type FakeSource } from "../events/fake-source.ts";
 import type { SettledRow } from "./settled.ts";
@@ -61,7 +64,7 @@ const AGENT_SESSION: FakeSession = {
 };
 const LOPHN_SESSION: FakeSession = {
   id: id("ses", 4),
-  agent: "lophn",
+  agent: lophnIdOf(null),
   workspace: null,
 };
 
@@ -204,12 +207,12 @@ function jobHold(
 export const JOB_HOLD_AGENT = () =>
   jobHold(11, 9, 1, {
     title: "Morning digest",
-    creator: { agent: "lophn", workspace: null },
+    creator: { agent: lophnIdOf(null), workspace: null },
     every: "1d",
     at: "09:00",
     action: {
       kind: "agent_run",
-      agent: "lophn",
+      agent: lophnIdOf({ kind: "project", id: PROJECT }),
       agent_workspace: { kind: "project", id: PROJECT },
       prompt:
         "Summarize yesterday's finished tasks and list the open questions for today.",
@@ -220,7 +223,10 @@ export const JOB_HOLD_AGENT = () =>
 export const JOB_HOLD_TOOL = () =>
   jobHold(13, 6, 1, {
     title: "Archive old orders",
-    creator: { agent: "lophn", workspace: { kind: "app", id: ORDERS } },
+    creator: {
+      agent: lophnIdOf({ kind: "app", id: ORDERS }),
+      workspace: { kind: "app", id: ORDERS },
+    },
     every: "12h",
     at: null,
     action: { kind: "tool_run", app: ORDERS, tool: "archive_old" },
@@ -230,7 +236,10 @@ export const JOB_HOLD_TOOL = () =>
 export const JOB_HOLD_WORKFLOW = () =>
   jobHold(12, 48, 3, {
     title: "Weekly review",
-    creator: { agent: "lophn", workspace: { kind: "project", id: PROJECT } },
+    creator: {
+      agent: lophnIdOf({ kind: "project", id: PROJECT }),
+      workspace: { kind: "project", id: PROJECT },
+    },
     every: "7d",
     at: "10:00",
     action: {
@@ -246,7 +255,10 @@ export const JOB_APPROVAL_TOOL = (): { approval: JobRecord } => ({
   approval: {
     id: jid("job", 21),
     title: "Sync usage",
-    creator: { agent: "lophn", workspace: { kind: "app", id: ORDERS } },
+    creator: {
+      agent: lophnIdOf({ kind: "app", id: ORDERS }),
+      workspace: { kind: "app", id: ORDERS },
+    },
     every: "15m",
     at: null,
     action: { kind: "tool_run", app: ORDERS, tool: "usage.sync" },

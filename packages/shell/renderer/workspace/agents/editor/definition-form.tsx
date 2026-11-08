@@ -15,7 +15,10 @@ import {
   isHarnessRuntime,
   type Modality,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import { isLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import {
+  isLophn,
+  workspaceOfLophn,
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
 import { CardFacts, modalityLabel, scopeLabel } from "../agent-card.tsx";
@@ -216,6 +219,11 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const [addServer, setAddServer] = useState(false);
   const fresh = detail.assignment === null;
   const lophn = detail.assignment !== null && isLophn(detail.assignment);
+  // lophn의 정의 file에는 workspace 칸이 없다(id가 말한다).
+  const scope =
+    detail.assignment !== null && lophn
+      ? workspaceOfLophn(detail.assignment)
+      : definition.workspace;
   // credential 이름이 쓰는 이 agent의 id. 새 agent는 저장 전에 미리 받은 id를 쓴다.
   const agentId = detail.assignment ?? detail.draftId;
   const issuesOf = (name: FieldName) =>
@@ -406,10 +414,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
               }
             />
           ) : (
-            <Input
-              value={scopeLabel(definition.workspace, props.workspaceName)}
-              readOnly
-            />
+            <Input value={scopeLabel(scope, props.workspaceName)} readOnly />
           )}
         </Field>
         <Issues issues={issuesOf("workspace")} />

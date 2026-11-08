@@ -399,7 +399,7 @@ export function ProfileField({
 const PROJECT_LINES = 4;
 
 interface InstructionsBlockProps {
-  /** project 지침. null이면 이 agent는 project 지침을 받지 않는다(lophn, 앱 자리). */
+  /** project 지침. null이면 이 agent는 project 지침을 받지 않는다(앱 자리, 놓인 곳 없음). */
   readonly project: ProjectInstructionsView | null;
   /** project 지침 머리 글. */
   readonly head: string;

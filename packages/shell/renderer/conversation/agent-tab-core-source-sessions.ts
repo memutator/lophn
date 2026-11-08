@@ -6,17 +6,15 @@ import { assignmentGet } from "../../../protocol/approvals/assignment.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
 import { agentRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
-import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
   type WorkspaceSession,
   workspaceSessionList,
   workspaceSessionOpen,
   workspaceSessionRead,
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
-import {
-  type AgentId,
-  isLophn,
-  type Workspace,
+import type {
+  AgentId,
+  Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   archiveSession,
@@ -60,9 +58,8 @@ async function workspaceNameOf(
 
 const agentNames = new WeakMap<Env, Map<string, Promise<string | null>>>();
 
-/** agent 이름. lophn은 바뀌지 않아 읽지 않는다. 다른 agent는 id마다 한 번 읽는다. 못 읽으면 null이다. */
+/** agent 이름. id마다 한 번 읽는다(lophn도 workspace마다 이름이 달라 그 id로 읽는다). 못 읽으면 null이다. */
 export function agentNameOf(env: Env, agent: AgentId): Promise<string | null> {
-  if (isLophn(agent)) return Promise.resolve(LOPHN_AGENT_NAME);
   let known = agentNames.get(env);
   if (known === undefined) {
     known = new Map();

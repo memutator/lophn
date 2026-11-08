@@ -1,16 +1,9 @@
 export const agents = {
-  "agents.button.settings-back": "\u2039 Agents",
-  "agents.button.settings-open-lophn": "Open lophn settings",
   "agents.heading.settings-default-model": "Default model",
   "agents.label.providers-custom-key-title": "API key",
   "agents.label.providers-key-hint": "Typed in a protected prompt",
   "agents.label.settings-instructions-path": "~/.lophn/LOPHN.md",
-  "agents.label.settings-lophn-chip": "One for all of lophn",
-  "agents.label.settings-lophn-grants":
-    "Assigned: {apps, plural, one {# app} other {# apps}}",
-  "agents.label.settings-lophn-model-default": "Model: Use default ({model})",
-  "agents.label.settings-lophn-model-none": "Model: No model chosen yet",
-  "agents.label.settings-lophn-model-own": "Model: {model}",
+  "agents.label.settings-lophn-in": "{agent} \u00b7 {workspace}",
   "agents.notice.providers-custom-key":
     "Typed in a protected prompt after you connect, outside this window.",
   "agents.notice.providers-disconnect-body":
@@ -29,8 +22,6 @@ export const agents = {
     "One model for every agent. A project, or an agent's own settings, can pick another.",
   "agents.notice.settings-instructions-help":
     "Every lophn agent reads this first, in every project and app.",
-  "agents.notice.settings-lophn-purpose":
-    "Talks with you about lophn itself: your projects, apps and settings.",
   "agents.notice.settings-tools-elsewhere":
     "Skills and MCP servers for all projects are in Tools and skills.",
   "agents.notice.settings-tools-lead":
@@ -313,7 +304,6 @@ export const agents = {
   "settings.label.on-computer": "Runs on this computer",
   "settings.label.over-web": "Connects over the web",
   "settings.label.providers-target": "your connections",
-  "settings.label.lophn-card": "lophn",
   "settings.label.server-address": "Address",
   "settings.label.server-arguments": "Arguments",
   "settings.label.server-auth": "Sign-in",

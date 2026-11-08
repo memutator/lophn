@@ -32,5 +32,6 @@ export function createExtensionsApi(
     list: () => call({ op: "list" }),
     install: (id) => call({ op: "install", id }),
     remove: (id) => call({ op: "remove", id }),
+    run: (command) => call({ op: "run", command }),
   } satisfies ExtensionsApi);
 }

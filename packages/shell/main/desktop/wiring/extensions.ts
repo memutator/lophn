@@ -388,7 +388,9 @@ export function register(
       const done =
         call.op === "install"
           ? await registry.install(call.id)
-          : await registry.remove(call.id);
+          : call.op === "remove"
+            ? await registry.remove(call.id)
+            : await registry.run(call.command);
       return done.ok ? { ok: true, value: null } : done;
     },
   );

@@ -4,5 +4,283 @@
   "description": "Shows a terminal tab running Claude Code, Codex, OpenCode or omp as a lophn chat screen with `<harness> gui`.",
   "version": "0.22.0",
   "entry": "dist/index.cjs",
-  "provides": ["harness GUI"]
+  "provides": ["harness GUI"],
+  "contributes": {
+    "commands": [],
+    "keybindings": [
+      {
+        "command": "agent.cycle-mode",
+        "key": {
+          "other": "Shift+Tab"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.send-now",
+        "key": {
+          "other": "Ctrl+Enter"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.queue",
+        "key": {
+          "other": "Ctrl+KeyX Enter"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.rewind",
+        "key": {
+          "other": "Escape Escape"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.history-previous",
+        "key": {
+          "other": "ArrowUp"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.history-next",
+        "key": {
+          "other": "ArrowDown"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.history-search",
+        "key": {
+          "other": "Ctrl+KeyR"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.background",
+        "key": {
+          "other": "Ctrl+KeyB"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.toggle-details",
+        "key": {
+          "other": "Ctrl+KeyO"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.clear-input",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.interrupt",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.newline",
+        "key": {
+          "other": "Ctrl+KeyJ"
+        },
+        "context": "agentView:claude"
+      },
+      {
+        "command": "agent.cycle-mode",
+        "key": {
+          "other": "Shift+Tab"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.queue",
+        "key": {
+          "other": "Tab"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.rewind",
+        "key": {
+          "other": "Escape Escape"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.history-previous",
+        "key": {
+          "other": "ArrowUp"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.history-next",
+        "key": {
+          "other": "ArrowDown"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.history-search",
+        "key": {
+          "other": "Ctrl+KeyR"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.toggle-details",
+        "key": {
+          "other": "Ctrl+KeyT"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.clear-input",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.interrupt",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.newline",
+        "key": {
+          "other": "Ctrl+KeyJ"
+        },
+        "context": "agentView:codex"
+      },
+      {
+        "command": "agent.cycle-mode",
+        "key": {
+          "other": "Shift+Tab"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.queue",
+        "key": {
+          "other": "Ctrl+KeyX Enter"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.rewind",
+        "key": {
+          "other": "Ctrl+KeyX KeyU"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.background",
+        "key": {
+          "other": "Ctrl+KeyB"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.history-previous",
+        "key": {
+          "other": "ArrowUp"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.history-next",
+        "key": {
+          "other": "ArrowDown"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.clear-input",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.interrupt",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.newline",
+        "key": {
+          "other": "Ctrl+KeyJ"
+        },
+        "context": "agentView:opencode"
+      },
+      {
+        "command": "agent.cycle-mode",
+        "key": {
+          "other": "Shift+Tab"
+        },
+        "context": "agentView:omp"
+      },
+      {
+        "command": "agent.queue",
+        "key": {
+          "other": "Ctrl+KeyQ"
+        },
+        "context": "agentView:omp"
+      },
+      {
+        "command": "agent.rewind",
+        "key": {
+          "other": "Escape Escape"
+        },
+        "context": "agentView:omp"
+      },
+      {
+        "command": "agent.history-search",
+        "key": {
+          "other": "Ctrl+KeyR"
+        },
+        "context": "agentView:omp"
+      },
+      {
+        "command": "agent.toggle-details",
+        "key": {
+          "other": "Ctrl+KeyO"
+        },
+        "context": "agentView:omp"
+      },
+      {
+        "command": "agent.clear-input",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:omp"
+      },
+      {
+        "command": "agent.interrupt",
+        "key": {
+          "other": "Ctrl+KeyC"
+        },
+        "context": "agentView:omp"
+      },
+      {
+        "command": "agent.newline",
+        "key": {
+          "other": "Ctrl+KeyJ"
+        },
+        "context": "agentView:omp"
+      }
+    ]
+  }
 }

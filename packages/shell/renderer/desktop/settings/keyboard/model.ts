@@ -25,7 +25,10 @@ import {
   sameStroke,
   tableBinding,
 } from "../../../../ipc/keybindings.ts";
-import type { ContributedCommand } from "../../../commands/window.ts";
+import type {
+  ContributedCommand,
+  KeymapEntry,
+} from "../../../commands/window.ts";
 import type { StoredKeybindings } from "./source.ts";
 
 interface Wording {
@@ -382,6 +385,24 @@ export const SECTIONS: readonly { section: KeySection; title: MessageKey }[] = [
   },
 ];
 
+/** 기여한 keymap이 이 command에 건 key 하나. context마다 한 줄이다. */
+export interface KeymapLine {
+  readonly context: string;
+  readonly chords: readonly string[];
+}
+
+// harness keymap의 context를 사람이 읽는 이름으로. 모르는 context는 그 글자 그대로 보인다.
+const CONTEXT_NAMES: Readonly<Record<string, string>> = {
+  "agentView:claude": "Claude Code",
+  "agentView:codex": "Codex",
+  "agentView:opencode": "OpenCode",
+  "agentView:omp": "omp",
+};
+
+export function contextName(context: string): string {
+  return CONTEXT_NAMES[context] ?? context;
+}
+
 /** 한 줄. 번호 줄이면 modifier 하나를 보이고 바꾼다. */
 export type KeyRow =
   | {
@@ -394,6 +415,8 @@ export type KeyRow =
       /** 이 줄이 듣는 key context. 있으면 설명에 보인다. */
       readonly context?: string;
       readonly chords: readonly string[];
+      /** 기여한 keymap이 건 key. 사람이 이 command의 key를 바꾸지 않았을 때만 있다(바꾼 key가 대신한다). */
+      readonly keymap: readonly KeymapLine[];
       readonly changed: boolean;
       /** 저장된 `app.panel:*`인데 설치된 앱의 panel 화면 목록에 없거나, 기여가 없는 동적 id다. 지우기만 된다. */
       readonly missing: boolean;
@@ -427,6 +450,7 @@ function modifierOf(chord: string | undefined): string | null {
 export function keyRows(
   platform: KeyPlatform,
   overrides: KeyOverrides,
+  keymap: readonly KeymapEntry[],
 ): readonly KeyRow[] {
   const bindings = resolveBindings(platform, overrides);
   const rows: KeyRow[] = [];
@@ -444,6 +468,15 @@ export function keyRows(
         help: `${t(WORDING[command as Exclude<Command, "app.panel">].help)}${contextNote(binding.context)}`,
         ...(binding.context === undefined ? {} : { context: binding.context }),
         chords: binding[platform],
+        keymap:
+          overrides[bindingId(binding)] === undefined
+            ? keymap
+                .filter((entry) => entry.command === command)
+                .map((entry) => ({
+                  context: entry.context ?? "",
+                  chords: entry[platform],
+                }))
+            : [],
         changed: overrides[bindingId(binding)] !== undefined,
         missing: false,
       });
@@ -482,6 +515,7 @@ export function contributedRows(
     help: `${t("settings.note.key-contributed", { source: command.source })}${contextNote(command.context)}`,
     ...(command.context === undefined ? {} : { context: command.context }),
     chords: overrides[command.id] ?? command[platform],
+    keymap: [],
     changed: overrides[command.id] !== undefined,
     missing: false,
   }));
@@ -496,6 +530,7 @@ export function contributedRows(
       name: t("settings.label.key-missing-command", { id }),
       help: t("settings.note.key-missing-command"),
       chords: overrides[id] ?? [],
+      keymap: [],
       changed: true,
       missing: true,
     });
@@ -570,8 +605,9 @@ export function rowsWithChord(
   const pressed = parseStroke(chord);
   return rows.filter((row) => {
     if (row.kind === "single") {
-      return row.chords.some((one) =>
-        parseChord(one).strokes.some((stroke) => sameStroke(stroke, pressed)),
+      return [...row.chords, ...row.keymap.flatMap((line) => line.chords)].some(
+        (one) =>
+          parseChord(one).strokes.some((stroke) => sameStroke(stroke, pressed)),
       );
     }
     if (row.modifier === null) return false;
@@ -658,6 +694,7 @@ export function appRows(
     name,
     help: t("settings.note.key-app-panel"),
     chords: overrides[id] ?? [],
+    keymap: [],
     changed: overrides[id] !== undefined,
     missing,
   });

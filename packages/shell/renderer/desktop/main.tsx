@@ -6,7 +6,10 @@ import {
   retryConnection,
   useConnection,
 } from "./connection/connection.tsx";
-import { useSessions } from "./connection/events/hooks.tsx";
+import {
+  useOptionalEventClient,
+  useSessions,
+} from "./connection/events/hooks.tsx";
 import {
   type HookPromptApi,
   HookPromptHost,
@@ -58,10 +61,12 @@ import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { KeybindingsApi } from "../../ipc/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { CommandsProvider } from "../commands/react.tsx";
+import { mountExtensionKeys } from "../commands/extension-keys.ts";
 import { WorkspaceViewsProvider } from "../app-frame/workspace-views.tsx";
 import { GlobalFloatLayer } from "../shell/global-floats/global-float-layer.tsx";
 import { GlobalFloatsProvider } from "../shell/global-floats/global-floats.tsx";
 import { createWindowCommands } from "../commands/window.ts";
+import { windowExtensionsApi } from "./settings/extension-packages/core-source.ts";
 import { currentPlatform } from "./top-bar/platform.ts";
 import type { WorkspaceRef } from "../shell/desk-model.ts";
 
@@ -203,6 +208,18 @@ export function Desktop({
     const listening = commands.keybindings.listen(document);
     return () => listening.dispose();
   }, [commands]);
+  // 켜진 extension의 command와 key. 설정이 바뀌면 다시 맞춘다(gallery처럼 통로가 없는 창은 아무것도 올리지 않는다).
+  const events = useOptionalEventClient();
+  useEffect(() => {
+    const extensions = windowExtensionsApi();
+    if (extensions === undefined) return;
+    return mountExtensionKeys({
+      commands,
+      extensions,
+      events,
+      log: (message, error) => console.error(message, error),
+    });
+  }, [commands, events]);
   const [route, setRoute] = useState<Route>(initial);
   // 같은 화면이어도 다시 열게 하는 횟수. Settings는 열 때 처음 상태로 선다.
   const [visits, setVisits] = useState(0);

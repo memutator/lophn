@@ -8,15 +8,18 @@ import {
   EXTENSION_ID,
   EXTENSION_MANIFEST_FILE,
   type ExtensionContext,
+  type ExtensionContributes,
   type ExtensionManifest,
   type ExtensionModule,
   type ExtensionSpawn,
   extensionManifestSchema,
   extensionSettingKey,
   extensionVersionError,
+  parseExtensionCommand,
 } from "../../../protocol/extensions/mod.ts";
 
 export const EXTENSION_MARKER = ".lophn-extension";
+type CommandHandler = () => void | Promise<void>;
 
 export type ExtensionFiles = {
   read(path: string): Promise<string | null>;
@@ -49,6 +52,8 @@ export type ExtensionInfo = {
   reason?: string;
   /** 켠 적이 있어 표시 file이 남아 있다. */
   installed: boolean;
+  /** 켜진 extension의 기여(command·key). 꺼져 있으면 없다. */
+  contributes?: ExtensionContributes;
 };
 
 export type RegistryDeps = {
@@ -79,7 +84,11 @@ type Found = {
 export function createExtensionRegistry(deps: RegistryDeps) {
   const { files } = deps;
   const base = `${deps.dataRoot}/extensions`;
-  const active = new Map<string, ExtensionModule>();
+  // 켜진 extension마다 그 module과 등록한 command. 끄면 command도 함께 버린다.
+  const active = new Map<
+    string,
+    { module: ExtensionModule; commands: Map<string, CommandHandler> }
+  >();
   const problem = new Map<
     string,
     { status: ExtensionStatus; reason: string }
@@ -141,7 +150,10 @@ export function createExtensionRegistry(deps: RegistryDeps) {
     !name.includes("\\") &&
     !name.startsWith("/");
 
-  function contextFor(id: string): ExtensionContext {
+  function contextFor(
+    id: string,
+    commands: Map<string, CommandHandler>,
+  ): ExtensionContext {
     return {
       core: deps.core,
       settings: deps.settings,
@@ -149,6 +161,14 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       acp: deps.acp,
       clock: deps.clock,
       ids: deps.ids,
+      commands: {
+        register(name, handler) {
+          commands.set(name, handler);
+          return () => {
+            if (commands.get(name) === handler) commands.delete(name);
+          };
+        },
+      },
       files: {
         async write(name, text) {
           const safe =
@@ -201,13 +221,14 @@ export function createExtensionRegistry(deps: RegistryDeps) {
       }
       const module = loaded as ExtensionModule;
       await writeMarker(id, await markerFiles(id));
+      const commands = new Map<string, CommandHandler>();
       try {
-        await module.activate(contextFor(id));
+        await module.activate(contextFor(id, commands));
       } catch (cause) {
         await Promise.resolve(module.deactivate()).catch(() => {});
         throw cause;
       }
-      active.set(id, module);
+      active.set(id, { module, commands });
       problem.delete(id);
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
@@ -217,10 +238,10 @@ export function createExtensionRegistry(deps: RegistryDeps) {
   }
 
   async function deactivate(id: string) {
-    const module = active.get(id);
+    const running = active.get(id);
     active.delete(id);
     try {
-      await module?.deactivate();
+      await running?.module.deactivate();
     } catch (cause) {
       deps.log(`extension ${id} failed to stop: ${String(cause)}`);
     }
@@ -282,9 +303,37 @@ export function createExtensionRegistry(deps: RegistryDeps) {
           installed:
             (await files.read(`${base}/${found.id}/${EXTENSION_MARKER}`)) !==
             null,
+          ...(status === "on" && found.manifest !== undefined
+            ? { contributes: found.manifest.contributes }
+            : {}),
         });
       }
       return infos;
+    },
+
+    /** `ext.<id>.<name>`을 켜진 extension이 등록한 handler로 부른다. 없으면 not_found, handler가 던지면 internal이다. */
+    async run(command: string): Promise<Result<void>> {
+      const parsed = parseExtensionCommand(command);
+      const handler =
+        parsed === null
+          ? undefined
+          : active.get(parsed.extension)?.commands.get(parsed.name);
+      if (handler === undefined) {
+        return {
+          ok: false,
+          error: { code: "not_found", message: "command is not running" },
+        };
+      }
+      try {
+        await handler();
+        return { ok: true, value: undefined };
+      } catch (cause) {
+        deps.log(`command ${command} failed: ${String(cause)}`);
+        return {
+          ok: false,
+          error: { code: "internal", message: "command failed" },
+        };
+      }
     },
 
     /** 표시 file만 둔다(내려받기는 아직 없다). 이미 있으면 그대로다. */

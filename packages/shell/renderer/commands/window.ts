@@ -1,7 +1,6 @@
 // 창 하나의 command registry와 keybinding service를 만들고 작업대 단축키 표를 묶는다. entry가 창마다
 // 하나 만들고 Desktop이 document에 건다. React 밖에서도 같은 값을 쓴다.
 import {
-  bindingId,
   KEYBINDINGS,
   type Binding,
   type KeyOverrides,
@@ -35,6 +34,21 @@ export interface ContributedCommand {
   readonly source: string;
 }
 
+/**
+ * 이미 있는 command(표의 내장 id)에 거는 key. Settings › Keyboard의 그 command 줄에 context 이름과 함께 보이고
+ * 줄 이름은 바꾸지 않는다(harness keymap처럼 extension이 데이터로 낸다). 사람이 그 command의 key를 바꾸면 이 key는
+ * 모든 context에서 쓰지 않는다.
+ */
+export interface KeymapEntry {
+  readonly command: string;
+  /** 듣는 key context. 없으면 어디서나 듣는다. */
+  readonly context?: string;
+  /** Linux·Windows의 chord. */
+  readonly other: readonly string[];
+  /** macOS의 chord. */
+  readonly mac: readonly string[];
+}
+
 export interface WindowCommands {
   readonly registry: CommandRegistry;
   readonly keybindings: KeybindingService;
@@ -43,7 +57,7 @@ export interface WindowCommands {
   overrides(): KeyOverrides;
   /** 사람이 바꾼 키를 창의 기본 바인딩에 덮고 main에도 알린다. 듣는 쪽(subscribe)도 부른다. */
   setOverrides(overrides: KeyOverrides): void;
-  /** 사람이 바꾼 키나 기여한 command가 바뀌면 listener를 부른다. 키 이름을 그리는 화면이 다시 그리게. */
+  /** 사람이 바꾼 키, 기여한 command, keymap이 바뀌면 listener를 부른다. 키 이름을 그리는 화면이 다시 그리게. */
   subscribe(listener: () => void): () => void;
   /** 지금 기여된 command들. 목록은 바뀔 때마다 새 배열이다. */
   contributions(): readonly ContributedCommand[];
@@ -52,6 +66,10 @@ export interface WindowCommands {
    * 풀면 둘 다 사라진다(extension을 끄거나 앱을 지운 것).
    */
   contribute(command: ContributedCommand): Disposable;
+  /** 내장 command에 key를 건다. 반환한 Disposable을 풀면 사라진다. */
+  bind(entry: KeymapEntry): Disposable;
+  /** 지금 건 keymap. 목록은 바뀔 때마다 새 배열이다. */
+  keymap(): readonly KeymapEntry[];
   /**
    * 마지막으로 focus를 받은 화면의 동작. registry는 id마다 마지막 주인만 부르므로 여러 탭이 있는 화면
    * (터미널·browser)은 자기 command를 여기 걸고 창 하나의 command가 부른다.
@@ -105,13 +123,6 @@ function toInput(binding: Binding): KeybindingInput {
     other: binding.other,
     mac: binding.mac,
   };
-}
-
-/** 표에서 사람이 바꾸지 않은 줄. 사람이 바꾼 줄은 user layer가 대신 듣는다. */
-function defaultBindings(overrides: KeyOverrides): readonly KeybindingInput[] {
-  return KEYBINDINGS.filter(
-    (binding) => overrides[bindingId(binding)] === undefined,
-  ).map(toInput);
 }
 
 /**
@@ -173,13 +184,19 @@ export function createWindowCommands(deps: {
     readonly binding: Disposable;
   }[] = [];
   let snapshot: readonly ContributedCommand[] = [];
+  let bound: readonly {
+    readonly entry: KeymapEntry;
+    readonly binding: Disposable;
+  }[] = [];
+  let keymapSnapshot: readonly KeymapEntry[] = [];
   const listeners = new Set<() => void>();
   const focused = new Map<string, () => void>();
   const notify = () => {
     for (const listener of listeners) listener();
   };
+  // 표의 기본 바인딩을 모두 넣는다. 사람이 바꾼 command의 기본 바인딩은 service가 건너뛴다.
   const refresh = () => {
-    keybindings.setDefaults(defaultBindings(current));
+    keybindings.setDefaults(KEYBINDINGS.map(toInput));
     keybindings.setUser(userBindings(deps.platform, current, snapshot));
   };
 
@@ -244,6 +261,30 @@ export function createWindowCommands(deps: {
         },
       };
     },
+    bind(entry) {
+      const binding = keybindings.register({
+        command: entry.command,
+        ...(entry.context === undefined ? {} : { context: entry.context }),
+        other: entry.other,
+        mac: entry.mac,
+      });
+      const item = { entry, binding };
+      bound = [...bound, item];
+      keymapSnapshot = bound.map((one) => one.entry);
+      notify();
+      let disposed = false;
+      return {
+        dispose() {
+          if (disposed) return;
+          disposed = true;
+          binding.dispose();
+          bound = bound.filter((one) => one !== item);
+          keymapSnapshot = bound.map((one) => one.entry);
+          notify();
+        },
+      };
+    },
+    keymap: () => keymapSnapshot,
     setOverrides(overrides) {
       current = overrides;
       refresh();

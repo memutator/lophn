@@ -71,7 +71,8 @@ export interface KeybindingService {
    */
   setDefaults(bindings: readonly KeybindingInput[]): void;
   /**
-   * 사람이 바꾼 키의 binding을 통째로 바꾼다. 같은 context에서 기여·표보다 먼저 본다.
+   * 사람이 바꾼 키의 binding을 통째로 바꾼다. 같은 context에서 기여·표보다 먼저 본다. 여기 있는 command
+   * (와 arg)의 기여·표 binding은 모든 context에서 쓰지 않는다.
    */
   setUser(bindings: readonly KeybindingInput[]): void;
   /**
@@ -152,6 +153,8 @@ export function createKeybindingService(deps: {
   setTimer: (run: () => void, ms: number) => () => void;
 }): KeybindingService {
   let user: readonly Bound[] = [];
+  // 사람이 키를 바꾼 command(와 arg). 같은 command의 기여·표 binding은 어느 context에서도 쓰지 않는다.
+  let overridden = new Set<string>();
   let defaults: readonly Bound[] = [];
   let registered: readonly Bound[] = [];
   const definitions = new Map<string, ContextDefinition>();
@@ -165,12 +168,20 @@ export function createKeybindingService(deps: {
     chords: binding[deps.platform].map(parseChord),
   });
 
-  /** 한 context(또는 context 없음)의 binding을 층 순서(사용자 > 기여 > 표)와 나중 것부터. */
+  const commandKey = (bound: Bound) =>
+    JSON.stringify([bound.command, bound.arg ?? null]);
+
+  /**
+   * 한 context(또는 context 없음)의 binding을 층 순서(사용자 > 기여 > 표)와 나중 것부터. 사람이 키를 바꾼
+   * command의 기여·표 binding은 건너뛴다(바꾼 key가 기본 key를 모든 context에서 대신한다).
+   */
   function* ordered(context: string | undefined): Iterable<Bound> {
     for (const layer of [user, registered, defaults]) {
       for (let at = layer.length - 1; at >= 0; at -= 1) {
         const bound = layer[at]!;
-        if ((bound.context ?? "") === (context ?? "")) yield bound;
+        if ((bound.context ?? "") !== (context ?? "")) continue;
+        if (layer !== user && overridden.has(commandKey(bound))) continue;
+        yield bound;
       }
     }
   }
@@ -323,6 +334,7 @@ export function createKeybindingService(deps: {
     },
     setUser(bindings) {
       user = bindings.map(toBound);
+      overridden = new Set(user.map(commandKey));
     },
     defineContext(name, definition) {
       definitions.set(name, definition);

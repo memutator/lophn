@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
@@ -23,7 +24,10 @@ import {
   modifierLabel,
   bindingId,
 } from "../../../../ipc/keybindings.ts";
-import { KEY_CAPTURE_ATTRIBUTE } from "../../../commands/window.ts";
+import {
+  KEY_CAPTURE_ATTRIBUTE,
+  type KeymapEntry,
+} from "../../../commands/window.ts";
 import { SEQUENCE_WAIT_MS } from "../../../commands/keybinding-service.ts";
 import {
   useContributedCommands,
@@ -37,11 +41,13 @@ import styles from "../settings.module.css";
 import {
   appRows,
   conflictClearKeys,
+  contextName,
   contributedBindings,
   contributedDefaults,
   contributedRows,
   filterRows,
   type KeyRow,
+  type KeymapLine,
   keyRows,
   modifierOfInput,
   nameOfIds,
@@ -55,6 +61,9 @@ import {
   withoutPlatform,
 } from "./model.ts";
 import type { KeyboardSource, StoredKeybindings } from "./source.ts";
+
+const NO_KEYMAP: readonly KeymapEntry[] = [];
+const noSubscribe = () => () => {};
 
 type Loaded =
   | { readonly state: "loading" }
@@ -82,10 +91,21 @@ function problemText(
   }
 }
 
+/** 기여한 keymap의 줄 하나를 글로. 예: "Claude Code: Shift+Tab". */
+function keymapLineText(line: KeymapLine, platform: KeyPlatform): string {
+  return t("settings.label.key-keymap-item", {
+    name: contextName(line.context),
+    keys: line.chords.map((chord) => chordLabel(chord, platform)).join(", "),
+  });
+}
+
 /** 줄의 지금 키를 글로. 검색이 이름·설명과 함께 본다. */
 function rowKeyText(row: KeyRow, platform: KeyPlatform): string {
   if (row.kind === "single") {
-    return row.chords.map((chord) => chordLabel(chord, platform)).join(" ");
+    return [
+      ...row.chords.map((chord) => chordLabel(chord, platform)),
+      ...row.keymap.map((line) => keymapLineText(line, platform)),
+    ].join(" ");
   }
   return row.modifier === null
     ? ""
@@ -122,6 +142,10 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const { apps, loading: appsLoading, failed: appsFailed } = useAppPanelApps();
   const [notSaved, setNotSaved] = useState(false);
   const contributions = useContributedCommands();
+  const keymap = useSyncExternalStore(
+    commands?.subscribe ?? noSubscribe,
+    () => commands?.keymap() ?? NO_KEYMAP,
+  );
 
   const load = useCallback(() => {
     void source.read().then((read) => {
@@ -164,7 +188,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const extra = contributedBindings(contributions, platform, overrides);
   const defaults = contributedDefaults(contributions, platform);
   const rows = [
-    ...keyRows(platform, overrides),
+    ...keyRows(platform, overrides, keymap),
     ...contributedRows(contributions, platform, overrides),
     ...(appsLoading
       ? []
@@ -657,7 +681,7 @@ function KeyView({ row, platform }: { row: KeyRow; platform: KeyPlatform }) {
         : `${first}–${last}`;
     return <Kbd keys={[`${modifierLabel(row.modifier, platform)}+${range}`]} />;
   }
-  if (row.chords.length === 0) {
+  if (row.chords.length === 0 && row.keymap.length === 0) {
     return (
       <span className={styles.lineHelp}>{t("settings.label.key-none")}</span>
     );
@@ -667,6 +691,11 @@ function KeyView({ row, platform }: { row: KeyRow; platform: KeyPlatform }) {
       {row.chords.map((chord) => (
         <Kbd key={chord} keys={[chordLabel(chord, platform)]} />
       ))}
+      {row.keymap.length === 0 ? null : (
+        <span className={styles.lineHelp}>
+          {row.keymap.map((line) => keymapLineText(line, platform)).join(" · ")}
+        </span>
+      )}
     </>
   );
 }

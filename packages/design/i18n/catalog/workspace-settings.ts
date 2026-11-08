@@ -310,6 +310,7 @@ export const workspaceSettings = {
   "settings.label.key-agent-toggle-details": "Show or hide tool details",
   "settings.label.key-browser-bookmark": "Bookmark this page",
   "settings.label.key-context": "Works in {context}.",
+  "settings.label.key-keymap-item": "{name}: {keys}",
   "settings.label.key-home-open": "Go to Home",
   "settings.label.key-missing-command": "{id} (not available)",
   "settings.label.key-palette-open": "Open the command palette",

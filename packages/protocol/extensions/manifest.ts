@@ -14,6 +14,47 @@ export function extensionSettingKey(id: string): string {
   return `extensions.${id}.enabled`;
 }
 
+/** `ext.<extension id>.<name>`의 `<name>`. */
+export const EXTENSION_COMMAND_NAME = /^[a-z][a-z0-9-]*$/;
+
+/** `ext.<extension id>.<name>`을 id와 name으로 나눈다. 꼴이 아니면 null이다. */
+export function parseExtensionCommand(
+  command: string,
+): { extension: string; name: string } | null {
+  const match = /^ext\.([a-z][a-z0-9-]*)\.([a-z][a-z0-9-]*)$/.exec(command);
+  return match === null ? null : { extension: match[1]!, name: match[2]! };
+}
+
+/**
+ * 기여하는 command와 key. `keybindings`의 `command`는 내장 command(`agent.cycle-mode`)나 이 extension의
+ * `ext.<id>.<name>`이다. `key.mac`이 없으면 `key.other`와 같다.
+ */
+export const extensionContributesSchema = z.strictObject({
+  commands: z
+    .array(
+      z.strictObject({
+        name: z.string().regex(EXTENSION_COMMAND_NAME).max(64),
+        title: z.string().min(1).max(80),
+      }),
+    )
+    .max(64)
+    .default([]),
+  keybindings: z
+    .array(
+      z.strictObject({
+        command: z.string().min(1).max(80),
+        key: z.strictObject({
+          other: z.string().min(1).max(40),
+          mac: z.string().min(1).max(40).optional(),
+        }),
+        context: z.string().min(1).max(64).optional(),
+      }),
+    )
+    .max(128)
+    .default([]),
+});
+export type ExtensionContributes = z.infer<typeof extensionContributesSchema>;
+
 export const extensionManifestSchema = z.strictObject({
   id: z.string().regex(EXTENSION_ID).max(64),
   name: z.string().min(1).max(80),
@@ -34,6 +75,10 @@ export const extensionManifestSchema = z.strictObject({
     ),
   /** 들어 있는 것의 이름들(설정 화면에 보인다). */
   provides: z.array(z.string().min(1).max(64)).max(16),
+  contributes: extensionContributesSchema.default({
+    commands: [],
+    keybindings: [],
+  }),
 });
 export type ExtensionManifest = z.infer<typeof extensionManifestSchema>;
 
@@ -90,6 +135,10 @@ export type ExtensionContext = {
   files: { write(name: string, text: string): Promise<Result<void>> };
   /** `<data root>/<name>/`을 (없으면) 만들고 절대 경로를 준다. 이름은 data root 안 상대 경로다. 지우지 않는다. */
   dataFolder(name: string): Promise<Result<string>>;
+  /** main에서 도는 command를 `ext.<id>.<name>`으로 올린다. renderer가 key나 팔레트로 부르면 여기로 온다. 돌려받은 함수로 지운다. */
+  commands: {
+    register(name: string, handler: () => void | Promise<void>): () => void;
+  };
 };
 
 /** entry file이 내는 것. */

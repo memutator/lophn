@@ -1,7 +1,8 @@
 // Settings › Extensions의 shell IPC 경계. renderer는 목록 읽기와 설치·지우기만 보내고 main이 다시 검사한다.
 // 켜기·끄기는 이 통로가 아니라 설정(`extensions.<id>.enabled`) 쓰기다.
-// 이 파일은 main·preload·renderer가 함께 부르므로 zod 말고 import가 없다.
+// 이 파일은 main·preload·renderer가 함께 부르므로 zod 말고 import가 없다(기여의 모양은 type으로만 가져온다).
 import { z } from "zod";
+import type { ExtensionContributes } from "../../protocol/extensions/mod.ts";
 
 export const EXTENSIONS_CHANNEL = "shell:extensions";
 
@@ -10,6 +11,7 @@ export const extensionsCallSchema = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("list") }),
   z.strictObject({ op: z.literal("install"), id: z.string().min(1).max(80) }),
   z.strictObject({ op: z.literal("remove"), id: z.string().min(1).max(80) }),
+  z.strictObject({ op: z.literal("run"), command: z.string().min(1).max(160) }),
 ]);
 
 export type ExtensionStatus =
@@ -31,6 +33,8 @@ export interface ExtensionView {
   readonly reason?: string;
   /** 표시 file이 있다. 없으면 설치 안 됨이다. */
   readonly installed: boolean;
+  /** 켜진 extension의 기여(command·key). 꺼져 있으면 없다. */
+  readonly contributes?: ExtensionContributes;
 }
 
 type ExtensionsFailureCode =
@@ -57,4 +61,6 @@ export interface ExtensionsApi {
   list(): Promise<ExtensionsReply<readonly ExtensionView[]>>;
   install(id: string): Promise<ExtensionsReply<null>>;
   remove(id: string): Promise<ExtensionsReply<null>>;
+  /** `ext.<id>.<name>` command를 켜진 extension의 handler로 부른다. */
+  run(command: string): Promise<ExtensionsReply<null>>;
 }

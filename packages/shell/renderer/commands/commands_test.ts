@@ -344,3 +344,50 @@ test("같은 target을 여러 번 들어도 listener는 하나이고 마지막 d
   b.dispose();
   assert.deepStrictEqual(attached.size, 0);
 });
+
+test("사람이 바꾼 key는 기여·표의 기본 key를 모든 context에서 대신한다", () => {
+  const { registry, keybindings } = setup();
+  const ran: string[] = [];
+  registry.register("agent.cycle-mode", () => ran.push("cycle"));
+  keybindings.setDefaults([
+    {
+      command: "agent.cycle-mode",
+      other: ["Shift+Tab"],
+      mac: [],
+      context: "agentView",
+    },
+  ]);
+  keybindings.register({
+    command: "agent.cycle-mode",
+    other: ["Shift+Tab"],
+    mac: [],
+    context: "agentView:claude",
+  });
+  keybindings.register({
+    command: "agent.cycle-mode",
+    other: ["Shift+Tab"],
+    mac: [],
+  });
+  keybindings.setUser([
+    {
+      command: "agent.cycle-mode",
+      other: ["Ctrl+KeyK"],
+      mac: [],
+      context: "agentView",
+    },
+  ]);
+  const stacks = [
+    ["agentView:claude", "agentView", "global"],
+    ["agentView", "global"],
+    ["global"],
+  ];
+  for (const stack of stacks) {
+    const old = press("Tab", { shift: true }, { target: stack });
+    assert.deepStrictEqual(keybindings.handle(old.event), false);
+    assert.deepStrictEqual(old.seen.prevented, false);
+  }
+  assert.deepStrictEqual(ran, []);
+  const replaced = press("KeyK", { ctrl: true }, { target: stacks[0] });
+  assert.deepStrictEqual(keybindings.handle(replaced.event), true);
+  assert.deepStrictEqual(ran, ["cycle"]);
+});

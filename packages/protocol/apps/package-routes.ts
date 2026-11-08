@@ -11,8 +11,8 @@ import { defineEvent } from "../base/event.ts";
 import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
 import { sha256Schema } from "../base/values.ts";
 import { appIdSchema, releaseIdSchema } from "./channel-values.ts";
+import type { PermissionKind } from "./declaration/types.ts";
 import {
-  packageKindSchema,
   packageNameSchema,
   packageSchema,
   packageVersionNameSchema,
@@ -28,8 +28,6 @@ const packageRegisterVersionInputSchema = z.strictObject({
     .refine((value) => !/[\r\n]/.test(value), {
       message: "description must be a single line",
     }),
-  // 새 package는 종류가 없다(null). core의 kind 열이 undefined를 못 받아 optional 대신 null로 둔다.
-  kind: packageKindSchema.nullable().default(null),
   version: packageVersionNameSchema,
   // publish하는 앱. 이미 있는 package면 주인과 같아야 한다.
   owner_app: idSchema("app"),
@@ -39,6 +37,9 @@ const packageRegisterVersionInputSchema = z.strictObject({
   // 안내 byte를 blob으로 준비한 결과다. 있으면 같은 transaction에서 `package_version/guide` field로
   // 등록해 안내 원문을 읽을 수 있다. hash가 guide_hash와 같아야 한다. 없으면 hash만 남고 원문은 못 읽는다.
   guide_blob: preparedBlobSchema.optional(),
+  // bundle byte를 blob으로 준비한 결과다. 있으면 같은 transaction에서 `package_version/bundle` field로
+  // 등록해 설치 사본을 잃어도 되살릴 수 있다. hash가 bundle_hash와 같아야 한다.
+  bundle_blob: preparedBlobSchema.optional(),
 });
 export type PackageRegisterVersionInput = z.infer<
   typeof packageRegisterVersionInputSchema
@@ -50,7 +51,7 @@ export const packageRegisterVersionOutputSchema = z.object({
   version: packageVersionSchema,
 });
 
-// Package kind 불변·공개 판 불변은 handler가 검사한다.
+// 공개 판 불변은 handler가 검사한다.
 export const packageRegisterVersion = defineCommand({
   resource: "packages",
   method: "register_version",
@@ -75,6 +76,15 @@ export const sourceRelativePathSchema = z
     { message: "path must stay inside source" },
   );
 
+const PERMISSION_KINDS = [
+  "fs.read",
+  "fs.write",
+  "net.fetch",
+  "net.listen",
+  "secret.use",
+  "notify.send",
+] as const satisfies readonly PermissionKind[];
+
 // 앱 workspace의 session이 그 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,
 // core가 읽고 검사한 뒤 안에서 machine route package.register_version을 부른다. 낼 때 사람 승인은 없다.
 export const packagePublishInputSchema = z.strictObject({
@@ -96,7 +106,8 @@ export const packagePublishInputSchema = z.strictObject({
     api: z.string().regex(/\S/),
     examples: z.string().regex(/\S/),
   }),
-  permissions: z.array(z.string().min(1)),
+  // 소비 앱 선언에 있어야 하는 permission. release 준비가 소비 앱 선언과 대조한다.
+  permissions: z.array(z.enum(PERMISSION_KINDS)),
   key: idempotencyKeySchema,
 });
 export type PackagePublishInput = z.infer<typeof packagePublishInputSchema>;
@@ -266,7 +277,6 @@ const packageSubject = z.custom<`pkg_${string}`>(
 
 const packageVersionRegisteredPayloadSchema = z.object({
   name: packageNameSchema,
-  kind: packageKindSchema.nullable().default(null),
   version: packageVersionNameSchema,
   permissions: z.array(z.string().min(1)).optional(),
   bundle_hash: sha256Schema,

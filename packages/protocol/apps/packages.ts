@@ -1,15 +1,13 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { sha256Schema } from "../base/values.ts";
-import { semver } from "./declaration/scope.ts";
 
-const PACKAGE_KINDS = ["component", "capability", "domain", "format"] as const;
-
-export const packageKindSchema = z.enum(PACKAGE_KINDS);
-
-export const packageVersionNameSchema = z.string().refine(semver, {
-  message: "expected one exact SemVer",
-});
+// prerelease·build 꼬리는 받지 않는다. ledger의 package_versions.version CHECK와 같은 모양이다.
+export const packageVersionNameSchema = z
+  .string()
+  .regex(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/, {
+    message: "expected one exact x.y.z version",
+  });
 
 export const packageNameSchema = z
   .string()
@@ -34,8 +32,6 @@ export const packageSchema = z.object({
     .refine((value) => !/[\r\n]/.test(value), {
       message: "description must be a single line",
     }),
-  // 새 package는 종류가 없다(null이나 없음). 옛 값만 남는다.
-  kind: packageKindSchema.nullish(),
   // 처음 publish한 앱이 주인이다. 주인이 없는 package는 null이고 다음에 publish한 앱이 주인이 된다.
   owner_app: idSchema("app").nullable(),
   versions: z

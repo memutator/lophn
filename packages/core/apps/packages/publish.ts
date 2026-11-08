@@ -120,7 +120,6 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     const registered = await deps.registerVersion({
       name: input.name,
       description: input.description,
-      kind: null,
       version: input.version,
       owner_app: input.app,
       permissions: input.permissions,

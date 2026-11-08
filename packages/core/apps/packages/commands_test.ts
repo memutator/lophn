@@ -44,7 +44,6 @@ function open() {
       handle(tx, MACHINE, {
         name: "@me/shared",
         description: "Shared code.",
-        kind: null,
         version,
         owner_app: app,
         bundle_hash: HASH,

@@ -81,7 +81,6 @@ function emitRegistered(
 ): string {
   return tx.emit(packageVersionRegistered, packageId, {
     name: input.name,
-    kind: null,
     version: input.version,
     permissions: input.permissions ?? [],
     bundle_hash: input.bundle_hash,

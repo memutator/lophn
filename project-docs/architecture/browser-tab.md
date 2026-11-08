@@ -91,7 +91,14 @@ workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 메커
 - **여는 자리는 renderer의 `workspace/open-policy.ts`(`openAt`·`showAfter`)가 정한다.** 규칙은 `workspace-layout.md`의 "탭 안에서 연 것의 자리"다. terminal이 보이지 않는 desk에 있으면 그 desk로 넘어가 terminal 탭 바로 뒤에 연다(`openTab`의 `after`가 다른 desk의 탭이면 그 desk로 건너간다). 로그인 URL은 사람이 그 page를 봐야 해서 넘어간다. 그 desk의 view를 hook이 모르므로 반대쪽 pane 규칙은 보이는 desk에만 쓴다. 그냥 click은 text 선택이고 Ctrl/Cmd-click만 link다. OSC 8 자동 링크는 지금도 삼킨다.
 - **browser 탭 layout은 `{key, url, favicon}`만 저장한다.** title, history, DevTools 자리는 저장하지 않는다. 다시 열면 그 url을 load한다. favicon은 `data:image/`로 시작하는 65536자까지만 받고, 맞지 않으면 renderer가 빼고 저장한다(탭을 잃지 않게).
 
-- **agent가 연 browser 탭("agent가 연 탭", `workspace-layout.md`)만 상태를 core에 알린다.** renderer `workspace/use-surface-requests.ts`가 browser 상태 push(`subscribeState` → `keyOf`)에서 key가 `host:`로 시작하는 탭의 url·title·loading을 `shell:surface-report`로 보내고 main이 `host/report`로 core 표에 둔다. agent는 `lophn browser read <tab>`(`browser/read`)로 자기가 연 탭의 마지막 상태만 읽는다. 남의 탭, 사람이 연 탭, 상태가 아직 없는 탭은 `not_found`다. page 내용, screenshot, 조작은 agent에게 없다.
+- **agent가 연 browser 탭("agent가 연 탭", `workspace-layout.md`)만 상태를 core에 알린다.** renderer `workspace/use-surface-requests.ts`가 browser 상태 push(`subscribeState` → `keyOf`)에서 key가 `host:`로 시작하는 탭의 url·title·loading을 `shell:surface-report`로 보내고 main이 `host/report`로 core 표에 둔다. agent와 사람 token은 `lophn browser read <tab>`(`browser/read`)로 자기가 연 탭의 마지막 상태를 읽는다. 남의 탭, 사람이 손으로 연 탭, 상태가 아직 없는 탭은 `not_found`다.
+
+## agent가 다루는 browser 탭
+
+- **`lophn browser snapshot|act|navigate|screenshot|evaluate|logs|wait`는 `tab open`으로 연 browser 탭과 preview 탭만 다룬다.** 주인(연 session, 사람 token이면 "person")만 부른다. 사람이 손으로 연 탭과 앱 live 화면은 표에 없어 다룰 수 없다. 길은 host queue의 `browser_call`이다(`workspace-layout.md` "agent가 연 탭"). 행동 꼴은 `packages/protocol/lophn-agent/host-queue.ts`의 `browserActionSchema`·`browserActSchema`다: act는 `click|type|fill|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`), wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초).
+- **오류 code.** 남의 탭·없는 탭은 `not_found`, 낡은 ref·DevTools 열림·사람이 가져간 탭의 쓰기는 `conflict`, shell 없음·탭이 창에 없음·기한·wait 시간 끝은 `unavailable`, 틀린 url·preview 탭의 navigate는 `invalid_input`이다.
+- **page에서 온 글은 `<lophn-untrusted source="browser.<명령>">`로 감싼다.** page는 인터넷이다. lophn agent는 tool 이름 규칙(`UNTRUSTED_SOURCES`, `packages/core/lophn-agent/run-loop/history.ts`)으로, binary는 찍는 글에 같은 tag를 둔다. 본문의 `<lophn-`는 escape되어 tag를 닫지 못한다. tag를 만들고 escape하는 코드는 `packages/protocol/lophn-agent/input-tags.ts` 하나다(binary가 core를 import하지 못해서).
+- **screenshot.** lophn agent는 image content로 받는다. binary는 PNG를 `--out <path>`나 `<os tmpdir>/lophn-screenshots/<tab>-<unix ms>.png`에 쓰고 그 path를 찍는다(harness는 자기 Read tool로 본다).
 
 ## 왜 이 모양인가
 

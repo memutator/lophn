@@ -6,6 +6,6 @@ lead만 고친다. `tools/status.py browser-use build`가 `tasks/*.md`에서 id,
 |---|---|---|---|---|---|---|---|
 | `bu-preview` | bu-preview | 1 | 없음 | merged | bu-preview/bu-preview | 620305e43 | annotate hook 중복을 빼는 중 |
 | `bu-preview-screen` | bu-preview | 1 | 없음 | running | bu-preview/bu-preview-screen |  |  |
-| `bu-call` | bu-call | 2 | bu-preview | running | bu-call/bu-call |  |  |
+| `bu-call` | bu-call | 2 | bu-preview | merged | bu-call/bu-call | c140f80ec |  |
 | `bu-cdp` | bu-cdp | 3 | bu-call | todo |  |  |  |
 | `bu-device` | bu-device | 4 | bu-cdp | todo |  |  |  |

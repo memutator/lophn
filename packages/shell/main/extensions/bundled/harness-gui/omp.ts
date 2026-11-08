@@ -1282,6 +1282,7 @@ const start: (io: OmpIo) => Start =
           rename: true,
           usage: true,
           steer: true,
+          background: false,
           queue_edit: true,
           images: true,
           retry: true,

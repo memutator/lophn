@@ -1606,6 +1606,7 @@ const EVERYTHING: AcpCapabilities = {
   rename: true,
   usage: true,
   steer: true,
+  background: false,
   queue_edit: true,
   images: true,
   retry: true,
@@ -1624,6 +1625,7 @@ const EVERYTHING: AcpCapabilities = {
 const HARNESS_CAPABILITIES: AcpCapabilities = {
   ...EVERYTHING,
   sessions: false,
+  background: true,
   resume: true,
 };
 
@@ -2454,6 +2456,9 @@ export function createFakeAgentTabSource(
         }
         return { ok: true, value: {} };
       case "compact":
+        return { ok: true, value: {} };
+      // gallery에는 도는 tool이 없어 background로 옮길 것이 없다.
+      case "background_tool":
         return { ok: true, value: {} };
       default:
         return { ok: false, code: "invalid_input" };

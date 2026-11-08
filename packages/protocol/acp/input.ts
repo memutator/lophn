@@ -138,6 +138,12 @@ export const acpInputSchema = z.discriminatedUnion("type", [
     key: z.string().min(1),
     task: z.string().min(1),
   }),
+  /** 지금 도는 root tool(Bash·Agent 등)을 background로 보낸다. tool id를 싣지 않는다(adapter가 고른다). */
+  z.strictObject({
+    type: z.literal("background_tool"),
+    session,
+    key: z.string().min(1),
+  }),
   z.strictObject({
     type: z.literal("set_toggle"),
     session,

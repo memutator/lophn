@@ -49,12 +49,15 @@ import {
   clockOf,
   decideChoiceOf,
   excerptOf,
+  flatEntries,
+  historyOf,
   messagesOf,
   newSessionKey,
   subagentOfChild,
   subagentsOf,
   textOfParts,
 } from "./agent-view-model.ts";
+import { ToolDetailsContext } from "./activity/tool-line.tsx";
 import { useThreadBookmarks } from "./thread-index/bookmarks.ts";
 import { ThreadIndexContext } from "./thread-index/context.ts";
 import { threadIndexOf } from "./thread-index/model.ts";
@@ -246,6 +249,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   };
   const now = props.now ?? Date.now;
   const [layer, setLayer] = useState<Layer | null>(null);
+  // 전체 펼치기(`agent.toggle-details`). tool 줄의 본문을 모두 펼친다. 이 화면 안에서만 쓰고 저장하지 않는다.
+  const [details, setDetails] = useState(false);
   // 머리 ←로 물러난 자식들(앞으로 갈 곳). 물러난 뒤의 path(`base`)에서만 쓰이고 새 자식을 열거나 다른 층을 열면 비운다.
   // 탭 안 상태라 저장하지 않는다.
   const [forward, setForward] = useState<{
@@ -296,6 +301,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const offline = data.connection === "reconnecting";
   const locked = composerLocked(draft.outgoing);
   const messages = messagesOf(thread);
+  const history = useMemo(() => historyOf(thread), [thread]);
   const readOnly = entry?.archived === true;
   const imageUrl = useCallback(
     (id: string) =>
@@ -920,6 +926,43 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       run: () => keys.current?.clear(),
       when: () => typing() && !locked && !selectedText(),
     },
+    "agent.history-previous": {
+      run: () => keys.current?.historyPrevious(),
+      when: () => keys.current?.canHistoryPrevious() === true,
+    },
+    "agent.history-next": {
+      run: () => keys.current?.historyNext(),
+      when: () => keys.current?.canHistoryNext() === true,
+    },
+    "agent.history-search": {
+      run: () => keys.current?.openHistorySearch(),
+      when: () => keys.current?.focused() === true && history.length > 0,
+    },
+    // 도는 root tool을 background로 보낸다. adapter가 tool을 고르므로 화면은 도는 tool이 있는지만 본다.
+    "agent.background": {
+      run: () => {
+        if (session === null) return;
+        void act(session, {
+          type: "background_tool",
+          session,
+          key: actKey("background"),
+        });
+      },
+      when: () =>
+        caps.background &&
+        active !== null &&
+        flatEntries(thread?.entries ?? []).some(
+          (one) =>
+            (one.kind === "tools" &&
+              one.calls.some((call) => call.state === "running")) ||
+            (one.kind === "subagent" && one.state === "running"),
+        ),
+    },
+    "agent.toggle-details": {
+      run: () => setDetails((on) => !on),
+      when: () =>
+        flatEntries(thread?.entries ?? []).some((one) => one.kind === "tools"),
+    },
   };
 
   // 대화 줄은 memo다. 글을 칠 때마다 새로 만들어지는 함수를 넘기면 그 memo가 깨지므로 늘 같은 함수가 최신 것을 부른다.
@@ -1038,7 +1081,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const accepted = (call: Promise<SourceResult<unknown>>) =>
     call.then((result) => result.ok);
 
-  return (
+  const view = (
     <section
       className={styles.view}
       data-agent-view=""
@@ -1369,6 +1412,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             source={source}
             meta={meta}
             capabilities={caps}
+            history={history}
             onChooseModel={async (model, options) => {
               if (session === null) {
                 setPendingModel({ model, options });
@@ -1462,6 +1506,12 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         </div>
       </div>
     </section>
+  );
+  // 전체 펼치기 값은 tool 줄만 읽는다. 그 값이 바뀌어도 대화의 나머지는 다시 그리지 않는다.
+  return (
+    <ToolDetailsContext.Provider value={details}>
+      {view}
+    </ToolDetailsContext.Provider>
   );
 }
 

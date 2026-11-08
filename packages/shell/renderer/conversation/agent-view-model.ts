@@ -93,6 +93,26 @@ export function messagesOf(thread: ThreadView | null): ThreadMessage[] {
   return flatMessages(thread?.entries ?? []);
 }
 
+/** 숨긴 구간 안까지 펼친 줄. 입력 history, 전체 펼치기, background 판정이 쓴다. */
+export function flatEntries(entries: readonly ThreadEntry[]): ThreadEntry[] {
+  return entries.flatMap((entry) =>
+    entry.kind === "hidden" ? flatEntries(entry.entries) : [entry],
+  );
+}
+
+/** 사람이 보낸 글의 입력 history. 새 것이 앞이다. 글이 없는 줄(그림만)은 뺀다. */
+export function historyOf(thread: ThreadView | null): string[] {
+  return messagesOf(thread)
+    .filter((message) => message.actor === "user")
+    .map((message) =>
+      message.parts
+        .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+        .join("\n"),
+    )
+    .filter((text) => text !== "")
+    .reverse();
+}
+
 function flatMessages(entries: readonly ThreadEntry[]): ThreadMessage[] {
   return entries.flatMap((entry) =>
     entry.kind === "message"
@@ -209,6 +229,7 @@ export const LOPHN_CAPABILITIES: AcpCapabilities = {
   rename: true,
   usage: true,
   steer: true,
+  background: false,
   queue_edit: true,
   images: true,
   retry: true,

@@ -365,6 +365,7 @@ export type AcpCapabilities = {
   rename: boolean;
   usage: boolean;
   steer: boolean;
+  background: boolean;
   queue_edit: boolean;
   images: boolean;
   retry: boolean;

@@ -1,0 +1,28 @@
+/* Ctrl+R 검색 상자. 바깥 모양은 slash menu와 같고, 검색칸은 목록이 scroll돼도 위에 남는다. */
+.box {
+  box-sizing: border-box;
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--floating-surface);
+  box-shadow: var(--shadow-popover);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.search {
+  box-sizing: border-box;
+  width: 100%;
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-4);
+  border: var(--space-0);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.list {
+  max-height: calc(var(--menu-row) * 10);
+  overflow-y: auto;
+}

@@ -291,6 +291,7 @@ export const conversation = {
   "conversation.label.find": "Find in conversation",
   "conversation.label.find-count": "{current, number}/{total, number}",
   "conversation.label.find-none": "No matches",
+  "conversation.label.history-search": "Search your messages",
   "conversation.label.roles": "Roles",
   "conversation.label.roles-chat": "Chat",
   "conversation.label.roles-model": "Model",
@@ -422,6 +423,7 @@ export const conversation = {
   "conversation.notice.edit-diff-missing": "This diff is no longer available.",
   "conversation.notice.mermaid-failed":
     "Couldn't draw this diagram. The source is below.",
+  "conversation.notice.history-no-match": "No messages match.",
   "conversation.notice.model-limits": "Blank limits use the defaults shown.",
   "conversation.notice.model-media":
     "lophn sends only text and images today. Other media are stored and shown.",

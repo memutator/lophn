@@ -1,4 +1,11 @@
-import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactElement,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
@@ -17,6 +24,23 @@ interface ToolLineProps {
     toolCall: string,
     part: "input" | "output",
   ) => Promise<SourceResult<ToolCallBodyView>>;
+}
+
+/**
+ * 전체 펼치기(`agent.toggle-details`)의 값. 바뀔 때만 tool 줄이 다시 그린다. 펼침 상태는 줄마다 두고, 이 값이 바뀌면
+ * 그 값으로 맞춘다.
+ */
+export const ToolDetailsContext = createContext(false);
+
+/** 펼침 상태. 전체 펼치기 값이 바뀌면 그 값으로 맞추고, 그 뒤의 누르기는 줄마다 그대로 된다. */
+function useOpen(all: boolean): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(all);
+  const [seen, setSeen] = useState(all);
+  if (seen !== all) {
+    setSeen(all);
+    setOpen(all);
+  }
+  return [open, setOpen];
 }
 
 /** 접히는 줄 하나. 펼치고 접는 상태는 부르는 쪽이 쥔다. 펼치면 children(하위 줄)이 보인다. */
@@ -60,7 +84,7 @@ export function ToolLine({
   readBody,
 }: ToolLineProps): ReactElement | null {
   // 눌러 둔 값은 hidden이나 expanded를 지나 collapsed로 돌아와도 남는다.
-  const [pressed, setPressed] = useState(false);
+  const [pressed, setPressed] = useOpen(useContext(ToolDetailsContext));
   if (detail === "hidden") return null;
   const first = calls[0]!;
   if (calls.length === 1) {
@@ -132,7 +156,7 @@ function ToolCallLine({
   now: () => number;
   readBody: ToolLineProps["readBody"];
 }): ReactElement {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useOpen(useContext(ToolDetailsContext));
   useSecondTick(call.state === "running" && call.startedAt !== null);
   const time = elapsedText(
     call.state === "running",

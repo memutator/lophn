@@ -48,6 +48,13 @@ import { useModelPicker } from "../use-model-picker.ts";
 import { useSlashMenu } from "../use-slash-menu.tsx";
 import styles from "./agent-composer.module.css";
 import { AttachmentChips } from "./attachment-chips.tsx";
+import { HistorySearch } from "./history-search.tsx";
+import {
+  type HistoryBrowse,
+  type HistoryStep,
+  nextEntry,
+  previousEntry,
+} from "./history.ts";
 import { ModeMenu, ToggleChips } from "./session-controls.tsx";
 import { runComposerCommand } from "./slash-actions.ts";
 
@@ -70,6 +77,13 @@ export interface ComposerKeys {
   readonly newline: () => void;
   readonly clear: () => void;
   readonly togglePicker: () => void;
+  /** ↑·↓로 입력 history를 넘길 수 있다. 캐럿이 첫 줄(끝 줄)이고 글이 비었거나 넘기는 중일 때다. */
+  readonly canHistoryPrevious: () => boolean;
+  readonly canHistoryNext: () => boolean;
+  readonly historyPrevious: () => void;
+  readonly historyNext: () => void;
+  /** Ctrl+R 검색 상자를 연다. */
+  readonly openHistorySearch: () => void;
 }
 
 interface AgentComposerProps {
@@ -79,6 +93,8 @@ interface AgentComposerProps {
   meta: AcpSessionMeta | null;
   /** 어떤 칸을 그릴지. */
   capabilities: AcpCapabilities;
+  /** 사람이 보낸 글, 새 것이 앞이다. ↑↓와 Ctrl+R 검색이 쓴다. */
+  history: readonly string[];
   /** model과 축 값을 정한다. 접수되었는지 돌려준다. */
   onChooseModel: (
     model: string,
@@ -183,6 +199,9 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     onUseRole: props.onUseRole,
   });
   const [modeOpen, setModeOpen] = useState(false);
+  // ↑↓로 넘기는 중인 자리. 글을 치거나 보내면 끝난다. 그릴 때마다 정할 값이 아니라 ref에 둔다.
+  const browse = useRef<HistoryBrowse | null>(null);
+  const [searching, setSearching] = useState(false);
   // `!`로 시작하는 글은 shell을 돌리는 명령이다. capability가 없는 곳(Home의 lophn agent 등)에서는 보통 글이다.
   const shellMode = capabilities.shell && draft.text.startsWith("!");
   const shellCommand = shellMode ? draft.text.slice(1).trim() : "";
@@ -312,10 +331,50 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
 
   const send = (delivery: Delivery = "next_turn") => {
     if (!canSend) return;
+    browse.current = null;
     if (shellMode) props.onShell(shellCommand);
     else if (draft.text.startsWith("/") && capabilities.commands) {
       void slash.submit();
     } else props.onSend(delivery);
+  };
+
+  // ↑↓ history는 입력칸에 focus가 있고 `/` 메뉴와 검색 상자가 닫혀 있을 때만 된다.
+  const historyReady = () =>
+    document.activeElement === input.current &&
+    slash.menu === null &&
+    !searching &&
+    !locked;
+  const onFirstLine = () => {
+    const element = input.current;
+    return (
+      element !== null &&
+      !element.value.slice(0, element.selectionStart).includes("\n")
+    );
+  };
+  const onLastLine = () => {
+    const element = input.current;
+    return (
+      element !== null &&
+      !element.value.slice(element.selectionEnd).includes("\n")
+    );
+  };
+  const moveHistory = (step: HistoryStep | null) => {
+    if (step === null) return;
+    browse.current = step.browse;
+    props.onDraft({
+      text: step.text,
+      selection: [step.text.length, step.text.length],
+    });
+  };
+  const pickHistory = (text: string) => {
+    setSearching(false);
+    browse.current = null;
+    props.onDraft({ text, selection: [text.length, text.length] });
+    input.current?.focus();
+  };
+  const closeHistory = () => {
+    setSearching(false);
+    input.current?.focus();
   };
 
   // Shift+Enter(Ctrl+J)는 줄바꿈이다. 커서 자리에 넣고 input 사건을 내 React가 글을 받게 한다.
@@ -347,6 +406,18 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
       newline,
       clear: clearText,
       togglePicker: () => picker.props.onOpenChange(!picker.props.open),
+      canHistoryPrevious: () =>
+        historyReady() &&
+        onFirstLine() &&
+        previousEntry(props.history, draft.text, browse.current) !== null,
+      canHistoryNext: () =>
+        historyReady() &&
+        onLastLine() &&
+        nextEntry(props.history, browse.current) !== null,
+      historyPrevious: () =>
+        moveHistory(previousEntry(props.history, draft.text, browse.current)),
+      historyNext: () => moveHistory(nextEntry(props.history, browse.current)),
+      openHistorySearch: () => setSearching(true),
     };
     props.keys.current = handle;
     return () => {
@@ -392,7 +463,15 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
         className={styles.boxWrap}
         data-key-context={slash.menu === null ? undefined : "slashMenu"}
       >
-        {slash.menu === null ? null : (
+        {searching ? (
+          <div className={styles.slash}>
+            <HistorySearch
+              history={props.history}
+              onPick={pickHistory}
+              onClose={closeHistory}
+            />
+          </div>
+        ) : slash.menu === null ? null : (
           <div className={styles.slash}>{slash.menu}</div>
         )}
         <div
@@ -437,15 +516,16 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               data-key-context={
                 shellMode && draft.text === "!" ? "modal" : undefined
               }
-              onChange={(event) =>
+              onChange={(event) => {
+                browse.current = null;
                 props.onDraft({
                   text: event.currentTarget.value,
                   selection: [
                     event.currentTarget.selectionStart,
                     event.currentTarget.selectionEnd,
                   ],
-                })
-              }
+                });
+              }}
               onSelect={keepSelection}
               onPaste={(event) => {
                 const files = [...event.clipboardData.files];

@@ -103,6 +103,11 @@ const FOCUSED_COMMANDS = [
   "agent.queue",
   "agent.rewind",
   "agent.clear-input",
+  "agent.history-previous",
+  "agent.history-next",
+  "agent.history-search",
+  "agent.background",
+  "agent.toggle-details",
 ] as const;
 
 /**

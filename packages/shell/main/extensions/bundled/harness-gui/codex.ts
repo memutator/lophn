@@ -370,6 +370,8 @@ const CAPABILITIES: AcpCapabilities = {
   rename: true,
   usage: true,
   steer: true,
+  // Codex CLI에는 도는 tool을 background로 보내는 key가 없다.
+  background: false,
   queue_edit: true,
   images: false, // 입력의 image는 blob hash뿐이라 localImage 경로를 만들 수 없다.
   retry: true,

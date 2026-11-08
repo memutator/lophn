@@ -535,6 +535,20 @@ test("background 자식은 task로 오르고 stop_task가 자식 session에 inte
   assert.equal(t.run?.running().tasks, 0);
 });
 
+test("background_tool은 session의 도는 tool을 server의 background API로 보낸다", async () => {
+  const t = await setup("approve_once");
+  t.auto.set("POST /api/session/ses_test/background", undefined);
+  await t.input({ type: "background_tool", key: "bg_1" });
+  await t.pump();
+  assert.ok(
+    t.requests.some(
+      (one) =>
+        one.method === "POST" &&
+        one.path === "/api/session/ses_test/background",
+    ),
+  );
+});
+
 test("todowrite의 todo가 plan이 되고 빈 항목은 빠진다", async () => {
   const t = await setup("approve_once");
   t.emit({

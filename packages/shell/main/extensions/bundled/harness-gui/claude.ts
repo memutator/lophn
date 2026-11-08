@@ -290,6 +290,7 @@ const CAPABILITIES: AcpCapabilities = {
   rename: true,
   usage: true,
   steer: true,
+  background: true,
   queue_edit: true,
   images: true,
   retry: true,
@@ -3291,6 +3292,10 @@ const start: (sdk: ClaudeSdk) => Start =
         }
         case "stop_task":
           await live.q.stopTask(message.task);
+          return;
+        // steer의 detach와 같은 길이지만 3초를 기다리지 않는다.
+        case "background_tool":
+          for (const [useId, call] of detachable()) detach(useId, call);
           return;
         case "set_goal":
           if (message.objective !== null && !message.paused) {

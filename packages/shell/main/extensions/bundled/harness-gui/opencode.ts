@@ -194,6 +194,7 @@ export function createApi(transport: OpencodeTransport) {
     compact: (id: string) =>
       call("POST", `${session(id)}/compact`, { body: {} }),
     interrupt: (id: string) => call("POST", `${session(id)}/interrupt`),
+    background: (id: string) => call("POST", `${session(id)}/background`),
     wait: (id: string) =>
       call("POST", `/api/experimental/session/${encodeURIComponent(id)}/wait`),
     revertStage: (id: string, body: Json) =>
@@ -326,6 +327,8 @@ const CAPABILITIES: AcpSessionMeta["capabilities"] = {
   rename: true,
   usage: true,
   steer: true,
+  // `session.background`가 지금 도는 foreground tool을 background 관찰로 옮긴다(idle이면 아무것도 안 한다).
+  background: true,
   queue_edit: true,
   // 창이 이미지를 임시 폴더에 쓰고 `file://` 링크로 보낸다.
   images: true,
@@ -2645,6 +2648,9 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           return;
         case "stop_task":
           await attempt("Stop", () => api.interrupt(input.task));
+          return;
+        case "background_tool":
+          await attempt("Background", () => api.background(sessionId));
           return;
         case "set_toggle":
           if (input.id === AUTO_ACCEPT)

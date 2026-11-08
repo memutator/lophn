@@ -1066,7 +1066,7 @@ export const AGENT_MODES: AcpChoice[] = [
   },
 ];
 
-// lophn agent가 가진 기능은 harness 전용 일곱(subagent 조작, task, toggle, goal, role, resume)을 뺀 전부다.
+// lophn agent가 가진 기능은 harness 전용 여덟(subagent 조작, task, background, toggle, goal, role, resume)을 뺀 전부다.
 // `!`(shell)는 명령을 돌릴 폴더가 있는 workspace(project·앱)의 session만 가진다. home은 없다.
 // harness session은 도는 turn에 steer를 올리지 못한다(입력이 다음 turn으로 간다).
 const capabilitiesOf = (folder: boolean, harness: boolean) =>
@@ -1081,6 +1081,7 @@ const capabilitiesOf = (folder: boolean, harness: boolean) =>
               "stop_child",
               "steer_child",
               "tasks",
+              "background",
               "toggles",
               "goal",
               "roles",

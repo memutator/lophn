@@ -674,6 +674,13 @@ test("steer는 3초 돈 Bash를 tool_use id로 background에 보내고 next_turn
   }
 });
 
+test("background_tool은 3초를 기다리지 않고 도는 Bash를 tool_use id로 background에 보낸다", async () => {
+  const t = await setup();
+  await startBash(t);
+  await t.input({ type: "background_tool", key: "bg_1" });
+  assert.deepEqual(t.backgrounded, ["tu_1"]);
+});
+
 test("지금 보내기는 도는 Bash를 바로 tool_use id로 background에 보낸다", async () => {
   const t = await setup();
   await startBash(t);

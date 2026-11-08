@@ -209,6 +209,8 @@ export const ACP_CAPABILITIES = [
   "rename",
   "usage",
   "steer",
+  /** 도는 root tool(Bash·Agent 등)을 background로 보낸다(`background_tool`). */
+  "background",
   "queue_edit",
   "images",
   "retry",

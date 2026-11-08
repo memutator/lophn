@@ -69,8 +69,10 @@ export type SurfaceWorkspace = z.infer<typeof surfaceWorkspaceSchema>;
 export type SurfaceAck = z.infer<typeof surfaceAckSchema>;
 export type SurfaceReport = z.infer<typeof surfaceReportSchema>;
 
-/** main이 창에 push하는 요청. */
-export type SurfaceRequest = { request: HostRequest };
+/** main이 창에 push하는 요청. extension tool 호출(`tool_call`)은 main이 처리하므로 창에 오지 않는다. */
+export type SurfaceRequest = {
+  request: Exclude<HostRequest, { kind: "tool_call" }>;
+};
 
 /** preload가 shell renderer에 여는 통로. */
 export interface LophnSurfaceApi {

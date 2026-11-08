@@ -22,6 +22,7 @@ import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { bareReplyWiring } from "./wiring/bare-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
+import { extensionToolsWiring } from "./wiring/extension-tools.ts";
 import { hostQueueWiring } from "./wiring/host-queue.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { noticesWiring } from "./wiring/notices.ts";
@@ -168,6 +169,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   bareReplyWiring,
   harnessWiring,
   hostQueueWiring,
+  // approvals와 host queue 뒤다: 호출 때 Gate와 queue를 쓴다.
+  extensionToolsWiring,
   workflowsWiring,
   flowsWiring,
   jobsWiring,

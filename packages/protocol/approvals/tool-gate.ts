@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
-import { denyReasonSchema, gateCallSchema } from "./gate-call.ts";
+import { askedCallSchema, denyReasonSchema } from "./gate-call.ts";
 
 // runtime이 Gate가 걸리는 tool을 실행하기 직전에 core에 묻는 입구다. core가 판정, 사람에게 묻기, 결정 기다리기를
 // 한 번에 하고 결과만 돌려준다. 호출자(그 session의 agent)와 origin은 core가 session과 turn으로 채운다.
@@ -11,7 +11,7 @@ export const toolGateInputSchema = z.strictObject({
   turn: idSchema("trn"),
   tool_call: idSchema("tcl"),
   tool: z.string().min(1),
-  call: gateCallSchema,
+  call: askedCallSchema,
 });
 export type ToolGateInput = z.infer<typeof toolGateInputSchema>;
 

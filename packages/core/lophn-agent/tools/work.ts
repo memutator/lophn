@@ -1,6 +1,6 @@
 import type { Result } from "../../../base/mod.ts";
 import type { ErrorCode } from "../../../base/mod.ts";
-import type { GateCall } from "../../../protocol/approvals/mod.ts";
+import type { AskedCall } from "../../../protocol/approvals/mod.ts";
 import type {
   ToolOutcome,
   ToolResult,
@@ -172,7 +172,7 @@ async function askGate(
   ctx: ToolContext,
   tool: string,
   effect: ToolDefinition["effect"],
-  call: GateCall,
+  call: AskedCall,
 ): Promise<ToolCallOutcome | null> {
   const checked = await ctx.gate.check({
     session: ctx.session,

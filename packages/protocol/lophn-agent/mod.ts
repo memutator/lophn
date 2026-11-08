@@ -6,6 +6,7 @@ export * from "./calls.ts";
 export * from "./command-filter.ts";
 export * from "./commands.ts";
 export * from "./content-block.ts";
+export * from "./extension-tools.ts";
 export * from "./harness-host.ts";
 export * from "./host-queue.ts";
 export * from "./input-tags.ts";

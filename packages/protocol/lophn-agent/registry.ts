@@ -23,6 +23,7 @@ import {
 } from "./inputs.ts";
 import { HARNESS_HOST_ROUTES } from "./harness-host.ts";
 import { HOST_QUEUE_MEMORY_ROUTES } from "./host-queue.ts";
+import { EXTENSION_TOOL_ROUTES } from "./extension-tools.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
 import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
 import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
@@ -70,6 +71,8 @@ export const ROUTES = [
   ...HARNESS_HOST_ROUTES,
   // core 메모리 host queue: shell main이 가져가는 host/*와 agent의 tabs/*, browser/read.
   ...HOST_QUEUE_MEMORY_ROUTES,
+  // shell extension의 tool: shell main이 올리는 목록과 agent의 호출 입구.
+  ...EXTENSION_TOOL_ROUTES,
   ...MESSAGE_IMAGE_ROUTES,
   ...RECEIVED_MESSAGE_ROUTES,
   messageSearch,

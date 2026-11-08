@@ -3,7 +3,7 @@ import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
 import { harnessIdSchema } from "../coding-agent/harness-id.ts";
-import { gateCallSchema } from "./gate-call.ts";
+import { askedCallSchema } from "./gate-call.ts";
 import { shellPatternSchema } from "./shell-rules.ts";
 
 // 하나 남는 묻는 길. turn 안에서 Gate가 ask를 냈을 때 메모리에 열리고 session snapshot에 든다.
@@ -38,7 +38,7 @@ export type TurnRequestChoice = z.infer<typeof turnRequestChoiceSchema>;
 // harness는 coding harness 물음을 비추기만 한다. 답은 터미널에서 한다
 // (`coding-agent/hook-signal.ts`의 `request`와 같은 값).
 const turnRequestSubjectSchema = z.discriminatedUnion("kind", [
-  ...gateCallSchema.options,
+  ...askedCallSchema.options,
   z.strictObject({
     kind: z.literal("harness"),
     harness: harnessIdSchema,

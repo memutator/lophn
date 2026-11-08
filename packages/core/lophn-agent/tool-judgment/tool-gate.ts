@@ -1,6 +1,6 @@
 import { ok, type Result } from "../../../base/mod.ts";
 import type {
-  GateCall,
+  AskedCall,
   ToolGateResult,
 } from "../../../protocol/approvals/mod.ts";
 import type {
@@ -24,7 +24,7 @@ export type ToolGateCall = {
   // spawned_by가 있고 skip이 아닌 session. shell ask를 사람 대신 부모에게 보낸다.
   toParent: boolean;
   tool: string;
-  call: GateCall;
+  call: AskedCall;
 };
 
 interface ToolGate {

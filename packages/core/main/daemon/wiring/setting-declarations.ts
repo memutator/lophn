@@ -1,4 +1,7 @@
-import { callPolicySetting } from "../../../config/setting-declarations.ts";
+import {
+  callPolicySetting,
+  teamSetting,
+} from "../../../config/setting-declarations.ts";
 import { shellRulesSetting } from "../../../approvals/shell-rules/mod.ts";
 import { sharedAppsSetting } from "../../../approvals/share-requests/mod.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";
@@ -16,6 +19,7 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
       shellRulesSetting,
       sharedAppsSetting,
       callPolicySetting,
+      teamSetting,
     ]);
   },
 });

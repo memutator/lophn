@@ -859,6 +859,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.record,
       conversationCommands.shell,
       conversationCommands.bind,
+      conversationCommands.teamEnd,
       removeQueuedCommand({ eraseBlobRefs }),
       editQueuedCommand(),
       moveQueuedCommand(),

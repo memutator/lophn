@@ -14,6 +14,7 @@ import { RUN_COMMANDS } from "./run.ts";
 import { SESSION_COMMANDS } from "./session.ts";
 import { SETTINGS_COMMANDS } from "./settings.ts";
 import { TAB_COMMANDS } from "./tab.ts";
+import { TEAM_COMMANDS } from "./team.ts";
 import type { Command } from "./types.ts";
 import { WORKFLOW_COMMANDS } from "./workflow.ts";
 
@@ -41,6 +42,7 @@ export const COMMANDS: readonly Command[] = [
   ...SESSION_COMMANDS,
   ...SETTINGS_COMMANDS,
   ...TAB_COMMANDS,
+  ...TEAM_COMMANDS,
   ...WORKFLOW_COMMANDS,
 ];
 

@@ -14,7 +14,7 @@ roadmap `browser-use.md`의 "정한 것"이 이 계획의 결정이다. 줄이�
 - 앱은 preview만 다룬다. live 화면은 다루지 않는다. (agent) live 화면을 누르면 사람 신원으로 operation 막기를 건넌다.
 - page에서 온 글은 `<lophn-untrusted>`로 감싼다. lophn agent는 tool 이름 규칙, harness CLI는 stdout 글. (agent)
 - 행동은 `act` 하나로 묶고, ref는 snapshot마다 새로 나며 낡은 ref는 `conflict`다. 묻지 않는다. (agent)
-- agent가 연 browser 탭은 agent 전용 partition을 쓰고, `evaluate`는 browser 탭에도 준다. (agent, 사람이 뒤집을 수 있음)
+- agent가 연 browser 탭도 사람의 browser 탭과 같은 partition(`persist:lophn-browser`)을 써서 사람의 로그인을 그대로 쓴다. (사람, 2026-11-09) `evaluate`는 browser 탭에도 준다. (agent)
 - take control: 사람이 가져오면 agent의 쓰기는 `conflict`, 읽기는 된다. (agent)
 - 기기 목록은 사람이 등록한 기기뿐이다. emulation은 shell 본체의 preview 탭에 둔다. (사람, 2026-11-08)
 
@@ -24,7 +24,7 @@ roadmap `browser-use.md`의 "정한 것"이 이 계획의 결정이다. 줄이�
 |---|---|---|
 | 1 | `bu-preview` | 탭 kind `app_preview`(저장 안 함, 안내 줄, [Stop], 멈춘 뒤 화면), `tab open --preview <app>`(그 앱 workspace session과 사람 token, 돌고 있는 preview 없으면 `conflict`), preview annotation(bundle hash) |
 | 2 | `bu-call` | host queue long-poll(`host/take` 기다림, shell loop), 요청 종류 `browser_call`과 호출 기한, `lophn browser snapshot\|act\|navigate\|screenshot\|evaluate\|logs\|wait` route·CLI, 사람 token 열기와 주인 "사람", untrusted 감싸기, screenshot(lophn agent image content, harness는 file path), 공유 skill `lophn-agent` |
-| 3 | `bu-cdp` | shell main CDP(debugger attach, accessibility snapshot과 ref, `Input.*`, screenshot, evaluate, console, wait, dialog 자동 닫기, focus emulation, DevTools 열림 `conflict`), take control(탭 머리와 main 표시), agent 전용 partition |
+| 3 | `bu-cdp` | shell main CDP(debugger attach, accessibility snapshot과 ref, `Input.*`, screenshot, evaluate, console, wait, dialog 자동 닫기, focus emulation, DevTools 열림 `conflict`), take control(탭 머리와 main 표시) |
 | 4 | `bu-device` | Settings 기기 등록, preview 탭 기기 고르기와 폰 테두리, `tab open --preview --device`, emulation |
 
 모두 한 줄로 선다. 같은 file(`packages/protocol/lophn-agent/host-queue.ts`, `packages/cli/commands/tab.ts`, `packages/shell/main/desktop/wiring/surface.ts`, `renderer/workspace/use-surface-requests.ts`)을 차례로 고친다.
@@ -46,7 +46,7 @@ roadmap `browser-use.md`의 "정한 것"이 이 계획의 결정이다. 줄이�
   - 기한을 넘은 호출은 `unavailable`로 끝나고 매달리지 않는다.
 - CDP와 emulation은 진짜 Electron 창에서 확인해야 한다. 새 Electron·E2E test를 만들기 전에 사람에게 묻는다.
 - 동작을 land하는 같은 변경에서 문서를 고친다.
-  - `browser-tab.md`: CDP, agent partition, take control, dialog.
+  - `browser-tab.md`: CDP, agent가 사람과 같은 partition을 쓰는 것, take control, dialog.
   - `workspace-layout.md`: host queue long-poll, `browser_call`, preview 탭 대상.
   - `annotation.md`: preview annotation.
   - `coding-agent.md`: 공유 skill과 사람 token의 `tab`·`browser`.

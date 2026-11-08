@@ -111,7 +111,7 @@ browser 탭
 - JS dialog는 자동으로 닫고 결과에 적는다(Paseo).
 - 뒤에 숨은 탭은 그리기를 멈춘다. agent가 다루는 동안 focus emulation을 건다(T3).
 - **take control.** agent가 다루는 탭 머리에 "agent 조작 중"과 [가져오기]를 둔다. 사람이 가져오면 agent의 쓰기(act, navigate, evaluate)는 `conflict`이고 읽기는 된다. [돌려주기]로 푼다(T3).
-- agent가 연 browser 탭은 agent 전용 partition을 쓴다. 사람의 browser 탭 로그인을 보지 않는다. 로그인이 필요하면 사람이 그 탭에서 한다.
+- agent가 연 browser 탭도 사람의 browser 탭과 같은 partition(`persist:lophn-browser`)을 쓴다. 사람이 로그인한 site를 agent가 그대로 쓴다.
 
 ### 5. mobile emulation
 
@@ -132,8 +132,8 @@ browser 탭
 8. page에서 온 글은 `<lophn-untrusted>`로 감싼다. (agent) page는 인터넷이다(AGENTS.md "막는 것은 … 인터넷에서 온 것"). GooeyPi도 모든 page 반환을 감싼다.
 9. tool 행동은 `act` 하나로 묶는다. (agent) T3 `preview_act`와 같다. help와 skill이 짧아진다.
 10. 묻지 않는다. (agent) 비교한 하네스 모두 행동마다 승인을 두지 않는다. 다룰 수 있는 탭을 주인으로 좁힌 것이 경계다.
-11. agent가 연 browser 탭은 agent 전용 partition을 쓴다. (agent, 사람이 뒤집을 수 있음) page의 글이 agent를 속이면 사람의 로그인으로 메일·결제 site를 건드릴 수 있다. GooeyPi는 전용 partition, Paseo는 사람 profile 공유, Claude Code·T3는 앱 partition에 쿠키 가져오기다.
-12. `evaluate`는 browser 탭에도 준다. (agent, 사람이 뒤집을 수 있음) 11로 잃을 것이 적고, 비교한 하네스 대부분이 준다.
+11. agent가 연 browser 탭도 사람의 browser 탭과 같은 partition을 쓴다. (사람, 2026-11-09: agent 전용 partition 추천을 뒤집음) 사람이 로그인한 dev site와 서비스를 agent가 다시 로그인 없이 쓴다. 대가: page의 글이 agent를 속이면(prompt injection) 사람의 로그인으로 그 site를 건드릴 수 있다. 막는 것은 다룰 수 있는 탭을 주인으로 좁힌 것(정한 것 5)과 untrusted 감싸기(정한 것 8), take control이다. Paseo가 같은 꼴(사람 profile 공유)이다.
+12. `evaluate`는 browser 탭에도 준다. (agent, 사람이 뒤집을 수 있음) 비교한 하네스 대부분이 준다. click·type으로 할 수 있는 것보다 넓히는 것은 page 안의 값 읽기·쓰기이고, 11로 같은 로그인을 이미 쓴다.
 13. mobile emulation은 shell 본체의 preview 탭에 둔다. 기기 목록은 사람이 등록한 기기뿐이다. (사람, 2026-11-08)
 
 ## 단계
@@ -142,7 +142,7 @@ browser 탭
 |---|---|
 | 1 | preview 탭, `tab open --preview`, preview annotation |
 | 2 | host queue long-poll·`browser_call`·기한, `lophn browser` 명령, 사람 token 열기, untrusted, screenshot, skill |
-| 3 | shell main CDP, take control, agent partition |
+| 3 | shell main CDP, take control |
 | 4 | 기기 등록과 mobile emulation |
 | 5 | 실제 폰의 앱(`mobile.md` 뒤) |
 

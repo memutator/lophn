@@ -13,6 +13,7 @@ import type {
   Modality,
   Profile,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
+import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type {
   CatalogEntry,
@@ -105,6 +106,8 @@ export interface AgentDraft {
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
+  /** 할당한 shell extension의 id. 사람만 쓴다. */
+  readonly extensions?: readonly string[];
   /** 새 session을 skip으로 시작한다. 사람만 쓴다. */
   readonly skip?: boolean;
   readonly body: string;
@@ -156,6 +159,8 @@ export interface AgentDetail {
   readonly instructions: ProjectInstructionsView | null;
   /** 설정 `extensions.harness.enabled`. 꺼져 있으면 runtime 고르기가 harness 값을 내지 않는다. */
   readonly harnessEnabled: boolean;
+  /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). 읽지 못하면 빈 목록이다. */
+  readonly extensions: readonly PublishedExtension[];
 }
 
 /** 연결된 provider. definition은 catalog 항목과 맞추는 key다. */

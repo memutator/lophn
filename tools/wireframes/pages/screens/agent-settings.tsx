@@ -27,7 +27,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-agent",
       title: "Agent settings · agent",
       description:
-        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 agent의 설정이다. 프로필, 이름, project 지침과 이 agent 지침을 같이 보이는 블록, model, skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 아래의 Shell extensions 칸에는 설치되고 켜진 extension이 줄마다 이름, 설명, tool 수와 할당 check로 보인다(bare면 할당한 extension의 tool을 Tools에서 고른다). MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
       render: () => <AgentEditorPage />,
     },
     {

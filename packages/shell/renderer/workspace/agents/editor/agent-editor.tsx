@@ -484,6 +484,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           <DefinitionForm
             detail={detail}
             definition={definition}
+            extensions={detail.extensions}
             issues={state.issues}
             models={models}
             source={source}

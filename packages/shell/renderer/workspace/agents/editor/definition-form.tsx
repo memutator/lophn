@@ -115,9 +115,6 @@ function Group({
   );
 }
 
-// `AgentDraft`(source.ts)에는 아직 없는 칸이다. 읽은 정의가 이 칸을 그대로 싣고 있어 정의를 펴 쓰는 `set`이 지키고 저장도 그대로 낸다.
-type FormDraft = AgentDraft & { readonly extensions?: readonly string[] };
-
 const ALL_MODALITIES: readonly Modality[] = ["text", "image", "file"];
 
 // 셋 다 고른 쪽은 칸에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.
@@ -154,8 +151,8 @@ function instructionsHead(detail: AgentDetail, workspaceName: string): string {
 
 // 비어 가는 칸은 정의에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.
 function withField(
-  definition: FormDraft,
-  key: Exclude<keyof FormDraft, "body">,
+  definition: AgentDraft,
+  key: Exclude<keyof AgentDraft, "body">,
   value: unknown,
 ): AgentDraft {
   const next: Record<string, unknown> = { ...definition };
@@ -210,8 +207,8 @@ interface DefinitionFormProps {
   readonly signingIn: readonly string[];
   /** project 지침(LOPHN.md)을 그 자리에서 고치는 길. */
   readonly projectInstructions: InstructionsPort;
-  /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). 안 주면 Shell extensions 칸은 할당한 것이 있을 때만 보인다. */
-  readonly extensions?: readonly PublishedExtension[];
+  /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). */
+  readonly extensions: readonly PublishedExtension[];
 }
 
 export function DefinitionForm(props: DefinitionFormProps) {
@@ -225,7 +222,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
     props.issues.filter((issue) => fieldOf(issue) === name);
   const loose = props.issues.filter((issue) => fieldOf(issue) === null);
 
-  const set = (key: Exclude<keyof FormDraft, "body">, value: unknown) =>
+  const set = (key: Exclude<keyof AgentDraft, "body">, value: unknown) =>
     onChange(withField(definition, key, value));
 
   // 새 agent가 고를 수 있는 범위: 화면을 연 workspace. home이나 Settings는 없고 전역뿐이다.
@@ -288,8 +285,8 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const own = ownServers(definition, detail.agentMcpLogins);
 
   // 할당한 id는 꺼졌거나 없어져도 목록에 남아야 사람이 뺄 수 있다.
-  const catalog = props.extensions ?? [];
-  const assigned = (definition as FormDraft).extensions ?? [];
+  const catalog = props.extensions;
+  const assigned = definition.extensions ?? [];
   const missing = assigned.filter(
     (id) => !catalog.some((one) => one.id === id),
   );

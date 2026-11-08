@@ -21,6 +21,7 @@ import {
   removeUserModelInfo,
   saveUserModelInfo,
 } from "../../../../protocol/lophn-agent/models.ts";
+import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
 import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-values.ts";
@@ -53,6 +54,16 @@ import {
 import { readGrants, saveGrants } from "./core-grants.ts";
 import { createLink, issuesOf, type Link, unavailable } from "./core-link.ts";
 import { providerChoiceOf } from "./model-picker-data.ts";
+
+// 켜진 shell extension의 tool 목록이다. 읽지 못하면 비어 있다.
+async function extensionsOf(link: Link): Promise<PublishedExtension[]> {
+  const result = await link.memory<{ extensions: PublishedExtension[] }>(
+    "extension_tools",
+    "catalog",
+    {},
+  );
+  return result.ok ? result.value.extensions : [];
+}
 
 // 설정 `extensions.harness.enabled`. 읽지 못하면 꺼진 것으로 본다.
 async function harnessEnabledOf(link: Link): Promise<boolean> {
@@ -406,6 +417,7 @@ export function coreAgentsSource(
         ),
         instructions: text,
         harnessEnabled: await harnessEnabledOf(link),
+        extensions: await extensionsOf(link),
       },
     };
   };
@@ -573,6 +585,7 @@ export function coreAgentsSource(
         mcpServers: servers.value,
         agentMcpLogins: {},
         harnessEnabled: await harnessEnabledOf(link),
+        extensions: await extensionsOf(link),
         instructions: text,
       };
       return { ok: true, value: detail };

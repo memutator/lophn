@@ -54,3 +54,8 @@ Home과 앱에서도 Agents 탭을 열어 그 workspace의 층(지시, skill, MC
 - `workspace-info.ts`: project·앱 prompt는 "Skills folder" 줄이 있는데 Home은 없다. Home의 `<data>/home/skills/`도 같은 꼴로 보인다.
 - 화면: 할당·MCP 인증 화면이 Home 층 owner `{kind: "home"}`(`McpOwnerWorkspace`)를 보낸다. source가 없는 앱은 `AGENTS.md` 지시 칸을 비워 보이고 편집을 열지 않는다(지금은 열면 `unavailable`).
 - Home lophn에는 file 쓰기 tool이 없어(`tool-lists.ts`) Home `skills/`는 사람이 직접 고친다. 이 task에서 Home tool은 바꾸지 않는다.
+
+## wmem이 남긴 것 (lead가 더함)
+
+- memory tool 이름은 `agent.memory`다(brief의 "memory tool"). 상한 `MEMORY_MAX_BYTES`(8192)는 `packages/protocol/lophn-agent/tool-lists.ts`에 있다. 자리 함수는 `workspaceMemoryFile`, `agentMemoryFile`, `memoryFileOf`(`packages/core/agent-workspaces/workspace/data-folder.ts`)다.
+- memory는 session 시작 때 고정된다. 사람이 editor로 고친 내용도 다음 session부터 보인다는 것을 memory 칸에 짧게 보인다.

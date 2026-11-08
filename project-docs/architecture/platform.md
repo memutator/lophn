@@ -16,7 +16,23 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 - **child env.** OS가 넘겨야 하는 이름은 `packages/core/supervision/security/child-env.ts`(`WINDOWS_ENV_NAMES`: `SystemRoot`, `ComSpec`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `TEMP`, `TMP`, 그리고 agent shell tool이 Git Bash를 찾는 `ProgramFiles`, `ProgramFiles(x86)`, `LOPHN_GIT_BASH`)가 갖고, Windows env 이름은 대소문자를 가리지 않고 읽는다. 임시 폴더는 `os.tmpdir()`다.
 - **node shim.** 앱과 agent shell이 부르는 `node`·`npm`은 `run/bin/`의 shim이 Electron의 Node(`ELECTRON_RUN_AS_NODE=1`)로 돌린다. POSIX는 sh script, Windows는 `node.cmd`·`npm.cmd`(cmd·CreateProcess용)와 확장자 없는 sh script(Git Bash용)를 같이 쓴다.
 - **agent shell tool.** POSIX는 `/bin/sh -c`, Windows는 Git for Windows의 `bash.exe`다(`LOPHN_GIT_BASH`, `%ProgramFiles%\Git\bin\bash.exe`, `%ProgramFiles(x86)%\…`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe` 차례). 못 찾으면 tool이 `unavailable`과 설치 안내를 내고 아무것도 띄우지 않는다. shell 규칙(`packages/protocol/approvals/shell-rules.ts`)은 bash라 OS와 상관없이 그대로다.
-- **SIGUSR2 snapshot**은 Windows에서 걸지 않는다. core·apps supervisor·agent runtime은 stdin EOF와 stop 메시지로 끝나서 Windows에 SIGTERM이 안 와도 끝난다.
+- **SIGUSR2 snapshot**은 Windows에서 걸지 않는다. core는 control `stop`으로, apps supervisor·agent runtime은 stdin EOF와 stop 메시지로 끝나서 Windows에 SIGTERM이 안 와도 끝난다.
+
+## core 수명
+
+```
+ shell(앱 실행·--core) ─┐                    identify 답 있음 ─▶ 판 대조 ─▶ connect {client}
+ CLI 사람 명령 ─────────┼─▶ ensureCore ─ control socket ─┤                     판 다름 ─▶ stop → identify 사라짐 → 새로 띄우기(한 번)
+                        ┘   (packages/protocol/client)   └ 답 없음 ─▶ detached spawn(--standalone) ─▶ stdout 첫 줄 ready | start_failed
+ core: instance lock ─▶ control listen(starting) ─▶ migration·API·wiring·afterReady ─▶ ready ─▶ … ─▶ stop | idle-exit | signal ─▶ 같은 shutdown barrier
+```
+
+- **core는 shell의 child가 아니다.** shell과 CLI는 같은 `ensureCore`(`packages/protocol/client/ensure.ts`)로 붙거나 띄우는 client다. IO(dial, detached spawn, Clock, timer)는 인자로 받는다. 띄운 core는 POSIX 새 session, win32 detached+`windowsHide`이고 launcher는 stdout 첫 JSON 줄(`ready` 또는 `start_failed {reason}`)만 읽고 놓는다. 그 줄에 token은 없다.
+- **control socket**(`packages/core/server/control/`, 계약 `packages/protocol/supervision/core-control.ts`)은 공통 socket 자리(`socketDirectoryPath`) 아래 `ipcPath(dir, "core")`다. POSIX는 0700 폴더의 unix socket, win32는 data root namespace의 named pipe다. 한 연결에 JSON 한 줄 요청 하나와 Result 답 하나다. verb는 `identify`(제품 판, protocol 판, `core_epoch`, `api_url`, `starting|ready|stopping`, credential 없음), `connect {client: cli|shell}`(user token, shell이면 shell capability도), `stop`, `diagnostic`, 사람 결정 handle 등록·창 닫기(shell capability만, `architecture/approval.md`)다. 경계는 socket 자리이고 OS peer 신원은 보지 않는다. API는 그대로 loopback HTTP·WebSocket이다.
+- **동시 시작은 `run/instance.lock`이 가른다.** lock을 잡은 core만 socket 잔여물을 치우고 listen한다. 진 core는 살아 있는 core의 socket과 runtime file을 건드리지 않고 끝나며, ensure는 identify를 다시 물어 이긴 core에 붙는다. liveness는 "identify가 답한다"이고 pid file이나 HTTP health probe를 쓰지 않는다.
+- **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 이미 도는 같은 판 core에만 다시 붙는다). core가 crash하면 다시 띄우는 감독은 없고 다음 ensure가 띄운다.
+- **idle-exit**(`packages/core/main/daemon/idle.ts`, `wiring/idle.ts`). ready 뒤부터 30초마다 일과 client를 다시 본다. 일은 module마다의 machine 전용 read(`job.activity`: 켜진 job·열린 job run, `run.activity`: running run, `WorkflowInstanceActivity`: 모든 project의 running instance)이고, client는 진행 중 HTTP 요청과 Gateway 구독이다(`ApiServer.activity`). 앱 process와 control 요청은 세지 않는다. 일도 client도 없는 상태가 10분 이어져야 끝난다. 읽기가 실패하면 일이 있는 것으로 보고, 읽는 동안 새 요청이 들어왔으면 그 판정을 버린다.
+- **autostart는 core만 띄운다.** packaged일 때만 로그인 항목이 `--core`(macOS는 `wasOpenedAtLogin`)로 lophn을 연다. 그 Electron은 창·tray·terminal-host·extension을 조립하지 않고 ensure만 한 뒤 끝난다. 업데이트 전의 `--tray` 등록은 다음 일반 실행에서 한 번 `--core`로 다시 쓴다(`packages/shell/main/desktop/autostart.ts`). OS service(systemd, launchd agent, Windows service)는 등록하지 않는다. shell single-instance lock은 창 하나를 지키는 것이라 core lock과 따로이고, core-only 실행은 그 lock을 잡지 않는다.
 
 ## file
 

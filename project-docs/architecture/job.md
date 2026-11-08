@@ -63,7 +63,7 @@ job
 - `revision`과 `compare`는 없다(`compare`는 늘 `{}`). 같은 job을 동시에 고치는 쪽이 사람 화면과 만든 agent 정도라 마지막 쓰기가 이긴다.
 
 언제 도나
-- lophn(tray 포함)이 켜져 있을 때만 돈다. 상주 daemon이나 OS service는 없다. scheduler는 주입한 Clock과 작은 timer port(`set`, `clear`)로 깨어난다(`packages/base`의 Clock은 `now()`와 `nowMs()` 그대로다).
+- core가 떠 있는 동안 돈다. core는 shell의 child가 아니라서 앱을 Quit해도 남는다. 켜진 job(승인 대기 포함)이나 열린 job run이 있으면 idle-exit가 core를 끄지 않는다(`architecture/platform.md` "core 수명"). OS service는 없다. 꺼진 core는 다음 ensure(앱 실행, CLI 명령, 로그인 autostart)가 띄우고, 꺼진 사이 놓친 차례는 아래 놓친 차례 정책이 받는다. scheduler는 주입한 Clock과 작은 timer port(`set`, `clear`)로 깨어난다(`packages/base`의 Clock은 `now()`와 `nowMs()` 그대로다).
 - 깨우는 길은 셋이고 바퀴는 같다. 다음 차례 시각 timer, `wake()`(job command의 commit 뒤), 최대 잠이다. 대기는 다음 차례까지이고 최소 1초, 최대 1분이다(켜진 job이 없으면 1분). 컴퓨터가 잠든 사이 timer는 가지 않을 수 있어(잠든 시간을 세지 않는 시계로 잰다고 본다) 깬 뒤 늦지 않게 바퀴가 돌도록 최대 잠을 짧게 둔다. 할 일이 없는 바퀴는 읽기뿐이라 싸다. 한 번에 한 바퀴만 돌고, 도는 사이 온 wake는 바퀴를 끝낸 뒤 한 번 더 돈다.
 - `claim_due`가 실패하면 60초 뒤 다시 한다. 첫 claim이 한 번 성공할 때까지는 재시도도 startup claim이다. 켤 때 한 번의 일이 빠지지 않게 하려는 것이다.
 - 주기를 바꾸거나 `at`을 바꾸거나 꺼 둔 job을 다시 켜면 그때부터 새로 센다(`next_due_at`을 지금 뒤의 첫 차례로 다시 잡는다). 놓친 것으로 치지 않는다.

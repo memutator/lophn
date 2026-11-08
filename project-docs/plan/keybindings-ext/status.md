@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py keybindings-ext build`가 `tasks/*.md`에서
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `key-core` | key-core | 1 | 없음 | todo |  |  |  |
+| `key-core` | key-core | 1 | 없음 | running | key-core/key-core |  |  |
 | `key-app` | key-app | 2 | key-core | todo |  |  |  |
 | `key-ext` | key-ext | 2 | key-core | todo |  |  |  |
 | `key-agent` | key-agent | 3 | key-ext, key-app | todo |  |  |  |

@@ -5,11 +5,16 @@
 - 단위: key-app (wave 2)
 - 선행: key-core
 - 소유(이 task만 고친다):
+  - `packages/protocol/apps/declaration/`
+  - `packages/protocol/shell/app-bridge-types.ts`
+  - `packages/shell/ipc/app-keys.ts`
+  - `packages/shell/preload/{app-tool.ts,app-tool_test.ts}`
+  - `packages/shell/renderer/app-frame/webview-host.tsx`
+  - `packages/shell/renderer/commands/app-keys.ts`
   - `packages/sdk/declaration/`
   - `packages/sdk/app-ui/`
-  - `packages/shell/preload/{app-tool.ts,app-tool_test.ts}`
-  - `packages/shell/renderer/commands/app-keys.ts`
   - `packages/core/agent-workspaces/skills/migrate-sdk/`
   - `packages/core/apps/packages/template/`
   - `tests/support/app/sample/`
   - `tools/wireframes/package.json`
+  - `package-lock.json`

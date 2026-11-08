@@ -34,6 +34,7 @@ import { guestViewSession } from "../../browser/webview-guest.ts";
 import { isViewScheme } from "../security.ts";
 import {
   type AutostartOs,
+  migrateAutostart,
   nodeAutostartFiles,
   nodeExecutableProbe,
   readAutostart,
@@ -50,7 +51,6 @@ import {
   installGlobalPalette,
 } from "../global-shortcut.ts";
 import { guardShortcuts } from "../headless.ts";
-import { resolveLaunchMode } from "../launch-mode.ts";
 import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
 import { browserDataPath } from "../paths.ts";
@@ -184,6 +184,7 @@ export function register(
 
   // 명시 종료. 진행 중 터미널·저장이 있으면 OS 확인 창으로 묻는다.
   // 저장 수는 창마다 편집기가 알린 저장 중·실패·불명·충돌 문서 수다.
+  // 일반 Quit은 shell 자원과 연결만 정리하고, `Stop lophn`은 core stop 응답까지 기다린다.
   const quitFlow = createQuitFlow({
     work: {
       runningTerminals: () =>
@@ -203,10 +204,17 @@ export function register(
         : await dialog.showMessageBox(options);
       return quitChosen(reply.response);
     },
-    stop: () => ctx.stopAll(),
     quitApp: () => app.quit(),
   });
   ctx.quit.active = () => quitFlow.quitting;
+  // 일반 Quit·Cmd+Q·`--quit`·OS 종료는 shell 자원과 core 연결만 정리한다. core는 남는다.
+  const quitShell = () => ctx.stopAll();
+  // `Stop lophn`은 core stop을 기다린 뒤 shell을 끝낸다. 응답을 잃지 않게 마지막에 끈다.
+  const stopLophn = async () => {
+    const stopped = await ctx.core.stopCore();
+    if (!stopped) log("core stop이 답하지 않았다. shell만 끝낸다");
+    ctx.stopAll();
+  };
   // 앱 끄기가 창 닫기를 부르면 편집기 guard가 먼저 묻는다. 막으면 Electron이 끄기를 멈추므로
   // renderer가 허락한 뒤 다시 잇는다.
   app.on("before-quit", () => {
@@ -240,9 +248,9 @@ export function register(
     onQuitIntent: () =>
       requestQuit({
         windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
-        shutdownCore: () => quitFlow.stopNow(),
-        quitApp: () => {},
-        confirmWithWindows: () => void quitFlow.request(),
+        stop: quitShell,
+        quitApp: () => app.quit(),
+        confirmWithWindows: () => void quitFlow.request(quitShell),
       }),
   });
 
@@ -323,17 +331,11 @@ export function register(
     if (BrowserWindow.getAllWindows().length === 0) desktop.show();
   });
 
-  const mode = resolveLaunchMode({
-    argv: process.argv,
-    // macOS login item은 argv를 넘기지 못해 OS가 알려 준 로그인 시작으로 안다.
-    openedAtLogin:
-      process.platform === "darwin" &&
-      app.getLoginItemSettings().wasOpenedAtLogin === true,
-  });
-
   if (instance.acquired) {
     // 첫 창이 마지막 자리로 열리게 창보다 먼저 읽는다.
     Promise.all([app.whenReady(), ctx.windowState.load()]).then(() => {
+      // 업데이트 전에 켜 둔 등록(`--tray`)을 새 intent(`--core`)로 한 번 다시 쓴다.
+      migrateAutostart(autostartOs);
       const serve = createShellHandler({ distDir: ctx.rendererDist() });
       protocol.handle("lophn-shell", (request) =>
         serve(request).then(
@@ -354,7 +356,8 @@ export function register(
             openHome: () => desktop.open(),
             readAutostart: () => readAutostart(autostartOs),
             writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
-            quit: () => void quitFlow.request(),
+            stop: () => void quitFlow.request(stopLophn),
+            quit: () => void quitFlow.request(quitShell),
           },
         });
       }
@@ -367,11 +370,11 @@ export function register(
           ctx.tray.current?.notice("global-search-unavailable"),
         log,
       });
-      // 창 없는 시작은 main과 core만 띄운다. 첫 시작의 `--open-app`은 기본 창
-      // 대신 앱 전용 창을 연다.
+      // core만 띄우는 시작(`--core`)은 여기 오기 전에 끝난다. 첫 시작의 `--open-app`은
+      // 기본 창 대신 앱 전용 창을 연다.
       const start = readOpenIntent(process.argv);
       if (start.kind === "app") openIntent(start);
-      else if (!mode.tray) desktop.open();
+      else desktop.open();
     });
   }
 

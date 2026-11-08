@@ -4,7 +4,7 @@ import { app } from "electron";
 
 import type { Registered, ShellContext } from "./context.ts";
 
-// pipe 쓰기가 나갈 시간이다.
+// control 요청이 나갈 시간이다.
 const FLUSH_MS = 200;
 
 export function register(ctx: ShellContext): Registered {

@@ -1,5 +1,5 @@
 // renderer가 부를 수 있는 것은 contract schema의 read·command와 아래 memory route 몇 개, 프로필 이미지의 upload·file route뿐이다. credential 발급·daemon 종료는 route가
-// 아니라 pipe 메시지라 이 목록에 없다.
+// 아니라 control socket 요청이라 이 목록에 없다.
 import { SHELL_ROUTES } from "./routes.ts";
 
 // renderer가 부르는 memory route.

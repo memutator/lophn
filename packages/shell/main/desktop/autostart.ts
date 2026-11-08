@@ -1,4 +1,4 @@
-// 로그인 자동 시작. 검증된 실행 경로와 창 없는 시작 intent `--tray`만
+// 로그인 자동 시작. 검증된 실행 경로와 core만 띄우는 시작 intent `--core`만
 // OS에 등록한다. Linux는 XDG autostart entry, 그 외는 Electron login item이다. OS 쪽은
 // 주입한 adapter로만 만진다. 상태의 정본은 OS 등록 자체이고 따로 설정 값을 두지 않는다.
 import {
@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { TRAY_INTENT } from "./launch-mode.ts";
+import { CORE_INTENT } from "./launch-mode.ts";
 
 /** XDG autostart 파일 이름. 같은 이름이 있으면 lophn의 것으로 본다. */
 const AUTOSTART_FILE = "lophn.desktop";
@@ -104,13 +104,16 @@ function isAbsolute(path: string, platform: NodeJS.Platform): boolean {
   return path.startsWith("/");
 }
 
-/** XDG autostart entry. Exec는 따옴표로 묶은 실행 경로와 `--tray`뿐이다. */
-function desktopEntry(execPath: string): string {
+/** 업데이트 전에 등록하던 intent. 한 번 새 intent로 다시 쓴다. */
+const LEGACY_INTENT = "--tray";
+
+/** XDG autostart entry. Exec는 따옴표로 묶은 실행 경로와 intent뿐이다. */
+function desktopEntry(execPath: string, intent: string): string {
   return [
     "[Desktop Entry]",
     "Type=Application",
     "Name=lophn",
-    `Exec="${execPath}" ${TRAY_INTENT}`,
+    `Exec="${execPath}" ${intent}`,
     "X-GNOME-Autostart-enabled=true",
     "NoDisplay=false",
     "",
@@ -132,12 +135,12 @@ export function readAutostart(os: AutostartOs): AutostartState {
       const current = os.files.read(autostartPath(os.configHome));
       return {
         available: true,
-        enabled: current === desktopEntry(verified.path),
+        enabled: current === desktopEntry(verified.path, CORE_INTENT),
       };
     }
     const item = os.loginItems.get({
       path: verified.path,
-      args: [TRAY_INTENT],
+      args: [CORE_INTENT],
     });
     return { available: true, enabled: item.openAtLogin };
   } catch (error) {
@@ -158,15 +161,16 @@ export function writeAutostart(
   try {
     if (os.platform === "linux") {
       const file = autostartPath(os.configHome);
-      if (enabled) os.files.write(file, desktopEntry(verified.path));
+      if (enabled)
+        os.files.write(file, desktopEntry(verified.path, CORE_INTENT));
       else os.files.remove(file);
     } else {
       os.loginItems.set({
         openAtLogin: enabled,
         path: verified.path,
-        // macOS는 args를 넘기지 못한다. 시작할 때 wasOpenedAtLogin으로 창 없는
-        // 시작을 안다(launch-mode).
-        args: [TRAY_INTENT],
+        // macOS는 args를 넘기지 못한다. 시작할 때 wasOpenedAtLogin으로 core만
+        // 띄우는 시작을 안다(launch-mode).
+        args: [CORE_INTENT],
       });
     }
   } catch (error) {
@@ -174,6 +178,41 @@ export function writeAutostart(
     return { available: false, enabled: false, reason: "os_failed" };
   }
   return readAutostart(os);
+}
+
+/**
+ * 업데이트 전에 등록한 `--tray`를 `--core`로 한 번 다시 쓴다. 켜 둔 autostart가 업데이트 뒤에도
+ * 켜져 있게 한다. OS 등록은 ledger·data root 파일이 아니라 data migration이 아니다.
+ */
+export function migrateAutostart(os: AutostartOs): void {
+  const verified = verifiedExecPath(os);
+  if (!verified.ok) return;
+  try {
+    if (os.platform === "linux") {
+      const file = autostartPath(os.configHome);
+      if (os.files.read(file) !== desktopEntry(verified.path, LEGACY_INTENT)) {
+        return;
+      }
+      os.files.write(file, desktopEntry(verified.path, CORE_INTENT));
+      return;
+    }
+    // macOS는 login item에 args를 넘기지 못해 옛 등록도 그대로 새 intent다.
+    if (os.platform !== "win32") return;
+    const legacy = os.loginItems.get({
+      path: verified.path,
+      args: [LEGACY_INTENT],
+    });
+    if (!legacy.openAtLogin) return;
+    os.loginItems.set({
+      openAtLogin: true,
+      path: verified.path,
+      args: [CORE_INTENT],
+    });
+  } catch (error) {
+    os.log?.(
+      `옛 자동 시작 등록을 새 intent로 바꾸지 못했다: ${(error as Error).message}`,
+    );
+  }
 }
 
 /** 실제 파일 검사. 테스트는 가짜 probe를 준다. */

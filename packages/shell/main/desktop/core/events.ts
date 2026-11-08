@@ -2,7 +2,7 @@
 // 것과 main 자신의 것을 합쳐 `watch` frame 하나로 건다. replay가 없으므로 연결이 새로 붙을 때마다 조건을
 // 다시 걸고, 서버가 보내는 `ready`를 renderer가 받아 snapshot부터 다시 읽는다. 한 renderer가 조건을 바꿔 건
 // `watch`의 `ready`는 그 renderer에만 가고(서버가 watch마다 차례로 답한다), 새로 붙은 연결의 `ready`는 모두에게 간다. 끊기면 마지막 확인 시각을
-// 남기고 backoff로 스스로 다시 붙는다. epoch가 바뀌면 옛 core의 연결은 버린다.
+// 남기고, 다시 붙는 일은 connection이 맡는다(끊긴 Gateway의 capability는 core가 이미 버렸다).
 import {
   type EventCondition,
   eventConditionSchema,
@@ -54,46 +54,17 @@ export interface SocketFactory {
   ): EventSocket;
 }
 
-/** 끊긴 연결을 다시 잇는 시각 정책. 주입하지 않으면 다시 잇지 않는다. */
-export interface ReconnectPolicy {
-  /** 0부터 세는 연속 실패 횟수에 대한 대기 ms. */
-  delay(attempt: number): number;
-  /** ms 뒤에 run을 부른다. 돌려받은 함수로 취소한다. */
-  after(ms: number, run: () => void): () => void;
-  /** 다시 붙을 만한가. core 프로세스가 끝났으면 false다. */
-  allowed?(): boolean;
-}
-
-const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 15_000] as const;
-
-/** 1s에서 15s까지 두 배씩 늘리고 그 뒤로는 15s마다 시도한다. */
-export function backoffReconnect(allowed?: () => boolean): ReconnectPolicy {
-  return {
-    delay: (attempt) =>
-      RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)]!,
-    after(ms, run) {
-      const timer = setTimeout(run, ms);
-      return () => clearTimeout(timer);
-    },
-    ...(allowed ? { allowed } : {}),
-  };
-}
-
 export interface Gateway {
   readonly generation: number;
   /** 이 renderer의 조건 전체를 바꾼다. 쓸 수 있는 조건이 없으면 그 renderer의 조건을 뺀다. */
   watch(owner: number, conditions: readonly unknown[]): void;
   /** 이 renderer의 조건을 뺀다(창이 닫혔다). */
   forget(owner: number): void;
-  /** 끊긴 연결을 다시 잇는다. epoch가 다르면 옛 core의 것이라 붙지 않는다. */
-  reconnect(epoch: string): void;
   stop(): void;
 }
 
 interface GatewayOptions {
   session: CoreSession;
-  /** hello로 받은 epoch. reconnect가 다른 epoch를 받으면 버린다. */
-  epoch: string;
   socket: SocketFactory;
   /** open할 때 socket에 실을 header. token을 아는 caller가 준다. */
   headers?: () => Record<string, string>;
@@ -101,9 +72,7 @@ interface GatewayOptions {
   own: () => readonly EventCondition[];
   sink: GatewaySink;
   clock: Clock;
-  /** 끊기면 같은 epoch로 스스로 다시 붙는다. 없으면 reconnect()를 부를 때만 다시 붙는다. */
-  reconnectPolicy?: ReconnectPolicy;
-  /** core를 다시 띄우면 올린다. 낮은 generation의 늦은 응답은 버린다. */
+  /** 다시 붙을 때마다 올린다. 낮은 generation의 늦은 응답은 버린다. */
   generation?: number;
 }
 
@@ -130,11 +99,11 @@ export function openGateway(options: GatewayOptions): Gateway {
   let stopped = false;
   let socket: EventSocket | undefined;
   let opened = false;
+  // 끊김을 한 번만 알린다. 다시 붙는 일은 connection이 새 Gateway를 열며 한다.
+  let down = false;
   // 낮은 generation의 늦은 callback을 거른다.
   let active = generation;
 
-  let attempts = 0;
-  let cancelRetry: (() => void) | undefined;
   // 보낸 watch를 건 renderer를 보낸 차례로 둔다. 서버가 같은 차례로 `ready`를 답한다. undefined는 연결을 새로 건 watch다.
   let asked: (number | undefined)[] = [];
 
@@ -149,31 +118,11 @@ export function openGateway(options: GatewayOptions): Gateway {
     );
   };
 
-  const scheduleRetry = () => {
-    const policy = options.reconnectPolicy;
-    if (stopped || policy === undefined || cancelRetry !== undefined) return;
-    const run = () => {
-      cancelRetry = undefined;
-      if (stopped || policy.allowed?.() === false) return;
-      socket?.close();
-      socket = undefined;
-      active += 1;
-      connect();
-    };
-    cancelRetry = policy.after(policy.delay(attempts), run);
-    attempts += 1;
-  };
-
   const stale = () => {
-    if (stopped) return;
+    if (stopped || down) return;
+    down = true;
     opened = false;
     options.sink.stale({ state: "stale", confirmedAt });
-    scheduleRetry();
-  };
-
-  const clearRetry = () => {
-    cancelRetry?.();
-    cancelRetry = undefined;
   };
 
   const connect = () => {
@@ -194,8 +143,7 @@ export function openGateway(options: GatewayOptions): Gateway {
     socket = current;
     current.onOpen(() => {
       if (stopped || mine !== active) return;
-      // 붙었으니 다음에 끊기면 처음 대기부터 센다.
-      attempts = 0;
+      down = false;
       opened = true;
       asked = [];
       // open되기 전에는 send하지 않는다. 붙을 때마다 조건을 다시 건다.
@@ -241,18 +189,8 @@ export function openGateway(options: GatewayOptions): Gateway {
     forget(owner) {
       if (watchers.delete(owner)) sendWatch(owner);
     },
-    reconnect(epoch) {
-      if (stopped) return;
-      clearRetry();
-      socket?.close();
-      socket = undefined;
-      opened = false;
-      active += 1;
-      if (epoch === options.epoch) connect();
-    },
     stop() {
       stopped = true;
-      clearRetry();
       active += 1;
       socket?.close();
     },

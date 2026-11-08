@@ -1,12 +1,16 @@
-// tray. Home·로그인 자동 시작·Quit을 둔다. 모든 창을 닫아도
-// main과 tray, 그 아래 core는 남는다. tray의 Quit만 main과 core를 멈추는 명시 행동이다.
+// tray. Home·로그인 자동 시작·Stop lophn·Quit을 둔다. 모든 창을 닫아도
+// main과 tray, core는 남는다. Quit은 shell만 멈추고 core는 idle-exit로 끝난다.
+// Stop lophn만 core stop을 기다린 뒤 shell을 멈춘다.
 // Electron Tray·Menu는 adapter 뒤에 둔다.
 import { join } from "node:path";
 
 import type { AutostartState } from "./autostart.ts";
 import { word } from "./i18n.ts";
 
-type TrayItemId = "home" | "autostart" | "quit";
+type TrayItemId = "home" | "autostart" | "stop" | "quit";
+
+/** lead 등록 요청: `common.label.tray-stop`("Stop lophn"). catalog에 오르면 word()로 바꾼다. */
+const STOP_LABEL = "Stop lophn";
 
 /** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다. */
 type TrayNotice = "global-search-unavailable";
@@ -57,6 +61,7 @@ function trayMenu(
     ...(shown.length > 0
       ? [...shown, { type: "separator" } satisfies TrayMenuItem]
       : []),
+    { type: "normal", id: "stop", label: STOP_LABEL },
     { type: "normal", id: "quit", label: word("common.label.tray-quit") },
   ];
 }
@@ -81,7 +86,9 @@ interface TrayActions {
   openHome(): void;
   readAutostart(): AutostartState;
   writeAutostart(enabled: boolean): AutostartState;
-  /** 명시 종료. 진행 중인 일 확인은 quit flow가 한다. */
+  /** `Stop lophn`. 진행 중인 일 확인은 quit flow가 하고 core stop까지 기다린다. */
+  stop(): void;
+  /** 일반 Quit. shell만 멈추고 core는 남긴다. */
   quit(): void;
 }
 
@@ -127,6 +134,9 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
         // 결과는 OS에서 다시 읽은 상태다. 실패하면 꺼진 채로 보인다.
         autostart = actions.writeAutostart(!autostart.enabled);
         render();
+        return;
+      case "stop":
+        actions.stop();
         return;
       case "quit":
         actions.quit();

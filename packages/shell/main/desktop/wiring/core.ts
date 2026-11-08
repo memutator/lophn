@@ -6,6 +6,7 @@ import { app, type BrowserWindow, ipcMain } from "electron";
 import { CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
 import { startCoreConnection } from "../core/connection.ts";
 import { nodeFetch, nodeSockets, nodeStreamFetch } from "../core/node-io.ts";
+import { productVersionOf } from "../core/supervise.ts";
 import { packagedInstall } from "../paths.ts";
 import type { CoreRelay, Registered, ShellContext } from "./context.ts";
 
@@ -16,18 +17,21 @@ type ConnectInput = {
   relay: CoreRelay;
 };
 
-// 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
+/** core entry의 기준. packaged는 설치 묶음의 platform/(source)이고, 개발은 `here`에서 저장소 루트다. */
+export function coreRoot(here: string = __dirname): string {
+  return app.isPackaged
+    ? packagedInstall(process.resourcesPath).platform
+    : join(here, "..", "..", "..", "..");
+}
+
+// 창을 다 닫아도 core는 남는다. `Stop lophn`만 core를 멈춘다.
 // Gateway 조건과 도착한 event, 호출 앞 처리는 relay에 영역이 덧붙인 것을 부른다.
 export function connectCore(input: ConnectInput) {
   const { here, dataRoot, windows, relay } = input;
+  const repoRoot = coreRoot(here);
   return startCoreConnection({
-    launch: {
-      // packaged는 설치 묶음의 platform/(source)이고, 개발은 저장소 루트다.
-      repoRoot: app.isPackaged
-        ? packagedInstall(process.resourcesPath).platform
-        : join(here, "..", "..", "..", ".."),
-      dataRoot,
-    },
+    launch: { repoRoot, dataRoot },
+    productVersion: productVersionOf(repoRoot),
     ipc: { handle: (channel, listener) => ipcMain.handle(channel, listener) },
     fetch: nodeFetch,
     stream: nodeStreamFetch,
@@ -60,7 +64,10 @@ export function register(ctx: ShellContext): Registered {
       }
     });
   });
-  // 닫힌 창의 구독 조건은 더 걸지 않는다.
-  ctx.windowHooks.closed.push(({ contentsId }) => ctx.core.forget(contentsId));
-  return { stop: () => ctx.core.shutdown() };
+  // 닫힌 창의 구독 조건과 그 창이 받은 미소비 handle은 core에서 버린다.
+  ctx.windowHooks.closed.push(({ contentsId, ref }) =>
+    ctx.core.forget(contentsId, ref),
+  );
+  // shell 자원 정리는 연결만 끊는다. core는 Quit 뒤에도 남아 idle-exit로 끝난다.
+  return { stop: () => ctx.core.detach() };
 }

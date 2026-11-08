@@ -1,5 +1,5 @@
-// 명시 종료. 창 닫기는 종료가 아니다. tray의 Quit과 second-instance `--quit`만
-// main과 그 아래 core를 멈춘다. 진행 중 터미널·저장이 있으면 먼저 사람에게 확인한다.
+// 명시 종료. 창 닫기는 종료가 아니다. 일반 Quit(Cmd+Q·`--quit`·OS 종료)은 shell 자원과 core 연결만
+// 정리하고 core는 남긴다. 진행 중 터미널·저장이 있으면 먼저 사람에게 확인한다.
 // 일반 preload·renderer에 종료 통로를 두지 않는다.
 import { type MessageKey, word } from "./i18n.ts";
 
@@ -41,9 +41,7 @@ interface QuitFlowOptions {
   work: QuitWork;
   /** 사람에게 묻는다. Quit을 고른 때만 true. 닫기·Esc·실패는 false. */
   confirm(prompt: QuitPrompt): Promise<boolean>;
-  /** 터미널 host와 core의 정상 종료 순서(stop frame). 한 번만 부른다. */
-  stop(): void;
-  /** Electron 종료. stop 뒤에 부른다. */
+  /** Electron 종료. stop이 끝난 뒤에 부른다. */
   quitApp(): void;
   log?: (message: string) => void;
 }
@@ -51,10 +49,13 @@ interface QuitFlowOptions {
 type QuitOutcome = "quit" | "cancelled" | "busy";
 
 interface QuitFlow {
-  /** tray Quit. 진행 중인 일이 있으면 확인한 뒤 멈춘다. */
-  request(): Promise<QuitOutcome>;
+  /**
+   * 진행 중인 일이 있으면 확인한 뒤 멈춘다. `stop`은 부르는 쪽이 고른다:
+   * 일반 Quit은 shell 자원만, `Stop lophn`은 core stop까지 기다린다.
+   */
+  request(stop: () => void | Promise<void>): Promise<QuitOutcome>;
   /** 확인 없이 멈춘다. 확인할 창이 없는 `--quit`이 쓴다. */
-  stopNow(): void;
+  stopNow(stop: () => void | Promise<void>): Promise<void>;
   /** 이미 끄는 중인지. */
   readonly quitting: boolean;
 }
@@ -63,15 +64,19 @@ export function createQuitFlow(options: QuitFlowOptions): QuitFlow {
   let asking = false;
   let quitting = false;
 
-  function stopNow(): void {
+  async function stopNow(stop: () => void | Promise<void>): Promise<void> {
     if (quitting) return;
     quitting = true;
-    options.stop();
-    options.quitApp();
+    try {
+      // core stop 응답 같은 정리를 잃지 않게 끝까지 기다린다.
+      await stop();
+    } finally {
+      options.quitApp();
+    }
   }
 
   return {
-    async request() {
+    async request(stop) {
       if (quitting) return "quit";
       // 확인 창이 떠 있는 동안 다시 누르면 두 번째 창을 띄우지 않는다.
       if (asking) return "busy";
@@ -90,7 +95,7 @@ export function createQuitFlow(options: QuitFlowOptions): QuitFlow {
         }
         if (!accepted) return "cancelled";
       }
-      stopNow();
+      await stopNow(stop);
       return "quit";
     },
     stopNow,
@@ -101,7 +106,7 @@ export function createQuitFlow(options: QuitFlowOptions): QuitFlow {
 }
 
 // second-instance `--quit`의 종료 순서. 창이 있으면 tray Quit과 같은 확인 경로를 쓴다.
-// 창이 없으면 확인할 창이 없다는 사실을 log로 남기고 core 정상 종료 순서를 밟는다.
+// 창이 없으면 확인할 창이 없다는 사실을 log로 남기고 shell 정리 순서를 밟는다.
 
 interface QuitWindowProbe {
   /** 진행 중 터미널·저장을 확인할 창이 있는지. */
@@ -110,9 +115,9 @@ interface QuitWindowProbe {
 
 interface QuitOptions {
   windows: QuitWindowProbe;
-  /** core 정상 종료 순서. supervise child의 stop frame을 싣는다. */
-  shutdownCore: () => void;
-  /** Electron 종료. core pipe 종료 뒤에 부른다. */
+  /** shell 자원과 core 연결 정리. 일반 Quit이라 core는 멈추지 않는다. */
+  stop: () => void | Promise<void>;
+  /** Electron 종료. stop이 끝난 뒤에 부른다. */
   quitApp: () => void;
   /** 창이 있을 때의 끄기 확인(tray Quit과 같은 경로). 창이 있으면 이 경로만 쓴다. */
   confirmWithWindows?: () => void;
@@ -132,10 +137,9 @@ export function requestQuit(options: QuitOptions): void {
   }
   // 창이 없으면 진행 중 터미널·저장을 확인할 창이 없다. 사실을 log로 남긴다.
   (options.log ?? defaultLog)(
-    "확인할 창이 없어 끄기 확인 없이 core 종료 순서를 밟는다",
+    "확인할 창이 없어 끄기 확인 없이 shell 정리 순서를 밟는다",
   );
-  options.shutdownCore();
-  options.quitApp();
+  void Promise.resolve(options.stop()).finally(options.quitApp);
 }
 
 /** native 확인 창의 버튼 배치. Esc·창 닫기는 취소다. */

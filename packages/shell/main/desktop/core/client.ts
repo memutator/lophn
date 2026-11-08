@@ -109,7 +109,8 @@ export interface CoreSession {
 }
 
 interface SessionInput {
-  apiPort: number;
+  /** control connect가 준 API 주소(`http://127.0.0.1:<port>`). */
+  apiUrl: string;
   coreEpoch: string;
   userToken: string;
   fetch: RpcFetch;
@@ -198,7 +199,8 @@ async function failure(
 }
 
 export function openSession(input: SessionInput): CoreSession {
-  const base = `http://127.0.0.1:${input.apiPort}`;
+  const base = input.apiUrl;
+  const apiPort = Number(new URL(base).port);
   const rpc: RpcClient = createRpcClient({
     baseUrl: base,
     token: input.userToken,
@@ -207,7 +209,7 @@ export function openSession(input: SessionInput): CoreSession {
   const routeOf = (kind: string, resource: string, method: string) =>
     routeByName(`${kind}:${resource}/${method}`);
   return {
-    apiPort: input.apiPort,
+    apiPort,
     coreEpoch: input.coreEpoch,
     async call(kind, resource, method, body, bytes) {
       const name = lookupCall(kind, resource, method);

@@ -39,6 +39,6 @@
 - 세 task는 순서대로 plan branch에 merge됐다. task마다 full check·core 두 번 기동·renderer build와 merge 뒤 `npm run check`가 통과했다. 네 architecture를 동작과 함께 고쳤다.
 - Linux 실제 실행: 생성한 browser shim과 bridge socket의 ack, declined·접속 실패 때 URL/정리한 env를 받는 opener, bridge 종료 뒤 hook CLI의 hook·GUI ingress 수신, Electron의 shim 쓰기 실패·bridge listen 실패 뒤 hook endpoint 유지, CJS·ESM 아래 공통 browser JS, Bash의 인자·native 종료 상태·GUI JSON·사용자 함수 우선권을 확인했다. 실제 browser 화면·OS 알림은 이 smoke에 포함하지 않았다.
 - Windows launch API의 경로 구분자·대소문자·작은따옴표와 UTF-8 BOM byte는 Linux에서 확인했다. 이것은 PowerShell·named pipe·`.cmd`의 Windows 실기 확인을 대신하지 않는다. macOS는 platform 인자/경로·byte 한도 unit만 확인했고 실기 실행하지 않았다.
-- **land 전 사람 확인 대기:** Windows PowerShell 7·5.1 각각에서 profile·alias 유지, native 인자·종료 상태·Kilo/Cline env 복원, 한글·공백 경로, synthetic hook의 turn 끝·권한 물음 상태와 알림, `claude gui` 진입, `$BROWSER` link가 lophn browser 탭으로 열리는지와 실패 시 OS browser fallback, URL query의 `& | % ^ !` 보존을 확인한다. execution policy가 시작 층을 막으면 우회하지 않고 결과를 알린다. 실제 provider 호출 없이 확인한다.
+- **남은 Windows 수동 확인:** PowerShell 7·5.1 각각에서 profile·alias 유지, native 인자·종료 상태·Kilo/Cline env 복원, 한글·공백 경로, synthetic hook의 turn 끝·권한 물음 상태와 알림, `claude gui` 진입, `$BROWSER` link가 lophn browser 탭으로 열리는지와 실패 시 OS browser fallback, URL query의 `& | % ^ !` 보존을 확인한다. execution policy가 시작 층을 막으면 우회하지 않고 결과를 알린다. 실제 provider 호출 없이 확인한다.
 - Windows 수동 확인의 환경·항목별 결과·land gate는 저장소 루트의 [`WINDOWS-CHECKLIST.md`](../../../../WINDOWS-CHECKLIST.md)에 기록한다. PowerShell 7·5.1을 따로 확인하고 미확인을 통과로 쓰지 않는다.
-- 수동 acceptance를 받기 전에는 roadmap을 끝남으로 바꾸거나 계획 폴더를 닫거나 land하지 않는다. `standalone-core` wave 1도 아직 열지 않는다.
+- 사람이 Windows 미확인 상태의 land와 계획 닫기를 승인했다. Windows 실기 결과는 루트 checklist에 미확인으로 남기며, full check·기존 E2E·core 기동을 생략하지 않는다. `standalone-core` wave 1은 이 계획 land 뒤에만 연다.

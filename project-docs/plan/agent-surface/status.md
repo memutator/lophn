@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py agent-surface build`가 `tasks/*.md`에서 i
 | `surf-team` | surf | 2 | surf-queue | merged | surf/surf-team | f494503c6 |  |
 | `ext-tools` | ext | 3 | surf-tui | merged | ext/ext-tools | 3dc80be95 |  |
 | `surf-tui` | surf | 3 | 없음 | merged | surf/surf-tui | fb22dedf2 |  |
-| `ext-tools-ui` | ext | 4 | 없음 | todo |  |  |  |
+| `ext-tools-ui` | ext | 4 | 없음 | running | ext/ext-tools-ui |  |  |

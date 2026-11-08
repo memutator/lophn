@@ -262,6 +262,7 @@ export const RESERVED_APP_SLUGS: readonly string[] = [
   "version",
   "hook",
   "harness",
+  "ext",
   "tab",
   "browser",
   "team",

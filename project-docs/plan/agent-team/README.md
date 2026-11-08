@@ -50,7 +50,8 @@
 
 ## lead가 할 일
 
-- **`agent-surface`가 main에 land한 뒤 연다.** `spawned_by`와 team 명령 위에 서기 때문이다. 외부 선행은 status 도구가 보지 않으니 lead가 직접 막는다.
+- **`agent-surface`의 `surf-team`(wave 2)이 main에 land한 뒤 연다.** 계획 전체가 끝나기를 기다리지 않는다. 이 계획은 `spawned_by`와 team 명령 위에만 서기 때문이다. 외부 선행은 status 도구가 보지 않으니 lead가 직접 막는다.
+- `agent-surface`의 `ext-tools`가 `packages/core/approvals/`를 소유한다. 그래서 `team-ask`와 동시에 돌지 못한다. `status.py ready`가 다른 계획의 running task와 소유가 겹치면 내지 않으니, 먼저 띄운 쪽이 끝난 뒤 다른 쪽이 돈다. 늦게 merge하는 쪽이 충돌을 푼다.
 - `project-docs/plan/tools/lead/lead.sh agent-team`이 연 worktree에서만 일한다.
 - brief를 쓸지는 lead가 정한다. 쓴다면 아래를 brief에서 고정한다. 근거와 함께 lead가 정하고, 정할 수 없으면 planner에게 보고한다.
   - request와 call을 어떻게 잇는가.

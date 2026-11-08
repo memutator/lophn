@@ -35,6 +35,8 @@ interface QueuedMessagesProps {
   canSteer?: boolean;
   /** `capabilities.queue_edit`. 꺼져 있으면 글 고치기·옮기기·빼기가 없다. 기본은 true다. */
   canEdit?: boolean;
+  /** 보냈지만 아직 줄에 오지 않은 말. 줄 끝에 흐리게 서고 누를 것이 없다. */
+  pending?: { readonly id: string; readonly summary: string } | null;
 }
 
 export function QueuedMessages({
@@ -46,6 +48,7 @@ export function QueuedMessages({
   disabled,
   canSteer = true,
   canEdit = true,
+  pending = null,
 }: QueuedMessagesProps): ReactElement | null {
   const [editing, setEditing] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -67,7 +70,7 @@ export function QueuedMessages({
     }
   }, [items, editing]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && pending === null) return null;
 
   const stop = () => {
     setEditing(null);
@@ -208,6 +211,24 @@ export function QueuedMessages({
           </li>
         );
       })}
+      {pending === null ? null : (
+        <li
+          key={pending.id}
+          className={`${styles.row} ${styles.pending}`}
+          data-queued-row=""
+          data-pending=""
+        >
+          <Icon
+            icon={conversationIcons.request}
+            pixels={iconPixels("small")}
+            className={styles.icon}
+          />
+          <span className={styles.tag}>
+            {t("conversation.label.next-turn")}
+          </span>
+          <span className={styles.summary}>{pending.summary}</span>
+        </li>
+      )}
     </ul>
   );
 }

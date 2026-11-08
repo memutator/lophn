@@ -47,6 +47,18 @@
   text-decoration: underline;
 }
 
+.pending {
+  opacity: 0.6;
+}
+
+.summary {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .text:disabled {
   cursor: default;
 }

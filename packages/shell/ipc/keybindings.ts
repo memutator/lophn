@@ -88,6 +88,10 @@ export type Command =
   | "agent.find"
   | "agent.jump-previous"
   | "agent.jump-next"
+  | "agent.scroll-page-up"
+  | "agent.scroll-page-down"
+  | "agent.scroll-top"
+  | "agent.scroll-bottom"
   | "agent.cycle-mode"
   | "agent.send-now"
   | "agent.queue"
@@ -472,6 +476,34 @@ export const KEYBINDINGS: readonly Binding[] = [
     context: "agentView",
     other: ["Alt+ArrowDown"],
     mac: ["Alt+ArrowDown"],
+  },
+  {
+    command: "agent.scroll-page-up",
+    section: "agent",
+    context: "agentView",
+    other: ["PageUp"],
+    mac: ["PageUp"],
+  },
+  {
+    command: "agent.scroll-page-down",
+    section: "agent",
+    context: "agentView",
+    other: ["PageDown"],
+    mac: ["PageDown"],
+  },
+  {
+    command: "agent.scroll-top",
+    section: "agent",
+    context: "agentView",
+    other: ["Ctrl+Home"],
+    mac: ["Ctrl+Home"],
+  },
+  {
+    command: "agent.scroll-bottom",
+    section: "agent",
+    context: "agentView",
+    other: ["Ctrl+End"],
+    mac: ["Ctrl+End"],
   },
   {
     command: "agent.cycle-mode",

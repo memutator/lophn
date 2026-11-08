@@ -5,7 +5,7 @@
 // `~/.omp` 설정(role, 승인 mode)은 읽기만 한다.
 import { open, readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { parse } from "yaml";
 import type { Clock } from "../../../../../base/clock.ts";
 import { formatAt } from "../../../../../base/clock.ts";
@@ -639,7 +639,8 @@ function thread(
               : EDIT_TOOLS.includes(name) && path !== ""
                 ? {
                     kind: "edit",
-                    document: path,
+                    // omp는 상대 경로를 그대로 줄 수 있다. document 탭은 절대 경로만 연다.
+                    document: isAbsolute(path) ? path : join(cwd, path),
                     path: relative(cwd, path),
                     added: lines(args.content),
                     removed: 0,

@@ -321,6 +321,22 @@ const WORDING: Readonly<Record<Exclude<Command, "app.panel">, Wording>> = {
     name: "settings.label.key-agent-jump-next",
     help: "settings.note.key-agent-jump",
   },
+  "agent.scroll-page-up": {
+    name: "settings.label.key-agent-scroll-page-up",
+    help: "settings.note.key-agent-scroll",
+  },
+  "agent.scroll-page-down": {
+    name: "settings.label.key-agent-scroll-page-down",
+    help: "settings.note.key-agent-scroll",
+  },
+  "agent.scroll-top": {
+    name: "settings.label.key-agent-scroll-top",
+    help: "settings.note.key-agent-scroll",
+  },
+  "agent.scroll-bottom": {
+    name: "settings.label.key-agent-scroll-bottom",
+    help: "settings.note.key-agent-scroll",
+  },
   "agent.cycle-mode": {
     name: "settings.label.key-agent-cycle-mode",
     help: "settings.note.key-agent-cycle-mode",

@@ -8,7 +8,7 @@ import type {
 import {
   agentHandleKey,
   LOPHN_AGENT_HANDLE,
-  LOPHN_AGENT_ID,
+  lophnIdOf,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   WorkspaceDeps,
@@ -38,12 +38,9 @@ export function createWorkspaceNameRules(
       : ok(found.id);
   }
 
+  // handle `lophn`은 workspace마다 하나라 workspace와 짝으로 풀린다. workspace가 없으면 Home이고, call은 Router가 부른 쪽의
+  // workspace로 바꾼다. 다른 agent는 handle로 전역에 하나다.
   function resolveAddress(address: AgentAddress): Result<AgentAtWorkspace> {
-    const agent =
-      agentHandleKey(address.agent) === agentHandleKey(LOPHN_AGENT_HANDLE)
-        ? ok(LOPHN_AGENT_ID)
-        : agentIdByHandle(address.agent);
-    if (!agent.ok) return agent;
     const named = address.workspace;
     let workspace: Workspace | null = null;
     if (named !== undefined) {
@@ -57,6 +54,11 @@ export function createWorkspaceNameRules(
         workspace = { kind: "app", id: app.id };
       }
     }
+    const agent =
+      agentHandleKey(address.agent) === agentHandleKey(LOPHN_AGENT_HANDLE)
+        ? ok(lophnIdOf(workspace))
+        : agentIdByHandle(address.agent);
+    if (!agent.ok) return agent;
     return ok({ agent: agent.value, workspace });
   }
 

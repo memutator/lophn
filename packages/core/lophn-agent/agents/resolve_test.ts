@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/mod.ts";
+import { LOPHN_HOME_ID } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
 import { resolveAgent } from "./resolve.ts";
 
@@ -62,7 +62,7 @@ test("bare는 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는�
   assert.deepEqual(plain.value.skills, ["s"]);
 
   const lophn = await resolveAgent({
-    agent: LOPHN_AGENT_ID,
+    agent: LOPHN_HOME_ID,
     workspace: null,
     called_from: null,
     definition: null,

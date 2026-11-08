@@ -77,7 +77,7 @@ function stub(
         ok({
           session: {
             id: SELF,
-            agent: "lophn",
+            agent: "lophn_home",
             workspace: null,
             title: null,
             lifecycle: "open",

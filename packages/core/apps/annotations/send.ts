@@ -13,7 +13,7 @@ import type {
   Input,
   Output,
 } from "../../../protocol/server/mod.ts";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
+import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   annotationAddRefs,
   annotationDiscard,
@@ -120,7 +120,7 @@ export function createAnnotations(deps: AnnotationDeps) {
       target.kind === "app"
         ? await delivery.deliver({
             app: target.app,
-            agent: input.agent ?? LOPHN_AGENT_ID,
+            agent: input.agent ?? lophnIdOf({ kind: "app", id: target.app }),
             session,
             text,
             annotations: ids,

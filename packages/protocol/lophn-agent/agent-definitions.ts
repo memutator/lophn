@@ -141,7 +141,7 @@ export const agentRead = defineRead({
 });
 
 // 명함: 다른 agent와 사람이 agent를 고를 때 읽는 요약이다. program이 정의와 할당에서 계산하고 prompt 원문은 싣지 않는다.
-// diff는 기본 lophn agent와 다른 점이다(workspace와 상관없다): plus는 더 가진 것, minus는 덜 가진 것.
+// diff는 기본 lophn agent와 다른 점이다(그 agent의 정의로 계산하고, lophn이면 그 workspace의 lophn 정의다): plus는 더 가진 것, minus는 덜 가진 것.
 export const AGENT_REPLIES = ["none", "result", "conversation"] as const;
 export const agentCardSchema = z.object({
   handle: agentHandleSchema,
@@ -166,7 +166,11 @@ export const agentCard = defineRead({
   resource: "agents",
   method: "card",
   name: "ReadAgentCard",
-  input: z.strictObject({ handle: agentHandleSchema }),
+  // workspace는 handle이 lophn일 때 어느 workspace의 lophn인지 고른다. 없으면 agent session은 자기 workspace, 사람은 Home이다.
+  input: z.strictObject({
+    handle: agentHandleSchema,
+    workspace: workspaceSchema.optional(),
+  }),
   output: withReadCommon(z.object({ card: agentCardSchema })),
   actors: readActors,
   errors: [...readErrors],

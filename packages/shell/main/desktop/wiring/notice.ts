@@ -11,7 +11,7 @@ import type {
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
 import {
@@ -276,7 +276,7 @@ export function createNoticeWiring(
     const name =
       definition?.effective.name.value ??
       word(
-        agent === LOPHN_AGENT_ID
+        isLophn(agent)
           ? "waiting.label.agent-lophn"
           : "waiting.label.agent-unnamed",
       );

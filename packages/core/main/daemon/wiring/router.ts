@@ -36,7 +36,7 @@ import {
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   type AgentAtWorkspace,
-  LOPHN_AGENT_ID,
+  lophnIdOf,
   type Workspace,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
@@ -409,9 +409,13 @@ export const routerWiring: WiringFactory = () => {
         async deliverArtifact(input) {
           const owner = activeWorkspace(input.workspace);
           if (!owner.ok) return owner;
+          const workspace: Workspace = {
+            kind: owner.value.kind,
+            id: owner.value.id as never,
+          };
           const target: AgentAtWorkspace = {
-            agent: LOPHN_AGENT_ID,
-            workspace: { kind: owner.value.kind, id: owner.value.id as never },
+            agent: lophnIdOf(workspace),
+            workspace,
           };
           const root = await realpath(
             artifactsFolder(ctx.root.path, owner.value),
@@ -438,9 +442,13 @@ export const routerWiring: WiringFactory = () => {
         },
         // 사람의 폴더에 있는 `.html`은 그 project workspace의 lophn이 받는다.
         async deliverFile(input) {
+          const workspace: Workspace = {
+            kind: "project",
+            id: input.project as Id<"prj">,
+          };
           const target: AgentAtWorkspace = {
-            agent: LOPHN_AGENT_ID,
-            workspace: { kind: "project", id: input.project as Id<"prj"> },
+            agent: lophnIdOf(workspace),
+            workspace,
           };
           return await deliverTo(
             target,

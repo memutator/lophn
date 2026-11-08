@@ -19,9 +19,9 @@ const OTHER = "ses_01hzzzzzzzzzzzzzzzzzzzzzzd";
 const OTHER_AGENT = "agt_01hzzzzzzzzzzzzzzzzzzzzzza";
 
 const agents: Record<string, AgentAtWorkspace> = {
-  [LOPHN_1]: { agent: "lophn", workspace: null },
-  [LOPHN_2]: { agent: "lophn", workspace: null },
-  [LOPHN_PRJ]: { agent: "lophn", workspace: { kind: "project", id: PRJ } },
+  [LOPHN_1]: { agent: "lophn_home", workspace: null },
+  [LOPHN_2]: { agent: "lophn_home", workspace: null },
+  [LOPHN_PRJ]: { agent: "lophn_home", workspace: { kind: "project", id: PRJ } },
   [OTHER]: { agent: OTHER_AGENT, workspace: null },
 };
 

@@ -19,10 +19,12 @@ import {
   type CallPolicy,
   mayCall,
 } from "../../protocol/lophn-agent/call-policy.ts";
-import type {
-  AgentAddress,
-  AgentAtWorkspace,
-  AgentId,
+import {
+  type AgentAddress,
+  type AgentAtWorkspace,
+  type AgentId,
+  isLophn,
+  lophnIdOf,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import {
   addressingOf,
@@ -175,14 +177,22 @@ export function createRouter(deps: RouterDeps): Router {
         : resolved;
     }
     const spawn = input.spawn === true;
-    const agent =
-      spawn && from.kind === "agent" && address.workspace === undefined
-        ? {
-            ...resolved.value,
-            workspace:
-              directory.find(sesId(from.session))?.agent.workspace ?? null,
-          }
-        : resolved.value;
+    // workspace를 빼면 spawn과 lophn(workspace마다 하나)은 부른 쪽 workspace에 열린다. 다른 agent의 call은 home이다.
+    const inCaller =
+      from.kind === "agent" &&
+      address.workspace === undefined &&
+      (spawn || isLophn(resolved.value.agent));
+    const callerWorkspace = inCaller
+      ? (directory.find(sesId(from.session))?.agent.workspace ?? null)
+      : null;
+    const agent = inCaller
+      ? {
+          agent: isLophn(resolved.value.agent)
+            ? lophnIdOf(callerWorkspace)
+            : resolved.value.agent,
+          workspace: callerWorkspace,
+        }
+      : resolved.value;
     if (session === null) {
       const to: CallTarget = { kind: "new_session", agent };
       return open(tx, from, agent, to, spawn);

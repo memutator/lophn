@@ -36,8 +36,8 @@ export type AgentInfo = {
 export interface AgentDirectory {
   agent(id: AgentId): AgentInfo | null;
   agents(): readonly AgentInfo[];
-  // handle로 찾은 명함. 없는 handle과 틀린 정의 file은 null이다.
-  cardOf(handle: string): AgentCard | null;
+  // handle로 찾은 명함. 그 workspace에서 보이는 agent만이다(lophn은 그 workspace의 것). 없는 handle과 틀린 정의 file은 null이다.
+  cardOf(handle: string, workspace: Workspace | null): AgentCard | null;
 }
 
 function infoOf(loaded: Loaded): AgentInfo {
@@ -65,9 +65,9 @@ export function createAgentDirectory(
         const loaded = loadAgent(opened.value, id);
         return loaded.ok && loaded.value !== null ? infoOf(loaded.value) : null;
       },
-      cardOf(handle) {
+      cardOf(handle, workspace) {
         if (!opened.ok) return null;
-        const card = cardByHandle(opened.value, handle, null);
+        const card = cardByHandle(opened.value, handle, { workspace }, null);
         return card.ok ? card.value : null;
       },
       agents() {

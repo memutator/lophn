@@ -5,7 +5,7 @@ import {
   agentRead,
   type AgentRow,
   type AgentValueLayer,
-  LOPHN_AGENT_ID,
+  isLophn,
   LOPHN_AGENT_NAME,
   type ModelChoice,
   type Workspace,
@@ -61,17 +61,18 @@ function hiddenFrom(
 }
 
 function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
-  const model = effectiveModel(context, loaded, null);
+  const workspace = workspaceOfAgent(loaded);
+  const model = effectiveModel(context, loaded, workspace);
   const definition = loaded.definition;
   const broken = loaded.issues.length > 0;
-  const skills = context.lookups.skills(null);
-  const mcp = context.lookups.mcp(null);
+  const skills = context.lookups.skills(workspace);
+  const mcp = context.lookups.mcp(workspace);
   const mcpOff = definition?.mcp_off ?? [];
   return {
     agent: loaded.agent,
     handle: handleOf(loaded),
     name: nameOf(loaded),
-    workspace: workspaceOfAgent(loaded),
+    workspace,
     profile: profileOf(loaded),
     ...(definition?.description === undefined
       ? {}
@@ -164,7 +165,14 @@ export function createAgentReads(deps: AgentDeps): {
                 from: { agent: session.agent, workspace: workspaceOf(session) },
                 policy: callPolicyAt(context.value.store.root),
               };
-        const card = cardByHandle(context.value, input.handle, caller);
+        // workspace를 주면 그 workspace의 agent(lophn은 그 workspace의 것)를, 없으면 session의 workspace를 본다.
+        const at =
+          input.workspace !== undefined
+            ? { workspace: input.workspace }
+            : caller === null
+              ? null
+              : { workspace: caller.from.workspace };
+        const card = cardByHandle(context.value, input.handle, at, caller);
         if (!card.ok) return card;
         if (hiddenFrom(context.value, ctx, card.value.workspace)) {
           return notFound("agent");
@@ -185,11 +193,11 @@ export function createAgentReads(deps: AgentDeps): {
       ): Result<Output<typeof agentRead>> {
         const context = openAgentContext(deps, snapshot.sql);
         if (!context.ok) return context;
-        const workspace = input.workspace ?? null;
+        const asked = input.workspace ?? null;
         if (
-          workspace !== null &&
-          (!context.value.lookups.workspaceExists(workspace) ||
-            hiddenFrom(context.value, ctx, workspace))
+          asked !== null &&
+          (!context.value.lookups.workspaceExists(asked) ||
+            hiddenFrom(context.value, ctx, asked))
         ) {
           return notFound("workspace");
         }
@@ -202,7 +210,12 @@ export function createAgentReads(deps: AgentDeps): {
           return notFound("agent");
         }
         const loaded = found.value;
-        const model = effectiveModel(context.value, loaded, workspace);
+        // lophn의 model은 그 workspace의 층으로 푼다.
+        const model = effectiveModel(
+          context.value,
+          loaded,
+          isLophn(loaded.agent) ? workspaceOfAgent(loaded) : asked,
+        );
         const profile = profileOf(loaded);
         return ok({
           agent: loaded.agent,
@@ -212,15 +225,14 @@ export function createAgentReads(deps: AgentDeps): {
             name: {
               value: nameOf(loaded),
               source:
-                loaded.agent === LOPHN_AGENT_ID &&
-                nameOf(loaded) === LOPHN_AGENT_NAME
+                isLophn(loaded.agent) && nameOf(loaded) === LOPHN_AGENT_NAME
                   ? "global"
                   : "agent",
             },
             profile: {
               value: profile,
               source:
-                loaded.agent !== LOPHN_AGENT_ID &&
+                !isLophn(loaded.agent) &&
                 loaded.definition?.profile !== undefined
                   ? "agent"
                   : "global",

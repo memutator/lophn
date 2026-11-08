@@ -6,6 +6,7 @@ import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appDelete, appRemnantsEraser } from "../../../../protocol/apps/mod.ts";
 import { appFolder } from "../../../../protocol/apps/app-storage.ts";
 import { agentDelete } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { deleteSession } from "../../../../protocol/lophn-agent/sessions.ts";
 import type {
   AuthenticatedContext,
@@ -62,16 +63,23 @@ function eraseRemnants(
     sessions.push(session.id);
   }
 
-  // 그 앱에 범위가 있는 agent 정의(파일)와 다른 agent에 준 할당. 슬러그가 비면 같은 slug의 새 앱이 할당을 물려받으므로 지운다.
+  // 그 앱에 범위가 있는 agent 정의(파일, 앱의 lophn 포함)와 다른 agent에 준 할당. 슬러그가 비면 같은 slug의 새 앱이 할당을 물려받으므로 지운다.
   const agents = agentDirectory(tx.sql);
   const root = dataRootOf(tx.sql, undefined);
   if (!root.ok) return root;
   const store = createAgentStore(createNodeAgentFiles(), root.value);
   for (const info of agents.agents()) {
     if (info.workspace?.kind === "app" && info.workspace.id === app.id) {
-      const file = store.read(agentSlotOf(root.value, info.id));
+      const slot = agentSlotOf(root.value, info.id);
+      const file = store.read(slot);
       if (!file.ok) return file;
       if (file.value === null) continue;
+      // 앱의 lophn은 agentDelete가 막으므로 앱과 함께 정의 file을 직접 지운다.
+      if (isLophn(info.id)) {
+        const gone = store.remove(slot);
+        if (!gone.ok) return gone;
+        continue;
+      }
       const removed = tx.call(
         agentDelete,
         { agent: info.id },

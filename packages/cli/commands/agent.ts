@@ -13,7 +13,7 @@ import {
   agentHandleSchema,
   agentNameSchema,
   agentRead,
-  LOPHN_AGENT_ID,
+  isLophn,
   LOPHN_AGENT_HANDLE,
   LOPHN_AGENT_NAME,
 } from "../../protocol/lophn-agent/mod.ts";
@@ -24,7 +24,7 @@ const card = defineCommand({
   name: "agent.card",
   summary: "Read an agent's card",
   description:
-    "Read an agent's card by handle: handle, name, description, runtime, modality (what it takes and gives), replies it supports, how it differs from the default lophn agent (plus, minus) and notes. Read it before you call an agent.",
+    "Read an agent's card by handle: handle, name, description, runtime, modality (what it takes and gives), replies it supports, how it differs from the default lophn agent (plus, minus) and notes. Read it before you call an agent. The handle `lophn` is the lophn of the workspace you run in.",
   input: z.strictObject({ handle: agentHandleSchema }),
   positional: ["handle"],
   effect: "read",
@@ -85,7 +85,7 @@ const update = defineCommand({
   name: "agent.update",
   summary: "Change an agent",
   description:
-    "Change an agent by handle. Only the fields you send change (its handle and workspace never change; name is the display name). Its assignments are given by the person.",
+    "Change an agent by handle (`lophn` is the lophn of the workspace you run in). Only the fields you send change (its handle and workspace never change; name is the display name). Its assignments are given by the person.",
   input: agentDefinitionSchema
     .omit({
       handle: true,
@@ -117,10 +117,7 @@ const update = defineCommand({
     const current = await ctx.core.read(agentRead, { agent: row.agent });
     if (!current.ok) return current;
     const { definition, hash, issues } = current.value;
-    if (
-      issues.length > 0 ||
-      (definition === null && row.agent !== LOPHN_AGENT_ID)
-    ) {
+    if (issues.length > 0 || (definition === null && !isLophn(row.agent))) {
       return err({
         code: "invalid_input",
         message: "the agent file is broken",

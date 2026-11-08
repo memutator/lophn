@@ -4,7 +4,10 @@ import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../../base/mod.ts";
 import {
   type forkSession,
-  LOPHN_AGENT_ID,
+  isLophn,
+  LOPHN_HOME_ID,
+  lophnIdOf,
+  workspaceOfLophn,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -94,11 +97,11 @@ const deps: OpenDeps = {
               apps: [],
               deny: [],
             }
-          : id === LOPHN_AGENT_ID
+          : isLophn(id)
             ? {
                 id,
                 handle: "lophn",
-                workspace: null,
+                workspace: workspaceOfLophn(id),
                 name: "lophn",
                 skip: false,
                 runtime: "lophn" as const,
@@ -309,6 +312,9 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
     // 범위 agent는 자기 workspace 밖(home, 다른 workspace)에서는 없는 agent다.
     [SCOPED, null, "not_found"],
     [SCOPED, { kind: "project", id: PROJECT }, "not_found"],
+    // lophn도 자기 workspace 밖에서는 없는 agent다. Home lophn은 Home에서만 열린다.
+    [LOPHN_HOME_ID, { kind: "project", id: PROJECT }, "not_found"],
+    [lophnIdOf({ kind: "project", id: PROJECT }), null, "not_found"],
   ];
   for (const [agent, workspace, code] of refused) {
     const done = open(tx, { id: "ses_bad", agent, workspace });
@@ -324,11 +330,11 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
       workspace: { kind: "app", id: APP },
     }).ok,
   );
-  // lophn @ project, agt_… @ app은 열린다.
+  // 그 project의 lophn @ project, agt_… @ app은 열린다.
   assert.ok(
     open(tx, {
       id: "ses_project",
-      agent: LOPHN_AGENT_ID,
+      agent: lophnIdOf({ kind: "project", id: PROJECT }),
       workspace: { kind: "project", id: PROJECT },
     }).ok,
   );
@@ -355,7 +361,7 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
     },
     {
       id: "ses_app",
-      agent: LOPHN_AGENT_ID,
+      agent: LOPHN_HOME_ID,
       workspace: { kind: "app", id: APP },
     },
   ] as const) {

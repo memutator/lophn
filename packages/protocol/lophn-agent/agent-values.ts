@@ -246,6 +246,6 @@ export const agentCountsSchema = z.object({
 export type AgentCounts = z.infer<typeof agentCountsSchema>;
 
 // 목록의 정본은 assignment다. issues가 비어 있지 않으면 파일이 틀려 그 agent만 시작하지 않는다.
-// `lophn`은 내장 정의의 handle이고 예약이다. 이름의 기본값도 `lophn`이며 사람이 바꿀 수 있다.
+// `lophn`은 workspace마다 있는 내장 lophn의 handle이고 사람이 만든 agent에게는 예약이다. 이름의 기본값도 `lophn`이며 사람이 workspace마다 바꿀 수 있다.
 export const LOPHN_AGENT_HANDLE = "lophn";
 export const LOPHN_AGENT_NAME = "lophn";

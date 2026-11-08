@@ -36,7 +36,7 @@ import type { CoreCall } from "../../../ipc/core.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import {
-  LOPHN_AGENT_ID,
+  isLophn,
   LOPHN_AGENT_NAME,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { commandBody, type CompareOf } from "../../command-call.ts";
@@ -395,7 +395,7 @@ function lookups(core: CoreSource) {
     },
     // 부른 agent는 몇 안 되어 id마다 한 번 읽는다. lophn은 이름이 고정이다.
     agentName(agent: string): Promise<string | null> {
-      if (agent === LOPHN_AGENT_ID) return Promise.resolve(LOPHN_AGENT_NAME);
+      if (isLophn(agent)) return Promise.resolve(LOPHN_AGENT_NAME);
       let found = agents.get(agent);
       if (found === undefined) {
         found = read<{ effective: { name: { value: string } } }>(

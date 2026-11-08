@@ -7,7 +7,10 @@ import {
   type AgentAtWorkspace,
   type AgentCard,
   agentHandleKey,
+  isLophn,
+  lophnIdOf,
   MODALITIES,
+  type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { AgentFileDefinition } from "./definition-file.ts";
 import {
@@ -34,7 +37,12 @@ export function repliesOf(
 // 부르는 agent session의 자리와 call 정책. 명함의 callable을 정한다.
 export type CardCaller = { from: AgentAtWorkspace; policy: CallPolicy };
 
-// 명함의 차이는 workspace와 상관없다(workspace = null). prompt 원문은 싣지 않는다.
+// 부를 때 쓰는 agent id다. handle `lophn`은 부르는 workspace의 lophn으로 풀리므로 lophn 명함은 그 workspace의 id로 묻는다.
+function agentAt(loaded: Loaded, workspace: Workspace | null) {
+  return isLophn(loaded.agent) ? lophnIdOf(workspace) : loaded.agent;
+}
+
+// 명함의 차이는 그 agent의 정의로 계산한다(lophn이면 그 workspace의 lophn 정의). prompt 원문은 싣지 않는다.
 function cardOf(
   context: AgentContext,
   loaded: Loaded,
@@ -75,7 +83,7 @@ function cardOf(
         };
 
   const notes: string[] = [];
-  const model = effectiveModel(context, loaded, null);
+  const model = effectiveModel(context, loaded, workspaceOfAgent(loaded));
   if (model !== null && input.includes("image")) {
     const media = context.lookups.inputMedia(model.value);
     if (media !== null && !media.includes("image")) {
@@ -100,11 +108,11 @@ function cardOf(
       : {
           callable: {
             home: mayCall(caller.policy, caller.from, {
-              agent: loaded.agent,
+              agent: agentAt(loaded, null),
               workspace: null,
             }),
             here: mayCall(caller.policy, caller.from, {
-              agent: loaded.agent,
+              agent: agentAt(loaded, caller.from.workspace),
               workspace: caller.from.workspace,
             }),
           },
@@ -113,10 +121,11 @@ function cardOf(
 }
 
 // handle(앞뒤 공백과 대소문자 무시)로 찾는 동기 조회다. 틀린 정의 file은 명함을 만들 수 없다.
-// 부르는 agent session이 있으면 범위 agent는 그 workspace에서만 보인다(밖에서는 not_found).
+// `at`이 있으면 그 workspace에서 보이는 agent만 찾는다(범위 agent와 lophn은 밖에서 not_found). 없으면 좁히지 않는다.
 export function cardByHandle(
   context: AgentContext,
   handle: string,
+  at: { workspace: Workspace | null } | null,
   caller: CardCaller | null,
 ): Result<AgentCard> {
   const listed = listAgents(context);
@@ -125,7 +134,7 @@ export function cardByHandle(
   const loaded = listed.value.find(
     (entry) =>
       agentHandleKey(handleOf(entry)) === key &&
-      (caller === null || visibleIn(entry, caller.from.workspace)),
+      (at === null || visibleIn(entry, at.workspace)),
   );
   if (loaded === undefined) {
     return err({ code: "not_found", message: "agent not found" });

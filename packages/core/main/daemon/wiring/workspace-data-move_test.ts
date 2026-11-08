@@ -402,7 +402,7 @@ test("domains 칸이 차 있던 정의 file이 step 뒤에 읽힌다", async () 
     const lophn = parseAgentFile(
       (await text(join(root, "agents", "lophn.md")))!,
       {
-        agent: "lophn" as never,
+        agent: "lophn_home" as never,
       },
     );
     assert.ok(lophn.ok);

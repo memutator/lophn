@@ -12,7 +12,7 @@ import {
   type AgentId,
   type AgentRuntime,
   type AgentValueLayer,
-  LOPHN_AGENT_ID,
+  isLophn,
   LOPHN_AGENT_NAME,
   MCP_TOOL_PREFIX,
   type McpTool,
@@ -100,7 +100,7 @@ export async function resolveAgent(
   input: ResolveInput,
 ): Promise<Result<ResolvedAgent, LophnError>> {
   const { agent, workspace, definition, environment } = input;
-  if (agent !== LOPHN_AGENT_ID && definition === null) {
+  if (!isLophn(agent) && definition === null) {
     return err({ code: "not_found", message: "agent definition not found" });
   }
 
@@ -116,7 +116,7 @@ export async function resolveAgent(
   }
 
   const body = definition?.body ?? "";
-  const lophn = agent === LOPHN_AGENT_ID;
+  const lophn = isLophn(agent);
   const profile = lophn
     ? LOPHN_PROFILE
     : (definition?.profile ?? AGENT_DEFAULT_PROFILE);

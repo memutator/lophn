@@ -8,7 +8,7 @@ import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
 import type { JobAction } from "../../../../../protocol/jobs/values.ts";
 import {
   type AgentId,
-  LOPHN_AGENT_ID,
+  isLophn,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 import { turnChoicesOf, type WaitingChoice } from "./decide.ts";
@@ -76,7 +76,7 @@ export function shortId(id: string): string {
 // 카드는 agent 정의를 읽지 않아 이름 대신 lophn과 그 밖의 agent만 가른다.
 export function agentLabel(agent: AgentId): string {
   return t(
-    agent === LOPHN_AGENT_ID
+    isLophn(agent)
       ? "waiting.label.agent-lophn"
       : "waiting.label.agent-unnamed",
   );

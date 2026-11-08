@@ -15,7 +15,7 @@ import {
 } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import {
   type AgentId,
-  LOPHN_AGENT_ID,
+  isLophn,
   type Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
@@ -62,7 +62,7 @@ const agentNames = new WeakMap<Env, Map<string, Promise<string | null>>>();
 
 /** agent 이름. lophn은 바뀌지 않아 읽지 않는다. 다른 agent는 id마다 한 번 읽는다. 못 읽으면 null이다. */
 export function agentNameOf(env: Env, agent: AgentId): Promise<string | null> {
-  if (agent === LOPHN_AGENT_ID) return Promise.resolve(LOPHN_AGENT_NAME);
+  if (isLophn(agent)) return Promise.resolve(LOPHN_AGENT_NAME);
   let known = agentNames.get(env);
   if (known === undefined) {
     known = new Map();

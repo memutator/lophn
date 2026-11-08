@@ -4,7 +4,7 @@ import {
   type AgentDefinitionIssue,
   type AgentId,
   agentHandleKey,
-  LOPHN_AGENT_ID,
+  isLophn,
   MCP_TOOL_PREFIX,
   NEW_AGENT_HANDLE,
   parseExtensionToolName,
@@ -42,7 +42,8 @@ function addAll(
   }
 }
 
-// handle은 범위 있는 agent까지 전역에 하나다. 틀린 file은 handle을 알 수 없어 겹침에 넣지 않는다.
+// handle은 범위 있는 agent까지 전역에 하나다. 다만 workspace마다 있는 lophn끼리는 같은 handle이 정상이다.
+// 틀린 file은 handle을 알 수 없어 겹침에 넣지 않는다.
 function duplicateHandle(
   context: AgentContext,
   self: AgentId,
@@ -55,6 +56,7 @@ function duplicateHandle(
     others.value.some(
       (other) =>
         other.agent !== self &&
+        !(isLophn(self) && isLophn(other.agent)) &&
         other.issues.length === 0 &&
         agentHandleKey(handleOf(other)) === key,
     ),
@@ -100,7 +102,7 @@ export function checkAgent(input: {
     if (!taken.ok) return taken;
     if (taken.value) addAll(issues, [{ field: "handle", code: "duplicate" }]);
   }
-  if (creating && agent !== LOPHN_AGENT_ID) {
+  if (creating && !isLophn(agent)) {
     if (
       !issues.some((issue) => issue.field === "handle") &&
       !NEW_AGENT_HANDLE.test(definition.handle)

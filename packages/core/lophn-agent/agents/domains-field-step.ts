@@ -1,7 +1,10 @@
 import { readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { parse, stringify } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  type AgentId,
+  LOPHN_HOME_ID,
+} from "../../../protocol/lophn-agent/mod.ts";
 import type { DataStep } from "../../storage/migration/mod.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 
@@ -48,7 +51,10 @@ export const dropDomainsFieldStep: DataStep = {
           string,
           unknown
         >;
-        const agent = file.slice(0, -3) as AgentId;
+        // 옛 전역 lophn 파일(`lophn.md`)은 id가 아직 `lophn`이던 때의 것이라 같은 정의 꼴(Home lophn)로 읽는다.
+        const agent = (
+          file === "lophn.md" ? LOPHN_HOME_ID : file.slice(0, -3)
+        ) as AgentId;
         const parsed = parseAgentFile(
           `${FENCE}\n${stringify(kept, STRINGIFY_OPTIONS)}${FENCE}\n${lines.slice(close + 1).join("\n")}`,
           { agent },

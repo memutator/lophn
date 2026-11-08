@@ -25,7 +25,7 @@ import type { PublishedExtension } from "../../../../protocol/lophn-agent/extens
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
 import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-values.ts";
-import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { FilesApi } from "../../../ipc/files.ts";
 import type { InstructionsApi } from "../../../ipc/instructions.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
@@ -131,9 +131,7 @@ function newAgentId(bytes: Uint8Array): string {
 
 // 정의가 틀려 읽지 못한 agent는 handle을 알 수 없어 명함이 없다(없는 handle로 읽으면 not_found).
 function handleOf(agent: string, definition: AgentDraft | null): string {
-  return agent === LOPHN_AGENT_ID
-    ? LOPHN_AGENT_HANDLE
-    : (definition?.handle ?? agent);
+  return isLophn(agent) ? LOPHN_AGENT_HANDLE : (definition?.handle ?? agent);
 }
 
 // 영문 소문자·숫자만 남긴 handle 기본값. 비면 사람이 정해야 한다.
@@ -636,15 +634,14 @@ export function coreAgentsSource(
         return { ok: false, message: before.message, issues: [] };
       }
       const stored = before.value.definition;
-      const definition: AgentDraft =
-        input.assignment === LOPHN_AGENT_ID
-          ? {
-              ...draft,
-              handle: LOPHN_AGENT_HANDLE,
-              name: draft.name ?? before.value.effective.name.value,
-              profile: stored?.profile ?? before.value.effective.profile.value,
-            }
-          : draft;
+      const definition: AgentDraft = isLophn(input.assignment)
+        ? {
+            ...draft,
+            handle: LOPHN_AGENT_HANDLE,
+            name: draft.name ?? before.value.effective.name.value,
+            profile: stored?.profile ?? before.value.effective.profile.value,
+          }
+        : draft;
       const saved = await link.command(agentChange, {
         input: { agent: input.assignment, definition },
         compare: { hash: input.hash },

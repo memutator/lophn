@@ -7,7 +7,7 @@ import {
   agentProfileImageRead,
   agentProfileImageUpload,
   agentRead,
-  LOPHN_AGENT_ID,
+  isLophn,
   type Profile,
   profileOutputSchema,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -179,7 +179,7 @@ async function judge(
   ctx: AuthenticatedContext,
   agent: AgentId,
 ): Promise<Result<Judged>> {
-  if (agent === LOPHN_AGENT_ID) {
+  if (isLophn(agent)) {
     return err({ code: "forbidden", message: "lophn's profile is fixed" });
   }
   const read = await deps.readers.read(agentRead, ctx, { agent });

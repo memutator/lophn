@@ -15,33 +15,16 @@ import {
   agentProfileHandlers,
   messageImageHandlers,
 } from "../../../lophn-agent/register.ts";
-import { ensureLophn } from "../../../agent-workspaces/agents/ensure.ts";
 import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
-import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
 import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import type { WiringFactory } from "./context.ts";
 
-// 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
-const NODE_AGENT_FILES = new URL(
-  "../../../lophn-agent/agents/adapters/node-fs.ts",
-  import.meta.url,
-).href;
-const { createNodeAgentFiles } = (await import(NODE_AGENT_FILES)) as {
-  createNodeAgentFiles(): AgentFileSystem;
-};
-
 export const lophnAgentWiring: WiringFactory = () => ({
   name: "lophn-agent",
-  // 첫 기동 때 lophn 정의 파일이 없으면 만든다. 이미 있으면 그대로다.
-  start(ctx) {
-    return Promise.resolve(
-      ensureLophn({ files: createNodeAgentFiles(), root: ctx.root.path }),
-    );
-  },
   build(ctx) {
     const profiles = agentProfileHandlers(ctx.runtime.readers, ctx.root.path);
     const images = messageImageHandlers(ctx.root.path, {

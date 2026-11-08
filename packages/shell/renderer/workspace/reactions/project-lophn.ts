@@ -1,7 +1,7 @@
 // 그 workspace(project, 앱, Home)의 lophn session을 연다. 이미 연 session이 있으면 그 session의 Agent 탭을, 없으면 새 session 탭을 연다.
 import type { WorkspaceRef } from "../../shell/desk-model.ts";
 import type { SessionEntry } from "../../desktop/connection/events/sessions-store.ts";
-import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { openAgent } from "../kinds/agent.tsx";
 import type { TabHost } from "../kinds/host.ts";
 import { openedWorkspaceLophnSession } from "../sidebar/panel-sessions.ts";
@@ -17,7 +17,7 @@ interface ProjectLophnEnv {
 
 /** 그 workspace의 lophn session을 열 수 있으면 true. */
 export function openProjectLophn(env: ProjectLophnEnv): boolean {
-  const row = env.agents().find((item) => item.assignment === LOPHN_AGENT_ID);
+  const row = env.agents().find((item) => isLophn(item.assignment));
   if (row === undefined || env.host().agentView === null) return false;
   openAgent(env.host(), {
     agent: row.assignment,

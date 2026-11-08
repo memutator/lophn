@@ -26,6 +26,8 @@ export type ReadSql = Pick<Tx["sql"], "get" | "all">;
 
 // 다른 concern의 값을 읽는 길. 정본은 각 concern이고 여기서는 읽기만 한다.
 export type AgentLookups = {
+  // 있는 project와 앱 전부다(archived 앱도). workspace마다 lophn이 하나씩 있다.
+  workspaces(): Workspace[];
   workspaceExists(workspace: Workspace): boolean;
   // archived 앱의 workspace다. agent에게는 없는 workspace로 다룬다.
   workspaceArchived(workspace: Workspace): boolean;

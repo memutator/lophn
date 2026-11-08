@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/mod.ts";
+import { LOPHN_HOME_ID } from "../../../protocol/lophn-agent/mod.ts";
 import { createNodeAgentFiles } from "./adapters/node-fs.ts";
 import { createAgentCommands } from "./commands.ts";
 import type { AgentLookups } from "./ports.ts";
@@ -19,6 +19,7 @@ const agent = {
 const tx = { sql: {} } as unknown as Tx;
 
 const lookups: AgentLookups = {
+  workspaces: () => [],
   workspaceExists: () => false,
   workspaceArchived: () => false,
   skills: () => [],
@@ -35,7 +36,7 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
   try {
     const files = createNodeAgentFiles();
     const store = createAgentStore(files, root);
-    const lophnSlot = agentSlotOf(root, LOPHN_AGENT_ID);
+    const lophnSlot = agentSlotOf(root, LOPHN_HOME_ID);
     assert.ok(store.write(lophnSlot, "").ok);
     const before = store.read(lophnSlot);
     assert.ok(before.ok && before.value !== null);
@@ -55,14 +56,14 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
       commands.change.handle(
         tx,
         user,
-        { agent: LOPHN_AGENT_ID, definition } as never,
+        { agent: LOPHN_HOME_ID, definition } as never,
         { hash: beforeHash },
       );
 
     const deleted = commands.delete.handle(
       tx,
       user,
-      { agent: LOPHN_AGENT_ID },
+      { agent: LOPHN_HOME_ID },
       { hash: beforeHash },
     );
     assert.ok(!deleted.ok);
@@ -145,7 +146,7 @@ test("lophn은 지우거나 handle·profile을 바꿀 수 없고, handle은 전�
       tx,
       agent,
       {
-        agent: LOPHN_AGENT_ID,
+        agent: LOPHN_HOME_ID,
         definition: {
           handle: "lophn",
           name: "lophn",
@@ -269,7 +270,7 @@ test("agent가 만든 agent는 부른 session의 workspace에 범위가 잡히�
         sql: {
           get: () => ({
             id: "ses_00000000000000000000000001",
-            agent: LOPHN_AGENT_ID,
+            agent: LOPHN_HOME_ID,
             workspace_kind: kind,
             workspace_id: id,
             lifecycle: "open",

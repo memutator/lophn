@@ -10,7 +10,7 @@ import {
   agentDefinitionSchema,
   agentHandleKey,
   LOPHN_AGENT_HANDLE,
-  LOPHN_AGENT_ID,
+  isLophn,
   LOPHN_AGENT_NAME,
 } from "../../../protocol/lophn-agent/mod.ts";
 
@@ -143,8 +143,8 @@ function checkDefinition(
   }
 
   const fields: Plain = { ...raw };
-  const isLophn = target.agent === LOPHN_AGENT_ID;
-  if (isLophn) {
+  const lophn = isLophn(target.agent);
+  if (lophn) {
     for (const key of ["handle", "profile", "workspace"]) {
       if (Object.hasOwn(fields, key)) {
         addIssue(issues, key, "not_allowed");
@@ -182,7 +182,7 @@ function checkDefinition(
       const top = issue.field.split(".")[0];
       // 비었거나 없는 handle·name은 위에서 required로 이미 적었다.
       if (
-        !isLophn &&
+        !lophn &&
         (top === "handle" || top === "name") &&
         (fields[top] === undefined ||
           (typeof fields[top] === "string" &&
@@ -193,7 +193,7 @@ function checkDefinition(
       addIssue(issues, issue.field, issue.code);
     }
   } else if (
-    !isLophn &&
+    !lophn &&
     agentHandleKey(shaped.data.handle) === agentHandleKey(LOPHN_AGENT_HANDLE)
   ) {
     addIssue(issues, "handle", "reserved_name");
@@ -287,8 +287,8 @@ export function serializeAgentFile(
 ): Result<string, AgentFileError> {
   const { body, ...fields } = definition as Plain;
   const stored: Plain = { ...fields };
-  const isLophn = target.agent === LOPHN_AGENT_ID;
-  if (isLophn) {
+  const lophn = isLophn(target.agent);
+  if (lophn) {
     delete stored.handle;
     delete stored.profile;
     delete stored.workspace;
@@ -296,7 +296,7 @@ export function serializeAgentFile(
   const checked = checkDefinition(stored, body, target);
   if (!checked.ok) return checked;
   const { body: text, ...kept } = checked.value as Plain;
-  if (isLophn) {
+  if (lophn) {
     delete kept.handle;
     if (kept.name === LOPHN_AGENT_NAME) delete kept.name;
   }

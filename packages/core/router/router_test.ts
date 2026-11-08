@@ -10,7 +10,10 @@ import {
   type CallPolicy,
   DEFAULT_CALL_POLICY,
 } from "../../protocol/lophn-agent/call-policy.ts";
-import type { AgentAtWorkspace } from "../../protocol/lophn-agent/workspaces.ts";
+import {
+  type AgentAtWorkspace,
+  lophnIdOf,
+} from "../../protocol/lophn-agent/workspaces.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { ASK_ANSWERED_TOPIC, ASK_ENDED_TOPIC } from "./model.ts";
 import { createRouter } from "./router.ts";
@@ -25,7 +28,7 @@ import type {
 
 const SENDER = "ses_sender";
 const RECEIVER = "ses_receiver";
-const lophn = { agent: "lophn", workspace: null } as const;
+const lophn = { agent: lophnIdOf(null), workspace: null } as const;
 
 function target(
   session: string,
@@ -58,6 +61,7 @@ function setup(
   const announced: { topic: string; data: unknown }[] = [];
   let opened = 0;
   const openedBy: (string | null)[] = [];
+  const openedAt: AgentAtWorkspace[] = [];
   const store: CallStore = {
     insert: (_tx, record) => {
       rows.set(record.call, record);
@@ -87,8 +91,9 @@ function setup(
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
     resolveAddress: () => ok(sessions[RECEIVER]?.agent ?? lophn),
-    open: (_tx, _agent, _opener, spawnedBy) => {
+    open: (_tx, agent, _opener, spawnedBy) => {
       opened += 1;
+      openedAt.push(agent);
       openedBy.push(spawnedBy);
       return ok(sessions[RECEIVER]!);
     },
@@ -120,6 +125,7 @@ function setup(
     announced,
     opened: () => opened,
     openedBy,
+    openedAt,
   };
 }
 
@@ -354,13 +360,29 @@ test("a call the receiving agent cannot take is rejected and leaves no call row,
 // 권한 경계다. 정책이 거절한 agent call은 call 행도 session도 남기지 않는다. 사람이 보낸 call은 보지 않는다.
 // 어느 call을 거절하는지(판정 순서)는 protocol의 mayCall test가 본다.
 test("a call the policy refuses is forbidden and leaves no row or session; a human call is not checked", () => {
-  const projectA = { kind: "project", id: "prj_a" } as const;
-  const projectB = { kind: "project", id: "prj_b" } as const;
+  const projectA = {
+    kind: "project",
+    id: "prj_00000000000000000000000001",
+  } as const;
+  const projectB = {
+    kind: "project",
+    id: "prj_00000000000000000000000002",
+  } as const;
   const sessions = {
-    [SENDER]: target(SENDER, true, { agent: "lophn", workspace: projectA }),
-    [RECEIVER]: target(RECEIVER, true, { agent: "lophn", workspace: projectB }),
+    [SENDER]: target(SENDER, true, {
+      agent: lophnIdOf(projectA),
+      workspace: projectA,
+    }),
+    [RECEIVER]: target(RECEIVER, true, {
+      agent: lophnIdOf(projectB),
+      workspace: projectB,
+    }),
   };
-  const input = { ...base, to: { agent: "lophn" }, dedup: "tool-1" } as const;
+  const input = {
+    ...base,
+    to: { agent: "lophn", workspace: { project: "b" } },
+    dedup: "tool-1",
+  } as const;
 
   const refused = setup(sessions, undefined, {
     ...DEFAULT_CALL_POLICY,
@@ -380,12 +402,15 @@ test("a call the policy refuses is forbidden and leaves no row or session; a hum
   assert.ok(human.ok);
 });
 
-// 권한 경계다. home의 기본 lophn이 private workspace의 lophn에게 reply none으로 일을 넘기는 고정 예외 하나. 답이 오가는 reply는 막힌다.
+// 권한 경계다. Home의 lophn이 private workspace의 lophn에게 reply none으로 일을 넘기는 고정 예외 하나. 답이 오가는 reply는 막힌다.
 test("home lophn hands work to a private app's lophn only with reply none", () => {
-  const app = { kind: "app", id: "app_private" } as const;
+  const app = { kind: "app", id: "app_00000000000000000000000001" } as const;
   const sessions = {
-    [SENDER]: target(SENDER, true, { agent: "lophn", workspace: null }),
-    [RECEIVER]: target(RECEIVER, true, { agent: "lophn", workspace: app }),
+    [SENDER]: target(SENDER, true, lophn),
+    [RECEIVER]: target(RECEIVER, true, {
+      agent: lophnIdOf(app),
+      workspace: app,
+    }),
   };
   const policy = { ...DEFAULT_CALL_POLICY, private: [app] };
   const input = { ...base, to: { agent: "lophn" }, dedup: "tool-1" } as const;
@@ -400,6 +425,48 @@ test("home lophn hands work to a private app's lophn only with reply none", () =
   assert.ok(!refused.ok);
   assert.deepStrictEqual(refused.error.code, "forbidden");
   assert.deepStrictEqual(asked.rows.size, 0);
+});
+
+// 주소 경계다. handle lophn에 workspace를 주면 그 workspace의 lophn에, 빼면 부른 쪽 workspace의 lophn에 session이 열린다.
+test("a call to lophn opens the lophn of the named workspace, or of the caller's workspace when none is named", () => {
+  const here = {
+    kind: "project",
+    id: "prj_00000000000000000000000001",
+  } as const;
+  const there = { kind: "app", id: "app_00000000000000000000000001" } as const;
+  const sessions = {
+    [SENDER]: target(SENDER, true, { agent: lophnIdOf(here), workspace: here }),
+    [RECEIVER]: target(RECEIVER, true),
+  };
+  const unnamed = setup(sessions);
+  assert.ok(
+    unnamed.router.route(unnamed.tx, {
+      ...base,
+      to: { agent: "lophn" },
+      dedup: "tool-1",
+    }).ok,
+  );
+  assert.deepStrictEqual(unnamed.openedAt, [
+    { agent: lophnIdOf(here), workspace: here },
+  ]);
+  // 이름 있는 workspace는 directory.resolveAddress가 푼 그대로 간다.
+  const named = setup({
+    ...sessions,
+    [RECEIVER]: target(RECEIVER, true, {
+      agent: lophnIdOf(there),
+      workspace: there,
+    }),
+  });
+  assert.ok(
+    named.router.route(named.tx, {
+      ...base,
+      to: { agent: "lophn", workspace: { app: "calendar" } },
+      dedup: "tool-1",
+    }).ok,
+  );
+  assert.deepStrictEqual(named.openedAt, [
+    { agent: lophnIdOf(there), workspace: there },
+  ]);
 });
 
 // 팀 규칙 2. 부모 ses_p 밑에 SENDER와 형제 ses_b가 있고 ses_b 밑에 ses_c가 있다. ses_x는 팀 밖이다.

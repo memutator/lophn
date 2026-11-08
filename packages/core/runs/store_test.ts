@@ -16,7 +16,7 @@ test("run이 연 session은 다시 읽어도 session_opened가 참이다(INTEGER
     insertRun(sql, {
       id,
       kind: "agent",
-      target: { agent: { agent: "lophn", workspace: null } },
+      target: { agent: { agent: "lophn_home", workspace: null } },
       session: "ses_01hzzzzzzzzzzzzzzzzzzzzzza",
       session_opened: true,
       input_message: "msg_01hzzzzzzzzzzzzzzzzzzzzzza",

@@ -487,6 +487,16 @@ function agentLookups(
     return registry;
   };
   return {
+    workspaces: () => [
+      ...workspaces
+        .projectIds(sql)
+        .map(
+          (id): Workspace => ({ kind: "project", id: id as `prj_${string}` }),
+        ),
+      ...workspaces
+        .appIds(sql)
+        .map((id): Workspace => ({ kind: "app", id: id as `app_${string}` })),
+    ],
     workspaceExists: (workspace) => workspaceExists(workspaces, sql, workspace),
     workspaceArchived: (workspace) =>
       workspace.kind === "app" && workspaces.appArchived(sql, workspace.id),

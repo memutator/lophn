@@ -55,7 +55,7 @@ function setup() {
     insertJob(sql, {
       id,
       title: "t",
-      creator: { agent: "lophn", workspace: null },
+      creator: { agent: "lophn_home", workspace: null },
       every: "1h",
       at: null,
       action,

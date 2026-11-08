@@ -12,7 +12,7 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import { isLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
@@ -226,7 +226,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
 
   const { detail, definition } = state;
   const fresh = detail.assignment === null;
-  const lophn = detail.assignment === LOPHN_AGENT_ID;
+  const lophn = detail.assignment !== null && isLophn(detail.assignment);
   const edit = (next: AgentDraft) =>
     setState((current) =>
       current.kind === "ready" ? { ...current, definition: next } : current,

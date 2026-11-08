@@ -7,7 +7,7 @@ import type {
   NoticeAction,
 } from "../../../../../protocol/apps/notice.ts";
 import { textBlocks } from "../../../../../protocol/lophn-agent/content-block.ts";
-import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import { lophnIdOf } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { coreAgentTabSourceFactory } from "../../../conversation/agent-tab-core-source.ts";
 import { newId } from "../../../prefixed-id.ts";
 import type { CoreSource } from "../connection.ts";
@@ -20,7 +20,7 @@ export async function runNoticeAction(
   action: NoticeAction,
 ): Promise<boolean> {
   const source = coreAgentTabSourceFactory(core)({
-    assignment: LOPHN_AGENT_ID,
+    assignment: lophnIdOf(null),
     workspace: { kind: "global", id: "" },
   });
   const now = Date.now();

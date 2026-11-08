@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { dirname, isAbsolute } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { idSchema } from "../../../protocol/base/ids.ts";
-import type { AgentId } from "../../../protocol/lophn-agent/mod.ts";
+import { type AgentId, isLophn } from "../../../protocol/lophn-agent/mod.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 import type { AgentFileSystem, ReadSql } from "./ports.ts";
 
@@ -107,7 +107,7 @@ export function dataRootOf(
 }
 
 // 할당(`apps`, `permissions.deny`)만 바꿔 정의 파일에 다시 쓴다. 다른 칸과 본문은 그대로다.
-// 파일이 없거나 틀린 agent는 쓰지 않는다(할당은 정의가 있는 agent의 것이다).
+// 파일이 없는 agent는 쓰지 않는다(할당은 정의가 있는 agent의 것이다). lophn은 파일이 없어도 기본 정의가 있다.
 export function writeAgentAssignment(
   store: AgentStore,
   agent: AgentId,
@@ -116,10 +116,12 @@ export function writeAgentAssignment(
   const slot = agentSlotOf(store.root, agent);
   const read = store.read(slot);
   if (!read.ok) return read;
-  if (read.value === null) {
+  // 파일이 없는 lophn은 기본 정의다.
+  const current = read.value?.text ?? (isLophn(agent) ? "" : null);
+  if (current === null) {
     return err({ code: "not_found", message: "agent not found" });
   }
-  const parsed = parseAgentFile(read.value.text, { agent });
+  const parsed = parseAgentFile(current, { agent });
   if (!parsed.ok) return parsed;
   const text = serializeAgentFile(
     {

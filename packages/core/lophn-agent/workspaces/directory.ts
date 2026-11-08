@@ -94,7 +94,8 @@ export function createSessionDirectory(
     },
     accepts(agent) {
       const info = deps.agents.agent(agent);
-      const card = info === null ? null : deps.agents.cardOf(info.handle);
+      const card =
+        info === null ? null : deps.agents.cardOf(info.handle, info.workspace);
       return card === null
         ? null
         : {
@@ -120,7 +121,8 @@ export function createSessionDirectory(
           ...targetOf(row),
           ...described,
           description:
-            deps.agents.cardOf(described.handle)?.description ?? null,
+            deps.agents.cardOf(described.handle, workspaceOf(row))
+              ?.description ?? null,
           runtime: deps.agents.agent(row.agent)?.runtime ?? "lophn",
           title: row.title,
           last_active_at:

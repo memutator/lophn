@@ -56,7 +56,7 @@ import { providerList } from "../../../../protocol/lophn-agent/providers.ts";
 import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
 import {
   type AgentId,
-  LOPHN_AGENT_ID,
+  isLophn,
   type Workspace,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import {
@@ -239,7 +239,7 @@ export async function agentNameOf(
 ): Promise<string | null> {
   const read = await env.read<Output<typeof agentRead>>(agentRead, { agent });
   if (read.ok) return env.redact(read.value.effective.name.value);
-  return agent === LOPHN_AGENT_ID ? LOPHN_AGENT_NAME : null;
+  return isLophn(agent) ? LOPHN_AGENT_NAME : null;
 }
 
 // ---------------------------------------------------------------- tool

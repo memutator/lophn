@@ -10,7 +10,7 @@ import type {
   AcpToolItem,
 } from "../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
+import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import { harnessVendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
 import type {
   HarnessGuiInfo,
@@ -79,7 +79,7 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
   const label = HARNESS_ADAPTERS[info.harness].label;
   const vendor = harnessVendorOf(info.harness);
   const face: AgentFace = {
-    agent: LOPHN_AGENT_ID,
+    agent: lophnIdOf(null),
     name: label,
     profile:
       vendor === undefined

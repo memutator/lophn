@@ -5,7 +5,7 @@ import { IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 import {
   type AgentId,
-  LOPHN_AGENT_ID,
+  isLophn,
 } from "../../../../../../protocol/lophn-agent/workspaces.ts";
 import { commonIcons } from "../../../../icons/mod.ts";
 import {
@@ -24,7 +24,7 @@ const LOPHN_FACE = {
 const AGENT_FACE = { kind: "character", shape: "arch", color: "sage" } as const;
 
 function faceOf(agent: AgentId | null): AvatarProfile {
-  return agent === null || agent === LOPHN_AGENT_ID ? LOPHN_FACE : AGENT_FACE;
+  return agent === null || isLophn(agent) ? LOPHN_FACE : AGENT_FACE;
 }
 
 export function Head({

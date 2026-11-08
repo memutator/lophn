@@ -6,7 +6,6 @@ import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { MenuIcon, Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import { annotateHead } from "../app-frame/annotate/annotate-head.tsx";
 import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
@@ -102,7 +101,7 @@ export function AppScreenTab(props: AppScreenTabProps) {
   // 받는 쪽은 이 앱 workspace에서 열린 lophn session이다. 없으면 lophn의 새 session이다.
   async function sendAnnotations(): Promise<void> {
     const session = agentView?.workspaceLophnSession() ?? null;
-    const sent = await annotating.send({ agent: LOPHN_AGENT_ID, session });
+    const sent = await annotating.send({ session });
     if (sent === null) return;
     const agent = agentView?.nameOf(sent.session) ?? "lophn";
     toast.show({

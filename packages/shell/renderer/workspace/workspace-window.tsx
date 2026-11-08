@@ -12,7 +12,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/workspaces.ts";
+import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
 import { useAppRuns } from "../app-frame/app-runs.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import {
@@ -967,8 +967,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       openTerminalTab(host, { command: start.command, docked: true });
       return true;
     }
-    const row = sidebarAgents.agents.find(
-      (item) => item.assignment === (start.agent ?? LOPHN_AGENT_ID),
+    const row = sidebarAgents.agents.find((item) =>
+      start.agent === undefined
+        ? isLophn(item.assignment)
+        : item.assignment === start.agent,
     );
     if (agentViewSource === undefined || row === undefined) return false;
     openAgent(host, { agent: row.assignment, name: row.name });

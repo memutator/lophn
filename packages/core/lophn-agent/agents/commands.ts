@@ -6,7 +6,7 @@ import {
   agentHandleKey,
   type AgentId,
   agentDelete,
-  LOPHN_AGENT_ID,
+  isLophn,
   type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -31,7 +31,7 @@ import { staleImagePaths } from "./profile-asset.ts";
 import { agentSlotOf } from "./store.ts";
 import { checkAgent } from "./validate.ts";
 
-// 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn의 handle·profile은 고정이고 lophn은 지울 수 없다.
+// 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn은 workspace마다 하나이고 handle·profile은 고정이며 지울 수 없다(workspace를 지울 때만 정의 file이 지워진다).
 // handle과 범위 workspace는 만들 때만 정한다. agent가 만들면 범위는 그 session의 workspace다(home이면 전역).
 // agent 자격은 `mcp_servers`, `skip`, `apps`, `extensions`, `permissions`를 바꾸지 못한다: 그 칸들은 사람의 승인 경계다.
 
@@ -183,7 +183,7 @@ export function createAgentCommands(deps: AgentDeps): {
             message: HUMAN_ONLY_MESSAGE,
           });
         }
-        if (input.agent === LOPHN_AGENT_ID) {
+        if (isLophn(input.agent)) {
           const profile = input.definition.profile;
           if (profile !== undefined && !same(profile, LOPHN_PROFILE)) {
             return err({
@@ -201,7 +201,7 @@ export function createAgentCommands(deps: AgentDeps): {
             return notAllowed("handle");
           }
           if (
-            input.agent !== LOPHN_AGENT_ID &&
+            !isLophn(input.agent) &&
             !same(input.definition.workspace, workspaceOfAgent(loaded))
           ) {
             return notAllowed("workspace");
@@ -235,7 +235,7 @@ export function createAgentCommands(deps: AgentDeps): {
         input: Input<typeof agentDelete>,
         compare: Compare<typeof agentDelete>,
       ): Result<Output<typeof agentDelete>> {
-        if (input.agent === LOPHN_AGENT_ID) {
+        if (isLophn(input.agent)) {
           return err({ code: "forbidden", message: "lophn cannot be deleted" });
         }
         const context = open(deps, tx);

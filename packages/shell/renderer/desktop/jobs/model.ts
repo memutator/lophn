@@ -6,7 +6,7 @@ import { shortId } from "../connection/waiting/model.ts";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import {
   type AgentId,
-  LOPHN_AGENT_ID,
+  isLophn,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type {
   JobActionView,
@@ -61,9 +61,7 @@ export function nextText(job: JobView, now: Date): string {
 export function agentName(agent: AgentId, names: JobNames): string {
   return (
     names.agents[agent] ??
-    (agent === LOPHN_AGENT_ID
-      ? LOPHN_AGENT_NAME
-      : t("jobs.label.agent-unnamed"))
+    (isLophn(agent) ? LOPHN_AGENT_NAME : t("jobs.label.agent-unnamed"))
   );
 }
 

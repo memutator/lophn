@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import { LOPHN_AGENT_ID } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { AppsSource } from "../../apps/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
@@ -275,7 +275,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     workspaceKey(ref) === workspaceKey(current)
       ? choices
       : agentChoices(
-          props.agents.filter((agent) => agent.assignment === LOPHN_AGENT_ID),
+          props.agents.filter((agent) => isLophn(agent.assignment)),
           ref.kind === "project" ? coding.favorites : [],
         );
   const [registering, setRegistering] = useState(false);

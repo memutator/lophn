@@ -5,7 +5,7 @@ import {
   AGENT_CHARACTER_SHAPES,
   type Profile,
 } from "../../../protocol/lophn-agent/agent-values.ts";
-import { LOPHN_AGENT_ID } from "../../../protocol/lophn-agent/mod.ts";
+import { LOPHN_HOME_ID } from "../../../protocol/lophn-agent/mod.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
 
 const AGENT = "agt_00000000000000000000000001";
@@ -121,7 +121,7 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
     ).ok,
   );
 
-  const builtin = { agent: LOPHN_AGENT_ID } as const;
+  const builtin = { agent: LOPHN_HOME_ID } as const;
   assert.ok(
     !serializeAgentFile(
       { handle: "lophn", name: "lophn", runtime: "bare", body: "" },
@@ -134,7 +134,7 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
 
 // lophn.md에 handle을 적으면 주소가 흔들린다. name은 사람이 바꿀 수 있고 바꾼 값만 file에 남는다.
 test("lophn은 handle·profile을 file에 적을 수 없고 name은 바꾼 값만 쓴다", () => {
-  const builtin = { agent: LOPHN_AGENT_ID } as const;
+  const builtin = { agent: LOPHN_HOME_ID } as const;
   assert.ok(!parseAgentFile("---\nhandle: x\n---\n", builtin).ok);
   const empty = parseAgentFile("", builtin);
   assert.ok(empty.ok);

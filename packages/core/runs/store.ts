@@ -4,9 +4,9 @@ import type {
   AgentId,
 } from "../../protocol/lophn-agent/mod.ts";
 import type {
-  RunWorkspace,
   RunRecord,
   RunState,
+  RunWorkspace,
 } from "../../protocol/runs/mod.ts";
 import { runRecordSchema } from "../../protocol/runs/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
@@ -172,6 +172,15 @@ export function listRuns(
     runs.push(run.value);
   }
   return ok(runs);
+}
+
+// idle-exit가 보는 일. running인 run은 끝났다고 기록될 때까지 일이다.
+export function hasActivity(sql: Query): Result<boolean> {
+  const row = sql.get(
+    "SELECT EXISTS (SELECT 1 FROM runs WHERE state = 'running') AS busy",
+    [],
+  );
+  return ok(Number(row?.["busy"] ?? 0) === 1);
 }
 
 export function settleRow(

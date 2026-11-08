@@ -242,3 +242,12 @@ export function runningInstances(sql: Query): Result<WorkflowInstance[]> {
     ),
   );
 }
+
+// idle-exit가 보는 일. project를 가리지 않고 running인 instance가 있으면 true다.
+export function hasActivity(sql: Query): Result<boolean> {
+  const row = sql.get(
+    "SELECT EXISTS (SELECT 1 FROM workflow_instances WHERE state = 'running') AS busy",
+    [],
+  );
+  return ok(Number(row?.["busy"] ?? 0) === 1);
+}

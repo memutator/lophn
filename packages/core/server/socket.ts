@@ -72,6 +72,8 @@ export type GatewayUpgrade = {
     ctx: AuthenticatedContext,
     deps: SocketDeps,
   ): void;
+  // 구독 중인 Gateway 연결 수(active)와 연결이 시작된 횟수(arrivals). handshake만 하다 실패한 연결은 안 센다.
+  activity(): { active: number; arrivals: number };
   shutdown(): void;
 };
 
@@ -81,14 +83,17 @@ export function createGatewayUpgrade(): GatewayUpgrade {
     // acceptSocket이 이미 같은 subprotocol을 확인했다.
     handleProtocols: () => GATEWAY_SUBPROTOCOL,
   });
+  let arrivals = 0;
   return {
     accept(request, socket, head, ctx, deps) {
       // handshake가 실패하면 ws는 ws 객체 없이 socket을 버린다. 연결 자리는 socket이 닫힐 때 돌려준다.
       socket.once("close", () => deps.onClose?.());
       server.handleUpgrade(request, socket, head, (ws) => {
+        arrivals += 1;
         attachSession(ws, ctx, deps);
       });
     },
+    activity: () => ({ active: server.clients.size, arrivals }),
     shutdown() {
       // upgraded socket은 server.close()가 닫지 않는다.
       for (const client of [...server.clients]) client.terminate();

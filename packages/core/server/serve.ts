@@ -55,6 +55,8 @@ export type ServeOptions =
 
 export type ServeHandle = {
   readonly addr: ServeAddr;
+  // 받은 HTTP 요청 수(arrivals)와 지금 응답을 보내는 중인 요청 수(active). upgrade 요청은 여기 없다.
+  activity(): { active: number; arrivals: number };
   // 새 연결은 받지 않고, 이미 받은 요청이 끝나면 닫는다.
   shutdown(): Promise<void>;
 };
@@ -104,11 +106,16 @@ function bind(server: Server, options: ListenOptions): Promise<void> {
   });
 }
 
-type Requests = { whenIdle(run: () => void): void };
+type Requests = {
+  whenIdle(run: () => void): void;
+  activity(): { active: number; arrivals: number };
+};
 
-// 진행 중인 요청 수. 0이 되면 기다리던 일을 부른다.
+// 진행 중인 요청 수. 0이 되면 기다리던 일을 부른다. 요청은 받은 때부터 응답 body가 닫힐 때까지 센다.
+// 거절·abort·stream 오류도 response가 닫히며 수를 돌려준다.
 function trackRequests(server: Server): Requests {
   let active = 0;
+  let arrivals = 0;
   let waiting: (() => void)[] = [];
   const settle = () => {
     if (active > 0) return;
@@ -118,6 +125,7 @@ function trackRequests(server: Server): Requests {
   };
   server.on("request", (_request, response) => {
     active += 1;
+    arrivals += 1;
     response.once("close", () => {
       active -= 1;
       settle();
@@ -128,6 +136,7 @@ function trackRequests(server: Server): Requests {
       waiting.push(run);
       settle();
     },
+    activity: () => ({ active, arrivals }),
   };
 }
 
@@ -139,6 +148,7 @@ function handleOf(
   let closing: Promise<void> | undefined;
   return {
     addr,
+    activity: requests.activity,
     shutdown() {
       closing ??= new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));

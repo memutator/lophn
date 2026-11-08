@@ -94,6 +94,9 @@ export type ApiServerOptions = {
 
 export type ApiServer = {
   port: number;
+  // 붙은 client 활동. 진행 중 HTTP 요청과 Gateway 구독을 두 listener에서 합친 값이다.
+  // idle-exit가 이 값으로 "일이 끊긴 때"를 잰다.
+  activity(): { clients: number; arrivals: number };
   stop(): Promise<void>;
 };
 
@@ -461,6 +464,16 @@ export async function startApiServer(
   }
   return {
     port,
+    activity() {
+      const v4Activity = v4.activity();
+      const v6Activity = v6?.activity() ?? { active: 0, arrivals: 0 };
+      const gatewayActivity = gateway.activity();
+      return {
+        clients: v4Activity.active + v6Activity.active + gatewayActivity.active,
+        arrivals:
+          v4Activity.arrivals + v6Activity.arrivals + gatewayActivity.arrivals,
+      };
+    },
     stop: async () => {
       // 내려간다는 frame을 먼저 보낸다. 남은 upgraded socket은 server.close()가 닫지 않아 여기서 끊는다.
       options.gateway?.shutdown();

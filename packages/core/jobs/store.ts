@@ -209,13 +209,23 @@ export function loadHolds(sql: Query): Result<JobRunRecord[]> {
   );
 }
 
+// 열린 job run의 상태. 겹침 판정(loadOpenRuns)과 idle 판정(hasActivity)이 같은 정의를 쓴다.
+const OPEN_JOB_RUNS = "state IN ('queued', 'running')";
+
 export function loadOpenRuns(sql: Query): Result<JobRunRecord[]> {
   return jobRunsOf(
-    sql.all(
-      "SELECT * FROM job_runs WHERE state IN ('queued', 'running') ORDER BY id",
-      [],
-    ),
+    sql.all(`SELECT * FROM job_runs WHERE ${OPEN_JOB_RUNS} ORDER BY id`, []),
   );
+}
+
+// idle-exit가 보는 일. 켜진 job은 승인 여부로 다시 거르지 않는다.
+export function hasActivity(sql: Query): Result<boolean> {
+  const row = sql.get(
+    `SELECT EXISTS (SELECT 1 FROM jobs WHERE enabled = 1)
+       OR EXISTS (SELECT 1 FROM job_runs WHERE ${OPEN_JOB_RUNS}) AS busy`,
+    [],
+  );
+  return ok(Number(row?.["busy"] ?? 0) === 1);
 }
 
 // claimed_at은 sj-jobs-due만 읽고 쓴다.

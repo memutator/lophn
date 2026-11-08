@@ -194,6 +194,17 @@ export const runList = defineRead({
   errors: [...readErrors],
 });
 
+// idle-exit가 보는 일이다. running인 run이 있으면 true다.
+export const runActivity = defineRead({
+  resource: "runs",
+  method: "activity",
+  name: "run.activity",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({ busy: z.boolean() })),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
 // 끝났거나 timeout_ms가 지나면 돌려준다(그때는 running).
 export const RUN_WAIT_MAX_MS = 60_000;
 
@@ -289,6 +300,7 @@ export const RUN_ROUTES = [
   runStart,
   runRead,
   runList,
+  runActivity,
   runWait,
   runCancel,
   runCreate,

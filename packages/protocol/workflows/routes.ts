@@ -159,6 +159,17 @@ export const workflowInstanceList = defineRead({
   errors: [...readErrors],
 });
 
+// idle-exit가 보는 일이다. project를 가리지 않고 running인 instance가 있으면 true다.
+export const workflowInstanceActivity = defineRead({
+  resource: "workflow_instances",
+  method: "activity",
+  name: "WorkflowInstanceActivity",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({ busy: z.boolean() })),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
@@ -168,4 +179,5 @@ export const WORKFLOW_ROUTES = [
   workflowStop,
   workflowInstanceRead,
   workflowInstanceList,
+  workflowInstanceActivity,
 ] as const;

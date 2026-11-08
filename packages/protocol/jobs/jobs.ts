@@ -242,6 +242,18 @@ export const jobRunOpen = defineRead({
   errors: [...readErrors],
 });
 
+// idle-exit가 보는 일이다. 켜진 job(승인 여부는 보지 않는다)이나 열린 job run(queued·running)이 있으면 true다.
+// 첫 page나 승인 대기 여부로 판정하지 않으려고 표 전체를 EXISTS로 본다.
+export const jobActivity = defineRead({
+  resource: "jobs",
+  method: "activity",
+  name: "job.activity",
+  input: z.strictObject({}),
+  output: withReadCommon(z.object({ busy: z.boolean() })),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
 export const jobRunStarted = defineCommand({
   resource: "job_runs",
   method: "started",
@@ -299,4 +311,5 @@ export const JOB_ROUTES = [
   jobRunOpen,
   jobRunStarted,
   jobRunEnded,
+  jobActivity,
 ] as const;

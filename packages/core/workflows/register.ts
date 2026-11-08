@@ -29,7 +29,7 @@ export function createLedgerRegistration(
   return {
     schemaSteps: workflowsSchemaSteps,
     commands: [commands.create, commands.apply],
-    reads: [reads.read, reads.list],
+    reads: [reads.read, reads.list, reads.activity],
     memoryRoutes: [
       workflowList,
       workflowStart,
@@ -44,7 +44,7 @@ export function createLedgerRegistration(
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createWorkflowReads();
   return {
-    reads: [reads.read, reads.list],
+    reads: [reads.read, reads.list, reads.activity],
     ports: new Map<unknown, unknown>(),
   };
 }

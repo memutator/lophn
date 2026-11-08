@@ -1,13 +1,14 @@
 import { err, ok } from "../../base/mod.ts";
-import { runList, runRead } from "../../protocol/runs/mod.ts";
+import { runActivity, runList, runRead } from "../../protocol/runs/mod.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
-import { listRuns, loadRun } from "./store.ts";
+import { hasActivity, listRuns, loadRun } from "./store.ts";
 
 const PAGE = 50;
 
 export function createRunReads(): {
   read: ReadDefinition<typeof runRead>;
   list: ReadDefinition<typeof runList>;
+  activity: ReadDefinition<typeof runActivity>;
 } {
   return {
     read: {
@@ -46,6 +47,19 @@ export function createRunReads(): {
           next_cursor:
             loaded.value.length > PAGE ? page[page.length - 1]!.id : null,
         });
+      },
+    },
+    activity: {
+      route: runActivity,
+      handle(snapshot) {
+        const busy = hasActivity(snapshot.sql);
+        return busy.ok
+          ? ok({
+              busy: busy.value,
+              as_of_seq: snapshot.as_of_seq,
+              next_cursor: null,
+            })
+          : busy;
       },
     },
   };

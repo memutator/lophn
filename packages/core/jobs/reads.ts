@@ -1,19 +1,21 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { type Id, parseActor } from "../../protocol/base/mod.ts";
 import {
+  type JobRunRecord,
+  type JobTurn,
+  jobActivity,
   jobHolds,
   jobList,
   jobPending,
   jobRunList,
   jobRunOpen,
-  type JobRunRecord,
-  type JobTurn,
 } from "../../protocol/jobs/mod.ts";
 import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import { jobTargetsPort } from "./ports.ts";
 import {
+  hasActivity,
   loadHolds,
   loadJob,
   loadJobRuns,
@@ -47,6 +49,7 @@ export function createJobReads(): {
   pending: ReadDefinition<typeof jobPending>;
   holds: ReadDefinition<typeof jobHolds>;
   open: ReadDefinition<typeof jobRunOpen>;
+  activity: ReadDefinition<typeof jobActivity>;
 } {
   return {
     list: {
@@ -144,6 +147,19 @@ export function createJobReads(): {
               next_cursor: null,
             })
           : open;
+      },
+    },
+    activity: {
+      route: jobActivity,
+      handle(snapshot) {
+        const busy = hasActivity(snapshot.sql);
+        return busy.ok
+          ? ok({
+              busy: busy.value,
+              as_of_seq: snapshot.as_of_seq,
+              next_cursor: null,
+            })
+          : busy;
       },
     },
   };

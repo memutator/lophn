@@ -21,7 +21,7 @@ export function createLedgerRegistration(
   return {
     schemaSteps: runsSchemaSteps,
     commands: [commands.create, commands.settle],
-    reads: [reads.read, reads.list],
+    reads: [reads.read, reads.list, reads.activity],
     memoryRoutes: [runStart, runWait, runCancel],
   };
 }
@@ -29,7 +29,7 @@ export function createLedgerRegistration(
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createRunReads();
   return {
-    reads: [reads.read, reads.list],
+    reads: [reads.read, reads.list, reads.activity],
     ports: new Map<unknown, unknown>(),
   };
 }

@@ -1,10 +1,12 @@
 import { err, ok, parseSeq } from "../../base/mod.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import {
+  workflowInstanceActivity,
   workflowInstanceList,
   workflowInstanceRead,
 } from "../../protocol/workflows/mod.ts";
 import {
+  hasActivity,
   lastLine,
   lastReports,
   listInstances,
@@ -18,6 +20,7 @@ const PAGE = 50;
 export function createWorkflowReads(): {
   read: ReadDefinition<typeof workflowInstanceRead>;
   list: ReadDefinition<typeof workflowInstanceList>;
+  activity: ReadDefinition<typeof workflowInstanceActivity>;
 } {
   return {
     read: {
@@ -92,6 +95,19 @@ export function createWorkflowReads(): {
           next_cursor:
             loaded.value.length > PAGE ? page[page.length - 1]!.id : null,
         });
+      },
+    },
+    activity: {
+      route: workflowInstanceActivity,
+      handle(snapshot) {
+        const busy = hasActivity(snapshot.sql);
+        return busy.ok
+          ? ok({
+              busy: busy.value,
+              as_of_seq: snapshot.as_of_seq,
+              next_cursor: null,
+            })
+          : busy;
       },
     },
   };

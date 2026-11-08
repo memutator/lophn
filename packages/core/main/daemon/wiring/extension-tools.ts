@@ -141,8 +141,8 @@ export const extensionToolsWiring: WiringFactory = () => {
             extension: named.extension,
             tool: named.tool,
           },
-          // 묻지 않는 호출이라 mode를 보지 않는다.
-          { agent, session, workspace, mode: "attended" },
+          // 묻지 않는 호출이라 mode와 toParent를 보지 않는다.
+          { agent, session, workspace, mode: "attended", toParent: false },
         );
         if (!judged.ok) return judged;
         if (judged.value.kind !== "run") {

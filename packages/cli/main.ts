@@ -1,34 +1,38 @@
 // lophn binary의 실행 entry다. 조립만 하고 업무 규칙을 두지 않는다. node 전용이라 core는 이 file을 import하지 않는다.
-// 명령 표(`commands/`)의 명령은 자격으로 data root의 user token file을 쓴다(harness가 띄운 shell이면 env의 turn 자격). 자격이 없으면 core를 부르는 명령은
-// 아무것도 보내지 않는다. `packages/coding-agent`의 local 명령 가운데 `harness sync-skills`만 같은 token으로 core를 읽고,
+// 명령 표(`commands/`)의 명령은 core를 부르는 자격을 control connect로 받고, 없으면 ensure로 core를 띄운다.
+// harness가 띄운 shell이면 env의 turn 자격(agent credential)으로만 부르고 user 자격으로 바꾸지 않는다.
+// `packages/coding-agent`의 local 명령 가운데 `harness sync-skills`만 같은 길로 core를 읽고,
 // `hook`과 그 밖의 `harness *`는 core를 부르지 않는다.
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";
+import { Writable } from "node:stream";
+import { fileURLToPath } from "node:url";
 // 제품 판은 root package.json 하나다. 설치본에서도 platform/package.json으로 같이 간다(tools/package/main.ts).
 import productPackage from "../../package.json" with { type: "json" };
 import {
   err,
   homeOf,
   type LophnError,
+  type OsPlatform,
   ok,
   type Result,
   systemClock,
 } from "../base/mod.ts";
-import { LOCAL_COMMANDS, type LocalCommand } from "../coding-agent/mod.ts";
-import { type RpcFetch, USER_TOKEN_FILE_NAME } from "../protocol/client/mod.ts";
+import {
+  LOCAL_COMMANDS,
+  type LocalCommand,
+  type LocalCore,
+} from "../coding-agent/mod.ts";
+import type { RpcFetch } from "../protocol/client/mod.ts";
+import type { ControlDial, SpawnDetached } from "../protocol/client/mod.ts";
 import { HOOK_STDIN_MAX_BYTES } from "../protocol/coding-agent/mod.ts";
 import { loadAppCommands } from "./commands/app-command.ts";
+import { CORE_COMMANDS, type CoreCommand } from "./commands/core.ts";
 import { COMMANDS } from "./commands/mod.ts";
-import type { Command } from "./commands/types.ts";
-import {
-  clientCore,
-  connectionToken,
-  createCoreClient,
-  discoverDaemonAddress,
-  LOPHN_DAEMON_URL,
-} from "./connection/mod.ts";
+import type { Command, CommandCore } from "./commands/types.ts";
+import { openConnection, stopCore } from "./connection/mod.ts";
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
 import { parseCommandLine, wordsOf } from "./parser.ts";
@@ -42,6 +46,12 @@ type CliOptions = {
   home?: string;
   stdin?: () => Promise<string>;
   readText?: (path: string) => string | undefined;
+  platform?: OsPlatform;
+  // 설치본의 platform/ 또는 개발 checkout의 root. 없으면 이 file 위치에서 본다.
+  platformRoot?: string;
+  // core를 찾고 띄우는 IO. 없으면 node adapter를 쓴다.
+  dial?: ControlDial;
+  spawnDetached?: SpawnDetached;
 };
 
 function ambientEnv(): { get(name: string): string | undefined } {
@@ -101,61 +111,65 @@ export async function cliMain(
     ) ??
     "";
   const json = argv.includes("--json");
-  const output = createOutput({
-    json,
-    stdout: options.stdout,
-    stderr: options.stderr,
-  });
+  const stdoutStream = options.stdout ?? Writable.toWeb(process.stdout);
+  const stderrStream = options.stderr ?? Writable.toWeb(process.stderr);
+  // 자격은 연결한 뒤에야 안다. 아는 자격은 그때부터 stdout·stderr(오류 포함)에서 지운다.
+  let secret: string | undefined;
+  const output = () =>
+    createOutput({
+      json,
+      stdout: stdoutStream,
+      stderr: stderrStream,
+      secrets: secret === undefined ? [] : [secret],
+    });
   if (argv[0] === "version") {
-    await output.result({ version: productPackage.version });
+    await output().result({ version: productPackage.version });
     return 0;
   }
-  const all: readonly (Command | LocalCommand)[] = [
+  const all: readonly (Command | LocalCommand | CoreCommand)[] = [
     ...COMMANDS,
     ...LOCAL_COMMANDS,
+    ...CORE_COMMANDS,
   ];
-  // 표의 명령만 token을 쓴다: harness가 띄운 shell이면 env의 turn 자격(agent), 아니면 user token file이다. 앱 command(`lophn <slug> <command>`)는 표에 없어, 표에 없는 첫 낱말이면 core에서 읽어 이어 parse한다.
+  // 표에 없는 첫 낱말이면 core에서 앱 command를 읽어 이어 parse한다.
   const dataRoot = dataRootOf(env, home);
-  const tokenPath = `${dataRoot ?? "<data root>"}/run/${USER_TOKEN_FILE_NAME}`;
-  const token = connectionToken(env, () =>
-    dataRoot === undefined ? undefined : readText(tokenPath),
-  );
-  const secret = createOutput({
-    json,
-    stdout: options.stdout,
-    stderr: options.stderr,
-    secrets: token === undefined ? [] : [token],
-  });
+  const platform = options.platform ?? process.platform;
+  const platformRoot =
+    options.platformRoot ?? fileURLToPath(new URL("../..", import.meta.url));
+  let pending: Promise<Result<CommandCore, LophnError>> | undefined;
+  // core 연결은 처음 필요할 때 한 번만 한다. help·version·core를 부르지 않는 local 명령은 core를 띄우지 않는다.
+  const connect = (): Promise<Result<CommandCore, LophnError>> =>
+    (pending ??= openConnection({
+      env,
+      dataRoot,
+      platform,
+      platformRoot,
+      productVersion: productPackage.version,
+      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+      ...(options.dial === undefined ? {} : { dial: options.dial }),
+      ...(options.spawnDetached === undefined
+        ? {}
+        : { spawnDetached: options.spawnDetached }),
+    }).then((opened) => {
+      if (!opened.ok) return err(opened.error);
+      secret = opened.value.token;
+      return ok(opened.value.core);
+    }));
+  // `harness sync-skills`가 이 read로 core를 처음 부를 때 ensure한다. 다른 local 명령은 이 길을 쓰지 않는다.
+  const localCore: LocalCore = {
+    read: async (route, input) => {
+      const connected = await connect();
+      if (!connected.ok) return connected;
+      return connected.value.read(route, input);
+    },
+  };
   const fail = async (error: LophnError) => {
-    await secret.failure(error);
+    await output().failure(error);
     return exitOf(error);
   };
-  const connect = (): Result<ReturnType<typeof clientCore>> => {
-    if (token === undefined) {
-      return err({
-        code: "unavailable",
-        message: `lophn is not running: ${tokenPath} is missing`,
-      });
-    }
-    const address = discoverDaemonAddress({
-      env: env.get(LOPHN_DAEMON_URL),
-      dataRoot,
-      readText,
-    });
-    if (!address.ok) return address;
-    return ok(
-      clientCore(
-        createCoreClient({
-          baseUrl: address.value.url,
-          token,
-          ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
-        }),
-      ),
-    );
-  };
 
-  let commands: readonly (Command | LocalCommand)[] = all;
-  let core: ReturnType<typeof connect> | undefined;
+  let commands: readonly (Command | LocalCommand | CoreCommand)[] = all;
+  let core: Result<CommandCore, LophnError> | undefined;
   let parsed = parseCommandLine(argv, commands, { readText });
   const word = argv[0];
   if (
@@ -164,7 +178,7 @@ export async function cliMain(
     !word.startsWith("--") &&
     !all.some((item) => wordsOf(item.name)[0] === word)
   ) {
-    core = connect();
+    core = await connect();
     if (!core.ok) return await fail(core.error);
     const app = await loadAppCommands(core.value, word);
     if (!app.ok) return await fail(app.error);
@@ -174,7 +188,7 @@ export async function cliMain(
     }
   }
   if (!parsed.ok) {
-    await output.failure(parsed.error);
+    await output().failure(parsed.error);
     return exitOf(parsed.error);
   }
   const line = parsed.value;
@@ -185,33 +199,41 @@ export async function cliMain(
         code: "invalid_input",
         message: `unknown command: ${line.topic.join(" ")}. Run \`lophn help\``,
       } as const;
-      await output.failure(error);
+      await output().failure(error);
       return exitOf(error);
     }
-    if (json && line.topic.length === 0) await output.result(helpJson(all));
-    else await output.text(text);
+    if (json && line.topic.length === 0) await output().result(helpJson(all));
+    else await output().text(text);
     return argv.length === 0 ? CLI_EXITS.invalid_input : 0;
   }
 
   const { command, input } = line;
   if (!("routes" in command)) {
-    const ran = await command.run(input, {
-      env,
-      home,
-      cwd: process.cwd(),
-      now: () => new Date().toISOString(),
-      stdin: options.stdin ?? readProcessStdin,
-      core: () => (core ??= connect()),
-    });
-    if (!ran.ok) {
-      await output.failure(ran.error);
-      return exitOf(ran.error);
-    }
-    await output.result(ran.value);
+    const ran =
+      "binary" in command
+        ? await command.run(input, {
+            stop: () =>
+              stopCore({
+                env,
+                dataRoot,
+                platform,
+                ...(options.dial === undefined ? {} : { dial: options.dial }),
+              }),
+          })
+        : await command.run(input, {
+            env,
+            home,
+            cwd: process.cwd(),
+            now: () => new Date().toISOString(),
+            stdin: options.stdin ?? readProcessStdin,
+            core: () => ok(localCore),
+          });
+    if (!ran.ok) return await fail(ran.error);
+    await output().result(ran.value);
     return CLI_EXITS.success;
   }
 
-  core ??= connect();
+  core ??= await connect();
   if (!core.ok) return await fail(core.error);
   const ran = await command.run(input, {
     core: core.value,
@@ -224,12 +246,14 @@ export async function cliMain(
   if (!ran.ok) return await fail(ran.error);
   const result = ran.value;
   if (result.failed !== undefined) {
-    if (json) await secret.result(result.content);
-    await secret.note(result.failed);
+    if (json) await output().result(result.content);
+    await output().note(result.failed);
     return CLI_EXITS.failed;
   }
-  await secret.result(json ? result.content : (result.text ?? result.content));
-  if (result.note !== undefined) await secret.note(result.note);
+  await output().result(
+    json ? result.content : (result.text ?? result.content),
+  );
+  if (result.note !== undefined) await output().note(result.note);
   return CLI_EXITS.success;
 }
 

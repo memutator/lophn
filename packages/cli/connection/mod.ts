@@ -1,4 +1,2 @@
-export { clientCore } from "./command-core.ts";
-export { type CoreClient, createCoreClient } from "./client/core.ts";
-export { discoverDaemonAddress, LOPHN_DAEMON_URL } from "./client/daemon.ts";
-export { connectionToken } from "./client/token.ts";
+// binary 입구가 core에 붙는 길과, core를 띄우지 않는 control 명령이다. core는 이 폴더를 import하지 않는다.
+export { openConnection, stopCore } from "./core.ts";

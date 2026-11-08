@@ -1,6 +1,6 @@
 // CLI가 core를 부르는 client다.
-// POST /<resource>/<method>에 Authorization bearer(user token)로 붙고 쓰기는
-// idempotency key를 전달한다. 쓰기 응답을 잃으면 성공·domain 실패로 추측하지
+// POST /<resource>/<method>에 Authorization bearer(control connect가 준 user 자격 또는 agent turn 자격)로 붙고
+// 쓰기는 idempotency key를 전달한다. 쓰기 응답을 잃으면 성공·domain 실패로 추측하지
 // 않고 effect_unknown 진단과 원래 key·commands/result 대상 read 안내를 돌려준다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { LophnError } from "../../../base/mod.ts";
@@ -13,7 +13,7 @@ import {
 
 type CoreClientOptions = {
   baseUrl: string;
-  // user token file의 내용이다.
+  // control connect가 준 user 자격 또는 agent turn 자격이다.
   token: string;
   fetch?: RpcFetch;
 };

@@ -1,64 +1,55 @@
-// CLI가 core 주소를 찾는 순서다.
-// 명시 옵션 → 환경 설정 → 현재 daemon 연결 정보 → 설치 설정 → 기본 loopback port.
+// CLI가 core API 주소를 찾는 순서다. 명시 주소(option·`LOPHN_DAEMON_URL`) → identify가 알린 주소.
+// metadata file·설치 설정·고정 port로 내려가는 길은 없다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { DEFAULT_API_PORT } from "../../../protocol/base/mod.ts";
-import { runMetadataSchema } from "../../../protocol/supervision/mod.ts";
 
 export const LOPHN_DAEMON_URL = "LOPHN_DAEMON_URL";
 
-type DaemonAddressSource =
-  | "option"
-  | "env"
-  | "run_metadata"
-  | "install_settings"
-  | "default";
+type DaemonAddressSource = "option" | "env";
 
-type DaemonAddress = {
+export type DaemonAddress = {
   url: string;
   source: DaemonAddressSource;
 };
 
-// loopback host만 받는다.
-function loopbackHost(host: string): boolean {
-  return (
-    host === "127.0.0.1" ||
-    host === "localhost" ||
-    host === "[::1]" ||
-    host === "::1"
-  );
-}
-
-type ParsedAddress = { scheme: string; host: string; port: string };
-
 // 입력 문자열은 log·진단에 그대로 쓰지 않는다. 사실만 판정한다.
-function parseRef(value: string): ParsedAddress | undefined {
+function portOf(value: string): string | undefined {
   try {
     const ref = new URL(value);
-    return {
-      scheme: ref.protocol.replace(/:$/, ""),
-      host: ref.host,
-      port: ref.port,
-    };
+    return ref.port === "" ? String(DEFAULT_API_PORT) : ref.port;
   } catch {
     return undefined;
   }
 }
 
 // 명시 주소 하나를 검사한다. loopback 아닌 주소와 http 밖 scheme은 거절이다.
-// 주소가 바뀌어도 token을 재발급하지 않는다.
 function acceptAddress(
   value: string,
   source: DaemonAddressSource,
 ): Result<DaemonAddress> {
-  const ref = parseRef(value);
-  if (!ref || ref.scheme !== "http" || ref.host === "") {
+  let ref: URL;
+  try {
+    ref = new URL(value);
+  } catch {
+    return err({
+      code: "invalid_input",
+      message: "daemon 주소는 명시 http만 받는다",
+    });
+  }
+  const scheme = ref.protocol.replace(/:$/, "");
+  if (scheme !== "http" || ref.host === "") {
     return err({
       code: "invalid_input",
       message: "daemon 주소는 명시 http만 받는다",
     });
   }
   const host = ref.host.replace(/:\d+$/, "");
-  if (!loopbackHost(host)) {
+  if (
+    host !== "127.0.0.1" &&
+    host !== "localhost" &&
+    host !== "[::1]" &&
+    host !== "::1"
+  ) {
     return err({
       code: "invalid_input",
       message: "daemon 주소는 loopback만 받는다",
@@ -68,126 +59,32 @@ function acceptAddress(
   return ok({ url: `http://${host}:${port}`, source });
 }
 
-// 현재 daemon 연결 정보는 H/run/location.json의 위치 metadata다. credential은 없다.
-function runMetadataAddress(value: unknown): Result<DaemonAddress> {
-  const parsed = runMetadataSchema.safeParse(value);
-  if (!parsed.success) {
-    return err({ code: "not_found", message: "위치 metadata가 올바르지 않다" });
-  }
-  return ok({
-    url: `http://127.0.0.1:${parsed.data.api_port}`,
-    source: "run_metadata",
-  });
-}
-
-// 설치 설정의 위치 값도 loopback만 받는다. 값은 install contract가 정한다.
-type InstallSettings = { host?: unknown; port?: unknown };
-
-function installSettingsAddress(
-  settings: InstallSettings | undefined,
-): Result<DaemonAddress> {
-  const port = settings?.port;
-  if (
-    typeof port !== "number" ||
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65535
-  ) {
-    return err({ code: "not_found", message: "설치 설정에 port가 없다" });
-  }
-  const host =
-    typeof settings?.host === "string" && settings.host !== ""
-      ? settings.host
-      : "127.0.0.1";
-  if (!loopbackHost(host)) {
-    return err({
-      code: "invalid_input",
-      message: "설치 설정의 host는 loopback만 받는다",
-    });
-  }
-  return ok({ url: `http://${host}:${port}`, source: "install_settings" });
-}
-
-function defaultAddress(): DaemonAddress {
-  return {
-    url: `http://127.0.0.1:${DEFAULT_API_PORT}`,
-    source: "default",
-  };
-}
-
-type DaemonAddressInputs = {
+// 주소를 준 곳이 있으면 그 주소가 정본이다. 없으면 undefined이고 부르는 쪽이 identify를 쓴다.
+// 명시 주소의 거절은 identify로 내려가지 않는다.
+export function explicitDaemonAddress(input: {
   option?: string;
   env?: string;
-  runMetadata?: unknown;
-  installSettings?: InstallSettings | undefined;
-};
-
-function explicitResult(
-  value: string,
-  source: DaemonAddressSource,
-): Result<DaemonAddress> {
-  const trimmed = value.trim();
+}): Result<DaemonAddress | undefined> {
+  const given =
+    input.option !== undefined
+      ? { value: input.option, source: "option" as const }
+      : input.env !== undefined
+        ? { value: input.env, source: "env" as const }
+        : undefined;
+  if (given === undefined) return ok(undefined);
+  const trimmed = given.value.trim();
   if (trimmed === "") {
     return err({
       code: "invalid_input",
       message: "명시 daemon 주소가 비어 있다",
     });
   }
-  return acceptAddress(trimmed, source);
+  return acceptAddress(trimmed, given.source);
 }
 
-// 순서는 명시 옵션 → 환경 설정 → 현재 daemon 연결 정보 → 설치 설정 → 기본이다.
-// 명시 주소의 거절은 다음 단계로 내려가지 않는다. 출처 값은 주입한다.
-function resolveDaemonAddress(
-  sources: DaemonAddressInputs,
-): Result<DaemonAddress> {
-  if (sources.option !== undefined) {
-    return explicitResult(sources.option, "option");
-  }
-  if (sources.env !== undefined) return explicitResult(sources.env, "env");
-  if (sources.runMetadata !== undefined) {
-    return runMetadataAddress(sources.runMetadata);
-  }
-  if (sources.installSettings !== undefined) {
-    return installSettingsAddress(sources.installSettings);
-  }
-  return ok(defaultAddress());
-}
-
-// 현재 daemon 연결 정보(`<H>/run/location.json`)까지 읽어 주소를 정한다. 파일을 읽는 일은
-// 주입한 `readText`가 한다(없거나 못 읽으면 undefined). CLI 실행 entry가 쓴다.
-export function discoverDaemonAddress(sources: {
-  option?: string;
-  env?: string;
-  dataRoot?: string;
-  readText(path: string): string | undefined;
-}): Result<DaemonAddress> {
-  let runMetadata: unknown;
-  if (
-    sources.option === undefined &&
-    sources.env === undefined &&
-    sources.dataRoot !== undefined &&
-    sources.dataRoot !== ""
-  ) {
-    const text = sources.readText(
-      `${sources.dataRoot.replace(/\/$/, "")}/run/location.json`,
-    );
-    if (text !== undefined) {
-      try {
-        runMetadata = JSON.parse(text);
-      } catch {
-        // 읽을 수 없는 metadata는 없는 것과 같다. 다음 출처로 내려간다.
-      }
-    }
-  }
-  const resolved = resolveDaemonAddress({
-    option: sources.option,
-    env: sources.env,
-    runMetadata,
-  });
-  // metadata가 올바르지 않아 not_found면 기본 주소로 내려간다. 명시 주소의 거절은 그대로다.
-  if (!resolved.ok && resolved.error.code === "not_found") {
-    return ok(defaultAddress());
-  }
-  return resolved;
+// 자격을 얻은 core와 명시 주소가 같은 core인지 본다. 둘 다 loopback http라 port 하나가 서버를 가른다.
+// 같은 port면 `127.0.0.1`·`localhost`·`[::1]` 가운데 어느 이름으로 불러도 같은 core다.
+export function sameCoreAddress(a: string, b: string): boolean {
+  const port = portOf(a);
+  return port !== undefined && port === portOf(b);
 }

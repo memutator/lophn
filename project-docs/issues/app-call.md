@@ -41,3 +41,33 @@ modules: [packages/shell/main, packages/core/apps]
 - 지금: shell main의 화면 호출(`packages/shell/main/app-frame/app-call.ts`)은 view의 고정 선언을 `declaration-source.ts`로 읽는데, live release일 때만 읽는다. preview view에서는 `unavailable`이다. core의 `callPreview`는 person의 preview 호출을 받는다.
 - 영향: 앱을 짓는 쪽이 preview에서 화면을 눌러 operation을 확인하지 못한다. agent는 `preview.call`로 부르지만 사람은 화면으로 확인할 길이 없다.
 - 고치려면: `declaration-source.ts`가 preview bundle의 선언도 읽고 호출 대상을 `{mode: "preview", app, process_nonce}`로 보낸다. 작다.
+
+## `@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+```
+
+지금: `package.publish`는 폴더 `package.json`의 `dependencies` 중 `@lophn/cap-*`만 보고 요구 권한을 검사한다(`packages/core/apps/packages/publish.ts`의 `dependencyNames`, `packages/core/apps/releases/sdk-permissions.ts`의 `missingCapPermission`). release 준비도 소비 앱이 직접 적은 `@me` 의존의 catalog `permissions`만 본다(`missingSdkPermission`).
+
+영향: `@me/a`가 `net.fetch`를 적은 `@me/b`에 기대면서 자기 `permissions`에 `net.fetch`를 빼고 낼 수 있다. `@me/a`만 쓰는 소비 앱은 `net.fetch` 없이 release가 뜨고 실행 중 broker에서 거절된다.
+
+고치려면:
+- 작음(추천): publish 때 `@me/*` 의존의 정확한 판을 catalog에서 찾아 그 `permissions`도 입력이 덮는지 본다. 한 단계만 보면 된다(그 판도 publish 때 같은 검사를 지났으므로).
+
+## 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/core/main]
+```
+
+지금: bundle blob 이전에 낸 판은 기동 때 설치 사본에서 `package.json`의 `file:` 재작성을 되돌려 bundle byte를 다시 만든다(`packages/core/apps/packages/restore.ts`). `prepareCopyFiles`가 `package.json`을 `JSON.stringify(_, null, 2)`로 다시 쓰므로, 원래 파일이 그 모양이 아니었으면 hash가 `bundle_hash`와 달라 blob을 붙이지 못하고 기동마다 `me_copy_skipped`만 남긴다. `owner_app`이 null인 package도 건너뛴다.
+
+영향: 그런 옛 판은 설치 사본이 유일한 byte로 남는다. 사본을 잃으면 그 판을 고정하려는 앱이 sync에서 `not_found`를 본다.
+
+고치려면:
+- 작음(추천): 사람의 data root에 `@me` 판이 있는지, 몇 개가 건너뛰어지는지 먼저 본다. 없거나 모두 붙었으면 kept로 닫는다.
+- 남는 판이 있으면: 옛 판은 설치 사본 byte 자체를 blob으로 보존하는 별도 field를 둔다.
+

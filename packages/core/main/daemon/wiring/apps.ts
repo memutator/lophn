@@ -321,7 +321,8 @@ export const appsWiring: WiringFactory = () => {
       const locator: BundleLocator = {
         dir: (target) =>
           (
-            ctx.peek.bundleLocator ?? bundleLocatorOf(ctx.root.path, link.sql)
+            ctx.peek.bundleLocator ??
+            bundleLocatorOf(ctx.root.path, link.sql, appsControl.previews)
           ).dir(target),
       };
       // activation: 다른 module의 port를 끼운다. 끼우기 전에는 일하지 않는다.

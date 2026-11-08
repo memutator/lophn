@@ -114,6 +114,8 @@ export type PreviewService = {
     app: string,
     process_nonce: string,
   ): Promise<Result<PreviewDeclared | null>>;
+  // 그 nonce가 앱의 지금 preview면 그 preview가 연 bundle의 hash, 아니면 null. 동기라 화면 file 조회가 쓴다.
+  bundleHashOf(app: string, process_nonce: string): string | null;
 };
 
 export type CurrentPreview = {
@@ -169,6 +171,7 @@ export function unattachedPreviewService(): PreviewService {
     check: down,
     current: down,
     declared: down,
+    bundleHashOf: () => null,
   };
 }
 
@@ -399,6 +402,10 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       return Promise.resolve(
         ok(entry?.nonce === process_nonce ? entry.declared : null),
       );
+    },
+    bundleHashOf(app, process_nonce) {
+      const entry = live.get(app);
+      return entry?.nonce === process_nonce ? entry.bundle_hash : null;
     },
   };
 }

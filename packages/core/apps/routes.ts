@@ -377,18 +377,24 @@ export function withStartInvocation(
   };
 }
 
-// UI bundle 사본 폴더. 운영(live) 대상은 그 release에 고정된 bundle 사본이다. preview 대상의 사본 자리는
-// 이 동기 조회로는 알 수 없어 찾지 못한 것으로 답한다.
+// UI bundle 사본 폴더. 운영(live) 대상은 그 release에 고정된 bundle 사본이다. preview 대상은 그 앱의
+// 지금 preview가 연 bundle 사본이다. nonce가 지금 preview의 것이 아니면(멈춘 preview) 찾지 못한 것이다.
 export function bundleLocatorOf(
   dataRoot: string,
   sql: Pick<Sql, "get" | "all">,
+  previews: Pick<PreviewService, "bundleHashOf">,
 ): BundleLocator {
   const states = appStatesOf(sql);
   const missing = () =>
     err({ code: "not_found" as const, message: "bundle not found" });
   return {
     dir(target) {
-      if (target.mode !== "live") return missing();
+      if (target.mode === "preview") {
+        const hash = previews.bundleHashOf(target.app, target.process_nonce);
+        if (hash === null) return missing();
+        const path = bundleCopyPath(dataRoot, target.app, hash);
+        return path.ok ? ok(path.value) : missing();
+      }
       const app = target.app as Id<"app">;
       const wanted =
         target.release ??

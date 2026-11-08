@@ -121,15 +121,9 @@ export class TerminalStore {
   noteRuntime(runtime: TerminalRuntime): void {
     const before = this.#agents.get(runtime.terminal_ref);
     const next = runtime.agent;
-    if (
-      before?.harness === next?.harness &&
-      before?.state === next?.state &&
-      before?.unseen === next?.unseen &&
-      before?.hooked === next?.hooked &&
-      before?.session === next?.session &&
-      before?.title === next?.title
-    )
-      return;
+    // 칸을 골라 비교하면 새 칸(foreground, name)이 빠져, hook 뒤에 온 foreground 알림을 버리고 GUI 전환을 막았다.
+    // main(tracker)이 agent를 같은 순서로 만들어 JSON으로 비교한다.
+    if (JSON.stringify(before) === JSON.stringify(next)) return;
     if (next === undefined) this.#agents.delete(runtime.terminal_ref);
     else this.#agents.set(runtime.terminal_ref, next);
     this.#version += 1;

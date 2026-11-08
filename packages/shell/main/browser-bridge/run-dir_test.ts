@@ -111,7 +111,10 @@ test("Windows pipe는 긴 data root여도 pipe 한도 안에 들고 uid·chmod�
     assert.ok(Buffer.byteLength(socket) <= 256);
   }
   assert.equal(run.shim, join(run.dir, "browser.cmd"));
-  assert.equal(calls.some((call) => call.startsWith("chmod:")), false);
+  assert.equal(
+    calls.some((call) => call.startsWith("chmod:")),
+    false,
+  );
 });
 
 test("run 폴더 정리는 죽은 shell만 지우고 POSIX private mode를 유지한다", () => {
@@ -149,7 +152,10 @@ test("run 폴더 정리는 죽은 shell만 지우고 POSIX private mode를 유�
     writeFileSync(join(first.value.dir, "browser.js"), "old");
 
     // data root가 다르면 hash 폴더도 다르다. 이 root의 정리가 다른 실행의 file을 지우면 안 된다.
-    const other = prepareRunDir({ ...deps, dataRoot: join(root, "other-data") });
+    const other = prepareRunDir({
+      ...deps,
+      dataRoot: join(root, "other-data"),
+    });
     if (!other.ok) assert.fail(other.error.message);
     const sentinel = join(other.value.dir, "sentinel.txt");
     writeFileSync(sentinel, "keep");

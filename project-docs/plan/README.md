@@ -13,7 +13,7 @@
 
 `tools/`는 모든 계획이 같이 쓴다: `status.py <계획> build | ready | set`(상태 표, 띄울 task 고르기), `lead/`(`lead.sh <계획>`, `pick.py <계획> N`, `launch.sh <계획> <id>…`, `prompt.py <계획> <id> <branch>`, `merge.sh <계획> <id>`, `land.sh <계획>`, `boot.sh`).
 
-lead는 main checkout에서 일하지 않는다. 계획마다 branch `plan/<계획>`의 worktree(`lead.sh`가 연다)에서 task를 합치고, wave가 끝날 때 `land.sh`로 main에 올린다.
+lead는 main checkout에서 일하지 않는다. 계획마다 branch `plan/<계획>`의 worktree(`lead.sh`가 연다)에서 task를 합치고, 계획이 끝날 때 `land.sh`로 main에 올린다(중간 land의 조건은 orchestrate skill "merge").
 
 ## 새 계획의 README
 

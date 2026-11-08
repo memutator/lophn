@@ -79,7 +79,7 @@ elements:
 
       - id: agent-workspaces
         kind: component
-        description: lophn workspace 층(home, project, app). workspace 종류마다의 tool 목록, prompt, workspace 정보, lophn 내장 정의, workspace 폴더 규칙, data root 아래 자리, 내장 skill.
+        description: lophn workspace 층(home, project, app). workspace 종류마다의 tool 목록, prompt, workspace 정보, workspace마다 하나인 lophn의 내장 정의, workspace 폴더 규칙, data root 아래 자리(Home은 `<data>/home/`), workspace memory와 agent memory의 파일 자리, 내장 skill.
 
       - id: lophn-agent
         kind: subsystem
@@ -88,7 +88,7 @@ elements:
 
           - id: agents
             kind: component
-            description: handle로 부르는 agent(전역이거나 workspace 하나에 범위가 있다)와 그 설정.
+            description: handle로 부르는 agent(전역이거나 workspace 하나에 범위가 있다. lophn은 workspace마다 하나다)와 그 설정, 층(지침, MCP, skills_off, model).
 
           - id: agent-sessions
             kind: component
@@ -100,7 +100,7 @@ elements:
 
           - id: agent-tools
             kind: component
-            description: agent tool과 그 허락 판정.
+            description: agent tool(`agent.memory` 포함)과 그 허락 판정.
 
           - id: models
             kind: component

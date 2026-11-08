@@ -1,11 +1,11 @@
 # workspace-session
 
-lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. agent와 하는 대화가 session이고, session이 workspace(없음·project·app)를 갖는다. 이 문서는 session의 정체가 무엇인지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, turn 안 request, 질문)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 skip이 새거나, 되돌린 대화에 낡은 요청이 남는다.
+lophn의 agent는 내장 lophn과 사람이 만든 agent다. lophn은 workspace(Home, project, 앱)마다 하나이고, 사람이 만든 agent는 전역이거나 workspace 하나에 범위가 있다(`architecture/agent-definition.md`). agent와 하는 대화가 session이고, session이 workspace(없음·project·app)를 갖는다. 이 문서는 session의 정체가 무엇인지, session이 언제 열리고 언제 끝나는지, 끝날 때 다른 장치(call, turn 안 request, 질문)에 무엇이 같이 일어나는지, session을 복사(fork)하거나 되돌릴(rewind) 때 무엇을 가져가고 무엇을 두고 가는지를 정한다. 이 경계가 흐려지면 끝난 session이 call을 붙잡거나, 다른 session의 skip이 새거나, 되돌린 대화에 낡은 요청이 남는다.
 
 ## 흐름
 
 ```
- 첫 기동      ──▶ lophn 정의 (고정 id lophn)             ┐ agents: <data>/agents/<id>.md
+ workspace마다 ──▶ lophn 정의 (id lophn_home·lophn_<prj|app id>, 파일이 없으면 기본) ┐ agents: <data>/agents/<id>.md
  사람이 만듦  ──▶ agent 정의 (agt_…, 이름은 전역에 하나)  ┘ project 등록·앱 만들기는 agent를 만들지 않는다
 
  session 열기 ◀── person | Router(call의 새 session, program 알림)
@@ -28,10 +28,10 @@ lophn의 agent는 lophn과 사람이 만든 agent이고 정의는 전역이다. 
   - agent 정의, 할당, 지침, file 범위가 agent와 workspace에서 나온다. 열린 session의 agent나 workspace를 바꾸면 이미 쌓인 대화가 다른 agent의 것이 된다.
 - session을 여는 길은 사람과 Router 둘이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림(`open_session_or_new`)으로 연다.
   - 열 때의 검사(agent 정의, workspace, 보관 여부)를 한 곳에 두어야 어느 길로 열어도 같은 session이 된다.
-- agent는 lophn과 사람이 만든 agent뿐이다. lophn은 지우지 못하고, 사람이 만든 agent는 사람이 만들고 지운다.
+- agent는 lophn과 사람이 만든 agent뿐이다. lophn은 workspace마다 있고 지우지 못한다(앱을 지우면 그 앱의 lophn 정의 file도 지운다). 사람이 만든 agent는 사람이 만들고 지운다.
   - workspace는 project 또는 app이고(`Workspace`) 없으면 home이다. 앱은 project에 묶이지 않고 앱마다 app workspace가 있다.
   - workspace는 그릇이고 경계도 그릇이다. agent가 받는 지침, skill, 앱 command는 그 workspace의 것이다.
-  - 정의는 파일이라 DB tx에 묶을 수 없다. lophn 정의 만들기는 멱등이다(있으면 그대로).
+  - 정의는 파일이라 DB tx에 묶을 수 없다. lophn 정의는 미리 만들지 않는다. 파일이 없으면 기본 정의이고, 사람이 고치면 그때 생긴다.
 - run(`architecture/run.md`)도 `OpenSession`으로 session을 연다. 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. 화면은 sidebar에 그대로 두지 않고 그 session을 연 run 아래로 묶어 보인다(`--session`으로 이어 쓴 session은 원래 자리다).
 - session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다.
   - lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.

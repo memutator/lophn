@@ -83,7 +83,7 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 - `actor`는 입구를 부르는 쪽이다. 사람이 화면에서 눌러 renderer가 부르는 route는 `person`, shell main이 스스로 부르는 것(harness host, host queue)은 `shell`, CLI나 tool로 agent가 부르는 것은 `agent`, core나 child process만 부르는 내부 route는 `system`이다.
 - `pre`는 모두 성립해야 하는 앞 상태다(AND). 둘 중 하나면 흔한 쪽 하나만 쓴다.
 - `pre`, `uses`가 다른 area를 가리킬 때 그 area의 flow가 아직 없으면 entry ID로 쓴다. entry는 code에서 뽑으므로 늘 있다.
-- `crosses_process`는 부른 쪽의 요청을 받은 process가 일을 끝내려고 다른 lophn process(core daemon, agent runtime, worker, 앱 child, preview·prepare child, flow host, shell main, renderer)를 하나 더 거쳐야 하는지다. 부르는 쪽에서 받는 쪽으로 한 번 건너는 것(renderer가 core route를 부름, agent가 tool로 core를 부름)만으로는 false다. git, npm 같은 바깥 CLI는 세지 않는다. core E2E 후보를 고를 때 쓴다.
+- `crosses_process`는 부른 쪽의 요청을 받은 process가 일을 끝내려고 다른 lophn process(core daemon, platform/io child, agent runtime, 앱 child, preview·prepare child, flow host, shell main, renderer)를 하나 더 거쳐야 하는지다. core 안의 Worker thread(ledger writer, reader)는 core와 같은 process다. blob 준비는 platform/io child를 거친다. 부르는 쪽에서 받는 쪽으로 한 번 건너는 것(renderer가 core route를 부름, agent가 tool로 core를 부름)만으로는 false다. git, npm 같은 바깥 CLI는 세지 않는다. core E2E 후보를 고를 때 쓴다.
 - `risk`는 아래 다섯 가운데서만 고른다. 없으면 칸을 두지 않는다.
 
 | risk | 언제 |

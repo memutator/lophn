@@ -43,8 +43,8 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - `judge`는 IO 없는 함수다(`packages/core/approvals/gate/judge.ts`). 시각, 상태, 전역을 읽지 않는다. 같은 입력은 같은 결과다.
 - 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`), 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. MCP tool은 `judge`가 늘 `run`을 내고(할당 줄이 없다), 연결 쪽 `call`(`packages/core/lophn-agent/extensions/mcp-toolkit.ts`)이 부를 때마다 전역·project 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. agent 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
 - `deny`는 어느 mode에서나 막는다. skip은 묻지 않는 것이지 금지를 푸는 것이 아니다.
-- `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다.
-- 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다.
+- `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다. 팀 자식(`spawned_by` 있음, skip 꺼짐)은 예외다: mode와 상관없이 묻고 그 물음은 부모에게 간다(아래 "팀 자식의 물음"). `judge`는 그 여부를 입력 `toParent`(`spawned_by !== null && !skip`)로 받는다. skip이 먼저다.
+- 사람의 결정은 사람 자격만 받는다(`DecideTurnRequest` actors `user`, handler도 한 번 더 본다). agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다. 팀 자식의 request는 부모가 이번 한 번만 풀고(아래), 사람의 결정 route는 그 request를 `not_found`로 거절한다.
 - agent는 자기 할당을 넓히지 못한다. 할당 쓰기(`assignment.set`)는 사람만 하고 읽기(`assignment.get`)는 사람과 machine뿐이다. agent 정의를 만들고 고치는 tool(`agent.create`, `agent.update`)은 `mcp_servers`, `skip`, `apps`, `permissions`를 입력으로 받지 않는다. 앱 공유 요청도 agent가 여는 것은 요청뿐이고 `apps`를 더하는 것은 사람의 승인이다.
 - 할당 저장은 revision을 비교한다. 다른 창이 먼저 저장했으면 `conflict`이고 화면이 다시 읽는다. revision은 정의 파일 값 `{apps, deny}`의 hash(sha256 앞 48 bit)에서 정한 값이고 할당이 비면 0이다. 정의 파일의 다른 칸(지침 본문, model)을 고쳐도 바뀌지 않는다.
 - 판정이 읽는 할당은 call 때마다 정의 파일에서 읽는다(`AgentDirectory`를 거친 `agentAssignment`, `packages/core/apps/usage/users.ts`). 앱 호출 경로(`packages/core/apps/calls/gate.ts`)와 사용 관계(`apps/usage`)도 같은 읽기다. 없는 앱 slug와 active 선언에 없는 command는 읽을 때 빠진다.
@@ -57,6 +57,18 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - 선택지는 `once`, `always`, `reject`다. "이 session 동안" 허락은 없다.
 - `always`는 request의 `always_patterns`를 allow 규칙으로 더한다. shell request에만 있고, 비면 `always`를 받지 않는다(`invalid_input`). 카드는 그 줄을 그대로 보여 사람이 무엇을 허락하는지 본다.
 - 카드 내용은 program이 GateCall에서 만든다. agent가 쓴 설명은 싣지 않는다.
+
+팀 자식의 물음
+- spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다(`agent-call.md` "팀의 ask call"). 자식 turn은 지금처럼 turn 안 request(질문은 QuestionWait)로 기다리고 부모의 답이 그것을 푼다. 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 자식이면 그 위로 가고 root에서 사람에게 닿는다. 올리는 장치는 따로 없다.
+- 질문은 mode와 skip에 상관없이 부모에게 간다. shell 승인은 skip이 켜진 session이면 지금처럼 `run`이다. skip은 사람이 그 session에 정한 "묻지 마"라서 부모가 뒤집지 않는다. 팀 밖 session은 지금 그대로다(unattended 질문은 `unattended`, skip 아닌 attended shell ask는 사람에게).
+- unattended 판정은 core의 `askWait` handler(`packages/core/main/daemon/wiring/approvals.ts`)가 한다. 자식이 아니고 turn이 unattended면 `unattended`를 바로 돌려준다. ask call은 자식 turn의 unattended 표시를 싣고 가므로, unattended 사슬의 root가 받은 물음에서는 root의 `ask`가 `unattended`를 돌려주고 root가 스스로 정한다.
+- 부모의 답은 구조다: `lophn call reply <call> --allow | --reject [--body <이유>]`(`ReplyCall.decision`). `always`는 없어서 부모가 shell 규칙을 더하는 길이 없다. 부모의 허락은 `once`이고, 자식의 request는 `always_patterns`가 비어 있다. `deny`는 `judge`에서 끝나 request가 열리지 않으므로 부모에게 가지 않는다. 거절은 tool 결과 `the parent rejected this tool call: <이유>`다. 질문의 답 글은 `{outcome: "parent_reply", message}`로 가고 `human_message`처럼 그 글이 답인지는 model이 읽는다.
+- 부모 call의 body는 program이 만든다. 승인은 카드 내용(명령 글이나 tool 이름)만 싣는다.
+- request·질문과 event는 지금처럼 나오되 `to_parent: true` 표시를 단다. renderer 대기 목록, toast·OS 알림(`packages/shell/main/notice/rule.ts`), acp projection은 그 표시로 걸러 카드를 만들지 않는다. 자식 탭의 session 상태는 그대로 `waiting`이다. 사람이 자식 session에 메시지를 보내면 질문이 풀리는 길은 그대로다.
+- 한쪽이 먼저 끝나는 경우:
+  - 자식의 request·질문이 부모 답 말고 다른 것(turn 끝, session 닫힘, 사람 메시지)으로 닫히면 core가 그 ask call을 자식 이름으로 취소한다. 부모의 늦은 답은 `closed: true`다.
+  - 부모가 끝나 call이 `receiver_ended`로 닫히면 승인은 `the parent session ended without answering` 거절로, 질문은 `cancelled`로 풀린다. 처음부터 부모에게 닿지 않으면 승인은 `the request could not reach the parent session` 거절이다.
+  - harness·bare 부모의 마지막 응답이 승인 call의 자동 답이 되면 거절로 친다. 명시하지 않은 허락은 없다.
 
 할당 저장
 - 할당 route(`assignment.get`, `assignment.set`)는 `{agent, entries: [{app, removed_tools[]}]}` 꼴 그대로다. approvals는 정의 파일도 앱 표도 모르므로 읽고 쓰는 길은 조립이 tx와 snapshot마다 꽂는 port(`assignmentPorts`)다(`packages/core/main/daemon/wiring/assignment-file.ts`). 쓰기는 앱 id를 slug로, 뺀 command를 deny 규칙으로 바꿔 정의 파일의 `apps`와 `permissions.deny`만 다시 쓴다. 다른 칸과 본문은 그대로다. 이 할당이 다루는 deny 규칙은 옛 앱과 새 앱의 command 것뿐이고 그 밖의 deny 규칙은 지키며, 정의 파일이 없는 agent에는 쓰지 않는다(`not_found`).

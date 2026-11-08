@@ -54,10 +54,12 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* nav는 lophn shell sidebar와 같은 chrome 색이고, 본문은 탭 본문 색(surface-base)을 따른다. */
 .nav {
   min-width: var(--space-0);
   min-height: var(--space-0);
   overflow: auto;
+  background: var(--color-surface-shell);
   border-inline-end: var(--border-width) solid var(--color-border-subtle);
 }
 

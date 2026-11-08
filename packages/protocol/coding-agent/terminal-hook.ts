@@ -19,7 +19,7 @@ export const HOOK_TEXT_FIELD_MAX_CHARS = 4_096;
 export const TERMINAL_HOOK_LINE_MAX_BYTES = HOOK_PAYLOAD_MAX_BYTES + 1_024;
 export const TERMINAL_HOOK_KEY_PATTERN = /^[0-9a-f]{64}$/;
 
-// env 값(JSON). socket은 shell main이 연 unix socket, key는 터미널 하나에 준 값이다.
+// env 값(JSON). socket은 shell main의 POSIX unix socket 또는 Windows named pipe, key는 터미널 하나에 준 값이다.
 export const terminalHookEnvSchema = z.strictObject({
   socket: z.string().min(1).max(4096),
   key: z.string().regex(TERMINAL_HOOK_KEY_PATTERN),

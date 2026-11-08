@@ -1,6 +1,6 @@
 # platform IPC: Windows에서도 hook과 browser bridge가 돈다
 
-상태: 계획 `platform-ipc`로 열림. 2026-11-08 사람이 물었고 planner가 정리했다. `standalone-core.md`보다 먼저 한다(core control socket이 같은 socket 자리 규칙을 쓴다).
+상태: 계획 `platform-ipc`의 세 task는 plan branch에 merge됨. Windows PowerShell 7·5.1 수동 acceptance와 land 대기이며 아직 끝남이 아니다. 2026-11-08 사람이 물었고 planner가 정리했다. `standalone-core.md`보다 먼저 한다(core control socket이 같은 socket 자리 규칙을 쓴다).
 배경 문서: `project-docs/architecture/platform.md`, `terminal-agent.md`, `browser-tab.md`, `harness-gui.md`.
 
 ## 사람의 말 (원문)

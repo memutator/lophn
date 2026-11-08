@@ -234,5 +234,9 @@
   {
     "id": "apps.delete.erase-windows",
     "sha256": "a8edc63920ba8ded16e42ac2475ae6bac12ec82d3a0fc3efa535d14b77f7f2ee"
+  },
+  {
+    "id": "lophn.split-per-workspace",
+    "sha256": "f88948d53da06d355ed7a91854316e46502dec204f99f69c088e1746cf625b22"
   }
 ]

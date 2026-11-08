@@ -40,6 +40,7 @@ import { configWiring } from "./wiring/config.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { domainsRetireWiring } from "./wiring/domains-retire.ts";
+import { lophnSplitWiring } from "./wiring/lophn-split.ts";
 import { eventsWiring } from "./wiring/events.ts";
 import { flowsWiring } from "./wiring/flows.ts";
 import { idleWiring } from "./wiring/idle.ts";
@@ -182,6 +183,9 @@ export const WIRINGS: readonly WiringFactory[] = [
   serverWiring,
   // 표를 합치는 schema step이 낸 step 목록의 맨 끝이어야 해서 이 위치다(schema-steps.lock.json).
   noticesWiring,
+  // 전역 lophn을 workspace마다로 나눈다. data step이 기존 `agents.*`·`approvals.*` step(전역 lophn.md를 본다) 뒤에 돌아야 하고,
+  // ledger step은 낸 step 목록의 끝에만 붙는다(schema-steps.lock.json). projects·apps 표가 있어야 해서 팀 schema 뒤다.
+  lophnSplitWiring,
   // data step이 마지막이어야 한다. 앞선 옮기기 step이 다 끝난 뒤에 domains 표와 폴더를 거둔다.
   domainsRetireWiring,
 ];

@@ -27,13 +27,7 @@ type Kept = TerminalDisplay & {
 };
 type OutputBridge = Pick<
   TerminalApi,
-  | "snapshot"
-  | "onOutput"
-  | "onRuntime"
-  | "respond"
-  | "input"
-  | "resize"
-  | "trace"
+  "snapshot" | "onOutput" | "onRuntime" | "respond" | "input" | "trace"
 >;
 
 /** 개수로 묶어 남기는 잦은 일(mouse 이동, wheel, PTY로 보낸 입력). 다른 일이 오면 그 앞에 내보내 순서를 지킨다. */
@@ -201,26 +195,17 @@ export class TerminalDisplays {
           pty_rows: runtime.rows,
         });
         // snapshot은 PTY 치수로 직렬화돼 있다. 새 view(80x24)나 다른 칸 크기로 쓰면 줄이 꺾여 화면이 엉키고, 그 뒤 칸에
-        // 맞춰도 PTY 치수가 그대로면 TUI는 SIGWINCH를 못 받아 다시 그리지 않는다. PTY 치수로 쓴 뒤 칸에 맞추고,
-        // 치수가 달라졌으면 PTY에 알려 TUI가 새 치수로 다시 그리게 한다.
+        // 맞춰도 PTY 치수가 그대로면 TUI는 SIGWINCH를 못 받아 다시 그리지 않는다. PTY 치수로 쓰고, 칸에 다시 맞추는 일은
+        // 탭에 알린다(`restored`). 여기서 맞추면 막 붙은 칸이 아직 배치 전이라 13x5 같은 치수로 PTY까지 줄였다.
         kept.view.resize(runtime.columns, runtime.rows);
         this.#write(kept, output, replay && runtime.generation === generation);
         kept.loading = false;
         this.#write(kept, kept.pending, false);
         kept.pending = [];
         this.#runtime(key, runtime);
-        const dims = kept.view.fit();
-        if (
-          dims !== null &&
-          (dims.columns !== runtime.columns || dims.rows !== runtime.rows)
-        ) {
-          void this.#bridge?.resize({
-            terminal_ref: ref,
-            generation: runtime.generation,
-            columns: dims.columns,
-            rows: dims.rows,
-          });
-        }
+        this.#store.update(key, {
+          restored: (this.#store.get(key)?.restored ?? 0) + 1,
+        });
       });
   }
 

@@ -24,6 +24,11 @@ export interface TerminalEntry {
   readonly command?: string;
   /** 처음 여는 한 번만 main이 이 폴더(등록 폴더 안)에서 shell을 연다. 저장하지 않고, 열 때 비운다. */
   readonly cwd?: string;
+  /**
+   * snapshot을 PTY 치수로 다시 쓴 횟수. 쓴 뒤 view는 PTY 치수라, 탭이 이 값을 보고 칸에 다시 맞춘다(치수가 다르면 PTY도).
+   * 저장하지 않는다.
+   */
+  readonly restored?: number;
 }
 
 const STORAGE_KEY = "lophn.terminal.tabs";

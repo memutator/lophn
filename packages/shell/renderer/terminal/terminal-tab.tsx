@@ -365,7 +365,8 @@ export function TerminalTab({
   }, [active, bridge, boundRef, boundGeneration]);
 
   // 표시 영역에 맞춰 PTY 치수를 바꾼다. focus 칸이 아니어도 보이면 따른다. 안 그러면 xterm만 새 폭이고
-  // PTY는 옛 폭이라 TUI가 옛 폭으로 그려 잘린다.
+  // PTY는 옛 폭이라 TUI가 옛 폭으로 그려 잘린다. 다시 붙어 snapshot을 PTY 치수로 쓴 뒤(`restored`)에도 칸에 다시 맞춘다.
+  const restored = entry?.restored ?? 0;
   useEffect(() => {
     if (!liveKey || !bridge || boundRef === null) return;
     const dims = viewRef.current?.fit();
@@ -379,7 +380,15 @@ export function TerminalTab({
       columns: dims.columns,
       rows: dims.rows,
     });
-  }, [liveKey, bridge, boundRef, boundGeneration, size?.width, size?.height]);
+  }, [
+    liveKey,
+    bridge,
+    boundRef,
+    boundGeneration,
+    size?.width,
+    size?.height,
+    restored,
+  ]);
 
   const showScreen =
     phase.kind === "live" || (phase.kind === "ended" && phase.runtime !== null);

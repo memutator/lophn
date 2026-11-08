@@ -1,6 +1,6 @@
 # platform IPC: Windows에서도 hook과 browser bridge가 돈다
 
-상태: 계획 `platform-ipc`의 세 task는 plan branch에 merge됨. 사람이 Windows 실기 미확인 상태로 land와 계획 닫기를 승인했으며 land 대기다. 미확인 항목은 루트 `WINDOWS-CHECKLIST.md`에 남긴다. 2026-11-08 사람이 물었고 planner가 정리했다. `standalone-core.md`보다 먼저 한다(core control socket이 같은 socket 자리 규칙을 쓴다).
+상태: **끝남.** 계획 `platform-ipc`의 세 task를 main에 land했다(`90a4cd00e`). full check·기존 E2E·core 두 번 기동이 통과했다. 사람이 Windows 실기 미확인 상태의 land와 계획 닫기를 승인했으며, Windows 수동 확인은 루트 `WINDOWS-CHECKLIST.md`에 미확인으로 남긴다. macOS 실기 역시 미확인이다. 2026-11-08 사람이 물었고 planner가 정리했다. `standalone-core.md`의 선행 구현이 끝났다(core control socket이 같은 socket 자리 규칙을 쓴다).
 배경 문서: `project-docs/architecture/platform.md`, `terminal-agent.md`, `browser-tab.md`, `harness-gui.md`.
 
 ## 사람의 말 (원문)
@@ -17,7 +17,7 @@
 - 이유는 unix socket이 아니다. `ipcPath`(`packages/base/os/ipc.ts`)가 이미 win32에서 named pipe를 내고, 앱 IPC는 Windows에서 named pipe로 돈다. 막는 것은 hook과 bridge가 POSIX 전용 run dir와 sh shim 위에 지어진 것이다.
 - `platform.md` "Windows에서 꺼진 기능" 표가 이유를 "unix socket과 sh hook에 기댄다"로 적어 socket이 원인처럼 읽힌다.
 
-## 지금 코드
+## 계획 전 코드
 
 - `packages/shell/main/desktop/wiring/bridge.ts:64` `if (process.platform === "win32") return off;` 한 줄이 browser bridge를 끄고 `runDir`를 null로 둔다. `wiring/agent.ts:236-237`이 `runDir`를 기다려 null이면 hook server(`terminal/agent/socket.ts` `listenHooks`)와 shell 시작 층(`terminal-host/shell-integration.ts` `writeShellInit`)도 열지 않는다. 그래서 win32에는 `h.sock`도, `LPN_TERMINAL_HOOK`·`LPN_SHELL_INIT` env도, `<harness> gui`도 없다.
 - run dir(`packages/shell/main/browser-bridge/run-dir.ts`)가 POSIX 전제다: `XDG_RUNTIME_DIR` 또는 `${tmpdir}/lophn-${uid}`(`process.getuid!()`, `wiring/bridge.ts:90`), 폴더 0700 chmod, socket 0600 chmod(`browser-bridge/socket.ts:53`, `terminal/agent/socket.ts:53`), 경로 104 byte 한도.
@@ -48,6 +48,8 @@
 - WSL 안 shell을 위한 bridge.
 
 ## 끝남 기준
+
+사람 승인으로 구현 land와 계획 닫기는 완료한다. 아래 Windows 실기 기준을 통과했다는 뜻은 아니며 결과는 루트 checklist에서 따로 기록한다.
 
 - Windows 터미널 탭에서 Claude Code를 돌리면 turn 끝·권한 물음이 탭 상태와 알림으로 온다.
 - Windows 터미널 탭에서 `claude gui`가 탭을 GUI로 바꾼다.

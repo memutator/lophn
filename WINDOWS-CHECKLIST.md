@@ -2,8 +2,8 @@
 
 ## 상태와 범위
 
-- 상태: **Windows 실기 미확인 — 사람 승인으로 land 진행**.
-- 확인 대상: `plan/platform-ipc`의 변경을 포함한 Windows build.
+- 상태: **구현 main land 완료 — Windows 실기 미확인**.
+- 확인 대상: 구현 land commit `90a4cd00e`의 변경을 포함한 Windows build. 계획 branch는 닫으며 이 checklist는 루트에 남긴다.
 - PowerShell 7(`pwsh.exe`)과 Windows PowerShell 5.1(`powershell.exe`)을 **각각** lophn 터미널의 시작 shell로 실행한다. 이미 열린 터미널 안에서 다른 PowerShell을 실행하는 것으로 대신하지 않는다.
 - Linux의 check·smoke 통과는 Windows PowerShell·named pipe·`.cmd` 실행 확인을 대신하지 않는다.
 - 사람이 Windows 미확인을 남긴 채 land하도록 승인했다. 원래의 Windows 확인 선행 조건은 이 승인으로 변경됐으며, 아래 항목은 land 뒤에도 별도로 확인한다. 미확인·환경 제약·실패를 통과로 쓰지 않는다.
@@ -86,4 +86,4 @@ PowerShell 버전:
 - [x] 사람이 Windows 실기 미확인 상태의 land를 승인했다. 기존 full check·E2E·core 기동 gate는 유지한다.
 - [ ] lead가 Windows 실기 결과를 review했다.
 
-현재 판정: **Windows 실기 미확인. 사람 승인으로 land 진행하며 Windows 통과를 뜻하지 않는다.**
+현재 판정: **사람 승인으로 구현을 main에 land했다. Windows 실기는 미확인이며 land 완료가 Windows 통과를 뜻하지 않는다.**

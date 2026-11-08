@@ -36,12 +36,14 @@ import type {
 export type { ReadResult };
 
 /**
- * 목록의 줄. `assignment`는 agent id(`lophn`이거나 `agt_…`)다. 목록은 전역이고 lophn이 첫 줄이다.
+ * 목록의 줄. `assignment`는 agent id(`lophn`이거나 `agt_…`)다. lophn이 첫 줄이다.
  */
 export interface AgentListRow {
   readonly assignment: string;
   /** agent의 주소다. 만들 때 정하고 바뀌지 않는다. */
   readonly handle: string;
+  /** 범위 workspace. null이면 전역이다. */
+  readonly workspace: AgentWorkspace | null;
   /** 보이는 이름이다. 겹쳐도 되고 바꿀 수 있다. */
   readonly name: string;
   readonly profile: Profile;
@@ -59,7 +61,7 @@ export interface AgentListRow {
 
 /** Agents 탭 본문 한 번에 필요한 값. */
 export interface AgentsOverview {
-  /** 전역 목록 전부(lophn이 첫 줄). */
+  /** 전역 agent와 이 workspace 범위 agent(lophn이 첫 줄). */
   readonly agents: readonly AgentListRow[];
   /** 같이 쓰는 `LOPHN.md`. 앱 자리에는 project 지침이 없어 null이다. 파일이 없거나 읽을 수 없으면 빈 글이다. */
   readonly instructions: ProjectInstructionsView | null;
@@ -244,7 +246,7 @@ export interface GrantsView {
 }
 
 export interface AgentsSource {
-  /** 전역 agent 목록(lophn이 첫 줄). sidebar의 Agents 묶음이 이것만 읽는다. 첫 인자는 화면을 연 자리다. */
+  /** 전역 agent와 화면을 연 자리(첫 인자, home은 "home") 범위 agent의 목록(lophn이 첫 줄). sidebar의 Agents 묶음이 이것만 읽는다. */
   list(project: string): Promise<ReadResult<readonly AgentListRow[]>>;
   overview(project: string): Promise<ReadResult<AgentsOverview>>;
   models(): Promise<ReadResult<ModelsView>>;
@@ -271,8 +273,8 @@ export interface AgentsSource {
     project: string | null,
     assignment: string,
   ): Promise<ReadResult<AgentDetail>>;
-  /** 첫 저장 전의 agent. 상속하는 값은 화면을 연 자리가 정한다. */
-  newAgent(project: string): Promise<ReadResult<AgentDetail>>;
+  /** 첫 저장 전의 agent. 상속하는 값과 기본 범위는 화면을 연 자리가 정한다(null이면 전역). */
+  newAgent(project: string | null): Promise<ReadResult<AgentDetail>>;
   saveAgent(project: string | null, input: SaveInput): Promise<SaveResult>;
   deleteAgent(
     project: string,

@@ -140,6 +140,7 @@ function toRow(row: AgentRow): AgentListRow {
   return {
     assignment: row.agent,
     handle: row.handle,
+    workspace: row.workspace,
     name: row.name,
     profile: row.profile,
     ...(row.description === undefined ? {} : { description: row.description }),
@@ -270,9 +271,9 @@ export function coreAgentsSource(
     return read.ok ? read.value.card : undefined;
   };
 
-  // 전역 목록이다. 첫 인자는 화면을 연 자리지만 목록은 자리에 속하지 않아 쓰지 않는다.
+  // 전역 agent와 화면을 연 자리 범위 agent다. home은 자리 id가 없어 전역만 남는다.
   const list = async (
-    _workspace: string,
+    workspace: string,
   ): Promise<ReadResult<AgentListRow[]>> => {
     const result = await link.read<{ agents: AgentRow[] }>(
       "agents",
@@ -280,7 +281,11 @@ export function coreAgentsSource(
       {},
     );
     if (!result.ok) return result;
-    const rows = result.value.agents.map(toRow);
+    const rows = result.value.agents
+      .map(toRow)
+      .filter(
+        (row) => row.workspace === null || row.workspace.id === workspace,
+      );
     await Promise.all(
       rows.map((row) =>
         row.profile.kind === "image"
@@ -534,22 +539,26 @@ export function coreAgentsSource(
     readAgent: (project, agent) => detailOf(project, agent),
 
     async newAgent(project) {
-      const current: WorkspaceView = {
-        ...workspaceOf(project),
-        name: await nameOf(project),
-      };
+      const current: WorkspaceView =
+        project === null
+          ? { kind: "none", id: null, name: "" }
+          : { ...workspaceOf(project), name: await nameOf(project) };
       const draftId = newAgentId(bytes());
       const skills = await readSkills(link, project);
       if (!skills.ok) return skills;
       const servers = await readServers(link, project);
       if (!servers.ok) return servers;
-      const text = await instructionsOf(project);
+      const text = project === null ? null : await instructionsOf(project);
       const global = await readGlobalModel(link);
       const detail: AgentDetail = {
         assignment: null,
         draftId,
         workspace: current,
-        definition: { body: "" },
+        // 새 agent의 범위는 화면을 연 자리가 기본이다. 편집기에서 전역으로 바꿀 수 있다.
+        definition:
+          project === null
+            ? { body: "" }
+            : { body: "", workspace: workspaceOf(project) },
         hash: null,
         effective: {
           name: { value: "", source: "global" },

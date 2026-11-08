@@ -49,7 +49,7 @@ export const agents = {
   "agents.notice.skills-project":
     "A switch turns a skill on or off for this project. Global skills can be turned off here too.",
   "agents.notice.tab-lead":
-    "These agents work in every project and app. A session works in the workspace where you open it.",
+    "Global agents work in every project and app. An agent scoped to this workspace shows only here. A session works in the workspace where you open it.",
   "agents.button.assign-app": "Assign app",
   "agents.button.choose-character": "Choose character",
   "agents.button.create-agent": "Create agent",
@@ -145,8 +145,6 @@ export const agents = {
     "Overrides {layer, select, project {project} other {global}}",
   "agents.label.no-model-chosen": "No model chosen yet",
   "agents.label.workspace": "Workspace",
-  "agents.label.workspace-choice":
-    "{name} ({kind, select, app {app} other {project}})",
   "agents.label.workspace-lophn": "All of lophn",
   "agents.label.workspace-named": "{name} \u00b7 project",
   "agents.label.workspace-named-app": "{name} \u00b7 app",
@@ -176,7 +174,7 @@ export const agents = {
   "agents.notice.handle-help":
     "How other agents and apps address this agent. Lowercase letters, digits, - and _. Left empty, it is made from the name. It can't be changed after you save.",
   "agents.notice.workspace-help":
-    "Where this agent works. Its sessions open in that workspace.",
+    "Where this agent can be used. A scoped agent shows only in its workspace. It can't be changed after you save.",
   "agents.notice.profile-help":
     "Choose a shape and color, or upload an image. It shows next to the agent's messages.",
   "agents.notice.protected-key":

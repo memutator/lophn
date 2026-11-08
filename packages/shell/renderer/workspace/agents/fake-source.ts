@@ -331,6 +331,14 @@ export function createFakeAgentsSource(
     item.definition.profile ??
     (key === "lophn" ? BUILT_IN_PROFILE.lophn : DEFAULT_PROFILE);
 
+  // 전역 agent와 그 자리 범위 agent만 보인다. home("home")은 전역만 남는다.
+  const visible = (workspace: string) =>
+    [...stored].filter(
+      ([, item]) =>
+        item.definition.workspace === undefined ||
+        item.definition.workspace.id === workspace,
+    );
+
   const ALL_MODALITIES = ["text", "image", "file"] as const;
 
   // core의 cardOf를 줄인 것: 차이는 skill·MCP 이름만 센다.
@@ -340,11 +348,11 @@ export function createFakeAgentsSource(
     return {
       handle: definition.handle ?? item.name,
       name: item.name,
-      workspace: null,
+      workspace: definition.workspace ?? null,
       ...(definition.description === undefined
         ? {}
         : { description: definition.description }),
-      runtime: bare ? "bare" : "lophn",
+      runtime: definition.runtime ?? "lophn",
       modality: {
         input: [...(definition.modality?.input ?? ALL_MODALITIES)],
         output: [...(definition.modality?.output ?? ALL_MODALITIES)],
@@ -392,6 +400,7 @@ export function createFakeAgentsSource(
     return {
       assignment: key,
       handle: item.definition.handle ?? key,
+      workspace: definition.workspace ?? null,
       name: item.name,
       profile: profileOf(key, item),
       ...(definition.description === undefined
@@ -477,7 +486,7 @@ export function createFakeAgentsSource(
     list(project) {
       return Promise.resolve(
         ok(
-          [...stored].map(([key, item]) =>
+          visible(project).map(([key, item]) =>
             rowOf(key, item, workspaceKind(project)),
           ),
         ),
@@ -493,7 +502,7 @@ export function createFakeAgentsSource(
       const at = workspaceKind(project);
       return Promise.resolve(
         ok({
-          agents: [...stored].map(([key, item]) => rowOf(key, item, at)),
+          agents: visible(project).map(([key, item]) => rowOf(key, item, at)),
           instructions:
             at === "project" ? { ...lophnFile, project: PROJECT_NAME } : null,
           projectModel: { chosen: projectModel, inherited: GLOBAL_MODEL },
@@ -613,7 +622,10 @@ export function createFakeAgentsSource(
           assignment: null,
           draftId,
           workspace: workspaceView(project),
-          definition: { body: "" },
+          definition:
+            at === "none" || project === null
+              ? { body: "" }
+              : { body: "", workspace: { kind: at, id: project } },
           hash: null,
           effective: {
             name: { value: "", source: "global" },

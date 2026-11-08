@@ -15,7 +15,6 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
                                           agent_calls 행(storage): agent가 보낸 것만
                                           unattended 표시: 봉투, 입력, 행에 싣는다
 
- 받는 곳이 coding_agent로 풀리면 ─▶ invalid_input (call 행 없음. coding session은 없다)
  agent가 보낸 call이 call 정책 밖이면     ─▶ forbidden     (call 행도 새 session도 없음)
  agent가 보낸 call을 받는 agent가 못 받으면 ─▶ invalid_input (call 행도 새 session도 없음)
 ```
@@ -79,7 +78,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
   - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고, 본문 blob은 tx 안에서 만들 수 없다.
   - 마지막 응답 읽기는 run의 결과와 같은 함수다(`wiring/turn-answer.ts`의 `turnAnswer`, `architecture/run.md`). 글만 싣는다.
 - 화면의 call 블록은 펼치지 않는다. 머리 줄이 답 방식에 맞는 말(none은 "Handoff to", result는 "Asked", conversation은 "Working with")과 받는 곳이고, 오른쪽 끝 [Open conversation]이 받은 session을 연다. 실패만 그 자리에 이유 한 줄로 보이고, 답과 늦게 안 실패는 이어지는 새 메시지다(`packages/shell/renderer/conversation/thread/call-block.tsx`).
-- call의 `to`는 `{session}`이나 `{agent, workspace?}`(+ `fallback`)다(`packages/protocol/lophn-agent/calls.ts`). `agent`는 agent의 handle이고 workspace가 없으면 home이다. handle은 전역에 하나라(범위 있는 agent 포함) 하나로 풀린다. 범위 있는 agent(`architecture/agent-definition.md`)는 그 workspace에 여는 call(`{agent, workspace: <그 workspace>}`)로만 닿고, 다른 곳에 열려 하면 not_found다. call 정책(private workspace 포함)은 그대로 걸린다. `fallback`은 session이 닫혔을 때 열 `{agent, workspace?}`다. 보낸 이(`from`)는 사람, program, agent session 셋이다.
+- call의 `to`는 셋 중 하나다(`callAddressInputSchema`, `packages/protocol/lophn-agent/calls.ts`): `{session}`(열린 session), `{agent, workspace?}`(새 session), `{agent, workspace?, session, fallback: "new"}`(열린 session, 닫혔으면 그 agent+workspace의 새 session). `agent`는 agent의 handle이고 workspace가 없으면 home이다. handle은 전역에 하나라(범위 있는 agent 포함) 하나로 풀린다. 범위 있는 agent(`architecture/agent-definition.md`)는 그 workspace에 여는 call(`{agent, workspace: <그 workspace>}`)로만 닿고, 다른 곳에 열려 하면 not_found다. call 정책(private workspace 포함)은 그대로 걸린다. `fallback`은 session이 닫혔을 때 열 새 session의 `{agent, workspace?}`를 같이 적는 꼴이다. 보낸 이(`from`)는 사람, program, agent session 셋이다.
 
 ## 왜 이 모양인가
 

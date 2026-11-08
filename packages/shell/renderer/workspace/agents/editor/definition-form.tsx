@@ -9,13 +9,14 @@ import { t } from "@lophn/i18n";
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import {
+  type AgentWorkspace,
   isHarnessRuntime,
   type Modality,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
 import { LOPHN_AGENT_ID } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
-import { CardFacts, modalityLabel } from "../agent-card.tsx";
+import { CardFacts, modalityLabel, scopeLabel } from "../agent-card.tsx";
 import type { AgentDetail, AgentDraft, ModelsView } from "../source.ts";
 import type { McpLogin, McpRow } from "../views.ts";
 import type { InstructionsPort } from "./instructions-editor.tsx";
@@ -33,6 +34,7 @@ import styles from "./agent-editor.module.css";
 type FieldName =
   | "profile"
   | "handle"
+  | "workspace"
   | "name"
   | "description"
   | "runtime"
@@ -48,6 +50,7 @@ type FieldName =
 // 거절된 항목의 점 경로 첫 구간이 어느 칸에 속하는지. 칸에 없는 경로(frontmatter 등)는 맨 아래에 보인다.
 const FIELD_OF: Readonly<Record<string, FieldName>> = {
   handle: "handle",
+  workspace: "workspace",
   name: "name",
   profile: "profile",
   description: "description",
@@ -216,6 +219,14 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const set = (key: Exclude<keyof AgentDraft, "body">, value: unknown) =>
     onChange(withField(definition, key, value));
 
+  // 새 agent가 고를 수 있는 범위: 화면을 연 workspace. home이나 Settings는 없고 전역뿐이다.
+  const here =
+    detail.workspace.kind === "none"
+      ? null
+      : ({
+          kind: detail.workspace.kind,
+          id: detail.workspace.id,
+        } as AgentWorkspace);
   const runtime = definition.runtime ?? "lophn";
   const bare = runtime === "bare";
   // harness(third-party CLI)는 자기 model·skill·MCP를 쓴다.
@@ -347,6 +358,37 @@ export function DefinitionForm(props: DefinitionFormProps) {
         </div>
       )}
 
+      <div data-field="workspace">
+        <Field
+          label={t("agents.label.workspace")}
+          help={t("agents.notice.workspace-help")}
+        >
+          {fresh && here !== null ? (
+            <SegmentedControl
+              size="sm"
+              label={t("agents.label.workspace")}
+              value={definition.workspace === undefined ? "global" : "here"}
+              options={[
+                {
+                  value: "here",
+                  label: scopeLabel(here, props.workspaceName),
+                },
+                { value: "global", label: scopeLabel(null, "") },
+              ]}
+              onValueChange={(picked) =>
+                set("workspace", picked === "here" ? here : undefined)
+              }
+            />
+          ) : (
+            <Input
+              value={scopeLabel(definition.workspace, props.workspaceName)}
+              readOnly
+            />
+          )}
+        </Field>
+        <Issues issues={issuesOf("workspace")} />
+      </div>
+
       {lophn ? null : (
         <>
           <div data-field="description">
@@ -417,7 +459,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
 
       {detail.card === undefined ? null : (
         <Group name="card" heading={t("agents.heading.card")}>
-          <CardFacts card={detail.card} />
+          <CardFacts card={detail.card} workspaceName={props.workspaceName} />
           <p className={styles.note}>{t("agents.notice.card-help")}</p>
         </Group>
       )}

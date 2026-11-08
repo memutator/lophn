@@ -169,7 +169,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     setState({ kind: "loading" });
     const opened =
       agent === null
-        ? source.newAgent(project ?? "")
+        ? source.newAgent(project)
         : source.readAgent(project, agent);
     void opened.then((result) => {
       if (!live) return;

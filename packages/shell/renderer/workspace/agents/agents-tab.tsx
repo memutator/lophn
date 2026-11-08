@@ -1,4 +1,4 @@
-// project의 Agents 탭 본문. 위에서부터 전역 agent 카드 목록(lophn이 첫 줄)과 [New agent], 같이 쓰는 LOPHN.md,
+// project의 Agents 탭 본문. 위에서부터 전역 agent와 이 workspace 범위 agent의 카드 목록(lophn이 첫 줄)과 [New agent], 같이 쓰는 LOPHN.md,
 // project 층 model 하나, skill, MCP server와 맨 아래 "Agent definitions are stored in lophn, not in your project folder."
 // 한 줄이다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 
@@ -9,7 +9,7 @@ import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { actionIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import { CardFacts } from "./agent-card.tsx";
+import { CardFacts, scopeLabel } from "./agent-card.tsx";
 import styles from "./agents-tab.module.css";
 import {
   InstructionsEditor,
@@ -61,10 +61,12 @@ function countsText(row: AgentListRow): string {
 
 function AgentCardView({
   row,
+  workspaceName,
   imageSrc,
   onOpen,
 }: {
   row: AgentListRow;
+  workspaceName: string;
   imageSrc: ImageSrc;
   onOpen: () => void;
 }): ReactElement {
@@ -102,8 +104,16 @@ function AgentCardView({
                   })}
             </li>
             <li data-agent-counts="">{countsText(row)}</li>
+            {/* 명함이 없는 줄(틀린 정의 file)은 범위를 여기서 보인다. */}
+            {row.card === undefined ? (
+              <li data-agent-scope="">
+                {scopeLabel(row.workspace, workspaceName)}
+              </li>
+            ) : null}
           </ul>
-          {row.card === undefined ? null : <CardFacts card={row.card} />}
+          {row.card === undefined ? null : (
+            <CardFacts card={row.card} workspaceName={workspaceName} />
+          )}
           <div className={styles.actions}>
             <Button
               aria-label={t("project-workspace.label.open-agent-named", {
@@ -169,6 +179,7 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
             <AgentCardView
               key={row.assignment}
               row={row}
+              workspaceName={props.projectName}
               imageSrc={props.imageSrc}
               onOpen={() => props.onOpenAgent(row.assignment)}
             />

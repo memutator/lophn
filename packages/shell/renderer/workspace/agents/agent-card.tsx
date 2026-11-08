@@ -2,7 +2,10 @@
 import { t } from "@lophn/i18n";
 import type { ReactElement } from "react";
 import type { AgentCard } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import type { Modality } from "../../../../protocol/lophn-agent/agent-values.ts";
+import type {
+  AgentWorkspace,
+  Modality,
+} from "../../../../protocol/lophn-agent/agent-values.ts";
 import styles from "./agent-card.module.css";
 
 export const modalityLabel = (modality: Modality): string =>
@@ -19,17 +22,39 @@ const replyLabel = (reply: AgentCard["replies"][number]): string =>
       ? t("agents.label.reply-result")
       : t("agents.label.reply-conversation");
 
+/** agent의 범위 표시: 전역이거나 `<name> · project`·`<name> · app`. name은 그 workspace의 이름이다. */
+export const scopeLabel = (
+  workspace: AgentWorkspace | null | undefined,
+  name: string,
+): string =>
+  workspace === null || workspace === undefined
+    ? t("agents.label.workspace-lophn")
+    : t(
+        workspace.kind === "app"
+          ? "agents.label.workspace-named-app"
+          : "agents.label.workspace-named",
+        { name },
+      );
+
 const list = (items: readonly string[]): string => items.join(", ");
 
-export function CardFacts({ card }: { card: AgentCard }): ReactElement {
+/** workspaceName은 화면을 연 자리의 이름이다. 범위 agent는 그 자리에서만 보이므로 범위 workspace와 같다. */
+export function CardFacts({
+  card,
+  workspaceName,
+}: {
+  card: AgentCard;
+  workspaceName: string;
+}): ReactElement {
   return (
     <ul className={styles.facts} data-agent-card-facts="">
+      <li data-card-scope="">{scopeLabel(card.workspace, workspaceName)}</li>
       <li data-card-runtime="">
         {t("agents.label.card-runtime", {
           runtime:
             card.runtime === "bare"
               ? t("agents.label.runtime-bare")
-              : t("agents.label.runtime-lophn"),
+              : card.runtime,
         })}
       </li>
       <li data-card-modality="">

@@ -21,4 +21,5 @@ export {
   FAILURE_TEXTS,
   type RouteInput,
   type RouteResult,
+  TEAM_SPAWNED_TOPIC,
 } from "./model.ts";

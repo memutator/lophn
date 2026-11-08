@@ -31,6 +31,7 @@ function world() {
     transport: "lophn",
     agent: { agent: "lophn", workspace: null },
     accepting: true,
+    spawned_by: null,
   });
   installRouterEnvironment({
     unattendedTurn: (_view, turn) => MODES[turn] === "unattended",

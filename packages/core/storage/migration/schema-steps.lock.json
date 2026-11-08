@@ -172,6 +172,10 @@
     "sha256": "e5f1b128169d32017007f2ed47dd5fa25cd7fbdf1a9fcf4b6dae9224083af464"
   },
   {
+    "id": "lophn-agent.sessions.spawned-by",
+    "sha256": "92d295ec3cfa30f0c8a8bb2e96d4e86b130f27c0a53ac0e3e653706d9598f6aa"
+  },
+  {
     "id": "lophn-agent.harness-tools.tables",
     "sha256": "598d36403cc937a768070894b71c93d49f720bcf7fec75c3c0c0273ca44f48aa"
   },

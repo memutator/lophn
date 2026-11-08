@@ -10,7 +10,10 @@ import type {
   CallReply,
   CallState,
 } from "../../protocol/lophn-agent/calls.ts";
-import type { Modality } from "../../protocol/lophn-agent/agent-values.ts";
+import type {
+  AgentRuntime,
+  Modality,
+} from "../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentAddress,
   AgentAtWorkspace,
@@ -33,6 +36,8 @@ export type TargetSession = {
   agent: AgentAtWorkspace;
   // archive, 지움, workspace 보관이면 false(새 입력을 받지 않는다).
   accepting: boolean;
+  // `team spawn`으로 열린 session이면 연 session. 팀 규칙이 보낸 쪽과 받는 쪽의 관계를 이걸로 푼다.
+  spawned_by: Id<"ses"> | null;
 };
 
 // 한 번 배달할 입력. 종류마다 tag를 고르는 것은 받는 쪽이 한다.
@@ -78,17 +83,22 @@ export interface SessionDirectory {
   // agent 이름과 workspace 이름으로 받을 session 하나를 고른다. workspace가 없으면 home이다.
   // 이름을 짐작하지 않는다. 없으면 not_found.
   resolveAddress(address: AgentAddress): Result<AgentAtWorkspace>;
+  // spawnedBy는 `team spawn`이 연 session(팀의 부모)이고 그 밖의 call은 null이다. 팀이 상한을 넘으면 conflict.
   open(
     tx: Tx,
     agent: AgentAtWorkspace,
     opener: CallFrom,
+    spawnedBy: Id<"ses"> | null,
   ): Result<TargetSession>;
+
   // 받는 agent의 명함. 명함을 못 읽는 agent는 null이고 검사하지 않는다.
   accepts(agent: AgentId): AgentAccepts | null;
   // session 목록 tool이 쓴다.
   listOpen(): readonly (TargetSession & {
     handle: string;
     name: string;
+    description: string | null;
+    runtime: AgentRuntime;
     title: string | null;
     last_active_at: string | null;
   })[];

@@ -24,7 +24,7 @@ import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand, type CommandContext } from "./types.ts";
 
 // 본문은 글 하나다. `--image <path>`는 file을 image block으로 더한다: 받는 쪽에 읽기 허락을 주지 않고 값을 싣는다.
-const bodyFields = {
+export const bodyFields = {
   body: z.string().min(1),
   image: z.array(z.string().min(1)).default([]),
 };
@@ -71,7 +71,7 @@ async function imageBlock(
     : prepared;
 }
 
-async function bodyOf(
+export async function bodyOf(
   input: { body: string; image: string[] },
   ctx: CommandContext,
 ): Promise<Result<ContentBlock[]>> {

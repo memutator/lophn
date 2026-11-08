@@ -1,4 +1,5 @@
 import { canonicalize, sha256Hex } from "../../../base/mod.ts";
+import { TEAM_CHANGED_TEXT } from "../../../protocol/lophn-agent/team.ts";
 import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
 import {
   inputBudget,
@@ -52,6 +53,8 @@ export type TurnPromptInput = {
   workspace: {
     text: string;
     agents: readonly WorkspaceAgent[];
+    // 부모·형제·자식의 `ses_id handle` 줄. 판 비교만 쓰고 system에는 싣지 않는다. 없으면 팀 밖이다.
+    team?: readonly string[];
   };
   history: readonly HistoryMessage[];
   // 지난 turn이 본 판. 없으면(첫 turn, compact) notice를 붙이지 않는다.
@@ -167,12 +170,20 @@ function noticesOf(diff: BasisDiff, input: TurnPromptInput): string[] {
       }),
     );
   }
+  if (diff.team) {
+    notices.push(
+      noticeInput({ kind: "team_changed", body: TEAM_CHANGED_TEXT }),
+    );
+  }
   return notices;
 }
 
 function changed(diff: BasisDiff): boolean {
   return (
-    diff.instructions.length > 0 || diff.tools !== null || diff.agents !== null
+    diff.instructions.length > 0 ||
+    diff.tools !== null ||
+    diff.agents !== null ||
+    diff.team
   );
 }
 
@@ -266,6 +277,7 @@ export async function assembleTurnPrompt(
     instructions: bare === undefined ? input.instructions : NO_INSTRUCTIONS,
     tool_names: input.tools.map((t) => t.name),
     agents: bare === undefined ? input.workspace.agents : [],
+    team: bare === undefined ? (input.workspace.team ?? []) : [],
   });
   const diff = input.seen === undefined ? null : diffBasis(input.seen, basis);
   const notices = diff !== null && changed(diff) ? noticesOf(diff, input) : [];

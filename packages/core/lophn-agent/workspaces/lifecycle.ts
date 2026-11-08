@@ -14,6 +14,7 @@ import {
 } from "../session/model.ts";
 import { harnessEnabledIn } from "../session/harness.ts";
 import type { EndDeps, OpenDeps, WorkspaceDeps } from "./ports.ts";
+import type { TeamLimits } from "../../../protocol/lophn-agent/team.ts";
 
 // session을 열고 끝내는 규칙. command(`OpenSession`, `ArchiveSession`, `DeleteSession`)와 Router의
 // SessionDirectory가 같이 쓴다.
@@ -39,6 +40,40 @@ function workspaceUsable(
   return ok(undefined);
 }
 
+// parent가 새 자식을 열어도 팀이 상한 안인지. core는 desk를 모르므로 root(조상 중 spawned_by가 없는 session) 아래 열린 자손 수로 센다.
+// 부모가 지워져 끊긴 사슬은 남은 가장 위가 root다.
+export function checkSpawnSlot(
+  tx: Tx,
+  parent: Id<"ses">,
+  limits: TeamLimits,
+): Result<void> {
+  const top = tx.sql.get(
+    `with recursive up(id, parent, depth) as (
+       select id, spawned_by, 0 from sessions where id = ?
+       union all
+       select s.id, s.spawned_by, up.depth + 1 from sessions s join up on s.id = up.parent
+     ) select id, depth from up order by depth desc limit 1`,
+    [parent],
+  );
+  if (top === undefined) return fail("not_found", "session not found");
+  // root가 0이고 새 자식은 부모보다 한 칸 아래다.
+  if (Number(top["depth"]) + 1 > limits.max_depth) {
+    return fail("conflict", "the team is too deep for another member");
+  }
+  const members = tx.sql.get(
+    `with recursive down(id) as (
+       select id from sessions where spawned_by = ?
+       union all
+       select s.id from sessions s join down on s.spawned_by = down.id
+     ) select count(*) as n from sessions where id in (select id from down) and lifecycle = 'open'`,
+    [top["id"]],
+  );
+  if (Number(members?.["n"]) >= limits.max_members) {
+    return fail("conflict", "the team is full");
+  }
+  return ok(undefined);
+}
+
 export function startSession(
   tx: Tx,
   deps: OpenDeps,
@@ -48,6 +83,8 @@ export function startSession(
     workspace: Workspace | null;
     // 다른 workspace의 session이 불러 열었으면 그 workspace.
     calledFrom?: Workspace | null;
+    // `team spawn`이 열었으면 연 session.
+    spawnedBy?: Id<"ses"> | null;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
     // 새 session은 정의의 기본값으로 시작한다(workspace-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
     inherit?: {
@@ -88,8 +125,8 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       model_selection, skip, harness, called_from_kind, called_from_id, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       model_selection, skip, harness, called_from_kind, called_from_id, spawned_by, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
       input.agent,
@@ -105,6 +142,7 @@ export function startSession(
       harness,
       input.calledFrom?.kind ?? null,
       input.calledFrom?.id ?? null,
+      input.spawnedBy ?? null,
       seq,
       seq,
     ],

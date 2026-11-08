@@ -17,6 +17,7 @@ import {
   type sendMessage,
   type bindHarnessSession,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { teamEnd } from "../../../protocol/lophn-agent/team.ts";
 import type {
   CommandDefinition,
   Input,
@@ -28,6 +29,7 @@ import type { EndDeps, OpenDeps } from "../workspaces/ports.ts";
 import { createCompactCommands } from "./compact.ts";
 import { createHarnessCommands } from "./harness.ts";
 import { createForkCommand } from "./fork.ts";
+import { createTeamEnd } from "./team-commands.ts";
 import { deleteSessionReverts } from "./rewind/mod.ts";
 import { reject, requireUser, sessionNotFound } from "./guards.ts";
 import {
@@ -91,10 +93,12 @@ export function createConversationCommands(deps: ConversationDeps): {
   record: CommandDefinition<typeof recordMessage>;
   shell: CommandDefinition<typeof recordShellMessage>;
   bind: CommandDefinition<typeof bindHarnessSession>;
+  teamEnd: CommandDefinition<typeof teamEnd>;
 } {
   return {
     ...createMessageCommands(deps.send),
     ...createHarnessCommands(),
+    teamEnd: createTeamEnd(deps.end),
     fork: createForkCommand(deps.open),
     ...createCompactCommands(),
     open: {

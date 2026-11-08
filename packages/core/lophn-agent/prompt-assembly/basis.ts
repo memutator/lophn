@@ -17,6 +17,8 @@ export type SeenBasis = {
   tools: string[];
   // `handle: 목적` 줄, 정렬
   agents: string[];
+  // 부모·형제·자식의 `ses_id handle` 줄, 정렬. 상태는 넣지 않아 깜빡이지 않는다.
+  team: string[];
 };
 
 function cmp(a: string, b: string): number {
@@ -39,6 +41,7 @@ export async function basisOf(input: {
   instructions: InstructionTexts;
   tool_names: readonly string[];
   agents: readonly WorkspaceAgent[];
+  team: readonly string[];
 }): Promise<SeenBasis> {
   const instructions = {} as SeenBasis["instructions"];
   for (const layer of INSTRUCTION_LAYERS) {
@@ -48,6 +51,7 @@ export async function basisOf(input: {
     instructions,
     tools: [...input.tool_names].sort(cmp),
     agents: input.agents.map(agentLine).sort(cmp),
+    team: [...input.team].sort(cmp),
   };
 }
 
@@ -57,6 +61,8 @@ export type BasisDiff = {
   instructions: InstructionLayerName[];
   tools: ListChange | null;
   agents: ListChange | null;
+  // 누가 들고 나갔는지는 notice에 싣지 않는다(`team read`가 답한다).
+  team: boolean;
 };
 
 function listChange(
@@ -78,5 +84,6 @@ export function diffBasis(seen: SeenBasis, now: SeenBasis): BasisDiff {
     ),
     tools: listChange(seen.tools, now.tools),
     agents: listChange(seen.agents, now.agents),
+    team: listChange(seen.team, now.team) !== null,
   };
 }

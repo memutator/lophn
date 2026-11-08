@@ -86,6 +86,7 @@ function stub(
             compaction: null,
             skip: false,
             called_from: null,
+            spawned_by: null,
             harness: null,
             state_seq: "1",
           },

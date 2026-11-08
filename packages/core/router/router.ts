@@ -30,6 +30,7 @@ import {
   type RouteInput,
   type RouteResult,
   sesId,
+  teamMayReach,
 } from "./model.ts";
 import type {
   CallStore,
@@ -111,9 +112,17 @@ export function createRouter(deps: RouterDeps): Router {
     from: CallFrom,
     agent: AgentAtWorkspace,
     to: CallTarget,
+    spawn: boolean,
   ): Result<Resolved> {
-    const opened = directory.open(tx, agent, from);
+    const opened = directory.open(
+      tx,
+      agent,
+      from,
+      spawn && from.kind === "agent" ? sesId(from.session) : null,
+    );
     if (opened.ok) return ok({ ok: true, to, target: opened.value });
+    // spawn은 실패를 call의 실패가 아니라 오류로 돌린다(팀이 가득 찬 conflict가 closed로 바뀌지 않게).
+    if (spawn) return opened;
     if (opened.error.code === "conflict") return ok(failed("closed", to));
     if (opened.error.code === "not_found") return ok(failed("not_found", to));
     return opened;
@@ -153,10 +162,18 @@ export function createRouter(deps: RouterDeps): Router {
         ? ok(failed("not_found", null))
         : resolved;
     }
-    const agent = resolved.value;
+    const spawn = input.spawn === true;
+    const agent =
+      spawn && from.kind === "agent" && address.workspace === undefined
+        ? {
+            ...resolved.value,
+            workspace:
+              directory.find(sesId(from.session))?.agent.workspace ?? null,
+          }
+        : resolved.value;
     if (session === null) {
       const to: CallTarget = { kind: "new_session", agent };
-      return open(tx, from, agent, to);
+      return open(tx, from, agent, to, spawn);
     }
     const to: CallTarget = {
       kind: "open_session_or_new",
@@ -167,7 +184,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (target !== null && target.accepting) {
       return ok({ ok: true, to, target });
     }
-    return open(tx, from, agent, to);
+    return open(tx, from, agent, to, spawn);
   }
 
   function inputOf(input: RouteInput, call: string | null): RoutedInput {
@@ -310,6 +327,21 @@ export function createRouter(deps: RouterDeps): Router {
         });
   }
 
+  // 규칙 2. agent가 보낸 call만 거른다. 다른 거절과 같이 err로 돌려 tx가 되돌아간다.
+  function teamRefusal(
+    sender: string,
+    target: TargetSession,
+  ): Result<RouteResult> | null {
+    const from = directory.find(sesId(sender));
+    return from === null || teamMayReach(directory.find, from, target)
+      ? null
+      : err({
+          code: "forbidden",
+          message:
+            "a team member calls its parent, siblings and its own members only",
+        });
+  }
+
   function route(tx: Tx, input: RouteInput): Result<RouteResult> {
     const from = input.from;
     if (from.kind === "agent" && input.dedup !== null) {
@@ -337,6 +369,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (from.kind === "agent") {
       const refused =
         policyRefusal(from.session, target.agent, input.reply) ??
+        teamRefusal(from.session, target) ??
         refusal(target.agent.agent, input);
       if (refused !== null) return refused;
     }

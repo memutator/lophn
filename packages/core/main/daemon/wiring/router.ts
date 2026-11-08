@@ -16,6 +16,7 @@ import {
   callReply,
 } from "../../../../protocol/lophn-agent/calls.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
+import { teamEnd, teamSpawn } from "../../../../protocol/lophn-agent/team.ts";
 import {
   archiveSession,
   blocksOfContent,
@@ -49,6 +50,10 @@ import {
   redactBlocks,
   rejected,
 } from "../../../lophn-agent/session/message-body.ts";
+import {
+  loadSession,
+  workspaceOf,
+} from "../../../lophn-agent/session/model.ts";
 import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
@@ -57,9 +62,11 @@ import {
   CANCEL_TEXT,
   callsRecover,
   FAILURE_TEXTS,
+  TEAM_SPAWNED_TOPIC,
 } from "../../../router/mod.ts";
 import {
   type CommandEnvelope,
+  type CommitAction,
   type KnownSecretMatch,
   type LedgerConnection,
   openConnection,
@@ -150,7 +157,11 @@ function createCallBodyPreparer(deps: {
     const input = envelope.input;
     const bodies: ContentBlock[][] = [];
     let next = envelope;
-    if (name === agentCallSend.name || name === callReply.name) {
+    if (
+      name === agentCallSend.name ||
+      name === callReply.name ||
+      name === teamSpawn.name
+    ) {
       // 모양이 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
       const shaped = contentBlocksSchema.safeParse(
         (input as { body?: unknown } | null)?.body,
@@ -168,7 +179,11 @@ function createCallBodyPreparer(deps: {
       next = { ...envelope, input: { ...(input as object), body: safe } };
     } else if (name === callCancel.name) {
       bodies.push(textBlocks(CANCEL_TEXT));
-    } else if (name === archiveSession.name || name === deleteSession.name) {
+    } else if (
+      name === archiveSession.name ||
+      name === deleteSession.name ||
+      name === teamEnd.name
+    ) {
       // 받은 call이 receiver_ended로 닫히며 보낸 session에 가는 알림이다.
       bodies.push(textBlocks(FAILURE_TEXTS.receiver_ended));
     } else return ok(envelope);
@@ -205,10 +220,39 @@ export const routerWiring: WiringFactory = () => {
     name: "router",
     records: () => [ROUTER_CONTEXT, ANNOTATION_DELIVERY_CONTEXT],
     build(ctx) {
-      const apply = createQueueApplier({
+      const applyQueue = createQueueApplier({
         queue: ctx.queue,
         publish: (event) => ctx.bus.publish(event),
       });
+      // 같은 workspace의 자식은 부모 옆 group에 연다. 다른 workspace의 자식은 tree에만 있고 그 desk에는 그리지 않는다
+      // (agent 탭은 자기 workspace 창에만 그려진다). host queue는 늦게 채워지므로 부를 때 읽는다.
+      const openChildTab = (data: { parent: Id<"ses">; child: Id<"ses"> }) => {
+        const rows = ledgerSnapshot(ctx.ledgerPath, (lookup) => ({
+          parent: loadSession(lookup, data.parent),
+          child: loadSession(lookup, data.child),
+        }));
+        if (!rows.ok || !rows.value.parent || !rows.value.child) return;
+        const workspace = workspaceOf(rows.value.parent);
+        const there = workspaceOf(rows.value.child);
+        if (workspace?.kind !== there?.kind || workspace?.id !== there?.id) {
+          return;
+        }
+        ctx.hostQueue.openTab({
+          opener: data.parent,
+          workspace: workspace ?? { kind: "home" },
+          target: { session: data.child },
+          place: "group",
+          source: data.parent,
+        });
+      };
+      const apply = (actions: readonly CommitAction[]) => {
+        applyQueue(actions);
+        for (const action of actions) {
+          if (action.topic === TEAM_SPAWNED_TOPIC) {
+            openChildTab(action.data as Parameters<typeof openChildTab>[0]);
+          }
+        }
+      };
       // artifact를 받는 일은 그 그릇 workspace의 lophn이 맡는다. 없거나 보관한 그릇은 not_found다.
       const activeWorkspace = (
         workspace: ArtifactWorkspace,

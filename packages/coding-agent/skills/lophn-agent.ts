@@ -1,6 +1,6 @@
 // harness agent가 자기 shell에서 `lophn` CLI로 답하고 다른 agent를 부르는 법을 가르치는 skill이다. extension `harness`가
 // 켜져 있으면 `lophn harness sync-skills`가 harness의 skill 폴더에 앱 공유 skill과 같은 길(표시 file `.lophn-shared`)로 둔다.
-// 명령 사용법은 `packages/cli/commands/{call,session,agent}.ts`의 help와 같은 말이다. 받는 prompt의 tag는
+// 명령 사용법은 `packages/cli/commands/{call,session,agent,team}.ts`의 help와 같은 말이다. 받는 prompt의 tag는
 // `packages/core/lophn-agent/run-loop/input-text.ts`가 만든다.
 import type { SharedSkill } from "../harnesses/skill-copies.ts";
 
@@ -38,6 +38,19 @@ lophn call send --to '{"agent":"reviewer","workspace":{"project":"my-project"}}'
 - \`--reply none\` asks for no answer. \`result\` and \`conversation\` ask the receiver to answer.
 - The command returns at once with the call ID. It never waits. The answer arrives later in your session as \`<lophn-reply call="cal_..." from="..." status="...">\` and starts a new turn, so do not poll: if you need the answer to go on, say what you are waiting for and end your turn.
 - \`lophn call cancel cal_xxx --reason "..."\` cancels a call you sent that has not ended.
+
+## Work with a team
+
+\`\`\`
+lophn team spawn reviewer --body "what you want done" --reply result
+lophn team read
+lophn team end ses_xxx
+\`\`\`
+
+- \`team spawn <agent>\` opens a new session of that agent under you and sends it the first call (same \`--body\`, \`--reply\`, \`--image\` as \`call send\`; reply defaults to \`result\`). It returns the session and call IDs at once. Without \`--workspace\` (\`{"project":"name"}\` or \`{"app":"name"}\`) the member opens in your own workspace, where it appears as a tab next to yours. The team is limited in size and depth; a full team answers \`conflict\`.
+- A session opened by \`team spawn\` can call only its parent, its siblings (same parent) and the sessions under it, and \`session list\` shows only those. If a member needs someone else, ask your parent with \`call send\`.
+- \`team read\` shows your parent, siblings and the open sessions you spawned. Run it when a notice says your team changed.
+- \`team end <session>\` ends a session under you and everything under it. You can end only your own members, not your parent or siblings.
 
 ## Find who you can call
 

@@ -10,7 +10,10 @@ import {
   SESSION_COLUMNS,
   sessionRowOf,
 } from "../session/model.ts";
-import { startSession } from "./lifecycle.ts";
+import { teamLimitsAt } from "../../config/setting-declarations.ts";
+import { DEFAULT_TEAM_LIMITS } from "../../../protocol/lophn-agent/team.ts";
+import { dataRootOf } from "../agents/mod.ts";
+import { checkSpawnSlot, startSession } from "./lifecycle.ts";
 import { acceptsInput } from "./model.ts";
 import type { OpenDeps } from "./ports.ts";
 
@@ -39,6 +42,7 @@ export function createSessionDirectory(
       transport: row.harness === null ? "lophn" : "harness",
       agent: { agent: row.agent, workspace: workspaceOf(row) },
       accepting: acceptsInput(row, workspaceArchived(workspaceOf(row))),
+      spawned_by: row.spawned_by as Id<"ses"> | null,
     };
   }
 
@@ -48,7 +52,17 @@ export function createSessionDirectory(
       return row === undefined ? null : targetOf(row);
     },
     resolveAddress: deps.names.resolveAddress,
-    open(tx, agent, opener) {
+    open(tx, agent, opener, spawnedBy) {
+      if (spawnedBy !== null) {
+        // writer Worker 안에서 설정 파일을 읽는다. 읽지 못하면 기본 상한이다.
+        const root = dataRootOf(tx.sql, undefined);
+        const slot = checkSpawnSlot(
+          tx,
+          spawnedBy,
+          root.ok ? teamLimitsAt(root.value) : DEFAULT_TEAM_LIMITS,
+        );
+        if (!slot.ok) return slot;
+      }
       // archived 앱은 agent에게 없는 앱이다. 사람과 program은 conflict로 닫힘을 안다.
       if (
         opener.kind === "agent" &&
@@ -74,6 +88,7 @@ export function createSessionDirectory(
             agent.workspace.id !== from.id)
             ? from
             : null,
+        spawnedBy,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },
@@ -100,9 +115,13 @@ export function createSessionDirectory(
       return rows.map((raw) => {
         const row = sessionRowOf(raw);
         const active = raw["last_active_at"];
+        const described = deps.names.describe(row.agent);
         return {
           ...targetOf(row),
-          ...deps.names.describe(row.agent),
+          ...described,
+          description:
+            deps.agents.cardOf(described.handle)?.description ?? null,
+          runtime: deps.agents.agent(row.agent)?.runtime ?? "lophn",
           title: row.title,
           last_active_at:
             active === null || active === undefined ? null : String(active),

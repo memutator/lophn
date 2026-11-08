@@ -30,6 +30,7 @@ const NOTICE_KINDS = [
   "instructions_changed",
   "tools_changed",
   "agents_changed",
+  "team_changed",
   "call_cancelled",
   "activation_finished",
 ] as const;

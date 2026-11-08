@@ -5,6 +5,12 @@ import {
   callPolicySchema,
   DEFAULT_CALL_POLICY,
 } from "../../protocol/lophn-agent/call-policy.ts";
+import {
+  DEFAULT_TEAM_LIMITS,
+  TEAM_SETTING_KEY,
+  type TeamLimits,
+  teamLimitsSchema,
+} from "../../protocol/lophn-agent/team.ts";
 import { createFileSettingsReader } from "./reader.ts";
 
 // agent가 보내는 call의 workspace 쌍·agent 쌍 정책. 판정은 protocol의 mayCall이 한다.
@@ -19,4 +25,15 @@ export function callPolicyAt(root: string): CallPolicy {
   return (
     createFileSettingsReader(root).get(callPolicySetting) ?? DEFAULT_CALL_POLICY
   );
+}
+
+// 팀(`team spawn`)의 크기 상한. 키가 없으면 기본값이라 data step은 없다.
+export const teamSetting = declareSetting({
+  key: TEAM_SETTING_KEY,
+  type: teamLimitsSchema,
+  default: DEFAULT_TEAM_LIMITS,
+});
+
+export function teamLimitsAt(root: string): TeamLimits {
+  return createFileSettingsReader(root).get(teamSetting) ?? DEFAULT_TEAM_LIMITS;
 }

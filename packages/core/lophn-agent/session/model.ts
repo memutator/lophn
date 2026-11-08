@@ -234,6 +234,17 @@ begin
   select raise(abort, 'the order of a consumed message is fixed');
 end;`,
   },
+  {
+    // `team spawn`으로 열린 session은 연 session을 남긴다(팀은 이 spawn tree다). FK는 없다: 사람이 부모를 지워도 자식은 남는다.
+    id: "lophn-agent.sessions.spawned-by",
+    sql: `
+alter table sessions add column spawned_by text;
+create trigger sessions_spawned_by_immutable
+before update of spawned_by on sessions
+begin
+  select raise(abort, 'session spawn origin is immutable');
+end;`,
+  },
 ];
 
 type Lookup = {
@@ -265,6 +276,8 @@ export type AgentSessionRow = {
   // 다른 workspace의 session이 불러 열렸으면 그 workspace. 열 때 정해 바뀌지 않는다.
   called_from_kind: "project" | "app" | null;
   called_from_id: string | null;
+  // `team spawn`으로 열렸으면 연 session. 열 때 정해 바뀌지 않는다.
+  spawned_by: string | null;
   created_seq: string;
   state_seq: string;
 };
@@ -274,7 +287,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, workspace_kind,
   workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, harness, harness_session, called_from_kind, called_from_id, created_seq, state_seq`;
+  compaction_summary_call, skip, harness, harness_session, called_from_kind, called_from_id, spawned_by, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -300,6 +313,7 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
       row["called_from_kind"],
     ) as AgentSessionRow["called_from_kind"],
     called_from_id: text(row["called_from_id"]),
+    spawned_by: text(row["spawned_by"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };
@@ -402,6 +416,7 @@ export function workspaceSessionOf(row: AgentSessionRow): WorkspaceSession {
           },
     skip: row.skip,
     called_from: calledFromOf(row),
+    spawned_by: row.spawned_by as WorkspaceSession["spawned_by"],
     harness: row.harness,
     state_seq: row.state_seq,
   } as WorkspaceSession;

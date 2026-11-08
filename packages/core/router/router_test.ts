@@ -27,12 +27,14 @@ function target(
   session: string,
   accepting: boolean,
   agent: AgentAtWorkspace = lophn,
+  spawned_by: string | null = null,
 ): TargetSession {
   return {
     session: session as TargetSession["session"],
     transport: "lophn",
     agent,
     accepting,
+    spawned_by: spawned_by as TargetSession["spawned_by"],
   };
 }
 
@@ -50,6 +52,7 @@ function setup(
   const delivered: { to: string; input: RoutedInput }[] = [];
   const cancelled: boolean[] = [];
   let opened = 0;
+  const openedBy: (string | null)[] = [];
   const store: CallStore = {
     insert: (_tx, record) => {
       rows.set(record.call, record);
@@ -79,8 +82,9 @@ function setup(
   const directory: SessionDirectory = {
     find: (session) => sessions[session] ?? null,
     resolveAddress: () => ok(sessions[RECEIVER]?.agent ?? lophn),
-    open: () => {
+    open: (_tx, _agent, _opener, spawnedBy) => {
       opened += 1;
+      openedBy.push(spawnedBy);
       return ok(sessions[RECEIVER]!);
     },
     accepts,
@@ -101,7 +105,15 @@ function setup(
       },
     },
   });
-  return { tx, router, rows, delivered, cancelled, opened: () => opened };
+  return {
+    tx,
+    router,
+    rows,
+    delivered,
+    cancelled,
+    opened: () => opened,
+    openedBy,
+  };
 }
 
 const base = {
@@ -381,4 +393,72 @@ test("home lophn hands work to a private app's lophn only with reply none", () =
   assert.ok(!refused.ok);
   assert.deepStrictEqual(refused.error.code, "forbidden");
   assert.deepStrictEqual(asked.rows.size, 0);
+});
+
+// 팀 규칙 2. 부모 ses_p 밑에 SENDER와 형제 ses_b가 있고 ses_b 밑에 ses_c가 있다. ses_x는 팀 밖이다.
+const team = () => ({
+  ses_p: target("ses_p", true),
+  [SENDER]: target(SENDER, true, lophn, "ses_p"),
+  ses_b: target("ses_b", true, lophn, "ses_p"),
+  ses_c: target("ses_c", true, lophn, "ses_b"),
+  ses_x: target("ses_x", true),
+});
+
+test("a team member calls its parent, siblings and members under it but not a session outside the team", () => {
+  const { tx, router } = setup(team());
+  const call = (from: string, to: string) =>
+    router.route(tx, {
+      ...base,
+      from: { kind: "agent", session: from },
+      to: { session: to },
+      dedup: `${from}-${to}`,
+    });
+  assert.ok(call(SENDER, "ses_p").ok);
+  assert.ok(call(SENDER, "ses_b").ok);
+  const outside = call(SENDER, "ses_x");
+  assert.ok(!outside.ok && outside.error.code === "forbidden");
+  // ses_b 밑의 ses_c는 한 칸 위(ses_b)까지만 닿는다. 부모는 아래 어디든 닿는다.
+  const grandparent = call("ses_c", "ses_p");
+  assert.ok(!grandparent.ok && grandparent.error.code === "forbidden");
+  assert.ok(call("ses_c", "ses_b").ok);
+  assert.ok(call("ses_p", "ses_c").ok);
+  // 팀 밖 session은 제한이 없다.
+  assert.ok(call("ses_x", "ses_c").ok);
+});
+
+test("a member opening a new session by agent name is refused as outside its team, and team spawn opens it as its child", () => {
+  const sessions = { ...team(), [RECEIVER]: target(RECEIVER, true) };
+  const refused = setup(sessions);
+  const sent = refused.router.route(refused.tx, {
+    ...base,
+    to: { agent: "lophn" },
+    dedup: "tool-1",
+  });
+  assert.ok(!sent.ok && sent.error.code === "forbidden");
+  const spawned = setup({
+    ...sessions,
+    [RECEIVER]: target(RECEIVER, true, lophn, SENDER),
+  });
+  const routed = spawned.router.route(spawned.tx, {
+    ...base,
+    to: { agent: "lophn" },
+    dedup: "tool-2",
+    spawn: true,
+  });
+  assert.ok(routed.ok);
+  assert.deepStrictEqual(spawned.openedBy, [SENDER]);
+});
+
+test("call.send to an agent name opens a session that belongs to no team", () => {
+  const { tx, router, openedBy } = setup({
+    [SENDER]: target(SENDER, true),
+    [RECEIVER]: target(RECEIVER, true),
+  });
+  const routed = router.route(tx, {
+    ...base,
+    to: { agent: "lophn" },
+    dedup: "tool-1",
+  });
+  assert.ok(routed.ok);
+  assert.deepStrictEqual(openedBy, [null]);
 });

@@ -14,7 +14,7 @@ import type {
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
 import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
 import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
-import type { RoutedInput } from "./ports.ts";
+import type { RoutedInput, TargetSession } from "./ports.ts";
 
 // 순수 함수만 둔다. 받는 곳 해석 순서, 실패 이유를 오류로 바꾸는 규칙, 실패 알림 글.
 
@@ -44,6 +44,8 @@ export type RouteInput = {
   notice?: NoticeKind | null;
   // agent의 SendCall·ReplyCall과 run이 넣은 사람 메시지(`SendMessage`의 `unattended: true`)가 싣는다. 없으면 false.
   unattended?: boolean;
+  // `team spawn`이면 true: 받는 곳의 새 session은 보낸 session의 자식(spawned_by)으로 열리고 workspace를 빼면 보낸 session의 workspace다.
+  spawn?: boolean;
 };
 
 export type RouteResult = {
@@ -70,6 +72,32 @@ export function addressingOf(to: CallAddressInput): Addressing {
   }
   return { form: "session", session: to.session };
 }
+
+// 규칙 2. spawn된 session의 call은 부모, 형제, 자기 밑 전체에게만 닿는다. 팀 밖(spawned_by 없음) session은 제한이 없다.
+export function teamMayReach(
+  find: (session: Id<"ses">) => TargetSession | null,
+  sender: TargetSession,
+  receiver: TargetSession,
+): boolean {
+  if (sender.spawned_by === null) return true;
+  if (
+    receiver.session === sender.spawned_by ||
+    receiver.spawned_by === sender.spawned_by
+  ) {
+    return true;
+  }
+  for (
+    let up = receiver.spawned_by;
+    up !== null;
+    up = find(up)?.spawned_by ?? null
+  ) {
+    if (up === sender.session) return true;
+  }
+  return false;
+}
+
+// `team spawn`이 새 session을 연 뒤 main thread가 자식 탭을 열도록 commit 뒤에 넘기는 일의 이름이다.
+export const TEAM_SPAWNED_TOPIC = "router.team-spawned";
 
 export function isFinished(state: CallState): boolean {
   return state !== "accepted";

@@ -9,12 +9,21 @@ import {
   type CallFrom,
   callReply,
 } from "../../protocol/lophn-agent/calls.ts";
+import { teamSpawn } from "../../protocol/lophn-agent/team.ts";
+import { afterCommit } from "../storage/ledger/after-commit.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
 import { routerEnvironment, routerFor } from "./environment.ts";
+import {
+  calId,
+  FAILURE_TEXTS,
+  failureCode,
+  sesId,
+  TEAM_SPAWNED_TOPIC,
+} from "./model.ts";
 
 // lophn을 켤 때 core가 한 번 부른다. queue와 앱 줄이 메모리라 잃어버린 call을 닫고 도는 turn을 닫는다.
 // core 안 machine만 쓴다.
@@ -106,6 +115,49 @@ const sendCallCommand: CommandDefinition<typeof agentCallSend> = {
   },
 };
 
+// 새 session을 보낸 session의 자식으로 열고 첫 입력(call)을 보낸다. 받는 곳 풀기, workspace 정책, 명함 검사는 call.send와 같다.
+// 열지 못하면 call 행도 session도 남기지 않고 오류다. 자식 탭은 commit 뒤 main thread가 연다(탭 표는 core 메모리).
+const teamSpawnCommand: CommandDefinition<typeof teamSpawn> = {
+  route: teamSpawn,
+  handle(tx, ctx, input) {
+    const parent = agentSession(ctx);
+    if (!parent.ok) return parent;
+    const unattended = unattendedOf(tx, ctx);
+    if (!unattended.ok) return unattended;
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const routed = router.value.route(tx, {
+      from: { kind: "agent", session: parent.value },
+      to: {
+        agent: input.agent,
+        ...(input.workspace === undefined
+          ? {}
+          : { workspace: input.workspace }),
+      },
+      reply: input.reply,
+      body: input.body,
+      refs: [],
+      reply_to: null,
+      dedup: input.dedup,
+      kind: "call",
+      delivery: "next_turn",
+      unattended: unattended.value,
+      spawn: true,
+    });
+    if (!routed.ok) return routed;
+    const { call, session, fail_reason } = routed.value;
+    if (call === null || session === null) {
+      const reason = fail_reason ?? "not_found";
+      return err({ code: failureCode(reason), message: FAILURE_TEXTS[reason] });
+    }
+    tx.port(afterCommit).push(TEAM_SPAWNED_TOPIC, {
+      parent: parent.value,
+      child: session,
+    });
+    return ok({ session: sesId(session), call: calId(call) });
+  },
+};
+
 const replyCallCommand: CommandDefinition<typeof callReply> = {
   route: callReply,
   handle(tx, ctx, input) {
@@ -186,6 +238,7 @@ const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
 
 export const ROUTER_COMMANDS = [
   sendCallCommand,
+  teamSpawnCommand,
   replyCallCommand,
   autoReplyCallCommand,
   cancelCallCommand,

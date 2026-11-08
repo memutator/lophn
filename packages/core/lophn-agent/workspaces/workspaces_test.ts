@@ -199,12 +199,14 @@ test("agent가 archived 앱 workspace에 session을 열면 not_found이고 사�
     workspace: { kind: "app" as const, id: APP },
   } as never;
   archivedWorkspaces.add(APP);
-  const byAgent = directory.open(tx, target, {
-    kind: "agent",
-    session: "ses_from" as never,
-  });
+  const byAgent = directory.open(
+    tx,
+    target,
+    { kind: "agent", session: "ses_from" as never },
+    null,
+  );
   assert.ok(!byAgent.ok && byAgent.error.code === "not_found");
-  const byHuman = directory.open(tx, target, { kind: "human" });
+  const byHuman = directory.open(tx, target, { kind: "human" }, null);
   assert.ok(!byHuman.ok && byHuman.error.code === "conflict");
   archivedWorkspaces.clear();
 });
@@ -379,4 +381,86 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
       [],
     ),
   );
+});
+
+// 팀. root R 밑에서 spawn한 session은 R의 자손이고, 상한을 넘는 spawn은 session을 남기지 않는다.
+function teamWorld() {
+  const { sql, tx } = store();
+  archivedWorkspaces.clear();
+  const directory = createSessionDirectory({ ...deps, sql: () => sql });
+  const at = { agent: REVIEWER, workspace: null } as never;
+  const spawn = (parent: string | null) => {
+    const opened = directory.open(
+      tx,
+      at,
+      parent === null
+        ? { kind: "human" }
+        : { kind: "agent", session: parent as never },
+      parent as never,
+    );
+    return opened.ok ? opened.value.session : opened;
+  };
+  const count = () =>
+    Number(sql.get("select count(*) as n from sessions", [])?.["n"]);
+  return { sql, tx, spawn, count };
+}
+
+test("max_depth와 max_members를 넘는 spawn은 conflict이고 session이 남지 않는다", () => {
+  const { tx, spawn, count } = teamWorld();
+  const root = commandsOf().open.handle(
+    tx,
+    user,
+    { id: "ses_root", agent: REVIEWER, workspace: null } as never,
+    {} as never,
+  );
+  assert.ok(root.ok);
+  // 깊이: root 0 → 1 → 2 → 3은 되고 4는 안 된다(기본 max_depth 3).
+  let parent = "ses_root";
+  for (let depth = 1; depth <= 3; depth += 1) {
+    parent = String(spawn(parent));
+  }
+  const before = count();
+  const tooDeep = spawn(parent) as { ok: false; error: { code: string } };
+  assert.deepStrictEqual(tooDeep.error.code, "conflict");
+  assert.deepStrictEqual(count(), before);
+  // 폭: root 아래 열린 자손이 이미 3이다. 기본 max_members 16에 닿을 때까지 채우면 다음은 conflict다.
+  for (let n = 3; n < 16; n += 1)
+    assert.equal(typeof spawn("ses_root"), "string");
+  const before16 = count();
+  const full = spawn("ses_root") as { ok: false; error: { code: string } };
+  assert.deepStrictEqual(full.error.code, "conflict");
+  assert.deepStrictEqual(count(), before16);
+});
+
+test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자식은 forbidden이다", () => {
+  const { sql, tx, spawn } = teamWorld();
+  const root = String(spawn(null));
+  const a = String(spawn(root));
+  const b = String(spawn(root));
+  const aChild = String(spawn(a));
+  const aGrandchild = String(spawn(aChild));
+  const as = (session: string): RequestContext => ({
+    ...user,
+    actor: `agent:${session}`,
+  });
+  const end = (by: string, target: string) =>
+    commandsOf().teamEnd.handle(
+      tx,
+      as(by),
+      { session: target } as never,
+      {} as never,
+    );
+  // b는 형제 a의 자식을 끝내지 못하고, 자기 자신이나 부모도 끝내지 못한다. 아무것도 닫히지 않는다.
+  for (const target of [aChild, b, root]) {
+    const refused = end(b, target);
+    assert.ok(!refused.ok && refused.error.code === "forbidden");
+  }
+  const open = () =>
+    sql.all("select id from sessions where lifecycle = 'open'", []).length;
+  assert.deepStrictEqual(open(), 5);
+  // root는 아래 어디든 끝낼 수 있고 대상 밑까지 닫는다.
+  const done = end(root, aChild);
+  assert.ok(done.ok);
+  assert.deepStrictEqual(done.value.ended, [aGrandchild, aChild]);
+  assert.deepStrictEqual(open(), 3);
 });

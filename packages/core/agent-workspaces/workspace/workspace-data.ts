@@ -14,6 +14,7 @@ import {
   agentList,
   workspaceKindOf,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { teamRead } from "../../../protocol/lophn-agent/team.ts";
 import { projectApi } from "../../../protocol/projects/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
@@ -57,6 +58,8 @@ export type WorkspaceFiles = {
 type WorkspaceRead = {
   workspace: WorkspaceData;
   scope: FolderScope;
+  // 부모·형제·자식의 `ses_id handle` 줄. prompt 글이 아니라 판 비교(team_changed)만 쓴다.
+  team: string[];
 };
 
 // workspace 정보의 앱 목록 예산(글자 수). 고정값이라 session을 시작할 때 정한 것과 같다.
@@ -280,6 +283,22 @@ async function readWorkspaceData(
         : { description: row.description }),
     }));
 
+  // bare는 agents처럼 팀도 보지 않는다. 읽지 못하면 팀 밖과 같다.
+  const team: string[] = [];
+  if (agent.runtime !== "bare") {
+    const read = await readOf(call, teamRead, {});
+    if (read.ok) {
+      const { parent, siblings, children } = read.value;
+      for (const member of [
+        ...(parent === null ? [] : [parent]),
+        ...siblings,
+        ...children,
+      ]) {
+        team.push(`${member.session} ${member.agent}`);
+      }
+    }
+  }
+
   // project workspace의 turn 시작에 workflows 폴더를 만든다(없는 허용 폴더는 file scope가 건너뛴다). 만들지 못하면 범위에서 빠진 채 간다.
   let workflowsFolder: string | null = null;
   if (workspace?.kind === "project") {
@@ -351,6 +370,7 @@ async function readWorkspaceData(
       artifacts,
     },
     scope,
+    team,
   });
 }
 
@@ -367,7 +387,7 @@ export async function workspaceData(
 > {
   const read = await readWorkspaceData(call, agent, files);
   if (!read.ok) return read;
-  const { workspace, scope } = read.value;
+  const { workspace, scope, team } = read.value;
   return ok({
     workspace: {
       text: workspaceInfo(
@@ -376,6 +396,7 @@ export async function workspaceData(
         WORKSPACE_TEXT_BUDGET,
       ),
       agents: workspace.agents,
+      team,
     },
     scope,
   });

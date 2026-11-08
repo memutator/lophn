@@ -1,6 +1,6 @@
 # agent surface: agent가 팀을 늘리고 탭을 연다
 
-상태: 로드맵. 2026-11-08 사람이 방향을 냈고 planner가 정리했다. `standalone-core` 계획 뒤에 연다(아래 "순서").
+상태: 단계 1~3 끝남(계획 agent-surface, 2026-11-08, changelog 0.22.0). 단계 0은 계획 agent-scope다. 2026-11-08 사람이 방향을 냈고 planner가 정리했다.
 배경 문서: `project-docs/architecture/{workspace-layout,agent-call,agent-definition,acp,coding-agent,harness-gui,browser-tab,terminal-agent}.md`, `project-docs/products/roadmap/{agent-platform,browser-tab,standalone-core}.md`. 짝 로드맵: `tool-extension.md`(같은 host queue를 쓴다).
 
 ## 사람의 말 (원문)

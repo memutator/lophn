@@ -1,6 +1,6 @@
 # tool extension: extension이 agent의 tool을 등록한다
 
-상태: 로드맵. 2026-11-08 사람이 방향을 냈고 planner가 정리했다. `agent-surface.md`의 host queue 뒤에 한다.
+상태: 끝남(계획 agent-surface, 2026-11-08, changelog 0.22.0). 2026-11-08 사람이 방향을 냈고 planner가 정리했다.
 배경 문서: `project-docs/architecture/{extension,agent-definition,approval,coding-agent}.md`, `project-docs/products/roadmap/{command-surface,tool-lazy-loading}.md`. 비교: `../harness-lab/_report/tool-extension-architecture.md`(dsh, pi), `../harness-lab/_report/extension-systems-report.md:256`(Claude Code mod).
 
 ## 사람의 말 (원문)

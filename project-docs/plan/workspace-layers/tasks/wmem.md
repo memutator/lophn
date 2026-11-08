@@ -8,7 +8,7 @@ workspace memory와 agent memory를 더한다. memory tool로 쓰고, turn promp
   - `packages/core/lophn-agent/tools/bundles/memory.ts`(새로), `packages/core/lophn-agent/tools/memory/`(새로)
   - `packages/core/lophn-agent/tools/{tool-context,ports}.ts`
   - `packages/core/main/agent-tools.ts`
-  - `packages/protocol/lophn-agent/{tool-lists,input-tags}.ts`
+  - `packages/protocol/lophn-agent/tool-lists.ts`
   - `packages/core/agent-workspaces/{tool-lists,credentials,hooks}.ts`
   - `packages/core/lophn-agent/session/rewind/`
   - `packages/core/main/daemon/workspace-folders-glue.ts`
@@ -58,3 +58,8 @@ workspace memory와 agent memory를 더한다. memory tool로 쓰고, turn promp
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴을 따른다.
+
+## lead가 더함
+
+- `packages/protocol/lophn-agent/input-tags.ts`는 소유에서 뺐다. memory는 notice를 내지 않으니 고칠 일이 없고, browser-use 계획의 `bu-call`이 지금 고친다.
+- `turn-prompt.ts`의 `UNTRUSTED_LINE`을 "`<lophn-untrusted>` wraps web search, web fetch and browser page results. …"로 고친다. browser-use 계획이 `agent-workspaces/prompts/prompts.ts`의 같은 줄을 그렇게 고치고, 이 줄은 이 계획이 소유해 맡았다. 나머지 문장은 그대로 둔다.

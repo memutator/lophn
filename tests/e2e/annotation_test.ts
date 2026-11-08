@@ -161,7 +161,7 @@ const ROWS: Row[] = [
       const { session } = await core.call(workspaceSessionRead, {
         session: sent.session,
       });
-      assert.deepStrictEqual(session.agent, "lophn");
+      assert.deepStrictEqual(session.agent, lophnIdOf({ kind: "app", id: a }));
       assert.deepStrictEqual(session.workspace, { kind: "app", id: a });
       const messages = await humanMessagesOf(core, sent.session);
       assert.deepStrictEqual(messages.length, 1);

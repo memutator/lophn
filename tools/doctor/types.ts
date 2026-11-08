@@ -1,6 +1,8 @@
 // doctor의 check 하나가 받는 것과 내놓는 것. fs·net·spawn을 주입해 check가 global을 직접 만지지 않게 한다.
 // 그래서 check의 입력(fs, network, env)을 test에서 갈아 끼울 수 있다.
 
+import type { ControlDial } from "../../packages/protocol/client/mod.ts";
+
 export type Status = "pass" | "warn" | "fail";
 
 export type Fix = {
@@ -74,6 +76,8 @@ export type Ctx = {
   spawn: Spawn;
   // node_modules/electron이 내놓는 binary. resolve가 안 되면 null.
   electronPath: string | null;
+  // data root의 core control socket에 한 줄 보낸다(진단만 한다. core를 띄우지 않는다).
+  control(dataRoot: string): ControlDial;
 };
 
 export type Check = {

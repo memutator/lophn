@@ -55,9 +55,9 @@ type Compare<R extends Route> = R extends { compare?: z.ZodType }
 
 export type Core = {
   run: Run;
-  /** http://127.0.0.1:<api_port> */
+  /** control connect가 준 http://127.0.0.1:<api_port> */
   baseUrl: string;
-  /** hello frame의 user_token */
+  /** control connect {client: cli}가 준 user_token */
   token: string;
   /** 오류면 code를 담아 throw한다. */
   call<R extends Route>(
@@ -73,9 +73,9 @@ export type Core = {
   ): Promise<Result<Output<R>>>;
   /** secrets/put. createRpcClient는 upload route를 못 부른다. */
   upload(name: string, bytes: Uint8Array): Promise<Result<unknown>>;
-  /** SIGKILL(crash 흉내). core의 child까지 없는 것을 확인한 뒤 돌아온다. */
+  /** 자기 core pid에 SIGKILL한다(crash 흉내). core의 child까지 없는 것을 확인한 뒤 돌아온다. */
   kill(): Promise<void>;
-  /** stdin을 닫는 정상 종료. 같은 확인을 한다. */
+  /** control stop을 보내는 정상 종료. 끝나지 않으면 SIGKILL하고, 같은 child 확인을 한다. */
   stop(): Promise<void>;
   /** dir/core.log. core의 stderr */
   logPath: string;
@@ -202,8 +202,8 @@ export async function startCore(
   );
   if (!result.ok) return result;
   const spawned = result;
-  const { user_token: token, api_port: port } = spawned.hello;
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const baseUrl = spawned.apiUrl;
+  const token = spawned.token;
   const ids: IdSource = createIdSource({
     clock: systemClock,
     random: cryptoRandom,
@@ -211,17 +211,24 @@ export async function startCore(
   const rpc = createRpcClient({ baseUrl, token, fetch: rpcFetch });
   let ended = false;
 
-  async function end(how: () => void): Promise<void> {
+  // 정상 종료(control stop)든 crash(SIGKILL)든 core와 그 child가 모두 사라진 것을 확인한다.
+  async function end(how: () => Promise<void> | void): Promise<void> {
     if (ended) return;
     ended = true;
-    how();
+    const failures: string[] = [];
+    try {
+      await how();
+    } catch (error) {
+      failures.push(error instanceof Error ? error.message : String(error));
+    }
     await spawned.exited;
     const left = await waitGone(run.home, options.keep);
     if (left.length > 0) {
-      throw new Error(
+      failures.push(
         `core가 child를 남긴다: pid ${left.join(", ")} (SIGKILL로 정리함)`,
       );
     }
+    if (failures.length > 0) throw new Error(failures.join("\n"));
   }
 
   const tryCall: Core["tryCall"] = async (route, input, compare) => {
@@ -279,7 +286,7 @@ export async function startCore(
       };
     },
     kill: () => end(() => spawned.signal("SIGKILL")),
-    stop: () => end(() => void spawned.closeStdin()),
+    stop: () => end(() => spawned.stop()),
   };
   return { ok: true, core };
 }

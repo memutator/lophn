@@ -3,19 +3,19 @@ import { createWriteStream } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import process from "node:process";
+import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { cliDial } from "../../../packages/cli/connection/client/node.ts";
 import {
-  fromReadable,
-  toWriter,
-} from "../../../packages/core/supervision/responsiveness/pipe.ts";
-import { FrameDecoder } from "../../../packages/protocol/base/mod.ts";
-import {
-  coreToMainMessageSchema,
-  type MainHello,
-} from "../../../packages/protocol/supervision/mod.ts";
+  CONTROL_REQUEST_TIMEOUT_MS,
+  controlConnect,
+  controlIdentify,
+  controlStop,
+} from "../../../packages/protocol/client/mod.ts";
 
-export const HELLO_TIMEOUT_MS = 30_000;
+const STARTUP_TIMEOUT_MS = 30_000;
 const GONE_TIMEOUT_MS = 15_000;
 const POLL_MS = 50;
 
@@ -82,15 +82,20 @@ const ELECTRON = createRequire(import.meta.url)("electron") as string;
 
 export type Spawned = {
   ok: true;
-  hello: MainHello;
-  /** stdin을 닫는다. core가 정상 종료를 시작한다. */
-  closeStdin(): Promise<void>;
+  /** 이 test가 직접 띄운 detached core의 pid. crash 흉내는 이 pid에만 SIGKILL한다. */
+  pid: number;
+  /** control `connect {client: cli}`가 준 user token. shell capability는 받지 않는다. */
+  token: string;
+  /** control `connect`가 준 API 주소(`http://127.0.0.1:<port>`). */
+  apiUrl: string;
   signal(signal: NodeJS.Signals): void;
-  /** daemon이 끝나고 stdout·stderr pipe가 닫힌 뒤 돌아온다. */
-  exited: Promise<void>;
+  /** control stop을 보내 core가 스스로 끝나기를 기다린다. 제한 시간에 안 끝나면 SIGKILL한다. */
+  stop(): Promise<void>;
+  /** core가 끝나고 stderr log가 닫힌 뒤 돌아온다. 값은 core의 exit code이고, signal로 끝났으면 null이다. */
+  exited: Promise<number | null>;
 };
 
-/** core가 시작하지 못하고 `start_failed`를 알린 때. exit는 core가 스스로 끝난 코드이고, 제한 시간 안에 안 끝나 SIGKILL했으면 null이다. */
+/** core가 시작하지 못하고 `start_failed`를 알린 때. exit는 core가 스스로 끝난 코드이고, spawn 자체가 실패했으면 null이다. */
 export type SpawnFailed = {
   ok: false;
   reason: string;
@@ -130,8 +135,56 @@ export async function tail(path: string): Promise<string> {
   }
 }
 
-// daemon을 parent pipe로 띄우고 stdout 첫 hello frame을 읽는다. HOME을 빈 폴더로 바꾸고 DBUS를 주지 않아
-// 사람의 홈과 OS keychain에 닿지 않는다.
+// core의 stdout 첫 줄 하나만 읽고 stream을 놓는다. core는 그 줄 뒤에 stdout에 쓰지 않는다.
+function readStartLine(stream: Readable): Promise<string> {
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  let data = "";
+  stream.setEncoding("utf8");
+  const done = () => {
+    stream.off("data", onData);
+    stream.off("end", onEnd);
+    stream.off("error", onError);
+    // pipe를 놓은 뒤의 오류(core가 쓴 뒤 닫힘)로 process가 죽지 않게 한다.
+    stream.on("error", () => {});
+  };
+  const onData = (text: string | Buffer) => {
+    data += text.toString();
+    const end = data.indexOf("\n");
+    if (end < 0) return;
+    done();
+    resolve(data.slice(0, end));
+  };
+  const onEnd = () => {
+    done();
+    reject(new Error("core가 첫 줄을 쓰기 전에 stdout을 닫았다"));
+  };
+  const onError = (error: Error) => {
+    done();
+    reject(error);
+  };
+  stream.on("data", onData);
+  stream.on("end", onEnd);
+  stream.on("error", onError);
+  return promise;
+}
+
+type StartLine = { kind: "ready" } | { kind: "start_failed"; reason: string };
+
+function parseStartLine(line: string): StartLine | undefined {
+  try {
+    const parsed = JSON.parse(line) as { type?: unknown; reason?: unknown };
+    if (parsed.type === "ready") return { kind: "ready" };
+    if (parsed.type === "start_failed" && typeof parsed.reason === "string") {
+      return { kind: "start_failed", reason: parsed.reason };
+    }
+  } catch {
+    // 계약 밖 줄이다. 옛 core처럼 첫 줄이 다른 모양이면 시작 실패로 본다.
+  }
+  return undefined;
+}
+
+// core를 detached로 띄우고 stdout 첫 줄을 읽는다. `ready`면 control identify·connect로 API 주소와
+// user token을 받는다. HOME을 빈 폴더로 바꾸고 DBUS를 주지 않아 사람의 홈과 OS keychain에 닿지 않는다.
 export async function spawnCore(
   home: string,
   userHome: string,
@@ -145,7 +198,7 @@ export async function spawnCore(
   // core 자신이 lophn의 `.ts` entry라 지금 test를 도는 Electron Node로 띄운다.
   const child = spawn(
     ELECTRON,
-    [`${repo}/packages/core/main/daemon/main.ts`, "--port=0"],
+    [`${repo}/packages/core/main/daemon/main.ts`, "--port=0", "--standalone"],
     {
       cwd: repo,
       // env를 주면 부모 환경을 통째로 대체한다.
@@ -157,109 +210,145 @@ export async function spawnCore(
         ...windowsEnv(userHome),
         ...env,
       },
-      stdio: ["pipe", "pipe", "pipe"],
+      // core는 launcher의 child 수명에 묶이지 않는다. 정리는 이 test가 아는 자기 pid로만 한다.
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
     },
   );
-  if (process.platform === "win32" && child.pid !== undefined) {
-    windowsCores.set(
-      home,
-      (windowsCores.get(home) ?? new Set()).add(child.pid),
-    );
+  if (child.pid === undefined) throw new Error("core process를 띄우지 못했다");
+  const pid = child.pid;
+  if (process.platform === "win32") {
+    windowsCores.set(home, (windowsCores.get(home) ?? new Set()).add(pid));
   }
   // spawn 실패('error')에는 exit event가 없으니 error도 끝으로 센다.
   const exitCode = new Promise<number | null>((resolve) => {
     child.on("exit", (code) => resolve(code));
     child.on("error", () => resolve(null));
   });
+  // stderr는 자기 log file로만 간다. launcher의 읽기 pipe에 묶이면 launcher가 죽을 때 core도 막힌다.
   const log = createWriteStream(logPath, { flags: "a", mode: 0o600 });
   const logged = pipeline(child.stderr!, log).catch(() => {});
-  const stdin = toWriter(child.stdin!);
-  // fromReadable은 'data'로 받아 core가 살아 있는 동안에도 hello frame을 읽는다.
-  const stdout = fromReadable(child.stdout!);
-  const decoder = new FrameDecoder();
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new Error(`hello가 ${HELLO_TIMEOUT_MS}ms 안에 오지 않았다`)),
-      HELLO_TIMEOUT_MS,
-    );
-  });
-  const readHello = async (): Promise<MainHello | SpawnFailed> => {
-    const buffer = new Uint8Array(64 * 1024);
-    for (;;) {
-      const count = await stdout.read(buffer);
-      if (count === null) throw new Error("hello 전에 core stdout이 닫혔다");
-      for (const frame of decoder.push(buffer.subarray(0, count))) {
-        if (frame.kind !== "json") continue;
-        const message = coreToMainMessageSchema.parse(frame.payload);
-        if ("user_token" in message) return message;
-        if ("type" in message && message.type === "start_failed") {
-          return { ok: false, reason: message.reason, exit: null };
-        }
-      }
-    }
-  };
-  let hello: MainHello | SpawnFailed;
-  try {
-    hello = await Promise.race([readHello(), timeout]);
-  } catch (error) {
+  async function waitExit(): Promise<number | null> {
+    const { promise: timedOut, resolve: giveUp } =
+      Promise.withResolvers<"timeout">();
+    const timer = setTimeout(() => giveUp("timeout"), GONE_TIMEOUT_MS);
+    const code = await Promise.race([exitCode, timedOut]);
+    clearTimeout(timer);
+    if (code !== "timeout") return code;
     child.kill("SIGKILL");
     await exitCode;
-    stdout.cancel();
+    throw new Error(`${GONE_TIMEOUT_MS}ms 안에 core가 끝나지 않아 SIGKILL했다`);
+  }
+
+  // 이 시도가 띄운 process만 회수하고 이유를 던진다. stdout pipe는 첫 줄 뒤 놓는다.
+  async function discard(message: string): Promise<never> {
+    child.kill("SIGKILL");
+    await exitCode;
+    child.stdout!.destroy();
     await logged;
-    throw new Error(
-      `${
-        error instanceof Error ? error.message : error
-      }\n--- core.log ---\n${await tail(logPath)}`,
-    );
+    throw new Error(`${message}\n--- core.log ---\n${await tail(logPath)}`);
+  }
+
+  const { promise: timeout, reject: timeOut } = Promise.withResolvers<never>();
+  const timer = setTimeout(
+    () =>
+      timeOut(
+        new Error(`core가 ${STARTUP_TIMEOUT_MS}ms 안에 첫 줄을 쓰지 않았다`),
+      ),
+    STARTUP_TIMEOUT_MS,
+  );
+  let line: string;
+  try {
+    line = await Promise.race([readStartLine(child.stdout!), timeout]);
+  } catch (error) {
+    return discard(error instanceof Error ? error.message : String(error));
   } finally {
     clearTimeout(timer);
   }
-
-  if ("ok" in hello) {
+  // 여기서부터 core는 stdout에 쓰지 않는다. pipe를 놓아 core가 우리 읽기에 묶이지 않게 한다.
+  child.stdout!.destroy();
+  const started = parseStartLine(line);
+  if (started === undefined) {
+    // 줄 내용은 남기지 않는다. 옛 core의 hello라면 user token이 들어 있다.
+    return discard(
+      "core 시작 첫 줄이 계약과 다르다(ready도 start_failed도 아니다)",
+    );
+  }
+  if (started.kind === "start_failed") {
     // 시작에 실패한 core는 스스로 끝나야 한다. SIGKILL에 기대면 정리 경로를 못 본다.
-    let giveUp: ReturnType<typeof setTimeout> | undefined;
-    const code = await Promise.race([
-      exitCode,
-      new Promise<null>((resolve) => {
-        giveUp = setTimeout(() => resolve(null), GONE_TIMEOUT_MS);
-      }),
-    ]);
-    clearTimeout(giveUp);
-    if (code === null) {
-      child.kill("SIGKILL");
-      await exitCode;
+    let code: number | null = null;
+    try {
+      code = await waitExit();
+    } finally {
+      await logged;
     }
-    await stdin.close();
-    stdout.cancel();
-    await logged;
-    return { ...hello, exit: code };
+    return { ok: false, reason: started.reason, exit: code };
   }
 
-  // 이후 stdout을 계속 비운다. 안 읽으면 pipe가 차서 core가 막힌다.
-  const drained = (async () => {
-    const buffer = new Uint8Array(64 * 1024);
-    try {
-      for (;;) {
-        if ((await stdout.read(buffer)) === null) return;
+  const dial = cliDial({
+    dataRoot: home,
+    platform: process.platform,
+    // core의 socket 자리는 core process의 XDG_RUNTIME_DIR을 따른다. spawnCore는 넘긴 env만 core에 준다.
+    xdgRuntimeDir: env["XDG_RUNTIME_DIR"],
+  });
+  if (!dial.ok) {
+    return discard(
+      `control socket 경로를 구하지 못했다: ${dial.error.message}`,
+    );
+  }
+  const deps = { dial: dial.value, timeoutMs: CONTROL_REQUEST_TIMEOUT_MS };
+  // ready 줄은 control이 ready가 된 뒤에 온다. 붙는 사이의 starting만 잠깐 기다린다.
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS;
+  for (;;) {
+    const identified = await controlIdentify(deps);
+    if (!identified.ok) {
+      if (identified.error.code !== "unavailable") {
+        return discard(
+          `core control identify: ${identified.error.code}: ${identified.error.message}`,
+        );
       }
-    } catch {
-      // core가 죽으면 pipe 오류로 끝난다.
+    } else if (identified.value.state === "ready") {
+      break;
+    } else if (identified.value.state === "stopping") {
+      return discard("core가 시작하자마자 끝나는 중이다");
     }
-  })();
+    if (Date.now() > deadline) {
+      return discard("core control이 ready가 되지 않는다");
+    }
+    await sleep(POLL_MS);
+  }
+  const connected = await controlConnect(deps, "cli");
+  if (!connected.ok) {
+    return discard(
+      `core control connect: ${connected.error.code}: ${connected.error.message}`,
+    );
+  }
+
   const exited = (async () => {
-    await exitCode;
-    await Promise.all([drained, logged]);
+    const code = await exitCode;
+    await logged;
+    return code;
   })();
   return {
     ok: true,
-    hello,
-    async closeStdin() {
-      await stdin.close();
-    },
+    pid,
+    token: connected.value.user_token,
+    apiUrl: connected.value.api_url,
     signal: (signal) => {
       child.kill(signal);
+    },
+    async stop() {
+      const stopped = await controlStop(deps);
+      if (!stopped.ok) {
+        // control이 답하지 않는 core를 남기지 않는다. 실패는 던져 알린다.
+        child.kill("SIGKILL");
+        await exitCode;
+        throw new Error(
+          `core control stop: ${stopped.error.code}: ${stopped.error.message}`,
+        );
+      }
+      await waitExit();
     },
     exited,
   };

@@ -34,6 +34,8 @@ export async function resolveVariant(
   // registry는 전역 이름 표라 지금 checkout의 것 하나뿐이다. variant 사본에 쓰면 그 worktree를 지울 때 표가 사라진다.
   const registryDir = `${current}/tests/eval/registry`;
   const graderDeps: Deps = { root: current, registryDir };
+  // repo는 variant의 core entry와 제품 판을 고른다. 그 core에 말을 거는 control protocol은 grader(지금
+  // checkout)의 것이라, variant가 다른 protocol이면 boot가 계약 오류로 끝나고 explainBreak가 원인을 드러낸다.
   const boot =
     (root: string, isCurrent: boolean): Variant["boot"] =>
     (run, options) =>

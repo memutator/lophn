@@ -1,14 +1,13 @@
 // 세 질문
-// - contract: boundary `server`·`supervision`(user token은 parent pipe hello 한 번으로만 나오고 data root가 격리된다).
-// - 현실적 회귀: hello frame 모양이나 권한 flag가 바뀌어 모든 E2E가 못 도는 것, 실행 폴더가 사람의 data root를
-//   가리키는 것, 읽기 전용 sdk 사본 때문에 지우기가 실패해 .dev-data가 쌓이는 것.
-// - 왜 지금 test로 못 잡나: core를 daemon으로 띄워 token을 받는 test가 없다.
+// - contract: boundary `server`·`supervision`(data root가 격리되고, detached core의 API 주소와 user token은 control connect로만 나온다).
+// - 현실적 회귀: 실행 폴더가 사람의 data root를 가리키는 것, 읽기 전용 sdk 사본 때문에 지우기가 실패해 .dev-data가 쌓이는 것.
+// - 왜 지금 test로 못 잡나: core를 detached process로 띄워 control로 붙는 test가 없다.
 // 아래 둘째 core·끄기·손상 ledger 행(second-core, shutdown-stop, shutdown-kill, damaged-ledger)의 세 질문:
 // - contract: boundary `supervision`·`server`(instance lock, child 정리, 시작 실패 알림), `storage`(손상된 ledger를 열지 않고 원본을 지킨다).
 // - 현실적 회귀: instance lock이 풀려 두 core가 한 lophn.db를 여는 것, core가 꺼지는데 runtime의 model 요청이 열려 token을 계속 쓰는 것,
-//   손상된 ledger를 "고치려고" 덮어쓰는 것.
-// - 왜 지금 test로 못 잡나: 위 첫 test는 정상 종료와 SIGKILL 뒤 재기동만 본다. 둘째 instance, 요청이 열린 채 끄기, 손상 ledger는
-//   process 둘 이상이나 시작 실패 frame이 필요해 unit이 없다(base에 instance lock test가 없다).
+//   손상된 ledger를 "고치려고" 덮어쓰는 것, core가 SIGKILL로 죽은 뒤 child가 남는 것.
+// - 왜 지금 test로 못 잡나: 위 첫 test는 정상 종료와 SIGKILL 뒤 재기동만 본다. 둘째 instance, 요청이 열린 채 끄기, 손상 ledger, child 정리는
+//   process 둘 이상이나 시작 실패 첫 줄이 필요해 unit이 없다(base에 instance lock test가 없다).
 import assert from "node:assert/strict";
 import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -130,7 +129,7 @@ async function bootWithOpenRequest(
   return core;
 }
 
-test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data와 위치 metadata는 그대로다", async () => {
+test("같은 data root에 둘째 core는 시작하지 못하고 첫째는 data를 그대로 본다", async () => {
   await withCore(async ({ run, fake, boot, track }) => {
     fake.script([{ reply: { kind: "text", text: "hi" } }]);
     const first = await boot();
@@ -138,9 +137,7 @@ test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data�
     const session = await openWorkspaceSession(first, LOPHN_AGENT_ID);
     await say(first, session, "hello");
     await waitTurnEnd(first, session);
-    const location = `${run.home}/run/location.json`;
     const processes = await processesOf(run.home);
-    const metadata = await readFile(location);
     const messages = (await first.call(receivedMessageList, { session }))
       .messages.length;
     const turns = (await first.call(turnList, { session })).turns.length;
@@ -152,12 +149,6 @@ test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data�
     assert.ok(!second.ok);
     assert.ok(second.exit !== 0);
     assert.deepStrictEqual(await processesOf(run.home), processes);
-    // disk: 위치 metadata는 첫째 것 그대로다.
-    assert.deepStrictEqual(await readFile(location), metadata);
-    assert.deepStrictEqual(
-      JSON.parse(new TextDecoder().decode(metadata)).api_port,
-      Number(new URL(first.baseUrl).port),
-    );
     // ledger: 첫째가 아직 자기 data를 본다.
     assert.ok((await first.call(platformStatus, {})).ready);
     assert.deepStrictEqual(
@@ -171,7 +162,7 @@ test("같은 data root에 둘째 core는 시작하지 못하고 첫째의 data�
   });
 });
 
-test("model 요청이 열린 채 정상 종료하면 child와 요청이 남지 않고 위치 metadata가 지워진다", async () => {
+test("model 요청이 열린 채 정상 종료하면 child와 요청이 남지 않는다", async () => {
   await withCore(async (env) => {
     const core = await bootWithOpenRequest(env);
     await core.stop();
@@ -181,11 +172,6 @@ test("model 요청이 열린 채 정상 종료하면 child와 요청이 남지 �
     assert.deepStrictEqual(env.fake.journal().length, 1);
     // process: stop()이 child까지 없는 것을 확인했다.
     assert.deepStrictEqual(await processesOf(env.run.home), []);
-    // disk: 정상 종료에서만 지운다.
-    await assert.rejects(
-      () => stat(`${env.run.home}/run/location.json`),
-      (error: unknown) => errorCode(error) === "ENOENT",
-    );
   });
 });
 

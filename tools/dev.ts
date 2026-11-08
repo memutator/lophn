@@ -1,12 +1,11 @@
 // 실행: npm run dev, npm run dev:core, npm run dev:mock
 //
-// shell main(Electron)이 core를 띄우고 core가 고정 child(writer·reader·io)를 띄운다.
-// 그래서 `npm run dev`는 shell main을 직접 띄우고,
+// core는 standalone daemon이다. shell main(Electron)이 없어도 돌고, `npm run dev`는 shell main을,
 // `npm run dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
 // .dev-data/)를 절대 경로로 만들어 LOPHN_HOME으로 넘긴다. 실제 ~/.lophn은 읽지도 쓰지도
 // 않는다. LOPHN_DEV_HOME을 주면 그 root(eval이 남긴 world)를 열고 fake를 심지 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
-// 앱을 띄우기 전에 core를 pipe로 한 번 띄워 그 주소를 providers/connect로 연결해 둔 뒤
-// 닫는다(shell main이 띄우는 core의 user token은 hello frame으로만 나오기 때문이다).
+// 앱을 띄우기 전에 core를 한 번 띄워 그 주소를 providers/connect로 연결해 둔 뒤 닫는다. 연결은
+// ledger에 남으므로 뒤에 뜨는 core가 시작할 때부터 쓴다. CLI와 shell은 control identify·connect로 붙는다.
 // 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake를 띄우지도 연결하지도 않는다.
 // Ctrl+C와 SIGTERM에 띄운 프로세스를 정리한다.
 //
@@ -29,11 +28,19 @@ import {
 import { createRequire } from "node:module";
 import { normalize } from "node:path";
 import process from "node:process";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { devCliLauncher } from "../packages/base/install/linux-install.ts";
 import { winDevCliLauncher } from "../packages/base/install/win-install.ts";
 import { errorCode } from "../packages/base/mod.ts";
+import { cliDial } from "../packages/cli/connection/client/node.ts";
 import { type ServeHandle, serve } from "../packages/core/server/serve.ts";
+import {
+  CONTROL_REQUEST_TIMEOUT_MS,
+  type ControlRequestDeps,
+  controlIdentify,
+  controlStop,
+} from "../packages/protocol/client/mod.ts";
 import { hookStdoutRows } from "../packages/protocol/coding-agent/mod.ts";
 import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
 import { connectFakeProvider } from "../tests/support/core/human.ts";
@@ -144,14 +151,52 @@ async function startDevFake(portText: string | undefined) {
   };
 }
 
+// 그 data root의 core control에 한 줄 보낼 deps. socket 자리를 못 구하면 undefined(그런 core도 뜰 수 없다).
+function coreControl(dataRoot: string): ControlRequestDeps | undefined {
+  const dial = cliDial({
+    dataRoot,
+    platform: process.platform,
+    xdgRuntimeDir: process.env.XDG_RUNTIME_DIR,
+  });
+  return dial.ok
+    ? { dial: dial.value, timeoutMs: CONTROL_REQUEST_TIMEOUT_MS }
+    : undefined;
+}
+
 /**
- * 앱을 띄우기 전에 core를 pipe로 한 번 띄워 fake를 provider로 연결해 두고 닫는다. 연결은
- * ledger에 남으므로 뒤에 뜨는 core가 시작할 때부터 쓴다. 이미 연결돼 있으면 그대로 둔다.
+ * 이전 실행의 standalone core가 그 data root를 아직 열고 있으면 control stop으로 끄고 process가
+ * 사라질 때까지 기다린다. 도는 core의 ledger를 지우면 data를 잃는다.
+ */
+async function stopRunningCore(dataRoot: string): Promise<void> {
+  const control = coreControl(dataRoot);
+  if (control === undefined) return;
+  if (!(await controlIdentify(control)).ok) return;
+  const stopped = await controlStop(control);
+  if (!stopped.ok) {
+    throw new Error(
+      `이전 실행의 core를 끄지 못했다: ${stopped.error.code}: ${stopped.error.message}`,
+    );
+  }
+  const deadline = Date.now() + 15_000;
+  while ((await processesOf(dataRoot)).length > 0) {
+    if (Date.now() > deadline) {
+      throw new Error("이전 실행의 core가 끝나지 않는다");
+    }
+    await sleep(100);
+  }
+}
+
+/**
+ * 앱을 띄우기 전에 core를 한 번 띄워 fake를 provider로 연결해 두고 닫는다. 연결은
+ * ledger에 남으므로 뒤에 뜨는 core가 시작할 때부터 쓴다. 이미 도는 core가 있으면 그 core의
+ * 연결을 그대로 둔다(둘째 core는 instance lock 때문에 뜨지 않는다).
  */
 async function plantFakeProvider(
   dataRoot: string,
   fakeUrl: string,
 ): Promise<void> {
+  const running = coreControl(dataRoot);
+  if (running !== undefined && (await controlIdentify(running)).ok) return;
   // 선언 안 된 key가 있으면 file 전체가 거절되므로 있는 JSON에 key만 더한다. bootCore는
   // 이미 있는 settings.json을 건드리지 않는다.
   const settingsPath = `${dataRoot}/settings.json`;
@@ -185,16 +230,16 @@ async function plantFakeProvider(
 }
 
 /**
- * core spawn 계획. 시작 인자: `packages/core/main/daemon/main.ts [--port=<n>]`.
- * Electron binary를 ELECTRON_RUN_AS_NODE로 띄우고 LOPHN_HOME은 데이터 root다. Electron main이
- * 물려 준 pipe는 shell main이 연다. 터미널에서 직접 띄우므로 stdin은 터미널이고 core는 신호로만
- * 끝난다. 자식 process가 PATH의 npm을 찾으므로 PATH를 지우지 않는다.
+ * core spawn 계획. 시작 인자: `packages/core/main/daemon/main.ts [--port=<n>] --standalone`.
+ * Electron binary를 ELECTRON_RUN_AS_NODE로 띄우고 LOPHN_HOME은 데이터 root다. launcher가 stdin을
+ * 종료 신호로 쓰지 않으므로(Control stop·신호로 끝난다) 터미널에서 띄워도 붙는 pipe가 없다.
+ * stdout에 시작 결과 첫 줄(`ready`) 하나가 찍힌다. 자식 process가 PATH의 npm을 찾으므로 PATH를 지우지 않는다.
  */
 function planCore(
   root: string,
   options: { dataRoot: string; port?: number; env?: Record<string, string> },
 ): SpawnPlan {
-  const args = [`${root}/packages/core/main/daemon/main.ts`];
+  const args = [`${root}/packages/core/main/daemon/main.ts`, "--standalone"];
   if (options.port !== undefined) args.push(`--port=${options.port}`);
   return {
     command: ELECTRON,
@@ -288,8 +333,8 @@ function exitStatus(child: ChildProcess): Promise<{ success: boolean }> {
 
 /**
  * 띄운 프로세스의 수명. add로 추적하고 stop으로 모두 끝낸다. detached로 띄우지 않으므로
- * SIGTERM이 프로세스 tree보다 좁지만 shell main은 SIGTERM를 받으면 끝나고,
- * core는 shell main의 자식이라 같이 끝난다. 이미 끝난 child의 kill은 건너뛴다.
+ * SIGTERM이 프로세스 tree보다 좁지만 shell main은 SIGTERM를 받으면 끝난다. core는 standalone이라
+ * shell과 같이 끝나지 않고 idle-exit나 control stop으로 끝난다. 이미 끝난 child의 kill은 건너뛴다.
  */
 class ProcessGroup {
   readonly #children: Set<ChildProcess> = new Set();
@@ -353,8 +398,8 @@ export async function removeDataRoot(dataRoot: string): Promise<void> {
  *
  * 데이터 root(저장소 밖으로 가지 않는다. 예외는 LOPHN_DEV_HOME)를 만들고(0700) → fake server를 고정 port로 띄워
  * (필요할 때만) core에 provider로 연결해 두고 → `dev`는 shell main을, `dev:core`는 core를
- * 띄운다. shell이 없는데 `dev`를 부르면 이유를 말하고 실패로 끝난다. Ctrl+C·SIGTERM에
- * 띄운 것을 모두 끝낸다.
+ * 띄운다. 띄운 process가 끝난 뒤에 fake server를 닫는다(먼저 닫으면 쓰던 core가 죽은 주소를 본다).
+ * shell이 없는데 `dev`를 부르면 이유를 말하고 실패로 끝난다. Ctrl+C·SIGTERM에 띄운 것을 모두 끝낸다.
  */
 async function runDev(
   mode: Mode,
@@ -404,8 +449,10 @@ async function launch(
   }
 
   try {
-    // mock 모드는 이전 실행의 core 상태를 이어받지 않는다.
+    // mock 모드는 이전 실행의 core 상태를 이어받지 않는다. 이전 실행의 core가 그 root를 아직 열고
+    // 있으면 control stop으로 끄고 process가 사라진 뒤에 지운다.
     if (mode === "dev:mock") {
+      await stopRunningCore(dataRoot);
       await removeDataRoot(dataRoot);
     }
     await mkdir(dataRoot, { recursive: true, mode: 0o700 });

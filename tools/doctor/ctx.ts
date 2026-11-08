@@ -16,6 +16,8 @@ import { connect, createServer } from "node:net";
 import { join } from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { err } from "../../packages/base/mod.ts";
+import { cliDial } from "../../packages/cli/connection/client/node.ts";
 import type {
   Ctx,
   FileStat,
@@ -222,6 +224,21 @@ function resolveElectron(root: string): string | null {
   }
 }
 
+// core와 같은 규칙으로 control socket 자리를 구한다. 자리를 못 구하는 data root는 그 오류로만 답한다.
+function createControl(
+  env: Record<string, string | undefined>,
+): Ctx["control"] {
+  return (dataRoot) => {
+    const dial = cliDial({
+      dataRoot,
+      platform: process.platform,
+      xdgRuntimeDir: env["XDG_RUNTIME_DIR"],
+    });
+    if (dial.ok) return dial.value;
+    return () => Promise.resolve(err(dial.error));
+  };
+}
+
 export function createCtx(
   root: string,
   env: Record<string, string | undefined> = { ...process.env },
@@ -233,5 +250,6 @@ export function createCtx(
     net: createNet(),
     spawn: createSpawn(),
     electronPath: resolveElectron(root),
+    control: createControl(env),
   };
 }

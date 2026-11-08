@@ -3,6 +3,12 @@
 import { join } from "node:path";
 import process from "node:process";
 import { DEFAULT_API_PORT } from "../../packages/protocol/base/limits.ts";
+import {
+  CONTROL_REQUEST_TIMEOUT_MS,
+  controlConnect,
+  controlIdentify,
+} from "../../packages/protocol/client/mod.ts";
+import type { ControlIdentify } from "../../packages/protocol/supervision/core-control.ts";
 import type { Check, Ctx, Fix, Status } from "./types.ts";
 
 // tests/support의 dev fake server가 쓰는 port(tools/dev.ts의 DEFAULT_FAKE_PORT).
@@ -79,27 +85,22 @@ function devDataRootOf(ctx: Ctx): string {
   return join(ctx.root, ".dev-data");
 }
 
-type Location = {
-  apiPort: number | null;
-  token: string | null;
-  malformed: boolean;
-};
+type CoreProbe =
+  | { kind: "none" }
+  | { kind: "identified"; core: ControlIdentify }
+  | { kind: "broken"; message: string };
 
-// core가 남긴 run/location.json과 run/user-token. core가 없으면 null.
-async function readLocation(ctx: Ctx): Promise<Location | null> {
-  const runDir = join(devDataRootOf(ctx), "run");
-  const text = await ctx.fs.readText(join(runDir, "location.json"));
-  if (text === null) return null;
-  const token =
-    (await ctx.fs.readText(join(runDir, "user-token")))?.trim() ?? null;
-  const parsed = jsonObject(text);
-  if (parsed === null) return { apiPort: null, token, malformed: true };
-  const apiPort = parsed["api_port"];
-  return {
-    apiPort: typeof apiPort === "number" ? apiPort : null,
-    token,
-    malformed: false,
-  };
+// 이 checkout의 dev data root core에 identify를 묻는다. core를 띄우지 않고 묻기만 한다.
+async function probeCore(ctx: Ctx): Promise<CoreProbe> {
+  const identified = await controlIdentify({
+    dial: ctx.control(devDataRootOf(ctx)),
+    timeoutMs: CONTROL_REQUEST_TIMEOUT_MS,
+  });
+  if (identified.ok) return { kind: "identified", core: identified.value };
+  // 답이 없으면 도는 core가 없다. 계약 밖 응답이면 옛 판이거나 socket 주인이 다르다.
+  return identified.error.code === "unavailable"
+    ? { kind: "none" }
+    : { kind: "broken", message: identified.error.message };
 }
 
 // root package.json의 workspaces를 펴서 manifest 경로를 모은다.
@@ -166,28 +167,20 @@ function firstFew(items: string[]): string {
 }
 
 // port를 이미 누가 쥐고 있을 때 그 주인이 누구인지: 이 checkout의 core, 다른 root의 core, 남의 process.
-// 터미널에서 띄운 core(`npm run dev:core`)는 부모 pipe가 없어 run/user-token을 쓰지 않는다. 그때는 token 없이
-// location.json의 port와 unauthorized 응답으로 이 checkout의 core라고 본다.
+// 이 checkout의 core는 자기 data root의 control socket에 identify로 답하고 api_url을 알린다.
 async function classifyPortOwner(
   ctx: Ctx,
   port: number,
-  location: Location | null,
 ): Promise<"this-core" | "other-core" | "foreign"> {
-  const ours = location !== null && location.apiPort === port;
-  if (ours && location.token !== null) {
-    const health = await ctx.net.httpGet(`http://127.0.0.1:${port}/healthz`, {
-      token: location.token,
-      timeoutMs: 2000,
-    });
-    // 이 checkout의 token을 받아들이면(옛 core는 /healthz가 없어 404) 이 checkout의 core다.
-    if (
-      health.kind === "response" &&
-      health.status !== 401 &&
-      health.status !== 403
-    ) {
-      return "this-core";
-    }
+  // 이 checkout의 core는 자기 control socket에 api_url(`http://127.0.0.1:<port>`)로 답한다.
+  const probe = await probeCore(ctx);
+  if (
+    probe.kind === "identified" &&
+    probe.core.api_url === `http://127.0.0.1:${port}`
+  ) {
+    return "this-core";
   }
+  // 다른 data root의 core가 이 port를 쥐었는지는 그 core의 control socket에 물을 길이 없다.
   // 인증 없이 부르면 lophn core는 unauthorized를 낸다. Host가 다르면 남의 process다.
   const anonymous = await ctx.net.httpGet(`http://127.0.0.1:${port}/healthz`, {
     timeoutMs: 2000,
@@ -195,9 +188,7 @@ async function classifyPortOwner(
   if (anonymous.kind === "response") {
     const body = jsonObject(anonymous.body);
     const error = recordOf(body?.["error"]);
-    if (error?.["code"] === "unauthorized") {
-      return ours && location.token === null ? "this-core" : "other-core";
-    }
+    if (error?.["code"] === "unauthorized") return "other-core";
   }
   return "foreign";
 }
@@ -750,7 +741,6 @@ export const checks: Check[] = [
         Number.isInteger(parsedFake) && parsedFake >= 1 && parsedFake <= 65535
           ? parsedFake
           : DEFAULT_FAKE_PORT;
-      const location = await readLocation(ctx);
       const [core, fake] = await Promise.all([
         ctx.net.probe(DEFAULT_API_PORT),
         ctx.net.probe(fakePort),
@@ -762,7 +752,7 @@ export const checks: Check[] = [
       if (core === "free") {
         details.push(`${DEFAULT_API_PORT} free`);
       } else {
-        const owner = await classifyPortOwner(ctx, DEFAULT_API_PORT, location);
+        const owner = await classifyPortOwner(ctx, DEFAULT_API_PORT);
         if (owner === "this-core") {
           ownCore = true;
           details.push(`${DEFAULT_API_PORT}: this checkout의 core가 떠 있다`);
@@ -799,53 +789,68 @@ export const checks: Check[] = [
     id: "core-readiness",
     title: "core readiness",
     async run(ctx) {
-      const location = await readLocation(ctx);
-      if (location === null) {
+      const probe = await probeCore(ctx);
+      if (probe.kind === "none") {
         return {
           status: "pass",
-          detail: "core not running (run/location.json 없음)",
+          detail: "core not running (control socket이 답하지 않는다)",
         };
       }
       const staleFix: Fix = { command: "npm run dev:core" };
-      if (location.malformed || location.apiPort === null) {
+      if (probe.kind === "broken") {
         return {
           status: "warn",
-          detail:
-            "run/location.json이 깨졌다(stale run metadata). core가 죽었나?",
+          detail: `core control 응답이 계약과 다르다(${probe.message}). 옛 core가 떠 있나?`,
           fix: staleFix,
         };
       }
-      if (location.token === null || location.token === "") {
-        const anonymous = await ctx.net.httpGet(
-          `http://127.0.0.1:${location.apiPort}/healthz`,
-          { timeoutMs: 2000 },
-        );
-        const code =
-          anonymous.kind === "response"
-            ? recordOf(jsonObject(anonymous.body)?.["error"])?.["code"]
-            : undefined;
-        if (code === "unauthorized") {
-          return {
-            status: "pass",
-            detail: `core가 ${location.apiPort}에 떠 있다. 터미널에서 띄운 core는 run/user-token을 쓰지 않아 /readyz는 건너뛴다(npm run dev로 띄우면 본다)`,
-          };
-        }
+      const identified = probe.core;
+      if (identified.state === "starting") {
         return {
           status: "warn",
-          detail:
-            "run/user-token이 없고 core가 답하지 않는다(stale run metadata)",
+          detail: "core가 아직 시작 중이다",
           fix: staleFix,
         };
       }
-      const port = location.apiPort;
-      const res = await ctx.net.httpGet(`http://127.0.0.1:${port}/readyz`, {
-        token: location.token,
+      if (identified.state === "stopping") {
+        return {
+          status: "warn",
+          detail: "core가 끝나는 중이다",
+          fix: staleFix,
+        };
+      }
+      if (identified.api_url === null) {
+        return {
+          status: "warn",
+          detail:
+            "core가 ready인데 API 주소를 알리지 않는다(control 계약 위반)",
+          fix: staleFix,
+        };
+      }
+      // /readyz는 자격이 필요하다. 일반 connect로 받아 확인하고 출력에는 내지 않는다.
+      const connected = await controlConnect(
+        {
+          dial: ctx.control(devDataRootOf(ctx)),
+          timeoutMs: CONTROL_REQUEST_TIMEOUT_MS,
+        },
+        "cli",
+      );
+      if (!connected.ok) {
+        return {
+          status: "warn",
+          detail: `control connect가 실패했다(${connected.error.code}). 새로 띄운다`,
+          fix: staleFix,
+        };
+      }
+      const url = identified.api_url;
+      const res = await ctx.net.httpGet(`${url}/readyz`, {
+        token: connected.value.user_token,
         timeoutMs: 3000,
       });
       if (res.kind === "error") {
         const detail =
           res.message === "ECONNREFUSED"
-            ? `run metadata는 ${port}을 가리키는데 core가 답하지 않는다(죽었나?)`
+            ? `core는 ${url}을 알리는데 답하지 않는다(죽었나?)`
             : `/readyz 요청이 실패했다: ${res.message}`;
         return { status: "warn", detail, fix: staleFix };
       }
@@ -859,7 +864,7 @@ export const checks: Check[] = [
       if (res.status === 401 || res.status === 403) {
         return {
           status: "warn",
-          detail: `core가 token을 거절했다(status ${res.status}, stale run metadata?)`,
+          detail: `core가 connect로 받은 자격을 거절했다(status ${res.status})`,
           fix: staleFix,
         };
       }

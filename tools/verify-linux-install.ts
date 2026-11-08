@@ -22,8 +22,15 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
+import { setTimeout as sleep } from "node:timers/promises";
+import { cliDial } from "../packages/cli/connection/client/node.ts";
 import { linuxInstallLayout } from "../packages/core/install-and-update/mod.ts";
-import { spawnCore } from "../packages/shell/main/desktop/core/supervise.ts";
+import {
+  CONTROL_REQUEST_TIMEOUT_MS,
+  controlConnect,
+  controlIdentify,
+  controlStop,
+} from "../packages/protocol/client/mod.ts";
 
 type Verdict = "pass" | "fail" | "unverified";
 const results: { name: string; verdict: Verdict; note: string }[] = [];
@@ -161,30 +168,150 @@ async function checkLaunchers(): Promise<void> {
   );
 }
 
-// shell main이 core를 띄우는 것과 같은 launch다.
-async function startCore(home: string, data: string) {
-  const core = spawnCore({
-    repoRoot: layout.platform,
-    dataRoot: data,
-    env: { HOME: home, PATH: "" },
-  });
-  const hello = await Promise.race([
-    core.hello,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("hello timeout")), 60_000),
-    ),
-  ]);
-  return { core, hello };
+type CoreRun = {
+  /** control stop을 보내고 core가 끝나기를 기다린다. 끝나지 않으면 SIGKILL하고 null을 돌려준다. */
+  stop(): Promise<number | null>;
+};
+
+const EXIT_MS = 15_000;
+
+// 설치본 core의 stdout 첫 줄 하나. READY_MS 안에 오지 않으면 실패다.
+function firstLine(stream: NodeJS.ReadableStream): Promise<string> {
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  let data = "";
+  const done = () => {
+    clearTimeout(timer);
+    stream.off("data", onData);
+    stream.off("end", onEnd);
+    stream.off("error", onError);
+    // pipe를 놓은 뒤의 오류(core가 쓴 뒤 닫힘)로 이 도구가 죽지 않게 한다.
+    stream.on("error", () => {});
+  };
+  const onData = (text: string) => {
+    data += text;
+    const end = data.indexOf("\n");
+    if (end < 0) return;
+    done();
+    resolve(data.slice(0, end));
+  };
+  const onEnd = () => {
+    done();
+    reject(new Error("core가 첫 줄을 쓰기 전에 stdout을 닫았다"));
+  };
+  const onError = (error: Error) => {
+    done();
+    reject(error);
+  };
+  const timer = setTimeout(() => {
+    done();
+    reject(new Error("60초 안에 core의 첫 줄이 오지 않았다"));
+  }, 60_000);
+  stream.setEncoding("utf8");
+  stream.on("data", onData);
+  stream.on("end", onEnd);
+  stream.on("error", onError);
+  return promise;
 }
 
-async function stopCore(core: {
-  stop(graceMs?: number): void;
-  child: { pid?: number; exitCode: number | null };
-}) {
-  core.stop(5_000);
-  for (let i = 0; i < 60 && core.child.exitCode === null; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 250));
+// shell이나 CLI 없이 설치본의 core를 직접 띄운다. stdout 첫 줄(`ready`) 뒤 control
+// identify·connect로 붙는다. core의 env에 XDG_RUNTIME_DIR이 없으므로 dial도 그것 없이 만든다.
+async function startCore(home: string, data: string): Promise<CoreRun> {
+  const child = spawn(
+    layout.desktopBinary,
+    [
+      `${layout.platform}/packages/core/main/daemon/main.ts`,
+      "--port=0",
+      "--standalone",
+    ],
+    {
+      cwd: layout.platform,
+      // 빈 PATH로 시작한다. core는 묶음의 node_modules만 읽고 설치본 밖의 도구를 부르지 않는다.
+      env: {
+        ELECTRON_RUN_AS_NODE: "1",
+        HOME: home,
+        LOPHN_HOME: data,
+        PATH: "",
+      },
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  if (child.pid === undefined) throw new Error("core process를 띄우지 못했다");
+  const exitCode = new Promise<number | null>((resolve) => {
+    child.on("exit", (code) => resolve(code));
+    child.on("error", () => resolve(null));
+  });
+  let stderr = "";
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk: string) => (stderr += chunk));
+  // pipe를 놓아야 core가 이 도구의 읽기에 묶이지 않는다.
+  const line = await firstLine(child.stdout!).catch(async (error) => {
+    child.kill("SIGKILL");
+    await exitCode;
+    throw new Error(`${error.message}\n${stderr.slice(-2000)}`);
+  });
+  child.stdout!.destroy();
+  let startType: unknown;
+  try {
+    const parsed = JSON.parse(line) as { type?: unknown };
+    startType = parsed.type;
+  } catch {
+    startType = undefined;
   }
+  if (startType !== "ready") {
+    await exitCode;
+    // 줄 내용은 남기지 않는다. 옛 core의 hello라면 user token이 들어 있다.
+    throw new Error(`core가 ready를 알리지 않았다\n${stderr.slice(-2000)}`);
+  }
+  const dial = cliDial({
+    dataRoot: data,
+    platform: process.platform,
+    xdgRuntimeDir: undefined,
+  });
+  if (!dial.ok) {
+    child.kill("SIGKILL");
+    await exitCode;
+    throw new Error(`control socket 경로: ${dial.error.message}`);
+  }
+  const deps = { dial: dial.value, timeoutMs: CONTROL_REQUEST_TIMEOUT_MS };
+  const identified = await controlIdentify(deps);
+  if (!identified.ok || identified.value.state !== "ready") {
+    child.kill("SIGKILL");
+    await exitCode;
+    throw new Error(
+      `core control identify: ${
+        identified.ok ? identified.value.state : identified.error.message
+      }\n${stderr.slice(-2000)}`,
+    );
+  }
+  const connected = await controlConnect(deps, "cli");
+  if (!connected.ok) {
+    child.kill("SIGKILL");
+    await exitCode;
+    throw new Error(
+      `core control connect: ${connected.error.code}: ${connected.error.message}`,
+    );
+  }
+  return {
+    async stop() {
+      const stopped = await controlStop(deps);
+      if (!stopped.ok) {
+        child.kill("SIGKILL");
+        await exitCode;
+        return null;
+      }
+      const deadline = Date.now() + EXIT_MS;
+      while (child.exitCode === null && child.signalCode === null) {
+        if (Date.now() > deadline) {
+          child.kill("SIGKILL");
+          await exitCode;
+          return null;
+        }
+        await sleep(100);
+      }
+      return exitCode;
+    },
+  };
 }
 
 async function checkCoreOffline(): Promise<void> {
@@ -196,10 +323,15 @@ async function checkCoreOffline(): Promise<void> {
       record("R4·R8 의존성 다운로드 없는 core 시작", "fail", first.message);
       return;
     }
-    record("R4·R8 빈 PATH로 core 시작", "pass");
-    await stopCore(first.core);
+    const firstExit = await first.stop();
+    record(
+      "R4·R8 빈 PATH로 core 시작",
+      firstExit === 0 ? "pass" : "fail",
+      firstExit === 0 ? "" : `정상 종료 exit ${firstExit}`,
+    );
+    if (firstExit !== 0) return;
 
-    // 재시작해도 같은 data root를 그대로 쓴다.
+    // 재시작해도 같은 data root를 그대로 쓴다. 첫째가 끝난 뒤에 둘째를 띄운다.
     const before = await stat(`${data}/lophn.db`).then(
       (s) => s.size,
       () => -1,
@@ -224,7 +356,10 @@ async function checkCoreOffline(): Promise<void> {
       "R8 재시작 뒤에도 H 유지",
       before > 0 && after > 0 && sameId ? "pass" : "fail",
     );
-    await stopCore(second.core);
+    const secondExit = await second.stop();
+    if (secondExit !== 0) {
+      record("R8 재시작", "fail", `정상 종료 exit ${secondExit}`);
+    }
   } finally {
     await rm(home, { recursive: true }).catch(() => undefined);
   }

@@ -1,7 +1,7 @@
 // 세 질문
-// - contract: boundary `server`·`supervision`(core가 시작하지 못할 때 이유를 shell main에 알리고 아무것도 안 쓰고 끝난다. 같은 data root에 둘째 instance는 안 뜬다).
-// - 현실적 회귀: `start_failed` 알림 모양이 바뀌어 shell main이 시작 실패 이유를 못 보이는 것, 시작에 실패한 core가 child를 남기는 것.
-// - 왜 지금 test가 못 잡나: 시작 실패 경로를 process로 보는 test가 없다. `bootCore`는 hello가 안 오면 30초 뒤 실패하는 것이 전부다.
+// - contract: boundary `server`·`supervision`(core가 시작하지 못할 때 stdout 첫 줄로 이유를 알리고 아무것도 안 쓰고 끝난다. 같은 data root에 둘째 instance는 안 뜬다).
+// - 현실적 회귀: `start_failed` 알림 모양이 바뀌어 launcher가 시작 실패 이유를 못 보이는 것, 시작에 실패한 core가 child를 남기는 것.
+// - 왜 지금 test가 못 잡나: 시작 실패 경로를 process로 보는 test가 없다. `bootCore`는 첫 줄이 안 오면 30초 뒤 실패하는 것이 전부다.
 import { type BootOptions, type Core, type Run, startCore } from "./mod.ts";
 import { processesOf, waitGone } from "./process.ts";
 

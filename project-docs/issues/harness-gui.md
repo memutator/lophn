@@ -55,15 +55,18 @@ modules: [packages/shell/main, packages/protocol]
 
 고치려면: ACP `tool_detail_changed`나 tool item에 실행 시작 시각(`started_at`)을 더하고 renderer가 그것으로 센다. 그러면 줄은 바로 내고 미루는 code를 지운다. 작음. 추천.
 
-## GUI에서 띄운 subagent session이 lophn의 recent session에 보인다
+## 탭 CLI 안에서 띄운 다른 harness session이 그 탭의 session과 recent에 들어간다
 
 ```yaml
 kind: bug
-modules: [packages/shell/main]
+modules: [packages/shell/main, packages/coding-agent, packages/protocol]
 ```
 
-지금: 사람 보고. harness GUI(Claude)에서 Agent tool로 띄운 subagent들이 lophn의 recent session 목록에 따로 보인다. GUI 머리의 지난 session 목록(`listSessions({includeProgrammatic: true})`)에는 없음을 확인했다. 어느 목록인지와 그 줄이 어떻게 생기는지(hook으로 들어온 subagent의 SessionStart인지, background agent가 따로 CLI session으로 도는지)는 아직 확인하지 않았다.
+지금: 탭의 CLI 아래에서 뜬 harness process(Bash tool이나 `!`로 돌린 `claude -p`, 녹화 script)는 `LPN_TERMINAL_HOOK`을 물려받아 hook을 같은 탭으로 보낸다. tracker(`packages/shell/main/terminal/agent/tracker.ts`)는 새 `session_id`를 `/clear`·resume처럼 그 탭의 session으로 받고, `sessionSeen`이 terminal agent session 목록(`<data root>/shell/agent-sessions/<project>.json`, `packages/shell/main/terminal/agent/session-store.ts`)에 적는다. Agent tool subagent는 부모 `session_id`로 hook을 내서 원인이 아니다. 사람이 본 "subagent session"은 `!`로 돌린 Claude 녹화의 session이었다(첫 prompt가 "Use the Agent tool …").
 
-영향: recent session이 사람이 연 적 없는 session으로 찬다.
+영향: recent가 사람이 연 적 없는 session으로 찬다. 그 session이 도는 동안 탭의 session id가 바뀌어 GUI toggle이 엉뚱한 session을 열 수 있다.
 
-고치려면: 그 목록이 받는 신호를 찾아, 부모가 있는 session(subagent, background agent)은 넣지 않는다. 작음 추정.
+고치려면:
+- `lophn hook`이 가장 가까운 harness 조상 process의 pid를 싣고, main은 그 pid가 PTY foreground group(TUI)이나 GUI handle이 띄운 CLI일 때만 받는다. 중간. 추천.
+- Claude만: SessionStart에서 `$CLAUDE_ENV_FILE`에 `unset LPN_TERMINAL_HOOK`을 적어 Bash tool 자식이 물려받지 않게 한다. 작음. SDK mode에서 되는지 확인이 필요하고 다른 harness는 남는다.
+- 녹화 script들이 `LPN_TERMINAL_HOOK`을 지운다. 작음. 본 경우만 막는다.

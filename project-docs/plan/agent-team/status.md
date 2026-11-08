@@ -4,4 +4,4 @@ lead만 고친다. `tools/status.py agent-team build`가 `tasks/*.md`에서 id, 
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `team-ask` | team | 1 | 없음 | todo |  |  |  |
+| `team-ask` | team | 1 | 없음 | running | team/team-ask |  |  |

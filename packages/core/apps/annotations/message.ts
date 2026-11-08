@@ -1,7 +1,7 @@
 // 받는 쪽 agent에게 들어가는 사람 메시지를 만든다. 묶음의 annotation을 번호 순서로 이어 붙인다.
 // 이미지는 싣지 않고 image.read로 열 ref를 적는다. 순수 함수다.
 import type { Annotation } from "../../../protocol/apps/annotation.ts";
-import { renderTag } from "../../lophn-agent/prompt-assembly/input-tags.ts";
+import { renderTag } from "../../../protocol/lophn-agent/input-tags.ts";
 
 const percent = (ratio: number) => `${Math.round(ratio * 100)}%`;
 

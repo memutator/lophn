@@ -34,7 +34,7 @@ export type CommandContext = {
   // 쓰기 명령이 command route에 넘기는 idempotency key. `lophn` tool은 tool call의 id, binary는 `--idempotency-key`이거나
   // 새로 만든 값이다.
   key: string;
-  // lophn agent session의 workspace다(home이면 null). binary에는 session이 없어 undefined다.
+  // lophn agent session의 workspace다(home이면 null). binary에는 session이 없어 env `LOPHN_WORKSPACE`의 workspace(없으면 undefined)다.
   workspace: Workspace | null | undefined;
   // 상대 path를 푸는 기준 폴더다. binary는 process cwd, `lophn` tool은 workspace의 첫 폴더다(home이면 없다).
   cwd?: string;

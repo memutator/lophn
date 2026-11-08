@@ -1,6 +1,6 @@
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
-import { wrapUntrusted } from "../../prompt-assembly/input-tags.ts";
+import { wrapUntrusted } from "../../../../protocol/lophn-agent/input-tags.ts";
 import { fail } from "../file/scope.ts";
 import type { ToolContext } from "../tool-context.ts";
 import { decodeEntities } from "./fetch.ts";

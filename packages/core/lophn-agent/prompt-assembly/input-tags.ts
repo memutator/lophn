@@ -3,14 +3,6 @@ import {
   renderTag,
 } from "../../../protocol/lophn-agent/input-tags.ts";
 
-// tag를 만들고 escape하는 코드는 protocol에 있다(binary도 쓴다). 이 module을 거쳐 가던 import를 그대로 둔다.
-export {
-  escapeTagBody,
-  renderTag,
-  scrubAttribute,
-  wrapUntrusted,
-} from "../../../protocol/lophn-agent/input-tags.ts";
-
 // Router 입력을 user role로 넣을 때 출처를 밝히는 tag를 만든다. 순수 함수다.
 // 고정 문장은 영어로 두고, 붙일 때는 tag 밖에 program이 쓴 줄로만 붙인다(reaction은 tag만 쓴다).
 

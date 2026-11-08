@@ -1,9 +1,9 @@
 import { IMAGE_NOTE } from "../../../protocol/lophn-agent/content-block.ts";
+import { wrapUntrusted } from "../../../protocol/lophn-agent/input-tags.ts";
 import {
   type HistoryMessage,
   type HistoryPart,
   textTokens,
-  wrapUntrusted,
 } from "../prompt-assembly/mod.ts";
 import type { CallResult } from "./tool-batch.ts";
 import { untrustedSource } from "./untrusted.ts";

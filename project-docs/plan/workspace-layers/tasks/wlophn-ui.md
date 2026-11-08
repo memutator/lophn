@@ -41,3 +41,21 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴을 따른다.
+
+## 추가 소유와 넘길 줄 (lead가 더함)
+
+추가 소유:
+- `packages/shell/ipc/annotation.ts`
+- `packages/shell/renderer/workspace/sidebar/panel-sessions.ts`
+- `packages/shell/renderer/shell/{agent-sections.tsx,left-sidebar-workspaces.ts}`
+
+`wlophn-core`가 type check만 맞춘 곳이다. 제대로 고친다.
+- `workspace-window.tsx` `openNew`: `start.agent`가 없으면 목록에서 처음 `isLophn`인 row를 고른다. 그 workspace의 lophn(`lophnIdOf(workspace)`)을 고른다.
+- `app-screen-tab.tsx` `sendAnnotations`: `agent`를 뺐다(core가 앱의 lophn으로 채운다). 그대로 두어도 되는지 확인한다.
+- `conversation/agent-tab-gui-source.ts` face, `desktop/connection/waiting/notice-action.ts` 할당: `lophnIdOf(null)` 자리표시다. 그 session·대기의 workspace의 lophn id를 쓴다.
+- `desktop/connection/waiting/{model.ts,cards/head.tsx}`, `desktop/jobs/model.ts`, `workspace/agents/{core-source.ts,agent-key.ts,editor/agent-editor.tsx,editor/definition-form.tsx}`, `reactions/project-lophn.ts`, `sidebar/workspace-left-sidebar.tsx`, `app-frame/app-detail/core-source.ts`, `conversation/agent-tab-core-source-sessions.ts`, `shell/main/desktop/wiring/notice.ts`: `=== LOPHN_AGENT_ID`를 `isLophn`으로만 바꿨다. name을 보이는 곳은 그 lophn id의 name을 읽는다.
+- grep이 못 잡는 옛 문자열:
+  - `packages/shell/ipc/annotation.ts:29`: `agentId`가 `"lophn"` 또는 `agt_`만 받아 lophn id를 거절한다. `agentIdSchema`를 쓴다.
+  - `workspace/sidebar/panel-sessions.ts:32` `sessionAgentKey(entry) === "lophn"`, `shell/agent-sections.tsx:87` `items("lophn")`, `workspace/agents/agents-tab.tsx:86` `row.assignment === "lophn"`.
+  - `app-screen-tab.tsx:135`, `workspace-window.tsx:987`, `shell/left-sidebar-workspaces.ts`의 `kind: "lophn"`·표시 문자열은 handle 표시면 둔다.
+- core는 사람이 workspace 없이 `agents/list`를 부르면 모든 workspace의 lophn을 낸다. 화면은 workspace를 넘겨 그 workspace의 lophn만 받는다.

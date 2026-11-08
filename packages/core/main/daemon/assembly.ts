@@ -39,6 +39,7 @@ import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { domainsRetireWiring } from "./wiring/domains-retire.ts";
 import { eventsWiring } from "./wiring/events.ts";
 import { flowsWiring } from "./wiring/flows.ts";
+import { idleWiring } from "./wiring/idle.ts";
 import { jobsWiring } from "./wiring/jobs.ts";
 import { createCoreRegistration as createJobsCoreRegistration } from "./wiring/jobs-registration.ts";
 import {
@@ -169,6 +170,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentRuntimeWiring,
   sessionSnapshotsWiring,
   acpWiring,
+  idleWiring,
   serverWiring,
   // 표를 합치는 schema step이 낸 step 목록의 맨 끝이어야 해서 이 위치다(schema-steps.lock.json).
   noticesWiring,

@@ -14,6 +14,7 @@ shell main이 `browser_call`을 받아 그 탭의 guest(`<webview>`)나 preview 
   - `packages/shell/renderer/workspace/{app-preview-tab.tsx,app-preview-tab.module.css}`(take control 줄만)
   - `packages/design/i18n/catalog/browser.ts`
   - `tools/wireframes/pages/screens/browser/`
+  - `packages/shell/main/{tsconfig,tsconfig.node}.json`(추가 소유: `browser/agent/`를 옮기는 줄만)
 - 읽을 것:
   - 계획: `project-docs/plan/browser-use/README.md`, `project-docs/plan/browser-use/tasks/bu-call.md`("고정한 꼴" 전체가 이 task의 계약), `project-docs/products/roadmap/browser-use.md`("무엇을 만드나" 3·4, "정한 것" 3·5·6·11·12)
   - architecture: `project-docs/architecture/{browser-tab,workspace-layout}.md`
@@ -41,6 +42,12 @@ shell main이 `browser_call`을 받아 그 탭의 guest(`<webview>`)나 preview 
    - 상태는 shell main 메모리에 탭마다 둔다. core는 모른다.
    - gallery `tools/wireframes/pages/screens/browser/`에 두 상태를 더하고 renderer가 같은 component를 쓴다.
 9. driver의 `unavailable("browser control is not ready")`를 지운다.
+
+## lead가 더함 (bu-call 보고에서)
+
+10. `bu-call`이 둔 `createBrowserDriver(ctx: unknown)`은 `ShellContext`를 import하면 strict한 `packages/shell/main/tsconfig.json` project가 `desktop/wiring`까지 끌어 27개 오류가 났다. driver가 `ShellContext`가 필요하면 `browser/agent/`를 `tsconfig.json`에서 `tsconfig.node.json`으로 옮긴다. 필요한 것만 넘기는 작은 deps type으로 끝나면 옮기지 않는다.
+11. route 출력 꼴은 `bu-call`이 정했다: snapshot `{snapshot}`, logs `{logs}`, act·navigate·wait `{url, title, dialog?}`, screenshot `{image: {media_type, data_base64}}`, evaluate `{value?, exception?}`. shell은 brief "고정한 꼴"대로 `hostToolOutputSchema` content를 돌려주고 core가 이 꼴로 편다(`packages/core/main/daemon/wiring/host-queue.ts`). 어긋나면 core 쪽이 아니라 shell 쪽을 맞춘다.
+12. preview 탭의 화면은 `bu-preview-screen`이 core에서 내주게 고친 뒤에 그려진다. 진짜 Electron 확인은 lead의 확인 script(`/home/pyosechang/projects/lophn/.claude/worktrees/plan-browser-use/.dev-data/verify/harness.ts`의 `startHarness`, 본보기 `preview-check.ts`)를 네 worktree의 `.dev-data/bu-cdp/`로 복사해 쓴다. 숨은 `<webview>`는 `Page.captureScreenshot`이 20초 걸려 멈췄다(확인 script가 겪었다). 그래서 focus emulation 뒤 screenshot이 되는지가 이 task의 확인 대상이다.
 
 ## 끝남
 

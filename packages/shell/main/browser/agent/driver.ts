@@ -83,7 +83,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     const session = sessions.get(tab);
     sessions.delete(tab);
     if (session !== undefined && !session.page.isDestroyed()) {
-      session.page.detach();
+      session.page.detach("driver");
     }
   });
 
@@ -93,7 +93,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     if (known !== undefined) {
       // 같은 탭의 view가 바뀌었다. ref 번호는 이어 가고 표만 비운다.
       known.refs.clear();
-      if (!known.page.isDestroyed()) known.page.detach();
+      if (!known.page.isDestroyed()) known.page.detach("driver");
     }
     const session: Session = {
       page,
@@ -113,7 +113,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       devtoolsOpened() {
         if (session.page !== page || !session.attached) return;
         session.attached = false;
-        page.detach();
+        page.detach("driver");
       },
     });
     return session;
@@ -167,7 +167,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     if (session.attached) return;
     session.attaching ??= (async () => {
       try {
-        page.attach();
+        page.attach("driver");
       } catch {
         throw fail("conflict", "another debugger is attached to this tab");
       }
@@ -178,7 +178,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
           enabled: true,
         });
       } catch (error) {
-        page.detach();
+        page.detach("driver");
         throw error;
       }
       session.attached = true;
@@ -428,6 +428,23 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     }
   }
 
+  // 기기 emulation 중인 page는 emulation한 DPR(deviceScaleFactor) 크기로 찍으면 surface가 그만큼 크지 않아 같은 그림이 타일처럼 반복된다
+  // (webview guest에서 확인). CSS px 크기로 보이는 영역만 찍으면 된다. clip은 문서 좌표라 scroll 위치를 더한다.
+  async function shotArea(session: Session): Promise<Record<string, unknown>> {
+    if (!session.page.emulated()) return {};
+    const { result } = await send<{ result: { value: number[] } }>(
+      session,
+      "Runtime.evaluate",
+      {
+        expression:
+          "[innerWidth, innerHeight, devicePixelRatio, scrollX, scrollY]",
+        returnByValue: true,
+      },
+    );
+    const [width = 0, height = 0, dpr = 1, x = 0, y = 0] = result.value;
+    return { clip: { x, y, width, height, scale: 1 / dpr } };
+  }
+
   // 누른 뒤 시작한 이동이 끝나기를 잠시 기다린다.
   async function settle(page: Page, until: number): Promise<void> {
     await sleep(150);
@@ -525,7 +542,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       const { data } = await send<{ data: string }>(
         session,
         "Page.captureScreenshot",
-        { format: "png" },
+        { format: "png", ...(await shotArea(session)) },
         SHOT_MS,
       ).catch((error) => {
         if (!(error instanceof CallError)) throw error;

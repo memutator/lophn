@@ -9,6 +9,8 @@ export interface PageEvents {
   devtoolsOpened(): void;
 }
 
+export type DebuggerOwner = "driver" | "emulation";
+
 export interface Page {
   /** webContents id. 같은 page인지는 이것으로 본다. */
   readonly id: number;
@@ -17,9 +19,14 @@ export interface Page {
   isLoading(): boolean;
   url(): string;
   title(): string;
-  /** 이미 다른 debugger가 붙어 있으면 던진다. */
-  attach(): void;
-  detach(): void;
+  /**
+   * webContents 하나에 debugger 하나라 driver와 emulation이 같이 쓴다. 이미 붙어 있어도(owner가 다르면) 같이 쓰고,
+   * 우리 것이 아닌 debugger가 붙어 있으면 던진다. 마지막 owner가 detach할 때만 실제로 뗀다.
+   */
+  attach(owner: DebuggerOwner): void;
+  detach(owner: DebuggerOwner): void;
+  /** 기기 emulation이 걸려 있다. */
+  emulated(): boolean;
   send<T = Record<string, never>>(
     method: string,
     params?: Record<string, unknown>,

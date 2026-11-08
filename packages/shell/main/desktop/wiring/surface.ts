@@ -3,16 +3,20 @@
 // focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
 // `browser_call`은 browser·preview 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
 // agent가 다루는 탭의 take control 상태(사람이 가져왔는가)를 이 메모리가 든다. core는 모른다.
+// preview 탭이 기기를 고르면 창이 emulate로 알리고, 같은 debugger를 driver와 나눠 그 view에 건다(browser/agent/emulation.ts).
 // extension `harness`의 tick과 한 loop로 합치지 못한다. 그 tick은 extension 안에서 설정 `extensions.harness.enabled`가 꺼지면
 // 돌지 않고, extension은 shell main 내부를 import하지 못한다(check-deps rule `extension`).
 import {
   SURFACE_ACK_CHANNEL,
   SURFACE_CONTROL_CHANNEL,
+  SURFACE_EMULATE_CHANNEL,
   SURFACE_REPORT_CHANNEL,
   SURFACE_REQUEST_CHANNEL,
   SURFACE_TAKE_CHANNEL,
   SURFACE_WORKSPACE_CHANNEL,
   surfaceAckSchema,
+  surfaceEmulateSchema,
+  type SurfaceEmulateResult,
   surfaceReportSchema,
   surfaceTakeSchema,
   surfaceWorkspaceSchema,
@@ -26,6 +30,7 @@ import {
   type BrowserDriver,
   createBrowserDriver,
 } from "../../browser/agent/driver.ts";
+import { createEmulation } from "../../browser/agent/emulation.ts";
 import { electronLookup } from "../../browser/agent/electron-page.ts";
 import type { AppFrameService } from "../../app-frame/registry.ts";
 import type { HarnessTui } from "../../terminal/harness-tui.ts";
@@ -79,9 +84,11 @@ export function register(
     }
   };
   const control = createTabControl(pushControl);
+  const lookup = electronLookup(appFrame);
+  const emulation = createEmulation(lookup);
   const driver = createBrowserDriver({
     viewSession: (tab) => bound.get(tab)?.view_session,
-    lookup: electronLookup(appFrame),
+    lookup,
     control,
     nowMs: () => Date.now(),
   });
@@ -150,6 +157,19 @@ export function register(
     if (held) control.take(tab);
     else control.release(tab);
   });
+
+  ctx.ipc.handle(
+    SURFACE_EMULATE_CHANNEL,
+    async (event: IpcEvent, input: unknown): Promise<SurfaceEmulateResult> => {
+      const unavailable = { ok: false, reason: "unavailable" } as const;
+      if (!checkCaller(registry, event).ok) return unavailable;
+      const parsed = checkInput(surfaceEmulateSchema, input);
+      if (!parsed.ok) return unavailable;
+      return emulation
+        .apply(parsed.value.view_session, parsed.value.device)
+        .catch(() => unavailable);
+    },
+  );
 
   // 그 workspace를 보이는 창 중 가장 최근에 focus를 받은 하나(`windows`의 끝)다. 둘이 같은 탭을 열지 않게 하나에만 보낸다.
   function windowOf(workspace: Workspace) {
@@ -261,6 +281,7 @@ export function register(
       ctx.ipc.removeHandler(SURFACE_ACK_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_REPORT_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_TAKE_CHANNEL);
+      ctx.ipc.removeHandler(SURFACE_EMULATE_CHANNEL);
     },
   };
 }

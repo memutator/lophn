@@ -3,9 +3,25 @@ import { session, type WebContents, webContents } from "electron";
 
 import type { AppFrameService } from "../../app-frame/registry.ts";
 import { BROWSER_PARTITION } from "../session.ts";
-import type { Page, PageLookup } from "./page.ts";
+import type { DebuggerOwner, Page, PageLookup } from "./page.ts";
 
-export function electronPage(contents: WebContents): Page {
+// driver와 emulation이 같은 webContents에 같은 Page로 닿아야 debugger 소유를 같이 센다. 그래서 webContents마다 하나만 만든다.
+function createPages(): (contents: WebContents) => Page {
+  const pages = new Map<number, Page>();
+  return (contents) => {
+    const known = pages.get(contents.id);
+    if (known !== undefined) return known;
+    const page = electronPage(contents);
+    pages.set(contents.id, page);
+    const { id } = contents;
+    contents.once("destroyed", () => pages.delete(id));
+    return page;
+  };
+}
+
+function electronPage(contents: WebContents): Page {
+  const owners = new Set<DebuggerOwner>();
+  contents.debugger.on("detach", () => owners.clear());
   return {
     id: contents.id,
     isDestroyed: () => contents.isDestroyed(),
@@ -15,9 +31,16 @@ export function electronPage(contents: WebContents): Page {
     isLoading: () => contents.isLoading(),
     url: () => contents.getURL(),
     title: () => contents.getTitle(),
-    attach: () => contents.debugger.attach("1.3"),
-    detach() {
-      if (contents.debugger.isAttached()) contents.debugger.detach();
+    attach(owner) {
+      if (owners.size === 0) contents.debugger.attach("1.3");
+      owners.add(owner);
+    },
+    emulated: () => owners.has("emulation"),
+    detach(owner) {
+      owners.delete(owner);
+      if (owners.size === 0 && contents.debugger.isAttached()) {
+        contents.debugger.detach();
+      }
     },
     send: (method, params) =>
       contents.debugger.sendCommand(method, params) as Promise<never>,
@@ -39,6 +62,7 @@ const alive = (contents: WebContents | undefined): contents is WebContents =>
 export function electronLookup(
   appFrame: Pick<AppFrameService, "senderView">,
 ): PageLookup {
+  const pageOf = createPages();
   return {
     guest(view_session) {
       const id = /^wv-([0-9]+)$/.exec(view_session)?.[1];
@@ -51,14 +75,14 @@ export function electronLookup(
       ) {
         return undefined;
       }
-      return electronPage(contents);
+      return pageOf(contents);
     },
     app(view_session) {
       for (const contents of webContents.getAllWebContents()) {
         if (!alive(contents)) continue;
         const view = appFrame.senderView(contents.id);
         if (view?.view_session === view_session) {
-          return { mode: view.target.mode, page: electronPage(contents) };
+          return { mode: view.target.mode, page: pageOf(contents) };
         }
       }
       return undefined;

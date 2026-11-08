@@ -37,6 +37,7 @@ const open = defineCommand({
     "Open an agent session, a browser page or an app preview as a tab in the shell",
   description:
     "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab, --preview <app> shows the running preview of an app (give exactly one). " +
+    "--device <name> (with --preview) shows it in a device registered in Settings > Browser (size, pixel ratio, touch and user agent); an unknown name is not_found, and without --device it is desktop size. " +
     "--preview is for the session of that app's workspace and for the person; another app's workspace gets not_found, and it is conflict if no preview is running (run preview start first). " +
     'A person token opens only --url and --preview tabs. --url from a person goes to --workspace \'{"project":"<prj id>"}\' or \'{"app":"<app id>"}\', else env LOPHN_WORKSPACE (a project terminal sets it), else home; an agent session ignores it and uses its own workspace. ' +
     "An app has one preview tab: opening it again returns the same tab and you own it. " +
@@ -51,6 +52,7 @@ const open = defineCommand({
     tui: z.boolean().optional(),
     url: z.string().min(1).max(8192).optional(),
     preview: idSchema("app").optional(),
+    device: z.string().min(1).max(40).optional(),
     place: tabPlaceSchema.optional(),
     workspace: z.string().min(1).max(200).optional(),
   }),
@@ -65,6 +67,12 @@ const open = defineCommand({
       return err({
         code: "invalid_input",
         message: "give exactly one of --session, --url or --preview",
+      });
+    }
+    if (input.device !== undefined && input.preview === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "--device needs --preview",
       });
     }
     if (input.tui === true && input.session === undefined) {
@@ -87,7 +95,7 @@ const open = defineCommand({
     const opened = await ctx.core.read(tabsOpen, {
       target:
         input.preview !== undefined
-          ? { preview: { app: input.preview } }
+          ? { preview: { app: input.preview, device: input.device ?? null } }
           : input.session === undefined
             ? { browser: { url: input.url! } }
             : input.tui === true

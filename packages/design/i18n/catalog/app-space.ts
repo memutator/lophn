@@ -253,7 +253,10 @@ export const appSpace = {
     "This app is archived, so it can't take new messages. Restore it in Apps first.",
   "app-space.error.annotations-failed":
     "The annotations didn't go through. Try again.",
+  "app-space.error.device-devtools": "Close DevTools to set the device size.",
   "app-space.label.kind-app-preview": "App preview",
+  "app-space.label.preview-device": "Device",
+  "app-space.option.device-desktop": "Desktop",
   "app-space.label.kind-app-screen": "App screen",
   "app-space.label.menu-app-screen": "App screen",
   "app-space.heading.panel-logs": "Logs",

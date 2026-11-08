@@ -72,9 +72,9 @@ interface AppWorkspaceProps {
   readonly menu?: boolean;
   /**
    * preview가 돌고 있다. button은 앱 화면 탭 머리 줄에 [Preview]가 선 모양, tab은 그것을 눌러 preview 탭을 연 모양,
-   * stopped는 그 탭에서 [Stop]을 누른 뒤다.
+   * stopped는 그 탭에서 [Stop]을 누른 뒤, device는 등록한 기기를 골라 폰 테두리 안에 놓은 모양이다.
    */
-  readonly preview?: "button" | "tab" | "stopped";
+  readonly preview?: "button" | "tab" | "stopped" | "device";
 }
 
 const APP = APP_BUDGET;
@@ -88,6 +88,10 @@ const TAB_LABEL = {
   access: "app-detail.label.tab-access",
   activity: "app-detail.label.tab-activity",
 } as const satisfies Record<OpsTab, string>;
+const DEVICES = [
+  { name: "iPhone 15", width: 390, height: 844, dpr: 3, os: "ios" },
+  { name: "Pixel 8", width: 412, height: 915, dpr: 2.6, os: "android" },
+] as const;
 const PREVIEW_RELEASE = "rel_01h455vb4pex5v6nkc6gd5fd91";
 const CALL_ID: Record<string, string> = { "i-20": "inv_38" };
 const REWIND_FROM = "inv_32";
@@ -201,7 +205,9 @@ function useScreenRegion(preview: boolean): HTMLElement | null {
 
 export function AppSpace(props: AppWorkspaceProps = {}) {
   const region = useScreenRegion(
-    props.preview === "tab" || props.preview === "stopped",
+    props.preview === "tab" ||
+      props.preview === "stopped" ||
+      props.preview === "device",
   );
   const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
   const fakes = useMemo(
@@ -244,6 +250,7 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
         Promise.resolve(
           running ? { nonce: "pv1", release: PREVIEW_RELEASE } : null,
         ),
+      devices: () => Promise.resolve(DEVICES),
       stop: () => {
         running = false;
         return Promise.resolve();
@@ -284,8 +291,16 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
       await press("[data-tab-menu]");
       await click('[role="menuitem"]', t("app-space.button.annotate"));
     }
-    if (props.preview === "tab" || props.preview === "stopped") {
+    if (
+      props.preview === "tab" ||
+      props.preview === "stopped" ||
+      props.preview === "device"
+    ) {
       await click("[data-open-preview]");
+    }
+    if (props.preview === "device") {
+      await press('[data-preview-notice] [role="combobox"]');
+      await click('[role="option"]', DEVICES[0].name);
     }
     if (props.preview === "stopped") await click("[data-preview-stop]");
     if (props.menu === true) await press("[data-tab-menu]");

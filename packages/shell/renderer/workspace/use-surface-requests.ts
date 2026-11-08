@@ -164,7 +164,11 @@ export function useSurfaceRequests(args: Args): void {
               tab.app === target.preview.app &&
               !tab.key.startsWith(HOST_KEY),
           );
-        const tab = appPreviewTab(target.preview.app, key);
+        const tab = appPreviewTab(
+          target.preview.app,
+          key,
+          target.preview.device,
+        );
         if (person !== undefined) {
           host().openTab(tab, { select: false, after: person.key });
         } else if (open.float === true) {

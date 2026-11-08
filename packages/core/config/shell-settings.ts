@@ -192,6 +192,25 @@ const taskbarSetting = declareSetting({
   default: true,
 });
 
+// 사람이 등록한 기기. preview 탭이 이 크기·DPR로 emulation하고 `tab open --preview --device <name>`이 이름으로 찾는다.
+// 크기 범위는 shell main의 emulation 입력 검사(packages/shell/ipc/surface.ts)와 같아야 한다(shell은 core를 import하지 못한다).
+export const devicesSetting = declareSetting({
+  key: "shell.devices",
+  type: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(40),
+        width: z.number().int().min(200).max(2000),
+        height: z.number().int().min(200).max(3000),
+        dpr: z.number().min(1).max(4),
+        os: z.enum(["ios", "android"]),
+      }),
+    )
+    .max(32)
+    .refine((list) => new Set(list.map((d) => d.name)).size === list.length),
+  default: [],
+});
+
 // 설치된 앱의 `sidebar` 자리 화면은 선언하면 오른쪽 sidebar에 panel로 나온다. 사람이 끈 것만 여기에 쌓인다.
 export const sidebarPanelsOffSetting = declareSetting({
   key: "shell.sidebar_panels_off",
@@ -270,6 +289,7 @@ export const shellSettings = [
   appLaunchSetting,
   codingAgentsSetting,
   taskbarSetting,
+  devicesSetting,
   sidebarPanelsOffSetting,
   trayOffSetting,
   trayOrderSetting,

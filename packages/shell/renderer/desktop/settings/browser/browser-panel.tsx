@@ -1,4 +1,4 @@
-// Settings › Browser. bookmark 목록을 고치고, browser 탭의 cookie, site data, cache를 한 번에 지운다.
+// Settings › Browser. bookmark 목록을 고치고, preview 탭이 흉내 낼 기기를 등록하고, browser 탭의 cookie, site data, cache를 한 번에 지운다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog, Toast } from "@lophn/ui/overlay";
@@ -7,6 +7,7 @@ import { actionIcons } from "../../../icons/mod.ts";
 
 import styles from "../settings.module.css";
 import { BookmarkRows } from "./bookmark-rows.tsx";
+import { DeviceRows } from "./device-rows.tsx";
 import { LinkRows } from "./link-rows.tsx";
 import type { BrowserSettingsSource } from "./source.ts";
 
@@ -48,6 +49,11 @@ export function BrowserPanel({ source }: BrowserPanelProps) {
       <section className={styles.groupBlock}>
         <h2 className={styles.groupTitle}>{t("settings.heading.links")}</h2>
         <LinkRows source={source} />
+      </section>
+      <section className={styles.groupBlock}>
+        <h2 className={styles.groupTitle}>{t("settings.heading.devices")}</h2>
+        <p className={styles.lineHelp}>{t("settings.note.devices")}</p>
+        <DeviceRows source={source} />
       </section>
       <section className={styles.groupBlock}>
         <h2 className={styles.groupTitle}>

@@ -38,6 +38,7 @@ function fakePage() {
     title: () => "page",
     attach: () => void (state.attached += 1),
     detach: () => {},
+    emulated: () => false,
     subscribe: (given) => void (events = given),
     send: ((method: string, params?: Record<string, unknown>) => {
       if (method === "Accessibility.getFullAXTree") {

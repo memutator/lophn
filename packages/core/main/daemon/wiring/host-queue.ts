@@ -1,5 +1,6 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import { devicesSetting } from "../../../config/shell-settings.ts";
 import type { ExtensionToolContent } from "../../../../protocol/extensions/manifest.ts";
 import {
   BROWSER_WAIT_DEFAULT_MS,
@@ -55,6 +56,8 @@ type TabDeps = {
   app(app: string): Promise<Result<unknown | null>>;
   // 그 앱에서 지금 돌고 있는 preview. 없으면 null.
   preview(app: string): Promise<Result<unknown | null>>;
+  // 사람이 등록한 기기 이름들(설정 `shell.devices`).
+  deviceNames(): readonly string[];
   harnessHold: Pick<HarnessHold, "open">;
 };
 
@@ -86,6 +89,13 @@ export function createTabHandlers(deps: TabDeps) {
       if (!facts.ok) return facts;
       if (facts.value === null) {
         return err({ code: "not_found", message: "app not found" });
+      }
+      const { device } = input.target.preview;
+      if (device !== null && !deps.deviceNames().includes(device)) {
+        return err({
+          code: "not_found",
+          message: `no device named ${device}; register it in Settings > Browser`,
+        });
       }
       const current = await deps.preview(app);
       if (!current.ok) return current;
@@ -365,6 +375,8 @@ export const hostQueueWiring: WiringFactory = () => {
         sessionRow,
         app: (app) => ctx.appsControl.facts.app(app),
         preview: (app) => ctx.appsControl.previews.current(app),
+        deviceNames: () =>
+          (ctx.settings.get(devicesSetting) ?? []).map((d) => d.name),
         harnessHold: ctx.harnessHold,
       });
       tabs = handlers;

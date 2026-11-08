@@ -38,6 +38,10 @@ export const browser = {
   "settings.button.bookmark-remove": "Remove",
   "settings.button.bookmark-save": "Save",
   "settings.button.browser-clear": "Clear browsing data",
+  "settings.button.device-add": "Add device",
+  "settings.button.device-edit": "Edit",
+  "settings.button.device-remove": "Remove",
+  "settings.button.device-save": "Save",
   "settings.button.browser-clear-confirm": "Clear",
   "settings.error.bookmark-duplicate":
     "Another bookmark already has this address.",
@@ -49,12 +53,23 @@ export const browser = {
     "The bookmarks file is damaged, so bookmarks can't be changed until it is fixed.",
   "settings.error.bookmarks-load-failed": "Could not load bookmarks.",
   "settings.error.browser-clear-failed": "Could not clear browsing data.",
+  "settings.error.device-invalid":
+    "Enter a name nobody else has (up to 40 characters), a width of 200 to 2000, a height of 200 to 3000 and a pixel ratio of 1 to 4.",
+  "settings.error.devices-load-failed": "Could not load devices.",
   "settings.error.links-load-failed": "Could not load link settings.",
   "settings.heading.bookmarks": "Bookmarks",
   "settings.heading.browser-data": "Browsing data",
+  "settings.heading.devices": "Devices",
   "settings.heading.links": "Links",
   "settings.label.bookmark-title": "Title",
   "settings.label.bookmark-url": "URL",
+  "settings.label.device-android": "Android",
+  "settings.label.device-dpr": "Pixel ratio",
+  "settings.label.device-height": "Height (px)",
+  "settings.label.device-ios": "iOS",
+  "settings.label.device-name": "Name",
+  "settings.label.device-os": "OS",
+  "settings.label.device-width": "Width (px)",
   "settings.label.link-browser-tab": "Browser tab",
   "settings.label.link-system-browser": "System browser",
   "settings.label.local-links": "Local links",
@@ -64,12 +79,15 @@ export const browser = {
     "Signs you out of sites and removes cookies, site data, and cached files for the Browser tab.",
   "settings.note.browser-clear-confirm":
     "This signs you out of every site in Browser tabs and reloads the open ones.",
+  "settings.note.devices":
+    "Devices a preview tab can show an app in, with the size, pixel ratio, touch and user agent of a phone. Pick one in the tab, or give its name to tab open --device.",
   "settings.note.local-links":
     "Where localhost and local network addresses (.local, private IPs) go when a program in a terminal opens them or you Ctrl/Cmd-click them.",
   "settings.note.web-links":
     "Where public web addresses go when a program in a terminal opens them or you Ctrl/Cmd-click them.",
   "settings.notice.bookmarks-empty":
     "No bookmarks yet. Click the star in a Browser tab's address bar to add one.",
+  "settings.notice.devices-empty": "No devices yet.",
   "settings.notice.browser-cleared": "Browsing data cleared.",
   "settings.title.browser-clear": "Clear browsing data?",
 } as const;

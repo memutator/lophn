@@ -41,6 +41,7 @@ function setup(running: boolean) {
     sessionRow: (session) => rows[session] as AgentSessionRow | undefined,
     app: (app) => Promise.resolve(ok(app === APP ? {} : null)),
     preview: () => Promise.resolve(ok(running ? {} : null)),
+    deviceNames: () => [],
     harnessHold: { open: () => ok({ harness: "x", external_session: "y" }) },
   });
   return { queue, ...handlers };

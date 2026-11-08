@@ -37,13 +37,19 @@ export type TabPlace = z.infer<typeof tabPlaceSchema>;
 
 // `tui`는 harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(project workspace의 session만).
 // `preview`는 그 앱에서 지금 돌고 있는 preview를 앱 view 탭으로 연다(요청의 workspace는 그 앱이다).
+// device는 설정 `shell.devices`의 이름이다. 없으면 null이고 desktop 크기다. core가 이름을 확인해 보낸다.
 export const hostTabTargetSchema = z.union([
   z.strictObject({ session: idSchema("ses") }),
   z.strictObject({ tui: idSchema("ses") }),
   z.strictObject({
     browser: z.strictObject({ url: z.string().min(1).max(8192) }),
   }),
-  z.strictObject({ preview: z.strictObject({ app: idSchema("app") }) }),
+  z.strictObject({
+    preview: z.strictObject({
+      app: idSchema("app"),
+      device: z.string().min(1).max(40).nullable().default(null),
+    }),
+  }),
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
 
@@ -253,6 +259,7 @@ const acceptedSchema = z.strictObject({
 // 같은 workspace의 열린 session이나 http(s) url의 탭, 그 앱의 preview 탭을 연다. 접수만 답하고 기다리지 않는다.
 // session이 아니면 `not_found`, url이 http·https가 아니면 `invalid_input`이다.
 // `preview`는 그 앱 workspace의 session과 사람 token만 연다(agent가 다른 앱이면 `not_found`). 돌고 있는 preview가 없으면 `conflict`다.
+// `preview`의 device 이름이 `shell.devices`에 없으면 `not_found`다.
 // 사람 token은 `browser`와 `preview`만 연다(session·tui는 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
 // `tui`는 harness agent session을 터미널 탭에서 CLI의 resume으로 연다. harness가 아니거나 project workspace의 session이 아니면
 // `invalid_input`, 첫 turn 전이거나 turn이 돌거나 이미 TUI로 열려 있으면 `conflict`다. 열리면 그 session의 headless turn은

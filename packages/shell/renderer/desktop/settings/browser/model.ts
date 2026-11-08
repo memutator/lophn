@@ -39,3 +39,6 @@ export const LINK_ROWS: readonly LinkRow[] = [
 
 /** 선언의 기본값과 같다. 저장된 값이 선택지 밖이면 쓴다. */
 export const LINK_DEFAULT: LinkWhere = "browser_tab";
+
+/** 설정 선언의 key. */
+export const DEVICES_KEY = "shell.devices";

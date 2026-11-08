@@ -2,8 +2,8 @@ import type { LophnBrowserApi } from "../../../../ipc/browser.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowCoreSource } from "../../connection/connection.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
-import { LINK_DEFAULT, LINK_ROWS } from "./model.ts";
-import type { BrowserSettingsSource, LinkValues } from "./source.ts";
+import { DEVICES_KEY, LINK_DEFAULT, LINK_ROWS } from "./model.ts";
+import type { BrowserSettingsSource, Device, LinkValues } from "./source.ts";
 
 /**
  * desktop 창 preload의 `window.lophnBrowser`를 잇는다. 없거나 거절되면 unavailable이다.
@@ -49,6 +49,16 @@ export function windowBrowserSettings(
       const row = LINK_ROWS.find((r) => r.id === id)!;
       return chooseSetting(core, row.settingKey, value);
     },
+    async devices() {
+      const read = await readEffective(core, [DEVICES_KEY]);
+      if (!read.ok) return read;
+      // core가 설정 schema로 검사한 값이다.
+      return {
+        ok: true,
+        value: (read.value.get(DEVICES_KEY) ?? []) as Device[],
+      };
+    },
+    saveDevices: (list) => chooseSetting(core, DEVICES_KEY, list),
     watchBookmarks: (listener) =>
       api === undefined ? () => {} : api.bookmarks.subscribe(listener),
   };

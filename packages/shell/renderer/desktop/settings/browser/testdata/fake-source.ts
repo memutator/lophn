@@ -2,6 +2,7 @@
 import type { Bookmark } from "../../../../../ipc/browser.ts";
 import type {
   BrowserSettingsSource,
+  Device,
   LinkValues,
   SourceResult,
 } from "../source.ts";
@@ -19,6 +20,8 @@ interface FakeBrowserSettingsOptions {
   links?: Partial<LinkValues>;
   /** link 고르기가 거절되는 code. 없으면 저장된다. */
   linkCode?: string;
+  /** 처음 기기 목록. 없으면 비어 있다. */
+  devices?: Device[];
 }
 
 const sample = (n: number, title: string, url: string): Bookmark => ({
@@ -40,6 +43,7 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
     local_links: "browser_tab",
     ...options.links,
   };
+  let devices: readonly Device[] = options.devices ?? [];
   const listeners = new Set<() => void>();
   const changed = () => listeners.forEach((listener) => listener());
   const refused = (code: string): Promise<SourceResult<null>> =>
@@ -92,6 +96,19 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       calls.push(["chooseLink", id, value]);
       if (options.linkCode) return refused(options.linkCode);
       links = { ...links, [id]: value };
+      return Promise.resolve({ ok: true, value: null });
+    },
+    devices() {
+      calls.push(["devices"]);
+      return Promise.resolve({ ok: true, value: devices });
+    },
+    saveDevices(list) {
+      calls.push(["saveDevices", list]);
+      // core의 선언이 거절하는 것 가운데 이름 겹침만 흉내 낸다.
+      if (new Set(list.map((d) => d.name)).size !== list.length) {
+        return refused("invalid_value");
+      }
+      devices = list;
       return Promise.resolve({ ok: true, value: null });
     },
     watchBookmarks(listener) {

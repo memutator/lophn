@@ -68,6 +68,11 @@ export function PreviewTab() {
   return <AppSpace preview="tab" />;
 }
 
+/** preview 탭 안내 줄에서 등록한 기기(iPhone 15)를 골랐다. view가 그 크기의 폰 테두리 안에 선다. Desktop을 고르면 풀린다. */
+export function PreviewDevice() {
+  return <AppSpace preview="device" />;
+}
+
 /** preview 탭에서 [Stop]을 누른 뒤. */
 export function PreviewStopped() {
   return <AppSpace preview="stopped" />;

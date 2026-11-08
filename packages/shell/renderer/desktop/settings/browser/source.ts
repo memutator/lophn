@@ -9,6 +9,16 @@ export type LinkWhere = "browser_tab" | "system_browser";
 /** 지금 값. 사람이 고르지 않았으면 선언의 기본값이다. */
 export type LinkValues = Readonly<Record<LinkId, LinkWhere>>;
 
+export type DeviceOs = "ios" | "android";
+/** 설정 `shell.devices`의 한 줄. 범위는 core의 선언이 본다. */
+export interface Device {
+  readonly name: string;
+  readonly width: number;
+  readonly height: number;
+  readonly dpr: number;
+  readonly os: DeviceOs;
+}
+
 export interface BrowserSettingsSource {
   /** browser 탭의 cookie, site data, cache를 지우고 열린 탭을 다시 load한다. */
   clearData(): Promise<SourceResult<null>>;
@@ -24,6 +34,10 @@ export interface BrowserSettingsSource {
   links(): Promise<SourceResult<LinkValues>>;
   /** 한 줄의 값을 정한다. 거절되면 code가 이유다. */
   chooseLink(id: LinkId, value: LinkWhere): Promise<SourceResult<null>>;
+  /** 등록한 기기들. core 선언 설정이다. */
+  devices(): Promise<SourceResult<readonly Device[]>>;
+  /** 목록 전체를 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
+  saveDevices(list: readonly Device[]): Promise<SourceResult<null>>;
   /** 다른 창에서 목록이 바뀌면 부른다. 받은 쪽이 다시 읽는다. 끄는 함수를 돌려준다. */
   watchBookmarks(listener: () => void): () => void;
 }

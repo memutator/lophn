@@ -3,10 +3,12 @@ import {
   type LophnSurfaceApi,
   SURFACE_ACK_CHANNEL,
   SURFACE_CONTROL_CHANNEL,
+  SURFACE_EMULATE_CHANNEL,
   SURFACE_REPORT_CHANNEL,
   SURFACE_REQUEST_CHANNEL,
   SURFACE_TAKE_CHANNEL,
   type SurfaceControl,
+  type SurfaceEmulateResult,
   type SurfaceRequest,
   SURFACE_WORKSPACE_CHANNEL,
 } from "../ipc/surface.ts";
@@ -68,5 +70,11 @@ export function createSurfaceApi(transport: SurfaceTransport): LophnSurfaceApi {
     },
     take: (tab) => send(SURFACE_TAKE_CHANNEL, { tab, held: true }),
     release: (tab) => send(SURFACE_TAKE_CHANNEL, { tab, held: false }),
+    async emulate(input) {
+      const reply = (await transport
+        .invoke(SURFACE_EMULATE_CHANNEL, input)
+        .catch(() => undefined)) as SurfaceEmulateResult | undefined;
+      return reply ?? { ok: false, reason: "unavailable" };
+    },
   } satisfies LophnSurfaceApi);
 }

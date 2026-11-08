@@ -79,6 +79,30 @@ export const surfaceTakeSchema = z
   .object({ tab: id("tab"), held: z.boolean() })
   .strict();
 
+/**
+ * preview 탭이 고른 기기를 그 탭의 view에 건다(null이면 푼다). 범위는 core의 설정 `shell.devices`와 같다(shell은 core를 import하지 못한다).
+ * DevTools가 열려 있으면 걸 수 없어 `devtools`로 답한다.
+ */
+export const surfaceDeviceSchema = z
+  .object({
+    width: z.number().int().min(200).max(2000),
+    height: z.number().int().min(200).max(3000),
+    dpr: z.number().min(1).max(4),
+    os: z.enum(["ios", "android"]),
+  })
+  .strict();
+export const surfaceEmulateSchema = z
+  .object({
+    view_session: z.string().min(1).max(200),
+    device: surfaceDeviceSchema.nullable(),
+  })
+  .strict();
+export type EmulationDevice = z.infer<typeof surfaceDeviceSchema>;
+export type SurfaceEmulate = z.infer<typeof surfaceEmulateSchema>;
+export type SurfaceEmulateResult =
+  | { ok: true }
+  | { ok: false; reason: "devtools" | "unavailable" };
+
 export type SurfaceWorkspace = z.infer<typeof surfaceWorkspaceSchema>;
 export type SurfaceAck = z.infer<typeof surfaceAckSchema>;
 export type SurfaceReport = z.infer<typeof surfaceReportSchema>;
@@ -104,6 +128,8 @@ export interface LophnSurfaceApi {
   /** 사람이 그 탭을 가져온다. agent의 쓰기(act, navigate, evaluate)는 conflict가 된다. */
   take(tab: string): Promise<void>;
   release(tab: string): Promise<void>;
+  /** preview view에 기기 emulation을 건다. null이면 푼다. */
+  emulate(input: SurfaceEmulate): Promise<SurfaceEmulateResult>;
 }
 
 export const SURFACE_REQUEST_CHANNEL = "shell:surface-request";
@@ -112,3 +138,4 @@ export const SURFACE_WORKSPACE_CHANNEL = "shell:surface-workspace";
 export const SURFACE_REPORT_CHANNEL = "shell:surface-report";
 export const SURFACE_CONTROL_CHANNEL = "shell:surface-control";
 export const SURFACE_TAKE_CHANNEL = "shell:surface-take";
+export const SURFACE_EMULATE_CHANNEL = "shell:surface-emulate";

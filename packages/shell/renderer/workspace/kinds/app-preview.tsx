@@ -12,14 +12,17 @@ import type { TabKindDef } from "./kind.ts";
 
 export const appPreviewKey = (app: string) => `app-preview:${app}`;
 
+/** agent가 `--device`로 연 탭은 그 기기 이름을 `fields.device`로 갖고 시작한다. 저장하지 않는 탭이라 시작값일 뿐이다. */
 export const appPreviewTab = (
   app: string,
   key = appPreviewKey(app),
+  device: string | null = null,
 ): TabItem => ({
   key,
   kind: "app_preview",
   title: t("app-space.title.preview-tab"),
   app,
+  ...(device === null ? {} : { fields: { device } }),
 });
 
 /** 사람이 누른 [Preview]. 그 앱의 preview 탭이 이미 열려 있으면 그 탭을 고른다. */
@@ -50,6 +53,9 @@ export const appPreviewKind: TabKindDef = {
         source={host.props.apps}
         shown={shown}
         agentView={host.agentView}
+        initialDevice={
+          typeof tab.fields?.device === "string" ? tab.fields.device : null
+        }
       />
     );
   },

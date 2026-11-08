@@ -14,6 +14,8 @@
 // 외부 shell이 읽지 못한다). 폴더 경로는 env `LPN_SHELL_INIT`으로 터미널에 준다. LOPHN_* env는 터미널에서
 // 지워지므로 쓰지 않는다.
 
+import { win32 } from "node:path";
+
 export const SHELL_INIT_ENV = "LPN_SHELL_INIT";
 // zsh의 원래 ZDOTDIR. 비어 있으면 사용자가 ZDOTDIR을 두지 않은 것이다.
 const USER_ZDOTDIR_ENV = "LPN_USER_ZDOTDIR";
@@ -32,7 +34,9 @@ export function integrateShell(
   const dir = env[SHELL_INIT_ENV];
   const unchanged = { args, env: {} };
   if (dir === undefined || dir === "") return unchanged;
-  const name = file.slice(file.lastIndexOf("/") + 1);
+  // Windows는 `\`와 `/`를 섞어 쓰고 file 이름의 대소문자도 가리지 않는다.
+  const cut = Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\"));
+  const name = file.slice(cut + 1).toLowerCase();
   switch (name) {
     // bash는 -l이면 --init-file을 무시하고 profile을 읽는다. -l 없이 --init-file로 띄우고 profile 순서는
     // bash.sh가 따라 한다(VS Code shell integration과 같은 방식).
@@ -57,6 +61,16 @@ export function integrateShell(
         ],
         env: {},
       };
+    // PowerShell 7·5.1은 profile을 모두 읽은 뒤 `-Command`를 돈다. 정책을 우회하지 않고 사용자 profile은 그대로 둔다.
+    case "pwsh.exe":
+    case "powershell.exe": {
+      // PowerShell single-quoted literal: 작은따옴표는 겹쳐 쓴다.
+      const init = `'${win32.join(dir, "functions.ps1").replaceAll("'", "''")}'`;
+      return {
+        args: [...args, "-NoExit", "-Command", `. ${init}`],
+        env: {},
+      };
+    }
     default:
       return unchanged;
   }
@@ -356,6 +370,209 @@ end
 set -e __lophn_kind
 `;
 
+// PowerShell 7·5.1 시작 층. 사용자의 profile을 모두 읽은 뒤 dot-source되므로 profile·alias·function은 고치지 않고
+// 지금 실제 외부 명령으로 잡히는 것만 감싼다. 감싼 경로를 call operator로 불러 자기 함수를 다시 부르지 않는다.
+// GUI 넷은 첫 인자가 `gui`일 때만 분기하고, private server wrapper 넷은 bash·zsh·fish의 `FUNCTIONS`와 같은 규칙을 쓴다.
+const POWERSHELL = `# lophn shell integration (PowerShell 7·5.1)
+function __lophn_native {
+  param([string] $Name)
+  # 사용자가 alias나 function을 두었으면 그대로 둔다.
+  if ($null -ne (Get-Command -Name $Name -CommandType Alias, Function -ErrorAction SilentlyContinue)) {
+    return $null
+  }
+  $found = Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($null -eq $found) {
+    return $null
+  }
+  return $found.Path
+}
+
+# gui 요청의 인자 모양은 여기서만 본다. 잘못된 인자는 사용법과 LASTEXITCODE 2다. cwd는 lophn hook이 더한다.
+function __lophn_gui {
+  param([string] $Harness, [string[]] $Rest)
+  $id = $null
+  $count = 0
+  if ($null -ne $Rest) {
+    $count = $Rest.Count
+  }
+  switch ($count) {
+    0 { }
+    1 {
+      if ($Rest[0] -clike '--resume=*') {
+        $id = $Rest[0].Substring(9)
+      } else {
+        $id = '-'
+      }
+    }
+    2 {
+      if ($Rest[0] -ceq '--resume') {
+        $id = $Rest[1]
+      } else {
+        $id = '-'
+      }
+    }
+    default { $id = '-' }
+  }
+  if ($null -ne $id -and ($id -ceq '-' -or $id -cnotmatch '^[A-Za-z0-9._-]{1,200}$')) {
+    [Console]::Error.WriteLine("usage: $Harness gui [--resume <id>]")
+    $global:LASTEXITCODE = 2
+    return
+  }
+  if ($null -ne $id) {
+    $payload = '{"resume":"' + $id + '"}'
+  } else {
+    $payload = '{}'
+  }
+  $payload | & __LOPHN_CLI__ hook $Harness lophn-gui
+}
+
+$__lophn_path = __lophn_native 'claude'
+if ($null -ne $__lophn_path) {
+  $script:__lophn_native_claude = $__lophn_path
+  function claude {
+    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
+      $rest = @($args | Select-Object -Skip 1)
+      __lophn_gui 'claude' $rest
+      return
+    }
+    & $script:__lophn_native_claude @args
+  }
+}
+
+$__lophn_path = __lophn_native 'omp'
+if ($null -ne $__lophn_path) {
+  $script:__lophn_native_omp = $__lophn_path
+  function omp {
+    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
+      $rest = @($args | Select-Object -Skip 1)
+      __lophn_gui 'omp' $rest
+      return
+    }
+    & $script:__lophn_native_omp @args
+  }
+}
+
+# Codex는 --help가 --no-daemon을 알릴 때만 붙인다. shared server가 목적인 명령에는 붙이지 않는다.
+$__lophn_path = __lophn_native 'codex'
+if ($null -ne $__lophn_path) {
+  $script:__lophn_native_codex = $__lophn_path
+  function codex {
+    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
+      $rest = @($args | Select-Object -Skip 1)
+      __lophn_gui 'codex' $rest
+      return
+    }
+    $guarded = $false
+    foreach ($arg in $args) {
+      $text = [string] $arg
+      if ($text -ceq '--no-daemon' -or $text -ceq 'agents' -or $text -ceq 'queue' -or $text -ceq '--remote' -or $text -clike '--remote=*') {
+        $guarded = $true
+      }
+    }
+    $nativeArgs = @($args)
+    if (-not $guarded) {
+      $help = & $script:__lophn_native_codex --help 2>$null
+      if ($help -cmatch '--no-daemon') {
+        $nativeArgs = @('--no-daemon') + $nativeArgs
+      }
+    }
+    & $script:__lophn_native_codex @nativeArgs
+  }
+}
+
+# OpenCode는 자기 server·flag·subcommand 예외에서 그대로 부르고, 아니면 run·mini 뒤 또는 TUI 앞에 --standalone을 넣는다.
+$__lophn_path = __lophn_native 'opencode'
+if ($null -ne $__lophn_path) {
+  $script:__lophn_native_opencode = $__lophn_path
+  function opencode {
+    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
+      $rest = @($args | Select-Object -Skip 1)
+      __lophn_gui 'opencode' $rest
+      return
+    }
+    $passthrough = $false
+    foreach ($arg in $args) {
+      $text = [string] $arg
+      if ($text -ceq '--standalone' -or $text -ceq '--server' -or $text -clike '--server=*' -or $text -ceq '-h' -or $text -ceq '--help' -or $text -ceq '-v' -or $text -ceq '--version' -or $text -ceq '--completions' -or $text -clike '--completions=*') {
+        $passthrough = $true
+      }
+    }
+    if ($passthrough) {
+      & $script:__lophn_native_opencode @args
+      return
+    }
+    $first = ''
+    if ($args.Count -gt 0) {
+      $first = [string] $args[0]
+    }
+    if (@('acp', 'api', 'auth', 'debug', 'mcp', 'models', 'pair', 'plugin', 'reload', 'serve', 'service', 'session', 'stats', 'uninstall', 'update', 'upgrade') -ccontains $first) {
+      & $script:__lophn_native_opencode @args
+      return
+    }
+    $nativeArgs = @($args)
+    $help = & $script:__lophn_native_opencode --help 2>$null
+    if ($help -cmatch '--standalone') {
+      if ($first -ceq 'run' -or $first -ceq 'mini') {
+        $rest = @($args | Select-Object -Skip 1)
+        $nativeArgs = @($first, '--standalone') + $rest
+      } else {
+        $nativeArgs = @('--standalone') + $nativeArgs
+      }
+    }
+    & $script:__lophn_native_opencode @nativeArgs
+  }
+}
+
+# Kilo와 Cline은 flag가 아니라 env다. 공유 daemon을 다루는 명령에는 env를 두지 않고, 그 밖의 호출 동안만 두었다가
+# 원래 값(없으면 없음)으로 돌린다.
+$__lophn_path = __lophn_native 'kilo'
+if ($null -ne $__lophn_path) {
+  $script:__lophn_native_kilo = $__lophn_path
+  function kilo {
+    $first = ''
+    if ($args.Count -gt 0) {
+      $first = [string] $args[0]
+    }
+    if ($first -ceq 'daemon' -or $first -ceq 'console') {
+      & $script:__lophn_native_kilo @args
+      return
+    }
+    $previous = [Environment]::GetEnvironmentVariable('KILO_NO_DAEMON', 'Process')
+    try {
+      [Environment]::SetEnvironmentVariable('KILO_NO_DAEMON', '1', 'Process')
+      & $script:__lophn_native_kilo @args
+    } finally {
+      [Environment]::SetEnvironmentVariable('KILO_NO_DAEMON', $previous, 'Process')
+    }
+  }
+}
+
+$__lophn_path = __lophn_native 'cline'
+if ($null -ne $__lophn_path) {
+  $script:__lophn_native_cline = $__lophn_path
+  function cline {
+    $first = ''
+    if ($args.Count -gt 0) {
+      $first = [string] $args[0]
+    }
+    if ($first -ceq 'hub') {
+      & $script:__lophn_native_cline @args
+      return
+    }
+    $previous = [Environment]::GetEnvironmentVariable('CLINE_SESSION_BACKEND_MODE', 'Process')
+    try {
+      [Environment]::SetEnvironmentVariable('CLINE_SESSION_BACKEND_MODE', 'local', 'Process')
+      & $script:__lophn_native_cline @args
+    } finally {
+      [Environment]::SetEnvironmentVariable('CLINE_SESSION_BACKEND_MODE', $previous, 'Process')
+    }
+  }
+}
+
+Remove-Item -Path Function:\\__lophn_native -ErrorAction SilentlyContinue
+Remove-Variable -Name __lophn_path -ErrorAction SilentlyContinue
+`;
+
 type ShellInitFs = {
   mkdir(path: string): void; // recursive
   write(path: string, text: string): void; // 0600
@@ -370,12 +587,25 @@ function shQuote(text: string): string {
 /**
  * 시작 층 file을 쓰고 그 폴더를 돌려준다. `cli`는 `gui` 함수가 부를 lophn 명령이다(설치본은 `lophn`, 개발은 launcher의
  * 절대 경로). `lophn hook`은 core를 부르지 않고 그 탭의 hook socket(`LPN_TERMINAL_HOOK`)에만 쓰므로 data root를 넘기지 않는다.
+ * `platform`은 main이 넘긴다. POSIX는 기존 shell file을, win32는 `functions.ps1` 하나를 쓴다.
  */
 export function writeShellInit(
   fs: ShellInitFs,
   runDir: string,
   cli: string,
+  platform: NodeJS.Platform,
 ): string {
+  if (platform === "win32") {
+    const dir = win32.join(runDir, "shell-init");
+    const quotedCli = `'${cli.replaceAll("'", "''")}'`;
+    // 5.1은 BOM 없는 file을 ANSI로 읽어 한글·공백 경로가 깨진다.
+    fs.mkdir(dir);
+    fs.write(
+      win32.join(dir, "functions.ps1"),
+      `\uFEFF${POWERSHELL.replaceAll(CLI_TOKEN, quotedCli)}`,
+    );
+    return dir;
+  }
   const dir = `${runDir}/shell-init`;
   fs.mkdir(`${dir}/zsh`);
   fs.write(`${dir}/bash.sh`, BASH_INIT);

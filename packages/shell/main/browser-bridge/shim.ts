@@ -23,9 +23,12 @@ function cmdQuote(text: string): string {
 // 사용자 PATH에 node가 있다고 믿지 않으려고 Electron을 node로 띄운다(terminal host와 같은 방식).
 // 이 JS 본문은 policy.ts의 isRelayableUrl과 같은 검사를 따로 쓴다. main이 다시 검사하므로
 // 여기는 쓸데없는 접속을 줄이는 용도다. URL이나 key는 stdout/stderr에 쓰지 않는다.
+// 이 본문은 개발 실행에서 `"type": "module"` package 아래 놓여도 돌아야 한다. `require`는 그때 없으므로
+// async IIFE 안에서 동적으로 import한다(ESM의 top-level await는 CJS에서 못 쓴다). file 이름과 동작은 그대로다.
 const SCRIPT = `"use strict";
-const net = require("node:net");
-const { spawn } = require("node:child_process");
+(async () => {
+const net = await import("node:net");
+const { spawn } = await import("node:child_process");
 
 const BRIDGE_ENV = ${JSON.stringify(BRIDGE_ENV)};
 const KEY_PATTERN = new RegExp(${JSON.stringify(BRIDGE_KEY_PATTERN.source)});
@@ -149,7 +152,8 @@ async function main() {
   openWithSystem();
 }
 
-main();
+await main();
+})();
 `;
 
 export function shimSources(

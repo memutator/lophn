@@ -271,6 +271,7 @@ export function createAgentWiring(options: {
           run.dir,
           // 터미널 env에는 LOPHN_CLI가 없다. main이 고른 launcher 경로를 함수에 넣는다.
           cli ?? "lophn",
+          process.platform,
         );
       } catch (cause) {
         ctx.log(`shell integration is off: ${String(cause)}`);

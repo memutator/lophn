@@ -61,7 +61,6 @@ export function createBridgeWiring(ctx: ShellContext): {
     run: Promise.resolve(null),
     stop() {},
   };
-  if (process.platform === "win32") return off;
 
   // 두 번째 instance는 lock을 못 얻고 will-quit 없이 끝나므로, lock이 확정된 ready 뒤에야 폴더를 만든다.
   let folder: string | null = null;

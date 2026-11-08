@@ -2,6 +2,7 @@
 import {
   type AgentId,
   connectProvider,
+  lophnIdOf,
   modelDefaultChange,
   type Workspace,
   workspaceSessionOpen,
@@ -122,6 +123,14 @@ export async function openWorkspaceSession(
   const id = core.ids.newId("ses");
   await core.call(workspaceSessionOpen, { id, agent, workspace });
   return id;
+}
+
+// 그 workspace의 lophn으로 session 하나를 연다. workspace가 없으면 Home의 lophn이다.
+export function openLophnSession(
+  core: Core,
+  workspace: Workspace | null = null,
+): Promise<string> {
+  return openWorkspaceSession(core, lophnIdOf(workspace), workspace);
 }
 
 export async function say(

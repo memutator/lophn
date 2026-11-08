@@ -61,7 +61,7 @@ const key = (route: { resource: string; method: string }) =>
 const records = new Map<string, unknown>([
   [
     key(workspaceSessionRead),
-    { session: { agent: "lophn", title: `title ${SECRET}` } },
+    { session: { agent: "lophn_home", title: `title ${SECRET}` } },
   ],
   [
     key(receivedMessageList),
@@ -409,7 +409,7 @@ test("rename 뒤의 session_changed를 접은 session meta가 snapshot의 것과
     const found: Record<string, unknown> = {
       [key(workspaceSessionRead)]: {
         session: {
-          agent: "lophn",
+          agent: "lophn_home",
           workspace: null,
           title,
           skip: false,
@@ -457,7 +457,7 @@ test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title
   const found: Record<string, unknown> = {
     [key(workspaceSessionRead)]: {
       session: {
-        agent: "lophn",
+        agent: "lophn_home",
         workspace,
         title: null,
         skip: false,
@@ -513,7 +513,7 @@ test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title
   const session = await readSessionMeta(e, SES, read);
   const draft = await readDraftMeta(
     e,
-    { agent: "lophn", workspace } as never,
+    { agent: "lophn_home", workspace } as never,
     read,
   );
   assert.ok(session !== null);

@@ -64,7 +64,7 @@ function setup() {
     // null이면 부른 앱이 만든 앱 모두의 tool을 부를 grant를 가졌다.
     grants: null as AppGrant[] | null,
     // agentToolCall이 돌려주는 agent와 workspace. agent가 null이면 tool call을 모른다.
-    agent: "lophn" as AgentId | null,
+    agent: "lophn_home" as AgentId | null,
     workspace: null as Workspace | null,
     // 이름에 "priv."가 붙은 tool만 비공개다. 기본 tool은 공개다.
   };
@@ -217,7 +217,7 @@ function flowAuth(
   instance = WFI,
   workspace: Workspace | null = { kind: "project", id: PRJ },
 ): CallAuth {
-  return { actor: "flow", flow: { instance, agent: "lophn", workspace } };
+  return { actor: "flow", flow: { instance, agent: "lophn_home", workspace } };
 }
 
 function programAuth(): CallAuth {
@@ -618,12 +618,22 @@ test("그 앱 workspace의 session만 그 앱의 preview tool을 부르고, 다�
   const b = newApp();
   const project = ids.newId("prj");
   const rows: [string, AgentId | null, Workspace | null, string][] = [
-    ["app A workspace session", "lophn", { kind: "app", id: a }, "succeeded"],
-    ["app B workspace session", "lophn", { kind: "app", id: b }, "forbidden"],
-    ["home session", "lophn", null, "forbidden"],
+    [
+      "app A workspace session",
+      "lophn_home",
+      { kind: "app", id: a },
+      "succeeded",
+    ],
+    [
+      "app B workspace session",
+      "lophn_home",
+      { kind: "app", id: b },
+      "forbidden",
+    ],
+    ["home session", "lophn_home", null, "forbidden"],
     [
       "project workspace session",
-      "lophn",
+      "lophn_home",
       { kind: "project", id: project },
       "forbidden",
     ],

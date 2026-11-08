@@ -9,7 +9,7 @@ import { test } from "node:test";
 
 import { appList } from "../../packages/protocol/apps/mod.ts";
 import {
-  LOPHN_AGENT_ID,
+  lophnIdOf,
   messageBody,
   workspaceSessionList,
   receivedMessageList,
@@ -17,7 +17,7 @@ import {
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -36,7 +36,7 @@ test("E2E lophn이 앱을 등록하고 그 앱 workspace의 lophn session에 맡
 
     await t.test("lophn-registers-then-calls", async () => {
       const body = "Build the todo list app.";
-      const lophn = await openWorkspaceSession(c, LOPHN_AGENT_ID);
+      const lophn = await openLophnSession(c);
       fake.script([
         {
           reply: {
@@ -79,10 +79,8 @@ test("E2E lophn이 앱을 등록하고 그 앱 workspace의 lophn session에 맡
       );
 
       // route: 앱 workspace의 lophn session이 열리고 맡긴 글이 입력에 있다.
-      const where = {
-        agent: LOPHN_AGENT_ID,
-        workspace: { kind: "app", id: todo[0].id },
-      } as const;
+      const appAt = { kind: "app", id: todo[0].id } as const;
+      const where = { agent: lophnIdOf(appAt), workspace: appAt } as const;
       const deadline = Date.now() + 30_000;
       let sessions = (await c.call(workspaceSessionList, where)).sessions;
       while (sessions.length === 0) {

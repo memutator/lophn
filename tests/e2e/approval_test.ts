@@ -9,13 +9,12 @@ import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
   askAnswer,
   askRead,
-  LOPHN_AGENT_ID,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
   decide,
-  openWorkspaceSession,
+  openLophnSession,
   openProject,
   say,
   turnsOf,
@@ -59,7 +58,7 @@ async function askAndDecide(
     { reply: ask.reply("t1") },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+  const session = await openLophnSession(core, {
     kind: "project",
     id: project,
   });
@@ -146,7 +145,7 @@ async function askRow(
     { reply: { kind: "tool", calls: [ASK_CALL] } },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
+  const session = await openLophnSession(core);
   await say(core, session, "decide something");
   const question = await waitQuestion(core, session);
   await answer(session, question.tool_call);

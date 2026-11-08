@@ -2,7 +2,7 @@
 import { ok, type Result } from "../../../packages/base/mod.ts";
 import {
   type AgentAtWorkspace,
-  LOPHN_AGENT_ID,
+  lophnIdOf,
   LOPHN_AGENT_HANDLE,
 } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../../support/core/mod.ts";
@@ -67,18 +67,21 @@ export function agentAtWorkspaceOf(
     if (id === undefined) throw new Error(`cannot resolve ${key}`);
     return id;
   };
-  const id =
+  // handle lophn은 workspace마다 하나라 id가 그 workspace에서 나온다.
+  const idAt = (at: AgentAtWorkspace["workspace"]) =>
     agent === LOPHN_AGENT_HANDLE
-      ? LOPHN_AGENT_ID
+      ? lophnIdOf(at)
       : found(world.agents[agent], `agent ${agent}`);
-  if (workspace === undefined) return { agent: id, workspace: null };
+  if (workspace === undefined) return { agent: idAt(null), workspace: null };
   if ("app" in workspace) {
     const app = found(world.apps[workspace.app], `app ${workspace.app}`);
-    return { agent: id, workspace: { kind: "app", id: app } };
+    const at = { kind: "app", id: app } as const;
+    return { agent: idAt(at), workspace: at };
   }
   const project = found(
     world.projects[workspace.project],
     `project ${workspace.project}`,
   );
-  return { agent: id, workspace: { kind: "project", id: project } };
+  const at = { kind: "project", id: project } as const;
+  return { agent: idAt(at), workspace: at };
 }

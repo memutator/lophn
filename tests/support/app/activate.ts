@@ -21,10 +21,9 @@ import {
   type ReleasePrepareOutput,
   type RuntimeObservation,
 } from "../../../packages/protocol/apps/mod.ts";
-import { LOPHN_AGENT_ID } from "../../../packages/protocol/lophn-agent/mod.ts";
 import type { Core } from "../core/mod.ts";
 import {
-  openWorkspaceSession,
+  openLophnSession,
   openProject,
   say,
   type Turn,
@@ -118,7 +117,7 @@ export async function startTestApp(
     ...(options.patch === undefined ? {} : { patch: options.patch }),
     ...(options.sample === undefined ? {} : { sample: options.sample }),
   });
-  const lophn = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+  const lophn = await openLophnSession(core, {
     kind: "app",
     id: created.id,
   });

@@ -20,7 +20,7 @@ test("an old call policy keeps its rules and other settings and parses after the
       to: { kind: "home" },
       allow: false,
     };
-    const agents = [{ from: "lophn", to: "lophn", allow: true }];
+    const agents = [{ from: "lophn_home", to: "lophn_home", allow: true }];
     await writeFile(
       path,
       JSON.stringify({

@@ -88,7 +88,7 @@ test("floor deny와 사람이 쓴 deny 규칙은 unattended와 skip에서도 막
 });
 
 test("할당하지 않은 앱 tool과 뺀 tool은 어느 mode에서도 막는다", () => {
-  const agent = "lophn" as const;
+  const agent = "lophn_home" as const;
   const other: Assignment = {
     agent,
     entries: [{ app: OTHER, removed_tools: [] }],

@@ -10,7 +10,6 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { test } from "node:test";
 
 import {
-  LOPHN_AGENT_ID,
   rewindList,
   sessionRewind,
   sessionRewindPreview,
@@ -18,7 +17,7 @@ import {
 import {
   connectFakeProvider,
   decide,
-  openWorkspaceSession,
+  openLophnSession,
   openProject,
   say,
   settle,
@@ -56,7 +55,7 @@ async function writeFiles(
     },
     { reply: { kind: "text", text: "done" } },
   ]);
-  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+  const session = await openLophnSession(core, {
     kind: "project",
     id: project,
   });
@@ -276,7 +275,7 @@ test("session rewind는 재시작 뒤에도 되돌리고, 새 file의 사람 편
       { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });

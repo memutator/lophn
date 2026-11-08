@@ -23,7 +23,7 @@ import {
 } from "../../packages/protocol/apps/annotation.ts";
 import { appArchive, appCreate } from "../../packages/protocol/apps/mod.ts";
 import {
-  LOPHN_AGENT_ID,
+  lophnIdOf,
   workspaceSessionList,
   workspaceSessionRead,
   receivedMessageList,
@@ -32,7 +32,7 @@ import {
 import { uploadScreenshot } from "../support/annotation/upload.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -196,7 +196,7 @@ const ROWS: Row[] = [
     async run(ctx) {
       const { core, fake, a } = ctx;
       fake.reset();
-      const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+      const session = await openLophnSession(core, {
         kind: "app",
         id: a,
       });
@@ -228,7 +228,7 @@ const ROWS: Row[] = [
       const { core, fake, a, b, annotationOfA } = ctx;
       assert.ok(annotationOfA, "new-session 행이 먼저 돌아야 한다");
       fake.reset();
-      const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+      const session = await openLophnSession(core, {
         kind: "app",
         id: b,
       });
@@ -293,7 +293,7 @@ const ROWS: Row[] = [
 
       // inbox
       const { sessions } = await core.call(workspaceSessionList, {
-        agent: LOPHN_AGENT_ID,
+        agent: lophnIdOf({ kind: "app", id: c }),
         workspace: { kind: "app", id: c },
         archived: "include",
       });

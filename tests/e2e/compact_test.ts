@@ -5,7 +5,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  LOPHN_AGENT_ID,
   modelCallList,
   workspaceSessionRead,
   receivedMessageList,
@@ -14,7 +13,7 @@ import {
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   turnsOf,
   waitTurnEnd,
@@ -142,7 +141,7 @@ test("E2E compact는 성공하면 다음 요청이 요약을 쓰고 실패해도
         { reply: row.summary },
         { reply: { kind: "text", text: "second answer" } },
       ]);
-      const session = await openWorkspaceSession(live, LOPHN_AGENT_ID);
+      const session = await openLophnSession(live);
       const first = await say(live, session, `FIRST-MARK-${row.name}`);
       await waitTurnEnd(live, session);
       const { session: read } = await live.call(workspaceSessionRead, {

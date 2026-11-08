@@ -5,10 +5,9 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { test } from "node:test";
-import { LOPHN_AGENT_ID } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
+  openLophnSession,
   openProject,
   say,
   turnsOf,
@@ -37,7 +36,7 @@ test("고친 지침은 다음 turn의 system과 notice로 닿고 AGENTS.md는 �
     await writeFile(`${proj}/LOPHN.md`, one);
     await writeFile(`${proj}/AGENTS.md`, decoy);
     const { project } = await openProject(core, proj);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });

@@ -12,13 +12,12 @@ import {
   workspaceSessionRead,
   changeSessionSkip,
   toolCallList,
-  LOPHN_AGENT_ID,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
   decide,
   openProject,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   settle,
   waitPermission,
@@ -64,7 +63,7 @@ test("shell 물음에 always로 답하면 규칙이 project 층에 남아 재시
     const folder = `${run.work}/proj`;
     await mkdir(folder);
     const { project } = await openProject(core, folder);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });

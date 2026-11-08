@@ -14,7 +14,6 @@ import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
   archiveSession,
   deleteSession,
-  LOPHN_AGENT_ID,
   toolCallList,
   turnRead,
   workspaceSessionRead,
@@ -22,7 +21,7 @@ import {
 import {
   connectFakeProvider,
   openProject,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   stopTurn,
   turnsOf,
@@ -91,7 +90,7 @@ test("사람이 멈추면 진행 중인 model 요청이 끊기고 응답의 tool
     const proj = `${run.work}/proj`;
     await mkdir(proj);
     const { project } = await openProject(core, proj);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });
@@ -191,7 +190,7 @@ test("shell이 도는 중 멈추면 shell process group이 죽는다", async () 
         },
       },
     ]);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });
@@ -234,7 +233,7 @@ test("허락을 기다리는 중 멈추면 늦게 온 허락이 명령을 일으
   await inProject(async ({ core, fake, proj, project }) => {
     const ask = await shellAsk(proj);
     fake.script([{ reply: ask.reply("w1") }]);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });
@@ -277,11 +276,7 @@ for (const how of ["archive", "delete"] as const) {
     await inProject(async ({ core, fake, project }) => {
       fake.script([stallReply, textReply]);
       const workspace = { kind: "project", id: project } as const;
-      const session = await openWorkspaceSession(
-        core,
-        LOPHN_AGENT_ID,
-        workspace,
-      );
+      const session = await openLophnSession(core, workspace);
       await say(core, session, "think forever");
       await fake.arrived(1);
       const pids = await runtimePids(core.run.home);
@@ -297,7 +292,7 @@ for (const how of ["archive", "delete"] as const) {
         { state_seq: current.state_seq },
       );
       await within("요청이 끊김", fake.aborted(1));
-      const next = await openWorkspaceSession(core, LOPHN_AGENT_ID, workspace);
+      const next = await openLophnSession(core, workspace);
       await say(core, next, "hello");
       const done = await waitTurnEnd(core, next);
 

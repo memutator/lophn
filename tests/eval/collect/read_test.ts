@@ -28,10 +28,10 @@ const ok = (value: unknown) => ({
 });
 
 const sessions: Record<string, unknown> = {
-  ses_root: { id: "ses_root", agent: "lophn", workspace: null },
+  ses_root: { id: "ses_root", agent: "lophn_home", workspace: null },
   ses_tax: {
     id: "ses_tax",
-    agent: "lophn",
+    agent: "lophn_home",
     workspace: { kind: "project", id: "prj_tax" },
   },
 };
@@ -84,7 +84,7 @@ const port: ReadPort = {
         return ok({ projects: [{ id: "prj_tax", name: "tax" }] });
       case agentList:
         return ok({
-          agents: [{ agent: "lophn", handle: "lophn", name: "lophn" }],
+          agents: [{ agent: "lophn_home", handle: "lophn", name: "lophn" }],
         });
       case workspaceSessionRead:
         return ok({ session: sessions[i.session] });
@@ -115,7 +115,7 @@ const port: ReadPort = {
             to: {
               kind: "new_session",
               agent: {
-                agent: "lophn",
+                agent: "lophn_home",
                 workspace: { kind: "project", id: "prj_tax" },
               },
             },

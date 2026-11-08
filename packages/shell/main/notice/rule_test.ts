@@ -27,7 +27,7 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
           ? null
           : {
               session,
-              agent: "lophn",
+              agent: "lophn_home",
               profile: { kind: "character", shape: "square", color: "coral" },
             },
       ),

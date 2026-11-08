@@ -13,14 +13,13 @@ import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
 import {
-  LOPHN_AGENT_ID,
   receivedMessageList,
   turnList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { platformStatus } from "../../packages/protocol/server/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   waitTurnEnd,
 } from "../support/core/human.ts";
@@ -123,7 +122,7 @@ async function bootWithOpenRequest(
   ]);
   const core = await env.boot();
   await connectFakeProvider(core, env.fake);
-  const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
+  const session = await openLophnSession(core);
   await say(core, session, "hello");
   await within("model 요청이 도착함", env.fake.arrived(1));
   return core;
@@ -134,7 +133,7 @@ test("같은 data root에 둘째 core는 시작하지 못하고 첫째는 data�
     fake.script([{ reply: { kind: "text", text: "hi" } }]);
     const first = await boot();
     await connectFakeProvider(first, fake);
-    const session = await openWorkspaceSession(first, LOPHN_AGENT_ID);
+    const session = await openLophnSession(first);
     await say(first, session, "hello");
     await waitTurnEnd(first, session);
     const processes = await processesOf(run.home);

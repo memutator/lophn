@@ -13,7 +13,7 @@ test("사람이 아닌 자격으로 SetAgentAssignment를 부르면 forbidden이
     const result = assignmentSetCommand.handle(
       undefined as never,
       { actor } as never,
-      { agent: "lophn", entries: [] },
+      { agent: "lophn_home", entries: [] },
       { revision: 0 },
     );
     assert.deepStrictEqual(!result.ok && result.error.code, "forbidden", actor);

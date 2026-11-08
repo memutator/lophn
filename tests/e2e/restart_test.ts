@@ -10,7 +10,6 @@ import { mkdir, stat } from "node:fs/promises";
 import { test } from "node:test";
 import { sessionSnapshotsList } from "../../packages/protocol/events/mod.ts";
 import {
-  LOPHN_AGENT_ID,
   modelCallList,
   receivedMessageList,
   toolCallList,
@@ -21,7 +20,7 @@ import { SECRET_FILE_NAME } from "../../packages/protocol/secrets/mod.ts";
 import {
   connectFakeProvider,
   openProject,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   settle,
   turnsOf,
@@ -55,7 +54,7 @@ test("E2E core가 허락을 기다리다 꺼졌다 켜지면 turn은 interrupted
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const { project } = await openProject(core, folder);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });
@@ -106,7 +105,7 @@ test("E2E core가 재시작돼도 완료한 turn의 기록과 provider 연결은
     core = await bootCore(run);
     const key = `sk-e2e-${core.ids.newId("key").split("_").pop()}`;
     await connectFakeProvider(core, fake, { key });
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID);
+    const session = await openLophnSession(core);
     fake.script([
       { reply: { kind: "text", text: "one" } },
       { reply: { kind: "text", text: "two" } },
@@ -164,7 +163,7 @@ test("E2E core 재시작 직전에 받아 turn을 열지 못한 사람 message�
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const { project } = await openProject(core, folder);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });

@@ -69,17 +69,17 @@ test("place 이름으로 저장된 ledger 행은 새 schema step 뒤 workspace �
     const db = new DatabaseSync(path);
     db.exec(`
       insert into sessions (id, agent, project, place_kind, place_id, created_seq, state_seq)
-        values ('ses_1', 'lophn', '${PRJ}', 'project', '${PRJ}', 1, 1);
+        values ('ses_1', 'lophn_home', '${PRJ}', 'project', '${PRJ}', 1, 1);
       insert into agent_calls (call, from_session, "to", reply, state, created_at, state_at)
         values ('cal_1', 'ses_1',
-          '{"kind":"new_session","agent":{"agent":"lophn","place":{"kind":"app","id":"${APP}"}}}',
+          '{"kind":"new_session","agent":{"agent":"lophn_home","place":{"kind":"app","id":"${APP}"}}}',
           'result', 'done', '${AT}', '${AT}');
       insert into jobs (id, title, creator_agent, creator_place, every, action, missed_policy, enabled, created_at, updated_at)
-        values ('job_1', 'daily', 'lophn', '${PRJ}', 'day',
-          '{"kind":"agent_run","agent":"lophn","agent_place":null,"prompt":"go"}', 'run', 1, '${AT}', '${AT}');
+        values ('job_1', 'daily', 'lophn_home', '${PRJ}', 'day',
+          '{"kind":"agent_run","agent":"lophn_home","agent_place":null,"prompt":"go"}', 'run', 1, '${AT}', '${AT}');
       insert into runs (id, kind, target, session_opened, state, created_at, finished_at, state_seq, agent_key, place_key)
-        values ('run_1', 'agent', '{"agent":{"agent":"lophn","place":{"kind":"project","id":"${PRJ}"}}}',
-          0, 'done', '${AT}', '${AT}', 1, 'lophn@${PRJ}', 'project:${PRJ}');
+        values ('run_1', 'agent', '{"agent":{"agent":"lophn_home","place":{"kind":"project","id":"${PRJ}"}}}',
+          0, 'done', '${AT}', '${AT}', 1, 'lophn_home@${PRJ}', 'project:${PRJ}');
       insert into workflow_instances (id, project, workflow, input, state, participants, steps, human_turn, started_by, created_at, finished_at, state_seq)
         values ('wfi_1', '${PRJ}', 'review', '"x"', 'ended',
           '{"writer":{"agent":"lophn","place":{"app":"notes"}},"me":{"kind":"human"},"editor":{"agent":"lophn"}}',
@@ -105,7 +105,7 @@ test("place 이름으로 저장된 ledger 행은 새 schema step 뒤 workspace �
       );
       assert.deepEqual(to, {
         kind: "new_session",
-        agent: { agent: "lophn", workspace: { kind: "app", id: APP } },
+        agent: { agent: "lophn_home", workspace: { kind: "app", id: APP } },
       });
       const job = after
         .prepare("select creator_workspace, action from jobs")
@@ -115,7 +115,7 @@ test("place 이름으로 저장된 ledger 행은 새 schema step 뒤 workspace �
         jobActionSchema.parse(JSON.parse(String(job?.["action"]))),
         {
           kind: "agent_run",
-          agent: "lophn",
+          agent: "lophn_home",
           agent_workspace: null,
           prompt: "go",
         },
@@ -123,7 +123,7 @@ test("place 이름으로 저장된 ledger 행은 새 schema step 뒤 workspace �
       const run = after.prepare("select workspace_key, target from runs").get();
       assert.equal(run?.["workspace_key"], `project:${PRJ}`);
       assert.deepEqual(JSON.parse(String(run?.["target"])), {
-        agent: { agent: "lophn", workspace: { kind: "project", id: PRJ } },
+        agent: { agent: "lophn_home", workspace: { kind: "project", id: PRJ } },
       });
       const participants = workflowInstanceSchema.shape.participants.parse(
         JSON.parse(

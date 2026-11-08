@@ -39,7 +39,12 @@ test("다른 session·turn의 자격으로는 Gate route를 부르지 못한다"
     },
     sessionOf: () =>
       Promise.resolve(
-        ok({ agent: "lophn", workspace: null, spawnedBy: null, skip: false }),
+        ok({
+          agent: "lophn_home",
+          workspace: null,
+          spawnedBy: null,
+          skip: false,
+        }),
       ),
     modeOf: () => Promise.resolve(ok("attended" as const)),
   });
@@ -86,7 +91,7 @@ function askWith(
       return Promise.resolve({ outcome: "parent_reply", message: "a" });
     },
     sessionOf: () =>
-      Promise.resolve(ok({ agent: "lophn", workspace: null, ...session })),
+      Promise.resolve(ok({ agent: "lophn_home", workspace: null, ...session })),
     modeOf: () => Promise.resolve(ok(mode)),
   });
   const run = () =>
@@ -142,7 +147,7 @@ test("shell ask를 부모에게 보내는 것은 팀 자식이고 skip을 켜지
       },
       sessionOf: () =>
         Promise.resolve(
-          ok({ agent: "lophn", workspace: null, spawnedBy, skip }),
+          ok({ agent: "lophn_home", workspace: null, spawnedBy, skip }),
         ),
       modeOf: () => Promise.resolve(ok("unattended" as const)),
     });

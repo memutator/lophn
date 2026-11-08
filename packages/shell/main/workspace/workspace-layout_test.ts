@@ -308,7 +308,7 @@ test("Home layout의 agent 탭(workspace home)은 저장이 거절되지 않고 
     const agent = {
       kind: "agent",
       key: "agent:lophn:1",
-      agent: "lophn",
+      agent: "lophn_home",
       workspace: { kind: "home" },
     };
     const layout = {
@@ -343,7 +343,7 @@ test("앱 workspace layout의 앱 화면 탭과 app workspace agent 탭은 저�
     const agent = {
       kind: "agent",
       key: "agent:lophn:1",
-      agent: "lophn",
+      agent: "lophn_home",
       workspace: { kind: "app", id: app },
     };
     const layout = {

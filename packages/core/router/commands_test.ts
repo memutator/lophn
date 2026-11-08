@@ -29,7 +29,7 @@ function world() {
   const target = (session: string): TargetSession => ({
     session: session as TargetSession["session"],
     transport: "lophn",
-    agent: { agent: "lophn", workspace: null },
+    agent: { agent: "lophn_home", workspace: null },
     accepting: true,
     spawned_by: null,
   });
@@ -40,7 +40,7 @@ function world() {
       announce: () => {},
       directory: {
         find: (session) => target(session),
-        resolveAddress: () => ok({ agent: "lophn", workspace: null }),
+        resolveAddress: () => ok({ agent: "lophn_home", workspace: null }),
         open: () => ok(target(RECEIVER)),
         accepts: () => null,
         listOpen: () => [],

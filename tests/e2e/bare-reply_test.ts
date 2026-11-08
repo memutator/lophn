@@ -12,14 +12,13 @@ import { test } from "node:test";
 import {
   agentCallRead,
   agentCreate,
-  LOPHN_AGENT_ID,
   workspaceSessionList,
   receivedMessageList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
+  openLophnSession,
   say,
   until,
   waitTurnEnd,
@@ -121,7 +120,7 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 한 �
       HOME,
     );
     fake.script([text("the answer is 42")], BARE);
-    const a = await openWorkspaceSession(c, LOPHN_AGENT_ID);
+    const a = await openLophnSession(c);
     await say(c, a, "ask the bare agent");
     const b = await opened(c, bare);
     await waitTurnEnd(c, b);

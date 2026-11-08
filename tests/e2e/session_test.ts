@@ -38,7 +38,7 @@ import {
   archiveSession,
   deleteSession,
   forkSession,
-  LOPHN_AGENT_ID,
+  lophnIdOf,
   messageBody,
   type Workspace,
   workspaceSessionList,
@@ -57,7 +57,7 @@ import { fieldsOf } from "../../packages/cli/parser.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
 import {
   connectFakeProvider,
-  openWorkspaceSession,
+  openLophnSession,
   openProject,
   say,
   until,
@@ -88,7 +88,7 @@ async function newProject(
 
 // project workspace의 lophn session을 연다.
 const openAt = (core: Core, workspace: Workspace) =>
-  openWorkspaceSession(core, LOPHN_AGENT_ID, workspace);
+  openLophnSession(core, workspace);
 
 // 출력이 2 MiB가 넘어 12 KiB씩 상한이 걸린다. 표 안에 `|`를 쓰지 않으려고 pipe가 없다.
 const SHELL = "echo hi > made.txt; seq 1 400000";
@@ -192,7 +192,7 @@ async function bodiesOf(core: Core, session: string): Promise<string[]> {
 async function waitReceiver(core: Core, workspace: Workspace): Promise<string> {
   return await until("받는 project workspace session이 열림", async () => {
     const { sessions } = await core.call(workspaceSessionList, {
-      agent: LOPHN_AGENT_ID,
+      agent: lophnIdOf(workspace),
       workspace,
     });
     return sessions[0]?.id;
@@ -237,7 +237,7 @@ async function openCallWaitingPermission(
       !lophnCommands(request).includes("app create") &&
       !lophnCommands(request).includes("release prepare"),
   });
-  const src = await openWorkspaceSession(core, LOPHN_AGENT_ID);
+  const src = await openLophnSession(core);
   await say(core, src, "ask the project");
   const dst = await waitReceiver(core, workspace);
   const { request } = await waitPermission(core, dst);
@@ -326,7 +326,7 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
         f.reset();
         const { project, workspace } = await newProject(c, "agent-call");
         const target = await openAt(c, workspace);
-        const caller = await openWorkspaceSession(c, LOPHN_AGENT_ID);
+        const caller = await openLophnSession(c);
         f.script([
           {
             reply: {
@@ -441,13 +441,13 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
         await setArchived(c, project, true);
         const refused = await c.tryCall(workspaceSessionOpen, {
           id: c.ids.newId("ses"),
-          agent: LOPHN_AGENT_ID,
+          agent: lophnIdOf(workspace),
           workspace,
         });
         assert.ok(!refused.ok);
         assert.deepStrictEqual(refused.error.code, "conflict");
         const none = await c.call(workspaceSessionList, {
-          agent: LOPHN_AGENT_ID,
+          agent: lophnIdOf(workspace),
           workspace,
           archived: "include",
         });
@@ -488,7 +488,7 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
         await newProject(c, "lophn-scope");
         const folder = `${c.run.work}/lophn-scope`;
         await writeFile(`${folder}/notes.md`, "alpha");
-        const session = await openWorkspaceSession(c, LOPHN_AGENT_ID);
+        const session = await openLophnSession(c);
         f.script([
           {
             reply: {

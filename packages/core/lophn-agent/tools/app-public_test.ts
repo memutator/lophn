@@ -43,7 +43,7 @@ async function names(
   workspace: { kind: "app" | "project"; id: string } | null,
 ) {
   const loaded = await withPublicOnly(inner).load({
-    agent: "lophn",
+    agent: "lophn_home",
     workspace,
   });
   if (!loaded.ok) throw new Error("load failed");
@@ -88,7 +88,7 @@ test("lophn resolves an app command only for an assigned app, a kept command, an
       ),
   } as unknown as AppToolkit);
   const loaded = await kit.load({
-    agent: "lophn",
+    agent: "lophn_home",
     workspace: { kind: "app", id: APP_A },
   });
   if (!loaded.ok) throw new Error("load failed");

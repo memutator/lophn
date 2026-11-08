@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { test } from "node:test";
 import {
-  LOPHN_AGENT_ID,
   receivedMessageList,
   sendMessage,
   sessionRewindPreview,
@@ -14,7 +13,7 @@ import {
 import {
   connectFakeProvider,
   decide,
-  openWorkspaceSession,
+  openLophnSession,
   openProject,
   say,
   turnsOf,
@@ -45,7 +44,7 @@ test("turn이 허락을 기다리는 중 보낸 steer는 다음 model 요청에 
       { reply: ask.reply("t1") },
       { reply: { kind: "text", text: "done" } },
     ]);
-    const session = await openWorkspaceSession(core, LOPHN_AGENT_ID, {
+    const session = await openLophnSession(core, {
       kind: "project",
       id: project,
     });

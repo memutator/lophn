@@ -282,7 +282,7 @@ test("idle activity read는 다른 project의 running instance와 꺼진 job 뒤
     db.exec(`
       INSERT INTO runs (id, kind, target, session_opened, state, created_at, state_seq)
       VALUES ('run_01hzzzzzzzzzzzzzzzzzzzzzza', 'agent',
-        '{"agent":{"agent":"lophn","workspace":null}}', 0, 'running',
+        '{"agent":{"agent":"lophn_home","workspace":null}}', 0, 'running',
         '2026-01-01T00:00:00.000Z', 1);
     `);
     assert.equal(activity(runsActivity), true);

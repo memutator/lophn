@@ -7,6 +7,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 ```
  runtime tool 실행 (work.ts)
    tool 정의의 gate가 GateCall을 낸다: app_tool | mcp_tool | shell
+   extension tool은 tool 정의에 gate가 없고 core route extension_tools/call이 extension_tool을 판정한다(lophn과 harness CLI가 같은 한 곳)
    gate 없는 tool(file, web, ask, call 등)은 이 길을 거치지 않는다
         │ memory route tool_gate/check (그 turn의 agent 자격만)
         ▼
@@ -49,6 +50,7 @@ agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 �
 - 할당 저장은 revision을 비교한다. 다른 창이 먼저 저장했으면 `conflict`이고 화면이 다시 읽는다. revision은 정의 파일 값 `{apps, deny}`의 hash(sha256 앞 48 bit)에서 정한 값이고 할당이 비면 0이다. 정의 파일의 다른 칸(지침 본문, model)을 고쳐도 바뀌지 않는다.
 - 판정이 읽는 할당은 call 때마다 정의 파일에서 읽는다(`AgentDirectory`를 거친 `agentAssignment`, `packages/core/apps/usage/users.ts`). 앱 호출 경로(`packages/core/apps/calls/gate.ts`)와 사용 관계(`apps/usage`)도 같은 읽기다. 없는 앱 slug와 active 선언에 없는 command는 읽을 때 빠진다.
 - 선언(앱 선언의 효과, MCP `readOnlyHint`)은 믿는다.
+- shell extension의 tool은 `extension_tool {extension, tool}`로 판정한다(`packages/core/approvals/gate/judge.ts`). 정의 칸 `extensions`에 없으면 `deny not_assigned`, 켜진 extension의 catalog에서 빠졌으면(꺼짐, tool 없어짐) `deny removed`, 아니면 `run`이다. 판정은 tool 정의의 gate가 아니라 호출 route `extension_tools/call`이 한다(`packages/core/main/daemon/wiring/extension-tools.ts`). lophn runtime의 tool과 harness agent의 CLI가 같은 route를 거치기 때문이다. deny는 `forbidden`이다. 할당이 곧 허락이라 묻지 않고 결과를 `<lophn-untrusted>`로 감싸지 않는다. 묻지 않으므로 turn 안 request와 ACP 승인 subject(`askedCallSchema`)에는 이 kind가 없다.
 
 묻는 길
 - 묻는 길은 turn 안 request 하나다(`packages/core/approvals/turn-requests.ts`). 메모리에 있고, 물은 turn이 기다린다. 재시작하면 비고 기다리던 turn은 cancelled를 받는다.

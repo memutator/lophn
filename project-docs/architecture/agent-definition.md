@@ -27,7 +27,7 @@ lophn은 고정 character를 쓰고 바꾸지 못한다. 사람이 만든 agent�
            2 지침 층 (전역, LOPHN.md, agent)
            3 skill 목록 (이름과 설명)
            4 workspace 정보                    ← cache 경계
-   tools[] 정렬된 정의 (내장 tool, 명령을 부르는 `lophn`, 설정한 외부 MCP tool. 모두 처음부터 싣는다. 할당된 앱 command는 tool이 아니라 `lophn <slug> <command>`로 부른다)
+   tools[] 정렬된 정의 (내장 tool, 명령을 부르는 `lophn`, 설정한 외부 MCP tool, 할당한 shell extension의 tool. 모두 처음부터 싣는다. 할당된 앱 command는 tool이 아니라 `lophn <slug> <command>`로 부른다)
    대화    Router 입력(tag로 출처 표시) ... 끝에 notice   ← 마지막 block과 그 앞 user message에 cache 경계
         ▲
         └─ 지난 turn이 본 판(seen)과 비교해 바뀐 층·목록만 notice로 끝에 덧붙인다.
@@ -35,7 +35,7 @@ lophn은 고정 character를 쓰고 바꾸지 못한다. 사람이 만든 agent�
 
  bare runtime(정의의 `runtime: bare`)은 같은 길에서 고른 것만 싣는다:
    system  정의 본문 (+ web tool을 골랐으면 `<lophn-untrusted>` 한 줄) + 고른 skill 목록   ← cache 경계
-   tools[] 고른 내장 tool ∩ workspace 종류 목록, 고른 명령·할당한 앱 command가 있으면 그것만 실은 `lophn`, 고른 MCP tool
+   tools[] 고른 내장 tool ∩ workspace 종류 목록, 고른 명령·할당한 앱 command가 있으면 그것만 실은 `lophn`, 고른 MCP tool, 할당한 extension 가운데 고른 tool
    대화    lophn과 같다. notice는 tool이 바뀐 것만 간다
 ```
 
@@ -68,6 +68,7 @@ lophn은 고정 character를 쓰고 바꾸지 못한다. 사람이 만든 agent�
   - workspace 종류가 부를 수 있는 명령은 명령의 `workspaces`가 정한다. 그 밖의 명령은 session 목록에 없어 목록 밖 tool처럼 거절되고, agent credential의 operation 상한(`agent-workspaces/credentials.ts`의 `workspaceOperations`)에도 그 route가 없다(`main/agent-tools_test.ts`).
   - 내장 tool, 명령을 부르는 `lophn`, 설정한 외부 MCP tool은 모두 처음부터 `tools[]`에 싣는다. 할당된 앱 command는 `tools[]`에 따로 싣지 않는다: model은 `lophn <slug> <command>`로 부르고, loop가 그 호출을 앱 command의 호출로 푼다(`packages/core/lophn-agent/tools/lophn/resolve.ts`의 `resolveAppCall`, `packages/core/lophn-agent/tools/app-tool/command.ts`). 도움말(`lophn <slug> --help`)에 보이는 command는 지금 할당, 활성 release 선언, 비공개 규칙이 부를 때마다 정한다. 숨기거나 늦게 펼치는 장치는 없다.
   - 실행 쪽(`executeToolCall`, Gate)은 이번 요청의 `tools[]`가 아니라 session 고정 목록을 본다. 숨김은 model이 보는 것만 바꾼다.
+  - shell extension의 tool(`extension.md`)은 사람만 쓰는 정의 칸 `extensions`(extension id 목록)로 할당한 agent에게만 싣는다. 단위는 extension 하나(그 tool 전부)이고 bare는 그 가운데 `tools`로 고른다. model 이름은 `ext__<extension id>__<tool>`이고(내장의 `_` 하나, MCP의 `mcp__`와 겹치지 않는다), 정의는 core 메모리의 catalog(shell main이 올린 manifest의 tool 가운데 켜진 extension의 것)에서 만든다(`packages/core/lophn-agent/tools/extension-tools.ts`, `run-loop/prepare.ts`). shell이 아직 올리지 않았으면 그 session은 extension tool 없이 시작하고 올린 뒤 `tools_changed`로 받는다. `extensions`는 serializer의 칸 목록(`definition-file.ts`)에 있고, agent 자격의 `agent.create`·`agent.update`는 받지 않는다(`forbidden`). 새 optional 칸이라 옛 정의 file은 그대로 읽힌다.
 - **목록과 하나는 `<자원>.read` 하나로 읽는다(`app.read {app?}`, `package.read {name?, version?}`).** 대상을 생략하면 목록, 주면 그 하나의 상세다. agent 자격의 기존 core route(`app.list`·`app.get`, package route들)를 그대로 부르므로 읽기 범위(app workspace session은 그 앱 하나)와 오류는 route의 것이다. 지정한 대상이 없거나 범위 밖이면 그 오류이고 목록으로 바꾸지 않는다. 결과는 원래 목록·상세의 꼴 그대로다. `package.read`의 `version`과 `offset_bytes`는 `name`과 함께만 쓰고, `name` 없이 주면 `invalid_input`이다. `action` enum이나 중첩 union은 두지 않는다.
 - **틀린 입력에는 어디가 왜 틀렸는지 알린다.** 실행기의 입력 검사가 거절하면 첫 문제의 자리와 이유를 싣는다(`at count: Too big: expected number to be <=5`, 모르는 key는 `unknown key extra`). handler가 `invalid_input`을 돌려주면 그 문장을 붙인다(`tool input is not valid: version needs name`). `not_found`·`forbidden` 등 다른 code는 code별 고정 문장이다: handler 문장은 범위 밖 대상의 이름·존재를 담을 수 있다(`packages/core/lophn-agent/tools/work.ts`, `registry_test.ts`). 그래서 handler의 `invalid_input` 문장에는 범위 밖 대상의 정보를 넣지 않는다. 실패한 대상이 model이 보낸 입력뿐인 tool은 그 handler 문장을 그대로 싣는다(`work.ts`의 `INPUT_SCOPED_FAILURES`, 지금 `skill.read` 하나): 그 이름은 prompt의 skill 목록에 이미 실려 가릴 것이 없고, 가리면 원인을 못 가려 같은 입력으로 되풀이한다.
 - **모든 앱의 tool 목록을 읽는 tool(`app.tools`)은 home과 app 목록에만 있다.** 새 앱을 청받았을 때 이미 있는 기능을 찾고, app workspace의 agent가 선언의 `app_connections`에 정확한 tool key를 적으려는 것이다. 읽기 전용 route `app.tool_index`가 active 앱의 이름·설명과 tool(name, title, description, effect, public)만 주고, 앱 하나를 지정하면 `inputSchema`와 선언된 `outputSchema`도 준다. 이 route는 앱 범위 판정을 하지 않는다. app workspace session의 자격이 그 앱 하나(`conditions.app`)로 묶여 있어 기존 `app.list`·`app.get` route의 검사는 그대로 두고, 돌려주는 칸을 이것으로 한정해 다른 앱의 source, ticket은 열리지 않게 했다.

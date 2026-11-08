@@ -48,9 +48,8 @@ function setup() {
   const writes: string[] = [];
   const replays: string[] = [];
   const replies: unknown[] = [];
-  // view 크기 바꿈과 다시 쓰기의 순서. PTY에 보낸 resize도 적는다.
+  // view 크기 바꿈과 다시 쓰기의 순서.
   const order: string[] = [];
-  let fitted: { columns: number; rows: number } | null = null;
   let onOutput: (chunks: readonly TerminalOutput[]) => void = () => {};
   let onRuntime: (runtime: TerminalRuntime) => void = () => {};
   let onData: (text: string) => void = () => {};
@@ -75,19 +74,9 @@ function setup() {
     },
     input: async () => ({ ok: true, value: { ok: true, runtime: runtime() } }),
     trace: async () => ({ ok: true, value: false }),
-    resize: async (input) => {
-      order.push(`pty ${input.columns}x${input.rows}`);
-      return { ok: true, value: { ok: true, runtime: runtime() } };
-    },
   } satisfies Pick<
     TerminalApi,
-    | "snapshot"
-    | "onOutput"
-    | "onRuntime"
-    | "respond"
-    | "input"
-    | "resize"
-    | "trace"
+    "snapshot" | "onOutput" | "onRuntime" | "respond" | "input" | "trace"
   >;
   const view: TerminalView = {
     write: (text) => {
@@ -104,7 +93,7 @@ function setup() {
       resets++;
     },
     focus() {},
-    fit: () => fitted,
+    fit: () => null,
     onData(listener) {
       onData = listener;
       return () => {
@@ -151,9 +140,6 @@ function setup() {
     disposed: () => disposed,
     resets: () => resets,
     order,
-    fitTo: (dims: { columns: number; rows: number } | null) => {
-      fitted = dims;
-    },
   };
 }
 
@@ -165,12 +151,12 @@ test("snapshot 중 도착한 출력은 한 번만 쓰고 숨었다 돌아와도 
     folderRef: "folder",
   });
   const display = h.displays.acquire("tab", "project", h.create);
-  h.fitTo({ columns: 120, rows: 40 });
   h.emit([output(1, "old"), output(2, "new")]);
   await h.finish(0, [output(1, "old")]);
   assert.deepStrictEqual(h.replays, ["old"]);
-  // snapshot은 PTY 치수(80x24)로 쓰고, 칸이 다르면 그 뒤에 PTY를 칸에 맞춰 TUI가 다시 그리게 한다.
-  assert.deepStrictEqual(h.order, ["view 80x24", "replay old", "pty 120x40"]);
+  // snapshot은 PTY 치수(80x24)로 쓰고, 칸에 다시 맞추는 일은 탭에 알린다.
+  assert.deepStrictEqual(h.order, ["view 80x24", "replay old"]);
+  assert.equal(h.store.get("tab")?.restored, 1);
   assert.deepStrictEqual(h.writes, ["new"]);
   h.emit([output(2, "new"), output(3, "background")]);
   assert.equal(

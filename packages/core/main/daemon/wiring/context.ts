@@ -61,7 +61,7 @@ import type { createSupervisor } from "../../../supervision/responsiveness/mod.t
 import type { createAppsControl } from "../../../apps/control.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
-import type { HostQueue } from "../../../host-queue/mod.ts";
+import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { LiveTurns } from "../../../lophn-agent/run-loop/live-turns.ts";
@@ -252,6 +252,8 @@ type Late = {
   queue: Queue;
   // host-queue wiring이 낸다. core가 shell에 시킬 일(탭 열기·닫기)의 메모리 queue다. 뒤 task가 쓴다.
   hostQueue: HostQueue;
+  // harness wiring이 낸다. host-queue wiring이 `tabs/open`의 tui에서 부른다(판정과 hold).
+  harnessHold: HarnessHold;
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
   questionWaits: ReturnType<typeof createQuestionWaits>;
   // session-snapshots가 낸다. agent runtime이 보낸 쓰는 중인 model 글과 도는 turn의 active를 받아 snapshot의
@@ -314,6 +316,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   annotationDelivery: true,
   queue: true,
   hostQueue: true,
+  harnessHold: true,
   questionWaits: true,
   liveTurns: true,
   writer: true,

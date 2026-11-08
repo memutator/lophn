@@ -8,5 +8,5 @@ lead만 고친다. `tools/status.py workspace-layers build`가 `tasks/*.md`에�
 | `wlophn-migrate` | wlophn | 1 | wlophn-core | merged | wlophn/wlophn-migrate | 4b44abeee |  |
 | `wlophn-ui` | wlophn | 1 | wlophn-core | merged | wlophn/wlophn-ui | 33546285c |  |
 | `wlayer` | wlayer | 2 | 없음 | merged | wlayer/wlayer | 888788bfb | wave 2·3은 land하지 않고 wui 뒤 한 번 land(사람, 2026-11-09) |
-| `wmem` | wmem | 3 | 없음 | todo |  |  |  |
+| `wmem` | wmem | 3 | 없음 | running | wmem/wmem |  |  |
 | `wui` | wui | 4 | 없음 | todo |  |  |  |

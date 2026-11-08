@@ -8,8 +8,7 @@ export const eventsWiring: WiringFactory = () => ({
   prepare(ctx) {
     ctx.provide("bus", createBus());
     ctx.provide("gateway", createGatewayFrames());
-    // 부모 pipe hello의 사람 token operation 목록. Gateway는 operation이 아니라 actor로 열려 비었다.
-    // hello를 새 모양으로 바꾸는 events-identity가 이 slot을 걷는다.
+    // 사람 token의 operation 목록. Gateway는 operation이 아니라 actor로 열려 비었다.
     ctx.provide("eventNames", []);
   },
 });

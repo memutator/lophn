@@ -198,7 +198,7 @@ export async function spawnCore(
   // core 자신이 lophn의 `.ts` entry라 지금 test를 도는 Electron Node로 띄운다.
   const child = spawn(
     ELECTRON,
-    [`${repo}/packages/core/main/daemon/main.ts`, "--port=0", "--standalone"],
+    [`${repo}/packages/core/main/daemon/main.ts`, "--port=0"],
     {
       cwd: repo,
       // env를 주면 부모 환경을 통째로 대체한다.
@@ -270,7 +270,7 @@ export async function spawnCore(
   child.stdout!.destroy();
   const started = parseStartLine(line);
   if (started === undefined) {
-    // 줄 내용은 남기지 않는다. 옛 core의 hello라면 user token이 들어 있다.
+    // 줄 내용은 남기지 않는다. 계약 밖 첫 줄에는 credential이 섞여 있을 수 있다.
     return discard(
       "core 시작 첫 줄이 계약과 다르다(ready도 start_failed도 아니다)",
     );

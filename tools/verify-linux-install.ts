@@ -218,11 +218,7 @@ function firstLine(stream: NodeJS.ReadableStream): Promise<string> {
 async function startCore(home: string, data: string): Promise<CoreRun> {
   const child = spawn(
     layout.desktopBinary,
-    [
-      `${layout.platform}/packages/core/main/daemon/main.ts`,
-      "--port=0",
-      "--standalone",
-    ],
+    [`${layout.platform}/packages/core/main/daemon/main.ts`, "--port=0"],
     {
       cwd: layout.platform,
       // 빈 PATH로 시작한다. core는 묶음의 node_modules만 읽고 설치본 밖의 도구를 부르지 않는다.
@@ -260,7 +256,7 @@ async function startCore(home: string, data: string): Promise<CoreRun> {
   }
   if (startType !== "ready") {
     await exitCode;
-    // 줄 내용은 남기지 않는다. 옛 core의 hello라면 user token이 들어 있다.
+    // 줄 내용은 남기지 않는다. 계약 밖 첫 줄에는 credential이 섞여 있을 수 있다.
     throw new Error(`core가 ready를 알리지 않았다\n${stderr.slice(-2000)}`);
   }
   const dial = cliDial({

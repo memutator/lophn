@@ -230,7 +230,7 @@ async function plantFakeProvider(
 }
 
 /**
- * core spawn 계획. 시작 인자: `packages/core/main/daemon/main.ts [--port=<n>] --standalone`.
+ * core spawn 계획. 시작 인자: `packages/core/main/daemon/main.ts [--port=<n>]`.
  * Electron binary를 ELECTRON_RUN_AS_NODE로 띄우고 LOPHN_HOME은 데이터 root다. launcher가 stdin을
  * 종료 신호로 쓰지 않으므로(Control stop·신호로 끝난다) 터미널에서 띄워도 붙는 pipe가 없다.
  * stdout에 시작 결과 첫 줄(`ready`) 하나가 찍힌다. 자식 process가 PATH의 npm을 찾으므로 PATH를 지우지 않는다.
@@ -239,7 +239,7 @@ function planCore(
   root: string,
   options: { dataRoot: string; port?: number; env?: Record<string, string> },
 ): SpawnPlan {
-  const args = [`${root}/packages/core/main/daemon/main.ts`, "--standalone"];
+  const args = [`${root}/packages/core/main/daemon/main.ts`];
   if (options.port !== undefined) args.push(`--port=${options.port}`);
   return {
     command: ELECTRON,

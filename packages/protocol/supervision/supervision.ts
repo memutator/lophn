@@ -1,8 +1,4 @@
 import { z } from "zod";
-import {
-  confirmationHandleRegisteredSchema,
-  confirmationHandleRegisterSchema,
-} from "../base/confirmation-handle.ts";
 import { ERROR_CODES } from "../../base/mod.ts";
 import {
   BLOB_PREPARE_MAX_BYTES,
@@ -95,12 +91,6 @@ export const blobPrepareResultSchema = z.discriminatedUnion("ok", [
 ]);
 export type BlobPrepareRequest = z.infer<typeof blobPrepareRequestSchema>;
 export type BlobPrepareResult = z.infer<typeof blobPrepareResultSchema>;
-
-const mainHelloSchema = z.strictObject({
-  user_token: opaque,
-  api_port: port,
-  core_epoch: opaque,
-});
 
 // byte stream은 request의 channel에 묶는다. channel 0은 JSON 제어 전용이다.
 // envelope 뒤 op별 입력/출력은 소유 contracts가 주는 schema로 다시 검사한다.
@@ -430,13 +420,6 @@ export const childMessageSchema = z.union([
   secretSendRequestSchema,
   blobPrepareRequestSchema,
 ]);
-// 사람 결정 handle 등록은 main↔core 비공개 연결로만 오간다. renderer HTTP token과 worker context를 신뢰하지
-// 않는다.
-export const mainToCoreMessageSchema = z.union([
-  diagnosticSchema,
-  stopSchema,
-  confirmationHandleRegisterSchema,
-]);
 // migration 앞에서 시작하지 못할 때 알린다. 문장과 경로는 싣지 않는다.
 export const START_FAILURE_REASONS = [
   "newer_schema",
@@ -444,20 +427,8 @@ export const START_FAILURE_REASONS = [
   "damaged_original",
   "other",
 ] as const;
-const startFailedSchema = z.strictObject({
-  type: z.literal("start_failed"),
-  reason: z.enum(START_FAILURE_REASONS),
-});
-export const coreToMainMessageSchema = z.union([
-  mainHelloSchema,
-  readySchema,
-  startFailedSchema,
-  confirmationHandleRegisteredSchema,
-]);
-export type CoreToMainMessage = z.infer<typeof coreToMainMessageSchema>;
 export type ParentMessage = z.infer<typeof parentMessageSchema>;
 export type ChildMessage = z.infer<typeof childMessageSchema>;
-export type MainHello = z.infer<typeof mainHelloSchema>;
 
 export const kindLaunchSpecSchema = z.strictObject({
   kind: processKindSchema,
@@ -466,9 +437,3 @@ export const kindLaunchSpecSchema = z.strictObject({
   memory_limit_bytes: count.refine((n) => n > 0),
 });
 export type KindLaunchSpec = z.infer<typeof kindLaunchSpecSchema>;
-export const runMetadataSchema = z.strictObject({
-  format: z.literal(1),
-  api_port: port,
-  core_epoch: opaque,
-  started_at: atSchema,
-});

@@ -1,9 +1,9 @@
-import { stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import process from "node:process";
 import { systemClock } from "../../../base/clock.ts";
 import { cryptoRandom } from "../../../base/random.ts";
 import type { Clock, RandomSource, Result } from "../../../base/mod.ts";
-import { err, homeOf, ok } from "../../../base/mod.ts";
+import { err, errorCode, homeOf, ok } from "../../../base/mod.ts";
 import { ROUTES } from "../../../protocol/registry.ts";
 import type { Route } from "../../../protocol/base/mod.ts";
 import {
@@ -22,14 +22,8 @@ import {
   acquireInstanceLock,
   type DataRoot,
   type InstanceLock,
-  removeRunMetadata,
   resolveDataRoot,
-  writeRunMetadata,
 } from "../../install-and-update/mod.ts";
-import {
-  removeUserToken,
-  writeUserToken,
-} from "../../install-and-update/run-metadata.ts";
 import {
   createHealth,
   createTelemetry,
@@ -46,14 +40,10 @@ import type { TeamModule } from "../../storage/ledger/team-module.ts";
 import { openRuntime } from "./runtime.ts";
 import { type CoreControl, createCoreControl } from "./control.ts";
 import {
-  createParentDiagnostics,
-  greet,
-  type ParentDiagnostics,
-  type ParentPipe,
+  type ControlDiagnostics,
+  createControlDiagnostics,
   routeDiagnostic,
-  watchParent,
-  writeParent,
-} from "./parent.ts";
+} from "./diagnostics.ts";
 import {
   type Built,
   createWiringContext,
@@ -78,15 +68,13 @@ export type CoreOptions = {
   random?: RandomSource;
   // 없으면 process env(LOPHN_TELEMETRY 등)로 만들고 stderr에 쓴다.
   telemetry?: Telemetry;
-  // Electron main이 물려 준 stdin/stdout.
-  parent?: ParentPipe;
 };
 
 type Core = {
   port: number;
   epoch: string;
   dataRoot: string;
-  // shutdown barrier가 끝나면 resolve된다. 부모 pipe가 없어도 control stop·신호로 끝난다.
+  // shutdown barrier가 끝나면 resolve된다. control stop·idle-exit·신호가 같은 barrier를 쓴다.
   done: Promise<void>;
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다.
   shutdown(): Promise<void>;
@@ -103,9 +91,14 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   if (!root.ok) return root;
   const locked = await acquireInstanceLock(root.value.run);
   if (!locked.ok) return locked;
-  // 앞 core의 token은 이미 무효다. 남은 file이 있으면 CLI가 lophn이 켜져 있다고 본다.
-  // lock을 잡은 뒤에 지워야 이미 도는 core의 file을 지우지 않는다.
-  await removeUserToken(root.value.run);
+  // 앞 판의 runtime file은 lock을 잡은 뒤에만 지운다. 이미 도는 core의 file을 지우지 않기 위해서다.
+  for (const name of ["user-token", "location.json"]) {
+    try {
+      await rm(`${root.value.run}/${name}`);
+    } catch (thrown) {
+      if (errorCode(thrown) !== "ENOENT") throw thrown;
+    }
+  }
 
   // epoch은 control이 먼저 알린다(migration 전에도 identify가 답한다). open은 같은 값을 쓴다.
   const epoch = hex(random, 16);
@@ -133,10 +126,8 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
     telemetry,
   );
   if (!opened.ok) {
-    // 기동이 실패하면 listener·socket을 닫고, 위치 metadata와 user token을 남기지 않고 lock을 푼다.
+    // 기동이 실패하면 listener·socket을 닫고 lock을 푼다.
     await control.value.close();
-    await removeRunMetadata(root.value.run);
-    await removeUserToken(root.value.run);
     await locked.value.release();
     return opened;
   }
@@ -284,9 +275,8 @@ async function open(
 
   // 종료 순서: 새 command·prepare 입장 닫기(ready = false) → 구독·감시·worker 통로
   // 정리(closeIntake) → server.stop() → closeChildren(앱 제어) → 앱 supervisor 정지 → io 정지 →
-  // closeWork(timer·bootstrap) → runtime.close() → 유지보수(stopped) → run metadata와 user token file 지우기,
-  // lock 풀기. 정지 유지보수는 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가 예외를 던져도 metadata
-  // 정리와 lock 해제는 그대로 실행한다.
+  // closeWork(timer·bootstrap) → runtime.close() → 유지보수(stopped) → control close, lock 풀기.
+  // 정지 유지보수는 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가 예외를 던져도 lock 해제는 그대로 실행한다.
   let shutdownRun: Promise<void> | undefined;
   const shutdown = () => {
     // 같은 시각의 두 종료 요청도 실제 종료가 끝날 때까지 같은 barrier를 기다린다.
@@ -328,23 +318,15 @@ async function open(
         uninstallSnapshot();
         health?.close();
         try {
-          await removeRunMetadata(root.run);
+          // listener와 socket file을 먼저 닫아야 identify가 사라진다. 그 뒤에 lock을 푼다.
+          await control.close();
         } finally {
           try {
-            await removeUserToken(root.run);
+            await lock.release();
           } finally {
-            try {
-              // listener와 socket file을 먼저 닫아야 identify가 사라진다. 그 뒤에 lock을 푼다.
-              await control.close();
-            } finally {
-              try {
-                await lock.release();
-              } finally {
-                telemetry.logger.info({ component: "core", event: "stopped" });
-                await telemetry.shutdown();
-                done.resolve();
-              }
-            }
+            telemetry.logger.info({ component: "core", event: "stopped" });
+            await telemetry.shutdown();
+            done.resolve();
           }
         }
       }
@@ -436,17 +418,6 @@ async function open(
     return err({ code: "unavailable", message: "API를 열 수 없다" });
   }
   ctx.provide("server", server);
-  const recorded = await writeRunMetadata(root.run, {
-    apiPort: server.port,
-    coreEpoch: epoch,
-    startedAt: clock.now(),
-  });
-  if (!recorded.ok) {
-    health.close();
-    await server.stop();
-    await runtime.close();
-    return recorded;
-  }
   for (const wiring of wirings) {
     const started = await wiring.start?.(ctx);
     if (started !== undefined && !started.ok) {
@@ -478,7 +449,7 @@ async function open(
       }),
   });
   for (const wiring of wirings) await wiring.afterReady?.(ctx);
-  const diagnostics: ParentDiagnostics = createParentDiagnostics(
+  const diagnostics: ControlDiagnostics = createControlDiagnostics(
     root.path,
     ctx.diagnosticsWrite,
   );
@@ -495,21 +466,6 @@ async function open(
     shutdown: () => void shutdown(),
   });
 
-  // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
-  const parent = options.parent;
-  const hello = parent
-    ? greet(
-        parent,
-        ctx.registry,
-        runtime,
-        server.port,
-        epoch,
-        (scope) => ctx.registry.issue(scope),
-        (token) => writeUserToken(root.run, token),
-        allRoutes,
-        ctx.eventNames,
-      )
-    : Promise.resolve(ok(undefined));
   const core: Core = {
     port: server.port,
     epoch,
@@ -517,23 +473,6 @@ async function open(
     done: done.promise,
     shutdown,
   };
-  const greeted = await hello;
-  if (!greeted.ok) {
-    await core.shutdown();
-    return greeted;
-  }
-  // 옛 shell main의 parent pipe. standalone 시작은 이 길을 열지 않는다.
-  if (parent) {
-    void watchParent(
-      parent,
-      () => core.shutdown(),
-      {
-        confirmation: (body) => runtime.confirmation(body),
-        reply: (message) => writeParent(parent, message),
-      },
-      diagnostics,
-    );
-  }
   telemetry.logger.info({
     component: "core",
     event: "started",

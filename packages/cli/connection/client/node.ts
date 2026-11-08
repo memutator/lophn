@@ -87,7 +87,7 @@ export function spawnDetachedCore(options: {
       "main.ts",
     );
     // CLI를 띄운 binary(설치본·개발 모두 shell main과 같은 Electron)를 Node로 쓴다. PATH의 node에 기대지 않는다.
-    const child = spawn(process.execPath, [entry, "--port=0", "--standalone"], {
+    const child = spawn(process.execPath, [entry, "--port=0"], {
       cwd: options.platformRoot,
       env: {
         ...process.env,

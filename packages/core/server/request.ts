@@ -31,7 +31,7 @@ const HINTS: Record<LophnError["code"], string> = {
   invalid_input:
     "Check the request body against the route schema; the message names the failing part.",
   unauthorized:
-    "Send Authorization: Bearer <token>; the user token is in <data root>/run/user-token while core runs.",
+    "Send Authorization: Bearer <token>; obtain the user token from a core control connect (shell or CLI).",
   forbidden:
     "This credential's actor or scope does not allow the route; use a credential issued for it.",
   not_found:

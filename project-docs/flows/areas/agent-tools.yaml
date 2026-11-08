@@ -438,7 +438,7 @@ flows:
     steps:
       - "turnSkillReader가 이름이 이 turn의 켜진 목록(agent 정의의 skills_off를 뺀 것, bare는 고른 것만)에 있는지 본다. 없으면 forbidden이다"
       - "첫 호출 때 turn의 skill 판을 만들어 고정한다. 판은 전역 설정(settings/list), 원천 폴더(projects/get·apps/get), 공유 skill(apps/skills)을 core에서 읽는다. 이 읽기들이 실패하면 그 재료는 빈 값이 되어 판에서 빠지고 오류는 돌려주지 않는다"
-      - "판에서 이름을 찾는다. 없으면 not_found, 전역·project 설정에서 끈 skill이면 forbidden이다"
+      - "판에서 이름을 찾는다. 없으면 not_found, 전역·workspace(Home, project, 앱) 설정에서 끈 skill이면 forbidden이다"
       - "본문은 SKILL.md의 frontmatter 뒤 줄이다. SKILL.md가 없거나 24 KiB를 넘거나 frontmatter가 없으면 본문을 읽지 못한 skill이다. 딸린 .md는 skill 폴더 바로 아래의 24 KiB 이하 파일만 판에 든다"
       - "path가 없거나 SKILL.md(앞의 ./와 /를 뗀 뒤)·.이면 본문을, 그 밖이면 딸린 .md 파일을 고른다"
       - "본문이나 파일을 돌려줄 때 300줄을 넘으면 앞부분만 주고 omitted_bytes를 붙인다"
@@ -452,7 +452,7 @@ flows:
       - id: not-enabled
         code: forbidden
         observe: ["response"]
-        when: "이 turn의 켜진 목록에 없다(is not available to this agent: agent 정의가 끈 skill, bare가 고르지 않은 skill). 또는 판에는 있지만 전역·project 설정에서 끈 skill이다(is turned off)"
+        when: "이 turn의 켜진 목록에 없다(is not available to this agent: agent 정의가 끈 skill, bare가 고르지 않은 skill). 또는 판에는 있지만 전역·workspace 설정에서 끈 skill이다(is turned off)"
       - id: not-found
         code: not_found
         observe: ["response"]
@@ -466,6 +466,66 @@ flows:
     docs: [architecture/agent-definition.md]
     unclear:
       - "판을 만드는 core 읽기 셋(settings/list, projects/get·apps/get, apps/skills)은 실패를 빈 값으로 삼킨다. 전역 설정 읽기가 실패하면 등록 폴더 skill이 빠지고 끈 목록이 비어 끈 skill이 켜져 보일 수 있다. 이것이 의도인지 정해야 한다"
+
+  - id: tool-agent-memory
+    title: "agent가 자기 memory 파일을 덧붙이거나 고친다"
+    actor: agent
+    entries: [tool:agent.memory]
+    uses: [route:rewind/stage-file, route:rewind/record-write]
+    boundary: [agent-tools, agent-workspaces, agent-sessions]
+    code:
+      - packages/core/lophn-agent/tools/memory/edit.ts
+      - packages/core/lophn-agent/tools/bundles/memory.ts
+      - packages/core/agent-workspaces/hooks.ts
+      - packages/core/agent-workspaces/workspace/data-folder.ts
+    steps:
+      - "입력은 old_string(선택)과 new_string뿐이다. 파일 자리를 고르는 칸이 없다. 어느 파일인지는 부른 session의 agent id만이 정한다: lophn은 자기 workspace의 memory.md(Home `<data>/home`, project `<data>/projects/<prj>`, 앱 `<data>/apps/<app>`), 사람이 만든 agent는 `<data>/agent-memory/<agt>.md`다"
+      - "data root(LOPHN_HOME)가 절대 경로가 아니거나 agent id로 자리를 정할 수 없으면 unavailable이다"
+      - "파일을 읽는다. 없으면 빈 글이다. ENOENT가 아닌 읽기 오류는 invalid_input이다"
+      - "old_string이 없으면 new_string을 덧붙인다(앞 글이 줄바꿈으로 끝나지 않으면 줄바꿈을 먼저 넣는다). 있으면 정확히 한 번 나온 자리를 new_string으로 바꾼다(빈 new_string은 지운다)"
+      - "결과가 8 KiB(MEMORY_MAX_BYTES)를 넘으면 지금 크기를 알리며 거절하고 파일은 그대로다"
+      - "폴더를 만들고 file tool과 같은 aroundWrite(stage-file, record-write)로 쓴다. rewind가 되돌린다. 쓴 글은 지금 session의 prompt에는 보이지 않고 다음 session부터 보인다(memory는 session 첫 turn에 고정)"
+    outcomes:
+      - id: appended
+        observe: ["disk:<memory 파일>", "ledger:rewind_files", "response"]
+        when: "old_string 없이 new_string을 덧붙였다. rewind 기록이 실패했으면 ledger 행이 없다"
+      - id: replaced
+        observe: ["disk:<memory 파일>", "ledger:rewind_files", "response"]
+        when: "old_string 한 곳을 new_string으로 바꾸거나 지웠다"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "memory 자리를 정할 수 없다(data root가 절대 경로가 아님, agent id가 lophn도 agt도 아님)"
+      - id: cannot-access
+        code: invalid_input
+        observe: ["response"]
+        when: "기존 memory를 읽지 못했다(ENOENT가 아닌 오류)"
+      - id: bad-old-string
+        code: invalid_input
+        observe: ["response"]
+        when: "old_string이 비었거나 new_string과 같다"
+      - id: no-match
+        code: invalid_input
+        observe: ["response"]
+        when: "old_string이 memory에 없다"
+      - id: ambiguous
+        code: invalid_input
+        observe: ["response"]
+        when: "old_string이 여러 번 나온다(횟수를 알린다)"
+      - id: over-limit
+        code: invalid_input
+        observe: ["response"]
+        when: "쓰면 8 KiB를 넘는다(결과 크기와 지금 크기를 알린다)"
+      - id: cannot-write
+        code: invalid_input
+        observe: ["response"]
+        when: "쓰기가 실패했다(cannot write the memory)"
+    crosses_process: false
+    risk: [data-loss, sandbox]
+    docs: [architecture/workspace-session.md]
+    unclear:
+      - "폴더 만들기(mkdir)와 realpath가 던지면 handler가 잡지 않는다. tool 실행기가 어느 code로 바꾸는지 확인하지 못했다"
+      - "사람이 편집기에서 연 memory(memory-open)와 agent.memory가 같은 파일을 동시에 쓰면 agent 쪽에는 hash 비교가 없어 사람의 저장이 덮일 수 있다(rewind는 agent 쓰기만 되돌린다)"
 
   - id: tool-ask
     title: "사람(또는 팀의 부모)에게 질문하고 답을 기다린다"
@@ -682,18 +742,19 @@ flows:
       - packages/core/agent-workspaces/workspace/data-folder.ts
     steps:
       - "turn 시작에 core 읽기(agent 자격)로 workspace 재료를 모은다. project는 projects/get으로 폴더를, 앱은 apps/get으로 source와 더한 폴더를 읽는다. home은 projects/list와 apps/list로 등록된 모든 project 폴더와 앱 목록을 읽는다. 모든 종류가 agents/list를 읽는다"
-      - "project와 앱은 skills·artifacts 폴더를, project는 또 workflows 폴더를 없으면 만든다. 만들지 못한 폴더는 범위에서 뺀다. 팀(team/read)과 앱 도움말 재료(tool_index, usage, packages/list)는 실패하면 빈 값이다"
+      - "project와 앱은 skills·artifacts 폴더를, project는 또 workflows 폴더를, home은 skills 폴더를 없으면 만든다. 만들지 못한 폴더는 범위에서 뺀다. 팀(team/read)과 앱 도움말 재료(tool_index, usage, packages/list)는 실패하면 빈 값이다"
       - "workspaceScope가 종류별 read·write 목록과 base(상대 경로의 기준)를 정한다. 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 목록 앞에 오고 base는 그 첫 폴더다. 사람의 폴더가 없으면 base는 workspace data 폴더고 목록에는 들지 않는다"
       - "projects/get, apps/get, projects/list, apps/list, agents/list 중 하나라도 실패하면 범위를 정하지 않고 그 오류를 run-loop에 돌려준다"
-      - "home이 다른 workspace가 부른 것이면 읽기 범위를 비운다. 직접 연 home은 등록된 project 폴더를 읽기만 연다"
+      - "home이 다른 workspace가 부른 것이면 등록된 project 폴더는 읽기 범위에서 뺀다. 직접 연 home은 등록된 project 폴더를 읽기만 연다. 어느 home이든 자기 skills 폴더는 읽고 쓴다"
+      - "memory 파일(workspace의 memory.md, agent-memory/<agt>.md)은 어느 종류의 file tool 범위에도 넣지 않는다. memory tool(tool-agent-memory)만 쓴다. rewind의 쓰기 폴더에만 session의 memory 폴더가 더해진다(workspace-folders-glue)"
       - "앱 data·release 사본과 agent 정의 폴더는 어느 종류에도 열지 않는다. tool-results 폴더는 withToolResults가 읽기 칸(results)에만 더한다"
     outcomes:
       - id: home
-        observe: ["response"]
-        when: "직접 연 home session(workspace 없음)이다. 읽기는 등록된 모든 project 폴더이고 쓰기는 없다"
+        observe: ["disk:<data>/home/skills", "response"]
+        when: "직접 연 home session(workspace 없음)이다. 읽기는 등록된 모든 project 폴더와 home의 skills 폴더이고 쓰기는 home의 skills 폴더뿐이다"
       - id: home-called
-        observe: ["response"]
-        when: "다른 workspace session이 부른 home이다. 읽기와 쓰기 모두 비어 있다"
+        observe: ["disk:<data>/home/skills", "response"]
+        when: "다른 workspace session이 부른 home이다. 등록된 project 폴더는 읽지 못하고 home의 skills 폴더만 읽고 쓴다"
       - id: project
         observe: ["disk:<data>/projects/<prj>/{workflows,skills,artifacts}", "response"]
         when: "project workspace다. 사람의 폴더와 workflows·skills·artifacts가 읽고 쓰는 범위다. 못 만든 폴더는 빠지고, 팀이나 도움말 재료 읽기가 실패해도 범위는 정해진다"
@@ -721,7 +782,7 @@ flows:
       - packages/core/lophn-agent/run-loop/prepare.ts
     steps:
       - "main/agent-tools.ts가 내장 tool 정의를 모아 TOOL_ORDER로 정렬한다. 이 순서가 model에 보이는 bytes다"
-      - "workspace 종류의 이름 목록(공통 목록, visual.show, project와 app은 WORK_TOOLS)을 selectTools로 정의와 맞춘다"
+      - "workspace 종류의 이름 목록(공통 목록(agent.memory 포함), visual.show, project와 app은 WORK_TOOLS)을 selectTools로 정의와 맞춘다"
       - "resolveModel로 model을 고른다(실패하면 목록을 만들지 못한다). model이 image 입력을 받지 않으면 image.read를 뺀다"
       - "lophn 명령 정의와 외부 MCP·extension tool을 더해 세션 시작 때 고정하고, turn마다 같은 목록을 쓴다"
       - "bare agent는 고른 이름(picks)만 보이고, lophn tool은 고른 명령이 있을 때만 선다. 앱 command 읽기가 실패하면 앱 command 없이 만든다"
@@ -760,13 +821,13 @@ flows:
     steps:
       - "runtime이 turn을 시작할 때 credential open을 core에 청하면서 session의 종류를 싣는다. core가 그 종류의 workspaceOperations(종류, 내장 tool 정의)로 상한을 정해 발급한다"
       - "상한은 종류 목록 tool이 부르는 route, 그 종류 lophn 명령의 route, project와 앱 읽기 route, 공통 AGENT_BASE_OPERATIONS의 합집합이다"
-      - "목록에 file.write나 file.edit가 있으면 rewind의 stage-file과 record-write route를 더한다"
+      - "목록에 file.write, file.edit, agent.memory 가운데 하나가 있으면 rewind의 stage-file과 record-write route를 더한다. agent.memory는 공통 목록이라 home도 이 route를 갖는다"
       - "project와 app 종류는 annotations/get을 더한다. home에는 없다"
       - "core는 같은 상한으로 credential의 route 호출을 대조하고, 밖이면 forbidden이다. agentConditions가 app·project 조건을 credential에 고정한다"
     outcomes:
       - id: home
         observe: ["response"]
-        when: "home 종류다. 작업 tool, rewind route, annotation 읽기가 없다"
+        when: "home 종류다. 작업 tool과 annotation 읽기가 없다. agent.memory가 공통 목록에 있어 rewind route(stage-file, record-write)는 든다"
       - id: project
         observe: ["response"]
         when: "project 종류다. rewind route와 annotation 읽기가 든다"

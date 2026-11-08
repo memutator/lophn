@@ -1,5 +1,11 @@
 group: core-rest
 files:
+  - path: packages/core/agent-workspaces/hooks_test.ts
+    covers:
+      - tool-agent-memory:appended
+      - tool-agent-memory:over-limit
+    note: "agent.memory는 부른 agent의 파일만 쓴다: 사람이 만든 agent는 agent memory, lophn은 자기 workspace memory만. 자리를 고르는 입력은 받지 않고 8 KiB를 넘는 쓰기는 거절하며 파일은 그대로다"
+
   - path: packages/core/agent-workspaces/tool-lists_test.ts
     covers: [tool-list-assembly:fixed]
     note: workspace 종류별 model tool 목록의 wire 이름 충돌과 종류별 포함 규칙
@@ -7,6 +13,10 @@ files:
   - path: packages/core/agent-workspaces/workspace/data-folder_test.ts
     covers: []
     note: data root 아래 workspace 폴더 자리 계산(순수 path helper)
+
+  - path: packages/core/agent-workspaces/workspace/project-layer_test.ts
+    covers: []
+    note: "extensions.json 자리 규칙(Home은 data root의 home 폴더)과 앱 층 MCP server가 그 앱 session에만 실리는 것. 두 갈래의 workspace 층 조회라 flow outcome을 덮지 않는다"
 
   - path: packages/core/agent-workspaces/workspace/workspace-folders_test.ts
     covers:

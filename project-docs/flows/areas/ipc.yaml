@@ -427,6 +427,7 @@ links:
   - {entry: "ipc:shell:file-read-bytes", flow: editor-open}
   - {entry: "ipc:shell:file-watch", flow: editor-open}
   - {entry: "ipc:shell:instructions-open", flow: editor-open}
+  - {entry: "ipc:shell:memory-open", flow: editor-open}
   - {entry: "ipc:shell:file-write", flow: editor-save}
   - {entry: "ipc:shell:file-changed", flow: editor-disk-watch}
   - {entry: "ipc:shell:file-counts", flow: editor-window-close}

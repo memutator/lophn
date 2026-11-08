@@ -46,7 +46,7 @@ files:
 
   - path: packages/core/lophn-agent/instructions/read_test.ts
     covers: [instruction-read:ok]
-    note: "project 층 지침은 session workspace가 가리키는 project의 LOPHN.md(없으면 CLAUDE.md)만 읽는다"
+    note: "project 층 지침은 session workspace가 가리키는 project의 LOPHN.md(없으면 CLAUDE.md)만 읽는다. Home·앱 층 읽기는 이 test가 보지 않는다"
 
   - path: packages/core/lophn-agent/message-images_test.ts
     covers: [message-image-path:ok, message-image-path:forbidden, message-image-path:not_found, message-image-path:invalid_input, message-image-upload:invalid_input]
@@ -147,6 +147,10 @@ files:
   - path: packages/core/lophn-agent/run-loop/live-turns_test.ts
     covers: [turn-stop:stopped, model-call-run:live-secret-held]
     note: "멈추면 사람이 본 글을 StopTurn 전에 agent message로 남긴다. 쓰는 중 글의 secret 가림은 model-call-run:live-secret-held"
+
+  - path: packages/core/lophn-agent/run-loop/prepare_test.ts
+    covers: [turn-loop:memory-fixed]
+    note: "session 중에 쓴 memory가 뒤 turn의 system bytes를 바꾸지 않고(prefix cache) Compact 뒤에는 새로 읽는다"
 
   - path: packages/core/lophn-agent/run-loop/queue_test.ts
     covers: [session-send:ok, session-steer:ok, queued-edit:ok, queued-edit:conflict, queued-move:ok, queued-steer-now:ok, queued-steer-now:conflict, queued-remove:ok, queued-remove:conflict]

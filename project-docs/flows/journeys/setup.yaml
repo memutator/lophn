@@ -251,8 +251,24 @@ journeys:
     actor: person
     goal: 한 project의 대화가 전역 기본과 다른 model을 쓰도록 정한다
     steps:
-      - {do: "project 창의 Agents 탭에서 project 층 model 칸을 본다. 줄이 없으면 전역 기본을 따른다", screen: new-project-agents, flow: project-model-read:ok}
-      - {do: "model을 고른다. 전역 기본이 비어 있으면 같은 model이 전역 기본으로 들어간다", screen: new-project-agents, flow: project-model-change:ok}
+      - {do: "project 창의 Agents 탭에서 project 층 model 칸을 본다. 줄이 없으면 전역 기본을 따른다", screen: new-project-agents, flow: workspace-model-read:ok}
+      - {do: "model을 고른다. 전역 기본이 비어 있으면 같은 model이 전역 기본으로 들어간다", screen: new-project-agents, flow: workspace-model-change:ok}
+
+  - id: choose-home-model
+    title: Home의 Agents 탭에서 Home model을 고른다
+    actor: person
+    goal: Home의 lophn 대화가 전역 기본과 다른 model을 쓰도록 정한다(앱 창의 Agents 탭도 같은 route를 앱 id로 쓴다)
+    steps:
+      - {do: "Home의 Agents 탭에서 Home 층 model 칸을 본다. 줄이 없으면 전역 기본을 따른다", screen: agents-tab-home, flow: workspace-model-read:ok}
+      - {do: "model을 고른다. 전역 기본이 비어 있으면 같은 model이 전역 기본으로 들어간다", screen: agents-tab-home, flow: workspace-model-change:ok}
+
+  - id: edit-workspace-memory
+    title: Agents 탭에서 workspace memory를 열어 고친다
+    actor: person
+    goal: agent들이 session마다 받는 workspace memory를 사람이 직접 읽고 고친다
+    steps:
+      - {do: "Agents 탭의 memory 칸에서 memory 파일을 편집기로 연다. 파일이 없으면 빈 buffer다", screen: agents-tab-home, flow: editor-open:ready}
+      - {do: "글을 고치면 800ms 뒤 저장된다. 다음 session의 prompt부터 반영된다", flow: editor-save:saved}
 
   - id: manage-models
     title: Manage models에서 picker에 보일 model을 고르고 정보를 적는다
@@ -320,8 +336,10 @@ journeys:
     actor: person
     goal: 한 project에만 쓰는 MCP 서버를 project Agents 탭에서 더하거나 끈다
     steps:
-      - {do: "project Agents 탭에서 project 층 MCP 서버와 끈 항목을 읽는다", screen: new-project-agents, flow: project-extension-read:ok}
-      - {do: "project 층 MCP 서버를 더하거나 끈 뒤 저장한다", screen: new-project-agents, flow: project-extension-change:ok}
+      - {do: "project Agents 탭에서 project 층 MCP 서버와 끈 항목을 읽는다", screen: new-project-agents, flow: workspace-extension-read:ok}
+      - {do: "project 층 MCP 서버를 더하거나 끈 뒤 저장한다", screen: new-project-agents, flow: workspace-extension-change:ok}
+    gaps:
+      - "Home과 앱 창의 Agents 탭도 같은 두 route를 workspace 열쇠(home, 앱 id)로 부르지만 이 journey는 project 화면만 가리킨다"
 
   - id: settings-general-change
     title: Settings › General의 값을 바꾼다

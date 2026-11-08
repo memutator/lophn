@@ -125,7 +125,7 @@ files:
     note: mayCall 권한 경계. private workspace와 workspace·agent 쌍 규칙, home lophn의 reply none 예외. call.send와 team.spawn이 같은 판정을 쓴다
 
   - path: packages/protocol/lophn-agent/mcp-settings_test.ts
-    covers: [project-extension-change:invalid_input]
+    covers: [workspace-extension-change:invalid_input]
     note: MCP 서버 설정 schema. secret 이름은 mcp. 앞머리만, stdio env의 secret 거절
 
   - path: packages/protocol/lophn-agent/message-content_test.ts

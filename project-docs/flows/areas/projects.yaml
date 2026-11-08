@@ -500,14 +500,16 @@ flows:
       - ipc:shell:file-read-bytes
       - ipc:shell:file-watch
       - ipc:shell:instructions-open
+      - ipc:shell:memory-open
     boundary: [shell]
     code:
       - packages/shell/renderer/editor/use-file.ts
       - packages/shell/renderer/editor/sessions.ts
       - packages/shell/main/editor/file-adapter.ts
       - packages/shell/main/editor/instructions.ts
+      - packages/shell/main/editor/memory.ts
     steps:
-      - "renderer가 path를 editor session으로 붙인다. LOPHN.md는 instructions-open이 path를 먼저 정한다(project 첫 등록 폴더, 없으면 data root의 project 자리)"
+      - "renderer가 path를 editor session으로 붙인다. 지침 파일과 memory 파일은 main이 path를 먼저 정한다. instructions-open은 전역(data root의 LOPHN.md), Home(data root의 home 폴더, 없으면 만든다), project(첫 등록 폴더, 없으면 data root의 project 자리)의 LOPHN.md와 앱 source의 AGENTS.md를 정한다. memory-open은 workspace의 memory.md(Home `home`, `projects/<prj>`, `apps/<app>`)나 agent의 `agent-memory/<agt>.md`를 정하고 부모 폴더를 만든다. 파일이 없으면 빈 buffer로 열려 첫 저장이 만든다"
       - "main은 secrets.json만 forbidden으로 막고 나머지는 디스크에서 직접 읽는다. 상대 path는 invalid_input이다"
       - "8 MiB 이하이고 NUL과 깨진 UTF-8이 없는 글이면 text·hash·modified_at을 돌려준다"
       - "8 MiB를 넘으면 편집 session 없이 bytes를 읽기 전용으로 보여 준다"
@@ -529,14 +531,14 @@ flows:
         observe: ["response"]
       - id: invalid-path
         code: invalid_input
-        when: "절대 경로가 아니다, 또는 입력이 schema와 다르다(지침 target의 층·workspace 모양 포함)"
+        when: "절대 경로가 아니다, 또는 입력이 schema와 다르다(지침·memory target의 층·workspace·agent id 모양 포함)"
         observe: ["response"]
       - id: watch-refused
         observe: ["response"]
         when: "file-watch가 secrets.json 등을 거절했다. 편집기는 열리고 밖의 변화 알림만 빠진다(renderer가 답을 버린다)"
       - id: unavailable
         code: unavailable
-        when: "그 밖의 디스크 오류이거나 LOPHN.md 자리를 정하지 못했다(project 폴더를 읽지 못함, data root의 project 폴더를 못 만듦)"
+        when: "그 밖의 디스크 오류이거나 지침·memory 파일 자리를 정하지 못했다(project 폴더를 읽지 못함, data root의 project·Home·memory 폴더를 못 만듦, 앱에 source 폴더가 없음)"
         observe: ["response"]
     crosses_process: true
     risk: [secret]

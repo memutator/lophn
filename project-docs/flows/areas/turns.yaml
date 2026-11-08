@@ -22,7 +22,7 @@ flows:
         when: turn이 running으로 시작되고 loop가 돈다
       - id: closed-model-required
         observe: [ledger:turns, event:TurnStarted, event:TurnEnded]
-        when: session, agent, project, 전역 어디에도 model이 없다(resolveAgent의 model 실패, failed model_required)
+        when: session, agent, workspace 층(Home, project, 앱), 전역 어디에도 model이 없다(resolveAgent의 model 실패, failed model_required)
       - id: closed-target-unavailable
         observe: [ledger:turns, event:TurnStarted, event:TurnEnded]
         when: agent 정의가 없다(agent_missing)거나 harness runtime의 session이라 lophn이 돌리지 않는다(failed target_unavailable)
@@ -95,7 +95,7 @@ flows:
     steps:
       - "걸음마다 먼저 멈춤을 본다. core가 turn 행을 이미 닫았으면 FinishTurn 없이 stopped로 끝난다"
       - "접수 입력(첫 입력과 steer)을 고르고 model 시도 수와 무진행 시간 한도, provider 연결을 본다"
-      - "prompt를 조립한다. 지난 model 요청 뒤 지침 층 글이 달라졌으면 instructions_changed notice를 대화 끝에 붙인다. 예산의 85%를 넘으면 turn 안 Compact나 오래된 tool 결과 줄이기로 낮추고, 그래도 input_over_budget이면 context_limit으로 끝낸다"
+      - "prompt를 조립한다. system은 workspace 종류 지침, 지침 층(global, home | project | app, agent), memory(workspace memory, agent memory), skill 목록, workspace 정보 순이다. memory는 session 첫 turn에 읽어 고정해 그 session 안에서는 같은 bytes로 가고(Compact 뒤나 daemon 재기동 뒤에는 다시 읽는다) 세션 중에 쓴 memory는 다음 session부터 보인다. 읽지 못한 memory 파일은 빈 글로 보고 turn을 막지 않는다. 지난 model 요청 뒤 지침 층 글이 달라졌으면 instructions_changed notice를 대화 끝에 붙인다. 예산의 85%를 넘으면 turn 안 Compact나 오래된 tool 결과 줄이기로 낮추고, 그래도 input_over_budget이면 context_limit으로 끝낸다"
       - "model-call-run으로 model 호출 하나를 하고 완전한 응답이면 그 응답을 agent message로 남긴다"
       - "tool 응답이면 tool-call-batch로 묶음을 실행하고 결과를 이력에 붙인 뒤 checkpoint한다"
       - "tool 없는 완전한 답이면 미반영 steer를 확인하고 completed(answer_completed)로 FinishTurn한다. steer가 남았으면 끝내지 않고 다음 판단으로 간다"
@@ -104,6 +104,9 @@ flows:
       - id: instructions-notice
         observe: ["request:model"]
         when: "지난 model 요청 때 본 지침 층 글과 지금 글이 달라 instructions_changed notice가 붙었다. 바뀐 층의 새 글 전체가 실리고, 비운 층은 (empty now)로 적힌다. 지난 판이 없는 첫 요청에는 붙지 않는다"
+      - id: memory-fixed
+        observe: ["request:model"]
+        when: "workspace memory나 agent memory가 비어 있지 않아 system에 Memory block(자료 경계 안, 출처별)이 실렸다. session 첫 turn에 읽은 글이 그 session의 뒤 turn에도 같은 bytes로 간다. Compact로 경계가 바뀌면 다시 읽는다. bare는 workspace memory를 받지 않고 자기 agent memory만 받는다"
       - id: completed
         observe: [ledger:turns, ledger:messages, event:MessageRecorded, event:TurnEnded]
         when: 완전한 답으로 끝났다(answer_completed)

@@ -155,6 +155,7 @@ files:
 
 - git이 아는 `*_test.ts` 하나가 어느 group에 꼭 한 번 오른다.
 - `covers`에는 그 test가 그 outcome이 일어난 것을 단정할 때만 쓴다. 준비 단계로 거쳐 가기만 하는 outcome은 쓰지 않는다.
+- route를 부르지 않아도 그 outcome을 가르는 판정 함수(선언 비교, Gate 판정, 검사, 상태 전이)를 단정하는 unit test는 그 outcome을 덮는다. parser, 형식, 계산 helper처럼 outcome을 가르지 않는 것만 보는 test가 `covers: []`다.
 - 층은 path로 정한다: `tests/e2e/` core-e2e, `tests/harness/loop/` harness-loop, `tests/harness/wire/` harness-wire, `tests/live/` live, 나머지 unit.
 
 ## 고칠 때

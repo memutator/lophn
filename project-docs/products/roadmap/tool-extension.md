@@ -42,9 +42,10 @@ tool registry (`packages/core/lophn-agent/tools/`)
 
 - manifest `contributes.tools[]`: `{name, description, inputSchema, effect}`. schema는 정적이다.
 - `activate(ctx)`에서 `ctx.tools.handle(name, handler)`. handler는 입력과 호출 context(session, workspace, 그 호출의 agent 자격으로 부르는 `core`)를 받아 MCP ContentBlock 배열(text, image)을 돌려준다.
-- 호출 길: run-loop → core host queue(`agent-surface.md`) → shell main extension handler → 결과. shell이 붙어 있지 않거나 extension이 꺼졌으면 그 호출은 `unavailable`이다.
+- tool 목록: core는 manifest를 읽지 못하므로 shell main이 판이 맞는 manifest의 tool 목록을 core에 올린다. core는 메모리에만 두고 shell이 다시 붙을 때마다 다시 받는다. 올리기 전에 연 session은 목록이 온 뒤 `tools_changed`로 받는다.
+- 호출 길: run-loop → core host queue(`agent-surface.md`) → shell main extension handler → 결과. shell이 붙어 있지 않으면 그 호출은 `unavailable`이다.
 - 정의에 사람만 쓰는 칸 `extensions`(extension id 목록)를 더한다. 할당한 extension의 tool이 그 agent의 `tools[]`에 들어간다. bare는 그 안에서 `tools`로 고른다.
-- Gate에 `extension_tool`을 더한다. 할당했으면 run, 아니면 `not_assigned`, extension이 꺼졌거나 tool이 없어지면 `removed`.
+- Gate에 `extension_tool`을 더한다. 할당했으면 run, 아니면 `not_assigned`, 켜진 extension의 목록에서 빠졌으면(꺼짐, tool 없어짐) `removed`.
 - harness agent는 같은 tool을 CLI로 부른다(`lophn` 명령 하나, 입력은 JSON). 자격과 Gate는 같다.
 - 편집기의 할당 화면에 extension을 고르는 칸을 더한다.
 
@@ -56,7 +57,7 @@ tool registry (`packages/core/lophn-agent/tools/`)
 4. 할당이 곧 허락이다. 실행 때 묻지 않고 결과를 `<lophn-untrusted>`로 감싸지 않는다. (agent) 사람이 설치하고 켜고 할당한 code는 MCP처럼 믿는다(`agent-definition.md:53`, `approval.md:36`).
 5. handler가 core를 부를 때는 사람 권한이 아니라 그 호출 session의 agent 자격(상한은 그 workspace 종류)을 쓴다. (agent) agent가 tool 하나로 사람 권한을 얻지 않게. harness turn 자격(`harness-credential.ts`)과 같은 선례.
 6. 처음부터 다 싣는다. 늦게 싣기는 하지 않는다. (agent) `agent-definition.md:69` "숨기거나 늦게 펼치는 장치는 없다". tool이 많은 extension의 비용은 사람이 할당으로 조절한다(MCP와 같다, `command-surface.md:132`).
-7. model에 보이는 이름 꼴은 provider 이름 규칙과 내장 tool 이름 규칙을 보고 계획이 정한다. 내장·MCP 이름과 겹치지 않게 extension id를 접두로 둔다. (agent)
+7. model에 보이는 이름은 `ext__<extension id>__<tool name>`이다. provider 이름 규칙(`[A-Za-z0-9_-]{1,64}`)에 맞고 내장(`_` 하나)·MCP(`mcp__`)와 겹치지 않는다. tool name은 `[a-z][a-z0-9_]*`이고 `__`가 없으며 길이는 manifest schema가 막는다. (agent, 계획 agent-surface가 정함)
 8. extension tool의 첫 실제 사용자는 browser-use extension이다. 이 로드맵은 test extension fixture로만 확인한다. (agent) AGENTS.md "쓰일지 모를 확장 지점을 미리 만들지 않는다"와 어긋나지만, 사람이 명시해 만든다.
 
 ## 단계

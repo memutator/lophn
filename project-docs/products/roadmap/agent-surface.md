@@ -67,7 +67,7 @@ desk coordinator (root, 사람이 연 session)
 ### 연락처와 소통 (A2A 확장)
 
 - `team read`: 부모, 형제, 자식의 handle·description·runtime·상태. 명함 전체는 지금처럼 `agent card`.
-- 연락처는 system prompt에 싣지 않는다. 형제가 늘고 줄면 notice `team_changed`(고정 글)만 대화 끝에 간다.
+- 연락처는 system prompt에 싣지 않는다. 부모·형제·자식이 늘고 줄면 notice `team_changed`(고정 글)만 대화 끝에 간다. `tools_changed`처럼 turn을 준비할 때 앞에 본 팀과 비교해 붙이므로 그 session의 다음 turn에 닿는다. 쉬던 session을 깨우지 않는다.
 - 소통은 지금 `call.send|reply|cancel` 그대로다. 새 call 꼴을 만들지 않는다.
 
 ### 탭 열기
@@ -82,7 +82,7 @@ desk coordinator (root, 사람이 연 session)
 
 ### host queue
 
-- core → shell 요청 통로가 없다. harness queue(`harness/take` → `start_turn`, extension `harness`가 1초마다 가져감)를 일반화해 core 메모리의 host queue 하나를 두고, shell main이 가져가 그 workspace를 보이는 창에 push한다(`$BROWSER` bridge와 같은 push·ack). `tool-extension.md`의 extension tool 호출도 같은 queue를 쓴다.
+- core → shell 요청 통로가 없다. harness queue(`harness/take` → `start_turn`, extension `harness`가 1초마다 가져감)와 같은 꼴로 core 메모리의 host queue 하나를 새로 두고, shell main이 가져가 그 workspace를 보이는 창에 push한다(`$BROWSER` bridge와 같은 push·ack). `tool-extension.md`의 extension tool 호출도 같은 queue를 쓴다. harness queue는 session마다 turn 입력을 담는 run-loop queue라 요청 종류를 실을 자리가 없어 그대로 둔다(계획 agent-surface가 확인, 2026-11-08). 창 IPC 직통이나 새 socket push 같은 다른 통로는 만들지 않는다.
 - shell이 붙어 있지 않거나(standalone core) 그 workspace를 보이는 창이 없으면 요청은 대기한다. agent는 기다리지 않는다(`tab open`은 접수만 답한다). core가 다시 뜨면 대기 요청은 사라진다.
 - browser 상태는 agent가 연 탭만 renderer가 core에 알려 둔다. 그 탭이 없으면 `browser read`는 `not_found`다.
 
@@ -94,7 +94,7 @@ desk coordinator (root, 사람이 연 session)
 4. `agent-platform.md`의 "agent도 client는 뺀다"는 탭을 열고 배치하고 agent가 연 browser 탭의 상태를 읽는 데까지만 연다. 앱 화면 읽기·조작은 계속 없다. (사람, 2026-11-08)
 5. TUI는 harness agent session을 TUI로 여는 것이다. 아무 명령을 터미널에 띄우는 것은 하지 않는다. (사람, 2026-11-08)
 6. spawn은 `team spawn`으로만 팀을 만든다. 지금 `call.send`의 `to: {agent, workspace}` 새 session은 팀 밖(`spawned_by` 없음)으로 그대로 둔다. (agent) home lophn이 project lophn에 넘기는 지금 흐름이 갑자기 팀 규칙(밖으로 call 못 함)에 묶이지 않게.
-7. 상한: desk당 열린 팀원 수와 tree 깊이를 설정(`lophn-agent.team`)으로 두고 넘으면 `conflict`다. 기본값은 계획이 정한다. (agent) agent 실수로 spawn이 되풀이되면 비용이 터진다(AGENTS.md "속도").
+7. 상한: desk당 열린 팀원 수와 tree 깊이를 설정(`lophn-agent.team`, 기본 `max_members: 16`, `max_depth: 3`)으로 두고 넘으면 `conflict`다. core는 desk를 모르므로 팀원 수는 root session 아래 열린 자손 수로 센다. desk는 root가 있는 자리라 같은 뜻이다. (agent) agent 실수로 spawn이 되풀이되면 비용이 터진다(AGENTS.md "속도").
 8. 일 나누기는 program이 하지 않는다. 새 worker에게 무엇을 줄지는 coordinator가 call 본문으로 정한다. (agent) workflow의 "program은 기록하고 전달만"과 같다.
 9. 연락처는 prompt가 아니라 `team read`로 읽고 바뀌면 notice만 간다. (agent) 작업 중 팀원이 늘고 줄 때마다 prompt cache가 깨지지 않게(`agent-definition.md` "같은 재료는 같은 bytes").
 10. TUI 탭이 열린 동안 그 session의 headless turn은 시작하지 않고 입력은 queue에 남는다(call은 accepted). TUI가 끝나면 이어 돈다. TUI에서 한 turn은 lophn 기록에 남지 않고, 다음 headless turn이 같은 CLI session을 resume하므로 agent는 기억한다. (agent) 한 CLI session에 두 process가 동시에 쓰지 않게. 기록에 남기기는 쓰는 곳이 생기면 한다.
@@ -104,7 +104,7 @@ desk coordinator (root, 사람이 연 session)
 | 단계 | 하는 일 |
 |---|---|
 | 0 | agent definition 정리: Agents 목록·카드·편집기에 범위(전역 / `<name> · project` / `<name> · app`) 표시, workspace의 Agents 탭은 전역과 그 workspace 범위만, 새 agent 범위 고르기(기본은 연 workspace, home이면 전역. core user actor는 이미 `workspace`를 받는다), 카드 runtime이 harness를 `lophn`으로 보이는 bug(`renderer/workspace/agents/agent-card.tsx:27-33`), 문서 어긋남(`agent-definition.md:85` 앱 삭제가 범위 agent를 지운다, `:30`·`:69` 앱 tool이 `tools[]`에 있다는 옛 문장, `agent-call.md:18` 지운 `coding_agent`) |
-| 1 | host queue(harness queue 일반화)와 `tab open`(agent session, browser), `browser read` |
+| 1 | host queue(harness queue와 같은 꼴로 새로)와 `tab open`(agent session, browser), `browser read` |
 | 2 | `spawned_by`(ledger step), `team spawn|read|end`, 규칙 세 줄, 상한, `team_changed` notice, 자식을 부모 옆 group에 열기 |
 | 3 | harness agent TUI 탭(정한 것 10 포함) |
 
@@ -118,3 +118,6 @@ desk coordinator (root, 사람이 연 session)
 - 아무 명령의 터미널 탭, 사람이 연 터미널에 메시지 넣기(coding session 층은 지웠다).
 - workflow desk·참가자를 팀으로 옮기기. workflow는 지금 그대로 두고 팀을 써 본 뒤 정한다.
 - 사람이 손으로 session을 팀에 넣고 빼기(`join`). 필요해지면 명령 하나로 더한다.
+- 사람이 부모 session을 archive할 때 자식까지 닫기. 자식은 남는다.
+- home·앱 workspace session의 TUI 탭. home에는 터미널이 없고 앱 workspace의 headless cwd는 터미널 cwd 검사를 지나지 못한다. 이번에는 project workspace의 session만 연다. 첫 turn 전(CLI session id 없음)이거나 turn이 도는 중이면 `conflict`다.
+- TUI에서 `/clear` 같은 것으로 CLI session id가 바뀌는 경우를 따라가기.

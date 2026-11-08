@@ -32,7 +32,7 @@ harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(`tab
 
 1. **열기 판정(core).** `tabs/open`의 `tui` target은 이렇게 거른다.
    - session runtime이 harness가 아니면 `invalid_input`.
-   - session workspace가 project가 아니면 `invalid_input`. home은 터미널이 없고(`terminal.tsx`의 "Home has no terminal"), 앱 workspace의 headless cwd(`source_path`)는 터미널 cwd 검사(등록한 project 폴더)를 지나지 못한다(planner에게 보고한 것: 이번에는 project만).
+   - session workspace가 project가 아니면 `invalid_input`. home은 터미널이 없고(`terminal.tsx`의 "Home has no terminal"), 앱 workspace의 headless cwd(`source_path`)는 터미널 cwd 검사(등록한 project 폴더)를 지나지 못한다이번에는 project만 연다(사람 확인, 2026-11-08. roadmap "하지 않는 것").
    - `harness_session`이 아직 없으면(첫 turn 전) `conflict`("this session has not run yet").
    - turn이 돌고 있으면(`queue.isRunning`) `conflict`("a turn is running; wait or stop it").
    - 통과하면 그 자리에서 hold를 건다(아래). core는 한 thread라 판정과 hold 사이에 turn이 끼지 못한다.

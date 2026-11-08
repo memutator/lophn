@@ -82,21 +82,6 @@
   font-size: var(--type-caption-size);
 }
 
-/* 칸이 돌려 보는 tab의 넘기기(‹ 2/3 ›). 줄 오른쪽 ⋯ 앞의 고정 자리다. */
-.cycle {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-}
-
-.cycleAt {
-  min-width: var(--space-8);
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
 .ready {
   flex: none;
   width: var(--space-3);

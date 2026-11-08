@@ -5,8 +5,6 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Columns2,
   Copy,
@@ -59,9 +57,6 @@ export const shellIcons = {
   splitDown: Rows2,
   splitRemove: SquareArrowOutUpRight,
   unsplit: RectangleHorizontal,
-  // 칸 머리에서 칸이 돌려 보는 tab을 넘긴다.
-  panePrevious: ChevronLeft,
-  paneNext: ChevronRight,
   detach: ExternalLink,
   copy: Copy,
   // 빈 desk의 단추와 tab 아이콘.

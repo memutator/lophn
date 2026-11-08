@@ -9,9 +9,6 @@ import { word } from "./i18n.ts";
 
 type TrayItemId = "home" | "autostart" | "stop" | "quit";
 
-/** lead 등록 요청: `common.label.tray-stop`("Stop lophn"). catalog에 오르면 word()로 바꾼다. */
-const STOP_LABEL = "Stop lophn";
-
 /** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다. */
 type TrayNotice = "global-search-unavailable";
 
@@ -61,7 +58,7 @@ function trayMenu(
     ...(shown.length > 0
       ? [...shown, { type: "separator" } satisfies TrayMenuItem]
       : []),
-    { type: "normal", id: "stop", label: STOP_LABEL },
+    { type: "normal", id: "stop", label: word("common.label.tray-stop") },
     { type: "normal", id: "quit", label: word("common.label.tray-quit") },
   ];
 }

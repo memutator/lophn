@@ -72,6 +72,7 @@ export const common = {
   "common.label.tray-home": "Home",
   "common.label.tray-quit": "Quit lophn",
   "common.label.tray-start-at-login": "Start at login",
+  "common.label.tray-stop": "Stop lophn",
   "common.label.tray-tooltip": "lophn",
   "common.label.value-range": "{start}–{end}",
   "common.notice.coding-agent-register-failed":

@@ -2123,6 +2123,15 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const shown = (
     group === null ? [desk.selected] : leavesOf(group.layout)
   ).flatMap((key) => deskTab(key) ?? []);
+  // agent가 연 browser·preview 탭(key `host:`)은 사람이 고르기 전에도 본문을 mount한다. 그래야 page가 붙어 agent가 바로 다룬다.
+  // 자리가 없어(display: none) 사람 화면에는 나오지 않고, 고르면 이 자리에서 pane 안으로 옮겨 mount된다(webview는 key로 이어진다).
+  const hiddenHostTabs = desk.tabs.filter(
+    (tab) =>
+      tab.key.startsWith("host:") &&
+      (tab.kind === "browser" || tab.kind === "app_preview") &&
+      tab.fields?.native !== true &&
+      !shown.some((item) => item.key === tab.key),
+  );
   // key의 칸 옆에 다음 plain tab을 붙인다. group은 그 leaf 옆에 끼고 가득 차면 아무 일도 없다.
   const splitNext = (key: string, side: "right" | "bottom") => {
     const partner = splitPartner(latestDesk(), key);
@@ -2964,6 +2973,11 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
               floats={
                 <>
                   {pool === null ? <WebviewLayer host={webviews} /> : null}
+                  <div hidden data-host-hidden="">
+                    {hiddenHostTabs.map((tab) => (
+                      <div key={tab.key}>{bodyOf(tab, false)}</div>
+                    ))}
+                  </div>
                   <FloatLayer
                     layerRef={floatRef}
                     area={stageSize}

@@ -9,6 +9,7 @@ import { t } from "@lophn/i18n";
 import { STAY } from "../app-frame/annotate/use-view-toast.ts";
 import { useAppViews, useAppWorkspace } from "../app-frame/app-views.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
+import { useWebviewHost } from "../app-frame/webview-host.tsx";
 import type { AppRow, AppsSource } from "../apps/source.ts";
 import {
   type CoreSource,
@@ -173,6 +174,15 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
   }, [source, app, release, preview?.nonce]);
 
   const agent = useAgentControl(props.tabKey, state?.view_session ?? null);
+  // agent가 다루는 동안은 가려져도 그리기를 이어 간다. view의 element key가 view session이다.
+  const webviews = useWebviewHost();
+  const drivenKey = state?.view_session ?? null;
+  const driven = agent !== null;
+  useEffect(() => {
+    if (webviews === null || drivenKey === null) return;
+    webviews.setDriven(drivenKey, driven);
+    return () => webviews.setDriven(drivenKey, false);
+  }, [webviews, drivenKey, driven]);
   const { shellHead, toast } = useTabAnnotate({
     viewSession: state?.view_session ?? null,
     target: row?.name ?? "",

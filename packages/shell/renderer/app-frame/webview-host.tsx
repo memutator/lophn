@@ -100,6 +100,8 @@ interface Entry {
   userKeep: boolean;
   /** 이 탭의 page가 download를 받는 중. */
   downloading: boolean;
+  /** agent가 다루는 중이다. 가려져도 그리기를 이어 가야 screenshot과 입력이 된다. */
+  driven: boolean;
   /** 마지막으로 보인 때(host의 tick 값). 살려 둔 것이 넘칠 때 오래 안 본 것부터 놓는 기준이다. */
   shownAt: number;
 }
@@ -138,6 +140,8 @@ export interface WebviewHost {
   setUserKeep(key: string, on: boolean): void;
   /** browser 탭의 page가 download를 받기 시작했거나 끝났다. */
   setDownloading(key: string, on: boolean): void;
+  /** agent가 그 화면을 다루는 중이다. 가려진 동안에도 보이지 않게 그리기를 이어 간다. 화면이 아직 없어도 기억한다. */
+  setDriven(key: string, on: boolean): void;
   /**
    * workspace를 떠난다. 살려 둘 이유가 있고(앱 page 신호, 사람의 Keep alive, download, 소리 남) `tabKeys`(layout에
    * 아직 있는 탭)에 든 화면만 두고 나머지는 놓는다. 둔 key를 돌려준다.
@@ -250,6 +254,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
   const entries = new Map<string, Entry>();
   const sizeListeners = new Set<(size: ContentSize) => void>();
   let container: HTMLElement | null = null;
+  const driven = new Set<string>();
   let own = 0;
   const now = tick ?? (() => ++own);
 
@@ -262,9 +267,31 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     ) {
       // 보이던 것이 가려지는 때가 마지막으로 본 때다.
       if (style.visibility === "visible") entry.shownAt = now();
+      if (
+        entry.driven &&
+        container !== null &&
+        (entry.kind === "browser" || entry.loaded)
+      ) {
+        // agent가 다루는 화면은 가려져도 그린다(visibility: hidden이면 guest가 그리기를 멈춰 screenshot이 끝나지 않는다).
+        // 마지막 크기 그대로 보이지 않게 둔다: pointer를 받지 않고 거의 투명하다. 실험으로 확인했다: opacity 0이거나 다른 내용 뒤
+        // (z-index -1)면 compositor가 가려진 것으로 보고 그리기를 멈춰 screenshot이 끝나지 않는다.
+        if (style.width === "") {
+          style.left = "0px";
+          style.top = "0px";
+          style.width = "800px";
+          style.height = "600px";
+        }
+        style.zIndex = "1";
+        style.opacity = "0.01";
+        style.pointerEvents = "none";
+        style.visibility = "visible";
+        return;
+      }
       style.visibility = "hidden";
       return;
     }
+    style.opacity = "";
+    style.pointerEvents = "";
     entry.shownAt = now();
     const box = container.getBoundingClientRect();
     style.left = `${Math.round(entry.rect.left - box.left)}px`;
@@ -423,6 +450,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       keepAlive: false,
       userKeep: false,
       downloading: false,
+      driven: driven.has(key),
       shownAt: 0,
     };
     bind(entry, entry.element);
@@ -554,6 +582,14 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     setUserKeep(key, on) {
       const entry = entries.get(key);
       if (entry !== undefined) entry.userKeep = on;
+    },
+    setDriven(key, on) {
+      if (on) driven.add(key);
+      else driven.delete(key);
+      const entry = entries.get(key);
+      if (entry === undefined) return;
+      entry.driven = on;
+      apply(entry);
     },
     setDownloading(key, on) {
       const entry = entries.get(key);

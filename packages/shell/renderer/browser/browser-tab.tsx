@@ -162,6 +162,12 @@ function OpenTab(
   });
   const [failed, setFailed] = useState(false);
   const agent = useAgentControl(props.keepKey, viewSession);
+  // agent가 다루는 동안은 가려져도 그리기를 이어 간다(screenshot과 입력이 되려면 guest가 그려져야 한다).
+  const driven = agent !== null;
+  useEffect(() => {
+    webviews.setDriven(props.keepKey, driven);
+    return () => webviews.setDriven(props.keepKey, false);
+  }, [webviews, props.keepKey, driven]);
   // 값이 올 때마다 새로 띄우도록 번호를 key로 쓴다. null이면 알림 없음.
   const [notice, setNotice] = useState<{
     n: number;

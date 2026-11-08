@@ -8,6 +8,7 @@ export function createTabControl(
   push: (tab: string, state: ControlState) => void,
 ) {
   const states = new Map<string, ControlState>();
+  const forgetters: Array<(tab: string) => void> = [];
   const set = (tab: string, state: ControlState) => {
     states.set(tab, state);
     push(tab, state);
@@ -29,6 +30,11 @@ export function createTabControl(
     /** 탭이 닫혔다. */
     forget(tab: string): void {
       states.delete(tab);
+      for (const listener of forgetters) listener(tab);
+    },
+    /** 탭이 닫혔을 때 부른다(driver가 그 탭의 session과 debugger를 정리한다). */
+    onForget(listener: (tab: string) => void): void {
+      forgetters.push(listener);
     },
     current: (tab: string): ControlState | undefined => states.get(tab),
   };

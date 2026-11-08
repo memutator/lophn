@@ -78,6 +78,14 @@ const reply = (value: unknown): HostToolOutput => ({
 
 export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
   const sessions = new Map<string, Session>();
+  // 탭이 닫히면 session과 debugger를 놓는다.
+  deps.control.onForget((tab) => {
+    const session = sessions.get(tab);
+    sessions.delete(tab);
+    if (session !== undefined && !session.page.isDestroyed()) {
+      session.page.detach();
+    }
+  });
 
   function sessionOf(tab: string, page: Page): Session {
     const known = sessions.get(tab);
@@ -381,8 +389,9 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       await key(session, "Backspace");
       await typeText(session, action.text);
     } else if (action.type === "press") {
+      // 누르면 버튼이 눌리므로 ref는 focus만 옮긴다. 키가 들어가려면 앞서 한 번 눌러 focus를 얻은 뒤여야 한다(grab).
       if (action.ref !== undefined) await focus(session, action.ref);
-      await grab(session, action.ref);
+      else await grab(session);
       await key(session, action.key);
     } else if (action.type === "select") {
       await callOn(

@@ -48,6 +48,8 @@ import {
 import { DetachedTerminal } from "./project-detached/pages.tsx";
 import { EditorTabMenu } from "./project-files/tab-menu.tsx";
 import {
+  BrowserAgentControl,
+  BrowserAgentHeld,
   BrowserBlank,
   BrowserBookmarkMenu,
   BrowserBridgeOnePane,
@@ -297,6 +299,20 @@ export const projectWorkspaceArea: Area = {
       description:
         "DevTools만 떼어 workspace 위 floated 패널로 띄웠다. 패널 bar의 단추로 다시 page 옆에 붙이거나 따로 창으로 옮긴다.",
       render: () => <BrowserDevtoolsFloat />,
+    },
+    {
+      id: "browser-agent-control",
+      title: "Browser · agent controlling",
+      description:
+        'agent가 연 탭의 머리. 머리에 "Agent is controlling this tab"과 [Take control]이 선다.',
+      render: () => <BrowserAgentControl />,
+    },
+    {
+      id: "browser-agent-held",
+      title: "Browser · person took control",
+      description:
+        '[Take control]을 눌러 사람이 가져왔다. "You have control"과 [Hand back]이 서고 그동안 agent의 쓰기는 conflict다.',
+      render: () => <BrowserAgentHeld />,
     },
     {
       id: "browser-devtools-menu",

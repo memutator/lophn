@@ -289,6 +289,7 @@ const autoReplyCallCommand: CommandDefinition<typeof callsAutoReply> = {
         body: input.body,
         refs: [],
         unattended: input.unattended,
+        auto: true,
       },
     );
   },

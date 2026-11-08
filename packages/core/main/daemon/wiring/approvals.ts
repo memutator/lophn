@@ -320,14 +320,10 @@ export const approvalsWiring: WiringFactory = () => {
         if (call !== undefined) asks.delete(call);
         return call;
       };
-      const settleGone = (kind: CallAskKind, key: string) => {
-        if (kind === "approval") {
-          service.answerFromParent(
-            key,
-            "reject",
-            "the parent session ended without answering",
-          );
-        } else waits.settleGroup(key, { outcome: "cancelled", answers: [] });
+      const settleGone = (kind: CallAskKind, key: string, reason: string) => {
+        if (kind === "approval")
+          service.answerFromParent(key, "reject", reason);
+        else waits.settleGroup(key, { outcome: "cancelled", answers: [] });
       };
       const openAsk = async (
         kind: CallAskKind,
@@ -356,7 +352,13 @@ export const approvalsWiring: WiringFactory = () => {
           !opened.ok ||
           opened.value["state"] !== "accepted"
         ) {
-          if (waiting.delete(key)) settleGone(kind, key);
+          if (waiting.delete(key)) {
+            settleGone(
+              kind,
+              key,
+              "the request could not reach the parent session",
+            );
+          }
           return;
         }
         const call = String(opened.value["call"]);
@@ -399,7 +401,11 @@ export const approvalsWiring: WiringFactory = () => {
           const ask = asks.get(call);
           if (ask === undefined) return;
           forget(ask.key);
-          settleGone(ask.kind, ask.key);
+          settleGone(
+            ask.kind,
+            ask.key,
+            "the parent session ended without answering",
+          );
         },
       };
       const stopAsks = bus.subscribe(

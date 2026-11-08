@@ -566,3 +566,29 @@ test("when the parent ends, an ask call fails without telling the child's queue 
     { topic: ASK_ENDED_TOPIC, data: { call: world.call } },
   ]);
 });
+
+test("a bare or harness parent's automatic reply to an approval ask call closes it as a reject", () => {
+  const world = askCall("approval");
+  const done = world.router.reply(
+    world.tx,
+    { session: "ses_p" as never },
+    {
+      call: world.call as never,
+      body: textBlocks("I looked at it"),
+      refs: [],
+      auto: true,
+    },
+  );
+  assert.ok(done.ok);
+  assert.strictEqual(world.rows.get(world.call)!.state, "done");
+  assert.deepStrictEqual(world.announced, [
+    {
+      topic: ASK_ANSWERED_TOPIC,
+      data: {
+        call: world.call,
+        decision: "reject",
+        text: "I looked at it",
+      },
+    },
+  ]);
+});

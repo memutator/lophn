@@ -82,6 +82,8 @@ export interface Router {
       unattended?: boolean;
       // ask = approval인 call의 답은 결정이 있어야 하고 다른 call의 답은 결정을 싣지 않는다.
       decision?: CallDecision;
+      // core가 마지막 응답 글을 대신 보내는 답이다. 승인 call은 명시한 허락이 없으므로 거절로 닫는다.
+      auto?: boolean;
     },
   ): Result<{ delivered: boolean; closed: boolean }>;
   cancel(
@@ -421,6 +423,7 @@ export function createRouter(deps: RouterDeps): Router {
       refs: CallRef[];
       unattended?: boolean;
       decision?: CallDecision;
+      auto?: boolean;
     },
   ): Result<{ delivered: boolean; closed: boolean }> {
     const record = store.read(tx, calId(input.call));
@@ -438,7 +441,9 @@ export function createRouter(deps: RouterDeps): Router {
       return err({ code: "conflict", message: "this call takes no reply" });
     }
     if (isFinished(record.state)) return ok({ delivered: false, closed: true });
-    const decision = input.decision ?? null;
+    const decision =
+      input.decision ??
+      (input.auto === true && record.ask === "approval" ? "reject" : null);
     if (asReceiver && record.ask !== null) {
       if ((record.ask === "approval") !== (decision !== null)) {
         return err({

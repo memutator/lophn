@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py agent-surface build`가 `tasks/*.md`에서 i
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `surf-queue` | surf | 1 | 없음 | todo |  |  |  |
+| `surf-queue` | surf | 1 | 없음 | running | surf/surf-queue |  |  |
 | `surf-team` | surf | 2 | surf-queue | todo |  |  |  |
 | `ext-tools` | ext | 3 | surf-tui | todo |  |  |  |
 | `surf-tui` | surf | 3 | 없음 | todo |  |  |  |

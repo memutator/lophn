@@ -12,7 +12,6 @@ import {
   noticesObserveVersion,
 } from "../../../../protocol/apps/notice.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { annotationPreviewBundleSchemaSteps } from "../../../apps/annotations/mod.ts";
 import { readInstalledVersions } from "../../../apps/sdk-status/mod.ts";
 import {
   noticeUnifiedSchemaSteps,
@@ -59,13 +58,12 @@ export function createNoticesWiring(
 ): WiringFactory {
   return () => ({
     name: "notices",
-    // 두 step 모두 낸 step 목록의 맨 끝에 붙는다. 새 step은 이 목록 뒤에 더한다.
+    // 낸 때 목록의 맨 끝이던 step이다. 그 뒤에 낸 step은 WIRINGS(assembly.ts)의 맨 뒤 wiring에 붙는다.
     schemaStepsAfterTeams: [
       ...noticeUnifiedSchemaSteps,
       ...productVersionSchemaSteps,
       // 앱 팀의 schemaSteps는 목록 중간이라 이미 낸 뒤에 더하는 step은 여기에 붙는다.
       ...appDeleteSchemaSteps,
-      ...annotationPreviewBundleSchemaSteps,
     ],
     operations: () => [
       { name: noticeRecord.name, actors: ["machine"], kind: "command" },

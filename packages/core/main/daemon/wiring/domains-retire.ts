@@ -3,6 +3,7 @@
 //   새 data root에는 data step이 돌지 않아 빈 표가 남는다. 쓰는 곳은 없다.
 // - `domains.retire`는 `domains` 표를 읽는 data step(`artifacts.container`, `domains.place-data`)이 다 돈 뒤에 도는
 //   마지막 step이다(assembly.ts의 WIRINGS 순서). 표와 `derived/kinds.sqlite`를 지우고, `domains/` 폴더는 file이 남지 않았을 때만 지운다.
+import { annotationPreviewBundleSchemaSteps } from "../../../apps/annotations/mod.ts";
 import { readdir, rm } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { SchemaStep } from "../../../../protocol/server/mod.ts";
@@ -85,5 +86,7 @@ export const domainsRetireStep: DataStep = {
 export const domainsRetireWiring: WiringFactory = () => ({
   name: "domains-retire",
   schemaSteps: domainsSchemaSteps,
+  // 낸 ledger step은 목록 끝에만 붙는다(schema-steps.lock.json). 이 wiring이 WIRINGS의 맨 뒤라 `lophn.split-per-workspace` 뒤에 낸 step이 여기 온다.
+  schemaStepsAfterTeams: annotationPreviewBundleSchemaSteps,
   dataSteps: [domainsRetireStep],
 });

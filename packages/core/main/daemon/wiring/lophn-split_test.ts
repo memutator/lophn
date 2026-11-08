@@ -88,7 +88,11 @@ test("옛 root를 옮기면 모든 workspace의 lophn이 같은 값을 갖고 �
     const steps = registeredSteps();
     const deps = { clock: manualClock(0) };
     const ledger = join(root, "lophn.db");
-    const before = await applyMigrations(ledger, steps.slice(0, -1), deps);
+    // 옛 root는 split step 앞까지다. 그 뒤에 낸 step이 더 붙어도 split step이 옛 root에 들지 않는다.
+    const split = steps.findIndex(
+      (step) => step.id === "lophn.split-per-workspace",
+    );
+    const before = await applyMigrations(ledger, steps.slice(0, split), deps);
     assert.ok(before.ok);
     const db = new DatabaseSync(ledger);
     db.exec("pragma foreign_keys = off");
@@ -211,9 +215,9 @@ test("옛 root를 옮기면 모든 workspace의 lophn이 같은 값을 갖고 �
       JSON.stringify(TAB({ kind: "home" })),
     );
 
-    // ledger step은 실제 목록의 마지막 step으로 적용하고, data step은 그 뒤에 돈다.
+    // ledger step은 실제 목록 그대로 split step부터 적용하고, data step은 그 뒤에 돈다.
     const applied = await applyMigrations(ledger, steps, deps);
-    assert.deepStrictEqual(applied, { ok: true, value: 1 });
+    assert.deepStrictEqual(applied, { ok: true, value: steps.length - split });
     const first = await lophnSplitDataStep.run(root);
     assert.ok(first.ok);
 

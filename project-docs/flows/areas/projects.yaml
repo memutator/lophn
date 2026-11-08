@@ -686,9 +686,222 @@ flows:
       - id: ignored
         observe: ["screen:new-editor-tabs"]
         when: "디스크 hash가 renderer의 기준 hash와 같다(내 쓰기의 메아리), 또는 지워진 파일(hash null)이다, 또는 디스크를 다시 읽지 못했다. 화면은 그대로다"
-    crosses_process: true
+    crosses_process: false
     unclear:
       - "지워진 파일을 다음 쓰기 전까지 알리지 않는 것이 의도인지 확인이 필요하다(편집 글이 깨끗할 때도 같다)"
+
+  # ---- file tree (Files panel, shell main) ----
+
+  - id: file-tree-list
+    title: "Files panel이 폴더 한 단계를 디스크에서 읽는다"
+    actor: person
+    uses: [ipc:shell:file-list]
+    boundary: [shell]
+    code:
+      - packages/shell/main/editor/file-adapter.ts
+      - packages/shell/main/desktop/wiring/editor.ts
+      - packages/shell/renderer/workspace/sidebar/use-file-tree.ts
+    steps:
+      - "Files panel이 루트와 펼친 폴더마다 list를 보낸다(펼칠 때, 3초마다, 창 focus 때, 만들기·옮기기·지우기 뒤)"
+      - "main은 보낸 창이 desktop 본문 main frame인지, path가 절대 경로인지 본다"
+      - "활성 project들의 폴더 목록을 core에서 읽는다. 못 읽으면 path가 무엇이든 unavailable이다"
+      - "path를 실제 경로로 풀어 연결 폴더 안인지 본다. 밖이면 forbidden이다(밖으로 나가는 symlink 포함). secrets.json도 거절한다"
+      - "폴더를 읽어 폴더 먼저, 이름순으로 돌려준다. 끊긴 symlink는 뺀다. 펼쳐 둔 폴더가 사라졌으면 Files panel이 그 줄을 닫는다"
+    outcomes:
+      - id: ok
+        observe: ["response", "screen:new-explorer-root"]
+      - id: not-found
+        code: not_found
+        when: "연결 폴더 안의 path가 디스크에 없다"
+        observe: ["response"]
+      - id: unsupported
+        when: "path가 폴더가 아니다(ENOTDIR)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 desktop 본문 main frame이 아니다(file IPC guard), 또는 path가 연결 폴더 밖이다, 또는 secrets.json이다, 또는 디스크 권한이 없다(EACCES·EPERM)"
+        observe: ["response"]
+      - id: invalid-path
+        code: invalid_input
+        when: "절대 경로가 아니다, 또는 입력이 schema와 다르다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "활성 project 폴더 목록을 core에서 읽지 못했다, 또는 그 밖의 디스크 오류다"
+        observe: ["response"]
+    crosses_process: true
+    unclear:
+      - "FileFailure의 unsupported는 공통 일곱 code 밖이라 code를 비웠다(editor-open의 unclear와 같은 문제)"
+
+  - id: file-create
+    title: "Files panel에서 새 파일이나 폴더를 만든다"
+    actor: person
+    uses: [ipc:shell:file-create]
+    boundary: [shell]
+    code:
+      - packages/shell/main/editor/file-adapter.ts
+      - packages/shell/main/editor/ipc.ts
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    steps:
+      - "Explorer의 New File·New Folder가 이름 칸을 열고, 이름을 checkNewName으로 본 뒤 경로를 만들어 보낸다"
+      - "main은 보낸 창과 입력을 본다. secrets.json이면 거절한다"
+      - "없는 위쪽 폴더는 recursive로 만든다. 파일은 wx로 열고 폴더는 mkdir로 만든다. 이미 있으면 conflict이고 아무것도 덮지 않는다"
+      - "성공하면 tree를 다시 읽는다. 새 파일은 편집기 탭으로 열고, 폴더는 tree에서 이어 간다"
+    outcomes:
+      - id: created
+        observe: ["disk:<path>", "response", "screen:new-explorer-root"]
+      - id: name-exists
+        code: conflict
+        when: "같은 이름의 파일이나 폴더가 이미 있다(파일은 wx, 폴더는 mkdir이 EEXIST)"
+        observe: ["disk:<path> (변화 없음)", "response", "screen:new-explorer-name-exists"]
+      - id: unsupported
+        when: "위쪽 경로 조각이 파일이라 만들 수 없다(ENOTDIR)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 desktop 본문 main frame이 아니다(file IPC guard), 또는 secrets.json이다, 또는 디스크 권한이 없다(EACCES·EPERM)"
+        observe: ["response"]
+      - id: invalid-path
+        code: invalid_input
+        when: "절대 경로가 아니다, 또는 입력이 schema와 다르다(kind가 file·folder가 아니다)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "그 밖의 디스크 오류다(공간 부족 등)"
+        observe: ["response"]
+    crosses_process: false
+    unclear:
+      - "연결 폴더 밖 path도 만든다. file-adapter 머리말에 따르면 밖 판정은 없고 secrets.json만 거절한다. 설계 의도인지 확인이 필요하다"
+
+  - id: file-rename
+    title: "Files panel에서 파일이나 폴더 이름을 바꾸거나 끌어서 옮긴다"
+    actor: person
+    uses: [ipc:shell:file-rename]
+    boundary: [shell]
+    code:
+      - packages/shell/main/editor/file-adapter.ts
+      - packages/shell/main/editor/ipc.ts
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    steps:
+      - "이름 바꾸기 줄과 끌어 놓기가 moveFile로 모인다. 열린 탭에 저장 안 된 글이 있으면 먼저 묻고, 취소하면 IPC를 보내지 않는다"
+      - "main은 보낸 창과 입력을 본다. from이 디스크에 없으면 not_found다. from이나 to가 secrets.json이면 거절한다"
+      - "from과 to가 같으면 아무것도 바꾸지 않고 ok다(거절이 아니다). 폴더를 자기 안으로 옮기면 invalid_input이다(실제 경로로 본다)"
+      - "to가 이미 있으면 conflict이고 아무것도 바꾸지 않는다. 대소문자만 다른 이름 바꾸기는 같은 파일로 보고 허락한다"
+      - "rename으로 옮기고, 열려 있던 탭을 옮긴 경로로 다시 연다"
+    outcomes:
+      - id: moved
+        observe: ["disk:<from> (없음)", "disk:<to>", "response", "screen:new-editor-tabs"]
+      - id: same-path
+        observe: ["response"]
+        when: "from과 to가 같은 경로다. 디스크를 바꾸지 않는다(renderer는 같은 이름을 먼저 걸러 보내지 않는다)"
+      - id: name-exists
+        code: conflict
+        when: "to가 이미 있다(같은 이름의 파일이나 폴더)"
+        observe: ["disk:<from> (변화 없음)", "response", "screen:new-explorer-name-exists"]
+      - id: into-self
+        code: invalid_input
+        when: "폴더를 자기 안(하위 폴더)으로 옮긴다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "from이 디스크에 없다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 desktop 본문 main frame이 아니다(file IPC guard), 또는 from이나 to가 secrets.json이다, 또는 디스크 권한이 없다(EACCES·EPERM)"
+        observe: ["response"]
+      - id: invalid-path
+        code: invalid_input
+        when: "from이나 to가 절대 경로가 아니다, 또는 입력이 schema와 다르다"
+        observe: ["response"]
+      - id: tab-save-refused
+        when: "옮길 path(폴더면 아래)의 열린 탭에 저장 안 된 글이 있고 사람이 취소했다. IPC를 보내지 않는다"
+        observe: ["disk:<from> (변화 없음)"]
+      - id: unavailable
+        code: unavailable
+        when: "그 밖의 디스크 오류다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss]
+    unclear:
+      - "같은 이름 확인(lstat)과 rename 사이에 생긴 파일은 POSIX rename이 덮는다. 드문 경쟁이지만 data-loss 경계라 확인이 필요하다"
+      - "연결 폴더 밖 path도 옮긴다(secrets.json만 거절). 설계 의도인지 확인이 필요하다"
+
+  - id: file-delete
+    title: "Files panel에서 파일이나 폴더를 휴지통으로 보낸다"
+    actor: person
+    uses: [ipc:shell:file-delete]
+    boundary: [shell]
+    code:
+      - packages/shell/main/editor/file-adapter.ts
+      - packages/shell/main/desktop/wiring/editor.ts
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    steps:
+      - "Explorer의 Move to Trash나 Delete 키가 확인 dialog를 띄운다. 확인하면 trashFile이 열린 탭의 저장 안 된 글을 먼저 묻는다"
+      - "main은 보낸 창과 입력을 본다. path가 디스크에 없으면 not_found다. secrets.json이면 거절한다"
+      - "OS 휴지통으로 보낸다. Linux는 gio trash를 먼저 쓰고 안 되면 Electron shell.trashItem을 쓴다. 비어 있지 않은 폴더도 통째로 간다. 영구 삭제로는 가지 않는다"
+      - "휴지통을 못 쓰면 아무것도 지우지 않고 unavailable이다. dialog는 실패 문구를 보이고 닫기만 남긴다"
+      - "성공하면 그 path(폴더면 아래 전부)의 열린 탭을 닫고 tree를 다시 읽는다"
+    outcomes:
+      - id: trashed
+        observe: ["disk:<path> (OS 휴지통에 있음)", "response", "screen:new-explorer-root"]
+      - id: not-found
+        code: not_found
+        when: "path가 디스크에 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "휴지통으로 보내지 못했다(gio와 Electron 둘 다 실패). 영구 삭제로 되돌아가지 않는다"
+        observe: ["disk:<path> (변화 없음)", "response", "screen:new-file-delete"]
+      - id: tab-save-refused
+        when: "지울 path(폴더면 아래)의 열린 탭에 저장 안 된 글이 있고 사람이 취소했다. IPC를 보내지 않는다"
+        observe: ["disk:<path> (변화 없음)"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 desktop 본문 main frame이 아니다(file IPC guard), 또는 secrets.json이다"
+        observe: ["response"]
+      - id: invalid-path
+        code: invalid_input
+        when: "절대 경로가 아니다, 또는 입력이 schema와 다르다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss]
+    unclear:
+      - "IPC는 연결 폴더 밖 path(데이터 root의 파일 포함)도 받고 secrets.json만 거절한다. Explorer는 연결 폴더 안 줄만 보내므로 실제로는 밖이 나오지 않는다. 설계 의도인지 확인이 필요하다"
+
+  - id: file-reveal
+    title: "Files panel에서 고른 파일을 OS 파일 관리자에서 보인다"
+    actor: person
+    uses: [ipc:shell:file-reveal]
+    boundary: [shell]
+    code:
+      - packages/shell/main/editor/file-adapter.ts
+      - packages/shell/main/desktop/wiring/editor.ts
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    steps:
+      - "Explorer 메뉴 Reveal in File Manager가 줄의 path(줄이 없으면 루트)를 보낸다"
+      - "main은 보낸 창과 입력을 보고, path가 디스크에 있는지 lstat으로 본다. secrets.json이면 거절한다"
+      - "shell.showItemInFolder로 OS 파일 관리자를 연다. 그 결과는 기다리지 않는다"
+    outcomes:
+      - id: shown
+        observe: ["process:os-file-manager", "response"]
+      - id: not-found
+        code: not_found
+        when: "path가 디스크에 없다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 desktop 본문 main frame이 아니다(file IPC guard), 또는 secrets.json이다"
+        observe: ["response"]
+      - id: invalid-path
+        code: invalid_input
+        when: "절대 경로가 아니다, 또는 입력이 schema와 다르다"
+        observe: ["response"]
+    crosses_process: false
+    unclear:
+      - "showItemInFolder는 실패를 알리지 않는다. 파일 관리자가 없으면 아무것도 뜨지 않아도 shown이다"
 
   # ---- artifact (shell main·renderer) ----
 
@@ -734,7 +947,7 @@ flows:
         code: unavailable
         when: "partition 봉하기가 실패했다(probe가 닿는 loopback 서버를 봤다 포함)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
     risk: [sandbox]
     refs: [C28]
 
@@ -798,7 +1011,7 @@ flows:
       - id: blocked
         observe: ["request:outside-server"]
         when: "같은 host가 아닌 lophn-artifact나 그 밖의 scheme이다, 다른 host다, subframe의 http·https다, main frame의 http·https인데 입력이 없다"
-    crosses_process: true
+    crosses_process: false
     risk: [sandbox]
 
   - id: artifact-watch
@@ -827,7 +1040,7 @@ flows:
       - id: watch-stopped
         when: "감시 폴더가 사라지거나 watch가 깨져 조용히 멈춘다(이후 바뀌어도 다시 load하지 않는다). log는 남기지 않는다"
         observe: ["screen:artifact-tab"]
-    crosses_process: true
+    crosses_process: false
     unclear:
       - "watch-stopped는 log 없이 멈춘다. 사람이 알 방법이 없어 log를 남길지는 정하지 못했다"
 
@@ -867,7 +1080,7 @@ flows:
         code: forbidden
         when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(artifact IPC guard)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
 
   # ---- browser tab (shell main·renderer) ----
 
@@ -879,7 +1092,6 @@ flows:
     uses:
       - ipc:shell:browser-navigate
       - ipc:shell:browser-state
-      - key:new.browser
     boundary: [shell]
     code:
       - packages/shell/main/browser/registry.ts
@@ -910,7 +1122,7 @@ flows:
         code: forbidden
         when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(browser IPC guard)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
     risk: [sandbox]
 
   - id: browser-chrome-command
@@ -942,7 +1154,7 @@ flows:
         code: forbidden
         when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(browser IPC guard)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
 
   - id: browser-devtools-open
     title: "browser 탭 page의 DevTools를 연다"
@@ -983,7 +1195,7 @@ flows:
         code: forbidden
         when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(browser IPC guard)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
 
   - id: browser-clear-data
     title: "browser 탭의 쿠키와 저장소를 지운다"
@@ -1011,10 +1223,43 @@ flows:
         code: forbidden
         when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(browser IPC guard)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
     risk: [data-loss]
     unclear:
       - "지우면 browser 탭의 로그인 쿠키도 사라진다. 사람에게 알리는 문구는 이 flow의 밖이다"
+
+  - id: browser-bookmarks-read
+    title: "browser bookmark 목록을 읽는다"
+    actor: person
+    uses: [ipc:shell:bookmarks-list]
+    boundary: [shell]
+    code:
+      - packages/shell/main/browser/bookmark-ipc.ts
+      - packages/shell/main/browser/bookmarks.ts
+      - packages/shell/renderer/browser/bookmarks.ts
+    docs: [architecture/browser-tab.md]
+    steps:
+      - "bookmark를 보이는 화면(새 탭, 별 단추, 설정)이 열리거나 bookmarks-changed를 받으면 useBookmarks가 목록을 다시 읽는다"
+      - "main은 보낸 창이 desktop 본문 main frame인지 본다(bookmark IPC guard). 입력은 없다"
+      - "<dataRoot>/shell/bookmarks.json이 없으면 빈 목록을 준다"
+      - "JSON이 아니거나 schema·version이 다르면 오류가 아니라 corrupt 상태를 준다. 화면은 목록 자리에 그것을 보인다"
+      - "그 밖의 읽기 오류(ENOENT 밖)는 unavailable로 답한다"
+    outcomes:
+      - id: ok
+        observe: ["response", "screen:browser-new-tab-bookmarks"]
+        when: "파일이 맞거나 없다(없으면 빈 목록)"
+      - id: corrupt
+        observe: ["response", "screen:settings-browser-bookmarks-corrupt"]
+        when: "JSON이 아니거나 schema·version이 다르다. 오류 code가 아니라 state corrupt로 답한다"
+      - id: unavailable
+        code: unavailable
+        when: "bookmarks.json을 읽지 못했다(ENOENT 밖의 읽기 오류)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(bookmark IPC guard)"
+        observe: ["response"]
+    crosses_process: false
 
   - id: browser-bookmark-save
     title: "bookmark를 더하거나 고치거나 지운다"
@@ -1068,8 +1313,76 @@ flows:
         code: forbidden
         when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(bookmark IPC guard)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
     risk: [data-loss]
+
+  - id: browser-native-place
+    title: "browser의 native view(크기 준 popup, DevTools) 자리를 맞춘다"
+    actor: person
+    uses: [ipc:shell:view-bounds]
+    boundary: [shell]
+    code:
+      - packages/shell/main/app-frame/view-ipc.ts
+      - packages/shell/main/browser/native-bounds.ts
+      - packages/shell/main/browser/native-view.ts
+      - packages/shell/renderer/browser/native-bounds.ts
+    docs: [architecture/browser-tab.md]
+    steps:
+      - "renderer가 칸과 스크롤 경계로 자른 자리의 사각형(CSS pixel)과 layer를 보낸다. 사각형이 비면 renderer가 views-hidden으로 숨긴다"
+      - "main은 보낸 창이 desktop 본문인지, 입력이 schema에 맞는지 본다. 그 창이 연 native view가 아니면 invalid_input이다(다른 창의 view도 같다)"
+      - "같은 frame의 bounds는 16ms마다 한 번만 적용한다. page zoom을 곱해 창 DIP로 바꾸고 창 본문과 교차한 것만 붙인다"
+      - "교차가 없으면 뗀다. 기다리던 bounds는 숨김이 먼저 오면 버리고 숨김 결과로 답한다. 창을 옮기거나 닫아 버려지면 invalid_input이다"
+      - "view가 붙을 창이 열려 있지 않으면 unavailable이다"
+    outcomes:
+      - id: placed
+        observe: ["response", "screen:browser-devtools-bottom", "screen:browser-oauth-popup"]
+      - id: off-body
+        observe: ["response"]
+        when: "창 본문과 교차가 없어 view를 뗀다(스크롤 밖이거나 사각형이 비었다)"
+      - id: superseded
+        observe: ["response"]
+        when: "같은 frame에서 기다리던 bounds가 숨김보다 늦어 버려졌다. 답은 숨김 결과(ok)다"
+      - id: invalid-input
+        code: invalid_input
+        when: "그 창이 연 native view가 아니다, 또는 입력이 schema와 다르다(정수가 아닌 사각형, layer가 0..32 밖), 또는 기다리던 bounds가 창 옮기기·닫기로 버려졌다"
+        observe: ["response"]
+      - id: window-closed
+        code: unavailable
+        when: "view가 붙을 창이 열려 있지 않다, 또는 native view를 붙이지 못했다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 desktop 창 본문 main frame이 아니다(view IPC guard)"
+        observe: ["response"]
+    crosses_process: false
+
+  - id: browser-native-hide
+    title: "browser의 native view(popup, DevTools)를 바로 뗀다"
+    actor: person
+    uses: [ipc:shell:views-hidden]
+    boundary: [shell]
+    code:
+      - packages/shell/main/app-frame/view-ipc.ts
+      - packages/shell/main/browser/native-bounds.ts
+      - packages/shell/renderer/browser/native-bounds.ts
+    docs: [architecture/browser-tab.md]
+    steps:
+      - "renderer가 탭 전환, 자리 비움, 사각형이 빈 것을 보고 숨길 view 목록을 보낸다. 탭 전환은 옛 view를 먼저 숨긴다"
+      - "main은 보낸 창이 desktop 본문인지, 입력이 schema에 맞는지 본다"
+      - "view가 모두 그 창의 것인지 본다. 하나라도 아니면 아무것도 숨기지 않는다"
+      - "16ms 묶음을 기다리지 않고 바로 뗀다. 기다리던 bounds는 버린다"
+    outcomes:
+      - id: hidden
+        observe: ["response", "screen:browser-tab"]
+      - id: invalid-input
+        code: invalid_input
+        when: "view 가운데 하나라도 그 창이 연 native view가 아니다(그러면 하나도 숨기지 않는다), 또는 입력이 schema와 다르다(빈 목록 포함)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 desktop 창 본문 main frame이 아니다(view IPC guard)"
+        observe: ["response"]
+    crosses_process: false
 
   - id: browser-guest-attach
     title: "shell 문서가 <webview>를 붙일 때 browser 쪽 설정을 덮는다"
@@ -1155,7 +1468,6 @@ flows:
         observe: ["screen:browser-popup-blocked"]
         when: "목적지는 허락되지만 사용자 입력이 5000ms 안에 없다"
       - id: denied-scheme
-        observe: ["request:outside-server"]
         when: "목적지가 scheme·credentials·읽을 수 없는 모양으로 막혔다(입력이 있어도 OS로 넘기지 않는다)"
       - id: os-handoff
         observe: ["process:os-opener"]
@@ -1168,7 +1480,7 @@ flows:
         code: forbidden
         when: "이미 adopt된 view를 다시 adopt한다, 또는 보낸 창이 등록된 desktop 창 본문 main frame이 아니다(browser IPC guard)"
         observe: ["response"]
-    crosses_process: true
+    crosses_process: false
     risk: [sandbox]
 
   - id: browser-session-policy
@@ -1180,7 +1492,7 @@ flows:
       - packages/shell/main/browser/session.ts
       - packages/shell/main/browser/permission.ts
       - packages/shell/main/browser/electron-session.ts
-    docs: [architecture/browser-tab.md]
+    docs: [architecture/browser-tab.md, products/change-log/0.17.0.md]
     steps:
       - "permission request·check는 clipboard-sanitized-write를 main frame의 http·https 요청에만 허락하고 나머지는 모두 거절한다"
       - "device permission은 전부 거절한다"
@@ -1203,8 +1515,11 @@ flows:
       - id: download-refused
         observe: ["request:outside-server"]
         when: "시작한 contents를 모르거나 사용자 입력이 fresh하지 않다(요청은 이미 나갔고 저장 dialog와 파일은 없다)"
-    crosses_process: true
-    risk: [sandbox]
+      - id: user-agent-stripped
+        observe: ["request:outside-server"]
+        when: "UA(세션 설정과 요청 header)에서 Electron/x만 빠지고 앱 이름 token(lophn/x)은 남는다"
+    crosses_process: false
+    risk: [sandbox, twice-fixed]
 
   # ---- terminal bridge (shell main, coding agent의 $BROWSER) ----
 

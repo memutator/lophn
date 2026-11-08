@@ -7,8 +7,8 @@ files:
     note: "readTabHead가 그릴 값과 그릴 것 없는 값을 가르는 판정(그릴 것 없으면 head-cleared, 글 길이와 항목 수 상한에서 자르면 head-set)"
 
   - path: packages/shell/ipc/keybindings_test.ts
-    covers: []
-    note: "key 표, chord, context 판정, 사람이 바꾼 key 저장, 겹침 보고 단위. keys 영역 flow가 아직 없다(missing-outcome 참고)"
+    covers: [key-press:command-run, key-press:passed-on, key-overrides-main:applied, key-overrides-restore:restored]
+    note: "key 표, chord, context 판정, 사람이 바꾼 key 저장, 겹침 보고 단위. key-press 판정, 사람이 바꾼 키(key-overrides-main·restore)"
 
   - path: packages/shell/main/app-frame/annotate_test.ts
     covers:
@@ -36,8 +36,8 @@ files:
     note: "app-runtime 영역의 app-operation-call이다. 모르는 field는 invalid_input, 선언에 없는 operation은 core 호출 없이 forbidden(denied-not-declared)"
 
   - path: packages/shell/main/app-frame/overlay-security_test.ts
-    covers: []
-    note: "shell 기본 session 권한 판정(clipboard write만 main frame shell 페이지에 허용). 어느 flow도 이 판정을 outcome으로 적지 않는다(missing-outcome 참고)"
+    covers: [shell-session-policy:granted, shell-session-policy:denied]
+    note: "shell 기본 session 권한 판정(clipboard write만 main frame shell 페이지에 허용). shell-session-policy:granted·denied"
 
   - path: packages/shell/main/app-frame/registry_test.ts
     covers:
@@ -118,8 +118,8 @@ files:
     note: "사용자 입력 뒤 5초 안에서만 popup을 열고, width와 height가 모두 있을 때만 floated, 아니면 docked. navigation 검사에 걸린 url은 입력이 있어도 거절"
 
   - path: packages/shell/main/browser/user-agent_test.ts
-    covers: []
-    note: "UA 문자열에서 Electron token만 빼는 순수 함수. Google 로그인 때문에 두 번 고친 자리다. 어느 flow도 UA 설정을 outcome으로 적지 않는다(missing-outcome 참고)"
+    covers: [browser-session-policy:user-agent-stripped]
+    note: "UA 문자열에서 Electron token만 빼는 순수 함수. Google 로그인 때문에 두 번 고친 자리다. browser-session-policy:user-agent-stripped"
 
   - path: packages/shell/main/browser/webview-guest_test.ts
     covers:
@@ -145,18 +145,29 @@ files:
     covers:
       - detached-close-silent:closed-kept
       - desk-switch:switched
-    note: "project 창을 떠날 때 detached 창을 조용히 닫고 PTY 참조는 남긴다(closed-kept). showOnly는 보낸 project 창의 detached 창만 숨기고 보이며 없는 key는 missing으로 답한다. detached 되받기 한 번만 주는 규칙은 missing-outcome 참고"
+      - detached-reopen:reopened-kept
+      - detached-reopen:reopened
+      - detached-tab-changed:sent
+      - desk-switch:forbidden
+    note: "project 창을 떠날 때 detached 창을 조용히 닫고 PTY 참조는 남긴다(closed-kept). showOnly는 보낸 project 창의 detached 창만 숨기고 보이며 없는 key는 missing으로 답한다. detached 되받기 한 번만 주는 규칙은 detached-reopen:reopened·reopened-kept"
 
   - path: packages/shell/main/desktop/navigation-guard_test.ts
-    covers: []
-    note: "shell 창 main frame의 탐색 판정(lophn-shell://desktop 밖 차단, http·https는 OS browser). desktop-window-open이 쓰지만 그 flow에 이 outcome이 없다(missing-outcome 참고)"
+    covers: [shell-navigation:allowed, shell-navigation:external-link, shell-navigation:blocked]
+    note: "shell 창 main frame의 탐색 판정(lophn-shell://desktop 밖 차단, http·https는 OS browser). shell-navigation:allowed·external-link·blocked"
 
   - path: packages/shell/main/editor/file-adapter_test.ts
     covers:
       - editor-save:saved
       - editor-save:conflict
       - editor-save:unknown-result
-    note: "write는 hash가 다르면 conflict로 원본을 안 바꾸고, 쓰기가 끊겨도 원본이 남고 임시 파일을 치운다(unknown-result 갈래로 묶음). 파일 트리의 만들기·옮기기·지우기 3건은 flow가 없다(missing-outcome 참고)"
+      - file-create:created
+      - file-create:name-exists
+      - file-rename:moved
+      - file-rename:name-exists
+      - file-rename:into-self
+      - file-delete:trashed
+      - file-delete:unavailable
+    note: "write는 hash가 다르면 conflict로 원본을 안 바꾸고, 쓰기가 끊겨도 원본이 남고 임시 파일을 치운다(unknown-result 갈래로 묶음). 파일 트리의 만들기·옮기기·지우기는 file-create·file-rename·file-delete"
 
   - path: packages/shell/main/extensions/bundled/harness-gui/claude_test.ts
     covers:
@@ -171,14 +182,39 @@ files:
       - session-message-read:ok
       - session-status-read:ok
       - shell-run:ok
-    note: "claude GUI adapter. 토글 두 방향과 한 session에 process 둘 금지, GUI 입력의 줄 서기와 순서, steer 메시지 고치기·옮기기, resume·open_session(session-open 판정으로 묶음), 받은 메시지 목록, resume 뒤 비용, `!` 명령. 승인·질문·plan·subagent·background·사용 한도·명령 출력 등 harness GUI 고유 동작은 flow가 없다(missing-outcome 참고)"
+      - harness-gui-approval:rejected
+      - harness-gui-approval:allowed-session
+      - harness-gui-approval:mode-picked
+      - harness-gui-question:submitted
+      - harness-gui-background-tool:backgrounded
+      - harness-gui-subagent-lane:background-task
+      - harness-gui-subagent-lane:lane-opened
+      - harness-gui-bang-shell:ran
+      - harness-gui-bang-shell:stopped
+      - harness-gui-usage-warning:warned
+      - harness-gui-usage-warning:silent
+      - harness-gui-command-output:output-shown
+      - harness-gui-command-output:compact-summarized
+      - harness-gui-user-message:received
+    note: "claude GUI adapter. 토글 두 방향과 한 session에 process 둘 금지, GUI 입력의 줄 서기와 순서, steer 메시지 고치기·옮기기, resume·open_session(session-open 판정으로 묶음), 받은 메시지 목록, resume 뒤 비용, `!` 명령. 승인·질문·subagent·background·사용 한도·명령 출력 등 harness GUI 고유 동작은 harness-gui-* outcome"
 
   - path: packages/shell/main/extensions/bundled/harness-gui/codex_test.ts
     covers:
       - session-open:ok
       - shell-run:ok
       - harness-gui-input:sent
-    note: "codex GUI adapter. resume·open_session·rollout 없는 thread resume을 session-open으로, `!`는 thread/shellCommand로 가는 shell-run으로 묶음. 승인, 질문, 추가 권한, 권한 설정, TUI 메시지 보이기, 자식 thread lane은 flow가 없다(missing-outcome 참고)"
+      - harness-gui-approval:rejected
+      - harness-gui-approval:answered-elsewhere
+      - harness-gui-approval:allowed-session
+      - harness-gui-approval:allowed-always
+      - harness-gui-approval:allowed-once
+      - harness-gui-question:submitted
+      - harness-gui-start-policy:replaced
+      - harness-gui-start-policy:kept
+      - harness-gui-user-message:shown-as-human
+      - harness-gui-bang-shell:ran
+      - harness-gui-subagent-lane:lane-opened
+    note: "codex GUI adapter. resume·open_session·rollout 없는 thread resume을 session-open으로, `!`는 thread/shellCommand로 가는 shell-run으로 묶음. 승인, 질문, 시작 정책, TUI 메시지 보이기, 자식 thread lane은 harness-gui-* outcome"
 
   - path: packages/shell/main/extensions/bundled/harness-gui/omp_test.ts
     covers:
@@ -190,13 +226,40 @@ files:
       - session-send:ok
       - shell-run:ok
       - session-open:ok
-    note: "omp GUI adapter. ready 전에 죽은 omp는 start 실패, 토글 두 방향 순서, 모델 turn 없는 session은 토글에서 CLI session id가 없다. 도는 중 메시지는 turn 뒤로 간다. `!ls`는 bash로만 간다. 승인·질문·roles·mode·task는 flow가 없다(missing-outcome 참고)"
+      - harness-gui-approval:rejected
+      - harness-gui-approval:allowed-session
+      - harness-gui-approval:allowed-once
+      - harness-gui-bang-shell:ran
+      - harness-gui-command-output:output-shown
+      - harness-gui-roles:switched
+      - harness-gui-roles:slow-kept
+      - harness-gui-subagent-lane:lane-opened
+      - harness-gui-subagent-lane:background-task
+      - harness-gui-permission-mode:restarted
+    note: "omp GUI adapter. ready 전에 죽은 omp는 start 실패, 토글 두 방향 순서, 모델 turn 없는 session은 토글에서 CLI session id가 없다. 도는 중 메시지는 turn 뒤로 간다. `!ls`는 bash로만 간다. 승인·roles·mode·task는 harness-gui-* outcome"
 
   - path: packages/shell/main/extensions/bundled/harness-gui/opencode_test.ts
     covers:
       - session-open:ok
       - shell-run:ok
-    note: "opencode GUI adapter. 저장 안 된 session(404) resume은 새 session으로 열고, `!ls`는 shell API로만 간다. permission 응답, auto-accept, subagent, background, todo plan, undo·redo, 명령 출력, TUI server 비밀번호는 flow가 없다(missing-outcome 참고)"
+      - harness-gui-approval:allowed-once
+      - harness-gui-approval:rejected
+      - harness-gui-approval:answered-elsewhere
+      - harness-gui-approval:allowed-session
+      - harness-gui-approval:allowed-always
+      - harness-gui-approval:auto-accepted
+      - harness-gui-opencode-secret:kept-in-file
+      - harness-gui-opencode-undo:reverted
+      - harness-gui-opencode-undo:restored
+      - harness-gui-opencode-undo:new-session
+      - harness-gui-subagent-lane:lane-opened
+      - harness-gui-subagent-lane:background-task
+      - harness-gui-lane-control:stopped
+      - harness-gui-background-tool:backgrounded
+      - harness-gui-plan-todo:shown
+      - harness-gui-command-output:output-shown
+      - harness-gui-bang-shell:ran
+    note: "opencode GUI adapter. 저장 안 된 session(404) resume은 새 session으로 열고, `!ls`는 shell API로만 간다. permission 응답, auto-accept, subagent, background, todo plan, undo·redo, 명령 출력, TUI server 비밀번호는 harness-gui-* outcome"
 
   - path: packages/shell/main/extensions/extension-tools_test.ts
     covers:
@@ -223,7 +286,9 @@ files:
       - notice-alert:toast
       - notice-alert:os-notification
       - notice-unseen:seen
-    note: "보고 있으면 알리지 않고, 창이 있으면 toast, 없으면 OS 알림. 끊은 turn과 모르는 session은 알리지 않는다는 규칙은 flow에 outcome이 없다(missing-outcome 참고)"
+      - session-notice:turn-other
+      - session-notice:unknown-session
+    note: "보고 있으면 알리지 않고, 창이 있으면 toast, 없으면 OS 알림. 끊은 turn은 session-notice:turn-other, 모르는 session은 unknown-session"
 
   - path: packages/shell/main/secret-input/submit_test.ts
     covers:
@@ -246,34 +311,36 @@ files:
   - path: packages/shell/main/terminal/agent/hook-ask_test.ts
     covers:
       - terminal-hook-install:declined
-    note: "보던 창이 없거나 답하기 전에 닫히면 허락이 아니다. 답의 발신 창이 물은 창과 같아야 한다는 규칙은 flow에 없다(missing-outcome 참고)"
+    note: "보던 창이 없거나 답하기 전에 닫히면 허락이 아니다. 허락이 아닌 경우는 terminal-hook-install:declined"
 
   - path: packages/shell/main/terminal/agent/session-store_test.ts
     covers:
       - terminal-agent-identity:saved
-    note: "coding agent session 목록을 project 파일에 저장한다. 같은 session은 started_at과 첫 title을 지키고, 50개를 넘으면 오래된 것부터 버리고, 손상 파일은 빈 목록이다. 사람이 붙인 이름은 hook 이름에 덮이지 않는다(missing-outcome 참고)"
+      - terminal-agent-session-rename:renamed
+    note: "coding agent session 목록을 project 파일에 저장한다. 같은 session은 started_at과 첫 title을 지키고, 50개를 넘으면 오래된 것부터 버리고, 손상 파일은 빈 목록이다. 사람이 붙인 이름은 hook 이름에 덮이지 않는다(terminal-agent-session-rename:renamed, terminal-agent-identity:saved)"
 
   - path: packages/shell/main/terminal/cwd_test.ts
-    covers: []
-    note: "터미널 시작 폴더가 등록 폴더 안인지 보는 순수 함수. `..`와 밖으로 나가는 symlink는 거절. 어느 outcome도 이 규칙을 적지 않는다(missing-outcome 참고)"
+    covers: [terminal-open:outside-folder, terminal-open:opened]
+    note: "터미널 시작 폴더가 등록 폴더 안인지 보는 순수 함수. `..`와 밖으로 나가는 symlink는 거절. terminal-open:outside-folder, opened"
 
   - path: packages/shell/main/terminal/gui_test.ts
     covers:
       - harness-gui-open:opened
       - harness-gui-open:ignored
-    note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 missing-outcome 참고)"
+      - harness-gui-cli-env:spawned
+    note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 harness-gui-cli-env:spawned)"
 
   - path: packages/shell/main/terminal/output_test.ts
-    covers: []
-    note: "터미널 출력은 그 terminal을 구독한 창에만 가고 창이 놓으면 더 보내지 않는다. 어느 flow도 출력 전달 경로를 outcome으로 적지 않는다(missing-outcome 참고)"
+    covers: [terminal-output:pushed, terminal-output:not-watched]
+    note: "터미널 출력은 그 terminal을 구독한 창에만 가고 창이 놓으면 더 보내지 않는다. terminal-output:pushed·not-watched"
 
   - path: packages/shell/main/terminal/supervisor_test.ts
     covers: []
     note: "pipe에서 읽은 줄 나누기 순수 함수. 조각 사이에 갈린 UTF-8과 큰 JSON 한 줄을 보존한다"
 
   - path: packages/shell/main/thread-bookmarks/store_test.ts
-    covers: []
-    note: "thread bookmark 저장소. 깨진 파일은 set이 덮어쓰지 못하고(data-loss), session별로 켜고 끈다, 같이 부른 set 둘 다 남는다. sessions 영역에 thread bookmark flow가 없다(missing-outcome 참고)"
+    covers: [thread-bookmark-list:ok, thread-bookmark-list:unavailable, thread-bookmark-set:ok, thread-bookmark-set:unavailable]
+    note: "thread bookmark 저장소. 깨진 파일은 set이 덮어쓰지 못하고(data-loss), session별로 켜고 끈다, 같이 부른 set 둘 다 남는다. thread-bookmark-list·thread-bookmark-set"
 
   - path: packages/shell/main/workspace/global-floats_test.ts
     covers:
@@ -297,12 +364,14 @@ files:
       - layout-restore:fresh-corrupt
       - layout-restore:read-failed
       - quick-launch-edit:saved-project
-    note: "workspace layout 읽기. 옛 layouts/ 파일은 무시, 없으면 null, 판이 다르면 unsupported_schema로 읽고 파일을 안 고친다, 폴더 밖 workspace key는 거절. group·stack·agent·앱 화면·browser keep_alive·terminal 명령은 쓴 대로 읽힌다. quick 필드 쓰기는 quick-launch-edit에 묶었다. 쓰기 쪽 거절 규칙은 missing-outcome 참고"
+    note: "workspace layout 읽기. 옛 layouts/ 파일은 무시, 없으면 null, 판이 다르면 unsupported_schema로 읽고 파일을 안 고친다, 폴더 밖 workspace key는 거절. group·stack·agent·앱 화면·browser keep_alive·terminal 명령은 쓴 대로 읽힌다. quick 필드 쓰기는 quick-launch-edit에 묶었다. 쓰기 쪽 거절 규칙은 flow outcome이 없다"
 
   - path: packages/shell/preload/app-tool_test.ts
     covers:
       - app-page-hints:keep-alive-set
       - app-keys-forward:ran
+      - app-keys:ran
+      - app-keys:when-false
     note: "앱 코드의 keep-alive 요청과 자동 신호가 서로 끄지 않는다. 앱 key가 맞고 handler가 참이면 돌고 삼키며, 그 key가 아니면 shell key는 host로 넘긴다(forward)"
 
   - path: packages/shell/renderer/command-call_test.ts
@@ -314,7 +383,9 @@ files:
       - extension-command-run:ok
       - extension-command-run:not-found
       - extension-command-run:internal
-    note: "command registry의 실행 판정. 주인이 없으면 not_found, handler가 던지면 internal, 있으면 실행. 같은 registry가 extension command(ext.<id>.<name>)의 호출을 맡으므로 그 outcome의 판정으로 본다. key 판정(chord, context, 두 타, 반복, focus 표)은 keys 영역 flow가 아직 없다(missing-outcome 참고)"
+      - key-press:command-run
+      - key-press:passed-on
+    note: "command registry의 실행 판정. 주인이 없으면 not_found, handler가 던지면 internal, 있으면 실행. 같은 registry가 extension command(ext.<id>.<name>)의 호출을 맡으므로 그 outcome의 판정으로 본다. key 판정(chord, context, 두 타, 반복, focus 표)은 key-press:command-run·passed-on"
 
   - path: packages/shell/renderer/conversation/agent-view-model_test.ts
     covers: []
@@ -358,12 +429,12 @@ files:
     note: "다시 붙을 때 snapshot으로 사람의 대기 목록을 맞춘다(사라진 요청은 남지 않고 같은 event는 한 번만). team 자식의 to_parent 요청은 사람 목록에 서지 않는다는 화면 필터는 flow 대상이 아니다"
 
   - path: packages/shell/renderer/desktop/settings/keyboard/model_test.ts
-    covers: []
-    note: "설정의 key 바꾸기 model(같은 context의 다른 줄에서 그 key를 빼고 기본 key와 같아지면 저장에서 뺀다). keys 영역 flow가 아직 없다(missing-outcome 참고)"
+    covers: [key-record:saved]
+    note: "설정의 key 바꾸기 model(같은 context의 다른 줄에서 그 key를 빼고 기본 key와 같아지면 저장에서 뺀다). 저장은 key-record:saved"
 
   - path: packages/shell/renderer/desktop/settings/shell-rules/core-source_test.ts
-    covers: []
-    note: "설정 화면에서 shell 규칙 줄 하나를 더할 때 저장 직전에 다시 읽은 값에 그 줄만 더한다. turn-request-decide의 always와 같은 저장이지만 설정 화면 경로는 flow가 없다(missing-outcome 참고)"
+    covers: [shell-rule-edit:saved]
+    note: "설정 화면에서 shell 규칙 줄 하나를 더할 때 저장 직전에 다시 읽은 값에 그 줄만 더한다. turn-request-decide의 always와 같은 저장이지만 설정 화면 경로는 shell-rule-edit:saved"
 
   - path: packages/shell/renderer/editor/save-state_test.ts
     covers:
@@ -415,7 +486,9 @@ files:
       - desk-close:removed
       - desk-switch:switched
       - desk-workflow-merge:merged
-    note: "workspace model 순수 상태 전이 모음. 여는·쪼개기·바꾸기·띄우기·닫기 순서를 섞어도 tab을 잃거나 둘로 만들지 않는다는 불변 조건을 본다. 칸 비율 조절(setRatio)은 flow가 없다(missing-outcome 참고)"
+      - pane-resize:resized
+      - pane-resize:unchanged
+    note: "workspace model 순수 상태 전이 모음. 여는·쪼개기·바꾸기·띄우기·닫기 순서를 섞어도 tab을 잃거나 둘로 만들지 않는다는 불변 조건을 본다. 칸 비율 조절(setRatio)은 pane-resize:resized·unchanged"
 
   - path: packages/shell/renderer/shell/group-geometry_test.ts
     covers:
@@ -424,8 +497,8 @@ files:
     note: "방향 키가 맞닿은 칸 중 겹침이 큰 칸으로 갈지, 가장자리에서 멈출지 정하는 판정. pane-focus의 focused와 unchanged를 정한다"
 
   - path: packages/shell/renderer/terminal/displays_test.ts
-    covers: []
-    note: "터미널 view 재사용, snapshot 중 출력 순서, restart 뒤 늦은 snapshot을 새 generation에 쓰지 않는 규칙. 터미널 다시 붙이기는 flow가 없다(missing-outcome 참고)"
+    covers: [terminal-snapshot:screen]
+    note: "터미널 view 재사용, snapshot 중 출력 순서, restart 뒤 늦은 snapshot을 새 generation에 쓰지 않는 규칙. 터미널 다시 붙이기는 terminal-snapshot:screen"
 
   - path: packages/shell/renderer/terminal/model_test.ts
     covers: []
@@ -450,9 +523,9 @@ files:
     note: "agent가 요청한 탭을 source 탭 옆(beside, grow)이나 float으로 열지, source가 없으면 자리 없이 열지 정하는 판정"
 
   - path: packages/shell/terminal-host/env_test.ts
-    covers: []
-    note: "터미널 shell env에 COLORTERM=truecolor. 두 번 renderer만 고쳤다가 다시 생긴 bug라 test를 둔다. 터미널 시작 env는 flow가 없다(missing-outcome 참고)"
+    covers: [terminal-shell-env:env-built]
+    note: "터미널 shell env에 COLORTERM=truecolor. 두 번 renderer만 고쳤다가 다시 생긴 bug라 test를 둔다. 터미널 시작 env는 terminal-shell-env:env-built"
 
   - path: packages/shell/terminal-host/screen_test.ts
-    covers: []
-    note: "다시 붙은 터미널 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살린다. 터미널 다시 붙이기는 flow가 없다(missing-outcome 참고)"
+    covers: [terminal-snapshot:screen]
+    note: "다시 붙은 터미널 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살린다. 터미널 다시 붙이기는 terminal-snapshot:screen"

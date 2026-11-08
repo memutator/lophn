@@ -377,6 +377,8 @@ links:
   - {entry: "ipc:shell:app-window-open", flow: app-window-open}
   - {entry: "ipc:shell:app-shortcut-add", flow: app-shortcut}
   - {entry: "ipc:shell:app-shortcut-remove", flow: app-shortcut}
+  - {entry: "ipc:shell:view-bounds", flow: browser-native-place}
+  - {entry: "ipc:shell:views-hidden", flow: browser-native-hide}
   # annotation
   - {entry: "ipc:shell:annotate-mode", flow: annotate-mode}
   - {entry: "ipc:shell:annotate-state", flow: annotate-mode}
@@ -406,6 +408,7 @@ links:
   - {entry: "ipc:shell:browser-devtools-window", flow: browser-devtools-open}
   - {entry: "ipc:shell:browser-adopt", flow: browser-popup}
   - {entry: "ipc:shell:browser-event", flow: browser-popup}
+  - {entry: "ipc:shell:bookmarks-list", flow: browser-bookmarks-read}
   - {entry: "ipc:shell:bookmarks-add", flow: browser-bookmark-save}
   - {entry: "ipc:shell:bookmarks-update", flow: browser-bookmark-save}
   - {entry: "ipc:shell:bookmarks-remove", flow: browser-bookmark-save}
@@ -413,6 +416,12 @@ links:
   - {entry: "ipc:shell:terminal-link", flow: browser-terminal-link}
   - {entry: "ipc:shell:terminal-bridge-open", flow: browser-bridge-request}
   - {entry: "ipc:shell:terminal-bridge-ack", flow: browser-bridge-request}
+  # 파일 tree (projects)
+  - {entry: "ipc:shell:file-list", flow: file-tree-list}
+  - {entry: "ipc:shell:file-create", flow: file-create}
+  - {entry: "ipc:shell:file-rename", flow: file-rename}
+  - {entry: "ipc:shell:file-delete", flow: file-delete}
+  - {entry: "ipc:shell:file-reveal", flow: file-reveal}
   # 편집기
   - {entry: "ipc:shell:file-read", flow: editor-open}
   - {entry: "ipc:shell:file-read-bytes", flow: editor-open}
@@ -433,7 +442,8 @@ links:
   - {entry: "ipc:shell:detached-dock", flow: detached-dock}
   - {entry: "ipc:shell:detached-event", flow: detached-dock}
   - {entry: "ipc:shell:detached-open-tab", flow: detached-open-tab}
-  - {entry: "ipc:shell:detached-remove", flow: tab-close}
+  - {entry: "ipc:shell:detached-remove", flow: detached-tab-remove}
+  - {entry: "ipc:shell:detached-changed", flow: detached-tab-changed}
   - {entry: "ipc:shell:global-floats-read", flow: global-floats-read}
   - {entry: "ipc:shell:global-floats-save", flow: global-floats-save}
   - {entry: "ipc:shell:surface-request", flow: agent-tab-request}
@@ -442,6 +452,8 @@ links:
   - {entry: "ipc:shell:surface-report", flow: host-tab-report}
   - {entry: "ipc:shell:intent", flow: desktop-window-intent}
   - {entry: "ipc:shell:appearance", flow: appearance-set}
+  # 창 안 키
+  - {entry: "ipc:shell:shortcut", flow: key-press}
   # 보호 입력, 결정 handle
   - {entry: "ipc:shell:secret-input-open", flow: secret-input}
   - {entry: "ipc:secret-input:display", flow: secret-input}
@@ -455,14 +467,40 @@ links:
   - {entry: "ipc:harness-gui:tab-toggle", flow: harness-gui-toggle}
   - {entry: "ipc:harness-gui:tab-running", flow: harness-gui-toggle}
   - {entry: "ipc:harness-gui:tab-input", flow: harness-gui-input}
+  - {entry: "ipc:harness-gui:tab-connect", flow: harness-gui-tab-attach}
+  - {entry: "ipc:harness-gui:tab-disconnect", flow: harness-gui-tab-attach}
+  - {entry: "ipc:harness-gui:tab-update", flow: harness-gui-publish}
+  - {entry: "ipc:harness-gui:tab-current", flow: harness-gui-tab-current}
+  - {entry: "ipc:harness-gui:tab-sessions", flow: harness-gui-tab-sessions}
+  - {entry: "ipc:harness-gui:tab-rewind-preview", flow: harness-gui-tab-rewind-preview}
+  - {entry: "ipc:harness-gui:tab-image", flow: harness-gui-tab-image}
+  - {entry: "ipc:shell:terminal-open", flow: terminal-open}
+  - {entry: "ipc:shell:terminal-input", flow: terminal-input}
+  - {entry: "ipc:shell:terminal-response", flow: terminal-respond}
+  - {entry: "ipc:shell:terminal-resize", flow: terminal-resize}
+  - {entry: "ipc:shell:terminal-close", flow: terminal-close}
+  - {entry: "ipc:shell:terminal-restart", flow: terminal-restart}
+  - {entry: "ipc:shell:terminal-snapshot", flow: terminal-snapshot}
+  - {entry: "ipc:shell:terminal-output", flow: terminal-output}
+  - {entry: "ipc:shell:terminal-focus", flow: terminal-focus}
+  - {entry: "ipc:shell:terminal-tab-name", flow: terminal-tab-name}
+  - {entry: "ipc:shell:terminal-copy", flow: terminal-copy}
+  - {entry: "ipc:shell:terminal-paste", flow: terminal-paste}
+  - {entry: "ipc:shell:terminal-trace", flow: terminal-trace}
+  - {entry: "ipc:shell:terminal-agent-sessions", flow: terminal-agent-session-list}
+  - {entry: "ipc:shell:terminal-agent-session-rename", flow: terminal-agent-session-rename}
   - {entry: "ipc:shell:terminal-state", flow: terminal-agent-track}
   - {entry: "ipc:shell:terminal-reveal", flow: terminal-agent-notice}
   - {entry: "ipc:shell:terminal-agent-sessions-changed", flow: terminal-agent-identity}
   - {entry: "ipc:shell:coding-hook-ask", flow: terminal-hook-install}
   - {entry: "ipc:shell:coding-hook-result", flow: terminal-hook-install}
+  # thread bookmark (sessions)
+  - {entry: "ipc:shell:thread-bookmarks-list", flow: thread-bookmark-list}
+  - {entry: "ipc:shell:thread-bookmarks-set", flow: thread-bookmark-set}
+  - {entry: "ipc:shell:thread-bookmarks-changed", flow: thread-bookmark-set}
   # core 연결과 event 전달
-  - {entry: "ipc:shell:core-state", flow: core-ensure}
-  - {entry: "ipc:shell:core-state-get", flow: core-ensure}
+  - {entry: "ipc:shell:core-state", flow: shell-core-recover}
+  - {entry: "ipc:shell:core-state-get", flow: shell-core-recover}
   - {entry: "ipc:shell:core-watch", flow: gateway-stream}
   - {entry: "ipc:shell:core-event", flow: gateway-stream}
 

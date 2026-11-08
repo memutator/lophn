@@ -52,3 +52,35 @@ modules: [packages/core/main, packages/core/lophn-agent]
 - 그대로 둔다(작음). refresh가 거절되면 지금도 `refresh_rejected`로 다시 인증을 묻는다. 잃는 것: workspace마다 한 번씩 다시 인증.
 - token을 복사하지 않고 Home lophn에만 옮긴다(작음). 잃는 것: project·앱 lophn은 처음부터 다시 인증. "동작을 그대로 잇는다"는 계획 결정과 어긋난다.
 - 추천: 그대로 둔다. 다시 인증 길이 이미 있고, 전역 lophn에 OAuth MCP를 붙인 사람은 적다.
+
+## 이미 있는 provider id로 연결하면 그 provider의 key·token이 새 값으로 덮인다
+
+```yaml
+kind: bug
+modules: [packages/core/lophn-agent, packages/shell/renderer]
+```
+
+지금: 연결은 "secret 값을 먼저 `secrets.json`에 쓰고, 그 이름을 가리키는 ConnectProvider를 보낸다"는 순서다. ConnectProvider는 같은 id가 있으면 `conflict`(`providers/commands.ts` `connect`)를 내지만 그때는 값이 이미 덮어쓴 뒤다.
+- 구독 로그인: `login.complete`(`packages/core/lophn-agent/providers/login.ts`)가 `saveProviderTokens`로 `provider.<id>`(과 `.refresh`·`.meta`)를 쓴 다음 `connectProvider`를 부른다. `conflict`면 "그 이름은 그 provider의 token이라 지우지 않는다"고 주석을 두고 지우지 않는데, 그 token은 이미 새 로그인의 것이다.
+- API key: `connectWithKey`(`packages/shell/renderer/desktop/settings/providers/core-source.ts`)가 보호 입력 창으로 `secrets/put`을 먼저 올린 뒤 connect를 보내고, `conflict`면 지우지 않는다. `secrets/put`은 같은 이름을 조용히 바꾼다.
+- 같은 id가 나오는 경우: 정의 key마다 창이 id를 하나 쥐고(`idFor`) 이미 연결된 정의는 그 id를 다시 쓴다. 다른 창에서 먼저 연결했거나 목록이 낡은 창에서 한 번 더 연결하면 이 길로 간다.
+- 같은 뿌리의 작은 것: 끊기(`disconnect`)에서 secret 값 정리는 renderer가 끝난 뒤 best-effort로 한다(같은 파일). 그 사이 창이나 core가 죽으면 끊은 provider의 key·refresh token이 `secrets.json`에 남는다. core는 값을 지우지 않는다.
+
+영향: 연결이 실패(`conflict`)로 끝나는데 이미 쓰던 provider의 key나 구독 token이 다른 계정의 token이나 틀린 key로 바뀐다. 그 provider를 쓰던 agent의 turn이 인증 오류로 실패하고, 사람은 원래 key를 다시 넣어야 한다. 구독은 다른 계정의 token으로 쓰이는 채 provider 행은 옛 계정을 보인다.
+
+고치려면:
+- 값을 쓰기 전에 그 id의 provider가 있는지 읽어 보고(또는 core가 login begin·secret put 단계에서 거절하고) 있으면 쓰지 않는다. 작음. 추천.
+- 새 연결은 임시 이름에 쓰고 ConnectProvider가 성공한 뒤에 `provider.<id>`로 옮긴다. 중간. 끊기의 정리 누락과 같이 core가 맡을 수 있다(Disconnect command가 값을 지운다).
+
+## `publish-package` skill이 내장으로 선언되지 않아 앱 agent가 읽지 못한다
+
+```yaml
+kind: bug
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-workspaces]
+```
+
+지금: `packages/core/agent-workspaces/skills/publish-package/SKILL.md`는 있지만 `BUILTIN_SKILLS`(`packages/protocol/lophn-agent/skill-settings.ts`)에 항목이 없다. skill 모으기(`packages/core/lophn-agent/extensions/skills.ts`)는 내장 폴더라도 선언되지 않은 이름을 "built-in skill is not declared"로 `skipped`에 넣고 후보에서 뺀다. 그런데 앱 workspace의 prompt(`packages/core/agent-workspaces/prompts/app.md`)는 "package를 옮기거나 다른 앱의 package를 더할 때 skill `publish-package`를 읽으라"고 말한다.
+
+영향: 앱 agent가 그 안내대로 skill을 찾으면 없어서 package 만들기·더하기를 skill 없이 짐작으로 하게 된다.
+
+고치려면: `BUILTIN_SKILLS`에 `{ name: "publish-package", workspaces: ["app"], can_disable: false, menu: false }`를 더한다. 작음. 앱 agent가 읽는 지침이 바뀌므로 `sdk-note` skill대로 `migrate-sdk` 메모 여부를 같이 본다.

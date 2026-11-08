@@ -88,7 +88,7 @@ flows:
         code: unavailable
         observe: ["response"]
         when: "healthy reader가 없거나 대기 한도를 넘었다, reader가 unhealthy가 되어 기다리던 read가 끊겼다, 또는 snapshot·ledger 읽기가 실패했다"
-    crosses_process: true
+    crosses_process: false
     unclear:
       - "CLI가 transport 유실 뒤 같은 key를 다시 볼 때 부른다. 사람이 친 CLI 명령에서도 불리므로 actor는 agent로 잡았다. 사람 쪽이 많으면 바꿀 것"
       - "reader는 credential을 다시 확인하지 않는다. API gate가 본 뒤 요청 처리 중에 폐기된 자격의 read도 통과할 수 있다. 의도인지 확인할 것"
@@ -207,7 +207,7 @@ flows:
         code: internal
         observe: ["response"]
         when: "identify가 root package.json의 판을 읽지 못한다(credential은 발급하지 않는다). 또는 writer가 context 모양을 계약 밖으로 거절했다"
-    crosses_process: true
+    crosses_process: false
     risk: [permission, secret]
     docs: [architecture/platform.md]
     unclear:
@@ -218,6 +218,7 @@ flows:
     actor: person
     entries: [control:stop]
     pre: [core-boot:ready]
+    uses: [system:blob-maintenance-stop]
     boundary: [core-control-protocol, core]
     code: [packages/core/server/control/handler.ts, packages/core/main/daemon/core.ts, packages/core/main/worker/maintenance-entry.ts]
     steps:
@@ -310,7 +311,7 @@ flows:
         code: internal
         observe: ["response"]
         when: "ref를 만들지 못했거나 겹쳤거나, writer의 결과가 계약과 다르다. 사실상 일어나지 않는 방어 갈래다"
-    crosses_process: true
+    crosses_process: false
     risk: [permission]
     docs: [architecture/approval.md]
 
@@ -341,7 +342,7 @@ flows:
         code: unavailable
         observe: ["response"]
         when: "writer에 전달하지 못했다(종료 중 writer가 닫힘 등)"
-    crosses_process: true
+    crosses_process: false
     docs: [architecture/approval.md]
 
   - id: core-boot
@@ -449,6 +450,7 @@ flows:
     title: "ledger 밖 data root 파일의 data step을 한 번씩 적용한다"
     actor: system
     entries: [system:data-steps-apply]
+    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace]
     boundary: [core]
     code: [packages/core/storage/migration/data-steps.ts, packages/core/main/daemon/core.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
@@ -595,6 +597,7 @@ flows:
     title: "감독하는 child가 끝나면 다시 띄우거나 포기한다"
     actor: system
     entries: [system:child-crash]
+    uses: [turn-interrupt:interrupted]
     boundary: [supervision, child-supervision-protocol]
     code: [packages/core/supervision/responsiveness/supervisor.ts, packages/core/supervision/responsiveness/slot.ts, packages/core/supervision/responsiveness/run.ts, packages/core/main/daemon/wiring/supervision.ts]
     steps:
@@ -612,6 +615,9 @@ flows:
         code: unavailable
         observe: ["process:새 child를 띄우지 않음", "response"]
         when: "재기동 한도(restart limit reached), ready 시한(ready timed out), protocol 위반(protocol violation), 종료 미확인(teardown unconfirmed), 재기동 대기 실패(restart wait failed), supervision 자체 실패(supervision failed) 가운데 하나다. 대기하던 요청은 unavailable로 끝난다"
+      - id: restarted-after-stable
+        observe: ["process:새 child가 ready"]
+        when: "ready 뒤 60초(STABLE_MS)를 버틴 child가 끝났다. 연속 실패 수를 0으로 되돌린 뒤 1초 뒤에 다시 띄운다. 이 끝은 재기동 한도를 세지 않는다"
       - id: stopped
         observe: ["process:child group 종료 확인"]
         when: "core가 정지시켰다. 재기동하지 않는다"
@@ -640,7 +646,7 @@ flows:
         code: unavailable
         observe: ["log:reader-pool respawn_exhausted", "response"]
         when: "재기동 한도를 넘어 그 slot은 격리된 채 남는다. 남은 healthy slot이 하나도 없으면 read는 unavailable이고, 다른 slot이 있으면 read는 그쪽이 받는다"
-    crosses_process: true
+    crosses_process: false
     unclear:
       - "writer Worker는 이 respawn 대상이 아니다. writer가 죽었을 때의 경로는 이 flow에 없다"
 
@@ -674,6 +680,7 @@ flows:
     title: "일도 client도 없는 상태가 10분 이어지면 core가 스스로 끝난다"
     actor: system
     entries: [system:core-idle-exit]
+    uses: [workflow-activity:busy, workflow-activity:idle, run-activity:busy, run-activity:idle, job-activity:busy, job-activity:idle, system:blob-maintenance-stop]
     boundary: [core]
     code: [packages/core/main/daemon/idle.ts, packages/core/main/daemon/wiring/idle.ts]
     steps:
@@ -695,6 +702,7 @@ flows:
     title: "SIGINT나 SIGTERM을 받으면 core가 barrier를 돌고 끝난다"
     actor: system
     entries: [system:core-signal-exit]
+    uses: [system:blob-maintenance-stop]
     boundary: [core]
     code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/core.ts]
     steps:
@@ -868,6 +876,506 @@ flows:
     crosses_process: false
     risk: [secret]
     docs: [architecture/observability.md]
+
+  - id: blob-gc-observe
+    title: "platform/io가 하루마다 설치 blob을 세지만, 참조를 모르니 기록은 남기지 않는다"
+    actor: system
+    entries: [system:blob-gc-observe]
+    boundary: [storage]
+    code: [packages/core/main/worker/io.ts, packages/core/storage/blobs/worker/gc.ts, packages/core/storage/blobs/worker/maintenance.ts]
+    steps:
+      - "platform/io child가 도는 동안 setInterval이 24시간마다 observeBlobGc를 부른다. 기동 직후에는 부르지 않는다"
+      - "blobs/sha256 아래 설치 파일을 stat으로 센다. 파일은 열지 않는다. 목록을 읽지 못한 폴더는 없다고 본다"
+      - "io.ts는 listReferences를 넘기지 않는다. 참조를 모르므로 미참조 확인 기록을 만들거나 지우지 않는다"
+      - "관측 결과는 버린다. 관측이 던져도 session을 끝내지 않고 다음 날 다시 본다"
+    outcomes:
+      - id: counted
+        observe: ["process:platform/io 안에서만 센다", "disk:blobs/unreferenced 변화 없음"]
+        when: "설치 blob을 셌다. 참조 행을 모르므로 이 timer는 기록을 하나도 남기거나 지우지 않는다"
+    crosses_process: false
+    unclear:
+      - "gc.ts 머리 주석은 기동 시에도 관측한다고 하나 io.ts는 매일 timer만 건다. 둘 가운데 하나를 고칠 것"
+      - "유예기간(7일)은 참조 행을 아는 정지 유지보수(blob-maintenance-stop)에서만 센다. 이 timer가 세기 말고 하는 일이 없는 것이 의도인지 확인할 것"
+
+  - id: blob-maintenance-stop
+    title: "core가 멈출 때 정지 유지보수 child가 참조 없는 blob과 넘친 큰 자료를 지운다"
+    actor: system
+    entries: [system:blob-maintenance-stop]
+    boundary: [storage, core]
+    code: [packages/core/main/daemon/wiring/storage.ts, packages/core/main/worker/maintenance-entry.ts, packages/core/storage/blobs/worker/maintenance.ts, packages/core/storage/blobs/worker/gc.ts, packages/core/storage/blobs/gc.ts]
+    steps:
+      - "storage wiring의 stopped가 세 정지 조건(새 준비 차단, command 차단, writer 정지)을 본다. 하나라도 거짓이면 아무것도 하지 않고 기록도 남기지 않는다"
+      - "조건이 맞으면 정비 child를 띄운다. 입출력은 버린다. 30초를 넘기면 child만 끝낸다. LOPHN_HOME 밖의 ledger 경로는 아무것도 읽지 않고 거절한다"
+      - "child가 ledger를 read-only로 열어 blob_refs 전체를 한 snapshot에서 500행씩 읽는다. 읽다 실패하면 아무것도 지우지 않는다"
+      - "collectGarbage가 참조 없는 설치 blob마다 처음 본 시각의 미참조 기록을 남기고, 7일이 지난 것만 지운다. 다시 참조된 것은 기록을 지운다"
+      - "trimCapacity가 model_call_body 상한(512MB)을 넘긴 만큼 오래된 것부터 지운다. permanent 종류와 준비 중이거나 유예 안의 blob은 뺀다. 앞서 한 GC 삭제는 용량 정리가 실패해도 남는다"
+      - "실패는 logs/maintenance.jsonl에 분류 한 줄만 남긴다. 원문, 경로, hash는 남기지 않는다"
+    outcomes:
+      - id: collected
+        observe: ["disk:blobs/sha256 설치 파일 삭제", "disk:blobs/unreferenced 기록 갱신"]
+        when: "유예가 지난 미참조 blob을 하나 이상 지웠다(GC나 용량 정리)"
+      - id: kept
+        observe: ["disk:blobs/sha256 변화 없음", "disk:blobs/unreferenced 기록 새로 남김"]
+        when: "지울 것이 없다. 참조된 것, 유예 안의 것, 준비 중인 것만 있다. 처음 본 미참조 blob의 기록은 남는다"
+      - id: skipped
+        observe: ["process:정비 child를 띄우지 않는다"]
+        when: "세 정지 조건 가운데 하나라도 거짓이다. 기록도 남지 않는다"
+      - id: read-failed
+        code: unavailable
+        observe: ["log:logs/maintenance.jsonl Stopped maintenance did not run.", "disk:blobs 변화 없음"]
+        when: "정비 child가 ledger를 열지 못했거나 blob_refs를 한 snapshot으로 다 읽지 못했다(fail-closed). LOPHN_HOME 밖의 경로 요청도 여기로 온다"
+      - id: trim-refused
+        code: invalid_input
+        observe: ["log:logs/maintenance.jsonl Stopped maintenance did not run.", "disk:GC로 지운 것은 남는다"]
+        when: "용량 정리 전에 할당에 없는 종류(상한 밖 category)를 만났다. 용량 정리만 멈춘다"
+      - id: trim-unknown-kind
+        code: unavailable
+        observe: ["log:logs/maintenance.jsonl Stopped maintenance did not run.", "disk:GC로 지운 것은 남는다"]
+        when: "용량 정리 전에 종류를 모르는 설치 blob이 있었다. 용량 정리만 멈춘다"
+      - id: timed-out
+        code: unavailable
+        observe: ["log:logs/maintenance.jsonl maintenance_gc timeout", "disk:지우던 중이면 일부만 지워진다"]
+        when: "30초를 넘겼다. child를 끝내고 기다리지 않는다"
+      - id: remove-failed
+        observe: ["process:정비 child는 0으로 끝난다", "disk:지우지 못한 설치 파일이 남는다"]
+        when: "OS 삭제가 실패한 hash가 있다. 정비 진입점이 failed 목록을 버려 로그가 없다"
+    crosses_process: true
+    risk: [data-loss]
+    unclear:
+      - "정비 child의 stdout·stderr는 버린다. 실패는 exit code로만 알 수 있어 read-failed와 trim-refused를 logs에서 구별하지 못한다"
+      - "remove-failed는 로그가 없다. 진입점이 GcOutcome.failed를 읽지 않는다. 기록할지 정할 것"
+      - "blob erase(erase.ts의 eraseBlobRefs)는 이 flow가 아니다. session, app 자료, annotation 등의 삭제 트랜잭션이 blob_refs 행을 지우고, 파일은 여기서 나중에 지운다. 그 삭제 flow들이 이 단계를 적을 것"
+      - "blob 유예와 정지 유지보수를 설명하는 architecture 문서를 찾지 못했다"
+
+  - id: shell-main-crash
+    title: "shell main의 처리 못한 예외를 core 진단 한 줄로 남기고 exit 1로 끝난다"
+    actor: shell
+    entries: [system:shell-main-crash]
+    uses: [control:diagnostic]
+    boundary: [shell, diagnostics]
+    code: [packages/shell/main/desktop/wiring/crash.ts, packages/shell/main/desktop/core/connection.ts]
+    steps:
+      - "uncaughtException이나 unhandledRejection이 오면 처리기가 한 번만 기록을 시도한다. 기록 중에 또 죽으면 기다리지 않고 exit 1이다"
+      - "stderr에 uncaught 줄을 쓴다. stack 원문을 가리지 않고 그대로 쓴다"
+      - "core에 붙어 있으면 lophn_internal 진단(component platform/shell-main, location shell-main-crash)을 control로 보내고 응답은 기다리지 않는다. 붙어 있지 않으면 보내지 않는다"
+      - "200ms 뒤 exit 1이다. 그 사이 보낸 요청이 core에서 기록되는지는 shell이 보지 못한다"
+    outcomes:
+      - id: sent
+        observe: ["log:stderr uncaught", "process:exit 1", "log:logs/platform-N.jsonl (core가 받았을 때)"]
+        when: "core에 붙어 있어 진단 요청을 보냈다. 기록 여부는 control:diagnostic의 outcome이 정한다"
+      - id: not-sent
+        observe: ["log:stderr uncaught", "process:exit 1"]
+        when: "core에 붙어 있지 않거나(control 없음, 멈추는 중) 진단 계약 검사에 걸렸다. stderr 한 줄만 남는다"
+      - id: crashed-again
+        observe: ["process:exit 1"]
+        when: "기록 중에 또 예외가 났다. 기다리지 않고 바로 exit 1이다"
+    crosses_process: true
+    risk: [secret]
+    unclear:
+      - "stderr에 쓰는 stack 원문은 credential 패턴이나 알려진 secret으로 가리지 않는다. core의 crash.ts는 가린다. 값이 새는지 확인할 것"
+      - "diagnostic은 void로 흘린다. 실제로 보냈는지는 boolean으로만 알고 응답을 보지 않는다"
+
+  - id: agent-credential-issue
+    title: "agent credential을 session 하나와 turn 하나에만 묶어 발급한다"
+    actor: system
+    entries: [system:agent-credential-issue]
+    boundary: [server, lophn-agent]
+    code: [packages/core/server/identity/registry.ts, packages/core/lophn-agent/run-loop/credentials.ts, packages/core/lophn-agent/run-loop/agent-credentials.ts]
+    steps:
+      - "actor가 agent:<session>이면 conditions에 session과 turn이 모두 있어야 하고, actor의 session과 conditions의 session이 같아야 하며, scope의 session과 turn이 conditions와 같아야 한다. 어긋나면 invalid_input이다"
+      - "모양이 계약과 다르거나 expires_at이 지났거나 scope가 workspace 종류별 operation 상한 밖이면 invalid_input이다. 현재 조건을 읽는 port가 실패하면 unauthorized이고, 현재 조건이나 scope와 맞지 않으면 invalid_input이다"
+      - "token과 credential_ref를 난수로 만들고 token의 digest만 기록한다. 둘이 겹치거나 기록과 같은 digest면 unavailable이다"
+    outcomes:
+      - id: issued
+        observe: ["response"]
+        when: "조건과 scope가 맞아 credential을 기록했다. turn 시작 때 한 번 발급한다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "agent인데 session이나 turn이 빠졌다, actor의 session 이름이 다르다, scope 대상이 conditions와 다르다, 모양이 계약과 다르다, 만료가 지났다, 상한 밖 operation이다, 현재 조건과 맞지 않는다"
+      - id: unauthorized
+        code: unauthorized
+        observe: ["response"]
+        when: "현재 조건을 읽는 port(restrict)가 실패했다. actor 종류와 상관없이 같다"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "난수 token이나 credential_ref가 기록과 겹쳤다, 또는 발급 중 예외가 났다"
+    crosses_process: false
+    risk: [permission]
+
+  - id: credential-end
+    title: "credential 조건(turn, session, process, app, release)으로 active 기록을 끝낸다"
+    actor: system
+    entries: [system:credential-end]
+    boundary: [server]
+    code: [packages/core/server/identity/registry.ts, packages/core/server/identity/app-credential.ts, packages/core/lophn-agent/run-loop/credentials.ts, packages/core/lophn-agent/run-loop/runtime.ts]
+    steps:
+      - "호출한 쪽이 조건 하나와 값을 넘긴다. registry가 active 기록 가운데 그 조건이 맞는 것의 상태를 ended로 바꾼다"
+      - "kind를 주면 그 actor 종류만 끝낸다. app 끝내기는 kind app으로 불러 같은 앱 조건의 agent turn credential을 남긴다"
+      - "끝낸 수를 돌려준다. 0은 오류가 아니다. 끝난 credential로 부른 다음 요청은 unauthorized다"
+    outcomes:
+      - id: ended
+        observe: ["response: 그 credential로 부른 다음 요청이 unauthorized로 끝난다"]
+        when: "조건이 맞는 active credential이 하나 이상 끝났다"
+      - id: none
+        observe: ["response: 끝낸 수 0을 돌려준다"]
+        when: "조건이 맞는 active credential이 없다. 오류가 아니다"
+      - id: agent-kept
+        observe: ["response: 같은 앱 조건의 agent credential로 부른 요청이 그대로 받아진다"]
+        when: "kind app으로 끝냈다. 같은 앱 조건의 agent credential은 active로 남는다"
+    crosses_process: false
+    unclear:
+      - "호출하는 쪽은 turn 끝(run-loop credentials), agent runtime child 종료(runtime.ts onEnd의 process), app 정지(apps/control.ts의 endApp), app process 재기동(app-credential)이다. 각 flow가 이 entry를 uses로 잇는다"
+
+  - id: agent-runtime-parent-gone
+    title: "core가 SIGKILL 등으로 사라지면 agent runtime child가 model 요청을 끊고 스스로 끝난다"
+    actor: system
+    entries: [system:agent-runtime-parent-gone]
+    boundary: [child-supervision-protocol, lophn-agent]
+    code: [packages/core/main/agent-runtime/main.ts, packages/core/supervision/responsiveness/child.ts, packages/core/supervision/responsiveness/run.ts]
+    steps:
+      - "core가 사라지면 child의 stdin이 EOF가 된다. child.ts가 이를 관측해 onStop을 정확히 한 번 부른다. 정지 요청과 protocol 위반도 같은 길이다"
+      - "onStop은 새 진입을 막고, model 요청을 도는 pump를 abort하고, 들고 있는 credential을 모두 끝낸 뒤 stopped를 보내려 한다. core가 없어 보내지 못할 수 있다"
+      - "onStop이 끝나면 child가 끝난다. 새 core는 새 child를 띄우고 이 child를 되살리지 않는다. 닫히지 않은 running turn은 다음 기동의 turn-restart가 interrupted로 닫는다"
+    outcomes:
+      - id: stopped
+        observe: ["request:model 요청이 끊긴다", "process:agent runtime child가 끝난다"]
+        when: "stdin EOF를 보고 onStop이 불렸다. 열린 model 요청이 끊기고 child가 끝난다"
+    crosses_process: false
+    unclear:
+      - "platform/io와 app child도 같은 child.ts의 EOF 경로를 쓴다. 이 flow는 agent runtime의 onStop만 적었다"
+      - "stopped를 보내는 것은 core가 없으면 실패한다. 그 실패가 log에 남는지는 확인하지 않았다"
+
+  - id: shell-core-recover
+    title: "shell main이 core에 다시 붙거나, 없으면 띄우고, 판이 다르면 갈아 띄운다"
+    actor: shell
+    entries: [system:shell-core-recover]
+    uses: [control:identify, system:core-ensure]
+    boundary: [shell, core-control-protocol]
+    code: [packages/shell/main/desktop/core/connection.ts, packages/shell/main/desktop/core/supervise.ts]
+    steps:
+      - "main 시작 때 한 번, 그리고 Gateway가 stale을 알리고 1초 뒤에 부른다. 동시에 부른 것은 하나로 합친다. Stop lophn이나 detach로 멈춘 shell은 아무것도 하지 않는다"
+      - "control identify로 core가 stopping인지 본다. stopping이면 연결을 stale로 두고 다시 띄우지 않는다. 다른 client가 끈 core를 되살리지 않는다"
+      - "그 밖이면 연결을 starting으로 밀고 system:core-ensure로 붙거나 띄운다. ensure가 ok면 openCore가 Gateway를 열고 ready로 세운다. shell capability는 main 메모리에만 둔다"
+      - "ensure가 실패하면 reason이 newer_schema, history_mismatch, damaged_original이면 failed-schema로, 그 밖이면 failed-start로 세운다"
+    outcomes:
+      - id: ready
+        observe: ["process:shell main 연결 state가 ready가 되고 창에 shell:core-state가 간다"]
+        when: "ensure가 붙거나 띄워 ready 연결을 열었다"
+      - id: failed-start
+        observe: ["screen:home-start-failed"]
+        when: "ensure가 reason 없이 또는 other로 실패했다"
+      - id: failed-schema
+        observe: ["screen:home-schema-failed"]
+        when: "ensure가 newer_schema, history_mismatch, damaged_original로 실패했다. schemaFailure에 이유를 싣는다"
+      - id: stopping-seen
+        observe: ["process:core를 띄우지 않는다"]
+        when: "identify가 stopping이라 답했다. 연결은 stale로 남고 이후 자동 복구도 멈춘다"
+      - id: skipped
+        observe: ["process:core를 띄우지 않는다"]
+        when: "Stop lophn이나 detach로 멈췄거나 shutdown을 본 뒤다. control이 처음부터 없었으면(판을 읽지 못함) 연결은 failed-start이고 여기서는 아무것도 하지 않는다"
+    crosses_process: true
+    unclear:
+      - "failed-sandbox와 failed 상태는 main이 세우지 않는다. ipc/core.ts의 enum과 renderer(start-failure/model.ts)만 읽는다. journeys/setup.yaml도 같은 것을 적었다. 그래서 outcome을 두지 않았다"
+      - "identify가 ok가 아니면 stopping 검사를 건너뛰고 바로 ensure로 간다. 의도인지 확인할 것"
+
+  - id: shell-core-stale
+    title: "Gateway가 끊기거나 core가 shutdown을 알리면 연결을 stale로 바꾸고 재연결을 건다"
+    actor: shell
+    entries: [system:shell-core-stale]
+    uses: [system:shell-core-recover]
+    boundary: [shell, event-stream]
+    code: [packages/shell/main/desktop/core/connection.ts, packages/shell/main/desktop/core/events.ts]
+    steps:
+      - "Gateway sink가 stale을 알리면 shutdown을 본 적이 없을 때만 연결 state를 stale로 밀고 1초 뒤 recover를 건다"
+      - "core가 closed(shutdown) frame을 보내면 창에 closed를 넘기고 shutdownSeen을 세운 뒤 state를 stale로 둔다. 이 뒤로는 recover가 다시 띄우지 않는다"
+      - "shutdownSeen이 선 뒤의 stale 알림은 무시한다"
+    outcomes:
+      - id: retry-scheduled
+        observe: ["process:연결 state가 stale이 되고 1초 뒤 shell-core-recover가 돈다"]
+        when: "socket이 끊겼고 shutdown을 보지 않았다"
+      - id: shutdown-stale
+        observe: ["process:재연결이 없다", "process:창에 closed가 간다"]
+        when: "closed(shutdown) frame을 받았다. core가 내려가는 중이라 다시 띄우지 않는다"
+      - id: ignored
+        observe: ["process:state 변화 없음"]
+        when: "shutdown을 이미 본 뒤의 stale 알림이다"
+    crosses_process: false
+    unclear:
+      - "stale 상태에 맞는 화면 frame이 없다. main.tsx가 연결 state가 stale이면 notice를 띄울 뿐이다"
+
+  - id: settings-call-policy-private
+    title: "옛 call 정책에 private 목록을 빈 채로 채운다(data step)"
+    actor: system
+    entries: [system:settings-call-policy-private]
+    boundary: [config, core]
+    code: [packages/core/main/daemon/wiring/call-policy-private.ts, packages/core/main/daemon/wiring/setting-declarations.ts]
+    steps:
+      - "data-steps-apply가 ledger 적용 뒤 기록에 없을 때만 부른다. settings.json이 없으면 아무것도 하지 않는다"
+      - "JSON이 깨졌으면 사람이 고칠 파일로 보고 그대로 둔다. call 정책이 없거나 private이 이미 있으면 그대로 둔다"
+      - "call 정책 객체 앞에 private: []를 채워 같은 mode로 temp에 쓰고 rename한다. 다른 key와 규칙은 그대로다"
+    outcomes:
+      - id: filled
+        observe: ["disk:settings.json call 정책에 private: []"]
+        when: "call 정책에 private이 없어 채웠다"
+      - id: skipped
+        observe: ["disk:settings.json 변화 없음"]
+        when: "settings.json이 없거나 JSON이 깨졌거나 call 정책이 없거나 private이 이미 있다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "settings.json을 읽거나 쓰지 못했다. step이 err라 기동을 멈춘다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [products/change-log/0.18.0.md]
+
+  - id: settings-places-default-on
+    title: "옛 sidebar panel·tray 목록 key를 settings.json에서 지운다(data step)"
+    actor: system
+    entries: [system:settings-places-default-on]
+    boundary: [config, core]
+    code: [packages/core/main/daemon/wiring/places-default-on.ts, packages/core/main/daemon/wiring/setting-declarations.ts]
+    steps:
+      - "settings.json을 읽는다. 없거나 JSON이 깨졌으면 그대로 둔다(깨진 것은 사람이 고친다)"
+      - "shell.sidebar_panels나 shell.tray key가 하나라도 있으면 그 key를 지우고 같은 mode로 temp에 쓰고 rename한다. 다른 key는 그대로다"
+    outcomes:
+      - id: removed
+        observe: ["disk:settings.json에서 shell.sidebar_panels·shell.tray 제거"]
+        when: "옛 key가 하나 이상 있어 지웠다. 켠 것은 이제 기본이라 잃는 것이 없다고 적혀 있다"
+      - id: skipped
+        observe: ["disk:settings.json 변화 없음"]
+        when: "settings.json이 없거나 깨졌거나 옛 key가 없다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "settings.json을 읽거나 쓰지 못했다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [products/change-log/0.21.0.md]
+
+  - id: apps-sealed-marker
+    title: "옛 core가 봉인한 bundle 사본에 표지 file을 써 준다(data step)"
+    actor: system
+    entries: [system:apps-sealed-marker]
+    boundary: [app-releases]
+    code: [packages/core/main/daemon/wiring/sealed-marker.ts, packages/core/apps/releases/bundle/seal.ts]
+    steps:
+      - "apps/<app>/bundles 아래 사본마다 맨 위 폴더에 쓰기 bit가 없는 것을 찾는다. 쓰기 가능한 사본은 건너뛴다"
+      - "봉인 사본마다 <사본>.sealed 표지를 빈 file로 쓴다. 표지가 이미 있어도 다시 쓴다"
+      - "표지를 못 쓰면 unavailable로 멈춘다. 표지가 없으면 새 core가 봉인 안 된 사본으로 보고 지운다"
+    outcomes:
+      - id: marked
+        observe: ["disk:apps/<app>/bundles/<사본>.sealed"]
+        when: "봉인 사본을 하나 이상 찾아 표지를 썼다"
+      - id: skipped
+        observe: ["disk:bundles 변화 없음"]
+        when: "봉인 사본이 없다(apps 폴더가 없거나 쓰기 가능한 사본뿐이다)"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "표지 file을 쓰지 못했다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/platform.md]
+    unclear:
+      - "sealed-marker.ts 머리 주석은 표지가 있으면 건너뛴다고 하나 코드는 표지 유무를 보지 않고 다시 쓴다. 결과는 같다. 주석이나 코드 가운데 하나를 고칠 것"
+
+  - id: artifacts-container
+    title: "domain 폴더의 artifact를 그 project나 앱 폴더로 옮긴다(data step)"
+    actor: system
+    entries: [system:artifacts-container]
+    boundary: [storage, projects]
+    code: [packages/core/main/daemon/wiring/artifact-move.ts, packages/core/storage/migration/data-steps.ts]
+    steps:
+      - "lophn.db의 domains 표로 domain마다 그릇(project나 앱)을 정한다. domain 이름 순으로 보고, 이름이 차 있으면 <name>-<domain 이름>으로 옮긴다. 둘 다 차 있으면 제자리에 둔다"
+      - "rewind 기록의 옛 root와 path를 새 자리로 다시 쓰고, 판 8 shell/places 파일의 artifact 탭을 판 9로 다시 쓴다. 이 둘은 파일을 옮기기 전에 쓴다"
+      - "artifact 폴더를 그릇의 artifacts/로 rename한다. 비게 된 domains/<dom>/artifacts만 지운다"
+    outcomes:
+      - id: moved
+        observe: ["disk:<그릇>/artifacts/<이름> 옮겨짐", "ledger:rewind_files의 root·path가 새 자리", "disk:shell/places 판 9"]
+        when: "artifact를 하나 이상 옮겼고 제자리에 남은 것이 없다"
+      - id: kept-in-place
+        observe: ["disk:domains/<dom>/artifacts/<이름> 남음"]
+        when: "두 이름이 다 차 있어 옮기지 못한 artifact가 있다. 옮긴 것이 함께 있을 수 있다"
+      - id: skipped
+        observe: ["disk:변화 없음"]
+        when: "옮길 artifact가 없다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "lophn.db를 열지 못했다(openConnection의 오류를 그대로 준다), 또는 옮기거나 기록을 쓰다 던졌다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/artifact.md, products/change-log/0.18.0.md]
+    unclear:
+      - "rewind 기록과 layout을 파일 옮기기보다 먼저 쓴다. 옮기다 실패하면 기록은 새 자리를 가리키고 파일은 옛 자리에 있다. 다음 기동에서 다시 돌면 맞춰지지만, 그 사이 사용자가 보는 화면과 되돌리기의 상태를 확인할 것"
+
+  - id: domains-place-data
+    title: "domain 폴더의 skill을 그 그릇의 skills/로 옮기고 DOMAIN.md·kinds.yaml을 지운다(data step)"
+    actor: system
+    entries: [system:domains-place-data]
+    boundary: [storage, agent-workspaces]
+    code: [packages/core/main/daemon/wiring/workspace-data-move.ts]
+    steps:
+      - "domain마다 그릇을 정하고 domains/<dom>/skills의 이름을 옮길 곳 이름으로 정한다. 겹치면 artifact와 같은 규칙이다. 둘 다 차 있으면 제자리에 둔다"
+      - "rewind 기록을 새 자리로 다시 쓴다. DOMAIN.md와 kinds.yaml의 기록 행은 지운다. 이 둘은 파일을 옮기기 전에 한다"
+      - "이름이 바뀌는 skill은 SKILL.md의 name:을 새 이름으로 고친 뒤 폴더를 rename한다. 그다음 domain의 DOMAIN.md·kinds.yaml을 지우고 비게 된 skills/만 치운다"
+    outcomes:
+      - id: moved
+        observe: ["disk:<그릇>/skills/<이름> 옮겨짐", "disk:domains/<dom>/DOMAIN.md·kinds.yaml 삭제", "ledger:rewind_files 행 다시 씀 또는 삭제"]
+        when: "skill을 하나 이상 옮겼거나 DOMAIN.md·kinds.yaml을 지웠다"
+      - id: kept-in-place
+        observe: ["disk:domains/<dom>/skills/<이름> 남음"]
+        when: "두 이름이 다 차 있어 옮기지 못한 skill이 있다"
+      - id: skipped
+        observe: ["disk:변화 없음"]
+        when: "옮길 skill도, 지울 문서도, 바꿀 기록도 없다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "lophn.db를 열지 못했거나(openConnection의 오류를 그대로 준다), skill을 옮기거나 SKILL.md를 고치거나 문서를 지우다 던졌다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [products/change-log/0.18.0.md]
+    unclear:
+      - "DOMAIN.md와 kinds.yaml은 백업 없이 지운다. 0.18.0 결정이 되살리지 않는다고 적었다. 사람이 쓴 문서가 사라지는 것이 data-loss다"
+      - "같은 wiring의 agents.drop-domains(dropDomainsFieldStep)는 agent-definition-data-steps flow가 맡는다"
+
+  - id: domains-retire
+    title: "domains 표와 derived kinds 캐시를 거두고, 파일이 없으면 domains/ 폴더도 지운다(data step)"
+    actor: system
+    entries: [system:domains-retire]
+    boundary: [storage]
+    code: [packages/core/main/daemon/wiring/domains-retire.ts]
+    steps:
+      - "lophn.db를 열어 domains 표를 drop하고 닫는다. 표가 없으면 아무 일도 없다. WIRINGS 순서상 artifacts-container와 domains-place-data 뒤에 돈다"
+      - "derived/kinds.sqlite와 -wal, -shm을 지운다. 없으면 무시한다"
+      - "domains/ 아래에 일반 file이 하나라도 있으면 폴더를 남긴다. file이 없으면(빈 폴더만) 폴더를 지운다"
+    outcomes:
+      - id: retired
+        observe: ["ledger:domains 표 없음", "disk:derived/kinds.sqlite 없음", "disk:domains/ 없음"]
+        when: "표와 kinds 캐시를 거두었고 domains/에 file이 없어 폴더까지 지웠다(폴더가 처음부터 없었던 것도 여기다)"
+      - id: folder-kept
+        observe: ["ledger:domains 표 없음", "disk:derived/kinds.sqlite 없음", "disk:domains/ 남음"]
+        when: "표와 kinds 캐시를 거두었지만 domains/ 아래에 file이 남아 폴더를 지우지 않았다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "lophn.db를 열지 못했거나(openConnection의 오류를 그대로 준다), drop이나 폴더 지우기가 던졌다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [products/change-log/0.18.0.md]
+
+  - id: lophn-split-per-workspace
+    title: "전역 lophn의 정의, secret, call 정책, layout 탭을 workspace마다의 lophn으로 나눈다(data step)"
+    actor: system
+    entries: [system:lophn-split-per-workspace]
+    boundary: [agents, secrets, config]
+    code: [packages/core/main/daemon/wiring/lophn-split.ts]
+    steps:
+      - "lophn.db에서 project와 앱 id를 읽어 lophn 목록(home과 workspace마다)을 만든다"
+      - "secrets.json의 mcp.lophn.*와 mcp-oauth.lophn.*를 lophn마다 이름으로 복사하고 옛 이름은 지운다. 이미 있는 이름은 덮지 않는다"
+      - "settings.json의 call 정책 agents 규칙에서 옛 lophn을 목록으로 늘리고, shell/workspaces 탭의 agent를 탭 workspace의 lophn으로 바꾼다"
+      - "agents/lophn.md를 lophn마다 복사한 뒤 전역 파일을 마지막에 지운다. 이미 있는 대상은 덮지 않는다. 정의 앞머리의 mcp.lophn.*만 바꾼다"
+    outcomes:
+      - id: split
+        observe: ["disk:agents/lophn_<id>.md 생김, agents/lophn.md 지움", "disk:secrets.json의 키가 lophn마다 복사됨", "disk:settings.json call 정책 agents 규칙이 늘어남", "disk:shell/workspaces 탭의 agent가 바뀜"]
+        when: "옛 lophn을 가진 정의, secret, 규칙, 탭 가운데 하나 이상을 바꿨다"
+      - id: skipped
+        observe: ["disk:변화 없음"]
+        when: "옛 lophn을 가진 것이 없다. 깨진 settings.json이나 secrets.json은 사람이 고치므로 그대로 둔다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "lophn.db를 열지 못했거나 파일을 읽고 쓰다 던졌다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/agent-definition.md]
+    unclear:
+      - "ledger의 schema step lophn.split-per-workspace는 ledger-migrate flow가 덮는다. 이 flow는 data step만 쓴다"
+      - "events와 command_results의 옛 id는 고치지 못하는 기록이라 옮기지 않는다"
+
+  - id: settings-call-policy-workspaces
+    title: "call 정책의 옛 places 목록을 workspaces 이름으로 옮긴다(data step)"
+    actor: system
+    entries: [system:settings-call-policy-workspaces]
+    boundary: [config, lophn-agent]
+    code: [packages/core/main/daemon/wiring/workspace-rename.ts]
+    steps:
+      - "settings.json을 읽는다. 없거나 비었거나 JSON이 깨졌으면 그대로 둔다"
+      - "call 정책에 places가 있고 workspaces가 없으면 workspaces를 places 값으로 두고 places는 지운다. 다른 key는 그대로다"
+      - "같은 mode로 temp에 쓰고 rename한다. 다시 돌면 workspaces가 있어 아무것도 쓰지 않는다"
+    outcomes:
+      - id: moved
+        observe: ["disk:settings.json call 정책의 places가 workspaces가 됨"]
+        when: "places를 workspaces로 옮겼다"
+      - id: skipped
+        observe: ["disk:settings.json 변화 없음"]
+        when: "파일이 없거나 깨졌거나, call 정책에 places가 없거나, workspaces가 이미 있다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "settings.json을 읽거나 쓰지 못했다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [products/change-log/0.18.0.md]
+
+  - id: shell-workspace-layouts
+    title: "shell/places의 판 9 layout을 shell/workspaces로 옮기고 판 10으로 쓴다(data step)"
+    actor: system
+    entries: [system:shell-workspace-layouts]
+    boundary: [shell, config]
+    code: [packages/core/main/daemon/wiring/workspace-rename.ts]
+    steps:
+      - "shell/places 아래 json 파일마다 새 자리 shell/workspaces/<이름>이 없으면 판 9의 agent 탭 work_place를 workspace로 바꿔 판 10으로 temp에 쓰고 rename한 뒤 옛 파일을 지운다"
+      - "판 9가 아닌 파일(손상, 다른 판)은 내용을 고치지 않고 자리만 옮긴다. 옮긴 뒤 shell/places가 비면 폴더를 지운다"
+      - "새 자리에 같은 이름 파일이 있으면 덮지 않고 옛 파일을 shell/places에 남긴다"
+    outcomes:
+      - id: moved
+        observe: ["disk:shell/workspaces/<이름>.json 생김", "disk:shell/places/<이름>.json 지움"]
+        when: "옛 layout 파일을 하나 이상 새 자리로 옮겼다"
+      - id: kept-in-place
+        observe: ["disk:shell/places/<이름>.json 남음", "disk:shell/workspaces/<이름>.json 변화 없음"]
+        when: "새 자리에 같은 이름 파일이 이미 있어 옛 파일을 남겼다"
+      - id: skipped
+        observe: ["disk:변화 없음"]
+        when: "shell/places 폴더가 없거나 json 파일이 없다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "옮기기, 쓰기, 지우기 가운데 하나가 던졌다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/workspace-layout.md]
+    unclear:
+      - "같은 이름이 새 자리와 옛 자리에 둘 다 있으면 새 것만 읽힌다. 옛 파일은 옮기지 않은 채 남고 폴더를 지우지 못한다. 사용자 data에 영향이 있는지 확인할 것"
+
+  - id: workflows-participant-workspace
+    title: "workflow 폴더의 참가자 place key와 flow.ts의 agent 주소를 workspace로 바꾼다(data step)"
+    actor: system
+    entries: [system:workflows-participant-workspace]
+    boundary: [workflows]
+    code: [packages/core/main/daemon/wiring/workspace-rename.ts]
+    steps:
+      - "projects 아래 프로젝트마다 workflows 폴더의 workflow마다 workflow.yaml과 flow.ts를 읽는다. 없는 file은 건너뛴다"
+      - "workflow.yaml은 participants 아래 참가자 map의 place key 글자만 workspace로 바꾼다. 주석, 따옴표, 줄 모양은 그대로다. flow.ts는 place: { project | app: 꼴의 agent 주소만 바꾼다"
+      - "바뀐 텍스트가 있으면 같은 mode로 temp에 쓰고 rename한다. 다른 place 이름은 건드리지 않는다"
+    outcomes:
+      - id: moved
+        observe: ["disk:workflows/<name>/workflow.yaml 또는 flow.ts의 place가 workspace가 됨"]
+        when: "참가자 key나 agent 주소를 하나 이상 바꿨다"
+      - id: skipped
+        observe: ["disk:변화 없음"]
+        when: "바꿀 key가 없다(이미 workspace이거나 file이 없다)"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "읽기나 쓰기가 실패했다. 여러 file 가운데 일부만 바뀌었을 수 있다"
+    crosses_process: false
+    risk: [data-loss]
+    unclear:
+      - "flow.ts는 정규식으로 바꾼다(AST가 아니다). 주석이나 문자열 안의 같은 모양도 바뀔 수 있다"
 
 links: []
 ignore: []

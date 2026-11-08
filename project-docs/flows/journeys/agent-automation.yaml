@@ -396,8 +396,25 @@ journeys:
       - {do: "카드에서 Always allow를 누르고 더할 규칙 줄을 확인한다", screen: new-agent-approval-scopes, flow: turn-request-decide:always}
       - {do: "gate가 허락을 받아 명령을 실행한다", flow: tool-gate-check:run-after-allow}
       - {do: "같은 명령을 다시 부르면 규칙에 걸려 묻지 않고 실행된다", flow: tool-gate-check:run}
-    gaps:
-      - "설정 화면에서 shell 규칙 줄을 더하거나 지우는 동작(new-settings-shell-rules)은 어느 area의 flow도 소유하지 않는다. 설정 쓰기 route(models 영역)로 가는지 확인해야 한다"
+
+  - id: shell-rule-settings-edit
+    title: "Settings에서 shell 규칙 줄을 더하고 허락 방식을 바꾼다"
+    actor: person
+    goal: "Always allow로 쌓인 규칙을 Settings에서 보고, 줄을 더하거나 빼거나 허락 방식을 바꿔 저장한다. 다른 층과 다른 project의 줄은 그대로다"
+    refs: [H4]
+    steps:
+      - {do: "Settings에서 shell 규칙 목록을 연다", screen: new-settings-shell-rules, flow: settings-read:ok}
+      - {do: "규칙 줄을 더하고 허락 방식(ask, allow, deny)을 정해 저장한다. 값 전체를 쓰기 직전에 다시 읽어 그 위에 바꾼다", screen: new-settings-shell-rules-add, flow: shell-rule-edit:saved}
+      - {do: "저장된 규칙에 걸리는 같은 명령은 다음 turn부터 묻지 않거나 막힌다", flow: tool-gate-check:run}
+
+  - id: shell-rule-settings-rejected
+    title: "Settings의 shell 규칙 저장이 거절되면 이유가 보인다"
+    actor: person
+    goal: "범위를 넘거나 틀린 규칙 값은 저장되지 않고 이유가 화면에 돌아온다"
+    refs: [H4]
+    steps:
+      - {do: "틀린 값의 규칙 줄을 저장한다", screen: new-settings-shell-rules-add, flow: shell-rule-edit:rejected}
+      - {do: "쓰기 직전에 다시 읽은 값이 규칙 schema에 맞지 않으면 지어내지 않고 멈춘다", flow: shell-rule-edit:value-invalid}
 
   - id: shell-ask-deny-with-reason
     title: "shell 명령의 승인 카드에서 이유를 적고 거절한다"

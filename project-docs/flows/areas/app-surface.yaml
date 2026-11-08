@@ -98,6 +98,12 @@ flows:
         code: forbidden
         when: "machine 자격이 아니다"
         observe: [response]
+      - id: version-check-failed
+        when: "root package.json의 판을 읽지 못했거나(internal) observe_version이 실패했다(unavailable 등). 판은 견주지 않고 기동은 이어진다"
+        observe: [log:notices]
+      - id: listener-failed
+        when: "productStartListener가 던졌다. 다음 listener를 부르고 기동은 이어진다"
+        observe: [log:notices]
     crosses_process: false
     docs: [architecture/app-notice.md]
     unclear:
@@ -267,7 +273,7 @@ flows:
       - "묶음 id와 annotation id 목록을 돌려준다. 앱 기록 읽기나 blob 참조 등록이 실패하면 쓴 것을 되돌리고 그 code를 돌려준다"
     outcomes:
       - id: saved
-        observe: [ledger:annotation_batches, ledger:annotations, response]
+        observe: [ledger:annotation_batches, ledger:annotations, ledger:blob_refs, response]
       - id: not-found
         code: not_found
         when: "app target의 앱이 없다"
@@ -405,6 +411,9 @@ flows:
         code: conflict
         when: "지정한 session이 받는 쪽의 열린 session이 아니다(묶음은 지운다)"
         observe: [ledger:annotation_batches, ledger:annotations, response]
+      - id: persist-failed
+        when: "묶음 저장이 그 밖의 이유로 실패했다(앱 기록 읽기, blob 영구 참조 등록. 그 code를 그대로 돌려주고 아무것도 남기지 않는다)"
+        observe: [response]
       - id: delivery-failed
         when: "전달 중 실패(session 열기, 메시지 넣기, ledger 읽기)가 났다(묶음은 지우고 그 code를 그대로 돌려준다)"
         observe: [ledger:annotation_batches, ledger:annotations, response]
@@ -524,7 +533,7 @@ flows:
         when: "focus 창에 toast를 보냈다. finished·failed는 못 본 표시를 두고, permission(승인·질문)은 못 본 표시 없이 알린다"
         observe: [screen:new-waiting-toasts]
       - id: os-notified
-        when: "focus 창이 없어 OS 알림을 띄웠다(headless이거나 OS 알림을 지원하지 않으면 실제로는 안 뜬다). 못 본 표시는 notified와 같다"
+        when: "focus를 가진 toast 가능한 창이 없어 OS 알림을 띄웠다(headless이거나 OS 알림을 지원하지 않으면 실제로는 안 뜬다). 못 본 표시는 notified와 같다"
         observe: []
       - id: looking
         when: "사람이 그 session을 focus 창에서 보고 있다(알리지 않고 못 본 표시도 찍지 않는다)"
@@ -676,7 +685,7 @@ flows:
         observe: [response]
       - id: invalid-input
         code: invalid_input
-        when: "입력 schema에 맞지 않거나 view id가 맞지 않다"
+        when: "입력 schema에 맞지 않다(view_session 값이나 on이 맞지 않다)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -710,7 +719,7 @@ flows:
         observe: [response]
       - id: invalid-input
         code: invalid_input
-        when: "입력 schema에 맞지 않다(번호가 1 이상의 정수나 all이 아니다, 또는 view id가 맞지 않다)"
+        when: "입력 schema에 맞지 않다(번호가 1 이상의 정수나 all이 아니다, view_session 값이 맞지 않다)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -728,13 +737,14 @@ flows:
     boundary: [shell, apps, core-api]
     code: [packages/shell/main/app-frame/annotate.ts, packages/shell/main/app-frame/capture.ts, packages/core/apps/annotations/send.ts]
     steps:
-      - "보내는 중이면 conflict. guard가 막지 않은 뒤 목록이 비었거나 app 화면의 release가 없는 항목이 있으면 invalid_input"
+      - "보내는 중이면 conflict다. 목록이 비었거나 app 화면의 release가 없는 항목이 있으면 invalid_input이다"
       - "목록을 번호 순으로 1..N에 맞춘다. 각 annotation마다 page에 capture 준비를 알려(annotate:capture-ready를 기다린다) 윤곽과 번호가 이미지에 찍히게 한다"
       - "guest를 capturePage로 찍어 고른 곳에 표지와 여백을 더해 자르고 줄인다. 찍기나 자르기가 안 되면 그 annotation만 screenshot 없이 보낸다(보내기는 계속된다)"
       - "PNG를 annotation-screenshot-upload로 올리고(실패하면 null), 묶음을 annotation-send로 core에 보낸다. core가 던지면 unavailable"
       - "성공하면 mode를 끄고 목록과 표지를 비운다. 실패하면 목록은 남기고 core의 code를 그대로 renderer에 돌려준다(미지의 code는 unavailable)"
     outcomes:
       - id: sent
+        when: "묶음을 보냈다. screenshot을 찍거나 올리지 못한 annotation은 screenshot 없이 섞여 간다"
         observe: [response, screen:new-app-annotate]
       - id: conflict
         code: conflict
@@ -1134,7 +1144,7 @@ flows:
         observe: [response]
       - id: invalid-input
         code: invalid_input
-        when: "session 값이 문자열이 아니다"
+        when: "session 값이 문자열이 아니거나, sessions.read가 그 값을 invalid_input으로 거절했다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -1174,8 +1184,42 @@ flows:
       - id: event-forwarded
         when: "사람이 누른 탭·action·menu·back·forward가 앱 page에 닿는다(page가 안 붙었으면 버린다)"
         observe: [screen:app-space]
+      - id: ignored
+        when: "보낸 element가 지금 page가 아니다(늦은 page의 머리 신호는 버린다)"
+        observe: []
     crosses_process: false
     docs: [architecture/app-call.md]
+
+  - id: app-keys
+    title: 앱 화면이 선언한 key를 앱 handler가 맞춰 돌리고 삼킨다
+    actor: app
+    entries: []
+    uses: [sdk:app-ui/useCommand, ipc:app:keys, ipc:app:keys-forward]
+    boundary: [shell, app-runtime]
+    code: [packages/shell/preload/app-tool.ts, packages/sdk/app-ui/use-command.ts]
+    steps:
+      - "앱 page의 window keydown(capture)을 preload가 page의 listener보다 먼저 받는다. 한글 조합 중이거나 modifier만 누른 key는 맞추지 않고 지나간다"
+      - "host가 준 앱 key 글(ipc:app:keys)에 맞고 그 이름의 handler가 있고 when이 참이면 key를 삼킨다. 처음 누른 것이면 handler를 한 번 부른다"
+      - "눌러 둔 반복이면 삼키기만 하고 handler는 부르지 않는다"
+      - "앱 key가 맞지 않거나 when이 거짓이면 삼키지 않고 shell 글 검사로 넘긴다. shell 글에 맞으면 host로 넘기는 것은 app-keys-forward다"
+    outcomes:
+      - id: ran
+        when: "처음 누른 앱 key가 맞고 handler가 있고 when이 참이다. 삼키고 handler를 부른다"
+        observe: [screen:app-space]
+      - id: repeat-swallowed
+        when: "앱 key가 맞고 when이 참인 눌러 둔 반복이다. 삼키기만 하고 handler를 부르지 않는다"
+        observe: []
+      - id: when-false
+        when: "앱 key가 맞지만 handler의 when이 거짓이다. 삼키지 않고 shell 글 검사로 넘긴다"
+        observe: []
+      - id: not-mine
+        when: "앱 key가 맞지 않거나 맞은 이름의 handler가 없다. 삼키지 않고 shell 글 검사로 넘긴다"
+        observe: []
+      - id: skipped
+        when: "한글 조합 중이거나 modifier만 누른 key다. 맞추지 않고 그대로 둔다"
+        observe: []
+    crosses_process: false
+    docs: [architecture/keybindings.md]
 
   - id: app-keys-forward
     title: 앱 화면에서 누른 키를 shell 단축키로 넘긴다

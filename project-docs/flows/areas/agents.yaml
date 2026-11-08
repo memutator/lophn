@@ -22,7 +22,7 @@ flows:
         code: unavailable
         when: ledger 위치를 모르거나 agent 정의 folder를 읽지 못했다
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [H11, P1]
     docs: [architecture/agent-definition.md]
 
@@ -57,7 +57,7 @@ flows:
         code: unavailable
         when: 정의 file이나 ledger 위치를 읽거나 쓰지 못했다
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     risk: [permission]
     refs: [G1, P2]
     docs: [architecture/agent-definition.md]
@@ -77,12 +77,17 @@ flows:
       - lophn의 profile이 고정 값과 다르면 거절한다
       - 정의가 있는 agent의 handle과(lophn 포함) 범위 workspace는 만들 때 정한 값과 같아야 한다
       - checkAgent 뒤 파일 전체를 새 내용으로 쓴다. 쓰지 않은 칸은 지워진다
+      - CLI `agent.update`는 agents/list로 handle을 찾고(없으면 not_found), agents/read로 현재 정의와 hash를 받아 보낸 칸만 덮어 합친 뒤 그 hash로 agents/change를 부른다. 틀린 file은 부르지 않고 거절한다
     outcomes:
       - id: saved
         observe: [disk:agents/<id>.md]
       - id: agent-not-found
         code: not_found
-        when: agent가 없거나 사람이 만든 agent의 file이 없다. lophn은 그 workspace가 없으면 없다
+        when: agent가 없거나 사람이 만든 agent의 file이 없다. lophn은 그 workspace가 없으면 없다. CLI agent.update는 agents/list에 handle이 없어도 여기다
+        observe: [response]
+      - id: broken-file
+        code: invalid_input
+        when: "CLI agent.update만: agents/read가 틀린 칸(issues)을 싣거나 정의가 없는 lophn 밖 agent다. agents/change를 부르지 않고 거절한다(the agent file is broken)"
         observe: [response]
       - id: hash-changed
         code: conflict
@@ -112,7 +117,7 @@ flows:
         code: unavailable
         when: 정의 file이나 ledger 위치를 읽거나 쓰지 못했다
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     risk: [data-loss, permission]
     refs: [G1, P1, P2]
     docs: [architecture/agent-definition.md]
@@ -150,7 +155,7 @@ flows:
         code: unavailable
         when: ledger 위치나 정의 file을 읽거나 지우지 못했다
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     risk: [data-loss]
     refs: [H11, P1]
     docs: [architecture/agent-definition.md]
@@ -180,7 +185,7 @@ flows:
         code: unavailable
         when: ledger 위치를 모르거나 agent 정의 folder를 읽지 못했다
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [R2]
     docs: [architecture/agent-definition.md]
 
@@ -222,7 +227,7 @@ flows:
         code: internal
         when: 정의 읽기 결과의 모양이 틀렸다(우리 코드의 결함)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [P1]
     docs: [architecture/agent-definition.md]
 
@@ -263,7 +268,7 @@ flows:
         code: internal
         when: 정의 읽기 결과의 모양이 틀렸다(우리 코드의 결함)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: call-send
@@ -320,7 +325,7 @@ flows:
         code: unavailable
         when: Router가 아직 연결되지 않았다(기동 중)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [R1, T1, T7, T9, T12, T15]
     docs: [architecture/agent-call.md, architecture/workspace-session.md]
     unclear:
@@ -375,7 +380,7 @@ flows:
         code: unavailable
         when: Router가 아직 연결되지 않았다(기동 중)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [R2, T4, T11, T18]
     docs: [architecture/agent-call.md]
 
@@ -389,7 +394,7 @@ flows:
     steps:
       - 화면이 call을 취소한다. agent가 lophn call cancel로 같은 route를 부르면 자기가 보낸 call만 된다
       - 끝나지 않은 call을 cancelled로 바꾼다
-      - 받은 session이 lophn이면 call_cancelled 알림을 queue에 넣는다(다음 turn 입력)
+      - 받은 session(lophn이든 harness든)이 있으면 call_cancelled 알림을 queue에 넣는다(다음 turn 입력)
     outcomes:
       - id: cancelled
         observe: [ledger:agent_calls, event:MessageReceived, response]
@@ -415,7 +420,7 @@ flows:
         code: unavailable
         when: Router가 아직 연결되지 않았다(기동 중)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [T18]
     docs: [architecture/agent-call.md]
 
@@ -439,7 +444,7 @@ flows:
         code: internal
         when: call 행을 읽지 못했다(행의 모양이 깨졌다)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [T14]
     docs: [architecture/agent-call.md]
 
@@ -464,7 +469,7 @@ flows:
         code: unavailable
         when: Router가 아직 연결되지 않았다(기동 중)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [T7]
     docs: [architecture/agent-call.md]
 
@@ -524,7 +529,7 @@ flows:
         code: unavailable
         when: Router가 아직 연결되지 않았다(기동 중)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [G4, T15]
     docs: [architecture/agent-call.md, architecture/workspace-session.md]
     unclear:
@@ -593,7 +598,7 @@ flows:
         code: unavailable
         when: Router가 아직 연결되지 않았다(기동 중)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [G4]
     docs: [architecture/agent-call.md]
 
@@ -618,7 +623,7 @@ flows:
         code: unavailable
         when: project 설정 file을 읽지 못했거나 skill 목록을 만들지 못했거나 data root(ledger 위치)를 정하지 못했다
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: instruction-read
@@ -648,7 +653,7 @@ flows:
         code: unavailable
         when: 지침 file을 열지 못했다(폴더, 권한, 일반 file이 아님), 또는 agent 정의의 frontmatter가 닫히지 않았다, 또는 data root나 agent 정의 자리를 정하지 못했다
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     risk: [sandbox]
     refs: [P8, P10]
     docs: [architecture/agent-definition.md]
@@ -771,7 +776,7 @@ flows:
         code: unavailable
         when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: skill-write-workflow
@@ -800,7 +805,7 @@ flows:
         code: unavailable
         when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: skill-design-app
@@ -829,7 +834,7 @@ flows:
         code: unavailable
         when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: skill-migrate-sdk
@@ -858,7 +863,7 @@ flows:
         code: unavailable
         when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: skill-publish-package
@@ -877,7 +882,7 @@ flows:
         code: forbidden
         when: 현재 선언이 없어 어느 workspace에서도 turn의 skill 목록에 없다(defect 후보)
         observe: [response]
-    crosses_process: true
+    crosses_process: false
     refs: [A17]
     docs: [architecture/agent-definition.md]
     unclear:
@@ -894,26 +899,25 @@ flows:
     steps:
       - TurnEnded(commit 뒤)가 오면 wiring이 그 turn을 읽는다
       - 끝 상태가 completed이고, 입력이 result call이고, 그 call이 아직 이 session이 받은 accepted이고, turn의 resolved runtime이 bare이거나 harness session의 turn인지 본다
-      - 마지막 agent 메시지 글이 비지 않았으면 redaction과 본문 준비를 거쳐 calls/auto-reply로 답한다. agent의 reply와 같은 규칙이다
+      - 마지막 agent 메시지 글이 비지 않았으면 redaction을 거쳐 calls/auto-reply로 답한다. agent의 reply와 같은 규칙이다. 본문 준비와 route의 오류 갈래는 bare-reply-auto가 정한다
       - 그 밖(멈춤, 실패, 빈 글, conversation이나 none call, 이미 reply로 답함)은 보내지 않고 call은 accepted로 남는다
     outcomes:
       - id: replied
         observe: [ledger:agent_calls, event:MessageReceived]
+        when: calls/auto-reply가 ok로 답해 메시지가 갔다. route의 나머지 갈래(not_found, forbidden, conflict, unavailable)는 bare-reply-auto의 outcome이라 여기 반복하지 않는다
       - id: not-sent
         observe: [ledger:agent_calls]
         when: 위 조건 가운데 하나라도 맞지 않는다(멈춤, 실패, conversation이나 none call, bare도 harness도 아닌 runtime, 빈 글, 이미 reply로 답함). call은 archive나 지움 때 receiver_ended로 닫힌다
       - id: unavailable
         code: unavailable
-        when: redaction이 끝나지 않았거나 본문을 준비하지 못했다. log로 남고 call은 accepted로 남는다
+        when: redaction이 끝나지 않았다(알려진 값을 다 모름, fail-closed). calls/auto-reply를 부르지 않는다. log로 남고 call은 accepted로 남는다
         observe: [ledger:agent_calls, log:bare-reply]
-      - id: not-machine
-        code: forbidden
-        when: calls/auto-reply의 machine 자격 검사가 막았다(core 안에서만 부르므로 실제로는 드물다)
-        observe: [log:bare-reply]
       - id: read-failed
-        when: turn, 받은 메시지, call 행, turn의 정의 값을 읽지 못했다, 또는 calls/auto-reply가 오류를 돌려줬다(not_found, conflict). log로 남고 call은 accepted로 남는다
+        when: wiring이 turn, 받은 메시지, call 행, turn의 정의 값을 읽지 못했다. calls/auto-reply를 부르지 않는다. log로 남고 call은 accepted로 남는다
         observe: [log:bare-reply, ledger:agent_calls]
     crosses_process: true
+    unclear:
+      - redaction을 wiring이 거는지 bare-reply-auto(route)가 거는지 두 flow의 설명이 다르다. sessions와 맞출 것
     refs: [T11]
     docs: [architecture/agent-call.md]
 
@@ -932,22 +936,11 @@ flows:
     outcomes:
       - id: recovered
         observe: [ledger:agent_calls, ledger:turns, event:MessageReceived]
-        when: 잃은 call을 닫고 이유를 보낸 session에 알렸다
-      - id: recovered-without-notice
-        observe: [ledger:agent_calls, ledger:turns]
-        when: 실패 글의 blob을 준비하지 못해 알림 없이 닫았다
-      - id: not-machine
-        code: forbidden
-        when: calls/recover의 machine 자격 검사가 막았다(core 안에서만 부르므로 실제로는 드물다)
-        observe: [log:router]
-      - id: router-unwired
-        code: unavailable
-        when: Router가 아직 연결되지 않았다(기동 중)
-        observe: [log:router]
+        when: calls/recover가 ok로 답했다. 잃은 call을 이유와 함께 닫았는지, 알림 없이 닫았는지는 calls-recover-on-start의 ok가 정한다. route의 실패 갈래도 그 flow의 outcome이다
       - id: recovery-failed
         observe: [log:router]
-        when: 닫는 일이나 알림이 오류를 돌려줬다. 기동은 계속하고 close_lost_calls_failed log만 남긴다
-    crosses_process: true
+        when: calls/recover가 오류를 돌려줬다(route의 forbidden·unavailable 등). wiring은 기동을 이어 가고 close_lost_calls_failed log만 남긴다
+    crosses_process: false
     refs: [T9]
     docs: [architecture/agent-call.md, architecture/workspace-session.md]
     unclear:
@@ -970,7 +963,7 @@ flows:
       - id: unchanged
         observe: [request:model]
         when: 팀이 앞서 본 것과 같다. notice를 붙이지 않는다. 앞선 기준(seen)이 없는 turn도 붙이지 않는다
-    crosses_process: true
+    crosses_process: false
     refs: [G4]
     docs: [architecture/agent-call.md]
     unclear:

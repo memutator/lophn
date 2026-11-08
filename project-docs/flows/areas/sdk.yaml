@@ -464,6 +464,12 @@ links:
   - {entry: "sdk:app-ui/useTabHead", flow: app-tab-head}
   - {entry: "sdk:cap-tool/HandlerRejection", flow: app-command-call}
   - {entry: "sdk:cap-tool/runWith", flow: app-command-call}
+  - {entry: "sdk:app-ui/useCommand", flow: app-keys}
+  - {entry: "sdk:cap-fs/readFile", flow: app-file-access}
+  - {entry: "sdk:cap-fs/readTextFile", flow: app-file-access}
+  - {entry: "sdk:cap-fs/writeFile", flow: app-file-access}
+  - {entry: "sdk:cap-fs/writeTextFile", flow: app-file-access}
+  - {entry: "sdk:cap-fs/watch", flow: app-file-access}
 
 ignore:
   - {entry: "sdk:agent/agentBridge", reason: "window의 lophnApp.agent를 꺼내는 접근자다. 값만 돌려주고 동작이 없다. 호출은 sdk-agent-session과 app-agent-* 흐름이 한다"}

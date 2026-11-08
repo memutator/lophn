@@ -1,0 +1,261 @@
+group: libs-tooling
+files:
+  - path: packages/base/os/cmd-shim_test.ts
+    covers: []
+    note: Windows cmd launcher 인자 escape 문자열 helper
+
+  - path: packages/base/os/socket-dir_test.ts
+    covers: []
+    note: control socket 폴더 경로 계산과 uid 검사(순수 helper)
+
+  - path: packages/base/os/tree_test.ts
+    covers: []
+    note: 프로세스 트리 신호 helper. ok·absent·failed를 돌려주나 어느 flow outcome인지 적히지 않음
+
+  - path: packages/base/redaction/product-redactor_test.ts
+    covers:
+      - workflow-start-agent:unavailable
+      - workflow-start-flow:unavailable
+      - workflow-instance-create:unavailable
+      - workflow-report:unavailable
+      - workflow-edit:unavailable
+      - workflow-instance-apply:unavailable
+      - workflow-flow-report:unavailable
+      - queued-edit-record:unavailable
+      - bare-reply-auto:unavailable
+      - bare-call-reply:unavailable
+    note: 알려진 값과 prefix credential 가림, 알려진 값을 다 모르면 null(fail-closed). null이 "글 redaction이 끝나지 않음" 갈래를 정하므로 그 unavailable을 덮는다. 너무 넓으면 줄일 것
+
+  - path: packages/base/telemetry/telemetry_test.ts
+    covers: [log-line-write:written, log-line-write:filtered]
+    note: 첫 test는 error 한 줄을 쓰고 level 아래는 거르며 secret을 가린다. 둘째 test는 traceparent 파서 helper
+
+  - path: packages/cli/commands/agent_test.ts
+    covers: [cli-argv:invalid-input]
+    note: agent.create와 agent.update 입력 schema가 사람 전용 칸(skip, mcp_servers, apps, permissions)을 CLI에서 먼저 거른다
+
+  - path: packages/cli/commands/app_test.ts
+    covers: []
+    note: app.status 요약 글 formatting과 app.link_source의 상대 path 풀이. 결과 상태는 core 답이고 이 test는 글과 입력만 본다
+
+  - path: packages/cli/commands/call_test.ts
+    covers: []
+    note: call.send가 dedup과 idempotency key에 tool call id를 싣는지만 본다. core의 dedup 판정은 call-send가 core 쪽 test로 본다
+
+  - path: packages/cli/commands/domain-names_test.ts
+    covers: []
+    note: 내장 명령 묶음이 앱 slug로 쓰이지 못하게 하는 registry 검사
+
+  - path: packages/cli/commands/package_test.ts
+    covers: [package-guide-read:ok]
+    note: package.read의 guide 창 나누기와 이어 읽기(builtin과 사용자 package). 창 계산은 CLI 쪽
+
+  - path: packages/cli/main_test.ts
+    covers:
+      - terminal-hook-forward:skipped
+      - cli-argv:help
+      - cli-argv:result
+      - cli-core-connect:attached
+      - cli-core-connect:joined-agent
+      - cli-core-connect:joined-address
+      - cli-core-connect:address-mismatch
+      - cli-core-connect:core-unavailable
+      - core-stop:stopped
+      - core-stop:unavailable
+      - core-stop:forbidden
+      - run-read:ok
+    note: "자격 경계 표. agent 자격은 identify가 알린 core에만 보내고, user 자격은 ensure 뒤 connect로 받는다. hook은 LPN_TERMINAL_HOOK이 없으면 조용히 끝난다. agent 자격이 401로 거절되면 user 자격을 받지 않는 것은 outcome이 없다"
+
+  - path: packages/coding-agent/harnesses/codex-trust_test.ts
+    covers: []
+    note: Codex hook declaration hash 계산 helper
+
+  - path: packages/coding-agent/harnesses/install_test.ts
+    covers:
+      - harness-hook-install:installed
+      - harness-hook-install:unchanged
+      - harness-hook-install:failed
+      - harness-hook-install:conflict
+      - harness-hook-uninstall:removed
+      - harness-hook-uninstall:unchanged
+      - harness-hook-uninstall:failed
+      - harness-hook-check:ok
+      - harness-hook-check:missing
+      - harness-hook-check:unchanged
+    note: "installGlobal과 uninstallGlobal의 판정(형식별 보존, 파싱 실패 failed, muse conflict, 지우기 뒤 흔적 없음). dry_run 행 값 missing·unchanged는 harness-hook-check"
+
+  - path: packages/coding-agent/harnesses/skill-copies_test.ts
+    covers: [harness-sync-skills:synced]
+    note: 표시 file이 있는 폴더만 덮고 지우며 사람 폴더와 폴더 밖 이름은 건너뛴다
+
+  - path: packages/coding-agent/local/harness-run_test.ts
+    covers: [harness-sync-skills:synced]
+    note: harness extension이 꺼지면 lophn-agent skill 사본만 지우고 사람 폴더는 둔다
+
+  - path: packages/design/appearance_test.ts
+    covers: [appearance-set:applied, appearance-set:ignored]
+    note: 글꼴 이름 CSS 안전 검사(위험한 이름은 그 칸만 비운다)와 목록 밖 값이면 appearance 전체 거절
+
+  - path: packages/design/components/reading/markdown/stream_test.ts
+    covers: []
+    note: 스트리밍 중인 markdown 표시와 parse cache 렌더 helper
+
+  - path: packages/protocol/acp/reduce_test.ts
+    covers: [acp-projection:ok, acp-read:reread]
+    note: "Bus event를 acpUpdatesOf로 바꾸고 클라이언트 reducer로 접는다(두 번 접어도 같음, 항목 순번 순서). reread 판정은 acp-read:reread"
+
+  - path: packages/protocol/apps/declaration/validate_test.ts
+    covers: [declaration-check:passed, declaration-check:errors]
+    note: 앱 선언 검증기. 이름 규칙, 중복, icon 경로 거절과 정규형. 검사 결과 passed와 errors를 정한다
+
+  - path: packages/protocol/coding-agent/headless/headless_test.ts
+    covers: [harness-turn-run:configuration-unavailable]
+    note: headless 출력 parser(helper)와 권한 표. deny를 옮길 수 없는 harness는 null이고 그때 configuration-unavailable이다. 전부 허락 flag가 없는 것도 본다
+
+  - path: packages/protocol/coding-agent/hook-signal_test.ts
+    covers:
+      - terminal-agent-track:running
+      - terminal-agent-track:waiting
+      - terminal-agent-track:idle
+      - terminal-agent-track:ignored
+    note: harness hook payload를 신호로 판정한다. TurnStarted는 running, PermissionRequested는 waiting, TurnEnded는 idle, 상태를 안 바꾸는 신호는 ignored. 둘째 test는 harness 표 일관성 검사
+
+  - path: packages/protocol/lophn-agent/call-policy_test.ts
+    covers: [call-send:call-policy-refused, team-spawn:call-policy-refused]
+    note: mayCall 권한 경계. private workspace와 workspace·agent 쌍 규칙, home lophn의 reply none 예외. call.send와 team.spawn이 같은 판정을 쓴다
+
+  - path: packages/protocol/lophn-agent/mcp-settings_test.ts
+    covers: [project-extension-change:invalid_input]
+    note: MCP 서버 설정 schema. secret 이름은 mcp. 앞머리만, stdio env의 secret 거절
+
+  - path: packages/protocol/lophn-agent/message-content_test.ts
+    covers: []
+    note: 저장 본문 codec round trip(queue 복원에 쓰는 helper). 결과 outcome을 정하지 않는다
+
+  - path: packages/protocol/lophn-agent/model-picker_test.ts
+    covers: []
+    note: picker 목록 구성 helper(알려 준 목록, catalog, 사람이 적은 항목, 켠 model 거르기)
+
+  - path: packages/protocol/projects/outline-markdown_test.ts
+    covers: []
+    note: markdown 목차 parser helper
+
+  - path: packages/sdk/agent/agent_test.ts
+    covers: [sdk-agent-session:reply-failed, sdk-agent-session:reply-value]
+    note: parseReply가 답 꼴을 맞는지 본다(틀리면 error, 맞으면 value). 나머지는 type 동일성 검사와 message id helper
+
+  - path: packages/sdk/cap-store/changeset_test.ts
+    covers: [app-rewind-apply:cancelled-conflict, sdk-store-open:migration-invalid]
+    note: "쓰기 구간 changeset 캡처(lophn_data_schema 표는 뺀다)는 outcome이 없다. changeset 충돌이면 하나도 적용하지 않고, PRIMARY KEY 없는 migration은 rollback한다"
+
+  - path: tests/eval/checks/run_test.ts
+    covers: []
+    note: eval 하네스의 program check runner. 제품 flow 아님
+
+  - path: tests/eval/checks/validate_test.ts
+    covers: []
+    note: eval fixture와 check 대조 도구. 제품 flow 아님
+
+  - path: tests/eval/collect/metrics_test.ts
+    covers: []
+    note: eval usage·cache 지표 계산. 제품 flow 아님
+
+  - path: tests/eval/collect/read_test.ts
+    covers: []
+    note: eval이 run 기록을 읽어 call 목록을 만드는 도구. 제품 flow 아님
+
+  - path: tests/eval/experiment/assembly/prefix_test.ts
+    covers: []
+    note: eval prompt prefix hash가 제품 assembly와 맞는지 보는 도구
+
+  - path: tests/eval/experiment/assembly/replay_test.ts
+    covers: []
+    note: eval trial 재생과 첫 어긋남 찾기 도구
+
+  - path: tests/eval/experiment/gate/gate_test.ts
+    covers: []
+    note: eval 실험 gate 선택과 단계 중단 도구
+
+  - path: tests/eval/experiment/overfit/overfit_test.ts
+    covers: []
+    note: eval spec의 과적합 경고 도구
+
+  - path: tests/eval/experiment/parallel/pool_test.ts
+    covers: []
+    note: eval 동시 실행 pool과 예산 도구
+
+  - path: tests/eval/experiment/repeat/find_test.ts
+    covers: []
+    note: eval 반복 tool 호출 찾기 도구
+
+  - path: tests/eval/experiment/select/select_test.ts
+    covers: []
+    note: eval run 선택과 재실행 대상 고르기 도구
+
+  - path: tests/eval/experiment/spec/spec_test.ts
+    covers: []
+    note: eval spec 파싱, commit 잠금, 결과 쓰기 도구
+
+  - path: tests/eval/experiment/trials/trials_test.ts
+    covers: []
+    note: eval trial 수 정책과 flaky 판정 도구
+
+  - path: tests/eval/experiment/variant/variant_test.ts
+    covers: []
+    note: eval variant checkout 준비 도구
+
+  - path: tests/eval/experiment/verdict/verdict_test.ts
+    covers: []
+    note: eval 실험 판정(adopt, reject, inconclusive) 도구. 제품 flow 아님
+
+  - path: tests/eval/judge/grade_test.ts
+    covers: []
+    note: eval judge 채점 기록과 fold 도구
+
+  - path: tests/eval/restore/manifest_test.ts
+    covers: []
+    note: eval 재료 file hash 확인 도구
+
+  - path: tests/eval/runner/change_test.ts
+    covers: []
+    note: eval 변경 확인 도구
+
+  - path: tests/eval/runner/idle_test.ts
+    covers: []
+    note: eval run이 idle인지 기다리는 도구
+
+  - path: tests/eval/runner/mutex_test.ts
+    covers: []
+    note: eval serial 호출 helper
+
+  - path: tests/eval/scorecard/scorecard_test.ts
+    covers: []
+    note: eval scorecard의 run 고르기 도구
+
+  - path: tests/eval/versions/versions_test.ts
+    covers: []
+    note: eval component 버전 n 매기기와 분류 도구
+
+  - path: tests/support/fake-oauth/issuer_test.ts
+    covers: []
+    note: 테스트용 fake OAuth 발급자 support
+
+  - path: tests/support/fake-server/server_test.ts
+    covers: []
+    note: 테스트용 fake model server support. adapter parser를 쓰지만 제품 outcome은 아님
+
+  - path: tests/support/fake-server/shape_test.ts
+    covers: []
+    note: fake server가 내는 SSE 모양이 fixture와 같은지 보는 support 검사
+
+  - path: tools/check-deps_test.ts
+    covers: []
+    note: check 도구가 extension의 금지 import를 막는지 보는 검사 도구
+
+  - path: tools/check-source_test.ts
+    covers: []
+    note: check 도구가 core main의 bare fetch와 DOM title 속성을 막는지 보는 검사 도구
+
+  - path: tools/dev_test.ts
+    covers: []
+    note: 개발 실행이 eval world는 열되 사람의 ~/.lophn은 열지 않는지 보는 dev 도구 test

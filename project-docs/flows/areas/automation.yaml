@@ -10,7 +10,7 @@ flows:
     boundary: [core-api, workflows]
     code: [packages/core/workflows/service.ts, packages/core/workflows/plan.ts, packages/core/workflows/declaration.ts, packages/core/main/daemon/wiring/workflows.ts]
     steps:
-      - "project 이름과 workflow 이름으로 project id와 선언(workflow.yaml)을 푼다. 선언이 틀리면 conflict로 거절한다"
+      - "project 이름과 workflow 이름으로 project id와 선언(workflow.yaml)을 푼다. 선언이 틀리면 conflict로 거절한다. workflows 폴더를 못 읽으면 unavailable"
       - "step을 고르지 않으면 선언의 첫 step, 골랐으면 그 step을 찾는다. 없으면 not_found"
       - "참가자 담당을 풀어(plan.ts) 받을 session과 step 메시지 본문을 command 앞에서 정한다"
       - "CreateWorkflowInstance가 instance 행과 started 줄을 쓰고 Router에 step 메시지를 넣는다"
@@ -19,8 +19,8 @@ flows:
       - id: handed
         observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: not-handed
-        when: "instance는 만들었지만 첫 step을 넘기지 못함(unknown_step, unknown_participant, no_with, unresolved)"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, response]
+        when: "instance는 만들었지만 첫 step을 넘기지 못함(unknown_participant, no_with, unresolved)"
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: not_found
         code: not_found
         when: "project, workflow 폴더, step 이름이 없음"
@@ -28,6 +28,10 @@ flows:
       - id: conflict
         code: conflict
         when: "선언이 틀려 시작할 수 없음(no_declaration, invalid_yaml, invalid_declaration)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "ledger나 workflows 폴더를 못 읽음, 본문 redaction이 끝나지 않거나 blob을 못 준비함. instance 행도 줄도 남지 않는다"
         observe: [response]
     crosses_process: false
     refs: [W1, W2, W4, E9, H7]
@@ -50,8 +54,8 @@ flows:
       - id: running
         observe: [ledger:workflow_instances, ledger:workflow_lines, "process:flow-host", event:WorkflowInstanceChanged, response]
       - id: launch-failed
-        when: "process를 띄우지 못함(flow host가 없음, agent 이름을 못 풀음, SDK 설치 사본이 없음, spawn 실패). 응답은 ended인 instance다"
-        observe: [ledger:workflow_lines, response]
+        when: "process를 띄우지 못함(flow host가 없음, agent 이름을 못 풀음, SDK 설치 사본이나 link가 없음, log 폴더 준비 실패, spawn 실패, start를 쓰지 못함). 응답은 ended인 instance다"
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: invalid_input
         code: invalid_input
         when: "flow kind인데 step을 줌"
@@ -63,6 +67,10 @@ flows:
       - id: conflict
         code: conflict
         when: "선언이 틀리거나 flow.ts가 없어 시작할 수 없음(no_flow_file 포함)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "ledger나 workflows 폴더를 못 읽음, 본문 redaction이나 blob 준비가 실패함. instance 행을 쓰기 전에 멈춘다"
         observe: [response]
     crosses_process: true
     risk: [sandbox]
@@ -84,12 +92,13 @@ flows:
       - "Router가 err를 주면 tx 전체가 되돌아가 줄도 행도 남지 않는다"
     outcomes:
       - id: handed
-        observe: [ledger:workflow_instances, ledger:workflow_lines, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: not-handed
-        observe: [ledger:workflow_instances, ledger:workflow_lines, response]
+        when: "handoff가 있으나 담당을 못 풀거나 Router가 실패로 돌려줌(not_handed 줄)"
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: recorded
         when: "flow kind(handoff가 null). 넘기지 않는 started만 남는다"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: conflict
         code: conflict
         when: "instance id가 이미 있음"
@@ -97,6 +106,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "Router가 err를 줌(Router 미배선 등)이나 본문 redaction·blob 준비가 실패함. tx 전체가 되돌아가 줄도 행도 남지 않는다"
         observe: [response]
     crosses_process: false
     refs: [W1]
@@ -118,19 +131,20 @@ flows:
       - "같은 instance를 동시에 고쳐 state_seq가 어긋나면 다시 읽어 최대 3번까지 건다"
     outcomes:
       - id: handed
+        when: "next가 step이고 그 담당에게 넘김"
         observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: not-handed
-        when: "next step의 담당을 못 풀음(unknown_step, unknown_participant, no_with, unresolved)"
-        observe: [ledger:workflow_lines, response]
+        when: "next step의 담당을 못 풀음(unknown_participant, no_with, unresolved)"
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: recorded
         when: "next가 없는 진행 글. 상태와 current는 그대로"
-        observe: [ledger:workflow_lines, response]
+        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: ended
         when: "next가 end. running이었으면 ended로 닫힌다"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: after-stop
         when: "instance가 stopped. 줄만 남고 handed는 null"
-        observe: [ledger:workflow_lines, response]
+        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: not_found
         code: not_found
         when: "instance가 없음"
@@ -138,6 +152,14 @@ flows:
       - id: conflict
         code: conflict
         when: "state_seq가 3번 다시 읽어도 어긋남"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "본문 redaction이 끝나지 않거나 blob을 못 준비함. 줄도 남지 않는다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance나 줄이 깨져 읽지 못함"
         observe: [response]
     crosses_process: false
     refs: [W1, W3, E9]
@@ -159,23 +181,31 @@ flows:
       - "edit 줄에 누가 어떤 입력으로 고쳤는지 남는다(by, detail)"
     outcomes:
       - id: edited
-        observe: [ledger:workflow_lines, ledger:workflow_instances, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: ended
         when: "op가 end. running이었으면 ended 줄을 남긴다"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: handed
         when: "hand_now로 step 메시지를 넘김"
         observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: not-handed
         when: "hand_now의 step 담당을 못 풀음"
-        observe: [ledger:workflow_lines, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: conflict
         code: conflict
-        when: "instance가 stopped이거나 add_step의 이름이 이미 있음"
+        when: "instance가 stopped이거나 add_step의 이름이 이미 있음, 또는 state_seq가 3번 다시 읽어도 어긋남"
         observe: [response]
       - id: not_found
         code: not_found
-        when: "update_step, remove_step의 이름이나 add_step의 after 이름이 없음"
+        when: "update_step, remove_step의 이름이나 add_step의 after 이름이 없음, 또는 instance가 없음"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "hand_now 글의 redaction이 끝나지 않거나 blob을 못 준비함"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance나 줄이 깨져 읽지 못함"
         observe: [response]
     crosses_process: false
     refs: [W3, W5, E9]
@@ -198,11 +228,15 @@ flows:
         observe: [ledger:workflow_instances, ledger:workflow_lines, ledger:runs, "process:flow-host", event:WorkflowInstanceChanged, response]
       - id: conflict
         code: conflict
-        when: "이미 stopped"
+        when: "이미 stopped, 또는 state_seq가 3번 다시 읽어도 어긋남"
         observe: [response]
       - id: not_found
         code: not_found
         when: "instance가 없음"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance나 줄이 깨져 읽지 못함"
         observe: [response]
     crosses_process: true
     refs: [H7]
@@ -213,18 +247,18 @@ flows:
     actor: agent
     entries: [route:workflows/check]
     boundary: [core-api, workflows]
-    code: [packages/core/main/flow-host/check.ts, packages/core/main/daemon/wiring/workflows.ts]
+    code: [packages/core/main/flow-host/check.ts, packages/core/main/flow-host/sdk-link.ts, packages/core/main/daemon/wiring/workflows.ts]
     steps:
       - "project와 workflow 폴더의 flow.ts를 찾는다. 없으면 errors에 flow.ts is missing을 싣는다"
-      - "@lophn/flow 설치 사본을 projects/node_modules에 symlink로 잇는다"
+      - "@lophn/flow 설치 사본을 projects/node_modules에 symlink로 잇는다. 이미 같은 곳이면 그대로 두고, launch와 같은 link를 쓴다(sdk-link.ts)"
       - "platform의 tsc --noEmit을 임시 tsconfig로 돌려 오류 줄을 최대 20개 돌려준다. flow.ts는 실행하지 않는다"
-      - "tsc가 없거나 30초 안에 끝나지 않으면 unavailable로 답한다"
+      - "30초가 지나면 SIGTERM으로 끊고 그때까지의 출력으로 errors를 만든다. 끝나지 않았다고 unavailable로 답하지 않는다"
     outcomes:
       - id: passed
         when: "tsc 오류가 없음. errors는 빈 목록"
         observe: [response]
       - id: has-errors
-        when: "tsc 오류가 있거나 flow.ts가 없음. errors 목록을 싣는다"
+        when: "tsc 오류가 있거나 flow.ts가 없거나 30초가 지나 끊김(그때 errors는 tsc 오류 줄이 있으면 그것, 없으면 출력 첫 줄이고 출력도 없으면 failed)"
         observe: [response]
       - id: not_found
         code: not_found
@@ -232,7 +266,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "typescript나 @types/node가 없음, SDK 연결이 실패함, tsc가 끝나지 않음"
+        when: "typescript나 @types/node가 없음, @lophn/flow 사본 연결이 실패함, tsc를 띄우지 못함(spawn 오류), ledger를 못 읽음"
         observe: [response]
     crosses_process: false
     refs: [C29]
@@ -260,6 +294,10 @@ flows:
         code: not_found
         when: "project가 없음"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "ledger로 project를 못 풀거나 workflows 폴더를 못 읽음"
+        observe: [response]
     crosses_process: false
     refs: [C29]
     docs: [architecture/workflow.md]
@@ -286,6 +324,10 @@ flows:
         code: not_found
         when: "read의 instance가 없음"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance, 마지막 report, 줄, 목록 행이 깨져 읽지 못함(read와 list 모두)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/workflow.md]
 
@@ -293,7 +335,6 @@ flows:
     title: "instance의 상태와 줄을 한 tx로 바꾼다(모든 참가자와 시스템의 쓰기 입구)"
     actor: system
     entries: [route:workflow_instances/apply]
-    uses: [route:runs/cancel]
     boundary: [workflows, router]
     code: [packages/core/workflows/commands.ts, packages/core/workflows/service.ts]
     steps:
@@ -310,10 +351,10 @@ flows:
         observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: not-handed
         when: "넘기려 했지만 담당을 풀지 못함"
-        observe: [ledger:workflow_lines, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: conflict
         code: conflict
-        when: "state_seq가 바뀌었거나 stopped인데 고치기 요청"
+        when: "state_seq가 바뀌었거나 stopped인데 edit·stop을 요청함"
         observe: [response]
       - id: not_found
         code: not_found
@@ -322,6 +363,14 @@ flows:
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "Router가 err를 줌(Router 미배선 등)이나 본문 redaction·blob 준비가 실패함. tx 전체가 되돌아간다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance나 줄이 깨져 읽지 못함"
         observe: [response]
     crosses_process: false
     refs: [W1, W2]
@@ -341,12 +390,15 @@ flows:
       - "같은 step에 이미 lophn_restarted나 report가 있으면 다시 남기지 않는다. 상태와 current는 바꾸지 않는다"
     outcomes:
       - id: flow-closed
-        observe: [ledger:workflow_lines, ledger:workflow_instances]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged]
       - id: step-lost
-        observe: [ledger:workflow_lines]
+        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged]
       - id: kept
-        when: "turn이 끝났거나 도는 중이거나 이미 기록됨. 줄을 남기지 않는다"
+        when: "turn이 끝났거나 도는 중이거나 이미 기록됨. 넘긴 줄이 없거나 step 메시지를 session에서 찾지 못해도 줄을 남기지 않는다"
         observe: [ledger:workflow_lines]
+      - id: skipped
+        when: "instance나 turn을 읽거나 줄을 쓰지 못함. log:workflows에 남고 instance는 그대로 둔다"
+        observe: ["log:workflows"]
     crosses_process: false
     refs: [W5, W6]
     docs: [architecture/workflow.md]
@@ -375,11 +427,15 @@ flows:
         observe: [response, ledger:runs]
       - id: not_found
         code: not_found
-        when: "agent 주소를 풀지 못해 run을 열지 못함"
+        when: "agent 주소를 풀지 못해 run을 열지 못함(runs.start의 not_found)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "요청 칸이 틀림(process는 살아 있음), 또는 입력 schema를 읽지 못함"
+        when: "요청 칸이 틀림(process는 살아 있음), 또는 schema를 읽지 못하거나 prompt가 메시지 한도를 넘음(runs.start의 invalid_input)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "run을 여는 중 ledger를 못 읽음(runs.start의 unavailable)"
         observe: [response]
       - id: dropped
         when: "응답 전에 process가 끝났거나 lophn이 꺼지는 중이라 응답을 쓰지 않음. run 정리는 workflow-flow-exit가 맡는다"
@@ -387,6 +443,8 @@ flows:
     crosses_process: true
     refs: [R8, E11]
     docs: [architecture/workflow.md, architecture/run.md]
+    unclear:
+      - "guard로 잡힌 throw는 internal로 답하지만(host.ts의 guard) 갈래로 쓰지 않았다. 코드 결함 경로다"
 
   - id: workflow-flow-tool-run
     title: "flow code의 tool(...) 요청을 앱 tool 호출 run으로 열고 결과를 돌려준다"
@@ -411,11 +469,15 @@ flows:
         observe: [response, ledger:runs]
       - id: not_found
         code: not_found
-        when: "app을 풀지 못함"
+        when: "app을 풀지 못함(runs.start의 not_found)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
         when: "요청 칸이 틀림(process는 살아 있음)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "run을 여는 중 ledger를 못 읽음(runs.start의 unavailable)"
         observe: [response]
       - id: dropped
         when: "응답 전에 process가 끝났거나 lophn이 꺼지는 중이라 응답을 쓰지 않음"
@@ -442,17 +504,34 @@ flows:
       - "step 이름이 선언에 있는지는 보지 않는다. 성공 응답은 result가 null이다"
     outcomes:
       - id: recorded
-        observe: [ledger:workflow_lines, ledger:workflow_instances, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: ended
-        observe: [ledger:workflow_lines, ledger:workflow_instances, response]
+        when: "next가 end이고 running이었음"
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
       - id: late
         when: "instance가 stopped나 ended. 줄만 남는다"
-        observe: [ledger:workflow_lines, response]
+        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged, response]
       - id: invalid_input
         code: invalid_input
         when: "report 칸이 틀림(step, text 8 KiB 초과 등). process는 살아 있음"
         observe: [response]
-    crosses_process: true
+      - id: not_found
+        code: not_found
+        when: "instance가 없음"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "state_seq가 3번 다시 읽어도 어긋남"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "본문 redaction이 끝나지 않거나 blob을 못 준비함. 줄도 남지 않는다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 instance나 줄이 깨져 읽지 못함"
+        observe: [response]
+    crosses_process: false
     refs: [W6, E11]
     docs: [architecture/workflow.md]
 
@@ -472,16 +551,22 @@ flows:
       - "core가 꺼지는 중이면 줄을 쓰지 않는다. instance는 running으로 남아 다음 켤 때 workflow-restart가 닫는다"
     outcomes:
       - id: ended
+        when: "instance가 running. program_exited 줄을 남기고 ended로 닫는다"
         observe: [ledger:workflow_lines, ledger:workflow_instances, ledger:runs, event:WorkflowInstanceChanged, "disk:flows/<instance>.log"]
       - id: after-stop
         when: "instance가 이미 stopped나 ended. program_exited 줄만 남고 상태는 그대로"
         observe: [ledger:workflow_lines, event:WorkflowInstanceChanged]
+      - id: record-failed
+        when: "program_exited 쓰기가 실패함(state_seq 3번 어긋남 등). 줄도 끝도 없이 running으로 남고 log에 program_exited failed가 남는다. 다음 켤 때 workflow-restart가 닫는다"
+        observe: [ledger:workflow_instances, "disk:flows/<instance>.log"]
       - id: left-running
         when: "lophn이 꺼지는 중이라 줄을 쓰지 않는다. instance는 running 그대로"
         observe: [ledger:workflow_instances]
-    crosses_process: true
+    crosses_process: false
     refs: [E11]
     docs: [architecture/workflow.md]
+    unclear:
+      - "cancelOfInstance가 실패하면 log에 `[lophn] cancel failed`만 남고 끝 줄은 그대로 쓴다. 끝 상태가 같아 갈래로 쓰지 않았다"
 
   - id: workflow-activity
     title: "idle-exit 판정이 running인 workflow instance가 있는지 읽는다"
@@ -516,6 +601,7 @@ flows:
       - "끝은 run-agent-end가 본다. 응답은 running인 run 기록이다"
     outcomes:
       - id: running
+        when: "run이 running으로 열림. 새 session이면 SessionStarted도 난다"
         observe: [ledger:runs, event:SessionStarted, response]
       - id: start-failed
         when: "session을 열거나 메시지를 넣지 못함. 응답은 start_failed로 failed가 된 run 기록이다"
@@ -532,6 +618,10 @@ flows:
         code: invalid_input
         when: "agent와 session 가운데 하나만 줌(둘 다 없거나 둘 다 있음), schema를 못 읽음, prompt가 메시지 한도를 넘음"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "주소 풀기나 session 읽기에서 ledger를 못 읽음(run은 남지 않음)"
+        observe: [response]
     crosses_process: false
     refs: [R7, R8]
     docs: [architecture/run.md]
@@ -539,15 +629,17 @@ flows:
   - id: run-tool-start
     title: "사람이 앱 tool 호출 run을 시작하고 결과는 나중에 run 기록으로 닫힌다"
     actor: person
-    uses: [route:runs/start, route:runs/create]
+    uses: [route:runs/start, route:runs/create, route:runs/wait]
     when: "kind가 tool일 때. agent는 run-agent-start"
     boundary: [core-api, runs, app-runtime, approvals]
-    code: [packages/core/runs/service.ts, packages/core/main/daemon/wiring/runs.ts]
+    code: [packages/core/runs/service.ts, packages/core/main/daemon/wiring/runs.ts, packages/cli/commands/app-command.ts, packages/cli/commands/run.ts]
     steps:
       - "앱을 id, slug, 이름으로 푼다. 없으면 not_found"
       - "CreateRun으로 run 행(running, session 없음)을 만들고 기다리지 않고 돌려준다"
       - "사람이 부르면 앱 화면과 같은 길로 person caller를 달아 Gate 없이 앱 호출 경로를 부른다. job이 부르면 program caller, flow가 부르면 flow caller(creator 할당과 비공개 거르기)로 부른다"
       - "호출이 끝나면 run-tool-end가 run을 닫는다. tool 이름이 앱에 없으면 run이 tool_denied로 실패한다"
+      - "CLI `lophn <slug> <command>`는 active 앱 목록을 20쪽까지 읽어 slug가 같은 앱의 선언 tool을 명령으로 세운다. 명령이 없거나 입력이 선언 schema에 맞지 않으면 run을 만들지 않고 invalid_input으로 끝난다"
+      - "CLI는 이 route를 kind tool로 불러 run을 받은 뒤 run이 끝날 때까지 run-wait를 되풀이한다. done이면 결과 글을, failed면 failed: reason: message를, cancelled면 cancelled를 내고 실패로 끝난다"
     outcomes:
       - id: running
         observe: [ledger:runs, response]
@@ -555,12 +647,34 @@ flows:
         code: not_found
         when: "app을 풀지 못함"
         observe: [response]
-    crosses_process: true
+      - id: unavailable
+        code: unavailable
+        when: "app을 풀거나 run 행을 쓰는 데서 ledger를 못 읽음(run은 남지 않음). CLI가 앱 목록(20쪽 넘음)이나 선언을 읽는 데서도 같다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "CLI에서 명령을 못 찾거나(slug의 active 앱이 없음, 선언에 그 명령이 없음) 입력이 선언 schema에 맞지 않음. route를 부르지 않아 run이 남지 않는다"
+        observe: [response]
+      - id: done
+        when: "CLI가 기다려 run이 done. 출력은 결과 글"
+        observe: [ledger:runs, response]
+      - id: run-failed
+        when: "CLI가 기다려 run이 failed(tool_failed, tool_denied, tool_unknown). 출력은 failed: reason: message"
+        observe: [ledger:runs, response]
+      - id: cancelled
+        when: "CLI가 기다려 run이 cancelled로 끝남"
+        observe: [ledger:runs, response]
+      - id: internal
+        code: internal
+        when: "CLI가 기다리는 중 저장된 run 행이 깨져 읽지 못함(run-wait의 internal)"
+        observe: [response]
+    crosses_process: false
     risk: [permission]
     refs: [J4, E10, E11]
     docs: [architecture/run.md, architecture/app-call.md]
     unclear:
       - "사람이 부른 tool run은 Gate를 거치지 않아 permission으로 달았다. 사람의 호출 자체가 승인이라는 판정이 이 flow에 있는지, app-call 쪽에만 있는지 확인할 것"
+      - "호출은 기다리지 않아 core만으로 응답이 끝난다. 그래서 crosses_process를 false로 두었다. 앱 child의 결과는 run-tool-end가 맡는다. CLI의 기다림(done, run-failed, cancelled)은 run-wait가 맡고 그 flow는 crosses_process가 true다"
 
   - id: run-record
     title: "run 기록 행을 만든다"
@@ -570,7 +684,7 @@ flows:
     code: [packages/core/runs/commands.ts, packages/core/runs/store.ts]
     steps:
       - "machine 자격만 받는다. 같은 id의 run이 있으면 conflict"
-      - "target과 kind, session, input_message, job, instance 칸이 맞는지 본다(kind가 agent면 agent 대상, tool이면 app 대상). 안 맞으면 invalid_input"
+      - "kind와 target, agent 칸, job과 instance를 같이 준 것은 입력 schema(runCreate의 refine)가 먼저 막는다. 이 flow의 갈래가 아니다"
       - "run 행을 running으로 쓰고 만든 행을 돌려준다"
     outcomes:
       - id: created
@@ -579,16 +693,18 @@ flows:
         code: conflict
         when: "run id가 이미 있음"
         observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "kind와 target, agent 칸이 맞지 않음. job과 instance를 같이 줌"
-        observe: [response]
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "방금 쓴 run 행을 다시 읽지 못함(저장된 run이 깨짐)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/run.md]
+    unclear:
+      - "kind·target·job+instance 칸 맞춤은 입력 schema가 invalid_input으로 막는다. handler 갈래로 쓰지 않았다(README: schema가 막는 것은 따로 다룰 때만)"
 
   - id: run-settle
     title: "실행 중인 run을 done, failed, cancelled로 한 번만 닫는다"
@@ -618,6 +734,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 run이 깨져 읽지 못함"
         observe: [response]
     crosses_process: false
     docs: [architecture/run.md]
@@ -653,11 +773,14 @@ flows:
       - id: lophn-restarted
         when: "turn이 restarted로 끊김"
         observe: [ledger:runs]
-    crosses_process: true
+      - id: kept
+        when: "turn이 아직 돌거나 입력이 아직 turn을 얻지 못함, 또는 turn이나 답을 읽지 못함(오류). 닫지 않는다"
+        observe: [ledger:runs]
+    crosses_process: false
     refs: [J3, R7, R8]
     docs: [architecture/run.md]
     unclear:
-      - "turn 실행이 agent runtime process에서 도는 것으로 보고 crosses_process를 true로 뒀다"
+      - "TurnEnded는 agent runtime에서 core로 한 번 건너는 알림이고, 답 읽기와 닫기는 core 표만 본다. 그래서 crosses_process를 false로 두었다"
 
   - id: run-tool-end
     title: "앱 tool 호출이 돌아오면 tool run을 닫는다"
@@ -685,7 +808,7 @@ flows:
       - id: after-cancel
         when: "run이 이미 cancelled. 결과는 닫힌 행에 쓰이지 않는다"
         observe: [ledger:runs]
-    crosses_process: true
+    crosses_process: false
     refs: [J4]
     docs: [architecture/run.md, architecture/app-call.md]
 
@@ -753,6 +876,10 @@ flows:
         code: not_found
         when: "ReadRun의 run이 없음"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 run 행이 깨져 읽지 못함(read와 list 모두)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/run.md]
 
@@ -767,15 +894,20 @@ flows:
       - "기다리기 전에 run을 읽고 끝났으면 바로 돌려준다. 실행 중이면 입력의 turn을 한 번 본다"
       - "끝나지 않았으면 finish 신호나 timeout_ms를 기다린다"
       - "깬 뒤에 표를 다시 읽는다. 끝났으면 그 기록을, 아니면 running인 채로 돌려준다"
+      - "CLI(agent run, run wait, 앱 command)는 running인 동안 이 route를 60초씩 되풀이해 부른다. CLI가 끊겨도 run은 그대로 돈다(취소하지 않는다)"
     outcomes:
       - id: finished
-        observe: [response]
+        observe: [ledger:runs, response]
       - id: timeout
         when: "timeout_ms가 지나도 running. 응답의 상태는 running"
         observe: [response]
       - id: not_found
         code: not_found
         when: "run이 없음"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 run 행이 깨져 읽지 못함"
         observe: [response]
     crosses_process: true
     docs: [architecture/run.md]
@@ -802,7 +934,11 @@ flows:
         code: not_found
         when: "run이 없음"
         observe: [response]
-    crosses_process: true
+      - id: internal
+        code: internal
+        when: "저장된 run 행이 깨져 읽지 못함"
+        observe: [response]
+    crosses_process: false
     docs: [architecture/run.md]
 
   - id: run-activity
@@ -829,7 +965,7 @@ flows:
     boundary: [core-api, jobs]
     code: [packages/core/jobs/commands.ts, packages/core/jobs/schedule.ts, packages/core/main/daemon/wiring/jobs-registration.ts]
     steps:
-      - "호출한 session을 creator (agent, workspace)로 찾는다. 모르는 session이면 forbidden"
+      - "호출한 session을 creator (agent, workspace)로 찾는다. agent가 아니거나 모르는 session이면 forbidden"
       - "at은 every가 d 단위일 때만 받는다. 아니면 invalid_input"
       - "할 일의 이름(agent, app, project)을 지금 풀어 id로 저장한다. 못 풀면 not_found. schema를 못 읽으면 invalid_input"
       - "job 행을 approved_at 없이 만든다. 다음 차례는 잡지 않는다(사람이 승인해야 돈다)"
@@ -846,7 +982,11 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "호출한 session을 모름"
+        when: "agent가 아닌 호출자이거나 호출한 session을 모름"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "방금 만든 job을 다시 읽지 못함(저장된 job이 깨짐)"
         observe: [response]
     crosses_process: false
     refs: [J1, J2]
@@ -878,6 +1018,10 @@ flows:
         code: forbidden
         when: "agent session을 모름"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job이 깨져 읽지 못함"
+        observe: [response]
     crosses_process: false
     refs: [J2, H9]
     docs: [architecture/job.md]
@@ -907,6 +1051,10 @@ flows:
         code: forbidden
         when: "agent session을 모름"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job이 깨져 읽지 못함"
+        observe: [response]
     crosses_process: false
     refs: [J2, H9]
     docs: [architecture/job.md]
@@ -929,6 +1077,7 @@ flows:
       - id: approved
         observe: [ledger:jobs, event:JobChanged, response]
       - id: rejected
+        when: "choice가 reject. job을 지운다"
         observe: [ledger:jobs, event:JobChanged, response]
       - id: conflict
         code: conflict
@@ -937,6 +1086,10 @@ flows:
       - id: not_found
         code: not_found
         when: "job이 없음"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job이 깨져 읽지 못함"
         observe: [response]
     crosses_process: false
     refs: [J1, H9]
@@ -958,6 +1111,10 @@ flows:
         code: forbidden
         when: "agent session을 모름"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job 행이 깨져 읽지 못함"
+        observe: [response]
     crosses_process: false
     refs: [J2]
     docs: [architecture/job.md]
@@ -974,6 +1131,10 @@ flows:
       - "화면은 둘을 같이 읽어 맞추고 JobChanged를 받으면 다시 읽는다"
     outcomes:
       - id: ok
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "승인 대기 job이나 held 줄이 깨져 읽지 못함(job이 없는 줄 포함)"
         observe: [response]
     crosses_process: false
     refs: [H9]
@@ -994,6 +1155,10 @@ flows:
       - id: not_found
         code: not_found
         when: "job이 없음"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job이나 job run이 깨져 읽지 못함"
         observe: [response]
     crosses_process: false
     refs: [H9]
@@ -1025,6 +1190,10 @@ flows:
         code: not_found
         when: "job run이 없음"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "job run이나 job이 깨져 읽지 못함"
+        observe: [response]
     crosses_process: false
     refs: [H9, E10]
     docs: [architecture/job.md]
@@ -1049,19 +1218,26 @@ flows:
         observe: [ledger:job_runs, event:JobChanged, response]
       - id: skipped-overlap
         when: "앞 차례가 아직 돎"
-        observe: [ledger:job_runs, response]
+        observe: [ledger:job_runs, event:JobChanged, response]
       - id: held
         when: "놓친 차례 + hold 정책. 대기 목록에 card가 뜸"
         observe: [ledger:job_runs, event:JobChanged, response]
       - id: held-again
         when: "이미 held 줄이 있어 같은 줄에 접음"
-        observe: [ledger:job_runs, response]
+        observe: [ledger:job_runs, event:JobChanged, response]
       - id: superseded
-        when: "제때 온 차례가 돌게 되어 기다리던 held 줄을 닫음"
-        observe: [ledger:job_runs, response]
+        when: "queued 줄이 생기면서 기다리던 held 줄을 닫음"
+        observe: [ledger:job_runs, event:JobChanged, response]
+      - id: not-due
+        when: "차례가 아직 안 왔거나, job이 꺼져 있거나, 승인 전이라 줄을 만들지 않음"
+        observe: [response]
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job이나 job run이 깨져 읽지 못함"
         observe: [response]
     crosses_process: false
     refs: [J3, J6, E10]
@@ -1081,9 +1257,12 @@ flows:
       - "꺼진 사이 온 차례는 모두 놓친 차례다. run 정책이면 한 번 돌리고(missed_count), hold 정책이면 held card를 올린다"
     outcomes:
       - id: interrupted
-        observe: [ledger:job_runs]
+        observe: [ledger:job_runs, event:JobChanged]
       - id: missed-counted
         observe: [ledger:job_runs, event:JobChanged]
+      - id: claim-failed
+        when: "claim_due가 실패함. scheduler가 log:jobs에 남기고 60초 뒤 다시 한다. 성공할 때까지 다시 startup 바퀴다"
+        observe: ["log:jobs"]
     crosses_process: false
     refs: [J6, H9, E10]
     docs: [architecture/job.md]
@@ -1104,9 +1283,9 @@ flows:
       - "다음 차례 시각에 timer를 건다(최소 1초, 최대 1분)"
     outcomes:
       - id: started
-        observe: [ledger:job_runs, ledger:runs, ledger:workflow_instances, event:JobChanged]
+        observe: [ledger:job_runs, ledger:runs, ledger:workflow_instances, ledger:workflow_lines, event:JobChanged, event:WorkflowInstanceChanged]
       - id: failed
-        when: "시작하지 못함(이름이 안 풀림, run 시작 실패, workflow 시작 conflict 등)"
+        when: "시작하지 못함(이름이 안 풀림, run 시작 실패, workflow 시작 conflict 등). job_run.ended로 failed를 적는다"
         observe: [ledger:job_runs, event:JobChanged]
       - id: claim-failed
         when: "claim_due가 실패해 60초 뒤 다시 한다"
@@ -1114,6 +1293,9 @@ flows:
     crosses_process: true
     refs: [E10, J3, J6]
     docs: [architecture/job.md]
+    unclear:
+      - "job_run.started나 job_run.ended 쓰기가 실패하면 log:jobs에만 남고 줄은 그대로다(conflict와 not_found는 조용히 넘긴다). 갈래로 쓰지 않았다"
+      - "crosses_process는 workflow_start 중 flow kind가 시작될 때(flow host의 start 응답을 기다림) 때문에 true로 뒀다. agent_run과 tool_run만 도는 job이면 core만 쓴다"
 
   - id: job-run-started
     title: "시작한 queued job run을 running으로 적는다"
@@ -1138,6 +1320,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job run이 깨져 읽지 못함(쓴 뒤 다시 읽는 것 포함)"
         observe: [response]
     crosses_process: false
     docs: [architecture/job.md]
@@ -1170,6 +1356,10 @@ flows:
         code: forbidden
         when: "machine 자격이 아님"
         observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job run이 깨져 읽지 못함(쓴 뒤 다시 읽는 것 포함)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/job.md]
 
@@ -1187,7 +1377,15 @@ flows:
       - "lophn이 꺼지는 중이면 기다리는 것을 멈추고 줄을 둔다. 다음 켤 때 job-startup이 interrupted로 닫는다"
       - "이미 닫힌 줄은 conflict로 넘어간다. 켤 때 첫 바퀴는 run 상태를 읽지 않는다"
     outcomes:
+      - id: ok
+        when: "job_runs/open이 running 줄을 돌려줌(바퀴마다 한 번)"
+        observe: [response]
+      - id: open-failed
+        code: internal
+        when: "job_runs/open이 저장된 행을 읽지 못함. scheduler가 log:jobs에 남기고 그 바퀴의 닫기를 건너뜀"
+        observe: ["log:jobs"]
       - id: done
+        when: "run이 done으로 끝남, 또는 workflow instance가 ended"
         observe: [ledger:job_runs, event:JobChanged]
       - id: failed
         when: "run이 failed로 끝남. job run에는 reason을 적지 않고 run 기록에 error가 남는다"
@@ -1195,6 +1393,12 @@ flows:
       - id: cancelled
         when: "run이 cancelled로 끝남, 또는 workflow instance가 stopped"
         observe: [ledger:job_runs, event:JobChanged]
+      - id: left-open
+        when: "WaitRun이 오류를 주거나(run이 없음 등) lophn이 꺼지는 중이라 기다림을 멈춤. 줄은 그대로 두고 다음 켤 때 job-startup이 닫는다"
+        observe: [ledger:job_runs]
+      - id: already-closed
+        when: "줄이 이미 닫혔거나 지워져 conflict나 not_found. scheduler가 조용히 넘어간다"
+        observe: [ledger:job_runs]
     crosses_process: true
     refs: [J3, J6]
     docs: [architecture/job.md, architecture/run.md]

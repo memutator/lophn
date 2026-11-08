@@ -195,7 +195,7 @@ links:
   - {entry: "cli:job.update", flow: job-update}
   - {entry: "cli:job.delete", flow: job-delete}
   - {entry: "cli:job.list", flow: job-list}
-  - {entry: "cli:package.read", flow: package-catalog-read}
+  - {entry: "cli:package.read", flow: package-guide-read}
   - {entry: "cli:package.publish", flow: package-publish}
   - {entry: "cli:preview.start", flow: preview-start}
   - {entry: "cli:preview.stop", flow: preview-stop}

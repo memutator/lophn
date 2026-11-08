@@ -235,6 +235,13 @@ links:
   - {entry: "key:app.panel", flow: app-panel-open}
   # browser (projects)
   - {entry: "key:browser.bookmark", flow: browser-bookmark-save}
+  # 창 chrome (shell-workspace)
+  - {entry: "key:palette.open", flow: palette-open}
+  - {entry: "key:files.quick-open", flow: files-quick-open}
+  - {entry: "key:settings.open", flow: settings-open}
+  # terminal (harness)
+  - {entry: "key:terminal.copy", flow: terminal-copy}
+  - {entry: "key:terminal.paste", flow: terminal-paste}
   # agent 화면 (sessions·turns·approvals·harness). core 탭 쪽 flow를 잇는다. harness GUI 탭은 아래 보고서 참고
   - {entry: "key:agent.send", flow: session-send}
   - {entry: "key:agent.queue", flow: session-send}

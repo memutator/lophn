@@ -52,14 +52,13 @@ journeys:
       - {do: "지금 commit으로 release를 준비한다", flow: release-prepare:prepared}
       - {do: "준비한 release를 fixture data로 preview에 띄운다", flow: preview-start:started}
       - {do: "preview의 준비 확인을 읽는다", flow: preview-observe:observed}
+      - {do: "preview 프로세스의 command를 기록과 Gate 없이 불러 결과를 본다", flow: app-preview-command-call:succeeded}
       - {do: "preview를 멈춘다", flow: preview-stop:stopped}
       - {do: "release를 활성화한다. 첫 activation이라 동의가 필요하다", flow: release-activate:waiting-consent}
       - {do: "동의 카드를 펼쳐 늘어난 선언 전부를 보고 Allow를 누른다", screen: new-waiting-first-activation, flow: activation-consent:allow}
       - {do: "허락된 줄을 sweep이 가져가 activation을 시작한다", flow: activation-sweep:started}
       - {do: "시도가 끝나 새 release가 active가 된다", flow: activation-complete:active}
       - {do: "session이 확인한 것과 확인하지 못한 것을 사람에게 알린다", flow: agent-reply-record:ok}
-    gaps:
-      - "preview 대상 호출(preview.call, appToolTargetSchema의 mode preview)은 app-command-call의 when이 live만 적어 flow에 없다(packages/protocol/apps/calls/call.ts). when에 preview 갈래를 더할지 정한다."
 
   - id: app-first-activation-declined
     title: "첫 activation의 동의 카드에서 거절하고 session이 선언을 줄여 다시 준비한다"

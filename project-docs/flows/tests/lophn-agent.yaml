@@ -29,8 +29,8 @@ files:
     note: "MCP 로그인이 발급자 metadata 끝점과 client secret으로 token을 받고, agent 층 token은 agent id 이름에 보관해 그 서버에만 붙는다"
 
   - path: packages/core/lophn-agent/extensions/mcp-oauth-vault_test.ts
-    covers: []
-    note: "MCP token 세 이름의 알려진 값 등록과 갱신 거절 시 세 이름 삭제. 삭제를 말하는 outcome이 없다(report의 missing-outcome)"
+    covers: [mcp-server-connect:refresh-rejected]
+    note: "MCP token 세 이름의 알려진 값 등록과 갱신 거절 시 세 이름 삭제. 세 이름 삭제는 mcp-server-connect:refresh-rejected"
 
   - path: packages/core/lophn-agent/extensions/mcp-server_test.ts
     covers: []
@@ -53,7 +53,7 @@ files:
     note: "session은 자기 메시지가 참조하는 이미지만 풀고, 선언과 다른 형식이나 길이의 이미지는 blob으로 준비하지 않는다"
 
   - path: packages/core/lophn-agent/models/adapters/models-dev_test.ts
-    covers: []
+    covers: [model-catalog-auto-update:rejected]
     note: "models.dev 응답을 lophn 항목으로 바꾸는 변환과 항목 배열 응답 거절(순수 함수). model-catalog-auto-update의 rejected 판정 입력이다"
 
   - path: packages/core/lophn-agent/models/binding_test.ts
@@ -65,8 +65,8 @@ files:
     note: "자동 갱신을 끄면 models.dev 요청이 나가지 않고, 켜져 있으면 실패가 unavailable로 state에 남는다"
 
   - path: packages/core/lophn-agent/models/resolve_test.ts
-    covers: []
-    note: "직접 적은 model 이름을 provider 목록과 구독 허락 목록으로 받고 거절하는 resolver 호출. turn 준비에서 어느 outcome인지 흐름에 적혀 있지 않다(report)"
+    covers: [turn-pump-start:closed-configuration-unavailable]
+    note: "직접 적은 model 이름을 provider 목록과 구독 허락 목록으로 받고 거절하는 resolver 호출. 거절은 turn-pump-start:closed-configuration-unavailable"
 
   - path: packages/core/lophn-agent/models/user-info_test.ts
     covers: [user-model-info-save:ok, user-model-info-save:conflict, user-model-info-save:invalid_input, user-model-info-remove:conflict, model-catalog-read:ok, model-default-change:ok, model-default-change:invalid_input]
@@ -89,7 +89,7 @@ files:
     note: "cch billing slot만 바꾸는 봉인과 Claude Code profile 모양(순수 어댑터)"
 
   - path: packages/core/lophn-agent/providers/adapters/cloud-code_test.ts
-    covers: []
+    covers: [model-call-run:complete, model-call-run:partial-continue]
     note: "Cloud Code stream 조립과 요청 모양(순수 어댑터). verdict complete와 partial은 model-call-run 판정의 입력이다"
 
   - path: packages/core/lophn-agent/providers/commands_test.ts
@@ -97,8 +97,8 @@ files:
     note: "provider.<id>가 아닌 secret 이름은 거절하고 row를 남기지 않는다. 맞는 이름은 연결된다"
 
   - path: packages/core/lophn-agent/providers/invoke_test.ts
-    covers: []
-    note: "실패 호출 evidence는 allow-list header와 판정 길만 남기고, Responses 최상위 error event는 code 달린 실패다(순수 invoke). 비일시 실패 호출의 기록 outcome은 흐름에 없다(report)"
+    covers: [model-call-run:failed]
+    note: "실패 호출 evidence는 allow-list header와 판정 길만 남기고, Responses 최상위 error event는 code 달린 실패다(순수 invoke). 비일시 실패 호출의 기록은 model-call-run:failed"
 
   - path: packages/core/lophn-agent/providers/login_test.ts
     covers: [provider-login-start:started, provider-login-finish:connected, provider-login-finish:forbidden, provider-login-finish:unavailable]
@@ -125,8 +125,8 @@ files:
     note: "provider와 MCP secret 값은 자기 이름 공간의 허락한 origin으로만 가고, 다른 목적지·모르는 이름·revoked·loopback 아닌 http는 값을 읽지도 않고 거절한다"
 
   - path: packages/core/lophn-agent/run-loop/core-ports_test.ts
-    covers: [tool-call-batch:uncertain, tool-call-batch:success, tool-call-finish:finished]
-    note: "StartModelCall 실패 때 model을 부르지 않고 steer를 queue에 둔다(outcome 없음, report). tool 결과 blob 저장이 실패해도 행은 uncertain으로 finished가 되고, finish가 거절한 결과는 압축해 다시 기록한다"
+    covers: [tool-call-batch:uncertain, tool-call-batch:success, tool-call-finish:finished, model-call-run:start-rejected]
+    note: "StartModelCall 실패 때 model을 부르지 않고 steer를 queue에 둔다(model-call-run:start-rejected). tool 결과 blob 저장이 실패해도 행은 uncertain으로 finished가 되고, finish가 거절한 결과는 압축해 다시 기록한다"
 
   - path: packages/core/lophn-agent/run-loop/driver_test.ts
     covers: [turn-pump-start:started, turn-pump-start:compacting, turn-loop:failed-internal]
@@ -145,15 +145,15 @@ files:
     note: "call, reaction, step, 실패 답의 입력 본문. tag escape와 받은 turn 입력과 뒤 이력 재생의 bytes 같음(순수 함수)"
 
   - path: packages/core/lophn-agent/run-loop/live-turns_test.ts
-    covers: [turn-stop:stopped]
-    note: "멈추면 사람이 본 글을 StopTurn 전에 agent message로 남긴다. 쓰는 중 글의 secret 가림은 흐름 outcome이 없다(report)"
+    covers: [turn-stop:stopped, model-call-run:live-secret-held]
+    note: "멈추면 사람이 본 글을 StopTurn 전에 agent message로 남긴다. 쓰는 중 글의 secret 가림은 model-call-run:live-secret-held"
 
   - path: packages/core/lophn-agent/run-loop/queue_test.ts
     covers: [session-send:ok, session-steer:ok, queued-edit:ok, queued-edit:conflict, queued-move:ok, queued-steer-now:ok, queued-steer-now:conflict, queued-remove:ok, queued-remove:conflict]
     note: "메모리 queue(run-loop)의 순서, 고치기, 옮기기, 지금 올리기와 빼기. 가져간 메시지는 못 고치고, steer는 도는 turn이 있을 때만 올라간다. 흐름의 person outcome과 같은 규칙으로 맞춤"
 
   - path: packages/core/lophn-agent/run-loop/runtime-redaction_test.ts
-    covers: []
+    covers: [model-call-run:live-secret-held]
     note: "turn 글이 settle될 때 끝에 걸친 secret의 앞부분을 내지 않는다. 값을 모르면 원문을 내지 않는다(순수 함수, fail-closed)"
 
   - path: packages/core/lophn-agent/run-loop/schema_test.ts
@@ -173,8 +173,8 @@ files:
     note: "도는 turn이 있는 session은 그 turn 자신만 Compact를 열고 확정한다. 다른 turn이나 turn 없는 요청은 conflict다"
 
   - path: packages/core/lophn-agent/session/guards_test.ts
-    covers: []
-    note: "Compact 요청 guard는 사람과 machine만 통과시킨다(순수 함수). agent·app 거절은 session-compact-request에 outcome이 없다(report)"
+    covers: [session-compact-request:forbidden]
+    note: "Compact 요청 guard는 사람과 machine만 통과시킨다(순수 함수). agent·app 거절은 session-compact-request:forbidden"
 
   - path: packages/core/lophn-agent/session/harness_test.ts
     covers: [harness-bind-session:bound, harness-bind-session:forbidden]

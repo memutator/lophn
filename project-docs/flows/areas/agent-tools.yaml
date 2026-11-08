@@ -486,13 +486,13 @@ flows:
       - "turn이나 session이 끝나거나 core가 내려가면 cancelled로 풀리고 QuestionResolved를 낸다"
     outcomes:
       - id: submitted
-        observe: ["event:QuestionResolved", "response"]
+        observe: ["event:QuestionResolved", "response", "event:TurnResumed"]
         when: "사람이 질문 순서대로 답을 냈다"
       - id: human-message
-        observe: ["event:QuestionResolved", "response"]
+        observe: ["event:QuestionResolved", "response", "event:TurnResumed"]
         when: "기다리는 중 사람이 그 session에 메시지를 보냈다(답인지는 model이 읽는다)"
       - id: parent-reply
-        observe: ["event:QuestionResolved", "response"]
+        observe: ["event:QuestionResolved", "response", "event:TurnResumed"]
         when: "팀 자식의 질문에 부모가 답했다(답인지는 model이 읽는다)"
       - id: cancelled
         observe: ["event:QuestionResolved", "response"]
@@ -549,7 +549,7 @@ flows:
       - "카드 message 기록이 MessageRecorded event를 내는지 코드에서 확인하지 못했다. 그 event는 run loop의 답 기록에서 난다"
 
   - id: tool-lophn-help
-    title: "lophn tool로 도움말을 보거나, 틀린 명령줄을 거절받는다"
+    title: "lophn tool 호출을 명령으로 옮겨 실행하거나, 도움말을 보거나, 틀린 명령줄을 거절받는다"
     actor: agent
     entries: [tool:lophn]
     uses: [route:agent_assignments/get, route:apps/tools]
@@ -565,6 +565,9 @@ flows:
       - "parseCommandLine으로 읽는다. help면 그 workspace 종류의 명령과 지금 부를 수 있는 앱 command의 도움말 글을 돌려준다. 앱 command 목록은 할당(agent_assignments/get)과 선언(apps/tools)을 읽어 붙이고, 그 읽기가 실패하면 앱 command 없이 답한다"
       - "명령줄이 틀리거나 도움말 대상이 없으면 invalid_input으로 돌려준다"
     outcomes:
+      - id: command
+        observe: ["request:core(idempotency_key = tool call id)", "response"]
+        when: "명령 하나로 읽혀 그 명령의 정의로 실행했다. 결과 갈래는 그 명령의 flow다(cli·route). write 명령은 tool call id를 idempotency_key로 보내므로 같은 tool call을 다시 보내도 job이 두 번 생기지 않는다"
       - id: help
         observe: ["response"]
         when: "도움말 글을 돌려줬다. 앱 command 읽기(할당, 선언)가 실패했으면 앱 command 없이 돌려준다"

@@ -71,3 +71,36 @@ modules: [packages/core/apps, packages/core/main]
 - 작음(추천): 사람의 data root에 `@me` 판이 있는지, 몇 개가 건너뛰어지는지 먼저 본다. 없거나 모두 붙었으면 kept로 닫는다.
 - 남는 판이 있으면: 옛 판은 설치 사본 byte 자체를 blob으로 보존하는 별도 field를 둔다.
 
+## 앱이 떠 있는 동안 grant를 거두면 계속 unavailable이다
+
+```yaml
+kind: bug
+modules: [packages/core/apps, packages/shell/renderer]
+```
+
+지금: Access 탭의 Revoke(`packages/shell/renderer/app-frame/app-detail/core-source.ts` `revoke`)는 `app_grants.revoke`를 바로 보낸다. handler(`packages/core/apps/permissions/commands.ts`)는 앱의 마지막 process 사실(`lastProcessFact`, `permissions/store.ts`)이 `AppStarted`면 `unavailable`("process termination is not confirmed")로 거절한다. 주석이 말하는 "부르는 쪽(GrantApplier)이 stop으로 종료를 확인한다"의 그 부르는 쪽이 코드에 없다. `grep GrantApplier`는 그 주석 한 줄뿐이고, 앱 process를 멈추는 길(`supervisor.stop`, reconcile)은 revoke 앞에서 아무도 부르지 않는다.
+- 앱이 떠 있으면 사실이 `AppStarted`라 revoke는 항상 거절된다. 화면은 `setProblem("revoke")` toast만 보이고 `requested`에 담지 않으므로 "정리 중"으로도 보이지 않는다.
+- 사람이 앱 실행을 끄면 supervisor가 `record_stopped`를 남겨 그 뒤에야 거둘 수 있다. 화면이 그렇게 하라고 알려 주지는 않는다.
+- 떠 있던 process가 crash loop로 멈추거나(`halt`) core가 `AppStopped` 없이 내려갔다 다시 뜨면, 앱이 안 도는데도 마지막 사실이 `AppStarted`로 남는다. `stopTracked`는 자식이 없으면 `record_stopped`를 건너뛰므로 실행을 꺼도 사실이 바뀌지 않아, 앱을 다시 켜서 멈추기 전에는 거둘 수 없다. (코드를 읽어 본 것이고 이 경로를 실행해 보지는 않았다.)
+
+영향: 사람이 앱에 준 외부 net·secret·다른 앱 호출 권한을 거두는 유일한 길이 막혀 있다. 앱을 쓰는 중에는 거둘 수 없고, 권한 경계에서 사람이 한 결정이 반영되지 않는다.
+
+고치려면:
+- revoke를 받는 쪽에서 core가 supervisor에 그 앱을 멈추라고 요청하고(`pause`와 같은 종료 확인), `AppStopped`가 남은 뒤 `markRevoked`를 한다. 중간. 사람이 누른 한 번으로 끝난다. 추천.
+- 마지막 사실이 아니라 supervisor의 지금 상태(살아 있는 child 유무)를 본다. 중간. crash·재시작 뒤 stale한 사실 문제도 같이 푼다. 위와 함께 하면 좋다.
+- 화면이 "앱 실행을 끈 뒤 거두라"고 알린다. 작음. 권한을 거두려고 앱을 끄게 하므로 임시 방편이다.
+
+## 앱 child가 exit 0으로 끝나면 다시 뜨지 않고 core도 모른다
+
+```yaml
+kind: bug
+modules: [packages/core/apps]
+```
+
+지금: `packages/core/apps/runtime/processes/terminate.ts` `unexpected`는 의도하지 않은 종료 중 exit code가 0이 아닌 것만 예상 밖으로 본다. `packages/core/apps/runtime/supervisor/supervisor.ts` `onChildExit`는 `runtime.tracked = undefined`와 `exit` 관측을 낸 뒤 `unexpected`가 false면 바로 돌아온다. 그래서 `record_unavailable`도, backoff도, 재시작(`apply`)도 없다. app supervisor에는 주기적으로 다시 맞추는 sweep이 없다(다음 `reconcile`이 와야 다시 뜬다).
+
+영향: AI가 쓴 앱 code가 `process.exit(0)`로 끝나거나 server가 정상 종료로 닫히면, 앱은 desired가 켜져 있는데 죽은 채로 남는다. core 원장의 마지막 사실은 `AppStarted`라 앱 상태는 "실행 중"으로 보이고, 이 앱의 tool 호출·화면은 실패한다. 사람은 실행을 껐다 켜기 전까지 원인을 볼 단서가 없다.
+
+고치려면:
+- 의도하지 않은 종료는 exit code와 상관없이 예상 밖으로 센다(`unexpected`에서 `exitCode !== 0` 조건을 뺀다). 작음. 추천. 앱 server가 0으로 끝나는 것도 정상이 아니다. backoff와 crash loop 한도가 이미 있어 무한히 다시 뜨지 않는다.
+- 0이면 `record_unavailable`만 남기고 다시 띄우지 않는다. 작음. 사람이 이유를 보지만 앱은 여전히 죽어 있다.

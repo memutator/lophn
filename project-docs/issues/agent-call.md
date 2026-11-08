@@ -2,3 +2,17 @@
 
 agent 사이의 call(일 맡기기와 답하기)을 Router가 배달하는 길의 열린 이슈다. 흐름과 불변 조건은 `project-docs/architecture/agent-call.md`.
 
+## 이름이 겹치는 앱으로 call을 보내면 첫 행으로 간다
+
+```yaml
+kind: bug
+modules: [packages/core/main, packages/core/agent-workspaces, packages/core/lophn-agent]
+```
+
+지금: 받는 쪽 주소의 앱은 `appByName`(`packages/core/main/daemon/wiring/lophn-agent-registration.ts`)이 풀고, 그 SQL은 `select * from apps where id = ? or slug = ? or name = ?`를 `sql.get`으로 한 행만 받는다. 정렬이 없다. `slug`만 unique이고(`apps/registration/schema.ts`) 앱 이름은 겹칠 수 있으며(등록은 slug 충돌만 거절한다), 한 앱의 이름이 다른 앱의 slug와 같을 수도 있다. `resolveAddress`(`packages/core/agent-workspaces/workspace/session-directory.ts`)는 그 행을 그대로 쓴다. `architecture/agent-call.md`는 "같은 이름이 여럿이면 `invalid_input`"이라고 하지만 앱에는 그 검사가 없다(project는 이름이 unique라 겹치지 않는다).
+
+영향: 이름이 같은 앱이 둘 있으면 `lophn call send`가 어느 쪽 앱 agent에 일을 맡기는지 정해져 있지 않다. 맡긴 일(앱 수정, 공개 command 변경 알림)이 다른 앱의 agent에게 가 그 앱을 고칠 수 있다. job·workflow·run이 앱을 이름으로 푸는 길(`jobs-registration.ts`, `runs.ts`)도 같은 함수를 쓴다.
+
+고치려면:
+- 이름·slug·id가 둘 이상 맞으면 `invalid_input`으로 거절하고 id나 slug를 쓰라고 알린다. 작음. 추천. 문서와 같아진다.
+- slug와 id만 받고 표시 이름은 받지 않는다. 작음. 이름으로 부르던 사용은 깨진다.

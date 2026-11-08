@@ -11,14 +11,18 @@ flows:
       - packages/core/lophn-agent/workspaces/lifecycle.ts
       - packages/core/lophn-agent/workspaces/directory.ts
     steps:
-      - "같은 id의 session 행이 있는지 본다. 같은 agent와 workspace의 열린 session이면 그 결과를 돌려준다(replay)."
+      - "사람이 아니면 forbidden이다(requireUser). 같은 id의 session 행이 있는지 본다. 같은 agent와 workspace의 열린 session이면 그 결과를 돌려준다(replay)."
       - "agent 정의를 찾는다. 범위 agent나 lophn은 그 workspace에서만 열고, harness agent면 harness 설정이 켜졌는지 본다."
       - "workspace(project, app)가 있고 보관되지 않았는지 본다. home이면 workspace 없이 연다."
       - "session 행을 넣고 commit 뒤 SessionStarted를 Bus로 낸다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, event:SessionStarted, response]
-        when: "새로 열었거나 같은 id를 같은 agent·workspace로 다시 불렀다(replay)"
+        when: "새로 열었거나 같은 id를 같은 agent·workspace로 다시 불렀고 그 session이 아직 열려 있다(replay)"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(requireUser)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "같은 id가 다른 agent나 workspace로 쓰였거나 archive된 session을 같은 id로 열 때, 또는 workspace가 없거나 보관됐을 때"
@@ -45,13 +49,18 @@ flows:
       - packages/core/lophn-agent/session/commands.ts
       - packages/core/lophn-agent/session/session-title.ts
     steps:
-      - "제목 글을 정리한다(앞뒤 빈칸을 자르고 빈 제목이나 120자 넘는 제목은 거절한다)."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다."
+      - "제목 글을 정리한다(앞뒤 빈칸을 자르고 빈 제목이나 120자 넘는 제목은 invalid_input으로 거절한다)."
       - "같은 제목이면 아무것도 쓰지 않고 이전 결과를 돌려준다. archive된 session도 이름은 바꾼다."
       - "state_seq가 요청과 다르면 conflict다. 같으면 제목과 state_seq를 한 tx에서 고친다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, response]
         when: "제목을 바꿨거나 같은 제목이라 이전 결과다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(requireUser)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "state_seq가 낡았다(session이 그 사이 바뀌었다)"
@@ -62,7 +71,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "제목이 비었거나 120자를 넘는다"
+        when: "제목이 비었다(앞뒤 빈칸을 뺀 뒤) 또는 120자를 넘는다"
         observe: [response]
     crosses_process: false
     docs: [architecture/workspace-session.md]
@@ -77,22 +86,34 @@ flows:
       - packages/core/lophn-agent/session/commands.ts
       - packages/core/lophn-agent/workspaces/lifecycle.ts
     steps:
-      - "이미 archive됐으면 이전 결과를 돌려준다."
+      - "부르기 전 앞 단계가 알림 글(receiver_ended)을 blob으로 준비한다. 준비하지 못하면 여기서 unavailable이다."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. 이미 archive됐으면 이전 결과를 돌려준다."
       - "state_seq가 낡았으면 conflict다. 아니면 lifecycle을 archived로 바꾼다."
-      - "같은 tx에서 도는 turn을 interrupted(session_ended)로 닫고, 받은 열린 call은 receiver_ended로 닫고, 대기 request와 질문은 cancelled로 하고, queue를 비운다."
-      - "commit 뒤 SessionEnded(reason archived)를 낸다. 도던 turn의 agent runtime child에는 turn_stop이 가서 model 요청을 끊는다."
+      - "같은 tx에서 도는 turn을 interrupted(session_ended)로 닫고, 받은 열린 call은 receiver_ended로 닫는다. 닫은 call의 보낸 쪽이 살아 있는 agent session이면 그 queue에 reply_to가 그 call인 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다)."
+      - "commit 뒤 queue를 비우고 SessionEnded(reason archived)를 낸다. 기다리던 turn request와 질문은 같은 tx가 아니라 이 event를 듣는 approvals wiring이 cancelled(session_closed)로 푼다(끝내기 effect의 cancelPendingRequests는 no-op이다). 도던 turn의 agent runtime child에는 Bus의 TurnEnded를 보고 turn_stop이 가서 model 요청을 끊는다."
       - "archive한 session은 기록을 그대로 두고 읽기는 된다. 되살리는 길은 없다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, ledger:turns, ledger:agent_calls, event:SessionEnded, response]
-        when: "archive했거나 이미 archive돼 있었다(replay)"
+        when: "archive했거나 이미 archive돼 있었다(replay). 받은 열린 call의 보낸 쪽에 알림이 간 경우는 ok-sender-notified다"
+      - id: ok-sender-notified
+        observe: [ledger:agent_calls, ledger:messages, response]
+        when: "archive하며 받은 열린 call을 receiver_ended로 닫았고, 그 보낸 쪽이 살아 있는 agent session이라 알림 하나를 넣었다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(requireUser)"
+        observe: [response]
       - id: conflict
         code: conflict
-        when: "state_seq가 낡았다"
+        when: "state_seq가 낡았다, 또는 끝내기 effect가 받은 call을 닫다가 상태 충돌을 돌려줬다"
         observe: [response]
       - id: not_found
         code: not_found
-        when: "session이 없다"
+        when: "session이 없다, 또는 끝내기 effect가 받은 call을 찾지 못했다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "알림 글을 blob으로 준비하지 못했다(준비 경로가 없거나 준비가 실패했다)"
         observe: [response]
     crosses_process: true
     refs: [T13, T17]
@@ -108,21 +129,33 @@ flows:
       - packages/core/lophn-agent/session/commands.ts
       - packages/core/lophn-agent/session/rewind/mod.ts
     steps:
-      - "state_seq가 낡았으면 conflict다."
-      - "archive와 같은 묶음으로 도는 turn을 interrupted로 닫고 받은 call과 대기 request를 닫고 queue를 비운다. SessionEnded(reason deleted)는 commit 뒤에 낸다."
-      - "메시지 본문의 blob 영구 참조를 지우고, 되돌리기 기록과 checkpoint를 지운 뒤 메시지와 turn·model call 기록과 session 행을 지운다."
+      - "부르기 전 앞 단계가 알림 글(receiver_ended)을 blob으로 준비한다. 준비하지 못하면 여기서 unavailable이다."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. state_seq가 낡았으면 conflict다."
+      - "archive와 같은 묶음으로 도는 turn을 interrupted로 닫고 받은 call을 receiver_ended로 닫는다. 기다리던 request와 질문은 commit 뒤 SessionEnded를 듣는 approvals wiring이 푼다. 닫은 call의 보낸 쪽이 살아 있는 agent session이면 알림 하나를 넣는다(archive와 같다). 끝내기 effect가 충돌을 돌려주면 그대로 돌려주고 기록을 지우지 않는다."
+      - "메시지 본문의 blob 영구 참조를 지우고, 되돌리기 기록과 checkpoint를 지운 뒤 메시지와 turn·model call 기록과 session 행을 지운다. queue 비우기와 SessionEnded(reason deleted)는 commit 뒤에 한다."
       - "되돌릴 수 없다. 지운 내용은 응답에 싣지 않고 지운 시각만 돌려준다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, ledger:messages, ledger:blob_refs, ledger:checkpoints, ledger:turns, event:SessionEnded, response]
-        when: "session과 기록을 지웠다"
+        when: "session과 기록을 지웠다. 받은 열린 call의 알림이 간 경우는 ok-sender-notified다"
+      - id: ok-sender-notified
+        observe: [ledger:agent_calls, ledger:messages, response]
+        when: "지우며 받은 열린 call을 receiver_ended로 닫았고, 그 보낸 쪽이 살아 있는 agent session이라 알림 하나를 넣었다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(requireUser)"
+        observe: [response]
       - id: conflict
         code: conflict
-        when: "state_seq가 낡았다"
+        when: "state_seq가 낡았다, 또는 끝내기 effect가 받은 call을 닫다가 상태 충돌을 돌려줬다"
         observe: [response]
       - id: not_found
         code: not_found
-        when: "session이 없다"
+        when: "session이 없다, 또는 끝내기 effect가 받은 call을 찾지 못했다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "알림 글을 blob으로 준비하지 못했다(준비 경로가 없거나 준비가 실패했다)"
         observe: [response]
     crosses_process: true
     risk: [data-loss]
@@ -140,14 +173,18 @@ flows:
       - packages/core/lophn-agent/session/fork.ts
       - packages/core/lophn-agent/workspaces/lifecycle.ts
     steps:
-      - "같은 id가 이미 있으면 같은 출처와 지점이면 replay, 아니면 conflict다."
+      - "사람이 아니면 forbidden이다(requireUser). 같은 id가 이미 있으면 같은 출처와 지점이면 replay, 아니면 conflict다."
       - "출처 session이 없으면 not_found다. through_seq가 출처의 확정 메시지가 아니면 invalid_input이다."
-      - "같은 agent와 workspace로 새 session을 열되 제목과 model 선택은 잇고, skip과 compaction과 대기 request·열린 call·rewind 기록은 가져가지 않는다."
-      - "rewind가 숨긴 구간을 뺀 메시지를 복사하고 본문과 이미지 blob 참조를 복사본마다 새로 건다."
+      - "같은 agent와 workspace로 새 session을 열되 제목과 model 선택은 잇고, skip과 compaction과 대기 request·열린 call·rewind 기록은 가져가지 않는다. 열 수 없으면(agent 정의 없음, workspace 없음·보관, harness 꺼짐) 그 오류를 돌려준다."
+      - "rewind가 숨긴 구간을 뺀 메시지를 복사하고 본문과 이미지 blob 참조를 복사본마다 새로 건다. 참조가 원본과 맞지 않으면 거절한다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, ledger:messages, ledger:blob_refs, response]
-        when: "새 session과 복사본을 만들었다(response의 copied_messages 수)"
+        when: "새 session과 복사본을 만들었다(response의 copied_messages 수), 또는 같은 id·같은 출처·같은 지점의 재전송이라 처음 결과다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(requireUser), 또는 복사할 본문 참조가 원본과 맞지 않아 blob 등록이 거절됐다"
+        observe: [response]
       - id: not_found
         code: not_found
         when: "출처 session이 없거나 새 session의 agent 정의가 없다"
@@ -158,7 +195,11 @@ flows:
         observe: [response]
       - id: conflict
         code: conflict
-        when: "같은 id가 다른 출처나 지점으로 쓰였거나 workspace가 보관됐다"
+        when: "같은 id가 다른 출처나 지점으로 쓰였거나 workspace가 보관됐거나 없다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "새 session의 agent가 harness인데 harness 설정이 꺼져 있다"
         observe: [response]
     crosses_process: false
     refs: [P3]
@@ -174,7 +215,7 @@ flows:
       - packages/core/lophn-agent/session/commands.ts
       - packages/core/lophn-agent/session/session-model.ts
     steps:
-      - "archive된 session이면 conflict다. 같은 선택이면 이전 결과다."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. archive된 session이면 conflict다. 같은 선택이면 이전 결과다."
       - "model을 고르면 provider 기록을 확인하고, option 값이 그 model이 선언한 축과 값 안인지 본다. 직접 적은 이름은 catalog에 없어도 저장한다. null이면 agent 기본값으로 돌아간다(검사 없음)."
       - "state_seq가 낡았으면 conflict다. 아니면 model_selection을 바꾸고 고른 model을 picker에 보이게 하고 전역 기본이 비었으면 기본으로 정한다."
       - "바뀐 값은 다음 turn부터 쓴다."
@@ -182,6 +223,10 @@ flows:
       - id: ok
         observe: [ledger:sessions, ledger:model_shown, ledger:model_choices, response]
         when: "model 선택을 바꿨거나 같은 선택이라 이전 결과다(같은 선택이면 아무것도 안 쓴다)"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(requireUser)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "session이 archive됐거나 state_seq가 낡았다"
@@ -206,13 +251,17 @@ flows:
     code:
       - packages/core/lophn-agent/session/commands.ts
     steps:
-      - "archive된 session이면 conflict다. 같은 값이면 이전 결과다."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. archive된 session이면 conflict다. 같은 값이면 이전 결과다."
       - "state_seq가 낡았으면 conflict다. 아니면 sessions.skip과 state_seq를 한 tx에서 고친다."
       - "판정은 approvals 쪽이 한다. 이 flow는 표시만 바꾸고, 도는 turn은 시작할 때 정한 mode를 쓰므로 바뀐 값은 다음 turn부터 닿는다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, response]
         when: "skip 값을 바꿨거나 같은 값이라 이전 결과다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(requireUser)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "session이 archive됐거나 state_seq가 낡았다"
@@ -240,8 +289,8 @@ flows:
       - packages/core/lophn-agent/session/compact.ts
       - packages/core/lophn-agent/session/reads.ts
     steps:
-      - "사람(또는 runtime)이 요청하면 session이 열려 있는지 본다. 같은 요청이 열려 있으면 그 request_seq를 돌려준다."
-      - "도는 turn이 자기 session을 Compact하는 경우가 아니면 도는 turn이 끝나기를 요구한다. 요약할 메시지가 없으면 conflict다."
+      - "사람이나 runtime(machine)이 요청하면 그 밖의 호출자(agent와 app 포함)는 forbidden이다(requireUserOrMachine). session이 없으면 not_found다. 닫힌 session이면 conflict다."
+      - "같은 요청이 열려 있으면 그 request_seq를 돌려준다. 아니면 도는 turn이 자기 session을 Compact하는 경우가 아니면 도는 turn이 끝나기를 요구한다. 요약할 메시지가 없으면 conflict다."
       - "state_seq가 낡았으면 conflict다. 아니면 request를 requested로 넣고 CompactStarted를 낸다."
       - "runtime은 compact-requests를 읽어 요청을 집는다(도는 turn이 있는 session은 빼고 오래된 것부터). 요약 call을 한 뒤 compact나 fail-compact로 끝낸다."
     outcomes:
@@ -251,6 +300,10 @@ flows:
       - id: listed
         observe: [response]
         when: "runtime이 compact-requests를 읽었다(요청 목록)"
+      - id: forbidden
+        code: forbidden
+        when: "호출자가 사람도 runtime(machine)도 아니다. agent는 자기 session도, app도 요청하지 못한다"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "session이 닫혔거나, 도는 turn이 끝나지 않았거나, state_seq가 낡았거나, 요약할 메시지가 없다"
@@ -273,7 +326,7 @@ flows:
     code:
       - packages/core/lophn-agent/session/compact.ts
     steps:
-      - "runtime child가 부른다. 열린 요청이 있고 request_seq가 맞고 도는 turn 규칙을 맞춰야 한다."
+      - "runtime child가 부른다. machine이 아니면 forbidden이다(requireMachine). 열린 요청이 있고 request_seq가 맞고 도는 turn 규칙을 맞춰야 한다."
       - "요약 call이 성공적으로 끝났는지 보고 덮는 끝(through_seq)이 확정 메시지인지 본다."
       - "덮을 새 구간이 있을 때만 compaction을 이어 붙이고 state_seq를 올린다. 원문 메시지는 그대로 둔다."
       - "요청을 compacted로 닫고 CompactEnded(ok)를 낸다."
@@ -281,6 +334,10 @@ flows:
       - id: ok
         observe: [ledger:sessions, ledger:session_compact_requests, event:CompactEnded, response]
         when: "요약을 이어 붙이고 요청을 닫았다"
+      - id: forbidden
+        code: forbidden
+        when: "machine이 아닌 호출자다(requireMachine)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "열린 요청이 없거나 request_seq가 맞지 않거나 session이 닫혔거나 도는 turn이 끝나지 않았거나 덮을 새 구간이 없다"
@@ -309,13 +366,17 @@ flows:
     code:
       - packages/core/lophn-agent/session/compact.ts
     steps:
-      - "runtime child가 요약을 끝내지 못했을 때 부른다. 열린 요청과 request_seq가 맞아야 한다."
+      - "runtime child가 요약을 끝내지 못했을 때 부른다. machine이 아니면 forbidden이다(requireMachine). 열린 요청과 request_seq가 맞아야 한다."
       - "요청을 failed로 닫고 reason(nothing_to_summarize, model_failed 등)을 남긴다. session의 나머지는 바뀌지 않는다."
       - "CompactEnded(ok false)를 낸다."
     outcomes:
       - id: ok
         observe: [ledger:session_compact_requests, event:CompactEnded, response]
         when: "요청을 failed로 닫았다"
+      - id: forbidden
+        code: forbidden
+        when: "machine이 아닌 호출자다(requireMachine)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "열린 요청이 없거나 request_seq가 맞지 않는다"
@@ -372,7 +433,7 @@ flows:
         when: "값을 돌려줬다"
       - id: not_found
         code: not_found
-        when: "session이 없다"
+        when: "session이 없거나 보이지 않는다"
         observe: [response]
     crosses_process: false
     unclear: []
@@ -385,21 +446,25 @@ flows:
     code:
       - packages/core/lophn-agent/session/summary-read.ts
     steps:
-      - "session이 보이면 요약 구간을 고른다. revert를 주면 그 rewind가 접은 구간의 요약을 고른다."
-      - "요약 call의 output blob을 읽어 글로 준다. 크기 범위 밖이거나 글이 아니면 요약을 쓸 수 없다고 답한다."
+      - "입력 schema가 맞지 않으면 invalid_input이다. session이 보이면 요약 구간을 고른다. revert를 주면 그 rewind가 접은 구간의 요약을 고른다."
+      - "요약 call의 output blob을 읽어 글로 준다. 크기 범위 밖이거나 글이 아니면 요약을 쓸 수 없다고 답한다(unavailable)."
     outcomes:
       - id: ok
         observe: [response]
         when: "요약 본문을 돌려줬다"
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 schema가 맞지 않는다"
+        observe: [response]
       - id: not_found
         code: not_found
         when: "요약이 없거나 session이 보이지 않는다"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "요약 blob 참조가 없거나 크기가 범위 밖이거나 바이트를 못 읽었다"
+        when: "ledger snapshot을 읽지 못했다, 또는 요약 blob 참조가 없거나 크기가 범위 밖이거나 바이트를 못 읽었거나 글이 아니다"
         observe: [response]
-    crosses_process: false
+    crosses_process: true
     unclear: []
 
   - id: session-snapshot-read
@@ -412,7 +477,7 @@ flows:
       - packages/protocol/events/snapshot.ts
     steps:
       - "sessions를 생략하면 열린 session 전부, 주면 그 session들을 고른다."
-      - "각 session의 대기 turn request와 질문을 approvals와 질문 기다림에서 모으고, 도는 turn이 있으면 running, 대기가 있으면 waiting, 아니면 idle로 정한다."
+      - "각 session의 대기 turn request와 질문을 approvals와 질문 기다림에서 모으고, 대기 request나 질문이 있으면 waiting, 아니면 도는 turn이 있으면 running, 아니면 idle로 정한다."
       - "쓰는 중인 model 글은 싣지 않는다(ACP snapshot이 싣는다). 답에는 현재 event seq를 as_of_seq로 붙인다."
     outcomes:
       - id: ok
@@ -431,28 +496,46 @@ flows:
     when: "도는 turn이 없거나 delivery가 next_turn일 때. steer로 보내도 도는 turn이 없으면 여기로 온다"
     code:
       - packages/core/lophn-agent/session/message-commands.ts
+      - packages/core/lophn-agent/session/message-body.ts
       - packages/core/lophn-agent/session/rewind/checkpoints.ts
       - packages/core/lophn-agent/run-loop/queue.ts
     steps:
-      - "session이 받을 수 있는지 본다. archive됐거나 workspace가 보관됐으면 conflict다."
-      - "같은 id를 같은 내용으로 다시 보내면 저장과 배달 없이 같은 결과를 돌려준다. 같은 id에 다른 내용이면 conflict다."
+      - "부르기 전 앞 단계가 글을 검사하고 redaction해 blob으로 준비한다. 검사에 걸리거나 준비가 안 되면 여기서 끝난다(invalid_input, unavailable)."
+      - "session이 받을 수 있는지 본다. 없으면 not_found다. archive됐거나 workspace가 보관됐으면 conflict다."
+      - "사람이 아니면 forbidden이다(writeHuman의 requireUser). 같은 id를 같은 내용으로 다시 보내면 저장과 배달 없이 같은 결과를 돌려준다. 같은 id에 다른 내용이면 conflict다."
       - "도는 turn이 있고 delivery가 steer면 steer로, 아니면 next_turn으로 정한다."
       - "메시지 행과 본문 blob 참조를 같은 tx에 쓴다. next_turn이면 checkpoint를 만들고, 첫 사람 요청이면 자동 제목을 정한다(steer는 둘 다 하지 않는다)."
-      - "Router(from human)로 queue에 넣는다. 도는 turn이 있으면 queue가 입력을 steering 목록으로 보낸다."
+      - "Router(from human)로 queue에 넣는다. next_turn은 줄에 쌓이고, steer는 steering 목록에 들어간다. 이 tx 안에서 실패하면 쓴 메시지도 함께 되돌아간다."
       - "commit 뒤 MessageReceived를 낸다(steer 여부 포함)."
     outcomes:
       - id: ok
         observe: [ledger:messages, ledger:checkpoints, ledger:sessions, event:MessageReceived, response]
-        when: "next_turn으로 접수했다(도는 turn이 있으면 queue에 쌓여 ACP의 queued로 보인다)"
+        when: "next_turn으로 접수했다(도는 turn이 있으면 queue에 쌓여 ACP의 queued로 보인다), 또는 같은 id·같은 내용의 재전송이라 이전 결과다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(writeHuman의 requireUser), 또는 준비 참조의 주체가 보낸 자격과 다르다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "메시지 content가 계약 밖이다(준비 단계의 schema 검사 또는 redaction 뒤 상한 초과), 또는 준비된 본문 참조가 없다(준비가 사라졌다)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "redaction이 끝나지 않았거나 blob 준비 경로가 없거나 준비가 실패했다(준비 단계에서 막는다)"
+        observe: [response]
       - id: not_found
         code: not_found
-        when: "session이 없다"
+        when: "session이 없다, 또는 router가 받는 길을 찾지 못했다"
         observe: [response]
       - id: conflict
         code: conflict
-        when: "session이 archive됐거나 workspace가 보관됐다(새 입력을 받지 않는다), 또는 같은 id가 다른 내용으로 쓰였다"
+        when: "session이 archive됐거나 workspace가 보관됐다(새 입력을 받지 않는다), 같은 id가 다른 내용으로 쓰였다, 또는 router가 닫힌 session으로 거절했다"
         observe: [response]
-    crosses_process: false
+      - id: internal
+        code: internal
+        when: "checkpoint 행을 쓰고 다시 읽지 못했다(내부 오류, tx가 되돌아간다)"
+        observe: [response]
+    crosses_process: true
     refs: [T1]
     docs: [architecture/agent-chat.md, architecture/workspace-session.md]
     unclear: []
@@ -465,17 +548,42 @@ flows:
     when: "session에 도는 turn이 있고 delivery가 steer인 사람 메시지를 보낼 때. 입구는 session-send와 같다"
     code:
       - packages/core/lophn-agent/session/message-commands.ts
+      - packages/core/lophn-agent/session/message-body.ts
       - packages/core/lophn-agent/run-loop/queue.ts
     steps:
-      - "같은 messages/send 입구에서 도는 turn을 확인해 delivery를 steer로 정한다."
+      - "같은 messages/send 입구에서 도는 turn을 확인해 delivery를 steer로 정한다. 검사·준비·권한·대상 판정은 session-send와 같다."
       - "메시지 행은 delivery를 steer로, turn은 비워 둔 채(아직 turn이 가져가지 않았다) 쓴다."
       - "checkpoint를 만들지 않고 자동 제목도 정하지 않는다. steer는 turn을 여는 입력이 아니다."
       - "queue는 입력을 steering 목록에 넣는다. 도는 turn이 다음 model 요청 앞에서 가져가고(turns 쪽), 끝난 turn이 가져가지 못하면 다음 turn 줄로 되돌린다."
     outcomes:
       - id: ok
         observe: [ledger:messages, event:MessageReceived, response]
-        when: "steer로 접수했다. checkpoints 행이 생기지 않고 sessions.title도 바뀌지 않는다"
-    crosses_process: false
+        when: "steer로 접수했다. checkpoints 행이 생기지 않고 sessions.title도 바뀌지 않는다, 또는 같은 id·같은 내용의 재전송이라 이전 결과다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(writeHuman의 requireUser), 또는 준비 참조의 주체가 보낸 자격과 다르다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "메시지 content가 계약 밖이다(준비 단계의 schema 검사 또는 redaction 뒤 상한 초과), 또는 준비된 본문 참조가 없다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "redaction이 끝나지 않았거나 blob 준비 경로가 없거나 준비가 실패했다(준비 단계에서 막는다)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "session이 없다, 또는 router가 받는 길을 찾지 못했다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "session이 archive됐거나 workspace가 보관됐다, 같은 id가 다른 내용으로 쓰였다, 또는 router가 닫힌 session으로 거절했다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "checkpoint 행을 쓰고 다시 읽지 못했다(내부 오류, tx가 되돌아간다)"
+        observe: [response]
+    crosses_process: true
     unclear:
       - "steer가 끝난 turn에서 못 가져가고 다음 turn 줄로 돌아가는 경로는 turns 쪽 flow가 맡는다. 이 flow의 test가 그 뒤까지 보는지 정할 것"
 
@@ -486,10 +594,12 @@ flows:
     boundary: [agent-sessions, child-supervision-protocol]
     code:
       - packages/core/lophn-agent/session/message-commands.ts
+      - packages/core/lophn-agent/session/message-body.ts
       - packages/core/lophn-agent/run-loop/core-ports.ts
     steps:
-      - "agent runtime child가 부른다. 호출자가 그 session의 agent 자격이거나 machine이어야 한다."
-      - "turn이 같은 session의 것인지 보고 같은 id를 같은 내용으로 다시 부르면 이전 결과를 돌려준다. 같은 id에 다른 내용이면 conflict다."
+      - "부르기 전 앞 단계가 답 글을 검사하고 redaction해 blob으로 준비한다. 검사에 걸리거나 준비가 안 되면 여기서 끝난다(invalid_input, unavailable)."
+      - "agent runtime child가 부른다. 호출자가 그 session의 agent 자격이거나 machine이 아니면 forbidden이다."
+      - "turn이 같은 session의 것인지 보고 같은 id를 같은 내용으로 다시 부르면 이전 결과를 돌려준다. 같은 id에 다른 내용이면 conflict다. turn이 없으면 not_found다."
       - "turn이 끝났으면 conflict다. 아니면 agent 메시지 행과 본문 blob 참조를 쓴다. queue에는 넣지 않는다."
       - "MessageRecorded는 child가 낸 event가 commit 뒤 core를 거쳐 Bus로 나간다."
     outcomes:
@@ -502,13 +612,21 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "turn이 없거나 다른 session의 turn이다"
+        when: "turn이 없거나 다른 session의 turn이다, 또는 session이 없다"
         observe: [response]
       - id: conflict
         code: conflict
         when: "turn이 이미 끝났거나 같은 id가 다른 내용으로 쓰였다"
         observe: [response]
-    crosses_process: false
+      - id: invalid_input
+        code: invalid_input
+        when: "답 글이 계약 밖이다(준비 단계의 schema 검사, 또는 reasoning을 붙여 상한을 넘었다), 또는 준비된 본문 참조가 없다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "답 글 redaction이 끝나지 않았거나 blob 준비 경로가 없거나 준비가 실패했다(준비 단계에서 막는다)"
+        observe: [response]
+    crosses_process: true
     docs: [architecture/agent-chat.md]
     unclear: []
 
@@ -546,22 +664,26 @@ flows:
     code:
       - packages/core/lophn-agent/session/message-search.ts
     steps:
-      - "agent와 workspace로 거른 사람 메시지와 agent 답을 최근 것부터 200개까지 본다. agent는 자기 session만 본다."
-      - "각 본문 blob을 읽어 글을 찾고, 처음 맞은 곳 앞뒤를 한 줄로 줄인 글을 붙인다."
+      - "입력 schema가 맞지 않으면 invalid_input이다. agent와 workspace로 거른 사람 메시지와 agent 답을 최근 것부터 200개까지 본다. agent는 자기 session만 본다. session을 하나도 볼 수 없는 호출자는 forbidden이다."
+      - "각 본문 blob을 읽어 글을 찾고, 처음 맞은 곳 앞뒤를 한 줄로 줄인 글을 붙인다. 본문을 못 읽거나 크기 상한을 넘으면 그 메시지는 건너뛴다(오류로 돌려주지 않는다)."
       - "최대 20개에서 멈춘다. tool 입출력과 다른 agent의 메시지는 찾지 않는다."
     outcomes:
       - id: ok
         observe: [response]
-        when: "맞은 메시지 목록을 돌려줬다(없으면 빈 목록)"
+        when: "맞은 메시지 목록을 돌려줬다(없으면 빈 목록, 본문을 못 읽은 메시지는 뺀다)"
       - id: forbidden
         code: forbidden
         when: "호출자가 session을 하나도 볼 수 없다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "검색어가 비었거나 200자를 넘는다"
+        when: "입력 schema가 맞지 않는다(검색어가 비었거나 200자를 넘는 것을 포함)"
         observe: [response]
-    crosses_process: false
+      - id: unavailable
+        code: unavailable
+        when: "ledger snapshot을 읽지 못했다"
+        observe: [response]
+    crosses_process: true
     unclear: []
 
   - id: message-body-read
@@ -572,7 +694,7 @@ flows:
     code:
       - packages/core/lophn-agent/session/body-read.ts
     steps:
-      - "메시지의 session이 보이는지 보고, 아니면 없는 메시지와 같이 not_found다."
+      - "입력 schema가 맞지 않으면 invalid_input이다. 메시지의 session이 보이는지 보고, 아니면 없는 메시지와 같이 not_found다."
       - "본문 blob 참조를 ledger snapshot에서 확인하고 blob 바이트를 읽어 hash가 맞으면 content로 돌려준다."
     outcomes:
       - id: ok
@@ -584,13 +706,13 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "blob 바이트를 못 읽었거나 관측 hash와 다르다"
+        when: "ledger snapshot을 읽지 못했다, 본문 참조가 없거나 ledger 행과 다르다, 크기가 범위 밖이다, blob 바이트를 못 읽었다, 관측 hash와 다르다, 또는 본문 모양이 깨졌다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
         when: "입력 schema가 맞지 않는다"
         observe: [response]
-    crosses_process: false
+    crosses_process: true
     unclear:
       - "body-read.ts 주석이 옛 assignment 말을 쓴다(사람·그 assignment의 agent). 주석만 고칠지 정할 것"
 
@@ -604,6 +726,7 @@ flows:
       - packages/core/lophn-agent/run-loop/queue.ts
       - packages/core/main/daemon/wiring/lophn-agent-runtime.ts
     steps:
+      - "사람이 아니면 forbidden이다(humanOnly). 입력 schema를 본다."
       - "queue에 그 메시지가 있고 도는 turn이 있으면 queue에서 빼 steering 목록으로 옮긴다."
       - "queue는 메모리라 기록은 바꾸지 않는다. MessageSteered를 낸다."
       - "도는 turn이 없거나, queue에 없거나, 이미 가져갔으면 conflict다."
@@ -611,6 +734,10 @@ flows:
       - id: ok
         observe: [event:MessageSteered, response]
         when: "steering 목록으로 옮겼다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(humanOnly)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "도는 turn이 없거나 queue에 없거나 turn이 이미 가져갔다"
@@ -629,12 +756,17 @@ flows:
       - packages/core/main/daemon/wiring/lophn-agent-runtime.ts
       - packages/core/lophn-agent/session/queued-remove.ts
     steps:
+      - "사람이 아니면 forbidden이다(humanOnly)."
       - "기록에서 먼저 지운다(queued-remove-record). 이미 turn이 가져갔으면 거기서 conflict로 막힌다."
       - "기록을 지운 뒤 queue에서 뺀다. MessageRemoved를 낸다."
     outcomes:
       - id: ok
         observe: [event:MessageRemoved, response]
         when: "queue와 기록에서 뺐다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(humanOnly)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "turn이 이미 가져갔거나 명령 기록(!)이라 뺄 수 없다"
@@ -654,12 +786,16 @@ flows:
     code:
       - packages/core/lophn-agent/session/queued-remove.ts
     steps:
-      - "core 안 machine 자격만 받는다. 메시지가 같은 session에 있는지 본다."
+      - "machine이 아니면 forbidden이다(requireMachine, route 등록의 actor는 machine뿐이다). 메시지가 같은 session에 있는지 본다."
       - "next_turn이고 turn이 비었고 명령 기록이 아닌 것만 지운다. 본문 blob 참조를 지우고 checkpoint와 메시지 행을 지운다."
     outcomes:
       - id: ok
         observe: [ledger:messages, ledger:checkpoints, ledger:blob_refs, response]
         when: "기록을 지웠다"
+      - id: forbidden
+        code: forbidden
+        when: "machine이 아닌 호출자다(requireMachine)"
+        observe: [response]
       - id: not_found
         code: not_found
         when: "메시지가 없거나 session이 다르다"
@@ -681,13 +817,20 @@ flows:
     code:
       - packages/core/main/daemon/wiring/lophn-agent-runtime.ts
       - packages/core/lophn-agent/session/queued-edit.ts
+      - packages/core/lophn-agent/session/message-body.ts
     steps:
+      - "사람이 아니면 forbidden이다(humanOnly)."
+      - "부르기 전 앞 단계가 새 글을 검사하고 redaction해 blob으로 준비한다. 검사에 걸리거나 준비가 안 되면 여기서 끝난다(invalid_input, unavailable)."
       - "기록의 본문을 먼저 바꾼다(queued-edit-record). 이미 turn이 가져갔으면 거기서 conflict다."
       - "바뀐 본문(redaction을 거친 값)으로 queue의 본문도 바꾼다."
     outcomes:
       - id: ok
         observe: [ledger:messages, ledger:blob_refs, response]
         when: "글을 바꿨다(같은 글이면 아무것도 안 바꾸고 ok)"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(humanOnly)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "turn이 이미 가져갔거나 steer·명령 기록이다"
@@ -698,9 +841,13 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "고친 글에 원래 없던 이미지를 넣었다"
+        when: "새 글이 계약 밖이다(준비 단계의 schema 검사 또는 redaction 뒤 상한 초과), 또는 고친 글에 원래 없던 이미지를 넣었다"
         observe: [response]
-    crosses_process: false
+      - id: unavailable
+        code: unavailable
+        when: "redaction이 끝나지 않았거나 blob 준비 경로가 없거나 준비가 실패했다(준비 단계에서 막는다)"
+        observe: [response]
+    crosses_process: true
     unclear: []
 
   - id: queued-edit-record
@@ -710,14 +857,19 @@ flows:
     boundary: [agent-sessions, storage]
     code:
       - packages/core/lophn-agent/session/queued-edit.ts
+      - packages/core/lophn-agent/session/message-body.ts
     steps:
-      - "명령 앞 단계가 글을 redaction하고 새 본문을 I/O worker로 blob 준비한다. core 안 machine 자격만 받는다. next_turn이고 turn이 비었고 명령 기록이 아닌 메시지만 바꾼다."
+      - "부르기 전 앞 단계가 글을 redaction하고 새 본문을 I/O worker로 blob 준비한다(검사 실패와 준비 실패는 여기서 막는다). machine이 아니면 forbidden이다(requireMachine). next_turn이고 turn이 비었고 명령 기록이 아닌 메시지만 바꾼다."
       - "이미지는 이미 건 것만 남기고 새 이미지는 거절한다. 같은 hash면 그대로 ok다."
       - "본문 blob 참조를 같은 tx에서 바꾼다(옛 본문 참조는 지운다). redaction을 거친 block을 돌려준다."
     outcomes:
       - id: ok
         observe: [ledger:blob_refs, ledger:messages, response]
         when: "본문을 바꿨다(같은 본문이면 변화 없음)"
+      - id: forbidden
+        code: forbidden
+        when: "machine이 아닌 호출자다(requireMachine)"
+        observe: [response]
       - id: not_found
         code: not_found
         when: "메시지가 없거나 session이 다르다"
@@ -728,7 +880,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "새 이미지를 넣으려 했다, 또는 글이 계약 밖이다(redaction 뒤 상한 초과 포함)"
+        when: "새 이미지를 넣으려 했다, 또는 글이 계약 밖이다(준비 단계의 schema 검사 또는 redaction 뒤 상한 초과), 또는 준비된 본문 참조가 없다(살아 있는 준비가 없다)"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -748,12 +900,17 @@ flows:
       - packages/core/main/daemon/wiring/lophn-agent-runtime.ts
       - packages/core/lophn-agent/session/queued-move.ts
     steps:
+      - "사람이 아니면 forbidden이다(humanOnly)."
       - "기록의 순서(created_seq)를 이웃과 맞바꾼다(queued-move-record)."
       - "queue의 사람 메시지끼리 순서를 맞바꾼다. 끝에 있으면 아무것도 안 바꾸고 ok다."
     outcomes:
       - id: ok
         observe: [ledger:messages, response]
         when: "순서를 바꿨거나 맨 끝이라 그대로 두었다"
+      - id: forbidden
+        code: forbidden
+        when: "사람이 아닌 호출자다(humanOnly)"
+        observe: [response]
       - id: conflict
         code: conflict
         when: "turn이 이미 가져갔다"
@@ -773,12 +930,16 @@ flows:
     code:
       - packages/core/lophn-agent/session/queued-move.ts
     steps:
-      - "core 안 machine 자격만 받는다. next_turn이고 turn이 비었고 명령 기록이 아닌 메시지만 본다."
+      - "machine이 아니면 forbidden이다(requireMachine). next_turn이고 turn이 비었고 명령 기록이 아닌 메시지만 본다."
       - "같은 방향의 이웃이 없으면 그대로 ok다. 있으면 created_seq와 state_seq를 세 번에 나눠 맞바꾼다(unique라서 빈 번호를 잠시 쓴다)."
     outcomes:
       - id: ok
         observe: [ledger:messages, response]
         when: "순서를 맞바꿨거나 이웃이 없어 그대로다"
+      - id: forbidden
+        code: forbidden
+        when: "machine이 아닌 호출자다(requireMachine)"
+        observe: [response]
       - id: not_found
         code: not_found
         when: "메시지가 없거나 session이 다르다"
@@ -800,23 +961,28 @@ flows:
       - packages/core/main/daemon/wiring/acp.ts
       - packages/core/main/daemon/wiring/acp-build.ts
       - packages/protocol/acp/routes.ts
+      - packages/protocol/acp/reduce.ts
     steps:
-      - "snapshot은 session의 메시지, turn, tool 호출, 숨긴 구간을 읽어 ACP 항목과 순번(seq)으로 조립한다. 쓰는 중인 글과 queue, 대기 승인·질문을 더한다."
+      - "snapshot은 session의 메시지, turn, tool 호출, 숨긴 구간을 읽어 ACP 항목과 순번(seq)으로 조립한다. 메시지 본문은 blob 읽기로 가져오고, 못 읽으면 그 항목은 본문 없이 낸다(오류로 돌려주지 않는다). 쓰는 중인 글과 queue, 대기 승인·질문을 더한다."
       - "나가는 글은 지금의 redaction을 거친다. 알려진 값을 다 모르면 글을 비운다."
       - "draft는 session 없이 agent와 workspace로 model 묶음과 명령 목록을 읽는다(title, usage, cli_session은 null)."
+      - "화면은 갱신을 접는 reducer(reduce.ts)로 상태를 맞춘다. 순번이 빠지거나 글 offset이 맞지 않으면 reread를 세우고, 그때 화면이 이 snapshot을 다시 읽는다."
     outcomes:
       - id: ok
         observe: [response]
-        when: "상태나 설정을 돌려줬다"
+        when: "상태나 설정을 돌려줬다(못 읽은 메시지 본문은 글 없이 낸다)"
+      - id: reread
+        observe: []
+        when: "화면의 접기가 순번 빈틈, 글 offset 어긋남, 첫 갱신의 칸 누락으로 reread를 세웠다(화면이 snapshot을 다시 읽는다. 그 읽기는 ok다)"
       - id: not_found
         code: not_found
-        when: "snapshot의 session이 없거나 보이지 않는다(메시지 목록 read가 낸 not_found)"
+        when: "snapshot의 session이 없거나 보이지 않는다(메시지 목록이나 turn 목록 read가 낸 not_found)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
         when: "입력 schema가 맞지 않는다"
         observe: [response]
-    crosses_process: false
+    crosses_process: true
     risk: [secret]
     docs: [architecture/acp.md]
     unclear: []
@@ -848,7 +1014,7 @@ flows:
       - packages/core/main/daemon/wiring/acp.ts
     steps:
       - "입력 꼴을 schema로 검사하고 부른 사람의 자격을 그대로 넘긴다. core 안 machine 자격으로 대신 부르지 않는다."
-      - "send는 messages/send, stop은 turns/stop, 묻기 답은 ask/answer, 승인은 turn_requests/decide, 줄 고치기 넷은 session_inputs, model·mode·이름·compact·fork·rewind는 각 route로 간다."
+      - "send는 messages/send, stop은 turns/stop, 묻기 답은 ask/answer, 승인은 turn_requests/decide, 줄 고치기 넷은 session_inputs, model·mode·이름·compact·fork·rewind는 각 route로 간다. send·retry·run_command는 본문 준비(I/O)를 거치므로 이 flow도 crosses_process다."
       - "run_shell은 shell-run flow가 맡고, 내장 명령 이름을 run_command로 보내면 거절한다(화면이 opens로 처리한다)."
       - "lophn agent에 없는 입력(stop_child, steer_child, stop_task, background_tool, stop_shell, set_toggle, set_goal, use_role, open_session)과 harness session의 send_queued는 unavailable로 막는다."
       - "fork는 답에 새 session id를 싣는다. 나머지는 가는 route의 답을 그대로 준다."
@@ -858,11 +1024,11 @@ flows:
         when: "가는 route가 성공했다(fork는 새 session id를 싣는다)"
       - id: invalid_input
         code: invalid_input
-        when: "입력 schema가 틀렸다, 내장 명령을 run_command로 보냈다, model id에 provider가 없다, mode가 ask·skip이 아니다, 제목이 비었다, decide가 session이나 mode 범위를 싣는다"
+        when: "입력 schema가 틀렸다, 내장 명령을 run_command로 보냈다, model id에 provider가 없다, mode가 ask·skip이 아니다, 제목이 비었다, decide가 session이나 mode 범위를 싣는다, retry할 본문이 비었다, 또는 가는 route가 입력을 거절했다"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "lophn agent에 없는 입력이거나 harness session의 send_queued다"
+        when: "lophn agent에 없는 입력이거나 harness session의 send_queued다, 또는 가는 route나 memory handler가 없다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -876,7 +1042,11 @@ flows:
         code: conflict
         when: "가는 route가 충돌을 돌려줬다(도는 turn이 없어 steer가 안 됨, 이미 가져간 메시지, rewind blocked)"
         observe: [response]
-    crosses_process: false
+      - id: internal
+        code: internal
+        when: "가는 route가 내부 오류를 돌려줬다"
+        observe: [response]
+    crosses_process: true
     refs: [T1]
     docs: [architecture/acp.md]
     unclear:
@@ -892,11 +1062,12 @@ flows:
     code:
       - packages/core/main/daemon/wiring/acp-send.ts
       - packages/core/lophn-agent/session/message-commands.ts
+      - packages/core/lophn-agent/session/message-body.ts
       - packages/core/lophn-agent/tools/shell/run.ts
     steps:
-      - "호출자 scope에 RecordShellMessage가 없으면 명령을 돌리기 전에 막는다. session을 읽고 기본 폴더(project나 app workspace)를 고른다. home이면 폴더가 없어 막는다."
+      - "호출자 scope에 RecordShellMessage가 없으면 명령을 돌리기 전에 막는다(forbidden). 명령이 비었으면 invalid_input이다. session을 읽고 기본 폴더(project나 app workspace)를 고른다. home이면 폴더가 없어 막는다."
       - "agent의 shell.run과 같은 runner로 명령을 돌린다(env allowlist, 시간과 출력 상한)."
-      - "명령, 종료 코드, 출력을 redaction을 거쳐 사람 메시지(shell 칸, next_turn)로 저장한다. 명령 기록은 turn을 열지 않고 checkpoint도 만들지 않는다."
+      - "명령, 종료 코드, 출력을 redaction하고 blob으로 준비해 사람 메시지(shell 칸, next_turn)로 저장한다. 앞 단계가 검사·redaction·준비를 끝내지 못하면 저장하지 않는다. 명령 기록은 turn을 열지 않고 checkpoint도 만들지 않는다."
       - "commit 뒤 ShellRan을 낸다. 다음 turn이 그 기록을 가져가 model이 본다(tag로 보인다)."
       - "명령을 돌린 뒤 저장이 거절되면 효과(돌린 명령)만 남는다."
     outcomes:
@@ -905,11 +1076,11 @@ flows:
         when: "명령 기록을 저장했다. turn은 열리지 않는다"
       - id: forbidden
         code: forbidden
-        when: "호출자 scope에 RecordShellMessage가 없어 명령을 돌리지 않았다"
+        when: "호출자 scope에 RecordShellMessage가 없어 명령을 돌리지 않았다, 또는 사람이 아니다(requireUser)"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "명령이 비었거나 session에 기본 폴더가 없다(home), 또는 저장할 출력이 너무 크다"
+        when: "명령이 비었다, session에 기본 폴더가 없다(home), 저장할 출력이 너무 크다, 또는 기록 본문 모양이 맞지 않다(준비 단계)"
         observe: [response]
       - id: not_found
         code: not_found
@@ -919,7 +1090,11 @@ flows:
         code: conflict
         when: "session이 archive됐거나 workspace가 보관돼 새 입력을 받지 않는다"
         observe: [response]
-    crosses_process: false
+      - id: unavailable
+        code: unavailable
+        when: "출력 redaction이 끝나지 않았거나 blob 준비 경로가 없거나 준비가 실패했다(명령 앞 단계에서 막는다)"
+        observe: [response]
+    crosses_process: true
     risk: [secret]
     docs: [architecture/acp.md]
     unclear: []
@@ -932,14 +1107,15 @@ flows:
     code:
       - packages/core/main/daemon/wiring/acp-registration.ts
     steps:
-      - "core 안 machine 자격만 받는다. 이미 순번이 있는 id면 그 순번을 돌려준다."
+      - "route 등록의 actor가 machine뿐이다(dispatch가 막는다). 이미 순번이 있는 id면 그 순번을 돌려준다."
       - "새 id에는 session의 마지막 순번 다음 번호를 주고 항목(종류, turn, 시각, 승인 결과 내용)을 넣는다."
     outcomes:
       - id: ok
         observe: [ledger:acp_items, response]
         when: "순번을 주었다(같은 id는 같은 순번)"
     crosses_process: false
-    unclear: []
+    unclear:
+      - "machine 전용 검사는 handler에 없고 route actors(dispatch 공통 검사)가 한다. 그 forbidden을 이 flow에 outcome으로 둘지 정할 것"
 
   # ---- 이미지 첨부 ----
   - id: message-image-upload
@@ -960,7 +1136,7 @@ flows:
         when: "blob을 준비했다"
       - id: invalid_input
         code: invalid_input
-        when: "바이트 길이나 형식이 선언과 다르다, 또는 body를 못 읽었다"
+        when: "입력 schema가 맞지 않거나, 바이트 길이나 형식이 선언과 다르다, 또는 body를 못 읽었다, 또는 준비 쪽이 바이트를 거절했다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -981,13 +1157,14 @@ flows:
     steps:
       - "agent의 call send --image가 runtime loopback으로 base64를 보내면 형식을 맞추고 크기(180 KB 이하)를 본다."
       - "호출자 자격으로 blob을 준비하고 hash와 mime type을 돌려준다. 이어지는 메시지 command가 같은 자격으로 참조를 건다."
+      - "CLI의 call send --image(packages/cli/commands/call.ts imageBlock)는 이 route를 부르기 전에 경로를 풀고(not_found), 파일인지와 180 KB 이하인지 본다(invalid_input). 그 거절은 CLI 쪽 갈래라 여기 outcome이 아니다."
     outcomes:
       - id: ok
         observe: [disk:blob-store, response]
         when: "blob을 준비했다"
       - id: invalid_input
         code: invalid_input
-        when: "base64가 아니거나 형식이 맞지 않거나 크기 한도를 넘었다"
+        when: "입력 schema가 맞지 않거나, base64가 아니거나 형식이 맞지 않거나 크기 한도를 넘었다, 또는 준비 쪽이 바이트를 거절했다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -1013,15 +1190,15 @@ flows:
         when: "이미지 바이트를 돌려줬다"
       - id: not_found
         code: not_found
-        when: "그 session의 메시지가 참조하지 않는 blob이거나 옛 id 파일이 없다"
+        when: "그 session의 메시지가 참조하지 않는 blob이거나, 옛 id 파일이나 blob 파일이 디스크에 없다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "입력 schema가 맞지 않거나 blob이 이미지가 아니다"
+        when: "입력 schema가 맞지 않거나, blob의 첫 byte가 이미지 형식이 아니다(sniff 실패)"
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "파일을 못 읽었다"
+        when: "파일을 읽다 오류가 났다, 또는 ledger로 참조를 확인하지 못했다"
         observe: [response]
     crosses_process: false
     unclear: []
@@ -1047,13 +1224,17 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "그 session의 메시지가 참조하지 않는다"
+        when: "그 session의 메시지가 참조하지 않는 blob이다, 옛 attachment 파일이 없다, 또는 blob 파일이 없다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "참조 입력이 맞지 않는다"
+        when: "참조 입력이 맞지 않거나, blob 파일이 이미지 형식(png, jpeg, gif, webp)이 아니다"
         observe: [response]
-    crosses_process: true
+      - id: unavailable
+        code: unavailable
+        when: "ledger로 참조를 확인하지 못했거나, blob 파일을 읽지 못했다"
+        observe: [response]
+    crosses_process: false
     unclear: []
 
   # ---- 명령 목록 ----
@@ -1068,10 +1249,11 @@ flows:
     steps:
       - "사람만 읽는다. session을 주면 그 session의 agent와 workspace로, agent와 workspace를 주면 새 session 화면의 기준으로 계산한다."
       - "전역 내장 명령 순서에 그 agent가 쓸 수 있는 skill을 붙인다. 끈 skill은 없다. 목록은 저장하지 않고 열 때마다 계산한다."
+      - "skill 폴더를 읽다 manifest가 없거나 못 읽히면 그 skill만 목록에서 뺀다. 오류로 돌려주지 않는다."
     outcomes:
       - id: ok
         observe: [response]
-        when: "목록을 돌려줬다"
+        when: "목록을 돌려줬다(못 읽은 skill은 빠진 채로)"
       - id: forbidden
         code: forbidden
         when: "사람이 아닌 호출자다"
@@ -1091,53 +1273,58 @@ flows:
     entries: [route:calls/recover]
     boundary: [router, run-loop]
     code:
-      - packages/core/main/daemon/wiring/router.ts
       - packages/core/router/commands.ts
       - packages/core/router/router.ts
     steps:
-      - "start 단계에서 한 번 부른다(agent runtime이 turn을 읽기 전). 잃어버린 call은 lophn_restarted로 닫는다. 알림 글을 준비하지 못하면 알림 없이 닫는다."
-      - "도는 turn을 interrupted로 닫는다(queue와 앱 줄은 메모리라 사라진다)."
+      - "core 안 machine이 아니면 forbidden이다(requireMachine)."
+      - "router나 environment가 아직 없으면 unavailable이다."
+      - "잃어버린 call(받았으나 turn이 가져가지 않은 call, 기다리던 ask call)을 lophn_restarted로 닫는다. notify가 true면 살아 있는 보낸 session에 알림을 넣는다."
+      - "도는 turn을 interrupted(restarted)로 닫는다. queue와 앱 줄은 메모리라 이 tx 밖이다."
+      - "닫은 failed·interrupted 수를 돌려준다. 알림 글 준비, 실패 log, 기동을 잇는 일은 wiring이 맡는다(agents call-restart-recovery)."
     outcomes:
       - id: ok
         observe: [ledger:agent_calls, ledger:turns, response]
         when: "잃어버린 call과 도는 turn을 닫았다(failed, interrupted 수를 돌려준다)"
       - id: forbidden
         code: forbidden
-        when: "core 안 machine이 아닌 호출자다"
-        observe: [log:router]
+        when: "core 안 machine이 아닌 호출자다(requireMachine)"
+        observe: [response]
       - id: unavailable
         code: unavailable
         when: "router나 environment가 아직 없다"
-        observe: [log:router]
+        observe: [response]
     crosses_process: false
     refs: [T9]
     docs: [architecture/agent-call.md, architecture/workspace-session.md]
-    unclear: []
+    unclear:
+      - "failLostOnStart의 store.move와 알림 쓰기(transport.deliver)가 돌려주는 오류는 route 선언 errors(forbidden·unavailable·internal) 밖이고, 목록에서 나온 call에는 거의 나지 않아 outcome으로 쓰지 않았다"
 
   - id: queue-restore-on-start
     title: "켜질 때 접수만 되고 turn이 가져가지 않은 사람 메시지를 queue에 되돌린다"
     actor: system
     entries: [system:queue-restore]
-    pre: [calls-recover-on-start:ok]
     uses: [route:messages/body]
     boundary: [router, run-loop]
     code:
       - packages/core/main/daemon/wiring/router.ts
       - packages/core/lophn-agent/session/message-commands.ts
     steps:
-      - "기록에서 turn이 가져가지 않은 사람 메시지를 접수 순서대로 고른다. fork 복사본, rewind가 숨긴 구간, 명령 기록, unattended(run 입력)는 뺀다."
-      - "session이 열려 있고 lophn runtime이면 본문을 읽어 next_turn 입력으로 queue에 넣는다(접수 시각을 그대로 쓴다)."
-      - "보관됐거나 harness session이거나 본문을 못 읽은 메시지는 건너뛰고 log에 남긴다."
+      - "기록에서 turn이 가져가지 않은 사람 메시지를 접수 순서대로 고른다. 열린 session만, fork 복사본, rewind가 숨긴 구간, 명령 기록, unattended(run 입력)는 뺀다."
+      - "session이 없거나 archive됐거나 workspace가 보관됐거나 lophn runtime이 아니면(harness session은 harness wiring이 되돌린다) 말없이 건너뛴다."
+      - "본문을 blob에서 읽어(io child) next_turn 입력으로 queue에 넣는다(접수 시각을 그대로 쓴다). 본문을 못 읽으면 log에 남기고 건너뛴다."
     outcomes:
       - id: ok
-        observe: [event:MessageReceived, response]
+        observe: [event:MessageReceived]
         when: "queue에 다시 넣었다. 다음 turn이 열린다"
       - id: skipped
+        observe: [ledger:messages]
+        when: "보관된 session, harness session, session이 없는 메시지라 건너뛰었다(log는 남지 않는다)"
+      - id: body-unreadable
         observe: [log:router]
-        when: "보관된 session, harness session, 본문을 못 읽은 메시지라 건너뛰었다"
-    crosses_process: false
+        when: "본문을 못 읽어 건너뛰었다(requeue_message_failed)"
+    crosses_process: true
     unclear:
-      - "queue 적용기가 복원 때도 MessageReceived를 내는지 코드로 확인하지 못했다(createQueueApplier 경로)"
+      - "turns의 turn-restart(input-requeued)가 같은 start 되돌리기를 적는다. crosses_process는 여기서 true(본문을 blob에서 읽는다)이고 turns 쪽은 false다. 한쪽으로 모을지 정할 것"
 
   - id: bare-reply-auto
     title: "bare session이 result call을 받은 turn을 끝내면 마지막 답을 그 call의 답으로 보낸다"
@@ -1149,31 +1336,30 @@ flows:
       - packages/core/router/router.ts
       - packages/core/main/daemon/wiring/bare-reply.ts
     steps:
-      - "bare-reply wiring이 TurnEnded마다 본다. turn이 completed가 아니거나, 입력이 result call이 아니거나, call이 이미 닫혔거나, bare runtime이 아니거나, 마지막 응답 글이 비면 아무것도 보내지 않고 call을 그대로 둔다."
-      - "아니면 글을 redaction하고 blob 준비한 뒤 router reply로 call을 닫는다. 답을 받지 않는 call이면 conflict, 이미 끝난 call이면 delivered false·closed true로 돌려준다."
+      - "route를 부르기 전에 wiring이 마지막 답 글을 redaction하고 blob으로 준비한다. 끝내지 못하면 route를 부르지 않고 unavailable이다."
+      - "route는 호출자가 core 안 machine인지 본다(forbidden). call을 찾는다(없으면 not_found). 그 call의 보낸 쪽도 받는 쪽도 아니면 forbidden이다."
+      - "reply가 none인 call이면 conflict다. 이미 끝난 call이면 delivered false·closed true로 돌려준다."
+      - "아니면 받는 session에 답을 next_turn 입력으로 넣고, result call이면 call을 done으로 닫는다. 받을 session이 없거나 닫혔으면 답은 call 기록에만 남는다(delivered false)."
     outcomes:
       - id: ok
         observe: [ledger:agent_calls, ledger:messages, response]
-        when: "답을 보냈거나 이미 끝난 call이라 닫힘으로 돌아왔다"
+        when: "답을 받는 session에 넣었다(delivered true), 받을 session이 없어 기록에만 남았다(delivered false), 또는 call이 이미 끝나 있었다(closed true)"
       - id: not_found
         code: not_found
         when: "call이 없다"
-        observe: [log:core]
+        observe: [response]
       - id: forbidden
         code: forbidden
         when: "core 안 machine이 아니거나 그 call의 보낸 쪽도 받는 쪽도 아니다"
-        observe: [log:core]
+        observe: [response]
       - id: conflict
         code: conflict
         when: "그 call은 답을 받지 않는다(reply none)"
-        observe: [log:core]
+        observe: [response]
       - id: unavailable
         code: unavailable
-        when: "답 글 redaction이 끝나지 않았거나 blob 준비 경로가 없거나 준비가 실패했다"
-        observe: [log:core]
-      - id: skipped
-        when: "turn이 completed가 아니거나 입력이 result call이 아니거나 call이 이미 닫혔거나 bare runtime이 아니거나 답 글이 비었다(call은 그대로 열려 있다)"
-        observe: [ledger:agent_calls]
+        when: "답 글 redaction이 끝나지 않았거나 blob 준비 경로가 없거나 준비가 실패했다(route 앞에서 막는다), 또는 router가 아직 없다"
+        observe: [response]
     crosses_process: true
     refs: [R2]
     docs: [architecture/agent-call.md]
@@ -1189,7 +1375,8 @@ flows:
       - packages/core/router/router.ts
       - packages/core/main/daemon/wiring/approvals.ts
     steps:
-      - "approvals wiring이 자식의 turn request나 질문을 부모에게 물을 때 부른다(core 안 machine)."
+      - "approvals wiring이 자식의 turn request나 질문을 부모에게 물을 때 부른다(core 안 machine). machine이 아니면 forbidden이다."
+      - "앞 단계가 질문 글을 redaction하고 blob으로 준비한다(끝내지 못하면 여기서 unavailable이다)."
       - "보낸 쪽 session의 call 정책과 팀 규칙(형제, 부모, 자기 밑)을 거른다. 받는 agent 명함이 입력 종류와 답 방식을 받지 않으면 거절한다."
       - "받는 session이 없거나 닫혔으면 call을 failed로 기록하고 돌려준다. 열리면 부모 queue에 call을 넣는다. 답은 main thread의 짝으로 간다."
     outcomes:
@@ -1201,7 +1388,7 @@ flows:
         when: "받는 session이 없거나 닫혀 call이 failed로 기록됐다(fail_reason not_found 또는 closed). ok로 돌려주고 상태로 알린다"
       - id: forbidden
         code: forbidden
-        when: "call 정책이나 팀 규칙이 막았다"
+        when: "core 안 machine이 아니다, 또는 call 정책이나 팀 규칙이 막았다"
         observe: [response]
       - id: invalid_input
         code: invalid_input
@@ -1211,11 +1398,16 @@ flows:
         code: not_found
         when: "보낸 session이 없다"
         observe: [response]
-    crosses_process: false
+      - id: unavailable
+        code: unavailable
+        when: "router가 아직 없다, 또는 질문 글을 blob으로 준비하지 못했다(준비 경로가 없거나 준비가 실패했다)"
+        observe: [response]
+    crosses_process: true
     risk: [permission]
     refs: [R4, T1, T9]
     docs: [architecture/approval.md, architecture/agent-call.md]
-    unclear: []
+    unclear:
+      - "router의 internal(call id가 없다)은 from이 agent인 한 도달하지 않아 outcome으로 쓰지 않았다"
 
   - id: team-ask-withdraw
     title: "기다리던 팀 질문이나 승인 call을 보낸 쪽이 취소한다"
@@ -1226,7 +1418,8 @@ flows:
       - packages/core/router/commands.ts
       - packages/core/router/router.ts
     steps:
-      - "request나 질문이 부모 답 말고 다른 것으로 닫혔을 때 approvals wiring이 자식 이름으로 부른다(core 안 machine)."
+      - "request나 질문이 부모 답 말고 다른 것으로 닫혔을 때 approvals wiring이 자식 이름으로 부른다(core 안 machine). machine이 아니면 forbidden이다."
+      - "취소 알림 글을 blob으로 준비한다(끝내지 못하면 여기서 unavailable이다)."
       - "보낸 session의 call만 취소한다. 끝난 call은 그대로 돌려준다. 받는 쪽에는 취소 알림이 간다."
     outcomes:
       - id: ok
@@ -1238,9 +1431,13 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "그 call을 보낸 session이 아니다(not your call)"
+        when: "core 안 machine이 아니다, 또는 그 call을 보낸 session이 아니다(not your call)"
         observe: [response]
-    crosses_process: false
+      - id: unavailable
+        code: unavailable
+        when: "router가 아직 없다, 또는 취소 알림 글을 blob으로 준비하지 못했다"
+        observe: [response]
+    crosses_process: true
     refs: [T18]
     docs: [architecture/agent-call.md]
     unclear: []
@@ -1257,8 +1454,8 @@ flows:
       - packages/protocol/events/acp-project.ts
       - packages/core/main/daemon/wiring/acp-build.ts
     steps:
-      - "acp wiring이 Bus에서 agent event 종류들을 구독한다. 팀 자식의 요청과 질문(부모가 푸는 것)은 갱신으로 내지 않고 닫힘 event도 거른다."
-      - "event를 하나씩 차례로 처리한다. 항목이 대화에 드는 것은 allocate로 순번을 받은 뒤다. 승인 결과와 글은 지금 redaction을 거친다."
+      - "acp wiring이 Bus에서 agent event 종류들을 구독한다. 팀 자식이 부모에게 가는 요청과 질문(부모가 푸는 것)과 그 닫힘 event는 갱신으로 내지 않고 건너뛴다(skipped)."
+      - "event를 하나씩 차례로 처리한다. 항목이 대화에 드는 것은 allocate로 순번을 받은 뒤다. 메시지 본문은 blob 읽기로 가져온다. 못 읽으면 그 갱신은 본문 없이 낸다(오류로 돌려주지 않는다). 승인 결과와 글은 지금 redaction을 거친다."
       - "acpUpdatesOf로 바꾼 갱신을 AcpUpdated(transient, session 포함)로 Bus에 낸다. TurnEnded와 CompactEnded 뒤에는 session의 사용량 갱신도 낸다."
       - "계산이 던지면 log만 남기고 그 갱신을 버린다. 화면은 다음 snapshot으로 맞춘다."
     outcomes:
@@ -1268,6 +1465,9 @@ flows:
       - id: failed
         observe: [log:acp]
         when: "갱신 계산이 실패해 log만 남기고 버렸다"
+      - id: skipped
+        observe: []
+        when: "팀 자식이 부모에게 가는 요청이나 질문, 또는 그 닫힘 event라 갱신을 내지 않았다(silent)"
     crosses_process: true
     risk: [secret]
     docs: [architecture/acp.md, architecture/event.md]
@@ -1286,30 +1486,124 @@ flows:
       - packages/core/events/bus.ts
       - packages/protocol/events/gateway.ts
     steps:
-      - "화면이 upgrade를 건다. 전체 event 연결이 32개거나 같은 principal이 4개면 upgrade 전에 unavailable로 거절한다."
-      - "shell capability가 유효하지 않으면 upgrade를 forbidden으로 거절한다."
-      - "watch frame으로 조건을 받으면 Bus에 구독하고 ready를 보낸다. 화면은 ready 뒤에 snapshot을 읽는다."
+      - "화면이 upgrade를 건다. 헤더가 한도를 넘거나 host가 허용되지 않으면 invalid_input, 인증 자격이 없으면 unauthorized, Origin이 허용되지 않으면 forbidden으로 거절한다."
+      - "path가 구독 경로가 아니면 not_found, Bus가 없으면 unavailable이다. gateway 자격이 허용되지 않거나 shell capability가 유효하지 않으면 forbidden이다."
+      - "event 연결 한도(전체 32, principal당 4)를 넘으면 upgrade 전에 unavailable로 거절한다."
+      - "watch frame으로 조건을 받으면 Bus에 구독하고 ready를 보낸다. 화면은 ready 뒤에 snapshot을 읽는다. client frame이 JSON이 아니거나 watch 조건이 틀리면 closed 없이 1008로 끊는다(bad-frame)."
       - "맞는 event를 event frame으로 보낸다. 보내는 버퍼가 1 MiB를 넘으면 closed(slow_consumer)를 보내고 1013으로 닫는다. replay는 없다."
-      - "잘못된 client frame은 closed 없이 닫는다."
+      - "server가 내려갈 때 closed(shutdown)를 보내고 1001로 닫는다. upgrade 처리 중 경계 밖 throw는 internal로 거절한다."
     outcomes:
       - id: ok
         observe: [response]
         when: "연결이 붙어 ready를 보냈고 event를 흘린다"
-      - id: unavailable
-        code: unavailable
-        when: "event 연결 한도(전체 32, principal당 4)를 넘어 upgrade를 거절했다"
+      - id: invalid_input
+        code: invalid_input
+        when: "헤더가 한도를 넘었다, 또는 host가 허용되지 않았다"
         observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "인증 자격(bearer)이 없거나 맞지 않아 gate에서 거절했다"
+        observe: [response, log:api]
       - id: forbidden
         code: forbidden
-        when: "shell capability가 유효하지 않아 upgrade를 거절했다"
+        when: "Origin이 허용되지 않았다, gateway 자격이 허용되지 않았다, 또는 shell capability가 유효하지 않아 upgrade를 거절했다"
         observe: [response]
+      - id: not_found
+        code: not_found
+        when: "구독 경로가 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "event 연결 한도(전체 32, principal당 4)를 넘었다, 또는 Bus가 없다"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "upgrade 처리 중 경계 밖에서 throw가 났다"
+        observe: [response]
+      - id: bad-frame
+        observe: [response]
+        when: "잘못된 client frame(JSON이 아니거나 schema가 틀림, 틀린 watch 조건 포함)이라 closed 없이 1008로 연결을 끊었다"
       - id: slow-consumer
         observe: [response]
         when: "버퍼가 1 MiB를 넘어 closed(slow_consumer)를 보내고 연결을 끊었다"
-    crosses_process: true
+      - id: shutdown
+        observe: [response]
+        when: "server가 내려가며 closed(shutdown)를 보내고 연결을 끊었다"
+    crosses_process: false
     docs: [architecture/event.md]
     unclear:
       - "actor를 shell로 골랐다(화면 renderer가 ready 때 연다). 사람도 agent도 부르지 않는 연결이라 system으로 볼 수도 있다. 정할 것"
+      - "origin 거절은 log:api(origin_rejected)도 남기지만 forbidden outcome은 log를 관측에 넣지 않았다. 나눌지 정할 것"
+
+  # ---- thread bookmark (shell main이 저장하고 화면이 ipc로 부른다. ipc entry는 surface area가 link한다) ----
+  - id: thread-bookmark-list
+    title: "화면이 session의 bookmark된 message key 목록을 읽는다"
+    actor: person
+    uses: [ipc:shell:thread-bookmarks-list]
+    boundary: [shell]
+    code:
+      - packages/shell/main/thread-bookmarks/ipc.ts
+      - packages/shell/main/thread-bookmarks/store.ts
+      - packages/shell/ipc/thread-bookmarks.ts
+    steps:
+      - "보낸 쪽이 살아 있는 desktop 창의 main frame이 아니면 forbidden이다. 입력 schema가 맞지 않으면 invalid_input이다."
+      - "<data root>/shell/thread-bookmarks.json에서 그 session의 message key를 읽어 준다. 파일이 없거나 그 session이 없으면 빈 목록이다."
+      - "파일이 JSON이 아니거나 schema가 틀리거나 못 읽히면 unavailable이다."
+    outcomes:
+      - id: ok
+        observe: [response]
+        when: "message key 목록을 돌려줬다(없으면 빈 목록)"
+      - id: forbidden
+        code: forbidden
+        when: "보낸 쪽이 살아 있는 등록 창의 main frame이 아니거나 desktop 창이 아니다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않거나 64 KiB를 넘는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "thread-bookmarks.json이 깨졌거나(JSON 아님, schema 불일치) 못 읽혔다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/agent-chat.md]
+    unclear: []
+
+  - id: thread-bookmark-set
+    title: "화면이 message 하나의 bookmark를 켜거나 끈다"
+    actor: person
+    uses: [ipc:shell:thread-bookmarks-set, ipc:shell:thread-bookmarks-changed]
+    boundary: [shell]
+    code:
+      - packages/shell/main/thread-bookmarks/ipc.ts
+      - packages/shell/main/thread-bookmarks/store.ts
+      - packages/shell/main/desktop/wiring/thread-bookmarks.ts
+      - packages/shell/ipc/thread-bookmarks.ts
+    steps:
+      - "보낸 쪽이 살아 있는 desktop 창의 main frame이 아니면 forbidden이다. 입력(session, message, on)이 schema에 맞지 않으면 invalid_input이다."
+      - "쓰기는 한 줄로 세워 읽고, 바꾸고, 쓴다(창 둘이 같이 눌러도 둘 다 남는다). 이미 그 상태면 아무것도 쓰지 않는다. 바뀌면 원자 쓰기로 파일을 다시 쓴다."
+      - "파일이 깨졌으면 쓰지 않고 unavailable이다. 깨진 파일은 덮어쓰지도 옮기지도 않는다. 쓰기가 실패해도 unavailable이다."
+      - "성공하면 열린 모든 shell 창에 changed(session)를 보내고, 받은 창은 list로 다시 읽는다."
+    outcomes:
+      - id: ok
+        observe: [disk:shell/thread-bookmarks.json, response]
+        when: "mark를 켜거나 껐다, 또는 이미 그 상태라 아무것도 쓰지 않았다(어느 쪽이든 changed를 보낸다)"
+      - id: forbidden
+        code: forbidden
+        when: "보낸 쪽이 살아 있는 등록 창의 main frame이 아니거나 desktop 창이 아니다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않거나 64 KiB를 넘는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "thread-bookmarks.json이 깨졌거나 못 읽혔다, 또는 쓰기가 실패했다. 셋 다 파일을 그대로 둔다"
+        observe: [disk:shell/thread-bookmarks.json, response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/agent-chat.md]
+    unclear: []
 
 ignore:
   - {entry: "route:events/list", reason: "core에 handler가 없다(reads에 등록이 없어 부르면 read unavailable). ROUTES와 agent runtime 허용 목록에만 있다. 옛 ledger event 읽기 잔재로 보이니 지울지 사람이 정한다"}

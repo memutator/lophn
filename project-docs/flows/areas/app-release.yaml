@@ -144,17 +144,20 @@ flows:
       - "기다리지 않은 시도가 끝나면 driver가 activation.report로 release를 만든 session에 알린다"
     outcomes:
       - id: active
-        when: "complete가 commit됐다. 응답에 previous_release를 싣는다"
-        observe: [response, "ledger:releases", "ledger:apps", "ledger:notices", "process:앱 자식(준비 모드에서 업무 모드로)"]
+        when: "complete가 commit됐다. 응답에 previous_release를 싣는다. 이어서 이전 release의 changeset을 지운다(invocation 기록은 남는다)"
+        observe: [response, "ledger:releases", "ledger:apps", "ledger:notices", "ledger:invocations", "process:앱 자식(준비 모드에서 업무 모드로)"]
       - id: failed
-        when: "시도가 실패로 닫혔다(status failed). failure의 code는 drain_failed(호출 접수를 비우지 못함), schema_changed(앱 DB를 못 읽음, 무결성 없음, 출발 schema에서 가는 길 없음), backup_failed(복구본을 못 만듦), migration_failed(migration 단계가 되돌아감), start_failed(새 앱이 준비 모드에서 ready가 안 됨, 끊긴 시도를 이어받아 닫은 경우 포함), commit_rejected(activation.complete가 거절) 가운데 하나. restore_failed는 failure code가 아니다(복원 실패는 running이다)"
-        observe: [response, "ledger:releases", "ledger:notices"]
+        when: "시도가 실패로 닫혔다(status failed). failure의 code는 drain_failed(호출 접수를 비우지 못함), schema_changed(앱 DB를 못 읽음, 무결성 없음, 출발 schema에서 가는 길 없음), backup_failed(복구본을 못 만듦), migration_failed(migration 단계가 되돌아감. 사후 검사 실패도 같다), start_failed(새 앱이 준비 모드에서 ready가 안 됨, 끊긴 시도를 이어받아 닫은 경우 포함), commit_rejected(activation.complete가 거절) 가운데 하나. restore_failed는 failure code가 아니다(복원 실패는 held다)"
+        observe: [response, "ledger:releases", "ledger:notices", "disk:app.sqlite를 backup으로 되돌림(backup이 있는 실패: migration_failed, start_failed, commit_rejected)"]
       - id: waiting-consent
         when: "첫 activation, 선언이 넓어짐, data 손실 migration 가운데 하나"
         observe: [response, "ledger:activation_consents", "event:ActivationConsentRequested"]
       - id: running
-        when: "120초 안에 끝나지 않음. 시도는 core 안에서 이어지고 release는 activating이다. 종료·복원·실패 기록을 확인하지 못해 앱을 붙든 채 멈춘 경우도 여기로 간다(termination_unconfirmed, restore_failed, restore_not_recorded, schema_unconfirmed, fail_not_recorded, core_unreachable)"
+        when: "120초 안에 끝나지 않음. 시도는 core 안에서 이어지고 release는 activating이다. 시도 앞 단계의 종료 확인 실패(termination_unconfirmed), 실패 기록 실패(fail_not_recorded), core 조회 실패(core_unreachable)로 멈춘 것도 release가 activating으로 남아 여기로 온다"
         observe: [response, "ledger:releases"]
+      - id: held
+        when: "복구 중 앱을 사용 불가로 표시하고 붙든 채 멈춤: 복원 schema가 시작 때와 다름(restore_failed), 복원 결과 기록 실패(restore_not_recorded), 복원 뒤 schema 확인 실패(schema_unconfirmed), 복구 중 종료 확인 실패(termination_unconfirmed). 이전 release는 띄우지 않는다. 응답은 running이다"
+        observe: [response, "event:AppUnavailable", "ledger:notices"]
       - id: conflict
         code: conflict
         when: "release가 prepared가 아님(superseded 포함), 이 앱에 시도가 돌고 있음(큐 확인과 등록 사이 포함), 시작이 안 됨(activation.start가 거절해 release가 prepared로 남음, 보관한 앱 포함)"
@@ -181,7 +184,7 @@ flows:
     docs: [architecture/activation.md]
     unclear:
       - "waiting-consent와 시도 실행을 한 flow에 묶었다(rule 4 검토). 입구가 같은 일을 하는 것으로 봤다. 나누면 ask 쪽은 activation-ask-consent가 맡는다"
-      - "running의 복원·종료 실패 code(restore_failed 등)는 release.failure에 남지 않는다. 사람이 보는 실패 이유가 어디서 나오는지 확인할 것"
+      - "held의 실패 이유(restore_failed 등)는 release.failure에 남지 않는다. app_unavailable 알림(ledger:notices)의 reason에만 남는다"
 
   - id: activation-ask-consent
     title: 선언이 넓어진 release의 동의 줄을 쓴다
@@ -963,17 +966,26 @@ flows:
         code: unavailable
         when: "builtin: 설치된 SDK 사본을 읽을 수 없음. guide_body: blob 읽기가 붙지 않았거나 참조를 읽지 못함"
         observe: [response]
+      - id: paged
+        when: "CLI `lophn package read`만: 안내가 한 창(24 KiB)보다 길어 앞부분과 guide_next_offset_bytes를 돌려준다. 이어 읽기는 그 값을 offset으로 다시 부른다"
+        observe: [response]
+      - id: guide-does-not-fit
+        code: unavailable
+        when: "CLI만: 창 안에 안내 한 글자도 못 넣는다(used_by를 비워도 자리가 없음). 잘라 숨기지 않고 unavailable로 답한다"
+        observe: [response]
     crosses_process: true
     risk: []
     docs: [architecture/package.md]
     unclear:
       - "builtin 읽기는 core 안에서 끝나지만 guide_body는 I/O worker로 바이트를 읽는다. 한 flow에 묶었으므로 crosses_process는 true다"
+      - "CLI `package.read`는 cli.yaml에서 이 flow에 link한다(창 나눔 outcome이 여기 있다). name 없이 부르는 목록 읽기는 package-catalog-read의 route를 쓴다"
 
   # ---------- preview ----------
   - id: preview-start
     title: release나 bundle을 fixture data로 preview 프로세스에 띄운다
     actor: agent
     entries: [route:previews/start]
+    uses: [route:previews/get]
     boundary: [app-runtime]
     code:
       - packages/core/apps/preview/service.ts
@@ -987,7 +999,7 @@ flows:
       - "supervisor에 preview 자식을 띄운다. 운영 DB와 backup에는 닿지 않는다. 응답은 ready가 false다. 준비 확인은 뒤에서 된다"
     outcomes:
       - id: started
-        when: "preview 자식을 띄우라고 supervisor에 넘겼다"
+        when: "preview 자식을 띄우라고 supervisor에 넘겼다. route 응답은 ready가 false다. CLI `lophn preview start`는 이 뒤에 500ms마다 관측을 물어 아래 갈래로 끝낸다"
         observe: [response, "process:preview 자식", "disk:apps/<app>/preview/<nonce>/"]
       - id: not_found
         code: not_found
@@ -1012,6 +1024,18 @@ flows:
       - id: internal
         code: internal
         when: "preview nonce 형식이 맞지 않음(validNonce 실패)"
+        observe: [response]
+      - id: ready
+        when: "CLI만: 관측이 ready가 되어 60초 안에 끝났다. 응답 content의 ready가 true다"
+        observe: [response]
+      - id: not-ready-timeout
+        when: "CLI만: 60초 안에 ready가 안 되었다. 명령은 ok로 돌아가고 failed가 '60 seconds' 문구다. preview 자식은 그대로 떠 있다"
+        observe: [response, "process:preview 자식(남아 있음)"]
+      - id: not-ready-reason
+        when: "CLI만: 관측의 reason이 starting이 아닌 실패(준비 확인 실패 등)로 끝났다. 기다리지 않고 ok로 돌아가며 failed가 code와 summary다"
+        observe: [response]
+      - id: process-gone
+        when: "CLI만: 기다리는 중 관측이 null이 됐다(supervisor가 그 nonce를 모름, 자식이 사라짐). failed가 'the preview process is gone'이다"
         observe: [response]
     crosses_process: true
     risk: [sandbox]
@@ -1161,6 +1185,46 @@ flows:
     unclear:
       - "같은 build에 node·npm shim과 앱 template 설치가 있다. 두 개는 이 flow의 owns 밖이라 build-failed에 적기만 했다. 각각 자기 flow를 가질지 정할 것"
 
+  - id: data-job-start
+    title: data 작업 자식이 앱 DB를 열기 전에 끊긴 restore를 되돌려 놓는다
+    actor: system
+    entries: [system:data-job-start]
+    boundary: [app-data]
+    code:
+      - packages/core/main/worker/data-job.ts
+      - packages/core/apps/data/worker/job.ts
+      - packages/core/apps/data/worker/restore.ts
+    steps:
+      - "supervisor가 작업마다 띄운 data job 자식이 data root 인자와 stdin 한 줄을 받는다. 입력을 못 읽거나 DB 경로가 데이터 영역 밖이면 invalid_input이다"
+      - "DB 경로를 실제 경로로 풀지 못하면 unavailable이다. 다른 data 작업이 영역의 lock을 쥐고 있으면 conflict, lock을 잡지 못하면 unavailable이다"
+      - "lock을 잡은 뒤 DB를 열기 전에 restore.tmp를 지운다"
+      - "DB 자리가 비고 restore.previous만 있으면(두 rename 사이에서 끊김) restore.previous를 DB 자리로 되돌린다. 그 원본이 유일한 사본이라 덮지 않는다"
+      - "DB가 이미 있으면 restore.previous는 그대로 둔다. 그 뒤 inspect·backup·migrate·restore 가운데 작업 하나를 돌린다. 작업의 결과는 각 activation 기록 flow의 몫이다"
+    outcomes:
+      - id: reverted
+        when: "DB 자리가 비어 있어 restore.previous를 되돌려 놓은 뒤 작업을 돌렸다"
+        observe: ["disk:app.sqlite ← restore.previous", "disk:restore.tmp 제거"]
+      - id: kept
+        when: "DB가 이미 있거나 restore.previous가 없어 restore.tmp만 지우고 작업을 돌렸다"
+        observe: ["disk:restore.tmp 제거"]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 한 줄을 해석하지 못함, DB 경로가 데이터 영역 밖"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "다른 data 작업이 영역의 lock을 쥐고 있음(stale이 아니다)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "DB 경로를 실제 경로로 풀지 못함, lock을 잡지 못함(mkdir 실패)"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/activation.md]
+    unclear:
+      - "restore.previous를 되돌린 뒤 작업이 실패하면 그 실패는 각 기록 flow의 outcome이다. 이 flow는 되돌린 사실만 남긴다"
+
   - id: activation-resume
     title: 끊긴 activation 시도를 ledger와 실제 관측으로 이어받는다
     actor: system
@@ -1187,7 +1251,7 @@ flows:
         observe: ["disk:data 복원", "ledger:releases", "ledger:notices", "process:이전 release 자식"]
       - id: held
         when: "복원이나 종료를 확인하지 못하거나 core 조회가 실패해 앱을 사용 불가로 두고 붙든 채 남았다(termination_unconfirmed, restore_failed, restore_not_recorded, schema_unconfirmed, fail_not_recorded, core_unreachable)"
-        observe: ["ledger:notices", "ledger:apps"]
+        observe: ["event:AppUnavailable", "ledger:notices"]
       - id: none
         when: "release가 없거나 activation 기록이 없어 이어받을 것이 없다"
         observe: ["ledger:releases"]

@@ -254,6 +254,11 @@ async function buildSteps(
     name: "docs",
     commands: [["node", "tools/check-docs.ts"]],
   });
+  // entry나 test file은 어느 package를 고쳐도 늘거나 줄어 flow catalog가 틀어지므로 조건 없이 돈다.
+  checks.push({
+    name: "flows",
+    commands: [["node", "tools/flows.ts", "check"]],
+  });
   // SDK 판을 올리고 메모를 빼먹는 변경은 sdk 폴더만 바뀌므로 조건 없이 돈다.
   checks.push({
     name: "sdk notes",

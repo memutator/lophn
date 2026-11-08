@@ -45,7 +45,7 @@ session에 `spawned_by`를 남기고 `team spawn|read|end` 명령, 규칙 세 �
 5. **규칙 3(`team end`).** 새 agent 명령. 대상이 caller의 엄격한 자손이 아니면 `forbidden`. 대상과 그 밑을 잎부터 archive처럼 닫는다(`lifecycle='archived'` + `endSession`). `ArchiveSession`(사람만)은 그대로 둔다. `wiring/router.ts`의 `receiver_ended` 글 준비 목록에 이 명령을 더한다.
 6. **`team read`.** caller의 부모, 형제, 자식(열린 것)의 handle·이름·description·runtime·상태. 팀 밖 session은 빈 목록이다.
 7. **`team_changed`.** 연락처는 system prompt에 싣지 않는다. `SeenBasis`에 `team`(부모·형제·자식의 `ses_id handle` 줄. 상태는 넣지 않아 깜빡이지 않는다)을 더하고 `noticesOf`가 바뀌면 고정 글 하나를 붙인다. queue에 입력으로 넣지 않는다(입력 하나가 turn 하나라 쉬던 형제를 깨운다). 그래서 그 session의 다음 turn에 닿는다. bare runtime은 `agents`처럼 빈 목록이다.
-8. **자식 탭.** spawn이 commit된 뒤, 자식이 부모와 같은 workspace면 `HostQueue.openTab({opener: 부모, workspace, target: {session: 자식}, place: "group", source: 부모})`. 다른 workspace면 열지 않는다(agent 탭은 자기 workspace 창에만 그려진다).
+8. **자식 탭.** spawn이 commit된 뒤, 자식이 부모와 같은 workspace면 `hostQueue.openTab({opener: 부모, workspace, target: {session: 자식}, place: "group", source: 부모})`. 다른 workspace면 열지 않는다(agent 탭은 자기 workspace 창에만 그려진다). port는 wiring context의 late slot `hostQueue`(`packages/core/main/daemon/wiring/context.ts`)라 router wiring이 commit 뒤에 꺼내 쓴다. Router 자체는 host queue를 import하지 않는다(feature module을 import하지 않는 규칙). 탭의 key·자리·focus 규칙은 `project-docs/architecture/workspace-layout.md` "agent가 연 탭"이다.
 9. **skill.** `packages/coding-agent/skills/lophn-agent.ts`에 `team spawn|read|end` 절을 짧게 더하고 CLI help와 같은 말로 맞춘다. 이 skill은 harness agent용이고 앱 agent 지침이 아니라 `sdk-note`(migrate-sdk 메모)는 해당하지 않는다.
 
 ## 끝남

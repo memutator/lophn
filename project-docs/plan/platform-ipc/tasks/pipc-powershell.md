@@ -56,3 +56,8 @@ PowerShell 7·5.1에 기존 harness wrapper와 `gui` 분기를 싣고 마지막 
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 보고 꼴을 따른다. 등록할 것, 안 쓰게 된 export, 계약 바꾸기 요청, 무겁게 짠 것, 알려진 미완 동작을 빼지 않는다. OS별로 실행한 것과 확인하지 못한 것을 나눠 적는다.
+
+## lead가 더함
+
+- 추가 소유: `packages/shell/main/browser-bridge/shim.ts`의 generated `browser.js` 본문만.
+- Windows 개발 실행의 file 폴더는 저장소 `.dev-data` 아래라 root `package.json`의 `"type": "module"`을 물려받는다. 지금 generated JS의 `require("node:net")`가 Electron Node에서 `ReferenceError: require is not defined in ES module scope`로 실패했다. 공개 경로 `browser.js`와 shim API를 바꾸지 말고, async IIFE 안의 dynamic import처럼 CJS·ESM 양쪽에서 도는 가장 작은 본문으로 고친다. POSIX shim·Windows quoting·wire 정책은 그대로 둔다. 새 test는 만들지 않으며 lead가 실제 generated file을 두 module context에서 실행한다.

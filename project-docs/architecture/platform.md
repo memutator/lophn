@@ -31,7 +31,8 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 - **macOS Dock.** 창이 없을 때 Dock을 누르면(`activate`) 창을 다시 연다.
 - **harness 찾기**(`packages/coding-agent/harnesses/detect.ts`). Windows는 이름마다 `PATHEXT` 확장자로 찾고 실행 bit 대신 확장자로 판정한다. `.cmd`·`.bat`은 shell로 띄운다.
 - **터미널 끄기.** POSIX는 `SIGHUP` 뒤 process group, Windows는 `pty.kill()` 뒤 `taskkill /T`다.
-- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 directory의 `shell-<pid>/`(0700), endpoint는 `ipcPath(dir, "b" | "h", platform)`(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root namespace의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 `ipcPathLimit`을 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다. file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. Windows 실행 gate는 PowerShell 시작 층을 붙일 때까지 남아 있다.
+- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 directory의 `shell-<pid>/`(0700), endpoint는 `ipcPath(dir, "b" | "h", platform)`(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root namespace의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 `ipcPathLimit`을 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다. file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. win32 전체 off gate는 없다.
+- **PowerShell 시작 층.** PowerShell 7·5.1은 기존 profile 뒤 `-NoExit -Command ". '<init.ps1>'"`로 per-run 함수를 읽는다. 5.1용 file은 UTF-8 BOM을 포함한다. 사용자 alias·function·profile·execution policy는 고치지 않는다. 정책이 `.ps1` 읽기를 막으면 시작 층은 켜지지 않으며 우회하지 않는다. Windows 실기 확인은 별도다.
 
 ## Windows에서 꺼진 기능
 
@@ -39,8 +40,6 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 
 | 기능 | 왜 | 그 대신 |
 |---|---|---|
-| terminal hook socket(`lophn hook`, 시작 층) | unix socket과 sh hook에 기댄다 | 탭의 harness를 hook으로 알지 못한다 |
-| browser bridge(`$BROWSER` shim) | sh shim과 unix socket | link는 OS browser로 간다 |
 | 터미널 foreground 판정 | `/proc`가 없다 | harness TUI를 process로 알아보지 못한다 |
 | 터미널 `signal` 요청(harness GUI toggle의 TUI 끄기) | foreground process group이 없다 | toggle이 없다 |
 | 앱 RSS 감시(85%) | RSS를 읽는 길이 없다(macOS는 `ps`) | 감시가 꺼져 있다 |

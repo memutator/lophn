@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py workspace-layers build`가 `tasks/*.md`에�
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `wlophn-core` | wlophn | 1 | 없음 | merged | wlophn/wlophn-core | 349d4ad9f |  |
-| `wlophn-migrate` | wlophn | 1 | wlophn-core | running | wlophn/wlophn-migrate |  |  |
+| `wlophn-migrate` | wlophn | 1 | wlophn-core | merged | wlophn/wlophn-migrate | 4b44abeee |  |
 | `wlophn-ui` | wlophn | 1 | wlophn-core | running | wlophn/wlophn-ui |  |  |
 | `wlayer` | wlayer | 2 | 없음 | todo |  |  |  |
 | `wmem` | wmem | 3 | 없음 | todo |  |  |  |

@@ -36,3 +36,19 @@ modules: [packages/core/lophn-agent, packages/protocol]
 
 정할 것:
 - C를 할지. 오류 본문에는 provider가 되돌려 보낸 credential 조각(예: "Incorrect API key provided: sk-…")이 섞일 수 있어 규칙이 생긴 것으로 보인다. redaction을 거치면 그 위험은 출력 blob과 같다. secret 경계의 규칙을 바꾸는 것이라 사람이 정한다.
+
+## 전역 lophn의 MCP OAuth refresh token이 lophn마다 복사되어 서로 무효로 만들 수 있다
+
+```yaml
+kind: bug
+modules: [packages/core/main, packages/core/lophn-agent]
+```
+
+지금: 전역 lophn을 workspace마다로 나누는 data step(`packages/core/main/daemon/wiring/lophn-split.ts`)이 `secrets.json`의 `mcp-oauth.lophn.<서버>.<access|refresh|meta>`를 모든 lophn id(`lophn_home`, `lophn_<prj|app id>`)의 이름으로 복사하고 옛 이름을 지운다. 그래서 같은 refresh token을 lophn 여럿이 따로 갖는다.
+
+영향: refresh token을 쓸 때마다 바꾸는(rotation) 발급자라면, lophn 하나가 먼저 refresh하는 순간 다른 lophn의 사본이 무효가 된다. 사람은 그 server를 쓰는 다른 workspace마다 OAuth를 다시 해야 한다. MCP를 전역 lophn 정의에 OAuth로 붙여 두었던 사람만 겪는다.
+
+고치려면:
+- 그대로 둔다(작음). refresh가 거절되면 지금도 `refresh_rejected`로 다시 인증을 묻는다. 잃는 것: workspace마다 한 번씩 다시 인증.
+- token을 복사하지 않고 Home lophn에만 옮긴다(작음). 잃는 것: project·앱 lophn은 처음부터 다시 인증. "동작을 그대로 잇는다"는 계획 결정과 어긋난다.
+- 추천: 그대로 둔다. 다시 인증 길이 이미 있고, 전역 lophn에 OAuth MCP를 붙인 사람은 적다.

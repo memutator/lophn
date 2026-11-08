@@ -127,6 +127,13 @@ export type HarnessAdapter = {
   };
 };
 
+// agent runtime(`claude-code`·`codex`·`opencode`) → `HARNESS_ADAPTERS`의 id. harness agent를 그 CLI로 직접 열 때(TUI) 쓴다.
+export const HARNESS_ADAPTER_OF_RUNTIME = {
+  "claude-code": "claude",
+  codex: "codex",
+  opencode: "opencode",
+} as const satisfies Readonly<Record<string, HarnessId>>;
+
 export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
   claude: {
     id: "claude",

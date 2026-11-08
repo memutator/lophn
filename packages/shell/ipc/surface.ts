@@ -33,8 +33,8 @@ const terminalRef = z
   .regex(/^[A-Za-z0-9_-]+$/);
 
 /**
- * host 탭(key가 `host:<tab>`)의 browser 상태나 닫힘, 또는 agent가 `--tui`로 연 터미널 탭의 터미널이 열려 session을 알린 것.
- * tui는 main이 그 터미널에서 TUI가 도는 동안 session을 hold해 달라고 core에 알리는 근거다.
+ * host 탭(key가 `host:<tab>`)의 browser 상태나 닫힘, 또는 agent가 `--tui`로 연 TUI 탭이 생겼다는 것(터미널은 아직 없다)과
+ * 그 터미널이 열렸다는 것(terminal_ref). main은 탭이 열려 있는 동안 session을 hold하고 TUI가 떠나면 푼다.
  */
 export const surfaceReportSchema = z.union([
   z
@@ -54,7 +54,13 @@ export const surfaceReportSchema = z.union([
     .strict(),
   z
     .object({
-      tui: z.object({ session: id("ses"), terminal_ref: terminalRef }).strict(),
+      tui: z
+        .object({
+          tab: id("tab"),
+          session: id("ses"),
+          terminal_ref: terminalRef.optional(),
+        })
+        .strict(),
     })
     .strict(),
 ]);

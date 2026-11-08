@@ -7,13 +7,13 @@ import {
   sha256Hex,
 } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import {
   type AgentRuntime,
   bindHarnessSession,
   blocksOfContent,
   type ContentBlock,
   finishTurn,
-  HARNESS_ADAPTER_ID,
   harnessFinishTurn,
   harnessRecord,
   harnessSetExternalId,
@@ -157,6 +157,7 @@ export const harnessWiring: WiringFactory = () => {
 
       // `tabs/open`의 tui가 부른다. 판정을 통과하면 그 자리에서 hold를 건다(core는 한 thread라 사이에 turn이 끼지 못한다).
       ctx.provide("harnessHold", {
+        heartbeat: (sessions) => hold.beat(sessions),
         open(session) {
           const found = harnessSession(session);
           if (!found.ok) {
@@ -194,16 +195,15 @@ export const harnessWiring: WiringFactory = () => {
           }
           hold.reserve(session);
           return ok({
-            harness: HARNESS_ADAPTER_ID[row.harness],
+            harness: HARNESS_ADAPTER_OF_RUNTIME[row.harness],
             external_session: row.harness_session,
           });
         },
       });
 
-      const take: MemoryHandler = async (who, body) => {
+      const take: MemoryHandler = async (who) => {
         const allowed = gate(who, true);
         if (!allowed.ok) return allowed;
-        hold.beat(harnessTake.input.parse(body).tui as Id<"ses">[]);
         for (const session of queue.waiting()) {
           if (queue.isRunning(session) || hold.held(session)) continue;
           const found = harnessSession(session);

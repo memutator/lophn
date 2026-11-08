@@ -17,21 +17,23 @@ import { openAt } from "./open-policy.ts";
 
 const HOST_KEY = "host:";
 
-// 터미널 탭의 터미널이 열리면(terminalRef가 생기면) main에 알린다. main은 그 터미널에서 TUI가 도는 동안 session을 hold하게 한다.
-// 열리기 전에 탭이 닫히면 알리지 않는다.
-function reportTuiWhenOpened(
+// TUI 탭이 생기면 바로 main에 알려 그 session을 hold하게 하고(탭이 안 보여 터미널이 아직 안 열려도 hold는 이미 필요하다),
+// 터미널이 열리면(terminalRef가 생기면) 그 터미널을 알려 TUI가 떠날 때 풀게 한다. 열리기 전에 탭이 닫히면 뒤쪽은 알리지 않는다.
+function reportTui(
   surface: LophnSurfaceApi,
   store: TerminalStore,
   key: string,
+  tab: string,
   session: string,
 ): void {
+  void surface.report({ tui: { tab, session } });
   const off = store.subscribe(() => {
     const entry = store.get(key);
     if (entry === undefined) return off();
     if (entry.terminalRef === null) return;
     off();
     void surface.report({
-      tui: { session, terminal_ref: entry.terminalRef },
+      tui: { tab, session, terminal_ref: entry.terminalRef },
     });
   });
 }
@@ -122,7 +124,13 @@ export function useSurfaceRequests(args: Args): void {
         if (terminal === undefined || resume === null) return;
         const opened = openTerminal(host(), { resume, open });
         if (opened === null) return;
-        reportTuiWhenOpened(surface, terminal.store, opened, target.tui);
+        reportTui(
+          surface,
+          terminal.store,
+          opened,
+          request.payload.tab,
+          target.tui,
+        );
         done();
         return;
       }

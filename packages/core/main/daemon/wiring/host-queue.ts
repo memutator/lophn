@@ -57,6 +57,7 @@ export const hostQueueWiring: WiringFactory = () => ({
       const allowed = shell(who);
       if (!allowed.ok) return allowed;
       const input = hostTake.input.parse(body);
+      ctx.harnessHold.heartbeat(input.tui as Id<"ses">[]);
       return ok({ request: queue.take(input.workspaces) });
     };
     const done: MemoryHandler = (who, body) => {

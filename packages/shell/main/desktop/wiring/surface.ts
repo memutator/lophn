@@ -17,10 +17,6 @@ import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
-// extension `harness`가 매 tick 읽는 함수의 이름이다. extension은 shell main 내부를 import하지 못하고 같은 process에서 돌아
-// 전역 한 곳으로 넘긴다. extension 쪽(`harness/host.ts`)에 같은 이름이 있다.
-const TUI_SESSIONS = Symbol.for("lophn.harness.tuiSessions");
-
 const POLL_MS = 1000;
 // 한 번에 가져가는 요청 수의 상한. 넘으면 다음 tick에 이어 간다.
 const TAKE_MAX = 20;
@@ -39,7 +35,10 @@ export function register(ctx: ShellContext, tui: HarnessTui): Registered {
   const shown = new Map<number, Workspace>();
   const pending = new Map<string, (opened: boolean) => void>();
 
-  ctx.windowHooks.closed.push(({ contentsId }) => shown.delete(contentsId));
+  ctx.windowHooks.closed.push(({ contentsId }) => {
+    shown.delete(contentsId);
+    tui.closeWindow(contentsId);
+  });
 
   ctx.ipc.handle(
     SURFACE_WORKSPACE_CHANNEL,
@@ -63,13 +62,15 @@ export function register(ctx: ShellContext, tui: HarnessTui): Registered {
       const parsed = checkInput(surfaceReportSchema, input);
       if (!parsed.ok) return;
       if ("tui" in parsed.value) {
-        tui.bind(parsed.value.tui.terminal_ref, parsed.value.tui.session);
+        const { tab, session, terminal_ref } = parsed.value.tui;
+        if (terminal_ref === undefined) tui.open(tab, session, event.sender.id);
+        else tui.bind(tab, terminal_ref);
         return;
       }
+      if (parsed.value.state === "closed") tui.release(parsed.value.tab);
       await ctx.coreInternal("memory", "host", "report", parsed.value);
     },
   );
-  (globalThis as Record<symbol, unknown>)[TUI_SESSIONS] = () => tui.sessions();
 
   // 그 workspace를 보이는 창 중 가장 최근에 focus를 받은 하나(`windows`의 끝)다. 둘이 같은 탭을 열지 않게 하나에만 보낸다.
   function windowOf(workspace: Workspace) {
@@ -126,9 +127,12 @@ export function register(ctx: ShellContext, tui: HarnessTui): Registered {
     try {
       for (let taken = 0; taken < TAKE_MAX; taken += 1) {
         const workspaces = visibleWorkspaces();
-        if (workspaces.length === 0) return;
+        const sessions = tui.sessions();
+        // 보이는 workspace가 없어도 TUI 탭이 있으면 부른다: take가 hold의 heartbeat다.
+        if (workspaces.length === 0 && sessions.length === 0) return;
         const reply = await ctx.coreInternal("memory", "host", "take", {
           workspaces,
+          tui: sessions,
         });
         if (!reply.ok) return;
         const request = (reply.value as { request: Request | null }).request;
@@ -150,7 +154,6 @@ export function register(ctx: ShellContext, tui: HarnessTui): Registered {
   return {
     stop() {
       clearInterval(timer);
-      delete (globalThis as Record<symbol, unknown>)[TUI_SESSIONS];
       ctx.ipc.removeHandler(SURFACE_WORKSPACE_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_ACK_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_REPORT_CHANNEL);

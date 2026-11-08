@@ -3,7 +3,10 @@
 import { dirname, isAbsolute } from "node:path";
 import { prependPath } from "../../../../../base/os/mod.ts";
 import type { Result } from "../../../../../base/result.ts";
-import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
+import {
+  HARNESS_ADAPTER_OF_RUNTIME,
+  HARNESS_ADAPTERS,
+} from "../../../../../protocol/coding-agent/harness-adapter.ts";
 import { harnessHomeName } from "../../../../../protocol/coding-agent/harness-home.ts";
 import { AGENT_CREDENTIAL_ENV } from "../../../../../protocol/coding-agent/headless/env.ts";
 import type { ExtensionContext } from "../../../../../protocol/extensions/manifest.ts";
@@ -27,12 +30,6 @@ type Failed =
 type Outcome =
   | { kind: "completed"; reason: "answer_completed" }
   | { kind: "failed"; reason: Failed };
-// runtime 값 → `HARNESS_ADAPTERS`의 id. shell main의 tsc가 `harness-host.ts`를 읽지 못해 여기에 둔다(이 표 하나뿐이다).
-const ADAPTER_ID = {
-  "claude-code": "claude",
-  codex: "codex",
-  opencode: "opencode",
-} as const;
 type Part =
   | { kind: "text"; text: string }
   | {
@@ -53,14 +50,6 @@ function harnessEnv(credential: string): Record<string, string> {
     if (path !== undefined) env[path.name] = path.value;
   }
   return env;
-}
-
-// 터미널 탭에서 TUI가 도는 session. shell main(surface wiring)이 전역에 건 함수로 받는다(extension은 shell main 내부를 import하지 못한다).
-// 이름은 `wiring/surface.ts`와 같다. 매 Take가 core에 주는 heartbeat다.
-const TUI_SESSIONS = Symbol.for("lophn.harness.tuiSessions");
-function tuiSessions(): string[] {
-  const list = (globalThis as Record<symbol, unknown>)[TUI_SESSIONS];
-  return typeof list === "function" ? (list() as string[]) : [];
 }
 
 const TICK_MS = 1000;
@@ -153,7 +142,8 @@ export function createHarnessHost(
     credential: string,
     entry: Running,
   ) {
-    const spec = HARNESS_ADAPTERS[ADAPTER_ID[input.harness]].headless;
+    const spec =
+      HARNESS_ADAPTERS[HARNESS_ADAPTER_OF_RUNTIME[input.harness]].headless;
     if (spec === undefined) {
       return await fail(
         input,
@@ -331,7 +321,7 @@ export function createHarnessHost(
     ticking = true;
     try {
       for (;;) {
-        const taken = await harness("take", { tui: tuiSessions() });
+        const taken = await harness("take", {});
         if (!taken.ok) return;
         const input = (taken.value as { input: Taken | null }).input;
         if (input === null) return;

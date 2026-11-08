@@ -82,7 +82,7 @@ export const browserTabStateSchema = z.strictObject({
 });
 export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 
-// 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 없으면 null이다.
+// 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 없으면 null이다. workspaces가 비어도 tui가 있으면 부른다.
 // 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다.
 export const hostTake = defineMemory({
   resource: "host",
@@ -90,6 +90,8 @@ export const hostTake = defineMemory({
   name: "HostTake",
   input: z.strictObject({
     workspaces: z.array(hostWorkspaceSchema).max(64),
+    // 지금 TUI 탭(`tabs/open`의 tui)이 열려 있는 session 전부다. 매 take가 hold의 heartbeat다.
+    tui: z.array(idSchema("ses")).max(64),
   }),
   output: z.strictObject({ request: hostRequestSchema.nullable() }),
   actors: ["user"],

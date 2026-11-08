@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py keybindings-ext build`가 `tasks/*.md`에서
 | `key-app` | key-app | 2 | key-core | merged | key-app/key-app | 954b59a56 |  |
 | `key-ext` | key-ext | 2 | key-core | merged | key-ext/key-ext | 090f15195 |  |
 | `key-agent` | key-agent | 3 | key-ext, key-app | merged | key-agent/key-agent | a7240c632 |  |
-| `key-parity` | key-parity | 4 | key-agent | todo |  |  |  |
+| `key-parity` | key-parity | 4 | key-agent | running | key-parity/key-parity |  |  |

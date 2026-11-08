@@ -72,14 +72,14 @@
         "context": "agentView:claude"
       },
       {
-        "command": "agent.clear-input",
+        "command": "agent.interrupt",
         "key": {
           "other": "Ctrl+KeyC"
         },
         "context": "agentView:claude"
       },
       {
-        "command": "agent.interrupt",
+        "command": "agent.clear-input",
         "key": {
           "other": "Ctrl+KeyC"
         },
@@ -142,14 +142,14 @@
         "context": "agentView:codex"
       },
       {
-        "command": "agent.clear-input",
+        "command": "agent.interrupt",
         "key": {
           "other": "Ctrl+KeyC"
         },
         "context": "agentView:codex"
       },
       {
-        "command": "agent.interrupt",
+        "command": "agent.clear-input",
         "key": {
           "other": "Ctrl+KeyC"
         },
@@ -205,14 +205,14 @@
         "context": "agentView:opencode"
       },
       {
-        "command": "agent.clear-input",
+        "command": "agent.interrupt",
         "key": {
           "other": "Ctrl+KeyC"
         },
         "context": "agentView:opencode"
       },
       {
-        "command": "agent.interrupt",
+        "command": "agent.clear-input",
         "key": {
           "other": "Ctrl+KeyC"
         },
@@ -261,14 +261,14 @@
         "context": "agentView:omp"
       },
       {
-        "command": "agent.clear-input",
+        "command": "agent.interrupt",
         "key": {
           "other": "Ctrl+KeyC"
         },
         "context": "agentView:omp"
       },
       {
-        "command": "agent.interrupt",
+        "command": "agent.clear-input",
         "key": {
           "other": "Ctrl+KeyC"
         },

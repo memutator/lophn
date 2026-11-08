@@ -65,6 +65,12 @@ export const agents = {
   "agents.heading.grants-apps": "Apps",
   "agents.heading.server-form": "Add a server for this agent only",
   "agents.heading.skip": "Skip permissions",
+  "agents.heading.extensions": "Shell extensions",
+  "agents.label.extension-tools":
+    "{count, plural, one {# tool} other {# tools}}",
+  "agents.label.extension-unavailable": "Not available: turned off or removed",
+  "agents.notice.extensions-help":
+    "Tools of an assigned extension are available to this agent. Only extensions installed and turned on are listed. A bare agent still picks the ones it uses under Tools.",
   "agents.heading.runtime": "Runtime",
   "agents.heading.tools": "Tools",
   "agents.label.agent-instructions": "Instructions for this agent",

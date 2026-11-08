@@ -1,5 +1,6 @@
 // bare agent가 고르는 tool. 내장 tool은 체크로 고르고, lophn 명령(`call.reply`), 앱 command(`<slug>.<command>`),
 // MCP tool(`mcp__<server>__<tool>`)은 이름을 적어 더한다. 고른 이름 그대로 정의의 `tools`가 된다.
+// shell extension tool(`ext__<id>__<tool>`)은 할당한 extension의 것을 체크로 고른다.
 // 상한 안인지(workspace 종류 목록, 할당한 앱, 설정한 MCP)는 turn 조립이 본다.
 import { useState } from "react";
 import { Checkbox, Input } from "@lophn/ui/input";
@@ -18,12 +19,20 @@ const BUILTIN: readonly string[] = [
 
 interface ToolPicksProps {
   readonly value: readonly string[];
+  /** 할당한 shell extension의 tool 이름(`ext__<id>__<tool>`). */
+  readonly extensionTools?: readonly string[];
   readonly onChange: (tools: string[]) => void;
 }
 
-export function ToolPicks({ value, onChange }: ToolPicksProps) {
+export function ToolPicks({
+  value,
+  extensionTools = [],
+  onChange,
+}: ToolPicksProps) {
   const [draft, setDraft] = useState("");
-  const others = value.filter((name) => !BUILTIN.includes(name));
+  const others = value.filter(
+    (name) => !BUILTIN.includes(name) && !extensionTools.includes(name),
+  );
   const toggle = (name: string, on: boolean) =>
     onChange(on ? [...value, name] : value.filter((one) => one !== name));
   const add = () => {
@@ -34,6 +43,15 @@ export function ToolPicks({ value, onChange }: ToolPicksProps) {
   return (
     <>
       {BUILTIN.map((name) => (
+        <Checkbox
+          key={name}
+          size="sm"
+          label={name}
+          checked={value.includes(name)}
+          onCheckedChange={(on) => toggle(name, on)}
+        />
+      ))}
+      {extensionTools.map((name) => (
         <Checkbox
           key={name}
           size="sm"

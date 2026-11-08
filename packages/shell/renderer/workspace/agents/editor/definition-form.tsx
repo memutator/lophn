@@ -1,4 +1,4 @@
-// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Input and output · Card · Instructions · Model · Tools(bare) · Skills · MCP servers · Skip permissions.
+// agent 설정의 Definition 탭. 위에서부터 Profile · Name · Description · Runtime · Input and output · Card · Instructions · Model · Tools(bare) · Skills · MCP servers · Shell extensions · Skip permissions.
 // 정의 파일은 사람이 바꾼 칸만 가지므로 definition에 없는 칸은 상속이고, 상속하는 값은 detail이 준다.
 // 저장 때 거절된 항목(issues)은 그 칸 안에 보인다.
 import { type ReactNode, useState } from "react";
@@ -7,6 +7,8 @@ import { Checkbox, Field, Input, SegmentedControl } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
+import { extensionToolModelName } from "../../../../../protocol/extensions/manifest.ts";
+import type { PublishedExtension } from "../../../../../protocol/lophn-agent/extension-tools.ts";
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import {
   type AgentWorkspace,
@@ -44,6 +46,7 @@ type FieldName =
   | "model"
   | "skills"
   | "mcp"
+  | "extensions"
   | "skip"
   | "card";
 
@@ -63,6 +66,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   skills_off: "skills",
   mcp_off: "mcp",
   mcp_servers: "mcp",
+  extensions: "extensions",
   skip: "skip",
 };
 
@@ -111,6 +115,9 @@ function Group({
   );
 }
 
+// `AgentDraft`(source.ts)에는 아직 없는 칸이다. 읽은 정의가 이 칸을 그대로 싣고 있어 정의를 펴 쓰는 `set`이 지키고 저장도 그대로 낸다.
+type FormDraft = AgentDraft & { readonly extensions?: readonly string[] };
+
 const ALL_MODALITIES: readonly Modality[] = ["text", "image", "file"];
 
 // 셋 다 고른 쪽은 칸에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.
@@ -147,8 +154,8 @@ function instructionsHead(detail: AgentDetail, workspaceName: string): string {
 
 // 비어 가는 칸은 정의에서 뺀다: 파일에는 사람이 바꾼 칸만 둔다.
 function withField(
-  definition: AgentDraft,
-  key: Exclude<keyof AgentDraft, "body">,
+  definition: FormDraft,
+  key: Exclude<keyof FormDraft, "body">,
   value: unknown,
 ): AgentDraft {
   const next: Record<string, unknown> = { ...definition };
@@ -203,6 +210,8 @@ interface DefinitionFormProps {
   readonly signingIn: readonly string[];
   /** project 지침(LOPHN.md)을 그 자리에서 고치는 길. */
   readonly projectInstructions: InstructionsPort;
+  /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). 안 주면 Shell extensions 칸은 할당한 것이 있을 때만 보인다. */
+  readonly extensions?: readonly PublishedExtension[];
 }
 
 export function DefinitionForm(props: DefinitionFormProps) {
@@ -216,7 +225,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
     props.issues.filter((issue) => fieldOf(issue) === name);
   const loose = props.issues.filter((issue) => fieldOf(issue) === null);
 
-  const set = (key: Exclude<keyof AgentDraft, "body">, value: unknown) =>
+  const set = (key: Exclude<keyof FormDraft, "body">, value: unknown) =>
     onChange(withField(definition, key, value));
 
   // 새 agent가 고를 수 있는 범위: 화면을 연 workspace. home이나 Settings는 없고 전역뿐이다.
@@ -277,6 +286,26 @@ export function DefinitionForm(props: DefinitionFormProps) {
     .filter((entry) => entry.original_tool === undefined)
     .map((entry) => entry.server_name);
   const own = ownServers(definition, detail.agentMcpLogins);
+
+  // 할당한 id는 꺼졌거나 없어져도 목록에 남아야 사람이 뺄 수 있다.
+  const catalog = props.extensions ?? [];
+  const assigned = (definition as FormDraft).extensions ?? [];
+  const missing = assigned.filter(
+    (id) => !catalog.some((one) => one.id === id),
+  );
+  const toggleExtension = (id: string, on: boolean) =>
+    set(
+      "extensions",
+      on
+        ? [...new Set([...assigned, id])]
+        : assigned.filter((one) => one !== id),
+    );
+  // bare가 tools로 고를 수 있는 extension tool은 할당한 extension의 것이다.
+  const extensionToolNames = catalog
+    .filter((one) => assigned.includes(one.id))
+    .flatMap((one) =>
+      one.tools.map((tool) => extensionToolModelName(one.id, tool.name)),
+    );
 
   // 위 층이 정한 값을 따를 때 보이는 따르기 선택지.
   const inherited = detail.inheritedModel;
@@ -508,6 +537,7 @@ export function DefinitionForm(props: DefinitionFormProps) {
         <Group name="tools" heading={t("agents.heading.tools")}>
           <ToolPicks
             value={definition.tools ?? []}
+            extensionTools={extensionToolNames}
             onChange={(tools) => set("tools", tools)}
           />
           <p className={styles.note}>{t("agents.notice.tools-help")}</p>
@@ -602,6 +632,46 @@ export function DefinitionForm(props: DefinitionFormProps) {
             </div>
           )}
           <Issues issues={issuesOf("mcp")} />
+        </Group>
+      )}
+
+      {catalog.length === 0 && assigned.length === 0 ? null : (
+        <Group name="extensions" heading={t("agents.heading.extensions")}>
+          {catalog.map((one) => (
+            <div key={one.id} data-extension={one.id}>
+              <Checkbox
+                size="sm"
+                label={one.name}
+                checked={assigned.includes(one.id)}
+                onCheckedChange={(on) => toggleExtension(one.id, on)}
+              />
+              <p className={styles.note}>
+                {[
+                  one.description,
+                  t("agents.label.extension-tools", {
+                    count: one.tools.length,
+                  }),
+                ]
+                  .filter((part) => part !== "")
+                  .join(" · ")}
+              </p>
+            </div>
+          ))}
+          {missing.map((id) => (
+            <div key={id} data-extension={id}>
+              <Checkbox
+                size="sm"
+                label={id}
+                checked
+                onCheckedChange={() => toggleExtension(id, false)}
+              />
+              <p className={styles.note}>
+                {t("agents.label.extension-unavailable")}
+              </p>
+            </div>
+          ))}
+          <p className={styles.note}>{t("agents.notice.extensions-help")}</p>
+          <Issues issues={issuesOf("extensions")} />
         </Group>
       )}
 

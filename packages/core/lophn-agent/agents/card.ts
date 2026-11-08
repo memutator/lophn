@@ -68,6 +68,8 @@ function cardOf(
             ...(definition?.mcp_servers ?? []).map(
               (server) => `mcp: ${server.name}`,
             ),
+            // 할당한 id 그대로다: 켜졌는지는 main thread의 메모리 catalog에만 있어 이 동기 읽기가 보지 못한다.
+            ...(definition?.extensions ?? []).map((id) => `ext: ${id}`),
           ],
           minus: off.map((name) => `skill: ${name}`),
         };

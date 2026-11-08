@@ -8,7 +8,7 @@ import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { relativePathSchema } from "../projects/values.ts";
 import { defineEvent } from "../base/event.ts";
-import { idempotencyKeySchema, withReadCommon } from "../base/envelope.ts";
+import { withReadCommon } from "../base/envelope.ts";
 import { sha256Schema } from "../base/values.ts";
 import { appIdSchema, releaseIdSchema } from "./channel-values.ts";
 import type { PermissionKind } from "./declaration/types.ts";
@@ -108,7 +108,6 @@ export const packagePublishInputSchema = z.strictObject({
   }),
   // 소비 앱 선언에 있어야 하는 permission. release 준비가 소비 앱 선언과 대조한다.
   permissions: z.array(z.enum(PERMISSION_KINDS)),
-  key: idempotencyKeySchema,
 });
 export type PackagePublishInput = z.infer<typeof packagePublishInputSchema>;
 

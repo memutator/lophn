@@ -275,9 +275,9 @@ const publish = defineCommand({
   name: "package.publish",
   summary: "Publish an app folder as a user package",
   description:
-    "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples; use --input for it), and the permissions it needs (publish fails if they do not cover what its @lophn/cap-* dependencies require; apps that use the package must declare all of them). The code is the HEAD commit of the app source, so commit the folder first.",
+    "Publish a folder of an app's code as a user package (@me/...). Give the version, a one line description, the guide (purpose, api, examples; use --input for it), and the permissions it needs (publish fails if they do not cover what its @lophn/cap-* dependencies require; apps that use the package must declare all of them). The code is the HEAD commit of the app source, and the whole app source must have no uncommitted or untracked files, so commit everything first.",
   input: packagePublishInputSchema
-    .omit({ key: true, path: true, permissions: true })
+    .omit({ path: true, permissions: true })
     .extend({
       path: sourceRelativePathSchema,
       permissions: packagePublishInputSchema.shape.permissions.default([]),
@@ -292,10 +292,7 @@ const publish = defineCommand({
     if (app.value.app.source_path === null) {
       return failure("invalid_input", "the app has no source folder");
     }
-    const published = await ctx.core.read(packagePublish, {
-      ...input,
-      key: ctx.key,
-    });
+    const published = await ctx.core.read(packagePublish, input);
     if (!published.ok) return published;
     return ok({
       summary: `published ${input.name}@${input.version}`,

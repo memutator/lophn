@@ -244,6 +244,8 @@ const LIMIT_LABELS: Record<string, string> = {
   seven_day_overage_included: "7d",
   overage: "Overage",
 };
+// 이 사용률(0-1)부터 allowed_warning을 알린다(CLI TUI와 같다).
+const WARN_FROM = 0.7;
 // warning 글에 넣는 창 이름.
 const LIMIT_NAMES: Record<string, string> = {
   five_hour: "5-hour",
@@ -907,7 +909,7 @@ const start: (sdk: ClaudeSdk) => Start =
     // 도는 background subagent의 task id. tool 줄(subagent detail)이 보이고 task 목록에는 올리지 않는다.
     const liveAgents = new Set<string>();
     const limits = new Map<string, AcpUsageLimit>();
-    // 창마다 마지막으로 알린 status. 같은 status의 event가 와도 다시 알리지 않는다.
+    // 창마다 마지막으로 알린 단계. event는 사용률이 움직일 때마다 오므로 단계가 바뀔 때만 알린다.
     const limitStatus = new Map<string, string>();
     // 마지막으로 CLI에 보낸 명령의 이름. 이름 없이 오는 명령 출력이 쓴다.
     let lastCommand = "";
@@ -2032,16 +2034,25 @@ const start: (sdk: ClaudeSdk) => Start =
         utilization: number | undefined,
         resetsAt: number | undefined,
       ) => {
-        if (status === undefined || limitStatus.get(type) === status) return;
-        limitStatus.set(type, status);
-        if (status === "allowed") return;
+        if (status === undefined) return;
+        // 서버는 낮은 문턱부터 allowed_warning을 보낸다. CLI TUI처럼 70% 밑에서는 알리지 않는다.
+        const level =
+          status === "rejected"
+            ? "rejected"
+            : status === "allowed_warning" &&
+                (utilization === undefined || utilization >= WARN_FROM)
+              ? "warning"
+              : "none";
+        if (limitStatus.get(type) === level) return;
+        limitStatus.set(type, level);
+        if (level === "none") return;
         const name = LIMIT_NAMES[type] ?? type.replaceAll("_", " ");
         const resets =
           resetsAt === undefined
             ? ""
             : ` It resets ${whenOf(resetsAt * 1000)}.`;
         info(
-          status === "rejected"
+          level === "rejected"
             ? `You've hit your ${name} limit.${resets}`
             : utilization === undefined
               ? `You're close to your ${name} limit.${resets}`

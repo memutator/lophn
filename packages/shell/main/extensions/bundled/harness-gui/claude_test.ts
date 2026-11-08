@@ -1151,3 +1151,35 @@ test("고르지 않은 effort는 init이나 설정 file의 값을 보이고, 고
   await t.feed({ type: "system", subtype: "init", effort: null });
   assert.equal(t.state.session?.model?.options.effort, undefined);
 });
+
+// 두 번 고친 것: SDK 값 그대로 event마다 떴고, 한도가 넉넉해도(서버의 낮은 문턱) 떴다.
+test("사용 한도 warning은 TUI처럼 70%부터, 창마다 단계가 바뀔 때 한 번만 뜬다", async () => {
+  const t = await setup({});
+  const event = (utilization: number, status: string) => ({
+    type: "rate_limit_event",
+    rate_limit_info: {
+      status: "allowed",
+      rateLimitType: "five_hour",
+      unifiedWindows: {
+        five_hour: {
+          utilization: 0.1,
+          resetsAt: 1794080400,
+          status: "allowed",
+        },
+        seven_day: { utilization, resetsAt: 1794636000, status },
+      },
+    },
+  });
+  await t.feed(event(0.3, "allowed_warning"));
+  await t.feed(event(0.71, "allowed_warning"));
+  await t.feed(event(0.72, "allowed_warning"));
+  await t.feed(event(1, "rejected"));
+  const warnings = t.state.items.flatMap((one) =>
+    one.kind === "notice" && one.notice.type === "info"
+      ? [one.notice.text]
+      : [],
+  );
+  assert.equal(warnings.length, 2);
+  assert.match(warnings[0] ?? "", /^You've used 71% of your weekly limit\./);
+  assert.match(warnings[1] ?? "", /^You've hit your weekly limit\./);
+});

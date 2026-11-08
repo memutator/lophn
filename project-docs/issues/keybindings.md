@@ -40,3 +40,16 @@ modules: [packages/shell/renderer/desktop/settings, packages/shell/renderer/comm
 영향: 사람이 `agent.find` 같은 command에 Ctrl+R을 달면 겹침 표시가 없는데, Claude·Codex·omp GUI 안에서는 harness의 Ctrl+R(history 검색)이 안쪽 context라 먼저 받아 사람이 단 키가 돌지 않는다.
 
 고치려면: 겹침 검사에 keymap을 넣되 같은 context·같은 chord의 서로 다른 command 둘(Ctrl+C clear-input·interrupt)만 예외로 둔다(작음).
+
+## Electron 기본 menu의 Ctrl+R(Reload)이 shell 창을 다시 부른다
+
+```yaml
+kind: bug
+modules: [packages/shell/main/desktop]
+```
+
+지금: shell main은 `Menu.setApplicationMenu`를 부르지 않아 Electron 기본 menu가 남는다(`packages/shell/main/desktop/window.ts`는 `autoHideMenuBar`로 숨기기만 한다). Linux·Windows에서 page가 막지 않은 Ctrl+R·Ctrl+Shift+R은 View › Reload로 창 renderer를 다시 부른다. harness GUI(Claude·Codex·omp)는 view에 focus가 있으면 Ctrl+R을 history 검색으로 삼키지만, 터미널 밖의 다른 곳이나 OpenCode GUI, 아무 요소에도 focus가 없을 때는 창이 다시 load된다.
+
+영향: 사람이 습관으로 Ctrl+R을 누르면 창의 열린 popover, 입력칸 상태, 스크롤 위치를 잃는다(탭과 draft는 저장본에서 되살아난다).
+
+고치려면: 창에 쓰는 menu를 직접 만들어 Reload를 빼거나(작음, Close Window·편집 role처럼 지금 기대는 accelerator는 남긴다) `setApplicationMenu(null)`로 지운다(작음, macOS의 편집 key equivalent가 사라질 수 있다). 추천: 직접 만든 menu.

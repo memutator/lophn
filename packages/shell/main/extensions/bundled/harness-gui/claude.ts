@@ -127,6 +127,8 @@ type SdkMessage = {
     delta?: { type: string; text?: string; thinking?: string };
   };
   message?: { content?: string | Block[] };
+  // user: tool의 구조화된 결과(tool별 Output). Agent는 `status: "async_launched"`로 바로 돌려준다.
+  tool_use_result?: unknown;
   isReplay?: boolean;
   origin?: TranscriptOrigin;
   local_command_run?: { command: string };
@@ -754,7 +756,15 @@ type QuestionWait = {
   call: Call;
   resolve(result: PermissionResult): void;
 };
-type Queued = { id: string; at: string; content: ContentBlock[] };
+/** `priority`는 CLI에 보낼 때 단 값이다. 가져갈 때 steer인지 가르고, 줄을 다시 세울 때 그대로 쓴다. */
+type Queued = {
+  id: string;
+  at: string;
+  content: ContentBlock[];
+  priority: "now" | "next" | "later";
+};
+// ACP 줄 항목은 strict라 adapter만 쓰는 priority를 떼고 낸다.
+const shown = ({ id, at, content }: Queued) => ({ id, at, content });
 /** query 하나. rewind·fork가 query를 바꾸면 옛 것의 메시지는 버린다. */
 type Live = {
   q: Cancelable;
@@ -1664,7 +1674,14 @@ const start: (sdk: ClaudeSdk) => Start =
       }
     }
 
-    function onToolResults(lane: Lane, content: Block[]) {
+    // 현재 CLI는 Agent를 기본으로 비동기로 띄워 결과가 바로 오고(run_in_background를 주지 않아도), 끝은 task 알림이 알린다.
+    // 구조화된 결과는 메시지 하나에 tool 하나의 것이라 tool_result가 하나일 때만 믿는다.
+    const asyncLaunched = (structured: unknown, content: Block[]) =>
+      content.filter((one) => one.type === "tool_result").length === 1 &&
+      (structured as { status?: unknown } | null)?.status === "async_launched";
+
+    function onToolResults(lane: Lane, content: Block[], structured?: unknown) {
+      const launched = asyncLaunched(structured, content);
       for (const block of content) {
         const call =
           block.type === "tool_result"
@@ -1680,6 +1697,7 @@ const start: (sdk: ClaudeSdk) => Start =
           if (block.is_error !== true) taskResult(lane, call, output);
           continue;
         }
+        if (launched && call.agent !== undefined) call.agent.background = true;
         toolEnd(
           lane,
           call,
@@ -1712,7 +1730,7 @@ const start: (sdk: ClaudeSdk) => Start =
           now(),
           message.uuid ?? "",
         );
-      else onToolResults(lane, content);
+      else onToolResults(lane, content, message.tool_use_result);
     }
 
     function onStream(lane: Lane, event: NonNullable<SdkMessage["event"]>) {
@@ -1745,14 +1763,16 @@ const start: (sdk: ClaudeSdk) => Start =
       lane.streamed[kind] += text.length;
     }
 
-    // 줄에 있던 메시지를 CLI가 가져갔다: 쉬는 중이면 새 turn이고, 도는 turn이면 steer로 끼어든 것이다.
+    // 줄에 있던 메시지를 CLI가 가져갔다. steer(next)는 도는 turn에 끼어들 때만 steer이고, 쉬던 CLI가 읽으면 제 turn이다.
+    // later·now는 늘 next_turn이다. CLI는 가까이 보낸 later 여럿을 한 turn으로 묶어(result는 마지막 member의 uuid) started를
+    // 잇따라 내므로, 첫 메시지가 연 turn에 나머지가 붙는다. turn 상태만 보면 나머지가 모두 steer로 보인다.
     function onStarted(uuid: string) {
       const message = queued.get(uuid);
       if (message === undefined) return;
       queued.delete(uuid);
       uuidOfMessage.set(message.id, uuid);
       contentOfMessage.set(message.id, message.content);
-      const steer = root.turn !== null;
+      const steer = message.priority === "next" && root.turn !== null;
       const id = root.turn ?? startTurn(root);
       userOfTurn.set(id, message.id);
       publish({
@@ -2777,12 +2797,11 @@ const start: (sdk: ClaudeSdk) => Start =
         live.input.push(userMessage(uuid, body));
         return;
       }
-      const wait = { id, at: now(), content };
+      const priority = delivery === "steer" ? "next" : "later";
+      const wait: Queued = { id, at: now(), content, priority };
       queued.set(uuid, wait);
-      publish({ type: "message_queued", queued: wait });
-      live.input.push(
-        userMessage(uuid, body, delivery === "steer" ? "next" : "later"),
-      );
+      publish({ type: "message_queued", queued: shown(wait) });
+      live.input.push(userMessage(uuid, body, priority));
       // CLI는 도는 foreground tool이 끝나야 줄의 메시지를 읽는다. desktop app처럼 오래 도는 tool을 background로 보내 바로 닿게 한다.
       if (delivery === "steer") detachForSteer(uuid);
     }
@@ -2842,9 +2861,9 @@ const start: (sdk: ClaudeSdk) => Start =
           continue;
         const uuid = uuidOf(ids);
         queued.set(uuid, one);
-        publish({ type: "message_queued", queued: one });
+        publish({ type: "message_queued", queued: shown(one) });
         live.input.push(
-          userMessage(uuid, await contentOf(sdk, one.content), "later"),
+          userMessage(uuid, await contentOf(sdk, one.content), one.priority),
         );
       }
     }
@@ -3224,7 +3243,7 @@ const start: (sdk: ClaudeSdk) => Start =
           queued.delete(uuid);
           // 지금 보내기는 도는 turn을 끊고 이 메시지를 먼저 돌린다. 줄에서는 CLI가 가져갈 때 빠진다.
           const fresh = uuidOf(ids);
-          queued.set(fresh, one);
+          queued.set(fresh, { ...one, priority: "now" });
           if (root.turn !== null) stopping = true;
           live.input.push(
             userMessage(fresh, await contentOf(sdk, one.content), "now"),

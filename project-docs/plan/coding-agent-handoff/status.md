@@ -4,6 +4,6 @@ lead만 고친다. `tools/status.py coding-agent-handoff build`가 `tasks/*.md`�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `coding-builtin` | agents | 1 | 없음 | todo |  |  |  |
-| `agents-entry` | shell-sidebar | 1 | 없음 | todo |  |  |  |
+| `coding-builtin` | agents | 1 | 없음 | running | agents/coding-builtin |  |  |
+| `agents-entry` | shell-sidebar | 1 | 없음 | running | shell-sidebar/agents-entry |  |  |
 | `tui-handoff` | surface | 2 | coding-builtin | todo |  |  |  |

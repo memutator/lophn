@@ -19,6 +19,7 @@ import { annotationsWiring } from "./wiring/annotations.ts";
 import { artifactMoveWiring } from "./wiring/artifact-move.ts";
 import { workspaceDataMoveWiring } from "./wiring/workspace-data-move.ts";
 import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
+import { globalFloatsTabsWiring } from "./wiring/global-floats-tabs.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { bareReplyWiring } from "./wiring/bare-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
@@ -157,6 +158,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   workspaceDataMoveWiring,
   // artifact-move가 `shell/places`의 판 8을 판 9로 옮긴 뒤에 그 파일을 `shell/workspaces`로 옮긴다.
   workspaceRenameWiring,
+  // shell 파일의 모양을 옮기는 data step이다. 다른 step과 순서 의존이 없다.
+  globalFloatsTabsWiring,
   shareRequestsWiring,
   routerWiring,
   appsWiring,

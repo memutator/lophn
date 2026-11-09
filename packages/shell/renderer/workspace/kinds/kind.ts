@@ -40,6 +40,13 @@ export interface TabKindDef {
   /** true면 이 kind의 탭은 Detach하지 않는다(탭 menu 항목과 패널 단추를 그리지 않는다). 다른 탭에 묶인 보조 패널(browser DevTools)이 쓴다. */
   readonly noDetach?: true;
   /**
+   * 전역 float(모든 workspace에 떠 있는 패널)에서 다른 workspace의 desk로도 돌아올 수 있는 kind. 없으면 탭이 나온
+   * workspace의 desk로만 돌아온다(terminal은 project 폴더, agent는 workspace의 agent에 묶인다).
+   */
+  readonly anyWorkspace?: true;
+  /** true를 돌려주면 이 탭은 전역 float으로 올리지 않는다(browser의 native popup은 opener view를 이 창 밖으로 옮길 수 없다). noDetach인 kind는 묻지 않는다. */
+  noGlobal?(tab: TabItem): boolean;
+  /**
    * 탭을 다른 창으로 옮기기 전에 살아 있는 상태를 꺼낸다(`toStored` 값만으로는 옮겨지지 않는 것).
    * 보내는 창에서 돈다. null이면 옮기지 않는다(탭은 그대로 둔다). 선언하지 않은 kind는 `{ value: null, views: [] }`로 본다.
    * value는 JSON이고 main을 거쳐 같은 project의 창에만 간다.

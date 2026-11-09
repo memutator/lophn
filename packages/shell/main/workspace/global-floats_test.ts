@@ -7,6 +7,14 @@ import { test } from "node:test";
 import { createGlobalFloatsStore } from "./global-floats.ts";
 
 const APP = "app_00000000000000000000000000";
+const PRJ = "prj_00000000000000000000000000";
+const HOME = { kind: "home" } as const;
+const panel = (screen: string) => ({
+  kind: "app_panel",
+  key: `global:${APP}:${screen}`,
+  app: APP,
+  surface: screen,
+});
 const RECT = { x: 10, y: 20, width: 400, height: 300 };
 
 async function withRoot(run: (root: string) => Promise<void>) {
@@ -23,21 +31,41 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
     const store = createGlobalFloatsStore(root);
     assert.deepEqual(await store.read(), []);
     const floats = [
-      { app: APP, screen: "main", rect: RECT, minimized: false },
-      { app: APP, screen: "side", rect: RECT, minimized: true, pinned: true },
+      { workspace: HOME, tab: panel("main"), rect: RECT, minimized: false },
+      {
+        workspace: { kind: "project", id: PRJ },
+        tab: {
+          kind: "terminal",
+          key: "terminal-1",
+          project_folder: "/work",
+        },
+        rect: RECT,
+        minimized: true,
+        pinned: true,
+      },
     ];
     assert.deepEqual(await store.write(floats), { ok: true, value: null });
     assert.deepEqual(await store.read(), floats);
 
     // 모양이 틀린 값은 쓰지 않고 파일을 그대로 둔다.
-    const bad = await store.write([{ app: "x", screen: "", rect: RECT }]);
+    const bad = await store.write([
+      { workspace: HOME, tab: { kind: "nope", key: "x" }, rect: RECT },
+    ]);
     assert.equal(bad.ok, false);
     assert.deepEqual(await store.read(), floats);
 
     const file = join(root, "shell", "global-floats.json");
     await writeFile(file, "{not json");
     assert.deepEqual(await store.read(), []);
-    await writeFile(file, JSON.stringify({ schema_version: 2, floats }));
+    await writeFile(file, JSON.stringify({ schema_version: 1, floats }));
     assert.deepEqual(await store.read(), []);
+
+    // 모르는 kind 하나가 나머지 float을 막지 않는다.
+    const unknown = { ...floats[0], tab: { kind: "nope", key: "x" } };
+    await writeFile(
+      file,
+      JSON.stringify({ schema_version: 2, floats: [unknown, floats[1]] }),
+    );
+    assert.deepEqual(await store.read(), [floats[1]]);
   });
 });

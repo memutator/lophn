@@ -116,6 +116,7 @@ export const documentEditorKind: TabKindDef = {
   kind: "document_editor",
   labelKey: "project-workspace.label.kind-document-editor",
   icon: workspaceIcons.documentEditor,
+  anyWorkspace: true,
   iconOf: (tab) => <FileIcon name={tab.title} size={14} />,
   pathOf: (tab) => tab.key,
   fromStored(stored, { key, position }) {

@@ -39,7 +39,7 @@ interface TabHostSlicesInput {
   /** false면 이 창은 floated 탭을 둘 수 없다(detached 창). 코드 블록의 실행 단추를 두지 않는다. */
   floats?: boolean;
   /** 창의 workspace view 보관(app-frame/workspace-views.tsx). 있으면 그 그릇과 보관소를 쓴다. */
-  pool?: WorkspaceViewPool | null;
+  pool?: Pick<WorkspaceViewPool, "webviews" | "keeps"> | null;
 }
 
 // workspace 창(WorkspaceWindow)과 detached 창(DetachedTab)이 같이 쓰는 TabHost slice와 view 보관소.

@@ -1,4 +1,4 @@
-// 전역 float(workspace를 넘는 앱 panel 화면)의 저장·복원에서 renderer가 main에 요청하는 모양. 파일 schema 검증은
+// 전역 float(workspace를 넘는 떠 있는 탭)의 저장·복원에서 renderer가 main에 요청하는 모양. 파일 schema 검증은
 // main/workspace/global-floats.ts가 한다. 이 파일은 renderer도 부른다.
 
 /** 전역 float 목록 복원. 입력이 없다. */
@@ -7,8 +7,13 @@ export const GLOBAL_FLOATS_READ_CHANNEL = "shell:global-floats-read";
 export const GLOBAL_FLOATS_SAVE_CHANNEL = "shell:global-floats-save";
 
 export interface GlobalFloatRecord {
-  app: string;
-  screen: string;
+  /** 탭이 나온 workspace. */
+  workspace:
+    | { kind: "home" }
+    | { kind: "project"; id: string }
+    | { kind: "app"; id: string };
+  /** 탭 kind의 `toStored` 값(workspace layout 파일의 탭과 같다). main이 kind registry로 다시 검사한다. */
+  tab: Record<string, unknown>;
   /** title bar 아래 창 몸통 왼쪽 위 기준 정수 CSS px(workspace layout의 float rect와 같다). */
   rect: { x: number; y: number; width: number; height: number };
   minimized: boolean;

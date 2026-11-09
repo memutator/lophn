@@ -267,6 +267,11 @@ files:
       - workflows-participant-workspace:moved
     note: "place에서 workspace로 이름 바꾸기(ledger 행, 판 9 layout, call 정책). shell-workspace-layouts, settings-call-policy-workspaces, workflows-participant-workspace data step"
 
+  - path: packages/core/main/daemon/wiring/global-floats-tabs_test.ts
+    covers:
+      - shell-global-floats-tabs:moved
+    note: "판 1 전역 float 파일을 앱 panel 탭 판 2로 옮기는 data step. rect, 접힘, 고정을 잃지 않고 다시 돌아도 같다"
+
   - path: packages/core/main/daemon/workspace-folders-glue_test.ts
     covers:
       - workspace-file-scope:project

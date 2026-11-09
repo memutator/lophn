@@ -967,29 +967,31 @@ flows:
     docs: [architecture/workspace-layout.md]
 
   - id: float-to-all-workspaces
-    title: "앱 panel float을 모든 workspace의 전역 float으로 옮긴다"
+    title: "desk float을 모든 workspace의 전역 float으로 옮긴다"
     actor: person
     entries: [ui:float-to-all-workspaces]
-    when: "앱 panel float bar의 Show in all workspaces 단추"
+    when: "float bar의 Show in all workspaces 단추(kind가 noDetach·noGlobal이 아니고 layout에 저장할 수 있는 탭에만 있다)"
     boundary: [shell]
     code:
       - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/shell/global-floats/global-floats.tsx
       - packages/shell/renderer/shell/global-floats/store.ts
       - packages/shell/main/workspace/global-floats.ts
     steps:
-      - "floatToGlobal이 desk float을 찾는다. 없거나 앱 panel이 아니거나 app·screen이 없으면 아무 일도 없다"
-      - "global-floats.tsx의 add가 rect, 접힘, 고정과 app·screen을 전역 목록에 더한다(같은 화면이 있으면 먼저 뺀다). 전역 목록을 아직 읽기 전이면 바뀌지 않고 false다"
+      - "floatToGlobal이 desk float을 찾는다. 없거나 canGoGlobal이 거절하면(noDetach, noGlobal, 저장할 수 없는 탭) 아무 일도 없다"
+      - "kind의 transfer를 부른다. null이면 옮기지 않는다. 그 사이 float이 닫혔으면 아무 일도 없다"
+      - "global-floats.tsx의 add가 탭, 탭이 나온 workspace, rect, 접힘, 고정을 전역 목록에 더한다(앱 panel은 같은 화면이 있으면, 다른 kind는 같은 key가 있으면 먼저 뺀다). transfer는 본문이 처음 그리기 전에 kind의 receive로 받는다. 전역 목록을 아직 읽기 전이면 바뀌지 않고 false다"
       - "더하기에 성공하면 desk float을 닫는다. 전역 목록이 20개 상한이면 옮기지 않아 desk float은 그대로 남는다"
-      - "전역 목록은 store가 저장을 예약해 global-floats-save로 보낸다"
+      - "전역 목록은 store가 저장을 예약해 global-floats-save로 보낸다(탭은 kind의 toStored 값)"
     uses: [ipc:shell:global-floats-save, ipc:shell:workspace-layout-save]
     outcomes:
       - id: moved
         observe: ["disk:<data>/shell/workspaces/<workspace>.json", "disk:<data>/shell/global-floats.json"]
       - id: refused
-        when: "전역 목록이 상한(20)이라 더 넣을 수 없다, 또는 전역 목록을 아직 읽기 전이라 add가 false를 돌려준다"
+        when: "전역 목록이 상한(20)이라 더 넣을 수 없다, 전역 목록을 아직 읽기 전이라 add가 false를 돌려준다, 또는 kind의 transfer가 null을 돌려줬다(저장이 남은 파일)"
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
       - id: unchanged
-        when: "desk에 그 float이 없거나 앱 panel이 아니거나 app·screen 정보가 없다"
+        when: "desk에 그 float이 없거나 이 탭은 전역 float이 될 수 없다"
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
       - id: save-refused
         code: invalid_input
@@ -1004,15 +1006,16 @@ flows:
     title: "전역 float을 이 desk의 float으로 옮긴다"
     actor: person
     entries: [ui:float-to-desk]
-    when: "전역 float bar의 Move to this desk 단추(이 desk가 등록된 창에서만)"
+    when: "전역 float bar의 Move to this desk 단추(이 desk가 등록된 창에서, kind가 anyWorkspace이거나 float의 workspace가 이 창의 workspace일 때만)"
     boundary: [shell]
     code:
       - packages/shell/renderer/shell/global-floats/global-floats.tsx
       - packages/shell/renderer/workspace/workspace-window.tsx
     steps:
-      - "globalToFloat이 float 층을 못 쟀으면 false다"
-      - "같은 화면의 float을 이 desk에 새 key로 열고 rect를 float 층 안으로 가두며 고정은 유지한다"
-      - "이 desk에 더 둘 수 없으면(float 20개 상한) false를 돌려주고 옮기지 않는다"
+      - "moveToDesk가 본문이 알린 host로 kind의 transfer를 받는다. null이면 옮기지 않는다"
+      - "받는 창의 globalToFloat이 float 층을 못 쟀으면 false다"
+      - "같은 탭의 float을 이 desk에 열고(앱 panel만 새 key) rect를 float 층 안으로 가두며 고정은 유지한다. 이 창 host로 kind의 receive를 부른다"
+      - "이 desk에 더 둘 수 없으면(float 20개 상한, 같은 key의 탭이 이미 있음) false를 돌려주고 옮기지 않는다"
       - "성공하면 moveToDesk가 전역 목록에서 그 float을 뺀다. 그릇이 달라 page는 다시 load된다"
       - "moveToDesk는 등록된 desk가 없으면 아무 일도 하지 않는다"
     uses: [ipc:shell:global-floats-save, ipc:shell:workspace-layout-save]
@@ -1020,7 +1023,7 @@ flows:
       - id: moved
         observe: ["disk:<data>/shell/workspaces/<workspace>.json", "disk:<data>/shell/global-floats.json"]
       - id: refused
-        when: "float 층을 못 쟀거나, 이 desk에 float 20개 상한이라 더 둘 수 없거나, 등록된 desk가 없다"
+        when: "float 층을 못 쟀거나, 이 desk에 float 20개 상한이라 더 둘 수 없거나, 같은 key의 탭이 이미 있거나, 등록된 desk가 없거나, transfer가 null이다"
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)", "disk:<data>/shell/global-floats.json (변화 없음)"]
       - id: save-refused
         code: invalid_input
@@ -1028,8 +1031,6 @@ flows:
         observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
     crosses_process: false
     docs: [architecture/workspace-layout.md]
-    unclear:
-      - "move 뒤 page가 다시 load되는 것은 알려진 모양이다. test는 page 재load 여부를 따로 정해야 한다"
 
   # ---- detached ----
   - id: detached-dock
@@ -1351,7 +1352,7 @@ flows:
     steps:
       - "전역 float 목록이 바뀌면 store가 저장을 예약하고(SAVE_DELAY 뒤 flush) shell:global-floats-save로 보낸다"
       - "main이 보낸 쪽이 desktop 창이 아니면 거절한다"
-      - "main이 schema(전역 float 20개 상한 포함)로 검증해 원자 교체로 쓴다. 검증에 실패하면 파일은 그대로다"
+      - "main이 schema(전역 float 20개 상한 포함, 탭은 workspace layout의 kind registry)로 검증해 원자 교체로 쓴다. 검증에 실패하면 파일은 그대로다"
       - "쓰기가 실패하면 파일은 그대로다. renderer는 결과를 무시한다"
     uses: [ipc:shell:global-floats-save]
     outcomes:
@@ -1387,6 +1388,7 @@ flows:
       - "Desktop에 전역 float 층이 붙을 때 store.load가 shell:global-floats-read로 목록을 읽는다"
       - "처음 읽기 전에 바뀐 것은 읽은 목록 위에 얹는다"
       - "읽기가 실패하면(forbidden 포함) 빈 목록으로 시작한다"
+      - "main은 판 2 파일의 float을 하나씩 검증해 모르는 kind나 틀린 탭은 그 float만 뺀다. renderer는 kind의 fromStored로 탭을 되살린다(터미널은 layout 복원과 같다)"
     uses: [ipc:shell:global-floats-read]
     outcomes:
       - id: loaded

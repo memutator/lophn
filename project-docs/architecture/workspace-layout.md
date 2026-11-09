@@ -57,13 +57,17 @@ workspace 창(Home, project, 앱)이 가진 탭이 어디에 있는가를 정하
  native overlay 층 (main/app-frame/view-order.ts viewOrder, 창마다 하나)
    browser native popup·DevTools는 main/browser/view-order.ts가 card 화면 < floated 화면 순으로 쌓고, overlay가 그 위다
 
- 전역 float (renderer/shell/global-floats/. workspace를 넘는 앱 panel 화면. `Desktop`의 `GlobalFloatsProvider`가 상태를, `GlobalFloatLayer`가 층을 맡는다)
-   desktop/main.tsx ── {space} 옆에 `GlobalFloatLayer` (project·Home·앱·Settings 공간만. detached 창·앱 전용 창·연결 화면(HomeGate)에는 없다)
+ 전역 float (renderer/shell/global-floats/. workspace를 넘는 떠 있는 탭(noDetach가 아닌 kind 어느 것이든). `Desktop`의 `GlobalFloatsProvider`가 상태를, `GlobalFloatLayer`가 층을 맡는다)
+   desktop/main.tsx ── {space} 옆에 `GlobalFloatLayer` (project·Home·앱·Settings 공간만. detached 창·앱 전용 창·연결 화면(HomeGate)에는 없다). `env`로 source·editor·terminal·agentViewSource·apps를 받는다
    층은 자기 `<webview>` 그릇(`createWebviewHost`)과 `ViewKeeps`를 들고 `FloatLayer`로 그린다. 창마다 하나라 `WorkspaceWindow`가 다시 mount돼도 page는 다시 load되지 않는다
+   float마다 탭이 나온 workspace(`WorkspaceRef`)를 지닌다. 본문(`GlobalFloatBody`)이 그 workspace로 `useTabHostSlices`를 불러 TabHost를 만들고 kind의 `keep`/`render`를 부른다(detached 창의 `DetachedTab`과 같은 방식). 그릇과 보관소는 층 것을 `pool`로 넘긴다
    z-index = --z-sheet + --z-sticky. 안에 stacking context가 있어 desk float(--z-sticky + 2L+1)보다 늘 위이고 menu·dialog(--z-backdrop 이상) 아래다
-   저장: shell:global-floats-read|save ─▶ main/workspace/global-floats.ts ── <data>/shell/global-floats.json { schema_version: 1, floats: [{ app, screen, rect, minimized, pinned? }] } (최대 20, 아래에서 위 순서. 없거나 틀리면 빈 목록)
-   float bar 단추 ─▶ desk float ↔ 전역 float (rect·접힘·pin을 그대로 옮긴다. 옮기면 그릇이 달라 page를 다시 load한다)
-
+   저장: shell:global-floats-read|save ─▶ main/workspace/global-floats.ts ── <data>/shell/global-floats.json { schema_version: 2, floats: [{ workspace: {kind: home|project|app, id?}, tab: <kind.toStored 값. layout 파일의 탭과 같다>, rect, minimized, pinned? }] } (최대 20, 아래에서 위 순서. 없거나 다른 판이면 빈 목록이고, 모르는 kind·틀린 탭은 그 float만 빠진다)
+   판 1(`{ app, screen, rect, ... }`)은 core의 data step `shell.global-floats-tabs`(`wiring/global-floats-tabs.ts`)가 앱 panel 탭(workspace Home)으로 옮긴다
+   float bar 단추(globe) ─▶ desk float ↔ 전역 float. 단추는 `canGoGlobal`(kind가 noDetach·`noGlobal`이 아니고 `toStored`가 있는 탭)인 desk float에만 있다. 같은 창 안의 이동이라 main을 거치지 않고 kind의 `transfer`/`receive`를 직접 부른다
+     desk → 전역: `floatToGlobal`이 `transfer`를 받아 `GlobalFloatsApi.add`로 올리고(전역 key는 앱 panel이 `global:<app>:<screen>`, 나머지는 탭 key 그대로. transfer는 맡겨 두었다가 본문이 처음 그리기 전에 한 번 `receive`한다) 성공하면 desk에서 닫는다. rect·접힘·pin을 그대로 옮긴다. 옮기면 그릇이 달라 page를 다시 load한다
+     전역 → desk: `moveToDesk`가 본문이 알려 둔 host로 `transfer`를 받고, 받는 창의 `DeskTarget.take`(`globalToFloat`)가 float으로 놓으며 그 창의 host로 `receive`한다. 단추는 그 desk로 올 수 있을 때만 있다: kind가 `anyWorkspace`(app_panel, browser, document_editor)이거나 float의 workspace가 지금 창의 workspace일 때다(terminal은 project 폴더, agent·artifact·search·workflow는 workspace에 묶여서 다른 workspace desk로는 오지 못한다)
+     전역 float 본문이 `openTab`/`openFloat`를 부르면(파일 링크 등) 같은 workspace의 새 전역 float이 된다. `patchTab`은 전역 store의 탭을 고치고 저장한다. 닫기는 kind의 `beforeClose`(터미널 종료 확인, 파일 저장 확인)를 거친다
  작업 표시줄 (shell-frame.tsx의 `taskbar` slot ─▶ `<footer data-taskbar>`, `.shell`의 마지막 줄. workspace 창이 설정 `shell.taskbar`가 true일 때만 채운다)
    왼쪽 끝 ── 빠른 실행(`taskbarStart` slot, 폭은 열린 왼쪽 sidebar 폭 이상)
    그다음 shell/taskbar/float-chips.tsx ── tab 영역 왼쪽 끝 x에서 시작. 전역 float chip 먼저, 그 뒤 지금 desk의 float chip. 4개를 넘으면 +N menu. 눌린 chip = 펴진 float
@@ -199,7 +203,7 @@ workspace 창이 읽고 쓰는 저장과 model이다. 옛 project layout 파일(
 - **겹치는 패널은 `<webview>` 위에 그린다.** native view 때는 화면이 DOM 위에 그려져 겹치는 동안 view를 cover로 줄여야 했다. 앱·artifact 화면은 DOM(`<webview>`)이라 패널이 그 위에 바로 겹친다. 버린 안: 겹치는 동안 마지막 `capturePage` 그림을 보이기(page가 멈춘다), DOM 패널도 native view로 띄우기(패널마다 shell renderer 하나라 가장 크다). 잃는 것은 없다. 밑의 page가 패널에 가려진 채 계속 돈다.
 - **view 보관소는 renderer에 둔다.** `<webview>` element는 창의 그릇이 들고 view_session·state는 `ViewKeeps`가 든다. main registry가 이미 view와 붙은 guest를 구분하므로 새 IPC가 필요 없다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 layout에 없으면 닫는다.
 - **전역 float 층은 `WorkspaceWindow` 밖 `Desktop`에 둔다.** `<webview>` 그릇이 `WorkspaceWindow`마다 새로 생겨서(workspace를 바꾸면 창 본문이 다시 mount된다) 그 안에 두면 workspace를 옮길 때 page가 다시 load된다. 층을 `{space}` 옆에 두고 그릇과 view 보관소를 층이 들면 workspace를 넘어 page가 산다. 저장을 workspace layout 파일 밖에 둔 까닭은 한 float이 어느 workspace에도 속하지 않아서다(layout 파일은 workspace마다 하나라 거기 두면 workspace 수만큼 복사본이 생긴다).
-- **전역 float은 앱 panel 화면만 된다.** 파일, 터미널, session 탭은 project나 workspace의 것이라 다른 workspace에서 열면 뜻이 없다. 앱 화면은 workspace를 인자로 받으므로(`usePlace().workspace`) 어느 workspace에서도 그릴 수 있고, 전역 float은 workspace를 주지 않아 "어느 workspace에도 묶이지 않는 화면"으로 연다.
+- **전역 float은 어느 kind든 되고, 탭이 나온 workspace를 지닌다.** 전역 float은 workspace를 넘어 보이지만 탭의 내용(터미널의 cwd와 PTY, agent의 workspace, 파일의 folder)은 나온 workspace의 것이다. 그래서 본문을 그 workspace의 통로로 그린다. 앱 panel만 예외로 workspace를 주지 않는다(`AppWorkspaceProvider` 없이 연다. 앱 panel은 어느 workspace에도 묶이지 않는 화면이고, 같은 앱·화면은 전역 float 하나라 빠른 실행이 있는 것을 펼친다). 다른 workspace의 desk로 돌아올 수 있는지는 kind가 정한다(`anyWorkspace`). browser의 native popup(opener view)은 창 밖으로 옮길 수 없어 `noGlobal`이다. 터미널의 `receive`는 같은 창 store가 이미 같은 runtime을 가졌으면 `adopt`하지 않는다(phase를 opening으로 되돌려 붙어 있는 display가 멈춘다). 전역 float인 터미널의 display는 그 workspace 창의 `displays.retain`이 같이 쥔다(창을 떠나도 전역 층이 그리고 있다). 전역 float의 제목 줄 아이콘과 상태 점은 본문의 slice 없이 읽어 agent의 profile 아이콘과 상태 점은 없다.
 - **작업 표시줄은 몸통 밖 줄이다.** 몸통 안에 두면 floats 층(title bar 아래 몸통 전체)이 덮고 stage 아래 여백과 겹친다. `.shell`의 마지막 줄로 두면 float이 닿지 않고 chip을 늘 누를 수 있다. 접힌 float과 전역 float을 한 곳에서 보이려는 줄이라 이름이 보이고, 줄이 필요 없는 사람은 끌 수 있다(끄면 chip은 옛 자리인 tab 줄 끝이다).
 - **오른쪽 sidebar의 열림을 workspace마다 기억한다(사람).** 오른쪽은 workspace마다 쓰임이 달라(project Files, Home Workspaces, 앱 Logs) 한 workspace에서 접은 것이 다른 workspace의 모양을 정하면 어색하다. 왼쪽은 어느 workspace에서나 같은 목록이라 하나로 둔다. 폭은 사람이 끌어 맞춘 값이라 쪽마다 하나다.
 - **옛 layout 파일(판 1~7)은 읽지 않는다.** 새로 시작한다(AGENTS.md "호환성", 사람이 결정).

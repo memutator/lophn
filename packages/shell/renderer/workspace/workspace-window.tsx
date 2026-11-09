@@ -19,6 +19,7 @@ import {
   type DetachedEvent,
   type LophnDetachedApi,
   slimDetachedTab,
+  type TabTransfer,
 } from "../../ipc/detached.ts";
 import { APP_PANEL, type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
 import { AppWorkspaceProvider } from "../app-frame/app-views.tsx";
@@ -125,6 +126,7 @@ import {
 } from "../shell/tabs-close-dialog.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
 import {
+  canGoGlobal,
   type GlobalFloatView,
   useGlobalFloats,
 } from "../shell/global-floats/global-floats.tsx";
@@ -440,6 +442,19 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const { prefs: quickPrefs, set: setQuickPrefs } = useQuickPrefs();
   // 모든 workspace에 사는 전역 float. 앱 panel 화면을 desk float과 서로 옮기고, QuickLaunch가 있는 것을 펼친다.
   const globalFloats = useGlobalFloats();
+  // 이 workspace에서 나온 터미널 중 전역 float이 된 것의 key. 문자열로 접어 float이 움직여도 다시 돌지 않게 한다.
+  const globalTerminalList = globalFloats.floats
+    .filter(
+      (item) =>
+        item.tab.kind === "terminal" &&
+        workspaceKey(item.workspace) === workspaceId,
+    )
+    .map((item) => item.key)
+    .join("\n");
+  const globalTerminals = useMemo(
+    () => (globalTerminalList === "" ? [] : globalTerminalList.split("\n")),
+    [globalTerminalList],
+  );
   // 앱 panel 화면 탭의 여는 자리와 마지막 float 자리. 앱을 아직 고르지 않은 탭과 다른 kind는 없다.
   const launchOf = (tab: TabItem | undefined) =>
     tab?.kind === "app_panel" &&
@@ -672,10 +687,28 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         .filter((tab) => tab.kind === "terminal")
         .map((tab) => tab.key),
     );
-    props.terminal?.displays.retain(workspaceId, terminals);
-  }, [layout, keeps, webviews, props.terminal, workspaceId, readyWorkspace]);
+    props.terminal?.displays.retain(
+      workspaceId,
+      new Set([...terminals, ...globalTerminals]),
+    );
+  }, [
+    layout,
+    keeps,
+    webviews,
+    props.terminal,
+    workspaceId,
+    readyWorkspace,
+    globalTerminals,
+  ]);
+  // 전역 float이 된 터미널의 화면은 이 workspace를 떠나도 전역 층이 그리고 있어 놓지 않는다.
+  const globalTerminalsRef = useRef(globalTerminals);
+  globalTerminalsRef.current = globalTerminals;
   useEffect(
-    () => () => props.terminal?.displays.retain(workspaceId, new Set()),
+    () => () =>
+      props.terminal?.displays.retain(
+        workspaceId,
+        new Set(globalTerminalsRef.current),
+      ),
     [props.terminal, workspaceId],
   );
   // 떠나면 남은 것을 모두 닫는다. 자식의 cleanup이 부모 뒤에 보관하므로 한 틱 미룬다.
@@ -1560,39 +1593,42 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         : clampFloatRect(remembered, stageSize);
     update((item) => floatTab(item, key, rect));
   };
-  // desk의 앱 panel float을 전역 float로 옮긴다. rect, 접힘, pin을 그대로 가져가고 desk에서는 닫는다. 전역 float이 상한이면
-  // 옮기지 않아 desk float이 사라지지 않는다.
-  const floatToGlobal = (key: string) => {
+  // desk의 float을 전역 float로 옮긴다. rect, 접힘, pin을 그대로 가져가고 desk에서는 닫는다. 순서는 transfer, 전역 float 더하기,
+  // 성공했을 때만 desk에서 닫기다. 전역 float이 상한이거나 transfer가 거절하면 desk float은 그대로다.
+  const floatToGlobal = async (key: string) => {
+    const first = latestDesk().floats.find((float) => float.tab.key === key);
+    if (first === undefined || !canGoGlobal(first.tab)) return;
+    const def = tabKindOf(first.tab.kind);
+    const transfer = (await def?.transfer?.(first.tab, hostRef.current)) ?? {
+      value: null,
+      views: [],
+    };
+    if (transfer === null) return;
+    // transfer가 탭을 바꿨을 수 있고 그 사이 float이 닫혔을 수 있다.
     const item = latestDesk().floats.find((float) => float.tab.key === key);
-    const { app, screen } = item?.tab ?? {};
-    if (
-      item === undefined ||
-      item.tab.kind !== "app_panel" ||
-      app === undefined ||
-      screen === undefined
-    ) {
-      return;
-    }
+    if (item === undefined) return;
     const moved = globalFloats.add({
-      app,
-      screen,
+      tab: withPosition(item.tab),
+      workspace,
       rect: item.rect,
       minimized: item.minimized,
       pinned: item.pinned,
       title: item.tab.title,
+      transfer,
     });
     if (moved) update((d) => closeFloat(d, key));
   };
-  // 전역 float을 이 desk의 float으로 옮긴다. 이 창의 desk에 더 둘 수 없으면 false다.
-  const globalToFloat = (float: GlobalFloatView): boolean => {
+  // 전역 float을 이 desk의 float으로 옮긴다. 이 창의 desk에 더 둘 수 없으면 false다. 앱 panel만 key를 새로 짓는다
+  // (전역 key는 앱·화면으로 정해져 있다). 받는 쪽 `receive`는 이 desk의 TabHost로 부른다.
+  const globalToFloat = (
+    float: GlobalFloatView,
+    transfer: TabTransfer,
+  ): boolean => {
     if (stageSize === undefined) return false;
-    const tab: TabItem = {
-      key: newKey(),
-      kind: "app_panel",
-      title: float.title,
-      app: float.app,
-      screen: float.screen,
-    };
+    const tab: TabItem =
+      float.tab.kind === "app_panel"
+        ? { ...float.tab, key: newKey(), title: float.title }
+        : float.tab;
     const place = (d: Desk) => {
       const opened = openFloatTab(
         d,
@@ -1603,6 +1639,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       return float.minimized ? minimizeFloat(pinned, tab.key) : pinned;
     };
     if (place(latestDesk()) === latestDesk()) return false;
+    tabKindOf(tab.kind)?.receive?.(tab, transfer, hostRef.current);
     update(place);
     return true;
   };
@@ -1610,8 +1647,12 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   globalToFloatRef.current = globalToFloat;
   const { registerDesk } = globalFloats;
   useEffect(
-    () => registerDesk((float) => globalToFloatRef.current(float)),
-    [registerDesk],
+    () =>
+      registerDesk({
+        workspace,
+        take: (float, transfer) => globalToFloatRef.current(float, transfer),
+      }),
+    [registerDesk, workspaceId],
   );
   usePaletteScope(() =>
     workspaceScope({
@@ -2711,7 +2752,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     key: item.key,
     title: t("shell.label.global-float", { title: item.title }),
     label: item.title,
-    icon: <AppTabIcon app={item.app} />,
+    icon: iconOfTab(item.tab),
   }));
   const pressedChips = [
     ...globalFloats.floats.map((item) => ({
@@ -2990,9 +3031,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                         dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
                         rect: item.rect,
                         pinned: item.pinned,
-                        ...(item.tab.kind === "app_panel" &&
-                        item.tab.screen !== undefined &&
-                        globalFloats.enabled
+                        ...(globalFloats.enabled && canGoGlobal(item.tab)
                           ? { global: false }
                           : {}),
                         ...(item.tab.kind === "app_panel"

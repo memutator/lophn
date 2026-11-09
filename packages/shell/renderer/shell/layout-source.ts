@@ -136,7 +136,7 @@ function readPosition(value: unknown): TabItem["readPosition"] {
 }
 
 /** 등록되지 않은 kind거나 맞출 수 없으면 null이다. */
-function tabFromStored(value: unknown): TabItem | null {
+export function tabFromStored(value: unknown): TabItem | null {
   if (typeof value !== "object" || value === null) return null;
   const tab = value as Record<string, unknown>;
   const kind = tabKindOf(tab.kind);
@@ -154,7 +154,7 @@ function tabFromStored(value: unknown): TabItem | null {
   });
 }
 
-function tabToStored(tab: TabItem): Record<string, unknown> | null {
+export function tabToStored(tab: TabItem): Record<string, unknown> | null {
   if (tab.transient === true) return null;
   return (
     tabKindOf(tab.kind)?.toStored(tab, {

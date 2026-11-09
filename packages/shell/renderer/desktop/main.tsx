@@ -517,8 +517,18 @@ export function Desktop({
             >
               <WorkspaceViewsProvider>
                 {space}
-                {globalFloats ? (
-                  <GlobalFloatLayer onOpenApp={apps ? appSpace : undefined} />
+                {globalFloats && workspace ? (
+                  <GlobalFloatLayer
+                    env={{
+                      source: workspace,
+                      editor,
+                      terminal,
+                      agentViewSource,
+                      apps,
+                      onOpenApp: apps ? appSpace : undefined,
+                      onSettings: settingsSpace,
+                    }}
+                  />
                 ) : null}
                 <TrayPopupLayer memory={trayMemory} />
               </WorkspaceViewsProvider>

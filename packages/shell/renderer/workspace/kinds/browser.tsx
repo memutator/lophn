@@ -57,6 +57,8 @@ export const browserKind: TabKindDef = {
   kind: "browser",
   labelKey: "browser.label.kind",
   icon: browserIcons.globe,
+  anyWorkspace: true,
+  noGlobal: (tab) => tab.fields?.native === true,
   // page favicon(main이 준 data URL). 접힌 float과 다른 desk의 탭은 mount하지 않아 이 값이 유일한
   // 출처라 layout에 저장하고, BrowserTab이 다시 mount될 때 이어 받으며, 접힌 동안 온 favicon은
   // WorkspaceWindow가 받아 적는다.

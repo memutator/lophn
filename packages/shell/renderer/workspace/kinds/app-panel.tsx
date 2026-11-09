@@ -59,6 +59,7 @@ export const appPanelKind: TabKindDef = {
   kind: "app_panel",
   labelKey: "project-workspace.label.kind-app-panel",
   icon: workspaceIcons.appPanel,
+  anyWorkspace: true,
   // 앱이 선언한 icon이 있으면 그것이다. 저장하지 않고 그릴 때 읽는다.
   iconOf: (tab) => <AppTabIcon app={tab.app} />,
   fromStored(stored, { key }) {

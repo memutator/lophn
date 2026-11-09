@@ -299,7 +299,15 @@ export const terminalKind: TabKindDef = {
       typeof moved.generation !== "number"
     )
       return;
-    host.props.terminal?.store.adopt(tab.key, {
+    const store = host.props.terminal?.store;
+    // 같은 창 안에서 옮길 때(전역 float)는 store가 이미 이 runtime을 가졌다. adopt가 phase를 opening으로 되돌리면 붙어 있는 display가 다시 snapshot을 받지 않아 멈춘다.
+    const have = store?.get(tab.key);
+    if (
+      have?.terminalRef === moved.terminal_ref &&
+      have.generation === moved.generation
+    )
+      return;
+    store?.adopt(tab.key, {
       terminalRef: moved.terminal_ref,
       generation: moved.generation,
       folderRef: typeof moved.folder_ref === "string" ? moved.folder_ref : null,

@@ -1,6 +1,6 @@
-// 전역 float(workspace를 넘는 앱 panel 화면) 목록과 그 조작. Desktop 창에 하나이고, workspace 창(WorkspaceWindow)은
+// 전역 float(workspace를 넘는 떠 있는 탭) 목록과 그 조작. Desktop 창에 하나이고, workspace 창(WorkspaceWindow)은
 // 이 목록을 읽어 tab 줄에 chip을 그리고 desk float과 서로 옮긴다. <webview> 그릇과 view 보관소를 여기서 들고 있어서
-// workspace 창이 다시 mount돼도 전역 float의 page는 남는다.
+// workspace 창이 다시 mount돼도 전역 float의 page는 남는다. 탭은 나온 workspace를 지니고 그 workspace의 통로로 그려진다.
 
 import { t } from "@lophn/i18n";
 import {
@@ -15,6 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import type { TabTransfer } from "../../../ipc/detached.ts";
 import { useAppViews } from "../../app-frame/app-views.tsx";
 import { useOptionalEventClient } from "../../desktop/connection/events/hooks.tsx";
 import { createViewKeeps, type ViewKeeps } from "../../app-frame/view-keeps.ts";
@@ -22,8 +23,13 @@ import {
   createWebviewHost,
   type WebviewHost,
 } from "../../app-frame/webview-host.tsx";
+import type { TabHost } from "../../workspace/kinds/host.ts";
+import { tabKindOf } from "../../workspace/kinds/registry.ts";
+import type { TabItem } from "../../workspace/model.ts";
 import {
   closeFloat,
+  type Desk,
+  emptyDesk,
   type FloatRect,
   minimizeFloat,
   minimizeLooseFloats,
@@ -31,7 +37,10 @@ import {
   pinFloat,
   restoreFloat,
   setFloatRect,
+  type WorkspaceRef,
+  workspaceKey,
 } from "../desk-model.ts";
+import { tabToStored } from "../layout-source.ts";
 import {
   createGlobalFloatsStore,
   type GlobalFloatsBridge,
@@ -40,35 +49,71 @@ import {
 } from "./store.ts";
 
 export interface GlobalFloatView {
-  /** chip과 패널이 쓰는 key. `global:<app>:<screen>`이다. */
+  /** chip과 패널이 쓰는 key. 앱 panel은 `global:<app>:<screen>`이고 다른 kind는 탭 key 그대로다. */
   readonly key: string;
-  readonly app: string;
-  readonly screen: string;
-  /** 앱 이름. 읽기 전에는 일반 이름이다. */
+  readonly tab: TabItem;
+  /** 탭이 나온 workspace. 본문은 이 workspace의 통로로 그린다. */
+  readonly workspace: WorkspaceRef;
+  /** 앱 panel은 앱 이름(읽기 전에는 일반 이름), 다른 kind는 탭 이름이다. */
   readonly title: string;
   readonly rect: FloatRect;
   readonly minimized: boolean;
   readonly pinned: boolean;
 }
 
-/** workspace 창이 전역 float을 받아 자기 desk의 float으로 만든다. 못 만들면 false다. */
-export type DeskMover = (float: GlobalFloatView) => boolean;
+/** 전역 float을 받는 workspace 창. `take`는 float을 자기 desk의 float으로 만든다. 못 만들면 false다. */
+export interface DeskTarget {
+  readonly workspace: WorkspaceRef;
+  take(float: GlobalFloatView, transfer: TabTransfer): boolean;
+}
+
+/**
+ * 전역 float으로 올릴 수 있는 탭인지. kind가 Detach를 막거나(`noDetach`) 이 탭만 막거나(`noGlobal`), layout 파일로
+ * 저장하지 못하는 탭(앱을 아직 고르지 않은 앱 panel)이면 아니다.
+ */
+export function canGoGlobal(tab: TabItem): boolean {
+  const def = tabKindOf(tab.kind);
+  return (
+    def !== undefined &&
+    def.noDetach !== true &&
+    def.noGlobal?.(tab) !== true &&
+    tab.transient !== true &&
+    tabToStored(tab) !== null
+  );
+}
 
 export interface GlobalFloatsApi {
   /** false면 전역 float을 쓰지 않는다(Provider 없음, detached 창, 앱 전용 창). */
   readonly enabled: boolean;
   /** 아래에서 위 순서. 마지막이 맨 위다. */
   readonly floats: readonly GlobalFloatView[];
+  /** floats만 가진 desk. 본문의 TabHost가 `desk`로 읽는다. */
+  readonly desk: Desk;
+  /** 앱 panel 화면의 전역 float. */
   find(app: string, screen: string): GlobalFloatView | undefined;
-  /** 앱 panel 화면을 전역 float로 만든다. 같은 화면이 이미 있으면 바꿔 맨 위에 둔다. 못 만들면(상한) false다. */
+  /**
+   * 탭을 전역 float로 만든다. 앱 panel은 같은 화면이 이미 있으면 바꿔 맨 위에 두고, 다른 kind는 같은 key가 있으면 그것을
+   * 바꾼다. 못 만들면(상한) false다. `transfer`는 본문이 처음 그리기 전에 한 번 `receive`로 받는다.
+   */
   add(float: {
-    app: string;
-    screen: string;
+    tab: TabItem;
+    workspace: WorkspaceRef;
     rect: FloatRect;
     minimized: boolean;
     pinned: boolean;
+    /** 앱 panel의 앱 이름. */
     title?: string;
+    transfer?: TabTransfer;
   }): boolean;
+  /** key의 탭 필드를 바꾸고 저장한다. */
+  patch(
+    key: string,
+    patch: Partial<TabItem> | ((current: TabItem) => Partial<TabItem>),
+  ): void;
+  /** `add`가 맡긴 transfer를 꺼낸다(한 번만). */
+  takeTransfer(key: string): TabTransfer | undefined;
+  /** 본문이 자기 TabHost를 알린다(transfer와 닫기 확인이 쓴다). 돌려주는 함수로 푼다. */
+  registerHost(key: string, host: () => TabHost): () => void;
   /** 펼쳐 맨 위로 올린다. */
   expand(key: string): void;
   minimize(key: string): void;
@@ -76,13 +121,16 @@ export interface GlobalFloatsApi {
   toggle(key: string): void;
   pin(key: string, pinned: boolean): void;
   setRect(key: string, rect: FloatRect): void;
+  /** kind의 닫기 확인(`beforeClose`)을 거친다. 사람이 취소하면 그대로다. */
   close(key: string): void;
+  /** 확인 없이 뺀다(본문이 자기 탭을 지우는 길). */
+  remove(key: string): void;
   /** 고정 안 한 펼친 것을 모두 접는다(`inside`는 남긴다). 바깥을 눌렀을 때다. */
   minimizeLoose(inside?: string): void;
   /** workspace 창이 자기 desk로 받는 길을 등록한다. 돌려주는 함수로 푼다. */
-  registerDesk(mover: DeskMover): () => void;
-  /** 받는 workspace 창이 있어 "이 desk로"가 가능하다. */
-  readonly canMoveToDesk: boolean;
+  registerDesk(target: DeskTarget): () => void;
+  /** 받는 workspace 창이 있고 이 float이 그 desk로 올 수 있다("이 desk로"). */
+  canMoveToDesk(float: GlobalFloatView): boolean;
   moveToDesk(key: string): void;
 }
 
@@ -95,17 +143,22 @@ export interface GlobalFloatsHost {
 const NONE: GlobalFloatsApi = {
   enabled: false,
   floats: [],
+  desk: emptyDesk("global", "Global"),
   find: () => undefined,
   add: () => false,
+  patch: () => {},
+  takeTransfer: () => undefined,
+  registerHost: () => () => {},
   expand: () => {},
   minimize: () => {},
   toggle: () => {},
   pin: () => {},
   setRect: () => {},
   close: () => {},
+  remove: () => {},
   minimizeLoose: () => {},
   registerDesk: () => () => {},
-  canMoveToDesk: false,
+  canMoveToDesk: () => false,
   moveToDesk: () => {},
 };
 
@@ -134,17 +187,26 @@ export function GlobalFloatsProvider({
   const appViews = useAppViews();
   const [store] = useState(() => createGlobalFloatsStore(bridge));
   const state = useSyncExternalStore(store.subscribe, store.get);
-  const moverRef = useRef<DeskMover | null>(null);
-  const [canMove, setCanMove] = useState(false);
-  const registerDesk = useCallback((run: DeskMover) => {
-    moverRef.current = run;
-    setCanMove(true);
+  const targetRef = useRef<DeskTarget | null>(null);
+  // 받는 창이 있는지와 그 창의 workspace. 바뀌면 "이 desk로" 단추가 따라 바뀐다.
+  const [deskWorkspace, setDeskWorkspace] = useState<string | null>(null);
+  const registerDesk = useCallback((target: DeskTarget) => {
+    targetRef.current = target;
+    setDeskWorkspace(workspaceKey(target.workspace));
     return () => {
-      if (moverRef.current !== run) return;
-      moverRef.current = null;
-      setCanMove(false);
+      if (targetRef.current !== target) return;
+      targetRef.current = null;
+      setDeskWorkspace(null);
     };
   }, []);
+  const hostsRef = useRef(new Map<string, () => TabHost>());
+  const registerHost = useCallback((key: string, host: () => TabHost) => {
+    hostsRef.current.set(key, host);
+    return () => {
+      if (hostsRef.current.get(key) === host) hostsRef.current.delete(key);
+    };
+  }, []);
+  const transfers = useRef(new Map<string, TabTransfer>());
   const webviews = useMemo(createWebviewHost, []);
   const closeViewRef = useRef<(session: string) => void>(() => {});
   closeViewRef.current = (session) =>
@@ -174,9 +236,18 @@ export function GlobalFloatsProvider({
       if (message.kind !== "event" || message.event.type !== "AppRemoved")
         return;
       const removed = message.event.subject;
+      const workspaces = store.get().workspaces;
       store.commit((desk) =>
         desk.floats
-          .filter((item) => item.tab.app === removed)
+          .filter((item) => {
+            const from = workspaces[item.tab.key];
+            return (
+              ((item.tab.kind === "app_panel" ||
+                item.tab.kind === "app_screen") &&
+                item.tab.app === removed) ||
+              (from?.kind === "app" && from.id === removed)
+            );
+          })
           .reduce((next, item) => closeFloat(next, item.tab.key), desk),
       );
     });
@@ -186,7 +257,7 @@ export function GlobalFloatsProvider({
   const asked = useRef(new Set<string>());
   useEffect(() => {
     for (const item of state.desk.floats) {
-      const app = item.tab.app;
+      const app = item.tab.kind === "app_panel" ? item.tab.app : undefined;
       if (app === undefined || asked.current.has(app)) continue;
       asked.current.add(app);
       void appViews?.app(app).then((read) => {
@@ -215,51 +286,88 @@ export function GlobalFloatsProvider({
   );
 
   const api = useMemo<GlobalFloatsApi>(() => {
-    const floats = state.desk.floats.flatMap((item): GlobalFloatView[] =>
-      item.tab.app === undefined || item.tab.screen === undefined
-        ? []
-        : [
-            {
-              key: item.tab.key,
-              app: item.tab.app,
-              screen: item.tab.screen,
-              title:
-                state.names[item.tab.app] ??
-                t("project-workspace.label.kind-app-panel"),
-              rect: item.rect,
-              minimized: item.minimized,
-              pinned: item.pinned,
-            },
-          ],
+    const floats = state.desk.floats.map(
+      (item): GlobalFloatView => ({
+        key: item.tab.key,
+        tab: item.tab,
+        workspace: state.workspaces[item.tab.key] ?? { kind: "home" },
+        title:
+          item.tab.kind === "app_panel" && item.tab.app !== undefined
+            ? (state.names[item.tab.app] ??
+              t("project-workspace.label.kind-app-panel"))
+            : item.tab.title,
+        rect: item.rect,
+        minimized: item.minimized,
+        pinned: item.pinned,
+      }),
     );
-    const act = (change: Parameters<typeof store.commit>[0]) => {
-      store.commit(change);
+    const act = (
+      change: Parameters<typeof store.commit>[0],
+      attach?: Parameters<typeof store.commit>[1],
+    ) => {
+      store.commit(change, attach);
     };
+    const closeNow = (key: string) => act((desk) => closeFloat(desk, key));
     return {
       enabled: true,
       floats,
+      desk: state.desk,
       find: (app, screen) =>
-        floats.find((item) => item.app === app && item.screen === screen),
+        floats.find(
+          (item) =>
+            item.tab.kind === "app_panel" &&
+            item.tab.app === app &&
+            item.tab.screen === screen,
+        ),
       add(input) {
-        const key = globalKey(input.app, input.screen);
-        if (input.title !== undefined) store.setName(input.app, input.title);
-        const next = store.commit((desk) => {
-          let moved = openFloatTab(
-            closeFloat(desk, key),
-            {
-              key,
-              kind: "app_panel",
-              title: "",
-              app: input.app,
-              screen: input.screen,
-            },
-            input.rect,
-          );
-          if (input.pinned) moved = pinFloat(moved, key, true);
-          return input.minimized ? minimizeFloat(moved, key) : moved;
-        });
-        return next.floats.some((item) => item.tab.key === key);
+        const panel =
+          input.tab.kind === "app_panel" &&
+          input.tab.app !== undefined &&
+          input.tab.screen !== undefined
+            ? { app: input.tab.app, screen: input.tab.screen }
+            : null;
+        const key =
+          panel === null ? input.tab.key : globalKey(panel.app, panel.screen);
+        const tab: TabItem = { ...input.tab, key };
+        if (panel !== null && input.title !== undefined) {
+          store.setName(panel.app, input.title);
+        }
+        if (input.transfer !== undefined) {
+          transfers.current.set(key, input.transfer);
+        }
+        const next = store.commit(
+          (desk) => {
+            let moved = openFloatTab(closeFloat(desk, key), tab, input.rect);
+            if (input.pinned) moved = pinFloat(moved, key, true);
+            return input.minimized ? minimizeFloat(moved, key) : moved;
+          },
+          { key, workspace: input.workspace },
+        );
+        const added = next.floats.some((item) => item.tab.key === key);
+        if (!added) transfers.current.delete(key);
+        return added;
       },
+      patch: (key, patch) =>
+        act((desk) => ({
+          ...desk,
+          floats: desk.floats.map((item) =>
+            item.tab.key === key
+              ? {
+                  ...item,
+                  tab: {
+                    ...item.tab,
+                    ...(typeof patch === "function" ? patch(item.tab) : patch),
+                  },
+                }
+              : item,
+          ),
+        })),
+      takeTransfer(key) {
+        const found = transfers.current.get(key);
+        transfers.current.delete(key);
+        return found;
+      },
+      registerHost,
       expand: (key) => act((desk) => restoreFloat(desk, key)),
       minimize: (key) => act((desk) => minimizeFloat(desk, key)),
       toggle: (key) =>
@@ -270,19 +378,46 @@ export function GlobalFloatsProvider({
         ),
       pin: (key, pinned) => act((desk) => pinFloat(desk, key, pinned)),
       setRect: (key, rect) => act((desk) => setFloatRect(desk, key, rect)),
-      close: (key) => act((desk) => closeFloat(desk, key)),
+      close(key) {
+        const item = floats.find((float) => float.key === key);
+        const host = hostsRef.current.get(key)?.();
+        const confirm =
+          item === undefined || host === undefined
+            ? null
+            : tabKindOf(item.tab.kind)?.beforeClose?.(item.tab, host);
+        if (!confirm) closeNow(key);
+        else void confirm.then((close) => close && closeNow(key));
+      },
+      remove: closeNow,
       minimizeLoose: (inside) =>
         act((desk) => minimizeLooseFloats(desk, inside)),
       registerDesk,
-      canMoveToDesk: canMove,
-      moveToDesk(key) {
+      canMoveToDesk: (float) =>
+        deskWorkspace !== null &&
+        (tabKindOf(float.tab.kind)?.anyWorkspace === true ||
+          workspaceKey(float.workspace) === deskWorkspace),
+      async moveToDesk(key) {
         const float = floats.find((item) => item.key === key);
-        if (float !== undefined && moverRef.current?.(float)) {
-          act((desk) => closeFloat(desk, key));
+        const target = targetRef.current;
+        if (float === undefined || target === null) return;
+        const def = tabKindOf(float.tab.kind);
+        const host = hostsRef.current.get(key)?.();
+        const transfer =
+          def?.transfer !== undefined && host !== undefined
+            ? await def.transfer(float.tab, host)
+            : { value: null, views: [] };
+        if (transfer === null) return;
+        // transfer가 탭을 바꿨을 수 있고 그 사이 float이 닫혔을 수 있다.
+        const current = store
+          .get()
+          .desk.floats.find((item) => item.tab.key === key);
+        if (current === undefined) return;
+        if (target.take({ ...float, tab: current.tab }, transfer)) {
+          closeNow(key);
         }
       },
     };
-  }, [state, store, canMove, registerDesk]);
+  }, [state, store, deskWorkspace, registerDesk, registerHost]);
 
   const host = useMemo(() => ({ webviews, keeps }), [webviews, keeps]);
   return (

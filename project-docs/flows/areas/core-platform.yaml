@@ -450,7 +450,7 @@ flows:
     title: "ledger 밖 data root 파일의 data step을 한 번씩 적용한다"
     actor: system
     entries: [system:data-steps-apply]
-    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace]
+    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs]
     boundary: [core]
     code: [packages/core/storage/migration/data-steps.ts, packages/core/main/daemon/core.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
@@ -1376,6 +1376,30 @@ flows:
     risk: [data-loss]
     unclear:
       - "flow.ts는 정규식으로 바꾼다(AST가 아니다). 주석이나 문자열 안의 같은 모양도 바뀔 수 있다"
+
+  - id: shell-global-floats-tabs
+    title: "전역 float 파일을 판 1에서 탭 모양 판 2로 옮긴다(data step)"
+    actor: system
+    entries: [system:shell-global-floats-tabs]
+    boundary: [shell]
+    code: [packages/core/main/daemon/wiring/global-floats-tabs.ts]
+    steps:
+      - "shell/global-floats.json을 읽는다. 없거나 JSON이 깨졌거나 schema_version이 1이 아니면 그대로 둔다"
+      - "판 1의 float(`{app, screen, rect, minimized, pinned?}`)마다 `{workspace: Home, tab: {kind: app_panel, key: global:<app>:<screen>, app, surface: screen}, rect, minimized, pinned?}`를 만든다"
+      - "같은 mode로 temp에 쓰고 rename한다. 다시 돌면 판 2라 아무것도 쓰지 않는다"
+    outcomes:
+      - id: moved
+        observe: ["disk:shell/global-floats.json이 판 2가 됨"]
+        when: "판 1 파일을 판 2로 옮겼다"
+      - id: skipped
+        observe: ["disk:변화 없음"]
+        when: "파일이 없거나 깨졌거나 이미 판 1이 아니다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "읽기나 쓰기가 실패했다"
+    crosses_process: false
+    risk: [data-loss]
 
 links: []
 ignore: []

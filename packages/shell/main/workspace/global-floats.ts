@@ -1,5 +1,6 @@
-// <data>/shell/global-floats.json은 main만 쓴다. workspace와 재시작을 넘는 전역 float(앱 panel 화면)의 접힘, rect, pin이다.
-// workspace layout 파일과 별개다(그 schema는 건드리지 않는다). 파일이 없거나 틀리면 빈 목록이다.
+// <data>/shell/global-floats.json은 main만 쓴다. workspace와 재시작을 넘는 전역 float의 탭, 접힘, rect, pin이다.
+// 탭 값은 workspace layout 파일의 탭과 같다(kind registry가 검증한다). 파일이 없거나 틀리면 빈 목록이다.
+// 판 1(앱 panel만, `{app, screen, ...}`)은 core의 data step `shell.global-floats-tabs`가 판 2로 옮긴다.
 import { join } from "node:path";
 import { z } from "zod";
 
@@ -9,15 +10,26 @@ import {
   type StoreResult,
   writeFileAtomic,
 } from "./atomic-file.ts";
-import { appId } from "./kinds/values.ts";
-import { windowBounds } from "./schema.ts";
+import { idOf } from "./kinds/values.ts";
+import { layoutTabSchema, windowBounds } from "./schema.ts";
 
-export const GLOBAL_FLOATS_SCHEMA_VERSION = 1;
+export const GLOBAL_FLOATS_SCHEMA_VERSION = 2;
 export const GLOBAL_FLOATS_MAX = 20;
 
 const globalFloat = z.strictObject({
-  app: appId,
-  screen: z.string().min(1).max(128),
+  // 탭이 나온 workspace. 본문은 이 workspace의 통로로 그린다(agent 탭 kind의 workspace와 같은 모양).
+  workspace: z.union([
+    z.strictObject({
+      kind: z.literal("project"),
+      id: z.string().refine((value) => idOf("prj", value) !== null),
+    }),
+    z.strictObject({
+      kind: z.literal("app"),
+      id: z.string().refine((value) => idOf("app", value) !== null),
+    }),
+    z.strictObject({ kind: z.literal("home") }),
+  ]),
+  tab: layoutTabSchema,
   // workspace layout의 float rect와 같은 기준(title bar 아래 창 몸통)이다.
   rect: windowBounds,
   minimized: z.boolean(),
@@ -26,11 +38,6 @@ const globalFloat = z.strictObject({
 
 const floatList = z.array(globalFloat).max(GLOBAL_FLOATS_MAX);
 
-const globalFloatsFile = z.strictObject({
-  schema_version: z.literal(GLOBAL_FLOATS_SCHEMA_VERSION),
-  floats: floatList,
-});
-
 export type GlobalFloat = z.infer<typeof globalFloat>;
 
 export type GlobalFloatsWriteResult =
@@ -38,11 +45,11 @@ export type GlobalFloatsWriteResult =
   | { ok: false; error: { code: "invalid_input"; message: string } };
 
 export interface GlobalFloatsStore {
-  /** 아래에서 위 순서. 파일이 없거나 틀리거나 다른 판이면 빈 목록이다. */
+  /** 아래에서 위 순서. 파일이 없거나 틀리거나 다른 판이면 빈 목록이고, 틀린 float은 그것만 뺀다. */
   read(): Promise<GlobalFloat[]>;
   /** 검증한 값을 원자 교체로 쓴다. 검증에 실패하면 `invalid_input`이고 파일은 그대로다. */
   write(floats: unknown): Promise<GlobalFloatsWriteResult>;
-  /** 지운 앱의 float을 목록에서 뺀다. 그 앱의 float이 없으면 파일을 건드리지 않는다. */
+  /** 지운 앱의 화면 float과 그 앱 workspace에서 온 float을 목록에서 뺀다. 없으면 파일을 건드리지 않는다. */
   removeApp(app: string): Promise<GlobalFloatsWriteResult>;
 }
 
@@ -56,10 +63,23 @@ export function createGlobalFloatsStore(
     async read() {
       try {
         const raw = await impl.readFile(file);
-        const parsed = globalFloatsFile.safeParse(
-          JSON.parse(new TextDecoder().decode(raw)),
-        );
-        return parsed.success ? parsed.data.floats : [];
+        const parsed = JSON.parse(new TextDecoder().decode(raw)) as {
+          schema_version?: unknown;
+          floats?: unknown;
+        } | null;
+        if (
+          parsed?.schema_version !== GLOBAL_FLOATS_SCHEMA_VERSION ||
+          !Array.isArray(parsed.floats)
+        ) {
+          return [];
+        }
+        // 등록되지 않은 kind나 틀린 탭 하나가 나머지 float을 막지 않는다.
+        return parsed.floats
+          .flatMap((item) => {
+            const one = globalFloat.safeParse(item);
+            return one.success ? [one.data] : [];
+          })
+          .slice(0, GLOBAL_FLOATS_MAX);
       } catch {
         return [];
       }
@@ -83,10 +103,12 @@ export function createGlobalFloatsStore(
     },
     async removeApp(app) {
       const floats = await store.read();
-      if (!floats.some((item) => item.app === app)) {
-        return { ok: true, value: null };
-      }
-      return store.write(floats.filter((item) => item.app !== app));
+      const gone = (item: GlobalFloat) =>
+        (item.workspace.kind === "app" && item.workspace.id === app) ||
+        ((item.tab.kind === "app_panel" || item.tab.kind === "app_screen") &&
+          item.tab.app === app);
+      if (!floats.some(gone)) return { ok: true, value: null };
+      return store.write(floats.filter((item) => !gone(item)));
     },
   };
   return store;

@@ -1,0 +1,26 @@
+id: changelog-version-and-registry
+version: 0.2.0
+title: "changelog와 버전, context-component-registry를 둠"
+modules: [tools]
+checked: []
+change: |
+  전: 바뀐 것과 결정을 남기는 곳이 없음. 어떤 context 조각이 어떤 코드에 기대는지 적힌 곳이 없음.
+  후: `products/change-log/<version>.md`, `context-component-registry.yaml`. `boundary-catalog.yaml` 머리말을 다시 쓰고, `tools/check-modules.ts`에서 쓰지 않는 kind(guidance, bundle)와 참조 칸을 지움.
+why: |
+  plan → 구현 → changelog → context 유지보수의 흐름을 만들기 위해. catalog ID가 그 메타데이터 축이다.
+decisions:
+  - text: |-
+      버전은 lophn 하나에 `0.MINOR.PATCH`. 배포 단위로 나누는 것은 오픈 소스로 배포할 때 정한다.
+    by: person
+  - text: |-
+      changelog는 tag 하나에 md 파일 하나, 폴더 하나에 평평하게. 열린 판에 덧붙이기만 하고 닫힌 판은 고치지 않는다. 버린 길: 변경마다 파일 하나, MINOR마다 폴더.
+    by: person
+  - text: |-
+      항목은 boundary ID가 아니라 module path를 적는다. 바뀐 module은 diff로 기계적으로 나오고 boundary는 module-catalog로 따라간다.
+    by: person
+  - text: |-
+      plan을 가리키지 않는다. plan은 닫히면 사라진다.
+    by: person
+  - text: |-
+      고친 context 조각은 diff로 알 수 있어 적지 않고, 봤지만 고칠 것이 없던 조각만 `checked`에 적는다.
+    by: person

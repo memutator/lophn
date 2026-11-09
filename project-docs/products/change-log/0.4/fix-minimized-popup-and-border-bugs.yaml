@@ -1,0 +1,13 @@
+id: fix-minimized-popup-and-border-bugs
+version: 0.4.0
+title: 접어 둔 app panel, 뜨자마자 옮긴 popup, docked page 옆 경계의 버그 셋을 고침
+modules: [packages/shell/renderer]
+checked: [architecture-workspace-layout, architecture-browser-tab]
+change: |
+  - 전: 접어 둔 app panel을 다시 펴면 접을 때의 view state가 보였다. 크기 준 popup이 뜬 직후 Dock·Float하면 그 탭이 오류 화면이 됐다. browser page 옆 pane 경계의 잡는 띠가 page 쪽 절반이 page 밑에 깔렸다.
+  - 후:
+    - 보관 중인 app view도 main이 미는 state(unresponsive, crashed, 연결 끊김)를 받아, 다시 펴거나 Detach할 때 최신 state를 보인다.
+    - popup의 adopt 답 전에 다시 mount한 탭은 같은 adopt를 기다려, 거절 없이 popup을 이어 쓴다.
+    - 경계 잡는 띠가 docked browser page 위에 그려지고 floated 패널은 여전히 그 위에 그려진다. floats 층은 stacking context가 아니다.
+why: |
+  접어 둔 패널, popup 직후의 탭, 경계 띠가 각각 틀린 화면이나 오류를 보여서 고친다.

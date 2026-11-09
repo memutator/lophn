@@ -1,0 +1,31 @@
+id: app-engineer-designs-app
+version: 0.6.0
+title: "앱의 설계를 App Engineer가 맡고, 앱 template에서 견본 업무를 뺐다"
+modules: [packages/core/agent-workspaces, packages/core/apps, packages/protocol, packages/coding-agent, tests]
+checked: []
+change: |
+  전:
+  - 앱 template이 견본 업무(`add_item`/`list_items` tool, `items` 화면, migration, test)를 실었다. coding agent는 그 위에 얹어 캘린더도 항목 목록 화면이 됐다.
+  - App Engineer 지침은 질문과 ticket 쓰기만 말했다. ticket에 화면과 앱이 다루는 것의 모양이 없었다. 맡기는 call의 body는 coding agent에게 가지 않는데 App Engineer는 그것을 몰랐다. ticket goal은 2000자까지였다.
+  - eval의 캘린더 앱 만들기(calendar-mvp)와 L4-new에서 사람이 tool 이름과 입출력을 말했다.
+  후:
+  - 앱 template은 빈 tool 목록과 빈 화면 하나만 싣는다. 견본은 test 쪽(`tests/support/app/sample/`)으로 옮겼다.
+  - App Engineer 지침에 "Designing the app"이 생겼다. 새 앱이나 기능의 첫 ticket 전에 재사용(package, 다른 앱 tool), 모델, journey, 화면(`@lophn/ui` 부품 이름까지), tool을 차례로 설계하고 ticket goal에 싣는다. 사람에게는 무엇을 보고 하게 되는지만 사람 말로 묻고, 기술은 스스로 정한다. 맡기는 call의 body는 짧게 둔다.
+  - ticket goal은 16000자까지다.
+  - 지침은 examples가 떨어진 ticket을 다시 넘기기 전에 `ticket.verify` `failed`를 먼저 넣게 한다.
+  - coding agent의 `lophn-build-app`은 goal의 설계를 그대로 만들고, 다르게 해야 하면 먼저 App Engineer에게 청한다.
+  - eval: calendar-mvp를 calendar-user(평범한 말)와 calendar-dev(Event·Schedule, RRULE 반복, 가상 occurrence, action이 생긴 회차만 instance)로 나눴다. 둘 다 judge `app-design`이 화면을 본다. L4-new의 사람은 평범한 말로 청한다. `deno task eval --keep`은 trial의 world를 지우지 않고 `LOPHN_DEV_HOME=<home> deno task dev`로 연다.
+why: |
+  사람이 eval이 만든 캘린더를 열어 보니 달력이 없는 항목 목록이었다. 사람은 개발자가 아니라 tool을 말하지 않는데 eval은 사람이 공학을 맡는 상황을 쟀고, 도메인 모델링과 화면 설계를 맡는 agent가 없었다. 설계를 넣은 calendar-dev도 화면의 짜임(머리, 여백, 넣기·지우기)은 coding agent에게 맡겨져 엉성했다.
+decisions:
+  - by: person
+    text: |-
+      앱의 재사용, journey, 화면, 기능 명세는 App Engineer가 맡고 ticket goal에 쓴다. 따로 안건을 열지 않고 지침으로 한다. (2026-10-20)
+  - by: person
+    text: |-
+      화면이 좋은지는 사람이 본다. screenshot judge를 만들지 않는다. (2026-10-20)
+  - by: agent
+    text: |-
+      설계는 call body가 아니라 ticket goal에 싣는다. coding agent가 읽는 것은 ticket뿐이고, 다시 넘길 때도 ticket이 남는다. 그래서 goal 한도를 올렸다.
+follow_up: |
+  coding-agent "example을 고친 reported ticket을 다시 넘기면 거절되고 model은 이유를 모른다", 루트 `ISSUE-blueprint-domain.md`, `ISSUE-human-request-abstraction.md`.

@@ -1,0 +1,38 @@
+id: harness-catalog-25-private-server
+version: 0.9.0
+title: '터미널에서 알아보는 coding agent가 25종이고, 공유 server를 쓰는 harness는 lophn 터미널에서 private server로 뜬다'
+modules: [packages/protocol, packages/coding-agent, packages/shell/main, packages/shell/terminal-host, packages/shell/renderer, packages/design]
+checked: [architecture-coding-agent, architecture-terminal-agent]
+change: |
+  전: 알아보는 harness가 몇 종이었고 Gemini CLI와 OpenClaw가 있었다. Hermes는 hook 자리가 없었다. Codex 0.156 이상과 OpenCode 2.x는 공유 background server(Codex app-server daemon, `opencode serve --service`)에서 session을 돌려, hook이 그 server를 띄운 env로 돌고 lophn 터미널을 몰랐다(Codex README "per-client environment isolation is not provided").
+  후:
+  - 25종: claude, codex, opencode, pi, omp, cursor, copilot, kimi, kiro, antigravity, grok, droid, amp, devin, qwen, qoder, hermes, muse, codebuddy, command-code, prime-agent, mimocode, cline, letta, kilo. Gemini CLI와 OpenClaw를 지웠다.
+  - foreground 감지는 argv 규칙이다(`harnessOfProcess`: 이름, 판 붙은 이름, package 경로, python `-c` 안의 표지). 다른 harness의 hook은 받지 않는다(grok·devin·cursor가 Claude hook을 읽는다). 단독 Esc·Ctrl-C로 내리는 키는 harness마다다(grok은 Ctrl-C만).
+  - hook 설치 꼴: Claude 꼴 JSON settings, JSONC, Kimi TOML block, Hermes YAML block과 shell-hook allowlist, plugin·extension file(OpenCode 계열, pi, omp, amp), event마다 script file(Cline). 사람의 설정과 다른 도구의 hook은 그대로 둔다. stdout을 요구하는 hook은 같은 글을 쓴다(antigravity Stop `{"decision":"stop"}`, cursor beforeSubmitPrompt `{"continue":true}`).
+  - lophn 터미널의 shell function(bash `--init-file`, zsh `ZDOTDIR`, fish `--init-command`)이 `codex --no-daemon`, `opencode --standalone`, kilo `KILO_NO_DAEMON=1`, cline `CLINE_SESSION_BACKEND_MODE=local`로 띄운다. orca의 Codex shell function과 같은 꼴이다.
+  - icon 25종(lobehub, emdash). Codex는 OpenAI 매듭이다.
+  - 사람이 개발 앱에서 claude, codex, opencode, hermes, devin, cline, grok, agy를 띄워 icon, 상태 점, turn 끝을 확인했다. Hermes는 hook을 놓기 전에 떠 있던 실행이라 다시 시작해야 했다. 나머지는 이 컴퓨터에 없거나 띄워 보지 않았다.
+why: |
+  사람이 orca·emdash·herdr가 지원하는 harness를 lophn에서도 알아보게 하고 싶었다. Gemini CLI는 Google이 Antigravity로 옮겼다.
+decisions:
+  - text: |
+      범위는 orca, emdash, herdr 셋 가운데 둘 이상이 지원하는 harness다. 한 곳만 지원하는 것은 넣지 않는다.
+    by: person
+  - text: |
+      Gemini CLI는 지운다. 호환 장치를 남기지 않는다.
+    by: person
+  - text: |
+      OpenClaw는 지운다. 비교한 도구 어디도 지원하지 않는다.
+    by: agent
+  - text: |
+      hook이 없는 harness(prime-agent)는 foreground 감지와 icon만 한다.
+    by: agent
+  - text: |
+      새 harness의 coding session 칸(`prompt`, `mcp`, `model_flag`)은 채우지 않는다. 그 길은 막혀 있다.
+    by: agent
+  - text: |
+      공유 server를 쓰는 harness는 lophn 터미널에서 private server 옵션으로 띄운다. app-server protocol로 붙는 길은 하지 않는다.
+    by: person
+  - text: |
+      Codex icon은 OpenAI 매듭이다(Codex desktop app과 같다).
+    by: person

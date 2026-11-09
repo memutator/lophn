@@ -1,0 +1,17 @@
+id: design-table-custom-column
+version: 0.2.0
+title: "design `Table`에 사용자 정의 칸을 더하고 gallery의 draft 글 링크를 지움"
+modules: [packages/design, tools]
+checked: []
+change: |
+  전: `Table`의 칸 종류는 text, number, time, link, id뿐이라 앱이 표 행 안에 단추를 그릴 수 없었다. gallery Contexts 화면의 Project Manager 대화는 drafts의 글 링크(`drafts/link.tsx`)를 썼다.
+  후: `TableColumn`에 `kind: "custom"`(`render: (row) => ReactNode`)이 있다. `DataTable`에서 custom 칸은 정렬되지 않고 열 고르기로는 숨긴다. `Kit · data` page에 단추 칸 견본이 있다. 대화의 링크와 `drafts/link.tsx`는 없어졌다.
+why: |
+  `ui-kit-one-package` 항목의 결정 둘을 사람이 바꿨다.
+decisions:
+  - text: |-
+      `Table`에 사용자 정의 칸을 더한다. 앱도 표 행 안에 단추 같은 것을 넣을 수 있게 kit API를 넓힌다. gallery의 Orders 앱 그림은 mock data라 `drafts/`에 그대로 둔다. 위 항목의 "Table로 바꾸지 않는다"를 바로잡는다.
+    by: person
+  - text: |-
+      Contexts 대화의 글 링크는 renderer component로 만들지 않고 지운다. 위 항목의 "`drafts/link.tsx`를 쓴다"를 바로잡는다.
+    by: person

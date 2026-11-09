@@ -1,0 +1,11 @@
+id: per-app-coding-session-queue
+title: 앱마다 coding session 하나와 call 줄, 실패 이유
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/core/apps]
+now: 앱마다 끝나지 않은 session은 하나이고(`coding_sessions_active` unique index) 그동안 온 맡기기는 `coding_lines`에 줄을 선다. 실패 이유는 시작 4(`not_connected`, `cannot_launch`, `no_source_folder`, `ticket_unavailable`), 메시지 거절 3(`no_turn_end_signal`, `state_unknown`, `session_ended`), 터미널 4(`spawn_failed`, `no_terminal`, `folder_missing`, `host_lost`)다(`protocol/coding-agent/transport.ts`, `terminal-requests.ts`).
+impact: 이유마다 문구와 호출처 처리가 있어 늘어난다. 줄은 같은 source 폴더에 session 둘이 부딪치는 것을 막는 장치다.
+fix: '줄을 없애고 바쁨으로 돌려주면 다시 맡길 때를 보낸 쪽이 알 길이 없다(architecture "busy 실패 대신 줄에 세운다"). 이유는 호출처가 갈라 처리하는 것만 남긴다. 추천: 남긴다. 이유는 architecture에 있다.'
+closed: 줄은 같은 source 폴더에 session 둘이 부딪치는 것을 막고, 없애면 바쁨으로 돌려받은 쪽이 다시 맡길 때를 알 길이 없다(architecture "busy 실패 대신 줄에 세운다").
+guard: 없음

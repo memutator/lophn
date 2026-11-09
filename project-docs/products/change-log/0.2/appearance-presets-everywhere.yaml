@@ -1,0 +1,39 @@
+id: appearance-presets-everywhere
+version: 0.2.0
+title: "Appearance로 accent·배경·글꼴·글자 크기·밀도를 고르고 모든 문서에 적용함"
+modules: [packages/design, packages/core/config, packages/shell/renderer, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/coding-agent]
+checked: [architecture-ui-kit, architecture-coding-agent]
+change: |
+  전: Settings › Appearance는 Theme만 적용됐고 Text size와 Density는 값만 저장했다. 사람이 색과 글꼴을 바꿀 수 없었다. main의 `shell:theme` channel은 `nativeTheme`만 맞췄다.
+  후:
+  - preset: Accent(Ink 기본, Blue, Green, Purple, Orange), Background(Warm 기본, Neutral, Cool), Font(Pretendard 기본, System UI, Custom), Code font(JetBrains Mono 기본, System monospace, Custom), Text size, Density. `packages/design/presets.ts`에 light/dark를 다 갖췄고 대비를 계산해 정했다. 흐름과 값은 `architecture/appearance.md`다.
+  - Text size는 type token의 글자·줄 높이를 0.92·1.12배로, Density(compact)는 control 높이, 행 높이(menu·tree·palette), 칸 사이, pane 여백을 줄인다.
+  - 적용 통로: `shell:theme`이 `shell:appearance`로 바뀌어 아홉 값을 받는다. main이 검사해 `nativeTheme`을 맞추고, token을 덮어쓰는 CSS(`appearanceCss`)를 desktop 창, overlay, 보호 입력 창, 앱 view의 webContents에 `insertCSS`한다. 값이 바뀌면 옛 CSS를 지우고, 문서를 새로 읽으면(dom-ready) 다시 넣는다. preload API는 `lophnTheme`에서 `lophnAppearance`로 바뀌었다.
+  - 설정 선언 `shell.accent`, `shell.background`, `shell.font`, `shell.font_custom`, `shell.code_font`, `shell.code_font_custom`이 더해졌다(`shell.text_size`·`shell.density`는 그대로이고 이제 적용된다).
+  - Custom 글꼴 이름은 글자·숫자·공백·`-`·`_`(64자까지)만 받는다. 앱 view에 들어가는 CSS의 injection을 막는 경계다.
+  - 화면: Accent와 Background는 색 견본을 고르는 줄(design `SwatchPicker`), Font와 Code font는 고르기와 Custom 이름 칸이다.
+  - design `Tabs`의 고른 탭 밑줄이 `--color-ink-background`를 쓴다(기본 값은 전과 같다).
+  - `lophn-build-app` skill이 "색과 글꼴 값을 직접 쓰지 않는다"를 더 알려 준다.
+why: |
+  사람이 lophn의 색과 글꼴을 자기 취향대로 바꾸고, shell과 사용자 앱이 같이 바뀌게 하려고.
+decisions:
+  - text: |-
+      `ui-kit.md`의 "하지 않는 것"에서 shell theme과 token override를 뺐다. 사람이 이번에 하기로 정했다. 단, 사람이 고르는 것은 preset과 설치된 글꼴 이름뿐이고 임의 token이나 CSS를 넣는 길은 없다.
+    by: person
+  - text: |-
+      link(`color.link`)는 accent에 묶지 않는다. link는 누르는 것을 알리는 뜻이라 Ink(검정) accent에서도 파랑이어야 한다. 버린 길: accent를 따라 link 색을 바꾸기(Ink에서 구별이 사라지고 값이 늘어난다).
+    by: agent
+  - text: |-
+      preset은 `tokens.ts`의 `tokens` 안이 아니라 `presets.ts`에 둔다. `tokens` 안에 두면 generate가 CSS 변수로 만들어 버린다.
+    by: agent
+  - text: |-
+      덮어쓰는 CSS 함수는 design에 둔다(main, gallery, test가 같은 함수를 쓴다). main은 design을 import할 수 있다.
+    by: person
+  - text: |-
+      시작 때 값은 renderer가 core에서 읽어 main에 보낸다(지금 theme과 같다). main이 core를 직접 읽지 않는다. 첫 한 번은 기본 모양이 잠깐 보일 수 있다.
+    by: agent
+  - text: |-
+      Custom 글꼴 이름에 한글 같은 글자도 받는다(Unicode 글자와 숫자).
+    by: agent
+follow_up: |-
+  이미 열린 터미널(xterm)의 글꼴은 새로 열어야 바뀐다. 다른 desktop 창의 `data-theme`은 그 창이 설정을 다시 읽을 때 맞춰진다. 개발 data는 지울 필요 없다(새 설정은 기본값으로 읽힌다).

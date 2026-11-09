@@ -1,0 +1,19 @@
+id: router-describe-hides-waiting
+title: Router describe가 lophn session의 waiting을 내지 못한다
+kind: bug
+status: fixed
+topic: agent-call
+modules: [packages/core/router, packages/core/main]
+now: |
+  `callSendable` read(`router/reads.ts`)가 session마다 상태를 `describe`로 얻는다. wiring의 `describe`(`main/daemon/wiring/router-registration.ts`)는 turns 표에 running turn이 있으면 `running`, 없으면 `idle`만 낸다. 반면 허락을 기다리는 turn은 turns 표에서 여전히 running이고, 기다림 자체(`approvals/turn-requests.ts`의 entries)는 core main thread 메모리에 있어 reader Worker가 못 본다. coding session은 `coding/store.ts`가 permissions 표로 `waiting`을 이미 낸다.
+impact: |
+  사람에게 허락을 기다리는 lophn session을 부르려는 agent가 그 session을 running으로 본다(`waiting`이어야 한다). 이 목록으로 "지금 말 걸어도 되나"를 고르는 agent의 판단이 흐려진다.
+fix: |
+  - A. 기다림을 표(예: turn 행의 칸)에 한 줄 적는다. reader가 읽는다. 허락 열기와 닫기 때마다 쓰기가 들어 turn 안 request를 메모리에만 두는 규칙(재시작이 끊는다)과 부딪친다. 비용 중간.
+  - B. 표시를 포기하고 STATES에서 lophn session의 waiting을 뺀다. 코드 한 줄.
+  - 추천: B. 보내는 쪽은 running이든 waiting이든 다음 turn 입력으로 같은 곳에 들어간다. 구별이 필요해지면 A.
+decided: |
+  lophn session의 waiting 구별을 포기한다(B).
+closed: |
+  B로 했다. `router/reads.ts`의 `STATES`에서 `waiting`을 빼서 허락 기다림 중인 session은 `running`으로 보인다. 구별이 필요해지면 turn 행에 적는 쪽을 본다.
+guard: 없음

@@ -1,0 +1,53 @@
+id: claude-antigravity-subscription-oauth
+version: 0.9.0
+title: 'Claude와 Google Antigravity 구독 계정으로 provider를 연결함'
+modules: [packages/protocol, packages/core/lophn-agent, packages/shell/renderer]
+checked: [boundary-catalog, architecture-layers, architecture-testing, tool-e2e, tool-test-live, tool-eval, tool-check-deps, architecture-terminal-agent, architecture-browser-tab, architecture-agent-chat, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-dev, skill-ui-design, tool-wireframes]
+change: |
+  전:
+  - 구독 OAuth는 ChatGPT와 SuperGrok뿐이었다. `anthropic` 정의는 API key만 받았고 Google은 API key의 OpenAI 호환 `google-gemini`뿐이었다.
+  - protocol은 셋(`anthropic-messages`, `openai-responses`, `openai-chat-completions`)이었다.
+  - callback listener는 127.0.0.1의 빈 port에서 path와 state를 보지 않고 첫 callback 하나를 받았다. 틀린 callback 하나가 로그인을 끝냈다.
+  - refresh는 발급자의 답을 기다리는 사이 연결이 바뀌어도 그 token을 저장했고, 저장이 한 번 실패하면 받은 token을 버렸다.
+  후:
+  - `OAuthDefinition`에 product 둘이 생겼다. claude `{client_id, authorization_endpoint, token_endpoint, account_endpoint, redirect_uri, scopes}`, antigravity `{client_id, client_secret, authorization_endpoint, token_endpoint, userinfo_endpoint, redirect_uri, scopes}`. `redirect_uri`는 port가 있는 loopback http다. 둘 다 flow `pkce_loopback`이다.
+  - `anthropic`이 `oauth`(product `claude`)도 받는다. 새 내장 정의 `google-antigravity`는 `oauth`만 받고 protocol은 새 `cloud-code-assist`다. Antigravity의 client_secret은 공개 배포된 installed-app 값이라 정의 data에 둔다.
+  - credential에 `account` 칸(`{id, email, organization_id, organization_name, project_id}`, OAuth만, 모르면 null)이 생겼다. ConnectProvider가 선택 칸 `account`를 받고 core의 로그인 처리기만 싣는다. schema: `provider_credentials.account`, `providers.protocol`이 `cloud-code-assist`를 받는다.
+  - Claude 로그인: 고정 callback `localhost:54545/callback`(127.0.0.1과 ::1을 함께 쥔다), authorize에 `code=true`와 scope 여섯, JSON 교환(callback state를 싣는다). token 응답에 계정·조직이 빠지면 bootstrap으로 빈 칸만 채우고 실패해도 이어 간다. refresh는 JSON에 OAuth beta와 SDK User-Agent를 붙인다.
+  - Antigravity 로그인: 고정 callback `127.0.0.1:51121/oauth-callback`, offline·consent, form 교환에 client pair. refresh token이 없으면 `unauthorized`(reauth_required)로 연결하지 않는다. userinfo로 email, `loadCodeAssist`로 project를 찾고 tier가 없으면 free-tier `onboardUser`를 보내 operation을 30초 안에서 1초마다 본다. 마지막 `loadCodeAssist`의 project만 저장하고 없으면 `unavailable`(project_missing)이다. free-tier 거절 이유는 `forbidden`(account_validation)과 https Google 주소일 때만 검증 주소로 낸다. refresh는 project를 다시 찾지 않고, project 없는 credential은 갱신하지 않는다.
+  - 계정 model 목록: Antigravity는 연결 직후와 갱신 뒤에 `fetchAvailableModels`의 key(내부용·꺼진 줄 제외)를 `reported_models`에 둔다.
+  - Claude 구독 호출은 Claude Code client profile로 보낸다(`providers/adapters/claude-code.ts`): `/v1/messages?beta=true`, Claude Code header 묶음, system 앞 billing·identity block, custom tool 이름 앞 `_`와 응답 이름 되돌리기, `metadata.user_id`, host가 만든 billing slot에만 쓰는 cch(XXH64, `adapters/xxh64.ts`). API key 호출은 그대로다.
+  - Antigravity 호출(`providers/adapters/cloud-code.ts`): 이력을 contents/parts로 옮기고 envelope `{project, requestId, request, model, userAgent}`로 감싼다. tool 결과는 call 순서대로 user turn 하나, tool schema는 Cloud Code 부분집합, effort `low`·`medium`·`high`는 `thinkingLevel`이다. SSE는 `{"response": …}` frame이고 root error, prompt 차단, finishReason 없는 끝은 성공이 아니다. Google RPC status(`UNAVAILABLE`, `RESOURCE_EXHAUSTED` 등)를 stream 실패 분류에 더했다. output 상한은 보내지 않는다. project 없는 credential로는 turn을 시작하지 않는다.
+  - callback listener(`openCallbackListener`)가 선택 칸 `{hosts, port, path, state}`를 받는다. 구독 로그인(ChatGPT 포함)은 path와 state를 넘겨, 맞지 않는 callback을 400으로 돌려보내고 기다림을 잇는다. 그 state의 `error`만 로그인을 끝낸다. 정한 port를 다른 프로그램이 쓰면 `conflict`(callback_port_in_use)다. MCP·앱 OAuth는 옵션을 넘기지 않아 그대로다.
+  - refresh는 답을 받은 뒤 provider를 다시 읽어 `logged_in_at`이 바뀌었으면 늦은 token을 저장하지 않는다. 받은 token의 저장은 같은 값으로 세 번까지 다시 해 본다. 발급자 HTTP 공통 함수는 `providers/issuer-http.ts`로 옮겼다.
+  - 화면: 단추 이름에 Claude와 Google Antigravity가 생겼다. 내장 정의의 연결 주소는 model 목록 주소의 마지막 칸을 뗀 것이다(`/models`가 아니어도 된다).
+why: |
+  사람이 Claude와 Antigravity 구독으로 lophn의 model 호출을 하려 했다.
+decisions:
+  - text: |
+      Claude 구독 OAuth와 Antigravity를 provider로 넣는다. 0.2.0의 "Claude 구독 로그인은 두지 않는다"와 `roadmap/subscription-oauth.md`의 옛 추천(넣지 않는다)을 뒤집는다. Anthropic은 제3자 앱의 Claude.ai 로그인과 구독 credential 사용을 허락하지 않고 Cloud Code `v1internal`은 공개 API가 아니다.
+    by: person
+  - text: |
+      clean room으로 만든다. `research_notes/omp-subscription-oauth/`의 README와 구현자용 문서 넷(implementation-spec, claude-code, google-antigravity, fixtures)만 보고 원본 코드, 분석 문서, 웹은 보지 않았다.
+    by: person
+  - text: |
+      Claude Code client profile(header, system block, tool 이름, cch)을 명세 snapshot대로 넣는다. 서버가 어느 칸을 검증하는지 모르고, 빼면 구독 경로로 판단되지 않을 수 있다. 버린 길: profile 없이 Bearer만.
+    by: agent
+  - text: |
+      Claude는 `anthropic` 정의에 OAuth를 더하고 Antigravity는 새 정의다. Claude 구독도 같은 Anthropic Messages endpoint이고, Antigravity는 endpoint·protocol·model 이름이 Gemini API와 다르다.
+    by: agent
+  - text: |
+      계정은 secret meta가 아니라 credential 칸에 둔다. model 호출(project, account uuid)이 runtime에서 읽어야 하고 비밀이 아니다.
+    by: agent
+  - text: |
+      refresh lead는 지금의 5분 하나로 둔다. 명세의 snapshot은 응답 TTL에서 6분 앞을 갱신 시점으로 쓴다.
+    by: agent
+  - text: |
+      고정 port가 차 있으면 다른 port로 넘어가지 않고 `conflict`다. 발급자가 다른 port의 redirect를 받는지 확인하지 않았다.
+    by: agent
+  - text: |
+      첫 구현에서 뺀 것: subscription quota 조회, 401 뒤 한 번 다시 보내기, daily → sandbox failover, 사람이 code를 붙여 넣는 로그인, client version 자동 갱신, Antigravity roster의 model별 상한·thinking profile, thought signature 보존(대신 Gemini functionCall에 서명 검사 건너뛰기 표시).
+    by: agent
+follow_up: |
+  - 실제 계정으로는 아무것도 확인하지 않았다. 남은 일은 `roadmap/subscription-oauth.md`에 있다.
+  - 개발 data(`.dev-data/`)는 지우고 새로 만든다(schema가 바뀌었다).

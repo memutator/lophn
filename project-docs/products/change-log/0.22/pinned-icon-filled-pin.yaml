@@ -1,0 +1,14 @@
+id: pinned-icon-filled-pin
+version: 0.22.0
+title: "고정한 pin을 빗금 핀 대신 채운 핀으로 보인다"
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: tray popup과 float 패널의 pin 단추는 고정하면 빗금 친 핀(PinOff)으로 바뀌었다.
+  후: 같은 핀을 쓰고 고정한 상태면 글자색(`--color-text-primary`)으로 채운다. 다크에서는 흰색, 라이트에서는 검정에 가깝게 채워진다. tray pin은 토글 공통의 테두리와 선택 배경(`aria-pressed`)을 빼고 핀 색만 바뀐다.
+why: |
+  빗금 핀은 "고정 안 됨"으로 읽혔다. OS tray처럼 채운 핀이 고정을 뜻하게 했다(사람).
+decisions:
+  - text: |
+      색을 흰색으로 박지 않고 글자색 token으로 채운다. 라이트 모드에서도 대비가 선다.
+    by: agent

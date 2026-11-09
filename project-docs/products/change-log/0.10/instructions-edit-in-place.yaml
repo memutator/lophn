@@ -1,0 +1,26 @@
+id: instructions-edit-in-place
+version: 0.10.0
+title: "지침(LOPHN.md)을 그 자리에서 고친다. Settings의 lophn 화면 폭을 다른 항목과 맞춘다"
+modules: [packages/shell/renderer, packages/shell/main, packages/core/lophn-agent, packages/core/main, packages/protocol, packages/design, tools]
+checked: []
+change: |
+  전:
+  - Settings › Agents의 모든 project 지침, project Agents 탭의 Instructions, agent 설정의 project 지침 상자는 미리보기만 보였다. [Edit]·[Edit LOPHN.md]는 창 전체를 지침 파일 편집기(instructions 공간)로 바꿨다.
+  - Settings › Agents › lophn은 agent editor가 Settings 기둥(800px, 여백 있음) 안에서 다시 640px 기둥과 여백을 둬 양옆이 더 좁았다.
+  후:
+  - 세 자리 모두 상자의 [Edit]을 누르면 같은 자리가 글칸이 되고 [Cancel]·[Save]가 오른쪽 끝에 있다. 저장은 그 파일만 통째로 쓴다. 읽은 hash로 쓰고, 그사이 파일이 바뀌었으면 main이 conflict로 거절해 디스크를 덮지 않는다. 그때 글칸 아래 이유와 [Reload]가 보인다.
+  - Settings 안 lophn 화면은 Settings 기둥을 그대로 채운다. 탭 안 agent editor는 Agents 탭 목록과 같은 폭(800px + 여백)이다.
+  - 앱 공간의 Open DOMAIN.md는 지금처럼 instructions 공간으로 연다.
+  계약:
+  - 지운 것: read route PreviewGlobalInstructions(instructions.preview), INSTRUCTION_PREVIEW_MAX_BYTES, InstructionPreview, core previewInstruction. AgentsSettingsSource.openInstructions·instructionsPreview, SettingsScreen·SettingsSpace·Workspace·SidePanel의 onInstructions·onProjectInstructions, AgentsSlice.editInstructions, AgentEditor·AgentsPage의 onEditProjectInstructions·onEditInstructions, 시작 자리 #instructions=global|project:<id>와 LOPHN_SHELL_START=instructions:…, wording agents.error.settings-instructions-failed·project-workspace.button.agent-editor-edit-project.
+  - 생긴 것: AgentsSource.readInstructions·writeInstructions, AgentsSettingsSource.readInstructions·writeInstructions, AgentsSettingsView.instructions(글과 hash), InstructionsEditor(workspace/agents/editor/instructions-editor.tsx), AgentEditor의 inColumn.
+  - 바뀐 것: AgentsOverview.instructions는 앱 자리에서 null이고 hash를 싣는다. 지침 읽기·쓰기는 instructions.open이 준 경로를 shell main file 통로(lophnFiles.read·write)로 한다.
+why: |
+  사람이 Settings의 agent 화면만 양옆이 조이고, 지침 몇 줄을 고치려고 화면 전체를 바꾸는 편집기로 가는 것이 맞지 않는다고 했다.
+decisions:
+  - text: "지침은 상자 안에서 고친다. 버린 길: [Edit]이 문서 탭이나 floated 편집기를 열기(여전히 자리를 떠난다)."
+    by: person
+  - text: "저장은 파일 편집기와 같은 hash 비교 쓰기다. 다른 곳에서 바뀌었으면 덮지 않고 [Reload]로 디스크 것을 보게 한다. 버린 길: 덮어쓰기 확인(사람이 다른 창의 글을 모르고 지운다)."
+    by: agent
+  - text: "미리보기 전용 core route를 지우고 shell main file 읽기로 통일한다. project 지침은 이미 이 길로 읽었다."
+    by: agent

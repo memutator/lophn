@@ -1,0 +1,73 @@
+id: app-engineer-builds-directly
+version: 0.6.0
+title: "App Engineer가 앱을 직접 짓고, ticket과 test runner를 지운다"
+modules: [packages/coding-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/apps, packages/core/events, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/core/server, packages/core/storage, packages/design, packages/protocol, packages/shell/ipc, packages/shell/renderer, packages/shell/terminal-host, tools]
+checked: [product, boundary-catalog, module-catalog, context-component-registry, architecture-layers, architecture-event, architecture-testing, architecture-activation, architecture-agent-call, architecture-app-call, architecture-agent-definition, architecture-coding-agent, architecture-annotation, architecture-ui-kit, architecture-approval, architecture-appearance, architecture-artifact, architecture-browser-tab, architecture-workspace-layout, skill-wrap-plan, skill-ui-design, tool-check, tool-dev, tool-worktree-prep, tool-models-snapshot, tool-test-live]
+change: |
+  전:
+  - App Engineer는 코드를 쓰지 않았다. 설계를 ticket goal에 싣고 coding agent에게 맡겼고, coding agent가 claim 아래에서 짓고 `release prepare`·`app test`·`release status`(CLI)로 release를 확정한 뒤 `ticket report`로 보고했다. program이 examples를 test runner로 돌려 pass가 남아야 `ticket.verify`가 받았고, `TicketVerified` Reactor handler가 activation을 열었다.
+  - release 준비는 두 단계(접수와 마무리)였고 마무리는 같은 bundle의 app test pass와 coding agent의 claim을 요구했다. test runner(`packages/core/problems/`)가 의존성, migration, blueprint와 handler, rewind 증명을 frozen test로 돌렸다.
+  - 다른 domain이 쓰는 공개 tool을 지우는 release는 activation이 막았다(`activation.block`). activation이 실패하면 `ReleaseActivationFailed` reaction이 App Engineer를 열었고 Settings › Reactions에서 끌 수 있었다.
+  - 새 앱의 source 폴더는 coding agent에게 처음 맡길 때 core가 깔았다. `app.connect_source`는 폴더를 보지 않았다.
+  - 제품 기본 turn 한도는 model call 30번이었고, Anthropic 요청은 system에만 cache 표시를 달았다. 입력 없는 tool은 입력 없음만 받고 `null`과 `{}`를 거절했다.
+  후:
+  - App Engineer가 직접 짓는다: 설계(`DESIGN.md`) → 코드 → `shell.run`으로 앱 test → commit → `release.prepare {app}` → `preview.start|call|stop` → `release.activate {release}`. 지침을 이 흐름으로 다시 썼다(140줄).
+  - `release.prepare`(core memory route, 그 앱의 App Engineer만): source의 HEAD로 bundle을 짓고, 준비 자식이 의존성(manifest)과 migration(빈 DB와 active release의 schema에서 `migrateAppDatabase`)을 검사하고, core가 봉인한 뒤 preview launcher로 띄워 blueprint와 handler를 대조한다. 떨어지면 `{status: "failed", stage, reason}`이고 release 행이 생기지 않는다. 통과하면 machine command `release.record`(옛 machine `release.prepare`)가 기록한다. 같은 bundle의 `prepared` release는 다시 준다. 다른 domain이 쓰는 공개 tool을 지우면 결과의 `removed_public_tools`에 tool과 쓰는 domain 이름을 싣고 막지 않는다.
+  - `release.activate`(core memory route, 그 앱의 App Engineer만): 첫 activation, 넓어진 선언, data 손실 migration이면 동의를 묻고 `waiting_consent`를 바로 돌려준다. 아니면 시도의 끝을 120초까지 기다려 `active`(앞 release)나 `failed`(code, summary, 복원)를, 넘으면 `running`을 돌려준다. 동의 뒤의 결과는 사람이 화면에서 본다.
+  - preview: App Engineer가 `preview.start`(release, 선택 `fixture`는 bundle 안 경로), `preview.call`, `preview.stop`을 쓴다. 앱 호출 경로는 agent caller가 그 앱의 App Engineer일 때만 preview target을 받는다. route `previews.start`의 `fixture_hash`가 `fixture`가 됐다.
+  - source 폴더: `app.create`가 commit된 뒤 core가 template을 `<data root>/apps/<app>/source`에 깔고 첫 commit과 저장소 안 git 설정(`user.name lophn`, `user.email lophn@localhost`, `commit.gpgsign=false`)을 남긴 뒤 machine 자격으로 `app.connect_source`를 부른다. `app.connect_source`는 git 저장소의 맨 위이고 commit이 있는 폴더만 받는다.
+  - App Engineer가 짓는 데 걸리던 것: 제품 기본 `model_attempts`는 150이다. Anthropic 요청은 대화 끝 content block에도 cache 표시를 단다(합쳐 넷). 입력 없는 tool은 입력 없음, `null`, `{}`를 모두 받는다(agent 쪽과 앱의 `validateInput`). `shell.run`의 PATH 맨 앞에 lophn이 쓰는 deno의 폴더가 있다.
+  - coding agent: Router는 받는 곳이 `coding_agent`로 풀리는 call을 `invalid_input`으로 거절하고 행을 쓰지 않는다. 연결 장치(`packages/core/apps/tickets/coding/` → `packages/core/apps/coding/`)는 ticket을 모르고 남는다. launch는 call 본문을 첫 prompt로 받고(표의 `ticket` 열은 `prompt`), session의 끝을 아는 command가 같은 tx에서 맡긴 call을 `done`으로 닫고 한 번 알린다(domain event 없음). CLI에서 `ticket *`, `app test*`, `release prepare|status`, `guide`와 배포 skill `lophn-build-app`이 없다. `lophn harness install`은 skill을 놓지 않고 lophn이 놓은 지운 skill(`lophn-build-app`, `lophn-repair`)의 얇은 사본만 지운다.
+  - 화면: Settings › Reactions가 없다. coding 터미널 탭 제목은 `lophn coding · <harness>`이고 toast와 대화의 근거 chip에 ticket이 없다.
+  - 없어진 것: ticket(표 여섯, claim, 만료, 보고, check, verdict, examples, tool, route, CLI), test runner(`packages/core/problems/` 전부, 표 `test_requests`·`test_side_starts`·`verifications`·`test_evidence`, runner worker, `RecordVerification`, rewind 증명), domain event `TicketCompletionReported`·`TicketClaimExpired`·`CodingSessionEndedUnreported`·`TicketVerified`·`VerificationRecorded`·`ReleaseActivationFailed`, reaction 설정(`reactions.release_activation_failed`)과 새 일 handler, 두 단계 준비의 route(`release.prepare_bundle`, `release.preparation`, `release.cancel_preparation`)와 finalizer, `activation.block`, `releases.ticket_source`와 `release_tests`, `package.publish`의 `tests`, blueprint 읽기의 `evidence.test`, call refs의 `ticket` 갈래, `<lophn-reaction>` 설명 줄, id 접두사 `tkt`·`vrf`, check-deps의 `problems → apps` 예외.
+  - `DOMAIN_EVENTS`에는 정의만 있는 `CodingSessionEnded` 하나가 남는다. 목록이 비면 Reactor와 commit publisher의 type이 서지 않아 `reactor-remove`가 Reactor와 함께 지운다.
+  - schema step을 그 자리에서 고치거나 지웠다. 옛 개발 data root는 `history_mismatch`로 뜨지 않으니 지우고 새로 만든다.
+  닫은 이슈: agent-definition "Anthropic 요청이 대화에 cache 표시를 달지 않아…"(고침), coding-agent "example을 고친 reported ticket을 다시 넘기면…"(고침. ticket이 없어졌다), "`app.link_source`가 없는 폴더를 받아…"(고침), "지운 배포 skill의 얇은 사본이 사람 home에 남는다"(고침).
+why: |
+  ticket으로 넘기면 App Engineer가 가진 context(사람의 말, domain, 앱 log)를 잃었고, claim·examples·두 단계 준비·Reactor 계기가 agent가 볼 수 없는 program gate로 부딪혔다. 개인 앱은 작아 App Engineer가 직접 짓는다. 남는 program의 몫은 data를 잃지 않게 하는 검사(release 준비 안)와 activation, preview다(`project-docs/products/roadmap/problem-ticket.md`).
+decisions:
+  - by: person
+    text: |-
+      "lophn agent는 코드를 짜지 않는다"를 바꿔 App Engineer가 앱을 직접 짓는다. coding agent에게 맡기는 흐름은 막고, 연결을 얼마나 남길지는 보류한다. (2026-10-21)
+  - by: person
+    text: |-
+      lophn program이 test runner를 알고 돌리는 것을 지운다. 앱 test는 App Engineer가 앱 source에서 돌린다. (2026-10-21)
+  - by: agent
+    text: |-
+      turn 한도는 role마다 두지 않고 제품 기본을 150으로 올린다.
+  - by: agent
+    text: |-
+      release 준비는 한 단계이고 검사 실패는 오류 code가 아니라 `failed` 결과다. model은 오류 code마다 고정 글만 받는다.
+  - by: agent
+    text: |-
+      의존성과 migration 검사는 core가 아니라 권한을 좁힌 준비 자식이 돈다. core는 앱 DB를 열지 않는다.
+  - by: agent
+    text: |-
+      handler 검사는 preview service로 봉인된 bundle을 띄우고 그 앱의 지금 preview를 바꾼다.
+  - by: agent
+    text: |-
+      같은 bundle은 `prepared`일 때만 같은 release를 다시 준다. activation이 일시적으로 실패한 commit을 다시 올릴 수 있게.
+  - by: agent
+    text: |-
+      공개 tool 막기를 준비 결과의 알림으로 바꾼다. reaction이 없으면 막기는 agent가 이유를 모르는 gate다.
+  - by: agent
+    text: |-
+      `release.activate`는 동의를 기다리지 않고 `waiting_consent`를 돌려주고, 시도는 120초까지 기다린다. program이 App Engineer를 다시 부르지 않는다.
+  - by: agent
+    text: |-
+      coding session의 끝은 새 domain event 없이 그 command가 call을 닫는다. 줄에서 띄우지 못한 call은 `failed`다. 켤 때는 Router의 복구가 닫는다.
+  - by: agent
+    text: |-
+      source 폴더는 `app.create`가 commit된 뒤 core 안 machine 자격으로 깔고 잇는다. 실패하면 앱은 `source_path: null`로 남고 다시 시도하지 않는다.
+  - by: agent
+    text: |-
+      입력 없는 tool의 너그러움은 agent 쪽과 앱의 `validateInput` 둘 다에 둔다. preview 호출 경로에서 입력을 따로 벗기지 않는다.
+  - by: agent
+    text: |-
+      사람 home의 옛 skill 사본은 lophn이 쓴 꼴과 byte까지 같고 폴더에 다른 file이 없을 때만 지운다.
+follow_up: |
+  - activation "release 준비가 떨어진 이유가 고칠 곳을 가리키지 않는다"(migration SQL 오류, build 출력, 어긋난 tool 이름).
+  - code-health "test runner를 지운 뒤 test 자식의 갈래가 남았다".
+  - `reactor-remove`가 Reactor, cursor, `CodingSessionEnded`, program call의 `from.event_seq`를 지운다.
+  - e2e와 eval이 ticket·test runner·옛 준비 route를 쓴다(`tests/support/app`, `tests/support/coding`, `tests/e2e/app-release_test.ts`·`coding_test.ts`·`kinds_test.ts`·`reaction_test.ts`, `tests/eval/checks/app/*`, `tests/eval/coding/driver/driver.ts`, `tests/eval/restore/*`, `tests/eval/versions/components.ts`, `tests/eval/scenarios/*`, `tests/eval/registry/tool/ticket.*.json`). check 밖이고 사람이 다시 쓴다.
+  - 사람의 `~/.lophn/settings.json`에 `reactions.release_activation_failed`가 있으면 settings 전체가 `unknown_key`로 거절된다. 그 줄을 지워야 한다. 옛 skill 사본은 `lophn harness install`을 한 번 돌려야 지워진다.

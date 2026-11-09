@@ -1,0 +1,11 @@
+id: project-settings-blank-screen-fix
+version: 0.20.0
+title: "Project settings 탭이 창 전체를 비우던 것 고침"
+modules: [packages/shell/renderer]
+checked: []
+change: |-
+  전·후: Project settings의 터미널 명령 줄(`QuickCommandList`, `CommandRow`)이 `Field` 없이 `Input`을 그려 `Input needs a Field label`을 던졌고, 탭 본문을 감싼 error boundary가 없어 shell 화면 전체가 비었다. 이제 칸마다 `Field`로 감싸고 label은 화면에서 숨긴다.
+why: |-
+  Project settings 탭의 `Input`이 Field label을 요구하는 오류를 내 shell 화면 전체가 비었으므로, 그 칸들을 `Field`로 감싸 오류를 없애려는 것이다.
+follow_up: |-
+  탭 본문마다 error boundary를 두고, gallery page를 실제로 그려 오류를 잡는 smoke check를 둔다(0.21.0).

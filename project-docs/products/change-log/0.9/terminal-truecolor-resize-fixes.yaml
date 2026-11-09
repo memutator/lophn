@@ -1,0 +1,35 @@
+id: terminal-truecolor-resize-fixes
+version: 0.9.0
+title: '터미널에서 Claude Code 색이 나오고, 분할 칸 resize를 따르고, 바깥 agent session 표지를 물려받지 않는다'
+modules: [packages/shell/renderer, packages/shell/main, packages/shell/terminal-host]
+checked: [architecture-terminal-agent, architecture-browser-tab, skill-write-test]
+change: |
+  전:
+  - Claude Code가 터미널에서 흰색으로만 보였고 resize하다 보면 가끔 색이 돌아왔다. Claude Code는 색을 truecolor(`ESC[38;2;…m`)로만 낸다. xterm DOM renderer는 truecolor를 `setAttribute("style", "color:…")`로 붙이는데 shell CSP(`style-src 'self'`)가 선언을 막고, 같은 span에 곧바로 쓰는 CSSOM `letterSpacing`이 속성을 다시 직렬화해 남은 글까지 지웠다. 속성을 다시 적용하던 observer는 microtask라 늦었다. resize 뒤 `letterSpacing`을 쓰지 않는 크기가 되면 색이 살았다. Codex는 palette 색(class)이라 멀쩡했다.
+  - 분할 화면에서 handle을 끌면 터미널이 따라 줄기도 하고 그냥 가려지기도 했다. renderer와 main 둘 다 "focus 칸의 고른 탭"일 때만 resize를 보내고 받아서, 다른 칸에 focus가 있으면 xterm만 새 폭이고 PTY는 옛 폭이라 TUI가 옛 폭으로 그려 잘렸다. input 검사를 그대로 옮긴 것으로 보인다(기록에 이유가 없다).
+  - 탭이 다시 붙으면 버퍼를 처음부터 새 xterm에 다시 쓰면서 그 안의 옛 질의(DA1, focus 보고)에 xterm이 답했고, 그 답(`ESC[?1;2c`, `ESC[O`)이 PTY에 입력으로 갔다.
+  - lophn을 agent session 안에서 띄우면 터미널이 `CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ID` 같은 표지를 물려받아, 그 안의 Claude Code가 자식 session으로 돌았다("Transcript saving is off").
+  - hook launcher가 Deno 2.9에서 unix socket 연결에 필요한 `--allow-net=unix:<경로>`를 주지 않아 hook이 조용히 아무것도 보내지 않았다.
+  - 자기 바탕을 칠하는 full-screen TUI(OpenCode)의 둘레에 탭 바탕색 여백 띠가 보였다. 오른쪽은 xterm scrollbar 자리(14px)가 alternate buffer에서 늘 비어 더 넓었다.
+  후:
+  - 셀은 xterm WebGL renderer(`@xterm/addon-webgl` 0.19.0)가 그린다. WebGL을 못 쓰거나 context를 잃으면 addon을 버리고 DOM renderer로 돌아간다(그때는 truecolor가 기본 글자색이다). `adoptInlineStyles`는 `<style>`만 constructable stylesheet로 옮긴다. CSP는 그대로다.
+  - 보이는 터미널은 focus와 상관없이 칸 크기를 PTY에 보낸다. 사람의 키 입력과 restart만 focus 검사를 한다.
+  - 다시 붙을 때 쓰는 옛 출력은 `replay`로 쓰고, 그 parse가 끝날 때까지 xterm의 답을 PTY에 보내지 않는다(write callback 경계). 그 몇 ms 사이에 친 키도 버려진다.
+  - 터미널 env는 Claude Code와 Codex가 자식에 넣는 session 표지 16개를 지운다(`packages/shell/terminal-host/env.ts`). 사용자 설정(`CLAUDE_CODE_USE_BEDROCK` 등)은 남긴다.
+  - 설치본과 개발 launcher가 `hook`에 `unix:<socket 경로>` net 권한을 준다.
+  - scrollbar 자리를 왼쪽 여백과 같은 6px로 줄였다. alternate screen에서는 여백과 scrollbar 자리를 가장 가까운 cell의 바탕색으로 칠한다(Ghostty `window-padding-color = extend`). 왼쪽·오른쪽 띠는 줄마다, 위·아래 띠는 칸마다 칠해 OpenCode의 sidebar·header 색도 이어진다. 일반 화면은 그대로다.
+why: |
+  사람이 개발 앱에서 쓰다 찾았다. 원인은 byte(실제 `claude` 2.1.310 시작 출력)와 headless Chrome 재현(같은 CSP)으로 확인했다.
+decisions:
+  - text: |
+      CSP를 풀거나(`style-src-attr 'unsafe-inline'`) `Element.prototype.setAttribute`를 창 전체에서 바꾸지 않고, inline style이 필요 없는 renderer로 바꾼다. 앞의 둘은 shell renderer 전체의 style 경계를 넓힌다. 아래 "GPU를 못 쓸 때도 터미널 색이 나온다"에서 사람이 `style-src-attr 'unsafe-inline'`로 바꿨다.
+    by: agent
+  - text: |
+      resize는 focus 검사 대상이 아니다. 치수만 바꾸고 PTY에 글을 넣지 않는다.
+    by: agent
+  - text: |
+      터미널 여백은 없애지 않고 색만 늘린다. 여백을 없애면 shell 글자가 칸 경계에 붙고, TUI일 때만 없애면 cols·rows가 바뀌어 resize가 일어난다. TUI 테마를 lophn에 맞추는 일은 사람이 harness에서 고른다.
+    by: person
+  - text: |
+      여백 색은 alternate screen에서만 늘린다. 일반 화면의 prompt·powerline 줄은 늘리면 어색하고 Ghostty도 거기서는 거의 늘리지 않는다.
+    by: agent

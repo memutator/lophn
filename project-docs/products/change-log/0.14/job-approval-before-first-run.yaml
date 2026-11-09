@@ -1,0 +1,30 @@
+id: job-approval-before-first-run
+version: 0.14.0
+title: 'job은 사람이 등록을 한 번 승인해야 돌고, 앱 tool 호출은 만든 agent의 할당을 보지 않는다'
+modules: [packages/protocol, packages/core/jobs, packages/core/apps, packages/core/runs, packages/shell/renderer]
+checked: []
+change: |
+  전:
+    - agent가 `job.create`로 만든 job은 바로 돌았다. 사람은 Settings에서 보고 끄거나 지울 수만 있었다.
+    - job의 tool_run은 만든 agent의 지금 할당과 domain으로 판정했다. 앱 place에서 앱을 만든 lophn처럼 그 앱이 할당되지 않은 agent가 만든 job은 만들 때는 통과하고, 차례마다 `gate_blocked`(run은 `tool_denied`)로 말없이 실패했다.
+    - `job.update`로 할 일(`action`)을 바꿀 수 있었다.
+  후:
+    - job record에 `approved_at`이 있다. agent가 만든 job은 승인 대기(`approved_at`, `next_due_at`이 null)이고 돌지 않는다. 대기 목록의 Scheduled jobs 묶음에 승인 card가 뜨고 [Approve]는 그 순간부터 차례를 센다. [Reject]는 job을 지운다. 종류(agent_run, tool_run, workflow_start)와 상관없다.
+    - route `job.pending`(승인 대기 목록), `job.approve`(`approve` | `reject`)가 생겼다. 둘 다 user만 받는다.
+    - `job.update`에서 `action`이 빠졌다. 다른 일은 새 job으로 만든다.
+    - job의 앱 tool 호출(program caller)은 앱 호출 경로가 막지 않는다. `CallAuth.program`과 run의 job 출처에서 만든 agent·place가 빠졌다.
+    - Scheduled jobs 화면과 project panel은 승인 대기 job에 "Waiting for your approval"을 보인다.
+    - ledger step `jobs.approval`이 `jobs.approved_at`을 더하고 기존 job을 모두 승인 대기로 옮긴다(`next_due_at`을 지운다). 기존 job은 대기 목록에서 한 번 승인해야 다시 돈다.
+why: |
+  Mahas 앱의 15분 수집 job이 만든 agent(lophn)에게 Mahas가 할당되지 않아 매번 막혔다. job을 만든 agent가 그 tool을 직접 쓸 이유는 없다. 할당으로 허락하면 job 하나를 위해 그 agent에게 앱 전체를 열어 줘야 한다.
+decisions:
+  - text: 'job의 허락은 만든 agent의 할당이 아니라 사람의 등록 승인이다. 버린 길: 앱 place에서 만든 job이 자기 앱 tool을 부를 때만 할당 검사를 건너뛰기(그 경우만 풀고 근본이 남는다), 만들 때 할당을 검사해 거절하기(필요 없는 할당을 강요한다).'
+    by: person
+  - text: '승인은 job마다 한 번이고 다시 묻지 않는다. 할 일은 바꾸지 못하게 해 승인한 일과 도는 일이 어긋나지 않게 한다.'
+    by: person
+  - text: '[Reject]는 job을 지운다. 거절한 job을 남겨 둘 쓸모가 없다.'
+    by: agent
+  - text: 'agent_run과 workflow_start도 승인을 받는다. 사람 없이 되풀이되는 것은 셋 다 같다. 받은 agent는 지금처럼 자기 할당으로 일한다.'
+    by: agent
+follow_up: |
+  기존 job(예: Mahas 사용량 증분 수집)은 업데이트 뒤 대기 목록에서 [Approve]해야 돈다.

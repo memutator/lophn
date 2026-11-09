@@ -1,136 +1,252 @@
 # acp
 
-ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면이 이 규격만 보고 그리고, 앱 화면이 같은 규격으로 자기 앱 workspace의 session과 이야기하며(`lophnApp.agent`), 뒤에 third-party CLI GUI가 같은 규격을 쓴다. 정의는 `packages/protocol/acp/`(항목, 상태, 갱신, `reduceAcp`, route)와 `packages/protocol/events/acp-project.ts`(`acpUpdatesOf`)다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 events에 둔다. core가 만든다: route `AcpSnapshot {session}`(→ `AcpState`)과 transient event `AcpUpdated`(payload `{session, update}`, envelope에도 `session`이 있어 화면은 `{types: ["AcpUpdated"], session}`으로 걸고 Gateway가 session으로 거른다. 화면은 ready 때 snapshot을 다시 읽으므로 그때 쌓인 갱신을 버린다). 화면의 조작은 route `AcpSend {AcpInput}` 하나로 받는다. lophn 채팅 화면은 ACP만 읽고 보낸다. 기록을 해석하던 renderer code(`readThread`, `foldEvent`)는 지웠고, 남은 `ThreadView`는 ACP 상태를 화면 줄로 늘어놓은 renderer 쪽 모양이다(`packages/shell/renderer/conversation/thread-layout.ts`).
+ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content block, tool 진행, 묻기·승인, 흘러나오는 글, turn 상태)와, 화면이 보내는 대화 조작을 정한 lophn 규격이다. 표준 Agent Client Protocol이 아니다. lophn 채팅 화면은 이 규격만 보고 그리고 이 규격으로만 보낸다. 앱 화면도 같은 규격으로 자기 앱 workspace의 session과 이야기하고(`lophnApp.agent`), third-party CLI GUI(Claude Code, Codex, OpenCode, omp)도 같은 규격으로 그려진다.
 
-## 모양
+규격은 세 덩어리다. 상태 `AcpState`(snapshot), 상태를 한 걸음씩 바꾸는 갱신 `AcpUpdate`, 화면이 보내는 `AcpInput`. 갱신을 상태에 접는 reducer는 순수 함수이고 규격과 같이 protocol에 있다. core는 기록에서 snapshot을 만들고 agent event를 갱신으로 바꿔 내보낸다. 화면은 snapshot을 한 번 읽고 그 위에 갱신을 접는다. 순서가 어긋나면 snapshot을 다시 읽는다.
+
+## 문제
+
+- 화면이 session 기록(메시지, turn, tool call, rewind)을 제 나름대로 읽어 대화를 만들면, tool 이름과 JSON으로 줄 종류를 짐작하고 snapshot과 event를 시각으로 합쳐야 한다. 그러면 turn이 끝난 뒤 줄이 튀고, 승인 결과처럼 event 길에만 있던 것은 다시 읽으면 사라지며, 같은 해석을 앱 화면과 third-party GUI가 다시 짜야 한다.
+- 화면의 대화 조작이 route 여러 개와 그 입력 모양을 직접 알면, 다른 화면이 같은 대화를 하려 할 때 그 지식을 다시 짜야 한다.
+- harness(third-party CLI)의 대화는 lophn 기록에 없다. 그래도 같은 화면이 그려야 한다.
+
+## 목표와 비목표
+
+- 목표: 화면이 대화를 그리고 조작하는 데 필요한 것을 agent가 낸 모양 그대로 규격 하나로 준다. lophn agent와 harness가 같은 모양을 낸다. snapshot과 갱신이 같은 상태가 된다. 순서와 빠짐을 화면이 스스로 알아본다.
+- 목표: 화면은 source가 가진 기능을 capability로 알고 칸을 켠다. 이름이나 JSON을 해석하지 않는다.
+- 비목표: 표준 ACP를 따르는 것. lophn에 맞춰 정했다.
+- 비목표: 화면 모양. 항목은 agent가 낸 것의 모양이고, 이어진 call을 묶는 것 같은 줄 배치는 화면(renderer)의 몫이다.
+- 비목표: 앱 화면이 agent의 승인이나 rewind를 조작하는 것. 앱 화면은 입력 일부만 보낸다.
+
+## 모델
 
 ```
- AcpState (snapshot)                      AcpUpdate (stream)                 AcpInput (화면 → core)
+ AcpState (snapshot)                      AcpUpdate (stream)                 AcpInput (화면 → source)
   seq, items[], turn, queued[],            message_added/queued/removed/taken  send, stop, retry, answer, decide,
   pending{approval, question},             turn_started/resumed/ended          send_queued, remove_queued,
-  writing, dropped, reread                 writing_streamed, message_recorded  edit_queued, move_queued
-                                           tool_started/ended, hidden_added
+  writing, dropped, reread,                writing_streamed, message_recorded  edit_queued, move_queued,
+  session, plan, children, tasks, draft    tool_started/ended/detail_changed   세션 조작(아래)
         ▲ 처음·다시 읽을 때                 approval_opened/closed, question_*
-        │                                          │
-        └──────────── reduceAcp(state, update) ◀──┘
-                                                   ▲
- AgentEvent ── acpUpdatesOf(event, AcpContext) ────┘   (core가 부른다. 순수. events/acp-project.ts)
+        │                                  session_changed, plan_changed ...
+        └────────── reducer(state, update) ◀──┘
+                                    ▲
+ AgentEvent ── projection(event, context) ──┘   (core가 돌린다. 순수)
 ```
 
-- `AcpItem`은 대화의 줄이고 `seq`(session 안의 순번, 1부터)로 순서를 정한다. 종류는 다섯이다.
-  - `message`: actor(user, agent, received), sender, call, reply_to, delivery, turn, `content`(content block 배열), `reasoning`, `cards`(`visual.show`가 올린 앱 카드 `{app, view}`), `complete`, `origin`(그 CLI 자신의 message id. 같은 CLI session을 다시 열어도 같아 thread bookmark의 key가 된다. lophn은 null. 늦게 알면 `origin_set`).
-  - `tool`: tool call 하나. `tool`(정본 이름), `category`, `title`, `state`, `duration_ms`, 그리고 종류 `detail`.
-  - `approval`: 승인 결정 뒤 남는 줄(subject, outcome, choice, reason).
-  - `notice`: 정상·멈춤은 `turn_end`(active_ms, waited_ms), 실패는 `error`(code, message), 알림은 `info`(text, `level` info·warning), 명령 출력은 `command_output`(command, text, `format` markdown·preformatted). `turn`은 nullable이다: turn 밖에서 돈 명령의 출력은 turn이 없고 화면은 "Worked for"를 붙이지 않는다. `turn_end`·`error`는 늘 turn이 있다.
-  - `hidden`: rewind가 숨긴 구간. 숨긴 항목은 `items`(평평한 목록)에 들고, `seq`는 숨긴 첫 항목의 순번이다. top-level에서는 그 항목들이 빠진다.
-- tool 종류(`detail.kind`): `edit`(document, path, added, removed), `call`(call, to, task, reply, state, fail_reason, session), `question`(group, outcome, lines), `consent`(release), `subagent`(agent, description, `child`(자식 대화 key), state, model, last), `generic`. 끝난 뒤 detail이 바뀌면(background로 돈 subagent가 끝남) `tool_detail_changed`가 detail만 바꾼다. `edit`·`call`·`question`은 tool 이름이 정하므로 시작 때부터 그 종류이고 실패·거절·취소해도 지킨다(실패는 항목의 `state`가 말한다). 입력에서 뽑는 칸(`edit`의 path·줄 수, `call`의 to·task·reply)은 시작 때부터 차고, 결과에서 아는 칸(`call`의 call id·state·fail_reason·session)은 call이 생긴 뒤에야 알아 그 전과 실패한 tool에서는 null이다. 종류마다 화면에 필요한 칸만 싣는다. 입력·출력 본문은 lophn이면 싣지 않고 blob read(`toolCallBody`)로 따로 읽으며, harness는 tool item의 `body`(`{input, output, truncated}`, 한 쪽에 `ACP_TOOL_BODY_LIMIT` 64 KiB)에 싣는다(harness는 다시 읽을 저장소가 없다). 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
-- subagent 대화와 background task: `AcpState.children`(child key → `AcpChildState`)와 `AcpState.tasks`(`AcpTask`: id, kind agent·shell·other, description, state, started_at, output 꼬리). `child_update {child, update}`가 그 자식 상태에 같은 reducer로 접히고(자식의 순번이 빠지면 바깥 `reread`), `tasks_changed`는 목록을 통째로 바꾼다. 자식 대화는 한 층이다: 손자 subagent도 바깥 `children`에 평평하게 들고 그 subagent tool 줄의 `child`가 바깥 key를 가리킨다. 그래서 schema와 SDK type이 재귀하지 않는다(`AcpState` = `AcpChildState` + `children` + `tasks`).
-- 사람이 돌린 명령: tool item의 `by`가 `"user"`면 사람이 `!`로 돌린 명령이다(`tool: "shell"`, `category: "command"`, `title`은 명령 첫 줄, `body.input`은 명령 전체, `body.output`은 출력). 화면은 사람 쪽에 출력을 펼쳐 그린다. turn 밖에서 돈 그 줄만 `turn`이 null이다. 입력은 `run_shell {command}`(`!` 뒤 글)이고 capability `shell`이 composer의 shell mode를 켠다.
-- 다른 session으로 바꾸기: `open_session {cli_session}`은 같은 CLI의 다른 session을 같은 탭에서 연다(harness만, capability `resume`, `opens: "resume"`이 머리 session menu를 연다). adapter는 `session_reset`(items, turn, queued, pending, writing, dropped, plan, children, tasks, draft를 비우고 session·seq·reread는 둔다. adapter는 seq를 이어 세어 빈 것이 gap으로 읽히지 않는다) 뒤 새 session을 다시 그리고 `session_changed`로 제목·`cli_session`·명령을 낸다.
-- model 축의 `kind`: `choice`는 값 목록, `switch`는 값 둘(`[0]` 끔, `[1]` 켬)이고 picker가 켜고 끄기로 그린다. `options`에 없는 switch 축은 끈 것이다.
-- composer 채우기: `AcpState.draft {key, content}`(바깥만, lophn은 늘 null)와 갱신 `draft_set`. 화면은 새 `key`를 볼 때 한 번만 composer를 채운다(OpenCode `/undo`가 숨긴 사람 글을 돌려준다).
-- 숨긴 것 되살리기: `hidden_restored {hidden}`은 그 hidden 항목을 빼고 든 항목을 제 `seq` 자리로 돌린다(OpenCode redo). 없는 id면 그대로다.
-- `AcpState`의 나머지: `turn`(가장 늦게 시작한 turn: phase, started_at, elapsed), `queued`(도는 중에 다음 turn으로 보낸 사람 메시지. 순번이 없다), `pending`(composer 위에 놓이는 승인 카드와 질문 묶음. 둘 다 있으면 turn은 waiting), `writing`(저장 전 model 호출 하나의 글), `dropped`(늦은 조각을 거를 기억), `reread`.
-- message의 `content`는 content block이다(`contentBlockSchema`). `message_recorded`는 core가 읽은 저장된 본문(`body`)을 싣고, 그러면 항목은 `complete`이고 snapshot과 같다. 본문을 못 읽었으면(`body` null) `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있고 `complete`가 false라 snapshot을 다시 읽는다. harness가 쓴 tool 줄(`harness_tool` part)은 전용 항목이 생기기 전까지 `[상태] 이름: 요약` 글 block 하나다.
-- `cards`는 content block이 아니라 message의 따로 칸이다. agent message의 `app_card` part를 `{app, view, params?}`(`AcpCard`)로 옮긴다. `params`는 `visual.show`가 그 카드 화면의 선언 schema로 검사해 part에 실은 인자이고, 옛 message에는 없다.
-- `AcpInput`의 대화 조작: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(core 결정에 `session` 범위를 더한 `acpDecideChoiceSchema`), 다음 turn 줄 고치기 넷. 보내는 길은 아래 "입력"이다.
-- 대화 밖 session 기능(`packages/protocol/acp/session.ts`): `AcpState.session`(`AcpSessionMeta`: 제목, CLI session id, `harness`(harness id, 화면의 vendor 얼굴. lophn은 null), capability 스물넷(`ACP_CAPABILITIES`), model 묶음과 지금 값(effort·speed·thinking 같은 것은 model의 축과 `options`), mode, 명령, 사용량(`usage.limits`: 사용 한도, `usage.context.parts`: `/context` 분해), `toggles`(켜고 끄는 상태: Codex plan, omp fast/slow, OpenCode auto-accept), `goal`, `roles`(omp role. 이 session만 그 role의 model로 바꾸는 `use_role`뿐이고 배정을 쓰는 입력은 없다))과 `AcpState.plan`(todo 목록). 갱신은 `session_changed`(부분. capability는 통째로 바뀌고, 첫 갱신은 모든 칸이 있어야 하며 없으면 `reread`), `plan_changed`, `notice_added`(turn 중 `info` notice). 입력은 `set_model`, `set_mode`, `run_command`, `rewind`, `fork`(`AcpSend` 답의 `session`이 새 session), `compact`, `rename`, `stop_child`, `steer_child`, `stop_task`, `background_tool`(도는 root tool을 background로, capability `background`), `set_toggle`, `set_goal`, `use_role`이고 모두 `key`를 싣는다. 명령(`AcpCommand`)은 `source`(app, harness, skill, plugin, mcp, custom_user, custom_project), `aliases`, `opens`(`ACP_COMMAND_OPENS` 열여덟: 화면이 하는 동작. 표와 규칙은 `session.ts`의 그 주석), `argument_hint`(null이면 인자 없음)를 싣는다. 화면은 명령 이름을 해석하지 않고 `opens`만 본다: null이면 `run_command`로 보내고, 켜고 끄기만 하는 명령(Codex `/plan`, omp `/fast`)도 null이라 source가 바꾼 뒤 `session_changed`를 낸다. harness의 `/new`·`/clear`도 null이다(adapter가 같은 탭에 새 session을 연다). 화면은 capability를 보고 칸을 켠다. 승인 pending은 `choices`(once·session·always·reject)를 싣고, subject에 편집(`file_change`: path, 만들기·고치기·지우기, 줄 수)과 plan 승인(`plan`: plan markdown, 다음 mode 후보 `modes`)이 있다. plan 승인은 `decide {kind: "mode", mode}`로 다음 mode를 골라 답하고, approval item과 `approval_closed`의 `mode`가 고른 mode다(그 밖의 승인은 null). core는 lophn agent session의 `session`을 snapshot에서 채우고(capability는 `stop_child`·`steer_child`·`tasks`·`toggles`·`goal`·`roles`·`resume`·`background` 밖은 켜고 `shell`은 폴더가 있는 workspace session만 켬, `harness`·`toggles`·`goal`·`roles`는 비움, `cli_session`은 null, mode는 `ask`·`skip`, model id는 `<provider id>/<model 이름>`, 묶음 id는 provider id) 이름·model·mode가 바뀐 뒤와 `TurnEnded`·`CompactEnded` 뒤 사용량을 `session_changed`로 낸다. `plan`은 null이다. lophn 내장 명령 열넷(`BUILTIN_COMMAND_IDS`: new·model·effort·permissions·status·usage·context·rewind·fork·rename·compact·archive·mcp·skills)은 `source: "app"`이고 `opens`·별칭·`argument_hint`는 `acp-build.ts`의 `LOPHN_COMMAND_FACES` 표가 정한다(`/clear`는 `new`의 별칭, `rename`만 인자 `[title]`). skill은 `source: "skill"`, `opens: null`이고 내장 이름이나 별칭과 같은 skill은 목록에서 빠진다. draft meta는 session이 있어야 하는 내장(status, usage, context, rewind, fork, rename, compact, archive)을 뺀다. 명령 목록은 snapshot에만 있다(skill이 바뀌는 event가 없어 화면이 `/` 메뉴를 열 때 다시 읽는다). 첫 메시지 전(session이 아직 없음)의 새 session 화면은 read route `AcpDraft {agent, workspace}`(→ `AcpSessionMeta`, title·usage·`cli_session`은 null)로 같은 meta를 읽는다. session meta와 draft meta는 같은 읽기(`metaOf`)이고, 명령 목록은 `ListCommands`가 `{session}` 대신 `{agent, workspace}`로도 받는다. harness session은 늘 session이 있어 draft를 쓰지 않는다.
+### 항목
+
+`AcpItem`은 대화의 줄 하나이고 `seq`(session 안의 순번, 1부터)로 순서를 정한다. 종류는 다섯이다.
+
+- `message`: actor(user, agent, received), sender, call, reply_to, delivery, turn, `content`(content block 배열), `reasoning`, `cards`, `complete`, `origin`.
+  - `received`는 다른 쪽(다른 agent나 program)이 보낸 메시지이고 sender로 가른다.
+  - `cards`는 `visual.show`가 올린 앱 카드 `{app, view, params?}`이고 content block이 아니라 message의 따로 칸이다. `params`는 그 카드 화면의 선언 schema로 검사해 실은 인자이고, 옛 message에는 없다.
+  - `origin`은 그 CLI 자신의 message id다. 같은 CLI session을 다시 열어도 같아서 thread bookmark의 key가 된다. lophn은 null이고 늦게 알면 `origin_set`으로 채운다.
+  - `complete`가 false면 `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있다. 최종 본문은 snapshot을 다시 읽어야 안다.
+  - harness가 쓴 tool 줄(`harness_tool` part)은 전용 항목이 생기기 전까지 `[상태] 이름: 요약` 글 block 하나다.
+- `tool`: tool call 하나. `by`(agent, user), `tool`(정본 이름), `category`, `title`, `state`(running, ok, error, denied, cancelled), `duration_ms`, 종류 `detail`, harness면 `body`.
+- `approval`: 승인 결정 뒤 남는 줄(subject, outcome, choice, reason, plan 승인이면 고른 `mode`).
+- `notice`: 정상·멈춤은 `turn_end`(active_ms, waited_ms), 실패는 `error`(code, message, 있으면 판정 경로와 provider request id를 담은 `evidence`), 알림은 `info`(text, level info·warning), 슬래시 명령 출력은 `command_output`(command, text, format markdown·preformatted). `turn`은 nullable이다: turn 밖에서 돈 명령의 출력은 turn이 없고 화면은 "Worked for"를 붙이지 않는다. `turn_end`·`error`는 늘 turn이 있다.
+- `hidden`: rewind가 숨긴 구간. 숨긴 항목은 지워지지 않고 `items`(평평한 목록, 앞서 숨은 구간의 항목도 평평하게)에 들고, `seq`는 숨긴 첫 항목의 순번이라 대화 안의 자리가 그대로다. top-level에서는 그 항목들이 빠진다.
+
+### tool 종류와 본문
+
+`detail.kind`는 `edit`(document, path, added, removed), `call`(call, to, task, reply, state, fail_reason, session), `question`(group, outcome, reply, lines), `consent`(release), `subagent`(agent, description, `child`, state, model, last), `generic`이다.
+
+- 종류는 tool 이름이 정하므로 시작 때부터 그 종류이고, 실패·거절·취소해도 지킨다(실패는 항목의 `state`가 말한다). 단 동의(`consent`)는 결과를 봐야 알아 성공해 끝난 뒤에만 생긴다.
+- 입력에서 뽑는 칸(`edit`의 path·줄 수, `call`의 to·task·reply)은 시작 때부터 차 있다. 결과에서 아는 칸(`call`의 call id·state·fail_reason·session)은 call이 생긴 뒤에야 알아서 그 전과 실패한 tool에서는 null이다.
+- 끝난 뒤 detail이 바뀌면(background로 돈 subagent가 끝남) `tool_detail_changed`가 detail만 바꾼다.
+- `question`의 outcome은 submitted, human_message, cancelled, parent_reply다. 팀 자식의 질문을 부모가 `call reply`로 답했으면 `parent_reply`이고 부모의 답 글이 `reply` 한 칸에 실린다. 자식 탭의 카드는 "Answered by the parent"와 그 글을 보인다.
+- 종류마다 화면에 필요한 칸만 싣는다. 입력·출력 본문은 lophn이면 싣지 않고(redaction 경계) 별도 읽기(`toolCallBody`)로 읽는다. harness는 다시 읽을 저장소가 없어서 tool item의 `body`(`{input, output, truncated}`, 한 쪽 64 KiB까지)에 싣는다. 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
+- 사람이 돌린 명령: `by: "user"`이면 사람이 `!`로 돌린 명령이다(`tool: "shell"`, `category: "command"`, `title`은 명령 첫 줄, `body.input`은 명령 전체, `body.output`은 출력). 화면은 사람 쪽에 출력을 펼쳐 그린다. turn 밖에서 돈 그 줄만 `turn`이 null이다.
+
+### 상태의 나머지
+
+- `turn`: 지금 turn(phase working·waiting·ended, started_at, elapsed). 도는 turn이 있으면 그것이고 없으면 가장 늦게 시작한 turn이다. 사람이 답할 것(`pending`)이 있으면 waiting이다.
+- `queued`: 도는 중에 다음 turn으로 보낸 사람 메시지. 아직 대화의 일이 아니므로 항목이 아니고 순번이 없다. turn이 가져가거나 steer로 올릴 때(`message_taken`) 항목이 되며 그때 순번을 받는다.
+- `pending`: composer 위에 놓이는 승인 카드(`approval`)와 질문 묶음(`question`). 승인 카드는 `choices`(once·session·always·reject)를 싣고, subject에는 편집(`file_change`: path, 만들기·고치기·지우기, 줄 수)과 plan 승인(`plan`: plan markdown, 다음 mode 후보 `modes`)이 있다. plan 승인은 `decide {kind: "mode", mode}`로 다음 mode를 골라 답한다.
+- `writing`: 저장 전 model 호출 하나의 글(text, reasoning). 저장되면 그 message 항목이 된다.
+- `dropped`: 마지막으로 글을 버린 model 호출과 끝난 turn. 그 늦은 조각이 새 글로 보이지 않게 거르는 기억이다.
+- `reread`: 화면이 snapshot을 다시 읽어야 한다는 표시.
+- `plan`: agent의 todo 목록. lophn agent는 todo가 없어 null이다.
+- `draft {key, content}`: 화면이 composer에 한 번 채울 글(OpenCode `/undo`가 숨긴 사람 글을 돌려준다). 새 `key`를 볼 때 한 번만 채운다. 바깥 상태에만 있고 lophn은 늘 null이다.
+- `children`·`tasks`: 아래.
+
+### subagent와 background task
+
+`children`(child key → 자식 상태)은 subagent 대화이고 `tasks`는 background task 목록이다(id, kind agent·shell·other, description, state, started_at, output 꼬리). 자식 갱신 `child_update {child, update}`는 그 자식 상태에 같은 reducer로 접히고(자식의 순번이 빠지면 바깥 `reread`), `tasks_changed`는 목록을 통째로 바꾼다. 자식 대화는 한 층이다. 손자 subagent도 바깥 `children`에 평평하게 들고, 그 subagent tool 줄의 `child`가 바깥 key를 가리킨다. 그래서 schema와 SDK type이 재귀하지 않는다.
+
+### 대화 밖 session 기능
+
+`AcpState.session`(session meta)은 source가 가진 대화 밖 기능이다.
+
+- 제목, CLI session id(`cli_session`, lophn은 null), `harness`(harness id, 화면이 vendor 얼굴을 고른다. lophn은 null).
+- capability: model, effort, mode, commands, rewind, rewind_files, fork, compact, rename, usage, steer, background, queue_edit, images, retry, sessions, stop_child, steer_child, tasks, toggles, goal, roles, shell, resume. 화면은 capability를 보고 칸을 켠다.
+- model 묶음(provider나 CLI가 주는 묶음)과 지금 값. effort·speed·thinking 같은 것은 model의 축(`kind`가 `choice`면 값 목록, `switch`면 값 둘이고 `[0]`이 끔 `[1]`이 켬이며 picker가 켜고 끄기로 그린다. `options`에 없는 switch 축은 끈 것이다)이고 composer chip이 아니다. 지금 값의 `layer`(global, project, agent, session)는 값이 어느 층에서 왔는지다. `project`는 지금 workspace 층(Home·project·앱)을 뜻한다.
+- mode, 명령 목록, 사용량(`usage.limits`: 사용 한도, `usage.context.parts`: `/context` 분해).
+- `toggles`(켜고 끄는 상태: Codex plan, omp fast/slow, OpenCode auto-accept), `goal`, `roles`(omp role. 이 session만 그 role의 model로 바꾸는 `use_role`뿐이고 role 배정을 쓰는 입력은 없다).
+
+명령(`AcpCommand`)은 `source`(app, harness, skill, plugin, mcp, custom_user, custom_project), `aliases`, `opens`, `argument_hint`(null이면 인자 없음)를 싣는다. 화면은 명령 이름을 해석하지 않고 `opens`(화면이 하는 동작: new, rename, archive, compact, fork, rewind, model, effort, mode, permissions, status, usage, context, mcp, skills, subagents, tasks, goal, resume)만 본다.
+
+- `opens`가 null이면 `run_command`로 보낸다. 켜고 끄기만 하는 명령(Codex `/plan`, omp `/fast`)도 null이고 source가 바꾼 뒤 `session_changed`를 낸다.
+- `opens`가 있는데 사람이 인자를 쳤고 그 값이 인자를 쓰지 않는 동작(`rename`·`goal` 밖)이면, `argument_hint`가 있을 때 `run_command`로 보낸다(`/model sonnet`은 CLI가 바로 바꾼다).
+- TUI에서만 되는 명령은 목록에 넣지 않는다.
+- 같은 탭에서 새 session을 여는 harness의 `/new`·`/clear`는 `opens`가 null이고 adapter가 연다.
+
+갱신은 `session_changed`(부분. 맨 위 칸만 덮어 합치고 capability는 통째로 바꾼다. 첫 갱신은 모든 칸이 있어야 하며 없으면 `reread`), `plan_changed`, `notice_added`(turn 중 `info` notice)다.
+
+### 다른 session으로 바꾸기
+
+`open_session {cli_session}`은 같은 CLI의 다른 session을 같은 탭에서 연다(harness만, capability `resume`, `opens: "resume"`이 머리 session menu를 연다). adapter는 `session_reset`으로 대화 상태(items, turn, queued, pending, writing, dropped, plan, children, tasks, draft)를 비우고 session meta와 `seq`·`reread`는 둔다. adapter는 순번을 처음부터 다시 세지 않고 이어 세어, 비운 뒤 빈 순번이 gap으로 읽히지 않는다. 새 session의 제목·`cli_session`·명령은 바로 뒤 `session_changed`가 싣는다.
+
+### 숨긴 것 되살리기
+
+`hidden_restored {hidden}`은 그 hidden 항목을 빼고 든 항목을 제 `seq` 자리로 돌린다(OpenCode redo). 없는 id면 그대로다.
 
 ## 지키는 것
 
 순서와 읽기
-- 항목의 순서는 `seq`다. 같은 항목을 snapshot과 갱신이 같은 순번으로 낸다.
-- `reduceAcp`는 같은 갱신을 두 번 접어도 같은 상태를 낸다. 항목은 id로 한 번만 들고, 글 조각은 겹친 부분을 두 번 붙이지 않는다. snapshot보다 앞선 갱신을 snapshot 위에 다시 접지 않는 일(읽기 시작 때 쌓인 갱신 개수 표시)은 읽는 쪽의 몫이다.
-- `reread`가 서면 화면은 snapshot을 다시 읽어 상태를 바꿔 끼운다. 서는 때: ① 다음 순번(`state.seq + 1`)을 건너뛴 항목이 왔을 때, ② 글 조각의 offset이 앞 글 길이를 넘었을 때, ③ 놓친 `approval_opened`로 닫는 갱신의 승인 카드를 모를 때, ④ turn이 끝났는데 본문을 모르는 agent message(`complete` false)가 있을 때(core가 본문을 읽지 못한 때뿐이다). ②는 한 model 호출에서 한 번만 다시 읽는 것이 읽는 쪽의 몫이다(그러고도 안 맞으면 `message_recorded`가 맞춘다).
-- 줄에 선 메시지(`queued`)는 순번이 없다. 대화에 들 때(`message_taken`: turn이 가져가거나 steer로 올릴 때) 순번을 받는다. 순번을 미리 받으면 줄에 선 동안 항목 사이에 빈 순번이 생겨 `reread`가 거짓으로 선다.
+
+1. 항목의 순서는 `seq`다. 같은 항목을 snapshot과 갱신이 같은 순번으로 낸다. 시각으로 순서를 정하지 않는다.
+2. reducer는 같은 갱신을 두 번 접어도 같은 상태를 낸다. 항목은 id로 한 번만 들고, 글 조각은 겹친 부분을 두 번 붙이지 않는다. snapshot보다 앞선 갱신을 snapshot 위에 다시 접지 않는 일(읽기 시작 때 쌓인 갱신 개수 표시)은 읽는 쪽의 몫이다.
+3. `reread`가 서면 화면은 snapshot을 다시 읽어 상태를 바꿔 끼운다. 서는 때: ① 다음 순번(`seq + 1`)을 건너뛴 항목이 왔을 때, ② 글 조각의 offset이 앞 글 길이를 넘었을 때, ③ 놓친 `approval_opened`로 닫는 갱신의 승인 카드를 모를 때, ④ turn이 끝났는데 본문을 모르는 agent message(`complete` false)가 있을 때(core가 본문을 읽지 못한 때뿐이다), ⑤ session meta를 아직 모르는데 모든 칸을 싣지 않은 `session_changed`가 왔을 때(첫 갱신은 모든 칸을 싣는 것이 source의 약속이다), ⑥ 자식 대화의 순번이 빠졌을 때. ②는 한 model 호출에서 한 번만 다시 읽는 것이 읽는 쪽의 몫이다(그러고도 안 맞으면 `message_recorded`가 맞춘다).
+4. 줄에 선 메시지(`queued`)는 순번이 없다. 대화에 들 때 순번을 받는다. 순번을 미리 받으면 줄에 선 동안 항목 사이에 빈 순번이 생겨 `reread`가 거짓으로 선다.
+5. snapshot의 지금 turn은 도는 turn이 있으면 그것이다. turn 시작·끝은 ledger event가 아니라서 값(`state_seq`)이 같은 두 turn 중 끝난 쪽이 뽑히면 화면이 turn이 끝난 것으로 보아 멈춤 단추를 잃는다.
+6. snapshot과 갱신이 같은 상태가 된다. 같은 기록에서 갱신을 접은 상태와 snapshot이 같다.
 
 secret
-- 흘러나온 글(`writing_streamed`)의 redaction은 core `run-loop/live-turns.ts`의 규칙 그대로이고 ACP로 나가는 글은 그것을 거친 뒤의 것뿐이다(결정 8). `acpUpdatesOf`는 순수 projection이라 redaction을 하지 않고 규칙을 복사하지도 않는다. 받는 `AgentEvent`가 Bus에서 나온 것(`ModelOutputStreamed`, `ToolCallStarted.display`는 이미 redaction을 거침)이어야 하고, `AcpContext`가 주는 값(질문 글, 승인 이유 등)도 core가 redaction을 거친 값이어야 한다. 갱신에 실리는 글은 event의 것과 context의 것뿐이다.
-- `writing`에서 message로 넘어갈 때 흘러나온 글은 최종 본문의 앞부분이다(붙잡은 꼬리는 나가지 않았다). 그래서 `complete: false`다.
 
-## core가 하는 것
+7. ACP로 나가는 글은 모두 core의 지금 redaction을 거친 것뿐이다. 알려진 secret을 다 모르는 동안은 빈 글이다. 저장된 본문, `MessageReceived.body`, tool 칸, 승인 subject·이유, 질문 글, 접힌 구간의 대상 모두 한 번 더 거친다.
+8. projection은 순수라 redaction을 하지 않고 규칙을 복사하지도 않는다. 받는 `AgentEvent`가 Bus에서 나온 것(흘러나온 글과 tool 제목은 이미 거침)이어야 하고 context가 주는 값도 거친 값이어야 한다. 갱신에 실리는 글은 event의 것과 context의 것뿐이다.
+9. `writing`에서 message로 넘어갈 때 흘러나온 글은 최종 본문의 앞부분이다(붙잡은 꼬리는 나가지 않았다). 그래서 `complete: false`다.
+10. lophn의 tool 입력·출력 본문은 ACP에 싣지 않는다. 사람이 `!`로 돌린 명령의 출력은 저장 전에 이미 redaction을 거쳤으므로 싣는다.
 
-`acpUpdatesOf(event, context)`는 event만으로 알 수 없는 것을 `AcpContext`로 받는다. `AgentEvent`에서 바뀐 것은 `MessageReceived.body`가 content block 배열이라는 것뿐이다. core는 `wiring/acp.ts`(Bus 구독, route, rewind 훅)와 `wiring/acp-build.ts`(기록 읽기, snapshot 조립, 갱신 projection)로 채운다.
+입력
 
-| context | 내용 | core가 채우는 곳 |
-|---|---|---|
-| `seq(id)` | 항목이 대화에 들 때 session마다 1부터 이어 붙여 **저장한** 순번. message id, tool_call id, 승인 request id, `acpNoticeId(turn)`로 찾는다. 줄에 선 메시지는 null | 표 `acp_items(session, id, seq, kind, turn, at, data)`. event를 처리할 때 command `AllocateAcpItems`가 붙이고(이미 있는 id는 그 순번) snapshot도 같은 표를 읽는다 |
-| `tool(toolCall)` | tool 종류와 칸. 모르면 null(=generic) | 종류는 tool 이름이 정한다: `file.write`·`file.edit`→`edit`, `call.send`→`call`, `ask`→`question`. `ToolCallStarted`(입력은 이 event 전에 저장됨)와 `ToolCallEnded`에서 저장된 입력·결과를 읽어(redaction을 한 번 더 거쳐) 칸을 채운다. 시작 때 입력을 못 읽는 `edit`는 generic, `ask`는 빈 `question`이다. `consent`(`release.activate`)는 결과를 봐야 알아 성공해 끝난 뒤에만 생긴다. snapshot도 같은 함수 |
-| `questions(toolCall)` | 대기 중인 질문 묶음 내용 | event를 받는 순간 메모리 기다림에서 읽어 redaction한다(풀리면 사라진다) |
-| `agentOf(session)`, `agentName(agent)` | 보낸 session의 agent와 그 이름 | session·agent 정의 read. 그래서 snapshot과 갱신이 같은 이름을 낸다 |
-| `body(message)` | 저장된 agent message의 본문 | `ReadMessageBody`를 읽어 redaction한 content·reasoning·cards |
-| `decision(request)` | 사람이 고른 허락 범위와 거절 이유 | event를 받는 순간 approvals의 결정을 읽는다 |
+11. `AcpSend`는 새 권한이나 새 처리를 더하지 않는다. 부른 사람의 자격으로 지금 있는 route를 부르고 각 route가 자기 scope와 actor를 본다. 가는 route의 scope가 없는 호출자는 `AcpSend`로도 `forbidden`이다.
+12. 같은 `key`로 다시 보내도 한 번만 접수된다. 새 입력이 만드는 message·session·rewind id도 `key`마다 같다.
+13. 팀 자식의 요청과 질문(부모가 푸는 것)은 갱신으로 나가지 않는다. 그 닫힘 event도 거른다.
 
-같은 상태가 되는 방법
-- snapshot과 갱신이 같은 읽기 함수(`readMessageBody`, `toolDetailOf`)와 같은 순번 표를 쓴다. test는 같은 기록에서 갱신을 `reduceAcp`로 접은 상태와 snapshot이 같은지 본다.
-- 순번이 없는 기록(옛 data, 놓친 event)은 snapshot을 처음 읽을 때 대화에 든 때 순서(turn을 연 입력은 turn의 시작 시각, 나머지는 만든 시각, 같은 시각이면 메시지, tool, 승인 결과, 꼬리 순)로 이어 붙인다. 표 채우기 migration이 따로 없다.
-- 승인 결과(`approval`)는 기록에 없어 결정할 때 `acp_items.data`에 내용(subject, outcome, choice, reason)을 저장한다. turn 꼬리(`notice`)는 turn 행에서, 숨김(`hidden`)은 rewind 기록의 boundary_seq와 result_seq 사이의 메시지와 메시지가 전부 숨은 turn의 항목에서 만든다.
-- `hidden_added`는 `AgentEvent`가 없어 core가 `Rewind` command가 성공한 뒤 snapshot을 다시 만들어 숨긴 구간을 낸다. 구간이 합쳐지면 새 `hidden`이 앞 구간의 항목을 평평하게 품고 `reduceAcp`가 앞 `hidden`을 걷는다.
-- 줄에 선 메시지는 도는 turn이 있을 때 사람이 다음 turn으로 보낸 것이다. 순번을 받지 않았으면(`acp_items`에 없으면) 줄에 서고, turn이 가져가거나 steer로 올릴 때 순번을 받는다.
-- snapshot의 `writing`은 core `live-turns.ts`가 낸 글 그대로이고 `at`은 그 turn의 시작이다. `pending`은 approvals(harness 물음과 부모가 푸는 `to_parent` 요청은 거른다)와 질문 기다림(`to_parent` 질문은 거른다)에서, `turn.elapsed`는 live-turns에서 읽는다.
-- 대기 중인 질문의 묶음 id는 메모리에만 있어, 풀린 질문의 `group`은 null이다.
-- 사람에게 가는 질문은 session당 하나만 열린다(`pending.question`이 한 칸이라서다). 한 응답의 `ask` 호출 여럿은 병렬로 오지만 QuestionWait가 나머지를 줄 세우고, 앞 질문이 풀린 때 다음 질문의 `QuestionAsked`를 낸다. 열리지 않은 질문은 `ask/read`·`ask/answer`가 `not_found`이고 snapshot의 질문 목록에도 없으며 닫혀도 `QuestionResolved`가 나가지 않는다.
-- 팀 자식의 요청과 질문(`TurnRequestOpened`·`QuestionAsked`의 `to_parent`)은 부모가 푸는 것이라 갱신(`approval_*`, `question_*`)으로 나가지 않는다. core가 열 때 기억해 두었다가 그 닫힘 event도 거른다. 그 자식의 `ask` tool 항목은 부모가 `call reply`로 답한 질문의 outcome을 `parent_reply`로 내고 부모의 답 글을 `detail.reply`에 싣는다. 자식 탭의 카드는 "Answered by the parent"와 그 글을 보인다.
+## 경계와 계약
 
-redaction
-- 나가는 글(message의 글·reasoning, tool의 칸, 승인 subject·reason, 질문 글, 접힌 구간의 대상)은 모두 core의 지금 redaction을 한 번 더 거친다. 저장된 본문이어도 같다. 알려진 secret을 다 모르는 동안은 빈 글이다. `MessageReceived.body`도 갱신에 싣기 전에 거친다. 흘러나온 글(`ModelOutputStreamed`)은 live-turns가 이미 거친 것이다.
+### route와 event
 
-## 입력
+- `AcpSnapshot {session}` → `AcpState`(read, actor user).
+- `AcpDraft {agent, workspace}` → session meta(read). 첫 메시지 전 새 session 화면용이고 title·usage·`cli_session`은 null이다. 그 agent와 workspace로 session을 열면 받을 meta를 session 없이 읽는다. 명령 목록(`ListCommands`)도 `{session}` 대신 `{agent, workspace}`로 받는다. harness session은 늘 session이 있어 draft를 쓰지 않는다.
+- `AcpUpdated`(transient event, payload `{session, update}`). envelope에도 `session`이 있어 화면은 `{types: ["AcpUpdated"], session}`으로 걸고 Gateway가 session으로 거른다. 남지 않는 event다. 화면은 ready 때 snapshot을 다시 읽으므로 그때 쌓인 갱신은 버린다.
+- `AcpSend {AcpInput}`(memory route, actor user). 답의 `session`은 `fork`가 연 새 session이다. 오류는 공통 코드 중 `invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `unavailable`.
+- `AllocateAcpItems`(command, machine 자격만). 항목이 대화에 들 때 session 안의 순번을 정해 저장하고 이미 있는 id는 그 순번을 그대로 준다.
+- 순번 저장: 표 `acp_items(session, id, seq, kind, turn, at, data)`. `data`는 기록에서 다시 만들 수 없는 항목(승인 결과)의 내용이다.
 
-`AcpSend {AcpInput}`은 core memory route(actor user)다. 입력 꼴마다 지금 있는 route로 보내고 새 권한이나 새 처리를 더하지 않는다. 코드는 `wiring/acp-send.ts`(분배)와 `wiring/acp.ts`(route 등록)다.
+### 입력 `AcpInput`
+
+대화 조작: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(core 결정에 `session` 범위와 plan 승인 `mode`를 더한 ACP 쪽 선택), 다음 turn 줄 고치기 넷(`send_queued`, `remove_queued`, `edit_queued`, `move_queued`).
+session 조작: `set_model`, `set_mode`, `run_command`, `rewind`, `fork`, `compact`, `rename`, `stop_child`, `steer_child`, `stop_task`, `background_tool`(도는 root tool을 background로, capability `background`), `set_toggle`, `set_goal`, `use_role`, `open_session`, `run_shell`, `stop_shell`.
+session 조작은 모두 `key`를 싣는다(`stop_shell`은 `item`).
+
+lophn core는 입력을 지금 route로 나눈다.
 
 | 입력 | 가는 route | 더 하는 일 |
 |---|---|---|
-| `send` | `SendMessage` (`refs: []`) | `key`가 idempotency key다 |
-| `stop` | `StopTurn` | 부른 사람의 자격으로 `ReadTurn`을 읽어 `state_seq`를 compare에 싣는다. `key`가 `request_key`와 idempotency key다 |
-| `stop_shell` | 없음 | 사람이 돌린 `!` 명령 하나(`item`)를 멈춘다. harness adapter만 받는다(lophn core는 `unavailable`). 화면은 `by: "user"` shell 줄이 도는 동안 그 줄의 Stop 단추로 보낸다 |
-| `retry` | `SendMessage` | 실패한 turn의 입력 메시지(`ReadTurn`의 `input_message`, `ReadMessageBody`)를 `next_turn`으로 다시 보낸다. 새 메시지 id는 core가 turn마다 한 번 정하고(메모리에 기억) key는 `retry-turn-<turn>`이라 다시 눌러도 한 번만 접수된다 |
+| `send` | `SendMessage` (`refs: []`) | `key`가 idempotency key |
+| `stop` | `StopTurn` | 부른 사람의 자격으로 `ReadTurn`을 읽어 `state_seq`를 compare에 싣는다. `key`가 `request_key`이자 idempotency key |
+| `retry` | `SendMessage` | 실패한 turn의 입력 메시지를 `next_turn`으로 다시 보낸다. 새 메시지 id는 turn마다 한 번 정해 기억하고 key는 turn으로 정해져(`retry-turn-<turn>`) 다시 눌러도 한 번만 접수된다 |
 | `answer` | `AnswerAskQuestions` | |
 | `decide` | `DecideTurnRequest` | `session` 범위와 `mode`(plan 승인)는 lophn에 없어 `invalid_input` |
-| `send_queued`, `remove_queued`, `edit_queued`, `move_queued` | `SteerQueuedNow`, `RemoveQueued`, `EditQueued`, `MoveQueued` | |
-| `set_model` | `changeSessionModel` | `options`는 그대로 `option_values`다(새 model에 맞추는 일은 보내는 쪽 몫) |
+| `send_queued`, `remove_queued`, `edit_queued`, `move_queued` | `SteerQueuedNow`, `RemoveQueued`, `EditQueued`, `MoveQueued` | core가 돌리는 harness session은 도는 turn에 steer를 올리지 못해(입력이 다음 turn으로 간다) `send_queued`가 `unavailable`이다 |
+| `set_model` | `changeSessionModel` | model id는 `<provider id>/<model 이름>`이다. `options`는 그대로 `option_values`다(새 model에 맞추는 일은 보내는 쪽 몫) |
 | `set_mode` | `changeSessionSkip` | mode는 `ask`·`skip`뿐이고 그 밖은 `invalid_input` |
-| `run_command` | `SendMessage` | skill 요청 글(화면 i18n `conversation.body.skill-command-request`와 같은 영어 글)로 보낸다. 내장 명령 이름과 그 별칭은 `invalid_input`(화면이 `opens`로 처리한다) |
-| `rewind` | `sessionRewindPreview` → `sessionRewind` | preview의 hash로 되돌린다 |
-| `fork` | `forkSession` | 답의 `session`이 새 session이다 |
+| `run_command` | `SendMessage` | skill 요청 글("Use the \"<skill>\" skill for this request.", 화면 i18n과 같은 영어 글, 인자가 있으면 뒤에 붙인다)로 보낸다. 내장 명령 이름과 그 별칭은 `invalid_input`(화면이 `opens`로 처리한다) |
+| `rewind` | `sessionRewindPreview` → `sessionRewind` | preview의 hash로 되돌린다. blocked면 `conflict` |
+| `fork` | `forkSession` | 답의 `session`이 새 session |
 | `compact` | `requestSessionCompact` | |
 | `rename` | `renameSession` | 앞뒤 빈칸을 자르고 빈 이름은 `invalid_input` |
-| `stop_child`, `steer_child`, `stop_task`, `set_toggle`, `set_goal`, `use_role`, `open_session` | 없음 | lophn agent에 그 기능이 없어 `unavailable`(capability도 false) |
-| `run_shell` | `RecordShellMessage` | 부른 사람의 scope에 `RecordShellMessage`가 있는지 먼저 본다(돌린 명령은 되돌릴 수 없어서). session workspace의 기본 폴더(project·앱 workspace, Home은 `unavailable`)에서 agent `shell.run`과 같은 runner(`runCommand`: env allowlist, 시간·출력 상한)로 돌리고, 명령·stdout·stderr를 redaction해 사람 메시지(`shell` 칸, `next_turn`)로 저장한다. turn을 시작하지 않고 다음 turn이 그 입력 메시지와 같은 tx에서 가져가 `<lophn-shell command=… exit_code=…>` tag로 model에 보인다. 같은 `key`는 한 번만 돈다. `ShellRan` event가 `by: "user"` tool item(turn null)이 된다(snapshot의 그 item은 `duration_ms`가 null). shell 메시지는 고치기·옮기기·빼기를 `conflict`로 막고, fork는 이미 가져간 shell 메시지를 그 turn째 옮긴다. 앱 bridge(`app-agent.ts`)는 `run_shell`을 `forbidden`으로 막는다 |
+| `run_shell` | `RecordShellMessage` | 아래 |
+| `stop_child`, `steer_child`, `stop_task`, `background_tool`, `stop_shell`, `set_toggle`, `set_goal`, `use_role`, `open_session` | 없음 | lophn agent에 그 기능이 없어 `unavailable`(capability도 false) |
 
-권한
-- 분배는 부른 사람의 `AuthenticatedContext`로 한다. core 안 machine 자격(`machine:acp`)으로 대신 부르지 않는다. 그러면 `SendMessage`나 `StopTurn` 권한이 없는 호출자도 `AcpSend`로는 할 수 있게 되어 새 권한 경계가 생긴다. command는 `ctx.writer`(접힌 writer)에, read는 `runtime.reads`에, memory route는 `ctx.runtime.memory.handlers`(core가 모든 wiring의 memory handler를 모은 같은 Map)에 부른 사람의 자격으로 넘기고, 각 route가 자기 scope와 actor를 본다. `AcpSend` 자체는 scope 검사를 더하지 않는다.
-- 입력 검사는 두 번이다. `AcpSend`의 input schema(`acpInputSchema`)와, 가는 route의 input schema. content block이 사람 메시지로 허용되는 꼴인지(`userContentBlocksSchema`)는 가는 route가 본다.
-- 새 입력이 만드는 message·session·rewind id는 `key`마다 기억해 같은 `key`로 다시 보내도 같은 id다.
-- test는 이 경계 하나만 본다: 가는 route의 scope가 없는 호출자는 `AcpSend`로도 `forbidden`이다(`acp-send_test.ts`, 새 입력 일곱 포함).
+`run_shell`(사람이 composer에서 `!`로 돌리는 명령)
 
-화면
-- 화면(`agent-tab-core-source-commands.ts`)은 대화 조작을 모두 `AcpSend`로 보낸다. 줄 고치기는 메시지 id만 알아서 `ReadReceivedMessage`로 session을 찾아 싣는다. `edit_queued`의 글이 아닌 block(이미지, 링크)을 지키는 것은 보내는 쪽(화면)의 몫이다.
-- 대기 목록(waiting store)은 승인 결정과 질문 답을 제 memory route(`turn_requests/decide`, `ask/answer`)로 그대로 보낸다. 대화 화면이 아닌 곳의 조작이라 `AcpSend`를 거치지 않는다.
-- 앱 화면도 ACP 화면이다. 앱 bridge(`lophnApp.agent`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 workspace의 session으로 묶어 사람 자격으로 넘긴다. `AcpSend`로는 입력 `send`·`stop`·`answer`·`rename`만 간다(승인 `decide` 등은 `forbidden`, `architecture/app-call.md`의 "앱 화면의 agent session"). core는 앱이 연 session을 따로 다루지 않는다. 앱 code는 SDK `@lophn/agent`로 쓰고, 그 SDK가 snapshot 위에 갱신을 `reduceAcp`로 접는다.
-- 앱 SDK의 설치 사본은 zod도 저장소도 없이 앱 bundle 안에서 읽혀 protocol의 ACP type(zod 정본)을 싣지 못한다. 그래서 `packages/sdk/agent/acp-types.ts`가 zod 없는 사본이고, 설치 사본의 `reduce.ts`는 그 type을 본다(`packages/core/apps/packages/vendor.ts`). ACP 항목·상태·갱신의 모양을 바꾸면 그 사본도 같이 고친다. 어긋나면 `packages/sdk/agent/agent_test.ts`의 type 검사(서로 대입되는지)가 `npm run check`에서 깨진다. `reduce.ts`가 runtime import를 더하면 설치 사본 import test(`packages/core/apps/packages/install_test.ts`)가 깨진다.
+- 부른 사람의 scope에 `RecordShellMessage`가 있는지 돌리기 전에 먼저 본다(돌린 명령은 되돌릴 수 없어서).
+- session workspace의 기본 폴더(project·앱 workspace. Home은 폴더가 없어 `invalid_input`이고 capability `shell`도 꺼짐)에서 agent `shell.run`과 같은 runner(env allowlist, 시간·출력 상한)로 승인 없이 돌린다.
+- 명령·stdout·stderr를 redaction해 사람 메시지(`shell` 칸, `next_turn`)로 저장한다. turn을 시작하지 않고, 다음 turn이 그 입력 메시지와 같은 tx에서 가져가 `<lophn-shell command=… exit_code=…>` tag로 model에 보인다.
+- 같은 `key`는 한 번만 돈다. `ShellRan` event가 `by: "user"` tool item(turn null)이 된다(snapshot의 그 item은 `duration_ms`가 null).
+- shell 메시지는 고치기·옮기기·빼기를 `conflict`로 막고, fork는 이미 가져간 shell 메시지를 그 turn째 옮긴다.
 
-## core 밖에서 내는 ACP
+lophn agent session의 session meta: capability는 harness 전용(`stop_child`·`steer_child`·`tasks`·`background`·`toggles`·`goal`·`roles`·`resume`) 밖은 켜고 `steer`는 harness session이 아닐 때만, `shell`은 폴더가 있는 workspace session만 켠다. `harness`·`toggles`·`goal`·`roles`는 비우고 `cli_session`은 null, mode는 `ask`·`skip`, `plan`은 null이다. 이름·model·mode가 바뀐 뒤와 turn·compact가 끝난 뒤 사용량을 `session_changed`로 낸다.
 
-third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))는 core를 거치지 않는다. adapter가 shell main의 `AcpSessionHandle`에 `AcpUpdate`를 publish하고 창의 `AcpInput`을 받는다. `AcpSnapshot`과 `AcpSend` route는 쓰지 않고, 창은 handle이 쌓아 둔 갱신을 처음부터 `reduceAcp`로 접는다. 순번(`seq`)은 adapter가 1부터 이어 붙인다. 위 "core가 하는 것"과 "입력"은 core session만의 이야기다.
+lophn 내장 명령 열넷(new, model, effort, permissions, status, usage, context, rewind, fork, rename, compact, archive, mcp, skills)은 `source: "app"`이고 `opens`·별칭·`argument_hint`는 core가 정한 표를 따른다(`/clear`는 `new`의 별칭, `rename`만 인자 `[title]`). skill은 `source: "skill"`, `opens: null`이고 내장 이름이나 별칭과 같은 skill은 목록에서 빠진다. session이 있어야 하는 내장(status, usage, context, rewind, fork, rename, compact, archive)은 draft meta에서 뺀다. 명령 목록은 snapshot에만 있다(skill이 바뀌는 event가 없어 화면이 `/` 메뉴를 열 때 다시 읽는다).
 
-## 옛 `ThreadView`와의 대응
+### core가 갱신을 만드는 법
 
-| 옛 | ACP |
-|---|---|
-| `entries`(시각 merge) | `items`, `seq` 순서 |
-| `message`의 `text` / `liveReasoning` | `content` / `reasoning`, `complete` |
-| `tools`(묶음), `edit`, `call`, `release-consent`, `questions` | `tool` 항목 하나씩, `detail.kind` 넷. 이어진 call을 묶는 일은 화면의 몫이다 |
-| `approval-result`, `turn-end`, `provider-error`, `hidden` | `approval`, `notice`(`turn_end`·`error`), `hidden` |
-| `pending.approval` / `pending.questions` | `pending.approval` / `pending.question` |
-| `live`(+`gap`), `dropped` | `writing`, `dropped`, `reread` |
-| `foldEvent`, `foldDelta`, `turnEndTimes` | `reduceAcp`, `acpUpdatesOf`, `acpTurnTimes` |
+projection은 event만으로 알 수 없는 것을 core가 context로 받는다. 모두 이미 있는 값을 찾기만 하므로 IO가 없고 projection은 순수하다. `AgentEvent`에서 바뀐 것은 `MessageReceived.body`가 content block 배열이라는 것뿐이다.
 
-## 왜 이 모양인가
+| context | 내용 | core가 채우는 법 |
+|---|---|---|
+| 항목의 순번 | session마다 1부터 이어 붙여 **저장한** 순번. message id, tool_call id, 승인 request id, turn 꼬리 id로 찾는다. 줄에 선 메시지는 null | event를 처리할 때 `AllocateAcpItems`로 붙이고(이미 있는 id는 그 순번) snapshot도 같은 표를 읽는다 |
+| tool 종류와 칸 | 모르면 null(generic) | 종류는 tool 이름이 정한다: `file.write`·`file.edit`→`edit`, `call.send`→`call`, `ask`→`question`, `release.activate`→`consent`. 시작·끝 event에서 저장된 입력·결과를 읽어(redaction을 한 번 더 거쳐) 칸을 채운다. 시작 때 입력을 못 읽는 `edit`는 generic, `ask`는 빈 `question`이다. snapshot도 같은 읽기 |
+| 대기 중인 질문 묶음 | 질문 묶음의 내용 | event를 받는 순간 메모리 기다림에서 읽어 redaction한다(풀리면 사라진다) |
+| 보낸 session의 agent와 이름 | | session·agent 정의 read. snapshot과 갱신이 같은 이름을 낸다 |
+| 저장된 agent message 본문 | content·reasoning·cards | `ReadMessageBody`를 읽어 redaction한다 |
+| 사람이 고른 허락 범위와 거절 이유 | | event를 받는 순간 approvals의 결정을 읽는다 |
 
-- 입력 입구를 하나로 둔 것: 화면이 route 여러 개와 그 입력 모양을 알면 third-party GUI가 같은 대화를 하려 할 때 그 지식을 다시 짜야 한다. 입구는 ACP 한 곳만 알게 하고, 일은 지금 route가 하게 둬서 권한과 멱등을 새로 만들지 않았다.
+- snapshot과 갱신은 같은 읽기와 같은 순번 표를 쓴다. 저장된 본문은 갱신(`message_recorded`)에 실어 turn이 끝날 때 다시 읽지 않는다.
+- 순번이 없는 기록(옛 data, 놓친 event)은 snapshot을 처음 읽을 때 대화에 든 때 순서(turn을 연 입력은 turn의 시작 시각, 나머지는 만든 시각, 같은 시각이면 메시지, tool, 승인 결과, 꼬리 순)로 이어 붙인다. 표 채우기 migration은 없다.
+- 승인 결과(`approval`)는 기록에 없어 결정할 때 `acp_items.data`에 내용(subject, outcome, choice, reason)을 저장한다. turn 꼬리(`notice`)는 turn 행에서, 숨김(`hidden`)은 rewind 기록의 구간과 메시지가 전부 숨은 turn의 항목에서 만든다.
+- `hidden_added`는 대응하는 `AgentEvent`가 없어 core가 rewind가 성공한 뒤 snapshot을 다시 만들어 숨긴 구간을 낸다. 구간이 합쳐지면 새 `hidden`이 앞 구간의 항목을 평평하게 품고 reducer가 앞 `hidden`을 걷는다.
+- 줄에 선 메시지는 도는 turn이 있을 때 사람이 다음 turn으로 보낸 것이다. 순번을 받지 않았으면(`acp_items`에 없으면) 줄에 선다.
+- snapshot의 `writing`은 core가 낸 글 그대로이고 `at`은 그 turn의 시작이다. `pending`은 approvals와 질문 기다림에서, `turn.elapsed`는 도는 turn에서 읽는다. harness가 주체인 승인 물음은 대화에 오지 않는다.
+- 대기 중인 질문의 묶음 id는 메모리에만 있어 풀린 질문의 `group`은 null이다.
+- 사람에게 가는 질문은 session당 하나만 열린다(`pending.question`이 한 칸이라서다). 한 응답의 `ask` 호출 여럿은 병렬로 오지만 core의 질문 기다림이 나머지를 줄 세우고, 앞 질문이 풀린 때 다음 질문의 `QuestionAsked`를 낸다. 열리지 않은 질문은 `ask/read`·`ask/answer`가 `not_found`이고 snapshot의 질문 목록에도 없으며 닫혀도 `QuestionResolved`가 나가지 않는다.
+- 팀 자식의 요청과 질문(`to_parent`)은 부모가 푸는 것이라 `approval_*`·`question_*` 갱신으로 나가지 않는다. core가 열 때 기억해 두었다가 닫힘 event도 거른다. 그 자식의 `ask` tool 항목은 부모가 `call reply`로 답한 질문의 outcome을 `parent_reply`로 내고 부모의 답 글을 `reply`에 싣는다(답 글은 tool 결과에서 읽으므로 저장 data는 바뀌지 않는다).
 
-- 순번이 항목을 정하는 것으로 한 것: 시각으로 merge하면 같은 시각의 항목과 늦게 온 항목의 자리가 흔들리고, snapshot과 stream이 겹칠 때 중복·누락을 알아볼 방법이 없다. 순번은 빠짐을 곧바로 알려 주고 `reread`로 맞춘다.
-- reducer를 protocol에 둔 것: core(snapshot 확인)와 화면(상태 접기)과 앱 SDK와 뒤의 third-party GUI가 같은 접기를 써야 같은 상태가 나온다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때의 예외다(module-catalog).
-- projection이 context를 받는 것: event를 바꾸지 않고(`AgentEvent`를 쓰는 곳이 많다) event에 없는 칸만 core가 채우게 했다. 모두 이미 있는 값을 찾는 함수라 IO가 없고, `acpUpdatesOf`는 순수하다.
-- `queued`가 항목이 아닌 것: 줄에 선 메시지는 아직 대화의 일이 아니다(고치고 빼고 순서를 바꿀 수 있다).
+### 화면
+
+- lophn 채팅 화면은 대화 조작을 모두 `AcpSend`로 보낸다. 줄 고치기는 메시지 id만 알아서 받은 메시지 read로 session을 찾아 싣는다. `edit_queued`의 글이 아닌 block(이미지, 링크)을 지키는 것은 보내는 쪽(화면)의 몫이다.
+- 대기 목록(waiting store)은 대화 화면이 아닌 곳의 조작이라 승인 결정과 질문 답을 제 memory route(`turn_requests/decide`, `ask/answer`)로 그대로 보내고 `AcpSend`를 거치지 않는다.
+- 줄 배치(이어진 tool call 묶기 등)는 renderer의 몫이다. 규격은 agent가 낸 것의 모양만 준다.
+
+### 앱 화면
+
+앱 화면도 ACP 화면이다. 앱 bridge `lophnApp.agent`(`open({agent, title?})`, `snapshot(session)`, `onUpdate(listener)`, `send(input)`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 workspace의 session으로 묶어 사람 자격으로 넘긴다. 앱은 sender view에서 정해지고 page가 고르지 못한다. 그 앱 workspace의 session이 아니면(Home, project, 다른 앱, 없는 session) `forbidden`이다.
+
+- `AcpSend`로는 입력 `send`·`stop`·`answer`·`rename`만 간다. 나머지(승인 `decide`, `rewind`, `fork`, `run_shell` 등)는 core에 닿기 전에 `forbidden`이다. 승인은 lophn 채팅 탭에서만 한다.
+- 앱 session의 turn 끝 알림과 Finished 표시는 앱 화면이 쥔 동안 내지 않는다([app-call.md](app-call.md)의 "앱 화면의 agent session").
+- core는 앱이 연 session을 따로 다루지 않는다. prompt 조립과 답 꼴은 앱과 SDK(`@lophn/agent`)의 몫이고 core는 모른다. SDK가 snapshot 위에 갱신을 같은 reducer로 접는다.
+- 설치된 앱의 SDK 사본은 앱 bundle 안에서 zod도 저장소도 없이 읽혀 protocol의 ACP type(zod 정본)을 싣지 못한다. 그래서 zod 없는 type 사본을 따로 두고 정본과 서로 대입되는지 type 검사로 맞춘다. ACP 항목·상태·갱신의 모양을 바꾸면 그 사본도 같이 고친다. 사본의 reducer가 runtime import를 더하면 설치 사본이 깨진다. bridge type은 ACP type을 SDK가 채우는 generic이다(이 portable entry가 protocol을 import하면 shell main tsc가 base까지 읽어 깨진다).
+
+### core 밖에서 내는 ACP
+
+third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))는 core를 거치지 않는다. adapter가 shell main의 session handle에 `AcpUpdate`를 publish하고 창의 `AcpInput`을 받는다. `AcpSnapshot`과 `AcpSend` route는 쓰지 않는다. handle은 갱신을 reducer로 접은 `AcpState` 하나만 쥐고, 창은 붙을 때 snapshot 하나를 받고 그 뒤 20ms마다 모은 갱신 묶음을 한 번에 접어 한 번 그린다. 순번(`seq`)은 adapter가 1부터 이어 붙인다. 위 "core가 갱신을 만드는 법"과 입력 표는 core session만의 이야기다.
+
+## 결정
+
+- ACP는 lophn 자체 규격이고 표준 Agent Client Protocol이 아니다. 이유: 사람이 "renderer가 다 알아서 그리는 게 아니라 lophn acp protocol이 정립되어 있으면 third-party CLI에 GUI를 덮어씌우기도 쉽다"고 했다. 앱 화면과 third-party CLI GUI가 같은 규격을 쓴다. (사람, 2026-11-04)
+- 항목 순서는 저장한 session 순번이다. 이유: 시각으로 merge하면 같은 시각의 항목과 늦게 온 항목의 자리가 흔들리고, snapshot과 stream이 겹칠 때 중복·누락을 알아볼 방법이 없다. 순번은 빠짐을 곧바로 알려 주고 `reread`로 맞춘다. 버린 안: 시각 merge. (agent)
+- projection은 순수 함수이고 event에 없는 것(순번, tool 종류, 질문, 보낸 agent, 승인 결정)은 core가 context로 준다. 이유: `AgentEvent`를 쓰는 곳이 많아 event를 바꾸지 않으려 했고, 찾기만 하므로 IO가 없다. (agent)
+- reducer와 projection을 protocol에 둔다. 이유: core(snapshot 확인)와 화면(상태 접기)과 앱 SDK와 third-party GUI가 같은 접기를 써야 같은 상태가 나온다. projection은 `AgentEvent`를 읽고 events가 `AcpUpdated`를 위해 acp를 읽으므로 protocol 최상위 순환을 피하려고 projection을 events 쪽에 둔다. 의존 없는 순수 함수를 shell과 core가 같이 써야 하는 경우의 예외다(module-catalog). (agent)
+- 저장된 agent message의 본문을 갱신에 실어 turn이 끝날 때 다시 읽지 않는다. (agent)
+- `app_card` part는 message 항목의 `cards`로 낸다. harness의 `harness_tool` part는 글 block 하나다. (agent)
+- 대화 조작의 입구는 `AcpSend` 하나다. 이유: 화면이 route 여러 개와 입력 모양을 알면 third-party GUI가 같은 대화를 하려 할 때 그 지식을 다시 짜야 한다. 일은 지금 route가 하게 두어 권한과 멱등을 새로 만들지 않았다. (agent)
+- `AcpSend`는 core 안 machine 자격으로 대신 부르지 않는다. 이유: 대신 부르면 `SendMessage`나 `StopTurn` 권한이 없는 호출자도 `AcpSend`로는 할 수 있게 되어 새 권한 경계가 생긴다. (agent)
+- 입력 검사는 두 번이다: `AcpSend`의 입력 schema와 가는 route의 입력 schema. content block이 사람 메시지로 허용되는 꼴인지는 가는 route가 본다. (agent)
+- `queued`는 항목이 아니다. 이유: 줄에 선 메시지는 아직 대화의 일이 아니다(고치고 빼고 순서를 바꿀 수 있다). (agent)
+- 대화 밖 session 기능(model, mode, 명령, 사용량, rewind, fork 등)은 ACP의 입력과 갱신이고, source가 가진 기능은 capability로 알린다. 이유: 첫 판의 `external` 숨김으로는 harness GUI가 CLI 기능을 다 쓸 수 없었다. 숨김은 capability 검사로 바꿨다. (사람, 2026-11-05)
+- 명령은 화면 동작(`opens`), CLI에 보내고 출력 그리기(`run_command`), TUI 전용 숨김의 셋으로 나눈다. 화면은 명령 이름을 해석하지 않는다. (사람이 문제를 짚고 agent가 각 CLI를 참고해 모양을 정함)
+- omp role은 "이 session만 이 role의 model로"(`use_role`)만 넣고 `~/.omp`의 배정은 바꾸지 않는다. (사람, 2026-11-05)
+- fast·thinking·Speed는 composer chip이 아니라 model 축이고 picker가 그린다. lophn agent도 같다. (사람, 2026-11-05)
+- `!` shell mode는 harness와 lophn agent 모두에 둔다. lophn은 사람이 친 것이라 승인 없이 agent shell runner로 돌리고 앱 bridge는 막는다. (agent가 추천, 사람이 반대하지 않음)
+- 받은 메시지는 있는 ACP 칸(`received`, sender agent | program)으로만 가른다. sender 확장과 A2A 화면은 사람이 모양을 정한 뒤에 한다. (agent)
+- 팀 자식의 event는 그대로 내고 표시로 거른다. `TurnResumed`, snapshot의 `waiting`, acp가 그 event에 기댄다. (agent)
+- 질문의 부모 답 글은 질문 줄(`lines`)이 아니라 항목의 `reply` 한 칸에 둔다. 이유: 부모의 답은 질문마다가 아니라 한 글이다. (agent)
+- model 출처 값 `project`는 이제 workspace 층(Home·project·앱)을 뜻하지만 이름은 그대로 둔다. 이유: 공개 SDK type의 session meta `layer`에 실려 있어 바꾸면 SDK가 깨지는 변경이 된다. 화면 글만 "workspace default"다. (agent)
+- 앱 화면에서 보낸 것은 그 앱을 쓰는 사람의 메시지이고 따로 허락 단계를 두지 않는다. (사람, 2026-11-04)
+- 앱 bridge는 허용 목록(`send`, `stop`, `answer`, `rename`)으로 막는다. 이유: 새 ACP 입력이 늘어도 앱은 닿지 못하게 하려는 것이다. 앱 code가 자기 agent의 승인(`decide`)이나 `rewind`·`fork`를 보낼 수 있던 것을 막았다. 버린 안: `run_shell`만 막고 나머지를 넘기기. (사람)
+- 앱과 session 사이는 ACP 그대로이고 bridge는 route 셋과 event 하나만 그 앱 workspace로 묶는다. (agent)
+- 앱 session은 화면을 열 때가 아니라 첫 `send`에서 연다. 이유: 열 때마다 sidebar에 session이 하나 생긴다. 제목은 `rename` 입력으로 붙이고 못 붙여도 열기는 성공한다. (agent)
+- 앱 SDK의 설치 사본은 zod 없는 ACP type 사본을 두고 정본과 type 검사로 맞춘다. 버린 안: `reducer`의 import 범위(protocol·base file 51개와 zod)를 vendor하기(앱에 zod를 더해야 하고 base의 한 file이 앱 tsconfig에서 깨진다), protocol의 ACP type을 zod 없는 정본으로 옮기기(그 계획보다 크다). (agent)
+- harness GUI의 handle은 갱신 묶음이 아니라 접은 상태 하나를 쥐고 붙을 때 snapshot을 주며 그 뒤 갱신을 묶어 낸다. 이유: 접은 상태와 snapshot, 묶은 갱신으로 같은 문제(긴 대화의 다시 그리기·끊김)를 푼 다른 GUI(emdash, t3code, happy)를 참고했다.
+
+## 열린 것
+
+- ACP session meta의 `layer` 값 목록과 비용 종류 목록(`usage.costs[].kind`)이 lophn 원본의 사본이다. 원본을 import하면 shell main의 tsc가 큰 import 사슬까지 읽고 깨져서 값을 옮겨 적었다. 원본에 층이나 비용 종류가 늘면 snapshot 검사가 실패하거나 화면이 그 값을 못 그린다. 두 목록을 import 사슬이 짧은 leaf 파일로 옮겨 둘 다 그것을 import하게 하는 것이 추천안이다. 이슈: `acp-session-copies-value-lists`(defect).
+- `reread`의 ②(글 조각 offset 어긋남)는 한 model 호출에서 한 번만 다시 읽는 규칙을 읽는 쪽이 지켜야 한다. 규격이 막지 않는다.
+- harness가 쓴 tool 줄은 전용 항목이 없어 글 block 하나다.

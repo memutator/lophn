@@ -1,0 +1,13 @@
+id: app-shortcut-no-place
+title: 앱 바로가기를 둘 곳이 없다
+kind: bug
+status: fixed
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  앱 바로가기를 위쪽 바에서 뺀 뒤 옮길 곳을 정하지 않았다.
+impact: |
+  앱 공간으로 갈 수 없다.
+closed: |
+  앱으로 가는 길이 셋 있다. launcher의 `AppsSection`(`desktop/launcher/apps-section.tsx`)이 앱 카드를 보이고 누르면 `onApp`으로 앱 공간을 연다. lophn space의 Apps 화면(`desktop/lophn-space/apps/apps-screen.tsx`)에 `onOpen`이 있다. palette(`desktop/palette/lophn-scope.ts`)에 `app` 항목이 있다. 위쪽 바(`top-bar.tsx`)에는 앱 진입이 없다.
+guard: 없음

@@ -1,0 +1,16 @@
+id: plan-tools-gallery-merge
+version: 0.6.0
+title: "계획 도구: gallery server가 저절로 끝나고, merge.sh를 다시 돌려도 rebase 기준이 맞다"
+modules: [tools]
+checked: []
+change: |
+  전:
+  - worker가 screenshot용 `http.server`나 monitor를 남긴 채 보고해 port를 막았다(계획 `workflow`에서 세 번).
+  - `merge.sh`가 rebase 뒤 끊겼다가 다시 돌면 launch 때 기준으로 plan branch commit까지 다시 옮기다 충돌했다.
+  - check의 `tool-file` 규칙(tool file은 store와 DB를 import하지 않는다)이 `packages/core/workflows/agent-tools.ts`를 보지 않았다.
+  후:
+  - worker 지시문과 `ui-design` skill이 gallery server를 `timeout 900 python3 -m http.server 0 -d tools/wireframes`로만 띄우게 한다. 다른 오래 도는 process도 `timeout` 아래에서 띄운다.
+  - `merge.sh`가 rebase가 성공하면 `branch.<branch>.lophnBase`를 그때의 plan branch 끝으로 다시 적는다.
+  - `tools/check-deps.ts`의 `FEATURE_TOOL_PLACES`에 workflow tool file이 들었다.
+why: |
+  같은 mistake가 세 번이라 지시문 대신 저절로 끝나는 띄우는 법을 준다(issue skill). `lead/gallery.sh` script를 따로 두는 추천안보다 한 줄이 작다.

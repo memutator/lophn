@@ -1,0 +1,33 @@
+id: shared-socket-windows-hook-bridge
+version: 0.22.0
+title: "공통 socket 자리와 Windows hook·browser bridge·PowerShell 시작 층"
+modules: [packages/base, packages/protocol, packages/core/apps, packages/coding-agent, packages/shell/main, packages/shell/terminal-host]
+checked: [boundary-catalog, context-component-registry, architecture-testing, architecture-coding-agent, architecture-keybindings, architecture-app-call, architecture-workspace-layout, tool-dev, tool-package, tests-support, tool-e2e]
+change: |
+  전: core와 shell이 socket 자리 규칙을 따로 적었고 shell은 104 byte 한도를 썼다. Windows에서는 bridge 전체 gate가 hook·시작 층까지 껐다. POSIX에서도 browser shim이나 listen 실패가 hook을 같이 껐다.
+  후:
+    - base의 순수 `socketDirectoryPath` 한 곳이 자리 규칙을 정한다. Node SHA-256은 호출자가 주입한다. POSIX data-root key는 기존 SHA-256 앞 12자이며 앱 socket 경로·slot 수·0700 준비는 그대로다. hook·bridge는 `ipcPath`와 OS별 한도(Linux 107·macOS 103·Windows 256 byte)를 쓴다.
+    - file 폴더 준비와 hook·bridge listen을 나눴다. browser 준비 실패에도 hook은 별도 endpoint를 연다. Windows file은 data root의 `run/shell-<pid>/`, endpoint는 별도 named pipe다. POSIX private mode와 현재 data root의 자기 pid/죽은 pid만 지우는 cleanup 경계를 유지한다.
+    - POSIX sh와 Windows `.cmd` shim이 공통 `browser.js`를 Electron Node로 실행한다. CJS·ESM package 아래 모두 읽히도록 dynamic import를 쓴다. 실패·declined·timeout 때 OS opener로 넘기며 bridge env와 `ELECTRON_RUN_AS_NODE`를 제거한다. Windows fallback은 `cmd.exe start`다.
+    - PowerShell 7·5.1은 profile 뒤 per-run `functions.ps1`을 읽는다(UTF-8 BOM). GUI 넷과 private-server wrapper를 기존 규칙대로 제공하고, 사용자 profile·alias·function·execution policy는 바꾸지 않는다. win32 bridge 전체 gate를 없앴다.
+  옮기기: 저장 data 모양 변경 없음. 앱 socket 경로가 유지돼 migration은 없다.
+  검증: 각 task merge의 full check·core 두 번 기동·renderer build, merge 뒤 `npm run check` 통과. Linux에서 실제 shim·socket·hook CLI, declined·접속 실패의 opener 인자/env, 실제 Electron의 shim 쓰기·bridge listen 실패 뒤 hook 유지, CJS·ESM 아래 generated JS 실행을 확인했다. Bash wrapper의 인자·native 종료 상태·GUI JSON·사용자 함수 우선권도 실행했다. Windows는 launch API·BOM byte만 확인했으며 **PowerShell 7·5.1·named pipe·`.cmd`·실제 browser·알림은 미확인**이다. macOS는 platform 인자의 기존 경로와 byte 한도 unit만 확인했고 실기 실행하지 않았다.
+  Land: 구현을 `90a4cd00e`로 main에 반영했다. land의 full check·기존 E2E·core 두 번 기동이 모두 통과했다. 사람 승인에 따라 roadmap을 끝남으로 바꾸고 계획 폴더를 닫는다. Windows 수동 확인은 루트 checklist에 미확인으로 남는다.
+why: |
+  core와 shell이 socket 자리 규칙을 따로 적어 어긋날 수 있었고, bridge 준비 실패가 hook까지 같이 꺼 Windows와 POSIX 모두에서 hook이 사라졌다. 규칙을 한 곳에 두고 hook과 bridge를 따로 연다.
+decisions:
+  - text: |
+      base는 Node를 import하지 않으므로 hash를 주입하고 POSIX key는 바꾸지 않는다.
+    by: agent
+  - text: |
+      Windows 인증은 기존 64 hex key만 쓴다. SID·DACL 검사는 더하지 않는다. 경로 초과는 기능을 끄고 로그 한 줄만 남기며 pointer file·TCP로 우회하지 않는다.
+    by: agent
+  - text: |
+      hook 준비는 browser shim·listen 성공과 분리한다. PowerShell은 사람의 실행 정책을 우회하지 않는다.
+    by: agent
+  - text: |
+      Windows foreground·signal·TUI toggle·GUI adapter 전체 대응은 이번 범위가 아니다.
+    by: agent
+  - text: |
+      사람이 Windows 실기 미확인을 기록한 채 land와 계획 닫기를 승인했다. 원래의 Windows 확인 선행 조건을 변경하되 full check·기존 E2E·core 기동은 유지한다. Windows 통과로 기록하지 않고 루트 `WINDOWS-CHECKLIST.md`에서 수동 확인을 이어간다.
+    by: person

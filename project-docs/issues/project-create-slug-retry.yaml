@@ -1,0 +1,15 @@
+id: project-create-slug-retry
+title: project 등록 slug 재시도
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer, packages/protocol, packages/core/projects]
+now: |
+  `lophn-space/projects/core-source.ts`의 `createProject`가 제목에서 slug(`slugOf`)를 만들어 `project.create`의 `name`으로 보내고, `conflict`면 `-2`…`-5`로 `NAME_ATTEMPTS = 5`번까지 다시 보낸다. 어떤 `conflict`든 다시 보내므로 이름이 아니라 폴더 겹침 같은 다른 충돌도 다섯 번 돈 뒤에야 실패한다. 호출처는 launcher와 projects 화면 둘이 이 함수 하나를 쓴다.
+impact: |
+  충돌 원인을 사람에게 못 알리고 요청이 다섯 번 나간다. slug 규칙(`SLUG_MAX`, 정규화)을 renderer가 안다.
+fix: |
+  `project.create`의 `name`을 입력에서 빼고 core가 title에서 정하게 한다(계약 변경, core·protocol·renderer 모두, 중간). 계약을 안 바꾸려면 `conflict` 메시지로 이름 충돌만 골라 재시도한다(작음).
+closed: |
+  이름 아닌 충돌(id, 폴더 겹침)이 드물고 다섯 번 재시도는 해롭지 않다. 이름 정하기를 core로 옮기는 계약 변경은 core·protocol·renderer 모두에 걸려 비용이 중간이다.
+guard: 없음

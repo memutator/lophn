@@ -1,0 +1,18 @@
+id: bare-selected-names-silently-dropped
+title: 'bare의 고른 이름이 틀리거나 상한 밖이면 말없이 빠진다'
+kind: bug
+status: fixed
+topic: agent-definition
+modules: [packages/core/lophn-agent, packages/shell/renderer]
+now: |
+  정의의 `tools`는 아무 nonblank 이름이나 받는다(`packages/protocol/lophn-agent/agent-values.ts`). turn 조립(`packages/core/lophn-agent/run-loop/prepare.ts`의 `visibleTools`)은 workspace 종류 목록, 명령의 `workspaces`, 할당한 앱 command, 설정한 MCP에 없는 이름을 오류 없이 뺀다. 편집 화면(`packages/shell/renderer/workspace/agents/editor/tool-picks.tsx`)은 내장 tool만 체크로 고르고 lophn 명령, 앱 command, MCP tool은 글로 적는다.
+impact: |
+  사람이 `call.reply`를 `call.replay`로 적거나 할당하지 않은 앱 command를 고르면 그 agent는 그 tool 없이 일한다. 저장도 turn도 알리지 않아 사람은 agent가 왜 못 하는지 모른다.
+fix: |
+  - 편집 화면이 명령 표(`packages/cli/commands/`의 `COMMANDS`), 할당한 앱 command, 설정한 MCP tool을 후보 목록으로 보이고, 적은 이름 중 어느 후보에도 없는 것은 그 칸 옆에 표시한다. 저장은 막지 않는다(workspace 종류와 할당은 나중에 바뀐다). 중간.
+  - 저장 때 명령 표에도 `<slug>.<command>`·`mcp__` 꼴에도 맞지 않는 이름을 `invalid_input`으로 거절한다. 오타 대부분을 잡는다. 작음.
+
+  추천: 둘째를 먼저, 첫째는 bare를 실제로 쓰며 필요해지면.
+closed: |
+  저장(`agents/create`·`agents/change`의 `checkAgent`, `packages/core/lophn-agent/agents/validate.ts`)이 내장 tool, `COMMANDS`의 명령, `mcp__<server>__<tool>`, 첫 낱말이 명령 묶음이 아닌 `<slug>.<command>` 어느 것도 아닌 이름을 `invalid_input`(`tools.<n>`, `unknown`)으로 거절하고 편집 화면이 그 이름을 보인다. 꼴만 본다. 할당하지 않은 앱 command나 설정하지 않은 MCP server는 여전히 말없이 빠진다. 후보 목록을 보이는 안은 bare를 실제로 쓰며 필요해지면 한다.
+guard: '`packages/core/lophn-agent/agents/commands_test.ts` "bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하고, 내장 tool·명령·앱 command·MCP tool은 받는다"'

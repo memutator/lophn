@@ -1,0 +1,10 @@
+id: browser-tab-toolbar-enabled
+version: 0.9.0
+title: 'browser 탭 toolbar가 켜진다'
+modules: [packages/shell/renderer]
+checked: [architecture-browser-tab]
+change: |
+  전: 일반 browser 탭(`<webview>` guest)의 뒤로·앞으로·새로고침·주소 칸·bookmark 단추가 늘 꺼져 있었고(마우스가 not-allowed), 주소와 제목도 탭에 반영되지 않았다. 2026-10-19 webview 그릇 도입부터다.
+  후: 그릇이 guest의 view session을 첫 `dom-ready`에서 얻는다. guest가 다시 붙어 id가 바뀌면 다시 알린다.
+why: |
+  Electron 44.5.1의 `getWebContentsId()`는 `did-attach` 때 "The WebView must be attached to the DOM and the dom-ready event emitted before this method can be called."를 던진다. 그 listener 안에서 session을 정하던 코드가 매번 조용히 끝나 session이 생기지 않았다. 개발 앱에서 숨긴 webview로 `did-attach`는 throw, `dom-ready`·`did-finish-load`는 id를 주는 것을 확인했다.

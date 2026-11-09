@@ -1,0 +1,38 @@
+id: terminal-links-open-browser-tab
+version: 0.4.0
+title: terminal이 연 URL과 Ctrl/Cmd-click한 link가 browser 탭에 열림
+modules: [packages/core/config, packages/design, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/shell/terminal-host, tools]
+checked: [architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-check, tool-worktree-prep, tool-dev, skill-ui-design]
+change: |
+  - 전: terminal의 프로그램이 연 URL(`gh auth login --web`, `python3 -m webbrowser`)은 OS browser로 갔다. terminal에 보이는 URL은 눌러도 아무 일이 없었다.
+  - 후:
+    - project 창의 shell 탭(Linux·macOS)은 env에 `BROWSER`(앱이 켤 때마다 per-run 폴더에 쓰는 shim)와 `LPN_BROWSER_BRIDGE`를 받는다. 프로그램이 `$BROWSER <url>`을 부르면 browser 탭이 열려 선택된다. pane이 둘이면 terminal 반대쪽 pane, 하나면 terminal 바로 뒤, terminal이 floated이면 focus pane이다.
+    - terminal에 보이는 http/https 주소를 Ctrl/Cmd-click하면 같은 규칙으로 browser 탭에 연다. 그냥 click은 text 선택이다.
+    - Settings › Browser에 Links 구역: Web links와 Local links(localhost, `.local`, 사설 IP)를 각각 Browser tab 또는 System browser로 연다. 기본은 둘 다 Browser tab이다.
+    - 탭을 열 수 없을 때(Settings·app space 화면, detached 창 안 terminal, coding 탭, 설정이 System browser, `http`·`https`가 아니거나 userinfo가 든 URL)는 OS browser로 간다. 사용자가 앱 env에 `BROWSER`를 두었으면 shell 탭은 그것을 그대로 쓴다. socket 경로가 너무 길거나 Windows이면 bridge가 꺼지고 지금처럼 OS browser다.
+    - gallery: `browser-bridge-pane`, `browser-bridge-one-pane`, `settings-browser-links`, `settings-browser-links-system`.
+  - 계약:
+    - 생긴 것: shell IPC `shell:terminal-link`, `shell:terminal-bridge-ack`(invoke), `shell:terminal-bridge-open`(push)과 `TerminalApi.openLink`·`ackBridgeOpen`·`onBridgeOpen`. terminal host `open` 요청의 `env`(restart도 같은 env). core 선언 설정 `shell.browser.web_links`·`shell.browser.local_links`(`browser_tab` | `system_browser`). socket protocol `{v:1,key,url}` 한 줄 → `{"result":"pane"|"declined"}` 한 줄. renderer 의존성 `@xterm/addon-web-links@0.12.0`.
+why: |
+  `vite`와 `gh auth login`을 하며 lophn 창과 OS browser를 오가지 않게 하려고.
+decisions:
+  - text: |
+      범위는 shell 탭이다. coding 탭은 app space 패널에 붙어 browser 탭을 열 pane이 없다.
+    by: agent
+  - text: |
+      renderer가 탭을 연 뒤 ack해야 `pane`이고, 1500ms 안에 없으면 `declined`로 shim이 OS browser로 연다. URL이 조용히 사라지지 않게.
+    by: agent
+  - text: |
+      key는 terminal 탭마다 main이 발급해 host `open`이 성공하면 묶고 탭을 닫으면 버린다. 비교는 `Map` 조회다(socket이 0700 폴더 안 0600 file이다).
+    by: agent
+  - text: |
+      per-run 폴더는 data root 아래가 아니라 core socket 폴더 규칙(`XDG_RUNTIME_DIR`)을 따른다. unix socket 경로 104 byte 한도 때문이다.
+    by: agent
+  - text: |
+      link 설정은 renderer가 밀지 않고 main이 요청마다 core에서 읽는다.
+    by: agent
+  - text: |
+      bridge는 `desktop/main.ts`가 아니라 `wiring/coding.ts`가 만든다.
+    by: agent
+follow_up: |
+  coding 탭의 bridge, detached 창 안 terminal의 bridge, host가 죽은 뒤 다시 시작한 shell의 bridge는 `project-docs/products/roadmap/browser-tab.md`의 "남은 bridge 일"이다.

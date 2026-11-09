@@ -1,0 +1,38 @@
+id: team-child-ask-goes-to-parent
+version: 0.22.0
+title: "팀 자식의 질문과 승인이 부모에게 먼저 간다"
+modules: [packages/protocol, packages/core/approvals, packages/core/router, packages/core/lophn-agent, packages/core/main, packages/core/storage, packages/core/apps, packages/cli, packages/coding-agent, packages/shell/main, packages/shell/renderer]
+checked: [architecture-agent-chat, architecture-run, architecture-workflow, architecture-agent-definition, architecture-app-call, architecture-terminal-agent, module-catalog, tool-eval]
+change: |
+  전: spawn된 session의 `ask`(질문)와 shell 규칙 `ask`(승인)는 팀 밖 session처럼 사람의 대기 목록에 카드로 떴다. unattended turn에서는 질문이 `unattended`, shell ask가 그냥 실행이었다. 팀 상한 기본은 `max_depth: 3`, `max_members: 16`이었다.
+  후:
+    - spawn된 session(`spawned_by` 있음)의 질문과 shell 승인은 부모에게 가는 result call이다(`agent_calls.ask`: `question` | `approval`). 자식 turn은 지금처럼 기다리고 부모의 답이 푼다. 부모가 판단할 수 없으면 자기 `ask`를 써서 위로 올리고 root에서 사람에게 닿는다.
+    - attended·unattended 상관없이 같은 길이다. skip session의 shell ask는 지금처럼 그냥 돌고, 질문은 skip이어도 부모에게 간다. 팀 밖 session은 그대로다.
+    - 부모는 `lophn call reply <call> --allow | --reject [--body <이유>]`로 답한다(`ReplyCall.decision`). 허락은 이번 한 번뿐이고 `always`(규칙 더하기)는 없다. `deny`는 부모에게 가지 않는다. 질문의 답은 자식에게 `{outcome: "parent_reply", message}`로 간다. harness·bare 부모의 자동 답이 승인 call에 닿으면 거절이다.
+    - 자식 쪽이 먼저 끝나면 ask call이 취소되고, 부모가 끝나면 승인은 거절·질문은 `cancelled`로 풀린다. 재시작하면 부모가 가져간 ask call도 `lophn_restarted`로 닫힌다.
+    - 자식 탭과 알림에는 이 물음의 카드가 뜨지 않는다(`TurnRequest.to_parent`, `QuestionAsked.to_parent`로 거른다). session 상태는 `waiting`이다.
+    - `team read`의 팀원마다 답하지 않은 call(`open_calls`)이 보인다. `team spawn`의 첫 call 앞에 팀 지시문 고정 글이 붙고 help와 skill `lophn-agent`도 같은 말을 한다.
+    - 팀 상한 기본값이 `max_depth: 2`(root 0), `max_members: 8`이다. 거절 글이 "do the work yourself or ask your parent"로 끝난다.
+  저장 모양: ledger step `router.agent-calls.ask`(`agent_calls.ask` 칸, 옛 행은 null).
+  옮기기: 없음(옛 call은 null이라 그대로다. 사람이 설정한 팀 상한은 설정 file에 있어 그대로다).
+why: |
+  팀으로 일할 때 자식의 물음이 모두 사람에게 오면 coordinator가 할 일을 사람이 한다. "coordinator든 leader든 걔가 먼저 답하고 걔 판단으로 안 되겠음 걔가 사용자한테 올리고"(사람, 2026-11-08, `project-docs/products/roadmap/agent-surface.md` 정한 것 11~15).
+decisions:
+  - text: |
+      올리는 장치를 따로 두지 않는다. 부모가 자기 `ask`를 쓰면 같은 규칙이 사슬을 만든다.
+    by: agent
+  - text: |
+      부모의 승인 답은 글이 아니라 `call reply`의 구조 칸이다. 새 명령을 두지 않았다. 부모는 이미 `call reply`를 안다.
+    by: agent
+  - text: |
+      call과 request의 짝은 request처럼 main thread 메모리에 두고, 행에는 `ask` 표시만 둔다.
+    by: agent
+  - text: |
+      팀 자식의 event는 그대로 내고 표시로 거른다. `TurnResumed`, snapshot의 `waiting`, acp가 그 event에 기댄다. (planner 판단을 agent로 기록)
+    by: agent
+  - text: |
+      skip은 지킨다: skip session의 shell ask는 부모에게 가지 않는다. (planner 판단을 agent로 기록)
+    by: agent
+  - text: |
+      팀 지시문은 system prompt에 넣지 않는다(prompt cache).
+    by: agent

@@ -1,0 +1,26 @@
+id: app-panel-tab-and-icon
+version: 0.14.0
+title: '앱 panel이 탭과 한 면으로 이어진다, 앱 icon, activity bar에 앱 panel 고정'
+modules: [packages/shell/renderer, packages/shell/main, packages/core/apps, packages/protocol]
+checked: []
+change: |
+  전:
+    - project 창의 앱 panel 탭은 탭 줄 아래에 앱 이름·Live·연결 상태 줄(`ViewChrome`)이 늘 있었다. 그 줄과 앱 화면의 바탕이 달라 탭과 본문이 한 면으로 이어지지 않았다. 앱 template의 화면 바탕은 `base.css`·`AppShell`의 `--color-surface-floor`라 탭 본문(`--color-surface-base`)보다 어두웠다.
+    - 앱에는 icon이 없었다. 앱 panel 탭은 늘 기본 아이콘, 런처와 place switcher는 첫 글자와 색이었다.
+    - 앱 panel은 탭 줄의 + → App panel → 고르기로만 열었다.
+  후:
+    - 앱 panel 탭은 화면이 멈추거나 crash했을 때, 앱이 멈췄을 때만 `ViewChrome`을 띄운다. 앱 template에 `src/surface.css`가 생겨 앱 바탕이 `--color-surface-base`다. 앱이 고치거나 지울 수 있다.
+    - 앱 선언에 선택 칸 `icon`(bundle 안 경로, svg·png·webp)이 생겼다. release 준비는 그 파일이 commit에 있고 64 KiB 이하인지 본다. core read `apps.icon`이 active release의 icon을 base64로 준다. bundle 밖 경로·symlink, 큰 파일, 선언 없음은 `null`이다. 앱 panel 탭, activity bar의 고정 앱, 런처, place switcher가 그 icon을 쓴다.
+    - activity bar 아래쪽(바로 가기와 Settings 사이)에 project마다 앱 panel을 고정한다. 앱 panel 탭의 탭 menu "Pin to activity bar"나 묶음 끝의 +로 더하고, right-click "Unpin from activity bar"로 뺀다. 누르면 같은 앱·화면 탭이 있으면 그 탭으로 가고 없으면 새로 연다.
+    - layout 파일이 판 7이고 `rail_apps`가 있다. 판 5·6 파일은 읽을 때 판 7로 올린다.
+why: |
+  lophn은 탭과 본문의 바탕을 맞춰 한 면으로 보이게 하는데, 앱 panel만 그 사이에 다른 바탕의 줄과 더 어두운 화면이 끼었다. project마다 자주 쓰는 앱 화면을 매번 + 메뉴에서 고르는 것도 번거로웠다.
+decisions:
+  - text: '크롬 줄은 지우지 않고 문제가 있을 때만 띄운다. 멈춘 화면을 다시 여는 [Open again]이 그 줄에만 있다.'
+    by: agent
+  - text: '앱 바탕은 `@lophn/ui`가 아니라 template에서 맞춘다. 같은 판의 SDK byte를 바꾸면 기존 앱의 `npm ci`가 깨지고, 판을 올리면 `app-ui`·shell·template 고정이 같이 바뀐다. 사람이 강제하지 말라고 했다. 이미 만든 앱은 그대로다.'
+    by: person
+  - text: '고정 앱은 desk가 아니라 project 단위로 layout 파일에 둔다. 등록은 탭 menu와 + 둘 다, 누르면 있는 탭으로 간다.'
+    by: person
+  - text: '`icon`은 `@lophn/declaration` 판을 올리지 않는다. 선언 검증기 파일이 바뀌어도 판을 올리지 않던 앞선 변경을 따른다. 선언에 icon이 없으면 칸을 두지 않아 옛 선언의 hash가 그대로다.'
+    by: agent

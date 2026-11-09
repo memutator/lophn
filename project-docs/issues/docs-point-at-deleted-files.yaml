@@ -1,0 +1,19 @@
+id: docs-point-at-deleted-files
+title: "새로 쓴 문서와 주석이 지운 파일을 가리킴"
+kind: mistake
+status: fixed
+topic: mistakes
+modules: [tools]
+now: |
+  문서를 줄이던 worker들이 지운 파일을 가리키는 문장을 남겼다. ui-design skill → `ui-inventory/stack.md`, AGENT-ROLE → requirements·specs, PRODUCT → `requirements/values.yaml`, `tools/check-source.ts` 주석 → `terms.md`. 사람이 하나씩 찾아 고쳤다. 그 뒤에도 `core/lophn-agent/safety/fence.ts` 주석이 없는 `prompt-injection-safety.md`를 가리키는 것이 나왔다.
+impact: |
+  agent가 없는 파일을 찾느라 시간을 쓰거나, 없는 것을 근거로 짐작한다.
+fix: |
+  check 하나를 만든다. `AGENTS.md`, `.claude/skills/`, `project-docs/`의 md·yaml에서 backtick 안의 저장소 path(`packages/`, `project-docs/`, `tools/`, `.claude/`로 시작하는 것)가 실제로 있는지 본다. 문서 기준 상대 path는 첫판에서 뺀다. `tools/check-modules.ts` 옆에 두면 반나절 일이다. 같은 check가 `context-component-registry.yaml`의 `path`가 있는지, `change_reasons.boundaries`가 boundary-catalog에 있는지, `roles`가 registry의 role인지도 본다(지금 registry를 보는 check가 없다).
+cause: |
+  지운 파일 목록이 worker에게 주어지지 않았고, 문서 속 path가 있는지 보는 check가 없었다.
+prevent: |
+  `tools/check-docs.ts`(`deno task check`의 `docs` 단계, 문서만 바뀐 변경에도 돈다)가 `AGENTS.md`, `.claude/skills/`, `project-docs/`(change-log, `issues/archived`, `plan/`, `products/roadmap/` 제외)의 backtick 저장소 path와 `context-component-registry.yaml`의 `path`·`change_reasons`·`roles`를 본다. 걸리던 28줄(harness 상대 `tools/…` 표기, 옮겨진 template path)을 고쳤다. 코드 주석 속 문서 path는 보지 않는다.
+closed: |
+  `tools/check-docs.ts`(`deno task check`의 `docs` 단계, 문서만 바뀐 변경에도 돈다)가 `AGENTS.md`, `.claude/skills/`, `project-docs/`(change-log, `issues/archived`, `plan/`, `products/roadmap/` 제외)의 backtick 저장소 path와 `context-component-registry.yaml`의 `path`·`change_reasons`·`roles`를 본다. 걸리던 28줄(harness 상대 `tools/…` 표기, 옮겨진 template path)을 고쳤다. 코드 주석 속 문서 path는 보지 않는다.
+guard: tools/check-docs.ts

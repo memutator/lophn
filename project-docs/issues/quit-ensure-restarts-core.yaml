@@ -1,0 +1,12 @@
+id: quit-ensure-restarts-core
+title: "Quit 중에 돌던 ensure가 끝난 뒤 core를 새로 띄울 수 있다"
+kind: bug
+status: open
+topic: platform
+modules: [packages/shell/main]
+now: |
+  shell의 crash 복구·판 교체 ensure(`packages/shell/main/desktop/core/connection.ts` `recover`, `packages/protocol/client/ensure.ts` `ensureCore`)는 취소할 길이 없다. 일반 Quit의 `detach()`나 `Stop lophn`의 `stopCore()`가 그 사이에 와도 ensure는 끝까지 돌아 core를 띄울 수 있다. 시작 중(ready 전)에 `Stop lophn`을 누르면 control stop이 `unavailable`로 돌아오고 성공으로 치여, 막 뜬 core가 남는다.
+impact: |
+  사람이 끄라고 했는데 core가 남는다. 켜진 job이 없으면 10분 뒤 idle-exit로 끝나므로 data는 잃지 않는다.
+fix: |
+  ensure에 abort signal을 받아 spawn 전에 보고, `Stop lophn`은 starting core면 ready를 기다린 뒤 stop한다(작음). 추천.

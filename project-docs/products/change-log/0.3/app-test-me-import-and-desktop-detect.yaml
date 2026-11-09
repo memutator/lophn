@@ -1,0 +1,25 @@
+id: app-test-me-import-and-desktop-detect
+version: 0.3.0
+title: 'app test가 `@me` package import와 바꿀 것 없는 write app-api를 통과시키고, 데스크톱이 harness 감지 결과를 읽고, eval run이 dirty로 남지 않음'
+modules: [packages/shell/main, tests]
+checked: [architecture-coding-agent, architecture-eval]
+change: |
+  전:
+  - app test의 의존 확인이 `./sdk/@me/<part>/<version>/`을 읽지 못해, 앱이 낸 package를 선언하고 import한 앱을 "선언하지 않은 의존"으로 떨어뜨렸다.
+  - app test의 되돌리기 확인이 fixture 입력에서 바꿀 것이 없는 write app-api(없는 id를 지우는 `remove`)를 떨어뜨렸다.
+  - 데스크톱의 `childCliRunner`가 `lophn ... --json`의 성공 출력을 `data` 칸에서 찾아 harness 감지가 늘 unknown이었다.
+  - eval의 `captureSource`가 check와 core 기동이 고쳐 두는 `packages/shell/main/desktop/core/deno.lock`까지 세어 모든 run이 `source.dirty: true`였다.
+  후:
+  - 선언한 `@me` package의 import는 의존 확인을 통과한다. 선언하지 않은 `@me` import는 여전히 걸린다.
+  - 바꾼 것이 없는 write app-api는 되돌리기 확인을 통과한다. changeset을 내지 않은 호출도 data를 바꿨는지 실제로 보아, changeset 없이 data를 바꾼 api는 여전히 떨어진다.
+  - CLI의 성공 출력은 그대로 data가 되고 `{ error: { code, message } }`만 실패다.
+  - eval의 source 확인이 그 lock file을 뺀다.
+why: |
+  app test가 맞는 앱을 떨어뜨리고 데스크톱의 harness 감지가 늘 unknown으로 보였다. eval run도 늘 dirty로 남아 실행 결과를 비교할 수 없었다.
+decisions:
+  - text: '바꿀 것이 없는 write app-api는 되돌릴 것이 없으니 통과로 둔다. 쓰기를 아예 못 하는 write app-api는 이 확인으로는 잡지 못한다.'
+    by: person
+  - text: '나머지 셋은 이슈의 추천대로 고쳤다.'
+    by: agent
+follow_up: |
+  개발 실행(`deno task dev`)은 `LOPHN_CLI`(절대 경로)를 주지 않으면 CLI child를 부르지 않아 Settings의 감지가 "The lophn command is not installed."다. 고친 길은 실제 CLI(`packages/coding-agent/cli/main.ts`)를 `childCliRunner`로 불러 확인했다.

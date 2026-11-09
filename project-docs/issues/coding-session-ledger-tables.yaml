@@ -1,0 +1,14 @@
+id: coding-session-ledger-tables
+title: coding session을 메모리 대신 ledger 표 셋과 `ApplyCodingSignal`로 둔다
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/core/apps, packages/core/storage]
+now: "`coding_sessions`, `coding_lines`, `coding_inputs` 표(`core/apps/tickets/coding/schema.ts`)와 machine command `ApplyCodingSignal`(`signal.ts`)을 둔다. 이유는 schema 주석대로 command는 writer Worker에서 돌고 reader는 `CodingSessionLookup`과 줄을 읽어야 하는데 둘이 메모리를 같이 볼 수 없고, tx가 되돌아가면 표도 같이 되돌아가야 해서다. 값은 lophn이 꺼지면 의미를 잃어 켤 때 `recover`가 비운다. 감지 결과와 터미널 요청만 writer 메모리(`memory.ts`)에 있다."
+impact: 표 셋, 상태 갱신 command, recover, 표를 읽는 `store.ts`·`lookup.ts`가 따로 늘었다. 휘발성 값에 schema step이 붙어 바꿀 때마다 표를 같이 고친다.
+fix: |
+  - main thread 한 곳에만 두고 core 읽기는 거기에 묻는다. Worker 경계를 넘는 port가 새로 필요하고, "상태·정산·call 닫기를 같은 transaction에서" 고치는 지금 불변 조건을 깨야 한다(큼).
+  - 남긴다. 표는 휘발성이지만 정산이 tx와 같이 가는 것이 이 구조의 이유다.
+  - 추천: 남기는 쪽. 이유가 schema 주석에 이미 있다.
+closed: 표는 휘발성이지만 정산이 tx와 같이 가는 것이 이 구조의 이유이고(command는 writer Worker, reader는 표를 읽는다), main thread로 옮기면 같은 transaction 불변 조건이 깨진다. 이유는 schema 주석에 있다.
+guard: 없음

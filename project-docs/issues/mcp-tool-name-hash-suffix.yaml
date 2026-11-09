@@ -1,0 +1,15 @@
+id: mcp-tool-name-hash-suffix
+title: 'MCP tool 이름이 wire 규칙에 안 맞거나 64자를 넘으면 hash 8자를 붙여 줄인다'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `extensions/mcp-tools.ts`의 `externalToolName`이 `mcp__<server>__<tool>`이 `[A-Za-z0-9_-]`이고 64자 이하면 그대로 쓰고, 아니면 안전하지 않은 글자를 `_`로 바꾸고 `[server, original]`의 sha256 앞 8자를 붙여 줄인다. 겹치면 `assignExternalToolNames`가 등록을 거절한다.
+impact: |
+  이름 변환 규칙이 하나 더 있다. 사람이 보는 이름(Grants, 승인 카드)과 model이 부르는 이름이 다를 수 있다.
+fix: |
+  wire 규칙 때문에 길거나 이상한 MCP tool 이름은 어차피 바꿔야 한다. 추천: 남긴다.
+closed: |
+  wire 규칙 때문에 길거나 이상한 MCP tool 이름은 어차피 바꿔야 하고, `externalToolName` 주석이 규칙을 설명한다.
+guard: 없음

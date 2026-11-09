@@ -1,0 +1,21 @@
+id: program-fills-deterministic-coding-values
+version: 0.3.0
+title: 'coding agent 길에서 결정적인 것을 program이 함'
+modules: [packages/core/apps, packages/protocol, packages/coding-agent, packages/core/main]
+checked: [architecture-coding-agent, architecture-eval, architecture-testing, architecture-activation, architecture-approval, architecture-annotation]
+change: |
+  전: eval의 첫 진짜 run에서 coding agent 길이 막혔다.
+  - coding session 행의 flag를 `row.heard === 1`로 읽었는데 SQLite가 bigint를 돌려줘, 모든 coding session이 늘 `unknown`이었다. App Engineer가 coding agent에게 보내는 message도 거절됐다.
+  - call의 받는 쪽에 앱 id를 적으면 `not_found`였다(slug와 이름만 찾았다).
+  - `lophn app test`가 쓰지 않는 `release`·`ticket` 칸을 꼭 요구했고, `bundle_hash`·`test`도 agent가 앞 출력에서 옮겨 적어야 했다. 입력 오류는 칸 이름과 "입력이 맞지 않다"뿐이었다.
+  후:
+  - coding session flag를 숫자로 읽는다(`packages/core/apps/tickets/coding/store.ts`).
+  - 받는 쪽 앱과 project를 id로도 찾는다.
+  - `lophn app test`는 `kind`, `request_key`, `app`만 있으면 된다. core가 마지막으로 끝난 release 준비에서 `bundle_hash`와 `test`를 채운다. CLI 입력 오류는 빠진 칸과 기대 꼴을 말한다.
+why: |
+  eval의 첫 진짜 run에서 coding agent 길이 막혔다. agent가 program이 정하는 값(bundle hash, test, release)을 옮겨 적어야 해서 입력이 어렵고 틀리기 쉬웠다.
+decisions:
+  - text: '결정적으로 정해지는 값은 program이 채우고, agent에게는 판단이 필요한 것만 받는다. 결정적인 것은 싸고 빠르다.'
+    by: person
+follow_up: |
+  첫 run 결과(Sonnet 5.5, trial 1): calendar-api 4/5($0.08, 넣은 뒤 목록을 다시 읽지 않음), calendar-diagnose 8/8($0.36, judge `root_cause`), calendar-maintain 9/10($0.79, `card-covered`는 verdict가 all인데 인용이 입력에 글자 그대로 없어 떨어짐), calendar-mvp 9/16($0.93, 카드의 주 범위 걸러내기가 blueprint에서 빠지고 `@me/date-range`를 재사용하지 않음). coding agent의 질문에 App Engineer가 글로만 답하면 그 답이 터미널로 가지 않는다(`reply: "none"`). 이것을 App Engineer의 판단에 둘지 core가 되돌려 보낼지는 정하지 않았다.

@@ -1,0 +1,18 @@
+id: flow-code-writes-deno-stdout
+title: 'flow code가 `Deno.stdout`에 바로 쓰면 process가 죽는다'
+kind: bug
+status: fixed
+topic: workflow
+modules: [packages/sdk, packages/core/main]
+now: |
+  flow process의 stdout은 core와의 JSON 줄 통로다. `packages/sdk/flow/entry.ts`는 `console.log` 등만 stderr로 돌리고 `Deno.stdout`은 그대로 둔다. `flow.ts`나 그것이 import한 file이 `Deno.stdout.write`·`Deno.stdout.writable`로 쓰면 그 줄이 JSON이 아니어서 `packages/core/main/flow-host/channel.ts`의 `readRequests`가 `bad("line is not JSON")`을 부르고, host가 process를 끝낸다. 끝 stderr 줄에 `[lophn] channel closed: line is not JSON`이 남는다. SDK의 `guide.md`와 PM의 `guide-workflows` skill에는 쓰지 말라는 줄만 있다.
+impact: |
+  flow가 중간에 끝나 앞서 한 앱 tool 호출만 남고 뒤 step은 돌지 않는다. PM은 끝 줄을 읽어야 이유를 안다.
+fix: |
+  - `entry.ts`가 SDK 통로가 쓸 `Deno.stdout.write`를 먼저 잡아 둔 뒤, `flow.ts`를 import하기 전에 `Deno.stdout`의 `write`·`writeSync`를 stderr로 돌린다(`console`과 같은 자리). 작음. `Deno.stdout.writable` stream까지 돌리려면 조금 더 든다.
+  - 그대로 두고 문서로만 알린다. 지금 상태다.
+
+  추천: 첫째의 `write`·`writeSync`만. 실수로 부를 만한 길은 그 둘이다.
+closed: |
+  `packages/sdk/flow/wire.ts`가 module을 읽을 때 원래 `Deno.stdout.write`를 잡아 두고 통로는 그것만 쓴다. `packages/sdk/flow/entry.ts`는 `wire.ts`를 먼저 import한 뒤, `flow.ts`를 import하기 전에 `Deno.stdout.write`·`writeSync`를 stderr로 돌린다(`console`과 같은 자리). `Deno.stdout.writable` stream은 돌리지 않는다(실수로 부를 만한 길이 아니다). 진짜 flow process를 띄우는 test는 두지 않았다.
+guard: 없음

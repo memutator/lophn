@@ -1,0 +1,15 @@
+id: app-call-rejected-after-running
+title: running으로 보인 직후의 앱 call이 app_unavailable로 거절된다
+kind: bug
+status: fixed
+topic: activation
+modules: [packages/core/apps]
+now: |
+  앱 상태가 `running`·ready·accepting으로 읽힌 직후의 `appCallApi`가 `{status: "denied", denial: {code: "app_unavailable", message: "the app is not running"}}`다. `tests/e2e/app-sandbox_test.ts`를 약 200번 돌린 중 3번 났다. 의심: `packages/core/apps/calls/service.ts`에서 `deps.link.call`이 `sent: false`를 돌려주는 곳. 후보 관측의 ready·accepting과 운영 link 등록(`openAfterCommit`) 사이에 틈이 있을 수 있다.
+impact: |
+  activation이 끝났다고 보고 부른 사람·agent의 첫 call이 거절된다. 앱 E2E가 가끔 실패한다.
+fix: |
+  상태가 running으로 보이는 시점과 call link가 열리는 시점을 같은 commit 뒤로 맞춘다.
+closed: |
+  원인은 앱 socket 폴더였다. `${XDG_RUNTIME_DIR}/lophn`의 고정 slot 경로를 같은 사용자의 core가 모두 써서, 한 core의 supervisor가 다른 core 앱의 socket 파일을 지우거나 덮었다(ready 확인과 운영 link 연결이 거절됨). socket 폴더를 data root마다 나눈 뒤(`apps/runtime/processes/socket-dir.ts`의 `socketRootKey`) `tests/e2e/app-sandbox_test.ts` 90번, `tests/e2e/app-restart_test.ts` 4개 동시 16번이 모두 통과했다(고치기 전 각각 약 200번 중 8번, 16번 중 6번 실패).
+guard: 없음

@@ -1,0 +1,30 @@
+id: sdk-update-detect-hand-to-lophn
+version: 0.20.0
+title: "SDK 업데이트 감지와 lophn에게 맡기기"
+modules: [packages/protocol, packages/core/apps, packages/core/main, packages/core/router, packages/core/agent-workspaces, packages/cli, packages/design, packages/shell/renderer]
+checked: []
+change: |-
+  전: 앱이 고정한 SDK 판과 깔린 판을 견주는 곳이 없었다. 계약이 바뀐 major로 앱이 뜨지 않아도 일반 `start_failed`로만 보였다. home lophn은 앱의 고정 판을 볼 수 없었다. private workspace는 home의 call도 막아 home에서 앱으로 일을 넘길 수 없었다.
+  후:
+  - 읽기 `app.sdk_status`(`lophn app sdk-status [<앱>]`, home·app)가 archived가 아닌 앱의 켜진 release마다 SDK별 고정 판, 지금 판, 지원 하한, 단계(`required`·`available`·`current`), 읽을 메모 file을 준다.
+  - lophn이 새 판으로 켜지면 `required` SDK가 있는 앱마다 "SDK 업데이트 필요" 기록(앱마다 한 줄)을 Ask lophn 단추(`/update-apps <앱>`)와 함께 남긴다. `available`만 있는 앱은 lophn 업데이트 기록에 "N apps have optional SDK updates." 한 줄로만 보인다. 앱 상세 Version 탭에 SDK마다 필수/가능/최신이 보인다.
+  - 내장 home skill `update-apps`(`/` 메뉴): SDK 상태와 메모를 읽어 앱마다 무엇이 바뀌는지 사람 말로 설명하고, 사람이 고른 앱의 lophn에게 `reply: none`으로 넘긴다. 앱 lophn은 `migrate-sdk`대로 옮긴다.
+  - call 정책: home의 기본 lophn이 private workspace의 lophn에게 `reply: none`으로 보내는 call은 private 판정을 건너뛴다. 답·결과를 받는 reply, 다른 home agent, private에서 나가는 call은 그대로 막히고 agent·workspace 쌍 규칙이 먼저다.
+why: |-
+  SDK가 바뀌면 사람에게 알리고, 사람이 맡기면 home lophn이 바꿀 곳을 찾아 앱 lophn에게 넘겨 옮기게 한다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      맡기기는 늘 home을 거친다. (사람)
+    by: person
+  - text: |-
+      Inbox에는 필수만 올리고 가능은 lophn 업데이트 기록과 앱 상세에만 보인다. (사람: 알아서)
+    by: person
+  - text: |-
+      private 예외는 home의 기본 lophn, private 쪽 lophn, `reply: none` 셋이 다 맞을 때뿐이다. home을 통째로 예외로 두지 않는다. (사람이 추천을 받음)
+    by: person
+  - text: |-
+      사람이 앱을 옮긴 뒤에도 "SDK 업데이트 필요" 줄은 그때의 기록으로 남는다. 지금 상태는 SDK 상태 read와 Version 탭이 말한다.
+    by: agent
+follow_up: |-
+  - 감지는 제품 판이 바뀔 때만 돈다.
+  - `update-apps`가 실제 model에서 그대로 따르는지는 eval이 없다.

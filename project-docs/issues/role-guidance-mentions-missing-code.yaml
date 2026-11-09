@@ -1,0 +1,23 @@
+id: role-guidance-mentions-missing-code
+title: 'role 지침 세 곳이 코드에 없는 것을 말한다'
+kind: bug
+status: fixed
+topic: agent-definition
+modules: [packages/core/agent-workspaces]
+now: |
+  - lophn을 다른 agent에게 소개하는 줄이 project도 등록한다고 한다.
+    - `packages/core/agent-roles/place/place-data.ts`의 `ROLE_LINE.lophn`: "Plans work, registers projects and apps, and hands work to others."
+    - lophn의 쓰기 tool은 `app.create`뿐이고, project를 등록하는 tool은 없다(`packages/core/agent-roles/tool-lists.ts`).
+  - App Engineer 지침(`packages/core/agent-roles/roles/app-engineer/prompt.md`)은 ticket의 "acceptance checks"(복수)라고 쓴다. 그런데 `ticket.create`의 `check`는 하나다(`packages/protocol/coding-agent/ticket/values.ts`).
+  - 같은 지침은 reaction으로 "a repeating problem closed"를 든다. 실제 reaction은 앱이 거듭 죽어 자동 재시작을 멈춘 것이다(`AppRestartHalted`, `packages/core/events/reactor/session-opening.ts`).
+impact: |
+  - 다른 agent가 이 줄을 보고 lophn에게 project 등록을 맡기면, lophn은 할 수 없어 일이 돌아온다.
+  - App Engineer가 check를 여럿 넣으려 하면 `invalid_input`으로 막혀 turn을 쓴다.
+  - 재시작이 멈춘 reaction을 받은 App Engineer는 지침에서 그 경우를 찾지 못한다.
+fix: |
+  세 문장을 코드에 맞게 고친다(작음).
+  - lophn 줄: "Plans work, registers apps, and hands work to others."
+  - App Engineer 지침: "the acceptance check", "the app stopped restarting after repeated crashes".
+closed: |
+  `ROLE_LINE.lophn`은 "registers apps"만 말하고, App Engineer 지침은 "the acceptance check"와 "the app stopped restarting after repeated crashes"를 쓴다.
+guard: 없음

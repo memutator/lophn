@@ -1,0 +1,10 @@
+id: tab-close-slot-per-tab
+version: 0.16.0
+title: "tab 줄: 상태 점과 닫기는 한 자리, group은 tab마다 닫기"
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: tab 줄은 상태 점을 이름 뒤에, ×를 칸 끝에 따로 그렸다. group 칸은 × 하나가 끝에 있고 고른 group은 focus tab, 고르지 않은 group은 첫 tab을 닫았다. 오른쪽 tab 옆의 ×가 왼쪽 tab을 닫고 group이 풀려 "group 분리"처럼 보였다.
+  후: tab(group이면 반쪽)마다 이름 뒤에 닫기 자리가 하나다. 저장 안 된 ●나 상태 점이 있으면 평소 그것이고 그 tab에 hover하거나 단추에 focus가 오면 ×가 된다. 둘 다 없으면 고른 tab(group이면 focus 반쪽)과 hover한 tab에만 ×가 보인다. group의 ×는 그 tab만 닫는다.
+why: |
+  사람이 요청했다(2026-11-03).

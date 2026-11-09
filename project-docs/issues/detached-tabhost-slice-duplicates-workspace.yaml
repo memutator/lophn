@@ -1,0 +1,15 @@
+id: detached-tabhost-slice-duplicates-workspace
+title: detached 창의 TabHost slice가 Workspace의 사본이다
+kind: defect
+status: fixed
+topic: workspace-layout
+modules: [packages/shell/renderer]
+now: |
+  `renderer/workspace/detached/detached-space.tsx`의 `DetachedTab`이 `Workspace`(`renderer/workspace/workspace.tsx`)가 `TabHost`를 만드는 줄을 따라 썼다: `useSidebarAgents`·`useSessions`·`useConversation`과 `localDrafts`, `contexts` slice(`readContexts`, `titleOf`, `openPath`, `askProjectManager`), `agentView`·`agents` slice, `createViewCovers`·`createViewKeeps`·`createWebviewHost`와 provider. 벌써 갈라졌다: `contexts.openPath`가 상대 path를 `Workspace`처럼 열린 파일 목록에서 찾지 않고 첫 폴더에 붙인다.
+impact: |
+  `TabHost` slice를 고치면 두 곳을 고쳐야 하고, 빠뜨리면 같은 탭이 detached 창에서만 다르게 동작한다(위 `openPath`처럼 다른 폴더의 같은 이름 파일을 연다).
+fix: |
+  두 곳이 같이 쓰는 hook(`useTabHostSlices(project, sources)`)으로 slice를 모은다(중간). 추천.
+closed: |
+  `renderer/workspace/use-tab-host-slices.ts`의 `useTabHostSlices`가 `Workspace`와 `DetachedTab`의 sidebar agents·sessions·conversation·drafts·contexts·agent view·agents slice와 view 보관소(covers, keeps, webviews)를 한 곳에서 만든다. detached 창의 `contexts.openPath`도 이제 열린 파일 목록을 먼저 본다.
+guard: 없음

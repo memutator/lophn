@@ -1,0 +1,15 @@
+id: project-picker-scrim-view-first
+title: project 고르기 scrim
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `app-frame/app-space.tsx`가 앱 place에서 연 화면에서 view를 project 없이 먼저 열어 두고(`viewState.project === null`), 그 위에 `ProjectPicker`를 얹는다. native view가 DOM을 가리므로 `project-picker.tsx`가 `useViewCover`로 view를 숨기고, 고르면 `views.setViewProject`로 main에 project를 알린다.
+impact: |
+  view를 먼저 열고 덮고 다시 보이는 단계가 늘어, view 상태와 가리기가 어긋나는 경우를 따로 챙겨야 한다. 고르기 전에는 앱이 project 없이 뜬 채 가려져 있다.
+fix: |
+  project를 고른 뒤에 view를 연다. main의 view 열기 흐름(`setViewProject`)과 renderer의 view 생명 주기를 함께 고쳐야 한다(중간~큼).
+closed: |
+  project를 고른 뒤 view를 열게 바꾸려면 main의 view 열기 흐름(`setViewProject`)과 renderer의 view 생명 주기를 함께 고쳐야 한다(중간~큼). 지금 동작은 맞다.
+guard: 없음

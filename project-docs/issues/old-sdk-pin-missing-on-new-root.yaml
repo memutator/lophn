@@ -1,0 +1,15 @@
+id: old-sdk-pin-missing-on-new-root
+title: 새 data root에는 옛 SDK 판이 없어 그 판에 고정된 앱이 준비되지 않음
+kind: bug
+status: fixed
+topic: app-call
+modules: [packages/core/apps]
+now: |
+  SDK package마다 source 폴더가 하나라 `installSdkCopies`(`packages/core/apps/packages/install.ts`)는 지금 판만 `<data root>/sdk/<이름>/<판>`에 깐다. 옛 판 사본은 지우지 않으므로 이미 쓰던 data root에서는 `@lophn/declaration` 2.0.0, `@lophn/app-ui` 2.0.0에 고정된 앱이 그대로 돈다. 새 data root에는 2.1.0만 있어, 2.0.0에 고정된 앱 source를 연결하면 release 준비의 SDK sync가 `not_found`로 실패한다.
+impact: |
+  다른 기계나 새 data root로 옮긴 사람의 옛 앱이 의존 판을 올리기 전까지 준비되지 않는다. 판을 올릴 때마다 같다.
+fix: |
+  (가) 옛 판 사본을 제품에 같이 싣는다(SDK 폴더를 판마다 두거나 release 때 사본을 남긴다). (나) 준비 실패 이유에 "앱의 SDK 판을 지금 판으로 올린다"를 싣는다. 추천은 (나): 가장 단순하고 앱 agent가 바로 고친다.
+closed: |
+  (나)로 했다. SDK sync의 `not_found`가 앱이 고정한 `<package>@<판>`, 깔린 판 목록, "앱의 의존 판을 깔린 판으로 올린다(새 SDK는 code를 고쳐야 할 수 있다)"를 싣고, release 준비(`from-source.ts`)가 그 글을 `sdk_not_installed: …` 이유에 그대로 넘긴다. 옛 판 사본은 여전히 싣지 않는다. 본문의 판 숫자는 그때 것이다(지금 `@lophn/declaration` 3.0.0, `@lophn/app-ui` 2.2.0).
+guard: 없음

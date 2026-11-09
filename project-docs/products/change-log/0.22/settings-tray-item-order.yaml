@@ -1,0 +1,19 @@
+id: settings-tray-item-order
+version: 0.22.0
+title: "Settings에서 tray 항목 순서를 바꾼다"
+modules: [packages/core/config, packages/core/main, packages/shell/renderer]
+checked: []
+change: |
+  전: Settings › Quick launch의 빠른 실행 단추는 위·아래로 옮길 수 있었지만 Tray 줄은 켜고 끄기만 됐다. tray 항목은 늘 설치·선언 순서였다.
+  후:
+    - Tray 줄마다 위·아래 단추가 생긴다(빠른 실행 단추와 같은 모양). 옮기면 그때 보이는 줄 전부의 순서를 새 설정 `shell.tray_order`(`{app, screen}[]`, 최대 64, 기본 `[]`)에 쓴다.
+    - 작업 표시줄과 title bar의 tray가 이 순서로 선다. 순서에 없는 화면(새로 설치한 앱)은 뒤에 선언 순서로 선다.
+    - `app.delete`는 `shell.tray_order`에서도 그 앱을 뺀다.
+  저장 모양: 새 설정 key 하나. 기존 값은 바뀌지 않는다.
+  옮기기: 없다.
+why: |
+  tray도 빠른 실행처럼 순서를 고르고 싶었다(사람).
+decisions:
+  - text: |
+      끈 것 목록(`shell.tray_off`)과 따로 순서 key를 둔다. 끈 것만 쌓는 지금 모양을 그대로 두어 migration이 없다.
+    by: agent

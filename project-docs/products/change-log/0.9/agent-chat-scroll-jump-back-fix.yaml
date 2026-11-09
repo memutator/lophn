@@ -1,0 +1,10 @@
+id: agent-chat-scroll-jump-back-fix
+version: 0.9.0
+title: 'Agent 대화를 맨 아래에서 조금씩 올려도 scroll이 맨 아래로 되돌아가지 않는다'
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: 대화 맨 아래에서 wheel을 올리면 처음 24px(`BOTTOM_SLACK`) 안의 scroll이 맨 아래로 되돌아갔다. `ThreadScroll`은 그 안을 "맨 아래"로 보고 따라가기를 켠 채 `onScroll(null)`을 불렀다. 이것이 `DraftStore.save`로 화면을 다시 그리게 했고, render마다 도는 따라가기 effect가 `scrollTop`을 맨 아래로 되돌렸다. 부드러운 scroll은 한 칸을 작은 조각으로 나눠 움직여서, 한 칸이 통째로 먹히거나 끊겼다. 크게 돌려야 겨우 빠져나갔다.
+  후: 위로 움직인 scroll은 맨 아래 여유 안이어도 따라가기를 끈다. 아래로 내려 여유 안에 들어가면 다시 따라간다. 본문이 줄어 맨 아래에 붙은 채 내려간 것은 올린 것으로 보지 않는다.
+why: |
+  사람이 개발 앱에서 "scroll하려면 드르륵 막히다가 다시 하면 된다"고 했다. headless 앱(CDP)에서 맨 아래 대화에 wheel -10과 -5×8을 보냈을 때 고치기 전에는 `scrollTop`이 61 그대로였고, 고친 뒤에는 51과 21이 됐다.

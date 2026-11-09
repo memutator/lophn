@@ -1,0 +1,17 @@
+id: planner-md-edit-breaks-full-fmt
+title: "planner가 package 안 md를 고치고 빠른 check만 돌려 main의 fmt를 깨뜨렸다"
+kind: mistake
+status: fixed
+topic: mistakes
+modules: [tools]
+now: |
+  planner가 App Engineer prompt(`packages/core/agent-roles/roles/app-engineer/prompt.md`)를 고치고 `deno task check`만 돌려 commit했다. 다음 계획의 merge에서 `check:full`의 fmt가 떨어졌다. 빠른 check의 fmt는 package의 `.ts`·`.tsx`·`.js`·`.json`만 넘겨서, package 안 `deno.json`이 fmt하는 `.md`는 full만 봤다. 문서 fmt로 main이 깨진 것은 두 번째다(orchestrate skill "겪은 함정"에 "check:full을 돈다"는 문장이 있었다).
+impact: |
+  다음 lead가 merge 중에 남의 fmt를 고치는 commit을 따로 만들어야 했다.
+cause: |
+  빠른 check와 full check가 fmt할 file을 다르게 골랐다. 문장만으로는 막히지 않았다.
+prevent: |
+  `tools/check.ts`의 빠른 fmt가 바뀐 package의 `.md`도 넘긴다. config가 md를 빼는 package에서는 deno fmt가 건너뛴다. prompt에 너무 긴 줄을 넣어 빠른 check가 fmt 실패로 잡는 것을 확인했다.
+closed: |
+  `tools/check.ts`의 빠른 fmt가 바뀐 package의 `.md`도 넘긴다. config가 md를 빼는 package에서는 deno fmt가 건너뛴다. prompt에 너무 긴 줄을 넣어 빠른 check가 fmt 실패로 잡는 것을 확인했다.
+guard: tools/check.ts

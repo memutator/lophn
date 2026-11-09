@@ -1,0 +1,11 @@
+id: mutates-split-by-command-word
+title: "`mutates` 칸을 명령 이름 마지막 단어(`READ_WORDS`)로 가른다"
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/coding-agent]
+now: "`coding-agent/cli/commands/types.ts`의 `isReadName`이 이름의 마지막 단어가 `READ_WORDS`(list, show, status, blueprint, invocations, logs, more, diff, detect)에 있으면 읽기로 본다. `entryOf`가 이걸로 `mutates`를 채우고 help가 읽기/변경 목록을 가른다(`help.ts`)."
+impact: 새 변경 명령 이름이 우연히 이 단어로 끝나면 help가 읽기로 표시한다. 현재는 틀린 곳이 없어 화면 안내만 걸린다.
+fix: "`entryOf`에 `mutates`를 명시 인자로 받고 `READ_WORDS`와 `isReadName`을 지운다(명령 수만큼 한 줄씩, 작다). 추천: 이대로."
+closed: 새 변경 명령 이름이 우연히 읽기 단어로 끝날 때 help 표시만 틀리고 지금은 틀린 곳이 없다. 명령 25개에 인자를 다는 값에 비해 얻는 것이 작다. `READ_WORDS` 주석이 규칙을 말한다.
+guard: 없음

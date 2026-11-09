@@ -1,0 +1,15 @@
+id: after-commit-inbox-path
+title: commit 뒤 할 일(after-commit) 길
+kind: defect
+status: kept
+topic: agent-call
+modules: [packages/core/storage, packages/core/router, packages/core/main, packages/core/lophn-agent]
+now: |
+  command는 writer Worker에서 돌고 입력함과 Bus는 main thread에 있다. tx가 "commit 뒤 할 일"을 `storage/ledger/after-commit.ts`에 모아 `CommandSuccess.after_commit`(`writer-message.ts`, `writer-worker.ts`)에 싣고, main이 `run-loop/work.ts`의 `createInboxApplier`로 commit 뒤에 입력함과 Bus에 적용한다. 되돌린 tx나 재전달이면 버린다. 켤 때(`wiring/router.ts`의 `start`)도 같은 길을 쓴다.
+impact: |
+  가장 단순한 구현보다 무겁다. 입력함이 Worker에서 보이지 않는 한 이 길이 없으면 "tx는 commit됐는데 입력이 안 들어간" 틈이 생긴다. 대안(입력함을 표로 옮기기)이 durable queue라 architecture 문서가 막은 방향이다.
+fix: |
+  추천: 남긴다(kept). 이유(입력함·Bus는 main thread, command는 Worker)는 `after-commit.ts` 머리 주석에 한 문단으로 둔다.
+closed: |
+  입력함·Bus는 main thread, command는 Worker라서 이 길이 없으면 tx는 commit됐는데 입력이 안 들어간 틈이 생긴다. 대안(입력함을 표로)은 durable queue라 architecture 문서가 막았다. 이유는 `after-commit.ts` 머리 주석에 둔다.
+guard: 없음

@@ -9,10 +9,11 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
 
 ## 먼저 읽을 것
 
-- `project-docs/architecture/harness-gui.md`: 흐름, 지키는 것, adapter마다의 동작. 고치기 전에 "지키는 것"을 읽는다.
+- `project-docs/architecture/harness-gui.md`: 설계(문제, 모델, 지키는 것, 결정). 고치기 전에 "지키는 것"을 읽는다.
+- `.claude/skills/harness-gui/reference.md`: file·함수·CLI 호출, 탭의 흐름, adapter마다의 구현 세부.
 - `project-docs/architecture/acp.md`: GUI와 lophn agent가 같이 쓰는 계약(session meta, 입력 표).
 - `project-docs/architecture/agent-chat.md`: 화면(`AgentView`) 규칙. 없는 기능의 칸은 capability로 숨긴다.
-- `project-docs/issues/harness-gui.md`: 열린 문제.
+- 열린 문제: `node tools/records.ts issues --topic harness-gui --status open`.
 
 | 고칠 것 | 곳 |
 |---|---|
@@ -84,7 +85,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
 - **dev 앱 띄우기**
   - root checkout에서는 먼저 `npm install`을 한다. Agent SDK가 없으면 build가 멈춘다.
   - worktree에서는 `ELECTRON_NO_SANDBOX=1 npm run dev`로 띄운다. worktree의 chrome-sandbox는 root 소유가 아니다.
-  - 같은 data root로 이미 떠 있는 dev 앱이 있으면 `npm run dev`가 그 process를 죽인다(`project-docs/issues/code-health.md`).
+  - 같은 data root로 이미 떠 있는 dev 앱이 있으면 `npm run dev`가 그 process를 죽인다(이슈 `node tools/records.ts issues --topic code-health`).
 - **설치본**
   - `npm run package`를 돌리면 build/linux/lophn_<판>_amd64.deb가 나온다.
   - 판 번호가 같으면 apt가 설치를 건너뛴다. `sudo apt install --reinstall ./build/linux/lophn_<판>_amd64.deb`로 덮어쓴다.
@@ -92,7 +93,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
 
 ## 자주 틀린 곳
 
-- **터미널 탭 안에서 lophn을 부르는 code는 CLI 경로와 data root를 shell main에서 받는다.** 터미널 env에는 `LOPHN_*`가 없다. 그래서 그냥 `lophn`을 부르면 설치본(`~/.lophn`)으로 간다. 첫 판에서 개발 앱의 `claude gui`가 설치본 Home 창을 띄웠다(`project-docs/issues/mistakes.md`).
+- **터미널 탭 안에서 lophn을 부르는 code는 CLI 경로와 data root를 shell main에서 받는다.** 터미널 env에는 `LOPHN_*`가 없다. 그래서 그냥 `lophn`을 부르면 설치본(`~/.lophn`)으로 간다. 첫 판에서 개발 앱의 `claude gui`가 설치본 Home 창을 띄웠다(이슈 `terminal-gui-opens-installed-app`).
 - **새 ACP item·notice 종류를 더하면 끝까지 그려지는지 본다.** reducer(`packages/protocol/acp/reduce.ts`), `packages/shell/renderer/conversation/thread-layout.ts`, `agent-thread.tsx` 셋을 다 본다. 하나라도 빠지면 조용히 사라진다.
 - **화면의 기능을 켰으면 끝까지 이어졌는지 본다.** GUI source의 읽기가 늘 `unavailable`이면 그 기능은 고장 난 것처럼 보인다. Claude rewind가 그랬다. source → main IPC → `run`의 메서드까지 이어졌는지 확인한다.
 - **CLI마다 겪은 것**
@@ -120,5 +121,5 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
 - UX가 걸린 것은 사람이 생각한 모양을 먼저 확인한다. 첫 판은 GUI를 따로 뜨는 창으로 만들었다. 사람이 원한 것은 그 탭이 GUI로 바뀌고 toggle되는 것이었다.
 - 작은 고침은 작게 한다(사람: "좀 간소하게 작업해, 작은 거잖아"). 화면 몇 줄이면 계획이나 worker 없이 바로 고치고 check를 돌린다.
 - push는 요청마다 묻는다. 한 번 받은 허락은 그때의 commit까지다. workflow file이 든 commit을 push하려면 gh token에 `workflow` scope가 있어야 한다.
-- 사람이 GUI를 써 보며(dogfooding) 찾는 속도가 고치는 속도보다 빠르다(사람: "버그 고치는 속도보다 내가 버그를 '발견'하는 속도가 더 빠르다"). 새로 찾은 것은 바로 계획을 열지 말고 원인만 짧게 확인해 `project-docs/issues/harness-gui.md`에 쌓고, 사람이 정한 때에 묶어서 고친다. 매일 쓰는 길(보내기, steer, 멈추기, 탭 오가기, resume, streaming)이 깨지는 것이 먼저다.
+- 사람이 GUI를 써 보며(dogfooding) 찾는 속도가 고치는 속도보다 빠르다(사람: "버그 고치는 속도보다 내가 버그를 '발견'하는 속도가 더 빠르다"). 새로 찾은 것은 바로 계획을 열지 말고 원인만 짧게 확인해 `project-docs/issues/<id>.yaml`(`topic: harness-gui`)에 쌓고, 사람이 정한 때에 묶어서 고친다. 매일 쓰는 길(보내기, steer, 멈추기, 탭 오가기, resume, streaming)이 깨지는 것이 먼저다.
 - 고친 것이 새 bug를 낸 일이 여러 번이다(입력 전체 거절, 대화 전체 다시 그리기). worker 보고와 check만 믿지 않고, 그 변경이 지나는 실제 길(IPC 경계, Context 값, 측정)을 lead가 diff에서 확인한다.

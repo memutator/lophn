@@ -1,0 +1,13 @@
+id: oauth-failure-reason-lost-on-restart
+title: core를 다시 켜면 sign-in 실패 이유가 사라진다
+kind: bug
+status: open
+topic: app-call
+modules: [packages/core/lophn-agent, packages/core/apps]
+now: |
+  실패 이유는 `createMcpOAuth`(`packages/core/lophn-agent/extensions/mcp-oauth.ts`)의 메모리 `failures` map에만 있다. refresh가 거절되면 token을 지우고 `failed`/`refresh_rejected`를 두는데, core가 다시 뜨면 map이 비고 token도 없어 `oauth_state`가 `none`을 낸다.
+impact: |
+  서비스가 sign-in을 끝냈다는 것을 사람이 보기 전에 core가 다시 켜지면, 앱 Access 탭은 "Not signed in"만 보인다. 앱은 `conflict`(`oauth sign-in required`)를 받으므로 동작은 같고, 잃는 것은 이유 글이다.
+fix: |
+  - 작음(추천): 실패 이유를 `app-oauth.<이름>.meta` 자리에 남긴다. 지울 때 meta를 `{ failed: reason }`으로 바꿔 쓰고 `report`가 읽는다. MCP는 지금처럼 메모리에 둔다.
+  - 두지 않음: 이유 글만 잃고 다시 sign-in하면 풀리니 kept로 닫는다.

@@ -1,0 +1,14 @@
+id: rewind-fails-unchanged-write-api
+title: app test가 바꿀 것이 없는 write app-api를 떨어뜨린다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/core/apps]
+now: "`packages/core/problems/tests/harness/checks.ts`의 `rewind`는 write app-api를 선언 순서대로 가장 단순한 입력으로 한 번씩 부르고, 그 호출이 data를 바꿨는지(`changed`)를 통과 조건에 넣는다(`run.called && run.changed && run.applied && run.restored`). 그래서 그 입력에서 바꿀 것이 없는 write app-api(없는 id를 지우는 `remove`처럼 맞게 짠 것)는 떨어진다."
+impact: coding agent가 맞게 짠 앱이 app test를 넘지 못한다. 넘기려면 바꿀 것이 없을 때도 무언가를 쓰게(지운 기록 표 등) 앱을 일그러뜨려야 한다. eval의 기준 캘린더 앱도 그렇게 짜야 한다.
+fix: |
+  - 바뀐 것이 없으면 그 api는 되돌릴 것이 없으니 되돌리기 확인을 통과로 둔다(작음). 잃는 것: 쓰기를 아예 못 하는 write app-api를 이 확인으로는 잡지 못한다. 추천.
+  - 앞 호출이 만든 행(예: 앞선 `add`의 id)을 다음 호출의 입력으로 넣는다(중간). 입력 꼴마다 규칙이 필요하다.
+decided: 바뀐 것이 없으면 통과로 둔다(사람). changeset을 내지 않은 호출도 `changed`를 실제 값으로 채워, changeset 없이 data를 바꾼 api는 여전히 떨어지게 한다. 계획 `found-bugs`가 한다.
+closed: "`rewind` check는 `run.called && (!run.changed || (run.applied && run.restored))`로 판정한다. driver(`packages/core/problems/tests/work/app-driver.ts`)는 changeset을 내지 않은 호출도 `changed`를 실제 값으로 채워, changeset 없이 data를 바꾼 api는 여전히 떨어진다."
+guard: packages/core/problems/tests/harness/checks_test.ts "바꿀 것이 없는 write app-api는 되돌리기 확인을 통과하고 되돌리지 못한 api와 호출에 실패한 api는 떨어진다"

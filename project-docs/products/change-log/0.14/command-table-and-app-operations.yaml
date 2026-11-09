@@ -1,0 +1,28 @@
+id: command-table-and-app-operations
+version: 0.14.0
+title: 'lophn이 내놓는 일을 명령 표 하나로, 앱 선언을 operation과 command 두 층으로'
+modules: [packages/cli, packages/coding-agent, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/apps, packages/protocol, packages/sdk, packages/shell/main, tests]
+checked: []
+change: |
+  전:
+    - lophn agent는 내장 tool 53개를 provider tool calling으로 썼고, 정의를 늦게 싣는 길(`tool.load`/`tool.call`, Anthropic `defer_loading`, 구독 profile 이름 매핑)이 provider마다 갈렸다. coding agent가 쓰는 `lophn` binary는 따로였다(`packages/coding-agent/cli`, 명령 15개).
+    - 앱 선언은 MCP tool 모양 `tools[]` 하나였다. 화면이 앱 process에 닿는 길도 tool뿐이라 화면용 저수준 동작이 모두 agent tool `<domain>_<tool>`이 되었고, 화면 결과도 control frame 한도(약 254 KiB)에 묶였다. Mahas 세션 목록이 이 한도에 걸려 화면 오류가 났다.
+  후:
+    - 명령 표 하나(`packages/cli/commands/`, `@lophn/cli`)를 lophn agent는 native tool `lophn`(`{args: string[]}`)으로, 사람과 coding agent는 binary `lophn`으로 쓴다. loop가 `lophn` 호출을 명령으로 풀어 기록 이름·effect·route·idempotency key가 명령의 것이다. help는 schema에서 만든 영어다. 내장 tool로 남은 것은 `ask`, `visual.show`, `skill.read`, file 여섯, `pdf.read`, `image.read`, `web.search`, `web.fetch`, `shell.run`이다. 늦게 싣기는 지웠고 외부 MCP tool은 처음부터 `tools[]`에 싣는다.
+    - 앱 선언은 `operations[]`(화면과 앱 자신이 쓰는 저수준 동작)와 `commands[]`(앱이 골라 내놓는 API)다. agent·다른 앱·job·flow는 command만 부르고 operation을 부르면 `denied`다. agent는 앱 command를 `lophn <domain> <command>`로 부르고, 부를 때 지금 할당·활성 release·domain 규칙으로 찾는다. 화면은 `lophnApp.callOperation`으로 부르고 큰 결과는 bytes frame으로 8 MiB까지 받는다. SDK는 `@lophn/cap-tool`·`@lophn/app-ui`·`@lophn/declaration` 2.0.0(`handle`, `useOperation`, `OperationButton`)이다.
+    - ledger의 옛 release 선언과 invocation 기록은 schema step(`apps.releases.declaration-layers`, `apps.invocations.operation-kinds`)이 새 모양으로 옮긴다. 봉인된 옛 bundle은 새 판에서 뜨지 않는다.
+why: |
+  사람이 바란 앱 tool은 앱 고유의 저수준 동작을 두고 그것을 추상화한 API를 골라 agent에게 내놓는 것이었는데, 한 층이라 화면 동작이 그대로 agent 계약이 되었다. lophn은 vendor harness가 아니라 여러 agent harness가 모이는 hub라서, lophn agent와 coding agent가 같은 명령을 써야 두 번 만들지 않는다(사람, 2026-11-01. `project-docs/products/roadmap/command-surface.md`).
+decisions:
+  - text: 'lophn agent는 shell이 아니라 native tool `lophn`으로 명령을 부른다. home에 shell이 없고 shell env에 token을 넣지 않으려는 것이다.'
+    by: agent
+  - text: '묻기는 core로 옮기지 않는다. 명령으로 옮긴 것에는 묻는 것이 없다. 사람만 하는 일(turn 요청 정하기, job 승인, activation 동의, rewind)은 명령으로 두지 않는다.'
+    by: agent
+  - text: '외부 MCP tool은 명령으로 옮기지 않는다.'
+    by: person
+  - text: '`call`/`reply`/`cancel`도 명령이다. coding agent가 답을 받는 길은 workflow roadmap에서 정한다.'
+    by: person
+  - text: 'CLI를 `packages/coding-agent`에서 떼어 `packages/cli`로 옮겼다.'
+    by: person
+  - text: '사람 data root의 앱(Mahas, Masup)은 data step 대신 worker가 사본에서 새 선언으로 옮기고 사람이 확인해 다시 release한다. AGENTS.md "호환성"의 이번만의 예외이고 규칙은 고치지 않는다.'
+    by: person

@@ -1,0 +1,13 @@
+id: app-engineer-can-publish-package
+version: 0.3.0
+title: 'App Engineer가 package를 낼 수 있음'
+modules: [packages/core/apps, packages/protocol]
+checked: [architecture-coding-agent]
+change: |
+  전: agent tool `package.publish`가 agent runtime child 안에서 `git`으로 HEAD를 읽으려 했다. 그 process는 git을 띄울 수 없어 tool이 늘 "the app source has no commit"으로 답했고, 어떤 앱도 package를 내지 못했다.
+  후: route `package.publish`가 core에서 앱 source의 HEAD를 읽어 그 commit의 폴더를 낸다. 입력에서 `commit` 칸이 빠졌다.
+why: |
+  어떤 앱도 package를 내지 못하던 길을 연다. agent runtime은 git을 띄울 수 없어 HEAD를 읽을 곳이 core뿐이다.
+decisions:
+  - text: 'HEAD는 core가 읽는다. agent runtime에 git 실행 권한을 주지 않는다.'
+    by: person

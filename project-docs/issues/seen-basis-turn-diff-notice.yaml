@@ -1,0 +1,15 @@
+id: seen-basis-turn-diff-notice
+title: '`SeenBasis`와 turn 사이 diff notice'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `prompt-assembly/basis.ts`가 지침 층별 hash, 정본 tool 이름 목록, context `{name, version, glossary hash}`, agent 목록을 `SeenBasis`로 만들고(`basisOf`), `diffBasis`가 지난 turn과 비교한다. `turn-prompt.ts`의 `noticesOf`가 바뀐 층마다 Added/Removed 문구와 새 전문을 대화 끝에 붙인다(둘 합쳐 약 390줄). 이유: 며칠 열린 session에서 prefix를 안 깨고 지침 수정을 닿게 한다(architecture 문서의 "지침 반영: 대화 끝에 덧붙이기").
+impact: |
+  가장 단순한 구현보다 무겁다. 목록 하나가 늘 때마다 basis, diff, notice 문구, 테스트가 함께 는다.
+fix: |
+  바뀐 층의 전문을 통째로 notice에 싣고 Added/Removed diff는 없앤다. 비용은 basis와 `listChange`를 줄이는 정도이고 notice가 길어진다. 대화 끝에 붙이는 구조 자체는 cache를 지키려 남겨야 한다. 추천: 지금 두고, 목록 종류를 더 늘릴 때 다시 본다.
+closed: |
+  basis와 diff가 prefix를 안 깨고 지침 수정을 닿게 하는 장치이고 바꿔 줄이면 notice가 길어진다. 목록 종류를 더 늘릴 때 다시 본다.
+guard: 없음

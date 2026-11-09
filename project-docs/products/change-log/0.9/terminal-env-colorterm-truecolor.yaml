@@ -1,0 +1,17 @@
+id: terminal-env-colorterm-truecolor
+version: 0.9.0
+title: '터미널 program이 launcher·agent에서 띄운 lophn에서도 truecolor를 쓴다'
+modules: [packages/shell/terminal-host]
+checked: [architecture-terminal-agent, architecture-browser-tab]
+change: |
+  전: 터미널 shell env는 lophn을 띄운 process에서 물려받고 `TERM=xterm-256color`만 정했다. lophn을 `COLORTERM` 없는 곳(desktop launcher, agent가 띄운 `npm run dev`)에서 띄우면 Claude Code(chalk)·Codex가 256색으로 내려 자기 RGB 색을 근사했다. Claude Code는 이때 "Try setting environment variable COLORTERM=truecolor" tip을 낸다. `COLORTERM`이 있는 터미널에서 띄우면 멀쩡해서 띄운 곳마다 달랐다.
+  후: terminal-host가 shell env의 `COLORTERM`을 늘 `truecolor`로 덮는다(`terminalEnv`). xterm은 WebGL·DOM renderer 둘 다 truecolor를 그린다.
+why: |
+  앞의 두 수정("터미널에서 Claude Code 색이 나오고…", "GPU를 못 쓸 때도 터미널 색이 나온다")은 들어온 truecolor를 그리는 쪽을 고쳤다. 사람이 다시 봤을 때 개발 앱 터미널의 `claude` process env에는 `COLORTERM`이 없었고, program이 truecolor를 아예 보내지 않았다.
+decisions:
+  - text: |
+      물려받은 `COLORTERM`도 덮는다. 무엇을 그릴 수 있는지는 lophn 터미널이 안다.
+    by: agent
+  - text: |
+      `TERM_PROGRAM`은 이번에 정하지 않는다. 물려받은 값(예: `ghostty`)이 남는다.
+    by: agent

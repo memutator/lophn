@@ -1,0 +1,15 @@
+id: path-check-resolves-symlinks
+title: '경로 판정이 symlink·끊어진 symlink·새 파일의 상위 realpath까지 본다'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `tools/file/scope.ts`의 `resolveInPlace`가 후보 경로를 정규화한 뒤 있는 가장 가까운 상위 폴더까지 올라가 `realpath`를 구하고, 끊어진 symlink(`lstat`이 symlink)는 거절하고, 허용 폴더의 realpath 안인지 본다. 92줄이다.
+impact: |
+  판정이 복잡하지만 place 밖 쓰기를 막는 유일한 경계(shell은 묻지도 않는다)다. 단순화하면 symlink로 폴더를 탈출할 수 있다.
+fix: |
+  권한 경계라 남기는 쪽을 추천한다. archived로 닫는다(kept)(`scope_test.ts`가 있다).
+closed: |
+  남긴다. agent가 place 폴더 밖에 쓰는 실수를 막는 유일한 경계다.
+guard: scope_test.ts

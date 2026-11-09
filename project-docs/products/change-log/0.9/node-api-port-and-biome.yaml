@@ -1,0 +1,30 @@
+id: node-api-port-and-biome
+version: 0.9.0
+title: 'lophn 코드와 test가 Node API로 옮겨졌고, fmt와 lint는 Biome다'
+modules: [packages/base, packages/protocol, packages/core/approvals, packages/core/apps, packages/core/config, packages/core/diagnostics, packages/core/events, packages/core/install-and-update, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/core/host-queue, packages/core/projects, packages/core/router, packages/core/runs, packages/core/workflows, packages/core/jobs, packages/core/secrets, packages/core/server, packages/core/storage, packages/core/supervision, packages/coding-agent, packages/design, packages/shell/renderer, tools, tests]
+change: |
+  전: lophn 코드와 test가 `Deno.*` 1,780곳(file 414개), `Deno.test` 390개, `@std/assert`, jsr `@std/yaml`·`@std/toml`, `deno fmt`·`deno lint`에 기댔다.
+  후: runtime은 아직 Deno다. lophn 코드와 test는 `node:*`, `node:test`, `node:assert/strict`를 쓰고, YAML은 npm `yaml`, TOML은 npm `smol-toml`이다. file·process 오류는 `errorCode`(`packages/base`)로 code를 비교한다. fmt와 lint는 Biome 2.6.3(`biome.json`)이고 `tools/check.ts`가 부른다. `verbatimModuleSyntax`를 켰고 constructor parameter property는 없다. 남은 `Deno.*`(자기를 다시 띄우기, `Deno.serve`, unix socket, `watchFs`, signal, 감독 통로 stream, Worker, file lock, AI가 쓴 코드가 도는 process 쪽)는 `project-docs/products/roadmap/node-runtime.md`에 file로 적었다.
+  같이 고친 bug:
+  - `shell.run`이 시간 초과나 멈춤에서 process group을 죽이지 못했다. `/bin/sh`(dash)의 `kill`이 `--`를 받지 않아 직속 자식만 죽고 손자 process가 남았다. procps `/usr/bin/kill`을 쓴다.
+  - 사람이 멈춰 죽인 `shell.run`이 exit 137 `success`로 돌아왔다. 시간 초과처럼 `failure`다.
+  - 자식 stdin을 닫는 `toWriter().close()`(`packages/core/supervision/responsiveness/pipe.ts`)가 자식이 먼저 끝나면 영영 끝나지 않았다. 이미 닫힌 stream은 닫힌 것으로 센다.
+  달라진 동작: 빈 `config.toml`을 읽어 harness hook 설치가 이어지고, key가 겹친 TOML은 거절한다. YAML의 드문 표기(`0o17`, `1_000`, 탭 들여쓰기)가 달리 읽힌다. Deno의 `node:child_process`와 npm `yaml`이 환경 변수를 읽어 `tools/context-review.ts`, `tools/move-files.ts`, `tools/check-modules.ts`, `tools/check-docs.ts`는 `--allow-env`가 있어야 돈다.
+why: |
+  Deno를 떠나 Node 하나로 가기로 했다(사람, 2026-10-27). runtime을 뒤집기 전에 Deno 위에서 API와 도구를 먼저 옮겨, 옮기는 동안 `deno task check`와 e2e가 늘 통과하게 했다. 다음 계획 `node-flip`이 module 해석, runtime, 앱·flow sandbox, 설치본을 바꾼다.
+decisions:
+  - text: |
+      brief와 lead worktree 없이 주 session이 worker 쉰여덟(wave 1 여섯, 정리 하나, wave 2 마흔일곱, wave 3 넷)을 나눠 돌렸다. wave 2는 `Deno.` 참조 수로 영역을 47개로 잘랐다.
+    by: person
+  - text: |
+      AI가 쓴 코드가 도는 process 안에서 import되는 lophn file(`deno info`로 찾은 `extract-child.ts`, `eval-declaration.ts`)과 SDK·앱 entry·template은 옮기지 않았다. 그 process는 Deno 권한을 좁혀 돌고 Deno의 `node:*`는 권한을 더 요구한다.
+    by: agent
+  - text: |
+      `Deno.errors` 대신 code를 비교한다. Deno API 오류와 `node:*` 오류가 같은 code를 실어 file마다 따로 옮겨도 판정이 맞는다.
+    by: agent
+  - text: |
+      자식 process는 `spawn`·`spawnSync`로 띄운다. Deno의 `execSync`는 `--allow-run`을 좁히면 실패한다.
+    by: agent
+  - text: |
+      Biome 형식은 `deno fmt`에 맞췄고(2칸, 80자, 큰따옴표), 고칠 코드가 생기는 lint 규칙은 껐다. md·css·svg·html은 형식을 맞추지 않는다.
+    by: agent

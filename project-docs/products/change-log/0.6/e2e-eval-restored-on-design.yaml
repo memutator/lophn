@@ -1,0 +1,37 @@
+id: e2e-eval-restored-on-design
+version: 0.6.0
+title: "e2e와 eval을 개편 뒤 설계로 되살려 check와 land에 되돌리고, Agents 탭 Instructions 카드가 LOPHN.md를 읽는다"
+modules: [packages/shell/renderer, packages/shell/ipc, tests, tools]
+checked: [tool-e2e, tool-eval, tool-lead, tool-check, architecture-approval, architecture-activation, architecture-agent-definition, architecture-coding-agent, skill-eval-experiment, worker-prompt, agents-md, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-dev, skill-ui-design, tool-wireframes]
+change: |
+  전:
+  - primitive 개편(problem-remove부터 agent-definition까지) 동안 `tests/e2e`, `tests/eval`과 그것만 쓰는 `tests/support`를 check의 type check와 test에서 뺐다(`tools/check.ts`의 `NOT_CHECKED`). land는 `LOPHN_LAND_SKIP_E2E`로 e2e를 건너뛰었다. 앱 e2e와 eval의 켜진 앱 재료는 지운 ticket·coding CLI 길로 앱을 올렸고, 묻는 e2e는 이제 묻지 않는 file 쓰기로 물음을 만들었다.
+  - eval에는 coding agent driver와 수치, `eval:attach`, call 재료와 `deliver`, ticket·problem·막힌 call check, 지운 tool(ticket, problems, `guide.read`)의 version이 남아 있었다. 캘린더 화면 judge는 앱 코드를 읽었다.
+  - Agents 탭 Instructions 카드는 없는 `documents.read` worker route를 불러 늘 빈 미리보기였다.
+  후:
+  - `NOT_CHECKED`가 없다. `tests/e2e`·`tests/live`는 type check에 들고 `deno test`에서만 빠진다(`NOT_IN_CHECK`). land가 다시 `deno task e2e`를 돈다. e2e 28 file, 54 test가 약 6분 45초에 돈다.
+  - 앱을 운영으로 올리는 test helper는 `tests/support/app/activate.ts` 하나다. `app.create`(core가 source를 깔고 잇는다) → 견본·patch commit → runtime 재기동을 기다림 → 가짜 model이 App Engineer로 `release_prepare`·`release_activate` → 사람이 `activations.consents`를 읽어 `activation.consent`(compare `requested_at`) → running. e2e와 eval restore가 같이 쓴다. `tests/support/coding`, `tests/support/gateway/shell.ts`, `patch-report`는 지웠고 `deps.ts`·`prepare-deps.ts`는 `tests/support/app/`으로 옮겼다(`deno task e2e:deps`).
+  - 묻게 하는 e2e는 `tests/support/core/shell-ask.ts`의 `shell_run "rm -r <폴더>"`로 turn request를 연다. 새 e2e `shell-rule_test.ts`가 `always`로 남긴 규칙이 재시작 뒤에도 다시 묻지 않고 skip turn에서도 floor deny `rm -rf ~`가 막히는 것을 본다. app-activation, app-release, operator, app-call, kinds e2e를 새 흐름으로 다시 썼고, crash loop 단계는 `app-restart_test.ts`로 옮겼다. `coding_test`, `call-gate_test`, `reaction_test`와 `allow-once-consumed` 행은 지웠다.
+  - eval의 사람 역할은 shell 물음을 `turnRequestDecide`로, activation 동의를 `activation.consent`로 시나리오 규칙대로 답한다. idle·stuck 한도는 시나리오의 `limits`이고 동시 수는 판단 case 4, `limits`가 있는 trial 2다. 재료 새 판은 `notify-app@3`, `date-range@3`, `calendar-app@3`, `calendar-app-bug@3`, `calendar-data@3`, 앱 등록만 되살리는 `calendar-blank@1`이다.
+  - 캘린더 단위: program check `design-first`가 첫 `release.prepare` 앞에 일곱 절 `DESIGN.md`가 있는지 본다. judge `app-design@2`는 `DESIGN.md`의 Journeys·Screens로 주 화면이 그 종류의 앱이 여는 화면인지 본다. calendar-diagnose는 사람이 App Engineer에게 bug를 말하고 `read-before-fix`, `no-recurrence`(새 오류 log 줄 없음), judge `root-cause@4`(마지막 답과 고친 diff)로 잰다. L6은 `guide-*` skill, L7은 앱·status·logs·invocations를 읽고 쓰지 않는 것(judge `facts-separated@1`)으로 다시 썼다. T19-lophn, T19-op은 지웠다.
+  - Agents 탭 Instructions 카드는 `instructions.open`이 주는 path를 shell main의 file read로 읽는다. renderer의 `Link.worker`와 IPC kind `"worker"`를 지웠다.
+  닫은 이슈: agent-definition "Agents 탭의 Instructions 카드가 LOPHN.md 내용을 늘 비워 보인다"(고침), eval "coding session이 여럿이면 run 요약의 coding token이 session 수만큼 겹쳐 세어진다"(coding driver를 지워 닫음).
+why: |
+  틀린 옛 test는 살리지 않고 지금 설계로 다시 쓴다(AGENTS.md "호환성"). eval의 화면 채점이 코드를 읽어 캘린더를 목록으로 만든 앱을 통과시켰다. 주 화면은 코드 전의 결정이라 설계를 본다.
+decisions:
+  - by: person
+    text: |-
+      e2e 다섯을 새 흐름으로 다시 쓰고 shell 규칙 e2e 하나를 새로 둔다. eval의 화면 채점은 코드가 아니라 `DESIGN.md`를 보고, 첫 release 준비 전에 `DESIGN.md`가 있는지 보는 program check를 더한다. (2026-10-22)
+  - by: agent
+    text: |-
+      앱을 운영으로 올리는 helper는 가짜 model이 App Engineer로 부르는 길 하나다. test 전용 actor를 제품 route에 더하지 않는다. coding agent 갈래(driver, metrics, `eval:attach`, call 재료)는 지운다. 연결을 살리면 그때 새로 쓴다.
+  - by: agent
+    text: |-
+      묻게 하는 e2e는 file 쓰기 대신 제품 ask 규칙 `rm -r*`에 걸리는 명령을 쓴다.
+  - by: agent
+    text: |-
+      Instructions 카드는 core route를 넓히지 않고 이미 있는 file read IPC로 읽는다.
+follow_up: |
+  - 새 이슈: activation "release 준비의 handler 검사가 떨어지면 이유가 "probe was rejected (409)"뿐이다"(회귀), activation "App Engineer가 `deno.json`에 더한 의존이 앱 폴더의 `deno task check`·`test`에서 풀리지 않는다".
+  - 새 설계로 진짜 model eval을 돌려 본다(사람). 앱을 짓는 시나리오의 시간과 비용은 아직 잰 적이 없다.
+  - 사람이 commit하지 않은 재료 `calendar-app-dev@1`, `calendar-app-user@1`은 부모가 지운 `calendar-call@3`이라 그 checkout에서 `tests/eval/restore/materials_test.ts`가 떨어진다.

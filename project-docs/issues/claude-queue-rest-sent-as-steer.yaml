@@ -1,0 +1,15 @@
+id: claude-queue-rest-sent-as-steer
+title: Claude GUI에서 줄의 첫 메시지가 나가면 남은 메시지가 다 steer로 나간다
+kind: bug
+status: fixed
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  `packages/shell/main/extensions/bundled/harness-gui/claude.ts` `onStarted`는 CLI의 `command_lifecycle` `started`를 받을 때 `root.turn !== null`이면 steer로 본다. 첫 메시지가 turn을 열고 나머지의 `started`가 곧이어 오면, 나머지는 열린 turn을 보고 모두 `message_taken`의 `delivery: "steer"`로 줄을 떠난다. CLI가 줄 선 `later` 메시지 여럿을 한 번에 시작하는지는 녹화로 확인하지 못했다(`fixtures/claude/steer.jsonl`은 남은 메시지가 하나뿐이다). 사람이 본 harness가 Claude인지도 확인하지 못했다. Codex·OpenCode·omp는 code로는 한 번에 하나만 꺼낸다.
+impact: |
+  사람이 줄에 세운 다음 turn 메시지들이 한꺼번에 지금 turn에 끼어든 것으로 보인다. 다음 turn으로 미룬 순서가 사라진다.
+fix: |
+  먼저 `fixtures/claude/record.ts`로 도는 중에 메시지 셋을 세우고 첫 것을 지금 보내는 녹화를 떠, `started`가 어떻게 오는지 본다. steer 여부는 turn 상태가 아니라 보낼 때의 priority(`next`·`now`)로 정한다. CLI가 정말 여럿을 한 turn으로 묶으면 화면이 그것을 한 다음 turn 묶음으로 그려야 한다. 작음~중간.
+closed: |
+  `Queued`가 보낼 때의 priority를 들고, `onStarted`는 priority `next`가 도는 turn에 끼어들 때만 steer로 본다. `later`·`now`는 늘 next_turn이고, 열린 turn에서 시작하면 그 turn에 붙는다. CLI가 실제로 `started`를 잇따라 내는지는 녹화로 확인하지 않았다(SDK 문서의 batch 설명에 기댔다).
+guard: '`packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` "줄 선 later 메시지가 잇따라 시작해도 steer가 아니라 첫 메시지가 연 turn의 next_turn이다"'

@@ -1,0 +1,12 @@
+id: first-start-quit-opens-window
+title: 첫 시작의 `--quit`가 종료하지 않고 창을 연다
+kind: bug
+status: open
+topic: shell
+modules: [packages/shell/main]
+now: |
+  떠 있는 shell이 없을 때 `lophn --quit`로 시작하면 이 process가 single-instance lock을 얻고, `wiring/desktop.ts`의 시작부가 `readOpenIntent(process.argv)`를 읽어 `app`이면 앱 창, 아니면 `desktop.open()`을 부른다. `quit` intent는 처리하는 곳이 없어 기본 창이 열리고 tray가 남는다. 처리는 `startSingleInstance`의 second-instance 쪽에만 있다(`single-instance.ts`).
+impact: |
+  shell을 멈추는 스크립트(설치·업데이트 전 정리)가 이미 꺼져 있는 lophn을 새로 띄운다.
+fix: |
+  시작부에서 `start.kind === "quit"`이면 창을 열지 않고 끝낸다(작음, `app.quit()`). 추천: 이것.

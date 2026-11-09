@@ -1,0 +1,15 @@
+id: reactor-backoff-poll-name-check
+title: Reactor의 backoff와 5초 poll 안전망, handler 이름 중복 검사
+kind: defect
+status: kept
+topic: event
+modules: [packages/core/events]
+now: |
+  `events/reactor/reactor.ts`가 handler 실패(unavailable/throw)에 1~30초 backoff(`BACKOFF_MIN_MS`, `BACKOFF_MAX_MS`)로 cursor를 올리지 않고 다시 하고, 5초(`POLL_MS`)마다 Bus 없이 표를 읽으며, `on`이 같은 type의 같은 handler 이름을 `throw`로 거절한다. 이유는 spec의 "두 번 반응하지 않는다"와 "Bus는 놓칠 수 있고 정본은 Ledger"다(idempotency key에 handler 이름이 들어간다).
+impact: |
+  가장 단순한 구현보다 무겁지만 셋 다 at-least-once 약속의 일부다. 지우면 놓친 반응이 영영 없거나 이름 변경이 반응을 다시 하게 한다.
+fix: |
+  추천: 남긴다. 줄인다면 poll만 남기고 backoff를 고정 간격으로 바꾼다(작음).
+closed: |
+  backoff, 5초 poll, 이름 중복 검사 셋 모두 at-least-once 약속의 일부다. 지우면 놓친 반응이 영영 없거나 이름 변경이 반응을 다시 하게 한다.
+guard: 없음

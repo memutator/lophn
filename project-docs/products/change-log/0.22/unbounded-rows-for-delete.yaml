@@ -1,0 +1,17 @@
+id: unbounded-rows-for-delete
+version: 0.22.0
+title: "기록이 많은 앱과 긴 대화도 지운다"
+modules: [packages/protocol, packages/core/storage, packages/core/apps, packages/core/lophn-agent]
+checked: []
+change: |
+  전: command 하나는 1000행까지만 바꿀 수 있다(`COMMAND_MAX_CHANGED_ROWS`). 실제로 쓰던 앱(대화, invocation, data 기록)의 `app.delete`와 메시지가 수백 개인 session의 `DeleteSession`이 이 한도에 걸려 `invalid_input`("변경 행이 한도를 넘는다")으로 거절됐다. 사람 data 사본에서 보관한 앱 셋과 메시지 481개 session이 모두 막혔다.
+  후: command 정의에 `unboundedRows`가 생겼다. 켜면 그 command의 Tx는 행 수 한도를 보지 않는다. `app.delete`와 `DeleteSession`만 켠다. 둘 다 사람만 부른다.
+why: |
+  앱 삭제가 쓰던 앱에서 안 됐다(사람). 소스를 지운 것과는 상관이 없었다.
+decisions:
+  - text: |
+      한도를 올리지 않고 사람만 부르는 지우기 command에서만 끈다. 한도는 agent 쪽 폭주 쓰기를 막는 것이고, 지우기는 대상의 기록 크기만큼 행을 바꾼다.
+    by: agent
+  - text: |
+      test는 더하지 않았다. ledger executor test harness가 없고, 사람 data 사본에서 core를 띄워 셋 다 지워짐을 확인했다.
+    by: agent

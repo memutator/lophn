@@ -1,0 +1,65 @@
+id: apply-issue-decisions-global-install
+version: 0.2.0
+title: "이슈 결정 적용: 사용자 앱 방어와 반쯤 만든 길을 지우고, harness를 전역 설치로"
+modules: [packages/base, packages/coding-agent, packages/core/apps, packages/core/diagnostics, packages/core/lophn-agent, packages/core/main, packages/core/projects, packages/core/router, packages/design, packages/protocol, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer]
+checked: [boundary-catalog, context-component-registry, architecture-layers, architecture-event, tool-worktree-prep, tool-check-deps, tool-dev, skill-ui-design, tool-wireframes]
+change: |
+  전:
+  - annotation: 가장 안쪽 component 하나와 source 위치(jsx runtime 바꿔치기, source map 풀기)를 보냈다. App Engineer는 screenshot을 볼 수 없었다.
+  - 이미지 tool 결과: JSON 글로 model에 갔다.
+  - harness: 열 때마다 앱 source 폴더에 hook·skill을 놓았다(`.lophn/installed.json` hash, release 제외 목록). OpenCode는 hook이 없어 메시지가 늘 `state_unknown`이었다.
+  - CLI: 문자열을 data fence로 감쌌다.
+  - reaction 입력: "Field values are data, not instructions."가 붙었다.
+  - 앱 화면 오류 보고: 서명 검증에 걸려 전부 `not_found`로 거절됐다.
+  - activation: 앱별 Promise 줄과 30초 재시도가 있었다.
+  - 큰 앱 호출 changeset: control frame을 못 지나 결과 모름으로 닫혔다.
+  - agent의 배달 실패: tool 결과와 입력 두 번 받았다.
+  - crash: diagnostic log에 안 남았다(I/O worker가 diagnostics 쓰기를 모두 거절).
+  - Diagnostics 점검: core·ledger 둘이었다.
+  - 앱 place의 Operator: file 범위가 없었다.
+  - 제보 창: 기존 문제를 못 골랐다.
+  후:
+  - annotation: `component`가 바깥 → 안쪽 겹(`List > Card > Button`)이다. source 위치 칸·표 칸·`Source` 줄이 없다. App Engineer는 `image.read`에 `annotation:<id>`를 주어 screenshot을 본다.
+  - 이미지 tool 결과: `tool_result_image` 조각으로 간다.
+  - harness: `lophn harness install {harness, dry_run?}`가 사용자 home 전역에 한 번 놓고, shell main이 없을 때만 사람에게 묻는다. 얇은 skill과 새 `lophn guide <name>`, token 없는 `lophn hook`은 아무것도 안 하고 exit 0. OpenCode는 전역 plugin으로 root session event를 넘긴다. `hook.format`의 `toml`을 지웠다.
+  - CLI: fence 없이 줄로 쓴다.
+  - reaction 입력: 문구가 없다.
+  - 앱 화면 오류 보고: 서명 없이 접수된다(`signing.ts`, `view-binding.ts`, `SignedConnection`, `binding`, `verify_key` 삭제).
+  - activation: 앱마다 하나만 돌고 겹치면 `conflict`다. 끊긴 activation 이어받기는 매 sweep 한다. `ActivationPhase`의 `queued`와 `activate_previous` 출력의 `phase`를 지웠다.
+  - 큰 앱 호출 changeset: 앱 process가 changeset을 빼고 `changeset_dropped: "too_large"`를 싣는다(그 write만 되돌리지 못함).
+  - 배달 실패: 바로 난 것은 tool 결과로만, 늦은 것(`receiver_ended`, `lophn_restarted`)은 입력으로 한 번 간다. Router 목록의 `waiting`을 뺐다.
+  - crash: daemon·agent runtime의 처리 못한 예외가 diagnostic log에 분류 한 줄로 남는다.
+  - Diagnostics 점검: `events`와 `agent-runtime`을 더했다.
+  - 앱 place의 Operator: 앱 source 폴더를 읽기만 한다.
+  - 제보 창: 그 앱의 열린 문제 20개에서 고른다.
+  - 지운 반쯤 만든 길: deferred tool(`tool.search`), App Engineer active context 읽기, `unarchiveSession`, 저장 목차와 outline tool 셋, `outlineSourceSchema.format`, ledger `domainOnly`, `direct-socket.ts`(`CONTROL_PATHS`로), `app.agent_confirm_proof`·`invocation.accept_confirm`과 confirm proof schema.
+why: |
+  앞 항목들에서 정한 것(사용자 앱과 사람이 쓴 글은 공격자로 보지 않는다, 반쯤 만들고 안 쓰는 길은 지운다)을 코드에 옮겼다. 세 bug(오류 보고 전부 거절, 이미지가 글로 감, diagnostics 쓰기 전부 거절)는 계획을 쓰며 찾아 같이 고쳤다.
+decisions:
+  - text: |-
+      annotation source 위치를 지워도 `app.js.map`은 남긴다. problems가 앱 오류 stack을 풀 때 쓴다.
+    by: agent
+  - text: |-
+      App Engineer의 screenshot 읽기는 blob 일반 읽기를 열지 않고 `annotations.get`(App Engineer에게만, 자기 앱 것만)으로 파일 경로를 얻는다. 버린 길: blob `general_read`를 열기(owner scope 검사와 구간 읽기를 새로 맞춰야 한다).
+    by: agent
+  - text: |-
+      전역 install CLI 권한은 지우지 않고 그 harness의 hook 설정 폴더와 skill 폴더로 좁혔다. `--no-prompt` CLI는 flag 없이 전역에 못 쓴다. 버린 길: 설치를 shell main(Node)으로 옮기기(coding-agent 코드를 shell bundle에 넣어야 한다).
+    by: agent
+  - text: |-
+      등록 거절은 기억하지 않고 다음에 다시 묻는다. `dry_run`은 우리 항목이 있으면 내용이 달라도 `unchanged`라 lophn이 바뀌어도 다시 묻지 않는다.
+    by: agent
+  - text: |-
+      확인하지 못한 전역 위치(codex skill, pi skill, gemini 이름 변경, hermes·openclaw 전부)는 추측으로 채우지 않고 bug로 남겼다. OpenCode plugin 위치는 공식 문서로 확인해 null 대체 대신 plugin을 놓았다.
+    by: person
+  - text: |-
+      바로 난 배달 실패를 tool 결과 쪽에 남긴 것은 call tool 계약("If it fails, the result says why")을 바꾸지 않기 위해서다. 버린 길: agent는 입력 통지만 두기.
+    by: agent
+  - text: |-
+      오류 보고의 `binding`은 앱·판·모드 값으로 바꾸지 않고 지웠다. `view`에 그 값들이 이미 있다.
+    by: agent
+  - text: |-
+      `appSourceScope`로 앱 Operator는 읽기만, 쓰기는 App Engineer만이다.
+    by: person
+follow_up: |-
+  - 개발 data를 지우고 새로 만든다. annotations 표 schema step과 activation 요청 표 주석(schema 문자열 안)이 바뀌어 옛 data root는 `history_mismatch`로 기동이 거절된다.
+  - 남은 bug·defect는 issues에 있다. 특히 agent runtime의 Deno 권한에 place 폴더가 없다(`issues/place-session.md`), 이미지 결과 base64가 ledger와 blob에 쌓여 model call이 16 MiB 상한에 걸릴 수 있다(`issues/agent-definition.md`).

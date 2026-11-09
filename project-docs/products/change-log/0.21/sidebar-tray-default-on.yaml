@@ -1,0 +1,21 @@
+id: sidebar-tray-default-on
+version: 0.21.0
+title: "앱 sidebar panel과 tray는 선언하면 나오고 사람이 끈다"
+modules: [packages/core/config, packages/core/main, packages/shell/renderer, tools]
+checked: []
+change: |
+  - 전: 설정 `shell.sidebar_panels`·`shell.tray`(`{app, screen}[]`)가 "켠 것"이었다. 앱이 `sidebar`·`tray` 자리 화면을 선언해도 사람이 Settings › Quick launch에서 Switch를 켜야 panel과 tray 항목이 나왔다.
+  - 후:
+    - 설치된(보관하지 않은) 앱의 `sidebar` 자리 화면은 모든 workspace 종류의 오른쪽 sidebar에, `tray` 자리 화면은 tray에 선언하는 즉시 나온다.
+    - 설정은 `shell.sidebar_panels_off`·`shell.tray_off`(같은 `{app, screen}[]`, 최대 20, 기본 `[]`)로 바뀌어 "끈 것"만 쌓는다. Settings의 Switch는 목록에 없으면 켜짐이고, 끄면 목록에 더하고 켜면 뺀다. 그룹 제목은 그대로이고 도움말만 "기본으로 나온다"로 바꿨다.
+    - tray는 보일 항목이 하나도 없으면 아무것도 그리지 않는다(값도 읽지 않는다).
+    - 옮기기: data step `settings.places-default-on`(core `setting-declarations` wiring)이 `<root>/settings.json`의 옛 `shell.sidebar_panels`·`shell.tray`를 지운다. 켠 것이 이제 기본이라 잃는 것이 없고, 모르는 key 하나가 settings 전체를 거절시키므로 지워야 한다. 사람이 이미 켠 panel·tray는 그대로 나오고, 끄고 싶은 것은 다시 꺼야 한다. 다시 돌아도 같다.
+why: |
+  앱이 자리를 선언했는데 사람이 따로 켜야 보이면 앱이 낸 sidebar 화면과 tray 값을 처음 쓰는 사람이 찾지 못한다(사람, 2026-11-07).
+decisions:
+  - text: |
+      켜는 쪽(opt-in)이 아니라 끄는 쪽(opt-out)을 저장한다. 새로 설치한 앱이 목록 갱신 없이 바로 나온다.
+    by: person
+  - text: |
+      옛 켠 목록을 "끈 목록의 보수"로 옮기지 않고 지운다. 설치된 앱 전체를 알 수 없는 data step에서 보수를 만들 수 없다.
+    by: agent

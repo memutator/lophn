@@ -1,0 +1,10 @@
+id: agent-actor-forbidden-fix
+version: 0.22.0
+title: "lophn agent와 harness agent의 `tab`·`browser`·`ext call`이 늘 forbidden이던 것을 고친다"
+modules: [packages/core/main]
+checked: []
+change: |
+  전: agent 자격의 actor는 `agent:<session>`인데 host queue(`tabs/*`, `browser/*`)와 extension tool 호출(`extension_tools/call`)의 handler가 `actor === "agent"`로 비교했다. 그래서 lophn agent와 harness agent의 `lophn tab open`, `lophn browser …`, `lophn ext call`은 모두 `forbidden`이었고 사람 token만 통했다. handler test가 가짜 자격을 `actor: "agent"`로 만들어 잡지 못했다.
+  후: 두 handler가 `actor.startsWith("agent:")`로 가른다. host queue handler test는 실제 꼴(`agent:<session>`)의 자격을 쓴다.
+why: |
+  agent 자격의 꼴과 handler의 비교가 어긋나 agent의 tab·browser·ext 호출이 모두 막혔다. test가 실제와 다른 자격을 써서 이를 잡지 못했다.

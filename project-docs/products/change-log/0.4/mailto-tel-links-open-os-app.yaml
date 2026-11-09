@@ -1,0 +1,10 @@
+id: mailto-tel-links-open-os-app
+version: 0.4.0
+title: browser 탭의 mailto·tel link가 OS 앱으로 넘어감
+modules: [packages/shell/main]
+checked: [architecture-browser-tab]
+change: |
+  - 전: web page의 `mailto:`·`tel:` link를 눌러도 아무 일이 없었다. Electron 44에서 main frame은 `will-frame-navigate`가 먼저 오고, 거기서 이동을 막으면 `will-navigate`가 오지 않는데, OS로 넘기는 일이 `will-navigate`에만 있었다.
+  - 후: `will-frame-navigate`(main frame)와 `will-redirect`에서 넘긴다. artifact 탭의 http·https link도 같은 이유로 browser 탭에 열리지 않던 것을 같이 고쳤다.
+why: |
+  artifact 탭을 손으로 확인하다 찾았다.

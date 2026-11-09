@@ -1,0 +1,17 @@
+id: delivery-failure-reply-shape-per-sender
+title: 배달 실패의 응답 꼴이 보낸 쪽마다 셋이다
+kind: defect
+status: fixed
+topic: agent-call
+modules: [packages/core/router]
+now: |
+  `router.ts`의 `deliveryFailed`가 보낸 쪽에 따라 다르게 돌려준다. 사람은 `err({ code: failureCode(reason), message: FAILURE_TEXTS[reason] })`, program과 coding agent는 `ok({ call: null, state: "failed", fail_reason, session: null })`, agent는 `ok({ call, state: "failed", fail_reason })`에 더해 `notifyFailed`로 보낸 session에 `kind: "reply"` 입력(`failureInput`, 고정 영어 `FAILURE_TEXTS`)을 한 번 더 넣는다. agent는 같은 실패를 tool 결과와 새 입력 둘로 받는다(역할이 겹치는지는 확인이 필요하다).
+impact: |
+  실패를 받는 쪽마다 읽는 법이 다르다. 새 보낸 쪽을 더하면 넷째 꼴이 생긴다. 이중 통지는 agent가 같은 실패에 두 번 반응하게 할 수 있다.
+fix: |
+  모든 보낸 쪽에 오류 code 하나(`failureCode`)로 돌려주고 agent는 입력 통지만 둔다. 계약이 바뀌어 `RouteResult`를 쓰는 곳(tool, Reactor, coding CLI)을 같이 고친다. 비용 중간. 추천: agent의 이중 통지만 먼저 정리하고 나머지는 보낸 쪽이 늘 때 한다.
+decided: |
+  agent가 같은 실패를 두 번 받는 것만 지금 고친다. 꼴 통일은 보낸 쪽이 늘 때 한다.
+closed: |
+  `deliveryFailed`의 agent 분기에서 `notifyFailed`를 지웠다. 바로 난 배달 실패는 call tool 결과로만 가고, 늦게 난 실패(`receiver_ended`, `lophn_restarted`)만 `failAll`이 입력으로 넣는다. `callSend`가 미리 준비하던 `FAILURE_TEXTS` blob도 지웠다. 보낸 쪽마다 다른 꼴의 통일은 정한 대로 보낸 쪽이 늘 때 한다.
+guard: router_test.ts

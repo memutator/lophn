@@ -671,7 +671,7 @@ flows:
     crosses_process: true
     risk: [data-loss]
     refs: []
-    docs: [architecture/workspace-session.md, architecture/app-call.md, issues/workspace-session.md]
+    docs: [architecture/workspace-session.md, architecture/app-call.md, issues/shell-run-bypasses-file-scope.yaml]
     unclear:
       - "rewind의 cancelWaiting은 production에서 UNWIRED_END_DEPS.effects.cancelPendingRequests(no-op)를 꽂는다(packages/core/lophn-agent/register.ts). 도는 turn이 없어야 하므로 대기 request가 남을 수 없어 실제 영향은 없어 보인다."
       - "대화 효과 port(effects)가 없으면 command는 unavailable('rewind is not available yet')을 낸다. production은 늘 꽂으므로 닿지 않는다."
@@ -679,7 +679,7 @@ flows:
       - "HTTP 입력의 `files`가 비어 있지 않으면 files.ts가 준비 없이 그 값을 command에 보내 restored로 기록하고 설치하지 않는다(restore_all 분기). 정상 클라이언트가 빈 목록을 보내는지 renderer에서 확인하지 못했다."
       - "rename 단위의 설치 중 두 번째 동작이 실패하면 첫 동작은 되돌리지 않은 채 기록은 skipped로 고친다(restore.ts installUnit). 파일 상태를 되돌리는 길은 없다."
       - "설치 중 어떤 실패(쓰기 실패 포함)도 경로를 skipped(edited_outside)로 기록한다. 사람이 고친 경우와 I/O 실패가 같은 사유로 남는다."
-      - "shell.run으로 바뀐 파일은 기록에 없어 되돌리지 않는다(issues/workspace-session.md)."
+      - "shell.run으로 바뀐 파일은 기록에 없어 되돌리지 않는다(이슈 shell-run-bypasses-file-scope)."
 
   - id: rewind-reads
     title: 사람이 되돌리기 메뉴용 checkpoint 목록과 되돌리기 기록 목록을 읽는다
@@ -863,7 +863,7 @@ flows:
         observe: ["response"]
     crosses_process: false
     risk: [data-loss, sandbox]
-    docs: [architecture/workspace-session.md, issues/workspace-session.md]
+    docs: [architecture/workspace-session.md, issues/shell-run-bypasses-file-scope.yaml]
 
   - id: file-write-record
     title: file tool이 쓴 뒤 그 기록을 checkpoint에 남긴다

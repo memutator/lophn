@@ -1,0 +1,14 @@
+id: brief-two-stage-skeleton-then-body
+version: 0.5.0
+title: brief를 뼈대와 살 두 단계로 씀
+modules: []
+change: |
+  전: brief는 worker 하나가 다 써서 계획 하나에 25~50분 걸렸다.
+  후: worker 하나가 뼈대(task id, 소유, 선행, 계약)를 쓰고, 영역별 worker 여럿이 살을 채운다(`.claude/skills/planner-persona/SKILL.md`). test-restore에서 영역 하나에 16~20분이었다.
+  닫은 이슈: planning "brief를 worker 하나가 써서 계획 하나에 30분 넘게 걸린다".
+why: |
+  brief를 worker 하나가 다 쓰면 계획 하나에 30분을 넘기므로, 뼈대를 먼저 쓰고 영역별로 나눠 채우려고.
+decisions:
+  - text: |
+      두 단계로 쓴다. 버린 길: planner가 뼈대를 직접 쓰기(planner context를 쓴다). (2026-10-20)
+    by: person

@@ -1,0 +1,16 @@
+id: provider-failure-body-not-kept
+title: 'provider 실패의 응답 본문을 남기지 않아 내용 갈래를 모른다'
+kind: bug
+status: open
+topic: agent-definition
+modules: [packages/core/lophn-agent, packages/protocol]
+now: |
+  - 실패한 model 호출의 `model_calls.outcome`에는 secret이 아닌 증거 `evidence`(`verdict_path`, content-type, provider request id, 처음 본 모르는 SSE event type 셋까지)가 남고, 화면의 실패 줄이 판정 경로와 request id를 보인다(`packages/protocol/lophn-agent/model-call-values.ts`의 `outcomeFields`, `packages/core/lophn-agent/providers/failures.ts`의 `responseFacts`, `packages/core/main/daemon/wiring/acp-build.ts`의 `noticeOf`).
+  - 오류 본문과 읽지 못한 성공 본문은 한 글자도 남지 않는다(`failures.ts`, `usage/commands.ts`, `observability/model.ts`의 머리 주석). 요청 body와 model 출력은 이미 `model_call` blob(`modelCallBodyFields`)으로 저장되는데 이 규칙만 따로 있다. 규칙은 코드 주석에만 있고 architecture 문서나 change-log 결정에는 없다.
+  - provider 실패는 diagnostic log(`logs/platform-*.jsonl`)에 쓰지 않고, `cf-ray` header는 남기지 않는다. cloud-code adapter는 모르는 event를 세지 않는다.
+impact: |
+  판정 경로로 갈래(본문을 못 읽음, code 없는 stream 실패, 분류 밖)는 알지만, 본문이 HTML 오류 page인지, 다른 꼴의 SSE인지 같은 내용은 모른다. 그 경우는 여전히 사람의 token으로 실제 호출을 다시 해야 원인을 찾는다.
+fix: |
+  - C. 중간: `unknown`일 때만 응답 본문 앞부분(2 KiB 안팎)을 redaction을 거쳐 `model_call` blob으로 남긴다. "오류 본문은 남기지 않는다"는 지금 규칙을 바꾼다.
+decide: |
+  - C를 할지. 오류 본문에는 provider가 되돌려 보낸 credential 조각(예: "Incorrect API key provided: sk-…")이 섞일 수 있어 규칙이 생긴 것으로 보인다. redaction을 거치면 그 위험은 출력 blob과 같다. secret 경계의 규칙을 바꾸는 것이라 사람이 정한다.

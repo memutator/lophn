@@ -1,0 +1,11 @@
+id: hidden-range-by-result-seq
+title: 숨김 구간을 `reverts.result_seq`로 잡는 규칙
+kind: defect
+status: kept
+topic: workspace-session
+modules: [packages/core/lophn-agent]
+now: rewind가 숨기는 구간은 `boundary_seq`부터 결과를 확정한 때의 session 마지막 메시지 순번 `result_seq`까지다(`session/rewind/hidden.ts`의 `hiddenRangesOf`, `summary-read.ts`도 같은 칸을 읽는다). 그 뒤에 접수한 메시지는 숨기지 않는다. 이유(숨김에 끝이 없으면 rewind 뒤의 대화가 모두 사라진다)는 `hidden.ts` 머리 주석에 이미 있다.
+impact: 숨김 끝이 messages가 아니라 reverts 행의 `result_seq`에서 나오는 숨은 규칙이다. 이유 설명은 코드에 있어 남는 비용은 작다.
+fix: '추천: 남긴다(kept). 주석이 이미 이유를 적었으니 별도 작업 없이 닫는다.'
+closed: 숨김 끝이 reverts 행의 `result_seq`에서 나오는 규칙이지만 이유(끝이 없으면 rewind 뒤의 대화가 모두 사라진다)는 `hidden.ts` 머리 주석에 있다.
+guard: 없음

@@ -1,0 +1,15 @@
+id: settings-update-overwrites-disk
+title: "`settings.json`을 못 읽은 뒤의 update가 디스크의 새 내용을 덮는다"
+kind: bug
+status: fixed
+topic: code-health
+modules: [packages/core/config]
+now: |
+  `packages/core/config/store.ts`의 `reload`는 파일 읽기가 실패하면(I/O 오류) log만 남기고 돌아간다. `raw`와 `lastText`는 앞서 읽은 값 그대로다. 그 뒤 `update`는 그 옛 `raw`에서 시작해 바꾼 key만 덮어 파일 전체를 쓴다. 사람이 손으로 고친 직후 watch가 읽다가 실패하면(Windows에서 편집기·백신이 파일을 잠깐 잡을 때), 다음 Settings 화면 조작이 손으로 고친 내용을 지운다.
+impact: |
+  사람이 `settings.json`을 손으로 고친 내용(MCP server, shell 규칙 등)을 잃는다. 드물지만 알리지 않고 지운다.
+fix: |
+  - `update`가 쓰기 직전에 파일을 다시 읽어, 그 내용에서 시작해 바꾼 key만 덮는다. 읽기가 실패하면 쓰기를 거절(`unavailable`)한다. 작음. 추천.
+closed: |
+  `update`가 쓰기 직전에 파일을 다시 읽어(`apply(readText())`) 그 내용에서 시작해 바꾼 key만 덮는다. 읽기가 실패하면 `unavailable`로 쓰지 않는다. watch debounce(100ms) 안의 손 편집 뒤 update가 옛 raw에서 시작하던 것도 같이 막힌다.
+guard: "`packages/core/config/store_test.ts` \"reload 없이 파일이 바뀐 뒤의 update는 손으로 고친 key를 지우지 않는다\""

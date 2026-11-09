@@ -1,0 +1,15 @@
+id: tab-shortcuts-reach-shell-from-pages
+version: 0.4.0
+title: app panel·browser 탭 page에 focus가 있어도 탭 단축키가 shell에 닿는다
+modules: [packages/shell/ipc, packages/shell/main]
+change: |
+  - 바뀐 것: 작업대 단축키 표의 `tab.next`·`tab.prev`·`tab.close`·`tab.reopen`·`tab.move-left`·`tab.move-right`가 모든 OS에서 `main`이다. app panel·browser 탭 page에 focus가 있으면 main이 그 키를 삼키고 shell renderer로 보낸다. `<webview>` guest의 키도 `hostWebContents`로 창을 찾아 palette·launcher chord까지 닿는다.
+why: |
+  page나 app panel에 focus가 있으면 탭 단축키가 page에 먹혀 shell이 받지 못했기 때문이다.
+decisions:
+  - text: |
+      위 키는 page가 받지 않는다(Chrome과 같다).
+    by: agent
+  - text: |
+      Linux·Windows에서 shell renderer 자신의 키는 main이 삼키지 않는다. 터미널의 Ctrl+W를 shell로 보내야 해서다.
+    by: agent

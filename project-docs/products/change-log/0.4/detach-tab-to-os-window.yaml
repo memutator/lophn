@@ -1,0 +1,44 @@
+id: detach-tab-to-os-window
+version: 0.4.0
+title: 탭을 OS 창으로 떼고 다시 붙임
+modules: [packages/shell/renderer, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/design, tools]
+checked: [architecture-annotation, architecture-browser-tab, architecture-coding-agent, architecture-appearance, architecture-ui-kit, skill-ui-design, tool-check, tool-dev, tool-worktree-prep]
+change: |
+  - 전: 탭은 docked, floated, minimized뿐이었다. 화면이 둘이어도 탭 하나를 다른 모니터로 옮길 길이 없었다.
+  - 후:
+    - 탭 menu의 Detach와 floated 패널 bar의 [Detach]가 탭 하나를 OS 창 하나(detached)로 뗀다. 창 위 bar에 탭 icon·제목, [Dock], 창 단추가 있다. [Dock]과 창 닫기(×)는 같은 일이고 탭은 project 창 focus pane 끝에 docked로 돌아온다. 탭을 닫으려면 탭 안의 닫기를 쓴다. 단축키와 palette 명령은 없다.
+    - 옮겨도 산다: terminal PTY(새 창이 지난 출력을 다시 그리고 입력을 받는다), editor의 마지막 고침(보내기 전에 디스크에 쓴다. 못 쓰면 옮기지 않는다), agent composer draft, app panel과 browser 크기 준 popup의 page(view를 닫지 않고 옮긴다. `window.opener`가 남는다). 보통 browser 탭은 새 창에서 같은 url로 다시 load되고 로그인은 남는다. 그 탭의 DevTools는 닫힌다.
+    - detached 창에서 연 새 탭은 project 창에 docked로 열린다. detached 창 안에서 크기 준 popup이 열리면 또 하나의 detached 창이 된다.
+    - 이미 떼어 둔 탭을 여는 길(파일 열기, 대기 목록의 [Answer in terminal] 등)은 그 창을 앞으로 가져온다.
+    - project 창을 닫거나 다른 공간으로 가면 그 창의 detached 창도 닫히고 다시 열면 같은 자리·크기로 돌아온다(화면 밖이면 지금 화면 안으로 당긴다). 앱을 끄고 다시 띄워도 그렇다. 이때 terminal은 PTY에 다시 붙지 않고 agent draft는 비어 있다(재시작과 같다).
+    - `layout.json`이 판 3이다. `layout.detached`(최대 20, `{tab, bounds}`)를 저장한다. 판 2 파일은 읽지 않고 새로 만든다.
+    - gallery에 `new-detached-terminal` page가 생겼다.
+  - 계약:
+    - 생긴 것: shell IPC `ipc/detached.ts`(open, focus, close, take, dock, changed, open-tab, remove, push event: docked·changed·open-tab·closed·opened·moved·dock-request)와 preload `window.lophnDetached`. `TabKindDef.transfer`/`receive`/`noDetach`, `TabTransfer`, `slimDetachedTab`. layout model의 `detachTab`, `openDetachedTab`, `attachDetached`, `closeDetached`, `isDetached`. `EditorSessions.flush`, `TerminalStore.adopt`, `DraftStore.entries`, `ViewKeeps.lookup`/`track`, 앱 view와 browser registry의 `move`, `AppViews.owns`/`moveViews`. renderer route `detached`(`#detached=<key>`).
+    - 바뀐 것: `findTab`·`allTabs`·`mapTabs`가 detached를 본다. `openDesktopWindow(ctx, start?)`가 hash와 bounds를 받는다. tray와 전역 palette 키는 detached 창을 고르지 않는다.
+why: |
+  화면이 둘인 사람이 terminal이나 browser를 다른 모니터에 두고 쓴다.
+decisions:
+  - text: |
+      순서는 transfer → main이 창을 만들고 view를 옮김 → 성공했을 때만 layout을 바꾼다. 어느 단계가 실패해도 탭은 그 자리에 있다. editor flush가 실패하면 알리지 않고 옮기지 않는다(저장 실패는 파일 탭이 이미 보인다).
+    by: agent
+  - text: |
+      보통 browser 탭은 옮기지 않고 다시 load한다. `browser-tab`의 `<webview>` 결정의 결과다.
+    by: person
+  - text: |
+      popup·DevTools만 native view라 옮긴다.
+    by: agent
+  - text: |
+      detached 창은 탭 하나만, ×는 dock, 앱을 끄는 중에는 dock하지 않는다(다음 실행에 돌아온다).
+    by: agent
+  - text: |
+      project 창 renderer가 detached까지 layout 전체를 갖는다. detached 창은 main을 거쳐 탭 하나를 받는다.
+    by: agent
+  - text: |
+      detached 창 안 popup은 features 크기를 따르지 않고 기본 창 크기다. 그 창에서는 DevTools를 floated 패널로 둘 수 없다.
+    by: agent
+  - text: |
+      창을 여럿 띄우는 Electron test는 만들지 않았다. 위험 test는 layout(`model_test.ts`의 detach·attach)과 editor transfer(`editor/transfer_test.ts`) 둘이다.
+    by: agent
+follow_up: |
+  개발 data의 `.dev-data/shell/layout.json`이 판 2면 읽히지 않고 새로 만들어진다. 열린 이슈: `project-docs/issues/workspace-layout.md`.

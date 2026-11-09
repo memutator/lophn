@@ -1,0 +1,48 @@
+id: new-data-root-app-release-path
+version: 0.2.0
+title: "새 data root에서 앱 release까지 가는 길을 잇고, 앱 호출 frame·crash log·check의 구멍을 막음"
+modules: [packages/core/apps, packages/core/approvals, packages/core/main, packages/core/diagnostics, packages/shell/main, packages/sdk, packages/design, packages/protocol, tools]
+checked: [agents-md, architecture-approval, tool-lead, tool-worktree-prep, tool-check-deps, skill-wrap-plan, skill-ui-design, tool-wireframes]
+change: |
+  전: data root에 sdk 설치 사본과 앱 template을 까는 코드가 없어 `lophn-sdk:` 의존을 선언한 앱의 release 준비가 `sdk_not_installed`로 멈췄다. 사본을 손으로 깔아도 release bundle이 npm package를 symlink 자리에 한 번 더 복사해 template 앱이 file 수 상한(10,000)에 걸렸다. 화면이 둘 이상인 앱은 합친 `app.js.map`에 `mappings`가 없어 오류 stack이 앱 source로 풀리지 않았다. 여러 write를 되돌리는 rewind 적용과 256KiB 근처를 넘는 호출 결과는 supervisor control frame(256KiB)에서 거절되었다. 앱 supervisor와 shell main의 crash는 log에 안 남았다. activation은 `main/daemon/wiring/approval-reads.ts`가 approvals 표를 건너 읽었다. 문서가 지운 file을 가리켜도 잡는 check가 없었다.
+  후:
+  - core 기동(`main/daemon/wiring/sdk-install.ts`, `build`)이 `packages/sdk/*` 중 `deno.json`이 있는 것과 `@lophn/ui`·`@lophn/wording`을 `<dataRoot>/sdk/<이름 뒤쪽>/<판>`에, template을 `<dataRoot>/templates/app/`에 읽기 전용으로 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 판은 각 `deno.json`의 `version`이다(`packages/design`, `design/wording`에 `1.0.0`, `packages/sdk/cap-store/deno.json` 새로 만듦). blueprint·cap-store·cap-problem이 사본 밖 protocol을 가리키던 import는 사본 안 `vendor/`로 담는다. catalog 등록은 하지 않는다.
+  - release bundle은 `node_modules` symlink를 따라 복사하지 않고 `node_modules/.lophn-links.json` 목록으로 굳힌다. `sealBundle`이 사본에서 연결을 다시 만들고, 사본 밖을 가리키는 연결은 아무것도 만들기 전에 `invalid_input`으로 거절한다.
+  - 화면마다 `screens/<key>/main.js.map`을 bundle에 넣고 `app.js.map`은 없다. problems는 stack이 가리킨 화면의 map으로 앱 source 위치를 푼다.
+  - `apps.apply`는 json 요청(payload `{ app }`) 뒤 같은 channel의 bytes frame과 `end`로 본문을 보낸다(실패·기한 초과는 `abort`). 결과 상한 `RESULT_MAX_BYTES`와 입력 상한 `CALL_BODY_MAX_BYTES`는 control frame 한도 아래로 낮췄고, core는 넘는 입력을 보내기 전에 `invalid_input`으로 거절한다.
+  - daemon crash handler는 diagnostics wiring의 `prepare`에서 걸린다. 앱 supervisor와 shell main은 crash 때 core에 진단 한 줄을 보내고 core가 component·location(`app-supervisor-crash`, `shell-main-crash`)을 정해 log에 쓴다. 앱 supervisor의 crash exit code는 1이다.
+  - `Approvals` port가 `request(id)`·`pending()`을 내고 activation은 그것만 쓴다. `approvalsPending` read의 actors에 `machine`이 더해졌고 machine read `approvalsRequest`가 생겼다. `approval-reads.ts`는 없다.
+  - `deno task check`에 `docs` 단계(`tools/check-docs.ts`)가 있다. 문서만 바뀐 변경에도 돌고, 문서 속 backtick 저장소 path와 context registry의 path·boundary·role이 있는지 본다.
+  - `apps/calls/calls_test.ts`의 기다림은 2초 시간 상한이고 조건이 안 되면 실패한다.
+why: |
+  새 data root에서 template으로 만든 앱이 release 준비를 지나지 못했고, 앱 호출·rewind가 frame 한도에서 조용히 막혔으며, 사람이 원인을 모르는 crash가 있었다. 같은 문서 path 실수가 여러 번 났다.
+decisions:
+  - text: |-
+      sdk 설치는 지워진 install 함수를 되살려 기동에 잇는다. 버린 길: release 준비가 repo의 `packages/`를 직접 읽기(release bundle에 굳힌 사본의 격리가 약해진다).
+    by: person
+  - text: |-
+      내장 sdk를 catalog에 등록하지 않는다. 같은 name·version의 byte가 바뀌면 등록이 `conflict`라 개발 중 sdk 소스를 고치고 다시 띄우면 기동이 막힌다. 그래서 `package show`가 내장 sdk guide를 주지 못하는 것은 이슈로 남겼다.
+    by: agent
+  - text: |-
+      template은 고정 hash 없이 설치 때마다 repo 원본과 byte로 비교한다. template이 자주 바뀌어 손으로 고칠 hash가 짐이다.
+    by: agent
+  - text: |-
+      file 수 상한을 올리지 않고 중복 복사를 없앤다.
+    by: person
+  - text: |-
+      source map은 화면별로 둔다. 읽는 쪽이 sections를 풀지 않는다.
+    by: person
+  - text: |-
+      rewind 적용은 write 하나씩 나누지 않고 bytes stream 하나로 보낸다. 나누면 중간 실패 때 일부만 되돌아간다.
+    by: person
+  - text: |-
+      앱 process에는 crash handler를 새로 걸지 않는다. 이미 `installCrashExit`, exception observer, supervisor의 crash 관측이 stderr와 problems에 남긴다.
+    by: agent
+  - text: |-
+      shell main은 core를 import하지 못해 `installCrashHandler` 대신 작은 자체 handler를 둔다.
+    by: agent
+  - text: |-
+      문서 path check는 change-log, `issues/archived`, `plan/`, `products/roadmap/`을 보지 않는다. 앞으로 생길 path와 옛 path를 적는 곳이다.
+    by: agent
+follow_up: |-
+  개발 data(`.dev-data`)를 지울 때는 sdk 사본이 읽기 전용이라 `chmod -R u+w`가 먼저 필요하다(lead 도구 `boot.sh`·`merge.sh`와 `deno task dev:mock`은 그렇게 한다). 옛 bundle 사본(중복 복사본, `app.js.map`)은 읽는 길이 없으니 개발 data를 지우고 앱을 다시 준비한다.

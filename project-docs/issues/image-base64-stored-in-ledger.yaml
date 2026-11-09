@@ -1,0 +1,17 @@
+id: image-base64-stored-in-ledger
+title: '이미지 tool 결과의 base64가 ledger와 blob에 그대로 쌓인다'
+kind: bug
+status: fixed
+topic: agent-definition
+modules: [packages/core/lophn-agent, packages/core/storage]
+now: |
+  `image.read`의 결과 `content.image.data_base64`가 세 곳에 저장된다. (1) `tool_calls.result` 칸(`run-loop/core-ports.ts`의 `finishToolCall`, `tools/commands.ts`), (2) `tool_call_output` blob(`core-ports.ts`), (3) `model_call_input` blob(`core-ports.ts`). 요청 body 전체라 이미지가 history에 남아 있는 동안 model call마다 다시 저장된다. 이미지 하나의 상한은 `tools/file/image.ts`의 `MAX_IMAGE_BYTES`(5 MiB, base64로 약 6.7 MiB)이고, annotation screenshot은 `ANNOTATION_SCREENSHOT_MAX_BYTES`(2 MiB)다. 기록 쪽에는 이미지 상한이 없고 blob purpose 상한 16 MiB(`storage/blobs/child-prepare.ts`)만 있다. `toolResultSchema.content`는 `z.json()`이라 크기 제한이 없다. 이미지 결과가 `tool_result_image`로 model에 가게 되면서 실제로 쓰이는 길이 됐다.
+impact: |
+  이미지를 연 session마다 ledger가 수 MiB씩 커진다. 5 MiB 이미지 셋(base64로 약 6.7 MiB씩)이 history에 있으면 `model_call_input` blob이 16 MiB를 넘어 저장에 실패하고, `core-ports.ts`가 그 model call을 보내지 않는다. 그 session은 이미지가 history에서 빠질 때까지 진행하지 못한다.
+fix: |
+  - `tool_calls.result`와 `tool_call_output`에는 `content.image` 대신 media type, 크기, hash만 남기고, history에는 이미지를 blob ref로 둔다(중간).
+  - history에서 오래된 이미지 조각을 빼고 "[image omitted]"로 바꾼다(작음. compact와 같은 자리).
+  - 추천: 둘째를 먼저. 실제로 막히면 첫째.
+closed: |
+  둘째 길로 고쳤다. `run-loop/turn.ts`의 `historyOf`가 model call마다 `omitOldImages(state.history, KEEP_IMAGES)`(`run-loop/history.ts`, 2개)로 최신 이미지 둘만 싣고, 오래된 이미지 조각은 빼고 짝 `tool_result` 글 끝에 `[image omitted]`를 붙인다. 최대 크기 이미지 둘(base64 약 14 MB)이 `model_call_input` blob 상한(16 MiB) 안에 든다. 또 `prompt-assembly/budget.ts`의 `measureWire`가 body에 실린 이미지를 base64 byte가 아니라 이미지당 `IMAGE_TOKENS`(4096)로 세서 screenshot 하나로 `context_limit`이 나지 않는다. `tool_calls.result`와 `tool_call_output` blob에는 base64가 그대로 쌓인다(첫째 길). 실제로 막히면 그때 한다.
+guard: packages/core/lophn-agent/run-loop/history_test.ts "이미지가 2개를 넘으면 오래된 것부터 빠지고 짝 글에 표시가 붙는다", packages/core/lophn-agent/prompt-assembly/budget_test.ts "이미지 하나가 있어도 예산은 base64 길이가 아니라 고정 값으로 는다"

@@ -1,0 +1,15 @@
+id: reading-font-separate
+version: 0.17.0
+title: 본문 글꼴(reading font)을 UI 글꼴과 따로 고른다
+modules: [packages/design, packages/core/config, packages/shell/renderer]
+checked: []
+change: |
+  전: 글꼴은 UI(`shell.font` → `font.sans`)와 코드(`shell.code_font` → `font.mono`) 둘이었다. 문서와 대화 본문도 UI 글꼴이었다.
+  후: token `font.reading`과 설정 `shell.reading_font`(ui, serif, custom), `shell.reading_font_custom`이 생겼다. Settings › Appearance에 Reading font 줄이 있다. design `Markdown`(agent 답, 문서 미리보기)과 markdown 편집기 본문이 `--font-reading`을 쓴다. 기본 ui는 UI 글꼴을 따라 화면이 그대로다.
+why: |
+  사람이 데스크탑 앱의 글꼴 분류를 물은 뒤 reading도 따로 두라고 했다(사람 2026-11-04). lophn은 문서와 긴 agent 대화를 오래 읽는 앱이다.
+decisions:
+  - text: '선택지는 UI 글꼴 따르기(기본), Serif, Custom이다. Serif는 글꼴 파일을 싣지 않고 OS serif stack(Noto Serif KR, 나눔명조, Georgia 순)이다.'
+    by: agent
+  - text: '새 설정 key는 기본값이 있어 data root를 옮길 것이 없다.'
+    by: agent

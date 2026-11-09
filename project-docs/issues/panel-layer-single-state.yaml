@@ -1,0 +1,15 @@
+id: panel-layer-single-state
+title: panel 층(rewind·권한·recap)을 `layer` state 하나로 둔다
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `conversation/agent-view.tsx`가 `Layer` 합집합(`rewind | permissions | recap`) state 하나로 열린 panel을 둔다. 타입 주석에 "하나만 열린다"고 불변 조건이 적혀 있다. 다만 이 파일이 617줄이다.
+impact: |
+  panel 하나를 더하면 합집합과 분기가 늘지만, 동시에 둘이 열리는 상태가 생길 수 없게 해 주는 단순한 표현이다.
+fix: |
+  추천: 남긴다. 파일 길이가 문제라면 panel 렌더 블록을 컴포넌트로 빼는 것은 별개의 정리다.
+closed: |
+  동시에 둘이 열리는 상태가 생길 수 없게 해 주는 단순한 표현이다. 파일 길이(617줄)는 별개의 정리다.
+guard: 없음

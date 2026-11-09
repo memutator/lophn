@@ -1,0 +1,17 @@
+id: inbox-finished-line-cleared
+version: 0.18.0
+title: "Inbox: 끝난 터미널의 coding agent Finished 줄이 남지 않는다"
+modules: [packages/shell/main]
+checked: [architecture-terminal-agent]
+change: |
+  전: 터미널이 끝나거나 terminal host가 사라지면 tracker는 entry만 지웠다. 끝난 runtime은 그 터미널을 구독한 창에만 갔다. 다른 place나 다른 창에 있는 동안 Claude Code 같은 coding agent의 터미널이 끝나면(sidebar의 다른 place 터미널 x, shell 종료, host 죽음), Inbox의 Finished 줄이 남았다. [x]는 main에 entry가 없어 아무것도 하지 않았다. 탭이 이미 닫혔으면 Show도 고를 탭이 없어 아무 일이 없었다. 줄은 앱을 다시 띄워야 사라졌다.
+  후: agent를 창에 알린 적이 있는 터미널이 끝나면 `tracker.gone`이 agent가 빠진 runtime을 모든 창에 보낸다. 구독하지 않은 창의 Finished 줄과 탭 점도 빠진다.
+why: |
+  사람이 Inbox의 Claude Code 줄이 Show도 x도 안 된다고 알렸다(사람 2026-11-04). headless 앱에서 가짜 Claude Code로 재현했다.
+decisions:
+  - text: |
+      [x]·Show를 고치지 않고 줄이 남는 원인(끝난 소식이 구독한 창에만 가는 것)을 고친다. 줄이 남지 않으면 두 단추가 마주칠 일이 없다.
+    by: agent
+  - text: |
+      agent를 알린 적이 없는 터미널(`pushed`가 `null`)은 보내지 않는다. 보통 터미널의 종료까지 모든 창에 퍼지지 않게 한다.
+    by: agent

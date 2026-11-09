@@ -1,0 +1,30 @@
+id: editor-tab-strip-vscode
+version: 0.2.0
+title: "작업대 editor tab strip을 VS Code처럼 바꿈"
+modules: [packages/shell/renderer, packages/design]
+checked: []
+change: |
+  전: 탭 줄이 본문과 같은 바탕에 밑줄 탭이었고, Explorer에서 파일을 누르면 늘 새 탭이 붙었다. 탭을 옮기거나 우클릭하거나 가운데 클릭으로 닫는 길이 없었다.
+  후:
+  - 모양: 바탕이 editor보다 한 단계 어둡고(`--tab-strip-bar`), 고른 탭만 editor 바탕으로 이어지며 위에 강조선이 있다. 탭 사이 구분선, 닫기 ×는 고른·hover한 탭에만, 저장 안 된 탭은 ●(hover하면 ×), preview 탭은 italic 이름, 넘치면 가로 scroll(세로 wheel도, scrollbar는 줄에 hover할 때만). 앱 공간 agent 칸 머리도 같은 `TabStrip`이라 같은 모양이다. sidebar의 `compact` 줄은 그대로다.
+  - preview 탭: Explorer 한 번 클릭은 칸의 preview 탭을 바꿔 쓰고, double-click·Enter·탭 double-click·내용 고침이 고정한다. 저장 안 된 탭은 preview로 바뀌어 사라지지 않는다(고치는 순간 고정하고, 어긋나도 `openTabIn`이 저장 안 된 preview는 바꿔 쓰지 않는다). preview는 layout 파일에 남기지 않아서 다시 열면 모두 고정 탭이다.
+  - 닫기: 가운데 클릭, Ctrl/Cmd+W(터미널 안의 Ctrl+W는 shell로 넘긴다). 모두 기존 닫기 확인(`beforeClose`)을 지난다.
+  - 탭 우클릭 menu: Close, Close Others, Close to the Right, Close Saved, Close All, Copy Path, Copy Relative Path, Reveal in Explorer, (preview면) Keep Open. 여러 탭을 닫을 때 탭마다 확인을 차례로 거치고 사람이 계속 편집을 고르면 거기서 멈춘다.
+  - 끌어 옮기기: 같은 줄에서 순서를 바꾸고, 칸이 둘이면 다른 칸 줄로 옮긴다(옮긴 탭은 고정 탭이 된다).
+  - keyboard: Ctrl+Tab·Ctrl+Shift+Tab은 칸 안에서 순서대로 돈다(최근 사용 순이 아니다), Ctrl+PageDown·PageUp은 다음·이전 탭.
+  - Reveal in Explorer는 sidebar를 Explorer로 열고(접혀 있으면 펼치고) `Explorer`의 `reveal` prop으로 그 파일을 알린다. 지금 보이는 행이면 그 행으로 가고, 접힌 폴더를 펼치는 일은 하지 않는다.
+why: |
+  파일을 훑어볼 때마다 탭이 쌓이는 것을 줄이고, 탭을 VS Code에서 익힌 손으로 다루게 한다.
+decisions:
+  - text: |-
+      Ctrl/Cmd+W는 main의 window shortcut 표(`WINDOW_SHORTCUTS`)에 넣지 않고 renderer의 capture keydown에서 받는다. 표에 넣으면 팔레트 hub의 처리기가 launcher 복귀로 흘러간다. Electron 기본 메뉴의 "창 닫기"는 page가 keydown을 `preventDefault`하면 서지만 실제 앱에서 아직 확인하지 않았다.
+    by: person
+  - text: |-
+      최근 사용 순 Ctrl+Tab은 하지 않고 순서대로 돈다.
+    by: person
+  - text: |-
+      Close Saved는 저장 안 된 탭을 대상에서 빼고, 나머지 menu 항목은 탭마다 `beforeClose`에 맡긴다.
+    by: person
+  - text: |-
+      menu 구분선은 Explorer 쪽에서 design `Menu`에 더한 `separatorBefore`로 VS Code 묶음(닫기 / 경로 복사 / Reveal / Keep Open)마다 둔다.
+    by: person

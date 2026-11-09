@@ -1,0 +1,35 @@
+id: blueprint-renamed-to-declaration
+version: 0.8.0
+title: '"blueprint"를 걷어내고 앱의 선언(declaration)으로 부른다'
+modules: [packages/protocol, packages/core/apps, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/core/server, packages/sdk, packages/coding-agent, packages/shell/main, packages/shell/renderer, tools, tests]
+checked: [tool-check, boundary-catalog, context-component-registry, architecture-layers, architecture-agent-call, architecture-run, architecture-workflow, architecture-annotation, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-test-live, tool-dev, tool-models-snapshot, skill-ui-design]
+change: |
+  전:
+  - 앱이 lophn에 내놓는 선언(이름, 설명, 화면, tool, 권한, 다른 앱 tool 쓰기, SDK 판)을 "blueprint"라는 따로 된 개념으로 불렀다. 앱 source의 `blueprint.ts`, SDK `@lophn/blueprint`(`defineBlueprint`), agent tool `blueprint.check`, CLI `lophn app blueprint`, release의 `blueprint_hash`, bundle의 `blueprint.json`, 실패 code `blueprint_missing` 등이 agent에게 그대로 보였다. 사람 화면과 문서는 대부분 "선언"이라 불렀다.
+  - protocol에 선언 검증기의 flat 사본(`packages/protocol/apps/blueprint{,-types,-json,-schema,-scope}.ts`)과 폴더판이 같이 있었다.
+  - coding agent 첫 prompt는 "blueprint 변경이 필요하면 알린다"고 하고, 앱 template의 `AGENTS.md`는 coding agent가 선언을 직접 먼저 고치라고 했다.
+  후:
+  - 선언은 그대로 앱 code 안에 있고 release와 같이 봉인된다. 이름만 바뀌었다.
+    - 앱 source의 선언 file은 `lophn.ts`, 선언 test는 `tests/declaration_test.ts`다.
+    - SDK `@lophn/declaration` 1.0.0(`packages/sdk/declaration/`)이 `defineApp`, `validateDeclaration`, type `AppDeclaration`을 낸다. 선언의 부분 이름(`ToolDeclaration`, `ScreenDeclaration`, `AppToolUseDeclaration`)은 그대로다.
+    - agent tool `declaration.check`, route `declarations/check`(`declarationCheck`), CLI `lophn app declaration`.
+    - release: wire `declaration_hash`, release 표의 열 `declaration`(정규 선언 JSON)과 `facts`(선언에서 뽑은 권한 요구, 다른 앱 tool 쓰기, tool 이름. 전의 `declarations` 열), bundle의 `declaration.json`. 파생 사실은 `AppFacts`, `factsOfDeclaration`, port `apps.permissions.CurrentFacts`이고 `apps/tools` 읽기와 activation 기록의 칸도 `facts`·`declaration`이다.
+    - 실패 code: `declaration_missing`, `declaration_eval_failed`, `not_a_declaration`.
+    - 폴더: `packages/protocol/apps/declaration/`, `packages/core/apps/declaration/`, `packages/core/apps/permissions/facts.ts`, `tools/deps-declaration.ts`(rule `declaration-pure`). flat 사본은 지웠다.
+    - coding agent 첫 prompt(`firstPromptOf`)와 `project-docs/products/AGENT-ROLE.md` K4가 template을 따른다: 맡은 일에 필요하면 coding agent가 `lophn.ts`를 코드보다 먼저 직접 고치고 `deno.json` import map을 같은 정확한 version으로 함께 고친다. 막혔을 때만 `lophn message send`로 알린다.
+    - eval: 재료 `notify-app`, `calendar-app`, `calendar-app-bug`, `date-range`, `calendar-data`의 @4(`lophn.ts`와 새 SDK 이름. `date-range@4`·`calendar-data@4`는 needs만 바뀌었다), criterion `card-covered@5`(judge 입력 이름표 `[BLUEPRINT]` → `[DECLARATION]`), check id `blueprint-kept` → `declaration-kept`. 시나리오 8개(calendar-user, calendar-dev, calendar-api, calendar-maintain, calendar-diagnose, L4-new, L7, O4)의 world와 criterion 핀을 새 판으로 올리고 n을 하나씩 올렸다.
+why: |
+  "blueprint"는 앱의 선언과 따로 된 개념처럼 보였다. 개념은 하나(앱의 선언)이고 사람 화면도 이미 "declarations"라 부른다. text만 바꾸면 file 이름, tool, SDK, 실패 code, `release.get` 칸이 agent에게 계속 보여 개념이 남는다(root `ISSUE-blueprint-domain.md`).
+decisions:
+  - text: '선언은 지금처럼 앱 code 안에 두고 release와 같이 봉인한다. 따로 된 개념 "blueprint"와 그 이름만 모두 걷어낸다.'
+    by: person
+  - text: '앱 source의 선언 file은 `lophn.ts`다. 그 file을 읽는 쪽 이름을 쓰는 관례(`Dockerfile`, `wrangler.toml`)다. "manifest"는 bundle의 `manifest.json`과 겹치고 `@lophn/app`은 template import map의 별칭이라 쓰지 않는다.'
+    by: agent
+  - text: '전의 `declarations`(파생 사실)는 `facts`로 바꿔 선언 전체와 겹치지 않게 했다. 사람 화면의 wording "declarations"는 그대로다.'
+    by: agent
+  - text: '옛 이름을 읽는 호환 장치 없이 모두 바꿨다. migration은 없다.'
+    by: agent
+follow_up: |
+  - 개발 data를 지우고 새로 만든다. release 표의 열 이름과 schema step(`apps.releases.tables`)이 바뀌었고, bundle file 이름이 바뀌어 모든 bundle hash가 바뀌었다.
+  - eval: check id가 `declaration-kept`로 바뀌고 criterion `card-covered`가 @5, 재료가 @4가 되어 지난 run과의 비교가 끊긴다. 옛 재료 판(@1~@3)과 registry 옛 항목은 기록이라 그대로 두었고, `blueprint.ts`를 담은 옛 판은 이제 release 준비를 지나지 못한다. component·core·checks 판은 이 변경에서 새로 재지 않았고 다음 진짜 run이 잰다.
+  - 열린 이슈: `project-docs/issues/mistakes.md`: 이름 바꾸기가 type 없이 오가는 wire 칸을 놓쳤다

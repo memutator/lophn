@@ -75,7 +75,7 @@ elements:
 
       - id: problems
         kind: subsystem
-        description: 앱 SDK가 앱 log에 쓰는 실패 보고(`reportProblem`)와 잡히지 않은 예외 관찰의 protocol 값(`packages/protocol/problems/`). test runner는 지웠다. release의 data 검사는 app-releases의 준비가 한다.
+        description: 앱 SDK가 앱 log에 쓰는 실패 보고(`reportProblem`)와 잡히지 않은 예외 관찰의 protocol 값(`packages/protocol/problems/`).
 
       - id: agent-workspaces
         kind: component
@@ -388,7 +388,7 @@ interfaces:
 
   - id: extension-api
     kind: interface
-    description: extension 하나의 계약. manifest(id, 이름, 설명, 판, 진입점, 들어 있는 것)와 activate(ctx)·deactivate, ctx(core, settings, spawn, clock, ids, files). 판은 제품 판과 같아야 켠다.
+    description: extension 하나의 계약. manifest(id, 이름, 설명, 판, 진입점, 들어 있는 것, contributes)와 activate(ctx)·deactivate, ctx(core, settings, spawn, acp, clock, ids, files, dataFolder, commands, tools). 판은 제품 판과 같아야 켠다.
     interface_type: spi
     defined_by: protocol
     provided_by:

@@ -1,0 +1,24 @@
+id: skill-read-body-and-reason
+version: 0.11.0
+title: '`skill.read`가 `PATH: "SKILL.md"`로도 본문을 주고, 실패 문장에 원인을 싣는다'
+modules: [packages/core/lophn-agent]
+checked: []
+change: |
+  전:
+  - `skill.read`는 `path`가 없을 때만 본문을 줬고, `path: "SKILL.md"`는 어떤 skill에서도 `not_found`였다(딸린 file 목록에 SKILL.md를 담지 않았다). 본문을 `path` 없이 읽으라는 말은 tool 설명 어디에도 없었다.
+  - 없는 file의 문장은 `skill X has no file Y`였지만 실행기가 모든 `not_found`를 `tool target is not available`로 바꿔, "없는 file", "꺼진 skill", "없는 이름"이 model에게 같은 문장으로 갔다.
+  후:
+  - `path`가 `SKILL.md`, `./SKILL.md`, `.`, `/`이면 본문을 준다. `path`는 SKILL.md 옆에 딸린 `.md` file 하나다. 모르는 `path`의 `not_found` 문장에 그 skill의 딸린 file 이름을 싣고(`skill X has no file Y (files: a.md, b.md)`), 없으면 `(no bundled files)`다. tool 설명은 "Omit path to get the skill body. path reads a bundled .md file that ships beside SKILL.md."로 바뀌었다.
+  - `executeToolCall`은 실패한 대상이 model이 보낸 입력뿐인 tool(`INPUT_SCOPED_FAILURES`, 지금 `skill.read`)의 handler 문장을 `tool target is not available: <handler 문장>` 꼴로 싣는다. 그 밖의 tool은 지금처럼 공통 문장만 쓴다.
+why: |
+  실제 session에서 `skill.read`가 `path`(`SKILL.md`, `/`, `.`, `design-app.md`)를 채워 9번 불렸고 9번 모두 `not_found`여서 skill 본문이 한 번도 agent에게 닿지 않았다. 실패 문장에서 원인이 지워지면 model은 같은 입력으로 되풀이해 turn과 비용만 쓴다. `skill.read`의 이름은 prompt의 skill 목록에 이미 실려 있어 문장에서 가려 얻는 것이 없다.
+decisions:
+  - text: |
+      `ErrorCode`(`code`·`message`) 꼴은 넓히지 않고 딸린 file 이름을 `message`에 실었다.
+    by: agent
+  - text: |
+      `SKILL.md`를 `files`에 담지 않고 reader가 그 이름을 본문으로 돌려준다. 실패 문장의 목록이 model이 실제로 고를 수 있는 이름과 같아진다.
+    by: agent
+  - text: |
+      허용은 tool 이름의 명시 집합 하나다. `forbidden`·`not_found` 문장을 나누는 것만으로는 "이 skill에 그 file이 없다"를 알 수 없다.
+    by: agent

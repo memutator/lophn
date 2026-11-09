@@ -68,7 +68,7 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
 
 - core API는 loopback HTTP·WebSocket이다. token은 control socket `connect`로만 받고, control socket은 filesystem 권한이 인증 경계다(`architecture/platform.md` control socket). 폰은 이 길로 붙지 못하므로 remote listener와 기기 인증을 새로 둔다.
 - 일도 client도 없이 10분이 지나면 core가 끝난다(`platform.md` idle-exit). 폰은 꺼진 core를 띄우지 못한다.
-- 앱 화면의 operation은 core API(`app.call_tool`)로 간다(`architecture/app-call.md` 흐름). 그래서 폰에 띄운 앱도 core API에 닿으면 지금 길로 돈다. 앱 process는 core가 띄우는 Node process다.
+- 앱 화면의 operation은 core API(`app.call_tool`)로 간다(`architecture/app-call.md`의 모델 "호출의 흐름"). 그래서 폰에 띄운 앱도 core API에 닿으면 지금 길로 돈다. 앱 process는 core가 띄우는 Node process다.
 - 터미널은 core가 아니라 shell의 `terminal-host`에 있다(`architecture/terminal-agent.md`). 원격 터미널은 shell이 떠 있을 때만 있고 core에서 shell로 한 번 더 넘겨야 한다.
 - 앱 event 발행·구독은 일부러 열지 않았다(`architecture/app-notice.md`: 반응을 믿으려면 저장, 구독자 cursor, 재시도, 멱등 key가 다시 필요하다).
 - `PRODUCT.md` "하지 않는 것"에 "원격, 여러 사람용 서비스"가 있다. 이 roadmap은 그 줄과 부딪친다.

@@ -1,0 +1,13 @@
+id: wrap-up-domain-plans-issues-docs
+version: 0.5.0
+title: domain 계획들을 마무리하며 이슈와 문서를 정리함
+modules: []
+change: |
+  동작은 그대로다. 계획 일곱(`domain-kinds`부터 `test-restore`까지)이 남긴 이슈를 다시 거르고, 옛 app-api·context 말이 남은 roadmap(`eval.md`, `app-preview.md`)을 고쳤다.
+  닫은 이슈: mistakes "안 쓰는 export를 지우며 화면이 문자열로 부르던 route를 지웠다", "wire 칸을 지우고 harness driver의 보내는 쪽을 남겼고, 그 실패를 옛 이슈에 붙였다"(fixed); activation "app test 검사별 detail을 아무도 읽지 못한다"(kept).
+why: |
+  옛 계획이 남긴 이슈와 문서가 다음 계획에서 낡은 말로 읽히지 않게 하려고.
+decisions:
+  - text: |
+      app test 검사별 detail(observations blob)은 그대로 아무에게도 읽기를 주지 않는다. fail·pass 이유 한 줄이 검사별 이유를 싣는다.
+    by: agent

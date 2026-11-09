@@ -1,0 +1,16 @@
+id: signin-denial-shown-as-timeout
+title: 서비스가 sign-in을 거절해도 "시간이 지났다"로 보인다
+kind: bug
+status: fixed
+topic: app-call
+modules: [packages/core/lophn-agent, packages/core/apps]
+now: |
+  사람이 browser에서 [거부]를 누르면 발급자가 loopback으로 `error=access_denied`를 돌려준다. `openCallbackListener`(`packages/core/lophn-agent/extensions/mcp-auth-control.ts`)는 그 요청을 `refused`로 받아 `receive`를 실패로 끝내고, `createMcpAuth`의 `complete`(`packages/core/lophn-agent/extensions/mcp-auth.ts`)는 받기 실패를 모두 `callback_timeout`으로 적는다. 앱 Access 탭과 MCP 상태가 같은 code를 쓴다.
+impact: |
+  사람이 거절했는데 앱 Access 탭은 "Sign-in timed out. Try again."을 보인다. 사람은 왜 끝났는지 모르고 다시 같은 sign-in을 연다.
+fix: |
+  - 작음(추천): listener가 거절을 `forbidden`으로, 시한·취소를 `unavailable`로 이미 나눠 돌려준다. `complete`가 `forbidden`이면 `exchange_failed`(문구 "The service rejected the sign-in.")로 적는다. 실패 이유 enum은 그대로다.
+  - 작음: 이유 `denied`를 `McpAuthFailure`와 `APP_OAUTH_FAILURES`에 더하고 문구를 하나 더한다. 계약과 화면 둘을 고친다.
+closed: |
+  `createMcpAuth`의 `complete`가 받기 실패의 `forbidden`(발급자가 거절)을 `exchange_failed`("The service rejected the sign-in.")로 적는다. 시한·취소(`unavailable`)는 `callback_timeout` 그대로다. 실패 이유 enum은 바뀌지 않았다.
+guard: 없음

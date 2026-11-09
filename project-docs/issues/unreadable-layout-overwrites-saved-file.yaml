@@ -1,0 +1,14 @@
+id: unreadable-layout-overwrites-saved-file
+title: layout을 읽지 못하면 기본 layout이 저장된 파일을 덮는다
+kind: bug
+status: open
+topic: workspace-layout
+modules: [packages/shell/renderer, packages/shell/main]
+now: |
+  `WorkspaceWindow`의 `load`(`packages/shell/renderer/workspace/workspace-window.tsx`)는 `readWorkspaceLayout`이 실패했거나 `layout: null`(없음, 손상, 다른 판 `unsupported_schema`)이면 `freshLayout()`을 쓴다. 그 값은 `latestLayout`에만 들어가고 읽자마자 저장하지는 않지만, 그 뒤 사람이 탭을 열거나 옮기는 첫 `commit`이 `persist`로 전체를 쓴다(`saveWorkspaceLayout` → main의 `writeFileAtomic`). main의 읽기는 다른 판이면 "파일은 그대로 둔다"(`workspace-layout.md` 읽는 순서, `parseWorkspaceLayoutFile`)고 하는데 renderer가 그 약속을 이어 가지 않는다. 읽기가 `unreadable`(권한, 일시 오류)로 실패해도 같다.
+impact: |
+  새 판에서 쓴 layout을 옛 빌드로 열었다가(dev branch 전환 포함) 탭 하나를 열면, 새 판 layout 전체(desk, group, floated, 탭 배치)가 Main 하나짜리 기본 layout으로 덮인다. 다시 새 판으로 와도 못 돌린다. 일시적 읽기 실패 뒤 첫 조작도 같다. 탭 안의 파일·session 자체는 남는다.
+fix: |
+  - 읽기가 `ok: false`이거나 `unsupported_schema`·`corrupt`면 renderer가 그 workspace의 저장을 끈다(작음: `load`가 `saveBlocked` ref를 두고 `persist`가 건너뛴다. 사람에게 한 번 toast로 알린다).
+  - main의 write가 기존 파일이 읽히지 않는 판이면 거절한다(중간, 읽기와 쓰기 규칙을 main 한 곳에 둔다).
+  추천: 앞의 것. 손상(`corrupt`)은 사람이 잃을 게 없는 쪽이라 덮어도 되지만, 그 경우도 옛 파일을 `.bak`으로 한 번 옮겨 두면 값이 싸다.

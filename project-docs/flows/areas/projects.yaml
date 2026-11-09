@@ -1498,7 +1498,7 @@ flows:
       - packages/shell/main/browser/session.ts
       - packages/shell/main/browser/permission.ts
       - packages/shell/main/browser/electron-session.ts
-    docs: [architecture/browser-tab.md, products/change-log/0.17.0.md]
+    docs: [architecture/browser-tab.md, products/change-log/0.17/browser-google-sign-in.yaml]
     steps:
       - "permission request·check는 clipboard-sanitized-write를 main frame의 http·https 요청에만 허락하고 나머지는 모두 거절한다"
       - "device permission은 전부 거절한다"

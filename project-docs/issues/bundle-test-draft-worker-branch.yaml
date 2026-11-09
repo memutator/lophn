@@ -1,0 +1,15 @@
+id: bundle-test-draft-worker-branch
+title: bundle.test_draft가 worker 유무에 따라 다르게 돈다
+kind: defect
+status: kept
+topic: contexts
+modules: [packages/core/projects]
+now: |
+  `contexts/connection.ts`가 `bundle.test_draft` 읽기를 감싸, ledger가 만든 `running` 보고를 dispatcher가 붙어 있으면 `testDraft`로 worker 격리 검사를 돌려 끝난 보고로 바꾸고, 붙기 전(`dispatcher === undefined`)에는 `running`을 그대로 돌려준다.
+impact: |
+  경로가 둘이다. 실제로 dispatcher가 없는 때는 기동 직후와 worker 없는 조립(test)뿐이라 이대로 두어도 사람에게 보이는 문제는 없다.
+fix: |
+  추천: 남긴다. 이유(worker 없는 조립은 결과를 꾸미지 않는다)는 이미 `connection.ts`의 주석에 있다.
+closed: |
+  dispatcher가 없는 때는 기동 직후와 worker 없는 조립(test)뿐이라 사람에게 보이는 문제가 없다. 이유는 `connection.ts` 주석에 있다.
+guard: 없음

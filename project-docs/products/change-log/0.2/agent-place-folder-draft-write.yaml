@@ -1,0 +1,23 @@
+id: agent-place-folder-draft-write
+version: 0.2.0
+title: "agent가 data root 밖 place 폴더에서 일하고, 초안 폴더를 연 turn에 바로 쓴다"
+modules: [packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/core/projects, packages/core/apps]
+checked: [architecture-layers, architecture-agent-definition, architecture-approval, architecture-activation, architecture-app-call, architecture-coding-agent, architecture-annotation, architecture-ui-kit, tool-dev]
+change: |
+  전: agent runtime process의 Deno 권한에 place 폴더가 없어(`placeFolders`가 늘 빈 목록) data root 밖 project 폴더와 앱 source를 file tool과 shell이 읽지도 쓰지도 못했다. Project Manager가 `context.draft`로 초안 폴더를 연 같은 turn의 쓰기는 forbidden이었다. rewind의 쓰기 폴더 목록이 따로 만들어져 초안 폴더와 project Operator가 빠졌고, 그 쓰기는 되돌릴 수 없었다.
+  후:
+  - role·place별로 file tool이 읽고 쓰는 폴더 규칙은 `packages/core/agent-roles/place/place-folders.ts`의 `placeScope` 하나다. turn scope, rewind의 쓰기 폴더(`packages/core/main/daemon/place-folders-glue.ts`), runtime의 Deno 권한이 같은 것을 쓴다.
+  - Deno 권한은 active project 폴더와 active 앱 source 전체의 합(읽기·쓰기)에 `<data root>/projects` 쓰기를 더한 것이다. 목록이 바뀌면 hosts·MCP처럼 1초 polling에서 runtime을 다시 띄운다(돌던 turn은 끊긴다).
+  - `PlaceScope.open(folder)`가 생겼고 `openDraft`가 성공하면 부른다.
+why: |
+  place 폴더 목록을 만드는 곳이 둘이라 어긋났고, agent가 project 일을 못 했다.
+decisions:
+  - text: |-
+      Deno 권한은 열린 place 폴더 전체의 합이다. agent runtime process는 하나이고 권한은 띄울 때 정해진다. session마다의 범위는 file tool scope가 지킨다.
+    by: agent
+  - text: |-
+      초안 폴더는 목록 대신 상위 `<data root>/projects`째 쓰기를 연다. 초안마다 다시 띄우면 PM이 같은 turn에 쓰지 못한다. 그 상위의 project 설정 file(`extensions.json`)은 file tool scope가 막는다.
+    by: agent
+  - text: |-
+      폴더 규칙은 값만 받는 순수 함수이고 읽는 길(turn은 core read, rewind·runtime은 core SQL lookups)은 합치지 않는다.
+    by: agent

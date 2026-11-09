@@ -1,0 +1,70 @@
+id: harness-gui-in-terminal-tab
+version: 0.18.0
+title: "harness GUI가 터미널 탭 안으로 들어오고 TUI와 오가며, 대화 밖 session 기능이 ACP에 오른다(harness-gui 다음 판)"
+modules: [packages/protocol, packages/sdk, packages/core/lophn-agent, packages/core/main, packages/core/apps, packages/core/agent-workspaces, packages/cli, packages/coding-agent, packages/design, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/shell/terminal-host, tools, tests]
+checked: []
+change: |
+  - 전: `claude gui`(`codex gui`, `opencode gui`)는 lophn 창을 따로 열었다(`lophn gui`, open intent, `#harness-gui` 창). 그 창은 채팅 화면을 `external` source로 쓰며 lophn 전용 칸(model 고르기, slash 메뉴, rewind·fork, session menu)을 숨겼다. TUI로 돌아갈 길이 없었다. ACP 입력은 대화 조작뿐이라 session 관리(model, mode, 명령, rewind, fork, 사용량)는 lophn core route로만 됐다. omp는 없었다. OpenCode는 `opencode acp`였다.
+  - 후:
+    - GUI는 lophn 터미널 탭 안에서 연다. `claude gui`·`codex gui`·`opencode gui`·`omp gui`(`--resume <id>`)는 그 탭의 hook socket으로 `lophn hook <harness> lophn-gui`를 보내고 친 그 탭이 채팅 화면이 된다. 탭 머리 toggle이 같은 대화를 GUI와 그 CLI의 TUI 사이에서 오간다. Claude·omp는 한쪽 process를 끄고 같은 session id로 다른 쪽을 띄우며 modal로 알린다(돌던 turn과 background task 수). Codex·OpenCode는 탭 전용 server(`codex app-server` unix socket과 `codex --remote`, `opencode serve`와 `opencode --server`)에 TUI와 GUI가 같이 붙어 보이는 쪽만 바뀐다. 터미널 탭 머리의 "Open as chat"과 ⋯ 메뉴가 TUI → GUI이고, 쓸 수 없으면 이유를 보인다. 첫 판의 별도 창, open intent, `lophn gui`는 없다.
+    - CLI 환경: login shell env 전체를 받고 상위 session 표지를 지운다. CLI는 process group째 끈다.
+    - ACP에 대화 밖 session 기능이 오른다: session meta(model 축, mode, 명령 표, 사용량·한도, context 분해, 제목, CLI session id), capability, 입력(`set_model`, `set_mode`, `run_command`, `rewind`, `fork`, `compact`, `rename`, `set_toggle`, `use_role`, `stop_child`·`steer_child`·`stop_task`, `run_shell`, `open_session`), 갱신(`command_output` notice, subagent detail과 `child_update`, `tasks_changed`, `plan_changed`의 cancelled, plan 승인 카드와 `decide {kind:"mode"}`, `hidden_restored`, `tool_detail_changed`, `origin_set`, `draft_set`, `session_reset`), tool item의 `body`와 `by: "user"`, model 축의 `kind: "switch"`. 명령은 `source`·`aliases`·`opens`를 싣는다. `@lophn/agent`가 1.1.0이다.
+    - lophn core는 새 입력을 지금 route로 옮기고, lophn 내장 명령 14개(`/clear`는 new의 별칭)에 `opens`를 채운다. 채팅 화면은 lophn agent든 harness든 ACP capability로 칸을 가린다.
+    - adapter 넷: Claude는 Agent SDK(todo tool flag, subagent, background task, rewind 파일 미리보기, fork, `/clear`, 사용 한도), Codex는 app-server(Speed 축, `/review`, plan mode와 Implement 카드, goal, 질문), OpenCode는 server API로 다시 짰다(undo·redo와 되살리기, subagent, auto-accept, 판이 2.1.4와 다르면 notice), omp는 새로 `omp --mode rpc-ui`(role, Speed 축, goal, subagent, 명령 출력 markdown). 넷 모두 `!` shell, 지난 session 목록과 같은 탭에서 바꾸기, "Forked from …" 줄을 낸다.
+    - 화면: `/` palette(순위, 한 목록에 출처 배지, vendor 아이콘, 고른 줄을 따라 스크롤), info·명령 출력 블록, tool 본문 펼치기, composer dock(todo, subagent, background task, 대기열, toggle, goal, role, 사용 한도), subagent 보기는 탭 머리 ←/→와 제목 `{agent} › {subagent} · subagent`, thread index rail과 bookmark(`<dataRoot>/shell/thread-bookmarks.json`), shell mode composer(`!`로 시작하면 고정폭·Shell chip)와 사람 shell 줄("You ran", 펼친 출력), model picker는 Roles가 맨 위이고 provider 묶음을 접고 편다(fast·thinking·Speed는 picker 안 축, lophn agent도 같다), harness session menu와 `/resume`, "Rewound to …" 줄.
+    - lophn agent의 `!`: 사람이 친 명령을 승인 없이 그 session workspace의 기본 폴더에서 agent `shell.run`과 같은 runner로 돌리고, 사람 메시지(`shell` 칸)로 저장하며 turn을 열지 않는다. 다음 turn이 `<lophn-shell>`로 가져간다. Home은 끈다. 앱 bridge의 `run_shell`은 `forbidden`이다.
+    - 녹화: 네 CLI를 싼 model로 실제로 돌려 녹화했고 adapter test는 scrub한 fixture로 돈다. 원본은 저장소 밖 `.cache/harness-gui-recordings/<harness>-v2·v3/`이다.
+
+  옮기기: ledger step `lophn-agent.messages.shell`이 `messages`에 `shell` 칸(기본 0)과 사람 next-turn 메시지만 shell이 될 수 있다는 trigger를 더한다. 이미 있는 메시지는 그대로다.
+
+  검증: task마다 `check:full`, core 두 번 기동, renderer build. 네 CLI를 사람의 허락으로 싼 model(Claude haiku, Codex gpt-6-luna, OpenCode·omp deepseek-v4.1-flash)로 녹화했다(v2, 둘째 묶음은 v3). 위험 test는 lophn `!`의 scope·redaction·forbidden, fork 사본과 대기열 명령이 shell 기록을 건드리지 않는 것, 승인의 session 범위, omp `switch_session`이 다른 session을 열면 돌아가는 것이다. 바뀐 gallery 화면은 lead가 찍어 봤다. lead는 dev 앱을 몰지 못했고, 사람이 dev 앱에서 세 번 써 봤다. 마지막 묶음은 사람이 문제없다고 했다(2026-11-06).
+why: |
+  roadmap agent-platform 단계 8 다음 판(정한 것 8~12). 사람이 첫 판을 써 보고 "CLI 기능이 다 있어야 하고 탭 안에서 TUI와 오가야 한다"고 했다(2026-11-05). 뒤의 두 묶음은 사람이 dev 앱에서 써 보고 찾은 것이다.
+decisions:
+  - text: |
+      GUI는 lophn 터미널 탭 안에서만 열고, 친 그 탭이 GUI로 바뀐다. lophn 밖 터미널과 Home workspace에서는 하지 않는다.
+    by: person
+  - text: |
+      탭은 같은 대화를 GUI와 TUI 사이에서 toggle한다. Claude는 process를 끄고 resume하며 modal로 알린다. omp도 같고 Codex·OpenCode는 탭 전용 server에 같이 붙는다. 그냥 `codex`·`opencode`로 시작한 TUI는 GUI로 처음 넘길 때 한 번 껐다 켠다. agent가 제안했고 사람이 받았다.
+    by: person
+  - text: |
+      GUI에는 그 CLI에서 되는 채팅 기능을 다 넣고 기준은 각 데스크톱 앱이다. 대상은 Claude Code, Codex, OpenCode, omp다.
+    by: person
+  - text: |
+      대화 밖 session 기능은 ACP의 입력과 갱신이다. 첫 판의 `external` 숨김은 capability 검사로 바꿨다.
+    by: person
+  - text: |
+      `claude gui`는 앱 argv가 아니라 그 탭의 hook socket으로 shell main에 닿는다. 첫 판의 data root·argv bug가 생길 자리가 없다.
+    by: agent
+  - text: |
+      OpenCode는 `opencode acp`를 버리고 데스크톱 앱처럼 server API를 쓴다.
+    by: person
+  - text: |
+      권한은 사람 설정을 따르고, Codex만 `never`·`danger-full-access`일 때 `on-request`·`workspace-write`로 바꾼다. 영구 규칙이 되는 선택은 영구라고 적어 내놓는다.
+    by: agent
+  - text: |
+      명령은 화면 동작(`opens`), CLI에 보내고 출력 그리기, TUI 전용 숨김의 셋이다. palette 순위는 이름 정확 > 이름 앞부분 > 별칭 > 이름 조각 > 설명이다. 사람이 문제를 내고 agent가 레퍼런스로 정했다.
+    by: agent
+  - text: |
+      thread index는 사람 메시지 4개부터 보이고 bookmark는 shell data file 하나에 둔다(harness 대화는 ledger에 없다).
+    by: person
+  - text: |
+      omp role은 "이 session만 이 role의 model로"(`/switch @role`)만 넣고 `~/.omp` 배정은 바꾸지 않는다.
+    by: person
+  - text: |
+      shell mode는 harness 넷과 lophn agent 모두에 둔다. Claude `!`는 데스크톱 앱처럼 adapter가 돌리고 `<bash-input>`·`<bash-stdout>` 사람 메시지를 `shouldQuery: false`로 넣는다. 사람이 방향을 정하고 agent가 모양을 잡았다.
+    by: person
+  - text: |
+      lophn `!`는 사람이 친 것이라 승인 없이 agent shell runner로 돌고, 앱 bridge는 막는다. agent 추천이고 사람이 반대하지 않았다.
+    by: agent
+  - text: |
+      fast·thinking·Speed는 composer chip이 아니라 model picker의 축이다. picker는 Roles를 맨 위에 두고 provider 묶음을 접는다. lophn agent도 같다.
+    by: person
+  - text: |
+      subagent 보기는 따로 둔 Back 줄 없이 탭 머리 ←/→로 오간다.
+    by: person
+  - text: |
+      앱을 몰아 확인하는 app-check script는 만들지 않는다. 사람이 dev 앱으로 확인한다.
+    by: person
+follow_up: |
+  extension `harness-gui`를 켜야 쓴다(Settings › System › Extensions). worktree에서 dev 앱을 띄울 때 `chrome-sandbox`가 root 소유가 아니면 `ELECTRON_NO_SANDBOX=1`이 필요하다. 열린 이슈는 `project-docs/issues/harness-gui.md`에 넷(Claude가 끝난 뒤 이어 가기, adapter 넷의 줄 세우기 중복, Codex subagent 이벤트 경쟁, Claude `!`의 새 shell)이고, `npm run dev`가 떠 있는 dev 앱을 죽이는 결함은 `project-docs/issues/code-health.md`에 있다.

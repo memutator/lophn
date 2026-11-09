@@ -1,0 +1,16 @@
+id: pane-dom-under-docked-webview
+title: pane 안의 DOM이 docked browser page와 겹치면 page 밑에 그려진다
+kind: bug
+status: fixed
+topic: browser-tab
+modules: [packages/shell/renderer]
+now: |
+  보통 browser 탭의 `<webview>`는 pane 안이 아니라 floats 층(`packages/shell/renderer/workspace/floats/floats.module.css`, `--z-sticky`) 안의 webview host(`packages/shell/renderer/browser/webview-host.tsx`)에 있고, pane 탭이면 z-index 1로 탭 자리 사각형에 놓인다. floats 층이 pane보다 DOM 뒤에 있어 pane 안에서 portal이 아닌 요소가 그 사각형과 겹치면 page 밑에 깔린다. 예: pane 둘 사이 경계의 잡는 띠(`packages/shell/renderer/workspace/panes/panes.module.css`의 `.grab`, `--z-sticky`, 경계 양쪽으로 반씩)는 browser page 쪽 절반이 가려지고, 탭을 끌 때 pane 위에 그리는 drop 표시도 그 자리에서는 안 보인다.
+impact: |
+  browser 탭 옆 pane 경계를 잡을 수 있는 폭이 반으로 준다. 탭을 browser page 위로 끌 때 어디에 떨어질지 보이지 않는다.
+fix: |
+  - (추천, 작음) 경계 잡는 띠와 drop 표시처럼 page 위에 와야 하는 pane 요소를 floats 층보다 위 높이로 portal하거나, 그 요소만 webview host보다 높은 z-index를 갖는 층에 그린다.
+  - (중간) docked 탭의 `<webview>`를 pane 높이에 두는 그릇을 따로 둔다. Float·Dock 때 그릇이 바뀌면 다시 load되므로 floats 층과 한 stacking context를 유지하는 구조를 다시 짜야 한다.
+closed: |
+  floats 층(`workspace/floats/floats.module.css`)의 z-index를 없애 stacking context를 풀고, floated 패널을 `--z-sticky + 2L`, floated `<webview>`를 `--z-sticky + 2L+1`, pane `<webview>`를 1로 정했다(`floats.tsx`, `browser/webview-host.tsx`). pane 경계 잡는 띠(`--z-sticky`)가 docked page 위, floated 패널 아래에 그려진다. 탭 줄의 drop 표시는 page 영역 밖이라 겹치지 않는다.
+guard: 없음

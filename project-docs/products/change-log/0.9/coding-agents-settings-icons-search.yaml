@@ -1,0 +1,19 @@
+id: coding-agents-settings-icons-search
+version: 0.9.0
+title: 'Settings › Coding agents에서 아이콘이 모든 제품에 붙고, 찾은 제품이 위에 오고, 검색할 수 있다'
+modules: [packages/protocol, packages/coding-agent, packages/core/apps, packages/design, packages/shell/main, packages/shell/renderer]
+checked: [architecture-coding-agent, skill-ui-design]
+change: |
+  전: 아이콘을 제품 이름(label)으로 골라 "Oh My Pi", "Qwen Code", "GitHub Copilot CLI" 같은 줄에는 아이콘이 없었다. Sign-in 칸은 Codex만 `codex login status`로 확인하고 나머지 24개는 늘 "Sign-in not checked"였다. Skill 칸은 모든 줄이 `-`였다. 제품 25개가 정해진 순서로 한꺼번에 나왔다.
+  후:
+  - 아이콘은 harness id로 고른다(기본 제품 고르기도 같다). Sign-in 칸과 Skill 칸을 지웠다. 실행 파일을 찾은 제품이 먼저이고 나머지는 그 뒤이며 각 묶음 안의 순서는 그대로다. 표 위 검색 칸이 제품 이름이나 id에 검색어(대소문자 무시)가 들어 있는 줄만 보인다. 맞는 줄이 없으면 한 줄로 알린다. 기본 제품 고르기는 걸러지지 않는다.
+  - 로그인 확인을 끝까지 지웠다: adapter의 `login_probe`, 감지의 `auth`와 `login` probe, `harness.list`의 `login`, shell IPC의 `login`. 읽는 곳은 Settings 칸 하나뿐이었다.
+why: |
+  제품 대부분이 아이콘 없이 보였고, 칸 둘이 늘 같은 값이라 정보가 없었다. 제품이 25개라 찾은 것을 먼저 보여야 한다.
+decisions:
+  - text: |
+      로그인 확인은 Codex 하나에만 있어 칸이 "확인 못함"으로 차 있었다. 제품마다 방법이 달라 일반화하지 않고 지운다. 필요해지면 그때 다시 설계한다.
+    by: agent
+  - text: |
+      검색은 design `SearchFilter`를 그대로 쓴다.
+    by: agent

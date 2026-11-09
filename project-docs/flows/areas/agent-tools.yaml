@@ -337,7 +337,7 @@ flows:
     crosses_process: true
     risk: [sandbox, data-loss]
     refs: [A6, H4]
-    docs: [architecture/approval.md, issues/workspace-session.md]
+    docs: [architecture/approval.md, issues/shell-run-bypasses-file-scope.yaml]
 
   - id: tool-web-search
     title: "웹을 검색해 결과의 제목, 주소, 요약을 받는다"

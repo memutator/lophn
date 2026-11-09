@@ -1,0 +1,15 @@
+id: accepted-outgoing-kept-until-confirmed
+title: 보낸 말을 `accepted`로 남겼다가 확정 메시지가 오면 지운다
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `conversation/drafts.ts`의 `DraftStore.accepted`가 접수된 말을 입력칸에서 비우면서 `outgoing`을 `accepted`로 남긴다. `agent-view.tsx`가 thread의 messages나 queued에 같은 id가 도착한 것을 보면 `outgoing: null`로 지운다.
+impact: |
+  임시 상태가 하나 더 있고 `delivery-state.ts`의 단계(sending·accepted·not_sent·unconfirmed)와 같이 움직인다. 확정 메시지(또는 다음 turn 줄)가 오기 전까지 접수된 말을 thread에 임시로 보이게 하는 값이다.
+fix: |
+  추천: 남긴다. 접수 응답과 event 도착 사이 틈을 메우는 상태이므로 이유를 `accepted` 주석에 적고(몇 줄).
+closed: |
+  접수 응답과 event 도착 사이 틈을 메우는 상태이고 `delivery-state.ts`의 단계와 같이 움직인다. 이유를 `accepted` 주석에 둔다.
+guard: 없음

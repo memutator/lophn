@@ -1,7 +1,7 @@
 # subscription-oauth: Claude·Antigravity 구독 provider의 남은 일
 
-상태: 로드맵. 첫 구현은 main에 있다(commit `0dbf3658f`, `project-docs/products/change-log/0.9.0.md` "Claude와 Google Antigravity 구독 계정으로 provider를 연결함"). 실제 계정으로는 아직 아무것도 확인하지 않았다. 이 문서는 그 뒤에 남은 일을 모은다.
-배경 문서: `project-docs/architecture/agent-definition.md`, `project-docs/products/change-log/0.2.0.md`, `project-docs/products/change-log/0.9.0.md`, `research_notes/omp-subscription-oauth/README.md`.
+상태: 로드맵. 첫 구현은 main에 있다(commit `0dbf3658f`, `project-docs/products/change-log/0.9/claude-antigravity-subscription-oauth.yaml`). 실제 계정으로는 아직 아무것도 확인하지 않았다. 이 문서는 그 뒤에 남은 일을 모은다.
+배경 문서: `project-docs/architecture/agent-definition.md`, `project-docs/products/change-log/0.2/chatgpt-supergrok-subscription-login.yaml`, `project-docs/products/change-log/0.9/claude-antigravity-subscription-oauth.yaml`, `research_notes/omp-subscription-oauth/README.md`.
 
 ## 왜
 
@@ -34,7 +34,7 @@
 - (사람, 2026-10-29) Claude 구독 OAuth와 Antigravity를 provider로 넣는다. 0.2.0의 Claude 배제 결정과 이 문서의 옛 추천 A를 뒤집는다.
 - (사람, 2026-10-29) 구현은 `research_notes/omp-subscription-oauth/`의 README와 구현자용 문서 넷(implementation-spec, claude-code, google-antigravity, fixtures)만 보고 했다. 원본 코드, 분석 문서, 웹은 보지 않았다.
 - (agent, 2026-10-25) `~/.claude/.credentials.json`, macOS keychain, `~/.gemini/antigravity-cli/...`를 읽어 쓰는 방식은 채택하지 않는다. refresh token rotation과 secret 경계가 깨진다.
-- 첫 구현의 나머지 결정은 `change-log/0.9.0.md`의 그 항목에 있다.
+- 첫 구현의 나머지 결정은 `change-log/0.9/claude-antigravity-subscription-oauth.yaml`에 있다.
 
 ## 하지 않는 것
 

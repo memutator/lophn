@@ -1,0 +1,19 @@
+id: in-app-agent-builder-guidance
+version: 0.20.0
+title: "앱 안 agent: builder 안내"
+modules: [packages/core/agent-workspaces, packages/core/apps, packages/sdk]
+checked: []
+change: |-
+  전: builder가 앱 안 상대·코치를 만들 때 기본 lophn agent를 그대로 썼다(turn마다 제품 규칙과 file·shell tool이 실렸다). SDK의 `agent` 값을 알아내려고 SDK와 설치된 Electron bundle을 뜯어 봤다. 판마다 session을 나누지 않았다. template이 "앱 CSS는 token만"이라 판과 돌도 회색 token으로 그렸다.
+  후: `design-app` skill에 "An agent inside the app" 절이 있다. 이 앱 workspace에서 bare agent를 먼저 만든다(`lophn agent create <handle>`, `tools: []`, 지침에 역할·context block·답 꼴). 화면은 `useAgentSession({agent: <handle>, title})`를 쓰고, 일 단위(판, review)마다 session 하나를 쓰며 그 id를 앱 data에 두고 `session`으로 다시 붙는다. 다음 단위는 `reset()`과 새 `title`이다. 앱이 context를 조립하고 agent는 JSON으로 답하며 앱 code가 검사한다. app workspace 지침, template `AGENTS.md`, `@lophn/agent` guide가 같은 것을 말하고, `new-app` handoff는 앱 안 agent를 정했는지 적는다. 앱 틀은 token만 쓰고 판·말·지도·차트 같은 domain 그림은 고정 색과 gradient를 써도 된다.
+why: |-
+  사람은 lophn 구현을 모른다. SDK 쓰는 법, agent 만들기, bare 지침 쓰기까지 lophn agent가 해야 한다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      앱 안 agent는 bare로 만들고 앱이 context를 조립해 JSON으로 답하게 하는 것이 기본이다. command는 앱 data를 건드려야 할 때만 준다.
+    by: person
+  - text: |-
+      `model`은 builder가 알 때만 정한다. provider 목록을 읽을 명령이 없다.
+    by: agent
+follow_up: |-
+  builder는 preview에서 화면을 보지 못한다. 안내는 agent와 주고받는 논리를 순수 함수로 두고 test하는 데 기댄다.

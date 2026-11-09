@@ -1,0 +1,15 @@
+id: shell-string-route-unchecked
+title: shell이 문자열로 부르는 core route가 지워져도 check가 잡지 못한다
+kind: bug
+status: fixed
+topic: shell
+modules: [packages/shell/main, packages/shell/renderer, tools]
+now: |
+  shell main과 renderer는 core route를 `call("read", "<resource>", "<method>", …)`처럼 문자열로 부른다(예: `packages/shell/main/app-frame/app-connection.ts`). route를 지우거나 이름을 바꿔도 type check와 core 기동은 통과한다. `releases.get`을 지운 commit 뒤 데스크톱 앱의 모든 live 앱 화면이 "Couldn't load <앱>"으로 떴고, 나흘 뒤 사람이 앱을 열어 보고서야 드러났다. 안 쓰는 export를 정리하다 화면 셋이 부르던 route를 지운 일도 앞서 있었다. 지금은 worker 지침의 "method를 문자열로도 grep한다"만 막는다.
+impact: |
+  사람이 데스크톱 앱에서 그 기능을 쓸 수 없다. e2e는 Electron 화면을 띄우지 않아 보지 못한다.
+fix: |
+  `tools/check-source.ts`에 규칙 하나. shell의 문자열 route 호출(resource·method 짝)을 모아 protocol의 route 목록에 없는 짝을 막는다(작음). 추천.
+closed: |
+  `tools/check-source.ts`의 규칙 `SHELL_ROUTE`가 `packages/shell/main`·`packages/shell/renderer`의 문자열 route 호출(`call`·`internal`·`coreInternal`은 kind가 첫 인자, `read`·`memory`·`command`·`upload`·`fileStream`은 호출 이름이 kind)과 `"memory:settings/list"` 같은 이름 문자열을 `SHELL_ROUTES`(`packages/shell/main/desktop/core/routes.ts`)에 대어 없는 짝을 막는다. kind·resource·method가 변수인 호출은 읽지 않는다. 처음 돌렸을 때 깨진 호출은 없었다.
+guard: tools/check-source.ts rule SHELL_ROUTE

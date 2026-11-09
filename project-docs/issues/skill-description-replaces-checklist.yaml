@@ -1,0 +1,17 @@
+id: skill-description-replaces-checklist
+title: 'skill 설명이 본문의 체크리스트를 대신해서 skill을 안 읽고도 통과한다'
+kind: defect
+status: fixed
+topic: agent-definition
+modules: [packages/core/agent-workspaces, packages/core/lophn-agent]
+now: |
+  prompt의 skill 목록(`packages/core/lophn-agent/prompt-assembly/skill-list.ts`)은 SKILL.md frontmatter의 `description` 한 줄만 싣는다. `packages/core/agent-places/skills/design-app/SKILL.md`의 description은 본문이 정한 `DESIGN.md` 절 이름 일곱(`Purpose, Reuse, Model, Journeys, Screens, Tools, Failure branches`)을 그대로 들어 있다. 본문이 실제로 정하는 것(절마다 무엇을 쓰나, kit guide를 먼저 읽어라, 화면 원칙)은 description에 없다.
+impact: |
+  model이 description만으로 `DESIGN.md`의 뼈대를 채울 수 있어 "skill을 읽었다"와 "절 이름만 안다"가 산출물에서 구별되지 않는다. 실제 session은 skill 본문을 한 번도 못 읽은 상태에서 그 일곱 절을 모두 채웠고, 본문이 금지한 것(앱 이름을 화면 머리에 다시 쓰기, 화면을 설명하는 상시 문단, 자산 안내 문단)을 그대로 넣었다. skill 본문이 유일한 전달 경로인 규칙이 조용히 빠진다.
+fix: |
+  - 작음(추천): `design-app`의 description에서 절 목록을 빼고, 무엇을 하는 skill인지만 한 줄로 남긴다("Design an app or a change before you build it; write DESIGN.md as this skill says."). 절과 규칙은 본문에만 둔다. 다른 내장 skill도 description이 본문을 요약하지 않는지 같은 눈으로 본다.
+  - 작음: skill 목록 글에 "본문을 읽지 않았으면 그 skill의 절차를 지킨 것으로 보지 않는다" 한 줄을 더한다. 문장으로 막는 것이라 다시 생길 수 있다.
+  - 추천: 앞의 것. description은 "읽을지 말지"를 고르는 재료여야 하고, 절차의 요약이면 안 된다.
+closed: |
+  다섯 내장 skill(`design-app`, `new-app`, `repair-app`, `check-domains`, `write-workflow`)의 `description`에서 절 이름·단계·파일 모양을 뺐다. `design-app`은 "Design an app or a change before you build it. Read this skill and write DESIGN.md as it says."다. `make-domain`, `write-kinds`, `write-artifact`는 본문이 다루는 주제만 이름으로 들어 규칙을 주지 않으므로 그대로 두었다. `architecture/agent-definition.md`에 그 규칙을 한 줄 더했고, shell의 dev-mock `/` 메뉴(`agent-tab-fake-commands.ts`)가 같은 글을 갖도록 고쳤다.
+guard: packages/core/agent-places/skills/*/SKILL.md frontmatter description 다섯

@@ -1439,7 +1439,7 @@ flows:
         observe: [process:pty-shell]
     crosses_process: true
     risk: [secret, twice-fixed]
-    docs: [architecture/terminal-agent.md, products/change-log/0.9.0.md]
+    docs: [architecture/terminal-agent.md, products/change-log/0.9/terminal-env-colorterm-truecolor.yaml]
     unclear:
       - "env_test는 COLORTERM만 단정한다. secret 이름을 빼는 것은 테스트가 없다"
 

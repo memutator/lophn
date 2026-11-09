@@ -1,0 +1,16 @@
+id: claude-code-folder-trust-prompt
+title: Claude Code가 coding session마다 folder trust를 묻는다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/coding-agent, packages/protocol]
+now: Claude Code(2.1.302)는 처음 여는 폴더마다 folder trust 화면을 띄우고, 고를 때까지 hook이 돌지 않는다. 앱 source 폴더는 자기 `.git`을 가진 새 project라, 상위 폴더(`/tmp/lophn-eval`)를 믿어 두어도 다시 묻는다. 이 화면을 넘기는 CLI flag가 없어 launch plan(`packages/protocol/coding-agent/launch-plan.ts`)도 넘기지 못한다.
+impact: 사람이 터미널 앞에 없으면 첫 session이 trust 화면에서 멈춘다. 데스크톱에서는 사람이 앱마다 한 번 골라야 한다. eval의 calendar-diagnose 첫 run에서는 터미널 셋이 모두 이 화면에서 2분 뒤 `no_session_start`로 끊겼다.
+fix: |
+  - 제품: 첫 session을 열기 전에 사람에게 "Claude Code에서 이 폴더를 믿어야 한다"고 알린다(작음). 또는 `~/.claude.json`에 trust 기록을 쓴다(중간. 사람의 설정 file을 고친다).
+  - eval: driver가 trust 화면 글을 보면 "Yes"를 고르고 기록에 남긴다(작음). 사람이 정했다.
+decided: |
+  - eval은 driver가 대신 고르고 `CodingTrace.trust_answered`에 남긴다(사람).
+  - 제품은 "알린다"로 한다. 터미널을 열고 첫 hook 신호를 아직 안 낸 coding session을 대기 목록에 "터미널에서 Claude Code 확인이 필요할 수 있다"로 보이고, 누르면 그 탭으로 focus가 간다. 화면 글은 긁지 않고, `~/.claude.json`은 쓰지 않는다(사람).
+closed: 제품은 알린다. 터미널을 열고 5초 안에 첫 hook 신호가 없는 coding session(첫 신호가 `SessionStarted`인 harness)을 shell renderer가 대기 목록에 `coding_start` 항목("Check the terminal")으로 넣고, 누르면 그 탭으로 focus가 간다. 첫 신호, `SessionEnded`, 터미널 exit, snapshot에서 들은 session이면 지운다(`packages/shell/renderer/desktop/connection/events/waiting-store.ts`). eval은 driver가 trust 화면에 답한다(`tests/eval/coding/driver/trust.ts`).
+guard: 없음

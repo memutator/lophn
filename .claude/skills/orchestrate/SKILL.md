@@ -65,7 +65,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 ### 4. 받기
 
 1. 보고를 읽고 diff와 대조한다. 보고만 믿지 않는다.
-2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳)은 `project-docs/issues/<topic>.md`에 `defect` 이슈로, **알려진 미완 동작**은 `bug` 이슈로 덧붙인다. 단 `issue` skill의 "올릴지"를 먼저 거친다. 그 task 안에서 고칠 만큼 작으면 같은 worker에게 SendMessage로 고쳐 보내게 하고, "확인 못 함"은 lead가 merge 전에 확인한다. 손해가 구체적이지 않은 무게와 사실을 적은 것은 올리지 않는다.
+2. **무겁게 짠 것**(가장 단순한 구현보다 무겁게 짠 곳)은 `project-docs/issues/<id>.yaml`에 `kind: defect` 이슈로, **알려진 미완 동작**은 `kind: bug` 이슈로 올린다. 단 `issue` skill의 "올릴지"를 먼저 거친다. 그 task 안에서 고칠 만큼 작으면 같은 worker에게 SendMessage로 고쳐 보내게 하고, "확인 못 함"은 lead가 merge 전에 확인한다. 손해가 구체적이지 않은 무게와 사실을 적은 것은 올리지 않는다.
 3. worker가 크게 잘못한 것(review에서 되돌린 것, 사람이 찾은 것)은 `mistake` 이슈로 만든다. 원인과 막을 check나 문장을 적는다.
 4. review(아래)를 한다. 통과하면 merge한다.
 5. 안 되면 셋 중 하나다: 같은 worker에게 SendMessage로 고칠 것을 보낸다 / brief를 고쳐 다시 띄운다 / `blocked`로 두고 이유를 적는다. 두 번 실패한 task는 brief를 쪼갠다.
@@ -94,6 +94,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
   - main에서 같은 file을 고치는 다른 계획이나 session이 있을 때
   - plan branch가 오래 열려 rebase가 커질 때
 - land를 미루면 e2e 실패가 늦게 드러난다. 그래서 protocol 이름, id 꼴, 문자열 값을 바꾸는 task의 brief "남지 않음" grep은 `tests/`까지 본다(e2e의 옛 기대값을 brief grep이 `packages tools`만 봐서 놓쳤다).
+- land하기 전에 이 계획이 `packages/`를 바꿨으면 PATCH를 올린다: root `package.json`의 `version`을 하나 올리고 `project-docs/products/change-log/<x.y>/<id>.yaml` 항목을 그 판으로 쓴다(`modules`는 계획 전체 diff에서 동작·계약이 바뀐 module-catalog path, `context-review`로 걸려 봤지만 고칠 것이 없던 registry ID는 `checked`, 결정은 `decisions`의 `by: person | agent`). 계획 하나는 land가 여러 번이어도 PATCH 하나다. 고친 이슈는 `status: fixed`로 닫는다. 규칙은 `products/change-log/README.md`다. 판을 올리거나 항목을 쓰지 않으면 check의 records가 잡는다.
 - land할 때는 status와 이슈를 commit한 뒤 `project-docs/plan/tools/lead/land.sh <계획>`으로 main에 올린다. 하는 일: lead worktree를 main 위로 rebase → `package-lock.json`이 바뀌었으면 `npm ci` → `check:full` → (`tests/e2e`에 test가 있으면) `npm run e2e:deps`, `npm run e2e` → core 두 번 기동 → main fast-forward. land는 lock(`.git/lophn-land.lock`)으로 하나씩 돈다. 다른 land가 돌면 "다른 land가 끝나기를 기다린다"를 찍고 기다린다. 그 사이 main이 움직이면 처음부터 다시 돌지 않는다: 다시 rebase하고 빠른 check를 본 뒤, 바뀐 쪽이 e2e에 닿을 때(core, protocol, cli, sdk, base, tests)만 e2e와 기동을 다시 돈다. `STOP: main ff failed`면 main checkout에 그 commit들과 겹치는 고친 file이 있는 것이다. main을 건드린 쪽(사람이나 다른 session)에게 알린다.
 - 계획이 끝나면 계획 폴더를 지운 commit까지 land하고 lead worktree와 plan branch를 지운다(`git worktree remove`, `git branch -d plan/<계획>`).
 - push는 사람 확인 뒤에만 한다.
@@ -129,8 +130,8 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - merge가 도는 동안 plan branch에 commit하지 않는다. merge.sh가 rebase한 뒤 ff하려다 `STOP: ff failed`로 멈춘다. status·이슈 commit은 merge 사이에 한다.
 - land가 도는 동안 main에 commit하면 land.sh가 다시 rebase하고 check를 더 돈다. 코드가 e2e에 닿으면 e2e도 다시 돈다. 그래서 land 중에는 main에 commit하지 않는 편이 빠르다.
 - land 뒤에 다음 merge를 이어 붙일 때는 `land.sh && merge.sh …`처럼 land의 종료 코드를 본다. agent-card에서 land가 e2e로 실패했는데 명령이 그 실패를 보지 않아 다음 task merge가 먼저 돌았고, 그 뒤 land를 모두 다시 돌렸다.
-- land.sh가 rebase 충돌로 멈추면 lead worktree에서 풀고 `git add`, `git rebase --continue` 뒤 land.sh를 다시 돈다. changelog 열린 판의 끝 항목은 다른 계획과 늘 부딪힌다: 둘 다 남긴다. plan branch를 손으로 `git rebase main`하는 명령은 분류기가 막았다(worker branch가 그 위에 있을 때). land.sh 길로 한다.
-- lead가 쓸 문서(이슈 닫기, changelog, architecture)가 main에서 다른 계획이 고친 file과 겹치면, main에서 갈라진 branch에서 쓰고 land의 rebase가 끝난 뒤 lead worktree에 cherry-pick한다. 옛 base에서 쓰면 rebase 충돌이 문서마다 난다.
+- land.sh가 rebase 충돌로 멈추면 lead worktree에서 풀고 `git add`, `git rebase --continue` 뒤 land.sh를 다시 돈다. `package.json`의 판은 다른 계획과 부딪힌다: 높은 쪽 판으로 다시 올리고 내 항목의 `version`과 폴더를 맞춘다. 항목은 file이 따로라 서로 부딪히지 않는다. plan branch를 손으로 `git rebase main`하는 명령은 분류기가 막았다(worker branch가 그 위에 있을 때). land.sh 길로 한다.
+- lead가 쓸 문서(이슈 닫기, change-log 항목, architecture)가 main에서 다른 계획이 고친 file과 겹치면, main에서 갈라진 branch에서 쓰고 land의 rebase가 끝난 뒤 lead worktree에 cherry-pick한다. 옛 base에서 쓰면 rebase 충돌이 문서마다 난다.
 - wiring에 memory handler만 붙이고 팀 registration의 `memoryRoutes`에 route를 빼면 요청이 늘 `not_found`인데 check와 기동은 통과했다(여섯 route가 그랬다). 지금은 core 기동이 둘을 대조해 멈춘다.
 - turn 경로(model resolver 같은 runtime 쪽 코드)가 machine 자격으로 새 read를 부르면 `packages/core/lophn-agent/run-loop/runtime-access.ts`의 `RUNTIME_MACHINE_ROUTES`에 그 route를 더한다. 빠지면 unit(가짜 machine)과 core 기동은 통과하고, e2e에서 모든 turn이 시작하자마자 `configuration_unavailable`로 끝났다.
 - land와 merge를 background로 돌릴 때 출력은 `| tail`로 받지 말고 file로 받는다. land.sh는 단계마다 시각과 단계 이름 한 줄(`lock을 잡았다`, `check:full`, `e2e`, `core 두 번 기동`, `main fast-forward`)을 바로 찍고, 단계의 출력은 실패할 때만 찍는다. "다른 land가 끝나기를 기다린다" 뒤에 `lock을 잡았다`가 없으면 아직 기다리는 중이다. e2e가 도는 동안의 진행은 그 test의 data root(`/tmp/lophn-e2e-*`)에 새 file이 쓰이는지로 본다(e2e가 멈춘 것을 40분 동안 몰랐다).

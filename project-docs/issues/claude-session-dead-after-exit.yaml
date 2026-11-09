@@ -1,0 +1,16 @@
+id: claude-session-dead-after-exit
+title: '`claude`가 끝나면 그 GUI에서 더 이어 갈 수 없다'
+kind: bug
+status: fixed
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  `claude.ts`는 SDK의 `for await`가 끝나거나 throw하면 `dead`를 두고 실패한 turn을 하나 낸다(`failure`). 그 뒤의 `send`는 사람 메시지를 보이고 곧바로 같은 오류로 실패한 turn이 된다(`sendText`). `dead`를 되돌리는 곳이 없고, session menu에서 같은 session을 고르면 `openSession`이 아무것도 하지 않는다.
+impact: |
+  CLI가 죽거나 끝난 뒤에는 사람이 TUI로 넘겼다가 GUI로 다시 와야(새 adapter가 같은 session id로 resume한다) 이어 간다.
+fix: |
+  - 다음 `send`에서 같은 session id로 `reopen`해 query를 다시 열고 `dead`를 비운 뒤 그 메시지를 넣는다. 작음. 추천.
+  - GUI에 "CLI가 끝났다"를 보이고 입력창을 막는다. 작음. 이어 가기는 여전히 toggle로만 된다.
+closed: |
+  `dead` 뒤의 send는 같은 CLI session id로 query를 다시 열고(`revive`, 메시지가 없던 session은 `sessionId`) 그 메시지를 넣는다. 다시 열기가 실패하면 이유 줄과 함께 실패한 turn이다. `reopen`이 `dead`를 비우고, session menu에서 같은 session을 다시 고르면 다시 연다. 다시 열 때 돌던 `!` 명령은 끝나고 그 결과는 model에게 가지 않는다.
+guard: '`packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` "CLI가 끝난 뒤의 send는 같은 session id로 query를 다시 열어 그 메시지를 넣고, 못 열면 실패한 turn으로 끝난다"'

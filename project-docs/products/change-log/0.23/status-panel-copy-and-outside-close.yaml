@@ -1,0 +1,9 @@
+id: status-panel-copy-and-outside-close
+version: 0.23.0
+title: "`/status` panel에서 session id를 복사하고, 바깥을 누르면 닫는다"
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: session id를 손으로 골라 복사했고, panel은 닫기 단추로만 닫혔다.
+  후: session 줄에 복사 아이콘 단추가 있다. panel 밖을 누르면 닫힌다. status footer는 눌러서 여닫는다.
+why: session id를 손으로 골라 복사하는 것과 닫기 단추만으로 닫는 것이 번거로워서, 복사 단추와 바깥 누르기 닫기를 더했다.

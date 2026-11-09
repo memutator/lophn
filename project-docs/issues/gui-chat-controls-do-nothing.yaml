@@ -1,0 +1,25 @@
+id: gui-chat-controls-do-nothing
+title: GUI 창에 남은 채팅 화면 칸 몇이 눌러도 아무 일이 없다
+kind: bug
+status: fixed
+topic: harness-gui
+modules: [packages/shell/main, packages/shell/renderer]
+now: |
+  창은 lophn 채팅 화면(`AgentView`)을 source(`packages/shell/renderer/conversation/agent-tab-gui-source.ts`)만 바꿔 쓴다. source의 `external`이 lophn 전용 칸은 숨기지만, 아래 칸은 화면에 남고 뒤가 비어 있다.
+  - 실패한 turn의 Retry: source는 `retry` 입력을 보내지만 `claude.ts`의 입력 switch가 `default`로 버린다(`codex.ts`, `opencode.ts`는 그 turn의 사람 메시지를 다시 보낸다).
+  - 줄에 선 메시지의 "지금 보내기": source는 `send_queued`를 보내지만 `claude.ts`와 `opencode.ts`가 버린다(SDK와 표준 protocol에 steer가 없다. `codex.ts`는 `turn/steer`로 넣는다).
+  - 이미지 붙이기: source의 `uploadImage`가 없어 붙이면 오류가 보인다. adapter도 사람 메시지에서 글과 `resource` block만 넘긴다.
+  - tool 줄 펼치기: `toolCallBody`가 `not_found`라 입력·출력 본문이 없고 제목과 상태만 보인다(ACP는 본문을 싣지 않는다).
+  - edit 카드의 [Open]과 file 경로 누르기: 창에 file을 여는 host가 없다.
+impact: |
+  사람이 누르면 아무 일이 없거나 오류를 본다. 이미지를 보내지 못한다.
+fix: |
+  - Retry: `claude.ts`도 codex·opencode처럼 그 turn의 사람 메시지를 다시 보낸다. 작음. 추천.
+  - 지금 보내기: steer가 없는 harness에서는 adapter가 표에 그 능력을 내고 창이 단추를 숨긴다. 작음.
+  - 이미지: 창의 이미지 올리기를 main으로 받고 adapter가 SDK의 image block으로 넣는다. 중간.
+  - tool 본문: adapter가 tool 입력·결과를 들고 handle에 본문 읽기를 더한다. 중간.
+  - [Open]: 창이 OS 기본 앱이나 lophn 문서 탭으로 연다. 작음.
+  - 당장 고치지 않는 칸은 `external`일 때 숨긴다. 작음.
+closed: |
+  계획 harness-gui-tab. Claude도 `retry`를 그 turn의 사람 메시지로 다시 보낸다. 지금 보내기는 Claude `cancelAsyncMessage`, OpenCode `delivery: "steer"`로 한다. 이미지는 GUI source의 `uploadImage`가 main이 쓴 tmp file의 `file://` link를 싣는다. tool 본문은 ACP tool item `body`다. [Open]과 file 경로는 탭 host의 `openFile`이다. `external` 숨김은 capability 검사로 바뀌었다.
+guard: 없음

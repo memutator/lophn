@@ -1,0 +1,10 @@
+id: claude-gui-commands-usage-warning
+version: 0.22.0
+title: "Claude GUI: 다시 그린 명령 기록과 사용 한도 warning"
+modules: [packages/shell/main]
+checked: []
+change: |
+  전: TUI에서 친 `/` 명령(`<command-name>`)과 그 출력(`<local-command-stdout>`), compact 요약이 GUI를 다시 열면 사람 메시지로 보였다. 사용 한도 warning은 "Usage limit allowed_warning (seven_day)"처럼 SDK 값 그대로였고 event마다 다시 떴다.
+  후: 다시 그릴 때 명령 출력은 명령 출력 notice로, compact 요약은 "Compacted the conversation"으로 그리고, 명령 이름 줄과 `is_meta` 줄은 그리지 않는다. warning은 "You've used 82% of your weekly limit. It resets Fri at 10:00."처럼 창 이름·사용률·초기화 시각으로 쓰고, 창마다 단계(warning, 다 씀)가 바뀔 때 한 번만 낸다. 서버는 낮은 문턱부터 `allowed_warning`을 보내므로 CLI TUI처럼 사용률 70% 밑의 warning은 내지 않는다.
+why: |
+  TUI 명령 기록과 SDK의 날것 값이 GUI에 사람 메시지나 기계 문구로 그대로 보여 헷갈렸다.

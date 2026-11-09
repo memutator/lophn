@@ -1,0 +1,50 @@
+id: fix-late-job-turns-and-eight-bugs
+version: 0.7.0
+title: 잠든 사이 늦은 job 차례를 놓친 차례로 치고, 작은 bug 여덟을 고침
+modules: [packages/core/jobs, packages/core/main, packages/core/lophn-agent, packages/core/apps, packages/design, packages/shell/renderer, tools, tests]
+checked: [tool-check, architecture-layers, architecture-testing, architecture-eval, architecture-agent-call, architecture-app-call, architecture-run, architecture-artifact, architecture-appearance, tool-worktree-prep, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-models-snapshot, skill-ui-design]
+change: |
+  전:
+    - job: 차례 시각보다 늦게 처리한 차례도 켜진 채면 제때 온 차례로 쳐서, `hold` job이 노트북을 덮어 둔 밤을 지나 열면 묻지 않고 돌았다. scheduler는 다음 차례까지 길어야 1시간을 자서, 깬 뒤에도 남은 잠이 지나야 바퀴가 돌았다. run이 끝났는데 `job_run.ended` 기록이 실패하면 그 줄이 `running`으로 남아 다음 기동까지 그 job의 차례가 모두 `skipped(overlap)`였다.
+    - 사람이 session 도중 끈 MCP server의 tool을 agent가 도는 turn 안에서 계속 부를 수 있었다. shell 물음을 사람이 이유를 적어 거절해도 agent는 "the person rejected this tool call"만 받았다.
+    - blueprint와 앱 handler가 다르면 `release.prepare`의 reason이 "probe was rejected (409)"뿐이었다. 앱 폴더에서 `deno.json`에 더한 `npm:`·`jsr:` 의존은 앱의 `deno task check`·`test`에서 풀리지 않았다(map을 `app.create` 때만 썼다).
+    - 대화 입력창에 아무 일도 하지 않는 붙이기(+) 단추가 있었다. 숨은 desk의 terminal이 연 URL은 browser 탭이 아니라 OS browser로 열렸다. GraphDiagram의 되돌아가는 edge가 사이 node 뒤로 지나가 어느 step으로 가는지 가를 수 없었다.
+    - agent runtime child가 stderr에 쓴 진단을 core가 버렸다. shell이 문자열(resource, method)로 부르는 core route가 지워져도 check가 잡지 못했다.
+  후:
+    - job: 가장 오래된 온 차례(`next_due_at`)보다 10분 넘게 늦게 처리한 차례는 켤 때와 같이 놓친 차례다. `hold`면 hold card로 묻고 `run`이면 한 번 돈다. scheduler의 최대 잠은 1분이다. 바퀴마다 run이 있는 열린 job run 줄의 run 상태를 한 번 읽어(`JobStarter.runState`) 끝났으면 `ended`를 다시 적는다. 켜는 첫 바퀴는 읽지 않는다.
+    - MCP tool은 부를 때마다 전역·project 층 server 설정을 다시 읽어 꺼진 server면 `unavailable`로 거절한다. Operator 정의 층의 `off`는 다음 turn부터 막는다. shell 물음의 거절 이유는 tool 결과 `the person rejected this tool call: <이유>`로 간다.
+    - 앱 진입점의 `/probe` 409 message가 빠진 tool(`declared without a handler`)과 더해진 tool(`handler not declared`)을 각 5개와 `and N more`로 싣고, `probeChild`가 그 message를 500자까지 reason에 붙인다. 앱 template의 `check`·`test`·`wording` task가 먼저 `scripts/refresh-import-map.ts`로 `deno.json`에서 `.lophn/import-map.json`을 다시 쓴다.
+    - 붙이기 단추와 `onAttach`, host의 `attach`, wording key `conversation.button.attach`를 지웠다. 숨은 desk의 terminal이 연 URL은 그 desk에 browser 탭으로 열리고 화면이 그 desk로 넘어간다. GraphDiagram의 되돌아가는 edge는 node 줄 위 여백으로 돌아 도착 node 위로 들어간다.
+    - core가 agent runtime child의 stderr 줄을 `agent runtime: ` 접두로 core stderr에 쓴다. check `source`에 규칙 `SHELL_ROUTE`가 생겼다. shell main·renderer의 문자열 route 호출과 `"memory:settings/list"` 같은 이름이 `SHELL_ROUTES`에 없으면 막는다. 처음 돌렸을 때 깨진 호출은 없었다.
+why: |
+  고칠 안이 정해진 열린 이슈(job 둘, approval 둘, activation 둘, shell 둘, platform, ui-kit, workspace-layout 하나)를 한 계획으로 묶었다. handler 실패 reason은 두 번째로 고친 bug라 진입점의 거절을 지나는 test와 e2e 단정을 같이 두었다.
+
+  닫은 이슈: job "job run 끝을 적지 못하면 그 job은 다음 기동까지 돌지 않는다"와 "컴퓨터가 잠든 사이 놓친 hold job의 차례는 묻지 않고 돈다", approval "session 도중 끈 MCP server의 tool이 그 session 끝까지 돈다"와 "shell 물음을 거절한 이유가 agent에게 가지 않는다", activation "release 준비의 handler 검사가 떨어지면 이유가 \"probe was rejected (409)\"뿐이다"와 "App Engineer가 `deno.json`에 더한 의존이 앱 폴더의 `deno task check`·`test`에서 풀리지 않는다", shell "대화 입력창의 붙이기 단추가 아무 일도 하지 않는다"와 "shell이 문자열로 부르는 core route가 지워져도 check가 잡지 못한다", platform "agent runtime child가 stderr에 쓴 진단을 core가 버린다", ui-kit "GraphDiagram에서 층 둘 이상을 되돌아가는 edge가 사이 node 뒤로 지나간다", workspace-layout "다른 desk에 있는 terminal이 연 URL은 browser 탭이 아니라 OS browser로 열린다".
+decisions:
+  - text: |-
+      차례 시각보다 10분 넘게 늦게 처리한 차례는 켤 때와 같이 놓친 차례다. 버린 길: 지나간 차례가 둘 이상일 때만(하루 안에 연 노트북을 못 잡는다), 주기의 절반보다 늦을 때만(매일 job은 12시간 안을 못 잡는다). (2026-10-23)
+    by: person
+  - text: |-
+      늦음은 가장 오래된 온 차례(`next_due_at`)로 잰다. 잠든 사이 여러 차례가 쌓여도 잡힌다.
+    by: agent
+  - text: |-
+      scheduler의 최대 잠을 1시간에서 1분으로 줄여 깬 뒤 늦게 도는 것을 막는다. shell에서 깨어남을 알리는 길을 새로 두지 않는다. 할 일이 없는 바퀴는 읽기뿐이다.
+    by: agent
+  - text: |-
+      끝 기록이 실패한 run 줄은 바퀴마다 한 번 읽어 다시 닫는다. 그 자리에서 다시 부르는 loop는 두지 않는다. 읽기는 `runService.wait(run, 0)`(기다리지 않는 읽기 한 번)이라 jobs의 operation과 runs를 고치지 않는다.
+    by: agent
+  - text: |-
+      끈 MCP server는 연결 쪽 `call`이 지금 층을 읽어 막는다. 버린 길: 설정이 바뀔 때 연결을 `detach`하기(바뀜을 알리는 길을 새로 두어야 한다). 앱 tool이 call 때 지금 할당을 읽는 것과 같은 꼴이다.
+    by: agent
+  - text: |-
+      숨은 desk의 terminal이 연 URL은 그 desk에 탭을 열고 그 desk로 넘어간다. 로그인 page를 사람이 봐야 해서다. 다른 desk terminal에는 반대쪽 pane 규칙을 쓰지 않고 terminal 바로 뒤에 연다.
+    by: agent
+  - text: |-
+      GraphDiagram은 한 층 되돌아가는 edge도 같은 위 여백 규칙으로 그린다. edge마다 여백에 줄 하나(16px)다. 출발·도착 node 위에 같은 층 node가 있으면 그 끝은 옆 면에서 층 사이 틈으로 돈다.
+    by: agent
+  - text: |-
+      앱 dev map을 다시 쓰는 일은 template task가 한다. 버린 길: core가 `shell.run`이나 file 쓰기 뒤 `deno.json`이 바뀌었으면 map을 다시 쓰기(agent tool 길에 앱 일을 섞는다). 사람과 agent가 같은 task로 돈다.
+    by: agent
+  - text: |-
+      붙이기 단추는 지우고 붙이기 기능을 만들 때 다시 더한다.
+    by: agent

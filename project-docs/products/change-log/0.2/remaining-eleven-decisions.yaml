@@ -1,0 +1,32 @@
+id: remaining-eleven-decisions
+version: 0.2.0
+title: "남은 정할 것 11개를 정함"
+modules: []
+checked: []
+change: |
+  전: 정할 것 11개.
+  후: 정할 것 0개. 열림 73, archived 15.
+why: |
+  인터뷰의 나머지.
+decisions:
+  - text: |-
+      앱은 npm·jsr 의존을 쓸 수 있다. 내보낼 때 받아 묶음에 담는 방식을 남긴다. 공휴일 data 같은 것을 coding agent가 다 짜거나 SDK가 다 줄 수 없다.
+    by: person
+  - text: |-
+      한 번에 frame을 넘는 큰 write는 "되돌리지 못함"으로 표시하고 나머지 rewind는 막지 않는다.
+    by: person
+  - text: |-
+      context 위반 키 표는 남긴다. architecture의 "상태가 바뀔 때만 event", "같은 것은 다시 만들지 않는다"와 같은 꼴이라 다시 정할 일이 아니었다.
+    by: person
+  - text: |-
+      ticket 근거의 annotation 표는 남긴다.
+    by: person
+  - text: |-
+      실제로 막히거나 필요해질 때 한다: write app-api rewind 검사의 fixture, docx 같은 파일 형식, 배달 실패 꼴 통일.
+    by: agent
+  - text: |-
+      Router 목록에서 lophn session의 waiting 구별을 포기한다. crash를 log에 못 쓰면 stderr로 둔다. Diagnostics는 events와 agent runtime만 더한다.
+    by: agent
+  - text: |-
+      숨은 SQL 의존 check는 다시 생길 때 만든다. harness·domain 분리 계획의 brief에 그 문장을 넣는다.
+    by: person

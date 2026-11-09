@@ -1,0 +1,29 @@
+id: time-picker-in-input-kit
+version: 0.15.0
+title: input kit에 TimePicker가 생긴다
+modules: [packages/design]
+checked: []
+change: |
+  전: `@lophn/ui/input`에서 시각을 받는 control이 없었다. eval 캘린더 앱은 일정 시작·끝을 `<Input type="datetime-local">`로 받았다.
+  후:
+  - `TimePicker`: Select·DatePicker와 같은 칸이고 누르면 시각 목록이 뜬다. 값은 `"HH:mm"`(24시간), 보이는 꼴(12·24시간, 오전·오후)은 locale이 정한다. `step`(분, 기본 15) 간격이고, 열면 고른 시각(없으면 `now` 다음 칸)이 가운데에 오고 focus를 받는다. 방향키, PageUp·PageDown, Home·End로 옮긴다.
+  - 끝 시각은 `from`에 시작 시각을 넘긴다. 목록이 `from + step`부터이고 시각마다 길이("30 mins", "1.5 hrs")가 붙는다.
+  - wording key 셋: `common.label.pick-time`, `common.label.duration-minutes`, `common.label.duration-hours`.
+  - gallery Kit › input에 상태별 견본이 있다.
+why: |
+  캘린더 앱에서 쓸 시각 고르기가 kit에 없었다(사람 2026-11-02).
+decisions:
+  - text: |
+      날짜와 시각은 따로 고른다(DatePicker 옆에 TimePicker). 버린 길: DateTimePicker 하나. 일정 폼은 날짜 하나에 시작·끝 시각 둘이라 따로가 맞다.
+    by: agent
+  - text: |
+      목록에서 고르기만 하고 직접 쳐 넣기는 두지 않는다. step 밖 값(앱이 넣은 10:37)은 목록에 끼워 보인다. 쓰는 곳이 생기면 더한다.
+    by: agent
+  - text: |
+      `min`·`max`는 두지 않는다. 끝 시각 제한은 `from`이 맡는다.
+    by: agent
+  - text: |
+      새 npm 의존 없이 button 목록으로 만들고 `@lophn/ui` 판은 그대로다(0.8.0의 DatePicker와 같다).
+    by: agent
+follow_up: |
+  core를 다시 켜면 설치 사본이 바뀐다. 이미 켜진 앱은 다음 release부터 쓴다.

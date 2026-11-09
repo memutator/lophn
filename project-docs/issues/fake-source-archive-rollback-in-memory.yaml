@@ -1,0 +1,15 @@
+id: fake-source-archive-rollback-in-memory
+title: fake source가 보관·rollback을 메모리에서 실제로 돌린다
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `workspace/contexts/fake-source.ts`(1194줄)의 `createFakeContextsSource`가 `archive`·`unarchive`·`rollback`을 사본 Map 위에서 revision 충돌 검사까지 흉내 낸다. 쓰는 곳은 dev-mock과 `tools/wireframes`의 gallery 화면 여럿이다.
+impact: |
+  core 규칙이 바뀌면 fake도 따로 고쳐야 한다. 화면 모양에 필요한 것보다 크다.
+fix: |
+  gallery에 필요한 만큼만 남긴다. 상태를 바꾸는 동작은 호출만 기록하고 고정된 성공 값을 돌려준다(작음). 이때 보관 목록·rollback 화면을 gallery에서 보여 주는 frame이 있는지 먼저 확인한다.
+closed: |
+  gallery와 dev-mock이 보관·rollback의 상태 변화를 그대로 쓰는지 확인 없이 stub으로 줄이면 화면이 비는 frame이 생길 수 있다. 줄이는 것은 core 규칙이 바뀌어 fake가 어긋나는 날 한다.
+guard: 없음

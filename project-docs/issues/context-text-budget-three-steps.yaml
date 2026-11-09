@@ -1,0 +1,15 @@
+id: context-text-budget-three-steps
+title: 'context 글 예산을 세 단계로 줄인다'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `prompt-assembly/place-info.ts`의 `contextLines`가 예산(`CONTEXT_TEXT_BUDGET`) 안이면 full(글 전체), 넘으면 names(이름과 한 줄), 그래도 넘으면 count를 싣는다. lophn은 글이 없어 names부터 시작한다.
+impact: |
+  단계마다 모양과 테스트가 있다. 예산을 넘는 순간 context 글이 통째로 이름만 남아 model이 갑자기 글을 못 본다.
+fix: |
+  예산을 넘으면 이름만 싣고 count 단계는 없앤다. 비용 작다. 추천: 이 안.
+closed: |
+  count 단계는 몇 줄이고, 이름 목록조차 예산을 넘는 context 수에서 prompt가 부푸는 것을 막는다.
+guard: 없음

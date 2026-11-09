@@ -1,0 +1,18 @@
+id: auto-compact-before-next-turn
+version: 0.18.0
+title: "자동 Compact를 다음 turn 시작 전으로 되돌림"
+modules: [packages/core/lophn-agent, packages/core/main, packages/protocol]
+checked: [architecture-agent-definition]
+change: |
+  - 전: 바로 앞 항목("전수 리뷰의 P0 bug와 성능 고침")이 자동 Compact를 turn이 끝난 뒤로 옮겼다. 다음 입력이 오지 않는 session도 요약했다.
+  - 후: 자동 Compact는 그 session의 다음 입력이 골라질 때 돈다. 요약하는 동안 새 turn source op `hold`(supervision `turn_source_request`)가 그 session을 도는 중으로 잡아 그 session의 turn은 요약 뒤에 시작하고, 다른 session의 turn 시작은 기다리지 않는다.
+
+  옮기기: 없음.
+why: |
+  Codex(기본 pre-turn·mid-turn, turn 끝은 끈 옵션), opencode(매 step 앞), Claude Code(매 model 요청 앞)는 다음 요청 직전에 lazy하게 compact한다. turn 끝 eager는 omp만 기본이다. 다음 입력이 없는 session에 model call을 쓰지 않는다.
+decisions:
+  - text: |
+      앞 항목의 "자동 Compact를 turn이 끝난 뒤로 옮겼다" 결정을 거둔다. 다음 turn 전 lazy로 하되 pump는 막지 않는다.
+    by: person
+follow_up: |
+  turn 도중 compaction이 없다(`project-docs/issues/agent-definition.md`).

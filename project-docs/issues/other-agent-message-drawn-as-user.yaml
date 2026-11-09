@@ -1,0 +1,17 @@
+id: other-agent-message-drawn-as-user
+title: 다른 agent·CLI가 넣은 메시지가 GUI에서 사람 메시지로 그려진다
+kind: bug
+status: fixed
+topic: harness-gui
+modules: [packages/shell/main, packages/protocol, packages/shell/renderer]
+now: |
+  Claude adapter의 `addUser`(`claude.ts`)는 늘 `actor: "user"`이고, `replay`는 글이 있는 user entry를 모두 사람 메시지로 그린다. 그런 entry에는 task-notification, lophn call(`<lophn-call>`·`<lophn-reply>`), 다른 session에서 온 메시지가 있다. live에서는 root 줄기의 남의 user 메시지를 그리지 않는다(`onUser`가 root에서는 tool_result만 본다). transcript는 출처를 적어 둔다: `origin.kind`(human, task-notification), `promptSource`, `turnOrigin`(human, task_notification, peer). ACP에는 이미 `actor: "received"`, `sender`(agent | program), `call`, `reply_to`가 있고, 화면은 `ReceivedMessage`로 그린다(`agent-thread.tsx`).
+impact: |
+  resume이나 toggle 뒤에는 남이 보낸 메시지가 내가 쓴 말로 보인다. 실시간에는 아예 보이지 않는다. 그 메시지로 rewind 시점과 사람 메시지 bookmark도 생긴다.
+fix: |
+  - adapter가 출처로 가른다. human은 `user`다. lophn call tag는 `received`, agent sender, `call`·`reply_to`다. task-notification은 `received`, program이다. peer는 `received`다. 모르는 꼴은 지금처럼 둔다. live 경로도 같은 분류로 그린다. 작음.
+  - ACP `sender`에 lophn agent가 아닌 다른 CLI session 종류와 알림 종류를 더한다. 화면은 `ReceivedMessage`를 보낸 쪽과 열기가 붙은 한 줄로 접는다. 중간. t3code(`createdBy`, `senderThreadId`, `notification.source`)와 happy desktop(`senderAgent.relation`)이 이 꼴이다.
+  - 추천: 첫째를 먼저 하고 Codex·OpenCode·omp도 같은 확인을 한다. 둘째는 handoff UI와 같이 한다.
+closed: |
+  `received.ts`의 `classifyReceived`가 `<lophn-call>`·`<lophn-reply>` tag(`from="human"`은 사람)와 Claude transcript `origin.kind`(human 밖)로 가르고, adapter 넷이 다시 그릴 때(Claude·Codex·omp는 live도) `actor: "received"`, sender(agent | program), `call`·`reply_to`로 그린다. 받은 메시지는 `origin`이 없어 rewind 시점과 bookmark가 되지 않는다. ACP sender 확장과 A2A 화면은 하지 않았다(사람이 모양을 정한다).
+guard: '`packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` received replay test'

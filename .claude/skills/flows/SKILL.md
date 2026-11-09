@@ -69,7 +69,7 @@ README "outcome"과 "쪼개는 기준"을 따른다. 조사 review에서 반복�
 
 1. `git diff <계획 시작>..HEAD -- packages`에서 바뀐 handler·화면을 보고, 그 code를 `code`에 가진 flow(`grep -rln "<path>" project-docs/flows/areas`)의 steps·outcome이 맞는지 본다.
 2. 계획이 만든 `ui:`·`system:` 동작이 flow에 있는지 본다.
-3. `check`와 `report`를 돌려 coverage가 줄었으면 이유를 changelog 항목에 적는다.
+3. `check`와 `report`를 돌려 coverage가 줄었으면 이유를 change-log 항목의 `change`에 적는다.
 
 ## 여럿을 다시 조사할 때
 

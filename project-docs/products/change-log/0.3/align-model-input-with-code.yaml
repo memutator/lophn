@@ -1,0 +1,24 @@
+id: align-model-input-with-code
+version: 0.3.0
+title: 'model이 받는 글을 코드에 맞춤'
+modules: [packages/core/agent-workspaces, packages/coding-agent, packages/sdk, packages/core/apps, packages/protocol, packages/core/lophn-agent]
+checked: [architecture-annotation]
+change: |
+  전: role 지침, coding agent skill, 앱 template, 받은 turn의 입력이 지금 코드에 없는 skill·tool·test 종류·reaction을 말했다. 받은 turn의 입력과 뒤 turn의 history가 bytes로 달랐다.
+  후:
+  - lophn 소개 줄은 "registers apps"만 말한다. App Engineer 지침은 "the acceptance check"와 "the app stopped restarting after repeated crashes"를 쓴다.
+  - App Engineer는 앱을 만들거나 기능을 더하는 ticket에 보고할 실패 분기와 이름을 적고, 고친 release가 active가 된 뒤에만 problem을 resolved로 바꾼다(고친 release 없이 닫아야 하면 `ask`). program이 resolved를 막는 것은 아직 아니다(AGENT-ROLE A15).
+  - Project Manager는 경계와 계약 위반 때 계약과 문서 중 무엇을 고칠지 스스로 정하고 이유를 대답에 남긴다. 사람에게는 용어의 뜻만 묻는다(AGENT-ROLE C6).
+  - `lophn-build-app` skill은 ticket의 실패 분기마다 `reportProblem`을 두게 하고, cap-problem guide는 이름으로 묶는 규칙을 쓴다. `lophn-repair` skill은 ticket의 check 하나를 따르고, `app test`가 `unavailable`이면 돌리지 못한 확인과 이유를 보고에 적는다.
+  - 앱 template `AGENTS.md`의 managed 절은 skill 둘, `lophn ticket show`, 설치 사본의 `guide.md`, 의존 변경은 App Engineer에게 청하기만 가리킨다. `withStore`는 저장소를 여는 일만 `store_unavailable`로 바꾸고 업무 일의 예외는 그대로 던진다.
+  - `reproduction` test 종류와 그 연결 칸(`problem`, `basis_seq`, `reports`, `before`, `after`), 동결 test의 `symptom`, `app test` 입력의 `ticket_source`, `ListVerifications`의 `problem` filter를 지웠다.
+  - 받은 메시지의 봉투와 `messages` 표에 `reply`(call의 답 방식), `event`(reaction의 event type), `fail_reason`(실패한 답의 이유)이 생겼고, history가 그것으로 받은 turn의 입력과 같은 글을 만든다. `callInput`·`reactionInput`은 지웠다.
+why: |
+  eval이 재기 전에 틀린 줄로 알고 있는 것을 없앤다. reproduction은 runner를 줄일 때 지운 길이라 되살리지 않는다.
+decisions:
+  - text: '저장 모양이 바뀌었다(`messages`의 칸 셋). schema step을 그 자리에서 고쳤고 migration은 없다. 개발 data(`.dev-data/`)는 지우고 새로 만든다.'
+    by: agent
+  - text: 'PM 판단은 PM이 정한다. 답 방식(`reply` 속성과 "answer with the reply tool" 줄)은 받은 agent가 결과를 답하게 하는 줄이라 지우지 않는다.'
+    by: person
+follow_up: |
+  `test_command` check를 runner가 돌리지 않는 것은 `issues/coding-agent.md`에 남는다. 고친 release 없는 resolved를 program이 막는 것은 `issues/problems.md`에 남는다.

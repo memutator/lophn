@@ -1,0 +1,27 @@
+id: wording-replaced-by-formatjs
+version: 0.10.2
+title: "wording 검사·생성 체계를 지우고 @lophn/i18n(@formatjs/intl)만 남긴다. 생성 앱은 문구를 화면 코드에 그대로 쓴다"
+modules: [packages/design, packages/sdk, packages/core/apps, packages/shell/main, tools]
+checked: [architecture-ui-kit, architecture-appearance, skill-ui-design, tool-check]
+change: |
+  전:
+  - @lophn/wording이 en catalog와 t()를 갖고, 직접 만든 placeholder 생성기(npm run wording, *.placeholders.ts)와 문구 검사(tools/check-wording.ts: 직접 쓴 문구, key 이름·마침표 규칙, 안쪽 말 경고)를 npm run check가 돌렸다.
+  - 생성 앱 template도 src/wording/(en catalog, 생성 placeholders, t), scripts/generate-wording.ts, tests/wording_test.ts를 가졌다.
+  - @lophn/app-ui의 ToolButton·AppErrorBoundary 문구는 늘 en이었다.
+  후:
+  - package 이름은 @lophn/i18n(packages/design/i18n)이다. t(key, values?)와 translator(locale)는 @formatjs/intl 위의 얇은 층이고, 없는 locale·key는 en 문장이다. catalog 값과 key는 그대로다. 생성기, *.placeholders.ts, check-wording, wording skill은 없다.
+  - placeholder 이름·종류는 type이 보지 않는다. 틀리면 실행할 때 formatjs가 오류를 console에 낸다.
+  - main이 dom-ready마다 앱 view(lophn-app://) 문서에 <html data-lophn-locale>을 적고, @lophn/app-ui가 그 locale로 자기 문구를 고른다.
+  - 앱 template과 test sample 앱은 catalog 없이 화면·선언 문구를 코드에 그대로 쓴다.
+  계약:
+  - 바뀐 것: 내장 SDK @lophn/ui 1.1.0, @lophn/app-ui 1.1.0(둘 다 @lophn/i18n 1.0.0에 기댄다). FIXED_UI_DEPENDENCIES의 @lophn/wording → @lophn/i18n.
+  - 없어진 것: 새 template의 @lophn/wording 의존, npm run wording(repo와 앱).
+why: |
+  en 하나뿐인 catalog에 생성기와 검사기가 붙어 문구 하나 고치는 데 단계가 많았고 사고가 났다. 번역 틀은 표준 library로 두고, 사용자 한 사람이 쓰는 생성 앱에는 번역이 필요 없다.
+decisions:
+  - text: "직접 만든 i18n 대신 @formatjs/intl을 쓴다. 이미 쓰던 intl-messageformat과 같은 계열이라 catalog와 t() 호출 250곳을 고치지 않는다. 판은 쓰던 intl-messageformat 12.1.2에 맞춰 6.1.2다. 사람과 agent가 함께 정했다."
+    by: person
+  - text: "이미 만든 앱은 옮기지 않는다. data root의 sdk/wording/1.0.0, sdk/ui/1.0.0, sdk/app-ui/1.0.0 사본은 기동이 지우지 않으므로 그 앱은 고정한 판으로 계속 build된다. 새 판은 새 폴더(1.1.0)에 깔린다. 같은 판 번호의 byte를 바꾸면 lock이 있는 기존 앱의 npm ci가 실패해서 판을 올렸다. 사람과 agent가 함께 정했다."
+    by: person
+  - text: "@lophn/app-ui의 locale은 appearance가 이미 앱 view에 닿는 dom-ready 길로 보낸다. 새 preload API를 만들지 않는다."
+    by: person

@@ -1,0 +1,21 @@
+id: terminal-session-name-from-hook
+version: 0.9.0
+title: '터미널 coding agent의 session 이름이 탭 제목과 저장한 session에 따라온다'
+modules: [packages/protocol, packages/coding-agent, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/shell/preload]
+checked: [architecture-terminal-agent]
+change: |
+  전: 터미널 탭 이름은 사람 이름 > 터미널 제목(OSC) > 폴더 이름이었고, 저장한 session은 첫 prompt만 남겼다.
+  후:
+  - hook이 session 이름을 실어 주는 harness(Claude 꼴 `session_title`, OpenCode 계열 `session.updated`의 제목, pi·omp의 `session_name`)는 그 이름이 `TerminalAgent.name`, 저장한 session 기록, sidebar 줄, 터미널 탭 제목에 같이 반영된다. 탭이 그려져 있지 않아도 따라간다.
+  - 탭 이름은 사람 이름 > harness session 이름 > 터미널 제목(OSC) > 폴더 이름이다.
+  - 사람이 터미널 탭 이름을 바꾸면 저장한 session 기록에도 그 이름이 쓰이고 고정돼, 이후 hook 이름이 덮어쓰지 않는다. 이름을 지우면 고정이 풀린다.
+  - 이름 칸이 없는 harness는 지금처럼 첫 prompt가 session 제목이다. 이름만 알리는 신호(`SessionNamed`)는 running·waiting을 바꾸지 않는다.
+why: |
+  사람이 요청했다.
+decisions:
+  - text: |
+      2026-10-26의 "탭 이름은 hook의 session 이름이 아니라 터미널 제목으로 따른다"를 이 결정이 대신한다. harness별 이름 칸은 `HARNESS_ADAPTERS[id].session.name` 한 곳에 두고, 확인하지 못한 harness는 빈 배열로 둔다.
+    by: person
+  - text: |
+      사람이 정한 이름은 hook 이름보다 먼저이고 저장한 기록에서도 고정된다.
+    by: person

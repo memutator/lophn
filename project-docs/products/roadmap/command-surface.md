@@ -1,7 +1,7 @@
 # command surface: lophn agent와 coding agent가 같은 명령을 쓴다
 
-상태: 계획 `command-surface`로 구현했다(2026-11-01, `project-docs/products/change-log/0.14.0.md`). 사람 앱 Mahas와 Masup도 2026-11-01에 새 두 층 선언으로 전환했다(정한 것 16). 남은 일 없음.
-배경 문서: `project-docs/architecture/app-call.md`, `project-docs/architecture/agent-definition.md`(tool 늦게 싣기), `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/agent-call.md`, `project-docs/products/roadmap/tool-lazy-loading.md`.
+상태: 계획 `command-surface`로 구현했다(2026-11-01, `project-docs/products/change-log/0.14/command-table-and-app-operations.yaml`). 사람 앱 Mahas와 Masup도 2026-11-01에 새 두 층 선언으로 전환했다(정한 것 16). 남은 일 없음.
+배경 문서: `project-docs/architecture/app-call.md`, `project-docs/architecture/agent-definition.md`(tool 늦게 싣지 않는 규칙), `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/architecture/agent-call.md`, `project-docs/products/roadmap/tool-lazy-loading.md`.
 
 ## 왜
 
@@ -18,7 +18,7 @@
 
 - 선언의 `tools[]`(`packages/protocol/apps/declaration/types.ts`의 `ToolDeclaration`) 하나를 화면, 다른 앱, agent, job, flow가 같이 부른다. 화면이 앱 process에 닿는 길은 `lophnApp.callTool` 하나다(`packages/sdk/app-ui/use-tool.ts`, `packages/shell/main/app-frame/app-call.ts`).
 - 그래서 화면용 operation이 모두 tool이 되고, 할당되면 각각 agent tool `<domain>_<tool>` 하나가 된다(`packages/core/lophn-agent/tools/app-tools.ts`의 `buildAppTools`).
-- 일부러 정한 모양이다. `architecture/app-call.md`에 "선언은 MCP tool 모양 하나다. 화면 bridge, SDK, agent tool이 모두 같은 이름과 schema를 쓴다", "화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다"가 있다. 짓는 쪽 지침도 같다: `design-app` skill의 "6. Tools: from the model and the screens", `@lophn/declaration` guide의 "다른 앱과 화면이 부르는 tool 목록".
+- 일부러 정한 모양이다. `architecture/app-call.md`의 모델("선언의 두 층")과 지키는 것("호출 경로": 모든 tool 호출은 core를 지난다, 화면에서 앱으로 가는 직통 통로를 두지 않는다)이 그렇다. 짓는 쪽 지침도 같다: `design-app` skill의 "6. Tools: from the model and the screens", `@lophn/declaration` guide의 "다른 앱과 화면이 부르는 tool 목록".
 - 화면 호출도 control frame 하나로 오가므로 결과가 `RESULT_MAX_BYTES`(약 254 KiB, `packages/core/apps/runtime/entrypoint/limits.ts`)를 넘으면 실패한다. shell의 8 MiB 한도보다 먼저 걸린다.
 - Mahas의 tool 10개(`usage.sync`, `usage.dashboard`, `usage.sessions`, `usage.session`, `usage.compare`, `usage.sources`, `prices.list|set|delete|import_catalog`)는 모두 화면 backend 모양이고 모두 `public: false`다. 앱 agent가 세션 목록을 상한에 맞추려고 200행으로 줄였다(앱 commit `7194b6c` "500 rows failed live"). agent 계약의 제약이 화면 기능을 깎았다.
 - `tools[]`를 읽는 관심사는 넷이다.
@@ -61,7 +61,7 @@
   - `mutates`는 따로 적지 않고 이름의 끝 낱말로 짐작한다. parser는 flag 목록을 손으로 고정했다(`parser.ts`의 `VALUE_FLAGS`). help와 오류 글은 한국어다.
 - `cliMain`은 env, fetch, stdout 등을 주입받고 exit code를 돌려준다. `user` 명령 code(`run.ts`, `workflow.ts`, `connection/`)에는 node 전용 import가 없다.
 - user token은 사람의 모든 권한이다. 사람만 하는 route(`DecideTurnRequest`, `job.approve`, `activation.consent`)도 부를 수 있고, 할당 거르기도 지나친다.
-- coding agent가 lophn을 부르던 층(coding token, `POST /mcp`, CLI의 `message send`·`app …`·`package …`)은 2026-10-28에 지웠다. coding agent에게 skill을 배포하지 않는다는 결정도 같은 문서에 있다(`architecture/coding-agent.md`).
+- coding agent가 lophn을 부르던 층(coding token, `POST /mcp`, CLI의 `message send`·`app …`·`package …`)은 2026-10-28에 지웠다. coding agent에게 가는 skill은 사람이 승인한 앱 공유 skill과 내장 `lophn-agent` skill뿐이다(`architecture/coding-agent.md`의 지키는 것).
 
 ### call/reply/cancel
 

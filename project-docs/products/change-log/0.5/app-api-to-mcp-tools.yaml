@@ -1,0 +1,44 @@
+id: app-api-to-mcp-tools
+version: 0.5.0
+title: 앱 app-api를 MCP tool 모양으로 바꾸고 coding agent에 MCP를 연다
+modules: [packages/protocol, packages/core/apps, packages/core/server, packages/core/lophn-agent, packages/core/main, packages/sdk, packages/coding-agent, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/design]
+checked: [architecture-annotation, architecture-activation, architecture-approval, architecture-testing]
+change: |
+  전:
+  - 앱은 blueprint `app_api[]`(`key`, `label`, `input`, `effect`, `project_scope`)로 선언하고, 호출 route는 `app.call_api`(입력 `api`, `project`)였다. project 범위 app-api는 부른 쪽이 project를 정하고 앱은 `@lophn/cap-project`로 읽었다. 앱 view에는 project picker가 있었다.
+  - preview 호출은 활성 release의 선언으로 판정해 release에 아직 없는 tool은 `not_declared`였고, 활성 release가 있으면 `mode: "preview"` invocation을 남겼다.
+  - coding agent가 lophn에 닿는 길은 CLI 하나였다.
+  후:
+  - 선언은 blueprint `tools[]` = `{name, title, description, inputSchema | null, outputSchema?, effect, public}`이다. 이름은 1~64자 `[A-Za-z0-9_.-]`, schema root는 `object`다. MCP annotation은 effect에서 만든다(`toMcpTool`). `public`은 칸만 있고 읽는 쪽은 계획 `domain-place`다.
+  - 호출 route는 `app.call_tool`(입력 `{target, tool, input?, caller}`)이고 invocation operation은 `{kind: "tool", tool}`이다. `app.app_api`의 출력과 `app.app_api_index`의 항목은 `tools`다. index는 입력에 `app`이 있을 때만 `inputSchema`·`outputSchema`를 싣는다.
+  - project 범위가 없어졌다: 선언의 `project_scope`, 호출의 `project`, 거절 code `project_required`·`project_mismatch`·`project_not_found`, route `app.projects`, broker `projects/list`, `@lophn/cap-project`, invocation의 `project` 칸과 필터, 앱 view의 project picker와 project 묶음.
+  - SDK는 `tool(name, handle)`, `registeredTools`, `ToolRejection`, `connectTools`(client `callTool`), `@lophn/app-ui`의 `useTool`, `ToolButton`이다. 화면 bridge는 `window.lophnApp.callTool(tool, input)`, IPC `app:call-tool`이다.
+  - agent tool은 이름(`app__<앱>__<tool>`)과 결과 mapping이 그대로이고 입력의 project 칸이 없다. ticket `examples` step은 `{tool, input?, expect}`다.
+  - preview 호출은 그 preview bundle의 선언으로 판정하고 invocation을 남기지 않는다. 호출 길에 `previewOnly` 자격이 생겼다.
+  - core가 coding agent용 MCP endpoint(`POST /mcp`, `2025-06-18`, POST만, session 없음)를 연다. coding token의 operation `coding.mcp`로 열고 그 앱의 tool만 보이며, MCP tools/call은 그 앱의 지금 도는 preview로만 간다(없으면 `unavailable`). Claude Code(`--mcp-config`), Codex(`-c mcp_servers.lophn.*`), OpenCode(`OPENCODE_CONFIG_CONTENT`)는 session 실행 계획에 이 endpoint를 싣는다. token은 env `LOPHN_CODING_TOKEN`에만 있다.
+  - 화면 셋(앱 공간 첫 화면, 앱 화면 목록, agent grant의 앱 목록)이 지워진 route `apps/blueprint`를 읽어 비어 있던 것을 `apps/app_api`로 고쳤다.
+why: |
+  앱이 내놓는 기능을 MCP tool 모양 하나로 맞춰 화면, SDK, agent, ticket, coding agent가 같은 선언을 쓰게 한다(roadmap `domain.md` "core가 아는 한 가지 모양"). 앱 code의 project별 data 나누기는 core가 지키지 못해 project 범위를 지웠다. coding agent가 자기 코드를 harness의 tool 호출로 확인하되 사용자 data에는 닿지 않게 preview로만 보낸다.
+decisions:
+  - text: |
+      이름 바꾸기(app → domain tool, `app__` 접두, `app_api` grant 칸·approval kind·SDK package 이름)는 계획 `domain-rename`이 한다. 이 판은 그 이름들을 둔다.
+    by: person
+  - text: |
+      preview 호출은 기록을 남기지 않는다. ledger의 `release`를 비울 수 없어 release 없는 bundle의 호출은 기록할 자리가 없고, preview는 일회용 DB라 rewind 대상이 아니다.
+    by: agent
+  - text: |
+      coding agent의 MCP 호출은 새 caller 종류 없이 `person` caller와 `previewOnly` 자격으로 들어간다. 새 종류는 ledger의 caller CHECK, caller 판정, rewind를 바꿔야 하는데 preview 호출은 기록이 없다.
+    by: agent
+  - text: |
+      MCP tools/list는 preview가 돌면 그 bundle의, 아니면 활성 release의 선언이다. `listChanged`는 SSE가 필요해 내지 않는다.
+    by: agent
+  - text: |
+      `app.app_api_index`는 앱 하나를 볼 때 호출 모양을 싣는다. agent tool `app.app_api`가 index만 읽어서다.
+    by: agent
+  - text: |
+      Gemini CLI, pi, Hermes, OpenClaw는 MCP를 잇지 않는다. Gemini는 session마다 MCP를 넣을 길이 없고 pi는 MCP가 없다.
+    by: agent
+follow_up: |
+  저장 모양이 바뀌었다(invocation 표의 `project` 칸과 색인). 개발 data(`.dev-data/`)는 지우고 새로 만든다. 이미 만든 앱은 옛 선언·SDK 이름을 써서 새로 만든다.
+  e2e(`tests/e2e`)는 type check만 맞췄고 돌리지 않았다. `domain-rename` 뒤 다시 쓴다.
+  eval materials는 `domain-rename` 뒤 새 판으로 다시 만든다(`project-docs/issues/eval.md`).

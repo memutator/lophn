@@ -1,0 +1,9 @@
+id: declare-publish-package-skill
+version: 0.23.0
+title: "앱 agent가 `publish-package` skill을 읽는다"
+modules: [packages/protocol]
+checked: []
+change: |
+  전: `publish-package` skill 폴더는 있지만 `BUILTIN_SKILLS`에 선언이 없어 skill 목록에서 빠졌다. app 지침은 package를 낼 때 이 skill을 읽으라고 시켜 `skill.read`가 `forbidden`("skill publish-package is not available to this agent")으로 막혔다.
+  후: `BUILTIN_SKILLS`에 `publish-package`(app, 끌 수 없음, menu 아님)를 선언했다. 앱 workspace의 agent가 읽는다.
+why: app 지침이 package 발행 때 읽으라고 시키는 skill을 agent가 실제로 읽을 수 있어야 해서, 빠진 선언을 더했다.

@@ -1,0 +1,15 @@
+id: native-view-toast-two-paths
+title: native view 위 toast가 두 길이다
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `app-frame/annotate/use-view-toast.ts`가 `overlay`가 있으면 overlay의 `notification` 표면으로 열고, 없으면 `dom` 값을 돌려줘 `app-space.tsx`가 같은 모양을 DOM으로 그린다. overlay가 없는 경우는 앱 view가 없는 창과 gallery뿐이다. `desktop/connection/toasts/toast-host.tsx`는 overlay 한 길만 쓴다.
+impact: |
+  toast 모양·동작을 고치면 두 곳을 맞춰야 한다. DOM 길은 gallery에서만 실제로 쓰인다.
+fix: |
+  overlay 하나로 하고 gallery용으로는 overlay stub을 주입한다(작음~중간). DOM 길과 `dom` 반환값, `app-space.tsx`의 `viewToast` 블록이 사라진다.
+closed: |
+  DOM 길은 gallery에서만 쓰이는데 지우려면 gallery에 overlay stub을 주입해야 해서 얻는 것이 작다. toast 모양을 고칠 때 두 곳을 맞춘다.
+guard: 없음

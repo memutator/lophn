@@ -1,0 +1,57 @@
+id: terminal-agent-icon-status-alerts
+version: 0.9.0
+title: '터미널에서 직접 띄운 coding agent의 icon, 상태 점, 알림이 탭에 보인다'
+modules: [packages/protocol, packages/core/apps, packages/core/main, packages/coding-agent, packages/base, packages/design, packages/shell/main, packages/shell/renderer, tools]
+checked: [architecture-coding-agent, architecture-terminal-agent, architecture-event, architecture-browser-tab, skill-ui-design, skill-write-test]
+change: |
+  전:
+  - 사람이 터미널 탭에서 `claude`를 띄워도 lophn은 몰랐다. hook launcher는 coding token이 없으면 바로 끝났고, hook은 core의 `coding.hook` route가 coding session 행으로만 받았다. 그 coding session을 여는 길은 막혀 있어 hook 상태 장치를 쓰는 곳이 없었다.
+  - 탭 점은 이름 뒤에 따로 있었고 working도 멈춰 있었다. OS 알림은 없었다.
+  - coding 탭 icon은 `vendorOf("claude")`가 없어 Claude에서 비었고 Gemini는 Google icon이었다.
+  - 거절한 권한 물음에는 `PostToolUse`가 오지 않아 coding session이 waiting에 남고 줄이 막혔다. Codex `Interrupt`, Claude `PostToolUseFailure`를 받지 않았다. turn 끝 신호를 `TURN_END_SIGNALS`와 hook 표 두 곳에 따로 적었다.
+  후:
+  - 터미널의 agent 층(`architecture/terminal-agent.md`): terminal-host가 1초마다 foreground process 이름을 읽어 무엇이 도는지 알고, hook이 상태(running, waiting, idle, unknown)를 알린다. 탭 icon은 harness vendor, 탭 점은 X 자리에서 working이면 숨 쉬고 마우스를 올리면 X로 바뀐다(lophn agent 탭도 같다). 사람이 안 보는 사이 turn이 끝나거나 권한을 물으면 finished 점, lophn 창이 모두 focus 밖이면 OS 알림이고 누르면 그 탭으로 간다. 단독 Esc·Ctrl-C는 unknown으로 내린다.
+  - hook 길: `lophn hook`은 env `LPN_TERMINAL_HOOK`의 unix socket(shell main, 터미널마다 key)에 한 줄을 쓴다. core route `coding.hook`과 `HOOK_ROUTES`를 지웠다. coding 터미널의 hook은 shell main이 내부 route `coding_agent_terminals/hook`(`codingTerminalHook`)으로 넘긴다. launcher와 pi·OpenCode plugin은 그 env로 확인한다. launcher는 `hook`에만 그 env와 socket 경로 권한을 준다.
+  - hook 설치: 사람 터미널에서 harness를 처음 알아보면 묻는다(실행마다 harness당 한 번). Settings › Coding agents에 Hooks 칸과 [Install hooks]가 생겼다. plugin file에 새 env 확인이 없으면 `dry_run`이 missing이다.
+  - 그렇게 놓은 hook은 이미 도는 harness 실행에는 보이지 않는다(harness가 시작할 때 읽는다). 성공 알림이 그 harness를 다시 시작하라고 한다.
+  - coding session: turn이 끝나면 남은 권한 물음을 `cancelled`로 닫는다. Codex `Interrupt`(0.150 이상)는 interrupted turn 끝, Claude `PostToolUseFailure`는 물음 닫힘이다. `canDeliverMessages`는 hook 표에서 계산한다.
+  - 탭 icon은 harness id를 product icon으로 고른다(`harnessVendorOf`). 탭 점에 `finished`가 생겼다.
+  - 개발 실행(`deno task dev`·`dev:mock`)은 저장소 `.cache/dev-cli/lophn`(설치된 launcher와 같은 본문)을 `LOPHN_CLI`로 준다. launcher는 `hook`에 socket 경로 읽기·쓰기·net(`unix:<경로>`)과 `LPN_TERMINAL_HOOK` env 읽기를 준다.
+why: |
+  다른 harness 관리 도구(herdr, orca, emdash, paseo)는 터미널에서 띄운 agent의 icon, 상태, 알림을 보인다. 사람은 lophn 안 터미널에서 coding agent를 쓰고, 뒤에 lophn과 coding agent를 다시 이을 때 같은 층을 쓰려 한다.
+decisions:
+  - text: |
+      coding agent 연결의 hook, 감지, 설치는 남긴다. B와 B-lite는 하지 않는다(`products/roadmap/problem-ticket.md`).
+    by: person
+  - text: |
+      사람이 연 터미널의 agent는 lophn session이 아니라 탭 상태다.
+    by: person
+  - text: |
+      무엇이 도는지는 foreground process로도 안다. 상태는 hook만 쓴다.
+    by: person
+  - text: |
+      알림은 turn 끝(완료, 실패)과 권한 물음이고, 보고 있으면 알리지 않으며, 사람이 멈춘 turn은 알리지 않는다. 창이 focus 밖이면 OS 알림, 안이면 탭 점이다.
+    by: person
+  - text: |
+      hook 설치는 처음 알아봤을 때 묻고 Settings에서도 놓는다.
+    by: person
+  - text: |
+      작업 중인 agent의 점은 X 자리에서 pulse하고 hover하면 X다. lophn agent 탭도 같다.
+    by: person
+  - text: |
+      hook은 터미널을 가진 shell main이 받는다. core를 거치면 core가 사람 터미널을 알아야 한다. browser bridge와 같은 socket·key 꼴이다.
+    by: agent
+  - text: |
+      단독 Esc·Ctrl-C는 사람이 친 입력이라 짐작이 아니다. 멈췄다고 하지 않고 unknown으로 둔다(paseo와 같다). core의 coding session 상태에는 아직 넣지 않았다.
+    by: agent
+  - text: |
+      launcher가 hook의 deno 권한을 sh에서 정한다. launch entry를 거치면 hook마다 deno가 두 번 뜬다.
+    by: agent
+  - text: |
+      hook 설치는 OS 창이 아니라 lophn 창의 dialog로 묻는다. 그 터미널을 고른 창에 묻고 닫히거나 reload되면 거절이다. 앱 종료 확인만 OS 창이다.
+    by: person
+  - text: |
+      Codex hook은 설치가 `~/.codex/config.toml`에 trust 기록까지 쓴다. hash는 Codex `hook_hash`(rust-v0.164.0)와 같은 계산이고 사람 허락은 lophn dialog 한 번이다. orca와 같다.
+    by: person
+follow_up: |
+  macOS는 node로 도는 CLI를 hook이 올 때까지 알아보지 못하고, Windows는 이 층이 없다.

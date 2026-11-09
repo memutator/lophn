@@ -1,0 +1,14 @@
+id: app-status-summary-state-name
+version: 0.11.0
+title: '`app.status` 요약이 상태 이름과 이유를 보인다'
+modules: [packages/core/apps]
+checked: [architecture-agent-definition]
+change: |
+  전: `packages/core/apps/agent-tools/runtime.ts`의 handler가 ``fitted(`app <id> is ${body.state}`)``를 불렀고 `body.state`는 `{ state, termination_pending, reason? }` 객체라, 요약이 `app app_01m661c1… is [object Object]`였다. 실제 session 네 turn 모두 그 문장이었다.
+  후: 요약이 상태 이름을 쓰고, `reason`이 있으면 ` (<code>: <summary>)`를 덧붙인다. 예: `app app_x is unavailable (crash_loop: unexpected exits exceeded five within ten minutes)`. 상태 값(`content.state`)은 그대로다.
+why: |
+  `app.status`는 앱이 뜨지 않을 때 agent가 가장 먼저 부르는 tool이고, 요약 줄은 tool 결과 목록과 turn 기록에 그대로 남는다. 요약이 `[object Object]`면 기록만 보고 진단할 때 상태가 보이지 않는다.
+decisions:
+  - text: |
+      요약에 `termination_pending`은 넣지 않는다. 사람이 읽는 상태 전이의 이름(`running`, `stopped`, `preparing`, `unavailable`)이 먼저이고, 그 값은 `content`에 있다.
+    by: agent

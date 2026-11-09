@@ -1,0 +1,15 @@
+id: home-guide-skills-removed
+version: 0.10.1
+title: "home의 사용 안내 skill 여덟 편을 지웠다"
+modules: [packages/core/agent-workspaces, packages/protocol, tests]
+checked: []
+change: |
+  전: home에 끌 수 없는 내장 skill guide-features-and-screens, guide-agents-and-assignments, guide-questions-and-decisions, guide-settings, guide-connections, guide-skills-and-mcp, guide-instructions, guide-rewind가 있었고, home 지침은 사용법을 물으면 맞는 guide-*를 읽으라고 했다.
+  후: 그 여덟 편이 없다. home의 내장 skill은 new-app, repair-app, guide-domains다. home 지침은 설정의 뜻만 settings.get으로 읽으라고 한다.
+  계약:
+  - 지운 것: BUILTIN_SKILLS의 위 여덟 이름, eval scenario home/L6.
+why: |
+  사람이 지우라고 했다(home의 사용 안내는 설정의 뜻을 읽는 settings.get 한 길로 줄였다).
+decisions:
+  - text: "사람이 지우라고 했다."
+    by: person

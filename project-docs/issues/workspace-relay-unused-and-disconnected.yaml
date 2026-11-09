@@ -1,0 +1,15 @@
+id: workspace-relay-unused-and-disconnected
+title: 현재 보기 relay(`workspace.*`)는 부르는 쪽이 없고, 끊긴 뒤 다시 켜지지도 않는다
+kind: defect
+status: open
+topic: shell
+modules: [packages/core/server, packages/protocol, packages/shell/main]
+now: |
+  `packages/core/server/workspace.ts`의 `createWorkspaceRelay`가 `workspace/publish`·`bind`·`unpublish`·`read` 네 route를 core 메모리에 둔다(`protocol/shell/workspace.ts`의 `WORKSPACE_ROUTES`). grep으로 확인한 대로 `workspace/publish`·`bind`·`unpublish`를 부르는 shell 코드가 없고, `workspace.read`(actor `agent`)를 부르는 agent 도구·CLI 명령도 없다. 게다가 `connected`는 `disconnect()`(shell의 Gateway 연결이 끝날 때 `capabilities.ended`, core 종료)에서 false가 된 뒤 true로 돌아가는 곳이 없어, 나중에 publish가 붙어도 shell이 재연결한 뒤 core가 끝날 때까지 publish·bind·unpublish는 `unavailable`이다.
+impact: |
+  기능이 하나도 이어져 있지 않아 지금 잃는 사람은 없다. 이대로 두면 반쯤 만든 route 네 개와 redaction·한도 코드가 계속 유지 비용이 되고, 나중에 이어 붙이는 사람이 재연결 뒤 막히는 결함까지 같이 만난다.
+fix: |
+  - 지운다(중간, protocol route 4개와 `server/workspace.ts`, `runtime.memory`의 연결, 관련 test).
+  - 이어 붙인다(큼: shell이 창 상태를 publish하고 agent가 읽는 도구를 만든다. 이때 `connected`를 shell이 새로 붙을 때 true로 되돌린다).
+decide: |
+  지금 agent가 사람 화면을 읽는 기능을 만들 계획이 있는지. 없으면 지우는 쪽을 추천한다(제품 기능을 포기하는 일이라 사람이 정한다).

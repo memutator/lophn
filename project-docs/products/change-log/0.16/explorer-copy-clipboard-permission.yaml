@@ -1,0 +1,10 @@
+id: explorer-copy-clipboard-permission
+version: 0.16.0
+title: Explorer의 Copy Path가 복사하지 않던 것
+modules: [packages/shell/main]
+checked: []
+change: |
+  전: shell 창의 모든 `navigator.clipboard.writeText`가 `NotAllowedError: Write permission denied`로 실패했다(Explorer의 Copy Path·Copy Relative Path, code block·markdown·table 복사). desktop 창과 overlay가 같은 default session을 쓰는데, overlay 보안이 그 session의 permission을 모두 거절했다(`75b1a6fbf`, 2026-10-04).
+  후: default session은 `lophn-shell://` page의 main frame이 요청하는 clipboard 쓰기(`clipboard-sanitized-write`)만 허락한다. clipboard 읽기와 나머지는 그대로 거절한다. 표는 `overlay-security_test.ts`가 지킨다.
+why: |
+  사람이 보고했다(2026-11-03). 터미널은 이미 main IPC로 clipboard에 쓰므로 shell page에 새 능력을 주는 것이 아니다.

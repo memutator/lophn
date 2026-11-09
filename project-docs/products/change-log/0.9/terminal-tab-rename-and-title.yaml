@@ -1,0 +1,30 @@
+id: terminal-tab-rename-and-title
+version: 0.9.0
+title: '터미널 탭 이름을 바꿀 수 있고 agent가 쓰는 제목을 따르며, 탭 tooltip과 최소화가 다듬어졌다'
+modules: [packages/shell/renderer, packages/shell/main, packages/design, tools]
+checked: [architecture-terminal-agent, skill-ui-design]
+change: |
+  전: 터미널 탭 이름은 연 폴더 이름으로 고정이었다. 탭·상태 점·첨부 칩·표 칸·vendor icon(SVG `<title>`)이 브라우저 기본 tooltip(`title` 속성)을 띄웠다. 최소화한 칩은 hover tooltip만 있고 닫으려면 우클릭 menu를 거쳤다. floating·minimized·detached 탭에는 상태 점이 없었다. Claude icon은 Claude Code 픽셀 마스코트였다.
+  후:
+  - 터미널 탭 이름은 사람이 붙인 이름 > 그 터미널에서 coding agent가 도는 동안 프로그램이 보낸 제목(OSC 0/2, 앞의 spinner·`✳` 같은 상태 글자는 지운다) > 폴더 이름 순이다. 일반 shell의 제목(prompt가 보내는 `user@host: ~/path`)은 쓰지 않는다. 사람이 붙인 이름은 layout 파일의 터미널 탭 `name`에 남고 지우면 자동 이름으로 돌아간다.
+  - 탭 줄 더블클릭이나 탭 menu의 Rename으로 이름을 바꾼다. kind가 `rename` hook을 선언해야 생기고 지금은 터미널만이다.
+  - 탭 menu의 Minimize가 붙은 탭을 바로 최소화한다. 그렇게 접은 탭은 복원하거나 Dock하면 floating이 아니라 원래 칸의 원래 자리로 돌아간다(layout float의 `docked_at`). 최소화한 칩은 tooltip이 없고 오른쪽 끝 X로 바로 닫는다.
+  - 탭 tooltip은 design `Tooltip`이고 상태 점이 있으면 "이름 · 상태"다. 브라우저 기본 tooltip을 내던 곳은 모두 `Tooltip`으로 바꾸거나 지웠고, vendor icon은 넣을 때 `<title>`을 뗀다. `tools/check-source.ts`의 `NATIVE_TITLE`이 소문자 DOM tag의 `title=`, `.title =`, `setAttribute("title"`을 막는다(wireframe gallery의 iframe만 허용).
+  - floating 패널 머리, 최소화한 칩, detached 창 머리에도 탭 줄과 같은 상태 점이 제목 뒤에 있다(공용 `TabStateDot`, FloatPanel `badge`).
+  - Claude icon은 lobehub `claude-color.svg`(주황 starburst)다.
+  - 터미널 위의 첫 열기 안내(계정 권한, 시작 폴더 두 줄과 숨기기)를 지웠다. 복원한 터미널 탭은 사람이 그 탭을 볼 때 새 shell이 뜬다(터미널 탭은 보일 때만 그려진다). 전에는 "This terminal isn't on. lophn doesn't start it again by itself." 카드와 다시 시작 단추가 있었다. coding 탭은 그대로 끝난 것으로 남는다.
+why: |
+  사람이 개발 앱에서 쓰다 요청했다.
+decisions:
+  - text: |
+      탭 이름은 harness hook의 session 이름이 아니라 프로그램이 보내는 터미널 제목으로 따른다. OpenCode(`OC | <session 제목>`)와 Claude Code(대화 주제)가 이미 session 이름을 제목에 싣고, hook은 harness마다 이름 칸이 달라 깨지기 쉽다.
+    by: person
+  - text: |
+      사람이 붙인 이름이 프로그램 제목보다 먼저다(VS Code, Ghostty, iTerm과 같다). 이름 바꾸기는 터미널 탭만이다.
+    by: person
+  - text: |
+      터미널 첫 열기 안내는 숨기지 않고 지운다. 복원한 터미널은 기다리지 않고 볼 때 연다.
+    by: person
+  - text: |
+      터미널 제목은 탭이 그려져 있을 때 xterm이 읽는다. 뒤에 있는 탭은 다시 고를 때 다시 붙는 출력으로 최신 제목이 된다. 늘 살아 있게 하려면 main이 PTY 출력에서 제목을 읽어야 한다.
+    by: agent

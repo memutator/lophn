@@ -1,0 +1,15 @@
+id: router-environment-global-per-request
+title: "Router·command·read를 요청마다 만들고 `RouterEnvironment`를 전역에 놓는다"
+kind: defect
+status: kept
+topic: agent-call
+modules: [packages/core/router, packages/core/main]
+now: |
+  `router/environment.ts`가 모듈 변수 `installed`를 두고, writer·reader Worker가 `main/daemon/wiring/router-registration.ts`를 import하면 파일 끝의 `installRouterEnvironment(environment)`가 채운다. `routerFor(tx)`, `routerEnvironment()`가 이를 읽어 command·read마다 `createRouter`로 Router를 새로 만든다. 부르는 곳은 `router/commands.ts`, `router/reads.ts`, `apps/tickets/coding/{message,close-call}.ts`, `lophn-agent/register.ts`(`messageRouter`, `messageDirectory`, `failReceivedCalls`)다.
+impact: |
+  전역 mutable 상태를 두지 않는 규칙(AGENTS.md)에 어긋난다. import 순서에 기대서, 등록 파일을 import하지 않은 Worker에서는 `unavailable: the router is not wired`가 난다. 한 Worker 안에서 환경을 둘 둘 수 없다.
+fix: |
+  `createRouterRegistration(environment)`이 환경을 받아 command·read를 닫아 두는 것으로 바꾼다. coding와 lophn-agent 쪽 호출자도 환경(또는 Router 만드는 함수)을 인자로 받아야 해서 호출 지점 다섯 곳이 같이 바뀐다. 비용 중간(반나절). 추천: 한다. 규칙 위반이고 지금 호출자가 적을 때 싸다.
+closed: |
+  writer·reader Worker가 등록 파일을 import하는 한 한 곳에서만 채워져 지금 틀린 적이 없고, 고치려면 호출 지점 다섯 곳과 Worker 조립을 함께 바꿔야 해서(반나절) 얻는 것보다 비용이 크다. 호출자가 늘어 다른 Worker가 `unavailable: the router is not wired`를 만나면 그때 한다. 이유는 `router/environment.ts` 머리 주석에 이미 있다.
+guard: 없음

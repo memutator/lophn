@@ -1,0 +1,10 @@
+id: right-sidebar-panel-blank-window
+version: 0.16.0
+title: 오른쪽 sidebar에서 Files 밖의 panel을 누르면 창이 비던 것
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: project의 Files panel에서 Domains, Artifacts, Workflows, Scheduled jobs 중 하나를 누르면 `NotFoundError: removeChild` 예외가 나고 창 전체가 빈 화면이 됐다. 0.15.0에서 Files의 루트 선택을 머리 줄 `<h2>`에 portal로 넣었다. 다른 panel의 제목 문자열이 같은 `<h2>`에 들어가면서 portal의 노드를 지웠고, 그 뒤 Explorer unmount의 `removeChild`가 실패했다. error boundary가 없어 root가 통째로 내려갔다.
+  후: `<h2>`는 제목 문자열과 portal을 받는 `<span>`을 따로 갖는다. React가 자식을 그리는 element와 portal을 받는 element가 겹치지 않는다.
+why: |
+  사람이 보고했다(2026-11-03). mock 모드 앱에서 네 panel 모두 재현했고 고친 뒤 양방향 전환이 예외 없이 된다.

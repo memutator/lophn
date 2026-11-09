@@ -1,0 +1,22 @@
+id: command-registry-keybinding-service
+version: 0.10.0
+title: "단축키가 창의 command registry와 keybinding service를 거친다"
+modules: [packages/shell/renderer, packages/shell/ipc]
+checked: [architecture-workspace-layout]
+change: |
+  전: Workspace가 workspace/use-keybindings.ts(document keydown)와 useMainCommand(main이 보낸 command)로 키를 직접 받아 runCommand switch를 불렀다. 키 판정과 기능의 일이 한 component에 묶였다.
+  후:
+  - 창마다 command registry(renderer/commands/registry.ts, id → handler)와 keybinding service(renderer/commands/keybinding-service.ts, chord → id, document capture listener 하나)가 있다. Desktop이 만들고 React 밖의 값으로 쓴다.
+  - Workspace는 표의 command를 useCommands로 올리고 unmount에서 푼다. main이 먼저 받은 키(shell:shortcut)도 registry.execute(id)로 간다.
+  - 키는 그 command를 지금 부를 수 있을 때만 삼킨다. 런처·Settings에서는 Ctrl+B·Ctrl+P·Alt+숫자를 page로 넘긴다(예전에는 작업대 밖에서도 renderer가 삼켰다).
+  - 같은 id는 나중 주인이 받고, 같은 키는 나중 바인딩부터 본다. handler가 던지면 log에 남기고 internal을 돌린다.
+  - 단축키 표와 chord 판정은 그대로 ipc/keybindings.ts다. 키·조합 중·터미널의 Ctrl+글자·반복 규칙은 바뀌지 않았다.
+why: |
+  사람이 VS Code의 command registry·keybinding service처럼 키 입력을 중앙에서 받고 command의 일은 기능이 갖는 중간 구조를 요청했다.
+decisions:
+  - text: "context key 식, 우선순위 수, 사용자 단축키 설정, extension 소유권은 넣지 않았다. command의 when 함수 하나와 “나중 것 먼저” 순서만 둔다."
+    by: agent
+  - text: "command id는 표의 Command 이름 그대로다. id 공간을 새로 만들지 않는다."
+    by: agent
+  - text: "browser toolbar의 Ctrl/Cmd+D는 그 toolbar의 키로 둔다. 표에 넣으면 terminal의 Ctrl+D(EOF)와 부딪힌다(browser-tab.md)."
+    by: agent

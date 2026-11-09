@@ -1,0 +1,17 @@
+id: builtin-skill-names-verb-noun
+version: 0.10.1
+title: "내장 skill 이름을 동사-명사로 맞췄다"
+modules: [packages/core/agent-workspaces, packages/protocol, packages/shell/renderer, tests]
+checked: []
+change: |
+  전: kinds-yaml, check-kinds, guide-artifact, guide-workflows, guide-domains.
+  후: write-kinds, check-domains(/ 메뉴), write-artifact, write-workflow, make-domain. new-app, repair-app, design-app은 그대로다.
+  계약:
+  - 바뀐 것: BUILTIN_SKILLS의 위 다섯 이름과 agent-places/skills/의 폴더 이름. place 지침이 새 이름을 부른다.
+why: |
+  동사-명사, guide-주제, 파일 이름(kinds-yaml)이 섞여 있었다. guide-artifact·guide-workflows는 쓰는 절차였고, check-kinds는 kind 파일이 아니라 domain의 문서를 kind에 대어 본다.
+decisions:
+  - text: "이름 꼴은 사람이 골랐다."
+    by: person
+  - text: "eval registry와 run 기록은 옛 이름 그대로 둔다. 지난 run이 무엇을 썼는지의 기록이다."
+    by: agent

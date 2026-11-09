@@ -26,12 +26,13 @@
 | `project-docs/PRODUCT.md`              | 제품이 무엇이고 무엇이 아닌가                                          |
 | `project-docs/boundary-catalog.yaml`   | 추상화 경계와 공개 계약의 ID                                         |
 | `project-docs/module-catalog.yaml`     | 코드 module ↔ boundary ID                                   |
-| `project-docs/architecture/<topic>.md` | 여러 module에 걸친 메커니즘의 흐름, 불변 조건, 이유                         |
+| `project-docs/architecture/<topic>.md` | 여러 module에 걸친 메커니즘의 설계(문제, 모델, 지키는 것, 결정). code path는 적지 않는다 |
 | `project-docs/flows/`                  | 모든 동작(entry, flow, outcome, journey)과 test가 덮는 outcome. `node tools/flows.ts report` |
 | `project-docs/products/roadmap/`       | 아직 계획으로 열지 않은 큰 일. 주제 하나에 md 하나                           |
 | `project-docs/plan/`                   | 진행 중인 계획                                                  |
-| `project-docs/issues/`                 | 열린 이슈: bug, defect(코드 결함, 무겁게 짠 것), mistake(worker의 큰 실수) |
-| `project-docs/products/change-log/`    | 판마다 바뀐 동작·계약과 결정                                          |
+| `project-docs/issues/<id>.yaml`        | 이슈 하나가 file 하나: bug, defect(코드 결함, 무겁게 짠 것), mistake(worker의 큰 실수). 닫아도 두고 `status`만 바꾼다. `node tools/records.ts issues` |
+| `project-docs/products/change-log/<x.y>/<id>.yaml` | 일 하나가 바뀐 동작·계약과 결정(내부 기록). `node tools/records.ts changes` |
+| `project-docs/products/release-notes/<x.y.z>.md` | 사람이 읽는 판 요약. 영어, 외부용 |
 
 * 동작을 바꿔 architecture 문서와 달라지면 같은 변경에서 그 문서를 고친다.
 * 정할 수 없는 것은 보고하고 추천안으로 진행한다.
@@ -62,7 +63,7 @@ MVP 이전이다. 설계는 자유롭게 바꾸되, 사람이 실제로 쓰는 d
 * 저장된 data의 모양이 바뀌면 기존 data를 새 모양으로 옮기는 migration을 같은 변경에 넣는다.
   * ledger: 새 schema step(새 id)을 더한다. 이미 낸 step의 SQL은 고치지 않는다. 적용기가 id와 SQL hash로 대조해 다르면 기동을 거절한다. 새 step은 `WIRINGS`(`packages/core/main/daemon/assembly.ts`) 맨 뒤 wiring의 `schemaStepsAfterTeams`에 더하고, 같은 변경에서 `schema-steps.lock.json` 끝에 `{id, sha256}`을 덧붙인다.
   * ledger 밖 data root 파일(`agents/*.md`, `settings.json`, `secrets.json` 등): 소유 wiring의 `dataSteps`에 step을 더한다.
-* 제품 판은 root `package.json`의 `version` 하나다. 다른 package의 `version`은 쓰지 않는다.
+* 제품 판은 root `package.json`의 `version` 하나다. 다른 package의 `version`은 쓰지 않는다. PATCH는 `packages/`를 바꾼 일 하나를 main에 올리는 agent가 같은 변경에서 올리고 change-log 항목을 쓴다. MINOR·MAJOR는 사람이 정하고 release notes를 쓴다(`products/change-log/README.md`).
 * 틀린 옛 test(e2e 포함)는 옮기거나 고쳐 살리지 않는다. 지우고 새 설계에 맞춰 다시 쓴다.
 
 ## worker

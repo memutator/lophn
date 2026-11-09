@@ -1,16 +1,16 @@
 # eval: 진짜 model이 lophn의 일을 잘하나
 
-상태: 로드맵. 계획 `eval-base`(기초와 판단 case), `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위), `eval-experiment`(experiment, agent 채점), `test-restore`(case를 현재 계약에 맞춰 되살림)는 모두 land했다. 그 코드는 `project-docs/architecture/eval.md`가 적는다. 이 문서에 남은 것은 설계의 배경과 아직 만들지 않은 것이다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
+상태: 로드맵. 계획 `eval-base`(기초와 판단 case), `eval-coding`(진짜 coding agent, 사람 역할, 캘린더 단위), `eval-experiment`(experiment, agent 채점), `test-restore`(case를 현재 계약에 맞춰 되살림)는 모두 land했다. 그 설계는 `project-docs/architecture/eval.md`가, 돌리는 법과 code 자리는 `.claude/skills/eval-run/reference.md`가 적는다. 이 문서에 남은 것은 설계의 배경과 아직 만들지 않은 것이다. domain model과 구조는 2026-10-18 planner와 사람이 다시 정했다. 그림은 artifact "lophn eval 설계"(https://claude.ai/artifact/P9TagQSccLQAgRWFcDeD6g)에 있다.
 2026-10-28: 계획 `remove-role`이 role을 없앴다. agent는 lophn과 사람이 만든 agent이고 session이 workspace(home, project, app)를 갖는다(`products/AGENT.md`, changelog `0.9.0`). 아래에서 Project Manager는 그 project workspace의 session, App Engineer는 그 앱 workspace의 session, Operator는 사람이 만든 agent로 읽는다.
 계획 `test-restore`가 아래 case 표와 확인 목록을 지금 계약에 맞췄다(coding agent 없음, App Engineer가 앱을 직접 짓고 release까지 낸다, grant 대신 assignment, `guide.read` 대신 `guide-*` skill, approval 대신 activation 동의). 새 설계로 진짜 model을 돌려 보는 것은 사람의 다음 일이다.
 
 2026-10 Node 전환에서 앱 모양이 Deno project에서 Node 앱으로 바뀌었다. 그 모양에 묶여 있던 판단 case 여덟(`L4-new`, `L7`, `O4`, `calendar-api`, `calendar-dev`, `calendar-diagnose`, `calendar-maintain`, `calendar-user`)과 그 재료를 지웠다. 그 case들만 쓰던 harness 기능도 지웠다: 사람 역할(`tests/eval/human/`, `npm run eval:answer`), 시나리오의 `human`·`approve`·`save`·`limits`·`callApi`·`setup`, 끝난 world를 보는 check(`tests/eval/checks/app/`), criterion `app-design`·`asked-again`·`card-covered`·`facts-separated`·`root-cause`. 지금 harness는 판단 case 11개만 돈다. 아래 캘린더 단위, 요구 카드, 설계·재사용·진단 확인, 산출물 저장, 기다림 한도 설계는 Node 앱 모양으로 다시 지을 때의 기준으로 남긴다.
-계획이 land할 때마다 이 설계 가운데 만든 것을 실제 코드 path와 함께 `project-docs/architecture/eval.md`로 옮기고, 여기서는 지운다. architecture 문서는 지금 코드만 적기 때문이다.
+계획이 land할 때마다 이 설계 가운데 만든 것을 설계(문제, 모델, 지키는 것, 결정)로 `project-docs/architecture/eval.md`에 옮기고, code 자리와 돌리는 법은 `.claude/skills/eval-run/reference.md`에 두고, 여기서는 지운다. architecture 문서는 지금 code의 설계만 적기 때문이다.
 배경 문서: `project-docs/products/AGENT.md`, `project-docs/architecture/testing.md`, `project-docs/architecture/agent-definition.md`, AGENTS.md "속도"·"사람에게 묻는 것".
 
 ## 왜
 
-- test 층 다섯(`architecture/testing.md`)은 정해 둔 입력에 pass/fail이 결정적으로 갈리는 것만 본다. fake는 대답을 test가 정하므로 판단이 없다. live는 진짜 model을 부르지만 대답 내용을 보지 않는다(`tests/live/suite.ts:173-199`).
+- test 층 다섯(`architecture/testing.md`)은 정해 둔 입력에 pass/fail이 결정적으로 갈리는 것만 본다. fake는 대답을 test가 정하므로 판단이 없다. live는 진짜 model을 부르지만 대답 내용을 보지 않는다(`tests/live/suite.ts`).
 - AGENT.md의 L1~L7은 "의미 판단이라 program이 강제하지 않는다". T19는 "agent 지침의 규칙이고 program이 막지는 않는다". 앱을 만들고, 이미 있는 것을 다시 쓰고, 문제를 진단하는 일도 role 지침과 model이 한다. 이것을 재는 장치가 없다.
 - instruction, skill, tool definition, prompt 조립을 고쳐도 그것이 정말 나아졌는지 확인할 길이 없다. 고친 것이 시나리오 하나에만 맞춰졌는지도 모른다.
 
@@ -402,7 +402,7 @@ eval이 대신 맡는 것:
 - **core의 provider**: trial마다 새 data root라 provider가 없다. `.env`의 API key를 `secrets/put`으로 넣는다.
 - **전제 재료**: 제품 route로 되살린다. model 호출은 없다.
 
-coding agent는 제품에 띄우는 길이 없어 eval이 재지 않는다(`project-docs/architecture/eval.md`의 "아직 아닌 것"). 그 driver, PTY, CLI wrapper는 지웠다.
+coding agent는 제품에 띄우는 길이 없어 eval이 재지 않는다(`project-docs/architecture/eval.md`의 열린 것). 그 driver, PTY, CLI wrapper는 지웠다.
 
 ## 역할과 흐름
 
@@ -448,7 +448,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 ## 제품 빈틈
 
 조사에서 나온 것 가운데 아직 남은 것이다. model이 아니라 제품 탓으로 확인이 떨어질 곳이다. 확인이 이 때문에 떨어지면 scorecard에 제품 탓으로 따로 적는다.
-지침, 재사용을 찾는 길(내장 SDK의 catalog, `app.app_api`), cap SDK는 계획 `prompt-text`와 `reuse-diagnose`가 고쳤다(`project-docs/products/change-log/0.3.0.md`).
+지침, 재사용을 찾는 길(내장 SDK의 catalog, `app.app_api`), cap SDK는 계획 `prompt-text`와 `reuse-diagnose`가 고쳤다(`project-docs/products/change-log/0.3/`).
 
 - 앱끼리의 call(선언의 `app_connections`)과 `package.publish`를 제품 길로 끝까지 지나는 test가 없다. `declaration.check`는 연결 대상이 있는지 보지 않는다.
 - 재현 확인이 없다. 진단 확인은 고친 뒤 같은 호출이 답하나(`no-recurrence`)와 원인을 짚었나(judge `root-cause`)를 보지만, 고치기 전에 증상이 재현되는지(진단이 맞는지)를 program이 보지는 않는다. 그 확인은 앱을 짓는 단위와 함께 지웠고, 다시 지을 때 이 빈틈도 함께 본다.
@@ -510,7 +510,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 - 이어 돌리기는 experiment가 고를 때만 한다. 앞 단위의 새 산출물은 사람이 commit해야 뒤 단위의 전제가 된다(agent).
 - shell 물음과 activation 동의 같은 사람의 허락은 시나리오의 허락 규칙대로 program이 제품 route로 준다(agent). 규칙(`approve`)은 사람 역할과 함께 지웠고 다시 지을 때 만든다.
 - 캘린더 단위는 사람 말을 일상의 말(calendar-user)과 개발자의 말(calendar-dev)로 나눠 잰다. 둘 다 앱 등록만 있는 `calendar-blank@1`에서 시작해 App Engineer가 설계하고 짓는다. L4-new는 lophn이 앱을 만들고 App Engineer에게 넘기는 데까지 잰다(`test-restore`). 이 단위들은 Node 전환에서 지웠고, Node 앱 모양으로 다시 지을 때 이 설계를 쓴다.
-- 자리는 `tests/eval/`다(자세한 폴더는 `project-docs/architecture/eval.md`). `tests/eval`의 `*_test.ts`는 core와 provider 없이 도는 것만 두고 `deno task check`가 돈다. runner와 시나리오 file은 test file이 아니라 check가 돌리지 않는다. data 폴더(재료, registry, run 요약)는 `fmt.exclude`에 넣는다(agent).
+- 자리는 `tests/eval/`다(자세한 폴더는 `.claude/skills/eval-run/reference.md`). `tests/eval`의 `*_test.ts`는 core와 provider 없이 도는 것만 두고 `deno task check`가 돈다. runner와 시나리오 file은 test file이 아니라 check가 돌리지 않는다. data 폴더(재료, registry, run 요약)는 `fmt.exclude`에 넣는다(agent).
 - 재료를 되살릴 때는 fake 대본을 쓴다. 진짜 model은 시나리오의 `real`에만 붙인다(agent).
 - 재료 버전은 정수 `n`과 content hash다. 결과는 runner가 새 `n`으로 쓰고, 사람이 보고 commit한다(agent).
 - core의 provider는 처음에는 API key만 쓴다. 구독 OAuth는 root를 복사할 수 없어 trial마다 새 root를 쓰는 eval과 맞지 않는다(agent).
@@ -525,7 +525,7 @@ experiment spec은 harness를 고치기 전에 확정한다. 판정 규칙을 �
 
 시작 조건이던 계획 `reuse-diagnose`와 `provider-model`은 main에 land했다. `eval-base`(기초와 판단 case), `eval-coding`(진짜 coding agent와 캘린더 단위), `eval-experiment`(spec, run 고르기, trial 정책, 병렬과 예산, gate, variant, 판정, 경고와 진단, agent 채점과 사람 역할, runner·experimenter skill)는 land했다. `test-restore`는 primitive 개편(problem, ticket, grant, coding agent 제거) 뒤 case 표와 시나리오를 현재 계약에 다시 맞췄다(`project-docs/architecture/eval.md`). 남은 계획은 없다. 고칠 것은 experiment의 `report.md`가 제안한다.
 
-계획마다 끝에 고칠 것: `project-docs/architecture/eval.md`(그 계획이 만든 것을 실제 코드 path로 더한다), `architecture/testing.md`(eval 층, 돌리는 때), registry `tool-eval`과 `architecture-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록, 이 문서에서 그 계획 몫을 지운다.
+계획마다 끝에 고칠 것: `project-docs/architecture/eval.md`(그 계획이 만든 것의 설계를 더한다), `.claude/skills/eval-run/reference.md`(code 자리와 돌리는 법), `architecture/testing.md`와 `write-test/reference.md`(eval 층, 돌리는 때), registry `tool-eval`과 `architecture-eval`, module-catalog `tests`의 notes, `write-test` skill의 층 목록, 이 문서에서 그 계획 몫을 지운다.
 
 ## 끝남 기준
 

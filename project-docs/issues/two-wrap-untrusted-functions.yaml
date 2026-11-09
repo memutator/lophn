@@ -1,0 +1,17 @@
+id: two-wrap-untrusted-functions
+title: '`wrapUntrusted`가 둘이다'
+kind: defect
+status: fixed
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `prompt-assembly/input-tags.ts`(`renderTag`로 감싼다)와 `run-loop/untrusted.ts`(`escapeBody`로 직접 감싼다)에 같은 이름·같은 모양의 함수가 있다. web tool(`tools/web/fetch.ts`, `search.ts`)은 앞의 것을, `run-loop/history.ts`는 뒤의 것을 쓴다. `run-loop/mod.ts`도 뒤의 것을 export한다. 테스트는 앞의 것(`input-tags_test.ts`)만 본다.
+impact: |
+  한쪽만 고치면 web 결과를 감싸는 모양이 둘로 갈라지고, 바깥 글이 닫는 tag를 흉내 내지 못하게 하는 방어가 한쪽에서 빠질 수 있다(prompt injection 경계).
+fix: |
+  하나만 남기고(`input-tags.ts`) 다른 쪽 import를 옮긴다. `untrustedSource`는 `run-loop/untrusted.ts`에 남긴다. 비용 작다. 추천: 합친다.
+decided: |
+  줄인다. `prompt-assembly/input-tags.ts` 것만 남기고 `run-loop/history.ts`·`run-loop/mod.ts`의 import를 옮긴다. `untrustedSource`는 `run-loop/untrusted.ts`에 남긴다.
+closed: |
+  `run-loop/untrusted.ts`에는 `untrustedSource`만 남고 `wrapUntrusted`는 `prompt-assembly/input-tags.ts`의 것(`renderTag`) 하나다. `run-loop/history.ts`는 `prompt-assembly/mod.ts`에서 가져다 쓰고 `run-loop/mod.ts`는 `untrustedSource`만 내보낸다.
+guard: packages/core/lophn-agent/run-loop/untrusted_test.ts "web 결과의 닫는 tag는 무력화되고 파일·shell 결과는 감싸지지 않는다", packages/core/lophn-agent/prompt-assembly/input-tags_test.ts

@@ -1,0 +1,37 @@
+id: place-renamed-to-workspace
+version: 0.18.0
+title: "place를 workspace로 부른다"
+modules: [packages/cli, packages/coding-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/apps, packages/core/config, packages/core/jobs, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/core/runs, packages/core/server, packages/core/storage, packages/core/workflows, packages/design, packages/protocol, packages/sdk, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer]
+checked: []
+change: |
+  session이 일하는 그릇(home, project, app)의 이름이 place에서 workspace로 바뀌었다. 동작은 같다.
+  - 전: 코드·protocol·화면·문서가 place(`Place`, `PlaceKind`, `agent-places`, `shell:place-layout-read`, 화면의 "Places", "Add place")라 불렀다. 전역 설정 층은 화면에서 "Workspace"였다.
+  - 후:
+    - 이름: `Workspace`, `WorkspaceKind`, `packages/core/agent-workspaces`, `packages/protocol/lophn-agent/workspaces.ts`, `WorkspaceWindow` 등. 화면은 "Workspaces", "Add workspace", "Calls between workspaces". 전역 설정 층은 "Global"이다.
+    - 계약: call 받는 곳 `to: {agent, workspace: {project | app}}`(`lophn call send`, `call.send` tool, flow SDK `agent({ agent, workspace })`, workflow 참가자 `{ agent, workspace? }`), job action `agent_workspace`, run target `{agent: {agent, workspace}}`, call 정책 설정 `{workspaces, agents}`, skill 출처 `workspace-data`, prompt 층 `workspace_kind`·`workspace`.
+    - 저장: ledger 열 `sessions.workspace_kind`·`workspace_id`, `jobs.creator_workspace`, `runs.workspace_key`(index `runs_workspace`). layout 파일은 `<data>/shell/workspaces/<workspace>.json` 판 10이고 agent 탭은 `workspace`를 가진다.
+
+  옮기기: schema step `lophn-agent.sessions.workspace`, `jobs.workspace`, `runs.workspace`, `router.agent-calls.workspace`, `workflows.workspace`가 열 이름과 저장된 JSON(`agent_calls.to`, `jobs.action`, `runs.target`, `workflow_instances.participants`)을 옮긴다. data step `settings.call-policy-workspaces`, `shell.workspace-layouts`(판 9 → 판 10, 옮길 자리에 파일이 있으면 덮지 않는다), `workflows.participant-workspace`(workflow 폴더의 `workflow.yaml` 참가자 key와 `flow.ts`의 `place: { project | app`만 바꾼다)가 data root 파일을 옮긴다.
+
+  검증: `npm run check:full`, e2e 89개. main의 core로 만든 data root에 옛 모양(place 열·JSON key, `shell/places/` 판 9, call 정책 `places`)을 넣고 이 판의 core로 두 번 띄워 거절 없이 옮겨지는 것을 봤다. 화면은 띄워 보지 않았다.
+why: |
+  사람이 place를 workspace로 바꾸라고 했다(2026-11-05).
+decisions:
+  - text: |
+      이미 낸 schema step의 id·SQL과 data step id `domains.place-data`, 옛 data step `artifacts.container`가 읽는 `shell/places`는 기록이라 옛 이름 그대로다.
+    by: agent
+  - text: |
+      닫힌 판의 change-log, 이 판의 앞 항목, `issues/archived/`의 본문, eval 기록(`tests/eval/registry`, `runs`, `experiments`)은 그때의 기록이라 고치지 않았다. archived 이슈 파일 이름만 열린 이슈와 짝이 되게 `workspace-session.md`로 옮겼다.
+    by: agent
+  - text: |
+      전역 설정 층의 화면 이름 "Workspace"를 "Global"로 바꿨다. workspace 하나(Home, project, 앱)와 헷갈린다.
+    by: agent
+  - text: |
+      place가 자리·배치를 뜻하는 곳은 그대로다: browser DevTools 자리(`DevtoolsPlace`, 탭 값 `place`), group 배치(`placeGroup`), chart(`placeBottomLabels`), 영어 관용구("in place of", "one place to the left").
+    by: agent
+  - text: |
+      이미 쓰인 blob(turn basis, tool 입력의 `to.place`)은 고치지 않는다. 옛 call tool 줄의 받는 곳 표시만 빠진다.
+    by: agent
+  - text: |
+      제품 지시의 "lophn, a local workspace where…"는 그대로 두었다.
+    by: agent

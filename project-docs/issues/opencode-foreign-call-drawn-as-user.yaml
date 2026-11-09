@@ -1,0 +1,12 @@
+id: opencode-foreign-call-drawn-as-user
+title: OpenCode GUI에서 다른 client가 보낸 lophn call이 live로는 사람 메시지로 그려진다
+kind: bug
+status: open
+topic: harness-gui
+modules: [packages/shell/main, packages/protocol]
+now: |
+  `packages/shell/main/extensions/bundled/harness-gui/opencode.ts`는 다시 그릴 때(`userMessage`) `classifyReceived`로 lophn call·reply를 받은 메시지로 그린다. 그런데 live로 다른 client(TUI, lophn)가 넣은 메시지는 `userQueued`가 `message_queued` 뒤 `message_taken`으로 그리고, ACP의 줄 선 item(`packages/protocol/acp/`)에는 `actor`·`sender`가 없다.
+impact: |
+  OpenCode GUI를 열어 둔 채 다른 agent가 그 session에 call을 보내면, 다시 열기 전까지 사람 메시지로 보인다.
+fix: |
+  줄 선 item에 받은 메시지 표시를 더하거나, 다른 client의 메시지는 줄을 거치지 않고 `message_added`로 그린다. 뒤의 것이 작다. 추천.

@@ -1,0 +1,27 @@
+id: harness-role-place-rules-to-role-layer
+version: 0.2.0
+title: "harness에 남은 role·place 규칙을 role 층으로 옮김"
+modules: [packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/core/projects, packages/protocol, tools]
+checked: [architecture-approval, architecture-agent-call, architecture-activation, architecture-app-call, architecture-coding-agent, architecture-annotation, architecture-ui-kit, tool-dev, tool-check, context-component-registry, tool-context-review]
+change: |
+  전: harness(`packages/core/lophn-agent`)의 `agents/`(built-in 이름·기본 profile·정의 file 자리·Operator 판정), `places/`·`session/model.ts`(role별 place와 ref), `instructions/files.ts`(정의 file 자리 사본, 다른 project 지침 규칙, projects·apps 표를 읽는 숨은 SQL), `extensions/`(project 설정 층의 자리, `prj_` 폴더 규칙, PM 내장 skill `context-init`·`context-update`)가 role 이름과 lophn data 자리를 직접 다뤘다. `HARNESS_LEFTOVERS`에 25개 file이 있었다.
+  후:
+  - role 층 `packages/core/agent-roles`가 값을 낸다: `agents/role-table.ts`의 `ROLE_TABLE`, `agents/operator-directory.ts`, `place/data-folder.ts`, `place/project-layer.ts`, `place/instruction-rules.ts`, `place/session-directory.ts`, `place/active-contexts.ts`, 내장 skill 폴더 `skills/`.
+  - harness는 type(`AgentRoleTable`, `PlaceRoleRules`, `ProjectLayer`)만 갖고 조립이 꽂는다. GetInstructions의 reader 팀 file은 `main/daemon/wiring/instructions-registration.ts`다.
+  - role과 ref·session 행의 변환(`placeOfAgentRef`, `agentRefOfColumns`, `agentIdentityOf`)은 `protocol/lophn-agent/places.ts`에 더했다.
+  - `HARNESS_LEFTOVERS`에는 동적 app-api tool과 call·file tool 등 9개가 남았다.
+  - agent가 보는 tool 목록, prompt, place 정보, 정의 file 자리는 같다. task마다 옮기기 전 값과 비교했다.
+why: |
+  role이나 place 규칙을 바꿀 때 harness를 같이 고치지 않게, 같은 규칙의 사본(정의 file 자리 셋, project data 자리 넷)을 하나로 모으려고.
+decisions:
+  - text: |-
+      role↔ref 변환은 role 표가 아니라 protocol의 순수 함수로 둔다. 여러 harness file이 직접 쓰는데 표 인자를 끌고 다니지 않으려고, 그리고 protocol이 이미 role 정체성(`ROLE_PLACES`, `agentRefSchema`)을 가져서다.
+    by: agent
+  - text: |-
+      지침 읽기의 "앱이 든 project"는 domain끼리 import하지 않도록 팀 file이 `appSourcePath`와 `innermostProjectOfPath`를 잇는다.
+    by: agent
+  - text: |-
+      동적 app-api tool과 call·file tool의 domain 읽기는 옮기지 않는다(`project-docs/issues/layers.md`).
+    by: agent
+follow_up: |-
+  schema 변경 없음.

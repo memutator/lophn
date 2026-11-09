@@ -1,0 +1,9 @@
+id: pinned-tray-popup-survives-workspace-switch
+version: 0.23.0
+title: "pin한 tray popup이 workspace를 옮겨도 다시 그려지지 않는다"
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: workspace를 옮기면 Tray가 새로 mount되며 pin한 popup을 다시 열었다. popup이 잠깐 사라졌다 나타나고 앱 화면이 다시 load됐다.
+  후: 열린 popup은 창 하나의 store에 있고 workspace 밖 layer가 그린다. pin한 popup은 그대로 떠 있고 앱 화면도 그대로다. 앱 화면이 받은 workspace는 연 때 것이다.
+why: workspace를 옮길 때 pin한 popup이 사라졌다 나타나고 앱 화면이 다시 load되는 것을 막으려고.

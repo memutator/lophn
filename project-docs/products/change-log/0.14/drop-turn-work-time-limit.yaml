@@ -1,0 +1,23 @@
+id: drop-turn-work-time-limit
+version: 0.14.0
+title: 'turn의 일한 시간 한도를 지우고 model 호출 수 상한을 기본으로 끄다'
+modules: [packages/protocol, packages/core/lophn-agent]
+checked: []
+change: |
+  전:
+    - turn 하나는 사람 기다림을 뺀 일한 시간 30분(`lophn-agent.run.active_ms`), model 호출 150번(`lophn-agent.run.model_attempts`), 진행 없이 5분(`lophn-agent.run.stall_ms`) 가운데 먼저 닿는 것에서 멈췄다. 진행 중인 긴 일도 "The agent reached its working time limit and stopped."로 끊겼다.
+  후:
+    - 일한 시간 한도가 없다. 설정 `lophn-agent.run.active_ms`를 지웠다. settings 파일에 남은 값은 읽지 않는다. 일한 시간은 "Worked for"에 쓰려고 계속 센다.
+    - `lophn-agent.run.model_attempts`는 기본이 `null`(상한 없음)이다. 양의 정수를 고르면 전처럼 그 수에서 멈춘다(eval 판단 case의 15).
+    - `stall_ms`(진행 없이 5분)는 그대로다.
+    - turn에 고정하는 `limits`가 `{model_attempts: number | null, stall_ms}`다. ledger step `lophn-agent.turns.drop-active-limit`이 시작한 turn의 `limits`에서 `active_ms`를 뺀다.
+    - 실패 이유 `active_limit`는 남는다. 그 이유로 끝난 지난 turn의 TurnEnded event가 ledger에 있고 events는 고치지 않는 기록이다. 새 turn은 그 이유를 내지 않는다.
+why: |
+  사람이 앱을 짓는 turn이 30분에 끊겼다. omp, Hermes, opencode는 기본으로 turn 시간이나 step 수 상한이 없다. Hermes는 상한이 "silent mid-task truncation"을 일으켜 기본을 무제한으로 바꿨다. 셋 다 기본으로 켜 둔 것은 stream 단위 무진행 timeout과 retry 수뿐이다.
+decisions:
+  - text: '일한 시간 한도는 지우고 호출 수 상한은 opt-in으로 남긴다. 사람이 한도를 없애라고 했다. 호출 수 상한은 eval이 돈을 막는 데 쓰고, opencode `steps`·Hermes `max_turns`도 opt-in으로 둔다.'
+    by: person
+  - text: '무진행 한도는 남긴다. 다른 harness도 무진행 timeout은 기본으로 켜 두고, 진행 없이 멈춘 turn을 끝낼 다른 장치가 없다.'
+    by: agent
+  - text: '한도에 닿았을 때 tool 없이 model을 한 번 더 불러 한 일·남은 일을 요약하게 하는 안(opencode·Hermes)은 이 변경에 넣지 않았다.'
+    by: agent

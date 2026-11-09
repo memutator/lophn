@@ -27,8 +27,8 @@ shell extension (`project-docs/architecture/extension.md`)
 tool registry (`packages/core/lophn-agent/tools/`)
 - `ToolDefinition`(`registry.ts:20-50`): `name, description, input, inputSchema?, effect, origin: builtin|app|external, handler?, display?, gate?, operations[]`. 바뀜 판단은 name·description·input schema·effect의 hash(`registry.ts:62-69`).
 - `tools[]`: workspace 종류 고정 목록(`workspaceToolNames`, `packages/protocol/lophn-agent/tool-lists.ts`) + 설정한 MCP tool(`mcp__<server>__<tool>`, `origin: external`). `visibleTools`(`run-loop/prepare.ts:291-327`), 첫 turn에 session 고정(`prepare.ts:995-1000`), 바뀌면 `tools_changed` notice(`prepare.ts:349-368`).
-- 앱 command는 `tools[]`에 없고 `lophn` 명령으로 푼다(`command-surface.md`). `agent-definition.md:30`·`:69`의 "할당된 앱 tool을 `tools[]`에 싣는다"는 옛 문장이다(`agent-surface.md` 단계 0이 고친다).
-- Gate: `gate()`가 `GateCall {app_tool | mcp_tool | shell}`을 내면 core가 판정한다(`tools/work.ts:140-142`, `approval.md:42-47`). MCP는 설정한 층이 곧 할당이고 실행 때 묻지 않는다.
+- 앱 command는 `tools[]`에 없고 `lophn` 명령으로 푼다(`command-surface.md`). `architecture/agent-definition.md`에 할당된 앱 tool을 `tools[]`에 싣는다는 옛 문장이 남아 있으면 옛 문장이다(`agent-surface.md` 단계 0이 고친다).
+- Gate: `gate()`가 `GateCall {app_tool | mcp_tool | shell}`을 내면 core가 판정한다(`architecture/approval.md`의 판정 흐름). MCP는 설정한 층이 곧 할당이고 실행 때 묻지 않는다.
 - agent 자격의 operation 상한은 workspace 종류 목록 tool의 route 합집합이다(`agent-workspaces/credentials.ts:52-92`).
 
 ## 비교 (harness-lab)
@@ -53,10 +53,10 @@ tool registry (`packages/core/lophn-agent/tools/`)
 
 1. 진짜 tool이다: model의 `tools[]`에 schema와 함께 들어간다. (사람, 2026-11-08)
 2. schema는 manifest에 정적으로 선언한다. 실행 중 등록(`register()`)은 두지 않는다. (agent) 정의 hash·`tools_changed` notice·session 고정 목록 규칙이 그대로 맞고, 설정 화면이 code를 load하지 않고 tool을 보인다. Claude Code mod와 같은 꼴.
-3. 할당한 agent에게만 싣는다. 단위는 extension 하나(그 tool 전부)이고 칸은 사람만 쓴다(`apps`, `mcp_servers`와 같다). (agent) 2026-11-01 "`tools[]`는 workspace 종류마다 작은 고정 집합"을 기본 상태에서 지키고, 넓히는 길이 할당 하나라는 원칙(`agent-definition.md:57`)과 맞는다.
-4. 할당이 곧 허락이다. 실행 때 묻지 않고 결과를 `<lophn-untrusted>`로 감싸지 않는다. (agent) 사람이 설치하고 켜고 할당한 code는 MCP처럼 믿는다(`agent-definition.md:53`, `approval.md:36`).
+3. 할당한 agent에게만 싣는다. 단위는 extension 하나(그 tool 전부)이고 칸은 사람만 쓴다(`apps`, `mcp_servers`와 같다). (agent) 2026-11-01 "`tools[]`는 workspace 종류마다 작은 고정 집합"을 기본 상태에서 지키고, 넓히는 길이 할당 하나라는 원칙(`architecture/agent-definition.md`의 지키는 것)과 맞는다.
+4. 할당이 곧 허락이다. 실행 때 묻지 않고 결과를 `<lophn-untrusted>`로 감싸지 않는다. (agent) 사람이 설치하고 켜고 할당한 code는 MCP처럼 믿는다(`architecture/agent-definition.md`의 MCP 층, `architecture/approval.md`의 할당이 허락이라는 원칙).
 5. handler가 core를 부를 때는 사람 권한이 아니라 그 호출 session의 agent 자격(상한은 그 workspace 종류)을 쓴다. (agent) agent가 tool 하나로 사람 권한을 얻지 않게. harness turn 자격(`harness-credential.ts`)과 같은 선례.
-6. 처음부터 다 싣는다. 늦게 싣기는 하지 않는다. (agent) `agent-definition.md:69` "숨기거나 늦게 펼치는 장치는 없다". tool이 많은 extension의 비용은 사람이 할당으로 조절한다(MCP와 같다, `command-surface.md:132`).
+6. 처음부터 다 싣는다. 늦게 싣기는 하지 않는다. (agent) `architecture/agent-definition.md`의 지키는 것(숨기거나 늦게 펼치는 장치는 없다). tool이 많은 extension의 비용은 사람이 할당으로 조절한다(MCP와 같다, `command-surface.md`).
 7. model에 보이는 이름은 `ext__<extension id>__<tool name>`이다. provider 이름 규칙(`[A-Za-z0-9_-]{1,64}`)에 맞고 내장(`_` 하나)·MCP(`mcp__`)와 겹치지 않는다. tool name은 `[a-z][a-z0-9_]*`이고 `__`가 없으며 길이는 manifest schema가 막는다. (agent, 계획 agent-surface가 정함)
 8. extension tool의 첫 실제 사용자는 browser-use extension이다. (2026-11-09: browser use는 CLI + skill로 갔다(사람, changelog 0.22.0). extension tool의 실제 사용자는 아직 없고, 남길지는 사람이 정한다.) 이 로드맵은 test extension fixture로만 확인한다. (agent) AGENTS.md "쓰일지 모를 확장 지점을 미리 만들지 않는다"와 어긋나지만, 사람이 명시해 만든다.
 

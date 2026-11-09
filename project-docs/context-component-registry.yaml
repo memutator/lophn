@@ -5,6 +5,7 @@
 #
 # 흐름: plan(범위를 catalog ID로) → implement(commit이 path를 바꿈) → changelog(바뀐 module을 판마다)
 #       → 이 목록에서 change_reasons가 걸린 조각을 다시 본다.
+#       (changelog = project-docs/products/change-log/<x.y>/<id>.yaml)
 #
 # - roles: 이 저장소의 agent role(planner, lead, worker 등). lophn 제품 안의 agent가 아니다.
 # - components: 조각. 첫 role의 절에 둔다.
@@ -29,7 +30,7 @@ roles:
     description: 이 저장소에서 일하는 모든 agent.
 
   - id: planner
-    description: 사람과 무엇을 할지 정한다. 제품 범위, 이슈의 결정, 로드맵, changelog의 결정, context 유지보수.
+    description: 사람과 무엇을 할지 정한다. 제품 범위, 이슈의 결정, 로드맵, change-log의 결정, release notes, context 유지보수.
 
   - id: lead
     description: 계획 하나를 task로 나눠 worker에게 맡기고, review해 main에 합치고, 이슈와 상태를 고친다.
@@ -62,7 +63,7 @@ components:
   - id: tool-check
     kind: tool
     roles: [all]
-    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, kit, shell(fmt, lint, main, main test), test, token 생성물 비교를 돈다. docs(문서 속 path)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
+    description: 바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, kit, shell(fmt, lint, main, main test), test, token 생성물 비교를 돈다. docs(문서 속 path)와 records(이슈·change-log·architecture 문서 꼴)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.
     path: tools/check.ts
     run: npm run check
     change_reasons:
@@ -108,7 +109,7 @@ components:
   - id: issues
     kind: record
     roles: [planner, lead]
-    description: 열린 bug, defect, mistake. 주제 하나에 파일 하나, 닫은 것은 archived/. 절마다 정할 것·정한 것.
+    description: bug, defect, mistake. 이슈 하나가 yaml file 하나(`<id>.yaml`), 닫아도 두고 `status`(open, fixed, kept)만 바꾼다. 칸마다 지금·영향·고치려면·정할 것·정한 것·닫은 것. 목록은 `node tools/records.ts issues`.
     path: project-docs/issues/
     change_reasons:
       note: 이슈를 찾거나 고치거나 정할 때. 이슈의 modules가 바뀐 module을 가리키면 다시 본다.
@@ -116,10 +117,18 @@ components:
   - id: changelog
     kind: record
     roles: [planner, lead]
-    description: 판마다 동작이나 계약이 바뀐 것과 결정을 바뀐 module과 함께 남긴 기록.
+    description: "일 하나가 바꾼 동작·계약과 결정을 바뀐 module과 함께 남긴 내부 기록. `<x.y>/<id>.yaml` 항목 하나가 일 하나, 결정은 `by: person | agent`. PATCH 판은 `packages/`를 바꾼 일을 올리는 agent가 올린다."
     path: project-docs/products/change-log/
     change_reasons:
-      note: 동작이나 계약이 바뀌는 일, 결정이 있는 일이 끝날 때. append-only라 열린 판에 덧붙이기만 한다.
+      note: 동작이나 계약이 바뀌는 일, 결정이 있는 일이 끝날 때. 올라간 항목은 고치지 않고 틀렸으면 바로잡는 항목을 새로 쓴다.
+
+  - id: release-notes
+    kind: record
+    roles: [planner]
+    description: 사람이 읽는 판 요약(영어, 외부용). release(MINOR·MAJOR)할 때 지난 release 뒤 change-log 항목으로 `<x.y.z>.md` 초안을 쓰고 사람이 확인한다.
+    path: project-docs/products/release-notes/
+    change_reasons:
+      note: 사람이 release를 말할 때. 코드 변경으로는 걸지 않는다.
 
   - id: boundary-catalog
     kind: catalog
@@ -173,10 +182,20 @@ components:
     change_reasons:
       note: 두 catalog의 꼴이 바뀔 때.
 
+  - id: tool-records
+    kind: tool
+    roles: [planner, lead, worker]
+    description: issue·change-log yaml의 칸·id·modules·판 규칙(package.json 판의 항목이 있고 더 높은 판은 없다)과 architecture 문서의 꼴(필수 절, code path 금지)을 보고(check), 이슈와 항목의 목록을 낸다(issues, changes). check의 records 단계.
+    path: tools/records.ts
+    run: node tools/records.ts check
+    change_reasons:
+      paths: [project-docs/issues/README.md, project-docs/products/change-log/README.md, project-docs/architecture/README.md]
+      note: 이슈·항목·architecture 문서의 꼴이 바뀔 때.
+
   - id: tool-check-docs
     kind: tool
     roles: [planner]
-    description: AGENTS.md, .claude/skills/, project-docs/(change-log, issues/archived, plan/, products/roadmap/ 제외)의 backtick 저장소 path와 이 registry의 path·boundary·role이 있는지 본다. check의 docs 단계.
+    description: AGENTS.md, .claude/skills/, project-docs/(change-log, release-notes, issues, plan/, products/roadmap/ 제외)의 backtick 저장소 path와 이 registry의 path·boundary·role이 있는지 본다. check의 docs 단계.
     path: tools/check-docs.ts
     run: node tools/check-docs.ts
     change_reasons:
@@ -185,7 +204,7 @@ components:
   - id: architecture-layers
     kind: doc
     roles: [planner, lead]
-    description: core 층과 import 방향, 그 이유. harness와 feature module의 구분.
+    description: 코드를 어떤 층과 조각으로 나누고 누가 누구를 import해도 되는지의 설계. 규칙이 막으려는 것과 check가 못 막는 곳.
     path: project-docs/architecture/layers.md
     change_reasons:
       boundaries: [core, lophn-agent, agent-workspaces, agent-tool-spi]
@@ -195,7 +214,7 @@ components:
   - id: architecture-event
     kind: doc
     roles: [planner, lead]
-    description: command가 이어서 움직일 일을 같은 tx에서 하고, 기록 event를 events 표에 남기고, agent event와 남지 않는 event를 Bus로 화면에 내는 길.
+    description: 일어난 일의 세 부류(같은 tx에서 이어 할 일, ledger 기록 event, 메모리 Bus로 화면에 알리는 일)와 Bus·Gateway, 화면이 event를 받는 약속의 설계.
     path: project-docs/architecture/event.md
     change_reasons:
       boundaries: [events, storage, router, event-stream]
@@ -203,7 +222,7 @@ components:
   - id: architecture-approval
     kind: doc
     roles: [planner, lead]
-    description: Gate 판정, 사람에게 묻는 request(turn 안, 앱 공유 요청), 할당 저장(agent 정의 파일)과 옮김, 결정의 적용.
+    description: '"해도 되나"를 정하는 설계: 시킨 것이 승낙이고 할당이 허락이라는 원칙, 판정(Gate), 사람에게 묻는 길 하나(turn 안 request), turn mode, shell 규칙, 앱 공유 요청, 팀 자식의 물음.'
     path: project-docs/architecture/approval.md
     change_reasons:
       boundaries: [approvals, agent-tools, agent-workspaces, jobs]
@@ -212,7 +231,7 @@ components:
   - id: architecture-testing
     kind: doc
     roles: [planner, lead, worker]
-    description: test 층 다섯(unit, harness loop·wire, core E2E, provider live), 가짜 셋, tests/support, 앱 길(template 앱, Gateway·coding 역할, e2e:deps), E2E 실행 폴더, 돌리는 때, 시간 예산과 case 고르는 규칙.
+    description: test 층 다섯과 가짜 셋이 무엇을 진짜·가짜로 두는지, 적게 쓰고 깨지면 곤란한 것만 가장 싼 층에서 본다는 원칙과 시간 예산의 설계. 운용은 write-test reference.
     path: project-docs/architecture/testing.md
     change_reasons:
       paths: [tests/support/, tools/check.ts, project-docs/plan/tools/lead/land.sh, package.json]
@@ -221,7 +240,7 @@ components:
   - id: architecture-eval
     kind: doc
     roles: [planner, lead, worker]
-    description: eval 층. 흐름(runner → 되살리기 → model 붙이기 → t0 → 단계 → 수집 → check·judge → 요약), tests/eval 자리, 지키는 것(real만 model, key, t0 자르기, 요청 body blob, token·tool 수치 규칙, 버전 hash와 registry, 채점 대기와 순서, 비용 상한, 요약과 전체 기록), experiment(commit된 spec, 판정 default@1, trial 정책, variant와 grader, gate, 경고와 진단).
+    description: "진짜 model로 agent의 판단을 재는 층의 설계: 시나리오가 world를 되살려 채점하는 흐름, 지키는 것(model·key·수치 규칙, 비용 상한), experiment의 판정 규칙. 돌리는 법은 eval-run reference."
     path: project-docs/architecture/eval.md
     change_reasons:
       paths: [tests/eval/, tests/support/core/]
@@ -230,7 +249,7 @@ components:
   - id: architecture-activation
     kind: doc
     roles: [planner, lead]
-    description: 앱 release를 켜고 실패하면 되돌리는 길.
+    description: "앱 release를 켜는 순간의 설계: 켜는 계기, 사람에게 묻는 조건, 바꾸는 순서와 실패 때 앱이 반쯤 바뀐 채 남지 않게 되돌리는 약속."
     path: project-docs/architecture/activation.md
     change_reasons:
       boundaries: [app-releases, app-runtime, app-data]
@@ -238,7 +257,7 @@ components:
   - id: architecture-agent-call
     kind: doc
     roles: [planner, lead]
-    description: agent 사이의 부름. 봉투, 받는 곳, 답 방식, 실패.
+    description: "agent 사이의 일 맡기기와 답하기를 하나의 봉투(call)로 푸는 설계: 받는 곳과 답 방식, 기다리지 않는 보낸 쪽, 실패, spawn과 팀 자식의 물음."
     path: project-docs/architecture/agent-call.md
     change_reasons:
       boundaries: [router, agent-sessions]
@@ -246,7 +265,7 @@ components:
   - id: architecture-app-call
     kind: doc
     roles: [planner, lead]
-    description: 사람, agent, 앱, job(program)이 앱의 tool을 부르는 길. command 선언의 public 칸과 skills 칸, 부른 쪽 확인, 줄, 기록, rewind, 앱 log, 공유 skill 읽기(`app.skills`).
+    description: "사람, agent, 앱, job, flow가 앱의 operation과 command를 부르는 길의 설계: 같은 판정·기록·직렬화, changeset과 rewind, 앱 log, 공유 skill 읽기."
     path: project-docs/architecture/app-call.md
     change_reasons:
       boundaries: [app-runtime, app-data, app-capability]
@@ -255,7 +274,7 @@ components:
   - id: architecture-package
     kind: doc
     roles: [planner, lead]
-    description: 내장 SDK(@lophn)와 사용자 package(@me)의 정본, 설치 사본·앱 사본·release 봉인, publish 순서, bundle blob 복구, permission 대조.
+    description: "내장 SDK와 사용자 package의 설계: 정확한 판 고정, 읽기 전용 설치 사본·앱 사본, release 봉인, publish 순서, bundle blob 복구, permission 대조."
     path: project-docs/architecture/package.md
     change_reasons:
       boundaries: [package-registry, user-package, app-releases]
@@ -264,7 +283,7 @@ components:
   - id: architecture-app-notice
     kind: doc
     roles: [planner, lead]
-    description: 사람에게 알리는 기록 표(notices). 앱 알림(cap-notify, grant, broker 판정, 같은 key 대신하기)과 program 기록, 휘발·영구, 남기는 기간, Inbox 줄과 toast.
+    description: "사람에게 알리는 기록(notices)의 설계: app·program 출처, 휘발·영구, 같은 key 대신하기, 남기는 기간, Inbox 줄과 toast, SDK 갱신 알림과 맡기기."
     path: project-docs/architecture/app-notice.md
     change_reasons:
       boundaries: [app-runtime]
@@ -273,7 +292,7 @@ components:
   - id: architecture-workspace-session
     kind: doc
     roles: [planner, lead]
-    description: agent가 놓이는 workspace(Home, project, 앱)와 session의 수명, fork, rewind, workspace마다의 file 범위와 지침 층.
+    description: "agent가 놓이는 workspace(Home, project, 앱)와 session의 설계: 수명, fork·rewind가 가져가는 것, workspace마다의 file 범위와 지침 층, 이미지 묶음."
     path: project-docs/architecture/workspace-session.md
     change_reasons:
       boundaries: [agents, agent-workspaces, agent-sessions]
@@ -282,7 +301,7 @@ components:
   - id: architecture-run
     kind: doc
     roles: [planner, lead]
-    description: 화면 없이 부르는 agent 호출·앱 tool 호출(run)의 기록, 끝을 아는 법, 취소, 켤 때 복구, CLI와 자격.
+    description: "화면 없이 부르는 agent 호출과 앱 tool 호출(run)의 설계: 기록 한 행, 끝을 아는 법, 취소, 켤 때 복구, CLI와 자격."
     path: project-docs/architecture/run.md
     change_reasons:
       boundaries: [runs, agent-sessions, router, coding-agent-cli, coding-agent-cli-interface]
@@ -290,7 +309,7 @@ components:
   - id: architecture-workflow
     kind: doc
     roles: [planner, lead]
-    description: project에 정의한 workflow의 instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, PM의 쓰기 범위, workflow artifact와 kit, flow code의 process와 SDK, `workflow.check`.
+    description: "workflow(agent step을 넘기는 일, flow code가 도는 일)의 설계: instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, 쓰기 범위, workflow artifact와 kit, `workflow.check`."
     path: project-docs/architecture/workflow.md
     change_reasons:
       boundaries: [workflows, router, agent-workspaces, coding-agent-cli]
@@ -299,7 +318,7 @@ components:
   - id: architecture-job
     kind: doc
     roles: [planner, lead]
-    description: 정해진 때 agent run, tool run, workflow 시작을 돌리는 job과 scheduler. 놓친 차례, 겹침, hold, 서머타임, 만든 agent만 고치기, program caller, 켤 때 복구, job 화면.
+    description: "정해진 때 도는 일(job)과 scheduler의 설계: 놓친 차례 정책, 겹침, hold, 서머타임, 승인, 켤 때 복구, 사람의 job 화면."
     path: project-docs/architecture/job.md
     change_reasons:
       boundaries: [jobs]
@@ -308,7 +327,7 @@ components:
   - id: architecture-agent-definition
     kind: doc
     roles: [planner, lead]
-    description: agent 정의(할당 칸 포함, workspace마다 하나인 lophn), prompt 조립, 지침 파일, Home·project·앱의 같은 층(지침, MCP, skills_off, model), skill 층과 공유 skill, workspace memory와 agent memory(`agent.memory`), tool, model.
+    description: "agent 정의와 turn마다의 prompt 조립 설계: 정의·지침·tool·memory·skill·workspace 정보 층, Home·project·앱의 같은 층, model 호출(provider, OAuth, 입력 예산, compaction)."
     path: project-docs/architecture/agent-definition.md
     change_reasons:
       boundaries: [agent-workspaces, agent-tools, run-loop, models, agent-tool-spi]
@@ -318,7 +337,7 @@ components:
   - id: architecture-coding-agent
     kind: doc
     roles: [planner, lead]
-    description: 사람이 쓰는 coding agent와 lophn을 잇는 CLI, 제품 감지, hook 설치, 공유 skill 사본.
+    description: "사람이 쓰는 coding agent(harness)와 lophn을 잇는 설계: CLI 표, 제품 감지와 hook 설치, 공유 skill 사본, harness가 runtime인 lophn agent와 TUI 탭."
     path: project-docs/architecture/coding-agent.md
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-harness-api, coding-agent-cli-interface]
@@ -327,7 +346,7 @@ components:
   - id: architecture-extension
     kind: doc
     roles: [planner, lead]
-    description: 본체와 따로 켜는 기능 묶음. manifest, shell main registry, 설정 extensions.<id>.enabled, ctx, 표시 file로 지우기.
+    description: "본체와 따로 켜는 기능 묶음의 설계: manifest 선언, shell main 안에서 `ctx`로만 닿는 경계, 설정으로 켜고 끄고 지우기. 계약은 extension-api."
     path: project-docs/architecture/extension.md
     change_reasons:
       paths: [packages/protocol/extensions/, packages/shell/main/extensions/, packages/shell/main/desktop/wiring/extensions.ts, packages/shell/main/build.ts, packages/shell/ipc/extensions.ts, packages/shell/renderer/desktop/settings/extension-packages/, packages/core/config/shell-settings.ts]
@@ -336,7 +355,7 @@ components:
   - id: architecture-harness-gui
     kind: doc
     roles: [planner, lead]
-    description: lophn 터미널 탭의 claude gui·codex gui·opencode gui·omp gui가 그 탭을 채팅 화면으로 바꾸고 TUI와 toggle하는 길. hook 요청, 탭 handle, extension harness-gui의 adapter.
+    description: "터미널 탭을 CLI(Claude Code, Codex, OpenCode, omp)의 채팅 화면으로 바꾸고 TUI와 toggle하는 설계: adapter가 CLI 이벤트와 ACP를 옮기는 길, 탭 handle, 지키는 것."
     path: project-docs/architecture/harness-gui.md
     change_reasons:
       paths: [packages/protocol/extensions/acp-session.ts, packages/shell/main/extensions/bundled/harness-gui/, packages/shell/main/desktop/wiring/extensions.ts, packages/shell/main/terminal/gui.ts, packages/shell/ipc/harness-gui.ts, packages/shell/renderer/terminal/terminal-gui.tsx, packages/shell/renderer/conversation/agent-tab-gui-source.ts]
@@ -344,7 +363,7 @@ components:
   - id: architecture-terminal-agent
     kind: doc
     roles: [planner, lead]
-    description: 사람이 연 터미널 탭 안에서 도는 coding agent(harness)와 상태를 알아 탭 icon, 점, OS 알림을 내는 층.
+    description: 사람이 연 터미널 탭 안에서 도는 coding agent와 그 상태를 알아 탭 icon, 점, OS 알림을 내는 층의 설계(lophn session이 아니다).
     path: project-docs/architecture/terminal-agent.md
     change_reasons:
       boundaries: [coding-agent, coding-agent-cli, coding-agent-cli-interface, shell]
@@ -352,7 +371,7 @@ components:
   - id: architecture-annotation
     kind: doc
     roles: [planner, lead]
-    description: 앱 화면(preview 포함)과 artifact에 남긴 annotation이 그 workspace의 session에게 가는 길.
+    description: "앱 화면과 artifact 화면에서 본 것을 가리켜 받는 agent에게 전하는 설계: 가리킨 것의 묶음(component 겹, 화면 위치, screenshot), 받는 쪽 고르기, 이미지 읽기."
     path: project-docs/architecture/annotation.md
     change_reasons:
       boundaries: [sdk]
@@ -360,7 +379,7 @@ components:
   - id: architecture-browser-tab
     kind: doc
     roles: [planner, lead]
-    description: workspace의 browser 탭이 인터넷 page를 여는 길. navigation·popup·permission·download 규칙, persistent session, bookmark 저장, terminal의 `$BROWSER`·Ctrl/Cmd-click link를 browser 탭으로 넘기는 bridge, agent가 연 browser·preview 탭을 CDP로 보고 다루는 `lophn browser`(ref, untrusted 감싸기, take control, 기기 emulation).
+    description: "인터넷 page를 여는 browser 탭의 설계: navigation·popup·permission·download 규칙, session과 bookmark, terminal의 link bridge, agent가 연 탭(browser·preview·artifact)을 CDP로 다루는 `lophn browser`."
     path: project-docs/architecture/browser-tab.md
     change_reasons:
       boundaries: [shell]
@@ -368,7 +387,7 @@ components:
   - id: architecture-keybindings
     kind: doc
     roles: [planner, lead]
-    description: desktop 창의 단축키가 OS 전역·main before-input-event·renderer keydown 중 어디서 받혀 command registry의 id로 가는가. 키 삼키기·충돌·해제 규칙, context menu와 짝인 command와 기본 키를 고른 규칙, 앱 단축키(`app.panel:*`), 저장된 키의 겹침 판정과 Replace, Settings › Keyboard에서 사람이 바꾼 키가 창과 main에 덮이는 길.
+    description: "단축키의 설계: 누른 키를 한 곳이 받아 command id로 바꾸는 길, key context로 겹침을 가리는 규칙, extension·앱의 키, Settings › Keyboard에서 바꾼 키가 창과 main에 덮이는 길."
     path: project-docs/architecture/keybindings.md
     change_reasons:
       boundaries: [shell]
@@ -377,7 +396,7 @@ components:
   - id: architecture-platform
     kind: doc
     roles: [planner, lead, worker]
-    description: Linux·macOS·Windows에서 다른 것. OS 규칙의 자리(`packages/base/os/`, platform 인자), process tree 끄기와 IPC(unix socket·named pipe), child env와 node shim, agent shell tool(Windows Git Bash), data root 검사, 봉인 표지, junction, macOS login PATH, Windows에서 꺼진 기능, OS별 설치 묶음, CI workflow로 다른 OS를 확인하는 법.
+    description: "Linux·macOS·Windows에서 다르게 하는 것의 설계: OS 규칙이 모이는 자리, 꺼진 기능, 다른 OS를 확인하는 법, core의 수명(띄우기, 붙기, 끄기, idle-exit, autostart)."
     path: project-docs/architecture/platform.md
     change_reasons:
       boundaries: [base]
@@ -386,7 +405,7 @@ components:
   - id: architecture-observability
     kind: doc
     roles: [planner, lead]
-    description: core의 구조화 log·trace·metric이 어디서 생겨 stderr와 OTLP(loopback 수집기)로 가는가, 설정 env, `/healthz`·`/readyz`의 판정, 오류 봉투의 hint·trace_id, SIGUSR2 자원 snapshot, `npm run doctor`의 점검과 `--fix`.
+    description: "core가 자기 상태를 바깥에 드러내는 설계: 구조화 log·trace·metric과 OTLP, `/healthz`·`/readyz`, 오류 봉투의 trace_id, 자원 snapshot, `npm run doctor`."
     path: project-docs/architecture/observability.md
     change_reasons:
       boundaries: [diagnostics, server]
@@ -395,7 +414,7 @@ components:
   - id: architecture-agent-chat
     kind: doc
     roles: [planner, lead]
-    description: agent chat 화면 셋이 함께 쓰는 길. provider delta가 감독 pipe를 지나 core가 redaction한 live 글로 흐르는 것, model 응답마다 agent message, 멈춘 글 저장, reasoning part, tool 제목, active 시간, markdown·link·highlight 규칙, `/` 명령 순위와 `opens`, composer dock, subagent 보기, thread index와 bookmark.
+    description: "agent chat 화면이 대화를 보이는 설계: provider delta가 redaction한 live 글로 흐르는 길, 멈춘 글 저장, reasoning·tool 줄, markdown·link 규칙, `/` 명령, composer, subagent 보기."
     path: project-docs/architecture/agent-chat.md
     change_reasons:
       boundaries: [run-loop, agent-sessions, agent-tools, events, event-stream, child-supervision-protocol, shell, design]
@@ -403,7 +422,7 @@ components:
   - id: architecture-acp
     kind: doc
     roles: [planner, lead]
-    description: lophn ACP(App Context Protocol)의 모양인 항목, 순번, tool 종류, 갱신, 입력과 순수 reducer, AgentEvent projection, core가 채울 context, reread 조건, redaction이 지나는 길.
+    description: "lophn ACP(App Context Protocol)의 설계: 항목, 순번, tool 종류, 갱신, 입력, AgentEvent projection과 core가 채우는 context, reread 조건, redaction이 지나는 길."
     path: project-docs/architecture/acp.md
     change_reasons:
       boundaries: [acp, agent-sessions, run-loop, events, shell]
@@ -412,7 +431,7 @@ components:
   - id: architecture-artifact
     kind: doc
     roles: [planner, lead]
-    description: agent가 그릇(project, 앱)의 `artifacts/<name>/`에 쓴 정적 HTML을 봉한 view의 탭으로 그리는 길. 봉한 scheme의 path 해석, file 범위, 목록과 prompt, 대화 link, artifact annotation의 받는 쪽.
+    description: "agent가 그릇(project, 앱)에 쓴 정적 HTML을 봉한 view의 탭으로 보는 설계: 봉한 scheme과 file 범위, 목록과 prompt, 대화 link, annotation의 받는 쪽, agent가 탭을 열어 보는 길."
     path: project-docs/architecture/artifact.md
     change_reasons:
       boundaries: [shell, agent-workspaces, agent-sessions, router]
@@ -420,7 +439,7 @@ components:
   - id: architecture-workspace-layout
     kind: doc
     roles: [planner, lead]
-    description: workspace 창(Home, project, 앱) 하나의 shell, desk와 split group 모델, 탭 자리(tabs, group, floated, detached), floats 층, `<webview>` 그릇과 native view 층, view 보관, agent가 연 탭(host queue, preview 탭), 탭을 OS 창으로 떼고 붙이는 main 중계, workspace layout 파일(판 8)과 옛 layout 올리기, Settings 틀.
+    description: "workspace 창의 탭 배치와 저장의 설계: desk·split group·floated·detached 모델, `<webview>` 그릇과 native view 층, agent가 연 탭(host queue), 탭을 OS 창으로 떼고 붙이기, layout 파일과 올리기."
     path: project-docs/architecture/workspace-layout.md
     change_reasons:
       boundaries: [shell]
@@ -429,7 +448,7 @@ components:
   - id: architecture-ui-kit
     kind: doc
     roles: [planner, lead, designer]
-    description: 범용 kit(@lophn/ui)·lophn 전용 부품·app bridge UI(@lophn/app-ui)를 어디 두나, 사용자 앱에 닿는 길, gallery 승인과 kit check.
+    description: 범용 kit(@lophn/ui)·전용 부품·app bridge UI를 어디 두고 renderer·사용자 앱·artifact에 어떻게 닿게 하는지, gallery 승인, 앱 SDK 판과 지원 하한을 알리고 옮기는 설계.
     path: project-docs/architecture/ui-kit.md
     change_reasons:
       boundaries: [design, design-api, sdk-api, app-releases]
@@ -439,7 +458,7 @@ components:
   - id: architecture-appearance
     kind: doc
     roles: [planner, lead, designer]
-    description: 사람이 고른 accent·배경·글꼴·글자 크기·밀도가 token을 덮어쓰는 CSS로 모든 문서(desktop 창, overlay, 보호 입력 창, 앱 view)에 닿는 길과 Custom 글꼴 이름의 경계.
+    description: 사람이 고른 색·글꼴·글자 크기·밀도가 token을 덮어쓰는 CSS로 모든 문서(창, overlay, 보호 입력 창, 앱·artifact view)에 같이 닿는 설계와 Custom 글꼴 이름의 경계.
     path: project-docs/architecture/appearance.md
     change_reasons:
       boundaries: [design, design-api, shell]
@@ -463,7 +482,7 @@ components:
     description: 계획이 land된 뒤 planner가 끝났는지 확인하고, 다시 볼 context 조각을 찾아 고치고, 이슈와 배운 것을 정리하고, 다음 계획으로 넘기는 절차.
     path: .claude/skills/wrap-plan/
     change_reasons:
-      paths: [project-docs/plan/README.md, tools/context-review.ts, project-docs/products/change-log/_template.md]
+      paths: [project-docs/plan/README.md, tools/context-review.ts, project-docs/products/change-log/README.md]
 
   - id: tool-context-review
     kind: tool
@@ -480,10 +499,10 @@ components:
   - id: skill-issue
     kind: skill
     roles: [lead, planner]
-    description: 이슈를 올리고(코드와 대조, 중복 찾기, 주제와 kind), 정하고(이미 정해진 원칙으로 답이 나오나), 닫고(archived, guard), 회귀를 되살리는 절차.
+    description: 이슈 yaml을 올리고(코드와 대조, 중복 찾기, id·topic·kind), 정하고(이미 정해진 원칙으로 답이 나오나), 닫고(`status`, guard), 회귀를 되살리는 절차.
     path: .claude/skills/issue/
     change_reasons:
-      paths: [project-docs/issues/_template.md, AGENTS.md]
+      paths: [project-docs/issues/README.md, AGENTS.md]
       note: 이슈의 꼴이나 정하는 원칙이 바뀔 때.
 
   - id: skill-orchestrate

@@ -1,0 +1,30 @@
+id: chatgpt-codex-client-login
+version: 0.10.2
+title: "ChatGPT 구독을 Codex client로 로그인하고 Codex backend로 보낸다"
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer, packages/design]
+checked: []
+change: |
+  전:
+  - ChatGPT 구독은 OpenAI 공식 Sign in with ChatGPT(dynamic_agent_client 등록, id_token JWKS 검증)로 로그인하고 api.openai.com/v1/responses로 보냈다. 요청에 prompt_cache_key나 session header가 없어 앞부분이 같은 요청도 cache를 거의 못 읽었다(한 session의 cache 읽기 9.8%, 49번 중 34번 0).
+  - max_output_tokens를 보냈고, encrypted reasoning을 요청하지 않았다. cache_write_tokens를 엉뚱한 칸에서 읽어 늘 null이었다.
+  - 설정 화면의 단추는 "Continue with ChatGPT"였다.
+  후:
+  - ChatGPT 로그인은 Codex CLI의 공개 client와 고정 callback localhost:1455/auth/callback이다. 계정 id·email·plan은 token claim에서 읽는다.
+  - ChatGPT 로그인 연결의 endpoint는 https://chatgpt.com/backend-api/codex다. providers/adapters/codex.ts가 Responses body를 /responses로 보내면서 session에서 만든 같은 값을 prompt_cache_key와 session_id·conversation_id·session-id header에 싣고, chatgpt-account-id를 붙이고, max_output_tokens를 빼고, include에 reasoning.encrypted_content를 넣는다.
+  - 계정 model 목록은 Codex backend GET /models?client_version=…의 models[].slug다.
+  - Responses usage의 cache_write는 input_tokens_details.cache_write_tokens에서 읽고, input은 cache 읽기·쓰기를 뺀 값이다.
+  - 한도 code는 Codex의 usage_limit_reached(quota)·usage_not_included(plan_access)다.
+  - 단추는 다른 구독처럼 "Sign in with ChatGPT"다.
+  계약:
+  - 바뀐 것: provider 정의 oauth의 chatgpt 모양(client_id, redirect_uri, inference_endpoint를 더하고 issuer·jwks_uri·resource를 뺐다). token meta에서 client_id를 뺐다.
+  - 없앤 것: hostIdOf와 secret provider-oauth.host-id, 화면 문구 settings.label.method-continue.
+  - ledger step lophn-agent.harness-provider.chatgpt-codex-login: 저장한 ChatGPT 연결의 정의와 endpoint를 새 것으로 바꾸고 credential을 revoked(refresh_revoked)로 둔다. 사람은 Disconnect 뒤 다시 로그인한다.
+why: |
+  같은 일에 Codex보다 ChatGPT 사용량이 훨씬 빨리 닳았다. 원인 1순위가 cache routing이 없는 것이었고, omp·opencode는 이 길로 해결했다.
+decisions:
+  - text: "omp 방식대로 Codex client로 로그인한다. 버린 길: 공식 Sign in with ChatGPT 유지. 그 흐름은 api.openai.com/v1만 받아 cache affinity를 줄 수 없다. Codex backend는 OpenAI가 제3자에게 공개 보장한 API가 아니다."
+    by: person
+  - text: "옛 token은 옮기지 않는다. 다른 client가 발급해 Codex backend가 받지 않는다."
+    by: agent
+follow_up: |
+  실제 ChatGPT 호출로 cached_tokens가 오르는지 아직 확인하지 않았다(npm run test:live:login 뒤 test:live).

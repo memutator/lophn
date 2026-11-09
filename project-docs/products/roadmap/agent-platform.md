@@ -1,6 +1,6 @@
 # agent platform: ACP, A2A, 사람이 정한 agent, third-party harness
 
-상태: 로드맵. 2026-11-02~04 사람이 방향을 냈다. 단계 1~4, 6, 7, 9는 land했다(`project-docs/products/change-log/0.18.0.md`). 2026-11-04 사람의 원문과 다시 맞춰 고쳐 썼다: 처음 정리는 ACP를 표준 Agent Client Protocol로 잘못 읽었고, A2A 재정립, 시야, 별도 설치, 앱의 prompt 조립 정의를 빼거나 뒤집었다. 그 정리는 git 기록에 있다.
+상태: 로드맵. 2026-11-02~04 사람이 방향을 냈다. 단계 1~4, 6, 7, 9는 land했다(`project-docs/products/change-log/0.18/`). 2026-11-04 사람의 원문과 다시 맞춰 고쳐 썼다: 처음 정리는 ACP를 표준 Agent Client Protocol로 잘못 읽었고, A2A 재정립, 시야, 별도 설치, 앱의 prompt 조립 정의를 빼거나 뒤집었다. 그 정리는 git 기록에 있다.
 
 ## 사람의 말 (원문)
 
@@ -51,7 +51,7 @@
   - lophn 채팅 화면은 ACP만 보고 그린다. lophn agent도 이 규격에 맞춰 고친다.
   - 사용자 앱 화면도 ACP의 화면이다. 앱이 SDK로 앱 context를 prompt로 어떻게 조립할지 정해 보내고, agent 응답을 받아 자기 식으로 그린다(예: 코드 textarea의 줄에 주석).
   - third-party CLI의 출력을 ACP로 옮기면 같은 채팅 화면이 그 위에 GUI를 덮는다(`claude gui`).
-  - agent가 앱 live 화면을 읽거나 조작하는 길은 두지 않는다. 자기 앱의 preview를 테스트하려고 다루는 것은 연다(사람, 2026-11-08: 앱을 CDP로 테스트한다. 계획 `browser-use`의 preview 탭과 `lophn browser`). agent는 자기가 연 browser 탭과 preview 탭만 다룬다(`architecture/browser-tab.md` "agent가 다루는 browser 탭").
+  - agent가 앱 live 화면을 읽거나 조작하는 길은 두지 않는다. 자기 앱의 preview를 테스트하려고 다루는 것은 연다(사람, 2026-11-08: 앱을 CDP로 테스트한다. 계획 `browser-use`의 preview 탭과 `lophn browser`). agent는 자기가 연 browser 탭과 preview 탭만 다룬다(`architecture/browser-tab.md` "agent가 다루는 탭").
 - **A2A는 agent와 agent 사이의 lophn 자체 규격이다.** lophn끼리, lophn ↔ third-party harness. home의 전역 agent(Image Generator)를 어디서든 부른다. 핵심은 불린 agent의 시야다. 시야는 workspace와 workspace 사이의 정책이 크게 정하고 agent와 agent 사이의 정책이 예외로 덧쓴다. 명함에 modality와 skill diff를 싣고, 내부 구현을 몰라도 무엇을 기대할지 안다. third-party harness는 CLI 명령으로 실행한다.
 - **bare:** 기본으로 다 덜어진 상태이고 사람이 더한다(tool, lophn 명령, 앱 command, MCP, skill). lophn agent는 지금 그대로다.
 - **SDK:** 위 것을 lophn agent SDK로 묶는다.
@@ -66,7 +66,7 @@
 | 2 | content block: call 본문과 답, 사람 메시지가 block으로 | 없음 | 끝남(계획 content-block) |
 | 3 | bare runtime: 정의 본문과 고른 tool만 | 1, 2 | 끝남(계획 bare-runtime, bare가 skill도 더하기는 계획 agent-card) |
 | 4 | ACP 규격과 채팅 화면: protocol에 ACP를 정하고 lophn agent가 내놓는 것과 채팅 화면이 그리는 것을 ACP로 | 2 | 끝남(계획 acp) |
-| 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 끝남(계획 app-agent, `project-docs/architecture/app-call.md`의 "앱 화면은 자기 앱 workspace의 agent session과 ACP로 이야기한다"). 옛 계획 agent-screen은 agent가 client인 꼴이라 지웠다 |
+| 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 끝남(계획 app-agent, `project-docs/architecture/app-call.md`의 "앱 화면의 agent session"). 옛 계획 agent-screen은 agent가 client인 꼴이라 지웠다 |
 | 6 | 별도 설치 구조: 본체와 따로 설치하고 켜는 기능 묶음 | 없음 | 끝남(계획 extension, `project-docs/architecture/extension.md`). 설치본에 넣는 일은 첫 extension(harness)과 같이 했다(`packages/shell/main/build.ts`, `tools/package/main.ts`) |
 | 7 | harness agent(A2A): Claude Code, Codex, OpenCode를 정의의 runtime으로 두고 call, run, step 입력을 CLI 명령(headless)으로 실행한다. TUI 열기, workflow 참가자 | 3 | 끝남(계획 harness-agent). TUI 열기 화면은 단계 8과 같이(지금은 같은 session id로 각 CLI의 resume) |
 | 8 | third-party CLI GUI: `claude gui`로 그 harness session을 채팅 화면으로 본다. CLI 출력을 ACP로 옮긴다. 6의 구조로 설치한다 | 4, 6, 7 | 끝남(계획 harness-gui: extension과 adapter 셋. 계획 harness-gui-tab: 아래 정한 것 8~12, 터미널 탭 안 GUI, TUI toggle, CLI 기능, ACP session 기능, omp. `project-docs/architecture/harness-gui.md`) |
@@ -102,4 +102,4 @@
 
 ## 계획
 
-- 없음. 단계 1~9가 모두 끝났다. harness GUI의 열린 이슈는 `project-docs/issues/harness-gui.md`.
+- 없음. 단계 1~9가 모두 끝났다. harness GUI의 열린 이슈는 `node tools/records.ts issues --topic harness-gui --status open`.

@@ -40,9 +40,9 @@ agent 사이 (`project-docs/architecture/agent-call.md`)
 - agent가 session을 끝내는 길은 없다(Compact·archive는 사람과 machine).
 
 TUI와 browser
-- harness agent(`runtime: claude-code|codex|opencode`)는 extension `harness`가 turn마다 headless로 돌린다(`project-docs/architecture/coding-agent.md` "harness agent"). session에 CLI session id(`sessions.harness_session`)가 있어 resume할 수 있지만, 그 session을 TUI로 여는 화면은 없다.
-- 터미널 탭은 shell main의 `terminal-host` process가 PTY를 띄운다. core는 터미널을 모른다(`terminal-agent.md:3`).
-- browser 탭은 `<webview>`이고 url·title·loading·favicon이 main → renderer로 push된다(`architecture/browser-tab.md`). agent나 core가 읽는 길은 없다. `roadmap/browser-tab.md` "하지 않는 것"이 agent의 browser 보기·조작을 뺐다.
+- harness agent(`runtime: claude-code|codex|opencode`)는 extension `harness`가 turn마다 headless로 돌린다(`project-docs/architecture/coding-agent.md`의 harness agent). session에 CLI session id(`sessions.harness_session`)가 있어 resume할 수 있지만, 그 session을 TUI로 여는 화면은 없다.
+- 터미널 탭은 shell main의 `terminal-host` process가 PTY를 띄운다. core는 터미널을 모른다(`architecture/terminal-agent.md`).
+- browser 탭은 `<webview>`이고 url·title·loading·favicon이 main → renderer로 push된다(`architecture/browser-tab.md`). agent나 core가 읽는 길은 없다. `roadmap/browser-tab.md`의 하지 않는 것이 agent의 browser 보기·조작을 뺐다(뒤에 계획 `browser-use`가 열었다).
 
 ## 무엇을 만드나
 
@@ -96,7 +96,7 @@ desk coordinator (root, 사람이 연 session)
 6. spawn은 `team spawn`으로만 팀을 만든다. 지금 `call.send`의 `to: {agent, workspace}` 새 session은 팀 밖(`spawned_by` 없음)으로 그대로 둔다. (agent) home lophn이 project lophn에 넘기는 지금 흐름이 갑자기 팀 규칙(밖으로 call 못 함)에 묶이지 않게.
 7. 상한: desk당 열린 팀원 수와 tree 깊이를 설정(`lophn-agent.team`, 기본 `max_members: 8`, `max_depth: 2`(root 0))으로 두고 넘으면 `conflict`다. 거절 글은 "직접 하거나 부모에게 청하라"를 담는다. core는 desk를 모르므로 팀원 수는 root session 아래 열린 자손 수로 센다. desk는 root가 있는 자리라 같은 뜻이다. (agent) agent 실수로 spawn이 되풀이되면 비용이 터진다(AGENTS.md "속도"). 기본값은 agent-team에서 3·16에서 2·8로 내렸다. 사람이 든 예(root → 번역 coordinator → 번역 셋)가 깊이 2다. (agent)
 8. 일 나누기는 program이 하지 않는다. 새 worker에게 무엇을 줄지는 coordinator가 call 본문으로 정한다. (agent) workflow의 "program은 기록하고 전달만"과 같다.
-9. 연락처는 prompt가 아니라 `team read`로 읽고 바뀌면 notice만 간다. (agent) 작업 중 팀원이 늘고 줄 때마다 prompt cache가 깨지지 않게(`agent-definition.md` "같은 재료는 같은 bytes").
+9. 연락처는 prompt가 아니라 `team read`로 읽고 바뀌면 notice만 간다. (agent) 작업 중 팀원이 늘고 줄 때마다 prompt cache가 깨지지 않게(`architecture/agent-definition.md`의 prompt cache 규칙, 같은 재료는 같은 bytes).
 10. TUI 탭이 열린 동안 그 session의 headless turn은 시작하지 않고 입력은 queue에 남는다(call은 accepted). TUI가 끝나면 이어 돈다. TUI에서 한 turn은 lophn 기록에 남지 않고, 다음 headless turn이 같은 CLI session을 resume하므로 agent는 기억한다. (agent) 한 CLI session에 두 process가 동시에 쓰지 않게. 기록에 남기기는 쓰는 곳이 생기면 한다.
 
 11. spawn된 session의 `ask`(질문)와 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다. 부모가 답하거나, 판단할 수 없으면 자기 `ask`를 써서 위로 올린다. root에서 사람에게 닿는다. 올리는 장치는 따로 없다. (사람, 2026-11-08: "cordinator든 leader든 걔가 먼저 답하고 걔 판단으로 안 되겠음 걔가 사용자한테 올리고")
@@ -109,7 +109,7 @@ desk coordinator (root, 사람이 연 session)
 
 | 단계 | 하는 일 |
 |---|---|
-| 0 | agent definition 정리: Agents 목록·카드·편집기에 범위(전역 / `<name> · project` / `<name> · app`) 표시, workspace의 Agents 탭은 전역과 그 workspace 범위만, 새 agent 범위 고르기(기본은 연 workspace, home이면 전역. core user actor는 이미 `workspace`를 받는다), 카드 runtime이 harness를 `lophn`으로 보이는 bug(`renderer/workspace/agents/agent-card.tsx:27-33`), 문서 어긋남(`agent-definition.md:85` 앱 삭제가 범위 agent를 지운다, `:30`·`:69` 앱 tool이 `tools[]`에 있다는 옛 문장, `agent-call.md:18` 지운 `coding_agent`) |
+| 0 | agent definition 정리: Agents 목록·카드·편집기에 범위(전역 / `<name> · project` / `<name> · app`) 표시, workspace의 Agents 탭은 전역과 그 workspace 범위만, 새 agent 범위 고르기(기본은 연 workspace, home이면 전역. core user actor는 이미 `workspace`를 받는다), 카드 runtime이 harness를 `lophn`으로 보이는 bug(`renderer/workspace/agents/agent-card.tsx`), 문서 어긋남(`agent-definition.md`의 앱 삭제가 범위 agent를 지운다, 앱 tool이 `tools[]`에 있다는 옛 문장, `agent-call.md`의 지운 `coding_agent`) |
 | 1 | host queue(harness queue와 같은 꼴로 새로)와 `tab open`(agent session, browser), `browser read` |
 | 2 | `spawned_by`(ledger step), `team spawn|read|end`, 규칙 세 줄, 상한, `team_changed` notice, 자식을 부모 옆 group에 열기 |
 | 3 | harness agent TUI 탭(정한 것 10 포함) |

@@ -1,0 +1,15 @@
+id: compact-summary-fence-unicode-cleanup
+title: 'compact 요약의 fence가 Unicode·동형 문자 정리까지 한다'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `safety/fence.ts`의 `defuseTransmittedText`가 compact 요약에 넣을 대화 글을 `~~~data` block으로 감싸고 제어 token과 동형 문자(homoglyph)를 정리한다(`prompt-assembly/summary.ts`). 대화에 web 결과가 섞여 있어 감싸는 것은 인터넷 방어다.
+impact: |
+  Unicode·동형 문자 정리는 프로토타입에 무겁다.
+fix: |
+  감싸기만 남기고 정리 부분을 지운다(작음).
+closed: |
+  compact 대화에 web 결과가 섞여 있어 감싸기와 제어 token·동형 문자 정리는 인터넷 방어이고, 지워서 줄어드는 것은 정규식 몇 줄이다.
+guard: 없음

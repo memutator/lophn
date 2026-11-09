@@ -1,0 +1,12 @@
+id: shell-misses-new-core-after-stop
+title: "shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다"
+kind: bug
+status: open
+topic: platform
+modules: [packages/shell/main]
+now: |
+  shell이 `closed(shutdown)`이나 identify `stopping`을 보면 그 process에서는 core를 다시 띄우지 않는다(`connection.ts`의 `shutdownSeen`). 새 core(CLI가 띄운 것)에 붙는 것은 renderer의 core 호출(file tree poll, Reconnect 단추)이 `join()`할 때뿐이고 판이 같아야 한다. 주기적 identify는 없다.
+impact: |
+  `lophn core stop` 뒤 CLI가 core를 다시 띄워도 shell 화면은 Reconnect를 누르기 전까지 끊긴 채일 수 있다.
+fix: |
+  `shutdownSeen` 동안 30초마다 identify만 묻고(띄우지 않는다) ready면 join한다(작음).

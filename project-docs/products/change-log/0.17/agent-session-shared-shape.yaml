@@ -1,0 +1,17 @@
+id: agent-session-shared-shape
+version: 0.17.0
+title: sidebar와 탭의 agent session 모양 하나로, 새 session +와 group 탭 정리
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: lophn session과 터미널 coding agent session은 상태 점 규칙(`sessionDot`, `terminalAgentDot`)과 agent 아이콘을 sidebar, Agent 탭, 터미널 탭, 새 session 목록이 따로 그렸다. place 줄의 +(28px)는 session 줄의 점·x(20px 칸)와 세로로 4px 어긋났고, lophn agent·coding agent는 + 오른쪽 클릭 menu로 골랐다. 연필(Rename)·x(Stop)는 이 창이 보이는 place의 줄에만 있었다. 고르지 않은 group 탭과 칸에 숨은 탭도 안 보이는 닫기 자리를 차지해 이름 사이에 빈 칸이 생겼다. 사람 차례인 workflow 줄은 "Your turn" 글자를 달았다.
+  후: `renderer/parts/agent-session`이 공통 모양(`AgentFaceIcon`, `activityDot`)을 두고 `lophn.ts`·`coding.ts`가 각 종류를 그 값으로 옮긴다. sidebar·탭·+ 목록이 이것만 그린다. +는 점·x와 같은 칸이고, hover하면 Terminal hover와 같은 목록(lophn agents / Coding agents, 사이 divider)이 뜬다. lophn session 줄은 어느 place든 연필·x가 있고, 다른 place의 session을 멈추면 그 place의 저장된 layout에서 탭을 지운다. 고르지 않은 group과 칸에 숨은 탭에는 ×가 없고(●나 상태 점만 남고 누르면 그 탭을 고른다), 같은 칸의 탭 사이에는 세로 선이 있다. workflow 줄은 점만 보인다.
+why: |
+  사람이 + 정렬과 lophn session에 연필·x가 안 뜨는 것을 짚었고, 한 곳을 고치면 다른 곳을 따로 고쳐야 하는 구조를 공통 agent session 구조로 바꾸라고 했다(사람 2026-11-04). group 탭의 빈 칸과 칸 사이 가름도 사람이 짚었다.
+decisions:
+  - text: '공통 모양은 parts에 두고 lophn/coding 차이는 adapter 둘이 맡는다. 탭 줄의 닫기 칸(`CloseSlot`)은 모든 kind의 탭이 쓰므로 묶지 않았다.'
+    by: agent
+  - text: '고르지 않은 group의 ×는 겹쳐 띄우기(A)나 아이콘 바꾸기(B)가 아니라 없앤다(C). 닫기는 가운데 클릭, tab 메뉴, group을 고른 뒤의 ×다.'
+    by: person
+  - text: '다른 place의 터미널 줄에는 연필·x를 두지 않는다. 그 PTY와 닫기 확인은 그 place 창의 몫이다.'
+    by: agent

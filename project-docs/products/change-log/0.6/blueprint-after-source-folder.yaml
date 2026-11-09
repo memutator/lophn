@@ -1,0 +1,12 @@
+id: blueprint-after-source-folder
+version: 0.6.0
+title: "App Engineer 설계 지침이 새 앱의 blueprint를 ticket 전에 쓰게 하던 순서를 고쳤다"
+modules: [packages/core/agent-workspaces]
+checked: []
+change: |
+  전: "Designing the app"의 tool 단계가 ticket 전에 blueprint에 선언하라고 했다. 새 앱은 첫 ticket을 넘길 때 program이 source 폴더를 만들기 때문에 그때는 blueprint가 없다. App Engineer가 `app.link_source`로 없는 폴더를 지어내 연결해 coding agent가 뜨지 못했다.
+  후: blueprint 선언은 source 폴더가 생긴 뒤에 한다. `app.link_source`는 사람이 가리킨 기존 폴더에만 쓴다.
+why: |
+  선언을 source 폴더가 생기기 전에 시키면 App Engineer는 있을 곳이 없는 폴더를 채우려고 지어내서 연결하게 된다. 선언은 폴더가 생긴 뒤에 하는 것이 맞는 순서다.
+follow_up: |
+  coding-agent "`app.link_source`가 없는 폴더를 받아 그 앱의 coding agent가 뜨지 못한다".

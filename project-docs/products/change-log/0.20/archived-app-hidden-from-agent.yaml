@@ -1,0 +1,16 @@
+id: archived-app-hidden-from-agent
+version: 0.20.0
+title: "archived 앱은 agent에게 보이지 않는다"
+modules: [packages/core/apps, packages/core/lophn-agent, packages/core/main]
+checked: []
+change: |-
+  전: prompt의 앱 목록은 active 앱만 실었지만 `lophn app read`는 archived 앱도 보였고, SDK 판 사용처(`package read --version`)는 archived 앱과 지난 release까지 셌다.
+  후: agent에게 archived 앱은 없는 앱과 같다(`not_found`). 앱 read·status·logs·invocations·tools, release, rewind, `app call`, 그 앱의 범위 agent, 그 앱 workspace로 보내는 call이 모두 그렇다. 필터는 `authorizeApp` 한 곳이다. 사람의 화면은 그대로 보여 되살릴 수 있다. SDK 판 사용처는 active 앱의 켜진 release만 센다.
+why: |-
+  archived 앱은 lophn이 볼 수도 없고 migration 조사 대상도 아니어야 한다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      사람이 lophn에게 보관한 앱을 되살려 달라고 해도 lophn은 그 앱을 못 찾는다. 되살리기는 사람이 화면에서 한다.
+    by: person
+follow_up: |-
+  agent가 archived 앱 workspace를 범위로 agent를 만드는 것은 아직 막지 않는다.

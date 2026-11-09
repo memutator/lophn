@@ -1,0 +1,39 @@
+id: deferred-tool-exposure-by-place
+version: 0.9.0
+title: 'tool 정의를 모든 provider에서 늦게 싣는다: place별 노출 정책과 `tool_call`'
+modules: [packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/core/jobs, packages/core/workflows, packages/core/apps, tests]
+checked: [architecture-agent-definition, skill-write-test]
+change: |
+  전:
+  - 숨김은 built-in `anthropic`의 Claude 4.5 이상에서만 켜졌다. OpenAI, xAI, OpenRouter, Groq, DeepSeek, Gemini, Antigravity, custom provider는 place 목록의 정의를 첫 요청부터 모두 실었다(home 41, project 42, app 52개).
+  - 숨길 내장 tool은 정의마다 `defer: true`로 표시했다(15개). place 종류와 무관하게 같았다.
+  후:
+  - 숨김은 provider와 무관하게 늘 켜진다. 첫 요청에 싣는 내장 tool은 place 종류마다 `agent-places/tool-lists.ts`의 `exposedToolNames` 하나가 정한다(home 17, project·app 19개). 앱·MCP tool은 전부 숨는다. `defer: true` 표시는 지웠다.
+  - 조회 세 쌍을 하나씩으로 합쳤다: `app.list`·`app.get` → `app.read {app?}`, `domain.list`·`domain.get` → `domain.read {domain?}`, `package.list`·`package.get` → `package.read {name?, version?}`. 대상을 생략하면 목록, 주면 상세이고 같은 core route를 부른다. 읽기 범위·오류·결과 꼴은 그대로이고, 지정한 대상이 없으면 목록으로 바꾸지 않는다. `package.read`에 `version`만 주면 `invalid_input`이다. place prompt 셋과 `new-app`·`repair-app`·`design-app` skill을 새 이름으로 고쳤다.
+  - 틀린 입력의 결과에 자리와 이유를 싣는다. 입력 검사 거절은 `... at <자리>: <zod 설명>`(모르는 key는 `unknown key <이름>`), handler의 `invalid_input`은 `tool input is not valid: <handler 문장>`이다. 전에는 자리만(`at <자리>`) 또는 고정 문장만이었다. `not_found`·`forbidden`·그 밖의 code는 그대로 고정 문장이다.
+  - `tool.load` 설명이 숨긴 tool의 이름과 한 줄 안내(설명 첫 문장, 100자까지)를 이름 순으로 싣는다.
+  - 새 tool `tool.call {name, input}`: native loading이 없는 요청에서는 숨긴 정의를 `tools[]`에서 빼고 `tool.load` 결과 글에 불러온 정의를 JSON으로 잇는다. model은 그 tool을 `tool_call`로 부른다. loop가 기록·effect 판단·Gate·retry 전에 대상 tool의 호출로 풀어 기록·승인·rewind는 대상 tool의 이름과 effect를 쓴다. 이력의 tool_use는 model이 보낸 그대로다.
+  - native(`defer_loading`·`tool_reference`)는 이전과 같은 조건(built-in `anthropic`의 지원 model)에서 Anthropic packer가 고른다. 고르는 것은 turn의 binding이라 같은 session이 provider를 바꿔도 숨김은 그대로이고 그리는 방식만 바뀐다.
+  - 앞 turn의 `tool.load`를 다시 그릴 때 지금 숨긴 정의에 없는 이름은 뺀다(native 요청은 없는 이름을 참조하면 거절된다).
+  - 같은 tokenizer(o200k_base)의 첫 요청 정의: home 7,275 → 2,988, project 7,791 → 3,929, app 9,410 → 4,145 token(`tool.load` 설명 포함, 앱·MCP tool 없음). 내장 registry는 56 → 54개, place 목록은 home 41 → 40, project 42 → 41, app 52 → 51개다(`tool.call`이 하나 늘고 조회 세 쌍이 셋 줄었다). 묶음을 불러올 때 결과에 붙는 정의는 `job` 1,812, `agent` 829, `workflow` 758~825, `app`(app place) 939, `release` 156~422, `package` 114~386, `domain` 96~209, 나머지 50~240 token이다. 한 작업은 `tool.load` 한 번에 필요한 묶음을 모두 부른다(설명이 그렇게 안내한다). 실제 model의 성공률·호출 수는 재지 않았다(model 비교 eval은 하지 않는다, 사람 2026-10-29).
+why: |
+  숨김이 Anthropic에만 있어 다른 provider는 tool 정의를 늘 두 배 넘게 실었다. 표시와 place 정책을 둘 다 두면 어긋나므로 정책 하나로 모았다. `tool_call`을 loop에서 풀지 않으면 read인 wrapper 때문에 쓰기가 병렬로 돌거나 retry로 다시 실행된다.
+decisions:
+  - text: |
+      공통 경로는 Hermes의 bridge처럼 늘 선언된 진입점(`tool_call`)을 부르게 한다. 선언되지 않은 tool 이름을 바로 부르는 길(옛 `tool.search`)은 provider가 받는다는 보장이 없다.
+    by: agent
+  - text: |
+      불러온 정의는 `tools[]`에 더하지 않고 `tool.load` 결과 글에 싣는다. `tools[]`가 session 동안 같아 prefix cache가 그대로다.
+    by: agent
+  - text: |
+      불러오지 않은 숨긴 tool도 `tool_call`로 부를 수 있다. 불러오기는 정의를 보이는 일이고 권한은 place 목록·할당·Gate가 정한다.
+    by: agent
+  - text: |
+      조회 세 쌍은 `tool-contracts` 계획의 후보 계약대로 합쳤다. 정의 token은 거의 같고(세 쌍 합계 약 100 token), 근거는 고르는 이름과 입력 규칙의 일관성이다. `package.read`의 "version은 name과 함께만"은 schema로 보이지 않아 handler가 거절하고 그 이유를 결과에 싣는다. 계획 폴더는 지웠다.
+    by: person
+  - text: |
+      `invalid_input`만 handler 문장을 싣는다. 입력의 어디가 틀렸는지는 model이 고치는 데 필요하고 model이 보낸 입력에 대한 것이다. `not_found`·`forbidden` 문장은 범위 밖 대상의 이름·존재를 담을 수 있어 계속 숨긴다. handler는 `invalid_input` 문장에 범위 밖 대상의 정보를 넣지 않는다(지금 문장을 훑어 그런 것이 없음을 봤다).
+    by: person
+follow_up: |
+  - OpenAI Responses의 native `tool_search`는 `plan/context-cache`의 `defer-responses`가 맡는다. 그 전까지 Responses는 공통 경로다.
+  - 열린 session은 runtime이 다시 뜨면 새 숨김으로 시작한다. 개발 data는 그대로 써도 된다(저장 형식은 바뀌지 않았다).

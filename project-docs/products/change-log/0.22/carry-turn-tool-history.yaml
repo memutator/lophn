@@ -1,0 +1,33 @@
+id: carry-turn-tool-history
+version: 0.22.0
+title: "앞 turn의 tool 이력을 다음 turn에 그대로 잇는다"
+modules: [packages/protocol, packages/core/lophn-agent]
+checked: []
+change: |
+  전: 새 turn의 prompt는 앞 turn들의 사람 메시지와 agent 글 답만으로 다시 만들었다. 앞 turn의 tool 호출과 결과는 버렸다. turn이 바뀔 때마다 대화 prefix cache가 system 뒤에서 깨졌고(실측: 91k를 쌓은 turn 다음 turn의 첫 call이 cache 8.5k만 읽었다), model은 앞 turn에서 tool로 본 것을 잊어 다시 불렀다. `/status`의 창 점유도 그만큼 작게 나왔다.
+  후:
+    - turn은 tool 묶음이 끝날 때마다, 그리고 끝내기 직전에 CheckpointTurn(`history`, `history_size` 새 칸)으로 turn 안 이력을 blob(`turn`/`history`)으로 남긴다. 참조는 마지막 하나만 남는다.
+    - 다음 turn은 앞 turn의 요청 뒤에 그 이력을 그대로 잇는다. 이력이 맡은 그 turn의 답·steering 메시지는 따로 넣지 않는다. ReadTurnBody에 `turn_history`가 생겼다(machine만).
+    - 다음 turn 전 Compact 기준: turn 첫 call이 예산의 50% → 70%를 넘을 때.
+    - 이미지 상한은 앞 turn 이력까지 합쳐 센다.
+    - `/status`의 창 점유 anchor가 `started_seq`가 같은 call들 사이에서 시작 시각으로 마지막 call을 고른다(전에는 아무 call이나 골라 앞 turn의 큰 값이나 작은 값이 나올 수 있었다).
+  저장 모양: 새 blob field `turn`/`history`. 표와 data root 파일은 바뀌지 않는다.
+  옮기기: 없다. 이 판 이전 turn은 이력이 없어 전처럼 메시지로만 읽는다.
+why: |
+  다른 harness(omp, pi, codex, opencode, Claude Code)는 모두 transcript 전체를 이어 보내고 창이 찰 때만 Compact한다. lophn만 turn마다 tool 이력을 버려 cache와 맥락을 함께 잃었다(사람).
+decisions:
+  - text: |
+      앞 turn의 tool 이력을 버리지 않고 다음 turn에 그대로 잇는다.
+    by: person
+  - text: |
+      다시 조립하지 않고 turn이 보낸 이력을 blob으로 남겨 그대로 잇는다. tool 호출 기록과 응답 blob으로 다시 만들면 redaction·줄인 결과·steering 자리가 달라져 바이트가 어긋난다.
+    by: agent
+  - text: |
+      이력은 별도 표 열 없이 blob 참조로 둔다(`turn`/`resolved`와 같은 길). ledger step이 필요 없다.
+    by: agent
+  - text: |
+      멈춘 turn은 FinishTurn을 거치지 않으므로 tool 묶음마다 checkpoint에 싣는다. 마지막 묶음 뒤 멈추면 그 뒤에 남긴 답 글 하나는 빠질 수 있다.
+    by: agent
+  - text: |
+      다음 turn 전 Compact를 70%로 미룬다. 이력이 이어져 이전 대화가 빨리 크고, Compact도 cache를 깨므로 너무 일찍 하지 않는다. 넘치면 turn 안 Compact(85%)가 받는다.
+    by: agent

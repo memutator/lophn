@@ -360,6 +360,7 @@ links:
   - {entry: "ipc:app:agent-snapshot", flow: app-agent-snapshot}
   - {entry: "ipc:app:agent-update", flow: app-agent-snapshot}
   - {entry: "ipc:app:agent-send", flow: app-agent-send}
+  - {entry: "ipc:app:projects-list", flow: app-projects-list}
   - {entry: "ipc:app:content-size", flow: app-page-hints}
   - {entry: "ipc:app:keep-alive", flow: app-page-hints}
   - {entry: "ipc:app:keys", flow: app-keys-forward}

@@ -461,6 +461,7 @@ links:
   - {entry: "sdk:cap-problem/reportProblem", flow: app-log-write}
   - {entry: "sdk:app-ui/useKeepAlive", flow: app-page-hints}
   - {entry: "sdk:app-ui/usePlace", flow: app-view-open}
+  - {entry: "sdk:app-ui/useProjects", flow: app-projects-list}
   - {entry: "sdk:app-ui/useTabHead", flow: app-tab-head}
   - {entry: "sdk:cap-tool/HandlerRejection", flow: app-command-call}
   - {entry: "sdk:cap-tool/runWith", flow: app-command-call}

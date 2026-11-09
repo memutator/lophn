@@ -5,8 +5,8 @@
 앱 view의 bridge(`lophnApp`)를 쓰는 UI 셋이다. 선언한 operation 하나를 부르는
 `OperationButton`·`useOperation`, 앱 화면 root의 `AppErrorBoundary`, 화면의 머리
 조작을 lophn 탭 머리 줄에 올리는 `useTabHead`, 화면이 열린 자리·인자·workspace를 읽는
-`usePlace`, 일이 도는 동안 page를 살려 두는 `useKeepAlive`, 선언한 key의 handler를 거는
-`useCommand`다. 화면은
+`usePlace`, lophn project 목록을 읽는 `useProjects`, 일이 도는 동안 page를 살려 두는
+`useKeepAlive`, 선언한 key의 handler를 거는 `useCommand`다. 화면은
 operation만 부르고, 호출은 앱 view의 `lophnApp.callOperation` 하나로만 한다.
 호출이 허락되는지, 사람이 정해야 하는지는 lophn이 정하고 앱 안에 따로 확인
 dialog를 두지 않는다. 조작은 lophn 화면과 같은 component(`@lophn/ui`)다. bridge가
@@ -93,6 +93,14 @@ import {
     panel처럼 모든 workspace에 나오는 화면이 이걸 보고 맞춘다. `folders`는
     project의 등록 폴더 path 목록이고 Home과 앱 workspace는 `[]`이다. workspace를
     모르는 자리(앱 전용 창, 전역 float)에서는 `null`이다.
+- `useProjects(app?)` — lophn의 모든 project(보관 포함)를 화면이 열릴 때 한 번 읽는다.
+  `{state, reload}`이고 `state`는 `{status: "loading"}`·`{status: "ready", projects}`·
+  `{status: "failed", code}`다. project는 `{id, name, title, purpose, status}`다.
+  `title`은 사람에게 보일 이름, `name`은 agent 주소에 쓰는 slug, `status`는
+  `active`·`archived`다. 폴더 path는 주지 않는다(지금 열린 project의 폴더만
+  `usePlace().workspace.folders`). 화면이 열린 동안 바뀐 것은 저절로 오지 않으니
+  `reload()`로 다시 읽는다(예: 머리 줄의 새로 고침). 읽는 사이 목록이 바뀌면
+  `conflict`, 앱 view 밖이면 `unavailable`이다. 쓰는 법은 아래 "project에 붙는 앱".
 - `useKeepAlive(active, app?)` — `active`인 동안 사람이 이 화면이 있는 workspace를
   떠나도(다른 project로 가도) lophn이 page를 숨겨 살려 두고, 돌아오면 다시 load하지
   않는다. 기본은 떠나면 page를 놓고 돌아오면 다시 load한다. 다시 load하면 화면
@@ -107,7 +115,7 @@ import {
     있으면 page가 살아 있다. `@lophn/agent`가 turn이 도는 동안 스스로 켜는
     신호와 서로 끄지 않으므로 agent 답을 기다리는 것만이면 이 hook이 필요 없다.
     `lophnApp.setKeepAlive(active, key?)`를 직접 부를 때도 같은 key로 켜고 끈다.
-- type: `CommandOptions`, `CommandBridge`, `KeepAliveBridge`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
+- type: `CommandOptions`, `CommandBridge`, `KeepAliveBridge`, `Project`, `ProjectsBridge`, `ProjectsState`, `UseProjects`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
   `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`, `TabHeadIcon`,
   `TabHeadEvent`, `TabHeadHandlers`, `TabHeadBridge`
@@ -216,6 +224,35 @@ function Orders() {
 /* 좁은 칸(sidebar, 작은 float)에서는 열을 줄인다. */
 @container (max-width: 360px) {
   .orders .col-secondary { display: none; }
+}
+```
+
+## project에 붙는 앱
+
+작업·일정·문서처럼 "project별"로 나뉘는 data를 다루는 앱(Gantt, 할 일, 회의록)은 project를
+따로 만들지 않는다. lophn project가 project다. 앱 안에 project 만들기·이름 바꾸기·목록 화면을
+두지 않고, 앱 data에는 lophn project `id`를 key로 붙인다(이름과 제목은 바뀌므로 key로 쓰지
+않는다). project 만들기와 고치기는 사람이 lophn에서 한다.
+
+- 화면이 project workspace에서 열렸으면(`usePlace().workspace?.kind === "project"`) 그
+  project의 data만 보인다. 사람에게 project를 고르게 하지 않는다.
+- 그 밖의 자리(Home, 앱 workspace, 앱 전용 창, 전역 float)에서는 모든 project를 project별로
+  묶어 보인다. 묶음 제목은 `useProjects()`의 `title`이다. 보관한 project는 접거나 뺀다.
+- 앱 data에 있는데 목록에 없는 project id는 무시한다(보이지 않는 project다).
+
+```tsx
+import { usePlace, useProjects } from "@lophn/app-ui";
+
+function Board() {
+  const { workspace } = usePlace();
+  const { state } = useProjects();
+  const only = workspace?.kind === "project" ? workspace.id : null;
+  if (state.status !== "ready") return <Loading />;
+  const shown = state.projects.filter((p) =>
+    only === null ? p.status === "active" : p.id === only,
+  );
+  // 앱 data는 operation 입력으로 project id를 넘겨 읽는다.
+  return shown.map((p) => <ProjectTasks key={p.id} project={p.id} title={p.title} />);
 }
 ```
 

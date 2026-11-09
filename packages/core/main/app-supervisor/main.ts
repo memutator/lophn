@@ -62,7 +62,6 @@ const port: { value: number } = { value: 0 };
 const slots = new Map<string, number>();
 // socket 폴더는 data root마다 나뉘므로 core와 같은 LOPHN_HOME이 있어야 한다.
 const dataRoot = process.env.LOPHN_HOME;
-let socketDirectory: string | undefined;
 // 앱의 broker·control socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
 function workspaceOf(app: string): { broker: string; control: string } {
   let slot = slots.get(app);
@@ -80,13 +79,14 @@ function workspaceOf(app: string): { broker: string; control: string } {
     tempParent: tmpdir(),
   });
   if (!created.ok) throw new Error(created.error.message);
-  socketDirectory = created.value.directory;
   const made = slotSockets(created.value.directory, slot, process.platform);
   if (!made.ok) throw new Error(made.error.message);
   return { broker: made.value.brokerSocket, control: made.value.controlSocket };
 }
 
-// 이전 자식이 남긴 socket 파일은 종료 확인 뒤 새 자식을 띄울 때 지운다.
+// 이전 자식이 남긴 socket 파일은 종료 확인 뒤 새 자식을 띄울 때 지운다. 정지할 때는 아무것도 지우지 않는다.
+// 이 폴더는 core socket과 shell의 `shell-<pid>/`가 같이 쓴다. 판이 바뀌어 옛 core를 멈출 때 옛 supervisor가 폴더를
+// 지우면 이미 떠 있는 새 shell의 init file·hook socket이 사라진다.
 function socketPathsOf(app: string): { broker: string; control: string } {
   const made = workspaceOf(app);
   // Windows의 named pipe는 파일이 아니라 낡은 것이 남지 않는다.
@@ -99,16 +99,6 @@ function socketPathsOf(app: string): { broker: string; control: string } {
     }
   }
   return made;
-}
-
-// 정상 정지 때 자기 socket 폴더만 통째로 지운다. crash로 남은 폴더는 다음 기동이 다시 쓴다.
-function removeSocketDirectory(): void {
-  if (socketDirectory === undefined) return;
-  try {
-    rmSync(socketDirectory, { recursive: true });
-  } catch {
-    /* 이미 없으면 지울 것이 없다 */
-  }
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -204,10 +194,7 @@ const link = attachControlLink(assembled.supervisor, stdin, {
 let stopping: Promise<void> | undefined;
 const stopOnce = () => (stopping ??= assembled.supervisor.stop());
 const shutdown = () => {
-  void stopOnce().finally(() => {
-    removeSocketDirectory();
-    process.exit(0);
-  });
+  void stopOnce().finally(() => process.exit(0));
 };
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
@@ -232,6 +219,5 @@ installCrashHandler({
 
 await link.closed;
 assembled.shutdown();
-removeSocketDirectory();
 // 열린 timer(관측·ready 기한)가 남아 있어도 core가 끝난 supervisor는 끝낸다.
 process.exit(0);

@@ -534,6 +534,10 @@ files:
     covers: [terminal-shell-env:env-built]
     note: "터미널 shell env에 COLORTERM=truecolor. 두 번 renderer만 고쳤다가 다시 생긴 bug라 test를 둔다. 터미널 시작 env는 terminal-shell-env:env-built"
 
+  - path: packages/shell/terminal-host/shell-integration_test.ts
+    covers: [terminal-shell-env:user-rc-kept]
+    note: "bash·zsh 시작 층 file이 없으면 원래 login shell로 띄워 사용자 rc를 읽는다. 판을 올릴 때 옛 supervisor가 run 폴더를 지워 bash 탭이 rc를 하나도 읽지 않았다"
+
   - path: packages/shell/terminal-host/screen_test.ts
     covers: [terminal-snapshot:screen]
     note: "다시 붙은 터미널 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살린다. 터미널 다시 붙이기는 terminal-snapshot:screen"

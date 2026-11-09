@@ -47,7 +47,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 - **macOS Dock.** 창이 없을 때 Dock을 누르면(`activate`) 창을 다시 연다.
 - **harness 찾기**(`packages/coding-agent/harnesses/detect.ts`). Windows는 이름마다 `PATHEXT` 확장자로 찾고 실행 bit 대신 확장자로 판정한다. `.cmd`·`.bat`은 shell로 띄운다.
 - **터미널 끄기.** POSIX는 `SIGHUP` 뒤 process group, Windows는 `pty.kill()` 뒤 `taskkill /T`다.
-- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 directory의 `shell-<pid>/`(0700), endpoint는 `ipcPath(dir, "b" | "h", platform)`(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root namespace의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 `ipcPathLimit`을 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다. file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. win32 전체 off gate는 없다.
+- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 directory의 `shell-<pid>/`(0700), endpoint는 `ipcPath(dir, "b" | "h", platform)`(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root namespace의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 `ipcPathLimit`을 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다. file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. 공통 directory는 core·앱 socket과 `shell-<pid>/`가 같이 쓰므로 app supervisor는 정지할 때 아무것도 지우지 않는다(낡은 앱 socket은 그 자리에 새 자식을 띄우기 전에 지운다). 판이 바뀌어 shell이 옛 core를 멈추면 옛 supervisor가 새 shell보다 늦게 끝나기 때문이다. 터미널 host는 `shell-init/`의 bash·zsh init file이 없으면 시작 층 없이 원래 login shell로 띄운다. win32 전체 off gate는 없다.
 - **PowerShell 시작 층.** PowerShell 7·5.1은 기존 profile 뒤 `-NoExit -Command ". '<init.ps1>'"`로 per-run 함수를 읽는다. 5.1용 file은 UTF-8 BOM을 포함한다. 사용자 alias·function·profile·execution policy는 고치지 않는다. 정책이 `.ps1` 읽기를 막으면 시작 층은 켜지지 않으며 우회하지 않는다. Windows 실기 확인은 별도다.
 
 ## Windows에서 꺼진 기능

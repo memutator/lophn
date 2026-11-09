@@ -1384,12 +1384,16 @@ flows:
     code:
       - packages/shell/terminal-host/env.ts
       - packages/shell/terminal-host/main.ts
+      - packages/shell/terminal-host/shell-integration.ts
     steps:
       - "lophn을 띄운 process의 env에서 내부 이름(LOPHN_, ELECTRON_), secret류 이름(TOKEN, PASSWORD, API_KEY 등), 상위 session 표지를 뺀다"
       - "COLORTERM을 truecolor로 덮는다. TERM만 보면 Claude Code와 Codex가 256색으로 내려 자기 색을 근사한다"
       - "shell 시작 층과 탭의 env는 그 뒤에 덮는다"
+      - "bash·zsh 시작 층 file이 run 폴더에 없으면 시작 층 없이 원래 login shell 인자로 띄운다. 없는 --init-file이나 빈 ZDOTDIR이면 사용자 rc를 하나도 읽지 않는다"
     outcomes:
       - id: env-built
+        observe: [process:pty-shell]
+      - id: user-rc-kept
         observe: [process:pty-shell]
     crosses_process: true
     risk: [secret, twice-fixed]

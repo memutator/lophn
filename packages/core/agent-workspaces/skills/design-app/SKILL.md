@@ -162,9 +162,12 @@ Panels are where an app is used most often, so design them on purpose:
 - A panel reloads when it is moved to another window. Keep its last input
   (the picked item, the typed id, the filter) in `localStorage` so it comes
   back as it was.
-- An app may declare `icon` (an image in the source, see the `@lophn/declaration`
-  guide). lophn shows it on tabs, the activity bar and app lists. A person can
-  also upload one in App details; theirs wins.
+- An app may declare `icon`: a lucide icon name such as `"lucide:folder-kanban"`
+  (pick one that fits the app; no file needed, and it follows the theme color),
+  or an image in the source such as `"/assets/icon.svg"` (see the
+  `@lophn/declaration` guide). Prefer the lucide name; do not hand-write an SVG
+  for a plain glyph. lophn shows it on tabs, the activity bar and app lists. A
+  person can also upload one in App details; theirs wins.
 
 ## Talking to an agent from a screen
 

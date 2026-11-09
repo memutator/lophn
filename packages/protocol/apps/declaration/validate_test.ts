@@ -105,7 +105,7 @@ test("선언은 이름 규칙, object root, 합친 이름의 중복, 알 수 없
 });
 
 // icon은 선택 칸이다. 없는 선언의 정규형은 그대로이고, 이미지 경로가 아니면 거절한다.
-test("icon 선언은 bundle 안 svg·png·webp 경로만 받고 없으면 칸을 두지 않는다", () => {
+test("icon 선언은 bundle 안 svg·png·webp 경로나 lucide:<kebab-case 이름>만 받고 없으면 칸을 두지 않는다", () => {
   for (const icon of [
     "icon.svg",
     "/a/../icon.svg",
@@ -113,6 +113,11 @@ test("icon 선언은 bundle 안 svg·png·webp 경로만 받고 없으면 칸을
     "https://example.test/icon.svg",
     "/icon.gif",
     "/icon",
+    "lucide:",
+    "lucide:FolderKanban",
+    "lucide:folder_kanban",
+    "lucide:folder kanban",
+    "lucide:-folder",
     5,
   ]) {
     const result = validateDeclaration({ ...declarationWith([]), icon });
@@ -123,6 +128,11 @@ test("icon 선언은 bundle 안 svg·png·webp 경로만 받고 없으면 칸을
     icon: "/assets/icon.webp",
   });
   assert.ok(withIcon.ok && withIcon.value.icon === "/assets/icon.webp");
+  const withLucide = validateDeclaration({
+    ...declarationWith([]),
+    icon: "lucide:folder-kanban",
+  });
+  assert.ok(withLucide.ok && withLucide.value.icon === "lucide:folder-kanban");
   const without = validateDeclaration(declarationWith([]));
   assert.ok(without.ok && !("icon" in without.value));
 });

@@ -55,10 +55,15 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
     object이고 command `inputSchema`와 같은 schema 규칙이다. 한 화면 안의 부분을
     따로 쓰고 싶으면 인자로 가르지 말고 화면으로 나눈다.
 
-- `icon` — 앱 icon 이미지의 bundle 안 경로다(`"/assets/icon.svg"`). `.svg`, `.png`,
-  `.webp`만 받고 64 KiB 이하여야 한다. 파일은 source에 commit해 두면 release에
-  담기고, 선언했는데 파일이 없으면 release 준비가 거절한다. lophn이 탭과 앱 목록에서
-  앱을 보일 때 쓴다. 없으면 기본 모양이다. 사람이 App details에서 올린 icon이 있으면
+- `icon` — 앱 icon이다. 두 꼴 가운데 하나를 쓴다. 없으면 기본 모양이다.
+  - `"lucide:<이름>"` — lucide icon 이름이다(`"lucide:folder-kanban"`). 이름은 lucide.dev/icons의
+    kebab-case 이름이고, lophn이 theme 글자색으로 그린다. 파일이 필요 없다. 없는 이름은 release
+    준비가 거절한다. 앱 agent는 icon을 직접 그리기 전에 이것을 먼저 고른다.
+  - bundle 안 이미지 파일의 경로(`"/assets/icon.svg"`) — `.svg`, `.png`, `.webp`만 받고
+    64 KiB 이하여야 한다. 파일은 source에 commit해 두면 release에 담기고, 선언했는데 파일이
+    없으면 release 준비가 거절한다. 색을 theme에 맞출 필요가 없는 그림일 때 쓴다.
+
+  lophn이 탭과 앱 목록에서 앱을 보일 때 쓴다. 사람이 App details에서 올린 icon이 있으면
   그것이 먼저다.
 
 - `skills` — 앱이 내놓는 skill 목록이다. 항목은 `{name, public, commands}`다. skill 본문은
@@ -131,7 +136,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.3.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.4.0" }],
 });
 
 const result = validateDeclaration(declaration);

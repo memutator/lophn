@@ -1,0 +1,18 @@
+id: app-icon-lucide-name
+version: 0.23.4
+title: "앱 icon을 lucide 이름(lucide:<이름>)으로 선언한다"
+modules: [packages/protocol, packages/core/apps, packages/shell/renderer, packages/sdk, packages/core/agent-workspaces]
+checked: []
+change: |
+  전: 선언의 `icon`은 bundle 안 이미지 경로(svg·png·webp, 64 KiB 이하)만 받았다. 앱 agent가 단순한 glyph에도 SVG 파일을 손으로 써야 했다.
+  후: `icon`은 `"lucide:<이름>"`(kebab-case, 예 `lucide:folder-kanban`)도 받는다. 선언 검증은 모양만 보고, release 준비가 `lucide:` 값에는 파일·크기 검사를 건너뛰는 대신 이름이 lucide에 있는지 본다(없으면 prepare 실패). `app.icon`의 `icon`은 이미지 `{content_type, data}` 또는 `{lucide: <이름>}`이다(project icon의 출력은 그대로). shell은 `iconViewOf`가 `lucide:<이름>` src로 옮기고 공용 `IconImage`가 lucide를 그려(현재 글자색, theme을 따름) 탭 줄·quick launch·앱 목록·App details 미리보기가 같은 길을 쓴다. 이 shell의 lucide에 없는 이름은 icon이 없는 것과 같아 기본 모양이다. 사람이 App details에서 올린 icon이 여전히 선언한 icon보다 앞선다. `@lophn/declaration` 4.4.0, `@lophn/app-ui` 2.13.0(pin만 따름). 지원 하한은 그대로(`supported_from`을 올리지 않는다). 선언 guide, design-app skill, 앱 template `AGENTS.md`가 lucide 이름을 먼저 고르게 한다. 왼쪽 sidebar의 쓰지 않는 `useAppIcon` import도 지웠다.
+why: 앱 agent가 단순한 앱 icon 때문에 SVG 파일을 쓰지 않게 하고, 색이 theme를 따르게 하려고.
+decisions:
+  - text: "이름 검증 목록을 core에 이름만 복사해 둔다(`prepare/lucide-names.ts`, `node tools/lucide-names.ts`로 생성, tools test가 lucide-react와의 어긋남을 잡는다). 버린 길: core가 lucide-react를 import(이름 하나 때문에 수천 개 icon이 daemon 번들에 들어간다), 검증을 shell render 때만 하기(앱 agent가 틀린 이름을 알 길이 없다)."
+    by: agent
+  - text: "그릴 때는 `import(lucide-react)` 하나로 lucide 전체를 lazy chunk 하나로 읽어 module에 캐시한다(앱이 lucide icon을 선언했을 때만 읽고, 읽는 동안은 같은 크기의 빈 칸). 이름은 조각마다 첫 글자를 올려(`axis-3d` → `Axis3d`) module export에서 찾고, 못 찾으면 기본 모양이다. prepare가 받는 이름 목록은 같은 함수로 거른다. 버린 길: `lucide-react/dynamic.mjs`(icon마다 `import()`라 renderer dist가 chunk 111개·31MB에서 5700개·53MB가 된다), 이름 확인을 iconViewOf에서(큰 chunk를 앱 목록을 읽을 때마다 끌어온다)."
+    by: agent
+  - text: "app-ui는 declaration pin을 따라 minor를 올린다(2.13.0). 지원 하한은 declaration 4.0.0·app-ui 2.3.0 그대로: 옛 판의 앱도 icon 이미지 선언은 그대로 돌고, lucide 이름은 새 declaration SDK에서만 쓴다."
+    by: agent
+follow_up: |
+  lophn이 lucide-react 판을 올리면 `node tools/lucide-names.ts`로 목록을 다시 만든다.

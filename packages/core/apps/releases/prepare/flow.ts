@@ -4,6 +4,7 @@
 // 취소·worker 종료·상한 초과는 부분 bundle을 지우고 확정하지 않는다.
 import { rm } from "node:fs/promises";
 import { err, ok, type Result, sha256Hex } from "../../../../base/mod.ts";
+import { LUCIDE_ICON_PREFIX } from "../../../../protocol/apps/declaration/scope.ts";
 import {
   type BundleManifest,
   RELEASE_PREPARATION_LIMIT_MS,
@@ -26,6 +27,7 @@ import {
 } from "./git-extract.ts";
 import { type LimitFailure, usageCounter } from "./limits.ts";
 import { checkAppSource } from "./source-checks.ts";
+import { LUCIDE_ICON_NAMES } from "./lucide-names.ts";
 
 // `app.icon`이 읽는 상한과 같다.
 const ICON_MAX_BYTES = 64 * 1024;
@@ -192,12 +194,18 @@ export async function prepareRelease(
     ...entryFiles,
     { path: "declaration.json", bytes: declarationBytes },
   ];
-  // 선언한 icon이 bundle에 없거나 `app.icon`의 상한보다 크면 보이지 않으므로 준비에서 알린다.
+  // 선언한 icon 파일이 bundle에 없거나 `app.icon`의 상한보다 크면, lucide 이름이 없는 이름이면 보이지 않으므로 준비에서 알린다.
   const { icon, skills } = JSON.parse(declaration.value.canonicalJson) as {
     icon?: string;
     skills?: { name: string }[];
   };
-  if (icon !== undefined) {
+  if (icon?.startsWith(LUCIDE_ICON_PREFIX)) {
+    if (!LUCIDE_ICON_NAMES.has(icon.slice(LUCIDE_ICON_PREFIX.length))) {
+      return fail(
+        `The declared icon ${icon} is not a lucide icon name. Use a name from lucide.dev/icons in kebab-case, like lucide:folder-kanban.`,
+      );
+    }
+  } else if (icon !== undefined) {
     const found = files.find((file) => `/${file.path}` === icon);
     if (found === undefined) {
       return fail(

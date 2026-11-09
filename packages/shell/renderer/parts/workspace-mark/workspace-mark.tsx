@@ -1,5 +1,10 @@
 import { componentMark } from "@lophn/ui/shared";
 import type { ReactElement } from "react";
+import {
+  IconImage,
+  lucideNameOf,
+  useDrawableIcon,
+} from "../icon-upload/icon-image.tsx";
 import styles from "./workspace-mark.module.css";
 
 export interface WorkspaceMarkProps {
@@ -7,7 +12,7 @@ export interface WorkspaceMarkProps {
   /** 색을 정하는 값. 이름을 바꿔도 색이 그대로이도록 id를 준다. */
   readonly id: string;
   readonly name: string;
-  /** 이미지 src(favicon 등). 없거나 못 읽으면 첫 글자와 색 배경이다. */
+  /** 이미지 src(favicon 등)나 `lucide:<이름>`. 없거나 못 읽으면 첫 글자와 색 배경이다. */
   readonly icon?: string;
 }
 
@@ -27,19 +32,24 @@ export function WorkspaceMark({
   name,
   icon,
 }: WorkspaceMarkProps): ReactElement {
+  // 이 shell의 lucide에 없는 이름이면 icon이 없는 것처럼 첫 글자 표식이다.
+  const shown = useDrawableIcon(icon);
   return (
     <span
       className={styles.mark}
       data-kind={kind}
       data-tone={toneOf(id)}
-      data-image={icon === undefined ? undefined : ""}
+      data-image={shown === undefined ? undefined : ""}
+      data-lucide={
+        shown !== undefined && lucideNameOf(shown) !== null ? "" : undefined
+      }
       aria-hidden="true"
       {...componentMark("WorkspaceMark")}
     >
-      {icon === undefined ? (
+      {shown === undefined ? (
         [...name][0]?.toUpperCase()
       ) : (
-        <img className={styles.image} src={icon} alt="" />
+        <IconImage src={shown} size="100%" className={styles.image} />
       )}
     </span>
   );

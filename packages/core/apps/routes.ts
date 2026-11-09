@@ -134,7 +134,7 @@ export function screenFileStream(deps: ScreenFileDeps): FileStreamHandler {
   };
 }
 
-// `app.icon`. 파일을 읽으므로 reader Worker가 아니라 메인 스레드 read다. 사람이 올린 icon이 선언한 icon보다 앞선다.
+// `app.icon`. 파일을 읽으므로 reader Worker가 아니라 메인 스레드 read다. 사람이 올린 icon이 선언한 icon(이미지나 lucide 이름)보다 앞선다.
 export function appIconRead(
   deps: AppIconDeps & { uploaded(app: string): Result<AppIcon | null> },
 ): ReadHandler {
